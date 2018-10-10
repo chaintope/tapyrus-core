@@ -23,7 +23,6 @@ if(BUILD_BITCOIN_WALLET)
 	# Add wallet functionality to test_tapyrus_qt
 	target_sources(test_tapyrus_qt
 		PRIVATE
-			paymentservertests.cpp
 			wallettests.cpp
 			../../wallet/test/wallet_test_fixture.cpp
 	)

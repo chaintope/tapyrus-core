@@ -5,12 +5,8 @@
 #include <qt/test/util.h>
 
 #include <interfaces/node.h>
-<<<<<<< HEAD
 #include <qt/tapyrusamountfield.h>
-=======
 #include <base58.h>
-#include <qt/bitcoinamountfield.h>
->>>>>>> 9dcf6c0df... build: Add --disable-bip70 configure option
 #include <qt/callback.h>
 #include <qt/optionsmodel.h>
 #include <qt/platformstyle.h>

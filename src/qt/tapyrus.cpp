@@ -443,18 +443,7 @@ void BitcoinApplication::addWallet(WalletModel* walletModel)
     if (m_wallet_models.empty()) {
         window->setCurrentWallet(walletModel->getWalletName());
     }
-
-<<<<<<< HEAD:src/qt/tapyrus.cpp
-    connect(walletModel, SIGNAL(coinsSent(WalletModel*, SendCoinsRecipient, QByteArray)),
-        paymentServer, SLOT(fetchPaymentACK(WalletModel*, const SendCoinsRecipient&, QByteArray)));
-    connect(walletModel, SIGNAL(unload()), this, SLOT(removeWallet()));
-=======
-#ifdef ENABLE_BIP70
-    connect(walletModel, &WalletModel::coinsSent,
-        paymentServer, &PaymentServer::fetchPaymentACK);
-#endif
     connect(walletModel, &WalletModel::unload, this, &BitcoinApplication::removeWallet);
->>>>>>> 9dcf6c0df... build: Add --disable-bip70 configure option:src/qt/bitcoin.cpp
 
     m_wallet_models.push_back(walletModel);
 #endif
@@ -480,9 +469,6 @@ void BitcoinApplication::initializeResult(bool success)
         // Log this only after AppInitMain finishes, as then logging setup is guaranteed complete
         qWarning() << "Platform customization:" << platformStyle->getName();
 #ifdef ENABLE_WALLET
-#ifdef ENABLE_BIP70
-        PaymentServer::LoadRootCAs();
-#endif
         paymentServer->setOptionsModel(optionsModel);
 #endif
 
@@ -552,9 +538,6 @@ WId BitcoinApplication::getMainWinId() const
 
 static void SetupUIArgs()
 {
-#if defined(ENABLE_WALLET) && defined(ENABLE_BIP70)
-    gArgs.AddArg("-allowselfsignedrootcertificates", strprintf("Allow self signed root certificates (default: %u)", DEFAULT_SELFSIGNED_ROOTCERTS), true, OptionsCategory::GUI);
-#endif
     gArgs.AddArg("-choosedatadir", strprintf("Choose data directory on startup (default: %u)", DEFAULT_CHOOSE_DATADIR), false, OptionsCategory::GUI);
     gArgs.AddArg("-lang=<lang>", "Set language, for example \"de_DE\" (default: system locale)", false, OptionsCategory::GUI);
     gArgs.AddArg("-min", "Start minimized", false, OptionsCategory::GUI);

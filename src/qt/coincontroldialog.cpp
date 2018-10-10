@@ -11,12 +11,8 @@
 #include <qt/forms/ui_coincontroldialog.h>
 
 #include <qt/addresstablemodel.h>
-<<<<<<< HEAD
 #include <qt/tapyrusunits.h>
-=======
 #include <base58.h>
-#include <qt/bitcoinunits.h>
->>>>>>> 9dcf6c0df... build: Add --disable-bip70 configure option
 #include <qt/guiutil.h>
 #include <qt/optionsmodel.h>
 #include <qt/platformstyle.h>
