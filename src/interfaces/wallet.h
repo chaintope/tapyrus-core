@@ -236,11 +236,18 @@ public:
     // Return whether HD enabled.
     virtual bool hdEnabled() = 0;
 
+    // check if a certain wallet flag is set.
+    virtual bool IsWalletFlagSet(uint64_t flag) = 0;
+
     // Get default address type.
     virtual OutputType getDefaultAddressType() = 0;
 
     // Get default change type.
     virtual OutputType getDefaultChangeType() = 0;
+
+    //! Register handler for unload message.
+    using UnloadFn = std::function<void()>;
+    virtual std::unique_ptr<Handler> handleUnload(UnloadFn fn) = 0;
 
     //! Register handler for show progress messages.
     using ShowProgressFn = std::function<void(const std::string& title, int progress)>;
@@ -342,7 +349,6 @@ struct WalletTxStatus
     int block_height;
     int blocks_to_maturity;
     int depth_in_main_chain;
-    int request_count;
     unsigned int time_received;
     uint32_t lock_time;
     bool is_final;

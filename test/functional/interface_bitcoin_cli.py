@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2017 The Bitcoin Core developers
+# Copyright (c) 2017-2018 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test bitcoin-cli"""
@@ -14,6 +14,9 @@ class TestBitcoinCli(BitcoinTestFramework):
 
     def run_test(self):
         """Main test logic"""
+
+        cli_response = self.nodes[0].cli("-version").send_cli()
+        assert("Bitcoin Core RPC client version" in cli_response)
 
         self.log.info("Compare responses from gewalletinfo RPC and `bitcoin-cli getwalletinfo`")
         cli_response = self.nodes[0].cli.getwalletinfo()

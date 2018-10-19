@@ -1,5 +1,5 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2017 The Bitcoin Core developers
+// Copyright (c) 2009-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -32,9 +32,9 @@ struct CCheckpointData {
  * See also: CChainParams::TxData, GuessVerificationProgress.
  */
 struct ChainTxData {
-    int64_t nTime;
-    int64_t nTxCount;
-    double dTxRate;
+    int64_t nTime;    //!< UNIX timestamp of last known number of transactions
+    int64_t nTxCount; //!< total number of transactions between genesis and that timestamp
+    double dTxRate;   //!< estimated number of transactions per second after that timestamp
 };
 
 /**

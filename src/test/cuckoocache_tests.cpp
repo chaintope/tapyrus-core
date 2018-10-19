@@ -1,4 +1,4 @@
-// Copyright (c) 2012-2017 The Bitcoin Core developers
+// Copyright (c) 2012-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 #include <boost/test/unit_test.hpp>
@@ -114,7 +114,7 @@ static double normalize_hit_rate(double hits, double load)
     return hits * std::max(load, 1.0);
 }
 
-/** Check the hit rate on loads ranging from 0.1 to 2.0 */
+/** Check the hit rate on loads ranging from 0.1 to 1.6 */
 BOOST_AUTO_TEST_CASE(cuckoocache_hit_rate_ok)
 {
     /** Arbitrarily selected Hit Rate threshold that happens to work for this test

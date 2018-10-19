@@ -1,5 +1,5 @@
 // Copyright (c) 2010 Satoshi Nakamoto
-// Copyright (c) 2009-2017 The Bitcoin Core developers
+// Copyright (c) 2009-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -52,7 +52,6 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "listreceivedbylabel", 0, "minconf" },
     { "listreceivedbylabel", 1, "include_empty" },
     { "listreceivedbylabel", 2, "include_watchonly" },
-    { "getlabeladdress", 1, "force" },
     { "getbalance", 1, "minconf" },
     { "getbalance", 2, "include_watchonly" },
     { "getblockhash", 0, "height" },
@@ -79,6 +78,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "sendmany", 4, "subtractfeefrom" },
     { "sendmany", 5 , "replaceable" },
     { "sendmany", 6 , "conf_target" },
+    { "scantxoutset", 1, "scanobjects" },
     { "addmultisigaddress", 0, "nrequired" },
     { "addmultisigaddress", 1, "keys" },
     { "createmultisig", 0, "nrequired" },
@@ -110,6 +110,21 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "combinerawtransaction", 0, "txs" },
     { "fundrawtransaction", 1, "options" },
     { "fundrawtransaction", 2, "iswitness" },
+    { "walletcreatefundedpsbt", 0, "inputs" },
+    { "walletcreatefundedpsbt", 1, "outputs" },
+    { "walletcreatefundedpsbt", 2, "locktime" },
+    { "walletcreatefundedpsbt", 3, "options" },
+    { "walletcreatefundedpsbt", 4, "bip32derivs" },
+    { "walletprocesspsbt", 1, "sign" },
+    { "walletprocesspsbt", 3, "bip32derivs" },
+    { "createpsbt", 0, "inputs" },
+    { "createpsbt", 1, "outputs" },
+    { "createpsbt", 2, "locktime" },
+    { "createpsbt", 3, "replaceable" },
+    { "combinepsbt", 0, "txs"},
+    { "finalizepsbt", 1, "extract"},
+    { "converttopsbt", 1, "permitsigdata"},
+    { "converttopsbt", 2, "iswitness"},
     { "gettxout", 1, "n" },
     { "gettxout", 2, "include_mempool" },
     { "gettxoutproof", 0, "txids" },
@@ -156,6 +171,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "echojson", 9, "arg9" },
     { "rescanblockchain", 0, "start_height"},
     { "rescanblockchain", 1, "stop_height"},
+    { "createwallet", 1, "disable_private_keys"},
 };
 
 class CRPCConvertTable

@@ -1,4 +1,4 @@
-// Copyright (c) 2011-2017 The Bitcoin Core developers
+// Copyright (c) 2011-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -99,6 +99,9 @@ void ReceiveCoinsDialog::setModel(WalletModel *_model)
         } else {
             ui->useBech32->setCheckState(Qt::Unchecked);
         }
+
+        // eventually disable the main receive button if private key operations are disabled
+        ui->receiveButton->setEnabled(!model->privateKeysDisabled());
     }
 }
 

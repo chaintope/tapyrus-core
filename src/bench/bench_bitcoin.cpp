@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2017 The Bitcoin Core developers
+// Copyright (c) 2015-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -6,11 +6,10 @@
 
 #include <crypto/sha256.h>
 #include <key.h>
-#include <validation.h>
-#include <util.h>
 #include <random.h>
-
-#include <boost/lexical_cast.hpp>
+#include <util.h>
+#include <utilstrencodings.h>
+#include <validation.h>
 
 #include <memory>
 
@@ -39,21 +38,31 @@ static void SetupBenchArgs()
     gArgs.AddArg("-help", "", false, OptionsCategory::HIDDEN);
 }
 
-int
-main(int argc, char** argv)
+static fs::path SetDataDir()
+{
+    fs::path ret = fs::temp_directory_path() / "bench_bitcoin" / fs::unique_path();
+    fs::create_directories(ret);
+    gArgs.ForceSetArg("-datadir", ret.string());
+    return ret;
+}
+
+int main(int argc, char** argv)
 {
     SetupBenchArgs();
     std::string error;
     if (!gArgs.ParseParameters(argc, argv, error)) {
         fprintf(stderr, "Error parsing command line arguments: %s\n", error.c_str());
-        return false;
+        return EXIT_FAILURE;
     }
 
     if (HelpRequested(gArgs)) {
         std::cout << gArgs.GetHelpMessage();
 
-        return 0;
+        return EXIT_SUCCESS;
     }
+
+    // Set the datadir after parsing the bench options
+    const fs::path bench_datadir{SetDataDir()};
 
     SHA256AutoDetect();
     RandomInit();
@@ -65,8 +74,11 @@ main(int argc, char** argv)
     std::string scaling_str = gArgs.GetArg("-scaling", DEFAULT_BENCH_SCALING);
     bool is_list_only = gArgs.GetBoolArg("-list", false);
 
-    double scaling_factor = boost::lexical_cast<double>(scaling_str);
-
+    double scaling_factor;
+    if (!ParseDouble(scaling_str, &scaling_factor)) {
+        fprintf(stderr, "Error parsing scaling factor as double: %s\n", scaling_str.c_str());
+        return EXIT_FAILURE;
+    }
 
     std::unique_ptr<benchmark::Printer> printer(new benchmark::ConsolePrinter());
     std::string printer_arg = gArgs.GetArg("-printer", DEFAULT_BENCH_PRINTER);
@@ -79,5 +91,9 @@ main(int argc, char** argv)
 
     benchmark::BenchRunner::RunAll(*printer, evaluations, scaling_factor, regex_filter, is_list_only);
 
+    fs::remove_all(bench_datadir);
+
     ECC_Stop();
+
+    return EXIT_SUCCESS;
 }
