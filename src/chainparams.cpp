@@ -111,11 +111,14 @@ public:
          * The message start string is designed to be unlikely to occur in normal data.
          * The characters are rarely used upper ASCII, not valid as UTF-8, and produce
          * a large 32-bit integer with any alignment.
+         *
+         * tapyrus message start string is 0x01 0xFF 0xF0 0x00.
+         * testnet message start string is 0x75 0x9A 0x83 0x74. it is xor of mainnet header and testnet ascii codes.
          */
-        pchMessageStart[0] = 0xf9;
-        pchMessageStart[1] = 0xbe;
-        pchMessageStart[2] = 0xb4;
-        pchMessageStart[3] = 0xd9;
+        pchMessageStart[0] = 0x01;
+        pchMessageStart[1] = 0xff;
+        pchMessageStart[2] = 0xf0;
+        pchMessageStart[3] = 0x00;
         nDefaultPort = 8333;
         nPruneAfterHeight = 100000;
 
@@ -221,10 +224,11 @@ public:
         // By default assume that the signatures in ancestors of this block are valid.
         consensus.defaultAssumeValid = uint256S("0x0000000000000037a8cd3e06cd5edbfe9dd1dbcc5dacab279376ef7cfc2b4c75"); //1354312
 
-        pchMessageStart[0] = 0x0b;
-        pchMessageStart[1] = 0x11;
-        pchMessageStart[2] = 0x09;
-        pchMessageStart[3] = 0x07;
+            // 0x75 0x9A 0x83 0x74
+        pchMessageStart[0] = 0x75;
+        pchMessageStart[1] = 0x9a;
+        pchMessageStart[2] = 0x83;
+        pchMessageStart[3] = 0x74;
         nDefaultPort = 18333;
         nPruneAfterHeight = 1000;
 
