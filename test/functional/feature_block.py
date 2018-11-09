@@ -262,11 +262,11 @@ class FullBlockTest(BitcoinTestFramework):
         b19 = self.next_block(19, spend=out[6])
         self.sync_blocks([b19], False, 16, b'bad-txns-inputs-missingorspent', reconnect=True)
 
-        # Attempt to spend a coinbase 
+        # Attempt to spend a coinbase
         #     genesis -> b1 (0) -> b2 (1) -> b5 (2) -> b6  (3)
         #                                          \-> b12 (3) -> b13 (4) -> b15 (5) -> b20 (7)
         #                      \-> b3 (1) -> b4 (2)
-        # block is accepted as the coinbase matures immediately in Tapyrus. 
+        # block is accepted as the coinbase matures immediately in Tapyrus.
         # invalidate the block to allow the rest of the test to proceed without change
         self.log.info("Reject a block spending an immature coinbase.")
         self.move_tip(15)
@@ -287,7 +287,7 @@ class FullBlockTest(BitcoinTestFramework):
         #longer chain so there is a reorg.
         # invalidate the block to allow the rest of the test to proceed without change
         b22 = self.next_block(22, spend=out[5])
-        self.sync_blocks([b22], True) 
+        self.sync_blocks([b22], True)
         node.invalidateblock(b22.hash)
 
         # Create a block on either side of MAX_BLOCK_BASE_SIZE and make sure its accepted/rejected
@@ -795,8 +795,8 @@ class FullBlockTest(BitcoinTestFramework):
         #
         # -> b39 (11) -> b42 (12) -> b43 (13) -> b53 (14) -> b55 (15) -> b57 (16) -> b60 (17)
         #                                                                                    \-> b61 (18)
-        # 
-        # Blocks are not allowed to contain a transaction whose id matches that of an earlier, not-fully-spent transaction in the same chain. 
+        #
+        # Blocks are not allowed to contain a transaction whose id matches that of an earlier, not-fully-spent transaction in the same chain.
         # In Tapyrus coinbase contains the block height and it cannot be duplicated.
         # duplicate another transaction. the second one should be rejected.
         self.log.info("Reject a block with a transaction with a duplicate hash of a previous transaction (BIP30)")
@@ -873,7 +873,7 @@ class FullBlockTest(BitcoinTestFramework):
         b64a = self.update_block("64a", [tx])
         b64a.solve(self.signblockprivkey)
         assert_equal(len(b64a.serialize()), MAX_BLOCK_BASE_SIZE + 8)
-        self.sync_blocks([b64a], False, 1, b'error parsing message')
+        self.sync_blocks([b64a], success=False, reject_reason='non-canonical ReadCompactSize()')
 
         # bitcoind doesn't disconnect us for sending a bloated block, but if we subsequently
         # resend the header message, it won't send us the getdata message again. Just
