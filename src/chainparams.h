@@ -10,9 +10,12 @@
 #include <consensus/params.h>
 #include <primitives/block.h>
 #include <protocol.h>
+#include <pubkey.h>
 
 #include <memory>
 #include <vector>
+
+const unsigned int SIGNED_BLOCKS_MAX_KEY_SIZE = 15;
 
 struct SeedSpec6 {
     uint8_t addr[16];
@@ -35,6 +38,11 @@ struct ChainTxData {
     int64_t nTime;    //!< UNIX timestamp of last known number of transactions
     int64_t nTxCount; //!< total number of transactions between genesis and that timestamp
     double dTxRate;   //!< estimated number of transactions per second after that timestamp
+};
+
+struct MultisigCondition {
+    std::vector<CPubKey> pubkeys;
+    uint8_t threshold;
 };
 
 /**
@@ -61,6 +69,7 @@ public:
     const CMessageHeader::MessageStartChars& MessageStart() const { return pchMessageStart; }
     int GetDefaultPort() const { return nDefaultPort; }
 
+    const MultisigCondition GetSignedBlockCondition() const { return signedBlock; }
     const CBlock& GenesisBlock() const { return genesis; }
     /** Default value for -checkmempool and -checkblockindex argument */
     bool DefaultConsistencyChecks() const { return fDefaultConsistencyChecks; }
@@ -92,6 +101,7 @@ protected:
     std::vector<unsigned char> base58Prefixes[MAX_BASE58_TYPES];
     std::string bech32_hrp;
     std::string strNetworkID;
+    MultisigCondition signedBlock;
     CBlock genesis;
     std::vector<SeedSpec6> vFixedSeeds;
     bool fDefaultConsistencyChecks;
