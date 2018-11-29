@@ -134,6 +134,7 @@ BASE_SCRIPTS = [
     'wallet_importprunedfunds.py',
     'rpc_zmq.py',
     'rpc_signmessage.py',
+    'wallet_balance.py',
     'feature_nulldummy.py',
     'mempool_accept.py',
     'mempool_accept.py --scheme SCHNORR',

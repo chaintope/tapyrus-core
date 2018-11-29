@@ -26,8 +26,8 @@ class WalletTest(BitcoinTestFramework):
 
     def setup_network(self):
         self.add_nodes(4)
-        self.start_node(0) 
-        self.start_node(1) 
+        self.start_node(0)
+        self.start_node(1)
         self.start_node(2)
         connect_nodes_bi(self.nodes, 0, 1)
         connect_nodes_bi(self.nodes, 1, 2)
@@ -63,15 +63,6 @@ class WalletTest(BitcoinTestFramework):
         assert_equal(self.nodes[0].getbalance(), 50)
         assert_equal(self.nodes[1].getbalance(), 50)
         assert_equal(self.nodes[2].getbalance(), 0)
-
-        # Check getbalance with different arguments
-        assert_equal(self.nodes[0].getbalance("*"), 50)
-        assert_equal(self.nodes[0].getbalance("*", 1), 50)
-        assert_equal(self.nodes[0].getbalance("*", 1, True), 50)
-        assert_equal(self.nodes[0].getbalance(minconf=1), 50)
-
-        # first argument of getbalance must be excluded or set to "*"
-        assert_raises_rpc_error(-32, "dummy first argument must be excluded or set to \"*\"", self.nodes[0].getbalance, "")
 
         # Check that only first and second nodes have UTXOs
         utxos = self.nodes[0].listunspent()
