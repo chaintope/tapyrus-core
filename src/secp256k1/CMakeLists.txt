@@ -123,6 +123,19 @@ if(SECP256K1_ENABLE_MODULE_SCHNORR)
 	set(ENABLE_MODULE_SCHNORR 1)
 endif()
 
+# Recovery module
+option(SECP256K1_ENABLE_MODULE_RECOVERY "Build libsecp256k1's recovery module" ON)
+if(SECP256K1_ENABLE_MODULE_RECOVERY)
+	set(ENABLE_MODULE_RECOVERY 1)
+	add_secp256k1_bench(bench_recover src/bench_recover.c)
+endif()
+
+# Schnorr module
+option(SECP256K1_ENABLE_MODULE_SCHNORR "Build libsecp256k1's Schnorr module" ON)
+if(SECP256K1_ENABLE_MODULE_SCHNORR)
+	set(ENABLE_MODULE_SCHNORR 1)
+endif()
+
 # Static precomputation for eliptic curve mutliplication
 option(SECP256K1_ECMULT_STATIC_PRECOMPUTATION "Precompute libsecp256k1's eliptic curve mutliplication tables" ON)
 if(SECP256K1_ECMULT_STATIC_PRECOMPUTATION)
