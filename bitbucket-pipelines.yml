@@ -1,0 +1,18 @@
+image: "ubuntu:18.04"
+
+pipelines:
+  default:
+    - step:
+        script:
+          - apt update
+          - apt-get install -y software-properties-common
+          - add-apt-repository -y ppa:bitcoin/bitcoin
+          - apt-get -y update
+          - apt-get -y install build-essential libtool autotools-dev automake pkg-config libssl-dev libevent-dev bsdmainutils python3
+          - apt-get -y install libboost-system-dev libboost-filesystem-dev libboost-chrono-dev libboost-program-options-dev libboost-test-dev libboost-thread-dev
+          - apt-get install -y software-properties-common
+          - apt-get -y install libdb4.8-dev libdb4.8++-dev
+          - ./autogen.sh
+          - ./configure
+          - make -j4
+          - make check
