@@ -43,6 +43,10 @@ static std::vector<CPubKey> ParsePubkeyString(std::string source)
         throw std::runtime_error(strprintf("Public Keys for Signed Block are up to %d, but passed %d keys.", SIGNED_BLOCKS_MAX_KEY_SIZE, pubkeys.size()));
     }
 
+    // sort as ascending order
+    std::sort(pubkeys.begin(), pubkeys.end());
+
+
     return pubkeys;
 }
 

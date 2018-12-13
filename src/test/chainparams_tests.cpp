@@ -46,7 +46,13 @@ bool correctIncludeInvalidPubKeyMessage(const std::runtime_error& ex)
 BOOST_AUTO_TEST_CASE(parse_pubkey_string_when_passed_valid_15_keys)
 {
     std::string str = combinedPubkeyString(validPubkeys(15));
-    BOOST_CHECK_EQUAL(ParsePubkeyString(str).size(), 15);
+    std::vector<CPubKey> pubkeys = ParsePubkeyString(str);
+
+    BOOST_CHECK_EQUAL(pubkeys.size(), 15);
+
+    for(unsigned int i = 1; i < pubkeys.size(); i++) {
+        BOOST_CHECK(pubkeys.at(i - 1) < pubkeys.at(i));
+    }
 }
 
 BOOST_AUTO_TEST_CASE(parse_pubkey_string_when_passed_public_keys_that_include_uncompressed)
