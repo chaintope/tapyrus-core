@@ -27,8 +27,7 @@ static std::vector<CPubKey> ParsePubkeyString(std::string source)
             pubkeyString = source.substr(i, 66);
             i += 66;
         } else if(prefix == "04" || prefix == "06" || prefix == "07") {
-            pubkeyString = source.substr(i, 130);
-            i += 130;
+            throw std::runtime_error(strprintf("Uncompressed public key format are not acceptable: %s", source));
         } else {
             throw std::runtime_error(strprintf("Public Keys for Signed Block include invalid pubkey: %s", source));
         }
@@ -45,7 +44,6 @@ static std::vector<CPubKey> ParsePubkeyString(std::string source)
 
     // sort as ascending order
     std::sort(pubkeys.begin(), pubkeys.end());
-
 
     return pubkeys;
 }
