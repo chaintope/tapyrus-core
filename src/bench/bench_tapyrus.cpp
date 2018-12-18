@@ -7,9 +7,14 @@
 
 #include <crypto/sha256.h>
 #include <key.h>
+<<<<<<< HEAD:src/bench/bench_tapyrus.cpp
 #include <random.h>
 #include <util.h>
 #include <utilstrencodings.h>
+=======
+#include <util/system.h>
+#include <util/strencodings.h>
+>>>>>>> 05fde14e3... Automatically initialize RNG on first use.:src/bench/bench_bitcoin.cpp
 #include <validation.h>
 
 #include <memory>
@@ -66,7 +71,6 @@ int main(int argc, char** argv)
     const fs::path bench_datadir{SetDataDir()};
 
     SHA256AutoDetect();
-    RandomInit();
     ECC_Start();
     SetupEnvironment();
 
