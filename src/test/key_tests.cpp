@@ -9,6 +9,7 @@
 #include <uint256.h>
 #include <util.h>
 #include <utilstrencodings.h>
+#include <test/test_keys_helper.h>
 #include <test/test_bitcoin.h>
 
 #include <string>
@@ -186,6 +187,16 @@ BOOST_AUTO_TEST_CASE(key_signature_tests)
     }
     BOOST_CHECK(found);
     BOOST_CHECK(found_small);
+}
+
+BOOST_AUTO_TEST_CASE(pubkey_combine_tests)
+{
+    auto pubkeys = validPubKeys(15);
+    CPubKey result = PubKeyCombine(pubkeys);
+    size_t publen = CPubKey::COMPRESSED_PUBLIC_KEY_SIZE;
+
+    std::string pubkeyString = HexStr(result.data(), result.data() + publen);
+    BOOST_CHECK_EQUAL(pubkeyString, "03deb53be78170b305ea1d9c2f7dfae027f53e34321527d1f2bae71ddd35ba7de0");
 }
 
 BOOST_AUTO_TEST_SUITE_END()
