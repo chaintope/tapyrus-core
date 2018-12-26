@@ -28,5 +28,6 @@ const std::vector<std::string> ValidPubKeyStrings = {
 const std::string UncompressedPubKeyString = "046b93737b4e8d93e79464f2054434015326f1834be1ec47e23377a8cc622b94a03f3c58c0c33248e2bb733269751facb479c098eec6ce254e00c7e45c103b7cd7";
 
 std::string combinedPubkeyString(unsigned int keyCount);
+std::vector<CPubKey> validPubKeys(unsigned int keyCount);
 
 #endif //TAPYRUS_CORE_TEST_KEYS_HELPER_H
