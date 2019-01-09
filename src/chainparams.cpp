@@ -38,10 +38,6 @@ static std::vector<CPubKey> ParsePubkeyString(std::string source)
         pubkeys.push_back(pubkey);
     }
 
-    if (pubkeys.size() > SIGNED_BLOCKS_MAX_KEY_SIZE) {
-        throw std::runtime_error(strprintf("Public Keys for Signed Block are up to %d, but passed %d keys.", SIGNED_BLOCKS_MAX_KEY_SIZE, pubkeys.size()));
-    }
-
     // sort as ascending order
     std::sort(pubkeys.begin(), pubkeys.end());
 
@@ -50,8 +46,18 @@ static std::vector<CPubKey> ParsePubkeyString(std::string source)
 
 static MultisigCondition CreateSignedBlockCondition(std::string pubkeyString, int threshold)
 {
+    auto pubkeys = ParsePubkeyString(pubkeyString);
+
+    if (pubkeys.size() > SIGNED_BLOCKS_MAX_KEY_SIZE) {
+        throw std::runtime_error(strprintf("Public Keys for Signed Block are up to %d, but passed %d keys.", SIGNED_BLOCKS_MAX_KEY_SIZE, pubkeys.size()));
+    }
+
+    if (threshold < 1 || (unsigned int)threshold > pubkeys.size()) {
+        throw std::runtime_error(strprintf("Threshold can be between 1 to %d, but passed %d.", pubkeys.size(), threshold));
+    }
+
     MultisigCondition condition;
-    condition.pubkeys = ParsePubkeyString(pubkeyString);
+    condition.pubkeys = pubkeys;
     condition.threshold = threshold;
 
     return condition;
@@ -324,8 +330,9 @@ public:
  */
 class CRegTestParams : public CChainParams {
 public:
-    CRegTestParams() {
+    CRegTestParams(std::string combinedPubKey, int threshold) {
         strNetworkID = "regtest";
+        signedBlock = CreateSignedBlockCondition(combinedPubKey, threshold);
         consensus.nSubsidyHalvingInterval = 150;
         consensus.BIP16Exception = uint256();
         consensus.BIP34Height = 100000000; // BIP34 has not activated on regtest (far in the future so block v1 are not rejected in tests)
@@ -416,7 +423,7 @@ std::unique_ptr<CChainParams> CreateChainParams(const std::string& chain)
     else if (chain == CBaseChainParams::TESTNET)
         return std::unique_ptr<CChainParams>(new CTestNetParams(pubkeys, threshold));
     else if (chain == CBaseChainParams::REGTEST)
-        return std::unique_ptr<CChainParams>(new CRegTestParams());
+        return std::unique_ptr<CChainParams>(new CRegTestParams(pubkeys, threshold));
     throw std::runtime_error(strprintf("%s: Unknown chain %s.", __func__, chain));
 }
 
