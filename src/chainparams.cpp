@@ -29,11 +29,15 @@ static std::vector<CPubKey> ParsePubkeyString(std::string source)
         } else if(prefix == "04" || prefix == "06" || prefix == "07") {
             throw std::runtime_error(strprintf("Uncompressed public key format are not acceptable: %s", source));
         } else {
-            throw std::runtime_error(strprintf("Public Keys for Signed Block include invalid pubkey: %s", source));
+            throw std::runtime_error(strprintf("Public Keys for Signed Block include invalid pubkey: %s", pubkeyString));
         }
 
         std::vector<unsigned char> vch = ParseHex(pubkeyString);
         CPubKey pubkey(vch.begin(), vch.end());
+
+        if(!pubkey.IsFullyValid()) {
+            throw std::runtime_error(strprintf("Public Keys for Signed Block include invalid pubkey: %s", pubkeyString));
+        }
 
         pubkeys.push_back(pubkey);
     }
