@@ -17,12 +17,6 @@ bool correctNumberOfKeysErrorMessage(const std::runtime_error& ex)
     return true;
 }
 
-bool correctIncludeInvalidPubKeyMessage(const std::runtime_error& ex)
-{
-    BOOST_CHECK_EQUAL(ex.what(), "Public Keys for Signed Block include invalid pubkey: hoge");
-    return true;
-}
-
 bool includeUncompressedKeysErrorMessage(const std::runtime_error& ex)
 {
     BOOST_CHECK_EQUAL(ex.what(), "Uncompressed public key format are not acceptable: 046b93737b4e8d93e79464f2054434015326f1834be1ec47e23377a8cc622b94a03f3c58c0c33248e2bb733269751facb479c098eec6ce254e00c7e45c103b7cd7021a564bd5d483d1f248e15d25d8a77e7a0993080e9ecd1a254cb6f6b2515a1fc0020ad770bc838f167b9e0dc8781ff5dea1cc5c175ec8fc5af355855efaf69e8760028d14924263f705b0142f21d6a9673ec8e3a30704bb502c5c3ab5a019cd0b624d03fa7ff860dd5b24a0d988d7b5bae84f246296d393d690c89dd2625be9908061e402958a0b98998310637bb7a032fb4d97234e5a38e01c07ea7b7a541c25e907b387033ac73090f32a210c40d72a685a611f0331d5f2f78d05dea1b4faa59fa5f909e70393277249809d8f9397bebd191a169ad4e46c9a5d39f2ef2653d1ba8dc682b54a02e9698347edd21006af11da7384eb44a734e6631dbcbe20d1ea52dd0f76caa9e303fcccf899c66027dc0fb39bc2b60a8ecf00156a79106c12eeb557280b53b76220026bda2fe2ff85358b57a3fb5f5dd9ba749ea3851e30607a692a4580623963d7b403b90e054989ea73c12fbf9d1ff2dd0cc4cb027e4893acf78657e36cba19ec241502aaac0f82c3f14ed46736eb01a5d372ca96540269680fc1e200da4e3f5f704c0f02eb6858400391f8d9f169f6de56204ea8467926604e709e1f35c81bbcf3cfff9003a89ac28fdda61eb9e2100a26b2fa2e37bddb4967d45d9869853557e91627075d");
@@ -49,8 +43,11 @@ BOOST_AUTO_TEST_CASE(parse_pubkey_string_when_passed_public_keys_that_include_un
 
 BOOST_AUTO_TEST_CASE(parse_pubkey_string_when_passed_keys_include_invalid)
 {
-    std::string str = "hoge";
-    BOOST_CHECK_EXCEPTION(ParsePubkeyString(str), std::runtime_error, correctIncludeInvalidPubKeyMessage);
+    std::string str = combinedPubkeyString(14) + "030000000000000000000000000000000000000000000000000000000000000005";
+    BOOST_CHECK_EXCEPTION(ParsePubkeyString(str), std::runtime_error, [] (const std::runtime_error& ex) {
+        BOOST_CHECK_EQUAL(ex.what(), "Public Keys for Signed Block include invalid pubkey: 030000000000000000000000000000000000000000000000000000000000000005");
+        return true;
+    });
 }
 
 BOOST_AUTO_TEST_CASE(create_cchainparams_instance)
@@ -95,10 +92,13 @@ BOOST_AUTO_TEST_CASE(create_cchainparams_instance)
     gArgs.ForceSetArg("-signblockpubkeys", combinedPubkeyString(15));
     gArgs.ForceSetArg("-signblockthreshold", "16");
 
-        BOOST_CHECK_EXCEPTION(CreateChainParams(CBaseChainParams::MAIN), std::runtime_error, [] (const std::runtime_error& ex) {
-    BOOST_CHECK_EQUAL(ex.what(), "Threshold can be between 1 to 15, but passed 16.");
-    return true;
-});
+    BOOST_CHECK_EXCEPTION(CreateChainParams(CBaseChainParams::MAIN), std::runtime_error, [] (const std::runtime_error& ex) {
+        BOOST_CHECK_EQUAL(ex.what(), "Threshold can be between 1 to 15, but passed 16.");
+        return true;
+    });
+
+    gArgs.ForceSetArg("-signblockpubkeys", combinedPubkeyString(15));
+    gArgs.ForceSetArg("-signblockthreshold", "10");
 }
 
 BOOST_AUTO_TEST_SUITE_END()
