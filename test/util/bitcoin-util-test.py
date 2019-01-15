@@ -55,6 +55,9 @@ def bctester(testDir, input_basename, buildenv):
     failed_testcases = []
 
     for testObj in input_data:
+        testObj["args"].insert(0, "-signblockpubkeys=021a564bd5d483d1f248e15d25d8a77e7a0993080e9ecd1a254cb6f6b2515a1fc0")
+        testObj["args"].insert(0, "-signblockthreshold=1")
+
         try:
             bctest(testDir, testObj, buildenv)
             logging.info("PASSED: " + testObj["description"])
