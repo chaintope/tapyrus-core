@@ -521,10 +521,6 @@ void SetupServerArgs()
     hidden_args.emplace_back("-daemon");
 #endif
 
-    // Signed Blocks options
-    gArgs.AddArg("-signblockpubkeys", "Sets the public keys for Signed Blocks multisig that combined as one string.", false, OptionsCategory::SIGN_BLOCK);
-    gArgs.AddArg("-signblockthreshold", "Sets the number of public keys to be the threshold of multisig", false, OptionsCategory::SIGN_BLOCK);
-
     // Add the hidden options
     gArgs.AddHiddenArgs(hidden_args);
 }

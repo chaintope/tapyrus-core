@@ -20,6 +20,10 @@ void SetupChainParamsBaseOptions()
     gArgs.AddArg("-regtest", "Enter regression test mode, which uses a special chain in which blocks can be solved instantly. "
                                    "This is intended for regression testing tools and app development.", true, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-testnet", "Use the test chain", false, OptionsCategory::CHAINPARAMS);
+
+    // Signed Blocks options
+    gArgs.AddArg("-signblockpubkeys=<pubkeys>", "Sets the public keys for Signed Blocks multisig that combined as one string.", false, OptionsCategory::SIGN_BLOCK);
+    gArgs.AddArg("-signblockthreshold=<n>", "Sets the number of public keys to be the threshold of multisig", false, OptionsCategory::SIGN_BLOCK);
 }
 
 static std::unique_ptr<CBaseChainParams> globalChainBaseParams;
