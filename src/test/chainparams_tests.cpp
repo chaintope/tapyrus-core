@@ -107,7 +107,7 @@ BOOST_AUTO_TEST_CASE(create_genesis_block)
     CBlock genesis = CreateGenesisBlock(1546853016, 2083236893, 0x1d00ffff, 1, condition);
 
     CScript script = genesis.vtx[0].get()->vin[0].scriptSig;
-    BOOST_CHECK_EQUAL(HexStr(script.begin(), script.end()), "2103deb53be78170b305ea1d9c2f7dfae027f53e34321527d1f2bae71ddd35ba7de0010a");
+    BOOST_CHECK_EQUAL(HexStr(script.begin(), script.end()), "010a2103deb53be78170b305ea1d9c2f7dfae027f53e34321527d1f2bae71ddd35ba7de0");
 }
 
 BOOST_AUTO_TEST_SUITE_END()
