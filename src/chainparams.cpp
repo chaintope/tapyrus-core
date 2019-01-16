@@ -14,6 +14,59 @@
 
 #include <chainparamsseeds.h>
 
+static std::vector<CPubKey> ParsePubkeyString(std::string source)
+{
+    std::vector<CPubKey> pubkeys;
+    std::string prefix;
+    std::string pubkeyString;
+
+    for (unsigned int i = 0; i < source.length();) {
+        prefix = source.substr(i, 2);
+
+        if (prefix == "02" || prefix == "03") {
+            pubkeyString = source.substr(i, 66);
+            i += 66;
+        } else if(prefix == "04" || prefix == "06" || prefix == "07") {
+            throw std::runtime_error(strprintf("Uncompressed public key format are not acceptable: %s", source));
+        } else {
+            throw std::runtime_error(strprintf("Public Keys for Signed Block include invalid pubkey: %s", pubkeyString));
+        }
+
+        std::vector<unsigned char> vch = ParseHex(pubkeyString);
+        CPubKey pubkey(vch.begin(), vch.end());
+
+        if(!pubkey.IsFullyValid()) {
+            throw std::runtime_error(strprintf("Public Keys for Signed Block include invalid pubkey: %s", pubkeyString));
+        }
+
+        pubkeys.push_back(pubkey);
+    }
+
+    // sort as ascending order
+    std::sort(pubkeys.begin(), pubkeys.end());
+
+    return pubkeys;
+}
+
+static MultisigCondition CreateSignedBlockCondition(std::string pubkeyString, int threshold)
+{
+    auto pubkeys = ParsePubkeyString(pubkeyString);
+
+    if (pubkeys.size() > SIGNED_BLOCKS_MAX_KEY_SIZE) {
+        throw std::runtime_error(strprintf("Public Keys for Signed Block are up to %d, but passed %d keys.", SIGNED_BLOCKS_MAX_KEY_SIZE, pubkeys.size()));
+    }
+
+    if (threshold < 1 || (unsigned int)threshold > pubkeys.size()) {
+        throw std::runtime_error(strprintf("Threshold can be between 1 to %d, but passed %d.", pubkeys.size(), threshold));
+    }
+
+    MultisigCondition condition;
+    condition.pubkeys = pubkeys;
+    condition.threshold = threshold;
+
+    return condition;
+}
+
 static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesisOutputScript, uint32_t nTime, uint32_t nNonce, uint32_t nBits, int32_t nVersion, const CAmount& genesisReward)
 {
     CMutableTransaction txNew;
@@ -72,8 +125,9 @@ void CChainParams::UpdateVersionBitsParameters(Consensus::DeploymentPos d, int64
 
 class CMainParams : public CChainParams {
 public:
-    CMainParams() {
+    CMainParams(MultisigCondition condition) {
         strNetworkID = "main";
+        signedBlock = condition;
         consensus.nSubsidyHalvingInterval = 210000;
         consensus.BIP16Exception = uint256S("0x00000000000002dc756eebf4f49723ed8d30cc28a5f108eb94b1ba88ac4f9c22");
         consensus.BIP34Height = 227931;
@@ -186,8 +240,9 @@ public:
  */
 class CTestNetParams : public CChainParams {
 public:
-    CTestNetParams() {
+    CTestNetParams(MultisigCondition condition) {
         strNetworkID = "test";
+        signedBlock = condition;
         consensus.nSubsidyHalvingInterval = 210000;
         consensus.BIP16Exception = uint256S("0x00000000dd30457c001f4095d208cc1296b0eed002427aa599874af7a432b105");
         consensus.BIP34Height = 21111;
@@ -279,8 +334,9 @@ public:
  */
 class CRegTestParams : public CChainParams {
 public:
-    CRegTestParams() {
+    CRegTestParams(MultisigCondition condition) {
         strNetworkID = "regtest";
+        signedBlock = condition;
         consensus.nSubsidyHalvingInterval = 150;
         consensus.BIP16Exception = uint256();
         consensus.BIP34Height = 100000000; // BIP34 has not activated on regtest (far in the future so block v1 are not rejected in tests)
@@ -363,12 +419,17 @@ const CChainParams &Params() {
 
 std::unique_ptr<CChainParams> CreateChainParams(const std::string& chain)
 {
+    std::string pubkeys = gArgs.GetArg("-signblockpubkeys", "");
+    int threshold = std::stoi(gArgs.GetArg("-signblockthreshold", "0"));
+
+    MultisigCondition condition = CreateSignedBlockCondition(pubkeys, threshold);
+
     if (chain == CBaseChainParams::MAIN)
-        return std::unique_ptr<CChainParams>(new CMainParams());
+        return std::unique_ptr<CChainParams>(new CMainParams(condition));
     else if (chain == CBaseChainParams::TESTNET)
-        return std::unique_ptr<CChainParams>(new CTestNetParams());
+        return std::unique_ptr<CChainParams>(new CTestNetParams(condition));
     else if (chain == CBaseChainParams::REGTEST)
-        return std::unique_ptr<CChainParams>(new CRegTestParams());
+        return std::unique_ptr<CChainParams>(new CRegTestParams(condition));
     throw std::runtime_error(strprintf("%s: Unknown chain %s.", __func__, chain));
 }
 

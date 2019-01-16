@@ -23,7 +23,9 @@ GENERATED_TEST_FILES = $(JSON_TEST_FILES:.json=.json.h) $(RAW_TEST_FILES:.raw=.r
 BITCOIN_TEST_SUITE = \
   test/test_bitcoin_main.cpp \
   test/test_bitcoin.h \
-  test/test_bitcoin.cpp
+  test/test_bitcoin.cpp \
+  test/test_keys_helper.h \
+  test/test_keys_helper.cpp
 
 # test_bitcoin binary #
 BITCOIN_TESTS =\
@@ -90,7 +92,8 @@ BITCOIN_TESTS =\
   test/uint256_tests.cpp \
   test/util_tests.cpp \
   test/validation_block_tests.cpp \
-  test/versionbits_tests.cpp
+  test/versionbits_tests.cpp \
+  test/chainparams_tests.cpp
 
 if ENABLE_WALLET
 BITCOIN_TESTS += \

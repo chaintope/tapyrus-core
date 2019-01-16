@@ -17,6 +17,7 @@
 #include <rpc/server.h>
 #include <rpc/register.h>
 #include <script/sigcache.h>
+#include <test/test_keys_helper.h>
 
 void CConnmanTest::AddNode(CNode& node)
 {
@@ -45,6 +46,12 @@ std::ostream& operator<<(std::ostream& os, const uint256& num)
     return os;
 }
 
+void SignedBlockSetup()
+{
+    gArgs.SoftSetArg("-signblockpubkeys", combinedPubkeyString(15));
+    gArgs.SoftSetArg("-signblockthreshold", "10");
+}
+
 BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
     : m_path_root(fs::temp_directory_path() / "test_bitcoin" / strprintf("%lu_%i", (unsigned long)GetTime(), (int)(InsecureRandRange(1 << 30))))
 {
@@ -56,6 +63,7 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
     InitSignatureCache();
     InitScriptExecutionCache();
     fCheckBlockIndex = true;
+    SignedBlockSetup();
     SelectParams(chainName);
     noui_connect();
 }
