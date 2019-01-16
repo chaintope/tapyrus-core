@@ -76,7 +76,7 @@ static CBlock CreateGenesisBlock(uint32_t nTime, uint32_t nNonce, uint32_t nBits
     txNew.nVersion = 1;
     txNew.vin.resize(1);
     txNew.vout.resize(1);
-    txNew.vin[0].scriptSig = CScript() << std::vector<unsigned char>(pubKey.data(), pubKey.data() + publen) << CScriptNum(condition.threshold);
+    txNew.vin[0].scriptSig = CScript() << CScriptNum(condition.threshold) << std::vector<unsigned char>(pubKey.data(), pubKey.data() + publen);
     txNew.vout[0].SetNull();
     txNew.vout[0].scriptPubKey = CScript();
 
