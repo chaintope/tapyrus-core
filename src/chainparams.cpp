@@ -125,9 +125,9 @@ void CChainParams::UpdateVersionBitsParameters(Consensus::DeploymentPos d, int64
 
 class CMainParams : public CChainParams {
 public:
-    CMainParams(std::string combinedPubKey, int threshold) {
+    CMainParams(MultisigCondition condition) {
         strNetworkID = "main";
-        signedBlock = CreateSignedBlockCondition(combinedPubKey, threshold);
+        signedBlock = condition;
         consensus.nSubsidyHalvingInterval = 210000;
         consensus.BIP16Exception = uint256S("0x00000000000002dc756eebf4f49723ed8d30cc28a5f108eb94b1ba88ac4f9c22");
         consensus.BIP34Height = 227931;
@@ -240,9 +240,9 @@ public:
  */
 class CTestNetParams : public CChainParams {
 public:
-    CTestNetParams(std::string combinedPubKey, int threshold) {
+    CTestNetParams(MultisigCondition condition) {
         strNetworkID = "test";
-        signedBlock = CreateSignedBlockCondition(combinedPubKey, threshold);
+        signedBlock = condition;
         consensus.nSubsidyHalvingInterval = 210000;
         consensus.BIP16Exception = uint256S("0x00000000dd30457c001f4095d208cc1296b0eed002427aa599874af7a432b105");
         consensus.BIP34Height = 21111;
@@ -334,9 +334,9 @@ public:
  */
 class CRegTestParams : public CChainParams {
 public:
-    CRegTestParams(std::string combinedPubKey, int threshold) {
+    CRegTestParams(MultisigCondition condition) {
         strNetworkID = "regtest";
-        signedBlock = CreateSignedBlockCondition(combinedPubKey, threshold);
+        signedBlock = condition;
         consensus.nSubsidyHalvingInterval = 150;
         consensus.BIP16Exception = uint256();
         consensus.BIP34Height = 100000000; // BIP34 has not activated on regtest (far in the future so block v1 are not rejected in tests)
@@ -422,12 +422,14 @@ std::unique_ptr<CChainParams> CreateChainParams(const std::string& chain)
     std::string pubkeys = gArgs.GetArg("-signblockpubkeys", "");
     int threshold = std::stoi(gArgs.GetArg("-signblockthreshold", "0"));
 
+    MultisigCondition condition = CreateSignedBlockCondition(pubkeys, threshold);
+
     if (chain == CBaseChainParams::MAIN)
-        return std::unique_ptr<CChainParams>(new CMainParams(pubkeys, threshold));
+        return std::unique_ptr<CChainParams>(new CMainParams(condition));
     else if (chain == CBaseChainParams::TESTNET)
-        return std::unique_ptr<CChainParams>(new CTestNetParams(pubkeys, threshold));
+        return std::unique_ptr<CChainParams>(new CTestNetParams(condition));
     else if (chain == CBaseChainParams::REGTEST)
-        return std::unique_ptr<CChainParams>(new CRegTestParams(pubkeys, threshold));
+        return std::unique_ptr<CChainParams>(new CRegTestParams(condition));
     throw std::runtime_error(strprintf("%s: Unknown chain %s.", __func__, chain));
 }
 
