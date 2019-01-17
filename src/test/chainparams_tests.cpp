@@ -103,8 +103,12 @@ BOOST_AUTO_TEST_CASE(create_cchainparams_instance)
 
 BOOST_AUTO_TEST_CASE(create_genesis_block)
 {
+    CKey key;
+    key.MakeNewKey(true);
+    CPubKey pubkey = key.GetPubKey();
+
     MultisigCondition condition = CreateSignedBlockCondition(combinedPubkeyString(15), 10);
-    CBlock genesis = CreateGenesisBlock(1546853016, 2083236893, 0x1d00ffff, 1, condition);
+    CBlock genesis = CreateGenesisBlock(1546853016, 2083236893, 0x1d00ffff, 1, 50 * COIN, HexStr(pubkey.begin(), pubkey.end()), condition);
 
     CScript script = genesis.vtx[0].get()->vin[0].scriptSig;
     BOOST_CHECK_EQUAL(HexStr(script.begin(), script.end()), "010a2103deb53be78170b305ea1d9c2f7dfae027f53e34321527d1f2bae71ddd35ba7de0");
