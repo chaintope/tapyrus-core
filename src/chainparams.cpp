@@ -69,6 +69,9 @@ static MultisigCondition CreateSignedBlockCondition(std::string pubkeyString, in
 
 static CBlock CreateGenesisBlock(uint32_t nTime, uint32_t nNonce, uint32_t nBits, int32_t nVersion, const CAmount& genesisReward, std::string pubKeyString, const MultisigCondition& condition)
 {
+    // TODO: Ensure pubkey list isn't include combined pubkey.
+    // In future Schnorr Signature will be used. Schnorr Signature has homomorphism, so if a member of federation has
+    // private key of combined pubkey, the member can create multisignature from only his own key.
     CPubKey pubKey = PubKeyCombine(condition.pubkeys);
     size_t publen = CPubKey::COMPRESSED_PUBLIC_KEY_SIZE;
 
