@@ -8,6 +8,7 @@
 #endif
 
 #include <chainparams.h>
+#include <chainparamsbase.h>
 #include <clientversion.h>
 #include <compat.h>
 #include <fs.h>
@@ -57,6 +58,17 @@ static void WaitForShutdown()
 static bool AppInit(int argc, char* argv[])
 {
     bool fRet = false;
+
+    // Chainparamsbase Parameters
+    //
+    // It needs to setup Chainparamsbase parameters before SetupServerArgs(). SetupServerArgs() need chainparams
+    // instances, but chainparams instance creation needs Signed Blocks Parameters.
+    SetupChainParamsBaseOptions();
+    std::string err;
+    if (!gArgs.ParseParameters(argc, argv, err)) {
+        fprintf(stderr, "Error parsing command line arguments: %s\n", err.c_str());
+        return false;
+    }
 
     //
     // Parameters
