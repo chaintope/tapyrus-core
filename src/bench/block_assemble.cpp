@@ -40,9 +40,7 @@ static CTxIn MineBlock(const CScript& coinbase_scriptPubKey)
 {
     auto block = PrepareBlock(coinbase_scriptPubKey);
 
-    while (!CheckProofOfWork(block->GetHash(), block->nBits, Params().GetConsensus())) {
-        assert(++block->nNonce);
-    }
+    // TODO: set correct signs to block for Signed Blocks mechanism.
 
     bool processed{ProcessNewBlock(Params(), block, true, nullptr)};
     assert(processed);
