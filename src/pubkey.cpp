@@ -302,6 +302,8 @@ ECCVerifyHandle::~ECCVerifyHandle()
 }
 
 CPubKey PubKeyCombine(const std::vector<CPubKey> pubkeys) {
+    // This row arises warning about variable array length, but now we cannot solve it. Need to change
+    // secp256k1_ec_pubkey_combine interface.
     secp256k1_pubkey *secp256k1_pubkeys[pubkeys.size()];
 
     for(unsigned int i = 0; i < pubkeys.size(); i++) {
