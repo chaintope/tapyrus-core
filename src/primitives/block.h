@@ -10,6 +10,40 @@
 #include <serialize.h>
 #include <uint256.h>
 
+typedef std::vector<unsigned char> Signature;
+
+class CProof
+{
+public:
+    std::vector<Signature> vSignatures;
+
+    CProof()
+    {
+        SetNull();
+    }
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        // TODO: serialization setting. Now, I'm not sure about the serialization mechanism...
+//        READWRITE(*(CScriptBase*)(&challenge));
+//        if (!(s.GetType() & SER_GETHASH))
+//            READWRITE(*(CScriptBase*)(&solution));
+    }
+
+    void SetNull()
+    {
+        vSignatures.clear();
+    }
+
+    bool IsNull() const
+    {
+        return vSignatures.empty();
+    }
+};
+
 /** Nodes collect new transactions into a block, hash them into a hash tree,
  * and scan through nonce values to make the block's hash satisfy proof-of-work
  * requirements.  When they solve the proof-of-work, they broadcast the block
@@ -27,6 +61,7 @@ public:
     uint32_t nTime;
     uint32_t nBits;
     uint32_t nNonce;
+    CProof proof;
 
     CBlockHeader()
     {
@@ -43,6 +78,7 @@ public:
         READWRITE(nTime);
         READWRITE(nBits);
         READWRITE(nNonce);
+        READWRITE(proof);
     }
 
     void SetNull()
@@ -53,6 +89,7 @@ public:
         nTime = 0;
         nBits = 0;
         nNonce = 0;
+        proof.SetNull();
     }
 
     bool IsNull() const
