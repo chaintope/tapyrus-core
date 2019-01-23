@@ -11,36 +11,34 @@
 #include <uint256.h>
 
 typedef std::vector<unsigned char> Signature;
+typedef std::vector<Signature> ProofBase;
 
-class CProof
+class CProof : public ProofBase
 {
 public:
-    std::vector<Signature> vSignatures;
-
-    CProof()
-    {
-        SetNull();
-    }
+    CProof() { }
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action)
     {
-        // TODO: serialization setting. Now, I'm not sure about the serialization mechanism...
-//        READWRITE(*(CScriptBase*)(&challenge));
-//        if (!(s.GetType() & SER_GETHASH))
-//            READWRITE(*(CScriptBase*)(&solution));
+        READWRITEAS(ProofBase, *this);
     }
 
     void SetNull()
     {
-        vSignatures.clear();
+        this->clear();
     }
 
     bool IsNull() const
     {
-        return vSignatures.empty();
+        return this->empty();
+    }
+
+    void addSignature(Signature sig)
+    {
+        this->push_back(sig);
     }
 };
 
@@ -51,7 +49,7 @@ public:
  * in the block is a special one that creates a new coin owned by the creator
  * of the block.
  */
-class CBlockHeader
+class CBlockHeaderWithoutProof
 {
 public:
     // header
@@ -59,11 +57,8 @@ public:
     uint256 hashPrevBlock;
     uint256 hashMerkleRoot;
     uint32_t nTime;
-    uint32_t nBits;
-    uint32_t nNonce;
-    CProof proof;
 
-    CBlockHeader()
+    CBlockHeaderWithoutProof()
     {
         SetNull();
     }
@@ -76,9 +71,6 @@ public:
         READWRITE(hashPrevBlock);
         READWRITE(hashMerkleRoot);
         READWRITE(nTime);
-        READWRITE(nBits);
-        READWRITE(nNonce);
-        READWRITE(proof);
     }
 
     void SetNull()
@@ -87,14 +79,11 @@ public:
         hashPrevBlock.SetNull();
         hashMerkleRoot.SetNull();
         nTime = 0;
-        nBits = 0;
-        nNonce = 0;
-        proof.SetNull();
     }
 
     bool IsNull() const
     {
-        return (nBits == 0);
+        return (nTime == 0);
     }
 
     uint256 GetHash() const;
@@ -105,6 +94,21 @@ public:
     }
 };
 
+class CBlockHeader : public CBlockHeaderWithoutProof
+{
+public:
+    CProof proof;
+
+    CBlockHeader():CBlockHeaderWithoutProof(),proof() {}
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        CBlockHeaderWithoutProof::SerializationOp(s, ser_action);
+        READWRITE(proof);
+    }
+};
 
 class CBlock : public CBlockHeader
 {
@@ -148,8 +152,7 @@ public:
         block.hashPrevBlock  = hashPrevBlock;
         block.hashMerkleRoot = hashMerkleRoot;
         block.nTime          = nTime;
-        block.nBits          = nBits;
-        block.nNonce         = nNonce;
+        block.proof          = proof;
         return block;
     }
 

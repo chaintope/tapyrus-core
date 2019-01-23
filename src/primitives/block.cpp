@@ -10,20 +10,21 @@
 #include <utilstrencodings.h>
 #include <crypto/common.h>
 
-uint256 CBlockHeader::GetHash() const
+uint256 CBlockHeaderWithoutProof::GetHash() const
 {
     return SerializeHash(*this);
 }
 
 std::string CBlock::ToString() const
 {
+    // TODO: Make output string includes proof field
     std::stringstream s;
-    s << strprintf("CBlock(hash=%s, ver=0x%08x, hashPrevBlock=%s, hashMerkleRoot=%s, nTime=%u, nBits=%08x, nNonce=%u, vtx=%u)\n",
+    s << strprintf("CBlock(hash=%s, ver=0x%08x, hashPrevBlock=%s, hashMerkleRoot=%s, nTime=%u, vtx=%u)\n",
         GetHash().ToString(),
         nVersion,
         hashPrevBlock.ToString(),
         hashMerkleRoot.ToString(),
-        nTime, nBits, nNonce,
+        nTime,
         vtx.size());
     for (const auto& tx : vtx) {
         s << "  " << tx->ToString() << "\n";
