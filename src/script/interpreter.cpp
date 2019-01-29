@@ -10,27 +10,12 @@
 #include <crypto/sha256.h>
 #include <pubkey.h>
 #include <script/script.h>
+#include <script/sigencoding.h>
 #include <uint256.h>
 
+#include <boost/range/adaptor/sliced.hpp>
+
 typedef std::vector<unsigned char> valtype;
-
-namespace {
-
-inline bool set_success(ScriptError* ret)
-{
-    if (ret)
-        *ret = SCRIPT_ERR_OK;
-    return true;
-}
-
-inline bool set_error(ScriptError* ret, const ScriptError serror)
-{
-    if (ret)
-        *ret = serror;
-    return false;
-}
-
-} // namespace
 
 bool CastToBool(const valtype& vch)
 {
@@ -223,6 +208,17 @@ bool static CheckPubKeyEncoding(const valtype &vchPubKey, unsigned int flags, co
         return set_error(serror, SCRIPT_ERR_WITNESS_PUBKEYTYPE);
     }
     return true;
+}
+
+bool CheckDataSignatureEncoding(const valtype &vchSig, uint32_t flags,
+                                ScriptError *serror) {
+    // Empty signature. Not strictly DER encoded, but allowed to provide a
+    // compact way to provide an invalid signature for use with CHECK(MULTI)SIG
+    if (vchSig.size() == 0) {
+        return true;
+    }
+
+    return CheckSignatureEncoding(vchSig, flags, serror);
 }
 
 bool static CheckMinimalPush(const valtype& data, opcodetype opcode) {
@@ -953,6 +949,59 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                 }
                 break;
 
+                    case OP_CHECKDATASIG:
+                    case OP_CHECKDATASIGVERIFY: {
+                        // Make sure this remains an error before activation.
+                        if ((flags & SCRIPT_ENABLE_CHECKDATASIG) == 0) {
+                            return set_error(serror, SCRIPT_ERR_BAD_OPCODE);
+                        }
+
+                        // (sig message pubkey -- bool)
+                        if (stack.size() < 3) {
+                            return set_error(
+                                serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+                        }
+
+                        valtype &vchSig = stacktop(-3);
+                        valtype &vchMessage = stacktop(-2);
+                        valtype &vchPubKey = stacktop(-1);
+
+                        if (!CheckDataSignatureEncoding(vchSig, flags,
+                                                        serror) ||
+                            !CheckPubKeyEncoding(vchPubKey, flags, serror)) {
+                            // serror is set
+                            return false;
+                        }
+
+                        bool fSuccess = false;
+                        if (vchSig.size()) {
+                            valtype vchHash(32);
+                            CSHA256()
+                                .Write(vchMessage.data(), vchMessage.size())
+                                .Finalize(vchHash.data());
+                            fSuccess = checker.VerifySignature(
+                                vchSig, CPubKey(vchPubKey), uint256(vchHash));
+                        }
+
+                        if (!fSuccess && (flags & SCRIPT_VERIFY_NULLFAIL) &&
+                            vchSig.size()) {
+                            return set_error(serror, SCRIPT_ERR_SIG_NULLFAIL);
+                        }
+
+                        popstack(stack);
+                        popstack(stack);
+                        popstack(stack);
+                        stack.push_back(fSuccess ? vchTrue : vchFalse);
+                        if (opcode == OP_CHECKDATASIGVERIFY) {
+                            if (fSuccess) {
+                                popstack(stack);
+                            } else {
+                                return set_error(serror,
+                                                 SCRIPT_ERR_CHECKDATASIGVERIFY);
+                            }
+                        }
+                    } break;
+
                 case OP_CHECKMULTISIG:
                 case OP_CHECKMULTISIGVERIFY:
                 {
@@ -1413,6 +1462,9 @@ bool GenericTransactionSignatureChecker<T>::CheckSequence(const CScriptNum& nSeq
 }
 
 // explicit instantiation
+using TransactionSignatureChecker = GenericTransactionSignatureChecker<CTransaction>;
+using MutableTransactionSignatureChecker = GenericTransactionSignatureChecker<CMutableTransaction>;
+
 template class GenericTransactionSignatureChecker<CTransaction>;
 template class GenericTransactionSignatureChecker<CMutableTransaction>;
 
