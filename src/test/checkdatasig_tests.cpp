@@ -38,7 +38,7 @@ static void CheckError(uint32_t flags, const stacktype &original_stack,
     BaseSignatureChecker sigchecker;
     ScriptError err = SCRIPT_ERR_OK;
     stacktype stack{original_stack};
-    bool r = EvalScript(stack, script, flags, sigchecker, &err);
+    bool r = EvalScript(stack, script, flags, sigchecker, SigVersion::BASE, &err);
     BOOST_CHECK(!r);
     BOOST_CHECK_EQUAL(err, expected);
 }
@@ -48,7 +48,7 @@ static void CheckPass(uint32_t flags, const stacktype &original_stack,
     BaseSignatureChecker sigchecker;
     ScriptError err = SCRIPT_ERR_OK;
     stacktype stack{original_stack};
-    bool r = EvalScript(stack, script, flags, sigchecker, &err);
+    bool r = EvalScript(stack, script, flags, sigchecker, SigVersion::BASE, &err);
     BOOST_CHECK(r);
     BOOST_CHECK_EQUAL(err, SCRIPT_ERR_OK);
     BOOST_CHECK(stack == expected);
