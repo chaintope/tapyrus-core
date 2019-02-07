@@ -14,18 +14,6 @@
 
 typedef std::vector<uint8_t> valtype;
 
-namespace {
-
-inline SigHashType GetHashType(const valtype &vchSig) {
-    if (vchSig.size() == 0) {
-        return SigHashType(0);
-    }
-
-    return SigHashType(vchSig[vchSig.size() - 1]);
-}
-
-} // namespace
-
 /**
  * Check that the signature provided on some data is properly encoded.
  * Signatures passed to OP_CHECKDATASIG and its verify variant must be checked
