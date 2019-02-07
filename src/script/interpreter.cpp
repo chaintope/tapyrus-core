@@ -13,8 +13,6 @@
 #include <script/sigencoding.h>
 #include <uint256.h>
 
-#include <boost/range/adaptor/sliced.hpp>
-
 typedef std::vector<unsigned char> valtype;
 
 bool CastToBool(const valtype& vch)
@@ -188,6 +186,7 @@ bool CheckSignatureEncoding(const std::vector<unsigned char> &vchSig, unsigned i
     if (vchSig.size() == 0) {
         return true;
     }
+
     if ((flags & (SCRIPT_VERIFY_DERSIG | SCRIPT_VERIFY_LOW_S | SCRIPT_VERIFY_STRICTENC)) != 0 && !IsValidSignatureEncoding(vchSig)) {
         return set_error(serror, SCRIPT_ERR_SIG_DER);
     } else if ((flags & SCRIPT_VERIFY_LOW_S) != 0 && !IsLowDERSignature(vchSig, serror)) {
@@ -208,17 +207,6 @@ bool static CheckPubKeyEncoding(const valtype &vchPubKey, unsigned int flags, co
         return set_error(serror, SCRIPT_ERR_WITNESS_PUBKEYTYPE);
     }
     return true;
-}
-
-bool CheckDataSignatureEncoding(const valtype &vchSig, uint32_t flags,
-                                ScriptError *serror) {
-    // Empty signature. Not strictly DER encoded, but allowed to provide a
-    // compact way to provide an invalid signature for use with CHECK(MULTI)SIG
-    if (vchSig.size() == 0) {
-        return true;
-    }
-
-    return CheckSignatureEncoding(vchSig, flags, serror);
 }
 
 bool static CheckMinimalPush(const valtype& data, opcodetype opcode) {
@@ -949,58 +937,50 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                 }
                 break;
 
-                    case OP_CHECKDATASIG:
-                    case OP_CHECKDATASIGVERIFY: {
-                        // Make sure this remains an error before activation.
-                        if ((flags & SCRIPT_ENABLE_CHECKDATASIG) == 0) {
-                            return set_error(serror, SCRIPT_ERR_BAD_OPCODE);
-                        }
+                case OP_CHECKDATASIG:
+                case OP_CHECKDATASIGVERIFY: {
+                    // (sig message pubkey -- bool)
+                    if (stack.size() < 3) {
+                        return set_error(
+                            serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+                    }
 
-                        // (sig message pubkey -- bool)
-                        if (stack.size() < 3) {
-                            return set_error(
-                                serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
-                        }
+                    valtype &vchSig = stacktop(-3);
+                    valtype &vchMessage = stacktop(-2);
+                    valtype &vchPubKey = stacktop(-1);
 
-                        valtype &vchSig = stacktop(-3);
-                        valtype &vchMessage = stacktop(-2);
-                        valtype &vchPubKey = stacktop(-1);
+                    if (!CheckDataSignatureEncoding(vchSig, flags, serror) ||
+                        !CheckPubKeyEncoding(vchPubKey, flags, sigversion, serror)) {
+                        // serror is set
+                        return false;
+                    }
 
-                        if (!CheckDataSignatureEncoding(vchSig, flags,
-                                                        serror) ||
-                            !CheckPubKeyEncoding(vchPubKey, flags, serror)) {
-                            // serror is set
-                            return false;
-                        }
+                    bool fSuccess = false;
+                    if (vchSig.size()) {
+                        valtype vchHash(32);
+                        //Hash message
+                        CSHA256().Write(vchMessage.data(), vchMessage.size())
+                            .Finalize(vchHash.data());
+                        //no hashtype in signature. call VerifySignature not CheckSig
+                        fSuccess = checker.VerifySignature(vchSig, CPubKey(vchPubKey), uint256(vchHash));
+                    }
 
-                        bool fSuccess = false;
-                        if (vchSig.size()) {
-                            valtype vchHash(32);
-                            CSHA256()
-                                .Write(vchMessage.data(), vchMessage.size())
-                                .Finalize(vchHash.data());
-                            fSuccess = checker.VerifySignature(
-                                vchSig, CPubKey(vchPubKey), uint256(vchHash));
-                        }
+                    if (!fSuccess && (flags & SCRIPT_VERIFY_NULLFAIL) && vchSig.size()) {
+                        return set_error(serror, SCRIPT_ERR_SIG_NULLFAIL);
+                    }
 
-                        if (!fSuccess && (flags & SCRIPT_VERIFY_NULLFAIL) &&
-                            vchSig.size()) {
-                            return set_error(serror, SCRIPT_ERR_SIG_NULLFAIL);
+                    popstack(stack);
+                    popstack(stack);
+                    popstack(stack);
+                    stack.push_back(fSuccess ? vchTrue : vchFalse);
+                    if (opcode == OP_CHECKDATASIGVERIFY) {
+                        if (fSuccess) {
+                            popstack(stack);
+                        } else {
+                            return set_error(serror, SCRIPT_ERR_CHECKDATASIGVERIFY);
                         }
-
-                        popstack(stack);
-                        popstack(stack);
-                        popstack(stack);
-                        stack.push_back(fSuccess ? vchTrue : vchFalse);
-                        if (opcode == OP_CHECKDATASIGVERIFY) {
-                            if (fSuccess) {
-                                popstack(stack);
-                            } else {
-                                return set_error(serror,
-                                                 SCRIPT_ERR_CHECKDATASIGVERIFY);
-                            }
-                        }
-                    } break;
+                    }
+                } break;
 
                 case OP_CHECKMULTISIG:
                 case OP_CHECKMULTISIGVERIFY:
