@@ -14,6 +14,14 @@
 typedef std::vector<uint8_t> valtype;
 typedef std::vector<valtype> stacktype;
 
+// explicit instantiation
+template class GenericTransactionSignatureChecker<CTransaction>;
+template class GenericTransactionSignatureChecker<CMutableTransaction>;
+
+using TransactionSignatureChecker = GenericTransactionSignatureChecker<CTransaction>;
+using MutableTransactionSignatureChecker = GenericTransactionSignatureChecker<CMutableTransaction>;
+
+
 BOOST_FIXTURE_TEST_SUITE(checkdatasig_tests, BasicTestingSetup)
 
 const uint8_t vchPrivkey[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -35,20 +43,45 @@ struct KeyData {
 
 static void CheckError(uint32_t flags, const stacktype &original_stack,
                        const CScript &script, ScriptError expected) {
-    BaseSignatureChecker sigchecker;
+    
     ScriptError err = SCRIPT_ERR_OK;
+    CMutableTransaction txCredit;
+    txCredit.nVersion = 1;
+    txCredit.nLockTime = 0;
+    txCredit.vin.resize(1);
+    txCredit.vout.resize(1);
+    txCredit.vin[0].prevout.SetNull();
+    txCredit.vin[0].scriptSig = CScript() << CScriptNum(0) << CScriptNum(0);
+    txCredit.vin[0].nSequence = CTxIn::SEQUENCE_FINAL;
+    txCredit.vout[0].scriptPubKey = script;
+    txCredit.vout[0].nValue = 0;
+
+    MutableTransactionSignatureChecker checker(&txCredit, 0, 0);
+
     stacktype stack{original_stack};
-    bool r = EvalScript(stack, script, flags, sigchecker, SigVersion::BASE, &err);
+    bool r = EvalScript(stack, script, flags, checker, SigVersion::BASE, &err);
     BOOST_CHECK(!r);
     BOOST_CHECK_EQUAL(err, expected);
 }
 
 static void CheckPass(uint32_t flags, const stacktype &original_stack,
                       const CScript &script, const stacktype &expected) {
-    BaseSignatureChecker sigchecker;
+
     ScriptError err = SCRIPT_ERR_OK;
+    CMutableTransaction txCredit;
+    txCredit.nVersion = 1;
+    txCredit.nLockTime = 0;
+    txCredit.vin.resize(1);
+    txCredit.vout.resize(1);
+    txCredit.vin[0].prevout.SetNull();
+    txCredit.vin[0].scriptSig = CScript() << CScriptNum(0) << CScriptNum(0);
+    txCredit.vin[0].nSequence = CTxIn::SEQUENCE_FINAL;
+    txCredit.vout[0].scriptPubKey = script;
+    txCredit.vout[0].nValue = 0;
+    MutableTransactionSignatureChecker checker(&txCredit, 0, 0);
+
     stacktype stack{original_stack};
-    bool r = EvalScript(stack, script, flags, sigchecker, SigVersion::BASE, &err);
+    bool r = EvalScript(stack, script, flags, checker, SigVersion::BASE, &err);
     BOOST_CHECK(r);
     BOOST_CHECK_EQUAL(err, SCRIPT_ERR_OK);
     BOOST_CHECK(stack == expected);
@@ -57,11 +90,18 @@ static void CheckPass(uint32_t flags, const stacktype &original_stack,
 BOOST_AUTO_TEST_CASE(checkdatasig_test) {
     // Empty stack.
     CheckError(0, {}, CScript() << OP_CHECKDATASIG, SCRIPT_ERR_INVALID_STACK_OPERATION);
-    CheckError(0,{{0x00}}, CScript() << OP_CHECKDATASIG, SCRIPT_ERR_INVALID_STACK_OPERATION);
+    CheckError(0, {{0x00}}, CScript() << OP_CHECKDATASIG, SCRIPT_ERR_INVALID_STACK_OPERATION);
     CheckError(0, {{0x00}, {0x00}}, CScript() << OP_CHECKDATASIG, SCRIPT_ERR_INVALID_STACK_OPERATION);
     CheckError(0, {}, CScript() << OP_CHECKDATASIGVERIFY,SCRIPT_ERR_INVALID_STACK_OPERATION);
     CheckError(0, {{0x00}}, CScript() << OP_CHECKDATASIGVERIFY,SCRIPT_ERR_INVALID_STACK_OPERATION);
     CheckError(0, {{0x00}, {0x00}}, CScript() << OP_CHECKDATASIGVERIFY, SCRIPT_ERR_INVALID_STACK_OPERATION);
+
+    CheckError(MANDATORY_SCRIPT_VERIFY_FLAGS, {}, CScript()<< OP_CHECKDATASIG, SCRIPT_ERR_INVALID_STACK_OPERATION);
+    CheckError(MANDATORY_SCRIPT_VERIFY_FLAGS,{{0x00}}, CScript() << OP_CHECKDATASIG, SCRIPT_ERR_INVALID_STACK_OPERATION);
+    CheckError(MANDATORY_SCRIPT_VERIFY_FLAGS, {{0x00}, {0x00}}, CScript() << OP_CHECKDATASIG, SCRIPT_ERR_INVALID_STACK_OPERATION);
+    CheckError(MANDATORY_SCRIPT_VERIFY_FLAGS, {}, CScript() << OP_CHECKDATASIGVERIFY,SCRIPT_ERR_INVALID_STACK_OPERATION);
+    CheckError(MANDATORY_SCRIPT_VERIFY_FLAGS, {{0x00}}, CScript() << OP_CHECKDATASIGVERIFY,SCRIPT_ERR_INVALID_STACK_OPERATION);
+    CheckError(MANDATORY_SCRIPT_VERIFY_FLAGS, {{0x00}, {0x00}}, CScript() << OP_CHECKDATASIGVERIFY, SCRIPT_ERR_INVALID_STACK_OPERATION);
 
     CheckError(STANDARD_SCRIPT_VERIFY_FLAGS, {}, CScript()<< OP_CHECKDATASIG, SCRIPT_ERR_INVALID_STACK_OPERATION);
     CheckError(STANDARD_SCRIPT_VERIFY_FLAGS,{{0x00}}, CScript() << OP_CHECKDATASIG, SCRIPT_ERR_INVALID_STACK_OPERATION);
@@ -102,9 +142,11 @@ BOOST_AUTO_TEST_CASE(checkdatasig_test) {
 
     // Check valid signatures (as in the signature format is valid).
     valtype validsig;
+    //sign
     kd.privkey.Sign(messageHash, validsig);
 
     CheckPass(STANDARD_SCRIPT_VERIFY_FLAGS, {validsig, message, pubkey}, CScript() << OP_CHECKDATASIG, {{0x01}});
+
     CheckPass(STANDARD_SCRIPT_VERIFY_FLAGS, {validsig, message, pubkey}, CScript() << OP_CHECKDATASIGVERIFY, {});
 
     const valtype minimalsig{0x30, 0x06, 0x02, 0x01, 0x01, 0x02, 0x01, 0x01};
@@ -118,9 +160,7 @@ BOOST_AUTO_TEST_CASE(checkdatasig_test) {
         0xa2, 0x0e, 0x0b, 0x99, 0x9e, 0x04, 0x99, 0x78, 0xea, 0x8d, 0x6e, 0xe5,
         0x48, 0x0d, 0x48, 0x5f, 0xcf, 0x2c, 0xe0, 0xd0, 0x3b, 0x2e, 0xf0};
 
-    // If we add many more flags, this loop can get too expensive, but we can
-    // rewrite in the future to randomly pick a set of flags to evaluate.
-    for (uint32_t flags = 0; flags < (1U << 18); flags++) {
+    for (uint32_t flags = 1U; flags <= SCRIPT_VERIFY_CONST_SCRIPTCODE; flags<<=1U) {
 
         if (flags & SCRIPT_VERIFY_STRICTENC) {
             // When strict encoding is enforced, hybrid key are invalid.
@@ -156,19 +196,27 @@ BOOST_AUTO_TEST_CASE(checkdatasig_test) {
             CheckError(flags, {highSSig, message, pubkey}, scriptverify, SCRIPT_ERR_SIG_HIGH_S);
         } else {
             // If we do not enforce low S, then high S sigs are accepted.
-            CheckPass(flags, {highSSig, message, pubkey}, script, {});
-            CheckError(flags, {highSSig, message, pubkey}, scriptverify, SCRIPT_ERR_CHECKDATASIGVERIFY);
-        }
+            if(flags == SCRIPT_VERIFY_NULLFAIL)
+                CheckError(flags, {nondersig, message, pubkey}, script, SCRIPT_ERR_SIG_NULLFAIL);
+            else
+                CheckPass(flags, {highSSig, message, pubkey}, script, {});
 
+            CheckError(flags, {highSSig, message, pubkey}, scriptverify, flags == SCRIPT_VERIFY_NULLFAIL ? SCRIPT_ERR_SIG_NULLFAIL : SCRIPT_ERR_CHECKDATASIGVERIFY);
+        }
+        
         if (flags & (SCRIPT_VERIFY_DERSIG | SCRIPT_VERIFY_LOW_S | SCRIPT_VERIFY_STRICTENC)) {
             // If we get any of the dersig flags, the non canonical dersig
             // signature fails.
-            CheckError(flags, {nondersig, message, pubkey}, script, SCRIPT_ERR_SIG_DER);
-            CheckError(flags, {nondersig, message, pubkey}, scriptverify, SCRIPT_ERR_SIG_DER);
+            CheckError(flags, {nondersig, message, pubkey}, script, flags == SCRIPT_VERIFY_NULLFAIL ? SCRIPT_ERR_SIG_NULLFAIL : SCRIPT_ERR_SIG_DER);
+            CheckError(flags, {nondersig, message, pubkey}, scriptverify, flags == SCRIPT_VERIFY_NULLFAIL ? SCRIPT_ERR_SIG_NULLFAIL : SCRIPT_ERR_SIG_DER);
         } else {
             // If we do not check, then it is accepted.
-            CheckPass(flags, {nondersig, message, pubkey}, script, {});
-            CheckError(flags, {nondersig, message, pubkey}, scriptverify, SCRIPT_ERR_CHECKDATASIGVERIFY);
+            if(flags == SCRIPT_VERIFY_NULLFAIL)
+                CheckError(flags, {nondersig, message, pubkey}, script, SCRIPT_ERR_SIG_NULLFAIL);
+            else
+                CheckPass(flags, {nondersig, message, pubkey}, script, {});
+
+            CheckError(flags, {nondersig, message, pubkey}, scriptverify, flags == SCRIPT_VERIFY_NULLFAIL ? SCRIPT_ERR_SIG_NULLFAIL : SCRIPT_ERR_CHECKDATASIGVERIFY);
         }
     }
 }

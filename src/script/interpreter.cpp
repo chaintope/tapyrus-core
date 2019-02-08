@@ -10,7 +10,6 @@
 #include <crypto/sha256.h>
 #include <pubkey.h>
 #include <script/script.h>
-#include <script/sigencoding.h>
 #include <uint256.h>
 
 typedef std::vector<unsigned char> valtype;
@@ -152,14 +151,131 @@ bool static IsValidSignatureEncoding(const std::vector<unsigned char> &sig) {
     return true;
 }
 
-bool static IsLowDERSignature(const valtype &vchSig, ScriptError* serror) {
-    if (!IsValidSignatureEncoding(vchSig)) {
+
+/**
+ * checks OP_CHECKDATASIG data signature encoding. 
+ * Note:there is no <hashtype> byte
+ * 
+ * Read IsValidSignatureEncoding for help and documentation
+ */
+static bool IsValidDataSignatureEncoding(const valtype &sig) {
+    // Minimum and maximum size constraints.
+    if (sig.size() < 8 || sig.size() > 72) {
+        return false;
+    }
+
+    // Check that the signature is a compound structure of proper size.
+    // A signature is of type 0x30 (compound).
+    if (sig[0] != 0x30) {
+        return false;
+    }
+
+    // Make sure the length covers the entire signature.
+    // Remove:
+    // * 1 byte for the coupound type.
+    // * 1 byte for the length of the signature.
+    if (sig[1] != sig.size() - 2) {
+        return false;
+    }
+
+    // Check that R is an positive integer of sensible size.
+    // Check whether the R element is an integer.
+    if (sig[2] != 0x02) {
+        return false;
+    }
+
+    // Extract the length of the R element.
+    const uint32_t lenR = sig[3];
+
+    // Zero-length integers are not allowed for R.
+    if (lenR == 0) {
+        return false;
+    }
+
+    // Negative numbers are not allowed for R.
+    if (sig[4] & 0x80) {
+        return false;
+    }
+
+    // Make sure the length of the R element is consistent with the signature
+    // size.
+    // Remove:
+    // * 1 byte for the coumpound type.
+    // * 1 byte for the length of the signature.
+    // * 2 bytes for the integer type of R and S.
+    // * 2 bytes for the size of R and S.
+    // * 1 byte for S itself.
+    if (lenR > (sig.size() - 7)) {
+        return false;
+    }
+
+    // Null bytes at the start of R are not allowed, unless R would otherwise be
+    // interpreted as a negative number.
+    //
+    // /!\ This check can only be performed after we checked that lenR is
+    //     consistent with the size of the signature or we risk to access out of
+    //     bound elements.
+    if (lenR > 1 && (sig[4] == 0x00) && !(sig[5] & 0x80)) {
+        return false;
+    }
+
+    // Check that S is an positive integer of sensible size.
+    // S's definition starts after R's definition:
+    // * 1 byte for the coumpound type.
+    // * 1 byte for the length of the signature.
+    // * 1 byte for the size of R.
+    // * lenR bytes for R itself.
+    // * 1 byte to get to S.
+    const uint32_t startS = lenR + 4;
+
+    // Check whether the S element is an integer.
+    if (sig[startS] != 0x02) {
+        return false;
+    }
+
+    // Extract the length of the S element.
+    const uint32_t lenS = sig[startS + 1];
+
+    // Zero-length integers are not allowed for S.
+    if (lenS == 0) {
+        return false;
+    }
+
+    // Negative numbers are not allowed for S.
+    if (sig[startS + 2] & 0x80) {
+        return false;
+    }
+
+    // Verify that the length of S is consistent with the size of the signature
+    // including metadatas:
+    // * 1 byte for the integer type of S.
+    // * 1 byte for the size of S.
+    if (size_t(startS + lenS + 2) != sig.size()) {
+        return false;
+    }
+
+    // Null bytes at the start of S are not allowed, unless S would otherwise be
+    // interpreted as a negative number.
+    //
+    // /!\ This check can only be performed after we checked that lenR and lenS
+    //     are consistent with the size of the signature or we risk to access
+    //     out of bound elements.
+    if (lenS > 1 && (sig[startS + 2] == 0x00) && !(sig[startS + 3] & 0x80)) {
+        return false;
+    }
+
+    return true;
+}
+
+bool static IsLowDERSignature(const valtype &vchSig, ScriptError* serror, bool dataSignature = false) {
+
+    if (dataSignature ? !IsValidDataSignatureEncoding(vchSig) : !IsValidSignatureEncoding(vchSig)) {
         return set_error(serror, SCRIPT_ERR_SIG_DER);
     }
     // https://bitcoin.stackexchange.com/a/12556:
     //     Also note that inside transaction signatures, an extra hashtype byte
     //     follows the actual signature data.
-    std::vector<unsigned char> vchSigCopy(vchSig.begin(), vchSig.begin() + vchSig.size() - 1);
+    std::vector<unsigned char> vchSigCopy(vchSig.begin(), dataSignature ? vchSig.begin() + vchSig.size() : vchSig.begin() + vchSig.size() - 1 );
     // If the S value is above the order of the curve divided by two, its
     // complement modulo the order could have been used instead, which is
     // one byte shorter when encoded correctly.
@@ -180,19 +296,24 @@ bool static IsDefinedHashtypeSignature(const valtype &vchSig) {
     return true;
 }
 
-bool CheckSignatureEncoding(const std::vector<unsigned char> &vchSig, unsigned int flags, ScriptError* serror) {
+bool CheckSignatureEncoding(const std::vector<unsigned char> &vchSig, unsigned int flags, ScriptError* serror, bool datasignature) {
     // Empty signature. Not strictly DER encoded, but allowed to provide a
     // compact way to provide an invalid signature for use with CHECK(MULTI)SIG
     if (vchSig.size() == 0) {
         return true;
     }
 
-    if ((flags & (SCRIPT_VERIFY_DERSIG | SCRIPT_VERIFY_LOW_S | SCRIPT_VERIFY_STRICTENC)) != 0 && !IsValidSignatureEncoding(vchSig)) {
+    if ((flags & (SCRIPT_VERIFY_DERSIG | SCRIPT_VERIFY_LOW_S | SCRIPT_VERIFY_STRICTENC)) != 0 
+        && ( datasignature ? !IsValidDataSignatureEncoding(vchSig) : !IsValidSignatureEncoding(vchSig)) )
+    {
         return set_error(serror, SCRIPT_ERR_SIG_DER);
-    } else if ((flags & SCRIPT_VERIFY_LOW_S) != 0 && !IsLowDERSignature(vchSig, serror)) {
+    } 
+    else if ((flags & SCRIPT_VERIFY_LOW_S) != 0 && !IsLowDERSignature(vchSig, serror, datasignature)) {
         // serror is set
         return false;
-    } else if ((flags & SCRIPT_VERIFY_STRICTENC) != 0 && !IsDefinedHashtypeSignature(vchSig)) {
+    } 
+    else if (!datasignature && (flags & SCRIPT_VERIFY_STRICTENC) != 0 && !IsDefinedHashtypeSignature(vchSig)) 
+    {
         return set_error(serror, SCRIPT_ERR_SIG_HASHTYPE);
     }
     return true;
@@ -949,7 +1070,8 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                     valtype &vchMessage = stacktop(-2);
                     valtype &vchPubKey = stacktop(-1);
 
-                    if (!CheckDataSignatureEncoding(vchSig, flags, serror) ||
+                    //check signature encoding without hashtype byte
+                    if (!CheckSignatureEncoding(vchSig, flags, serror, true) ||
                         !CheckPubKeyEncoding(vchPubKey, flags, sigversion, serror)) {
                         // serror is set
                         return false;
@@ -1440,13 +1562,13 @@ bool GenericTransactionSignatureChecker<T>::CheckSequence(const CScriptNum& nSeq
 
     return true;
 }
-
 // explicit instantiation
+template class GenericTransactionSignatureChecker<CTransaction>;
+template class GenericTransactionSignatureChecker<CMutableTransaction>;
+
 using TransactionSignatureChecker = GenericTransactionSignatureChecker<CTransaction>;
 using MutableTransactionSignatureChecker = GenericTransactionSignatureChecker<CMutableTransaction>;
 
-template class GenericTransactionSignatureChecker<CTransaction>;
-template class GenericTransactionSignatureChecker<CMutableTransaction>;
 
 static bool VerifyWitnessProgram(const CScriptWitness& witness, int witversion, const std::vector<unsigned char>& program, unsigned int flags, const BaseSignatureChecker& checker, ScriptError* serror)
 {

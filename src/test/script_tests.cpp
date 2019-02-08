@@ -1376,13 +1376,12 @@ BOOST_AUTO_TEST_CASE(script_build)
                         .Num(0)
                         .ScriptError(SCRIPT_ERR_PUBKEYTYPE));
     tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey0H) << OP_CHECKDATASIG << OP_NOT,
-        "CHECKDATASIG NOT with invalid hybrid pubkey but no STRICTENC", 0)
+        "CHECKDATASIG NOT with invalid signature and hybrid pubkey but no STRICTENC", 0)
                         .PushDataSig(keys.key0, {})
                         .DamagePush(10)
-                        .Num(0)
-                        .ScriptError(SCRIPT_ERR_EVAL_FALSE));
+                        .Num(0));
     tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey0H) << OP_CHECKDATASIG << OP_NOT,
-        "CHECKDATASIG NOT with invalid hybrid pubkey", SCRIPT_VERIFY_STRICTENC)
+        "CHECKDATASIG NOT with invalid signature and hybrid pubkey", SCRIPT_VERIFY_STRICTENC)
                         .PushDataSig(keys.key0, {})
                         .DamagePush(10)
                         .Num(0)
@@ -1437,13 +1436,13 @@ BOOST_AUTO_TEST_CASE(script_build)
                         .Num(0)
                         .ScriptError(SCRIPT_ERR_PUBKEYTYPE));
     tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey0H) << OP_CHECKDATASIGVERIFY << OP_TRUE,
-        "CHECKDATASIGVERIFY with invalid hybrid pubkey but no STRICTENC",  0)
+        "CHECKDATASIGVERIFY with invalid signature and hybrid pubkey but no STRICTENC",  0)
                         .PushDataSig(keys.key0, {})
                         .DamagePush(10)
                         .Num(0)
                         .ScriptError(SCRIPT_ERR_CHECKDATASIGVERIFY));
     tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey0H) << OP_CHECKDATASIGVERIFY << OP_TRUE,
-        "CHECKDATASIGVERIFY with invalid hybrid pubkey", SCRIPT_VERIFY_STRICTENC)
+        "CHECKDATASIGVERIFY with invalid signature and hybrid pubkey", SCRIPT_VERIFY_STRICTENC)
                         .PushDataSig(keys.key0, {})
                         .DamagePush(10)
                         .Num(0)
