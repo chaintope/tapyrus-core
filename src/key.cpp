@@ -205,9 +205,9 @@ bool SigHasLowR(const secp256k1_ecdsa_signature* sig)
 bool CKey::SignECDSA(const uint256 &hash, std::vector<uint8_t> &vchSig,
                      uint32_t test_case) const {
     if (!fValid) return false;
-    
-    vchSig.resize(72);
-    size_t nSigLen = 72;
+
+    vchSig.resize(CPubKey::SIGNATURE_SIZE);
+    size_t nSigLen = CPubKey::SIGNATURE_SIZE;
     uint8_t extra_entropy[32] = {0};
     WriteLE32(extra_entropy, test_case);
     secp256k1_ecdsa_signature sig;
