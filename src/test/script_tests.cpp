@@ -1448,6 +1448,24 @@ BOOST_AUTO_TEST_CASE(script_build)
                         .Num(0)
                         .ScriptError(SCRIPT_ERR_PUBKEYTYPE));
     std::set<std::string> tests_set;
+    tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey1C) << OP_CHECKDATASIG,
+        "CHECKDATASIG with Hashtype byte", SCRIPT_VERIFY_STRICTENC)
+                        .PushSig(keys.key1, {})
+                        .Num(0)
+                        .ScriptError(SCRIPT_ERR_SIG_DER));
+    tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey1C) << OP_CHECKSIG,
+        "CHECKSIG without Hashtype byte", SCRIPT_VERIFY_STRICTENC)
+                        .PushDataSig(keys.key1, {})
+                        .ScriptError(SCRIPT_ERR_SIG_DER));
+    tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey1C) << OP_CHECKDATASIG,
+        "CHECKDATASIG with Hashtype byte and no strict encoding", 0)
+                        .PushSig(keys.key1, {})
+                        .Num(0)
+                        .ScriptError(SCRIPT_ERR_EVAL_FALSE));
+    tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey1C) << OP_CHECKSIG,
+        "CHECKSIG without Hashtype byte and no strict encoding", 0)
+                        .PushDataSig(keys.key1, {})
+                        .ScriptError(SCRIPT_ERR_EVAL_FALSE));
 
     {
         UniValue json_tests = read_json(std::string(json_tests::script_tests, json_tests::script_tests + sizeof(json_tests::script_tests)));
