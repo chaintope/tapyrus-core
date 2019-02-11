@@ -391,7 +391,7 @@ public:
         std::vector<uint8_t> vchSig, r, s;
         uint32_t iter = 0;
         do {
-            key.SignECDSA(messageHash, vchSig, iter++);
+            key.Sign(messageHash, vchSig, iter++);
             if ((lenS == 33) != (vchSig[5 + vchSig[3]] == 33)) {
                 NegateSignatureS(vchSig);
             }
