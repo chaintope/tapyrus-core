@@ -251,7 +251,44 @@ BOOST_AUTO_TEST_CASE(GetTxSigOpCost)
         assert(GetTransactionSigOpCost(CTransaction(spendingTx), coins, flags) == 2);
         assert(VerifyWithFlag(creationTx, spendingTx, flags) == SCRIPT_ERR_CHECKMULTISIGVERIFY);
     }
-    
+    // OP_CHECKDATASIG 
+        {
+        const unsigned char vchKey[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0};
+        CKey keyC;
+        keyC.Set(vchKey, vchKey + 32, true);
+        CPubKey pubkeyC = keyC.GetPubKey();
+
+        CScript scriptPubKey = CScript() << ToByteVector(pubkeyC) << OP_CHECKDATASIGVERIFY << OP_TRUE;
+        CScript scriptSig = CScript() << OP_0 << OP_0;
+
+        BuildTxs(spendingTx, coins, creationTx, scriptPubKey, scriptSig, CScriptWitness());
+
+        BOOST_CHECK_EQUAL(GetTransactionSigOpCost(CTransaction(spendingTx), coins, flags), 0);
+
+        BOOST_CHECK_EQUAL(GetTransactionSigOpCost(CTransaction(creationTx), coins, flags),  4);
+
+        BOOST_CHECK_EQUAL(VerifyWithFlag(creationTx, spendingTx, flags) ,SCRIPT_ERR_CHECKDATASIGVERIFY);
+    }
+    // OP_CHECKDATASIG nested in P2SH
+    {
+        const unsigned char vchKey[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0};
+        CKey keyC;
+        keyC.Set(vchKey, vchKey + 32, true);
+        CPubKey pubkeyC = keyC.GetPubKey();
+
+        CScript redeemScript = CScript() << ToByteVector(pubkeyC) << OP_CHECKDATASIGVERIFY << OP_TRUE;
+        CScript scriptPubKey = GetScriptForDestination(CScriptID(redeemScript));
+        CScript scriptSig = CScript() << OP_0 << OP_0 << ToByteVector(redeemScript);
+
+        BuildTxs(spendingTx, coins, creationTx, scriptPubKey, scriptSig, CScriptWitness());
+
+        BOOST_CHECK_EQUAL(GetTransactionSigOpCost(CTransaction(spendingTx), coins, flags) , 4);
+
+        // No change in the cost without SCRIPT_VERIFY_WITNESS flag.
+        BOOST_CHECK_EQUAL(GetTransactionSigOpCost(CTransaction(spendingTx), coins, flags & ~SCRIPT_VERIFY_WITNESS), 4);
+
+        BOOST_CHECK_EQUAL(VerifyWithFlag(creationTx, spendingTx, flags) , SCRIPT_ERR_CHECKDATASIGVERIFY);
+    }
 }
 
 BOOST_AUTO_TEST_SUITE_END()
