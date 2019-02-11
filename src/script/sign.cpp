@@ -283,14 +283,8 @@ private:
 
 public:
     SignatureExtractorChecker(SignatureData& sigdata, BaseSignatureChecker& checker) : sigdata(sigdata), checker(checker) {}
-    bool VerifySignature(const std::vector<unsigned char>& vchSig, const CPubKey& vchPubKey, const uint256& sighash) const override;
     bool CheckSig(const std::vector<unsigned char>& scriptSig, const std::vector<unsigned char>& vchPubKey, const CScript& scriptCode, SigVersion sigversion) const override;
 };
-
-bool SignatureExtractorChecker::VerifySignature(const std::vector<unsigned char>& scriptSig, const CPubKey& vchPubKey, const uint256& sighash) const
-{
-    return checker.VerifySignature(scriptSig, vchPubKey, sighash);
-}
 
 bool SignatureExtractorChecker::CheckSig(const std::vector<unsigned char>& scriptSig, const std::vector<unsigned char>& vchPubKey, const CScript& scriptCode, SigVersion sigversion) const
 {
@@ -434,7 +428,6 @@ class DummySignatureChecker final : public BaseSignatureChecker
 {
 public:
     DummySignatureChecker() {}
-    bool VerifySignature(const std::vector<unsigned char>& vchSig, const CPubKey& vchPubKey, const uint256& sighash) const override { return true; }
     bool CheckSig(const std::vector<unsigned char>& scriptSig, const std::vector<unsigned char>& vchPubKey, const CScript& scriptCode, SigVersion sigversion) const override { return true; }
 };
 const DummySignatureChecker DUMMY_CHECKER;
