@@ -103,15 +103,17 @@ BOOST_AUTO_TEST_CASE(create_cchainparams_instance)
 
 BOOST_AUTO_TEST_CASE(create_genesis_block)
 {
-    CKey key;
-    key.MakeNewKey(true);
-    CPubKey pubkey = key.GetPubKey();
+    std::vector<unsigned char> vch = ParseHex("0296da90ddaedb8ca76561fc5660c40be68c72415d89e91ed3de73720028533840");
+    CPubKey pubkey(vch.begin(), vch.end());
 
     MultisigCondition condition = CreateSignedBlockCondition(combinedPubkeyString(15), 10);
     CBlock genesis = CreateGenesisBlock(1546853016, 2083236893, 0x1d00ffff, 1, 50 * COIN, HexStr(pubkey.begin(), pubkey.end()), condition);
 
-    CScript script = genesis.vtx[0].get()->vin[0].scriptSig;
-    BOOST_CHECK_EQUAL(HexStr(script.begin(), script.end()), "010a2103deb53be78170b305ea1d9c2f7dfae027f53e34321527d1f2bae71ddd35ba7de0");
+    CScript scriptSig = genesis.vtx[0].get()->vin[0].scriptSig;
+    BOOST_CHECK_EQUAL(HexStr(scriptSig.begin(), scriptSig.end()), "010a2103deb53be78170b305ea1d9c2f7dfae027f53e34321527d1f2bae71ddd35ba7de0");
+
+    CScript scriptPubKey = genesis.vtx[0].get()->vout[0].scriptPubKey;
+    BOOST_CHECK_EQUAL(HexStr(scriptPubKey.begin(), scriptPubKey.end()), "76a914900a91031a3eb3f9a3ce08f866444227689ad3c588ac");
 }
 
 BOOST_AUTO_TEST_SUITE_END()
