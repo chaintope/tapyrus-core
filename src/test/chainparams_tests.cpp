@@ -58,8 +58,8 @@ BOOST_AUTO_TEST_CASE(create_cchainparams_instance)
     gArgs.ForceSetArg("-signblockthreshold", "10");
     params = CreateChainParams(CBaseChainParams::MAIN);
 
-    BOOST_CHECK_EQUAL(params->GetSignedBlockCondition().pubkeys.size(), 15);
-    BOOST_CHECK_EQUAL(params->GetSignedBlockCondition().threshold, 10);
+    BOOST_CHECK_EQUAL(params->GetSignedBlocksCondition().pubkeys.size(), 15);
+    BOOST_CHECK_EQUAL(params->GetSignedBlocksCondition().threshold, 10);
 
     // When pubkey is not given.
     gArgs.ForceSetArg("-signblockpubkeys", "");
@@ -106,7 +106,7 @@ BOOST_AUTO_TEST_CASE(create_genesis_block)
     std::vector<unsigned char> vch = ParseHex("0296da90ddaedb8ca76561fc5660c40be68c72415d89e91ed3de73720028533840");
     CPubKey pubkey(vch.begin(), vch.end());
 
-    MultisigCondition condition = CreateSignedBlockCondition(combinedPubkeyString(15), 10);
+    MultisigCondition condition = CreateSignedBlocksCondition(combinedPubkeyString(15), 10);
     CBlock genesis = CreateGenesisBlock(1546853016, 2083236893, 0x1d00ffff, 1, 50 * COIN, HexStr(pubkey.begin(), pubkey.end()), condition);
 
     CScript scriptSig = genesis.vtx[0].get()->vin[0].scriptSig;

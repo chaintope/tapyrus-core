@@ -48,7 +48,7 @@ static std::vector<CPubKey> ParsePubkeyString(std::string source)
     return pubkeys;
 }
 
-static MultisigCondition CreateSignedBlockCondition(std::string pubkeyString, int threshold)
+static MultisigCondition CreateSignedBlocksCondition(std::string pubkeyString, int threshold)
 {
     auto pubkeys = ParsePubkeyString(pubkeyString);
 
@@ -119,7 +119,7 @@ class CMainParams : public CChainParams {
 public:
     CMainParams(MultisigCondition condition) {
         strNetworkID = "main";
-        signedBlock = condition;
+        signedBlocksCondition = condition;
         consensus.nSubsidyHalvingInterval = 210000;
         consensus.BIP16Exception = uint256S("0x00000000000002dc756eebf4f49723ed8d30cc28a5f108eb94b1ba88ac4f9c22");
         consensus.BIP34Height = 227931;
@@ -168,7 +168,7 @@ public:
         nDefaultPort = 8333;
         nPruneAfterHeight = 100000;
 
-        genesis = CreateGenesisBlock(1546853016, 2083236893, 0x1d00ffff, 1, 50 * COIN, "024bd6909fd1187b356e163b670a1c7c5f70e40d68667e3a64d6321fb780d056c9", signedBlock);
+        genesis = CreateGenesisBlock(1546853016, 2083236893, 0x1d00ffff, 1, 50 * COIN, "024bd6909fd1187b356e163b670a1c7c5f70e40d68667e3a64d6321fb780d056c9", signedBlocksCondition);
         consensus.hashGenesisBlock = genesis.GetHash();
 
         // Note that of those which support the service bits prefix, most only support a subset of
@@ -229,7 +229,7 @@ class CTestNetParams : public CChainParams {
 public:
     CTestNetParams(MultisigCondition condition) {
         strNetworkID = "test";
-        signedBlock = condition;
+        signedBlocksCondition = condition;
         consensus.nSubsidyHalvingInterval = 210000;
         consensus.BIP16Exception = uint256S("0x00000000dd30457c001f4095d208cc1296b0eed002427aa599874af7a432b105");
         consensus.BIP34Height = 21111;
@@ -271,7 +271,7 @@ public:
         nDefaultPort = 18333;
         nPruneAfterHeight = 1000;
 
-        genesis = CreateGenesisBlock(1546853016, 414098458, 0x1d00ffff, 1, 50 * COIN, "024bd6909fd1187b356e163b670a1c7c5f70e40d68667e3a64d6321fb780d056c9", signedBlock);
+        genesis = CreateGenesisBlock(1546853016, 414098458, 0x1d00ffff, 1, 50 * COIN, "024bd6909fd1187b356e163b670a1c7c5f70e40d68667e3a64d6321fb780d056c9", signedBlocksCondition);
         consensus.hashGenesisBlock = genesis.GetHash();
 
         vFixedSeeds.clear();
@@ -319,7 +319,7 @@ class CRegTestParams : public CChainParams {
 public:
     CRegTestParams(MultisigCondition condition) {
         strNetworkID = "regtest";
-        signedBlock = condition;
+        signedBlocksCondition = condition;
         consensus.nSubsidyHalvingInterval = 150;
         consensus.BIP16Exception = uint256();
         consensus.BIP34Height = 100000000; // BIP34 has not activated on regtest (far in the future so block v1 are not rejected in tests)
@@ -356,7 +356,7 @@ public:
         nDefaultPort = 18444;
         nPruneAfterHeight = 1000;
 
-        genesis = CreateGenesisBlock(1546853016, 2, 0x207fffff, 1, 50 * COIN, "024bd6909fd1187b356e163b670a1c7c5f70e40d68667e3a64d6321fb780d056c9", signedBlock);
+        genesis = CreateGenesisBlock(1546853016, 2, 0x207fffff, 1, 50 * COIN, "024bd6909fd1187b356e163b670a1c7c5f70e40d68667e3a64d6321fb780d056c9", signedBlocksCondition);
         consensus.hashGenesisBlock = genesis.GetHash();
 
         vFixedSeeds.clear(); //!< Regtest mode doesn't have any fixed seeds.
@@ -403,7 +403,7 @@ std::unique_ptr<CChainParams> CreateChainParams(const std::string& chain)
     std::string pubkeys = gArgs.GetArg("-signblockpubkeys", "");
     int threshold = std::stoi(gArgs.GetArg("-signblockthreshold", "0"));
 
-    MultisigCondition condition = CreateSignedBlockCondition(pubkeys, threshold);
+    MultisigCondition condition = CreateSignedBlocksCondition(pubkeys, threshold);
 
     if (chain == CBaseChainParams::MAIN)
         return std::unique_ptr<CChainParams>(new CMainParams(condition));
