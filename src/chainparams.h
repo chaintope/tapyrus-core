@@ -69,7 +69,7 @@ public:
     const CMessageHeader::MessageStartChars& MessageStart() const { return pchMessageStart; }
     int GetDefaultPort() const { return nDefaultPort; }
 
-    const MultisigCondition GetSignedBlockCondition() const { return signedBlock; }
+    const MultisigCondition GetSignedBlocksCondition() const { return signedBlocksCondition; }
     const CBlock& GenesisBlock() const { return genesis; }
     /** Default value for -checkmempool and -checkblockindex argument */
     bool DefaultConsistencyChecks() const { return fDefaultConsistencyChecks; }
@@ -101,7 +101,7 @@ protected:
     std::vector<unsigned char> base58Prefixes[MAX_BASE58_TYPES];
     std::string bech32_hrp;
     std::string strNetworkID;
-    MultisigCondition signedBlock;
+    MultisigCondition signedBlocksCondition;
     CBlock genesis;
     std::vector<SeedSpec6> vFixedSeeds;
     bool fDefaultConsistencyChecks;

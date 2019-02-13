@@ -260,4 +260,6 @@ public:
     ~ECCVerifyHandle();
 };
 
+CPubKey PubKeyCombine(const std::vector<CPubKey> pubkeys);
+
 #endif // BITCOIN_PUBKEY_H

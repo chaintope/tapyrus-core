@@ -300,3 +300,36 @@ ECCVerifyHandle::~ECCVerifyHandle()
         secp256k1_context_verify = nullptr;
     }
 }
+
+CPubKey PubKeyCombine(const std::vector<CPubKey> pubkeys) {
+    // This row arises warning about variable array length, but now we cannot solve it. Need to change
+    // secp256k1_ec_pubkey_combine interface.
+    secp256k1_pubkey *secp256k1_pubkeys[pubkeys.size()];
+
+    for(unsigned int i = 0; i < pubkeys.size(); i++) {
+        CPubKey key = pubkeys.at(i);
+        secp256k1_pubkey* my_secp256k1_pubkey = new secp256k1_pubkey;
+
+        if (!secp256k1_ec_pubkey_parse(secp256k1_context_verify, my_secp256k1_pubkey, key.data(), key.size())) {
+            throw std::runtime_error("cannot parse\n");
+        }
+
+        secp256k1_pubkeys[i] = my_secp256k1_pubkey;
+    }
+
+    secp256k1_pubkey result;
+    if(!secp256k1_ec_pubkey_combine(secp256k1_context_verify, &result, secp256k1_pubkeys, pubkeys.size())) {
+        throw std::runtime_error("combined pubkey is invalid\n");
+    }
+
+    for(unsigned int i = 0; i < pubkeys.size(); i++) {
+        delete secp256k1_pubkeys[i];
+    }
+
+    unsigned char serializedPubKey[CPubKey::COMPRESSED_PUBLIC_KEY_SIZE];
+    size_t publen = CPubKey::COMPRESSED_PUBLIC_KEY_SIZE;
+    secp256k1_ec_pubkey_serialize(secp256k1_context_verify, serializedPubKey, &publen, &result, SECP256K1_EC_COMPRESSED);
+
+    CPubKey pubkey(serializedPubKey, serializedPubKey + publen);
+    return pubkey;
+}
