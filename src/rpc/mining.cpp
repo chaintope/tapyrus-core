@@ -557,8 +557,9 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
         UniValue deps(UniValue::VARR);
         for (const CTxIn &in : tx.vin)
         {
-            if (setTxIndex.count(in.prevout.hash))
-                deps.push_back(setTxIndex[in.prevout.hash]);
+            //navia: chaining transactions using hashMalfix is not possible 
+            if (setTxIndex.count(in.prevout.hashMalFix))
+                deps.push_back(setTxIndex[in.prevout.hashMalFix]);
         }
         entry.pushKV("depends", deps);
 

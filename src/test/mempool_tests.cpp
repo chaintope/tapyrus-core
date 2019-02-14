@@ -35,7 +35,7 @@ BOOST_AUTO_TEST_CASE(MempoolRemoveTest)
     {
         txChild[i].vin.resize(1);
         txChild[i].vin[0].scriptSig = CScript() << OP_11;
-        txChild[i].vin[0].prevout.hash = txParent.GetHash();
+        txChild[i].vin[0].prevout.hashMalFix = txParent.GetHashMalFix();
         txChild[i].vin[0].prevout.n = i;
         txChild[i].vout.resize(1);
         txChild[i].vout[0].scriptPubKey = CScript() << OP_11 << OP_EQUAL;
@@ -46,7 +46,7 @@ BOOST_AUTO_TEST_CASE(MempoolRemoveTest)
     {
         txGrandChild[i].vin.resize(1);
         txGrandChild[i].vin[0].scriptSig = CScript() << OP_11;
-        txGrandChild[i].vin[0].prevout.hash = txChild[i].GetHash();
+        txGrandChild[i].vin[0].prevout.hashMalFix = txChild[i].GetHashMalFix();
         txGrandChild[i].vin[0].prevout.n = 0;
         txGrandChild[i].vout.resize(1);
         txGrandChild[i].vout[0].scriptPubKey = CScript() << OP_11 << OP_EQUAL;

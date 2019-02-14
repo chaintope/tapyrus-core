@@ -13,12 +13,15 @@
 #include <uint256.h>
 
 static const int SERIALIZE_TRANSACTION_NO_WITNESS = 0x40000000;
+//flag to generate transaction malleability hash from transaction
+static const int SERIALIZE_TRANSACTION_MALFIX     = 0x20000000;
 
 /** An outpoint - a combination of a transaction hash and an index n into its vout */
 class COutPoint
 {
 public:
-    uint256 hash;
+    //tapyrus transaction malleability hash renamed for clarity
+    uint256 hashMalFix;
     uint32_t n;
 
     COutPoint(): n((uint32_t) -1) { }
@@ -28,22 +31,22 @@ public:
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(hash);
+        READWRITE(hashMalFix);
         READWRITE(n);
     }
 
-    void SetNull() { hash.SetNull(); n = (uint32_t) -1; }
-    bool IsNull() const { return (hash.IsNull() && n == (uint32_t) -1); }
+    void SetNull() { hashMalFix.SetNull(); n = (uint32_t) -1; }
+    bool IsNull() const { return (hashMalFix.IsNull() && n == (uint32_t) -1); }
 
     friend bool operator<(const COutPoint& a, const COutPoint& b)
     {
-        int cmp = a.hash.Compare(b.hash);
+        int cmp = a.hashMalFix.Compare(b.hashMalFix);
         return cmp < 0 || (cmp == 0 && a.n < b.n);
     }
 
     friend bool operator==(const COutPoint& a, const COutPoint& b)
     {
-        return (a.hash == b.hash && a.n == b.n);
+        return (a.hashMalFix == b.hashMalFix && a.n == b.n);
     }
 
     friend bool operator!=(const COutPoint& a, const COutPoint& b)
@@ -105,8 +108,11 @@ public:
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
+        const bool fMalFix = s.GetVersion() & SERIALIZE_TRANSACTION_MALFIX;
+        
         READWRITE(prevout);
-        READWRITE(scriptSig);
+        if(!fMalFix)
+            READWRITE(scriptSig);
         READWRITE(nSequence);
     }
 
@@ -287,9 +293,13 @@ private:
     /** Memory only. */
     const uint256 hash;
     const uint256 m_witness_hash;
+    /*Fix transaction malleability hash - created without scriptSig
+     used in previous output in spending transaction */
+    const uint256 hashMalFix;
 
     uint256 ComputeHash() const;
     uint256 ComputeWitnessHash() const;
+    uint256 ComputeHashMalFix() const;
 
 public:
     /** Construct a CTransaction that qualifies as IsNull() */
@@ -315,6 +325,7 @@ public:
 
     const uint256& GetHash() const { return hash; }
     const uint256& GetWitnessHash() const { return m_witness_hash; };
+    const uint256& GetHashMalFix() const { return hashMalFix; }
 
     // Return sum of txouts.
     CAmount GetValueOut() const;
@@ -387,6 +398,7 @@ struct CMutableTransaction
      * fly, as opposed to GetHash() in CTransaction, which uses a cached result.
      */
     uint256 GetHash() const;
+    uint256 GetHashMalFix() const;
 
     bool HasWitness() const
     {

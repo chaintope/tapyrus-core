@@ -542,9 +542,9 @@ static bool CheckInputsFromMempoolAndCache(const CTransaction& tx, CValidationSt
         // and then only have to check equivalence for available inputs.
         if (coin.IsSpent()) return false;
 
-        const CTransactionRef& txFrom = pool.get(txin.prevout.hash);
+        const CTransactionRef& txFrom = pool.get(txin.prevout.hashMalFix);
         if (txFrom) {
-            assert(txFrom->GetHash() == txin.prevout.hash);
+            assert(txFrom->GetHash() == txin.prevout.hashMalFix);
             assert(txFrom->vout.size() > txin.prevout.n);
             assert(txFrom->vout[txin.prevout.n] == coin.out);
         } else {
@@ -856,7 +856,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
                 // feerate junk to be mined first. Ideally we'd keep track of
                 // the ancestor feerates and make the decision based on that,
                 // but for now requiring all new inputs to be confirmed works.
-                if (!setConflictsParents.count(tx.vin[j].prevout.hash))
+                if (!setConflictsParents.count(tx.vin[j].prevout.hashMalFix))
                 {
                     // Rather than check the UTXO set - potentially expensive -
                     // it's cheaper to just check if the new input refers to a
@@ -1017,6 +1017,7 @@ bool GetTransaction(const uint256& hash, CTransactionRef& txOut, const Consensus
         }
 
         if (g_txindex) {
+            //navia: lookup using hashMalfix is not possible
             return g_txindex->FindTx(hash, hashBlock, txOut);
         }
 

@@ -1580,7 +1580,7 @@ int64_t CalculateMaximumSignedTxSize(const CTransaction &tx, const CWallet *wall
     // IsAllFromMe(ISMINE_SPENDABLE), so every input should already be in our
     // wallet, with a valid index into the vout array, and the ability to sign.
     for (auto& input : tx.vin) {
-        const auto mi = wallet->mapWallet.find(input.prevout.hash);
+        const auto mi = wallet->mapWallet.find(input.prevout.hashMalFix);
         if (mi == wallet->mapWallet.end()) {
             return -1;
         }
@@ -2032,7 +2032,7 @@ bool CWalletTx::IsTrusted() const
     for (const CTxIn& txin : tx->vin)
     {
         // Transactions not sent by us: not trusted
-        const CWalletTx* parent = pwallet->GetWalletTx(txin.prevout.hash);
+        const CWalletTx* parent = pwallet->GetWalletTx(txin.prevout.hashMalFix);
         if (parent == nullptr)
             return false;
         const CTxOut& parentOut = parent->tx->vout[txin.prevout.n];
@@ -2404,7 +2404,7 @@ const CTxOut& CWallet::FindNonChangeParentOutput(const CTransaction& tx, int out
     int n = output;
     while (IsChange(ptx->vout[n]) && ptx->vin.size() > 0) {
         const COutPoint& prevout = ptx->vin[0].prevout;
-        auto it = mapWallet.find(prevout.hash);
+        auto it = mapWallet.find(prevout.hashMalFix);
         if (it == mapWallet.end() || it->second.tx->vout.size() <= prevout.n ||
             !IsMine(it->second.tx->vout[prevout.n])) {
             break;
@@ -2563,7 +2563,7 @@ bool CWallet::SignTransaction(CMutableTransaction &tx)
     // sign the new tx
     int nIn = 0;
     for (auto& input : tx.vin) {
-        std::map<uint256, CWalletTx>::const_iterator mi = mapWallet.find(input.prevout.hash);
+        std::map<uint256, CWalletTx>::const_iterator mi = mapWallet.find(input.prevout.hashMalFix);
         if(mi == mapWallet.end() || input.prevout.n >= mi->second.tx->vout.size()) {
             return false;
         }
@@ -3080,7 +3080,7 @@ bool CWallet::CommitTransaction(CTransactionRef tx, mapValue_t mapValue, std::ve
             // Notify that old coins are spent
             for (const CTxIn& txin : wtxNew.tx->vin)
             {
-                CWalletTx &coin = mapWallet.at(txin.prevout.hash);
+                CWalletTx &coin = mapWallet.at(txin.prevout.hashMalFix);
                 coin.BindWallet(this);
                 NotifyTransactionChanged(this, coin.GetHash(), CT_UPDATED);
             }
@@ -3574,7 +3574,7 @@ std::set< std::set<CTxDestination> > CWallet::GetAddressGroupings()
                 CTxDestination address;
                 if(!IsMine(txin)) /* If this input isn't mine, ignore it */
                     continue;
-                if(!ExtractDestination(mapWallet.at(txin.prevout.hash).tx->vout[txin.prevout.n].scriptPubKey, address))
+                if(!ExtractDestination(mapWallet.at(txin.prevout.hashMalFix).tx->vout[txin.prevout.n].scriptPubKey, address))
                     continue;
                 grouping.insert(address);
                 any_mine = true;

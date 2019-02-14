@@ -159,7 +159,7 @@ bool CTxMemPool::CalculateMemPoolAncestors(const CTxMemPoolEntry &entry, setEntr
         // GetMemPoolParents() is only valid for entries in the mempool, so we
         // iterate mapTx to find parents.
         for (unsigned int i = 0; i < tx.vin.size(); i++) {
-            txiter piter = mapTx.find(tx.vin[i].prevout.hash);
+            txiter piter = mapTx.find(tx.vin[i].prevout.hashMalFix);
             if (piter != mapTx.end()) {
                 parentHashes.insert(piter);
                 if (parentHashes.size() + 1 > limitAncestorCount) {
@@ -384,7 +384,7 @@ void CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry,
     std::set<uint256> setParentTransactions;
     for (unsigned int i = 0; i < tx.vin.size(); i++) {
         mapNextTx.insert(std::make_pair(&tx.vin[i].prevout, &tx));
-        setParentTransactions.insert(tx.vin[i].prevout.hash);
+        setParentTransactions.insert(tx.vin[i].prevout.hashMalFix);
     }
     // Don't bother worrying about child transactions of this one.
     // Normal case of a new transaction arriving is that there can't be any
@@ -512,7 +512,7 @@ void CTxMemPool::removeForReorg(const CCoinsViewCache *pcoins, unsigned int nMem
             txToRemove.insert(it);
         } else if (it->GetSpendsCoinbase()) {
             for (const CTxIn& txin : tx.vin) {
-                indexed_transaction_set::const_iterator it2 = mapTx.find(txin.prevout.hash);
+                indexed_transaction_set::const_iterator it2 = mapTx.find(txin.prevout.hashMalFix);
                 if (it2 != mapTx.end())
                     continue;
                 const Coin &coin = pcoins->AccessCoin(txin.prevout);
@@ -644,7 +644,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         int64_t parentSigOpCost = 0;
         for (const CTxIn &txin : tx.vin) {
             // Check that every mempool transaction's inputs refer to available coins, or other mempool tx's.
-            indexed_transaction_set::const_iterator it2 = mapTx.find(txin.prevout.hash);
+            indexed_transaction_set::const_iterator it2 = mapTx.find(txin.prevout.hashMalFix);
             if (it2 != mapTx.end()) {
                 const CTransaction& tx2 = it2->GetTx();
                 assert(tx2.vout.size() > txin.prevout.n && !tx2.vout[txin.prevout.n].IsNull());
@@ -875,7 +875,7 @@ void CTxMemPool::ClearPrioritisation(const uint256 hash)
 bool CTxMemPool::HasNoInputsOf(const CTransaction &tx) const
 {
     for (unsigned int i = 0; i < tx.vin.size(); i++)
-        if (exists(tx.vin[i].prevout.hash))
+        if (exists(tx.vin[i].prevout.hashMalFix))
             return false;
     return true;
 }
@@ -1036,7 +1036,7 @@ void CTxMemPool::TrimToSize(size_t sizelimit, std::vector<COutPoint>* pvNoSpends
         if (pvNoSpendsRemaining) {
             for (const CTransaction& tx : txn) {
                 for (const CTxIn& txin : tx.vin) {
-                    if (exists(txin.prevout.hash)) continue;
+                    if (exists(txin.prevout.hashMalFix)) continue;
                     pvNoSpendsRemaining->push_back(txin.prevout);
                 }
             }

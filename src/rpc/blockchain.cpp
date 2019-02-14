@@ -409,8 +409,9 @@ static void entryToJSON(UniValue &info, const CTxMemPoolEntry &e) EXCLUSIVE_LOCK
     std::set<std::string> setDepends;
     for (const CTxIn& txin : tx.vin)
     {
-        if (mempool.exists(txin.prevout.hash))
-            setDepends.insert(txin.prevout.hash.ToString());
+        //navia: fix mempool search
+        if (mempool.exists(txin.prevout.hashMalFix))
+            setDepends.insert(txin.prevout.hashMalFix.ToString());
     }
 
     UniValue depends(UniValue::VARR);
@@ -1862,7 +1863,8 @@ static UniValue getblockstats(const JSONRPCRequest& request)
             for (const CTxIn& in : tx->vin) {
                 CTransactionRef tx_in;
                 uint256 hashBlock;
-                if (!GetTransaction(in.prevout.hash, tx_in, Params().GetConsensus(), hashBlock, false)) {
+                //navia: fix mempool lookup. block lookup cannot be fixed.
+                if (!GetTransaction(in.prevout.hashMalFix, tx_in, Params().GetConsensus(), hashBlock, false)) {
                     throw JSONRPCError(RPC_INTERNAL_ERROR, std::string("Unexpected internal error (tx index seems corrupt)"));
                 }
 

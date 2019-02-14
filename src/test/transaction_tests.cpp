@@ -327,13 +327,13 @@ BOOST_AUTO_TEST_CASE(test_Get)
 
     CMutableTransaction t1;
     t1.vin.resize(3);
-    t1.vin[0].prevout.hash = dummyTransactions[0].GetHash();
+    t1.vin[0].prevout.hashMalFix = dummyTransactions[0].GetHashMalFix();
     t1.vin[0].prevout.n = 1;
     t1.vin[0].scriptSig << std::vector<unsigned char>(65, 0);
-    t1.vin[1].prevout.hash = dummyTransactions[1].GetHash();
+    t1.vin[1].prevout.hashMalFix = dummyTransactions[1].GetHashMalFix();
     t1.vin[1].prevout.n = 0;
     t1.vin[1].scriptSig << std::vector<unsigned char>(65, 0) << std::vector<unsigned char>(33, 4);
-    t1.vin[2].prevout.hash = dummyTransactions[1].GetHash();
+    t1.vin[2].prevout.hashMalFix = dummyTransactions[1].GetHashMalFix();
     t1.vin[2].prevout.n = 1;
     t1.vin[2].scriptSig << std::vector<unsigned char>(65, 0) << std::vector<unsigned char>(33, 4);
     t1.vout.resize(2);
@@ -365,7 +365,7 @@ static void CreateCreditAndSpend(const CKeyStore& keystore, const CScript& outsc
     CMutableTransaction inputm;
     inputm.nVersion = 1;
     inputm.vin.resize(1);
-    inputm.vin[0].prevout.hash = output->GetHash();
+    inputm.vin[0].prevout.hashMalFix = output->GetHashMalFix();
     inputm.vin[0].prevout.n = 0;
     inputm.vout.resize(1);
     inputm.vout[0].nValue = 1;
@@ -687,7 +687,7 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
 
     CMutableTransaction t;
     t.vin.resize(1);
-    t.vin[0].prevout.hash = dummyTransactions[0].GetHash();
+    t.vin[0].prevout.hashMalFix = dummyTransactions[0].GetHashMalFix();
     t.vin[0].prevout.n = 1;
     t.vin[0].scriptSig << std::vector<unsigned char>(65, 0);
     t.vout.resize(1);
