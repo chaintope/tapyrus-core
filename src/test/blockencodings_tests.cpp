@@ -11,7 +11,7 @@
 #include <test/test_bitcoin.h>
 
 #include <boost/test/unit_test.hpp>
-/* TODO: Re-add later
+
 std::vector<std::pair<uint256, CTransactionRef>> extra_txn;
 
 struct RegtestingSetup : public TestingSetup {
@@ -36,6 +36,7 @@ static CBlock BuildBlockTestCase() {
     tx.vin[0].prevout.hash = InsecureRand256();
     tx.vin[0].prevout.n = 0;
     block.vtx[1] = MakeTransactionRef(tx);
+    block.nTime = 0x5c6e03b8;
 
     tx.vin.resize(10);
     for (size_t i = 0; i < tx.vin.size(); i++) {
@@ -290,6 +291,7 @@ BOOST_AUTO_TEST_CASE(EmptyBlockRoundTripTest)
     block.vtx[0] = MakeTransactionRef(std::move(coinbase));
     block.nVersion = 42;
     block.hashPrevBlock = InsecureRand256();
+    block.nTime = 0x5c6e03b8;
 
     bool mutated;
     block.hashMerkleRoot = BlockMerkleRoot(block, &mutated);
@@ -343,4 +345,3 @@ BOOST_AUTO_TEST_CASE(TransactionsRequestSerializationTest) {
 }
 
 BOOST_AUTO_TEST_SUITE_END()
-*/
