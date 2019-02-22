@@ -9,14 +9,7 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_C_VISIBILITY_PRESET hidden)
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 
-# TODO: Crearfy how to path berkley db path from outside, and turn ON BUILD_BITCOIN_WALLET
-# wallet building requests Berkley DB paths like below, but we need to set pathes from environment variable.
-# set(BDB_PREFIX path/to/berkleydb/installed/place)
-# set(BDB_LIBRARY "${BDB_PREFIX}/lib/libdb.a")
-# set(BDBXX_INCLUDE_DIR "${BDB_PREFIX}/include")
-# set(BDBXX_LIBRARY "${BDB_PREFIX}/lib/libdb_cxx.a")
-option(BUILD_BITCOIN_WALLET "Activate the wallet functionality" OFF)
-
+option(BUILD_BITCOIN_WALLET "Activate the wallet functionality" ON)
 option(BUILD_BITCOIN_ZMQ "Activate the ZeroMQ functionalities" ON)
 option(BUILD_BITCOIN_SEEDER "Build bitcoin-seeder" ON)
 option(BUILD_BITCOIN_CLI "Build bitcoin-cli" ON)
