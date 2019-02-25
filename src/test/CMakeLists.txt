@@ -58,6 +58,7 @@ add_test_to_suite(bitcoin test_bitcoin
 		bloom_tests.cpp
 		bswap_tests.cpp
 		chainparams_tests.cpp
+		chainparamsbase_tests.cpp
 		checkqueue_tests.cpp
 		coins_tests.cpp
 		compress_tests.cpp
