@@ -13,7 +13,7 @@ add_executable(bitcoin-bench
 #	checkblock.cpp TODO Fix including bench/data/*.raw files
 	checkqueue.cpp
 	crypto_hash.cpp
-	Examples.cpp
+	examples.cpp
 	lockedpool.cpp
 	mempool_eviction.cpp
 	prevector.cpp
