@@ -645,7 +645,6 @@ struct PartiallySignedTransaction
             inputs.push_back(input);
 
             // Make sure the non-witness utxo matches the outpoint
-            //navia: further research
             if (input.non_witness_utxo && input.non_witness_utxo->GetHashMalFix() != tx->vin[i].prevout.hashMalFix) {
                 throw std::ios_base::failure("Non-witness UTXO does not match outpoint hash");
             }

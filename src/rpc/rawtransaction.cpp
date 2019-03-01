@@ -663,7 +663,6 @@ static UniValue decodescript(const JSONRPCRequest& request)
 static void TxInErrorToJSON(const CTxIn& txin, UniValue& vErrorsRet, const std::string& strMessage)
 {
     UniValue entry(UniValue::VOBJ);
-    //navia: trivial
     entry.pushKV("txid", txin.prevout.hashMalFix.ToString());
     entry.pushKV("vout", (uint64_t)txin.prevout.n);
     UniValue witness(UniValue::VARR);
