@@ -209,7 +209,7 @@ public:
     bool isLockedCoin(const COutPoint& output) override
     {
         LOCK2(cs_main, m_wallet.cs_wallet);
-        return m_wallet.IsLockedCoin(output.hash, output.n);
+        return m_wallet.IsLockedCoin(output.hashMalFix, output.n);
     }
     void listLockedCoins(std::vector<COutPoint>& outputs) override
     {
@@ -401,7 +401,7 @@ public:
         result.reserve(outputs.size());
         for (const auto& output : outputs) {
             result.emplace_back();
-            auto it = m_wallet.mapWallet.find(output.hash);
+            auto it = m_wallet.mapWallet.find(output.hashMalFix);
             if (it != m_wallet.mapWallet.end()) {
                 int depth = it->second.GetDepthInMainChain();
                 if (depth >= 0) {
