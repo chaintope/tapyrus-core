@@ -23,7 +23,7 @@ public:
         if (i >= tx->vout.size())
             throw std::out_of_range("The output index is out of range");
 
-        outpoint = COutPoint(tx->GetHash(), i);
+        outpoint = COutPoint(tx->GetHashMalFix(), i);
         txout = tx->vout[i];
         effective_value = txout.nValue;
     }

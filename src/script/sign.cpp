@@ -248,7 +248,7 @@ bool SignPSBTInput(const SigningProvider& provider, const CMutableTransaction& t
     CTxOut utxo;
     if (input.non_witness_utxo) {
         // If we're taking our information from a non-witness UTXO, verify that it matches the prevout.
-        if (input.non_witness_utxo->GetHash() != tx.vin[index].prevout.hashMalFix) return false;
+        if (input.non_witness_utxo->GetHashMalFix() != tx.vin[index].prevout.hashMalFix) return false;
         // If both witness and non-witness UTXO are provided, verify that they match. This check shouldn't
         // matter, as the PSBT deserializer enforces only one of both is provided, and the only way both
         // can be present is when they're added simultaneously by FillPSBT (in which case they always match).

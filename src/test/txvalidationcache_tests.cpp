@@ -230,7 +230,7 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChain100Setup)
         CMutableTransaction invalid_under_p2sh_tx;
         invalid_under_p2sh_tx.nVersion = 1;
         invalid_under_p2sh_tx.vin.resize(1);
-        invalid_under_p2sh_tx.vin[0].prevout.hash = spend_tx.GetHash();
+        invalid_under_p2sh_tx.vin[0].prevout.hashMalFix = spend_tx.GetHashMalFix();
         invalid_under_p2sh_tx.vin[0].prevout.n = 0;
         invalid_under_p2sh_tx.vout.resize(1);
         invalid_under_p2sh_tx.vout[0].nValue = 11*CENT;

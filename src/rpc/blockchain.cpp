@@ -137,7 +137,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
             txs.push_back(objTx);
         }
         else
-            txs.push_back(tx->GetHash().GetHex());
+            txs.push_back(tx->GetHashMalFix().GetHex());
     }
     result.pushKV("tx", txs);
     result.pushKV("time", block.GetBlockTime());
@@ -423,10 +423,10 @@ static void entryToJSON(UniValue &info, const CTxMemPoolEntry &e) EXCLUSIVE_LOCK
     info.pushKV("depends", depends);
 
     UniValue spent(UniValue::VARR);
-    const CTxMemPool::txiter &it = mempool.mapTx.find(tx.GetHash());
+    const CTxMemPool::txiter &it = mempool.mapTx.find(tx.GetHashMalFix());
     const CTxMemPool::setEntries &setChildren = mempool.GetMemPoolChildren(it);
     for (const CTxMemPool::txiter &childiter : setChildren) {
-        spent.push_back(childiter->GetTx().GetHash().ToString());
+        spent.push_back(childiter->GetTx().GetHashMalFix().ToString());
     }
 
     info.pushKV("spentby", spent);
@@ -440,7 +440,7 @@ UniValue mempoolToJSON(bool fVerbose)
         UniValue o(UniValue::VOBJ);
         for (const CTxMemPoolEntry& e : mempool.mapTx)
         {
-            const uint256& hash = e.GetTx().GetHash();
+            const uint256& hash = e.GetTx().GetHashMalFix();
             UniValue info(UniValue::VOBJ);
             entryToJSON(info, e);
             o.pushKV(hash.ToString(), info);
@@ -539,7 +539,7 @@ static UniValue getmempoolancestors(const JSONRPCRequest& request)
     if (!fVerbose) {
         UniValue o(UniValue::VARR);
         for (CTxMemPool::txiter ancestorIt : setAncestors) {
-            o.push_back(ancestorIt->GetTx().GetHash().ToString());
+            o.push_back(ancestorIt->GetTx().GetHashMalFix().ToString());
         }
 
         return o;
@@ -547,7 +547,7 @@ static UniValue getmempoolancestors(const JSONRPCRequest& request)
         UniValue o(UniValue::VOBJ);
         for (CTxMemPool::txiter ancestorIt : setAncestors) {
             const CTxMemPoolEntry &e = *ancestorIt;
-            const uint256& _hash = e.GetTx().GetHash();
+            const uint256& _hash = e.GetTx().GetHashMalFix();
             UniValue info(UniValue::VOBJ);
             entryToJSON(info, e);
             o.pushKV(_hash.ToString(), info);
@@ -603,7 +603,7 @@ static UniValue getmempooldescendants(const JSONRPCRequest& request)
     if (!fVerbose) {
         UniValue o(UniValue::VARR);
         for (CTxMemPool::txiter descendantIt : setDescendants) {
-            o.push_back(descendantIt->GetTx().GetHash().ToString());
+            o.push_back(descendantIt->GetTx().GetHashMalFix().ToString());
         }
 
         return o;
@@ -611,7 +611,7 @@ static UniValue getmempooldescendants(const JSONRPCRequest& request)
         UniValue o(UniValue::VOBJ);
         for (CTxMemPool::txiter descendantIt : setDescendants) {
             const CTxMemPoolEntry &e = *descendantIt;
-            const uint256& _hash = e.GetTx().GetHash();
+            const uint256& _hash = e.GetTx().GetHashMalFix();
             UniValue info(UniValue::VOBJ);
             entryToJSON(info, e);
             o.pushKV(_hash.ToString(), info);
@@ -891,11 +891,11 @@ static bool GetUTXOStats(CCoinsView *view, CCoinsStats &stats)
         COutPoint key;
         Coin coin;
         if (pcursor->GetKey(key) && pcursor->GetValue(coin)) {
-            if (!outputs.empty() && key.hash != prevkey) {
+            if (!outputs.empty() && key.hashMalFix != prevkey) {
                 ApplyStats(stats, ss, prevkey, outputs);
                 outputs.clear();
             }
-            prevkey = key.hash;
+            prevkey = key.hashMalFix;
             outputs[key.n] = std::move(coin);
         } else {
             return error("%s: unable to read value", __func__);
@@ -1987,7 +1987,7 @@ bool FindScriptPubKey(std::atomic<int>& scan_progress, const std::atomic<bool>& 
         }
         if (count % 256 == 0) {
             // update progress reference every 256 item
-            uint32_t high = 0x100 * *key.hash.begin() + *(key.hash.begin() + 1);
+            uint32_t high = 0x100 * *key.hashMalFix.begin() + *(key.hashMalFix.begin() + 1);
             scan_progress = (int)(high * 100.0 / 65536.0 + 0.5);
         }
         if (needles.count(coin.out.scriptPubKey)) {
@@ -2165,7 +2165,7 @@ UniValue scantxoutset(const JSONRPCRequest& request)
             total_in += txo.nValue;
 
             UniValue unspent(UniValue::VOBJ);
-            unspent.pushKV("txid", outpoint.hash.GetHex());
+            unspent.pushKV("txid", outpoint.hashMalFix.GetHex());
             unspent.pushKV("vout", (int32_t)outpoint.n);
             unspent.pushKV("scriptPubKey", HexStr(txo.scriptPubKey.begin(), txo.scriptPubKey.end()));
             unspent.pushKV("amount", ValueFromAmount(txo.nValue));

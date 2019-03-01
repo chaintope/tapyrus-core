@@ -25,7 +25,7 @@ public:
     uint32_t n;
 
     COutPoint(): n((uint32_t) -1) { }
-    COutPoint(const uint256& hashIn, uint32_t nIn): hash(hashIn), n(nIn) { }
+    COutPoint(const uint256& hashIn, uint32_t nIn): hashMalFix(hashIn), n(nIn) { }
 
     ADD_SERIALIZE_METHODS;
 

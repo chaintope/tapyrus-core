@@ -285,7 +285,7 @@ static UniValue gettxoutproof(const JSONRPCRequest& request)
 
     unsigned int ntxFound = 0;
     for (const auto& tx : block.vtx)
-        if (setTxids.count(tx->GetHash()))
+        if (setTxids.count(tx->GetHashMalFix()))
             ntxFound++;
     if (ntxFound != setTxids.size())
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Not all transactions found in specified or retrieved block");
@@ -1113,7 +1113,7 @@ static UniValue sendrawtransaction(const JSONRPCRequest& request)
     if (!DecodeHexTx(mtx, request.params[0].get_str()))
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
     CTransactionRef tx(MakeTransactionRef(std::move(mtx)));
-    const uint256& hashTx = tx->GetHash();
+    const uint256& hashTx = tx->GetHashMalFix();
 
     CAmount nMaxRawTxFee = maxTxFee;
     if (!request.params[1].isNull() && request.params[1].get_bool())
@@ -1221,7 +1221,7 @@ static UniValue testmempoolaccept(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
     }
     CTransactionRef tx(MakeTransactionRef(std::move(mtx)));
-    const uint256& tx_hash = tx->GetHash();
+    const uint256& tx_hash = tx->GetHashMalFix();
 
     CAmount max_raw_tx_fee = ::maxTxFee;
     if (!request.params[1].isNull() && request.params[1].get_bool()) {

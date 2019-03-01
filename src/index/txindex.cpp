@@ -249,7 +249,7 @@ bool TxIndex::WriteBlock(const CBlock& block, const CBlockIndex* pindex)
     std::vector<std::pair<uint256, CDiskTxPos>> vPos;
     vPos.reserve(block.vtx.size());
     for (const auto& tx : block.vtx) {
-        vPos.emplace_back(tx->GetHash(), pos);
+        vPos.emplace_back(tx->GetHashMalFix(), pos);
         pos.nTxOffset += ::GetSerializeSize(*tx, SER_DISK, CLIENT_VERSION);
     }
     return m_db->WriteTxs(vPos);
@@ -278,7 +278,7 @@ bool TxIndex::FindTx(const uint256& tx_hash, uint256& block_hash, CTransactionRe
     } catch (const std::exception& e) {
         return error("%s: Deserialize or I/O error - %s", __func__, e.what());
     }
-    if (tx->GetHash() != tx_hash) {
+    if (tx->GetHashMalFix() != tx_hash) {
         return error("%s: txid mismatch", __func__);
     }
     block_hash = header.GetHash();

@@ -236,7 +236,7 @@ void BlockAssembler::AddToBlock(CTxMemPool::txiter iter)
     if (fPrintPriority) {
         LogPrintf("fee %s txid %s\n",
                   CFeeRate(iter->GetModifiedFee(), iter->GetTxSize()).ToString(),
-                  iter->GetTx().GetHash().ToString());
+                  iter->GetTx().GetHashMalFix().ToString());
     }
 }
 

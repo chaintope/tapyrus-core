@@ -319,7 +319,7 @@ BOOST_AUTO_TEST_CASE(updatecoins_simulation_test)
                     duplicate_coins.insert(utxod->first);
                 }
                 else {
-                    coinbase_coins.insert(COutPoint(tx.GetHash(), 0));
+                    coinbase_coins.insert(COutPoint(tx.GetHashMalFix(), 0));
                 }
                 assert(CTransaction(tx).IsCoinBase());
             }
@@ -371,7 +371,7 @@ BOOST_AUTO_TEST_CASE(updatecoins_simulation_test)
             }
             // Update the expected result to know about the new output coins
             assert(tx.vout.size() == 1);
-            const COutPoint outpoint(tx.GetHash(), 0);
+            const COutPoint outpoint(tx.GetHashMalFix(), 0);
             result[outpoint] = Coin(tx.vout[0], height, CTransaction(tx).IsCoinBase());
 
             // Call UpdateCoins on the top cache

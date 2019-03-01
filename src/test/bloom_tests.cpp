@@ -152,7 +152,7 @@ BOOST_AUTO_TEST_CASE(bloom_match)
     COutPoint prevOutPoint(uint256S("0x90c122d70786e899529d71dbeba91ba216982fb6ba58f3bdaab65e73b7e9260b"), 0);
     {
         std::vector<unsigned char> data(32 + sizeof(unsigned int));
-        memcpy(data.data(), prevOutPoint.hash.begin(), 32);
+        memcpy(data.data(), prevOutPoint.hashMalFix.begin(), 32);
         memcpy(data.data()+32, &prevOutPoint.n, sizeof(unsigned int));
         filter.insert(data);
     }

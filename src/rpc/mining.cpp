@@ -542,7 +542,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     int i = 0;
     for (const auto& it : pblock->vtx) {
         const CTransaction& tx = *it;
-        uint256 txHash = tx.GetHash();
+        uint256 txHash = tx.GetHashMalFix();
         setTxIndex[txHash] = i++;
 
         if (tx.IsCoinBase())
