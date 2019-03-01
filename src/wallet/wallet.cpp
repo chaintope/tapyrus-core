@@ -2381,7 +2381,7 @@ std::map<CTxDestination, std::vector<COutput>> CWallet::ListCoins() const
     std::vector<COutPoint> lockedCoins;
     ListLockedCoins(lockedCoins);
     for (const auto& output : lockedCoins) {
-        auto it = mapWallet.find(output.hash);
+        auto it = mapWallet.find(output.hashMalFix);
         if (it != mapWallet.end()) {
             int depth = it->second.GetDepthInMainChain();
             if (depth >= 0 && output.n < it->second.tx->vout.size() &&
