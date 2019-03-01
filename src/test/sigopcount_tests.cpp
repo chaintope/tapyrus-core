@@ -61,6 +61,30 @@ BOOST_AUTO_TEST_CASE(GetSigOpCount)
     CScript scriptSig2;
     scriptSig2 << OP_1 << ToByteVector(dummy) << ToByteVector(dummy) << Serialize(s2);
     BOOST_CHECK_EQUAL(p2sh.GetSigOpCount(scriptSig2), 3U);
+
+    CScript s3 = CScript() << OP_IF << OP_CHECKDATASIG << OP_ENDIF;
+    BOOST_CHECK_EQUAL(s3.GetSigOpCount(true), 1U);
+    BOOST_CHECK_EQUAL(s3.GetSigOpCount(false), 1U);
+
+    p2sh = GetScriptForDestination(CScriptID(s3));
+    BOOST_CHECK_EQUAL(p2sh.GetSigOpCount(true), 0U);
+    BOOST_CHECK_EQUAL(p2sh.GetSigOpCount(false), 0U);
+
+    s3 = CScript(s1) << OP_IF << OP_CHECKDATASIG << OP_ENDIF;
+    BOOST_CHECK_EQUAL(s3.GetSigOpCount(true), 4U);
+    BOOST_CHECK_EQUAL(s3.GetSigOpCount(false), 22U);
+
+    p2sh = GetScriptForDestination(CScriptID(s3));
+    BOOST_CHECK_EQUAL(p2sh.GetSigOpCount(true), 0U);
+    BOOST_CHECK_EQUAL(p2sh.GetSigOpCount(false), 0U);
+
+    s3 << OP_CHECKDATASIGVERIFY;
+    BOOST_CHECK_EQUAL(s3.GetSigOpCount(true), 5U);
+    BOOST_CHECK_EQUAL(s3.GetSigOpCount(false), 23U);
+
+    p2sh = GetScriptForDestination(CScriptID(s3));
+    BOOST_CHECK_EQUAL(p2sh.GetSigOpCount(true), 0U);
+    BOOST_CHECK_EQUAL(p2sh.GetSigOpCount(false), 0U);
 }
 
 /**
@@ -226,6 +250,44 @@ BOOST_AUTO_TEST_CASE(GetTxSigOpCost)
         BuildTxs(spendingTx, coins, creationTx, scriptPubKey, scriptSig, scriptWitness);
         assert(GetTransactionSigOpCost(CTransaction(spendingTx), coins, flags) == 2);
         assert(VerifyWithFlag(creationTx, spendingTx, flags) == SCRIPT_ERR_CHECKMULTISIGVERIFY);
+    }
+    // OP_CHECKDATASIG 
+        {
+        const unsigned char vchKey[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0};
+        CKey keyC;
+        keyC.Set(vchKey, vchKey + 32, true);
+        CPubKey pubkeyC = keyC.GetPubKey();
+
+        CScript scriptPubKey = CScript() << ToByteVector(pubkeyC) << OP_CHECKDATASIGVERIFY << OP_TRUE;
+        CScript scriptSig = CScript() << OP_0 << OP_0;
+
+        BuildTxs(spendingTx, coins, creationTx, scriptPubKey, scriptSig, CScriptWitness());
+
+        BOOST_CHECK_EQUAL(GetTransactionSigOpCost(CTransaction(spendingTx), coins, flags), 0);
+
+        BOOST_CHECK_EQUAL(GetTransactionSigOpCost(CTransaction(creationTx), coins, flags),  4);
+
+        BOOST_CHECK_EQUAL(VerifyWithFlag(creationTx, spendingTx, flags) ,SCRIPT_ERR_CHECKDATASIGVERIFY);
+    }
+    // OP_CHECKDATASIG nested in P2SH
+    {
+        const unsigned char vchKey[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0};
+        CKey keyC;
+        keyC.Set(vchKey, vchKey + 32, true);
+        CPubKey pubkeyC = keyC.GetPubKey();
+
+        CScript redeemScript = CScript() << ToByteVector(pubkeyC) << OP_CHECKDATASIGVERIFY << OP_TRUE;
+        CScript scriptPubKey = GetScriptForDestination(CScriptID(redeemScript));
+        CScript scriptSig = CScript() << OP_0 << OP_0 << ToByteVector(redeemScript);
+
+        BuildTxs(spendingTx, coins, creationTx, scriptPubKey, scriptSig, CScriptWitness());
+
+        BOOST_CHECK_EQUAL(GetTransactionSigOpCost(CTransaction(spendingTx), coins, flags) , 4);
+
+        // No change in the cost without SCRIPT_VERIFY_WITNESS flag.
+        BOOST_CHECK_EQUAL(GetTransactionSigOpCost(CTransaction(spendingTx), coins, flags & ~SCRIPT_VERIFY_WITNESS), 4);
+
+        BOOST_CHECK_EQUAL(VerifyWithFlag(creationTx, spendingTx, flags) , SCRIPT_ERR_CHECKDATASIGVERIFY);
     }
 }
 

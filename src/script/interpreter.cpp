@@ -103,8 +103,12 @@ bool static IsCompressedPubKey(const valtype &vchPubKey) {
  * See https://bitcointalk.org/index.php?topic=8392.msg127623#msg127623
  *
  * This function is consensus-critical since BIP66.
+ * 
+ * Parameter dataSignature added for use with OP_CHECKDATASIG
+ * In signatures that are input of OP_CHECKDATASIG 
+ * there is no <hashtype> byte
  */
-bool static IsValidSignatureEncoding(const std::vector<unsigned char> &sig) {
+bool static IsValidSignatureEncoding(const std::vector<unsigned char> &sig, bool dataSignature = false) {
     // Format: 0x30 [total-length] 0x02 [R-length] [R] 0x02 [S-length] [S] [sighash]
     // * total-length: 1-byte length descriptor of everything that follows,
     //   excluding the sighash byte.
@@ -117,15 +121,18 @@ bool static IsValidSignatureEncoding(const std::vector<unsigned char> &sig) {
     // * sighash: 1-byte value indicating what data is hashed (not part of the DER
     //   signature)
 
+    const unsigned int numparts = dataSignature ? 8 : 9;
+    const unsigned int size = dataSignature ? 72 : 73;
+
     // Minimum and maximum size constraints.
-    if (sig.size() < 9) return false;
-    if (sig.size() > 73) return false;
+    if (sig.size() < numparts) return false;
+    if (sig.size() > size) return false;
 
     // A signature is of type 0x30 (compound).
     if (sig[0] != 0x30) return false;
 
     // Make sure the length covers the entire signature.
-    if (sig[1] != sig.size() - 3) return false;
+    if (sig[1] != sig.size() - (dataSignature ? 2 : 3)) return false;
 
     // Extract the length of the R element.
     unsigned int lenR = sig[3];
@@ -138,7 +145,7 @@ bool static IsValidSignatureEncoding(const std::vector<unsigned char> &sig) {
 
     // Verify that the length of the signature matches the sum of the length
     // of the elements.
-    if ((size_t)(lenR + lenS + 7) != sig.size()) return false;
+    if ((size_t)(lenR + lenS +  (dataSignature ? 6 : 7)) != sig.size()) return false;
 
     // Check whether the R element is an integer.
     if (sig[2] != 0x02) return false;
@@ -169,14 +176,21 @@ bool static IsValidSignatureEncoding(const std::vector<unsigned char> &sig) {
     return true;
 }
 
-bool static IsLowDERSignature(const valtype &vchSig, ScriptError* serror) {
-    if (!IsValidSignatureEncoding(vchSig)) {
+/*
+ * Parameter dataSignature added for use with OP_CHECKDATASIG
+ * In signatures that are input of OP_CHECKDATASIG 
+ * there is no <hashtype> byte
+ */
+  
+bool static IsLowDERSignature(const valtype &vchSig, ScriptError* serror, bool dataSignature = false) {
+
+    if ( !IsValidSignatureEncoding(vchSig, dataSignature)) {
         return set_error(serror, SCRIPT_ERR_SIG_DER);
     }
     // https://bitcoin.stackexchange.com/a/12556:
     //     Also note that inside transaction signatures, an extra hashtype byte
     //     follows the actual signature data.
-    std::vector<unsigned char> vchSigCopy(vchSig.begin(), vchSig.begin() + vchSig.size() - 1);
+    std::vector<unsigned char> vchSigCopy(vchSig.begin(), dataSignature ? vchSig.begin() + vchSig.size() : vchSig.begin() + vchSig.size() - 1 );
     // If the S value is above the order of the curve divided by two, its
     // complement modulo the order could have been used instead, which is
     // one byte shorter when encoded correctly.
@@ -197,18 +211,24 @@ bool static IsDefinedHashtypeSignature(const valtype &vchSig) {
     return true;
 }
 
-bool CheckSignatureEncoding(const std::vector<unsigned char> &vchSig, unsigned int flags, ScriptError* serror) {
+bool CheckSignatureEncoding(const std::vector<unsigned char> &vchSig, unsigned int flags, ScriptError* serror, bool datasignature) {
     // Empty signature. Not strictly DER encoded, but allowed to provide a
     // compact way to provide an invalid signature for use with CHECK(MULTI)SIG
     if (vchSig.size() == 0) {
         return true;
     }
-    if ((flags & (SCRIPT_VERIFY_DERSIG | SCRIPT_VERIFY_LOW_S | SCRIPT_VERIFY_STRICTENC)) != 0 && !IsValidSignatureEncoding(vchSig)) {
+
+    if ((flags & (SCRIPT_VERIFY_DERSIG | SCRIPT_VERIFY_LOW_S | SCRIPT_VERIFY_STRICTENC)) != 0 
+        && !IsValidSignatureEncoding(vchSig, datasignature) )
+    {
         return set_error(serror, SCRIPT_ERR_SIG_DER);
-    } else if ((flags & SCRIPT_VERIFY_LOW_S) != 0 && !IsLowDERSignature(vchSig, serror)) {
+    } 
+    else if ((flags & SCRIPT_VERIFY_LOW_S) != 0 && !IsLowDERSignature(vchSig, serror, datasignature)) {
         // serror is set
         return false;
-    } else if ((flags & SCRIPT_VERIFY_STRICTENC) != 0 && !IsDefinedHashtypeSignature(vchSig)) {
+    } 
+    else if (!datasignature && (flags & SCRIPT_VERIFY_STRICTENC) != 0 && !IsDefinedHashtypeSignature(vchSig)) 
+    {
         return set_error(serror, SCRIPT_ERR_SIG_HASHTYPE);
     }
     return true;
@@ -952,6 +972,52 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                     }
                 }
                 break;
+
+                case OP_CHECKDATASIG:
+                case OP_CHECKDATASIGVERIFY: {
+                    // (sig message pubkey -- bool)
+                    if (stack.size() < 3) {
+                        return set_error(
+                            serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+                    }
+
+                    valtype &vchSig = stacktop(-3);
+                    valtype &vchMessage = stacktop(-2);
+                    valtype &vchPubKey = stacktop(-1);
+
+                    //check signature encoding without hashtype byte
+                    if (!CheckSignatureEncoding(vchSig, flags, serror, true) ||
+                        !CheckPubKeyEncoding(vchPubKey, flags, sigversion, serror)) {
+                        // serror is set
+                        return false;
+                    }
+
+                    bool fSuccess = false;
+                    if (vchSig.size()) {
+                        valtype vchHash(32);
+                        //Hash message
+                        CSHA256().Write(vchMessage.data(), vchMessage.size())
+                            .Finalize(vchHash.data());
+                        //no hashtype in signature. call VerifySignature not CheckSig
+                        fSuccess = checker.VerifySignature(vchSig, CPubKey(vchPubKey), uint256(vchHash));
+                    }
+
+                    if (!fSuccess && (flags & SCRIPT_VERIFY_NULLFAIL) && vchSig.size()) {
+                        return set_error(serror, SCRIPT_ERR_SIG_NULLFAIL);
+                    }
+
+                    popstack(stack);
+                    popstack(stack);
+                    popstack(stack);
+                    stack.push_back(fSuccess ? vchTrue : vchFalse);
+                    if (opcode == OP_CHECKDATASIGVERIFY) {
+                        if (fSuccess) {
+                            popstack(stack);
+                        } else {
+                            return set_error(serror, SCRIPT_ERR_CHECKDATASIGVERIFY);
+                        }
+                    }
+                } break;
 
                 case OP_CHECKMULTISIG:
                 case OP_CHECKMULTISIGVERIFY:
