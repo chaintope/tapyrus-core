@@ -224,6 +224,10 @@ OP_NOP8 = CScriptOp(0xb7)
 OP_NOP9 = CScriptOp(0xb8)
 OP_NOP10 = CScriptOp(0xb9)
 
+# tapyrus check data signature
+OP_CHECKDATASIG = CScriptOp(0xba)
+OP_CHECKDATASIGVERIFY = CScriptOp(0xbb)
+
 # template matching params
 OP_SMALLINTEGER = CScriptOp(0xfa)
 OP_PUBKEYS = CScriptOp(0xfb)
@@ -344,6 +348,8 @@ OPCODE_NAMES.update({
     OP_NOP8 : 'OP_NOP8',
     OP_NOP9 : 'OP_NOP9',
     OP_NOP10 : 'OP_NOP10',
+    OP_CHECKDATASIG: 'OP_CHECKDATASIG',
+    OP_CHECKDATASIGVERIFY: 'OP_CHECKDATASIGVERIFY',
     OP_SMALLINTEGER : 'OP_SMALLINTEGER',
     OP_PUBKEYS : 'OP_PUBKEYS',
     OP_PUBKEYHASH : 'OP_PUBKEYHASH',
@@ -554,7 +560,7 @@ class CScript(bytes):
         n = 0
         lastOpcode = OP_INVALIDOPCODE
         for (opcode, data, sop_idx) in self.raw_iter():
-            if opcode in (OP_CHECKSIG, OP_CHECKSIGVERIFY):
+            if opcode in (OP_CHECKSIG, OP_CHECKSIGVERIFY, OP_CHECKDATASIG, OP_CHECKDATASIGVERIFY):
                 n += 1
             elif opcode in (OP_CHECKMULTISIG, OP_CHECKMULTISIGVERIFY):
                 if fAccurate and (OP_1 <= lastOpcode <= OP_16):
