@@ -25,16 +25,14 @@ pipelines:
           - RUN_TESTS=true
           - RUN_BENCH=true
           - GOAL="install"
-          - BITCOIN_CONFIG="--enable-zmq --with-gui=qt5 --enable-glibc-back-compat --enable-reduce-exports --enable-debug CXXFLAGS=\"-g0 -O2\""
+          - BITCOIN_CONFIG="--enable-zmq --with-gui=qt5 --enable-glibc-back-compat --enable-reduce-exports --enable-debug"
+          - CXXFLAGS="-g0 -O2" # configure argument
           # Before Install
           - echo "Before Install"
           - RETRY() { for i in {1..3};do $*&&break;sleep 1;done }
           - export PATH=$(echo $PATH | tr ':' "\n" | sed '/\/opt\/python/d' | tr "\n" ":" | sed "s|::|:|g")
           - echo "Install"
           - env | grep -E '^(CCACHE_|WINEDEBUG|LC_ALL|BOOST_TEST_RANDOM|CONFIG_SHELL)' | tee /tmp/env
-#          - if [[ $HOST = *-mingw32 ]]; then DOCKER_ADMIN="--cap-add SYS_ADMIN"; fi
-#          - DOCKER_ID=$(docker run $DOCKER_ADMIN -idt -v="$BITBUCKET_CLONE_DIR:$BITBUCKET_CLONE_DIR" -v="$CCACHE_DIR:$CCACHE_DIR" -w ${BITBUCKET_CLONE_DIR} --env-file /tmp/env $DOCKER_NAME_TAG)
-#          - DOCKER_EXEC () { docker exec $DOCKER_ID bash -c "cd $PWD && $*"; }
           - if [ -n "$DPKG_ADD_ARCH" ]; then dpkg --add-architecture "$DPKG_ADD_ARCH" ; fi
           - RETRY apt-get update
           - RETRY apt-get install --no-install-recommends --no-upgrade -qq $PACKAGES $BUILD_PACKAGES
