@@ -32,8 +32,11 @@ public:
         READWRITE(n);
     }
 
-    void SetNull() { hash.SetNull(); n = (uint32_t) -1; }
-    bool IsNull() const { return (hash.IsNull() && n == (uint32_t) -1); }
+    /* tapyrus coinbase transactions set only the hash to null.
+     * n is set to block height
+     */
+    void SetNull() { hash.SetNull(); }
+    bool IsNull() const { return hash.IsNull(); }
 
     friend bool operator<(const COutPoint& a, const COutPoint& b)
     {

@@ -25,6 +25,7 @@ static CBlock BuildBlockTestCase() {
     CMutableTransaction tx;
     tx.vin.resize(1);
     tx.vin[0].scriptSig.resize(10);
+    tx.vin[0].prevout.n = 1;
     tx.vout.resize(1);
     tx.vout[0].nValue = 42;
 
@@ -283,6 +284,7 @@ BOOST_AUTO_TEST_CASE(EmptyBlockRoundTripTest)
     CMutableTransaction coinbase;
     coinbase.vin.resize(1);
     coinbase.vin[0].scriptSig.resize(10);
+    coinbase.vin[0].prevout.n = 1;
     coinbase.vout.resize(1);
     coinbase.vout[0].nValue = 42;
 

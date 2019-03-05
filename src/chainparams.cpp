@@ -83,6 +83,7 @@ static CBlock CreateGenesisBlock(uint32_t nTime, uint32_t nNonce, uint32_t nBits
     txNew.nVersion = 1;
     txNew.vin.resize(1);
     txNew.vout.resize(1);
+    txNew.vin[0].prevout.n = 0;
     txNew.vin[0].scriptSig = CScript() << CScriptNum(condition.threshold) << std::vector<unsigned char>(pubKey.data(), pubKey.data() + publen);
     txNew.vout[0].nValue = genesisReward;
     txNew.vout[0].scriptPubKey = genesisOutputScript;
