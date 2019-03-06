@@ -35,8 +35,11 @@ public:
         READWRITE(n);
     }
 
-    void SetNull() { hashMalFix.SetNull(); n = (uint32_t) -1; }
-    bool IsNull() const { return (hashMalFix.IsNull() && n == (uint32_t) -1); }
+    /* tapyrus coinbase transactions set only the hash to null.
+     * n is set to block height
+     */
+    void SetNull() { hashMalFix.SetNull(); }
+    bool IsNull() const { return hashMalFix.IsNull(); }
 
     friend bool operator<(const COutPoint& a, const COutPoint& b)
     {

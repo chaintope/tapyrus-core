@@ -308,6 +308,8 @@ BOOST_AUTO_TEST_CASE(updatecoins_simulation_test)
 
             // 2/20 times create a new coinbase
             if (randiter % 20 < 2 || coinbase_coins.size() < 10) {
+                tx.vin[0].prevout.n = height;
+
                 // 1/10 of those times create a duplicate coinbase
                 if (InsecureRandRange(10) == 0 && coinbase_coins.size()) {
                     auto utxod = FindRandomFrom(coinbase_coins);
