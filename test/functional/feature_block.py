@@ -572,14 +572,7 @@ class FullBlockTest(BitcoinTestFramework):
         self.blocks[46] = b46
         self.sync_blocks([b46], False, 16, b'bad-blk-length', reconnect=True)
 
-        self.log.info("Reject a block with invalid work")
-        self.move_tip(44)
-        b47 = self.next_block(47, solve=False)
-        target = uint256_from_compact(b47.nBits)
-        while b47.sha256 < target:
-            b47.nNonce += 1
-            b47.rehash()
-        self.sync_blocks([b47], False, request_block=False)
+        # TODO: Add wrong signed block are failing test for signed blocks.
 
         self.log.info("Reject a block with a timestamp >2 hours in the future")
         self.move_tip(44)
@@ -1309,12 +1302,17 @@ class FullBlockTest(BitcoinTestFramework):
         self.nodes[0].disconnect_p2ps()
         self.bootstrap_p2p()
 
-    def sync_blocks(self, blocks, success=True, reject_code=None, reject_reason=None, request_block=True, reconnect=False, timeout=60):
+    def sync_blocks(self, blocks, success=True, reject_code=None, reject_reason=None, request_block=True, reconnect=False, timeout=60, f=False):
         """Sends blocks to test node. Syncs and verifies that tip has advanced to most recent block.
 
         Call with success = False if the tip shouldn't advance to the most recent block."""
+
+        if f:
+            print("hogehoge")
         self.nodes[0].p2p.send_blocks_and_test(blocks, self.nodes[0], success=success, reject_code=reject_code, reject_reason=reject_reason, request_block=request_block, timeout=timeout)
 
+        if f:
+            print("hoge7")
         if reconnect:
             self.reconnect_p2p()
 
