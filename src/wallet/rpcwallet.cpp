@@ -103,7 +103,7 @@ static void WalletTxToJSON(const CWalletTx& wtx, UniValue& entry)
     } else {
         entry.pushKV("trusted", wtx.IsTrusted());
     }
-    uint256 hash = wtx.GetHashMalFix();
+    uint256 hash = wtx.GetHash();
     entry.pushKV("txid", hash.GetHex());
     UniValue conflicts(UniValue::VARR);
     for (const uint256& conflict : wtx.GetConflicts())
@@ -1582,7 +1582,7 @@ static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bo
             tallyitem& item = mapTally[address];
             item.nAmount += txout.nValue;
             item.nConf = std::min(item.nConf, nDepth);
-            item.txids.push_back(wtx.GetHashMalFix());
+            item.txids.push_back(wtx.GetHash());
             if (mine & ISMINE_WATCH_ONLY)
                 item.fIsWatchonly = true;
         }
@@ -3417,7 +3417,7 @@ static UniValue listunspent(const JSONRPCRequest& request)
             continue;
 
         UniValue entry(UniValue::VOBJ);
-        entry.pushKV("txid", out.tx->GetHashMalFix().GetHex());
+        entry.pushKV("txid", out.tx->GetHash().GetHex());
         entry.pushKV("vout", out.i);
 
         if (fValidAddress) {
