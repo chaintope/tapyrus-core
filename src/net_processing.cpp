@@ -2537,6 +2537,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
                 ReadStatus status = tempBlock.InitData(cmpctblock, vExtraTxnForCompact);
                 if (status != READ_STATUS_OK) {
                     // TODO: don't ignore failures
+                    LogPrint(BCLog::NET, "Could not initialize compact block from memory pool. Ignore failures!\n");
                     return true;
                 }
                 std::vector<CTransactionRef> dummy;

@@ -22,7 +22,7 @@ CMerkleBlock::CMerkleBlock(const CBlock& block, CBloomFilter* filter, const std:
 
     for (unsigned int i = 0; i < block.vtx.size(); i++)
     {
-        const uint256& hash = block.vtx[i]->GetHash();
+        const uint256& hash = block.vtx[i]->GetHashMalFix();
         if (txids && txids->count(hash)) {
             vMatch.push_back(true);
         } else if (filter && filter->IsRelevantAndUpdate(*block.vtx[i])) {
