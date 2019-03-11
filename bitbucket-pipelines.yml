@@ -131,23 +131,6 @@ pipelines:
 #                GOAL="install"
 #                BITCOIN_CONFIG="--enable-glibc-back-compat --enable-reduce-exports"
 #                bash -xe ./build-test.sh
-        - step: &x86_64_linux_no_gui
-            name: x86_64 Linux, No GUI
-            caches:
-              - depends-built
-              - depends-sdk
-              - ccache
-            script:
-              - source ./default-env.sh
-              - >-
-                HOST=x86_64-unknown-linux-gnu
-                PACKAGES="python3-zmq libssl1.0-dev libevent-dev bsdmainutils libboost-system-dev libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev libdb5.3++-dev libminiupnpc-dev libzmq3-dev libprotobuf-dev protobuf-compiler libqrencode-dev"
-                NO_DEPENDS=1
-                DEP_OPTS="NO_QT=1"
-                RUN_TESTS=true
-                GOAL="install"
-                BITCOIN_CONFIG="--enable-zmq --with-incompatible-bdb --enable-glibc-back-compat --enable-reduce-exports --with-gui=no CPPFLAGS=-DDEBUG_LOCKORDER"
-                bash -xe ./build-test.sh
         - step:
             name: Cross-Mac
             caches:
@@ -163,28 +146,41 @@ pipelines:
                 GOAL="all deploy"
                 BITCOIN_CONFIG="--enable-gui --enable-reduce-exports --enable-werror"
                 bash -xe ./build-test.sh
-        - step: &lint
-            name: "[PARTIAL_PENDING]lint"
-            script:
-              - RETRY() { for i in {1..3};do $*&&break;sleep 1;done }
-              - RETRY apt-get update
-              - RETRY apt-get install --no-install-recommends --no-upgrade -qq python3 python3-pip git
-              - RETRY pip3 install flake8
-              - git fetch --unshallow
-              - if [ -z "$BITBUCKET_PR_ID" ]; then test/lint/commit-script-check.sh $(git rev-parse $BITBUCKET_PR_DESTINATION_BRANCH)..$(git rev-parse HEAD); fi
-#              we changed subtrees for add CMake files. So far it comment outed.
-#              - test/lint/git-subtree-check.sh src/crypto/ctaes
-#              - test/lint/git-subtree-check.sh src/secp256k1
-#              - test/lint/git-subtree-check.sh src/univalue
-#              - test/lint/git-subtree-check.sh src/leveldb
-              - test/lint/check-doc.py
-              - test/lint/check-rpc-mappings.py .
-              - test/lint/lint-all.sh
-              - echo "PENDING some lint files! pending lint file name has 'pending-' prefix."
-              - ls test/lint/ | grep ^pending-
   default:
     - parallel:
       - step:
-          <<: *x86_64_linux_no_gui
+          name: x86_64 Linux, No GUI
+          caches:
+            - depends-built
+            - depends-sdk
+            - ccache
+          script:
+            - source ./default-env.sh
+            - >-
+              HOST=x86_64-unknown-linux-gnu
+              PACKAGES="python3-zmq libssl1.0-dev libevent-dev bsdmainutils libboost-system-dev libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev libdb5.3++-dev libminiupnpc-dev libzmq3-dev libprotobuf-dev protobuf-compiler libqrencode-dev"
+              NO_DEPENDS=1
+              DEP_OPTS="NO_QT=1"
+              RUN_TESTS=true
+              GOAL="install"
+              BITCOIN_CONFIG="--enable-zmq --with-incompatible-bdb --enable-glibc-back-compat --enable-reduce-exports --with-gui=no CPPFLAGS=-DDEBUG_LOCKORDER"
+              bash -xe ./build-test.sh
       - step:
-          <<: *lint
+          name: "[PARTIAL_PENDING]lint"
+          script:
+            - RETRY() { for i in {1..3};do $*&&break;sleep 1;done }
+            - RETRY apt-get update
+            - RETRY apt-get install --no-install-recommends --no-upgrade -qq python3 python3-pip git
+            - RETRY pip3 install flake8
+            - git fetch --unshallow
+            - if [ -z "$BITBUCKET_PR_ID" ]; then test/lint/commit-script-check.sh $(git rev-parse $BITBUCKET_PR_DESTINATION_BRANCH)..$(git rev-parse HEAD); fi
+#            we changed subtrees for add CMake files. So far it comment outed.
+#            - test/lint/git-subtree-check.sh src/crypto/ctaes
+#            - test/lint/git-subtree-check.sh src/secp256k1
+#            - test/lint/git-subtree-check.sh src/univalue
+#            - test/lint/git-subtree-check.sh src/leveldb
+            - test/lint/check-doc.py
+            - test/lint/check-rpc-mappings.py .
+            - test/lint/lint-all.sh
+            - echo "PENDING some lint files! pending lint file name has 'pending-' prefix."
+            - ls test/lint/ | grep ^pending-
