@@ -164,7 +164,7 @@ pipelines:
                 BITCOIN_CONFIG="--enable-gui --enable-reduce-exports --enable-werror"
                 bash -xe ./build-test.sh
         - step: &lint
-            name: lint
+            name: "[PARTIAL_PENDING]lint"
             script:
               - RETRY() { for i in {1..3};do $*&&break;sleep 1;done }
               - RETRY apt-get update
@@ -180,6 +180,8 @@ pipelines:
               - test/lint/check-doc.py
               - test/lint/check-rpc-mappings.py .
               - test/lint/lint-all.sh
+              - echo "PENDING some lint files! pending lint file name has 'pending-' prefix."
+              - ls test/lint/ | grep ^pending-
   default:
     - parallel:
       - step:
