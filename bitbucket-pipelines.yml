@@ -7,7 +7,7 @@ definitions:
     ccache: $HOME/.ccache
 
 pipelines:
-  pull-request:
+  pull-requests:
     '**': #this runs as default for any branch not elsewhere defined
       - parallel:
         - step:
