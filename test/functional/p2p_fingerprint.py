@@ -76,8 +76,8 @@ class P2PFingerprintTest(BitcoinTestFramework):
     def run_test(self):
         node0 = self.nodes[0].add_p2p_connection(P2PInterface())
 
-        # Set node time to 60 days ago
-        self.nodes[0].setmocktime(int(time.time()) - 60 * 24 * 60 * 60)
+        # Set node time to 50 days ago
+        self.nodes[0].setmocktime(int(time.time()) - 50 * 24 * 60 * 60)
 
         # Generating a chain of 10 blocks
         block_hashes = self.nodes[0].generate(nblocks=10)

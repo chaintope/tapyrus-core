@@ -4,7 +4,7 @@
 
 #include <pubkey.h>
 #include <secp256k1.h>
-#include <test/test_bitcoin.h>
+#include <utilstrencodings.h>
 
 std::vector<CPubKey> validPubKeys(unsigned int keyCount)
 {
