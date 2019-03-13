@@ -1307,12 +1307,8 @@ class FullBlockTest(BitcoinTestFramework):
 
         Call with success = False if the tip shouldn't advance to the most recent block."""
 
-        if f:
-            print("hogehoge")
         self.nodes[0].p2p.send_blocks_and_test(blocks, self.nodes[0], success=success, reject_code=reject_code, reject_reason=reject_reason, request_block=request_block, timeout=timeout)
 
-        if f:
-            print("hoge7")
         if reconnect:
             self.reconnect_p2p()
 
