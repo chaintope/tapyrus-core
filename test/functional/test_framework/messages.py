@@ -622,11 +622,8 @@ class CBlock(CBlockHeader):
         return True
 
     def solve(self):
+        # TODO: create signs to proof field for signed blocks.
         self.rehash()
-        target = uint256_from_compact(self.nBits)
-        while self.sha256 > target:
-            self.nNonce += 1
-            self.rehash()
 
     def __repr__(self):
         return "CBlock(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x nTime=%s nBits=%08x nNonce=%08x vtx=%s)" \
