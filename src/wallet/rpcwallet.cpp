@@ -4548,9 +4548,9 @@ bool FillPSBT(const CWallet* pwallet, PartiallySignedTransaction& psbtx, const C
         PSBTOutput& psbt_out = psbtx.outputs.at(i);
 
         // Dummy tx so we can use ProduceSignature to get stuff out
-        CMutableTransaction dummy_tx;
+        /*CMutableTransaction dummy_tx;
         dummy_tx.vin.push_back(CTxIn());
-        dummy_tx.vout.push_back(CTxOut());
+        dummy_tx.vout.push_back(CTxOut());*/
 
         // Fill a SignatureData with output info
         SignatureData sigdata;

@@ -48,6 +48,7 @@ static CBlock BuildBlockTestCase() {
 
     bool mutated;
     block.hashMerkleRoot = BlockMerkleRoot(block, &mutated);
+    block.hashImMerkleRoot = BlockMerkleRoot(block, &mutated, true);
     assert(!mutated);
     while (!CheckProofOfWork(block.GetHash(), block.nBits, Params().GetConsensus())) ++block.nNonce;
     return block;
@@ -104,11 +105,13 @@ BOOST_AUTO_TEST_CASE(SimpleRoundTripTest)
         }
         bool mutated;
         BOOST_CHECK(block.hashMerkleRoot != BlockMerkleRoot(block2, &mutated));
+        BOOST_CHECK(block.hashImMerkleRoot != BlockMerkleRoot(block2, &mutated, true));
 
         CBlock block3;
         BOOST_CHECK(partialBlock.FillBlock(block3, {block.vtx[1]}) == READ_STATUS_OK);
         BOOST_CHECK_EQUAL(block.GetHash().ToString(), block3.GetHash().ToString());
         BOOST_CHECK_EQUAL(block.hashMerkleRoot.ToString(), BlockMerkleRoot(block3, &mutated).ToString());
+        BOOST_CHECK_EQUAL(block.hashImMerkleRoot.ToString(), BlockMerkleRoot(block3, &mutated, true).ToString());
         BOOST_CHECK(!mutated);
     }
 }
@@ -208,12 +211,14 @@ BOOST_AUTO_TEST_CASE(NonCoinbasePreforwardRTTest)
         BOOST_CHECK_EQUAL(pool.mapTx.find(block.vtx[2]->GetHashMalFix())->GetSharedTx().use_count(), SHARED_TX_OFFSET + 2); // +2 because of partialBlock and block2
         bool mutated;
         BOOST_CHECK(block.hashMerkleRoot != BlockMerkleRoot(block2, &mutated));
+        BOOST_CHECK(block.hashImMerkleRoot != BlockMerkleRoot(block2, &mutated, true));
 
         CBlock block3;
         PartiallyDownloadedBlock partialBlockCopy = partialBlock;
         BOOST_CHECK(partialBlock.FillBlock(block3, {block.vtx[0]}) == READ_STATUS_OK);
         BOOST_CHECK_EQUAL(block.GetHash().ToString(), block3.GetHash().ToString());
         BOOST_CHECK_EQUAL(block.hashMerkleRoot.ToString(), BlockMerkleRoot(block3, &mutated).ToString());
+        BOOST_CHECK_EQUAL(block.hashImMerkleRoot.ToString(), BlockMerkleRoot(block3, &mutated, true).ToString());
         BOOST_CHECK(!mutated);
 
         BOOST_CHECK_EQUAL(pool.mapTx.find(block.vtx[2]->GetHashMalFix())->GetSharedTx().use_count(), SHARED_TX_OFFSET + 3); // +2 because of partialBlock and block2 and block3
@@ -268,6 +273,7 @@ BOOST_AUTO_TEST_CASE(SufficientPreforwardRTTest)
         BOOST_CHECK_EQUAL(block.GetHash().ToString(), block2.GetHash().ToString());
         bool mutated;
         BOOST_CHECK_EQUAL(block.hashMerkleRoot.ToString(), BlockMerkleRoot(block2, &mutated).ToString());
+        BOOST_CHECK_EQUAL(block.hashImMerkleRoot.ToString(), BlockMerkleRoot(block2, &mutated, true).ToString());
         BOOST_CHECK(!mutated);
 
         txhash = block.vtx[1]->GetHashMalFix();
@@ -297,6 +303,7 @@ BOOST_AUTO_TEST_CASE(EmptyBlockRoundTripTest)
 
     bool mutated;
     block.hashMerkleRoot = BlockMerkleRoot(block, &mutated);
+    block.hashImMerkleRoot = BlockMerkleRoot(block, &mutated, true);
     assert(!mutated);
     while (!CheckProofOfWork(block.GetHash(), block.nBits, Params().GetConsensus())) ++block.nNonce;
 
@@ -319,6 +326,7 @@ BOOST_AUTO_TEST_CASE(EmptyBlockRoundTripTest)
         BOOST_CHECK(partialBlock.FillBlock(block2, vtx_missing) == READ_STATUS_OK);
         BOOST_CHECK_EQUAL(block.GetHash().ToString(), block2.GetHash().ToString());
         BOOST_CHECK_EQUAL(block.hashMerkleRoot.ToString(), BlockMerkleRoot(block2, &mutated).ToString());
+        BOOST_CHECK_EQUAL(block.hashImMerkleRoot.ToString(), BlockMerkleRoot(block2, &mutated, true).ToString());
         BOOST_CHECK(!mutated);
     }
 }

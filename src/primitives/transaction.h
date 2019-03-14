@@ -35,11 +35,8 @@ public:
         READWRITE(n);
     }
 
-    /* tapyrus coinbase transactions set only the hash to null.
-     * n is set to block height
-     */
-    void SetNull() { hashMalFix.SetNull(); }
-    bool IsNull() const { return hashMalFix.IsNull(); }
+    void SetNull() { hashMalFix.SetNull(); n = (uint32_t) -1; }
+    bool IsNull() const { return (hashMalFix.IsNull() && n == (uint32_t) -1); }
 
     friend bool operator<(const COutPoint& a, const COutPoint& b)
     {
@@ -342,9 +339,12 @@ public:
      */
     unsigned int GetTotalSize() const;
 
+    /* tapyrus coinbase transactions set only the hash to null.
+     * n is set to block height
+     */
     bool IsCoinBase() const
     {
-        return (vin.size() == 1 && vin[0].prevout.IsNull());
+        return (vin.size() == 1 && vin[0].prevout.hashMalFix.IsNull() && vin[0].prevout.n >= 0);
     }
 
     friend bool operator==(const CTransaction& a, const CTransaction& b)

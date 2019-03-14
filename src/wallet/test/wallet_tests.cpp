@@ -163,7 +163,7 @@ BOOST_FIXTURE_TEST_CASE(importwallet_rescan, TestChain100Setup)
         BOOST_CHECK_EQUAL(wallet->mapWallet.size(), 3U);
         BOOST_CHECK_EQUAL(m_coinbase_txns.size(), 103U);
         for (size_t i = 0; i < m_coinbase_txns.size(); ++i) {
-            bool found = wallet->GetWalletTx(m_coinbase_txns[i]->GetHash());
+            bool found = wallet->GetWalletTx(m_coinbase_txns[i]->GetHashMalFix());
             bool expected = i >= 100;
             BOOST_CHECK_EQUAL(found, expected);
         }
@@ -301,11 +301,11 @@ public:
         CMutableTransaction blocktx;
         {
             LOCK(wallet->cs_wallet);
-            blocktx = CMutableTransaction(*wallet->mapWallet.at(tx->GetHash()).tx);
+            blocktx = CMutableTransaction(*wallet->mapWallet.at(tx->GetHashMalFix()).tx);
         }
         CreateAndProcessBlock({CMutableTransaction(blocktx)}, GetScriptForRawPubKey(coinbaseKey.GetPubKey()));
         LOCK(wallet->cs_wallet);
-        auto it = wallet->mapWallet.find(tx->GetHash());
+        auto it = wallet->mapWallet.find(tx->GetHashMalFix());
         BOOST_CHECK(it != wallet->mapWallet.end());
         it->second.SetMerkleBranch(chainActive.Tip(), 1);
         return it->second;
