@@ -260,6 +260,11 @@ public:
     ~ECCVerifyHandle();
 };
 
+
+const unsigned int PUBKEYCOMBINE_MAX_KEY_SIZE = 15;
+/**
+ * pubkeys size need to less than PUBKEYCOMBINE_MAX_KEY_SIZE.
+ */
 CPubKey PubKeyCombine(const std::vector<CPubKey> pubkeys);
 
 #endif // BITCOIN_PUBKEY_H

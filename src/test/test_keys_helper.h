@@ -1,7 +1,7 @@
 // Copyright (c) 2018-2019 chaintope Inc.
 
-#ifndef TAPYRUS_CORE_TEST_KEYS_HELPER_H
-#define TAPYRUS_CORE_TEST_KEYS_HELPER_H
+#ifndef TAPYRUS_TEST_TEST_KEYS_HELPER_H
+#define TAPYRUS_TEST_TEST_KEYS_HELPER_H
 
 #include <pubkey.h>
 #include <secp256k1.h>
@@ -30,4 +30,4 @@ const std::string UncompressedPubKeyString = "046b93737b4e8d93e79464f20544340153
 std::string combinedPubkeyString(unsigned int keyCount);
 std::vector<CPubKey> validPubKeys(unsigned int keyCount);
 
-#endif //TAPYRUS_CORE_TEST_KEYS_HELPER_H
+#endif //TAPYRUS_TEST_TEST_KEYS_HELPER_H
