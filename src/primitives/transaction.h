@@ -344,7 +344,7 @@ public:
      */
     bool IsCoinBase() const
     {
-        return (vin.size() == 1 && vin[0].prevout.hashMalFix.IsNull() && vin[0].prevout.n >= 0);
+        return (vin.size() == 1 && vin[0].prevout.hashMalFix.IsNull());
     }
 
     friend bool operator==(const CTransaction& a, const CTransaction& b)
