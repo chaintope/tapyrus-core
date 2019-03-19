@@ -588,13 +588,6 @@ class FullBlockTest(BitcoinTestFramework):
         b49.solve()
         self.sync_blocks([b49], False, 16, b'bad-txnmrklroot', reconnect=True)
 
-        self.log.info("Reject a block with incorrect POW limit")
-        self.move_tip(44)
-        b50 = self.next_block(50)
-        b50.nBits = b50.nBits - 1
-        b50.solve()
-        self.sync_blocks([b50], False, request_block=False, reconnect=True)
-
         self.log.info("Reject a block with two coinbase transactions")
         self.move_tip(44)
         b51 = self.next_block(51)
