@@ -8,7 +8,6 @@
 #include <chainparams.h>
 #include <hash.h>
 #include <random.h>
-#include <pow.h>
 #include <shutdown.h>
 #include <uint256.h>
 #include <util.h>
