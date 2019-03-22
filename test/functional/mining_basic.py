@@ -51,7 +51,7 @@ class MiningTest(BitcoinTestFramework):
         assert 'proposal' in tmpl['capabilities']
         assert 'coinbasetxn' not in tmpl
 
-        coinbase_tx = create_coinbase(height=int(tmpl["height"]) + 1)
+        coinbase_tx = create_coinbase(height=int(tmpl["height"]))
         # sequence numbers must not be max for nLockTime to have effect
         coinbase_tx.vin[0].nSequence = 2 ** 32 - 2
         coinbase_tx.rehash()

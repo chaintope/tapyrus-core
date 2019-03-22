@@ -2433,7 +2433,9 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
         if (!ReadBlockFromDisk(*pblockNew, pindexNew, chainparams.GetConsensus()))
             return AbortNode(state, "Failed to read block");
         pthisBlock = pblockNew;
+        g_logger->LogPrintStr("Loaded : " + pblockNew->GetHash().ToString() + " " + chainparams.GetConsensus().hashGenesisBlock.ToString());
     } else {
+        g_logger->LogPrintStr("Loading : " + pblock->GetHash().ToString());
         pthisBlock = pblock;
     }
     const CBlock& blockConnecting = *pthisBlock;
@@ -3124,7 +3126,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
         return state.DoS(100, false, REJECT_INVALID, "bad-cb-missing", false, "first tx is not coinbase");
     //tapyrus coinbase must have blockheight in the prevout.n
     CBlockIndex* pindexPrev = chainActive.Tip();
-    if(pindexPrev && pindexPrev->nHeight != 0 && block.vtx[0]->vin[0].prevout.n <= pindexPrev->nHeight )
+    if(pindexPrev && !isBlockHeightInCoinbase(block) )
         return state.DoS(100, false, REJECT_INVALID, "bad-cb-invalid", false, "incorrect block height in coinbase");
     //the rest must not be coinbase
     for (unsigned int i = 1; i < block.vtx.size(); i++)
@@ -4850,3 +4852,27 @@ public:
         mapBlockIndex.clear();
     }
 } instance_of_cmaincleanup;
+
+bool isBlockHeightInCoinbase(const CBlock& block)
+{
+    // tapyrus coinbase must have blockheight in the prevout.n
+    // when block and chainActive.Tip() are adjacent blocks we can compare and validate the block height.
+    // otherwise we may be rewinding the block chain and they are unrelated blocks.
+    CBlockIndex* pindex = chainActive.Tip();
+    if(!pindex)
+        return false;
+
+    if(pindex->nHeight == 0)
+        return true;
+
+
+    if(block.GetHash() == pindex->GetBlockHash() && block.vtx[0]->vin[0].prevout.n != (uint32_t)pindex->nHeight)
+        return false;
+    else if(block.GetBlockHeader().hashPrevBlock == pindex->GetBlockHash() && block.vtx[0]->vin[0].prevout.n != (uint32_t)pindex->nHeight + 1)
+        return false;
+    else if(pindex->GetBlockHeader().hashPrevBlock == block.GetHash() && block.vtx[0]->vin[0].prevout.n != (uint32_t)pindex->nHeight - 1)
+        return false;
+
+    else // if the two blocks are unrelated, we assume the block height is valid.
+        return true;
+}

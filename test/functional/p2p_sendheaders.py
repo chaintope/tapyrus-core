@@ -207,6 +207,7 @@ class SendHeadersTest(BitcoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 2
+        #self.extra_args="-debug=all"
 
     def mine_blocks(self, count):
         """Mine count blocks and return the new tip."""
@@ -489,9 +490,10 @@ class SendHeadersTest(BitcoinTestFramework):
 
         # Now announce a header that forks the last two blocks
         tip = blocks[0].sha256
-        height -= 1
+        height = self.nodes[0].getblockcount() - 1
         blocks = []
 
+        self.log.info("Part 4: Now announce a header that forks the last two blocks!")
         # Create extra blocks for later
         for b in range(20):
             blocks.append(create_block(tip, create_coinbase(height), block_time))

@@ -500,4 +500,6 @@ inline bool IsBlockPruned(const CBlockIndex* pblockindex)
     return (fHavePruned && !(pblockindex->nStatus & BLOCK_HAVE_DATA) && pblockindex->nTx > 0);
 }
 
+bool isBlockHeightInCoinbase(const CBlock& block);
+
 #endif // BITCOIN_VALIDATION_H

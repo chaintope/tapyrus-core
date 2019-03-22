@@ -291,27 +291,29 @@ class FullBlockTest(BitcoinTestFramework):
         b25 = self.next_block(25, spend=out[7])
         self.sync_blocks([b25], False)
 
-        # Create blocks with a coinbase input script size out of range
+        # Create blocks with a coinbase input script size 0
         #     genesis -> b1 (0) -> b2 (1) -> b5 (2) -> b6  (3)
-        #                                          \-> b12 (3) -> b13 (4) -> b15 (5) -> b23 (6) -> b30 (7)
+        #                                          \-> b12 (3) -> b13 (4) -> b15 (5) -> b23 (6) -> b26 () -> b27 () -> b30 (9)
         #                                                                           \-> ... (6) -> ... (7)
         #                      \-> b3 (1) -> b4 (2)
-        self.log.info("Reject a block with coinbase input script size out of range")
-        self.move_tip(15)
-        b26 = self.next_block(26, spend=out[6])
+        self.log.info("Accept a block with coinbase input scriptSig size 0")
+        self.move_tip(23)
+        b26 = self.next_block(26)
         b26.vtx[0].vin[0].scriptSig = b'\x00'
         b26.vtx[0].rehash()
+        b26 = self.update_block(26, [])
         # update_block causes the merkle root to get updated, even with no new
         # transactions, and updates the required state.
-        b26 = self.update_block(26, [])
-        self.sync_blocks([b26], False, 16, b'bad-cb-length', reconnect=True)
+        self.sync_blocks([b26], True)
+        self.save_spendable_output()
 
-        # Extend the b26 chain to make sure bitcoind isn't accepting b26
-        b27 = self.next_block(27, spend=out[7])
-        self.sync_blocks([b27], False)
+        # Extend the b26 chain
+        b27 = self.next_block(27)
+        self.sync_blocks([b27], True)
+        self.save_spendable_output()
 
         # Now try a too-large-coinbase script
-        self.move_tip(15)
+        self.move_tip(27)
         b28 = self.next_block(28, spend=out[6])
         b28.vtx[0].vin[0].scriptSig = b'\x00' * 101
         b28.vtx[0].rehash()
@@ -323,7 +325,7 @@ class FullBlockTest(BitcoinTestFramework):
         self.sync_blocks([b29], False)
 
         # b30 has a max-sized coinbase scriptSig.
-        self.move_tip(23)
+        self.move_tip(27)
         b30 = self.next_block(30)
         b30.vtx[0].vin[0].scriptSig = b'\x00' * 100
         b30.vtx[0].rehash()
@@ -333,7 +335,7 @@ class FullBlockTest(BitcoinTestFramework):
 
         # b31 - b35 - check sigops of OP_CHECKMULTISIG / OP_CHECKMULTISIGVERIFY / OP_CHECKSIGVERIFY
         #
-        #     genesis -> ... -> b30 (7) -> b31 (8) -> b33 (9) -> b35 (10)
+        #     genesis -> ...  b26 () -> b27 () -> b30 (7) -> b31 (8) -> b33 (9) -> b35 (10)
         #                                                                \-> b36 (11)
         #                                                    \-> b34 (10)
         #                                         \-> b32 (9)
@@ -383,7 +385,7 @@ class FullBlockTest(BitcoinTestFramework):
         # Check spending of a transaction in a block which failed to connect
         #
         # b6  (3)
-        # b12 (3) -> b13 (4) -> b15 (5) -> b23 (6) -> b30 (7) -> b31 (8) -> b33 (9) -> b35 (10)
+        # b12 (3) -> b13 (4) -> b15 (5) -> b23 (6) -> b26 () -> b27 () -> b30 (7) -> b31 (8) -> b33 (9) -> b35 (10)
         #                                                                                     \-> b37 (11)
         #                                                                                     \-> b38 (11/37)
         #
@@ -405,7 +407,7 @@ class FullBlockTest(BitcoinTestFramework):
         # Check P2SH SigOp counting
         #
         #
-        #   13 (4) -> b15 (5) -> b23 (6) -> b30 (7) -> b31 (8) -> b33 (9) -> b35 (10) -> b39 (11) -> b41 (12)
+        #   13 (4) -> b15 (5) -> b23 (6) -> b26 () -> b27 ()  -> b30 (7) -> b31 (8) -> b33 (9) -> b35 (10) -> b39 (11) -> b41 (12)
         #                                                                                        \-> b40 (12)
         #
         # b39 - create some P2SH outputs that will require 6 sigops to spend:
@@ -740,18 +742,17 @@ class FullBlockTest(BitcoinTestFramework):
         #
         # -> b39 (11) -> b42 (12) -> b43 (13) -> b53 (14) -> b55 (15) -> b57 (16) -> b60 (17)
         #                                                                                    \-> b61 (18)
-        #
-        # Blocks are not allowed to contain a transaction whose id matches that of an earlier,
-        # not-fully-spent transaction in the same chain. To test, make identical coinbases;
-        # the second one should be rejected.
-        #
+        # 
+        # Blocks are not allowed to contain a transaction whose id matches that of an earlier, not-fully-spent transaction in the same chain. 
+        # In Tapyrus coinbase contains the block height and it cannot be duplicated.
+        # duplicate another transaction. the second one should be rejected.
         self.log.info("Reject a block with a transaction with a duplicate hash of a previous transaction (BIP30)")
         self.move_tip(60)
         b61 = self.next_block(61, spend=out[18])
-        b61.vtx[0].vin[0].scriptSig = b60.vtx[0].vin[0].scriptSig  # Equalize the coinbases
-        b61.vtx[0].rehash()
+        b61.vtx[1] = b60.vtx[1]  # Duplicate transaction
+        b61.vtx[1].rehash()
         b61 = self.update_block(61, [])
-        assert_equal(b60.vtx[0].serialize(), b61.vtx[0].serialize())
+        assert_equal(b60.vtx[1].serialize(), b61.vtx[1].serialize())
         self.sync_blocks([b61], False, 16, b'bad-txns-BIP30', reconnect=True)
 
         # Test tx.isFinal is properly rejected (not an exhaustive tx.isFinal test, that should be in data-driven transaction tests)

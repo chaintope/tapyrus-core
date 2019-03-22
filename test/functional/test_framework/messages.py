@@ -305,6 +305,12 @@ class CTxIn():
         r += struct.pack("<I", self.nSequence)
         return r
 
+    def serializeWithoutScriptSig(self):
+        r = b""
+        r += self.prevout.serialize()
+        r += struct.pack("<I", self.nSequence)
+        return r
+
     def __repr__(self):
         return "CTxIn(prevout=%s scriptSig=%s nSequence=%i)" \
             % (repr(self.prevout), bytes_to_hex_str(self.scriptSig),
@@ -402,6 +408,8 @@ class CTransaction():
             self.nLockTime = 0
             self.sha256 = None
             self.hash = None
+            self.malfixsha256 = None
+            self.hashMalFix = None
         else:
             self.nVersion = tx.nVersion
             self.vin = copy.deepcopy(tx.vin)
@@ -409,6 +417,8 @@ class CTransaction():
             self.nLockTime = tx.nLockTime
             self.sha256 = tx.sha256
             self.hash = tx.hash
+            self.malfixsha256 = tx.malfixsha256
+            self.hashMalFix = tx.hashMalFix
             self.wit = copy.deepcopy(tx.wit)
 
     def deserialize(self, f):
@@ -431,16 +441,19 @@ class CTransaction():
         self.sha256 = None
         self.hash = None
 
-    def serialize_without_witness(self):
+    def serialize_without_witness(self, without_scriptsig=True):
         r = b""
         r += struct.pack("<i", self.nVersion)
-        r += ser_vector(self.vin)
+        if (without_scriptsig):
+            r += ser_vector(self.vin, "serializeWithoutScriptSig" )
+        else:
+            r += ser_vector(self.vin)
         r += ser_vector(self.vout)
         r += struct.pack("<I", self.nLockTime)
         return r
 
     # Only serialize with witness when explicitly called for
-    def serialize_with_witness(self):
+    def serialize_with_witness(self, without_scriptsig=True):
         flags = 0
         if not self.wit.is_null():
             flags |= 1
@@ -450,7 +463,10 @@ class CTransaction():
             dummy = []
             r += ser_vector(dummy)
             r += struct.pack("<B", flags)
-        r += ser_vector(self.vin)
+        if (without_scriptsig):
+            r += ser_vector(self.vin, "serializeWithoutScriptSig" )
+        else:
+            r += ser_vector(self.vin)
         r += ser_vector(self.vout)
         if flags & 1:
             if (len(self.wit.vtxinwit) != len(self.vin)):
@@ -481,9 +497,13 @@ class CTransaction():
             return uint256_from_str(hash256(self.serialize_with_witness()))
 
         if self.sha256 is None:
-            self.sha256 = uint256_from_str(hash256(self.serialize_without_witness()))
-        self.hash = encode(hash256(self.serialize_without_witness())[::-1], 'hex_codec').decode('ascii')
+            self.sha256 = uint256_from_str(hash256(self.serialize_without_witness(False)))
 
+        self.hash = encode(hash256(self.serialize_without_witness(False))[::-1], 'hex_codec').decode('ascii')
+
+        self.malfixsha256 = uint256_from_str(hash256(self.serialize_without_witness(True)))
+        self.hashMalFix = encode(hash256(self.serialize_without_witness(True))[::-1], 'hex_codec').decode('ascii')
+            
     def is_valid(self):
         self.calc_sha256()
         for tout in self.vout:
@@ -504,6 +524,7 @@ class CBlockHeader():
             self.nVersion = header.nVersion
             self.hashPrevBlock = header.hashPrevBlock
             self.hashMerkleRoot = header.hashMerkleRoot
+            self.hashImMerkleRoot = header.hashImMerkleRoot
             self.nTime = header.nTime
             self.nBits = header.nBits
             self.nNonce = header.nNonce
@@ -515,6 +536,7 @@ class CBlockHeader():
         self.nVersion = 1
         self.hashPrevBlock = 0
         self.hashMerkleRoot = 0
+        self.hashImMerkleRoot = 0
         self.nTime = 0
         self.nBits = 0
         self.nNonce = 0
@@ -525,6 +547,7 @@ class CBlockHeader():
         self.nVersion = struct.unpack("<i", f.read(4))[0]
         self.hashPrevBlock = deser_uint256(f)
         self.hashMerkleRoot = deser_uint256(f)
+        self.hashImMerkleRoot = deser_uint256(f)
         self.nTime = struct.unpack("<I", f.read(4))[0]
         self.nBits = struct.unpack("<I", f.read(4))[0]
         self.nNonce = struct.unpack("<I", f.read(4))[0]
@@ -536,6 +559,7 @@ class CBlockHeader():
         r += struct.pack("<i", self.nVersion)
         r += ser_uint256(self.hashPrevBlock)
         r += ser_uint256(self.hashMerkleRoot)
+        r += ser_uint256(self.hashImMerkleRoot)
         r += struct.pack("<I", self.nTime)
         r += struct.pack("<I", self.nBits)
         r += struct.pack("<I", self.nNonce)
@@ -547,6 +571,7 @@ class CBlockHeader():
             r += struct.pack("<i", self.nVersion)
             r += ser_uint256(self.hashPrevBlock)
             r += ser_uint256(self.hashMerkleRoot)
+            r += ser_uint256(self.hashImMerkleRoot)
             r += struct.pack("<I", self.nTime)
             r += struct.pack("<I", self.nBits)
             r += struct.pack("<I", self.nNonce)
@@ -559,9 +584,8 @@ class CBlockHeader():
         return self.sha256
 
     def __repr__(self):
-        return "CBlockHeader(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x nTime=%s nBits=%08x nNonce=%08x)" \
-            % (self.nVersion, self.hashPrevBlock, self.hashMerkleRoot,
-               time.ctime(self.nTime), self.nBits, self.nNonce)
+        return "CBlockHeader(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x hashImMerkleRoot=%064x nTime=%s nBits=%08x nNonce=%08x)" \
+            % (self.nVersion, self.hashPrevBlock, self.hashMerkleRoot, self.hashImMerkleRoot, time.ctime(self.nTime), self.nBits, self.nNonce)
 
 
 class CBlock(CBlockHeader):
@@ -600,6 +624,14 @@ class CBlock(CBlockHeader):
             hashes.append(ser_uint256(tx.sha256))
         return self.get_merkle_root(hashes)
 
+    def calc_immutable_merkle_root(self):
+        hashes = []
+        for tx in self.vtx:
+            tx.calc_sha256()
+            print("Debug: %s, %s, %s, %s, %s" % ( tx, tx.sha256, tx.hash, tx.malfixsha256, tx.hashMalFix))
+            hashes.append(ser_uint256(tx.malfixsha256))
+        return self.get_merkle_root(hashes)
+
     def calc_witness_merkle_root(self):
         # For witness root purposes, the hash of the
         # coinbase, with witness, is defined to be 0...0
@@ -631,8 +663,8 @@ class CBlock(CBlockHeader):
             self.rehash()
 
     def __repr__(self):
-        return "CBlock(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x nTime=%s nBits=%08x nNonce=%08x vtx=%s)" \
-            % (self.nVersion, self.hashPrevBlock, self.hashMerkleRoot,
+        return "CBlock(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x hashImMerkleRoot=%064x nTime=%s nBits=%08x nNonce=%08x vtx=%s)" \
+            % (self.nVersion, self.hashPrevBlock, self.hashMerkleRoot, self.hashImMerkleRoot,
                time.ctime(self.nTime), self.nBits, self.nNonce, repr(self.vtx))
 
 
