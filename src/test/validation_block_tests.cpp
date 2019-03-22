@@ -8,7 +8,6 @@
 #include <consensus/merkle.h>
 #include <consensus/validation.h>
 #include <miner.h>
-#include <pow.h>
 #include <random.h>
 #include <test/test_bitcoin.h>
 #include <validation.h>

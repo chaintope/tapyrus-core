@@ -197,7 +197,6 @@ add_library(server
         policy/feerate.cpp
         policy/policy.cpp
         policy/rbf.cpp
-        pow.cpp
         rest.cpp
         rpc/blockchain.cpp
         rpc/mining.cpp

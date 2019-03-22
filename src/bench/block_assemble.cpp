@@ -9,7 +9,6 @@
 #include <consensus/validation.h>
 #include <miner.h>
 #include <policy/policy.h>
-#include <pow.h>
 #include <scheduler.h>
 #include <txdb.h>
 #include <txmempool.h>
