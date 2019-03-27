@@ -104,10 +104,10 @@ BOOST_AUTO_TEST_CASE(create_cchainparams_instance)
 BOOST_AUTO_TEST_CASE(create_genesis_block)
 {
     std::vector<unsigned char> vch = ParseHex("0296da90ddaedb8ca76561fc5660c40be68c72415d89e91ed3de73720028533840");
-    CPubKey pubkey(vch.begin(), vch.end());
+    CPubKey rewardTo(vch.begin(), vch.end());
 
     MultisigCondition condition = CreateSignedBlocksCondition(combinedPubkeyString(15), 10);
-    CBlock genesis = CreateGenesisBlock(1546853016, 1, 50 * COIN, HexStr(pubkey.begin(), pubkey.end()), condition);
+    CBlock genesis = CreateGenesisBlock(1546853016, 1, 50 * COIN, HexStr(rewardTo.begin(), rewardTo.end()), condition);
 
     CScript scriptSig = genesis.vtx[0].get()->vin[0].scriptSig;
     BOOST_CHECK_EQUAL(HexStr(scriptSig.begin(), scriptSig.end()), "010a2103deb53be78170b305ea1d9c2f7dfae027f53e34321527d1f2bae71ddd35ba7de0");
