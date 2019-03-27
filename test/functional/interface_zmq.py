@@ -5,6 +5,7 @@
 """Test the ZMQ notification interface."""
 import struct
 
+from test_framework.messages import (CBlock)
 from test_framework.test_framework import (
     BitcoinTestFramework, skip_if_no_bitcoind_zmq, skip_if_no_py3_zmq)
 from test_framework.messages import CTransaction
@@ -95,8 +96,10 @@ class ZMQTest (BitcoinTestFramework):
             assert_equal([bytes_to_hex_str(txid)], self.nodes[1].getblock(hash)["tx"])
 
             # Should receive the generated raw block.
-            block = self.rawblock.receive()
-            assert_equal(genhashes[x], bytes_to_hex_str(hash256(block[:72])))
+            block = CBlock()
+            block.deserialize(BytesIO(self.rawblock.receive()))
+            block.calc_sha256()
+            assert_equal(genhashes[x], block.hash)
 
         self.log.info("Wait for tx from second node")
         payment_txid = self.nodes[1].sendtoaddress(self.nodes[0].getnewaddress(), 1.0)
