@@ -10,7 +10,12 @@
 #include <utilstrencodings.h>
 #include <crypto/common.h>
 
-uint256 CBlockHeaderWithoutProof::GetHash() const
+uint256 CBlockHeader::GetHash() const
+{
+    return SerializeHash(*this);
+}
+
+uint256 CBlockHeaderWithoutProof::GetHashForSign() const
 {
     return SerializeHash(*this);
 }

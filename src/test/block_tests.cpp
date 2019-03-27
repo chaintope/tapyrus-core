@@ -69,14 +69,18 @@ BOOST_AUTO_TEST_CASE(serialized_CBlockHeaderWithoutProof_does_not_include_proof_
     BOOST_CHECK(vch.size() == 72); // 72 bytes means size of proof excluded header
 }
 
-BOOST_AUTO_TEST_CASE(get_hash_not_include_proof_field)
+BOOST_AUTO_TEST_CASE(get_hash_for_sign_not_include_proof_field)
+{
+    CBlockHeader header = getBlockHeader();
+    uint256 hash = header.GetHashForSign();
+    BOOST_CHECK(hash.ToString() == "5221802f886859ef7418b1c81961490db4b3c6be791779903efbe7a401477721");
+}
+
+BOOST_AUTO_TEST_CASE(get_hash_include_proof_field)
 {
     CBlockHeader header = getBlockHeader();
     uint256 hash = header.GetHash();
-    std::vector<unsigned char> vch;
-    vch.assign(hash.begin(), hash.end());
-
-    BOOST_CHECK(vch == ParseHex("21774701a4e7fb3e90791779bec6b3b40d496119c8b11874ef5968882f802152"));
+    BOOST_CHECK(hash.ToString() == "76c280995996b044bc7e62028586ebad023fb6eb244dca491eed2629fb1120fe");
 }
 
 BOOST_AUTO_TEST_SUITE_END()

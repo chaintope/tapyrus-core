@@ -86,7 +86,8 @@ public:
         return (nTime == 0);
     }
 
-    uint256 GetHash() const;
+    // Return BlockHash for proof of Signed Blocks
+    uint256 GetHashForSign() const;
 
     int64_t GetBlockTime() const
     {
@@ -108,6 +109,8 @@ public:
         CBlockHeaderWithoutProof::SerializationOp(s, ser_action);
         READWRITE(proof);
     }
+
+    uint256 GetHash() const;
 };
 
 class CBlock : public CBlockHeader

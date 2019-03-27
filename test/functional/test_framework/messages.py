@@ -548,6 +548,7 @@ class CBlockHeader():
             r += ser_uint256(self.hashPrevBlock)
             r += ser_uint256(self.hashMerkleRoot)
             r += struct.pack("<I", self.nTime)
+            r += struct.pack("<B", self.proof)
             self.sha256 = uint256_from_str(hash256(r))
             self.hash = encode(hash256(r)[::-1], 'hex_codec').decode('ascii')
 
