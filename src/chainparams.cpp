@@ -67,23 +67,23 @@ static MultisigCondition CreateSignedBlocksCondition(std::string pubkeyString, i
     return condition;
 }
 
-static CBlock CreateGenesisBlock(uint32_t nTime, int32_t nVersion, const CAmount& genesisReward, std::string pubKeyString, const MultisigCondition& condition)
+static CBlock CreateGenesisBlock(uint32_t nTime, int32_t nVersion, const CAmount& genesisReward, std::string rewardTo, const MultisigCondition& condition)
 {
     // TODO: Ensure pubkey list isn't include combined pubkey.
     // In future Schnorr Signature will be used. Schnorr Signature has homomorphism, so if a member of federation has
     // private key of combined pubkey, the member can create multisignature from only his own key.
-    CPubKey pubKey = PubKeyCombine(condition.pubkeys);
+    CPubKey combinedPubKey = PubKeyCombine(condition.pubkeys);
     size_t publen = CPubKey::COMPRESSED_PUBLIC_KEY_SIZE;
 
-    std::vector<unsigned char> vch = ParseHex(pubKeyString);
-    CPubKey pubkey(vch.begin(), vch.end());
-    CScript genesisOutputScript = CScript() << OP_DUP << OP_HASH160 << ToByteVector(pubkey.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
+    std::vector<unsigned char> vch = ParseHex(rewardTo);
+    CPubKey rewardToPubKey(vch.begin(), vch.end());
+    CScript genesisOutputScript = CScript() << OP_DUP << OP_HASH160 << ToByteVector(rewardToPubKey.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
 
     CMutableTransaction txNew;
     txNew.nVersion = 1;
     txNew.vin.resize(1);
     txNew.vout.resize(1);
-    txNew.vin[0].scriptSig = CScript() << CScriptNum(condition.threshold) << std::vector<unsigned char>(pubKey.data(), pubKey.data() + publen);
+    txNew.vin[0].scriptSig = CScript() << CScriptNum(condition.threshold) << std::vector<unsigned char>(combinedPubKey.data(), combinedPubKey.data() + publen);
     txNew.vout[0].nValue = genesisReward;
     txNew.vout[0].scriptPubKey = genesisOutputScript;
 
