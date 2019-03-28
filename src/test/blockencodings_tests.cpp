@@ -5,7 +5,6 @@
 #include <blockencodings.h>
 #include <consensus/merkle.h>
 #include <chainparams.h>
-#include <pow.h>
 #include <random.h>
 
 #include <test/test_bitcoin.h>
@@ -32,11 +31,11 @@ static CBlock BuildBlockTestCase() {
     block.vtx[0] = MakeTransactionRef(tx);
     block.nVersion = 42;
     block.hashPrevBlock = InsecureRand256();
-    block.nBits = 0x207fffff;
 
     tx.vin[0].prevout.hash = InsecureRand256();
     tx.vin[0].prevout.n = 0;
     block.vtx[1] = MakeTransactionRef(tx);
+    block.nTime = 0x5c6e03b8;
 
     tx.vin.resize(10);
     for (size_t i = 0; i < tx.vin.size(); i++) {
@@ -48,7 +47,7 @@ static CBlock BuildBlockTestCase() {
     bool mutated;
     block.hashMerkleRoot = BlockMerkleRoot(block, &mutated);
     assert(!mutated);
-    while (!CheckProofOfWork(block.GetHash(), block.nBits, Params().GetConsensus())) ++block.nNonce;
+    // TODO: set correct signs to block for Signed Blocks mechanism.
     return block;
 }
 
@@ -291,12 +290,12 @@ BOOST_AUTO_TEST_CASE(EmptyBlockRoundTripTest)
     block.vtx[0] = MakeTransactionRef(std::move(coinbase));
     block.nVersion = 42;
     block.hashPrevBlock = InsecureRand256();
-    block.nBits = 0x207fffff;
+    block.nTime = 0x5c6e03b8;
 
     bool mutated;
     block.hashMerkleRoot = BlockMerkleRoot(block, &mutated);
     assert(!mutated);
-    while (!CheckProofOfWork(block.GetHash(), block.nBits, Params().GetConsensus())) ++block.nNonce;
+    // TODO: set correct signs to block for Signed Blocks mechanism.
 
     // Test simple header round-trip with only coinbase
     {

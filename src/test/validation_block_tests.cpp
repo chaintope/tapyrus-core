@@ -8,7 +8,6 @@
 #include <consensus/merkle.h>
 #include <consensus/validation.h>
 #include <miner.h>
-#include <pow.h>
 #include <random.h>
 #include <test/test_bitcoin.h>
 #include <validation.h>
@@ -71,9 +70,7 @@ std::shared_ptr<CBlock> FinalizeBlock(std::shared_ptr<CBlock> pblock)
 {
     pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
 
-    while (!CheckProofOfWork(pblock->GetHash(), pblock->nBits, Params().GetConsensus())) {
-        ++(pblock->nNonce);
-    }
+    // TODO: set correct signs to block for Signed Blocks mechanism.
 
     return pblock;
 }
