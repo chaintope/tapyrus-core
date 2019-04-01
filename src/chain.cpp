@@ -118,11 +118,6 @@ void CBlockIndex::BuildSkip()
         pskip = pprev->GetAncestor(GetSkipHeight(nHeight));
 }
 
-arith_uint256 GetBlockProof(const CBlockIndex& block)
-{
-    return 1;
-}
-
 /** Find the last common ancestor two blocks have.
  *  Both pa and pb must be non-nullptr. */
 const CBlockIndex* LastCommonAncestor(const CBlockIndex* pa, const CBlockIndex* pb) {
