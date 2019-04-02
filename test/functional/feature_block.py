@@ -48,22 +48,38 @@ from test_framework.util import assert_equal
 
 MAX_BLOCK_SIGOPS = 20000
 
+def ser_compact_size(l):
+    r = b""
+    if l < 253:
+        r = struct.pack("B", l)
+    elif l < 0x10000:
+        r = struct.pack("<BH", 253, l)
+    elif l < 0x100000000:
+        r = struct.pack("<BI", 254, l)
+    else:
+        r = struct.pack("<BQ", 255, l)
+    return r
+
+def ser_string(s):
+    return ser_compact_size(len(s)) + s
+
 #  Use this class for tests that require behavior other than normal "mininode" behavior.
 #  For now, it is used to serialize a bloated varint (b64).
 class CBrokenBlock(CBlock):
     def initialize(self, base_block):
         self.vtx = copy.deepcopy(base_block.vtx)
         self.hashMerkleRoot = self.calc_merkle_root()
+        self.hashImMerkleRoot = self.calc_immutable_merkle_root()
 
-    def serialize(self, with_witness=False):
+    def serialize(self):
         r = b""
         r += super(CBlock, self).serialize()
         r += struct.pack("<BQ", 255, len(self.vtx))
         for tx in self.vtx:
             if with_witness:
-                r += tx.serialize_with_witness()
+                r += tx.serialize_with_witness(with_scriptsig=True)
             else:
-                r += tx.serialize_without_witness()
+                r += tx.serialize_without_witness(with_scriptsig=True)
         return r
 
     def normal_serialize(self):
@@ -86,7 +102,8 @@ class FullBlockTest(BitcoinTestFramework):
         self.coinbase_pubkey = self.coinbase_key.get_pubkey()
         self.tip = None
         self.blocks = {}
-        self.genesis_hash = int(self.nodes[0].getbestblockhash(), 16)
+        gen_hash = self.nodes[0].getbestblockhash()
+        self.genesis_hash = int(gen_hash, 16)
         self.block_heights[self.genesis_hash] = 0
         self.spendable_outputs = []
 
@@ -271,7 +288,7 @@ class FullBlockTest(BitcoinTestFramework):
         script_length = MAX_BLOCK_BASE_SIZE - len(b23.serialize()) - 69
         script_output = CScript([b'\x00' * script_length])
         tx.vout.append(CTxOut(0, script_output))
-        tx.vin.append(CTxIn(COutPoint(b23.vtx[1].sha256, 0)))
+        tx.vin.append(CTxIn(COutPoint(b23.vtx[1].malfixsha256, 0)))
         b23 = self.update_block(23, [tx])
         # Make sure the math above worked out to produce a max-sized block
         assert_equal(len(b23.serialize()), MAX_BLOCK_BASE_SIZE)
@@ -469,14 +486,14 @@ class FullBlockTest(BitcoinTestFramework):
         numTxes = (MAX_BLOCK_SIGOPS - sigops) // b39_sigops_per_output
         assert_equal(numTxes <= b39_outputs, True)
 
-        lastOutpoint = COutPoint(b40.vtx[1].sha256, 0)
+        lastOutpoint = COutPoint(b40.vtx[1].malfixsha256, 0)
         new_txs = []
         for i in range(1, numTxes + 1):
             tx = CTransaction()
             tx.vout.append(CTxOut(1, CScript([OP_TRUE])))
             tx.vin.append(CTxIn(lastOutpoint, b''))
             # second input is corresponding P2SH output from b39
-            tx.vin.append(CTxIn(COutPoint(b39.vtx[i].sha256, 0), b''))
+            tx.vin.append(CTxIn(COutPoint(b39.vtx[i].malfixsha256, 0), b''))
             # Note: must pass the redeem_script (not p2sh_script) to the signature hash function
             (sighash, err) = SignatureHash(redeem_script, tx, 1, SIGHASH_ALL)
             sig = self.coinbase_key.sign(sighash) + bytes(bytearray([SIGHASH_ALL]))
@@ -485,7 +502,7 @@ class FullBlockTest(BitcoinTestFramework):
             tx.vin[1].scriptSig = scriptSig
             tx.rehash()
             new_txs.append(tx)
-            lastOutpoint = COutPoint(tx.sha256, 0)
+            lastOutpoint = COutPoint(tx.malfixsha256, 0)
 
         b40_sigops_to_fill = MAX_BLOCK_SIGOPS - (numTxes * b39_sigops_per_output + sigops) + 1
         tx = CTransaction()
@@ -538,6 +555,7 @@ class FullBlockTest(BitcoinTestFramework):
         b44.nBits = 0x207fffff
         b44.vtx.append(coinbase)
         b44.hashMerkleRoot = b44.calc_merkle_root()
+        b44.hashImMerkleRoot = b44.calc_immutable_merkle_root()
         b44.solve()
         self.tip = b44
         self.block_heights[b44.sha256] = height
@@ -552,6 +570,7 @@ class FullBlockTest(BitcoinTestFramework):
         b45.nBits = 0x207fffff
         b45.vtx.append(non_coinbase)
         b45.hashMerkleRoot = b45.calc_merkle_root()
+        b44.hashImMerkleRoot = b44.calc_immutable_merkle_root()
         b45.calc_sha256()
         b45.solve()
         self.block_heights[b45.sha256] = self.block_heights[self.tip.sha256] + 1
@@ -718,7 +737,7 @@ class FullBlockTest(BitcoinTestFramework):
         b58 = self.next_block(58, spend=out[17])
         tx = CTransaction()
         assert(len(out[17].vout) < 42)
-        tx.vin.append(CTxIn(COutPoint(out[17].sha256, 42), CScript([OP_TRUE]), 0xffffffff))
+        tx.vin.append(CTxIn(COutPoint(out[17].malfixsha256, 42), CScript([OP_TRUE]), 0xffffffff))
         tx.vout.append(CTxOut(0, b""))
         tx.calc_sha256()
         b58 = self.update_block(58, [tx])
@@ -765,7 +784,7 @@ class FullBlockTest(BitcoinTestFramework):
         b62 = self.next_block(62)
         tx = CTransaction()
         tx.nLockTime = 0xffffffff  # this locktime is non-final
-        tx.vin.append(CTxIn(COutPoint(out[18].sha256, 0)))  # don't set nSequence
+        tx.vin.append(CTxIn(COutPoint(out[18].malfixsha256, 0)))  # don't set nSequence
         tx.vout.append(CTxOut(0, CScript([OP_TRUE])))
         assert(tx.vin[0].nSequence < 0xffffffff)
         tx.calc_sha256()
@@ -815,7 +834,7 @@ class FullBlockTest(BitcoinTestFramework):
         script_length = MAX_BLOCK_BASE_SIZE - len(b64a.normal_serialize()) - 69
         script_output = CScript([b'\x00' * script_length])
         tx.vout.append(CTxOut(0, script_output))
-        tx.vin.append(CTxIn(COutPoint(b64a.vtx[1].sha256, 0)))
+        tx.vin.append(CTxIn(COutPoint(b64a.vtx[1].malfixsha256, 0)))
         b64a = self.update_block("64a", [tx])
         assert_equal(len(b64a.serialize()), MAX_BLOCK_BASE_SIZE + 8)
         self.sync_blocks([b64a], False, 1, b'error parsing message')
@@ -915,7 +934,7 @@ class FullBlockTest(BitcoinTestFramework):
         bogus_tx = CTransaction()
         bogus_tx.sha256 = uint256_from_str(b"23c70ed7c0506e9178fc1a987f40a33946d4ad4c962b5ae3a52546da53af0c5c")
         tx = CTransaction()
-        tx.vin.append(CTxIn(COutPoint(bogus_tx.sha256, 0), b"", 0xffffffff))
+        tx.vin.append(CTxIn(COutPoint(bogus_tx.malfixsha256, 0), b"", 0xffffffff))
         tx.vout.append(CTxOut(1, b""))
         b70 = self.update_block(70, [tx])
         self.sync_blocks([b70], False, 16, b'bad-txns-inputs-missingorspent', reconnect=True)
@@ -1168,7 +1187,7 @@ class FullBlockTest(BitcoinTestFramework):
             script_length = MAX_BLOCK_BASE_SIZE - len(b.serialize()) - 69
             script_output = CScript([b'\x00' * script_length])
             tx.vout.append(CTxOut(0, script_output))
-            tx.vin.append(CTxIn(COutPoint(b.vtx[1].sha256, 0)))
+            tx.vin.append(CTxIn(COutPoint(b.vtx[1].malfixsha256, 0)))
             b = self.update_block(i, [tx])
             assert_equal(len(b.serialize()), MAX_BLOCK_BASE_SIZE)
             blocks.append(b)
@@ -1205,6 +1224,7 @@ class FullBlockTest(BitcoinTestFramework):
 
     # this is a little handier to use than the version in blocktools.py
     def create_tx(self, spend_tx, n, value, script=CScript([OP_TRUE, OP_DROP] * 15 + [OP_TRUE])):
+        self.log.debug("spend_tx = [%064x], [%064x]" % (spend_tx.__getattribute__('sha256'), spend_tx.__getattribute__('malfixsha256')))
         return create_tx_with_script(spend_tx, n, amount=value, script_pub_key=script)
 
     # sign a transaction, using the key we know about
@@ -1213,9 +1233,22 @@ class FullBlockTest(BitcoinTestFramework):
         scriptPubKey = bytearray(spend_tx.vout[0].scriptPubKey)
         if (scriptPubKey[0] == OP_TRUE):  # an anyone-can-spend
             tx.vin[0].scriptSig = CScript()
+            self.log.debug(" Tx:sig [%s]  " % (str([ hex(x) for x in ser_string(tx.vin[0].scriptSig)]) ))
             return
         (sighash, err) = SignatureHash(spend_tx.vout[0].scriptPubKey, tx, 0, SIGHASH_ALL)
         tx.vin[0].scriptSig = CScript([self.coinbase_key.sign(sighash) + bytes(bytearray([SIGHASH_ALL]))])
+        self.log.debug(" Tx:sig [%s]  " % (str([ hex(x) for x in ser_string(tx.vin[0].scriptSig)]) ))
+
+        inputs = {'txid': str(spend_tx.hashMalFix), 
+             'vout': 0,
+             'scriptPubKey': str(scriptPubKey)}
+
+        outputs = {str(tx.vout[0].scriptPubKey): int(tx.vout[0].nValue)}
+
+        rawTx = tx.serialize(with_witness=False, with_scriptsig=True)
+        #self.nodes[0].createrawtransaction(inputs, outputs)
+        rawTxSigned = self.nodes[0].signrawtransactionwithkey(rawTx, self.coinbase_key.get_privkey(), inputs)
+        self.log.debug(" rawTx:sig [%s]  " % (str([ hex(x) for x in ser_string(rawTxSigned.vin[0].scriptSig)]) ))
 
     def create_and_sign_transaction(self, spend_tx, value, script=CScript([OP_TRUE])):
         tx = self.create_tx(spend_tx, 0, value, script)
@@ -1244,7 +1277,9 @@ class FullBlockTest(BitcoinTestFramework):
             tx = self.create_tx(spend, 0, 1, script)  # spend 1 satoshi
             self.sign_tx(tx, spend)
             self.add_transactions_to_block(block, [tx])
+            self.log.debug("Block: [%d]  Tx:sig [%s] pub [%s] " % (height, str([ hex(x) for x in ser_string(tx.vin[0].scriptSig)]), str([ hex(x) for x in ser_string(tx.vout[0].scriptPubKey)]) ))
             block.hashMerkleRoot = block.calc_merkle_root()
+            block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         if solve:
             block.solve()
         self.tip = block
@@ -1255,12 +1290,12 @@ class FullBlockTest(BitcoinTestFramework):
 
     # save the current tip so it can be spent by a later block
     def save_spendable_output(self):
-        self.log.debug("saving spendable output %s" % self.tip.vtx[0])
+        self.log.debug("saving spendable output [%064x] - %s" % (self.tip.vtx[0].malfixsha256, self.tip.vtx[0]))
         self.spendable_outputs.append(self.tip)
 
     # get an output that we previously marked as spendable
     def get_spendable_output(self):
-        self.log.debug("getting spendable output %s" % self.spendable_outputs[0].vtx[0])
+        self.log.debug("getting spendable output [%064x] - %s" % (self.spendable_outputs[0].vtx[0].malfixsha256, self.spendable_outputs[0].vtx[0]))
         return self.spendable_outputs.pop(0).vtx[0]
 
     # move the tip back to a previous block
@@ -1273,6 +1308,7 @@ class FullBlockTest(BitcoinTestFramework):
         self.add_transactions_to_block(block, new_transactions)
         old_sha256 = block.sha256
         block.hashMerkleRoot = block.calc_merkle_root()
+        block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         block.solve()
         # Update the internal state just like in next_block
         self.tip = block

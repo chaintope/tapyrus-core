@@ -21,7 +21,7 @@ import struct
 import sys
 import threading
 
-from test_framework.messages import CBlockHeader, MIN_VERSION_SUPPORTED, msg_addr, msg_block, MSG_BLOCK, msg_blocktxn, msg_cmpctblock, msg_feefilter, msg_getaddr, msg_getblocks, msg_getblocktxn, msg_getdata, msg_getheaders, msg_headers, msg_inv, msg_mempool, msg_ping, msg_pong, msg_reject, msg_sendcmpct, msg_sendheaders, msg_tx, MSG_TX, MSG_TYPE_MASK, msg_verack, msg_version, NODE_NETWORK, NODE_WITNESS, sha256
+from test_framework.messages import CBlockHeader, MIN_VERSION_SUPPORTED, msg_addr, msg_block, MSG_BLOCK, msg_blocktxn, msg_cmpctblock, msg_feefilter, msg_getaddr, msg_getblocks, msg_getblocktxn, msg_getdata, msg_getheaders, msg_headers, msg_inv, msg_mempool, msg_ping, msg_pong, msg_reject, msg_sendcmpct, msg_sendheaders, msg_tx, MSG_TX, MSG_TYPE_MASK, msg_verack, msg_version, NODE_NETWORK, NODE_WITNESS, sha256, ToHex
 from test_framework.util import wait_until
 
 logger = logging.getLogger("TestFramework.mininode")
@@ -213,8 +213,8 @@ class P2PConnection(asyncio.Protocol):
             log_message = "Send message to "
         elif direction == "receive":
             log_message = "Received message from "
-        log_message += "%s:%d: %s" % (self.dstaddr, self.dstport, repr(msg)[:500])
-        if len(log_message) > 500:
+        log_message += "%s:%d: %s" % (self.dstaddr, self.dstport, repr(msg)[:2000])
+        if len(log_message) > 2000:
             log_message += "... (msg truncated)"
         logger.debug(log_message)
 
@@ -505,6 +505,7 @@ class P2PDataStore(P2PInterface):
         self.send_message(msg_headers([CBlockHeader(blocks[-1])]))
 
         if request_block:
+            logger.debug('sending block [%064x] [%s]' % (blocks[-1].sha256, ToHex(blocks[-1])))
             wait_until(lambda: blocks[-1].sha256 in self.getdata_requests, timeout=timeout, lock=mininode_lock)
 
         if success:
@@ -531,7 +532,7 @@ class P2PDataStore(P2PInterface):
             self.reject_reason_received = None
 
             for tx in txs:
-                self.tx_store[tx.sha256] = tx
+                self.tx_store[tx.malfixsha256] = tx
 
         for tx in txs:
             self.send_message(msg_tx(tx))

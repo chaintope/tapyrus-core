@@ -26,6 +26,9 @@ import time
 from test_framework.siphash import siphash256
 from test_framework.util import hex_str_to_bytes, bytes_to_hex_str
 
+import logging
+logger = logging.getLogger("TestFramework.mininode")
+
 MIN_VERSION_SUPPORTED = 60001
 MY_VERSION = 70014  # past bip-31 for ping/pong
 MY_SUBVERSION = b"/python-mininode-tester:0.0.3/"
@@ -132,13 +135,11 @@ def deser_vector(f, c):
 # ser_function_name: Allow for an alternate serialization function on the
 # entries in the vector (we use this for serializing the vector of transactions
 # for a witness block).
-def ser_vector(l, ser_function_name=None):
+def ser_vector(l, ser_function_name=None, **kwargs):
     r = ser_compact_size(len(l))
+    ckwargs = copy.deepcopy(kwargs)
     for i in l:
-        if ser_function_name:
-            r += getattr(i, ser_function_name)()
-        else:
-            r += i.serialize()
+        r += i.serialize(**(copy.deepcopy(ckwargs)))
     return r
 
 
@@ -261,7 +262,7 @@ class CBlockLocator():
 
     def __repr__(self):
         return "CBlockLocator(nVersion=%i vHave=%s)" \
-            % (self.nVersion, repr(self.vHave))
+            % (self.nVersion, str([hex(x) for x in self.vHave]))
 
 
 class COutPoint():
@@ -298,16 +299,11 @@ class CTxIn():
         self.scriptSig = deser_string(f)
         self.nSequence = struct.unpack("<I", f.read(4))[0]
 
-    def serialize(self):
+    def serialize(self, **kwargs):
         r = b""
         r += self.prevout.serialize()
-        r += ser_string(self.scriptSig)
-        r += struct.pack("<I", self.nSequence)
-        return r
-
-    def serializeWithoutScriptSig(self):
-        r = b""
-        r += self.prevout.serialize()
+        if(kwargs.get('with_scriptsig') == True):
+            r += ser_string(self.scriptSig)
         r += struct.pack("<I", self.nSequence)
         return r
 
@@ -441,19 +437,16 @@ class CTransaction():
         self.sha256 = None
         self.hash = None
 
-    def serialize_without_witness(self, without_scriptsig=True):
+    def serialize_without_witness(self, **kwargs):
         r = b""
         r += struct.pack("<i", self.nVersion)
-        if (without_scriptsig):
-            r += ser_vector(self.vin, "serializeWithoutScriptSig" )
-        else:
-            r += ser_vector(self.vin)
+        r += ser_vector(self.vin, **kwargs)
         r += ser_vector(self.vout)
         r += struct.pack("<I", self.nLockTime)
         return r
 
     # Only serialize with witness when explicitly called for
-    def serialize_with_witness(self, without_scriptsig=True):
+    def serialize_with_witness(self, **kwargs):
         flags = 0
         if not self.wit.is_null():
             flags |= 1
@@ -461,12 +454,9 @@ class CTransaction():
         r += struct.pack("<i", self.nVersion)
         if flags:
             dummy = []
-            r += ser_vector(dummy)
+            r += ser_vector(dummy, **kwargs)
             r += struct.pack("<B", flags)
-        if (without_scriptsig):
-            r += ser_vector(self.vin, "serializeWithoutScriptSig" )
-        else:
-            r += ser_vector(self.vin)
+        r += ser_vector(self.vin, **kwargs)
         r += ser_vector(self.vout)
         if flags & 1:
             if (len(self.wit.vtxinwit) != len(self.vin)):
@@ -480,29 +470,34 @@ class CTransaction():
 
     # Regular serialization is with witness -- must explicitly
     # call serialize_without_witness to exclude witness data.
-    def serialize(self):
-        return self.serialize_with_witness()
+    def serialize(self, **kwargs):
+        if(kwargs.get('with_witness') == False):
+            return self.serialize_without_witness(**kwargs)
+        else:
+            return self.serialize_with_witness(**kwargs)
+            
 
     # Recalculate the txid (transaction hash without witness)
     def rehash(self):
         self.sha256 = None
         self.calc_sha256()
-        return self.hash
+        return self.hashMalFix
 
     # We will only cache the serialization without witness in
     # self.sha256 and self.hash -- those are expected to be the txid.
     def calc_sha256(self, with_witness=False):
         if with_witness:
             # Don't cache the result, just return it
-            return uint256_from_str(hash256(self.serialize_with_witness()))
+            witHash = uint256_from_str(hash256(self.serialize_with_witness()))
+            return witHash
 
         if self.sha256 is None:
-            self.sha256 = uint256_from_str(hash256(self.serialize_without_witness(False)))
+            self.sha256 = uint256_from_str(hash256(self.serialize(with_witness=False, with_scriptsig=True)))
 
-        self.hash = encode(hash256(self.serialize_without_witness(False))[::-1], 'hex_codec').decode('ascii')
+            self.hash = encode(hash256(self.serialize(with_witness=False,with_scriptsig=True))[::-1], 'hex_codec').decode('ascii')
 
-        self.malfixsha256 = uint256_from_str(hash256(self.serialize_without_witness(True)))
-        self.hashMalFix = encode(hash256(self.serialize_without_witness(True))[::-1], 'hex_codec').decode('ascii')
+            self.malfixsha256 = uint256_from_str(hash256(self.serialize(with_witness=False,with_scriptsig=False)))
+            self.hashMalFix = encode(hash256(self.serialize(with_witness=False,with_scriptsig=False))[::-1], 'hex_codec').decode('ascii')
             
     def is_valid(self):
         self.calc_sha256()
@@ -597,13 +592,10 @@ class CBlock(CBlockHeader):
         super(CBlock, self).deserialize(f)
         self.vtx = deser_vector(f, CTransaction)
 
-    def serialize(self, with_witness=False):
+    def serialize(self, **kwargs):
         r = b""
         r += super(CBlock, self).serialize()
-        if with_witness:
-            r += ser_vector(self.vtx, "serialize_with_witness")
-        else:
-            r += ser_vector(self.vtx, "serialize_without_witness")
+        r += ser_vector(self.vtx, **kwargs)
         return r
 
     # Calculate the merkle root given a vector of transaction hashes
@@ -628,7 +620,6 @@ class CBlock(CBlockHeader):
         hashes = []
         for tx in self.vtx:
             tx.calc_sha256()
-            print("Debug: %s, %s, %s, %s, %s" % ( tx, tx.sha256, tx.hash, tx.malfixsha256, tx.hashMalFix))
             hashes.append(ser_uint256(tx.malfixsha256))
         return self.get_merkle_root(hashes)
 
@@ -652,6 +643,8 @@ class CBlock(CBlockHeader):
             if not tx.is_valid():
                 return False
         if self.calc_merkle_root() != self.hashMerkleRoot:
+            return False
+        if self.calc_immutable_merkle_root() != self.hashImMerkleRoot:
             return False
         return True
 
@@ -678,13 +671,10 @@ class PrefilledTransaction():
         self.tx = CTransaction()
         self.tx.deserialize(f)
 
-    def serialize(self, with_witness=True):
+    def serialize(self, **kwargs):
         r = b""
         r += ser_compact_size(self.index)
-        if with_witness:
-            r += self.tx.serialize_with_witness()
-        else:
-            r += self.tx.serialize_without_witness()
+        r += self.tx.serialize(**kwargs)
         return r
 
     def serialize_without_witness(self):
@@ -718,18 +708,15 @@ class P2PHeaderAndShortIDs():
         self.prefilled_txn_length = len(self.prefilled_txn)
 
     # When using version 2 compact blocks, we must serialize with_witness.
-    def serialize(self, with_witness=False):
+    def serialize(self, **kwargs):
         r = b""
-        r += self.header.serialize()
+        r += self.header.serialize(**kwargs)
         r += struct.pack("<Q", self.nonce)
         r += ser_compact_size(self.shortids_length)
         for x in self.shortids:
             # We only want the first 6 bytes
             r += struct.pack("<Q", x)[0:6]
-        if with_witness:
-            r += ser_vector(self.prefilled_txn, "serialize_with_witness")
-        else:
-            r += ser_vector(self.prefilled_txn, "serialize_without_witness")
+            r += ser_vector(self.prefilled_txn, **kwargs)
         return r
 
     def __repr__(self):
@@ -860,13 +847,10 @@ class BlockTransactions():
         self.blockhash = deser_uint256(f)
         self.transactions = deser_vector(f, CTransaction)
 
-    def serialize(self, with_witness=True):
+    def serialize(self, **kwargs):
         r = b""
         r += ser_uint256(self.blockhash)
-        if with_witness:
-            r += ser_vector(self.transactions, "serialize_with_witness")
-        else:
-            r += ser_vector(self.transactions, "serialize_without_witness")
+        r += ser_vector(self.transactions, **kwargs)
         return r
 
     def __repr__(self):
@@ -909,10 +893,10 @@ class CMerkleBlock():
         self.header.deserialize(f)
         self.txn.deserialize(f)
 
-    def serialize(self):
+    def serialize(self, **kwargs):
         r = b""
-        r += self.header.serialize()
-        r += self.txn.serialize()
+        r += self.header.serialize(**kwargs)
+        r += self.txn.serialize(**kwargs)
         return r
 
     def __repr__(self):
@@ -1088,7 +1072,7 @@ class msg_tx():
         self.tx.deserialize(f)
 
     def serialize(self):
-        return self.tx.serialize_without_witness()
+        return self.tx.serialize_without_witness(with_scriptsig=True)
 
     def __repr__(self):
         return "msg_tx(tx=%s)" % (repr(self.tx))
@@ -1096,7 +1080,7 @@ class msg_tx():
 class msg_witness_tx(msg_tx):
 
     def serialize(self):
-        return self.tx.serialize_with_witness()
+        return self.tx.serialize_with_witness(with_scriptsig=True)
 
 
 class msg_block():
@@ -1112,7 +1096,9 @@ class msg_block():
         self.block.deserialize(f)
 
     def serialize(self):
-        return self.block.serialize(with_witness=False)
+        r = self.block.serialize(with_witness=False, with_scriptsig=True)
+        logger.debug("msg_block serialize:[%s]" % str([hex(x) for x in r]))
+        return r
 
     def __repr__(self):
         return "msg_block(block=%s)" % (repr(self.block))
@@ -1133,7 +1119,7 @@ class msg_generic():
 class msg_witness_block(msg_block):
 
     def serialize(self):
-        r = self.block.serialize(with_witness=True)
+        r = self.block.serialize(with_witness=True, with_scriptsig=True)
         return r
 
 class msg_getaddr():

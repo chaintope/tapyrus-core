@@ -77,6 +77,7 @@ class BIP65Test(BitcoinTestFramework):
         block.nVersion = 3
         block.vtx.append(spendtx)
         block.hashMerkleRoot = block.calc_merkle_root()
+        block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         block.solve()
 
         self.nodes[0].p2p.send_and_ping(msg_block(block))
@@ -116,6 +117,7 @@ class BIP65Test(BitcoinTestFramework):
         # Now we verify that a block with this transaction is also invalid.
         block.vtx.append(spendtx)
         block.hashMerkleRoot = block.calc_merkle_root()
+        block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         block.solve()
 
         self.nodes[0].p2p.send_and_ping(msg_block(block))
@@ -138,6 +140,7 @@ class BIP65Test(BitcoinTestFramework):
         block.vtx.pop(1)
         block.vtx.append(spendtx)
         block.hashMerkleRoot = block.calc_merkle_root()
+        block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         block.solve()
 
         self.nodes[0].p2p.send_and_ping(msg_block(block))

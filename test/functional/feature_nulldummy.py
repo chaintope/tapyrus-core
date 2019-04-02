@@ -104,6 +104,7 @@ class NULLDUMMYTest(BitcoinTestFramework):
             tx.rehash()
             block.vtx.append(tx)
         block.hashMerkleRoot = block.calc_merkle_root()
+        block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         witness and add_witness_commitment(block)
         block.rehash()
         block.solve()

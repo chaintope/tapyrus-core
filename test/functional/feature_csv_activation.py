@@ -161,6 +161,7 @@ class BIP68_112_113Test(BitcoinTestFramework):
         block.nVersion = version
         block.vtx.extend(txs)
         block.hashMerkleRoot = block.calc_merkle_root()
+        block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         block.rehash()
         block.solve()
         return block

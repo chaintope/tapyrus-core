@@ -207,7 +207,7 @@ class BIP68Test(BitcoinTestFramework):
         # Sequence lock of 0 should pass.
         tx2 = CTransaction()
         tx2.nVersion = 2
-        tx2.vin = [CTxIn(COutPoint(tx1.sha256, 0), nSequence=0)]
+        tx2.vin = [CTxIn(COutPoint(tx1.malfixsha256, 0), nSequence=0)]
         tx2.vout = [CTxOut(int(tx1.vout[0].nValue - self.relayfee*COIN), CScript([b'a']))]
         tx2_raw = self.nodes[0].signrawtransactionwithwallet(ToHex(tx2))["hex"]
         tx2 = FromHex(tx2, tx2_raw)
@@ -225,7 +225,7 @@ class BIP68Test(BitcoinTestFramework):
 
             tx = CTransaction()
             tx.nVersion = 2
-            tx.vin = [CTxIn(COutPoint(orig_tx.sha256, 0), nSequence=sequence_value)]
+            tx.vin = [CTxIn(COutPoint(orig_tx.malfixsha256, 0), nSequence=sequence_value)]
             tx.vout = [CTxOut(int(orig_tx.vout[0].nValue - relayfee * COIN), CScript([b'a' * 35]))]
             tx.rehash()
 
@@ -338,7 +338,7 @@ class BIP68Test(BitcoinTestFramework):
         # Make an anyone-can-spend transaction
         tx2 = CTransaction()
         tx2.nVersion = 1
-        tx2.vin = [CTxIn(COutPoint(tx1.sha256, 0), nSequence=0)]
+        tx2.vin = [CTxIn(COutPoint(tx1.malfixsha256, 0), nSequence=0)]
         tx2.vout = [CTxOut(int(tx1.vout[0].nValue - self.relayfee*COIN), CScript([b'a']))]
 
         # sign tx2
@@ -353,7 +353,7 @@ class BIP68Test(BitcoinTestFramework):
 
         tx3 = CTransaction()
         tx3.nVersion = 2
-        tx3.vin = [CTxIn(COutPoint(tx2.sha256, 0), nSequence=sequence_value)]
+        tx3.vin = [CTxIn(COutPoint(tx2.malfixsha256, 0), nSequence=sequence_value)]
         tx3.vout = [CTxOut(int(tx2.vout[0].nValue - self.relayfee * COIN), CScript([b'a' * 35]))]
         tx3.rehash()
 
@@ -365,6 +365,7 @@ class BIP68Test(BitcoinTestFramework):
         block.nVersion = 3
         block.vtx.extend([tx1, tx2, tx3])
         block.hashMerkleRoot = block.calc_merkle_root()
+        block.hashMerkleRoot = block.calc_immutable_merkle_root()
         block.rehash()
         add_witness_commitment(block)
         block.solve()
