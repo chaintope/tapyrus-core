@@ -1239,16 +1239,16 @@ class FullBlockTest(BitcoinTestFramework):
         tx.vin[0].scriptSig = CScript([self.coinbase_key.sign(sighash) + bytes(bytearray([SIGHASH_ALL]))])
         self.log.debug(" Tx:sig [%s]  " % (str([ hex(x) for x in ser_string(tx.vin[0].scriptSig)]) ))
 
-        inputs = {'txid': str(spend_tx.hashMalFix), 
-             'vout': 0,
-             'scriptPubKey': str(scriptPubKey)}
+        #inputs = {'txid': str(spend_tx.hashMalFix), 
+        #     'vout': 0,
+        #     'scriptPubKey': str(scriptPubKey)}
 
-        outputs = {str(tx.vout[0].scriptPubKey): int(tx.vout[0].nValue)}
+        #outputs = {str(tx.vout[0].scriptPubKey): int(tx.vout[0].nValue)}
 
-        rawTx = tx.serialize(with_witness=False, with_scriptsig=True)
+        #rawTx = tx.serialize(with_witness=False, with_scriptsig=True)
         #self.nodes[0].createrawtransaction(inputs, outputs)
-        rawTxSigned = self.nodes[0].signrawtransactionwithkey(rawTx, self.coinbase_key.get_privkey(), inputs)
-        self.log.debug(" rawTx:sig [%s]  " % (str([ hex(x) for x in ser_string(rawTxSigned.vin[0].scriptSig)]) ))
+        #rawTxSigned = self.nodes[0].signrawtransactionwithkey(rawTx, self.coinbase_key.get_privkey(), inputs)
+        #self.log.debug(" rawTx:sig [%s]  " % (str([ hex(x) for x in ser_string(rawTxSigned.vin[0].scriptSig)]) ))
 
     def create_and_sign_transaction(self, spend_tx, value, script=CScript([OP_TRUE])):
         tx = self.create_tx(spend_tx, 0, value, script)
