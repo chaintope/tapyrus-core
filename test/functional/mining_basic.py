@@ -104,7 +104,7 @@ class MiningTest(BitcoinTestFramework):
 
         self.log.info("getblocktemplate: Test bad tx count")
         # The tx count is immediately after the block header
-        TX_COUNT_OFFSET = 80
+        TX_COUNT_OFFSET = 112
         bad_block_sn = bytearray(block.serialize())
         assert_equal(bad_block_sn[TX_COUNT_OFFSET], 1)
         bad_block_sn[TX_COUNT_OFFSET] += 1

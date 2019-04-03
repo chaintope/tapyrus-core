@@ -302,7 +302,7 @@ class CTxIn():
     def serialize(self, **kwargs):
         r = b""
         r += self.prevout.serialize()
-        if(kwargs.get('with_scriptsig') == True):
+        if(kwargs.get('with_scriptsig') == True or kwargs.get('with_scriptsig') == None):
             r += ser_string(self.scriptSig)
         r += struct.pack("<I", self.nSequence)
         return r
@@ -374,13 +374,13 @@ class CTxWitness():
         for i in range(len(self.vtxinwit)):
             self.vtxinwit[i].deserialize(f)
 
-    def serialize(self):
+    def serialize(self, **kwargs):
         r = b""
         # This is different than the usual vector serialization --
         # we omit the length of the vector, which is required to be
         # the same length as the transaction's vin vector.
         for x in self.vtxinwit:
-            r += x.serialize()
+            r += x.serialize(**kwargs)
         return r
 
     def __repr__(self):
@@ -473,8 +473,8 @@ class CTransaction():
     def serialize(self, **kwargs):
         if(kwargs.get('with_witness') == False):
             return self.serialize_without_witness(**kwargs)
-        else:
-            return self.serialize_with_witness(**kwargs)
+        
+        return self.serialize_with_witness(**kwargs)
             
 
     # Recalculate the txid (transaction hash without witness)
@@ -492,12 +492,12 @@ class CTransaction():
             return witHash
 
         if self.sha256 is None:
-            self.sha256 = uint256_from_str(hash256(self.serialize(with_witness=False, with_scriptsig=True)))
+            self.sha256 = uint256_from_str(hash256(self.serialize()))
 
-            self.hash = encode(hash256(self.serialize(with_witness=False,with_scriptsig=True))[::-1], 'hex_codec').decode('ascii')
+            self.hash = encode(hash256(self.serialize())[::-1], 'hex_codec').decode('ascii')
 
-            self.malfixsha256 = uint256_from_str(hash256(self.serialize(with_witness=False,with_scriptsig=False)))
-            self.hashMalFix = encode(hash256(self.serialize(with_witness=False,with_scriptsig=False))[::-1], 'hex_codec').decode('ascii')
+            self.malfixsha256 = uint256_from_str(hash256(self.serialize(with_scriptsig=False)))
+            self.hashMalFix = encode(hash256(self.serialize(with_scriptsig=False))[::-1], 'hex_codec').decode('ascii')
             
     def is_valid(self):
         self.calc_sha256()
@@ -788,7 +788,7 @@ class HeaderAndShortIDs():
         [k0, k1] = self.get_siphash_keys()
         for i in range(len(block.vtx)):
             if i not in prefill_list:
-                tx_hash = block.vtx[i].sha256
+                tx_hash = block.vtx[i].malfixsha256
                 if use_witness:
                     tx_hash = block.vtx[i].calc_sha256(with_witness=True)
                 self.shortids.append(calculate_shortid(k0, k1, tx_hash))
@@ -893,10 +893,10 @@ class CMerkleBlock():
         self.header.deserialize(f)
         self.txn.deserialize(f)
 
-    def serialize(self, **kwargs):
+    def serialize(self):
         r = b""
-        r += self.header.serialize(**kwargs)
-        r += self.txn.serialize(**kwargs)
+        r += self.header.serialize()
+        r += self.txn.serialize()
         return r
 
     def __repr__(self):
@@ -1097,7 +1097,7 @@ class msg_block():
 
     def serialize(self):
         r = self.block.serialize(with_witness=False, with_scriptsig=True)
-        logger.debug("msg_block serialize:[%s]" % str([hex(x) for x in r]))
+        #logger.debug("msg_block serialize:[%s]" % str([hex(x) for x in r]))
         return r
 
     def __repr__(self):

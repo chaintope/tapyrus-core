@@ -7,7 +7,7 @@ import struct
 
 from test_framework.test_framework import (
     BitcoinTestFramework, skip_if_no_bitcoind_zmq, skip_if_no_py3_zmq)
-from test_framework.messages import CTransaction
+from test_framework.messages import CTransaction, ser_uint256
 from test_framework.util import (assert_equal,
                                  bytes_to_hex_str,
                                  hash256,
@@ -86,7 +86,7 @@ class ZMQTest (BitcoinTestFramework):
             tx = CTransaction()
             tx.deserialize(BytesIO(hex))
             tx.calc_sha256()
-            assert_equal(tx.hash, bytes_to_hex_str(txid))
+            assert_equal(tx.hashMalFix, bytes_to_hex_str(txid))
 
             # Should receive the generated block hash.
             hash = bytes_to_hex_str(self.hashblock.receive())
@@ -96,7 +96,7 @@ class ZMQTest (BitcoinTestFramework):
 
             # Should receive the generated raw block.
             block = self.rawblock.receive()
-            assert_equal(genhashes[x], bytes_to_hex_str(hash256(block[:80])))
+            assert_equal(genhashes[x], bytes_to_hex_str(hash256(block[:112])))
 
         self.log.info("Wait for tx from second node")
         payment_txid = self.nodes[1].sendtoaddress(self.nodes[0].getnewaddress(), 1.0)
@@ -108,7 +108,10 @@ class ZMQTest (BitcoinTestFramework):
 
         # Should receive the broadcasted raw transaction.
         hex = self.rawtx.receive()
-        assert_equal(payment_txid, bytes_to_hex_str(hash256(hex)))
+        tx = CTransaction()
+        tx.deserialize(BytesIO(hex))
+        tx.calc_sha256()
+        assert_equal(tx.hashMalFix, bytes_to_hex_str(txid))
 
 if __name__ == '__main__':
     ZMQTest().main()

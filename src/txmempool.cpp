@@ -135,7 +135,7 @@ void CTxMemPool::UpdateTransactionsFromBlock(const std::vector<uint256> &vHashes
         // First calculate the children, and update setMemPoolChildren to
         // include them, and update their setMemPoolParents to include this tx.
         for (; iter != mapNextTx.end() && iter->first->hashMalFix == hash; ++iter) {
-            const uint256 &childHash = iter->second->GetHash();
+            const uint256 &childHash = iter->second->GetHashMalFix();
             txiter childIter = mapTx.find(childHash);
             assert(childIter != mapTx.end());
             // We can skip updating entries we've encountered before or that
@@ -689,8 +689,8 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         CTxMemPool::setEntries setChildrenCheck;
         auto iter = mapNextTx.lower_bound(COutPoint(it->GetTx().GetHashMalFix(), 0));
         uint64_t child_sizes = 0;
-        for (; iter != mapNextTx.end() && iter->first->hashMalFix == it->GetTx().GetHash(); ++iter) {
-            txiter childit = mapTx.find(iter->second->GetHash());
+        for (; iter != mapNextTx.end() && iter->first->hashMalFix == it->GetTx().GetHashMalFix(); ++iter) {
+            txiter childit = mapTx.find(iter->second->GetHashMalFix());
             assert(childit != mapTx.end()); // mapNextTx points to in-mempool transactions
             if (setChildrenCheck.insert(childit).second) {
                 child_sizes += childit->GetTxSize();

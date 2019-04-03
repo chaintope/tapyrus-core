@@ -501,11 +501,11 @@ class P2PDataStore(P2PInterface):
             for block in blocks:
                 self.block_store[block.sha256] = block
                 self.last_block_hash = block.sha256
+                logger.debug('sending block [%064x] ' % (block.sha256))
 
         self.send_message(msg_headers([CBlockHeader(blocks[-1])]))
 
         if request_block:
-            logger.debug('sending block [%064x] [%s]' % (blocks[-1].sha256, ToHex(blocks[-1])))
             wait_until(lambda: blocks[-1].sha256 in self.getdata_requests, timeout=timeout, lock=mininode_lock)
 
         if success:
@@ -546,11 +546,11 @@ class P2PDataStore(P2PInterface):
         if success:
             # Check that all txs are now in the mempool
             for tx in txs:
-                assert tx.hash in raw_mempool, "{} not found in mempool".format(tx.hash)
+                assert tx.hashMalFix in raw_mempool, "{} not found in mempool".format(tx.hashMalFix)
         else:
             # Check that none of the txs are now in the mempool
             for tx in txs:
-                assert tx.hash not in raw_mempool, "{} tx found in mempool".format(tx.hash)
+                assert tx.hashMalFix not in raw_mempool, "{} tx found in mempool".format(tx.hashMalFix)
 
         if reject_code is not None:
             wait_until(lambda: self.reject_code_received == reject_code, lock=mininode_lock)

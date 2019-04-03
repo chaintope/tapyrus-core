@@ -120,7 +120,7 @@ class InvalidTxRequestTest(BitcoinTestFramework):
 
         # Transactions that should end up in the mempool
         expected_mempool = {
-            t.hash
+            t.hashMalFix
             for t in [
                 tx_withhold,  # The transaction that is the root for all orphans
                 tx_orphan_1,  # The orphan transaction that splits the coins
