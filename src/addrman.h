@@ -169,7 +169,8 @@ public:
 #define ADDRMAN_REPLACEMENT_HOURS 4
 
 //! the maximum percentage of nodes to return in a getaddr call
-#define ADDRMAN_GETADDR_MAX_PCT 23
+// TODO: this field should update that inverse proportion to increase of nodes count.
+#define ADDRMAN_GETADDR_MAX_PCT 100
 
 //! the maximum number of nodes to return in a getaddr call
 #define ADDRMAN_GETADDR_MAX 2500

@@ -271,6 +271,7 @@ public:
         vSeeds.clear();
         // nodes with support for servicebits filtering should be at the top
         vSeeds.emplace_back("seed.tapyrus.dev.chaintope.com");
+        vSeeds.emplace_back("seed1.tapyrus.dev.chaintope.com");
 
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,111);
         base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,196);
@@ -339,11 +340,11 @@ public:
         // By default assume that the signatures in ancestors of this block are valid.
         consensus.defaultAssumeValid = uint256S("0x00");
 
-        pchMessageStart[0] = 0xfa;
-        pchMessageStart[1] = 0xbf;
-        pchMessageStart[2] = 0xb5;
-        pchMessageStart[3] = 0xda;
-        nDefaultPort = 18444;
+        pchMessageStart[0] = 0x75;
+        pchMessageStart[1] = 0x9a;
+        pchMessageStart[2] = 0x83;
+        pchMessageStart[3] = 0x74;
+        nDefaultPort = 18333; //  for using generate command. TODO: must revert after can do mining in testnet and mainnet.
         nPruneAfterHeight = 1000;
 
         genesis = CreateGenesisBlock(1546853016, 1, 50 * COIN, "024bd6909fd1187b356e163b670a1c7c5f70e40d68667e3a64d6321fb780d056c9", signedBlocksCondition);
@@ -351,6 +352,10 @@ public:
 
         vFixedSeeds.clear(); //!< Regtest mode doesn't have any fixed seeds.
         vSeeds.clear();      //!< Regtest mode doesn't have any DNS seeds.
+
+        // for auto discover other peer in regtest mode. TODO: must delete after can do mining in testnet and mainnet.
+        vSeeds.emplace_back("seed.tapyrus.dev.chaintope.com");
+        vSeeds.emplace_back("seed1.tapyrus.dev.chaintope.com");
 
         fDefaultConsistencyChecks = true;
         fRequireStandard = false;
