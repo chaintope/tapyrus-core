@@ -172,7 +172,9 @@ public:
         // This is fine at runtime as we'll fall back to using them as a oneshot if they don't support the
         // service bits we want, but we should get them updated to support all service bits wanted by any
         // release ASAP to avoid it where possible.
+        // TODO: MUST change to seeder that is different of testnet. (ex: seed.tapyrus.chaintope.com, seed.tapyrus.com)
         vSeeds.emplace_back("seed.tapyrus.dev.chaintope.com");
+        vSeeds.emplace_back("static-seed.tapyrus.dev.chaintope.com");
 
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,0);
         base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,5);
