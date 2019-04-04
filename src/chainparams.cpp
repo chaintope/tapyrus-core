@@ -273,7 +273,7 @@ public:
         vSeeds.clear();
         // nodes with support for servicebits filtering should be at the top
         vSeeds.emplace_back("seed.tapyrus.dev.chaintope.com");
-        vSeeds.emplace_back("seed1.tapyrus.dev.chaintope.com");
+        vSeeds.emplace_back("static-seed1tapyrus.dev.chaintope.com");
 
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,111);
         base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,196);
@@ -357,7 +357,7 @@ public:
 
         // for auto discover other peer in regtest mode. TODO: must delete after can do mining in testnet and mainnet.
         vSeeds.emplace_back("seed.tapyrus.dev.chaintope.com");
-        vSeeds.emplace_back("seed1.tapyrus.dev.chaintope.com");
+        vSeeds.emplace_back("static-seed.tapyrus.dev.chaintope.com");
 
         fDefaultConsistencyChecks = true;
         fRequireStandard = false;
