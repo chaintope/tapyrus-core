@@ -70,6 +70,7 @@ std::shared_ptr<CBlock> Block(const uint256& prev_hash)
 std::shared_ptr<CBlock> FinalizeBlock(std::shared_ptr<CBlock> pblock)
 {
     pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
+    pblock->hashImMerkleRoot = BlockMerkleRoot(*pblock, nullptr, true);
 
     while (!CheckProofOfWork(pblock->GetHash(), pblock->nBits, Params().GetConsensus())) {
         ++(pblock->nNonce);

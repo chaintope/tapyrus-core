@@ -318,7 +318,7 @@ static UniValue verifytxoutproof(const JSONRPCRequest& request)
 
     std::vector<uint256> vMatch;
     std::vector<unsigned int> vIndex;
-    if (merkleBlock.txn.ExtractMatches(vMatch, vIndex) != merkleBlock.header.hashMerkleRoot)
+    if (merkleBlock.txn.ExtractMatches(vMatch, vIndex) != merkleBlock.header.hashImMerkleRoot)
         return res;
 
     LOCK(cs_main);

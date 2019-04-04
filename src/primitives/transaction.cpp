@@ -64,7 +64,7 @@ uint256 CMutableTransaction::GetHash() const
 
 uint256 CMutableTransaction::GetHashMalFix() const
 {
-    return SerializeHash(*this, SER_GETHASH, SERIALIZE_TRANSACTION_MALFIX);
+    return SerializeHash(*this, SER_GETHASH, SERIALIZE_TRANSACTION_MALFIX | SERIALIZE_TRANSACTION_NO_WITNESS);
 }
 
 uint256 CTransaction::ComputeHash() const
@@ -82,7 +82,7 @@ uint256 CTransaction::ComputeWitnessHash() const
 
 uint256 CTransaction::ComputeHashMalFix() const
 {
-    return SerializeHash(*this, SER_GETHASH, SERIALIZE_TRANSACTION_MALFIX);
+    return SerializeHash(*this, SER_GETHASH, SERIALIZE_TRANSACTION_MALFIX | SERIALIZE_TRANSACTION_NO_WITNESS);
 }
 
 /* For backward compatibility, the hash is initialized to 0. TODO: remove the need for this default constructor entirely. */

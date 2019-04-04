@@ -3104,6 +3104,11 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
         if (block.hashMerkleRoot != hashMerkleRoot2)
             return state.DoS(100, false, REJECT_INVALID, "bad-txnmrklroot", true, "hashMerkleRoot mismatch");
 
+        uint256 hashImMerkleRoot2 = BlockMerkleRoot(block, &mutated, true);
+
+        if (block.hashImMerkleRoot != hashImMerkleRoot2)
+            return state.DoS(100, false, REJECT_INVALID, "bad-txnimmrklroot", true, "hashImmutableMerkleRoot mismatch");
+
         // Check for merkle tree malleability (CVE-2012-2459): repeating sequences
         // of transactions in a block without affecting the merkle root of a block,
         // while still invalidating it.
@@ -4072,6 +4077,7 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
 /** Apply the effects of a block on the utxo cache, ignoring that it may already have been applied. */
 bool CChainState::RollforwardBlock(const CBlockIndex* pindex, CCoinsViewCache& inputs, const CChainParams& params)
 {
+    LogPrint(BCLog::COINDB, "CChainState::RollforwardBlock\n");
     // TODO: merge with ConnectBlock
     CBlock block;
     if (!ReadBlockFromDisk(block, pindex, params.GetConsensus())) {
@@ -4084,6 +4090,7 @@ bool CChainState::RollforwardBlock(const CBlockIndex* pindex, CCoinsViewCache& i
                 inputs.SpendCoin(txin.prevout);
             }
         }
+        LogPrint(BCLog::COINDB, "CChainState::RollforwardBlock AddCoins\n");
         // Pass check = true as every addition may be an overwrite.
         AddCoins(inputs, *tx, pindex->nHeight, true);
     }

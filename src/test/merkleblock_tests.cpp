@@ -40,7 +40,7 @@ BOOST_AUTO_TEST_CASE(merkleblock_construct_from_txids_found)
     std::vector<uint256> vMatched;
     std::vector<unsigned int> vIndex;
     merkleBlock.txn.ExtractMatches(vMatched, vIndex);
-    //BOOST_CHECK_EQUAL(merkleBlock.txn.ExtractMatches(vMatched, vIndex).GetHex(), block.hashMerkleRoot.GetHex());
+    BOOST_CHECK_EQUAL(merkleBlock.txn.ExtractMatches(vMatched, vIndex).GetHex(), block.hashImMerkleRoot.GetHex());
     BOOST_CHECK_EQUAL(vMatched.size(), 2U);
 
     // Ordered by occurrence in depth-first tree traversal.
@@ -70,7 +70,7 @@ BOOST_AUTO_TEST_CASE(merkleblock_construct_from_txids_not_found)
     std::vector<uint256> vMatched;
     std::vector<unsigned int> vIndex;
     merkleBlock.txn.ExtractMatches(vMatched, vIndex);
-    //BOOST_CHECK_EQUAL(merkleBlock.txn.ExtractMatches(vMatched, vIndex).GetHex(), block.hashMerkleRoot.GetHex());
+    BOOST_CHECK_EQUAL(merkleBlock.txn.ExtractMatches(vMatched, vIndex).GetHex(), block.hashImMerkleRoot.GetHex());
     BOOST_CHECK_EQUAL(vMatched.size(), 0U);
     BOOST_CHECK_EQUAL(vIndex.size(), 0U);
 }
