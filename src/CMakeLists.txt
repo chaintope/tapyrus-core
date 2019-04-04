@@ -237,7 +237,6 @@ target_link_libraries(server
         bitcoinconsensus
         leveldb
         memenv
-        miniupnpc
         )
 
 # Test suite.
