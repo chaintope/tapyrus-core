@@ -65,11 +65,9 @@ BOOST_AUTO_TEST_CASE(outbound_slow_chain_eviction)
     dummyNode1.nVersion = 1;
     dummyNode1.fSuccessfullyConnected = true;
 
-    // This test requires that we have a chain with non-zero work.
     {
         LOCK(cs_main);
         BOOST_CHECK(chainActive.Tip() != nullptr);
-        BOOST_CHECK(chainActive.Tip()->nChainWork > 0);
     }
 
     // Test starts here
