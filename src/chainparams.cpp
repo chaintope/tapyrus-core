@@ -355,10 +355,6 @@ public:
         vFixedSeeds.clear(); //!< Regtest mode doesn't have any fixed seeds.
         vSeeds.clear();      //!< Regtest mode doesn't have any DNS seeds.
 
-        // for auto discover other peer in regtest mode. TODO: must delete after can do mining in testnet and mainnet.
-        vSeeds.emplace_back("seed.tapyrus.dev.chaintope.com");
-        vSeeds.emplace_back("static-seed.tapyrus.dev.chaintope.com");
-
         fDefaultConsistencyChecks = true;
         fRequireStandard = false;
         fMineBlocksOnDemand = true;
