@@ -161,7 +161,7 @@ public:
         pchMessageStart[1] = 0xff;
         pchMessageStart[2] = 0xf0;
         pchMessageStart[3] = 0x00;
-        nDefaultPort = 8333;
+        nDefaultPort = 2367;  // 2357 is beautiful prime.
         nPruneAfterHeight = 100000;
 
         genesis = CreateGenesisBlock(1546853016, 1, 50 * COIN, "024bd6909fd1187b356e163b670a1c7c5f70e40d68667e3a64d6321fb780d056c9", signedBlocksCondition);
@@ -263,7 +263,7 @@ public:
         pchMessageStart[1] = 0x9a;
         pchMessageStart[2] = 0x83;
         pchMessageStart[3] = 0x74;
-        nDefaultPort = 18333;
+        nDefaultPort = 12357;
         nPruneAfterHeight = 1000;
 
         genesis = CreateGenesisBlock(1546853016, 1, 50 * COIN, "024bd6909fd1187b356e163b670a1c7c5f70e40d68667e3a64d6321fb780d056c9", signedBlocksCondition);
@@ -346,7 +346,7 @@ public:
         pchMessageStart[1] = 0x9a;
         pchMessageStart[2] = 0x83;
         pchMessageStart[3] = 0x74;
-        nDefaultPort = 18444; //  for using generate command. TODO: must revert after can do mining in testnet and mainnet.
+        nDefaultPort = 12377;
         nPruneAfterHeight = 1000;
 
         genesis = CreateGenesisBlock(1546853016, 1, 50 * COIN, "024bd6909fd1187b356e163b670a1c7c5f70e40d68667e3a64d6321fb780d056c9", signedBlocksCondition);
