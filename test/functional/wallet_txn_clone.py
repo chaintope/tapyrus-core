@@ -109,13 +109,10 @@ class TxnMallTest(BitcoinTestFramework):
             assert_equal(tx2["confirmations"], 0)
 
         # Send clone and its parent to miner
-        node2_txid1 = self.nodes[2].sendrawtransaction(node0_tx1["hex"])
+        self.nodes[2].sendrawtransaction(node0_tx1["hex"])
         txid1_clone = self.nodes[2].sendrawtransaction(tx1_clone["hex"])
-        print("%s, %s, %s" %(txid1, node2_txid1, txid1_clone))
-        if self.options.segwit:
-            assert_equal(node2_txid1, txid1_clone)
-            assert_equal(txid1, txid1_clone)
-            return
+        #no transaction malleability in tapyrus
+        assert_equal(txid1, txid1_clone)
 
         # ... mine a block...
         self.nodes[2].generate(1)
