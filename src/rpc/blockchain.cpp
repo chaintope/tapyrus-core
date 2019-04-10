@@ -1496,7 +1496,7 @@ static UniValue getchaintxstats(const JSONRPCRequest& request)
             "getchaintxstats ( nblocks blockhash )\n"
             "\nCompute statistics about the total number and rate of transactions in the chain.\n"
             "\nArguments:\n"
-            "1. nblocks      (numeric, optional) Size of the window in number of blocks (default: one month).\n"
+            "1. nblocks      (numeric, optional) Size of the window in number of blocks (default: 1000).\n"
             "2. \"blockhash\"  (string, optional) The hash of the block that ends the window.\n"
             "\nResult:\n"
             "{\n"
@@ -1514,7 +1514,7 @@ static UniValue getchaintxstats(const JSONRPCRequest& request)
         );
 
     const CBlockIndex* pindex;
-    int blockcount = 30 * 24 * 60 * 60 / Params().GetConsensus().nPowTargetSpacing; // By default: 1 month
+    int blockcount = 1000; // By default: 1000
 
     if (request.params[1].isNull()) {
         LOCK(cs_main);
