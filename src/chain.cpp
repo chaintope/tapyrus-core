@@ -118,28 +118,6 @@ void CBlockIndex::BuildSkip()
         pskip = pprev->GetAncestor(GetSkipHeight(nHeight));
 }
 
-arith_uint256 GetBlockProof(const CBlockIndex& block)
-{
-    return 1;
-}
-
-int64_t GetBlockProofEquivalentTime(const CBlockIndex& to, const CBlockIndex& from, const CBlockIndex& tip, const Consensus::Params& params)
-{
-    arith_uint256 r;
-    int sign = 1;
-    if (to.nChainWork > from.nChainWork) {
-        r = to.nChainWork - from.nChainWork;
-    } else {
-        r = from.nChainWork - to.nChainWork;
-        sign = -1;
-    }
-    r = r * arith_uint256(params.nPowTargetSpacing) / GetBlockProof(tip);
-    if (r.bits() > 63) {
-        return sign * std::numeric_limits<int64_t>::max();
-    }
-    return sign * r.GetLow64();
-}
-
 /** Find the last common ancestor two blocks have.
  *  Both pa and pb must be non-nullptr. */
 const CBlockIndex* LastCommonAncestor(const CBlockIndex* pa, const CBlockIndex* pb) {
