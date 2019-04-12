@@ -189,6 +189,8 @@ public:
         if (ser_action.ForRead())
             FillShortTxIDSelector();
     }
+
+    std::string ToString() const;
 };
 
 class PartiallyDownloadedBlock {

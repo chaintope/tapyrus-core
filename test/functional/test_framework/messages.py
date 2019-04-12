@@ -26,8 +26,6 @@ import time
 from test_framework.siphash import siphash256
 from test_framework.util import hex_str_to_bytes, bytes_to_hex_str
 
-import logging
-logger = logging.getLogger("TestFramework.mininode")
 
 MIN_VERSION_SUPPORTED = 60001
 MY_VERSION = 70014  # past bip-31 for ping/pong
@@ -374,13 +372,13 @@ class CTxWitness():
         for i in range(len(self.vtxinwit)):
             self.vtxinwit[i].deserialize(f)
 
-    def serialize(self, **kwargs):
+    def serialize(self):
         r = b""
         # This is different than the usual vector serialization --
         # we omit the length of the vector, which is required to be
         # the same length as the transaction's vin vector.
         for x in self.vtxinwit:
-            r += x.serialize(**kwargs)
+            r += x.serialize()
         return r
 
     def __repr__(self):
@@ -454,7 +452,7 @@ class CTransaction():
         r += struct.pack("<i", self.nVersion)
         if flags:
             dummy = []
-            r += ser_vector(dummy, **kwargs)
+            r += ser_vector(dummy)
             r += struct.pack("<B", flags)
         r += ser_vector(self.vin, **kwargs)
         r += ser_vector(self.vout)
@@ -488,16 +486,19 @@ class CTransaction():
     def calc_sha256(self, with_witness=False):
         if with_witness:
             # Don't cache the result, just return it
-            witHash = uint256_from_str(hash256(self.serialize_with_witness()))
+            witHash = uint256_from_str(hash256(self.serialize()))
             return witHash
 
         if self.sha256 is None:
-            self.sha256 = uint256_from_str(hash256(self.serialize()))
+            txbytes = self.serialize(with_witness=False)
 
-            self.hash = encode(hash256(self.serialize())[::-1], 'hex_codec').decode('ascii')
+            self.sha256 = uint256_from_str(hash256(txbytes))
+            self.hash = encode(hash256(txbytes)[::-1], 'hex_codec').decode('ascii')
 
-            self.malfixsha256 = uint256_from_str(hash256(self.serialize(with_scriptsig=False)))
-            self.hashMalFix = encode(hash256(self.serialize(with_scriptsig=False))[::-1], 'hex_codec').decode('ascii')
+            txbytes2 = self.serialize(with_witness=False, with_scriptsig=False)
+
+            self.malfixsha256 = uint256_from_str(hash256(txbytes2))
+            self.hashMalFix = encode(hash256(txbytes2)[::-1], 'hex_codec').decode('ascii')
             
     def is_valid(self):
         self.calc_sha256()
@@ -710,13 +711,13 @@ class P2PHeaderAndShortIDs():
     # When using version 2 compact blocks, we must serialize with_witness.
     def serialize(self, **kwargs):
         r = b""
-        r += self.header.serialize(**kwargs)
+        r += self.header.serialize()
         r += struct.pack("<Q", self.nonce)
         r += ser_compact_size(self.shortids_length)
         for x in self.shortids:
             # We only want the first 6 bytes
             r += struct.pack("<Q", x)[0:6]
-            r += ser_vector(self.prefilled_txn, **kwargs)
+        r += ser_vector(self.prefilled_txn, **kwargs)
         return r
 
     def __repr__(self):
@@ -789,7 +790,7 @@ class HeaderAndShortIDs():
         for i in range(len(block.vtx)):
             if i not in prefill_list:
                 tx_hash = block.vtx[i].malfixsha256
-                if use_witness:
+                if use_witness and not block.vtx[i].wit.is_null():
                     tx_hash = block.vtx[i].calc_sha256(with_witness=True)
                 self.shortids.append(calculate_shortid(k0, k1, tx_hash))
 
@@ -1096,8 +1097,7 @@ class msg_block():
         self.block.deserialize(f)
 
     def serialize(self):
-        r = self.block.serialize(with_witness=False, with_scriptsig=True)
-        #logger.debug("msg_block serialize:[%s]" % str([hex(x) for x in r]))
+        r = self.block.serialize(with_witness=False)
         return r
 
     def __repr__(self):
@@ -1119,7 +1119,7 @@ class msg_generic():
 class msg_witness_block(msg_block):
 
     def serialize(self):
-        r = self.block.serialize(with_witness=True, with_scriptsig=True)
+        r = self.block.serialize()
         return r
 
 class msg_getaddr():

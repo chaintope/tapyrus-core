@@ -18,7 +18,7 @@ from test_framework.messages import (
     CTxOut,
     MAX_BLOCK_BASE_SIZE,
     uint256_from_compact,
-    uint256_from_str,
+    uint256_from_str
 )
 from test_framework.mininode import P2PDataStore
 from test_framework.script import (
@@ -425,7 +425,7 @@ class FullBlockTest(BitcoinTestFramework):
         #
         #
         #   13 (4) -> b15 (5) -> b23 (6) -> b26 () -> b27 ()  -> b30 (7) -> b31 (8) -> b33 (9) -> b35 (10) -> b39 (11) -> b41 (12)
-        #                                                                                        \-> b40 (12)
+        #       \-> b40 (12)
         #
         # b39 - create some P2SH outputs that will require 6 sigops to spend:
         #
@@ -526,6 +526,8 @@ class FullBlockTest(BitcoinTestFramework):
         self.update_block(41, [tx])
         self.sync_blocks([b41], True)
 
+        assert_equal(len(self.nodes[0].getrawmempool()), 0)
+
         # Fork off of b39 to create a constant base again
         #
         # b23 (6) -> b30 (7) -> b31 (8) -> b33 (9) -> b35 (10) -> b39 (11) -> b42 (12) -> b43 (13)
@@ -539,8 +541,11 @@ class FullBlockTest(BitcoinTestFramework):
         self.save_spendable_output()
         self.sync_blocks([b42, b43], True)
 
-        # mempool should be empty
-        self.log.info("Memory Pool length [%d]" % len(self.nodes[0].getrawmempool()))
+        # during this reorg block b41's transactions only DEFAULT_ANCESTOR_LIMIT(=25) are put to the memorypool. rest of the transactions are rejected due to too-long-mempool-chain
+        assert_equal(len(self.nodes[0].getrawmempool()), 25)
+        mempool = self.nodes[0].getrawmempool()
+        for i in range(2,26):
+            assert b41.vtx[i].hashMalFix in mempool
 
         # Test a number of really invalid scenarios
         #
@@ -573,7 +578,7 @@ class FullBlockTest(BitcoinTestFramework):
         b45.nBits = 0x207fffff
         b45.vtx.append(non_coinbase)
         b45.hashMerkleRoot = b45.calc_merkle_root()
-        b44.hashImMerkleRoot = b44.calc_immutable_merkle_root()
+        b45.hashImMerkleRoot = b45.calc_immutable_merkle_root()
         b45.calc_sha256()
         b45.solve()
         self.block_heights[b45.sha256] = self.block_heights[self.tip.sha256] + 1
@@ -589,6 +594,7 @@ class FullBlockTest(BitcoinTestFramework):
         b46.nBits = 0x207fffff
         b46.vtx = []
         b46.hashMerkleRoot = 0
+        b46.hashImMerkleRoot = 0
         b46.solve()
         self.block_heights[b46.sha256] = self.block_heights[b44.sha256] + 1
         self.tip = b46
@@ -759,6 +765,12 @@ class FullBlockTest(BitcoinTestFramework):
         b60 = self.next_block(60, spend=out[17])
         self.sync_blocks([b60], True)
         self.save_spendable_output()
+
+        # after reorg mempool has 3 more unspent transactions from b57p2
+        assert_equal(len(self.nodes[0].getrawmempool()), 28)
+        mempool = self.nodes[0].getrawmempool()
+        for i in range(3,5):
+            assert b57p2.vtx[i].hashMalFix in mempool
 
         # Test BIP30
         #
@@ -1089,8 +1101,8 @@ class FullBlockTest(BitcoinTestFramework):
         b79 = self.update_block(79, [tx79])
         self.sync_blocks([b79], True)
 
-        # mempool should be empty
-        assert_equal(len(self.nodes[0].getrawmempool()), 0)
+        # mempool still has the 28 transactions
+        assert_equal(len(self.nodes[0].getrawmempool()), 28)
 
         self.move_tip(77)
         b80 = self.next_block(80, spend=out[25])
@@ -1107,7 +1119,7 @@ class FullBlockTest(BitcoinTestFramework):
 
         # now check that tx78 and tx79 have been put back into the peer's mempool
         mempool = self.nodes[0].getrawmempool()
-        assert_equal(len(mempool), 2)
+        assert_equal(len(mempool), 30)
         assert(tx78.hashMalFix in mempool)
         assert(tx79.hashMalFix in mempool)
 

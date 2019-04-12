@@ -635,7 +635,6 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
                 if (fReplacementOptOut) {
                     return state.Invalid(false, REJECT_DUPLICATE, "txn-mempool-conflict");
                 }
-
                 setConflicts.insert(ptxConflicting->GetHashMalFix());
             }
         }
@@ -3107,7 +3106,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
         uint256 hashImMerkleRoot2 = BlockMerkleRoot(block, &mutated, true);
 
         if (block.hashImMerkleRoot != hashImMerkleRoot2)
-            return state.DoS(100, false, REJECT_INVALID, "bad-txnimmrklroot", true, "hashImmutableMerkleRoot mismatch");
+            return state.DoS(100, false, REJECT_INVALID, "bad-txnimmrklroot", true, "hashImMerkleRoot mismatch");
 
         // Check for merkle tree malleability (CVE-2012-2459): repeating sequences
         // of transactions in a block without affecting the merkle root of a block,

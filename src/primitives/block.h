@@ -33,7 +33,6 @@ public:
     {
         SetNull();
     }
-
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
@@ -69,6 +68,7 @@ public:
     {
         return (int64_t)nTime;
     }
+    std::string ToString() const;
 };
 
 
