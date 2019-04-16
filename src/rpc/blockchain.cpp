@@ -113,7 +113,13 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
     result.pushKV("tx", txs);
     result.pushKV("time", block.GetBlockTime());
     result.pushKV("mediantime", (int64_t)blockindex->GetMedianTimePast());
-    // TODO: add proof data
+
+    UniValue proofs(UniValue::VARR);
+    for(const auto& sig : block.GetBlockHeader().proof)
+    {
+        proofs.push_back(HexStr(sig));
+    }
+    result.pushKV("proof", proofs);
     result.pushKV("nTx", (uint64_t)blockindex->nTx);
 
     if (blockindex->pprev)
