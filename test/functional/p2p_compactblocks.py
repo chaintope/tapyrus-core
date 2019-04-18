@@ -462,7 +462,7 @@ class CompactBlocksTest(BitcoinTestFramework):
 
         # First try announcing compactblocks that won't reconstruct, and verify
         # that we receive getblocktxn messages back.
-        if (len(self.utxos) < 4):
+        if (len(self.utxos) == 0):
             self.make_utxos()
         utxo = self.utxos.pop(0)
 

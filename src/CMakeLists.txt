@@ -197,7 +197,6 @@ add_library(server
         policy/feerate.cpp
         policy/policy.cpp
         policy/rbf.cpp
-        pow.cpp
         rest.cpp
         rpc/blockchain.cpp
         rpc/mining.cpp
@@ -238,6 +237,7 @@ target_link_libraries(server
         bitcoinconsensus
         leveldb
         memenv
+        miniupnpc
         )
 
 # Test suite.

@@ -67,31 +67,30 @@ static MultisigCondition CreateSignedBlocksCondition(std::string pubkeyString, i
     return condition;
 }
 
-static CBlock CreateGenesisBlock(uint32_t nTime, uint32_t nNonce, uint32_t nBits, int32_t nVersion, const CAmount& genesisReward, std::string pubKeyString, const MultisigCondition& condition)
+static CBlock CreateGenesisBlock(uint32_t nTime, int32_t nVersion, const CAmount& genesisReward, std::string rewardTo, const MultisigCondition& condition)
 {
     // TODO: Ensure pubkey list isn't include combined pubkey.
     // In future Schnorr Signature will be used. Schnorr Signature has homomorphism, so if a member of federation has
     // private key of combined pubkey, the member can create multisignature from only his own key.
-    CPubKey pubKey = PubKeyCombine(condition.pubkeys);
+    CPubKey combinedPubKey = PubKeyCombine(condition.pubkeys);
     size_t publen = CPubKey::COMPRESSED_PUBLIC_KEY_SIZE;
 
-    std::vector<unsigned char> vch = ParseHex(pubKeyString);
-    CPubKey pubkey(vch.begin(), vch.end());
-    CScript genesisOutputScript = CScript() << OP_DUP << OP_HASH160 << ToByteVector(pubkey.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
+    std::vector<unsigned char> vch = ParseHex(rewardTo);
+    CPubKey rewardToPubKey(vch.begin(), vch.end());
+    CScript genesisOutputScript = CScript() << OP_DUP << OP_HASH160 << ToByteVector(rewardToPubKey.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
 
     CMutableTransaction txNew;
     txNew.nVersion = 1;
     txNew.vin.resize(1);
     txNew.vout.resize(1);
     txNew.vin[0].prevout.n = 0;
-    txNew.vin[0].scriptSig = CScript() << CScriptNum(condition.threshold) << std::vector<unsigned char>(pubKey.data(), pubKey.data() + publen);
+    txNew.vin[0].scriptSig = CScript() << CScriptNum(condition.threshold) << std::vector<unsigned char>(combinedPubKey.data(), combinedPubKey.data() + publen);
     txNew.vout[0].nValue = genesisReward;
     txNew.vout[0].scriptPubKey = genesisOutputScript;
 
     CBlock genesis;
     genesis.nTime    = nTime;
-    genesis.nBits    = nBits;
-    genesis.nNonce   = nNonce;
+    // TODO: set correct signs to block for Signed Blocks mechanism.
     genesis.nVersion = nVersion;
     genesis.vtx.push_back(MakeTransactionRef(std::move(txNew)));
     genesis.hashPrevBlock.SetNull();
@@ -128,11 +127,7 @@ public:
         consensus.BIP34Hash = uint256S("0x000000000000024b89b42a942fe0d9fea3bb44ab7bd1b19115dd6a759c0808b8");
         consensus.BIP65Height = 388381; // 000000000000000004c2b624ed5d7756c508d90fd0da2c7c679febfa6c4735f0
         consensus.BIP66Height = 363725; // 00000000000000000379eaa19dce8c9b722d46ae6a57c2f1a988119488b50931
-        consensus.powLimit = uint256S("00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
-        consensus.nPowTargetTimespan = 14 * 24 * 60 * 60; // two weeks
-        consensus.nPowTargetSpacing = 10 * 60;
-        consensus.fPowAllowMinDifficultyBlocks = false;
-        consensus.fPowNoRetargeting = false;
+        consensus.nExpectedBlockTime = 15; // 15 sec
         consensus.nRuleChangeActivationThreshold = 1916; // 95% of 2016
         consensus.nMinerConfirmationWindow = 2016; // nPowTargetTimespan / nPowTargetSpacing
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
@@ -149,9 +144,6 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_SEGWIT].nStartTime = 1479168000; // November 15th, 2016.
         consensus.vDeployments[Consensus::DEPLOYMENT_SEGWIT].nTimeout = 1510704000; // November 15th, 2017.
 
-        // The best chain should have at least this much work.
-        consensus.nMinimumChainWork = uint256S("0x0000000000000000000000000000000000000000028822fef1c230963535a90d");
-
         // By default assume that the signatures in ancestors of this block are valid.
         consensus.defaultAssumeValid = uint256S("0x0000000000000000002e63058c023a9a1de233554f28c7b21380b6c9003f36a8"); //534292
 
@@ -159,15 +151,18 @@ public:
          * The message start string is designed to be unlikely to occur in normal data.
          * The characters are rarely used upper ASCII, not valid as UTF-8, and produce
          * a large 32-bit integer with any alignment.
+         *
+         * tapyrus message start string is 0x01 0xFF 0xF0 0x00.
+         * testnet message start string is 0x75 0x9A 0x83 0x74. it is xor of mainnet header and testnet ascii codes.
          */
-        pchMessageStart[0] = 0xf9;
-        pchMessageStart[1] = 0xbe;
-        pchMessageStart[2] = 0xb4;
-        pchMessageStart[3] = 0xd9;
-        nDefaultPort = 8333;
+        pchMessageStart[0] = 0x01;
+        pchMessageStart[1] = 0xff;
+        pchMessageStart[2] = 0xf0;
+        pchMessageStart[3] = 0x00;
+        nDefaultPort = 2367;  // 2357 is beautiful prime.
         nPruneAfterHeight = 100000;
 
-        genesis = CreateGenesisBlock(1546853016, 2083236893, 0x1d00ffff, 1, 50 * COIN, "024bd6909fd1187b356e163b670a1c7c5f70e40d68667e3a64d6321fb780d056c9", signedBlocksCondition);
+        genesis = CreateGenesisBlock(1546853016, 1, 50 * COIN, "024bd6909fd1187b356e163b670a1c7c5f70e40d68667e3a64d6321fb780d056c9", signedBlocksCondition);
         consensus.hashGenesisBlock = genesis.GetHash();
 
         // Note that of those which support the service bits prefix, most only support a subset of
@@ -175,13 +170,9 @@ public:
         // This is fine at runtime as we'll fall back to using them as a oneshot if they don't support the
         // service bits we want, but we should get them updated to support all service bits wanted by any
         // release ASAP to avoid it where possible.
-        vSeeds.emplace_back("seed.bitcoin.sipa.be"); // Pieter Wuille, only supports x1, x5, x9, and xd
-        vSeeds.emplace_back("dnsseed.bluematt.me"); // Matt Corallo, only supports x9
-        vSeeds.emplace_back("dnsseed.bitcoin.dashjr.org"); // Luke Dashjr
-        vSeeds.emplace_back("seed.bitcoinstats.com"); // Christian Decker, supports x1 - xf
-        vSeeds.emplace_back("seed.bitcoin.jonasschnelli.ch"); // Jonas Schnelli, only supports x1, x5, x9, and xd
-        vSeeds.emplace_back("seed.btc.petertodd.org"); // Peter Todd, only supports x1, x5, x9, and xd
-        vSeeds.emplace_back("seed.bitcoin.sprovoost.nl"); // Sjors Provoost
+        // TODO: MUST change to seeder that is different of testnet. (ex: seed.tapyrus.chaintope.com, seed.tapyrus.com)
+        vSeeds.emplace_back("seed.tapyrus.dev.chaintope.com");
+        vSeeds.emplace_back("static-seed.tapyrus.dev.chaintope.com");
 
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,0);
         base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,5);
@@ -241,11 +232,7 @@ public:
         consensus.BIP34Hash = uint256S("0x0000000023b3a96d3484e5abb3755c413e7d41500f8e2a5c3f0dd01299cd8ef8");
         consensus.BIP65Height = 581885; // 00000000007f6655f22f98e72ed80d8b06dc761d5da09df0fa1dc4be4f861eb6
         consensus.BIP66Height = 330776; // 000000002104c8c45e99a8853285a3b592602a3ccde2b832481da85e9e4ba182
-        consensus.powLimit = uint256S("00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
-        consensus.nPowTargetTimespan = 14 * 24 * 60 * 60; // two weeks
-        consensus.nPowTargetSpacing = 10 * 60;
-        consensus.fPowAllowMinDifficultyBlocks = true;
-        consensus.fPowNoRetargeting = false;
+        consensus.nExpectedBlockTime = 15; // 15 sec
         consensus.nRuleChangeActivationThreshold = 1512; // 75% for testchains
         consensus.nMinerConfirmationWindow = 2016; // nPowTargetTimespan / nPowTargetSpacing
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
@@ -262,29 +249,25 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_SEGWIT].nStartTime = 1462060800; // May 1st 2016
         consensus.vDeployments[Consensus::DEPLOYMENT_SEGWIT].nTimeout = 1493596800; // May 1st 2017
 
-        // The best chain should have at least this much work.
-        consensus.nMinimumChainWork = uint256S("0x00000000000000000000000000000000000000000000007dbe94253893cbd463");
-
         // By default assume that the signatures in ancestors of this block are valid.
         consensus.defaultAssumeValid = uint256S("0x0000000000000037a8cd3e06cd5edbfe9dd1dbcc5dacab279376ef7cfc2b4c75"); //1354312
 
-        pchMessageStart[0] = 0x0b;
-        pchMessageStart[1] = 0x11;
-        pchMessageStart[2] = 0x09;
-        pchMessageStart[3] = 0x07;
-        nDefaultPort = 18333;
+            // 0x75 0x9A 0x83 0x74
+        pchMessageStart[0] = 0x75;
+        pchMessageStart[1] = 0x9a;
+        pchMessageStart[2] = 0x83;
+        pchMessageStart[3] = 0x74;
+        nDefaultPort = 12357;
         nPruneAfterHeight = 1000;
 
-        genesis = CreateGenesisBlock(1546853016, 414098458, 0x1d00ffff, 1, 50 * COIN, "024bd6909fd1187b356e163b670a1c7c5f70e40d68667e3a64d6321fb780d056c9", signedBlocksCondition);
+        genesis = CreateGenesisBlock(1546853016, 1, 50 * COIN, "024bd6909fd1187b356e163b670a1c7c5f70e40d68667e3a64d6321fb780d056c9", signedBlocksCondition);
         consensus.hashGenesisBlock = genesis.GetHash();
 
         vFixedSeeds.clear();
         vSeeds.clear();
         // nodes with support for servicebits filtering should be at the top
-        vSeeds.emplace_back("testnet-seed.bitcoin.jonasschnelli.ch");
-        vSeeds.emplace_back("seed.tbtc.petertodd.org");
-        vSeeds.emplace_back("seed.testnet.bitcoin.sprovoost.nl");
-        vSeeds.emplace_back("testnet-seed.bluematt.me"); // Just a static list of stable node(s), only supports x9
+        vSeeds.emplace_back("seed.tapyrus.dev.chaintope.com");
+        vSeeds.emplace_back("static-seed1tapyrus.dev.chaintope.com");
 
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,111);
         base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,196);
@@ -333,11 +316,7 @@ public:
         consensus.BIP34Hash = uint256();
         consensus.BIP65Height = 1351; // BIP65 activated on regtest (Used in rpc activation tests)
         consensus.BIP66Height = 1251; // BIP66 activated on regtest (Used in rpc activation tests)
-        consensus.powLimit = uint256S("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
-        consensus.nPowTargetTimespan = 14 * 24 * 60 * 60; // two weeks
-        consensus.nPowTargetSpacing = 10 * 60;
-        consensus.fPowAllowMinDifficultyBlocks = true;
-        consensus.fPowNoRetargeting = true;
+        consensus.nExpectedBlockTime = 15; // 15 sec
         consensus.nRuleChangeActivationThreshold = 108; // 75% for testchains
         consensus.nMinerConfirmationWindow = 144; // Faster than normal for regtest (144 instead of 2016)
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
@@ -350,20 +329,17 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_SEGWIT].nStartTime = Consensus::BIP9Deployment::ALWAYS_ACTIVE;
         consensus.vDeployments[Consensus::DEPLOYMENT_SEGWIT].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
 
-        // The best chain should have at least this much work.
-        consensus.nMinimumChainWork = uint256S("0x00");
-
         // By default assume that the signatures in ancestors of this block are valid.
         consensus.defaultAssumeValid = uint256S("0x00");
 
-        pchMessageStart[0] = 0xfa;
-        pchMessageStart[1] = 0xbf;
-        pchMessageStart[2] = 0xb5;
-        pchMessageStart[3] = 0xda;
-        nDefaultPort = 18444;
+        pchMessageStart[0] = 0x75;
+        pchMessageStart[1] = 0x9a;
+        pchMessageStart[2] = 0x83;
+        pchMessageStart[3] = 0x74;
+        nDefaultPort = 12383;
         nPruneAfterHeight = 1000;
 
-        genesis = CreateGenesisBlock(1546853016, 2, 0x207fffff, 1, 50 * COIN, "024bd6909fd1187b356e163b670a1c7c5f70e40d68667e3a64d6321fb780d056c9", signedBlocksCondition);
+        genesis = CreateGenesisBlock(1546853016, 1, 50 * COIN, "024bd6909fd1187b356e163b670a1c7c5f70e40d68667e3a64d6321fb780d056c9", signedBlocksCondition);
         consensus.hashGenesisBlock = genesis.GetHash();
 
         vFixedSeeds.clear(); //!< Regtest mode doesn't have any fixed seeds.

@@ -138,7 +138,8 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             os.path.join(config['environment']['BUILDDIR'], 'src', 'qt'),
             os.environ['PATH']
         ])
-
+        print(self.options.bitcoind)
+        print(self.options.bitcoincli)
         # Set up temp directory and start logging
         if self.options.tmpdir:
             self.options.tmpdir = os.path.abspath(self.options.tmpdir)

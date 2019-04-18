@@ -1,0 +1,15 @@
+FROM amazonlinux:2
+
+RUN yum -y update
+RUN yum install -y gcc-c++ autoconf automake libtool boost-devel openssl-devel libevent-devel which util-linux make
+
+COPY . /src
+
+WORKDIR /src
+
+RUN ./autogen.sh
+RUN ./configure --disable-gui-tests --with-gui=auto --disable-wallet
+RUN make clean
+RUN make -j3
+
+

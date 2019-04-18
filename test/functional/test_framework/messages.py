@@ -524,6 +524,7 @@ class CBlockHeader():
             self.nTime = header.nTime
             self.nBits = header.nBits
             self.nNonce = header.nNonce
+            self.proof = copy.deepcopy(header.proof)
             self.sha256 = header.sha256
             self.hash = header.hash
             self.calc_sha256()
@@ -536,6 +537,7 @@ class CBlockHeader():
         self.nTime = 0
         self.nBits = 0
         self.nNonce = 0
+        self.proof = 0
         self.sha256 = None
         self.hash = None
 
@@ -545,8 +547,7 @@ class CBlockHeader():
         self.hashMerkleRoot = deser_uint256(f)
         self.hashImMerkleRoot = deser_uint256(f)
         self.nTime = struct.unpack("<I", f.read(4))[0]
-        self.nBits = struct.unpack("<I", f.read(4))[0]
-        self.nNonce = struct.unpack("<I", f.read(4))[0]
+        self.proof = struct.unpack("<B", f.read(1))[0]
         self.sha256 = None
         self.hash = None
 
@@ -557,8 +558,7 @@ class CBlockHeader():
         r += ser_uint256(self.hashMerkleRoot)
         r += ser_uint256(self.hashImMerkleRoot)
         r += struct.pack("<I", self.nTime)
-        r += struct.pack("<I", self.nBits)
-        r += struct.pack("<I", self.nNonce)
+        r += struct.pack("<B", self.proof)
         return r
 
     def calc_sha256(self):
@@ -569,8 +569,7 @@ class CBlockHeader():
             r += ser_uint256(self.hashMerkleRoot)
             r += ser_uint256(self.hashImMerkleRoot)
             r += struct.pack("<I", self.nTime)
-            r += struct.pack("<I", self.nBits)
-            r += struct.pack("<I", self.nNonce)
+            r += struct.pack("<B", self.proof)
             self.sha256 = uint256_from_str(hash256(r))
             self.hash = encode(hash256(r)[::-1], 'hex_codec').decode('ascii')
 
@@ -650,11 +649,8 @@ class CBlock(CBlockHeader):
         return True
 
     def solve(self):
+        # TODO: create signs to proof field for signed blocks.
         self.rehash()
-        target = uint256_from_compact(self.nBits)
-        while self.sha256 > target:
-            self.nNonce += 1
-            self.rehash()
 
     def __repr__(self):
         return "CBlock(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x hashImMerkleRoot=%064x nTime=%s nBits=%08x nNonce=%08x vtx=%s)" \

@@ -248,7 +248,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
                 txFirst.push_back(pblock->vtx[0]);
             pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
             pblock->hashImMerkleRoot = BlockMerkleRoot(*pblock, nullptr, true);
-            pblock->nNonce = blockinfo[i].nonce;
+            // TODO: set correct signs to block for Signed Blocks mechanism.
         }
         std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(*pblock);
         BOOST_CHECK(ProcessNewBlock(chainparams, shared_pblock, true, nullptr));

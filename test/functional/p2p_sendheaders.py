@@ -62,9 +62,9 @@ b. Announce 3 new blocks via 1 headers message.
    Expect: one getdata request for all 3 blocks.
    (Send blocks.)
 c. Announce 1 header that forks off the last two blocks.
-   Expect: no response.
+   Expect: one getdata request for one blocks.
 d. Announce 1 more header that builds on that fork.
-   Expect: one getdata request for two blocks.
+   Expect: one getdata request for one blocks.
 e. Announce 16 more headers that build on that fork.
    Expect: getdata request for 14 more blocks.
 f. Announce 1 more header that builds on that fork.
@@ -507,14 +507,13 @@ class SendHeadersTest(BitcoinTestFramework):
         test_node.last_message.pop("getdata", None)
         test_node.send_header_for_blocks(blocks[0:1])
         test_node.sync_with_ping()
-        with mininode_lock:
-            assert "getdata" not in test_node.last_message
+        test_node.wait_for_getdata([x.sha256 for x in blocks[0:1]], timeout=DIRECT_FETCH_RESPONSE_TIME)
 
         # Announcing one more block on fork should trigger direct fetch for
         # both blocks (same work as tip)
         test_node.send_header_for_blocks(blocks[1:2])
         test_node.sync_with_ping()
-        test_node.wait_for_getdata([x.sha256 for x in blocks[0:2]], timeout=DIRECT_FETCH_RESPONSE_TIME)
+        test_node.wait_for_getdata([x.sha256 for x in blocks[1:2]], timeout=DIRECT_FETCH_RESPONSE_TIME)
 
         # Announcing 16 more headers should trigger direct fetch for 14 more
         # blocks

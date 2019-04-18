@@ -3891,11 +3891,10 @@ UniValue generate(const JSONRPCRequest& request)
 
     if (request.fHelp || request.params.size() < 1 || request.params.size() > 2) {
         throw std::runtime_error(
-            "generate nblocks ( maxtries )\n"
+            "generate nblocks ( )\n"
             "\nMine up to nblocks blocks immediately (before the RPC call returns) to an address in the wallet.\n"
             "\nArguments:\n"
             "1. nblocks      (numeric, required) How many blocks are generated immediately.\n"
-            "2. maxtries     (numeric, optional) How many iterations to try (default = 1000000).\n"
             "\nResult:\n"
             "[ blockhashes ]     (array) hashes of blocks generated\n"
             "\nExamples:\n"
@@ -3905,10 +3904,6 @@ UniValue generate(const JSONRPCRequest& request)
     }
 
     int num_generate = request.params[0].get_int();
-    uint64_t max_tries = 1000000;
-    if (!request.params[1].isNull()) {
-        max_tries = request.params[1].get_int();
-    }
 
     std::shared_ptr<CReserveScript> coinbase_script;
     pwallet->GetScriptForMining(coinbase_script);
@@ -3923,7 +3918,7 @@ UniValue generate(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INTERNAL_ERROR, "No coinbase script available");
     }
 
-    return generateBlocks(coinbase_script, num_generate, max_tries, true);
+    return generateBlocks(coinbase_script, num_generate, true);
 }
 
 UniValue rescanblockchain(const JSONRPCRequest& request)
@@ -4837,7 +4832,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "listreceivedbylabel",              &listreceivedbylabel,           {"minconf","include_empty","include_watchonly"} },
     { "wallet",             "setlabel",                         &setlabel,                      {"address","label"} },
 
-    { "generating",         "generate",                         &generate,                      {"nblocks","maxtries"} },
+    { "generating",         "generate",                         &generate,                      {"nblocks"} },
 };
 
 void RegisterWalletRPCCommands(CRPCTable &t)

@@ -23,6 +23,7 @@ add_library(wallet
 	walletdb.cpp
 	walletutil.cpp
 	../outputtype.cpp
+	../script/ismine.cpp
 )
 
 target_link_libraries(wallet util univalue Event ${BDBXX_LIBRARY})

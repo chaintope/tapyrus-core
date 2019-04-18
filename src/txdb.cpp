@@ -8,7 +8,6 @@
 #include <chainparams.h>
 #include <hash.h>
 #include <random.h>
-#include <pow.h>
 #include <shutdown.h>
 #include <uint256.h>
 #include <util.h>
@@ -270,8 +269,7 @@ bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, 
                 pindexNew->hashMerkleRoot = diskindex.hashMerkleRoot;
                 pindexNew->hashImMerkleRoot = diskindex.hashImMerkleRoot;
                 pindexNew->nTime          = diskindex.nTime;
-                pindexNew->nBits          = diskindex.nBits;
-                pindexNew->nNonce         = diskindex.nNonce;
+                pindexNew->proof          = diskindex.proof;
                 pindexNew->nStatus        = diskindex.nStatus;
                 pindexNew->nTx            = diskindex.nTx;
 

@@ -8,7 +8,6 @@
 #include <keystore.h>
 #include <net.h>
 #include <net_processing.h>
-#include <pow.h>
 #include <script/sign.h>
 #include <serialize.h>
 #include <util.h>
@@ -66,11 +65,9 @@ BOOST_AUTO_TEST_CASE(outbound_slow_chain_eviction)
     dummyNode1.nVersion = 1;
     dummyNode1.fSuccessfullyConnected = true;
 
-    // This test requires that we have a chain with non-zero work.
     {
         LOCK(cs_main);
         BOOST_CHECK(chainActive.Tip() != nullptr);
-        BOOST_CHECK(chainActive.Tip()->nChainWork > 0);
     }
 
     // Test starts here
@@ -146,7 +143,7 @@ BOOST_AUTO_TEST_CASE(stale_tip_peer_management)
         BOOST_CHECK(node->fDisconnect == false);
     }
 
-    SetMockTime(GetTime() + 3*consensusParams.nPowTargetSpacing + 1);
+    SetMockTime(GetTime() + 30 * 60 + 1);
 
     // Now tip should definitely be stale, and we should look for an extra
     // outbound peer

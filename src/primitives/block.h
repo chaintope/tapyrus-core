@@ -10,6 +10,38 @@
 #include <serialize.h>
 #include <uint256.h>
 
+typedef std::vector<unsigned char> Signature;
+typedef std::vector<Signature> ProofBase;
+
+class CProof : public ProofBase
+{
+public:
+    CProof() { }
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        READWRITEAS(ProofBase, *this);
+    }
+
+    void SetNull()
+    {
+        this->clear();
+    }
+
+    bool IsNull() const
+    {
+        return this->empty();
+    }
+
+    void addSignature(Signature sig)
+    {
+        this->push_back(sig);
+    }
+};
+
 /** Nodes collect new transactions into a block, hash them into a hash tree,
  * and scan through nonce values to make the block's hash satisfy proof-of-work
  * requirements.  When they solve the proof-of-work, they broadcast the block
@@ -17,7 +49,7 @@
  * in the block is a special one that creates a new coin owned by the creator
  * of the block.
  */
-class CBlockHeader
+class CBlockHeaderWithoutProof
 {
 public:
     // header
@@ -26,10 +58,8 @@ public:
     uint256 hashMerkleRoot;
     uint256 hashImMerkleRoot;
     uint32_t nTime;
-    uint32_t nBits;
-    uint32_t nNonce;
 
-    CBlockHeader()
+    CBlockHeaderWithoutProof()
     {
         SetNull();
     }
@@ -42,8 +72,6 @@ public:
         READWRITE(hashMerkleRoot);
         READWRITE(hashImMerkleRoot);
         READWRITE(nTime);
-        READWRITE(nBits);
-        READWRITE(nNonce);
     }
 
     void SetNull()
@@ -53,16 +81,15 @@ public:
         hashMerkleRoot.SetNull();
         hashImMerkleRoot.SetNull();
         nTime = 0;
-        nBits = 0;
-        nNonce = 0;
     }
 
     bool IsNull() const
     {
-        return (nBits == 0);
+        return (nTime == 0);
     }
 
-    uint256 GetHash() const;
+    // Return BlockHash for proof of Signed Blocks
+    uint256 GetHashForSign() const;
 
     int64_t GetBlockTime() const
     {
@@ -71,6 +98,23 @@ public:
     std::string ToString() const;
 };
 
+class CBlockHeader : public CBlockHeaderWithoutProof
+{
+public:
+    CProof proof;
+
+    CBlockHeader():CBlockHeaderWithoutProof(),proof() {}
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        CBlockHeaderWithoutProof::SerializationOp(s, ser_action);
+        READWRITE(proof);
+    }
+
+    uint256 GetHash() const;
+};
 
 class CBlock : public CBlockHeader
 {
@@ -114,9 +158,7 @@ public:
         block.hashPrevBlock     = hashPrevBlock;
         block.hashMerkleRoot    = hashMerkleRoot;
         block.hashImMerkleRoot  = hashImMerkleRoot;
-        block.nTime             = nTime;
-        block.nBits             = nBits;
-        block.nNonce            = nNonce;
+        block.proof          = proof;
         return block;
     }
 

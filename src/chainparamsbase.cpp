@@ -26,6 +26,39 @@ void SetupChainParamsBaseOptions()
     gArgs.AddArg("-signblockthreshold=<n>", "Sets the number of public keys to be the threshold of multisig", false, OptionsCategory::SIGN_BLOCK);
 }
 
+bool ParseChainParamsBaseOptionsParameters(int argc, const char* const argv[], std::string& error)
+{
+    const std::vector<std::string> options({
+        "-regtest",
+        "-testnet",
+        "-signblockpubkeys",
+        "-signblockthreshold"
+    });
+
+    char const* filteredArgv[5];
+    filteredArgv[0] = argv[0];
+    int count = 1;
+
+    for (int i = 1; i < argc; i++) {
+        std::string key(argv[i]);
+        size_t is_index = key.find('=');
+        if (is_index != std::string::npos) {
+            key.erase(is_index);
+        }
+
+        if (std::find(options.begin(), options.end(), key) != options.end())
+        {
+            filteredArgv[count++] = argv[i];
+        }
+    }
+
+    if (!gArgs.ParseParameters(count, filteredArgv, error)) {
+        return false;
+    }
+
+    return true;
+}
+
 static std::unique_ptr<CBaseChainParams> globalChainBaseParams;
 
 const CBaseChainParams& BaseParams()
@@ -37,11 +70,11 @@ const CBaseChainParams& BaseParams()
 std::unique_ptr<CBaseChainParams> CreateBaseChainParams(const std::string& chain)
 {
     if (chain == CBaseChainParams::MAIN)
-        return MakeUnique<CBaseChainParams>("", 8332);
+        return MakeUnique<CBaseChainParams>("", 2377); // 3rd prime from 2357.
     else if (chain == CBaseChainParams::TESTNET)
-        return MakeUnique<CBaseChainParams>("testnet3", 18332);
+        return MakeUnique<CBaseChainParams>("testnet3", 12377);
     else if (chain == CBaseChainParams::REGTEST)
-        return MakeUnique<CBaseChainParams>("regtest", 18443);
+        return MakeUnique<CBaseChainParams>("regtest", 12381);
     else
         throw std::runtime_error(strprintf("%s: Unknown chain %s.", __func__, chain));
 }

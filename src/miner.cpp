@@ -17,7 +17,6 @@
 #include <net.h>
 #include <policy/feerate.h>
 #include <policy/policy.h>
-#include <pow.h>
 #include <primitives/transaction.h>
 #include <script/standard.h>
 #include <timedata.h>
@@ -44,10 +43,6 @@ int64_t UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParam
 
     if (nOldTime < nNewTime)
         pblock->nTime = nNewTime;
-
-    // Updating time can change work required on testnet:
-    if (consensusParams.fPowAllowMinDifficultyBlocks)
-        pblock->nBits = GetNextWorkRequired(pindexPrev, pblock, consensusParams);
 
     return nNewTime - nOldTime;
 }
@@ -169,8 +164,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     // Fill in header
     pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
     UpdateTime(pblock, chainparams.GetConsensus(), pindexPrev);
-    pblock->nBits          = GetNextWorkRequired(pindexPrev, pblock, chainparams.GetConsensus());
-    pblock->nNonce         = 0;
+    pblock->proof.SetNull();
     pblocktemplate->vTxSigOpsCost[0] = WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx[0]);
 
     CValidationState state;

@@ -53,11 +53,12 @@ add_test_to_suite(bitcoin test_bitcoin
 		base64_tests.cpp
 		bech32_tests.cpp
 		bip32_tests.cpp
-		blockchain_tests.cpp
+		block_tests.cpp
 		blockencodings_tests.cpp
 		bloom_tests.cpp
 		bswap_tests.cpp
 		chainparams_tests.cpp
+		chainparamsbase_tests.cpp
 		checkqueue_tests.cpp
 		coins_tests.cpp
 		compress_tests.cpp
