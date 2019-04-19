@@ -18,7 +18,7 @@ uint256 CBlockHeader::GetHash() const
 std::string CBlockHeader::ToString() const
 {
     std::stringstream s;
-    s << strprintf("CBlockHeader(ver=0x%08x, hashPrevBlock=%s, hashMerkleRoot=%s, hashImMerkleRoot=%s, nTime=%u) hash=%s",
+    s << strprintf("CBlockHeader(ver=0x%08x, hashPrevBlock=%s, hashMerkleRoot=%s, hashImMerkleRoot=%s, nTime=%u)) hash=%s",
                    nVersion,
                    hashPrevBlock.ToString(),
                    hashMerkleRoot.ToString(),

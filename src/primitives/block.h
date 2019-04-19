@@ -95,7 +95,6 @@ public:
     {
         return (int64_t)nTime;
     }
-    std::string ToString() const;
 };
 
 class CBlockHeader : public CBlockHeaderWithoutProof
@@ -114,6 +113,7 @@ public:
     }
 
     uint256 GetHash() const;
+    std::string ToString() const;
 };
 
 class CBlock : public CBlockHeader
@@ -158,7 +158,8 @@ public:
         block.hashPrevBlock     = hashPrevBlock;
         block.hashMerkleRoot    = hashMerkleRoot;
         block.hashImMerkleRoot  = hashImMerkleRoot;
-        block.proof          = proof;
+        block.nTime             = nTime;
+        block.proof             = proof;
         return block;
     }
 
