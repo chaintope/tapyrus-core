@@ -510,7 +510,6 @@ class CTransaction():
         return "CTransaction(nVersion=%i vin=%s vout=%s wit=%s nLockTime=%i)" \
             % (self.nVersion, repr(self.vin), repr(self.vout), repr(self.wit), self.nLockTime)
 
-
 class CBlockHeader():
     def __init__(self, header=None):
         if header is None:
@@ -536,7 +535,7 @@ class CBlockHeader():
         self.nTime = 0
         self.nBits = 0
         self.nNonce = 0
-        self.proof = 0
+        self.proof = []
         self.sha256 = None
         self.hash = None
 
@@ -546,7 +545,7 @@ class CBlockHeader():
         self.hashMerkleRoot = deser_uint256(f)
         self.hashImMerkleRoot = deser_uint256(f)
         self.nTime = struct.unpack("<I", f.read(4))[0]
-        self.proof = struct.unpack("<B", f.read(1))[0]
+        self.proof = deser_string_vector(f)
         self.sha256 = None
         self.hash = None
 
@@ -557,7 +556,7 @@ class CBlockHeader():
         r += ser_uint256(self.hashMerkleRoot)
         r += ser_uint256(self.hashImMerkleRoot)
         r += struct.pack("<I", self.nTime)
-        r += struct.pack("<B", self.proof)
+        r += ser_string_vector(self.proof)
         return r
 
     def calc_sha256(self):
@@ -568,7 +567,7 @@ class CBlockHeader():
             r += ser_uint256(self.hashMerkleRoot)
             r += ser_uint256(self.hashImMerkleRoot)
             r += struct.pack("<I", self.nTime)
-            r += struct.pack("<B", self.proof)
+            r += ser_string_vector(self.proof)
             self.sha256 = uint256_from_str(hash256(r))
             self.hash = encode(hash256(r)[::-1], 'hex_codec').decode('ascii')
 
