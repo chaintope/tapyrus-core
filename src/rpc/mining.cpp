@@ -105,6 +105,48 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
     return generateBlocks(coinbaseScript, nGenerate, false);
 }
 
+UniValue getnewblock(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() > 2)
+        throw std::runtime_error(
+                "getnewblock\n"
+                "\nGets hex representation of a proposed, unmined new block\n"
+                "\nArguments:\n"
+                "1. address         (string, required) The address to send fees and the newly generated coin.\n"
+                "2. required_age    (numeric, optional, default=0) How many seconds a transaction must have been in the mempool to be inluded in the block proposal. This may help with faster block convergence among functionaries using compact blocks.\n"
+                "\nResult\n"
+                "blockhex      (hex) The block hex\n"
+                "\nExamples:\n"
+                + HelpExampleCli("getnewblock", "")
+        );
+
+    CTxDestination destination = DecodeDestination(request.params[0].get_str());
+    if (!IsValidDestination(destination)) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: Invalid address");
+    }
+
+    int required_wait = !request.params[1].isNull() ? request.params[1].get_int() : 0;
+    if (required_wait < 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMS, "required_wait must be non-negative.");
+    }
+
+    CScript coinbaseScript {GetScriptForDestination(destination)};
+
+    std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(Params()).CreateNewBlock(coinbaseScript, true));
+    if (!pblocktemplate.get())
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Wallet keypool empty");
+    {
+        // IncrementExtraNonce sets coinbase flags and builds merkle tree
+        LOCK(cs_main);
+        unsigned int nExtraNonce = 0;
+        IncrementExtraNonce(&pblocktemplate->block, chainActive.Tip(), nExtraNonce);
+    }
+
+    CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
+    ssBlock << pblocktemplate->block;
+    return HexStr(ssBlock.begin(), ssBlock.end());
+}
+
 static UniValue getmininginfo(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() != 0)
@@ -857,6 +899,7 @@ static const CRPCCommand commands[] =
 
 
     { "generating",         "generatetoaddress",      &generatetoaddress,      {"nblocks","address"} },
+    { "generating",         "getnewblock",            &getnewblock,            {"address", "required_age"} },
 
     { "hidden",             "estimatefee",            &estimatefee,            {} },
     { "util",               "estimatesmartfee",       &estimatesmartfee,       {"conf_target", "estimate_mode"} },
