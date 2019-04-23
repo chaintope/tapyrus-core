@@ -23,6 +23,7 @@
 extern UniValue importmulti(const JSONRPCRequest& request);
 extern UniValue dumpwallet(const JSONRPCRequest& request);
 extern UniValue importwallet(const JSONRPCRequest& request);
+extern UniValue generate(const JSONRPCRequest& request);
 
 BOOST_FIXTURE_TEST_SUITE(wallet_tests, WalletTestingSetup)
 
@@ -372,6 +373,41 @@ BOOST_FIXTURE_TEST_CASE(wallet_disableprivkeys, TestChain100Setup)
     BOOST_CHECK(!wallet->TopUpKeyPool(1000));
     CPubKey pubkey;
     BOOST_CHECK(!wallet->GetKeyFromPool(pubkey, false));
+}
+
+// Check that UniValue generate(const JSONRPCRequest& request) with privkey generate process.
+//
+BOOST_FIXTURE_TEST_CASE(generate_with_privkey, TestingSetup)
+{
+
+    CKey coinbaseKey, blockSignKey;
+    coinbaseKey.MakeNewKey(true);
+    blockSignKey.MakeNewKey(true);
+
+    std::shared_ptr<CWallet> wallet = std::make_shared<CWallet>("mock", WalletDatabase::CreateMock());
+    AddWallet(wallet);
+    bool firstRun;
+    wallet->LoadWallet(firstRun);
+    AddKey(*wallet, coinbaseKey);
+    JSONRPCRequest request;
+    request.params.setArray();
+    request.params.push_back(1);
+    request.params.push_back(HexStr(blockSignKey.GetPrivKey()));
+
+    // before generate, block size is 0.
+    {
+        LOCK(cs_main);
+        BOOST_CHECK_EQUAL(chainActive.Height(), 0);
+    }
+
+    // generate 1 block.
+    {
+        LOCK2(cs_main, wallet->cs_wallet);
+        UniValue response = generate(request);
+        BOOST_CHECK_EQUAL(chainActive.Height(), 1);
+    }
+
+    RemoveWallet(wallet);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

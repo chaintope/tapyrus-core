@@ -31,7 +31,8 @@ from .util import (
 JSONDecodeError = getattr(json, "JSONDecodeError", ValueError)
 
 BITCOIND_PROC_WAIT_TIMEOUT = 60
-
+# The privatekey for block sign. This key is same as_helper.h ValidPrivKeyStrings[0]
+BLOCK_SIGN_PRIVKEY_HEX = "c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3"
 
 class FailedToStartError(Exception):
     """Raised when a node fails to start correctly."""
@@ -121,6 +122,13 @@ class TestNode():
         else:
             assert self.rpc_connected and self.rpc is not None, self._node_msg("Error: no RPC connection")
             return getattr(self.rpc, name)
+
+    def generate(self, nblocks=0):
+        if self.use_cli:
+            return self.cli.generate(nblocks, BLOCK_SIGN_PRIVKEY_HEX)
+        else:
+            assert self.rpc_connected and self.rpc is not None, self._node_msg("Error: no RPC connection")
+            return self.rpc.generate(nblocks, BLOCK_SIGN_PRIVKEY_HEX)
 
     def start(self, extra_args=None, *, stdout=None, stderr=None, **kwargs):
         """Start the node."""
