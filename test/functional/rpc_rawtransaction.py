@@ -379,6 +379,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         assert_equal(self.nodes[0].getrawtransaction(txHash, False), rawTxSigned['hex'])
 
         # 4. valid parameters - supply txid and 1 for verbose.
+        # We only check the "hex" field of the output so we don't need to update this test every time the output format changes.
         assert_equal(self.nodes[0].getrawtransaction(txHash, 1)["hex"], rawTxSigned['hex'])
 
         # 5. valid parameters - supply txid and True for non-verbose

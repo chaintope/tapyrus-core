@@ -207,7 +207,6 @@ class SendHeadersTest(BitcoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 2
-        #self.extra_args="-debug=all"
 
     def mine_blocks(self, count):
         """Mine count blocks and return the new tip."""

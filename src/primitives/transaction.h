@@ -13,14 +13,14 @@
 #include <uint256.h>
 
 static const int SERIALIZE_TRANSACTION_NO_WITNESS = 0x40000000;
-//flag to generate transaction malleability hash from transaction
+//flag to generate transaction hash without scriptSig (hashMalFix)
 static const int SERIALIZE_TRANSACTION_MALFIX     = 0x20000000;
 
 /** An outpoint - a combination of a transaction hash and an index n into its vout */
 class COutPoint
 {
 public:
-    //tapyrus transaction malleability hash renamed for clarity
+    //tapyrus outpoint uses hashMalFix of previous transaction. So renamed this variable for clarity
     uint256 hashMalFix;
     uint32_t n;
 

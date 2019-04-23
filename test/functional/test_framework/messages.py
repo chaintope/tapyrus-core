@@ -26,7 +26,6 @@ import time
 from test_framework.siphash import siphash256
 from test_framework.util import hex_str_to_bytes, bytes_to_hex_str
 
-
 MIN_VERSION_SUPPORTED = 60001
 MY_VERSION = 70014  # past bip-31 for ping/pong
 MY_SUBVERSION = b"/python-mininode-tester:0.0.3/"
@@ -1069,7 +1068,7 @@ class msg_tx():
         self.tx.deserialize(f)
 
     def serialize(self):
-        return self.tx.serialize_without_witness(with_scriptsig=True)
+        return self.tx.serialize_without_witness()
 
     def __repr__(self):
         return "msg_tx(tx=%s)" % (repr(self.tx))
@@ -1077,7 +1076,7 @@ class msg_tx():
 class msg_witness_tx(msg_tx):
 
     def serialize(self):
-        return self.tx.serialize_with_witness(with_scriptsig=True)
+        return self.tx.serialize_with_witness()
 
 
 class msg_block():

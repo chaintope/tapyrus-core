@@ -59,7 +59,7 @@ class BumpFeeTest(BitcoinTestFramework):
 
         self.log.info("Running tests")
         dest_address = peer_node.getnewaddress()
-        test_simple_bumpfee_succeeds(rbf_node, peer_node, dest_address, self)
+        test_simple_bumpfee_succeeds(rbf_node, peer_node, dest_address)
         test_segwit_bumpfee_succeeds(rbf_node, dest_address)
         test_nonrbf_bumpfee_fails(peer_node, dest_address)
         test_notmine_bumpfee_fails(rbf_node, peer_node, dest_address)
@@ -75,7 +75,7 @@ class BumpFeeTest(BitcoinTestFramework):
         self.log.info("Success")
 
 
-def test_simple_bumpfee_succeeds(rbf_node, peer_node, dest_address, test):
+def test_simple_bumpfee_succeeds(rbf_node, peer_node, dest_address):
     rbfid = spend_one_input(rbf_node, dest_address)
     rbftx = rbf_node.gettransaction(rbfid)
     sync_mempools((rbf_node, peer_node))
@@ -297,7 +297,7 @@ def submit_block_with_tx(node, tx):
     block.hashImMerkleRoot = block.calc_immutable_merkle_root()
     add_witness_commitment(block)
     block.solve()
-    node.submitblock(bytes_to_hex_str(block.serialize(with_witness=True)))
+    node.submitblock(bytes_to_hex_str(block.serialize()))
     return block
 
 

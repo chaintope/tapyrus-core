@@ -1014,7 +1014,6 @@ bool GetTransaction(const uint256& hash, CTransactionRef& txOut, const Consensus
         }
 
         if (g_txindex) {
-            //navia: lookup using hashMalfix is not possible
             return g_txindex->FindTx(hash, hashBlock, txOut);
         }
 
@@ -2422,9 +2421,7 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
         if (!ReadBlockFromDisk(*pblockNew, pindexNew, chainparams.GetConsensus()))
             return AbortNode(state, "Failed to read block");
         pthisBlock = pblockNew;
-        g_logger->LogPrintStr("Loaded : " + pblockNew->GetHash().ToString() + " " + chainparams.GetConsensus().hashGenesisBlock.ToString());
     } else {
-        g_logger->LogPrintStr("Loading : " + pblock->GetHash().ToString());
         pthisBlock = pblock;
     }
     const CBlock& blockConnecting = *pthisBlock;
@@ -4055,7 +4052,6 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
 /** Apply the effects of a block on the utxo cache, ignoring that it may already have been applied. */
 bool CChainState::RollforwardBlock(const CBlockIndex* pindex, CCoinsViewCache& inputs, const CChainParams& params)
 {
-    LogPrint(BCLog::COINDB, "CChainState::RollforwardBlock\n");
     // TODO: merge with ConnectBlock
     CBlock block;
     if (!ReadBlockFromDisk(block, pindex, params.GetConsensus())) {
@@ -4068,7 +4064,6 @@ bool CChainState::RollforwardBlock(const CBlockIndex* pindex, CCoinsViewCache& i
                 inputs.SpendCoin(txin.prevout);
             }
         }
-        LogPrint(BCLog::COINDB, "CChainState::RollforwardBlock AddCoins\n");
         // Pass check = true as every addition may be an overwrite.
         AddCoins(inputs, *tx, pindex->nHeight, true);
     }

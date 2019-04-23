@@ -114,7 +114,6 @@ static void TestPackageSelection(const CChainParams& chainparams, const CScript&
     tx.vout.resize(1);
     tx.vout[0].nValue = 5000000000LL - 1000;
     // This tx has a low fee: 1000 satoshis
-    //navia: use GetHashMalFix
     uint256 hashParentTx = tx.GetHashMalFix(); // save this txid for later use
     mempool.addUnchecked(hashParentTx, entry.Fee(1000).Time(GetTime()).SpendsCoinbase(true).FromTx(tx));
 
@@ -236,9 +235,6 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
             CMutableTransaction txCoinbase(*pblock->vtx[0]);
             txCoinbase.nVersion = 1;
             txCoinbase.vin[0].prevout.n = chainActive.Height() + 1;
-            //txCoinbase.vin[0].scriptSig = CScript();
-            //txCoinbase.vin[0].scriptSig.push_back(blockinfo[i].extranonce);
-            //txCoinbase.vin[0].scriptSig.push_back(chainActive.Height());
             txCoinbase.vout.resize(1); // Ignore the (optional) segwit commitment added by CreateNewBlock (as the hardcoded nonces don't account for this)
             txCoinbase.vout[0].scriptPubKey = CScript();
             pblock->vtx[0] = MakeTransactionRef(std::move(txCoinbase));
