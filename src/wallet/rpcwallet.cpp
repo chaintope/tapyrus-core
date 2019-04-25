@@ -3701,7 +3701,7 @@ UniValue signrawtransactionwithwallet(const JSONRPCRequest& request)
             "  \"complete\" : true|false,          (boolean) If the transaction has a complete set of signatures\n"
             "  \"errors\" : [                      (json array of objects) Script verification errors (if there are any)\n"
             "    {\n"
-            "      \"txid\" : \"hash\",              (string) The hash of the referenced, previous transaction\n"
+            "      \"txid\" : \"id\",              (string) The transaction id of the referenced, previous transaction\n"
             "      \"vout\" : n,                   (numeric) The index of the output to spent and used as input\n"
             "      \"scriptSig\" : \"hex\",          (string) The hex-encoded signature script\n"
             "      \"sequence\" : n,               (numeric) Script sequence number\n"
