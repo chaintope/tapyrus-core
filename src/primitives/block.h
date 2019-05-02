@@ -96,7 +96,7 @@ public:
         return (int64_t)nTime;
     }
 };
-
+struct MultisigCondition;
 class CBlockHeader : public CBlockHeaderWithoutProof
 {
 public:
@@ -114,6 +114,7 @@ public:
 
     uint256 GetHash() const;
     std::string ToString() const;
+    bool AbsorbBlockProof(CProof proof, const MultisigCondition& signedBlocksCondition );
 };
 
 class CBlock : public CBlockHeader

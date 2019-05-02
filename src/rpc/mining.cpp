@@ -27,6 +27,7 @@
 
 #include <memory>
 #include <stdint.h>
+#include <policy/policy.h>
 
 unsigned int ParseConfirmTarget(const UniValue& value)
 {
@@ -847,6 +848,85 @@ static UniValue estimaterawfee(const JSONRPCRequest& request)
     return result;
 }
 
+static UniValue combineblocksigs(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 2)
+        throw std::runtime_error(
+            "combineblocksigs \"blockhex\" [{\"signature\"},...]\n"
+            "\nMerges signatures on a block proposal\n"
+            "\nArguments:\n"
+            "1. \"blockhex\"       (string, required) The hex-encoded block from getnewblockhex\n"
+            "2. \"signatures\"     (string) A json array of signatures\n"
+            "    [\n"
+            "      \"signature\"   (string) A signature (in the form of a hex-encoded scriptSig)\n"
+            "      ,...\n"
+            "    ]\n"
+            "\nResult\n"
+            "{\n"
+            "  \"hex\": \"value\",       (string) The signed block\n"
+            "  \"complete\": n           (numeric) if block is complete \n"
+            "  \"warning\": \"message\"  (string) diagnostic message stating why signatures were not added to a block \n"
+            "}\n"
+            "\nExamples:\n"
+            + HelpExampleCli("combineblocksigs", "<hex> [\"signature1\", \"signature2\", ...]")
+        );
+
+    CBlock block;
+    if (!DecodeHexBlk(block, request.params[0].get_str()))
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Block decode failed");
+
+    const UniValue& signatures = request.params[1].get_array();
+    const MultisigCondition& signedBlocksCondition = Params().GetSignedBlocksCondition();
+    if(signedBlocksCondition.pubkeys.size() < signatures.size())
+        throw JSONRPCError(RPC_INVALID_PARAMS, "Too many signatures");
+
+    std::string warning;
+    CProof blockProof;
+    for (unsigned int i = 0; i < signatures.size(); i++)
+    {
+        const std::string& sig = signatures[i].get_str();
+        if (!IsHex(sig))
+        {
+            warning.append("invalid signature ");
+            warning.append(signatures[i].getValStr());
+            warning.append(" ");
+            continue;
+        }
+        ScriptError serror = SCRIPT_ERR_OK;
+
+        if(!CheckSignatureEncoding(ParseHex(sig), STANDARD_SCRIPT_VERIFY_FLAGS, &serror, true))
+        {
+            warning.append("invalid encoding in signature: ");
+            if(serror != SCRIPT_ERR_OK)
+            {
+                warning.append(ScriptErrorString(serror));
+                warning.append(" ");
+            }
+            warning.append(sig.begin(), sig.end());
+            warning.append(" ");
+            continue;
+        }
+
+        blockProof.addSignature(ParseHex(sig));
+    }
+
+    bool status = block.AbsorbBlockProof(blockProof, signedBlocksCondition);
+
+    //warn if all signatures were not added to the block proof
+    if(block.proof.size() != signatures.size())
+        warning.insert(0, "One or more signatures were not added to block: ");
+
+    UniValue result(UniValue::VOBJ);
+    CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
+    ssBlock << block;
+
+    result.push_back(Pair("hex", HexStr(ssBlock.begin(), ssBlock.end())));
+    result.push_back(Pair("warning", warning));
+    result.push_back(Pair("complete", (status && (block.proof.size() > signedBlocksCondition.threshold))? true : false));
+
+    return result;
+}
+
 static const CRPCCommand commands[] =
 { //  category              name                      actor (function)         argNames
   //  --------------------- ------------------------  -----------------------  ----------
@@ -862,6 +942,7 @@ static const CRPCCommand commands[] =
     { "util",               "estimatesmartfee",       &estimatesmartfee,       {"conf_target", "estimate_mode"} },
 
     { "hidden",             "estimaterawfee",         &estimaterawfee,         {"conf_target", "threshold"} },
+    { "signer",             "combineblocksigs",       &combineblocksigs,       {"hex_blockdata", "signature_list"}}
 };
 
 void RegisterMiningRPCCommands(CRPCTable &t)
