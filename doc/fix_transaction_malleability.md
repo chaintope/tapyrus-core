@@ -36,7 +36,7 @@ There are 3 types of hashes in Tapyrus transactions:
 |hashMalFix   |sIcriptSig, scriptWitness  |Immutable transaction Id, Immutable Merkle root   |
 |hashWitness  |-                          |Witness block    |
 
-Tapyrus Coinase transactions
+Tapyrus CoinBase transactions
 ----------------------------
  Recall that coinbase transactions have only one input whose outPoint is null (hash is  (0) and index is -1). Bitcoin encountered genuine duplicate transaction ids because coinbase transactions could easily be duplicated. To fix this, [BIP-34](https://github.com/bitcoin/bips/blob/master/bip-0034.mediawiki) added block height as the first field of scriptSig of coinbase transactions. In Tapyrus the same technique is applied differently - block height is added as the index field of the outPoint in the input.
 
