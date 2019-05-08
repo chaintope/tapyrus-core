@@ -48,6 +48,9 @@ bool CBlockHeader::AbsorbBlockProof(CProof blockproof, const MultisigCondition& 
 
     unsigned int inProofSize = blockproof.size();
 
+    if(!inProofSize)
+        return false;
+
     //evaluate and sort blockProof signatures in the order of their corresponding public keys
     for(auto &pubkey: signedBlocksCondition.pubkeys)
     {
