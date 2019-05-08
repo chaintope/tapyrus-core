@@ -510,8 +510,6 @@ class CBlockHeader():
             self.proof = copy.deepcopy(header.proof)
             self.sha256 = header.sha256
             self.hash = header.hash
-            self.sigsha256 = header.sha256
-            self.sighash = header.hash
             self.calc_sha256()
 
     def set_null(self):
@@ -524,8 +522,6 @@ class CBlockHeader():
         self.proof = []
         self.sha256 = None
         self.hash = None
-        self.sigsha256 = None
-        self.sighash = None
 
     def deserialize(self, f):
         self.nVersion = struct.unpack("<i", f.read(4))[0]
@@ -535,8 +531,6 @@ class CBlockHeader():
         self.proof = deser_string_vector(f)
         self.sha256 = None
         self.hash = None
-        self.sigsha256 = None
-        self.sighash = None
 
     def serialize(self):
         r = b""
@@ -547,6 +541,14 @@ class CBlockHeader():
         r += ser_string_vector(self.proof)
         return r
 
+    def getsighash(self):
+        r = b""
+        r += struct.pack("<i", self.nVersion)
+        r += ser_uint256(self.hashPrevBlock)
+        r += ser_uint256(self.hashMerkleRoot)
+        r += struct.pack("<I", self.nTime)
+        return hash256(r)
+
     def calc_sha256(self):
         if self.sha256 is None:
             r = b""
@@ -554,9 +556,6 @@ class CBlockHeader():
             r += ser_uint256(self.hashPrevBlock)
             r += ser_uint256(self.hashMerkleRoot)
             r += struct.pack("<I", self.nTime)
-            self.sigsha256 = uint256_from_str(hash256(r))
-            self.sighash = encode(hash256(r)[::-1], 'hex_codec').decode('ascii')
-
             r += ser_string_vector(self.proof)
             self.sha256 = uint256_from_str(hash256(r))
             self.hash = encode(hash256(r)[::-1], 'hex_codec').decode('ascii')

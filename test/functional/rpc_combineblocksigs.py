@@ -11,7 +11,7 @@ Test signed-blockchain-related RPC calls:
 """
 
 from decimal import Decimal
-from test_framework.key import CECKey, CPubKey
+from test_framework.key import CECKey
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, hex_str_to_bytes, bytes_to_hex_str, assert_raises_rpc_error
@@ -40,13 +40,11 @@ class SignedBlockchainTest(BitcoinTestFramework):
 
         for i in range(0, len(self.secret)):
             self.cKey.append(CECKey())
-            self.cKey[i].set_compressed(True)
             self.cKey[i].set_secretbytes(hex_str_to_bytes(self.secret[i]))
-            self.pubkeys.append(CPubKey(self.cKey[i].get_pubkey()))
+            self.cKey[i].set_compressed(True)
+            self.pubkeys.append(self.cKey[i].get_pubkey())
 
             signblockpubkeys = signblockpubkeys + bytes_to_hex_str(self.pubkeys[i])
-
-        signblockthreshold = "signblockthreshold=3"
 
         self.extra_args = [[signblockpubkeys], [signblockpubkeys], [signblockpubkeys]]
 
@@ -59,15 +57,15 @@ class SignedBlockchainTest(BitcoinTestFramework):
         # create a block
         height =  1
         coinbase = create_coinbase(height, self.pubkeys[0])
-
         block = create_block(previousblock_hash, coinbase, int(time()))
         block.solve()
         block.calc_sha256()
         block_hex = ToHex(block)
+        block_hash = block.getsighash()
 
-        self.log.info("Signing block %s" % block.sighash)
+        self.log.info("Test block : %s" % bytes_to_hex_str(block_hash))
 
-        self.log.info("Checking RPC combineblocksigs parameter validation")
+        self.log.info("Testing RPC combineblocksigs parameter validation")
         #invalid block hex
         assert_raises_rpc_error(-22, "Block decode failed", self.nodes[0].combineblocksigs,"0000", [])
         #no signature
@@ -75,24 +73,54 @@ class SignedBlockchainTest(BitcoinTestFramework):
         #too many signature
         assert_raises_rpc_error(-32602, "Too many signatures", self.nodes[0].combineblocksigs,block_hex, ["00","00","00","00","00","00","00","00","00","00"])
         
-        sig0 = bytes_to_hex_str(self.cKey[0].sign(hex_str_to_bytes(block.sighash)))
-        sig1 = bytes_to_hex_str(self.cKey[1].sign(hex_str_to_bytes(block.sighash)))
-        sig2 = bytes_to_hex_str(self.cKey[2].sign(hex_str_to_bytes(block.sighash)))
+        sig0 = self.cKey[0].sign(block_hash)
+        sig1 = self.cKey[1].sign(block_hash)
+        sig2 = self.cKey[2].sign(block_hash)
 
-        self.log.info("Testing with 3 valid signatures")
-        signedBlock = self.nodes[0].combineblocksigs(block_hex, [sig0,sig1,sig2])
+        self.log.info("Testing RPC combineblocksigs with 3 valid signatures")
+        signedBlock = self.nodes[0].combineblocksigs(block_hex, [bytes_to_hex_str(sig0),bytes_to_hex_str(sig1),bytes_to_hex_str(sig2)])
 
         if(len(signedBlock["warning"])):
-            self.log.warning("%s : signatures:%s" % (signedBlock["warning"], [sig0,sig1,sig2]))
+            self.log.warning("%s : signatures:%s [%d, %d, %d]" % (signedBlock["warning"], [sig0,sig1,sig2],
+            self.cKey[0].verify(block.sighash,sig0),
+            self.cKey[1].verify(block.sighash,sig1),
+            self.cKey[2].verify(block.sighash,sig2)))
 
         # combineblocksigs only returns true when signatures are appended and enough
         # are included to pass validation
-        assert(signedBlock["complete"])
+        assert_equal(signedBlock["complete"], True)
+        assert_equal(signedBlock["warning"], "")
+        assert_equal(len(signedBlock["hex"]), len(block_hex) + len(bytes_to_hex_str(sig0))+ len(bytes_to_hex_str(sig1))+ len(bytes_to_hex_str(sig2)) + 6)
+        #6 is 2 bytes for 3 length of signatures
 
-        self.log.info("Testing with 3 valid signatures")
-        signedBlock = self.nodes[0].combineblocksigs(block_hex, [sig0,sig1,sig2])
+        self.log.info("Testing RPC combineblocksigs with 1 invalid signature")
+        sig0 = bytearray(sig0)
+        sig0[2] = 30
 
-        # TODO stuff with too many signatures or junk data manually
+        signedBlock = self.nodes[0].combineblocksigs(block_hex, [bytes_to_hex_str(sig0),bytes_to_hex_str(sig1),bytes_to_hex_str(sig2)])
+
+        assert_equal(signedBlock["complete"], True) #True as threshold is 1
+        assert_equal(signedBlock["warning"], "invalid encoding in signature: Non-canonical DER signature %s One or more signatures were not added to block" % ( bytes_to_hex_str(sig0) ))
+        assert_equal(len(signedBlock["hex"]), len(block_hex) + len(bytes_to_hex_str(sig1))+ len(bytes_to_hex_str(sig2)) + 4)
+
+        self.log.info("Testing RPC combineblocksigs with 2 invalid signatures")
+        sig1 = bytearray(sig1)
+        sig1[2] = 30
+
+        signedBlock = self.nodes[0].combineblocksigs(block_hex, [bytes_to_hex_str(sig0),bytes_to_hex_str(sig1),bytes_to_hex_str(sig2)])
+
+        assert_equal(signedBlock["complete"], True) #True as threshold is 1
+        assert_equal(len(signedBlock["hex"]), len(block_hex)+ len(bytes_to_hex_str(sig2)) + 2)
+
+        self.log.info("Testing RPC combineblocksigs with 3 invalid signatures")
+        sig2 = bytearray(sig2)
+        sig2[2] = 30
+
+        signedBlock = self.nodes[0].combineblocksigs(block_hex, [bytes_to_hex_str(sig0),bytes_to_hex_str(sig1),bytes_to_hex_str(sig2)])
+
+        assert_equal(signedBlock["complete"], False)
+        assert_equal(len(signedBlock["hex"]), len(block_hex))
+
 
 if __name__ == '__main__':
     SignedBlockchainTest().main()
