@@ -925,7 +925,7 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
 
     result.push_back(Pair("hex", HexStr(ssBlock.begin(), ssBlock.end())));
     result.push_back(Pair("warning", warning));
-    result.push_back(Pair("complete", (status && (block.proof.size() > signedBlocksCondition.threshold))? true : false));
+    result.push_back(Pair("complete", (status && (block.proof.size() >= signedBlocksCondition.threshold))? true : false));
 
     return result;
 }
