@@ -848,7 +848,7 @@ static UniValue estimaterawfee(const JSONRPCRequest& request)
     return result;
 }
 
-static UniValue combineblocksigs(const JSONRPCRequest& request)
+UniValue combineblocksigs(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() != 2)
         throw std::runtime_error(
@@ -876,6 +876,9 @@ static UniValue combineblocksigs(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Block decode failed");
 
     const UniValue& signatures = request.params[1].get_array();
+    if(!signatures.size())
+        throw JSONRPCError(RPC_INVALID_PARAMS, "Signature list was empty");
+
     const MultisigCondition& signedBlocksCondition = Params().GetSignedBlocksCondition();
     if(signedBlocksCondition.pubkeys.size() < signatures.size())
         throw JSONRPCError(RPC_INVALID_PARAMS, "Too many signatures");
@@ -914,7 +917,7 @@ static UniValue combineblocksigs(const JSONRPCRequest& request)
 
     //warn if all signatures were not added to the block proof
     if(block.proof.size() != signatures.size())
-        warning.insert(0, "One or more signatures were not added to block: ");
+        warning.append("One or more signatures were not added to block");
 
     UniValue result(UniValue::VOBJ);
     CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
@@ -942,7 +945,7 @@ static const CRPCCommand commands[] =
     { "util",               "estimatesmartfee",       &estimatesmartfee,       {"conf_target", "estimate_mode"} },
 
     { "hidden",             "estimaterawfee",         &estimaterawfee,         {"conf_target", "threshold"} },
-    { "signer",             "combineblocksigs",       &combineblocksigs,       {"hex_blockdata", "signature_list"}}
+    { "mining",             "combineblocksigs",       &combineblocksigs,       {"hex_blockdata", "signature_list"} }
 };
 
 void RegisterMiningRPCCommands(CRPCTable &t)
