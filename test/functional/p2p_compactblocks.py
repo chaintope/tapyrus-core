@@ -4,9 +4,8 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test compact blocks (BIP 152).
 
-Version 1 compact blocks are all pre-segwit (txids)
-Version 2 compact blocks are wtxids when there is witness in transaction
-                            txid when there is no witness in transaction
+Tapyrus Compact blocks are constructed using Immutable transaction Id only.
+Tapyrus does not differentiate version1 and version 2 compact blocks. Witness transaction Id is not used for this purpose.
 
 """
 
@@ -138,7 +137,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         block2.solve()
         self.test_node.send_and_ping(msg_block(block2))
         assert_equal(int(self.nodes[0].getbestblockhash(), 16), block2.sha256)
-        self.utxos.extend([[tx.malfixsha256, i, out_value]])
+        self.utxos.extend([[tx.malfixsha256, i, out_value] for i in range(10)])
         return
 
     # Test "sendcmpct" (between peers preferring the same version):
@@ -365,8 +364,6 @@ class CompactBlocksTest(BitcoinTestFramework):
                 header_and_shortids.prefilled_txn.pop(0)
             else:
                 tx_hash = block.vtx[index].malfixsha256
-                if version == 2 and use_witness_address and not block.vtx[index].wit.is_null():
-                    tx_hash = block.vtx[index].calc_sha256(with_witness=True)
                 shortid = calculate_shortid(k0, k1, tx_hash)
                 assert_equal(shortid, header_and_shortids.shortids[0])
                 header_and_shortids.shortids.pop(0)
@@ -403,8 +400,6 @@ class CompactBlocksTest(BitcoinTestFramework):
             comp_block.nonce = 0
             [k0, k1] = comp_block.get_siphash_keys()
             coinbase_hash = block.vtx[0].malfixsha256
-            if version == 2 and segwit:
-                coinbase_hash = block.vtx[0].calc_sha256(with_witness=True)
             comp_block.shortids = [
                     calculate_shortid(k0, k1, coinbase_hash) ]
             test_node.send_and_ping(msg_cmpctblock(comp_block.to_p2p()))
@@ -462,8 +457,6 @@ class CompactBlocksTest(BitcoinTestFramework):
 
         # First try announcing compactblocks that won't reconstruct, and verify
         # that we receive getblocktxn messages back.
-        if (len(self.utxos) == 0):
-            self.make_utxos()
         utxo = self.utxos.pop(0)
 
         block = self.build_block_with_transactions(node, utxo, 5)
@@ -531,8 +524,6 @@ class CompactBlocksTest(BitcoinTestFramework):
     # Incorrectly responding to a getblocktxn shouldn't cause the block to be
     # permanently failed.
     def test_incorrect_blocktxn_response(self, node, test_node, version):
-        if (len(self.utxos) == 0):
-            self.make_utxos()
         utxo = self.utxos.pop(0)
 
         block = self.build_block_with_transactions(node, utxo, 10)
@@ -694,11 +685,9 @@ class CompactBlocksTest(BitcoinTestFramework):
         assert_equal(get_bip9_status(node, "segwit")["status"], 'active')
 
     def test_end_to_end_block_relay(self, node, listeners):
-        if (len(self.utxos) == 0):
-            self.make_utxos()
         utxo = self.utxos.pop(0)
 
-        block = self.build_block_with_transactions(node, utxo, 10)
+        block = self.build_block_with_transactions(node, utxo, 1)
 
         [l.clear_block_announcement() for l in listeners]
 
@@ -718,8 +707,6 @@ class CompactBlocksTest(BitcoinTestFramework):
     # Test that we don't get disconnected if we relay a compact block with valid header,
     # but invalid transactions.
     def test_invalid_tx_in_compactblock(self, node, test_node, use_segwit):
-        if (len(self.utxos) == 0):
-            self.make_utxos()
         utxo = self.utxos[0]
 
         block = self.build_block_with_transactions(node, utxo, 5)
@@ -756,8 +743,6 @@ class CompactBlocksTest(BitcoinTestFramework):
         peer.send_and_ping(msg)
 
     def test_compactblock_reconstruction_multiple_peers(self, node, stalling_peer, delivery_peer):
-        if (len(self.utxos) == 0):
-            self.make_utxos()
 
         def announce_cmpct_block(node, peer):
             utxo = self.utxos.pop(0)
@@ -868,7 +853,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         self.test_end_to_end_block_relay(self.nodes[0], [self.segwit_node, self.test_node, self.old_node])
         #node1 does not send cmpctblock but inv to old_node 
         #commenting this test as it may change after segwit based settings in tapyrus are finalised  
-        #self.test_end_to_end_block_relay(self.nodes[1], [self.segwit_node, self.test_node, self.old_node])
+        self.test_end_to_end_block_relay(self.nodes[1], [self.segwit_node, self.test_node, self.old_node])
 
         self.log.info("Testing handling of invalid compact blocks...")
         self.test_invalid_tx_in_compactblock(self.nodes[0], self.test_node, False)

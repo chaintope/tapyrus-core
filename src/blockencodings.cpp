@@ -23,7 +23,7 @@ CBlockHeaderAndShortTxIDs::CBlockHeaderAndShortTxIDs(const CBlock& block, bool f
     prefilledtxn[0] = {0, block.vtx[0]};
     for (size_t i = 1; i < block.vtx.size(); i++) {
         const CTransaction& tx = *block.vtx[i];
-        shorttxids[i - 1] = GetShortID(fUseWTXID & tx.HasWitness() ? tx.GetWitnessHash() : tx.GetHashMalFix());
+        shorttxids[i - 1] = GetShortID(tx.GetHashMalFix());
     }
 }
 
@@ -124,33 +124,6 @@ ReadStatus PartiallyDownloadedBlock::InitData(const CBlockHeaderAndShortTxIDs& c
         if (idit != shorttxids.end()) {
             if (!have_txn[idit->second]) {
                 txn_available[idit->second] = pool->get(*iter);
-                have_txn[idit->second]  = true;
-                mempool_count++;
-            } else {
-                // If we find two mempool txn that match the short id, just request it.
-                // This should be rare enough that the extra bandwidth doesn't matter,
-                // but eating a round-trip due to FillBlock failure would be annoying
-                if (txn_available[idit->second]) {
-                    txn_available[idit->second].reset();
-                    mempool_count--;
-                }
-            }
-        }
-        // Though ideally we'd continue scanning for the two-txn-match-shortid case,
-        // the performance win of an early exit here is too good to pass up and worth
-        // the extra risk.
-        if (mempool_count == shorttxids.size())
-            break;
-    }
-
-    //Check using witnesss txid in vTxHashes
-    const std::vector<std::pair<uint256, CTxMemPool::txiter> >& vTxHashes = pool->vTxHashes;
-    for (size_t i = 0; i < vTxHashes.size(); i++) {
-        uint64_t shortid = cmpctblock.GetShortID(vTxHashes[i].first);
-        std::unordered_map<uint64_t, uint16_t>::iterator idit = shorttxids.find(shortid);
-        if (idit != shorttxids.end()) {
-            if (!have_txn[idit->second]) {
-                txn_available[idit->second] = vTxHashes[i].second->GetSharedTx();
                 have_txn[idit->second]  = true;
                 mempool_count++;
             } else {

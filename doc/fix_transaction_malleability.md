@@ -33,7 +33,7 @@ As Immutable transaction Id is used everywhere, Tapyrus transactions refer to th
 There are 3 types of hashes in Tapyrus transactions:
 |Name of Hash |Data omited while hashing  |Usage in Tapyrus           |
 |hash         |scriptWitness              |Merkle root                |
-|hashMalFix   |sIcriptSig, scriptWitness  |Immutable transaction Id, Immutable Merkle root   |
+|hashMalFix   |sIcriptSig, scriptWitness  |Immutable transaction Id, Immutable Merkle root, ShortId in compact blocks   |
 |hashWitness  |-                          |Witness block    |
 
 Tapyrus CoinBase transactions
@@ -55,7 +55,7 @@ Since Merkle root in Tapyrus includes ScriptSig it becomes difficult for wallets
 
 **Compact blocks**
 
-As a consequence of this change Compact blocks in Tapyrus also use Immutable transaction Id regardless of the compact block version requested. In bitcoin compact block version 1 is non-witness and version 2 is witness. In Tapyrus Witness transaction id used only in transactions that have witness data even when compact block version requested is 2.
+As a consequence of this change Compact blocks in Tapyrus also use Immutable transaction Id to compute the ShortIds regardless of the compact block version requested. In bitcoin compact block version 1 is non-witness and version 2 is witness.
 
 
 In all RPCs 'txid' is always the Immutable Transaction Id. This table summarises RPCs affected by Immutable Transaction Id(hashMalFix), their inputs and outputs

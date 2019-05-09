@@ -785,8 +785,6 @@ class HeaderAndShortIDs():
         for i in range(len(block.vtx)):
             if i not in prefill_list:
                 tx_hash = block.vtx[i].malfixsha256
-                if use_witness and not block.vtx[i].wit.is_null():
-                    tx_hash = block.vtx[i].calc_sha256(with_witness=True)
                 self.shortids.append(calculate_shortid(k0, k1, tx_hash))
 
     def __repr__(self):
