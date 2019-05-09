@@ -82,9 +82,9 @@ class SignedBlockchainTest(BitcoinTestFramework):
 
         if(len(signedBlock["warning"])):
             self.log.warning("%s : signatures:%s [%d, %d, %d]" % (signedBlock["warning"], [sig0,sig1,sig2],
-            self.cKey[0].verify(block.sighash,sig0),
-            self.cKey[1].verify(block.sighash,sig1),
-            self.cKey[2].verify(block.sighash,sig2)))
+            self.cKey[0].verify(block_hash,sig0),
+            self.cKey[1].verify(block_hash,sig1),
+            self.cKey[2].verify(block_hash,sig2)))
 
         # combineblocksigs only returns true when signatures are appended and enough
         # are included to pass validation
