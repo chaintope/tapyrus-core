@@ -31,18 +31,19 @@ As Immutable transaction Id is used everywhere, Tapyrus transactions refer to th
 *|version|number of inputs|input{outpoint{**hashMalFix**, index}, ScriptSig, sequence, **scriptWitness**}|number of outputs|output{value, scriptPubKey}|LockTime|*
 
 There are 3 types of hashes in Tapyrus transactions:
-|Name of Hash |Data omited while hashing  |Usage in Tapyrus           |
-|hash         |scriptWitness              |Merkle root                |
-|hashMalFix   |sIcriptSig, scriptWitness  |Immutable transaction Id, Immutable Merkle root, ShortId in compact blocks   |
-|hashWitness  |-                          |Witness block    |
 
-Tapyrus CoinBase transactions
-----------------------------
- Recall that coinbase transactions have only one input whose outPoint is null (hash is  (0) and index is -1). Bitcoin encountered genuine duplicate transaction ids because coinbase transactions could easily be duplicated. To fix this, [BIP-34](https://github.com/bitcoin/bips/blob/master/bip-0034.mediawiki) added block height as the first field of scriptSig of coinbase transactions. In Tapyrus the same technique is applied differently - block height is added as the index field of the outPoint in the input.
+|Name of Hash |Data omitted while hashing  |Usage in Tapyrus           |
+| :---: | :---: | :---: |
+|hash         |scriptWitness              |Merkle root                |
+|hashMalFix   |scriptSig, scriptWitness  |Immutable transaction Id, Immutable Merkle root, ShortId in compact blocks   |
+|hashWitness  |-                          |Witness block    |
 
 **Tapyrus coinbase transaction**
 
-|version|number of inputs|input:outpoint(hashMalFix, index), ScriptSig, sequence|number of outputs|output:(amount script)|
+ Recall that coinbase transactions have only one input whose outPoint is null (hash is  (0) and index is -1). Bitcoin encountered genuine duplicate transaction ids because coinbase transactions could easily be duplicated. To fix this, [BIP-34](https://github.com/bitcoin/bips/blob/master/bip-0034.mediawiki) added block height as the first field of scriptSig of coinbase transactions. In Tapyrus the same technique is applied differently - block height is added as the index field of the outPoint in the input.
+
+*Example:*
+*|version|number of inputs|input:outpoint(hashMalFix, index), ScriptSig, sequence|number of outputs|output:(amount script)|*
 *|00000000|01|0000000000000000000000000000000000000000000000000000000000000000**00000001**0000000000|01|...*
 
 **Merkle root**
@@ -90,6 +91,5 @@ In all RPCs 'txid' is always the Immutable Transaction Id. This table summarises
 |listlockunspent|N/A|Argument 2 - transactions['txid'] is hashMalFix(txId)|
 |listunspent|N/A|Result['txid'] is hashMalFix(txId)|
 |bumpfee|Argument 1- 'txid' is hashMalFix(txId)|Result['txid'] is hashMalFix(txId)|
-git 
 
 ** Result['hash'] is the transaction hash including scriptSig. This is different from 'txid'. In Witness transactions Result['hash'] is the witness hash.
