@@ -123,13 +123,6 @@ class TestNode():
             assert self.rpc_connected and self.rpc is not None, self._node_msg("Error: no RPC connection")
             return getattr(self.rpc, name)
 
-    def generate(self, nblocks=0):
-        if self.use_cli:
-            return self.cli.generate(nblocks, BLOCK_SIGN_PRIVKEY_HEX)
-        else:
-            assert self.rpc_connected and self.rpc is not None, self._node_msg("Error: no RPC connection")
-            return self.rpc.generate(nblocks, BLOCK_SIGN_PRIVKEY_HEX)
-
     def start(self, extra_args=None, *, stdout=None, stderr=None, **kwargs):
         """Start the node."""
         if extra_args is None:
@@ -349,6 +342,9 @@ class TestNodeCLI():
 
     def __getattr__(self, command):
         return TestNodeCLIAttr(self, command)
+
+    def generate(self, nblocks=0):
+        return TestNodeCLIAttr(self, "generate")(nblocks, "[\"{0}\"]".format(BLOCK_SIGN_PRIVKEY_HEX))
 
     def batch(self, requests):
         results = []

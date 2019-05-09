@@ -28,6 +28,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
 {
     { "setmocktime", 0, "timestamp" },
     { "generate", 0, "nblocks" },
+    { "generate", 1, "privkeys" },
     { "generatetoaddress", 0, "nblocks" },
     { "sendtoaddress", 1, "amount" },
     { "sendtoaddress", 4, "subtractfeefromamount" },

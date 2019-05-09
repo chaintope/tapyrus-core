@@ -3895,16 +3895,28 @@ UniValue generate(const JSONRPCRequest& request)
             "\nMine up to nblocks blocks immediately (before the RPC call returns) to an address in the wallet.\n"
             "\nArguments:\n"
             "1. nblocks      (numeric, required) How many blocks are generated immediately.\n"
-            "2. private keys (hex string, required) for sign to block.\n"
+            "2. private keys (hex string array, required) for sign to block.\n"
             "\nResult:\n"
             "[ blockhashes ]     (array) hashes of blocks generated\n"
             "\nExamples:\n"
             "\nGenerate 11 blocks\n"
-            + HelpExampleCli("generate", "11, c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3")
+            + HelpExampleCli("generate", "11, \"[\\\"c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3\\\"]\"")
         );
     }
 
     int num_generate = request.params[0].get_int();
+    UniValue privkeys_hex = request.params[1].get_array();
+
+    // privkeys length check
+    for(int i=0; i< privkeys_hex.size(); i++) {
+        const UniValue& privkey = privkeys_hex[i];
+        std::string keyHex = privkey.get_str();
+        if(keyHex.length() % 64 != 0) {
+            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT,
+                               strprintf("Error: key '%s' is invalid length of %d."
+                                       , keyHex, keyHex.length()));
+        }
+    }
 
     std::shared_ptr<CReserveScript> coinbase_script;
     pwallet->GetScriptForMining(coinbase_script);
