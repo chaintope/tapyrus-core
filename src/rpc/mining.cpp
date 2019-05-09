@@ -945,7 +945,7 @@ static const CRPCCommand commands[] =
     { "util",               "estimatesmartfee",       &estimatesmartfee,       {"conf_target", "estimate_mode"} },
 
     { "hidden",             "estimaterawfee",         &estimaterawfee,         {"conf_target", "threshold"} },
-    { "mining",             "combineblocksigs",       &combineblocksigs,       {"hex_blockdata", "signature_list"} }
+    { "mining",             "combineblocksigs",       &combineblocksigs,       {"block_hex", "signature_list"} },
 };
 
 void RegisterMiningRPCCommands(CRPCTable &t)
