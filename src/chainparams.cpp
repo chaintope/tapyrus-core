@@ -83,6 +83,7 @@ static CBlock CreateGenesisBlock(uint32_t nTime, int32_t nVersion, const CAmount
     txNew.nVersion = 1;
     txNew.vin.resize(1);
     txNew.vout.resize(1);
+    txNew.vin[0].prevout.n = 0;
     txNew.vin[0].scriptSig = CScript() << CScriptNum(condition.threshold) << std::vector<unsigned char>(combinedPubKey.data(), combinedPubKey.data() + publen);
     txNew.vout[0].nValue = genesisReward;
     txNew.vout[0].scriptPubKey = genesisOutputScript;
@@ -94,6 +95,7 @@ static CBlock CreateGenesisBlock(uint32_t nTime, int32_t nVersion, const CAmount
     genesis.vtx.push_back(MakeTransactionRef(std::move(txNew)));
     genesis.hashPrevBlock.SetNull();
     genesis.hashMerkleRoot = BlockMerkleRoot(genesis);
+    genesis.hashImMerkleRoot = BlockMerkleRoot(genesis, nullptr, true);
     return genesis;
 }
 

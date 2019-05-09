@@ -688,7 +688,7 @@ void CoinControlDialog::updateView()
             itemOutput->setData(COLUMN_CONFIRMATIONS, Qt::UserRole, QVariant((qlonglong)out.depth_in_main_chain));
 
             // transaction hash
-            itemOutput->setText(COLUMN_TXHASH, QString::fromStdString(output.hash.GetHex()));
+            itemOutput->setText(COLUMN_TXHASH, QString::fromStdString(output.hashMalFix.GetHex()));
 
             // vout index
             itemOutput->setText(COLUMN_VOUT_INDEX, QString::number(output.n));

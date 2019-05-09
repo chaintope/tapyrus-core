@@ -15,6 +15,19 @@ uint256 CBlockHeader::GetHash() const
     return SerializeHash(*this);
 }
 
+std::string CBlockHeader::ToString() const
+{
+    std::stringstream s;
+    s << strprintf("CBlockHeader(ver=0x%08x, hashPrevBlock=%s, hashMerkleRoot=%s, hashImMerkleRoot=%s, nTime=%u)) hash=%s",
+                   nVersion,
+                   hashPrevBlock.ToString(),
+                   hashMerkleRoot.ToString(),
+                   hashImMerkleRoot.ToString(),
+                   nTime,
+                   GetHash().ToString());
+    return s.str();
+}
+
 uint256 CBlockHeaderWithoutProof::GetHashForSign() const
 {
     return SerializeHash(*this);
@@ -24,11 +37,12 @@ std::string CBlock::ToString() const
 {
     // TODO: Make output string includes proof field
     std::stringstream s;
-    s << strprintf("CBlock(hash=%s, ver=0x%08x, hashPrevBlock=%s, hashMerkleRoot=%s, nTime=%u, vtx=%u)\n",
+    s << strprintf("CBlock(hash=%s, ver=0x%08x, hashPrevBlock=%s, hashMerkleRoot=%s, hashImMerkleRoot=%s, nTime=%u, vtx=%u)\n",
         GetHash().ToString(),
         nVersion,
         hashPrevBlock.ToString(),
         hashMerkleRoot.ToString(),
+        hashImMerkleRoot.ToString(),
         nTime,
         vtx.size());
     for (const auto& tx : vtx) {

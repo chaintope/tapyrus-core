@@ -588,7 +588,7 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
     EnsureWalletIsUnlocked(pwallet);
 
     CTransactionRef tx = SendMoney(pwallet, dest, nAmount, fSubtractFeeFromAmount, coin_control, std::move(mapValue), {} /* fromAccount */);
-    return tx->GetHash().GetHex();
+    return tx->GetHashMalFix().GetHex();
 }
 
 static UniValue listaddressgroupings(const JSONRPCRequest& request)
@@ -1106,7 +1106,7 @@ static UniValue sendfrom(const JSONRPCRequest& request)
 
     CCoinControl no_coin_control; // This is a deprecated API
     CTransactionRef tx = SendMoney(pwallet, dest, nAmount, false, no_coin_control, std::move(mapValue), std::move(strAccount));
-    return tx->GetHash().GetHex();
+    return tx->GetHashMalFix().GetHex();
 }
 
 
@@ -1306,7 +1306,7 @@ static UniValue sendmany(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_WALLET_ERROR, strFailReason);
     }
 
-    return tx->GetHash().GetHex();
+    return tx->GetHashMalFix().GetHex();
 }
 
 static UniValue addmultisigaddress(const JSONRPCRequest& request)
@@ -2295,7 +2295,7 @@ static UniValue listsinceblock(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't read block from disk");
         }
         for (const CTransactionRef& tx : block.vtx) {
-            auto it = pwallet->mapWallet.find(tx->GetHash());
+            auto it = pwallet->mapWallet.find(tx->GetHashMalFix());
             if (it != pwallet->mapWallet.end()) {
                 // We want all transactions regardless of confirmation count to appear here,
                 // even negative confirmation ones, hence the big negative.
@@ -2866,7 +2866,7 @@ static UniValue lockunspent(const JSONRPCRequest& request)
 
         const COutPoint outpt(uint256S(txid), nOutput);
 
-        const auto it = pwallet->mapWallet.find(outpt.hash);
+        const auto it = pwallet->mapWallet.find(outpt.hashMalFix);
         if (it == pwallet->mapWallet.end()) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, unknown transaction");
         }
@@ -2877,11 +2877,11 @@ static UniValue lockunspent(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, vout index out of bounds");
         }
 
-        if (pwallet->IsSpent(outpt.hash, outpt.n)) {
+        if (pwallet->IsSpent(outpt.hashMalFix, outpt.n)) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected unspent output");
         }
 
-        const bool is_locked = pwallet->IsLockedCoin(outpt.hash, outpt.n);
+        const bool is_locked = pwallet->IsLockedCoin(outpt.hashMalFix, outpt.n);
 
         if (fUnlock && !is_locked) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected locked output");
@@ -2948,7 +2948,7 @@ static UniValue listlockunspent(const JSONRPCRequest& request)
     for (COutPoint &outpt : vOutpts) {
         UniValue o(UniValue::VOBJ);
 
-        o.pushKV("txid", outpt.hash.GetHex());
+        o.pushKV("txid", outpt.hashMalFix.GetHex());
         o.pushKV("vout", (int)outpt.n);
         ret.push_back(o);
     }
@@ -3701,7 +3701,7 @@ UniValue signrawtransactionwithwallet(const JSONRPCRequest& request)
             "  \"complete\" : true|false,          (boolean) If the transaction has a complete set of signatures\n"
             "  \"errors\" : [                      (json array of objects) Script verification errors (if there are any)\n"
             "    {\n"
-            "      \"txid\" : \"hash\",              (string) The hash of the referenced, previous transaction\n"
+            "      \"txid\" : \"id\",              (string) The transaction id of the referenced, previous transaction\n"
             "      \"vout\" : n,                   (numeric) The index of the output to spent and used as input\n"
             "      \"scriptSig\" : \"hex\",          (string) The hex-encoded signature script\n"
             "      \"sequence\" : n,               (numeric) Script sequence number\n"
@@ -4498,7 +4498,7 @@ bool FillPSBT(const CWallet* pwallet, PartiallySignedTransaction& psbtx, const C
         PSBTInput& input = psbtx.inputs.at(i);
 
         // If we don't know about this input, skip it and let someone else deal with it
-        const uint256& txhash = txin.prevout.hash;
+        const uint256& txhash = txin.prevout.hashMalFix;
         const auto it = pwallet->mapWallet.find(txhash);
         if (it != pwallet->mapWallet.end()) {
             const CWalletTx& wtx = it->second;
@@ -4543,9 +4543,9 @@ bool FillPSBT(const CWallet* pwallet, PartiallySignedTransaction& psbtx, const C
         PSBTOutput& psbt_out = psbtx.outputs.at(i);
 
         // Dummy tx so we can use ProduceSignature to get stuff out
-        CMutableTransaction dummy_tx;
+        /*CMutableTransaction dummy_tx;
         dummy_tx.vin.push_back(CTxIn());
-        dummy_tx.vout.push_back(CTxOut());
+        dummy_tx.vout.push_back(CTxOut());*/
 
         // Fill a SignatureData with output info
         SignatureData sigdata;

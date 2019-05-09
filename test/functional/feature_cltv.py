@@ -77,6 +77,7 @@ class BIP65Test(BitcoinTestFramework):
         block.nVersion = 3
         block.vtx.append(spendtx)
         block.hashMerkleRoot = block.calc_merkle_root()
+        block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         block.solve()
 
         self.nodes[0].p2p.send_and_ping(msg_block(block))
@@ -109,13 +110,14 @@ class BIP65Test(BitcoinTestFramework):
         # First we show that this tx is valid except for CLTV by getting it
         # rejected from the mempool for exactly that reason.
         assert_equal(
-            [{'txid': spendtx.hash, 'allowed': False, 'reject-reason': '64: non-mandatory-script-verify-flag (Negative locktime)'}],
+            [{'txid': spendtx.hashMalFix, 'allowed': False, 'reject-reason': '64: non-mandatory-script-verify-flag (Negative locktime)'}],
             self.nodes[0].testmempoolaccept(rawtxs=[bytes_to_hex_str(spendtx.serialize())], allowhighfees=True)
         )
 
         # Now we verify that a block with this transaction is also invalid.
         block.vtx.append(spendtx)
         block.hashMerkleRoot = block.calc_merkle_root()
+        block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         block.solve()
 
         self.nodes[0].p2p.send_and_ping(msg_block(block))
@@ -138,6 +140,7 @@ class BIP65Test(BitcoinTestFramework):
         block.vtx.pop(1)
         block.vtx.append(spendtx)
         block.hashMerkleRoot = block.calc_merkle_root()
+        block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         block.solve()
 
         self.nodes[0].p2p.send_and_ping(msg_block(block))

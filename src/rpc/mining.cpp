@@ -460,7 +460,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     int i = 0;
     for (const auto& it : pblock->vtx) {
         const CTransaction& tx = *it;
-        uint256 txHash = tx.GetHash();
+        uint256 txHash = tx.GetHashMalFix();
         setTxIndex[txHash] = i++;
 
         if (tx.IsCoinBase())
@@ -475,8 +475,8 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
         UniValue deps(UniValue::VARR);
         for (const CTxIn &in : tx.vin)
         {
-            if (setTxIndex.count(in.prevout.hash))
-                deps.push_back(setTxIndex[in.prevout.hash]);
+            if (setTxIndex.count(in.prevout.hashMalFix))
+                deps.push_back(setTxIndex[in.prevout.hashMalFix]);
         }
         entry.pushKV("depends", deps);
 

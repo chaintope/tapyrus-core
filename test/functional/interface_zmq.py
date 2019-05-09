@@ -87,7 +87,7 @@ class ZMQTest (BitcoinTestFramework):
             tx = CTransaction()
             tx.deserialize(BytesIO(hex))
             tx.calc_sha256()
-            assert_equal(tx.hash, bytes_to_hex_str(txid))
+            assert_equal(tx.hashMalFix, bytes_to_hex_str(txid))
 
             # Should receive the generated block hash.
             hash = bytes_to_hex_str(self.hashblock.receive())
@@ -111,7 +111,10 @@ class ZMQTest (BitcoinTestFramework):
 
         # Should receive the broadcasted raw transaction.
         hex = self.rawtx.receive()
-        assert_equal(payment_txid, bytes_to_hex_str(hash256(hex)))
+        tx = CTransaction()
+        tx.deserialize(BytesIO(hex))
+        tx.calc_sha256()
+        assert_equal(tx.hashMalFix, bytes_to_hex_str(txid))
 
 if __name__ == '__main__':
     ZMQTest().main()

@@ -294,9 +294,10 @@ def submit_block_with_tx(node, tx):
     block.vtx.append(ctx)
     block.rehash()
     block.hashMerkleRoot = block.calc_merkle_root()
+    block.hashImMerkleRoot = block.calc_immutable_merkle_root()
     add_witness_commitment(block)
     block.solve()
-    node.submitblock(bytes_to_hex_str(block.serialize(True)))
+    node.submitblock(bytes_to_hex_str(block.serialize()))
     return block
 
 

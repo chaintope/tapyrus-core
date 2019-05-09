@@ -56,13 +56,13 @@ public:
     int32_t nVersion;
     uint256 hashPrevBlock;
     uint256 hashMerkleRoot;
+    uint256 hashImMerkleRoot;
     uint32_t nTime;
 
     CBlockHeaderWithoutProof()
     {
         SetNull();
     }
-
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
@@ -70,6 +70,7 @@ public:
         READWRITE(this->nVersion);
         READWRITE(hashPrevBlock);
         READWRITE(hashMerkleRoot);
+        READWRITE(hashImMerkleRoot);
         READWRITE(nTime);
     }
 
@@ -78,6 +79,7 @@ public:
         nVersion = 0;
         hashPrevBlock.SetNull();
         hashMerkleRoot.SetNull();
+        hashImMerkleRoot.SetNull();
         nTime = 0;
     }
 
@@ -111,6 +113,7 @@ public:
     }
 
     uint256 GetHash() const;
+    std::string ToString() const;
 };
 
 class CBlock : public CBlockHeader
@@ -151,11 +154,12 @@ public:
     CBlockHeader GetBlockHeader() const
     {
         CBlockHeader block;
-        block.nVersion       = nVersion;
-        block.hashPrevBlock  = hashPrevBlock;
-        block.hashMerkleRoot = hashMerkleRoot;
-        block.nTime          = nTime;
-        block.proof          = proof;
+        block.nVersion          = nVersion;
+        block.hashPrevBlock     = hashPrevBlock;
+        block.hashMerkleRoot    = hashMerkleRoot;
+        block.hashImMerkleRoot  = hashImMerkleRoot;
+        block.nTime             = nTime;
+        block.proof             = proof;
         return block;
     }
 

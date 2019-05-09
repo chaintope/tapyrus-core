@@ -30,6 +30,7 @@ static std::shared_ptr<CBlock> PrepareBlock(const CScript& coinbase_scriptPubKey
 
     block->nTime = ::chainActive.Tip()->GetMedianTimePast() + 1;
     block->hashMerkleRoot = BlockMerkleRoot(*block);
+    block->hashImMerkleRoot = BlockMerkleRoot(*block, nullptr, true);
 
     return block;
 }

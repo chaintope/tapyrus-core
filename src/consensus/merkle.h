@@ -18,7 +18,7 @@ uint256 ComputeMerkleRoot(std::vector<uint256> hashes, bool* mutated = nullptr);
  * Compute the Merkle root of the transactions in a block.
  * *mutated is set to true if a duplicated subtree was found.
  */
-uint256 BlockMerkleRoot(const CBlock& block, bool* mutated = nullptr);
+uint256 BlockMerkleRoot(const CBlock& block, bool* mutated = nullptr, const bool immutable=false);
 
 /*
  * Compute the Merkle root of the witness transactions in a block.

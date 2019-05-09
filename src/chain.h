@@ -206,6 +206,7 @@ public:
     //! block header
     int32_t nVersion;
     uint256 hashMerkleRoot;
+    uint256 hashImMerkleRoot;
     uint32_t nTime;
     CProof proof;
 
@@ -247,6 +248,7 @@ public:
 
         nVersion       = block.nVersion;
         hashMerkleRoot = block.hashMerkleRoot;
+        hashImMerkleRoot = block.hashImMerkleRoot;
         nTime          = block.nTime;
         proof          = block.proof;
     }
@@ -276,6 +278,7 @@ public:
         if (pprev)
             block.hashPrevBlock = pprev->GetBlockHash();
         block.hashMerkleRoot = hashMerkleRoot;
+        block.hashImMerkleRoot = hashImMerkleRoot;
         block.nTime          = nTime;
         block.proof          = proof;
         return block;
@@ -314,9 +317,10 @@ public:
 
     std::string ToString() const
     {
-        return strprintf("CBlockIndex(pprev=%p, nHeight=%d, merkle=%s, hashBlock=%s)",
+        return strprintf("CBlockIndex(pprev=%p, nHeight=%d, merkle=%s, Immerkle=%s, hashBlock=%s)",
             pprev, nHeight,
             hashMerkleRoot.ToString(),
+            hashImMerkleRoot.ToString(),
             GetBlockHash().ToString());
     }
 
@@ -391,6 +395,7 @@ public:
         READWRITE(this->nVersion);
         READWRITE(hashPrev);
         READWRITE(hashMerkleRoot);
+        READWRITE(hashImMerkleRoot);
         READWRITE(nTime);
         READWRITE(proof);
     }
@@ -401,6 +406,7 @@ public:
         block.nVersion        = nVersion;
         block.hashPrevBlock   = hashPrev;
         block.hashMerkleRoot  = hashMerkleRoot;
+        block.hashImMerkleRoot  = hashImMerkleRoot;
         block.nTime           = nTime;
         block.proof           = proof;
         return block.GetHash();

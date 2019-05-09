@@ -93,7 +93,7 @@ static UniValue getrawtransaction(const JSONRPCRequest& request)
             "  \"in_active_chain\": b, (bool) Whether specified block is in the active chain or not (only present with explicit \"blockhash\" argument)\n"
             "  \"hex\" : \"data\",       (string) The serialized, hex-encoded data for 'txid'\n"
             "  \"txid\" : \"id\",        (string) The transaction id (same as provided)\n"
-            "  \"hash\" : \"id\",        (string) The transaction hash (differs from txid for witness transactions)\n"
+            "  \"hash\" : \"id\",        (string) The transaction hash including scriptSig (differs from txid). For witness transactions it is the witness hash\n"
             "  \"size\" : n,             (numeric) The serialized transaction size\n"
             "  \"vsize\" : n,            (numeric) The virtual transaction size (differs from size for witness transactions)\n"
             "  \"weight\" : n,           (numeric) The transaction's weight (between vsize*4-3 and vsize*4)\n"
@@ -216,7 +216,7 @@ static UniValue gettxoutproof(const JSONRPCRequest& request)
             "\nArguments:\n"
             "1. \"txids\"       (string) A json array of txids to filter\n"
             "    [\n"
-            "      \"txid\"     (string) A transaction hash\n"
+            "      \"txid\"     (string) A transaction id (transaction hash without scriptSig)\n"
             "      ,...\n"
             "    ]\n"
             "2. \"blockhash\"   (string, optional) If specified, looks for txid in the block with this hash\n"
@@ -285,7 +285,7 @@ static UniValue gettxoutproof(const JSONRPCRequest& request)
 
     unsigned int ntxFound = 0;
     for (const auto& tx : block.vtx)
-        if (setTxids.count(tx->GetHash()))
+        if (setTxids.count(tx->GetHashMalFix()))
             ntxFound++;
     if (ntxFound != setTxids.size())
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Not all transactions found in specified or retrieved block");
@@ -318,7 +318,7 @@ static UniValue verifytxoutproof(const JSONRPCRequest& request)
 
     std::vector<uint256> vMatch;
     std::vector<unsigned int> vIndex;
-    if (merkleBlock.txn.ExtractMatches(vMatch, vIndex) != merkleBlock.header.hashMerkleRoot)
+    if (merkleBlock.txn.ExtractMatches(vMatch, vIndex) != merkleBlock.header.hashImMerkleRoot)
         return res;
 
     LOCK(cs_main);
@@ -519,7 +519,7 @@ static UniValue decoderawtransaction(const JSONRPCRequest& request)
             "\nResult:\n"
             "{\n"
             "  \"txid\" : \"id\",        (string) The transaction id\n"
-            "  \"hash\" : \"id\",        (string) The transaction hash (differs from txid for witness transactions)\n"
+            "  \"hash\" : \"id\",        (string) The transaction hash (including scriptSig) for witness transactions it is the witness hash)\n"
             "  \"size\" : n,             (numeric) The transaction size\n"
             "  \"vsize\" : n,            (numeric) The virtual transaction size (differs from size for witness transactions)\n"
             "  \"weight\" : n,           (numeric) The transaction's weight (between vsize*4 - 3 and vsize*4)\n"
@@ -663,7 +663,7 @@ static UniValue decodescript(const JSONRPCRequest& request)
 static void TxInErrorToJSON(const CTxIn& txin, UniValue& vErrorsRet, const std::string& strMessage)
 {
     UniValue entry(UniValue::VOBJ);
-    entry.pushKV("txid", txin.prevout.hash.ToString());
+    entry.pushKV("txid", txin.prevout.hashMalFix.ToString());
     entry.pushKV("vout", (uint64_t)txin.prevout.n);
     UniValue witness(UniValue::VARR);
     for (unsigned int i = 0; i < txin.scriptWitness.stack.size(); i++) {
@@ -944,7 +944,7 @@ static UniValue signrawtransactionwithkey(const JSONRPCRequest& request)
             "  \"complete\" : true|false,          (boolean) If the transaction has a complete set of signatures\n"
             "  \"errors\" : [                      (json array of objects) Script verification errors (if there are any)\n"
             "    {\n"
-            "      \"txid\" : \"hash\",              (string) The hash of the referenced, previous transaction\n"
+            "      \"txid\" : \"id\",              (string) The transaction Id of the referenced, previous transaction\n"
             "      \"vout\" : n,                   (numeric) The index of the output to spent and used as input\n"
             "      \"scriptSig\" : \"hex\",          (string) The hex-encoded signature script\n"
             "      \"sequence\" : n,               (numeric) Script sequence number\n"
@@ -1030,7 +1030,7 @@ UniValue signrawtransaction(const JSONRPCRequest& request)
             "  \"complete\" : true|false,   (boolean) If the transaction has a complete set of signatures\n"
             "  \"errors\" : [                 (json array of objects) Script verification errors (if there are any)\n"
             "    {\n"
-            "      \"txid\" : \"hash\",           (string) The hash of the referenced, previous transaction\n"
+            "      \"txid\" : \"Id\",           (string) The transaction Id of the referenced, previous transaction\n"
             "      \"vout\" : n,                (numeric) The index of the output to spent and used as input\n"
             "      \"scriptSig\" : \"hex\",       (string) The hex-encoded signature script\n"
             "      \"sequence\" : n,            (numeric) Script sequence number\n"
@@ -1091,7 +1091,7 @@ static UniValue sendrawtransaction(const JSONRPCRequest& request)
             "1. \"hexstring\"    (string, required) The hex string of the raw transaction)\n"
             "2. allowhighfees    (boolean, optional, default=false) Allow high fees\n"
             "\nResult:\n"
-            "\"hex\"             (string) The transaction hash in hex\n"
+            "\"hex\"             (string) The transaction Id in hex\n"
             "\nExamples:\n"
             "\nCreate a transaction\n"
             + HelpExampleCli("createrawtransaction", "\"[{\\\"txid\\\" : \\\"mytxid\\\",\\\"vout\\\":0}]\" \"{\\\"myaddress\\\":0.01}\"") +
@@ -1112,7 +1112,7 @@ static UniValue sendrawtransaction(const JSONRPCRequest& request)
     if (!DecodeHexTx(mtx, request.params[0].get_str()))
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
     CTransactionRef tx(MakeTransactionRef(std::move(mtx)));
-    const uint256& hashTx = tx->GetHash();
+    const uint256& hashTx = tx->GetHashMalFix();
 
     CAmount nMaxRawTxFee = maxTxFee;
     if (!request.params[1].isNull() && request.params[1].get_bool())
@@ -1192,7 +1192,7 @@ static UniValue testmempoolaccept(const JSONRPCRequest& request)
             "[                   (array) The result of the mempool acceptance test for each raw transaction in the input array.\n"
             "                            Length is exactly one for now.\n"
             " {\n"
-            "  \"txid\"           (string) The transaction hash in hex\n"
+            "  \"txid\"           (string) The transaction id in hex\n"
             "  \"allowed\"        (boolean) If the mempool allows this tx to be inserted\n"
             "  \"reject-reason\"  (string) Rejection string (only present when 'allowed' is false)\n"
             " }\n"
@@ -1220,7 +1220,7 @@ static UniValue testmempoolaccept(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
     }
     CTransactionRef tx(MakeTransactionRef(std::move(mtx)));
-    const uint256& tx_hash = tx->GetHash();
+    const uint256& tx_hash = tx->GetHashMalFix();
 
     CAmount max_raw_tx_fee = ::maxTxFee;
     if (!request.params[1].isNull() && request.params[1].get_bool()) {

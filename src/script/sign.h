@@ -535,7 +535,7 @@ struct PartiallySignedTransaction
     // Only checks if they refer to the same transaction
     friend bool operator==(const PartiallySignedTransaction& a, const PartiallySignedTransaction &b)
     {
-        return a.tx->GetHash() == b.tx->GetHash();
+        return a.tx->GetHashMalFix() == b.tx->GetHashMalFix();
     }
     friend bool operator!=(const PartiallySignedTransaction& a, const PartiallySignedTransaction &b)
     {
@@ -645,7 +645,7 @@ struct PartiallySignedTransaction
             inputs.push_back(input);
 
             // Make sure the non-witness utxo matches the outpoint
-            if (input.non_witness_utxo && input.non_witness_utxo->GetHash() != tx->vin[i].prevout.hash) {
+            if (input.non_witness_utxo && input.non_witness_utxo->GetHashMalFix() != tx->vin[i].prevout.hashMalFix) {
                 throw std::ios_base::failure("Non-witness UTXO does not match outpoint hash");
             }
             ++i;

@@ -69,6 +69,7 @@ std::shared_ptr<CBlock> Block(const uint256& prev_hash)
 std::shared_ptr<CBlock> FinalizeBlock(std::shared_ptr<CBlock> pblock)
 {
     pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
+    pblock->hashImMerkleRoot = BlockMerkleRoot(*pblock, nullptr, true);
 
     // TODO: set correct signs to block for Signed Blocks mechanism.
 
@@ -76,18 +77,27 @@ std::shared_ptr<CBlock> FinalizeBlock(std::shared_ptr<CBlock> pblock)
 }
 
 // construct a valid block
-const std::shared_ptr<const CBlock> GoodBlock(const uint256& prev_hash)
+const std::shared_ptr<const CBlock> GoodBlock(const uint256& prev_hash, const int height)
 {
-    return FinalizeBlock(Block(prev_hash));
+    auto pblock = Block(prev_hash);
+
+    CMutableTransaction coinbase;
+    coinbase.vin.push_back(CTxIn(COutPoint(uint256(), height), CScript(), 0));
+    coinbase.vout.push_back(pblock->vtx[0]->vout[0]);
+
+    CTransactionRef tx = MakeTransactionRef(coinbase);
+    pblock->vtx.push_back(tx);
+
+    return FinalizeBlock(pblock);
 }
 
 // construct an invalid block (but with a valid header)
-const std::shared_ptr<const CBlock> BadBlock(const uint256& prev_hash)
+const std::shared_ptr<const CBlock> BadBlock(const uint256& prev_hash, const int height)
 {
     auto pblock = Block(prev_hash);
 
     CMutableTransaction coinbase_spend;
-    coinbase_spend.vin.push_back(CTxIn(COutPoint(pblock->vtx[0]->GetHash(), 0), CScript(), 0));
+    coinbase_spend.vin.push_back(CTxIn(COutPoint(pblock->vtx[0]->GetHash(), height), CScript(), 0));
     coinbase_spend.vout.push_back(pblock->vtx[0]->vout[0]);
 
     CTransactionRef tx = MakeTransactionRef(coinbase_spend);
@@ -104,14 +114,14 @@ void BuildChain(const uint256& root, int height, const unsigned int invalid_rate
     bool gen_invalid = GetRand(100) < invalid_rate;
     bool gen_fork = GetRand(100) < branch_rate;
 
-    const std::shared_ptr<const CBlock> pblock = gen_invalid ? BadBlock(root) : GoodBlock(root);
+    const std::shared_ptr<const CBlock> pblock = gen_invalid ? BadBlock(root, height) : GoodBlock(root, height);
     blocks.push_back(pblock);
     if (!gen_invalid) {
         BuildChain(pblock->GetHash(), height - 1, invalid_rate, branch_rate, max_size, blocks);
     }
 
     if (gen_fork) {
-        blocks.push_back(GoodBlock(root));
+        blocks.push_back(GoodBlock(root, height));
         BuildChain(blocks.back()->GetHash(), height - 1, invalid_rate, branch_rate, max_size, blocks);
     }
 }

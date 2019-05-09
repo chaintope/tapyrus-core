@@ -68,6 +68,7 @@ class InvalidBlockRequestTest(BitcoinTestFramework):
 
         block2.vtx.extend([tx1, tx2])
         block2.hashMerkleRoot = block2.calc_merkle_root()
+        block2.hashImMerkleRoot = block2.calc_immutable_merkle_root()
         block2.rehash()
         block2.solve()
         orig_hash = block2.sha256
@@ -76,6 +77,7 @@ class InvalidBlockRequestTest(BitcoinTestFramework):
         # Mutate block 2
         block2.vtx.append(tx2)
         assert_equal(block2.hashMerkleRoot, block2.calc_merkle_root())
+        assert_equal(block2.hashImMerkleRoot, block2.calc_immutable_merkle_root())
         assert_equal(orig_hash, block2.rehash())
         assert(block2_orig.vtx != block2.vtx)
 
@@ -87,6 +89,7 @@ class InvalidBlockRequestTest(BitcoinTestFramework):
         block2_orig.vtx[2].vin.append(block2_orig.vtx[2].vin[0])
         block2_orig.vtx[2].rehash()
         block2_orig.hashMerkleRoot = block2_orig.calc_merkle_root()
+        block2_orig.hashImMerkleRoot = block2_orig.calc_immutable_merkle_root()
         block2_orig.rehash()
         block2_orig.solve()
         node.p2p.send_blocks_and_test([block2_orig], node, success=False, request_block=False, reject_reason=b'bad-txns-inputs-duplicate')
@@ -97,8 +100,10 @@ class InvalidBlockRequestTest(BitcoinTestFramework):
         block_time += 1
         block3.vtx[0].vout[0].nValue = 100 * COIN  # Too high!
         block3.vtx[0].sha256 = None
+        block3.vtx[0].malfixsha256 = None
         block3.vtx[0].calc_sha256()
         block3.hashMerkleRoot = block3.calc_merkle_root()
+        block3.hashImMerkleRoot = block3.calc_immutable_merkle_root()
         block3.rehash()
         block3.solve()
 

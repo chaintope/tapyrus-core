@@ -21,7 +21,7 @@ import struct
 import sys
 import threading
 
-from test_framework.messages import CBlockHeader, MIN_VERSION_SUPPORTED, msg_addr, msg_block, MSG_BLOCK, msg_blocktxn, msg_cmpctblock, msg_feefilter, msg_getaddr, msg_getblocks, msg_getblocktxn, msg_getdata, msg_getheaders, msg_headers, msg_inv, msg_mempool, msg_ping, msg_pong, msg_reject, msg_sendcmpct, msg_sendheaders, msg_tx, MSG_TX, MSG_TYPE_MASK, msg_verack, msg_version, NODE_NETWORK, NODE_WITNESS, sha256
+from test_framework.messages import CBlockHeader, MIN_VERSION_SUPPORTED, msg_addr, msg_block, MSG_BLOCK, msg_blocktxn, msg_cmpctblock, msg_feefilter, msg_getaddr, msg_getblocks, msg_getblocktxn, msg_getdata, msg_getheaders, msg_headers, msg_inv, msg_mempool, msg_ping, msg_pong, msg_reject, msg_sendcmpct, msg_sendheaders, msg_tx, MSG_TX, MSG_TYPE_MASK, msg_verack, msg_version, NODE_NETWORK, NODE_WITNESS, sha256, ToHex
 from test_framework.util import wait_until
 
 logger = logging.getLogger("TestFramework.mininode")
@@ -501,6 +501,7 @@ class P2PDataStore(P2PInterface):
             for block in blocks:
                 self.block_store[block.sha256] = block
                 self.last_block_hash = block.sha256
+                logger.debug('sending block [%064x] ' % (block.sha256))
 
         self.send_message(msg_headers([CBlockHeader(blocks[-1])]))
 
@@ -531,7 +532,7 @@ class P2PDataStore(P2PInterface):
             self.reject_reason_received = None
 
             for tx in txs:
-                self.tx_store[tx.sha256] = tx
+                self.tx_store[tx.malfixsha256] = tx
 
         for tx in txs:
             self.send_message(msg_tx(tx))
@@ -545,11 +546,11 @@ class P2PDataStore(P2PInterface):
         if success:
             # Check that all txs are now in the mempool
             for tx in txs:
-                assert tx.hash in raw_mempool, "{} not found in mempool".format(tx.hash)
+                assert tx.hashMalFix in raw_mempool, "{} not found in mempool".format(tx.hashMalFix)
         else:
             # Check that none of the txs are now in the mempool
             for tx in txs:
-                assert tx.hash not in raw_mempool, "{} tx found in mempool".format(tx.hash)
+                assert tx.hashMalFix not in raw_mempool, "{} tx found in mempool".format(tx.hashMalFix)
 
         if reject_code is not None:
             wait_until(lambda: self.reject_code_received == reject_code, lock=mininode_lock)

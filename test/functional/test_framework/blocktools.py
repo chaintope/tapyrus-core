@@ -56,6 +56,7 @@ def create_block(hashprev, coinbase, ntime=None):
     block.nBits = 0x207fffff  # difficulty retargeting is disabled in REGTEST chainparams
     block.vtx.append(coinbase)
     block.hashMerkleRoot = block.calc_merkle_root()
+    block.hashImMerkleRoot = block.calc_immutable_merkle_root()
     block.calc_sha256()
     return block
 
@@ -81,6 +82,7 @@ def add_witness_commitment(block, nonce=0):
     block.vtx[0].vout.append(CTxOut(0, get_witness_script(witness_root, witness_nonce)))
     block.vtx[0].rehash()
     block.hashMerkleRoot = block.calc_merkle_root()
+    block.hashImMerkleRoot = block.calc_immutable_merkle_root()
     block.rehash()
 
 def serialize_script_num(value):
@@ -104,8 +106,7 @@ def create_coinbase(height, pubkey=None):
     If pubkey is passed in, the coinbase output will be a P2PK output;
     otherwise an anyone-can-spend output."""
     coinbase = CTransaction()
-    coinbase.vin.append(CTxIn(COutPoint(0, 0xffffffff),
-                        ser_string(serialize_script_num(height)), 0xffffffff))
+    coinbase.vin.append(CTxIn(outpoint=COutPoint(0, height), nSequence=0xffffffff))
     coinbaseoutput = CTxOut()
     coinbaseoutput.nValue = 50 * COIN
     halvings = int(height / 150)  # regtest
@@ -126,7 +127,7 @@ def create_tx_with_script(prevtx, n, script_sig=b"", *, amount, script_pub_key=C
     """
     tx = CTransaction()
     assert(n < len(prevtx.vout))
-    tx.vin.append(CTxIn(COutPoint(prevtx.sha256, n), script_sig, 0xffffffff))
+    tx.vin.append(CTxIn(COutPoint(prevtx.malfixsha256, n), script_sig, 0xffffffff))
     tx.vout.append(CTxOut(amount, script_pub_key))
     tx.calc_sha256()
     return tx

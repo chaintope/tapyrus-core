@@ -16,7 +16,7 @@ static void AddTx(const CTransactionRef& tx, const CAmount& nFee, CTxMemPool& po
     bool spendsCoinbase = false;
     unsigned int sigOpCost = 4;
     LockPoints lp;
-    pool.addUnchecked(tx->GetHash(), CTxMemPoolEntry(
+    pool.addUnchecked(tx->GetHashMalFix(), CTxMemPoolEntry(
                                          tx, nFee, nTime, nHeight,
                                          spendsCoinbase, sigOpCost, lp));
 }
@@ -44,7 +44,7 @@ static void MempoolEviction(benchmark::State& state)
 
     CMutableTransaction tx3 = CMutableTransaction();
     tx3.vin.resize(1);
-    tx3.vin[0].prevout = COutPoint(tx2.GetHash(), 0);
+    tx3.vin[0].prevout = COutPoint(tx2.GetHashMalFix(), 0);
     tx3.vin[0].scriptSig = CScript() << OP_2;
     tx3.vin[0].scriptWitness.stack.push_back({3});
     tx3.vout.resize(1);
@@ -67,7 +67,7 @@ static void MempoolEviction(benchmark::State& state)
 
     CMutableTransaction tx5 = CMutableTransaction();
     tx5.vin.resize(2);
-    tx5.vin[0].prevout = COutPoint(tx4.GetHash(), 0);
+    tx5.vin[0].prevout = COutPoint(tx4.GetHashMalFix(), 0);
     tx5.vin[0].scriptSig = CScript() << OP_4;
     tx5.vin[0].scriptWitness.stack.push_back({4});
     tx5.vin[1].prevout.SetNull();
@@ -81,7 +81,7 @@ static void MempoolEviction(benchmark::State& state)
 
     CMutableTransaction tx6 = CMutableTransaction();
     tx6.vin.resize(2);
-    tx6.vin[0].prevout = COutPoint(tx4.GetHash(), 1);
+    tx6.vin[0].prevout = COutPoint(tx4.GetHashMalFix(), 1);
     tx6.vin[0].scriptSig = CScript() << OP_4;
     tx6.vin[0].scriptWitness.stack.push_back({4});
     tx6.vin[1].prevout.SetNull();
@@ -95,10 +95,10 @@ static void MempoolEviction(benchmark::State& state)
 
     CMutableTransaction tx7 = CMutableTransaction();
     tx7.vin.resize(2);
-    tx7.vin[0].prevout = COutPoint(tx5.GetHash(), 0);
+    tx7.vin[0].prevout = COutPoint(tx5.GetHashMalFix(), 0);
     tx7.vin[0].scriptSig = CScript() << OP_5;
     tx7.vin[0].scriptWitness.stack.push_back({5});
-    tx7.vin[1].prevout = COutPoint(tx6.GetHash(), 0);
+    tx7.vin[1].prevout = COutPoint(tx6.GetHashMalFix(), 0);
     tx7.vin[1].scriptSig = CScript() << OP_6;
     tx7.vin[1].scriptWitness.stack.push_back({6});
     tx7.vout.resize(2);

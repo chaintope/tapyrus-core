@@ -83,6 +83,7 @@ BASE_SCRIPTS = [
     'rpc_rawtransaction.py',
     'wallet_address_types.py',
     'feature_reindex.py',
+    'feature_serialization.py',
     # vv Tests less than 30s vv
     'wallet_keypool_topup.py',
     'interface_zmq.py',

@@ -63,12 +63,15 @@ uint256 ComputeMerkleRoot(std::vector<uint256> hashes, bool* mutated) {
 }
 
 
-uint256 BlockMerkleRoot(const CBlock& block, bool* mutated)
+uint256 BlockMerkleRoot(const CBlock& block, bool* mutated, const bool immutable)
 {
     std::vector<uint256> leaves;
     leaves.resize(block.vtx.size());
     for (size_t s = 0; s < block.vtx.size(); s++) {
-        leaves[s] = block.vtx[s]->GetHash();
+        if(immutable)
+            leaves[s] = block.vtx[s]->GetHashMalFix();
+        else
+            leaves[s] = block.vtx[s]->GetHash();
     }
     return ComputeMerkleRoot(std::move(leaves), mutated);
 }

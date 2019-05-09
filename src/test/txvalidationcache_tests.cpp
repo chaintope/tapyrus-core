@@ -48,7 +48,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_block_doublespend, TestChain100Setup)
     {
         spends[i].nVersion = 1;
         spends[i].vin.resize(1);
-        spends[i].vin[0].prevout.hash = m_coinbase_txns[0]->GetHash();
+        spends[i].vin[0].prevout.hashMalFix = m_coinbase_txns[0]->GetHashMalFix();
         spends[i].vin[0].prevout.n = 0;
         spends[i].vout.resize(1);
         spends[i].vout[0].nValue = 11*CENT;
@@ -167,7 +167,7 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChain100Setup)
 
     spend_tx.nVersion = 1;
     spend_tx.vin.resize(1);
-    spend_tx.vin[0].prevout.hash = m_coinbase_txns[0]->GetHash();
+    spend_tx.vin[0].prevout.hashMalFix = m_coinbase_txns[0]->GetHashMalFix();
     spend_tx.vin[0].prevout.n = 0;
     spend_tx.vout.resize(4);
     spend_tx.vout[0].nValue = 11*CENT;
@@ -230,7 +230,7 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChain100Setup)
         CMutableTransaction invalid_under_p2sh_tx;
         invalid_under_p2sh_tx.nVersion = 1;
         invalid_under_p2sh_tx.vin.resize(1);
-        invalid_under_p2sh_tx.vin[0].prevout.hash = spend_tx.GetHash();
+        invalid_under_p2sh_tx.vin[0].prevout.hashMalFix = spend_tx.GetHashMalFix();
         invalid_under_p2sh_tx.vin[0].prevout.n = 0;
         invalid_under_p2sh_tx.vout.resize(1);
         invalid_under_p2sh_tx.vout[0].nValue = 11*CENT;
@@ -247,7 +247,7 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChain100Setup)
         invalid_with_cltv_tx.nVersion = 1;
         invalid_with_cltv_tx.nLockTime = 100;
         invalid_with_cltv_tx.vin.resize(1);
-        invalid_with_cltv_tx.vin[0].prevout.hash = spend_tx.GetHash();
+        invalid_with_cltv_tx.vin[0].prevout.hashMalFix = spend_tx.GetHashMalFix();
         invalid_with_cltv_tx.vin[0].prevout.n = 2;
         invalid_with_cltv_tx.vin[0].nSequence = 0;
         invalid_with_cltv_tx.vout.resize(1);
@@ -275,7 +275,7 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChain100Setup)
         CMutableTransaction invalid_with_csv_tx;
         invalid_with_csv_tx.nVersion = 2;
         invalid_with_csv_tx.vin.resize(1);
-        invalid_with_csv_tx.vin[0].prevout.hash = spend_tx.GetHash();
+        invalid_with_csv_tx.vin[0].prevout.hashMalFix = spend_tx.GetHashMalFix();
         invalid_with_csv_tx.vin[0].prevout.n = 3;
         invalid_with_csv_tx.vin[0].nSequence = 100;
         invalid_with_csv_tx.vout.resize(1);
@@ -306,7 +306,7 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChain100Setup)
         CMutableTransaction valid_with_witness_tx;
         valid_with_witness_tx.nVersion = 1;
         valid_with_witness_tx.vin.resize(1);
-        valid_with_witness_tx.vin[0].prevout.hash = spend_tx.GetHash();
+        valid_with_witness_tx.vin[0].prevout.hashMalFix = spend_tx.GetHashMalFix();
         valid_with_witness_tx.vin[0].prevout.n = 1;
         valid_with_witness_tx.vout.resize(1);
         valid_with_witness_tx.vout[0].nValue = 11*CENT;
@@ -331,9 +331,9 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChain100Setup)
 
         tx.nVersion = 1;
         tx.vin.resize(2);
-        tx.vin[0].prevout.hash = spend_tx.GetHash();
+        tx.vin[0].prevout.hashMalFix = spend_tx.GetHashMalFix();
         tx.vin[0].prevout.n = 0;
-        tx.vin[1].prevout.hash = spend_tx.GetHash();
+        tx.vin[1].prevout.hashMalFix = spend_tx.GetHashMalFix();
         tx.vin[1].prevout.n = 1;
         tx.vout.resize(1);
         tx.vout[0].nValue = 22*CENT;

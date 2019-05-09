@@ -248,7 +248,7 @@ Result CommitTransaction(CWallet* wallet, const uint256& txid, CMutableTransacti
         return Result::WALLET_ERROR;
     }
 
-    bumped_txid = tx->GetHash();
+    bumped_txid = tx->GetHashMalFix();
     if (state.IsInvalid()) {
         // This can happen if the mempool rejected the transaction.  Report
         // what happened in the "errors" response.

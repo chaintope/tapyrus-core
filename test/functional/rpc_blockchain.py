@@ -19,6 +19,7 @@ Tests correspond to code in rpc/blockchain.cpp.
 from decimal import Decimal
 import http.client
 import subprocess
+import time
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (

@@ -38,14 +38,14 @@ struct CoinEntry {
     template<typename Stream>
     void Serialize(Stream &s) const {
         s << key;
-        s << outpoint->hash;
+        s << outpoint->hashMalFix;
         s << VARINT(outpoint->n);
     }
 
     template<typename Stream>
     void Unserialize(Stream& s) {
         s >> key;
-        s >> outpoint->hash;
+        s >> outpoint->hashMalFix;
         s >> VARINT(outpoint->n);
     }
 };
@@ -267,6 +267,7 @@ bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, 
                 pindexNew->nUndoPos       = diskindex.nUndoPos;
                 pindexNew->nVersion       = diskindex.nVersion;
                 pindexNew->hashMerkleRoot = diskindex.hashMerkleRoot;
+                pindexNew->hashImMerkleRoot = diskindex.hashImMerkleRoot;
                 pindexNew->nTime          = diskindex.nTime;
                 pindexNew->proof          = diskindex.proof;
                 pindexNew->nStatus        = diskindex.nStatus;

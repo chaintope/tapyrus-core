@@ -183,17 +183,17 @@ private:
 };
 
 // extracts a transaction hash from CTxMempoolEntry or CTransactionRef
-struct mempoolentry_txid
+struct mempoolentry_Imtxid
 {
     typedef uint256 result_type;
     result_type operator() (const CTxMemPoolEntry &entry) const
     {
-        return entry.GetTx().GetHash();
+        return entry.GetTx().GetHashMalFix();
     }
 
     result_type operator() (const CTransactionRef& tx) const
     {
-        return tx->GetHash();
+        return tx->GetHashMalFix();
     }
 };
 
@@ -254,7 +254,7 @@ public:
         double f1 = (double)a.GetFee() * b.GetTxSize();
         double f2 = (double)b.GetFee() * a.GetTxSize();
         if (f1 == f2) {
-            return b.GetTx().GetHash() < a.GetTx().GetHash();
+            return b.GetTx().GetHashMalFix() < a.GetTx().GetHashMalFix();
         }
         return f1 > f2;
     }
@@ -289,7 +289,7 @@ public:
         double f2 = a_size * b_mod_fee;
 
         if (f1 == f2) {
-            return a.GetTx().GetHash() < b.GetTx().GetHash();
+            return a.GetTx().GetHashMalFix() < b.GetTx().GetHashMalFix();
         }
         return f1 > f2;
     }
@@ -460,8 +460,8 @@ public:
     typedef boost::multi_index_container<
         CTxMemPoolEntry,
         boost::multi_index::indexed_by<
-            // sorted by txid
-            boost::multi_index::hashed_unique<mempoolentry_txid, SaltedTxidHasher>,
+            // sorted by immutable txid
+            boost::multi_index::hashed_unique<mempoolentry_Imtxid, SaltedTxidHasher>,
             // sorted by fee rate
             boost::multi_index::ordered_non_unique<
                 boost::multi_index::tag<descendant_score>,
@@ -488,10 +488,9 @@ public:
 
     using txiter = indexed_transaction_set::nth_index<0>::type::const_iterator;
     std::vector<std::pair<uint256, txiter> > vTxHashes; //!< All tx witness hashes/entries in mapTx, in random order
-
     struct CompareIteratorByHash {
         bool operator()(const txiter &a, const txiter &b) const {
-            return a->GetTx().GetHash() < b->GetTx().GetHash();
+            return a->GetTx().GetHashMalFix() < b->GetTx().GetHashMalFix();
         }
     };
     typedef std::set<txiter, CompareIteratorByHash> setEntries;
@@ -739,7 +738,7 @@ struct DisconnectedBlockTransactions {
             // sorted by txid
             boost::multi_index::hashed_unique<
                 boost::multi_index::tag<txid_index>,
-                mempoolentry_txid,
+                mempoolentry_Imtxid,
                 SaltedTxidHasher
             >,
             // sorted by order in the blockchain
@@ -782,7 +781,7 @@ struct DisconnectedBlockTransactions {
             return;
         }
         for (auto const &tx : vtx) {
-            auto it = queuedTx.find(tx->GetHash());
+            auto it = queuedTx.find(tx->GetHashMalFix());
             if (it != queuedTx.end()) {
                 cachedInnerUsage -= RecursiveDynamicUsage(*it);
                 queuedTx.erase(it);
