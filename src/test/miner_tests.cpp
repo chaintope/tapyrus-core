@@ -82,6 +82,8 @@ struct {
     {2, 0xbbbeb305}, {2, 0xfe1c810a},
 };
 
+static CScript scriptPubKey = CScript() << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f") << OP_CHECKSIG;
+
 static CBlockIndex CreateBlockIndex(int nHeight)
 {
     CBlockIndex index;
@@ -96,10 +98,63 @@ static bool TestSequenceLocks(const CTransaction &tx, int flags)
     return CheckSequenceLocks(tx, flags);
 }
 
+/**
+  * Load 100 blocks and collect UTXO which is coinbase tx output for selecting txs test.
+  * The UTXOs are into txFirst container.
+ */
+static void CreateBlocks(const CChainParams &chainparams,
+                         std::unique_ptr<CBlockTemplate> &pblocktemplate, int &baseheight,
+                         std::vector<CTransactionRef> &txFirst)
+{
+    fCheckpointsEnabled = false;
+
+    // Simple block creation, nothing special yet:
+    BOOST_CHECK(pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey));
+
+    // We can't make transactions until we have inputs
+    // Therefore, load 100 blocks :)
+    for (unsigned int i = 0; i < sizeof(blockinfo)/sizeof(*blockinfo); ++i)
+    {
+        CBlock *pblock = &pblocktemplate->block; // pointer for convenience
+        {
+            LOCK(cs_main);
+            pblock->nVersion = 1;
+            pblock->nTime = chainActive.Tip()->GetMedianTimePast()+1;
+            CMutableTransaction txCoinbase(*pblock->vtx[0]);
+            txCoinbase.nVersion = 1;
+            txCoinbase.vin[0].prevout.n = chainActive.Height() + 1;
+            txCoinbase.vin[0].scriptSig = CScript();
+            txCoinbase.vin[0].scriptSig.push_back(blockinfo[i].extranonce);
+            txCoinbase.vin[0].scriptSig.push_back(chainActive.Height());
+            txCoinbase.vout.resize(1); // Ignore the (optional) segwit commitment added by CreateNewBlock (as the hardcoded nonces don't account for this)
+            txCoinbase.vout[0].scriptPubKey = CScript();
+            pblock->vtx[0] = MakeTransactionRef(std::move(txCoinbase));
+            if (txFirst.size() == 0)
+                baseheight = chainActive.Height();
+            if (txFirst.size() < 4)
+                txFirst.push_back(pblock->vtx[0]);
+            pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
+            pblock->hashImMerkleRoot = BlockMerkleRoot(*pblock, nullptr, true);
+            // TODO: set correct signs to block for Signed Blocks mechanism.
+        }
+        std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(*pblock);
+        BOOST_CHECK(ProcessNewBlock(chainparams, shared_pblock, true, nullptr));
+        pblock->hashPrevBlock = pblock->GetHash();
+    }
+
+    LOCK(cs_main);
+    LOCK(::mempool.cs);
+
+    // Just to make sure we can still make simple blocks
+    BOOST_CHECK_EQUAL(pblocktemplate->block.vtx[0]->vin[0].prevout.n, chainActive.Height());
+    BOOST_CHECK(pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey));
+    BOOST_CHECK_EQUAL(pblocktemplate->block.vtx[0]->vin[0].prevout.n, chainActive.Height()+1); //+1 as the new block is not added to active chain yet
+}
+
 // Test suite for ancestor feerate transaction selection.
 // Implemented as an additional function, rather than a separate test case,
 // to allow reusing the blockchain created in CreateNewBlock_validity.
-static void TestPackageSelection(const CChainParams& chainparams, const CScript& scriptPubKey, const std::vector<CTransactionRef>& txFirst) EXCLUSIVE_LOCKS_REQUIRED(::mempool.cs)
+static void TestPackageSelection(const CChainParams& chainparams, const std::vector<CTransactionRef>& txFirst) EXCLUSIVE_LOCKS_REQUIRED(::mempool.cs)
 {
     // Test the ancestor feerate transaction selection.
     TestMemPoolEntryHelper entry;
@@ -207,57 +262,20 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     // Note that by default, these tests run with size accounting enabled.
     const auto chainParams = CreateChainParams(CBaseChainParams::MAIN);
     const CChainParams& chainparams = *chainParams;
-    CScript scriptPubKey = CScript() << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f") << OP_CHECKSIG;
     std::unique_ptr<CBlockTemplate> pblocktemplate;
+    int baseheight = 0;
+    std::vector<CTransactionRef> txFirst;
+    CreateBlocks(chainparams, pblocktemplate, baseheight, txFirst);
+
+    LOCK(cs_main);
+    LOCK(::mempool.cs);
+
     CMutableTransaction tx;
     CScript script;
     uint256 hash;
     TestMemPoolEntryHelper entry;
     entry.nFee = 11;
     entry.nHeight = 11;
-
-    fCheckpointsEnabled = false;
-
-    // Simple block creation, nothing special yet:
-    BOOST_CHECK(pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey));
-
-    // We can't make transactions until we have inputs
-    // Therefore, load 100 blocks :)
-    int baseheight = 0;
-    std::vector<CTransactionRef> txFirst;
-    for (unsigned int i = 0; i < sizeof(blockinfo)/sizeof(*blockinfo); ++i)
-    {
-        CBlock *pblock = &pblocktemplate->block; // pointer for convenience
-        {
-            LOCK(cs_main);
-            pblock->nVersion = 1;
-            pblock->nTime = chainActive.Tip()->GetMedianTimePast()+1;
-            CMutableTransaction txCoinbase(*pblock->vtx[0]);
-            txCoinbase.nVersion = 1;
-            txCoinbase.vin[0].prevout.n = chainActive.Height() + 1;
-            txCoinbase.vout.resize(1); // Ignore the (optional) segwit commitment added by CreateNewBlock (as the hardcoded nonces don't account for this)
-            txCoinbase.vout[0].scriptPubKey = CScript();
-            pblock->vtx[0] = MakeTransactionRef(std::move(txCoinbase));
-            if (txFirst.size() == 0)
-                baseheight = chainActive.Height();
-            if (txFirst.size() < 4)
-                txFirst.push_back(pblock->vtx[0]);
-            pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
-            pblock->hashImMerkleRoot = BlockMerkleRoot(*pblock, nullptr, true);
-            // TODO: set correct signs to block for Signed Blocks mechanism.
-        }
-        std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(*pblock);
-        BOOST_CHECK(ProcessNewBlock(chainparams, shared_pblock, true, nullptr));
-        pblock->hashPrevBlock = pblock->GetHash();
-    }
-
-    LOCK(cs_main);
-    LOCK(::mempool.cs);
-
-    // Just to make sure we can still make simple blocks
-    BOOST_CHECK_EQUAL(pblocktemplate->block.vtx[0]->vin[0].prevout.n, chainActive.Height());
-    BOOST_CHECK(pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey));
-    BOOST_CHECK_EQUAL(pblocktemplate->block.vtx[0]->vin[0].prevout.n, chainActive.Height()+1); //+1 as the new block is not added to active chain yet
 
     const CAmount BLOCKSUBSIDY = 50*COIN;
     const CAmount LOWFEE = CENT;
@@ -529,9 +547,49 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     SetMockTime(0);
     mempool.clear();
 
-    TestPackageSelection(chainparams, scriptPubKey, txFirst);
+    TestPackageSelection(chainparams, txFirst);
 
     fCheckpointsEnabled = true;
+}
+
+BOOST_AUTO_TEST_CASE(CreateNewBlock_required_age_in_secs) {
+    const auto chainParams = CreateChainParams(CBaseChainParams::MAIN);
+    const CChainParams& chainparams = *chainParams;
+    std::unique_ptr<CBlockTemplate> pblocktemplate;
+    int baseheight = 0;
+    std::vector<CTransactionRef> txFirst;
+    CreateBlocks(chainparams, pblocktemplate, baseheight, txFirst);
+
+    // Test the ancestor feerate transaction selection.
+    TestMemPoolEntryHelper entry;
+
+    CMutableTransaction tx;
+    tx.vin.resize(1);
+    tx.vin[0].scriptSig = CScript() << OP_1;
+    tx.vin[0].prevout.hashMalFix = txFirst[0]->GetHashMalFix();
+    tx.vin[0].prevout.n = 0;
+    tx.vout.resize(1);
+    tx.vout[0].nValue = 5000000000LL - 1000;
+
+
+    uint256 hashPastTimeTx;
+    {
+        LOCK(::mempool.cs);
+        // This tx has current time. Next block is not going to include this tx.
+        uint256 hashCurrentTimeTx = tx.GetHashMalFix(); // save this txid for later use
+        mempool.addUnchecked(hashCurrentTimeTx,
+                             entry.Fee(1000).Time(GetTime()).SpendsCoinbase(true).FromTx(tx));
+
+        // This tx has 60s past time. Next block is going to include this tx.
+        tx.vin[0].prevout.hashMalFix = txFirst[1]->GetHashMalFix();
+        hashPastTimeTx = tx.GetHashMalFix();
+        mempool.addUnchecked(hashPastTimeTx,
+                             entry.Fee(1000).Time(GetTime() - 60).SpendsCoinbase(true).FromTx(tx));
+    }
+
+    BOOST_CHECK(pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey, true, 60));
+    BOOST_CHECK(pblocktemplate->block.vtx.size() == 2); // index 0 is coinbase tx.
+    BOOST_CHECK(pblocktemplate->block.vtx[1]->GetHashMalFix() == hashPastTimeTx);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
