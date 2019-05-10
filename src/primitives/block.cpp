@@ -9,6 +9,7 @@
 #include <tinyformat.h>
 #include <utilstrencodings.h>
 #include <crypto/common.h>
+#include <chainparams.h>
 
 uint256 CBlockHeader::GetHash() const
 {
@@ -49,4 +50,40 @@ std::string CBlock::ToString() const
         s << "  " << tx->ToString() << "\n";
     }
     return s.str();
+}
+
+bool CBlockHeader::AbsorbBlockProof(CProof blockproof, const MultisigCondition& signedBlocksCondition)
+{
+    //using hash of block without proof for signing
+    uint256 blockHash = this->GetHashForSign();
+
+    //clear old proof
+    proof.clear();
+
+    unsigned int inProofSize = blockproof.size();
+
+    if(!inProofSize)
+        return false;
+
+    //evaluate and sort blockProof signatures in the order of their corresponding public keys
+    for(auto &pubkey: signedBlocksCondition.pubkeys)
+    {
+        CProof::iterator iter = blockproof.begin();
+        for (; iter != blockproof.end(); iter++)
+        {
+            //verify signature
+            if (pubkey.Verify(blockHash, *iter))
+            {
+                //add signatures to block
+                proof.emplace_back(std::move(*iter));
+                break;
+            }
+        }
+        if(iter != blockproof.end())
+            blockproof.erase(iter);
+
+        if(!blockproof.size())
+            break;
+    }
+    return proof.size() == inProofSize;
 }

@@ -559,6 +559,15 @@ class CBlockHeader():
         r += ser_string_vector(self.proof)
         return r
 
+    def getsighash(self):
+        r = b""
+        r += struct.pack("<i", self.nVersion)
+        r += ser_uint256(self.hashPrevBlock)
+        r += ser_uint256(self.hashMerkleRoot)
+        r += ser_uint256(self.hashImMerkleRoot)
+        r += struct.pack("<I", self.nTime)
+        return hash256(r)
+
     def calc_sha256(self):
         if self.sha256 is None:
             r = b""

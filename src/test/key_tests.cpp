@@ -196,7 +196,7 @@ BOOST_AUTO_TEST_CASE(pubkey_combine_tests)
     size_t publen = CPubKey::COMPRESSED_PUBLIC_KEY_SIZE;
 
     std::string pubkeyString = HexStr(result.data(), result.data() + publen);
-    BOOST_CHECK_EQUAL(pubkeyString, "03deb53be78170b305ea1d9c2f7dfae027f53e34321527d1f2bae71ddd35ba7de0");
+    BOOST_CHECK_EQUAL(pubkeyString, "02d7bbe714a08f73b17a3e5dcbca523470e9de5ee6c92f396beb954b8a2cdf4388");
 }
 
 BOOST_AUTO_TEST_SUITE_END()
