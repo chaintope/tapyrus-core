@@ -3907,6 +3907,7 @@ UniValue generate(const JSONRPCRequest& request)
     int num_generate = request.params[0].get_int();
     UniValue privkeys_hex = request.params[1].get_array();
 
+    std::vector<CKey> vecKeys;
     // privkeys length check
     for(int i=0; i< privkeys_hex.size(); i++) {
         const UniValue& privkey = privkeys_hex[i];
@@ -3916,6 +3917,10 @@ UniValue generate(const JSONRPCRequest& request)
                                strprintf("Error: key '%s' is invalid length of %d."
                                        , keyHex, keyHex.length()));
         }
+        std::vector<unsigned char> privkeyraw = ParseHex(keyHex);
+        CKey cPrivKey;
+        cPrivKey.Set(privkeyraw.begin(), privkeyraw.end(), true);
+        vecKeys.push_back(cPrivKey);
     }
 
     std::shared_ptr<CReserveScript> coinbase_script;
@@ -3931,7 +3936,7 @@ UniValue generate(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INTERNAL_ERROR, "No coinbase script available");
     }
 
-    return generateBlocks(coinbase_script, num_generate, true);
+    return generateBlocks(coinbase_script, num_generate, true, vecKeys);
 }
 
 UniValue rescanblockchain(const JSONRPCRequest& request)

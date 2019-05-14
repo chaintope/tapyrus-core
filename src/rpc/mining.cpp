@@ -39,7 +39,7 @@ unsigned int ParseConfirmTarget(const UniValue& value)
     return (unsigned int)target;
 }
 
-UniValue generateBlocks(std::shared_ptr<CReserveScript> coinbaseScript, int nGenerate, bool keepScript)
+UniValue generateBlocks(std::shared_ptr<CReserveScript> coinbaseScript, int nGenerate, bool keepScript, std::vector<CKey>& vecPrivKeys)
 {
     int nHeightEnd = 0;
     int nHeight = 0;
@@ -62,6 +62,13 @@ UniValue generateBlocks(std::shared_ptr<CReserveScript> coinbaseScript, int nGen
             IncrementExtraNonce(pblock, chainActive.Tip(), nExtraNonce);
         }
         // TODO: set correct signs to block for Signed Blocks mechanism.
+        uint256 blockHash = pblock->GetHash();
+        for(uint i=0; i < vecPrivKeys.size(); i++) {
+            Signature sign;
+            CKey ckey = vecPrivKeys[i];
+            ckey.Sign(blockHash, sign);
+            pblock->proof.push_back(sign);
+        }
         std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(*pblock);
         if (!ProcessNewBlock(Params(), shared_pblock, true, nullptr))
             throw JSONRPCError(RPC_INTERNAL_ERROR, "ProcessNewBlock, block not accepted");
@@ -103,7 +110,8 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
     std::shared_ptr<CReserveScript> coinbaseScript = std::make_shared<CReserveScript>();
     coinbaseScript->reserveScript = GetScriptForDestination(destination);
 
-    return generateBlocks(coinbaseScript, nGenerate, false);
+    std::vector<CKey> vecKeys;
+    return generateBlocks(coinbaseScript, nGenerate, false, vecKeys);
 }
 
 UniValue getnewblock(const JSONRPCRequest& request)

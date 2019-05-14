@@ -15,6 +15,7 @@
 #include <rpc/client.h>
 #include <test/test_bitcoin.h>
 #include <validation.h>
+#include <rpc/blockchain.cpp>
 #include <wallet/coincontrol.h>
 #include <wallet/test/wallet_test_fixture.h>
 #include <utilstrencodings.h>
@@ -441,6 +442,9 @@ BOOST_FIXTURE_TEST_CASE(generate_with_privkey, TestingSetup)
         LOCK2(cs_main, wallet->cs_wallet);
         result = generate(request);
         BOOST_CHECK_EQUAL(chainActive.Height(), 1);
+        const CBlockIndex* pblockindex = LookupBlockIndex(uint256S(result.get_array()[0].getValStr()));
+        const CBlock block = GetBlockChecked(pblockindex);
+        BOOST_CHECK_EQUAL(block.GetBlockHeader().proof.size(), 1);
     }
 
     request.params.clear();
@@ -455,6 +459,10 @@ BOOST_FIXTURE_TEST_CASE(generate_with_privkey, TestingSetup)
         LOCK2(cs_main, wallet->cs_wallet);
         BOOST_CHECK_NO_THROW(result = generate(request));
         BOOST_CHECK_EQUAL(chainActive.Height(), 2);
+        const CBlockIndex* pblockindex = LookupBlockIndex(uint256S(result.get_array()[0].getValStr()));
+        const CBlock block = GetBlockChecked(pblockindex);
+        // check proof count is same as private keys.
+        BOOST_CHECK_EQUAL(block.GetBlockHeader().proof.size(), 2);
     }
 
     request.params.clear();
