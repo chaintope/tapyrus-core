@@ -25,12 +25,17 @@ def create_transactions(node, address, amt, fees):
     for utxo in utxos:
         inputs.append({"txid": utxo["txid"], "vout": utxo["vout"]})
         ins_total += utxo['amount']
-        if ins_total > amt:
+        if ins_total >= amt + max(fees):
             break
+    # make sure there was enough utxos
+    assert ins_total >= amt + max(fees)
 
     txs = []
     for fee in fees:
-        outputs = {address: amt, node.getrawchangeaddress(): ins_total - amt - fee}
+        outputs = {address: amt}
+        # prevent 0 change output
+        if ins_total > amt + fee:
+            outputs[node.getrawchangeaddress()] = ins_total - amt - fee
         raw_tx = node.createrawtransaction(inputs, outputs, 0, True)
         raw_tx = node.signrawtransactionwithwallet(raw_tx)
         txs.append(raw_tx)
