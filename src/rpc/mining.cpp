@@ -991,6 +991,8 @@ UniValue testproposedblock(const JSONRPCRequest& request)
     if (!DecodeHexBlk(block, request.params[0].get_str()))
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Block decode failed");
 
+    LOCK(cs_main);
+
     //test block validity
     uint256 hash = block.GetHash();
     BlockMap::iterator mi = mapBlockIndex.find(hash);
