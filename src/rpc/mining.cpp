@@ -980,9 +980,9 @@ UniValue testproposedblock(const JSONRPCRequest& request)
             "\nValidate proposed block before signing\n"
             "\nArguments:\n"
             "1. \"blockhex\"       (string, required) The hex-encoded block from getnewblockhex\n"
-            "2. \"acceptnonstdtxn\"    (bool) flag indicating whether the block validation must accept non-standard transactions\n"
+            "2. \"acceptnonstdtxn\" (bool) flag indicating whether the block validation must accept non-standard transactions\n"
             "\nResult\n"
-            "\"block_hash: valid\" (bool) true when the block is valid, JSON exception on failure\n"
+            "\"valid\"              (bool) true when the block is valid, JSON exception on failure\n"
             "\nExamples:\n"
             + HelpExampleCli("testproposedblock", "<blockhex> [acceptnonstdtxn]")
         );
