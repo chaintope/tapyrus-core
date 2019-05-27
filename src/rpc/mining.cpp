@@ -995,9 +995,16 @@ UniValue testproposedblock(const JSONRPCRequest& request)
 
     //test block validity
     uint256 hash = block.GetHash();
-    BlockMap::iterator mi = mapBlockIndex.find(hash);
-    if (mi != mapBlockIndex.end())
-        throw JSONRPCError(RPC_VERIFY_ERROR, "already have block");
+    const CBlockIndex* pindex = LookupBlockIndex(hash);
+    if (pindex)
+    {
+        if (pindex->IsValid(BLOCK_VALID_SCRIPTS))
+            throw JSONRPCError(RPC_VERIFY_ERROR,  "duplicate");
+
+        if (pindex->nStatus & BLOCK_FAILED_MASK)
+            throw JSONRPCError(RPC_VERIFY_ERROR,  "duplicate-invalid");
+
+    }
 
     CBlockIndex* const pindexPrev = chainActive.Tip();
     // TestBlockValidity only supports blocks built on the current Tip
