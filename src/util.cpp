@@ -637,6 +637,9 @@ std::string ArgsManager::GetHelpMessage() const
             case OptionsCategory::REGISTER_COMMANDS:
                 usage += HelpMessageGroup("Register Commands:");
                 break;
+            case OptionsCategory::SIGN_BLOCK:
+                usage += HelpMessageGroup("Signed block:");
+                break;
             default:
                 break;
         }
@@ -1251,4 +1254,39 @@ int ScheduleBatchPriority(void)
 #else
     return 1;
 #endif
+}
+
+bool ParseSignedBlockParameters(int argc, const char* const argv[], std::string& error)
+{
+    // Signed Blocks options
+    gArgs.AddArg("-signblockpubkeys=<pubkeys>", "Sets the public keys for Signed Blocks multisig that combined as one string.", false, OptionsCategory::SIGN_BLOCK);
+    gArgs.AddArg("-signblockthreshold=<n>", "Sets the number of public keys to be the threshold of multisig", false, OptionsCategory::SIGN_BLOCK);
+
+    const std::vector<std::string> options({
+        "-signblockpubkeys",
+        "-signblockthreshold"
+    });
+
+    char const* filteredArgv[2];
+    filteredArgv[0] = argv[0];
+    int count = 1;
+
+    for (int i = 1; i < argc; i++) {
+        std::string key(argv[i]);
+        size_t is_index = key.find('=');
+        if (is_index != std::string::npos) {
+            key.erase(is_index);
+        }
+
+        if (std::find(options.begin(), options.end(), key) != options.end())
+        {
+            filteredArgv[count++] = argv[i];
+        }
+    }
+
+    if (!gArgs.ParseParameters(count, filteredArgv, error)) {
+        return false;
+    }
+
+    return true;
 }

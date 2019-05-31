@@ -45,14 +45,8 @@ std::ostream& operator<<(std::ostream& os, const uint256& num)
     return os;
 }
 
-void SignedBlockSetup()
-{
-    gArgs.SoftSetArg("-signblockpubkeys", combinedPubkeyString(15));
-    gArgs.SoftSetArg("-signblockthreshold", "10");
-}
-
 BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
-    : m_path_root(fs::temp_directory_path() / "test_bitcoin" / strprintf("%lu_%i", (unsigned long)GetTime(), (int)(InsecureRandRange(1 << 30))))
+    : m_path_root(fs::temp_directory_path() / "test_bitcoin" / strprintf("%lu_%i", (unsigned long)GetTime(), (int)(InsecureRandRange(1 << 30)))), signedBlockCondition(combinedPubkeyString(15), 10)
 {
     SHA256AutoDetect();
     RandomInit();
@@ -62,7 +56,8 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
     InitSignatureCache();
     InitScriptExecutionCache();
     fCheckBlockIndex = true;
-    SignedBlockSetup();
+    assert(signedBlockCondition.getInstance().threshold == 10);
+    assert(signedBlockCondition.getInstance().pubkeys.size() == 15);
     SelectParams(chainName);
     noui_connect();
 }
@@ -131,6 +126,25 @@ TestingSetup::~TestingSetup()
         pblocktree.reset();
 }
 
+const CProof createSignedBlockProof(CBlock &block, int proofsize)
+{
+    assert(proofsize < 16);
+
+    auto testKeys = getValidPrivateKeys(proofsize);
+
+    CProof blockProof;
+    std::vector<unsigned char> vchSig;
+    uint256 blockHash = block.GetHashForSign();
+
+    for(int i = 0; i < proofsize; i++)
+    {
+        testKeys[i].Sign(blockHash, vchSig);
+        blockProof.addSignature(vchSig);
+    }
+
+    return blockProof;
+}
+
 TestChain100Setup::TestChain100Setup() : TestingSetup(CBaseChainParams::REGTEST)
 {
     // CreateAndProcessBlock() does not support building SegWit blocks, so don't activate in these tests.
@@ -143,6 +157,7 @@ TestChain100Setup::TestChain100Setup() : TestingSetup(CBaseChainParams::REGTEST)
     {
         std::vector<CMutableTransaction> noTxns;
         CBlock b = CreateAndProcessBlock(noTxns, scriptPubKey);
+        assert(b.proof.size() == Params().GetSignedBlocksCondition().threshold);
         m_coinbase_txns.push_back(b.vtx[0]);
     }
 }
@@ -168,8 +183,9 @@ TestChain100Setup::CreateAndProcessBlock(const std::vector<CMutableTransaction>&
         unsigned int extraNonce = 0;
         IncrementExtraNonce(&block, chainActive.Tip(), extraNonce);
     }
+    const MultisigCondition &signedBlocksCondition = Params().GetSignedBlocksCondition();
 
-    // TODO: set correct signs to block for Signed Blocks mechanism.
+    block.AbsorbBlockProof(createSignedBlockProof(block, signedBlocksCondition.threshold), signedBlocksCondition);
 
     std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(block);
     ProcessNewBlock(chainparams, shared_pblock, true, nullptr);

@@ -11,6 +11,7 @@
 #include <random.h>
 #include <test/test_bitcoin.h>
 #include <validation.h>
+#include <validation.cpp>
 #include <validationinterface.h>
 
 struct RegtestingSetup : public TestingSetup {
@@ -57,6 +58,7 @@ std::shared_ptr<CBlock> Block(const uint256& prev_hash)
     auto pblock = std::make_shared<CBlock>(ptemplate->block);
     pblock->hashPrevBlock = prev_hash;
     pblock->nTime = ++time;
+    BOOST_CHECK_EQUAL(pblock->proof.size(), 0);
 
     CMutableTransaction txCoinbase(*pblock->vtx[0]);
     txCoinbase.vout.resize(1);
@@ -71,8 +73,12 @@ std::shared_ptr<CBlock> FinalizeBlock(std::shared_ptr<CBlock> pblock)
     pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
     pblock->hashImMerkleRoot = BlockMerkleRoot(*pblock, nullptr, true);
 
-    // TODO: set correct signs to block for Signed Blocks mechanism.
+    const MultisigCondition &signedBlocksCondition = Params().GetSignedBlocksCondition();
 
+    const CProof blockProof = createSignedBlockProof(*pblock, signedBlocksCondition.threshold);
+
+    pblock->AbsorbBlockProof(blockProof, signedBlocksCondition);
+    BOOST_CHECK_EQUAL(pblock->proof.size(), blockProof.size());
     return pblock;
 }
 
@@ -156,6 +162,8 @@ BOOST_AUTO_TEST_CASE(processnewblock_signals_ordering)
     TestSubscriber sub(initial_tip->GetBlockHash());
     RegisterValidationInterface(&sub);
 
+    assert(Params().GetSignedBlocksCondition().threshold);
+    assert(Params().GetSignedBlocksCondition().pubkeys.size());
     // create a bunch of threads that repeatedly process a block generated above at random
     // this will create parallelism and randomness inside validation - the ValidationInterface
     // will subscribe to events generated during block validation and assert on ordering invariance
@@ -165,11 +173,18 @@ BOOST_AUTO_TEST_CASE(processnewblock_signals_ordering)
             bool ignored;
             for (int i = 0; i < 1000; i++) {
                 auto block = blocks[GetRand(blocks.size() - 1)];
+                BOOST_CHECK_EQUAL(block->proof.size(), Params().GetSignedBlocksCondition().threshold);
+                CValidationState state;
+                BOOST_CHECK(CheckBlockHeader(*block, state, Params().GetConsensus()));
                 ProcessNewBlock(Params(), block, true, &ignored);
             }
 
             // to make sure that eventually we process the full chain - do it here
             for (auto block : blocks) {
+                BOOST_CHECK_EQUAL(block->proof.size(), Params().GetSignedBlocksCondition().threshold);
+                CValidationState state;
+                BOOST_CHECK(CheckBlockHeader(*block, state, Params().GetConsensus()));
+                ProcessNewBlock(Params(), block, true, &ignored);
                 if (block->vtx.size() == 1) {
                     bool processed = ProcessNewBlock(Params(), block, true, &ignored);
                     assert(processed);

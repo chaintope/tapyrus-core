@@ -370,4 +370,6 @@ inline void insert(std::set<TsetT>& dst, const Tsrc& src) {
 
 } // namespace util
 
+bool ParseSignedBlockParameters(int argc, const char* const argv[], std::string& error);
+
 #endif // BITCOIN_UTIL_H
