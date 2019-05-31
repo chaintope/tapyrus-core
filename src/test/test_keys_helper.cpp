@@ -16,7 +16,7 @@ std::vector<CPubKey> validPubKeys(unsigned int keyCount)
         keys.push_back(pubkey);
     }
     return keys;
-};
+}
 
 std::string combinedPubkeyString(unsigned int keyCount)
 {
@@ -25,7 +25,7 @@ std::string combinedPubkeyString(unsigned int keyCount)
         r += ValidPubKeyStrings[i];
     }
     return r;
-};
+}
 
 std::vector<const CKey> getValidPrivateKeys(const unsigned int keycount)
  {
@@ -34,7 +34,7 @@ std::vector<const CKey> getValidPrivateKeys(const unsigned int keycount)
     {
         CKey keyBuffer;
         keyBuffer.Set(validPrivateKeys[i], validPrivateKeys[i] + 32, true);
-        privateKeys.push_back(keyBuffer);
+        privateKeys.push_back((const CKey)keyBuffer);
     }
     return privateKeys;
 }
