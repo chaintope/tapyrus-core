@@ -45,18 +45,26 @@ one - 'instance' static member,
 two - CChainParams::signedBlocksCondition
 */
 struct MultisigCondition {
-    std::vector<CPubKey> pubkeys;
-    uint8_t threshold;
-
     MultisigCondition(const std::string& pubkeyString, const int threshold);
     static const MultisigCondition& getInstance();
     void ParsePubkeyString(std::string source);
     bool operator==(const MultisigCondition& rhs) const {
         return (instance && instance->pubkeys == rhs.pubkeys && instance->threshold == rhs.threshold);
     }
+
+    uint8_t getThreshold() const{
+        return instance->threshold;
+    }
+    const std::vector<CPubKey>& getPubkeys() const{
+        return instance->pubkeys;
+    }
 private:
-    MultisigCondition() {}
     static std::shared_ptr<MultisigCondition> instance;
+
+    std::vector<CPubKey> pubkeys;
+    uint8_t threshold;
+
+    MultisigCondition() {}
     friend struct ChainParamsTestingSetup;
 };
 

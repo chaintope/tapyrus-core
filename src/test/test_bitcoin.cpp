@@ -56,8 +56,8 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
     InitSignatureCache();
     InitScriptExecutionCache();
     fCheckBlockIndex = true;
-    assert(signedBlockCondition.getInstance().threshold == 10);
-    assert(signedBlockCondition.getInstance().pubkeys.size() == 15);
+    assert(signedBlockCondition.getInstance().getThreshold() == 10);
+    assert(signedBlockCondition.getInstance().getPubkeys().size() == 15);
     SelectParams(chainName);
     noui_connect();
 }
@@ -157,7 +157,7 @@ TestChain100Setup::TestChain100Setup() : TestingSetup(CBaseChainParams::REGTEST)
     {
         std::vector<CMutableTransaction> noTxns;
         CBlock b = CreateAndProcessBlock(noTxns, scriptPubKey);
-        assert(b.proof.size() == Params().GetSignedBlocksCondition().threshold);
+        assert(b.proof.size() == Params().GetSignedBlocksCondition().getThreshold());
         m_coinbase_txns.push_back(b.vtx[0]);
     }
 }
@@ -185,7 +185,7 @@ TestChain100Setup::CreateAndProcessBlock(const std::vector<CMutableTransaction>&
     }
     const MultisigCondition &signedBlocksCondition = Params().GetSignedBlocksCondition();
 
-    block.AbsorbBlockProof(createSignedBlockProof(block, signedBlocksCondition.threshold), signedBlocksCondition);
+    block.AbsorbBlockProof(createSignedBlockProof(block, signedBlocksCondition.getThreshold()), signedBlocksCondition);
 
     std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(block);
     ProcessNewBlock(chainparams, shared_pblock, true, nullptr);

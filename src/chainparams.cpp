@@ -47,12 +47,14 @@ void MultisigCondition::ParsePubkeyString(std::string source)
     std::sort(pubkeys.begin(), pubkeys.end());
 }
 
-MultisigCondition::MultisigCondition(const std::string& pubkeyString, const int threshold):threshold(threshold)
+MultisigCondition::MultisigCondition(const std::string& pubkeyString, const int threshold)
 {
     if(instance && instance->pubkeys.size() && instance->threshold && (unsigned long)instance->threshold <= instance->pubkeys.size())
         return;
 
-    instance.reset(new MultisigCondition());
+    if(!instance)
+        instance.reset(new MultisigCondition());
+
     instance->ParsePubkeyString(pubkeyString);
     instance->threshold = threshold;
 
@@ -67,10 +69,6 @@ MultisigCondition::MultisigCondition(const std::string& pubkeyString, const int 
     if (instance->threshold < 1 || (unsigned int)instance->threshold > instance->pubkeys.size()) {
         throw std::runtime_error(strprintf("Threshold can be between 1 to %d, but passed %d.", instance->pubkeys.size(), instance->threshold));
     }
-
-    //copy pubkeys to local instance
-    for(auto& pubkey:instance->pubkeys)
-        this->pubkeys.push_back(pubkey);
 }
 
 const MultisigCondition& MultisigCondition::getInstance()
@@ -92,7 +90,7 @@ static CBlock CreateGenesisBlock(uint32_t nTime, int32_t nVersion, const CAmount
     // TODO: Ensure pubkey list isn't include combined pubkey.
     // In future Schnorr Signature will be used. Schnorr Signature has homomorphism, so if a member of federation has
     // private key of combined pubkey, the member can create multisignature from only his own key.
-    CPubKey combinedPubKey = PubKeyCombine(condition.pubkeys);
+    CPubKey combinedPubKey = PubKeyCombine(condition.getPubkeys());
     size_t publen = CPubKey::COMPRESSED_PUBLIC_KEY_SIZE;
 
     std::vector<unsigned char> vch = ParseHex(rewardTo);
@@ -104,7 +102,7 @@ static CBlock CreateGenesisBlock(uint32_t nTime, int32_t nVersion, const CAmount
     txNew.vin.resize(1);
     txNew.vout.resize(1);
     txNew.vin[0].prevout.n = 0;
-    txNew.vin[0].scriptSig = CScript() << CScriptNum(condition.threshold) << std::vector<unsigned char>(combinedPubKey.data(), combinedPubKey.data() + publen);
+    txNew.vin[0].scriptSig = CScript() << CScriptNum(condition.getThreshold()) << std::vector<unsigned char>(combinedPubKey.data(), combinedPubKey.data() + publen);
     txNew.vout[0].nValue = genesisReward;
     txNew.vout[0].scriptPubKey = genesisOutputScript;
 

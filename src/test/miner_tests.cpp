@@ -111,6 +111,8 @@ static void CreateBlocks(const CChainParams &chainparams,
     // Simple block creation, nothing special yet:
     BOOST_CHECK(pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey));
 
+    const MultisigCondition &signedBlocksCondition = Params().GetSignedBlocksCondition();
+
     // We can't make transactions until we have inputs
     // Therefore, load 100 blocks :)
     for (unsigned int i = 0; i < sizeof(blockinfo)/sizeof(*blockinfo); ++i)
@@ -135,7 +137,9 @@ static void CreateBlocks(const CChainParams &chainparams,
                 txFirst.push_back(pblock->vtx[0]);
             pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
             pblock->hashImMerkleRoot = BlockMerkleRoot(*pblock, nullptr, true);
-            // TODO: set correct signs to block for Signed Blocks mechanism.
+            //blpck proof
+            pblock->AbsorbBlockProof(createSignedBlockProof(*pblock, signedBlocksCondition.getThreshold()), signedBlocksCondition);
+            BOOST_CHECK_EQUAL(pblock->proof.size(), signedBlocksCondition.getThreshold());
         }
         std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(*pblock);
         BOOST_CHECK(ProcessNewBlock(chainparams, shared_pblock, true, nullptr));
@@ -148,6 +152,10 @@ static void CreateBlocks(const CChainParams &chainparams,
     // Just to make sure we can still make simple blocks
     BOOST_CHECK_EQUAL(pblocktemplate->block.vtx[0]->vin[0].prevout.n, chainActive.Height());
     BOOST_CHECK(pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey));
+
+    pblocktemplate->block.AbsorbBlockProof(createSignedBlockProof(pblocktemplate->block, signedBlocksCondition.getThreshold()), signedBlocksCondition);
+    BOOST_CHECK_EQUAL(pblocktemplate->block.proof.size(),signedBlocksCondition.getThreshold());
+
     BOOST_CHECK_EQUAL(pblocktemplate->block.vtx[0]->vin[0].prevout.n, chainActive.Height()+1); //+1 as the new block is not added to active chain yet
 }
 

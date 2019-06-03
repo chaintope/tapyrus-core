@@ -77,16 +77,16 @@ BOOST_AUTO_TEST_CASE(parse_pubkey_string_when_passed_valid_15_keys)
     //ParsePubkeyString is called by the constructor internally
     MultisigCondition signedBlockCondition(str, 10);
 
-    //local object is initialized
-    BOOST_CHECK_EQUAL(signedBlockCondition.pubkeys.size(), 15);
-    BOOST_CHECK_EQUAL(signedBlockCondition.threshold, 10);
+    //using local object
+    BOOST_CHECK_EQUAL(signedBlockCondition.getPubkeys().size(), 15);
+    BOOST_CHECK_EQUAL(signedBlockCondition.getThreshold(), 10);
 
-    //global instance is initialized
-    BOOST_CHECK_EQUAL(MultisigCondition::getInstance().pubkeys.size(), 15);
-    BOOST_CHECK_EQUAL(signedBlockCondition.threshold, 10);
+    //using global instance
+    BOOST_CHECK_EQUAL(MultisigCondition::getInstance().getPubkeys().size(), 15);
+    BOOST_CHECK_EQUAL(signedBlockCondition.getThreshold(), 10);
 
-    for(unsigned int i = 1; i < MultisigCondition::getInstance().pubkeys.size(); i++) {
-        BOOST_CHECK(MultisigCondition::getInstance().pubkeys.at(i - 1) < MultisigCondition::getInstance().pubkeys.at(i));
+    for(unsigned int i = 1; i < MultisigCondition::getInstance().getPubkeys().size(); i++) {
+        BOOST_CHECK(MultisigCondition::getInstance().getPubkeys().at(i - 1) < MultisigCondition::getInstance().getPubkeys().at(i));
     }
 }
 
@@ -113,11 +113,13 @@ BOOST_AUTO_TEST_CASE(create_cchainparams_instance)
 
     params = CreateChainParams(CBaseChainParams::MAIN, combinedPubkeyString(15), 10);
 
-    BOOST_CHECK_EQUAL(MultisigCondition::getInstance().pubkeys.size(), 15);
-    BOOST_CHECK_EQUAL(MultisigCondition::getInstance().threshold, 10);
+    //BOOST_CHECK_EQUAL(MultisigCondition::getInstance(), params->GetSignedBlocksCondition());
 
-    BOOST_CHECK_EQUAL(params->GetSignedBlocksCondition().pubkeys.size(), 15);
-    BOOST_CHECK_EQUAL(params->GetSignedBlocksCondition().threshold, 10);
+    BOOST_CHECK_EQUAL(MultisigCondition::getInstance().getPubkeys().size(), 15);
+    BOOST_CHECK_EQUAL(MultisigCondition::getInstance().getThreshold(), 10);
+
+    BOOST_CHECK_EQUAL(params->GetSignedBlocksCondition().getPubkeys().size(), 15);
+    BOOST_CHECK_EQUAL(params->GetSignedBlocksCondition().getThreshold(), 10);
 }
 
 BOOST_AUTO_TEST_CASE(create_cchainparams_empty)

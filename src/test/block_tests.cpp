@@ -190,12 +190,12 @@ BOOST_AUTO_TEST_CASE(AbsorbBlockProof_ordering_test) {
     //check whether signatures are ordered according to the order of public keys
     //map: public key index = signature index
     std::map<int, int> indexMap;
-    for(int i = 0, size = signedBlocksCondition.pubkeys.size(); i < size; i++ ) //public keys
+    for(int i = 0, size = signedBlocksCondition.getPubkeys().size(); i < size; i++ ) //public keys
     {
         for (int j = 0; j < 3; j++ ) //signatures
         {
             //verify signature
-            if (signedBlocksCondition.pubkeys[i].Verify(blockHash, blockProof[j]))
+            if (signedBlocksCondition.getPubkeys()[i].Verify(blockHash, blockProof[j]))
             {
                 indexMap[i] = j;
                 break;

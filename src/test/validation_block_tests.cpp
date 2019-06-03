@@ -75,7 +75,7 @@ std::shared_ptr<CBlock> FinalizeBlock(std::shared_ptr<CBlock> pblock)
 
     const MultisigCondition &signedBlocksCondition = Params().GetSignedBlocksCondition();
 
-    const CProof blockProof = createSignedBlockProof(*pblock, signedBlocksCondition.threshold);
+    const CProof blockProof = createSignedBlockProof(*pblock, signedBlocksCondition.getThreshold());
 
     pblock->AbsorbBlockProof(blockProof, signedBlocksCondition);
     BOOST_CHECK_EQUAL(pblock->proof.size(), blockProof.size());
@@ -162,8 +162,8 @@ BOOST_AUTO_TEST_CASE(processnewblock_signals_ordering)
     TestSubscriber sub(initial_tip->GetBlockHash());
     RegisterValidationInterface(&sub);
 
-    assert(Params().GetSignedBlocksCondition().threshold);
-    assert(Params().GetSignedBlocksCondition().pubkeys.size());
+    assert(Params().GetSignedBlocksCondition().getThreshold());
+    assert(Params().GetSignedBlocksCondition().getPubkeys().size());
     // create a bunch of threads that repeatedly process a block generated above at random
     // this will create parallelism and randomness inside validation - the ValidationInterface
     // will subscribe to events generated during block validation and assert on ordering invariance
@@ -173,7 +173,7 @@ BOOST_AUTO_TEST_CASE(processnewblock_signals_ordering)
             bool ignored;
             for (int i = 0; i < 1000; i++) {
                 auto block = blocks[GetRand(blocks.size() - 1)];
-                BOOST_CHECK_EQUAL(block->proof.size(), Params().GetSignedBlocksCondition().threshold);
+                BOOST_CHECK_EQUAL(block->proof.size(), Params().GetSignedBlocksCondition().getThreshold());
                 CValidationState state;
                 BOOST_CHECK(CheckBlockHeader(*block, state, Params().GetConsensus()));
                 ProcessNewBlock(Params(), block, true, &ignored);
@@ -181,7 +181,7 @@ BOOST_AUTO_TEST_CASE(processnewblock_signals_ordering)
 
             // to make sure that eventually we process the full chain - do it here
             for (auto block : blocks) {
-                BOOST_CHECK_EQUAL(block->proof.size(), Params().GetSignedBlocksCondition().threshold);
+                BOOST_CHECK_EQUAL(block->proof.size(), Params().GetSignedBlocksCondition().getThreshold());
                 CValidationState state;
                 BOOST_CHECK(CheckBlockHeader(*block, state, Params().GetConsensus()));
                 ProcessNewBlock(Params(), block, true, &ignored);
