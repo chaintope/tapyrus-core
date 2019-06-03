@@ -69,6 +69,6 @@ const std::string UncompressedPubKeyString = "046b93737b4e8d93e79464f20544340153
 
 std::string combinedPubkeyString(unsigned int keyCount);
 std::vector<CPubKey> validPubKeys(unsigned int keyCount);
-std::vector<const CKey>  getValidPrivateKeys(const unsigned int keycount);
+std::vector<CKey>  getValidPrivateKeys(const unsigned int keycount);
 
 #endif //TAPYRUS_TEST_TEST_KEYS_HELPER_H

@@ -27,14 +27,14 @@ std::string combinedPubkeyString(unsigned int keyCount)
     return r;
 }
 
-std::vector<const CKey> getValidPrivateKeys(const unsigned int keycount)
+std::vector<CKey> getValidPrivateKeys(const unsigned int keycount)
  {
-    std::vector<const CKey> privateKeys;
+    std::vector<CKey> privateKeys;
     for(unsigned int i = 0; i < keycount; i ++)
     {
         CKey keyBuffer;
         keyBuffer.Set(validPrivateKeys[i], validPrivateKeys[i] + 32, true);
-        privateKeys.push_back((const CKey)keyBuffer);
+        privateKeys.push_back(keyBuffer);
     }
     return privateKeys;
 }
