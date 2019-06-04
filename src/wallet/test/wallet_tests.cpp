@@ -437,7 +437,7 @@ BOOST_FIXTURE_TEST_CASE(generate_with_privkey, TestingSetup)
     privkeys.push_back("c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3");
     request.params.push_back(privkeys);
     // generate 1 block.
-    MilliSleep(500);//sleep until cs_main is released from ProcessNewBlock
+    MilliSleep(1000);//sleep until cs_main is released from ProcessNewBlock
     {
         LOCK2(cs_main, wallet->cs_wallet);
         result = generate(request);
@@ -455,7 +455,7 @@ BOOST_FIXTURE_TEST_CASE(generate_with_privkey, TestingSetup)
     privkeys.push_back("ae6ae8e5ccbfb04590405997ee2d52d2b330726137b875053c36d94e974d162f");
     request.params.push_back(privkeys);
     // generate with multi private keys.
-    MilliSleep(500);
+    MilliSleep(1000);
     {
         LOCK2(cs_main, wallet->cs_wallet);
         BOOST_CHECK_NO_THROW(result = generate(request));
@@ -473,7 +473,7 @@ BOOST_FIXTURE_TEST_CASE(generate_with_privkey, TestingSetup)
     request.params.push_back(1);
     request.params.push_back(privkeys);
     // generate with invalid length private key.
-    MilliSleep(500);
+    MilliSleep(1000);
     {
         LOCK2(cs_main, wallet->cs_wallet);
         BOOST_CHECK_THROW(result = CallGenerate(request), std::runtime_error);
