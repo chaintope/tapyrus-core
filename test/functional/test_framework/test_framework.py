@@ -414,7 +414,26 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             # Create cache directories, run bitcoinds:
             for i in range(MAX_NODES):
                 datadir = initialize_datadir(self.options.cachedir, i)
-                args = [self.options.bitcoind, "-datadir=" + datadir]
+                args = [self.options.bitcoind,
+                "-datadir=" + datadir,
+                "-signblockpubkeys=" +
+                "03af80b90d25145da28c583359beb47b21796b2fe1a23c1511e443e7a64dfdb27d" +
+                "02ce7edc292d7b747fab2f23584bbafaffde5c8ff17cf689969614441e0527b900" +
+                "02785a891f323acd6cef0fc509bb14304410595914267c50467e51c87142acbb5e" +
+                "02396c2c8a22ec28dbe02613027edea9a3b0c314294985e09c2f389818b29fee06" +
+                "03e67ceb1f0af0ab4668227984782b48d286b88e54dc91487143199728d4597c02" +
+                "023b435ce7b804aa66dcd65a855282479be5057fd82ce4c7c2e2430920de8b9e9e" +
+                "0205deb5ba6b1f7c22e79026f8301fe8d50e9e9af8514665c2440207e932d44a62" +
+                "0201c537fd7eb7928700927b48e51ceec621fc8ba1177ee2ad67336ed91e2f63a1" +
+                "033e6e1d4ae3e7e1bc2173e2af1f2f65c6284ea7c6478f2241784c77b0dff98e61" +
+                "02114e7960286099c603e51348df63fd0acb75f81b97a85eb4af87df9ee5ff18eb" +
+                "03831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafc" +
+                "02bf2027c8455800c7626542219e6208b5fe787483689f1391d6d443ec85673ecf" +
+                "03b44f1cfcf46aba8bc98e2fd39f137cc43d98ab7792e4848b09c06198b042ca8b" +
+                "02b9a609d6bec0fdc9ba690986013cf7bbd13c54ffc25e6cf30916b4732c4a952a" +
+                "02e78cafe033b22bda5d7d1c8e82ee932930bf12e08489bc19769cbec765568be9" +
+                "02473757a955a23f75379820f3071abf5b3343b78eb54e52373d06259ffa6c550b",
+                "-signblockthreshold=10"]
                 if i > 0:
                     args.append("-connect=127.0.0.1:" + str(p2p_port(0)))
                     args.append("-debug=all")
