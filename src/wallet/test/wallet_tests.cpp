@@ -432,7 +432,8 @@ BOOST_FIXTURE_TEST_CASE(generate_with_no_privkey, TestingSetup)
     request.params.push_back(1);
     // should error because not enough params.
     { 
-        LOCK2(cs_main, wallet->cs_wallet);
+        LOCK(cs_main);
+        LOCK(wallet->cs_wallet);
         BOOST_CHECK_THROW(generate(request), std::runtime_error);
     }
     RemoveWallet(wallet);
@@ -459,7 +460,8 @@ BOOST_FIXTURE_TEST_CASE(generate_with_one_privkey, TestingSetup)
     request.params.push_back(privkeys);
     // generate 1 block.
     {
-        LOCK2(cs_main, wallet->cs_wallet);
+        LOCK(cs_main);
+        LOCK(wallet->cs_wallet);
         UniValue result = generate(request);
         BOOST_CHECK_EQUAL(chainActive.Height(), 1);
         const CBlockIndex* pblockindex = LookupBlockIndex(uint256S(result.get_array()[0].getValStr()));
@@ -492,7 +494,8 @@ BOOST_FIXTURE_TEST_CASE(generate_with_two_privkey, TestingSetup)
     // generate with multi private keys.
     UniValue result ;
     {
-        LOCK2(cs_main, wallet->cs_wallet);
+        LOCK(cs_main);
+        LOCK(wallet->cs_wallet);
         BOOST_CHECK_NO_THROW(result = generate(request));
         BOOST_CHECK_EQUAL(chainActive.Height(), 1);
         const CBlockIndex* pblockindex = LookupBlockIndex(uint256S(result.get_array()[0].getValStr()));
@@ -525,7 +528,8 @@ BOOST_FIXTURE_TEST_CASE(generate_with_one_wrong_privkey, TestingSetup)
     request.params.push_back(privkeys);
     // generate with invalid length private key.
     {
-        LOCK2(cs_main, wallet->cs_wallet);
+        LOCK(cs_main);
+        LOCK(wallet->cs_wallet);
         BOOST_CHECK_THROW(UniValue result = CallGenerate(request), std::runtime_error);
     }
     RemoveWallet(wallet);
