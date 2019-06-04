@@ -61,13 +61,16 @@ UniValue generateBlocks(std::shared_ptr<CReserveScript> coinbaseScript, int nGen
             LOCK(cs_main);
             IncrementExtraNonce(pblock, chainActive.Tip(), nExtraNonce);
         }
-        // TODO: set correct signs to block for Signed Blocks mechanism.
-        uint256 blockHash = pblock->GetHash();
+        CProof proof;
+        uint256 blockHash = pblock->GetHashForSign();
         for(uint i=0; i < vecPrivKeys.size(); i++) {
             Signature sign;
             CKey ckey = vecPrivKeys[i];
             ckey.Sign(blockHash, sign);
-            pblock->proof.push_back(sign);
+            proof.push_back(sign);
+        }
+        if(!pblock->AbsorbBlockProof(proof, Params().GetSignedBlocksCondition())){
+            throw JSONRPCError(RPC_INTERNAL_ERROR, "AbsorbBlockProof, block proof not accepted");
         }
         std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(*pblock);
         if (!ProcessNewBlock(Params(), shared_pblock, true, nullptr))
