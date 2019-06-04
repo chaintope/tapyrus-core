@@ -392,9 +392,8 @@ BOOST_FIXTURE_TEST_CASE(wallet_disableprivkeys, TestChain100Setup)
 
 // Check that UniValue generate(const JSONRPCRequest& request) with privkey generate process.
 //
-BOOST_FIXTURE_TEST_CASE(generate_with_privkey, TestingSetup)
+BOOST_FIXTURE_TEST_CASE(generate_with_incorrect_privkey, TestingSetup)
 {
-
     // convert check
     UniValue result;
     UniValue ar = UniValue(UniValue::VARR);
@@ -410,7 +409,9 @@ BOOST_FIXTURE_TEST_CASE(generate_with_privkey, TestingSetup)
     BOOST_CHECK_EQUAL(ar.size(), 2);
     BOOST_CHECK_EQUAL(ar[0].get_str(), "c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3");
     BOOST_CHECK_EQUAL(ar[1].get_str(), "ae6ae8e5ccbfb04590405997ee2d52d2b330726137b875053c36d94e974d162f");
-
+}
+BOOST_FIXTURE_TEST_CASE(generate_with_no_privkey, TestingSetup)
+{
     CKey coinbaseKey, blockSignKey;
     coinbaseKey.MakeNewKey(true);
 
@@ -419,71 +420,114 @@ BOOST_FIXTURE_TEST_CASE(generate_with_privkey, TestingSetup)
     bool firstRun;
     wallet->LoadWallet(firstRun);
     AddKey(*wallet, coinbaseKey);
-    JSONRPCRequest request;
-    request.params.setArray();
-    request.params.push_back(1);
 
     // before generate, block size is 0.
     {
         LOCK(cs_main);
         BOOST_CHECK_EQUAL(chainActive.Height(), 0);
     }
+
+    JSONRPCRequest request;
+    request.params.setArray();
+    request.params.push_back(1);
     // should error because not enough params.
     { 
-        LOCK(wallet->cs_wallet);
+        LOCK2(cs_main, wallet->cs_wallet);
         BOOST_CHECK_THROW(generate(request), std::runtime_error);
     }
+    RemoveWallet(wallet);
+}
+BOOST_FIXTURE_TEST_CASE(generate_with_one_privkey, TestingSetup)
+{
+    std::shared_ptr<CWallet> wallet = std::make_shared<CWallet>("mock", WalletDatabase::CreateMock());
+    AddWallet(wallet);
+    bool firstRun;
+    wallet->LoadWallet(firstRun);
+
+    // before generate, block size is 0.
+    {
+        LOCK(cs_main);
+        BOOST_CHECK_EQUAL(chainActive.Height(), 0);
+    }
+
+    JSONRPCRequest request;
+    request.params.setArray();
+    request.params.push_back(1);
+
     UniValue privkeys = UniValue(UniValue::VARR);
     privkeys.push_back("c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3");
     request.params.push_back(privkeys);
     // generate 1 block.
     {
-        LOCK(wallet->cs_wallet);
-        result = generate(request);
-    }
-    MilliSleep(1000);//sleep until cs_main is released from ProcessNewBlock
-    {
-        LOCK(cs_main);
+        LOCK2(cs_main, wallet->cs_wallet);
+        UniValue result = generate(request);
         BOOST_CHECK_EQUAL(chainActive.Height(), 1);
         const CBlockIndex* pblockindex = LookupBlockIndex(uint256S(result.get_array()[0].getValStr()));
         const CBlock block = GetBlockChecked(pblockindex);
         BOOST_CHECK_EQUAL(block.GetBlockHeader().proof.size(), 1);
     }
+    RemoveWallet(wallet);
+}
+BOOST_FIXTURE_TEST_CASE(generate_with_two_privkey, TestingSetup)
+{
+    std::shared_ptr<CWallet> wallet = std::make_shared<CWallet>("mock", WalletDatabase::CreateMock());
+    AddWallet(wallet);
+    bool firstRun;
+    wallet->LoadWallet(firstRun);
 
-    request.params.clear();
+    // before generate, block size is 0.
+    {
+        LOCK(cs_main);
+        BOOST_CHECK_EQUAL(chainActive.Height(), 0);
+    }
+
+    JSONRPCRequest request;
     request.params.setArray();
-    privkeys = UniValue(UniValue::VARR);
     request.params.push_back(1);
+
+    UniValue privkeys = UniValue(UniValue::VARR);
     privkeys.push_back("c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3");
     privkeys.push_back("ae6ae8e5ccbfb04590405997ee2d52d2b330726137b875053c36d94e974d162f");
     request.params.push_back(privkeys);
     // generate with multi private keys.
+    UniValue result ;
     {
-        LOCK(wallet->cs_wallet);
+        LOCK2(cs_main, wallet->cs_wallet);
         BOOST_CHECK_NO_THROW(result = generate(request));
-    }
-    MilliSleep(1000);
-    {
-        LOCK(cs_main);
-        BOOST_CHECK_EQUAL(chainActive.Height(), 2);
+        BOOST_CHECK_EQUAL(chainActive.Height(), 1);
         const CBlockIndex* pblockindex = LookupBlockIndex(uint256S(result.get_array()[0].getValStr()));
         const CBlock block = GetBlockChecked(pblockindex);
         // check proof count is same as private keys.
         BOOST_CHECK_EQUAL(block.GetBlockHeader().proof.size(), 2);
     }
+    RemoveWallet(wallet);
+}
+BOOST_FIXTURE_TEST_CASE(generate_with_one_wrong_privkey, TestingSetup)
+{
+    std::shared_ptr<CWallet> wallet = std::make_shared<CWallet>("mock", WalletDatabase::CreateMock());
+    AddWallet(wallet);
+    bool firstRun;
+    wallet->LoadWallet(firstRun);
 
-    request.params.clear();
+    // before generate, block size is 0.
+    {
+        LOCK(cs_main);
+        BOOST_CHECK_EQUAL(chainActive.Height(), 0);
+    }
+
+    JSONRPCRequest request;
     request.params.setArray();
-    privkeys = UniValue(UniValue::VARR);
+    request.params.push_back(1);
+
+    UniValue privkeys = UniValue(UniValue::VARR);
     privkeys.push_back("c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d300");
     request.params.push_back(1);
     request.params.push_back(privkeys);
     // generate with invalid length private key.
     {
-        LOCK(wallet->cs_wallet);
-        BOOST_CHECK_THROW(result = CallGenerate(request), std::runtime_error);
+        LOCK2(cs_main, wallet->cs_wallet);
+        BOOST_CHECK_THROW(UniValue result = CallGenerate(request), std::runtime_error);
     }
-
     RemoveWallet(wallet);
 }
 
