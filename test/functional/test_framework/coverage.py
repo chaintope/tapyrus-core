@@ -38,9 +38,13 @@ class AuthServiceProxyWrapper():
             return return_val
         return AuthServiceProxyWrapper(return_val, self.coverage_logfile)
 
-    def generate(self, nblocks=0):
-        from .test_node import BLOCK_SIGN_PRIVKEY_HEX
-        return getattr(self.auth_service_proxy_instance, "generate")(nblocks, [BLOCK_SIGN_PRIVKEY_HEX])
+    def generate(self, nblocks=0, signblockprivkeys=[], testCaseInstance=None):
+        if(len(signblockprivkeys)):
+            return getattr(self.auth_service_proxy_instance, "generate")(nblocks, signblockprivkeys)
+        elif(testCaseInstance != None):
+            return getattr(self.auth_service_proxy_instance, "generate")(nblocks, [ testCaseInstance.signblockprivkeys[i] for i in range(0, testCaseInstance.signblockthreshold)])
+        else:
+            raise "either signblockprivkeys or testCaseInstance is needed"
 
     def __call__(self, *args, **kwargs):
         """

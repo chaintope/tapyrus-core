@@ -3895,12 +3895,13 @@ UniValue generate(const JSONRPCRequest& request)
             "\nMine up to nblocks blocks immediately (before the RPC call returns) to an address in the wallet.\n"
             "\nArguments:\n"
             "1. nblocks      (numeric, required) How many blocks are generated immediately.\n"
-            "2. private keys (hex string array, required) for sign to block.\n"
+            "2. [private keys] (hex string array, required) to sign the generated blocks.\n"
+            "when the private keys are not provided, default test keys will be used\n"
             "\nResult:\n"
             "[ blockhashes ]     (array) hashes of blocks generated\n"
             "\nExamples:\n"
             "\nGenerate 11 blocks\n"
-            + HelpExampleCli("generate", "11, \"[\\\"c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3\\\"]\"")
+            + HelpExampleCli("generate", "11  [\"c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3\"]")
         );
     }
 
@@ -3922,6 +3923,8 @@ UniValue generate(const JSONRPCRequest& request)
         cPrivKey.Set(privkeyraw.begin(), privkeyraw.end(), true);
         vecKeys.push_back(cPrivKey);
     }
+    if(!vecKeys.size())
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "No private key given or all keys were invalid.");
 
     std::shared_ptr<CReserveScript> coinbase_script;
     pwallet->GetScriptForMining(coinbase_script);
