@@ -8,8 +8,9 @@ Check that generate RPC can generate blocks with proof/signatures using the priv
 
 1) Test that the proof length is equal to the length of private keys
 2) Verify the signatures in proof
+3) verify that valid signatures generated using non-signer private keys are not accepted
 
-"https://brainwalletx.github.io/#generator"
+invalidKeys generated using "https://brainwalletx.github.io/#generator"
 
 passphrase :"tapyrus"
 privateKey : d61cb76ffd678c98320f6c9c5b341c41141add40d5804f6e7de4cabc9ab2f1c2
@@ -130,6 +131,8 @@ class GenerateWithPrivateKeysTest(BitcoinTestFramework):
         assert_raises_rpc_error(-32603, "AbsorbBlockProof, block proof not accepted", self.nodes[0].generate, 10, signblockprivkeys=self.invalidKeys)
         assert_raises_rpc_error(-12, "Error: key 'c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d300' is invalid length of 66.", self.nodes[0].generate, 10, signblockprivkeys=[self.privateKeys[0] + "00"])
         assert_raises_rpc_error(-32603, "AbsorbBlockProof, block proof not accepted", self.nodes[0].generate, 10, signblockprivkeys=[self.privateKeys[0][:-2] + "00"])
+
+        #TODO : simulate "No private key given or all keys were invalid."
 
 if __name__ == '__main__':
     GenerateWithPrivateKeysTest().main()
