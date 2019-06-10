@@ -48,12 +48,12 @@ class BumpFeeTest(BitcoinTestFramework):
 
         # fund rbf node with 10 coins of 0.001 btc (100,000 satoshis)
         self.log.info("Mining blocks...")
-        peer_node.generate(110)
+        peer_node.generate(110, self.signblockprivkeys)
         self.sync_all()
         for i in range(25):
             peer_node.sendtoaddress(rbf_node_address, 0.001)
         self.sync_all()
-        peer_node.generate(1)
+        peer_node.generate(1, self.signblockprivkeys)
         self.sync_all()
         assert_equal(rbf_node.getbalance(), Decimal("0.025"))
 
@@ -251,7 +251,7 @@ def test_unconfirmed_not_spendable(rbf_node, rbf_node_address):
     assert_equal([t for t in rbf_node.listunspent(minconf=0, include_unsafe=False) if t["txid"] == rbfid], [])
 
     # check that the main output from the rbf tx is spendable after confirmed
-    rbf_node.generate(1)
+    rbf_node.generate(1, self.signblockprivkeys)
     assert_equal(
         sum(1 for t in rbf_node.listunspent(minconf=0, include_unsafe=False)
             if t["txid"] == rbfid and t["address"] == rbf_node_address and t["spendable"]), 1)
@@ -296,7 +296,7 @@ def submit_block_with_tx(node, tx):
     block.hashMerkleRoot = block.calc_merkle_root()
     block.hashImMerkleRoot = block.calc_immutable_merkle_root()
     add_witness_commitment(block)
-    block.solve()
+    block.solve(self.signblockprivkeys)
     node.submitblock(bytes_to_hex_str(block.serialize()))
     return block
 

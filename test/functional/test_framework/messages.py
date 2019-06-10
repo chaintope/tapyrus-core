@@ -25,6 +25,7 @@ import time
 
 from test_framework.siphash import siphash256
 from test_framework.util import hex_str_to_bytes, bytes_to_hex_str
+from test_framework.key import CECKey
 
 MIN_VERSION_SUPPORTED = 60001
 MY_VERSION = 70014  # past bip-31 for ping/pong
@@ -520,8 +521,6 @@ class CBlockHeader():
             self.hashMerkleRoot = header.hashMerkleRoot
             self.hashImMerkleRoot = header.hashImMerkleRoot
             self.nTime = header.nTime
-            self.nBits = header.nBits
-            self.nNonce = header.nNonce
             self.proof = copy.deepcopy(header.proof)
             self.sha256 = header.sha256
             self.hash = header.hash
@@ -533,8 +532,6 @@ class CBlockHeader():
         self.hashMerkleRoot = 0
         self.hashImMerkleRoot = 0
         self.nTime = 0
-        self.nBits = 0
-        self.nNonce = 0
         self.proof = []
         self.sha256 = None
         self.hash = None
@@ -586,8 +583,8 @@ class CBlockHeader():
         return self.sha256
 
     def __repr__(self):
-        return "CBlockHeader(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x hashImMerkleRoot=%064x nTime=%s nBits=%08x nNonce=%08x)" \
-            % (self.nVersion, self.hashPrevBlock, self.hashMerkleRoot, self.hashImMerkleRoot, time.ctime(self.nTime), self.nBits, self.nNonce)
+        return "CBlockHeader(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x hashImMerkleRoot=%064x nTime=%s proof=%s)" \
+            % (self.nVersion, self.hashPrevBlock, self.hashMerkleRoot, self.hashImMerkleRoot, time.ctime(self.nTime), [bytes_to_hex_str(sig) for sig in self.proof])
 
 
 class CBlock(CBlockHeader):
@@ -643,9 +640,6 @@ class CBlock(CBlockHeader):
 
     def is_valid(self):
         self.calc_sha256()
-        target = uint256_from_compact(self.nBits)
-        if self.sha256 > target:
-            return False
         for tx in self.vtx:
             if not tx.is_valid():
                 return False
@@ -655,14 +649,21 @@ class CBlock(CBlockHeader):
             return False
         return True
 
-    def solve(self):
-        # TODO: create signs to proof field for signed blocks.
+    def solve(self, signblockprivkeys):
+        # create signed blocks.
+        sighash = self.getsighash()
+        for privkey in signblockprivkeys:
+            signKey = CECKey()
+            signKey.set_secretbytes(hex_str_to_bytes(privkey))
+            signKey.set_compressed(True)
+            sig = signKey.sign(sighash)
+            self.proof.append(sig)
         self.rehash()
 
     def __repr__(self):
-        return "CBlock(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x hashImMerkleRoot=%064x nTime=%s nBits=%08x nNonce=%08x vtx=%s)" \
+        return "CBlock(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x hashImMerkleRoot=%064x nTime=%s vtx=%s)" \
             % (self.nVersion, self.hashPrevBlock, self.hashMerkleRoot, self.hashImMerkleRoot,
-               time.ctime(self.nTime), self.nBits, self.nNonce, repr(self.vtx))
+               time.ctime(self.nTime), repr(self.vtx))
 
 
 class PrefilledTransaction():

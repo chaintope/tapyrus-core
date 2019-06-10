@@ -163,7 +163,7 @@ class BIP68_112_113Test(BitcoinTestFramework):
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         block.rehash()
-        block.solve()
+        block.solve(self.signblockprivkeys)
         return block
 
     def sync_blocks(self, blocks, success=True, reject_code=None, reject_reason=None, request_block=True):
@@ -253,7 +253,7 @@ class BIP68_112_113Test(BitcoinTestFramework):
         bip113input = send_generic_input_tx(self.nodes[0], self.coinbase_blocks, self.nodeaddress)
 
         self.nodes[0].setmocktime(self.last_block_time + 600)
-        inputblockhash = self.nodes[0].generate(1)[0]  # 1 block generated for inputs to be in chain at height 572
+        inputblockhash = self.nodes[0].generate(1, self.signblockprivkeys)[0]  # 1 block generated for inputs to be in chain at height 572
         self.nodes[0].setmocktime(0)
         self.tip = int(inputblockhash, 16)
         self.tipheight += 1

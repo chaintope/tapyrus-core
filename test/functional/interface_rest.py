@@ -76,7 +76,7 @@ class RESTTest (BitcoinTestFramework):
         # Random address so node1's balance doesn't increase
         not_related_address = "2MxqoHEdNQTyYeX1mHcbrrpzgojbosTpCvJ"
 
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(1, self.signblockprivkeys)
         self.sync_all()
         self.nodes[1].generatetoaddress(100, not_related_address)
         self.sync_all()
@@ -171,7 +171,7 @@ class RESTTest (BitcoinTestFramework):
         json_obj = self.test_rest_request("/getutxos/checkmempool/{}-{}".format(*spent))
         assert_equal(len(json_obj['utxos']), 0)
 
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(1, self.signblockprivkeys)
         self.sync_all()
 
         json_obj = self.test_rest_request("/getutxos/{}-{}".format(*spending))
@@ -192,7 +192,7 @@ class RESTTest (BitcoinTestFramework):
         long_uri = '/'.join(['{}-{}'.format(txid, n_) for n_ in range(15)])
         self.test_rest_request("/getutxos/checkmempool/{}".format(long_uri), http_method='POST', status=200)
 
-        self.nodes[0].generate(1)  # generate block to not affect upcoming tests
+        self.nodes[0].generate(1, self.signblockprivkeys)  # generate block to not affect upcoming tests
         self.sync_all()
 
         self.log.info("Test the /block and /headers URIs")
@@ -237,7 +237,7 @@ class RESTTest (BitcoinTestFramework):
             assert_equal(json_obj[0][key], rpc_block_json[key])
 
         # See if we can get 5 headers in one response
-        self.nodes[1].generate(5)
+        self.nodes[1].generate(5, self.signblockprivkeys)
         self.sync_all()
         json_obj = self.test_rest_request("/headers/5/{}".format(bb_hash))
         assert_equal(len(json_obj), 5)  # now we should have 5 header objects
@@ -276,7 +276,7 @@ class RESTTest (BitcoinTestFramework):
             assert_equal(json_obj[tx]['depends'], txs[i - 1:i])
 
         # Now mine the transactions
-        newblockhash = self.nodes[1].generate(1)
+        newblockhash = self.nodes[1].generate(1, self.signblockprivkeys)
         self.sync_all()
 
         # Check if the 3 tx show up in the new block

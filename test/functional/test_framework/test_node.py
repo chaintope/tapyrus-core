@@ -344,8 +344,8 @@ class TestNodeCLI():
     def __getattr__(self, command):
         return TestNodeCLIAttr(self, command)
 
-    def generate(self, nblocks=0):
-        return TestNodeCLIAttr(self, "generate")(nblocks, "[\"{0}\"]".format(BLOCK_SIGN_PRIVKEY_HEX))
+    def generate(self, nblocks=0, signblockprivkeys=[]):
+        return TestNodeCLIAttr(self, "generate")(nblocks, "[\"{0}\"]".format(signblockprivkeys))
 
     def batch(self, requests):
         results = []

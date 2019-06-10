@@ -61,7 +61,7 @@ class GenerateWithPrivateKeysTest(BitcoinTestFramework):
 
         #test generate 0
         height = 0
-        blocks = self.nodes[0].generate(0, testCaseInstance=self)
+        blocks = self.nodes[0].generate(0, self.signblockprivkeys)
         assert_equal(len(blocks), 0)
         hash = self.nodes[0].getbestblockhash()
         newblock = self.nodes[0].getblock(hash)
@@ -69,7 +69,7 @@ class GenerateWithPrivateKeysTest(BitcoinTestFramework):
         assert_equal(hash, self.genesisblockhash)
 
         #test generate 1 - default private keys
-        blocks = self.nodes[0].generate(1, testCaseInstance=self)
+        blocks = self.nodes[0].generate(1, self.signblockprivkeys)
         assert_equal(len(blocks), 1)
         newblock = self.nodes[0].getblock(blocks[0])
         height += 1
@@ -79,7 +79,7 @@ class GenerateWithPrivateKeysTest(BitcoinTestFramework):
         assert_equal(len(newblock['proof']), self.signblockthreshold)
 
         #test generate 10 - default private keys
-        blocks = self.nodes[0].generate(10, testCaseInstance=self)
+        blocks = self.nodes[0].generate(10, self.signblockprivkeys)
         assert_equal(len(blocks), 10)
         for hash in blocks:
             height += 1
@@ -89,7 +89,8 @@ class GenerateWithPrivateKeysTest(BitcoinTestFramework):
             assert_equal(len(newblock['proof']), self.signblockthreshold)
 
         #test generate 1 with 1 private key
-        blocks = self.nodes[0].generate(1, signblockprivkeys=[self.privateKeys[0]])
+        self.signblockprivkeys = [self.privateKeys[0]]
+        blocks = self.nodes[0].generate(1, self.signblockprivkeys)
         assert_equal(len(blocks), 1)
         newblock = self.nodes[0].getblock(blocks[0])
         height += 1
@@ -98,7 +99,8 @@ class GenerateWithPrivateKeysTest(BitcoinTestFramework):
         assert_equal(len(newblock['proof']), 1)
         
         #test generate 10 with 1 private key
-        blocks = self.nodes[0].generate(10, signblockprivkeys=[self.privateKeys[0]])
+        self.signblockprivkeys = [self.privateKeys[0]]
+        blocks = self.nodes[0].generate(10, self.signblockprivkeys)
         assert_equal(len(blocks), 10)
         for hash in blocks:
             height += 1
@@ -108,7 +110,8 @@ class GenerateWithPrivateKeysTest(BitcoinTestFramework):
             assert_equal(len(newblock['proof']), 1)
         
         #test generate 1 with multiple private keys
-        blocks = self.nodes[0].generate(1, signblockprivkeys=self.privateKeys)
+        self.signblockprivkeys = self.privateKeys
+        blocks = self.nodes[0].generate(1, self.signblockprivkeys)
         newblock = self.nodes[0].getblock(blocks[0])
         height += 1
         assert_equal(newblock['hash'], blocks[0])
@@ -116,7 +119,8 @@ class GenerateWithPrivateKeysTest(BitcoinTestFramework):
         assert_equal(len(newblock['proof']), len(self.privateKeys))
         
         #test generate 10 with multiple private keys
-        blocks = self.nodes[0].generate(10, signblockprivkeys=self.privateKeys)
+        self.signblockprivkeys = self.privateKeys
+        blocks = self.nodes[0].generate(10, self.signblockprivkeys)
         for hash in blocks:
             height += 1
             newblock = self.nodes[0].getblock(hash)
@@ -125,12 +129,19 @@ class GenerateWithPrivateKeysTest(BitcoinTestFramework):
             assert_equal(len(newblock['proof']), len(self.privateKeys))
         
         #test error cases
-        assert_raises_rpc_error(-32603, "AbsorbBlockProof, block proof not accepted", self.nodes[0].generate, 1, signblockprivkeys=[self.invalidKeys[0]])
-        assert_raises_rpc_error(-32603, "AbsorbBlockProof, block proof not accepted", self.nodes[0].generate, 10, signblockprivkeys=[self.invalidKeys[0]])
-        assert_raises_rpc_error(-32603, "AbsorbBlockProof, block proof not accepted", self.nodes[0].generate, 1, signblockprivkeys=self.invalidKeys)
-        assert_raises_rpc_error(-32603, "AbsorbBlockProof, block proof not accepted", self.nodes[0].generate, 10, signblockprivkeys=self.invalidKeys)
-        assert_raises_rpc_error(-12, "Error: key 'c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d300' is invalid length of 66.", self.nodes[0].generate, 10, signblockprivkeys=[self.privateKeys[0] + "00"])
-        assert_raises_rpc_error(-32603, "AbsorbBlockProof, block proof not accepted", self.nodes[0].generate, 10, signblockprivkeys=[self.privateKeys[0][:-2] + "00"])
+        self.signblockprivkeys = [self.invalidKeys[0]]
+        assert_raises_rpc_error(-32603, "AbsorbBlockProof, block proof not accepted", self.nodes[0].generate, 1, self.signblockprivkeys)
+        assert_raises_rpc_error(-32603, "AbsorbBlockProof, block proof not accepted", self.nodes[0].generate, 10, self.signblockprivkeys)
+
+        self.signblockprivkeys = self.invalidKeys
+        assert_raises_rpc_error(-32603, "AbsorbBlockProof, block proof not accepted", self.nodes[0].generate, 1, self.signblockprivkeys)
+        assert_raises_rpc_error(-32603, "AbsorbBlockProof, block proof not accepted", self.nodes[0].generate, 10, self.signblockprivkeys)
+
+        self.signblockprivkeys = [self.privateKeys[0] + "00"]
+        assert_raises_rpc_error(-12, "Error: key 'c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d300' is invalid length of 66.", self.nodes[0].generate, 10, self.signblockprivkeys)
+
+        self.signblockprivkeys = [self.privateKeys[0][:-2] + "00"]
+        assert_raises_rpc_error(-32603, "AbsorbBlockProof, block proof not accepted", self.nodes[0].generate, 10, self.signblockprivkeys)
 
         #TODO : simulate "No private key given or all keys were invalid."
 

@@ -49,7 +49,7 @@ class VersionBitsWarningTest(BitcoinTestFramework):
         for _ in range(numblocks):
             block = create_block(tip, create_coinbase(height + 1), block_time)
             block.nVersion = version
-            block.solve()
+            block.solve(self.signblockprivkeys)
             peer.send_message(msg_block(block))
             block_time += 1
             height += 1
@@ -95,10 +95,10 @@ class VersionBitsWarningTest(BitcoinTestFramework):
         self.restart_node(0)
 
         # Generating one block guarantees that we'll get out of IBD
-        node.generate(1)
+        node.generate(1, self.signblockprivkeys)
         wait_until(lambda: not node.getblockchaininfo()['initialblockdownload'], timeout=10, lock=mininode_lock)
         # Generating one more block will be enough to generate an error.
-        node.generate(1)
+        node.generate(1, self.signblockprivkeys)
         # Check that get*info() shows the versionbits unknown rules warning
         assert(WARN_UNKNOWN_RULES_ACTIVE in node.getmininginfo()["warnings"])
         assert(WARN_UNKNOWN_RULES_ACTIVE in node.getnetworkinfo()["warnings"])

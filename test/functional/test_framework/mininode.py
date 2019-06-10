@@ -214,7 +214,7 @@ class P2PConnection(asyncio.Protocol):
         elif direction == "receive":
             log_message = "Received message from "
         log_message += "%s:%d: %s" % (self.dstaddr, self.dstport, repr(msg)[:500])
-        if len(log_message) > 500:
+        if len(log_message) > 2500:
             log_message += "... (msg truncated)"
         logger.debug(log_message)
 

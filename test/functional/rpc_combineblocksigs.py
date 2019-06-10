@@ -58,7 +58,7 @@ class SignedBlockchainTest(BitcoinTestFramework):
         height =  1
         coinbase = create_coinbase(height, self.pubkeys[0])
         block = create_block(previousblock_hash, coinbase, int(time()))
-        block.solve()
+        block.solve(self.signblockprivkeys)
         block.calc_sha256()
         block_hex = ToHex(block)
         block_hash = block.getsighash()

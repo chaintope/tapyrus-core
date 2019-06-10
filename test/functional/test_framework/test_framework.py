@@ -121,8 +121,9 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         "aa2c70c4b85a09be514292d04b27bbb0cc3f86d306d58fe87743d10a095ada07",
         "3087d8decc5f951f19a442397cf1eba1e2b064e68650c346502780b56454c6e2",
         "6125c8d4330941944cc6cc3e775e8620c479a5901ad627e6e734c6a6f7377428",
-        "1c3e5453c0f9aa74a8eb0216310b2b013f017813a648fce364bf41dbc0b37647"]
+        "1c3e5453c0f9aa74a8eb0216310b2b013f017813a648fce364bf41dbc0b37647"][:self.signblockthreshold]
         #ea9fe9fd2f1761fc6f1f0f23eb4d4141d7b05f2b95a1b7a9912cd97bddd9036c
+        assert(len(self.signblockprivkeys) == self.signblockthreshold)
         self.set_test_params()
 
         assert hasattr(self, "num_nodes"), "Test must set self.num_nodes in set_test_params()"
@@ -451,7 +452,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
                 args = [self.options.bitcoind,
                 "-datadir=" + datadir,
                 "-signblockpubkeys=" + self.signblockpubkeys,
-                "-signblockthreshold=" + self.signblockthreshold]
+                "-signblockthreshold=" + str(self.signblockthreshold)]
                 if i > 0:
                     args.append("-connect=127.0.0.1:" + str(p2p_port(0)))
                     args.append("-debug=all")
@@ -476,7 +477,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
                 for peer in range(4):
                     for j in range(25):
                         set_node_times(self.nodes, block_time)
-                        self.nodes[peer].generate(1)
+                        self.nodes[peer].generate(1, self.signblockprivkeys)
                         block_time += 10 * 60
                     # Must sync before next peer starts generating blocks
                     sync_blocks(self.nodes)

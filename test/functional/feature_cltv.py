@@ -78,7 +78,7 @@ class BIP65Test(BitcoinTestFramework):
         block.vtx.append(spendtx)
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
-        block.solve()
+        block.solve(self.signblockprivkeys)
 
         self.nodes[0].p2p.send_and_ping(msg_block(block))
         assert_equal(self.nodes[0].getbestblockhash(), block.hash)
@@ -88,7 +88,7 @@ class BIP65Test(BitcoinTestFramework):
         block_time += 1
         block = create_block(tip, create_coinbase(CLTV_HEIGHT), block_time)
         block.nVersion = 3
-        block.solve()
+        block.solve(self.signblockprivkeys)
         self.nodes[0].p2p.send_and_ping(msg_block(block))
         assert_equal(int(self.nodes[0].getbestblockhash(), 16), tip)
 
@@ -118,7 +118,7 @@ class BIP65Test(BitcoinTestFramework):
         block.vtx.append(spendtx)
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
-        block.solve()
+        block.solve(self.signblockprivkeys)
 
         self.nodes[0].p2p.send_and_ping(msg_block(block))
         assert_equal(int(self.nodes[0].getbestblockhash(), 16), tip)
@@ -141,7 +141,7 @@ class BIP65Test(BitcoinTestFramework):
         block.vtx.append(spendtx)
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
-        block.solve()
+        block.solve(self.signblockprivkeys)
 
         self.nodes[0].p2p.send_and_ping(msg_block(block))
         assert_equal(int(self.nodes[0].getbestblockhash(), 16), block.sha256)

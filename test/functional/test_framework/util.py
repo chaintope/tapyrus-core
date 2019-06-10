@@ -502,7 +502,7 @@ def create_confirmed_utxos(fee, node, count):
         node.sendrawtransaction(signed_tx)
 
     while (node.getmempoolinfo()['size'] > 0):
-        node.generate(1)
+        node.generate(1, self.signblockprivkeys)
 
     utxos = node.listunspent()
     assert(len(utxos) >= count)
@@ -559,7 +559,7 @@ def mine_large_block(node, utxos=None):
         utxos.extend(node.listunspent())
     fee = 100 * node.getnetworkinfo()["relayfee"]
     create_lots_of_big_transactions(node, txouts, utxos, num, fee=fee)
-    node.generate(1)
+    node.generate(1, self.signblockprivkeys)
 
 def find_vout_for_address(node, txid, addr):
     """

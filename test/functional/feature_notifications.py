@@ -63,7 +63,7 @@ class NotificationsTest(BitcoinTestFramework):
 
         # Mine another 41 up-version blocks. -alertnotify should trigger on the 51st.
         self.log.info("test -alertnotify")
-        self.nodes[1].generate(41)
+        self.nodes[1].generate(41, self.signblockprivkeys)
         self.sync_all()
 
         # Give bitcoind 10 seconds to write the alert notification
@@ -73,7 +73,7 @@ class NotificationsTest(BitcoinTestFramework):
             alert_text = f.read()
 
         # Mine more up-version blocks, should not get more alerts:
-        self.nodes[1].generate(2)
+        self.nodes[1].generate(2, self.signblockprivkeys)
         self.sync_all()
 
         with open(self.alert_filename, 'r', encoding='utf8') as f:

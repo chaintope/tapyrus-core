@@ -36,19 +36,23 @@ uint256 CBlockHeaderWithoutProof::GetHashForSign() const
 
 std::string CBlock::ToString() const
 {
-    // TODO: Make output string includes proof field
-    std::stringstream s;
-    s << strprintf("CBlock(hash=%s, ver=0x%08x, hashPrevBlock=%s, hashMerkleRoot=%s, hashImMerkleRoot=%s, nTime=%u, vtx=%u)\n",
+    std::stringstream s, proofString;
+    for (const auto& sig : proof) {
+        proofString << HexStr(sig) << " ";
+    }
+    s << strprintf("CBlock(hash=%s, ver=0x%08x, hashPrevBlock=%s, hashMerkleRoot=%s, hashImMerkleRoot=%s, nTime=%u, proof[%d]={%s} vtx=%u)\n",
         GetHash().ToString(),
         nVersion,
         hashPrevBlock.ToString(),
         hashMerkleRoot.ToString(),
         hashImMerkleRoot.ToString(),
         nTime,
+        proof.size(),
+        proofString.str(),
         vtx.size());
-    for (const auto& tx : vtx) {
-        s << "  " << tx->ToString() << "\n";
-    }
+        for (const auto& tx : vtx) {
+            s << "  " << tx->ToString() << "\n";
+        }
     return s.str();
 }
 

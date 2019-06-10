@@ -17,7 +17,7 @@ class InvalidLocatorTest(BitcoinTestFramework):
 
     def run_test(self):
         node = self.nodes[0]  # convenience reference to the node
-        node.generate(1)  # Get node out of IBD
+        node.generate(1, self.signblockprivkeys)  # Get node out of IBD
 
         self.log.info('Test max locator size')
         block_count = node.getblockcount()

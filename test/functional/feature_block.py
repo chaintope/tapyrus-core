@@ -134,14 +134,13 @@ class FullBlockTest(BitcoinTestFramework):
         b3 = CBlock()
         b3.nTime = self.tip.nTime + 1
         b3.hashPrevBlock = self.tip.sha256
-        b3.nBits = 0x207fffff
         b3.vtx.append(coinbase)
         txout_b3 = self.create_tx(out[1], 0, 1, script=CScript([OP_TRUE, OP_DROP] * 15 + [OP_TRUE]))
         self.sign_tx(txout_b3, out[1])
         self.add_transactions_to_block(b3, [txout_b3])
         b3.hashMerkleRoot = b3.calc_merkle_root()
         b3.hashImMerkleRoot = b3.calc_immutable_merkle_root()
-        b3.solve()
+        b3.solve(self.signblockprivkeys)
         self.tip = b3
         self.block_heights[b3.sha256] = height
         self.blocks[3] = b3
@@ -560,11 +559,10 @@ class FullBlockTest(BitcoinTestFramework):
         b44 = CBlock()
         b44.nTime = self.tip.nTime + 1
         b44.hashPrevBlock = self.tip.sha256
-        b44.nBits = 0x207fffff
         b44.vtx.append(coinbase)
         b44.hashMerkleRoot = b44.calc_merkle_root()
         b44.hashImMerkleRoot = b44.calc_immutable_merkle_root()
-        b44.solve()
+        b44.solve(self.signblockprivkeys)
         self.tip = b44
         self.block_heights[b44.sha256] = height
         self.blocks[44] = b44
@@ -575,12 +573,11 @@ class FullBlockTest(BitcoinTestFramework):
         b45 = CBlock()
         b45.nTime = self.tip.nTime + 1
         b45.hashPrevBlock = self.tip.sha256
-        b45.nBits = 0x207fffff
         b45.vtx.append(non_coinbase)
         b45.hashMerkleRoot = b45.calc_merkle_root()
         b45.hashImMerkleRoot = b45.calc_immutable_merkle_root()
         b45.calc_sha256()
-        b45.solve()
+        b45.solve(self.signblockprivkeys)
         self.block_heights[b45.sha256] = self.block_heights[self.tip.sha256] + 1
         self.tip = b45
         self.blocks[45] = b45
@@ -591,11 +588,10 @@ class FullBlockTest(BitcoinTestFramework):
         b46 = CBlock()
         b46.nTime = b44.nTime + 1
         b46.hashPrevBlock = b44.sha256
-        b46.nBits = 0x207fffff
         b46.vtx = []
         b46.hashMerkleRoot = 0
         b46.hashImMerkleRoot = 0
-        b46.solve()
+        b46.solve(self.signblockprivkeys)
         self.block_heights[b46.sha256] = self.block_heights[b44.sha256] + 1
         self.tip = b46
         assert 46 not in self.blocks
@@ -608,14 +604,14 @@ class FullBlockTest(BitcoinTestFramework):
         self.move_tip(44)
         b48 = self.next_block(48, solve=False)
         b48.nTime = int(time.time()) + 60 * 60 * 3
-        b48.solve()
+        b48.solve(self.signblockprivkeys)
         self.sync_blocks([b48], False, request_block=False)
 
         self.log.info("Reject a block with invalid merkle hash")
         self.move_tip(44)
         b49 = self.next_block(49)
         b49.hashMerkleRoot += 1
-        b49.solve()
+        b49.solve(self.signblockprivkeys)
         self.sync_blocks([b49], False, 16, b'bad-txnmrklroot', reconnect=True)
 
         self.log.info("Reject a block with two coinbase transactions")
@@ -645,7 +641,7 @@ class FullBlockTest(BitcoinTestFramework):
         self.log.info("Reject a block with timestamp before MedianTimePast")
         b54 = self.next_block(54, spend=out[15])
         b54.nTime = b35.nTime - 1
-        b54.solve()
+        b54.solve(self.signblockprivkeys)
         self.sync_blocks([b54], False, request_block=False)
 
         # valid timestamp
@@ -1274,7 +1270,7 @@ class FullBlockTest(BitcoinTestFramework):
             block.hashMerkleRoot = block.calc_merkle_root()
             block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         if solve:
-            block.solve()
+            block.solve(self.signblockprivkeys)
         self.tip = block
         self.block_heights[block.sha256] = height
         assert number not in self.blocks
@@ -1302,7 +1298,7 @@ class FullBlockTest(BitcoinTestFramework):
         old_sha256 = block.sha256
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
-        block.solve()
+        block.solve(self.signblockprivkeys)
         # Update the internal state just like in next_block
         self.tip = block
         if block.sha256 != old_sha256:
