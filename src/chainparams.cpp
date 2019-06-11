@@ -14,12 +14,24 @@
 
 #include <chainparamsseeds.h>
 
-std::shared_ptr<MultisigCondition> MultisigCondition::instance(nullptr);
+std::unique_ptr<MultisigCondition> MultisigCondition::instance(nullptr);
+
+const MultisigCondition& CreateSignedBlockCondition()
+{
+    const std::string pubkeys = gArgs.GetArg("-signblockpubkeys", "");
+    const int threshold = std::stoi(gArgs.GetArg("-signblockthreshold", "0"));
+
+    MultisigCondition signedBlockCondition(pubkeys, threshold);
+    assert(signedBlockCondition.getInstance() == MultisigCondition::getInstance());
+    return signedBlockCondition.getInstance();
+}
 
 void MultisigCondition::ParsePubkeyString(std::string source)
 {
     std::string prefix;
     std::string pubkeyString;
+
+    pubkeys.clear();
 
     for (unsigned int i = 0; i < source.length();) {
         prefix = source.substr(i, 2);
@@ -49,7 +61,7 @@ void MultisigCondition::ParsePubkeyString(std::string source)
 
 MultisigCondition::MultisigCondition(const std::string& pubkeyString, const int threshold)
 {
-    if(instance && instance->pubkeys.size() && instance->threshold && (unsigned long)instance->threshold <= instance->pubkeys.size())
+    if(instance && instance->pubkeys.size() && instance->threshold && (unsigned long)instance->threshold <= instance->pubkeys.size() && instance->pubkeys.size() <= SIGNED_BLOCKS_MAX_KEY_SIZE)
         return;
 
     if(!instance)
@@ -76,13 +88,6 @@ const MultisigCondition& MultisigCondition::getInstance()
     if(!instance.get())
         throw std::runtime_error(strprintf("%s: called before CreateChainParams.", __func__));
     return *instance;
-}
-
-const MultisigCondition CChainParams::GetSignedBlocksCondition() const
-{
-    if(!signedBlocksCondition.get())
-        throw std::runtime_error(strprintf("%s: called before CreateChainParams.", __func__));
-    return *signedBlocksCondition;
 }
 
 static CBlock CreateGenesisBlock(uint32_t nTime, int32_t nVersion, const CAmount& genesisReward, std::string rewardTo, const MultisigCondition& condition)
@@ -405,13 +410,6 @@ std::unique_ptr<CChainParams> CreateChainParams(const std::string& chain)
     else if (chain == CBaseChainParams::REGTEST)
         return std::unique_ptr<CChainParams>(new CRegTestParams());
     throw std::runtime_error(strprintf("%s: Unknown chain %s.", __func__, chain));
-}
-
-std::unique_ptr<CChainParams> CreateChainParams(const std::string& chain, const std::string& pubkeys, const int threshold)
-{
-    MultisigCondition signedBlockCondition(pubkeys, threshold);
-    assert(signedBlockCondition.getInstance() == MultisigCondition::getInstance());
-    return CreateChainParams(chain);
 }
 
 void SelectParams(const std::string& network)

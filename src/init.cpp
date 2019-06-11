@@ -345,11 +345,8 @@ void SetupServerArgs()
     const auto testnetBaseParams = CreateBaseChainParams(CBaseChainParams::TESTNET);
 
     //make sure ParseSignedBlockParameters was called before this call
-    const std::string pubkeys = gArgs.GetArg("-signblockpubkeys", "");
-    const int threshold = std::stoi(gArgs.GetArg("-signblockthreshold", "0"));
-
-    const auto defaultChainParams = CreateChainParams(CBaseChainParams::MAIN, pubkeys, threshold);
-    const auto testnetChainParams = CreateChainParams(CBaseChainParams::TESTNET, pubkeys, threshold);
+    const auto defaultChainParams = CreateChainParams(CBaseChainParams::MAIN);
+    const auto testnetChainParams = CreateChainParams(CBaseChainParams::TESTNET);
 
     // Hidden Options
     std::vector<std::string> hidden_args = {"-rpcssl", "-benchmark", "-h", "-help", "-socks", "-tor", "-debugnet", "-whitelistalwaysrelay",
