@@ -66,12 +66,12 @@ class VersionBitsWarningTest(BitcoinTestFramework):
         node.add_p2p_connection(P2PInterface())
 
         # Mine one period worth of blocks
-        node.generate(VB_PERIOD)
+        node.generate(VB_PERIOD, self.signblockprivkeys)
 
         self.log.info("Check that there is no warning if previous VB_BLOCKS have <VB_THRESHOLD blocks with unknown versionbits version.")
         # Build one period of blocks with < VB_THRESHOLD blocks signaling some unknown bit
         self.send_blocks_with_version(node.p2p, VB_THRESHOLD - 1, VB_UNKNOWN_VERSION)
-        node.generate(VB_PERIOD - VB_THRESHOLD + 1)
+        node.generate(VB_PERIOD - VB_THRESHOLD + 1, self.signblockprivkeys)
 
         # Check that we're not getting any versionbit-related errors in get*info()
         assert(not VB_PATTERN.match(node.getmininginfo()["warnings"]))
@@ -80,7 +80,7 @@ class VersionBitsWarningTest(BitcoinTestFramework):
         self.log.info("Check that there is a warning if >50 blocks in the last 100 were an unknown version")
         # Build one period of blocks with VB_THRESHOLD blocks signaling some unknown bit
         self.send_blocks_with_version(node.p2p, VB_THRESHOLD, VB_UNKNOWN_VERSION)
-        node.generate(VB_PERIOD - VB_THRESHOLD)
+        node.generate(VB_PERIOD - VB_THRESHOLD, self.signblockprivkeys)
 
         # Check that get*info() shows the 51/100 unknown block version error.
         assert(WARN_UNKNOWN_RULES_MINED in node.getmininginfo()["warnings"])
@@ -89,7 +89,7 @@ class VersionBitsWarningTest(BitcoinTestFramework):
         self.log.info("Check that there is a warning if previous VB_BLOCKS have >=VB_THRESHOLD blocks with unknown versionbits version.")
         # Mine a period worth of expected blocks so the generic block-version warning
         # is cleared. This will move the versionbit state to ACTIVE.
-        node.generate(VB_PERIOD)
+        node.generate(VB_PERIOD, self.signblockprivkeys)
 
         # Stop-start the node. This is required because bitcoind will only warn once about unknown versions or unknown rules activating.
         self.restart_node(0)

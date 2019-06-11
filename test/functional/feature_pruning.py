@@ -212,7 +212,7 @@ class PruneTest(BitcoinTestFramework):
             self.nodes[0].invalidateblock(curchainhash)
             assert(self.nodes[0].getblockcount() == self.mainchainheight)
             assert(self.nodes[0].getbestblockhash() == self.mainchainhash2)
-            goalbesthash = self.nodes[0].generate(blocks_to_mine)[-1]
+            goalbesthash = self.nodes[0].generate(blocks_to_mine, self.signblockprivkeys)[-1]
             goalbestheight = first_reorg_height + 1
 
         self.log.info("Verify node 2 reorged back to the main chain, some blocks of which it had to redownload")

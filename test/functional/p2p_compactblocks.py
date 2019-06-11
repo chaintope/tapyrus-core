@@ -681,7 +681,7 @@ class CompactBlocksTest(BitcoinTestFramework):
             assert "blocktxn" not in test_node.last_message
 
     def activate_segwit(self, node):
-        node.generate(144*3)
+        node.generate(144*3, self.signblockprivkeys)
         assert_equal(get_bip9_status(node, "segwit")["status"], 'active')
 
     def test_end_to_end_block_relay(self, node, listeners):

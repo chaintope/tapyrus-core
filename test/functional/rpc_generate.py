@@ -143,7 +143,7 @@ class GenerateWithPrivateKeysTest(BitcoinTestFramework):
         self.signblockprivkeys = [self.privateKeys[0][:-2] + "00"]
         assert_raises_rpc_error(-32603, "AbsorbBlockProof, block proof not accepted", self.nodes[0].generate, 10, self.signblockprivkeys)
 
-        #TODO : simulate "No private key given or all keys were invalid."
+        assert_raises_rpc_error(-12, "No private key given or all keys were invalid.",self.nodes[0].generate)
 
 if __name__ == '__main__':
     GenerateWithPrivateKeysTest().main()

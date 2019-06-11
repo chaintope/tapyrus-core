@@ -481,7 +481,7 @@ def random_transaction(nodes, amount, min_fee, fee_increment, fee_variants):
 def create_confirmed_utxos(fee, node, count):
     to_generate = int(0.5 * count) + 101
     while to_generate > 0:
-        node.generate(min(25, to_generate))
+        node.generate(min(25, to_generate), self.signblockprivkeys)
         to_generate -= 25
     utxos = node.listunspent()
     iterations = count - len(utxos)

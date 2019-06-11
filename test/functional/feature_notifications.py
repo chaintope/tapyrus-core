@@ -30,7 +30,7 @@ class NotificationsTest(BitcoinTestFramework):
     def run_test(self):
         self.log.info("test -blocknotify")
         block_count = 10
-        blocks = self.nodes[1].generate(block_count)
+        blocks = self.nodes[1].generate(block_count, self.signblockprivkeys)
 
         # wait at most 10 seconds for expected file size before reading the content
         wait_until(lambda: os.path.isfile(self.block_filename) and os.stat(self.block_filename).st_size >= (block_count * 65), timeout=10)
