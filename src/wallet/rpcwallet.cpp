@@ -3909,20 +3909,7 @@ UniValue generate(const JSONRPCRequest& request)
     UniValue privkeys_hex = request.params[1].get_array();
 
     std::vector<CKey> vecKeys;
-    // privkeys length check
-    for(int i=0; i< privkeys_hex.size(); i++) {
-        const UniValue& privkey = privkeys_hex[i];
-        std::string keyHex = privkey.get_str();
-        if(keyHex.length() % 64 != 0) {
-            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT,
-                               strprintf("Error: key '%s' is invalid length of %d."
-                                       , keyHex, keyHex.length()));
-        }
-        std::vector<unsigned char> privkeyraw = ParseHex(keyHex);
-        CKey cPrivKey;
-        cPrivKey.Set(privkeyraw.begin(), privkeyraw.end(), true);
-        vecKeys.push_back(cPrivKey);
-    }
+    ParsePrivateKeyList(privkeys_hex, vecKeys);
     if(!vecKeys.size())
         throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "No private key given or all keys were invalid.");
 

@@ -363,7 +363,7 @@ class WalletTest(BitcoinTestFramework):
 
         # Mine a block from node0 to an address from node1
         coinbase_addr = self.nodes[1].getnewaddress()
-        block_hash = self.nodes[0].generatetoaddress(1, coinbase_addr)[0]
+        block_hash = self.nodes[0].generatetoaddress(1, coinbase_addr, self.signblockprivkeys)[0]
         coinbase_txid = self.nodes[0].getblock(block_hash)['tx'][0]
         self.sync_all([self.nodes[0:3]])
 

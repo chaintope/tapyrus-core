@@ -478,10 +478,10 @@ def random_transaction(nodes, amount, min_fee, fee_increment, fee_variants):
 
 # Helper to create at least "count" utxos
 # Pass in a fee that is sufficient for relay and mining new transactions.
-def create_confirmed_utxos(fee, node, count):
+def create_confirmed_utxos(fee, node, count, signblockprivkeys):
     to_generate = int(0.5 * count) + 101
     while to_generate > 0:
-        node.generate(min(25, to_generate), self.signblockprivkeys)
+        node.generate(min(25, to_generate), signblockprivkeys)
         to_generate -= 25
     utxos = node.listunspent()
     iterations = count - len(utxos)
@@ -502,7 +502,7 @@ def create_confirmed_utxos(fee, node, count):
         node.sendrawtransaction(signed_tx)
 
     while (node.getmempoolinfo()['size'] > 0):
-        node.generate(1, self.signblockprivkeys)
+        node.generate(1, signblockprivkeys)
 
     utxos = node.listunspent()
     assert(len(utxos) >= count)

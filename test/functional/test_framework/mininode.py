@@ -213,8 +213,8 @@ class P2PConnection(asyncio.Protocol):
             log_message = "Send message to "
         elif direction == "receive":
             log_message = "Received message from "
-        log_message += "%s:%d: %s" % (self.dstaddr, self.dstport, repr(msg)[:500])
-        if len(log_message) > 2500:
+        log_message += "%s:%d: %s" % (self.dstaddr, self.dstport, repr(msg)[:1000])
+        if len(log_message) > 1000:
             log_message += "... (msg truncated)"
         logger.debug(log_message)
 
@@ -509,7 +509,7 @@ class P2PDataStore(P2PInterface):
             wait_until(lambda: blocks[-1].sha256 in self.getdata_requests, timeout=timeout, lock=mininode_lock)
 
         if success:
-            wait_until(lambda: rpc.getbestblockhash() == blocks[-1].hash, timeout=timeout)
+            wait_until(lambda: rpc.getbestblockhash() == blocks[-1].hash or self.reject_code_received, timeout=timeout)
         else:
             assert rpc.getbestblockhash() != blocks[-1].hash
 

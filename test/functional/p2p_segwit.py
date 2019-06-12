@@ -547,7 +547,7 @@ class SegWitTest(BitcoinTestFramework):
         # Will need to rewrite the tests here if we are past the first period
         assert(height < VB_PERIOD - 1)
         # Advance to end of period, status should now be 'started'
-        self.nodes[0].generate(VB_PERIOD - height - 1)
+        self.nodes[0].generate(VB_PERIOD - height - 1, self.signblockprivkeys)
         assert_equal(get_bip9_status(self.nodes[0], 'segwit')['status'], 'started')
         self.segwit_status = 'started'
 
@@ -607,7 +607,7 @@ class SegWitTest(BitcoinTestFramework):
         """Mine enough blocks to lock in segwit, but don't activate."""
         height = self.nodes[0].getblockcount()
         # Advance to end of period, and verify lock-in happens at the end
-        self.nodes[0].generate(VB_PERIOD - 1)
+        self.nodes[0].generate(VB_PERIOD - 1, self.signblockprivkeys)
         height = self.nodes[0].getblockcount()
         assert((height % VB_PERIOD) == VB_PERIOD - 2)
         assert_equal(get_bip9_status(self.nodes[0], 'segwit')['status'], 'started')
@@ -739,7 +739,7 @@ class SegWitTest(BitcoinTestFramework):
     def advance_to_segwit_active(self):
         """Mine enough blocks to activate segwit."""
         height = self.nodes[0].getblockcount()
-        self.nodes[0].generate(VB_PERIOD - (height % VB_PERIOD) - 2)
+        self.nodes[0].generate(VB_PERIOD - (height % VB_PERIOD) - 2, self.signblockprivkeys)
         assert_equal(get_bip9_status(self.nodes[0], 'segwit')['status'], 'locked_in')
         self.nodes[0].generate(1, self.signblockprivkeys)
         assert_equal(get_bip9_status(self.nodes[0], 'segwit')['status'], 'active')
@@ -884,6 +884,7 @@ class SegWitTest(BitcoinTestFramework):
         block_3.rehash()
         assert(len(block_3.vtx[0].vout) == 4)  # 3 OP_returns
         block_3.solve(self.signblockprivkeys)
+        block_3.rehash()
         test_witness_block(self.nodes[0].rpc, self.test_node, block_3, accepted=True)
 
         # Finally test that a block with no witness transactions can
@@ -897,6 +898,7 @@ class SegWitTest(BitcoinTestFramework):
         block_4.hashMerkleRoot = block_4.calc_merkle_root()
         block_4.hashImMerkleRoot = block_4.calc_immutable_merkle_root()
         block_4.solve(self.signblockprivkeys)
+        block_4.rehash()
         test_witness_block(self.nodes[0].rpc, self.test_node, block_4, with_witness=False, accepted=True)
 
         # Update available utxo's for use in later test.

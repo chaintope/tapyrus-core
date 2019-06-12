@@ -652,6 +652,7 @@ class CBlock(CBlockHeader):
     def solve(self, signblockprivkeys):
         # create signed blocks.
         sighash = self.getsighash()
+        self.proof.clear()
         for privkey in signblockprivkeys:
             signKey = CECKey()
             signKey.set_secretbytes(hex_str_to_bytes(privkey))

@@ -50,6 +50,7 @@ class BIP66Test(BitcoinTestFramework):
 
         self.log.info("Mining %d blocks", DERSIG_HEIGHT - 2)
         self.coinbase_txids = [self.nodes[0].getblock(b)['tx'][0] for b in self.nodes[0].generate(DERSIG_HEIGHT - 2, self.signblockprivkeys)]
+        sync_blocks(self.nodes[0], wait=150)
         self.nodeaddress = self.nodes[0].getnewaddress()
 
         self.log.info("Test that a transaction with non-DER signature can still appear in a block")

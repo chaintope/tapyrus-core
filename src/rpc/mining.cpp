@@ -61,16 +61,19 @@ UniValue generateBlocks(std::shared_ptr<CReserveScript> coinbaseScript, int nGen
             LOCK(cs_main);
             IncrementExtraNonce(pblock, chainActive.Tip(), nExtraNonce);
         }
-        CProof proof;
-        uint256 blockHash = pblock->GetHashForSign();
-        for(uint i=0; i < vecPrivKeys.size(); i++) {
-            Signature sign;
-            CKey ckey = vecPrivKeys[i];
-            ckey.Sign(blockHash, sign);
-            proof.push_back(sign);
-        }
-        if(!pblock->AbsorbBlockProof(proof, Params().GetSignedBlocksCondition())){
-            throw JSONRPCError(RPC_INTERNAL_ERROR, "AbsorbBlockProof, block proof not accepted");
+        if(vecPrivKeys.size())
+        {
+            CProof proof;
+            uint256 blockHash = pblock->GetHashForSign();
+            for(uint i=0; i < vecPrivKeys.size(); i++) {
+                Signature sign;
+                CKey ckey = vecPrivKeys[i];
+                ckey.Sign(blockHash, sign);
+                proof.push_back(sign);
+            }
+            if(!pblock->AbsorbBlockProof(proof, Params().GetSignedBlocksCondition())){
+                throw JSONRPCError(RPC_INTERNAL_ERROR, "AbsorbBlockProof, block proof not accepted");
+            }
         }
         std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(*pblock);
         if (!ProcessNewBlock(Params(), shared_pblock, true, nullptr))
@@ -87,20 +90,41 @@ UniValue generateBlocks(std::shared_ptr<CReserveScript> coinbaseScript, int nGen
     return blockHashes;
 }
 
+void ParsePrivateKeyList(const UniValue& privkeys_hex, std::vector<CKey>& vecKeys)
+{
+    // privkeys length check
+    for(int i=0; i< privkeys_hex.size(); i++) {
+        const UniValue& privkey = privkeys_hex[i];
+        std::string keyHex = privkey.get_str();
+        if(keyHex.length() % 64 != 0) {
+            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT,
+                               strprintf("Error: key '%s' is invalid length of %d."
+                                       , keyHex, keyHex.length()));
+        }
+        std::vector<unsigned char> privkeyraw = ParseHex(keyHex);
+        CKey cPrivKey;
+        cPrivKey.Set(privkeyraw.begin(), privkeyraw.end(), true);
+        vecKeys.push_back(cPrivKey);
+    }
+}
+
 static UniValue generatetoaddress(const JSONRPCRequest& request)
 {
-    if (request.fHelp || request.params.size() < 2 || request.params.size() > 3)
+    if (request.fHelp || request.params.size() != 3)
         throw std::runtime_error(
             "generatetoaddress nblocks address ()\n"
             "\nMine blocks immediately to a specified address (before the RPC call returns)\n"
             "\nArguments:\n"
             "1. nblocks      (numeric, required) How many blocks are generated immediately.\n"
             "2. address      (string, required) The address to send the newly generated bitcoin to.\n"
+            "3. [private keys] (hex string array, required) to sign the generated blocks.\n"
+            "when the private keys are not provided, default test keys will be used\n"
+            "\nResult:\n"
             "\nResult:\n"
             "[ blockhashes ]     (array) hashes of blocks generated\n"
             "\nExamples:\n"
-            "\nGenerate 11 blocks to myaddress\n"
-            + HelpExampleCli("generatetoaddress", "11 \"myaddress\"")
+            "\nGenerate 11 blocks to myaddress signed with 1 privatekey n"
+            + HelpExampleCli("generatetoaddress", "11 \"myaddress\" [\"c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3\"]")
         );
 
     int nGenerate = request.params[0].get_int();
@@ -114,6 +138,11 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
     coinbaseScript->reserveScript = GetScriptForDestination(destination);
 
     std::vector<CKey> vecKeys;
+    UniValue privkeys_hex = request.params[2].get_array();
+    ParsePrivateKeyList(privkeys_hex, vecKeys);
+    if(!vecKeys.size())
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "No private key given or all keys were invalid.");
+
     return generateBlocks(coinbaseScript, nGenerate, false, vecKeys);
 }
 
