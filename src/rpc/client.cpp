@@ -30,6 +30,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "generate", 0, "nblocks" },
     { "generate", 1, "privkeys" },
     { "generatetoaddress", 0, "nblocks" },
+    { "generatetoaddress", 2, "privkeys" },
     { "sendtoaddress", 1, "amount" },
     { "sendtoaddress", 4, "subtractfeefromamount" },
     { "sendtoaddress", 5 , "replaceable" },

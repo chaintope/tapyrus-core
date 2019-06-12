@@ -1021,7 +1021,7 @@ static const CRPCCommand commands[] =
     { "mining",             "submitblock",            &submitblock,            {"hexdata","dummy"} },
 
 
-    { "generating",         "generatetoaddress",      &generatetoaddress,      {"nblocks","address"} },
+    { "generating",         "generatetoaddress",      &generatetoaddress,      {"nblocks","address", "privkeys"} },
     { "generating",         "getnewblock",            &getnewblock,            {"address", "required_age"} },
 
     { "hidden",             "estimatefee",            &estimatefee,            {} },

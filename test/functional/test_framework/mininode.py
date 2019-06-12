@@ -509,7 +509,7 @@ class P2PDataStore(P2PInterface):
             wait_until(lambda: blocks[-1].sha256 in self.getdata_requests, timeout=timeout, lock=mininode_lock)
 
         if success:
-            wait_until(lambda: rpc.getbestblockhash() == blocks[-1].hash or self.reject_code_received, timeout=timeout)
+            wait_until(lambda: rpc.getbestblockhash() == blocks[-1].hash or self.reject_code_received != None, timeout=timeout)
         else:
             assert rpc.getbestblockhash() != blocks[-1].hash
 
