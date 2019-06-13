@@ -172,6 +172,8 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "createwallet", 1, "disable_private_keys"},
     { "combineblocksigs", 0, "block_hex"},
     { "combineblocksigs", 1, "signature_list"},
+    { "testproposedblock", 0, "block_hex"},
+    { "testproposedblock", 1, "nonstandard"},
 };
 
 class CRPCConvertTable
