@@ -37,6 +37,8 @@ from test_framework.messages import (
     ser_vector,
     sha256,
     uint256_from_str,
+    ser_string_vector,
+    ser_compact_size
 )
 from test_framework.mininode import (
     P2PInterface,
@@ -988,6 +990,8 @@ class SegWitTest(BitcoinTestFramework):
         child_tx.rehash()
         self.update_witness_block_with_transactions(block, [parent_tx, child_tx])
 
+        block.solve(self.signblockprivkeys)
+        prooflen = len(ser_string_vector(block.proof)) - len(ser_compact_size(len(block.proof)))
         vsize = get_virtual_size(block)
         additional_bytes = (MAX_BLOCK_BASE_SIZE - vsize) * 4
         i = 0
@@ -1001,6 +1005,10 @@ class SegWitTest(BitcoinTestFramework):
         block.vtx[0].vout.pop()  # Remove old commitment
         add_witness_commitment(block)
         block.solve(self.signblockprivkeys)
+        i = 0
+        while(prooflen != len(ser_string_vector(block.proof)) - len(ser_compact_size(len(block.proof))) and i < 10):
+            block.solve(self.signblockprivkeys)
+            i += 1
         vsize = get_virtual_size(block)
         assert_equal(vsize, MAX_BLOCK_BASE_SIZE + 1)
         # Make sure that our test case would exceed the old max-network-message
@@ -1015,6 +1023,10 @@ class SegWitTest(BitcoinTestFramework):
         block.vtx[0].vout.pop()
         add_witness_commitment(block)
         block.solve(self.signblockprivkeys)
+        i =0
+        while(prooflen != len(ser_string_vector(block.proof)) - len(ser_compact_size(len(block.proof))) and i < 10):
+            block.solve(self.signblockprivkeys)
+            i += 1
         assert(get_virtual_size(block) == MAX_BLOCK_BASE_SIZE)
 
         test_witness_block(self.nodes[0].rpc, self.test_node, block, accepted=True)
