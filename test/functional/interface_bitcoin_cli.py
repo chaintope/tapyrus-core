@@ -6,6 +6,8 @@
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, assert_raises_process_error, get_auth_cookie
 
+import os
+
 class TestBitcoinCli(BitcoinTestFramework):
 
     def set_test_params(self):
@@ -16,7 +18,7 @@ class TestBitcoinCli(BitcoinTestFramework):
         """Main test logic"""
 
         cli_response = self.nodes[0].cli("-version").send_cli()
-        assert("Tapyrus RPC client version" in cli_response)
+        assert("%s RPC client version" %(os.getenv('PACKAGE_NAME')) in cli_response)
 
         self.log.info("Compare responses from gewalletinfo RPC and `bitcoin-cli getwalletinfo`")
         cli_response = self.nodes[0].cli.getwalletinfo()
