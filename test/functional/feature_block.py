@@ -1234,6 +1234,14 @@ class FullBlockTest(BitcoinTestFramework):
         for i in range(89, LARGE_REORG_SIZE + 89):
             b = self.next_block(i, spend)
             prooflen = len(ser_string_vector(b.proof)) - len(ser_compact_size(len(b.proof)))
+            # during testing we notice that when proof is of length 70 and we proceed to increase the block size, the new proof length can never match 70.
+            # This fails the test. to avoid this we do not allow proof length to be 70 here.
+            while(prooflen == 70):
+                old_sha256 = b.sha256
+                b.solve(self.signblockprivkeys)
+                prooflen = len(ser_string_vector(b.proof)) - len(ser_compact_size(len(b.proof)))
+                self.block_heights[b.sha256] = self.block_heights[old_sha256]
+                del self.block_heights[old_sha256]
             tx = CTransaction()
             script_length = MAX_BLOCK_BASE_SIZE - len(b.serialize()) - 69
             script_output = CScript([b'\x00' * script_length])
