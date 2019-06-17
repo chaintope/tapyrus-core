@@ -4,12 +4,60 @@
 
 #include <chainparams.h>
 #include <chainparams.cpp>
+#include <crypto/sha256.h>
+#include <validation.h>
+#include <script/sigcache.h>
 #include <test/test_bitcoin.h>
 #include <test/test_keys_helper.h>
 
 #include <boost/test/unit_test.hpp>
 
-BOOST_FIXTURE_TEST_SUITE(chainparams_tests, BasicTestingSetup)
+/** ChainParamsTestingSetup
+ * This class is an exact copy of BasicTestingSetup but removes two steps:
+ *   * MultisigCondition
+ *   * SelectParams
+ * this is needed to test the exceptions raised by the constructor of MultisigCondition
+ * Note: do not use this class in any other unit test
+ */
+extern void noui_connect();
+struct ChainParamsTestingSetup{
+    explicit ChainParamsTestingSetup(const std::string& chainName = CBaseChainParams::MAIN)
+    : m_path_root(fs::temp_directory_path() / "test_bitcoin" / strprintf("%lu_%i", (unsigned long)GetTime(), (int)(InsecureRandRange(1 << 30))))
+    {
+        SHA256AutoDetect();
+        RandomInit();
+        ECC_Start();
+        SetupEnvironment();
+        SetupNetworking();
+        InitSignatureCache();
+        InitScriptExecutionCache();
+        fCheckBlockIndex = true;
+        noui_connect();
+        if(MultisigCondition::instance)
+            MultisigCondition::instance.reset();
+    }
+
+    ~ChainParamsTestingSetup()
+    {
+        fs::remove_all(m_path_root);
+        ECC_Stop();
+        if(MultisigCondition::instance)
+            MultisigCondition::instance.reset();
+    }
+
+    fs::path SetDataDir(const std::string& name)
+    {
+        fs::path ret = m_path_root / name;
+        fs::create_directories(ret);
+        gArgs.ForceSetArg("-datadir", ret.string());
+        return ret;
+    }
+    private:
+    const fs::path m_path_root;
+};
+
+
+BOOST_FIXTURE_TEST_SUITE(chainparams_tests, ChainParamsTestingSetup)
 
 bool correctNumberOfKeysErrorMessage(const std::runtime_error& ex)
 {
@@ -26,59 +74,75 @@ bool includeUncompressedKeysErrorMessage(const std::runtime_error& ex)
 BOOST_AUTO_TEST_CASE(parse_pubkey_string_when_passed_valid_15_keys)
 {
     std::string str = combinedPubkeyString(15);
-    std::vector<CPubKey> pubkeys = ParsePubkeyString(str);
+    //ParsePubkeyString is called by the constructor internally
+    MultisigCondition signedBlockCondition(str, 10);
 
-    BOOST_CHECK_EQUAL(pubkeys.size(), 15);
+    //using local object
+    BOOST_CHECK_EQUAL(signedBlockCondition.getPubkeys().size(), 15);
+    BOOST_CHECK_EQUAL(signedBlockCondition.getThreshold(), 10);
 
-    for(unsigned int i = 1; i < pubkeys.size(); i++) {
-        BOOST_CHECK(pubkeys.at(i - 1) < pubkeys.at(i));
+    //using global instance
+    BOOST_CHECK_EQUAL(MultisigCondition::getInstance().getPubkeys().size(), 15);
+    BOOST_CHECK_EQUAL(signedBlockCondition.getThreshold(), 10);
+
+    for(unsigned int i = 1; i < MultisigCondition::getInstance().getPubkeys().size(); i++) {
+        BOOST_CHECK(MultisigCondition::getInstance().getPubkeys().at(i - 1) < MultisigCondition::getInstance().getPubkeys().at(i));
     }
 }
 
 BOOST_AUTO_TEST_CASE(parse_pubkey_string_when_passed_public_keys_that_include_uncompressed)
 {
     std::string str = UncompressedPubKeyString + combinedPubkeyString(14);
-    BOOST_CHECK_EXCEPTION(ParsePubkeyString(str), std::runtime_error, includeUncompressedKeysErrorMessage);
+    MultisigCondition signedBlockCondition("02473757a955a23f75379820f3071abf5b3343b78eb54e52373d06259ffa6c550b", 1);
+    BOOST_CHECK_EXCEPTION(signedBlockCondition.ParsePubkeyString(str), std::runtime_error, includeUncompressedKeysErrorMessage);
 }
 
 BOOST_AUTO_TEST_CASE(parse_pubkey_string_when_passed_keys_include_invalid)
 {
     std::string str = combinedPubkeyString(14) + "030000000000000000000000000000000000000000000000000000000000000005";
-    BOOST_CHECK_EXCEPTION(ParsePubkeyString(str), std::runtime_error, [] (const std::runtime_error& ex) {
+    MultisigCondition signedBlockCondition("02473757a955a23f75379820f3071abf5b3343b78eb54e52373d06259ffa6c550b", 1);
+    BOOST_CHECK_EXCEPTION(signedBlockCondition.ParsePubkeyString(str), std::runtime_error, [] (const std::runtime_error& ex) {
         BOOST_CHECK_EQUAL(ex.what(), "Public Keys for Signed Block include invalid pubkey: 030000000000000000000000000000000000000000000000000000000000000005");
         return true;
     });
 }
 
-BOOST_AUTO_TEST_CASE(create_cchainparams_instance)
+BOOST_AUTO_TEST_CASE(create_cchainparams_gargs)
 {
-    std::unique_ptr<CChainParams> params;
-
     gArgs.ForceSetArg("-signblockpubkeys", combinedPubkeyString(15));
     gArgs.ForceSetArg("-signblockthreshold", "10");
-    params = CreateChainParams(CBaseChainParams::MAIN);
 
-    BOOST_CHECK_EQUAL(params->GetSignedBlocksCondition().pubkeys.size(), 15);
-    BOOST_CHECK_EQUAL(params->GetSignedBlocksCondition().threshold, 10);
+    std::unique_ptr<CChainParams> params = CreateChainParams(CBaseChainParams::MAIN);
+
+    BOOST_CHECK_EQUAL(params->GetSignedBlocksCondition().getPubkeys().size(), 15);
+    BOOST_CHECK_EQUAL(params->GetSignedBlocksCondition().getThreshold(), 10);
 
     // When pubkey is not given.
     gArgs.ForceSetArg("-signblockpubkeys", "");
     gArgs.ForceSetArg("-signblockthreshold", "10");
 
-    BOOST_CHECK_EXCEPTION(CreateChainParams(CBaseChainParams::MAIN), std::runtime_error, [] (const std::runtime_error& ex) {
-        BOOST_CHECK_EQUAL(ex.what(), "Threshold can be between 1 to 0, but passed 10.");
-        return true;
-    });
+    //signedblock condition is initialized only once
+    BOOST_CHECK_NO_THROW(CreateChainParams(CBaseChainParams::MAIN));
+    BOOST_CHECK_NO_THROW(CreateChainParams(CBaseChainParams::TESTNET));
+}
 
+BOOST_AUTO_TEST_CASE(create_cchainparams_gargs_toomany)
+{
     // When too much pubkeys are given.
     gArgs.ForceSetArg("-signblockpubkeys", combinedPubkeyString(16));
     gArgs.ForceSetArg("-signblockthreshold", "10");
 
     BOOST_CHECK_EXCEPTION(CreateChainParams(CBaseChainParams::MAIN), std::runtime_error, [] (const std::runtime_error& ex) {
-        BOOST_CHECK_EQUAL(ex.what(), "Public Keys for Signed Block are up to 15, but passed 16 keys.");
+        BOOST_CHECK_EQUAL(ex.what(), "Public Keys for Signed Block are up to 15, but passed 16.");
         return true;
     });
 
+    gArgs.ForceSetArg("-signblockpubkeys", combinedPubkeyString(15));
+    BOOST_CHECK_NO_THROW(CreateChainParams(CBaseChainParams::MAIN));
+}
+
+BOOST_AUTO_TEST_CASE(create_cchainparams_gargs_lowthreshold)
+{
     // When too much pubkeys are given.
     gArgs.ForceSetArg("-signblockpubkeys", combinedPubkeyString(15));
     gArgs.ForceSetArg("-signblockthreshold", "0");
@@ -88,6 +152,12 @@ BOOST_AUTO_TEST_CASE(create_cchainparams_instance)
         return true;
     });
 
+    gArgs.ForceSetArg("-signblockthreshold", "10");
+    BOOST_CHECK_NO_THROW(CreateChainParams(CBaseChainParams::MAIN));
+}
+
+BOOST_AUTO_TEST_CASE(create_cchainparams_gargs_highthreshold)
+{
     // When too much pubkeys are given.
     gArgs.ForceSetArg("-signblockpubkeys", combinedPubkeyString(15));
     gArgs.ForceSetArg("-signblockthreshold", "16");
@@ -97,8 +167,58 @@ BOOST_AUTO_TEST_CASE(create_cchainparams_instance)
         return true;
     });
 
+    gArgs.ForceSetArg("-signblockthreshold", "10");
+    BOOST_CHECK_NO_THROW(CreateChainParams(CBaseChainParams::MAIN));
+}
+
+BOOST_AUTO_TEST_CASE(create_cchainparams_instance)
+{
     gArgs.ForceSetArg("-signblockpubkeys", combinedPubkeyString(15));
     gArgs.ForceSetArg("-signblockthreshold", "10");
+
+    std::unique_ptr<CChainParams>  params = CreateChainParams(CBaseChainParams::MAIN);
+
+    BOOST_CHECK_EQUAL(MultisigCondition::getInstance().getPubkeys().size(), 15);
+    BOOST_CHECK_EQUAL(MultisigCondition::getInstance().getThreshold(), 10);
+
+    BOOST_CHECK_EQUAL(params->GetSignedBlocksCondition().getPubkeys().size(), 15);
+    BOOST_CHECK_EQUAL(params->GetSignedBlocksCondition().getThreshold(), 10);
+}
+
+BOOST_AUTO_TEST_CASE(create_cchainparams_empty)
+{
+    // When pubkey is not given.
+    BOOST_CHECK_EXCEPTION(MultisigCondition("", 10), std::runtime_error, [] (const std::runtime_error& ex) {
+        BOOST_CHECK_EQUAL(ex.what(), "Invalid or empty publicKeyString");
+        return true;
+    });
+}
+
+BOOST_AUTO_TEST_CASE(create_cchainparams_toomany)
+{
+    // When too much pubkeys are given.
+    BOOST_CHECK_EXCEPTION(MultisigCondition(combinedPubkeyString(16), 10), std::runtime_error, [] (const std::runtime_error& ex) {
+        BOOST_CHECK_EQUAL(ex.what(), "Public Keys for Signed Block are up to 15, but passed 16.");
+        return true;
+    });
+}
+
+BOOST_AUTO_TEST_CASE(create_cchainparams_lowthreshold)
+{
+    // When too much pubkeys are given.
+    BOOST_CHECK_EXCEPTION(MultisigCondition(combinedPubkeyString(15), 0), std::runtime_error, [] (const std::runtime_error& ex) {
+        BOOST_CHECK_EQUAL(ex.what(), "Threshold can be between 1 to 15, but passed 0.");
+        return true;
+    });
+}
+
+BOOST_AUTO_TEST_CASE(create_cchainparams_highthreshold)
+{
+    // When too much pubkeys are given.
+    BOOST_CHECK_EXCEPTION(MultisigCondition(combinedPubkeyString(15), 16), std::runtime_error, [] (const std::runtime_error& ex) {
+        BOOST_CHECK_EQUAL(ex.what(), "Threshold can be between 1 to 15, but passed 16.");
+        return true;
+    });
 }
 
 BOOST_AUTO_TEST_CASE(create_genesis_block)
@@ -106,8 +226,8 @@ BOOST_AUTO_TEST_CASE(create_genesis_block)
     std::vector<unsigned char> vch = ParseHex("0296da90ddaedb8ca76561fc5660c40be68c72415d89e91ed3de73720028533840");
     CPubKey rewardTo(vch.begin(), vch.end());
 
-    MultisigCondition condition = CreateSignedBlocksCondition(combinedPubkeyString(15), 10);
-    CBlock genesis = CreateGenesisBlock(1546853016, 1, 50 * COIN, HexStr(rewardTo.begin(), rewardTo.end()), condition);
+    MultisigCondition condition(combinedPubkeyString(15), 10);
+    CBlock genesis = CreateGenesisBlock(1546853016, 1, 50 * COIN, HexStr(rewardTo.begin(), rewardTo.end()), MultisigCondition::getInstance());
 
     CScript scriptSig = genesis.vtx[0].get()->vin[0].scriptSig;
     BOOST_CHECK_EQUAL(HexStr(scriptSig.begin(), scriptSig.end()), "010a2102d7bbe714a08f73b17a3e5dcbca523470e9de5ee6c92f396beb954b8a2cdf4388");

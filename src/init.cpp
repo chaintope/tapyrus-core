@@ -344,12 +344,9 @@ void SetupServerArgs()
     const auto defaultBaseParams = CreateBaseChainParams(CBaseChainParams::MAIN);
     const auto testnetBaseParams = CreateBaseChainParams(CBaseChainParams::TESTNET);
 
-    // Set dummy value for create chainparamas instance.
-    gArgs.SoftSetArg("-signblockpubkeys", "021a564bd5d483d1f248e15d25d8a77e7a0993080e9ecd1a254cb6f6b2515a1fc0");
-    gArgs.SoftSetArg("-signblockthreshold", "1");
+    //make sure ParseSignedBlockParameters was called before this call
     const auto defaultChainParams = CreateChainParams(CBaseChainParams::MAIN);
     const auto testnetChainParams = CreateChainParams(CBaseChainParams::TESTNET);
-    gArgs.ClearArgs();
 
     // Hidden Options
     std::vector<std::string> hidden_args = {"-rpcssl", "-benchmark", "-h", "-help", "-socks", "-tor", "-debugnet", "-whitelistalwaysrelay",

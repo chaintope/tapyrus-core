@@ -49,7 +49,7 @@ class PSBTTest(BitcoinTestFramework):
         rawtx = self.nodes[0].fundrawtransaction(rawtx, {"changePosition":3})
         signed_tx = self.nodes[0].signrawtransactionwithwallet(rawtx['hex'])['hex']
         txid = self.nodes[0].sendrawtransaction(signed_tx)
-        self.nodes[0].generate(6)
+        self.nodes[0].generate(6, self.signblockprivkeys)
         self.sync_all()
 
         # Find the output pos
@@ -114,7 +114,7 @@ class PSBTTest(BitcoinTestFramework):
         node2_addr = self.nodes[2].getnewaddress()
         txid1 = self.nodes[0].sendtoaddress(node1_addr, 13)
         txid2 =self.nodes[0].sendtoaddress(node2_addr, 13)
-        self.nodes[0].generate(6)
+        self.nodes[0].generate(6, self.signblockprivkeys)
         self.sync_all()
         vout1 = find_output(self.nodes[1], txid1, 13)
         vout2 = find_output(self.nodes[2], txid2, 13)
@@ -134,7 +134,7 @@ class PSBTTest(BitcoinTestFramework):
         combined = self.nodes[0].combinepsbt([psbt1, psbt2])
         finalized = self.nodes[0].finalizepsbt(combined)['hex']
         self.nodes[0].sendrawtransaction(finalized)
-        self.nodes[0].generate(6)
+        self.nodes[0].generate(6, self.signblockprivkeys)
         self.sync_all()
 
         # Test additional args in walletcreatepsbt

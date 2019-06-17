@@ -53,17 +53,17 @@ class GetblockstatsTest(BitcoinTestFramework):
 
     def generate_test_data(self, filename):
         mocktime = time.time()
-        self.nodes[0].generate(101)
+        self.nodes[0].generate(101, self.signblockprivkeys)
 
         self.nodes[0].sendtoaddress(address=self.nodes[1].getnewaddress(), amount=10, subtractfeefromamount=True)
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(1, self.signblockprivkeys)
         self.sync_all()
 
         self.nodes[0].sendtoaddress(address=self.nodes[0].getnewaddress(), amount=10, subtractfeefromamount=True)
         self.nodes[0].sendtoaddress(address=self.nodes[0].getnewaddress(), amount=10, subtractfeefromamount=False)
         self.nodes[1].sendtoaddress(address=self.nodes[0].getnewaddress(), amount=1, subtractfeefromamount=True)
         self.sync_all()
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(1, self.signblockprivkeys)
 
         self.expected_stats = self.get_stats()
 

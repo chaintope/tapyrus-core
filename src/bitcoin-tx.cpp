@@ -65,6 +65,10 @@ static void SetupBitcoinTxArgs()
     gArgs.AddArg("load=NAME:FILENAME", "Load JSON file FILENAME into register NAME", false, OptionsCategory::REGISTER_COMMANDS);
     gArgs.AddArg("set=NAME:JSON-STRING", "Set register NAME to given JSON-STRING", false, OptionsCategory::REGISTER_COMMANDS);
 
+    // Signed Blocks options
+    gArgs.AddArg("-signblockpubkeys=<pubkeys>", "Sets the public keys for Signed Blocks multisig that combined as one string.", false, OptionsCategory::SIGN_BLOCK);
+    gArgs.AddArg("-signblockthreshold=<n>", "Sets the number of public keys to be the threshold of multisig", false, OptionsCategory::SIGN_BLOCK);
+
     // Hidden
     gArgs.AddArg("-h", "", false, OptionsCategory::HIDDEN);
     gArgs.AddArg("-help", "", false, OptionsCategory::HIDDEN);

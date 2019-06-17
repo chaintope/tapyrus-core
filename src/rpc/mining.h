@@ -10,9 +10,12 @@
 #include <univalue.h>
 
 /** Generate blocks (mine) */
-UniValue generateBlocks(std::shared_ptr<CReserveScript> coinbaseScript, int nGenerate, bool keepScript);
+UniValue generateBlocks(std::shared_ptr<CReserveScript> coinbaseScript, int nGenerate, bool keepScript, std::vector<CKey>& vecPrivKeys);
 
 /** Check bounds on a command line confirm target */
 unsigned int ParseConfirmTarget(const UniValue& value);
+
+/** parse list of privatekeys from unival hex string into a vector */
+void ParsePrivateKeyList(const UniValue& privkeys_hex, std::vector<CKey>& vecKeys);
 
 #endif

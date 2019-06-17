@@ -30,7 +30,7 @@ class KeypoolRestoreTest(BitcoinTestFramework):
     def run_test(self):
         wallet_path = os.path.join(self.nodes[1].datadir, "regtest", "wallets", "wallet.dat")
         wallet_backup_path = os.path.join(self.nodes[1].datadir, "wallet.bak")
-        self.nodes[0].generate(101)
+        self.nodes[0].generate(101, self.signblockprivkeys)
 
         self.log.info("Make backup of wallet")
         self.stop_node(1)
@@ -46,9 +46,9 @@ class KeypoolRestoreTest(BitcoinTestFramework):
 
         self.log.info("Send funds to wallet")
         self.nodes[0].sendtoaddress(addr_oldpool, 10)
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(1, self.signblockprivkeys)
         self.nodes[0].sendtoaddress(addr_extpool, 5)
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(1, self.signblockprivkeys)
         sync_blocks(self.nodes)
 
         self.log.info("Restart node with wallet backup")

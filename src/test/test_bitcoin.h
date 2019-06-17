@@ -6,6 +6,7 @@
 #define BITCOIN_TEST_TEST_BITCOIN_H
 
 #include <chainparamsbase.h>
+#include <chainparams.h>
 #include <fs.h>
 #include <key.h>
 #include <pubkey.h>
@@ -50,6 +51,7 @@ struct BasicTestingSetup {
 
 private:
     const fs::path m_path_root;
+    const MultisigCondition signedBlockCondition;
 };
 
 /** Testing setup that configures a complete environment.
@@ -124,6 +126,7 @@ struct TestMemPoolEntryHelper
 
 CBlock getBlock();
 std::string getSignedTestBlock();
+const CProof createSignedBlockProof(CBlock &block, int count);
 
 // define an implicit conversion here so that uint256 may be used directly in BOOST_CHECK_*
 std::ostream& operator<<(std::ostream& os, const uint256& num);

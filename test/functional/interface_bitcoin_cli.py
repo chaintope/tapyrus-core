@@ -6,6 +6,8 @@
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, assert_raises_process_error, get_auth_cookie
 
+import os
+
 class TestBitcoinCli(BitcoinTestFramework):
 
     def set_test_params(self):
@@ -17,7 +19,6 @@ class TestBitcoinCli(BitcoinTestFramework):
 
         cli_response = self.nodes[0].cli("-version").send_cli()
         assert("Bitcoin Core RPC client version" in cli_response)
-
         self.log.info("Compare responses from gewalletinfo RPC and `bitcoin-cli getwalletinfo`")
         cli_response = self.nodes[0].cli.getwalletinfo()
         rpc_response = self.nodes[0].getwalletinfo()

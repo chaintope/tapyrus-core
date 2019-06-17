@@ -57,13 +57,13 @@ class SegWitTest(BitcoinTestFramework):
 
     def success_mine(self, node, txid, sign, redeem_script=""):
         send_to_witness(1, node, getutxo(txid), self.pubkey[0], False, Decimal("49.998"), sign, redeem_script)
-        block = node.generate(1)
+        block = node.generate(1, self.signblockprivkeys)
         assert_equal(len(node.getblock(block[0])["tx"]), 2)
         sync_blocks(self.nodes)
 
     def skip_mine(self, node, txid, sign, redeem_script=""):
         send_to_witness(1, node, getutxo(txid), self.pubkey[0], False, Decimal("49.998"), sign, redeem_script)
-        block = node.generate(1)
+        block = node.generate(1, self.signblockprivkeys)
         assert_equal(len(node.getblock(block[0])["tx"]), 1)
         sync_blocks(self.nodes)
 
@@ -72,7 +72,7 @@ class SegWitTest(BitcoinTestFramework):
 
 
     def run_test(self):
-        self.nodes[0].generate(161) #block 161
+        self.nodes[0].generate(161, self.signblockprivkeys) #block 161
 
         self.log.info("Verify sigops are counted in GBT with pre-BIP141 rules before the fork")
         txid = self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 1)
@@ -88,7 +88,7 @@ class SegWitTest(BitcoinTestFramework):
         assert(tmpl['sigoplimit'] == 20000)
         assert(tmpl['transactions'][0]['txid'] == txid)
         assert(tmpl['transactions'][0]['sigops'] == 2)
-        self.nodes[0].generate(1) #block 162
+        self.nodes[0].generate(1, self.signblockprivkeys) #block 162
 
         balance_presetup = self.nodes[0].getbalance()
         self.pubkey = []
@@ -118,7 +118,7 @@ class SegWitTest(BitcoinTestFramework):
                     wit_ids[n][v].append(send_to_witness(v, self.nodes[0], find_spendable_utxo(self.nodes[0], 50), self.pubkey[n], False, Decimal("49.999")))
                     p2sh_ids[n][v].append(send_to_witness(v, self.nodes[0], find_spendable_utxo(self.nodes[0], 50), self.pubkey[n], True, Decimal("49.999")))
 
-        self.nodes[0].generate(1) #block 163
+        self.nodes[0].generate(1, self.signblockprivkeys) #block 163
         sync_blocks(self.nodes)
 
         # Make sure all nodes recognize the transactions as theirs
@@ -126,7 +126,7 @@ class SegWitTest(BitcoinTestFramework):
         assert_equal(self.nodes[1].getbalance(), 20*Decimal("49.999"))
         assert_equal(self.nodes[2].getbalance(), 20*Decimal("49.999"))
 
-        self.nodes[0].generate(260) #block 423
+        self.nodes[0].generate(260, self.signblockprivkeys) #block 423
         sync_blocks(self.nodes)
 
         self.log.info("Verify witness txs are skipped for mining before the fork")
@@ -139,11 +139,11 @@ class SegWitTest(BitcoinTestFramework):
         self.fail_accept(self.nodes[2], "mandatory-script-verify-flag", p2sh_ids[NODE_2][WIT_V0][1], False)
         self.fail_accept(self.nodes[2], "mandatory-script-verify-flag", p2sh_ids[NODE_2][WIT_V1][1], False)
 
-        self.nodes[2].generate(4) # blocks 428-431
+        self.nodes[2].generate(4, self.signblockprivkeys) # blocks 428-431
 
         self.log.info("Verify previous witness txs skipped for mining can now be mined")
         assert_equal(len(self.nodes[2].getrawmempool()), 4)
-        block = self.nodes[2].generate(1) #block 432 (first block with new rules; 432 = 144 * 3)
+        block = self.nodes[2].generate(1, self.signblockprivkeys) #block 432 (first block with new rules; 432 = 144 * 3)
         sync_blocks(self.nodes)
         assert_equal(len(self.nodes[2].getrawmempool()), 0)
         segwit_tx_list = self.nodes[2].getblock(block[0])["tx"]
@@ -191,7 +191,7 @@ class SegWitTest(BitcoinTestFramework):
         assert(tmpl['transactions'][0]['txid'] == txid)
         assert(tmpl['transactions'][0]['sigops'] == 8)
 
-        self.nodes[0].generate(1) # Mine a block to clear the gbt cache
+        self.nodes[0].generate(1, self.signblockprivkeys) # Mine a block to clear the gbt cache
 
         self.log.info("Non-segwit miners are able to use GBT response after activation.")
         # Create a 3-tx chain: tx1 (non-segwit input, paying to a segwit output) ->
@@ -241,7 +241,7 @@ class SegWitTest(BitcoinTestFramework):
         assert_equal(int(self.nodes[0].getmempoolentry(txid3)["wtxid"], 16), tx.calc_sha256(True))
 
         # Mine a block to clear the gbt cache again.
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(1, self.signblockprivkeys)
 
         self.log.info("Verify behaviour of importaddress, addwitnessaddress and listunspent")
 
@@ -571,7 +571,7 @@ class SegWitTest(BitcoinTestFramework):
         tx.rehash()
         signresults = self.nodes[0].signrawtransactionwithwallet(bytes_to_hex_str(tx.serialize_without_witness()))['hex']
         txid = self.nodes[0].sendrawtransaction(signresults, True)
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(1, self.signblockprivkeys)
         sync_blocks(self.nodes)
         watchcount = 0
         spendcount = 0
@@ -623,7 +623,7 @@ class SegWitTest(BitcoinTestFramework):
         tx.rehash()
         signresults = self.nodes[0].signrawtransactionwithwallet(bytes_to_hex_str(tx.serialize_without_witness()))['hex']
         self.nodes[0].sendrawtransaction(signresults, True)
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(1, self.signblockprivkeys)
         sync_blocks(self.nodes)
 
 

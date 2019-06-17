@@ -12,17 +12,22 @@
 
 #include <consensus/validation.h>
 #include <rpc/server.h>
+#include <rpc/client.h>
 #include <test/test_bitcoin.h>
 #include <validation.h>
+#include <rpc/blockchain.cpp>
 #include <wallet/coincontrol.h>
 #include <wallet/test/wallet_test_fixture.h>
+#include <utilstrencodings.h>
 
+#include <boost/algorithm/string.hpp>
 #include <boost/test/unit_test.hpp>
 #include <univalue.h>
 
 extern UniValue importmulti(const JSONRPCRequest& request);
 extern UniValue dumpwallet(const JSONRPCRequest& request);
 extern UniValue importwallet(const JSONRPCRequest& request);
+extern UniValue generate(const JSONRPCRequest& request);
 
 BOOST_FIXTURE_TEST_SUITE(wallet_tests, WalletTestingSetup)
 
@@ -30,6 +35,17 @@ static void AddKey(CWallet& wallet, const CKey& key)
 {
     LOCK(wallet.cs_wallet);
     wallet.AddKeyPubKey(key, key.GetPubKey());
+}
+
+UniValue CallGenerate(const JSONRPCRequest& request)
+{
+    try {
+        UniValue result = generate(request);
+        return result;
+    }
+    catch (const UniValue& objError) {
+        throw std::runtime_error(find_value(objError, "message").get_str());
+    }
 }
 
 BOOST_FIXTURE_TEST_CASE(rescan, TestChain100Setup)
@@ -372,6 +388,27 @@ BOOST_FIXTURE_TEST_CASE(wallet_disableprivkeys, TestChain100Setup)
     BOOST_CHECK(!wallet->TopUpKeyPool(1000));
     CPubKey pubkey;
     BOOST_CHECK(!wallet->GetKeyFromPool(pubkey, false));
+}
+
+// Check that UniValue generate(const JSONRPCRequest& request) with privkey generate process.
+//
+BOOST_FIXTURE_TEST_CASE(generate_with_incorrect_privkey, TestingSetup)
+{
+    // convert check
+    UniValue result;
+    UniValue ar = UniValue(UniValue::VARR);
+    BOOST_CHECK_NO_THROW(result = RPCConvertValues("generate", {"101", "[\"c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3\"]"}));
+    BOOST_CHECK_EQUAL(result[0].get_int(), 101);
+    ar = result[1].get_array();
+    BOOST_CHECK_EQUAL(ar.size(), 1);
+    BOOST_CHECK_EQUAL(ar[0].get_str(), "c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3");
+
+    BOOST_CHECK_NO_THROW(result = RPCConvertValues("generate", {"20", "[\"c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3\", \"ae6ae8e5ccbfb04590405997ee2d52d2b330726137b875053c36d94e974d162f\"]"}));
+    BOOST_CHECK_EQUAL(result[0].get_int(), 20);
+    ar = result[1].get_array();
+    BOOST_CHECK_EQUAL(ar.size(), 2);
+    BOOST_CHECK_EQUAL(ar[0].get_str(), "c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3");
+    BOOST_CHECK_EQUAL(ar[1].get_str(), "ae6ae8e5ccbfb04590405997ee2d52d2b330726137b875053c36d94e974d162f");
 }
 
 BOOST_AUTO_TEST_SUITE_END()

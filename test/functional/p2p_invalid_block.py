@@ -38,14 +38,14 @@ class InvalidBlockRequestTest(BitcoinTestFramework):
 
         height = 1
         block = create_block(tip, create_coinbase(height), block_time)
-        block.solve()
+        block.solve(self.signblockprivkeys)
         # Save the coinbase for later
         block1 = block
         tip = block.sha256
         node.p2p.send_blocks_and_test([block1], node, True)
 
         self.log.info("Mature the block.")
-        node.generate(100)
+        node.generate(100, self.signblockprivkeys)
 
         best_block = node.getblock(node.getbestblockhash())
         tip = int(node.getbestblockhash(), 16)
@@ -70,7 +70,7 @@ class InvalidBlockRequestTest(BitcoinTestFramework):
         block2.hashMerkleRoot = block2.calc_merkle_root()
         block2.hashImMerkleRoot = block2.calc_immutable_merkle_root()
         block2.rehash()
-        block2.solve()
+        block2.solve(self.signblockprivkeys)
         orig_hash = block2.sha256
         block2_orig = copy.deepcopy(block2)
 
@@ -91,7 +91,7 @@ class InvalidBlockRequestTest(BitcoinTestFramework):
         block2_orig.hashMerkleRoot = block2_orig.calc_merkle_root()
         block2_orig.hashImMerkleRoot = block2_orig.calc_immutable_merkle_root()
         block2_orig.rehash()
-        block2_orig.solve()
+        block2_orig.solve(self.signblockprivkeys)
         node.p2p.send_blocks_and_test([block2_orig], node, success=False, request_block=False, reject_reason=b'bad-txns-inputs-duplicate')
 
         self.log.info("Test very broken block.")
@@ -105,7 +105,7 @@ class InvalidBlockRequestTest(BitcoinTestFramework):
         block3.hashMerkleRoot = block3.calc_merkle_root()
         block3.hashImMerkleRoot = block3.calc_immutable_merkle_root()
         block3.rehash()
-        block3.solve()
+        block3.solve(self.signblockprivkeys)
 
         node.p2p.send_blocks_and_test([block3], node, False, False, 16, b'bad-cb-amount')
 

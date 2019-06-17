@@ -40,10 +40,40 @@ struct ChainTxData {
     double dTxRate;   //!< estimated number of transactions per second after that timestamp
 };
 
+/* MultisigCondition:
+singleton signedblock condition
+instance can be accessed using
+MultisigCondition::getInstance() or CChainParams::getSignedBlocksCondition()
+*/
 struct MultisigCondition {
+    MultisigCondition(const std::string& pubkeyString, const int threshold);
+    static const MultisigCondition& getInstance();
+    void ParsePubkeyString(std::string source);
+    bool operator==(const MultisigCondition& rhs) const {
+        return (instance && instance->pubkeys == rhs.pubkeys && instance->threshold == rhs.threshold);
+    }
+
+    uint8_t getThreshold() const{
+        return instance->threshold;
+    }
+    const std::vector<CPubKey>& getPubkeys() const{
+        return instance->pubkeys;
+    }
+private:
+    static std::unique_ptr<MultisigCondition> instance;
+
     std::vector<CPubKey> pubkeys;
     uint8_t threshold;
+
+    MultisigCondition() {}
+    friend struct ChainParamsTestingSetup;
 };
+/**
+ * Creates and returns a const MultisigCondition&.
+ * @returns a MultisigCondition using the arguments passed on command line.
+ * @throws a std::runtime_error if the arguments signblockpubkeys or signblockthreshold are incorrect
+ */
+const MultisigCondition& CreateSignedBlockCondition();
 
 /**
  * CChainParams defines various tweakable parameters of a given instance of the
@@ -69,7 +99,7 @@ public:
     const CMessageHeader::MessageStartChars& MessageStart() const { return pchMessageStart; }
     int GetDefaultPort() const { return nDefaultPort; }
 
-    const MultisigCondition GetSignedBlocksCondition() const { return signedBlocksCondition; }
+    const MultisigCondition& GetSignedBlocksCondition() const{ return signedBlocksCondition; }
     const CBlock& GenesisBlock() const { return genesis; }
     /** Default value for -checkmempool and -checkblockindex argument */
     bool DefaultConsistencyChecks() const { return fDefaultConsistencyChecks; }
@@ -91,7 +121,7 @@ public:
     const ChainTxData& TxData() const { return chainTxData; }
     void UpdateVersionBitsParameters(Consensus::DeploymentPos d, int64_t nStartTime, int64_t nTimeout);
 protected:
-    CChainParams() {}
+    CChainParams() : signedBlocksCondition(CreateSignedBlockCondition())  {}
 
     Consensus::Params consensus;
     CMessageHeader::MessageStartChars pchMessageStart;
@@ -101,7 +131,7 @@ protected:
     std::vector<unsigned char> base58Prefixes[MAX_BASE58_TYPES];
     std::string bech32_hrp;
     std::string strNetworkID;
-    MultisigCondition signedBlocksCondition;
+    const MultisigCondition& signedBlocksCondition;
     CBlock genesis;
     std::vector<SeedSpec6> vFixedSeeds;
     bool fDefaultConsistencyChecks;
@@ -118,7 +148,6 @@ protected:
  * @throws a std::runtime_error if the chain is not supported.
  */
 std::unique_ptr<CChainParams> CreateChainParams(const std::string& chain);
-
 /**
  * Return the currently selected parameters. This won't change after app
  * startup, except for unit tests.

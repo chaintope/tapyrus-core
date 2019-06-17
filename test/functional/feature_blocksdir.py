@@ -19,7 +19,7 @@ class BlocksdirTest(BitcoinTestFramework):
     def run_test(self):
         self.stop_node(0)
         shutil.rmtree(self.nodes[0].datadir)
-        initialize_datadir(self.options.tmpdir, 0)
+        initialize_datadir(self.options.tmpdir, 0, self.signblockpubkeys, self.signblockthreshold)
         self.log.info("Starting with non exiting blocksdir ...")
         blocksdir_path = os.path.join(self.options.tmpdir, 'blocksdir')
         self.nodes[0].assert_start_raises_init_error(["-blocksdir=" + blocksdir_path], 'Error: Specified blocks directory "{}" does not exist.'.format(blocksdir_path))
@@ -27,7 +27,7 @@ class BlocksdirTest(BitcoinTestFramework):
         self.log.info("Starting with exiting blocksdir ...")
         self.start_node(0, ["-blocksdir=" + blocksdir_path])
         self.log.info("mining blocks..")
-        self.nodes[0].generate(10)
+        self.nodes[0].generate(10, self.signblockprivkeys)
         assert os.path.isfile(os.path.join(blocksdir_path, "regtest", "blocks", "blk00000.dat"))
         assert os.path.isdir(os.path.join(self.nodes[0].datadir, "regtest", "blocks", "index"))
 

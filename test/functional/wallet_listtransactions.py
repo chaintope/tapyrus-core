@@ -38,7 +38,7 @@ class ListTransactionsTest(BitcoinTestFramework):
                             {"txid": txid},
                             {"category": "receive", "amount": Decimal("0.1"), "confirmations": 0})
         # mine a block, confirmations should change:
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(1, self.signblockprivkeys)
         self.sync_all()
         assert_array_result(self.nodes[0].listtransactions(),
                             {"txid": txid},
@@ -92,7 +92,7 @@ class ListTransactionsTest(BitcoinTestFramework):
         multisig = self.nodes[1].createmultisig(1, [pubkey])
         self.nodes[0].importaddress(multisig["redeemScript"], "watchonly", False, True)
         txid = self.nodes[1].sendtoaddress(multisig["address"], 0.1)
-        self.nodes[1].generate(1)
+        self.nodes[1].generate(1, self.signblockprivkeys)
         self.sync_all()
         assert not [tx for tx in self.nodes[0].listtransactions(dummy="*", count=100, skip=0, include_watchonly=False) if "label" in tx and tx["label"] == "watchonly"]
         txs = [tx for tx in self.nodes[0].listtransactions(dummy="*", count=100, skip=0, include_watchonly=True) if "label" in tx and tx['label'] == 'watchonly']
@@ -197,7 +197,7 @@ class ListTransactionsTest(BitcoinTestFramework):
             assert_equal(n.gettransaction(txid_4)["bip125-replaceable"], "unknown")
 
         # After mining a transaction, it's no longer BIP125-replaceable
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(1, self.signblockprivkeys)
         assert(txid_3b not in self.nodes[0].getrawmempool())
         assert_equal(self.nodes[0].gettransaction(txid_3b)["bip125-replaceable"], "no")
         assert_equal(self.nodes[0].gettransaction(txid_4)["bip125-replaceable"], "unknown")

@@ -43,7 +43,6 @@ std::unique_ptr<CBaseChainParams> CreateBaseChainParams(const std::string& chain
  *Set the arguments for chainparams
  */
 void SetupChainParamsBaseOptions();
-bool ParseChainParamsBaseOptionsParameters(int argc, const char* const argv[], std::string& error);
 
 /**
  * Return the currently selected parameters. This won't change after app

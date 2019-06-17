@@ -32,7 +32,6 @@ JSONDecodeError = getattr(json, "JSONDecodeError", ValueError)
 
 BITCOIND_PROC_WAIT_TIMEOUT = 60
 
-
 class FailedToStartError(Exception):
     """Raised when a node fails to start correctly."""
 
@@ -57,7 +56,7 @@ class TestNode():
     To make things easier for the test writer, any unrecognised messages will
     be dispatched to the RPC connection."""
 
-    def __init__(self, i, datadir, *, rpchost, timewait, bitcoind, bitcoin_cli, mocktime, coverage_dir, extra_conf=None, extra_args=None, use_cli=False):
+    def __init__(self, i, datadir, *, rpchost, timewait, bitcoind, bitcoin_cli, mocktime, coverage_dir, signblockparams, extra_conf=None, extra_args=None, use_cli=False):
         self.index = i
         self.datadir = datadir
         self.stdout_dir = os.path.join(self.datadir, "stdout")
@@ -66,6 +65,7 @@ class TestNode():
         self.rpc_timeout = timewait
         self.binary = bitcoind
         self.coverage_dir = coverage_dir
+        self.signblockparams = signblockparams
         if extra_conf != None:
             append_config(datadir, extra_conf)
         # Most callers will just need to add extra args to the standard list below.
@@ -80,7 +80,9 @@ class TestNode():
             "-debugexclude=libevent",
             "-debugexclude=leveldb",
             "-mocktime=" + str(mocktime),
-            "-uacomment=testnode%d" % i
+            "-uacomment=testnode%d" % i,
+            "-signblockpubkeys=" + signblockparams[0], #signblockpubkeys,
+            "-signblockthreshold=" + str(signblockparams[1]) #signblockthreshold
         ]
 
         self.cli = TestNodeCLI(bitcoin_cli, self.datadir)
@@ -341,6 +343,9 @@ class TestNodeCLI():
 
     def __getattr__(self, command):
         return TestNodeCLIAttr(self, command)
+
+    def generate(self, nblocks=0, signblockprivkeys=[]):
+        return TestNodeCLIAttr(self, "generate")(nblocks,  "{0}".format(json.dumps(signblockprivkeys)))
 
     def batch(self, requests):
         results = []

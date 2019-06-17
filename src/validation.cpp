@@ -3065,7 +3065,42 @@ static bool FindUndoPos(CValidationState &state, int nFile, CDiskBlockPos &pos, 
 
 static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, const Consensus::Params& consensusParams, bool fCheckPOW = true)
 {
-    // TODO: Check a proof of Signed Blocks in a block header in here
+    //Check proof of Signed Blocks in a block header
+    const unsigned int proofSize = block.proof.size();
+
+    if(block.GetHash() == consensusParams.hashGenesisBlock)
+        return true;
+
+    if(!fCheckPOW)
+        return true;
+
+    if(!proofSize)
+        return false;
+
+    const MultisigCondition& signedBlocksCondition = Params().GetSignedBlocksCondition();
+
+    if(proofSize > signedBlocksCondition.getPubkeys().size())
+        return false;
+
+    const uint256 blockHash = block.GetHashForSign();
+    std::vector<CPubKey>::const_iterator pubkeyIter = signedBlocksCondition.getPubkeys().begin();
+    CProof::const_iterator proofIter = block.proof.begin();
+    /*
+    iterate over signatures and make sure each one verifies with one of the public keys.
+    order of signatures is the order of the public keys, so verification is in one loop
+    */
+    while(proofIter != block.proof.end() && pubkeyIter != signedBlocksCondition.getPubkeys().end())
+    {
+        //verify signature
+        bool match = pubkeyIter->Verify(blockHash, *proofIter);
+        pubkeyIter++;
+        if(match)
+            proofIter++;
+    };
+
+    //if all signatures were not verified
+    if(proofIter != block.proof.end() )
+        return false;
 
     return true;
 }

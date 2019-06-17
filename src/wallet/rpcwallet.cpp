@@ -3889,21 +3889,29 @@ UniValue generate(const JSONRPCRequest& request)
         return NullUniValue;
     }
 
-    if (request.fHelp || request.params.size() < 1 || request.params.size() > 2) {
+    if (request.fHelp || request.params.size() != 2) {
         throw std::runtime_error(
             "generate nblocks ( )\n"
             "\nMine up to nblocks blocks immediately (before the RPC call returns) to an address in the wallet.\n"
             "\nArguments:\n"
             "1. nblocks      (numeric, required) How many blocks are generated immediately.\n"
+            "2. [private keys] (hex string array, required) to sign the generated blocks.\n"
+            "when the private keys are not provided, default test keys will be used\n"
             "\nResult:\n"
             "[ blockhashes ]     (array) hashes of blocks generated\n"
             "\nExamples:\n"
             "\nGenerate 11 blocks\n"
-            + HelpExampleCli("generate", "11")
+            + HelpExampleCli("generate", "11  [\"c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3\"]")
         );
     }
 
     int num_generate = request.params[0].get_int();
+    UniValue privkeys_hex = request.params[1].get_array();
+
+    std::vector<CKey> vecKeys;
+    ParsePrivateKeyList(privkeys_hex, vecKeys);
+    if(!vecKeys.size())
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "No private key given or all keys were invalid.");
 
     std::shared_ptr<CReserveScript> coinbase_script;
     pwallet->GetScriptForMining(coinbase_script);
@@ -3918,7 +3926,7 @@ UniValue generate(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INTERNAL_ERROR, "No coinbase script available");
     }
 
-    return generateBlocks(coinbase_script, num_generate, true);
+    return generateBlocks(coinbase_script, num_generate, true, vecKeys);
 }
 
 UniValue rescanblockchain(const JSONRPCRequest& request)
@@ -4832,7 +4840,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "listreceivedbylabel",              &listreceivedbylabel,           {"minconf","include_empty","include_watchonly"} },
     { "wallet",             "setlabel",                         &setlabel,                      {"address","label"} },
 
-    { "generating",         "generate",                         &generate,                      {"nblocks"} },
+    { "generating",         "generate",                         &generate,                      {"nblocks","privkeys"} },
 };
 
 void RegisterWalletRPCCommands(CRPCTable &t)

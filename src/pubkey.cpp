@@ -302,7 +302,7 @@ ECCVerifyHandle::~ECCVerifyHandle()
     }
 }
 
-CPubKey PubKeyCombine(const std::vector<CPubKey> pubkeys) {
+CPubKey PubKeyCombine(const std::vector<CPubKey> &pubkeys) {
     assert(pubkeys.size() <= PUBKEYCOMBINE_MAX_KEY_SIZE);
 
     secp256k1_pubkey *secp256k1_pubkeys[PUBKEYCOMBINE_MAX_KEY_SIZE];

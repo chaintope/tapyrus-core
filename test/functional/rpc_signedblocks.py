@@ -67,11 +67,13 @@ class SignedBlockchainTest(BitcoinTestFramework):
         self.nodes[0].generate(100)
         previousblock_hash = int(self.nodes[0].getbestblockhash(), 16)
 
+
         # create a test block
         height =  102
         block_time = int(time())
         block = create_block(previousblock_hash, create_coinbase(height), block_time + 100)
         block.solve()
+
         block_hex = ToHex(block)
         block_hash = block.getsighash()
         previousblock_hash = int(self.nodes[0].getbestblockhash(), 16)

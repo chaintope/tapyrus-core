@@ -90,7 +90,7 @@ class SerializationTest(BitcoinTestFramework):
         self.nodeaddress = self.nodes[0].getnewaddress()
         self.pubkey = self.nodes[0].getaddressinfo(self.nodeaddress)["pubkey"]
         self.log.info("Mining %d blocks", CHAIN_HEIGHT)
-        self.coinbase_txids = [self.nodes[0].getblock(b)['tx'][0] for b in self.nodes[0].generate(CHAIN_HEIGHT) ]
+        self.coinbase_txids = [self.nodes[0].getblock(b)['tx'][0] for b in self.nodes[0].generate(CHAIN_HEIGHT, self.signblockprivkeys) ]
 
         ##  P2PKH transaction
         ########################
@@ -137,7 +137,7 @@ class SerializationTest(BitcoinTestFramework):
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         block.rehash()
-        block.solve()
+        block.solve(self.signblockprivkeys)
 
         # serialize with and without witness block remains the same
         assert_equal(block.serialize(with_witness=True), block.serialize())
@@ -204,7 +204,7 @@ class SerializationTest(BitcoinTestFramework):
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         block.rehash()
-        block.solve()
+        block.solve(self.signblockprivkeys)
 
         # serialize with and without witness block remains the same
         assert_equal(block.serialize(with_witness=True), block.serialize())
@@ -275,7 +275,7 @@ class SerializationTest(BitcoinTestFramework):
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         block.rehash()
-        block.solve()
+        block.solve(self.signblockprivkeys)
 
         # serialize with and without witness block remains the same
         assert_equal(block.serialize(with_witness=True), block.serialize())
@@ -345,7 +345,7 @@ class SerializationTest(BitcoinTestFramework):
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         block.rehash()
-        block.solve()
+        block.solve(self.signblockprivkeys)
 
         # serialize with and without witness block remains the same
         assert_equal(block.serialize(with_witness=True), block.serialize())
@@ -415,7 +415,7 @@ class SerializationTest(BitcoinTestFramework):
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         block.rehash()
-        block.solve()
+        block.solve(self.signblockprivkeys)
 
         # serialize block with and without witness 
         assert_equal(block.serialize(with_witness=True), block.serialize())
@@ -486,7 +486,7 @@ class SerializationTest(BitcoinTestFramework):
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         block.rehash()
-        block.solve()
+        block.solve(self.signblockprivkeys)
 
         # serialize with and without witness
         assert_equal(block.serialize(with_witness=True), block.serialize())
@@ -557,7 +557,7 @@ class SerializationTest(BitcoinTestFramework):
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         block.rehash()
-        block.solve()
+        block.solve(self.signblockprivkeys)
 
         # serialize with and without witness
         assert_equal(block.serialize(with_witness=True), block.serialize())

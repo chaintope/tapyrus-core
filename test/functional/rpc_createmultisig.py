@@ -23,7 +23,7 @@ class RpcCreateMultiSigTest(BitcoinTestFramework):
         node0,node1,node2 = self.nodes
 
         # 50 BTC each, rest will be 25 BTC each
-        node0.generate(149)
+        node0.generate(149, self.signblockprivkeys)
         self.sync_all()
 
         self.moved = 0
@@ -37,7 +37,7 @@ class RpcCreateMultiSigTest(BitcoinTestFramework):
 
     def checkbalances(self):
         node0,node1,node2 = self.nodes
-        node0.generate(100)
+        node0.generate(100, self.signblockprivkeys)
         self.sync_all()
 
         bal0 = node0.getbalance()
@@ -78,7 +78,7 @@ class RpcCreateMultiSigTest(BitcoinTestFramework):
         value = tx["vout"][vout]["value"]
         prevtxs = [{"txid": txid, "vout": vout, "scriptPubKey": scriptPubKey, "redeemScript": mredeem, "amount": value}]
 
-        node0.generate(1)
+        node0.generate(1, self.signblockprivkeys)
 
         outval = value - decimal.Decimal("0.00001000")
         rawtx = node2.createrawtransaction([{"txid": txid, "vout": vout}], [{self.final: outval}])
@@ -88,7 +88,7 @@ class RpcCreateMultiSigTest(BitcoinTestFramework):
 
         self.moved += outval
         tx = node0.sendrawtransaction(rawtx3["hex"], True)
-        blk = node0.generate(1)[0]
+        blk = node0.generate(1, self.signblockprivkeys)[0]
         assert tx in node0.getblock(blk)["tx"]
 
         txinfo = node0.getrawtransaction(tx, True, blk)

@@ -20,43 +20,6 @@ void SetupChainParamsBaseOptions()
     gArgs.AddArg("-regtest", "Enter regression test mode, which uses a special chain in which blocks can be solved instantly. "
                                    "This is intended for regression testing tools and app development.", true, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-testnet", "Use the test chain", false, OptionsCategory::CHAINPARAMS);
-
-    // Signed Blocks options
-    gArgs.AddArg("-signblockpubkeys=<pubkeys>", "Sets the public keys for Signed Blocks multisig that combined as one string.", false, OptionsCategory::SIGN_BLOCK);
-    gArgs.AddArg("-signblockthreshold=<n>", "Sets the number of public keys to be the threshold of multisig", false, OptionsCategory::SIGN_BLOCK);
-}
-
-bool ParseChainParamsBaseOptionsParameters(int argc, const char* const argv[], std::string& error)
-{
-    const std::vector<std::string> options({
-        "-regtest",
-        "-testnet",
-        "-signblockpubkeys",
-        "-signblockthreshold"
-    });
-
-    char const* filteredArgv[5];
-    filteredArgv[0] = argv[0];
-    int count = 1;
-
-    for (int i = 1; i < argc; i++) {
-        std::string key(argv[i]);
-        size_t is_index = key.find('=');
-        if (is_index != std::string::npos) {
-            key.erase(is_index);
-        }
-
-        if (std::find(options.begin(), options.end(), key) != options.end())
-        {
-            filteredArgv[count++] = argv[i];
-        }
-    }
-
-    if (!gArgs.ParseParameters(count, filteredArgv, error)) {
-        return false;
-    }
-
-    return true;
 }
 
 static std::unique_ptr<CBaseChainParams> globalChainBaseParams;
