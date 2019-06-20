@@ -278,7 +278,14 @@ BOOST_AUTO_TEST_CASE(create_genesis_block_one_publickey)
     BOOST_CHECK_EQUAL(HexStr(scriptPubKey.begin(), scriptPubKey.end()),
     "76a914c1819a5ddd545de01ed901e98a65ac905b8c389988ac");
 
+    BOOST_CHECK_EQUAL(chainParams->GenesisBlock().proof.size(), MultisigCondition::getInstance().getThreshold());
     BOOST_CHECK_EQUAL(chainParams->GenesisBlock().GetHash(), chainParams->GetConsensus().hashGenesisBlock);
+
+    //verify signature
+    const uint256 blockHash = chainParams->GenesisBlock().GetHashForSign();
+    std::vector<CPubKey>::const_iterator pubkeyIter = condition.getPubkeys().begin();
+
+    BOOST_CHECK(pubkeyIter->Verify(blockHash, chainParams->GenesisBlock().proof[0]));
 }
 
 BOOST_AUTO_TEST_SUITE_END()
