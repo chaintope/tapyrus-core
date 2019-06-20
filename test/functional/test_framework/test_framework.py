@@ -19,6 +19,7 @@ from .authproxy import JSONRPCException
 from . import coverage
 from .test_node import TestNode
 from .mininode import NetworkThread
+from .blocktools import createTestGenesisBlock
 from .util import (
     MAX_NODES,
     PortSeed,
@@ -32,6 +33,7 @@ from .util import (
     set_node_times,
     sync_blocks,
     sync_mempools,
+    bytes_to_hex_str
 )
 
 class TestStatus(Enum):
@@ -449,6 +451,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             # Create cache directories, run bitcoinds:
             for i in range(MAX_NODES):
                 datadir = initialize_datadir(self.options.cachedir, i, self.signblockpubkeys, self.signblockthreshold)
+                self.writeGenesisBlockToFile(datadir)
                 args = [self.options.bitcoind,
                 "-datadir=" + datadir,
                 "-signblockpubkeys=" + self.signblockpubkeys,
@@ -507,8 +510,12 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         Create an empty blockchain and num_nodes wallets.
         Useful if a test case wants complete control over initialization."""
         for i in range(self.num_nodes):
-            initialize_datadir(self.options.tmpdir, i, self.signblockpubkeys, self.signblockthreshold)
+            datadir = initialize_datadir(self.options.tmpdir, i, self.signblockpubkeys, self.signblockthreshold)
+            self.writeGenesisBlockToFile(datadir)
 
+    def writeGenesisBlockToFile(self, datadir):
+        with open(os.path.join(datadir, "genesis.dat"), 'w', encoding='utf8') as f:
+            f.write(bytes_to_hex_str(createTestGenesisBlock(self.signblockpubkeys, self.signblockthreshold, self.signblockprivkeys).serialize()))
 
 class SkipTest(Exception):
     """This exception is raised to skip a test"""

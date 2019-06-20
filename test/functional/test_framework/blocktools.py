@@ -59,6 +59,10 @@ def create_block(hashprev, coinbase, ntime=None):
     block.calc_sha256()
     return block
 
+# create test genesis block
+def createTestGenesisBlock(signblockpubkeys, signblockthreshold, signblockprivkeys):
+    return create_block(0, create_coinbase(0, hex_str_to_bytes(signblockpubkeys[:32])))
+
 def get_witness_script(witness_root, witness_nonce):
     witness_commitment = uint256_from_str(hash256(ser_uint256(witness_root) + ser_uint256(witness_nonce)))
     output_data = WITNESS_COMMITMENT_HEADER + ser_uint256(witness_commitment)
