@@ -268,7 +268,8 @@ static void TestPackageSelection(const CChainParams& chainparams, const std::vec
 BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
 {
     // Note that by default, these tests run with size accounting enabled.
-    const auto chainParams = CreateChainParams(CBaseChainParams::MAIN);
+    auto chainParams = CreateChainParams(CBaseChainParams::MAIN);
+    chainParams->ReadGenesisBlock(getTestGenesisBlockHex());
     const CChainParams& chainparams = *chainParams;
     std::unique_ptr<CBlockTemplate> pblocktemplate;
     int baseheight = 0;
@@ -561,7 +562,8 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
 }
 
 BOOST_AUTO_TEST_CASE(CreateNewBlock_required_age_in_secs) {
-    const auto chainParams = CreateChainParams(CBaseChainParams::MAIN);
+    auto chainParams = CreateChainParams(CBaseChainParams::MAIN);
+    chainParams->ReadGenesisBlock(getTestGenesisBlockHex());
     const CChainParams& chainparams = *chainParams;
     std::unique_ptr<CBlockTemplate> pblocktemplate;
     int baseheight = 0;

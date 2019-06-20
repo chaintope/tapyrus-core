@@ -127,6 +127,9 @@ struct TestMemPoolEntryHelper
 CBlock getBlock();
 std::string getSignedTestBlock();
 const CProof createSignedBlockProof(CBlock &block, int count);
+CBlock createTestGenesisBlock();
+std::string getTestGenesisBlockHex();
+void writeTestGenesisBlockToFile(fs::path genesisPath);
 
 // define an implicit conversion here so that uint256 may be used directly in BOOST_CHECK_*
 std::ostream& operator<<(std::ostream& os, const uint256& num);

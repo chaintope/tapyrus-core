@@ -226,4 +226,59 @@ BOOST_AUTO_TEST_CASE(AbsorbBlockProof_ordering_test) {
 }
 
 
+BOOST_AUTO_TEST_CASE(create_genesis_block_default)
+{
+    MultisigCondition signedBlockCondition(combinedPubkeyString(15), 10);
+    CBlock genesis = createTestGenesisBlock();
+
+    BOOST_CHECK_EQUAL(genesis.vtx.size(), 1);
+    BOOST_CHECK_EQUAL(genesis.nVersion, 1);
+    BOOST_CHECK_EQUAL(genesis.hashPrevBlock.ToString(),
+    "0000000000000000000000000000000000000000000000000000000000000000");
+    BOOST_CHECK_EQUAL(genesis.hashMerkleRoot, genesis.vtx[0]->GetHash());
+    BOOST_CHECK_EQUAL(genesis.hashImMerkleRoot, genesis.vtx[0]->GetHashMalFix());
+
+    BOOST_CHECK_EQUAL(genesis.vtx[0]->vin[0].prevout.hashMalFix.ToString(), "0000000000000000000000000000000000000000000000000000000000000000");
+    BOOST_CHECK_EQUAL(genesis.vtx[0]->vin[0].prevout.n, 0);
+
+    BOOST_CHECK_EQUAL(genesis.vtx[0]->vin.size(), 1);
+    CScript scriptSig = genesis.vtx[0]->vin[0].scriptSig;
+    BOOST_CHECK_EQUAL(HexStr(scriptSig.begin(), scriptSig.end()), "010a2102d7bbe714a08f73b17a3e5dcbca523470e9de5ee6c92f396beb954b8a2cdf4388");
+
+    BOOST_CHECK_EQUAL(genesis.vtx[0]->vout.size(), 1);
+    BOOST_CHECK_EQUAL(genesis.vtx[0]->vout[0].nValue, 50 * COIN);
+    CScript scriptPubKey = genesis.vtx[0]->vout[0].scriptPubKey;
+    BOOST_CHECK_EQUAL(HexStr(scriptPubKey.begin(), scriptPubKey.end()), "76a914c1819a5ddd545de01ed901e98a65ac905b8c389988ac");
+
+    BOOST_CHECK_EQUAL(genesis.proof.size(), MultisigCondition::getInstance().getThreshold());
+}
+
+BOOST_AUTO_TEST_CASE(create_genesis_block_one_publickey)
+{
+    MultisigCondition condition("0296da90ddaedb8ca76561fc5660c40be68c72415d89e91ed3de73720028533840", 1);
+    auto chainParams = CreateChainParams(CBaseChainParams::MAIN);
+    chainParams->ReadGenesisBlock(getTestGenesisBlockHex());
+
+    BOOST_CHECK_EQUAL(chainParams->GenesisBlock().vtx.size(), 1);
+    BOOST_CHECK_EQUAL(chainParams->GenesisBlock().nVersion, 1);
+    BOOST_CHECK_EQUAL(chainParams->GenesisBlock().hashPrevBlock.ToString(), "0000000000000000000000000000000000000000000000000000000000000000");
+    BOOST_CHECK_EQUAL(chainParams->GenesisBlock().hashMerkleRoot, chainParams->GenesisBlock().vtx[0]->GetHash());
+    BOOST_CHECK_EQUAL(chainParams->GenesisBlock().hashImMerkleRoot, chainParams->GenesisBlock().vtx[0]->GetHashMalFix());
+
+    BOOST_CHECK_EQUAL(chainParams->GenesisBlock().vtx[0]->vin[0].prevout.hashMalFix.ToString(), "0000000000000000000000000000000000000000000000000000000000000000");
+    BOOST_CHECK_EQUAL(chainParams->GenesisBlock().vtx[0]->vin[0].prevout.n, 0);
+
+    BOOST_CHECK_EQUAL(chainParams->GenesisBlock().vtx[0]->vin.size(), 1);
+    CScript scriptSig = chainParams->GenesisBlock().vtx[0]->vin[0].scriptSig;
+    BOOST_CHECK_EQUAL(HexStr(scriptSig.begin(), scriptSig.end()), "010a2102d7bbe714a08f73b17a3e5dcbca523470e9de5ee6c92f396beb954b8a2cdf4388");
+
+    BOOST_CHECK_EQUAL(chainParams->GenesisBlock().vtx[0]->vout.size(), 1);
+    BOOST_CHECK_EQUAL(chainParams->GenesisBlock().vtx[0]->vout[0].nValue, 50 * COIN);
+    CScript scriptPubKey = chainParams->GenesisBlock().vtx[0]->vout[0].scriptPubKey;
+    BOOST_CHECK_EQUAL(HexStr(scriptPubKey.begin(), scriptPubKey.end()),
+    "76a914c1819a5ddd545de01ed901e98a65ac905b8c389988ac");
+
+    BOOST_CHECK_EQUAL(chainParams->GenesisBlock().GetHash(), chainParams->GetConsensus().hashGenesisBlock);
+}
+
 BOOST_AUTO_TEST_SUITE_END()

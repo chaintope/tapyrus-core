@@ -5,6 +5,7 @@
 #include <test/test_bitcoin.h>
 
 #include <chainparams.h>
+#include <consensus/merkle.h>
 #include <consensus/consensus.h>
 #include <consensus/validation.h>
 #include <crypto/sha256.h>
@@ -59,6 +60,9 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
     assert(signedBlockCondition.getInstance().getThreshold() == 10);
     assert(signedBlockCondition.getInstance().getPubkeys().size() == 15);
     SelectParams(chainName);
+    SetDataDir("tempdir");
+    writeTestGenesisBlockToFile(m_path_root);
+    ReadGenesisBlock(m_path_root);
     noui_connect();
 }
 
@@ -207,6 +211,75 @@ CTxMemPoolEntry TestMemPoolEntryHelper::FromTx(const CTransactionRef& tx)
 {
     return CTxMemPoolEntry(tx, nFee, nTime, nHeight,
                            spendsCoinbase, sigOpCost, lp);
+}
+/**
+ * @returns a signed genesis block.
+ * Note :  make sure singleton MultisigCondition is initialized before this call.
+ * otherwise the block will be invalid
+ */
+CBlock createTestGenesisBlock()
+{
+    const MultisigCondition& signedBlocksCondition = MultisigCondition::getInstance();
+    CPubKey combinedPubKey = PubKeyCombine(signedBlocksCondition.getPubkeys());
+    CPubKey rewardToPubKey(signedBlocksCondition.getPubkeys()[0]);
+
+    //Genesis coinbase transaction paying block reward to the first public key in signedBlocksCondition
+    CMutableTransaction txNew;
+    txNew.nVersion = 1;
+    txNew.vin.resize(1);
+    txNew.vout.resize(1);
+    txNew.vin[0].prevout.n = 0;
+    txNew.vin[0].scriptSig = CScript() << CScriptNum(signedBlocksCondition.getThreshold()) << std::vector<unsigned char>(combinedPubKey.data(), combinedPubKey.data() + CPubKey::COMPRESSED_PUBLIC_KEY_SIZE);
+    txNew.vout[0].nValue = 50 * COIN;
+    txNew.vout[0].scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(rewardToPubKey.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
+
+    //Genesis block header
+    CBlock genesis;
+    genesis.nTime    = time(0);
+    genesis.nVersion = 1;
+    genesis.vtx.push_back(MakeTransactionRef(std::move(txNew)));
+    genesis.hashPrevBlock.SetNull();
+    genesis.hashMerkleRoot = BlockMerkleRoot(genesis);
+    genesis.hashImMerkleRoot = BlockMerkleRoot(genesis, nullptr, true);
+
+    //Genesis block proof
+    CProof genesisProof;
+    uint256 blockHash = genesis.GetHashForSign();
+    std::vector<unsigned char> vchSig;
+    for(int i = 0; i < signedBlocksCondition.getThreshold(); i++)
+    {
+        CKey keyBuffer;
+        keyBuffer.Set(validPrivateKeys[i], validPrivateKeys[i] + 32, true);
+        keyBuffer.Sign(blockHash, vchSig);
+        genesisProof.addSignature(vchSig);
+    }
+    genesis.AbsorbBlockProof(genesisProof, signedBlocksCondition);
+
+    return genesis;
+}
+/**
+ * @returns a string with the hex encoded signed genesis block.
+ */
+std::string getTestGenesisBlockHex()
+{
+    CBlock genesis(createTestGenesisBlock());
+
+    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+    ss << genesis;
+    std::string genesis_hex = HexStr(ss.begin(), ss.end());
+
+    return genesis_hex;
+}
+/**
+ * @writes the hex encoded signed genesis block to a file in the given path
+ */
+void writeTestGenesisBlockToFile(fs::path genesisPath)
+{
+    genesisPath /= TAPYRUS_GENESIS_FILENAME;
+    printf("Writing Genesis Block to [%s]\n", genesisPath.string().c_str());
+    fs::ofstream stream(genesisPath);
+    stream << getTestGenesisBlockHex();
+    stream.close();
 }
 
 /**
