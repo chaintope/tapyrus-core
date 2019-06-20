@@ -155,7 +155,7 @@ public:
     std::multimap<CBlockIndex*, CBlockIndex*> mapBlocksUnlinked;
     CBlockIndex *pindexBestInvalid = nullptr;
 
-    bool LoadBlockIndex(const Consensus::Params& consensus_params, CBlockTreeDB& blocktree) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    bool LoadBlockIndex(CBlockTreeDB& blocktree) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     bool ActivateBestChain(CValidationState &state, const CChainParams& chainparams, std::shared_ptr<const CBlock> pblock);
 
@@ -3068,9 +3068,6 @@ static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,
     //Check proof of Signed Blocks in a block header
     const unsigned int proofSize = block.proof.size();
 
-    if(block.GetHash() == consensusParams.hashGenesisBlock)
-        return true;
-
     if(!fCheckPOW)
         return true;
 
@@ -3844,9 +3841,9 @@ CBlockIndex * CChainState::InsertBlockIndex(const uint256& hash)
     return pindexNew;
 }
 
-bool CChainState::LoadBlockIndex(const Consensus::Params& consensus_params, CBlockTreeDB& blocktree)
+bool CChainState::LoadBlockIndex(CBlockTreeDB& blocktree)
 {
-    if (!blocktree.LoadBlockIndexGuts(consensus_params, [this](const uint256& hash) EXCLUSIVE_LOCKS_REQUIRED(cs_main) { return this->InsertBlockIndex(hash); }))
+    if (!blocktree.LoadBlockIndexGuts([this](const uint256& hash) EXCLUSIVE_LOCKS_REQUIRED(cs_main) { return this->InsertBlockIndex(hash); }))
         return false;
 
     boost::this_thread::interruption_point();
@@ -3894,9 +3891,9 @@ bool CChainState::LoadBlockIndex(const Consensus::Params& consensus_params, CBlo
     return true;
 }
 
-bool static LoadBlockIndexDB(const CChainParams& chainparams) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
+bool static LoadBlockIndexDB() EXCLUSIVE_LOCKS_REQUIRED(cs_main)
 {
-    if (!g_chainstate.LoadBlockIndex(chainparams.GetConsensus(), *pblocktree))
+    if (!g_chainstate.LoadBlockIndex(*pblocktree))
         return false;
 
     // Load block file info
@@ -4319,12 +4316,12 @@ void UnloadBlockIndex()
     g_chainstate.UnloadBlockIndex();
 }
 
-bool LoadBlockIndex(const CChainParams& chainparams)
+bool LoadBlockIndex()
 {
     // Load block index from databases
     bool needs_init = fReindex;
     if (!fReindex) {
-        bool ret = LoadBlockIndexDB(chainparams);
+        bool ret = LoadBlockIndexDB();
         if (!ret) return false;
         needs_init = mapBlockIndex.empty();
     }
@@ -4349,7 +4346,7 @@ bool CChainState::LoadGenesisBlock(const CChainParams& chainparams)
     // mapBlockIndex. Note that we can't use chainActive here, since it is
     // set based on the coins db, not the block index db, which is the only
     // thing loaded at this point.
-    if (mapBlockIndex.count(chainparams.GenesisBlock().GetHash()))
+    if (mapBlockIndex.count(chainparams.GetConsensus().hashGenesisBlock))
         return true;
 
     try {
