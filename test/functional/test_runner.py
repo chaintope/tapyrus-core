@@ -139,7 +139,7 @@ BASE_SCRIPTS = [
     'feature_dersig.py',
     'feature_cltv.py',
     'rpc_uptime.py',
-    'feature_signedblocks.py',
+    'rpc_signedblocks.py',
     'wallet_resendwallettransactions.py',
     'wallet_fallbackfee.py',
     'rpc_getblockstats.py',
