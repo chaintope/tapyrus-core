@@ -37,9 +37,14 @@ from .script import (
     OP_RETURN,
     OP_TRUE,
     hash160,
+    OP_DUP,
+    OP_HASH160,
+    OP_EQUALVERIFY,
+    OP_CHECKSIG
 )
 from .util import assert_equal
 from io import BytesIO
+import time
 
 # From BIP141
 WITNESS_COMMITMENT_HEADER = b"\xaa\x21\xa9\xed"
@@ -61,7 +66,24 @@ def create_block(hashprev, coinbase, ntime=None):
 
 # create test genesis block
 def createTestGenesisBlock(signblockpubkeys, signblockthreshold, signblockprivkeys):
-    return create_block(0, create_coinbase(0, hex_str_to_bytes(signblockpubkeys[:32])))
+    genesis_coinbase = CTransaction()
+    coinbaseinput = CTxIn(outpoint=COutPoint(0, 0), nSequence=0xffffffff)
+    coinbaseinput.scriptSig=CScript([bytes(signblockthreshold), hex_str_to_bytes(signblockpubkeys)])
+    genesis_coinbase.vin.append(coinbaseinput)
+    coinbaseoutput = CTxOut()
+    coinbaseoutput.nValue = 50 * COIN
+    coinbaseoutput.scriptPubKey = CScript([OP_DUP, OP_HASH160, hex_str_to_bytes(signblockpubkeys[:64]),OP_EQUALVERIFY, OP_CHECKSIG])
+    genesis_coinbase.vout.append(coinbaseoutput)
+    genesis_coinbase.calc_sha256()
+
+    genesis = CBlock()
+    genesis.nTime = int(time.time() + 600)
+    genesis.hashPrevBlock = 0
+    genesis.vtx.append(genesis_coinbase)
+    genesis.hashMerkleRoot = genesis.calc_merkle_root()
+    genesis.hashImMerkleRoot = genesis.calc_immutable_merkle_root()
+    genesis.solve(signblockprivkeys)
+    return genesis
 
 def get_witness_script(witness_root, witness_nonce):
     witness_commitment = uint256_from_str(hash256(ser_uint256(witness_root) + ser_uint256(witness_nonce)))

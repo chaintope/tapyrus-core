@@ -110,9 +110,6 @@ bool CChainParams::ReadGenesisBlock(std::string genesisHex)
     if(genesisCoinbase->vin[0].prevout.n)
         throw std::runtime_error("ReadGenesisBlock: invalid height in genesis block");
 
-    if(genesisCoinbase->vin[0].scriptSig != (CScript() << CScriptNum(signedBlocksCondition.getThreshold()) << std::vector<unsigned char>(combinedPubKey.data(), combinedPubKey.data() + CPubKey::COMPRESSED_PUBLIC_KEY_SIZE)))
-        throw std::runtime_error("ReadGenesisBlock: invalid scriptSig in genesis block");
-
     consensus.hashGenesisBlock = genesis.GetHash();
     return true;
 }
@@ -413,7 +410,7 @@ bool ReadGenesisBlock(fs::path genesisPath)
 {
     genesisPath /= TAPYRUS_GENESIS_FILENAME;
 
-    printf("Reading Genesis Block from [%s]\n", genesisPath.string().c_str());
+    LogPrintf("Reading Genesis Block from [%s]\n", genesisPath.string().c_str());
     fs::ifstream stream(genesisPath);
     if (!stream.good())
         throw std::runtime_error(strprintf("ReadGenesisBlock: unable to read genesis file %s", genesisPath));

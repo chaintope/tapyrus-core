@@ -3072,12 +3072,12 @@ static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,
         return true;
 
     if(!proofSize)
-        return false;
+        return state.Error("No proof in block");
 
     const MultisigCondition& signedBlocksCondition = Params().GetSignedBlocksCondition();
 
     if(proofSize > signedBlocksCondition.getPubkeys().size())
-        return false;
+        return state.Error("Proof was longer than expected");
 
     const uint256 blockHash = block.GetHashForSign();
     std::vector<CPubKey>::const_iterator pubkeyIter = signedBlocksCondition.getPubkeys().begin();
@@ -3097,7 +3097,7 @@ static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,
 
     //if all signatures were not verified
     if(proofIter != block.proof.end() )
-        return false;
+        return state.Error("Proof verification failed");
 
     return true;
 }
