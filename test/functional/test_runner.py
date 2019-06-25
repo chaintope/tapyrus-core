@@ -131,7 +131,7 @@ BASE_SCRIPTS = [
     'rpc_bind.py --ipv4',
     'rpc_bind.py --ipv6',
     'rpc_bind.py --nonloopback',
-    'feature_signedgenesisblock',
+    'feature_signedgenesisblock.py',
     'wallet_bumpfee.py',
     'rpc_named_arguments.py',
     'wallet_listsinceblock.py',
