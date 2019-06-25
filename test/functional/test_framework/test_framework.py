@@ -124,6 +124,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         "388c684f0ba1ef5017716adb5d21a053ea8e90277d0868337519f97bede61418"][:self.signblockthreshold]
         #ea9fe9fd2f1761fc6f1f0f23eb4d4141d7b05f2b95a1b7a9912cd97bddd9036c
         assert(len(self.signblockprivkeys) == self.signblockthreshold)
+        self.genesisBlock = None
         self.set_test_params()
 
         assert hasattr(self, "num_nodes"), "Test must set self.num_nodes in set_test_params()"
@@ -446,6 +447,8 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
                 if os.path.isdir(get_datadir_path(self.options.cachedir, i)):
                     shutil.rmtree(get_datadir_path(self.options.cachedir, i))
 
+            self.enable_mocktime()
+
             # Create cache directories, run bitcoinds:
             for i in range(MAX_NODES):
                 datadir = initialize_datadir(self.options.cachedir, i, self.signblockpubkeys, self.signblockthreshold)
@@ -472,7 +475,6 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             #
             # blocks are created with timestamps 10 minutes apart
             # starting from 2010 minutes in the past
-            self.enable_mocktime()
             block_time = self.mocktime - (201 * 10 * 60)
             for i in range(2):
                 for peer in range(4):
@@ -512,8 +514,10 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             self.writeGenesisBlockToFile(datadir)
 
     def writeGenesisBlockToFile(self, datadir):
+        if self.genesisBlock == None:
+            self.genesisBlock = createTestGenesisBlock(self.mocktime - (201 * 10 * 60), self.signblockpubkeys, self.signblockthreshold, self.signblockprivkeys)
         with open(os.path.join(datadir, "regtest", "genesis.dat"), 'w', encoding='utf8') as f:
-            f.write(bytes_to_hex_str(createTestGenesisBlock(self.mocktime, self.signblockpubkeys, self.signblockthreshold, self.signblockprivkeys).serialize()))
+            f.write(bytes_to_hex_str(self.genesisBlock.serialize()))
 
 class SkipTest(Exception):
     """This exception is raised to skip a test"""
