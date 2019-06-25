@@ -81,7 +81,10 @@ class SignedGenesisBlockTest(BitcoinTestFramework):
         self.writeGenesisBlockToFile(self.nodes[0].datadir)
         self.start_node(0)
         self.stop_node(0)
-        shutil.copyfile(os.path.join(self.nodes[0].datadir, "regtest", "genesis.dat"), os.path.join(self.nodes[0].datadir, "../", "genesis.dat"))
+
+        self.log.info("Restart with correct genesis file")
+        self.start_node(0)
+        self.stop_node(0)
 
         self.log.info("Test incorrect genesis block - No Coinbase")
         genesis_coinbase = createGenesisCoinbase(self.signblockthreshold, self.signblockpubkeys)
@@ -229,6 +232,7 @@ class SignedGenesisBlockTest(BitcoinTestFramework):
         self.sync_all([self.nodes[0:1]])
         assert_equal(self.nodes[0].getbestblockhash(), blocks[-1])
         self.stop_node(0)
+        shutil.copytree(self.nodes[0].datadir, os.path.join(self.options.tmpdir, "backup")) 
 
         self.log.info("Creating corrupt genesis file")
         with open(genesisFile, 'r+', encoding='utf8') as f:
@@ -243,13 +247,14 @@ class SignedGenesisBlockTest(BitcoinTestFramework):
         self.writeGenesisBlockToFile(self.nodes[0].datadir)
         self.nodes[0].assert_start_raises_init_error([], 'Error: Incorrect or no genesis block found.', match=ErrorMatch.PARTIAL_REGEX)
 
-        self.log.info("Recovering original genesis file")
-        shutil.copyfile(os.path.join(self.nodes[0].datadir, "../", "genesis.dat"),os.path.join(self.nodes[0].datadir, "regtest", "genesis.dat"))
+        self.log.info("Recovering original blockchain")
+        shutil.rmtree(self.nodes[0].datadir)
+        shutil.copytree(os.path.join(self.options.tmpdir, "backup"), self.nodes[0].datadir)
         self.start_node(0)
         self.nodes[0].add_p2p_connection(P2PInterface())
         self.sync_all([self.nodes[0:1]])
 
-        print(self.nodes[0].getbestblockhash(), blocks[-1])
+        assert_equal(self.nodes[0].getbestblockhash(), blocks[-1])
         self.log.info("Blockchain intact!")
 
 if __name__ == '__main__':

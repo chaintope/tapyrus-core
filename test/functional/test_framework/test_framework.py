@@ -513,7 +513,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
 
     def writeGenesisBlockToFile(self, datadir):
         with open(os.path.join(datadir, "regtest", "genesis.dat"), 'w', encoding='utf8') as f:
-            f.write(bytes_to_hex_str(createTestGenesisBlock(self.signblockpubkeys, self.signblockthreshold, self.signblockprivkeys).serialize()))
+            f.write(bytes_to_hex_str(createTestGenesisBlock(self.mocktime, self.signblockpubkeys, self.signblockthreshold, self.signblockprivkeys).serialize()))
 
 class SkipTest(Exception):
     """This exception is raised to skip a test"""

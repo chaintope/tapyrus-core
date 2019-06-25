@@ -3950,6 +3950,15 @@ bool LoadChainTip(const CChainParams& chainparams)
 
     if (chainActive.Tip() && chainActive.Tip()->GetBlockHash() == pcoinsTip->GetBestBlock()) return true;
 
+    //remove duplicate genesis block from mapBlockIndex
+    BlockMap::iterator dupCoinbase = mapBlockIndex.begin();
+    for(;dupCoinbase != mapBlockIndex.end(); dupCoinbase++) {
+        if(dupCoinbase->second->pprev == nullptr && dupCoinbase->first != chainparams.GetConsensus().hashGenesisBlock)
+            break;
+    }
+    if(dupCoinbase != mapBlockIndex.end())
+        mapBlockIndex.erase(dupCoinbase);
+
     if (pcoinsTip->GetBestBlock().IsNull() && mapBlockIndex.size() == 1) {
         // In case we just added the genesis block, connect it now, so
         // that we always have a chainActive.Tip() when we return.
