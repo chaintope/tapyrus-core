@@ -306,6 +306,7 @@ def initialize_datadir(dirname, n, signblockpubkeys, signblockthreshold):
         f.write("signblockthreshold=" + str(signblockthreshold) + "\n")
         os.makedirs(os.path.join(datadir, 'stderr'), exist_ok=True)
         os.makedirs(os.path.join(datadir, 'stdout'), exist_ok=True)
+        os.makedirs(os.path.join(datadir, 'regtest'), exist_ok=True)
     return datadir
 
 def get_datadir_path(dirname, n):

@@ -512,7 +512,6 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             self.writeGenesisBlockToFile(datadir)
 
     def writeGenesisBlockToFile(self, datadir):
-        os.mkdir(os.path.join(datadir, "regtest"))
         with open(os.path.join(datadir, "regtest", "genesis.dat"), 'w', encoding='utf8') as f:
             f.write(bytes_to_hex_str(createTestGenesisBlock(self.signblockpubkeys, self.signblockthreshold, self.signblockprivkeys).serialize()))
 

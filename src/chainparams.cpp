@@ -95,20 +95,31 @@ const MultisigCondition& MultisigCondition::getInstance()
 bool CChainParams::ReadGenesisBlock(std::string genesisHex)
 {
     CDataStream ss(ParseHex(genesisHex), SER_NETWORK, PROTOCOL_VERSION);
+    unsigned long streamsize = ss.size();
     ss >> genesis;
 
-    if(!genesis.vtx.size())
+    /* Performing non trivial validation here.
+    * full block validation will be done later in ConnectBlock
+    */
+    if(ss.size() || genesisHex.length() != streamsize * 2)
+        throw std::runtime_error("ReadGenesisBlock: invalid genesis file");
+
+    if(!genesis.vtx.size() || genesis.vtx.size() > 1)
+        throw std::runtime_error("ReadGenesisBlock: invalid genesis block");
+
+    if(!genesis.proof.size() || genesis.proof.size() < signedBlocksCondition.getThreshold())
         throw std::runtime_error("ReadGenesisBlock: invalid genesis block");
 
     CTransactionRef genesisCoinbase(genesis.vtx[0]);
-    CPubKey combinedPubKey = PubKeyCombine(signedBlocksCondition.getPubkeys());
+    if(!genesisCoinbase->IsCoinBase())
+        throw std::runtime_error("ReadGenesisBlock: invalid genesis block");
 
-    /* Performing only basic validation here.
-    *  In case of invalid block header or hash mismatch or invalid proof
-    *  it will be rejected later during full block validation
-    */
     if(genesisCoinbase->vin[0].prevout.n)
         throw std::runtime_error("ReadGenesisBlock: invalid height in genesis block");
+
+    if(genesis.hashMerkleRoot != genesisCoinbase->GetHash() 
+    || genesis.hashImMerkleRoot != genesisCoinbase->GetHashMalFix())
+        throw std::runtime_error("ReadGenesisBlock: invalid MerkleRoot in genesis block");
 
     consensus.hashGenesisBlock = genesis.GetHash();
     return true;

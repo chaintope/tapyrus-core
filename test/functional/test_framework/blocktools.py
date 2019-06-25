@@ -53,7 +53,6 @@ def create_block(hashprev, coinbase, ntime=None):
     """Create a block (with regtest difficulty)."""
     block = CBlock()
     if ntime is None:
-        import time
         block.nTime = int(time.time() + 600)
     else:
         block.nTime = ntime
