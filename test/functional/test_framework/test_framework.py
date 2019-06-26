@@ -502,7 +502,8 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             from_dir = get_datadir_path(self.options.cachedir, i)
             to_dir = get_datadir_path(self.options.tmpdir, i)
             shutil.copytree(from_dir, to_dir)
-            initialize_datadir(self.options.tmpdir, i, self.signblockpubkeys, self.signblockthreshold)  # Overwrite port/rpcport in bitcoin.conf
+            datadir = initialize_datadir(self.options.tmpdir, i, self.signblockpubkeys, self.signblockthreshold)  # Overwrite port/rpcport in bitcoin.conf
+            self.writeGenesisBlockToFile(datadir)
 
     def _initialize_chain_clean(self):
         """Initialize empty blockchain for use by the test.
