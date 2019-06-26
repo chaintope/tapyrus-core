@@ -515,7 +515,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
 
     def writeGenesisBlockToFile(self, datadir):
         if self.genesisBlock == None:
-            self.genesisBlock = createTestGenesisBlock(self.mocktime - (201 * 10 * 60), self.signblockpubkeys, self.signblockthreshold, self.signblockprivkeys)
+            self.genesisBlock = createTestGenesisBlock(self.signblockpubkeys, self.signblockthreshold, self.signblockprivkeys, self.mocktime - (201 * 10 * 60))
         with open(os.path.join(datadir, "regtest", "genesis.dat"), 'w', encoding='utf8') as f:
             f.write(bytes_to_hex_str(self.genesisBlock.serialize()))
 
