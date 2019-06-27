@@ -51,7 +51,7 @@ Node1 is unused in tests 3-7:
 
 import time
 
-from test_framework.blocktools import create_block, create_coinbase, create_tx_with_script
+from test_framework.blocktools import create_block, create_coinbase, create_tx_with_script, createTestGenesisBlock
 from test_framework.messages import CBlockHeader, CInv, msg_block, msg_headers, msg_inv
 from test_framework.mininode import mininode_lock, P2PInterface
 from test_framework.test_framework import BitcoinTestFramework
@@ -62,6 +62,7 @@ class AcceptBlockTest(BitcoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 2
+        self.genesisBlock = createTestGenesisBlock(self.signblockpubkeys, self.signblockthreshold, self.signblockprivkeys, int(time.time()))
 
     def setup_network(self):
         # Node0 will be used to test behavior of processing unrequested blocks

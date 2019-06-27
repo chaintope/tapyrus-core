@@ -42,6 +42,7 @@ class RESTTest (BitcoinTestFramework):
         self.setup_clean_chain = True
         self.num_nodes = 2
         self.extra_args = [["-rest"], []]
+        self.signblockthreshold = 1 #content length tests are based on one proof
 
     def test_rest_request(self, uri, http_method='GET', req_type=ReqType.JSON, body='', status=200, ret_type=RetType.JSON):
         rest_uri = '/rest' + uri

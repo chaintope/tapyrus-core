@@ -29,6 +29,8 @@ class P2PFingerprintTest(BitcoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 1
+        # Set node time to 50 days ago
+        self.mocktime = int(time.time()) - 50 * 24 * 60 * 60
 
     # Build a chain of blocks on top of given one
     def build_chain(self, nblocks, prev_hash, prev_height, prev_median_time):
@@ -75,9 +77,6 @@ class P2PFingerprintTest(BitcoinTestFramework):
     # last month but that have over a month's worth of work are also withheld.
     def run_test(self):
         node0 = self.nodes[0].add_p2p_connection(P2PInterface())
-
-        # Set node time to 50 days ago
-        self.nodes[0].setmocktime(int(time.time()) - 50 * 24 * 60 * 60)
 
         # Generating a chain of 10 blocks
         block_hashes = self.nodes[0].generate(nblocks=10, signblockprivkeys=self.signblockprivkeys)

@@ -452,7 +452,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             # Create cache directories, run bitcoinds:
             for i in range(MAX_NODES):
                 datadir = initialize_datadir(self.options.cachedir, i, self.signblockpubkeys, self.signblockthreshold)
-                self.writeGenesisBlockToFile(datadir)
+                self.writeGenesisBlockToFile(datadir, self.mocktime - (201 * 10 * 60))
                 args = [self.options.bitcoind,
                 "-datadir=" + datadir,
                 "-signblockpubkeys=" + self.signblockpubkeys,
@@ -495,7 +495,8 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
 
             for i in range(MAX_NODES):
                 for entry in os.listdir(cache_path(i)):
-                    if entry not in ['wallets', 'chainstate', 'blocks']:
+                    if entry not in ['wallets', 'chainstate', 'blocks', 'genesis.dat']:
+                        print(entry)
                         os.remove(cache_path(i, entry))
 
         for i in range(self.num_nodes):
@@ -503,7 +504,6 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             to_dir = get_datadir_path(self.options.tmpdir, i)
             shutil.copytree(from_dir, to_dir)
             datadir = initialize_datadir(self.options.tmpdir, i, self.signblockpubkeys, self.signblockthreshold)  # Overwrite port/rpcport in bitcoin.conf
-            self.writeGenesisBlockToFile(datadir)
 
     def _initialize_chain_clean(self):
         """Initialize empty blockchain for use by the test.
@@ -514,9 +514,10 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             datadir = initialize_datadir(self.options.tmpdir, i, self.signblockpubkeys, self.signblockthreshold)
             self.writeGenesisBlockToFile(datadir)
 
-    def writeGenesisBlockToFile(self, datadir):
+    def writeGenesisBlockToFile(self, datadir, nTime=None):
+        os.makedirs(os.path.join(datadir, 'regtest'), exist_ok=True)
         if self.genesisBlock == None:
-            self.genesisBlock = createTestGenesisBlock(self.signblockpubkeys, self.signblockthreshold, self.signblockprivkeys, self.mocktime - (201 * 10 * 60))
+            self.genesisBlock = createTestGenesisBlock(self.signblockpubkeys, self.signblockthreshold, self.signblockprivkeys, nTime)
         with open(os.path.join(datadir, "regtest", "genesis.dat"), 'w', encoding='utf8') as f:
             f.write(bytes_to_hex_str(self.genesisBlock.serialize()))
 

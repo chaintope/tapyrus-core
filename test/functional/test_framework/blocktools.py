@@ -64,7 +64,7 @@ def create_block(hashprev, coinbase, ntime=None):
     return block
 
 # create test genesis block
-def createTestGenesisBlock(signblockpubkeys, signblockthreshold, signblockprivkeys, nTime):
+def createTestGenesisBlock(signblockpubkeys, signblockthreshold, signblockprivkeys, nTime=None):
     genesis_coinbase = CTransaction()
     coinbaseinput = CTxIn(outpoint=COutPoint(0, 0), nSequence=0xffffffff)
     coinbaseinput.scriptSig=CScript([bytes(signblockthreshold), hex_str_to_bytes(signblockpubkeys)])
@@ -76,8 +76,8 @@ def createTestGenesisBlock(signblockpubkeys, signblockthreshold, signblockprivke
     genesis_coinbase.calc_sha256()
 
     genesis = CBlock()
-    if nTime <= 0:
-        genesis.nTime = int(time.time() + 600)
+    if nTime is None or nTime <= 0:
+        genesis.nTime = int(time.time() - 600)
     else:
         genesis.nTime = nTime
     genesis.hashPrevBlock = 0

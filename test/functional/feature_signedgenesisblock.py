@@ -154,7 +154,8 @@ class SignedGenesisBlockTest(BitcoinTestFramework):
 
         self.log.info("Phase 2: Tests using genesis.dat file")
         self.log.info("Test new genesis file")
-        self.writeGenesisBlockToFile(self.nodes[0].datadir)
+        self.genesisBlock = None
+        self.writeGenesisBlockToFile(self.nodes[0].datadir, int(time.time()))
         #different genesis file
         self.nodes[0].assert_start_raises_init_error([], 'Error: Incorrect or no genesis block found.', match=ErrorMatch.PARTIAL_REGEX)
 
@@ -244,6 +245,7 @@ class SignedGenesisBlockTest(BitcoinTestFramework):
         self.nodes[0].assert_start_raises_init_error([])
 
         self.log.info("Starting node again")
+        self.genesisBlock = None
         self.writeGenesisBlockToFile(self.nodes[0].datadir)
         self.nodes[0].assert_start_raises_init_error([], 'Error: Incorrect or no genesis block found.', match=ErrorMatch.PARTIAL_REGEX)
 
