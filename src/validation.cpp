@@ -3157,10 +3157,12 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
 
     // Check transactions
     for (const auto& tx : block.vtx)
-        if (!CheckTransaction(*tx, state, true))
+    {
+        bool fGenesis = consensusParams.hashGenesisBlock == block.GetHash();
+        if (!CheckTransaction(*tx, state, true, fGenesis))
             return state.Invalid(false, state.GetRejectCode(), state.GetRejectReason(),
                                  strprintf("Transaction check failed (tx hash %s) %s", tx->GetHashMalFix().ToString(), state.GetDebugMessage()));
-
+    }
     unsigned int nSigOps = 0;
     for (const auto& tx : block.vtx)
     {
@@ -3949,15 +3951,6 @@ bool LoadChainTip(const CChainParams& chainparams)
     AssertLockHeld(cs_main);
 
     if (chainActive.Tip() && chainActive.Tip()->GetBlockHash() == pcoinsTip->GetBestBlock()) return true;
-
-    //remove duplicate genesis block from mapBlockIndex
-    BlockMap::iterator dupCoinbase = mapBlockIndex.begin();
-    for(;dupCoinbase != mapBlockIndex.end(); dupCoinbase++) {
-        if(dupCoinbase->second->pprev == nullptr && dupCoinbase->first != chainparams.GetConsensus().hashGenesisBlock)
-            break;
-    }
-    if(dupCoinbase != mapBlockIndex.end())
-        mapBlockIndex.erase(dupCoinbase);
 
     if (pcoinsTip->GetBestBlock().IsNull() && mapBlockIndex.size() == 1) {
         // In case we just added the genesis block, connect it now, so
