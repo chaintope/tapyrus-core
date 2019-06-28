@@ -1016,7 +1016,7 @@ UniValue testproposedblock(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
         throw std::runtime_error(
-            "testproposedblock \"blockhex\" \"[acceptnonstdtxn]\"}\n"
+            "testproposedblock \"blockhex\" \"[acceptnonstdtxn]\"\n"
             "\nValidate proposed block before signing\n"
             "\nArguments:\n"
             "1. \"blockhex\"       (string, required) The hex-encoded block from getnewblockhex\n"
