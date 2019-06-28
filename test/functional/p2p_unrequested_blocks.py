@@ -62,7 +62,8 @@ class AcceptBlockTest(BitcoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 2
-        self.genesisBlock = createTestGenesisBlock(self.signblockpubkeys, self.signblockthreshold, self.signblockprivkeys, int(time.time()))
+        self.mocktime = int(time.time())
+        self.genesisBlock = createTestGenesisBlock(self.signblockpubkeys, self.signblockthreshold, self.signblockprivkeys, self.mocktime - 100)
 
     def setup_network(self):
         # Node0 will be used to test behavior of processing unrequested blocks
@@ -76,8 +77,10 @@ class AcceptBlockTest(BitcoinTestFramework):
         # Setup the p2p connections
         # test_node connects to node0 (not whitelisted)
         test_node = self.nodes[0].add_p2p_connection(P2PInterface())
+        self.nodes[0].setmocktime(self.mocktime)
         # min_work_node connects to node1 (whitelisted)
         min_work_node = self.nodes[1].add_p2p_connection(P2PInterface())
+        self.nodes[1].setmocktime(self.mocktime)
 
         # 1. Have nodes mine a block (leave IBD)
         [ n.generate(1, self.signblockprivkeys) for n in self.nodes ]
