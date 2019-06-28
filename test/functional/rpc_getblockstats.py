@@ -10,10 +10,15 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
     assert_equal,
     assert_raises_rpc_error,
+    bytes_to_hex_str,
+    initialize_datadir,
+    connect_nodes_bi
 )
+from test_framework.blocktools import createTestGenesisBlock
 import json
 import os
 import time
+import shutil
 
 TESTSDIR = os.path.dirname(os.path.realpath(__file__))
 
@@ -42,13 +47,20 @@ class GetblockstatsTest(BitcoinTestFramework):
                             default='data/rpc_getblockstats.json',
                             action='store', metavar='FILE',
                             help='Test data file')
+        parser.add_argument('--genesis', dest='genesis_block',
+                            default='data/genesis.dat',
+                            action='store', metavar='FILE',
+                            help='Genesis block file')
 
     def set_test_params(self):
         self.num_nodes = 2
         self.extra_args = [['-txindex'], ['-paytxfee=0.003']]
         self.setup_clean_chain = True
-        self.mocktime = time.time()
+        self.mocktime = 1561689492
         self.signblockthreshold = 1
+        self.signblockpubkeys = "0201c537fd7eb7928700927b48e51ceec621fc8ba1177ee2ad67336ed91e2f63a1"
+        self.signblockprivkeys = ["aa3680d5d48a8283413f7a108367c7299ca73f553735860a87b08f39395618b7"]
+        self.genesisBlock = createTestGenesisBlock(self.signblockpubkeys, self.signblockthreshold, self.signblockprivkeys, self.mocktime - 10)
 
     def get_stats(self):
         return [self.nodes[0].getblockstats(hash_or_height=self.start_height + i) for i in range(self.max_stat_pos+1)]
@@ -101,10 +113,23 @@ class GetblockstatsTest(BitcoinTestFramework):
 
     def run_test(self):
         test_data = os.path.join(TESTSDIR, self.options.test_data)
+        genesis_block = os.path.join(TESTSDIR, self.options.genesis_block)
+
         if self.options.gen_test_data:
+            self.log.info("Generating new genesis block to %s " % genesis_block)
+            with open(genesis_block, 'w', encoding="utf8") as f:
+                f.write(bytes_to_hex_str(self.genesisBlock.serialize()))
             self.log.info("Generating new test data to %s " % test_data)
             self.generate_test_data(test_data)
         else:
+            self.log.info("Loading genesis block from %s" % genesis_block)
+            for i in range (0, self.num_nodes):
+                self.stop_node(i)
+                shutil.rmtree(os.path.join(self.nodes[i].datadir, "regtest"))
+                initialize_datadir(self.options.tmpdir, 0, self.signblockpubkeys, self.signblockthreshold)
+                shutil.copyfile(genesis_block, os.path.join(self.nodes[i].datadir, "genesis.dat"))
+                self.start_node(i)
+            connect_nodes_bi(self.nodes, 0, 1)
             self.log.info("Loading test data from %s" % test_data)
             self.load_test_data(test_data)
 

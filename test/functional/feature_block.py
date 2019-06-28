@@ -79,6 +79,8 @@ class FullBlockTest(BitcoinTestFramework):
         self.extra_args = [[]]
         #this is needed as some tests based on block length are optimized based on proof length for one signature.
         self.signblockthreshold = 1
+        self.signblockpubkeys = "0201c537fd7eb7928700927b48e51ceec621fc8ba1177ee2ad67336ed91e2f63a1"
+        self.signblockprivkeys = ["aa3680d5d48a8283413f7a108367c7299ca73f553735860a87b08f39395618b7"]
         self.genesisBlock = createTestGenesisBlock(self.signblockpubkeys, self.signblockthreshold, self.signblockprivkeys, int(time.time() - 100))
 
     def run_test(self):
@@ -290,6 +292,7 @@ class FullBlockTest(BitcoinTestFramework):
         b23 = self.next_block(23, spend=out[6])
         # proof is added here.
         prooflen = len(ser_string_vector(b23.proof)) - len(ser_compact_size(len(b23.proof)))
+        # optimization : when proof len is 70 next loop never succeeds. so changing proof here
         while(prooflen == 70):
             old_sha256 = b23.sha256
             b23.solve(self.signblockprivkeys)
@@ -305,7 +308,7 @@ class FullBlockTest(BitcoinTestFramework):
         # proof is updated here. If new proof length is different from old proof length
         # block size will also be different. recalculate proof until we have same length
         i = 0
-        while(prooflen != len(ser_string_vector(b23.proof)) - len(ser_compact_size(len(b23.proof))) and i < 50):
+        while(prooflen != len(ser_string_vector(b23.proof)) - len(ser_compact_size(len(b23.proof))) and i < 10):
             old_sha256 = b23.sha256
             b23.solve(self.signblockprivkeys)
             self.block_heights[b23.sha256] = self.block_heights[old_sha256]
@@ -331,7 +334,7 @@ class FullBlockTest(BitcoinTestFramework):
         tx.vout = [CTxOut(0, script_output)]
         b24 = self.update_block(24, [tx])
         i = 0
-        while(prooflen != len(ser_string_vector(b24.proof)) - len(ser_compact_size(len(b24.proof)))and i < 50):
+        while(prooflen != len(ser_string_vector(b24.proof)) - len(ser_compact_size(len(b24.proof)))and i < 10):
             old_sha256 = b24.sha256
             b24.solve(self.signblockprivkeys)
             self.block_heights[b24.sha256] = self.block_heights[old_sha256]
@@ -894,7 +897,7 @@ class FullBlockTest(BitcoinTestFramework):
         tx.vin.append(CTxIn(COutPoint(b64a.vtx[1].malfixsha256, 0)))
         b64a = self.update_block("64a", [tx])
         i = 0
-        while(prooflen != len(ser_string_vector(b64a.proof)) - len(ser_compact_size(len(b64a.proof))) and i < 50):
+        while(prooflen != len(ser_string_vector(b64a.proof)) - len(ser_compact_size(len(b64a.proof))) and i < 10):
             old_sha256 = b64a.sha256
             b64a.solve(self.signblockprivkeys)
             self.block_heights[b64a.sha256] = self.block_heights[old_sha256]
@@ -925,7 +928,7 @@ class FullBlockTest(BitcoinTestFramework):
         self.blocks[64] = b64
         b64 = self.update_block(64, [])
         i = 0
-        while(prooflen != len(ser_string_vector(b64.proof)) - len(ser_compact_size(len(b64.proof))) and i < 50):
+        while(prooflen != len(ser_string_vector(b64.proof)) - len(ser_compact_size(len(b64.proof))) and i < 10):
             old_sha256 = b64.sha256
             b64.solve(self.signblockprivkeys)
             self.block_heights[b64.sha256] = self.block_heights[old_sha256]
