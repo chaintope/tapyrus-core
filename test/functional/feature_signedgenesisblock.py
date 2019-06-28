@@ -46,7 +46,7 @@ def createIncorectGenesisBlock(genesis_coinbase, signblockprivkeys):
     return genesis
 
 def writeIncorrectGenesisBlockToFile(datadir, genesis):
-    with open(os.path.join(datadir, "regtest", "genesis.dat"), 'w', encoding='utf8') as f:
+    with open(os.path.join(datadir, "genesis.dat"), 'w', encoding='utf8') as f:
         f.write(bytes_to_hex_str(genesis.serialize()))
 
 def createGenesisCoinbase(signblockthreshold, signblockpubkeys):
@@ -159,7 +159,7 @@ class SignedGenesisBlockTest(BitcoinTestFramework):
         #different genesis file
         self.nodes[0].assert_start_raises_init_error([], 'Error: Incorrect or no genesis block found.', match=ErrorMatch.PARTIAL_REGEX)
 
-        datadir = os.path.join(self.nodes[0].datadir, "regtest")
+        datadir = self.nodes[0].datadir
         genesisFile = os.path.join(datadir, "genesis.dat")
 
         self.log.info("Test incorrect genesis file - append 2 bytes")
