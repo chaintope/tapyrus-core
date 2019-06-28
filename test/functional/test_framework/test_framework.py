@@ -496,7 +496,6 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             for i in range(MAX_NODES):
                 for entry in os.listdir(cache_path(i)):
                     if entry not in ['wallets', 'chainstate', 'blocks', 'genesis.dat']:
-                        print(entry)
                         os.remove(cache_path(i, entry))
 
         for i in range(self.num_nodes):
