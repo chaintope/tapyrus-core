@@ -206,9 +206,9 @@ class RESTTest (BitcoinTestFramework):
 
         # Compare with block header
         response_header = self.test_rest_request("/headers/1/{}".format(bb_hash), req_type=ReqType.BIN, ret_type=RetType.OBJ)
-        assert_equal(int(response_header.getheader('content-length')), 176)
+        assert_equal(int(response_header.getheader('content-length')), 815)
         response_header_bytes = response_header.read()
-        assert_equal(response_bytes[:176], response_header_bytes)
+        assert_equal(response_bytes[:815], response_header_bytes)
 
 
         # Check block hex format

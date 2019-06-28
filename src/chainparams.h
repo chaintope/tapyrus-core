@@ -172,6 +172,6 @@ void UpdateVersionBitsParameters(Consensus::DeploymentPos d, int64_t nStartTime,
 /**
  * Reads the genesis block from genesis.dat into chainparams.
  */
-bool ReadGenesisBlock(fs::path genesisPath=GetDataDir());
+bool ReadGenesisBlock(fs::path genesisPath=GetDataDir(false));
 
 #endif // BITCOIN_CHAINPARAMS_H
