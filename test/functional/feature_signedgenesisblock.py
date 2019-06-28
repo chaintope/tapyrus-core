@@ -216,7 +216,7 @@ class SignedGenesisBlockTest(BitcoinTestFramework):
         self.writeGenesisBlockToFile(self.nodes[0].datadir)
         with open(genesisFile, 'r+', encoding='utf8') as f:
             f.truncate(500)
-        self.nodes[0].assert_start_raises_init_error([], 'end of data: unspecified iostream_category error', match=ErrorMatch.PARTIAL_REGEX)
+        self.nodes[0].assert_start_raises_init_error([], 'CDataStream::read().*end of data', match=ErrorMatch.PARTIAL_REGEX)
 
         self.log.info("Phase 3: Edit genesis file after sarting the blockchain")
         self.stop_node(0)
