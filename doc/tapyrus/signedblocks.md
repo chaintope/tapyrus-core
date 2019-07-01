@@ -4,18 +4,19 @@ Signed-Blocks Specification
 Tapyrus uses Signed-Blocks as block creation algorithm. Signed Blocks is
 based on Federated Blocksigning in a Strong Federation which is proposed
 [Strong Federations: An Interoperable Blockchain Solution to Centralized Third Party Risks](https://arxiv.org/pdf/1612.05491v2.pdf).
-In this algorithm, the blocks are poroposed by a federation member who is elected with round-robin.
-Then if the blocks succeed to collect signs which is by members until threshold, the block can be verified by all public nodes.
+In this algorithm, the blocks are poroposed in round-robin by a federation
+member. If the blocks succeeds in collecting a minimum of 'threshold‘
+signatures from other federation members, it is added as the next block.
+The block can be verified by all public nodes.
 
 
 Arguments for Signed-Blocks
 ===========================
 
 Signed-Block needs some parameters. The first is public keys from each
-federation member. And 2nd is threshold number for multi-signature. If
-new submitted block has federation member's sign over threshold number,
-the block can be valid. Last is genesis block data which needs to have
-signatures over threshold.
+federation member. And 2nd is threshold number for multi-signature.
+Last is genesis block data which needs to be signed and the number of
+signatures must exceed ‘threshold’ .
 
 You can set public keys and threshold as tapyrusd arguments.
 
@@ -29,8 +30,9 @@ You can set public keys and threshold as tapyrusd arguments.
 ```
 
 To setting genesis block data, you need to create dat file at network
-data directory. If you set `/var/lib/tapyrus` is data directory and you want
-to start regtest mode, you should put on `/var/lib/tapyrus/regtest/genesis.dat`.
+data directory. If you set `/var/lib/tapyrus` is data directory, you
+should put on `/var/lib/tapyrus/[network]/genesis.dat`. The `[netwrok]`
+is regtest or testnet3 or main.
 
 Block Structure Expansion for Signed-Blocks
 ===========================================
