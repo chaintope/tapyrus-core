@@ -66,7 +66,7 @@ Tapyrus Chain has Signed-Blocks Arguments
 =========================================
 
 Genesis Block coinbase tx's script sig has threshold and public keys.
-The public keys are putted as the sum that all public keys are added up.
+The public key is the sum of all public keys are added up.
 
 Example:
 
