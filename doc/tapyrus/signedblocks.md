@@ -31,8 +31,7 @@ You can set public keys and threshold as tapyrusd arguments.
 
 To setting genesis block data, you need to create dat file at network
 data directory. If you set `/var/lib/tapyrus` is data directory, you
-should put on `/var/lib/tapyrus/[network]/genesis.dat`. The `[netwrok]`
-is regtest or testnet3 or main.
+should put on `/var/lib/tapyrus/genesis.dat`.
 
 Block Structure Expansion for Signed-Blocks
 ===========================================
