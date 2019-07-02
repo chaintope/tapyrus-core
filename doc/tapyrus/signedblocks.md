@@ -62,11 +62,19 @@ Signature Structure
 Signature Length | [VarInt](https://en.bitcoin.it/wiki/Protocol_documentation#Variable_length_integer) | 1+ |
 Signature | char\[\] | ? | ECDSA Signature for block header hash. Formatted as DER encoding.
 
-Genesis Block coinbase tx's script sig has threshold and Publickey list.
-========================================================================
+Tapyrus Chain has Signed-Blocks Arguments
+=========================================
 
+Genesis Block coinbase tx's script sig has threshold and public keys.
+The public keys are putted as the sum that all public keys are added up.
 
-Tapyrus block header structure
+Example:
+
+```
+[02] [0276d7a1b83fd97b8751d2b82e1f7a89dcd23a5b3f5cc2798083ad6f775018102e]
+```
+
+`[02]` is threshold, the following part is public key that are added up all keys.
 
 RPC collection for Signer Nodes
 ===============================
