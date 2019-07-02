@@ -3,8 +3,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_SIGNED_BLOCK_H
-#define BITCOIN_SIGNED_BLOCK_H
+#ifndef TAPYRUS_CONSENSUS_SIGNEDBLOCK_H
+#define TAPYRUS_CONSENSUS_SIGNEDBLOCK_H
 
 #include <pubkey.h>
 
@@ -38,4 +38,4 @@ private:
     friend struct ChainParamsTestingSetup;
 };
 
-#endif // BITCOIN_SIGNED_BLOCK_H
+#endif // TAPYRUS_CONSENSUS_SIGNEDBLOCK_H
