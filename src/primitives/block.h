@@ -9,7 +9,6 @@
 #include <primitives/transaction.h>
 #include <serialize.h>
 #include <uint256.h>
-#include <consensus/signedblock.h>
 
 typedef std::vector<unsigned char> Signature;
 typedef std::vector<Signature> ProofBase;
@@ -97,7 +96,7 @@ public:
         return (int64_t)nTime;
     }
 };
-
+struct MultisigCondition;
 class CBlockHeader : public CBlockHeaderWithoutProof
 {
 public:

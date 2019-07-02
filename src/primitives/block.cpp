@@ -9,7 +9,7 @@
 #include <tinyformat.h>
 #include <utilstrencodings.h>
 #include <crypto/common.h>
-#include <consensus/signedblock.h>
+#include <chainparams.h>
 
 uint256 CBlockHeader::GetHash() const
 {

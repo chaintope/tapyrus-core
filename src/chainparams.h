@@ -17,6 +17,7 @@
 #include <fs.h>
 #include <util.h>
 
+const unsigned int SIGNED_BLOCKS_MAX_KEY_SIZE = 15;
 const std::string TAPYRUS_GENESIS_FILENAME = "genesis.dat";
 
 struct SeedSpec6 {
@@ -40,6 +41,35 @@ struct ChainTxData {
     int64_t nTime;    //!< UNIX timestamp of last known number of transactions
     int64_t nTxCount; //!< total number of transactions between genesis and that timestamp
     double dTxRate;   //!< estimated number of transactions per second after that timestamp
+};
+
+/* MultisigCondition:
+singleton signedblock condition
+instance can be accessed using
+MultisigCondition::getInstance() or CChainParams::getSignedBlocksCondition()
+*/
+struct MultisigCondition {
+    MultisigCondition(const std::string& pubkeyString, const int threshold);
+    static const MultisigCondition& getInstance();
+    void ParsePubkeyString(std::string source);
+    bool operator==(const MultisigCondition& rhs) const {
+        return (instance && instance->pubkeys == rhs.pubkeys && instance->threshold == rhs.threshold);
+    }
+
+    uint8_t getThreshold() const{
+        return instance->threshold;
+    }
+    const std::vector<CPubKey>& getPubkeys() const{
+        return instance->pubkeys;
+    }
+private:
+    static std::unique_ptr<MultisigCondition> instance;
+
+    std::vector<CPubKey> pubkeys;
+    uint8_t threshold;
+
+    MultisigCondition() {}
+    friend struct ChainParamsTestingSetup;
 };
 /**
  * Creates and returns a const MultisigCondition&.

@@ -138,7 +138,6 @@ add_library(common
         base58.cpp
         chainparams.cpp
         consensus/merkle.cpp
-        consensus/signedblock.cpp
         coins.cpp
         compressor.cpp
         core_read.cpp
@@ -238,6 +237,7 @@ target_link_libraries(server
         bitcoinconsensus
         leveldb
         memenv
+        miniupnpc
         )
 
 # Test suite.
