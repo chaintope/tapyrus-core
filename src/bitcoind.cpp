@@ -68,6 +68,7 @@ static bool AppInit(int argc, char* argv[])
         fprintf(stderr, "Error parsing signed block command line arguments: %s\n", error.c_str());
         return false;
     }
+    CreateSignedBlockCondition();
     SetupServerArgs();
 
     if (!gArgs.ParseParameters(argc, argv, error)) {
