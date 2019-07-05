@@ -2,9 +2,15 @@
 # Copyright (c) 2018 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
-"""Test the signed genesis block read from genesis.dat file.
+"""Test that signed genesis block is read from genesis.dat file at node startup.
 
-1. test framework uses regtest mode. this is not suitable for our test.
+"genesis.dat" is in datadir.
+
+This test checks that the node can start/exit as expected under the following scenarios:
+1. Creating genesis.dat with valid and invalid Genesis block
+2. Changing genesis.dat file after creation
+3. Corrupting genesis.dat file after the blockchain has progressed and recovering it and the blockchain
+
 """
 
 import os
