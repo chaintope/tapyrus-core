@@ -102,7 +102,7 @@ public:
     const CMessageHeader::MessageStartChars& MessageStart() const { return pchMessageStart; }
     int GetDefaultPort() const { return nDefaultPort; }
 
-    const MultisigCondition& GetSignedBlocksCondition() const{ return signedBlocksCondition; }
+    const MultisigCondition& GetSignedBlocksCondition() const{ return MultisigCondition::getInstance(); }
     const CBlock& GenesisBlock() const { return genesis; }
     /** Default value for -checkmempool and -checkblockindex argument */
     bool DefaultConsistencyChecks() const { return fDefaultConsistencyChecks; }
@@ -124,8 +124,9 @@ public:
     const ChainTxData& TxData() const { return chainTxData; }
     void UpdateVersionBitsParameters(Consensus::DeploymentPos d, int64_t nStartTime, int64_t nTimeout);
     bool ReadGenesisBlock(std::string genesisHex);
+    bool SetSignedBlocksCondition(const MultisigCondition &condition);
 protected:
-    CChainParams() : signedBlocksCondition(CreateSignedBlockCondition())  {}
+    CChainParams() {}
 
     Consensus::Params consensus;
     CMessageHeader::MessageStartChars pchMessageStart;
@@ -135,7 +136,6 @@ protected:
     std::vector<unsigned char> base58Prefixes[MAX_BASE58_TYPES];
     std::string bech32_hrp;
     std::string strNetworkID;
-    const MultisigCondition& signedBlocksCondition;
     CBlock genesis;
     std::vector<SeedSpec6> vFixedSeeds;
     bool fDefaultConsistencyChecks;
@@ -173,5 +173,10 @@ void UpdateVersionBitsParameters(Consensus::DeploymentPos d, int64_t nStartTime,
  * Reads the genesis block from genesis.dat into chainparams.
  */
 bool ReadGenesisBlock(fs::path genesisPath=GetDataDir(false));
+
+/**
+ * Set signed-blocks Parameters from arguments.
+ */
+bool SetSignedBlocksCondition();
 
 #endif // BITCOIN_CHAINPARAMS_H

@@ -107,7 +107,7 @@ bool CChainParams::ReadGenesisBlock(std::string genesisHex)
     if(!genesis.vtx.size() || genesis.vtx.size() > 1)
         throw std::runtime_error("ReadGenesisBlock: invalid genesis block");
 
-    if(!genesis.proof.size() || genesis.proof.size() < signedBlocksCondition.getThreshold())
+    if(!genesis.proof.size() || genesis.proof.size() < MultisigCondition::getInstance().getThreshold())
         throw std::runtime_error("ReadGenesisBlock: invalid genesis block");
 
     CTransactionRef genesisCoinbase(genesis.vtx[0]);
@@ -415,6 +415,11 @@ void SelectParams(const std::string& network)
 void UpdateVersionBitsParameters(Consensus::DeploymentPos d, int64_t nStartTime, int64_t nTimeout)
 {
     globalChainParams->UpdateVersionBitsParameters(d, nStartTime, nTimeout);
+}
+
+bool SetSignedBlocksCondition()
+{
+    CreateSignedBlockCondition();
 }
 
 bool ReadGenesisBlock(fs::path genesisPath)
