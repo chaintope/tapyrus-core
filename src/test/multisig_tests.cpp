@@ -37,7 +37,7 @@ sign_multisig(const CScript& scriptPubKey, const std::vector<CKey>& keys, const 
 
 BOOST_AUTO_TEST_CASE(multisig_verify)
 {
-    unsigned int flags = SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_STRICTENC;
+    unsigned int flags = 0;
 
     ScriptError err;
     CKey key[4];
