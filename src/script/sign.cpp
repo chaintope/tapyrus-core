@@ -306,7 +306,7 @@ struct Stacks
     Stacks() = delete;
     Stacks(const Stacks&) = delete;
     explicit Stacks(const SignatureData& data) : witness(data.scriptWitness.stack) {
-        EvalScript(script, data.scriptSig, SCRIPT_VERIFY_STRICTENC, BaseSignatureChecker(), SigVersion::BASE);
+        EvalScript(script, data.scriptSig, STANDARD_SCRIPT_VERIFY_FLAGS, BaseSignatureChecker(), SigVersion::BASE);
     }
 };
 }

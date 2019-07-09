@@ -27,7 +27,7 @@ Serialize(const CScript& s)
 }
 
 static bool
-Verify(const CScript& scriptSig, const CScript& scriptPubKey, bool fStrict, ScriptError& err)
+Verify(const CScript& scriptSig, const CScript& scriptPubKey, ScriptError& err)
 {
     // Create dummy to/from transactions:
     CMutableTransaction txFrom;
@@ -42,7 +42,7 @@ Verify(const CScript& scriptSig, const CScript& scriptPubKey, bool fStrict, Scri
     txTo.vin[0].scriptSig = scriptSig;
     txTo.vout[0].nValue = 1;
 
-    return VerifyScript(scriptSig, scriptPubKey, nullptr, fStrict ? SCRIPT_VERIFY_P2SH : SCRIPT_VERIFY_NONE, MutableTransactionSignatureChecker(&txTo, 0, txFrom.vout[0].nValue), &err);
+    return VerifyScript(scriptSig, scriptPubKey, nullptr, SCRIPT_VERIFY_NONE, MutableTransactionSignatureChecker(&txTo, 0, txFrom.vout[0].nValue), &err);
 }
 
 
@@ -112,7 +112,7 @@ BOOST_AUTO_TEST_CASE(sign)
         {
             CScript sigSave = txTo[i].vin[0].scriptSig;
             txTo[i].vin[0].scriptSig = txTo[j].vin[0].scriptSig;
-            bool sigOK = CScriptCheck(txFrom.vout[txTo[i].vin[0].prevout.n], txTo[i], 0, SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_STRICTENC, false, &txdata)();
+            bool sigOK = CScriptCheck(txFrom.vout[txTo[i].vin[0].prevout.n], txTo[i], 0, 0, false, &txdata)();
             if (i == j)
                 BOOST_CHECK_MESSAGE(sigOK, strprintf("VerifySignature %d %d", i, j));
             else
@@ -136,7 +136,7 @@ BOOST_AUTO_TEST_CASE(norecurse)
     scriptSig << Serialize(invalidAsScript);
 
     // Should not verify, because it will try to execute OP_INVALIDOPCODE
-    BOOST_CHECK(!Verify(scriptSig, p2sh, true, err));
+    BOOST_CHECK(!Verify(scriptSig, p2sh, err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_BAD_OPCODE, ScriptErrorString(err));
 
     // Try to recur, and verification should succeed because
@@ -145,7 +145,7 @@ BOOST_AUTO_TEST_CASE(norecurse)
     CScript scriptSig2;
     scriptSig2 << Serialize(invalidAsScript) << Serialize(p2sh);
 
-    BOOST_CHECK(Verify(scriptSig2, p2sh2, true, err));
+    BOOST_CHECK(Verify(scriptSig2, p2sh2, err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
 }
 
@@ -247,11 +247,8 @@ BOOST_AUTO_TEST_CASE(switchover)
     CScript fund = GetScriptForDestination(CScriptID(notValid));
 
 
-    // Validation should succeed under old rules (hash is correct):
-    BOOST_CHECK(Verify(scriptSig, fund, false, err));
-    BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
-    // Fail under new:
-    BOOST_CHECK(!Verify(scriptSig, fund, true, err));
+    // Validation Fails as we always verify P2sh in tapyrus
+    BOOST_CHECK(!Verify(scriptSig, fund, err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_EQUALVERIFY, ScriptErrorString(err));
 }
 

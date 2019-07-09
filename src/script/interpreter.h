@@ -31,37 +31,52 @@ enum
  *
  *  All flags are intended to be soft forks: the set of acceptable scripts under
  *  flags (A | B) is a subset of the acceptable scripts under flag (A).
+ *
+ * In Tapyrus script evaluation behaves as if the following flags are all enabled,
+ * in other words we only accept scripts compliant to these rules:
+ * SCRIPT_VERIFY_P2SH
+ * SCRIPT_VERIFY_STRICTENC
+ * SCRIPT_VERIFY_DERSIG
+ * SCRIPT_VERIFY_LOW_S
+ * SCRIPT_VERIFY_NULLDUMMY
+ * SCRIPT_VERIFY_MINIMALDATA
+ * SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY
+ * SCRIPT_VERIFY_CHECKSEQUENCEVERIFY
+ *
+ *
+    Evaluate P2SH subscripts (BIP16).
+    SCRIPT_VERIFY_P2SH      = (1U << 0),
+
+    Passing a non-strict-DER signature or one with undefined hashtype to a checksig operation causes script failure. Evaluating a pubkey that is not (0x04 + 64 bytes) or (0x02 or 0x03 + 32 bytes) by checksig causes script failure. (not used or intended as a consensus rule).
+    SCRIPT_VERIFY_STRICTENC = (1U << 1),
+
+    Passing a non-strict-DER signature to a checksig operation causes script failure (BIP62 rule 1)
+    SCRIPT_VERIFY_DERSIG    = (1U << 2),
+
+    Passing a non-strict-DER signature or one with S > order/2 to a checksig operation causes script failure (BIP62 rule 5).
+    SCRIPT_VERIFY_LOW_S     = (1U << 3),
+
+    verify dummy stack item consumed by CHECKMULTISIG is of zero-length (BIP62 rule 7).
+    SCRIPT_VERIFY_NULLDUMMY = (1U << 4),
+
+    Require minimal encodings for all push operations (OP_0... OP_16, OP_1NEGATE where possible, direct
+    pushes up to 75 bytes, OP_PUSHDATA up to 255 bytes, OP_PUSHDATA2 for anything larger). Evaluating
+    any other push causes the script to fail (BIP62 rule 3).
+    In addition, whenever a stack element is interpreted as a number, it must be of minimal length (BIP62 rule 4).
+    SCRIPT_VERIFY_MINIMALDATA = (1U << 6),
+
+    Verify CHECKLOCKTIMEVERIFY. See BIP65 for details.
+    SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY = (1U << 9),
+
+    support CHECKSEQUENCEVERIFY opcode. See BIP112 for details
+    SCRIPT_VERIFY_CHECKSEQUENCEVERIFY = (1U << 10),
  */
 enum
 {
     SCRIPT_VERIFY_NONE      = 0,
 
-    // Evaluate P2SH subscripts (BIP16).
-    SCRIPT_VERIFY_P2SH      = (1U << 0),
-
-    // Passing a non-strict-DER signature or one with undefined hashtype to a checksig operation causes script failure.
-    // Evaluating a pubkey that is not (0x04 + 64 bytes) or (0x02 or 0x03 + 32 bytes) by checksig causes script failure.
-    // (not used or intended as a consensus rule).
-    SCRIPT_VERIFY_STRICTENC = (1U << 1),
-
-    // Passing a non-strict-DER signature to a checksig operation causes script failure (BIP62 rule 1)
-    SCRIPT_VERIFY_DERSIG    = (1U << 2),
-
-    // Passing a non-strict-DER signature or one with S > order/2 to a checksig operation causes script failure
-    // (BIP62 rule 5).
-    SCRIPT_VERIFY_LOW_S     = (1U << 3),
-
-    // verify dummy stack item consumed by CHECKMULTISIG is of zero-length (BIP62 rule 7).
-    SCRIPT_VERIFY_NULLDUMMY = (1U << 4),
-
     // Using a non-push operator in the scriptSig causes script failure (BIP62 rule 2).
     SCRIPT_VERIFY_SIGPUSHONLY = (1U << 5),
-
-    // Require minimal encodings for all push operations (OP_0... OP_16, OP_1NEGATE where possible, direct
-    // pushes up to 75 bytes, OP_PUSHDATA up to 255 bytes, OP_PUSHDATA2 for anything larger). Evaluating
-    // any other push causes the script to fail (BIP62 rule 3).
-    // In addition, whenever a stack element is interpreted as a number, it must be of minimal length (BIP62 rule 4).
-    SCRIPT_VERIFY_MINIMALDATA = (1U << 6),
 
     // Discourage use of NOPs reserved for upgrades (NOP1-10)
     //
@@ -82,16 +97,9 @@ enum
     // Note: CLEANSTACK should never be used without P2SH or WITNESS.
     SCRIPT_VERIFY_CLEANSTACK = (1U << 8),
 
-    // Verify CHECKLOCKTIMEVERIFY
-    //
-    // See BIP65 for details.
-    SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY = (1U << 9),
-
-    // support CHECKSEQUENCEVERIFY opcode
-    //
-    // See BIP112 for details
-    SCRIPT_VERIFY_CHECKSEQUENCEVERIFY = (1U << 10),
-
+ /* In Tapyrus segregated witness is not necessary.
+  * But these flags are left unchanged until we can cleanup all segwit code
+  */
     // Support segregated witness
     //
     SCRIPT_VERIFY_WITNESS = (1U << 11),
