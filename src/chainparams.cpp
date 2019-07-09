@@ -13,6 +13,8 @@
 #include <assert.h>
 
 #include <chainparamsseeds.h>
+#include <streams.h>
+#include <fs.h>
 
 std::unique_ptr<MultisigCondition> MultisigCondition::instance(nullptr);
 
@@ -90,36 +92,37 @@ const MultisigCondition& MultisigCondition::getInstance()
     return *instance;
 }
 
-static CBlock CreateGenesisBlock(uint32_t nTime, int32_t nVersion, const CAmount& genesisReward, std::string rewardTo, const MultisigCondition& condition)
+bool CChainParams::ReadGenesisBlock(std::string genesisHex)
 {
-    // TODO: Ensure pubkey list isn't include combined pubkey.
-    // In future Schnorr Signature will be used. Schnorr Signature has homomorphism, so if a member of federation has
-    // private key of combined pubkey, the member can create multisignature from only his own key.
-    CPubKey combinedPubKey = PubKeyCombine(condition.getPubkeys());
-    size_t publen = CPubKey::COMPRESSED_PUBLIC_KEY_SIZE;
+    CDataStream ss(ParseHex(genesisHex), SER_NETWORK, PROTOCOL_VERSION);
+    unsigned long streamsize = ss.size();
+    ss >> genesis;
 
-    std::vector<unsigned char> vch = ParseHex(rewardTo);
-    CPubKey rewardToPubKey(vch.begin(), vch.end());
-    CScript genesisOutputScript = CScript() << OP_DUP << OP_HASH160 << ToByteVector(rewardToPubKey.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
+    /* Performing non trivial validation here.
+    * full block validation will be done later in ConnectBlock
+    */
+    if(ss.size() || genesisHex.length() != streamsize * 2)
+        throw std::runtime_error("ReadGenesisBlock: invalid genesis file");
 
-    CMutableTransaction txNew;
-    txNew.nVersion = 1;
-    txNew.vin.resize(1);
-    txNew.vout.resize(1);
-    txNew.vin[0].prevout.n = 0;
-    txNew.vin[0].scriptSig = CScript() << CScriptNum(condition.getThreshold()) << std::vector<unsigned char>(combinedPubKey.data(), combinedPubKey.data() + publen);
-    txNew.vout[0].nValue = genesisReward;
-    txNew.vout[0].scriptPubKey = genesisOutputScript;
+    if(!genesis.vtx.size() || genesis.vtx.size() > 1)
+        throw std::runtime_error("ReadGenesisBlock: invalid genesis block");
 
-    CBlock genesis;
-    genesis.nTime    = nTime;
-    // TODO: set correct signs to block for Signed Blocks mechanism.
-    genesis.nVersion = nVersion;
-    genesis.vtx.push_back(MakeTransactionRef(std::move(txNew)));
-    genesis.hashPrevBlock.SetNull();
-    genesis.hashMerkleRoot = BlockMerkleRoot(genesis);
-    genesis.hashImMerkleRoot = BlockMerkleRoot(genesis, nullptr, true);
-    return genesis;
+    if(!genesis.proof.size() || genesis.proof.size() < signedBlocksCondition.getThreshold())
+        throw std::runtime_error("ReadGenesisBlock: invalid genesis block");
+
+    CTransactionRef genesisCoinbase(genesis.vtx[0]);
+    if(!genesisCoinbase->IsCoinBase())
+        throw std::runtime_error("ReadGenesisBlock: invalid genesis block");
+
+    if(genesisCoinbase->vin[0].prevout.n)
+        throw std::runtime_error("ReadGenesisBlock: invalid height in genesis block");
+
+    if(genesis.hashMerkleRoot != genesisCoinbase->GetHash() 
+    || genesis.hashImMerkleRoot != genesisCoinbase->GetHashMalFix())
+        throw std::runtime_error("ReadGenesisBlock: invalid MerkleRoot in genesis block");
+
+    consensus.hashGenesisBlock = genesis.GetHash();
+    return true;
 }
 
 void CChainParams::UpdateVersionBitsParameters(Consensus::DeploymentPos d, int64_t nStartTime, int64_t nTimeout)
@@ -183,9 +186,6 @@ public:
         pchMessageStart[3] = 0x00;
         nDefaultPort = 2367;  // 2357 is beautiful prime.
         nPruneAfterHeight = 100000;
-
-        genesis = CreateGenesisBlock(1546853016, 1, 50 * COIN, "024bd6909fd1187b356e163b670a1c7c5f70e40d68667e3a64d6321fb780d056c9", MultisigCondition::getInstance());
-        consensus.hashGenesisBlock = genesis.GetHash();
 
         // Note that of those which support the service bits prefix, most only support a subset of
         // possible options.
@@ -281,9 +281,6 @@ public:
         nDefaultPort = 12357;
         nPruneAfterHeight = 1000;
 
-        genesis = CreateGenesisBlock(1546853016, 1, 50 * COIN, "024bd6909fd1187b356e163b670a1c7c5f70e40d68667e3a64d6321fb780d056c9", MultisigCondition::getInstance());
-        consensus.hashGenesisBlock = genesis.GetHash();
-
         vFixedSeeds.clear();
         vSeeds.clear();
         // nodes with support for servicebits filtering should be at the top
@@ -359,9 +356,6 @@ public:
         nDefaultPort = 12383;
         nPruneAfterHeight = 1000;
 
-        genesis = CreateGenesisBlock(1546853016, 1, 50 * COIN, "024bd6909fd1187b356e163b670a1c7c5f70e40d68667e3a64d6321fb780d056c9", MultisigCondition::getInstance());
-        consensus.hashGenesisBlock = genesis.GetHash();
-
         vFixedSeeds.clear(); //!< Regtest mode doesn't have any fixed seeds.
         vSeeds.clear();      //!< Regtest mode doesn't have any DNS seeds.
 
@@ -421,4 +415,20 @@ void SelectParams(const std::string& network)
 void UpdateVersionBitsParameters(Consensus::DeploymentPos d, int64_t nStartTime, int64_t nTimeout)
 {
     globalChainParams->UpdateVersionBitsParameters(d, nStartTime, nTimeout);
+}
+
+bool ReadGenesisBlock(fs::path genesisPath)
+{
+    genesisPath /= TAPYRUS_GENESIS_FILENAME;
+
+    LogPrintf("Reading Genesis Block from [%s]\n", genesisPath.string().c_str());
+    fs::ifstream stream(genesisPath);
+    if (!stream.good())
+        throw std::runtime_error(strprintf("ReadGenesisBlock: unable to read genesis file %s", genesisPath));
+
+    std::string genesisHex;
+    stream >> genesisHex;
+    stream.close();
+
+    return globalChainParams->ReadGenesisBlock(genesisHex);
 }

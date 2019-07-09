@@ -9,17 +9,20 @@ import os
 import shutil
 
 from test_framework.test_framework import BitcoinTestFramework, initialize_datadir
+from test_framework.blocktools import createTestGenesisBlock
 
 
 class BlocksdirTest(BitcoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 1
+        self.genesisBlock = createTestGenesisBlock(self.signblockpubkeys, self.signblockthreshold, self.signblockprivkeys)
 
     def run_test(self):
         self.stop_node(0)
         shutil.rmtree(self.nodes[0].datadir)
         initialize_datadir(self.options.tmpdir, 0, self.signblockpubkeys, self.signblockthreshold)
+        self.writeGenesisBlockToFile(self.nodes[0].datadir)
         self.log.info("Starting with non exiting blocksdir ...")
         blocksdir_path = os.path.join(self.options.tmpdir, 'blocksdir')
         self.nodes[0].assert_start_raises_init_error(["-blocksdir=" + blocksdir_path], 'Error: Specified blocks directory "{}" does not exist.'.format(blocksdir_path))

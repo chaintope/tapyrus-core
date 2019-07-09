@@ -168,6 +168,15 @@ static bool AppInit(int argc, char* argv[])
             // If locking the data directory failed, exit immediately
             return false;
         }
+        //Read genesis block from file now - we are sure that data dir exists.
+        bool genesisLoaded = ReadGenesisBlock();
+        if(genesisLoaded)
+            LogPrintf("Genesis Block Loaded %s\n", Params().GetConsensus().hashGenesisBlock.ToString());
+        else
+        {
+            LogPrintf("Error Loading Genesis Block %s\n", Params().GetConsensus().hashGenesisBlock.ToString());
+            return false;
+        }
         fRet = AppInitMain();
     }
     catch (const std::exception& e) {

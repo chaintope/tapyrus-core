@@ -14,8 +14,11 @@
 
 #include <memory>
 #include <vector>
+#include <fs.h>
+#include <util.h>
 
 const unsigned int SIGNED_BLOCKS_MAX_KEY_SIZE = 15;
+const std::string TAPYRUS_GENESIS_FILENAME = "genesis.dat";
 
 struct SeedSpec6 {
     uint8_t addr[16];
@@ -120,6 +123,7 @@ public:
     const CCheckpointData& Checkpoints() const { return checkpointData; }
     const ChainTxData& TxData() const { return chainTxData; }
     void UpdateVersionBitsParameters(Consensus::DeploymentPos d, int64_t nStartTime, int64_t nTimeout);
+    bool ReadGenesisBlock(std::string genesisHex);
 protected:
     CChainParams() : signedBlocksCondition(CreateSignedBlockCondition())  {}
 
@@ -164,5 +168,10 @@ void SelectParams(const std::string& chain);
  * Allows modifying the Version Bits regtest parameters.
  */
 void UpdateVersionBitsParameters(Consensus::DeploymentPos d, int64_t nStartTime, int64_t nTimeout);
+
+/**
+ * Reads the genesis block from genesis.dat into chainparams.
+ */
+bool ReadGenesisBlock(fs::path genesisPath=GetDataDir(false));
 
 #endif // BITCOIN_CHAINPARAMS_H

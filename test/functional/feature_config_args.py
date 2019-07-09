@@ -69,6 +69,7 @@ class ConfArgsTest(BitcoinTestFramework):
 
         # Ensure command line argument overrides datadir in conf
         os.mkdir(new_data_dir_2)
+        self.writeGenesisBlockToFile(new_data_dir_2)
         self.nodes[0].datadir = new_data_dir_2
         self.start_node(0, ['-datadir='+new_data_dir_2, '-conf='+conf_file, '-wallet=w2'])
         assert os.path.exists(os.path.join(new_data_dir_2, 'regtest', 'wallets', 'w2'))

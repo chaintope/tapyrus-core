@@ -43,6 +43,7 @@ class NULLDUMMYTest(BitcoinTestFramework):
         # This script tests NULLDUMMY activation, which is part of the 'segwit' deployment, so we go through
         # normal segwit activation here (and don't use the default always-on behaviour).
         self.extra_args = [['-whitelist=127.0.0.1', '-vbparams=segwit:0:999999999999', '-addresstype=legacy', "-deprecatedrpc=addwitnessaddress"]]
+        self.mocktime = int(time.time())
 
     def run_test(self):
         self.address = self.nodes[0].getnewaddress()

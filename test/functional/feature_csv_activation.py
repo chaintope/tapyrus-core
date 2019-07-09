@@ -47,7 +47,7 @@ from itertools import product
 from io import BytesIO
 import time
 
-from test_framework.blocktools import create_coinbase, create_block, create_transaction
+from test_framework.blocktools import create_coinbase, create_block, create_transaction, createTestGenesisBlock
 from test_framework.messages import ToHex, CTransaction
 from test_framework.mininode import P2PDataStore
 from test_framework.script import (
@@ -144,6 +144,7 @@ class BIP68_112_113Test(BitcoinTestFramework):
         self.num_nodes = 1
         self.setup_clean_chain = True
         self.extra_args = [['-whitelist=127.0.0.1', '-blockversion=4', '-addresstype=legacy']]
+        self.genesisBlock = createTestGenesisBlock(self.signblockpubkeys, self.signblockthreshold, self.signblockprivkeys, int(time.time()) - 600 * 1000  - 10) # long_past_time - 10 for genesis block
 
     def generate_blocks(self, number, version, test_blocks=None):
         if test_blocks is None:

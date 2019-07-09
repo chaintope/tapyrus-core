@@ -16,7 +16,7 @@ from test_framework.key import CECKey
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, hex_str_to_bytes, bytes_to_hex_str, assert_raises_rpc_error
-from test_framework.blocktools import create_block, create_coinbase, create_tx_with_script
+from test_framework.blocktools import create_block, create_coinbase, create_tx_with_script, createTestGenesisBlock
 from test_framework.messages import ToHex, CTransaction, CTxIn, COutPoint, CTxOut
 from test_framework.mininode import P2PDataStore
 from test_framework.script import CScript, SignatureHash, SIGHASH_ALL
@@ -31,15 +31,13 @@ class SignedBlockchainTest(BitcoinTestFramework):
         self.cKey = []
         self.pubkeys = []
         self.secret = [
-        "0dbbe8e4ae425a6d2687f1a7e3ba17bc98c673636790f1b8ad91193c05875ef1",
-        "c88b703fb08cbea894b6aeff5a544fb92e78a18e19814cd85da83b71f772aa6c",
-        "388c684f0ba1ef5017716adb5d21a053ea8e90277d0868337519f97bede61418",
-        "659cbb0e2411a44db63778987b1e22153c086a95eb6b18bdf89de078917abc63",
-        "82d052c865f5763aad42add438569276c00d3d88a2d062d36b2bae914d58b8c8",
         "aa3680d5d48a8283413f7a108367c7299ca73f553735860a87b08f39395618b7",
-        "0f62d96d6675f32685bbdb8ac13cda7c23436f63efbb9d07700d8669ff12b7c4"]
-
-        signblockpubkeys = "-signblockpubkeys="
+        "82d052c865f5763aad42add438569276c00d3d88a2d062d36b2bae914d58b8c8",
+        "c88b703fb08cbea894b6aeff5a544fb92e78a18e19814cd85da83b71f772aa6c",
+        "659cbb0e2411a44db63778987b1e22153c086a95eb6b18bdf89de078917abc63",
+        "0dbbe8e4ae425a6d2687f1a7e3ba17bc98c673636790f1b8ad91193c05875ef1",
+        "0f62d96d6675f32685bbdb8ac13cda7c23436f63efbb9d07700d8669ff12b7c4",
+        "388c684f0ba1ef5017716adb5d21a053ea8e90277d0868337519f97bede61418"]
 
         for i in range(0, len(self.secret)):
             self.cKey.append(CECKey())
@@ -47,9 +45,15 @@ class SignedBlockchainTest(BitcoinTestFramework):
             self.cKey[i].set_compressed(True)
             self.pubkeys.append(self.cKey[i].get_pubkey())
 
-            signblockpubkeys = signblockpubkeys + bytes_to_hex_str(self.pubkeys[i])
+        signblockpubkeys = []
+        for i in range(0, len(self.secret)):
+            signblockpubkeys.append(bytes_to_hex_str(self.pubkeys[i]))
 
-        self.extra_args = [[signblockpubkeys]]
+        self.signblockpubkeys = ""
+        for i in range(0, len(self.secret)):
+            self.signblockpubkeys += signblockpubkeys[i]
+        self.signblockthreshold = 1
+        self.genesisBlock = createTestGenesisBlock(self.signblockpubkeys, self.signblockthreshold, self.secret, int(time() - 10))
 
     def run_test(self):
         self.test_node = self.nodes[0].add_p2p_connection(P2PDataStore())
@@ -62,9 +66,10 @@ class SignedBlockchainTest(BitcoinTestFramework):
         height = 1
         block_time = int(time())
         block1 = create_block(genesisblock_hash, create_coinbase(height), block_time)
-        block1.solve()
+        block1.rehash()
+        block1.solve(self.secret)
         self.nodes[0].p2p.send_blocks_and_test([block1], self.nodes[0], success=True)
-        self.nodes[0].generate(100)
+        self.nodes[0].generate(100, self.secret)
         previousblock_hash = int(self.nodes[0].getbestblockhash(), 16)
 
 
@@ -72,7 +77,7 @@ class SignedBlockchainTest(BitcoinTestFramework):
         height =  102
         block_time = int(time())
         block = create_block(previousblock_hash, create_coinbase(height), block_time + 100)
-        block.solve()
+        block.rehash()
 
         block_hex = ToHex(block)
         block_hash = block.getsighash()
@@ -83,7 +88,6 @@ class SignedBlockchainTest(BitcoinTestFramework):
         self.log.info("Testing RPC testproposedblock with valid block")
 
         assert_equal(self.nodes[0].testproposedblock(block_hex), True)
-        self.nodes[0].p2p.send_blocks_and_test([block], self.nodes[0], success=True)
 
         self.log.info("Testing RPC combineblocksigs with 3 valid signatures")
         sig0 = self.cKey[0].sign(block_hash)
@@ -98,6 +102,8 @@ class SignedBlockchainTest(BitcoinTestFramework):
             self.cKey[1].verify(block_hash,sig1),
             self.cKey[2].verify(block_hash,sig2)))
 
+        block.solve(self.secret)
+        self.nodes[0].p2p.send_blocks_and_test([block], self.nodes[0], success=True)
         # combineblocksigs only returns true when signatures are appended and enough
         # are included to pass validation
         assert_equal(signedBlock["complete"], True)
@@ -147,7 +153,7 @@ class SignedBlockchainTest(BitcoinTestFramework):
         # create invalid block
         height =  103
         invalid_block = create_block(previousblock_hash, create_coinbase(height), block_time + 110)
-        invalid_block.solve()
+        invalid_block.solve(self.secret)
         assert_raises_rpc_error(-25, "proposal was not based on our best chain", self.nodes[0].testproposedblock, ToHex(invalid_block))
 
         self.log.info("Testing RPC testproposedblock with non standard block")
@@ -166,7 +172,7 @@ class SignedBlockchainTest(BitcoinTestFramework):
         tx.rehash()
         #add non-standard tx to block
         nonstd_block.vtx.append(tx)
-        nonstd_block.solve()
+        nonstd_block.solve(self.secret)
         nonstd_block.hashMerkleRoot = nonstd_block.calc_merkle_root()
         nonstd_block.hashImMerkleRoot = nonstd_block.calc_immutable_merkle_root()
         assert(nonstd_block.is_valid())
