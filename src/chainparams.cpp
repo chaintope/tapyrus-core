@@ -16,16 +16,14 @@
 #include <streams.h>
 #include <fs.h>
 
-std::unique_ptr<MultisigCondition> MultisigCondition::instance(nullptr);
-
-const MultisigCondition& CreateSignedBlockCondition()
+const MultisigCondition CreateSignedBlockCondition()
 {
     const std::string pubkeys = gArgs.GetArg("-signblockpubkeys", "");
     const int threshold = std::stoi(gArgs.GetArg("-signblockthreshold", "0"));
 
     MultisigCondition signedBlockCondition(pubkeys, threshold);
-    assert(signedBlockCondition.getInstance() == MultisigCondition::getInstance());
-    return signedBlockCondition.getInstance();
+
+    return signedBlockCondition;
 }
 
 void MultisigCondition::ParsePubkeyString(std::string source)
@@ -61,35 +59,24 @@ void MultisigCondition::ParsePubkeyString(std::string source)
     std::sort(pubkeys.begin(), pubkeys.end());
 }
 
-MultisigCondition::MultisigCondition(const std::string& pubkeyString, const int threshold)
+MultisigCondition::MultisigCondition(const std::string& pubkeyString, const int threshold): threshold(threshold)
 {
-    if(instance && instance->pubkeys.size() && instance->threshold && (unsigned long)instance->threshold <= instance->pubkeys.size() && instance->pubkeys.size() <= SIGNED_BLOCKS_MAX_KEY_SIZE)
+    if(pubkeys.size() && threshold && (unsigned long)threshold <= pubkeys.size() && pubkeys.size() <= SIGNED_BLOCKS_MAX_KEY_SIZE)
         return;
 
-    if(!instance)
-        instance.reset(new MultisigCondition());
+    ParsePubkeyString(pubkeyString);
 
-    instance->ParsePubkeyString(pubkeyString);
-    instance->threshold = threshold;
-
-    if (!instance->pubkeys.size()) {
+    if (!pubkeys.size()) {
         throw std::runtime_error(strprintf("Invalid or empty publicKeyString"));
     }
 
-    if (instance->pubkeys.size() > SIGNED_BLOCKS_MAX_KEY_SIZE) {
-        throw std::runtime_error(strprintf("Public Keys for Signed Block are up to %d, but passed %d.", SIGNED_BLOCKS_MAX_KEY_SIZE, instance->pubkeys.size()));
+    if (pubkeys.size() > SIGNED_BLOCKS_MAX_KEY_SIZE) {
+        throw std::runtime_error(strprintf("Public Keys for Signed Block are up to %d, but passed %d.", SIGNED_BLOCKS_MAX_KEY_SIZE, pubkeys.size()));
     }
 
-    if (instance->threshold < 1 || (unsigned int)instance->threshold > instance->pubkeys.size()) {
-        throw std::runtime_error(strprintf("Threshold can be between 1 to %d, but passed %d.", instance->pubkeys.size(), instance->threshold));
+    if (threshold < 1 || (unsigned int)threshold > pubkeys.size()) {
+        throw std::runtime_error(strprintf("Threshold can be between 1 to %d, but passed %d.", pubkeys.size(), threshold));
     }
-}
-
-const MultisigCondition& MultisigCondition::getInstance()
-{
-    if(!instance.get())
-        throw std::runtime_error(strprintf("%s: called before CreateChainParams.", __func__));
-    return *instance;
 }
 
 bool CChainParams::ReadGenesisBlock(std::string genesisHex)
@@ -107,7 +94,7 @@ bool CChainParams::ReadGenesisBlock(std::string genesisHex)
     if(!genesis.vtx.size() || genesis.vtx.size() > 1)
         throw std::runtime_error("ReadGenesisBlock: invalid genesis block");
 
-    if(!genesis.proof.size() || genesis.proof.size() < MultisigCondition::getInstance().getThreshold())
+    if(!genesis.proof.size() || genesis.proof.size() < signedBlocksCondition.threshold)
         throw std::runtime_error("ReadGenesisBlock: invalid genesis block");
 
     CTransactionRef genesisCoinbase(genesis.vtx[0]);
@@ -122,6 +109,11 @@ bool CChainParams::ReadGenesisBlock(std::string genesisHex)
         throw std::runtime_error("ReadGenesisBlock: invalid MerkleRoot in genesis block");
 
     consensus.hashGenesisBlock = genesis.GetHash();
+    return true;
+}
+
+bool CChainParams::SetSignedBlocksCondition(const MultisigCondition condition) {
+    signedBlocksCondition = condition;
     return true;
 }
 
@@ -417,9 +409,9 @@ void UpdateVersionBitsParameters(Consensus::DeploymentPos d, int64_t nStartTime,
     globalChainParams->UpdateVersionBitsParameters(d, nStartTime, nTimeout);
 }
 
-bool SetSignedBlocksCondition()
+bool SetSignedBlocksCondition(const MultisigCondition condition)
 {
-    CreateSignedBlockCondition();
+    globalChainParams->SetSignedBlocksCondition(condition);
 }
 
 bool ReadGenesisBlock(fs::path genesisPath)

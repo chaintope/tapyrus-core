@@ -18,6 +18,7 @@
 #include <memory>
 
 #include <boost/thread.hpp>
+#include <test/test_keys_helper.h>
 
 extern uint256 insecure_rand_seed;
 extern FastRandomContext insecure_rand_ctx;
@@ -127,8 +128,11 @@ struct TestMemPoolEntryHelper
 CBlock getBlock();
 std::string getSignedTestBlock();
 const CProof createSignedBlockProof(CBlock &block, int count);
-CBlock createTestGenesisBlock();
-std::string getTestGenesisBlockHex();
+MultisigCondition getMultisigCondition();
+CBlock createTestGenesisBlock(const MultisigCondition& signedBlocksCondition=getMultisigCondition(),
+                              const std::vector<CKey>& validPrivateKeys=getValidPrivateKeys(15));
+std::string getTestGenesisBlockHex(const MultisigCondition& signedBlockCondition=getMultisigCondition(),
+                                   const std::vector<CKey>& validPrivateKeys=getValidPrivateKeys(15));
 void writeTestGenesisBlockToFile(fs::path genesisPath);
 
 // define an implicit conversion here so that uint256 may be used directly in BOOST_CHECK_*

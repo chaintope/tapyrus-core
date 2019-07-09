@@ -3076,17 +3076,17 @@ static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,
 
     const MultisigCondition& signedBlocksCondition = Params().GetSignedBlocksCondition();
 
-    if(proofSize > signedBlocksCondition.getPubkeys().size())
+    if(proofSize > signedBlocksCondition.pubkeys.size())
         return state.Error("Proof was longer than expected");
 
     const uint256 blockHash = block.GetHashForSign();
-    std::vector<CPubKey>::const_iterator pubkeyIter = signedBlocksCondition.getPubkeys().begin();
+    std::vector<CPubKey>::const_iterator pubkeyIter = signedBlocksCondition.pubkeys.begin();
     CProof::const_iterator proofIter = block.proof.begin();
     /*
     iterate over signatures and make sure each one verifies with one of the public keys.
     order of signatures is the order of the public keys, so verification is in one loop
     */
-    while(proofIter != block.proof.end() && pubkeyIter != signedBlocksCondition.getPubkeys().end())
+    while(proofIter != block.proof.end() && pubkeyIter != signedBlocksCondition.pubkeys.end())
     {
         //verify signature
         bool match = pubkeyIter->Verify(blockHash, *proofIter);

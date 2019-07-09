@@ -70,7 +70,7 @@ bool CBlockHeader::AbsorbBlockProof(CProof blockproof, const MultisigCondition& 
         return false;
 
     //evaluate and sort blockProof signatures in the order of their corresponding public keys
-    for(auto &pubkey: signedBlocksCondition.getPubkeys())
+    for(auto &pubkey: signedBlocksCondition.pubkeys)
     {
         CProof::iterator iter = blockproof.begin();
         for (; iter != blockproof.end(); iter++)
