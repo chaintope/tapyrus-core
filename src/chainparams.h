@@ -43,40 +43,36 @@ struct ChainTxData {
     double dTxRate;   //!< estimated number of transactions per second after that timestamp
 };
 
-/* MultisigCondition:
-singleton signedblock condition
-instance can be accessed using
-MultisigCondition::getInstance() or CChainParams::getSignedBlocksCondition()
+/**
+ * MultisigCondition
 */
 struct MultisigCondition {
+    MultisigCondition() {
+        SetNull();
+    };
     MultisigCondition(const std::string& pubkeyString, const int threshold);
-    static const MultisigCondition& getInstance();
     void ParsePubkeyString(std::string source);
     bool operator==(const MultisigCondition& rhs) const {
-        return (instance && instance->pubkeys == rhs.pubkeys && instance->threshold == rhs.threshold);
+        return (pubkeys == rhs.pubkeys && threshold == rhs.threshold);
     }
 
-    uint8_t getThreshold() const{
-        return instance->threshold;
+    void SetNull()
+    {
+        pubkeys.clear();
+        threshold = 0;
     }
-    const std::vector<CPubKey>& getPubkeys() const{
-        return instance->pubkeys;
-    }
-private:
-    static std::unique_ptr<MultisigCondition> instance;
 
     std::vector<CPubKey> pubkeys;
     uint8_t threshold;
-
-    MultisigCondition() {}
     friend struct ChainParamsTestingSetup;
 };
+
 /**
  * Creates and returns a const MultisigCondition&.
  * @returns a MultisigCondition using the arguments passed on command line.
  * @throws a std::runtime_error if the arguments signblockpubkeys or signblockthreshold are incorrect
  */
-const MultisigCondition& CreateSignedBlockCondition();
+const MultisigCondition CreateSignedBlockCondition();
 
 /**
  * CChainParams defines various tweakable parameters of a given instance of the
@@ -124,8 +120,9 @@ public:
     const ChainTxData& TxData() const { return chainTxData; }
     void UpdateVersionBitsParameters(Consensus::DeploymentPos d, int64_t nStartTime, int64_t nTimeout);
     bool ReadGenesisBlock(std::string genesisHex);
+    bool SetSignedBlocksCondition(const MultisigCondition condition);
 protected:
-    CChainParams() : signedBlocksCondition(CreateSignedBlockCondition())  {}
+    CChainParams() {}
 
     Consensus::Params consensus;
     CMessageHeader::MessageStartChars pchMessageStart;
@@ -135,7 +132,7 @@ protected:
     std::vector<unsigned char> base58Prefixes[MAX_BASE58_TYPES];
     std::string bech32_hrp;
     std::string strNetworkID;
-    const MultisigCondition& signedBlocksCondition;
+    MultisigCondition signedBlocksCondition;
     CBlock genesis;
     std::vector<SeedSpec6> vFixedSeeds;
     bool fDefaultConsistencyChecks;
@@ -173,5 +170,10 @@ void UpdateVersionBitsParameters(Consensus::DeploymentPos d, int64_t nStartTime,
  * Reads the genesis block from genesis.dat into chainparams.
  */
 bool ReadGenesisBlock(fs::path genesisPath=GetDataDir(false));
+
+/**
+ * Set signed-blocks Parameters from arguments.
+ */
+bool SetSignedBlocksCondition(const MultisigCondition condition = CreateSignedBlockCondition());
 
 #endif // BITCOIN_CHAINPARAMS_H

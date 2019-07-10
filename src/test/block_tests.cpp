@@ -190,12 +190,12 @@ BOOST_AUTO_TEST_CASE(AbsorbBlockProof_ordering_test) {
     //check whether signatures are ordered according to the order of public keys
     //map: public key index = signature index
     std::map<int, int> indexMap;
-    for(int i = 0, size = signedBlocksCondition.getPubkeys().size(); i < size; i++ ) //public keys
+    for(int i = 0, size = signedBlocksCondition.pubkeys.size(); i < size; i++ ) //public keys
     {
         for (int j = 0; j < 3; j++ ) //signatures
         {
             //verify signature
-            if (signedBlocksCondition.getPubkeys()[i].Verify(blockHash, blockProof[j]))
+            if (signedBlocksCondition.pubkeys[i].Verify(blockHash, blockProof[j]))
             {
                 indexMap[i] = j;
                 break;
@@ -229,7 +229,7 @@ BOOST_AUTO_TEST_CASE(AbsorbBlockProof_ordering_test) {
 BOOST_AUTO_TEST_CASE(create_genesis_block_default)
 {
     MultisigCondition signedBlockCondition(combinedPubkeyString(15), 10);
-    CBlock genesis = createTestGenesisBlock();
+    CBlock genesis = createTestGenesisBlock(signedBlockCondition, getValidPrivateKeys(15));
 
     BOOST_CHECK_EQUAL(genesis.vtx.size(), 1);
     BOOST_CHECK_EQUAL(genesis.nVersion, 1);
@@ -250,14 +250,15 @@ BOOST_AUTO_TEST_CASE(create_genesis_block_default)
     CScript scriptPubKey = genesis.vtx[0]->vout[0].scriptPubKey;
     BOOST_CHECK_EQUAL(HexStr(scriptPubKey.begin(), scriptPubKey.end()), "76a914c1819a5ddd545de01ed901e98a65ac905b8c389988ac");
 
-    BOOST_CHECK_EQUAL(genesis.proof.size(), MultisigCondition::getInstance().getThreshold());
+    BOOST_CHECK_EQUAL(genesis.proof.size(), signedBlockCondition.threshold);
 }
 
 BOOST_AUTO_TEST_CASE(create_genesis_block_one_publickey)
 {
-    MultisigCondition condition("0296da90ddaedb8ca76561fc5660c40be68c72415d89e91ed3de73720028533840", 1);
+    MultisigCondition condition(ValidPubKeyStrings.at(0), 1);
     auto chainParams = CreateChainParams(CBaseChainParams::MAIN);
-    chainParams->ReadGenesisBlock(getTestGenesisBlockHex());
+    chainParams->SetSignedBlocksCondition(condition);
+    chainParams->ReadGenesisBlock(getTestGenesisBlockHex(condition, getValidPrivateKeys(1)));
 
     BOOST_CHECK_EQUAL(chainParams->GenesisBlock().vtx.size(), 1);
     BOOST_CHECK_EQUAL(chainParams->GenesisBlock().nVersion, 1);
@@ -270,20 +271,20 @@ BOOST_AUTO_TEST_CASE(create_genesis_block_one_publickey)
 
     BOOST_CHECK_EQUAL(chainParams->GenesisBlock().vtx[0]->vin.size(), 1);
     CScript scriptSig = chainParams->GenesisBlock().vtx[0]->vin[0].scriptSig;
-    BOOST_CHECK_EQUAL(HexStr(scriptSig.begin(), scriptSig.end()), "010a2102d7bbe714a08f73b17a3e5dcbca523470e9de5ee6c92f396beb954b8a2cdf4388");
+    BOOST_CHECK_EQUAL(HexStr(scriptSig.begin(), scriptSig.end()), "01012103af80b90d25145da28c583359beb47b21796b2fe1a23c1511e443e7a64dfdb27d");
 
     BOOST_CHECK_EQUAL(chainParams->GenesisBlock().vtx[0]->vout.size(), 1);
     BOOST_CHECK_EQUAL(chainParams->GenesisBlock().vtx[0]->vout[0].nValue, 50 * COIN);
     CScript scriptPubKey = chainParams->GenesisBlock().vtx[0]->vout[0].scriptPubKey;
     BOOST_CHECK_EQUAL(HexStr(scriptPubKey.begin(), scriptPubKey.end()),
-    "76a914c1819a5ddd545de01ed901e98a65ac905b8c389988ac");
+    "76a91445d405b9ed450fec89044f9b7a99a4ef6fe2cd3f88ac");
 
-    BOOST_CHECK_EQUAL(chainParams->GenesisBlock().proof.size(), MultisigCondition::getInstance().getThreshold());
+    BOOST_CHECK_EQUAL(chainParams->GenesisBlock().proof.size(), condition.threshold);
     BOOST_CHECK_EQUAL(chainParams->GenesisBlock().GetHash(), chainParams->GetConsensus().hashGenesisBlock);
 
     //verify signature
     const uint256 blockHash = chainParams->GenesisBlock().GetHashForSign();
-    std::vector<CPubKey>::const_iterator pubkeyIter = condition.getPubkeys().begin();
+    std::vector<CPubKey>::const_iterator pubkeyIter = condition.pubkeys.begin();
 
     BOOST_CHECK(pubkeyIter->Verify(blockHash, chainParams->GenesisBlock().proof[0]));
 }

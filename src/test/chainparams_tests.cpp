@@ -3,7 +3,6 @@
 //
 
 #include <chainparams.h>
-#include <chainparams.cpp>
 #include <crypto/sha256.h>
 #include <validation.h>
 #include <script/sigcache.h>
@@ -33,16 +32,12 @@ struct ChainParamsTestingSetup{
         InitScriptExecutionCache();
         fCheckBlockIndex = true;
         noui_connect();
-        if(MultisigCondition::instance)
-            MultisigCondition::instance.reset();
     }
 
     ~ChainParamsTestingSetup()
     {
         fs::remove_all(m_path_root);
         ECC_Stop();
-        if(MultisigCondition::instance)
-            MultisigCondition::instance.reset();
     }
 
     fs::path SetDataDir(const std::string& name)
@@ -78,15 +73,11 @@ BOOST_AUTO_TEST_CASE(parse_pubkey_string_when_passed_valid_15_keys)
     MultisigCondition signedBlockCondition(str, 10);
 
     //using local object
-    BOOST_CHECK_EQUAL(signedBlockCondition.getPubkeys().size(), 15);
-    BOOST_CHECK_EQUAL(signedBlockCondition.getThreshold(), 10);
+    BOOST_CHECK_EQUAL(signedBlockCondition.pubkeys.size(), 15);
+    BOOST_CHECK_EQUAL(signedBlockCondition.threshold, 10);
 
-    //using global instance
-    BOOST_CHECK_EQUAL(MultisigCondition::getInstance().getPubkeys().size(), 15);
-    BOOST_CHECK_EQUAL(signedBlockCondition.getThreshold(), 10);
-
-    for(unsigned int i = 1; i < MultisigCondition::getInstance().getPubkeys().size(); i++) {
-        BOOST_CHECK(MultisigCondition::getInstance().getPubkeys().at(i - 1) < MultisigCondition::getInstance().getPubkeys().at(i));
+    for(unsigned int i = 1; i < signedBlockCondition.pubkeys.size(); i++) {
+        BOOST_CHECK(signedBlockCondition.pubkeys.at(i - 1) < signedBlockCondition.pubkeys.at(i));
     }
 }
 
@@ -109,13 +100,14 @@ BOOST_AUTO_TEST_CASE(parse_pubkey_string_when_passed_keys_include_invalid)
 
 BOOST_AUTO_TEST_CASE(create_cchainparams_gargs)
 {
+    SelectParams(CBaseChainParams::MAIN);
     gArgs.ForceSetArg("-signblockpubkeys", combinedPubkeyString(15));
     gArgs.ForceSetArg("-signblockthreshold", "10");
 
-    std::unique_ptr<CChainParams> params = CreateChainParams(CBaseChainParams::MAIN);
+    SetSignedBlocksCondition();
 
-    BOOST_CHECK_EQUAL(params->GetSignedBlocksCondition().getPubkeys().size(), 15);
-    BOOST_CHECK_EQUAL(params->GetSignedBlocksCondition().getThreshold(), 10);
+    BOOST_CHECK_EQUAL(Params().GetSignedBlocksCondition().pubkeys.size(), 15);
+    BOOST_CHECK_EQUAL(Params().GetSignedBlocksCondition().threshold, 10);
 
     // When pubkey is not given.
     gArgs.ForceSetArg("-signblockpubkeys", "");
@@ -128,47 +120,52 @@ BOOST_AUTO_TEST_CASE(create_cchainparams_gargs)
 
 BOOST_AUTO_TEST_CASE(create_cchainparams_gargs_toomany)
 {
+    SelectParams(CBaseChainParams::MAIN);
     // When too much pubkeys are given.
     gArgs.ForceSetArg("-signblockpubkeys", combinedPubkeyString(16));
     gArgs.ForceSetArg("-signblockthreshold", "10");
 
-    BOOST_CHECK_EXCEPTION(CreateChainParams(CBaseChainParams::MAIN), std::runtime_error, [] (const std::runtime_error& ex) {
+    BOOST_CHECK_EXCEPTION(SetSignedBlocksCondition(), std::runtime_error, [] (const std::runtime_error& ex) {
         BOOST_CHECK_EQUAL(ex.what(), "Public Keys for Signed Block are up to 15, but passed 16.");
         return true;
     });
 
     gArgs.ForceSetArg("-signblockpubkeys", combinedPubkeyString(15));
-    BOOST_CHECK_NO_THROW(CreateChainParams(CBaseChainParams::MAIN));
+    BOOST_CHECK_NO_THROW(SetSignedBlocksCondition());
 }
 
 BOOST_AUTO_TEST_CASE(create_cchainparams_gargs_lowthreshold)
 {
+    SelectParams(CBaseChainParams::MAIN);
     // When too much pubkeys are given.
     gArgs.ForceSetArg("-signblockpubkeys", combinedPubkeyString(15));
     gArgs.ForceSetArg("-signblockthreshold", "0");
 
-    BOOST_CHECK_EXCEPTION(CreateChainParams(CBaseChainParams::MAIN), std::runtime_error, [] (const std::runtime_error& ex) {
+    BOOST_CHECK_EXCEPTION(SetSignedBlocksCondition(), std::runtime_error, [] (const std::runtime_error& ex) {
         BOOST_CHECK_EQUAL(ex.what(), "Threshold can be between 1 to 15, but passed 0.");
         return true;
     });
 
     gArgs.ForceSetArg("-signblockthreshold", "10");
-    BOOST_CHECK_NO_THROW(CreateChainParams(CBaseChainParams::MAIN));
+    BOOST_CHECK_NO_THROW(SetSignedBlocksCondition());
 }
 
 BOOST_AUTO_TEST_CASE(create_cchainparams_gargs_highthreshold)
 {
+    SelectParams(CBaseChainParams::MAIN);
     // When too much pubkeys are given.
     gArgs.ForceSetArg("-signblockpubkeys", combinedPubkeyString(15));
     gArgs.ForceSetArg("-signblockthreshold", "16");
 
-    BOOST_CHECK_EXCEPTION(CreateChainParams(CBaseChainParams::MAIN), std::runtime_error, [] (const std::runtime_error& ex) {
+    BOOST_CHECK_EXCEPTION(SetSignedBlocksCondition(), std::runtime_error, [] (const std::runtime_error& ex) {
         BOOST_CHECK_EQUAL(ex.what(), "Threshold can be between 1 to 15, but passed 16.");
         return true;
     });
 
     gArgs.ForceSetArg("-signblockthreshold", "10");
-    BOOST_CHECK_NO_THROW(CreateChainParams(CBaseChainParams::MAIN));
+
+
+    BOOST_CHECK_NO_THROW(SetSignedBlocksCondition());
 }
 
 BOOST_AUTO_TEST_CASE(create_cchainparams_instance)
@@ -176,13 +173,11 @@ BOOST_AUTO_TEST_CASE(create_cchainparams_instance)
     gArgs.ForceSetArg("-signblockpubkeys", combinedPubkeyString(15));
     gArgs.ForceSetArg("-signblockthreshold", "10");
 
-    std::unique_ptr<CChainParams>  params = CreateChainParams(CBaseChainParams::MAIN);
+    SelectParams(CBaseChainParams::MAIN);
+    SetSignedBlocksCondition();
 
-    BOOST_CHECK_EQUAL(MultisigCondition::getInstance().getPubkeys().size(), 15);
-    BOOST_CHECK_EQUAL(MultisigCondition::getInstance().getThreshold(), 10);
-
-    BOOST_CHECK_EQUAL(params->GetSignedBlocksCondition().getPubkeys().size(), 15);
-    BOOST_CHECK_EQUAL(params->GetSignedBlocksCondition().getThreshold(), 10);
+    BOOST_CHECK_EQUAL(Params().GetSignedBlocksCondition().pubkeys.size(), 15);
+    BOOST_CHECK_EQUAL(Params().GetSignedBlocksCondition().threshold, 10);
 }
 
 BOOST_AUTO_TEST_CASE(create_cchainparams_empty)

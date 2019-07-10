@@ -19,6 +19,7 @@
 #include <utilstrencodings.h>
 
 #include <test/test_bitcoin.h>
+#include <test/test_keys_helper.h>
 
 #include <memory>
 
@@ -138,8 +139,8 @@ static void CreateBlocks(const CChainParams &chainparams,
             pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
             pblock->hashImMerkleRoot = BlockMerkleRoot(*pblock, nullptr, true);
             //blpck proof
-            pblock->AbsorbBlockProof(createSignedBlockProof(*pblock, signedBlocksCondition.getThreshold()), signedBlocksCondition);
-            BOOST_CHECK_EQUAL(pblock->proof.size(), signedBlocksCondition.getThreshold());
+            pblock->AbsorbBlockProof(createSignedBlockProof(*pblock, signedBlocksCondition.threshold), signedBlocksCondition);
+            BOOST_CHECK_EQUAL(pblock->proof.size(), signedBlocksCondition.threshold);
         }
         std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(*pblock);
         BOOST_CHECK(ProcessNewBlock(chainparams, shared_pblock, true, nullptr));
@@ -153,8 +154,8 @@ static void CreateBlocks(const CChainParams &chainparams,
     BOOST_CHECK_EQUAL(pblocktemplate->block.vtx[0]->vin[0].prevout.n, chainActive.Height());
     BOOST_CHECK(pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey));
 
-    pblocktemplate->block.AbsorbBlockProof(createSignedBlockProof(pblocktemplate->block, signedBlocksCondition.getThreshold()), signedBlocksCondition);
-    BOOST_CHECK_EQUAL(pblocktemplate->block.proof.size(),signedBlocksCondition.getThreshold());
+    pblocktemplate->block.AbsorbBlockProof(createSignedBlockProof(pblocktemplate->block, signedBlocksCondition.threshold), signedBlocksCondition);
+    BOOST_CHECK_EQUAL(pblocktemplate->block.proof.size(),signedBlocksCondition.threshold);
 
     BOOST_CHECK_EQUAL(pblocktemplate->block.vtx[0]->vin[0].prevout.n, chainActive.Height()+1); //+1 as the new block is not added to active chain yet
 }
@@ -267,9 +268,11 @@ static void TestPackageSelection(const CChainParams& chainparams, const std::vec
 // NOTE: These tests rely on CreateNewBlock doing its own self-validation!
 BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
 {
+    MultisigCondition signedBlocksCondition { getMultisigCondition() };
     // Note that by default, these tests run with size accounting enabled.
     auto chainParams = CreateChainParams(CBaseChainParams::MAIN);
-    chainParams->ReadGenesisBlock(getTestGenesisBlockHex());
+    chainParams->SetSignedBlocksCondition(signedBlocksCondition);
+    chainParams->ReadGenesisBlock(getTestGenesisBlockHex(signedBlocksCondition));
     const CChainParams& chainparams = *chainParams;
     std::unique_ptr<CBlockTemplate> pblocktemplate;
     int baseheight = 0;
@@ -562,8 +565,10 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
 }
 
 BOOST_AUTO_TEST_CASE(CreateNewBlock_required_age_in_secs) {
+    MultisigCondition signedBlocksCondition { getMultisigCondition() };
     auto chainParams = CreateChainParams(CBaseChainParams::MAIN);
-    chainParams->ReadGenesisBlock(getTestGenesisBlockHex());
+    chainParams->SetSignedBlocksCondition(signedBlocksCondition);
+    chainParams->ReadGenesisBlock(getTestGenesisBlockHex(signedBlocksCondition));
     const CChainParams& chainparams = *chainParams;
     std::unique_ptr<CBlockTemplate> pblocktemplate;
     int baseheight = 0;

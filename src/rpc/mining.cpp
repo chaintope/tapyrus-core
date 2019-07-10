@@ -962,7 +962,7 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMS, "Signature list was empty");
 
     const MultisigCondition& signedBlocksCondition = Params().GetSignedBlocksCondition();
-    if(signedBlocksCondition.getPubkeys().size() < signatures.size())
+    if(signedBlocksCondition.pubkeys.size() < signatures.size())
         throw JSONRPCError(RPC_INVALID_PARAMS, "Too many signatures");
 
     std::string warning;
@@ -1007,7 +1007,7 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
 
     result.push_back(Pair("hex", HexStr(ssBlock.begin(), ssBlock.end())));
     result.push_back(Pair("warning", warning));
-    result.push_back(Pair("complete", (status && (block.proof.size() >= signedBlocksCondition.getThreshold()))? true : false));
+    result.push_back(Pair("complete", (status && (block.proof.size() >= signedBlocksCondition.threshold))? true : false));
 
     return result;
 }
