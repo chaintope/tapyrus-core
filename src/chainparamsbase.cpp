@@ -12,6 +12,7 @@
 #include <assert.h>
 
 const std::string CBaseChainParams::MAIN = "main";
+const std::string CBaseChainParams::PARADIUM = "paradium";
 const std::string CBaseChainParams::TESTNET = "test";
 const std::string CBaseChainParams::REGTEST = "regtest";
 
@@ -20,6 +21,7 @@ void SetupChainParamsBaseOptions()
     gArgs.AddArg("-regtest", "Enter regression test mode, which uses a special chain in which blocks can be solved instantly. "
                                    "This is intended for regression testing tools and app development.", true, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-testnet", "Use the test chain", false, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-paradium", "Use the paradium chain", false, OptionsCategory::CHAINPARAMS);
 }
 
 static std::unique_ptr<CBaseChainParams> globalChainBaseParams;
@@ -34,6 +36,8 @@ std::unique_ptr<CBaseChainParams> CreateBaseChainParams(const std::string& chain
 {
     if (chain == CBaseChainParams::MAIN)
         return MakeUnique<CBaseChainParams>("", 2377); // 3rd prime from 2357.
+    else if (chain == CBaseChainParams::PARADIUM)
+        return MakeUnique<CBaseChainParams>("paradium", 2377);
     else if (chain == CBaseChainParams::TESTNET)
         return MakeUnique<CBaseChainParams>("testnet3", 12377);
     else if (chain == CBaseChainParams::REGTEST)

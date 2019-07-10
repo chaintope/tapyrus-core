@@ -966,13 +966,16 @@ std::string ArgsManager::GetChainName() const
 {
     bool fRegTest = ArgsManagerHelper::GetNetBoolArg(*this, "-regtest");
     bool fTestNet = ArgsManagerHelper::GetNetBoolArg(*this, "-testnet");
+    bool fParadium = ArgsManagerHelper::GetNetBoolArg(*this, "-paradium");
 
     if (fTestNet && fRegTest)
-        throw std::runtime_error("Invalid combination of -regtest and -testnet.");
+        throw std::runtime_error("Invalid combination of -paradium, -regtest and -testnet.");
     if (fRegTest)
         return CBaseChainParams::REGTEST;
     if (fTestNet)
         return CBaseChainParams::TESTNET;
+    if (fParadium)
+        return CBaseChainParams::PARADIUM;
     return CBaseChainParams::MAIN;
 }
 
