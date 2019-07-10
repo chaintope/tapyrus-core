@@ -43,13 +43,14 @@ from io import BytesIO
 import struct
 from test_framework.blocktools import create_coinbase, create_block, create_transaction, create_tx_with_script, create_witness_tx, add_witness_commitment
 from test_framework.messages import msg_block, hash256, CTransaction, ToHex, FromHex, CTxIn, CTxOut, COutPoint
-from test_framework.mininode import P2PInterface
+from test_framework.mininode import P2PInterface, mininode_lock
 from test_framework.script import CScript, hash160, OP_1, OP_DROP, OP_HASH160, OP_EQUAL, OP_TRUE, SignatureHash, SIGHASH_ALL
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, bytes_to_hex_str, hex_str_to_bytes, wait_until
 from test_framework.key import CECKey
 
 CHAIN_HEIGHT = 111
+REJECT_INVALID = 16
 
 def unDERify(tx):
     """
@@ -97,6 +98,7 @@ class SerializationTest(BitcoinTestFramework):
         self.log.info("Test using a P2PKH transaction")
         spendtx = create_transaction(self.nodes[0], self.coinbase_txids[0], self.nodeaddress, amount=10)
         spendtx.rehash()
+        copy_spendTx = CTransaction(spendtx)
 
         #cache hashes
         hash = spendtx.hash
@@ -127,8 +129,7 @@ class SerializationTest(BitcoinTestFramework):
         assert_equal(spendtx.serialize_with_witness(with_scriptsig=True), spendtx.serialize_without_witness(with_scriptsig=True))
         assert_equal(spendtx.serialize_with_witness(with_scriptsig=False), spendtx.serialize_without_witness(with_scriptsig=False))
 
-        self.log.info("Create block with only non-DER signature P2PKH transaction")
-
+        #Create block with only non-DER signature P2PKH transaction
         tip = self.nodes[0].getbestblockhash()
         block_time = self.nodes[0].getblockheader(tip)['mediantime'] + 1
         block = create_block(int(tip, 16), create_coinbase(CHAIN_HEIGHT + 1), block_time)
@@ -144,9 +145,28 @@ class SerializationTest(BitcoinTestFramework):
         assert_equal(block.serialize(with_witness=True), block.serialize(with_witness=False))
         assert_equal(block.serialize(with_witness=True), block.serialize(with_witness=False, with_scriptsig=True))
 
+        self.log.info("Reject block with non-DER signature")
+        self.nodes[0].p2p.send_and_ping(msg_block(block))
+        assert_equal(self.nodes[0].getbestblockhash(), tip)
+        
+        wait_until(lambda: "reject" in self.nodes[0].p2p.last_message.keys(), lock=mininode_lock)
+        with mininode_lock:
+            assert_equal(self.nodes[0].p2p.last_message["reject"].code, REJECT_INVALID)
+            assert_equal(self.nodes[0].p2p.last_message["reject"].data, block.sha256)
+            assert_equal(self.nodes[0].p2p.last_message["reject"].reason, b'block-validation-failed')
+
+        self.log.info("Accept block with DER signature")
+        #recreate block with DER sig transaction
+        block = create_block(int(tip, 16), create_coinbase(CHAIN_HEIGHT + 1), block_time)
+        block.nVersion = 2
+        block.vtx.append(copy_spendTx)
+        block.hashMerkleRoot = block.calc_merkle_root()
+        block.hashImMerkleRoot = block.calc_immutable_merkle_root()
+        block.rehash()
+        block.solve(self.signblockprivkeys)
+
         self.nodes[0].p2p.send_and_ping(msg_block(block))
         assert_equal(self.nodes[0].getbestblockhash(), block.hash)
-        
 
         ##  P2SH transaction
         ########################
@@ -163,6 +183,7 @@ class SerializationTest(BitcoinTestFramework):
         spendtx_raw = self.nodes[0].signrawtransactionwithwallet(ToHex(tx))["hex"]
         spendtx = FromHex(spendtx, spendtx_raw)
         spendtx.rehash()
+        copy_spendTx = CTransaction(spendtx)
 
         #cache hashes
         hash = spendtx.hash
@@ -194,8 +215,7 @@ class SerializationTest(BitcoinTestFramework):
         assert_equal(spendtx.serialize_with_witness(with_scriptsig=True), spendtx.serialize_without_witness(with_scriptsig=True))
         assert_equal(spendtx.serialize_with_witness(with_scriptsig=False), spendtx.serialize_without_witness(with_scriptsig=False))
 
-        self.log.info("Create block with only non-DER signature P2SH transaction")
-
+        #Create block with only non-DER signature P2SH transaction
         tip = self.nodes[0].getbestblockhash()
         block_time = self.nodes[0].getblockheader(tip)['mediantime'] + 1
         block = create_block(int(tip, 16), create_coinbase(CHAIN_HEIGHT + 2), block_time)
@@ -210,6 +230,26 @@ class SerializationTest(BitcoinTestFramework):
         assert_equal(block.serialize(with_witness=True), block.serialize())
         assert_equal(block.serialize(with_witness=True), block.serialize(with_witness=False))
         assert_equal(block.serialize(with_witness=True), block.serialize(with_witness=True, with_scriptsig=True))
+
+        self.log.info("Reject block with non-DER signature")
+        self.nodes[0].p2p.send_and_ping(msg_block(block))
+        assert_equal(self.nodes[0].getbestblockhash(), tip)
+        
+        wait_until(lambda: "reject" in self.nodes[0].p2p.last_message.keys(), lock=mininode_lock)
+        with mininode_lock:
+            assert_equal(self.nodes[0].p2p.last_message["reject"].code, REJECT_INVALID)
+            assert_equal(self.nodes[0].p2p.last_message["reject"].data, block.sha256)
+            assert_equal(self.nodes[0].p2p.last_message["reject"].reason, b'block-validation-failed')
+
+        self.log.info("Accept block with DER signature")
+        #recreate block with DER sig transaction
+        block = create_block(int(tip, 16), create_coinbase(CHAIN_HEIGHT + 2), block_time)
+        block.nVersion = 2
+        block.vtx.append(copy_spendTx)
+        block.hashMerkleRoot = block.calc_merkle_root()
+        block.hashImMerkleRoot = block.calc_immutable_merkle_root()
+        block.rehash()
+        block.solve(self.signblockprivkeys)
 
         self.nodes[0].p2p.send_and_ping(msg_block(block))
         assert_equal(self.nodes[0].getbestblockhash(), block.hash)
@@ -265,8 +305,7 @@ class SerializationTest(BitcoinTestFramework):
         assert_equal(spendtx.serialize_with_witness(with_scriptsig=True), spendtx.serialize_without_witness(with_scriptsig=True))
         assert_equal(spendtx.serialize_with_witness(with_scriptsig=False), spendtx.serialize_without_witness(with_scriptsig=False))
 
-        self.log.info("Create block with only non-DER signature P2SH redeem transaction")
-
+        #Create block with only non-DER signature P2SH redeem transaction
         tip = self.nodes[0].getbestblockhash()
         block_time = self.nodes[0].getblockheader(tip)['mediantime'] + 1
         block = create_block(int(tip, 16), create_coinbase(CHAIN_HEIGHT + 3), block_time)
@@ -282,6 +321,7 @@ class SerializationTest(BitcoinTestFramework):
         assert_equal(block.serialize(with_witness=True), block.serialize(with_witness=False))
         assert_equal(block.serialize(with_witness=True), block.serialize(with_witness=True, with_scriptsig=True))
 
+        self.log.info("Accept block with P2SH redeem transaction")
         self.nodes[0].p2p.send_and_ping(msg_block(block))
         assert_equal(self.nodes[0].getbestblockhash(), block.hash)
 
@@ -352,9 +392,10 @@ class SerializationTest(BitcoinTestFramework):
         assert_not_equal(block.serialize(with_witness=True), block.serialize(with_witness=False))
         assert_equal(block.serialize(with_witness=True), block.serialize(with_witness=True, with_scriptsig=True))
 
+        self.log.info("Accept block with P2WPKH transaction")
         self.nodes[0].submitblock(bytes_to_hex_str(block.serialize(with_witness=True)))
         assert_equal(self.nodes[0].getbestblockhash(), block.hash)
-        
+
         ##  P2WSH transaction
         ########################
         self.log.info("Test using P2WSH transaction ")
@@ -397,8 +438,7 @@ class SerializationTest(BitcoinTestFramework):
         assert_equal(spendtx.serialize_with_witness(with_scriptsig=True), spendtx.serialize_without_witness(with_scriptsig=True))
         assert_not_equal(spendtx.serialize_with_witness(with_scriptsig=False), spendtx.serialize_without_witness(with_scriptsig=True))
 
-        self.log.info("Create block with only non-DER signature P2WSH transaction")
-
+        #Create block with only non-DER signature P2WSH transaction
         spendtxStr = self.nodes[0].signrawtransactionwithwallet(spendtxStr)
         assert("errors" not in spendtxStr or len(["errors"]) == 0)
         spendtxStr = spendtxStr["hex"]
@@ -422,6 +462,7 @@ class SerializationTest(BitcoinTestFramework):
         assert_not_equal(block.serialize(with_witness=True), block.serialize(with_witness=False))
         assert_equal(block.serialize(with_witness=True), block.serialize(with_witness=True, with_scriptsig=True))
 
+        self.log.info("Accept block with P2WSH transaction")
         self.nodes[0].submitblock(bytes_to_hex_str(block.serialize(with_witness=True)))
         assert_equal(self.nodes[0].getbestblockhash(), block.hash)
 
@@ -468,8 +509,7 @@ class SerializationTest(BitcoinTestFramework):
         assert_equal(spendtx.serialize_with_witness(with_scriptsig=True), spendtx.serialize_without_witness(with_scriptsig=True))
         assert_equal(spendtx.serialize_with_witness(with_scriptsig=False), spendtx.serialize_without_witness(with_scriptsig=False))
 
-        self.log.info("Create block with only non-DER signature p2sh_p2wpkh transaction")
-
+        #Create block with only non-DER signature p2sh_p2wpkh transaction
         spendtxStr = self.nodes[0].signrawtransactionwithwallet(spendtxStr)
         assert("errors" not in spendtxStr or len(["errors"]) == 0)
         spendtxStr = spendtxStr["hex"]
@@ -493,6 +533,7 @@ class SerializationTest(BitcoinTestFramework):
         assert_not_equal(block.serialize(with_witness=True), block.serialize(with_witness=False))
         assert_not_equal(block.serialize(with_witness=True), block.serialize(with_witness=False, with_scriptsig=True))
 
+        self.log.info("Reject block with p2sh_p2wpkh transaction")
         self.nodes[0].submitblock(bytes_to_hex_str(block.serialize(with_witness=True)))
         assert_equal(self.nodes[0].getbestblockhash(), block.hash)
 
@@ -539,8 +580,7 @@ class SerializationTest(BitcoinTestFramework):
         assert_equal(spendtx.serialize_with_witness(with_scriptsig=True), spendtx.serialize_without_witness(with_scriptsig=True))
         assert_equal(spendtx.serialize_with_witness(with_scriptsig=False), spendtx.serialize_without_witness(with_scriptsig=False))
 
-        self.log.info("Create block with only non-DER signature p2sh_p2wsh transaction")
-
+        #Create block with only non-DER signature p2sh_p2wsh transaction
         spendtxStr = self.nodes[0].signrawtransactionwithwallet(spendtxStr)
         assert("errors" not in spendtxStr or len(["errors"]) == 0)
         spendtxStr = spendtxStr["hex"]
@@ -564,6 +604,7 @@ class SerializationTest(BitcoinTestFramework):
         assert_not_equal(block.serialize(with_witness=True), block.serialize(with_witness=False))
         assert_not_equal(block.serialize(with_witness=True), block.serialize(with_witness=False, with_scriptsig=True))
 
+        self.log.info("Reject block with p2sh_p2wsh transaction")
         self.nodes[0].submitblock(bytes_to_hex_str(block.serialize(with_witness=True)))
         assert_equal(self.nodes[0].getbestblockhash(), block.hash)
 
