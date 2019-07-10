@@ -13,6 +13,7 @@ option(BUILD_BITCOIN_WALLET "Activate the wallet functionality" ON)
 option(BUILD_BITCOIN_ZMQ "Activate the ZeroMQ functionalities" ON)
 option(BUILD_BITCOIN_SEEDER "Build tapyrus-seeder" ON)
 option(BUILD_BITCOIN_CLI "Build tapyrus-cli" ON)
+option(BUILD_TAPYRUS_GENESIS "Build tapyrus-genesis" ON)
 option(BUILD_BITCOIN_TX "Build tapyrus-tx" ON)
 
 # TODO: Fix qt building problem and turn ON.
@@ -279,6 +280,17 @@ if(BUILD_BITCOIN_TX)
     endif()
 
     target_link_libraries(tapyrus-tx tapyrusconsensus)
+endif()
+
+# tapyrus-genesis
+if(BUILD_TAPYRUS_GENESIS)
+    add_executable(tapyrus-genesis tapyrus-genesis.cpp)
+
+    target_link_libraries(tapyrus-genesis
+            common
+            tapyrusconsensus
+            server
+            )
 endif()
 
 # tapyrusd
