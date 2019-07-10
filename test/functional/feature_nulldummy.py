@@ -21,7 +21,9 @@ from test_framework.util import assert_equal, assert_raises_rpc_error, bytes_to_
 
 import time
 
-NULLDUMMY_ERROR = "non-mandatory-script-verify-flag (Dummy CHECKMULTISIG argument must be zero) (code 64)"
+NULLDUMMY_ERROR = "mandatory-script-verify-flag-failed (Dummy CHECKMULTISIG argument must be zero) (code 16)"
+
+P2SH_NULLDUMMY_ERROR = "non-mandatory-script-verify-flag (Dummy CHECKMULTISIG argument must be zero) (code 64)"
 
 def trueDummy(tx):
     scriptSig = CScript(tx.vin[0].scriptSig)
@@ -40,9 +42,8 @@ class NULLDUMMYTest(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
-        # This script tests NULLDUMMY activation, which is part of the 'segwit' deployment, so we go through
-        # normal segwit activation here (and don't use the default always-on behaviour).
-        self.extra_args = [['-whitelist=127.0.0.1', '-vbparams=segwit:0:999999999999', '-addresstype=legacy', "-deprecatedrpc=addwitnessaddress"]]
+        # This script tests NULLDUMMY activation, using default segwit activation(ALWAYS_ON)
+        self.extra_args = [['-whitelist=127.0.0.1', '-addresstype=legacy', "-deprecatedrpc=addwitnessaddress"]]
         self.mocktime = int(time.time())
 
     def run_test(self):
@@ -61,7 +62,7 @@ class NULLDUMMYTest(BitcoinTestFramework):
         self.lastblockheight = 429
         self.lastblocktime = int(time.time()) + 429
 
-        self.log.info("Test 1: NULLDUMMY compliant base transactions should be accepted to mempool and mined before activation [430]")
+        self.log.info("Test 1: NULLDUMMY compliant base transactions should be accepted to mempool")
         test1txs = [create_transaction(self.nodes[0], coinbase_txid[0], self.ms_address, amount=49)]
         txid1 = self.nodes[0].sendrawtransaction(bytes_to_hex_str(test1txs[0].serialize_with_witness()), True)
         test1txs.append(create_transaction(self.nodes[0], txid1, self.ms_address, amount=48))
@@ -70,29 +71,29 @@ class NULLDUMMYTest(BitcoinTestFramework):
         txid3 = self.nodes[0].sendrawtransaction(bytes_to_hex_str(test1txs[2].serialize_with_witness()), True)
         self.block_submit(self.nodes[0], test1txs, False, True)
 
-        self.log.info("Test 2: Non-NULLDUMMY base multisig transaction should not be accepted to mempool before activation")
-        test2tx = create_transaction(self.nodes[0], txid2, self.ms_address, amount=47)
+        self.log.info("Test 2: Non-NULLDUMMY base multisig transaction should not be accepted to mempool")
+        test2tx = create_transaction(self.nodes[0], txid2, self.ms_address, amount=47.99999)
         trueDummy(test2tx)
         assert_raises_rpc_error(-26, NULLDUMMY_ERROR, self.nodes[0].sendrawtransaction, bytes_to_hex_str(test2tx.serialize_with_witness()), True)
 
-        self.log.info("Test 3: Non-NULLDUMMY base transactions should be accepted in a block before activation [431]")
-        self.block_submit(self.nodes[0], [test2tx], False, True)
+        self.log.info("Test 3: Non-NULLDUMMY base transactions should not be accepted in a block")
+        self.block_submit(self.nodes[0], [test2tx], False)
 
-        self.log.info("Test 4: Non-NULLDUMMY base multisig transaction is invalid after activation")
-        test4tx = create_transaction(self.nodes[0], test2tx.hashMalFix, self.address, amount=46)
+        self.log.info("Test 4: Non-NULLDUMMY base multisig transaction is invalid ")
+        test4tx = create_transaction(self.nodes[0], txid2, self.address, amount=46)
         test6txs=[CTransaction(test4tx)]
         trueDummy(test4tx)
         assert_raises_rpc_error(-26, NULLDUMMY_ERROR, self.nodes[0].sendrawtransaction, bytes_to_hex_str(test4tx.serialize_with_witness()), True)
         self.block_submit(self.nodes[0], [test4tx])
 
-        self.log.info("Test 5: Non-NULLDUMMY P2WSH multisig transaction invalid after activation")
+        self.log.info("Test 5: Non-NULLDUMMY P2WSH multisig transaction invalid")
         test5tx = create_transaction(self.nodes[0], txid3, self.wit_address, amount=48)
         test6txs.append(CTransaction(test5tx))
         test5tx.wit.vtxinwit[0].scriptWitness.stack[0] = b'\x01'
-        assert_raises_rpc_error(-26, NULLDUMMY_ERROR, self.nodes[0].sendrawtransaction, bytes_to_hex_str(test5tx.serialize_with_witness()), True)
+        assert_raises_rpc_error(-26, P2SH_NULLDUMMY_ERROR, self.nodes[0].sendrawtransaction, bytes_to_hex_str(test5tx.serialize_with_witness()), True)
         self.block_submit(self.nodes[0], [test5tx], True)
 
-        self.log.info("Test 6: NULLDUMMY compliant base/witness transactions should be accepted to mempool and in block after activation [432]")
+        self.log.info("Test 6: NULLDUMMY compliant base transactions should be accepted to mempool and in block")
         for i in test6txs:
             self.nodes[0].sendrawtransaction(bytes_to_hex_str(i.serialize()), True)
         self.block_submit(self.nodes[0], test6txs, True, True)

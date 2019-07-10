@@ -308,15 +308,15 @@ class BIP68_112_113Test(BitcoinTestFramework):
         bip113tx_v1.nLockTime = self.last_block_time - 600 * 5  # = MTP of prior block (not <) but < time put on current block
         bip113signed1 = sign_transaction(self.nodes[0], bip113tx_v1)
         success_txs.append(bip113signed1)
-        success_txs.append(bip112tx_special_v1)
+        #success_txs.append(bip112tx_special_v1)
         # add BIP 68 txs
         success_txs.extend(all_rlt_txs(bip68txs_v1))
         # add BIP 112 with seq=10 txs
-        success_txs.extend(all_rlt_txs(bip112txs_vary_nSequence_v1))
-        success_txs.extend(all_rlt_txs(bip112txs_vary_OP_CSV_v1))
+        #success_txs.extend(all_rlt_txs(bip112txs_vary_nSequence_v1))
+        #success_txs.extend(all_rlt_txs(bip112txs_vary_OP_CSV_v1))
         # try BIP 112 with seq=9 txs
-        success_txs.extend(all_rlt_txs(bip112txs_vary_nSequence_9_v1))
-        success_txs.extend(all_rlt_txs(bip112txs_vary_OP_CSV_9_v1))
+        #success_txs.extend(all_rlt_txs(bip112txs_vary_nSequence_9_v1))
+        #success_txs.extend(all_rlt_txs(bip112txs_vary_OP_CSV_9_v1))
         self.sync_blocks([self.create_test_block(success_txs)])
         self.nodes[0].invalidateblock(self.nodes[0].getbestblockhash())
 
@@ -327,15 +327,15 @@ class BIP68_112_113Test(BitcoinTestFramework):
         bip113tx_v2.nLockTime = self.last_block_time - 600 * 5  # = MTP of prior block (not <) but < time put on current block
         bip113signed2 = sign_transaction(self.nodes[0], bip113tx_v2)
         success_txs.append(bip113signed2)
-        success_txs.append(bip112tx_special_v2)
+        #success_txs.append(bip112tx_special_v2)
         # add BIP 68 txs
         success_txs.extend(all_rlt_txs(bip68txs_v2))
         # add BIP 112 with seq=10 txs
-        success_txs.extend(all_rlt_txs(bip112txs_vary_nSequence_v2))
-        success_txs.extend(all_rlt_txs(bip112txs_vary_OP_CSV_v2))
+        #success_txs.extend(all_rlt_txs(bip112txs_vary_nSequence_v2))
+        #success_txs.extend(all_rlt_txs(bip112txs_vary_OP_CSV_v2))
         # try BIP 112 with seq=9 txs
-        success_txs.extend(all_rlt_txs(bip112txs_vary_nSequence_9_v2))
-        success_txs.extend(all_rlt_txs(bip112txs_vary_OP_CSV_9_v2))
+        #success_txs.extend(all_rlt_txs(bip112txs_vary_nSequence_9_v2))
+        #success_txs.extend(all_rlt_txs(bip112txs_vary_OP_CSV_9_v2))
         self.sync_blocks([self.create_test_block(success_txs)])
         self.nodes[0].invalidateblock(self.nodes[0].getbestblockhash())
 

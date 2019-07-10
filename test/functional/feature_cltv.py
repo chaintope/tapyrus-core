@@ -60,11 +60,11 @@ class BIP65Test(BitcoinTestFramework):
     def run_test(self):
         self.nodes[0].add_p2p_connection(P2PInterface())
 
-        self.log.info("Mining %d blocks", CLTV_HEIGHT - 2)
-        self.coinbase_txids = [self.nodes[0].getblock(b)['tx'][0] for b in self.nodes[0].generate(CLTV_HEIGHT - 2, self.signblockprivkeys)]
+        self.log.info("Mining %d blocks", CLTV_HEIGHT-1)
+        self.coinbase_txids = [self.nodes[0].getblock(b)['tx'][0] for b in self.nodes[0].generate(CLTV_HEIGHT-1, self.signblockprivkeys)]
         self.nodeaddress = self.nodes[0].getnewaddress()
 
-        self.log.info("Test that an invalid-according-to-CLTV transaction can still appear in a block")
+        self.log.info("Test that an invalid-according-to-CLTV transaction cannot appear in a block at any height")
 
         spendtx = create_transaction(self.nodes[0], self.coinbase_txids[0],
                 self.nodeaddress, amount=1.0)
@@ -73,24 +73,34 @@ class BIP65Test(BitcoinTestFramework):
 
         tip = self.nodes[0].getbestblockhash()
         block_time = self.nodes[0].getblockheader(tip)['mediantime'] + 1
-        block = create_block(int(tip, 16), create_coinbase(CLTV_HEIGHT - 1), block_time)
-        block.nVersion = 3
+        block = create_block(int(tip, 16), create_coinbase(CLTV_HEIGHT), block_time)
+        block.nVersion = 4
         block.vtx.append(spendtx)
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         block.solve(self.signblockprivkeys)
 
         self.nodes[0].p2p.send_and_ping(msg_block(block))
-        assert_equal(self.nodes[0].getbestblockhash(), block.hash)
+        assert_equal(self.nodes[0].getbestblockhash(), tip)
+
+        wait_until(lambda: "reject" in self.nodes[0].p2p.last_message.keys(), lock=mininode_lock)
+        with mininode_lock:
+            assert self.nodes[0].p2p.last_message["reject"].code in [REJECT_INVALID, REJECT_NONSTANDARD]
+            assert_equal(self.nodes[0].p2p.last_message["reject"].data, block.sha256)
+            if self.nodes[0].p2p.last_message["reject"].code == REJECT_INVALID:
+                # Generic rejection when a block is invalid
+                assert_equal(self.nodes[0].p2p.last_message["reject"].reason, b'block-validation-failed')
+            else:
+                assert b'Negative locktime' in self.nodes[0].p2p.last_message["reject"].reason
 
         self.log.info("Test that blocks must now be at least version 4")
-        tip = block.sha256
+        #tip = block.sha256
         block_time += 1
-        block = create_block(tip, create_coinbase(CLTV_HEIGHT), block_time)
+        block = create_block(int(tip, 16), create_coinbase(CLTV_HEIGHT), block_time)
         block.nVersion = 3
         block.solve(self.signblockprivkeys)
         self.nodes[0].p2p.send_and_ping(msg_block(block))
-        assert_equal(int(self.nodes[0].getbestblockhash(), 16), tip)
+        assert_equal(self.nodes[0].getbestblockhash(), tip)
 
         wait_until(lambda: "reject" in self.nodes[0].p2p.last_message.keys(), lock=mininode_lock)
         with mininode_lock:
@@ -109,8 +119,9 @@ class BIP65Test(BitcoinTestFramework):
 
         # First we show that this tx is valid except for CLTV by getting it
         # rejected from the mempool for exactly that reason.
+        # now CLTV is mandatory script flag.
         assert_equal(
-            [{'txid': spendtx.hashMalFix, 'allowed': False, 'reject-reason': '64: non-mandatory-script-verify-flag (Negative locktime)'}],
+            [{'txid': spendtx.hashMalFix, 'allowed': False, 'reject-reason': '16: mandatory-script-verify-flag-failed (Negative locktime)'}],
             self.nodes[0].testmempoolaccept(rawtxs=[bytes_to_hex_str(spendtx.serialize())], allowhighfees=True)
         )
 
@@ -121,7 +132,7 @@ class BIP65Test(BitcoinTestFramework):
         block.solve(self.signblockprivkeys)
 
         self.nodes[0].p2p.send_and_ping(msg_block(block))
-        assert_equal(int(self.nodes[0].getbestblockhash(), 16), tip)
+        assert_equal(self.nodes[0].getbestblockhash(), tip)
 
         wait_until(lambda: "reject" in self.nodes[0].p2p.last_message.keys(), lock=mininode_lock)
         with mininode_lock:
