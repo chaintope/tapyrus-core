@@ -597,10 +597,6 @@ int main(int argc, char *argv[])
     /// 2. Parse command-line options. We do this after qt in order to show an error if there are problems parsing these
     // Command-line options take precedence:
     std::string error;
-    if(!ParseSignedBlockParameters(argc, argv, error)) {
-        fprintf(stderr, "Error parsing signed block command line arguments: %s\n", error.c_str());
-        return false;
-    }
     node->setupServerArgs();
     SetupUIArgs();
     if (!node->parseParameters(argc, argv, error)) {

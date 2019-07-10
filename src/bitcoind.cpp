@@ -64,10 +64,6 @@ static bool AppInit(int argc, char* argv[])
     //
     // If Qt is used, parameters/bitcoin.conf are parsed in qt/bitcoin.cpp's main()
     std::string error;
-    if(!ParseSignedBlockParameters(argc, argv, error)) {
-        fprintf(stderr, "Error parsing signed block command line arguments: %s\n", error.c_str());
-        return false;
-    }
     SetupServerArgs();
 
     if (!gArgs.ParseParameters(argc, argv, error)) {
