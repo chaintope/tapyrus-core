@@ -9,6 +9,7 @@
 #include <primitives/transaction.h>
 #include <serialize.h>
 #include <uint256.h>
+#include <key.h>
 
 typedef std::vector<unsigned char> Signature;
 typedef std::vector<Signature> ProofBase;
