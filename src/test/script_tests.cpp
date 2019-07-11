@@ -33,7 +33,7 @@
 // #define UPDATE_JSON_TESTS
 
 static const unsigned int stdFlags = STANDARD_SCRIPT_VERIFY_FLAGS;
-static const unsigned int mndFlags = MANDATORY_SCRIPT_VERIFY_FLAGS;
+static const unsigned int mndFlags = STANDARD_NOT_MANDATORY_VERIFY_FLAGS;
 
 unsigned int ParseScriptFlags(std::string strFlags);
 std::string FormatScriptFlags(unsigned int flags);
@@ -1467,27 +1467,36 @@ BOOST_AUTO_TEST_CASE(script_CHECKMULTISIG12)
 
     CScript goodsig1 = sign_multisig(scriptPubKey12, key1, txTo12);
     BOOST_CHECK(VerifyScript(goodsig1, scriptPubKey12, nullptr, SCRIPT_VERIFY_NONE, MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), &err));
+    BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
     BOOST_CHECK(VerifyScript(goodsig1, scriptPubKey12, nullptr, stdFlags, MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), &err));
-    BOOST_CHECK(VerifyScript(goodsig1, scriptPubKey12, nullptr, mndFlags, MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), &err));
+    BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
+    BOOST_CHECK(VerifyScript(goodsig1, scriptPubKey12, nullptr, mndFlags, 
+    MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
 
     txTo12.vout[0].nValue = 2;
     BOOST_CHECK(!VerifyScript(goodsig1, scriptPubKey12, nullptr, SCRIPT_VERIFY_NONE, MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), &err));
-    BOOST_CHECK(!VerifyScript(goodsig1, scriptPubKey12, nullptr, stdFlags, MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), &err));
-    BOOST_CHECK(!VerifyScript(goodsig1, scriptPubKey12, nullptr, mndFlags, MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_EVAL_FALSE, ScriptErrorString(err));
+    BOOST_CHECK(!VerifyScript(goodsig1, scriptPubKey12, nullptr, stdFlags, MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), &err));
+    BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_SIG_NULLFAIL, ScriptErrorString(err));
+    BOOST_CHECK(!VerifyScript(goodsig1, scriptPubKey12, nullptr, mndFlags, MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), &err));
+    BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_SIG_NULLFAIL, ScriptErrorString(err));
 
     CScript goodsig2 = sign_multisig(scriptPubKey12, key2, txTo12);
     BOOST_CHECK(VerifyScript(goodsig2, scriptPubKey12, nullptr, SCRIPT_VERIFY_NONE, MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), &err));
+    BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
     BOOST_CHECK(VerifyScript(goodsig2, scriptPubKey12, nullptr, stdFlags, MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), &err));
+    BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
     BOOST_CHECK(VerifyScript(goodsig2, scriptPubKey12, nullptr, mndFlags, MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
 
     CScript badsig1 = sign_multisig(scriptPubKey12, key3, txTo12);
     BOOST_CHECK(!VerifyScript(badsig1, scriptPubKey12, nullptr, SCRIPT_VERIFY_NONE, MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), &err));
-    BOOST_CHECK(!VerifyScript(badsig1, scriptPubKey12, nullptr, stdFlags, MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), &err));
-    BOOST_CHECK(!VerifyScript(badsig1, scriptPubKey12, nullptr, mndFlags, MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_EVAL_FALSE, ScriptErrorString(err));
+    BOOST_CHECK(!VerifyScript(badsig1, scriptPubKey12, nullptr, stdFlags, MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), &err));
+    BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_SIG_NULLFAIL, ScriptErrorString(err));
+    BOOST_CHECK(!VerifyScript(badsig1, scriptPubKey12, nullptr, mndFlags, MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), &err));
+    BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_SIG_NULLFAIL, ScriptErrorString(err));
 }
 
 BOOST_AUTO_TEST_CASE(script_CHECKMULTISIG23)
@@ -1555,7 +1564,7 @@ BOOST_AUTO_TEST_CASE(script_CHECKMULTISIG23)
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_SIG_NULLFAIL, ScriptErrorString(err));
 
     BOOST_CHECK(!VerifyScript(badsig1, scriptPubKey23, nullptr, mndFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), &err));
-    BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_EVAL_FALSE, ScriptErrorString(err));
+    BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_SIG_NULLFAIL, ScriptErrorString(err));
 
     keys.clear();
     keys.push_back(key2);
@@ -1568,7 +1577,7 @@ BOOST_AUTO_TEST_CASE(script_CHECKMULTISIG23)
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_SIG_NULLFAIL, ScriptErrorString(err));
 
     BOOST_CHECK(!VerifyScript(badsig2, scriptPubKey23, nullptr, mndFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), &err));
-    BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_EVAL_FALSE, ScriptErrorString(err));
+    BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_SIG_NULLFAIL, ScriptErrorString(err));
 
     keys.clear();
     keys.push_back(key3);
@@ -1581,7 +1590,7 @@ BOOST_AUTO_TEST_CASE(script_CHECKMULTISIG23)
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_SIG_NULLFAIL, ScriptErrorString(err));
 
     BOOST_CHECK(!VerifyScript(badsig3, scriptPubKey23, nullptr, mndFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), &err));
-    BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_EVAL_FALSE, ScriptErrorString(err));
+    BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_SIG_NULLFAIL, ScriptErrorString(err));
 
     keys.clear();
     keys.push_back(key4);
@@ -1594,7 +1603,7 @@ BOOST_AUTO_TEST_CASE(script_CHECKMULTISIG23)
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_SIG_NULLFAIL, ScriptErrorString(err));
 
     BOOST_CHECK(!VerifyScript(badsig4, scriptPubKey23, nullptr, mndFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), &err));
-    BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_EVAL_FALSE, ScriptErrorString(err));
+    BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_SIG_NULLFAIL, ScriptErrorString(err));
 
     keys.clear();
     keys.push_back(key1);
@@ -1607,7 +1616,7 @@ BOOST_AUTO_TEST_CASE(script_CHECKMULTISIG23)
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_SIG_NULLFAIL, ScriptErrorString(err));
 
     BOOST_CHECK(!VerifyScript(badsig5, scriptPubKey23, nullptr, mndFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), &err));
-    BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_EVAL_FALSE, ScriptErrorString(err));
+    BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_SIG_NULLFAIL, ScriptErrorString(err));
 
     keys.clear(); // Must have signatures
     CScript badsig6 = sign_multisig(scriptPubKey23, keys, txTo23);
