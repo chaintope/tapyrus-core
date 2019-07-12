@@ -442,7 +442,7 @@ tapyrusd_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 tapyrusd_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
 if TARGET_WINDOWS
-tapyrusd_SOURCES += tapyrusd-res.rc
+tapyrusd_SOURCES += tapyrus-res.rc
 endif
 
 tapyrusd_LDADD = \
