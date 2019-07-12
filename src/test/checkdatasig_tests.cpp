@@ -192,8 +192,8 @@ BOOST_AUTO_TEST_CASE(checkdatasig_test) {
         
         // If we get any of the dersig flags, the non canonical dersig
         // signature fails.
-        CheckError(flags, {nondersig, message, pubkey}, script, flags == SCRIPT_VERIFY_NULLFAIL ? SCRIPT_ERR_SIG_NULLFAIL : SCRIPT_ERR_SIG_DER);
-        CheckError(flags, {nondersig, message, pubkey}, scriptverify, flags == SCRIPT_VERIFY_NULLFAIL ? SCRIPT_ERR_SIG_NULLFAIL : SCRIPT_ERR_SIG_DER);
+        CheckError(flags, {nondersig, message, pubkey}, script, SCRIPT_ERR_SIG_DER);
+        CheckError(flags, {nondersig, message, pubkey}, scriptverify, SCRIPT_ERR_SIG_DER);
 
     }
 }
