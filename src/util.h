@@ -133,6 +133,7 @@ enum class OptionsCategory {
     COMMANDS,
     REGISTER_COMMANDS,
     SIGN_BLOCK,
+    GENESIS,
 
     HIDDEN // Always the last option to avoid printing these in the help
 };

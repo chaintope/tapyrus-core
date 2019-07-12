@@ -29,6 +29,9 @@ static void SetupTapyrusGenesisArgs()
     gArgs.AddArg("-signblockthreshold=<n>", "Sets the number of public keys to be the threshold of multisig", false, OptionsCategory::SIGN_BLOCK);
     gArgs.AddArg("-signblockprivatekey=<privatekey-WIF>", "Optional. Sets the private key WIF corresponding with `-signblockpubkeys`. This argument can be set multi-time. If it is not set, this command create no proof genesis block.", false, OptionsCategory::SIGN_BLOCK);
 
+    // Genesis Block options
+    gArgs.AddArg("-time=<time>", "Specify genesis block time as UNIX Time. If this don't set, use current time.", false, OptionsCategory::GENESIS);
+
     // Hidden
     gArgs.AddArg("-h", "", false, OptionsCategory::HIDDEN);
     gArgs.AddArg("-help", "", false, OptionsCategory::HIDDEN);
@@ -87,6 +90,11 @@ static int CommandLine(int argc, char* argv[])
         privatekeys.push_back(DecodeSecret(wif));
     }
 
+    auto blockTime = gArgs.GetArg("-time", 0);
+    if(!blockTime) {
+        blockTime = time(0);
+    }
+
     // This is for using CKey.sign().
     ECC_Start();
 
@@ -96,7 +104,7 @@ static int CommandLine(int argc, char* argv[])
     MultisigCondition condition { CreateSignedBlockCondition() };
     SetSignedBlocksCondition(condition);
 
-    CBlock genesis { createGenesisBlock(condition, privatekeys) };
+    CBlock genesis { createGenesisBlock(condition, privatekeys, blockTime) };
 
     // check validity
     CValidationState state;
@@ -112,8 +120,7 @@ static int CommandLine(int argc, char* argv[])
     std::string genesis_hex = HexStr(ss.begin(), ss.end());
 
     // print
-    std::cout << "This is genesis block hex. Copy and write into <data direcotyr>/genesis.dat file." << std::endl << std::endl;
-    std::cout << genesis_hex << std::endl;
+    fprintf(stdout, "%s\n", genesis_hex.c_str());
     return EXIT_SUCCESS;
 }
 

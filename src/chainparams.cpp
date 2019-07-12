@@ -531,7 +531,7 @@ bool ReadGenesisBlock(fs::path genesisPath)
     return globalChainParams->ReadGenesisBlock(genesisHex);
 }
 
-CBlock createGenesisBlock(const MultisigCondition& signedBlocksCondition, const std::vector<CKey>& privateKeys)
+CBlock createGenesisBlock(const MultisigCondition& signedBlocksCondition, const std::vector<CKey>& privateKeys, const time_t blockTime)
 {
     CPubKey combinedPubKey = PubKeyCombine(signedBlocksCondition.pubkeys);
     CPubKey rewardToPubKey(signedBlocksCondition.pubkeys[0]);
@@ -548,7 +548,7 @@ CBlock createGenesisBlock(const MultisigCondition& signedBlocksCondition, const 
 
     //Genesis block header
     CBlock genesis;
-    genesis.nTime    = time(0);
+    genesis.nTime    = blockTime;
     genesis.nVersion = 1;
     genesis.vtx.push_back(MakeTransactionRef(std::move(txNew)));
     genesis.hashPrevBlock.SetNull();

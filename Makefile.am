@@ -230,6 +230,8 @@ EXTRA_DIST += \
     test/util/data/blanktxv1.json \
     test/util/data/blanktxv2.hex \
     test/util/data/blanktxv2.json \
+    test/util/data/genesis1.hex \
+    test/util/data/genesis2.hex \
     test/util/data/tt-delin1-out.hex \
     test/util/data/tt-delin1-out.json \
     test/util/data/tt-delout1-out.hex \

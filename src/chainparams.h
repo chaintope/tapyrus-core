@@ -179,7 +179,7 @@ bool SetSignedBlocksCondition(const MultisigCondition condition = CreateSignedBl
 /**
  * @returns a signed genesis block.
  */
-CBlock createGenesisBlock(const MultisigCondition& signedBlocksCondition, const std::vector<CKey>& privateKeys={});
+CBlock createGenesisBlock(const MultisigCondition& signedBlocksCondition, const std::vector<CKey>& privateKeys={}, const time_t blockTime=time(0));
 
 
 #endif // BITCOIN_CHAINPARAMS_H
