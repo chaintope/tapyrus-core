@@ -278,9 +278,6 @@ public:
         nDefaultPort = 2357;  // 2357 is beautiful prime.
         nPruneAfterHeight = 100000;
 
-        genesis = CreateGenesisBlock(1546853016, 1, 50 * COIN, "024bd6909fd1187b356e163b670a1c7c5f70e40d68667e3a64d6321fb780d056c9", MultisigCondition::getInstance());
-        consensus.hashGenesisBlock = genesis.GetHash();
-
         // Note that of those which support the service bits prefix, most only support a subset of
         // possible options.
         // This is fine at runtime as we'll fall back to using them as a oneshot if they don't support the
