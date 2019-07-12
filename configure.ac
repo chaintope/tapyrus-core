@@ -1195,7 +1195,7 @@ AC_MSG_CHECKING([whether to build libraries])
 AM_CONDITIONAL([BUILD_BITCOIN_LIBS], [test x$build_tapyrus_libs = xyes])
 if test x$build_tapyrus_libs = xyes; then
   AC_DEFINE(HAVE_CONSENSUS_LIB, 1, [Define this symbol if the consensus lib has been built])
-  AC_CONFIG_FILES([libtapyrusconsensus.pc:libbitcoinconsensus.pc.in])
+  AC_CONFIG_FILES([libtapyrusconsensus.pc:libtapyrusconsensus.pc.in])
 fi
 AC_MSG_RESULT($build_tapyrus_libs)
 
