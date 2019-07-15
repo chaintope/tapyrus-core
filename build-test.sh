@@ -33,4 +33,4 @@ make $MAKEJOBS $GOAL || ( echo "Build failure. Verbose build follows." && make $
 if [ "$RUN_TESTS" = "true" ]; then LD_LIBRARY_PATH=${BITBUCKET_CLONE_DIR}/depends/$HOST/lib make $MAKEJOBS check VERBOSE=1; fi
 if [ "$RUN_BENCH" = "true" ]; then LD_LIBRARY_PATH=${BITBUCKET_CLONE_DIR}/depends/$HOST/lib $OUTDIR/bin/bench_tapyrus -scaling=0.001 ; fi
 if [ "$TRAVIS_EVENT_TYPE" = "cron" ]; then extended="--extended --exclude feature_pruning,feature_dbcrash"; fi
-if [ "$RUN_TESTS" = "true" ]; then test/functional/test_runner.py --combinedlogslen=4000 --coverage --quiet --failfast ${extended}; fi
+if [ "$RUN_TESTS" = "true" ]; then test/functional/test_runner.py --combinedlogslen=4000 --coverage --quiet ${extended}; fi
