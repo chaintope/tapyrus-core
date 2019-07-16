@@ -131,7 +131,7 @@ static constexpr unsigned int STANDARD_NOT_MANDATORY_VERIFY_FLAGS = (STANDARD_SC
 static constexpr unsigned int STANDARD_LOCKTIME_VERIFY_FLAGS = LOCKTIME_VERIFY_SEQUENCE |
                                                                LOCKTIME_MEDIAN_TIME_PAST;
 
-bool CheckSignatureEncoding(const std::vector<unsigned char> &vchSig, unsigned int flags, ScriptError* serror, bool dataSignature = false);
+bool CheckSignatureEncoding(const std::vector<unsigned char> &vchSig, ScriptError* serror, bool dataSignature = false);
 
 struct PrecomputedTransactionData
 {
