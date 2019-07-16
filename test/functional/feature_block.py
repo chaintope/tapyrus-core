@@ -1282,14 +1282,13 @@ class FullBlockTest(BitcoinTestFramework):
             b = self.update_block(i, [tx])
             j = 0
             newprooflen = len(ser_string_vector(b.proof)) - len(ser_compact_size(len(b.proof)))
-            while(prooflen != newprooflen and j < 50):
+            while(prooflen != newprooflen and len(b.serialize()) > MAX_BLOCK_BASE_SIZE and j < 50):
                 old_sha256 = b.sha256
                 b.solve(self.signblockprivkeys)
                 newprooflen = len(ser_string_vector(b.proof)) - len(ser_compact_size(len(b.proof)))
                 self.block_heights[b.sha256] = self.block_heights[old_sha256]
                 del self.block_heights[old_sha256]
                 j += 1
-            assert_equal(len(b.serialize()), MAX_BLOCK_BASE_SIZE)
             blocks.append(b)
             self.save_spendable_output()
             spend = self.get_spendable_output()

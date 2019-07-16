@@ -18,7 +18,8 @@ class TestBitcoinCli(BitcoinTestFramework):
         """Main test logic"""
 
         cli_response = self.nodes[0].cli("-version").send_cli()
-        assert("Bitcoin Core RPC client version" in cli_response)
+        self.log.info("Received response:" + cli_response)
+        assert("Tapyrus Core RPC client version" in cli_response)
         self.log.info("Compare responses from gewalletinfo RPC and `bitcoin-cli getwalletinfo`")
         cli_response = self.nodes[0].cli.getwalletinfo()
         rpc_response = self.nodes[0].getwalletinfo()

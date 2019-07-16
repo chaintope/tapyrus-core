@@ -11,9 +11,9 @@ set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 
 option(BUILD_BITCOIN_WALLET "Activate the wallet functionality" ON)
 option(BUILD_BITCOIN_ZMQ "Activate the ZeroMQ functionalities" ON)
-option(BUILD_BITCOIN_SEEDER "Build bitcoin-seeder" ON)
-option(BUILD_BITCOIN_CLI "Build bitcoin-cli" ON)
-option(BUILD_BITCOIN_TX "Build bitcoin-tx" ON)
+option(BUILD_BITCOIN_SEEDER "Build tapyrus-seeder" ON)
+option(BUILD_BITCOIN_CLI "Build tapyrus-cli" ON)
+option(BUILD_BITCOIN_TX "Build tapyrus-tx" ON)
 
 # TODO: Fix qt building problem and turn ON.
 option(BUILD_BITCOIN_QT "Build bitcoin-qt" OFF)
@@ -159,8 +159,8 @@ add_library(common
 
 target_link_libraries(common util secp256k1)
 
-# libbitcoinconsensus
-add_library(bitcoinconsensus
+# libtapyrusconsensus
+add_library(tapyrusconsensus
         arith_uint256.cpp
         hash.cpp
         primitives/transaction.cpp
@@ -173,7 +173,7 @@ add_library(bitcoinconsensus
         utilstrencodings.cpp
         )
 
-target_link_libraries(bitcoinconsensus common)
+target_link_libraries(tapyrusconsensus common)
 
 # Bitcoin server facilities
 add_library(server
@@ -234,10 +234,9 @@ target_include_directories(server PRIVATE leveldb/helpers/memenv)
 
 target_link_libraries(server
         Event
-        bitcoinconsensus
+        tapyrusconsensus
         leveldb
         memenv
-        miniupnpc
         )
 
 # Test suite.
@@ -262,31 +261,31 @@ endif()
 add_library(rpcclient rpc/client.cpp)
 target_link_libraries(rpcclient univalue util)
 
-# bitcoin-cli
+# tapyrus-cli
 if(BUILD_BITCOIN_CLI)
-    add_executable(bitcoin-cli bitcoin-cli.cpp)
+    add_executable(tapyrus-cli bitcoin-cli.cpp)
     if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-        target_sources(bitcoin-cli PRIVATE bitcoin-cli-res.rc)
+        target_sources(tapyrus-cli PRIVATE tapyrus-cli-res.rc)
     endif()
 
-    target_link_libraries(bitcoin-cli common rpcclient Event)
+    target_link_libraries(tapyrus-cli common rpcclient Event)
 endif()
 
-# bitcoin-tx
+# tapyrus-tx
 if(BUILD_BITCOIN_TX)
-    add_executable(bitcoin-tx bitcoin-tx.cpp)
+    add_executable(tapyrus-tx bitcoin-tx.cpp)
     if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-        target_sources(bitcoin-tx PRIVATE bitcoin-tx-res.rc)
+        target_sources(tapyrus-tx PRIVATE tapyrus-tx-res.rc)
     endif()
 
-    target_link_libraries(bitcoin-tx bitcoinconsensus)
+    target_link_libraries(tapyrus-tx tapyrusconsensus)
 endif()
 
-# bitcoind
-add_executable(bitcoind bitcoind.cpp)
-target_link_libraries(bitcoind server)
+# tapyrusd
+add_executable(tapyrusd bitcoind.cpp)
+target_link_libraries(tapyrusd server)
 if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-    target_sources(bitcoind PRIVATE bitcoind-res.rc)
+    target_sources(tapyrusd PRIVATE tapyrus-res.rc)
 endif()
 
 # Bitcoin-qt
