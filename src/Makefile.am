@@ -30,7 +30,7 @@ LIBBITCOIN_CONSENSUS=libtapyrus_consensus.a
 LIBBITCOIN_CLI=libtapyrus_cli.a
 LIBBITCOIN_UTIL=libtapyrus_util.a
 LIBBITCOIN_CRYPTO_BASE=crypto/libtapyrus_crypto_base.a
-LIBBITCOINQT=qt/libtapyrusqt.a
+LIBBITCOINQT=qt/libbitcoinqt.a
 LIBSECP256K1=secp256k1/libsecp256k1.la
 
 if ENABLE_ZMQ
