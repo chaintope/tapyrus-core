@@ -2,12 +2,13 @@
 
 *.exe
 src/bitcoin
-src/bitcoind
-src/bitcoin-cli
-src/bitcoin-tx
-src/test/test_bitcoin
-src/test/test_bitcoin_fuzzy
-src/qt/test/test_bitcoin-qt
+src/tapyrusd
+src/tapyrus-cli
+src/tapyrus-tx
+src/tapyrus-genesis
+src/test/test_tapyrus
+src/test/test_tapyrus_fuzzy
+src/qt/test/test_tapyrus-qt
 
 # autoreconf
 Makefile.in
@@ -114,5 +115,5 @@ test/cache/*
 
 /doc/doxygen/
 
-libbitcoinconsensus.pc
+libtapyrusconsensus.pc
 contrib/devtools/split-debug.sh
