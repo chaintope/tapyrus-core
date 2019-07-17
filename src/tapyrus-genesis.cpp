@@ -31,6 +31,7 @@ static void SetupTapyrusGenesisArgs()
 
     // Genesis Block options
     gArgs.AddArg("-time=<time>", "Specify genesis block time as UNIX Time. If this don't set, use current time.", false, OptionsCategory::GENESIS);
+    gArgs.AddArg("-toaddress=<address>", "Specify coinbase script pay to address.", false, OptionsCategory::GENESIS);
 
     // Hidden
     gArgs.AddArg("-h", "", false, OptionsCategory::HIDDEN);
@@ -93,6 +94,12 @@ static int CommandLine(int argc, char* argv[])
     auto blockTime = gArgs.GetArg("-time", 0);
     if(!blockTime) {
         blockTime = time(0);
+    }
+
+    auto toAddress = gArgs.GetArg("-toaddress", "");
+    if(!IsValidDestinationString(toAddress)) {
+        fprintf(stderr, "Error: Invalid address specified in -toaddress option.\n");
+        return EXIT_FAILURE;
     }
 
     // This is for using CKey.sign().
