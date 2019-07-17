@@ -285,6 +285,9 @@ endif()
 # tapyrus-genesis
 if(BUILD_TAPYRUS_GENESIS)
     add_executable(tapyrus-genesis tapyrus-genesis.cpp)
+    if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+        target_sources(tapyrus-genesis PRIVATE tapyrus-genesis-res.rc)
+    endif()
 
     target_link_libraries(tapyrus-genesis
             common
