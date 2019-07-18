@@ -1,6 +1,8 @@
 Tapyrus Script Specification
 ============================
 
+Script Evaluation
+--------------------
 Tapyrus scripts are evaluated with the following flags. 
 
 - *Default flags* are _Mandatory_ and always applied through the code without any flag controlling them.  When script evaluation fails, the transaction is invalid and the peer connection is dropped.
@@ -27,3 +29,13 @@ Tapyrus scripts are evaluated with the following flags.
 |SCRIPT_VERIFY_NULLFAIL | (1U << 14)|Signature(s) must be empty vector if a CHECK(MULTI)SIG operation failed| Standard |
 |SCRIPT_VERIFY_WITNESS_PUBKEYTYPE | (1U << 15)|Public keys in segregated witness scripts must be compressed| Standard |
 |SCRIPT_VERIFY_CONST_SCRIPTCODE | (1U << 16)|Making OP_CODESEPARATOR and FindAndDelete fail any non-segwit scripts| Standard |
+
+
+New Script OP_Codes
+--------------------
+Tapyrus adds the following OP_codes in addition to those available in bitcoin. There is no change in the behaviour of old Op codes.
+
+| Op Code | Value | Inputs (In the order they are pushed into the stack) | Description  |
+| :---: | :---: | :---: | :---: |
+|OP_CHECKDATASIG| 0xba |  Public Key, Message, Signature | Used to add a signed message and signature to script that be publicly verified.|
+|OP_CHECKDATASIGVERIFY| 0xbb | Public Key, Message, Signature | Used to add a signed message and signature to script that be publicly verified.|
