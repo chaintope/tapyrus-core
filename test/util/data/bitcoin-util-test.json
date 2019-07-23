@@ -474,7 +474,7 @@
       "-signblockprivatekey=cTRkG8i8PP7imvryqQwcYm787WHRdMmUqBvi1Z456gHvVoKnJ9TK",
       "-signblockprivatekey=cN3Q5mTU58xFTp2zuWcPpKVWSpFu1eaeExoRnWEt4aYugs8Uo4aw"
     ],
-    "output_cmp": "genesisincludeproof.hex",
+    "output_cmp": "genesis1.hex",
     "description": "genesis block should have proof data when private keys are passed"
   },
   { "exec": "./tapyrus-genesis",
@@ -486,7 +486,7 @@
       "-signblockpubkeys=03af80b90d25145da28c583359beb47b21796b2fe1a23c1511e443e7a64dfdb27d02ce7edc292d7b747fab2f23584bbafaffde5c8ff17cf689969614441e0527b90002785a891f323acd6cef0fc509bb14304410595914267c50467e51c87142acbb5e",
       "-signblockthreshold=2"
     ],
-    "output_cmp": "genesisexcludeproof.hex",
+    "output_cmp": "genesis2.hex",
     "description": "genesis block shouldn't have proof data without private keys are passed"
   },
   { "exec": "./tapyrus-genesis",
