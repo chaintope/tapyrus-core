@@ -96,12 +96,12 @@ BOOST_AUTO_TEST_CASE(checkdatasig_test) {
     CheckError(0, {{0x00}}, CScript() << OP_CHECKDATASIGVERIFY,SCRIPT_ERR_INVALID_STACK_OPERATION);
     CheckError(0, {{0x00}, {0x00}}, CScript() << OP_CHECKDATASIGVERIFY, SCRIPT_ERR_INVALID_STACK_OPERATION);
 
-    CheckError(MANDATORY_SCRIPT_VERIFY_FLAGS, {}, CScript()<< OP_CHECKDATASIG, SCRIPT_ERR_INVALID_STACK_OPERATION);
-    CheckError(MANDATORY_SCRIPT_VERIFY_FLAGS,{{0x00}}, CScript() << OP_CHECKDATASIG, SCRIPT_ERR_INVALID_STACK_OPERATION);
-    CheckError(MANDATORY_SCRIPT_VERIFY_FLAGS, {{0x00}, {0x00}}, CScript() << OP_CHECKDATASIG, SCRIPT_ERR_INVALID_STACK_OPERATION);
-    CheckError(MANDATORY_SCRIPT_VERIFY_FLAGS, {}, CScript() << OP_CHECKDATASIGVERIFY,SCRIPT_ERR_INVALID_STACK_OPERATION);
-    CheckError(MANDATORY_SCRIPT_VERIFY_FLAGS, {{0x00}}, CScript() << OP_CHECKDATASIGVERIFY,SCRIPT_ERR_INVALID_STACK_OPERATION);
-    CheckError(MANDATORY_SCRIPT_VERIFY_FLAGS, {{0x00}, {0x00}}, CScript() << OP_CHECKDATASIGVERIFY, SCRIPT_ERR_INVALID_STACK_OPERATION);
+    CheckError(STANDARD_NOT_MANDATORY_VERIFY_FLAGS, {}, CScript()<< OP_CHECKDATASIG, SCRIPT_ERR_INVALID_STACK_OPERATION);
+    CheckError(STANDARD_NOT_MANDATORY_VERIFY_FLAGS,{{0x00}}, CScript() << OP_CHECKDATASIG, SCRIPT_ERR_INVALID_STACK_OPERATION);
+    CheckError(STANDARD_NOT_MANDATORY_VERIFY_FLAGS, {{0x00}, {0x00}}, CScript() << OP_CHECKDATASIG, SCRIPT_ERR_INVALID_STACK_OPERATION);
+    CheckError(STANDARD_NOT_MANDATORY_VERIFY_FLAGS, {}, CScript() << OP_CHECKDATASIGVERIFY,SCRIPT_ERR_INVALID_STACK_OPERATION);
+    CheckError(STANDARD_NOT_MANDATORY_VERIFY_FLAGS, {{0x00}}, CScript() << OP_CHECKDATASIGVERIFY,SCRIPT_ERR_INVALID_STACK_OPERATION);
+    CheckError(STANDARD_NOT_MANDATORY_VERIFY_FLAGS, {{0x00}, {0x00}}, CScript() << OP_CHECKDATASIGVERIFY, SCRIPT_ERR_INVALID_STACK_OPERATION);
 
     CheckError(STANDARD_SCRIPT_VERIFY_FLAGS, {}, CScript()<< OP_CHECKDATASIG, SCRIPT_ERR_INVALID_STACK_OPERATION);
     CheckError(STANDARD_SCRIPT_VERIFY_FLAGS,{{0x00}}, CScript() << OP_CHECKDATASIG, SCRIPT_ERR_INVALID_STACK_OPERATION);
@@ -126,10 +126,10 @@ BOOST_AUTO_TEST_CASE(checkdatasig_test) {
     CheckError(0, {{}, message, pubkey}, CScript() << OP_CHECKDATASIGVERIFY, SCRIPT_ERR_CHECKDATASIGVERIFY);
     CheckError(0, {{}, message, pubkeyC}, CScript() << OP_CHECKDATASIGVERIFY, SCRIPT_ERR_CHECKDATASIGVERIFY);
 
-    CheckPass(MANDATORY_SCRIPT_VERIFY_FLAGS, {{}, message, pubkey}, CScript() << OP_CHECKDATASIG, {{}});
-    CheckPass(MANDATORY_SCRIPT_VERIFY_FLAGS, {{}, message, pubkeyC}, CScript() << OP_CHECKDATASIG, {{}});
-    CheckError(MANDATORY_SCRIPT_VERIFY_FLAGS, {{}, message, pubkey}, CScript() << OP_CHECKDATASIGVERIFY, SCRIPT_ERR_CHECKDATASIGVERIFY);
-    CheckError(MANDATORY_SCRIPT_VERIFY_FLAGS, {{}, message, pubkeyC}, CScript() << OP_CHECKDATASIGVERIFY, SCRIPT_ERR_CHECKDATASIGVERIFY);
+    CheckPass(STANDARD_NOT_MANDATORY_VERIFY_FLAGS, {{}, message, pubkey}, CScript() << OP_CHECKDATASIG, {{}});
+    CheckPass(STANDARD_NOT_MANDATORY_VERIFY_FLAGS, {{}, message, pubkeyC}, CScript() << OP_CHECKDATASIG, {{}});
+    CheckError(STANDARD_NOT_MANDATORY_VERIFY_FLAGS, {{}, message, pubkey}, CScript() << OP_CHECKDATASIGVERIFY, SCRIPT_ERR_CHECKDATASIGVERIFY);
+    CheckError(STANDARD_NOT_MANDATORY_VERIFY_FLAGS, {{}, message, pubkeyC}, CScript() << OP_CHECKDATASIGVERIFY, SCRIPT_ERR_CHECKDATASIGVERIFY);
 
     CheckPass(STANDARD_SCRIPT_VERIFY_FLAGS, {{}, message, pubkey}, CScript() << OP_CHECKDATASIG, {{}});
     CheckPass(STANDARD_SCRIPT_VERIFY_FLAGS, {{}, message, pubkeyC}, CScript() << OP_CHECKDATASIG, {{}});
@@ -162,15 +162,10 @@ BOOST_AUTO_TEST_CASE(checkdatasig_test) {
 
     for (uint32_t flags = 1U; flags <= SCRIPT_VERIFY_CONST_SCRIPTCODE; flags<<=1U) {
 
-        if (flags & SCRIPT_VERIFY_STRICTENC) {
-            // When strict encoding is enforced, hybrid key are invalid.
-            CheckError(flags, {{}, message, pubkeyH}, script, SCRIPT_ERR_PUBKEYTYPE);
-            CheckError(flags, {{}, message, pubkeyH}, scriptverify, SCRIPT_ERR_PUBKEYTYPE);
-        } else {
-            // When strict encoding is not enforced, hybrid key are valid.
-            CheckPass(flags, {{}, message, pubkeyH}, script, {});
-            CheckError(flags, {{}, message, pubkeyH}, scriptverify, SCRIPT_ERR_CHECKDATASIGVERIFY);
-        }
+        // When strict encoding is enforced, hybrid key are invalid.
+        CheckError(flags, {{}, message, pubkeyH}, script, SCRIPT_ERR_PUBKEYTYPE);
+        CheckError(flags, {{}, message, pubkeyH}, scriptverify, SCRIPT_ERR_PUBKEYTYPE);
+
 
         if (flags & SCRIPT_VERIFY_NULLFAIL) {
             // When strict encoding is enforced, hybrid key are invalid.
@@ -190,34 +185,16 @@ BOOST_AUTO_TEST_CASE(checkdatasig_test) {
             CheckError(flags, {validsig, {0x01}, pubkey}, scriptverify, SCRIPT_ERR_CHECKDATASIGVERIFY);
         }
 
-        if (flags & SCRIPT_VERIFY_LOW_S) {
-            // If we do enforce low S, then high S sigs are rejected.
-            CheckError(flags, {highSSig, message, pubkey}, script, SCRIPT_ERR_SIG_HIGH_S);
-            CheckError(flags, {highSSig, message, pubkey}, scriptverify, SCRIPT_ERR_SIG_HIGH_S);
-        } else {
-            // If we do not enforce low S, then high S sigs are accepted.
-            if(flags == SCRIPT_VERIFY_NULLFAIL)
-                CheckError(flags, {nondersig, message, pubkey}, script, SCRIPT_ERR_SIG_NULLFAIL);
-            else
-                CheckPass(flags, {highSSig, message, pubkey}, script, {});
+        // If we do enforce low S, then high S sigs are rejected.
+        CheckError(flags, {highSSig, message, pubkey}, script, SCRIPT_ERR_SIG_HIGH_S);
+        CheckError(flags, {highSSig, message, pubkey}, scriptverify, SCRIPT_ERR_SIG_HIGH_S);
 
-            CheckError(flags, {highSSig, message, pubkey}, scriptverify, flags == SCRIPT_VERIFY_NULLFAIL ? SCRIPT_ERR_SIG_NULLFAIL : SCRIPT_ERR_CHECKDATASIGVERIFY);
-        }
         
-        if (flags & (SCRIPT_VERIFY_DERSIG | SCRIPT_VERIFY_LOW_S | SCRIPT_VERIFY_STRICTENC)) {
-            // If we get any of the dersig flags, the non canonical dersig
-            // signature fails.
-            CheckError(flags, {nondersig, message, pubkey}, script, flags == SCRIPT_VERIFY_NULLFAIL ? SCRIPT_ERR_SIG_NULLFAIL : SCRIPT_ERR_SIG_DER);
-            CheckError(flags, {nondersig, message, pubkey}, scriptverify, flags == SCRIPT_VERIFY_NULLFAIL ? SCRIPT_ERR_SIG_NULLFAIL : SCRIPT_ERR_SIG_DER);
-        } else {
-            // If we do not check, then it is accepted.
-            if(flags == SCRIPT_VERIFY_NULLFAIL)
-                CheckError(flags, {nondersig, message, pubkey}, script, SCRIPT_ERR_SIG_NULLFAIL);
-            else
-                CheckPass(flags, {nondersig, message, pubkey}, script, {});
+        // If we get any of the dersig flags, the non canonical dersig
+        // signature fails.
+        CheckError(flags, {nondersig, message, pubkey}, script, SCRIPT_ERR_SIG_DER);
+        CheckError(flags, {nondersig, message, pubkey}, scriptverify, SCRIPT_ERR_SIG_DER);
 
-            CheckError(flags, {nondersig, message, pubkey}, scriptverify, flags == SCRIPT_VERIFY_NULLFAIL ? SCRIPT_ERR_SIG_NULLFAIL : SCRIPT_ERR_CHECKDATASIGVERIFY);
-        }
     }
 }
 
