@@ -20,7 +20,7 @@ Tapyrus scripts are evaluated with the following flags.
 |SCRIPT_VERIFY_MINIMALDATA | - |Require minimal encodings for all push operations. Whenever a stack element is interpreted as a number, it must be of minimal length  | Default |
 |SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY | - |Verify CHECKLOCKTIMEVERIFY. BIP65| Default |
 |SCRIPT_VERIFY_CHECKSEQUENCEVERIFY | - |Support CHECKSEQUENCEVERIFY . BIP112 | Default |
-|SCRIPT_VERIFY_SIGPUSHONLY | (1U << 0) |Using a non-push/csv/cltv operator in the scriptSig causes script failure | Standard Non-Mandatory |
+|SCRIPT_VERIFY_SIGPUSHONLY | (1U << 0) |Using a non-push operator in the scriptSig causes script failure | Standard Non-Mandatory |
 |SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS | (1U << 1) |Discourage use of NOPs reserved for upgrades | Standard |
 |SCRIPT_VERIFY_CLEANSTACK | (1U << 2)|Require that only a single stack element remains after evaluation | Standard |
 |SCRIPT_VERIFY_WITNESS | (1U << 11)|Support segregated witness| Standard |
