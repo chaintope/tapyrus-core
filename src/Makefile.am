@@ -84,7 +84,7 @@ if BUILD_BITCOIND
 endif
 
 if BUILD_BITCOIN_UTILS
-  bin_PROGRAMS += tapyrus-cli tapyrus-tx
+  bin_PROGRAMS += tapyrus-cli tapyrus-tx tapyrus-genesis
 endif
 
 .PHONY: FORCE check-symbols check-security
@@ -499,6 +499,31 @@ tapyrus_tx_LDADD = \
   $(LIBSECP256K1)
 
 tapyrus_tx_LDADD += $(BOOST_LIBS) $(CRYPTO_LIBS)
+#
+
+# tapyrus-genesis binary #
+tapyrus_genesis_SOURCES = tapyrus-genesis.cpp
+tapyrus_genesis_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
+tapyrus_genesis_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+tapyrus_genesis_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
+
+if TARGET_WINDOWS
+tapyrus_genesis_SOURCES += tapyrus-genesis-res.rc
+endif
+
+tapyrus_genesis_LDADD = \
+  $(LIBBITCOIN_SERVER) \
+  $(LIBBITCOIN_COMMON) \
+  $(LIBUNIVALUE) \
+  $(LIBBITCOIN_UTIL) \
+  $(LIBBITCOIN_CONSENSUS) \
+  $(LIBBITCOIN_CRYPTO) \
+  $(LIBLEVELDB) \
+  $(LIBLEVELDB_SSE42) \
+  $(LIBMEMENV) \
+  $(LIBSECP256K1)
+
+tapyrus_genesis_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(CRYPTO_LIBS)
 #
 
 # tapyrusconsensus library #

@@ -214,46 +214,11 @@ CTxMemPoolEntry TestMemPoolEntryHelper::FromTx(const CTransactionRef& tx)
 }
 /**
  * @returns a signed genesis block.
- * Note :  make sure singleton MultisigCondition is initialized before this call.
  * otherwise the block will be invalid
  */
 CBlock createTestGenesisBlock(const MultisigCondition& signedBlocksCondition, const std::vector<CKey>& validPrivateKeys)
 {
-    CPubKey combinedPubKey = PubKeyCombine(signedBlocksCondition.pubkeys);
-    CPubKey rewardToPubKey(signedBlocksCondition.pubkeys[0]);
-
-    //Genesis coinbase transaction paying block reward to the first public key in signedBlocksCondition
-    CMutableTransaction txNew;
-    txNew.nVersion = 1;
-    txNew.vin.resize(1);
-    txNew.vout.resize(1);
-    txNew.vin[0].prevout.n = 0;
-    txNew.vin[0].scriptSig = CScript() << CScriptNum(signedBlocksCondition.threshold) << std::vector<unsigned char>(combinedPubKey.data(), combinedPubKey.data() + CPubKey::COMPRESSED_PUBLIC_KEY_SIZE);
-    txNew.vout[0].nValue = 50 * COIN;
-    txNew.vout[0].scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(rewardToPubKey.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
-
-    //Genesis block header
-    CBlock genesis;
-    genesis.nTime    = time(0);
-    genesis.nVersion = 1;
-    genesis.vtx.push_back(MakeTransactionRef(std::move(txNew)));
-    genesis.hashPrevBlock.SetNull();
-    genesis.hashMerkleRoot = BlockMerkleRoot(genesis);
-    genesis.hashImMerkleRoot = BlockMerkleRoot(genesis, nullptr, true);
-
-    //Genesis block proof
-    CProof genesisProof;
-    uint256 blockHash = genesis.GetHashForSign();
-    std::vector<unsigned char> vchSig;
-    for(int i = 0; i < signedBlocksCondition.threshold; i++)
-    {
-        CKey keyBuffer { validPrivateKeys.at(i) };
-        keyBuffer.Sign(blockHash, vchSig);
-        genesisProof.addSignature(vchSig);
-    }
-    genesis.AbsorbBlockProof(genesisProof, signedBlocksCondition);
-
-    return genesis;
+    return createGenesisBlock(signedBlocksCondition, validPrivateKeys);
 }
 /**
  * @returns a string with the hex encoded signed genesis block.

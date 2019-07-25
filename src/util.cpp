@@ -640,6 +640,9 @@ std::string ArgsManager::GetHelpMessage() const
             case OptionsCategory::SIGN_BLOCK:
                 usage += HelpMessageGroup("Signed block:");
                 break;
+            case OptionsCategory::GENESIS:
+                usage += HelpMessageGroup("Genesis block:");
+                break;
             default:
                 break;
         }

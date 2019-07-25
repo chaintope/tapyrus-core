@@ -250,7 +250,7 @@ BOOST_AUTO_TEST_CASE(create_genesis_block_default)
     CScript scriptPubKey = genesis.vtx[0]->vout[0].scriptPubKey;
     BOOST_CHECK_EQUAL(HexStr(scriptPubKey.begin(), scriptPubKey.end()), "76a914c1819a5ddd545de01ed901e98a65ac905b8c389988ac");
 
-    BOOST_CHECK_EQUAL(genesis.proof.size(), signedBlockCondition.threshold);
+    BOOST_CHECK_EQUAL(genesis.proof.size(), signedBlockCondition.pubkeys.size());
 }
 
 BOOST_AUTO_TEST_CASE(create_genesis_block_one_publickey)

@@ -176,4 +176,10 @@ bool ReadGenesisBlock(fs::path genesisPath=GetDataDir(false));
  */
 bool SetSignedBlocksCondition(const MultisigCondition condition = CreateSignedBlockCondition());
 
+/**
+ * @returns a signed genesis block.
+ */
+CBlock createGenesisBlock(const MultisigCondition& signedBlocksCondition, const std::vector<CKey>& privateKeys={}, const time_t blockTime=time(0));
+
+
 #endif // BITCOIN_CHAINPARAMS_H
