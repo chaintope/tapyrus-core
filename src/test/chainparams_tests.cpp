@@ -10,6 +10,7 @@
 #include <test/test_keys_helper.h>
 
 #include <boost/test/unit_test.hpp>
+#include <consensus/validation.h>
 
 /** ChainParamsTestingSetup
  * This class is an exact copy of BasicTestingSetup but removes two steps:
@@ -214,6 +215,24 @@ BOOST_AUTO_TEST_CASE(create_cchainparams_highthreshold)
         BOOST_CHECK_EQUAL(ex.what(), "Threshold can be between 1 to 15, but passed 16.");
         return true;
     });
+}
+
+BOOST_AUTO_TEST_CASE(create_genesis_block)
+{
+    // This is for using CPubKey.verify().
+    ECCVerifyHandle globalVerifyHandle;
+
+    gArgs.ForceSetArg("-signblockpubkeys", combinedPubkeyString(15));
+    gArgs.ForceSetArg("-signblockthreshold", "10");
+
+    SelectParams(CBaseChainParams::MAIN);
+    SetSignedBlocksCondition();
+
+    const auto blockTime = time(0);
+    const auto genesis = createGenesisBlock(Params().GetSignedBlocksCondition(), getValidPrivateKeys(15), blockTime);
+
+    CValidationState state;
+    BOOST_CHECK(CheckBlock(genesis, state, Params().GetConsensus(), true));
 }
 
 
