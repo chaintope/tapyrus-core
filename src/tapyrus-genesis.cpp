@@ -83,7 +83,7 @@ static int AppInit(int argc, char* argv[])
     return CONTINUE_EXECUTION;
 }
 
-static int CommandLine(int argc, char* argv[])
+static int CommandLine()
 {
     auto wifs = gArgs.GetArgs("-signblockprivatekey");
     std::vector<CKey> privatekeys = {};
@@ -150,7 +150,7 @@ int main(int argc, char* argv[])
 
     int ret = EXIT_FAILURE;
     try {
-        ret = CommandLine(argc, argv);
+        ret = CommandLine();
     }
     catch (const std::exception& e) {
         PrintExceptionContinue(&e, "CommandLine()");
