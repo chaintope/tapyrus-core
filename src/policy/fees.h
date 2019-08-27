@@ -67,6 +67,12 @@ class TxConfirmStats;
  * of confirmations below the number of blocks they've been outstanding.
  */
 
+/* version required to read:
+ * in bitcoin 0.14.99 or later
+ * In tapyrus same as CLIENT_VERSION
+ */
+const int ESTIMATOR_FILE_VERSION = 1000000;
+
 /* Identifier for each of the 3 different TxConfirmStats which will track
  * history over different time horizons. */
 enum class FeeEstimateHorizon {

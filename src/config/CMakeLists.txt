@@ -8,11 +8,11 @@ include(CheckSymbolExists)
 include(CheckCXXSourceCompiles)
 
 # Package informations
-set(PACKAGE_NAME "Tapyrus")
+set(PACKAGE_NAME "Tapyrus Core")
 
 # Version
 set(CLIENT_VERSION_MAJOR 0)
-set(CLIENT_VERSION_MINOR 19)
+set(CLIENT_VERSION_MINOR 1)
 set(CLIENT_VERSION_REVISION 0)
 set(CLIENT_VERSION_BUILD 0)
 

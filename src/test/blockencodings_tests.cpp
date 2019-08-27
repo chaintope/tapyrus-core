@@ -30,7 +30,7 @@ static CBlock BuildBlockTestCase() {
 
     block.vtx.resize(3);
     block.vtx[0] = MakeTransactionRef(tx);
-    block.nVersion = 42;
+    block.nVersion = 1;
     block.hashPrevBlock = InsecureRand256();
 
     tx.vin[0].prevout.hashMalFix = InsecureRand256();
@@ -49,7 +49,7 @@ static CBlock BuildBlockTestCase() {
     block.hashMerkleRoot = BlockMerkleRoot(block, &mutated);
     block.hashImMerkleRoot = BlockMerkleRoot(block, &mutated, true);
     assert(!mutated);
-    // TODO: set correct signs to block for Signed Blocks mechanism.
+    block.AbsorbBlockProof(createSignedBlockProof(block, Params().GetSignedBlocksCondition().threshold), Params().GetSignedBlocksCondition());
     return block;
 }
 
@@ -296,7 +296,7 @@ BOOST_AUTO_TEST_CASE(EmptyBlockRoundTripTest)
     CBlock block;
     block.vtx.resize(1);
     block.vtx[0] = MakeTransactionRef(std::move(coinbase));
-    block.nVersion = 42;
+    block.nVersion = 1;
     block.hashPrevBlock = InsecureRand256();
     block.nTime = 0x5c6e03b8;
 
@@ -304,7 +304,7 @@ BOOST_AUTO_TEST_CASE(EmptyBlockRoundTripTest)
     block.hashMerkleRoot = BlockMerkleRoot(block, &mutated);
     block.hashImMerkleRoot = BlockMerkleRoot(block, &mutated, true);
     assert(!mutated);
-    // TODO: set correct signs to block for Signed Blocks mechanism.
+    block.AbsorbBlockProof(createSignedBlockProof(block, Params().GetSignedBlocksCondition().threshold), Params().GetSignedBlocksCondition());
 
     // Test simple header round-trip with only coinbase
     {
