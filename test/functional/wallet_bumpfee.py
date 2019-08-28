@@ -120,12 +120,8 @@ def test_segwit_bumpfee_succeeds(rbf_node, dest_address):
     }], {dest_address: Decimal("0.0005"),
          rbf_node.getrawchangeaddress(): Decimal("0.0003")})
     rbfsigned = rbf_node.signrawtransactionwithwallet(rbfraw)
-    rbfid = rbf_node.sendrawtransaction(rbfsigned["hex"])
-    assert rbfid in rbf_node.getrawmempool()
 
-    bumped_tx = rbf_node.bumpfee(rbfid)
-    assert bumped_tx["txid"] in rbf_node.getrawmempool()
-    assert rbfid not in rbf_node.getrawmempool()
+    assert_raises_rpc_error(-26, "non-mandatory-script-verify-flag (Witness program hash mismatch)", rbf_node.sendrawtransaction, rbfsigned["hex"])
 
 
 def test_nonrbf_bumpfee_fails(peer_node, dest_address):
@@ -295,7 +291,6 @@ def submit_block_with_tx(node, tx, signblockprivkeys):
     block.rehash()
     block.hashMerkleRoot = block.calc_merkle_root()
     block.hashImMerkleRoot = block.calc_immutable_merkle_root()
-    add_witness_commitment(block)
     block.solve(signblockprivkeys)
     node.submitblock(bytes_to_hex_str(block.serialize()))
     return block

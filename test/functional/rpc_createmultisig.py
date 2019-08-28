@@ -29,7 +29,7 @@ class RpcCreateMultiSigTest(BitcoinTestFramework):
         self.moved = 0
         for self.nkeys in [3,5]:
             for self.nsigs in [2,3]:
-                for self.output_type in ["bech32", "p2sh-segwit", "legacy"]:
+                for self.output_type in ["legacy"]:
                     self.get_keys()
                     self.do_multisig()
 
@@ -57,8 +57,6 @@ class RpcCreateMultiSigTest(BitcoinTestFramework):
         msig = node2.createmultisig(self.nsigs, self.pub, self.output_type)
         madd = msig["address"]
         mredeem = msig["redeemScript"]
-        if self.output_type == 'bech32':
-            assert madd[0:4] == "bcrt"  # actually a bech32 address
 
         # compare against addmultisigaddress
         msigw = node1.addmultisigaddress(self.nsigs, self.pub, None, self.output_type)

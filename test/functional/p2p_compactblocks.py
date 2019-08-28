@@ -861,11 +861,12 @@ class CompactBlocksTest(BitcoinTestFramework):
         self.log.info("Running tests, post-segwit activation...")
 
         self.log.info("Testing compactblock construction...")
-        self.test_compactblock_construction(self.nodes[1], self.old_node, 1, True)
+        self.test_compactblock_construction(self.nodes[1], self.old_node, 1, False)
+
         sync_blocks(self.nodes)
 
         self.log.info("Testing compactblock requests (unupgraded node)... ")
-        self.test_compactblock_requests(self.nodes[0], self.test_node, 1, True)
+        self.test_compactblock_requests(self.nodes[0], self.test_node, 1, False)
 
         self.log.info("Testing getblocktxn requests (unupgraded node)...")
         self.test_getblocktxn_requests(self.nodes[0], self.test_node, 1)
@@ -893,6 +894,7 @@ class CompactBlocksTest(BitcoinTestFramework):
 
         self.log.info("Testing handling of invalid compact blocks...")
         self.test_invalid_tx_in_compactblock(self.nodes[0], self.test_node, False)
+
         self.test_invalid_tx_in_compactblock(self.nodes[1], self.old_node, True)
 
         self.log.info("Testing invalid index in cmpctblock message...")
