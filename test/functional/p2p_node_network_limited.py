@@ -77,7 +77,7 @@ class NodeNetworkLimitedTest(BitcoinTestFramework):
 
         node1.wait_for_addr()
         #must relay address with NODE_NETWORK_LIMITED
-        assert_equal(node1.firstAddrnServices, 1036)
+        assert_equal(node1.firstAddrnServices, 1028)
 
         self.nodes[0].disconnect_p2ps()
         node1.wait_for_disconnect()
