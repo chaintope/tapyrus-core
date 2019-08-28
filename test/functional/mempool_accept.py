@@ -51,7 +51,7 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
 
         self.log.info('Start with empty mempool, and 200 blocks')
         self.mempool_size = 0
-        wait_until(lambda: node.getblockcount() == 200)
+        wait_until(lambda: node.getblockcount() == 200, timeout=300)
         assert_equal(node.getmempoolinfo()['size'], self.mempool_size)
 
         self.log.info('Should not accept garbage to testmempoolaccept')
@@ -178,7 +178,7 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
 
         self.log.info('A really large transaction')
         tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx_reference)))
-        tx.vin = [tx.vin[0]] * (MAX_BLOCK_BASE_SIZE // len(tx.vin[0].serialize()))
+        tx.vin = [tx.vin[0]] * 4 * (MAX_BLOCK_BASE_SIZE // len(tx.vin[0].serialize()))
         self.check_mempool_result(
             result_expected=[{'txid': tx.rehash(), 'allowed': False, 'reject-reason': '16: bad-txns-oversize'}],
             rawtxs=[bytes_to_hex_str(tx.serialize())],

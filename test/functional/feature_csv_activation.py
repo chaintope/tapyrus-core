@@ -2,31 +2,12 @@
 # Copyright (c) 2015-2018 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
-"""Test activation of the first version bits soft fork.
+"""Test that the following BIPS are always active in Tapyrus
 
-This soft fork will activate the following BIPS:
 BIP 68  - nSequence relative lock times
 BIP 112 - CHECKSEQUENCEVERIFY
 BIP 113 - MedianTimePast semantics for nLockTime
 
-regtest lock-in with 108/144 block signalling
-activation after a further 144 blocks
-
-mine 82 blocks whose coinbases will be used to generate inputs for our tests
-mine 61 blocks to transition from DEFINED to STARTED
-mine 144 blocks only 100 of which are signaling readiness in order to fail to change state this period
-mine 144 blocks with 108 signaling and verify STARTED->LOCKED_IN
-mine 140 blocks and seed block chain with the 82 inputs will use for our tests at height 572
-mine 3 blocks and verify still at LOCKED_IN and test that enforcement has not triggered
-mine 1 block and test that enforcement has triggered (which triggers ACTIVE)
-Test BIP 113 is enforced
-Mine 4 blocks so next height is 580 and test BIP 68 is enforced for time and height
-Mine 1 block so next height is 581 and test BIP 68 now passes time but not height
-Mine 1 block so next height is 582 and test BIP 68 now passes time and height
-Test that BIP 112 is enforced
-
-Various transactions will be used to test that the BIPs rules are not enforced before the soft fork activates
-And that after the soft fork activates transactions pass and fail as they should according to the rules.
 For each BIP, transactions of versions 1 and 2 will be tested.
 ----------------
 BIP 113:
@@ -143,7 +124,7 @@ class BIP68_112_113Test(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
-        self.extra_args = [['-whitelist=127.0.0.1', '-blockversion=4', '-addresstype=legacy']]
+        self.extra_args = [['-whitelist=127.0.0.1']]
         self.genesisBlock = createTestGenesisBlock(self.signblockpubkeys, self.signblockthreshold, self.signblockprivkeys, int(time.time()) - 600 * 1000  - 10) # long_past_time - 10 for genesis block
 
     def generate_blocks(self, number, version, test_blocks=None):
@@ -157,7 +138,7 @@ class BIP68_112_113Test(BitcoinTestFramework):
             self.tipheight += 1
         return test_blocks
 
-    def create_test_block(self, txs, version=536870912):
+    def create_test_block(self, txs, version=1):
         block = create_block(self.tip, create_coinbase(self.tipheight + 1), self.last_block_time + 600)
         block.nVersion = version
         block.vtx.extend(txs)
@@ -188,7 +169,7 @@ class BIP68_112_113Test(BitcoinTestFramework):
 
         self.log.info("Test that the csv softfork is DEFINED")
         assert_equal(get_bip9_status(self.nodes[0], 'csv')['status'], 'defined')
-        test_blocks = self.generate_blocks(61, 4)
+        test_blocks = self.generate_blocks(61, 1)
         self.sync_blocks(test_blocks)
 
         self.log.info("Advance from DEFINED to STARTED, height = 143")
@@ -198,7 +179,7 @@ class BIP68_112_113Test(BitcoinTestFramework):
         # 100 out of 144 signal bit 0. Use a variety of bits to simulate multiple parallel softforks
 
         test_blocks = self.generate_blocks(50, 536870913)  # 0x20000001 (signalling ready)
-        test_blocks = self.generate_blocks(20, 4, test_blocks)  # 0x00000004 (signalling not)
+        test_blocks = self.generate_blocks(20, 1, test_blocks)  # 0x00000001 (signalling not)
         test_blocks = self.generate_blocks(50, 536871169, test_blocks)  # 0x20000101 (signalling ready)
         test_blocks = self.generate_blocks(24, 536936448, test_blocks)  # 0x20010000 (signalling not)
         self.sync_blocks(test_blocks)
@@ -262,7 +243,7 @@ class BIP68_112_113Test(BitcoinTestFramework):
         assert_equal(len(self.nodes[0].getblock(inputblockhash, True)["tx"]), 82 + 1)
 
         # 2 more version 4 blocks
-        test_blocks = self.generate_blocks(2, 4)
+        test_blocks = self.generate_blocks(2, 1)
         self.sync_blocks(test_blocks)
 
         self.log.info("Not yet advanced to ACTIVE, height = 574 (will activate for block 576, not 575)")
@@ -354,7 +335,7 @@ class BIP68_112_113Test(BitcoinTestFramework):
         self.sync_blocks([self.create_test_block(bip112txs)], success=False, reject_code=16)
 
         # 1 more version 4 block to get us to height 575 so the fork should now be active for the next block
-        test_blocks = self.generate_blocks(1, 4)
+        test_blocks = self.generate_blocks(1, 1)
         self.sync_blocks(test_blocks)
         assert_equal(get_bip9_status(self.nodes[0], 'csv')['status'], 'active')
 
@@ -386,8 +367,7 @@ class BIP68_112_113Test(BitcoinTestFramework):
 
         success_txs = []
         success_txs.extend(all_rlt_txs(bip68txs_v1))
-        self.sync_blocks([self.create_test_block(success_txs)])
-        self.nodes[0].invalidateblock(self.nodes[0].getbestblockhash())
+        self.sync_blocks([self.create_test_block(success_txs)], success=False, reject_code=16, reject_reason=b'bad-txns-nonfinal')
 
         self.log.info("Test version 2 txs")
 

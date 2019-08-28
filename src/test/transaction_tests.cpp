@@ -406,7 +406,7 @@ static void ReplaceRedeemScript(CScript& script, const CScript& redeemScript)
     script = PushAll(stack);
 }
 
-BOOST_AUTO_TEST_CASE(test_big_witness_transaction) {
+/*BOOST_AUTO_TEST_CASE(test_big_witness_transaction) {
     CMutableTransaction mtx;
     mtx.nVersion = 1;
 
@@ -484,7 +484,7 @@ BOOST_AUTO_TEST_CASE(test_big_witness_transaction) {
 
     threadGroup.interrupt_all();
     threadGroup.join_all();
-}
+}*/
 
 SignatureData CombineSignatures(const CMutableTransaction& input1, const CMutableTransaction& input2, const CTransactionRef tx)
 {
@@ -495,7 +495,7 @@ SignatureData CombineSignatures(const CMutableTransaction& input1, const CMutabl
     return sigdata;
 }
 
-BOOST_AUTO_TEST_CASE(test_witness)
+/*BOOST_AUTO_TEST_CASE(test_witness)
 {
     CBasicKeyStore keystore, keystore2;
     CKey key1, key2, key3, key1L, key2L;
@@ -669,7 +669,7 @@ BOOST_AUTO_TEST_CASE(test_witness)
     CheckWithFlag(output1, input1, SCRIPT_VERIFY_WITNESS, true);
     CheckWithFlag(output1, input1, STANDARD_SCRIPT_VERIFY_FLAGS, true);
     CheckWithFlag(output1, input1, STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true);
-}
+}*/
 
 BOOST_AUTO_TEST_CASE(test_IsStandard)
 {

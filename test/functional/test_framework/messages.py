@@ -469,11 +469,11 @@ class CTransaction():
     # Regular serialization is with witness -- must explicitly
     # call serialize_without_witness to exclude witness data.
     def serialize(self, **kwargs):
-        if(kwargs.get('with_witness') == False):
-            return self.serialize_without_witness(**kwargs)
-        
-        return self.serialize_with_witness(**kwargs)
-            
+        if(kwargs.get('with_witness') == True):
+            del kwargs['with_witness']
+            return self.serialize_with_witness(**kwargs)
+
+        return self.serialize_without_witness(**kwargs)   
 
     # Recalculate the txid (transaction hash without witness)
     def rehash(self):
@@ -1122,7 +1122,7 @@ class msg_generic():
 class msg_witness_block(msg_block):
 
     def serialize(self):
-        r = self.block.serialize()
+        r = self.block.serialize(with_witness=True)
         return r
 
 class msg_getaddr():
