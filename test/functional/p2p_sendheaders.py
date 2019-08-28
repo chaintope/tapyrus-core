@@ -226,8 +226,9 @@ class SendHeadersTest(BitcoinTestFramework):
         self.nodes[0].generate(length, self.signblockprivkeys)  # make sure all invalidated blocks are node0's
         sync_blocks(self.nodes, wait=0.1)
         for x in self.nodes[0].p2ps:
-            x.wait_for_block_announcement(int(self.nodes[0].getbestblockhash(), 16))
-            x.clear_block_announcements()
+            if(x.nServices != 0):
+                x.wait_for_block_announcement(int(self.nodes[0].getbestblockhash(), 16))
+                x.clear_block_announcements()
 
         tip_height = self.nodes[1].getblockcount()
         hash_to_invalidate = self.nodes[1].getblockhash(tip_height - (length - 1))
@@ -241,7 +242,9 @@ class SendHeadersTest(BitcoinTestFramework):
         inv_node = self.nodes[0].add_p2p_connection(BaseNode())
         # Make sure NODE_NETWORK is not set for test_node, so no block download
         # will occur outside of direct fetching
-        test_node = self.nodes[0].add_p2p_connection(BaseNode(), services=NODE_WITNESS)
+        test_node = self.nodes[0].add_p2p_connection(BaseNode(), services=NODE_WITNESS, wait_for_verack=False)
+        test_node.wait_for_disconnect()
+        test_node = self.nodes[0].add_p2p_connection(BaseNode())
 
         # Ensure verack's have been processed by our peer
         inv_node.sync_with_ping()
