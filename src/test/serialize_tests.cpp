@@ -350,6 +350,8 @@ BOOST_AUTO_TEST_CASE(class_methods)
     std::string stringval("testing");
     const char charstrval[16] = "testing charstr";
     CMutableTransaction txval;
+    txval.vin.push_back(CTxIn(COutPoint(uint256(), 0)));
+    txval.vout.push_back(CTxOut());
     CTransactionRef tx_ref{MakeTransactionRef(txval)};
     CSerializeMethodsTestSingle methodtest1(intval, boolval, stringval, charstrval, tx_ref);
     CSerializeMethodsTestMany methodtest2(intval, boolval, stringval, charstrval, tx_ref);

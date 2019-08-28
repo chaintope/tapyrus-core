@@ -381,7 +381,6 @@ class SerializationTest(BitcoinTestFramework):
         block = create_block(int(tip, 16), create_coinbase(CHAIN_HEIGHT + 4), block_time)
         block.nVersion = 2
         block.vtx.append(spendtx)
-        add_witness_commitment(block)
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         block.rehash()
@@ -389,7 +388,7 @@ class SerializationTest(BitcoinTestFramework):
 
         # serialize with and without witness block remains the same
         assert_equal(block.serialize(with_witness=True), block.serialize())
-        assert_not_equal(block.serialize(with_witness=True), block.serialize(with_witness=False))
+        assert_equal(block.serialize(with_witness=True), block.serialize(with_witness=False))
         assert_equal(block.serialize(with_witness=True), block.serialize(with_witness=True, with_scriptsig=True))
 
         self.log.info("Accept block with P2WPKH transaction")
@@ -451,7 +450,6 @@ class SerializationTest(BitcoinTestFramework):
         block = create_block(int(tip, 16), create_coinbase(CHAIN_HEIGHT + 5), block_time)
         block.nVersion = 2
         block.vtx.append(spendtx)
-        add_witness_commitment(block)
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         block.rehash()
@@ -459,7 +457,7 @@ class SerializationTest(BitcoinTestFramework):
 
         # serialize block with and without witness 
         assert_equal(block.serialize(with_witness=True), block.serialize())
-        assert_not_equal(block.serialize(with_witness=True), block.serialize(with_witness=False))
+        assert_equal(block.serialize(with_witness=True), block.serialize(with_witness=False))
         assert_equal(block.serialize(with_witness=True), block.serialize(with_witness=True, with_scriptsig=True))
 
         self.log.info("Accept block with P2WSH transaction")
@@ -522,7 +520,6 @@ class SerializationTest(BitcoinTestFramework):
         block = create_block(int(tip, 16), create_coinbase(CHAIN_HEIGHT + 6), block_time)
         block.nVersion = 2
         block.vtx.append(spendtx)
-        add_witness_commitment(block)
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         block.rehash()
@@ -530,8 +527,8 @@ class SerializationTest(BitcoinTestFramework):
 
         # serialize with and without witness
         assert_equal(block.serialize(with_witness=True), block.serialize())
-        assert_not_equal(block.serialize(with_witness=True), block.serialize(with_witness=False))
-        assert_not_equal(block.serialize(with_witness=True), block.serialize(with_witness=False, with_scriptsig=True))
+        assert_equal(block.serialize(with_witness=True), block.serialize(with_witness=False))
+        assert_equal(block.serialize(with_witness=True), block.serialize(with_witness=False, with_scriptsig=True))
 
         self.log.info("Reject block with p2sh_p2wpkh transaction")
         self.nodes[0].submitblock(bytes_to_hex_str(block.serialize(with_witness=True)))
@@ -593,7 +590,6 @@ class SerializationTest(BitcoinTestFramework):
         block = create_block(int(tip, 16), create_coinbase(CHAIN_HEIGHT + 7), block_time)
         block.nVersion = 2
         block.vtx.append(spendtx)
-        add_witness_commitment(block)
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         block.rehash()
@@ -601,8 +597,8 @@ class SerializationTest(BitcoinTestFramework):
 
         # serialize with and without witness
         assert_equal(block.serialize(with_witness=True), block.serialize())
-        assert_not_equal(block.serialize(with_witness=True), block.serialize(with_witness=False))
-        assert_not_equal(block.serialize(with_witness=True), block.serialize(with_witness=False, with_scriptsig=True))
+        assert_equal(block.serialize(with_witness=True), block.serialize(with_witness=False))
+        assert_equal(block.serialize(with_witness=True), block.serialize(with_witness=False, with_scriptsig=True))
 
         self.log.info("Reject block with p2sh_p2wsh transaction")
         self.nodes[0].submitblock(bytes_to_hex_str(block.serialize(with_witness=True)))

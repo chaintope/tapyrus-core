@@ -14,7 +14,7 @@ Generate 427 more blocks.
 """
 
 from test_framework.blocktools import create_coinbase, create_block, create_transaction, add_witness_commitment
-from test_framework.messages import CTransaction
+from test_framework.messages import CTransaction, CTxInWitness
 from test_framework.script import CScript
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error, bytes_to_hex_str
@@ -22,8 +22,6 @@ from test_framework.util import assert_equal, assert_raises_rpc_error, bytes_to_
 import time
 
 NULLDUMMY_ERROR = "mandatory-script-verify-flag-failed (Dummy CHECKMULTISIG argument must be zero) (code 16)"
-
-P2SH_NULLDUMMY_ERROR = "non-mandatory-script-verify-flag (Dummy CHECKMULTISIG argument must be zero) (code 64)"
 
 def trueDummy(tx):
     scriptSig = CScript(tx.vin[0].scriptSig)
@@ -88,20 +86,19 @@ class NULLDUMMYTest(BitcoinTestFramework):
 
         self.log.info("Test 5: Non-NULLDUMMY P2WSH multisig transaction invalid")
         test5tx = create_transaction(self.nodes[0], txid3, self.wit_address, amount=48)
-        test6txs.append(CTransaction(test5tx))
-        test5tx.wit.vtxinwit[0].scriptWitness.stack[0] = b'\x01'
-        assert_raises_rpc_error(-26, P2SH_NULLDUMMY_ERROR, self.nodes[0].sendrawtransaction, bytes_to_hex_str(test5tx.serialize_with_witness()), True)
+        test5tx.wit.vtxinwit = [CTxInWitness()]
+        test5tx.wit.vtxinwit[0].scriptWitness.stack = [b'\x01']
+        assert_raises_rpc_error(-22, "TX decode failed", self.nodes[0].sendrawtransaction, bytes_to_hex_str(test5tx.serialize_with_witness()), True)
         self.block_submit(self.nodes[0], [test5tx], True)
 
         self.log.info("Test 6: NULLDUMMY compliant base transactions should be accepted to mempool and in block")
         for i in test6txs:
             self.nodes[0].sendrawtransaction(bytes_to_hex_str(i.serialize()), True)
-        self.block_submit(self.nodes[0], test6txs, True, True)
+        self.block_submit(self.nodes[0], test6txs, False, True)
 
 
     def block_submit(self, node, txs, witness = False, accept = False):
         block = create_block(self.tip, create_coinbase(self.lastblockheight + 1), self.lastblocktime + 1)
-        block.nVersion = 4
         for tx in txs:
             tx.rehash()
             block.vtx.append(tx)
@@ -111,7 +108,10 @@ class NULLDUMMYTest(BitcoinTestFramework):
         block.rehash()
         block.solve(self.signblockprivkeys)
         blockbytes = block.serialize(with_witness=True)
-        node.submitblock(bytes_to_hex_str(blockbytes))
+        if(witness):
+            assert_raises_rpc_error(-22, "Block does not start with a coinbase", node.submitblock, bytes_to_hex_str(blockbytes))
+        else:
+            node.submitblock(bytes_to_hex_str(blockbytes))
         if (accept):
             assert_equal(node.getbestblockhash(), block.hash)
             self.tip = block.sha256

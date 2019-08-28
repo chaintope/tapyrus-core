@@ -473,8 +473,7 @@ class CTransaction():
             del kwargs['with_witness']
             return self.serialize_with_witness(**kwargs)
 
-        return self.serialize_without_witness(**kwargs)
-
+        return self.serialize_without_witness(**kwargs)   
 
     # Recalculate the txid (transaction hash without witness)
     def rehash(self):
