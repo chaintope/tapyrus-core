@@ -138,7 +138,7 @@ class RawTransactionsTest(BitcoinTestFramework):
             self.nodes[2].createrawtransaction(inputs=[{'txid': txid, 'vout': 9}], outputs=[{address: 99}, {'data': '99'}, {'data': '99'}]),
         )
 
-        for type in ["bech32", "p2sh-segwit", "legacy"]:
+        for type in [ "p2sh-segwit", "legacy"]:
             addr = self.nodes[0].getnewaddress("", type)
             addrinfo = self.nodes[0].getaddressinfo(addr)
             pubkey = addrinfo["scriptPubKey"]

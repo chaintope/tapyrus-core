@@ -723,7 +723,7 @@ class SegWitTest(BitcoinTestFramework):
             # Just check mempool acceptance, but don't add the transaction to the mempool, since witness is disallowed
             # in blocks and the tx is impossible to mine right now.
             assert_raises_rpc_error(-22, "TX decode failed", self.nodes[0].testmempoolaccept, [bytes_to_hex_str(tx3.serialize_with_witness(with_scriptsig=True))])
-            assert_equal(self.nodes[0].testmempoolaccept([bytes_to_hex_str(tx3.serialize())]), [{'txid': tx3.hashMalFix, 'allowed': False, 'reject-reason': '64: non-mandatory-script-verify-flag (Witness program was passed an empty witness)'}])
+            assert_equal(self.nodes[0].testmempoolaccept([bytes_to_hex_str(tx3.serialize())]), [{'txid': tx3.hashMalFix, 'allowed': False, 'reject-reason': '16: mandatory-script-verify-flag-failed (Witness program was passed an empty witness)'}])
             # Create the same output as tx3, but by replacing tx
             tx3_out = tx3.vout[0]
             tx3 = tx
