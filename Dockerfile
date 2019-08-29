@@ -51,6 +51,8 @@ EXPOSE 12383
 EXPOSE 2377
 # testnet rpc port
 EXPOSE 12377
+# regtest rpc port
+EXPOSE 12381
 
 VOLUME ["$datadir"]
 
