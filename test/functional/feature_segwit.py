@@ -141,19 +141,19 @@ class SegWitTest(BitcoinTestFramework):
 
         self.log.info("Verify default node can't accept txs with missing witness")
         # unsigned, no scriptsig
-        self.fail_accept(self.nodes[0], "mandatory-script-verify-flag", wit_ids[NODE_0][WIT_V0][0], False)
-        self.fail_accept(self.nodes[0], "mandatory-script-verify-flag", wit_ids[NODE_0][WIT_V1][0], False)
-        self.fail_accept(self.nodes[0], "mandatory-script-verify-flag", p2sh_ids[NODE_0][WIT_V0][0], False)
-        self.fail_accept(self.nodes[0], "mandatory-script-verify-flag", p2sh_ids[NODE_0][WIT_V1][0], False)
+        self.fail_accept(self.nodes[0], "mandatory-script-verify-flag-failed", wit_ids[NODE_0][WIT_V0][0], False)
+        self.fail_accept(self.nodes[0], "mandatory-script-verify-flag-failed", wit_ids[NODE_0][WIT_V1][0], False)
+        self.fail_accept(self.nodes[0], "mandatory-script-verify-flag-failed", p2sh_ids[NODE_0][WIT_V0][0], False)
+        self.fail_accept(self.nodes[0], "mandatory-script-verify-flag-failed", p2sh_ids[NODE_0][WIT_V1][0], False)
         # unsigned with redeem script
-        self.fail_accept(self.nodes[0], "mandatory-script-verify-flag", p2sh_ids[NODE_0][WIT_V0][0], False, witness_script(False, self.pubkey[0]))
-        self.fail_accept(self.nodes[0], "mandatory-script-verify-flag", p2sh_ids[NODE_0][WIT_V1][0], False, witness_script(True, self.pubkey[0]))
+        self.fail_accept(self.nodes[0], "mandatory-script-verify-flag-failed", p2sh_ids[NODE_0][WIT_V0][0], False, witness_script(False, self.pubkey[0]))
+        self.fail_accept(self.nodes[0], "mandatory-script-verify-flag-failed", p2sh_ids[NODE_0][WIT_V1][0], False, witness_script(True, self.pubkey[0]))
 
         self.log.info("Verify witness txs without witness data are invalid after the fork")
-        self.fail_accept(self.nodes[2], 'non-mandatory-script-verify-flag (Witness program hash mismatch) (code 64)', wit_ids[NODE_2][WIT_V0][2], sign=False)
-        self.fail_accept(self.nodes[2], 'non-mandatory-script-verify-flag (Witness program was passed an empty witness) (code 64)', wit_ids[NODE_2][WIT_V1][2], sign=False)
-        self.fail_accept(self.nodes[2], 'non-mandatory-script-verify-flag (Witness program hash mismatch) (code 64)', p2sh_ids[NODE_2][WIT_V0][2], sign=False, redeem_script=witness_script(False, self.pubkey[2]))
-        self.fail_accept(self.nodes[2], 'non-mandatory-script-verify-flag (Witness program was passed an empty witness) (code 64)', p2sh_ids[NODE_2][WIT_V1][2], sign=False, redeem_script=witness_script(True, self.pubkey[2]))
+        self.fail_accept(self.nodes[2], 'mandatory-script-verify-flag-failed (Witness program hash mismatch) (code 16)', wit_ids[NODE_2][WIT_V0][2], sign=False)
+        self.fail_accept(self.nodes[2], 'mandatory-script-verify-flag-failed (Witness program was passed an empty witness) (code 16)', wit_ids[NODE_2][WIT_V1][2], sign=False)
+        self.fail_accept(self.nodes[2], 'mandatory-script-verify-flag-failed (Witness program hash mismatch) (code 16)', p2sh_ids[NODE_2][WIT_V0][2], sign=False, redeem_script=witness_script(False, self.pubkey[2]))
+        self.fail_accept(self.nodes[2], 'mandatory-script-verify-flag-failed (Witness program was passed an empty witness) (code 16)', p2sh_ids[NODE_2][WIT_V1][2], sign=False, redeem_script=witness_script(True, self.pubkey[2]))
 
         self.log.info("Verify sigops are counted in GBT with BIP141 rules after the fork")
         txid = self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 1)
@@ -182,7 +182,7 @@ class SegWitTest(BitcoinTestFramework):
         tx.vin.append(CTxIn(COutPoint(int(txid1, 16), 0), b''))
         tx.vout.append(CTxOut(int(49.99 * COIN), CScript([OP_TRUE, OP_DROP] * 15 + [OP_TRUE])))
         tx2_hex = self.nodes[0].signrawtransactionwithwallet(ToHex(tx))['hex']
-        assert_raises_rpc_error(-26, "non-mandatory-script-verify-flag (Witness program was passed an empty witness)",  self.nodes[0].sendrawtransaction, tx2_hex)
+        assert_raises_rpc_error(-26, "mandatory-script-verify-flag-failed (Witness program was passed an empty witness)",  self.nodes[0].sendrawtransaction, tx2_hex)
         tx = FromHex(CTransaction(), tx2_hex)
         assert(tx.wit.is_null())
 
@@ -191,7 +191,7 @@ class SegWitTest(BitcoinTestFramework):
         tx.vin.append(CTxIn(COutPoint(int(txid1, 16), 0), b""))
         tx.vout.append(CTxOut(int(49.95 * COIN), CScript([OP_TRUE, OP_DROP] * 15 + [OP_TRUE])))  # Huge fee
         tx.calc_sha256()
-        assert_raises_rpc_error(-26, "non-mandatory-script-verify-flag (Witness program was passed an empty witness)",self.nodes[0].sendrawtransaction, ToHex(tx))
+        assert_raises_rpc_error(-26, "mandatory-script-verify-flag-failed (Witness program was passed an empty witness)",self.nodes[0].sendrawtransaction, ToHex(tx))
         assert(tx.wit.is_null())
 
         # Now try calling getblocktemplate() without segwit support.
@@ -383,7 +383,10 @@ class SegWitTest(BitcoinTestFramework):
         # addwitnessaddress should refuse to return a witness address if an uncompressed key is used
         # note that no witness address should be returned by unsolvable addresses
         for i in uncompressed_spendable_address + uncompressed_solvable_address + unknown_address + unsolvable_address:
-            assert_raises_rpc_error(-4, "Public key or redeemscript not known to wallet, or the key is uncompressed", self.nodes[0].addwitnessaddress, i)
+            if(i == unknown_address[1] or i in unsolvable_address[-2:]):
+                assert_raises_rpc_error(-4, "Public key or redeemscript not known to wallet, or the key is uncompressed", self.nodes[0].addwitnessaddress, i)
+            else:
+                self.nodes[0].addwitnessaddress(i)
 
         # addwitnessaddress should return a witness addresses even if keys are not in the wallet
         self.nodes[0].addwitnessaddress(multisig_without_privkey_address)
@@ -466,8 +469,10 @@ class SegWitTest(BitcoinTestFramework):
         # addwitnessaddress should refuse to return a witness address if an uncompressed key is used
         # note that a multisig address returned by addmultisigaddress is not solvable until it is added with importaddress
         # premature_witaddress are not accepted until the script is added with addwitnessaddress first
-        for i in uncompressed_spendable_address + uncompressed_solvable_address + premature_witaddress:
-            # This will raise an exception
+        for i in uncompressed_spendable_address + uncompressed_solvable_address:
+            self.nodes[0].addwitnessaddress(i)
+
+        for i in premature_witaddress:
             assert_raises_rpc_error(-4, "Public key or redeemscript not known to wallet, or the key is uncompressed", self.nodes[0].addwitnessaddress, i)
 
         # after importaddress it should pass addwitnessaddress
@@ -512,7 +517,7 @@ class SegWitTest(BitcoinTestFramework):
             self.nodes[1].importaddress(scriptPubKey, "", False)
             rawtxfund = self.nodes[1].fundrawtransaction(transaction)['hex']
             rawtxfund = self.nodes[1].signrawtransactionwithwallet(rawtxfund)["hex"]
-            assert_raises_rpc_error(-26, "non-mandatory-script-verify-flag", self.nodes[1].sendrawtransaction, rawtxfund)
+            assert_raises_rpc_error(-26, "mandatory-script-verify-flag-failed", self.nodes[1].sendrawtransaction, rawtxfund)
 
             #assert_equal(self.nodes[1].gettransaction(txid, True)["txid"], txid)
             #assert_equal(self.nodes[1].listtransactions("*", 1, 0, True)[0]["txid"], txid)
@@ -584,7 +589,7 @@ class SegWitTest(BitcoinTestFramework):
         tx.rehash()
         signresults = self.nodes[0].signrawtransactionwithwallet(bytes_to_hex_str(tx.serialize_without_witness()))['hex']
 
-        assert_raises_rpc_error(-26, "non-mandatory-script-verify-flag (Witness program hash mismatch)", self.nodes[0].sendrawtransaction, signresults, True)
+        assert_raises_rpc_error(-26, "mandatory-script-verify-flag-failed (Witness program hash mismatch)", self.nodes[0].sendrawtransaction, signresults, True)
         #self.nodes[0].generate(1, self.signblockprivkeys)
         #sync_blocks(self.nodes)
 
