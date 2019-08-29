@@ -5,11 +5,22 @@ definitions:
     depends-built: "depends/built"
     depends-sdk: "depends/sdk-sources"
     ccache: $HOME/.ccache
+  services:
+    docker:
+      memory: 3072
 
 pipelines:
   pull-requests:
     '**': #this runs as default for any branch not elsewhere defined
       - parallel:
+        - step:
+            name: Build Docker Image
+            script:
+              - docker build -t chaintope/tapyrus:$BITBUCKET_COMMIT .
+            services:
+              - docker
+            caches:
+              - docker
         - step:
             name: "[PENDING]ARM"
             caches:
