@@ -525,7 +525,7 @@ class SegWitTest(BitcoinTestFramework):
         for tx in [p2wsh_tx, p2sh_p2wsh_tx]:
 
             block = self.build_next_block()
-            self.update_witness_block_with_transactions(block, [tx])
+            self.update_witness_block_with_transactions(block, [p2wsh_tx, p2sh_p2wsh_tx])
 
             # When the block is serialized without witness, validation fails because the transaction is
             # invalid (transactions are always validated with SCRIPT_VERIFY_WITNESS so a segwit v0 transaction
@@ -730,7 +730,7 @@ class SegWitTest(BitcoinTestFramework):
             # Just check mempool acceptance, but don't add the transaction to the mempool, since witness is disallowed
             # in blocks and the tx is impossible to mine right now.
             assert_raises_rpc_error(-22, "TX decode failed", self.nodes[0].testmempoolaccept, [bytes_to_hex_str(tx3.serialize_with_witness(with_scriptsig=True))])
-            assert_equal(self.nodes[0].testmempoolaccept([bytes_to_hex_str(tx3.serialize())]), [{'txid': tx3.hashMalFix, 'allowed': False, 'reject-reason': '64: non-mandatory-script-verify-flag (Witness program was passed an empty witness)'}])
+            assert_equal(self.nodes[0].testmempoolaccept([bytes_to_hex_str(tx3.serialize())]), [{'txid': tx3.hashMalFix, 'allowed': False, 'reject-reason': '16: mandatory-script-verify-flag-failed (Witness program was passed an empty witness)'}])
             # Create the same output as tx3, but by replacing tx
             tx3_out = tx3.vout[0]
             tx3 = tx
@@ -826,7 +826,7 @@ class SegWitTest(BitcoinTestFramework):
 
         # Update self.utxo
         self.utxo.pop(0)
-        self.utxo.append(UTXO(spend_tx.malfixsha256, 0, spend_tx.vout[0].nValue))
+        self.utxo.append(UTXO(tx.malfixsha256, 0, tx.vout[0].nValue))
 
     @subtest
     def test_witness_commitments(self):

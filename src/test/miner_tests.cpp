@@ -273,7 +273,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     auto chainParams = CreateChainParams(CBaseChainParams::MAIN);
     chainParams->SetSignedBlocksCondition(signedBlocksCondition);
     chainParams->ReadGenesisBlock(getTestGenesisBlockHex(signedBlocksCondition));
-    const CChainParams& chainparams = *chainParams;
+    const CChainParams& chainparams(*chainParams);
     std::unique_ptr<CBlockTemplate> pblocktemplate;
     int baseheight = 0;
     std::vector<CTransactionRef> txFirst;
@@ -569,7 +569,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_required_age_in_secs) {
     auto chainParams = CreateChainParams(CBaseChainParams::MAIN);
     chainParams->SetSignedBlocksCondition(signedBlocksCondition);
     chainParams->ReadGenesisBlock(getTestGenesisBlockHex(signedBlocksCondition));
-    const CChainParams& chainparams = *chainParams;
+    const CChainParams& chainparams(*chainParams);
     std::unique_ptr<CBlockTemplate> pblocktemplate;
     int baseheight = 0;
     std::vector<CTransactionRef> txFirst;
