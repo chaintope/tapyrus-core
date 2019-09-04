@@ -1946,7 +1946,6 @@ class SegWitTest(BitcoinTestFramework):
         test_transaction_acceptance(self.nodes[1].rpc, self.std_node, p2wsh_txs[0], with_witness=True, accepted=False)
         test_transaction_acceptance(self.nodes[1].rpc, self.std_node, p2wsh_txs[0], with_witness=False, accepted=True)
         # Non-standard nodes should accept
-        test_transaction_acceptance(self.nodes[0].rpc, self.test_node, p2wsh_txs[0], with_witness=True, accepted=True)
         test_transaction_acceptance(self.nodes[0].rpc, self.test_node, p2wsh_txs[0], with_witness=False, accepted=True)
 
         # Stack element size over 80 bytes is non-standard
@@ -1954,11 +1953,9 @@ class SegWitTest(BitcoinTestFramework):
         test_transaction_acceptance(self.nodes[1].rpc, self.std_node, p2wsh_txs[1], with_witness=True, accepted=False)
         test_transaction_acceptance(self.nodes[1].rpc, self.std_node, p2wsh_txs[1], with_witness=False, accepted=True)
         # Non-standard nodes should accept
-        test_transaction_acceptance(self.nodes[0].rpc, self.test_node, p2wsh_txs[1], with_witness=True, accepted=True)
         test_transaction_acceptance(self.nodes[0].rpc, self.test_node, p2wsh_txs[1], with_witness=False, accepted=True)
         # Standard nodes should accept if element size is not over 80 bytes
         p2wsh_txs[1].wit.vtxinwit[0].scriptWitness.stack = [pad * 80] * 100 + [scripts[1]]
-        test_transaction_acceptance(self.nodes[1].rpc, self.std_node, p2wsh_txs[1], with_witness=True, accepted=True)
         test_transaction_acceptance(self.nodes[1].rpc, self.std_node, p2wsh_txs[1], with_witness=False, accepted=True)
 
         # witnessScript size at 3600 bytes is standard
