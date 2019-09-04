@@ -825,7 +825,7 @@ class FullBlockTest(BitcoinTestFramework):
         b61.vtx[1].rehash()
         b61 = self.update_block(61, [])
         assert_equal(b60.vtx[1].serialize(), b61.vtx[1].serialize())
-        self.sync_blocks([b61], False, 16, b'bad-txns-BIP30', reconnect=True)
+        self.sync_blocks([b61], False, 16, b'bad-txns-inputs-missingorspent', reconnect=True)
 
         # Test tx.isFinal is properly rejected (not an exhaustive tx.isFinal test, that should be in data-driven transaction tests)
         #
