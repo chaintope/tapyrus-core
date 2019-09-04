@@ -520,7 +520,7 @@ class SegWitTest(BitcoinTestFramework):
         for tx in [p2wsh_tx, p2sh_p2wsh_tx]:
 
             block = self.build_next_block()
-            self.update_witness_block_with_transactions(block, [tx])
+            self.update_witness_block_with_transactions(block, [p2wsh_tx, p2sh_p2wsh_tx])
 
             # When the block is serialized without witness, validation fails because the transaction is
             # invalid (transactions are always validated with SCRIPT_VERIFY_WITNESS so a segwit v0 transaction
@@ -819,7 +819,7 @@ class SegWitTest(BitcoinTestFramework):
 
         # Update self.utxo
         self.utxo.pop(0)
-        self.utxo.append(UTXO(spend_tx.malfixsha256, 0, spend_tx.vout[0].nValue))
+        self.utxo.append(UTXO(tx.malfixsha256, 0, tx.vout[0].nValue))
 
     @subtest
     def test_witness_commitments(self):
