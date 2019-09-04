@@ -874,10 +874,6 @@ class CompactBlocksTest(BitcoinTestFramework):
         # Need to manually sync node0 and node1, because post-segwit activation,
         # node1 will not download blocks from node0.
         self.log.info("Syncing nodes...")
-        assert(self.nodes[0].getbestblockhash() != self.nodes[1].getbestblockhash())
-        while (self.nodes[0].getblockcount() > self.nodes[1].getblockcount()):
-            block_hash = self.nodes[0].getblockhash(self.nodes[1].getblockcount()+1)
-            self.nodes[1].submitblock(self.nodes[0].getblock(block_hash, False))
         assert_equal(self.nodes[0].getbestblockhash(), self.nodes[1].getbestblockhash())
 
         self.log.info("Testing getblocktxn handler (segwit node should return witnesses)...")
