@@ -861,8 +861,8 @@ class CompactBlocksTest(BitcoinTestFramework):
         self.log.info("Running tests, post-segwit activation...")
 
         self.log.info("Testing compactblock construction...")
-
         self.test_compactblock_construction(self.nodes[1], self.old_node, 1, False)
+
         sync_blocks(self.nodes)
 
         self.log.info("Testing compactblock requests (unupgraded node)... ")
