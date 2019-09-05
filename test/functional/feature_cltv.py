@@ -97,20 +97,7 @@ class BIP65Test(BitcoinTestFramework):
         #tip = block.sha256
         block_time += 1
         block = create_block(int(tip, 16), create_coinbase(CLTV_HEIGHT), block_time)
-        block.nVersion = 3
         block.solve(self.signblockprivkeys)
-        self.nodes[0].p2p.send_and_ping(msg_block(block))
-        assert_equal(self.nodes[0].getbestblockhash(), tip)
-
-        wait_until(lambda: "reject" in self.nodes[0].p2p.last_message.keys(), lock=mininode_lock)
-        with mininode_lock:
-            assert_equal(self.nodes[0].p2p.last_message["reject"].code, REJECT_OBSOLETE)
-            assert_equal(self.nodes[0].p2p.last_message["reject"].reason, b'bad-version(0x00000003)')
-            assert_equal(self.nodes[0].p2p.last_message["reject"].data, block.sha256)
-            del self.nodes[0].p2p.last_message["reject"]
-
-        self.log.info("Test that invalid-according-to-cltv transactions cannot appear in a block")
-        block.nVersion = 4
 
         spendtx = create_transaction(self.nodes[0], self.coinbase_txids[1],
                 self.nodeaddress, amount=1.0)
