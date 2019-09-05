@@ -129,58 +129,31 @@ class SegWitTest(BitcoinTestFramework):
         self.nodes[0].generate(260, self.signblockprivkeys) #block 423
         sync_blocks(self.nodes)
 
-        self.log.info("Verify witness txs are skipped for mining before the fork")
-        self.skip_mine(self.nodes[2], wit_ids[NODE_2][WIT_V0][0], True) #block 424
-        self.skip_mine(self.nodes[2], wit_ids[NODE_2][WIT_V1][0], True) #block 425
-        self.skip_mine(self.nodes[2], p2sh_ids[NODE_2][WIT_V0][0], True) #block 426
-        self.skip_mine(self.nodes[2], p2sh_ids[NODE_2][WIT_V1][0], True) #block 427
-
         self.log.info("Verify unsigned p2sh witness txs without a redeem script are invalid")
         self.fail_accept(self.nodes[2], "mandatory-script-verify-flag", p2sh_ids[NODE_2][WIT_V0][1], False)
         self.fail_accept(self.nodes[2], "mandatory-script-verify-flag", p2sh_ids[NODE_2][WIT_V1][1], False)
 
-        self.nodes[2].generate(4, self.signblockprivkeys) # blocks 428-431
+        self.nodes[2].generate(8, self.signblockprivkeys) # blocks 424-431
 
         self.log.info("Verify previous witness txs skipped for mining can now be mined")
-        assert_equal(len(self.nodes[2].getrawmempool()), 4)
-        block = self.nodes[2].generate(1, self.signblockprivkeys) #block 432 (first block with new rules; 432 = 144 * 3)
-        sync_blocks(self.nodes)
         assert_equal(len(self.nodes[2].getrawmempool()), 0)
-        segwit_tx_list = self.nodes[2].getblock(block[0])["tx"]
-        assert_equal(len(segwit_tx_list), 5)
+        block = self.nodes[2].generate(1, self.signblockprivkeys) #block 432 (first block with new rules; 432 = 144 * 3)
 
         self.log.info("Verify default node can't accept txs with missing witness")
         # unsigned, no scriptsig
-        self.fail_accept(self.nodes[0], "mandatory-script-verify-flag", wit_ids[NODE_0][WIT_V0][0], False)
-        self.fail_accept(self.nodes[0], "mandatory-script-verify-flag", wit_ids[NODE_0][WIT_V1][0], False)
-        self.fail_accept(self.nodes[0], "mandatory-script-verify-flag", p2sh_ids[NODE_0][WIT_V0][0], False)
-        self.fail_accept(self.nodes[0], "mandatory-script-verify-flag", p2sh_ids[NODE_0][WIT_V1][0], False)
+        self.fail_accept(self.nodes[0], "mandatory-script-verify-flag-failed", wit_ids[NODE_0][WIT_V0][0], False)
+        self.fail_accept(self.nodes[0], "mandatory-script-verify-flag-failed", wit_ids[NODE_0][WIT_V1][0], False)
+        self.fail_accept(self.nodes[0], "mandatory-script-verify-flag-failed", p2sh_ids[NODE_0][WIT_V0][0], False)
+        self.fail_accept(self.nodes[0], "mandatory-script-verify-flag-failed", p2sh_ids[NODE_0][WIT_V1][0], False)
         # unsigned with redeem script
-        self.fail_accept(self.nodes[0], "mandatory-script-verify-flag", p2sh_ids[NODE_0][WIT_V0][0], False, witness_script(False, self.pubkey[0]))
-        self.fail_accept(self.nodes[0], "mandatory-script-verify-flag", p2sh_ids[NODE_0][WIT_V1][0], False, witness_script(True, self.pubkey[0]))
-
-        self.log.info("Verify block and transaction serialization rpcs return differing serializations depending on rpc serialization flag")
-        assert(self.nodes[2].getblock(block[0], False) !=  self.nodes[0].getblock(block[0], False))
-        assert(self.nodes[1].getblock(block[0], False) ==  self.nodes[2].getblock(block[0], False))
-        for i in range(len(segwit_tx_list)):
-            tx = FromHex(CTransaction(), self.nodes[2].gettransaction(segwit_tx_list[i])["hex"])
-            assert(self.nodes[2].getrawtransaction(segwit_tx_list[i]) != self.nodes[0].getrawtransaction(segwit_tx_list[i]))
-            assert(self.nodes[1].getrawtransaction(segwit_tx_list[i], 0) == self.nodes[2].getrawtransaction(segwit_tx_list[i]))
-            assert(self.nodes[0].getrawtransaction(segwit_tx_list[i]) != self.nodes[2].gettransaction(segwit_tx_list[i])["hex"])
-            assert(self.nodes[1].getrawtransaction(segwit_tx_list[i]) == self.nodes[2].gettransaction(segwit_tx_list[i])["hex"])
-            assert(self.nodes[0].getrawtransaction(segwit_tx_list[i]) == bytes_to_hex_str(tx.serialize_without_witness()))
+        self.fail_accept(self.nodes[0], "mandatory-script-verify-flag-failed", p2sh_ids[NODE_0][WIT_V0][0], False, witness_script(False, self.pubkey[0]))
+        self.fail_accept(self.nodes[0], "mandatory-script-verify-flag-failed", p2sh_ids[NODE_0][WIT_V1][0], False, witness_script(True, self.pubkey[0]))
 
         self.log.info("Verify witness txs without witness data are invalid after the fork")
-        self.fail_accept(self.nodes[2], 'non-mandatory-script-verify-flag (Witness program hash mismatch) (code 64)', wit_ids[NODE_2][WIT_V0][2], sign=False)
-        self.fail_accept(self.nodes[2], 'non-mandatory-script-verify-flag (Witness program was passed an empty witness) (code 64)', wit_ids[NODE_2][WIT_V1][2], sign=False)
-        self.fail_accept(self.nodes[2], 'non-mandatory-script-verify-flag (Witness program hash mismatch) (code 64)', p2sh_ids[NODE_2][WIT_V0][2], sign=False, redeem_script=witness_script(False, self.pubkey[2]))
-        self.fail_accept(self.nodes[2], 'non-mandatory-script-verify-flag (Witness program was passed an empty witness) (code 64)', p2sh_ids[NODE_2][WIT_V1][2], sign=False, redeem_script=witness_script(True, self.pubkey[2]))
-
-        self.log.info("Verify default node can now use witness txs")
-        self.success_mine(self.nodes[0], wit_ids[NODE_0][WIT_V0][0], True) #block 432
-        self.success_mine(self.nodes[0], wit_ids[NODE_0][WIT_V1][0], True) #block 433
-        self.success_mine(self.nodes[0], p2sh_ids[NODE_0][WIT_V0][0], True) #block 434
-        self.success_mine(self.nodes[0], p2sh_ids[NODE_0][WIT_V1][0], True) #block 435
+        self.fail_accept(self.nodes[2], 'mandatory-script-verify-flag-failed (Witness program hash mismatch) (code 16)', wit_ids[NODE_2][WIT_V0][2], sign=False)
+        self.fail_accept(self.nodes[2], 'mandatory-script-verify-flag-failed (Witness program was passed an empty witness) (code 16)', wit_ids[NODE_2][WIT_V1][2], sign=False)
+        self.fail_accept(self.nodes[2], 'mandatory-script-verify-flag-failed (Witness program hash mismatch) (code 16)', p2sh_ids[NODE_2][WIT_V0][2], sign=False, redeem_script=witness_script(False, self.pubkey[2]))
+        self.fail_accept(self.nodes[2], 'mandatory-script-verify-flag-failed (Witness program was passed an empty witness) (code 16)', p2sh_ids[NODE_2][WIT_V1][2], sign=False, redeem_script=witness_script(True, self.pubkey[2]))
 
         self.log.info("Verify sigops are counted in GBT with BIP141 rules after the fork")
         txid = self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 1)
@@ -209,36 +182,24 @@ class SegWitTest(BitcoinTestFramework):
         tx.vin.append(CTxIn(COutPoint(int(txid1, 16), 0), b''))
         tx.vout.append(CTxOut(int(49.99 * COIN), CScript([OP_TRUE, OP_DROP] * 15 + [OP_TRUE])))
         tx2_hex = self.nodes[0].signrawtransactionwithwallet(ToHex(tx))['hex']
-        txid2 = self.nodes[0].sendrawtransaction(tx2_hex)
+        assert_raises_rpc_error(-26, "mandatory-script-verify-flag-failed (Witness program was passed an empty witness)",  self.nodes[0].sendrawtransaction, tx2_hex)
         tx = FromHex(CTransaction(), tx2_hex)
-        assert(not tx.wit.is_null())
+        assert(tx.wit.is_null())
 
         # Now create tx3, which will spend from txid2
         tx = CTransaction()
-        tx.vin.append(CTxIn(COutPoint(int(txid2, 16), 0), b""))
+        tx.vin.append(CTxIn(COutPoint(int(txid1, 16), 0), b""))
         tx.vout.append(CTxOut(int(49.95 * COIN), CScript([OP_TRUE, OP_DROP] * 15 + [OP_TRUE])))  # Huge fee
         tx.calc_sha256()
-        txid3 = self.nodes[0].sendrawtransaction(ToHex(tx))
+        assert_raises_rpc_error(-26, "mandatory-script-verify-flag-failed (Witness program was passed an empty witness)",self.nodes[0].sendrawtransaction, ToHex(tx))
         assert(tx.wit.is_null())
-        assert(txid3 in self.nodes[0].getrawmempool())
 
         # Now try calling getblocktemplate() without segwit support.
         template = self.nodes[0].getblocktemplate()
 
         # Check that tx1 is the only transaction of the 3 in the template.
         template_txids = [ t['txid'] for t in template['transactions'] ]
-        assert(txid2 not in template_txids and txid3 not in template_txids)
         assert(txid1 in template_txids)
-
-        # Check that running with segwit support results in all 3 being included.
-        template = self.nodes[0].getblocktemplate({"rules": ["segwit"]})
-        template_txids = [ t['txid'] for t in template['transactions'] ]
-        assert(txid1 in template_txids)
-        assert(txid2 in template_txids)
-        assert(txid3 in template_txids)
-
-        # Check that wtxid is properly reported in mempool entry
-        assert_equal(int(self.nodes[0].getmempoolentry(txid3)["wtxid"], 16), tx.calc_sha256(True))
 
         # Mine a block to clear the gbt cache again.
         self.nodes[0].generate(1, self.signblockprivkeys)
@@ -422,7 +383,10 @@ class SegWitTest(BitcoinTestFramework):
         # addwitnessaddress should refuse to return a witness address if an uncompressed key is used
         # note that no witness address should be returned by unsolvable addresses
         for i in uncompressed_spendable_address + uncompressed_solvable_address + unknown_address + unsolvable_address:
-            assert_raises_rpc_error(-4, "Public key or redeemscript not known to wallet, or the key is uncompressed", self.nodes[0].addwitnessaddress, i)
+            if(i == unknown_address[1] or i in unsolvable_address[-2:]):
+                assert_raises_rpc_error(-4, "Public key or redeemscript not known to wallet, or the key is uncompressed", self.nodes[0].addwitnessaddress, i)
+            else:
+                self.nodes[0].addwitnessaddress(i)
 
         # addwitnessaddress should return a witness addresses even if keys are not in the wallet
         self.nodes[0].addwitnessaddress(multisig_without_privkey_address)
@@ -505,8 +469,10 @@ class SegWitTest(BitcoinTestFramework):
         # addwitnessaddress should refuse to return a witness address if an uncompressed key is used
         # note that a multisig address returned by addmultisigaddress is not solvable until it is added with importaddress
         # premature_witaddress are not accepted until the script is added with addwitnessaddress first
-        for i in uncompressed_spendable_address + uncompressed_solvable_address + premature_witaddress:
-            # This will raise an exception
+        for i in uncompressed_spendable_address + uncompressed_solvable_address:
+            self.nodes[0].addwitnessaddress(i)
+
+        for i in premature_witaddress:
             assert_raises_rpc_error(-4, "Public key or redeemscript not known to wallet, or the key is uncompressed", self.nodes[0].addwitnessaddress, i)
 
         # after importaddress it should pass addwitnessaddress
@@ -551,16 +517,16 @@ class SegWitTest(BitcoinTestFramework):
             self.nodes[1].importaddress(scriptPubKey, "", False)
             rawtxfund = self.nodes[1].fundrawtransaction(transaction)['hex']
             rawtxfund = self.nodes[1].signrawtransactionwithwallet(rawtxfund)["hex"]
-            txid = self.nodes[1].sendrawtransaction(rawtxfund)
+            assert_raises_rpc_error(-26, "mandatory-script-verify-flag-failed", self.nodes[1].sendrawtransaction, rawtxfund)
 
-            assert_equal(self.nodes[1].gettransaction(txid, True)["txid"], txid)
-            assert_equal(self.nodes[1].listtransactions("*", 1, 0, True)[0]["txid"], txid)
+            #assert_equal(self.nodes[1].gettransaction(txid, True)["txid"], txid)
+            #assert_equal(self.nodes[1].listtransactions("*", 1, 0, True)[0]["txid"], txid)
 
             # Assert it is properly saved
-            self.stop_node(1)
-            self.start_node(1)
-            assert_equal(self.nodes[1].gettransaction(txid, True)["txid"], txid)
-            assert_equal(self.nodes[1].listtransactions("*", 1, 0, True)[0]["txid"], txid)
+            #self.stop_node(1)
+            #self.start_node(1)
+            #assert_equal(self.nodes[1].gettransaction(txid, True)["txid"], txid)
+            #assert_equal(self.nodes[1].listtransactions("*", 1, 0, True)[0]["txid"], txid)
 
     def mine_and_test_listunspent(self, script_list, ismine):
         utxo = find_spendable_utxo(self.nodes[0], 50)
@@ -622,9 +588,10 @@ class SegWitTest(BitcoinTestFramework):
         tx.vout.append(CTxOut(0, CScript()))
         tx.rehash()
         signresults = self.nodes[0].signrawtransactionwithwallet(bytes_to_hex_str(tx.serialize_without_witness()))['hex']
-        self.nodes[0].sendrawtransaction(signresults, True)
-        self.nodes[0].generate(1, self.signblockprivkeys)
-        sync_blocks(self.nodes)
+
+        assert_raises_rpc_error(-26, "mandatory-script-verify-flag-failed (Witness program hash mismatch)", self.nodes[0].sendrawtransaction, signresults, True)
+        #self.nodes[0].generate(1, self.signblockprivkeys)
+        #sync_blocks(self.nodes)
 
 
 if __name__ == '__main__':

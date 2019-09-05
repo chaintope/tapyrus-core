@@ -360,8 +360,8 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChain100Setup)
         CValidationState state;
         PrecomputedTransactionData txdata(valid_with_witness_tx);
         BOOST_CHECK(CheckInputs(valid_with_witness_tx, state, pcoinsTip.get(), true, 0, true, true, txdata, nullptr));
-        BOOST_CHECK(!CheckInputs(valid_with_witness_tx, state, pcoinsTip.get(), true, STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, txdata, nullptr));
-        BOOST_CHECK(!CheckInputs(valid_with_witness_tx, state, pcoinsTip.get(), true, STANDARD_SCRIPT_VERIFY_FLAGS, true, true, txdata, nullptr));
+        BOOST_CHECK(CheckInputs(valid_with_witness_tx, state, pcoinsTip.get(), true, STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, txdata, nullptr));
+        BOOST_CHECK(CheckInputs(valid_with_witness_tx, state, pcoinsTip.get(), true, STANDARD_SCRIPT_VERIFY_FLAGS, true, true, txdata, nullptr));
     }
 
     {
@@ -395,10 +395,10 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChain100Setup)
 
         CValidationState state;
         PrecomputedTransactionData txdata(tx);
-        // This transaction is now invalid under segwit, because of the second input.
-        BOOST_CHECK(CheckInputs(tx, state, pcoinsTip.get(), true, 0, true, true, txdata, nullptr));
-        BOOST_CHECK(!CheckInputs(tx, state, pcoinsTip.get(), true, STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, txdata, nullptr));
-        BOOST_CHECK(!CheckInputs(tx, state, pcoinsTip.get(), true, STANDARD_SCRIPT_VERIFY_FLAGS, true, true, txdata, nullptr));
+        // This transaction is valid as there is no witness check.
+        BOOST_CHECK(CheckInputs(tx, state, pcoinsTip.get(), true, 0, true, false, txdata, nullptr));
+        BOOST_CHECK(CheckInputs(tx, state, pcoinsTip.get(), true, STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, false, txdata, nullptr));
+        BOOST_CHECK(CheckInputs(tx, state, pcoinsTip.get(), true, STANDARD_SCRIPT_VERIFY_FLAGS, true, false, txdata, nullptr));
 
 
         std::vector<CScriptCheck> scriptchecks;
