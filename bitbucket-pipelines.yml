@@ -5,11 +5,67 @@ definitions:
     depends-built: "depends/built"
     depends-sdk: "depends/sdk-sources"
     ccache: $HOME/.ccache
+  services:
+    docker:
+      memory: 3072
 
 pipelines:
+  branches:
+    master:
+      - step:
+          name: Build Docker Image
+          image: "atlassian/pipelines-awscli:1.16.185"
+          script:
+            # aws login
+            - eval $(aws ecr get-login --region ${AWS_DEFAULT_REGION} --no-include-email)
+            # docker
+            - export BUILD_ID=COMMIT_$(echo $BITBUCKET_COMMIT | cut -c1-7)
+            - docker build -t ${AWS_REGISTRY_URL}:$BUILD_ID .
+            - docker push ${AWS_REGISTRY_URL}:$BUILD_ID
+            - docker tag ${AWS_REGISTRY_URL}:$BUILD_ID ${AWS_REGISTRY_URL}:master
+            - docker push ${AWS_REGISTRY_URL}:master
+          services:
+            - docker
+          caches:
+            - docker
+  tags:
+    '**':
+      - step:
+          name: Push Docker Image Tag
+          image: "atlassian/pipelines-awscli:1.16.185"
+          script:
+            # aws login
+            - eval $(aws ecr get-login --region ${AWS_DEFAULT_REGION} --no-include-email)
+            # docker
+            - export BUILD_ID=COMMIT_$(echo $BITBUCKET_COMMIT | cut -c1-7)
+            - docker build -t ${AWS_REGISTRY_URL}:$BUILD_ID .
+            - docker push ${AWS_REGISTRY_URL}:$BUILD_ID
+            - docker tag ${AWS_REGISTRY_URL}:$BUILD_ID ${AWS_REGISTRY_URL}:$BITBUCKET_TAG
+            - docker push ${AWS_REGISTRY_URL}:$BITBUCKET_TAG
+          services:
+            - docker
+          caches:
+            - docker
+
   pull-requests:
     '**': #this runs as default for any branch not elsewhere defined
       - parallel:
+        - step:
+            name: Build Docker Image
+            image: "atlassian/pipelines-awscli:1.16.185"
+            script:
+              # aws login
+              - eval $(aws ecr get-login --region ${AWS_DEFAULT_REGION} --no-include-email)
+              # docker
+              - export BUILD_ID=COMMIT_$(echo $BITBUCKET_COMMIT | cut -c1-7)
+              - docker build -t ${AWS_REGISTRY_URL}:$BUILD_ID .
+              - docker push ${AWS_REGISTRY_URL}:$BUILD_ID
+              - docker tag ${AWS_REGISTRY_URL}:$BUILD_ID ${AWS_REGISTRY_URL}:PR_$BITBUCKET_PR_ID
+              - docker push ${AWS_REGISTRY_URL}:PR_$BITBUCKET_PR_ID
+            services:
+              - docker
+            caches:
+              - docker
         - step:
             name: "[PENDING]ARM"
             caches:
