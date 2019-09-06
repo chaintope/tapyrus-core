@@ -222,8 +222,8 @@ class SegWitTest(BitcoinTestFramework):
         assert(txid2 in template_txids)
         assert(txid3 in template_txids)
 
-        # Check that wtxid is properly reported in mempool entry
-        assert_equal(int(self.nodes[0].getmempoolentry(txid3)["wtxid"], 16), tx.calc_sha256(True))
+        # Check that txid is properly reported in mempool entry
+        assert_equal(int(self.nodes[0].getmempoolentry(txid3)["txid"], 16), tx.calc_sha256(False))
 
         # Mine a block to clear the gbt cache again.
         self.nodes[0].generate(1, self.signblockprivkeys)
