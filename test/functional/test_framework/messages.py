@@ -466,8 +466,8 @@ class CTransaction():
         r += struct.pack("<I", self.nLockTime)
         return r
 
-    # Regular serialization is with witness -- must explicitly
-    # call serialize_without_witness to exclude witness data.
+    # Regular serialization is without witness -- must explicitly
+    # call serialize_with_witness to include witness flag.
     def serialize(self, **kwargs):
         if(kwargs.get('with_witness') == True):
             del kwargs['with_witness']
@@ -913,7 +913,7 @@ class msg_version():
 
     def __init__(self):
         self.nVersion = MY_VERSION
-        self.nServices = NODE_NETWORK | NODE_WITNESS
+        self.nServices = NODE_NETWORK #NODE_WITNESS not used in Tapyrus
         self.nTime = int(time.time())
         self.addrTo = CAddress()
         self.addrFrom = CAddress()
@@ -924,8 +924,6 @@ class msg_version():
 
     def deserialize(self, f):
         self.nVersion = struct.unpack("<i", f.read(4))[0]
-        if self.nVersion == 10300:
-            self.nVersion = 300
         self.nServices = struct.unpack("<Q", f.read(8))[0]
         self.nTime = struct.unpack("<q", f.read(8))[0]
         self.addrTo = CAddress()

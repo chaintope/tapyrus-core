@@ -237,13 +237,18 @@ class SegWitTest(BitcoinTestFramework):
     def run_test(self):
         # Setup the p2p connections
         # self.test_node sets NODE_WITNESS|NODE_NETWORK
-        self.test_node = self.nodes[0].add_p2p_connection(TestP2PConn(), services=NODE_NETWORK | NODE_WITNESS)
+        self.test_node = self.nodes[0].add_p2p_connection(TestP2PConn(), services=NODE_NETWORK | NODE_WITNESS, wait_for_verack = False)
+        self.test_node.wait_for_disconnect(timeout=10)
+        self.test_node = self.nodes[0].add_p2p_connection(TestP2PConn(), services=NODE_NETWORK)
+
         # self.old_node sets only NODE_NETWORK
         self.old_node = self.nodes[0].add_p2p_connection(TestP2PConn(), services=NODE_NETWORK)
         # self.std_node is for testing node1 (fRequireStandard=true)
-        self.std_node = self.nodes[1].add_p2p_connection(TestP2PConn(), services=NODE_NETWORK | NODE_WITNESS)
+        self.std_node = self.nodes[1].add_p2p_connection(TestP2PConn(), services=NODE_NETWORK)
 
-        assert self.test_node.nServices & NODE_WITNESS != 0
+        assert self.test_node.nServices & NODE_WITNESS == 0
+        assert self.old_node.nServices & NODE_WITNESS == 0
+        assert self.std_node.nServices & NODE_WITNESS == 0
 
         # Keep a place to store utxo's that can be used in later tests
         self.utxo = []
@@ -336,7 +341,7 @@ class SegWitTest(BitcoinTestFramework):
 
         self.test_node.send_message(msg_witness_tx(tx))
         self.test_node.sync_with_ping()  # make sure the tx was processed
-        assert(tx.hashMalFix in self.nodes[0].getrawmempool())
+        assert(tx.hashMalFix in self.nodes[0].getrawmempool(True))
         # Save this transaction for later
         self.utxo.append(UTXO(tx.malfixsha256, 0, 49 * 100000000))
         self.nodes[0].generate(1, self.signblockprivkeys)
@@ -378,12 +383,12 @@ class SegWitTest(BitcoinTestFramework):
 
     @subtest
     def test_block_relay(self):
-        """Test that block requests to NODE_WITNESS peer are with MSG_WITNESS_FLAG.
+        """Test that block requests do not carry MSG_WITNESS_FLAG.
 
         This is true regardless of segwit activation.
         Also test that we don't ask for blocks from unupgraded peers."""
 
-        blocktype = 2 | MSG_WITNESS_FLAG
+        blocktype = 2
 
         # test_node has set NODE_WITNESS, so all getdata requests should be for
         # witness blocks.
@@ -425,7 +430,7 @@ class SegWitTest(BitcoinTestFramework):
                 rpc_block = self.nodes[0].getblock(block_hash, False)
                 block_hash = int(block_hash, 16)
                 block = self.test_node.request_block(block_hash, 2)
-                wit_block = self.test_node.request_block(block_hash, 2 | MSG_WITNESS_FLAG)
+                wit_block = self.test_node.request_block(block_hash, 2)
                 assert_equal(block.serialize(with_witness=True), wit_block.serialize(with_witness=True))
                 assert_equal(block.serialize(), hex_str_to_bytes(rpc_block))
         else:
@@ -442,7 +447,7 @@ class SegWitTest(BitcoinTestFramework):
             # Now try to retrieve it...
             rpc_block = self.nodes[0].getblock(block.hash, False)
             non_wit_block = self.test_node.request_block(block.sha256, 2)
-            wit_block = self.test_node.request_block(block.sha256, 2 | MSG_WITNESS_FLAG)
+            wit_block = self.test_node.request_block(block.sha256, 2)
             assert_equal(wit_block.serialize(with_witness=True), hex_str_to_bytes(rpc_block))
             assert_equal(wit_block.serialize(), non_wit_block.serialize())
             assert_equal(wit_block.serialize(), block.serialize())
@@ -471,7 +476,7 @@ class SegWitTest(BitcoinTestFramework):
             msg.headers = [CBlockHeader(block4)]
             self.old_node.send_message(msg)
             self.old_node.announce_tx_and_wait_for_getdata(block4.vtx[0])
-            assert(block4.sha256 not in self.old_node.getdataset)
+            assert(block4.sha256 in self.old_node.getdataset)
             self.nodes[0].generate(1, self.signblockprivkeys)
 
     @subtest
