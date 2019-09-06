@@ -47,8 +47,6 @@ class NULLDUMMYTest(BitcoinTestFramework):
     def run_test(self):
         self.address = self.nodes[0].getnewaddress()
         self.ms_address = self.nodes[0].addmultisigaddress(1,[self.address])['address']
-        self.wit_address = self.nodes[0].addwitnessaddress(self.address)
-        self.wit_ms_address = self.nodes[0].addmultisigaddress(1, [self.address], '', 'p2sh-segwit')['address']
 
         self.coinbase_blocks = self.nodes[0].generate(2, self.signblockprivkeys) # Block 2
         coinbase_txid = []
@@ -65,8 +63,6 @@ class NULLDUMMYTest(BitcoinTestFramework):
         txid1 = self.nodes[0].sendrawtransaction(bytes_to_hex_str(test1txs[0].serialize_with_witness()), True)
         test1txs.append(create_transaction(self.nodes[0], txid1, self.ms_address, amount=48))
         txid2 = self.nodes[0].sendrawtransaction(bytes_to_hex_str(test1txs[1].serialize_with_witness()), True)
-        test1txs.append(create_transaction(self.nodes[0], coinbase_txid[1], self.wit_ms_address, amount=49))
-        txid3 = self.nodes[0].sendrawtransaction(bytes_to_hex_str(test1txs[2].serialize_with_witness()), True)
         self.block_submit(self.nodes[0], test1txs, False, True)
 
         self.log.info("Test 2: Non-NULLDUMMY base multisig transaction should not be accepted to mempool")
@@ -83,13 +79,6 @@ class NULLDUMMYTest(BitcoinTestFramework):
         trueDummy(test4tx)
         assert_raises_rpc_error(-26, NULLDUMMY_ERROR, self.nodes[0].sendrawtransaction, bytes_to_hex_str(test4tx.serialize_with_witness()), True)
         self.block_submit(self.nodes[0], [test4tx])
-
-        self.log.info("Test 5: Non-NULLDUMMY P2WSH multisig transaction invalid")
-        test5tx = create_transaction(self.nodes[0], txid3, self.wit_address, amount=48)
-        test5tx.wit.vtxinwit = [CTxInWitness()]
-        test5tx.wit.vtxinwit[0].scriptWitness.stack = [b'\x01']
-        assert_raises_rpc_error(-22, "TX decode failed", self.nodes[0].sendrawtransaction, bytes_to_hex_str(test5tx.serialize_with_witness()), True)
-        self.block_submit(self.nodes[0], [test5tx], True)
 
         self.log.info("Test 6: NULLDUMMY compliant base transactions should be accepted to mempool and in block")
         for i in test6txs:

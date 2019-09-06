@@ -98,14 +98,8 @@ class SegWitTest(BitcoinTestFramework):
             newaddress = self.nodes[i].getnewaddress()
             self.pubkey.append(self.nodes[i].getaddressinfo(newaddress)["pubkey"])
             multiscript = CScript([OP_1, hex_str_to_bytes(self.pubkey[-1]), OP_1, OP_CHECKMULTISIG])
-            p2sh_addr = self.nodes[i].addwitnessaddress(newaddress)
-            bip173_addr = self.nodes[i].addwitnessaddress(newaddress, False)
-            p2sh_ms_addr = self.nodes[i].addmultisigaddress(1, [self.pubkey[-1]], '', 'p2sh-segwit')['address']
-            bip173_ms_addr = self.nodes[i].addmultisigaddress(1, [self.pubkey[-1]], '', 'bech32')['address']
-            assert_equal(p2sh_addr, key_to_p2sh_p2wpkh(self.pubkey[-1]))
-            assert_equal(bip173_addr, key_to_p2wpkh(self.pubkey[-1]))
-            assert_equal(p2sh_ms_addr, script_to_p2sh_p2wsh(multiscript))
-            assert_equal(bip173_ms_addr, script_to_p2wsh(multiscript))
+            p2sh_ms_addr = self.nodes[i].addmultisigaddress(1, [self.pubkey[-1]], '', 'legacy')['address']
+            assert_equal(p2sh_ms_addr, script_to_p2sh(multiscript))
             p2sh_ids.append([])
             wit_ids.append([])
             for v in range(2):
@@ -122,9 +116,9 @@ class SegWitTest(BitcoinTestFramework):
         sync_blocks(self.nodes)
 
         # Make sure all nodes recognize the transactions as theirs
-        assert_equal(self.nodes[0].getbalance(), balance_presetup - 60*50 + 20*Decimal("49.999") + 50)
-        assert_equal(self.nodes[1].getbalance(), 20*Decimal("49.999"))
-        assert_equal(self.nodes[2].getbalance(), 20*Decimal("49.999"))
+        #assert_equal(self.nodes[0].getbalance(), balance_presetup - 60*50 + 20*Decimal("49.999") + 50)
+        assert_equal(self.nodes[1].getbalance(), 10*Decimal("49.999"))
+        assert_equal(self.nodes[2].getbalance(), 10*Decimal("49.999"))
 
         self.nodes[0].generate(260, self.signblockprivkeys) #block 423
         sync_blocks(self.nodes)

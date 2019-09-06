@@ -129,6 +129,13 @@ bool IsStandardTx(const CTransaction& tx, std::string& reason)
             reason = "dust";
             return false;
         }
+        else if (whichType == TX_WITNESS_V0_KEYHASH
+            || whichType == TX_WITNESS_V0_SCRIPTHASH
+            || whichType == TX_WITNESS_UNKNOWN)
+        {
+            reason = "witness";
+            return false;
+        }
     }
 
     // only one OP_RETURN txout is permitted
