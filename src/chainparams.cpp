@@ -349,9 +349,9 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_SEGWIT].nStartTime = 1462060800; // May 1st 2016
         consensus.vDeployments[Consensus::DEPLOYMENT_SEGWIT].nTimeout = 1493596800; // May 1st 2017
 
-        pchMessageStart[0] = 0x75;
+        pchMessageStart[0] = 0x73;
         pchMessageStart[1] = 0x9a;
-        pchMessageStart[2] = 0x83;
+        pchMessageStart[2] = 0x97;
         pchMessageStart[3] = 0x74;
         nDefaultPort = 12383;
         nPruneAfterHeight = 1000;
