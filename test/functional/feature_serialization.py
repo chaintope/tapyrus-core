@@ -43,10 +43,10 @@ from io import BytesIO
 import struct
 from test_framework.blocktools import create_coinbase, create_block, create_transaction, create_tx_with_script, create_witness_tx, add_witness_commitment
 from test_framework.messages import msg_block, hash256, CTransaction, ToHex, FromHex, CTxIn, CTxOut, COutPoint
-from test_framework.mininode import P2PInterface, mininode_lock
+from test_framework.mininode import P2PDataStore, mininode_lock
 from test_framework.script import CScript, hash160, OP_1, OP_DROP, OP_HASH160, OP_EQUAL, OP_TRUE, SignatureHash, SIGHASH_ALL
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, bytes_to_hex_str, hex_str_to_bytes, wait_until
+from test_framework.util import assert_raises_rpc_error, assert_equal, bytes_to_hex_str, hex_str_to_bytes, wait_until
 from test_framework.key import CECKey
 
 CHAIN_HEIGHT = 111
@@ -82,12 +82,12 @@ def assert_not_equal(thing1, thing2):
 class SerializationTest(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
-        self.extra_args = [['-whitelist=127.0.0.1']]
+        self.extra_args = [['-whitelist=127.0.0.1', '-acceptnonstdtxn=0']]
         self.setup_clean_chain = True
         self.pubkey = ""
 
     def run_test(self):
-        self.nodes[0].add_p2p_connection(P2PInterface())
+        self.nodes[0].add_p2p_connection(P2PDataStore())
         self.nodeaddress = self.nodes[0].getnewaddress()
         self.pubkey = self.nodes[0].getaddressinfo(self.nodeaddress)["pubkey"]
         self.log.info("Mining %d blocks", CHAIN_HEIGHT)
@@ -133,7 +133,6 @@ class SerializationTest(BitcoinTestFramework):
         tip = self.nodes[0].getbestblockhash()
         block_time = self.nodes[0].getblockheader(tip)['mediantime'] + 1
         block = create_block(int(tip, 16), create_coinbase(CHAIN_HEIGHT + 1), block_time)
-        block.nVersion = 2
         block.vtx.append(spendtx)
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
@@ -158,7 +157,6 @@ class SerializationTest(BitcoinTestFramework):
         self.log.info("Accept block with DER signature")
         #recreate block with DER sig transaction
         block = create_block(int(tip, 16), create_coinbase(CHAIN_HEIGHT + 1), block_time)
-        block.nVersion = 2
         block.vtx.append(copy_spendTx)
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
@@ -219,7 +217,6 @@ class SerializationTest(BitcoinTestFramework):
         tip = self.nodes[0].getbestblockhash()
         block_time = self.nodes[0].getblockheader(tip)['mediantime'] + 1
         block = create_block(int(tip, 16), create_coinbase(CHAIN_HEIGHT + 2), block_time)
-        block.nVersion = 2
         block.vtx.append(spendtx)
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
@@ -244,7 +241,6 @@ class SerializationTest(BitcoinTestFramework):
         self.log.info("Accept block with DER signature")
         #recreate block with DER sig transaction
         block = create_block(int(tip, 16), create_coinbase(CHAIN_HEIGHT + 2), block_time)
-        block.nVersion = 2
         block.vtx.append(copy_spendTx)
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
@@ -309,7 +305,6 @@ class SerializationTest(BitcoinTestFramework):
         tip = self.nodes[0].getbestblockhash()
         block_time = self.nodes[0].getblockheader(tip)['mediantime'] + 1
         block = create_block(int(tip, 16), create_coinbase(CHAIN_HEIGHT + 3), block_time)
-        block.nVersion = 2
         block.vtx.append(spendtx)
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
@@ -325,149 +320,10 @@ class SerializationTest(BitcoinTestFramework):
         self.nodes[0].p2p.send_and_ping(msg_block(block))
         assert_equal(self.nodes[0].getbestblockhash(), block.hash)
 
-        ##  P2WPKH transaction
-        ########################
-        self.log.info("Test using a witness P2WPKH transaction")
-        spendtxStr = create_witness_tx(self.nodes[0], False, getInput(self.coinbase_txids[2]), self.pubkey, False, 1)
-
-        #get CTRansaction object from above hex
-        spendtx = CTransaction()
-        spendtx.deserialize(BytesIO(hex_str_to_bytes(spendtxStr)))
-        spendtx.rehash()
-
-        #cache hashes
-        hash = spendtx.hash
-        hashMalFix = spendtx.hashMalFix
-        withash = spendtx.calc_sha256(True)
-
-        #malleate
-        unDERify(spendtx)
-        spendtx.rehash()
-        withash2 = spendtx.calc_sha256(True)
-        
-        # verify that in witness transaction all hashes are unchanged
-        assert_equal(hash, spendtx.hash)
-        assert_equal(withash, withash2)
-        assert_equal(hashMalFix, spendtx.hashMalFix)
-
-        # verify that hash is spendtx.serialize()
-        hash = encode(hash256(spendtx.serialize())[::-1], 'hex_codec').decode('ascii')
-        assert_equal(hash, spendtx.hash)
-        
-        # verify that hashMalFix is spendtx.serialize(with_scriptsig=False)
-        hashMalFix = encode(hash256(spendtx.serialize(with_scriptsig=False))[::-1], 'hex_codec').decode('ascii')
-        assert_equal(hashMalFix, spendtx.hashMalFix)
-
-        assert_not_equal(hash, hashMalFix)
-        #as this transaction does not have witness data the following is true
-        assert_equal(spendtx.serialize(), spendtx.serialize(with_witness=True, with_scriptsig=True))
-        assert_equal(spendtx.serialize(with_witness=False), spendtx.serialize(with_witness=True,with_scriptsig=True))
-        assert_not_equal(spendtx.serialize(with_witness=False), spendtx.serialize(with_witness=True,with_scriptsig=False))
-        assert_equal(spendtx.serialize(with_witness=False), spendtx.serialize_without_witness(with_scriptsig=True))
-        assert_equal(spendtx.serialize_with_witness(with_scriptsig=True), spendtx.serialize_without_witness(with_scriptsig=True))
-        assert_equal(spendtx.serialize_with_witness(with_scriptsig=False), spendtx.serialize_without_witness(with_scriptsig=False))
-
-        self.log.info("Create block with only non-DER signature witness P2WPKH transaction")
-
-        spendtxStr = self.nodes[0].signrawtransactionwithwallet(spendtxStr)
-        assert("errors" not in spendtxStr or len(["errors"]) == 0)
-        spendtxStr = spendtxStr["hex"]
-        spendtx = CTransaction()
-        spendtx.deserialize(BytesIO(hex_str_to_bytes(spendtxStr)))
-        spendtx.rehash()
-
-        tip = self.nodes[0].getbestblockhash()
-        block_time = self.nodes[0].getblockheader(tip)['mediantime'] + 1
-        block = create_block(int(tip, 16), create_coinbase(CHAIN_HEIGHT + 4), block_time)
-        block.nVersion = 2
-        block.vtx.append(spendtx)
-        block.hashMerkleRoot = block.calc_merkle_root()
-        block.hashImMerkleRoot = block.calc_immutable_merkle_root()
-        block.rehash()
-        block.solve(self.signblockprivkeys)
-
-        # serialize with and without witness block remains the same
-        assert_equal(block.serialize(with_witness=True), block.serialize())
-        assert_equal(block.serialize(with_witness=True), block.serialize(with_witness=False))
-        assert_equal(block.serialize(with_witness=True), block.serialize(with_witness=True, with_scriptsig=True))
-
-        self.log.info("Accept block with P2WPKH transaction")
-        self.nodes[0].submitblock(bytes_to_hex_str(block.serialize(with_witness=True)))
-        assert_equal(self.nodes[0].getbestblockhash(), block.hash)
-
-        ##  P2WSH transaction
-        ########################
-        self.log.info("Test using P2WSH transaction ")
-        spendtxStr = create_witness_tx(self.nodes[0], True, getInput(self.coinbase_txids[3]), self.pubkey, False, 1.0)
-        
-        #get CTRansaction object from above hex
-        spendtx = CTransaction()
-        spendtx.deserialize(BytesIO(hex_str_to_bytes(spendtxStr)))
-        spendtx.rehash()
-
-        #cache hashes
-        hash = spendtx.hash
-        hashMalFix = spendtx.hashMalFix
-        withash = spendtx.calc_sha256(True)
-
-        #malleate
-        unDERify(spendtx)
-        spendtx.rehash()
-        withash2 = spendtx.calc_sha256(True)
-        
-        # verify that in witness transaction all hashes are unchanged
-        assert_equal(hash, spendtx.hash)
-        assert_equal(withash, withash2)
-        assert_equal(hashMalFix, spendtx.hashMalFix)
-
-        # verify that hash is spendtx.serialize()
-        hash = encode(hash256(spendtx.serialize())[::-1], 'hex_codec').decode('ascii')
-        assert_equal(hash, spendtx.hash)
-        
-        # verify that hashMalFix is spendtx.serialize(with_scriptsig=False)
-        hashMalFix = encode(hash256(spendtx.serialize(with_scriptsig=False))[::-1], 'hex_codec').decode('ascii')
-        assert_equal(hashMalFix, spendtx.hashMalFix)
-
-        assert_not_equal(hash, hashMalFix)
-        #as this transaction does not have witness data the following is true
-        assert_equal(spendtx.serialize(), spendtx.serialize(with_witness=True, with_scriptsig=True))
-        assert_equal(spendtx.serialize(with_witness=False), spendtx.serialize(with_witness=True,with_scriptsig=True))
-        assert_not_equal(spendtx.serialize(with_witness=False), spendtx.serialize(with_witness=True,with_scriptsig=False))
-        assert_equal(spendtx.serialize(with_witness=False), spendtx.serialize_without_witness(with_scriptsig=True))
-        assert_equal(spendtx.serialize_with_witness(with_scriptsig=True), spendtx.serialize_without_witness(with_scriptsig=True))
-        assert_not_equal(spendtx.serialize_with_witness(with_scriptsig=False), spendtx.serialize_without_witness(with_scriptsig=True))
-
-        #Create block with only non-DER signature P2WSH transaction
-        spendtxStr = self.nodes[0].signrawtransactionwithwallet(spendtxStr)
-        assert("errors" not in spendtxStr or len(["errors"]) == 0)
-        spendtxStr = spendtxStr["hex"]
-        spendtx = CTransaction()
-        spendtx.deserialize(BytesIO(hex_str_to_bytes(spendtxStr)))
-        spendtx.rehash()
-
-        tip = self.nodes[0].getbestblockhash()
-        block_time = self.nodes[0].getblockheader(tip)['mediantime'] + 1
-        block = create_block(int(tip, 16), create_coinbase(CHAIN_HEIGHT + 5), block_time)
-        block.nVersion = 2
-        block.vtx.append(spendtx)
-        block.hashMerkleRoot = block.calc_merkle_root()
-        block.hashImMerkleRoot = block.calc_immutable_merkle_root()
-        block.rehash()
-        block.solve(self.signblockprivkeys)
-
-        # serialize block with and without witness 
-        assert_equal(block.serialize(with_witness=True), block.serialize())
-        assert_equal(block.serialize(with_witness=True), block.serialize(with_witness=False))
-        assert_equal(block.serialize(with_witness=True), block.serialize(with_witness=True, with_scriptsig=True))
-
-        self.log.info("Accept block with P2WSH transaction")
-        self.nodes[0].submitblock(bytes_to_hex_str(block.serialize(with_witness=True)))
-        assert_equal(self.nodes[0].getbestblockhash(), block.hash)
-
         ##  p2sh_p2wpkh transaction
         ##############################
         self.log.info("Test using p2sh_p2wpkh transaction ")
-        spendtxStr = create_witness_tx(self.nodes[0], True, getInput(self.coinbase_txids[4]), self.pubkey, True, amount=1.0)
+        spendtxStr = create_witness_tx(self.nodes[0], True, getInput(self.coinbase_txids[4]), self.pubkey, amount=1.0)
         
         #get CTRansaction object from above hex
         spendtx = CTransaction()
@@ -517,27 +373,38 @@ class SerializationTest(BitcoinTestFramework):
 
         tip = self.nodes[0].getbestblockhash()
         block_time = self.nodes[0].getblockheader(tip)['mediantime'] + 1
-        block = create_block(int(tip, 16), create_coinbase(CHAIN_HEIGHT + 6), block_time)
-        block.nVersion = 2
+        block = create_block(int(tip, 16), create_coinbase(CHAIN_HEIGHT + 4), block_time)
         block.vtx.append(spendtx)
+        add_witness_commitment(block)
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         block.rehash()
         block.solve(self.signblockprivkeys)
 
         # serialize with and without witness
-        assert_equal(block.serialize(with_witness=True), block.serialize())
-        assert_equal(block.serialize(with_witness=True), block.serialize(with_witness=False))
-        assert_equal(block.serialize(with_witness=True), block.serialize(with_witness=False, with_scriptsig=True))
+        assert_equal(block.serialize(with_witness=False), block.serialize())
+        assert_not_equal(block.serialize(with_witness=True), block.serialize(with_witness=False))
+        assert_not_equal(block.serialize(with_witness=True), block.serialize(with_witness=False, with_scriptsig=True))
 
-        self.log.info("Reject block with p2sh_p2wpkh transaction")
+        self.log.info("Reject block with p2sh_p2wpkh transaction and witness commitment")
+        assert_raises_rpc_error(-22, "Block does not start with a coinbase", self.nodes[0].submitblock, bytes_to_hex_str(block.serialize(with_witness=True)))
+        assert_equal(self.nodes[0].getbestblockhash(), tip)
+
+        block = create_block(int(tip, 16), create_coinbase(CHAIN_HEIGHT + 4), block_time)
+        block.vtx.append(spendtx)
+        block.hashMerkleRoot = block.calc_merkle_root()
+        block.hashImMerkleRoot = block.calc_immutable_merkle_root()
+        block.rehash()
+        block.solve(self.signblockprivkeys)
+
+        self.log.info("Accept block with p2sh_p2wpkh transaction")
         self.nodes[0].submitblock(bytes_to_hex_str(block.serialize(with_witness=True)))
         assert_equal(self.nodes[0].getbestblockhash(), block.hash)
 
         ##  p2sh_p2wsh transaction
         ##############################
         self.log.info("Test using p2sh_p2wsh transaction")
-        spendtxStr = create_witness_tx(self.nodes[0], True, getInput(self.coinbase_txids[5]), self.pubkey, True, amount=1.0)
+        spendtxStr = create_witness_tx(self.nodes[0], True, getInput(self.coinbase_txids[5]), self.pubkey, amount=1.0)
 
         #get CTRansaction object from above hex
         spendtx = CTransaction()
@@ -587,23 +454,33 @@ class SerializationTest(BitcoinTestFramework):
 
         tip = self.nodes[0].getbestblockhash()
         block_time = self.nodes[0].getblockheader(tip)['mediantime'] + 1
-        block = create_block(int(tip, 16), create_coinbase(CHAIN_HEIGHT + 7), block_time)
-        block.nVersion = 2
+        block = create_block(int(tip, 16), create_coinbase(CHAIN_HEIGHT + 5), block_time)
         block.vtx.append(spendtx)
+        add_witness_commitment(block)
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         block.rehash()
         block.solve(self.signblockprivkeys)
 
         # serialize with and without witness
-        assert_equal(block.serialize(with_witness=True), block.serialize())
-        assert_equal(block.serialize(with_witness=True), block.serialize(with_witness=False))
-        assert_equal(block.serialize(with_witness=True), block.serialize(with_witness=False, with_scriptsig=True))
+        assert_equal(block.serialize(with_witness=False), block.serialize())
+        assert_not_equal(block.serialize(with_witness=True), block.serialize(with_witness=False))
+        assert_not_equal(block.serialize(with_witness=True), block.serialize(with_witness=False, with_scriptsig=True))
 
-        self.log.info("Reject block with p2sh_p2wsh transaction")
+        self.log.info("Reject block with p2sh_p2wsh transaction and witness commitment")
+        assert_raises_rpc_error(-22, "Block does not start with a coinbase", self.nodes[0].submitblock, bytes_to_hex_str(block.serialize(with_witness=True)))
+        assert_equal(self.nodes[0].getbestblockhash(), tip)
+
+        block = create_block(int(tip, 16), create_coinbase(CHAIN_HEIGHT + 5), block_time)
+        block.vtx.append(spendtx)
+        block.hashMerkleRoot = block.calc_merkle_root()
+        block.hashImMerkleRoot = block.calc_immutable_merkle_root()
+        block.rehash()
+        block.solve(self.signblockprivkeys)
+
+        self.log.info("Accept block with p2sh_p2wsh transaction")
         self.nodes[0].submitblock(bytes_to_hex_str(block.serialize(with_witness=True)))
         assert_equal(self.nodes[0].getbestblockhash(), block.hash)
-
 
 if __name__ == '__main__':
     SerializationTest().main()

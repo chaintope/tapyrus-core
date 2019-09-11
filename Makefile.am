@@ -266,6 +266,8 @@ EXTRA_DIST += \
     test/util/data/txcreateoutpubkey2.json \
     test/util/data/txcreateoutpubkey3.hex \
     test/util/data/txcreateoutpubkey3.json \
+    test/util/data/txcreateoutpubkey4.hex \
+    test/util/data/txcreateoutpubkey4.json \
     test/util/data/txcreatescript1.hex \
     test/util/data/txcreatescript1.json \
     test/util/data/txcreatescript2.hex \

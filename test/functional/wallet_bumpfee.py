@@ -16,7 +16,7 @@ make assumptions about execution order.
 
 from decimal import Decimal
 
-from test_framework.blocktools import add_witness_commitment, create_block, create_coinbase, send_to_witness
+from test_framework.blocktools import create_block, create_coinbase
 from test_framework.messages import BIP125_SEQUENCE_NUMBER, CTransaction
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, assert_greater_than, assert_raises_rpc_error, bytes_to_hex_str, connect_nodes_bi, hex_str_to_bytes, sync_mempools
@@ -60,7 +60,6 @@ class BumpFeeTest(BitcoinTestFramework):
         self.log.info("Running tests")
         dest_address = peer_node.getnewaddress()
         test_simple_bumpfee_succeeds(rbf_node, peer_node, dest_address)
-        test_segwit_bumpfee_succeeds(rbf_node, dest_address)
         test_nonrbf_bumpfee_fails(peer_node, dest_address)
         test_notmine_bumpfee_fails(rbf_node, peer_node, dest_address)
         test_bumpfee_with_descendant_fails(rbf_node, rbf_node_address, dest_address)
@@ -95,33 +94,6 @@ def test_simple_bumpfee_succeeds(rbf_node, peer_node, dest_address):
     bumpedwtx = rbf_node.gettransaction(bumped_tx["txid"])
     assert_equal(oldwtx["replaced_by_txid"], bumped_tx["txid"])
     assert_equal(bumpedwtx["replaces_txid"], rbfid)
-
-
-def test_segwit_bumpfee_succeeds(rbf_node, dest_address):
-    # Create a transaction with segwit output, then create an RBF transaction
-    # which spends it, and make sure bumpfee can be called on it.
-
-    segwit_in = next(u for u in rbf_node.listunspent() if u["amount"] == Decimal("0.001"))
-    segwit_out = rbf_node.getaddressinfo(rbf_node.getnewaddress())
-    rbf_node.addwitnessaddress(segwit_out["address"])
-    segwitid = send_to_witness(
-        use_p2wsh=False,
-        node=rbf_node,
-        utxo=segwit_in,
-        pubkey=segwit_out["pubkey"],
-        encode_p2sh=False,
-        amount=Decimal("0.0009"),
-        sign=True)
-
-    rbfraw = rbf_node.createrawtransaction([{
-        'txid': segwitid,
-        'vout': 0,
-        "sequence": BIP125_SEQUENCE_NUMBER
-    }], {dest_address: Decimal("0.0005"),
-         rbf_node.getrawchangeaddress(): Decimal("0.0003")})
-    rbfsigned = rbf_node.signrawtransactionwithwallet(rbfraw)
-
-    assert_raises_rpc_error(-26, "mandatory-script-verify-flag-failed (Witness program hash mismatch)", rbf_node.sendrawtransaction, rbfsigned["hex"])
 
 
 def test_nonrbf_bumpfee_fails(peer_node, dest_address):

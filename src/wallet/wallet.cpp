@@ -2653,7 +2653,7 @@ OutputType CWallet::TransactionChangeType(OutputType change_type, const std::vec
         int witnessversion = 0;
         std::vector<unsigned char> witnessprogram;
         if (recipient.scriptPubKey.IsWitnessProgram(witnessversion, witnessprogram)) {
-            return OutputType::BECH32;
+            return OutputType::LEGACY;
         }
     }
 
@@ -4434,7 +4434,7 @@ void CWallet::LearnRelatedScripts(const CPubKey& key, OutputType type)
 void CWallet::LearnAllRelatedScripts(const CPubKey& key)
 {
     // OutputType::P2SH_SEGWIT always adds all necessary scripts for all types.
-    LearnRelatedScripts(key, OutputType::P2SH_SEGWIT);
+    LearnRelatedScripts(key, OutputType::LEGACY);
 }
 
 std::vector<OutputGroup> CWallet::GroupOutputs(const std::vector<COutput>& outputs, bool single_coin) const {
