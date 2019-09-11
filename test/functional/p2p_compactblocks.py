@@ -13,7 +13,7 @@ from decimal import Decimal
 import random
 
 from test_framework.blocktools import create_block, create_coinbase, add_witness_commitment
-from test_framework.messages import BlockTransactions, BlockTransactionsRequest, calculate_shortid, CBlock, CBlockHeader, CInv, COutPoint, CTransaction, CTxIn, CTxInWitness, CTxOut, FromHex, HeaderAndShortIDs, msg_block, msg_blocktxn, msg_cmpctblock, msg_getblocktxn, msg_getdata, msg_getheaders, msg_headers, msg_inv, msg_sendcmpct, msg_sendheaders, msg_tx, msg_witness_block, msg_witness_blocktxn, MSG_WITNESS_FLAG, NODE_NETWORK, NODE_WITNESS, P2PHeaderAndShortIDs, PrefilledTransaction, ser_uint256, ToHex
+from test_framework.messages import BlockTransactions, BlockTransactionsRequest, calculate_shortid, CBlock, CBlockHeader, CInv, COutPoint, CTransaction, CTxIn, CTxInWitness, CTxOut, FromHex, HeaderAndShortIDs, msg_block, msg_blocktxn, msg_cmpctblock, msg_getblocktxn, msg_getdata, msg_getheaders, msg_headers, msg_inv, msg_sendcmpct, msg_sendheaders, msg_tx, msg_witness_block, msg_witness_blocktxn, NODE_NETWORK, NODE_WITNESS, P2PHeaderAndShortIDs, PrefilledTransaction, ser_uint256, ToHex
 from test_framework.mininode import mininode_lock, P2PInterface
 from test_framework.script import CScript, OP_TRUE, OP_DROP
 from test_framework.test_framework import BitcoinTestFramework
@@ -100,17 +100,15 @@ class CompactBlocksTest(BitcoinTestFramework):
         self.num_nodes = 2
         # This test was written assuming SegWit is activated using BIP9 at height 432 (3x confirmation window).
         # TODO: Rewrite this test to support SegWit being always active.
-        self.extra_args = [["-vbparams=segwit:0:0"], ["-vbparams=segwit:0:999999999999", "-txindex", "-deprecatedrpc=addwitnessaddress"]]
+        self.extra_args = [[], ["-txindex", "-deprecatedrpc=addwitnessaddress"]]
         self.utxos = []
 
-    def build_block_on_tip(self, node, segwit=False):
+    def build_block_on_tip(self, node):
         height = node.getblockcount()
         tip = node.getbestblockhash()
         mtp = node.getblockheader(tip)['mediantime']
         block = create_block(int(tip, 16), create_coinbase(height + 1), mtp + 1)
-        block.nVersion = 4
-        if segwit:
-            add_witness_commitment(block)
+        block.nVersion = 1
         block.solve(self.signblockprivkeys)
         return block
 
@@ -376,11 +374,11 @@ class CompactBlocksTest(BitcoinTestFramework):
     # Post-segwit: upgraded nodes would only make this request of cb-version-2,
     # NODE_WITNESS peers.  Unupgraded nodes would still make this request of
     # any cb-version-1-supporting peer.
-    def test_compactblock_requests(self, node, test_node, version, segwit):
+    def test_compactblock_requests(self, node, test_node, version):
         # Try announcing a block with an inv or header, expect a compactblock
         # request
         for announce in ["inv", "header"]:
-            block = self.build_block_on_tip(node, segwit=segwit)
+            block = self.build_block_on_tip(node)
             with mininode_lock:
                 test_node.last_message.pop("getdata", None)
 
@@ -412,10 +410,7 @@ class CompactBlocksTest(BitcoinTestFramework):
             assert_equal(absolute_indexes, [0])  # should be a coinbase request
 
             # Send the coinbase, and verify that the tip advances.
-            if version == 2 and segwit:
-                msg = msg_witness_blocktxn()
-            else:
-                msg = msg_blocktxn()
+            msg = msg_blocktxn()
             msg.block_transactions.blockhash = block.sha256
             msg.block_transactions.transactions = [block.vtx[0]]
             test_node.send_and_ping(msg)
@@ -568,7 +563,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         # We should receive a getdata request
         wait_until(lambda: "getdata" in test_node.last_message, timeout=10, lock=mininode_lock)
         assert_equal(len(test_node.last_message["getdata"].inv), 1)
-        assert(test_node.last_message["getdata"].inv[0].type == 2 or test_node.last_message["getdata"].inv[0].type == 2|MSG_WITNESS_FLAG)
+        assert(test_node.last_message["getdata"].inv[0].type == 2)
         assert_equal(test_node.last_message["getdata"].inv[0].hash, block.sha256)
 
         # Deliver the block
@@ -681,10 +676,6 @@ class CompactBlocksTest(BitcoinTestFramework):
         with mininode_lock:
             assert "blocktxn" not in test_node.last_message
 
-    def activate_segwit(self, node):
-        node.generate(144*3, self.signblockprivkeys)
-        assert_equal(get_bip9_status(node, "segwit")["status"], 'active')
-
     def test_end_to_end_block_relay(self, node, listeners):
         utxo = self.utxos.pop(0)
 
@@ -707,24 +698,19 @@ class CompactBlocksTest(BitcoinTestFramework):
 
     # Test that we don't get disconnected if we relay a compact block with valid header,
     # but invalid transactions.
-    def test_invalid_tx_in_compactblock(self, node, test_node, use_segwit):
+    def test_invalid_tx_in_compactblock(self, node, test_node):
         utxo = self.utxos[0]
 
         block = self.build_block_with_transactions(node, utxo, 5)
         del block.vtx[3]
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
-        if use_segwit:
-            # If we're testing with segwit, also drop the coinbase witness,
-            # but include the witness commitment.
-            add_witness_commitment(block)
-            block.vtx[0].wit.vtxinwit = []
         block.solve(self.signblockprivkeys)
 
         # Now send the compact block with all transactions prefilled, and
         # verify that we don't get disconnected.
         comp_block = HeaderAndShortIDs()
-        comp_block.initialize_from_block(block, prefill_list=[0, 1, 2, 3, 4], use_witness=use_segwit)
+        comp_block.initialize_from_block(block, prefill_list=[0, 1, 2, 3, 4])
         msg = msg_cmpctblock(comp_block.to_p2p())
         test_node.send_and_ping(msg)
 
@@ -855,9 +841,6 @@ class CompactBlocksTest(BitcoinTestFramework):
         self.test_compactblock_reconstruction_multiple_peers(self.nodes[1], self.extra_node, self.old_node)
         sync_blocks(self.nodes)
 
-        # Advance to segwit activation
-        self.log.info("Advancing to segwit activation")
-        self.activate_segwit(self.nodes[1])
         self.log.info("Running tests, post-segwit activation...")
 
         self.log.info("Testing compactblock construction...")

@@ -267,6 +267,7 @@ BOOST_AUTO_TEST_CASE(versionbits_computeblockversion)
 
     // Start generating blocks before nStartTime
     int64_t nTime = nStartTime - 1;
+    int VERSIONBITS_LAST_OLD_BLOCK_VERSION = 0;
 
     // Before MedianTimePast of the chain has crossed nStartTime, the bit
     // should not be set.
