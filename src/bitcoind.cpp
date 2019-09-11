@@ -62,7 +62,7 @@ static bool AppInit(int argc, char* argv[])
     //
     // Parameters
     //
-    // If Qt is used, parameters/bitcoin.conf are parsed in qt/bitcoin.cpp's main()
+    // If Qt is used, parameters/tapyrus.conf are parsed in qt/bitcoin.cpp's main()
     std::string error;
     SetupServerArgs();
 
