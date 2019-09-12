@@ -487,11 +487,7 @@ class SegWitTest(BitcoinTestFramework):
         # Check that createrawtransaction/decoderawtransaction with non-v0 Bech32 works
         self.log.info("Verify bech32 addresses are not supported")
         v1_addr = program_to_witness(1, [3,5])
-<<<<<<< HEAD
         assert_raises_rpc_error(-5, "Invalid Tapyrus address", self.nodes[0].createrawtransaction, [getutxo(spendable_txid[0])],{v1_addr: 1})
-=======
-        assert_raises_rpc_error(-5, "Invalid Bitcoin address", self.nodes[0].createrawtransaction, [getutxo(spendable_txid[0])],{v1_addr: 1})
->>>>>>> issue/NoSegwitWallet
 
         # Check that spendable outputs are really spendable
         self.create_and_mine_tx_from_txids(spendable_txid)
