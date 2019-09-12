@@ -228,7 +228,6 @@ BOOST_AUTO_TEST_CASE(versionbits_test)
     for (int i=0; i<(int) Consensus::MAX_VERSION_BITS_DEPLOYMENTS; i++) {
         uint32_t bitmask = VersionBitsMask(mainnetParams, static_cast<Consensus::DeploymentPos>(i));
         // Make sure that no deployment tries to set an invalid bit.
-        BOOST_CHECK_EQUAL(bitmask & ~(uint32_t)VERSIONBITS_TOP_MASK, bitmask);
 
         // Verify that the deployment windows of different deployment using the
         // same bit are disjoint.
@@ -267,7 +266,7 @@ BOOST_AUTO_TEST_CASE(versionbits_computeblockversion)
 
     // Start generating blocks before nStartTime
     int64_t nTime = nStartTime - 1;
-    int VERSIONBITS_LAST_OLD_BLOCK_VERSION = 0;
+    int VERSIONBITS_LAST_OLD_BLOCK_VERSION = 1;
 
     // Before MedianTimePast of the chain has crossed nStartTime, the bit
     // should not be set.
@@ -348,7 +347,7 @@ BOOST_AUTO_TEST_CASE(versionbits_computeblockversion)
 
     // Finally, verify that after a soft fork has activated, CBV no longer uses
     // VERSIONBITS_LAST_OLD_BLOCK_VERSION.
-    //BOOST_CHECK_EQUAL(ComputeBlockVersion(lastBlock, mainnetParams) & VERSIONBITS_TOP_MASK, VERSIONBITS_TOP_BITS);
+    BOOST_CHECK_EQUAL(ComputeBlockVersion(lastBlock, mainnetParams) & VERSIONBITS_TOP_MASK, VERSIONBITS_TOP_BITS);
 }
 
 

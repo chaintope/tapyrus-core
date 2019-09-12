@@ -3129,9 +3129,6 @@ static bool ContextualCheckBlock(const CBlock& block, CValidationState& state, c
 {
     const int nHeight = pindexPrev == nullptr ? 0 : pindexPrev->nHeight + 1;
 
-    // Start enforcing BIP113 (Median Time Past) using versionbits logic.
-    int nLockTimeFlags = LOCKTIME_MEDIAN_TIME_PAST;
-
     int64_t nLockTimeCutoff = pindexPrev->GetMedianTimePast();
 
     // Check that all transactions are finalized
@@ -4123,6 +4120,7 @@ bool LoadBlockIndex()
 bool CChainState::LoadGenesisBlock(const CChainParams& chainparams)
 {
     LOCK(cs_main);
+    LogPrintf("LoadGenesisBlock %s \n", chainparams.GetConsensus().hashGenesisBlock.ToString());
 
     // Check whether we're already initialized by checking for genesis in
     // mapBlockIndex. Note that we can't use chainActive here, since it is
