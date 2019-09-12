@@ -1487,7 +1487,6 @@ bool AppInitMain()
                     strLoadError = _("Error initializing block database");
                     break;
                 }
-                LogPrintf("LoadGenesisBlock done\n");
 
                 // At this point we're either in reindex or we've loaded a useful
                 // block tree into mapBlockIndex!
@@ -1625,6 +1624,7 @@ bool AppInitMain()
 
     if (!CheckDiskSpace() && !CheckDiskSpace(0, true))
         return false;
+
     // Either install a handler to notify us when genesis activates, or set fHaveGenesis directly.
     // No locking, as this happens before any background thread is started.
     if (chainActive.Tip() == nullptr) {

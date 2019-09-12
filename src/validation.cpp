@@ -4095,7 +4095,6 @@ bool LoadBlockIndex()
 bool CChainState::LoadGenesisBlock(const CChainParams& chainparams)
 {
     LOCK(cs_main);
-    LogPrintf("LoadGenesisBlock %s \n", chainparams.GetConsensus().hashGenesisBlock.ToString());
 
     // Check whether we're already initialized by checking for genesis in
     // mapBlockIndex. Note that we can't use chainActive here, since it is
