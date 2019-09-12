@@ -407,68 +407,23 @@ class SegWitTest(BitcoinTestFramework):
 
         # Check that we can getdata for witness blocks or regular blocks,
         # and the right thing happens.
-        if self.segwit_status != 'active':
-            # Before activation, we should be able to request old blocks with
-            # or without witness, and they should be the same.
-            chain_height = self.nodes[0].getblockcount()
-            # Pick 10 random blocks on main chain, and verify that getdata's
-            # for MSG_BLOCK, MSG_WITNESS_BLOCK, and rpc getblock() are equal.
-            all_heights = list(range(chain_height + 1))
-            random.shuffle(all_heights)
-            all_heights = all_heights[0:10]
-            for height in all_heights:
-                block_hash = self.nodes[0].getblockhash(height)
-                rpc_block = self.nodes[0].getblock(block_hash, False)
-                block_hash = int(block_hash, 16)
-                block = self.test_node.request_block(block_hash, 2)
-                wit_block = self.test_node.request_block(block_hash, 2)
-                assert_equal(block.serialize(with_witness=True), wit_block.serialize(with_witness=True))
-                assert_equal(block.serialize(), hex_str_to_bytes(rpc_block))
-        else:
-            # After activation, witness blocks and non-witness blocks should
-            # be different.  Verify rpc getblock() returns witness blocks, while
-            # getdata respects the requested type.
-            block = self.build_next_block()
-            self.update_witness_block_with_transactions(block, [])
-            # This gives us a witness commitment.
-            assert(len(block.vtx[0].wit.vtxinwit) == 1)
-            assert(len(block.vtx[0].wit.vtxinwit[0].scriptWitness.stack) == 1)
-            test_witness_block(self.nodes[0].rpc, self.test_node, block, with_witness=True, accepted=False)
-            test_witness_block(self.nodes[0].rpc, self.test_node, block, with_witness=False, accepted=True)
-            # Now try to retrieve it...
-            rpc_block = self.nodes[0].getblock(block.hash, False)
-            non_wit_block = self.test_node.request_block(block.sha256, 2)
-            wit_block = self.test_node.request_block(block.sha256, 2)
-            assert_equal(wit_block.serialize(with_witness=True), hex_str_to_bytes(rpc_block))
-            assert_equal(wit_block.serialize(), non_wit_block.serialize())
-            assert_equal(wit_block.serialize(), block.serialize())
+        # Before activation, we should be able to request old blocks with
+        # or without witness, and they should be the same.
+        chain_height = self.nodes[0].getblockcount()
+        # Pick 10 random blocks on main chain, and verify that getdata's
+        # for MSG_BLOCK, MSG_WITNESS_BLOCK, and rpc getblock() are equal.
+        all_heights = list(range(chain_height + 1))
+        random.shuffle(all_heights)
+        all_heights = all_heights[0:10]
+        for height in all_heights:
+            block_hash = self.nodes[0].getblockhash(height)
+            rpc_block = self.nodes[0].getblock(block_hash, False)
+            block_hash = int(block_hash, 16)
+            block = self.test_node.request_block(block_hash, 2)
+            wit_block = self.test_node.request_block(block_hash, 2)
+            assert_equal(block.serialize(with_witness=True), wit_block.serialize(with_witness=True))
+            assert_equal(block.serialize(), hex_str_to_bytes(rpc_block))
 
-            # Test size, vsize, weight
-            rpc_details = self.nodes[0].getblock(block.hash, True)
-            assert_equal(rpc_details["size"], len(block.serialize()))
-            assert_equal(rpc_details["strippedsize"], len(block.serialize(with_witness=False)))
-            weight = 4 * len(block.serialize())
-            assert_equal(rpc_details["weight"], weight)
-
-            # Upgraded node should not ask for blocks from unupgraded
-            block4 = self.build_next_block(version=4)
-            block4.solve(self.signblockprivkeys)
-            self.old_node.getdataset = set()
-
-            # Blocks can be requested via direct-fetch (immediately upon processing the announcement)
-            # or via parallel download (with an indeterminate delay from processing the announcement)
-            # so to test that a block is NOT requested, we could guess a time period to sleep for,
-            # and then check. We can avoid the sleep() by taking advantage of transaction getdata's
-            # being processed after block getdata's, and announce a transaction as well,
-            # and then check to see if that particular getdata has been received.
-            # Since 0.14, inv's will only be responded to with a getheaders, so send a header
-            # to announce this block.
-            msg = msg_headers()
-            msg.headers = [CBlockHeader(block4)]
-            self.old_node.send_message(msg)
-            self.old_node.announce_tx_and_wait_for_getdata(block4.vtx[0])
-            assert(block4.sha256 in self.old_node.getdataset)
-            self.nodes[0].generate(1, self.signblockprivkeys)
 
     @subtest
     def test_v0_outputs_are_spendable(self):
@@ -560,7 +515,7 @@ class SegWitTest(BitcoinTestFramework):
             block_version = gbt_results['version']
             # If we're not indicating segwit support, we will still be
             # signalling for segwit activation.
-            assert_equal((block_version & (1 << VB_WITNESS_BIT) != 0), node == self.nodes[0])
+            assert_equal(block_version & (1 << VB_WITNESS_BIT), 0)
             # If we don't specify the segwit rule, then we won't get a default
             # commitment.
             assert('default_witness_commitment' not in gbt_results)
@@ -611,10 +566,9 @@ class SegWitTest(BitcoinTestFramework):
         # a witness transaction ought not result in a getdata.
         self.test_node.announce_tx_and_wait_for_getdata(tx, timeout=2, success=False)
 
-        # Delivering this transaction with witness should fail (no matter who
-        # its from)
-        assert_equal(len(self.nodes[0].getrawmempool()), 0)
-        assert_equal(len(self.nodes[1].getrawmempool()), 0)
+        # Delivering this transaction without witness should succeed
+        assert_equal(len(self.nodes[0].getrawmempool()), 1)
+        assert_equal(len(self.nodes[1].getrawmempool()), 1)
 
         # sent without witness
         test_transaction_acceptance(self.nodes[0].rpc, self.old_node, tx, with_witness=True, accepted=False)

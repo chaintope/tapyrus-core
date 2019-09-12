@@ -740,7 +740,7 @@ class CompactBlocksTest(BitcoinTestFramework):
             msg = msg_cmpctblock(cmpct_block.to_p2p())
             peer.send_and_ping(msg)
             with mininode_lock:
-                assert "getblocktxn" in peer.last_message
+                assert "getblocktxn" in peer.last_message or "getdata" in peer.last_message
             return block, cmpct_block
 
         block, cmpct_block = announce_cmpct_block(node, stalling_peer)
@@ -764,12 +764,8 @@ class CompactBlocksTest(BitcoinTestFramework):
             delivery_peer.send_message(msg_tx(tx))
         delivery_peer.sync_with_ping()
 
-        cmpct_block.prefilled_txn[0].tx.wit.vtxinwit = [ CTxInWitness() ]
-        cmpct_block.prefilled_txn[0].tx.wit.vtxinwit[0].scriptWitness.stack = [ser_uint256(0)]
-
-        cmpct_block.use_witness = True
         delivery_peer.send_and_ping(msg_cmpctblock(cmpct_block.to_p2p()))
-        assert(int(node.getbestblockhash(), 16) != block.sha256)
+        assert(int(node.getbestblockhash(), 16) == block.sha256)
 
         msg = msg_blocktxn()
         msg.block_transactions.blockhash = block.sha256
@@ -790,7 +786,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         # We will need UTXOs to construct transactions in later tests.
         self.make_utxos()
 
-        self.log.info("Running tests, pre-segwit activation:")
+        self.log.info("Running tests:")
 
         self.log.info("Testing SENDCMPCT p2p message... ")
         self.test_sendcmpct(self.nodes[0], self.test_node, 1)
@@ -801,7 +797,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         sync_blocks(self.nodes)
 
         self.log.info("Testing compactblock requests... ")
-        self.test_compactblock_requests(self.nodes[0], self.test_node, 1, False)
+        self.test_compactblock_requests(self.nodes[0], self.test_node, 1)
         sync_blocks(self.nodes)
 
         self.log.info("Testing getblocktxn requests...")
@@ -828,20 +824,16 @@ class CompactBlocksTest(BitcoinTestFramework):
         self.log.info("Testing end-to-end block relay...")
         self.request_cb_announcements(self.test_node, self.nodes[0], 1)
         self.request_cb_announcements(self.old_node, self.nodes[1], 1)
-        self.test_end_to_end_block_relay(self.nodes[0], [self.test_node, self.old_node])
-        #node1 does not send cmpctblock but inv to old_node 
-        #commenting this test as it may change after segwit based settings in tapyrus are finalised  
+        self.test_end_to_end_block_relay(self.nodes[0], [self.test_node, self.old_node]) 
         self.test_end_to_end_block_relay(self.nodes[1], [self.test_node, self.old_node])
 
         self.log.info("Testing handling of invalid compact blocks...")
-        self.test_invalid_tx_in_compactblock(self.nodes[0], self.test_node, False)
-        self.test_invalid_tx_in_compactblock(self.nodes[1], self.old_node, False)
+        self.test_invalid_tx_in_compactblock(self.nodes[0], self.test_node)
+        self.test_invalid_tx_in_compactblock(self.nodes[1], self.old_node)
 
         self.log.info("Testing reconstructing compact blocks from all peers...")
         self.test_compactblock_reconstruction_multiple_peers(self.nodes[1], self.extra_node, self.old_node)
         sync_blocks(self.nodes)
-
-        self.log.info("Running tests, post-segwit activation...")
 
         self.log.info("Testing compactblock construction...")
         self.test_compactblock_construction(self.nodes[1], self.old_node, 1, False)
@@ -849,7 +841,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         sync_blocks(self.nodes)
 
         self.log.info("Testing compactblock requests (unupgraded node)... ")
-        self.test_compactblock_requests(self.nodes[0], self.test_node, 1, False)
+        self.test_compactblock_requests(self.nodes[0], self.test_node, 1)
 
         self.log.info("Testing getblocktxn requests (unupgraded node)...")
         self.test_getblocktxn_requests(self.nodes[0], self.test_node, 1)
@@ -872,9 +864,9 @@ class CompactBlocksTest(BitcoinTestFramework):
         self.test_end_to_end_block_relay(self.nodes[1], [self.test_node, self.old_node])
 
         self.log.info("Testing handling of invalid compact blocks...")
-        self.test_invalid_tx_in_compactblock(self.nodes[0], self.test_node, False)
+        self.test_invalid_tx_in_compactblock(self.nodes[0], self.test_node)
 
-        self.test_invalid_tx_in_compactblock(self.nodes[1], self.old_node, True)
+        self.test_invalid_tx_in_compactblock(self.nodes[1], self.old_node)
 
         self.log.info("Testing invalid index in cmpctblock message...")
         self.test_invalid_cmpctblock_message()
