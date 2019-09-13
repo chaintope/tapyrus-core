@@ -4,7 +4,7 @@
 
 #include <merkleblock.h>
 #include <uint256.h>
-#include <test/test_bitcoin.h>
+#include <test/test_tapyrus.h>
 
 #include <boost/test/unit_test.hpp>
 

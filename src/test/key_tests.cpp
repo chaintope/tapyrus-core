@@ -10,7 +10,7 @@
 #include <util.h>
 #include <utilstrencodings.h>
 #include <test/test_keys_helper.h>
-#include <test/test_bitcoin.h>
+#include <test/test_tapyrus.h>
 
 #include <string>
 #include <vector>

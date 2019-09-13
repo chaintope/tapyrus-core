@@ -13,7 +13,7 @@ add_test_to_suite(bitcoin-qt test_bitcoin-qt
 	uritests.cpp
 	
 	# Test framework
-	../../test/test_bitcoin.cpp
+	../../test/test_tapyrus.cpp
 )
 
 target_link_libraries(test_bitcoin-qt bitcoin-qt-base Qt5::Test)

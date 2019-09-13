@@ -8,7 +8,7 @@ Running
 ---------------------
 After compiling bitcoin-core, the benchmarks can be run with:
 
-    src/bench/bench_bitcoin
+    src/bench/bench_tapyrus
 
 The output will look similar to:
 ```
@@ -43,7 +43,7 @@ Help
 ---------------------
 `-?` will print a list of options and exit:
 
-    src/bench/bench_bitcoin -?
+    src/bench/bench_tapyrus -?
 
 Notes
 ---------------------

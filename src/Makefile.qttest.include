@@ -27,11 +27,11 @@ TEST_QT_H = \
   qt/test/paymentservertests.h \
   qt/test/wallettests.h
 
-TEST_BITCOIN_CPP = \
-  test/test_bitcoin.cpp
+TEST_TAPYRUS_CPP = \
+  test/test_tapyrus.cpp
 
-TEST_BITCOIN_H = \
-  test/test_bitcoin.h \
+TEST_TAPYRUS_H = \
+  test/test_tapyrus.h \
   test/test_keys_helper.cpp
 
 qt_test_test_bitcoin_qt_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(BITCOIN_QT_INCLUDES) \

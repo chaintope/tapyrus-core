@@ -3,7 +3,7 @@
 //
 
 #include <primitives/block.h>
-#include <test/test_bitcoin.h>
+#include <test/test_tapyrus.h>
 #include <test/test_keys_helper.h>
 
 #include <boost/test/unit_test.hpp>
