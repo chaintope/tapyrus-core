@@ -27,11 +27,11 @@ TEST_QT_H = \
   qt/test/paymentservertests.h \
   qt/test/wallettests.h
 
-TEST_BITCOIN_CPP = \
-  test/test_bitcoin.cpp
+TEST_TAPYRUS_CPP = \
+  test/test_tapyrus.cpp
 
-TEST_BITCOIN_H = \
-  test/test_bitcoin.h \
+TEST_TAPYRUS_H = \
+  test/test_tapyrus.h \
   test/test_keys_helper.cpp
 
 qt_test_test_bitcoin_qt_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(BITCOIN_QT_INCLUDES) \
@@ -44,8 +44,8 @@ qt_test_test_bitcoin_qt_SOURCES = \
   qt/test/uritests.cpp \
   qt/test/util.cpp \
   $(TEST_QT_H) \
-  $(TEST_BITCOIN_CPP) \
-  $(TEST_BITCOIN_H)
+  $(TEST_TAPYRUS_CPP) \
+  $(TEST_TAPYRUS_H)
 if ENABLE_WALLET
 qt_test_test_bitcoin_qt_SOURCES += \
   qt/test/addressbooktests.cpp \

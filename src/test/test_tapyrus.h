@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_TEST_TEST_BITCOIN_H
-#define BITCOIN_TEST_TEST_BITCOIN_H
+#ifndef TAPYRUS_TEST_TEST_TAPYRUS_H
+#define TAPYRUS_TEST_TEST_TAPYRUS_H
 
 #include <chainparamsbase.h>
 #include <chainparams.h>
@@ -138,4 +138,4 @@ void writeTestGenesisBlockToFile(fs::path genesisPath);
 // define an implicit conversion here so that uint256 may be used directly in BOOST_CHECK_*
 std::ostream& operator<<(std::ostream& os, const uint256& num);
 
-#endif
+#endif //TAPYRUS_TEST_TEST_TAPYRUS_H

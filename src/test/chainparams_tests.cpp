@@ -6,7 +6,7 @@
 #include <crypto/sha256.h>
 #include <validation.h>
 #include <script/sigcache.h>
-#include <test/test_bitcoin.h>
+#include <test/test_tapyrus.h>
 #include <test/test_keys_helper.h>
 
 #include <boost/test/unit_test.hpp>
