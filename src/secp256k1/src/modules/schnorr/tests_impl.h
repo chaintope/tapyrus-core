@@ -508,6 +508,72 @@ void run_schnorr_compact_test(void) {
     }
 }
 
+void test_ecdsa_schnorr_nonce()
+{
+    /* Verify that Schnorr signature and ECDSA do not use the same nonce as nonce_function_rfc6979
+     * Compute 'r' using nonce_function_rfc6979 and using ecdsa and schnorr signatures.
+     * Verify that the 'r' values are different from nonce_function_rfc6979
+     * Recover the private key : x = (±ss'-z)/(r±s'e) mod n.
+     */
+
+    unsigned char message[32] = "10000000000000000000000000000000" ;
+    unsigned char privkey[32];
+    unsigned char schnorr_signature[64];
+    secp256k1_ecdsa_signature ecdsa_signature;
+    unsigned char nonce1[32], nonce2[32];
+    secp256k1_pubkey pubkey;
+
+    int overflow = 0;
+    secp256k1_scalar k1, k2;
+    secp256k1_gej Rj;
+    secp256k1_ge Ra;
+
+    /* Generate a random key */
+    {
+        secp256k1_scalar key;
+        random_scalar_order_test(&key);
+        secp256k1_scalar_get_b32(privkey, &key);
+    }
+
+    /* Construct and verify corresponding public key. */
+    CHECK(secp256k1_ec_seckey_verify(ctx, privkey) == 1);
+    CHECK(secp256k1_ec_pubkey_create(ctx, &pubkey, privkey) == 1);
+
+    /* default R */
+    nonce_function_rfc6979(nonce1, message, privkey, NULL, NULL, 0);
+    secp256k1_scalar_set_b32(&k1, nonce1, &overflow);
+    CHECK(!overflow && !secp256k1_scalar_is_zero(&k1));
+    secp256k1_ecmult_gen(&ctx->ecmult_gen_ctx, &Rj, &k1);
+    secp256k1_ge_set_gej(&Ra, &Rj);
+    if (!secp256k1_fe_is_quad_var(&Ra.y)) {
+        secp256k1_scalar_negate(&k1, &k1);
+    }
+    /* recompute R  */
+    nonce_function_rfc6979(nonce2, message, privkey, NULL, NULL, 0);
+    secp256k1_scalar_set_b32(&k2, nonce2, &overflow);
+    CHECK(!overflow && !secp256k1_scalar_is_zero(&k2));
+    secp256k1_ecmult_gen(&ctx->ecmult_gen_ctx, &Rj, &k2);
+    secp256k1_ge_set_gej(&Ra, &Rj);
+    if (!secp256k1_fe_is_quad_var(&Ra.y)) {
+        secp256k1_scalar_negate(&k2, &k2);
+    }
+    /* both are equal */
+    CHECK(memcmp(&k1, &k2, 32) == 0);
+
+    /* Schnorr sign. */
+    CHECK(secp256k1_schnorr_sign(ctx, schnorr_signature, message, privkey, NULL, NULL) == 1);
+    CHECK(secp256k1_schnorr_verify(ctx, schnorr_signature, message, &pubkey) == 1);
+
+    /* ECDSA sign */
+    CHECK(secp256k1_ecdsa_sign(ctx, &ecdsa_signature, message, privkey, NULL, NULL) == 1);
+    CHECK(secp256k1_ecdsa_verify(ctx, &ecdsa_signature, message, &pubkey) == 1);
+
+    /* verify R is not the default */
+    CHECK(memcmp(&k1, schnorr_signature, 32) != 0);
+    CHECK(memcmp(&k1, (void*)&ecdsa_signature, 32) != 0);
+    CHECK(memcmp(schnorr_signature, (void*)&ecdsa_signature, 32) != 0);
+}
+
 void run_schnorr_tests(void) {
     int i;
     for (i = 0; i < 32 * count; i++) {
@@ -516,6 +582,7 @@ void run_schnorr_tests(void) {
 
     test_schnorr_sign_verify();
     run_schnorr_compact_test();
+    test_ecdsa_schnorr_nonce();
 }
 
 #endif

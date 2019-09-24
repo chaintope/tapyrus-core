@@ -179,7 +179,7 @@ static int secp256k1_schnorr_sig_generate_k(
     unsigned char nonce32[32];
 
     /* Seed used to make sure we generate different values of k for schnorr */
-    const unsigned char secp256k1_schnorr_algo16[17] = "Schnorr+SHA256  ";
+    const unsigned char secp256k1_schnorr_algo16[17] = "SCHNORR + SHA256";
 
     if (noncefp == NULL) {
         noncefp = secp256k1_nonce_function_default;
