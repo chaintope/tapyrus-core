@@ -144,8 +144,6 @@ class SegWitTest(BitcoinTestFramework):
 
         self.log.info("Verify default node can't accept txs with missing witness")
         # unsigned, no scriptsig
-        self.success_mine(self.nodes[0], wit_ids[NODE_0][WIT_V0][0], False)
-        self.success_mine(self.nodes[0], wit_ids[NODE_0][WIT_V1][0], False)
         self.fail_accept(self.nodes[0], "mandatory-script-verify-flag", p2sh_ids[NODE_0][WIT_V0][0], False)
         self.fail_accept(self.nodes[0], "mandatory-script-verify-flag", p2sh_ids[NODE_0][WIT_V1][0], False)
         # unsigned with redeem script
