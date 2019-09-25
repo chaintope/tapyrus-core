@@ -121,7 +121,12 @@ def test_segwit_bumpfee_succeeds(rbf_node, dest_address):
          rbf_node.getrawchangeaddress(): Decimal("0.0003")})
     rbfsigned = rbf_node.signrawtransactionwithwallet(rbfraw)
 
-    assert_raises_rpc_error(-26, "mandatory-script-verify-flag-failed (Witness program hash mismatch)", rbf_node.sendrawtransaction, rbfsigned["hex"])
+    rbfid = rbf_node.sendrawtransaction(rbfsigned["hex"])
+    assert rbfid in rbf_node.getrawmempool()
+
+    bumped_tx = rbf_node.bumpfee(rbfid)
+    assert bumped_tx["txid"] in rbf_node.getrawmempool()
+    assert rbfid not in rbf_node.getrawmempool()
 
 
 def test_nonrbf_bumpfee_fails(peer_node, dest_address):
