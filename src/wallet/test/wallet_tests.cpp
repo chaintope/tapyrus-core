@@ -13,7 +13,7 @@
 #include <consensus/validation.h>
 #include <rpc/server.h>
 #include <rpc/client.h>
-#include <test/test_bitcoin.h>
+#include <test/test_tapyrus.h>
 #include <validation.h>
 #include <rpc/blockchain.cpp>
 #include <wallet/coincontrol.h>

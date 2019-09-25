@@ -12,12 +12,12 @@
 #include <script/script.h>
 #include <script/script_error.h>
 #include <script/sign.h>
-#include <test/test_bitcoin.h>
+#include <test/test_tapyrus.h>
 #include <util.h>
 #include <utilstrencodings.h>
 
 #if defined(HAVE_CONSENSUS_LIB)
-#include <script/bitcoinconsensus.h>
+#include <script/tapyrusconsensus.h>
 #endif
 
 #include <fstream>

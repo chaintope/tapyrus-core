@@ -144,6 +144,8 @@ class SegWitTest(BitcoinTestFramework):
 
         self.log.info("Verify default node can't accept txs with missing witness")
         # unsigned, no scriptsig
+        self.success_mine(self.nodes[0], wit_ids[NODE_0][WIT_V0][0], False)
+        self.success_mine(self.nodes[0], wit_ids[NODE_0][WIT_V1][0], False)
         self.fail_accept(self.nodes[0], "mandatory-script-verify-flag", p2sh_ids[NODE_0][WIT_V0][0], False)
         self.fail_accept(self.nodes[0], "mandatory-script-verify-flag", p2sh_ids[NODE_0][WIT_V1][0], False)
         # unsigned with redeem script
@@ -194,18 +196,32 @@ class SegWitTest(BitcoinTestFramework):
 
         # Now create tx3, which will spend from txid2
         tx = CTransaction()
-        tx.vin.append(CTxIn(COutPoint(int(txid1, 16), 0), b""))
+        tx.vin.append(CTxIn(COutPoint(int(txid2, 16), 0), b""))
         tx.vout.append(CTxOut(int(49.95 * COIN), CScript([OP_TRUE, OP_DROP] * 15 + [OP_TRUE])))  # Huge fee
         tx.calc_sha256()
         assert_raises_rpc_error(-26, "mandatory-script-verify-flag-failed", self.nodes[0].sendrawtransaction, ToHex(tx))
         assert(tx.wit.is_null())
+        assert(txid3 in self.nodes[0].getrawmempool())
 
         # Now try calling getblocktemplate() without segwit support.
         template = self.nodes[0].getblocktemplate()
 
         # Check that tx1 is the only transaction of the 3 in the template.
         template_txids = [ t['txid'] for t in template['transactions'] ]
+        assert(txid2 in template_txids and txid3 in template_txids)
         assert(txid1 in template_txids)
+
+        # Check that running with segwit support results in all 3 being included.
+        template = self.nodes[0].getblocktemplate({"rules": ["segwit"]})
+        template_txids = [ t['txid'] for t in template['transactions'] ]
+        assert(txid1 in template_txids)
+        assert(txid2 in template_txids)
+        assert(txid3 in template_txids)
+
+        # Check that txid is properly reported in mempool entry
+        tx.calc_sha256()
+        assert_equal(int(self.nodes[0].getmempoolentry(txid3)["txid"], 16), tx.malfixsha256)
+
 
         # Mine a block to clear the gbt cache again.
         self.nodes[0].generate(1, self.signblockprivkeys)

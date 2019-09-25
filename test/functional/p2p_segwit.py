@@ -542,7 +542,6 @@ class SegWitTest(BitcoinTestFramework):
         test_witness_block(self.nodes[0], self.test_node, block, with_witness=True, accepted=False)
         test_witness_block(self.nodes[0], self.test_node, block, with_witness=False, accepted=True)
 
-        #when p2sh-segwit addresses are disabled, this output is not accepted
         p2sh_p2wsh_tx = CTransaction()
         p2sh_p2wsh_tx.vin = [CTxIn(COutPoint(txid, 1), CScript([script_pubkey]))]
         p2sh_p2wsh_tx.vout = [CTxOut(value, CScript([OP_TRUE]))]
