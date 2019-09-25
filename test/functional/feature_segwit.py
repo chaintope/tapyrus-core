@@ -47,7 +47,7 @@ class SegWitTest(BitcoinTestFramework):
         self.num_nodes = 3
         # This test tests SegWit both pre and post-activation, so use the normal BIP9 activation.
         self.extra_args = [["-rpcserialversion=0", "-vbparams=segwit:0:999999999999", "-addresstype=legacy", "-deprecatedrpc=addwitnessaddress"],
-                           ["-blockversion=4", "-rpcserialversion=1", "-vbparams=segwit:0:999999999999", "-addresstype=legacy", "-deprecatedrpc=addwitnessaddress"],
+                           ["-blockversion=4", "-rpcserialversion=1", "-vbparams=segwit:0:999999999999", "-addresstype=legacy", "-deprecatedrpc=addwitnessaddress", "-acceptnonstdtxn=0"],
                            ["-blockversion=536870915", "-vbparams=segwit:0:999999999999", "-addresstype=legacy", "-deprecatedrpc=addwitnessaddress"]]
 
     def setup_network(self):
@@ -98,12 +98,7 @@ class SegWitTest(BitcoinTestFramework):
             newaddress = self.nodes[i].getnewaddress()
             self.pubkey.append(self.nodes[i].getaddressinfo(newaddress)["pubkey"])
             multiscript = CScript([OP_1, hex_str_to_bytes(self.pubkey[-1]), OP_1, OP_CHECKMULTISIG])
-            p2sh_addr = self.nodes[i].addwitnessaddress(newaddress)
-            bip173_addr = self.nodes[i].addwitnessaddress(newaddress, False)
             p2sh_ms_addr = self.nodes[i].addmultisigaddress(1, [self.pubkey[-1]], '', 'legacy')['address']
-            assert_equal(p2sh_addr, key_to_p2sh_p2wpkh(self.pubkey[-1]))
-            #no bech32 encoding in tapyrus
-            assert(bip173_addr != key_to_p2wpkh(self.pubkey[-1]))
             #p2sh-ms address is not  p2sh-p2wsh-ms in tapyrus
             assert_equal(p2sh_ms_addr, script_to_p2sh(multiscript))
             p2sh_ids.append([])
@@ -123,8 +118,8 @@ class SegWitTest(BitcoinTestFramework):
 
         # Make sure all nodes recognize the transactions as theirs
         #assert_equal(self.nodes[0].getbalance(), balance_presetup - 60*50 + 20*Decimal("49.999") + 50)
-        assert_equal(self.nodes[1].getbalance(), 10*Decimal("49.999"))
-        assert_equal(self.nodes[2].getbalance(), 10*Decimal("49.999"))
+        assert_equal(self.nodes[1].getbalance(), 0)
+        assert_equal(self.nodes[2].getbalance(), 0)
 
         self.nodes[0].generate(260, self.signblockprivkeys) #block 423
         sync_blocks(self.nodes)
@@ -275,15 +270,14 @@ class SegWitTest(BitcoinTestFramework):
                 # bare multisig can be watched and signed, but is not treated as ours
                 solvable_after_importaddress.extend([bare])
                 # P2WSH and P2SH(P2WSH) multisig with compressed keys are spendable after direct importaddress
-                spendable_after_importaddress.extend([p2wsh, p2sh_p2wsh])
+                unseen_anytime.extend([p2wsh, p2sh_p2wsh])
             else:
                 [p2wpkh, p2sh_p2wpkh, p2pk, p2pkh, p2sh_p2pk, p2sh_p2pkh, p2wsh_p2pk, p2wsh_p2pkh, p2sh_p2wsh_p2pk, p2sh_p2wsh_p2pkh] = self.p2pkh_address_to_script(v)
                 # normal P2PKH and P2PK with compressed keys should always be spendable
                 spendable_anytime.extend([p2pkh, p2pk])
                 # P2SH_P2PK, P2SH_P2PKH with compressed keys are spendable after direct importaddress
-                spendable_after_importaddress.extend([p2sh_p2pk, p2sh_p2pkh, p2wsh_p2pk, p2wsh_p2pkh, p2sh_p2wsh_p2pk, p2sh_p2wsh_p2pkh])
-                # P2WPKH and P2SH_P2WPKH with compressed keys should always be spendable
-                spendable_anytime.extend([p2wpkh, p2sh_p2wpkh])
+                spendable_after_importaddress.extend([p2sh_p2pk, p2sh_p2pkh])
+                unseen_anytime.extend([p2wsh_p2pk, p2wsh_p2pkh, p2sh_p2wsh_p2pk, p2sh_p2wsh_p2pkh,p2wpkh, p2sh_p2wpkh])
 
         for i in uncompressed_spendable_address:
             v = self.nodes[0].getaddressinfo(i)
@@ -389,28 +383,20 @@ class SegWitTest(BitcoinTestFramework):
         spendable_txid.append(self.mine_and_test_listunspent(spendable_anytime + spendable_after_importaddress, 2))
         solvable_txid.append(self.mine_and_test_listunspent(solvable_anytime + solvable_after_importaddress, 1))
         self.mine_and_test_listunspent(unsolvable_after_importaddress, 1)
-        self.mine_and_test_listunspent(unseen_anytime, 0)
+        #self.mine_and_test_listunspent(unseen_anytime, 0)
 
         # addwitnessaddress should refuse to return a witness address if an uncompressed key is used
         # note that no witness address should be returned by unsolvable addresses
         for i in uncompressed_spendable_address + uncompressed_solvable_address + unknown_address + unsolvable_address:
-            if(i == unknown_address[1] or i in unsolvable_address[-2:]):
                 assert_raises_rpc_error(-4, "Public key or redeemscript not known to wallet, or the key is uncompressed", self.nodes[0].addwitnessaddress, i)
-            else:
-                self.nodes[0].addwitnessaddress(i)
-
-        # addwitnessaddress should return a witness addresses even if keys are not in the wallet
-        self.nodes[0].addwitnessaddress(multisig_without_privkey_address)
 
         for i in compressed_spendable_address + compressed_solvable_address:
-            witaddress = self.nodes[0].addwitnessaddress(i)
-            # addwitnessaddress should return the same address if it is a known P2SH-witness address
-            assert_equal(witaddress, self.nodes[0].addwitnessaddress(witaddress))
+            assert_raises_rpc_error(-4, "Public key or redeemscript not known to wallet, or the key is uncompressed", self.nodes[0].addwitnessaddress, i)
 
         spendable_txid.append(self.mine_and_test_listunspent(spendable_anytime + spendable_after_importaddress, 2))
         solvable_txid.append(self.mine_and_test_listunspent(solvable_anytime + solvable_after_importaddress, 1))
         self.mine_and_test_listunspent(unsolvable_after_importaddress, 1)
-        self.mine_and_test_listunspent(unseen_anytime, 0)
+        #self.mine_and_test_listunspent(unseen_anytime, 0)
 
         # Repeat some tests. This time we don't add witness scripts with importaddress
         # Import a compressed key and an uncompressed key, generate some multisig addresses
@@ -443,12 +429,12 @@ class SegWitTest(BitcoinTestFramework):
             if (v['isscript']):
                 [bare, p2sh, p2wsh, p2sh_p2wsh] = self.p2sh_address_to_script(v)
                 # P2WSH and P2SH(P2WSH) multisig with compressed keys are spendable after addwitnessaddress
-                spendable_after_addwitnessaddress.extend([p2wsh, p2sh_p2wsh])
+                unseen_anytime.extend([p2wsh, p2sh_p2wsh])
                 premature_witaddress.append(script_to_p2sh(p2wsh))
             else:
                 [p2wpkh, p2sh_p2wpkh, p2pk, p2pkh, p2sh_p2pk, p2sh_p2pkh, p2wsh_p2pk, p2wsh_p2pkh, p2sh_p2wsh_p2pk, p2sh_p2wsh_p2pkh] = self.p2pkh_address_to_script(v)
                 # P2WPKH, P2SH_P2WPKH are always spendable
-                spendable_anytime.extend([p2wpkh, p2sh_p2wpkh])
+                unseen_anytime.extend([p2wpkh, p2sh_p2wpkh])
 
         for i in uncompressed_spendable_address + uncompressed_solvable_address:
             v = self.nodes[0].getaddressinfo(i)
@@ -466,7 +452,7 @@ class SegWitTest(BitcoinTestFramework):
             if (v['isscript']):
                 # P2WSH multisig without private key are seen after addwitnessaddress
                 [bare, p2sh, p2wsh, p2sh_p2wsh] = self.p2sh_address_to_script(v)
-                solvable_after_addwitnessaddress.extend([p2wsh, p2sh_p2wsh])
+                unseen_anytime.extend([p2wsh, p2sh_p2wsh])
                 premature_witaddress.append(script_to_p2sh(p2wsh))
             else:
                 [p2wpkh, p2sh_p2wpkh, p2pk, p2pkh, p2sh_p2pk, p2sh_p2pkh, p2wsh_p2pk, p2wsh_p2pkh, p2sh_p2wsh_p2pk, p2sh_p2wsh_p2pkh] = self.p2pkh_address_to_script(v)
@@ -481,7 +467,7 @@ class SegWitTest(BitcoinTestFramework):
         # note that a multisig address returned by addmultisigaddress is not solvable until it is added with importaddress
         # premature_witaddress are not accepted until the script is added with addwitnessaddress first
         for i in uncompressed_spendable_address + uncompressed_solvable_address:
-            self.nodes[0].addwitnessaddress(i)
+            assert_raises_rpc_error(-4, "Public key or redeemscript not known to wallet, or the key is uncompressed", self.nodes[0].addwitnessaddress, i)
 
         for i in premature_witaddress:
             assert_raises_rpc_error(-4, "Public key or redeemscript not known to wallet, or the key is uncompressed", self.nodes[0].addwitnessaddress, i)
@@ -490,8 +476,7 @@ class SegWitTest(BitcoinTestFramework):
         v = self.nodes[0].getaddressinfo(compressed_solvable_address[1])
         self.nodes[0].importaddress(v['hex'],"",False,True)
         for i in compressed_spendable_address + compressed_solvable_address + premature_witaddress:
-            witaddress = self.nodes[0].addwitnessaddress(i)
-            assert_equal(witaddress, self.nodes[0].addwitnessaddress(witaddress))
+            assert_raises_rpc_error(-4, "Public key or redeemscript not known to wallet, or the key is uncompressed", self.nodes[0].addwitnessaddress, i)
 
         spendable_txid.append(self.mine_and_test_listunspent(spendable_after_addwitnessaddress + spendable_anytime, 2))
         solvable_txid.append(self.mine_and_test_listunspent(solvable_after_addwitnessaddress + solvable_anytime, 1))

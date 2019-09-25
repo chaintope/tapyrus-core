@@ -104,9 +104,8 @@ class WalletDumpTest(BitcoinTestFramework):
         self.nodes[0].keypoolrefill()
 
         # Test scripts dump by adding a P2SH witness and a 1-of-1 multisig address
-        witness_addr = self.nodes[0].addwitnessaddress(addrs[0]["address"], True)
         multisig_addr = self.nodes[0].addmultisigaddress(1, [addrs[1]["address"]])["address"]
-        script_addrs = [witness_addr, multisig_addr]
+        script_addrs = [multisig_addr]
 
         # dump unencrypted wallet
         result = self.nodes[0].dumpwallet(wallet_unenc_dump)
@@ -115,10 +114,10 @@ class WalletDumpTest(BitcoinTestFramework):
         found_addr, found_script_addr, found_addr_chg, found_addr_rsv, hd_master_addr_unenc, witness_addr_ret = \
             read_dump(wallet_unenc_dump, addrs, script_addrs, None)
         assert_equal(found_addr, test_addr_count)  # all keys must be in the dump
-        assert_equal(found_script_addr, 2)  # all scripts must be in the dump
+        assert_equal(found_script_addr, 1)  # all scripts must be in the dump
         assert_equal(found_addr_chg, 50)  # 50 blocks where mined
         assert_equal(found_addr_rsv, 90*2) # 90 keys plus 100% internal keys
-        assert_equal(witness_addr_ret, witness_addr) # p2sh-p2wsh address added to the first key
+        assert_equal(witness_addr_ret, None) # p2sh-p2wsh address added to the first key
 
         #encrypt wallet, restart, unlock and dump
         self.nodes[0].node_encrypt_wallet('test')
@@ -131,10 +130,10 @@ class WalletDumpTest(BitcoinTestFramework):
         found_addr, found_script_addr, found_addr_chg, found_addr_rsv, _, witness_addr_ret = \
             read_dump(wallet_enc_dump, addrs, script_addrs, hd_master_addr_unenc)
         assert_equal(found_addr, test_addr_count)
-        assert_equal(found_script_addr, 2)
+        assert_equal(found_script_addr, 1)
         assert_equal(found_addr_chg, 90*2 + 50)  # old reserve keys are marked as change now
         assert_equal(found_addr_rsv, 90*2)
-        assert_equal(witness_addr_ret, witness_addr)
+        assert_equal(witness_addr_ret, None)
 
         # Overwriting should fail
         assert_raises_rpc_error(-8, "already exists", lambda: self.nodes[0].dumpwallet(wallet_enc_dump))
