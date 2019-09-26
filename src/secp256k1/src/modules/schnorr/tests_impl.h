@@ -1,5 +1,6 @@
 /**********************************************************************
- * Copyright (c) 2017 Amaury SÉCHET                                   *
+ * Copyright (c) 2017 Amaury SÉCHET,  
+ * Copyright (c) 2018 Andrew Poelstra                                 *
  * Distributed under the MIT software license, see the accompanying   *
  * file COPYING or http://www.opensource.org/licenses/mit-license.php.*
  **********************************************************************/
@@ -9,6 +10,75 @@
 
 #include "include/secp256k1_schnorr.h"
 #include "modules/schnorr/main_impl.h"
+
+void test_schnorr_api() {
+    unsigned char sk1[32];
+    unsigned char sk2[32];
+    unsigned char sk3[32];
+    unsigned char msg[32];
+    unsigned char sig64[64];
+    secp256k1_pubkey pk[3];
+    unsigned char *sig = &sig64;
+    const unsigned char *msgptr = msg;
+
+    /** setup **/
+    secp256k1_context *none = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
+    secp256k1_context *sign = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
+    secp256k1_context *vrfy = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
+    secp256k1_context *both = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
+    int ecount;
+
+    secp256k1_context_set_error_callback(none, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_error_callback(sign, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_error_callback(vrfy, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_error_callback(both, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_illegal_callback(none, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_illegal_callback(sign, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_illegal_callback(vrfy, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_illegal_callback(both, counting_illegal_callback_fn, &ecount);
+
+    secp256k1_rand256(sk1);
+    secp256k1_rand256(sk2);
+    secp256k1_rand256(sk3);
+    secp256k1_rand256(msg);
+    CHECK(secp256k1_ec_pubkey_create(ctx, &pk[0], sk1) == 1);
+    CHECK(secp256k1_ec_pubkey_create(ctx, &pk[1], sk2) == 1);
+    CHECK(secp256k1_ec_pubkey_create(ctx, &pk[2], sk3) == 1);
+
+    /** main test body **/
+    ecount = 0;
+    CHECK(secp256k1_schnorr_sign(none, sig, msg, sk1, NULL, NULL) == 0);
+    CHECK(ecount == 1);
+    CHECK(secp256k1_schnorr_sign(vrfy, sig, msg, sk1, NULL, NULL) == 0);
+    CHECK(ecount == 2);
+    CHECK(secp256k1_schnorr_sign(sign, sig, msg, sk1, NULL, NULL) == 1);
+    CHECK(ecount == 2);
+    CHECK(secp256k1_schnorr_sign(sign, NULL, msg, sk1, NULL, NULL) == 0);
+    CHECK(ecount == 3);
+    CHECK(secp256k1_schnorr_sign(sign, sig, NULL, sk1, NULL, NULL) == 0);
+    CHECK(ecount == 4);
+    CHECK(secp256k1_schnorr_sign(sign, sig, msg, NULL, NULL, NULL) == 0);
+    CHECK(ecount == 5);
+
+    ecount = 0;
+    CHECK(secp256k1_schnorr_verify(none, sig, msg, &pk[0]) == 0);
+    CHECK(ecount == 1);
+    CHECK(secp256k1_schnorr_verify(sign, sig, msg, &pk[0]) == 0);
+    CHECK(ecount == 2);
+    CHECK(secp256k1_schnorr_verify(vrfy, sig, msg, &pk[0]) == 1);
+    CHECK(ecount == 2);
+    CHECK(secp256k1_schnorr_verify(vrfy, NULL, msg, &pk[0]) == 0);
+    CHECK(ecount == 3);
+    CHECK(secp256k1_schnorr_verify(vrfy, sig, NULL, &pk[0]) == 0);
+    CHECK(ecount == 4);
+    CHECK(secp256k1_schnorr_verify(vrfy, sig, msg, NULL) == 0);
+    CHECK(ecount == 5);
+
+    secp256k1_context_destroy(none);
+    secp256k1_context_destroy(sign);
+    secp256k1_context_destroy(vrfy);
+    secp256k1_context_destroy(both);
+}
 
 void test_schnorr_end_to_end(void) {
     unsigned char privkey[32];
@@ -41,8 +111,7 @@ void test_schnorr_end_to_end(void) {
 void test_schnorr_sign_verify(void) {
     unsigned char msg32[32];
     unsigned char sig64[SIG_COUNT][64];
-    secp256k1_gej pubkeyj[SIG_COUNT];
-    secp256k1_ge pubkey[SIG_COUNT];
+    secp256k1_pubkey pubkey[SIG_COUNT];
     secp256k1_scalar key[SIG_COUNT];
     int i, j;
 
@@ -50,16 +119,9 @@ void test_schnorr_sign_verify(void) {
 
     for (i = 0; i < SIG_COUNT; i++) {
         random_scalar_order_test(&key[i]);
-        secp256k1_ecmult_gen(&ctx->ecmult_gen_ctx, &pubkeyj[i], &key[i]);
-        secp256k1_ge_set_gej_var(&pubkey[i], &pubkeyj[i]);
-        secp256k1_fe_normalize(&pubkey[i].x);
-        secp256k1_fe_normalize(&pubkey[i].y);
+        secp256k1_ec_pubkey_create(ctx, &pubkey[i], &key[i]);
 
-        do {
-            if (secp256k1_schnorr_sign(ctx, sig64[i], msg32, &key[i], NULL, NULL)) {
-                break;
-            }
-        } while(1);
+        CHECK(secp256k1_schnorr_sign(ctx, sig64[i], msg32, &key[i], NULL, NULL));
 
         CHECK(secp256k1_schnorr_verify(ctx, sig64[i], msg32, &pubkey[i]));
 
@@ -643,6 +705,7 @@ void run_schnorr_tests(void) {
         test_schnorr_end_to_end();
     }
 
+    test_schnorr_api();
     test_schnorr_sign_verify();
     run_schnorr_compact_test();
     test_ecdsa_schnorr_nonce();
