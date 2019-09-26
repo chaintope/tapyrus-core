@@ -8,6 +8,7 @@
 #define SECP256K1_MODULE_SCHNORR_TESTS
 
 #include "include/secp256k1_schnorr.h"
+#include "modules/schnorr/main_impl.h"
 
 void test_schnorr_end_to_end(void) {
     unsigned char privkey[32];
@@ -42,7 +43,7 @@ void test_schnorr_sign_verify(void) {
     unsigned char sig64[SIG_COUNT][64];
     secp256k1_gej pubkeyj[SIG_COUNT];
     secp256k1_ge pubkey[SIG_COUNT];
-    secp256k1_scalar nonce[SIG_COUNT], key[SIG_COUNT];
+    secp256k1_scalar key[SIG_COUNT];
     int i, j;
 
     secp256k1_rand256_test(msg32);
@@ -55,13 +56,12 @@ void test_schnorr_sign_verify(void) {
         secp256k1_fe_normalize(&pubkey[i].y);
 
         do {
-            random_scalar_order_test(&nonce[i]);
-            if (secp256k1_schnorr_sig_sign(&ctx->ecmult_gen_ctx, sig64[i], &key[i], &pubkey[i], &nonce[i], msg32)) {
+            if (secp256k1_schnorr_sign(ctx, sig64[i], msg32, &key[i], NULL, NULL)) {
                 break;
             }
         } while(1);
 
-        CHECK(secp256k1_schnorr_sig_verify(&ctx->ecmult_ctx, sig64[i], &pubkey[i], msg32));
+        CHECK(secp256k1_schnorr_verify(ctx, sig64[i], msg32, &pubkey[i]));
 
         /* Apply several random modifications to the sig and check that it
          * doesn't verify anymore. */
@@ -69,7 +69,7 @@ void test_schnorr_sign_verify(void) {
             int pos = secp256k1_rand_bits(6);
             int mod = 1 + secp256k1_rand_int(255);
             sig64[i][pos] ^= mod;
-            CHECK(secp256k1_schnorr_sig_verify(&ctx->ecmult_ctx, sig64[i], &pubkey[i], msg32) == 0);
+            CHECK(secp256k1_schnorr_verify(ctx, sig64[i], msg32, &pubkey[i]) == 0);
             sig64[i][pos] ^= mod;
         }
     }
@@ -275,7 +275,76 @@ void run_schnorr_compact_test(void) {
         CHECK(secp256k1_ec_pubkey_parse(ctx, &pubkey, pkbuf, 33));
         CHECK(secp256k1_schnorr_verify(ctx, sig, msg, &pubkey) == 0);
     }
-
+    {
+        /* Test vector 6 */
+        const unsigned char pkbuf[33] = {
+            0x03, 0xFA, 0xC2, 0x11, 0x4C, 0x2F, 0xBB, 0x09,
+            0x15, 0x27, 0xEB, 0x7C, 0x64, 0xEC, 0xB1, 0x1F,
+            0x80, 0x21, 0xCB, 0x45, 0xE8, 0xE7, 0x80, 0x9D,
+            0x3C, 0x09, 0x38, 0xE4, 0xB8, 0xC0, 0xE5, 0xF8,
+            0x4B
+        };
+        const unsigned char msg[32] = {
+            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
+        };
+        const unsigned char sig[64] = {
+            0x57, 0x0D, 0xD4, 0xCA, 0x83, 0xD4, 0xE6, 0x31,
+            0x7B, 0x8E, 0xE6, 0xBA, 0xE8, 0x34, 0x67, 0xA1,
+            0xBF, 0x41, 0x9D, 0x07, 0x67, 0x12, 0x2D, 0xE4,
+            0x09, 0x39, 0x44, 0x14, 0xB0, 0x50, 0x80, 0xDC,
+            0xE9, 0xEE, 0x5F, 0x23, 0x7C, 0xBD, 0x10, 0x8E,
+            0xAB, 0xAE, 0x1E, 0x37, 0x75, 0x9A, 0xE4, 0x7F,
+            0x8E, 0x42, 0x03, 0xDA, 0x35, 0x32, 0xEB, 0x28,
+            0xDB, 0x86, 0x0F, 0x33, 0xD6, 0x2D, 0x49, 0xBD
+        };
+        secp256k1_pubkey pubkey;
+        CHECK(secp256k1_ec_pubkey_parse(ctx, &pubkey, pkbuf, 33));
+        CHECK(secp256k1_schnorr_verify(ctx, sig, msg, &pubkey));
+    }
+    {
+        /* Test vector 7 */
+        const unsigned char pkbuf[33] = {
+            0x03, 0xEE, 0xFD, 0xEA, 0x4C, 0xDB, 0x67, 0x77,
+            0x50, 0xA4, 0x20, 0xFE, 0xE8, 0x07, 0xEA, 0xCF,
+            0x21, 0xEB, 0x98, 0x98, 0xAE, 0x79, 0xB9, 0x76,
+            0x87, 0x66, 0xE4, 0xFA, 0xA0, 0x4A, 0x2D, 0x4A,
+            0x34
+        };
+        secp256k1_pubkey pubkey;
+        CHECK(secp256k1_ec_pubkey_parse(ctx, &pubkey, pkbuf, 33) == 0);
+    }
+    {
+        /* Test vector 8 */
+        const unsigned char pkbuf[33] = {
+            0x02, 0xDF, 0xF1, 0xD7, 0x7F, 0x2A, 0x67, 0x1C,
+            0x5F, 0x36, 0x18, 0x37, 0x26, 0xDB, 0x23, 0x41,
+            0xBE, 0x58, 0xFE, 0xAE, 0x1D, 0xA2, 0xDE, 0xCE,
+            0xD8, 0x43, 0x24, 0x0F, 0x7B, 0x50, 0x2B, 0xA6,
+            0x59
+        };
+        const unsigned char msg[32] = {
+            0x24, 0x3F, 0x6A, 0x88, 0x85, 0xA3, 0x08, 0xD3,
+            0x13, 0x19, 0x8A, 0x2E, 0x03, 0x70, 0x73, 0x44,
+            0xA4, 0x09, 0x38, 0x22, 0x29, 0x9F, 0x31, 0xD0,
+            0x08, 0x2E, 0xFA, 0x98, 0xEC, 0x4E, 0x6C, 0x89
+        };
+        const unsigned char sig[64] = {
+            0x2A, 0x29, 0x8D, 0xAC, 0xAE, 0x57, 0x39, 0x5A,
+            0x15, 0xD0, 0x79, 0x5D, 0xDB, 0xFD, 0x1D, 0xCB,
+            0x56, 0x4D, 0xA8, 0x2B, 0x0F, 0x26, 0x9B, 0xC7,
+            0x0A, 0x74, 0xF8, 0x22, 0x04, 0x29, 0xBA, 0x1D,
+            0xFA, 0x16, 0xAE, 0xE0, 0x66, 0x09, 0x28, 0x0A,
+            0x19, 0xB6, 0x7A, 0x24, 0xE1, 0x97, 0x7E, 0x46,
+            0x97, 0x71, 0x2B, 0x5F, 0xD2, 0x94, 0x39, 0x14,
+            0xEC, 0xD5, 0xF7, 0x30, 0x90, 0x1B, 0x4A, 0xB7
+        };
+        secp256k1_pubkey pubkey;
+        CHECK(secp256k1_ec_pubkey_parse(ctx, &pubkey, pkbuf, 33));
+        CHECK(secp256k1_schnorr_verify(ctx, sig, msg, &pubkey) == 0);
+    }
     {
         /* Test vector 7: Negated message hash, R.x mismatch */
         static const unsigned char pkbuf[33] = {
@@ -523,10 +592,9 @@ void test_ecdsa_schnorr_nonce()
     unsigned char nonce1[32], nonce2[32];
     secp256k1_pubkey pubkey;
 
-    int overflow = 0;
     secp256k1_scalar k1, k2;
     secp256k1_gej Rj;
-    secp256k1_ge Ra;
+    secp256k1_ge Ra1, Ra2;
 
     /* Generate a random key */
     {
@@ -541,24 +609,19 @@ void test_ecdsa_schnorr_nonce()
 
     /* default R */
     nonce_function_rfc6979(nonce1, message, privkey, NULL, NULL, 0);
-    secp256k1_scalar_set_b32(&k1, nonce1, &overflow);
-    CHECK(!overflow && !secp256k1_scalar_is_zero(&k1));
+    secp256k1_scalar_set_b32(&k1, nonce1, NULL);
     secp256k1_ecmult_gen(&ctx->ecmult_gen_ctx, &Rj, &k1);
-    secp256k1_ge_set_gej(&Ra, &Rj);
-    if (!secp256k1_fe_is_quad_var(&Ra.y)) {
-        secp256k1_scalar_negate(&k1, &k1);
-    }
+    secp256k1_ge_set_gej(&Ra1, &Rj);
+
     /* recompute R  */
     nonce_function_rfc6979(nonce2, message, privkey, NULL, NULL, 0);
-    secp256k1_scalar_set_b32(&k2, nonce2, &overflow);
-    CHECK(!overflow && !secp256k1_scalar_is_zero(&k2));
+    secp256k1_scalar_set_b32(&k2, nonce2, NULL);
     secp256k1_ecmult_gen(&ctx->ecmult_gen_ctx, &Rj, &k2);
-    secp256k1_ge_set_gej(&Ra, &Rj);
-    if (!secp256k1_fe_is_quad_var(&Ra.y)) {
-        secp256k1_scalar_negate(&k2, &k2);
-    }
+    secp256k1_ge_set_gej(&Ra2, &Rj);
+
     /* both are equal */
     CHECK(memcmp(&k1, &k2, 32) == 0);
+    CHECK(memcmp(&Ra1.x, &Ra2.x, 32) == 0);
 
     /* Schnorr sign. */
     CHECK(secp256k1_schnorr_sign(ctx, schnorr_signature, message, privkey, NULL, NULL) == 1);
@@ -569,8 +632,8 @@ void test_ecdsa_schnorr_nonce()
     CHECK(secp256k1_ecdsa_verify(ctx, &ecdsa_signature, message, &pubkey) == 1);
 
     /* verify R is not the default */
-    CHECK(memcmp(&k1, schnorr_signature, 32) != 0);
-    CHECK(memcmp(&k1, (void*)&ecdsa_signature, 32) != 0);
+    CHECK(memcmp(&Ra1.x, schnorr_signature, 32) != 0);
+    CHECK(memcmp(&Ra1.x, (void*)&ecdsa_signature, 32) != 0);
     CHECK(memcmp(schnorr_signature, (void*)&ecdsa_signature, 32) != 0);
 }
 
