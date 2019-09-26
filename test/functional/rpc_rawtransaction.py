@@ -138,7 +138,7 @@ class RawTransactionsTest(BitcoinTestFramework):
             self.nodes[2].createrawtransaction(inputs=[{'txid': txid, 'vout': 9}], outputs=[{address: 99}, {'data': '99'}, {'data': '99'}]),
         )
 
-        for type in [ "p2sh-segwit", "legacy"]:
+        for type in ["legacy"]:
             addr = self.nodes[0].getnewaddress("", type)
             addrinfo = self.nodes[0].getaddressinfo(addr)
             pubkey = addrinfo["scriptPubKey"]
@@ -153,19 +153,9 @@ class RawTransactionsTest(BitcoinTestFramework):
             prevtx = dict(txid=txid, scriptPubKey=pubkey, vout=3, amount=1)
             succ = self.nodes[0].signrawtransactionwithwallet(rawtx, [prevtx])
             assert succ["complete"]
-            if type == "legacy":
-                del prevtx["amount"]
-                succ = self.nodes[0].signrawtransactionwithwallet(rawtx, [prevtx])
-                assert succ["complete"]
-
-            if type != "legacy":
-                assert_raises_rpc_error(-3, "Missing amount", self.nodes[0].signrawtransactionwithwallet, rawtx, [
-                    {
-                        "txid": txid,
-                        "scriptPubKey": pubkey,
-                        "vout": 3,
-                    }
-                ])
+            del prevtx["amount"]
+            succ = self.nodes[0].signrawtransactionwithwallet(rawtx, [prevtx])
+            assert succ["complete"]
 
             assert_raises_rpc_error(-3, "Missing vout", self.nodes[0].signrawtransactionwithwallet, rawtx, [
                 {

@@ -341,7 +341,7 @@ class SegWitTest(BitcoinTestFramework):
 
         self.test_node.send_message(msg_witness_tx(tx))
         self.test_node.sync_with_ping()  # make sure the tx was processed
-        assert(tx.hashMalFix in self.nodes[0].getrawmempool(True))
+        assert(tx.hashMalFix in self.nodes[0].getrawmempool())
         # Save this transaction for later
         self.utxo.append(UTXO(tx.malfixsha256, 0, 49 * 100000000))
         self.nodes[0].generate(1, self.signblockprivkeys)
@@ -399,20 +399,20 @@ class SegWitTest(BitcoinTestFramework):
 
         self.test_node.announce_block_and_wait_for_getdata(block1, use_header=False)
         assert(self.test_node.last_message["getdata"].inv[0].type == blocktype)
-        test_witness_block(self.nodes[0].rpc, self.test_node, block1, True, True)
+        test_witness_block(self.nodes[0].rpc, self.test_node, block1, with_witness=True, accepted=True)
 
         block2 = self.build_next_block(version=4)
         block2.solve(self.signblockprivkeys)
 
         self.test_node.announce_block_and_wait_for_getdata(block2, use_header=True)
         assert(self.test_node.last_message["getdata"].inv[0].type == blocktype)
-        test_witness_block(self.nodes[0].rpc, self.test_node, block2, True, True)
+        test_witness_block(self.nodes[0].rpc, self.test_node, block2, with_witness=True, accepted=True)
 
         block3 = self.build_next_block(version=(VB_TOP_BITS | (1 << 15)))
         block3.solve(self.signblockprivkeys)
         self.test_node.announce_block_and_wait_for_getdata(block3, use_header=True)
         assert(self.test_node.last_message["getdata"].inv[0].type == blocktype)
-        test_witness_block(self.nodes[0].rpc, self.test_node, block3, True, True)
+        test_witness_block(self.nodes[0].rpc, self.test_node, block3, with_witness=True, accepted=True)
 
         # Check that we can getdata for witness blocks or regular blocks,
         # and the right thing happens.
@@ -551,7 +551,6 @@ class SegWitTest(BitcoinTestFramework):
 
         block = self.build_next_block()
         self.update_witness_block_with_transactions(block, [p2sh_p2wsh_tx], with_witness=True)
-
         test_witness_block(self.nodes[0], self.test_node, block, with_witness=True, accepted=False)
         test_witness_block(self.nodes[0], self.test_node, block, with_witness=False, accepted=True)
 
@@ -716,7 +715,9 @@ class SegWitTest(BitcoinTestFramework):
 
         # This is always accepted, since the mempool policy is to consider segwit as always active
         # and thus allow segwit outputs
-        test_transaction_acceptance(self.nodes[1].rpc, self.std_node, tx, with_witness=False, accepted=True)
+        # tapyrus witness is non std
+        test_transaction_acceptance(self.nodes[1].rpc, self.std_node, tx, with_witness=False, accepted=False, reason=b"scriptpubkey")
+        test_transaction_acceptance(self.nodes[0].rpc, self.test_node, tx, with_witness=False, accepted=True)
 
         # Now create something that looks like a P2PKH output. This won't be spendable.
         script_pubkey = CScript([OP_0, hash160(witness_hash)])
@@ -728,42 +729,35 @@ class SegWitTest(BitcoinTestFramework):
         tx2.wit.vtxinwit[0].scriptWitness.stack = [witness_program]
         tx2.rehash()
 
-        test_transaction_acceptance(self.nodes[1].rpc, self.std_node, tx2, with_witness=False, accepted=True)
+        test_transaction_acceptance(self.nodes[1].rpc, self.std_node, tx2, with_witness=False, accepted=False, reason=b"scriptpubkey")
+        test_transaction_acceptance(self.nodes[0].rpc, self.test_node, tx2, with_witness=False, accepted=True)
         # Now update self.utxo for later tests.
         tx3 = CTransaction()
         # tx and tx2 were both accepted.  Don't bother trying to reclaim the
         # P2PKH output; just send tx's first output back to an anyone-can-spend.
-        sync_mempools([self.nodes[0], self.nodes[1]])
+        #sync_mempools([self.nodes[0], self.nodes[1]])
         tx3.vin = [CTxIn(COutPoint(tx.malfixsha256, 0), b"")]
         tx3.vout = [CTxOut(tx.vout[0].nValue - 1000, CScript([OP_TRUE, OP_DROP] * 15 + [OP_TRUE]))]
         tx3.wit.vtxinwit.append(CTxInWitness())
         tx3.wit.vtxinwit[0].scriptWitness.stack = [witness_program]
         tx3.rehash()
-        if self.segwit_status != 'active':
-            # Just check mempool acceptance, but don't add the transaction to the mempool, since witness is disallowed
-            # in blocks and the tx is impossible to mine right now.
-            assert_raises_rpc_error(-22, "TX decode failed", self.nodes[0].testmempoolaccept, [bytes_to_hex_str(tx3.serialize_with_witness(with_scriptsig=True))])
-            assert_equal(self.nodes[0].testmempoolaccept([bytes_to_hex_str(tx3.serialize())]), [{'txid': tx3.hashMalFix, 'allowed': True }])
-            # Create the same output as tx3, but by replacing tx
-            tx3_out = tx3.vout[0]
-            tx3 = tx
-            tx3.vout = [tx3_out]
-            tx3.rehash()
-            assert_equal(self.nodes[0].testmempoolaccept([bytes_to_hex_str(tx3.serialize_with_witness(with_scriptsig=True))]), [{'txid': tx3.hashMalFix, 'allowed':  True}])
-            test_transaction_acceptance(self.nodes[0].rpc, self.test_node, tx3, with_witness=False, accepted=True)
-            self.nodes[0].generate(1, self.signblockprivkeys)
-            sync_blocks(self.nodes)
-            self.utxo.pop(0)
-            self.utxo.append(UTXO(tx3.malfixsha256, 0, tx3.vout[0].nValue))
-            assert_equal(len(self.nodes[1].getrawmempool()), 0)
-        else:
-            test_transaction_acceptance(self.nodes[0].rpc, self.test_node, tx3, with_witness=True, accepted=False)
-            test_transaction_acceptance(self.nodes[0].rpc, self.test_node, tx3, with_witness=False, accepted=True)
-            self.nodes[0].generate(1, self.signblockprivkeys)
-            sync_blocks(self.nodes)
-            self.utxo.pop(0)
-            self.utxo.append(UTXO(tx3.malfixsha256, 0, tx3.vout[0].nValue))
-            assert_equal(len(self.nodes[1].getrawmempool()), 0)
+
+        # Just check mempool acceptance, but don't add the transaction to the mempool, since witness is disallowed
+        # in blocks and the tx is impossible to mine right now.
+        assert_raises_rpc_error(-22, "TX decode failed", self.nodes[0].testmempoolaccept, [bytes_to_hex_str(tx3.serialize_with_witness(with_scriptsig=True))])
+        assert_equal(self.nodes[0].testmempoolaccept([bytes_to_hex_str(tx3.serialize())]), [{'txid': tx3.hashMalFix, 'allowed': True}])
+        # Create the same output as tx3, but by replacing tx
+        tx3_out = tx3.vout[0]
+        tx3 = tx
+        tx3.vout = [tx3_out]
+        tx3.rehash()
+        assert_equal(self.nodes[0].testmempoolaccept([bytes_to_hex_str(tx3.serialize_with_witness(with_scriptsig=True))]), [{'txid': tx3.hashMalFix, 'allowed':  True}])
+        test_transaction_acceptance(self.nodes[0].rpc, self.test_node, tx3, with_witness=False, accepted=True)
+        self.nodes[0].generate(1, self.signblockprivkeys)
+        sync_blocks(self.nodes)
+        self.utxo.pop(0)
+        self.utxo.append(UTXO(tx3.malfixsha256, 0, tx3.vout[0].nValue))
+        assert_equal(len(self.nodes[1].getrawmempool()), 0)
 
 
 
@@ -1402,9 +1396,17 @@ class SegWitTest(BitcoinTestFramework):
         # Also check that old_node gets a tx announcement, even though this is
         # a witness transaction.
         self.old_node.wait_for_inv([CInv(1, tx2.malfixsha256)])  # wait until tx2 was inv'ed
+        self.nodes[0].generate(1, self.signblockprivkeys)
+        assert_equal(len(self.nodes[0].getrawmempool()), 0)
+
         test_transaction_acceptance(self.nodes[0].rpc, self.test_node, tx3, with_witness=True, accepted=False)
         test_transaction_acceptance(self.nodes[0].rpc, self.test_node, tx3, with_witness=False, accepted=True)
-        self.old_node.wait_for_inv([CInv(1, tx3.malfixsha256)])
+        #self.old_node.wait_for_inv([CInv(1, tx3.malfixsha256)])
+
+        block = self.build_next_block()
+        self.update_witness_block_with_transactions(block, [tx3])
+        test_witness_block(self.nodes[0].rpc, self.test_node, block, with_witness=True,accepted=False)
+        test_witness_block(self.nodes[0].rpc, self.test_node, block, with_witness=False, accepted=True)
 
         # Test that getrawtransaction returns correct witness information
         # hash, size, vsize
@@ -1487,7 +1489,7 @@ class SegWitTest(BitcoinTestFramework):
         test_transaction_acceptance(self.nodes[1].rpc, self.std_node, tx2, with_witness=True, accepted=False)
         test_transaction_acceptance(self.nodes[1].rpc, self.std_node, tx2, with_witness=False, accepted=False)
         temp_utxo.pop()  # last entry in temp_utxo was the output we just spent
-        temp_utxo.append(UTXO(tx2.malfixsha256, 0, tx2.vout[0].nValue))
+        #temp_utxo.append(UTXO(tx2.malfixsha256, 0, tx2.vout[0].nValue))
 
         # Spend everything in temp_utxo back to an OP_TRUE output.
         tx3 = CTransaction()
@@ -1503,6 +1505,9 @@ class SegWitTest(BitcoinTestFramework):
         # even with fRequireStandard=false.
         test_transaction_acceptance(self.nodes[0].rpc, self.test_node, tx3, with_witness=True, accepted=False)
         test_transaction_acceptance(self.nodes[0].rpc, self.test_node, tx3, with_witness=False, accepted=True)
+
+        test_transaction_acceptance(self.nodes[1].rpc, self.std_node, tx3, with_witness=True, accepted=False)
+        test_transaction_acceptance(self.nodes[1].rpc, self.std_node, tx3, with_witness=False, accepted=False)
         self.test_node.sync_with_ping()
         #with mininode_lock:
         #    assert(b"reserved for soft-fork upgrades" in self.test_node.last_message["reject"].reason)
@@ -1605,6 +1610,10 @@ class SegWitTest(BitcoinTestFramework):
         # Should pass policy test.
         test_transaction_acceptance(self.nodes[0].rpc, self.test_node, tx2, with_witness=True, accepted=False)
         test_transaction_acceptance(self.nodes[0].rpc, self.test_node, tx2, with_witness=False, accepted=True)
+
+        test_transaction_acceptance(self.nodes[1].rpc, self.std_node, tx2, with_witness=True, accepted=False)
+        test_transaction_acceptance(self.nodes[1].rpc, self.std_node, tx2, with_witness=False, accepted=False, reason=b'scriptpubkey')
+
         # and passes consensus.
         block = self.build_next_block()
         self.update_witness_block_with_transactions(block, [tx2])
@@ -1627,6 +1636,10 @@ class SegWitTest(BitcoinTestFramework):
         # Should pass policy test.
         test_transaction_acceptance(self.nodes[0].rpc, self.test_node, tx3, with_witness=True, accepted=False)
         test_transaction_acceptance(self.nodes[0].rpc, self.test_node, tx3, with_witness=False, accepted=True)
+
+        test_transaction_acceptance(self.nodes[1].rpc, self.std_node, tx3, with_witness=True, accepted=False)
+        test_transaction_acceptance(self.nodes[1].rpc, self.std_node, tx3, with_witness=False, accepted=True)
+
         # and passes consensus.
         block = self.build_next_block()
         self.update_witness_block_with_transactions(block, [tx3])
@@ -1646,6 +1659,10 @@ class SegWitTest(BitcoinTestFramework):
         # Should pass policy test.
         test_transaction_acceptance(self.nodes[0].rpc, self.test_node, tx4, with_witness=True, accepted=False)
         test_transaction_acceptance(self.nodes[0].rpc, self.test_node, tx4, with_witness=False, accepted=True)
+
+        test_transaction_acceptance(self.nodes[1].rpc, self.std_node, tx4, with_witness=True, accepted=False)
+        test_transaction_acceptance(self.nodes[1].rpc, self.std_node, tx4, with_witness=False, accepted=True)
+
         block = self.build_next_block()
         self.update_witness_block_with_transactions(block, [tx4])
         test_witness_block(self.nodes[0].rpc, self.test_node, block, with_witness=True,accepted=False)
@@ -1949,19 +1966,21 @@ class SegWitTest(BitcoinTestFramework):
         # Witness stack size, excluding witnessScript, over 100 is non-standard
         p2wsh_txs[0].wit.vtxinwit[0].scriptWitness.stack = [pad] * 101 + [scripts[0]]
         test_transaction_acceptance(self.nodes[1].rpc, self.std_node, p2wsh_txs[0], with_witness=True, accepted=False)
-        test_transaction_acceptance(self.nodes[1].rpc, self.std_node, p2wsh_txs[0], with_witness=False, accepted=True)
+        test_transaction_acceptance(self.nodes[1].rpc, self.std_node, p2wsh_txs[0], with_witness=False, accepted=False, reason=b'scriptpubkey')
         # Non-standard nodes should accept
+        test_transaction_acceptance(self.nodes[0].rpc, self.test_node, p2wsh_txs[0], with_witness=True, accepted=False)
         test_transaction_acceptance(self.nodes[0].rpc, self.test_node, p2wsh_txs[0], with_witness=False, accepted=True)
 
         # Stack element size over 80 bytes is non-standard
         p2wsh_txs[1].wit.vtxinwit[0].scriptWitness.stack = [pad * 81] * 100 + [scripts[1]]
         test_transaction_acceptance(self.nodes[1].rpc, self.std_node, p2wsh_txs[1], with_witness=True, accepted=False)
-        test_transaction_acceptance(self.nodes[1].rpc, self.std_node, p2wsh_txs[1], with_witness=False, accepted=True)
+        test_transaction_acceptance(self.nodes[1].rpc, self.std_node, p2wsh_txs[1], with_witness=False, accepted=False, reason=b'scriptpubkey')
         # Non-standard nodes should accept
         test_transaction_acceptance(self.nodes[0].rpc, self.test_node, p2wsh_txs[1], with_witness=False, accepted=True)
+
         # Standard nodes should accept if element size is not over 80 bytes
         p2wsh_txs[1].wit.vtxinwit[0].scriptWitness.stack = [pad * 80] * 100 + [scripts[1]]
-        test_transaction_acceptance(self.nodes[1].rpc, self.std_node, p2wsh_txs[1], with_witness=False, accepted=True)
+        test_transaction_acceptance(self.nodes[1].rpc, self.std_node, p2wsh_txs[1], with_witness=False, accepted=False, reason=b'scriptpubkey')
 
         # witnessScript size at 3600 bytes is standard
         p2wsh_txs[2].wit.vtxinwit[0].scriptWitness.stack = [pad, pad, scripts[2]]
@@ -1969,47 +1988,47 @@ class SegWitTest(BitcoinTestFramework):
         test_transaction_acceptance(self.nodes[0].rpc, self.test_node, p2wsh_txs[2], with_witness=False, accepted=True)
 
         test_transaction_acceptance(self.nodes[1].rpc, self.std_node, p2wsh_txs[2], with_witness=True, accepted=False)
-        test_transaction_acceptance(self.nodes[1].rpc, self.std_node, p2wsh_txs[2], with_witness=False, accepted=True)
+        test_transaction_acceptance(self.nodes[1].rpc, self.std_node, p2wsh_txs[2], with_witness=False, accepted=False, reason=b'scriptpubkey')
 
         # witnessScript size at 3601 bytes is non-standard
         p2wsh_txs[3].wit.vtxinwit[0].scriptWitness.stack = [pad, pad, pad, scripts[3]]
         test_transaction_acceptance(self.nodes[1].rpc, self.std_node, p2wsh_txs[3], with_witness=True, accepted=False)
-        test_transaction_acceptance(self.nodes[1].rpc, self.std_node, p2wsh_txs[3], with_witness=False, accepted=True)
+        test_transaction_acceptance(self.nodes[1].rpc, self.std_node, p2wsh_txs[3], with_witness=False, accepted=False, reason=b'scriptpubkey')
         # Non-standard nodes should accept
-        test_transaction_acceptance(self.nodes[0].rpc, self.test_node, p2wsh_txs[3], with_witness=True, accepted=True)
+        test_transaction_acceptance(self.nodes[0].rpc, self.test_node, p2wsh_txs[3], with_witness=True, accepted=False)
         test_transaction_acceptance(self.nodes[0].rpc, self.test_node, p2wsh_txs[3], with_witness=False, accepted=True)
 
         # Repeating the same tests with P2SH-P2WSH
         p2sh_txs[0].wit.vtxinwit[0].scriptWitness.stack = [pad] * 101 + [scripts[0]]
         test_transaction_acceptance(self.nodes[1].rpc, self.std_node, p2sh_txs[0], with_witness=True, accepted=False)
-        test_transaction_acceptance(self.nodes[1].rpc, self.std_node, p2sh_txs[0], with_witness=False, accepted=True)
+        test_transaction_acceptance(self.nodes[1].rpc, self.std_node, p2sh_txs[0], with_witness=False, accepted=False, reason=b'scriptpubkey')
 
-        test_transaction_acceptance(self.nodes[0].rpc, self.test_node, p2sh_txs[0], with_witness=True, accepted=True)
+        test_transaction_acceptance(self.nodes[0].rpc, self.test_node, p2sh_txs[0], with_witness=True, accepted=False)
         test_transaction_acceptance(self.nodes[0].rpc, self.test_node, p2sh_txs[0], with_witness=False, accepted=True)
 
         p2sh_txs[1].wit.vtxinwit[0].scriptWitness.stack = [pad * 81] * 100 + [scripts[1]]
         test_transaction_acceptance(self.nodes[1].rpc, self.std_node, p2sh_txs[1], with_witness=True, accepted=False)
-        test_transaction_acceptance(self.nodes[1].rpc, self.std_node, p2sh_txs[1], with_witness=False, accepted=True)
+        test_transaction_acceptance(self.nodes[1].rpc, self.std_node, p2sh_txs[1], with_witness=False, accepted=False, reason=b'scriptpubkey')
 
-        test_transaction_acceptance(self.nodes[0].rpc, self.test_node, p2sh_txs[1], with_witness=True, accepted=True)
+        test_transaction_acceptance(self.nodes[0].rpc, self.test_node, p2sh_txs[1], with_witness=True, accepted=False)
         test_transaction_acceptance(self.nodes[0].rpc, self.test_node, p2sh_txs[1], with_witness=False, accepted=True)
 
         p2sh_txs[1].wit.vtxinwit[0].scriptWitness.stack = [pad * 80] * 100 + [scripts[1]]
-        test_transaction_acceptance(self.nodes[1].rpc, self.std_node, p2sh_txs[1], with_witness=True, accepted=True)
-        test_transaction_acceptance(self.nodes[1].rpc, self.std_node, p2sh_txs[1], with_witness=False, accepted=True)
+        test_transaction_acceptance(self.nodes[1].rpc, self.std_node, p2sh_txs[1], with_witness=True, accepted=False)
+        test_transaction_acceptance(self.nodes[1].rpc, self.std_node, p2sh_txs[1], with_witness=False, accepted=False)
 
         p2sh_txs[2].wit.vtxinwit[0].scriptWitness.stack = [pad, pad, scripts[2]]
         test_transaction_acceptance(self.nodes[0].rpc, self.test_node, p2sh_txs[2], with_witness=True, accepted=False)
         test_transaction_acceptance(self.nodes[0].rpc, self.test_node, p2sh_txs[2], with_witness=False, accepted=True)
 
         test_transaction_acceptance(self.nodes[1].rpc, self.std_node, p2sh_txs[2], with_witness=True, accepted=False)
-        test_transaction_acceptance(self.nodes[1].rpc, self.std_node, p2sh_txs[2], with_witness=False, accepted=True)
+        test_transaction_acceptance(self.nodes[1].rpc, self.std_node, p2sh_txs[2], with_witness=False, accepted=False, reason=b'scriptpubkey')
 
         p2sh_txs[3].wit.vtxinwit[0].scriptWitness.stack = [pad, pad, pad, scripts[3]]
         test_transaction_acceptance(self.nodes[1].rpc, self.std_node, p2sh_txs[3], with_witness=True, accepted=False)
-        test_transaction_acceptance(self.nodes[1].rpc, self.std_node, p2sh_txs[3], with_witness=False, accepted=True)
+        test_transaction_acceptance(self.nodes[1].rpc, self.std_node, p2sh_txs[3], with_witness=False, accepted=False, reason=b'scriptpubkey')
 
-        test_transaction_acceptance(self.nodes[0].rpc, self.test_node, p2sh_txs[3], with_witness=True, accepted=True)
+        test_transaction_acceptance(self.nodes[0].rpc, self.test_node, p2sh_txs[3], with_witness=True, accepted=False)
         test_transaction_acceptance(self.nodes[0].rpc, self.test_node, p2sh_txs[3], with_witness=False, accepted=True)
 
         self.nodes[0].generate(1, self.signblockprivkeys)  # Mine and clean up the mempool of non-standard node

@@ -639,20 +639,6 @@ static UniValue decodescript(const JSONRPCRequest& request)
                     }
                 }
             }
-            UniValue sr(UniValue::VOBJ);
-            CScript segwitScr;
-            if (which_type == TX_PUBKEY) {
-                segwitScr = GetScriptForDestination(WitnessV0KeyHash(Hash160(solutions_data[0].begin(), solutions_data[0].end())));
-            } else if (which_type == TX_PUBKEYHASH) {
-                segwitScr = GetScriptForDestination(WitnessV0KeyHash(solutions_data[0]));
-            } else {
-                // Scripts that are not fit for P2WPKH are encoded as P2WSH.
-                // Newer segwit program versions should be considered when then become available.
-                segwitScr = GetScriptForDestination(WitnessV0ScriptHash(script));
-            }
-            ScriptPubKeyToUniv(segwitScr, sr, true);
-            sr.pushKV("p2sh-segwit", EncodeDestination(CScriptID(segwitScr)));
-            r.pushKV("segwit", sr);
         }
     }
 

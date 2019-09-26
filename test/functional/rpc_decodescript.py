@@ -63,15 +63,13 @@ class DecodeScriptTest(BitcoinTestFramework):
         # <pubkey> OP_CHECKSIG
         rpc_result = self.nodes[0].decodescript(push_public_key + 'ac')
         assert_equal(public_key + ' OP_CHECKSIG', rpc_result['asm'])
-        # P2PK is translated to P2WPKH
-        assert_equal('0 ' + public_key_hash, rpc_result['segwit']['asm'])
+        assert 'segwit' not in rpc_result
 
         # 2) P2PKH scriptPubKey
         # OP_DUP OP_HASH160 <PubKeyHash> OP_EQUALVERIFY OP_CHECKSIG
         rpc_result = self.nodes[0].decodescript('76a9' + push_public_key_hash + '88ac')
         assert_equal('OP_DUP OP_HASH160 ' + public_key_hash + ' OP_EQUALVERIFY OP_CHECKSIG', rpc_result['asm'])
-        # P2PKH is translated to P2WPKH
-        assert_equal('0 ' + public_key_hash, rpc_result['segwit']['asm'])
+        assert 'segwit' not in rpc_result
 
         # 3) multisig scriptPubKey
         # <m> <A pubkey> <B pubkey> <C pubkey> <n> OP_CHECKMULTISIG
@@ -80,9 +78,7 @@ class DecodeScriptTest(BitcoinTestFramework):
         multisig_script = '52' + push_public_key + push_public_key + push_public_key + '53ae'
         rpc_result = self.nodes[0].decodescript(multisig_script)
         assert_equal('2 ' + public_key + ' ' + public_key + ' ' + public_key +  ' 3 OP_CHECKMULTISIG', rpc_result['asm'])
-        # multisig in P2WSH
-        multisig_script_hash = bytes_to_hex_str(sha256(hex_str_to_bytes(multisig_script)))
-        assert_equal('0 ' + multisig_script_hash, rpc_result['segwit']['asm'])
+        assert 'segwit' not in rpc_result
 
         # 4) P2SH scriptPubKey
         # OP_HASH160 <Hash160(redeemScript)> OP_EQUAL.
@@ -120,7 +116,8 @@ class DecodeScriptTest(BitcoinTestFramework):
         assert_equal('OP_IF ' + public_key + ' OP_CHECKSIGVERIFY OP_ELSE 500000 OP_CHECKLOCKTIMEVERIFY OP_DROP OP_ENDIF ' + public_key + ' OP_CHECKSIG', rpc_result['asm'])
         # CLTV script in P2WSH
         cltv_script_hash = bytes_to_hex_str(sha256(hex_str_to_bytes(cltv_script)))
-        assert_equal('0 ' + cltv_script_hash, rpc_result['segwit']['asm'])
+
+        assert 'segwit' not in rpc_result
 
         # 7) P2PK scriptPubKey
         # <pubkey> OP_CHECKSIG
