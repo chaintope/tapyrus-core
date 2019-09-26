@@ -106,39 +106,6 @@ void test_schnorr_end_to_end(void) {
     CHECK(secp256k1_schnorr_verify(ctx, schnorr_signature, message, &pubkey) == 0);
 }
 
-#define SIG_COUNT 32
-
-void test_schnorr_sign_verify(void) {
-    unsigned char msg32[32];
-    unsigned char sig64[SIG_COUNT][64];
-    secp256k1_pubkey pubkey[SIG_COUNT];
-    secp256k1_scalar key[SIG_COUNT];
-    int i, j;
-
-    secp256k1_rand256_test(msg32);
-
-    for (i = 0; i < SIG_COUNT; i++) {
-        random_scalar_order_test(&key[i]);
-        secp256k1_ec_pubkey_create(ctx, &pubkey[i], &key[i]);
-
-        CHECK(secp256k1_schnorr_sign(ctx, sig64[i], msg32, &key[i], NULL, NULL));
-
-        CHECK(secp256k1_schnorr_verify(ctx, sig64[i], msg32, &pubkey[i]));
-
-        /* Apply several random modifications to the sig and check that it
-         * doesn't verify anymore. */
-        for (j = 0; j < count; j++) {
-            int pos = secp256k1_rand_bits(6);
-            int mod = 1 + secp256k1_rand_int(255);
-            sig64[i][pos] ^= mod;
-            CHECK(secp256k1_schnorr_verify(ctx, sig64[i], msg32, &pubkey[i]) == 0);
-            sig64[i][pos] ^= mod;
-        }
-    }
-}
-
-#undef SIG_COUNT
-
 void run_schnorr_compact_test(void) {
     {
         /* Test vector 1 */
@@ -706,7 +673,6 @@ void run_schnorr_tests(void) {
     }
 
     test_schnorr_api();
-    test_schnorr_sign_verify();
     run_schnorr_compact_test();
     test_ecdsa_schnorr_nonce();
 }
