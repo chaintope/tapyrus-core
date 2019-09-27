@@ -351,7 +351,7 @@ libtapyrus_consensus_a_SOURCES = \
   primitives/transaction.h \
   pubkey.cpp \
   pubkey.h \
-  script/bitcoinconsensus.cpp \
+  script/tapyrusconsensus.cpp \
   script/interpreter.cpp \
   script/interpreter.h \
   script/script.cpp \
@@ -436,7 +436,7 @@ nodist_libtapyrus_util_a_SOURCES = $(srcdir)/obj/build.h
 #
 
 # tapyrusd binary #
-tapyrusd_SOURCES = bitcoind.cpp
+tapyrusd_SOURCES = tapyrusd.cpp
 tapyrusd_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
 tapyrusd_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 tapyrusd_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
@@ -462,7 +462,7 @@ tapyrusd_LDADD = \
 tapyrusd_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS)
 
 # tapyrus-cli binary #
-tapyrus_cli_SOURCES = bitcoin-cli.cpp
+tapyrus_cli_SOURCES = tapyrus-cli.cpp
 tapyrus_cli_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(EVENT_CFLAGS)
 tapyrus_cli_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 tapyrus_cli_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
@@ -481,7 +481,7 @@ tapyrus_cli_LDADD += $(BOOST_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(EVENT_LIBS)
 #
 
 # tapyrus-tx binary #
-tapyrus_tx_SOURCES = bitcoin-tx.cpp
+tapyrus_tx_SOURCES = tapyrus-tx.cpp
 tapyrus_tx_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
 tapyrus_tx_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 tapyrus_tx_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
@@ -528,7 +528,7 @@ tapyrus_genesis_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(CRYPTO_LIBS)
 
 # tapyrusconsensus library #
 if BUILD_BITCOIN_LIBS
-include_HEADERS = script/bitcoinconsensus.h
+include_HEADERS = script/tapyrusconsensus.h
 libtapyrusconsensus_la_SOURCES = $(crypto_libtapyrus_crypto_base_a_SOURCES) $(libtapyrus_consensus_a_SOURCES)
 
 if GLIBC_BACK_COMPAT

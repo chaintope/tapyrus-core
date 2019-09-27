@@ -1,14 +1,14 @@
 # Copyright (c) 2018 The Bitcoin developers
 
-project(bitcoin-bench)
+project(tapyrus-bench)
 
 include_directories(.)
 
-add_executable(bitcoin-bench
+add_executable(tapyrus-bench
 	EXCLUDE_FROM_ALL
 	base58.cpp
 	bench.cpp
-	bench_bitcoin.cpp
+	bench_tapyrus.cpp
 	ccoins_caching.cpp
 #	checkblock.cpp TODO Fix including bench/data/*.raw files
 	checkqueue.cpp
@@ -20,11 +20,11 @@ add_executable(bitcoin-bench
 	rollingbloom.cpp
 )
 
-target_link_libraries(bitcoin-bench common bitcoinconsensus server)
+target_link_libraries(tapyrus-bench common tapyrusconsensus server)
 
-add_custom_target(bench-bitcoin
+add_custom_target(bench-tapyrus
 	COMMAND
-		./bitcoin-bench
+		./tapyrus-bench
 	DEPENDS
-		bitcoin-bench
+	tapyrus-bench
 )

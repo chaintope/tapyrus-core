@@ -11,7 +11,7 @@
 #include <random.h>
 #include <script/standard.h>
 #include <script/sign.h>
-#include <test/test_bitcoin.h>
+#include <test/test_tapyrus.h>
 #include <utiltime.h>
 #include <core_io.h>
 #include <keystore.h>
@@ -113,7 +113,6 @@ static void ValidateCheckInputsForAllFlags(const CTransaction &tx, uint32_t fail
         SCRIPT_VERIFY_SIGPUSHONLY,
         SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS,
         SCRIPT_VERIFY_CLEANSTACK,
-        SCRIPT_VERIFY_WITNESS,
         SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_WITNESS_PROGRAM,
         SCRIPT_VERIFY_MINIMALIF,
         SCRIPT_VERIFY_NULLFAIL,
@@ -123,12 +122,7 @@ static void ValidateCheckInputsForAllFlags(const CTransaction &tx, uint32_t fail
     // rewrite in the future to randomly pick a set of flags to evaluate.
     for (auto test_flags: test_flags_list) {
         CValidationState state;
-        // Filter out incompatible flag choices
-        if ((test_flags & SCRIPT_VERIFY_CLEANSTACK)) {
-            // CLEANSTACK requires P2SH and WITNESS, see VerifyScript() in
-            // script/interpreter.cpp
-            test_flags |= SCRIPT_VERIFY_WITNESS;
-        }
+
         BOOST_CHECK(CheckInputs(tx, state, pcoinsTip.get(), true, test_flags, true, add_to_cache, txdata, nullptr));
 
         // Test the caching

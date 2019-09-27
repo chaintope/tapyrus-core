@@ -421,7 +421,7 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
         } else {
             CTxDestination destination = DecodeDestination(name_);
             if (!IsValidDestination(destination)) {
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid Bitcoin address: ") + name_);
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid Tapyrus address: ") + name_);
             }
 
             if (!destinations.insert(destination).second) {
@@ -639,20 +639,6 @@ static UniValue decodescript(const JSONRPCRequest& request)
                     }
                 }
             }
-            UniValue sr(UniValue::VOBJ);
-            CScript segwitScr;
-            if (which_type == TX_PUBKEY) {
-                segwitScr = GetScriptForDestination(WitnessV0KeyHash(Hash160(solutions_data[0].begin(), solutions_data[0].end())));
-            } else if (which_type == TX_PUBKEYHASH) {
-                segwitScr = GetScriptForDestination(WitnessV0KeyHash(solutions_data[0]));
-            } else {
-                // Scripts that are not fit for P2WPKH are encoded as P2WSH.
-                // Newer segwit program versions should be considered when then become available.
-                segwitScr = GetScriptForDestination(WitnessV0ScriptHash(script));
-            }
-            ScriptPubKeyToUniv(segwitScr, sr, true);
-            sr.pushKV("p2sh-segwit", EncodeDestination(CScriptID(segwitScr)));
-            r.pushKV("segwit", sr);
         }
     }
 
@@ -1278,7 +1264,7 @@ UniValue decodepsbt(const JSONRPCRequest& request)
     if (request.fHelp || request.params.size() != 1)
         throw std::runtime_error(
             "decodepsbt \"psbt\"\n"
-            "\nReturn a JSON object representing the serialized, base64-encoded partially signed Bitcoin transaction.\n"
+            "\nReturn a JSON object representing the serialized, base64-encoded partially signed Tapyrus transaction.\n"
 
             "\nArguments:\n"
             "1. \"psbt\"            (string, required) The PSBT base64 string\n"
@@ -1303,7 +1289,7 @@ UniValue decodepsbt(const JSONRPCRequest& request)
             "          \"asm\" : \"asm\",            (string) The asm\n"
             "          \"hex\" : \"hex\",            (string) The hex\n"
             "          \"type\" : \"pubkeyhash\",    (string) The type, eg 'pubkeyhash'\n"
-            "          \"address\" : \"address\"     (string) Bitcoin address if there is one\n"
+            "          \"address\" : \"address\"     (string) Tapyrus address if there is one\n"
             "        }\n"
             "      },\n"
             "      \"partial_signatures\" : {             (json object, optional)\n"
@@ -1560,7 +1546,7 @@ UniValue combinepsbt(const JSONRPCRequest& request)
     if (request.fHelp || request.params.size() != 1)
         throw std::runtime_error(
             "combinepsbt [\"psbt\",...]\n"
-            "\nCombine multiple partially signed Bitcoin transactions into one transaction.\n"
+            "\nCombine multiple partially signed Tapyrus transactions into one transaction.\n"
             "Implements the Combiner role.\n"
             "\nArguments:\n"
             "1. \"txs\"                   (string) A json array of base64 strings of partially signed transactions\n"

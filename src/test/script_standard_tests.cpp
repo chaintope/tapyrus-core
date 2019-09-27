@@ -8,7 +8,7 @@
 #include <script/script.h>
 #include <script/script_error.h>
 #include <script/standard.h>
-#include <test/test_bitcoin.h>
+#include <test/test_tapyrus.h>
 
 #include <boost/test/unit_test.hpp>
 
@@ -96,9 +96,8 @@ BOOST_AUTO_TEST_CASE(script_standard_Solver_success)
     s.clear();
     s << OP_0 << ToByteVector(pubkeys[0].GetID());
     BOOST_CHECK(Solver(s, whichType, solutions));
-    BOOST_CHECK_EQUAL(whichType, TX_WITNESS_V0_KEYHASH);
-    BOOST_CHECK_EQUAL(solutions.size(), 1U);
-    BOOST_CHECK(solutions[0] == ToByteVector(pubkeys[0].GetID()));
+    BOOST_CHECK_EQUAL(whichType, TX_NONSTANDARD);
+    BOOST_CHECK_EQUAL(solutions.size(), 0);
 
     // TX_WITNESS_V0_SCRIPTHASH
     uint256 scriptHash;
@@ -108,15 +107,21 @@ BOOST_AUTO_TEST_CASE(script_standard_Solver_success)
     s.clear();
     s << OP_0 << ToByteVector(scriptHash);
     BOOST_CHECK(Solver(s, whichType, solutions));
-    BOOST_CHECK_EQUAL(whichType, TX_WITNESS_V0_SCRIPTHASH);
-    BOOST_CHECK_EQUAL(solutions.size(), 1U);
-    BOOST_CHECK(solutions[0] == ToByteVector(scriptHash));
+    BOOST_CHECK_EQUAL(whichType, TX_NONSTANDARD);
+    BOOST_CHECK_EQUAL(solutions.size(), 0);
 
     // TX_NONSTANDARD
     s.clear();
     s << OP_9 << OP_ADD << OP_11 << OP_EQUAL;
     BOOST_CHECK(!Solver(s, whichType, solutions));
     BOOST_CHECK_EQUAL(whichType, TX_NONSTANDARD);
+
+    // TX_WITNESS with incorrect program size
+    s.clear();
+    s << OP_0 << std::vector<unsigned char>(19, 0x01);
+    BOOST_CHECK(Solver(s, whichType, solutions));
+    BOOST_CHECK_EQUAL(whichType, TX_NONSTANDARD);
+    BOOST_CHECK_EQUAL(solutions.size(), 0);
 }
 
 BOOST_AUTO_TEST_CASE(script_standard_Solver_failure)
@@ -169,11 +174,6 @@ BOOST_AUTO_TEST_CASE(script_standard_Solver_failure)
     s.clear();
     s << OP_RETURN << std::vector<unsigned char>({75}) << OP_ADD;
     BOOST_CHECK(!Solver(s, whichType, solutions));
-
-    // TX_WITNESS with incorrect program size
-    s.clear();
-    s << OP_0 << std::vector<unsigned char>(19, 0x01);
-    BOOST_CHECK(!Solver(s, whichType, solutions));
 }
 
 BOOST_AUTO_TEST_CASE(script_standard_ExtractDestination)
@@ -221,28 +221,19 @@ BOOST_AUTO_TEST_CASE(script_standard_ExtractDestination)
     // TX_WITNESS_V0_KEYHASH
     s.clear();
     s << OP_0 << ToByteVector(pubkey.GetID());
-    BOOST_CHECK(ExtractDestination(s, address));
-    WitnessV0KeyHash keyhash;
-    CHash160().Write(pubkey.begin(), pubkey.size()).Finalize(keyhash.begin());
-    BOOST_CHECK(boost::get<WitnessV0KeyHash>(&address) && *boost::get<WitnessV0KeyHash>(&address) == keyhash);
+    BOOST_CHECK(!ExtractDestination(s, address));
 
     // TX_WITNESS_V0_SCRIPTHASH
     s.clear();
     WitnessV0ScriptHash scripthash;
     CSHA256().Write(redeemScript.data(), redeemScript.size()).Finalize(scripthash.begin());
     s << OP_0 << ToByteVector(scripthash);
-    BOOST_CHECK(ExtractDestination(s, address));
-    BOOST_CHECK(boost::get<WitnessV0ScriptHash>(&address) && *boost::get<WitnessV0ScriptHash>(&address) == scripthash);
+    BOOST_CHECK(!ExtractDestination(s, address));
 
     // TX_WITNESS with unknown version
     s.clear();
     s << OP_1 << ToByteVector(pubkey);
-    BOOST_CHECK(ExtractDestination(s, address));
-    WitnessUnknown unk;
-    unk.length = 33;
-    unk.version = 1;
-    std::copy(pubkey.begin(), pubkey.end(), unk.program);
-    BOOST_CHECK(boost::get<WitnessUnknown>(&address) && *boost::get<WitnessUnknown>(&address) == unk);
+    BOOST_CHECK(!ExtractDestination(s, address));
 }
 
 BOOST_AUTO_TEST_CASE(script_standard_ExtractDestinations)
@@ -553,7 +544,7 @@ BOOST_AUTO_TEST_CASE(script_standard_IsMine)
         // Keystore implicitly has key and P2SH redeemScript
         keystore.AddCScript(scriptPubKey);
         result = IsMine(keystore, scriptPubKey);
-        BOOST_CHECK_EQUAL(result, ISMINE_SPENDABLE);
+        BOOST_CHECK_EQUAL(result, ISMINE_NO);
     }
 
     // P2WPKH uncompressed
@@ -642,7 +633,7 @@ BOOST_AUTO_TEST_CASE(script_standard_IsMine)
         // Keystore has keys, witnessScript, P2SH redeemScript
         keystore.AddCScript(scriptPubKey);
         result = IsMine(keystore, scriptPubKey);
-        BOOST_CHECK_EQUAL(result, ISMINE_SPENDABLE);
+        BOOST_CHECK_EQUAL(result, ISMINE_NO);
     }
 
     // P2WSH multisig with uncompressed key
@@ -691,7 +682,7 @@ BOOST_AUTO_TEST_CASE(script_standard_IsMine)
         keystore.AddKey(keys[0]);
         keystore.AddKey(keys[1]);
         result = IsMine(keystore, scriptPubKey);
-        BOOST_CHECK_EQUAL(result, ISMINE_SPENDABLE);
+        BOOST_CHECK_EQUAL(result, ISMINE_NO);
     }
 
     // OP_RETURN

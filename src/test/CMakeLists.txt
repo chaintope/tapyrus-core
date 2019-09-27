@@ -97,9 +97,9 @@ add_test_to_suite(tapyrus test_tapyrus
 		sigopcount_tests.cpp
 		skiplist_tests.cpp
 		streams_tests.cpp
-		test_bitcoin.cpp
-		test_bitcoin_fuzzy.cpp
-		test_bitcoin_main.cpp
+		test_tapyrus.cpp
+		test_tapyrus_fuzzy.cpp
+		test_tapyrus_main.cpp
 		test_keys_helper.cpp
 		timedata_tests.cpp
 		torcontrol_tests.cpp

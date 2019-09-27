@@ -166,7 +166,7 @@ add_library(tapyrusconsensus
         hash.cpp
         primitives/transaction.cpp
         pubkey.cpp
-        script/bitcoinconsensus.cpp
+        script/tapyrusconsensus.cpp
         script/interpreter.cpp
         script/script.cpp
         script/script_error.cpp
@@ -264,7 +264,7 @@ target_link_libraries(rpcclient univalue util)
 
 # tapyrus-cli
 if(BUILD_BITCOIN_CLI)
-    add_executable(tapyrus-cli bitcoin-cli.cpp)
+    add_executable(tapyrus-cli tapyrus-cli.cpp)
     if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
         target_sources(tapyrus-cli PRIVATE tapyrus-cli-res.rc)
     endif()
@@ -274,7 +274,7 @@ endif()
 
 # tapyrus-tx
 if(BUILD_BITCOIN_TX)
-    add_executable(tapyrus-tx bitcoin-tx.cpp)
+    add_executable(tapyrus-tx tapyrus-tx.cpp)
     if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
         target_sources(tapyrus-tx PRIVATE tapyrus-tx-res.rc)
     endif()
@@ -297,7 +297,7 @@ if(BUILD_TAPYRUS_GENESIS)
 endif()
 
 # tapyrusd
-add_executable(tapyrusd bitcoind.cpp)
+add_executable(tapyrusd tapyrusd.cpp)
 target_link_libraries(tapyrusd server)
 if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
     target_sources(tapyrusd PRIVATE tapyrus-res.rc)
