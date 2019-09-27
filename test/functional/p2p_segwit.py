@@ -23,7 +23,6 @@ from test_framework.messages import (
     CTxOut,
     CTxWitness,
     MAX_BLOCK_BASE_SIZE,
-    MSG_WITNESS_FLAG,
     NODE_NETWORK,
     NODE_WITNESS,
     msg_block,
@@ -199,7 +198,7 @@ class SegWitTest(BitcoinTestFramework):
         self.setup_clean_chain = True
         self.num_nodes = 3
         # This test tests SegWit both pre and post-activation, so use the normal BIP9 activation.
-        self.extra_args = [["-whitelist=127.0.0.1", "-vbparams=segwit:0:999999999999"], ["-whitelist=127.0.0.1", "-acceptnonstdtxn=0", "-vbparams=segwit:0:999999999999"], ["-whitelist=127.0.0.1", "-vbparams=segwit:0:0"]]
+        self.extra_args = [["-whitelist=127.0.0.1"], ["-whitelist=127.0.0.1", "-acceptnonstdtxn=0"], ["-whitelist=127.0.0.1"]]
         #this is needed as some tests based on block length are optimized based on proof length for one signature.
         self.signblockthreshold = 1
         self.signblockpubkeys = "0201c537fd7eb7928700927b48e51ceec621fc8ba1177ee2ad67336ed91e2f63a1"
@@ -254,18 +253,15 @@ class SegWitTest(BitcoinTestFramework):
         self.utxo = []
 
         # Segwit status 'defined'
-        self.segwit_status = 'defined'
 
         self.test_non_witness_transaction()
         self.test_unnecessary_witness_before_segwit_activation()
         self.test_v0_outputs_are_spendable()
         self.test_block_relay()
-        self.advance_to_segwit_started()
 
         # Segwit status 'started'
 
         self.test_getblocktemplate_before_lockin()
-        self.advance_to_segwit_lockin()
 
         # Segwit status 'locked_in'
 
@@ -273,7 +269,6 @@ class SegWitTest(BitcoinTestFramework):
         self.test_witness_tx_relay_before_segwit_activation()
         self.test_block_relay()
         self.test_standardness_v0()
-        self.advance_to_segwit_active()
 
         # Segwit status 'active'
 
@@ -303,15 +298,11 @@ class SegWitTest(BitcoinTestFramework):
     def subtest(func):  # noqa: N805
         """Wraps the subtests for logging and state assertions."""
         def func_wrapper(self, *args, **kwargs):
-            self.log.info("Subtest: {} (Segwit status = {})".format(func.__name__, self.segwit_status))
-            # Assert segwit status is as expected
-            assert_equal(get_bip9_status(self.nodes[0], 'segwit')['status'], self.segwit_status)
+            self.log.info("Subtest: {} ".format(func.__name__))
             func(self, *args, **kwargs)
             # Each subtest should leave some utxos for the next subtest
             assert self.utxo
             sync_blocks(self.nodes)
-            # Assert segwit status is as expected at end of subtest
-            assert_equal(get_bip9_status(self.nodes[0], 'segwit')['status'], self.segwit_status)
 
         return func_wrapper
 
@@ -416,68 +407,23 @@ class SegWitTest(BitcoinTestFramework):
 
         # Check that we can getdata for witness blocks or regular blocks,
         # and the right thing happens.
-        if self.segwit_status != 'active':
-            # Before activation, we should be able to request old blocks with
-            # or without witness, and they should be the same.
-            chain_height = self.nodes[0].getblockcount()
-            # Pick 10 random blocks on main chain, and verify that getdata's
-            # for MSG_BLOCK, MSG_WITNESS_BLOCK, and rpc getblock() are equal.
-            all_heights = list(range(chain_height + 1))
-            random.shuffle(all_heights)
-            all_heights = all_heights[0:10]
-            for height in all_heights:
-                block_hash = self.nodes[0].getblockhash(height)
-                rpc_block = self.nodes[0].getblock(block_hash, False)
-                block_hash = int(block_hash, 16)
-                block = self.test_node.request_block(block_hash, 2)
-                wit_block = self.test_node.request_block(block_hash, 2)
-                assert_equal(block.serialize(with_witness=True), wit_block.serialize(with_witness=True))
-                assert_equal(block.serialize(), hex_str_to_bytes(rpc_block))
-        else:
-            # After activation, witness blocks and non-witness blocks should
-            # be different.  Verify rpc getblock() returns witness blocks, while
-            # getdata respects the requested type.
-            block = self.build_next_block()
-            self.update_witness_block_with_transactions(block, [])
-            # This gives us a witness commitment.
-            assert(len(block.vtx[0].wit.vtxinwit) == 1)
-            assert(len(block.vtx[0].wit.vtxinwit[0].scriptWitness.stack) == 1)
-            test_witness_block(self.nodes[0].rpc, self.test_node, block, with_witness=True, accepted=False)
-            test_witness_block(self.nodes[0].rpc, self.test_node, block, with_witness=False, accepted=True)
-            # Now try to retrieve it...
-            rpc_block = self.nodes[0].getblock(block.hash, False)
-            non_wit_block = self.test_node.request_block(block.sha256, 2)
-            wit_block = self.test_node.request_block(block.sha256, 2)
-            assert_equal(wit_block.serialize(with_witness=True), hex_str_to_bytes(rpc_block))
-            assert_equal(wit_block.serialize(), non_wit_block.serialize())
-            assert_equal(wit_block.serialize(), block.serialize())
+        # Before activation, we should be able to request old blocks with
+        # or without witness, and they should be the same.
+        chain_height = self.nodes[0].getblockcount()
+        # Pick 10 random blocks on main chain, and verify that getdata's
+        # for MSG_BLOCK, MSG_WITNESS_BLOCK, and rpc getblock() are equal.
+        all_heights = list(range(chain_height + 1))
+        random.shuffle(all_heights)
+        all_heights = all_heights[0:10]
+        for height in all_heights:
+            block_hash = self.nodes[0].getblockhash(height)
+            rpc_block = self.nodes[0].getblock(block_hash, False)
+            block_hash = int(block_hash, 16)
+            block = self.test_node.request_block(block_hash, 2)
+            wit_block = self.test_node.request_block(block_hash, 2)
+            assert_equal(block.serialize(with_witness=True), wit_block.serialize(with_witness=True))
+            assert_equal(block.serialize(), hex_str_to_bytes(rpc_block))
 
-            # Test size, vsize, weight
-            rpc_details = self.nodes[0].getblock(block.hash, True)
-            assert_equal(rpc_details["size"], len(block.serialize()))
-            assert_equal(rpc_details["strippedsize"], len(block.serialize(with_witness=False)))
-            weight = 4 * len(block.serialize())
-            assert_equal(rpc_details["weight"], weight)
-
-            # Upgraded node should not ask for blocks from unupgraded
-            block4 = self.build_next_block(version=4)
-            block4.solve(self.signblockprivkeys)
-            self.old_node.getdataset = set()
-
-            # Blocks can be requested via direct-fetch (immediately upon processing the announcement)
-            # or via parallel download (with an indeterminate delay from processing the announcement)
-            # so to test that a block is NOT requested, we could guess a time period to sleep for,
-            # and then check. We can avoid the sleep() by taking advantage of transaction getdata's
-            # being processed after block getdata's, and announce a transaction as well,
-            # and then check to see if that particular getdata has been received.
-            # Since 0.14, inv's will only be responded to with a getheaders, so send a header
-            # to announce this block.
-            msg = msg_headers()
-            msg.headers = [CBlockHeader(block4)]
-            self.old_node.send_message(msg)
-            self.old_node.announce_tx_and_wait_for_getdata(block4.vtx[0])
-            assert(block4.sha256 in self.old_node.getdataset)
-            self.nodes[0].generate(1, self.signblockprivkeys)
 
     @subtest
     def test_v0_outputs_are_spendable(self):
@@ -559,16 +505,6 @@ class SegWitTest(BitcoinTestFramework):
         self.utxo.pop(0)
         self.utxo.append(UTXO(txid, 2, value))
 
-    @subtest
-    def advance_to_segwit_started(self):
-        """Mine enough blocks for segwit's vb state to be 'started'."""
-        height = self.nodes[0].getblockcount()
-        # Will need to rewrite the tests here if we are past the first period
-        assert(height < VB_PERIOD - 1)
-        # Advance to end of period, status should now be 'started'
-        self.nodes[0].generate(VB_PERIOD - height - 1, self.signblockprivkeys)
-        assert_equal(get_bip9_status(self.nodes[0], 'segwit')['status'], 'started')
-        self.segwit_status = 'started'
 
     @subtest
     def test_getblocktemplate_before_lockin(self):
@@ -578,7 +514,7 @@ class SegWitTest(BitcoinTestFramework):
             block_version = gbt_results['version']
             # If we're not indicating segwit support, we will still be
             # signalling for segwit activation.
-            assert_equal((block_version & (1 << VB_WITNESS_BIT) != 0), node == self.nodes[0])
+            assert_equal(block_version & (1 << VB_WITNESS_BIT), 0)
             # If we don't specify the segwit rule, then we won't get a default
             # commitment.
             assert('default_witness_commitment' not in gbt_results)
@@ -595,44 +531,14 @@ class SegWitTest(BitcoinTestFramework):
         for node in [self.nodes[0], self.nodes[2]]:
             gbt_results = node.getblocktemplate({"rules": ["segwit"]})
             block_version = gbt_results['version']
-            if node == self.nodes[2]:
-                # If this is a non-segwit node, we should still not get a witness
-                # commitment, nor a version bit signalling segwit.
-                assert_equal(block_version & (1 << VB_WITNESS_BIT), 0)
-                assert('default_witness_commitment' not in gbt_results)
-            else:
-                # For segwit-aware nodes, check the version bit and the witness
-                # commitment are correct.
-                assert(block_version & (1 << VB_WITNESS_BIT) != 0)
-                assert('default_witness_commitment' in gbt_results)
-                witness_commitment = gbt_results['default_witness_commitment']
-
-                # Check that default_witness_commitment is present.
-                if(txid == int(gbt_results['transactions'][0]['txid'], 16)):
-                    usetxid = int(gbt_results['transactions'][0]['hash'], 16)
-                else:
-                    usetxid = txid
-                witness_root = CBlock.get_merkle_root([ser_uint256(0),
-                                                       ser_uint256(usetxid)])
-                script = get_witness_script(witness_root, 0)
-                assert_equal(witness_commitment, bytes_to_hex_str(script))
+            # If this is a non-segwit node, we should still not get a witness
+            # commitment, nor a version bit signalling segwit.
+            assert_equal(block_version & (1 << VB_WITNESS_BIT), 0)
+            assert('default_witness_commitment' not in gbt_results)
 
         # undo mocktime
         self.nodes[0].setmocktime(0)
         self.nodes[2].setmocktime(0)
-
-    @subtest
-    def advance_to_segwit_lockin(self):
-        """Mine enough blocks to lock in segwit, but don't activate."""
-        height = self.nodes[0].getblockcount()
-        # Advance to end of period, and verify lock-in happens at the end
-        self.nodes[0].generate(VB_PERIOD - 1, self.signblockprivkeys)
-        height = self.nodes[0].getblockcount()
-        assert((height % VB_PERIOD) == VB_PERIOD - 2)
-        assert_equal(get_bip9_status(self.nodes[0], 'segwit')['status'], 'started')
-        self.nodes[0].generate(1, self.signblockprivkeys)
-        assert_equal(get_bip9_status(self.nodes[0], 'segwit')['status'], 'locked_in')
-        self.segwit_status = 'locked_in'
 
     @subtest
     def test_witness_tx_relay_before_segwit_activation(self):
@@ -659,10 +565,9 @@ class SegWitTest(BitcoinTestFramework):
         # a witness transaction ought not result in a getdata.
         self.test_node.announce_tx_and_wait_for_getdata(tx, timeout=2, success=False)
 
-        # Delivering this transaction with witness should fail (no matter who
-        # its from)
-        assert_equal(len(self.nodes[0].getrawmempool()), 0)
-        assert_equal(len(self.nodes[1].getrawmempool()), 0)
+        # Delivering this transaction without witness should succeed
+        assert_equal(len(self.nodes[0].getrawmempool()), 1)
+        assert_equal(len(self.nodes[1].getrawmempool()), 1)
 
         # sent without witness
         test_transaction_acceptance(self.nodes[0].rpc, self.old_node, tx, with_witness=True, accepted=False)
@@ -759,17 +664,6 @@ class SegWitTest(BitcoinTestFramework):
         self.utxo.append(UTXO(tx3.malfixsha256, 0, tx3.vout[0].nValue))
         assert_equal(len(self.nodes[1].getrawmempool()), 0)
 
-
-
-    @subtest
-    def advance_to_segwit_active(self):
-        """Mine enough blocks to activate segwit."""
-        height = self.nodes[0].getblockcount()
-        self.nodes[0].generate(VB_PERIOD - (height % VB_PERIOD) - 2, self.signblockprivkeys)
-        assert_equal(get_bip9_status(self.nodes[0], 'segwit')['status'], 'locked_in')
-        self.nodes[0].generate(1, self.signblockprivkeys)
-        assert_equal(get_bip9_status(self.nodes[0], 'segwit')['status'], 'active')
-        self.segwit_status = 'active'
 
     @subtest
     def test_p2sh_witness(self):
@@ -2046,13 +1940,10 @@ class SegWitTest(BitcoinTestFramework):
 
         # Restart with the new binary
         self.stop_node(2)
-        self.start_node(2, extra_args=["-vbparams=segwit:0:999999999999"])
+        self.start_node(2, extra_args=[])
         connect_nodes(self.nodes[0], 2)
 
         sync_blocks(self.nodes)
-
-        # Make sure that this peer thinks segwit has activated.
-        assert(get_bip9_status(self.nodes[2], 'segwit')['status'] == "active")
 
         # Make sure this peer's blocks match those of node0.
         height = self.nodes[2].getblockcount()

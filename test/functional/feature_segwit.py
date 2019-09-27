@@ -46,9 +46,9 @@ class SegWitTest(BitcoinTestFramework):
         self.setup_clean_chain = True
         self.num_nodes = 3
         # This test tests SegWit both pre and post-activation, so use the normal BIP9 activation.
-        self.extra_args = [["-rpcserialversion=0", "-vbparams=segwit:0:999999999999", "-addresstype=legacy", "-deprecatedrpc=addwitnessaddress"],
-                           ["-blockversion=4", "-rpcserialversion=1", "-vbparams=segwit:0:999999999999", "-addresstype=legacy", "-deprecatedrpc=addwitnessaddress", "-acceptnonstdtxn=0"],
-                           ["-blockversion=536870915", "-vbparams=segwit:0:999999999999", "-addresstype=legacy", "-deprecatedrpc=addwitnessaddress"]]
+        self.extra_args = [["-rpcserialversion=0",  "-addresstype=legacy", "-deprecatedrpc=addwitnessaddress"],
+                           ["-blockversion=4", "-rpcserialversion=1","-addresstype=legacy", "-deprecatedrpc=addwitnessaddress", "-acceptnonstdtxn=0"],
+                           ["-blockversion=536870915", "-addresstype=legacy", "-deprecatedrpc=addwitnessaddress"]]
 
     def setup_network(self):
         super().setup_network()
@@ -82,13 +82,6 @@ class SegWitTest(BitcoinTestFramework):
         assert(tmpl['sigoplimit'] == 20000)
         assert(tmpl['transactions'][0]['txid'] == txid)
         assert(tmpl['transactions'][0]['sigops'] == 2)
-        tmpl = self.nodes[0].getblocktemplate({'rules':['segwit']})
-        assert(tmpl['sizelimit'] == 1000000)
-        assert('weightlimit' not in tmpl)
-        assert(tmpl['sigoplimit'] == 20000)
-        assert(tmpl['transactions'][0]['txid'] == txid)
-        assert(tmpl['transactions'][0]['sigops'] == 2)
-        self.nodes[0].generate(1, self.signblockprivkeys) #block 162
 
         balance_presetup = self.nodes[0].getbalance()
         self.pubkey = []
@@ -163,12 +156,6 @@ class SegWitTest(BitcoinTestFramework):
 
         self.log.info("Verify sigops are counted in GBT with BIP141 rules")
         txid = self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 1)
-        tmpl = self.nodes[0].getblocktemplate({'rules':['segwit']})
-        assert(tmpl['sizelimit'] >= 3999577)  # actual maximum size is lower due to minimum mandatory non-witness data
-        assert(tmpl['weightlimit'] == 4000000)
-        assert(tmpl['sigoplimit'] == 80000)
-        assert(tmpl['transactions'][0]['txid'] == txid)
-        assert(tmpl['transactions'][0]['sigops'] == 8)
 
         self.nodes[0].generate(1, self.signblockprivkeys) # Mine a block to clear the gbt cache
 

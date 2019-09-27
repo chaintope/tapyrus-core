@@ -77,6 +77,7 @@ class TestNode():
             "-datadir=" + self.datadir,
             "-logtimemicros",
             "-debug",
+            #"-reindex",
             "-debugexclude=libevent",
             "-debugexclude=leveldb",
             "-mocktime=" + str(mocktime),

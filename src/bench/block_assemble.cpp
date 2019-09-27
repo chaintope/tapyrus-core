@@ -80,8 +80,6 @@ static void AssembleBlock(benchmark::State& state)
         CValidationState state;
         ActivateBestChain(state, chainparams);
         assert(::chainActive.Tip() != nullptr);
-        const bool witness_enabled{IsWitnessEnabled(::chainActive.Tip(), chainparams.GetConsensus())};
-        assert(witness_enabled);
     }
 
     // Collect some loose transactions that spend the coinbases of our mined blocks

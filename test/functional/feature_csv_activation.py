@@ -154,6 +154,11 @@ class BIP68_112_113Test(BitcoinTestFramework):
         Call with success = False if the tip shouldn't advance to the most recent block."""
         self.nodes[0].p2p.send_blocks_and_test(blocks, self.nodes[0], success=success, reject_code=reject_code, reject_reason=reject_reason, request_block=request_block)
 
+        if not success and reject_code == 16:
+            #reconnect as this node is disconnected for sending the invalid block.
+            self.nodes[0].add_p2p_connection(P2PDataStore())
+            self.nodes[0].p2p.wait_for_getheaders(timeout=5)
+
     def run_test(self):
         self.nodes[0].add_p2p_connection(P2PDataStore())
 
@@ -242,7 +247,6 @@ class BIP68_112_113Test(BitcoinTestFramework):
 
         self.log.info("TESTING")
 
-        self.log.info("Pre-Soft Fork Tests.")
         self.log.info("Test version 1 txs")
 
         success_txs = []
@@ -252,8 +256,8 @@ class BIP68_112_113Test(BitcoinTestFramework):
         success_txs.append(bip113signed1)
         # add BIP 68 txs
         success_txs.extend(all_rlt_txs(bip68txs_v1))
-        self.sync_blocks([self.create_test_block(success_txs)])
-        self.nodes[0].invalidateblock(self.nodes[0].getbestblockhash())
+
+        self.sync_blocks([self.create_test_block(success_txs)], success=False, reject_code=16, reject_reason=b'bad-txns-nonfinal')
 
         self.sync_blocks([self.create_test_block([bip112tx_special_v1])], success=False, reject_code=16, reject_reason=b'block-validation-failed')
 
@@ -261,13 +265,13 @@ class BIP68_112_113Test(BitcoinTestFramework):
         bip112txs = []
         bip112txs.extend(all_rlt_txs(bip112txs_vary_nSequence_v1))
         bip112txs.extend(all_rlt_txs(bip112txs_vary_OP_CSV_v1))
-        self.sync_blocks([self.create_test_block(bip112txs)], success=False, reject_code=16, reject_reason=b'block-validation-failed')
+        self.sync_blocks([self.create_test_block(bip112txs)], success=False, reject_code=16, reject_reason=b'bad-txns-nonfinal')
 
         # try BIP 112 with seq=9 txs
         bip112txs = []
         bip112txs.extend(all_rlt_txs(bip112txs_vary_nSequence_9_v1))
         bip112txs.extend(all_rlt_txs(bip112txs_vary_OP_CSV_9_v1))
-        self.sync_blocks([self.create_test_block(bip112txs)], success=False, reject_code=16, reject_reason=b'block-validation-failed')
+        self.sync_blocks([self.create_test_block(bip112txs)], success=False, reject_code=16, reject_reason=b'bad-txns-nonfinal')
 
         self.log.info("Test version 2 txs")
 
@@ -278,8 +282,8 @@ class BIP68_112_113Test(BitcoinTestFramework):
         success_txs.append(bip113signed2)
         # add BIP 68 txs
         success_txs.extend(all_rlt_txs(bip68txs_v2))
-        self.sync_blocks([self.create_test_block(success_txs)])
-        self.nodes[0].invalidateblock(self.nodes[0].getbestblockhash())
+
+        self.sync_blocks([self.create_test_block(success_txs)], success=False, reject_code=16, reject_reason=b'bad-txns-nonfinal')
 
         self.sync_blocks([self.create_test_block([bip112tx_special_v2])], success=False, reject_code=16)
 
@@ -296,26 +300,23 @@ class BIP68_112_113Test(BitcoinTestFramework):
         self.sync_blocks([self.create_test_block(bip112txs)], success=False, reject_code=16)
 
         # 1 more version 4 block to get us to height 575 so the fork should now be active for the next block
-        test_blocks = self.generate_blocks(1, 1)
+        test_blocks = self.generate_blocks(4, 1)
         self.sync_blocks(test_blocks)
-
-        self.log.info("Post-Soft Fork Tests.")
 
         self.log.info("BIP 113 tests")
         # BIP 113 tests should now fail regardless of version number if nLockTime isn't satisfied by new rules
-        bip113tx_v1.nLockTime = self.last_block_time - 600 * 5  # = MTP of prior block (not <) but < time put on current block
+        bip113tx_v1.nLockTime = self.last_block_time 
         bip113signed1 = sign_transaction(self.nodes[0], bip113tx_v1)
-        bip113tx_v2.nLockTime = self.last_block_time - 600 * 5  # = MTP of prior block (not <) but < time put on current block
+        bip113tx_v2.nLockTime = self.last_block_time
         bip113signed2 = sign_transaction(self.nodes[0], bip113tx_v2)
-        for bip113tx in [bip113signed1]:
-            self.sync_blocks([self.create_test_block([bip113tx])], success=True)
-            self.nodes[0].invalidateblock(self.nodes[0].getbestblockhash())
+        for bip113tx in [bip113signed1, bip113signed2]:
+            self.sync_blocks([self.create_test_block([bip113tx])], success=False, reject_code=16, reject_reason=b'bad-txns-nonfinal')
         # BIP 113 tests should now pass if the locktime is < MTP
         bip113tx_v1.nLockTime = self.last_block_time - 600 * 5 - 1  # < MTP of prior block
         bip113signed1 = sign_transaction(self.nodes[0], bip113tx_v1)
         bip113tx_v2.nLockTime = self.last_block_time - 600 * 5 - 1  # < MTP of prior block
         bip113signed2 = sign_transaction(self.nodes[0], bip113tx_v2)
-        for bip113tx in [bip113signed2]:
+        for bip113tx in [bip113signed1, bip113signed2]:
             self.sync_blocks([self.create_test_block([bip113tx])])
             self.nodes[0].invalidateblock(self.nodes[0].getbestblockhash())
 
@@ -328,8 +329,7 @@ class BIP68_112_113Test(BitcoinTestFramework):
 
         success_txs = []
         success_txs.extend(all_rlt_txs(bip68txs_v1))
-        self.sync_blocks([self.create_test_block(success_txs)])
-        self.nodes[0].invalidateblock(self.nodes[0].getbestblockhash())
+        self.sync_blocks([self.create_test_block(success_txs)], success=False, reject_code=16, reject_reason=b'bad-txns-nonfinal')
 
         self.log.info("Test version 2 txs")
 
@@ -346,7 +346,7 @@ class BIP68_112_113Test(BitcoinTestFramework):
 
         bip68heighttxs = [tx['tx'] for tx in bip68txs_v2 if not tx['sdf'] and not tx['stf']]
         for tx in bip68heighttxs:
-            self.sync_blocks([self.create_test_block([tx])], success=True)
+            self.sync_blocks([self.create_test_block(bip68success_txs)])
             self.nodes[0].invalidateblock(self.nodes[0].getbestblockhash())
 
         # Advance one block to 581
