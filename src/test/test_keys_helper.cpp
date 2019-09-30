@@ -1,4 +1,5 @@
 // Copyright (c) 2018-2019 chaintope Inc.
+// Copyright (c) 2018-2019 Chaintope Inc.
 
 #include <test/test_keys_helper.h>
 

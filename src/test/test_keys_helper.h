@@ -1,4 +1,5 @@
 // Copyright (c) 2018-2019 chaintope Inc.
+// Copyright (c) 2018-2019 Chaintope Inc.
 
 #ifndef TAPYRUS_TEST_TEST_KEYS_HELPER_H
 #define TAPYRUS_TEST_TEST_KEYS_HELPER_H
