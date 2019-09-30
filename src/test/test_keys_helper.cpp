@@ -1,4 +1,6 @@
-// Copyright (c) 2018-2019 chaintope Inc.
+// Copyright (c) 2018-2019 Chaintope Inc.
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <test/test_keys_helper.h>
 
