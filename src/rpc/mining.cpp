@@ -69,7 +69,7 @@ UniValue generateBlocks(std::shared_ptr<CReserveScript> coinbaseScript, int nGen
             for(uint i=0; i < vecPrivKeys.size(); i++) {
                 Signature sign;
                 CKey ckey = vecPrivKeys[i];
-                ckey.Sign(blockHash, sign);
+                ckey.Sign_ECDSA(blockHash, sign);
                 proof.push_back(sign);
             }
             if(!pblock->AbsorbBlockProof(proof, Params().GetSignedBlocksCondition())){

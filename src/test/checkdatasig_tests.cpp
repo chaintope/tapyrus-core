@@ -144,7 +144,7 @@ BOOST_AUTO_TEST_CASE(checkdatasig_test) {
     // Check valid signatures (as in the signature format is valid).
     valtype validsig;
     //sign
-    kd.privkey.Sign(messageHash, validsig);
+    kd.privkey.Sign_ECDSA(messageHash, validsig);
 
     CheckPass(STANDARD_SCRIPT_VERIFY_FLAGS, {validsig, message, pubkey}, CScript() << OP_CHECKDATASIG, {{0x01}});
 

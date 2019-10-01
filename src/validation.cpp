@@ -2948,7 +2948,7 @@ static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,
     while(proofIter != block.proof.end() && pubkeyIter != signedBlocksCondition.pubkeys.end())
     {
         //verify signature
-        bool match = pubkeyIter->Verify(blockHash, *proofIter);
+        bool match = pubkeyIter->Verify_ECDSA(blockHash, *proofIter);
         pubkeyIter++;
         if(match)
             proofIter++;

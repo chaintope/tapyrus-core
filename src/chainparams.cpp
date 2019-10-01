@@ -411,7 +411,7 @@ CBlock createGenesisBlock(const MultisigCondition& signedBlocksCondition, const 
     uint256 blockHash = genesis.GetHashForSign();
     std::vector<unsigned char> vchSig;
     for(auto key : privateKeys) {
-        key.Sign(blockHash, vchSig);
+        key.Sign_ECDSA(blockHash, vchSig);
         genesisProof.addSignature(vchSig);
     }
 

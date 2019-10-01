@@ -21,6 +21,12 @@ class CTransaction;
 
 struct CMutableTransaction;
 
+enum class SignatureScheme
+{
+    ECDSA = 1,
+    SCHNORR = 2
+};
+
 /** An interface to be implemented by keystores that support signing. */
 class SigningProvider
 {
@@ -74,9 +80,10 @@ class MutableTransactionSignatureCreator : public BaseSignatureCreator {
     int nHashType;
     CAmount amount;
     const MutableTransactionSignatureChecker checker;
+    SignatureScheme sigScheme;
 
 public:
-    MutableTransactionSignatureCreator(const CMutableTransaction* txToIn, unsigned int nInIn, const CAmount& amountIn, int nHashTypeIn = SIGHASH_ALL);
+    MutableTransactionSignatureCreator(const CMutableTransaction* txToIn, unsigned int nInIn, const CAmount& amountIn, int nHashTypeIn = SIGHASH_ALL, const SignatureScheme sigScheme = SignatureScheme::ECDSA);
     const BaseSignatureChecker& Checker() const override { return checker; }
     bool CreateSig(const SigningProvider& provider, std::vector<unsigned char>& vchSig, const CKeyID& keyid, const CScript& scriptCode, SigVersion sigversion) const override;
 };

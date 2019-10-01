@@ -748,7 +748,7 @@ static UniValue combinerawtransaction(const JSONRPCRequest& request)
     return EncodeHexTx(mergedTx);
 }
 
-UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival, CBasicKeyStore *keystore, bool is_temp_keystore, const UniValue& hashType)
+UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival, CBasicKeyStore *keystore, bool is_temp_keystore, const UniValue& hashType, const SignatureScheme sigScheme)
 {
     // Fetch previous transactions (inputs):
     CCoinsView viewDummy;
@@ -856,7 +856,7 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival
         SignatureData sigdata = DataFromTransaction(mtx, i, coin.out);
         // Only sign SIGHASH_SINGLE if there's a corresponding output:
         if (!fHashSingle || (i < mtx.vout.size())) {
-            ProduceSignature(*keystore, MutableTransactionSignatureCreator(&mtx, i, amount, nHashType), prevPubKey, sigdata);
+            ProduceSignature(*keystore, MutableTransactionSignatureCreator(&mtx, i, amount, nHashType, sigScheme), prevPubKey, sigdata);
         }
 
         UpdateInput(txin, sigdata);
@@ -890,7 +890,7 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival
 
 static UniValue signrawtransactionwithkey(const JSONRPCRequest& request)
 {
-    if (request.fHelp || request.params.size() < 2 || request.params.size() > 4)
+    if (request.fHelp || request.params.size() < 2 || request.params.size() > 5)
         throw std::runtime_error(
             "signrawtransactionwithkey \"hexstring\" [\"privatekey1\",...] ( [{\"txid\":\"id\",\"vout\":n,\"scriptPubKey\":\"hex\",\"redeemScript\":\"hex\"},...] sighashtype )\n"
             "\nSign inputs for raw transaction (serialized, hex-encoded).\n"
@@ -924,6 +924,9 @@ static UniValue signrawtransactionwithkey(const JSONRPCRequest& request)
             "       \"ALL|ANYONECANPAY\"\n"
             "       \"NONE|ANYONECANPAY\"\n"
             "       \"SINGLE|ANYONECANPAY\"\n"
+            "5. \"sigscheme\"                    (string, optional, default=ECDSA) The signature scheme to use for this transaction\n"
+            "       \"ECDSA\"\n"
+            "       \"SCHNORR\"\n"
 
             "\nResult:\n"
             "{\n"
@@ -964,7 +967,11 @@ static UniValue signrawtransactionwithkey(const JSONRPCRequest& request)
         keystore.AddKey(key);
     }
 
-    return SignTransaction(mtx, request.params[2], &keystore, true, request.params[3]);
+    SignatureScheme sigScheme(SignatureScheme::ECDSA);
+    if(!request.params[4].isNull() && request.params[4].get_str() == "SCHNORR")
+        sigScheme = SignatureScheme::SCHNORR;
+
+    return SignTransaction(mtx, request.params[2], &keystore, true, request.params[3], sigScheme);
 }
 
 UniValue signrawtransaction(const JSONRPCRequest& request)
@@ -974,7 +981,7 @@ UniValue signrawtransaction(const JSONRPCRequest& request)
     CWallet* const pwallet = wallet.get();
 #endif
 
-    if (request.fHelp || request.params.size() < 1 || request.params.size() > 4)
+    if (request.fHelp || request.params.size() < 1 || request.params.size() > 5)
         throw std::runtime_error(
             "signrawtransaction \"hexstring\" ( [{\"txid\":\"id\",\"vout\":n,\"scriptPubKey\":\"hex\",\"redeemScript\":\"hex\"},...] [\"privatekey1\",...] sighashtype )\n"
             "\nDEPRECATED. Sign inputs for raw transaction (serialized, hex-encoded).\n"
@@ -1010,6 +1017,9 @@ UniValue signrawtransaction(const JSONRPCRequest& request)
             "       \"ALL|ANYONECANPAY\"\n"
             "       \"NONE|ANYONECANPAY\"\n"
             "       \"SINGLE|ANYONECANPAY\"\n"
+            "5. \"sigscheme\"                    (string, optional, default=ECDSA) The signature scheme to use for this transaction\n"
+            "       \"ECDSA\"\n"
+            "       \"SCHNORR\"\n"
 
             "\nResult:\n"
             "{\n"
@@ -1052,6 +1062,7 @@ UniValue signrawtransaction(const JSONRPCRequest& request)
         new_request.params.push_back(request.params[2]);
         new_request.params.push_back(request.params[1]);
         new_request.params.push_back(request.params[3]);
+        new_request.params.push_back(request.params[4]);
         return signrawtransactionwithkey(new_request);
     } else {
 #ifdef ENABLE_WALLET
@@ -1059,6 +1070,7 @@ UniValue signrawtransaction(const JSONRPCRequest& request)
         new_request.params.push_back(request.params[0]);
         new_request.params.push_back(request.params[1]);
         new_request.params.push_back(request.params[3]);
+        new_request.params.push_back(request.params[4]);
         return signrawtransactionwithwallet(new_request);
 #else
         // If we have made it this far, then wallet is disabled and no private keys were given, so fail here.

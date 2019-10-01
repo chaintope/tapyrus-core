@@ -143,7 +143,7 @@ const CProof createSignedBlockProof(CBlock &block, int proofsize)
 
     for(int i = 0; i < proofsize; i++)
     {
-        testKeys[i].Sign(blockHash, vchSig);
+        testKeys[i].Sign_ECDSA(blockHash, vchSig);
         blockProof.addSignature(vchSig);
     }
 

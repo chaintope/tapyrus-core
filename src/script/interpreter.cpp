@@ -941,7 +941,9 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                             return set_error(serror, SCRIPT_ERR_SIG_FINDANDDELETE);
                     }
 
-                    if (!CheckSignatureEncoding(vchSig, serror) || !CheckPubKeyEncoding(vchPubKey, flags, sigversion, serror)) {
+                    if ( (vchSig.size() != CPubKey::COMPACT_SIGNATURE_SIZE
+                         && !CheckSignatureEncoding(vchSig, serror))
+                        || !CheckPubKeyEncoding(vchPubKey, flags, sigversion, serror)) {
                         //serror is set
                         return false;
                     }
@@ -976,8 +978,9 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                     valtype &vchPubKey = stacktop(-1);
 
                     //check signature encoding without hashtype byte
-                    if (!CheckSignatureEncoding(vchSig, serror, true) ||
-                        !CheckPubKeyEncoding(vchPubKey, flags, sigversion, serror)) {
+                    if ( (vchSig.size() != CPubKey::COMPACT_SIGNATURE_SIZE - 1
+                         && !CheckSignatureEncoding(vchSig, serror, true))
+                        || !CheckPubKeyEncoding(vchPubKey, flags, sigversion, serror)) {
                         // serror is set
                         return false;
                     }
@@ -1063,7 +1066,9 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                         // Note how this makes the exact order of pubkey/signature evaluation
                         // distinguishable by CHECKMULTISIG NOT if the STRICTENC flag is set.
                         // See the script_(in)valid tests for details.
-                        if (!CheckSignatureEncoding(vchSig, serror) || !CheckPubKeyEncoding(vchPubKey, flags, sigversion, serror)) {
+                        if ( (vchSig.size() != CPubKey::COMPACT_SIGNATURE_SIZE
+                             && !CheckSignatureEncoding(vchSig, serror))
+                            || !CheckPubKeyEncoding(vchPubKey, flags, sigversion, serror)) {
                             // serror is set
                             return false;
                         }
@@ -1366,7 +1371,10 @@ uint256 SignatureHash(const CScript& scriptCode, const T& txTo, unsigned int nIn
 template <class T>
 bool GenericTransactionSignatureChecker<T>::VerifySignature(const std::vector<unsigned char>& vchSig, const CPubKey& pubkey, const uint256& sighash) const
 {
-    return pubkey.Verify(sighash, vchSig);
+    if(vchSig.size() == 64)
+        return pubkey.Verify_Schnorr(sighash, vchSig);
+    else
+        return pubkey.Verify_ECDSA(sighash, vchSig);
 }
 
 template <class T>
