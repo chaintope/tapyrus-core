@@ -99,8 +99,11 @@ BOOST_AUTO_TEST_CASE(multisig_verify)
         keys.assign(1,key[0]);
         keys.push_back(key[1]);
         s = sign_multisig(a_and_b, keys, txTo[0], 0, mode);
-        BOOST_CHECK(VerifyScript(s, a_and_b, nullptr, flags, MutableTransactionSignatureChecker(&txTo[0], 0, amount), &err));
-        BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
+        BOOST_CHECK_EQUAL(VerifyScript(s, a_and_b, nullptr, flags, MutableTransactionSignatureChecker(&txTo[0], 0, amount), &err),  (mode != TestMode::MIXED));
+        if(mode == TestMode::MIXED)
+            BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_MIXED_SCHEME_MULTISIG, ScriptErrorString(err));
+        else
+            BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
 
         for (int i = 0; i < 4; i++)
         {
@@ -113,7 +116,10 @@ BOOST_AUTO_TEST_CASE(multisig_verify)
             keys.push_back(key[i]);
             s = sign_multisig(a_and_b, keys, txTo[0], 0, mode);
             BOOST_CHECK_MESSAGE(!VerifyScript(s, a_and_b, nullptr, flags, MutableTransactionSignatureChecker(&txTo[0], 0, amount), &err), strprintf("a&b 2: %d", i));
-            BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_EVAL_FALSE, ScriptErrorString(err));
+            if(mode == TestMode::MIXED && i == 1)
+                BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_MIXED_SCHEME_MULTISIG, ScriptErrorString(err));
+            else
+                BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_EVAL_FALSE, ScriptErrorString(err));
         }
 
         // Test a OR b:
@@ -146,13 +152,19 @@ BOOST_AUTO_TEST_CASE(multisig_verify)
                 s = sign_multisig(escrow, keys, txTo[2], 0, mode);
                 if (i < j && i < 3 && j < 3)
                 {
-                    BOOST_CHECK_MESSAGE(VerifyScript(s, escrow, nullptr, flags, MutableTransactionSignatureChecker(&txTo[2], 0, amount), &err), strprintf("escrow 1: %d %d", i, j));
-                    BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
+                    BOOST_CHECK_MESSAGE(VerifyScript(s, escrow, nullptr, flags, MutableTransactionSignatureChecker(&txTo[2], 0, amount), &err) == (mode != TestMode::MIXED), strprintf("escrow 1: %d %d", i, j));
+                    if(mode == TestMode::MIXED)
+                        BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_MIXED_SCHEME_MULTISIG, ScriptErrorString(err));
+                    else
+                        BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
                 }
                 else
                 {
                     BOOST_CHECK_MESSAGE(!VerifyScript(s, escrow, nullptr, flags, MutableTransactionSignatureChecker(&txTo[2], 0, amount), &err), strprintf("escrow 2: %d %d", i, j));
-                    BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_EVAL_FALSE, ScriptErrorString(err));
+                    if(mode == TestMode::MIXED && (j==1 || j ==2))
+                        BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_MIXED_SCHEME_MULTISIG, strprintf("escrow 2: %d %d", i, j));
+                    else
+                        BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_EVAL_FALSE, ScriptErrorString(err));
                 }
             }
     }

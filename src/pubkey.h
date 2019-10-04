@@ -17,6 +17,12 @@
 
 const unsigned int BIP32_EXTKEY_SIZE = 74;
 
+enum class SignatureScheme
+{
+    ECDSA = 1,
+    SCHNORR = 2
+};
+
 /** A reference to a CKey: the Hash160 of its serialized public key */
 class CKeyID : public uint160
 {

@@ -21,12 +21,6 @@ class CTransaction;
 
 struct CMutableTransaction;
 
-enum class SignatureScheme
-{
-    ECDSA = 1,
-    SCHNORR = 2
-};
-
 /** An interface to be implemented by keystores that support signing. */
 class SigningProvider
 {

@@ -1058,19 +1058,26 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                     }
 
                     bool fSuccess = true;
+                    const SignatureScheme currentScheme(stacktop(-isig).size() == CPubKey::COMPACT_SIGNATURE_SIZE ?SignatureScheme::SCHNORR : SignatureScheme::ECDSA);
                     while (fSuccess && nSigsCount > 0)
                     {
+
                         valtype& vchSig    = stacktop(-isig);
                         valtype& vchPubKey = stacktop(-ikey);
+                        SignatureScheme scheme = (vchSig.size() == CPubKey::COMPACT_SIGNATURE_SIZE ?SignatureScheme::SCHNORR : SignatureScheme::ECDSA);
 
                         // Note how this makes the exact order of pubkey/signature evaluation
                         // distinguishable by CHECKMULTISIG NOT if the STRICTENC flag is set.
                         // See the script_(in)valid tests for details.
                         if ( (vchSig.size() != CPubKey::COMPACT_SIGNATURE_SIZE
-                             && !CheckSignatureEncoding(vchSig, serror))
+                            && !CheckSignatureEncoding(vchSig, serror))
                             || !CheckPubKeyEncoding(vchPubKey, flags, sigversion, serror)) {
                             // serror is set
                             return false;
+                        }
+
+                        if(scheme != currentScheme) {
+                            return set_error(serror, SCRIPT_ERR_MIXED_SCHEME_MULTISIG);
                         }
 
                         // Check signature

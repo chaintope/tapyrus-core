@@ -50,6 +50,8 @@ const char* ScriptErrorString(const ScriptError serror)
             return "OP_RETURN was encountered";
         case SCRIPT_ERR_UNBALANCED_CONDITIONAL:
             return "Invalid OP_IF construction";
+        case SCRIPT_ERR_MIXED_SCHEME_MULTISIG:
+            return "Signatures of different schemes in OP_MULTISIG";
         case SCRIPT_ERR_NEGATIVE_LOCKTIME:
             return "Negative locktime";
         case SCRIPT_ERR_UNSATISFIED_LOCKTIME:
