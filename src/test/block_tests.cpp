@@ -114,13 +114,13 @@ CProof createSignedBlockProof(CBlock &block)
     std::vector<unsigned char> vchSig;
     uint256 blockHash = block.GetHashForSign();
 
-    validKeys.key[0].Sign(blockHash, vchSig);
+    validKeys.key[0].Sign_ECDSA(blockHash, vchSig);
     blockProof.addSignature(vchSig);
 
-    validKeys.key[1].Sign(blockHash, vchSig);
+    validKeys.key[1].Sign_ECDSA(blockHash, vchSig);
     blockProof.addSignature(vchSig);
 
-    validKeys.key[2].Sign(blockHash, vchSig);
+    validKeys.key[2].Sign_ECDSA(blockHash, vchSig);
     blockProof.addSignature(vchSig);
 
     return blockProof;
@@ -195,7 +195,7 @@ BOOST_AUTO_TEST_CASE(AbsorbBlockProof_ordering_test) {
         for (int j = 0; j < 3; j++ ) //signatures
         {
             //verify signature
-            if (signedBlocksCondition.pubkeys[i].Verify(blockHash, blockProof[j]))
+            if (signedBlocksCondition.pubkeys[i].Verify_ECDSA(blockHash, blockProof[j]))
             {
                 indexMap[i] = j;
                 break;
@@ -286,7 +286,7 @@ BOOST_AUTO_TEST_CASE(create_genesis_block_one_publickey)
     const uint256 blockHash = chainParams->GenesisBlock().GetHashForSign();
     std::vector<CPubKey>::const_iterator pubkeyIter = condition.pubkeys.begin();
 
-    BOOST_CHECK(pubkeyIter->Verify(blockHash, chainParams->GenesisBlock().proof[0]));
+    BOOST_CHECK(pubkeyIter->Verify_ECDSA(blockHash, chainParams->GenesisBlock().proof[0]));
 }
 
 BOOST_AUTO_TEST_SUITE_END()

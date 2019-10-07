@@ -3667,7 +3667,7 @@ UniValue signrawtransactionwithwallet(const JSONRPCRequest& request)
         return NullUniValue;
     }
 
-    if (request.fHelp || request.params.size() < 1 || request.params.size() > 3)
+    if (request.fHelp || request.params.size() < 1 || request.params.size() > 4)
         throw std::runtime_error(
             "signrawtransactionwithwallet \"hexstring\" ( [{\"txid\":\"id\",\"vout\":n,\"scriptPubKey\":\"hex\",\"redeemScript\":\"hex\"},...] sighashtype )\n"
             "\nSign inputs for raw transaction (serialized, hex-encoded).\n"
@@ -3695,6 +3695,9 @@ UniValue signrawtransactionwithwallet(const JSONRPCRequest& request)
             "       \"ALL|ANYONECANPAY\"\n"
             "       \"NONE|ANYONECANPAY\"\n"
             "       \"SINGLE|ANYONECANPAY\"\n"
+            "4. \"sigscheme\"                    (string, optional, default=ECDSA) The signature scheme to use for this transaction\n"
+            "       \"ECDSA\"\n"
+            "       \"SCHNORR\"\n"
 
             "\nResult:\n"
             "{\n"
@@ -3724,9 +3727,13 @@ UniValue signrawtransactionwithwallet(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
     }
 
+    SignatureScheme sigScheme(SignatureScheme::ECDSA);
+    if(!request.params[4].isNull() && request.params[3].get_str() == "SCHNORR")
+        sigScheme = SignatureScheme::SCHNORR;
+
     // Sign the transaction
     LOCK2(cs_main, pwallet->cs_wallet);
-    return SignTransaction(mtx, request.params[1], pwallet, false, request.params[2]);
+    return SignTransaction(mtx, request.params[1], pwallet, false, request.params[2], sigScheme);
 }
 
 static UniValue bumpfee(const JSONRPCRequest& request)

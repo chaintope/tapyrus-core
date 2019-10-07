@@ -12,6 +12,7 @@
 #include <random.h>
 
 #include <secp256k1.h>
+#include <secp256k1_schnorr.h>
 #include <secp256k1_recovery.h>
 
 static secp256k1_context* secp256k1_context_sign = nullptr;
@@ -203,7 +204,7 @@ bool SigHasLowR(const secp256k1_ecdsa_signature* sig)
     return compact_sig[0] < 0x80;
 }
 
-bool CKey::Sign(const uint256 &hash, std::vector<unsigned char>& vchSig, bool grind, uint32_t test_case) const {
+bool CKey::Sign_ECDSA(const uint256 &hash, std::vector<unsigned char>& vchSig, bool grind, uint32_t test_case) const {
     if (!fValid)
         return false;
     vchSig.resize(CPubKey::SIGNATURE_SIZE);
@@ -225,6 +226,21 @@ bool CKey::Sign(const uint256 &hash, std::vector<unsigned char>& vchSig, bool gr
     return true;
 }
 
+bool CKey::Sign_Schnorr(const uint256 &hash, std::vector<uint8_t> &vchSig, uint32_t test_case) const {
+    if (!fValid) {
+        return false;
+    }
+    vchSig.resize(CPubKey::COMPACT_SIGNATURE_SIZE - 1); //without sighash type byte
+    uint8_t extra_entropy[32] = {0};
+    WriteLE32(extra_entropy, test_case);
+    uint32_t counter = 0;
+
+    int ret = secp256k1_schnorr_sign(secp256k1_context_sign, &vchSig[0], hash.begin(), begin(), secp256k1_nonce_function_rfc6979, test_case ? extra_entropy : nullptr);
+
+    assert(ret);
+    return true;
+}
+
 bool CKey::VerifyPubKey(const CPubKey& pubkey) const {
     if (pubkey.IsCompressed() != fCompressed) {
         return false;
@@ -235,8 +251,8 @@ bool CKey::VerifyPubKey(const CPubKey& pubkey) const {
     uint256 hash;
     CHash256().Write((unsigned char*)str.data(), str.size()).Write(rnd, sizeof(rnd)).Finalize(hash.begin());
     std::vector<unsigned char> vchSig;
-    Sign(hash, vchSig);
-    return pubkey.Verify(hash, vchSig);
+    Sign_ECDSA(hash, vchSig);
+    return pubkey.Verify_ECDSA(hash, vchSig);
 }
 
 bool CKey::SignCompact(const uint256 &hash, std::vector<unsigned char>& vchSig) const {

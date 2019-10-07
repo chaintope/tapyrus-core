@@ -19,8 +19,14 @@
 
 BOOST_FIXTURE_TEST_SUITE(multisig_tests, BasicTestingSetup)
 
+enum class TestMode
+{
+    ECDSA = 0,
+    SCHNORR = 1,
+    MIXED //mix ECDSA and SCHNORR signatures (should fail)
+};
 static CScript
-sign_multisig(const CScript& scriptPubKey, const std::vector<CKey>& keys, const CTransaction& transaction, int whichIn)
+sign_multisig(const CScript& scriptPubKey, const std::vector<CKey>& keys, const CTransaction& transaction, int whichIn, TestMode mode)
 {
     uint256 hash = SignatureHash(scriptPubKey, transaction, whichIn, SIGHASH_ALL, 0, SigVersion::BASE);
 
@@ -29,7 +35,20 @@ sign_multisig(const CScript& scriptPubKey, const std::vector<CKey>& keys, const 
     for (const CKey &key : keys)
     {
         std::vector<unsigned char> vchSig;
-        BOOST_CHECK(key.Sign(hash, vchSig));
+        if(mode == TestMode::ECDSA)
+            BOOST_CHECK(key.Sign_ECDSA(hash, vchSig));
+        else if(mode == TestMode::SCHNORR)
+            BOOST_CHECK(key.Sign_Schnorr(hash, vchSig));
+        else
+        {   //alternate between ECDSA and Schnorr signatures
+            static int i = 0;
+            if(i % 2 == 0)
+                BOOST_CHECK(key.Sign_ECDSA(hash, vchSig));
+            else
+                BOOST_CHECK(key.Sign_Schnorr(hash, vchSig));
+            i++;
+        }
+        
         vchSig.push_back((unsigned char)SIGHASH_ALL);
         result << vchSig;
     }
@@ -74,66 +93,81 @@ BOOST_AUTO_TEST_CASE(multisig_verify)
     std::vector<CKey> keys;
     CScript s;
 
-    // Test a AND b:
-    keys.assign(1,key[0]);
-    keys.push_back(key[1]);
-    s = sign_multisig(a_and_b, keys, txTo[0], 0);
-    BOOST_CHECK(VerifyScript(s, a_and_b, nullptr, flags, MutableTransactionSignatureChecker(&txTo[0], 0, amount), &err));
-    BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
-
-    for (int i = 0; i < 4; i++)
+    for(TestMode mode : {TestMode::ECDSA, TestMode::SCHNORR, TestMode::MIXED})
     {
-        keys.assign(1,key[i]);
-        s = sign_multisig(a_and_b, keys, txTo[0], 0);
-        BOOST_CHECK_MESSAGE(!VerifyScript(s, a_and_b, nullptr, flags, MutableTransactionSignatureChecker(&txTo[0], 0, amount), &err), strprintf("a&b 1: %d", i));
-        BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_INVALID_STACK_OPERATION, ScriptErrorString(err));
-
-        keys.assign(1,key[1]);
-        keys.push_back(key[i]);
-        s = sign_multisig(a_and_b, keys, txTo[0], 0);
-        BOOST_CHECK_MESSAGE(!VerifyScript(s, a_and_b, nullptr, flags, MutableTransactionSignatureChecker(&txTo[0], 0, amount), &err), strprintf("a&b 2: %d", i));
-        BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_EVAL_FALSE, ScriptErrorString(err));
-    }
-
-    // Test a OR b:
-    for (int i = 0; i < 4; i++)
-    {
-        keys.assign(1,key[i]);
-        s = sign_multisig(a_or_b, keys, txTo[1], 0);
-        if (i == 0 || i == 1)
-        {
-            BOOST_CHECK_MESSAGE(VerifyScript(s, a_or_b, nullptr, flags, MutableTransactionSignatureChecker(&txTo[1], 0, amount), &err), strprintf("a|b: %d", i));
-            BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
-        }
+        // Test a AND b:
+        keys.assign(1,key[0]);
+        keys.push_back(key[1]);
+        s = sign_multisig(a_and_b, keys, txTo[0], 0, mode);
+        BOOST_CHECK_EQUAL(VerifyScript(s, a_and_b, nullptr, flags, MutableTransactionSignatureChecker(&txTo[0], 0, amount), &err),  (mode != TestMode::MIXED));
+        if(mode == TestMode::MIXED)
+            BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_MIXED_SCHEME_MULTISIG, ScriptErrorString(err));
         else
-        {
-            BOOST_CHECK_MESSAGE(!VerifyScript(s, a_or_b, nullptr, flags, MutableTransactionSignatureChecker(&txTo[1], 0, amount), &err), strprintf("a|b: %d", i));
-            BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_EVAL_FALSE, ScriptErrorString(err));
-        }
-    }
-    s.clear();
-    s << OP_0 << OP_1;
-    BOOST_CHECK(!VerifyScript(s, a_or_b, nullptr, flags, MutableTransactionSignatureChecker(&txTo[1], 0, amount), &err));
-    BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_SIG_DER, ScriptErrorString(err));
+            BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
 
-
-    for (int i = 0; i < 4; i++)
-        for (int j = 0; j < 4; j++)
+        for (int i = 0; i < 4; i++)
         {
             keys.assign(1,key[i]);
-            keys.push_back(key[j]);
-            s = sign_multisig(escrow, keys, txTo[2], 0);
-            if (i < j && i < 3 && j < 3)
+            s = sign_multisig(a_and_b, keys, txTo[0], 0, mode);
+            BOOST_CHECK_MESSAGE(!VerifyScript(s, a_and_b, nullptr, flags, MutableTransactionSignatureChecker(&txTo[0], 0, amount), &err), strprintf("a&b 1: %d", i));
+            BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_INVALID_STACK_OPERATION, ScriptErrorString(err));
+
+            keys.assign(1,key[1]);
+            keys.push_back(key[i]);
+            s = sign_multisig(a_and_b, keys, txTo[0], 0, mode);
+            BOOST_CHECK_MESSAGE(!VerifyScript(s, a_and_b, nullptr, flags, MutableTransactionSignatureChecker(&txTo[0], 0, amount), &err), strprintf("a&b 2: %d", i));
+            if(mode == TestMode::MIXED && i == 1)
+                BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_MIXED_SCHEME_MULTISIG, ScriptErrorString(err));
+            else
+                BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_EVAL_FALSE, ScriptErrorString(err));
+        }
+
+        // Test a OR b:
+        for (int i = 0; i < 4; i++)
+        {
+            keys.assign(1,key[i]);
+            s = sign_multisig(a_or_b, keys, txTo[1], 0, mode);
+            if (i == 0 || i == 1)
             {
-                BOOST_CHECK_MESSAGE(VerifyScript(s, escrow, nullptr, flags, MutableTransactionSignatureChecker(&txTo[2], 0, amount), &err), strprintf("escrow 1: %d %d", i, j));
+                BOOST_CHECK_MESSAGE(VerifyScript(s, a_or_b, nullptr, flags, MutableTransactionSignatureChecker(&txTo[1], 0, amount), &err), strprintf("a|b: %d", i));
                 BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
             }
             else
             {
-                BOOST_CHECK_MESSAGE(!VerifyScript(s, escrow, nullptr, flags, MutableTransactionSignatureChecker(&txTo[2], 0, amount), &err), strprintf("escrow 2: %d %d", i, j));
+                BOOST_CHECK_MESSAGE(!VerifyScript(s, a_or_b, nullptr, flags, MutableTransactionSignatureChecker(&txTo[1], 0, amount), &err), strprintf("a|b: %d", i));
                 BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_EVAL_FALSE, ScriptErrorString(err));
             }
         }
+        s.clear();
+        s << OP_0 << OP_1;
+        BOOST_CHECK(!VerifyScript(s, a_or_b, nullptr, flags, MutableTransactionSignatureChecker(&txTo[1], 0, amount), &err));
+        BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_SIG_DER, ScriptErrorString(err));
+
+
+        for (int i = 0; i < 4; i++)
+            for (int j = 0; j < 4; j++)
+            {
+                keys.assign(1,key[i]);
+                keys.push_back(key[j]);
+                s = sign_multisig(escrow, keys, txTo[2], 0, mode);
+                if (i < j && i < 3 && j < 3)
+                {
+                    BOOST_CHECK_MESSAGE(VerifyScript(s, escrow, nullptr, flags, MutableTransactionSignatureChecker(&txTo[2], 0, amount), &err) == (mode != TestMode::MIXED), strprintf("escrow 1: %d %d", i, j));
+                    if(mode == TestMode::MIXED)
+                        BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_MIXED_SCHEME_MULTISIG, ScriptErrorString(err));
+                    else
+                        BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
+                }
+                else
+                {
+                    BOOST_CHECK_MESSAGE(!VerifyScript(s, escrow, nullptr, flags, MutableTransactionSignatureChecker(&txTo[2], 0, amount), &err), strprintf("escrow 2: %d %d", i, j));
+                    if(mode == TestMode::MIXED && (j==1 || j ==2))
+                        BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_MIXED_SCHEME_MULTISIG, strprintf("escrow 2: %d %d", i, j));
+                    else
+                        BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_EVAL_FALSE, ScriptErrorString(err));
+                }
+            }
+    }
 }
 
 BOOST_AUTO_TEST_CASE(multisig_IsStandard)

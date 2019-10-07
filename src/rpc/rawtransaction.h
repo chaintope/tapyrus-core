@@ -8,9 +8,10 @@
 class CBasicKeyStore;
 struct CMutableTransaction;
 class UniValue;
+enum class SignatureScheme;
 
 /** Sign a transaction with the given keystore and previous transactions */
-UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxs, CBasicKeyStore *keystore, bool tempKeystore, const UniValue& hashType);
+UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxs, CBasicKeyStore *keystore, bool tempKeystore, const UniValue& hashType, const SignatureScheme sigScheme);
 
 /** Create a transaction from univalue parameters */
 CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, const UniValue& rbf);

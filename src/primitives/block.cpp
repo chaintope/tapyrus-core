@@ -77,7 +77,7 @@ bool CBlockHeader::AbsorbBlockProof(CProof blockproof, const MultisigCondition& 
         for (; iter != blockproof.end(); iter++)
         {
             //verify signature
-            if (pubkey.Verify(blockHash, *iter))
+            if (pubkey.Verify_ECDSA(blockHash, *iter))
             {
                 //add signatures to block
                 proof.emplace_back(std::move(*iter));

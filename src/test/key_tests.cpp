@@ -80,36 +80,36 @@ BOOST_AUTO_TEST_CASE(key_test1)
         std::string strMsg = strprintf("Very secret message %i: 11", n);
         uint256 hashMsg = Hash(strMsg.begin(), strMsg.end());
 
-        // normal signatures
+        // normal ecdsa signatures
 
-        std::vector<unsigned char> sign1, sign2, sign1C, sign2C;
+        std::vector<unsigned char> sign1, sign2, sign1C, sign2C, signSc1, signSc2, signSc1C, signSc2C;
 
-        BOOST_CHECK(key1.Sign (hashMsg, sign1));
-        BOOST_CHECK(key2.Sign (hashMsg, sign2));
-        BOOST_CHECK(key1C.Sign(hashMsg, sign1C));
-        BOOST_CHECK(key2C.Sign(hashMsg, sign2C));
+        BOOST_CHECK(key1.Sign_ECDSA(hashMsg, sign1));
+        BOOST_CHECK(key2.Sign_ECDSA(hashMsg, sign2));
+        BOOST_CHECK(key1C.Sign_ECDSA(hashMsg, sign1C));
+        BOOST_CHECK(key2C.Sign_ECDSA(hashMsg, sign2C));
 
-        BOOST_CHECK( pubkey1.Verify(hashMsg, sign1));
-        BOOST_CHECK(!pubkey1.Verify(hashMsg, sign2));
-        BOOST_CHECK( pubkey1.Verify(hashMsg, sign1C));
-        BOOST_CHECK(!pubkey1.Verify(hashMsg, sign2C));
+        BOOST_CHECK( pubkey1.Verify_ECDSA(hashMsg, sign1));
+        BOOST_CHECK(!pubkey1.Verify_ECDSA(hashMsg, sign2));
+        BOOST_CHECK( pubkey1.Verify_ECDSA(hashMsg, sign1C));
+        BOOST_CHECK(!pubkey1.Verify_ECDSA(hashMsg, sign2C));
 
-        BOOST_CHECK(!pubkey2.Verify(hashMsg, sign1));
-        BOOST_CHECK( pubkey2.Verify(hashMsg, sign2));
-        BOOST_CHECK(!pubkey2.Verify(hashMsg, sign1C));
-        BOOST_CHECK( pubkey2.Verify(hashMsg, sign2C));
+        BOOST_CHECK(!pubkey2.Verify_ECDSA(hashMsg, sign1));
+        BOOST_CHECK( pubkey2.Verify_ECDSA(hashMsg, sign2));
+        BOOST_CHECK(!pubkey2.Verify_ECDSA(hashMsg, sign1C));
+        BOOST_CHECK( pubkey2.Verify_ECDSA(hashMsg, sign2C));
 
-        BOOST_CHECK( pubkey1C.Verify(hashMsg, sign1));
-        BOOST_CHECK(!pubkey1C.Verify(hashMsg, sign2));
-        BOOST_CHECK( pubkey1C.Verify(hashMsg, sign1C));
-        BOOST_CHECK(!pubkey1C.Verify(hashMsg, sign2C));
+        BOOST_CHECK( pubkey1C.Verify_ECDSA(hashMsg, sign1));
+        BOOST_CHECK(!pubkey1C.Verify_ECDSA(hashMsg, sign2));
+        BOOST_CHECK( pubkey1C.Verify_ECDSA(hashMsg, sign1C));
+        BOOST_CHECK(!pubkey1C.Verify_ECDSA(hashMsg, sign2C));
 
-        BOOST_CHECK(!pubkey2C.Verify(hashMsg, sign1));
-        BOOST_CHECK( pubkey2C.Verify(hashMsg, sign2));
-        BOOST_CHECK(!pubkey2C.Verify(hashMsg, sign1C));
-        BOOST_CHECK( pubkey2C.Verify(hashMsg, sign2C));
+        BOOST_CHECK(!pubkey2C.Verify_ECDSA(hashMsg, sign1));
+        BOOST_CHECK( pubkey2C.Verify_ECDSA(hashMsg, sign2));
+        BOOST_CHECK(!pubkey2C.Verify_ECDSA(hashMsg, sign1C));
+        BOOST_CHECK( pubkey2C.Verify_ECDSA(hashMsg, sign2C));
 
-        // compact signatures (with key recovery)
+        // compact ecdsa signatures (with key recovery)
 
         std::vector<unsigned char> csign1, csign2, csign1C, csign2C;
 
@@ -129,6 +129,37 @@ BOOST_AUTO_TEST_CASE(key_test1)
         BOOST_CHECK(rkey2  == pubkey2);
         BOOST_CHECK(rkey1C == pubkey1C);
         BOOST_CHECK(rkey2C == pubkey2C);
+
+        // schnorr signatures
+        BOOST_CHECK(key1.Sign_Schnorr(hashMsg, signSc1));
+        BOOST_CHECK(key2.Sign_Schnorr(hashMsg, signSc2));
+        BOOST_CHECK(key1C.Sign_Schnorr(hashMsg, signSc1C));
+        BOOST_CHECK(key2C.Sign_Schnorr(hashMsg, signSc2C));
+
+        BOOST_CHECK(signSc1.size() == 64);
+        BOOST_CHECK(signSc2.size() == 64);
+        BOOST_CHECK(signSc1C.size() == 64);
+        BOOST_CHECK(signSc2C.size() == 64);
+
+        BOOST_CHECK( pubkey1.Verify_Schnorr(hashMsg, signSc1));
+        BOOST_CHECK(!pubkey1.Verify_Schnorr(hashMsg, signSc2));
+        BOOST_CHECK( pubkey1.Verify_Schnorr(hashMsg, signSc1C));
+        BOOST_CHECK(!pubkey1.Verify_Schnorr(hashMsg, signSc2C));
+
+        BOOST_CHECK(!pubkey2.Verify_Schnorr(hashMsg, signSc1));
+        BOOST_CHECK( pubkey2.Verify_Schnorr(hashMsg, signSc2));
+        BOOST_CHECK(!pubkey2.Verify_Schnorr(hashMsg, signSc1C));
+        BOOST_CHECK( pubkey2.Verify_Schnorr(hashMsg, signSc2C));
+
+        BOOST_CHECK( pubkey1C.Verify_Schnorr(hashMsg, signSc1));
+        BOOST_CHECK(!pubkey1C.Verify_Schnorr(hashMsg, signSc2));
+        BOOST_CHECK( pubkey1C.Verify_Schnorr(hashMsg, signSc1C));
+        BOOST_CHECK(!pubkey1C.Verify_Schnorr(hashMsg, signSc2C));
+
+        BOOST_CHECK(!pubkey2C.Verify_Schnorr(hashMsg, signSc1));
+        BOOST_CHECK( pubkey2C.Verify_Schnorr(hashMsg, signSc2));
+        BOOST_CHECK(!pubkey2C.Verify_Schnorr(hashMsg, signSc1C));
+        BOOST_CHECK( pubkey2C.Verify_Schnorr(hashMsg, signSc2C));
     }
 
     // test deterministic signing
@@ -136,12 +167,12 @@ BOOST_AUTO_TEST_CASE(key_test1)
     std::vector<unsigned char> detsig, detsigc;
     std::string strMsg = "Very deterministic message";
     uint256 hashMsg = Hash(strMsg.begin(), strMsg.end());
-    BOOST_CHECK(key1.Sign(hashMsg, detsig));
-    BOOST_CHECK(key1C.Sign(hashMsg, detsigc));
+    BOOST_CHECK(key1.Sign_ECDSA(hashMsg, detsig));
+    BOOST_CHECK(key1C.Sign_ECDSA(hashMsg, detsigc));
     BOOST_CHECK(detsig == detsigc);
     BOOST_CHECK(detsig == ParseHex("304402205dbbddda71772d95ce91cd2d14b592cfbc1dd0aabd6a394b6c2d377bbe59d31d022014ddda21494a4e221f0824f0b8b924c43fa43c0ad57dccdaa11f81a6bd4582f6"));
-    BOOST_CHECK(key2.Sign(hashMsg, detsig));
-    BOOST_CHECK(key2C.Sign(hashMsg, detsigc));
+    BOOST_CHECK(key2.Sign_ECDSA(hashMsg, detsig));
+    BOOST_CHECK(key2C.Sign_ECDSA(hashMsg, detsigc));
     BOOST_CHECK(detsig == detsigc);
     BOOST_CHECK(detsig == ParseHex("3044022052d8a32079c11e79db95af63bb9600c5b04f21a9ca33dc129c2bfa8ac9dc1cd5022061d8ae5e0f6c1a16bde3719c64c2fd70e404b6428ab9a69566962e8771b5944d"));
     BOOST_CHECK(key1.SignCompact(hashMsg, detsig));
@@ -152,6 +183,14 @@ BOOST_AUTO_TEST_CASE(key_test1)
     BOOST_CHECK(key2C.SignCompact(hashMsg, detsigc));
     BOOST_CHECK(detsig == ParseHex("1c52d8a32079c11e79db95af63bb9600c5b04f21a9ca33dc129c2bfa8ac9dc1cd561d8ae5e0f6c1a16bde3719c64c2fd70e404b6428ab9a69566962e8771b5944d"));
     BOOST_CHECK(detsigc == ParseHex("2052d8a32079c11e79db95af63bb9600c5b04f21a9ca33dc129c2bfa8ac9dc1cd561d8ae5e0f6c1a16bde3719c64c2fd70e404b6428ab9a69566962e8771b5944d"));
+    BOOST_CHECK(key1.Sign_Schnorr(hashMsg, detsig));
+    BOOST_CHECK(key1C.Sign_Schnorr(hashMsg, detsigc));
+    BOOST_CHECK(detsig == detsigc);
+    BOOST_CHECK(detsig == ParseHex("0567cbade8656cff3bb08d00913d59363273c32ea66130cf0c9b1be8e874b8bcb0e62372c22e8ecd34ffeadda493beb221e52bf23413cc6c3abdcdfc03d0ed52"));
+    BOOST_CHECK(key2.Sign_Schnorr(hashMsg, detsig));
+    BOOST_CHECK(key2C.Sign_Schnorr(hashMsg, detsigc));
+    BOOST_CHECK(detsig == detsigc);
+    BOOST_CHECK(detsig == ParseHex("064623e23b59e1bd304156fb20c197eee23e6d10e021664aef3878364d9d5e175916f7909c9358192e9c1510ebb466b085e726aab0d71c6ef9f298b53ea179aa"));
 }
 
 BOOST_AUTO_TEST_CASE(key_signature_tests)
@@ -165,7 +204,7 @@ BOOST_AUTO_TEST_CASE(key_signature_tests)
 
     for (int i = 1; i <=20; ++i) {
         sig.clear();
-        key.Sign(msg_hash, sig, false, i);
+        key.Sign_ECDSA(msg_hash, sig, false, i);
         found = sig[3] == 0x21 && sig[4] == 0x00;
         if (found) {
             break;
@@ -181,7 +220,7 @@ BOOST_AUTO_TEST_CASE(key_signature_tests)
         sig.clear();
         std::string msg = "A message to be signed" + std::to_string(i);
         msg_hash = Hash(msg.begin(), msg.end());
-        key.Sign(msg_hash, sig);
+        key.Sign_ECDSA(msg_hash, sig);
         found = sig[3] == 0x20;
         BOOST_CHECK(sig.size() <= 70);
         found_small |= sig.size() < 70;
