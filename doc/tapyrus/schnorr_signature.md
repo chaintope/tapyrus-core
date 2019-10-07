@@ -6,48 +6,48 @@ Schnorr signature in Tapyrus is adapted from the proposal by Mark B. Lundeberg f
 Signing algorithnm :
 -------------------
 *Input:*
-The secret key sk: a 32-byte array
-The message m: a 32-byte array
+* The secret key sk: a 32-byte array
+* The message m: a 32-byte array
 
-To sign m for public key pubkey(sk):
-Let d' = int(sk)
-Fail if d' = 0 or d' >= n
-Let P = d'G
-Let k be the nonce generated using rfc6979
-Let R = k'G.
-Let k = k' if jacobi(y(R)) = 1, otherwise let k = n - k' .
-Let e = int(sha256(bytes(R) || bytes(P) || m)) mod n.
-The signature is bytes(x(R)) || bytes((k + ed) mod n).
+To sign m for public key pubkey(sk):   
+Let d' = int(sk).  
+Fail if d' = 0 or d' >= n.  
+Let P = d'G.  
+Let k be the nonce generated using rfc6979.  
+Let R = k'G.   
+Let k = k' if jacobi(y(R)) = 1, otherwise let k = n - k'.   
+Let e = int(sha256(bytes(R) || bytes(P) || m)) mod n.   
+The signature is bytes(x(R)) || bytes((k + ed) mod n).   
 
 Verification:
 -------------
 *Input:*
-The public key P: a 32-byte array
-The message m: a 32-byte array
-A signature (r,s): a 64-byte array
+* The public key P: a 32-byte array
+* The message m: a 32-byte array
+* A signature (r,s): a 64-byte array
 
-Fail if point P is not actually on the curve, or if it is the point at infinity.
-Fail if r >= p, where p is the field size used in secp256k1.
-Fail if s >= n, where n is the order of the secp256k1 curve.
-Let BP be the 33-byte encoding of P as a compressed point.
-Let Br be the 32-byte encoding of r as an unsigned big-endian 256-bit integer.
-Let e = H(Br | BP | m) mod n. 
-Here | means byte-string concatenation and function H() takes the SHA256 hash of its 97-byte input and returns it decoded as a big-endian unsigned integer.
-Let R' = sG - eP, where G is the secp256k1 generator point.
-Fail if R' is the point at infinity.
-Fail if the X coordinate of R' is not equal to r.
-Fail if the Jacobi symbol of the Y coordinate of R' is not 1.
-Otherwise, the signature is valid.
+Fail if point P is not actually on the curve, or if it is the point at infinity.   
+Fail if r >= p, where p is the field size used in secp256k1.   
+Fail if s >= n, where n is the order of the secp256k1 curve.   
+Let BP be the 33-byte encoding of P as a compressed point.   
+Let Br be the 32-byte encoding of r as an unsigned big-endian 256-bit integer.   
+Let e = H(Br | BP | m) mod n.    
+Here | means byte-string concatenation and function H() takes the SHA256 hash of its 97-byte input and returns it decoded as a big-endian unsigned integer.   
+Let R' = sG - eP, where G is the secp256k1 generator point.   
+Fail if R' is the point at infinity.   
+Fail if the X coordinate of R' is not equal to r.   
+Fail if the Jacobi symbol of the Y coordinate of R' is not 1.   
+Otherwise, the signature is valid.   
 
 Signature Endocing:
 -------------------
 In Tapyrus, Schnorr signatures are encoded in fixed size as
-||32 bytes	||32 bytes	||1 byte||
-|r	|s	|hashtype|
 
-r is the unsigned big-endian 256-bit encoding of the Schnorr signature's r integer.
-s is the unsigned big-endian 256-bit encoding of the Schnorr signature's s integer.
-hashtype informs OP_CHECKSIG/VERIFY mechanics.
+*| r | s | hashbyte |*  
+
+_r_ - 32 bytes. the unsigned big-endian 256-bit encoding of the Schnorr signature's r integer.    
+_s_ - 32 bytes. the unsigned big-endian 256-bit encoding of the Schnorr signature's s integer.   
+_hashtype_ - 1 byte.  informs OP_CHECKSIG/VERIFY mechanics.
 
 Signing on Tapyrus can be done using either ECDSA or Schnorr signature schemes. The following RPCs have an additional parameter to choose the signature scheme:
 * signrawtransactionwithkey
