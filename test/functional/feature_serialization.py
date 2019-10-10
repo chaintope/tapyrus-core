@@ -179,7 +179,7 @@ class SerializationTest(BitcoinTestFramework):
         tx.vout.append(CTxOut(10, P2SH_1))
         tx.rehash()
 
-        spendtx_raw = self.nodes[0].signrawtransactionwithwallet(ToHex(tx))["hex"]
+        spendtx_raw = self.nodes[0].signrawtransactionwithwallet(ToHex(tx), [], "ALL", self.options.scheme)["hex"]
         spendtx = FromHex(spendtx, spendtx_raw)
         spendtx.rehash()
         copy_spendTx = CTransaction(spendtx)
@@ -268,7 +268,7 @@ class SerializationTest(BitcoinTestFramework):
         tx.vin[0].scriptSig = scriptSig
         tx.rehash()
 
-        spendtx_raw = self.nodes[0].signrawtransactionwithwallet(ToHex(tx))["hex"]
+        spendtx_raw = self.nodes[0].signrawtransactionwithwallet(ToHex(tx), [], "ALL", self.options.scheme)["hex"]
         spendtx = FromHex(spendtx, spendtx_raw)
         spendtx.rehash()
 
@@ -365,7 +365,7 @@ class SerializationTest(BitcoinTestFramework):
         assert_equal(spendtx.serialize_with_witness(with_scriptsig=False), spendtx.serialize_without_witness(with_scriptsig=False))
 
         #Create block with only non-DER signature p2sh_p2wpkh transaction
-        spendtxStr = self.nodes[0].signrawtransactionwithwallet(spendtxStr)
+        spendtxStr = self.nodes[0].signrawtransactionwithwallet(spendtxStr, [], "ALL", self.options.scheme)
         assert("errors" not in spendtxStr or len(["errors"]) == 0)
         spendtxStr = spendtxStr["hex"]
         spendtx = CTransaction()
@@ -446,7 +446,7 @@ class SerializationTest(BitcoinTestFramework):
         assert_equal(spendtx.serialize_with_witness(with_scriptsig=False), spendtx.serialize_without_witness(with_scriptsig=False))
 
         #Create block with only non-DER signature p2sh_p2wsh transaction
-        spendtxStr = self.nodes[0].signrawtransactionwithwallet(spendtxStr)
+        spendtxStr = self.nodes[0].signrawtransactionwithwallet(spendtxStr, [], "ALL", self.options.scheme)
         assert("errors" not in spendtxStr or len(["errors"]) == 0)
         spendtxStr = spendtxStr["hex"]
         spendtx = CTransaction()

@@ -175,7 +175,7 @@ class SegWitTest(BitcoinTestFramework):
         tx = CTransaction()
         tx.vin.append(CTxIn(COutPoint(int(txid1, 16), 0), b''))
         tx.vout.append(CTxOut(int(49.99 * COIN), CScript([OP_TRUE, OP_DROP] * 15 + [OP_TRUE])))
-        tx2_hex = self.nodes[0].signrawtransactionwithwallet(ToHex(tx))['hex']
+        tx2_hex = self.nodes[0].signrawtransactionwithwallet(ToHex(tx), [], "ALL", self.options.scheme)['hex']
         assert_raises_rpc_error(-26, "mandatory-script-verify-flag-failed",  self.nodes[0].sendrawtransaction, tx2_hex)
         tx = FromHex(CTransaction(), tx2_hex)
         assert(tx.wit.is_null())
@@ -512,7 +512,7 @@ class SegWitTest(BitcoinTestFramework):
         for i in script_list:
             tx.vout.append(CTxOut(10000000, i))
         tx.rehash()
-        signresults = self.nodes[0].signrawtransactionwithwallet(bytes_to_hex_str(tx.serialize_without_witness()))['hex']
+        signresults = self.nodes[0].signrawtransactionwithwallet(bytes_to_hex_str(tx.serialize_without_witness()), [], "ALL", self.options.scheme)['hex']
         txid = self.nodes[0].sendrawtransaction(signresults, True)
         self.nodes[0].generate(1, self.signblockprivkeys)
         sync_blocks(self.nodes)
@@ -564,7 +564,7 @@ class SegWitTest(BitcoinTestFramework):
                 tx.vin.append(CTxIn(COutPoint(int('0x'+i,0), j)))
         tx.vout.append(CTxOut(0, CScript()))
         tx.rehash()
-        signresults = self.nodes[0].signrawtransactionwithwallet(bytes_to_hex_str(tx.serialize_without_witness()))['hex']
+        signresults = self.nodes[0].signrawtransactionwithwallet(bytes_to_hex_str(tx.serialize_without_witness()), [], "ALL", self.options.scheme)['hex']
         self.nodes[0].sendrawtransaction(signresults, True)
         self.nodes[0].generate(1, self.signblockprivkeys)
         sync_blocks(self.nodes)

@@ -49,6 +49,7 @@ SEQ_DISABLE_FLAG = 1 << 31
 SEQ_RANDOM_HIGH_BIT = 1 << 25
 SEQ_TYPE_FLAG = 1 << 22
 SEQ_RANDOM_LOW_BIT = 1 << 18
+SCHEME = None
 
 def relative_locktime(sdf, srhb, stf, srlb):
     """Returns a locktime with certain bits set."""
@@ -69,7 +70,7 @@ def all_rlt_txs(txs):
 
 def sign_transaction(node, unsignedtx):
     rawtx = ToHex(unsignedtx)
-    signresult = node.signrawtransactionwithwallet(rawtx)
+    signresult = node.signrawtransactionwithwallet(rawtx, [], "ALL", SCHEME)
     tx = CTransaction()
     f = BytesIO(hex_str_to_bytes(signresult['hex']))
     tx.deserialize(f)
@@ -161,6 +162,7 @@ class BIP68_112_113Test(BitcoinTestFramework):
             self.nodes[0].p2p.wait_for_getheaders(timeout=5)
 
     def run_test(self):
+        SCHEME = self.options.scheme
         self.nodes[0].add_p2p_connection(P2PDataStore())
 
         self.log.info("Generate blocks in the past for coinbase outputs.")

@@ -465,6 +465,7 @@ def random_transaction(nodes, amount, min_fee, fee_increment, fee_variants):
     """
     from_node = random.choice(nodes)
     to_node = random.choice(nodes)
+    scheme = random.choice(["ECDSA", "SCHNORR"])
     fee = min_fee + fee_increment * random.randint(0, fee_variants)
 
     (total_in, inputs) = gather_inputs(from_node, amount + fee)
@@ -472,7 +473,7 @@ def random_transaction(nodes, amount, min_fee, fee_increment, fee_variants):
     outputs[to_node.getnewaddress()] = float(amount)
 
     rawtx = from_node.createrawtransaction(inputs, outputs)
-    signresult = from_node.signrawtransactionwithwallet(rawtx)
+    signresult = from_node.signrawtransactionwithwallet(rawtx, [], "ALL", scheme)
     txid = from_node.sendrawtransaction(signresult["hex"], True)
 
     return (txid, signresult["hex"], fee)
@@ -481,6 +482,7 @@ def random_transaction(nodes, amount, min_fee, fee_increment, fee_variants):
 # Pass in a fee that is sufficient for relay and mining new transactions.
 def create_confirmed_utxos(fee, node, count, signblockprivkeys):
     to_generate = int(0.5 * count) + 101
+    scheme = random.choice(["ECDSA", "SCHNORR"])
     while to_generate > 0:
         node.generate(min(25, to_generate), signblockprivkeys)
         to_generate -= 25
@@ -499,7 +501,7 @@ def create_confirmed_utxos(fee, node, count, signblockprivkeys):
         outputs[addr1] = satoshi_round(send_value / 2)
         outputs[addr2] = satoshi_round(send_value / 2)
         raw_tx = node.createrawtransaction(inputs, outputs)
-        signed_tx = node.signrawtransactionwithwallet(raw_tx)["hex"]
+        signed_tx = node.signrawtransactionwithwallet(raw_tx, [], "ALL", scheme)["hex"]
         node.sendrawtransaction(signed_tx)
 
     while (node.getmempoolinfo()['size'] > 0):
@@ -534,6 +536,7 @@ def gen_return_txouts():
 def create_lots_of_big_transactions(node, txouts, utxos, num, fee):
     addr = node.getnewaddress()
     txids = []
+    scheme = random.choice(["ECDSA", "SCHNORR"])
     for _ in range(num):
         t = utxos.pop()
         inputs = [{"txid": t["txid"], "vout": t["vout"]}]
@@ -544,7 +547,7 @@ def create_lots_of_big_transactions(node, txouts, utxos, num, fee):
         newtx = rawtx[0:92]
         newtx = newtx + txouts
         newtx = newtx + rawtx[94:]
-        signresult = node.signrawtransactionwithwallet(newtx, None, "NONE")
+        signresult = node.signrawtransactionwithwallet(newtx, None, "NONE", scheme)
         txid = node.sendrawtransaction(signresult["hex"], True)
         txids.append(txid)
     return txids

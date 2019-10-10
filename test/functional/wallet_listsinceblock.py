@@ -160,7 +160,7 @@ class ListSinceBlockTest (BitcoinTestFramework):
         }]
         txid1 = self.nodes[1].sendrawtransaction(
             self.nodes[1].signrawtransactionwithwallet(
-                self.nodes[1].createrawtransaction(utxo_dicts, recipient_dict))['hex'])
+                self.nodes[1].createrawtransaction(utxo_dicts, recipient_dict), [], "ALL", self.options.scheme)['hex'])
 
         # send from nodes[2] using utxo to nodes[3]
         recipient_dict2 = {
@@ -169,7 +169,7 @@ class ListSinceBlockTest (BitcoinTestFramework):
         }
         self.nodes[2].sendrawtransaction(
             self.nodes[2].signrawtransactionwithwallet(
-                self.nodes[2].createrawtransaction(utxo_dicts, recipient_dict2))['hex'])
+                self.nodes[2].createrawtransaction(utxo_dicts, recipient_dict2), [], "ALL", self.options.scheme)['hex'])
 
         # generate on both sides
         lastblockhash = self.nodes[1].generate(3, self.signblockprivkeys)[2]
@@ -234,7 +234,7 @@ class ListSinceBlockTest (BitcoinTestFramework):
             'vout': utxo['vout'],
         }]
         signedtxres = self.nodes[2].signrawtransactionwithwallet(
-            self.nodes[2].createrawtransaction(utxo_dicts, recipient_dict))
+            self.nodes[2].createrawtransaction(utxo_dicts, recipient_dict), [], "ALL", self.options.scheme)
         assert signedtxres['complete']
 
         signedtx = signedtxres['hex']

@@ -1,4 +1,6 @@
 # Copyright (c) 2011 Sam Rushing
+# Copyright (c) 2015-2018 The Bitcoin Core developers
+# Copyright (c) 2019 Chaintope Inc.
 """ECC secp256k1 OpenSSL wrapper.
 
 WARNING: This module does not mlock() secrets; your private keys may end up on

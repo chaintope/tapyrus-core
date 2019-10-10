@@ -45,7 +45,7 @@ from .script import (
 )
 from .util import assert_equal
 from io import BytesIO
-import time
+import time, random
 
 # From BIP141
 WITNESS_COMMITMENT_HEADER = b"\xaa\x21\xa9\xed"
@@ -177,8 +177,9 @@ def create_raw_transaction(node, txid, to_address, *, amount):
         output that is being spent, and the node must not be running
         multiple wallets.
     """
+    scheme = random.choice(["ECDSA", "SCHNORR"])
     rawtx = node.createrawtransaction(inputs=[{"txid": txid, "vout": 0}], outputs={to_address: amount})
-    signresult = node.signrawtransactionwithwallet(rawtx)
+    signresult = node.signrawtransactionwithwallet(rawtx, [], "ALL", scheme)
     assert_equal(signresult["complete"], True)
     return signresult['hex']
 
@@ -232,9 +233,11 @@ def send_to_witness(use_p2wsh, node, utxo, pubkey, encode_p2sh, amount, sign=Tru
     use P2WPKH or P2WSH; encode_p2sh determines whether to wrap in P2SH.
     sign=True will have the given node sign the transaction.
     insert_redeem_script will be added to the scriptSig, if given."""
+
+    scheme = random.choice(["ECDSA", "SCHNORR"])
     tx_to_witness = create_witness_tx(node, use_p2wsh, utxo, pubkey, amount)
     if (sign):
-        signed = node.signrawtransactionwithwallet(tx_to_witness)
+        signed = node.signrawtransactionwithwallet(tx_to_witness, [], "ALL", scheme)
         if(encode_p2sh):
             assert("errors" not in signed or len(["errors"]) == 0)
         return node.sendrawtransaction(signed["hex"])

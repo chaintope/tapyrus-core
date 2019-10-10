@@ -45,7 +45,7 @@ def make_utxo(node, amount, confirmed=True, scriptPubKey=CScript([1])):
     tx2.vout = [CTxOut(amount, scriptPubKey)]
     tx2.rehash()
 
-    signed_tx = node.signrawtransactionwithwallet(txToHex(tx2))
+    signed_tx = node.signrawtransactionwithwallet(txToHex(tx2), [], "ALL", self.options.scheme)
 
     txid = node.sendrawtransaction(signed_tx['hex'], True)
 
