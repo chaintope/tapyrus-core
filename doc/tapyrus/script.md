@@ -3,11 +3,12 @@ Tapyrus Script Specification
 
 Script Evaluation
 --------------------
-Tapyrus scripts are evaluated with the following flags. 
+Tapyrus scripts are evaluated with the following rules.
 
-- *Default flags* are _Mandatory_ and always applied through the code without any flag controlling them.  When script evaluation fails, the transaction is invalid and the peer connection is dropped.
-- *Standard flags* are defined with the value in the table below. When script evaluation fails with these flags, the transaction is invalid and the peer connection is dropped.
+- *Default* are _Mandatory_ and consensus critical rules in Tapyrus. Scripts are always evaluated using these rules. But there is no flag controlling them. These rules can never be disabled. When script evaluation fails, the transaction is invalid and the peer connection is dropped.
+- *Standard* rules have a flag definition in Tapyrus. Standard Tapyrus scripts need to satisfy these flags. When script evaluation fails with these flags, the transaction is invalid and the peer connection is dropped.
 - *Standard Non-Mandatory* flags are defined with the value in the table below. When script evaluation fails with these flags, the transaction is invalid. But the peer connection is _NOT_ dropped.
+- *Non-Standard* are unused flags. Currently Witness scripts are non-standard in tapyrus.
 
 | Flag | Value | Description  | Usage |
 | :---: | :---: | :---: | :---: | 
@@ -23,13 +24,12 @@ Tapyrus scripts are evaluated with the following flags.
 |SCRIPT_VERIFY_SIGPUSHONLY | (1U << 0) |Using a non-push operator in the scriptSig causes script failure | Standard Non-Mandatory |
 |SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS | (1U << 1) |Discourage use of NOPs reserved for upgrades | Standard |
 |SCRIPT_VERIFY_CLEANSTACK | (1U << 2)|Require that only a single stack element remains after evaluation | Standard |
-|SCRIPT_VERIFY_WITNESS | (1U << 11)|Support segregated witness| Standard |
 |SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_WITNESS_PROGRAM | (1U << 12)|Making v1-v16 witness program non-standard| Standard |
 |SCRIPT_VERIFY_MINIMALIF | (1U << 13)|Segwit script only: Require the argument of OP_IF/NOTIF to be exactly 0x01 or empty vector| Standard |
 |SCRIPT_VERIFY_NULLFAIL | (1U << 14)|Signature(s) must be empty vector if a CHECK(MULTI)SIG operation failed| Standard |
 |SCRIPT_VERIFY_WITNESS_PUBKEYTYPE | (1U << 15)|Public keys in segregated witness scripts must be compressed| Standard |
 |SCRIPT_VERIFY_CONST_SCRIPTCODE | (1U << 16)|Making OP_CODESEPARATOR and FindAndDelete fail any non-segwit scripts| Standard |
-
+|SCRIPT_VERIFY_WITNESS | (1U << 11)|Support segregated witness| Non-Standard |
 
 New Script OP_Codes
 --------------------
