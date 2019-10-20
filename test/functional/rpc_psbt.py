@@ -48,7 +48,7 @@ class PSBTTest(BitcoinTestFramework):
         # fund those addresses
         rawtx = self.nodes[0].createrawtransaction([], {p2sh:10, p2pkh:10})
         rawtx = self.nodes[0].fundrawtransaction(rawtx, {"changePosition":2})
-        signed_tx = self.nodes[0].signrawtransactionwithwallet(rawtx['hex'])['hex']
+        signed_tx = self.nodes[0].signrawtransactionwithwallet(rawtx['hex'], [], "ALL", self.options.scheme)['hex']
         txid = self.nodes[0].sendrawtransaction(signed_tx)
         self.nodes[0].generate(6, self.signblockprivkeys)
         self.sync_all()
@@ -103,7 +103,7 @@ class PSBTTest(BitcoinTestFramework):
         self.nodes[0].decodepsbt(new_psbt)
 
         # Make sure that a psbt with signatures cannot be converted
-        signedtx = self.nodes[0].signrawtransactionwithwallet(rawtx['hex'])
+        signedtx = self.nodes[0].signrawtransactionwithwallet(rawtx['hex'], [], "ALL", self.options.scheme)
         assert_raises_rpc_error(-22, "Inputs must not have scriptSigs and scriptWitnesses", self.nodes[0].converttopsbt, signedtx['hex'])
 
         # Explicilty allow converting non-empty txs

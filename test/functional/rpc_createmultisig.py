@@ -82,8 +82,8 @@ class RpcCreateMultiSigTest(BitcoinTestFramework):
         outval = value - decimal.Decimal("0.00001000")
         rawtx = node2.createrawtransaction([{"txid": txid, "vout": vout}], [{self.final: outval}])
 
-        rawtx2 = node2.signrawtransactionwithkey(rawtx, self.priv[0:self.nsigs-1], prevtxs)
-        rawtx3 = node2.signrawtransactionwithkey(rawtx2["hex"], [self.priv[-1]], prevtxs)
+        rawtx2 = node2.signrawtransactionwithkey(rawtx, self.priv[0:self.nsigs-1], prevtxs, "ALL", self.options.scheme)
+        rawtx3 = node2.signrawtransactionwithkey(rawtx2["hex"], [self.priv[-1]], prevtxs, "ALL", self.options.scheme)
 
         self.moved += outval
         tx = node0.sendrawtransaction(rawtx3["hex"], True)

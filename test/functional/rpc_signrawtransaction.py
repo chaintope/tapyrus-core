@@ -15,7 +15,7 @@ class SignRawTransactionsTest(BitcoinTestFramework):
         self.num_nodes = 1
         self.extra_args = [["-deprecatedrpc=signrawtransaction"]]
 
-    def successful_signing_test(self):
+    def successful_signing_test(self, scheme):
         """Create and sign a valid raw transaction with one input.
 
         Expected results:
@@ -35,7 +35,7 @@ class SignRawTransactionsTest(BitcoinTestFramework):
         outputs = {'mpLQjfK79b7CCV4VMJWEWAj5Mpx8Up5zxB': 0.1}
 
         rawTx = self.nodes[0].createrawtransaction(inputs, outputs)
-        rawTxSigned = self.nodes[0].signrawtransactionwithkey(rawTx, privKeys, inputs)
+        rawTxSigned = self.nodes[0].signrawtransactionwithkey(rawTx, privKeys, inputs, "ALL", scheme)
 
         # 1) The transaction has a complete set of signatures
         assert rawTxSigned['complete']
@@ -44,10 +44,10 @@ class SignRawTransactionsTest(BitcoinTestFramework):
         assert 'errors' not in rawTxSigned
 
         # Perform the same test on signrawtransaction
-        rawTxSigned2 = self.nodes[0].signrawtransaction(rawTx, inputs, privKeys)
+        rawTxSigned2 = self.nodes[0].signrawtransaction(rawTx, inputs, privKeys, "ALL", scheme)
         assert_equal(rawTxSigned, rawTxSigned2)
 
-    def script_verification_error_test(self):
+    def script_verification_error_test(self, scheme):
         """Create and sign a raw transaction with valid (vin 0), invalid (vin 1) and one missing (vin 2) input script.
 
         Expected results:
@@ -89,7 +89,7 @@ class SignRawTransactionsTest(BitcoinTestFramework):
         # Make sure decoderawtransaction throws if there is extra data
         assert_raises_rpc_error(-22, "TX decode failed", self.nodes[0].decoderawtransaction, rawTx + "00")
 
-        rawTxSigned = self.nodes[0].signrawtransactionwithkey(rawTx, privKeys, scripts)
+        rawTxSigned = self.nodes[0].signrawtransactionwithkey(rawTx, privKeys, scripts, "ALL", scheme)
 
         # 3) The transaction has no complete set of signatures
         assert not rawTxSigned['complete']
@@ -114,7 +114,7 @@ class SignRawTransactionsTest(BitcoinTestFramework):
         assert not rawTxSigned['errors'][0]['witness']
 
         # Perform same test with signrawtransaction
-        rawTxSigned2 = self.nodes[0].signrawtransaction(rawTx, scripts, privKeys)
+        rawTxSigned2 = self.nodes[0].signrawtransaction(rawTx, scripts, privKeys, "ALL", scheme)
         assert_equal(rawTxSigned, rawTxSigned2)
 
         # Now test signing failure for transaction with input witnesses
@@ -127,8 +127,11 @@ class SignRawTransactionsTest(BitcoinTestFramework):
         assert_raises_rpc_error(-22, "TX decode failed", self.nodes[0].signrawtransaction, p2wpkh_raw_tx)
 
     def run_test(self):
-        self.successful_signing_test()
-        self.script_verification_error_test()
+        for scheme in ["ECDSA", "SCHNORR"]:
+            self.log.info("Running %s tests" % scheme)
+            self.successful_signing_test(scheme)
+            self.script_verification_error_test(scheme)
+            self.log.info("Completed %s tests" % scheme)
 
 
 if __name__ == '__main__':

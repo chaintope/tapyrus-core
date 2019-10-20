@@ -38,6 +38,7 @@ static void SetupBitcoinTxArgs()
     gArgs.AddArg("-create", "Create new, empty TX.", false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-json", "Select JSON output", false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-txid", "Output only the hex-encoded transaction id of the resultant transaction.", false, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-scheme=ECDSA/SCHNORR", "Signature scheme to be used to sign this transction", false, OptionsCategory::OPTIONS);
     SetupChainParamsBaseOptions();
 
     gArgs.AddArg("delin=N", "Delete input N from TX", false, OptionsCategory::COMMANDS);
@@ -520,10 +521,19 @@ static CAmount AmountFromValue(const UniValue& value)
 static void MutateTxSign(CMutableTransaction& tx, const std::string& flagStr)
 {
     int nHashType = SIGHASH_ALL;
+    SignatureScheme scheme = SignatureScheme::ECDSA;
 
     if (flagStr.size() > 0)
         if (!findSighashFlags(nHashType, flagStr))
             throw std::runtime_error("unknown sighash flag/sign option");
+
+    const std::string schemeStr(gArgs.GetArg("-scheme", "ECDSA"));
+    if (schemeStr == "ECDSA" )
+        scheme  = SignatureScheme::ECDSA;
+    else if(schemeStr == "SCHNORR")
+        scheme = SignatureScheme::SCHNORR;
+    else
+        throw std::runtime_error("unknown scheme");
 
     // mergedTx will end up with all the signatures; it
     // starts as a clone of the raw tx:
@@ -622,7 +632,7 @@ static void MutateTxSign(CMutableTransaction& tx, const std::string& flagStr)
         SignatureData sigdata = DataFromTransaction(mergedTx, i, coin.out);
         // Only sign SIGHASH_SINGLE if there's a corresponding output:
         if (!fHashSingle || (i < mergedTx.vout.size()))
-            ProduceSignature(keystore, MutableTransactionSignatureCreator(&mergedTx, i, amount, nHashType), prevPubKey, sigdata);
+            ProduceSignature(keystore, MutableTransactionSignatureCreator(&mergedTx, i, amount, nHashType, scheme), prevPubKey, sigdata);
 
         UpdateInput(txin, sigdata);
     }

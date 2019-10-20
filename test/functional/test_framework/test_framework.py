@@ -156,6 +156,8 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
                             help="Attach a python debugger if test fails")
         parser.add_argument("--usecli", dest="usecli", default=False, action="store_true",
                             help="use tapyrus-cli instead of RPC for all commands")
+        parser.add_argument("--scheme", dest="scheme", default="ECDSA", 
+                            help="use ECDSA/SCHNORR signature scheme in sign transaction RPCs")
         self.add_options(parser)
         self.options = parser.parse_args()
 
@@ -194,6 +196,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
                 raise SkipTest("--usecli specified but test does not support using CLI")
             self.setup_chain()
             self.setup_network()
+            self.log.info("Test using %s signature scheme" % self.options.scheme)
             self.run_test()
             success = TestStatus.PASSED
         except JSONRPCException as e:

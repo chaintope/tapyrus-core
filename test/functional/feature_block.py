@@ -10,6 +10,7 @@ import time
 
 from test_framework.blocktools import create_block, create_coinbase, create_tx_with_script, get_legacy_sigopcount_block, createTestGenesisBlock
 from test_framework.key import CECKey
+from test_framework.schnorr import Schnorr
 from test_framework.messages import (
     CBlock,
     COIN,
@@ -76,6 +77,7 @@ class CBrokenBlock(CBlock):
 class FullBlockTest(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
+        self.sig_scheme = 0
         self.setup_clean_chain = True
         self.extra_args = [[]]
         #this is needed as some tests based on block length are optimized based on proof length for one signature.
@@ -91,8 +93,10 @@ class FullBlockTest(BitcoinTestFramework):
 
         self.block_heights = {}
         self.coinbase_key = CECKey()
-        self.coinbase_key.set_secretbytes(b"horsebattery")
+        self.coinbase_key.set_secretbytes(bytes.fromhex("12b004fff7f4b69ef8650e767f18f11ede158148b425660723b9f9a66e61f747"))
         self.coinbase_pubkey = self.coinbase_key.get_pubkey()
+        self.schnorr_key = Schnorr()
+        self.schnorr_key.set_secretbytes(bytes.fromhex("12b004fff7f4b69ef8650e767f18f11ede158148b425660723b9f9a66e61f747"))
         self.tip = None
         self.blocks = {}
         gen_hash = self.nodes[0].getbestblockhash()
@@ -1334,7 +1338,12 @@ class FullBlockTest(BitcoinTestFramework):
             tx.vin[0].scriptSig = CScript()
             return
         (sighash, err) = SignatureHash(spend_tx.vout[0].scriptPubKey, tx, 0, SIGHASH_ALL)
-        tx.vin[0].scriptSig = CScript([self.coinbase_key.sign(sighash) + bytes(bytearray([SIGHASH_ALL]))])
+        if self.sig_scheme == 1:
+            tx.vin[0].scriptSig = CScript([self.coinbase_key.sign(sighash) + bytes(bytearray([SIGHASH_ALL]))])
+            self.sig_scheme = 0
+        else:
+            tx.vin[0].scriptSig = CScript([self.schnorr_key.sign(sighash) + bytes(bytearray([SIGHASH_ALL]))])
+            self.sig_scheme = 1
 
     def create_and_sign_transaction(self, spend_tx, value, script=CScript([OP_TRUE])):
         tx = self.create_tx(spend_tx, 0, value, script)

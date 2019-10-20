@@ -24,6 +24,7 @@ CLTV_HEIGHT = 1351
 REJECT_INVALID = 16
 REJECT_OBSOLETE = 17
 REJECT_NONSTANDARD = 64
+SCHEME = None
 
 def cltv_invalidate(tx):
     '''Modify the signature in vin 0 of the tx to fail CLTV
@@ -44,7 +45,7 @@ def cltv_validate(node, tx, height):
     tx.nLockTime = height
 
     # Need to re-sign, since nSequence and nLockTime changed
-    signed_result = node.signrawtransactionwithwallet(ToHex(tx))
+    signed_result = node.signrawtransactionwithwallet(ToHex(tx), [], "ALL", SCHEME)
     new_tx = CTransaction()
     new_tx.deserialize(BytesIO(hex_str_to_bytes(signed_result['hex'])))
 
@@ -59,6 +60,7 @@ class BIP65Test(BitcoinTestFramework):
         self.setup_clean_chain = True
 
     def run_test(self):
+        SCHEME = self.options.scheme
         self.nodes[0].add_p2p_connection(P2PInterface())
 
         self.log.info("Mining %d blocks", CLTV_HEIGHT-1)

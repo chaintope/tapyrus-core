@@ -26,6 +26,7 @@ import io
 
 WALLET_PASSPHRASE = "test"
 WALLET_PASSPHRASE_TIMEOUT = 3600
+SCHEME = None
 
 
 class BumpFeeTest(BitcoinTestFramework):
@@ -37,6 +38,7 @@ class BumpFeeTest(BitcoinTestFramework):
 
     def run_test(self):
         # Encrypt wallet for test_locked_wallet_fails test
+        SCHEME = self.options.scheme
         self.nodes[1].node_encrypt_wallet(WALLET_PASSPHRASE)
         self.start_node(1)
         self.nodes[1].walletpassphrase(WALLET_PASSPHRASE, WALLET_PASSPHRASE_TIMEOUT)
@@ -117,8 +119,8 @@ def test_notmine_bumpfee_fails(rbf_node, peer_node, dest_address):
     } for utxo in utxos]
     output_val = sum(utxo["amount"] for utxo in utxos) - Decimal("0.001")
     rawtx = rbf_node.createrawtransaction(inputs, {dest_address: output_val})
-    signedtx = rbf_node.signrawtransactionwithwallet(rawtx)
-    signedtx = peer_node.signrawtransactionwithwallet(signedtx["hex"])
+    signedtx = rbf_node.signrawtransactionwithwallet(rawtx, [], "ALL", SCHEME)
+    signedtx = peer_node.signrawtransactionwithwallet(signedtx["hex"], [], "ALL", SCHEME)
     rbfid = rbf_node.sendrawtransaction(signedtx["hex"])
     assert_raises_rpc_error(-4, "Transaction contains inputs that don't belong to this wallet",
                           rbf_node.bumpfee, rbfid)
@@ -129,7 +131,7 @@ def test_bumpfee_with_descendant_fails(rbf_node, rbf_node_address, dest_address)
     # parent is send-to-self, so we don't have to check which output is change when creating the child tx
     parent_id = spend_one_input(rbf_node, rbf_node_address)
     tx = rbf_node.createrawtransaction([{"txid": parent_id, "vout": 0}], {dest_address: 0.00020000})
-    tx = rbf_node.signrawtransactionwithwallet(tx)
+    tx = rbf_node.signrawtransactionwithwallet(tx, [], "ALL", SCHEME)
     rbf_node.sendrawtransaction(tx["hex"])
     assert_raises_rpc_error(-8, "Transaction has descendants in the wallet", rbf_node.bumpfee, parent_id)
 
@@ -247,7 +249,7 @@ def spend_one_input(node, dest_address):
     rawtx = node.createrawtransaction(
         [tx_input], {dest_address: Decimal("0.00050000"),
                      node.getrawchangeaddress(): Decimal("0.00049000")})
-    signedtx = node.signrawtransactionwithwallet(rawtx)
+    signedtx = node.signrawtransactionwithwallet(rawtx, [], "ALL", SCHEME)
     txid = node.sendrawtransaction(signedtx["hex"])
     return txid
 

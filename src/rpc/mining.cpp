@@ -972,7 +972,11 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
         }
         ScriptError serror = SCRIPT_ERR_OK;
 
-        if(!CheckSignatureEncoding(ParseHex(sig), &serror, true))
+        const std::vector<unsigned char> vchSig(ParseHex(sig));
+
+        if((vchSig.size() == CPubKey::COMPACT_SIGNATURE_SIZE) ?
+                             !CheckSchnorrSignatureEncoding(vchSig, &serror, true) :
+                             !CheckECDSASignatureEncoding(vchSig, &serror, true))
         {
             warning.append("invalid encoding in signature: ");
             if(serror != SCRIPT_ERR_OK)
