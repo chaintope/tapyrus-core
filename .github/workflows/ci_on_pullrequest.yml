@@ -11,7 +11,7 @@ jobs:
       - name: Setup Python 3.7 for awscli
         uses: actions/setup-python@v1
         with:
-          version: '3.7'
+          python-version: '3.7'
           architecture: 'x64'
       - name: Install awscli
         run: pip install --upgrade pip awscli
