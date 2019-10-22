@@ -17,7 +17,7 @@
   },
   { "exec": "./tapyrus-tx",
     "args": ["-json","-create"],
-    "output_cmp": "blanktxv2.json",
+    "output_cmp": "blanktxv1.json",
     "description": "Creates a blank transaction (output in json)"
   },
   { "exec": "./tapyrus-tx",
@@ -186,12 +186,12 @@
   },
   { "exec": "./tapyrus-tx",
     "args": ["02000000000100000000000000000000000000"],
-    "output_cmp": "txcreate2.hex",
+    "output_cmp": "txcreate2_v1.hex",
     "description": "Parses a transaction with no inputs and a single output script"
   },
   { "exec": "./tapyrus-tx",
     "args": ["-json", "02000000000100000000000000000000000000"],
-    "output_cmp": "txcreate2.json",
+    "output_cmp": "txcreate2_v1.json",
     "description": "Parses a transaction with no inputs and a single output script (output in json)"
   },
   { "exec": "./tapyrus-tx",
