@@ -16,70 +16,33 @@
 #include <chainparamsseeds.h>
 #include <streams.h>
 #include <fs.h>
+#include <pubkey.h>
 
-const MultisigCondition CreateSignedBlockCondition()
+CPubKey GetAggregatePubkey()
 {
-    const std::string pubkeys = gArgs.GetArg("-signblockpubkeys", "");
-    const int threshold = std::stoi(gArgs.GetArg("-signblockthreshold", "0"));
+    const std::string pubkeyArg(gArgs.GetArg("-signblockpubkey", ""));
 
-    MultisigCondition signedBlockCondition(pubkeys, threshold);
+    std::string prefix(pubkeyArg.substr(0, 2));
+    std::string pubkeyString(pubkeyArg.substr(0, 66));
 
-    return signedBlockCondition;
-}
-
-void MultisigCondition::ParsePubkeyString(std::string source)
-{
-    std::string prefix;
-    std::string pubkeyString;
-
-    pubkeys.clear();
-
-    for (unsigned int i = 0; i < source.length();) {
-        prefix = source.substr(i, 2);
-
-        if (prefix == "02" || prefix == "03") {
-            pubkeyString = source.substr(i, 66);
-            i += 66;
-        } else if(prefix == "04" || prefix == "06" || prefix == "07") {
-            throw std::runtime_error(strprintf("Uncompressed public key format are not acceptable: %s", source));
-        } else {
-            throw std::runtime_error(strprintf("Public Keys for Signed Block include invalid pubkey: %s", pubkeyString));
+    if (prefix == "02" || prefix == "03") {
+        std::vector<unsigned char> pubkey(ParseHex(pubkeyString));
+        CPubKey aggregatePubkey(pubkey.begin(), pubkey.end());
+        if(!aggregatePubkey.IsFullyValid()) {
+            throw std::runtime_error(strprintf("Aggregate Public Key for Signed Block is invalid: %s", pubkeyString));
         }
 
-        std::vector<unsigned char> vch = ParseHex(pubkeyString);
-        CPubKey pubkey(vch.begin(), vch.end());
-
-        if(!pubkey.IsFullyValid()) {
-            throw std::runtime_error(strprintf("Public Keys for Signed Block include invalid pubkey: %s", pubkeyString));
+        if (!aggregatePubkey.size()) {
+            throw std::runtime_error(strprintf("Aggregate Public Key for Signed Block is invalid: %s", pubkeyString));
         }
+        return aggregatePubkey;
 
-        pubkeys.push_back(pubkey);
-    }
-
-    // sort as ascending order
-    std::sort(pubkeys.begin(), pubkeys.end());
-}
-
-MultisigCondition::MultisigCondition(const std::string& pubkeyString, const int threshold): threshold(threshold)
-{
-    if(pubkeys.size() && threshold && (unsigned long)threshold <= pubkeys.size() && pubkeys.size() <= SIGNED_BLOCKS_MAX_KEY_SIZE)
-        return;
-
-    ParsePubkeyString(pubkeyString);
-
-    if (!pubkeys.size()) {
-        throw std::runtime_error(strprintf("Invalid or empty publicKeyString"));
-    }
-
-    if (pubkeys.size() > SIGNED_BLOCKS_MAX_KEY_SIZE) {
-        throw std::runtime_error(strprintf("Public Keys for Signed Block are up to %d, but passed %d.", SIGNED_BLOCKS_MAX_KEY_SIZE, pubkeys.size()));
-    }
-
-    if (threshold < 1 || (unsigned int)threshold > pubkeys.size()) {
-        throw std::runtime_error(strprintf("Threshold can be between 1 to %d, but passed %d.", pubkeys.size(), threshold));
+    } else if(prefix == "04" || prefix == "06" || prefix == "07") {
+        throw std::runtime_error(strprintf("Uncompressed public key format are not acceptable: %s", pubkeyArg));
+    } else {
+        throw std::runtime_error(strprintf("Aggregate Public Key for Signed Block is invalid: %s", pubkeyString));
     }
 }
-
 bool CChainParams::ReadGenesisBlock(std::string genesisHex)
 {
     CDataStream ss(ParseHex(genesisHex), SER_NETWORK, PROTOCOL_VERSION);
@@ -95,7 +58,7 @@ bool CChainParams::ReadGenesisBlock(std::string genesisHex)
     if(!genesis.vtx.size() || genesis.vtx.size() > 1)
         throw std::runtime_error("ReadGenesisBlock: invalid genesis block");
 
-    if(!genesis.proof.size() || genesis.proof.size() < signedBlocksCondition.threshold)
+    if(genesis.proof.size() != CPubKey::COMPACT_SIGNATURE_SIZE)
         throw std::runtime_error("ReadGenesisBlock: invalid genesis block");
 
     CTransactionRef genesisCoinbase(genesis.vtx[0]);
@@ -113,10 +76,6 @@ bool CChainParams::ReadGenesisBlock(std::string genesisHex)
     return true;
 }
 
-bool CChainParams::SetSignedBlocksCondition(const MultisigCondition condition) {
-    signedBlocksCondition = condition;
-    return true;
-}
 
 void CChainParams::UpdateVersionBitsParameters(Consensus::DeploymentPos d, int64_t nStartTime, int64_t nTimeout)
 {
@@ -361,11 +320,6 @@ void UpdateVersionBitsParameters(Consensus::DeploymentPos d, int64_t nStartTime,
     globalChainParams->UpdateVersionBitsParameters(d, nStartTime, nTimeout);
 }
 
-bool SetSignedBlocksCondition(const MultisigCondition condition)
-{
-    globalChainParams->SetSignedBlocksCondition(condition);
-}
-
 bool ReadGenesisBlock(fs::path genesisPath)
 {
     genesisPath /= TAPYRUS_GENESIS_FILENAME;
@@ -382,20 +336,17 @@ bool ReadGenesisBlock(fs::path genesisPath)
     return globalChainParams->ReadGenesisBlock(genesisHex);
 }
 
-CBlock createGenesisBlock(const MultisigCondition& signedBlocksCondition, const std::vector<CKey>& privateKeys, const time_t blockTime)
+CBlock createGenesisBlock(const CPubKey& aggregatePubkey, const CKey& privateKey, const time_t blockTime)
 {
-    CPubKey combinedPubKey = PubKeyCombine(signedBlocksCondition.pubkeys);
-    CPubKey rewardToPubKey(signedBlocksCondition.pubkeys[0]);
-
     //Genesis coinbase transaction paying block reward to the first public key in signedBlocksCondition
     CMutableTransaction txNew;
     txNew.nVersion = 1;
     txNew.vin.resize(1);
     txNew.vout.resize(1);
     txNew.vin[0].prevout.n = 0;
-    txNew.vin[0].scriptSig = CScript() << CScriptNum(signedBlocksCondition.threshold) << std::vector<unsigned char>(combinedPubKey.data(), combinedPubKey.data() + CPubKey::COMPRESSED_PUBLIC_KEY_SIZE);
+    txNew.vin[0].scriptSig = CScript() << std::vector<unsigned char>(aggregatePubkey.data(), aggregatePubkey.data() + CPubKey::COMPRESSED_PUBLIC_KEY_SIZE);
     txNew.vout[0].nValue = 50 * COIN;
-    txNew.vout[0].scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(rewardToPubKey.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
+    txNew.vout[0].scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(aggregatePubkey.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
 
     //Genesis block header
     CBlock genesis;
@@ -407,15 +358,11 @@ CBlock createGenesisBlock(const MultisigCondition& signedBlocksCondition, const 
     genesis.hashImMerkleRoot = BlockMerkleRoot(genesis, nullptr, true);
 
     //Genesis block proof
-    CProof genesisProof;
     uint256 blockHash = genesis.GetHashForSign();
     std::vector<unsigned char> vchSig;
-    for(auto key : privateKeys) {
-        key.Sign_ECDSA(blockHash, vchSig);
-        genesisProof.addSignature(vchSig);
-    }
+    privateKey.Sign_Schnorr(blockHash, vchSig);
 
-    genesis.AbsorbBlockProof(genesisProof, signedBlocksCondition);
+    genesis.AbsorbBlockProof(vchSig);
 
     return genesis;
 }

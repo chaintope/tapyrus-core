@@ -2933,29 +2933,12 @@ static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,
     if(!proofSize)
         return state.Error("No proof in block");
 
-    const MultisigCondition& signedBlocksCondition = Params().GetSignedBlocksCondition();
-
-    if(proofSize > signedBlocksCondition.pubkeys.size())
-        return state.Error("Proof was longer than expected");
+    const CPubKey& aggregatePubkey = Params().GetAggregatePubkey();
 
     const uint256 blockHash = block.GetHashForSign();
-    std::vector<CPubKey>::const_iterator pubkeyIter = signedBlocksCondition.pubkeys.begin();
-    CProof::const_iterator proofIter = block.proof.begin();
-    /*
-    iterate over signatures and make sure each one verifies with one of the public keys.
-    order of signatures is the order of the public keys, so verification is in one loop
-    */
-    while(proofIter != block.proof.end() && pubkeyIter != signedBlocksCondition.pubkeys.end())
-    {
-        //verify signature
-        bool match = pubkeyIter->Verify_ECDSA(blockHash, *proofIter);
-        pubkeyIter++;
-        if(match)
-            proofIter++;
-    };
 
-    //if all signatures were not verified
-    if(proofIter != block.proof.end() )
+    //verify signature
+    if(!aggregatePubkey.Verify_Schnorr(blockHash, block.proof))
         return state.Error("Proof verification failed");
 
     return true;

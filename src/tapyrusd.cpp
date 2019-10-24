@@ -166,9 +166,6 @@ static bool AppInit(int argc, char* argv[])
             return false;
         }
 
-        // Initialize Signed-Blocks multisig condition from commandline essential Signed-Blocks parameters.
-        SetSignedBlocksCondition();
-
         //Read genesis block from file now - we are sure that data dir exists.
         bool genesisLoaded = ReadGenesisBlock();
         if(genesisLoaded)

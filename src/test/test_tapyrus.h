@@ -53,7 +53,6 @@ struct BasicTestingSetup {
 
 private:
     const fs::path m_path_root;
-    const MultisigCondition signedBlockCondition;
 };
 
 /** Testing setup that configures a complete environment.

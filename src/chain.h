@@ -209,7 +209,7 @@ public:
     uint256 hashMerkleRoot;
     uint256 hashImMerkleRoot;
     uint32_t nTime;
-    CProof proof;
+    std::vector<unsigned char> proof;
 
     //! (memory only) Sequential id assigned to distinguish order in which blocks are received.
     int32_t nSequenceId;
@@ -235,7 +235,7 @@ public:
         nVersion       = 0;
         hashMerkleRoot = uint256();
         nTime          = 0;
-        proof.SetNull();
+        proof.clear();
     }
 
     CBlockIndex()

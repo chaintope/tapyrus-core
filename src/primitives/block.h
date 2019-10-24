@@ -12,38 +12,6 @@
 #include <uint256.h>
 #include <key.h>
 
-typedef std::vector<unsigned char> Signature;
-typedef std::vector<Signature> ProofBase;
-
-class CProof : public ProofBase
-{
-public:
-    CProof() { }
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
-        READWRITEAS(ProofBase, *this);
-    }
-
-    void SetNull()
-    {
-        this->clear();
-    }
-
-    bool IsNull() const
-    {
-        return this->empty();
-    }
-
-    void addSignature(Signature sig)
-    {
-        this->push_back(sig);
-    }
-};
-
 /** Nodes collect new transactions into a block, hash them into a hash tree,
  * and scan through nonce values to make the block's hash satisfy proof-of-work
  * requirements.  When they solve the proof-of-work, they broadcast the block
@@ -98,11 +66,11 @@ public:
         return (int64_t)nTime;
     }
 };
-struct MultisigCondition;
+
 class CBlockHeader : public CBlockHeaderWithoutProof
 {
 public:
-    CProof proof;
+    std::vector<unsigned char>  proof{64};
 
     CBlockHeader():CBlockHeaderWithoutProof(),proof() {}
 
@@ -116,7 +84,7 @@ public:
 
     uint256 GetHash() const;
     std::string ToString() const;
-    bool AbsorbBlockProof(CProof proof, const MultisigCondition& signedBlocksCondition );
+    bool AbsorbBlockProof(const std::vector<unsigned char>& proof);
 };
 
 class CBlock : public CBlockHeader

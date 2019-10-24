@@ -38,17 +38,14 @@ uint256 CBlockHeaderWithoutProof::GetHashForSign() const
 std::string CBlock::ToString() const
 {
     std::stringstream s, proofString;
-    for (const auto& sig : proof) {
-        proofString << HexStr(sig) << " ";
-    }
-    s << strprintf("CBlock(hash=%s, ver=0x%08x, hashPrevBlock=%s, hashMerkleRoot=%s, hashImMerkleRoot=%s, nTime=%u, proof[%d]={%s} vtx=%u)\n",
+        proofString << HexStr(proof);
+    s << strprintf("CBlock(hash=%s, ver=0x%08x, hashPrevBlock=%s, hashMerkleRoot=%s, hashImMerkleRoot=%s, nTime=%u, proof={%s} vtx=%u)\n",
         GetHash().ToString(),
         nVersion,
         hashPrevBlock.ToString(),
         hashMerkleRoot.ToString(),
         hashImMerkleRoot.ToString(),
         nTime,
-        proof.size(),
         proofString.str(),
         vtx.size());
         for (const auto& tx : vtx) {
@@ -57,38 +54,25 @@ std::string CBlock::ToString() const
     return s.str();
 }
 
-bool CBlockHeader::AbsorbBlockProof(CProof blockproof, const MultisigCondition& signedBlocksCondition)
+bool CBlockHeader::AbsorbBlockProof(const std::vector<unsigned char>& blockproof)
 {
+    const CPubKey& aggregatePubkey = Params().GetAggregatePubkey();
+
     //using hash of block without proof for signing
     uint256 blockHash = this->GetHashForSign();
+
+    if(blockproof.size() != CPubKey::COMPACT_SIGNATURE_SIZE)
+        return false;
+
+    //verify signature
+    if (!aggregatePubkey.Verify_Schnorr(blockHash, blockproof))
+        return false;
 
     //clear old proof
     proof.clear();
 
-    unsigned int inProofSize = blockproof.size();
+    //add signatures to block
+    proof = std::move(blockproof);
+    return true;
 
-    if(!inProofSize)
-        return false;
-
-    //evaluate and sort blockProof signatures in the order of their corresponding public keys
-    for(auto &pubkey: signedBlocksCondition.pubkeys)
-    {
-        CProof::iterator iter = blockproof.begin();
-        for (; iter != blockproof.end(); iter++)
-        {
-            //verify signature
-            if (pubkey.Verify_ECDSA(blockHash, *iter))
-            {
-                //add signatures to block
-                proof.emplace_back(std::move(*iter));
-                break;
-            }
-        }
-        if(iter != blockproof.end())
-            blockproof.erase(iter);
-
-        if(!blockproof.size())
-            break;
-    }
-    return proof.size() == inProofSize;
 }
