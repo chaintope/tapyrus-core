@@ -61,7 +61,7 @@ bool CBlockHeader::AbsorbBlockProof(const std::vector<unsigned char>& blockproof
     //using hash of block without proof for signing
     uint256 blockHash = this->GetHashForSign();
 
-    if(blockproof.size() != CPubKey::COMPACT_SIGNATURE_SIZE)
+    if(blockproof.size() != CPubKey::SCHNORR_SIGNATURE_SIZE)
         return false;
 
     //verify signature

@@ -18,29 +18,28 @@
 #include <fs.h>
 #include <pubkey.h>
 
-CPubKey GetAggregatePubkey()
+CPubKey GetAggregatePubkeyFromCmdLine()
 {
     const std::string pubkeyArg(gArgs.GetArg("-signblockpubkey", ""));
 
     std::string prefix(pubkeyArg.substr(0, 2));
-    std::string pubkeyString(pubkeyArg.substr(0, 66));
 
     if (prefix == "02" || prefix == "03") {
-        std::vector<unsigned char> pubkey(ParseHex(pubkeyString));
+        std::vector<unsigned char> pubkey(ParseHex(pubkeyArg));
         CPubKey aggregatePubkey(pubkey.begin(), pubkey.end());
         if(!aggregatePubkey.IsFullyValid()) {
-            throw std::runtime_error(strprintf("Aggregate Public Key for Signed Block is invalid: %s", pubkeyString));
+            throw std::runtime_error(strprintf("Aggregate Public Key for Signed Block is invalid: %s", pubkeyArg));
         }
 
-        if (!aggregatePubkey.size()) {
-            throw std::runtime_error(strprintf("Aggregate Public Key for Signed Block is invalid: %s", pubkeyString));
+        if (aggregatePubkey.size() != CPubKey::COMPRESSED_PUBLIC_KEY_SIZE) {
+            throw std::runtime_error(strprintf("Aggregate Public Key for Signed Block is invalid: %s", pubkeyArg));
         }
         return aggregatePubkey;
 
     } else if(prefix == "04" || prefix == "06" || prefix == "07") {
         throw std::runtime_error(strprintf("Uncompressed public key format are not acceptable: %s", pubkeyArg));
     } else {
-        throw std::runtime_error(strprintf("Aggregate Public Key for Signed Block is invalid: %s", pubkeyString));
+        throw std::runtime_error(strprintf("Aggregate Public Key for Signed Block is invalid: %s", pubkeyArg));
     }
 }
 bool CChainParams::ReadGenesisBlock(std::string genesisHex)
@@ -58,7 +57,7 @@ bool CChainParams::ReadGenesisBlock(std::string genesisHex)
     if(!genesis.vtx.size() || genesis.vtx.size() > 1)
         throw std::runtime_error("ReadGenesisBlock: invalid genesis block");
 
-    if(genesis.proof.size() != CPubKey::COMPACT_SIGNATURE_SIZE)
+    if(genesis.proof.size() != CPubKey::SCHNORR_SIGNATURE_SIZE)
         throw std::runtime_error("ReadGenesisBlock: invalid genesis block");
 
     CTransactionRef genesisCoinbase(genesis.vtx[0]);
@@ -340,7 +339,7 @@ CBlock createGenesisBlock(const CPubKey& aggregatePubkey, const CKey& privateKey
 {
     //Genesis coinbase transaction paying block reward to the first public key in signedBlocksCondition
     CMutableTransaction txNew;
-    txNew.nVersion = 1;
+    txNew.nVersion = 0x20000000UL; //VERSIONBITS_TOP_BITS
     txNew.vin.resize(1);
     txNew.vout.resize(1);
     txNew.vin[0].prevout.n = 0;

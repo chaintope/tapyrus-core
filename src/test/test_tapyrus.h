@@ -127,14 +127,10 @@ struct TestMemPoolEntryHelper
 
 CBlock getBlock();
 std::string getSignedTestBlock();
-const CProof createSignedBlockProof(CBlock &block, int count);
-MultisigCondition getMultisigCondition();
-CBlock createTestGenesisBlock(const MultisigCondition& signedBlocksCondition=getMultisigCondition(),
-                              const std::vector<CKey>& validPrivateKeys=getValidPrivateKeys(15));
-std::string getTestGenesisBlockHex(const MultisigCondition& signedBlockCondition=getMultisigCondition(),
-                                   const std::vector<CKey>& validPrivateKeys=getValidPrivateKeys(15));
+std::string getTestGenesisBlockHex(const CPubKey& aggregatePubkey,
+                                   const CKey& aggregatePrivkey);
 void writeTestGenesisBlockToFile(fs::path genesisPath);
-
+void createSignedBlockProof(CBlock &block, std::vector<unsigned char>& blockProof);
 // define an implicit conversion here so that uint256 may be used directly in BOOST_CHECK_*
 std::ostream& operator<<(std::ostream& os, const uint256& num);
 

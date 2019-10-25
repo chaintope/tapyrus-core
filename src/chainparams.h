@@ -45,6 +45,11 @@ struct ChainTxData {
 };
 
 /**
+ * Parse commandline argument signblockpubkey and get the aggregate pubkey.
+ */
+CPubKey GetAggregatePubkeyFromCmdLine();
+
+/**
  * CChainParams defines various tweakable parameters of a given instance of the
  * Bitcoin system. There are three: the main network on which people trade goods
  * and services, the public test network which gets reset from time to time and
@@ -90,7 +95,8 @@ public:
     void UpdateVersionBitsParameters(Consensus::DeploymentPos d, int64_t nStartTime, int64_t nTimeout);
     bool ReadGenesisBlock(std::string genesisHex);
 protected:
-    CChainParams():aggregatePubkey(GetAggregatePubkey()) {};
+    //require signedblockpubkey argument only in tapyrusd
+    CChainParams():aggregatePubkey(gArgs.GetBoolArg("-server", false) ?GetAggregatePubkeyFromCmdLine() : CPubKey()) {}
 
     Consensus::Params consensus;
     CMessageHeader::MessageStartChars pchMessageStart;
@@ -141,7 +147,7 @@ bool ReadGenesisBlock(fs::path genesisPath=GetDataDir(false));
 /**
  * @returns a signed genesis block.
  */
-CBlock createGenesisBlock(const CPubKey& aggregatePubkey, const std::vector<CKey>& privateKeys={}, const time_t blockTime=time(0));
+CBlock createGenesisBlock(const CPubKey& aggregatePubkey, const CKey& privateKey, const time_t blockTime=time(0));
 
 
 #endif // BITCOIN_CHAINPARAMS_H

@@ -28,9 +28,8 @@ static void SetupTapyrusGenesisArgs()
     SetupChainParamsBaseOptions();
 
     // Signed Blocks options
-    gArgs.AddArg("-signblockpubkeys=<pubkeys>", "Sets the public keys for Signed Blocks multisig that combined as one string.", false, OptionsCategory::SIGN_BLOCK);
-    gArgs.AddArg("-signblockthreshold=<n>", "Sets the number of public keys to be the threshold of multisig", false, OptionsCategory::SIGN_BLOCK);
-    gArgs.AddArg("-signblockprivatekey=<privatekey-WIF>", "Optional. Sets the private key WIF corresponding with `-signblockpubkeys`. This argument can be set multi-time. If it is not set, this command create no proof genesis block.", false, OptionsCategory::SIGN_BLOCK);
+    gArgs.AddArg("-signblockpubkey=<pubkey>", "Optional. Sets the aggregate public key for Signed Blocks", false, OptionsCategory::SIGN_BLOCK);
+    gArgs.AddArg("-signblockprivatekey=<privatekey-WIF>", "Optional. Sets the aggregate private key in WIF to be used to sign genesis block. If it is not set, this command create no proof in genesis block.", false, OptionsCategory::SIGN_BLOCK);
 
     // Genesis Block options
     gArgs.AddArg("-time=<time>", "Specify genesis block time as UNIX Time. If this don't set, use current time.", false, OptionsCategory::GENESIS);
@@ -88,11 +87,7 @@ static int AppInit(int argc, char* argv[])
 
 static int CommandLine()
 {
-    auto wifs = gArgs.GetArgs("-signblockprivatekey");
-    std::vector<CKey> privatekeys = {};
-    for(auto wif : wifs) {
-        privatekeys.push_back(DecodeSecret(wif));
-    }
+    CKey privatekey(DecodeSecret(gArgs.GetArg("-signblockprivatekey", "")));
 
     auto blockTime = gArgs.GetArg("-time", 0);
     if(!blockTime) {
@@ -111,14 +106,11 @@ static int CommandLine()
     // This is for using CPubKey.verify().
     ECCVerifyHandle globalVerifyHandle;
 
-    MultisigCondition condition { CreateSignedBlockCondition() };
-    SetSignedBlocksCondition(condition);
-
-    CBlock genesis { createGenesisBlock(condition, privatekeys, blockTime) };
+    CBlock genesis { createGenesisBlock(privatekey.IsValid() ? privatekey.GetPubKey() : GetAggregatePubkeyFromCmdLine(), privatekey, blockTime) };
 
     // check validity
     CValidationState state;
-    bool fCheckProof = privatekeys.size() > 0;
+    bool fCheckProof = privatekey.IsValid();
     if(!CheckBlock(genesis, state, Params().GetConsensus(), fCheckProof)) {
         fprintf(stderr, "error: Consensus::CheckBlock: %s", FormatStateMessage(state).c_str());
         return EXIT_FAILURE;

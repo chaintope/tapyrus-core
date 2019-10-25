@@ -113,8 +113,6 @@ static void CreateBlocks(const CChainParams &chainparams,
     // Simple block creation, nothing special yet:
     BOOST_CHECK(pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey));
 
-    const MultisigCondition &signedBlocksCondition = Params().GetSignedBlocksCondition();
-
     // We can't make transactions until we have inputs
     // Therefore, load 100 blocks :)
     for (unsigned int i = 0; i < sizeof(blockinfo)/sizeof(*blockinfo); ++i)
@@ -139,9 +137,12 @@ static void CreateBlocks(const CChainParams &chainparams,
                 txFirst.push_back(pblock->vtx[0]);
             pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
             pblock->hashImMerkleRoot = BlockMerkleRoot(*pblock, nullptr, true);
-            //blpck proof
-            pblock->AbsorbBlockProof(createSignedBlockProof(*pblock, signedBlocksCondition.threshold), signedBlocksCondition);
-            BOOST_CHECK_EQUAL(pblock->proof.size(), signedBlocksCondition.threshold);
+            
+            //block proof
+            std::vector<unsigned char> blockProof;
+            createSignedBlockProof(*pblock, blockProof);
+            pblock->AbsorbBlockProof(blockProof);
+            BOOST_CHECK_EQUAL(pblock->proof.size(), 64);
         }
         std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(*pblock);
         BOOST_CHECK(ProcessNewBlock(chainparams, shared_pblock, true, nullptr));
@@ -155,8 +156,10 @@ static void CreateBlocks(const CChainParams &chainparams,
     BOOST_CHECK_EQUAL(pblocktemplate->block.vtx[0]->vin[0].prevout.n, chainActive.Height());
     BOOST_CHECK(pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey));
 
-    pblocktemplate->block.AbsorbBlockProof(createSignedBlockProof(pblocktemplate->block, signedBlocksCondition.threshold), signedBlocksCondition);
-    BOOST_CHECK_EQUAL(pblocktemplate->block.proof.size(),signedBlocksCondition.threshold);
+    std::vector<unsigned char> blockProof;
+    createSignedBlockProof(pblocktemplate->block, blockProof);
+    pblocktemplate->block.AbsorbBlockProof(blockProof);
+    BOOST_CHECK_EQUAL(pblocktemplate->block.proof.size(), 64);
 
     BOOST_CHECK_EQUAL(pblocktemplate->block.vtx[0]->vin[0].prevout.n, chainActive.Height()+1); //+1 as the new block is not added to active chain yet
 }
@@ -269,11 +272,15 @@ static void TestPackageSelection(const CChainParams& chainparams, const std::vec
 // NOTE: These tests rely on CreateNewBlock doing its own self-validation!
 BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
 {
-    MultisigCondition signedBlocksCondition { getMultisigCondition() };
+    const unsigned char keyBuffer[32] {0xc8,0x75,0x09,0xa1,0xc0,0x67,0xbb,0xde,0x78,0xbe,0xb7,0x93,0xe6,0xfa,0x76,0x53,0x0b,0x63,0x82,0xa4,0xc0,0x24,0x1e,0x5e,0x4a,0x9e,0xc0,0xa0,0xf4,0x4d,0xc0,0xd3};
+
+    CKey aggregateKey;
+    aggregateKey.Set(keyBuffer, keyBuffer + 32, true);
+    CPubKey aggPubkey = aggregateKey.GetPubKey();
+
     // Note that by default, these tests run with size accounting enabled.
     auto chainParams = CreateChainParams(CBaseChainParams::MAIN);
-    chainParams->SetSignedBlocksCondition(signedBlocksCondition);
-    chainParams->ReadGenesisBlock(getTestGenesisBlockHex(signedBlocksCondition));
+    chainParams->ReadGenesisBlock(getTestGenesisBlockHex(aggPubkey, aggregateKey));
     const CChainParams& chainparams(*chainParams);
     std::unique_ptr<CBlockTemplate> pblocktemplate;
     int baseheight = 0;
@@ -565,11 +572,16 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     fCheckpointsEnabled = true;
 }
 
-BOOST_AUTO_TEST_CASE(CreateNewBlock_required_age_in_secs) {
-    MultisigCondition signedBlocksCondition { getMultisigCondition() };
+BOOST_AUTO_TEST_CASE(CreateNewBlock_required_age_in_secs) 
+{
+    const unsigned char keyBuffer[32] {0xc8,0x75,0x09,0xa1,0xc0,0x67,0xbb,0xde,0x78,0xbe,0xb7,0x93,0xe6,0xfa,0x76,0x53,0x0b,0x63,0x82,0xa4,0xc0,0x24,0x1e,0x5e,0x4a,0x9e,0xc0,0xa0,0xf4,0x4d,0xc0,0xd3};
+
+    CKey aggregateKey;
+    aggregateKey.Set(keyBuffer, keyBuffer + 32, true);
+    CPubKey aggPubkey = aggregateKey.GetPubKey();
+
     auto chainParams = CreateChainParams(CBaseChainParams::MAIN);
-    chainParams->SetSignedBlocksCondition(signedBlocksCondition);
-    chainParams->ReadGenesisBlock(getTestGenesisBlockHex(signedBlocksCondition));
+    chainParams->ReadGenesisBlock(getTestGenesisBlockHex(aggPubkey, aggregateKey));
     const CChainParams& chainparams(*chainParams);
     std::unique_ptr<CBlockTemplate> pblocktemplate;
     int baseheight = 0;

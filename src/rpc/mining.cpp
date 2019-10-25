@@ -933,7 +933,7 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
 
     const std::vector<unsigned char> blockProof(ParseHex(signature));
 
-    if(blockProof.size() != CPubKey::COMPACT_SIGNATURE_SIZE || !CheckSchnorrSignatureEncoding(blockProof, nullptr, true) )
+    if(blockProof.size() != CPubKey::SCHNORR_SIGNATURE_SIZE || !CheckSchnorrSignatureEncoding(blockProof, nullptr, true) )
         throw JSONRPCError(RPC_INVALID_PARAMS, "Invalid signature encoding");
 
     bool status = block.AbsorbBlockProof(blockProof);
