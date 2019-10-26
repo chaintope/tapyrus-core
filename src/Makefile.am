@@ -146,6 +146,7 @@ BITCOIN_CORE_H = \
   policy/rbf.h \
   protocol.h \
   random.h \
+  randomenv.h \
   reverse_iterator.h \
   reverselock.h \
   rpc/blockchain.h \
@@ -410,6 +411,8 @@ libtapyrus_util_a_SOURCES = \
   logging.cpp \
   random.cpp \
   rpc/protocol.cpp \
+  randomenv.cpp \
+  rpc/request.cpp \
   support/cleanse.cpp \
   sync.cpp \
   threadinterrupt.cpp \
