@@ -484,9 +484,6 @@ static void SeedSlow(CSHA512& hasher, RNGState& rng) noexcept
     GetOSRand(buffer);
     hasher.Write(buffer, sizeof(buffer));
 
-    // Add the events hasher into the mix
-    rng.SeedEvents(hasher);
-
     // High-precision timestamp.
     //
     // Note that we also commit to a timestamp in the Fast seeder, so we indirectly commit to a
