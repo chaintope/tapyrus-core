@@ -368,6 +368,7 @@ public:
     RNGState() noexcept
     {
         InitHardwareRand();
+
     }
 
     ~RNGState()
