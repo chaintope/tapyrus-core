@@ -42,8 +42,6 @@ void CScheduler::serviceQueue()
         try {
             if (!shouldStop() && taskQueue.empty()) {
                 reverse_lock<boost::unique_lock<boost::mutex> > rlock(lock);
-                // Use this chance to get more entropy
-                RandAddSeedSleep();
             }
             while (!shouldStop() && taskQueue.empty()) {
                 // Wait until there is something to do.
