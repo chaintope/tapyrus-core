@@ -469,7 +469,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     std::vector<int> prevheights;
 
     // relative height locked
-    tx.nVersion = 2;
+    tx.nVersion = 1;
     tx.vin.resize(1);
     prevheights.resize(1);
     tx.vin[0].prevout.hashMalFix = txFirst[0]->GetHashMalFix(); // only 1 transaction

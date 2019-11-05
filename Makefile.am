@@ -243,6 +243,8 @@ EXTRA_DIST += \
     test/util/data/txcreate1.json \
     test/util/data/txcreate2.hex \
     test/util/data/txcreate2.json \
+    test/util/data/txcreate2_v1.hex \
+    test/util/data/txcreate2_v1.json \
     test/util/data/txcreatedata1.hex \
     test/util/data/txcreatedata1.json \
     test/util/data/txcreatedata2.hex \

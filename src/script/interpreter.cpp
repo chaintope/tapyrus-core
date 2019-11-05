@@ -1465,10 +1465,6 @@ bool GenericTransactionSignatureChecker<T>::CheckSequence(const CScriptNum& nSeq
     // in operand to the sequence number of the input.
     const int64_t txToSequence = (int64_t)txTo->vin[nIn].nSequence;
 
-    // Fail if the transaction's version number is not set high
-    // enough to trigger BIP 68 rules.
-    if (static_cast<uint32_t>(txTo->nVersion) < 2)
-        return false;
 
     // Sequence numbers with their most significant bit set are not
     // consensus constrained. Testing that the transaction's sequence
