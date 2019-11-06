@@ -344,7 +344,12 @@ public:
         int nVersion = s.GetVersion();
         if (s.GetType() & SER_DISK)
             READWRITE(nVersion);
-        if (!(s.GetType() & SER_GETHASH))
+
+        // For network serialization, ADDR message includes nTime but VERSION message doesn't include it.
+        // To ensure it is VERSION message, checking `nVersion > INIT_PROTO_VERSION` because nVersion is not set actual
+        // value when parsing VERSION message payload. nVersion is initialized with INIT_PROTO_VERSION at that time.
+        if ((s.GetType() & SER_DISK) ||
+             ((s.GetType() & SER_NETWORK) && nVersion > INIT_PROTO_VERSION))
             READWRITE(nTime);
         uint64_t nServicesInt = nServices;
         READWRITE(nServicesInt);
