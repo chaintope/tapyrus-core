@@ -57,7 +57,7 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
     InitSignatureCache();
     InitScriptExecutionCache();
     fCheckBlockIndex = true;
-    gArgs.ForceSetArg("-signblockpubkey", combinedPubkeyString(1));
+    gArgs.ForceSetArg("-signblockpubkey", "03af80b90d25145da28c583359beb47b21796b2fe1a23c1511e443e7a64dfdb27d");
     SelectParams(chainName);
     SetDataDir("tempdir");
     writeTestGenesisBlockToFile(m_path_root);

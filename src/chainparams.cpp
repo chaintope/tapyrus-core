@@ -339,7 +339,7 @@ CBlock createGenesisBlock(const CPubKey& aggregatePubkey, const CKey& privateKey
 {
     //Genesis coinbase transaction paying block reward to the first public key in signedBlocksCondition
     CMutableTransaction txNew;
-    txNew.nVersion = 0x20000000UL; //VERSIONBITS_TOP_BITS
+    txNew.nVersion = 1;
     txNew.vin.resize(1);
     txNew.vout.resize(1);
     txNew.vin[0].prevout.n = 0;
@@ -350,7 +350,7 @@ CBlock createGenesisBlock(const CPubKey& aggregatePubkey, const CKey& privateKey
     //Genesis block header
     CBlock genesis;
     genesis.nTime    = blockTime;
-    genesis.nVersion = 1;
+    genesis.nVersion = 1; //TODO: change to VERSIONBITS_TOP_BITS
     genesis.vtx.push_back(MakeTransactionRef(std::move(txNew)));
     genesis.hashPrevBlock.SetNull();
     genesis.hashMerkleRoot = BlockMerkleRoot(genesis);
@@ -359,9 +359,11 @@ CBlock createGenesisBlock(const CPubKey& aggregatePubkey, const CKey& privateKey
     //Genesis block proof
     uint256 blockHash = genesis.GetHashForSign();
     std::vector<unsigned char> vchSig;
-    privateKey.Sign_Schnorr(blockHash, vchSig);
-
-    genesis.AbsorbBlockProof(vchSig);
+    if( privateKey.IsValid())
+    {
+        privateKey.Sign_Schnorr(blockHash, vchSig);
+        genesis.AbsorbBlockProof(vchSig);
+    }
 
     return genesis;
 }
