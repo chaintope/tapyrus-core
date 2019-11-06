@@ -23,7 +23,6 @@ target_include_directories(crypto
 		${CMAKE_CURRENT_BINARY_DIR}/..
 )
 
-target_compile_definitions(crypto PUBLIC HAVE_CONFIG_H)
 
 # Use assembly is specified
 option(CRYPTO_USE_ASM "Use assembly version of crypto primitives" ON)

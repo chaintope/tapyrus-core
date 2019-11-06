@@ -46,16 +46,16 @@ make_link(
 	${CMAKE_CURRENT_BINARY_DIR}/functional/create_cache.py
 )
 make_link(
-	${CMAKE_CURRENT_SOURCE_DIR}/util/bitcoin-util-test.py
-	${CMAKE_CURRENT_BINARY_DIR}/util/bitcoin-util-test.py
+	${CMAKE_CURRENT_SOURCE_DIR}/util/tapyrus-util-test.py
+	${CMAKE_CURRENT_BINARY_DIR}/util/tapyrus-util-test.py
 )
 
 add_custom_target(check-functional
 	COMMAND
 		./functional/test_runner.py
 	DEPENDS
-		../src/bitcoind
-		../src/bitcoin-cli
+		../src/tapyrusd
+		../src/tapyrus-cli
 		${CMAKE_CURRENT_BINARY_DIR}/functional/test_runner.py
 		${CMAKE_CURRENT_BINARY_DIR}/functional/create_cache.py
 )
@@ -63,15 +63,15 @@ add_custom_target(check-functional
 add_dependencies(check-all check-functional)
 
 if(BUILD_BITCOIN_TX)
-	add_custom_target(check-bitcoin-util
+	add_custom_target(check-tapyrus-util
 		COMMAND
-			${CMAKE_COMMAND} -E echo "Running test/util/bitcoin-util-test.py..."
+			${CMAKE_COMMAND} -E echo "Running test/util/tapyrus-util-test.py..."
 		COMMAND
-			./util/bitcoin-util-test.py
+			./util/tapyrus-util-test.py
 		DEPENDS
-			../src/bitcoin-tx
-			${CMAKE_CURRENT_BINARY_DIR}/util/bitcoin-util-test.py
+			../src/tapyrus-tx
+			${CMAKE_CURRENT_BINARY_DIR}/util/tapyrus-util-test.py
 	)
 
-	add_dependencies(check check-bitcoin-util)
+	add_dependencies(check check-tapyrus-util)
 endif()
