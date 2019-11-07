@@ -138,10 +138,8 @@ BOOST_AUTO_TEST_CASE(AbsorbBlockProof_invlalid_test) {
 
 BOOST_AUTO_TEST_CASE(create_genesis_block_default)
 {
-    const unsigned char keyBuffer[32] {0xc8,0x75,0x09,0xa1,0xc0,0x67,0xbb,0xde,0x78,0xbe,0xb7,0x93,0xe6,0xfa,0x76,0x53,0x0b,0x63,0x82,0xa4,0xc0,0x24,0x1e,0x5e,0x4a,0x9e,0xc0,0xa0,0xf4,0x4d,0xc0,0xd3};
-
     CKey aggregateKey;
-    aggregateKey.Set(keyBuffer, keyBuffer + 32, true);
+    aggregateKey.Set(validAggPrivateKey, validAggPrivateKey + 32, true);
     CPubKey aggPubkey = aggregateKey.GetPubKey();
 
     CBlock genesis = createGenesisBlock(aggPubkey, aggregateKey);
@@ -158,22 +156,20 @@ BOOST_AUTO_TEST_CASE(create_genesis_block_default)
 
     BOOST_CHECK_EQUAL(genesis.vtx[0]->vin.size(), 1);
     CScript scriptSig = genesis.vtx[0]->vin[0].scriptSig;
-    BOOST_CHECK_EQUAL(HexStr(scriptSig.begin(), scriptSig.end()), "2103af80b90d25145da28c583359beb47b21796b2fe1a23c1511e443e7a64dfdb27d");
+    BOOST_CHECK_EQUAL(HexStr(scriptSig.begin(), scriptSig.end()), "21025700236c2890233592fcef262f4520d22af9160e3d9705855140eb2aa06c35d3");
 
     BOOST_CHECK_EQUAL(genesis.vtx[0]->vout.size(), 1);
     BOOST_CHECK_EQUAL(genesis.vtx[0]->vout[0].nValue, 50 * COIN);
     CScript scriptPubKey = genesis.vtx[0]->vout[0].scriptPubKey;
-    BOOST_CHECK_EQUAL(HexStr(scriptPubKey.begin(), scriptPubKey.end()), "76a91445d405b9ed450fec89044f9b7a99a4ef6fe2cd3f88ac");
+    BOOST_CHECK_EQUAL(HexStr(scriptPubKey.begin(), scriptPubKey.end()), "76a914834e0737cdb9008db614cd95ec98824e952e3dc588ac");
 
     BOOST_CHECK_EQUAL(genesis.proof.size(),64);
 }
 
 BOOST_AUTO_TEST_CASE(create_genesis_block_one_publickey)
 {
-    const unsigned char keyBuffer[32] {0xc8,0x75,0x09,0xa1,0xc0,0x67,0xbb,0xde,0x78,0xbe,0xb7,0x93,0xe6,0xfa,0x76,0x53,0x0b,0x63,0x82,0xa4,0xc0,0x24,0x1e,0x5e,0x4a,0x9e,0xc0,0xa0,0xf4,0x4d,0xc0,0xd3};
-
     CKey aggregateKey;
-    aggregateKey.Set(keyBuffer, keyBuffer + 32, true);
+    aggregateKey.Set(validAggPrivateKey, validAggPrivateKey + 32, true);
     CPubKey aggPubkey = aggregateKey.GetPubKey();
 
     auto chainParams = CreateChainParams(CBaseChainParams::MAIN);
@@ -190,13 +186,13 @@ BOOST_AUTO_TEST_CASE(create_genesis_block_one_publickey)
 
     BOOST_CHECK_EQUAL(chainParams->GenesisBlock().vtx[0]->vin.size(), 1);
     CScript scriptSig = chainParams->GenesisBlock().vtx[0]->vin[0].scriptSig;
-    BOOST_CHECK_EQUAL(HexStr(scriptSig.begin(), scriptSig.end()), "2103af80b90d25145da28c583359beb47b21796b2fe1a23c1511e443e7a64dfdb27d");
+    BOOST_CHECK_EQUAL(HexStr(scriptSig.begin(), scriptSig.end()), "21025700236c2890233592fcef262f4520d22af9160e3d9705855140eb2aa06c35d3");
 
     BOOST_CHECK_EQUAL(chainParams->GenesisBlock().vtx[0]->vout.size(), 1);
     BOOST_CHECK_EQUAL(chainParams->GenesisBlock().vtx[0]->vout[0].nValue, 50 * COIN);
     CScript scriptPubKey = chainParams->GenesisBlock().vtx[0]->vout[0].scriptPubKey;
     BOOST_CHECK_EQUAL(HexStr(scriptPubKey.begin(), scriptPubKey.end()),
-    "76a91445d405b9ed450fec89044f9b7a99a4ef6fe2cd3f88ac");
+    "76a914834e0737cdb9008db614cd95ec98824e952e3dc588ac");
 
     BOOST_CHECK_EQUAL(chainParams->GenesisBlock().GetHash(), chainParams->GetConsensus().hashGenesisBlock);
 
