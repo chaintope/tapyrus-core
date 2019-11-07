@@ -39,8 +39,8 @@ class AuthServiceProxyWrapper():
             return return_val
         return AuthServiceProxyWrapper(return_val, self.coverage_logfile)
 
-    def generate(self, nblocks=0, signblockprivkeys=[]):
-        return getattr(self.auth_service_proxy_instance, "generate")(nblocks, signblockprivkeys)
+    def generate(self, nblocks=0, signblockprivkey=""):
+        return getattr(self.auth_service_proxy_instance, "generate")(nblocks, signblockprivkey)
 
 
     def __call__(self, *args, **kwargs):

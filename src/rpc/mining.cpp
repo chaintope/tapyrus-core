@@ -905,7 +905,7 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() != 2)
         throw std::runtime_error(
-            "combineblocksigs \"blockhex\" [{\"signature\"},...]\n"
+            "combineblocksigs \"blockhex\" \"signature\"\n"
             "\nMerges signatures on a block proposal\n"
             "\nArguments:\n"
             "1. \"blockhex\"       (string, required) The hex-encoded block from getnewblockhex\n"

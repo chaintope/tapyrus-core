@@ -76,7 +76,7 @@ class ZMQTest (BitcoinTestFramework):
     def _zmq_test(self):
         num_blocks = 5
         self.log.info("Generate %(n)d blocks (and %(n)d coinbase txes)" % {"n": num_blocks})
-        genhashes = self.nodes[0].generate(num_blocks, self.signblockprivkeys)
+        genhashes = self.nodes[0].generate(num_blocks, self.signblockprivkey)
         self.sync_all()
 
         for x in range(num_blocks):

@@ -65,14 +65,14 @@ def create_block(hashprev, coinbase, ntime=None):
     return block
 
 # create test genesis block
-def createTestGenesisBlock(signblockpubkeys, signblockthreshold, signblockprivkeys, nTime=None):
+def createTestGenesisBlock(signblockpubkey, signblockprivkey, nTime=None):
     genesis_coinbase = CTransaction()
     coinbaseinput = CTxIn(outpoint=COutPoint(0, 0), nSequence=0xffffffff)
-    coinbaseinput.scriptSig=CScript([bytes(signblockthreshold), hex_str_to_bytes(signblockpubkeys)])
+    coinbaseinput.scriptSig=CScript([hex_str_to_bytes(signblockpubkey)])
     genesis_coinbase.vin.append(coinbaseinput)
     coinbaseoutput = CTxOut()
     coinbaseoutput.nValue = 50 * COIN
-    coinbaseoutput.scriptPubKey = CScript([OP_DUP, OP_HASH160, hex_str_to_bytes(signblockpubkeys[:64]),OP_EQUALVERIFY, OP_CHECKSIG])
+    coinbaseoutput.scriptPubKey = CScript([OP_DUP, OP_HASH160, hex_str_to_bytes(signblockpubkey),OP_EQUALVERIFY, OP_CHECKSIG])
     genesis_coinbase.vout.append(coinbaseoutput)
     genesis_coinbase.calc_sha256()
 
@@ -85,7 +85,7 @@ def createTestGenesisBlock(signblockpubkeys, signblockthreshold, signblockprivke
     genesis.vtx.append(genesis_coinbase)
     genesis.hashMerkleRoot = genesis.calc_merkle_root()
     genesis.hashImMerkleRoot = genesis.calc_immutable_merkle_root()
-    genesis.solve(signblockprivkeys)
+    genesis.solve(signblockprivkey)
     return genesis
 
 def get_witness_script(witness_root, witness_nonce):

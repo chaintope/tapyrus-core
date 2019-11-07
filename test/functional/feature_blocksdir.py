@@ -17,12 +17,12 @@ class BlocksdirTest(BitcoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 1
-        self.genesisBlock = createTestGenesisBlock(self.signblockpubkeys, self.signblockthreshold, self.signblockprivkeys)
+        self.genesisBlock = createTestGenesisBlock(self.signblockpubkey, self.signblockprivkey)
 
     def run_test(self):
         self.stop_node(0)
         shutil.rmtree(self.nodes[0].datadir)
-        initialize_datadir(self.options.tmpdir, 0, self.signblockpubkeys, self.signblockthreshold)
+        initialize_datadir(self.options.tmpdir, 0, self.signblockpubkey)
         self.writeGenesisBlockToFile(self.nodes[0].datadir)
         self.log.info("Starting with non exiting blocksdir ...")
         blocksdir_path = os.path.join(self.options.tmpdir, 'blocksdir')
@@ -31,7 +31,7 @@ class BlocksdirTest(BitcoinTestFramework):
         self.log.info("Starting with exiting blocksdir ...")
         self.start_node(0, ["-blocksdir=" + blocksdir_path])
         self.log.info("mining blocks..")
-        self.nodes[0].generate(10, self.signblockprivkeys)
+        self.nodes[0].generate(10, self.signblockprivkey)
         assert os.path.isfile(os.path.join(blocksdir_path, "regtest", "blocks", "blk00000.dat"))
         assert os.path.isdir(os.path.join(self.nodes[0].datadir, "regtest", "blocks", "index"))
 

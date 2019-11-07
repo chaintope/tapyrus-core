@@ -55,14 +55,14 @@ class InvalidTxRequestTest(BitcoinTestFramework):
         self.log.info("Create a new block with an anyone-can-spend coinbase.")
         height = 1
         block = create_block(tip, create_coinbase(height), block_time)
-        block.solve(self.signblockprivkeys)
+        block.solve(self.signblockprivkey)
         # Save the coinbase for later
         block1 = block
         tip = block.sha256
         node.p2p.send_blocks_and_test([block], node, success=True)
 
         self.log.info("Mature the block.")
-        self.nodes[0].generate(100, self.signblockprivkeys)
+        self.nodes[0].generate(100, self.signblockprivkey)
 
         # b'\x64' is OP_NOTIF
         # Transaction will be rejected with code 16 (REJECT_INVALID)

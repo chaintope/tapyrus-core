@@ -31,7 +31,7 @@ class NotificationsTest(BitcoinTestFramework):
     def run_test(self):
         self.log.info("test -blocknotify")
         block_count = 10
-        blocks = self.nodes[1].generate(block_count, self.signblockprivkeys)
+        blocks = self.nodes[1].generate(block_count, self.signblockprivkey)
 
         # wait at most 10 seconds for expected file size before reading the content
         wait_until(lambda: os.path.isfile(self.block_filename) and os.stat(self.block_filename).st_size >= (block_count * 65), timeout=10)
@@ -64,7 +64,7 @@ class NotificationsTest(BitcoinTestFramework):
 
         # Mine another 41 up-version blocks. -alertnotify should trigger on the 51st.
         self.log.info("test -alertnotify")
-        self.nodes[1].generate(41, self.signblockprivkeys)
+        self.nodes[1].generate(41, self.signblockprivkey)
         self.sync_all()
 
         # Give bitcoind 10 seconds to write the alert notification
@@ -74,7 +74,7 @@ class NotificationsTest(BitcoinTestFramework):
             alert_text = f.read()
 
         # Mine more up-version blocks, should not get more alerts:
-        self.nodes[1].generate(2, self.signblockprivkeys)
+        self.nodes[1].generate(2, self.signblockprivkey)
         self.sync_all()
 
         with open(self.alert_filename, 'r', encoding='utf8') as f:

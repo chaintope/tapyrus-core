@@ -58,26 +58,25 @@ class GetblockstatsTest(BitcoinTestFramework):
         self.extra_args = [['-txindex'], ['-paytxfee=0.003']]
         self.setup_clean_chain = True
         self.mocktime = 1561689492
-        self.signblockthreshold = 1
-        self.signblockpubkeys = "0201c537fd7eb7928700927b48e51ceec621fc8ba1177ee2ad67336ed91e2f63a1"
-        self.signblockprivkeys = ["aa3680d5d48a8283413f7a108367c7299ca73f553735860a87b08f39395618b7"]
-        self.genesisBlock = createTestGenesisBlock(self.signblockpubkeys, self.signblockthreshold, self.signblockprivkeys, self.mocktime - 10)
+        self.signblockpubkey = "0201c537fd7eb7928700927b48e51ceec621fc8ba1177ee2ad67336ed91e2f63a1"
+        self.signblockprivkey = "aa3680d5d48a8283413f7a108367c7299ca73f553735860a87b08f39395618b7"
+        self.genesisBlock = createTestGenesisBlock(self.signblockpubkey, self.signblockprivkey, self.mocktime - 10)
 
     def get_stats(self):
         return [self.nodes[0].getblockstats(hash_or_height=self.start_height + i) for i in range(self.max_stat_pos+1)]
 
     def generate_test_data(self, filename):
-        self.nodes[0].generate(101, self.signblockprivkeys)
+        self.nodes[0].generate(101, self.signblockprivkey)
 
         self.nodes[0].sendtoaddress(address=self.nodes[1].getnewaddress(), amount=10, subtractfeefromamount=True)
-        self.nodes[0].generate(1, self.signblockprivkeys)
+        self.nodes[0].generate(1, self.signblockprivkey)
         self.sync_all()
 
         self.nodes[0].sendtoaddress(address=self.nodes[0].getnewaddress(), amount=10, subtractfeefromamount=True)
         self.nodes[0].sendtoaddress(address=self.nodes[0].getnewaddress(), amount=10, subtractfeefromamount=False)
         self.nodes[1].sendtoaddress(address=self.nodes[0].getnewaddress(), amount=1, subtractfeefromamount=True)
         self.sync_all()
-        self.nodes[0].generate(1, self.signblockprivkeys)
+        self.nodes[0].generate(1, self.signblockprivkey)
 
         self.expected_stats = self.get_stats()
 
@@ -127,7 +126,7 @@ class GetblockstatsTest(BitcoinTestFramework):
             for i in range (0, self.num_nodes):
                 self.stop_node(i)
                 shutil.rmtree(os.path.join(self.nodes[i].datadir, "regtest"))
-                initialize_datadir(self.options.tmpdir, 0, self.signblockpubkeys, self.signblockthreshold)
+                initialize_datadir(self.options.tmpdir, 0, self.signblockpubkey)
                 shutil.copyfile(genesis_block, os.path.join(self.nodes[i].datadir, "genesis.dat"))
                 self.start_node(i)
             connect_nodes_bi(self.nodes, 0, 1)

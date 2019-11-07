@@ -27,6 +27,7 @@ import time
 from test_framework.siphash import siphash256
 from test_framework.util import hex_str_to_bytes, bytes_to_hex_str
 from test_framework.key import CECKey
+from test_framework.schnorr import Schnorr
 
 MIN_VERSION_SUPPORTED = 10000
 MY_VERSION = 10000  # past bip-31 for ping/pong
@@ -528,12 +529,12 @@ class CBlockHeader():
             self.calc_sha256()
 
     def set_null(self):
-        self.nVersion = 536870912
+        self.nVersion = 1
         self.hashPrevBlock = 0
         self.hashMerkleRoot = 0
         self.hashImMerkleRoot = 0
         self.nTime = 0
-        self.proof = []
+        self.proof = bytearray()
         self.sha256 = None
         self.hash = None
 
@@ -543,7 +544,7 @@ class CBlockHeader():
         self.hashMerkleRoot = deser_uint256(f)
         self.hashImMerkleRoot = deser_uint256(f)
         self.nTime = struct.unpack("<I", f.read(4))[0]
-        self.proof = deser_string_vector(f)
+        self.proof = deser_string(f)
         self.sha256 = None
         self.hash = None
 
@@ -554,7 +555,7 @@ class CBlockHeader():
         r += ser_uint256(self.hashMerkleRoot)
         r += ser_uint256(self.hashImMerkleRoot)
         r += struct.pack("<I", self.nTime)
-        r += ser_string_vector(self.proof)
+        r += ser_string(self.proof)
         return r
 
     def getsighash(self):
@@ -574,7 +575,7 @@ class CBlockHeader():
             r += ser_uint256(self.hashMerkleRoot)
             r += ser_uint256(self.hashImMerkleRoot)
             r += struct.pack("<I", self.nTime)
-            r += ser_string_vector(self.proof)
+            r += ser_string(self.proof)
             self.sha256 = uint256_from_str(hash256(r))
             self.hash = encode(hash256(r)[::-1], 'hex_codec').decode('ascii')
 
@@ -584,8 +585,8 @@ class CBlockHeader():
         return self.sha256
 
     def __repr__(self):
-        return "CBlockHeader(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x hashImMerkleRoot=%064x nTime=%s proof[%d]=%s)" \
-            % (self.nVersion, self.hashPrevBlock, self.hashMerkleRoot, self.hashImMerkleRoot, time.ctime(self.nTime), len(self.proof), [bytes_to_hex_str(sig) for sig in self.proof])
+        return "CBlockHeader(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x hashImMerkleRoot=%064x nTime=%s proof=%s)" \
+            % (self.nVersion, self.hashPrevBlock, self.hashMerkleRoot, self.hashImMerkleRoot, time.ctime(self.nTime), bytes_to_hex_str(self.proof))
 
 
 class CBlock(CBlockHeader):
@@ -650,22 +651,20 @@ class CBlock(CBlockHeader):
             return False
         return True
 
-    def solve(self, signblockprivkeys):
+    def solve(self, signblockprivkey):
         # create signed blocks.
         sighash = self.getsighash()
-        self.proof.clear()
-        for privkey in signblockprivkeys:
-            signKey = CECKey()
-            signKey.set_secretbytes(hex_str_to_bytes(privkey))
-            signKey.set_compressed(True)
-            sig = signKey.sign(sighash)
-            self.proof.append(sig)
+        self.proof = ""
+        #proof is based on Schnorr aggregate private key
+        signKey = Schnorr()
+        signKey.set_secretbytes(hex_str_to_bytes(signblockprivkey))
+        self.proof = bytearray(signKey.sign(sighash))
         self.rehash()
 
     def __repr__(self):
-        return "CBlock(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x hashImMerkleRoot=%064x nTime=%s proof[%d]=%s vtx=%s)" \
+        return "CBlock(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x hashImMerkleRoot=%064x nTime=%s proof=%s vtx=%s)" \
             % (self.nVersion, self.hashPrevBlock, self.hashMerkleRoot, self.hashImMerkleRoot,
-               time.ctime(self.nTime), len(self.proof), [bytes_to_hex_str(sig) for sig in self.proof], repr(self.vtx))
+               time.ctime(self.nTime), bytes_to_hex_str(self.proof), repr(self.vtx))
 
 
 class PrefilledTransaction():

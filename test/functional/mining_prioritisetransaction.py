@@ -41,7 +41,7 @@ class PrioritiseTransactionTest(BitcoinTestFramework):
         self.relayfee = self.nodes[0].getnetworkinfo()['relayfee']
 
         utxo_count = 90
-        utxos = create_confirmed_utxos(self.relayfee, self.nodes[0], utxo_count, self.signblockprivkeys)
+        utxos = create_confirmed_utxos(self.relayfee, self.nodes[0], utxo_count, self.signblockprivkey)
         base_fee = self.relayfee*100 # our transactions are smaller than 100kb
         txids = []
 
@@ -68,7 +68,7 @@ class PrioritiseTransactionTest(BitcoinTestFramework):
         # also check that a different entry in the cheapest bucket is NOT mined
         self.nodes[0].prioritisetransaction(txid=txids[0][0], fee_delta=int(3*base_fee*COIN))
 
-        self.nodes[0].generate(1, self.signblockprivkeys)
+        self.nodes[0].generate(1, self.signblockprivkey)
 
         mempool = self.nodes[0].getrawmempool()
         self.log.info("Assert that prioritised transaction was mined")
@@ -98,7 +98,7 @@ class PrioritiseTransactionTest(BitcoinTestFramework):
         # the other high fee transactions. Keep mining until our mempool has
         # decreased by all the high fee size that we calculated above.
         while (self.nodes[0].getmempoolinfo()['bytes'] > sizes[0] + sizes[1]):
-            self.nodes[0].generate(1, self.signblockprivkeys)
+            self.nodes[0].generate(1, self.signblockprivkey)
 
         # High fee transaction should not have been mined, but other high fee rate
         # transactions should have been.

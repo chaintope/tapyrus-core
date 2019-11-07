@@ -14,7 +14,7 @@ class ListSinceBlockTest (BitcoinTestFramework):
         self.setup_clean_chain = True
 
     def run_test(self):
-        self.nodes[2].generate(101, self.signblockprivkeys)
+        self.nodes[2].generate(101, self.signblockprivkey)
         self.sync_all()
 
         self.test_no_blockhash()
@@ -25,7 +25,7 @@ class ListSinceBlockTest (BitcoinTestFramework):
 
     def test_no_blockhash(self):
         txid = self.nodes[2].sendtoaddress(self.nodes[0].getnewaddress(), 1)
-        blockhash, = self.nodes[2].generate(1, self.signblockprivkeys)
+        blockhash, = self.nodes[2].generate(1, self.signblockprivkey)
         self.sync_all()
 
         txs = self.nodes[0].listtransactions()
@@ -90,8 +90,8 @@ class ListSinceBlockTest (BitcoinTestFramework):
         senttx = self.nodes[2].sendtoaddress(self.nodes[0].getnewaddress(), 1)
 
         # generate on both sides
-        lastblockhash = self.nodes[1].generate(6, self.signblockprivkeys)[5]
-        self.nodes[2].generate(7, self.signblockprivkeys)
+        lastblockhash = self.nodes[1].generate(6, self.signblockprivkey)[5]
+        self.nodes[2].generate(7, self.signblockprivkey)
         self.log.info('lastblockhash=%s' % (lastblockhash))
 
         self.sync_all([self.nodes[:2], self.nodes[2:]])
@@ -172,8 +172,8 @@ class ListSinceBlockTest (BitcoinTestFramework):
                 self.nodes[2].createrawtransaction(utxo_dicts, recipient_dict2), [], "ALL", self.options.scheme)['hex'])
 
         # generate on both sides
-        lastblockhash = self.nodes[1].generate(3, self.signblockprivkeys)[2]
-        self.nodes[2].generate(4, self.signblockprivkeys)
+        lastblockhash = self.nodes[1].generate(3, self.signblockprivkey)[2]
+        self.nodes[2].generate(4, self.signblockprivkey)
 
         self.join_network()
 
@@ -243,7 +243,7 @@ class ListSinceBlockTest (BitcoinTestFramework):
         txid1 = self.nodes[1].sendrawtransaction(signedtx)
 
         # generate bb1-bb2 on right side
-        self.nodes[2].generate(2, self.signblockprivkeys)
+        self.nodes[2].generate(2, self.signblockprivkey)
 
         # send from nodes[2]; this will end up in bb3
         txid2 = self.nodes[2].sendrawtransaction(signedtx)
@@ -251,8 +251,8 @@ class ListSinceBlockTest (BitcoinTestFramework):
         assert_equal(txid1, txid2)
 
         # generate on both sides
-        lastblockhash = self.nodes[1].generate(3, self.signblockprivkeys)[2]
-        self.nodes[2].generate(2, self.signblockprivkeys)
+        lastblockhash = self.nodes[1].generate(3, self.signblockprivkey)[2]
+        self.nodes[2].generate(2, self.signblockprivkey)
 
         self.join_network()
 

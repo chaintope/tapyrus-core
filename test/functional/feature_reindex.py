@@ -20,7 +20,7 @@ class ReindexTest(BitcoinTestFramework):
         self.num_nodes = 1
 
     def reindex(self, justchainstate=False):
-        self.nodes[0].generate(3, self.signblockprivkeys)
+        self.nodes[0].generate(3, self.signblockprivkey)
         blockcount = self.nodes[0].getblockcount()
         self.stop_nodes()
         extra_args = [["-reindex-chainstate" if justchainstate else "-reindex"]]

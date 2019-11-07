@@ -132,11 +132,11 @@ class ImportRescanTest(BitcoinTestFramework):
 
         # Generate a block containing the initial transactions, then another
         # block further in the future (past the rescan window).
-        self.nodes[0].generate(1, self.signblockprivkeys)
+        self.nodes[0].generate(1, self.signblockprivkey)
         assert_equal(self.nodes[0].getrawmempool(), [])
         timestamp = self.nodes[0].getblockheader(self.nodes[0].getbestblockhash())["time"]
         set_node_times(self.nodes, timestamp + TIMESTAMP_WINDOW + 1)
-        self.nodes[0].generate(1, self.signblockprivkeys)
+        self.nodes[0].generate(1, self.signblockprivkey)
         sync_blocks(self.nodes)
 
         # For each variation of wallet key import, invoke the import RPC and
@@ -161,7 +161,7 @@ class ImportRescanTest(BitcoinTestFramework):
             variant.sent_txid = self.nodes[0].sendtoaddress(variant.address["address"], variant.sent_amount)
 
         # Generate a block containing the new transactions.
-        self.nodes[0].generate(1, self.signblockprivkeys)
+        self.nodes[0].generate(1, self.signblockprivkey)
         assert_equal(self.nodes[0].getrawmempool(), [])
         sync_blocks(self.nodes)
 

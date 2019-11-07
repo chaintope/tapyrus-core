@@ -92,39 +92,8 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         self.rpc_timewait = 60  # Wait for up to 60 seconds for the RPC server to respond
         self.supports_cli = False
         self.bind_to_localhost_only = True
-        self.signblockpubkeys = ("0201c537fd7eb7928700927b48e51ceec621fc8ba1177ee2ad67336ed91e2f63a1"+"0205deb5ba6b1f7c22e79026f8301fe8d50e9e9af8514665c2440207e932d44a62"+"02114e7960286099c603e51348df63fd0acb75f81b97a85eb4af87df9ee5ff18eb"
-        +"02396c2c8a22ec28dbe02613027edea9a3b0c314294985e09c2f389818b29fee06"
-        +"023b435ce7b804aa66dcd65a855282479be5057fd82ce4c7c2e2430920de8b9e9e"
-        +"02785a891f323acd6cef0fc509bb14304410595914267c50467e51c87142acbb5e"
-        +"02b9a609d6bec0fdc9ba690986013cf7bbd13c54ffc25e6cf30916b4732c4a952a"
-        +"02bf2027c8455800c7626542219e6208b5fe787483689f1391d6d443ec85673ecf"
-        +"02ce7edc292d7b747fab2f23584bbafaffde5c8ff17cf689969614441e0527b900"
-        +"02e78cafe033b22bda5d7d1c8e82ee932930bf12e08489bc19769cbec765568be9"
-        +"033e6e1d4ae3e7e1bc2173e2af1f2f65c6284ea7c6478f2241784c77b0dff98e61"
-        +"03831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafc"
-        +"03af80b90d25145da28c583359beb47b21796b2fe1a23c1511e443e7a64dfdb27d"
-        +"03b44f1cfcf46aba8bc98e2fd39f137cc43d98ab7792e4848b09c06198b042ca8b"
-        +"03e67ceb1f0af0ab4668227984782b48d286b88e54dc91487143199728d4597c02")
-        #"02473757a955a23f75379820f3071abf5b3343b78eb54e52373d06259ffa6c550b"
-        self.signblockthreshold = 10
-        self.signblockprivkeys = [
-        "aa3680d5d48a8283413f7a108367c7299ca73f553735860a87b08f39395618b7",
-        "82d052c865f5763aad42add438569276c00d3d88a2d062d36b2bae914d58b8c8",
-        "8d5366123cb560bb606379f90a0bfd4769eecc0557f1b362dcae9012b548b1e5",
-        "c88b703fb08cbea894b6aeff5a544fb92e78a18e19814cd85da83b71f772aa6c",
-        "659cbb0e2411a44db63778987b1e22153c086a95eb6b18bdf89de078917abc63",
-        "0dbbe8e4ae425a6d2687f1a7e3ba17bc98c673636790f1b8ad91193c05875ef1",
-        "6125c8d4330941944cc6cc3e775e8620c479a5901ad627e6e734c6a6f7377428",
-        "aa2c70c4b85a09be514292d04b27bbb0cc3f86d306d58fe87743d10a095ada07",
-        "ae6ae8e5ccbfb04590405997ee2d52d2b330726137b875053c36d94e974d162f",
-        "1c3e5453c0f9aa74a8eb0216310b2b013f017813a648fce364bf41dbc0b37647",
-        "0f62d96d6675f32685bbdb8ac13cda7c23436f63efbb9d07700d8669ff12b7c4",
-        "dbb9d19637018267268dfc2cc7aec07e7217c1a2d6733e1184a0909273bf078b",
-        "c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3",
-        "3087d8decc5f951f19a442397cf1eba1e2b064e68650c346502780b56454c6e2",
-        "388c684f0ba1ef5017716adb5d21a053ea8e90277d0868337519f97bede61418"][:self.signblockthreshold]
-        #ea9fe9fd2f1761fc6f1f0f23eb4d4141d7b05f2b95a1b7a9912cd97bddd9036c
-        assert(len(self.signblockprivkeys) == self.signblockthreshold)
+        self.signblockpubkey = "025700236c2890233592fcef262f4520d22af9160e3d9705855140eb2aa06c35d3"
+        self.signblockprivkey = "67ae3f5bfb3464b9704d7bd3a134401cc80c3a172240ebfca9f1e40f51bb6d37"
         self.genesisBlock = None
         self.set_test_params()
 
@@ -306,7 +275,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         assert_equal(len(extra_args), num_nodes)
         assert_equal(len(binary), num_nodes)
         for i in range(num_nodes):
-            self.nodes.append(TestNode(i, get_datadir_path(self.options.tmpdir, i), rpchost=rpchost, timewait=self.rpc_timewait, bitcoind=binary[i], bitcoin_cli=self.options.bitcoincli, mocktime=self.mocktime, coverage_dir=self.options.coveragedir, signblockparams=[self.signblockpubkeys, self.signblockthreshold, self.signblockprivkeys], extra_conf=extra_confs[i], extra_args=extra_args[i], use_cli=self.options.usecli))
+            self.nodes.append(TestNode(i, get_datadir_path(self.options.tmpdir, i), rpchost=rpchost, timewait=self.rpc_timewait, bitcoind=binary[i], bitcoin_cli=self.options.bitcoincli, mocktime=self.mocktime, coverage_dir=self.options.coveragedir, signblockpubkey=self.signblockpubkey, extra_conf=extra_confs[i], extra_args=extra_args[i], use_cli=self.options.usecli))
 
     def start_node(self, i, *args, **kwargs):
         """Start a bitcoind"""
@@ -455,16 +424,15 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
 
             # Create cache directories, run bitcoinds:
             for i in range(MAX_NODES):
-                datadir = initialize_datadir(self.options.cachedir, i, self.signblockpubkeys, self.signblockthreshold)
+                datadir = initialize_datadir(self.options.cachedir, i, self.signblockpubkey)
                 self.writeGenesisBlockToFile(datadir, self.mocktime - (201 * 10 * 60))
                 args = [self.options.bitcoind,
                 "-datadir=" + datadir,
-                "-signblockpubkeys=" + self.signblockpubkeys,
-                "-signblockthreshold=" + str(self.signblockthreshold)]
+                "-signblockpubkey=" + self.signblockpubkey]
                 if i > 0:
                     args.append("-connect=127.0.0.1:" + str(p2p_port(0)))
                     args.append("-debug=all")
-                self.nodes.append(TestNode(i, get_datadir_path(self.options.cachedir, i), signblockparams=[self.signblockpubkeys, self.signblockthreshold, self.signblockprivkeys], extra_conf=["bind=127.0.0.1"], extra_args=[], rpchost=None, timewait=self.rpc_timewait, bitcoind=self.options.bitcoind, bitcoin_cli=self.options.bitcoincli, mocktime=self.mocktime, coverage_dir=None))
+                self.nodes.append(TestNode(i, get_datadir_path(self.options.cachedir, i), signblockpubkey=self.signblockpubkey, extra_conf=["bind=127.0.0.1"], extra_args=[], rpchost=None, timewait=self.rpc_timewait, bitcoind=self.options.bitcoind, bitcoin_cli=self.options.bitcoincli, mocktime=self.mocktime, coverage_dir=None))
                 self.nodes[i].args = args
                 self.start_node(i)
 
@@ -484,7 +452,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
                 for peer in range(4):
                     for j in range(25):
                         set_node_times(self.nodes, block_time)
-                        self.nodes[peer].generate(1, self.signblockprivkeys)
+                        self.nodes[peer].generate(1, self.signblockprivkey)
                         block_time += 10 * 60
                     # Must sync before next peer starts generating blocks
                     sync_blocks(self.nodes)
@@ -506,7 +474,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             from_dir = get_datadir_path(self.options.cachedir, i)
             to_dir = get_datadir_path(self.options.tmpdir, i)
             shutil.copytree(from_dir, to_dir)
-            datadir = initialize_datadir(self.options.tmpdir, i, self.signblockpubkeys, self.signblockthreshold)  # Overwrite port/rpcport in tapyrus.conf
+            datadir = initialize_datadir(self.options.tmpdir, i, self.signblockpubkey)  # Overwrite port/rpcport in tapyrus.conf
 
     def _initialize_chain_clean(self):
         """Initialize empty blockchain for use by the test.
@@ -514,12 +482,12 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         Create an empty blockchain and num_nodes wallets.
         Useful if a test case wants complete control over initialization."""
         for i in range(self.num_nodes):
-            datadir = initialize_datadir(self.options.tmpdir, i, self.signblockpubkeys, self.signblockthreshold)
+            datadir = initialize_datadir(self.options.tmpdir, i, self.signblockpubkey)
             self.writeGenesisBlockToFile(datadir)
 
     def writeGenesisBlockToFile(self, datadir, nTime=None):
         if self.genesisBlock == None:
-            self.genesisBlock = createTestGenesisBlock(self.signblockpubkeys, self.signblockthreshold, self.signblockprivkeys, nTime)
+            self.genesisBlock = createTestGenesisBlock(self.signblockpubkey, self.signblockprivkey, nTime)
         with open(os.path.join(datadir, "genesis.dat"), 'w', encoding='utf8') as f:
             f.write(bytes_to_hex_str(self.genesisBlock.serialize()))
 
