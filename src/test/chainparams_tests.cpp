@@ -12,48 +12,8 @@
 #include <boost/test/unit_test.hpp>
 #include <consensus/validation.h>
 
-/** ChainParamsTestingSetup
- * This class is an exact copy of BasicTestingSetup but removes two steps:
- *   * MultisigCondition
- *   * SelectParams
- * this is needed to test the exceptions raised by the constructor of MultisigCondition
- * Note: do not use this class in any other unit test
- */
-extern void noui_connect();
-struct ChainParamsTestingSetup{
-    explicit ChainParamsTestingSetup(const std::string& chainName = CBaseChainParams::MAIN)
-    : m_path_root(fs::temp_directory_path() / "test_bitcoin" / strprintf("%lu_%i", (unsigned long)GetTime(), (int)(InsecureRandRange(1 << 30))))
-    {
-        SHA256AutoDetect();
-        RandomInit();
-        ECC_Start();
-        SetupEnvironment();
-        SetupNetworking();
-        InitSignatureCache();
-        InitScriptExecutionCache();
-        fCheckBlockIndex = true;
-        noui_connect();
-    }
 
-    ~ChainParamsTestingSetup()
-    {
-        fs::remove_all(m_path_root);
-        ECC_Stop();
-    }
-
-    fs::path SetDataDir(const std::string& name)
-    {
-        fs::path ret = m_path_root / name;
-        fs::create_directories(ret);
-        gArgs.ForceSetArg("-datadir", ret.string());
-        return ret;
-    }
-    private:
-    const fs::path m_path_root;
-};
-
-
-BOOST_FIXTURE_TEST_SUITE(chainparams_tests, ChainParamsTestingSetup)
+BOOST_FIXTURE_TEST_SUITE(chainparams_tests, BasicTestingSetup)
 
 BOOST_AUTO_TEST_CASE(parse_pubkey_string_uncompressed)
 {
