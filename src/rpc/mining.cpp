@@ -960,7 +960,7 @@ UniValue testproposedblock(const JSONRPCRequest& request)
             "\nResult\n"
             "\"valid\"              (bool) true when the block is valid, JSON exception on failure\n"
             "\nExamples:\n"
-            + HelpExampleCli("testproposedblock", "<blockhex> [acceptnonstdtxn]")
+            + HelpExampleCli("testproposedblock", "\"blockhex\" \"[acceptnonstdtxn]\"")
         );
 
     CBlock block;

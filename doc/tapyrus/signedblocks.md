@@ -98,7 +98,7 @@ Result
 blockhex      (hex) The block hex
 
 Examples:
-> bitcoin-cli getnewblock
+> tapyrus-cli getnewblock
 ```
 
 
@@ -117,7 +117,7 @@ Result
 "valid"              (bool) true when the block is valid, JSON exception on failure
 
 Examples:
-> bitcoin-cli testproposedblock <blockhex> [acceptnonstdtxn]
+> tapyrus-cli testproposedblock <blockhex> [acceptnonstdtxn]
 ```
 
 
@@ -144,7 +144,7 @@ Result
 }
 
 Examples:
-> bitcoin-cli combineblocksigs <hex> ["signature1", "signature2", ...]
+> tapyrus-cli combineblocksigs <hex> ["signature1", "signature2", ...]
 ```
 
 ## submitblock
@@ -163,6 +163,6 @@ Arguments
 Result:
 
 Examples:
-> bitcoin-cli submitblock "mydata"
+> tapyrus-cli submitblock "mydata"
 > curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "submitblock", "params": ["mydata"] }' -H 'content-type: text/plain;' http://127.0.0.1:2377/
 ```

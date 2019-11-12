@@ -385,12 +385,16 @@ class BIP68_112_113Test(BitcoinTestFramework):
         self.nodes[0].invalidateblock(self.nodes[0].getbestblockhash())
 
         # If SEQUENCE_LOCKTIME_DISABLE_FLAG is unset in argument to OP_CSV, version 1 txs should now fail
+        # nseq = 9
+        fail_txs = all_rlt_txs(bip112txs_vary_nSequence_9_v1)
+        fail_txs += [tx['tx'] for tx in bip112txs_vary_OP_CSV_9_v1 if not tx['sdf']]
+        self.sync_blocks([self.create_test_block(fail_txs)], success=False)
+
+        # nseq = 10
         fail_txs = all_rlt_txs(bip112txs_vary_nSequence_v1)
-        fail_txs += all_rlt_txs(bip112txs_vary_nSequence_9_v1)
-        fail_txs += [tx['tx'] for tx in bip112txs_vary_OP_CSV_9_v1 if not tx['sdf']]
-        fail_txs += [tx['tx'] for tx in bip112txs_vary_OP_CSV_9_v1 if not tx['sdf']]
-        for tx in fail_txs:
-            self.sync_blocks([self.create_test_block([tx])], success=False)
+        fail_txs += [tx['tx'] for tx in bip112txs_vary_OP_CSV_v1 if not tx['sdf']]
+        self.sync_blocks([self.create_test_block(fail_txs)], success=False)
+
 
         self.log.info("Test version 2 txs")
 

@@ -50,6 +50,7 @@ _s_ - 32 bytes. the unsigned big-endian 256-bit encoding of the Schnorr signatur
 _hashtype_ - 1 byte.  informs OP_CHECKSIG/VERIFY mechanics.
 
 Signing on Tapyrus can be done using either ECDSA or Schnorr signature schemes. The following RPCs have an additional parameter to choose the signature scheme:
+* signrawtransaction
 * signrawtransactionwithkey
 * signrawtransactionwithwallet
 

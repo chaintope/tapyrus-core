@@ -69,8 +69,8 @@ static int AppInit(int argc, char* argv[])
     if (argc < 2 || HelpRequested(gArgs)) {
         // First part of help message is specific to this utility
         std::string strUsage = PACKAGE_NAME " tapyrus-genesis utility version " + FormatFullVersion() + "\n\n" +
-                               "Usage:  tapyrus-genesis [options] <hex-tx> [commands]  Update hex-encoded bitcoin transaction\n" +
-                               "or:     tapyrus-genesis [options] -create [commands]   Create hex-encoded bitcoin transaction\n" +
+                               "Usage:  tapyrus-genesis [options] <hex-tx> [commands]  Update hex-encoded tapyrus transaction\n" +
+                               "or:     tapyrus-genesis [options] -create [commands]   Create hex-encoded tapyrus transaction\n" +
                                "\n";
         strUsage += gArgs.GetHelpMessage();
 

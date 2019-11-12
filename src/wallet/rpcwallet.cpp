@@ -3904,11 +3904,10 @@ UniValue generate(const JSONRPCRequest& request)
             "\nArguments:\n"
             "1. nblocks      (numeric, required) How many blocks are generated immediately.\n"
             "2. [private keys] (hex string array, required) to sign the generated blocks.\n"
-            "when the private keys are not provided, default test keys will be used\n"
             "\nResult:\n"
             "[ blockhashes ]     (array) hashes of blocks generated\n"
             "\nExamples:\n"
-            "\nGenerate 11 blocks\n"
+            "\nGenerate 11 blocks signed with 1 privatekey\n"
             + HelpExampleCli("generate", "11  [\"c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3\"]")
         );
     }

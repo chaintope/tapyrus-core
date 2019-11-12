@@ -1,22 +1,17 @@
-Bitcoin transaction 
-===================
+Transaction Malleability
+========================
+The primary cause of transaction malleability in bitcoin is that transaction id is not unique. A transaction could be malleated without invalidating it by changing the ScriptSig as it is not signed.
 Recall the bitcoin transactions structure:
 
 *|version|number of inputs|input{outpoint{hash, index}, ScriptSig, sequence}|number of outputs|output{value, scriptPubKey}|LockTime|*
 
-In bitcoin Transaction Id is the SHA256 hash computed on the serialized form of the above sequence, meaning that the length of each field is appended before it for hashing. Witness transactions in Bitcoin also adds a [marker][flag] to the transaction and a witnessScript field to every input. This are not hashed to get the transaction Id. 
-
-Transaction Malleability
-========================
-The primary cause of transaction malleability in bitcoin is that transaction id is not unique. A transaction could be malleated without invalidating it by changing the ScriptSig as it is not signed.
+In bitcoin Transaction Id is the SHA256 hash computed on the serialized form of the above sequence, meaning that the length of each field is appended before it for hashing. Witness transactions in Bitcoin also adds a [marker][flag] to the transaction and a witnessScript field to every input. Tapyrus does not support witness transactions.
 
 An alternate approach to using Segregated witness for fixing transaction malleability in bitcoin was proposed by Tomas van der Wansem - https://github.com/tomasvdw/bips/blob/master/malleability-fix.mediawiki
 
-The idea essentially is to exclude scriptSig while hashing for transaction id - Immutable transaction Id. This fixes the primary cause of transaction malleability as immutable transaction id represents only the inputs and outputs. The implementation in Tapyrus is simpler than suggested by the BIP proposal above, as we do not have to support both versions of transaction Id.
-
 Immutable Transaction Id
 ========================
-In Tapyrus all transaction IDs are Immutable Transaction IDs - *(hashMalFix in the code)*. Like the regular transaction Id in bitcoin, Immutable transactionId computation is in CTransaction and CMutableTransaction classes in Tapyrus. 
+Immutable transaction Id is derived by excluding scriptSig while hashing for transaction id. This fixes the primary cause of transaction malleability as immutable transaction id represents only the inputs and outputs. Its implementation in Tapyrus is simpler than suggested by the BIP proposal above, as we do not have to support two types of transaction Id. In Tapyrus all transaction IDs are Immutable Transaction IDs - *(hashMalFix in the code)*. Like the regular transaction Id in bitcoin, Immutable transactionId computation is in CTransaction and CMutableTransaction classes in Tapyrus.
 
 All layers of Tapyrus use Immutable transaction id.
 . P2P Network (INV, TX) messages and relay pool
@@ -24,8 +19,8 @@ All layers of Tapyrus use Immutable transaction id.
 . Coin cache level DB
 . Wallet
 
-Tapyrus transaction 
-===================
+Tapyrus transaction Structure
+=============================
 As Immutable transaction Id is used everywhere, Tapyrus transactions refer to the previous output using their Immutable transaction Id.
 
 *|version|number of inputs|input{outpoint{**hashMalFix**, index}, ScriptSig, sequence, **scriptWitness**}|number of outputs|output{value, scriptPubKey}|LockTime|*
@@ -36,7 +31,7 @@ There are 3 types of hashes in Tapyrus transactions:
 | :---: | :---: | :---: |
 |hash         |scriptWitness              |Merkle root                |
 |hashMalFix   |scriptSig, scriptWitness  |Immutable transaction Id, Immutable Merkle root, ShortId in compact blocks   |
-|hashWitness  |-                          |Witness block    |
+|hashWitness  |-                          |-   |
 
 **Tapyrus coinbase transaction**
 
@@ -56,7 +51,7 @@ Since Merkle root in Tapyrus includes ScriptSig it becomes difficult for wallets
 
 **Compact blocks**
 
-As a consequence of this change Compact blocks in Tapyrus also use Immutable transaction Id to compute the ShortIds regardless of the compact block version requested. In bitcoin compact block version 1 is non-witness and version 2 is witness.
+As a consequence of this change Compact blocks in Tapyrus also use Immutable transaction Id to compute the ShortIds. There is no versioning in compact blocks as witness blocks are not supported.
 
 
 In all RPCs 'txid' is always the Immutable Transaction Id. This table summarises RPCs affected by Immutable Transaction Id(hashMalFix), their inputs and outputs
