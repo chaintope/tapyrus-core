@@ -635,7 +635,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     result.pushKV("sigoplimit", nSigOpLimit);
     result.pushKV("sizelimit", nSizeLimit);
     result.pushKV("curtime", pblock->GetBlockTime());
-    // TODO: push proof field data
+    result.pushKV("proof", HexStr(pblock->proof));
     result.pushKV("height", (int64_t)(pindexPrev->nHeight+1));
 
     if (!pblocktemplate->vchCoinbaseCommitment.empty() && fSupportsSegwit) {
