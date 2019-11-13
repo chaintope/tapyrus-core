@@ -9,8 +9,8 @@ What is Tapyrus?
 Tapyrus is a blockchain that has been forked from Bitcoin Core, and solves the governance issues.
 Bitcoin uses Proof of Work as a consensus algorithm, but Tapyrus creates a block (ie, approves a transaction)
 with multiple signatures from the Signer group which consists of industry stakeholders.
-Therefore, transactions on the blockchain are stably approved, and finality is given at the approved timing.
-Anyone can join the Tapyrus network, and anyone can access the public ledger and freely create and broadcast transactions.
+Therefore, transactions on the blockchain are stably approved, and finality is given at the time of approval.
+Anyone can join the Tapyrus network, and anyone can access the public ledger and create and broadcast transactions freely.
 
 Tapyrus has the following additions and changes to the Bitcoin implementation.:
 
