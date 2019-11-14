@@ -26,7 +26,7 @@ that enables off-chain payments using the Payment Channel on Tapyrus.
 Tapyrus consists of the following software:
 
 * [Tapyrus Core](https://github.com/chaintope/tapyrus-core): Tapyrus full node implementation.
-* Tapyrus Signer: A network of signers that collects Unapproved transactions from the Tapyrus network and creates a block.
+* [Tapyrus Signer](https://github.com/chaintope/tapyrus-signer): A network of signers that collects Unapproved transactions from the Tapyrus network and creates a block.
 * [Tapyrus Seeder](https://github.com/chaintope/tapyrus-seeder): DNS seeder for configuring Tapyrus network.
 * [[WIP]Tapyrus SPV](https://github.com/chaintope/tapyrus-spv): A lightweight client implementation for Tapyrus blockchain.
 * [[WIP]Tapyrus Explorer](https://github.com/chaintope/tapyrus-explorer): Tapyrus blockchain explorer.
