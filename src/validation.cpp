@@ -2938,6 +2938,9 @@ static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,
 
     const CPubKey& aggregatePubkey = Params().GetAggregatePubkey();
 
+    if(!aggregatePubkey.IsValid())
+        return state.Error("Invalid aggregatePubkey");
+
     const uint256 blockHash = block.GetHashForSign();
 
     //verify signature

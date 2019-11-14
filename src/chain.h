@@ -12,6 +12,7 @@
 #include <primitives/block.h>
 #include <tinyformat.h>
 #include <uint256.h>
+#include <utilstrencodings.h>
 
 #include <vector>
 
@@ -209,6 +210,7 @@ public:
     uint256 hashMerkleRoot;
     uint256 hashImMerkleRoot;
     uint32_t nTime;
+    std::vector<unsigned char> aggPubkey;
     std::vector<unsigned char> proof;
 
     //! (memory only) Sequential id assigned to distinguish order in which blocks are received.
@@ -235,6 +237,7 @@ public:
         nVersion       = 0;
         hashMerkleRoot = uint256();
         nTime          = 0;
+        aggPubkey.clear();
         proof.clear();
     }
 
@@ -251,6 +254,7 @@ public:
         hashMerkleRoot = block.hashMerkleRoot;
         hashImMerkleRoot = block.hashImMerkleRoot;
         nTime          = block.nTime;
+        aggPubkey      = block.aggPubkey;
         proof          = block.proof;
     }
 
@@ -281,6 +285,7 @@ public:
         block.hashMerkleRoot = hashMerkleRoot;
         block.hashImMerkleRoot = hashImMerkleRoot;
         block.nTime          = nTime;
+        block.aggPubkey      = aggPubkey;
         block.proof          = proof;
         return block;
     }
@@ -318,10 +323,13 @@ public:
 
     std::string ToString() const
     {
-        return strprintf("CBlockIndex(pprev=%p, nHeight=%d, merkle=%s, Immerkle=%s, hashBlock=%s)",
+        return strprintf("CBlockIndex(pprev=%p, nHeight=%d, merkle=%s, Immerkle=%s, nTime=%u, aggPubkey=%s, proof={%s})hashBlock=%s",
             pprev, nHeight,
             hashMerkleRoot.ToString(),
             hashImMerkleRoot.ToString(),
+            nTime,
+            HexStr(aggPubkey),
+            HexStr(proof),
             GetBlockHash().ToString());
     }
 
@@ -398,6 +406,7 @@ public:
         READWRITE(hashMerkleRoot);
         READWRITE(hashImMerkleRoot);
         READWRITE(nTime);
+        READWRITE(aggPubkey);
         READWRITE(proof);
     }
 
@@ -409,6 +418,7 @@ public:
         block.hashMerkleRoot  = hashMerkleRoot;
         block.hashImMerkleRoot  = hashImMerkleRoot;
         block.nTime           = nTime;
+        block.aggPubkey       = aggPubkey;
         block.proof           = proof;
         return block.GetHash();
     }

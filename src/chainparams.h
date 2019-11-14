@@ -44,10 +44,6 @@ struct ChainTxData {
     double dTxRate;   //!< estimated number of transactions per second after that timestamp
 };
 
-/**
- * Parse commandline argument signblockpubkey and get the aggregate pubkey.
- */
-CPubKey GetAggregatePubkeyFromCmdLine();
 
 /**
  * CChainParams defines various tweakable parameters of a given instance of the
@@ -72,7 +68,10 @@ public:
     const Consensus::Params& GetConsensus() const { return consensus; }
     const CMessageHeader::MessageStartChars& MessageStart() const { return pchMessageStart; }
     int GetDefaultPort() const { return nDefaultPort; }
-
+    /**
+     * Parse aggPubkey in block header.
+     */
+    CPubKey ReadAggregatePubkey(const std::vector<unsigned char>& pubkey);
     const CPubKey& GetAggregatePubkey() const{ return aggregatePubkey; }
     const CBlock& GenesisBlock() const { return genesis; }
     /** Default value for -checkmempool and -checkblockindex argument */
@@ -96,7 +95,7 @@ public:
     bool ReadGenesisBlock(std::string genesisHex);
 protected:
     //require signedblockpubkey argument only in tapyrusd
-    CChainParams():aggregatePubkey(gArgs.GetBoolArg("-server", false) ?GetAggregatePubkeyFromCmdLine() : CPubKey()) {}
+    CChainParams():aggregatePubkey() {}
 
     Consensus::Params consensus;
     CMessageHeader::MessageStartChars pchMessageStart;
@@ -105,7 +104,7 @@ protected:
     std::vector<std::string> vSeeds;
     std::vector<unsigned char> base58Prefixes[MAX_BASE58_TYPES];
     std::string strNetworkID;
-    const CPubKey aggregatePubkey;
+    CPubKey aggregatePubkey;
     CBlock genesis;
     std::vector<SeedSpec6> vFixedSeeds;
     bool fDefaultConsistencyChecks;

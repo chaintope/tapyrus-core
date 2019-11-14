@@ -151,6 +151,8 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     // Fill in header
     pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
     UpdateTime(pblock, chainparams.GetConsensus(), pindexPrev);
+    std::vector<unsigned char> aggPubkey(chainparams.GetAggregatePubkey().begin(), chainparams.GetAggregatePubkey().end());
+    pblock->aggPubkey = aggPubkey;
     pblock->proof.clear();
     pblocktemplate->vTxSigOpsCost[0] = WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx[0]);
 

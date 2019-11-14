@@ -82,8 +82,7 @@ class TestNode():
             "-debugexclude=libevent",
             "-debugexclude=leveldb",
             "-mocktime=" + str(mocktime),
-            "-uacomment=testnode%d" % i,
-            "-signblockpubkey=" + signblockpubkey
+            "-uacomment=testnode%d" % i
         ]
 
         self.cli = TestNodeCLI(bitcoin_cli, self.datadir)

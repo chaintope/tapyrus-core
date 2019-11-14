@@ -85,6 +85,7 @@ def createTestGenesisBlock(signblockpubkey, signblockprivkey, nTime=None):
     genesis.vtx.append(genesis_coinbase)
     genesis.hashMerkleRoot = genesis.calc_merkle_root()
     genesis.hashImMerkleRoot = genesis.calc_immutable_merkle_root()
+    genesis.aggPubkey = hex_str_to_bytes(signblockpubkey)
     genesis.solve(signblockprivkey)
     return genesis
 
