@@ -57,8 +57,8 @@ static int AppInit(int argc, char* argv[])
 
     // Check for -testnet or -regtest parameter (Params() calls are only valid after this clause)
     try {
-        gArgs.SoftSetBoolArg("-server", true);
         SelectParams(gArgs.GetChainName());
+        const_cast<CChainParams&>(Params()).ReadAggregatePubkey(ParseHex(gArgs.GetArg("-signblockpubkey", "")));
     } catch (const std::exception& e) {
         fprintf(stderr, "Error: %s\n", e.what());
         return EXIT_FAILURE;

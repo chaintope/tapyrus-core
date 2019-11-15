@@ -24,7 +24,7 @@ CPubKey CChainParams::ReadAggregatePubkey(const std::vector<unsigned char>& pubk
         throw std::runtime_error("Aggregate Public Key for Signed Block is empty");
     
     if (pubkey[0] == 0x02 || pubkey[0] == 0x03) {
-        CPubKey aggregatePubkey(pubkey.begin(), pubkey.end());
+        aggregatePubkey = CPubKey(pubkey.begin(), pubkey.end());
         if(!aggregatePubkey.IsFullyValid()) {
             throw std::runtime_error(strprintf("Aggregate Public Key for Signed Block is invalid: %s", HexStr(pubkey)));
         }
@@ -46,7 +46,7 @@ bool CChainParams::ReadGenesisBlock(std::string genesisHex)
     unsigned long streamsize = ss.size();
     ss >> genesis;
 
-    aggregatePubkey = ReadAggregatePubkey(genesis.aggPubkey);
+    ReadAggregatePubkey(genesis.aggPubkey);
 
     /* Performing non trivial validation here.
     * full block validation will be done later in ConnectBlock
