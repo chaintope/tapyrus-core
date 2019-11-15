@@ -4,7 +4,7 @@ Signed-Blocks Specification
 Tapyrus uses Signed-Blocks as block creation algorithm. Signed Blocks is
 based on Federated Blocksigning in a Strong Federation which is proposed
 [Strong Federations: An Interoperable Blockchain Solution to Centralized Third Party Risks](https://arxiv.org/pdf/1612.05491v2.pdf).
-In this algorithm, the blocks are poroposed in round-robin by a federation
+In this algorithm, the blocks are proposed in round-robin by a federation
 member. If the blocks succeeds in collecting a minimum of 'threshold‘
 signatures from other federation members, it is added as the next block.
 The block can be verified by all public nodes.

@@ -3,7 +3,7 @@ Tapyrus Schnorr Signature Specification
 
 Schnorr signature in Tapyrus is adapted from the proposal by Mark B. Lundeberg from Bitcoin cash (https://github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/2019-05-15-schnorr.md) which is based on the proposal by Pieter Wuille from bitcoin (bip-schnorr:https://github.com/sipa/bips/blob/bip-schnorr/bip-schnorr.mediawiki).
 
-Signing algorithnm :
+Signing algorithm:
 -------------------
 *Input:*
 * The secret key sk: a 32-byte array
@@ -39,7 +39,7 @@ Fail if the X coordinate of R' is not equal to r.
 Fail if the Jacobi symbol of the Y coordinate of R' is not 1.   
 Otherwise, the signature is valid.   
 
-Signature Endocing:
+Signature Encoding:
 -------------------
 In Tapyrus, Schnorr signatures are encoded in fixed size as
 
