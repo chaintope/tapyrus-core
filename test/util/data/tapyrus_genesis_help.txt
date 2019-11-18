@@ -1,0 +1,30 @@
+Tapyrus Core tapyrus-genesis utility version v0.2.0.0-unk
+
+Usage:   tapyrus-genesis [options]
+         Create hex-encoded tapyrus genesis block
+
+Options:
+
+  -?
+       This help message
+
+Chain selection options:
+
+  -paradium
+       Use the paradium chain
+
+  -testnet
+       Use the test chain
+
+Genesis block:
+
+  -address=<pay_to_address>
+       Optional. Specify coinbase script pay to address.
+
+  -signblockpubkey=<pubkey>
+       Sets the aggregate public key for Signed Blocks
+
+  -time=<time>
+       Specify genesis block time as UNIX Time. If this don't set, use current
+       time.
+

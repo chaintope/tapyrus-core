@@ -146,7 +146,7 @@ bool ReadGenesisBlock(fs::path genesisPath=GetDataDir(false));
 /**
  * @returns a signed genesis block.
  */
-CBlock createGenesisBlock(const CPubKey& aggregatePubkey, const CKey& privateKey, const time_t blockTime=time(0));
+CBlock createGenesisBlock(const CPubKey& aggregatePubkey, const CKey& privateKey, const time_t blockTime=time(0), const std::string paytoAddress="");
 
 
 #endif // BITCOIN_CHAINPARAMS_H

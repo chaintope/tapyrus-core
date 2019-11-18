@@ -175,6 +175,8 @@ def parse_output(a, fmt):
         return json.loads(a)
     elif fmt == 'hex':  # hex: parse and compare binary data
         return binascii.a2b_hex(a.strip())
+    elif fmt == 'txt':  # txt: text
+        return a.strip()
     else:
         raise NotImplementedError("Don't know how to compare %s" % fmt)
 

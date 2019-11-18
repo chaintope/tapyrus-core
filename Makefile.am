@@ -234,6 +234,11 @@ EXTRA_DIST += \
     test/util/data/genesis2.hex \
     test/util/data/genesis3.hex \
     test/util/data/genesis4.hex \
+    test/util/data/genesis5.hex \
+    test/util/data/genesis6.hex \
+    test/util/data/genesis7.hex \
+    test/util/data/genesis8.hex \
+    test/util/data/tapyrus_genesis_help.txt \
     test/util/data/tt-delin1-out.hex \
     test/util/data/tt-delin1-out.json \
     test/util/data/tt-delout1-out.hex \
