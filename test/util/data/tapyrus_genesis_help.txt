@@ -1,4 +1,4 @@
-Tapyrus Core tapyrus-genesis utility version v0.2.0.0-unk
+Tapyrus Core tapyrus-genesis utility version v0.2.0.0
 
 Usage:   tapyrus-genesis [options]
          Create hex-encoded tapyrus genesis block

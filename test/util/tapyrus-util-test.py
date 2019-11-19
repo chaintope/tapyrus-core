@@ -177,7 +177,7 @@ def parse_output(a, fmt):
     elif fmt == 'hex':  # hex: parse and compare binary data
         return binascii.a2b_hex(a.strip())
     elif fmt == 'txt':  # txt: text
-        txt = re.sub("version-.+", "version-", a.strip())
+        txt = re.sub("version.+", "version", a.strip())
         return txt
     else:
         raise NotImplementedError("Don't know how to compare %s" % fmt)
