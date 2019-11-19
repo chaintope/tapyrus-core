@@ -19,6 +19,8 @@
 #include <rpc/register.h>
 #include <script/sigcache.h>
 
+constexpr unsigned int CPubKey::SCHNORR_SIGNATURE_SIZE;
+
 void CConnmanTest::AddNode(CNode& node)
 {
     LOCK(g_connman->cs_vNodes);
@@ -47,7 +49,7 @@ std::ostream& operator<<(std::ostream& os, const uint256& num)
 }
 
 BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
-    : m_path_root(fs::temp_directory_path() / "test_bitcoin" / strprintf("%lu_%i", (unsigned long)GetTime(), (int)(InsecureRandRange(1 << 30))))
+    : m_path_root(fs::temp_directory_path() / "test_tapyrus" / strprintf("%lu_%i", (unsigned long)GetTime(), (int)(InsecureRandRange(1 << 30))))
 {
     SHA256AutoDetect();
     RandomInit();
@@ -152,7 +154,7 @@ TestChain100Setup::TestChain100Setup() : TestingSetup(CBaseChainParams::REGTEST)
     {
         std::vector<CMutableTransaction> noTxns;
         CBlock b = CreateAndProcessBlock(noTxns, scriptPubKey);
-        assert(b.proof.size() == 64);
+        assert(b.proof.size() == CPubKey::SCHNORR_SIGNATURE_SIZE);
         m_coinbase_txns.push_back(b.vtx[0]);
     }
 }
