@@ -25,6 +25,7 @@ import os
 import pprint
 import subprocess
 import sys
+import re
 
 def main():
     config = configparser.ConfigParser()
@@ -176,7 +177,8 @@ def parse_output(a, fmt):
     elif fmt == 'hex':  # hex: parse and compare binary data
         return binascii.a2b_hex(a.strip())
     elif fmt == 'txt':  # txt: text
-        return a.strip()
+        txt = re.sub("version-.+", "version-", a.strip())
+        return txt
     else:
         raise NotImplementedError("Don't know how to compare %s" % fmt)
 
