@@ -400,7 +400,7 @@ BOOST_FIXTURE_TEST_CASE(generate_with_incorrect_privkey, TestingSetup)
     UniValue ar = UniValue(UniValue::VARR);
     BOOST_CHECK_NO_THROW(result = RPCConvertValues("generate", {"101", "\"c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3\""}));
     BOOST_CHECK_EQUAL(result[0].get_int(), 101);
-    BOOST_CHECK_EQUAL(result[1].get_str(), "c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3");
+    BOOST_CHECK_EQUAL(result[1].get_str(), "\"c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3\"");
 
 }
 
