@@ -345,7 +345,7 @@ class TestNodeCLI():
         return TestNodeCLIAttr(self, command)
 
     def generate(self, nblocks=0, signblockprivkey=""):
-        return TestNodeCLIAttr(self, "generate")(nblocks,  "{0}".format(json.dumps(signblockprivkey)))
+        return TestNodeCLIAttr(self, "generate")(nblocks,  "{0}".format(signblockprivkey))
 
     def batch(self, requests):
         results = []
