@@ -30,7 +30,7 @@ import re
 def main():
     config = configparser.ConfigParser()
     config.optionxform = str
-    config.readfp(open(os.path.join(os.path.dirname(__file__), "../config.ini"), encoding="utf8"))
+    config.read_file(open(os.path.join(os.path.dirname(__file__), "../config.ini"), encoding="utf8"))
     env_conf = dict(config.items('environment'))
 
     parser = argparse.ArgumentParser(description=__doc__)
@@ -136,8 +136,8 @@ def bctest(testDir, testObj, buildenv):
         if a_parsed != b_parsed:
             logging.error("Output data mismatch for " + outputFn + " (format " + outputType + ")")
             data_mismatch = True
-        # Compare formatting
-        if outs[0] != outputData:
+        # Compare formatting in formats other than 'txt'
+        if outputType != "txt" and outs[0] != outputData:
             error_message = "Output formatting mismatch for " + outputFn + ":\n"
             error_message += "".join(difflib.context_diff(outputData.splitlines(True),
                                                           outs[0].splitlines(True),
