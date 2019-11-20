@@ -289,7 +289,7 @@ def rpc_url(datadir, i, rpchost=None):
 # Node functions
 ################
 
-def initialize_datadir(dirname, n, signblockpubkeys, signblockthreshold):
+def initialize_datadir(dirname, n, signblockpubkeys):
     datadir = get_datadir_path(dirname, n)
     if not os.path.isdir(datadir):
         os.makedirs(datadir)
@@ -303,8 +303,7 @@ def initialize_datadir(dirname, n, signblockpubkeys, signblockthreshold):
         f.write("discover=0\n")
         f.write("listenonion=0\n")
         f.write("printtoconsole=0\n")
-        f.write("signblockpubkeys=" + signblockpubkeys + "\n")
-        f.write("signblockthreshold=" + str(signblockthreshold) + "\n")
+        f.write("signblockpubkey=" + signblockpubkeys + "\n")
         os.makedirs(os.path.join(datadir, 'stderr'), exist_ok=True)
         os.makedirs(os.path.join(datadir, 'stdout'), exist_ok=True)
     return datadir
@@ -480,11 +479,11 @@ def random_transaction(nodes, amount, min_fee, fee_increment, fee_variants):
 
 # Helper to create at least "count" utxos
 # Pass in a fee that is sufficient for relay and mining new transactions.
-def create_confirmed_utxos(fee, node, count, signblockprivkeys):
+def create_confirmed_utxos(fee, node, count, signblockprivkey):
     to_generate = int(0.5 * count) + 101
     scheme = random.choice(["ECDSA", "SCHNORR"])
     while to_generate > 0:
-        node.generate(min(25, to_generate), signblockprivkeys)
+        node.generate(min(25, to_generate), signblockprivkey)
         to_generate -= 25
     utxos = node.listunspent()
     iterations = count - len(utxos)
@@ -505,7 +504,7 @@ def create_confirmed_utxos(fee, node, count, signblockprivkeys):
         node.sendrawtransaction(signed_tx)
 
     while (node.getmempoolinfo()['size'] > 0):
-        node.generate(1, signblockprivkeys)
+        node.generate(1, signblockprivkey)
 
     utxos = node.listunspent()
     assert(len(utxos) >= count)
@@ -563,7 +562,7 @@ def mine_large_block(node, utxos=None):
         utxos.extend(node.listunspent())
     fee = 100 * node.getnetworkinfo()["relayfee"]
     create_lots_of_big_transactions(node, txouts, utxos, num, fee=fee)
-    node.generate(1, self.signblockprivkeys)
+    node.generate(1, self.signblockprivkey)
 
 def find_vout_for_address(node, txid, addr):
     """

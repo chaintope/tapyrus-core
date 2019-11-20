@@ -161,7 +161,6 @@ BASE_SCRIPTS = [
     'feature_cltv.py',
     'feature_cltv.py --scheme SCHNORR',
     'rpc_uptime.py',
-    'rpc_signedblocks.py',
     'wallet_resendwallettransactions.py',
     'wallet_fallbackfee.py',
     'rpc_getblockstats.py',

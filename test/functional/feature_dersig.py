@@ -50,7 +50,7 @@ class BIP66Test(BitcoinTestFramework):
         self.nodes[0].add_p2p_connection(P2PInterface())
 
         self.log.info("Mining %d blocks", DERSIG_HEIGHT - 1)
-        self.coinbase_txids = [self.nodes[0].getblock(b)['tx'][0] for b in self.nodes[0].generate(DERSIG_HEIGHT - 1, self.signblockprivkeys)]
+        self.coinbase_txids = [self.nodes[0].getblock(b)['tx'][0] for b in self.nodes[0].generate(DERSIG_HEIGHT - 1, self.signblockprivkey)]
         self.nodeaddress = self.nodes[0].getnewaddress()
 
         self.log.info("Test that a transaction with non-DER signature cannot appear in a block at any height")
@@ -67,7 +67,7 @@ class BIP66Test(BitcoinTestFramework):
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         block.rehash()
-        block.solve(self.signblockprivkeys)
+        block.solve(self.signblockprivkey)
 
         self.nodes[0].p2p.send_and_ping(msg_block(block))
         assert_equal(self.nodes[0].getbestblockhash(), tip)
@@ -92,7 +92,7 @@ class BIP66Test(BitcoinTestFramework):
         block_time += 1
         block = create_block(int(tip, 16), create_coinbase(DERSIG_HEIGHT), block_time)
         block.rehash()
-        block.solve(self.signblockprivkeys)
+        block.solve(self.signblockprivkey)
 
         spendtx = create_transaction(self.nodes[0], self.coinbase_txids[1],
                 self.nodeaddress, amount=1.0)
@@ -111,7 +111,7 @@ class BIP66Test(BitcoinTestFramework):
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         block.rehash()
-        block.solve(self.signblockprivkeys)
+        block.solve(self.signblockprivkey)
 
         self.nodes[0].p2p.send_and_ping(msg_block(block))
         assert_equal(self.nodes[0].getbestblockhash(), tip)
@@ -136,7 +136,7 @@ class BIP66Test(BitcoinTestFramework):
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         block.rehash()
-        block.solve(self.signblockprivkeys)
+        block.solve(self.signblockprivkey)
 
         self.nodes[0].p2p.send_and_ping(msg_block(block))
         assert_equal(int(self.nodes[0].getbestblockhash(), 16), block.sha256)

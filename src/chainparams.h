@@ -45,35 +45,9 @@ struct ChainTxData {
 };
 
 /**
- * MultisigCondition
-*/
-struct MultisigCondition {
-    MultisigCondition() {
-        SetNull();
-    };
-    MultisigCondition(const std::string& pubkeyString, const int threshold);
-    void ParsePubkeyString(std::string source);
-    bool operator==(const MultisigCondition& rhs) const {
-        return (pubkeys == rhs.pubkeys && threshold == rhs.threshold);
-    }
-
-    void SetNull()
-    {
-        pubkeys.clear();
-        threshold = 0;
-    }
-
-    std::vector<CPubKey> pubkeys;
-    uint8_t threshold;
-    friend struct ChainParamsTestingSetup;
-};
-
-/**
- * Creates and returns a const MultisigCondition&.
- * @returns a MultisigCondition using the arguments passed on command line.
- * @throws a std::runtime_error if the arguments signblockpubkeys or signblockthreshold are incorrect
+ * Parse commandline argument signblockpubkey and get the aggregate pubkey.
  */
-const MultisigCondition CreateSignedBlockCondition();
+CPubKey GetAggregatePubkeyFromCmdLine();
 
 /**
  * CChainParams defines various tweakable parameters of a given instance of the
@@ -99,7 +73,7 @@ public:
     const CMessageHeader::MessageStartChars& MessageStart() const { return pchMessageStart; }
     int GetDefaultPort() const { return nDefaultPort; }
 
-    const MultisigCondition& GetSignedBlocksCondition() const{ return signedBlocksCondition; }
+    const CPubKey& GetAggregatePubkey() const{ return aggregatePubkey; }
     const CBlock& GenesisBlock() const { return genesis; }
     /** Default value for -checkmempool and -checkblockindex argument */
     bool DefaultConsistencyChecks() const { return fDefaultConsistencyChecks; }
@@ -120,9 +94,9 @@ public:
     const ChainTxData& TxData() const { return chainTxData; }
     void UpdateVersionBitsParameters(Consensus::DeploymentPos d, int64_t nStartTime, int64_t nTimeout);
     bool ReadGenesisBlock(std::string genesisHex);
-    bool SetSignedBlocksCondition(const MultisigCondition condition);
 protected:
-    CChainParams() {}
+    //require signedblockpubkey argument only in tapyrusd
+    CChainParams():aggregatePubkey(gArgs.GetBoolArg("-server", false) ?GetAggregatePubkeyFromCmdLine() : CPubKey()) {}
 
     Consensus::Params consensus;
     CMessageHeader::MessageStartChars pchMessageStart;
@@ -131,7 +105,7 @@ protected:
     std::vector<std::string> vSeeds;
     std::vector<unsigned char> base58Prefixes[MAX_BASE58_TYPES];
     std::string strNetworkID;
-    MultisigCondition signedBlocksCondition;
+    const CPubKey aggregatePubkey;
     CBlock genesis;
     std::vector<SeedSpec6> vFixedSeeds;
     bool fDefaultConsistencyChecks;
@@ -171,14 +145,9 @@ void UpdateVersionBitsParameters(Consensus::DeploymentPos d, int64_t nStartTime,
 bool ReadGenesisBlock(fs::path genesisPath=GetDataDir(false));
 
 /**
- * Set signed-blocks Parameters from arguments.
- */
-bool SetSignedBlocksCondition(const MultisigCondition condition = CreateSignedBlockCondition());
-
-/**
  * @returns a signed genesis block.
  */
-CBlock createGenesisBlock(const MultisigCondition& signedBlocksCondition, const std::vector<CKey>& privateKeys={}, const time_t blockTime=time(0));
+CBlock createGenesisBlock(const CPubKey& aggregatePubkey, const CKey& privateKey, const time_t blockTime=time(0));
 
 
 #endif // BITCOIN_CHAINPARAMS_H

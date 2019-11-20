@@ -1040,6 +1040,8 @@ bool GetTransaction(const uint256& hash, CTransactionRef& txOut, const Consensus
     return false;
 }
 
+//declaration for compilation
+static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, const Consensus::Params& consensusParams, bool fCheckPOW = true);
 
 
 
@@ -1088,8 +1090,9 @@ bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, const Consensus:
         return error("%s: Deserialize or I/O error - %s at %s", __func__, e.what(), pos.ToString());
     }
 
-    // Check the header
-    // TODO: Check a proof of Signed Blocks in a block header in here
+    CValidationState state;
+    if(!CheckBlockHeader(block.GetBlockHeader(), state, consensusParams, true))
+        return error("%s: ReadBlockFromDisk: %s", __func__, FormatStateMessage(state));
 
     return true;
 }
@@ -2922,7 +2925,7 @@ static bool FindUndoPos(CValidationState &state, int nFile, CDiskBlockPos &pos, 
     return true;
 }
 
-static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, const Consensus::Params& consensusParams, bool fCheckPOW = true)
+static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, const Consensus::Params& consensusParams, bool fCheckPOW)
 {
     //Check proof of Signed Blocks in a block header
     const unsigned int proofSize = block.proof.size();
@@ -2933,29 +2936,12 @@ static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,
     if(!proofSize)
         return state.Error("No proof in block");
 
-    const MultisigCondition& signedBlocksCondition = Params().GetSignedBlocksCondition();
-
-    if(proofSize > signedBlocksCondition.pubkeys.size())
-        return state.Error("Proof was longer than expected");
+    const CPubKey& aggregatePubkey = Params().GetAggregatePubkey();
 
     const uint256 blockHash = block.GetHashForSign();
-    std::vector<CPubKey>::const_iterator pubkeyIter = signedBlocksCondition.pubkeys.begin();
-    CProof::const_iterator proofIter = block.proof.begin();
-    /*
-    iterate over signatures and make sure each one verifies with one of the public keys.
-    order of signatures is the order of the public keys, so verification is in one loop
-    */
-    while(proofIter != block.proof.end() && pubkeyIter != signedBlocksCondition.pubkeys.end())
-    {
-        //verify signature
-        bool match = pubkeyIter->Verify_ECDSA(blockHash, *proofIter);
-        pubkeyIter++;
-        if(match)
-            proofIter++;
-    };
 
-    //if all signatures were not verified
-    if(proofIter != block.proof.end() )
+    //verify signature
+    if(!aggregatePubkey.Verify_Schnorr(blockHash, block.proof))
         return state.Error("Proof verification failed");
 
     return true;
@@ -3096,8 +3082,6 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
 {
     assert(pindexPrev != nullptr);
     const int nHeight = pindexPrev->nHeight + 1;
-
-    // TODO: Check SignedBlocks
 
     // Check against checkpoints
     if (fCheckpointsEnabled) {

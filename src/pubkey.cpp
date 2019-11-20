@@ -186,7 +186,7 @@ bool CPubKey::Verify_ECDSA(const uint256 &hash, const std::vector<unsigned char>
     return secp256k1_ecdsa_verify(secp256k1_context_verify, &sig, hash.begin(), &pubkey);
 }
 
-bool CPubKey::Verify_Schnorr(const uint256 &hash, const std::vector<uint8_t> &vchSig) const {
+bool CPubKey::Verify_Schnorr(const uint256 &hash, const std::vector<unsigned char>& vchSig) const {
     if (!IsValid())
         return false;
 

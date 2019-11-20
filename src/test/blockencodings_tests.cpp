@@ -50,7 +50,11 @@ static CBlock BuildBlockTestCase() {
     block.hashMerkleRoot = BlockMerkleRoot(block, &mutated);
     block.hashImMerkleRoot = BlockMerkleRoot(block, &mutated, true);
     assert(!mutated);
-    block.AbsorbBlockProof(createSignedBlockProof(block, Params().GetSignedBlocksCondition().threshold), Params().GetSignedBlocksCondition());
+
+    //create proof
+    std::vector<unsigned char> blockProof;
+    createSignedBlockProof(block, blockProof);
+    block.AbsorbBlockProof(blockProof);
     return block;
 }
 
@@ -305,7 +309,10 @@ BOOST_AUTO_TEST_CASE(EmptyBlockRoundTripTest)
     block.hashMerkleRoot = BlockMerkleRoot(block, &mutated);
     block.hashImMerkleRoot = BlockMerkleRoot(block, &mutated, true);
     assert(!mutated);
-    block.AbsorbBlockProof(createSignedBlockProof(block, Params().GetSignedBlocksCondition().threshold), Params().GetSignedBlocksCondition());
+    //create proof
+    std::vector<unsigned char> blockProof;
+    createSignedBlockProof(block, blockProof);
+    block.AbsorbBlockProof(blockProof);
 
     // Test simple header round-trip with only coinbase
     {

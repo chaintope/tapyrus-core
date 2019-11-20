@@ -72,6 +72,7 @@ UniValue blockheaderToJSON(const CBlockIndex* blockindex)
     result.pushKV("time", (int64_t)blockindex->nTime);
     result.pushKV("mediantime", (int64_t)blockindex->GetMedianTimePast());
     result.pushKV("nTx", (uint64_t)blockindex->nTx);
+    result.pushKV("proof", HexStr(blockindex->proof));
 
     if (blockindex->pprev)
         result.pushKV("previousblockhash", blockindex->pprev->GetBlockHash().GetHex());
@@ -114,13 +115,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
     result.pushKV("tx", txs);
     result.pushKV("time", block.GetBlockTime());
     result.pushKV("mediantime", (int64_t)blockindex->GetMedianTimePast());
-
-    UniValue proofs(UniValue::VARR);
-    for(const auto& sig : block.GetBlockHeader().proof)
-    {
-        proofs.push_back(HexStr(sig));
-    }
-    result.pushKV("proof", proofs);
+    result.pushKV("proof", HexStr(block.GetBlockHeader().proof));
     result.pushKV("nTx", (uint64_t)blockindex->nTx);
 
     if (blockindex->pprev)

@@ -64,7 +64,7 @@ class AcceptBlockTest(BitcoinTestFramework):
         self.setup_clean_chain = True
         self.num_nodes = 2
         self.mocktime = int(time.time())
-        self.genesisBlock = createTestGenesisBlock(self.signblockpubkeys, self.signblockthreshold, self.signblockprivkeys, self.mocktime - 100)
+        self.genesisBlock = createTestGenesisBlock(self.signblockpubkey, self.signblockprivkey, self.mocktime - 100)
 
     def setup_network(self):
         # Node0 will be used to test behavior of processing unrequested blocks
@@ -84,7 +84,7 @@ class AcceptBlockTest(BitcoinTestFramework):
         self.nodes[1].setmocktime(self.mocktime)
 
         # 1. Have nodes mine a block (leave IBD)
-        [ n.generate(1, self.signblockprivkeys) for n in self.nodes ]
+        [ n.generate(1, self.signblockprivkey) for n in self.nodes ]
         tips = [ int("0x" + n.getbestblockhash(), 0) for n in self.nodes ]
 
         # 2. Send one block that builds on each tip.
@@ -93,7 +93,7 @@ class AcceptBlockTest(BitcoinTestFramework):
         block_time = int(time.time()) + 1
         for i in range(2):
             blocks_h2.append(create_block(tips[i], create_coinbase(2), block_time))
-            blocks_h2[i].solve(self.signblockprivkeys)
+            blocks_h2[i].solve(self.signblockprivkey)
             block_time += 1
         test_node.send_message(msg_block(blocks_h2[0]))
         min_work_node.send_message(msg_block(blocks_h2[1]))
@@ -107,7 +107,7 @@ class AcceptBlockTest(BitcoinTestFramework):
         # 3. Send another block that builds on genesis.
         block_h1f = create_block(int("0x" + self.nodes[0].getblockhash(0), 0), create_coinbase(1), block_time)
         block_time += 1
-        block_h1f.solve(self.signblockprivkeys)
+        block_h1f.solve(self.signblockprivkey)
         test_node.send_message(msg_block(block_h1f))
 
         test_node.sync_with_ping()
@@ -122,7 +122,7 @@ class AcceptBlockTest(BitcoinTestFramework):
         # 4. Send another two block that build on the fork.
         block_h2f = create_block(block_h1f.sha256, create_coinbase(2), block_time)
         block_time += 1
-        block_h2f.solve(self.signblockprivkeys)
+        block_h2f.solve(self.signblockprivkey)
         test_node.send_message(msg_block(block_h2f))
 
         test_node.sync_with_ping()
@@ -141,7 +141,7 @@ class AcceptBlockTest(BitcoinTestFramework):
 
         # 4b. Now send another block that builds on the forking chain.
         block_h3 = create_block(block_h2f.sha256, create_coinbase(3), block_h2f.nTime+1)
-        block_h3.solve(self.signblockprivkeys)
+        block_h3.solve(self.signblockprivkey)
         test_node.send_message(msg_block(block_h3))
 
         test_node.sync_with_ping()
@@ -165,7 +165,7 @@ class AcceptBlockTest(BitcoinTestFramework):
         all_blocks = []
         for i in range(288):
             next_block = create_block(tip.sha256, create_coinbase(i + 4), tip.nTime+1)
-            next_block.solve(self.signblockprivkeys)
+            next_block.solve(self.signblockprivkey)
             all_blocks.append(next_block)
             tip = next_block
 
@@ -240,17 +240,17 @@ class AcceptBlockTest(BitcoinTestFramework):
         # 8. Create a chain which is invalid at a height longer than the
         # current chain, but which has more blocks on top of that
         block_289f = create_block(all_blocks[284].sha256, create_coinbase(289), all_blocks[284].nTime+1)
-        block_289f.solve(self.signblockprivkeys)
+        block_289f.solve(self.signblockprivkey)
         block_290f = create_block(block_289f.sha256, create_coinbase(290), block_289f.nTime+1)
-        block_290f.solve(self.signblockprivkeys)
+        block_290f.solve(self.signblockprivkey)
         block_291 = create_block(block_290f.sha256, create_coinbase(291), block_290f.nTime+1)
         # block_291 spends a coinbase below maturity!
         block_291.vtx.append(create_tx_with_script(block_290f.vtx[0], 0, script_sig=b"42", amount=1))
         block_291.hashMerkleRoot = block_291.calc_merkle_root()
         block_291.hashImMerkleRoot = block_291.calc_immutable_merkle_root()
-        block_291.solve(self.signblockprivkeys)
+        block_291.solve(self.signblockprivkey)
         block_292 = create_block(block_291.sha256, create_coinbase(292), block_291.nTime+1)
-        block_292.solve(self.signblockprivkeys)
+        block_292.solve(self.signblockprivkey)
 
         # Now send all the headers on the chain and enough blocks to trigger reorg
         headers_message = msg_headers()
@@ -297,7 +297,7 @@ class AcceptBlockTest(BitcoinTestFramework):
 
         # Now send a new header on the invalid chain, indicating we're forked off, and expect to get disconnected
         block_293 = create_block(block_292.sha256, create_coinbase(293), block_292.nTime+1)
-        block_293.solve(self.signblockprivkeys)
+        block_293.solve(self.signblockprivkey)
         headers_message = msg_headers()
         headers_message.headers.append(CBlockHeader(block_293))
         test_node.send_message(headers_message)

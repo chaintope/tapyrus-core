@@ -51,12 +51,12 @@ class BumpFeeTest(BitcoinTestFramework):
 
         # fund rbf node with 10 coins of 0.001 btc (100,000 satoshis)
         self.log.info("Mining blocks...")
-        peer_node.generate(110, self.signblockprivkeys)
+        peer_node.generate(110, self.signblockprivkey)
         self.sync_all()
         for i in range(25):
             peer_node.sendtoaddress(rbf_node_address, 0.001)
         self.sync_all()
-        peer_node.generate(1, self.signblockprivkeys)
+        peer_node.generate(1, self.signblockprivkey)
         self.sync_all()
         assert_equal(rbf_node.getbalance(), Decimal("0.025"))
 
@@ -71,7 +71,7 @@ class BumpFeeTest(BitcoinTestFramework):
         test_settxfee(rbf_node, dest_address)
         test_rebumping(rbf_node, dest_address)
         test_rebumping_not_replaceable(rbf_node, dest_address)
-        test_unconfirmed_not_spendable(rbf_node, rbf_node_address, self.signblockprivkeys)
+        test_unconfirmed_not_spendable(rbf_node, rbf_node_address, self.signblockprivkey)
         test_bumpfee_metadata(rbf_node, dest_address)
         test_locked_wallet_fails(rbf_node, dest_address)
         self.log.info("Success")
@@ -189,7 +189,7 @@ def test_rebumping_not_replaceable(rbf_node, dest_address):
                           {"totalFee": 20000})
 
 
-def test_unconfirmed_not_spendable(rbf_node, rbf_node_address, signblockprivkeys):
+def test_unconfirmed_not_spendable(rbf_node, rbf_node_address, signblockprivkey):
     # check that unconfirmed outputs from bumped transactions are not spendable
     rbfid = spend_one_input(rbf_node, rbf_node_address)
     rbftx = rbf_node.gettransaction(rbfid)["hex"]
@@ -206,7 +206,7 @@ def test_unconfirmed_not_spendable(rbf_node, rbf_node_address, signblockprivkeys
     # then invalidate the block so the rbf tx will be put back in the mempool.
     # This makes it possible to check whether the rbf tx outputs are
     # spendable before the rbf tx is confirmed.
-    block = submit_block_with_tx(rbf_node, rbftx, signblockprivkeys)
+    block = submit_block_with_tx(rbf_node, rbftx, signblockprivkey)
     # Can not abandon conflicted tx
     assert_raises_rpc_error(-5, 'Transaction not eligible for abandonment', lambda: rbf_node.abandontransaction(txid=bumpid))
     rbf_node.invalidateblock(block.hash)
@@ -222,7 +222,7 @@ def test_unconfirmed_not_spendable(rbf_node, rbf_node_address, signblockprivkeys
     assert_equal([t for t in rbf_node.listunspent(minconf=0, include_unsafe=False) if t["txid"] == rbfid], [])
 
     # check that the main output from the rbf tx is spendable after confirmed
-    rbf_node.generate(1, signblockprivkeys)
+    rbf_node.generate(1, signblockprivkey)
     assert_equal(
         sum(1 for t in rbf_node.listunspent(minconf=0, include_unsafe=False)
             if t["txid"] == rbfid and t["address"] == rbf_node_address and t["spendable"]), 1)
@@ -254,7 +254,7 @@ def spend_one_input(node, dest_address):
     return txid
 
 
-def submit_block_with_tx(node, tx, signblockprivkeys):
+def submit_block_with_tx(node, tx, signblockprivkey):
     ctx = CTransaction()
     ctx.deserialize(io.BytesIO(hex_str_to_bytes(tx)))
 
@@ -266,7 +266,7 @@ def submit_block_with_tx(node, tx, signblockprivkeys):
     block.rehash()
     block.hashMerkleRoot = block.calc_merkle_root()
     block.hashImMerkleRoot = block.calc_immutable_merkle_root()
-    block.solve(signblockprivkeys)
+    block.solve(signblockprivkey)
     node.submitblock(bytes_to_hex_str(block.serialize()))
     return block
 

@@ -30,7 +30,7 @@ class BIP68Test(BitcoinTestFramework):
         self.relayfee = self.nodes[0].getnetworkinfo()["relayfee"]
 
         # Generate some coins
-        self.nodes[0].generate(110, self.signblockprivkeys)
+        self.nodes[0].generate(110, self.signblockprivkey)
 
         self.log.info("Running test disable flag")
         self.test_disable_flag()
@@ -118,7 +118,7 @@ class BIP68Test(BitcoinTestFramework):
             for i in range(num_outputs):
                 outputs[addresses[i]] = random.randint(1, 20)*0.01
             self.nodes[0].sendmany("", outputs)
-            self.nodes[0].generate(1, self.signblockprivkeys)
+            self.nodes[0].generate(1, self.signblockprivkey)
 
         utxos = self.nodes[0].listunspent()
 
@@ -248,7 +248,7 @@ class BIP68Test(BitcoinTestFramework):
         cur_time = int(time.time())
         for i in range(10):
             self.nodes[0].setmocktime(cur_time + 600)
-            self.nodes[0].generate(1, self.signblockprivkeys)
+            self.nodes[0].generate(1, self.signblockprivkey)
             cur_time += 600
 
         assert(tx2.hash in self.nodes[0].getrawmempool())
@@ -261,7 +261,7 @@ class BIP68Test(BitcoinTestFramework):
 
         # Advance the time on the node so that we can test timelocks
         self.nodes[0].setmocktime(cur_time+600)
-        self.nodes[0].generate(1, self.signblockprivkeys)
+        self.nodes[0].generate(1, self.signblockprivkey)
         assert(tx2.hash not in self.nodes[0].getrawmempool())
 
         # Now that tx2 is not in the mempool, a sequence locked spend should
@@ -269,7 +269,7 @@ class BIP68Test(BitcoinTestFramework):
         tx3 = test_nonzero_locks(tx2, self.nodes[0], self.relayfee, use_height_lock=False)
         assert(tx3.hash in self.nodes[0].getrawmempool())
 
-        self.nodes[0].generate(1, self.signblockprivkeys)
+        self.nodes[0].generate(1, self.signblockprivkey)
         assert(tx3.hash not in self.nodes[0].getrawmempool())
 
         # One more test, this time using height locks
@@ -309,7 +309,7 @@ class BIP68Test(BitcoinTestFramework):
         for i in range(2):
             block = create_block(tip, create_coinbase(height), cur_time)
             block.rehash()
-            block.solve(self.signblockprivkeys)
+            block.solve(self.signblockprivkey)
             tip = block.sha256
             height += 1
             self.nodes[0].submitblock(ToHex(block))
@@ -322,7 +322,7 @@ class BIP68Test(BitcoinTestFramework):
         # Reset the chain and get rid of the mocktimed-blocks
         self.nodes[0].setmocktime(0)
         self.nodes[0].invalidateblock(self.nodes[0].getblockhash(cur_height+1))
-        self.nodes[0].generate(10, self.signblockprivkeys)
+        self.nodes[0].generate(10, self.signblockprivkey)
 
     # Make sure that BIP68 isn't being used to validate blocks, prior to
     # versionbits activation.  If more blocks are mined prior to this test
@@ -367,7 +367,7 @@ class BIP68Test(BitcoinTestFramework):
         block.hashMerkleRoot = block.calc_immutable_merkle_root()
         block.rehash()
         add_witness_commitment(block)
-        block.solve(self.signblockprivkeys)
+        block.solve(self.signblockprivkey)
 
         self.nodes[0].submitblock(bytes_to_hex_str(block.serialize(True)))
         assert_equal(self.nodes[0].getbestblockhash(), block.hash)
@@ -380,7 +380,7 @@ class BIP68Test(BitcoinTestFramework):
         assert_greater_than(min_activation_height - height, 2)
         self.nodes[0].generate(min_activation_height - height - 2)
         assert_equal(get_bip9_status(self.nodes[0], 'csv')['status'], "locked_in")
-        self.nodes[0].generate(1, self.signblockprivkeys)
+        self.nodes[0].generate(1, self.signblockprivkey)
         assert_equal(get_bip9_status(self.nodes[0], 'csv')['status'], "active")
         sync_blocks(self.nodes)
 

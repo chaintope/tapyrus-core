@@ -40,7 +40,7 @@ unsigned int ParseConfirmTarget(const UniValue& value)
     return (unsigned int)target;
 }
 
-UniValue generateBlocks(std::shared_ptr<CReserveScript> coinbaseScript, int nGenerate, bool keepScript, std::vector<CKey>& vecPrivKeys)
+UniValue generateBlocks(std::shared_ptr<CReserveScript> coinbaseScript, int nGenerate, bool keepScript, const CKey& privKey)
 {
     int nHeightEnd = 0;
     int nHeight = 0;
@@ -62,20 +62,16 @@ UniValue generateBlocks(std::shared_ptr<CReserveScript> coinbaseScript, int nGen
             LOCK(cs_main);
             IncrementExtraNonce(pblock, chainActive.Tip(), nExtraNonce);
         }
-        if(vecPrivKeys.size())
-        {
-            CProof proof;
-            uint256 blockHash = pblock->GetHashForSign();
-            for(uint i=0; i < vecPrivKeys.size(); i++) {
-                Signature sign;
-                CKey ckey = vecPrivKeys[i];
-                ckey.Sign_ECDSA(blockHash, sign);
-                proof.push_back(sign);
-            }
-            if(!pblock->AbsorbBlockProof(proof, Params().GetSignedBlocksCondition())){
-                throw JSONRPCError(RPC_INTERNAL_ERROR, "AbsorbBlockProof, block proof not accepted");
-            }
+
+        std::vector<unsigned char> proof;
+        uint256 blockHash = pblock->GetHashForSign();
+
+        privKey.Sign_Schnorr(blockHash, proof);
+
+        if(!pblock->AbsorbBlockProof(proof)){
+            throw JSONRPCError(RPC_INTERNAL_ERROR, "AbsorbBlockProof, block proof not accepted");
         }
+
         std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(*pblock);
         if (!ProcessNewBlock(Params(), shared_pblock, true, nullptr))
             throw JSONRPCError(RPC_INTERNAL_ERROR, "ProcessNewBlock, block not accepted");
@@ -91,24 +87,6 @@ UniValue generateBlocks(std::shared_ptr<CReserveScript> coinbaseScript, int nGen
     return blockHashes;
 }
 
-void ParsePrivateKeyList(const UniValue& privkeys_hex, std::vector<CKey>& vecKeys)
-{
-    // privkeys length check
-    for(int i=0; i< privkeys_hex.size(); i++) {
-        const UniValue& privkey = privkeys_hex[i];
-        std::string keyHex = privkey.get_str();
-        if(keyHex.length() % 64 != 0) {
-            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT,
-                               strprintf("Error: key '%s' is invalid length of %d."
-                                       , keyHex, keyHex.length()));
-        }
-        std::vector<unsigned char> privkeyraw = ParseHex(keyHex);
-        CKey cPrivKey;
-        cPrivKey.Set(privkeyraw.begin(), privkeyraw.end(), true);
-        vecKeys.push_back(cPrivKey);
-    }
-}
-
 static UniValue generatetoaddress(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() != 3)
@@ -117,13 +95,13 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
             "\nMine blocks immediately to a specified address (before the RPC call returns)\n"
             "\nArguments:\n"
             "1. nblocks      (numeric, required) How many blocks are generated immediately.\n"
-            "2. address      (string, required) The address to send the newly generated coin to.\n"
-            "3. [private keys] (hex string array, required) to sign the generated blocks.\n"
+            "2. address      (string, required) The address to send the newly generated bitcoin to.\n"
+            "3. private key  (hex string array, required) addregate private key to sign the generated blocks.\n"
             "\nResult:\n"
             "[ blockhashes ]     (array) hashes of blocks generated\n"
             "\nExamples:\n"
-            "\nGenerate 11 blocks to myaddress signed with 1 privatekey "
-            + HelpExampleCli("generatetoaddress", "11 \"myaddress\" [\"c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3\"]")
+            "\nGenerate 11 blocks to myaddress signed with 1 privatekey n"
+            + HelpExampleCli("generatetoaddress", "11 \"myaddress\" \"c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3\"")
         );
 
     int nGenerate = request.params[0].get_int();
@@ -136,13 +114,14 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
     std::shared_ptr<CReserveScript> coinbaseScript = std::make_shared<CReserveScript>();
     coinbaseScript->reserveScript = GetScriptForDestination(destination);
 
-    std::vector<CKey> vecKeys;
-    UniValue privkeys_hex = request.params[2].get_array();
-    ParsePrivateKeyList(privkeys_hex, vecKeys);
-    if(!vecKeys.size())
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "No private key given or all keys were invalid.");
+    std::vector<unsigned char> privkeyraw = ParseHex(request.params[2].get_str());
+    CKey cPrivKey;
+    cPrivKey.Set(privkeyraw.begin(), privkeyraw.end(), true);
 
-    return generateBlocks(coinbaseScript, nGenerate, false, vecKeys);
+    if(!cPrivKey.size())
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "No private key given or invalid private key.");
+
+    return generateBlocks(coinbaseScript, nGenerate, false, cPrivKey);
 }
 
 UniValue getnewblock(const JSONRPCRequest& request)
@@ -655,7 +634,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     result.pushKV("sigoplimit", nSigOpLimit);
     result.pushKV("sizelimit", nSizeLimit);
     result.pushKV("curtime", pblock->GetBlockTime());
-    // TODO: push proof field data
+    result.pushKV("proof", HexStr(pblock->proof));
     result.pushKV("height", (int64_t)(pindexPrev->nHeight+1));
 
     if (!pblocktemplate->vchCoinbaseCommitment.empty() && fSupportsSegwit) {
@@ -925,15 +904,11 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() != 2)
         throw std::runtime_error(
-            "combineblocksigs \"blockhex\" [{\"signature\"},...]\n"
+            "combineblocksigs \"blockhex\" \"signature\"\n"
             "\nMerges signatures on a block proposal\n"
             "\nArguments:\n"
             "1. \"blockhex\"       (string, required) The hex-encoded block from getnewblockhex\n"
-            "2. \"signatures\"     (string) A json array of signatures\n"
-            "    [\n"
-            "      \"signature\"   (string) A signature (in the form of a hex-encoded scriptSig)\n"
-            "      ,...\n"
-            "    ]\n"
+            "2. \"signature\"      (string, required) A block signature from aggregate pubkey (in the form of a hex-encoded scriptSig)\n"
             "\nResult\n"
             "{\n"
             "  \"hex\": \"value\",       (string) The signed block\n"
@@ -941,68 +916,33 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
             "  \"warning\": \"message\"  (string) diagnostic message stating why signatures were not added to a block \n"
             "}\n"
             "\nExamples:\n"
-            + HelpExampleCli("combineblocksigs", "<hex> [\"signature1\", \"signature2\", ...]")
+            + HelpExampleCli("combineblocksigs", "<hex> \"signature\"")
         );
 
     CBlock block;
     if (!DecodeHexBlk(block, request.params[0].get_str()))
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Block decode failed");
 
-    const UniValue& signatures = request.params[1].get_array();
-    if(!signatures.size())
-        throw JSONRPCError(RPC_INVALID_PARAMS, "Signature list was empty");
+    const std::string signature(request.params[1].get_str());
+    if(!signature.size())
+        throw JSONRPCError(RPC_INVALID_PARAMS, "Signature was empty");
 
-    const MultisigCondition& signedBlocksCondition = Params().GetSignedBlocksCondition();
-    if(signedBlocksCondition.pubkeys.size() < signatures.size())
-        throw JSONRPCError(RPC_INVALID_PARAMS, "Too many signatures");
+    if (!IsHex(signature))
+        throw JSONRPCError(RPC_INVALID_PARAMS, "Invalid signature");
 
-    std::string warning;
-    CProof blockProof;
-    for (unsigned int i = 0; i < signatures.size(); i++)
-    {
-        const std::string& sig = signatures[i].get_str();
-        if (!IsHex(sig))
-        {
-            warning.append("invalid signature ");
-            warning.append(signatures[i].getValStr());
-            warning.append(" ");
-            continue;
-        }
-        ScriptError serror = SCRIPT_ERR_OK;
+    const std::vector<unsigned char> blockProof(ParseHex(signature));
 
-        const std::vector<unsigned char> vchSig(ParseHex(sig));
+    if(blockProof.size() != CPubKey::SCHNORR_SIGNATURE_SIZE || !CheckSchnorrSignatureEncoding(blockProof, nullptr, true) )
+        throw JSONRPCError(RPC_INVALID_PARAMS, "Invalid signature encoding");
 
-        if((vchSig.size() == CPubKey::COMPACT_SIGNATURE_SIZE) ?
-                             !CheckSchnorrSignatureEncoding(vchSig, &serror, true) :
-                             !CheckECDSASignatureEncoding(vchSig, &serror, true))
-        {
-            warning.append("invalid encoding in signature: ");
-            if(serror != SCRIPT_ERR_OK)
-            {
-                warning.append(ScriptErrorString(serror));
-                warning.append(" ");
-            }
-            warning.append(sig.begin(), sig.end());
-            warning.append(" ");
-            continue;
-        }
-
-        blockProof.addSignature(ParseHex(sig));
-    }
-
-    bool status = block.AbsorbBlockProof(blockProof, signedBlocksCondition);
-
-    //warn if all signatures were not added to the block proof
-    if(block.proof.size() != signatures.size())
-        warning.append("One or more signatures were not added to block");
+    bool status = block.AbsorbBlockProof(blockProof);
 
     UniValue result(UniValue::VOBJ);
     CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
     ssBlock << block;
 
     result.push_back(Pair("hex", HexStr(ssBlock.begin(), ssBlock.end())));
-    result.push_back(Pair("warning", warning));
-    result.push_back(Pair("complete", (status && (block.proof.size() >= signedBlocksCondition.threshold))? true : false));
+    result.push_back(Pair("complete", status));
 
     return result;
 }

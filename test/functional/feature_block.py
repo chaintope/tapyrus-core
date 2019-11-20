@@ -80,11 +80,7 @@ class FullBlockTest(BitcoinTestFramework):
         self.sig_scheme = 0
         self.setup_clean_chain = True
         self.extra_args = [[]]
-        #this is needed as some tests based on block length are optimized based on proof length for one signature.
-        self.signblockthreshold = 1
-        self.signblockpubkeys = "0201c537fd7eb7928700927b48e51ceec621fc8ba1177ee2ad67336ed91e2f63a1"
-        self.signblockprivkeys = ["aa3680d5d48a8283413f7a108367c7299ca73f553735860a87b08f39395618b7"]
-        self.genesisBlock = createTestGenesisBlock(self.signblockpubkeys, self.signblockthreshold, self.signblockprivkeys, int(time.time() - 100))
+        self.genesisBlock = createTestGenesisBlock(self.signblockpubkey, self.signblockprivkey, int(time.time() - 100))
 
     def run_test(self):
         node = self.nodes[0]  # convenience reference to the node
@@ -152,7 +148,7 @@ class FullBlockTest(BitcoinTestFramework):
         self.add_transactions_to_block(b3, [txout_b3])
         b3.hashMerkleRoot = b3.calc_merkle_root()
         b3.hashImMerkleRoot = b3.calc_immutable_merkle_root()
-        b3.solve(self.signblockprivkeys)
+        b3.solve(self.signblockprivkey)
         self.tip = b3
         self.block_heights[b3.sha256] = height
         self.blocks[3] = b3
@@ -296,29 +292,14 @@ class FullBlockTest(BitcoinTestFramework):
         self.move_tip(15)
         b23 = self.next_block(23, spend=out[6])
         # proof is added here.
-        prooflen = len(ser_string_vector(b23.proof)) - len(ser_compact_size(len(b23.proof)))
-        # optimization : when proof len is 70 next loop never succeeds. so changing proof here
-        while(prooflen == 70):
-            old_sha256 = b23.sha256
-            b23.solve(self.signblockprivkeys)
-            prooflen = len(ser_string_vector(b23.proof)) - len(ser_compact_size(len(b23.proof)))
-            self.block_heights[b23.sha256] = self.block_heights[old_sha256]
-            del self.block_heights[old_sha256]
+        b23.solve(self.signblockprivkey)
         tx = CTransaction()
         script_length = MAX_BLOCK_BASE_SIZE - len(b23.serialize()) - 69
         script_output = CScript([b'\x00' * script_length])
         tx.vout.append(CTxOut(0, script_output))
         tx.vin.append(CTxIn(COutPoint(b23.vtx[1].malfixsha256, 0)))
         b23 = self.update_block(23, [tx])
-        # proof is updated here. If new proof length is different from old proof length
-        # block size will also be different. recalculate proof until we have same length
-        i = 0
-        while(prooflen != len(ser_string_vector(b23.proof)) - len(ser_compact_size(len(b23.proof))) and i < 10):
-            old_sha256 = b23.sha256
-            b23.solve(self.signblockprivkeys)
-            self.block_heights[b23.sha256] = self.block_heights[old_sha256]
-            del self.block_heights[old_sha256]
-            i += 1
+        b23.solve(self.signblockprivkey)
         # Make sure the math above worked out to produce a max-sized block
         assert_equal(len(b23.serialize()), MAX_BLOCK_BASE_SIZE)
         self.sync_blocks([b23], True)
@@ -327,30 +308,15 @@ class FullBlockTest(BitcoinTestFramework):
         self.log.info("Trying to create a block of size MAX_BLOCK_BASE_SIZE + 1")
         self.move_tip(15)
         b24 = self.next_block(24, spend=out[6])
-        prooflen = len(ser_string_vector(b24.proof)) - len(ser_compact_size(len(b24.proof)))
-        while(prooflen == 70):
-            old_sha256 = b24.sha256
-            b24.solve(self.signblockprivkeys)
-            prooflen = len(ser_string_vector(b24.proof)) - len(ser_compact_size(len(b24.proof)))
-            self.block_heights[b24.sha256] = self.block_heights[old_sha256]
-            del self.block_heights[old_sha256]
+        b24.solve(self.signblockprivkey)
         script_length = MAX_BLOCK_BASE_SIZE - len(b24.serialize()) - 69
         script_output = CScript([b'\x00' * (script_length + 1)])
         tx.vout = [CTxOut(0, script_output)]
         b24 = self.update_block(24, [tx])
-        i = 0
-        while(prooflen != len(ser_string_vector(b24.proof)) - len(ser_compact_size(len(b24.proof)))and i < 10):
-            old_sha256 = b24.sha256
-            b24.solve(self.signblockprivkeys)
-            self.block_heights[b24.sha256] = self.block_heights[old_sha256]
-            del self.block_heights[old_sha256]
-            i += 1
-        #assert_equal(len(b24.serialize()), MAX_BLOCK_BASE_SIZE + 1)
-        if(len(b24.serialize()) > MAX_BLOCK_BASE_SIZE):
-            self.log.info("Reject a block of size MAX_BLOCK_BASE_SIZE + 1 (%d)", len(b24.serialize()))
-            self.sync_blocks([b24], False, 16, b'bad-blk-length', reconnect=True)
-        else:
-            self.log.info("Test MAX_BLOCK_BASE_SIZE + 1 skipped as block was only %d ", len(b24.serialize()))
+        b24.solve(self.signblockprivkey)
+        assert_equal(len(b24.serialize()), MAX_BLOCK_BASE_SIZE + 1)
+        self.log.info("Reject a block of size MAX_BLOCK_BASE_SIZE + 1 (%d)", len(b24.serialize()))
+        self.sync_blocks([b24], False, 16, b'bad-blk-length', reconnect=True)
 
         b25 = self.next_block(25, spend=out[7])
         self.sync_blocks([b25], False)
@@ -610,7 +576,7 @@ class FullBlockTest(BitcoinTestFramework):
         b44.vtx.append(coinbase)
         b44.hashMerkleRoot = b44.calc_merkle_root()
         b44.hashImMerkleRoot = b44.calc_immutable_merkle_root()
-        b44.solve(self.signblockprivkeys)
+        b44.solve(self.signblockprivkey)
         self.tip = b44
         self.block_heights[b44.sha256] = height
         self.blocks[44] = b44
@@ -625,7 +591,7 @@ class FullBlockTest(BitcoinTestFramework):
         b45.hashMerkleRoot = b45.calc_merkle_root()
         b45.hashImMerkleRoot = b45.calc_immutable_merkle_root()
         b45.calc_sha256()
-        b45.solve(self.signblockprivkeys)
+        b45.solve(self.signblockprivkey)
         self.block_heights[b45.sha256] = self.block_heights[self.tip.sha256] + 1
         self.tip = b45
         self.blocks[45] = b45
@@ -639,7 +605,7 @@ class FullBlockTest(BitcoinTestFramework):
         b46.vtx = []
         b46.hashMerkleRoot = 0
         b46.hashImMerkleRoot = 0
-        b46.solve(self.signblockprivkeys)
+        b46.solve(self.signblockprivkey)
         self.block_heights[b46.sha256] = self.block_heights[b44.sha256] + 1
         self.tip = b46
         assert 46 not in self.blocks
@@ -652,14 +618,14 @@ class FullBlockTest(BitcoinTestFramework):
         self.move_tip(44)
         b48 = self.next_block(48, solve=False)
         b48.nTime = int(time.time()) + 60 * 60 * 3
-        b48.solve(self.signblockprivkeys)
+        b48.solve(self.signblockprivkey)
         self.sync_blocks([b48], False, request_block=False)
 
         self.log.info("Reject a block with invalid merkle hash")
         self.move_tip(44)
         b49 = self.next_block(49)
         b49.hashMerkleRoot += 1
-        b49.solve(self.signblockprivkeys)
+        b49.solve(self.signblockprivkey)
         self.sync_blocks([b49], False, 16, b'bad-txnmrklroot', reconnect=True)
 
         self.log.info("Reject a block with two coinbase transactions")
@@ -689,7 +655,7 @@ class FullBlockTest(BitcoinTestFramework):
         self.log.info("Reject a block with timestamp before MedianTimePast")
         b54 = self.next_block(54, spend=out[15])
         b54.nTime = b35.nTime - 1
-        b54.solve(self.signblockprivkeys)
+        b54.solve(self.signblockprivkey)
         self.sync_blocks([b54], False, request_block=False)
 
         # valid timestamp
@@ -884,13 +850,7 @@ class FullBlockTest(BitcoinTestFramework):
         # make it a "broken_block," with non-canonical serialization
         b64a = CBrokenBlock(regular_block)
         b64a.initialize(regular_block)
-        prooflen = len(ser_string_vector(b64a.proof)) - len(ser_compact_size(len(b64a.proof)))
-        while(prooflen == 70):
-            old_sha256 = b64a.sha256
-            b64a.solve(self.signblockprivkeys)
-            prooflen = len(ser_string_vector(b64a.proof)) - len(ser_compact_size(len(b64a.proof)))
-            self.block_heights[b64a.sha256] = self.block_heights[old_sha256]
-            del self.block_heights[old_sha256]
+        b64a.solve(self.signblockprivkey)
         self.blocks["64a"] = b64a
         self.tip = b64a
         tx = CTransaction()
@@ -901,13 +861,7 @@ class FullBlockTest(BitcoinTestFramework):
         tx.vout.append(CTxOut(0, script_output))
         tx.vin.append(CTxIn(COutPoint(b64a.vtx[1].malfixsha256, 0)))
         b64a = self.update_block("64a", [tx])
-        i = 0
-        while(prooflen != len(ser_string_vector(b64a.proof)) - len(ser_compact_size(len(b64a.proof))) and i < 10):
-            old_sha256 = b64a.sha256
-            b64a.solve(self.signblockprivkeys)
-            self.block_heights[b64a.sha256] = self.block_heights[old_sha256]
-            del self.block_heights[old_sha256]
-            i += 1
+        b64a.solve(self.signblockprivkey)
         assert_equal(len(b64a.serialize()), MAX_BLOCK_BASE_SIZE + 8)
         self.sync_blocks([b64a], False, 1, b'error parsing message')
 
@@ -921,24 +875,12 @@ class FullBlockTest(BitcoinTestFramework):
         self.move_tip(60)
         b64 = CBlock(b64a)
         b64.vtx = copy.deepcopy(b64a.vtx)
-        prooflen = len(ser_string_vector(b64.proof)) - len(ser_compact_size(len(b64.proof)))
-        while(prooflen == 70):
-            old_sha256 = b64.sha256
-            b64.solve(self.signblockprivkeys)
-            prooflen = len(ser_string_vector(b64.proof)) - len(ser_compact_size(len(b64.proof)))
-            self.block_heights[b64.sha256] = self.block_heights[old_sha256]
-            del self.block_heights[old_sha256]
+        b64.solve(self.signblockprivkey)
         assert_equal(b64.hash, b64a.hash)
         assert_equal(len(b64.serialize()), MAX_BLOCK_BASE_SIZE)
         self.blocks[64] = b64
         b64 = self.update_block(64, [])
-        i = 0
-        while(prooflen != len(ser_string_vector(b64.proof)) - len(ser_compact_size(len(b64.proof))) and i < 10):
-            old_sha256 = b64.sha256
-            b64.solve(self.signblockprivkeys)
-            self.block_heights[b64.sha256] = self.block_heights[old_sha256]
-            del self.block_heights[old_sha256]
-            i += 1
+        b64.solve(self.signblockprivkey)
         assert_equal(len(b64.serialize()), MAX_BLOCK_BASE_SIZE)
         self.sync_blocks([b64], True)
         self.save_spendable_output()
@@ -1270,30 +1212,14 @@ class FullBlockTest(BitcoinTestFramework):
         spend = out[32]
         for i in range(89, LARGE_REORG_SIZE + 89):
             b = self.next_block(i, spend)
-            prooflen = len(ser_string_vector(b.proof)) - len(ser_compact_size(len(b.proof)))
-            # during testing we notice that when proof is of length 70 and we proceed to increase the block size, the new proof length can never match 70.
-            # This fails the test. to avoid this we do not allow proof length to be 70 here.
-            while(prooflen == 70):
-                old_sha256 = b.sha256
-                b.solve(self.signblockprivkeys)
-                prooflen = len(ser_string_vector(b.proof)) - len(ser_compact_size(len(b.proof)))
-                self.block_heights[b.sha256] = self.block_heights[old_sha256]
-                del self.block_heights[old_sha256]
+            b.solve(self.signblockprivkey)
             tx = CTransaction()
             script_length = MAX_BLOCK_BASE_SIZE - len(b.serialize()) - 69
             script_output = CScript([b'\x00' * script_length])
             tx.vout.append(CTxOut(0, script_output))
             tx.vin.append(CTxIn(COutPoint(b.vtx[1].malfixsha256, 0)))
             b = self.update_block(i, [tx])
-            j = 0
-            newprooflen = len(ser_string_vector(b.proof)) - len(ser_compact_size(len(b.proof)))
-            while(prooflen != newprooflen and len(b.serialize()) > MAX_BLOCK_BASE_SIZE and j < 50):
-                old_sha256 = b.sha256
-                b.solve(self.signblockprivkeys)
-                newprooflen = len(ser_string_vector(b.proof)) - len(ser_compact_size(len(b.proof)))
-                self.block_heights[b.sha256] = self.block_heights[old_sha256]
-                del self.block_heights[old_sha256]
-                j += 1
+            b.solve(self.signblockprivkey)
             blocks.append(b)
             self.save_spendable_output()
             spend = self.get_spendable_output()
@@ -1375,7 +1301,7 @@ class FullBlockTest(BitcoinTestFramework):
             block.hashMerkleRoot = block.calc_merkle_root()
             block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         if solve:
-            block.solve(self.signblockprivkeys)
+            block.solve(self.signblockprivkey)
         self.tip = block
         self.block_heights[block.sha256] = height
         assert number not in self.blocks
@@ -1403,7 +1329,7 @@ class FullBlockTest(BitcoinTestFramework):
         old_sha256 = block.sha256
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
-        block.solve(self.signblockprivkeys)
+        block.solve(self.signblockprivkey)
         # Update the internal state just like in next_block
         self.tip = block
         if block.sha256 != old_sha256:

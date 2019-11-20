@@ -92,7 +92,7 @@ class SerializationTest(BitcoinTestFramework):
         self.nodeaddress = self.nodes[0].getnewaddress()
         self.pubkey = self.nodes[0].getaddressinfo(self.nodeaddress)["pubkey"]
         self.log.info("Mining %d blocks", CHAIN_HEIGHT)
-        self.coinbase_txids = [self.nodes[0].getblock(b)['tx'][0] for b in self.nodes[0].generate(CHAIN_HEIGHT, self.signblockprivkeys) ]
+        self.coinbase_txids = [self.nodes[0].getblock(b)['tx'][0] for b in self.nodes[0].generate(CHAIN_HEIGHT, self.signblockprivkey) ]
 
         ##  P2PKH transaction
         ########################
@@ -138,7 +138,7 @@ class SerializationTest(BitcoinTestFramework):
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         block.rehash()
-        block.solve(self.signblockprivkeys)
+        block.solve(self.signblockprivkey)
 
         # serialize with and without witness block remains the same
         assert_equal(block.serialize(with_witness=True), block.serialize())
@@ -162,7 +162,7 @@ class SerializationTest(BitcoinTestFramework):
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         block.rehash()
-        block.solve(self.signblockprivkeys)
+        block.solve(self.signblockprivkey)
 
         self.nodes[0].p2p.send_and_ping(msg_block(block))
         assert_equal(self.nodes[0].getbestblockhash(), block.hash)
@@ -222,7 +222,7 @@ class SerializationTest(BitcoinTestFramework):
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         block.rehash()
-        block.solve(self.signblockprivkeys)
+        block.solve(self.signblockprivkey)
 
         # serialize with and without witness block remains the same
         assert_equal(block.serialize(with_witness=True), block.serialize())
@@ -246,7 +246,7 @@ class SerializationTest(BitcoinTestFramework):
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         block.rehash()
-        block.solve(self.signblockprivkeys)
+        block.solve(self.signblockprivkey)
 
         self.nodes[0].p2p.send_and_ping(msg_block(block))
         assert_equal(self.nodes[0].getbestblockhash(), block.hash)
@@ -310,7 +310,7 @@ class SerializationTest(BitcoinTestFramework):
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         block.rehash()
-        block.solve(self.signblockprivkeys)
+        block.solve(self.signblockprivkey)
 
         # serialize with and without witness block remains the same
         assert_equal(block.serialize(with_witness=True), block.serialize())
@@ -380,7 +380,7 @@ class SerializationTest(BitcoinTestFramework):
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         block.rehash()
-        block.solve(self.signblockprivkeys)
+        block.solve(self.signblockprivkey)
 
         # serialize with and without witness
         assert_equal(block.serialize(with_witness=False), block.serialize())
@@ -396,7 +396,7 @@ class SerializationTest(BitcoinTestFramework):
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         block.rehash()
-        block.solve(self.signblockprivkeys)
+        block.solve(self.signblockprivkey)
 
         self.log.info("Accept block with p2sh_p2wpkh transaction")
         self.nodes[0].submitblock(bytes_to_hex_str(block.serialize(with_witness=True)))
@@ -461,7 +461,7 @@ class SerializationTest(BitcoinTestFramework):
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         block.rehash()
-        block.solve(self.signblockprivkeys)
+        block.solve(self.signblockprivkey)
 
         # serialize with and without witness
         assert_equal(block.serialize(with_witness=False), block.serialize())
@@ -477,7 +477,7 @@ class SerializationTest(BitcoinTestFramework):
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         block.rehash()
-        block.solve(self.signblockprivkeys)
+        block.solve(self.signblockprivkey)
 
         self.log.info("Accept block with p2sh_p2wsh transaction")
         self.nodes[0].submitblock(bytes_to_hex_str(block.serialize(with_witness=True)))

@@ -49,11 +49,11 @@ class NULLDUMMYTest(BitcoinTestFramework):
         self.address = self.nodes[0].getnewaddress()
         self.ms_address = self.nodes[0].addmultisigaddress(1,[self.address])['address']
 
-        self.coinbase_blocks = self.nodes[0].generate(2, self.signblockprivkeys) # Block 2
+        self.coinbase_blocks = self.nodes[0].generate(2, self.signblockprivkey) # Block 2
         coinbase_txid = []
         for i in self.coinbase_blocks:
             coinbase_txid.append(self.nodes[0].getblock(i)['tx'][0])
-        self.nodes[0].generate(427, self.signblockprivkeys) # Block 429
+        self.nodes[0].generate(427, self.signblockprivkey) # Block 429
         self.lastblockhash = self.nodes[0].getbestblockhash()
         self.tip = int("0x" + self.lastblockhash, 0)
         self.lastblockheight = 429
@@ -96,7 +96,7 @@ class NULLDUMMYTest(BitcoinTestFramework):
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         witness and add_witness_commitment(block)
         block.rehash()
-        block.solve(self.signblockprivkeys)
+        block.solve(self.signblockprivkey)
         blockbytes = block.serialize(with_witness=True)
         if(witness):
             assert_raises_rpc_error(-22, "Block does not start with a coinbase", node.submitblock, bytes_to_hex_str(blockbytes))

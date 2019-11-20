@@ -102,7 +102,7 @@ class AddressTypeTest(BitcoinTestFramework):
     def run_test(self):
         # Mine 101 blocks on node5 to bring nodes out of IBD and make sure that
         # no coinbases are maturing for the nodes-under-test during the test
-        self.nodes[2].generate(101, self.signblockprivkeys)
+        self.nodes[2].generate(101, self.signblockprivkey)
         sync_blocks(self.nodes)
 
         uncompressed_1 = "0496b538e853519c726a2c91e61ec11600ae1390813a627c66fb8be7947be63c52da7589379515d4e0a604f8141781e62294721166bf621e73a82cbf2342c858ee"
@@ -162,7 +162,7 @@ class AddressTypeTest(BitcoinTestFramework):
             assert_equal(unconf_balances[1], to_send * 10 * 2)
 
             # node1 collects fee and block subsidy to keep accounting simple
-            self.nodes[2].generate(1, self.signblockprivkeys)
+            self.nodes[2].generate(1, self.signblockprivkey)
             sync_blocks(self.nodes)
 
             new_balances = self.get_balances()
@@ -177,7 +177,7 @@ class AddressTypeTest(BitcoinTestFramework):
 
         # Fund node 4:
         self.nodes[2].sendtoaddress(self.nodes[1].getnewaddress(), Decimal("1"))
-        self.nodes[2].generate(1, self.signblockprivkeys)
+        self.nodes[2].generate(1, self.signblockprivkey)
         sync_blocks(self.nodes)
         assert_equal(self.nodes[1].getbalance(), new_balances[1] + 1)
 

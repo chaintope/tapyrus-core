@@ -3913,12 +3913,13 @@ UniValue generate(const JSONRPCRequest& request)
     }
 
     int num_generate = request.params[0].get_int();
-    UniValue privkeys_hex = request.params[1].get_array();
 
-    std::vector<CKey> vecKeys;
-    ParsePrivateKeyList(privkeys_hex, vecKeys);
-    if(!vecKeys.size())
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "No private key given or all keys were invalid.");
+    std::vector<unsigned char> privkeyraw = ParseHex(request.params[1].get_str());
+    CKey cPrivKey;
+    cPrivKey.Set(privkeyraw.begin(), privkeyraw.end(), true);
+
+    if(!cPrivKey.size())
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "No private key given or invalid private key.");
 
     std::shared_ptr<CReserveScript> coinbase_script;
     pwallet->GetScriptForMining(coinbase_script);
@@ -3933,7 +3934,7 @@ UniValue generate(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INTERNAL_ERROR, "No coinbase script available");
     }
 
-    return generateBlocks(coinbase_script, num_generate, true, vecKeys);
+    return generateBlocks(coinbase_script, num_generate, true, cPrivKey);
 }
 
 UniValue rescanblockchain(const JSONRPCRequest& request)
