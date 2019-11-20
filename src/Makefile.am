@@ -184,7 +184,6 @@ BITCOIN_CORE_H = \
   utiltime.h \
   validation.h \
   validationinterface.h \
-  versionbits.h \
   walletinitinterface.h \
   wallet/coincontrol.h \
   wallet/crypter.h \
@@ -253,7 +252,6 @@ libtapyrus_server_a_SOURCES = \
   ui_interface.cpp \
   validation.cpp \
   validationinterface.cpp \
-  versionbits.cpp \
   $(BITCOIN_CORE_H)
 
 if ENABLE_ZMQ
