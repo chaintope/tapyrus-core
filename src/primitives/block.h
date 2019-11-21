@@ -70,7 +70,7 @@ public:
 class CBlockHeader : public CBlockHeaderWithoutProof
 {
 public:
-    static constexpr unsigned int TAPYRUS_BLOCK_VERSION = 1;
+    static constexpr int32_t TAPYRUS_BLOCK_VERSION = 1;
     std::vector<unsigned char>  proof{64};
 
     CBlockHeader():CBlockHeaderWithoutProof(),proof() {}

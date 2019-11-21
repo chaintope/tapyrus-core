@@ -324,7 +324,7 @@ class BIP68_112_113Test(BitcoinTestFramework):
             self.nodes[0].invalidateblock(self.nodes[0].getbestblockhash())
 
         # Next block height = 580 after 4 blocks of random version
-        test_blocks = self.generate_blocks(4, 1234)
+        test_blocks = self.generate_blocks(4, 1)
         self.sync_blocks(test_blocks)
 
         self.log.info("BIP 68 tests")
@@ -352,7 +352,7 @@ class BIP68_112_113Test(BitcoinTestFramework):
             self.sync_blocks([self.create_test_block(bip68success_txs)], success=False)
 
         # Advance one block to 581
-        test_blocks = self.generate_blocks(1, 1234)
+        test_blocks = self.generate_blocks(1, 1)
         self.sync_blocks(test_blocks)
 
         # Height txs should fail and time txs should now pass 9 * 600 > 10 * 512
@@ -364,7 +364,7 @@ class BIP68_112_113Test(BitcoinTestFramework):
             self.nodes[0].invalidateblock(self.nodes[0].getbestblockhash())
 
         # Advance one block to 582
-        test_blocks = self.generate_blocks(1, 1234)
+        test_blocks = self.generate_blocks(1, 1)
         self.sync_blocks(test_blocks)
 
         # All BIP 68 txs should pass
