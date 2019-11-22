@@ -95,8 +95,6 @@ public:
         consensus.nSubsidyHalvingInterval = 210000;
 
         consensus.nExpectedBlockTime = 15; // 15 sec
-        consensus.nRuleChangeActivationThreshold = 1916; // 95% of 2016
-        consensus.nMinerConfirmationWindow = 2016; // nPowTargetTimespan / nPowTargetSpacing
 
         /**
          * The message start string is designed to be unlikely to occur in normal data.
@@ -150,8 +148,6 @@ public:
         consensus.nSubsidyHalvingInterval = 210000;
 
         consensus.nExpectedBlockTime = 15; // 15 sec
-        consensus.nRuleChangeActivationThreshold = 1916; // 95% of 2016
-        consensus.nMinerConfirmationWindow = 2016; // nPowTargetTimespan / nPowTargetSpacing
 
         /**
          * Paradium networkId is 101.
@@ -201,8 +197,6 @@ public:
         consensus.nSubsidyHalvingInterval = 210000;
 
         consensus.nExpectedBlockTime = 15; // 15 sec
-        consensus.nRuleChangeActivationThreshold = 1512; // 75% for testchains
-        consensus.nMinerConfirmationWindow = 2016; // nPowTargetTimespan / nPowTargetSpacing
 
         pchMessageStart[0] = 0x75;
         pchMessageStart[1] = 0x9a;
@@ -244,8 +238,6 @@ public:
         consensus.nSubsidyHalvingInterval = 150;
 
         consensus.nExpectedBlockTime = 15; // 15 sec
-        consensus.nRuleChangeActivationThreshold = 108; // 75% for testchains
-        consensus.nMinerConfirmationWindow = 144; // Faster than normal for regtest (144 instead of 2016)
 
         pchMessageStart[0] = 0x73;
         pchMessageStart[1] = 0x9a;
@@ -330,7 +322,7 @@ CBlock createGenesisBlock(const CPubKey& aggregatePubkey, const CKey& privateKey
     //Genesis block header
     CBlock genesis;
     genesis.nTime    = blockTime;
-    genesis.nVersion = 1; //TODO: change to VERSIONBITS_TOP_BITS
+    genesis.nVersion = 1;
     genesis.vtx.push_back(MakeTransactionRef(std::move(txNew)));
     genesis.hashPrevBlock.SetNull();
     genesis.hashMerkleRoot = BlockMerkleRoot(genesis);
