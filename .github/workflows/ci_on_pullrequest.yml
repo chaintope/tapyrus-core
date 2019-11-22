@@ -27,7 +27,7 @@ jobs:
           # docker
           export BUILD_ID=COMMIT_$(echo $GITHUB_SHA | cut -c1-7)
           docker build -t ${AWS_REGISTRY_URL}:$BUILD_ID .
-          docker push ${AWS_REGISTRY_URL}:$BUILD_ID
+          if [ $AWS_ACCESS_KEY_ID ]; then docker push ${AWS_REGISTRY_URL}:$BUILD_ID; fi
 
   arm:
     name: "[PENDING]ARM"
