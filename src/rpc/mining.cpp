@@ -98,7 +98,6 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
             "2. address      (string, required) The address to send the newly generated bitcoin to.\n"
             "3. private key  (hex string, required) aggregate private key to sign the generated blocks.\n"
             "\nResult:\n"
-            "\nResult:\n"
             "[ blockhashes ]     (array) hashes of blocks generated\n"
             "\nExamples:\n"
             "\nGenerate 11 blocks to myaddress signed with 1 privatekey n"

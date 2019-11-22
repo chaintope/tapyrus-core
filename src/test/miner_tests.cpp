@@ -159,7 +159,7 @@ static void CreateBlocks(const CChainParams &chainparams,
     std::vector<unsigned char> blockProof;
     createSignedBlockProof(pblocktemplate->block, blockProof);
     pblocktemplate->block.AbsorbBlockProof(blockProof);
-    BOOST_CHECK_EQUAL(pblocktemplate->block.proof.size(), 64);
+    BOOST_CHECK_EQUAL(pblocktemplate->block.proof.size(), CPubKey::SCHNORR_SIGNATURE_SIZE);
 
     BOOST_CHECK_EQUAL(pblocktemplate->block.vtx[0]->vin[0].prevout.n, chainActive.Height()+1); //+1 as the new block is not added to active chain yet
 }

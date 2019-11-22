@@ -47,7 +47,7 @@ Merkle root in Tapyrus commits to all the data in the block like bitcoin, so it 
 
 **Immutable Merkle root**
 
-Since Merkle root in Tapyrus includes ScriptSig it becomes difficult for wallets with bloom filters to identify whether a transaction was included in a block using its Merkle root. So an additional Merkle root is added - this is computed using immutable transaction Id. This allows Tapyrus to use featues like Bloom Filters based on Immutable transacton Id. 
+Since Merkle root in Tapyrus includes ScriptSig it becomes difficult for wallets with bloom filters to identify whether a transaction was included in a block using its Merkle root. So an additional Merkle root is added - this is computed using immutable transaction Id. This allows Tapyrus to use features like Bloom Filters based on Immutable transaction Id. 
 
 **Compact blocks**
 
