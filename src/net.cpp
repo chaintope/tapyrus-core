@@ -17,6 +17,9 @@
 #include <crypto/sha256.h>
 #include <primitives/transaction.h>
 #include <netbase.h>
+
+#include <net_permissions.h>
+#include <random.h>
 #include <scheduler.h>
 #include <ui_interface.h>
 #include <utilstrencodings.h>
@@ -461,6 +464,9 @@ CNode* CConnman::ConnectNode(CAddress addrConnect, const char *pszDest, bool fCo
     CNode* pnode = new CNode(id, nLocalServices, GetBestHeight(), hSocket, addrConnect, CalculateKeyedNetGroup(addrConnect), nonce, addr_bind, pszDest ? pszDest : "", false);
     pnode->AddRef();
 
+    // We're making a new connection, harvest entropy from the time (and our peer count)
+    RandAddEvent((uint32_t)id);
+
     return pnode;
 }
 
@@ -877,7 +883,16 @@ const uint256& CNetMessage::GetMessageHash() const
 
 
 
+    // We just received a message off the wire, harvest entropy from the time (and the message checksum)
+    RandAddEvent(ReadLE32(hash.begin()));
 
+    msg.m_valid_checksum = (memcmp(hash.begin(), hdr.pchChecksum, CMessageHeader::CHECKSUM_SIZE) == 0);
+    if (!msg.m_valid_checksum) {
+        LogPrint(BCLog::NET, "CHECKSUM ERROR (%s, %u bytes), expected %s was %s\n",
+                 SanitizeString(msg.m_command), msg.m_message_size,
+                 HexStr(hash.begin(), hash.begin()+CMessageHeader::CHECKSUM_SIZE),
+                 HexStr(hdr.pchChecksum, hdr.pchChecksum+CMessageHeader::CHECKSUM_SIZE));
+    }
 
 
 
@@ -1151,6 +1166,9 @@ void CConnman::AcceptConnection(const ListenSocket& hListenSocket) {
         LOCK(cs_vNodes);
         vNodes.push_back(pnode);
     }
+
+    // We received a new connection, harvest entropy from the time (and our peer count)
+    RandAddEvent((uint32_t)id);
 }
 
 void CConnman::ThreadSocketHandler()
