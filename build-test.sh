@@ -30,7 +30,3 @@ make distdir VERSION=$HOST
 cd tapyrus-$HOST
 ./configure --cache-file=../config.cache $BITCOIN_CONFIG_ALL $BITCOIN_CONFIG || ( cat config.log && false)
 make $MAKEJOBS $GOAL || ( echo "Build failure. Verbose build follows." && make $GOAL V=1 ; false )
-if [ "$RUN_TESTS" = "true" ]; then LD_LIBRARY_PATH=${GITHUB_WORKSPACE}/depends/$HOST/lib make $MAKEJOBS check VERBOSE=1; fi
-if [ "$RUN_BENCH" = "true" ]; then LD_LIBRARY_PATH=${GITHUB_WORKSPACE}/depends/$HOST/lib $OUTDIR/bin/bench_tapyrus -scaling=0.001 ; fi
-if [ "$TRAVIS_EVENT_TYPE" = "cron" ]; then extended="--extended --exclude feature_pruning,feature_dbcrash"; fi
-if [ "$RUN_TESTS" = "true" ]; then test/functional/test_runner.py --combinedlogslen=4000 --coverage --failfast --quiet ${extended}; fi

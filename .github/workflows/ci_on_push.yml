@@ -21,7 +21,24 @@ jobs:
           GOAL="install" \
           BITCOIN_CONFIG="--enable-zmq --with-incompatible-bdb --enable-glibc-back-compat --enable-reduce-exports --with-gui=no CPPFLAGS=-DDEBUG_LOCKORDER" \
           bash -xe ./build-test.sh
-
+      - name: Unit Test
+        run: |
+          source ./default-env.sh
+          HOST=x86_64-unknown-linux-gnu \
+          LD_LIBRARY_PATH=${GITHUB_WORKSPACE}/depends/$HOST/lib \
+          make $MAKEJOBS check VERBOSE=1
+      - name: Functional Test
+        run: |
+          source ./default-env.sh
+          HOST=x86_64-unknown-linux-gnu \
+          test/functional/test_runner.py --combinedlogslen=4000 --coverage --failfast --quiet 
+      - name: Benchmark Test
+        run: |
+          source ./default-env.sh
+          OUTDIR=$BASE_OUTDIR/$GITHUB_SHA/$HOST
+          HOST=x86_64-unknown-linux-gnu \
+          LD_LIBRARY_PATH=${GITHUB_WORKSPACE}/depends/$HOST/lib \
+          $OUTDIR/bin/bench_tapyrus -scaling=0.001 
   lint:
     name: "[PARTIAL_PENDING]lint"
 
