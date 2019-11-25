@@ -13,7 +13,6 @@ add_compiler_flag(
 )
 
 add_c_compiler_flag(
-	-std=c89
 	-Wno-long-long
 )
 

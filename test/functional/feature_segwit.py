@@ -46,10 +46,9 @@ class SegWitTest(BitcoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 3
-        # This test tests SegWit both pre and post-activation, so use the normal BIP9 activation.
         self.extra_args = [["-rpcserialversion=0",  "-addresstype=legacy", "-deprecatedrpc=addwitnessaddress"],
-                           ["-blockversion=4", "-rpcserialversion=1","-addresstype=legacy", "-deprecatedrpc=addwitnessaddress", "-acceptnonstdtxn=0"],
-                           ["-blockversion=536870915", "-addresstype=legacy", "-deprecatedrpc=addwitnessaddress"]]
+                           ["-blockversion=1", "-rpcserialversion=1","-addresstype=legacy", "-deprecatedrpc=addwitnessaddress", "-acceptnonstdtxn=0"],
+                           ["-blockversion=1", "-addresstype=legacy", "-deprecatedrpc=addwitnessaddress"]]
 
     def setup_network(self):
         super().setup_network()
