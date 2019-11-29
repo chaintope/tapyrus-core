@@ -21,6 +21,7 @@ jobs:
           GOAL="install" \
           BITCOIN_CONFIG="--enable-zmq --with-incompatible-bdb --enable-glibc-back-compat --enable-reduce-exports --with-gui=no CPPFLAGS=-DDEBUG_LOCKORDER" \
           bash -xe ./build-test.sh
+
   lint:
     name: "[PARTIAL_PENDING]lint"
 
