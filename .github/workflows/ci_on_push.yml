@@ -15,35 +15,12 @@ jobs:
           source ./default-env.sh
           HOST=x86_64-unknown-linux-gnu \
           PACKAGES="python3-zmq libssl1.0-dev libevent-dev bsdmainutils libboost-system-dev libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev libdb5.3++-dev libminiupnpc-dev libzmq3-dev libprotobuf-dev protobuf-compiler libqrencode-dev" \
-          sudo apt-get update
-          sudo apt-get install --no-install-recommends --no-upgrade -qq $PACKAGES $BUILD_PACKAGES
-          echo \> \$HOME/.tapyrus
-          BITCOIN_CONFIG="--enable-zmq --with-incompatible-bdb --enable-glibc-back-compat --enable-reduce-exports --with-gui=no CPPFLAGS=-DDEBUG_LOCKORDER"
-          ./autogen.sh
-          mkdir build && cd build
-          ../configure --disable-wallet --disable-dependency-tracking --cache-file=config.cache --enable-zmq --with-incompatible-bdb --enable-glibc-back-compat --enable-reduce-exports --with-gui=no CPPFLAGS=-DDEBUG_LOCKORDER || ( cat config.log && false) 
-          make distdir VERSION=$HOST
-        shell: bash
-      - name: Unit Test
-        run: |
-          source ./default-env.sh
-          HOST=x86_64-unknown-linux-gnu \
-          LD_LIBRARY_PATH=${GITHUB_WORKSPACE}/depends/$HOST/lib \
+          NO_DEPENDS=1 \
+          DEP_OPTS="NO_QT=1" \
+          RUN_TESTS=true \
+          GOAL="install" \
           BITCOIN_CONFIG="--enable-zmq --with-incompatible-bdb --enable-glibc-back-compat --enable-reduce-exports --with-gui=no CPPFLAGS=-DDEBUG_LOCKORDER" \
-          bash -xe ../configure --cache-file=config.cache $BITCOIN_CONFIG_ALL $BITCOIN_CONFIG || ( cat config.log && false)
-          make $MAKEJOBS check VERBOSE=1
-      - name: Functional Test
-        run: |
-          source ./default-env.sh
-          HOST=x86_64-unknown-linux-gnu \
-          test/functional/test_runner.py --combinedlogslen=4000 --coverage --failfast --quiet 
-      - name: Benchmark Test
-        run: |
-          source ./default-env.sh
-          OUTDIR=$BASE_OUTDIR/$GITHUB_SHA/$HOST
-          HOST=x86_64-unknown-linux-gnu \
-          LD_LIBRARY_PATH=${GITHUB_WORKSPACE}/depends/$HOST/lib \
-          $OUTDIR/bin/bench_tapyrus -scaling=0.001 
+          bash -xe ./build-test.sh
   lint:
     name: "[PARTIAL_PENDING]lint"
 
