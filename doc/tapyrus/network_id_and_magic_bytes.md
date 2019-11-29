@@ -10,12 +10,13 @@ For example, if you are trying to connect to a node with your own code, every me
 List of Network IDs / Magic bytes
 ===================
 
-| Name     | Network ID | Magic Bytes |
-| -------- | ---------- | ----------- |
-| Mainnet  | 1          | 0x00F0FF01  |
-| Paradium | 101        | 0x64F0FF01  |
-| Testnet  | 1939510133 | 0x74839A75  |
-| Regtest  | 1905960821 | 0x74979A73  |
+| Name        | Network ID | Magic Bytes |
+| ----------- | ---------- | ----------- |
+| Mainnet     | 1          | 0x00F0FF01  |
+| Paradium    | 101        | 0x64F0FF01  |
+| HAW         | 721        | 0xD0F2FF01  |
+| Testnet     | 1939510133 | 0x74839A75  |
+| Regtest     | 1905960821 | 0x74979A73  |
 
 Calculation of the Magic Bytes
 ===================
