@@ -26,14 +26,14 @@ The genesis block contains the "aggregate public key" of the federation. It is g
 Magic bytes are used as a way to identify the separate network messages sent between nodes on the Tapyrus network. The list of available networks and their magic bytes is in [Network ID and Magic Bytes](https://github.com/chaintope/tapyrus-core/blob/master/doc/tapyrus/network_id_and_magic_bytes.md)
 
 ## FAQ
-* [How to build tapyrus?](https://github.com/chaintope/tapyrus-core/new/master/doc/tapyrus#how-to-build-tapyrus)
-* [How to get the pre-built binaries?](https://github.com/chaintope/tapyrus-core/blob/issue/18_getting_started/doc/tapyrus/getting_started.md#how-to-get-the-pre-built-binaries)
-* [How to start tapyrus in regtest mode?](https://github.com/chaintope/tapyrus-core/new/master/doc/tapyrus#how-to-start-tapyrus-in-regtest-mode)
-* [How to start a node on tapyrus testnet?](https://github.com/chaintope/tapyrus-core/new/master/doc/tapyrus#how-to-start-a-node-on-tapyrus-testnet)
-* [How to start a new tapyrus network?](https://github.com/chaintope/tapyrus-core/new/master/doc/tapyrus#how-to-start-a-new-tapyrus-network)
-* [How to configure and run Tapyrus DNS seeder](https://github.com/chaintope/tapyrus-core/blob/issue/18_getting_started/doc/tapyrus/getting_started.md#5-configure-tapyrus-dns-seeder)
-* [How to get coins?](https://github.com/chaintope/tapyrus-core/blob/issue/18_getting_started/doc/tapyrus/getting_started.md#how-to-get-coins)
-* [How to upgrade tapyrus?](https://github.com/chaintope/tapyrus-core/blob/issue/18_getting_started/doc/tapyrus/getting_started.md#how-to-upgrade-tapyrus)
+* [How to build tapyrus?](https://github.com/chaintope/tapyrus-core/blob/master/doc/tapyrus/getting_started.md#how-to-build-tapyrus)
+* [How to get the pre-built binaries?](https://github.com/chaintope/tapyrus-core/blob/master/doc/tapyrus/getting_started.md#how-to-get-the-pre-built-binaries)
+* [How to start tapyrus in regtest mode?](https://github.com/chaintope/tapyrus-core/blob/master/doc/tapyrus/getting_started.md#how-to-start-tapyrus-in-regtest-mode)
+* [How to start a node on tapyrus testnet?](https://github.com/chaintope/tapyrus-core/blob/master/doc/tapyrus/getting_started.md#how-to-start-a-node-on-tapyrus-testnet)
+* [How to start a new tapyrus network?](https://github.com/chaintope/tapyrus-core/blob/master/doc/tapyrus/getting_started.md#how-to-start-a-new-tapyrus-network)
+* [How to create a genesis block?](https://github.com/chaintope/tapyrus-core/blob/master/doc/tapyrus/getting_started.md#how-to-create-a-genesis-block)
+* [How to get coins?](https://github.com/chaintope/tapyrus-core/blob/master/doc/tapyrus/getting_started.md#how-to-get-coins)
+* [How to upgrade tapyrus?](https://github.com/chaintope/tapyrus-core/blob/master/doc/tapyrus/getting_started.md#how-to-upgrade-tapyrus)
 
 
 ## How to build tapyrus? 
@@ -73,7 +73,7 @@ bind=127.0.0.1
 3. Choose an elliptic curve private key and public key pair. These keys would serve as the 'aggregate public key' and 'aggregate private key' in regtest mode.
 
 4. Generate a new **signed genesis block** using tapyrus-genesis utility. Aggregate public key and its corresponsing private key are needed as command line options to generate a signed genesis block.
-Read [Create new genesis block using tapyrus-genesis-utility](https://github.com/chaintope/tapyrus-core/blob/issue/18_getting_started/doc/tapyrus/getting_started.md#1-create-a-new-genesis-block-using-tapyrus-genesis-utility)
+Read [Create new genesis block using tapyrus-genesis-utility](https://github.com/chaintope/tapyrus-core/blob/master/doc/tapyrus/getting_started.md#how-to-create-a-genesis-block)
  section for more details.
 ``` 
 ./tapyrus-genesis -regtest -time=1563342688 -address=mmtAurzUTURFq9MSizWyj5sAkWzgqR8PBn -signblockpubkey=03af80b90d25145da28c583359beb47b21796b2fe1a23c1511e443e7a64dfdb27d -signblockprivatekey=cUJN5RVzYWFoeY8rUztd47jzXCu1p57Ay8V7pqCzsBD3PEXN7Dd4
@@ -98,7 +98,7 @@ Block rewards can now be spent to create new transactions and proceed with testi
 ## How to start a node on Tapyrus testnet?
 
 ##### Note:
-> :point_right: If you wish to start a new test network then follow the instructions in [How to start a new tapyrus network?](https://github.com/chaintope/tapyrus-core/new/master/doc/tapyrus#how-to-start-a-new-tapyrus-network) and run Tapyrus-core (tapyrusd) with -testnet option.
+> :point_right: If you wish to start a new test network then follow the instructions in [How to start a new tapyrus network?](https://github.com/chaintope/tapyrus-core/blob/master/doc/tapyrus/getting_started.md#how-to-start-a-new-tapyrus-network) and run Tapyrus-core (tapyrusd) with -testnet option.
 
 Remember that Tapyrus testnet is deployed and can be verified using the following command:  
 ```$ tapyrus-cli -testnet -rpcconnect=54.65.133.45 -rpcuser=user -rpcpassword=pass getblockchaininfo```
@@ -142,11 +142,22 @@ chmod 600 "/Users/${USER}/Library/Application Support/Tapyrus/tapyrus.conf"
 ```/usr/local/bin/tapyrusd -testnet -daemon -datadir=/var/lib/tapyrus-testnet -conf=/etc/tapyrus/tapyrus.conf```
 
 
-Verify the progress of initial block download in the new node using debug.log. The node is ready to accept transactions which would be written to the testnet blockchain. Please refer to [how to get coins](https://github.com/chaintope/tapyrus-core/blob/issue/18_getting_started/doc/tapyrus/getting_started.md#how-to-get-coins) section to get testnet coins.
+Verify the progress of initial block download in the new node using debug.log. The node is ready to accept transactions which would be written to the testnet blockchain. Please refer to [how to get coins](https://github.com/chaintope/tapyrus-core/blob/master/doc/tapyrus/getting_started.md#how-to-get-coins) section to get testnet coins.
 
 ## How to start a new tapyrus network?
 
 Tapyrus version 0.3.0 does not support setting up new secure federated networks. This section would be updated after the feature is made available in later versions. 
+
+## How to create a genesis block?
+
+Tapyrus-genesis utility is packaged with tapyrus v.0.3.0. It can generate a basic unsigned genesis block with block version 1. Time argument gives the block time. Aggregate public key of the Tapyrus-signer network can be given as an argument. Address is the tapyrus-address to which the block reward is paid. The output of this command is a block hex. Copy this into a file named 'genesis.dat'
+
+Example:
+``` 
+./tapyrus-genesis -time=1563342688 -address=mmtAurzUTURFq9MSizWyj5sAkWzgqR8PBn -signblockpubkey=03af80b90d25145da28c583359beb47b21796b2fe1a23c1511e443e7a64dfdb27d
+```
+
+If there is a need for a custom genesis block in your test, creating and using it is not restricted. As long as the custom genesis block is signed and satisfies Tapyrus consensus rules, the block is accepted and the blockchain would progress.
 
 ## How to get coins?
 
