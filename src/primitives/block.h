@@ -28,6 +28,7 @@ public:
     uint256 hashMerkleRoot;
     uint256 hashImMerkleRoot;
     uint32_t nTime;
+    std::vector<unsigned char> aggPubkey{CPubKey::COMPRESSED_PUBLIC_KEY_SIZE};
 
     CBlockHeaderWithoutProof()
     {
@@ -42,6 +43,7 @@ public:
         READWRITE(hashMerkleRoot);
         READWRITE(hashImMerkleRoot);
         READWRITE(nTime);
+        READWRITE(aggPubkey);
     }
 
     void SetNull()
@@ -51,6 +53,7 @@ public:
         hashMerkleRoot.SetNull();
         hashImMerkleRoot.SetNull();
         nTime = 0;
+        aggPubkey.clear();
     }
 
     bool IsNull() const
@@ -71,7 +74,7 @@ class CBlockHeader : public CBlockHeaderWithoutProof
 {
 public:
     static constexpr int32_t TAPYRUS_BLOCK_VERSION = 1;
-    std::vector<unsigned char>  proof{64};
+    std::vector<unsigned char> proof{CPubKey::SCHNORR_SIGNATURE_SIZE};
 
     CBlockHeader():CBlockHeaderWithoutProof(),proof() {}
 
@@ -131,6 +134,7 @@ public:
         block.hashMerkleRoot    = hashMerkleRoot;
         block.hashImMerkleRoot  = hashImMerkleRoot;
         block.nTime             = nTime;
+        block.aggPubkey         = aggPubkey;
         block.proof             = proof;
         return block;
     }

@@ -72,6 +72,8 @@ UniValue blockheaderToJSON(const CBlockIndex* blockindex)
     result.pushKV("time", (int64_t)blockindex->nTime);
     result.pushKV("mediantime", (int64_t)blockindex->GetMedianTimePast());
     result.pushKV("nTx", (uint64_t)blockindex->nTx);
+    if(blockindex->aggPubkey.size())
+        result.pushKV("aggPubkey", HexStr(blockindex->aggPubkey));
     result.pushKV("proof", HexStr(blockindex->proof));
 
     if (blockindex->pprev)
@@ -115,6 +117,8 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
     result.pushKV("tx", txs);
     result.pushKV("time", block.GetBlockTime());
     result.pushKV("mediantime", (int64_t)blockindex->GetMedianTimePast());
+    if(blockindex->aggPubkey.size())
+        result.pushKV("aggPubkey", HexStr(blockindex->aggPubkey));
     result.pushKV("proof", HexStr(block.GetBlockHeader().proof));
     result.pushKV("nTx", (uint64_t)blockindex->nTx);
 
@@ -651,6 +655,8 @@ static UniValue getblockheader(const JSONRPCRequest& request)
             "  \"immutablemmerkleroot\" : \"xxxx\", (string) The merkle root computes without scriptSig\n"
             "  \"time\" : ttt,          (numeric) The block time in seconds since epoch (Jan 1 1970 GMT)\n"
             "  \"mediantime\" : ttt,    (numeric) The median block time in seconds since epoch (Jan 1 1970 GMT)\n"
+            "  \"aggpubkey\":\"xxxx\"   (string, optional) Aggregate public key if it was present in the block\n"
+            "  \"proof\": \"xxxx\"      (string) Threshold signature of signers who accepted the block \n"
             "  \"nTx\" : n,             (numeric) The number of transactions in the block.\n"
             "  \"previousblockhash\" : \"hash\",  (string) The hash of the previous block\n"
             "  \"nextblockhash\" : \"hash\",      (string) The hash of the next block\n"
@@ -738,8 +744,8 @@ static UniValue getblock(const JSONRPCRequest& request)
             "  ],\n"
             "  \"time\" : ttt,          (numeric) The block time in seconds since epoch (Jan 1 1970 GMT)\n"
             "  \"mediantime\" : ttt,    (numeric) The median block time in seconds since epoch (Jan 1 1970 GMT)\n"
-            "  \"proof\": [             (array of string) list of signature of signers who accepted the block in the order of public keys recorded in genesis block.\n"
-            "   ],\n"
+            "  \"aggpubkey\":\"xxxx\"   (string, optional) Aggregate public key if it was present in the block\n"
+            "  \"proof\": \"xxxx\"      (string) Threshold signature of signers who accepted the block \n"
             "  \"nTx\" : n,             (numeric) The number of transactions in the block.\n"
             "  \"previousblockhash\" : \"hash\",  (string) The hash of the previous block\n"
             "  \"nextblockhash\" : \"hash\"       (string) The hash of the next block\n"

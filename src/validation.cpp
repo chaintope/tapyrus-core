@@ -2861,6 +2861,9 @@ static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,
 
     const CPubKey& aggregatePubkey = Params().GetAggregatePubkey();
 
+    if(!aggregatePubkey.IsValid())
+        return state.Error("Invalid aggregatePubkey");
+
     const uint256 blockHash = block.GetHashForSign();
 
     //verify signature
@@ -2926,8 +2929,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
     // Check transactions
     for (const auto& tx : block.vtx)
     {
-        bool fGenesis = consensusParams.hashGenesisBlock == block.GetHash();
-        if (!CheckTransaction(*tx, state, true, fGenesis))
+        if (!CheckTransaction(*tx, state, true))
             return state.Invalid(false, state.GetRejectCode(), state.GetRejectReason(),
                                  strprintf("Transaction check failed (tx hash %s) %s", tx->GetHashMalFix().ToString(), state.GetDebugMessage()));
     }

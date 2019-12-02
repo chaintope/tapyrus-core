@@ -17,29 +17,28 @@
 #include <streams.h>
 #include <fs.h>
 #include <pubkey.h>
+#include <key_io.h>
 
-CPubKey GetAggregatePubkeyFromCmdLine()
+CPubKey CChainParams::ReadAggregatePubkey(const std::vector<unsigned char>& pubkey)
 {
-    const std::string pubkeyArg(gArgs.GetArg("-signblockpubkey", ""));
-
-    std::string prefix(pubkeyArg.substr(0, 2));
-
-    if (prefix == "02" || prefix == "03") {
-        std::vector<unsigned char> pubkey(ParseHex(pubkeyArg));
-        CPubKey aggregatePubkey(pubkey.begin(), pubkey.end());
+    if(!pubkey.size())
+        throw std::runtime_error("Aggregate Public Key for Signed Block is empty");
+    
+    if (pubkey[0] == 0x02 || pubkey[0] == 0x03) {
+        aggregatePubkey = CPubKey(pubkey.begin(), pubkey.end());
         if(!aggregatePubkey.IsFullyValid()) {
-            throw std::runtime_error(strprintf("Aggregate Public Key for Signed Block is invalid: %s", pubkeyArg));
+            throw std::runtime_error(strprintf("Aggregate Public Key for Signed Block is invalid: %s", HexStr(pubkey)));
         }
 
         if (aggregatePubkey.size() != CPubKey::COMPRESSED_PUBLIC_KEY_SIZE) {
-            throw std::runtime_error(strprintf("Aggregate Public Key for Signed Block is invalid: %s", pubkeyArg));
+            throw std::runtime_error(strprintf("Aggregate Public Key for Signed Block is invalid: %s", HexStr(pubkey)));
         }
         return aggregatePubkey;
 
-    } else if(prefix == "04" || prefix == "06" || prefix == "07") {
-        throw std::runtime_error(strprintf("Uncompressed public key format are not acceptable: %s", pubkeyArg));
+    } else if(pubkey[0] == 0x04 || pubkey[0] == 0x06 || pubkey[0] == 0x07) {
+        throw std::runtime_error(strprintf("Uncompressed public key format are not acceptable: %s", HexStr(pubkey)));
     } else {
-        throw std::runtime_error(strprintf("Aggregate Public Key for Signed Block is invalid: %s", pubkeyArg));
+        throw std::runtime_error(strprintf("Aggregate Public Key for Signed Block is invalid: %s", HexStr(pubkey)));
     }
 }
 bool CChainParams::ReadGenesisBlock(std::string genesisHex)
@@ -47,6 +46,8 @@ bool CChainParams::ReadGenesisBlock(std::string genesisHex)
     CDataStream ss(ParseHex(genesisHex), SER_NETWORK, PROTOCOL_VERSION);
     unsigned long streamsize = ss.size();
     ss >> genesis;
+
+    ReadAggregatePubkey(genesis.aggPubkey);
 
     /* Performing non trivial validation here.
     * full block validation will be done later in ConnectBlock
@@ -72,6 +73,12 @@ bool CChainParams::ReadGenesisBlock(std::string genesisHex)
         throw std::runtime_error("ReadGenesisBlock: invalid MerkleRoot in genesis block");
 
     consensus.hashGenesisBlock = genesis.GetHash();
+
+    //verify proof
+    const uint256 blockHash = genesis.GetHashForSign();
+    if(!aggregatePubkey.Verify_Schnorr(blockHash, genesis.proof))
+        throw std::runtime_error("ReadGenesisBlock: Proof verification failed");
+
     return true;
 }
 
@@ -307,7 +314,7 @@ bool ReadGenesisBlock(fs::path genesisPath)
     return globalChainParams->ReadGenesisBlock(genesisHex);
 }
 
-CBlock createGenesisBlock(const CPubKey& aggregatePubkey, const CKey& privateKey, const time_t blockTime)
+CBlock createGenesisBlock(const CPubKey& aggregatePubkey, const CKey& privateKey, const time_t blockTime, std::string payToaddress)
 {
     //Genesis coinbase transaction paying block reward to the first public key in signedBlocksCondition
     CMutableTransaction txNew;
@@ -317,7 +324,11 @@ CBlock createGenesisBlock(const CPubKey& aggregatePubkey, const CKey& privateKey
     txNew.vin[0].prevout.n = 0;
     txNew.vin[0].scriptSig = CScript() << std::vector<unsigned char>(aggregatePubkey.data(), aggregatePubkey.data() + CPubKey::COMPRESSED_PUBLIC_KEY_SIZE);
     txNew.vout[0].nValue = 50 * COIN;
-    txNew.vout[0].scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(aggregatePubkey.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
+    //if payToaddress is invalid, pay to agg pubkey
+    if(payToaddress.empty() || !IsValidDestination(DecodeDestination(payToaddress)))
+        txNew.vout[0].scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(aggregatePubkey.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
+    else
+        txNew.vout[0].scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(payToaddress) << OP_EQUALVERIFY << OP_CHECKSIG;
 
     //Genesis block header
     CBlock genesis;
@@ -327,6 +338,7 @@ CBlock createGenesisBlock(const CPubKey& aggregatePubkey, const CKey& privateKey
     genesis.hashPrevBlock.SetNull();
     genesis.hashMerkleRoot = BlockMerkleRoot(genesis);
     genesis.hashImMerkleRoot = BlockMerkleRoot(genesis, nullptr, true);
+    genesis.aggPubkey = std::vector<unsigned char>(aggregatePubkey.data(), aggregatePubkey.data() + CPubKey::COMPRESSED_PUBLIC_KEY_SIZE);
 
     //Genesis block proof
     uint256 blockHash = genesis.GetHashForSign();
@@ -334,7 +346,16 @@ CBlock createGenesisBlock(const CPubKey& aggregatePubkey, const CKey& privateKey
     if( privateKey.IsValid())
     {
         privateKey.Sign_Schnorr(blockHash, vchSig);
-        genesis.AbsorbBlockProof(vchSig);
+
+        uint256 blockHash = genesis.GetHashForSign();
+
+        if(vchSig.size() != CPubKey::SCHNORR_SIGNATURE_SIZE
+        || !aggregatePubkey.Verify_Schnorr(blockHash, vchSig))
+            vchSig.clear();
+
+        //add signatures to genesis block
+        genesis.proof.clear();
+        genesis.proof = std::move(vchSig);
     }
 
     return genesis;

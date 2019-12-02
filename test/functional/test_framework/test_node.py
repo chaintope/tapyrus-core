@@ -82,8 +82,7 @@ class TestNode():
             "-debugexclude=libevent",
             "-debugexclude=leveldb",
             "-mocktime=" + str(mocktime),
-            "-uacomment=testnode%d" % i,
-            "-signblockpubkey=" + signblockpubkey
+            "-uacomment=testnode%d" % i
         ]
 
         self.cli = TestNodeCLI(bitcoin_cli, self.datadir)
@@ -346,7 +345,7 @@ class TestNodeCLI():
         return TestNodeCLIAttr(self, command)
 
     def generate(self, nblocks=0, signblockprivkey=""):
-        return TestNodeCLIAttr(self, "generate")(nblocks,  "{0}".format(json.dumps(signblockprivkey)))
+        return TestNodeCLIAttr(self, "generate")(nblocks,  "{0}".format(signblockprivkey))
 
     def batch(self, requests):
         results = []

@@ -22,7 +22,7 @@ class BlocksdirTest(BitcoinTestFramework):
     def run_test(self):
         self.stop_node(0)
         shutil.rmtree(self.nodes[0].datadir)
-        initialize_datadir(self.options.tmpdir, 0, self.signblockpubkey)
+        initialize_datadir(self.options.tmpdir, 0)
         self.writeGenesisBlockToFile(self.nodes[0].datadir)
         self.log.info("Starting with non exiting blocksdir ...")
         blocksdir_path = os.path.join(self.options.tmpdir, 'blocksdir')
