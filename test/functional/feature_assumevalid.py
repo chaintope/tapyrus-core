@@ -111,7 +111,7 @@ class AssumeValidTest(BitcoinTestFramework):
 
         # Create the first block with a coinbase output to our key
         height = 1
-        block = create_block(self.tip, create_coinbase(height, coinbase_pubkey), self.block_time)
+        block = create_block(self.tip, create_coinbase(height, coinbase_pubkey), self.block_time, self.signblockpubkey)
         self.blocks.append(block)
         self.block_time += 1
         block.solve(self.signblockprivkey)
@@ -122,7 +122,7 @@ class AssumeValidTest(BitcoinTestFramework):
 
         # Bury the block 100 deep so the coinbase output is spendable
         for i in range(100):
-            block = create_block(self.tip, create_coinbase(height), self.block_time)
+            block = create_block(self.tip, create_coinbase(height), self.block_time, self.signblockpubkey)
             block.solve(self.signblockprivkey)
             self.blocks.append(block)
             self.tip = block.sha256
@@ -135,7 +135,7 @@ class AssumeValidTest(BitcoinTestFramework):
         tx.vout.append(CTxOut(49 * 100000000, CScript([OP_TRUE])))
         tx.calc_sha256()
 
-        block102 = create_block(self.tip, create_coinbase(height), self.block_time)
+        block102 = create_block(self.tip, create_coinbase(height), self.block_time, self.signblockpubkey)
         self.block_time += 1
         block102.vtx.extend([tx])
         block102.hashMerkleRoot = block102.calc_merkle_root()
@@ -149,7 +149,7 @@ class AssumeValidTest(BitcoinTestFramework):
 
         # Bury the assumed valid block 2100 deep
         for i in range(2100):
-            block = create_block(self.tip, create_coinbase(height), self.block_time)
+            block = create_block(self.tip, create_coinbase(height), self.block_time, self.signblockpubkey)
             block.solve(self.signblockprivkey)
             self.blocks.append(block)
             self.tip = block.sha256

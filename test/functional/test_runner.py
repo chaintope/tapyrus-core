@@ -137,7 +137,6 @@ BASE_SCRIPTS = [
     'p2p_invalid_tx.py',
     'rpc_createmultisig.py',
     'rpc_createmultisig.py --scheme SCHNORR',
-    'feature_versionbits_warning.py',
     'rpc_preciousblock.py',
     'wallet_importprunedfunds.py',
     'rpc_zmq.py',

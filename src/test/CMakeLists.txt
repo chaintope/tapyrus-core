@@ -111,7 +111,6 @@ add_test_to_suite(tapyrus test_tapyrus
 		uint256_tests.cpp
 		util_tests.cpp
 		validation_block_tests.cpp
-		versionbits_tests.cpp
 	# Tests generated from JSON
 	${JSON_HEADERS}
 )

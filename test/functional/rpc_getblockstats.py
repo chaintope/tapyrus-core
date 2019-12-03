@@ -126,7 +126,7 @@ class GetblockstatsTest(BitcoinTestFramework):
             for i in range (0, self.num_nodes):
                 self.stop_node(i)
                 shutil.rmtree(os.path.join(self.nodes[i].datadir, "regtest"))
-                initialize_datadir(self.options.tmpdir, 0, self.signblockpubkey)
+                initialize_datadir(self.options.tmpdir, 0)
                 shutil.copyfile(genesis_block, os.path.join(self.nodes[i].datadir, "genesis.dat"))
                 self.start_node(i)
             connect_nodes_bi(self.nodes, 0, 1)

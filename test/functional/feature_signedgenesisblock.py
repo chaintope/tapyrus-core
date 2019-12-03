@@ -42,13 +42,14 @@ from test_framework.util import (
     assert_equal
 )
 
-def createIncorectGenesisBlock(genesis_coinbase, signblockprivkey):
+def createIncorectGenesisBlock(genesis_coinbase, signblockprivkey, signblockpubkey):
     genesis = CBlock()
     genesis.nTime = int(time.time() + 600)
     genesis.hashPrevBlock = 0
     genesis.vtx.append(genesis_coinbase)
     genesis.hashMerkleRoot = genesis.calc_merkle_root()
     genesis.hashImMerkleRoot = genesis.calc_immutable_merkle_root()
+    genesis.aggPubkey = hex_str_to_bytes(signblockpubkey)
     genesis.solve(signblockprivkey)
     return genesis
 
@@ -78,7 +79,7 @@ class SignedGenesisBlockTest(BitcoinTestFramework):
         self.stop_node(0)
         shutil.rmtree(self.nodes[0].datadir)
 
-        initialize_datadir(self.options.tmpdir, 0, self.signblockpubkey)
+        initialize_datadir(self.options.tmpdir, 0)
 
         self.log.info("Test with no genesis file")
         self.nodes[0].assert_start_raises_init_error([], 'ReadGenesisBlock: unable to read genesis file', match=ErrorMatch.PARTIAL_REGEX)
@@ -96,7 +97,7 @@ class SignedGenesisBlockTest(BitcoinTestFramework):
         self.log.info("Test incorrect genesis block - No Coinbase")
         genesis_coinbase = createGenesisCoinbase(self.signblockpubkey)
         genesis_coinbase.vin[0].prevout.hash = 111111
-        genesis = createIncorectGenesisBlock(genesis_coinbase, self.signblockprivkey)
+        genesis = createIncorectGenesisBlock(genesis_coinbase, self.signblockprivkey, self.signblockpubkey)
 
         writeIncorrectGenesisBlockToFile(self.nodes[0].datadir, genesis)
         self.nodes[0].assert_start_raises_init_error([], 'ReadGenesisBlock: invalid genesis block', match=ErrorMatch.PARTIAL_REGEX)
@@ -104,14 +105,14 @@ class SignedGenesisBlockTest(BitcoinTestFramework):
         self.log.info("Test incorrect genesis block - Incorrect height")
         genesis_coinbase_height = createGenesisCoinbase(self.signblockpubkey)
         genesis_coinbase_height.vin[0].prevout.n = 10
-        genesis = createIncorectGenesisBlock(genesis_coinbase_height, self.signblockprivkey)
+        genesis = createIncorectGenesisBlock(genesis_coinbase_height, self.signblockprivkey, self.signblockpubkey)
 
         writeIncorrectGenesisBlockToFile(self.nodes[0].datadir, genesis)
         self.nodes[0].assert_start_raises_init_error([], 'ReadGenesisBlock: invalid height in genesis block', match=ErrorMatch.PARTIAL_REGEX)
 
         self.log.info("Test incorrect genesis block - Multiple transactions")
         genesis_coinbase = createGenesisCoinbase(self.signblockpubkey)
-        genesis = createIncorectGenesisBlock(genesis_coinbase, self.signblockprivkey)
+        genesis = createIncorectGenesisBlock(genesis_coinbase, self.signblockprivkey, self.signblockpubkey)
         genesis.vtx.append(CTransaction())
         genesis.hashMerkleRoot = genesis.calc_merkle_root()
         genesis.hashImMerkleRoot = genesis.calc_immutable_merkle_root()
@@ -121,14 +122,14 @@ class SignedGenesisBlockTest(BitcoinTestFramework):
         self.nodes[0].assert_start_raises_init_error([], 'ReadGenesisBlock: invalid genesis block', match=ErrorMatch.PARTIAL_REGEX)
 
         self.log.info("Test incorrect genesis block - No proof")
-        genesis = createIncorectGenesisBlock(genesis_coinbase, self.signblockprivkey)
+        genesis = createIncorectGenesisBlock(genesis_coinbase, self.signblockprivkey, self.signblockpubkey)
         genesis.proof.clear()
 
         writeIncorrectGenesisBlockToFile(self.nodes[0].datadir, genesis)
         self.nodes[0].assert_start_raises_init_error([], 'ReadGenesisBlock: invalid genesis block', match=ErrorMatch.PARTIAL_REGEX)
 
         self.log.info("Test incorrect genesis block - Insufficient Proof")
-        genesis = createIncorectGenesisBlock(genesis_coinbase, self.signblockprivkey)
+        genesis = createIncorectGenesisBlock(genesis_coinbase, self.signblockprivkey, self.signblockpubkey)
         genesis.proof = genesis.proof[:-1]
 
         writeIncorrectGenesisBlockToFile(self.nodes[0].datadir, genesis)
@@ -140,6 +141,7 @@ class SignedGenesisBlockTest(BitcoinTestFramework):
         genesis.nTime = int(time.time() + 600)
         genesis.hashPrevBlock = 0
         genesis.vtx.append(genesis_coinbase)
+        genesis.aggPubkey = hex_str_to_bytes(self.signblockpubkey)
         # not populating hashMerkleRoot and hashImMerkleRoot
         genesis.solve(self.signblockprivkey)
 
@@ -153,6 +155,7 @@ class SignedGenesisBlockTest(BitcoinTestFramework):
         genesis.hashPrevBlock = 0
         genesis.vtx.append(genesis_coinbase)
         genesis.hashMerkleRoot = genesis.calc_merkle_root()
+        genesis.aggPubkey = hex_str_to_bytes(self.signblockpubkey)
         # not populating hashImMerkleRoot
         genesis.solve(self.signblockprivkey)
 
@@ -228,7 +231,7 @@ class SignedGenesisBlockTest(BitcoinTestFramework):
         self.log.info("Phase 3: Edit genesis file after sarting the blockchain")
         self.stop_node(0)
         shutil.rmtree(self.nodes[0].datadir)
-        initialize_datadir(self.options.tmpdir, 0, self.signblockpubkey)
+        initialize_datadir(self.options.tmpdir, 0)
 
         self.log.info("Starting node")
         self.writeGenesisBlockToFile(self.nodes[0].datadir)

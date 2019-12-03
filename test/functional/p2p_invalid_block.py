@@ -38,7 +38,7 @@ class InvalidBlockRequestTest(BitcoinTestFramework):
         self.log.info("Create a new block with an anyone-can-spend coinbase")
 
         height = 1
-        block = create_block(tip, create_coinbase(height), block_time)
+        block = create_block(tip, create_coinbase(height), block_time, self.signblockpubkey)
         block.solve(self.signblockprivkey)
         # Save the coinbase for later
         block1 = block
@@ -60,7 +60,7 @@ class InvalidBlockRequestTest(BitcoinTestFramework):
         # leave merkle root and blockheader unchanged but invalidate the block.
         self.log.info("Test merkle root malleability.")
 
-        block2 = create_block(tip, create_coinbase(height), block_time)
+        block2 = create_block(tip, create_coinbase(height), block_time, self.signblockpubkey)
         block_time += 1
 
         # b'0x51' is OP_TRUE
@@ -97,7 +97,7 @@ class InvalidBlockRequestTest(BitcoinTestFramework):
 
         self.log.info("Test very broken block.")
 
-        block3 = create_block(tip, create_coinbase(height), block_time)
+        block3 = create_block(tip, create_coinbase(height), block_time, self.signblockpubkey)
         block_time += 1
         block3.vtx[0].vout[0].nValue = 100 * COIN  # Too high!
         block3.vtx[0].sha256 = None

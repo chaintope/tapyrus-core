@@ -20,12 +20,14 @@ uint256 CBlockHeader::GetHash() const
 std::string CBlockHeader::ToString() const
 {
     std::stringstream s;
-    s << strprintf("CBlockHeader(ver=0x%08x, hashPrevBlock=%s, hashMerkleRoot=%s, hashImMerkleRoot=%s, nTime=%u)) hash=%s",
+    s << strprintf("CBlockHeader(ver=0x%08x, hashPrevBlock=%s, hashMerkleRoot=%s, hashImMerkleRoot=%s, nTime=%u, aggPubkey=%s, proof={%s})) hash=%s",
                    nVersion,
                    hashPrevBlock.ToString(),
                    hashMerkleRoot.ToString(),
                    hashImMerkleRoot.ToString(),
                    nTime,
+                   HexStr(aggPubkey),
+                   HexStr(proof),
                    GetHash().ToString());
     return s.str();
 }
@@ -37,16 +39,16 @@ uint256 CBlockHeaderWithoutProof::GetHashForSign() const
 
 std::string CBlock::ToString() const
 {
-    std::stringstream s, proofString;
-        proofString << HexStr(proof);
-    s << strprintf("CBlock(hash=%s, ver=0x%08x, hashPrevBlock=%s, hashMerkleRoot=%s, hashImMerkleRoot=%s, nTime=%u, proof={%s} vtx=%u)\n",
+    std::stringstream s;
+    s << strprintf("CBlock(hash=%s, ver=0x%08x, hashPrevBlock=%s, hashMerkleRoot=%s, hashImMerkleRoot=%s, nTime=%u, aggPubkey=%s, proof={%s} vtx=%u)\n",
         GetHash().ToString(),
         nVersion,
         hashPrevBlock.ToString(),
         hashMerkleRoot.ToString(),
         hashImMerkleRoot.ToString(),
         nTime,
-        proofString.str(),
+        HexStr(aggPubkey),
+        HexStr(proof),
         vtx.size());
         for (const auto& tx : vtx) {
             s << "  " << tx->ToString() << "\n";

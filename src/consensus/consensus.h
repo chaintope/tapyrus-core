@@ -29,6 +29,4 @@ static const size_t MIN_SERIALIZABLE_TRANSACTION_WEIGHT = WITNESS_SCALE_FACTOR *
 static constexpr unsigned int LOCKTIME_VERIFY_SEQUENCE = (1 << 0);
 /** Use GetMedianTimePast() instead of nTime for end point timestamp. */
 static constexpr unsigned int LOCKTIME_MEDIAN_TIME_PAST = (1 << 1);
-//MAX_SCRIPTSIG_LEN  = 4 + 15 * 64 i.e sizeof(threshold) + threshold * COMPRESSED_PUBLIC_KEY_SIZE
-static const unsigned int MAX_SCRIPTSIG_LEN = 964;
 #endif // BITCOIN_CONSENSUS_CONSENSUS_H

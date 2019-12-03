@@ -424,11 +424,10 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
 
             # Create cache directories, run bitcoinds:
             for i in range(MAX_NODES):
-                datadir = initialize_datadir(self.options.cachedir, i, self.signblockpubkey)
+                datadir = initialize_datadir(self.options.cachedir, i)
                 self.writeGenesisBlockToFile(datadir, self.mocktime - (201 * 10 * 60))
                 args = [self.options.bitcoind,
-                "-datadir=" + datadir,
-                "-signblockpubkey=" + self.signblockpubkey]
+                "-datadir=" + datadir]
                 if i > 0:
                     args.append("-connect=127.0.0.1:" + str(p2p_port(0)))
                     args.append("-debug=all")
@@ -474,7 +473,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             from_dir = get_datadir_path(self.options.cachedir, i)
             to_dir = get_datadir_path(self.options.tmpdir, i)
             shutil.copytree(from_dir, to_dir)
-            datadir = initialize_datadir(self.options.tmpdir, i, self.signblockpubkey)  # Overwrite port/rpcport in tapyrus.conf
+            datadir = initialize_datadir(self.options.tmpdir, i)  # Overwrite port/rpcport in tapyrus.conf
 
     def _initialize_chain_clean(self):
         """Initialize empty blockchain for use by the test.
@@ -482,7 +481,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         Create an empty blockchain and num_nodes wallets.
         Useful if a test case wants complete control over initialization."""
         for i in range(self.num_nodes):
-            datadir = initialize_datadir(self.options.tmpdir, i, self.signblockpubkey)
+            datadir = initialize_datadir(self.options.tmpdir, i)
             self.writeGenesisBlockToFile(datadir)
 
     def writeGenesisBlockToFile(self, datadir, nTime=None):

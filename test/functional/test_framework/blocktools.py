@@ -50,7 +50,7 @@ import time, random
 # From BIP141
 WITNESS_COMMITMENT_HEADER = b"\xaa\x21\xa9\xed"
 
-def create_block(hashprev, coinbase, ntime=None):
+def create_block(hashprev, coinbase, ntime, signblockpubkey):
     """Create a block (with regtest difficulty)."""
     block = CBlock()
     if ntime is None:
@@ -61,6 +61,7 @@ def create_block(hashprev, coinbase, ntime=None):
     block.vtx.append(coinbase)
     block.hashMerkleRoot = block.calc_merkle_root()
     block.hashImMerkleRoot = block.calc_immutable_merkle_root()
+    block.aggPubkey = hex_str_to_bytes(signblockpubkey)
     block.calc_sha256()
     return block
 
@@ -85,6 +86,7 @@ def createTestGenesisBlock(signblockpubkey, signblockprivkey, nTime=None):
     genesis.vtx.append(genesis_coinbase)
     genesis.hashMerkleRoot = genesis.calc_merkle_root()
     genesis.hashImMerkleRoot = genesis.calc_immutable_merkle_root()
+    genesis.aggPubkey = hex_str_to_bytes(signblockpubkey)
     genesis.solve(signblockprivkey)
     return genesis
 

@@ -99,8 +99,6 @@ class CompactBlocksTest(BitcoinTestFramework):
         self.setup_clean_chain = True
         # Node0 = pre-segwit, node1 = segwit-aware
         self.num_nodes = 2
-        # This test was written assuming SegWit is activated using BIP9 at height 432 (3x confirmation window).
-        # TODO: Rewrite this test to support SegWit being always active.
         self.extra_args = [[], ["-txindex", "-deprecatedrpc=addwitnessaddress"]]
         self.utxos = []
 
@@ -108,7 +106,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         height = node.getblockcount()
         tip = node.getbestblockhash()
         mtp = node.getblockheader(tip)['mediantime']
-        block = create_block(int(tip, 16), create_coinbase(height + 1), mtp + 1)
+        block = create_block(int(tip, 16), create_coinbase(height + 1), mtp + 1, self.signblockpubkey)
         block.nVersion = 1
         block.solve(self.signblockprivkey)
         return block

@@ -274,7 +274,8 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
 {
     CKey aggregateKey;
     aggregateKey.Set(validAggPrivateKey, validAggPrivateKey + 32, true);
-    CPubKey aggPubkey = aggregateKey.GetPubKey();
+    CPubKey aggPubkey;
+    aggPubkey.Set(validAggPubKey, validAggPubKey + 33);
 
     // Note that by default, these tests run with size accounting enabled.
     auto chainParams = Params();
@@ -573,7 +574,8 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_required_age_in_secs)
 {
     CKey aggregateKey;
     aggregateKey.Set(validAggPrivateKey, validAggPrivateKey + 32, true);
-    CPubKey aggPubkey = aggregateKey.GetPubKey();
+    CPubKey aggPubkey;
+    aggPubkey.Set(validAggPubKey, validAggPubKey + 33);
 
     auto chainParams = Params();
     chainParams.ReadGenesisBlock(getTestGenesisBlockHex(aggPubkey, aggregateKey));
