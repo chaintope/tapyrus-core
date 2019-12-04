@@ -88,8 +88,7 @@ fs::path BasicTestingSetup::GetDataDir()
 
 TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(chainName)
 {
-    SetDataDir("tempdir");
-    const CChainParams& chainparams = Params();
+        SetDataDir("tempdir");
         // Ideally we'd move all the RPC tests to the functional testing framework
         // instead of unit tests, but for now we need these here.
 
@@ -105,12 +104,12 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
         pblocktree.reset(new CBlockTreeDB(1 << 20, true));
         pcoinsdbview.reset(new CCoinsViewDB(1 << 23, true));
         pcoinsTip.reset(new CCoinsViewCache(pcoinsdbview.get()));
-        if (!LoadGenesisBlock(chainparams)) {
+        if (!LoadGenesisBlock()) {
             throw std::runtime_error("LoadGenesisBlock failed.");
         }
         {
             CValidationState state;
-            if (!ActivateBestChain(state, chainparams)) {
+            if (!ActivateBestChain(state)) {
                 throw std::runtime_error(strprintf("ActivateBestChain failed. (%s)", FormatStateMessage(state)));
             }
         }
@@ -189,7 +188,7 @@ TestChain100Setup::CreateAndProcessBlock(const std::vector<CMutableTransaction>&
     block.AbsorbBlockProof(blockProof, BaseParams().GetAggregatePubkey());
 
     std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(block);
-    ProcessNewBlock(chainparams, shared_pblock, true, nullptr);
+    ProcessNewBlock(shared_pblock, true, nullptr);
 
     CBlock result = block;
     return result;

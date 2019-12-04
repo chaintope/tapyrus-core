@@ -80,7 +80,7 @@ static void AssembleBlock(benchmark::State& state)
         GetMainSignals().RegisterBackgroundSignalScheduler(scheduler);
         LoadGenesisBlock(chainparams);
         CValidationState state;
-        ActivateBestChain(state, chainparams);
+        ActivateBestChain(state);
         assert(::chainActive.Tip() != nullptr);
     }
 
