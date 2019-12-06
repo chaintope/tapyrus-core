@@ -44,7 +44,7 @@ static CTxIn MineBlock(const CScript& coinbase_scriptPubKey)
 
     // TODO: set correct signs to block for Signed Blocks mechanism.
 
-    bool processed{ProcessNewBlock(Params(), block, true, nullptr)};
+    bool processed{ProcessNewBlock(block, true, nullptr)};
     assert(processed);
 
     return CTxIn{block->vtx[0]->GetHash(), 0};
@@ -78,7 +78,7 @@ static void AssembleBlock(benchmark::State& state)
         const CChainParams& chainparams = Params();
         thread_group.create_thread(boost::bind(&CScheduler::serviceQueue, &scheduler));
         GetMainSignals().RegisterBackgroundSignalScheduler(scheduler);
-        LoadGenesisBlock(chainparams);
+        LoadGenesisBlock();
         CValidationState state;
         ActivateBestChain(state);
         assert(::chainActive.Tip() != nullptr);
