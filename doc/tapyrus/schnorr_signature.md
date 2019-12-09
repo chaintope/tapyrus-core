@@ -10,14 +10,14 @@ Signing algorithm:
 * The message m: a 32-byte array
 
 To sign m for public key pubkey(sk):   
-Let d' = int(sk).  
-Fail if d' = 0 or d' >= n.  
-Let P = d'G.  
-Let k be the nonce generated using rfc6979.  
-Let R = k'G.   
-Let k = k' if jacobi(y(R)) = 1, otherwise let k = n - k'.   
-Let e = int(sha256(bytes(R) || bytes(P) || m)) mod n.   
-The signature is bytes(x(R)) || bytes((k + ed) mod n).   
+1. Let d' = int(sk).  
+1. Fail if d' = 0 or d' >= n.  
+1. Let P = d'G.  
+1. Let k be the nonce generated using rfc6979.  
+1. Let R = k'G.   
+1. Let k = k' if jacobi(y(R)) = 1, otherwise let k = n - k'.   
+1. Let e = int(sha256(bytes(R) || bytes(P) || m)) mod n.   
+1. The signature is bytes(x(R)) || bytes((k + ed) mod n).   
 
 Verification:
 -------------
@@ -26,18 +26,18 @@ Verification:
 * The message m: a 32-byte array
 * A signature (r,s): a 64-byte array
 
-Fail if point P is not actually on the curve, or if it is the point at infinity.   
-Fail if r >= p, where p is the field size used in secp256k1.   
-Fail if s >= n, where n is the order of the secp256k1 curve.   
-Let BP be the 33-byte encoding of P as a compressed point.   
-Let Br be the 32-byte encoding of r as an unsigned big-endian 256-bit integer.   
-Let e = H(Br | BP | m) mod n.    
-Here | means byte-string concatenation and function H() takes the SHA256 hash of its 97-byte input and returns it decoded as a big-endian unsigned integer.   
-Let R' = sG - eP, where G is the secp256k1 generator point.   
-Fail if R' is the point at infinity.   
-Fail if the X coordinate of R' is not equal to r.   
-Fail if the Jacobi symbol of the Y coordinate of R' is not 1.   
-Otherwise, the signature is valid.   
+1. Fail if point P is not actually on the curve, or if it is the point at infinity.   
+1. Fail if r >= p, where p is the field size used in secp256k1.   
+1. Fail if s >= n, where n is the order of the secp256k1 curve.   
+1. Let BP be the 33-byte encoding of P as a compressed point.   
+1. Let Br be the 32-byte encoding of r as an unsigned big-endian 256-bit integer.   
+1. Let e = H(Br | BP | m) mod n.    
+1. Here | means byte-string concatenation and function H() takes the SHA256 hash of its 97-byte input and returns it decoded as a big-endian unsigned integer.   
+1. Let R' = sG - eP, where G is the secp256k1 generator point.   
+1. Fail if R' is the point at infinity.   
+1. Fail if the X coordinate of R' is not equal to r.   
+1. Fail if the Jacobi symbol of the Y coordinate of R' is not 1.   
+1. Otherwise, the signature is valid.   
 
 Signature Encoding:
 -------------------
