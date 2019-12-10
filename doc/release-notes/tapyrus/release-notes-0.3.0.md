@@ -13,7 +13,7 @@ How to Upgrade
 ==============
 
 If you are running an older version, shut it down. Wait until it has completely
-shut down. Follow the instruction in [getting_started]() for instructions to sart a new Tapyrus node.
+shut down. Follow the instruction in [getting_started](https://github.com/chaintope/tapyrus-core/blob/master/doc/tapyrus/getting_started.md#how-to-start-a-node-on-tapyrus-testnet) to sart a new Tapyrus node.
 
 
 Downgrading warning
