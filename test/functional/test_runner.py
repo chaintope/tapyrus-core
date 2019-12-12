@@ -111,6 +111,7 @@ BASE_SCRIPTS = [
     'rpc_psbt.py',
     'rpc_psbt.py --scheme SCHNORR',
     'rpc_users.py',
+    'rpc_whitelist.py',
     'feature_proxy.py',
     'rpc_signrawtransaction.py',
     'wallet_groups.py',
