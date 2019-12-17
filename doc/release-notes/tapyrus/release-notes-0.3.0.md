@@ -1,5 +1,5 @@
 Tapyrus version 0.3.0 is now available for download at:
-  https://github.com/chaintope/tapyrus-core/tapyrus-0.3.0/
+  https://github.com/chaintope/tapyrus-core/releases/tag/v0.3.0
 
 Please report bugs using the issue tracker at github:
   https://github.com/chaintope/tapyrus-core/issues
