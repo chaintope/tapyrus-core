@@ -25,7 +25,7 @@ $TAPYRUSD --version | sed -n '1!p' >> footer.h2m
 
 for cmd in $TAPYRUSD $TAPYRUSCLI $TAPYRUSTX $TAPYRUSGENESIS; do
   cmdname="${cmd##*/}"
-  /Users/navia/Documents/Tools/help2man-1.47.11/help2man -N --version-string=${BTCVER[0]} --include=footer.h2m -o ${MANDIR}/${cmdname}.1 ${cmd}
+  help2man -N --version-string=${BTCVER[0]} --include=footer.h2m -o ${MANDIR}/${cmdname}.1 ${cmd}
   sed -i "s/\\\-${BTCVER[1]}//g" ${MANDIR}/${cmdname}.1
 done
 
