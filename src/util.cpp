@@ -638,9 +638,6 @@ std::string ArgsManager::GetHelpMessage() const
             case OptionsCategory::REGISTER_COMMANDS:
                 usage += HelpMessageGroup("Register Commands:");
                 break;
-            case OptionsCategory::SIGN_BLOCK:
-                usage += HelpMessageGroup("Signed block:");
-                break;
             case OptionsCategory::GENESIS:
                 usage += HelpMessageGroup("Genesis block:");
                 break;

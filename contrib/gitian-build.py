@@ -202,7 +202,7 @@ def main():
     if args.setup:
         setup()
 
-    os.chdir('bitcoin')
+    os.chdir('tapyrus-core')
     subprocess.check_call(['git', 'fetch'])
     subprocess.check_call(['git', 'checkout', args.commit])
     os.chdir(workdir)
