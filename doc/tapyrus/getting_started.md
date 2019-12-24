@@ -46,10 +46,10 @@ Please follow the instructions in [build tapyrus-signer](https://github.com/chai
 
 ## How to get the pre-built binaries?
 
-Pre-built Tapyrus binaries for the supported platforms namely Linux and Mac os are packaged from version 0.3.0 onwards.
-* v.0.3.0 [TODO:add link]
+Pre-built Tapyrus binaries for the supported platforms namely Linux and Mac os are packaged from version 0.3.0 onwards.  
+You can download from [here - v.0.3.0](https://github.com/chaintope/tapyrus-core/releases/tag/v0.3.0)
 
-- The package contains all the binaries needed to create a Tapyrus network and release notes. 
+- The package contains all the binaries needed to create a Tapyrus network. 
 - Binaries for older versions and other platforms need to be built from the source code. Please note that they have not been tested and are not guaranteed to work as expected.
 
 ## How to start tapyrus in regtest mode?
@@ -118,14 +118,13 @@ rest=1
 rpcuser=user
 rpcpassword=pass
 rpcbind=0.0.0.0
-rpcallowip=172.16.2.0/24
+rpcallowip=127.0.0.1
 ```
 
 3. Create 'genesis.dat' in data dir with the following content. This is the genesis block of the testnet
 
-TODO:update this file after testnet is reset for version 0.3.0.
 ```
-0100000000000000000000000000000000000000000000000000000000000000000000002e4533a0ccb1c1b83a641ce00656d3d234e362ab2ce0d6d69eaaba1edceb9e962f69b65cb127339d5d8da08d50f6d4deb37b46157123dbe5fb0a30a641af68e70c3d285d0346304402201e9de308c52cfc760c9eb5a1638857563c39791a77bd3b4c53dcd26b4d02e8480220542963fe20dbedd31c609f8393cb68e4b80c4e849fcddf7a0a2dddaac4ce2e134630440220295288205c39d933dd7c236011857cf3b0147e226154afc5c44421a38cb0a77102202c580fdf814904ed3f17fce8f545ba66aa3ebd9a00eb7205371ee3de895e2a0346304402200f9301b705c64a5fb5cb9ecb8cf4498291142b93491cb560e36db6145f60d6e002200572b51df4e1397340a1487f9f8b35e07730055a2d4d9a83e0954ff22a8bc599010100000001000000000000000000000000000000000000000000000000000000000000000000000000240102210276d7a1b83fd97b8751d2b82e1f7a89dcd23a5b3f5cc2798083ad6f775018102effffffff0100f2052a010000001976a914a941c2ccebe78a5a1348dddd42362b588cb563b588ac00000000
+010000000000000000000000000000000000000000000000000000000000000000000000c1457ff3e5c527e69858108edf0ff1f49eea9c58d8d37300a164b3b4f8c8c7cef1a2e72770d547feae29f2dd40123a97c580d44fd4493de072416d53331997617b96f05d210366262690cbdf648132ce0c088962c6361112582364ede120f3780ab73438fc4b403a4c09253c7b583e5260074380c9b99b895f938e37799d326ded984fb707e91fa4df2e0524a4ccf5fe224945b4fb94784b411a760eb730d95402d3383dd7ffdc01010000000100000000000000000000000000000000000000000000000000000000000000000000000022210366262690cbdf648132ce0c088962c6361112582364ede120f3780ab73438fc4bffffffff0100f2052a010000002776a9226d70757956774d32596a454d755a4b72687463526b614a787062715447417346484688ac00000000
 ```
 
 4. Before running, it's recommended that you create an RPC configuration file.
