@@ -20,17 +20,23 @@ that enables off-chain payments using the Payment Channel on Tapyrus.
 * [Support Oracle contract](https://github.com/chaintope/tapyrus-core/tree/master/doc/tapyrus/script.md)
 * [Block generation with multiple signatures](https://github.com/chaintope/tapyrus-core/tree/master/doc/tapyrus/signedblocks.md)
 * [WIP]Support native colored coin protocol
-* [WIP]Support aggregated/threshold signatures
+* Support aggregated/threshold signatures: In tapyrus singer network, each signer execute a threshold signature scheme
+based on [provably secure distributed schnorr signatures and a {t,n} threshold scheme](http://cacr.uwaterloo.ca/techreports/2001/corr2001-13.ps)
+ and generates a valid signature for the aggregate public key required for block approval.
 * [WIP]Support covenants
+* [WIP]Support Network Update scheme
 
 Tapyrus consists of the following software:
 
 * [Tapyrus Core](https://github.com/chaintope/tapyrus-core): Tapyrus full node implementation.
 * [Tapyrus Signer](https://github.com/chaintope/tapyrus-signer): A network of signers that collects Unapproved transactions from the Tapyrus network and creates a block.
 * [Tapyrus Seeder](https://github.com/chaintope/tapyrus-seeder): DNS seeder for configuring Tapyrus network.
+* [Tapyrus Faucet](https://github.com/chaintope/tapyrus-faucet): Faucet for Tapyrus testnet.
 * [[WIP]Tapyrus SPV](https://github.com/chaintope/tapyrus-spv): A lightweight client implementation for Tapyrus blockchain.
 * [[WIP]Tapyrus Explorer](https://github.com/chaintope/tapyrus-explorer): Tapyrus blockchain explorer.
 * [[WIP]Electrs Tapyrus](https://github.com/chaintope/electrs-tapyrus): Tapyrus blockchain index server.
+
+See [Getting Started document](https://github.com/chaintope/tapyrus-core/blob/master/doc/tapyrus/getting_started.md) for how to install and run tapyrus.
 
 License
 -------
