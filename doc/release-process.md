@@ -18,6 +18,16 @@ Before every minor and major release:
 
 ### First time / New builders
 
+Gitian build scripts have been partially updated for Tapyrus, but not verified as of release v0.3.0. It is recommended to use the following steps. For Linux, build depends and then the source code. For MacOS, use cross compilation on ubuntu 18.
+
+    cd depends
+    make HOST=x86_64-apple-darwin11 #HOST=x86_64-pc-linux_gnu
+    cd ..
+    ./autogen.sh
+    ./configure  #add other options according to platform like --with_gui=no
+    make -j3 all
+
+
 If you're using the automated script (found in [contrib/gitian-build.py](/contrib/gitian-build.py)), then at this point you should run it with the "--setup" command. Otherwise ignore this.
 
 Check out the source code in the following directory hierarchy.
