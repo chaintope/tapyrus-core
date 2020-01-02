@@ -22,6 +22,7 @@
 #include <tinyformat.h>
 #include <utiltime.h>
 #include <utilmemory.h>
+#include <tapyrusmodes.h>
 
 #include <atomic>
 #include <exception>
@@ -258,7 +259,7 @@ public:
      * Looks for -regtest, -testnet and returns the appropriate BIP70 chain name.
      * @return CBaseChainParams::MAIN by default; raises runtime error if an invalid combination is given.
      */
-    std::string GetChainName() const;
+    TAPYRUS_OP_MODE GetChainMode() const;
 
     /**
      * Add argument
@@ -284,6 +285,11 @@ public:
      * Check whether we know of this arg
      */
     bool IsArgKnown(const std::string& key) const;
+
+    /**
+     * Clear test arguments
+     */
+    void ClearOverrideArgs() { m_override_args.clear(); }
 };
 
 extern ArgsManager gArgs;

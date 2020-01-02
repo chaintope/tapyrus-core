@@ -195,7 +195,7 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
     obj.pushKV("currentblocktx",   (uint64_t)nLastBlockTx);
     // TODO: push signed block multisig condition
     obj.pushKV("pooledtx",         (uint64_t)mempool.size());
-    obj.pushKV("chain",            Params().NetworkIDString());
+    obj.pushKV("chain",            BaseParams().NetworkIDString());
     obj.pushKV("warnings",         GetWarnings("statusbar"));
     return obj;
 }

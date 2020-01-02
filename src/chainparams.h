@@ -9,17 +9,12 @@
 
 #include <chainparamsbase.h>
 #include <consensus/params.h>
-#include <primitives/block.h>
 #include <protocol.h>
-#include <pubkey.h>
-
+#include <streams.h>
 #include <memory>
 #include <vector>
 #include <fs.h>
-#include <util.h>
-
-const unsigned int SIGNED_BLOCKS_MAX_KEY_SIZE = 15;
-const std::string TAPYRUS_GENESIS_FILENAME = "genesis.dat";
+#include <tapyrusmodes.h>
 
 struct SeedSpec6 {
     uint8_t addr[16];
@@ -66,14 +61,7 @@ public:
     };
 
     const Consensus::Params& GetConsensus() const { return consensus; }
-    const CMessageHeader::MessageStartChars& MessageStart() const { return pchMessageStart; }
-    int GetDefaultPort() const { return nDefaultPort; }
-    /**
-     * Parse aggPubkey in block header.
-     */
-    CPubKey ReadAggregatePubkey(const std::vector<unsigned char>& pubkey);
-    const CPubKey& GetAggregatePubkey() const{ return aggregatePubkey; }
-    const CBlock& GenesisBlock() const { return genesis; }
+
     /** Default value for -checkmempool and -checkblockindex argument */
     bool DefaultConsistencyChecks() const { return fDefaultConsistencyChecks; }
     /** Policy: Filter transactions that do not match well-defined patterns */
@@ -81,37 +69,36 @@ public:
     uint64_t PruneAfterHeight() const { return nPruneAfterHeight; }
     /** Make miner stop after a block is found. In RPC, don't return until nGenProcLimit blocks are generated */
     bool MineBlocksOnDemand() const { return fMineBlocksOnDemand; }
-    /** Return the BIP70 network string (main, test or regtest) */
-    std::string NetworkIDString() const { return strNetworkID; }
     /** Return true if the fallback fee is by default enabled for this network */
     bool IsFallbackFeeEnabled() const { return m_fallback_fee_enabled; }
+    const CCheckpointData& Checkpoints() const { return checkpointData; }
+    const ChainTxData& TxData() const { return chainTxData; }
     /** Return the list of hostnames to look up for DNS seeds */
     const std::vector<std::string>& DNSSeeds() const { return vSeeds; }
     const std::vector<unsigned char>& Base58Prefix(Base58Type type) const { return base58Prefixes[type]; }
     const std::vector<SeedSpec6>& FixedSeeds() const { return vFixedSeeds; }
-    const CCheckpointData& Checkpoints() const { return checkpointData; }
-    const ChainTxData& TxData() const { return chainTxData; }
-    bool ReadGenesisBlock(std::string genesisHex);
+
+    int GetRPCPort() const { return rpcPort; }
+    int GetDefaultPort() const { return nDefaultPort; }
+    const std::string& getDataDir() const { return dataDir; }
 protected:
     //require signedblockpubkey argument only in tapyrusd
-    CChainParams():aggregatePubkey() {}
+    CChainParams(const int networkID):dataDir(TAPYRUS_MODES::GetChainName(gArgs.GetChainMode()) + (gArgs.GetArg("-networkid", "").size() ? "-" + gArgs.GetArg("-networkid", "") : "")) {}
 
     Consensus::Params consensus;
-    CMessageHeader::MessageStartChars pchMessageStart;
+    int rpcPort;
     int nDefaultPort;
     uint64_t nPruneAfterHeight;
-    std::vector<std::string> vSeeds;
-    std::vector<unsigned char> base58Prefixes[MAX_BASE58_TYPES];
-    std::string strNetworkID;
-    CPubKey aggregatePubkey;
-    CBlock genesis;
-    std::vector<SeedSpec6> vFixedSeeds;
     bool fDefaultConsistencyChecks;
     bool fRequireStandard;
     bool fMineBlocksOnDemand;
+    std::vector<std::string> vSeeds;
+    std::vector<SeedSpec6> vFixedSeeds;
+    std::vector<unsigned char> base58Prefixes[MAX_BASE58_TYPES];
     CCheckpointData checkpointData;
     ChainTxData chainTxData;
     bool m_fallback_fee_enabled;
+    std::string dataDir;
 };
 
 /**
@@ -119,7 +106,7 @@ protected:
  * @returns a CChainParams* of the chosen chain.
  * @throws a std::runtime_error if the chain is not supported.
  */
-std::unique_ptr<CChainParams> CreateChainParams(const std::string& chain);
+std::unique_ptr<CChainParams> CreateChainParams(const TAPYRUS_OP_MODE mode);
 /**
  * Return the currently selected parameters. This won't change after app
  * startup, except for unit tests.
@@ -130,17 +117,7 @@ const CChainParams &Params();
  * Sets the params returned by Params() to those for the given BIP70 chain name.
  * @throws std::runtime_error when the chain is not supported.
  */
-void SelectParams(const std::string& chain);
-
-/**
- * Reads the genesis block from genesis.dat into chainparams.
- */
-bool ReadGenesisBlock(fs::path genesisPath=GetDataDir(false));
-
-/**
- * @returns a signed genesis block.
- */
-CBlock createGenesisBlock(const CPubKey& aggregatePubkey, const CKey& privateKey, const time_t blockTime=time(0), const std::string paytoAddress="");
+void SelectParams(const TAPYRUS_OP_MODE mode);
 
 
 #endif // BITCOIN_CHAINPARAMS_H

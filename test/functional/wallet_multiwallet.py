@@ -169,7 +169,7 @@ class MultiWalletTest(BitcoinTestFramework):
         assert_equal(w4.getbalance(), 3)
 
         batch = w1.batch([w1.getblockchaininfo.get_request(), w1.getwalletinfo.get_request()])
-        assert_equal(batch[0]["result"]["chain"], "regtest")
+        assert_equal(batch[0]["result"]["chain"], "1905960821")#chain name is networkid
         assert_equal(batch[1]["result"]["walletname"], "w1")
 
         self.log.info('Check for per-wallet settxfee call')

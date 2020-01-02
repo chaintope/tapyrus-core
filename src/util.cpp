@@ -6,7 +6,7 @@
 
 #include <util.h>
 
-#include <chainparamsbase.h>
+#include <chainparams.h>
 #include <random.h>
 #include <serialize.h>
 #include <utilstrencodings.h>
@@ -227,7 +227,7 @@ public:
      *  See also comments around ArgsManager::ArgsManager() below. */
     static inline bool UseDefaultSection(const ArgsManager& am, const std::string& arg)
     {
-        return (am.m_network == CBaseChainParams::MAIN || am.m_network_only_args.count(arg) == 0);
+        return (am.m_network == TAPYRUS_MODES::MAIN || am.m_network_only_args.count(arg) == 0);
     }
 
     /** Convert regular argument into the network-specific setting */
@@ -301,7 +301,7 @@ public:
         return found_result;
     }
 
-    /* Special test for -testnet and -regtest args, because we
+    /* Special test for -regtest args, because we
      * don't want to be confused by craziness like "[regtest] testnet=1"
      */
     static inline bool GetNetBoolArg(const ArgsManager &am, const std::string& net_arg)
@@ -365,9 +365,9 @@ static bool InterpretNegatedOption(std::string& key, std::string& val)
 
 ArgsManager::ArgsManager() :
     /* These options would cause cross-contamination if values for
-     * mainnet were used while running on regtest/testnet (or vice-versa).
+     * mainnet were used while running on regtest(or vice-versa).
      * Setting them as section_only_args ensures that sharing a config file
-     * between mainnet and regtest/testnet won't cause problems due to these
+     * between mainnet and regtest won't cause problems due to these
      * parameters by accident. */
     m_network_only_args{
       "-addnode", "-connect",
@@ -385,7 +385,7 @@ void ArgsManager::WarnForSectionOnlyArgs()
     if (m_network.empty()) return;
 
     // if it's okay to use the default section for this network, don't worry
-    if (m_network == CBaseChainParams::MAIN) return;
+    if (m_network == TAPYRUS_MODES::MAIN) return;
 
     for (const auto& arg : m_network_only_args) {
         std::pair<bool, std::string> found_result;
@@ -760,7 +760,7 @@ const fs::path &GetBlocksDir(bool fNetSpecific)
         path = GetDataDir(false);
     }
     if (fNetSpecific)
-        path /= BaseParams().DataDir();
+        path /= Params().getDataDir();
 
     path /= "blocks";
     fs::create_directories(path);
@@ -789,7 +789,7 @@ const fs::path &GetDataDir(bool fNetSpecific)
         path = GetDefaultDataDir();
     }
     if (fNetSpecific)
-        path /= BaseParams().DataDir();
+        path /= Params().getDataDir();
 
     if (fs::create_directories(path)) {
         // This is the first run, create wallets subdirectory too
@@ -906,7 +906,7 @@ bool ArgsManager::ReadConfigFiles(std::string& error, bool ignore_invalid_keys)
         // if there is an -includeconf in the override args, but it is empty, that means the user
         // passed '-noincludeconf' on the command line, in which case we should not include anything
         if (m_override_args.count("-includeconf") == 0) {
-            std::string chain_id = GetChainName();
+            std::string chain_id = TAPYRUS_MODES::GetChainName( GetChainMode());
             std::vector<std::string> includeconf(GetArgs("-includeconf"));
             {
                 // We haven't set m_network yet (that happens in SelectParams()), so manually check
@@ -941,7 +941,7 @@ bool ArgsManager::ReadConfigFiles(std::string& error, bool ignore_invalid_keys)
             {
                 std::vector<std::string> includeconf_net(GetArgs(std::string("-") + chain_id + ".includeconf"));
                 includeconf.insert(includeconf.end(), includeconf_net.begin(), includeconf_net.end());
-                std::string chain_id_final = GetChainName();
+                std::string chain_id_final = TAPYRUS_MODES::GetChainName( GetChainMode());
                 if (chain_id_final != chain_id) {
                     // Also warn about recursive includeconf for the chain that was specified in one of the includeconfs
                     includeconf_net = GetArgs(std::string("-") + chain_id_final + ".includeconf");
@@ -963,21 +963,13 @@ bool ArgsManager::ReadConfigFiles(std::string& error, bool ignore_invalid_keys)
     return true;
 }
 
-std::string ArgsManager::GetChainName() const
+TAPYRUS_OP_MODE ArgsManager::GetChainMode() const
 {
     bool fRegTest = ArgsManagerHelper::GetNetBoolArg(*this, "-regtest");
-    bool fTestNet = ArgsManagerHelper::GetNetBoolArg(*this, "-testnet");
-    bool fParadium = ArgsManagerHelper::GetNetBoolArg(*this, "-paradium");
 
-    if (fTestNet && fRegTest)
-        throw std::runtime_error("Invalid combination of -paradium, -regtest and -testnet.");
     if (fRegTest)
-        return CBaseChainParams::REGTEST;
-    if (fTestNet)
-        return CBaseChainParams::TESTNET;
-    if (fParadium)
-        return CBaseChainParams::PARADIUM;
-    return CBaseChainParams::MAIN;
+        return TAPYRUS_OP_MODE::REGTEST;
+    return TAPYRUS_OP_MODE::MAIN;
 }
 
 #ifndef WIN32

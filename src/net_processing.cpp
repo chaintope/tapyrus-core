@@ -1174,7 +1174,7 @@ void static ProcessGetBlockData(CNode* pfrom, const CChainParams& chainparams, c
             // Fast-path: in this case it is possible to serve the block directly from disk,
             // as the network format matches the format on disk
             std::vector<uint8_t> block_data;
-            if (!ReadRawBlockFromDisk(block_data, pindex, chainparams.MessageStart())) {
+            if (!ReadRawBlockFromDisk(block_data, pindex, BaseParams().MessageStart())) {
                 assert(!"cannot load block from disk");
             }
             connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::BLOCK, MakeSpan(block_data)));
@@ -2954,7 +2954,7 @@ bool PeerLogicValidation::ProcessMessages(CNode* pfrom, std::atomic<bool>& inter
 
     msg.SetVersion(pfrom->GetRecvVersion());
     // Scan for message start
-    if (memcmp(msg.hdr.pchMessageStart, chainparams.MessageStart(), CMessageHeader::MESSAGE_START_SIZE) != 0) {
+    if (memcmp(msg.hdr.pchMessageStart, BaseParams().MessageStart(), CMessageHeader::MESSAGE_START_SIZE) != 0) {
         LogPrint(BCLog::NET, "PROCESSMESSAGE: INVALID MESSAGESTART %s peer=%d\n", SanitizeString(msg.hdr.GetCommand()), pfrom->GetId());
         pfrom->fDisconnect = true;
         return false;
@@ -2962,7 +2962,7 @@ bool PeerLogicValidation::ProcessMessages(CNode* pfrom, std::atomic<bool>& inter
 
     // Read header
     CMessageHeader& hdr = msg.hdr;
-    if (!hdr.IsValid(chainparams.MessageStart()))
+    if (!hdr.IsValid(BaseParams().MessageStart()))
     {
         LogPrint(BCLog::NET, "PROCESSMESSAGE: ERRORS IN HEADER %s peer=%d\n", SanitizeString(hdr.GetCommand()), pfrom->GetId());
         return fMoreWork;

@@ -229,6 +229,7 @@ add_library(server
 
 # This require libevent
 find_package(Event REQUIRED)
+find_package(UPNP REQUIRED)
 
 target_include_directories(server PRIVATE leveldb/helpers/memenv)
 
@@ -237,6 +238,7 @@ target_link_libraries(server
         tapyrusconsensus
         leveldb
         memenv
+        ${UPNP_LIBRARY}
         )
 
 # Test suite.

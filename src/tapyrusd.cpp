@@ -102,8 +102,9 @@ static bool AppInit(int argc, char* argv[])
             return false;
         }
         // Check for -testnet or -regtest parameter (Params() calls are only valid after this clause)
+        // SelectBaseParams is done separately in AppInitMain. this call does not validate the usage of BaseParams(). 
         try {
-            SelectParams(gArgs.GetChainName());
+            SelectParams(gArgs.GetChainMode());
         } catch (const std::exception& e) {
             fprintf(stderr, "Error: %s\n", e.what());
             return false;
@@ -166,15 +167,6 @@ static bool AppInit(int argc, char* argv[])
             return false;
         }
 
-        //Read genesis block from file now - we are sure that data dir exists.
-        bool genesisLoaded = ReadGenesisBlock();
-        if(genesisLoaded)
-            LogPrintf("Genesis Block Loaded %s\n", Params().GetConsensus().hashGenesisBlock.ToString());
-        else
-        {
-            LogPrintf("Error Loading Genesis Block %s\n", Params().GetConsensus().hashGenesisBlock.ToString());
-            return false;
-        }
         fRet = AppInitMain();
     }
     catch (const std::exception& e) {

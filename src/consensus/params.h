@@ -19,7 +19,6 @@ namespace Consensus {
  * Parameters that influence chain consensus.
  */
 struct Params {
-    uint256 hashGenesisBlock;
     int nSubsidyHalvingInterval;
     /** Time for expected spacing between blocks (seconds)*/
     int64_t nExpectedBlockTime;
