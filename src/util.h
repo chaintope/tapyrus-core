@@ -256,7 +256,7 @@ public:
     void ForceSetArg(const std::string& strArg, const std::string& strValue);
 
     /**
-     * Looks for -regtest, -testnet and returns the appropriate BIP70 chain name.
+     * Looks for -regtest and returns the appropriate BIP70 chain name.
      * @return CBaseChainParams::MAIN by default; raises runtime error if an invalid combination is given.
      */
     TAPYRUS_OP_MODE GetChainMode() const;

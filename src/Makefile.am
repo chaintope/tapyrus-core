@@ -170,6 +170,7 @@ BITCOIN_CORE_H = \
   support/events.h \
   support/lockedpool.h \
   sync.h \
+  tapyrusmodes.h \
   threadsafety.h \
   threadinterrupt.h \
   timedata.h \
@@ -473,7 +474,10 @@ tapyrus_cli_LDADD = \
   $(LIBBITCOIN_CLI) \
   $(LIBUNIVALUE) \
   $(LIBBITCOIN_UTIL) \
-  $(LIBBITCOIN_CRYPTO)
+  $(LIBBITCOIN_CRYPTO) \
+  $(LIBBITCOIN_COMMON) \
+  $(LIBBITCOIN_CONSENSUS) \
+  $(LIBSECP256K1)
 
 tapyrus_cli_LDADD += $(BOOST_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(EVENT_LIBS)
 #

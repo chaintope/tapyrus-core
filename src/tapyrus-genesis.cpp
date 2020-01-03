@@ -71,7 +71,7 @@ static int AppInit(int argc, char* argv[])
         return EXIT_SUCCESS;
     }
 
-    // Check for -testnet or -regtest parameter (Params() calls are only valid after this clause)
+    // Check for  -regtest parameter (Params() calls are only valid after this clause)
     try {
         SelectParams(gArgs.GetChainMode());
         SelectBaseParams(gArgs.GetChainMode(), false);

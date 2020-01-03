@@ -1,5 +1,5 @@
-#ifndef TAPYRUS_MODES_H
-#define TAPYRUS_MODES_H
+#ifndef TAPYRUS_TAPYRUSMODES_H
+#define TAPYRUS_TAPYRUSMODES_H
 
 #include <memory>
 #include <string>
@@ -43,4 +43,4 @@ inline int GetDefaultNetworkId(TAPYRUS_OP_MODE mode)
 
 }//namespace TAPYRUS_OP_MODE
 
-#endif //TAPYRUS_MODES_H
+#endif //TAPYRUS_TAPYRUSMODES_H

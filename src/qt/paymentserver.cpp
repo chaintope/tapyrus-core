@@ -79,7 +79,7 @@ static QString ipcServerName()
 
     // Append a simple hash of the datadir
     // Note that GetDataDir(true) returns a different path
-    // for -testnet versus main net
+    // for different network ids
     QString ddir(GUIUtil::boostPathToQString(GetDataDir(true)));
     name.append(QString::number(qHash(ddir)));
 
