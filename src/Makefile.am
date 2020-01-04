@@ -373,6 +373,7 @@ libtapyrus_common_a_SOURCES = \
   base58.cpp \
   bech32.cpp \
   chainparams.cpp \
+  chainparamsbase.cpp \
   coins.cpp \
   compressor.cpp \
   core_read.cpp \
@@ -399,7 +400,6 @@ libtapyrus_util_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
 libtapyrus_util_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libtapyrus_util_a_SOURCES = \
   support/lockedpool.cpp \
-  chainparamsbase.cpp \
   clientversion.cpp \
   compat/glibc_sanity.cpp \
   compat/glibcxx_sanity.cpp \
