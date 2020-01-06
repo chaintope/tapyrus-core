@@ -738,6 +738,12 @@ static fs::path pathCached;
 static fs::path pathCachedNetSpecific;
 static CCriticalSection csPathCached;
 
+std::string GetDataDirNameFromNetworkId(const int networkId)
+{
+    const std::string strNetworkId(std::to_string(networkId));
+    return TAPYRUS_MODES::GetChainName(gArgs.GetChainMode()) + (strNetworkId.size() ? "-" + strNetworkId : "");
+}
+
 const fs::path &GetBlocksDir(bool fNetSpecific)
 {
 
@@ -760,7 +766,7 @@ const fs::path &GetBlocksDir(bool fNetSpecific)
         path = GetDataDir(false);
     }
     if (fNetSpecific)
-        path /= Params().getDataDir();
+        path /= GetDataDirNameFromNetworkId(gArgs.GetArg("-networkid", TAPYRUS_MODES::GetDefaultNetworkId(gArgs.GetChainMode())));
 
     path /= "blocks";
     fs::create_directories(path);
@@ -789,7 +795,7 @@ const fs::path &GetDataDir(bool fNetSpecific)
         path = GetDefaultDataDir();
     }
     if (fNetSpecific)
-        path /= Params().getDataDir();
+        path /= GetDataDirNameFromNetworkId(gArgs.GetArg("-networkid", TAPYRUS_MODES::GetDefaultNetworkId(gArgs.GetChainMode())));
 
     if (fs::create_directories(path)) {
         // This is the first run, create wallets subdirectory too

@@ -97,10 +97,13 @@ const CBaseChainParams& BaseParams()
 
 std::unique_ptr<CBaseChainParams> CreateBaseChainParams(const TAPYRUS_OP_MODE mode, const bool withGenesis)
 {
-    int networkId = gArgs.GetArg("-networkid", TAPYRUS_MODES::GetDefaultNetworkId(mode));
     gArgs.SelectConfigNetwork(TAPYRUS_MODES::GetChainName(mode));
+
+    const int networkId = gArgs.GetArg("-networkid", TAPYRUS_MODES::GetDefaultNetworkId(mode));
+    const std::string dataDirName(GetDataDirNameFromNetworkId(networkId));
     const std::string genesisHex(withGenesis ? ReadGenesisBlock() : "");
-    return MakeUnique<CBaseChainParams>(networkId, genesisHex);
+
+    return MakeUnique<CBaseChainParams>(networkId, dataDirName, genesisHex);
 }
 
 void SelectBaseParams(const TAPYRUS_OP_MODE mode, const bool withGenesis)
@@ -108,7 +111,7 @@ void SelectBaseParams(const TAPYRUS_OP_MODE mode, const bool withGenesis)
     globalChainBaseParams = CreateBaseChainParams(mode, withGenesis);
 }
 
-CBaseChainParams::CBaseChainParams(const int networkId, const std::string genesisHex) : nNetworkId(networkId),strNetworkID(std::to_string(networkId)) {
+CBaseChainParams::CBaseChainParams(const int networkId, const std::string dataDirName, const std::string genesisHex) : nNetworkId(networkId), strNetworkID(std::to_string(networkId)), dataDir(dataDirName) {
 
     /**
      * The message start string is designed to be unlikely to occur in normal data.

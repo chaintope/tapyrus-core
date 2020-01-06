@@ -80,10 +80,9 @@ public:
 
     int GetRPCPort() const { return rpcPort; }
     int GetDefaultPort() const { return nDefaultPort; }
-    const std::string& getDataDir() const { return dataDir; }
 protected:
     //require signedblockpubkey argument only in tapyrusd
-    CChainParams(const int networkID):dataDir(TAPYRUS_MODES::GetChainName(gArgs.GetChainMode()) + (gArgs.GetArg("-networkid", "").size() ? "-" + gArgs.GetArg("-networkid", "") : "")) {}
+    CChainParams() {}
 
     Consensus::Params consensus;
     int rpcPort;
@@ -98,7 +97,7 @@ protected:
     CCheckpointData checkpointData;
     ChainTxData chainTxData;
     bool m_fallback_fee_enabled;
-    std::string dataDir;
+    
 };
 
 /**

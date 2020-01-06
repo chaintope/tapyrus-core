@@ -27,7 +27,7 @@
 
 class CMainParams : public CChainParams {
 public:
-    CMainParams(const int networkID):CChainParams(networkID) {
+    CMainParams():CChainParams() {
         consensus.nSubsidyHalvingInterval = 210000;
 
         consensus.nExpectedBlockTime = 15; // 15 sec
@@ -66,7 +66,7 @@ public:
  */
 class CRegTestParams : public CChainParams {
 public:
-    CRegTestParams(const int networkID):CChainParams(networkID) {
+    CRegTestParams():CChainParams() {
         consensus.nSubsidyHalvingInterval = 150;
 
         consensus.nExpectedBlockTime = 15; // 15 sec
@@ -101,13 +101,12 @@ const CChainParams &Params() {
 
 std::unique_ptr<CChainParams> CreateChainParams(const TAPYRUS_OP_MODE mode)
 {
-    int networkId = gArgs.GetArg("-networkid", TAPYRUS_MODES::GetDefaultNetworkId(mode));
     switch(mode)
     {
         case TAPYRUS_OP_MODE::MAIN:
-            return std::unique_ptr<CChainParams>(new CMainParams(networkId));
+            return std::unique_ptr<CChainParams>(new CMainParams());
         case TAPYRUS_OP_MODE::REGTEST:
-            return std::unique_ptr<CChainParams>(new CRegTestParams(networkId));
+            return std::unique_ptr<CChainParams>(new CRegTestParams());
         default:
             throw std::runtime_error(strprintf("%s: Unknown mode.", __func__));
     }

@@ -76,7 +76,7 @@ std::shared_ptr<CBlock> FinalizeBlock(std::shared_ptr<CBlock> pblock)
 
     std::vector<unsigned char> blockProof;
     createSignedBlockProof(*pblock, blockProof);
-    pblock->AbsorbBlockProof(blockProof);
+    pblock->AbsorbBlockProof(blockProof, BaseParams().GetAggregatePubkey());
     BOOST_CHECK_EQUAL(pblock->proof.size(), blockProof.size());
     return pblock;
 }

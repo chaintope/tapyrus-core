@@ -15,6 +15,7 @@ from test_framework.test_node import ErrorMatch
 from test_framework.util import (
     assert_equal,
     assert_raises_rpc_error,
+    NetworkIdDirName
 )
 
 
@@ -27,7 +28,7 @@ class MultiWalletTest(BitcoinTestFramework):
     def run_test(self):
         node = self.nodes[0]
 
-        data_dir = lambda *p: os.path.join(node.datadir, 'regtest', *p)
+        data_dir = lambda *p: os.path.join(node.datadir, NetworkIdDirName("regtest"), *p)
         wallet_dir = lambda *p: data_dir('wallets', *p)
         wallet = lambda name: node.get_wallet_rpc(name)
 

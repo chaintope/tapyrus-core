@@ -11,7 +11,7 @@ This test takes 30 mins or more (up to 2 hours)
 """
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, assert_greater_than, assert_raises_rpc_error, connect_nodes, mine_large_block, sync_blocks, wait_until
+from test_framework.util import assert_equal, assert_greater_than, assert_raises_rpc_error, connect_nodes, mine_large_block, sync_blocks, wait_until, NetworkIdDirName
 
 import os
 
@@ -47,7 +47,7 @@ class PruneTest(BitcoinTestFramework):
     def setup_network(self):
         self.setup_nodes()
 
-        self.prunedir = os.path.join(self.nodes[2].datadir, 'regtest', 'blocks', '')
+        self.prunedir = os.path.join(self.nodes[2].datadir, NetworkIdDirName('regtest'), 'blocks', '')
 
         connect_nodes(self.nodes[0], 1)
         connect_nodes(self.nodes[1], 2)
@@ -258,7 +258,7 @@ class PruneTest(BitcoinTestFramework):
                 assert_equal(ret, expected_ret)
 
         def has_block(index):
-            return os.path.isfile(os.path.join(self.nodes[node_number].datadir, "regtest", "blocks", "blk{:05}.dat".format(index)))
+            return os.path.isfile(os.path.join(self.nodes[node_number].datadir, NetworkIdDirName("regtest"), "blocks", "blk{:05}.dat".format(index)))
 
         # should not prune because chain tip of node 3 (995) < PruneAfterHeight (1000)
         assert_raises_rpc_error(-1, "Blockchain is too short for pruning", node.pruneblockchain, height(500))

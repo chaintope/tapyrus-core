@@ -37,7 +37,7 @@ public:
     const std::string& getDataDir() const { return dataDir; }
 
     CBaseChainParams();
-    CBaseChainParams(const int networkId, const std::string genesisHex);
+    CBaseChainParams(const int networkId, const std::string dataDirName, const std::string genesisHex);
 
 private:
     int nNetworkId;
@@ -70,7 +70,7 @@ const CBaseChainParams& BaseParams();
 void SelectBaseParams(const TAPYRUS_OP_MODE mode, const bool withGenesis=true);
 
 /**
- * Reads the genesis block from genesis.dat into chainparams.
+ * Reads the genesis block from genesis.dat into chainparamsbase.
  */
 std::string ReadGenesisBlock(fs::path genesisPath = GetDataDir(false));
 

@@ -68,7 +68,7 @@ UniValue generateBlocks(std::shared_ptr<CReserveScript> coinbaseScript, int nGen
 
         privKey.Sign_Schnorr(blockHash, proof);
 
-        if(!pblock->AbsorbBlockProof(proof)){
+        if(!pblock->AbsorbBlockProof(proof, BaseParams().GetAggregatePubkey())){
             throw JSONRPCError(RPC_INTERNAL_ERROR, "AbsorbBlockProof, block proof not accepted");
         }
 
@@ -874,7 +874,7 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
     if(blockProof.size() != CPubKey::SCHNORR_SIGNATURE_SIZE || !CheckSchnorrSignatureEncoding(blockProof, nullptr, true) )
         throw JSONRPCError(RPC_INVALID_PARAMS, "Invalid signature encoding");
 
-    bool status = block.AbsorbBlockProof(blockProof);
+    bool status = block.AbsorbBlockProof(blockProof, BaseParams().GetAggregatePubkey());
 
     UniValue result(UniValue::VOBJ);
     CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);

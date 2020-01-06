@@ -71,7 +71,6 @@ add_subdirectory(univalue)
 
 # Various completely unrelated features shared by all executables.
 add_library(util
-        chainparamsbase.cpp
         clientversion.cpp
         compat/glibc_sanity.cpp
         compat/glibcxx_sanity.cpp
@@ -138,7 +137,7 @@ target_compile_definitions(util PUBLIC BOOST_SP_USE_STD_ATOMIC BOOST_AC_USE_STD_
 add_library(common
         base58.cpp
         chainparams.cpp
-        consensus/merkle.cpp
+        chainparamsbase.cpp
         coins.cpp
         compressor.cpp
         core_read.cpp
@@ -147,7 +146,6 @@ add_library(common
         keystore.cpp
         netaddress.cpp
         netbase.cpp
-        primitives/block.cpp
         protocol.cpp
         scheduler.cpp
         script/sign.cpp
@@ -163,7 +161,9 @@ target_link_libraries(common util secp256k1)
 # libtapyrusconsensus
 add_library(tapyrusconsensus
         arith_uint256.cpp
+        consensus/merkle.cpp
         hash.cpp
+        primitives/block.cpp
         primitives/transaction.cpp
         pubkey.cpp
         script/tapyrusconsensus.cpp
@@ -173,7 +173,6 @@ add_library(tapyrusconsensus
         uint256.cpp
         utilstrencodings.cpp
         )
-
 target_link_libraries(tapyrusconsensus common)
 
 # Bitcoin server facilities
@@ -270,7 +269,7 @@ if(BUILD_BITCOIN_CLI)
         target_sources(tapyrus-cli PRIVATE tapyrus-cli-res.rc)
     endif()
 
-    target_link_libraries(tapyrus-cli common rpcclient Event)
+    target_link_libraries(tapyrus-cli tapyrusconsensus common rpcclient Event)
 endif()
 
 # tapyrus-tx

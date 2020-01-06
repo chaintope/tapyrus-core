@@ -19,6 +19,7 @@ from test_framework.util import (
     assert_equal,
     connect_nodes_bi,
     sync_blocks,
+    NetworkIdDirName
 )
 
 
@@ -29,7 +30,7 @@ class KeypoolRestoreTest(BitcoinTestFramework):
         self.extra_args = [[], ['-keypool=100']]
 
     def run_test(self):
-        wallet_path = os.path.join(self.nodes[1].datadir, "regtest", "wallets", "wallet.dat")
+        wallet_path = os.path.join(self.nodes[1].datadir, NetworkIdDirName("regtest"), "wallets", "wallet.dat")
         wallet_backup_path = os.path.join(self.nodes[1].datadir, "wallet.bak")
         self.nodes[0].generate(101, self.signblockprivkey)
 

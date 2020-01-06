@@ -132,7 +132,8 @@ static int AppInitRPC(int argc, char* argv[])
     }
     // Check for -regtest parameter (BaseParams() calls are only valid after this clause)
     try {
-        SelectBaseParams(gArgs.GetChainMode());
+        SelectParams(gArgs.GetChainMode());
+        SelectBaseParams(gArgs.GetChainMode(), false);
     } catch (const std::exception& e) {
         fprintf(stderr, "Error: %s\n", e.what());
         return EXIT_FAILURE;

@@ -141,7 +141,7 @@ static void CreateBlocks(const CChainParams &chainparams,
             //block proof
             std::vector<unsigned char> blockProof;
             createSignedBlockProof(*pblock, blockProof);
-            pblock->AbsorbBlockProof(blockProof);
+            pblock->AbsorbBlockProof(blockProof, BaseParams().GetAggregatePubkey());
             BOOST_CHECK_EQUAL(pblock->proof.size(), 64);
         }
         std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(*pblock);
@@ -158,7 +158,7 @@ static void CreateBlocks(const CChainParams &chainparams,
 
     std::vector<unsigned char> blockProof;
     createSignedBlockProof(pblocktemplate->block, blockProof);
-    pblocktemplate->block.AbsorbBlockProof(blockProof);
+    pblocktemplate->block.AbsorbBlockProof(blockProof, BaseParams().GetAggregatePubkey());
     BOOST_CHECK_EQUAL(pblocktemplate->block.proof.size(), CPubKey::SCHNORR_SIGNATURE_SIZE);
 
     BOOST_CHECK_EQUAL(pblocktemplate->block.vtx[0]->vin[0].prevout.n, chainActive.Height()+1); //+1 as the new block is not added to active chain yet

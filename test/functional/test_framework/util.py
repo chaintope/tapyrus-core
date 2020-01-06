@@ -307,6 +307,15 @@ def initialize_datadir(dirname, n):
         os.makedirs(os.path.join(datadir, 'stdout'), exist_ok=True)
     return datadir
 
+
+TAPYRUS_DEFAULT_NETWORKID = {
+    "main": 1,   # mainnet
+    "regtest": 1905960821,   # regtest
+}
+
+def NetworkIdDirName(netowork):
+    return netowork + "-%d" % TAPYRUS_DEFAULT_NETWORKID[netowork]
+
 def get_datadir_path(dirname, n):
     return os.path.join(dirname, "node" + str(n))
 
@@ -327,8 +336,8 @@ def get_auth_cookie(datadir):
                 if line.startswith("rpcpassword="):
                     assert password is None  # Ensure that there is only one rpcpassword line
                     password = line.split("=")[1].strip("\n")
-    if os.path.isfile(os.path.join(datadir, "regtest", ".cookie")):
-        with open(os.path.join(datadir, "regtest", ".cookie"), 'r', encoding="ascii") as f:
+    if os.path.isfile(os.path.join(datadir, NetworkIdDirName("regtest"), ".cookie")):
+        with open(os.path.join(datadir, NetworkIdDirName("regtest"), ".cookie"), 'r', encoding="ascii") as f:
             userpass = f.read()
             split_userpass = userpass.split(':')
             user = split_userpass[0]
@@ -339,9 +348,9 @@ def get_auth_cookie(datadir):
 
 # If a cookie file exists in the given datadir, delete it.
 def delete_cookie_file(datadir):
-    if os.path.isfile(os.path.join(datadir, "regtest", ".cookie")):
+    if os.path.isfile(os.path.join(datadir, NetworkIdDirName("regtest"), ".cookie")):
         logger.debug("Deleting leftover cookie file")
-        os.remove(os.path.join(datadir, "regtest", ".cookie"))
+        os.remove(os.path.join(datadir, NetworkIdDirName("regtest"), ".cookie"))
 
 def get_bip9_status(node, key):
     info = node.getblockchaininfo()

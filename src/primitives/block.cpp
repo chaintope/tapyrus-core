@@ -56,10 +56,8 @@ std::string CBlock::ToString() const
     return s.str();
 }
 
-bool CBlockHeader::AbsorbBlockProof(const std::vector<unsigned char>& blockproof)
+bool CBlockHeader::AbsorbBlockProof(const std::vector<unsigned char>& blockproof, const CPubKey& aggregatePubkey)
 {
-    const CPubKey& aggregatePubkey = BaseParams().GetAggregatePubkey();
-
     //using hash of block without proof for signing
     uint256 blockHash = this->GetHashForSign();
 

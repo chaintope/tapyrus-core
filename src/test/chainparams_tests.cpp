@@ -65,7 +65,6 @@ BOOST_AUTO_TEST_CASE(default_params_main)
     
     BOOST_CHECK(Params().GetRPCPort() == 2377);
     BOOST_CHECK(Params().GetDefaultPort() == 2357);
-    BOOST_CHECK(Params().getDataDir() == "main");
 }
 
 BOOST_AUTO_TEST_CASE(default_params_regtest)
@@ -76,8 +75,6 @@ BOOST_AUTO_TEST_CASE(default_params_regtest)
 
     BOOST_CHECK(Params().GetRPCPort() == 12381);
     BOOST_CHECK(Params().GetDefaultPort() == 12383);
-    BOOST_CHECK(Params().getDataDir() == "regtest");
-
 }
 
 BOOST_AUTO_TEST_CASE(unknown_mode_test)
@@ -96,7 +93,6 @@ BOOST_AUTO_TEST_CASE(custom_networkid_main)
     
     BOOST_CHECK(Params().GetRPCPort() == 2377);
     BOOST_CHECK(Params().GetDefaultPort() == 2357);
-    BOOST_CHECK(Params().getDataDir() == "main-2");
 }
 
 BOOST_AUTO_TEST_CASE(custom_networkid_regtest)
@@ -108,7 +104,6 @@ BOOST_AUTO_TEST_CASE(custom_networkid_regtest)
 
     BOOST_CHECK(Params().GetRPCPort() == 12381);
     BOOST_CHECK(Params().GetDefaultPort() == 12383);
-    BOOST_CHECK(Params().getDataDir() == "regtest-1939510133");
 }
 
 BOOST_AUTO_TEST_CASE(default_base_params_tests)
@@ -119,6 +114,7 @@ BOOST_AUTO_TEST_CASE(default_base_params_tests)
     BOOST_CHECK_NO_THROW(SelectParams(TAPYRUS_OP_MODE::MAIN));
     BOOST_CHECK_NO_THROW(SelectBaseParams(TAPYRUS_OP_MODE::MAIN));
     BOOST_CHECK(BaseParams().NetworkIDString() == "1");
+    BOOST_CHECK(BaseParams().getDataDir() == "main-1");
 
     CMessageHeader::MessageStartChars pchMessageStart = {0x01, 0xFF, 0xF0, 0x00};
     BOOST_CHECK(memcmp( BaseParams().MessageStart(), pchMessageStart, sizeof(pchMessageStart)) == 0);
@@ -130,6 +126,7 @@ BOOST_AUTO_TEST_CASE(default_base_params_tests)
     BOOST_CHECK_NO_THROW(SelectParams(TAPYRUS_OP_MODE::REGTEST));
     BOOST_CHECK_NO_THROW(SelectBaseParams(TAPYRUS_OP_MODE::REGTEST));
     BOOST_CHECK(BaseParams().NetworkIDString() == "1905960821");
+    BOOST_CHECK(BaseParams().getDataDir() == "regtest-1905960821");
 
     CMessageHeader::MessageStartChars pchMessageStart1 = {0x73, 0x9A, 0x97, 0x74};
     BOOST_CHECK(memcmp(BaseParams().MessageStart(), pchMessageStart1, sizeof(pchMessageStart1)) == 0);
@@ -143,6 +140,7 @@ BOOST_AUTO_TEST_CASE(custom_networkId_test)
     BOOST_CHECK_NO_THROW(SelectParams(TAPYRUS_OP_MODE::MAIN));
     BOOST_CHECK_NO_THROW(SelectBaseParams(TAPYRUS_OP_MODE::MAIN));
     BOOST_CHECK(BaseParams().NetworkIDString() == "2");
+    BOOST_CHECK(BaseParams().getDataDir() == "main-2");
     
     CMessageHeader::MessageStartChars pchMessageStart = {0x01, 0xFF, 0xF0, 0x01};
     BOOST_CHECK(memcmp(BaseParams().MessageStart(), pchMessageStart, sizeof(pchMessageStart)) == 0);
@@ -154,6 +152,7 @@ BOOST_AUTO_TEST_CASE(custom_networkId_test)
     BOOST_CHECK_NO_THROW(SelectParams(TAPYRUS_OP_MODE::REGTEST));
     BOOST_CHECK_NO_THROW(SelectBaseParams(TAPYRUS_OP_MODE::REGTEST));
     BOOST_CHECK(BaseParams().NetworkIDString() == "1939510133");
+    BOOST_CHECK(BaseParams().getDataDir() == "regtest-1939510133");
     
     CMessageHeader::MessageStartChars pchMessageStart1 = {0x75, 0x9A, 0x83, 0x74};
     BOOST_CHECK(memcmp(BaseParams().MessageStart(), pchMessageStart1, sizeof(pchMessageStart1)) == 0);

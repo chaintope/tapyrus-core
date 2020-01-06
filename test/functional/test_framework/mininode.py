@@ -52,11 +52,9 @@ MESSAGEMAP = {
 }
 
 MAGIC_BYTES = {
-    "mainnet": b"\x01\xFF\xF0\x00",   # mainnet
-    "testnet3": b"\x75\x9A\x83\x74",  # testnet3
+    "main": b"\x01\xFF\xF0\x00",   # mainnet
     "regtest": b"\x73\x9A\x97\x74",   # regtest
 }
-
 
 class P2PConnection(asyncio.Protocol):
     """A low-level connection object to a node's P2P interface.
