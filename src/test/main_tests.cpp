@@ -42,7 +42,7 @@ BOOST_AUTO_TEST_CASE(block_subsidy_test)
 {
     const auto chainParams = CreateChainParams(TAPYRUS_OP_MODE::MAIN);
     TestBlockSubsidyHalvings(chainParams->GetConsensus()); // As in main
-    const auto chainParams2 = CreateChainParams(CBaseChainParams::REGTEST);
+    const auto chainParams2 = CreateChainParams(TAPYRUS_OP_MODE::REGTEST);
     TestBlockSubsidyHalvings(150); // As in regtest
     TestBlockSubsidyHalvings(1000); // Just another interval
 }
