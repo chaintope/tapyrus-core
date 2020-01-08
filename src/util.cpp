@@ -227,7 +227,7 @@ public:
      *  See also comments around ArgsManager::ArgsManager() below. */
     static inline bool UseDefaultSection(const ArgsManager& am, const std::string& arg)
     {
-        return (am.m_network == TAPYRUS_MODES::MAIN || am.m_network_only_args.count(arg) == 0);
+        return (am.m_network == TAPYRUS_MODES::PROD || am.m_network_only_args.count(arg) == 0);
     }
 
     /** Convert regular argument into the network-specific setting */
@@ -301,8 +301,8 @@ public:
         return found_result;
     }
 
-    /* Special test for -regtest args, because we
-     * don't want to be confused by craziness like "[regtest] testnet=1"
+    /* Special test for -dev args, because we
+     * don't want to be confused by craziness like "[dev] testnet=1"
      */
     static inline bool GetNetBoolArg(const ArgsManager &am, const std::string& net_arg)
     {
@@ -365,9 +365,9 @@ static bool InterpretNegatedOption(std::string& key, std::string& val)
 
 ArgsManager::ArgsManager() :
     /* These options would cause cross-contamination if values for
-     * mainnet were used while running on regtest(or vice-versa).
+     * mainnet were used while running on dev(or vice-versa).
      * Setting them as section_only_args ensures that sharing a config file
-     * between mainnet and regtest won't cause problems due to these
+     * between mainnet and dev won't cause problems due to these
      * parameters by accident. */
     m_network_only_args{
       "-addnode", "-connect",
@@ -385,7 +385,7 @@ void ArgsManager::WarnForSectionOnlyArgs()
     if (m_network.empty()) return;
 
     // if it's okay to use the default section for this network, don't worry
-    if (m_network == TAPYRUS_MODES::MAIN) return;
+    if (m_network == TAPYRUS_MODES::PROD) return;
 
     for (const auto& arg : m_network_only_args) {
         std::pair<bool, std::string> found_result;
@@ -971,11 +971,11 @@ bool ArgsManager::ReadConfigFiles(std::string& error, bool ignore_invalid_keys)
 
 TAPYRUS_OP_MODE ArgsManager::GetChainMode() const
 {
-    bool fRegTest = ArgsManagerHelper::GetNetBoolArg(*this, "-regtest");
+    bool fRegTest = ArgsManagerHelper::GetNetBoolArg(*this, "-dev");
 
     if (fRegTest)
-        return TAPYRUS_OP_MODE::REGTEST;
-    return TAPYRUS_OP_MODE::MAIN;
+        return TAPYRUS_OP_MODE::DEV;
+    return TAPYRUS_OP_MODE::PROD;
 }
 
 #ifndef WIN32

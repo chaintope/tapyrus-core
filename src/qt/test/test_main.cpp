@@ -45,7 +45,7 @@ int main(int argc, char *argv[])
 {
     SetupEnvironment();
     SetupNetworking();
-    SelectParams(TAPYRUS_OP_MODE::MAIN);
+    SelectParams(TAPYRUS_OP_MODE::PROD);
     noui_connect();
     ClearDatadirCache();
     fs::path pathTemp = fs::temp_directory_path() / strprintf("test_bitcoin-qt_%lu_%i", (unsigned long)GetTime(), (int)GetRand(100000));

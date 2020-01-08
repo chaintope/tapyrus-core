@@ -11,7 +11,7 @@ import shutil
 
 from test_framework.test_framework import BitcoinTestFramework, initialize_datadir
 from test_framework.blocktools import createTestGenesisBlock
-from test_framework.util import NetworkIdDirName
+from test_framework.util import NetworkDirName
 
 
 class BlocksdirTest(BitcoinTestFramework):
@@ -33,8 +33,8 @@ class BlocksdirTest(BitcoinTestFramework):
         self.start_node(0, ["-blocksdir=" + blocksdir_path])
         self.log.info("mining blocks..")
         self.nodes[0].generate(10, self.signblockprivkey)
-        assert os.path.isfile(os.path.join(blocksdir_path, NetworkIdDirName("regtest"), "blocks", "blk00000.dat"))
-        assert os.path.isdir(os.path.join(self.nodes[0].datadir, NetworkIdDirName("regtest"), "blocks", "index"))
+        assert os.path.isfile(os.path.join(blocksdir_path, NetworkDirName(), "blocks", "blk00000.dat"))
+        assert os.path.isdir(os.path.join(self.nodes[0].datadir, NetworkDirName(), "blocks", "index"))
 
 
 if __name__ == '__main__':

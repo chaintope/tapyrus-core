@@ -15,7 +15,7 @@
 #include <utilstrencodings.h>
 #include <tapyrusmodes.h>
 /**
- * Main network
+ * Production network
  */
 /**
  * What makes a good checkpoint block?
@@ -25,9 +25,9 @@
  * + Contains no strange transactions
  */
 
-class CMainParams : public CChainParams {
+class CProductionChainParams : public CChainParams {
 public:
-    CMainParams():CChainParams() {
+    CProductionChainParams():CChainParams() {
         consensus.nSubsidyHalvingInterval = 210000;
 
         consensus.nExpectedBlockTime = 15; // 15 sec
@@ -62,11 +62,11 @@ public:
 };
 
 /**
- * Regression test
+ * Development test
  */
-class CRegTestParams : public CChainParams {
+class CDevelopmentChainParams : public CChainParams {
 public:
-    CRegTestParams():CChainParams() {
+    CDevelopmentChainParams():CChainParams() {
         consensus.nSubsidyHalvingInterval = 150;
 
         consensus.nExpectedBlockTime = 15; // 15 sec
@@ -87,7 +87,7 @@ public:
         base58Prefixes[EXT_PUBLIC_KEY] = {0x04, 0x35, 0x87, 0xCF};
         base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x35, 0x83, 0x94};
 
-        /* enable fallback fee on regtest */
+        /* enable fallback fee on dev */
         m_fallback_fee_enabled = true;
     }
 };
@@ -103,10 +103,10 @@ std::unique_ptr<CChainParams> CreateChainParams(const TAPYRUS_OP_MODE mode)
 {
     switch(mode)
     {
-        case TAPYRUS_OP_MODE::MAIN:
-            return std::unique_ptr<CChainParams>(new CMainParams());
-        case TAPYRUS_OP_MODE::REGTEST:
-            return std::unique_ptr<CChainParams>(new CRegTestParams());
+        case TAPYRUS_OP_MODE::PROD:
+            return std::unique_ptr<CChainParams>(new CProductionChainParams());
+        case TAPYRUS_OP_MODE::DEV:
+            return std::unique_ptr<CChainParams>(new CDevelopmentChainParams());
         default:
             throw std::runtime_error(strprintf("%s: Unknown mode.", __func__));
     }

@@ -9,7 +9,7 @@
 #endif
 
 #include <chainparams.h>
-#include <chainparamsbase.h>
+#include <federationparams.h>
 #include <clientversion.h>
 #include <compat.h>
 #include <fs.h>
@@ -101,8 +101,8 @@ static bool AppInit(int argc, char* argv[])
             fprintf(stderr, "Error reading configuration file: %s\n", error.c_str());
             return false;
         }
-        // Check for -regtest parameter (Params() calls are only valid after this clause)
-        // SelectBaseParams is done separately in AppInitMain. this call does not validate the usage of BaseParams(). 
+        // Check for -dev parameter (Params() calls are only valid after this clause)
+        // SelectFederationParams is done separately in AppInitMain. this call does not validate the usage of FederationParams(). 
         try {
             SelectParams(gArgs.GetChainMode());
         } catch (const std::exception& e) {

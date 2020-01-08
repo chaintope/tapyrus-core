@@ -5,7 +5,7 @@
 #ifndef BITCOIN_WALLET_WALLETUTIL_H
 #define BITCOIN_WALLET_WALLETUTIL_H
 
-#include <chainparamsbase.h>
+#include <federationparams.h>
 #include <util.h>
 
 //! Get the path of the wallet directory.

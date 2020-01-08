@@ -62,9 +62,9 @@ static void AssembleBlock(benchmark::State& state)
 
     const CScript SCRIPT_PUB{CScript(OP_0) << std::vector<unsigned char>{witness_program.begin(), witness_program.end()}};
 
-    // Switch to regtest so we can mine faster
+    // Switch to dev so we can mine faster
     // Also segwit is active, so we can include witness transactions
-    SelectParams(TAPYRUS_OP_MODE::REGTEST);
+    SelectParams(TAPYRUS_OP_MODE::DEV);
 
     InitScriptExecutionCache();
 

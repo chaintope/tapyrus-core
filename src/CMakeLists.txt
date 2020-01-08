@@ -137,11 +137,11 @@ target_compile_definitions(util PUBLIC BOOST_SP_USE_STD_ATOMIC BOOST_AC_USE_STD_
 add_library(common
         base58.cpp
         chainparams.cpp
-        chainparamsbase.cpp
         coins.cpp
         compressor.cpp
         core_read.cpp
         core_write.cpp
+        federationparams.cpp
         key.cpp
         keystore.cpp
         netaddress.cpp

@@ -486,7 +486,7 @@ BOOST_AUTO_TEST_CASE(util_ReadConfigStream)
     test_args.SetNetworkOnlyArg("-ccc");
     test_args.SetNetworkOnlyArg("-h");
 
-    test_args.SelectConfigNetwork(TAPYRUS_MODES::MAIN);
+    test_args.SelectConfigNetwork(TAPYRUS_MODES::PROD);
     BOOST_CHECK(test_args.GetArg("-d", "xxx") == "e");
     BOOST_CHECK(test_args.GetArgs("-ccc").size() == 2);
     BOOST_CHECK(test_args.GetArg("-h", "xxx") == "0");
@@ -545,53 +545,53 @@ BOOST_AUTO_TEST_CASE(util_GetArg)
 BOOST_AUTO_TEST_CASE(util_GetChainMode)
 {
     TestArgsManager test_args;
-    const char* avail_args[] = {"-regtest"};
+    const char* avail_args[] = {"-dev"};
     test_args.SetupArgs(1, avail_args);
 
     const char* argv_testnet[] = {"cmd", "-testnet"};
-    const char* argv_regtest[] = {"cmd", "-regtest"};
+    const char* argv_dev[] = {"cmd", "-dev"};
 
-    // equivalent to "-regtest"
-    // regtest in main section is ignored
-    const char* testnetconf = "regtest=0\n[main]\nregtest=1";
+    // equivalent to "-dev"
+    // dev in prod section is ignored
+    const char* testnetconf = "dev=0\n[prod]\ndev=1";
     std::string error;
 
     test_args.ParseParameters(0, (char**)argv_testnet, error);
-    BOOST_CHECK_EQUAL(TAPYRUS_MODES::GetChainName(test_args.GetChainMode()), TAPYRUS_MODES::MAIN);
+    BOOST_CHECK_EQUAL(TAPYRUS_MODES::GetChainName(test_args.GetChainMode()), TAPYRUS_MODES::PROD);
 
     test_args.ParseParameters(2, (char**)argv_testnet, error);
-    BOOST_CHECK_EQUAL(TAPYRUS_MODES::GetChainName(test_args.GetChainMode()), TAPYRUS_MODES::MAIN);
+    BOOST_CHECK_EQUAL(TAPYRUS_MODES::GetChainName(test_args.GetChainMode()), TAPYRUS_MODES::PROD);
 
-    test_args.ParseParameters(2, (char**)argv_regtest, error);
-    BOOST_CHECK_EQUAL(TAPYRUS_MODES::GetChainName(test_args.GetChainMode()), TAPYRUS_MODES::REGTEST);
+    test_args.ParseParameters(2, (char**)argv_dev, error);
+    BOOST_CHECK_EQUAL(TAPYRUS_MODES::GetChainName(test_args.GetChainMode()), TAPYRUS_MODES::DEV);
 
     test_args.ParseParameters(0, (char**)argv_testnet, error);
     test_args.ReadConfigString(testnetconf);
-    BOOST_CHECK_EQUAL(TAPYRUS_MODES::GetChainName(test_args.GetChainMode()), TAPYRUS_MODES::MAIN);
+    BOOST_CHECK_EQUAL(TAPYRUS_MODES::GetChainName(test_args.GetChainMode()), TAPYRUS_MODES::PROD);
 
     test_args.ParseParameters(2, (char**)argv_testnet, error);
     test_args.ReadConfigString(testnetconf);
-    BOOST_CHECK_EQUAL(TAPYRUS_MODES::GetChainName(test_args.GetChainMode()), TAPYRUS_MODES::MAIN);
+    BOOST_CHECK_EQUAL(TAPYRUS_MODES::GetChainName(test_args.GetChainMode()), TAPYRUS_MODES::PROD);
 
-    test_args.ParseParameters(2, (char**)argv_regtest, error);
+    test_args.ParseParameters(2, (char**)argv_dev, error);
     test_args.ReadConfigString(testnetconf);
-    BOOST_CHECK_EQUAL(TAPYRUS_MODES::GetChainName(test_args.GetChainMode()), TAPYRUS_MODES::REGTEST);
+    BOOST_CHECK_EQUAL(TAPYRUS_MODES::GetChainName(test_args.GetChainMode()), TAPYRUS_MODES::DEV);
 
-    // check setting the network to main (and thus making
-    // [main] regtest=1 potentially relevant) doesn't break things
-    test_args.SelectConfigNetwork("main");
+    // check setting the network to prod (and thus making
+    // [prod] dev=1 potentially relevant) doesn't break things
+    test_args.SelectConfigNetwork("prod");
 
     test_args.ParseParameters(0, (char**)argv_testnet, error);
     test_args.ReadConfigString(testnetconf);
-    BOOST_CHECK_EQUAL(TAPYRUS_MODES::GetChainName(test_args.GetChainMode()), TAPYRUS_MODES::MAIN);
+    BOOST_CHECK_EQUAL(TAPYRUS_MODES::GetChainName(test_args.GetChainMode()), TAPYRUS_MODES::PROD);
 
     test_args.ParseParameters(2, (char**)argv_testnet, error);
     test_args.ReadConfigString(testnetconf);
-    BOOST_CHECK_EQUAL(TAPYRUS_MODES::GetChainName(test_args.GetChainMode()), TAPYRUS_MODES::MAIN);
+    BOOST_CHECK_EQUAL(TAPYRUS_MODES::GetChainName(test_args.GetChainMode()), TAPYRUS_MODES::PROD);
 
-    test_args.ParseParameters(2, (char**)argv_regtest, error);
+    test_args.ParseParameters(2, (char**)argv_dev, error);
     test_args.ReadConfigString(testnetconf);
-    BOOST_CHECK_EQUAL(TAPYRUS_MODES::GetChainName(test_args.GetChainMode()), TAPYRUS_MODES::REGTEST);
+    BOOST_CHECK_EQUAL(TAPYRUS_MODES::GetChainName(test_args.GetChainMode()), TAPYRUS_MODES::DEV);
 }
 
 BOOST_AUTO_TEST_CASE(util_FormatMoney)

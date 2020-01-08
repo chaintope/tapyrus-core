@@ -49,7 +49,7 @@ void RPCNestedTests::rpcNestedTests()
     std::string filtered;
     auto node = interfaces::MakeNode();
     RPCConsole::RPCExecuteCommandLine(*node, result, "getblockchaininfo()[chain]", &filtered); //simple result filtering with path
-    QVERIFY(result=="main");
+    QVERIFY(result=="prod");
     QVERIFY(filtered == "getblockchaininfo()[chain]");
 
     RPCConsole::RPCExecuteCommandLine(*node, result, "getblock(getbestblockhash())"); //simple 2 level nesting

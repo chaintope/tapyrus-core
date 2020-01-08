@@ -255,14 +255,14 @@ static UniValue setmocktime(const JSONRPCRequest& request)
     if (request.fHelp || request.params.size() != 1)
         throw std::runtime_error(
             "setmocktime timestamp\n"
-            "\nSet the local time to given timestamp (-regtest only)\n"
+            "\nSet the local time to given timestamp (-dev only)\n"
             "\nArguments:\n"
             "1. timestamp  (integer, required) Unix seconds-since-epoch timestamp\n"
             "   Pass 0 to go back to using the system time."
         );
 
     if (!Params().MineBlocksOnDemand())
-        throw std::runtime_error("setmocktime for regression testing (-regtest mode) only");
+        throw std::runtime_error("setmocktime for regression testing (-dev mode) only");
 
     // For now, don't change mocktime if we're in the middle of validation, as
     // this could have an effect on mempool time-based eviction, as well as

@@ -3,8 +3,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_CHAINPARAMSBASE_H
-#define BITCOIN_CHAINPARAMSBASE_H
+#ifndef BITCOIN_FEDERATIONPARAMS_H
+#define BITCOIN_FEDERATIONPARAMS_H
 
 #include <memory>
 #include <string>
@@ -19,10 +19,10 @@
 const std::string TAPYRUS_GENESIS_FILENAME = "genesis.dat";
 
 /**
- * CBaseChainParams defines the base parameters (shared between bitcoin-cli and bitcoind)
+ * CFederationParams defines the base parameters (shared between bitcoin-cli and bitcoind)
  * of a given instance of the Bitcoin system.
  */
-class CBaseChainParams
+class CFederationParams
 {
 public:
     std::string NetworkIDString() const { return strNetworkID; }
@@ -36,8 +36,8 @@ public:
     const CBlock& GenesisBlock() const { return genesis; }
     const std::string& getDataDir() const { return dataDir; }
 
-    CBaseChainParams();
-    CBaseChainParams(const int networkId, const std::string dataDirName, const std::string genesisHex);
+    CFederationParams();
+    CFederationParams(const int networkId, const std::string dataDirName, const std::string genesisHex);
 
 private:
     int nNetworkId;
@@ -49,25 +49,25 @@ private:
 };
 
 /**
- * Creates and returns a std::unique_ptr<CBaseChainParams> of the chosen chain.
- * @returns a CBaseChainParams* of the chosen chain.
+ * Creates and returns a std::unique_ptr<CFederationParams> of the chosen chain.
+ * @returns a CFederationParams* of the chosen chain.
  * @throws a std::runtime_error if the chain is not supported.
  */
-std::unique_ptr<CBaseChainParams> CreateBaseChainParams(const TAPYRUS_OP_MODE mode, const bool withGenesis);
+std::unique_ptr<CFederationParams> CreateBaseChainParams(const TAPYRUS_OP_MODE mode, const bool withGenesis);
 
 /**
  *Set the arguments for chainparams
  */
-void SetupChainParamsBaseOptions();
+void SetupFederationParamsOptions();
 
 /**
  * Return the currently selected parameters. This won't change after app
  * startup, except for unit tests.
  */
-const CBaseChainParams& BaseParams();
+const CFederationParams& FederationParams();
 
 /** Sets the params returned by Params() to those for the given network. */
-void SelectBaseParams(const TAPYRUS_OP_MODE mode, const bool withGenesis=true);
+void SelectFederationParams(const TAPYRUS_OP_MODE mode, const bool withGenesis=true);
 
 /**
  * Reads the genesis block from genesis.dat into chainparamsbase.
@@ -80,4 +80,4 @@ std::string ReadGenesisBlock(fs::path genesisPath = GetDataDir(false));
 CBlock createGenesisBlock(const CPubKey& aggregatePubkey, const CKey& privateKey, const time_t blockTime=time(0), const std::string paytoAddress="");
 
 
-#endif // BITCOIN_CHAINPARAMSBASE_H
+#endif // BITCOIN_FEDERATIONPARAMS_H

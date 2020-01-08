@@ -575,7 +575,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
     if (tx.IsCoinBase())
         return state.DoS(100, false, REJECT_INVALID, "coinbase");
 
-    // Rather not work on nonstandard transactions (unless -regtest)
+    // Rather not work on nonstandard transactions (unless -dev)
     std::string reason;
     if (fRequireStandard && !IsStandardTx(tx, reason))
         return state.DoS(0, false, REJECT_NONSTANDARD, reason);
@@ -1665,7 +1665,7 @@ static bool WriteUndoDataForBlock(const CBlockUndo& blockundo, CValidationState&
         CDiskBlockPos _pos;
         if (!FindUndoPos(state, pindex->nFile, _pos, ::GetSerializeSize(blockundo, SER_DISK, CLIENT_VERSION) + 40))
             return error("ConnectBlock(): FindUndoPos failed");
-        if (!UndoWriteToDisk(blockundo, _pos, pindex->pprev->GetBlockHash(), BaseParams().MessageStart()))
+        if (!UndoWriteToDisk(blockundo, _pos, pindex->pprev->GetBlockHash(), FederationParams().MessageStart()))
             return AbortNode(state, "Failed to write undo data");
 
         // update nUndoPos in block index
@@ -1744,7 +1744,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     // Special case for the genesis block, skipping connection of its transactions
     // (its coinbase is unspendable)
-    if (block.GetHash() == BaseParams().GenesisBlock().GetHash()) {
+    if (block.GetHash() == FederationParams().GenesisBlock().GetHash()) {
         if (!fJustCheck)
             view.SetBestBlock(pindex->GetBlockHash());
         return true;
@@ -2859,7 +2859,7 @@ static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,
     if(!proofSize)
         return state.Error("No proof in block");
 
-    const CPubKey& aggregatePubkey = BaseParams().GetAggregatePubkey();
+    const CPubKey& aggregatePubkey = FederationParams().GetAggregatePubkey();
 
     if(!aggregatePubkey.IsValid())
         return state.Error("Invalid aggregatePubkey");
@@ -3010,7 +3010,7 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
 
     // Check against checkpoints
     if (fCheckpointsEnabled) {
-        // Don't accept any forks from the main chain prior to last checkpoint.
+        // Don't accept any forks from the prod chain prior to last checkpoint.
         // GetLastCheckpoint finds the last checkpoint in MapCheckpoints that's in our
         // MapBlockIndex.
         CBlockIndex* pcheckpoint = Checkpoints::GetLastCheckpoint(params.Checkpoints());
@@ -3075,7 +3075,7 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
     uint256 hash = block.GetHash();
     BlockMap::iterator miSelf = mapBlockIndex.find(hash);
     CBlockIndex *pindex = nullptr;
-    if (hash != BaseParams().GenesisBlock().GetHash()) {
+    if (hash != FederationParams().GenesisBlock().GetHash()) {
         if (miSelf != mapBlockIndex.end()) {
             // Block header is already known.
             pindex = miSelf->second;
@@ -3161,7 +3161,7 @@ static CDiskBlockPos SaveBlockToDisk(const CBlock& block, int nHeight, const CCh
         return CDiskBlockPos();
     }
     if (dbp == nullptr) {
-        if (!WriteBlockToDisk(block, blockPos, BaseParams().MessageStart())) {
+        if (!WriteBlockToDisk(block, blockPos, FederationParams().MessageStart())) {
             AbortNode("Failed to write block");
             return CDiskBlockPos();
         }
@@ -3402,7 +3402,7 @@ void PruneBlockFilesManual(int nManualPruneHeight)
  *
  * Pruning functions are called from FlushStateToDisk when the global fCheckForPruning flag has been set.
  * Block and undo files are deleted in lock-step (when blk00003.dat is deleted, so is rev00003.dat.)
- * Pruning cannot take place until the longest chain is at least a certain length (100000 on mainnet, 1000 on testnet, 1000 on regtest).
+ * Pruning cannot take place until the longest chain is at least a certain length (100000 on mainnet, 1000 on testnet, 1000 on dev).
  * Pruning will never delete a block within a defined distance (currently 288) from the active chain's tip.
  * The block index is updated by unsetting HAVE_DATA and HAVE_UNDO for any blocks that were stored in the deleted files.
  * A db flag records the fact that at least some block files have been pruned.
@@ -3447,7 +3447,7 @@ static void FindFilesToPrune(std::set<int>& setFilesToPrune, uint64_t nPruneAfte
             if (nCurrentUsage + nBuffer < nPruneTarget)  // are we below our target?
                 break;
 
-            // don't prune files that could have a block within MIN_BLOCKS_TO_KEEP of the main chain's tip but keep scanning
+            // don't prune files that could have a block within MIN_BLOCKS_TO_KEEP of the prod chain's tip but keep scanning
             if (vinfoBlockFile[fileNumber].nHeightLast > nLastBlockWeCanPrune)
                 continue;
 
@@ -4006,11 +4006,11 @@ bool CChainState::LoadGenesisBlock(const CChainParams& chainparams)
     // mapBlockIndex. Note that we can't use chainActive here, since it is
     // set based on the coins db, not the block index db, which is the only
     // thing loaded at this point.
-    if (mapBlockIndex.count(BaseParams().GenesisBlock().GetHash()))
+    if (mapBlockIndex.count(FederationParams().GenesisBlock().GetHash()))
         return true;
 
     try {
-        CBlock &block = const_cast<CBlock&>(BaseParams().GenesisBlock());
+        CBlock &block = const_cast<CBlock&>(FederationParams().GenesisBlock());
         CDiskBlockPos blockPos = SaveBlockToDisk(block, 0, chainparams, nullptr);
         if (blockPos.IsNull())
             return error("%s: writing genesis block to disk failed", __func__);
@@ -4049,10 +4049,10 @@ bool LoadExternalBlockFile(const CChainParams& chainparams, FILE* fileIn, CDiskB
             try {
                 // locate a header
                 unsigned char buf[CMessageHeader::MESSAGE_START_SIZE];
-                blkdat.FindByte(BaseParams().MessageStart()[0]);
+                blkdat.FindByte(FederationParams().MessageStart()[0]);
                 nRewind = blkdat.GetPos()+1;
                 blkdat >> buf;
-                if (memcmp(buf, BaseParams().MessageStart(), CMessageHeader::MESSAGE_START_SIZE))
+                if (memcmp(buf, FederationParams().MessageStart(), CMessageHeader::MESSAGE_START_SIZE))
                     continue;
                 // read size
                 blkdat >> nSize;
@@ -4078,7 +4078,7 @@ bool LoadExternalBlockFile(const CChainParams& chainparams, FILE* fileIn, CDiskB
                 {
                     LOCK(cs_main);
                     // detect out of order blocks, and store them for later
-                    if (hash != BaseParams().GenesisBlock().GetHash() && !LookupBlockIndex(block.hashPrevBlock)) {
+                    if (hash != FederationParams().GenesisBlock().GetHash() && !LookupBlockIndex(block.hashPrevBlock)) {
                         LogPrint(BCLog::REINDEX, "%s: Out of order block %s, parent %s not known\n", __func__, hash.ToString(),
                                 block.hashPrevBlock.ToString());
                         if (dbp)
@@ -4096,13 +4096,13 @@ bool LoadExternalBlockFile(const CChainParams& chainparams, FILE* fileIn, CDiskB
                       if (state.IsError()) {
                           break;
                       }
-                    } else if (hash != BaseParams().GenesisBlock().GetHash() && pindex->nHeight % 1000 == 0) {
+                    } else if (hash != FederationParams().GenesisBlock().GetHash() && pindex->nHeight % 1000 == 0) {
                       LogPrint(BCLog::REINDEX, "Block Import: already had block %s at height %d\n", hash.ToString(), pindex->nHeight);
                     }
                 }
 
                 // Activate the genesis block so normal node progress can continue
-                if (hash == BaseParams().GenesisBlock().GetHash()) {
+                if (hash == FederationParams().GenesisBlock().GetHash()) {
                     CValidationState state;
                     if (!ActivateBestChain(state, chainparams)) {
                         break;
@@ -4204,7 +4204,7 @@ void CChainState::CheckBlockIndex(const Consensus::Params& consensusParams)
         // Begin: actual consistency checks.
         if (pindex->pprev == nullptr) {
             // Genesis block checks.
-            assert(pindex->GetBlockHash() == BaseParams().GenesisBlock().GetHash()); // Genesis block's hash must match.
+            assert(pindex->GetBlockHash() == FederationParams().GenesisBlock().GetHash()); // Genesis block's hash must match.
             assert(pindex == chainActive.Genesis()); // The current active chain's genesis block must be this block.
         }
         if (pindex->nChainTx == 0) assert(pindex->nSequenceId <= 0);  // nSequenceId can't be set positive for blocks that aren't linked (negative is used for preciousblock)

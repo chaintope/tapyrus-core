@@ -373,11 +373,11 @@ libtapyrus_common_a_SOURCES = \
   base58.cpp \
   bech32.cpp \
   chainparams.cpp \
-  chainparamsbase.cpp \
   coins.cpp \
   compressor.cpp \
   core_read.cpp \
   core_write.cpp \
+  federationparams.cpp \
   key.cpp \
   key_io.cpp \
   keystore.cpp \

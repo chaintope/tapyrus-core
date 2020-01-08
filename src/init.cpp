@@ -344,7 +344,7 @@ static void OnRPCStopped()
 void SetupServerArgs()
 {
     //make sure ParseSignedBlockParameters was called before this call
-    const auto defaultChainParams = CreateChainParams(TAPYRUS_OP_MODE::MAIN);
+    const auto defaultChainParams = CreateChainParams(TAPYRUS_OP_MODE::PROD);
 
     // Hidden Options
     std::vector<std::string> hidden_args = {"-rpcssl", "-benchmark", "-h", "-help", "-socks", "-tor", "-debugnet", "-whitelistalwaysrelay",
@@ -481,9 +481,9 @@ void SetupServerArgs()
     gArgs.AddArg("-shrinkdebugfile", "Shrink debug.log file on client startup (default: 1 when no -debug)", false, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-uacomment=<cmt>", "Append comment to the user agent string", false, OptionsCategory::DEBUG_TEST);
 
-    SetupChainParamsBaseOptions();
+    SetupFederationParamsOptions();
 
-    gArgs.AddArg("-acceptnonstdtxn", strprintf("Relay and mine \"non-standard\" transactions (%sdefault: %u)", "regtest only; ", !defaultChainParams->RequireStandard()), true, OptionsCategory::NODE_RELAY);
+    gArgs.AddArg("-acceptnonstdtxn", strprintf("Relay and mine \"non-standard\" transactions (%sdefault: %u)", "dev only; ", !defaultChainParams->RequireStandard()), true, OptionsCategory::NODE_RELAY);
     gArgs.AddArg("-incrementalrelayfee=<amt>", strprintf("Fee rate (in %s/kB) used to define cost of relay, used for mempool limiting and BIP 125 replacement. (default: %s)", CURRENCY_UNIT, FormatMoney(DEFAULT_INCREMENTAL_RELAY_FEE)), true, OptionsCategory::NODE_RELAY);
     gArgs.AddArg("-dustrelayfee=<amt>", strprintf("Fee rate (in %s/kB) used to defined dust, the value of an output such that it will cost more than its value in fees at this fee rate to spend it. (default: %s)", CURRENCY_UNIT, FormatMoney(DUST_RELAY_TX_FEE)), true, OptionsCategory::NODE_RELAY);
     gArgs.AddArg("-bytespersigop", strprintf("Equivalent bytes per sigop in transactions for relay and mining (default: %u)", DEFAULT_BYTES_PER_SIGOP), false, OptionsCategory::NODE_RELAY);
@@ -1000,7 +1000,7 @@ bool AppInitParameterInteraction()
     if (gArgs.IsArgSet("-blockminsize"))
         InitWarning("Unsupported argument -blockminsize ignored.");
 
-    // Checkmempool and checkblockindex default to true in regtest mode
+    // Checkmempool and checkblockindex default to true in dev mode
     int ratio = std::min<int>(std::max<int>(gArgs.GetArg("-checkmempool", chainparams.DefaultConsistencyChecks() ? 1 : 0), 0), 1000000);
     if (ratio != 0) {
         mempool.setSanityCheck(1.0 / ratio);
@@ -1094,7 +1094,7 @@ bool AppInitParameterInteraction()
 
     fRequireStandard = !gArgs.GetBoolArg("-acceptnonstdtxn", !chainparams.RequireStandard());
     if (chainparams.RequireStandard() && !fRequireStandard)
-        return InitError(strprintf("acceptnonstdtxn is not currently supported for %s chain", BaseParams().NetworkIDString()));
+        return InitError(strprintf("acceptnonstdtxn is not currently supported for %s chain", FederationParams().NetworkIDString()));
     nBytesPerSigOp = gArgs.GetArg("-bytespersigop", nBytesPerSigOp);
 
     if (!g_wallet_init_interface.ParameterInteraction()) return false;
@@ -1209,15 +1209,15 @@ bool AppInitMain()
                   "also be data loss if tapyrus is started while in a temporary directory.\n",
             gArgs.GetArg("-datadir", ""), fs::current_path().string());
     }
-    //Now initialise BaseParams - this contains all the network parameters which are configurable
+    //Now initialise FederationParams - this contains all the network parameters which are configurable
     //Read genesis block from file now - we are sure that data dir exists.
     try {
-        SelectBaseParams(gArgs.GetChainMode());
+        SelectFederationParams(gArgs.GetChainMode());
     } catch (const std::exception& e) {
         fprintf(stderr, "Error: %s\n", e.what());
         return false;
     }
-    LogPrintf("Genesis Block [%s] of Tapyrus network [%s] Loaded successfully\n", BaseParams().GenesisBlock().GetHash().ToString(), BaseParams().NetworkIDString());
+    LogPrintf("Genesis Block [%s] of Tapyrus network [%s] Loaded successfully\n", FederationParams().GenesisBlock().GetHash().ToString(), FederationParams().NetworkIDString());
 
     InitSignatureCache();
     InitScriptExecutionCache();
@@ -1439,7 +1439,7 @@ bool AppInitMain()
 
                 // If the loaded chain has a wrong genesis, bail out immediately
                 // (we're likely using a testnet datadir, or the other way around).
-                if (!mapBlockIndex.empty() && !LookupBlockIndex(BaseParams().GenesisBlock().GetHash())) {
+                if (!mapBlockIndex.empty() && !LookupBlockIndex(FederationParams().GenesisBlock().GetHash())) {
                     return InitError(_("Incorrect or no genesis block found. Wrong datadir for network?"));
                 }
 

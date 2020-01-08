@@ -526,7 +526,7 @@ TableViewLastColumnResizingFixer::TableViewLastColumnResizingFixer(QTableView* t
 fs::path static StartupShortcutPath()
 {
     std::string chain = gArgs.GetChainMode();
-    if (chain == TAPYRUS_OP_MODE::MAIN)
+    if (chain == TAPYRUS_OP_MODE::PROD)
         return GetSpecialFolderPath(CSIDL_STARTUP) / "Bitcoin.lnk";
     return GetSpecialFolderPath(CSIDL_STARTUP) / strprintf("Bitcoin (%s).lnk", chain);
 }
@@ -560,8 +560,8 @@ bool SetStartOnSystemStartup(bool fAutoStart)
 
             // Start client minimized
             QString strArgs = "-min";
-            // Set -regtest options
-            strArgs += QString::fromStdString(strprintf(" -regtest=%d", gArgs.GetBoolArg("-regtest", false)));
+            // Set -dev options
+            strArgs += QString::fromStdString(strprintf(" -dev=%d", gArgs.GetBoolArg("-dev", false)));
 
 #ifdef UNICODE
             boost::scoped_array<TCHAR> args(new TCHAR[strArgs.length() + 1]);
@@ -622,7 +622,7 @@ fs::path static GetAutostartDir()
 fs::path static GetAutostartFilePath()
 {
     std::string chain = gArgs.GetChainMode();
-    if (chain == TAPYRUS_OP_MODE::MAIN)
+    if (chain == TAPYRUS_OP_MODE::PROD)
         return GetAutostartDir() / "bitcoin.desktop";
     return GetAutostartDir() / strprintf("bitcoin-%s.lnk", chain);
 }
@@ -667,11 +667,11 @@ bool SetStartOnSystemStartup(bool fAutoStart)
         // Write a bitcoin.desktop file to the autostart directory:
         optionFile << "[Desktop Entry]\n";
         optionFile << "Type=Application\n";
-        if (chain == TAPYRUS_OP_MODE::MAIN)
+        if (chain == TAPYRUS_OP_MODE::PROD)
             optionFile << "Name=Bitcoin\n";
         else
             optionFile << strprintf("Name=Bitcoin (%s)\n", chain);
-        optionFile << "Exec=" << pszExePath << strprintf(" -min  -regtest=%d\n", gArgs.GetBoolArg("-regtest", false));
+        optionFile << "Exec=" << pszExePath << strprintf(" -min  -dev=%d\n", gArgs.GetBoolArg("-dev", false));
         optionFile << "Terminal=false\n";
         optionFile << "Hidden=false\n";
         optionFile.close();
