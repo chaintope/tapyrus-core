@@ -98,7 +98,6 @@ BITCOIN_CORE_H = \
   blockencodings.h \
   chain.h \
   chainparams.h \
-  chainparamsbase.h \
   chainparamsseeds.h \
   checkpoints.h \
   checkqueue.h \
@@ -114,6 +113,7 @@ BITCOIN_CORE_H = \
   core_io.h \
   core_memusage.h \
   cuckoocache.h \
+  federationparams.h \
   fs.h \
   httprpc.h \
   httpserver.h \
