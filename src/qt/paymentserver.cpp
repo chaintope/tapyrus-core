@@ -212,11 +212,11 @@ void PaymentServer::ipcParseCommandLine(interfaces::Node& node, int argc, char* 
                 auto tempChainParams = CreateChainParams(TAPYRUS_OP_MODE::MAIN);
 
                 if (IsValidDestinationString(r.address.toStdString(), *tempChainParams)) {
-                    node.selectParams(TAPYRUS_OP_MODE::MAIN);
+                    node.selectParams();
                 } else {
                     tempChainParams = CreateChainParams(TAPYRUS_OP_MODE::REGTEST);
                     if (IsValidDestinationString(r.address.toStdString(), *tempChainParams)) {
-                        node.selectParams(TAPYRUS_OP_MODE::REGTEST);
+                        node.selectParams();
                     }
                 }
             }
@@ -230,11 +230,11 @@ void PaymentServer::ipcParseCommandLine(interfaces::Node& node, int argc, char* 
             {
                 if (request.getDetails().network() == "main")
                 {
-                    node.selectParams(TAPYRUS_OP_MODE::MAIN);
+                    node.selectParams();
                 }
                 else if (request.getDetails().network() == "regtest")
                 {
-                    node.selectParams(TAPYRUS_OP_MODE::REGTEST);
+                    node.selectParams();
                 }
             }
         }
