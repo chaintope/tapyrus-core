@@ -209,14 +209,14 @@ void PaymentServer::ipcParseCommandLine(interfaces::Node& node, int argc, char* 
             SendCoinsRecipient r;
             if (GUIUtil::parseBitcoinURI(arg, &r) && !r.address.isEmpty())
             {
-                auto tempChainParams = CreateChainParams(CBaseChainParams::MAIN);
+                auto tempChainParams = CreateChainParams(TAPYRUS_OP_MODE::MAIN);
 
                 if (IsValidDestinationString(r.address.toStdString(), *tempChainParams)) {
-                    node.selectParams(CBaseChainParams::MAIN);
+                    node.selectParams(TAPYRUS_OP_MODE::MAIN);
                 } else {
-                    tempChainParams = CreateChainParams(CBaseChainParams::TESTNET);
+                    tempChainParams = CreateChainParams(TAPYRUS_OP_MODE::REGTEST);
                     if (IsValidDestinationString(r.address.toStdString(), *tempChainParams)) {
-                        node.selectParams(CBaseChainParams::TESTNET);
+                        node.selectParams(TAPYRUS_OP_MODE::REGTEST);
                     }
                 }
             }
@@ -230,11 +230,11 @@ void PaymentServer::ipcParseCommandLine(interfaces::Node& node, int argc, char* 
             {
                 if (request.getDetails().network() == "main")
                 {
-                    node.selectParams(CBaseChainParams::MAIN);
+                    node.selectParams(TAPYRUS_OP_MODE::MAIN);
                 }
-                else if (request.getDetails().network() == "test")
+                else if (request.getDetails().network() == "regtest")
                 {
-                    node.selectParams(CBaseChainParams::TESTNET);
+                    node.selectParams(TAPYRUS_OP_MODE::REGTEST);
                 }
             }
         }
