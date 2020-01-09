@@ -209,12 +209,12 @@ void PaymentServer::ipcParseCommandLine(interfaces::Node& node, int argc, char* 
             SendCoinsRecipient r;
             if (GUIUtil::parseBitcoinURI(arg, &r) && !r.address.isEmpty())
             {
-                auto tempChainParams = CreateChainParams(TAPYRUS_OP_MODES::MAIN);
+                auto tempChainParams = CreateChainParams(TAPYRUS_OP_MODE::MAIN);
 
                 if (IsValidDestinationString(r.address.toStdString(), *tempChainParams)) {
                     node.selectParams();
                 } else {
-                    tempChainParams = CreateChainParams(TAPYRUS_OP_MODES::REGTEST);
+                    tempChainParams = CreateChainParams(TAPYRUS_OP_MODE::REGTEST);
                     if (IsValidDestinationString(r.address.toStdString(), *tempChainParams)) {
                         node.selectParams();
                     }
