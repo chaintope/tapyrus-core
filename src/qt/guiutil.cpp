@@ -526,10 +526,8 @@ TableViewLastColumnResizingFixer::TableViewLastColumnResizingFixer(QTableView* t
 fs::path static StartupShortcutPath()
 {
     std::string chain = gArgs.GetChainMode();
-    if (chain == CBaseChainParams::MAIN)
+    if (chain == TAPYRUS_OP_MODES::MAIN)
         return GetSpecialFolderPath(CSIDL_STARTUP) / "Bitcoin.lnk";
-    if (chain == CBaseChainParams::TESTNET) // Remove this special case when CBaseChainParams::TESTNET = "testnet4"
-        return GetSpecialFolderPath(CSIDL_STARTUP) / "Bitcoin (testnet).lnk";
     return GetSpecialFolderPath(CSIDL_STARTUP) / strprintf("Bitcoin (%s).lnk", chain);
 }
 
