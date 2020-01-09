@@ -53,7 +53,7 @@ private:
  * @returns a CFederationParams* of the chosen chain.
  * @throws a std::runtime_error if the chain is not supported.
  */
-std::unique_ptr<CFederationParams> CreateBaseChainParams(const TAPYRUS_OP_MODE mode, const bool withGenesis);
+std::unique_ptr<CFederationParams> CreateFederationParams(const TAPYRUS_OP_MODE mode, const bool withGenesis);
 
 /**
  *Set the arguments for chainparams

@@ -95,7 +95,7 @@ const CFederationParams& FederationParams()
     return *globalChainFederationParams;
 }
 
-std::unique_ptr<CFederationParams> CreateBaseChainParams(const TAPYRUS_OP_MODE mode, const bool withGenesis)
+std::unique_ptr<CFederationParams> CreateFederationParams(const TAPYRUS_OP_MODE mode, const bool withGenesis)
 {
     gArgs.SelectConfigNetwork(TAPYRUS_MODES::GetChainName(mode));
 
@@ -108,7 +108,7 @@ std::unique_ptr<CFederationParams> CreateBaseChainParams(const TAPYRUS_OP_MODE m
 
 void SelectFederationParams(const TAPYRUS_OP_MODE mode, const bool withGenesis)
 {
-    globalChainFederationParams = CreateBaseChainParams(mode, withGenesis);
+    globalChainFederationParams = CreateFederationParams(mode, withGenesis);
 }
 
 CFederationParams::CFederationParams(const int networkId, const std::string dataDirName, const std::string genesisHex) : nNetworkId(networkId), strNetworkID(std::to_string(networkId)), dataDir(dataDirName) {

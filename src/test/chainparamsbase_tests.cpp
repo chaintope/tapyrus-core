@@ -118,7 +118,7 @@ BOOST_AUTO_TEST_CASE(create_genesis_block_one_publickey)
     aggregateKey.Set(validAggPrivateKey, validAggPrivateKey + 32, true);
     CPubKey aggPubkey = aggregateKey.GetPubKey();
 
-    auto baseChainParams = CreateBaseChainParams(TAPYRUS_OP_MODE::PROD, true);
+    auto baseChainParams = CreateFederationParams(TAPYRUS_OP_MODE::PROD, true);
     baseChainParams->ReadGenesisBlock(getTestGenesisBlockHex(aggPubkey, aggregateKey));
 
     BOOST_CHECK_EQUAL(baseChainParams->GenesisBlock().vtx.size(), 1);
