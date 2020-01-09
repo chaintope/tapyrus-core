@@ -212,11 +212,11 @@ void PaymentServer::ipcParseCommandLine(interfaces::Node& node, int argc, char* 
                 auto tempChainParams = CreateChainParams(CBaseChainParams::MAIN);
 
                 if (IsValidDestinationString(r.address.toStdString(), *tempChainParams)) {
-                    node.selectParams(CBaseChainParams::MAIN);
+                    node.selectParams();
                 } else {
                     tempChainParams = CreateChainParams(CBaseChainParams::TESTNET);
                     if (IsValidDestinationString(r.address.toStdString(), *tempChainParams)) {
-                        node.selectParams(CBaseChainParams::TESTNET);
+                        node.selectParams();
                     }
                 }
             }
@@ -230,11 +230,11 @@ void PaymentServer::ipcParseCommandLine(interfaces::Node& node, int argc, char* 
             {
                 if (request.getDetails().network() == "main")
                 {
-                    node.selectParams(CBaseChainParams::MAIN);
+                    node.selectParams();
                 }
                 else if (request.getDetails().network() == "test")
                 {
-                    node.selectParams(CBaseChainParams::TESTNET);
+                    node.selectParams();
                 }
             }
         }
