@@ -214,7 +214,7 @@ void PaymentServer::ipcParseCommandLine(interfaces::Node& node, int argc, char* 
                 if (IsValidDestinationString(r.address.toStdString(), *tempChainParams)) {
                     node.selectParams();
                 } else {
-                    tempChainParams = CreateChainParams(CBaseChainParams::REGTEST);
+                    tempChainParams = CreateChainParams(TAPYRUS_OP_MODES::REGTEST);
                     if (IsValidDestinationString(r.address.toStdString(), *tempChainParams)) {
                         node.selectParams();
                     }
