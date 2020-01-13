@@ -426,7 +426,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             # Create cache directories, run bitcoinds:
             for i in range(MAX_NODES):
                 datadir = initialize_datadir(self.options.cachedir, i)
-                self.writeGenesisBlockToFile(datadir, self.mocktime - (201 * 10 * 60))
+                self.writeGenesisBlockToFile(datadir, nTime= self.mocktime - (201 * 10 * 60))
                 args = [self.options.bitcoind,
                 "-datadir=" + datadir]
                 if i > 0:

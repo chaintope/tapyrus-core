@@ -69,7 +69,7 @@ class ConfArgsTest(BitcoinTestFramework):
         # -networkid = 10 cmd line parameter
         #os.mkdir(os.path.join(self.nodes[0].datadir,"dev-10"))
         self.writeGenesisBlockToFile(self.nodes[0].datadir, networkid=10)
-        self.start_node(0, ['-networkid=10',  '-datadir=%s' % self.nodes[0].datadir])
+        self.start_node(0, ['-networkid=10', '-datadir=%s' % self.nodes[0].datadir])
         assert os.path.exists(os.path.join(self.nodes[0].datadir, "dev-10", "blocks"))
         self.stop_node(0)
 
