@@ -760,11 +760,6 @@ void InitParameterInteraction()
             LogPrintf("%s: parameter interaction: -whitebind set -> setting -listen=1\n", __func__);
     }
 
-    if (gArgs.IsArgSet("-addseeder")) {
-        if (gArgs.SoftSetBoolArg("-dnsseed", true))
-            LogPrintf("%s: parameter interaction: -addseeder set -> setting -dnsseed=1\n", __func__);
-    }
-
     if (gArgs.IsArgSet("-connect")) {
         // when only connecting to trusted nodes, do not seed via DNS, or listen by default
         if (gArgs.SoftSetBoolArg("-dnsseed", false))
@@ -1134,6 +1129,10 @@ bool AppInitParameterInteraction()
         std::vector<std::string> vstrReplacementModes;
         boost::split(vstrReplacementModes, strReplacementModeList, boost::is_any_of(","));
         fEnableReplacement = (std::find(vstrReplacementModes.begin(), vstrReplacementModes.end(), "fee") != vstrReplacementModes.end());
+    }
+
+    if (!gArgs.GetBoolArg("-dnsseed", true) && gArgs.IsArgSet("-addseeder")) {
+        return InitError("DNS seeding is disabled. But DNS seeders are configured in -addseeder.");
     }
 
     return true;
