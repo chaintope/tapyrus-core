@@ -37,7 +37,10 @@ def MagicBytes(network = TAPYRUS_MODES.DEV):
     return TAPYRUS_NETWORK_PARAMS[network][1]
 
 def NetworkDirName(network = TAPYRUS_MODES.DEV):
-    return "%s-%d" % (TAPYRUS_NETWORK_PARAMS[network][0], network.value)
+    try:
+        return "%s-%d" % (TAPYRUS_NETWORK_PARAMS[network][0], network.value)
+    except:
+        return "dev-%d" % network
 
 # Assert functions
 ##################

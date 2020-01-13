@@ -38,9 +38,50 @@ class ConfArgsTest(BitcoinTestFramework):
 
         self.test_config_file_parser()
 
+        self.log.info("-dnsseeder and -dnsseed tests")
+        # -dnsseeder and -dnsseed tests
+        self.start_node(0, ['-addseeder=seed.tapyrus.dev.chaintope.com','-addseeder=static-seed.tapyrus.dev.chaintope.com'])
+        self.stop_node(0)
+
+        self.nodes[0].assert_start_raises_init_error(['-addseeder=seed.tapyrus.dev.chaintope.com','-addseeder=static-seed.tapyrus.dev.chaintope.com',  '-dnsseed=0'], 'Error: DNS seeding is disabled. But DNS seeders are configured in -addseeder.')
+
+        self.start_node(0, ['-addseeder=seed.tapyrus.dev.chaintope.com','-addseeder=static-seed.tapyrus.dev.chaintope.com', '-dnsseed=1'])
+        self.stop_node(0)
+
+        self.log.info("-networkid tests")
+        conf_file = os.path.join(self.nodes[0].datadir, "tapyrus.conf")
+
+        #backup config file
+        conf_file_contents = open(conf_file, encoding='utf8').read()
+
+        # conf file with -networkid = 4
+        with open(conf_file, 'w', encoding='utf8') as f:
+            f.write("networkid=4\n")
+            f.write("rpcuser=rpcuser\n")
+            f.write("rpcpassword=pass\n")
+            f.write(conf_file_contents)
+
+        self.writeGenesisBlockToFile(self.nodes[0].datadir, networkid=4)
+        self.start_node(0, ['-datadir=%s' % self.nodes[0].datadir])
+        assert os.path.exists(os.path.join(self.nodes[0].datadir, "dev-4", "blocks"))
+        self.stop_node(0)
+
+        # -networkid = 10 cmd line parameter
+        #os.mkdir(os.path.join(self.nodes[0].datadir,"dev-10"))
+        self.writeGenesisBlockToFile(self.nodes[0].datadir, networkid=10)
+        self.start_node(0, ['-networkid=10',  '-datadir=%s' % self.nodes[0].datadir])
+        assert os.path.exists(os.path.join(self.nodes[0].datadir, "dev-10", "blocks"))
+        self.stop_node(0)
+
+        #restore config file
+        with open(conf_file, 'w', encoding='utf8') as f:
+            f.write(conf_file_contents)
+
+        self.log.info("-datadir tests")
         # Remove the -datadir argument so it doesn't override the config file
         self.nodes[0].args = [arg for arg in self.nodes[0].args if not arg.startswith("-datadir")]
 
+        self.writeGenesisBlockToFile(self.nodes[0].datadir)
         default_data_dir = self.nodes[0].datadir
         new_data_dir = os.path.join(default_data_dir, 'newdatadir')
         new_data_dir_2 = os.path.join(default_data_dir, 'newdatadir2')
@@ -49,11 +90,7 @@ class ConfArgsTest(BitcoinTestFramework):
         self.nodes[0].datadir = new_data_dir
         self.nodes[0].assert_start_raises_init_error(['-datadir=' + new_data_dir], 'Error: Specified data directory "' + new_data_dir + '" does not exist.')
 
-        # Check that using non-existent datadir in conf file fails
-        conf_file = os.path.join(default_data_dir, "tapyrus.conf")
-
         # datadir needs to be set before [regtest] section
-        conf_file_contents = open(conf_file, encoding='utf8').read()
         with open(conf_file, 'w', encoding='utf8') as f:
             f.write("datadir=" + new_data_dir + "\n")
             f.write(conf_file_contents)
@@ -74,6 +111,7 @@ class ConfArgsTest(BitcoinTestFramework):
         self.nodes[0].datadir = new_data_dir_2
         self.start_node(0, ['-datadir='+new_data_dir_2, '-conf='+conf_file, '-wallet=w2'])
         assert os.path.exists(os.path.join(new_data_dir_2, NetworkDirName(), 'wallets', 'w2'))
+        self.stop_node(0)
 
 if __name__ == '__main__':
     ConfArgsTest().main()

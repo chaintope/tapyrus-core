@@ -485,10 +485,14 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             datadir = initialize_datadir(self.options.tmpdir, i)
             self.writeGenesisBlockToFile(datadir)
 
-    def writeGenesisBlockToFile(self, datadir, nTime=None):
+    def writeGenesisBlockToFile(self, datadir, networkid = None, nTime=None):
+        if(networkid != None):
+            filename = "genesis.%d" % networkid
+        else:
+            filename = "genesis.dat"
         if self.genesisBlock == None:
             self.genesisBlock = createTestGenesisBlock(self.signblockpubkey, self.signblockprivkey, nTime)
-        with open(os.path.join(datadir, "genesis.dat"), 'w', encoding='utf8') as f:
+        with open(os.path.join(datadir, filename), 'w', encoding='utf8') as f:
             f.write(bytes_to_hex_str(self.genesisBlock.serialize()))
 
 class SkipTest(Exception):
