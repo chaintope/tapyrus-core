@@ -3,7 +3,7 @@ name: CI on Push
 on: [push]
 
 jobs:
-  build_x86_linux_no_gui:
+  build_x86_linux_no_gui_debug:
     name: x86 Linux, No GUI, Debug
 
     runs-on: ubuntu-18.04
@@ -20,9 +20,10 @@ jobs:
           RUN_TESTS=true \
           DEBUD_MODE=true \
           GOAL="install" \
-          BITCOIN_CONFIG="--enable-zmq --with-incompatible-bdb --enable-glibc-back-compat --enable-reduce-exports --with-gui=no --enable-debug CPPFLAGS=-DDEBUG_LOCKORDER" \
+          BITCOIN_CONFIG="--enable-zmq --with-incompatible-bdb --enable-reduce-exports --with-gui=no --enable-debug CPPFLAGS=-DDEBUG  CPPFLAGS=-DDEBUG_LOCKORDER" \
           bash -xe ./build-test.sh
 
+  build_x86_linux_no_gui_release:
     name: x86 Linux, No GUI, Release
 
     runs-on: ubuntu-18.04
@@ -39,7 +40,7 @@ jobs:
           RUN_TESTS=true \
           DEBUD_MODE=false \
           GOAL="install" \
-          BITCOIN_CONFIG="--enable-zmq --with-incompatible-bdb --enable-glibc-back-compat --enable-reduce-exports --with-gui=no CPPFLAGS=-DDEBUG_LOCKORDER" \
+          BITCOIN_CONFIG="--enable-zmq --with-incompatible-bdb --enable-reduce-exports --with-gui=no CPPFLAGS=-DDEBUG_LOCKORDER" \
           bash -xe ./build-test.sh
   lint:
     name: "[PARTIAL_PENDING]lint"
