@@ -4,7 +4,7 @@ on: [push]
 
 jobs:
   build_x86_linux_no_gui:
-    name: x86 Linux, No GUI
+    name: x86 Linux, No GUI, Debug
 
     runs-on: ubuntu-18.04
     
@@ -18,10 +18,29 @@ jobs:
           NO_DEPENDS=1 \
           DEP_OPTS="NO_QT=1" \
           RUN_TESTS=true \
+          DEBUD_MODE=true \
+          GOAL="install" \
+          BITCOIN_CONFIG="--enable-zmq --with-incompatible-bdb --enable-glibc-back-compat --enable-reduce-exports --with-gui=no --enable-debug CPPFLAGS=-DDEBUG_LOCKORDER" \
+          bash -xe ./build-test.sh
+
+    name: x86 Linux, No GUI, Release
+
+    runs-on: ubuntu-18.04
+    
+    steps:
+      - uses: actions/checkout@v1
+      - name: Build
+        run: |
+          source ./default-env.sh
+          HOST=x86_64-unknown-linux-gnu \
+          PACKAGES="python3-zmq libssl1.0-dev libevent-dev bsdmainutils libboost-system-dev libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev libdb5.3++-dev libminiupnpc-dev libzmq3-dev libprotobuf-dev protobuf-compiler libqrencode-dev" \
+          NO_DEPENDS=1 \
+          DEP_OPTS="NO_QT=1" \
+          RUN_TESTS=true \
+          DEBUD_MODE=false \
           GOAL="install" \
           BITCOIN_CONFIG="--enable-zmq --with-incompatible-bdb --enable-glibc-back-compat --enable-reduce-exports --with-gui=no CPPFLAGS=-DDEBUG_LOCKORDER" \
           bash -xe ./build-test.sh
-
   lint:
     name: "[PARTIAL_PENDING]lint"
 

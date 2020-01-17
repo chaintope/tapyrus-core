@@ -83,7 +83,7 @@ def assert_not_equal(thing1, thing2):
 class SerializationTest(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
-        self.extra_args = [['-whitelist=127.0.0.1', '-acceptnonstdtxn=0']]
+        self.extra_args = [['-whitelist=127.0.0.1']]
         self.setup_clean_chain = True
         self.pubkey = ""
 

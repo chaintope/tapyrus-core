@@ -64,8 +64,6 @@ public:
 
     /** Default value for -checkmempool and -checkblockindex argument */
     bool DefaultConsistencyChecks() const { return fDefaultConsistencyChecks; }
-    /** Policy: Filter transactions that do not match well-defined patterns */
-    bool RequireStandard() const { return fRequireStandard; }
     uint64_t PruneAfterHeight() const { return nPruneAfterHeight; }
     /** Make miner stop after a block is found. In RPC, don't return until nGenProcLimit blocks are generated */
     bool MineBlocksOnDemand() const { return fMineBlocksOnDemand; }
@@ -89,7 +87,6 @@ protected:
     int nDefaultPort;
     uint64_t nPruneAfterHeight;
     bool fDefaultConsistencyChecks;
-    bool fRequireStandard;
     bool fMineBlocksOnDemand;
     std::vector<std::string> vSeeds;
     std::vector<SeedSpec6> vFixedSeeds;

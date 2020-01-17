@@ -53,7 +53,6 @@ public:
         vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_main, pnSeed6_main + ARRAYLEN(pnSeed6_main));
 
         fDefaultConsistencyChecks = false;
-        fRequireStandard = true;
         fMineBlocksOnDemand = false;
 
         /* disable fallback fee on mainnet */
@@ -78,7 +77,6 @@ public:
         vSeeds.clear();      //!< Regtest mode doesn't have any DNS seeds.
 
         fDefaultConsistencyChecks = true;
-        fRequireStandard = false;
         fMineBlocksOnDemand = true;
 
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,111);

@@ -14,6 +14,8 @@ from test_framework.messages import (
     CTxIn,
     CTxOut,
 )
+from test_framework.key import CECKey, CPubKey
+from test_framework.script import CScript, OP_CHECKSIG, OP_TRUE, SignatureHash, hash160, SIGHASH_ALL, CScriptOp, OP_DUP, OP_EQUALVERIFY, OP_HASH160
 from test_framework.mininode import P2PDataStore
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
@@ -51,10 +53,18 @@ class InvalidTxRequestTest(BitcoinTestFramework):
         tip = int(best_block, 16)
         best_block_time = self.nodes[0].getblock(best_block)['time']
         block_time = best_block_time + 1
+        
+        privkey = b"aa3680d5d48a8283413f7a108367c7299ca73f553735860a87b08f39395618b7"
+        key = CECKey()
+        key.set_secretbytes(privkey)
+        key.set_compressed(True)
+        pubkey = CPubKey(key.get_pubkey())
+        pubkeyhash = hash160(pubkey)
+        SCRIPT_PUB_KEY = CScript([CScriptOp(OP_DUP), CScriptOp(OP_HASH160), pubkeyhash, CScriptOp(OP_EQUALVERIFY), CScriptOp(OP_CHECKSIG)])
 
         self.log.info("Create a new block with an anyone-can-spend coinbase.")
         height = 1
-        block = create_block(tip, create_coinbase(height), block_time, self.signblockpubkey)
+        block = create_block(tip, create_coinbase(height, pubkey), block_time, self.signblockpubkey)
         block.solve(self.signblockprivkey)
         # Save the coinbase for later
         block1 = block
@@ -66,10 +76,9 @@ class InvalidTxRequestTest(BitcoinTestFramework):
 
         # b'\x64' is OP_NOTIF
         # Transaction will be rejected with code 16 (REJECT_INVALID)
-        # and we get disconnected immediately
         self.log.info('Test a transaction that is rejected')
         tx1 = create_tx_with_script(block1.vtx[0], 0, script_sig=b'\x64' * 35, amount=50 * COIN - 12000)
-        node.p2p.send_txs_and_test([tx1], node, success=False, expect_disconnect=True)
+        node.p2p.send_txs_and_test([tx1], node, success=False, expect_disconnect=False)
 
         # Make two p2p connections to provide the node with orphans
         # * p2ps[0] will send valid orphan txs (one with low fee)
@@ -79,33 +88,47 @@ class InvalidTxRequestTest(BitcoinTestFramework):
         self.log.info('Test orphan transaction handling ... ')
         # Create a root transaction that we withhold until all dependend transactions
         # are sent out and in the orphan cache
-        SCRIPT_PUB_KEY_OP_TRUE = b'\x51\x75' * 15 + b'\x51'
         tx_withhold = CTransaction()
         tx_withhold.vin.append(CTxIn(outpoint=COutPoint(block1.vtx[0].malfixsha256, 0)))
-        tx_withhold.vout.append(CTxOut(nValue=50 * COIN - 12000, scriptPubKey=SCRIPT_PUB_KEY_OP_TRUE))
+        tx_withhold.vout.append(CTxOut(nValue=50 * COIN - 12000, scriptPubKey=SCRIPT_PUB_KEY))
         tx_withhold.calc_sha256()
+        (sighash, err) = SignatureHash(CScript([pubkey, OP_CHECKSIG]), tx_withhold, 0, SIGHASH_ALL)
+        signature = key.sign(sighash) + b'\x01'  # 0x1 is SIGHASH_ALL
+        tx_withhold.vin[0].scriptSig = CScript([signature])
 
         # Our first orphan tx with some outputs to create further orphan txs
         tx_orphan_1 = CTransaction()
         tx_orphan_1.vin.append(CTxIn(outpoint=COutPoint(tx_withhold.malfixsha256, 0)))
-        tx_orphan_1.vout = [CTxOut(nValue=10 * COIN, scriptPubKey=SCRIPT_PUB_KEY_OP_TRUE)] * 3
+        tx_orphan_1.vout = [CTxOut(nValue=10 * COIN, scriptPubKey=SCRIPT_PUB_KEY)] * 3
         tx_orphan_1.calc_sha256()
+        (sighash, err) = SignatureHash(SCRIPT_PUB_KEY, tx_orphan_1, 0, SIGHASH_ALL)
+        signature = key.sign(sighash) + b'\x01'  # 0x1 is SIGHASH_ALL
+        tx_orphan_1.vin[0].scriptSig = CScript([signature, pubkey])
 
         # A valid transaction with low fee
         tx_orphan_2_no_fee = CTransaction()
         tx_orphan_2_no_fee.vin.append(CTxIn(outpoint=COutPoint(tx_orphan_1.malfixsha256, 0)))
-        tx_orphan_2_no_fee.vout.append(CTxOut(nValue=10 * COIN, scriptPubKey=SCRIPT_PUB_KEY_OP_TRUE))
+        tx_orphan_2_no_fee.vout.append(CTxOut(nValue=10 * COIN, scriptPubKey=SCRIPT_PUB_KEY))
+        (sighash, err) = SignatureHash(SCRIPT_PUB_KEY, tx_orphan_2_no_fee, 0, SIGHASH_ALL)
+        signature = key.sign(sighash) + b'\x01'  # 0x1 is SIGHASH_ALL
+        tx_orphan_2_no_fee.vin[0].scriptSig = CScript([signature, pubkey])
 
         # A valid transaction with sufficient fee
         tx_orphan_2_valid = CTransaction()
         tx_orphan_2_valid.vin.append(CTxIn(outpoint=COutPoint(tx_orphan_1.malfixsha256, 1)))
-        tx_orphan_2_valid.vout.append(CTxOut(nValue=10 * COIN - 12000, scriptPubKey=SCRIPT_PUB_KEY_OP_TRUE))
+        tx_orphan_2_valid.vout.append(CTxOut(nValue=10 * COIN - 12000, scriptPubKey=SCRIPT_PUB_KEY))
         tx_orphan_2_valid.calc_sha256()
+        (sighash, err) = SignatureHash(SCRIPT_PUB_KEY, tx_orphan_2_valid, 0, SIGHASH_ALL)
+        signature = key.sign(sighash) + b'\x01'  # 0x1 is SIGHASH_ALL
+        tx_orphan_2_valid.vin[0].scriptSig = CScript([signature, pubkey])
 
         # An invalid transaction with negative fee
         tx_orphan_2_invalid = CTransaction()
         tx_orphan_2_invalid.vin.append(CTxIn(outpoint=COutPoint(tx_orphan_1.malfixsha256, 2)))
-        tx_orphan_2_invalid.vout.append(CTxOut(nValue=11 * COIN, scriptPubKey=SCRIPT_PUB_KEY_OP_TRUE))
+        tx_orphan_2_invalid.vout.append(CTxOut(nValue=11 * COIN, scriptPubKey=SCRIPT_PUB_KEY))
+        (sighash, err) = SignatureHash(SCRIPT_PUB_KEY, tx_orphan_2_invalid, 0, SIGHASH_ALL)
+        signature = key.sign(sighash) + b'\x01'  # 0x1 is SIGHASH_ALL
+        tx_orphan_2_invalid.vin[0].scriptSig = CScript([signature, pubkey])
 
         self.log.info('Send the orphans ... ')
         # Send valid orphan txs from p2ps[0]
@@ -139,7 +162,7 @@ class InvalidTxRequestTest(BitcoinTestFramework):
         self.log.info('Test a transaction that is rejected, with BIP61 disabled')
         self.restart_node(0, ['-enablebip61=0','-persistmempool=0'])
         self.reconnect_p2p(num_connections=1)
-        node.p2p.send_txs_and_test([tx1], node, success=False, expect_disconnect=True)
+        node.p2p.send_txs_and_test([tx1], node, success=False, expect_disconnect=False)
         # send_txs_and_test will have waited for disconnect, so we can safely check that no reject has been received
         assert_equal(node.p2p.reject_code_received, None)
 
