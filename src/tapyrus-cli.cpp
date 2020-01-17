@@ -263,6 +263,7 @@ public:
             result.pushKV("walletversion", batch[ID_WALLETINFO]["result"]["walletversion"]);
             result.pushKV("balance", batch[ID_WALLETINFO]["result"]["balance"]);
         }
+        result.pushKV("mode", batch[ID_BLOCKCHAININFO]["result"]["mode"]);
         result.pushKV("chain", batch[ID_BLOCKCHAININFO]["result"]["chain"]);
         result.pushKV("blocks", batch[ID_BLOCKCHAININFO]["result"]["blocks"]);
         result.pushKV("timeoffset", batch[ID_NETWORKINFO]["result"]["timeoffset"]);

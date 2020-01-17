@@ -57,6 +57,8 @@ class TestBitcoinCli(BitcoinTestFramework):
         blockchain_info = self.nodes[0].getblockchaininfo()
 
         assert_equal(cli_get_info['version'], network_info['version'])
+        assert_equal(cli_get_info['mode'], blockchain_info['mode'])
+        assert_equal(cli_get_info['chain'], blockchain_info['chain'])
         assert_equal(cli_get_info['protocolversion'], network_info['protocolversion'])
         assert_equal(cli_get_info['walletversion'], wallet_info['walletversion'])
         assert_equal(cli_get_info['balance'], wallet_info['balance'])
