@@ -10,7 +10,7 @@ jobs:
     
     steps:
       - uses: actions/checkout@v1
-      - name: Build
+      - name: Build debug
         run: |
           source ./default-env.sh
           HOST=x86_64-unknown-linux-gnu \
@@ -29,7 +29,7 @@ jobs:
     
     steps:
       - uses: actions/checkout@v1
-      - name: Build
+      - name: Build release
         run: |
           source ./default-env.sh
           HOST=x86_64-unknown-linux-gnu \
