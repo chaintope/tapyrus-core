@@ -49,19 +49,21 @@ Please follow the instructions in [build tapyrus-signer](https://github.com/chai
 
 ## How to get the pre-built binaries?
 
-Pre-built Tapyrus binaries for the supported platforms namely Linux and Mac os are packaged from version 0.3.0 onwards.
-* v.0.3.0 [TODO:add link]
+Pre-built Tapyrus binaries for the supported platforms namely Linux and Mac os are packaged from version 0.3.0 onwards.  
+You can download from [here - v.0.3.0](https://github.com/chaintope/tapyrus-core/releases/tag/v0.3.0)
 
-- The package contains all the binaries needed to create a Tapyrus network and release notes. 
+- The package contains all the binaries needed to create a Tapyrus network. 
 - Binaries for older versions and other platforms need to be built from the source code. Please note that they have not been tested and are not guaranteed to work as expected.
 
 ## How to start tapyrus in regtest mode?
 
 One Tapyrus-core node can be started in regtest mode for testing purposes. 
 1. Create data directory. It is recommended to use a different data directory for each mode/network.
-```$ sudo mkdir /var/lib/tapyrus-regtest```
+```
+$ sudo mkdir /var/lib/tapyrus-regtest
+```
 
-2. Create a configuration file 'tapyrus.conf' with the following content
+2 . Create a configuration file 'tapyrus.conf' with the following content
 ```
 networkid=1905960821
 regtest=1
@@ -104,6 +106,7 @@ Block rewards can now be spent to create new transactions and proceed with testi
 ##### Note:
 > :point_right: If you wish to start a new test network then follow the instructions in [How to start a new tapyrus network?](https://github.com/chaintope/tapyrus-core/blob/v0.3.0/doc/tapyrus/getting_started.md#how-to-start-a-new-tapyrus-network) and run Tapyrus-core (tapyrusd) with -testnet option.
 
+
 Tapyrus software does not support a separate "testnet" mode. A new Tapyrus "mainnet" with a different network Id can be created to be used as testnet.
 
 In order to join the Chaintope's Tapyrus testnet with networkid 1939510133 it is enough to start a Tapyrus-core node (tapyrusd) on the host. Please follow the steps below:
@@ -111,7 +114,7 @@ In order to join the Chaintope's Tapyrus testnet with networkid 1939510133 it is
 1. Create data directory. It is recommended to use a different data directory for each network.
 ```$ sudo mkdir /var/lib/tapyrus-testnet```
 
-2. Create a configuration file 'tapyrus.conf' with the following content
+2. Create a configuration file 'tapyrus.conf' with the following content as `/etc/tapyrus/tapyrus.conf`
 
 ```
 networkid=1939510133
@@ -121,28 +124,27 @@ rest=1
 rpcuser=user
 rpcpassword=pass
 rpcbind=0.0.0.0
-rpcallowip=172.16.2.0/24
+rpcallowip=127.0.0.1
 ```
 
 3. Create 'genesis.<networkid>' in data dir with the following content. This is the genesis block of the testnet
 
-TODO:update this file after testnet is reset for version 0.3.0.
+In this step, genesis.<networkid> should be put as `/var/lib/tapyrus-testnet/genesis.1939510133`.
 ```
-0100000000000000000000000000000000000000000000000000000000000000000000002e4533a0ccb1c1b83a641ce00656d3d234e362ab2ce0d6d69eaaba1edceb9e962f69b65cb127339d5d8da08d50f6d4deb37b46157123dbe5fb0a30a641af68e70c3d285d0346304402201e9de308c52cfc760c9eb5a1638857563c39791a77bd3b4c53dcd26b4d02e8480220542963fe20dbedd31c609f8393cb68e4b80c4e849fcddf7a0a2dddaac4ce2e134630440220295288205c39d933dd7c236011857cf3b0147e226154afc5c44421a38cb0a77102202c580fdf814904ed3f17fce8f545ba66aa3ebd9a00eb7205371ee3de895e2a0346304402200f9301b705c64a5fb5cb9ecb8cf4498291142b93491cb560e36db6145f60d6e002200572b51df4e1397340a1487f9f8b35e07730055a2d4d9a83e0954ff22a8bc599010100000001000000000000000000000000000000000000000000000000000000000000000000000000240102210276d7a1b83fd97b8751d2b82e1f7a89dcd23a5b3f5cc2798083ad6f775018102effffffff0100f2052a010000001976a914a941c2ccebe78a5a1348dddd42362b588cb563b588ac00000000
-```
-
-4. Before running, it's recommended that you create an RPC configuration file.
-
-```
-echo -e "rpcuser=bitcoinrpc\nrpcpassword=$(xxd -l 16 -p /dev/urandom)" > "/Users/${USER}/Library/Application Support/Tapyrus/tapyrus.conf"
-
-chmod 600 "/Users/${USER}/Library/Application Support/Tapyrus/tapyrus.conf"
+010000000000000000000000000000000000000000000000000000000000000000000000c1457ff3e5c527e69858108edf0ff1f49eea9c58d8d37300a164b3b4f8c8c7cef1a2e72770d547feae29f2dd40123a97c580d44fd4493de072416d53331997617b96f05d210366262690cbdf648132ce0c088962c6361112582364ede120f3780ab73438fc4b403a4c09253c7b583e5260074380c9b99b895f938e37799d326ded984fb707e91fa4df2e0524a4ccf5fe224945b4fb94784b411a760eb730d95402d3383dd7ffdc01010000000100000000000000000000000000000000000000000000000000000000000000000000000022210366262690cbdf648132ce0c088962c6361112582364ede120f3780ab73438fc4bffffffff0100f2052a010000002776a9226d70757956774d32596a454d755a4b72687463526b614a787062715447417346484688ac00000000
 ```
 
+4. Start 'tapyrusd' using the following command.
 
-5. Start 'tapyrusd' using the following command.
+```
+tapyrusd -daemon -datadir=/var/lib/tapyrus-testnet -conf=/etc/tapyrus/tapyrus.conf
+```
 
-```/usr/local/bin/tapyrusd -daemon -datadir=/var/lib/tapyrus-testnet -conf=/etc/tapyrus/tapyrus.conf```
+5. Call RPCs
+
+```
+tapyrus-cli -networkid=1939510133 -datadir=/var/lib/tapyrus-testnet -conf=/etc/tapyrus/tapyrus.conf getblockchaininfo
+```
 
 
 Verify the progress of initial block download in the new node using debug.log. The node is ready to accept transactions which would be written to the testnet blockchain. Please refer to [how to get coins](https://github.com/chaintope/tapyrus-core/blob/v0.3.0/doc/tapyrus/getting_started.md#how-to-get-coins) section to get testnet coins.
@@ -233,14 +235,14 @@ Tapyrus-genesis utility is packaged with tapyrus v.0.3.0. It can generate a basi
 
 Example:
 ``` 
-./tapyrus-genesis -time=1563342688 -address=mmtAurzUTURFq9MSizWyj5sAkWzgqR8PBn -signblockpubkey=03af80b90d25145da28c583359beb47b21796b2fe1a23c1511e443e7a64dfdb27d
+tapyrus-genesis -time=1563342688 -address=mmtAurzUTURFq9MSizWyj5sAkWzgqR8PBn -signblockpubkey=03af80b90d25145da28c583359beb47b21796b2fe1a23c1511e443e7a64dfdb27d
 ```
 
 If there is a need for a custom genesis block in your test, creating and using it is not restricted. As long as the custom genesis block is signed and satisfies Tapyrus consensus rules, the block is accepted and the blockchain would progress.
 
 ## How to get coins?
 
-Tapyrus testnet faucet can be used to get testnet coins. TODO:Add link
+[Tapyrus testnet faucet](https://testnet-faucet.tapyrus.dev.chaintope.com) can be used to get testnet coins.
 
 ## How to upgrade tapyrus?
 
