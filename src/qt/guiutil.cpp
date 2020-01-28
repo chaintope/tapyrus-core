@@ -5,8 +5,8 @@
 
 #include <qt/guiutil.h>
 
-#include <qt/bitcoinaddressvalidator.h>
-#include <qt/bitcoinunits.h>
+#include <qt/tapyrusaddressvalidator.h>
+#include <qt/tapyrusunits.h>
 #include <qt/qvalidatedlineedit.h>
 #include <qt/walletmodel.h>
 
@@ -122,7 +122,7 @@ void setupAddressWidget(QValidatedLineEdit *widget, QWidget *parent)
 bool parseBitcoinURI(const QUrl &uri, SendCoinsRecipient *out)
 {
     // return if URI is not valid or is no bitcoin: URI
-    if(!uri.isValid() || uri.scheme() != QString("bitcoin"))
+    if(!uri.isValid() || uri.scheme() != QString("tapyrus"))
         return false;
 
     SendCoinsRecipient rv;
@@ -184,7 +184,7 @@ bool parseBitcoinURI(QString uri, SendCoinsRecipient *out)
 
 QString formatBitcoinURI(const SendCoinsRecipient &info)
 {
-    QString ret = QString("bitcoin:%1").arg(info.address);
+    QString ret = QString("tapyrus:%1").arg(info.address);
     int paramCount = 0;
 
     if (info.amount)
@@ -527,13 +527,13 @@ fs::path static StartupShortcutPath()
 {
     std::string chain = gArgs.GetChainMode();
     if (chain == TAPYRUS_OP_MODE::MAIN)
-        return GetSpecialFolderPath(CSIDL_STARTUP) / "Bitcoin.lnk";
-    return GetSpecialFolderPath(CSIDL_STARTUP) / strprintf("Bitcoin (%s).lnk", chain);
+        return GetSpecialFolderPath(CSIDL_STARTUP) / "Tapyrus.lnk";
+    return GetSpecialFolderPath(CSIDL_STARTUP) / strprintf("Tapyrus (%s).lnk", chain);
 }
 
 bool GetStartOnSystemStartup()
 {
-    // check for Bitcoin*.lnk
+    // check for Tapyrus*.lnk
     return fs::exists(StartupShortcutPath());
 }
 
@@ -623,8 +623,8 @@ fs::path static GetAutostartFilePath()
 {
     std::string chain = gArgs.GetChainMode();
     if (chain == TAPYRUS_OP_MODE::MAIN)
-        return GetAutostartDir() / "bitcoin.desktop";
-    return GetAutostartDir() / strprintf("bitcoin-%s.lnk", chain);
+        return GetAutostartDir() / "tapyrus.desktop";
+    return GetAutostartDir() / strprintf("tapyrus-%s.lnk", chain);
 }
 
 bool GetStartOnSystemStartup()
@@ -668,9 +668,9 @@ bool SetStartOnSystemStartup(bool fAutoStart)
         optionFile << "[Desktop Entry]\n";
         optionFile << "Type=Application\n";
         if (chain == TAPYRUS_OP_MODE::MAIN)
-            optionFile << "Name=Bitcoin\n";
+            optionFile << "Name=Tapyrus\n";
         else
-            optionFile << strprintf("Name=Bitcoin (%s)\n", chain);
+            optionFile << strprintf("Name=Tapyrus (%s)\n", chain);
         optionFile << "Exec=" << pszExePath << strprintf(" -min  -regtest=%d\n", gArgs.GetBoolArg("-regtest", false));
         optionFile << "Terminal=false\n";
         optionFile << "Hidden=false\n";

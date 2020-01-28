@@ -1284,7 +1284,7 @@ static void CheckForkWarningConditionsOnNewFork(CBlockIndex* pindexNewForkTip)
     // We define a condition where we should warn the user about as a fork of at least 2 blocks
     // with a tip within 72 blocks (+/- 12 hours if no one mines it) of ours
     // In SignedBlocks, forks are not going to be raise. It shows chain governance is broken.
-    // So that, we use 2 blocks not 7(in bitcoin core, that uses 7). 1 block fork will be able to happen.
+    // So that, we use 2 blocks not 7(in tapyrus core, that uses 7). 1 block fork will be able to happen.
     // Because of block hash malleability.
     // or a chain that is entirely longer than ours and invalid (note that this should be detected by both)
     // We define it this way because it allows us to only store the highest fork tip (+ base) which meets
@@ -1691,7 +1691,7 @@ static bool WriteUndoDataForBlock(const CBlockUndo& blockundo, CValidationState&
 static CCheckQueue<CScriptCheck> scriptcheckqueue(128);
 
 void ThreadScriptCheck() {
-    RenameThread("bitcoin-scriptch");
+    RenameThread("tapyrus-scriptch");
     scriptcheckqueue.Thread();
 }
 
