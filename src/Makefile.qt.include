@@ -360,7 +360,7 @@ RES_IMAGES =
 
 RES_MOVIES = $(wildcard $(srcdir)/qt/res/movies/spinner-*.png)
 
-BITCOIN_RC = qt/res/tapyrus_qt-res.rc
+BITCOIN_RC = qt/res/tapyrus-qt-res.rc
 
 BITCOIN_QT_INCLUDES = -DQT_NO_KEYWORDS
 
