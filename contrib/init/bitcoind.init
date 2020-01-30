@@ -1,36 +1,36 @@
 #!/usr/bin/env bash
 #
-#  bitcoind The bitcoin core server.
+#  tapyrusd The tapyrus core server.
 #
 #
 # chkconfig: 345 80 20
-# description: bitcoind
-# processname: bitcoind
+# description: tapyrusd
+# processname: tapyrusd
 #
 
 # Source function library.
 . /etc/init.d/functions
 
-# you can override defaults in /etc/sysconfig/bitcoind, see below
-if [ -f /etc/sysconfig/bitcoind ]; then
-        . /etc/sysconfig/bitcoind
+# you can override defaults in /etc/sysconfig/tapyrusd, see below
+if [ -f /etc/sysconfig/tapyrusd ]; then
+        . /etc/sysconfig/tapyrusd
 fi
 
 RETVAL=0
 
-prog=bitcoind
-# you can override the lockfile via BITCOIND_LOCKFILE in /etc/sysconfig/bitcoind
-lockfile=${BITCOIND_LOCKFILE-/var/lock/subsys/bitcoind}
+prog=tapyrusd
+# you can override the lockfile via BITCOIND_LOCKFILE in /etc/sysconfig/tapyrusd
+lockfile=${BITCOIND_LOCKFILE-/var/lock/subsys/tapyrusd}
 
-# bitcoind defaults to /usr/bin/bitcoind, override with BITCOIND_BIN
-bitcoind=${BITCOIND_BIN-/usr/bin/bitcoind}
+# tapyrusd defaults to /usr/bin/tapyrusd, override with BITCOIND_BIN
+tapyrusd=${BITCOIND_BIN-/usr/bin/tapyrusd}
 
-# bitcoind opts default to -disablewallet, override with BITCOIND_OPTS
-bitcoind_opts=${BITCOIND_OPTS--disablewallet}
+# tapyrusd opts default to -disablewallet, override with BITCOIND_OPTS
+tapyrusd_opts=${BITCOIND_OPTS--disablewallet}
 
 start() {
     echo -n $"Starting $prog: "
-    daemon $DAEMONOPTS $bitcoind $bitcoind_opts
+    daemon $DAEMONOPTS $tapyrusd $tapyrusd_opts
     RETVAL=$?
     echo
     [ $RETVAL -eq 0 ] && touch $lockfile

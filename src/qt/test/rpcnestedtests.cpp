@@ -40,16 +40,17 @@ void RPCNestedTests::rpcNestedTests()
     tableRPC.appendCommand("rpcNestedTest", &vRPCCommands[0]);
     //mempool.setSanityCheck(1.0);
 
-    TestingSetup test;
-
     SetRPCWarmupFinished();
 
     std::string result;
     std::string result2;
     std::string filtered;
     auto node = interfaces::MakeNode();
-    RPCConsole::RPCExecuteCommandLine(*node, result, "getblockchaininfo()[chain]", &filtered); //simple result filtering with path
+
+    RPCConsole::RPCExecuteCommandLine(*node, result, "getblockchaininfo()[mode]", &filtered);
     QVERIFY(result=="prod");
+    RPCConsole::RPCExecuteCommandLine(*node, result, "getblockchaininfo()[chain]", &filtered); //simple result filtering with path
+    QVERIFY(result=="1");
     QVERIFY(filtered == "getblockchaininfo()[chain]");
 
     RPCConsole::RPCExecuteCommandLine(*node, result, "getblock(getbestblockhash())"); //simple 2 level nesting
@@ -76,7 +77,7 @@ void RPCNestedTests::rpcNestedTests()
     QVERIFY(result == result2);
 
     RPCConsole::RPCExecuteCommandLine(*node, result, "getblock(getbestblockhash())[tx][0]", &filtered);
-    QVERIFY(result == "4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b");
+    QVERIFY(result == "e14141bea2c13c3ca295366747b365acc23748749baadbbd0e4d6ef71982c126");
     QVERIFY(filtered == "getblock(getbestblockhash())[tx][0]");
 
     RPCConsole::RPCParseCommandLine(nullptr, result, "importprivkey", false, &filtered);

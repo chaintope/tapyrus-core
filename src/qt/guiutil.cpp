@@ -5,8 +5,8 @@
 
 #include <qt/guiutil.h>
 
-#include <qt/bitcoinaddressvalidator.h>
-#include <qt/bitcoinunits.h>
+#include <qt/tapyrusaddressvalidator.h>
+#include <qt/tapyrusunits.h>
 #include <qt/qvalidatedlineedit.h>
 #include <qt/walletmodel.h>
 
@@ -122,7 +122,7 @@ void setupAddressWidget(QValidatedLineEdit *widget, QWidget *parent)
 bool parseBitcoinURI(const QUrl &uri, SendCoinsRecipient *out)
 {
     // return if URI is not valid or is no bitcoin: URI
-    if(!uri.isValid() || uri.scheme() != QString("bitcoin"))
+    if(!uri.isValid() || uri.scheme() != QString("tapyrus"))
         return false;
 
     SendCoinsRecipient rv;
@@ -184,7 +184,7 @@ bool parseBitcoinURI(QString uri, SendCoinsRecipient *out)
 
 QString formatBitcoinURI(const SendCoinsRecipient &info)
 {
-    QString ret = QString("bitcoin:%1").arg(info.address);
+    QString ret = QString("tapyrus:%1").arg(info.address);
     int paramCount = 0;
 
     if (info.amount)
@@ -525,15 +525,35 @@ TableViewLastColumnResizingFixer::TableViewLastColumnResizingFixer(QTableView* t
 #ifdef WIN32
 fs::path static StartupShortcutPath()
 {
+<<<<<<< HEAD
     std::string chain = gArgs.GetChainMode();
     if (chain == TAPYRUS_OP_MODE::PROD)
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+    std::string chain = gArgs.GetChainName();
+    if (chain == CBaseChainParams::MAIN)
+>>>>>>> Part 1 - renaming bitcoin to tapyrus in icons, build files and GUI
         return GetSpecialFolderPath(CSIDL_STARTUP) / "Bitcoin.lnk";
     return GetSpecialFolderPath(CSIDL_STARTUP) / strprintf("Bitcoin (%s).lnk", chain);
+=======
+    std::string chain = gArgs.GetChainMode();
+=======
+    std::string chain = TAPYRUS_MODES::GetChainName(gArgs.GetChainMode());
+<<<<<<< HEAD
+>>>>>>> 3e8d941fb... naming bitcoin to tayrus, renamed include guard
+    if (chain == TAPYRUS_OP_MODE::MAIN)
+=======
+    if (chain == TAPYRUS_MODES::MAIN)
+>>>>>>> f56c45d8e... fixed linux qt build - changed to TAPYRUS_MODES
+        return GetSpecialFolderPath(CSIDL_STARTUP) / "Tapyrus.lnk";
+    return GetSpecialFolderPath(CSIDL_STARTUP) / strprintf("Tapyrus (%s).lnk", chain);
+>>>>>>> f8497fd2c... renamed bitcoin to tapyrus in GUI files and makefiles
 }
 
 bool GetStartOnSystemStartup()
 {
-    // check for Bitcoin*.lnk
+    // check for Tapyrus*.lnk
     return fs::exists(StartupShortcutPath());
 }
 
@@ -621,10 +641,30 @@ fs::path static GetAutostartDir()
 
 fs::path static GetAutostartFilePath()
 {
+<<<<<<< HEAD
     std::string chain = gArgs.GetChainMode();
     if (chain == TAPYRUS_OP_MODE::PROD)
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+    std::string chain = gArgs.GetChainName();
+    if (chain == CBaseChainParams::MAIN)
+>>>>>>> Part 1 - renaming bitcoin to tapyrus in icons, build files and GUI
         return GetAutostartDir() / "bitcoin.desktop";
     return GetAutostartDir() / strprintf("bitcoin-%s.lnk", chain);
+=======
+    std::string chain = gArgs.GetChainMode();
+=======
+    std::string chain = TAPYRUS_MODES::GetChainName(gArgs.GetChainMode());
+<<<<<<< HEAD
+>>>>>>> 3e8d941fb... naming bitcoin to tayrus, renamed include guard
+    if (chain == TAPYRUS_OP_MODE::MAIN)
+=======
+    if (chain == TAPYRUS_MODES::MAIN)
+>>>>>>> f56c45d8e... fixed linux qt build - changed to TAPYRUS_MODES
+        return GetAutostartDir() / "tapyrus.desktop";
+    return GetAutostartDir() / strprintf("tapyrus-%s.lnk", chain);
+>>>>>>> f8497fd2c... renamed bitcoin to tapyrus in GUI files and makefiles
 }
 
 bool GetStartOnSystemStartup()
@@ -663,6 +703,7 @@ bool SetStartOnSystemStartup(bool fAutoStart)
         fs::ofstream optionFile(GetAutostartFilePath(), std::ios_base::out|std::ios_base::trunc);
         if (!optionFile.good())
             return false;
+<<<<<<< HEAD
         std::string chain = gArgs.GetChainMode();
         // Write a bitcoin.desktop file to the autostart directory:
         optionFile << "[Desktop Entry]\n";
@@ -672,6 +713,17 @@ bool SetStartOnSystemStartup(bool fAutoStart)
         else
             optionFile << strprintf("Name=Bitcoin (%s)\n", chain);
         optionFile << "Exec=" << pszExePath << strprintf(" -min  -dev=%d\n", gArgs.GetBoolArg("-dev", false));
+=======
+        std::string chain = TAPYRUS_MODES::GetChainName(gArgs.GetChainMode());
+        // Write a bitcoin.desktop file to the autostart directory:
+        optionFile << "[Desktop Entry]\n";
+        optionFile << "Type=Application\n";
+        if (chain == TAPYRUS_MODES::MAIN)
+            optionFile << "Name=Tapyrus\n";
+        else
+            optionFile << strprintf("Name=Tapyrus (%s)\n", chain);
+        optionFile << "Exec=" << pszExePath << strprintf(" -min  -regtest=%d\n", gArgs.GetBoolArg("-regtest", false));
+>>>>>>> Part 1 - renaming bitcoin to tapyrus in icons, build files and GUI
         optionFile << "Terminal=false\n";
         optionFile << "Hidden=false\n";
         optionFile.close();

@@ -5,6 +5,7 @@
 #if defined(HAVE_CONFIG_H)
 #include <config/bitcoin-config.h>
 #endif
+#include <test/test_tapyrus.h>
 
 #include <chainparams.h>
 #include <qt/test/rpcnestedtests.h>
@@ -48,7 +49,7 @@ int main(int argc, char *argv[])
     SelectParams(TAPYRUS_OP_MODE::PROD);
     noui_connect();
     ClearDatadirCache();
-    fs::path pathTemp = fs::temp_directory_path() / strprintf("test_bitcoin-qt_%lu_%i", (unsigned long)GetTime(), (int)GetRand(100000));
+    fs::path pathTemp = fs::temp_directory_path() / strprintf("test_tapyrus_qt_%lu_%i", (unsigned long)GetTime(), (int)GetRand(100000));
     fs::create_directories(pathTemp);
     gArgs.ForceSetArg("-datadir", pathTemp.string());
 
@@ -66,27 +67,31 @@ int main(int argc, char *argv[])
     // Don't remove this, it's needed to access
     // QApplication:: and QCoreApplication:: in the tests
     QApplication app(argc, argv);
-    app.setApplicationName("Bitcoin-Qt-test");
+    app.setApplicationName("Tapyrus-Qt-test");
 
     SSL_library_init();
 
-    URITests test1;
-    if (QTest::qExec(&test1) != 0) {
-        fInvalid = true;
-    }
-#ifdef ENABLE_WALLET
-    PaymentServerTests test2;
-    if (QTest::qExec(&test2) != 0) {
-        fInvalid = true;
-    }
-#endif
-    RPCNestedTests test3;
-    if (QTest::qExec(&test3) != 0) {
-        fInvalid = true;
-    }
-    CompatTests test4;
-    if (QTest::qExec(&test4) != 0) {
-        fInvalid = true;
+    {
+        TestingSetup test;
+
+        URITests test1;
+        if (QTest::qExec(&test1) != 0) {
+            fInvalid = true;
+        }
+    #ifdef ENABLE_WALLET
+        PaymentServerTests test2;
+        if (QTest::qExec(&test2) != 0) {
+            fInvalid = true;
+        }
+    #endif
+        RPCNestedTests test3;
+        if (QTest::qExec(&test3) != 0) {
+            fInvalid = true;
+        }
+        CompatTests test4;
+        if (QTest::qExec(&test4) != 0) {
+            fInvalid = true;
+        }
     }
 #ifdef ENABLE_WALLET
     WalletTests test5;
