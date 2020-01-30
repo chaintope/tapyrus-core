@@ -170,6 +170,7 @@ BITCOIN_CORE_H = \
   support/events.h \
   support/lockedpool.h \
   sync.h \
+  tapyrusmodes.h \
   threadsafety.h \
   threadinterrupt.h \
   timedata.h \
@@ -372,6 +373,7 @@ libtapyrus_common_a_SOURCES = \
   base58.cpp \
   bech32.cpp \
   chainparams.cpp \
+  chainparamsbase.cpp \
   coins.cpp \
   compressor.cpp \
   core_read.cpp \
@@ -398,7 +400,6 @@ libtapyrus_util_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
 libtapyrus_util_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libtapyrus_util_a_SOURCES = \
   support/lockedpool.cpp \
-  chainparamsbase.cpp \
   clientversion.cpp \
   compat/glibc_sanity.cpp \
   compat/glibcxx_sanity.cpp \
@@ -471,9 +472,13 @@ endif
 
 tapyrus_cli_LDADD = \
   $(LIBBITCOIN_CLI) \
+  $(LIBBITCOIN_COMMON) \
   $(LIBUNIVALUE) \
   $(LIBBITCOIN_UTIL) \
-  $(LIBBITCOIN_CRYPTO)
+  $(LIBBITCOIN_CRYPTO) \
+  $(LIBSECP256K1) \
+  $(LIBBITCOIN_CONSENSUS)
+  
 
 tapyrus_cli_LDADD += $(BOOST_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(EVENT_LIBS)
 #
@@ -516,10 +521,10 @@ tapyrus_genesis_LDADD = \
   $(LIBBITCOIN_UTIL) \
   $(LIBBITCOIN_CONSENSUS) \
   $(LIBBITCOIN_CRYPTO) \
+  $(LIBSECP256K1) \
   $(LIBLEVELDB) \
   $(LIBLEVELDB_SSE42) \
-  $(LIBMEMENV) \
-  $(LIBSECP256K1)
+  $(LIBMEMENV)
 
 tapyrus_genesis_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(CRYPTO_LIBS)
 #

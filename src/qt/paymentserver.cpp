@@ -79,7 +79,7 @@ static QString ipcServerName()
 
     // Append a simple hash of the datadir
     // Note that GetDataDir(true) returns a different path
-    // for -testnet versus main net
+    // for different network ids
     QString ddir(GUIUtil::boostPathToQString(GetDataDir(true)));
     name.append(QString::number(qHash(ddir)));
 
@@ -209,14 +209,14 @@ void PaymentServer::ipcParseCommandLine(interfaces::Node& node, int argc, char* 
             SendCoinsRecipient r;
             if (GUIUtil::parseBitcoinURI(arg, &r) && !r.address.isEmpty())
             {
-                auto tempChainParams = CreateChainParams(CBaseChainParams::MAIN);
+                auto tempChainParams = CreateChainParams(TAPYRUS_OP_MODE::MAIN);
 
                 if (IsValidDestinationString(r.address.toStdString(), *tempChainParams)) {
-                    node.selectParams(CBaseChainParams::MAIN);
+                    node.selectParams();
                 } else {
-                    tempChainParams = CreateChainParams(CBaseChainParams::TESTNET);
+                    tempChainParams = CreateChainParams(TAPYRUS_OP_MODE::REGTEST);
                     if (IsValidDestinationString(r.address.toStdString(), *tempChainParams)) {
-                        node.selectParams(CBaseChainParams::TESTNET);
+                        node.selectParams();
                     }
                 }
             }
@@ -230,11 +230,11 @@ void PaymentServer::ipcParseCommandLine(interfaces::Node& node, int argc, char* 
             {
                 if (request.getDetails().network() == "main")
                 {
-                    node.selectParams(CBaseChainParams::MAIN);
+                    node.selectParams();
                 }
-                else if (request.getDetails().network() == "test")
+                else if (request.getDetails().network() == "regtest")
                 {
-                    node.selectParams(CBaseChainParams::TESTNET);
+                    node.selectParams();
                 }
             }
         }

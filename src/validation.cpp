@@ -226,13 +226,15 @@ std::atomic_bool fReindex(false);
 bool fHavePruned = false;
 bool fPruneMode = false;
 bool fIsBareMultisigStd = DEFAULT_PERMIT_BAREMULTISIG;
-bool fRequireStandard = true;
 bool fCheckBlockIndex = false;
 bool fCheckpointsEnabled = DEFAULT_CHECKPOINTS_ENABLED;
 size_t nCoinCacheUsage = 5000 * 300;
 uint64_t nPruneTarget = 0;
 int64_t nMaxTipAge = DEFAULT_MAX_TIP_AGE;
 bool fEnableReplacement = DEFAULT_ENABLE_REPLACEMENT;
+#ifdef DEBUG
+bool acceptnonstdtxn = false;
+#endif
 
 uint256 hashAssumeValid;
 
@@ -575,11 +577,15 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
     if (tx.IsCoinBase())
         return state.DoS(100, false, REJECT_INVALID, "coinbase");
 
-    // Rather not work on nonstandard transactions (unless -testnet/-regtest)
+    // Rather not work on nonstandard transactions (unless -regtest)
     std::string reason;
-    if (fRequireStandard && !IsStandardTx(tx, reason))
+#ifdef DEBUG
+    if (!acceptnonstdtxn && !IsStandardTx(tx, reason))
         return state.DoS(0, false, REJECT_NONSTANDARD, reason);
-
+#else
+    if(!IsStandardTx(tx, reason))
+        return state.DoS(0, false, REJECT_NONSTANDARD, reason);
+#endif
     // Do not work on transactions that are too small.
     // A transaction with 1 segwit input and 1 P2WPHK output has non-witness size of 82 bytes.
     // Transactions smaller than this are not relayed to reduce unnecessary malloc overhead.
@@ -687,12 +693,17 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, tx.GetHashMalFix().ToString(), FormatStateMessage(state));
         }
 
+#ifdef DEBUG
         // Check for non-standard pay-to-script-hash in inputs
-        if (fRequireStandard && !AreInputsStandard(tx, view))
+        if (!acceptnonstdtxn && !AreInputsStandard(tx, view))
             return state.Invalid(false, REJECT_NONSTANDARD, "bad-txns-nonstandard-inputs");
-
+#else
+        // Check for non-standard pay-to-script-hash in inputs
+        if (!AreInputsStandard(tx, view))
+            return state.Invalid(false, REJECT_NONSTANDARD, "bad-txns-nonstandard-inputs");
+#endif
         // Check for non-standard witness in P2WSH
-        if (tx.HasWitness() && fRequireStandard && !IsWitnessStandard(tx, view))
+        if (tx.HasWitness() && !IsWitnessStandard(tx, view))
             return state.DoS(0, false, REJECT_NONSTANDARD, "bad-witness-nonstandard", true);
 
         int64_t nSigOpsCost = GetTransactionSigOpCost(tx, view, STANDARD_SCRIPT_VERIFY_FLAGS);
@@ -1665,7 +1676,7 @@ static bool WriteUndoDataForBlock(const CBlockUndo& blockundo, CValidationState&
         CDiskBlockPos _pos;
         if (!FindUndoPos(state, pindex->nFile, _pos, ::GetSerializeSize(blockundo, SER_DISK, CLIENT_VERSION) + 40))
             return error("ConnectBlock(): FindUndoPos failed");
-        if (!UndoWriteToDisk(blockundo, _pos, pindex->pprev->GetBlockHash(), chainparams.MessageStart()))
+        if (!UndoWriteToDisk(blockundo, _pos, pindex->pprev->GetBlockHash(), BaseParams().MessageStart()))
             return AbortNode(state, "Failed to write undo data");
 
         // update nUndoPos in block index
@@ -1744,7 +1755,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     // Special case for the genesis block, skipping connection of its transactions
     // (its coinbase is unspendable)
-    if (block.GetHash() == chainparams.GetConsensus().hashGenesisBlock) {
+    if (block.GetHash() == BaseParams().GenesisBlock().GetHash()) {
         if (!fJustCheck)
             view.SetBestBlock(pindex->GetBlockHash());
         return true;
@@ -2859,7 +2870,7 @@ static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,
     if(!proofSize)
         return state.Error("No proof in block");
 
-    const CPubKey& aggregatePubkey = Params().GetAggregatePubkey();
+    const CPubKey& aggregatePubkey = BaseParams().GetAggregatePubkey();
 
     if(!aggregatePubkey.IsValid())
         return state.Error("Invalid aggregatePubkey");
@@ -3075,7 +3086,7 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
     uint256 hash = block.GetHash();
     BlockMap::iterator miSelf = mapBlockIndex.find(hash);
     CBlockIndex *pindex = nullptr;
-    if (hash != chainparams.GetConsensus().hashGenesisBlock) {
+    if (hash != BaseParams().GenesisBlock().GetHash()) {
         if (miSelf != mapBlockIndex.end()) {
             // Block header is already known.
             pindex = miSelf->second;
@@ -3161,7 +3172,7 @@ static CDiskBlockPos SaveBlockToDisk(const CBlock& block, int nHeight, const CCh
         return CDiskBlockPos();
     }
     if (dbp == nullptr) {
-        if (!WriteBlockToDisk(block, blockPos, chainparams.MessageStart())) {
+        if (!WriteBlockToDisk(block, blockPos, BaseParams().MessageStart())) {
             AbortNode("Failed to write block");
             return CDiskBlockPos();
         }
@@ -4006,11 +4017,11 @@ bool CChainState::LoadGenesisBlock(const CChainParams& chainparams)
     // mapBlockIndex. Note that we can't use chainActive here, since it is
     // set based on the coins db, not the block index db, which is the only
     // thing loaded at this point.
-    if (mapBlockIndex.count(chainparams.GetConsensus().hashGenesisBlock))
+    if (mapBlockIndex.count(BaseParams().GenesisBlock().GetHash()))
         return true;
 
     try {
-        CBlock &block = const_cast<CBlock&>(chainparams.GenesisBlock());
+        CBlock &block = const_cast<CBlock&>(BaseParams().GenesisBlock());
         CDiskBlockPos blockPos = SaveBlockToDisk(block, 0, chainparams, nullptr);
         if (blockPos.IsNull())
             return error("%s: writing genesis block to disk failed", __func__);
@@ -4049,10 +4060,10 @@ bool LoadExternalBlockFile(const CChainParams& chainparams, FILE* fileIn, CDiskB
             try {
                 // locate a header
                 unsigned char buf[CMessageHeader::MESSAGE_START_SIZE];
-                blkdat.FindByte(chainparams.MessageStart()[0]);
+                blkdat.FindByte(BaseParams().MessageStart()[0]);
                 nRewind = blkdat.GetPos()+1;
                 blkdat >> buf;
-                if (memcmp(buf, chainparams.MessageStart(), CMessageHeader::MESSAGE_START_SIZE))
+                if (memcmp(buf, BaseParams().MessageStart(), CMessageHeader::MESSAGE_START_SIZE))
                     continue;
                 // read size
                 blkdat >> nSize;
@@ -4078,7 +4089,7 @@ bool LoadExternalBlockFile(const CChainParams& chainparams, FILE* fileIn, CDiskB
                 {
                     LOCK(cs_main);
                     // detect out of order blocks, and store them for later
-                    if (hash != chainparams.GetConsensus().hashGenesisBlock && !LookupBlockIndex(block.hashPrevBlock)) {
+                    if (hash != BaseParams().GenesisBlock().GetHash() && !LookupBlockIndex(block.hashPrevBlock)) {
                         LogPrint(BCLog::REINDEX, "%s: Out of order block %s, parent %s not known\n", __func__, hash.ToString(),
                                 block.hashPrevBlock.ToString());
                         if (dbp)
@@ -4096,13 +4107,13 @@ bool LoadExternalBlockFile(const CChainParams& chainparams, FILE* fileIn, CDiskB
                       if (state.IsError()) {
                           break;
                       }
-                    } else if (hash != chainparams.GetConsensus().hashGenesisBlock && pindex->nHeight % 1000 == 0) {
+                    } else if (hash != BaseParams().GenesisBlock().GetHash() && pindex->nHeight % 1000 == 0) {
                       LogPrint(BCLog::REINDEX, "Block Import: already had block %s at height %d\n", hash.ToString(), pindex->nHeight);
                     }
                 }
 
                 // Activate the genesis block so normal node progress can continue
-                if (hash == chainparams.GetConsensus().hashGenesisBlock) {
+                if (hash == BaseParams().GenesisBlock().GetHash()) {
                     CValidationState state;
                     if (!ActivateBestChain(state, chainparams)) {
                         break;
@@ -4204,7 +4215,7 @@ void CChainState::CheckBlockIndex(const Consensus::Params& consensusParams)
         // Begin: actual consistency checks.
         if (pindex->pprev == nullptr) {
             // Genesis block checks.
-            assert(pindex->GetBlockHash() == consensusParams.hashGenesisBlock); // Genesis block's hash must match.
+            assert(pindex->GetBlockHash() == BaseParams().GenesisBlock().GetHash()); // Genesis block's hash must match.
             assert(pindex == chainActive.Genesis()); // The current active chain's genesis block must be this block.
         }
         if (pindex->nChainTx == 0) assert(pindex->nSequenceId <= 0);  // nSequenceId can't be set positive for blocks that aren't linked (negative is used for preciousblock)

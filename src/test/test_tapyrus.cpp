@@ -59,15 +59,16 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
     InitSignatureCache();
     InitScriptExecutionCache();
     fCheckBlockIndex = true;
-    SelectParams(chainName);
+    SelectParams(TAPYRUS_OP_MODE::MAIN);
     SetDataDir("tempdir");
-    writeTestGenesisBlockToFile(m_path_root);
-    ReadGenesisBlock(m_path_root);
+    writeTestGenesisBlockToFile(GetDataDir());
+    SelectBaseParams(TAPYRUS_OP_MODE::MAIN);
     noui_connect();
 }
 
 BasicTestingSetup::~BasicTestingSetup()
 {
+    ClearDatadirCache();
     fs::remove_all(m_path_root);
     ECC_Stop();
 }
@@ -78,6 +79,11 @@ fs::path BasicTestingSetup::SetDataDir(const std::string& name)
     fs::create_directories(ret);
     gArgs.ForceSetArg("-datadir", ret.string());
     return ret;
+}
+
+fs::path BasicTestingSetup::GetDataDir()
+{
+    return gArgs.GetArg("-datadir", "");
 }
 
 TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(chainName)
@@ -142,7 +148,7 @@ void createSignedBlockProof(CBlock &block, std::vector<unsigned char>& blockProo
     return;
 }
 
-TestChain100Setup::TestChain100Setup() : TestingSetup(CBaseChainParams::REGTEST)
+TestChain100Setup::TestChain100Setup() : TestingSetup(TAPYRUS_MODES::REGTEST)
 {
     // CreateAndProcessBlock() does not support building SegWit blocks, so don't activate in these tests.
     // Generate a 100-block chain:
@@ -180,7 +186,7 @@ TestChain100Setup::CreateAndProcessBlock(const std::vector<CMutableTransaction>&
     }
     std::vector<unsigned char> blockProof;
     createSignedBlockProof(pblocktemplate->block, blockProof);
-    block.AbsorbBlockProof(blockProof);
+    block.AbsorbBlockProof(blockProof, BaseParams().GetAggregatePubkey());
 
     std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(block);
     ProcessNewBlock(chainparams, shared_pblock, true, nullptr);
@@ -220,9 +226,12 @@ std::string getTestGenesisBlockHex(const CPubKey& aggregatePubKey, const CKey& a
 /**
  * @writes the hex encoded signed genesis block to a file in the given path
  */
-void writeTestGenesisBlockToFile(fs::path genesisPath)
+void writeTestGenesisBlockToFile(fs::path genesisPath, std::string genesisFileName)
 {
-    genesisPath /= TAPYRUS_GENESIS_FILENAME;
+    if(genesisFileName.size())
+        genesisPath /= genesisFileName;
+    else
+        genesisPath /= TAPYRUS_GENESIS_FILENAME;
     //printf("Writing Genesis Block to [%s]\n", genesisPath.string().c_str());
     fs::ofstream stream(genesisPath);
     CKey privKey;

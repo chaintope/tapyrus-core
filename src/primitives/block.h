@@ -88,7 +88,7 @@ public:
 
     uint256 GetHash() const;
     std::string ToString() const;
-    bool AbsorbBlockProof(const std::vector<unsigned char>& proof);
+    bool AbsorbBlockProof(const std::vector<unsigned char>& blockproof, const CPubKey& aggregatePubkey);
 };
 
 class CBlock : public CBlockHeader

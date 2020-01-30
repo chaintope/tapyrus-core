@@ -46,11 +46,11 @@ static inline bool InsecureRandBool() { return insecure_rand_ctx.randbool(); }
 struct BasicTestingSetup {
     ECCVerifyHandle globalVerifyHandle;
 
-    explicit BasicTestingSetup(const std::string& chainName = CBaseChainParams::MAIN);
+    explicit BasicTestingSetup(const std::string& chainName = TAPYRUS_MODES::MAIN);
     ~BasicTestingSetup();
 
     fs::path SetDataDir(const std::string& name);
-
+    fs::path GetDataDir();
 private:
     const fs::path m_path_root;
 };
@@ -72,7 +72,7 @@ struct TestingSetup: public BasicTestingSetup {
     CScheduler scheduler;
     std::unique_ptr<PeerLogicValidation> peerLogic;
 
-    explicit TestingSetup(const std::string& chainName = CBaseChainParams::MAIN);
+    explicit TestingSetup(const std::string& chainName = TAPYRUS_MODES::MAIN);
     ~TestingSetup();
 };
 
@@ -129,7 +129,7 @@ CBlock getBlock();
 std::string getSignedTestBlock();
 std::string getTestGenesisBlockHex(const CPubKey& aggregatePubkey,
                                    const CKey& aggregatePrivkey);
-void writeTestGenesisBlockToFile(fs::path genesisPath);
+void writeTestGenesisBlockToFile(fs::path genesisPath, std::string genesisFileName="");
 void createSignedBlockProof(CBlock &block, std::vector<unsigned char>& blockProof);
 // define an implicit conversion here so that uint256 may be used directly in BOOST_CHECK_*
 std::ostream& operator<<(std::ostream& os, const uint256& num);

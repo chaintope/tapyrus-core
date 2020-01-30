@@ -9,6 +9,14 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <map>
+#include <protocol.h>
+#include <streams.h>
+#include <pubkey.h>
+#include <primitives/block.h>
+#include <util.h>
+
+const std::string TAPYRUS_GENESIS_FILENAME = "genesis.dat";
 
 /**
  * CBaseChainParams defines the base parameters (shared between bitcoin-cli and bitcoind)
@@ -17,21 +25,27 @@
 class CBaseChainParams
 {
 public:
-    /** BIP70 chain name strings (main, test or regtest) */
-    static const std::string MAIN;
-    static const std::string PARADIUM;
-    static const std::string TESTNET;
-    static const std::string REGTEST;
+    std::string NetworkIDString() const { return strNetworkID; }
+    const CMessageHeader::MessageStartChars& MessageStart() const { return pchMessageStart; }
+    /**
+     * Parse aggPubkey in block header.
+     */
+    CPubKey ReadAggregatePubkey(const std::vector<unsigned char>& pubkey);
+    const CPubKey& GetAggregatePubkey() const{ return aggregatePubkey; }
+    bool ReadGenesisBlock(std::string genesisHex);
+    const CBlock& GenesisBlock() const { return genesis; }
+    const std::string& getDataDir() const { return dataDir; }
 
-    const std::string& DataDir() const { return strDataDir; }
-    int RPCPort() const { return nRPCPort; }
-
-    CBaseChainParams() = delete;
-    CBaseChainParams(const std::string& data_dir, int rpc_port) : nRPCPort(rpc_port), strDataDir(data_dir) {}
+    CBaseChainParams();
+    CBaseChainParams(const int networkId, const std::string dataDirName, const std::string genesisHex);
 
 private:
-    int nRPCPort;
-    std::string strDataDir;
+    int nNetworkId;
+    CMessageHeader::MessageStartChars pchMessageStart;
+    std::string strNetworkID;
+    std::string dataDir;
+    CPubKey aggregatePubkey;
+    CBlock genesis;
 };
 
 /**
@@ -39,7 +53,7 @@ private:
  * @returns a CBaseChainParams* of the chosen chain.
  * @throws a std::runtime_error if the chain is not supported.
  */
-std::unique_ptr<CBaseChainParams> CreateBaseChainParams(const std::string& chain);
+std::unique_ptr<CBaseChainParams> CreateBaseChainParams(const TAPYRUS_OP_MODE mode, const bool withGenesis);
 
 /**
  *Set the arguments for chainparams
@@ -53,6 +67,17 @@ void SetupChainParamsBaseOptions();
 const CBaseChainParams& BaseParams();
 
 /** Sets the params returned by Params() to those for the given network. */
-void SelectBaseParams(const std::string& chain);
+void SelectBaseParams(const TAPYRUS_OP_MODE mode, const bool withGenesis=true);
+
+/**
+ * Reads the genesis block from genesis.dat into chainparamsbase.
+ */
+std::string ReadGenesisBlock(fs::path genesisPath = GetDataDir(false));
+
+/**
+ * @returns a signed genesis block.
+ */
+CBlock createGenesisBlock(const CPubKey& aggregatePubkey, const CKey& privateKey, const time_t blockTime=time(0), const std::string paytoAddress="");
+
 
 #endif // BITCOIN_CHAINPARAMSBASE_H

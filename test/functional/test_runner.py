@@ -62,25 +62,16 @@ BASE_SCRIPTS = [
     'wallet_hd.py',
     'wallet_backup.py',
     # vv Tests less than 5m vv
-    'feature_block.py',
     'rpc_fundrawtransaction.py',
     'rpc_fundrawtransaction.py --scheme SCHNORR',
-    'p2p_compactblocks.py',
-    'feature_segwit.py',
-    'feature_segwit.py --scheme SCHNORR',
     # vv Tests less than 2m vv
-    'wallet_basic.py',
-    'wallet_basic.py --scheme SCHNORR',
     'wallet_labels.py',
-    'p2p_segwit.py',
     'wallet_dump.py',
     'wallet_listtransactions.py',
     # vv Tests less than 60s vv
     'p2p_sendheaders.py',
     'wallet_zapwallettxes.py',
     'wallet_importmulti.py',
-    'mempool_limit.py',
-    'mempool_limit.py --scheme SCHNORR',
     'rpc_txoutproof.py',
     'rpc_txoutproof.py --scheme SCHNORR',
     'wallet_listreceivedby.py',
@@ -130,8 +121,6 @@ BASE_SCRIPTS = [
     'rpc_net.py',
     'wallet_keypool.py',
     'p2p_mempool.py',
-    'mining_prioritisetransaction.py',
-    'mining_prioritisetransaction.py --scheme SCHNORR',
     'p2p_invalid_locator.py',
     'p2p_invalid_block.py',
     'p2p_invalid_tx.py',
@@ -157,8 +146,6 @@ BASE_SCRIPTS = [
     'p2p_leak.py',
     'wallet_encryption.py',
     'feature_dersig.py',
-    'feature_cltv.py',
-    'feature_cltv.py --scheme SCHNORR',
     'rpc_uptime.py',
     'wallet_resendwallettransactions.py',
     'wallet_fallbackfee.py',
@@ -210,6 +197,22 @@ EXTENDED_SCRIPTS = [
     'feature_rbf.py --scheme SCHNORR',
 ]
 
+DEBUG_MODE_SCRIPTS = [
+    'feature_block.py',
+    'feature_cltv.py',
+    'feature_cltv.py  --scheme SCHNORR',
+    'feature_segwit.py',
+    'feature_segwit.py  --scheme SCHNORR',
+    'mempool_limit.py',
+    'mempool_limit.py  --scheme SCHNORR',
+    'mining_prioritisetransaction.py',
+    'mining_prioritisetransaction.py --scheme SCHNORR',
+    'p2p_compactblocks.py',
+    'p2p_segwit.py',
+    'wallet_basic.py',
+    'wallet_basic.py --scheme SCHNORR'
+]
+
 # Place EXTENDED_SCRIPTS first since it has the 3 longest running tests
 ALL_SCRIPTS = EXTENDED_SCRIPTS + BASE_SCRIPTS
 
@@ -239,6 +242,7 @@ def main():
     parser.add_argument('--quiet', '-q', action='store_true', help='only print results summary and failure logs')
     parser.add_argument('--tmpdirprefix', '-t', default=tempfile.gettempdir(), help="Root directory for datadirs")
     parser.add_argument('--failfast', action='store_true', help='stop execution after the first test failure')
+    parser.add_argument('--debugscripts', action='store_true', default = False, help='execute debug mode scripts')
     args, unknown_args = parser.parse_known_args()
 
     # args to be passed on always start with two dashes; tests are the remaining unknown args
@@ -295,6 +299,8 @@ def main():
         # Run base tests only
         test_list += BASE_SCRIPTS
 
+    if args.debugscripts:
+        test_list += DEBUG_MODE_SCRIPTS
     # Remove the test cases that the user has explicitly asked to exclude.
     if args.exclude:
         exclude_tests = [re.sub("\.py$", "", test) + ".py" for test in args.exclude.split(',')]
@@ -566,7 +572,7 @@ def check_script_list(src_dir):
     not being run by pull-tester.py."""
     script_dir = src_dir + '/test/functional/'
     python_files = set([test_file for test_file in os.listdir(script_dir) if test_file.endswith(".py")])
-    missed_tests = list(python_files - set(map(lambda x: x.split()[0], ALL_SCRIPTS + NON_SCRIPTS)))
+    missed_tests = list(python_files - set(map(lambda x: x.split()[0], ALL_SCRIPTS + NON_SCRIPTS + DEBUG_MODE_SCRIPTS)))
     if len(missed_tests) != 0:
         print("%sWARNING!%s The following scripts are not being run: %s. Check the test lists in test_runner.py." % (BOLD[1], BOLD[0], str(missed_tests)))
         if os.getenv('TRAVIS') == 'true':

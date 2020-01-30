@@ -26,9 +26,9 @@ class WalletTest(BitcoinTestFramework):
 
     def setup_network(self):
         self.add_nodes(4)
-        self.start_node(0)
-        self.start_node(1)
-        self.start_node(2)
+        self.start_node(0, extra_args = ['-acceptnonstdtxn=1'])
+        self.start_node(1, extra_args = ['-acceptnonstdtxn=1'])
+        self.start_node(2, extra_args = ['-acceptnonstdtxn=1'])
         connect_nodes_bi(self.nodes, 0, 1)
         connect_nodes_bi(self.nodes, 1, 2)
         connect_nodes_bi(self.nodes, 0, 2)
@@ -230,7 +230,7 @@ class WalletTest(BitcoinTestFramework):
         txid2 = self.nodes[1].sendtoaddress(self.nodes[0].getnewaddress(), 1)
         sync_mempools(self.nodes[0:2])
 
-        self.start_node(3)
+        self.start_node(3, extra_args = ['-acceptnonstdtxn=1'])
         connect_nodes_bi(self.nodes, 0, 3)
         sync_blocks(self.nodes)
 

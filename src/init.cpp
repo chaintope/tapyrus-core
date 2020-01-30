@@ -49,6 +49,7 @@
 #include <walletinitinterface.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <tapyrusmodes.h>
 
 #ifndef WIN32
 #include <signal.h>
@@ -342,14 +343,8 @@ static void OnRPCStopped()
 
 void SetupServerArgs()
 {
-    const auto defaultBaseParams = CreateBaseChainParams(CBaseChainParams::MAIN);
-    const auto paradiumBaseParams = CreateBaseChainParams(CBaseChainParams::PARADIUM);
-    const auto testnetBaseParams = CreateBaseChainParams(CBaseChainParams::TESTNET);
-
     //make sure ParseSignedBlockParameters was called before this call
-    const auto defaultChainParams = CreateChainParams(CBaseChainParams::MAIN);
-    const auto paradiumChainParams = CreateChainParams(CBaseChainParams::PARADIUM);
-    const auto testnetChainParams = CreateChainParams(CBaseChainParams::TESTNET);
+    const auto defaultChainParams = CreateChainParams(TAPYRUS_OP_MODE::MAIN);
 
     // Hidden Options
     std::vector<std::string> hidden_args = {"-rpcssl", "-benchmark", "-h", "-help", "-socks", "-tor", "-debugnet", "-whitelistalwaysrelay",
@@ -361,6 +356,7 @@ void SetupServerArgs()
     // When adding new options to the categories, please keep and ensure alphabetical ordering.
     gArgs.AddArg("-?", "Print this help message and exit", false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-version", "Print version and exit", false, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-networkid=<id>", "Network Identifier, a number representing to this tapyrus network", false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-alertnotify=<cmd>", "Execute command when a relevant alert is received or we see a really long fork (%s in cmd is replaced by message)", false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-assumevalid=<hex>", "If this block is in the chain assume that it and its ancestors are valid and potentially skip their script verification (0 to verify all, default: 0)", false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-blocksdir=<dir>", "Specify blocks directory (default: <datadir>/blocks)", false, OptionsCategory::OPTIONS);
@@ -420,7 +416,7 @@ void SetupServerArgs()
     gArgs.AddArg("-onlynet=<net>", "Make outgoing connections only through network <net> (ipv4, ipv6 or onion). Incoming connections are not affected by this option. This option can be specified multiple times to allow multiple networks.", false, OptionsCategory::CONNECTION);
     gArgs.AddArg("-peerbloomfilters", strprintf("Support filtering of blocks and transaction with bloom filters (default: %u)", DEFAULT_PEERBLOOMFILTERS), false, OptionsCategory::CONNECTION);
     gArgs.AddArg("-permitbaremultisig", strprintf("Relay non-P2SH multisig (default: %u)", DEFAULT_PERMIT_BAREMULTISIG), false, OptionsCategory::CONNECTION);
-    gArgs.AddArg("-port=<port>", strprintf("Listen for connections on <port> (default: %u or testnet: %u)", defaultChainParams->GetDefaultPort(), testnetChainParams->GetDefaultPort()), false, OptionsCategory::CONNECTION);
+    gArgs.AddArg("-port=<port>", strprintf("Listen for connections on <port> (default: %u)", defaultChainParams->GetDefaultPort()), false, OptionsCategory::CONNECTION);
     gArgs.AddArg("-proxy=<ip:port>", "Connect through SOCKS5 proxy, set -noproxy to disable (default: disabled)", false, OptionsCategory::CONNECTION);
     gArgs.AddArg("-proxyrandomize", strprintf("Randomize credentials for every proxy connection. This enables Tor stream isolation (default: %u)", DEFAULT_PROXYRANDOMIZE), false, OptionsCategory::CONNECTION);
     gArgs.AddArg("-seednode=<ip>", "Connect to a node to retrieve peer addresses, and disconnect. This option can be specified multiple times to connect to multiple nodes.", false, OptionsCategory::CONNECTION);
@@ -487,7 +483,6 @@ void SetupServerArgs()
 
     SetupChainParamsBaseOptions();
 
-    gArgs.AddArg("-acceptnonstdtxn", strprintf("Relay and mine \"non-standard\" transactions (%sdefault: %u)", "testnet/regtest only; ", !testnetChainParams->RequireStandard()), true, OptionsCategory::NODE_RELAY);
     gArgs.AddArg("-incrementalrelayfee=<amt>", strprintf("Fee rate (in %s/kB) used to define cost of relay, used for mempool limiting and BIP 125 replacement. (default: %s)", CURRENCY_UNIT, FormatMoney(DEFAULT_INCREMENTAL_RELAY_FEE)), true, OptionsCategory::NODE_RELAY);
     gArgs.AddArg("-dustrelayfee=<amt>", strprintf("Fee rate (in %s/kB) used to defined dust, the value of an output such that it will cost more than its value in fees at this fee rate to spend it. (default: %s)", CURRENCY_UNIT, FormatMoney(DUST_RELAY_TX_FEE)), true, OptionsCategory::NODE_RELAY);
     gArgs.AddArg("-bytespersigop", strprintf("Equivalent bytes per sigop in transactions for relay and mining (default: %u)", DEFAULT_BYTES_PER_SIGOP), false, OptionsCategory::NODE_RELAY);
@@ -510,7 +505,7 @@ void SetupServerArgs()
     gArgs.AddArg("-rpcbind=<addr>[:port]", "Bind to given address to listen for JSON-RPC connections. This option is ignored unless -rpcallowip is also passed. Port is optional and overrides -rpcport. Use [host]:port notation for IPv6. This option can be specified multiple times (default: 127.0.0.1 and ::1 i.e., localhost, or if -rpcallowip has been specified, 0.0.0.0 and :: i.e., all addresses)", false, OptionsCategory::RPC);
     gArgs.AddArg("-rpccookiefile=<loc>", "Location of the auth cookie. Relative paths will be prefixed by a net-specific datadir location. (default: data dir)", false, OptionsCategory::RPC);
     gArgs.AddArg("-rpcpassword=<pw>", "Password for JSON-RPC connections", false, OptionsCategory::RPC);
-    gArgs.AddArg("-rpcport=<port>", strprintf("Listen for JSON-RPC connections on <port> (default: %u or testnet: %u)", defaultBaseParams->RPCPort(), testnetBaseParams->RPCPort()), false, OptionsCategory::RPC);
+    gArgs.AddArg("-rpcport=<port>", strprintf("Listen for JSON-RPC connections on <port> (default: %u)", defaultChainParams->GetRPCPort()), false, OptionsCategory::RPC);
     gArgs.AddArg("-rpcserialversion", strprintf("Sets the serialization of raw transaction or block hex returned in non-verbose mode, non-segwit(0) or segwit(1) (default: %d)", DEFAULT_RPC_SERIALIZE_VERSION), false, OptionsCategory::RPC);
     gArgs.AddArg("-rpcservertimeout=<n>", strprintf("Timeout during HTTP requests (default: %d)", DEFAULT_HTTP_SERVER_TIMEOUT), true, OptionsCategory::RPC);
     gArgs.AddArg("-rpcthreads=<n>", strprintf("Set the number of threads to service RPC calls (default: %d)", DEFAULT_HTTP_THREADS), false, OptionsCategory::RPC);
@@ -518,6 +513,10 @@ void SetupServerArgs()
     gArgs.AddArg("-rpcworkqueue=<n>", strprintf("Set the depth of the work queue to service RPC calls (default: %d)", DEFAULT_HTTP_WORKQUEUE), true, OptionsCategory::RPC);
     gArgs.AddArg("-server", "Accept command line and JSON-RPC commands", false, OptionsCategory::RPC);
 
+
+#ifdef DEBUG
+    gArgs.AddArg("-acceptnonstdtxn", strprintf("Relay and mine \"non-standard\" transactions (%sdefault: %u)", "regtest only; ", false), true, OptionsCategory::NODE_RELAY);
+#endif
 
 #if HAVE_DECL_DAEMON
     gArgs.AddArg("-daemon", "Run in the background as a daemon and accept commands", false, OptionsCategory::OPTIONS);
@@ -1096,9 +1095,11 @@ bool AppInitParameterInteraction()
         dustRelayFee = CFeeRate(n);
     }
 
-    fRequireStandard = !gArgs.GetBoolArg("-acceptnonstdtxn", !chainparams.RequireStandard());
-    if (chainparams.RequireStandard() && !fRequireStandard)
-        return InitError(strprintf("acceptnonstdtxn is not currently supported for %s chain", chainparams.NetworkIDString()));
+#ifdef DEBUG
+    acceptnonstdtxn = gArgs.GetBoolArg("-acceptnonstdtxn", false);
+    if ((gArgs.GetChainMode() == TAPYRUS_OP_MODE::MAIN) && acceptnonstdtxn)
+        return InitError(strprintf("acceptnonstdtxn is not supported for %s chain", TAPYRUS_MODES::GetChainName(TAPYRUS_OP_MODE::MAIN)));
+#endif
     nBytesPerSigOp = gArgs.GetArg("-bytespersigop", nBytesPerSigOp);
 
     if (!g_wallet_init_interface.ParameterInteraction()) return false;
@@ -1213,6 +1214,15 @@ bool AppInitMain()
                   "also be data loss if tapyrus is started while in a temporary directory.\n",
             gArgs.GetArg("-datadir", ""), fs::current_path().string());
     }
+    //Now initialise BaseParams - this contains all the network parameters which are configurable
+    //Read genesis block from file now - we are sure that data dir exists.
+    try {
+        SelectBaseParams(gArgs.GetChainMode());
+    } catch (const std::exception& e) {
+        fprintf(stderr, "Error: %s\n", e.what());
+        return false;
+    }
+    LogPrintf("Genesis Block [%s] of Tapyrus network [%s] Loaded successfully\n", BaseParams().GenesisBlock().GetHash().ToString(), BaseParams().NetworkIDString());
 
     InitSignatureCache();
     InitScriptExecutionCache();
@@ -1434,7 +1444,7 @@ bool AppInitMain()
 
                 // If the loaded chain has a wrong genesis, bail out immediately
                 // (we're likely using a testnet datadir, or the other way around).
-                if (!mapBlockIndex.empty() && !LookupBlockIndex(chainparams.GetConsensus().hashGenesisBlock)) {
+                if (!mapBlockIndex.empty() && !LookupBlockIndex(BaseParams().GenesisBlock().GetHash())) {
                     return InitError(_("Incorrect or no genesis block found. Wrong datadir for network?"));
                 }
 

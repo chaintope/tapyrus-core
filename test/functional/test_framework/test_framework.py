@@ -34,7 +34,8 @@ from .util import (
     set_node_times,
     sync_blocks,
     sync_mempools,
-    bytes_to_hex_str
+    bytes_to_hex_str,
+    NetworkIdDirName
 )
 
 class TestStatus(Enum):
@@ -462,7 +463,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             self.disable_mocktime()
 
             def cache_path(n, *paths):
-                return os.path.join(get_datadir_path(self.options.cachedir, n), "regtest", *paths)
+                return os.path.join(get_datadir_path(self.options.cachedir, n), NetworkIdDirName("regtest"), *paths)
 
             for i in range(MAX_NODES):
                 for entry in os.listdir(cache_path(i)):

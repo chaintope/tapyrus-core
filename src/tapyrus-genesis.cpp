@@ -71,10 +71,11 @@ static int AppInit(int argc, char* argv[])
         return EXIT_SUCCESS;
     }
 
-    // Check for -testnet or -regtest parameter (Params() calls are only valid after this clause)
+    // Check for  -regtest parameter (Params() calls are only valid after this clause)
     try {
-        SelectParams(gArgs.GetChainName());
-        const_cast<CChainParams&>(Params()).ReadAggregatePubkey(ParseHex(gArgs.GetArg("-signblockpubkey", "")));
+        SelectParams(gArgs.GetChainMode());
+        SelectBaseParams(gArgs.GetChainMode(), false);
+        const_cast<CBaseChainParams&>(BaseParams()).ReadAggregatePubkey(ParseHex(gArgs.GetArg("-signblockpubkey", "")));
     } catch (const std::exception& e) {
         fprintf(stderr, "Error: %s\n", e.what());
         return EXIT_FAILURE;
@@ -110,7 +111,7 @@ static int CommandLine()
     // This is for using CPubKey.verify().
     ECCVerifyHandle globalVerifyHandle;
 
-    CBlock genesis { createGenesisBlock(Params().GetAggregatePubkey(), privatekey, blockTime, payToAddress) };
+    CBlock genesis { createGenesisBlock(BaseParams().GetAggregatePubkey(), privatekey, blockTime, payToAddress) };
 
     // check validity
     CValidationState state;

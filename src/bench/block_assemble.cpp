@@ -16,6 +16,7 @@
 #include <utiltime.h>
 #include <validation.h>
 #include <validationinterface.h>
+#include <tapyrusmodes.h>
 
 #include <boost/thread.hpp>
 
@@ -63,7 +64,7 @@ static void AssembleBlock(benchmark::State& state)
 
     // Switch to regtest so we can mine faster
     // Also segwit is active, so we can include witness transactions
-    SelectParams(CBaseChainParams::REGTEST);
+    SelectParams(TAPYRUS_OP_MODE::REGTEST);
 
     InitScriptExecutionCache();
 

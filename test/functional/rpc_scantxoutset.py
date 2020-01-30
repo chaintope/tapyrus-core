@@ -5,7 +5,7 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test the scantxoutset rpc call."""
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal,  assert_raises_rpc_error
+from test_framework.util import assert_equal,  assert_raises_rpc_error, NetworkIdDirName
 
 from decimal import Decimal
 import shutil
@@ -51,8 +51,8 @@ class ScantxoutsetTest(BitcoinTestFramework):
 
         self.log.info("Stop node, remove wallet, mine again some blocks...")
         self.stop_node(0)
-        if(os.path.exists(os.path.join(self.nodes[0].datadir, "regtest", 'wallets'))):
-            shutil.rmtree(os.path.join(self.nodes[0].datadir, "regtest", 'wallets'))
+        if(os.path.exists(os.path.join(self.nodes[0].datadir, NetworkIdDirName("regtest"), 'wallets'))):
+            shutil.rmtree(os.path.join(self.nodes[0].datadir, NetworkIdDirName("regtest"), 'wallets'))
         self.start_node(0)
         self.nodes[0].generate(110, self.signblockprivkey)
 

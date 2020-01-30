@@ -1072,7 +1072,8 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
             "Returns an object containing various state info regarding blockchain processing.\n"
             "\nResult:\n"
             "{\n"
-            "  \"chain\": \"xxxx\",              (string) current network name as defined in BIP70 (main, test, regtest)\n"
+            "  \"mode\": \"xxxx\",               (string) current network mode:MAIN/REGTEST\n"
+            "  \"chain\": \"xxxx\",              (string) current network id\n"
             "  \"blocks\": xxxxxx,             (numeric) the current number of blocks processed in the server\n"
             "  \"headers\": xxxxxx,            (numeric) the current number of headers we have validated\n"
             "  \"bestblockhash\": \"...\",       (string) the hash of the currently best block\n"
@@ -1104,7 +1105,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     LOCK(cs_main);
 
     UniValue obj(UniValue::VOBJ);
-    obj.pushKV("chain",                 Params().NetworkIDString());
+    obj.pushKV("mode",                  TAPYRUS_MODES::GetChainName(gArgs.GetChainMode()));obj.pushKV("chain",                 BaseParams().NetworkIDString());
     obj.pushKV("blocks",                (int)chainActive.Height());
     obj.pushKV("headers",               pindexBestHeader ? pindexBestHeader->nHeight : -1);
     obj.pushKV("bestblockhash",         chainActive.Tip()->GetBlockHash().GetHex());
@@ -1616,7 +1617,7 @@ static UniValue getblockstats(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
         }
         if (!chainActive.Contains(pindex)) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Block is not in chain %s", Params().NetworkIDString()));
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Block is not in chain %s", BaseParams().NetworkIDString()));
         }
     }
 

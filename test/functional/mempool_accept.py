@@ -38,7 +38,6 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
         self.extra_args = [[
             '-txindex',
             '-reindex',  # Need reindex for txindex
-            '-acceptnonstdtxn=0',  # Try to mimic main-net
         ]] * self.num_nodes
 
     def check_mempool_result(self, result_expected, *args, **kwargs):
@@ -232,7 +231,7 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
         tx.nVersion = 3  # A version currently non-standard
         self.check_mempool_result(
             result_expected=[{'txid': tx.rehash(), 'allowed': False, 'reject-reason': '64: version'}],
-            rawtxs=[bytes_to_hex_str(tx.serialize())],
+            rawtxs=[node.signrawtransactionwithwallet(bytes_to_hex_str(tx.serialize()), [], "ALL", self.options.scheme)['hex']],
         )
         tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx_reference)))
         tx.vout[0].scriptPubKey = CScript([OP_0])  # Some non-standard script

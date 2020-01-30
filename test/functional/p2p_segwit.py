@@ -198,7 +198,7 @@ class SegWitTest(BitcoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 3
-        self.extra_args = [["-whitelist=127.0.0.1"], ["-whitelist=127.0.0.1", "-acceptnonstdtxn=0"], ["-whitelist=127.0.0.1"]]
+        self.extra_args = [["-whitelist=127.0.0.1", "-acceptnonstdtxn=1"], ["-whitelist=127.0.0.1"], ["-whitelist=127.0.0.1", "-acceptnonstdtxn=1"]]
         self.genesisBlock = createTestGenesisBlock(self.signblockpubkey, self.signblockprivkey, int(time.time() - 100))
 
     def setup_network(self):
@@ -238,7 +238,7 @@ class SegWitTest(BitcoinTestFramework):
 
         # self.old_node sets only NODE_NETWORK
         self.old_node = self.nodes[0].add_p2p_connection(TestP2PConn(), services=NODE_NETWORK)
-        # self.std_node is for testing node1 (fRequireStandard=true)
+        # self.std_node is for testing node1 (acceptnonstdtxn=true)
         self.std_node = self.nodes[1].add_p2p_connection(TestP2PConn(), services=NODE_NETWORK)
 
         assert self.test_node.nServices & NODE_WITNESS == 0
@@ -1367,7 +1367,7 @@ class SegWitTest(BitcoinTestFramework):
         tx2.wit.vtxinwit[0].scriptWitness.stack = [witness_program]
         tx2.rehash()
         # Gets accepted to test_node, because standardness of outputs isn't
-        # checked with fRequireStandard
+        # checked with acceptnonstdtxn
         test_transaction_acceptance(self.nodes[0].rpc, self.test_node, tx2, with_witness=True, accepted=False)
         test_transaction_acceptance(self.nodes[0].rpc, self.test_node, tx2, with_witness=False, accepted=True)
 
@@ -1387,7 +1387,7 @@ class SegWitTest(BitcoinTestFramework):
         tx3.vout.append(CTxOut(total_value - 1000, CScript([OP_TRUE])))
         tx3.rehash()
         # Spending a higher version witness output is not allowed by policy,
-        # even with fRequireStandard=false.
+        # even with acceptnonstdtxn=false.
         test_transaction_acceptance(self.nodes[0].rpc, self.test_node, tx3, with_witness=True, accepted=False)
         test_transaction_acceptance(self.nodes[0].rpc, self.test_node, tx3, with_witness=False, accepted=True)
 

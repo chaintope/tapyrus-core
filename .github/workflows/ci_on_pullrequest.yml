@@ -144,8 +144,8 @@ jobs:
 #          BITCOIN_CONFIG="--enable-glibc-back-compat --enable-reduce-exports"
 #          bash -xe ./build-test.sh
 
-  cross-mac:
-    name: Cross Mac
+  cross-mac_debug:
+    name: Cross Mac Debug
     runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v1
@@ -155,5 +155,20 @@ jobs:
           PACKAGES="cmake imagemagick libcap-dev librsvg2-bin libz-dev libbz2-dev libtiff-tools python-dev python3-setuptools-git" \
           OSX_SDK=10.11 \
           GOAL="all deploy" \
+          DEBUD_MODE=true \
+          BITCOIN_CONFIG="--enable-gui --enable-reduce-exports --enable-werror CPPFLAGS=-DDEBUG " \
+          bash -xe ./build-test.sh
+  cross-mac_release:
+    name: Cross Mac Release
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v1
+      - run: |
+          source ./default-env.sh
+          HOST=x86_64-apple-darwin14 \
+          PACKAGES="cmake imagemagick libcap-dev librsvg2-bin libz-dev libbz2-dev libtiff-tools python-dev python3-setuptools-git" \
+          OSX_SDK=10.11 \
+          GOAL="all deploy" \
+          DEBUD_MODE=false \
           BITCOIN_CONFIG="--enable-gui --enable-reduce-exports --enable-werror" \
           bash -xe ./build-test.sh

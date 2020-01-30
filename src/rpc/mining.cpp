@@ -68,7 +68,7 @@ UniValue generateBlocks(std::shared_ptr<CReserveScript> coinbaseScript, int nGen
 
         privKey.Sign_Schnorr(blockHash, proof);
 
-        if(!pblock->AbsorbBlockProof(proof)){
+        if(!pblock->AbsorbBlockProof(proof, BaseParams().GetAggregatePubkey())){
             throw JSONRPCError(RPC_INTERNAL_ERROR, "AbsorbBlockProof, block proof not accepted");
         }
 
@@ -195,7 +195,7 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
     obj.pushKV("currentblocktx",   (uint64_t)nLastBlockTx);
     // TODO: push signed block multisig condition
     obj.pushKV("pooledtx",         (uint64_t)mempool.size());
-    obj.pushKV("chain",            Params().NetworkIDString());
+    obj.pushKV("chain",            BaseParams().NetworkIDString());
     obj.pushKV("warnings",         GetWarnings("statusbar"));
     return obj;
 }
@@ -874,7 +874,7 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
     if(blockProof.size() != CPubKey::SCHNORR_SIGNATURE_SIZE || !CheckSchnorrSignatureEncoding(blockProof, nullptr, true) )
         throw JSONRPCError(RPC_INVALID_PARAMS, "Invalid signature encoding");
 
-    bool status = block.AbsorbBlockProof(blockProof);
+    bool status = block.AbsorbBlockProof(blockProof, BaseParams().GetAggregatePubkey());
 
     UniValue result(UniValue::VOBJ);
     CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
@@ -888,13 +888,12 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
 
 UniValue testproposedblock(const JSONRPCRequest& request)
 {
-    if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
+    if (request.fHelp || request.params.size() != 1 )
         throw std::runtime_error(
             "testproposedblock \"blockhex\" \"[acceptnonstdtxn]\"\n"
             "\nValidate proposed block before signing\n"
             "\nArguments:\n"
             "1. \"blockhex\"       (string, required) The hex-encoded block from getnewblockhex\n"
-            "2. \"acceptnonstdtxn\" (bool) flag indicating whether the block validation must accept non-standard transactions\n"
             "\nResult\n"
             "\"valid\"              (bool) true when the block is valid, JSON exception on failure\n"
             "\nExamples:\n"
@@ -936,16 +935,12 @@ UniValue testproposedblock(const JSONRPCRequest& request)
     }
 
     const CChainParams& chainparams = Params();
-    bool acceptnonstdtxn = request.params[1].isNull() ?
-    gArgs.GetBoolArg("-acceptnonstdtxn", !chainparams.RequireStandard()) : request.params[1].get_bool();
 
-    if(!acceptnonstdtxn) {
-        for (auto& transaction : block.vtx) {
-            if (transaction->IsCoinBase()) continue;
-            std::string reason;
-            if (!IsStandardTx(*transaction, reason)) {
-                throw JSONRPCError(RPC_VERIFY_ERROR, "Block proposal included a non-standard transaction: " + reason);
-            }
+    for (auto& transaction : block.vtx) {
+        if (transaction->IsCoinBase()) continue;
+        std::string reason;
+        if (!IsStandardTx(*transaction, reason)) {
+            throw JSONRPCError(RPC_VERIFY_ERROR, "Block proposal included a non-standard transaction: " + reason);
         }
     }
     return valid ? true : false;

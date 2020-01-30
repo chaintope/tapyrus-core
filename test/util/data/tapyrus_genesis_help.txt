@@ -10,12 +10,6 @@ Options:
 
 Chain selection options:
 
-  -paradium
-       Use the paradium chain
-
-  -testnet
-       Use the test chain
-
 Genesis block:
 
   -address=<pay_to_address>

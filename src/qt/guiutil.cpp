@@ -525,11 +525,9 @@ TableViewLastColumnResizingFixer::TableViewLastColumnResizingFixer(QTableView* t
 #ifdef WIN32
 fs::path static StartupShortcutPath()
 {
-    std::string chain = gArgs.GetChainName();
-    if (chain == CBaseChainParams::MAIN)
+    std::string chain = gArgs.GetChainMode();
+    if (chain == TAPYRUS_OP_MODE::MAIN)
         return GetSpecialFolderPath(CSIDL_STARTUP) / "Bitcoin.lnk";
-    if (chain == CBaseChainParams::TESTNET) // Remove this special case when CBaseChainParams::TESTNET = "testnet4"
-        return GetSpecialFolderPath(CSIDL_STARTUP) / "Bitcoin (testnet).lnk";
     return GetSpecialFolderPath(CSIDL_STARTUP) / strprintf("Bitcoin (%s).lnk", chain);
 }
 
@@ -562,8 +560,8 @@ bool SetStartOnSystemStartup(bool fAutoStart)
 
             // Start client minimized
             QString strArgs = "-min";
-            // Set -testnet /-regtest options
-            strArgs += QString::fromStdString(strprintf(" -testnet=%d -regtest=%d", gArgs.GetBoolArg("-testnet", false), gArgs.GetBoolArg("-regtest", false)));
+            // Set -regtest options
+            strArgs += QString::fromStdString(strprintf(" -regtest=%d", gArgs.GetBoolArg("-regtest", false)));
 
 #ifdef UNICODE
             boost::scoped_array<TCHAR> args(new TCHAR[strArgs.length() + 1]);
@@ -623,8 +621,8 @@ fs::path static GetAutostartDir()
 
 fs::path static GetAutostartFilePath()
 {
-    std::string chain = gArgs.GetChainName();
-    if (chain == CBaseChainParams::MAIN)
+    std::string chain = gArgs.GetChainMode();
+    if (chain == TAPYRUS_OP_MODE::MAIN)
         return GetAutostartDir() / "bitcoin.desktop";
     return GetAutostartDir() / strprintf("bitcoin-%s.lnk", chain);
 }
@@ -665,15 +663,15 @@ bool SetStartOnSystemStartup(bool fAutoStart)
         fs::ofstream optionFile(GetAutostartFilePath(), std::ios_base::out|std::ios_base::trunc);
         if (!optionFile.good())
             return false;
-        std::string chain = gArgs.GetChainName();
+        std::string chain = gArgs.GetChainMode();
         // Write a bitcoin.desktop file to the autostart directory:
         optionFile << "[Desktop Entry]\n";
         optionFile << "Type=Application\n";
-        if (chain == CBaseChainParams::MAIN)
+        if (chain == TAPYRUS_OP_MODE::MAIN)
             optionFile << "Name=Bitcoin\n";
         else
             optionFile << strprintf("Name=Bitcoin (%s)\n", chain);
-        optionFile << "Exec=" << pszExePath << strprintf(" -min -testnet=%d -regtest=%d\n", gArgs.GetBoolArg("-testnet", false), gArgs.GetBoolArg("-regtest", false));
+        optionFile << "Exec=" << pszExePath << strprintf(" -min  -regtest=%d\n", gArgs.GetBoolArg("-regtest", false));
         optionFile << "Terminal=false\n";
         optionFile << "Hidden=false\n";
         optionFile.close();

@@ -101,7 +101,7 @@ BOOST_AUTO_TEST_CASE(AbsorbBlockProof_test) {
     ssBlockProof << blockProof;
 
     // add proof to the block
-    BOOST_CHECK(block.AbsorbBlockProof(blockProof));
+    BOOST_CHECK(block.AbsorbBlockProof(blockProof, BaseParams().GetAggregatePubkey()));
 
     ssBlock.clear();
     ssBlock << block;
@@ -128,7 +128,7 @@ BOOST_AUTO_TEST_CASE(AbsorbBlockProof_invlalid_test) {
     blockProof[2] = 0x30 ;
 
     //returns false as all signatures in proof are not added to the block
-    BOOST_CHECK_EQUAL(false, block.AbsorbBlockProof(blockProof));
+    BOOST_CHECK_EQUAL(false, block.AbsorbBlockProof(blockProof, BaseParams().GetAggregatePubkey()));
 
     ssBlock.clear();
     ssBlock << block;
@@ -165,42 +165,6 @@ BOOST_AUTO_TEST_CASE(create_genesis_block_default)
     BOOST_CHECK_EQUAL(HexStr(scriptPubKey.begin(), scriptPubKey.end()), "76a914834e0737cdb9008db614cd95ec98824e952e3dc588ac");
 
     BOOST_CHECK_EQUAL(genesis.proof.size(),64);
-}
-
-BOOST_AUTO_TEST_CASE(create_genesis_block_one_publickey)
-{
-    CKey aggregateKey;
-    aggregateKey.Set(validAggPrivateKey, validAggPrivateKey + 32, true);
-    CPubKey aggPubkey = aggregateKey.GetPubKey();
-
-    auto chainParams = CreateChainParams(CBaseChainParams::MAIN);
-    chainParams->ReadGenesisBlock(getTestGenesisBlockHex(aggPubkey, aggregateKey));
-
-    BOOST_CHECK_EQUAL(chainParams->GenesisBlock().vtx.size(), 1);
-    BOOST_CHECK_EQUAL(chainParams->GenesisBlock().nVersion, 1);
-    BOOST_CHECK_EQUAL(chainParams->GenesisBlock().hashPrevBlock.ToString(), "0000000000000000000000000000000000000000000000000000000000000000");
-    BOOST_CHECK_EQUAL(chainParams->GenesisBlock().hashMerkleRoot, chainParams->GenesisBlock().vtx[0]->GetHash());
-    BOOST_CHECK_EQUAL(chainParams->GenesisBlock().hashImMerkleRoot, chainParams->GenesisBlock().vtx[0]->GetHashMalFix());
-
-    BOOST_CHECK_EQUAL(chainParams->GenesisBlock().vtx[0]->vin[0].prevout.hashMalFix.ToString(), "0000000000000000000000000000000000000000000000000000000000000000");
-    BOOST_CHECK_EQUAL(chainParams->GenesisBlock().vtx[0]->vin[0].prevout.n, 0);
-
-    BOOST_CHECK_EQUAL(chainParams->GenesisBlock().vtx[0]->vin.size(), 1);
-    CScript scriptSig = chainParams->GenesisBlock().vtx[0]->vin[0].scriptSig;
-    BOOST_CHECK_EQUAL(HexStr(scriptSig.begin(), scriptSig.end()), "21025700236c2890233592fcef262f4520d22af9160e3d9705855140eb2aa06c35d3");
-
-    BOOST_CHECK_EQUAL(chainParams->GenesisBlock().vtx[0]->vout.size(), 1);
-    BOOST_CHECK_EQUAL(chainParams->GenesisBlock().vtx[0]->vout[0].nValue, 50 * COIN);
-    CScript scriptPubKey = chainParams->GenesisBlock().vtx[0]->vout[0].scriptPubKey;
-    BOOST_CHECK_EQUAL(HexStr(scriptPubKey.begin(), scriptPubKey.end()),
-    "76a914834e0737cdb9008db614cd95ec98824e952e3dc588ac");
-
-    BOOST_CHECK_EQUAL(chainParams->GenesisBlock().GetHash(), chainParams->GetConsensus().hashGenesisBlock);
-
-    //verify signature
-    const uint256 blockHash = chainParams->GenesisBlock().GetHashForSign();
-
-    BOOST_CHECK(aggPubkey.Verify_Schnorr(blockHash, chainParams->GenesisBlock().proof));
 }
 
 BOOST_AUTO_TEST_SUITE_END()

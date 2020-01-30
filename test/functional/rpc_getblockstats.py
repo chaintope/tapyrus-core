@@ -13,7 +13,8 @@ from test_framework.util import (
     assert_raises_rpc_error,
     bytes_to_hex_str,
     initialize_datadir,
-    connect_nodes_bi
+    connect_nodes_bi,
+    NetworkIdDirName
 )
 from test_framework.blocktools import createTestGenesisBlock
 import json
@@ -125,7 +126,7 @@ class GetblockstatsTest(BitcoinTestFramework):
             self.log.info("Loading genesis block from %s" % genesis_block)
             for i in range (0, self.num_nodes):
                 self.stop_node(i)
-                shutil.rmtree(os.path.join(self.nodes[i].datadir, "regtest"))
+                shutil.rmtree(os.path.join(self.nodes[i].datadir, NetworkIdDirName("regtest")))
                 initialize_datadir(self.options.tmpdir, 0)
                 shutil.copyfile(genesis_block, os.path.join(self.nodes[i].datadir, "genesis.dat"))
                 self.start_node(i)
