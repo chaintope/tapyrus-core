@@ -747,12 +747,12 @@ void PaymentServer::handlePaymentACK(const QString& paymentACKMsg)
 
 bool PaymentServer::verifyNetwork(interfaces::Node& node, const payments::PaymentDetails& requestDetails)
 {
-    bool fVerified = requestDetails.network() == node.getNetwork();
+    bool fVerified = requestDetails.network() == TAPYRUS_MODES::GetChainName(gArgs.GetChainMode());
     if (!fVerified) {
         qWarning() << QString("PaymentServer::%1: Payment request network \"%2\" doesn't match client network \"%3\".")
             .arg(__func__)
             .arg(QString::fromStdString(requestDetails.network()))
-            .arg(QString::fromStdString(node.getNetwork()));
+            .arg(QString::fromStdString(TAPYRUS_MODES::GetChainName(gArgs.GetChainMode())));
     }
     return fVerified;
 }

@@ -9,7 +9,7 @@ See build instructions ([macOS](/doc/build-osx.md), [Windows](/doc/build-windows
 To run:
 
 ```sh
-./src/qt/tapyrus_qt
+./src/qt/tapyrus-qt
 ```
 
 ## Files and directories
