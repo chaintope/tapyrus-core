@@ -96,6 +96,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         self.signblockpubkey = "025700236c2890233592fcef262f4520d22af9160e3d9705855140eb2aa06c35d3"
         self.signblockprivkey = "67ae3f5bfb3464b9704d7bd3a134401cc80c3a172240ebfca9f1e40f51bb6d37"
         self.genesisBlock = None
+        self.networkid = None
         self.set_test_params()
 
         assert hasattr(self, "num_nodes"), "Test must set self.num_nodes in set_test_params()"
@@ -276,7 +277,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         assert_equal(len(extra_args), num_nodes)
         assert_equal(len(binary), num_nodes)
         for i in range(num_nodes):
-            self.nodes.append(TestNode(i, get_datadir_path(self.options.tmpdir, i), rpchost=rpchost, timewait=self.rpc_timewait, bitcoind=binary[i], bitcoin_cli=self.options.bitcoincli, mocktime=self.mocktime, coverage_dir=self.options.coveragedir, signblockpubkey=self.signblockpubkey, extra_conf=extra_confs[i], extra_args=extra_args[i], use_cli=self.options.usecli))
+            self.nodes.append(TestNode(i, get_datadir_path(self.options.tmpdir, i), rpchost=rpchost, timewait=self.rpc_timewait, bitcoind=binary[i], bitcoin_cli=self.options.bitcoincli, mocktime=self.mocktime, coverage_dir=self.options.coveragedir, signblockpubkey=self.signblockpubkey, extra_conf=extra_confs[i], extra_args=extra_args[i], use_cli=self.options.usecli, networkid=self.networkid))
 
     def start_node(self, i, *args, **kwargs):
         """Start a bitcoind"""
@@ -370,6 +371,9 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
     def disable_mocktime(self):
         self.mocktime = 0
 
+    def getNetworkDirName(self):
+        return NetworkDirName(self.networkid)
+            
     # Private helper methods. These should not be accessed by the subclass test scripts.
 
     def _start_logging(self):
@@ -426,13 +430,13 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             # Create cache directories, run bitcoinds:
             for i in range(MAX_NODES):
                 datadir = initialize_datadir(self.options.cachedir, i)
-                self.writeGenesisBlockToFile(datadir, nTime= self.mocktime - (201 * 10 * 60))
+                self.writeGenesisBlockToFile(datadir, self.networkid, nTime= self.mocktime - (201 * 10 * 60))
                 args = [self.options.bitcoind,
                 "-datadir=" + datadir]
                 if i > 0:
                     args.append("-connect=127.0.0.1:" + str(p2p_port(0)))
                     args.append("-debug=all")
-                self.nodes.append(TestNode(i, get_datadir_path(self.options.cachedir, i), signblockpubkey=self.signblockpubkey, extra_conf=["bind=127.0.0.1"], extra_args=[], rpchost=None, timewait=self.rpc_timewait, bitcoind=self.options.bitcoind, bitcoin_cli=self.options.bitcoincli, mocktime=self.mocktime, coverage_dir=None))
+                self.nodes.append(TestNode(i, get_datadir_path(self.options.cachedir, i), signblockpubkey=self.signblockpubkey, extra_conf=["bind=127.0.0.1"], extra_args=[], rpchost=None, timewait=self.rpc_timewait, bitcoind=self.options.bitcoind, bitcoin_cli=self.options.bitcoincli, mocktime=self.mocktime, coverage_dir=None, networkid=self.networkid))
                 self.nodes[i].args = args
                 self.start_node(i)
 
@@ -463,7 +467,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             self.disable_mocktime()
 
             def cache_path(n, *paths):
-                return os.path.join(get_datadir_path(self.options.cachedir, n), NetworkDirName(), *paths)
+                return os.path.join(get_datadir_path(self.options.cachedir, n), getNetworkDirName(), *paths)
 
             for i in range(MAX_NODES):
                 for entry in os.listdir(cache_path(i)):
@@ -483,7 +487,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         Useful if a test case wants complete control over initialization."""
         for i in range(self.num_nodes):
             datadir = initialize_datadir(self.options.tmpdir, i)
-            self.writeGenesisBlockToFile(datadir)
+            self.writeGenesisBlockToFile(datadir, self.networkid)
 
     def writeGenesisBlockToFile(self, datadir, networkid = None, nTime=None):
         if(networkid != None):
