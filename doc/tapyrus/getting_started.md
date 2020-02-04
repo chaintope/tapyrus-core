@@ -85,7 +85,7 @@ Read [Create new genesis block using tapyrus-genesis-utility](https://github.com
 ./tapyrus-genesis -dev -time=1563342688 -address=mmtAurzUTURFq9MSizWyj5sAkWzgqR8PBn -signblockpubkey=03af80b90d25145da28c583359beb47b21796b2fe1a23c1511e443e7a64dfdb27d -signblockprivatekey=cUJN5RVzYWFoeY8rUztd47jzXCu1p57Ay8V7pqCzsBD3PEXN7Dd4
 ```
 ##### :heavy_exclamation_mark:Caution
-> Tapyrus-genesis utility can generate a genesis block with a valid block proof. It is not recommended to use this feature in prod mode. This feature should be used for testing only.
+> Tapyrus-genesis utility can generate a genesis block with a valid block proof. It is not recommended to use this feature in production mode. This feature should be used for testing only.
 
 5. Start Tapyrus-core node with -dev option
 ```/usr/local/bin/tapyrusd -dev -datadir=/var/lib/tapyrus-dev -conf=/etc/tapyrus/tapyrus.conf```
@@ -97,7 +97,7 @@ Read [Create new genesis block using tapyrus-genesis-utility](https://github.com
 tapyrus-cli -dev -networkid=1905960821 -datadir=/var/lib/tapyrus-dev -conf=/etc/tapyrus/tapyrus.conf -rpcport=17858 generatetoaddress 1 \"mmtAurzUTURFq9MSizWyj5sAkWzgqR8PBn\" \"c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3\"
 ```
 ##### :heavy_exclamation_mark:Caution
-> generate and generatetoaddress RPCs can generate blocks with valid block proofs. Do not use these RPCs in prod modes when the signer network is active as the node could diverge.
+> generate and generatetoaddress RPCs can generate blocks with valid block proofs. Do not use these RPCs in production mode when the signer network is active as the node could diverge.
 
 Block rewards can now be spent to create new transactions and proceed with testing.
 
@@ -107,7 +107,7 @@ Block rewards can now be spent to create new transactions and proceed with testi
 > :point_right: If you wish to start a new test network then follow the instructions in [How to start a new tapyrus network?](https://github.com/chaintope/tapyrus-core/blob/v0.3.0/doc/tapyrus/getting_started.md#how-to-start-a-new-tapyrus-network)
 
 
-Tapyrus software does not support a separate "testnet" mode. A new Tapyrus "prod" network with a different network Id can be created to be used as testnet.
+Tapyrus software does not support a separate "testnet" mode. A new Tapyrus production, "prod" mode network with a different network Id can be created to be used as testnet.
 
 In order to join the Chaintope's Tapyrus testnet with networkid 1939510133 it is enough to start a Tapyrus-core node (tapyrusd) on the host. Please follow the steps below:
 
@@ -168,7 +168,7 @@ A minimum functional tapyrus network needs 3 Tapyrus-signers and 1 Tapyrus-core 
 6. [Configure Tapyrus DNS seeder](https://github.com/chaintope/tapyrus-core/blob/issue/18_getting_started/doc/tapyrus/getting_started.md#5-configure-tapyrus-dns-seeder)
 
 ### 1. Choose a Network Id
-Tapyrus network Ids are chosen such that the magic bytes generated from them do not occur in regular network traffic as Tapyrus relies on this to identify messages. The default network Id in prod mode is 1 and dev mode is 1905960821.
+Tapyrus network Ids are chosen such that the magic bytes generated from them do not occur in regular network traffic as Tapyrus relies on this to identify messages. The default network Id in production(prod) mode is 1 and development(dev) mode is 1905960821.
 
 ### 2. Generate Aggregate public key of Tapyrus-signer network
 
