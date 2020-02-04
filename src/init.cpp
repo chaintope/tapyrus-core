@@ -636,7 +636,6 @@ static void CleanupBlockRevFiles()
 
 static void ThreadImport(std::vector<fs::path> vImportFiles)
 {
-    const CChainParams& chainparams = Params();
     RenameThread("bitcoin-loadblk");
     ScheduleBatchPriority();
 
@@ -925,7 +924,6 @@ bool AppInitBasicSetup()
 
 bool AppInitParameterInteraction()
 {
-    const CChainParams& chainparams = Params();
     // ********************************************************* Step 2: parameter interactions
 
     // also see: InitParameterInteraction()
@@ -1097,8 +1095,8 @@ bool AppInitParameterInteraction()
 
 #ifdef DEBUG
     acceptnonstdtxn = gArgs.GetBoolArg("-acceptnonstdtxn", false);
-    if ((gArgs.GetChainMode() == TAPYRUS_OP_MODE::MAIN) && acceptnonstdtxn)
-        return InitError(strprintf("acceptnonstdtxn is not supported for %s chain", TAPYRUS_MODES::GetChainName(TAPYRUS_OP_MODE::MAIN)));
+    if ((gArgs.GetChainMode() == TAPYRUS_OP_MODE::PROD) && acceptnonstdtxn)
+        return InitError(strprintf("acceptnonstdtxn is not supported for %s chain", TAPYRUS_MODES::GetChainName(TAPYRUS_OP_MODE::PROD)));
 #endif
     nBytesPerSigOp = gArgs.GetArg("-bytespersigop", nBytesPerSigOp);
 
