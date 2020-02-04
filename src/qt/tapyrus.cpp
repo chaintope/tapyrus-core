@@ -668,15 +668,7 @@ int main(int argc, char *argv[])
     PaymentServer::ipcParseCommandLine(*node, argc, argv);
 #endif
 
-<<<<<<< HEAD:src/qt/bitcoin.cpp
-    QScopedPointer<const NetworkStyle> networkStyle(NetworkStyle::instantiate(QString::fromStdString(FederationParams().NetworkIDString())));
-=======
-<<<<<<< HEAD:src/qt/bitcoin.cpp
-    QScopedPointer<const NetworkStyle> networkStyle(NetworkStyle::instantiate(QString::fromStdString(Params().NetworkIDString())));
-=======
     QScopedPointer<const NetworkStyle> networkStyle(NetworkStyle::instantiate(QString::fromStdString(TAPYRUS_MODES::GetChainName(gArgs.GetChainMode()))));
->>>>>>> f8497fd2c... renamed bitcoin to tapyrus in GUI files and makefiles:src/qt/tapyrus.cpp
->>>>>>> Part 1 - renaming bitcoin to tapyrus in icons, build files and GUI:src/qt/tapyrus.cpp
     assert(!networkStyle.isNull());
     // Allow for separate UI settings for testnets
     QApplication::setApplicationName(networkStyle->getAppName());
