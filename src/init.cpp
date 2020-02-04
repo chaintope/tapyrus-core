@@ -924,6 +924,7 @@ bool AppInitBasicSetup()
 
 bool AppInitParameterInteraction()
 {
+    const CChainParams& chainparams = Params();
     // ********************************************************* Step 2: parameter interactions
 
     // also see: InitParameterInteraction()
@@ -1180,7 +1181,6 @@ bool AppInitLockDataDirectory()
 
 bool AppInitMain()
 {
-    const CChainParams& chainparams = Params();
     // ********************************************************* Step 4a: application initialization
 #ifndef WIN32
     CreatePidFile(GetPidFile(), getpid());
