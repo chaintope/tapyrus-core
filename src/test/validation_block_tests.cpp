@@ -146,10 +146,10 @@ BOOST_AUTO_TEST_CASE(processnewblock_signals_ordering)
     std::transform(blocks.begin(), blocks.end(), std::back_inserter(headers), [](std::shared_ptr<const CBlock> b) { return b->GetBlockHeader(); });
 
     // Process all the headers so we understand the toplogy of the chain
-    BOOST_CHECK(ProcessNewBlockHeaders(headers, state, Params()));
+    BOOST_CHECK(ProcessNewBlockHeaders(headers, state));
 
     // Connect the genesis block and drain any outstanding events
-    ProcessNewBlock(Params(), std::make_shared<CBlock>(FederationParams().GenesisBlock()), true, &ignored);
+    ProcessNewBlock(std::make_shared<CBlock>(FederationParams().GenesisBlock()), true, &ignored);
     SyncWithValidationInterfaceQueue();
 
     // subscribe to events (this subscriber will validate event ordering)
@@ -172,18 +172,18 @@ BOOST_AUTO_TEST_CASE(processnewblock_signals_ordering)
                 auto block = blocks[GetRand(blocks.size() - 1)];
                 BOOST_CHECK_EQUAL(block->proof.size(), 64);
                 CValidationState state;
-                BOOST_CHECK(CheckBlockHeader(*block, state, Params().GetConsensus()));
-                ProcessNewBlock(Params(), block, true, &ignored);
+                BOOST_CHECK(CheckBlockHeader(*block, state));
+                ProcessNewBlock(block, true, &ignored);
             }
 
             // to make sure that eventually we process the full chain - do it here
             for (auto block : blocks) {
                 BOOST_CHECK_EQUAL(block->proof.size(), 64);
                 CValidationState state;
-                BOOST_CHECK(CheckBlockHeader(*block, state, Params().GetConsensus()));
-                ProcessNewBlock(Params(), block, true, &ignored);
+                BOOST_CHECK(CheckBlockHeader(*block, state));
+                ProcessNewBlock(block, true, &ignored);
                 if (block->vtx.size() == 1) {
-                    bool processed = ProcessNewBlock(Params(), block, true, &ignored);
+                    bool processed = ProcessNewBlock(block, true, &ignored);
                     assert(processed);
                 }
             }

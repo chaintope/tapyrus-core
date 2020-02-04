@@ -109,7 +109,7 @@ BOOST_AUTO_TEST_CASE(create_genesis_block)
     const auto genesis = createGenesisBlock(aggregatePubkey, key);
 
     CValidationState state;
-    BOOST_CHECK(CheckBlock(genesis, state, Params().GetConsensus(), true));
+    BOOST_CHECK(CheckBlock(genesis, state, true));
 }
 
 BOOST_AUTO_TEST_CASE(create_genesis_block_one_publickey)

@@ -51,7 +51,7 @@ BOOST_AUTO_TEST_CASE(subsidy_limit_test)
     const auto chainParams = CreateChainParams(TAPYRUS_OP_MODE::PROD);
     CAmount nSum = 0;
     for (int nHeight = 0; nHeight < 14000000; nHeight += 1000) {
-        CAmount nSubsidy = GetBlockSubsidy(nHeight, chainParams->GetConsensus());
+        CAmount nSubsidy = GetBlockSubsidy(nHeight, Params().GetConsensus());
         BOOST_CHECK(nSubsidy <= 50 * COIN);
         nSum += nSubsidy * 1000;
         BOOST_CHECK(MoneyRange(nSum));

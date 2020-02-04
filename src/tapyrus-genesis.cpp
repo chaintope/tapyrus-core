@@ -116,7 +116,7 @@ static int CommandLine()
     // check validity
     CValidationState state;
     bool fCheckProof = privatekey.IsValid();
-    if(!CheckBlock(genesis, state, Params().GetConsensus(), fCheckProof)) {
+    if(!CheckBlock(genesis, state, fCheckProof)) {
         fprintf(stderr, "error: Consensus::CheckBlock: %s", FormatStateMessage(state).c_str());
         return EXIT_FAILURE;
     }

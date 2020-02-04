@@ -1759,7 +1759,7 @@ CBlockIndex* CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, CBlock
             }
 
             CBlock block;
-            if (ReadBlockFromDisk(block, pindex, Params().GetConsensus())) {
+            if (ReadBlockFromDisk(block, pindex)) {
                 LOCK2(cs_main, cs_wallet);
                 if (pindex && !chainActive.Contains(pindex)) {
                     // Abort scan if current block is no longer active, to prevent

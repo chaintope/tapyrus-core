@@ -99,7 +99,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         self.setup_clean_chain = True
         # Node0 = pre-segwit, node1 = segwit-aware
         self.num_nodes = 2
-        self.extra_args = [[], ["-txindex", "-deprecatedrpc=addwitnessaddress"]]
+        self.extra_args = [["-acceptnonstdtxn=1"], ["-txindex", "-deprecatedrpc=addwitnessaddress", "-acceptnonstdtxn=1"]]
         self.utxos = []
 
     def build_block_on_tip(self, node):

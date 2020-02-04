@@ -73,7 +73,7 @@ UniValue generateBlocks(std::shared_ptr<CReserveScript> coinbaseScript, int nGen
         }
 
         std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(*pblock);
-        if (!ProcessNewBlock(Params(), shared_pblock, true, nullptr))
+        if (!ProcessNewBlock(shared_pblock, true, nullptr))
             throw JSONRPCError(RPC_INTERNAL_ERROR, "ProcessNewBlock, block not accepted");
         ++nHeight;
         blockHashes.push_back(pblock->GetHash().GetHex());
@@ -380,7 +380,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
             if (block.hashPrevBlock != pindexPrev->GetBlockHash())
                 return "inconclusive-not-best-prevblk";
             CValidationState state;
-            TestBlockValidity(state, Params(), block, pindexPrev, false, true);
+            TestBlockValidity(state, block, pindexPrev, false, true);
             return BIP22ValidationResult(state);
         }
 
@@ -655,7 +655,7 @@ static UniValue submitblock(const JSONRPCRequest& request)
     bool new_block;
     submitblock_StateCatcher sc(block.GetHash());
     RegisterValidationInterface(&sc);
-    bool accepted = ProcessNewBlock(Params(), blockptr, /* fForceProcessing */ true, /* fNewBlock */ &new_block);
+    bool accepted = ProcessNewBlock(blockptr, /* fForceProcessing */ true, /* fNewBlock */ &new_block);
     UnregisterValidationInterface(&sc);
     if (!new_block) {
         if (!accepted) {
@@ -888,13 +888,12 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
 
 UniValue testproposedblock(const JSONRPCRequest& request)
 {
-    if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
+    if (request.fHelp || request.params.size() != 1 )
         throw std::runtime_error(
             "testproposedblock \"blockhex\" \"[acceptnonstdtxn]\"\n"
             "\nValidate proposed block before signing\n"
             "\nArguments:\n"
             "1. \"blockhex\"       (string, required) The hex-encoded block from getnewblockhex\n"
-            "2. \"acceptnonstdtxn\" (bool) flag indicating whether the block validation must accept non-standard transactions\n"
             "\nResult\n"
             "\"valid\"              (bool) true when the block is valid, JSON exception on failure\n"
             "\nExamples:\n"
@@ -927,7 +926,7 @@ UniValue testproposedblock(const JSONRPCRequest& request)
 
     CValidationState state;
 
-    bool valid = TestBlockValidity(state, Params(), block, pindexPrev, false, true);
+    bool valid = TestBlockValidity(state, block, pindexPrev, false, true);
     if (!valid || !state.IsValid()) {
         std::string strRejectReason = state.GetRejectReason();
         if (strRejectReason.empty())
@@ -936,16 +935,12 @@ UniValue testproposedblock(const JSONRPCRequest& request)
     }
 
     const CChainParams& chainparams = Params();
-    bool acceptnonstdtxn = request.params[1].isNull() ?
-    gArgs.GetBoolArg("-acceptnonstdtxn", !chainparams.RequireStandard()) : request.params[1].get_bool();
 
-    if(!acceptnonstdtxn) {
-        for (auto& transaction : block.vtx) {
-            if (transaction->IsCoinBase()) continue;
-            std::string reason;
-            if (!IsStandardTx(*transaction, reason)) {
-                throw JSONRPCError(RPC_VERIFY_ERROR, "Block proposal included a non-standard transaction: " + reason);
-            }
+    for (auto& transaction : block.vtx) {
+        if (transaction->IsCoinBase()) continue;
+        std::string reason;
+        if (!IsStandardTx(*transaction, reason)) {
+            throw JSONRPCError(RPC_VERIFY_ERROR, "Block proposal included a non-standard transaction: " + reason);
         }
     }
     return valid ? true : false;

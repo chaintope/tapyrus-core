@@ -700,7 +700,7 @@ static CBlock GetBlockChecked(const CBlockIndex* pblockindex)
         throw JSONRPCError(RPC_MISC_ERROR, "Block not available (pruned data)");
     }
 
-    if (!ReadBlockFromDisk(block, pblockindex, Params().GetConsensus())) {
+    if (!ReadBlockFromDisk(block, pblockindex)) {
         // Block not found on disk. This could be because we have the block
         // header in our index but don't have the block (for example if a
         // non-whitelisted node sends us an unrequested long chain of valid
@@ -1060,7 +1060,7 @@ static UniValue verifychain(const JSONRPCRequest& request)
     if (!request.params[1].isNull())
         nCheckDepth = request.params[1].get_int();
 
-    return CVerifyDB().VerifyDB(Params(), pcoinsTip.get(), nCheckLevel, nCheckDepth);
+    return CVerifyDB().VerifyDB(pcoinsTip.get(), nCheckLevel, nCheckDepth);
 }
 
 
@@ -1072,7 +1072,8 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
             "Returns an object containing various state info regarding blockchain processing.\n"
             "\nResult:\n"
             "{\n"
-            "  \"chain\": \"xxxx\",              (string) current network name\n"
+            "  \"mode\": \"xxxx\",               (string) current network mode:PROD/DEV\n"
+            "  \"chain\": \"xxxx\",              (string) current network id\n"
             "  \"blocks\": xxxxxx,             (numeric) the current number of blocks processed in the server\n"
             "  \"headers\": xxxxxx,            (numeric) the current number of headers we have validated\n"
             "  \"bestblockhash\": \"...\",       (string) the hash of the currently best block\n"
@@ -1105,6 +1106,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
 
     UniValue obj(UniValue::VOBJ);
     obj.pushKV("chain",                 FederationParams().NetworkIDString());
+    obj.pushKV("mode",                  TAPYRUS_MODES::GetChainName(gArgs.GetChainMode()));
     obj.pushKV("blocks",                (int)chainActive.Height());
     obj.pushKV("headers",               pindexBestHeader ? pindexBestHeader->nHeight : -1);
     obj.pushKV("bestblockhash",         chainActive.Tip()->GetBlockHash().GetHex());
@@ -1318,7 +1320,7 @@ static UniValue preciousblock(const JSONRPCRequest& request)
     }
 
     CValidationState state;
-    PreciousBlock(state, Params(), pblockindex);
+    PreciousBlock(state, pblockindex);
 
     if (!state.IsValid()) {
         throw JSONRPCError(RPC_DATABASE_ERROR, FormatStateMessage(state));
@@ -1352,11 +1354,11 @@ static UniValue invalidateblock(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
         }
 
-        InvalidateBlock(state, Params(), pblockindex);
+        InvalidateBlock(state, pblockindex);
     }
 
     if (state.IsValid()) {
-        ActivateBestChain(state, Params());
+        ActivateBestChain(state);
     }
 
     if (!state.IsValid()) {
@@ -1395,7 +1397,7 @@ static UniValue reconsiderblock(const JSONRPCRequest& request)
     }
 
     CValidationState state;
-    ActivateBestChain(state, Params());
+    ActivateBestChain(state);
 
     if (!state.IsValid()) {
         throw JSONRPCError(RPC_DATABASE_ERROR, FormatStateMessage(state));

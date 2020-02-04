@@ -145,7 +145,7 @@ static void CreateBlocks(const CChainParams &chainparams,
             BOOST_CHECK_EQUAL(pblock->proof.size(), 64);
         }
         std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(*pblock);
-        BOOST_CHECK(ProcessNewBlock(chainparams, shared_pblock, true, nullptr));
+        BOOST_CHECK(ProcessNewBlock(shared_pblock, true, nullptr));
         pblock->hashPrevBlock = pblock->GetHash();
     }
 

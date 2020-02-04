@@ -40,6 +40,7 @@ from test_framework.script import (
     OP_FALSE,
     OP_HASH160,
     OP_IF,
+    OP_1,
     OP_INVALIDOPCODE,
     OP_RETURN,
     OP_TRUE,
@@ -79,7 +80,7 @@ class FullBlockTest(BitcoinTestFramework):
         self.num_nodes = 1
         self.sig_scheme = 0
         self.setup_clean_chain = True
-        self.extra_args = [[]]
+        self.extra_args = [["-acceptnonstdtxn=1"]]
         self.genesisBlock = createTestGenesisBlock(self.signblockpubkey, self.signblockprivkey, int(time.time() - 100))
 
     def run_test(self):
@@ -1271,7 +1272,7 @@ class FullBlockTest(BitcoinTestFramework):
             tx.vin[0].scriptSig = CScript([self.schnorr_key.sign(sighash) + bytes(bytearray([SIGHASH_ALL]))])
             self.sig_scheme = 1
 
-    def create_and_sign_transaction(self, spend_tx, value, script=CScript([OP_TRUE])):
+    def create_and_sign_transaction(self, spend_tx, value, script=CScript([OP_1])):
         tx = self.create_tx(spend_tx, 0, value, script)
         self.sign_tx(tx, spend_tx)
         tx.rehash()

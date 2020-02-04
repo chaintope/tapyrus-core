@@ -1097,13 +1097,14 @@ static void RelayAddress(const CAddress& addr, bool fReachable, CConnman* connma
     connman->ForEachNodeThen(std::move(sortfunc), std::move(pushfunc));
 }
 
-void static ProcessGetBlockData(CNode* pfrom, const CChainParams& chainparams, const CInv& inv, CConnman* connman)
+void static ProcessGetBlockData(CNode* pfrom, const CInv& inv, CConnman* connman)
 {
     bool send = false;
     std::shared_ptr<const CBlock> a_recent_block;
     std::shared_ptr<const CBlockHeaderAndShortTxIDs> a_recent_compact_block;
     bool fWitnessesPresentInARecentCompactBlock;
-    const Consensus::Params& consensusParams = chainparams.GetConsensus();
+    const CChainParams chainparams = Params();
+    const Consensus::Params& consensusParams = Params().GetConsensus();
     {
         LOCK(cs_most_recent_block);
         a_recent_block = most_recent_block;
@@ -1129,7 +1130,7 @@ void static ProcessGetBlockData(CNode* pfrom, const CChainParams& chainparams, c
     } // release cs_main before calling ActivateBestChain
     if (need_activate_chain) {
         CValidationState state;
-        if (!ActivateBestChain(state, Params(), a_recent_block)) {
+        if (!ActivateBestChain(state, a_recent_block)) {
             LogPrint(BCLog::NET, "failed to activate chain (%s)\n", FormatStateMessage(state));
         }
     }
@@ -1182,7 +1183,7 @@ void static ProcessGetBlockData(CNode* pfrom, const CChainParams& chainparams, c
         } else {
             // Send block from disk
             std::shared_ptr<CBlock> pblockRead = std::make_shared<CBlock>();
-            if (!ReadBlockFromDisk(*pblockRead, pindex, consensusParams))
+            if (!ReadBlockFromDisk(*pblockRead, pindex))
                 assert(!"cannot load block from disk");
             pblock = pblockRead;
         }
@@ -1251,7 +1252,7 @@ void static ProcessGetBlockData(CNode* pfrom, const CChainParams& chainparams, c
     }
 }
 
-void static ProcessGetData(CNode* pfrom, const CChainParams& chainparams, CConnman* connman, const std::atomic<bool>& interruptMsgProc)
+void static ProcessGetData(CNode* pfrom, CConnman* connman, const std::atomic<bool>& interruptMsgProc)
 {
     AssertLockNotHeld(cs_main);
 
@@ -1297,7 +1298,7 @@ void static ProcessGetData(CNode* pfrom, const CChainParams& chainparams, CConnm
         const CInv &inv = *it;
         if (inv.type == MSG_BLOCK || inv.type == MSG_FILTERED_BLOCK || inv.type == MSG_CMPCT_BLOCK || inv.type == MSG_WITNESS_BLOCK) {
             it++;
-            ProcessGetBlockData(pfrom, chainparams, inv, connman);
+            ProcessGetBlockData(pfrom, inv, connman);
         }
     }
 
@@ -1392,7 +1393,7 @@ bool static ProcessHeadersMessage(CNode *pfrom, CConnman *connman, const std::ve
 
     CValidationState state;
     CBlockHeader first_invalid_header;
-    if (!ProcessNewBlockHeaders(headers, state, chainparams, &pindexLast, &first_invalid_header)) {
+    if (!ProcessNewBlockHeaders(headers, state, &pindexLast, &first_invalid_header)) {
         int nDoS;
         if (state.IsInvalid(nDoS)) {
             LOCK(cs_main);
@@ -1943,7 +1944,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         }
 
         pfrom->vRecvGetData.insert(pfrom->vRecvGetData.end(), vInv.begin(), vInv.end());
-        ProcessGetData(pfrom, chainparams, connman, interruptMsgProc);
+        ProcessGetData(pfrom, connman, interruptMsgProc);
     }
 
 
@@ -1973,7 +1974,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
                 a_recent_block = most_recent_block;
             }
             CValidationState state;
-            if (!ActivateBestChain(state, Params(), a_recent_block)) {
+            if (!ActivateBestChain(state, a_recent_block)) {
                 LogPrint(BCLog::NET, "failed to activate chain (%s)\n", FormatStateMessage(state));
             }
         }
@@ -2059,7 +2060,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         }
 
         CBlock block;
-        bool ret = ReadBlockFromDisk(block, pindex, chainparams.GetConsensus());
+        bool ret = ReadBlockFromDisk(block, pindex);
         assert(ret);
 
         SendBlockTransactions(block, req, pfrom, connman);
@@ -2345,7 +2346,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
 
         const CBlockIndex *pindex = nullptr;
         CValidationState state;
-        if (!ProcessNewBlockHeaders({cmpctblock.header}, state, chainparams, &pindex)) {
+        if (!ProcessNewBlockHeaders({cmpctblock.header}, state, &pindex)) {
             int nDoS;
             if (state.IsInvalid(nDoS)) {
                 if (nDoS > 0) {
@@ -2526,7 +2527,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
             // reconstructed compact blocks as having been requested.
             // NOTE: nMinimumChainWork is removed. Because consensus is changed
             // to Signed Blocks.
-            ProcessNewBlock(chainparams, pblock, /*fForceProcessing=*/true, &fNewBlock);
+            ProcessNewBlock( pblock, /*fForceProcessing=*/true, &fNewBlock);
             if (fNewBlock) {
                 pfrom->nLastBlockTime = GetTime();
             } else {
@@ -2609,7 +2610,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
             // disk-space attacks), but this should be safe due to the
             // protections in the compact block handler -- see related comment
             // in compact block optimistic reconstruction handling.
-            ProcessNewBlock(chainparams, pblock, /*fForceProcessing=*/true, &fNewBlock);
+            ProcessNewBlock(pblock, /*fForceProcessing=*/true, &fNewBlock);
             if (fNewBlock) {
                 pfrom->nLastBlockTime = GetTime();
             } else {
@@ -2664,7 +2665,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
             mapBlockSource.emplace(hash, std::make_pair(pfrom->GetId(), true));
         }
         bool fNewBlock = false;
-        ProcessNewBlock(chainparams, pblock, forceProcessing, &fNewBlock);
+        ProcessNewBlock(pblock, forceProcessing, &fNewBlock);
         if (fNewBlock) {
             pfrom->nLastBlockTime = GetTime();
         } else {
@@ -2927,7 +2928,7 @@ bool PeerLogicValidation::ProcessMessages(CNode* pfrom, std::atomic<bool>& inter
     bool fMoreWork = false;
 
     if (!pfrom->vRecvGetData.empty())
-        ProcessGetData(pfrom, chainparams, connman, interruptMsgProc);
+        ProcessGetData(pfrom, connman, interruptMsgProc);
 
     if (pfrom->fDisconnect)
         return false;
@@ -3389,7 +3390,7 @@ bool PeerLogicValidation::SendMessages(CNode* pto)
                     }
                     if (!fGotBlockFromCache) {
                         CBlock block;
-                        bool ret = ReadBlockFromDisk(block, pBestIndex, consensusParams);
+                        bool ret = ReadBlockFromDisk(block, pBestIndex);
                         assert(ret);
                         CBlockHeaderAndShortTxIDs cmpctblock(block);
                         connman->PushMessage(pto, msgMaker.Make(nSendFlags, NetMsgType::CMPCTBLOCK, cmpctblock));
