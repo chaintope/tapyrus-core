@@ -39,7 +39,7 @@ static void SetupBitcoinTxArgs()
     gArgs.AddArg("-json", "Select JSON output", false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-txid", "Output only the hex-encoded transaction id of the resultant transaction.", false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-scheme=ECDSA/SCHNORR", "Signature scheme to be used to sign this transction", false, OptionsCategory::OPTIONS);
-    SetupChainParamsBaseOptions();
+    SetupFederationParamsOptions();
 
     gArgs.AddArg("delin=N", "Delete input N from TX", false, OptionsCategory::COMMANDS);
     gArgs.AddArg("delout=N", "Delete output N from TX", false, OptionsCategory::COMMANDS);
@@ -85,7 +85,7 @@ static int AppInitRawTx(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
-    // Check for -regtest parameter (Params() calls are only valid after this clause)
+    // Check for -dev parameter (Params() calls are only valid after this clause)
     try {
         SelectParams(gArgs.GetChainMode());
     } catch (const std::exception& e) {

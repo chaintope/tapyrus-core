@@ -8,7 +8,7 @@ import os
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.test_node import ErrorMatch
-from test_framework.util import NetworkIdDirName
+from test_framework.util import NetworkDirName
 
 class LoggingTest(BitcoinTestFramework):
     def set_test_params(self):
@@ -16,7 +16,7 @@ class LoggingTest(BitcoinTestFramework):
         self.setup_clean_chain = True
 
     def relative_log_path(self, name):
-        return os.path.join(self.nodes[0].datadir, NetworkIdDirName("regtest"), name)
+        return os.path.join(self.nodes[0].datadir, NetworkDirName(), name)
 
     def run_test(self):
         # test default log file name

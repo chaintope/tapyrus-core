@@ -6,7 +6,7 @@
 #ifndef TAPYRUS_TEST_TEST_TAPYRUS_H
 #define TAPYRUS_TEST_TEST_TAPYRUS_H
 
-#include <chainparamsbase.h>
+#include <federationparams.h>
 #include <chainparams.h>
 #include <fs.h>
 #include <key.h>
@@ -46,7 +46,7 @@ static inline bool InsecureRandBool() { return insecure_rand_ctx.randbool(); }
 struct BasicTestingSetup {
     ECCVerifyHandle globalVerifyHandle;
 
-    explicit BasicTestingSetup(const std::string& chainName = TAPYRUS_MODES::MAIN);
+    explicit BasicTestingSetup(const std::string& chainName = TAPYRUS_MODES::PROD);
     ~BasicTestingSetup();
 
     fs::path SetDataDir(const std::string& name);
@@ -72,7 +72,7 @@ struct TestingSetup: public BasicTestingSetup {
     CScheduler scheduler;
     std::unique_ptr<PeerLogicValidation> peerLogic;
 
-    explicit TestingSetup(const std::string& chainName = TAPYRUS_MODES::MAIN);
+    explicit TestingSetup(const std::string& chainName = TAPYRUS_MODES::PROD);
     ~TestingSetup();
 };
 

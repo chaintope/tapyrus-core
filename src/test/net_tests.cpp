@@ -67,7 +67,7 @@ public:
 static CDataStream AddrmanToStream(CAddrManSerializationMock& _addrman)
 {
     CDataStream ssPeersIn(SER_DISK, CLIENT_VERSION);
-    ssPeersIn << BaseParams().MessageStart();
+    ssPeersIn << FederationParams().MessageStart();
     ssPeersIn << _addrman;
     std::string str = ssPeersIn.str();
     std::vector<unsigned char> vchData(str.begin(), str.end());

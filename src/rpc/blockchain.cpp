@@ -60,7 +60,7 @@ UniValue blockheaderToJSON(const CBlockIndex* blockindex)
     UniValue result(UniValue::VOBJ);
     result.pushKV("hash", blockindex->GetBlockHash().GetHex());
     int confirmations = -1;
-    // Only report confirmations if the block is on the main chain
+    // Only report confirmations if the block is on the prod chain
     if (chainActive.Contains(blockindex))
         confirmations = chainActive.Height() - blockindex->nHeight + 1;
     result.pushKV("confirmations", confirmations);
@@ -90,7 +90,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
     UniValue result(UniValue::VOBJ);
     result.pushKV("hash", blockindex->GetBlockHash().GetHex());
     int confirmations = -1;
-    // Only report confirmations if the block is on the main chain
+    // Only report confirmations if the block is on the prod chain
     if (chainActive.Contains(blockindex))
         confirmations = chainActive.Height() - blockindex->nHeight + 1;
     result.pushKV("confirmations", confirmations);
@@ -647,7 +647,7 @@ static UniValue getblockheader(const JSONRPCRequest& request)
             "\nResult (for verbose = true):\n"
             "{\n"
             "  \"hash\" : \"hash\",     (string) the block hash (same as provided)\n"
-            "  \"confirmations\" : n,   (numeric) The number of confirmations, or -1 if the block is not on the main chain\n"
+            "  \"confirmations\" : n,   (numeric) The number of confirmations, or -1 if the block is not on the prod chain\n"
             "  \"height\" : n,          (numeric) The block height or index\n"
             "  \"version\" : n,         (numeric) The block version\n"
             "  \"versionHex\" : \"00000000\", (string) The block version formatted in hexadecimal\n"
@@ -729,7 +729,7 @@ static UniValue getblock(const JSONRPCRequest& request)
             "\nResult (for verbosity = 1):\n"
             "{\n"
             "  \"hash\" : \"hash\",     (string) the block hash (same as provided)\n"
-            "  \"confirmations\" : n,   (numeric) The number of confirmations, or -1 if the block is not on the main chain\n"
+            "  \"confirmations\" : n,   (numeric) The number of confirmations, or -1 if the block is not on the prod chain\n"
             "  \"size\" : n,            (numeric) The block size\n"
             "  \"strippedsize\" : n,    (numeric) The block size excluding witness data\n"
             "  \"weight\" : n           (numeric) The block weight as defined in BIP 141\n"
@@ -1072,7 +1072,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
             "Returns an object containing various state info regarding blockchain processing.\n"
             "\nResult:\n"
             "{\n"
-            "  \"mode\": \"xxxx\",               (string) current network mode:MAIN/REGTEST\n"
+            "  \"mode\": \"xxxx\",               (string) current network mode:PROD/DEV\n"
             "  \"chain\": \"xxxx\",              (string) current network id\n"
             "  \"blocks\": xxxxxx,             (numeric) the current number of blocks processed in the server\n"
             "  \"headers\": xxxxxx,            (numeric) the current number of headers we have validated\n"
@@ -1105,7 +1105,8 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     LOCK(cs_main);
 
     UniValue obj(UniValue::VOBJ);
-    obj.pushKV("mode",                  TAPYRUS_MODES::GetChainName(gArgs.GetChainMode()));obj.pushKV("chain",                 BaseParams().NetworkIDString());
+    obj.pushKV("chain",                 FederationParams().NetworkIDString());
+    obj.pushKV("mode",                  TAPYRUS_MODES::GetChainName(gArgs.GetChainMode()));
     obj.pushKV("blocks",                (int)chainActive.Height());
     obj.pushKV("headers",               pindexBestHeader ? pindexBestHeader->nHeight : -1);
     obj.pushKV("bestblockhash",         chainActive.Tip()->GetBlockHash().GetHex());
@@ -1156,19 +1157,19 @@ static UniValue getchaintips(const JSONRPCRequest& request)
         throw std::runtime_error(
             "getchaintips\n"
             "Return information about all known tips in the block tree,"
-            " including the main chain as well as orphaned branches.\n"
+            " including the prod chain as well as orphaned branches.\n"
             "\nResult:\n"
             "[\n"
             "  {\n"
             "    \"height\": xxxx,         (numeric) height of the chain tip\n"
             "    \"hash\": \"xxxx\",         (string) block hash of the tip\n"
-            "    \"branchlen\": 0          (numeric) zero for main chain\n"
-            "    \"status\": \"active\"      (string) \"active\" for the main chain\n"
+            "    \"branchlen\": 0          (numeric) zero for prod chain\n"
+            "    \"status\": \"active\"      (string) \"active\" for the prod chain\n"
             "  },\n"
             "  {\n"
             "    \"height\": xxxx,\n"
             "    \"hash\": \"xxxx\",\n"
-            "    \"branchlen\": 1          (numeric) length of branch connecting the tip to the main chain\n"
+            "    \"branchlen\": 1          (numeric) length of branch connecting the tip to the prod chain\n"
             "    \"status\": \"xxxx\"        (string) status of the chain (active, valid-fork, valid-headers, headers-only, invalid)\n"
             "  }\n"
             "]\n"
@@ -1177,7 +1178,7 @@ static UniValue getchaintips(const JSONRPCRequest& request)
             "2.  \"headers-only\"          Not all blocks for this branch are available, but the headers are valid\n"
             "3.  \"valid-headers\"         All blocks are available for this branch, but they were never fully validated\n"
             "4.  \"valid-fork\"            This branch is not part of the active chain, but is fully validated\n"
-            "5.  \"active\"                This is the tip of the active main chain, which is certainly valid\n"
+            "5.  \"active\"                This is the tip of the active prod chain, which is certainly valid\n"
             "\nExamples:\n"
             + HelpExampleCli("getchaintips", "")
             + HelpExampleRpc("getchaintips", "")
@@ -1443,7 +1444,7 @@ static UniValue getchaintxstats(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
         }
         if (!chainActive.Contains(pindex)) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Block is not in main chain");
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Block is not in prod chain");
         }
     }
 
@@ -1617,7 +1618,7 @@ static UniValue getblockstats(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
         }
         if (!chainActive.Contains(pindex)) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Block is not in chain %s", BaseParams().NetworkIDString()));
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Block is not in chain %s", FederationParams().NetworkIDString()));
         }
     }
 

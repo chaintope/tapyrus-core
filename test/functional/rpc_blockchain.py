@@ -122,7 +122,7 @@ class BlockchainTest(BitcoinTestFramework):
         assert_raises_rpc_error(-5, "Block not found", self.nodes[0].getchaintxstats, blockhash='0')
         blockhash = self.nodes[0].getblockhash(200)
         self.nodes[0].invalidateblock(blockhash)
-        assert_raises_rpc_error(-8, "Block is not in main chain", self.nodes[0].getchaintxstats, blockhash=blockhash)
+        assert_raises_rpc_error(-8, "Block is not in prod chain", self.nodes[0].getchaintxstats, blockhash=blockhash)
         self.nodes[0].reconsiderblock(blockhash)
 
         chaintxstats = self.nodes[0].getchaintxstats(1)

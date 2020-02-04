@@ -13,7 +13,7 @@ from test_framework.util import (
     assert_equal,
     connect_nodes_bi,
     assert_raises_rpc_error,
-    NetworkIdDirName
+    NetworkDirName
 )
 
 
@@ -76,9 +76,9 @@ class WalletHDTest(BitcoinTestFramework):
         self.stop_node(1)
         # we need to delete the complete regtest directory
         # otherwise node1 would auto-recover all funds in flag the keypool keys as used
-        shutil.rmtree(os.path.join(self.nodes[1].datadir, NetworkIdDirName("regtest"), "blocks"))
-        shutil.rmtree(os.path.join(self.nodes[1].datadir, NetworkIdDirName("regtest"), "chainstate"))
-        shutil.copyfile(os.path.join(self.nodes[1].datadir, "hd.bak"), os.path.join(self.nodes[1].datadir, NetworkIdDirName("regtest"), "wallets", "wallet.dat"))
+        shutil.rmtree(os.path.join(self.nodes[1].datadir, NetworkDirName(), "blocks"))
+        shutil.rmtree(os.path.join(self.nodes[1].datadir, NetworkDirName(), "chainstate"))
+        shutil.copyfile(os.path.join(self.nodes[1].datadir, "hd.bak"), os.path.join(self.nodes[1].datadir, NetworkDirName(), "wallets", "wallet.dat"))
         self.start_node(1)
 
         # Assert that derivation is deterministic
@@ -100,9 +100,9 @@ class WalletHDTest(BitcoinTestFramework):
 
         # Try a RPC based rescan
         self.stop_node(1)
-        shutil.rmtree(os.path.join(self.nodes[1].datadir, NetworkIdDirName("regtest"), "blocks"))
-        shutil.rmtree(os.path.join(self.nodes[1].datadir, NetworkIdDirName("regtest"), "chainstate"))
-        shutil.copyfile(os.path.join(self.nodes[1].datadir, "hd.bak"), os.path.join(self.nodes[1].datadir, NetworkIdDirName("regtest"), "wallets", "wallet.dat"))
+        shutil.rmtree(os.path.join(self.nodes[1].datadir, NetworkDirName(), "blocks"))
+        shutil.rmtree(os.path.join(self.nodes[1].datadir, NetworkDirName(), "chainstate"))
+        shutil.copyfile(os.path.join(self.nodes[1].datadir, "hd.bak"), os.path.join(self.nodes[1].datadir, NetworkDirName(), "wallets", "wallet.dat"))
         self.start_node(1, extra_args=self.extra_args[1])
         connect_nodes_bi(self.nodes, 0, 1)
         self.sync_all()

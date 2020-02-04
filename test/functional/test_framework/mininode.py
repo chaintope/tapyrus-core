@@ -23,7 +23,7 @@ import sys
 import threading
 
 from test_framework.messages import CBlockHeader, MIN_VERSION_SUPPORTED, msg_addr, msg_block, MSG_BLOCK, msg_blocktxn, msg_cmpctblock, msg_feefilter, msg_getaddr, msg_getblocks, msg_getblocktxn, msg_getdata, msg_getheaders, msg_headers, msg_inv, msg_mempool, msg_ping, msg_pong, msg_reject, msg_sendcmpct, msg_sendheaders, msg_tx, MSG_TX, MSG_TYPE_MASK, msg_verack, msg_version, NODE_NETWORK, NODE_WITNESS, sha256, ToHex
-from test_framework.util import wait_until
+from test_framework.util import wait_until, NetworkDirName, MagicBytes
 
 logger = logging.getLogger("TestFramework.mininode")
 
@@ -51,11 +51,6 @@ MESSAGEMAP = {
     b"version": msg_version,
 }
 
-MAGIC_BYTES = {
-    "main": b"\x01\xFF\xF0\x00",   # mainnet
-    "regtest": b"\x73\x9A\x97\x74",   # regtest
-}
-
 class P2PConnection(asyncio.Protocol):
     """A low-level connection object to a node's P2P interface.
 
@@ -78,7 +73,7 @@ class P2PConnection(asyncio.Protocol):
     def is_connected(self):
         return self._transport is not None
 
-    def peer_connect(self, dstaddr, dstport, net="regtest"):
+    def peer_connect(self, dstaddr, dstport, net):
         assert not self.is_connected
         self.dstaddr = dstaddr
         self.dstport = dstport
@@ -137,7 +132,7 @@ class P2PConnection(asyncio.Protocol):
             while True:
                 if len(self.recvbuf) < 4:
                     return
-                if self.recvbuf[:4] != MAGIC_BYTES[self.network]:
+                if self.recvbuf[:4] != MagicBytes(self.network):
                     raise ValueError("got garbage %s" % repr(self.recvbuf))
                 if len(self.recvbuf) < 4 + 12 + 4 + 4:
                     return
@@ -196,7 +191,7 @@ class P2PConnection(asyncio.Protocol):
         """Build a serialized P2P message"""
         command = message.command
         data = message.serialize()
-        tmsg = MAGIC_BYTES[self.network]
+        tmsg = MagicBytes(self.network)
         tmsg += command
         tmsg += b"\x00" * (12 - len(command))
         tmsg += struct.pack("<I", len(data))

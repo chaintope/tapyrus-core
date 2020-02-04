@@ -40,16 +40,15 @@ static void TestBlockSubsidyHalvings(int nSubsidyHalvingInterval)
 
 BOOST_AUTO_TEST_CASE(block_subsidy_test)
 {
-    const auto chainParams = CreateChainParams(TAPYRUS_OP_MODE::MAIN);
-    TestBlockSubsidyHalvings(chainParams->GetConsensus()); // As in main
-    const auto chainParams2 = CreateChainParams(TAPYRUS_OP_MODE::REGTEST);
-    TestBlockSubsidyHalvings(150); // As in regtest
+    const auto chainParams = CreateChainParams(TAPYRUS_OP_MODE::PROD);
+    TestBlockSubsidyHalvings(chainParams->GetConsensus()); // As in prod
+    TestBlockSubsidyHalvings(150); // As in dev
     TestBlockSubsidyHalvings(1000); // Just another interval
 }
 
 BOOST_AUTO_TEST_CASE(subsidy_limit_test)
 {
-    const auto chainParams = CreateChainParams(TAPYRUS_OP_MODE::MAIN);
+    const auto chainParams = CreateChainParams(TAPYRUS_OP_MODE::PROD);
     CAmount nSum = 0;
     for (int nHeight = 0; nHeight < 14000000; nHeight += 1000) {
         CAmount nSubsidy = GetBlockSubsidy(nHeight, Params().GetConsensus());

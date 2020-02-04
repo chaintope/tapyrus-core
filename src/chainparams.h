@@ -7,7 +7,7 @@
 #ifndef BITCOIN_CHAINPARAMS_H
 #define BITCOIN_CHAINPARAMS_H
 
-#include <chainparamsbase.h>
+#include <federationparams.h>
 #include <consensus/params.h>
 #include <protocol.h>
 #include <streams.h>

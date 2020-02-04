@@ -40,7 +40,7 @@ static void DeserializeAndCheckBlockTest(benchmark::State& state)
     char a = '\0';
     stream.write(&a, 1); // Prevent compaction
 
-    const auto chainParams = CreateChainParams(TAPYRUS_OP_MODE::MAIN);
+    const auto chainParams = CreateChainParams(TAPYRUS_OP_MODE::PROD);
 
     while (state.KeepRunning()) {
         CBlock block; // Note that CBlock caches its checked state, so we need to recreate it here

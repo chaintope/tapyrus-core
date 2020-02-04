@@ -57,7 +57,7 @@ class NodeImpl : public Node
     bool softSetArg(const std::string& arg, const std::string& value) override { return gArgs.SoftSetArg(arg, value); }
     bool softSetBoolArg(const std::string& arg, bool value) override { return gArgs.SoftSetBoolArg(arg, value); }
     void selectParams() override { SelectParams(gArgs.GetChainMode()); }
-    std::string getNetwork() override { return BaseParams().NetworkIDString(); }
+    std::string getNetwork() override { return FederationParams().NetworkIDString(); }
     void initLogging() override { InitLogging(); }
     void initParameterInteraction() override { InitParameterInteraction(); }
     std::string getWarnings(const std::string& type) override { return GetWarnings(type); }
@@ -171,7 +171,7 @@ class NodeImpl : public Node
         if (::chainActive.Tip()) {
             return ::chainActive.Tip()->GetBlockTime();
         }
-        return BaseParams().GenesisBlock().GetBlockTime(); // Genesis block's time of current network
+        return FederationParams().GenesisBlock().GetBlockTime(); // Genesis block's time of current network
     }
     double getVerificationProgress() override
     {

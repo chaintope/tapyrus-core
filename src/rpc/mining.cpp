@@ -68,7 +68,7 @@ UniValue generateBlocks(std::shared_ptr<CReserveScript> coinbaseScript, int nGen
 
         privKey.Sign_Schnorr(blockHash, proof);
 
-        if(!pblock->AbsorbBlockProof(proof, BaseParams().GetAggregatePubkey())){
+        if(!pblock->AbsorbBlockProof(proof, FederationParams().GetAggregatePubkey())){
             throw JSONRPCError(RPC_INTERNAL_ERROR, "AbsorbBlockProof, block proof not accepted");
         }
 
@@ -178,7 +178,7 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
             "  \"currentblockweight\": nnn, (numeric) The last block weight\n"
             "  \"currentblocktx\": nnn,     (numeric) The last block transaction\n"
             "  \"pooledtx\": n              (numeric) The size of the mempool\n"
-            "  \"chain\": \"xxxx\",           (string) current network name as defined in BIP70 (main, test, regtest)\n"
+            "  \"chain\": \"xxxx\",           (string) current network name\n"
             "  \"warnings\": \"...\"          (string) any network and blockchain warnings\n"
             "}\n"
             "\nExamples:\n"
@@ -195,7 +195,7 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
     obj.pushKV("currentblocktx",   (uint64_t)nLastBlockTx);
     // TODO: push signed block multisig condition
     obj.pushKV("pooledtx",         (uint64_t)mempool.size());
-    obj.pushKV("chain",            BaseParams().NetworkIDString());
+    obj.pushKV("chain",            FederationParams().NetworkIDString());
     obj.pushKV("warnings",         GetWarnings("statusbar"));
     return obj;
 }
@@ -874,7 +874,7 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
     if(blockProof.size() != CPubKey::SCHNORR_SIGNATURE_SIZE || !CheckSchnorrSignatureEncoding(blockProof, nullptr, true) )
         throw JSONRPCError(RPC_INVALID_PARAMS, "Invalid signature encoding");
 
-    bool status = block.AbsorbBlockProof(blockProof, BaseParams().GetAggregatePubkey());
+    bool status = block.AbsorbBlockProof(blockProof, FederationParams().GetAggregatePubkey());
 
     UniValue result(UniValue::VOBJ);
     CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);

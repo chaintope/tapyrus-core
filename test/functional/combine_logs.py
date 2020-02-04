@@ -11,6 +11,7 @@ import itertools
 import os
 import re
 import sys
+from .util import NetworkDirName
 
 # Matches on the date format at the start of the log event
 TIMESTAMP_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z")
@@ -50,7 +51,7 @@ def read_logs(tmp_dir):
 
     files = [("test", "%s/test_framework.log" % tmp_dir)]
     for i in itertools.count():
-        logfile = "{}/node{}/regtest-1905960821/debug.log".format(tmp_dir, i)
+        logfile = "{}/node{}/{}/debug.log".format(tmp_dir, i, NetworkDirName())
         if not os.path.isfile(logfile):
             break
         files.append(("node%d" % i, logfile))

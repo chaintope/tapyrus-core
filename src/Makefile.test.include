@@ -92,7 +92,7 @@ BITCOIN_TESTS =\
   test/validation_block_tests.cpp \
   test/chainparams_tests.cpp \
   test/checkdatasig_tests.cpp \
-  test/chainparamsbase_tests.cpp
+  test/federationparams_tests.cpp
 
 if ENABLE_WALLET
 BITCOIN_TESTS += \
