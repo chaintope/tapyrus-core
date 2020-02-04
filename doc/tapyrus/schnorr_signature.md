@@ -10,14 +10,30 @@ Signing algorithm:
 * The message m: a 32-byte array
 
 To sign m for public key pubkey(sk):   
-1. Let d' = int(sk).  
-1. Fail if d' = 0 or d' >= n.  
-1. Let P = d'G.  
-1. Let k be the nonce generated using rfc6979.  
-1. Let R = k'G.   
-1. Let k = k' if jacobi(y(R)) = 1, otherwise let k = n - k'.   
-1. Let e = int(sha256(bytes(R) || bytes(P) || m)) mod n.   
-1. The signature is bytes(x(R)) || bytes((k + ed) mod n).   
+1. Let d' = int(sk).
+1. Fail if d' = 0 or d' >= n.
+1. Let P = d'G.
+1. Let k = nonce_rfc6979(m, sk).
+1. Let R = k'G.
+1. Let k = k' if jacobi(y(R)) = 1, otherwise let k = n - k'.
+1. Let e = int(sha256(bytes(x(R)) || bytes(P) || m)) mod n.
+1. The signature is bytes(x(R)) || bytes((k + ed) mod n).
+
+nonce_rfc6979(m, sk):
+---------------------
+```
+Let algorithm = "SCHNORR + SHA256"
+Let count = 0
+Let nonce = 0
+while nonce = 0   
+    Let nonce = sha256( sk || m || bytes(algorithm))   
+    do count times   
+        nonce = sha256(nonce)   
+    if nonce = 0 or nonce >= n   
+        nonce = 0   
+        count = count + 1   
+return nonce
+```
 
 Verification:
 -------------
