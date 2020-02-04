@@ -70,7 +70,7 @@ const CFederationParams& FederationParams();
 void SelectFederationParams(const TAPYRUS_OP_MODE mode, const bool withGenesis=true);
 
 /**
- * Reads the genesis block from genesis.dat into chainparamsbase.
+ * Reads the genesis block from genesis.dat into federationparams.
  */
 std::string ReadGenesisBlock(fs::path genesisPath = GetDataDir(false));
 

@@ -13,9 +13,9 @@
 
 extern void noui_connect();
 
-struct ChainParamsBaseTestingSetup {
+struct FederationParamsTestingSetup {
 
-    explicit ChainParamsBaseTestingSetup(const std::string& chainName = TAPYRUS_MODES::PROD)
+    explicit FederationParamsTestingSetup(const std::string& chainName = TAPYRUS_MODES::PROD)
         : m_path_root(fs::temp_directory_path() / "test_tapyrus" / strprintf("%lu_%i", (unsigned long)GetTime(), (int)(InsecureRandRange(1 << 30))))
     {
         SHA256AutoDetect();
@@ -32,7 +32,7 @@ struct ChainParamsBaseTestingSetup {
         SelectParams(TAPYRUS_OP_MODE::PROD);
     }
 
-    ~ChainParamsBaseTestingSetup()
+    ~FederationParamsTestingSetup()
     {
         ClearDatadirCache();
         gArgs.ClearOverrideArgs();
@@ -57,7 +57,7 @@ private:
 };
 
 
-BOOST_FIXTURE_TEST_SUITE(chainparamsbase_tests, ChainParamsBaseTestingSetup)
+BOOST_FIXTURE_TEST_SUITE(federationparams_tests, FederationParamsTestingSetup)
 
 
 BOOST_AUTO_TEST_CASE(parse_pubkey_string_empty)

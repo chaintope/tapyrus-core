@@ -261,8 +261,8 @@ public:
     void ForceSetArg(const std::string& strArg, const std::string& strValue);
 
     /**
-     * Looks for -dev and returns the appropriate BIP70 chain name.
-     * @return CFederationParams::MAIN by default; raises runtime error if an invalid combination is given.
+     * Looks for -dev and returns the appropriate chain name.
+     * @return TAPYRUS_OP_MODE::PROD by default; TAPYRUS_OP_MODE::DEV id -dev was given;
      */
     TAPYRUS_OP_MODE GetChainMode() const;
 

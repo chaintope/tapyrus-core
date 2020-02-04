@@ -58,7 +58,7 @@ add_test_to_suite(tapyrus test_tapyrus
 		bloom_tests.cpp
 		bswap_tests.cpp
 		chainparams_tests.cpp
-		chainparamsbase_tests.cpp
+		federationparams_tests.cpp
 		checkdatasig_tests.cpp
 		checkqueue_tests.cpp
 		coins_tests.cpp
