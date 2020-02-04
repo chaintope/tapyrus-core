@@ -15,7 +15,7 @@ AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([build-aux/m4])
 
 BITCOIN_DAEMON_NAME=tapyrusd
-BITCOIN_GUI_NAME=tapyrus_qt
+BITCOIN_GUI_NAME=tapyrus-qt
 BITCOIN_CLI_NAME=tapyrus-cli
 BITCOIN_TX_NAME=tapyrus-tx
 TAPYRUS_GENESIS_NAME=tapyrus-genesis
