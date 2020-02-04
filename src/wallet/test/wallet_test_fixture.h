@@ -15,7 +15,7 @@
 /** Testing setup and teardown for wallet.
  */
 struct WalletTestingSetup: public TestingSetup {
-    explicit WalletTestingSetup(const std::string& chainName = TAPYRUS_MODES::MAIN);
+    explicit WalletTestingSetup(const std::string& chainName = TAPYRUS_MODES::PROD);
     ~WalletTestingSetup();
 
     CWallet m_wallet;

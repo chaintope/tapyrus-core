@@ -17,11 +17,27 @@ import random
 import re
 from subprocess import CalledProcessError
 import time
+from enum import Enum
 
 from . import coverage
 from .authproxy import AuthServiceProxy, JSONRPCException
 
 logger = logging.getLogger("TestFramework.utils")
+
+class TAPYRUS_MODES(Enum):
+    PROD = 1
+    DEV = 1905960821
+
+TAPYRUS_NETWORK_PARAMS = {
+    TAPYRUS_MODES.PROD : ["prod", b"\x01\xFF\xF0\x00"] ,  # production
+    TAPYRUS_MODES.DEV  : ["dev",  b"\x73\x9A\x97\x74"]   # development
+}
+
+def MagicBytes(network = TAPYRUS_MODES.DEV):
+    return TAPYRUS_NETWORK_PARAMS[network][1]
+
+def NetworkDirName(network = TAPYRUS_MODES.DEV):
+    return "%s-%d" % (TAPYRUS_NETWORK_PARAMS[network][0], network.value)
 
 # Assert functions
 ##################
@@ -294,8 +310,8 @@ def initialize_datadir(dirname, n):
     if not os.path.isdir(datadir):
         os.makedirs(datadir)
     with open(os.path.join(datadir, "tapyrus.conf"), 'w', encoding='utf8') as f:
-        f.write("regtest=1\n")
-        f.write("[regtest]\n")
+        f.write("dev=1\n")
+        f.write("[dev]\n")
         f.write("port=" + str(p2p_port(n)) + "\n")
         f.write("rpcport=" + str(rpc_port(n)) + "\n")
         f.write("server=1\n")
@@ -306,15 +322,6 @@ def initialize_datadir(dirname, n):
         os.makedirs(os.path.join(datadir, 'stderr'), exist_ok=True)
         os.makedirs(os.path.join(datadir, 'stdout'), exist_ok=True)
     return datadir
-
-
-TAPYRUS_DEFAULT_NETWORKID = {
-    "main": 1,   # mainnet
-    "regtest": 1905960821,   # regtest
-}
-
-def NetworkIdDirName(netowork):
-    return netowork + "-%d" % TAPYRUS_DEFAULT_NETWORKID[netowork]
 
 def get_datadir_path(dirname, n):
     return os.path.join(dirname, "node" + str(n))
@@ -336,8 +343,8 @@ def get_auth_cookie(datadir):
                 if line.startswith("rpcpassword="):
                     assert password is None  # Ensure that there is only one rpcpassword line
                     password = line.split("=")[1].strip("\n")
-    if os.path.isfile(os.path.join(datadir, NetworkIdDirName("regtest"), ".cookie")):
-        with open(os.path.join(datadir, NetworkIdDirName("regtest"), ".cookie"), 'r', encoding="ascii") as f:
+    if os.path.isfile(os.path.join(datadir, NetworkDirName(), ".cookie")):
+        with open(os.path.join(datadir, NetworkDirName(), ".cookie"), 'r', encoding="ascii") as f:
             userpass = f.read()
             split_userpass = userpass.split(':')
             user = split_userpass[0]
@@ -348,9 +355,9 @@ def get_auth_cookie(datadir):
 
 # If a cookie file exists in the given datadir, delete it.
 def delete_cookie_file(datadir):
-    if os.path.isfile(os.path.join(datadir, NetworkIdDirName("regtest"), ".cookie")):
+    if os.path.isfile(os.path.join(datadir, NetworkDirName(), ".cookie")):
         logger.debug("Deleting leftover cookie file")
-        os.remove(os.path.join(datadir, NetworkIdDirName("regtest"), ".cookie"))
+        os.remove(os.path.join(datadir, NetworkDirName(), ".cookie"))
 
 def get_bip9_status(node, key):
     info = node.getblockchaininfo()

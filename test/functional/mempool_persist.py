@@ -41,7 +41,7 @@ import os
 import time
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, assert_raises_rpc_error, wait_until, NetworkIdDirName
+from test_framework.util import assert_equal, assert_raises_rpc_error, wait_until, NetworkDirName
 
 class MempoolPersistTest(BitcoinTestFramework):
     def set_test_params(self):
@@ -95,8 +95,8 @@ class MempoolPersistTest(BitcoinTestFramework):
         self.start_node(0)
         wait_until(lambda: len(self.nodes[0].getrawmempool()) == 5)
 
-        mempooldat0 = os.path.join(self.nodes[0].datadir, NetworkIdDirName('regtest'), 'mempool.dat')
-        mempooldat1 = os.path.join(self.nodes[1].datadir, NetworkIdDirName('regtest'), 'mempool.dat')
+        mempooldat0 = os.path.join(self.nodes[0].datadir, NetworkDirName(), 'mempool.dat')
+        mempooldat1 = os.path.join(self.nodes[1].datadir, NetworkDirName(), 'mempool.dat')
         self.log.debug("Remove the mempool.dat file. Verify that savemempool to disk via RPC re-creates it")
         os.remove(mempooldat0)
         self.nodes[0].savemempool()

@@ -15,7 +15,7 @@
 std::vector<std::pair<uint256, CTransactionRef>> extra_txn;
 
 struct RegtestingSetup : public TestingSetup {
-    RegtestingSetup() : TestingSetup(TAPYRUS_MODES::REGTEST) {}
+    RegtestingSetup() : TestingSetup(TAPYRUS_MODES::DEV) {}
 };
 
 BOOST_FIXTURE_TEST_SUITE(blockencodings_tests, RegtestingSetup)
@@ -54,7 +54,7 @@ static CBlock BuildBlockTestCase() {
     //create proof
     std::vector<unsigned char> blockProof;
     createSignedBlockProof(block, blockProof);
-    block.AbsorbBlockProof(blockProof, BaseParams().GetAggregatePubkey());
+    block.AbsorbBlockProof(blockProof, FederationParams().GetAggregatePubkey());
     return block;
 }
 
@@ -312,7 +312,7 @@ BOOST_AUTO_TEST_CASE(EmptyBlockRoundTripTest)
     //create proof
     std::vector<unsigned char> blockProof;
     createSignedBlockProof(block, blockProof);
-    block.AbsorbBlockProof(blockProof, BaseParams().GetAggregatePubkey());
+    block.AbsorbBlockProof(blockProof, FederationParams().GetAggregatePubkey());
 
     // Test simple header round-trip with only coinbase
     {

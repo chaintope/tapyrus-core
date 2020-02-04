@@ -46,7 +46,7 @@ BOOST_AUTO_TEST_CASE(skiplist_test)
 
 BOOST_AUTO_TEST_CASE(getlocator_test)
 {
-    // Build a main chain 100000 blocks long.
+    // Build a prod chain 100000 blocks long.
     std::vector<uint256> vHashMain(100000);
     std::vector<CBlockIndex> vBlocksMain(100000);
     for (unsigned int i=0; i<vBlocksMain.size(); i++) {
@@ -72,7 +72,7 @@ BOOST_AUTO_TEST_CASE(getlocator_test)
         BOOST_CHECK(vBlocksSide[i].pprev == nullptr || vBlocksSide[i].nHeight == vBlocksSide[i].pprev->nHeight + 1);
     }
 
-    // Build a CChain for the main branch.
+    // Build a CChain for the prod branch.
     CChain chain;
     chain.SetTip(&vBlocksMain.back());
 
@@ -128,7 +128,7 @@ BOOST_AUTO_TEST_CASE(findearliestatleast_test)
         BOOST_CHECK(curTimeMax == vBlocksMain[i].nTimeMax);
     }
 
-    // Build a CChain for the main branch.
+    // Build a CChain for the prod branch.
     CChain chain;
     chain.SetTip(&vBlocksMain.back());
 

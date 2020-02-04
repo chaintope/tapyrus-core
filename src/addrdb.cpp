@@ -22,8 +22,8 @@ bool SerializeDB(Stream& stream, const Data& data)
     // Write and commit header, data
     try {
         CHashWriter hasher(SER_DISK, CLIENT_VERSION);
-        stream << BaseParams().MessageStart() << data;
-        hasher << BaseParams().MessageStart() << data;
+        stream << FederationParams().MessageStart() << data;
+        hasher << FederationParams().MessageStart() << data;
         stream << hasher.GetHash();
     } catch (const std::exception& e) {
         return error("%s: Serialize or I/O error - %s", __func__, e.what());
@@ -69,7 +69,7 @@ bool DeserializeDB(Stream& stream, Data& data, bool fCheckSum = true)
         unsigned char pchMsgTmp[4];
         verifier >> pchMsgTmp;
         // ... verify the network matches ours
-        if (memcmp(pchMsgTmp, BaseParams().MessageStart(), sizeof(pchMsgTmp)))
+        if (memcmp(pchMsgTmp, FederationParams().MessageStart(), sizeof(pchMsgTmp)))
             return error("%s: Invalid network magic number", __func__);
 
         // de-serialize data

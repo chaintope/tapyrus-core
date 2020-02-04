@@ -16,7 +16,7 @@ extern void noui_connect();
 
 struct ChainParamsTestingSetup {
 
-    explicit ChainParamsTestingSetup(const std::string& chainName= TAPYRUS_MODES::MAIN)
+    explicit ChainParamsTestingSetup(const std::string& chainName= TAPYRUS_MODES::PROD)
         : m_path_root(fs::temp_directory_path() / "test_tapyrus" / strprintf("%lu_%i", (unsigned long)GetTime(), (int)(InsecureRandRange(1 << 30))))
     {
         SHA256AutoDetect();
@@ -58,20 +58,20 @@ private:
 
 BOOST_FIXTURE_TEST_SUITE(chainparams_tests, ChainParamsTestingSetup)
 
-BOOST_AUTO_TEST_CASE(default_params_main)
+BOOST_AUTO_TEST_CASE(default_params_prod)
 {
-    //main net
-    BOOST_CHECK_NO_THROW(SelectParams(TAPYRUS_OP_MODE::MAIN));
+    //prod net
+    BOOST_CHECK_NO_THROW(SelectParams(TAPYRUS_OP_MODE::PROD));
     
     BOOST_CHECK(Params().GetRPCPort() == 2377);
     BOOST_CHECK(Params().GetDefaultPort() == 2357);
 }
 
-BOOST_AUTO_TEST_CASE(default_params_regtest)
+BOOST_AUTO_TEST_CASE(default_params_dev)
 {
-    //regtest
-    gArgs.ForceSetArg("-regtest", "1");
-    BOOST_CHECK_NO_THROW(SelectParams(TAPYRUS_OP_MODE::REGTEST));
+    //dev
+    gArgs.ForceSetArg("-dev", "1");
+    BOOST_CHECK_NO_THROW(SelectParams(TAPYRUS_OP_MODE::DEV));
 
     BOOST_CHECK(Params().GetRPCPort() == 12381);
     BOOST_CHECK(Params().GetDefaultPort() == 12383);
@@ -85,22 +85,22 @@ BOOST_AUTO_TEST_CASE(unknown_mode_test)
     });
 }
 
-BOOST_AUTO_TEST_CASE(custom_networkid_main)
+BOOST_AUTO_TEST_CASE(custom_networkid_prod)
 {
-    //main net
+    //prod net
     gArgs.ForceSetArg("-networkid", "2");
-    BOOST_CHECK_NO_THROW(SelectParams(TAPYRUS_OP_MODE::MAIN));
+    BOOST_CHECK_NO_THROW(SelectParams(TAPYRUS_OP_MODE::PROD));
     
     BOOST_CHECK(Params().GetRPCPort() == 2377);
     BOOST_CHECK(Params().GetDefaultPort() == 2357);
 }
 
-BOOST_AUTO_TEST_CASE(custom_networkid_regtest)
+BOOST_AUTO_TEST_CASE(custom_networkid_dev)
 {
-    //regtest
-    gArgs.ForceSetArg("-regtest", "1");
+    //dev
+    gArgs.ForceSetArg("-dev", "1");
     gArgs.ForceSetArg("-networkid", "1939510133");
-    BOOST_CHECK_NO_THROW(SelectParams(TAPYRUS_OP_MODE::REGTEST));
+    BOOST_CHECK_NO_THROW(SelectParams(TAPYRUS_OP_MODE::DEV));
 
     BOOST_CHECK(Params().GetRPCPort() == 12381);
     BOOST_CHECK(Params().GetDefaultPort() == 12383);
@@ -108,28 +108,28 @@ BOOST_AUTO_TEST_CASE(custom_networkid_regtest)
 
 BOOST_AUTO_TEST_CASE(default_base_params_tests)
 {
-    //main net
+    //prod net
     gArgs.ForceSetArg("-networkid", "1");
     writeTestGenesisBlockToFile(GetDataDir(), "genesis.1");
-    BOOST_CHECK_NO_THROW(SelectParams(TAPYRUS_OP_MODE::MAIN));
-    BOOST_CHECK_NO_THROW(SelectBaseParams(TAPYRUS_OP_MODE::MAIN));
-    BOOST_CHECK(BaseParams().NetworkIDString() == "1");
-    BOOST_CHECK(BaseParams().getDataDir() == "main-1");
+    BOOST_CHECK_NO_THROW(SelectParams(TAPYRUS_OP_MODE::PROD));
+    BOOST_CHECK_NO_THROW(SelectFederationParams(TAPYRUS_OP_MODE::PROD));
+    BOOST_CHECK(FederationParams().NetworkIDString() == "1");
+    BOOST_CHECK(FederationParams().getDataDir() == "prod-1");
 
     CMessageHeader::MessageStartChars pchMessageStart = {0x01, 0xFF, 0xF0, 0x00};
-    BOOST_CHECK(memcmp( BaseParams().MessageStart(), pchMessageStart, sizeof(pchMessageStart)) == 0);
+    BOOST_CHECK(memcmp( FederationParams().MessageStart(), pchMessageStart, sizeof(pchMessageStart)) == 0);
 
-    //regtest
-    gArgs.ForceSetArg("-regtest", "1");
+    //dev
+    gArgs.ForceSetArg("-dev", "1");
     gArgs.ForceSetArg("-networkid", "1905960821");
     writeTestGenesisBlockToFile(GetDataDir(), "genesis.1905960821");
-    BOOST_CHECK_NO_THROW(SelectParams(TAPYRUS_OP_MODE::REGTEST));
-    BOOST_CHECK_NO_THROW(SelectBaseParams(TAPYRUS_OP_MODE::REGTEST));
-    BOOST_CHECK(BaseParams().NetworkIDString() == "1905960821");
-    BOOST_CHECK(BaseParams().getDataDir() == "regtest-1905960821");
+    BOOST_CHECK_NO_THROW(SelectParams(TAPYRUS_OP_MODE::DEV));
+    BOOST_CHECK_NO_THROW(SelectFederationParams(TAPYRUS_OP_MODE::DEV));
+    BOOST_CHECK(FederationParams().NetworkIDString() == "1905960821");
+    BOOST_CHECK(FederationParams().getDataDir() == "dev-1905960821");
 
     CMessageHeader::MessageStartChars pchMessageStart1 = {0x73, 0x9A, 0x97, 0x74};
-    BOOST_CHECK(memcmp(BaseParams().MessageStart(), pchMessageStart1, sizeof(pchMessageStart1)) == 0);
+    BOOST_CHECK(memcmp(FederationParams().MessageStart(), pchMessageStart1, sizeof(pchMessageStart1)) == 0);
 }
 
 BOOST_AUTO_TEST_CASE(custom_networkId_test)
@@ -137,25 +137,25 @@ BOOST_AUTO_TEST_CASE(custom_networkId_test)
     gArgs.ForceSetArg("-networkid", "2");
     writeTestGenesisBlockToFile(GetDataDir(), "genesis.2");
 
-    BOOST_CHECK_NO_THROW(SelectParams(TAPYRUS_OP_MODE::MAIN));
-    BOOST_CHECK_NO_THROW(SelectBaseParams(TAPYRUS_OP_MODE::MAIN));
-    BOOST_CHECK(BaseParams().NetworkIDString() == "2");
-    BOOST_CHECK(BaseParams().getDataDir() == "main-2");
+    BOOST_CHECK_NO_THROW(SelectParams(TAPYRUS_OP_MODE::PROD));
+    BOOST_CHECK_NO_THROW(SelectFederationParams(TAPYRUS_OP_MODE::PROD));
+    BOOST_CHECK(FederationParams().NetworkIDString() == "2");
+    BOOST_CHECK(FederationParams().getDataDir() == "prod-2");
     
     CMessageHeader::MessageStartChars pchMessageStart = {0x01, 0xFF, 0xF0, 0x01};
-    BOOST_CHECK(memcmp(BaseParams().MessageStart(), pchMessageStart, sizeof(pchMessageStart)) == 0);
+    BOOST_CHECK(memcmp(FederationParams().MessageStart(), pchMessageStart, sizeof(pchMessageStart)) == 0);
 
-    gArgs.ForceSetArg("-regtest", "1");
+    gArgs.ForceSetArg("-dev", "1");
     gArgs.ForceSetArg("-networkid", "1939510133");
     writeTestGenesisBlockToFile(GetDataDir(), "genesis.1939510133");
 
-    BOOST_CHECK_NO_THROW(SelectParams(TAPYRUS_OP_MODE::REGTEST));
-    BOOST_CHECK_NO_THROW(SelectBaseParams(TAPYRUS_OP_MODE::REGTEST));
-    BOOST_CHECK(BaseParams().NetworkIDString() == "1939510133");
-    BOOST_CHECK(BaseParams().getDataDir() == "regtest-1939510133");
+    BOOST_CHECK_NO_THROW(SelectParams(TAPYRUS_OP_MODE::DEV));
+    BOOST_CHECK_NO_THROW(SelectFederationParams(TAPYRUS_OP_MODE::DEV));
+    BOOST_CHECK(FederationParams().NetworkIDString() == "1939510133");
+    BOOST_CHECK(FederationParams().getDataDir() == "dev-1939510133");
     
     CMessageHeader::MessageStartChars pchMessageStart1 = {0x75, 0x9A, 0x83, 0x74};
-    BOOST_CHECK(memcmp(BaseParams().MessageStart(), pchMessageStart1, sizeof(pchMessageStart1)) == 0);
+    BOOST_CHECK(memcmp(FederationParams().MessageStart(), pchMessageStart1, sizeof(pchMessageStart1)) == 0);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

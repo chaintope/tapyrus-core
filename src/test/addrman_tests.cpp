@@ -54,7 +54,7 @@ public:
         CAddrMan::Delete(nId);
     }
 
-    // Simulates connection failure so that we can test eviction of offline nodes
+    // Simulates connection failure so that we can test eviction of dev nodes
     void SimConnFail(CService& addr)
     {
          int64_t nLastSuccess = 1;

@@ -26,7 +26,7 @@ BOOST_AUTO_TEST_CASE(key_io_valid_parse)
     UniValue tests = read_json(std::string(json_tests::key_io_valid, json_tests::key_io_valid + sizeof(json_tests::key_io_valid)));
     CKey privkey;
     CTxDestination destination;
-    SelectParams(TAPYRUS_OP_MODE::MAIN);
+    SelectParams(TAPYRUS_OP_MODE::PROD);
 
     for (unsigned int idx = 0; idx < tests.size(); idx++) {
         UniValue test = tests[idx];
@@ -40,10 +40,10 @@ BOOST_AUTO_TEST_CASE(key_io_valid_parse)
         const UniValue &metadata = test[2].get_obj();
         bool isPrivkey = find_value(metadata, "isPrivkey").get_bool();
         std::string chain = find_value(metadata, "chain").get_str();
-        if(chain == TAPYRUS_MODES::MAIN)
-            SelectParams(TAPYRUS_OP_MODE::MAIN);
-        else if(chain == TAPYRUS_MODES::REGTEST)
-            SelectParams(TAPYRUS_OP_MODE::REGTEST);
+        if(chain == TAPYRUS_MODES::PROD)
+            SelectParams(TAPYRUS_OP_MODE::PROD);
+        else if(chain == TAPYRUS_MODES::DEV)
+            SelectParams(TAPYRUS_OP_MODE::DEV);
         bool try_case_flip = find_value(metadata, "tryCaseFlip").isNull() ? false : find_value(metadata, "tryCaseFlip").get_bool();
         if (isPrivkey) {
             bool isCompressed = find_value(metadata, "isCompressed").get_bool();
@@ -103,10 +103,10 @@ BOOST_AUTO_TEST_CASE(key_io_valid_gen)
         const UniValue &metadata = test[2].get_obj();
         bool isPrivkey = find_value(metadata, "isPrivkey").get_bool();
         std::string chain = find_value(metadata, "chain").get_str();
-        if(chain == TAPYRUS_MODES::MAIN)
-            SelectParams(TAPYRUS_OP_MODE::MAIN);
-        else if(chain == TAPYRUS_MODES::REGTEST)
-            SelectParams(TAPYRUS_OP_MODE::REGTEST);
+        if(chain == TAPYRUS_MODES::PROD)
+            SelectParams(TAPYRUS_OP_MODE::PROD);
+        else if(chain == TAPYRUS_MODES::DEV)
+            SelectParams(TAPYRUS_OP_MODE::DEV);
         if (isPrivkey) {
             bool isCompressed = find_value(metadata, "isCompressed").get_bool();
             CKey key;
@@ -123,7 +123,7 @@ BOOST_AUTO_TEST_CASE(key_io_valid_gen)
         }
     }
 
-    SelectParams(TAPYRUS_OP_MODE::MAIN);
+    SelectParams(TAPYRUS_OP_MODE::PROD);
 }
 
 
@@ -145,7 +145,7 @@ BOOST_AUTO_TEST_CASE(key_io_invalid)
         std::string exp_base58string = test[0].get_str();
 
         // must be invalid as public and as private key
-        for (auto chain : { TAPYRUS_OP_MODE::MAIN, TAPYRUS_OP_MODE::REGTEST}) {
+        for (auto chain : { TAPYRUS_OP_MODE::PROD, TAPYRUS_OP_MODE::DEV}) {
             SelectParams(chain);
             destination = DecodeDestination(exp_base58string);
             BOOST_CHECK_MESSAGE(!IsValidDestination(destination), "IsValid pubkey in mainnet:" + strTest);

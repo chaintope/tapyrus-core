@@ -4,7 +4,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <chainparamsbase.h>
+#include <federationparams.h>
 
 #include <tinyformat.h>
 #include <util.h>
@@ -16,9 +16,9 @@
 
 #include <assert.h>
 
-void SetupChainParamsBaseOptions()
+void SetupFederationParamsOptions()
 {
-    gArgs.AddArg("-regtest", "Enter regression test mode, which uses a special chain in which blocks can be solved instantly. "
+    gArgs.AddArg("-dev", "Enter regression test mode, which uses a special chain in which blocks can be solved instantly. "
                                    "This is intended for regression testing tools and app development.", true, OptionsCategory::CHAINPARAMS);
 }
 
@@ -87,15 +87,15 @@ CBlock createGenesisBlock(const CPubKey& aggregatePubkey, const CKey& privateKey
     return genesis;
 }
 
-static std::unique_ptr<CBaseChainParams> globalChainBaseParams;
+static std::unique_ptr<CFederationParams> globalChainFederationParams;
 
-const CBaseChainParams& BaseParams()
+const CFederationParams& FederationParams()
 {
-    assert(globalChainBaseParams);
-    return *globalChainBaseParams;
+    assert(globalChainFederationParams);
+    return *globalChainFederationParams;
 }
 
-std::unique_ptr<CBaseChainParams> CreateBaseChainParams(const TAPYRUS_OP_MODE mode, const bool withGenesis)
+std::unique_ptr<CFederationParams> CreateFederationParams(const TAPYRUS_OP_MODE mode, const bool withGenesis)
 {
     gArgs.SelectConfigNetwork(TAPYRUS_MODES::GetChainName(mode));
 
@@ -103,15 +103,15 @@ std::unique_ptr<CBaseChainParams> CreateBaseChainParams(const TAPYRUS_OP_MODE mo
     const std::string dataDirName(GetDataDirNameFromNetworkId(networkId));
     const std::string genesisHex(withGenesis ? ReadGenesisBlock() : "");
 
-    return MakeUnique<CBaseChainParams>(networkId, dataDirName, genesisHex);
+    return MakeUnique<CFederationParams>(networkId, dataDirName, genesisHex);
 }
 
-void SelectBaseParams(const TAPYRUS_OP_MODE mode, const bool withGenesis)
+void SelectFederationParams(const TAPYRUS_OP_MODE mode, const bool withGenesis)
 {
-    globalChainBaseParams = CreateBaseChainParams(mode, withGenesis);
+    globalChainFederationParams = CreateFederationParams(mode, withGenesis);
 }
 
-CBaseChainParams::CBaseChainParams(const int networkId, const std::string dataDirName, const std::string genesisHex) : nNetworkId(networkId), strNetworkID(std::to_string(networkId)), dataDir(dataDirName) {
+CFederationParams::CFederationParams(const int networkId, const std::string dataDirName, const std::string genesisHex) : nNetworkId(networkId), strNetworkID(std::to_string(networkId)), dataDir(dataDirName) {
 
     /**
      * The message start string is designed to be unlikely to occur in normal data.
@@ -134,7 +134,7 @@ CBaseChainParams::CBaseChainParams(const int networkId, const std::string dataDi
         ReadGenesisBlock(genesisHex);
 }
 
-CPubKey CBaseChainParams::ReadAggregatePubkey(const std::vector<unsigned char>& pubkey)
+CPubKey CFederationParams::ReadAggregatePubkey(const std::vector<unsigned char>& pubkey)
 {
     if(!pubkey.size())
         throw std::runtime_error("Aggregate Public Key for Signed Block is empty");
@@ -157,7 +157,7 @@ CPubKey CBaseChainParams::ReadAggregatePubkey(const std::vector<unsigned char>& 
     }
 }
 
-bool CBaseChainParams::ReadGenesisBlock(std::string genesisHex)
+bool CFederationParams::ReadGenesisBlock(std::string genesisHex)
 {
     CDataStream ss(ParseHex(genesisHex), SER_NETWORK, PROTOCOL_VERSION);
     unsigned long streamsize = ss.size();

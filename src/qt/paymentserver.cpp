@@ -209,12 +209,12 @@ void PaymentServer::ipcParseCommandLine(interfaces::Node& node, int argc, char* 
             SendCoinsRecipient r;
             if (GUIUtil::parseBitcoinURI(arg, &r) && !r.address.isEmpty())
             {
-                auto tempChainParams = CreateChainParams(TAPYRUS_OP_MODE::MAIN);
+                auto tempChainParams = CreateChainParams(TAPYRUS_OP_MODE::PROD);
 
                 if (IsValidDestinationString(r.address.toStdString(), *tempChainParams)) {
                     node.selectParams();
                 } else {
-                    tempChainParams = CreateChainParams(TAPYRUS_OP_MODE::REGTEST);
+                    tempChainParams = CreateChainParams(TAPYRUS_OP_MODE::DEV);
                     if (IsValidDestinationString(r.address.toStdString(), *tempChainParams)) {
                         node.selectParams();
                     }
@@ -228,11 +228,11 @@ void PaymentServer::ipcParseCommandLine(interfaces::Node& node, int argc, char* 
             PaymentRequestPlus request;
             if (readPaymentRequestFromFile(arg, request))
             {
-                if (request.getDetails().network() == "main")
+                if (request.getDetails().network() == "prod")
                 {
                     node.selectParams();
                 }
-                else if (request.getDetails().network() == "regtest")
+                else if (request.getDetails().network() == "dev")
                 {
                     node.selectParams();
                 }

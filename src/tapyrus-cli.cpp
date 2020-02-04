@@ -9,7 +9,7 @@
 #endif
 
 #include <chainparams.h>
-#include <chainparamsbase.h>
+#include <federationparams.h>
 #include <clientversion.h>
 #include <fs.h>
 #include <rpc/client.h>
@@ -33,14 +33,14 @@ static const int CONTINUE_EXECUTION=-1;
 
 static void SetupCliArgs()
 {
-    const auto defaultParams = CreateChainParams(TAPYRUS_OP_MODE::MAIN);
+    const auto defaultParams = CreateChainParams(TAPYRUS_OP_MODE::PROD);
 
     gArgs.AddArg("-?", "This help message", false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-version", "Print version and exit", false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-conf=<file>", strprintf("Specify configuration file. Relative paths will be prefixed by datadir location. (default: %s)", BITCOIN_CONF_FILENAME), false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-datadir=<dir>", "Specify data directory", false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-getinfo", "Get general information from the remote server. Note that unlike server-side RPC calls, the results of -getinfo is the result of multiple non-atomic requests. Some entries in the result may represent results from different states (e.g. wallet balance may be as of a different block from the chain state reported)", false, OptionsCategory::OPTIONS);
-    SetupChainParamsBaseOptions();
+    SetupFederationParamsOptions();
     gArgs.AddArg("-named", strprintf("Pass named instead of positional arguments (default: %s)", DEFAULT_NAMED), false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-rpcclienttimeout=<n>", strprintf("Timeout in seconds during HTTP requests, or 0 for no timeout. (default: %d)", DEFAULT_HTTP_CLIENT_TIMEOUT), false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-rpcconnect=<ip>", strprintf("Send commands to node running on <ip> (default: %s)", DEFAULT_RPCCONNECT), false, OptionsCategory::OPTIONS);
@@ -130,10 +130,10 @@ static int AppInitRPC(int argc, char* argv[])
         fprintf(stderr, "Error reading configuration file: %s\n", error.c_str());
         return EXIT_FAILURE;
     }
-    // Check for -regtest parameter (BaseParams() calls are only valid after this clause)
+    // Check for -dev parameter (FederationParams() calls are only valid after this clause)
     try {
         SelectParams(gArgs.GetChainMode());
-        SelectBaseParams(gArgs.GetChainMode(), false);
+        SelectFederationParams(gArgs.GetChainMode(), false);
     } catch (const std::exception& e) {
         fprintf(stderr, "Error: %s\n", e.what());
         return EXIT_FAILURE;

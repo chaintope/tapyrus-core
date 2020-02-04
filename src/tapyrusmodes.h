@@ -11,23 +11,23 @@
 
 enum class TAPYRUS_OP_MODE
 {
-    MAIN,
-    REGTEST
+    PROD, //production 
+    DEV   //development
 };
 namespace TAPYRUS_MODES
 {
 
-/** BIP70 chain name strings (main or regtest) */
-const std::string MAIN = "main";
-const std::string REGTEST = "regtest";
+/** Tapyrus chain name strings*/
+const std::string PROD = "prod";
+const std::string DEV = "dev";
 
 inline std::string GetChainName(TAPYRUS_OP_MODE mode) 
 {
     switch(mode)
     {
-        case TAPYRUS_OP_MODE::MAIN: return MAIN;
-        case TAPYRUS_OP_MODE::REGTEST: return REGTEST;
-        default: return MAIN;
+        case TAPYRUS_OP_MODE::PROD: return PROD;
+        case TAPYRUS_OP_MODE::DEV: return DEV;
+        default: return PROD;
     }
 }
 
@@ -35,8 +35,8 @@ inline int GetDefaultNetworkId(TAPYRUS_OP_MODE mode)
 {
     switch(mode)
     {
-        case TAPYRUS_OP_MODE::MAIN: return 1;
-        case TAPYRUS_OP_MODE::REGTEST: return 1905960821;
+        case TAPYRUS_OP_MODE::PROD: return 1;
+        case TAPYRUS_OP_MODE::DEV: return 1905960821;
         default: return 1;
     }
 }
