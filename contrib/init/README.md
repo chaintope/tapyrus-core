@@ -1,11 +1,11 @@
 Sample configuration files for:
 ```
-SystemD: bitcoind.service
-Upstart: bitcoind.conf
-OpenRC:  bitcoind.openrc
-         bitcoind.openrcconf
-CentOS:  bitcoind.init
-macOS:    org.bitcoin.bitcoind.plist
+SystemD: tapyrusd.service
+Upstart: tapyrusd.conf
+OpenRC:  tapyrusd.openrc
+         tapyrusd.openrcconf
+CentOS:  tapyrusd.init
+macOS:    com.chaintope.tapyrusd.plist
 ```
 have been made available to assist packagers in creating node packages here.
 

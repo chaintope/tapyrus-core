@@ -1,6 +1,6 @@
 # Copyright (c) 2018 The Bitcoin developers
 
-project(bitcoin-qt-locale)
+project(tapyrus_qt-locale)
 
 include(BrewHelper)
 find_brew_prefix(QT5_PREFIX qt5)
