@@ -17,7 +17,7 @@ option(BUILD_TAPYRUS_GENESIS "Build tapyrus-genesis" ON)
 option(BUILD_BITCOIN_TX "Build tapyrus-tx" ON)
 
 # TODO: Fix qt building problem and turn ON.
-option(BUILD_BITCOIN_QT "Build bitcoin-qt" OFF)
+option(BUILD_BITCOIN_QT "Build tapyrus-qt" ON)
 
 # Ensure that WINDRES_PREPROC is enabled when using windres.
 if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")

@@ -11,7 +11,7 @@ RETRY sudo apt-get update
 RETRY sudo apt-get install --no-install-recommends --no-upgrade -qq $PACKAGES $BUILD_PACKAGES
 
 # Before Script
-echo \> \$HOME/.bitcoin  # Make sure default datadir does not exist and is never read by creating a dummy file
+echo \> \$HOME/.tapyrus  # Make sure default datadir does not exist and is never read by creating a dummy file
 mkdir -p depends/SDKs depends/sdk-sources
 if [ -n "$OSX_SDK" -a ! -f depends/sdk-sources/MacOSX${OSX_SDK}.sdk.tar.gz ]; then curl --location --fail $SDK_URL/MacOSX${OSX_SDK}.sdk.tar.gz -o depends/sdk-sources/MacOSX${OSX_SDK}.sdk.tar.gz; fi
 if [ -n "$OSX_SDK" -a -f depends/sdk-sources/MacOSX${OSX_SDK}.sdk.tar.gz ]; then tar -C depends/SDKs -xf depends/sdk-sources/MacOSX${OSX_SDK}.sdk.tar.gz; fi
