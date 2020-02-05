@@ -1,6 +1,6 @@
 # Copyright (c) 2018 The Bitcoin developers
 
-project(bitcoin-qt)
+project(tapyrus-qt)
 
 # This ensure that AUTOMOC doesn't run on generated files.
 cmake_policy(SET CMP0071 OLD)
@@ -8,7 +8,7 @@ cmake_policy(SET CMP0071 OLD)
 include(BrewHelper)
 find_brew_prefix(QT5_PREFIX qt5)
 
-set(QT_REQUIRED_COMPONENTS Core Widgets Network Test)
+set(QT_REQUIRED_COMPONENTS Core Widgets Network DBus Test)
 find_package(Qt5 COMPONENTS ${QT_REQUIRED_COMPONENTS} REQUIRED HINTS "${QT5_PREFIX}")
 
 # Find out more about Qt. This is similar to
@@ -56,23 +56,23 @@ endif()
 # Localisation
 add_subdirectory(locale)
 
-add_custom_command(OUTPUT temp_bitcoin_locale.qrc
+add_custom_command(OUTPUT temp_tapyrus_locale.qrc
 	COMMAND cmake
 	ARGS
 		-E copy
-		"${CMAKE_CURRENT_SOURCE_DIR}/bitcoin_locale.qrc"
-		temp_bitcoin_locale.qrc
-	MAIN_DEPENDENCY bitcoin_locale.qrc
+		"${CMAKE_CURRENT_SOURCE_DIR}/tapyrus_locale.qrc"
+		temp_tapyrus_locale.qrc
+	MAIN_DEPENDENCY tapyrus_locale.qrc
 	VERBATIM
 )
 
-add_custom_command(OUTPUT qrc_bitcoin_locale.cpp
+add_custom_command(OUTPUT qrc_tapyrus_locale.cpp
 	COMMAND Qt5::rcc
 	ARGS
-		temp_bitcoin_locale.qrc
-		-name bitcoin_locale
-		-o qrc_bitcoin_locale.cpp
-	MAIN_DEPENDENCY temp_bitcoin_locale.qrc
+		temp_tapyrus_locale.qrc
+		-name tapyrus_locale
+		-o qrc_tapyrus_locale.cpp
+	MAIN_DEPENDENCY temp_tapyrus_locale.qrc
 	DEPENDS locales
 	VERBATIM
 )
@@ -102,18 +102,18 @@ qt5_wrap_ui(UI_GENERATED_HEADERS
 set(CMAKE_AUTOMOC ON)
 
 # Handle qrc resources
-qt5_add_resources(QRC_BITCOIN_CPP bitcoin.qrc)
+qt5_add_resources(QRC_BITCOIN_CPP tapyrus.qrc)
 
 # Do protobuf codegen
 find_package(Protobuf REQUIRED)
 protobuf_generate_cpp(PROTOBUF_SOURCES PROTOBUF_HEADERS paymentrequest.proto)
 
-add_library(bitcoin-qt-base
+add_library(tapyrus-qt-base
 	bantablemodel.cpp
-	bitcoinaddressvalidator.cpp
-	bitcoinamountfield.cpp
-	bitcoingui.cpp
-	bitcoinunits.cpp
+	tapyrusaddressvalidator.cpp
+	tapyrusamountfield.cpp
+	tapyrusgui.cpp
+	tapyrusunits.cpp
 	clientmodel.cpp
 	csvmodelwriter.cpp
 	guiutil.cpp
@@ -144,15 +144,15 @@ add_library(bitcoin-qt-base
 
 	# Handle qrc files
 	${QRC_BITCOIN_CPP}
-	qrc_bitcoin_locale.cpp
+	qrc_tapyrus_locale.cpp
 )
 
 # Windows support
 if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-	target_sources(bitcoin-qt-base PRIVATE winshutdownmonitor.cpp)
+	target_sources(tapyrus-qt-base PRIVATE winshutdownmonitor.cpp)
 endif()
 
-target_include_directories(bitcoin-qt-base
+target_include_directories(tapyrus-qt-base
 	PUBLIC
 		.
 		${CMAKE_CURRENT_BINARY_DIR}
@@ -160,7 +160,7 @@ target_include_directories(bitcoin-qt-base
 		${Protobuf_INCLUDE_DIRS}
 )
 
-target_link_libraries(bitcoin-qt-base
+target_link_libraries(tapyrus-qt-base
 	server
 	rpcclient
 	Qt5::Widgets
@@ -170,7 +170,7 @@ target_link_libraries(bitcoin-qt-base
 )
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-	set_property(TARGET bitcoin-qt-base PROPERTY AUTOMOC_MOC_OPTIONS "-DQ_OS_MAC")
+	set_property(TARGET tapyrus-qt-base PROPERTY AUTOMOC_MOC_OPTIONS "-DQ_OS_MAC")
 endif()
 
 # Wallet
@@ -178,8 +178,8 @@ if(BUILD_BITCOIN_WALLET)
 	# Automoc option.
 	set(AUTOMOC_MOC_OPTIONS -DENABLE_WALLET=1)
 
-	# Add wallet functionality to bitcoin-qt
-	target_sources(bitcoin-qt-base
+	# Add wallet functionality to tapyrus-qt
+	target_sources(tapyrus-qt-base
 		PRIVATE
 			addressbookpage.cpp
 			addresstablemodel.cpp
@@ -209,12 +209,12 @@ if(BUILD_BITCOIN_WALLET)
 			walletview.cpp
 	)
 
-	target_link_libraries(bitcoin-qt-base wallet)
+	target_link_libraries(tapyrus-qt-base wallet)
 endif()
 
 # The executable
-add_executable(bitcoin-qt bitcoin.cpp)
-target_link_libraries(bitcoin-qt bitcoin-qt-base)
+add_executable(tapyrus-qt tapyrus.cpp)
+target_link_libraries(tapyrus-qt tapyrus-qt-base)
 
 # Test tests
 add_subdirectory(test)
