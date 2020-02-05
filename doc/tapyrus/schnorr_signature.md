@@ -11,7 +11,7 @@ Signing algorithm:
 
 To sign m for public key pubkey(sk):   
 1. Let d' = int(sk).
-1. Fail if d' = 0 or d' >= n.
+1. Fail if d' = 0 or d' >= n, where n is the order of the elliptic curve
 1. Let P = d'G.
 1. Let k = nonce_rfc6979(m, sk).
 1. Let R = k'G.
@@ -19,20 +19,39 @@ To sign m for public key pubkey(sk):
 1. Let e = int(sha256(bytes(x(R)) || bytes(P) || m)) mod n.
 1. The signature is bytes(x(R)) || bytes((k + ed) mod n).
 
-nonce_rfc6979(m, sk):
+nonce_rfc6979(m, x):
 ---------------------
 ```
-Let algorithm = "SCHNORR + SHA256"
-Let count = 0
-Let nonce = 0
-while nonce = 0   
-    Let nonce = sha256( sk || m || bytes(algorithm))   
-    do count times   
-        nonce = sha256(nonce)   
-    if nonce = 0 or nonce >= n   
-        nonce = 0   
-        count = count + 1   
-return nonce
+* Given the input message m and private key x
+
+1. Process m through the hash function H, yielding:
+          h1 = H(m)
+2. Let V = 0x01 0x01 0x01 ... 0x01 (length of V is 32 octets).
+3. Let K = 0x00 0x00 0x00 ... 0x00 (length of K is 32 octets).
+4. Let K = HMAC_K(V || 0x00 || int2octets(x) || bits2octets(h1) || k')
+
+       where '||' denotes concatenation.
+       and k' (additional data) = "SCHNORR + SHA256"
+
+5. Set V = HMAC_K(V)
+6. Set K = HMAC_K(V || 0x01 || int2octets(x) || bits2octets(h1))
+7. Set V = HMAC_K(V)
+8. Apply the following algorithm until a proper value is found for k:
+
+       1.  Set T to the empty sequence and the length of T, tlen = 0.
+       2.  While tlen < qlen, do the following:
+
+              V = HMAC_K(V)
+              T = T || V
+
+       3.  Compute k = bits2int(T)
+
+           If k is within [1,q-1] return k
+
+           Otherwise, compute:
+              K = HMAC_K(V || 0x00)
+              V = HMAC_K(V)
+           and loop (try to generate a new T, and so on).
 ```
 
 Verification:
