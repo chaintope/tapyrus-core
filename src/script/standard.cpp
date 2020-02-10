@@ -20,10 +20,12 @@ unsigned nMaxDatacarrierBytes = MAX_OP_RETURN_RELAY;
 
 CScriptID::CScriptID(const CScript& in) : uint160(Hash160(in.begin(), in.end())) {}
 
+#ifdef DEBUG
 WitnessV0ScriptHash::WitnessV0ScriptHash(const CScript& in)
 {
     CSHA256().Write(in.data(), in.size()).Finalize(begin());
 }
+#endif
 
 const char* GetTxnOutputType(txnouttype t)
 {
@@ -35,9 +37,11 @@ const char* GetTxnOutputType(txnouttype t)
     case TX_SCRIPTHASH: return "scripthash";
     case TX_MULTISIG: return "multisig";
     case TX_NULL_DATA: return "nulldata";
+#ifdef DEBUG
     case TX_WITNESS_V0_KEYHASH: return "witness_v0_keyhash";
     case TX_WITNESS_V0_SCRIPTHASH: return "witness_v0_scripthash";
     case TX_WITNESS_UNKNOWN: return "witness_unknown";
+#endif
     }
     return nullptr;
 }
@@ -172,7 +176,9 @@ bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet)
     {
         addressRet = CScriptID(uint160(vSolutions[0]));
         return true;
-    } else if (whichType == TX_WITNESS_V0_KEYHASH) {
+    } 
+#ifdef DEBUG
+    else if (whichType == TX_WITNESS_V0_KEYHASH) {
         WitnessV0KeyHash hash;
         std::copy(vSolutions[0].begin(), vSolutions[0].end(), hash.begin());
         addressRet = hash;
@@ -190,6 +196,7 @@ bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet)
         addressRet = unk;
         return true;
     }
+#endif
     // Multisig txns have more than one address...
     return false;
 }
@@ -259,7 +266,7 @@ public:
         *script << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
         return true;
     }
-
+#ifdef DEBUG
     bool operator()(const WitnessV0KeyHash& id) const
     {
         script->clear();
@@ -280,6 +287,7 @@ public:
         *script << CScript::EncodeOP_N(id.version) << std::vector<unsigned char>(id.program, id.program + id.length);
         return true;
     }
+#endif
 };
 } // namespace
 
@@ -309,6 +317,7 @@ CScript GetScriptForMultisig(int nRequired, const std::vector<CPubKey>& keys)
 
 CScript GetScriptForWitness(const CScript& redeemscript)
 {
+#ifdef DEBUG
     txnouttype typ;
     std::vector<std::vector<unsigned char> > vSolutions;
     if (Solver(redeemscript, typ, vSolutions)) {
@@ -319,6 +328,9 @@ CScript GetScriptForWitness(const CScript& redeemscript)
         }
     }
     return GetScriptForDestination(WitnessV0ScriptHash(redeemscript));
+#else
+    return CScript();
+#endif
 }
 
 bool IsValidDestination(const CTxDestination& dest) {

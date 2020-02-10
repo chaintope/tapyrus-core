@@ -219,6 +219,7 @@ BOOST_AUTO_TEST_CASE(script_standard_ExtractDestination)
     s << OP_RETURN << std::vector<unsigned char>({75});
     BOOST_CHECK(!ExtractDestination(s, address));
 
+#ifdef DEBUG
     // TX_WITNESS_V0_KEYHASH
     s.clear();
     s << OP_0 << ToByteVector(pubkey.GetID());
@@ -235,6 +236,7 @@ BOOST_AUTO_TEST_CASE(script_standard_ExtractDestination)
     s.clear();
     s << OP_1 << ToByteVector(pubkey);
     BOOST_CHECK(!ExtractDestination(s, address));
+#endif
 }
 
 BOOST_AUTO_TEST_CASE(script_standard_ExtractDestinations)
@@ -348,6 +350,7 @@ BOOST_AUTO_TEST_CASE(script_standard_GetScriptFor_)
     result = GetScriptForMultisig(2, std::vector<CPubKey>(pubkeys, pubkeys + 3));
     BOOST_CHECK(result == expected);
 
+#ifdef DEBUG
     // GetScriptForWitness
     CScript witnessScript;
 
@@ -373,6 +376,7 @@ BOOST_AUTO_TEST_CASE(script_standard_GetScriptFor_)
     expected << OP_0 << ToByteVector(scriptHash);
     result = GetScriptForWitness(witnessScript);
     BOOST_CHECK(result == expected);
+#endif
 }
 
 BOOST_AUTO_TEST_CASE(script_standard_IsMine)
@@ -488,7 +492,7 @@ BOOST_AUTO_TEST_CASE(script_standard_IsMine)
         result = IsMine(keystore, scriptPubKey);
         BOOST_CHECK_EQUAL(result, ISMINE_NO);
     }
-
+#ifdef DEBUG
     // (P2PKH inside) P2SH inside P2WSH (invalid)
     {
         CBasicKeyStore keystore;
@@ -564,7 +568,7 @@ BOOST_AUTO_TEST_CASE(script_standard_IsMine)
         result = IsMine(keystore, scriptPubKey);
         BOOST_CHECK_EQUAL(result, ISMINE_NO);
     }
-
+#endif
     // scriptPubKey multisig
     {
         CBasicKeyStore keystore;
@@ -613,6 +617,7 @@ BOOST_AUTO_TEST_CASE(script_standard_IsMine)
         BOOST_CHECK_EQUAL(result, ISMINE_SPENDABLE);
     }
 
+#ifdef DEBUG
     // P2WSH multisig with compressed keys
     {
         CBasicKeyStore keystore;
@@ -685,7 +690,7 @@ BOOST_AUTO_TEST_CASE(script_standard_IsMine)
         result = IsMine(keystore, scriptPubKey);
         BOOST_CHECK_EQUAL(result, ISMINE_NO);
     }
-
+#endif
     // OP_RETURN
     {
         CBasicKeyStore keystore;
