@@ -155,7 +155,6 @@ BASE_SCRIPTS = [
     'p2p_unrequested_blocks.py',
     'rpc_generate.py',
     'feature_includeconf.py',
-    'rpc_scantxoutset.py',
     'feature_logging.py',
     'p2p_node_network_limited.py',
     'feature_blocksdir.py',
@@ -210,7 +209,8 @@ DEBUG_MODE_SCRIPTS = [
     'p2p_compactblocks.py',
     'p2p_segwit.py',
     'wallet_basic.py',
-    'wallet_basic.py --scheme SCHNORR'
+    'wallet_basic.py --scheme SCHNORR',
+    'rpc_scantxoutset.py'
 ]
 
 # Place EXTENDED_SCRIPTS first since it has the 3 longest running tests
