@@ -96,7 +96,6 @@ class TestNode():
         self.url = None
         self.log = logging.getLogger('TestFramework.node%d' % i)
         self.cleanup_on_exit = True # Whether to kill the node when this object goes away
-        self.mode = TAPYRUS_MODES.DEV
         self.networkid = networkid
 
         self.p2ps = []
@@ -294,7 +293,7 @@ class TestNode():
         if 'dstaddr' not in kwargs:
             kwargs['dstaddr'] = '127.0.0.1'
         if 'net' not in kwargs:
-            kwargs['net'] = self.mode
+            kwargs['net'] = TAPYRUS_MODES.DEV
 
         p2p_conn.peer_connect(**kwargs)()
         self.p2ps.append(p2p_conn)
