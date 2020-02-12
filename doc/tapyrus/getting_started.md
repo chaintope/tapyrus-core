@@ -125,7 +125,11 @@ rpcuser=user
 rpcpassword=pass
 rpcbind=0.0.0.0
 rpcallowip=127.0.0.1
+addseeder=seed.tapyrus.dev.chaintope.com
 ```
+
+##### Note
+> :point_right: As dns seeder is configurable in Tapyrus, addseeder=seed.tapyrus.dev.chaintope.com can be used to configure one or more seed nodes. seed.tapyrus.dev.chaintope.com is the dns seeder active on Tapyrus testnet. If no dns seeder is configured the node may not be able to identify other nodes in the network.
 
 3. Create 'genesis.<networkid>' in data dir with the following content. This is the genesis block of the testnet
 
@@ -202,7 +206,11 @@ rpcuser=user
 rpcpassword=pass
 rpcbind=0.0.0.0
 rpcallowip=172.16.2.0/24
+addseeder=seed.tapyrus.n721.chaintope.com
 ```
+##### Note
+> :point_right: seed.tapyrus.n721.chaintope.com is the dns seeder on Tapyrus network with networkid=721. It must be configured using the instructions in section [Configure Tapyrus DNS seeder](https://github.com/chaintope/tapyrus-core/blob/issue/18_getting_started/doc/tapyrus/getting_started.md#5-configure-tapyrus-dns-seeder)
+
 3. Copy 'genesis.<networkid>' i.e. 'genesis.721 into data dir ```/var/lib/tapyrus```
 
 4. Before running, it's recommended that you create an RPC configuration file.
@@ -228,6 +236,13 @@ chmod 600 "/Users/${USER}/Library/Application Support/Tapyrus/tapyrus.conf"
 
 ### 6. Configure Tapyrus DNS seeder
 
+Tapyrus seeder is used to crawl a Tapyrus network and maintain a reliable list of nodes in the network for easy lookup. One DNS seeder can be used to service one/multiple Tapyrus networks. Follow the instructions in [Tapyrus Seeder](https://github.com/chaintope/tapyrus-seeder) repository to build dnsseeder.
+
+Start dnsseeder for the Tapyrus network with 'networkid=721' using the following command:
+
+```./dnsseed -i 721 -h seed.tapyrus.n721.chaintope.com -n n721.chaintope.com -s <initial_seed_node>```
+
+-s option is used to configure the initial_seed_node, a node to be used as the seed node when dnsseeder is started for the first time on the network. It may be a Tapyrus core node or another dnsseed node. It is optional after the first run.
 
 ## How to create a genesis block?
 
