@@ -697,14 +697,15 @@ static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, 
         // Check for non-standard pay-to-script-hash in inputs
         if (!acceptnonstdtxn && !AreInputsStandard(tx, view))
             return state.Invalid(false, REJECT_NONSTANDARD, "bad-txns-nonstandard-inputs");
+        
+        // Check for non-standard witness in P2WSH
+        if (tx.HasWitness() && !IsWitnessStandard(tx, view))
+            return state.DoS(0, false, REJECT_NONSTANDARD, "bad-witness-nonstandard", true);
 #else
         // Check for non-standard pay-to-script-hash in inputs
         if (!AreInputsStandard(tx, view))
             return state.Invalid(false, REJECT_NONSTANDARD, "bad-txns-nonstandard-inputs");
 #endif
-        // Check for non-standard witness in P2WSH
-        if (tx.HasWitness() && !IsWitnessStandard(tx, view))
-            return state.DoS(0, false, REJECT_NONSTANDARD, "bad-witness-nonstandard", true);
 
         int64_t nSigOpsCost = GetTransactionSigOpCost(tx, view, STANDARD_SCRIPT_VERIFY_FLAGS);
 
@@ -909,6 +910,8 @@ static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, 
         // This is done last to help prevent CPU exhaustion denial-of-service attacks.
         PrecomputedTransactionData txdata(tx);
         if (!CheckInputs(tx, state, view, true, scriptVerifyFlags, true, false, txdata)) {
+
+        #ifdef DEBUG
             // SCRIPT_VERIFY_CLEANSTACK requires SCRIPT_VERIFY_WITNESS, so we
             // need to turn both off, and compare against just turning off CLEANSTACK
             // to see if the failure is specifically due to witness validation.
@@ -918,6 +921,8 @@ static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, 
                 // Only the witness is missing, so the transaction itself may be fine.
                 state.SetCorruptionPossible();
             }
+        #endif
+
             return false; // state filled in by CheckInputs
         }
 
@@ -1409,7 +1414,7 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
             // We only use the first 19 bytes of nonce to avoid a second SHA
             // round - giving us 19 + 32 + 4 = 55 bytes (+ 8 + 1 = 64)
             static_assert(55 - sizeof(flags) - 32 >= 128/8, "Want at least 128 bits of nonce for script execution cache");
-            CSHA256().Write(scriptExecutionCacheNonce.begin(), 55 - sizeof(flags) - 32).Write(tx.GetWitnessHash().begin(), 32).Write((unsigned char*)&flags, sizeof(flags)).Finalize(hashCacheEntry.begin());
+            CSHA256().Write(scriptExecutionCacheNonce.begin(), 55 - sizeof(flags) - 32).Write(tx.GetHash().begin(), 32).Write((unsigned char*)&flags, sizeof(flags)).Finalize(hashCacheEntry.begin());
             AssertLockHeld(cs_main); //TODO: Remove this requirement by making CuckooCache not require external locks
             if (scriptExecutionCache.contains(hashCacheEntry, !cacheFullScriptStore)) {
                 return true;
@@ -2975,32 +2980,6 @@ void UpdateUncommittedBlockStructures(CBlock& block, const CBlockIndex* pindexPr
 
 }
 
-std::vector<unsigned char> GenerateCoinbaseCommitment(CBlock& block, const CBlockIndex* pindexPrev, const Consensus::Params& consensusParams)
-{
-    std::vector<unsigned char> commitment;
-    int commitpos = GetWitnessCommitmentIndex(block);
-    std::vector<unsigned char> ret(32, 0x00);
-    if (commitpos == -1) {
-        uint256 witnessroot = BlockWitnessMerkleRoot(block, nullptr);
-        CHash256().Write(witnessroot.begin(), 32).Write(ret.data(), 32).Finalize(witnessroot.begin());
-        CTxOut out;
-        out.nValue = 0;
-        out.scriptPubKey.resize(38);
-        out.scriptPubKey[0] = OP_RETURN;
-        out.scriptPubKey[1] = 0x24;
-        out.scriptPubKey[2] = 0xaa;
-        out.scriptPubKey[3] = 0x21;
-        out.scriptPubKey[4] = 0xa9;
-        out.scriptPubKey[5] = 0xed;
-        memcpy(&out.scriptPubKey[6], witnessroot.begin(), 32);
-        commitment = std::vector<unsigned char>(out.scriptPubKey.begin(), out.scriptPubKey.end());
-        CMutableTransaction tx(*block.vtx[0]);
-        tx.vout.push_back(out);
-        block.vtx[0] = MakeTransactionRef(std::move(tx));
-    }
-    UpdateUncommittedBlockStructures(block, pindexPrev, consensusParams);
-    return commitment;
-}
 
 /** Context-dependent validity checks.
  *  By "context", we mean only the previous block headers, but not the UTXO
