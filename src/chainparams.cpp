@@ -9,7 +9,6 @@
 #include <util.h>
 #include <assert.h>
 
-#include <chainparamsseeds.h>
 #include <streams.h>
 #include <fs.h>
 #include <utilstrencodings.h>
@@ -35,22 +34,11 @@ public:
         nDefaultPort = 2357;
         nPruneAfterHeight = 100000;
 
-        // Note that of those which support the service bits prefix, most only support a subset of
-        // possible options.
-        // This is fine at runtime as we'll fall back to using them as a oneshot if they don't support the
-        // service bits we want, but we should get them updated to support all service bits wanted by any
-        // release ASAP to avoid it where possible.
-        // TODO: MUST change to seeder that is different of testnet. (ex: seed.tapyrus.chaintope.com, seed.tapyrus.com)
-        vSeeds.emplace_back("seed.tapyrus.dev.chaintope.com");
-        vSeeds.emplace_back("static-seed.tapyrus.dev.chaintope.com");
-
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,0);
         base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,5);
         base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1,128);
         base58Prefixes[EXT_PUBLIC_KEY] = {0x04, 0x88, 0xB2, 0x1E};
         base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x88, 0xAD, 0xE4};
-
-        vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_main, pnSeed6_main + ARRAYLEN(pnSeed6_main));
 
         fDefaultConsistencyChecks = false;
         fMineBlocksOnDemand = false;
@@ -72,9 +60,6 @@ public:
         rpcPort = 12381;
         nDefaultPort = 12383;
         nPruneAfterHeight = 1000;
-
-        vFixedSeeds.clear(); //!< Regtest mode doesn't have any fixed seeds.
-        vSeeds.clear();      //!< Regtest mode doesn't have any DNS seeds.
 
         fDefaultConsistencyChecks = true;
         fMineBlocksOnDemand = true;

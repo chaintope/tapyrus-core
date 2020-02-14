@@ -13,6 +13,7 @@
 #include <consensus/merkle.h>
 #include <key_io.h>
 #include <tapyrusmodes.h>
+#include <chainparamsseeds.h>
 
 #include <assert.h>
 
@@ -132,6 +133,10 @@ CFederationParams::CFederationParams(const int networkId, const std::string data
 
     if(genesisHex.size())
         ReadGenesisBlock(genesisHex);
+
+    vSeeds = gArgs.GetArgs("-addseeder");
+
+    vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_main, pnSeed6_main + ARRAYLEN(pnSeed6_main));
 }
 
 CPubKey CFederationParams::ReadAggregatePubkey(const std::vector<unsigned char>& pubkey)
