@@ -1660,6 +1660,9 @@ BOOST_AUTO_TEST_CASE(script_json_test)
         int scriptError = ParseScriptError(test[pos++].get_str());
 
         DoTest(scriptPubKey, scriptSig, witness, scriptflags, strTest, scriptError, nValue);
+
+        /*txnouttype whichType;
+        BOOST_CHECK_MESSAGE(IsStandard(scriptPubKey, whichType), strTest+GetTxnOutputType(whichType));*/
     }
 }
 

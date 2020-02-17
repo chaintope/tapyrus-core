@@ -10,6 +10,7 @@
 #include <script/script_error.h>
 #include <script/standard.h>
 #include <test/test_tapyrus.h>
+#include <policy/policy.h>
 
 #include <boost/test/unit_test.hpp>
 
@@ -96,7 +97,7 @@ BOOST_AUTO_TEST_CASE(script_standard_Solver_success)
     // TX_WITNESS_V0_KEYHASH
     s.clear();
     s << OP_0 << ToByteVector(pubkeys[0].GetID());
-    BOOST_CHECK(Solver(s, whichType, solutions));
+    BOOST_CHECK(!Solver(s, whichType, solutions));
     BOOST_CHECK_EQUAL(whichType, TX_NONSTANDARD);
     BOOST_CHECK_EQUAL(solutions.size(), 0);
 
@@ -107,20 +108,26 @@ BOOST_AUTO_TEST_CASE(script_standard_Solver_success)
 
     s.clear();
     s << OP_0 << ToByteVector(scriptHash);
-    BOOST_CHECK(Solver(s, whichType, solutions));
+    BOOST_CHECK(!Solver(s, whichType, solutions));
     BOOST_CHECK_EQUAL(whichType, TX_NONSTANDARD);
     BOOST_CHECK_EQUAL(solutions.size(), 0);
 
-    // TX_NONSTANDARD
+    // TX_CUSTOM
     s.clear();
     s << OP_9 << OP_ADD << OP_11 << OP_EQUAL;
-    BOOST_CHECK(!Solver(s, whichType, solutions));
-    BOOST_CHECK_EQUAL(whichType, TX_NONSTANDARD);
+    BOOST_CHECK(Solver(s, whichType, solutions));
+    BOOST_CHECK_EQUAL(whichType, TX_CUSTOM);
+
+    // TX_CUSTOM
+    s.clear();
+    s << std::vector<unsigned char>(0x01, 99) << OP_ADD << std::vector<unsigned char>(0x01, 99) << OP_EQUAL;
+    BOOST_CHECK(Solver(s, whichType, solutions));
+    BOOST_CHECK_EQUAL(whichType, TX_CUSTOM);
 
     // TX_WITNESS with incorrect program size
     s.clear();
     s << OP_0 << std::vector<unsigned char>(19, 0x01);
-    BOOST_CHECK(Solver(s, whichType, solutions));
+    BOOST_CHECK(!Solver(s, whichType, solutions));
     BOOST_CHECK_EQUAL(whichType, TX_NONSTANDARD);
     BOOST_CHECK_EQUAL(solutions.size(), 0);
 }
@@ -139,42 +146,42 @@ BOOST_AUTO_TEST_CASE(script_standard_Solver_failure)
     // TX_PUBKEY with incorrectly sized pubkey
     s.clear();
     s << std::vector<unsigned char>(30, 0x01) << OP_CHECKSIG;
-    BOOST_CHECK(!Solver(s, whichType, solutions));
+    BOOST_CHECK(Solver(s, whichType, solutions));
 
     // TX_PUBKEYHASH with incorrectly sized key hash
     s.clear();
     s << OP_DUP << OP_HASH160 << ToByteVector(pubkey) << OP_EQUALVERIFY << OP_CHECKSIG;
-    BOOST_CHECK(!Solver(s, whichType, solutions));
+    BOOST_CHECK(Solver(s, whichType, solutions));
 
     // TX_SCRIPTHASH with incorrectly sized script hash
     s.clear();
     s << OP_HASH160 << std::vector<unsigned char>(21, 0x01) << OP_EQUAL;
-    BOOST_CHECK(!Solver(s, whichType, solutions));
+    BOOST_CHECK(Solver(s, whichType, solutions));
 
     // TX_MULTISIG 0/2
     s.clear();
     s << OP_0 << ToByteVector(pubkey) << OP_1 << OP_CHECKMULTISIG;
-    BOOST_CHECK(!Solver(s, whichType, solutions));
+    BOOST_CHECK(Solver(s, whichType, solutions));
 
     // TX_MULTISIG 2/1
     s.clear();
     s << OP_2 << ToByteVector(pubkey) << OP_1 << OP_CHECKMULTISIG;
-    BOOST_CHECK(!Solver(s, whichType, solutions));
+    BOOST_CHECK(Solver(s, whichType, solutions));
 
     // TX_MULTISIG n = 2 with 1 pubkey
     s.clear();
     s << OP_1 << ToByteVector(pubkey) << OP_2 << OP_CHECKMULTISIG;
-    BOOST_CHECK(!Solver(s, whichType, solutions));
+    BOOST_CHECK(Solver(s, whichType, solutions));
 
     // TX_MULTISIG n = 1 with 0 pubkeys
     s.clear();
     s << OP_1 << OP_1 << OP_CHECKMULTISIG;
-    BOOST_CHECK(!Solver(s, whichType, solutions));
+    BOOST_CHECK(Solver(s, whichType, solutions));
 
     // TX_NULL_DATA with other opcodes
     s.clear();
     s << OP_RETURN << std::vector<unsigned char>({75}) << OP_ADD;
-    BOOST_CHECK(!Solver(s, whichType, solutions));
+    BOOST_CHECK(Solver(s, whichType, solutions));
 }
 
 BOOST_AUTO_TEST_CASE(script_standard_ExtractDestination)

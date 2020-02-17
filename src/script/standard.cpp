@@ -37,6 +37,7 @@ const char* GetTxnOutputType(txnouttype t)
     case TX_SCRIPTHASH: return "scripthash";
     case TX_MULTISIG: return "multisig";
     case TX_NULL_DATA: return "nulldata";
+    case TX_CUSTOM: return "custom";
 #ifdef DEBUG
     case TX_WITNESS_V0_KEYHASH: return "witness_v0_keyhash";
     case TX_WITNESS_V0_SCRIPTHASH: return "witness_v0_scripthash";
@@ -92,6 +93,61 @@ static bool MatchMultisig(const CScript& script, unsigned int& required, std::ve
     return (it + 1 == script.end());
 }
 
+static bool CheckScriptSyntax(const CScript& script)
+{
+    std::vector<std::vector<unsigned char> > stack = {{0x00, 0x01},{0x00, 0x01}};
+
+    CScript::const_iterator it = script.begin();
+    valtype data;
+    opcodetype opcode;
+    int nOpCount = 0;
+
+    //some of the opcode checks from EvalScript are performed here on scriptPubkey
+    while (it < script.end()) {
+
+        if(!script.GetOp(it, opcode, data))
+            return false;
+
+        if (data.size() > MAX_SCRIPT_ELEMENT_SIZE)
+            return false;
+
+        if (opcode > OP_16 && ++nOpCount > MAX_OPS_PER_SCRIPT)
+            return false;
+
+        if( opcode == OP_CAT ||
+            opcode == OP_SUBSTR ||
+            opcode == OP_LEFT ||
+            opcode == OP_RIGHT ||
+            opcode == OP_INVERT ||
+            opcode == OP_AND ||
+            opcode == OP_OR ||
+            opcode == OP_XOR ||
+            opcode == OP_2MUL ||
+            opcode == OP_2DIV ||
+            opcode == OP_MUL ||
+            opcode == OP_DIV ||
+            opcode == OP_MOD ||
+            opcode == OP_LSHIFT ||
+            opcode == OP_RSHIFT ||
+            opcode == OP_VER ||
+            opcode == OP_VERIF ||
+            opcode == OP_VERNOTIF ||
+            opcode == OP_RESERVED ||
+            opcode == OP_RESERVED1 ||
+            opcode == OP_RESERVED2 ||
+            opcode ==  OP_NOP1 ||
+            opcode ==  OP_NOP4 ||
+            opcode ==  OP_NOP5 ||
+            opcode ==  OP_NOP6 ||
+            opcode ==  OP_NOP7 ||
+            opcode ==  OP_NOP8 ||
+            opcode ==  OP_NOP9 ||
+            opcode ==  OP_NOP10)
+                return false;
+    }
+    return true;
+}
+
 bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::vector<unsigned char> >& vSolutionsRet)
 {
     vSolutionsRet.clear();
@@ -110,7 +166,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::v
     std::vector<unsigned char> witnessprogram;
     if (scriptPubKey.IsWitnessProgram(witnessversion, witnessprogram)) {
         typeRet = TX_NONSTANDARD;
-        return true;
+        return false;
     }
 
     // Provably prunable, data-carrying output
@@ -146,9 +202,15 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::v
         return true;
     }
 
+    if (!CheckScriptSyntax(scriptPubKey)) {
+        typeRet = TX_NONSTANDARD;
+        vSolutionsRet.clear();
+        return false;
+    }
+
     vSolutionsRet.clear();
-    typeRet = TX_NONSTANDARD;
-    return false;
+    typeRet = TX_CUSTOM;
+    return true;
 }
 
 bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet)
