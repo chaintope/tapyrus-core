@@ -15,7 +15,7 @@
             "scriptPubKey": {
                 "asm": "OP_DROP",
                 "hex": "75",
-                "type": "nonstandard"
+                "type": "custom"
             }
         }
     ],
