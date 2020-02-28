@@ -19,6 +19,7 @@ struct ChainParamsTestingSetup {
     explicit ChainParamsTestingSetup(const std::string& chainName= TAPYRUS_MODES::PROD)
         : m_path_root(fs::temp_directory_path() / "test_tapyrus" / strprintf("%lu_%i", (unsigned long)GetTime(), (int)(InsecureRandRange(1 << 30))))
     {
+        ECCVerifyHandle globalVerifyHandle;
         SHA256AutoDetect();
         RandomInit();
         ECC_Start();
@@ -108,6 +109,8 @@ BOOST_AUTO_TEST_CASE(custom_networkid_dev)
 
 BOOST_AUTO_TEST_CASE(default_base_params_tests)
 {
+    ECCVerifyHandle globalVerifyHandle;
+
     //prod net
     gArgs.ForceSetArg("-networkid", "1");
     writeTestGenesisBlockToFile(GetDataDir(), "genesis.1");
@@ -134,6 +137,8 @@ BOOST_AUTO_TEST_CASE(default_base_params_tests)
 
 BOOST_AUTO_TEST_CASE(custom_networkId_test)
 {
+    ECCVerifyHandle globalVerifyHandle;
+
     gArgs.ForceSetArg("-networkid", "2");
     writeTestGenesisBlockToFile(GetDataDir(), "genesis.2");
 

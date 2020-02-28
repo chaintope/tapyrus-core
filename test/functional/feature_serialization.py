@@ -50,7 +50,7 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_raises_rpc_error, assert_equal, bytes_to_hex_str, hex_str_to_bytes, wait_until
 from test_framework.key import CECKey
 
-CHAIN_HEIGHT = 111
+CHAIN_HEIGHT = 11
 REJECT_INVALID = 16
 
 def unDERify(tx):

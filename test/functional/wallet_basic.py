@@ -26,9 +26,9 @@ class WalletTest(BitcoinTestFramework):
 
     def setup_network(self):
         self.add_nodes(4)
-        self.start_node(0, extra_args = ['-acceptnonstdtxn=1'])
-        self.start_node(1, extra_args = ['-acceptnonstdtxn=1'])
-        self.start_node(2, extra_args = ['-acceptnonstdtxn=1'])
+        self.start_node(0) 
+        self.start_node(1) 
+        self.start_node(2)
         connect_nodes_bi(self.nodes, 0, 1)
         connect_nodes_bi(self.nodes, 1, 2)
         connect_nodes_bi(self.nodes, 0, 2)
@@ -54,11 +54,10 @@ class WalletTest(BitcoinTestFramework):
         self.nodes[0].generate(1, self.signblockprivkey)
 
         walletinfo = self.nodes[0].getwalletinfo()
-        assert_equal(walletinfo['immature_balance'], 50)
-        assert_equal(walletinfo['balance'], 0)
+        assert_equal(walletinfo['balance'], 50)
 
         self.sync_all([self.nodes[0:3]])
-        self.nodes[1].generate(101, self.signblockprivkey)
+        self.nodes[1].generate(1, self.signblockprivkey)
         self.sync_all([self.nodes[0:3]])
 
         assert_equal(self.nodes[0].getbalance(), 50)
@@ -116,7 +115,7 @@ class WalletTest(BitcoinTestFramework):
         balance = self.nodes[0].getbalance()
         assert_equal(set([txout1['value'], txout2['value']]), set([10, balance]))
         walletinfo = self.nodes[0].getwalletinfo()
-        assert_equal(walletinfo['immature_balance'], 0)
+        assert_equal(walletinfo['balance'], balance)
 
         # Have node0 mine a block, thus it will collect its own fee.
         self.nodes[0].generate(1, self.signblockprivkey)
@@ -148,8 +147,8 @@ class WalletTest(BitcoinTestFramework):
         self.nodes[1].sendrawtransaction(tx)
         assert_equal(len(self.nodes[1].listlockunspent()), 0)
 
-        # Have node1 generate 100 blocks (so node0 can recover the fee)
-        self.nodes[1].generate(100, self.signblockprivkey)
+        # Have node1 generate 1 block (so node0 can recover the fee)
+        self.nodes[1].generate(1, self.signblockprivkey)
         self.sync_all([self.nodes[0:3]])
 
         # node0 should end up with 100 btc in block rewards plus fees, but
