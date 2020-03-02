@@ -18,6 +18,11 @@
 
 const std::string TAPYRUS_GENESIS_FILENAME = "genesis.dat";
 
+struct SeedSpec6 {
+    uint8_t addr[16];
+    uint16_t port;
+};
+
 /**
  * CFederationParams defines the base parameters (shared between bitcoin-cli and bitcoind)
  * of a given instance of the Bitcoin system.
@@ -35,6 +40,9 @@ public:
     bool ReadGenesisBlock(std::string genesisHex);
     const CBlock& GenesisBlock() const { return genesis; }
     const std::string& getDataDir() const { return dataDir; }
+    const std::vector<SeedSpec6>& FixedSeeds() const { return vFixedSeeds; }
+    /** Return the list of hostnames to look up for DNS seeds */
+    const std::vector<std::string>& DNSSeeds() const { return vSeeds; }
 
     CFederationParams();
     CFederationParams(const int networkId, const std::string dataDirName, const std::string genesisHex);
@@ -46,6 +54,8 @@ private:
     std::string dataDir;
     CPubKey aggregatePubkey;
     CBlock genesis;
+    std::vector<std::string> vSeeds;
+    std::vector<SeedSpec6> vFixedSeeds;
 };
 
 /**

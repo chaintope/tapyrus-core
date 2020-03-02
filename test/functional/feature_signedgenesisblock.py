@@ -165,7 +165,7 @@ class SignedGenesisBlockTest(BitcoinTestFramework):
         self.log.info("Phase 2: Tests using genesis.dat file")
         self.log.info("Test new genesis file")
         self.genesisBlock = None
-        self.writeGenesisBlockToFile(self.nodes[0].datadir, int(time.time()))
+        self.writeGenesisBlockToFile(self.nodes[0].datadir, nTime=int(time.time()))
         #different genesis file
         self.nodes[0].assert_start_raises_init_error([], 'Error: Incorrect or no genesis block found.', match=ErrorMatch.PARTIAL_REGEX)
 

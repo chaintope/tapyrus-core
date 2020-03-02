@@ -16,10 +16,6 @@
 #include <fs.h>
 #include <tapyrusmodes.h>
 
-struct SeedSpec6 {
-    uint8_t addr[16];
-    uint16_t port;
-};
 
 typedef std::map<int, uint256> MapCheckpoints;
 
@@ -71,11 +67,7 @@ public:
     bool IsFallbackFeeEnabled() const { return m_fallback_fee_enabled; }
     const CCheckpointData& Checkpoints() const { return checkpointData; }
     const ChainTxData& TxData() const { return chainTxData; }
-    /** Return the list of hostnames to look up for DNS seeds */
-    const std::vector<std::string>& DNSSeeds() const { return vSeeds; }
     const std::vector<unsigned char>& Base58Prefix(Base58Type type) const { return base58Prefixes[type]; }
-    const std::vector<SeedSpec6>& FixedSeeds() const { return vFixedSeeds; }
-
     int GetRPCPort() const { return rpcPort; }
     int GetDefaultPort() const { return nDefaultPort; }
 protected:
@@ -88,13 +80,10 @@ protected:
     uint64_t nPruneAfterHeight;
     bool fDefaultConsistencyChecks;
     bool fMineBlocksOnDemand;
-    std::vector<std::string> vSeeds;
-    std::vector<SeedSpec6> vFixedSeeds;
     std::vector<unsigned char> base58Prefixes[MAX_BASE58_TYPES];
     CCheckpointData checkpointData;
     ChainTxData chainTxData;
     bool m_fallback_fee_enabled;
-    
 };
 
 /**

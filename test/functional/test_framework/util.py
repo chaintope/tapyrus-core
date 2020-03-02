@@ -37,7 +37,10 @@ def MagicBytes(network = TAPYRUS_MODES.DEV):
     return TAPYRUS_NETWORK_PARAMS[network][1]
 
 def NetworkDirName(network = TAPYRUS_MODES.DEV):
-    return "%s-%d" % (TAPYRUS_NETWORK_PARAMS[network][0], network.value)
+    try:
+        return "%s-%d" % (TAPYRUS_NETWORK_PARAMS[network][0], network.value)
+    except:
+        return "dev-%d" % network
 
 # Assert functions
 ##################
@@ -290,8 +293,8 @@ def p2p_port(n):
 def rpc_port(n):
     return PORT_MIN + PORT_RANGE + n + (MAX_NODES * PortSeed.n) % (PORT_RANGE - 1 - MAX_NODES)
 
-def rpc_url(datadir, i, rpchost=None):
-    rpc_u, rpc_p = get_auth_cookie(datadir)
+def rpc_url(datadir, networkid, i, rpchost=None):
+    rpc_u, rpc_p = get_auth_cookie(datadir, networkid)
     host = '127.0.0.1'
     port = rpc_port(i)
     if rpchost:
@@ -331,7 +334,7 @@ def append_config(datadir, options):
         for option in options:
             f.write(option + "\n")
 
-def get_auth_cookie(datadir):
+def get_auth_cookie(datadir, networkid):
     user = None
     password = None
     if os.path.isfile(os.path.join(datadir, "tapyrus.conf")):
@@ -343,8 +346,8 @@ def get_auth_cookie(datadir):
                 if line.startswith("rpcpassword="):
                     assert password is None  # Ensure that there is only one rpcpassword line
                     password = line.split("=")[1].strip("\n")
-    if os.path.isfile(os.path.join(datadir, NetworkDirName(), ".cookie")):
-        with open(os.path.join(datadir, NetworkDirName(), ".cookie"), 'r', encoding="ascii") as f:
+    if os.path.isfile(os.path.join(datadir, NetworkDirName(networkid), ".cookie")):
+        with open(os.path.join(datadir, NetworkDirName(networkid), ".cookie"), 'r', encoding="ascii") as f:
             userpass = f.read()
             split_userpass = userpass.split(':')
             user = split_userpass[0]
