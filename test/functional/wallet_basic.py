@@ -192,14 +192,18 @@ class WalletTest(BitcoinTestFramework):
         fee_per_byte = Decimal('0.001') / 1000
         self.nodes[2].settxfee(fee_per_byte * 1000)
         txid = self.nodes[2].sendtoaddress(address, 10, "", "", False)
-        self.nodes[2].generate(1, self.signblockprivkey)
+        # generate block on another node so that balance is not distorted by block reward
+        self.sync_all([self.nodes[0:3]])
+        self.nodes[1].generate(1, self.signblockprivkey)[0]
         self.sync_all([self.nodes[0:3]])
         node_2_bal = self.check_fee_amount(self.nodes[2].getbalance(), Decimal('84'), fee_per_byte, self.get_vsize(self.nodes[2].getrawtransaction(txid)))
         assert_equal(self.nodes[0].getbalance(), Decimal('10'))
 
         # Send 10 BTC with subtract fee from amount
         txid = self.nodes[2].sendtoaddress(address, 10, "", "", True)
-        self.nodes[2].generate(1, self.signblockprivkey)
+        # generate block on another node so that balance is not distorted by block reward
+        self.sync_all([self.nodes[0:3]])
+        self.nodes[1].generate(1, self.signblockprivkey)
         self.sync_all([self.nodes[0:3]])
         node_2_bal -= Decimal('10')
         assert_equal(self.nodes[2].getbalance(), node_2_bal)
@@ -207,7 +211,9 @@ class WalletTest(BitcoinTestFramework):
 
         # Sendmany 10 BTC
         txid = self.nodes[2].sendmany('', {address: 10}, 0, "", [])
-        self.nodes[2].generate(1, self.signblockprivkey)
+        # generate block on another node so that balance is not distorted by block reward
+        self.sync_all([self.nodes[0:3]])
+        self.nodes[1].generate(1, self.signblockprivkey)
         self.sync_all([self.nodes[0:3]])
         node_0_bal += Decimal('10')
         node_2_bal = self.check_fee_amount(self.nodes[2].getbalance(), node_2_bal - Decimal('10'), fee_per_byte, self.get_vsize(self.nodes[2].getrawtransaction(txid)))
@@ -215,7 +221,9 @@ class WalletTest(BitcoinTestFramework):
 
         # Sendmany 10 BTC with subtract fee from amount
         txid = self.nodes[2].sendmany('', {address: 10}, 0, "", [address])
-        self.nodes[2].generate(1, self.signblockprivkey)
+        # generate block on another node so that balance is not distorted by block reward
+        self.sync_all([self.nodes[0:3]])
+        self.nodes[1].generate(1, self.signblockprivkey)
         self.sync_all([self.nodes[0:3]])
         node_2_bal -= Decimal('10')
         assert_equal(self.nodes[2].getbalance(), node_2_bal)
@@ -229,7 +237,14 @@ class WalletTest(BitcoinTestFramework):
         txid2 = self.nodes[1].sendtoaddress(self.nodes[0].getnewaddress(), 1)
         sync_mempools(self.nodes[0:2])
 
+        self.stop_nodes()
         self.start_node(3, extra_args = ['-acceptnonstdtxn=1'])
+        self.start_node(2, extra_args = ['-acceptnonstdtxn=1'])
+        self.start_node(1, extra_args = ['-acceptnonstdtxn=1'])
+        self.start_node(0, extra_args = ['-acceptnonstdtxn=1'])
+        connect_nodes_bi(self.nodes, 0, 1)
+        connect_nodes_bi(self.nodes, 1, 2)
+        connect_nodes_bi(self.nodes, 0, 2)
         connect_nodes_bi(self.nodes, 0, 3)
         sync_blocks(self.nodes)
 
@@ -256,7 +271,7 @@ class WalletTest(BitcoinTestFramework):
         signed_raw_tx = self.nodes[1].signrawtransactionwithwallet(raw_tx, [], "ALL", self.options.scheme)
         decoded_raw_tx = self.nodes[1].decoderawtransaction(signed_raw_tx['hex'])
         zero_value_txid = decoded_raw_tx['txid']
-        self.nodes[1].sendrawtransaction(signed_raw_tx['hex'])
+        self.nodes[1].sendrawtransaction(signed_raw_tx['hex'], True)
 
         self.sync_all()
         self.nodes[1].generate(1, self.signblockprivkey)  # mine a block
@@ -424,8 +439,8 @@ class WalletTest(BitcoinTestFramework):
         # Get all non-zero utxos together
         chain_addrs = [self.nodes[0].getnewaddress(), self.nodes[0].getnewaddress()]
         singletxid = self.nodes[0].sendtoaddress(chain_addrs[0], self.nodes[0].getbalance(), "", "", True)
-        self.nodes[0].generate(1, self.signblockprivkey)
         node0_balance = self.nodes[0].getbalance()
+        self.nodes[0].generate(1, self.signblockprivkey)
         # Split into two chains
         rawtx = self.nodes[0].createrawtransaction([{"txid": singletxid, "vout": 0}], {chain_addrs[0]: node0_balance / 2 - Decimal('0.01'), chain_addrs[1]: node0_balance / 2 - Decimal('0.01')})
         signedtx = self.nodes[0].signrawtransactionwithwallet(rawtx, [], "ALL", self.options.scheme)
@@ -438,10 +453,10 @@ class WalletTest(BitcoinTestFramework):
         # So we should be able to generate exactly chainlimit txs for each original output
         sending_addr = self.nodes[1].getnewaddress()
         txid_list = []
-        for i in range(chainlimit * 2):
+        for i in range(chainlimit * 4): #including 2 block rewards its 4
             txid_list.append(self.nodes[0].sendtoaddress(sending_addr, Decimal('0.0001')))
-        assert_equal(self.nodes[0].getmempoolinfo()['size'], chainlimit * 2)
-        assert_equal(len(txid_list), chainlimit * 2)
+        assert_equal(self.nodes[0].getmempoolinfo()['size'], chainlimit * 4)
+        assert_equal(len(txid_list), chainlimit * 4)
 
         # Without walletrejectlongchains, we will still generate a txid
         # The tx will be stored in the wallet but not accepted to the mempool
@@ -458,10 +473,10 @@ class WalletTest(BitcoinTestFramework):
 
         # wait for loadmempool
         timeout = 10
-        while (timeout > 0 and len(self.nodes[0].getrawmempool()) < chainlimit * 2):
+        while (timeout > 0 and len(self.nodes[0].getrawmempool()) < chainlimit * 4):
             time.sleep(0.5)
             timeout -= 0.5
-        assert_equal(len(self.nodes[0].getrawmempool()), chainlimit * 2)
+        assert_equal(len(self.nodes[0].getrawmempool()), chainlimit * 4)
 
         node0_balance = self.nodes[0].getbalance()
         # With walletrejectlongchains we will not create the tx and store it in our wallet.
