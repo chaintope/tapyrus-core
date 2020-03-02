@@ -11,6 +11,7 @@
 #include <consensus/validation.h>
 #include <crypto/sha256.h>
 #include <validation.h>
+#include <miner.h>
 #include <net_processing.h>
 #include <ui_interface.h>
 #include <streams.h>
