@@ -137,7 +137,7 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
             nUnmatured += wallet.getCredit(txout, ISMINE_ALL);
         strHTML += "<b>" + tr("Credit") + ":</b> ";
         if (status.is_in_main_chain)
-            strHTML += BitcoinUnits::formatHtmlWithUnit(unit, nUnmatured)
+            strHTML += BitcoinUnits::formatHtmlWithUnit(unit, nUnmatured);
         else
             strHTML += "(" + tr("not accepted") + ")";
         strHTML += "<br>";
