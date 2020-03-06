@@ -97,7 +97,7 @@ BOOST_AUTO_TEST_CASE(script_standard_Solver_success)
     // TX_WITNESS_V0_KEYHASH
     s.clear();
     s << OP_0 << ToByteVector(pubkeys[0].GetID());
-    BOOST_CHECK(!Solver(s, whichType, solutions));
+    BOOST_CHECK(Solver(s, whichType, solutions));
     BOOST_CHECK_EQUAL(whichType, TX_NONSTANDARD);
     BOOST_CHECK_EQUAL(solutions.size(), 0);
 
@@ -108,7 +108,7 @@ BOOST_AUTO_TEST_CASE(script_standard_Solver_success)
 
     s.clear();
     s << OP_0 << ToByteVector(scriptHash);
-    BOOST_CHECK(!Solver(s, whichType, solutions));
+    BOOST_CHECK(Solver(s, whichType, solutions));
     BOOST_CHECK_EQUAL(whichType, TX_NONSTANDARD);
     BOOST_CHECK_EQUAL(solutions.size(), 0);
 
@@ -127,7 +127,7 @@ BOOST_AUTO_TEST_CASE(script_standard_Solver_success)
     // TX_WITNESS with incorrect program size
     s.clear();
     s << OP_0 << std::vector<unsigned char>(19, 0x01);
-    BOOST_CHECK(!Solver(s, whichType, solutions));
+    BOOST_CHECK(Solver(s, whichType, solutions));
     BOOST_CHECK_EQUAL(whichType, TX_NONSTANDARD);
     BOOST_CHECK_EQUAL(solutions.size(), 0);
 }

@@ -166,7 +166,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::v
     std::vector<unsigned char> witnessprogram;
     if (scriptPubKey.IsWitnessProgram(witnessversion, witnessprogram)) {
         typeRet = TX_NONSTANDARD;
-        return false;
+        return true;
     }
 
     // Provably prunable, data-carrying output
