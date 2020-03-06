@@ -159,8 +159,6 @@ CPubKey CFederationParams::ReadAggregatePubkey(const std::vector<unsigned char>&
 
 bool CFederationParams::ReadGenesisBlock(std::string genesisHex)
 {
-    ECCVerifyHandle globalVerifyHandle;
-
     CDataStream ss(ParseHex(genesisHex), SER_NETWORK, PROTOCOL_VERSION);
     unsigned long streamsize = ss.size();
     ss >> genesis;

@@ -15,10 +15,12 @@ extern void noui_connect();
 
 struct FederationParamsTestingSetup {
 
+    ECCVerifyHandle globalVerifyHandle;
+
     explicit FederationParamsTestingSetup(const std::string& chainName = TAPYRUS_MODES::PROD)
         : m_path_root(fs::temp_directory_path() / "test_tapyrus" / strprintf("%lu_%i", (unsigned long)GetTime(), (int)(InsecureRandRange(1 << 30))))
     {
-        ECCVerifyHandle globalVerifyHandle;
+
         SHA256AutoDetect();
         RandomInit();
         ECC_Start();
@@ -98,9 +100,6 @@ BOOST_AUTO_TEST_CASE(parse_pubkey_string_invalid)
 
 BOOST_AUTO_TEST_CASE(create_genesis_block)
 {
-    // This is for using CPubKey.verify().
-    ECCVerifyHandle globalVerifyHandle;
-
     BOOST_CHECK_NO_THROW(SelectFederationParams(TAPYRUS_OP_MODE::PROD));
 
     CKey key;
@@ -115,9 +114,6 @@ BOOST_AUTO_TEST_CASE(create_genesis_block)
 
 BOOST_AUTO_TEST_CASE(create_genesis_block_one_publickey)
 {
-    // This is for using CPubKey.verify().
-    ECCVerifyHandle globalVerifyHandle;
-
     CKey aggregateKey;
     aggregateKey.Set(validAggPrivateKey, validAggPrivateKey + 32, true);
     CPubKey aggPubkey = aggregateKey.GetPubKey();

@@ -315,14 +315,12 @@ struct WalletBalances
     bool have_watch_only = false;
     CAmount watch_only_balance = 0;
     CAmount unconfirmed_watch_only_balance = 0;
-    CAmount immature_watch_only_balance = 0;
 
     bool balanceChanged(const WalletBalances& prev) const
     {
         return balance != prev.balance || unconfirmed_balance != prev.unconfirmed_balance ||
                watch_only_balance != prev.watch_only_balance ||
-               unconfirmed_watch_only_balance != prev.unconfirmed_watch_only_balance ||
-               immature_watch_only_balance != prev.immature_watch_only_balance;
+               unconfirmed_watch_only_balance != prev.unconfirmed_watch_only_balance;
     }
 };
 
