@@ -70,9 +70,6 @@ public:
     // serialized string to ensure load/store is lossless
     std::string sPaymentRequest;
 
-    // Empty if no authentication or invalid signature/cert/etc.
-    QString authenticatedMerchant;
-
     bool fSubtractFeeFromAmount; // memory only
 
     static const int CURRENT_VERSION = 1;
@@ -85,7 +82,6 @@ public:
         std::string sAddress = address.toStdString();
         std::string sLabel = label.toStdString();
         std::string sMessage = message.toStdString();
-        std::string sAuthenticatedMerchant = authenticatedMerchant.toStdString();
 
         READWRITE(this->nVersion);
         READWRITE(sAddress);
@@ -93,14 +89,12 @@ public:
         READWRITE(amount);
         READWRITE(sMessage);
         READWRITE(sPaymentRequest);
-        READWRITE(sAuthenticatedMerchant);
 
         if (ser_action.ForRead())
         {
             address = QString::fromStdString(sAddress);
             label = QString::fromStdString(sLabel);
             message = QString::fromStdString(sMessage);
-            authenticatedMerchant = QString::fromStdString(sAuthenticatedMerchant);
         }
     }
 };
