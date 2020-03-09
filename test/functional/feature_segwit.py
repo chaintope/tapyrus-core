@@ -295,13 +295,13 @@ class SegWitTest(BitcoinTestFramework):
             if (v['isscript']):
                 # Multisig without private is not seen after addmultisigaddress, but seen after importaddress
                 [bare, p2sh, p2wsh, p2sh_p2wsh] = self.p2sh_address_to_script(v)
-                solvable_after_importaddress.extend([bare, p2sh])
+                solvable_after_importaddress.extend([bare, p2sh, p2wsh, p2sh_p2wsh])
             else:
                 [p2wpkh, p2sh_p2wpkh, p2pk, p2pkh, p2sh_p2pk, p2sh_p2pkh, p2wsh_p2pk, p2wsh_p2pkh, p2sh_p2wsh_p2pk, p2sh_p2wsh_p2pkh] = self.p2pkh_address_to_script(v)
                 # normal P2PKH, P2PK, P2WPKH and P2SH_P2WPKH with compressed keys should always be seen
-                solvable_anytime.extend([p2pkh, p2pk])
+                solvable_anytime.extend([p2pkh, p2pk, p2wpkh, p2sh_p2wpkh])
                 # P2SH_P2PK, P2SH_P2PKH with compressed keys are seen after direct importaddress
-                solvable_after_importaddress.extend([p2sh_p2pk, p2sh_p2pkh])
+                solvable_after_importaddress.extend([p2sh_p2pk, p2sh_p2pkh, p2wsh_p2pk, p2wsh_p2pkh, p2sh_p2wsh_p2pk, p2sh_p2wsh_p2pkh])
 
         for i in uncompressed_solvable_address:
             v = self.nodes[0].getaddressinfo(i)
@@ -330,9 +330,9 @@ class SegWitTest(BitcoinTestFramework):
         p2shop0 = CScript([OP_HASH160, hash160(op0), OP_EQUAL])
         p2wshop1 = CScript([OP_0, sha256(op1)])
         unsolvable_after_importaddress.append(unsolvablep2pkh)
-        #unsolvable_after_importaddress.append(unsolvablep2wshp2pkh)
+        unsolvable_after_importaddress.append(unsolvablep2wshp2pkh)
         unsolvable_after_importaddress.append(op1) # OP_1 will be imported as script
-        #unsolvable_after_importaddress.append(p2wshop1)
+        unsolvable_after_importaddress.append(p2wshop1)
         unseen_anytime.append(op0) # OP_0 will be imported as P2SH address with no script provided
         unsolvable_after_importaddress.append(p2shop0)
 
@@ -449,10 +449,10 @@ class SegWitTest(BitcoinTestFramework):
             else:
                 [p2wpkh, p2sh_p2wpkh, p2pk, p2pkh, p2sh_p2pk, p2sh_p2pkh, p2wsh_p2pk, p2wsh_p2pkh, p2sh_p2wsh_p2pk, p2sh_p2wsh_p2pkh] = self.p2pkh_address_to_script(v)
                 # P2SH_P2PK, P2SH_P2PKH with compressed keys are always solvable
-                #solvable_anytime.extend([p2wpkh, p2sh_p2wpkh])
+                solvable_anytime.extend([p2wpkh, p2sh_p2wpkh])
 
         self.mine_and_test_listunspent(spendable_anytime, 2)
-        #self.mine_and_test_listunspent(solvable_anytime, 1)
+        self.mine_and_test_listunspent(solvable_anytime, 1)
         self.mine_and_test_listunspent(spendable_after_addwitnessaddress + solvable_after_addwitnessaddress + unseen_anytime, 0)
 
         # addwitnessaddress should refuse to return a witness address if an uncompressed key is used
@@ -471,7 +471,7 @@ class SegWitTest(BitcoinTestFramework):
             assert_raises_rpc_error(-4, "Public key or redeemscript not known to wallet, or the key is uncompressed", self.nodes[0].addwitnessaddress, i)
 
         spendable_txid.append(self.mine_and_test_listunspent(spendable_after_addwitnessaddress + spendable_anytime, 2))
-        #solvable_txid.append(self.mine_and_test_listunspent(solvable_after_addwitnessaddress + solvable_anytime, 1))
+        solvable_txid.append(self.mine_and_test_listunspent(solvable_after_addwitnessaddress + solvable_anytime, 1))
         self.mine_and_test_listunspent(unseen_anytime, 0)
 
         # Check that createrawtransaction/decoderawtransaction with non-v0 Bech32 works
