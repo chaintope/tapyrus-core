@@ -16,6 +16,8 @@ extern void noui_connect();
 
 struct ChainParamsTestingSetup {
 
+    ECCVerifyHandle globalVerifyHandle;
+
     explicit ChainParamsTestingSetup(const std::string& chainName= TAPYRUS_MODES::PROD)
         : m_path_root(fs::temp_directory_path() / "test_tapyrus" / strprintf("%lu_%i", (unsigned long)GetTime(), (int)(InsecureRandRange(1 << 30))))
     {

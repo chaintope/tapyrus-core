@@ -43,9 +43,6 @@ class RESTTest (BitcoinTestFramework):
         self.setup_clean_chain = True
         self.num_nodes = 2
         self.extra_args = [["-rest"], []]
-        self.signblockthreshold = 1 #content length tests are based on one proof
-        self.signblockpubkey = "0201c537fd7eb7928700927b48e51ceec621fc8ba1177ee2ad67336ed91e2f63a1"
-        self.signblockprivkey = "aa3680d5d48a8283413f7a108367c7299ca73f553735860a87b08f39395618b7"
 
     def test_rest_request(self, uri, http_method='GET', req_type=ReqType.JSON, body='', status=200, ret_type=RetType.JSON):
         rest_uri = '/rest' + uri
@@ -75,14 +72,12 @@ class RESTTest (BitcoinTestFramework):
 
     def run_test(self):
         self.url = urllib.parse.urlparse(self.nodes[0].url)
-        self.log.info("Mine blocks and send Bitcoin to node 1")
+        self.log.info("Mine blocks and send Tapyrus coins to node 1")
 
         # Random address so node1's balance doesn't increase
         not_related_address = "2MxqoHEdNQTyYeX1mHcbrrpzgojbosTpCvJ"
 
         self.nodes[0].generate(1, self.signblockprivkey)
-        self.sync_all()
-        self.nodes[1].generatetoaddress(100, not_related_address, self.signblockprivkey)
         self.sync_all()
 
         assert_equal(self.nodes[0].getbalance(), 50)
@@ -147,7 +142,44 @@ class RESTTest (BitcoinTestFramework):
         response_hash = binascii.hexlify(output.read(32)[::-1]).decode('ascii')
 
         assert_equal(bb_hash, response_hash)  # check if getutxo's chaintip during calculation was fine
-        assert_equal(chain_height, 102)  # chain height must be 102
+        assert_equal(chain_height, 2)
+
+        self.log.info("Test tx inclusion in the /mempool and /block URIs")
+
+        # Make 3 tx and mine them on node 1
+        txs = []
+        txs.append(self.nodes[0].sendtoaddress(not_related_address, 11))
+        txs.append(self.nodes[0].sendtoaddress(not_related_address, 11))
+        txs.append(self.nodes[0].sendtoaddress(not_related_address, 11))
+        self.sync_all()
+
+        # Check that there are exactly 3 transactions in the TX memory pool before generating the block
+        json_obj = self.test_rest_request("/mempool/info")
+        assert_equal(json_obj['size'], 3)
+        # the size of the memory pool should be greater than 3x ~100 bytes
+        assert_greater_than(json_obj['bytes'], 300)
+
+        # Check that there are our submitted transactions in the TX memory pool
+        json_obj = self.test_rest_request("/mempool/contents")
+        for i, tx in enumerate(txs):
+            assert tx in json_obj
+            assert_equal(json_obj[tx]['spentby'], txs[i + 1:i + 2])
+            assert_equal(json_obj[tx]['depends'], txs[i - 1:i])
+
+        # Now mine the transactions
+        newblockhash = self.nodes[1].generate(1, self.signblockprivkey)
+        self.sync_all()
+
+        # Check if the 3 tx show up in the new block
+        json_obj = self.test_rest_request("/block/{}".format(newblockhash[0]))
+        non_coinbase_txs = {tx['txid'] for tx in json_obj['tx']
+                            if 'coinbase' not in tx['vin'][0]}
+        assert_equal(non_coinbase_txs, set(txs))
+
+        # Check the same but without tx details
+        json_obj = self.test_rest_request("/block/notxdetails/{}".format(newblockhash[0]))
+        for tx in txs:
+            assert tx in json_obj['tx']
 
         self.log.info("Test the /getutxos URI with and without /checkmempool")
         # Create a transaction, check that it's found with /checkmempool, but
@@ -195,9 +227,6 @@ class RESTTest (BitcoinTestFramework):
 
         long_uri = '/'.join(['{}-{}'.format(txid, n_) for n_ in range(15)])
         self.test_rest_request("/getutxos/checkmempool/{}".format(long_uri), http_method='POST', status=200)
-
-        self.nodes[0].generate(1, self.signblockprivkey)  # generate block to not affect upcoming tests
-        self.sync_all()
 
         self.log.info("Test the /block and /headers URIs")
         bb_hash = self.nodes[0].getbestblockhash()
@@ -256,43 +285,6 @@ class RESTTest (BitcoinTestFramework):
         hex_response = self.test_rest_request("/tx/{}".format(tx_hash), req_type=ReqType.HEX, ret_type=RetType.OBJ)
         assert_greater_than_or_equal(int(hex_response.getheader('content-length')),
                                      json_obj['size']*2)
-
-        self.log.info("Test tx inclusion in the /mempool and /block URIs")
-
-        # Make 3 tx and mine them on node 1
-        txs = []
-        txs.append(self.nodes[0].sendtoaddress(not_related_address, 11))
-        txs.append(self.nodes[0].sendtoaddress(not_related_address, 11))
-        txs.append(self.nodes[0].sendtoaddress(not_related_address, 11))
-        self.sync_all()
-
-        # Check that there are exactly 3 transactions in the TX memory pool before generating the block
-        json_obj = self.test_rest_request("/mempool/info")
-        assert_equal(json_obj['size'], 3)
-        # the size of the memory pool should be greater than 3x ~100 bytes
-        assert_greater_than(json_obj['bytes'], 300)
-
-        # Check that there are our submitted transactions in the TX memory pool
-        json_obj = self.test_rest_request("/mempool/contents")
-        for i, tx in enumerate(txs):
-            assert tx in json_obj
-            assert_equal(json_obj[tx]['spentby'], txs[i + 1:i + 2])
-            assert_equal(json_obj[tx]['depends'], txs[i - 1:i])
-
-        # Now mine the transactions
-        newblockhash = self.nodes[1].generate(1, self.signblockprivkey)
-        self.sync_all()
-
-        # Check if the 3 tx show up in the new block
-        json_obj = self.test_rest_request("/block/{}".format(newblockhash[0]))
-        non_coinbase_txs = {tx['txid'] for tx in json_obj['tx']
-                            if 'coinbase' not in tx['vin'][0]}
-        assert_equal(non_coinbase_txs, set(txs))
-
-        # Check the same but without tx details
-        json_obj = self.test_rest_request("/block/notxdetails/{}".format(newblockhash[0]))
-        for tx in txs:
-            assert tx in json_obj['tx']
 
         self.log.info("Test the /chaininfo URI")
 

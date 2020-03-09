@@ -15,6 +15,7 @@
 #include <scheduler.h>
 #include <txdb.h>
 #include <txmempool.h>
+#include <consensus/consensus.h>
 
 #include <memory>
 
@@ -39,6 +40,16 @@ static inline uint256 InsecureRand256() { return insecure_rand_ctx.rand256(); }
 static inline uint64_t InsecureRandBits(int bits) { return insecure_rand_ctx.randbits(bits); }
 static inline uint64_t InsecureRandRange(uint64_t range) { return insecure_rand_ctx.randrange(range); }
 static inline bool InsecureRandBool() { return insecure_rand_ctx.randbool(); }
+
+//utility functions
+CBlock getBlock();
+std::string getSignedTestBlock();
+std::string getTestGenesisBlockHex(const CPubKey& aggregatePubkey,
+                                   const CKey& aggregatePrivkey);
+void writeTestGenesisBlockToFile(fs::path genesisPath, std::string genesisFileName="");
+void createSignedBlockProof(CBlock &block, std::vector<unsigned char>& blockProof);
+// define an implicit conversion here so that uint256 may be used directly in BOOST_CHECK_*
+std::ostream& operator<<(std::ostream& os, const uint256& num);
 
 /** Basic testing setup.
  * This just configures logging and chain parameters.
@@ -82,17 +93,16 @@ class CScript;
 
 //
 // Testing fixture that pre-creates a
-// 100-block REGTEST-mode block chain
+// 5-block REGTEST-mode block chain
 //
-struct TestChain100Setup : public TestingSetup {
-    TestChain100Setup();
+struct TestChainSetup : public TestingSetup {
+    TestChainSetup();
 
     // Create a new block with just given transactions, coinbase paying to
     // scriptPubKey, and try to add it to the current chain.
     CBlock CreateAndProcessBlock(const std::vector<CMutableTransaction>& txns,
                                  const CScript& scriptPubKey);
-
-    ~TestChain100Setup();
+    ~TestChainSetup(){}
 
     std::vector<CTransactionRef> m_coinbase_txns; // For convenience, coinbase transactions
     CKey coinbaseKey; // private/public key needed to spend coinbase transactions
@@ -124,14 +134,5 @@ struct TestMemPoolEntryHelper
     TestMemPoolEntryHelper &SpendsCoinbase(bool _flag) { spendsCoinbase = _flag; return *this; }
     TestMemPoolEntryHelper &SigOpsCost(unsigned int _sigopsCost) { sigOpCost = _sigopsCost; return *this; }
 };
-
-CBlock getBlock();
-std::string getSignedTestBlock();
-std::string getTestGenesisBlockHex(const CPubKey& aggregatePubkey,
-                                   const CKey& aggregatePrivkey);
-void writeTestGenesisBlockToFile(fs::path genesisPath, std::string genesisFileName="");
-void createSignedBlockProof(CBlock &block, std::vector<unsigned char>& blockProof);
-// define an implicit conversion here so that uint256 may be used directly in BOOST_CHECK_*
-std::ostream& operator<<(std::ostream& os, const uint256& num);
 
 #endif //TAPYRUS_TEST_TEST_TAPYRUS_H

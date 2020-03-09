@@ -92,7 +92,6 @@ WalletTxStatus MakeWalletTxStatus(const CWalletTx& wtx)
     auto mi = ::mapBlockIndex.find(wtx.hashBlock);
     CBlockIndex* block = mi != ::mapBlockIndex.end() ? mi->second : nullptr;
     result.block_height = (block ? block->nHeight : std::numeric_limits<int>::max());
-    result.blocks_to_maturity = wtx.GetBlocksToMaturity();
     result.depth_in_main_chain = wtx.GetDepthInMainChain();
     result.time_received = wtx.nTimeReceived;
     result.lock_time = wtx.tx->nLockTime;
@@ -336,12 +335,10 @@ public:
         WalletBalances result;
         result.balance = m_wallet.GetBalance();
         result.unconfirmed_balance = m_wallet.GetUnconfirmedBalance();
-        result.immature_balance = m_wallet.GetImmatureBalance();
         result.have_watch_only = m_wallet.HaveWatchOnly();
         if (result.have_watch_only) {
             result.watch_only_balance = m_wallet.GetBalance(ISMINE_WATCH_ONLY);
             result.unconfirmed_watch_only_balance = m_wallet.GetUnconfirmedWatchOnlyBalance();
-            result.immature_watch_only_balance = m_wallet.GetImmatureWatchOnlyBalance();
         }
         return result;
     }
