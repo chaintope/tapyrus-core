@@ -117,7 +117,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         block = self.build_block_on_tip(self.nodes[0])
         self.test_node.send_and_ping(msg_block(block))
         assert(int(self.nodes[0].getbestblockhash(), 16) == block.sha256)
-        self.nodes[0].generate(100, self.signblockprivkey)
+        self.nodes[0].generate(10, self.signblockprivkey)
         sync_blocks(self.nodes[0:1], wait=150)
 
         total_value = block.vtx[0].vout[0].nValue

@@ -31,6 +31,7 @@ class TxnMallTest(BitcoinTestFramework):
 
     def run_test(self):
         # All nodes should start with 1,250 BTC:
+        self.log.info("All nodes should start with initial balance 1250.")
         starting_balance = 1250
         for i in range(4):
             assert_equal(self.nodes[i].getbalance(), starting_balance)
@@ -75,8 +76,11 @@ class TxnMallTest(BitcoinTestFramework):
 
         # Have node0 mine a block:
         if (self.options.mine_block):
-            self.nodes[0].generate(1, self.signblockprivkey)
+            new_block = self.nodes[0].generate(1, self.signblockprivkey)[0]
             sync_blocks(self.nodes[0:2])
+            # add to block reward
+            blockData = self.nodes[0].getblock(new_block)
+            blockReward = self.nodes[0].gettransaction(blockData['tx'][0])['amount']
 
         tx1 = self.nodes[0].gettransaction(txid1)
         tx2 = self.nodes[0].gettransaction(txid2)
@@ -85,7 +89,7 @@ class TxnMallTest(BitcoinTestFramework):
         # matured block, minus 40, minus 20, and minus transaction fees:
         expected = starting_balance + fund_foo_tx["fee"] + fund_bar_tx["fee"]
         if self.options.mine_block:
-            expected += 50
+            expected += blockReward
         expected += tx1["amount"] + tx1["fee"]
         expected += tx2["amount"] + tx2["fee"]
         assert_equal(self.nodes[0].getbalance(), expected)
@@ -104,12 +108,21 @@ class TxnMallTest(BitcoinTestFramework):
         self.nodes[2].sendrawtransaction(fund_bar_tx["hex"])
         doublespend_txid = self.nodes[2].sendrawtransaction(doublespend["hex"])
         # ... mine a block...
-        self.nodes[2].generate(1, self.signblockprivkey)
+        new_block = self.nodes[2].generate(1, self.signblockprivkey)[0]
+
+        #get its block reward
+        blockData = self.nodes[2].getblock(new_block)
+        blockReward = self.nodes[2].gettransaction(blockData['tx'][0])['amount']
 
         # Reconnect the split network, and sync chain:
         connect_nodes(self.nodes[1], 2)
-        self.nodes[2].generate(1, self.signblockprivkey)  # Mine another block to make sure we sync
+        new_block = self.nodes[2].generate(1, self.signblockprivkey)[0]  # Mine another block to make sure we sync
         sync_blocks(self.nodes)
+
+        # add to block reward
+        blockData = self.nodes[2].getblock(new_block)
+        blockReward += self.nodes[2].gettransaction(blockData['tx'][0])['amount']
+
         assert_equal(self.nodes[0].gettransaction(doublespend_txid)["confirmations"], 2)
 
         # Re-fetch transaction info:
@@ -120,14 +133,16 @@ class TxnMallTest(BitcoinTestFramework):
         assert_equal(tx1["confirmations"], -2)
         assert_equal(tx2["confirmations"], -2)
 
-        # Node0's total balance should be starting balance, plus 100BTC for
-        # two more matured blocks, minus 1240 for the double-spend, plus fees (which are
-        # negative):
-        expected = starting_balance + 100 - 1240 + fund_foo_tx["fee"] + fund_bar_tx["fee"] + doublespend_fee
+        self.log.info("Check final node balances.")
+        # Node0's total balance should be starting balance minus 1240 for the double-spend, plus fees (which are negative):
+        expected = starting_balance - 1240 + fund_foo_tx["fee"] + fund_bar_tx["fee"] + doublespend_fee
         assert_equal(self.nodes[0].getbalance(), expected)
 
         # Node1's balance should be its initial balance (1250 for 25 block rewards) plus the doublespend:
         assert_equal(self.nodes[1].getbalance(), 1250 + 1240)
+        # Node1's balance should be its initial balance (1250 for 25 block rewards) plus block rewards from the two new blocks:
+        assert_equal(self.nodes[2].getbalance(), 1250 + blockReward)
+        assert_equal(self.nodes[3].getbalance(), 1250)
 
 if __name__ == '__main__':
     TxnMallTest().main()

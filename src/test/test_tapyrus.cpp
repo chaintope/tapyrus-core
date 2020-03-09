@@ -147,13 +147,13 @@ void createSignedBlockProof(CBlock &block, std::vector<unsigned char>& blockProo
     return;
 }
 
-TestChain100Setup::TestChain100Setup() : TestingSetup(TAPYRUS_MODES::DEV)
+TestChainSetup::TestChainSetup() : TestingSetup(TAPYRUS_MODES::DEV)
 {
     // CreateAndProcessBlock() does not support building SegWit blocks, so don't activate in these tests.
-    // Generate a 100-block chain:
+    // Generate a block chain with '5' blocks:
     coinbaseKey.MakeNewKey(true);
     CScript scriptPubKey = CScript() <<  ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG;
-    for (int i = 0; i < COINBASE_MATURITY; i++)
+    for (int i = 0; i < 5; i++)
     {
         std::vector<CMutableTransaction> noTxns;
         CBlock b = CreateAndProcessBlock(noTxns, scriptPubKey);
@@ -167,7 +167,7 @@ TestChain100Setup::TestChain100Setup() : TestingSetup(TAPYRUS_MODES::DEV)
 // scriptPubKey, and try to add it to the current chain.
 //
 CBlock
-TestChain100Setup::CreateAndProcessBlock(const std::vector<CMutableTransaction>& txns, const CScript& scriptPubKey)
+TestChainSetup::CreateAndProcessBlock(const std::vector<CMutableTransaction>& txns, const CScript& scriptPubKey)
 {
     const CChainParams& chainparams = Params();
     std::unique_ptr<CBlockTemplate> pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey);
@@ -192,10 +192,6 @@ TestChain100Setup::CreateAndProcessBlock(const std::vector<CMutableTransaction>&
 
     CBlock result = block;
     return result;
-}
-
-TestChain100Setup::~TestChain100Setup()
-{
 }
 
 

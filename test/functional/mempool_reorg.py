@@ -21,8 +21,8 @@ class MempoolCoinbaseTest(BitcoinTestFramework):
     alert_filename = None  # Set by setup_network
 
     def run_test(self):
-        # Start with a 200 block chain
-        assert_equal(self.nodes[0].getblockcount(), 200)
+        # Start with a 100 block chain
+        assert_equal(self.nodes[0].getblockcount(), 100)
 
         # Mine four blocks. After this, nodes[0] blocks
         # 101, 102, and 103 are spend-able.
@@ -38,7 +38,7 @@ class MempoolCoinbaseTest(BitcoinTestFramework):
         # 3. Indirect (coinbase and child both in chain) : spend_103 and spend_103_1
         # Use invalidatblock to make all of the above coinbase spends invalid (immature coinbase),
         # and make sure the mempool code behaves correctly.
-        b = [ self.nodes[0].getblockhash(n) for n in range(101, 105) ]
+        b = [ self.nodes[0].getblockhash(n) for n in range(1, 5) ]
         coinbase_txids = [ self.nodes[0].getblock(h)['tx'][0] for h in b ]
         spend_101_raw = create_raw_transaction(self.nodes[0], coinbase_txids[1], node1_address, amount=49.99)
         spend_102_raw = create_raw_transaction(self.nodes[0], coinbase_txids[2], node0_address, amount=49.99)
@@ -92,7 +92,7 @@ class MempoolCoinbaseTest(BitcoinTestFramework):
         self.sync_all()
 
         # mempool should be empty.
-        assert_equal(set(self.nodes[0].getrawmempool()), set())
+        assert_equal(set(self.nodes[0].getrawmempool()), {spend_101_id, spend_102_id, spend_102_1_id, spend_103_id, spend_103_1_id})
 
 if __name__ == '__main__':
     MempoolCoinbaseTest().main()

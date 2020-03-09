@@ -22,7 +22,7 @@ class AbandonConflictTest(BitcoinTestFramework):
         self.extra_args = [["-minrelaytxfee=0.00001"], []]
 
     def run_test(self):
-        self.nodes[1].generate(100, self.signblockprivkey)
+        self.nodes[1].generate(1, self.signblockprivkey)
         sync_blocks(self.nodes)
         balance = self.nodes[0].getbalance()
         txA = self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), Decimal("10"))

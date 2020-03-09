@@ -49,7 +49,7 @@ UniValue CallGenerate(const JSONRPCRequest& request)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(rescan, TestChain100Setup)
+BOOST_FIXTURE_TEST_CASE(rescan, TestChainSetup)
 {
     // Cap last block file size, and mine new block in a new block file.
     CBlockIndex* const nullBlock = nullptr;
@@ -68,7 +68,7 @@ BOOST_FIXTURE_TEST_CASE(rescan, TestChain100Setup)
         WalletRescanReserver reserver(&wallet);
         reserver.reserve();
         BOOST_CHECK_EQUAL(nullBlock, wallet.ScanForWalletTransactions(oldTip, nullptr, reserver));
-        BOOST_CHECK_EQUAL(wallet.GetImmatureBalance(), 100 * COIN);
+        BOOST_CHECK_EQUAL(wallet.GetBalance(), 100 * COIN);
     }
 
     // Prune the older block file.
@@ -83,7 +83,7 @@ BOOST_FIXTURE_TEST_CASE(rescan, TestChain100Setup)
         WalletRescanReserver reserver(&wallet);
         reserver.reserve();
         BOOST_CHECK_EQUAL(oldTip, wallet.ScanForWalletTransactions(oldTip, nullptr, reserver));
-        BOOST_CHECK_EQUAL(wallet.GetImmatureBalance(), 50 * COIN);
+        BOOST_CHECK_EQUAL(wallet.GetBalance(), 50 * COIN);
     }
 
     // Verify importmulti RPC returns failure for a key whose creation time is
@@ -130,7 +130,7 @@ BOOST_FIXTURE_TEST_CASE(rescan, TestChain100Setup)
 // greater or equal than key birthday. Previously there was a bug where
 // importwallet RPC would start the scan at the latest block with timestamp less
 // than or equal to key birthday.
-BOOST_FIXTURE_TEST_CASE(importwallet_rescan, TestChain100Setup)
+BOOST_FIXTURE_TEST_CASE(importwallet_rescan, TestChainSetup)
 {
     // Create two blocks with same timestamp to verify that importwallet rescan
     // will pick up both blocks, not just the first.
@@ -178,40 +178,15 @@ BOOST_FIXTURE_TEST_CASE(importwallet_rescan, TestChain100Setup)
 
         LOCK(wallet->cs_wallet);
         BOOST_CHECK_EQUAL(wallet->mapWallet.size(), 3U);
-        BOOST_CHECK_EQUAL(m_coinbase_txns.size(), 103U);
+        BOOST_CHECK_EQUAL(m_coinbase_txns.size(), 8U);
         for (size_t i = 0; i < m_coinbase_txns.size(); ++i) {
             bool found = wallet->GetWalletTx(m_coinbase_txns[i]->GetHashMalFix());
-            bool expected = i >= 100;
+            bool expected = i >= 5;
             BOOST_CHECK_EQUAL(found, expected);
         }
     }
 
     SetMockTime(0);
-}
-
-// Check that GetImmatureCredit() returns a newly calculated value instead of
-// the cached value after a MarkDirty() call.
-//
-// This is a regression test written to verify a bugfix for the immature credit
-// function. Similar tests probably should be written for the other credit and
-// debit functions.
-BOOST_FIXTURE_TEST_CASE(coin_mark_dirty_immature_credit, TestChain100Setup)
-{
-    CWallet wallet("dummy", WalletDatabase::CreateDummy());
-    CWalletTx wtx(&wallet, m_coinbase_txns.back());
-    LOCK2(cs_main, wallet.cs_wallet);
-    wtx.hashBlock = chainActive.Tip()->GetBlockHash();
-    wtx.nIndex = 0;
-
-    // Call GetImmatureCredit() once before adding the key to the wallet to
-    // cache the current immature credit amount, which is 0.
-    BOOST_CHECK_EQUAL(wtx.GetImmatureCredit(), 0);
-
-    // Invalidate the cached value, add the key, and make sure a new immature
-    // credit amount is calculated.
-    wtx.MarkDirty();
-    wallet.AddKeyPubKey(coinbaseKey, coinbaseKey.GetPubKey());
-    BOOST_CHECK_EQUAL(wtx.GetImmatureCredit(), 50*COIN);
 }
 
 static int64_t AddTx(CWallet& wallet, uint32_t lockTime, int64_t mockTime, int64_t blockTime)
@@ -284,7 +259,7 @@ BOOST_AUTO_TEST_CASE(LoadReceiveRequests)
     BOOST_CHECK_EQUAL(values[1], "val_rr1");
 }
 
-class ListCoinsTestingSetup : public TestChain100Setup
+class ListCoinsTestingSetup : public TestChainSetup
 {
 public:
     ListCoinsTestingSetup()
@@ -335,15 +310,15 @@ BOOST_FIXTURE_TEST_CASE(ListCoins, ListCoinsTestingSetup)
 {
     std::string coinbaseAddress = coinbaseKey.GetPubKey().GetID().ToString();
 
-    // Confirm ListCoins initially returns 1 coin grouped under coinbaseKey
+    // Confirm ListCoins returns 2 coin grouped under coinbaseKey
     // address.
     auto list = wallet->ListCoins();
     BOOST_CHECK_EQUAL(list.size(), 1U);
     BOOST_CHECK_EQUAL(boost::get<CKeyID>(list.begin()->first).ToString(), coinbaseAddress);
-    BOOST_CHECK_EQUAL(list.begin()->second.size(), 1U);
+    BOOST_CHECK_EQUAL(list.begin()->second.size(), 6U);
 
-    // Check initial balance from one mature coinbase transaction.
-    BOOST_CHECK_EQUAL(50 * COIN, wallet->GetAvailableBalance());
+    // Check initial balance from 6 coinbase transaction.
+    BOOST_CHECK_EQUAL(300 * COIN, wallet->GetAvailableBalance());
 
     // Add a transaction creating a change address, and confirm ListCoins still
     // returns the coin associated with the change address underneath the
@@ -353,14 +328,14 @@ BOOST_FIXTURE_TEST_CASE(ListCoins, ListCoinsTestingSetup)
     list = wallet->ListCoins();
     BOOST_CHECK_EQUAL(list.size(), 1U);
     BOOST_CHECK_EQUAL(boost::get<CKeyID>(list.begin()->first).ToString(), coinbaseAddress);
-    BOOST_CHECK_EQUAL(list.begin()->second.size(), 2U);
+    BOOST_CHECK_EQUAL(list.begin()->second.size(), 6U);
 
     // Lock both coins. Confirm number of available coins drops to 0.
     {
         LOCK2(cs_main, wallet->cs_wallet);
         std::vector<COutput> available;
         wallet->AvailableCoins(available);
-        BOOST_CHECK_EQUAL(available.size(), 2U);
+        BOOST_CHECK_EQUAL(available.size(), 6U);
     }
     for (const auto& group : list) {
         for (const auto& coin : group.second) {
@@ -379,10 +354,10 @@ BOOST_FIXTURE_TEST_CASE(ListCoins, ListCoinsTestingSetup)
     list = wallet->ListCoins();
     BOOST_CHECK_EQUAL(list.size(), 1U);
     BOOST_CHECK_EQUAL(boost::get<CKeyID>(list.begin()->first).ToString(), coinbaseAddress);
-    BOOST_CHECK_EQUAL(list.begin()->second.size(), 2U);
+    BOOST_CHECK_EQUAL(list.begin()->second.size(), 6U);
 }
 
-BOOST_FIXTURE_TEST_CASE(wallet_disableprivkeys, TestChain100Setup)
+BOOST_FIXTURE_TEST_CASE(wallet_disableprivkeys, TestChainSetup)
 {
     std::shared_ptr<CWallet> wallet = std::make_shared<CWallet>("dummy", WalletDatabase::CreateDummy());
     wallet->SetWalletFlag(WALLET_FLAG_DISABLE_PRIVATE_KEYS);

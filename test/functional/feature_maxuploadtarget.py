@@ -49,7 +49,7 @@ class MaxUploadTest(BitcoinTestFramework):
         self.nodes[0].setmocktime(old_time)
 
         # Generate some old blocks
-        self.nodes[0].generate(130, self.signblockprivkey)
+        self.nodes[0].generate(31, self.signblockprivkey)
 
         # p2p_conns[0] will only request old blocks
         # p2p_conns[1] will only request new blocks
