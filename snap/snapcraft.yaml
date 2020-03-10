@@ -1,0 +1,56 @@
+name: tapyrus-core
+version: &version v0.3.0
+summary:  federation governed blockchain
+description: |
+        Tapyrus is a blockchain that has been forked from Bitcoin Core, and solves
+        the governance issues. Bitcoin uses Proof of Work as a consensus algorithm,
+        but Tapyrus creates a block (ie, approves a transaction) with multiple
+        signatures from the Signer group which consists of industry stakeholders.
+        Therefore, transactions on the blockchain are stably approved, and finality
+        is given at the time of approval. Anyone can join the Tapyrus network, and
+        anyone can access the public ledger and create and broadcast transactions freely.
+
+base: core18
+grade: stable
+confinement: devmode
+
+apps:
+  daemon:
+    command: tapyrusd
+    plugs: [network, network-bind]
+    environment:
+      # Override HOME so the datadir is located at
+      # ~/snap/bitcoin-core/common/.bitcoin/ instead of
+      # ~/snap/bitcoin-core/current/.bitcoin/, and each new version of the
+      # snap won't have a different data directory:
+      # https://docs.snapcraft.io/environment-variables/7983
+      HOME: $SNAP_USER_COMMON
+  cli:
+    command: tapyrus-cli
+    plugs: [network]
+    environment:
+      HOME: $SNAP_USER_COMMON
+
+parts:
+  tapyrus-core:
+    plugin: autotools
+    source: https://github.com/chaintope/tapyrus-core.git
+    source-tag: *version
+    configflags:
+      - --disable-dependency-tracking
+      - --enable-zmq
+      - --enable-glibc-back-compat
+      - --enable-reduce-exports
+      - --with-gui=no 
+      - --with-incompatible-bdb
+    build-packages:
+      - bsdmainutils
+      - pkg-config
+      - libboost-system-dev
+      - libboost-filesystem-dev
+      - libboost-chrono-dev
+      - libboost-test-dev
+      - libboost-thread-dev
+      - libdb5.3++-dev
+      - libevent-dev
+      - libssl1.0-dev
