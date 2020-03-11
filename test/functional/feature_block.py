@@ -931,11 +931,11 @@ class FullBlockTest(BitcoinTestFramework):
         # -> b43 (13) -> b53 (14) -> b55 (15) -> b57 (16) -> b60 (17) -> b64 (18) -> b65 (19) -> b69 (20)
         #                                                                                    \-> b68 (20)
         #
-        # b68 - coinbase with an extra 10 satoshis,
-        #       creates a tx that has 9 satoshis from out[20] go to fees
+        # b68 - coinbase with an extra 10 tapyrus,
+        #       creates a tx that has 9 tapyrus from out[20] go to fees
         #       this fails because the coinbase is trying to claim 1 satoshi too much in fees
         #
-        # b69 - coinbase with extra 10 satoshis, and a tx that gives a 10 satoshi fee
+        # b69 - coinbase with extra 10 tapyrus, and a tx that gives a 10 satoshi fee
         #       this succeeds
         #
         self.log.info("Reject a block trying to claim too much subsidy in the coinbase transaction")

@@ -181,11 +181,11 @@ static void TestPackageSelection(const CChainParams& chainparams, const std::vec
     tx.vin[0].prevout.n = 0;
     tx.vout.resize(1);
     tx.vout[0].nValue = 5000000000LL - 1000;
-    // This tx has a low fee: 1000 satoshis
+    // This tx has a low fee: 1000 tapyrus
     uint256 hashParentTx = tx.GetHashMalFix(); // save this txid for later use
     mempool.addUnchecked(hashParentTx, entry.Fee(1000).Time(GetTime()).SpendsCoinbase(true).FromTx(tx));
 
-    // This tx has a medium fee: 10000 satoshis
+    // This tx has a medium fee: 10000 tapyrus
     tx.vin[0].prevout.hashMalFix = txFirst[1]->GetHashMalFix();
     tx.vout[0].nValue = 5000000000LL - 10000;
     uint256 hashMediumFeeTx = tx.GetHashMalFix();

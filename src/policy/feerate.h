@@ -14,29 +14,29 @@
 extern const std::string CURRENCY_UNIT;
 
 /**
- * Fee rate in satoshis per kilobyte: CAmount / kB
+ * Fee rate in tapyrus per kilobyte: CAmount / kB
  */
 class CFeeRate
 {
 private:
-    CAmount nSatoshisPerK; // unit is satoshis-per-1,000-bytes
+    CAmount nSatoshisPerK; // unit is tapyrus-per-1,000-bytes
 
 public:
-    /** Fee rate of 0 satoshis per kB */
+    /** Fee rate of 0 tapyrus per kB */
     CFeeRate() : nSatoshisPerK(0) { }
     template<typename I>
     CFeeRate(const I _nSatoshisPerK): nSatoshisPerK(_nSatoshisPerK) {
         // We've previously had bugs creep in from silent double->int conversion...
         static_assert(std::is_integral<I>::value, "CFeeRate should be used without floats");
     }
-    /** Constructor for a fee rate in satoshis per kB. The size in bytes must not exceed (2^63 - 1)*/
+    /** Constructor for a fee rate in tapyrus per kB. The size in bytes must not exceed (2^63 - 1)*/
     CFeeRate(const CAmount& nFeePaid, size_t nBytes);
     /**
-     * Return the fee in satoshis for the given size in bytes.
+     * Return the fee in tapyrus for the given size in bytes.
      */
     CAmount GetFee(size_t nBytes) const;
     /**
-     * Return the fee in satoshis for a size of 1000 bytes
+     * Return the fee in tapyrus for a size of 1000 bytes
      */
     CAmount GetFeePerK() const { return GetFee(1000); }
     friend bool operator<(const CFeeRate& a, const CFeeRate& b) { return a.nSatoshisPerK < b.nSatoshisPerK; }

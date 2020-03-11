@@ -25,7 +25,7 @@ public:
     explicit AmountSpinBox(QWidget *parent):
         QAbstractSpinBox(parent),
         currentUnit(BitcoinUnits::TPC),
-        singleStep(100000) // satoshis
+        singleStep(100000) // tapyrus
     {
         setAlignment(Qt::AlignRight);
 
