@@ -10,7 +10,7 @@ from decimal import Decimal
 from test_framework.messages import COIN, COutPoint, CTransaction, CTxIn, CTxOut
 from test_framework.script import CScript, OP_DROP
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, assert_raises_rpc_error, bytes_to_hex_str, satoshi_round
+from test_framework.util import assert_equal, assert_raises_rpc_error, bytes_to_hex_str, tapyrus_round
 
 MAX_REPLACEMENT_LIMIT = 100
 
@@ -26,11 +26,11 @@ def make_utxo(node, amount, confirmed=True, scriptPubKey=CScript([1])):
                 unconfirmed otherwise.
     """
     fee = 1*COIN
-    while node.getbalance() < satoshi_round((amount + fee)/COIN):
+    while node.getbalance() < tapyrus_round((amount + fee)/COIN):
         node.generate(100, self.signblockprivkey)
 
     new_addr = node.getnewaddress()
-    txid = node.sendtoaddress(new_addr, satoshi_round((amount+fee)/COIN))
+    txid = node.sendtoaddress(new_addr, tapyrus_round((amount+fee)/COIN))
     tx1 = node.getrawtransaction(txid, 1)
     txid = int(txid, 16)
     i = None

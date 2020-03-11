@@ -218,7 +218,7 @@ def hex_str_to_bytes(hex_str):
 def str_to_b64str(string):
     return b64encode(string.encode('utf-8')).decode('ascii')
 
-def satoshi_round(amount):
+def tapyrus_round(amount):
     return Decimal(amount).quantize(Decimal('0.00000001'), rounding=ROUND_DOWN)
 
 def wait_until(predicate, *, attempts=float('inf'), timeout=float('inf'), lock=None):
@@ -515,8 +515,8 @@ def create_confirmed_utxos(fee, node, count, signblockprivkey):
         inputs.append({"txid": t["txid"], "vout": t["vout"]})
         outputs = {}
         send_value = t['amount'] - fee
-        outputs[addr1] = satoshi_round(send_value / 2)
-        outputs[addr2] = satoshi_round(send_value / 2)
+        outputs[addr1] = tapyrus_round(send_value / 2)
+        outputs[addr2] = tapyrus_round(send_value / 2)
         raw_tx = node.createrawtransaction(inputs, outputs)
         signed_tx = node.signrawtransactionwithwallet(raw_tx, [], "ALL", scheme)["hex"]
         node.sendrawtransaction(signed_tx)
@@ -559,7 +559,7 @@ def create_lots_of_big_transactions(node, txouts, utxos, num, fee):
         inputs = [{"txid": t["txid"], "vout": t["vout"]}]
         outputs = {}
         change = t['amount'] - fee
-        outputs[addr] = satoshi_round(change)
+        outputs[addr] = tapyrus_round(change)
         rawtx = node.createrawtransaction(inputs, outputs)
         newtx = rawtx[0:92]
         newtx = newtx + txouts
