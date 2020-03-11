@@ -6,4 +6,4 @@ clean: FORCE
 check: FORCE
 	$(MAKE) -C .. test_tapyrus_qt_check
 tapyrus-qt tapyrus-qt.exe: FORCE
-	 $(MAKE) -C .. tapyrus_qt
+	$(MAKE) -C .. tapyrus_qt
