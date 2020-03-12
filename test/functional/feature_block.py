@@ -262,14 +262,17 @@ class FullBlockTest(BitcoinTestFramework):
         b19 = self.next_block(19, spend=out[6])
         self.sync_blocks([b19], False, 16, b'bad-txns-inputs-missingorspent', reconnect=True)
 
-        # Attempt to spend a coinbase at depth too low
+        # Attempt to spend a coinbase 
         #     genesis -> b1 (0) -> b2 (1) -> b5 (2) -> b6  (3)
         #                                          \-> b12 (3) -> b13 (4) -> b15 (5) -> b20 (7)
         #                      \-> b3 (1) -> b4 (2)
+        # block is accepted as the coinbase matures immediately in Tapyrus. 
+        # invalidate the block to allow the rest of the test to proceed without change
         self.log.info("Reject a block spending an immature coinbase.")
         self.move_tip(15)
         b20 = self.next_block(20, spend=out[7])
-        self.sync_blocks([b20], False, 16, b'bad-txns-premature-spend-of-coinbase')
+        self.sync_blocks([b20], True)
+        node.invalidateblock(b20.hash)
 
         # Attempt to spend a coinbase at depth too low (on a fork this time)
         #     genesis -> b1 (0) -> b2 (1) -> b5 (2) -> b6  (3)
@@ -281,8 +284,11 @@ class FullBlockTest(BitcoinTestFramework):
         b21 = self.next_block(21, spend=out[6])
         self.sync_blocks([b21], False)
 
+        #longer chain so there is a reorg.
+        # invalidate the block to allow the rest of the test to proceed without change
         b22 = self.next_block(22, spend=out[5])
-        self.sync_blocks([b22], False, 16, b'bad-txns-premature-spend-of-coinbase')
+        self.sync_blocks([b22], True) 
+        node.invalidateblock(b22.hash)
 
         # Create a block on either side of MAX_BLOCK_BASE_SIZE and make sure its accepted/rejected
         #     genesis -> b1 (0) -> b2 (1) -> b5 (2) -> b6  (3)
@@ -540,7 +546,10 @@ class FullBlockTest(BitcoinTestFramework):
         self.update_block(41, [tx])
         self.sync_blocks([b41], True)
 
-        assert_equal(len(self.nodes[0].getrawmempool()), 0)
+        # tx created by b20 (b25, b29) spending out[7] is still in mempool
+        mempool = self.nodes[0].getrawmempool()
+        assert_equal(len(mempool), 1)
+        assert b29.vtx[1].hashMalFix in mempool
 
         # Fork off of b39 to create a constant base again
         #
@@ -556,7 +565,7 @@ class FullBlockTest(BitcoinTestFramework):
         self.sync_blocks([b42, b43], True)
 
         # during this reorg block b41's transactions only DEFAULT_ANCESTOR_LIMIT(=25) are put to the memorypool. rest of the transactions are rejected due to too-long-mempool-chain
-        assert_equal(len(self.nodes[0].getrawmempool()), 25)
+        assert_equal(len(self.nodes[0].getrawmempool()), 26)
         mempool = self.nodes[0].getrawmempool()
         for i in range(2,26):
             assert b41.vtx[i].hashMalFix in mempool
@@ -777,7 +786,7 @@ class FullBlockTest(BitcoinTestFramework):
         self.save_spendable_output()
 
         # after reorg mempool has 3 more unspent transactions from b57p2
-        assert_equal(len(self.nodes[0].getrawmempool()), 28)
+        assert_equal(len(self.nodes[0].getrawmempool()), 29)
         mempool = self.nodes[0].getrawmempool()
         for i in range(3,5):
             assert b57p2.vtx[i].hashMalFix in mempool
@@ -1116,8 +1125,8 @@ class FullBlockTest(BitcoinTestFramework):
         b79 = self.update_block(79, [tx79])
         self.sync_blocks([b79], True)
 
-        # mempool still has the 28 transactions
-        assert_equal(len(self.nodes[0].getrawmempool()), 28)
+        # mempool still has the 29 transactions
+        assert_equal(len(self.nodes[0].getrawmempool()), 29)
 
         self.move_tip(77)
         b80 = self.next_block(80, spend=out[25])
@@ -1134,7 +1143,7 @@ class FullBlockTest(BitcoinTestFramework):
 
         # now check that tx78 and tx79 have been put back into the peer's mempool
         mempool = self.nodes[0].getrawmempool()
-        assert_equal(len(mempool), 30)
+        assert_equal(len(mempool), 31)
         assert(tx78.hashMalFix in mempool)
         assert(tx79.hashMalFix in mempool)
 

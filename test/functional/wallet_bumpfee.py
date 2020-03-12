@@ -51,7 +51,7 @@ class BumpFeeTest(BitcoinTestFramework):
 
         # fund rbf node with 10 coins of 0.001 TPC (100,000 tapyrus)
         self.log.info("Mining blocks...")
-        peer_node.generate(110, self.signblockprivkey)
+        peer_node.generate(11, self.signblockprivkey)
         self.sync_all()
         for i in range(25):
             peer_node.sendtoaddress(rbf_node_address, 0.001)

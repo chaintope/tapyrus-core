@@ -442,22 +442,21 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             for node in self.nodes:
                 node.wait_for_rpc_connection()
 
-            # Create a 200-block-long chain; each of the 4 first nodes
-            # gets 25 mature blocks and 25 immature.
+            # Create a 100 block-block-long chain; each of the 4 first nodes
+            # gets 25 mature blocks.
             # Note: To preserve compatibility with older versions of
             # initialize_chain, only 4 nodes will generate coins.
             #
             # blocks are created with timestamps 10 minutes apart
             # starting from 2010 minutes in the past
             block_time = self.mocktime - (201 * 10 * 60)
-            for i in range(2):
-                for peer in range(4):
-                    for j in range(25):
-                        set_node_times(self.nodes, block_time)
-                        self.nodes[peer].generate(1, self.signblockprivkey)
-                        block_time += 10 * 60
-                    # Must sync before next peer starts generating blocks
-                    sync_blocks(self.nodes)
+            for peer in range(4):
+                for j in range(25):
+                    set_node_times(self.nodes, block_time)
+                    self.nodes[peer].generate(1, self.signblockprivkey)
+                    block_time += 10 * 60
+                # Must sync before next peer starts generating blocks
+                sync_blocks(self.nodes)
 
             # Shut them down, and clean up cache directories:
             self.stop_nodes()

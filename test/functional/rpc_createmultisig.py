@@ -23,34 +23,35 @@ class RpcCreateMultiSigTest(BitcoinTestFramework):
     def run_test(self):
         node0,node1,node2 = self.nodes
 
-        # 50 TPC each, rest will be 25 TPC each
-        node0.generate(149, self.signblockprivkey)
+        # 50 TPC starting balance
+        node0.generate(1, self.signblockprivkey)
+
         self.sync_all()
 
         self.moved = 0
+        self.output_type = "legacy"
         for self.nkeys in [3,5]:
             for self.nsigs in [2,3]:
-                for self.output_type in ["legacy"]:
-                    self.get_keys()
-                    self.do_multisig()
+                self.get_keys()
+                self.do_multisig()
 
         self.checkbalances()
 
     def checkbalances(self):
         node0,node1,node2 = self.nodes
-        node0.generate(100, self.signblockprivkey)
-        self.sync_all()
 
         bal0 = node0.getbalance()
         bal1 = node1.getbalance()
         bal2 = node2.getbalance()
 
         height = node0.getblockchaininfo()["blocks"]
-        assert 150 < height < 350
-        total = 149*50 + (height-149-100)*25
+        assert height == 9 # initial 1 + 8 blocks mined
+        assert bal0+bal1+bal2 == 9*50
+
+        # bal0 is initial 50 + total_block_rewards - self.moved - fee paid (total_block_rewards - 400)
+        assert bal0 == 450 - self.moved
         assert bal1 == 0
         assert bal2 == self.moved
-        assert bal0+bal1+bal2 == total
 
     def do_multisig(self):
         node0,node1,node2 = self.nodes

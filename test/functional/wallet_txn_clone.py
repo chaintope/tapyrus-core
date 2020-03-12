@@ -29,6 +29,7 @@ class TxnMallTest(BitcoinTestFramework):
 
     def run_test(self):
         # All nodes should start with 1,250 TPC:
+        self.log.info("All nodes should start with initial balance 1250.")
         starting_balance = 1250
         for i in range(4):
             assert_equal(self.nodes[i].getbalance(), starting_balance)
@@ -109,14 +110,21 @@ class TxnMallTest(BitcoinTestFramework):
         assert_equal(txid1, txid1_clone)
 
         # ... mine a block...
-        self.nodes[2].generate(1, self.signblockprivkey)
+        new_block = self.nodes[2].generate(1, self.signblockprivkey)[0]
+
+        #get its block reward
+        blockData = self.nodes[2].getblock(new_block)
+        blockReward = self.nodes[2].gettransaction(blockData['tx'][0])['amount']
 
         # Reconnect the split network, and sync chain:
         connect_nodes(self.nodes[1], 2)
         self.nodes[2].sendrawtransaction(node0_tx2["hex"])
         self.nodes[2].sendrawtransaction(tx2["hex"])
-        self.nodes[2].generate(1, self.signblockprivkey)  # Mine another block to make sure we sync
+        new_block = self.nodes[2].generate(1, self.signblockprivkey)[0]  # Mine another block to make sure we sync
         sync_blocks(self.nodes)
+
+        blockData = self.nodes[2].getblock(new_block)
+        blockReward += self.nodes[2].gettransaction(blockData['tx'][0])['amount']
 
         # Re-fetch transaction info:
         tx1 = self.nodes[0].gettransaction(txid1)
@@ -131,12 +139,18 @@ class TxnMallTest(BitcoinTestFramework):
         assert_equal(tx1_clone["confirmations"], 2)
         assert_equal(tx2["confirmations"], 1)
 
-        # Check node0's total balance; should be same as before the clone, + 100 TPC for 2 matured,
+        self.log.info("Check final node balances.")
+        # Check node0's total balance; should be same as before the clone
         # less possible orphaned matured subsidy
-        expected += 100
         if (self.options.mine_block):
             expected -= 50
         assert_equal(self.nodes[0].getbalance(), expected)
+        # node1 should have +60 from tx1["amount"] and tx2["amount"]
+        assert_equal(self.nodes[1].getbalance(), starting_balance + 60)
+        # node2 gets 100 block reward for last 2 blocks mined from it + block rewards.
+        assert_equal(self.nodes[2].getbalance(), starting_balance + blockReward)
+        # node2's balance is unaffected
+        assert_equal(self.nodes[3].getbalance(), starting_balance)
 
 if __name__ == '__main__':
     TxnMallTest().main()

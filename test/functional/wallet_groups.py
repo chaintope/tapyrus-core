@@ -26,7 +26,7 @@ class WalletGroupTest(BitcoinTestFramework):
 
     def run_test (self):
         # Mine some coins
-        self.nodes[0].generate(110, self.signblockprivkey)
+        self.nodes[0].generate(5, self.signblockprivkey)
 
         # Get some addresses from the two nodes
         addr1 = [self.nodes[1].getnewaddress() for i in range(3)]

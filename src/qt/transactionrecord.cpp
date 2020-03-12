@@ -168,7 +168,7 @@ void TransactionRecord::updateStatus(const interfaces::WalletTxStatus& wtx, int 
         wtx.is_coinbase ? 1 : 0,
         wtx.time_received,
         idx);
-    status.countsForBalance = wtx.is_trusted && !(wtx.blocks_to_maturity > 0);
+    status.countsForBalance = wtx.is_trusted;
     status.depth = wtx.depth_in_main_chain;
     status.cur_num_blocks = numBlocks;
 
@@ -188,22 +188,13 @@ void TransactionRecord::updateStatus(const interfaces::WalletTxStatus& wtx, int 
     // For generated transactions, determine maturity
     else if(type == TransactionRecord::Generated)
     {
-        if (wtx.blocks_to_maturity > 0)
+        if (wtx.is_in_main_chain)
         {
-            status.status = TransactionStatus::Immature;
-
-            if (wtx.is_in_main_chain)
-            {
-                status.matures_in = wtx.blocks_to_maturity;
-            }
-            else
-            {
-                status.status = TransactionStatus::NotAccepted;
-            }
+            status.status = TransactionStatus::Confirmed;
         }
         else
         {
-            status.status = TransactionStatus::Confirmed;
+            status.status = TransactionStatus::NotAccepted;
         }
     }
     else

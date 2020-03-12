@@ -29,7 +29,7 @@ class BIP68Test(BitcoinTestFramework):
         self.relayfee = self.nodes[0].getnetworkinfo()["relayfee"]
 
         # Generate some coins
-        self.nodes[0].generate(110, self.signblockprivkey)
+        self.nodes[0].generate(11, self.signblockprivkey)
 
         self.log.info("Running test disable flag")
         self.test_disable_flag()
