@@ -20,8 +20,8 @@ apps:
     plugs: [network, network-bind]
     environment:
       # Override HOME so the datadir is located at
-      # ~/snap/bitcoin-core/common/.bitcoin/ instead of
-      # ~/snap/bitcoin-core/current/.bitcoin/, and each new version of the
+      # ~/snap/tapyrus-core/common/.tapyrus/ instead of
+      # ~/snap/tapyrus-core/current/.tapyrus/, and each new version of the
       # snap won't have a different data directory:
       # https://docs.snapcraft.io/environment-variables/7983
       HOME: $SNAP_USER_COMMON
