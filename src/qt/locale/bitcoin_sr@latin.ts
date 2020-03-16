@@ -62,12 +62,12 @@
         <translation>Adresa na koju se prima</translation>
     </message>
     <message>
-        <source>These are your TPC addresses for sending payments. Always check the amount and the receiving address before sending coins.</source>
-        <translation>Ovo su Vaše TPC adrese na koju se vrše uplate. Uvek proverite iznos i prijemnu adresu pre slanja novčića.</translation>
+        <source>These are your Tapyrus addresses for sending payments. Always check the amount and the receiving address before sending coins.</source>
+        <translation>Ovo su Vaše Tapyrus adrese na koju se vrše uplate. Uvek proverite iznos i prijemnu adresu pre slanja novčića.</translation>
     </message>
     <message>
-        <source>These are your TPC addresses for receiving payments. It is recommended to use a new receiving address for each transaction.</source>
-        <translation>Ovo su Vaše TPC adrese za primanje uplata. Preporučuje se upotreba nove adrese za svaku transakciju.</translation>
+        <source>These are your Tapyrus addresses for receiving payments. It is recommended to use a new receiving address for each transaction.</source>
+        <translation>Ovo su Vaše Tapyrus adrese za primanje uplata. Preporučuje se upotreba nove adrese za svaku transakciju.</translation>
     </message>
     <message>
         <source>&amp;Copy Address</source>
@@ -168,7 +168,7 @@
         <translation>Potvrdite šifrovanje novčanika</translation>
     </message>
     <message>
-        <source>Warning: If you encrypt your wallet and lose your passphrase, you will &lt;b&gt;LOSE ALL OF YOUR TPCS&lt;/b&gt;!</source>
+        <source>Warning: If you encrypt your wallet and lose your passphrase, you will &lt;b&gt;LOSE ALL OF YOUR Tapyrus&lt;/b&gt;!</source>
         <translation>Upozorenje: Ako šifrujete svoj novčanik, i potom izgubite svoju pristupnu frazu &lt;b&gt;IZGUBIĆETE SVE SVOJE BITKOINE&lt;/b&gt;!</translation>
     </message>
     <message>
@@ -180,8 +180,8 @@
         <translation>Novčanik je šifrovan</translation>
     </message>
     <message>
-        <source>%1 will close now to finish the encryption process. Remember that encrypting your wallet cannot fully protect your TPCs from being stolen by malware infecting your computer.</source>
-        <translation>%1 će se ugasiti da bi dovršio proces enkriptovanja. Imajte u vidu da enkripcija novčanika ne garantuje potpunu zaštitu TPCa od krađe od strane nekog virusa koji bi zarazio vaš kompjuter.</translation>
+        <source>%1 will close now to finish the encryption process. Remember that encrypting your wallet cannot fully protect your Tapyrus from being stolen by malware infecting your computer.</source>
+        <translation>%1 će se ugasiti da bi dovršio proces enkriptovanja. Imajte u vidu da enkripcija novčanika ne garantuje potpunu zaštitu Tapyrusa od krađe od strane nekog virusa koji bi zarazio vaš kompjuter.</translation>
     </message>
     <message>
         <source>IMPORTANT: Any previous backups you have made of your wallet file should be replaced with the newly generated, encrypted wallet file. For security reasons, previous backups of the unencrypted wallet file will become useless as soon as you start using the new, encrypted wallet.</source>
@@ -232,7 +232,7 @@
     </message>
 </context>
 <context>
-    <name>TPCGUI</name>
+    <name>TapyrusGUI</name>
     <message>
         <source>Sign &amp;message...</source>
         <translation>Potpišite &amp;poruka...</translation>
@@ -338,8 +338,8 @@
         <translation>Ponovo obeležavam blokove na disku...</translation>
     </message>
     <message>
-        <source>Send coins to a TPC address</source>
-        <translation>Pošalji novčiće na TPC adresu</translation>
+        <source>Send coins to a Tapyrus address</source>
+        <translation>Pošalji novčiće na Tapyrus adresu</translation>
     </message>
     <message>
         <source>Backup wallet to another location</source>
@@ -362,8 +362,8 @@
         <translation>&amp;Proveri poruku...</translation>
     </message>
     <message>
-        <source>TPC</source>
-        <translation>TPC</translation>
+        <source>Tapyrus</source>
+        <translation>Tapyrus</translation>
     </message>
     <message>
         <source>Wallet</source>
@@ -390,12 +390,12 @@
         <translation>Enkriptuj privatne ključeve novčanika</translation>
     </message>
     <message>
-        <source>Sign messages with your TPC addresses to prove you own them</source>
-        <translation>Potpišite poruke sa svojim TPC adresama da biste dokazali njihovo vlasništvo</translation>
+        <source>Sign messages with your Tapyrus addresses to prove you own them</source>
+        <translation>Potpišite poruke sa svojim Tapyrus adresama da biste dokazali njihovo vlasništvo</translation>
     </message>
     <message>
-        <source>Verify messages to ensure they were signed with specified TPC addresses</source>
-        <translation>Proverite poruke da biste utvrdili sa kojim TPC adresama su potpisane</translation>
+        <source>Verify messages to ensure they were signed with specified Tapyrus addresses</source>
+        <translation>Proverite poruke da biste utvrdili sa kojim Tapyrus adresama su potpisane</translation>
     </message>
     <message>
         <source>&amp;File</source>
@@ -414,8 +414,8 @@
         <translation>Alatke za tabove</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and TPC: URIs)</source>
-        <translation>Zatražite plaćanje (generiše QR kodove i TPC: URI-e)</translation>
+        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
+        <translation>Zatražite plaćanje (generiše QR kodove i Tapyrus: URI-e)</translation>
     </message>
     <message>
         <source>Error</source>
@@ -519,8 +519,8 @@
 <context>
     <name>Intro</name>
     <message>
-        <source>TPC</source>
-        <translation>TPC</translation>
+        <source>Tapyrus</source>
+        <translation>Tapyrus</translation>
     </message>
     <message>
         <source>Error</source>
@@ -692,10 +692,10 @@
     <name>WalletView</name>
     </context>
 <context>
-    <name>TPC-core</name>
+    <name>Tapyrus-core</name>
     <message>
-        <source>TPC Core</source>
-        <translation>TPC Core</translation>
+        <source>Tapyrus Core</source>
+        <translation>Tapyrus Core</translation>
     </message>
     <message>
         <source>Information</source>

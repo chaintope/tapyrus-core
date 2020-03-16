@@ -48,7 +48,7 @@
     <name>BanTableModel</name>
     </context>
 <context>
-    <name>TPCGUI</name>
+    <name>TapyrusGUI</name>
     <message>
         <source>&amp;Transactions</source>
         <translation>&amp;Транзакциялар</translation>
@@ -70,7 +70,7 @@
         <translation>Құпия сөзді өзгерту</translation>
     </message>
     <message>
-        <source>TPC</source>
+        <source>Tapyrus</source>
         <translation>Биткоин</translation>
     </message>
     <message>
@@ -169,7 +169,7 @@
 <context>
     <name>Intro</name>
     <message>
-        <source>TPC</source>
+        <source>Tapyrus</source>
         <translation>Биткоин</translation>
     </message>
     <message>
@@ -310,7 +310,7 @@
     <name>WalletView</name>
     </context>
 <context>
-    <name>TPC-core</name>
+    <name>Tapyrus-core</name>
     <message>
         <source>Information</source>
         <translation>Информация</translation>

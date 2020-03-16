@@ -62,12 +62,12 @@
         <translation>Địa chỉ nhận</translation>
     </message>
     <message>
-        <source>These are your TPC addresses for sending payments. Always check the amount and the receiving address before sending coins.</source>
-        <translation>Đây là các địa chỉ TPC để gửi bạn gửi tiền. Trước khi gửi bạn nên kiểm tra lại số tiền bạn muốn gửi và địa chỉ TPC của người nhận.</translation>
+        <source>These are your Tapyrus addresses for sending payments. Always check the amount and the receiving address before sending coins.</source>
+        <translation>Đây là các địa chỉ Tapyrus để gửi bạn gửi tiền. Trước khi gửi bạn nên kiểm tra lại số tiền bạn muốn gửi và địa chỉ Tapyrus của người nhận.</translation>
     </message>
     <message>
-        <source>These are your TPC addresses for receiving payments. It is recommended to use a new receiving address for each transaction.</source>
-        <translation>Đây là các địa chỉ TPC để bạn nhận tiền. Với mỗi giao dịch, bạn nên dùng một địa chỉ TPC mới để nhận tiền.</translation>
+        <source>These are your Tapyrus addresses for receiving payments. It is recommended to use a new receiving address for each transaction.</source>
+        <translation>Đây là các địa chỉ Tapyrus để bạn nhận tiền. Với mỗi giao dịch, bạn nên dùng một địa chỉ Tapyrus mới để nhận tiền.</translation>
     </message>
     <message>
         <source>&amp;Copy Address</source>
@@ -225,7 +225,7 @@ Ví của bạn chưa được mã hóa.</translation>
     </message>
 </context>
 <context>
-    <name>TPCGUI</name>
+    <name>TapyrusGUI</name>
     <message>
         <source>Sign &amp;message...</source>
         <translation>Chứ ký &amp; Tin nhắn...</translation>
@@ -331,8 +331,8 @@ Ví của bạn chưa được mã hóa.</translation>
         <translation>Đánh chỉ số (indexing) lại các khối (blocks) trên ổ đĩa ...</translation>
     </message>
     <message>
-        <source>Send coins to a TPC address</source>
-        <translation>Gửi coins đến tài khoản TPC</translation>
+        <source>Send coins to a Tapyrus address</source>
+        <translation>Gửi coins đến tài khoản Tapyrus</translation>
     </message>
     <message>
         <source>Backup wallet to another location</source>
@@ -355,8 +355,8 @@ Ví của bạn chưa được mã hóa.</translation>
         <translation>&amp;Tin nhắn xác thực</translation>
     </message>
     <message>
-        <source>TPC</source>
-        <translation>TPC</translation>
+        <source>Tapyrus</source>
+        <translation>Tapyrus</translation>
     </message>
     <message>
         <source>Wallet</source>
@@ -383,12 +383,12 @@ Ví của bạn chưa được mã hóa.</translation>
         <translation>Mã hoá các khoá bí mật trong Ví của bạn.</translation>
     </message>
     <message>
-        <source>Sign messages with your TPC addresses to prove you own them</source>
-        <translation>Dùng địa chỉ TPC của bạn ký các tin nhắn để xác minh những nội dung tin nhắn đó là của bạn.</translation>
+        <source>Sign messages with your Tapyrus addresses to prove you own them</source>
+        <translation>Dùng địa chỉ Tapyrus của bạn ký các tin nhắn để xác minh những nội dung tin nhắn đó là của bạn.</translation>
     </message>
     <message>
-        <source>Verify messages to ensure they were signed with specified TPC addresses</source>
-        <translation>Kiểm tra các tin nhắn để chắc chắn rằng chúng được ký bằng các địa chỉ TPC xác định.</translation>
+        <source>Verify messages to ensure they were signed with specified Tapyrus addresses</source>
+        <translation>Kiểm tra các tin nhắn để chắc chắn rằng chúng được ký bằng các địa chỉ Tapyrus xác định.</translation>
     </message>
     <message>
         <source>&amp;File</source>
@@ -407,8 +407,8 @@ Ví của bạn chưa được mã hóa.</translation>
         <translation>Thanh công cụ (toolbar)</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and TPC: URIs)</source>
-        <translation>Yêu cầu thanh toán(tạo mã QR và địa chỉ TPC: URLs)</translation>
+        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
+        <translation>Yêu cầu thanh toán(tạo mã QR và địa chỉ Tapyrus: URLs)</translation>
     </message>
     <message>
         <source>Show the list of used sending addresses and labels</source>
@@ -419,16 +419,16 @@ Ví của bạn chưa được mã hóa.</translation>
         <translation>Hiện thỉ danh sách các địa chỉ và nhãn đã dùng để nhận.</translation>
     </message>
     <message>
-        <source>Open a TPC: URI or payment request</source>
-        <translation>Mở TPC:URL hoặc yêu cầu thanh toán</translation>
+        <source>Open a Tapyrus: URI or payment request</source>
+        <translation>Mở Tapyrus:URL hoặc yêu cầu thanh toán</translation>
     </message>
     <message>
         <source>&amp;Command-line options</source>
         <translation>7Tùy chọn dòng lệnh</translation>
     </message>
     <message numerus="yes">
-        <source>%n active connection(s) to TPC network</source>
-        <translation><numerusform>%n liên kết hoạt động với mạng lưới TPC</numerusform></translation>
+        <source>%n active connection(s) to Tapyrus network</source>
+        <translation><numerusform>%n liên kết hoạt động với mạng lưới Tapyrus</numerusform></translation>
     </message>
     <message>
         <source>Indexing blocks on disk...</source>
@@ -471,8 +471,8 @@ Ví của bạn chưa được mã hóa.</translation>
         <translation>Đã cập nhật</translation>
     </message>
     <message>
-        <source>Show the %1 help message to get a list with possible TPC command-line options</source>
-        <translation>Hiển thị tin nhắn trợ giúp %1 để có được danh sách với các tùy chọn dòng lệnh TPC.</translation>
+        <source>Show the %1 help message to get a list with possible Tapyrus command-line options</source>
+        <translation>Hiển thị tin nhắn trợ giúp %1 để có được danh sách với các tùy chọn dòng lệnh Tapyrus.</translation>
     </message>
     <message>
         <source>Connecting to peers...</source>
@@ -636,8 +636,8 @@ Ví của bạn chưa được mã hóa.</translation>
         <translation>Sử dụng vị trí dữ liệu mặc định</translation>
     </message>
     <message>
-        <source>TPC</source>
-        <translation>TPC</translation>
+        <source>Tapyrus</source>
+        <translation>Tapyrus</translation>
     </message>
     <message>
         <source>Error</source>
@@ -689,8 +689,8 @@ Ví của bạn chưa được mã hóa.</translation>
         <translation>Ví</translation>
     </message>
     <message>
-        <source>Connect to the TPC network through a SOCKS5 proxy.</source>
-        <translation>Kết nối đến máy chủ TPC thông qua SOCKS5 proxy.</translation>
+        <source>Connect to the Tapyrus network through a SOCKS5 proxy.</source>
+        <translation>Kết nối đến máy chủ Tapyrus thông qua SOCKS5 proxy.</translation>
     </message>
     <message>
         <source>Proxy &amp;IP:</source>
@@ -1201,10 +1201,10 @@ Ví của bạn chưa được mã hóa.</translation>
     </message>
     </context>
 <context>
-    <name>TPC-core</name>
+    <name>Tapyrus-core</name>
     <message>
-        <source>TPC Core</source>
-        <translation>TPC Core</translation>
+        <source>Tapyrus Core</source>
+        <translation>Tapyrus Core</translation>
     </message>
     <message>
         <source>Information</source>

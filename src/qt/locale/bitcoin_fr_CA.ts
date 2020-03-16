@@ -36,7 +36,7 @@
     <name>BanTableModel</name>
     </context>
 <context>
-    <name>TPCGUI</name>
+    <name>TapyrusGUI</name>
     </context>
 <context>
     <name>CoinControlDialog</name>
@@ -178,6 +178,6 @@
     <name>WalletView</name>
     </context>
 <context>
-    <name>TPC-core</name>
+    <name>Tapyrus-core</name>
     </context>
 </TS>

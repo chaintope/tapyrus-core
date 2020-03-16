@@ -62,12 +62,12 @@
         <translation>Alınan Adresler</translation>
     </message>
     <message>
-        <source>These are your TPC addresses for sending payments. Always check the amount and the receiving address before sending coins.</source>
-        <translation>Bunlar ödeme göndermek için gereken TPC adreslerinizdir. Para göndermeden önce her zaman miktarı ve alıcı adresi kontrol edin.</translation>
+        <source>These are your Tapyrus addresses for sending payments. Always check the amount and the receiving address before sending coins.</source>
+        <translation>Bunlar ödeme göndermek için gereken Tapyrus adreslerinizdir. Para göndermeden önce her zaman miktarı ve alıcı adresi kontrol edin.</translation>
     </message>
     <message>
-        <source>These are your TPC addresses for receiving payments. It is recommended to use a new receiving address for each transaction.</source>
-        <translation>Bunlar ödeme almak için kullanılacak TPC adreslerinizdir. Her işlem için yeni bir ödeme alma adresi kullanılması tavsiye edilir.</translation>
+        <source>These are your Tapyrus addresses for receiving payments. It is recommended to use a new receiving address for each transaction.</source>
+        <translation>Bunlar ödeme almak için kullanılacak Tapyrus adreslerinizdir. Her işlem için yeni bir ödeme alma adresi kullanılması tavsiye edilir.</translation>
     </message>
     <message>
         <source>&amp;Copy Address</source>
@@ -168,8 +168,8 @@
         <translation>Cüzdan Şifrelemesini Onaylayın</translation>
     </message>
     <message>
-        <source>Warning: If you encrypt your wallet and lose your passphrase, you will &lt;b&gt;LOSE ALL OF YOUR TPCS&lt;/b&gt;!</source>
-        <translation>Uyarı: Eğer cüzdanınızı şifreleyip parolanızı kaybederseniz (unutursanız) , &lt;b&gt;BÜTÜN TPC'LERINIZI KAYBEDECEKSINIZ&lt;/b&gt;!</translation>
+        <source>Warning: If you encrypt your wallet and lose your passphrase, you will &lt;b&gt;LOSE ALL OF YOUR Tapyrus&lt;/b&gt;!</source>
+        <translation>Uyarı: Eğer cüzdanınızı şifreleyip parolanızı kaybederseniz (unutursanız) , &lt;b&gt;BÜTÜN Tapyrus'LERINIZI KAYBEDECEKSINIZ&lt;/b&gt;!</translation>
     </message>
     <message>
         <source>Are you sure you wish to encrypt your wallet?</source>
@@ -180,8 +180,8 @@
         <translation>Cüzdan Şifrelendi</translation>
     </message>
     <message>
-        <source>%1 will close now to finish the encryption process. Remember that encrypting your wallet cannot fully protect your TPCs from being stolen by malware infecting your computer.</source>
-        <translation>%1 Şifreleme işlemini bitirmek için kapatılacak. Şunu unutmayın ki şampiyon galatasaray ve şifrelemek, TPClerinizin bilgisayarınıza bulaşan malware yazılımları tarafından çalınmasını tamamen engelleyemez.</translation>
+        <source>%1 will close now to finish the encryption process. Remember that encrypting your wallet cannot fully protect your Tapyrus from being stolen by malware infecting your computer.</source>
+        <translation>%1 Şifreleme işlemini bitirmek için kapatılacak. Şunu unutmayın ki şampiyon galatasaray ve şifrelemek, Tapyruslerinizin bilgisayarınıza bulaşan malware yazılımları tarafından çalınmasını tamamen engelleyemez.</translation>
     </message>
     <message>
         <source>IMPORTANT: Any previous backups you have made of your wallet file should be replaced with the newly generated, encrypted wallet file. For security reasons, previous backups of the unencrypted wallet file will become useless as soon as you start using the new, encrypted wallet.</source>
@@ -208,7 +208,7 @@
     <name>BanTableModel</name>
     </context>
 <context>
-    <name>TPCGUI</name>
+    <name>TapyrusGUI</name>
     <message>
         <source>Sign &amp;message...</source>
         <translation>İmza &amp;mesaj</translation>
@@ -286,8 +286,8 @@
         <translation>Bloklar disk üzerinde yeniden indeksleniyor...</translation>
     </message>
     <message>
-        <source>Send coins to a TPC address</source>
-        <translation>TPC adresine madeni para gönderin</translation>
+        <source>Send coins to a Tapyrus address</source>
+        <translation>Tapyrus adresine madeni para gönderin</translation>
     </message>
     <message>
         <source>Backup wallet to another location</source>
@@ -302,8 +302,8 @@
         <translation>Onay mesajı...</translation>
     </message>
     <message>
-        <source>TPC</source>
-        <translation>TPC
+        <source>Tapyrus</source>
+        <translation>Tapyrus
 </translation>
     </message>
     <message>
@@ -458,8 +458,8 @@
         <translation>Gönderim adresini düzenleyin</translation>
     </message>
     <message>
-        <source>The entered address "%1" is not a valid TPC address.</source>
-        <translation>Girilen adres "%1" TPC adresiyle eşleşmiyor.</translation>
+        <source>The entered address "%1" is not a valid Tapyrus address.</source>
+        <translation>Girilen adres "%1" Tapyrus adresiyle eşleşmiyor.</translation>
     </message>
     <message>
         <source>New key generation failed.</source>
@@ -495,8 +495,8 @@
         <translation>Hoş geldiniz</translation>
     </message>
     <message>
-        <source>TPC</source>
-        <translation>TPC
+        <source>Tapyrus</source>
+        <translation>Tapyrus
 </translation>
     </message>
     <message>
@@ -628,7 +628,7 @@
         <translation>Form</translation>
     </message>
     <message>
-        <source>The displayed information may be out of date. Your wallet automatically synchronizes with the TPC network after a connection is established, but this process has not completed yet.</source>
+        <source>The displayed information may be out of date. Your wallet automatically synchronizes with the Tapyrus network after a connection is established, but this process has not completed yet.</source>
         <translation>Gösterilen bilgi geçerli olmayabilir. Bağlantı tekrar sağlandıktan sonra cüzdanınız otomatik olarak senkronize olacaktır. Henüz senkronize olma işlemi tamamlanmadı.</translation>
     </message>
     <message>
@@ -709,8 +709,8 @@
 <context>
     <name>QObject</name>
     <message>
-        <source>Enter a TPC address (e.g. %1)</source>
-        <translation>TPC adresinizi girin (örneğin %1)</translation>
+        <source>Enter a Tapyrus address (e.g. %1)</source>
+        <translation>Tapyrus adresinizi girin (örneğin %1)</translation>
     </message>
     <message>
         <source>N/A</source>
@@ -1094,8 +1094,8 @@
         <translation>Coin gönderimini onaylayın</translation>
     </message>
     <message>
-        <source>Warning: Invalid TPC address</source>
-        <translation>Uyarı: Hatalı TPC adresi</translation>
+        <source>Warning: Invalid Tapyrus address</source>
+        <translation>Uyarı: Hatalı Tapyrus adresi</translation>
     </message>
     <message>
         <source>(no label)</source>
@@ -1385,10 +1385,10 @@
     </message>
     </context>
 <context>
-    <name>TPC-core</name>
+    <name>Tapyrus-core</name>
     <message>
-        <source>TPC Core</source>
-        <translation>TPC Çekirdeği</translation>
+        <source>Tapyrus Core</source>
+        <translation>Tapyrus Çekirdeği</translation>
     </message>
     <message>
         <source>Copyright (C) %i-%i</source>

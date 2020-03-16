@@ -28,7 +28,7 @@
     <name>BanTableModel</name>
     </context>
 <context>
-    <name>TPCGUI</name>
+    <name>TapyrusGUI</name>
     <message>
         <source>&amp;Transactions</source>
         <translation>&amp;Транзакциялар</translation>
@@ -38,8 +38,8 @@
         <translation>Билдирүүнү &amp;текшерүү...</translation>
     </message>
     <message>
-        <source>TPC</source>
-        <translation>TPC</translation>
+        <source>Tapyrus</source>
+        <translation>Tapyrus</translation>
     </message>
     <message>
         <source>Wallet</source>
@@ -101,8 +101,8 @@
 <context>
     <name>Intro</name>
     <message>
-        <source>TPC</source>
-        <translation>TPC</translation>
+        <source>Tapyrus</source>
+        <translation>Tapyrus</translation>
     </message>
     <message>
         <source>Error</source>
@@ -342,7 +342,7 @@
     <name>WalletView</name>
     </context>
 <context>
-    <name>TPC-core</name>
+    <name>Tapyrus-core</name>
     <message>
         <source>Information</source>
         <translation>Маалымат</translation>

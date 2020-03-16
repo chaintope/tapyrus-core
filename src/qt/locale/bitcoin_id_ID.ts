@@ -66,12 +66,12 @@
         <translation>Alamat-alamat penerima</translation>
     </message>
     <message>
-        <source>These are your TPC addresses for sending payments. Always check the amount and the receiving address before sending coins.</source>
-        <translation>Berikut ialah alamat-alamat TPC Anda yang digunakan untuk mengirimkan pembayaran. Selalu periksa jumlah dan alamat penerima sebelum mengirimkan koin.</translation>
+        <source>These are your Tapyrus addresses for sending payments. Always check the amount and the receiving address before sending coins.</source>
+        <translation>Berikut ialah alamat-alamat Tapyrus Anda yang digunakan untuk mengirimkan pembayaran. Selalu periksa jumlah dan alamat penerima sebelum mengirimkan koin.</translation>
     </message>
     <message>
-        <source>These are your TPC addresses for receiving payments. It is recommended to use a new receiving address for each transaction.</source>
-        <translation>Berikut ialah alamat-alamat TPC Anda yang digunakan untuk menerima pembayaran. Dianjurkan untuk menggunakan alamat penerimaan baru untuk setiap transaksi.</translation>
+        <source>These are your Tapyrus addresses for receiving payments. It is recommended to use a new receiving address for each transaction.</source>
+        <translation>Berikut ialah alamat-alamat Tapyrus Anda yang digunakan untuk menerima pembayaran. Dianjurkan untuk menggunakan alamat penerimaan baru untuk setiap transaksi.</translation>
     </message>
     <message>
         <source>&amp;Copy Address</source>
@@ -176,8 +176,8 @@
         <translation>Konfirmasi pengenkripsian dompet</translation>
     </message>
     <message>
-        <source>Warning: If you encrypt your wallet and lose your passphrase, you will &lt;b&gt;LOSE ALL OF YOUR TPCS&lt;/b&gt;!</source>
-        <translation>Peringatan: Jika Anda mengenkripsi dompet Anda dan lupa kata sandi Anda, Anda akan &lt;b&gt;KEHILANGAN SEMUA TPC ANDA&lt;/b&gt;!</translation>
+        <source>Warning: If you encrypt your wallet and lose your passphrase, you will &lt;b&gt;LOSE ALL OF YOUR Tapyrus&lt;/b&gt;!</source>
+        <translation>Peringatan: Jika Anda mengenkripsi dompet Anda dan lupa kata sandi Anda, Anda akan &lt;b&gt;KEHILANGAN SEMUA Tapyrus ANDA&lt;/b&gt;!</translation>
     </message>
     <message>
         <source>Are you sure you wish to encrypt your wallet?</source>
@@ -188,7 +188,7 @@
         <translation>Dompet terenkripsi</translation>
     </message>
     <message>
-        <source>%1 will close now to finish the encryption process. Remember that encrypting your wallet cannot fully protect your TPCs from being stolen by malware infecting your computer.</source>
+        <source>%1 will close now to finish the encryption process. Remember that encrypting your wallet cannot fully protect your Tapyrus from being stolen by malware infecting your computer.</source>
         <translation>%1 sekarang akan ditutup untuk menyelesaikan proses enkripsi. Ingatlah bahwa mengenkripsi dompet Anda tidak dapat sepenuhnya melindungi komputer Anda dari pencurian malware yang menginfeksi komputer Anda.</translation>
     </message>
     <message>
@@ -240,7 +240,7 @@
     </message>
 </context>
 <context>
-    <name>TPCGUI</name>
+    <name>TapyrusGUI</name>
     <message>
         <source>Sign &amp;message...</source>
         <translation>Pesan &amp;penanda...</translation>
@@ -346,8 +346,8 @@
         <translation>Mengindex ulang blok di dalam disk...</translation>
     </message>
     <message>
-        <source>Send coins to a TPC address</source>
-        <translation>Kirim koin ke alamat TPC</translation>
+        <source>Send coins to a Tapyrus address</source>
+        <translation>Kirim koin ke alamat Tapyrus</translation>
     </message>
     <message>
         <source>Backup wallet to another location</source>
@@ -370,8 +370,8 @@
         <translation>&amp;Verifikasi pesan...</translation>
     </message>
     <message>
-        <source>TPC</source>
-        <translation>TPC</translation>
+        <source>Tapyrus</source>
+        <translation>Tapyrus</translation>
     </message>
     <message>
         <source>Wallet</source>
@@ -398,12 +398,12 @@
         <translation>Enkripsi private key yang dimiliki dompet Anda</translation>
     </message>
     <message>
-        <source>Sign messages with your TPC addresses to prove you own them</source>
-        <translation>Tanda tangani sebuah pesan menggunakan alamat TPC Anda untuk membuktikan bahwa Anda adalah pemilik alamat tersebut</translation>
+        <source>Sign messages with your Tapyrus addresses to prove you own them</source>
+        <translation>Tanda tangani sebuah pesan menggunakan alamat Tapyrus Anda untuk membuktikan bahwa Anda adalah pemilik alamat tersebut</translation>
     </message>
     <message>
-        <source>Verify messages to ensure they were signed with specified TPC addresses</source>
-        <translation>Verifikasi pesan untuk memastikan bahwa pesan tersebut ditanda tangani oleh suatu alamat TPC tertentu</translation>
+        <source>Verify messages to ensure they were signed with specified Tapyrus addresses</source>
+        <translation>Verifikasi pesan untuk memastikan bahwa pesan tersebut ditanda tangani oleh suatu alamat Tapyrus tertentu</translation>
     </message>
     <message>
         <source>&amp;File</source>
@@ -422,8 +422,8 @@
         <translation>Baris tab</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and TPC: URIs)</source>
-        <translation>Permintaan pembayaran (membuat kode QR dan TPC: URIs)</translation>
+        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
+        <translation>Permintaan pembayaran (membuat kode QR dan Tapyrus: URIs)</translation>
     </message>
     <message>
         <source>Show the list of used sending addresses and labels</source>
@@ -434,16 +434,16 @@
         <translation>Tampilkan daftar alamat dan label yang diterima</translation>
     </message>
     <message>
-        <source>Open a TPC: URI or payment request</source>
-        <translation>Buka URI TPC: atau permintaan pembayaran</translation>
+        <source>Open a Tapyrus: URI or payment request</source>
+        <translation>Buka URI Tapyrus: atau permintaan pembayaran</translation>
     </message>
     <message>
         <source>&amp;Command-line options</source>
         <translation>&amp;pilihan Command-line</translation>
     </message>
     <message numerus="yes">
-        <source>%n active connection(s) to TPC network</source>
-        <translation><numerusform>%n koneksi aktif ke jaringan TPC</numerusform></translation>
+        <source>%n active connection(s) to Tapyrus network</source>
+        <translation><numerusform>%n koneksi aktif ke jaringan Tapyrus</numerusform></translation>
     </message>
     <message>
         <source>Indexing blocks on disk...</source>
@@ -486,8 +486,8 @@
         <translation>Terbaru</translation>
     </message>
     <message>
-        <source>Show the %1 help message to get a list with possible TPC command-line options</source>
-        <translation>Tampilkan %1 pesan bantuan untuk mendapatkan daftar opsi baris perintah TPC yang memungkinkan</translation>
+        <source>Show the %1 help message to get a list with possible Tapyrus command-line options</source>
+        <translation>Tampilkan %1 pesan bantuan untuk mendapatkan daftar opsi baris perintah Tapyrus yang memungkinkan</translation>
     </message>
     <message>
         <source>%1 client</source>
@@ -556,8 +556,8 @@
         <translation>Dompet saat ini &lt;b&gt;terenkripsi&lt;/b&gt; dan &lt;b&gt;terkunci&lt;/b&gt;</translation>
     </message>
     <message>
-        <source>A fatal error occurred. TPC can no longer continue safely and will quit.</source>
-        <translation>Terjadi Kesalahan Fatal. TPC Tidak Dapat Melanjutkan Dengan Aman Dan Akan Keluar</translation>
+        <source>A fatal error occurred. Tapyrus can no longer continue safely and will quit.</source>
+        <translation>Terjadi Kesalahan Fatal. Tapyrus Tidak Dapat Melanjutkan Dengan Aman Dan Akan Keluar</translation>
     </message>
 </context>
 <context>
@@ -734,8 +734,8 @@
         <translation>Ubah alamat pengirim</translation>
     </message>
     <message>
-        <source>The entered address "%1" is not a valid TPC address.</source>
-        <translation>Alamat yang dimasukkan "%1" bukanlah alamat TPC yang valid.</translation>
+        <source>The entered address "%1" is not a valid Tapyrus address.</source>
+        <translation>Alamat yang dimasukkan "%1" bukanlah alamat Tapyrus yang valid.</translation>
     </message>
     <message>
         <source>Could not unlock wallet.</source>
@@ -823,8 +823,8 @@
         <translation>Gunakan direktori pilihan Anda:</translation>
     </message>
     <message>
-        <source>TPC</source>
-        <translation>TPC</translation>
+        <source>Tapyrus</source>
+        <translation>Tapyrus</translation>
     </message>
     <message>
         <source>At least %1 GB of data will be stored in this directory, and it will grow over time.</source>
@@ -835,8 +835,8 @@
         <translation>%1 GB data akan disimpan di direktori ini.</translation>
     </message>
     <message>
-        <source>%1 will download and store a copy of the TPC block chain.</source>
-        <translation>%1 akan mengunduh dan menyimpan salinan TPC block chain.</translation>
+        <source>%1 will download and store a copy of the Tapyrus block chain.</source>
+        <translation>%1 akan mengunduh dan menyimpan salinan Tapyrus block chain.</translation>
     </message>
     <message>
         <source>The wallet will also be stored in this directory.</source>
@@ -866,8 +866,8 @@
         <translation>Formulir</translation>
     </message>
     <message>
-        <source>Recent transactions may not yet be visible, and therefore your wallet's balance might be incorrect. This information will be correct once your wallet has finished synchronizing with the TPC network, as detailed below.</source>
-        <translation>Transaksi-transaksi terkini mungkin belum terlihat dan oleh karenanya, saldo dompet Anda mungkin tidak tepat. Informasi ini akan akurat ketika dompet Anda tersinkronisasi dengan jaringan TPC, seperti rincian berikut.</translation>
+        <source>Recent transactions may not yet be visible, and therefore your wallet's balance might be incorrect. This information will be correct once your wallet has finished synchronizing with the Tapyrus network, as detailed below.</source>
+        <translation>Transaksi-transaksi terkini mungkin belum terlihat dan oleh karenanya, saldo dompet Anda mungkin tidak tepat. Informasi ini akan akurat ketika dompet Anda tersinkronisasi dengan jaringan Tapyrus, seperti rincian berikut.</translation>
     </message>
     <message>
         <source>Number of blocks left</source>
@@ -1008,8 +1008,8 @@
         <translation>&amp;Perubahan saldo untuk transaksi yang belum dikonfirmasi</translation>
     </message>
     <message>
-        <source>Automatically open the TPC client port on the router. This only works when your router supports UPnP and it is enabled.</source>
-        <translation>Otomatis membuka port client TPC di router. Hanya berjalan apabila router anda mendukung UPnP dan di-enable.</translation>
+        <source>Automatically open the Tapyrus client port on the router. This only works when your router supports UPnP and it is enabled.</source>
+        <translation>Otomatis membuka port client Tapyrus di router. Hanya berjalan apabila router anda mendukung UPnP dan di-enable.</translation>
     </message>
     <message>
         <source>Map port using &amp;UPnP</source>
@@ -1024,8 +1024,8 @@
         <translation>Terima koneksi-koneksi masuk</translation>
     </message>
     <message>
-        <source>Connect to the TPC network through a SOCKS5 proxy.</source>
-        <translation>Hubungkan ke jaringan TPC melalui SOCKS5 proxy.</translation>
+        <source>Connect to the Tapyrus network through a SOCKS5 proxy.</source>
+        <translation>Hubungkan ke jaringan Tapyrus melalui SOCKS5 proxy.</translation>
     </message>
     <message>
         <source>Proxy &amp;IP:</source>
@@ -1143,8 +1143,8 @@
         <translation>Formulir</translation>
     </message>
     <message>
-        <source>The displayed information may be out of date. Your wallet automatically synchronizes with the TPC network after a connection is established, but this process has not completed yet.</source>
-        <translation>Informasi terlampir mungkin sudah kedaluwarsa. Dompet Anda secara otomatis mensinkronisasi dengan jaringan TPC ketika sebuah hubungan terbentuk, namun proses ini belum selesai.</translation>
+        <source>The displayed information may be out of date. Your wallet automatically synchronizes with the Tapyrus network after a connection is established, but this process has not completed yet.</source>
+        <translation>Informasi terlampir mungkin sudah kedaluwarsa. Dompet Anda secara otomatis mensinkronisasi dengan jaringan Tapyrus ketika sebuah hubungan terbentuk, namun proses ini belum selesai.</translation>
     </message>
     <message>
         <source>Available:</source>
@@ -1212,8 +1212,8 @@
         <translation>Nilai</translation>
     </message>
     <message>
-        <source>Enter a TPC address (e.g. %1)</source>
-        <translation>Masukkan alamat TPC (contoh %1)</translation>
+        <source>Enter a Tapyrus address (e.g. %1)</source>
+        <translation>Masukkan alamat Tapyrus (contoh %1)</translation>
     </message>
     <message>
         <source>%1 h</source>
@@ -1739,8 +1739,8 @@
         <translation>Salin tanda tangan terpilih ke sistem klipboard</translation>
     </message>
     <message>
-        <source>Sign the message to prove you own this TPC address</source>
-        <translation>Tandai pesan untuk menyetujui kamu pemiliki alamat TPC ini</translation>
+        <source>Sign the message to prove you own this Tapyrus address</source>
+        <translation>Tandai pesan untuk menyetujui kamu pemiliki alamat Tapyrus ini</translation>
     </message>
     <message>
         <source>Sign &amp;Message</source>
@@ -1854,10 +1854,10 @@
     <name>WalletView</name>
     </context>
 <context>
-    <name>TPC-core</name>
+    <name>Tapyrus-core</name>
     <message>
-        <source>TPC Core</source>
-        <translation>TPC Core</translation>
+        <source>Tapyrus Core</source>
+        <translation>Tapyrus Core</translation>
     </message>
     <message>
         <source>Corrupted block database detected</source>

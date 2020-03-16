@@ -72,7 +72,7 @@
     <name>BanTableModel</name>
     </context>
 <context>
-    <name>TPCGUI</name>
+    <name>TapyrusGUI</name>
     <message>
         <source>Sign &amp;message...</source>
         <translation>&amp;Хабар ёзиш...</translation>
@@ -150,8 +150,8 @@
         <translation>Дискдаги блоклар қайта индексланмоқда...</translation>
     </message>
     <message>
-        <source>Send coins to a TPC address</source>
-        <translation>Тангаларни TPC манзилига жўнатиш</translation>
+        <source>Send coins to a Tapyrus address</source>
+        <translation>Тангаларни Tapyrus манзилига жўнатиш</translation>
     </message>
     <message>
         <source>Backup wallet to another location</source>
@@ -174,8 +174,8 @@
         <translation>Хабарни &amp;тасдиқлаш...</translation>
     </message>
     <message>
-        <source>TPC</source>
-        <translation>TPC</translation>
+        <source>Tapyrus</source>
+        <translation>Tapyrus</translation>
     </message>
     <message>
         <source>Wallet</source>
@@ -202,12 +202,12 @@
         <translation>Ҳамёнингизга тегишли махфий калитларни кодлаш</translation>
     </message>
     <message>
-        <source>Sign messages with your TPC addresses to prove you own them</source>
-        <translation>TPC манзилидан унинг эгаси эканлигингизни исботлаш учун хабарлар ёзинг</translation>
+        <source>Sign messages with your Tapyrus addresses to prove you own them</source>
+        <translation>Tapyrus манзилидан унинг эгаси эканлигингизни исботлаш учун хабарлар ёзинг</translation>
     </message>
     <message>
-        <source>Verify messages to ensure they were signed with specified TPC addresses</source>
-        <translation>Хабарларни махсус TPC манзилларингиз билан ёзилганлигига ишонч ҳосил қилиш учун уларни тасдиқланг</translation>
+        <source>Verify messages to ensure they were signed with specified Tapyrus addresses</source>
+        <translation>Хабарларни махсус Tapyrus манзилларингиз билан ёзилганлигига ишонч ҳосил қилиш учун уларни тасдиқланг</translation>
     </message>
     <message>
         <source>&amp;File</source>
@@ -226,8 +226,8 @@
         <translation>Ички ойналар асбоблар панели</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and TPC: URIs)</source>
-        <translation>Тўловлар (QR кодлари ва TPC ёрдамида яратишлар: URI’лар) сўраш</translation>
+        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
+        <translation>Тўловлар (QR кодлари ва Tapyrus ёрдамида яратишлар: URI’лар) сўраш</translation>
     </message>
     <message>
         <source>Show the list of used sending addresses and labels</source>
@@ -238,16 +238,16 @@
         <translation>Фойдаланилган қабул қилинган манзиллар ва ёрлиқлар рўйхатини кўрсатиш</translation>
     </message>
     <message>
-        <source>Open a TPC: URI or payment request</source>
-        <translation>TPC’ни очиш: URI ёки тўлов сўрови</translation>
+        <source>Open a Tapyrus: URI or payment request</source>
+        <translation>Tapyrus’ни очиш: URI ёки тўлов сўрови</translation>
     </message>
     <message>
         <source>&amp;Command-line options</source>
         <translation>&amp;Буйруқлар сатри мосламалари</translation>
     </message>
     <message numerus="yes">
-        <source>%n active connection(s) to TPC network</source>
-        <translation><numerusform>%n та TPC тармоғига фаол уланиш мавжуд</numerusform></translation>
+        <source>%n active connection(s) to Tapyrus network</source>
+        <translation><numerusform>%n та Tapyrus тармоғига фаол уланиш мавжуд</numerusform></translation>
     </message>
     <message>
         <source>%1 behind</source>
@@ -433,8 +433,8 @@
         <translation>Бошқа маълумотлар директориясида фойдаланинг:</translation>
     </message>
     <message>
-        <source>TPC</source>
-        <translation>TPC</translation>
+        <source>Tapyrus</source>
+        <translation>Tapyrus</translation>
     </message>
     <message>
         <source>Error: Specified data directory "%1" cannot be created.</source>
@@ -593,8 +593,8 @@
         <translation>Шакл</translation>
     </message>
     <message>
-        <source>The displayed information may be out of date. Your wallet automatically synchronizes with the TPC network after a connection is established, but this process has not completed yet.</source>
-        <translation>Кўрсатилган маълумот эскирган бўлиши мумкин. Ҳамёнингиз алоқа ўрнатилгандан сўнг TPC тармоқ билан автоматик тарзда синхронланади, аммо жараён ҳалигача тугалланмади.</translation>
+        <source>The displayed information may be out of date. Your wallet automatically synchronizes with the Tapyrus network after a connection is established, but this process has not completed yet.</source>
+        <translation>Кўрсатилган маълумот эскирган бўлиши мумкин. Ҳамёнингиз алоқа ўрнатилгандан сўнг Tapyrus тармоқ билан автоматик тарзда синхронланади, аммо жараён ҳалигача тугалланмади.</translation>
     </message>
     <message>
         <source>Watch-only:</source>
@@ -674,8 +674,8 @@
         <translation>Миқдори</translation>
     </message>
     <message>
-        <source>Enter a TPC address (e.g. %1)</source>
-        <translation>TPC манзилини киритинг (масалан.  %1)</translation>
+        <source>Enter a Tapyrus address (e.g. %1)</source>
+        <translation>Tapyrus манзилини киритинг (масалан.  %1)</translation>
     </message>
     <message>
         <source>%1 m</source>
@@ -1170,10 +1170,10 @@
     <name>WalletView</name>
     </context>
 <context>
-    <name>TPC-core</name>
+    <name>Tapyrus-core</name>
     <message>
-        <source>TPC Core</source>
-        <translation>TPC Core</translation>
+        <source>Tapyrus Core</source>
+        <translation>Tapyrus Core</translation>
     </message>
     <message>
         <source>Information</source>

@@ -66,12 +66,12 @@
         <translation>Vastaanotto-osoitteet</translation>
     </message>
     <message>
-        <source>These are your TPC addresses for sending payments. Always check the amount and the receiving address before sending coins.</source>
-        <translation>Nämä ovat TPC-osoitteesi maksujen lähettämistä varten. Tarkista aina määrä ja vastaanotto-osoite ennen kolikoiden lähettämistä.</translation>
+        <source>These are your Tapyrus addresses for sending payments. Always check the amount and the receiving address before sending coins.</source>
+        <translation>Nämä ovat Tapyrus-osoitteesi maksujen lähettämistä varten. Tarkista aina määrä ja vastaanotto-osoite ennen kolikoiden lähettämistä.</translation>
     </message>
     <message>
-        <source>These are your TPC addresses for receiving payments. It is recommended to use a new receiving address for each transaction.</source>
-        <translation>Tässä ovat TPC vastaanotto-osoitteesi. On suositeltavaa käyttää uutta vastaanotto-osoitetta jokaista lähetystä varten.</translation>
+        <source>These are your Tapyrus addresses for receiving payments. It is recommended to use a new receiving address for each transaction.</source>
+        <translation>Tässä ovat Tapyrus vastaanotto-osoitteesi. On suositeltavaa käyttää uutta vastaanotto-osoitetta jokaista lähetystä varten.</translation>
     </message>
     <message>
         <source>&amp;Copy Address</source>
@@ -176,8 +176,8 @@
         <translation>Vahvista lompakon salaaminen</translation>
     </message>
     <message>
-        <source>Warning: If you encrypt your wallet and lose your passphrase, you will &lt;b&gt;LOSE ALL OF YOUR TPCS&lt;/b&gt;!</source>
-        <translation>Varoitus: Jos salaat lompakkosi ja menetät tunnuslauseesi, &lt;b&gt;MENETÄT KAIKKI TPCISI&lt;/b&gt;!</translation>
+        <source>Warning: If you encrypt your wallet and lose your passphrase, you will &lt;b&gt;LOSE ALL OF YOUR Tapyrus&lt;/b&gt;!</source>
+        <translation>Varoitus: Jos salaat lompakkosi ja menetät tunnuslauseesi, &lt;b&gt;MENETÄT KAIKKI TapyrusISI&lt;/b&gt;!</translation>
     </message>
     <message>
         <source>Are you sure you wish to encrypt your wallet?</source>
@@ -188,7 +188,7 @@
         <translation>Lompakko salattiin</translation>
     </message>
     <message>
-        <source>%1 will close now to finish the encryption process. Remember that encrypting your wallet cannot fully protect your TPCs from being stolen by malware infecting your computer.</source>
+        <source>%1 will close now to finish the encryption process. Remember that encrypting your wallet cannot fully protect your Tapyrus from being stolen by malware infecting your computer.</source>
         <translation>%1 sulkeutuu lopettaakseen salausprosessin. Muista, että salattukaan lompakko ei täysin suojaa sitä haittaohjelmien aiheuttamilta varkauksilta.</translation>
     </message>
     <message>
@@ -240,7 +240,7 @@
     </message>
 </context>
 <context>
-    <name>TPCGUI</name>
+    <name>TapyrusGUI</name>
     <message>
         <source>Sign &amp;message...</source>
         <translation>&amp;Allekirjoita viesti...</translation>
@@ -358,8 +358,8 @@
         <translation>Välipalvelin on &lt;b&gt;käytössä&lt;/b&gt;: %1</translation>
     </message>
     <message>
-        <source>Send coins to a TPC address</source>
-        <translation>Lähetä kolikoita TPC-osoitteeseen</translation>
+        <source>Send coins to a Tapyrus address</source>
+        <translation>Lähetä kolikoita Tapyrus-osoitteeseen</translation>
     </message>
     <message>
         <source>Backup wallet to another location</source>
@@ -382,8 +382,8 @@
         <translation>Varmista &amp;viesti...</translation>
     </message>
     <message>
-        <source>TPC</source>
-        <translation>TPC</translation>
+        <source>Tapyrus</source>
+        <translation>Tapyrus</translation>
     </message>
     <message>
         <source>Wallet</source>
@@ -403,19 +403,19 @@
     </message>
     <message>
         <source>Show or hide the main Window</source>
-        <translation>Näytä tai piilota TPC-ikkuna</translation>
+        <translation>Näytä tai piilota Tapyrus-ikkuna</translation>
     </message>
     <message>
         <source>Encrypt the private keys that belong to your wallet</source>
         <translation>Suojaa yksityiset avaimet, jotka kuuluvat lompakkoosi</translation>
     </message>
     <message>
-        <source>Sign messages with your TPC addresses to prove you own them</source>
-        <translation>Allekirjoita viestisi omalla TPC -osoitteellasi todistaaksesi, että omistat ne</translation>
+        <source>Sign messages with your Tapyrus addresses to prove you own them</source>
+        <translation>Allekirjoita viestisi omalla Tapyrus -osoitteellasi todistaaksesi, että omistat ne</translation>
     </message>
     <message>
-        <source>Verify messages to ensure they were signed with specified TPC addresses</source>
-        <translation>Varmista, että viestisi on allekirjoitettu määritetyllä TPC -osoitteella</translation>
+        <source>Verify messages to ensure they were signed with specified Tapyrus addresses</source>
+        <translation>Varmista, että viestisi on allekirjoitettu määritetyllä Tapyrus -osoitteella</translation>
     </message>
     <message>
         <source>&amp;File</source>
@@ -434,8 +434,8 @@
         <translation>Välilehtipalkki</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and TPC: URIs)</source>
-        <translation>Pyydä maksuja (Luo QR koodit ja TPC: URIt)</translation>
+        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
+        <translation>Pyydä maksuja (Luo QR koodit ja Tapyrus: URIt)</translation>
     </message>
     <message>
         <source>Show the list of used sending addresses and labels</source>
@@ -446,16 +446,16 @@
         <translation>Näytä vastaanottamiseen käytettyjen osoitteiden ja nimien lista</translation>
     </message>
     <message>
-        <source>Open a TPC: URI or payment request</source>
-        <translation>Avaa TPC: URI tai maksupyyntö</translation>
+        <source>Open a Tapyrus: URI or payment request</source>
+        <translation>Avaa Tapyrus: URI tai maksupyyntö</translation>
     </message>
     <message>
         <source>&amp;Command-line options</source>
         <translation>&amp;Komentorivin valinnat</translation>
     </message>
     <message numerus="yes">
-        <source>%n active connection(s) to TPC network</source>
-        <translation><numerusform>%n aktiivinen yhteys TPC-verkkoon</numerusform><numerusform>%n aktiivista yhteyttä TPC-verkkoon</numerusform></translation>
+        <source>%n active connection(s) to Tapyrus network</source>
+        <translation><numerusform>%n aktiivinen yhteys Tapyrus-verkkoon</numerusform><numerusform>%n aktiivista yhteyttä Tapyrus-verkkoon</numerusform></translation>
     </message>
     <message>
         <source>Indexing blocks on disk...</source>
@@ -498,8 +498,8 @@
         <translation>Rahansiirtohistoria on ajan tasalla</translation>
     </message>
     <message>
-        <source>Show the %1 help message to get a list with possible TPC command-line options</source>
-        <translation>Näytä %1 ohjeet saadaksesi listan mahdollisista TPCin komentorivivalinnoista</translation>
+        <source>Show the %1 help message to get a list with possible Tapyrus command-line options</source>
+        <translation>Näytä %1 ohjeet saadaksesi listan mahdollisista Tapyrusin komentorivivalinnoista</translation>
     </message>
     <message>
         <source>%1 client</source>
@@ -568,8 +568,8 @@
         <translation>Lompakko on &lt;b&gt;salattu&lt;/b&gt; ja tällä hetkellä &lt;b&gt;lukittuna&lt;/b&gt;</translation>
     </message>
     <message>
-        <source>A fatal error occurred. TPC can no longer continue safely and will quit.</source>
-        <translation>Peruuttamaton virhe on tapahtunut. TPC ei voi enää jatkaa turvallisesti ja sammutetaan.</translation>
+        <source>A fatal error occurred. Tapyrus can no longer continue safely and will quit.</source>
+        <translation>Peruuttamaton virhe on tapahtunut. Tapyrus ei voi enää jatkaa turvallisesti ja sammutetaan.</translation>
     </message>
 </context>
 <context>
@@ -758,8 +758,8 @@
         <translation>Muokkaa lähettävää osoitetta</translation>
     </message>
     <message>
-        <source>The entered address "%1" is not a valid TPC address.</source>
-        <translation>Antamasi osoite "%1" ei ole kelvollinen TPC-osoite.</translation>
+        <source>The entered address "%1" is not a valid Tapyrus address.</source>
+        <translation>Antamasi osoite "%1" ei ole kelvollinen Tapyrus-osoite.</translation>
     </message>
     <message>
         <source>Could not unlock wallet.</source>
@@ -847,8 +847,8 @@
         <translation>Määritä oma kansio:</translation>
     </message>
     <message>
-        <source>TPC</source>
-        <translation>TPC</translation>
+        <source>Tapyrus</source>
+        <translation>Tapyrus</translation>
     </message>
     <message>
         <source>At least %1 GB of data will be stored in this directory, and it will grow over time.</source>
@@ -859,8 +859,8 @@
         <translation>Noin %1 GB tietoa varastoidaan tähän hakemistoon.</translation>
     </message>
     <message>
-        <source>%1 will download and store a copy of the TPC block chain.</source>
-        <translation>%1 lataa ja tallentaa kopion TPCin lohkoketjusta.</translation>
+        <source>%1 will download and store a copy of the Tapyrus block chain.</source>
+        <translation>%1 lataa ja tallentaa kopion Tapyrusin lohkoketjusta.</translation>
     </message>
     <message>
         <source>The wallet will also be stored in this directory.</source>
@@ -882,12 +882,12 @@
         <translation>Lomake</translation>
     </message>
     <message>
-        <source>Recent transactions may not yet be visible, and therefore your wallet's balance might be incorrect. This information will be correct once your wallet has finished synchronizing with the TPC network, as detailed below.</source>
-        <translation>Viimeiset tapahtumat eivät välttämättä vielä näy, joten lompakkosi saldo voi olla virheellinen. Tieto korjautuu, kunhan lompakkosi synkronointi TPC-verkon kanssa on päättynyt. Tiedot näkyvät alla.</translation>
+        <source>Recent transactions may not yet be visible, and therefore your wallet's balance might be incorrect. This information will be correct once your wallet has finished synchronizing with the Tapyrus network, as detailed below.</source>
+        <translation>Viimeiset tapahtumat eivät välttämättä vielä näy, joten lompakkosi saldo voi olla virheellinen. Tieto korjautuu, kunhan lompakkosi synkronointi Tapyrus-verkon kanssa on päättynyt. Tiedot näkyvät alla.</translation>
     </message>
     <message>
-        <source>Attempting to spend TPCs that are affected by not-yet-displayed transactions will not be accepted by the network.</source>
-        <translation>Verkko ei tule hyväksymään sellaisten TPCien käyttämistä, jotka liittyvät vielä näkymättömissä oleviin siirtoihin.</translation>
+        <source>Attempting to spend Tapyrus that are affected by not-yet-displayed transactions will not be accepted by the network.</source>
+        <translation>Verkko ei tule hyväksymään sellaisten Tapyrusien käyttämistä, jotka liittyvät vielä näkymättömissä oleviin siirtoihin.</translation>
     </message>
     <message>
         <source>Number of blocks left</source>
@@ -1052,8 +1052,8 @@
         <translation>&amp;Käytä varmistamattomia vaihtorahoja</translation>
     </message>
     <message>
-        <source>Automatically open the TPC client port on the router. This only works when your router supports UPnP and it is enabled.</source>
-        <translation>Avaa TPC-asiakasohjelman portti reitittimellä automaattisesti. Tämä toimii vain, jos reitittimesi tukee UPnP:tä ja se on käytössä.</translation>
+        <source>Automatically open the Tapyrus client port on the router. This only works when your router supports UPnP and it is enabled.</source>
+        <translation>Avaa Tapyrus-asiakasohjelman portti reitittimellä automaattisesti. Tämä toimii vain, jos reitittimesi tukee UPnP:tä ja se on käytössä.</translation>
     </message>
     <message>
         <source>Map port using &amp;UPnP</source>
@@ -1068,8 +1068,8 @@
         <translation>Hyväksy sisääntulevia yhteyksiä</translation>
     </message>
     <message>
-        <source>Connect to the TPC network through a SOCKS5 proxy.</source>
-        <translation>Yhdistä TPC-verkkoon SOCKS5-välityspalvelimen kautta.</translation>
+        <source>Connect to the Tapyrus network through a SOCKS5 proxy.</source>
+        <translation>Yhdistä Tapyrus-verkkoon SOCKS5-välityspalvelimen kautta.</translation>
     </message>
     <message>
         <source>&amp;Connect through SOCKS5 proxy (default proxy):</source>
@@ -1104,8 +1104,8 @@
         <translation>Tor</translation>
     </message>
     <message>
-        <source>Connect to the TPC network through a separate SOCKS5 proxy for Tor hidden services.</source>
-        <translation>Yhdistä TPC-verkkoon erillisen SOCKS5-välityspalvelimen kautta piilotettuja Tor-palveluja varten.</translation>
+        <source>Connect to the Tapyrus network through a separate SOCKS5 proxy for Tor hidden services.</source>
+        <translation>Yhdistä Tapyrus-verkkoon erillisen SOCKS5-välityspalvelimen kautta piilotettuja Tor-palveluja varten.</translation>
     </message>
     <message>
         <source>&amp;Window</source>
@@ -1137,11 +1137,11 @@
     </message>
     <message>
         <source>&amp;Unit to show amounts in:</source>
-        <translation>Yksikkö jona TPC-määrät näytetään</translation>
+        <translation>Yksikkö jona Tapyrus-määrät näytetään</translation>
     </message>
     <message>
         <source>Choose the default subdivision unit to show in the interface and when sending coins.</source>
-        <translation>Valitse mitä yksikköä käytetään ensisijaisesti TPC-määrien näyttämiseen.</translation>
+        <translation>Valitse mitä yksikköä käytetään ensisijaisesti Tapyrus-määrien näyttämiseen.</translation>
     </message>
     <message>
         <source>Whether to show coin control features or not.</source>
@@ -1211,8 +1211,8 @@
         <translation>Lomake</translation>
     </message>
     <message>
-        <source>The displayed information may be out of date. Your wallet automatically synchronizes with the TPC network after a connection is established, but this process has not completed yet.</source>
-        <translation>Näytetyt tiedot eivät välttämättä ole ajantasalla. Lompakkosi synkronoituu TPC-verkon kanssa automaattisesti yhteyden muodostamisen jälkeen, mutta synkronointi on vielä meneillään.</translation>
+        <source>The displayed information may be out of date. Your wallet automatically synchronizes with the Tapyrus network after a connection is established, but this process has not completed yet.</source>
+        <translation>Näytetyt tiedot eivät välttämättä ole ajantasalla. Lompakkosi synkronoituu Tapyrus-verkon kanssa automaattisesti yhteyden muodostamisen jälkeen, mutta synkronointi on vielä meneillään.</translation>
     </message>
     <message>
         <source>Watch-only:</source>
@@ -1252,7 +1252,7 @@
     </message>
     <message>
         <source>Your current total balance</source>
-        <translation>Tililläsi tällä hetkellä olevien TPCien määrä</translation>
+        <translation>Tililläsi tällä hetkellä olevien Tapyrusien määrä</translation>
     </message>
     <message>
         <source>Your current balance in watch-only addresses</source>
@@ -1286,8 +1286,8 @@
         <translation>Maksupyyntövirhe</translation>
     </message>
     <message>
-        <source>Cannot start TPC: click-to-pay handler</source>
-        <translation>TPCia ei voi käynnistää: klikkaa-maksaaksesi -käsittelijän virhe</translation>
+        <source>Cannot start Tapyrus: click-to-pay handler</source>
+        <translation>Tapyrusia ei voi käynnistää: klikkaa-maksaaksesi -käsittelijän virhe</translation>
     </message>
     <message>
         <source>URI handling</source>
@@ -1302,8 +1302,8 @@
         <translation>Virheellinen maksuosoite %1</translation>
     </message>
     <message>
-        <source>URI cannot be parsed! This can be caused by an invalid TPC address or malformed URI parameters.</source>
-        <translation>URIa ei voitu jäsentää! Tämä voi johtua virheellisestä TPC-osoitteesta tai väärin muotoilluista URI parametreista.</translation>
+        <source>URI cannot be parsed! This can be caused by an invalid Tapyrus address or malformed URI parameters.</source>
+        <translation>URIa ei voitu jäsentää! Tämä voi johtua virheellisestä Tapyrus-osoitteesta tai väärin muotoilluista URI parametreista.</translation>
     </message>
     <message>
         <source>Payment request file handling</source>
@@ -1404,8 +1404,8 @@
         <translation>Määrä</translation>
     </message>
     <message>
-        <source>Enter a TPC address (e.g. %1)</source>
-        <translation>Syötä TPC-osoite (esim. %1)</translation>
+        <source>Enter a Tapyrus address (e.g. %1)</source>
+        <translation>Syötä Tapyrus-osoite (esim. %1)</translation>
     </message>
     <message>
         <source>%1 d</source>
@@ -1800,8 +1800,8 @@
         <translation>&amp;Viesti:</translation>
     </message>
     <message>
-        <source>An optional message to attach to the payment request, which will be displayed when the request is opened. Note: The message will not be sent with the payment over the TPC network.</source>
-        <translation>Valinnainen viesti liitetään maksupyyntöön ja näytetään avattaessa. Viestiä ei lähetetä TPC-verkkoon.</translation>
+        <source>An optional message to attach to the payment request, which will be displayed when the request is opened. Note: The message will not be sent with the payment over the Tapyrus network.</source>
+        <translation>Valinnainen viesti liitetään maksupyyntöön ja näytetään avattaessa. Viestiä ei lähetetä Tapyrus-verkkoon.</translation>
     </message>
     <message>
         <source>An optional label to associate with the new receiving address.</source>
@@ -2185,8 +2185,8 @@
         <translation>Maksa vain vaadittu kulu %1 </translation>
     </message>
     <message>
-        <source>Warning: Invalid TPC address</source>
-        <translation>Varoitus: Virheellinen TPC-osoite </translation>
+        <source>Warning: Invalid Tapyrus address</source>
+        <translation>Varoitus: Virheellinen Tapyrus-osoite </translation>
     </message>
     <message>
         <source>Warning: Unknown change address</source>
@@ -2228,8 +2228,8 @@
         <translation>Tämä on normaali maksu.</translation>
     </message>
     <message>
-        <source>The TPC address to send the payment to</source>
-        <translation>TPC-osoite johon maksu lähetetään</translation>
+        <source>The Tapyrus address to send the payment to</source>
+        <translation>Tapyrus-osoite johon maksu lähetetään</translation>
     </message>
     <message>
         <source>Alt+A</source>
@@ -2248,8 +2248,8 @@
         <translation>Poista tämä alkio</translation>
     </message>
     <message>
-        <source>The fee will be deducted from the amount being sent. The recipient will receive less TPCs than you enter in the amount field. If multiple recipients are selected, the fee is split equally.</source>
-        <translation>Kulu vähennetään lähetettävästä määrästä. Saaja vastaanottaa vähemmän TPCeja kuin merkitset Määrä-kenttään. Jos saajia on monia, kulu jaetaan tasan.</translation>
+        <source>The fee will be deducted from the amount being sent. The recipient will receive less Tapyrus than you enter in the amount field. If multiple recipients are selected, the fee is split equally.</source>
+        <translation>Kulu vähennetään lähetettävästä määrästä. Saaja vastaanottaa vähemmän Tapyruseja kuin merkitset Määrä-kenttään. Jos saajia on monia, kulu jaetaan tasan.</translation>
     </message>
     <message>
         <source>S&amp;ubtract fee from amount</source>
@@ -2276,8 +2276,8 @@
         <translation>Aseta nimi tälle osoitteelle lisätäksesi sen käytettyjen osoitteiden listalle.</translation>
     </message>
     <message>
-        <source>A message that was attached to the TPC: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the TPC network.</source>
-        <translation>Viesti joka liitettiin TPC: URI:iin tallennetaan rahansiirtoon viitteeksi. Tätä viestiä ei lähetetä TPC-verkkoon.</translation>
+        <source>A message that was attached to the Tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</source>
+        <translation>Viesti joka liitettiin Tapyrus: URI:iin tallennetaan rahansiirtoon viitteeksi. Tätä viestiä ei lähetetä Tapyrus-verkkoon.</translation>
     </message>
     <message>
         <source>Pay To:</source>
@@ -2321,12 +2321,12 @@
         <translation>&amp;Allekirjoita viesti</translation>
     </message>
     <message>
-        <source>You can sign messages/agreements with your addresses to prove you can receive TPCs sent to them. Be careful not to sign anything vague or random, as phishing attacks may try to trick you into signing your identity over to them. Only sign fully-detailed statements you agree to.</source>
-        <translation>Voit allekirjoittaa viestit / sopimukset omalla osoitteellasi todistaaksesi että voit vastaanottaa siihen lähetetyt TPCit. Varo allekirjoittamasta mitään epämääräistä, sillä phishing-hyökkääjät voivat huijata sinua luovuttamaan henkilöllisyytesi allekirjoituksella. Allekirjoita ainoastaan täysin yksityiskohtainen selvitys siitä, mihin olet sitoutumassa.</translation>
+        <source>You can sign messages/agreements with your addresses to prove you can receive Tapyrus sent to them. Be careful not to sign anything vague or random, as phishing attacks may try to trick you into signing your identity over to them. Only sign fully-detailed statements you agree to.</source>
+        <translation>Voit allekirjoittaa viestit / sopimukset omalla osoitteellasi todistaaksesi että voit vastaanottaa siihen lähetetyt Tapyrusit. Varo allekirjoittamasta mitään epämääräistä, sillä phishing-hyökkääjät voivat huijata sinua luovuttamaan henkilöllisyytesi allekirjoituksella. Allekirjoita ainoastaan täysin yksityiskohtainen selvitys siitä, mihin olet sitoutumassa.</translation>
     </message>
     <message>
-        <source>The TPC address to sign the message with</source>
-        <translation>TPC-osoite jolla viesti allekirjoitetaan</translation>
+        <source>The Tapyrus address to sign the message with</source>
+        <translation>Tapyrus-osoite jolla viesti allekirjoitetaan</translation>
     </message>
     <message>
         <source>Choose previously used address</source>
@@ -2357,8 +2357,8 @@
         <translation>Kopioi tämänhetkinen allekirjoitus leikepöydälle</translation>
     </message>
     <message>
-        <source>Sign the message to prove you own this TPC address</source>
-        <translation>Allekirjoita viesti todistaaksesi, että omistat tämän TPC-osoitteen</translation>
+        <source>Sign the message to prove you own this Tapyrus address</source>
+        <translation>Allekirjoita viesti todistaaksesi, että omistat tämän Tapyrus-osoitteen</translation>
     </message>
     <message>
         <source>Sign &amp;Message</source>
@@ -2381,12 +2381,12 @@
         <translation>Syötä vastaanottajan osoite, viesti ja allekirjoitus (varmista että kopioit rivinvaihdot, välilyönnit, sarkaimet yms. täsmälleen) alle vahvistaaksesi viestin. Varo lukemasta allekirjoitukseen enempää kuin mitä viestissä itsessään on välttääksesi man-in-the-middle -hyökkäyksiltä. Huomaa, että tämä todentaa ainoastaan allekirjoittavan vastaanottajan osoitteen, tämä ei voi todentaa minkään tapahtuman lähettäjää!</translation>
     </message>
     <message>
-        <source>The TPC address the message was signed with</source>
-        <translation>TPC-osoite jolla viesti on allekirjoitettu</translation>
+        <source>The Tapyrus address the message was signed with</source>
+        <translation>Tapyrus-osoite jolla viesti on allekirjoitettu</translation>
     </message>
     <message>
-        <source>Verify the message to ensure it was signed with the specified TPC address</source>
-        <translation>Tarkista viestin allekirjoitus varmistaaksesi, että se allekirjoitettiin tietyllä TPC-osoitteella</translation>
+        <source>Verify the message to ensure it was signed with the specified Tapyrus address</source>
+        <translation>Tarkista viestin allekirjoitus varmistaaksesi, että se allekirjoitettiin tietyllä Tapyrus-osoitteella</translation>
     </message>
     <message>
         <source>Verify &amp;Message</source>
@@ -2976,7 +2976,7 @@
     </message>
     </context>
 <context>
-    <name>TPC-core</name>
+    <name>Tapyrus-core</name>
     <message>
         <source>Distributed under the MIT software license, see the accompanying file %s or %s</source>
         <translation>Jaettu MIT -ohjelmistolisenssin alaisuudessa, katso mukana tuleva %s tiedosto tai %s</translation>
@@ -3006,8 +3006,8 @@
         <translation>HTTP-palvelinta ei voitu käynnistää. Katso debug-lokista lisätietoja.</translation>
     </message>
     <message>
-        <source>TPC Core</source>
-        <translation>TPC-ydin</translation>
+        <source>Tapyrus Core</source>
+        <translation>Tapyrus-ydin</translation>
     </message>
     <message>
         <source>The %s developers</source>

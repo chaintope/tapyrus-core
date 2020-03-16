@@ -56,7 +56,7 @@
     <name>BanTableModel</name>
     </context>
 <context>
-    <name>TPCGUI</name>
+    <name>TapyrusGUI</name>
     <message>
         <source>Sign &amp;message...</source>
         <translation>Signa &amp;nuntium...</translation>
@@ -118,8 +118,8 @@
         <translation>Recreans indicem frustorum in disco...</translation>
     </message>
     <message>
-        <source>Send coins to a TPC address</source>
-        <translation>Mitte nummos ad inscriptionem TPC</translation>
+        <source>Send coins to a Tapyrus address</source>
+        <translation>Mitte nummos ad inscriptionem Tapyrus</translation>
     </message>
     <message>
         <source>Backup wallet to another location</source>
@@ -142,8 +142,8 @@
         <translation>&amp;Verifica nuntium...</translation>
     </message>
     <message>
-        <source>TPC</source>
-        <translation>TPC</translation>
+        <source>Tapyrus</source>
+        <translation>Tapyrus</translation>
     </message>
     <message>
         <source>Wallet</source>
@@ -170,12 +170,12 @@
         <translation>Cifra claves privatas quae cassidili tui sunt</translation>
     </message>
     <message>
-        <source>Sign messages with your TPC addresses to prove you own them</source>
-        <translation>Signa nuntios cum tuis inscriptionibus TPC ut demonstres te eas possidere</translation>
+        <source>Sign messages with your Tapyrus addresses to prove you own them</source>
+        <translation>Signa nuntios cum tuis inscriptionibus Tapyrus ut demonstres te eas possidere</translation>
     </message>
     <message>
-        <source>Verify messages to ensure they were signed with specified TPC addresses</source>
-        <translation>Verifica nuntios ut certus sis eos signatos esse cum specificatis inscriptionibus TPC</translation>
+        <source>Verify messages to ensure they were signed with specified Tapyrus addresses</source>
+        <translation>Verifica nuntios ut certus sis eos signatos esse cum specificatis inscriptionibus Tapyrus</translation>
     </message>
     <message>
         <source>&amp;File</source>
@@ -297,8 +297,8 @@
 <context>
     <name>Intro</name>
     <message>
-        <source>TPC</source>
-        <translation>TPC</translation>
+        <source>Tapyrus</source>
+        <translation>Tapyrus</translation>
     </message>
     <message>
         <source>Error</source>
@@ -346,8 +346,8 @@
         <translation>Cassidile</translation>
     </message>
     <message>
-        <source>Automatically open the TPC client port on the router. This only works when your router supports UPnP and it is enabled.</source>
-        <translation>Aperi per se portam clientis TPC in itineratore.  Hoc tantum effectivum est si itineratrum tuum supportat UPnP et id activum est.</translation>
+        <source>Automatically open the Tapyrus client port on the router. This only works when your router supports UPnP and it is enabled.</source>
+        <translation>Aperi per se portam clientis Tapyrus in itineratore.  Hoc tantum effectivum est si itineratrum tuum supportat UPnP et id activum est.</translation>
     </message>
     <message>
         <source>Map port using &amp;UPnP</source>
@@ -429,8 +429,8 @@
         <translation>Schema</translation>
     </message>
     <message>
-        <source>The displayed information may be out of date. Your wallet automatically synchronizes with the TPC network after a connection is established, but this process has not completed yet.</source>
-        <translation>Monstrata informatio fortasse non recentissima est.  Tuum cassidile per se synchronizat cum rete TPC postquam conexio constabilita est, sed hoc actio nondum perfecta est.</translation>
+        <source>The displayed information may be out of date. Your wallet automatically synchronizes with the Tapyrus network after a connection is established, but this process has not completed yet.</source>
+        <translation>Monstrata informatio fortasse non recentissima est.  Tuum cassidile per se synchronizat cum rete Tapyrus postquam conexio constabilita est, sed hoc actio nondum perfecta est.</translation>
     </message>
     <message>
         <source>Immature:</source>
@@ -679,8 +679,8 @@
         <translation>Copia signationem in latibulum systematis</translation>
     </message>
     <message>
-        <source>Sign the message to prove you own this TPC address</source>
-        <translation>Signa nuntium ut demonstres hanc inscriptionem TPC a te possessa esse</translation>
+        <source>Sign the message to prove you own this Tapyrus address</source>
+        <translation>Signa nuntium ut demonstres hanc inscriptionem Tapyrus a te possessa esse</translation>
     </message>
     <message>
         <source>Sign &amp;Message</source>
@@ -699,8 +699,8 @@
         <translation>&amp;Verifica Nuntium</translation>
     </message>
     <message>
-        <source>Verify the message to ensure it was signed with the specified TPC address</source>
-        <translation>Verifica nuntium ut cures signatum esse cum specifica inscriptione TPC</translation>
+        <source>Verify the message to ensure it was signed with the specified Tapyrus address</source>
+        <translation>Verifica nuntium ut cures signatum esse cum specifica inscriptione Tapyrus</translation>
     </message>
     <message>
         <source>Verify &amp;Message</source>
@@ -750,10 +750,10 @@
     <name>WalletView</name>
     </context>
 <context>
-    <name>TPC-core</name>
+    <name>Tapyrus-core</name>
     <message>
-        <source>TPC Core</source>
-        <translation>TPC Nucleus</translation>
+        <source>Tapyrus Core</source>
+        <translation>Tapyrus Nucleus</translation>
     </message>
     <message>
         <source>Corrupted block database detected</source>

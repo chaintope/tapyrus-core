@@ -64,7 +64,7 @@
     <name>BanTableModel</name>
     </context>
 <context>
-    <name>TPCGUI</name>
+    <name>TapyrusGUI</name>
     <message>
         <source>Sign &amp;message...</source>
         <translation>Потпиши &amp;порака...</translation>
@@ -138,7 +138,7 @@
         <translation>Повторно индексирање на блокови од дискот...</translation>
     </message>
     <message>
-        <source>Send coins to a TPC address</source>
+        <source>Send coins to a Tapyrus address</source>
         <translation>Испрати биткоини на Биткоин адреса</translation>
     </message>
     <message>
@@ -146,7 +146,7 @@
         <translation>&amp;Потврди порака...</translation>
     </message>
     <message>
-        <source>TPC</source>
+        <source>Tapyrus</source>
         <translation>Биткоин</translation>
     </message>
     <message>
@@ -299,7 +299,7 @@
 <context>
     <name>Intro</name>
     <message>
-        <source>TPC</source>
+        <source>Tapyrus</source>
         <translation>Биткоин</translation>
     </message>
     <message>
@@ -588,9 +588,9 @@
     <name>WalletView</name>
     </context>
 <context>
-    <name>TPC-core</name>
+    <name>Tapyrus-core</name>
     <message>
-        <source>TPC Core</source>
+        <source>Tapyrus Core</source>
         <translation>Биткоин Core</translation>
     </message>
     <message>

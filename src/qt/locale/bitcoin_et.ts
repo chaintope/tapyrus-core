@@ -66,12 +66,12 @@
         <translation>Vastuvõtvad aadressid</translation>
     </message>
     <message>
-        <source>These are your TPC addresses for sending payments. Always check the amount and the receiving address before sending coins.</source>
-        <translation>Need on sinu TPC aadressid maksete saatmiseks. Ennem müntide saatmist kontrolli alati summat ja makse saaja aadressi.</translation>
+        <source>These are your Tapyrus addresses for sending payments. Always check the amount and the receiving address before sending coins.</source>
+        <translation>Need on sinu Tapyrus aadressid maksete saatmiseks. Ennem müntide saatmist kontrolli alati summat ja makse saaja aadressi.</translation>
     </message>
     <message>
-        <source>These are your TPC addresses for receiving payments. It is recommended to use a new receiving address for each transaction.</source>
-        <translation>Need on sinu TPC aadressid sisenevate maksete vastu võtmiseks. Soovitav on iga tehingu tarbeks kasutada uut aadressi.</translation>
+        <source>These are your Tapyrus addresses for receiving payments. It is recommended to use a new receiving address for each transaction.</source>
+        <translation>Need on sinu Tapyrus aadressid sisenevate maksete vastu võtmiseks. Soovitav on iga tehingu tarbeks kasutada uut aadressi.</translation>
     </message>
     <message>
         <source>&amp;Copy Address</source>
@@ -172,8 +172,8 @@
         <translation>Kinnita rahakoti krüpteerimine.</translation>
     </message>
     <message>
-        <source>Warning: If you encrypt your wallet and lose your passphrase, you will &lt;b&gt;LOSE ALL OF YOUR TPCS&lt;/b&gt;!</source>
-        <translation>Hoiatus:Kui sa krüpteerid oma rahakoti ja kaotad salafraasi, siis sa&lt;b&gt;KAOTAD OMA TPCID&lt;/b&gt;!</translation>
+        <source>Warning: If you encrypt your wallet and lose your passphrase, you will &lt;b&gt;LOSE ALL OF YOUR Tapyrus&lt;/b&gt;!</source>
+        <translation>Hoiatus:Kui sa krüpteerid oma rahakoti ja kaotad salafraasi, siis sa&lt;b&gt;KAOTAD OMA TapyrusID&lt;/b&gt;!</translation>
     </message>
     <message>
         <source>Are you sure you wish to encrypt your wallet?</source>
@@ -224,7 +224,7 @@
     </message>
     </context>
 <context>
-    <name>TPCGUI</name>
+    <name>TapyrusGUI</name>
     <message>
         <source>Sign &amp;message...</source>
         <translation>Signeeri &amp;sõnum</translation>
@@ -294,8 +294,8 @@
         <translation>Kettal olevate blokkide re-indekseerimine...</translation>
     </message>
     <message>
-        <source>Send coins to a TPC address</source>
-        <translation>Saada münte TPCi aadressile</translation>
+        <source>Send coins to a Tapyrus address</source>
+        <translation>Saada münte Tapyrusi aadressile</translation>
     </message>
     <message>
         <source>Backup wallet to another location</source>
@@ -318,8 +318,8 @@
         <translation>&amp;Kontrolli sõnumit...</translation>
     </message>
     <message>
-        <source>TPC</source>
-        <translation>TPC</translation>
+        <source>Tapyrus</source>
+        <translation>Tapyrus</translation>
     </message>
     <message>
         <source>Wallet</source>
@@ -346,12 +346,12 @@
         <translation>Krüpteeri oma rahakoti privaatvõtmed</translation>
     </message>
     <message>
-        <source>Sign messages with your TPC addresses to prove you own them</source>
-        <translation>Omandi tõestamiseks allkirjasta sõnumid oma TPCi aadressiga</translation>
+        <source>Sign messages with your Tapyrus addresses to prove you own them</source>
+        <translation>Omandi tõestamiseks allkirjasta sõnumid oma Tapyrusi aadressiga</translation>
     </message>
     <message>
-        <source>Verify messages to ensure they were signed with specified TPC addresses</source>
-        <translation>Kinnita sõnumid kindlustamaks et need allkirjastati määratud TPCi aadressiga</translation>
+        <source>Verify messages to ensure they were signed with specified Tapyrus addresses</source>
+        <translation>Kinnita sõnumid kindlustamaks et need allkirjastati määratud Tapyrusi aadressiga</translation>
     </message>
     <message>
         <source>&amp;File</source>
@@ -370,20 +370,20 @@
         <translation>Vahelehe tööriistariba</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and TPC: URIs)</source>
-        <translation>Loo maksepäring (genereerib QR koodid ja TPCi: URId)</translation>
+        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
+        <translation>Loo maksepäring (genereerib QR koodid ja Tapyrusi: URId)</translation>
     </message>
     <message>
-        <source>Open a TPC: URI or payment request</source>
-        <translation>Ava TPCi: URI või maksepäring</translation>
+        <source>Open a Tapyrus: URI or payment request</source>
+        <translation>Ava Tapyrusi: URI või maksepäring</translation>
     </message>
     <message>
         <source>&amp;Command-line options</source>
         <translation>Käsurea valikud</translation>
     </message>
     <message numerus="yes">
-        <source>%n active connection(s) to TPC network</source>
-        <translation><numerusform>%n aktiivne ühendus TPCi võrku</numerusform><numerusform>%n aktiivset ühendust TPCi võrku</numerusform></translation>
+        <source>%n active connection(s) to Tapyrus network</source>
+        <translation><numerusform>%n aktiivne ühendus Tapyrusi võrku</numerusform><numerusform>%n aktiivset ühendust Tapyrusi võrku</numerusform></translation>
     </message>
     <message>
         <source>Indexing blocks on disk...</source>
@@ -626,8 +626,8 @@
         <translation>Muuda saatvat aadressi</translation>
     </message>
     <message>
-        <source>The entered address "%1" is not a valid TPC address.</source>
-        <translation>Sisestatud aadress "%1" ei ole korrektne TPC aadress.</translation>
+        <source>The entered address "%1" is not a valid Tapyrus address.</source>
+        <translation>Sisestatud aadress "%1" ei ole korrektne Tapyrus aadress.</translation>
     </message>
     <message>
         <source>Could not unlock wallet.</source>
@@ -663,8 +663,8 @@
         <translation>Teretulemast</translation>
     </message>
     <message>
-        <source>TPC</source>
-        <translation>TPC</translation>
+        <source>Tapyrus</source>
+        <translation>Tapyrus</translation>
     </message>
     <message>
         <source>Error</source>
@@ -740,8 +740,8 @@
         <translation>Ekspert</translation>
     </message>
     <message>
-        <source>Automatically open the TPC client port on the router. This only works when your router supports UPnP and it is enabled.</source>
-        <translation>TPCi kliendi pordi automaatne avamine ruuteris. Toimib, kui sinu ruuter aktsepteerib UPnP ühendust.</translation>
+        <source>Automatically open the Tapyrus client port on the router. This only works when your router supports UPnP and it is enabled.</source>
+        <translation>Tapyrusi kliendi pordi automaatne avamine ruuteris. Toimib, kui sinu ruuter aktsepteerib UPnP ühendust.</translation>
     </message>
     <message>
         <source>Map port using &amp;UPnP</source>
@@ -839,7 +839,7 @@
         <translation>Vorm</translation>
     </message>
     <message>
-        <source>The displayed information may be out of date. Your wallet automatically synchronizes with the TPC network after a connection is established, but this process has not completed yet.</source>
+        <source>The displayed information may be out of date. Your wallet automatically synchronizes with the Tapyrus network after a connection is established, but this process has not completed yet.</source>
         <translation>Kuvatav info ei pruugi olla ajakohane. Ühenduse loomisel süngitakse sinu rahakott automaatselt Bitconi võrgustikuga, kuid see toiming on hetkel lõpetamata.</translation>
     </message>
     <message>
@@ -1345,8 +1345,8 @@
         <translation>Maksepäring aegunud.</translation>
     </message>
     <message>
-        <source>Warning: Invalid TPC address</source>
-        <translation>Hoiatus: Ebakorrektne TPC aadress</translation>
+        <source>Warning: Invalid Tapyrus address</source>
+        <translation>Hoiatus: Ebakorrektne Tapyrus aadress</translation>
     </message>
     <message>
         <source>(no label)</source>
@@ -1429,8 +1429,8 @@
         <translation>&amp;Allkirjastamise teade</translation>
     </message>
     <message>
-        <source>The TPC address to sign the message with</source>
-        <translation>TPC aadress millega sõnum allkirjastada</translation>
+        <source>The Tapyrus address to sign the message with</source>
+        <translation>Tapyrus aadress millega sõnum allkirjastada</translation>
     </message>
     <message>
         <source>Choose previously used address</source>
@@ -1461,8 +1461,8 @@
         <translation>Kopeeri praegune signatuur vahemällu</translation>
     </message>
     <message>
-        <source>Sign the message to prove you own this TPC address</source>
-        <translation>Allkirjasta sõnum TPCi aadressi sulle kuulumise tõestamiseks</translation>
+        <source>Sign the message to prove you own this Tapyrus address</source>
+        <translation>Allkirjasta sõnum Tapyrusi aadressi sulle kuulumise tõestamiseks</translation>
     </message>
     <message>
         <source>Sign &amp;Message</source>
@@ -1481,12 +1481,12 @@
         <translation>&amp;Kinnita Sõnum</translation>
     </message>
     <message>
-        <source>The TPC address the message was signed with</source>
-        <translation>TPC aadress millega sõnum on allkirjastatud</translation>
+        <source>The Tapyrus address the message was signed with</source>
+        <translation>Tapyrus aadress millega sõnum on allkirjastatud</translation>
     </message>
     <message>
-        <source>Verify the message to ensure it was signed with the specified TPC address</source>
-        <translation>Kinnita sõnum tõestamaks selle allkirjastatust määratud TPCi aadressiga.</translation>
+        <source>Verify the message to ensure it was signed with the specified Tapyrus address</source>
+        <translation>Kinnita sõnum tõestamaks selle allkirjastatust määratud Tapyrusi aadressiga.</translation>
     </message>
     <message>
         <source>Verify &amp;Message</source>
@@ -1916,10 +1916,10 @@
     </message>
     </context>
 <context>
-    <name>TPC-core</name>
+    <name>Tapyrus-core</name>
     <message>
-        <source>TPC Core</source>
-        <translation>TPCi tuumik</translation>
+        <source>Tapyrus Core</source>
+        <translation>Tapyrusi tuumik</translation>
     </message>
     <message>
         <source>This is a pre-release test build - use at your own risk - do not use for mining or merchant applications</source>

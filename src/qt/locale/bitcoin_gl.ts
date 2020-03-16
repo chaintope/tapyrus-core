@@ -68,7 +68,7 @@
     <name>BanTableModel</name>
     </context>
 <context>
-    <name>TPCGUI</name>
+    <name>TapyrusGUI</name>
     <message>
         <source>Sign &amp;message...</source>
         <translation>&amp;Asinar mensaxe...</translation>
@@ -134,8 +134,8 @@
         <translation>Reindexando bloques no disco...</translation>
     </message>
     <message>
-        <source>Send coins to a TPC address</source>
-        <translation>Enviar moedas a unha dirección TPC</translation>
+        <source>Send coins to a Tapyrus address</source>
+        <translation>Enviar moedas a unha dirección Tapyrus</translation>
     </message>
     <message>
         <source>Backup wallet to another location</source>
@@ -158,8 +158,8 @@
         <translation>&amp;Verificar mensaxe...</translation>
     </message>
     <message>
-        <source>TPC</source>
-        <translation>TPC</translation>
+        <source>Tapyrus</source>
+        <translation>Tapyrus</translation>
     </message>
     <message>
         <source>Wallet</source>
@@ -186,12 +186,12 @@
         <translation>Encriptar as claves privadas que pertencen ao teu moedeiro</translation>
     </message>
     <message>
-        <source>Sign messages with your TPC addresses to prove you own them</source>
-        <translation>Asina mensaxes coas túas direccións TPC para probar que te pertencen</translation>
+        <source>Sign messages with your Tapyrus addresses to prove you own them</source>
+        <translation>Asina mensaxes coas túas direccións Tapyrus para probar que te pertencen</translation>
     </message>
     <message>
-        <source>Verify messages to ensure they were signed with specified TPC addresses</source>
-        <translation>Verificar mensaxes para asegurar que foron asinados con direccións TPC dadas.</translation>
+        <source>Verify messages to ensure they were signed with specified Tapyrus addresses</source>
+        <translation>Verificar mensaxes para asegurar que foron asinados con direccións Tapyrus dadas.</translation>
     </message>
     <message>
         <source>&amp;File</source>
@@ -210,8 +210,8 @@
         <translation>Barra de ferramentas</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and TPC: URIs)</source>
-        <translation>Solicitar pagos (xenera códigos QR e TPC: URIs)</translation>
+        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
+        <translation>Solicitar pagos (xenera códigos QR e Tapyrus: URIs)</translation>
     </message>
     <message>
         <source>Show the list of used sending addresses and labels</source>
@@ -222,8 +222,8 @@
         <translation>Amosar a listaxe de etiquetas e direccións para recibir empregadas</translation>
     </message>
     <message>
-        <source>Open a TPC: URI or payment request</source>
-        <translation>Abrir un TPC: URI ou solicitude de pago</translation>
+        <source>Open a Tapyrus: URI or payment request</source>
+        <translation>Abrir un Tapyrus: URI ou solicitude de pago</translation>
     </message>
     <message>
         <source>&amp;Command-line options</source>
@@ -401,8 +401,8 @@
         <translation>Empregar un directorio de datos personalizado</translation>
     </message>
     <message>
-        <source>TPC</source>
-        <translation>TPC</translation>
+        <source>Tapyrus</source>
+        <translation>Tapyrus</translation>
     </message>
     <message>
         <source>Error</source>
@@ -466,8 +466,8 @@
         <translation>Moedeiro</translation>
     </message>
     <message>
-        <source>Automatically open the TPC client port on the router. This only works when your router supports UPnP and it is enabled.</source>
-        <translation>Abrir automáticamente o porto do cliente TPC no router. Esto so funciona se o teu router soporta UPnP e está habilitado.</translation>
+        <source>Automatically open the Tapyrus client port on the router. This only works when your router supports UPnP and it is enabled.</source>
+        <translation>Abrir automáticamente o porto do cliente Tapyrus no router. Esto so funciona se o teu router soporta UPnP e está habilitado.</translation>
     </message>
     <message>
         <source>Map port using &amp;UPnP</source>
@@ -549,8 +549,8 @@
         <translation>Formulario</translation>
     </message>
     <message>
-        <source>The displayed information may be out of date. Your wallet automatically synchronizes with the TPC network after a connection is established, but this process has not completed yet.</source>
-        <translation>A información amosada por estar desactualizada. O teu moedeiro sincronízase automáticamente coa rede TPC despois de que se estableza unha conexión, pero este proceso non está todavía rematado.</translation>
+        <source>The displayed information may be out of date. Your wallet automatically synchronizes with the Tapyrus network after a connection is established, but this process has not completed yet.</source>
+        <translation>A información amosada por estar desactualizada. O teu moedeiro sincronízase automáticamente coa rede Tapyrus despois de que se estableza unha conexión, pero este proceso non está todavía rematado.</translation>
     </message>
     <message>
         <source>Your current spendable balance</source>
@@ -923,8 +923,8 @@
         <translation>Copiar a sinatura actual ao portapapeis do sistema</translation>
     </message>
     <message>
-        <source>Sign the message to prove you own this TPC address</source>
-        <translation>Asina a mensaxe para probar que posees esta dirección TPC</translation>
+        <source>Sign the message to prove you own this Tapyrus address</source>
+        <translation>Asina a mensaxe para probar que posees esta dirección Tapyrus</translation>
     </message>
     <message>
         <source>Sign &amp;Message</source>
@@ -943,8 +943,8 @@
         <translation>&amp;Verificar Mensaxe</translation>
     </message>
     <message>
-        <source>Verify the message to ensure it was signed with the specified TPC address</source>
-        <translation>Verificar a mensaxe para asegurar que foi asinada coa dirección TPC especificada</translation>
+        <source>Verify the message to ensure it was signed with the specified Tapyrus address</source>
+        <translation>Verificar a mensaxe para asegurar que foi asinada coa dirección Tapyrus especificada</translation>
     </message>
     <message>
         <source>Verify &amp;Message</source>
@@ -998,10 +998,10 @@
     <name>WalletView</name>
     </context>
 <context>
-    <name>TPC-core</name>
+    <name>Tapyrus-core</name>
     <message>
-        <source>TPC Core</source>
-        <translation>Core de TPC</translation>
+        <source>Tapyrus Core</source>
+        <translation>Core de Tapyrus</translation>
     </message>
     <message>
         <source>Corrupted block database detected</source>
