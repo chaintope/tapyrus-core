@@ -1336,8 +1336,8 @@
         <translation>URI 핸들링</translation>
     </message>
     <message>
-        <source>'Tapyrus://' is not a valid URI. Use 'Tapyrus:' instead.</source>
-        <translation>'Tapyrus://"은 잘못된 URI입니다. 'Tapyrus:'을 사용하십시오.</translation>
+        <source>'tapyrus://' is not a valid URI. Use 'tapyrus:' instead.</source>
+        <translation>'tapyrus://"은 잘못된 URI입니다. 'tapyrus:'을 사용하십시오.</translation>
     </message>
     <message>
         <source>Payment request fetch URL is invalid: %1</source>

@@ -295,7 +295,7 @@
     </message>
     <message>
         <source>Open a tapyrus: URI or payment request</source>
-        <translation>Atvērt Tapyrus URI vai maksājuma pieprasījumu</translation>
+        <translation>Atvērt tapyrus URI vai maksājuma pieprasījumu</translation>
     </message>
     <message>
         <source>&amp;Command-line options</source>

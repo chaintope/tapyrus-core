@@ -447,7 +447,7 @@
     </message>
     <message>
         <source>Open a tapyrus: URI or payment request</source>
-        <translation>Otvoriť Tapyrus URI alebo výzvu k platbe</translation>
+        <translation>Otvoriť tapyrus URI alebo výzvu k platbe</translation>
     </message>
     <message>
         <source>&amp;Command-line options</source>
@@ -1316,8 +1316,8 @@
         <translation>URI manipulácia</translation>
     </message>
     <message>
-        <source>'Tapyrus://' is not a valid URI. Use 'Tapyrus:' instead.</source>
-        <translation>'Tapyrus://' je neplatná URI. Použite 'Tapyrus:'</translation>
+        <source>'tapyrus://' is not a valid URI. Use 'tapyrus:' instead.</source>
+        <translation>'tapyrus://' je neplatná URI. Použite 'tapyrus:'</translation>
     </message>
     <message>
         <source>Payment request fetch URL is invalid: %1</source>

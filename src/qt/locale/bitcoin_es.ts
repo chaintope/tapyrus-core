@@ -435,7 +435,7 @@
     </message>
     <message>
         <source>Request payments (generates QR codes and tapyrus: URIs)</source>
-        <translation>Solicitar pagos (generando códigos QR e identificadores URI "Tapyrus:")</translation>
+        <translation>Solicitar pagos (generando códigos QR e identificadores URI "tapyrus:")</translation>
     </message>
     <message>
         <source>Show the list of used sending addresses and labels</source>
@@ -447,7 +447,7 @@
     </message>
     <message>
         <source>Open a tapyrus: URI or payment request</source>
-        <translation>Abrir un identificador URI "Tapyrus:" o una petición de pago</translation>
+        <translation>Abrir un identificador URI "tapyrus:" o una petición de pago</translation>
     </message>
     <message>
         <source>&amp;Command-line options</source>
@@ -1335,8 +1335,8 @@
         <translation>Manejo de URI</translation>
     </message>
     <message>
-        <source>'Tapyrus://' is not a valid URI. Use 'Tapyrus:' instead.</source>
-        <translation>'Tapyrus: //' no es un URI válido. Use 'Tapyrus:' en su lugar.</translation>
+        <source>'tapyrus://' is not a valid URI. Use 'tapyrus:' instead.</source>
+        <translation>'tapyrus: //' no es un URI válido. Use 'tapyrus:' en su lugar.</translation>
     </message>
     <message>
         <source>Payment request fetch URL is invalid: %1</source>

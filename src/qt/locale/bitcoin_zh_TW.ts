@@ -435,7 +435,7 @@
     </message>
     <message>
         <source>Request payments (generates QR codes and tapyrus: URIs)</source>
-        <translation>要求付款(產生 QR Code 和 Tapyrus 付款協議的資源識別碼: URI)</translation>
+        <translation>要求付款(產生 QR Code 和 tapyrus 付款協議的資源識別碼: URI)</translation>
     </message>
     <message>
         <source>Show the list of used sending addresses and labels</source>
@@ -1336,8 +1336,8 @@
         <translation>URI 處理</translation>
     </message>
     <message>
-        <source>'Tapyrus://' is not a valid URI. Use 'Tapyrus:' instead.</source>
-        <translation>字首為 Tapyrus:// 不是有效的 URI，請改用 Tapyrus: 開頭。</translation>
+        <source>'tapyrus://' is not a valid URI. Use 'tapyrus:' instead.</source>
+        <translation>字首為 tapyrus:// 不是有效的 URI，請改用 tapyrus: 開頭。</translation>
     </message>
     <message>
         <source>Payment request fetch URL is invalid: %1</source>

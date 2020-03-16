@@ -1696,7 +1696,7 @@
     </message>
     <message>
         <location line="-41"/>
-        <source>&apos;Tapyrus://&apos; is not a valid URI. Use &apos;Tapyrus:&apos; instead.</source>
+        <source>&apos;tapyrus://&apos; is not a valid URI. Use &apos;tapyrus:&apos; instead.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

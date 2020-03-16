@@ -1332,8 +1332,8 @@
         <translation>Manipulação de URI</translation>
     </message>
     <message>
-        <source>'Tapyrus://' is not a valid URI. Use 'Tapyrus:' instead.</source>
-        <translation>'Tapyrus://' não é um URI válido. Use 'Tapyrus:'.</translation>
+        <source>'tapyrus://' is not a valid URI. Use 'tapyrus:' instead.</source>
+        <translation>'tapyrus://' não é um URI válido. Use 'tapyrus:'.</translation>
     </message>
     <message>
         <source>Payment request fetch URL is invalid: %1</source>

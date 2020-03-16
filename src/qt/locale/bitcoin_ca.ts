@@ -1336,8 +1336,8 @@
         <translation>Gestió d'URI</translation>
     </message>
     <message>
-        <source>'Tapyrus://' is not a valid URI. Use 'Tapyrus:' instead.</source>
-        <translation>'Tapyrus://' no és una URI vàlida. Usi 'Tapyrus:' en lloc seu.</translation>
+        <source>'tapyrus://' is not a valid URI. Use 'tapyrus:' instead.</source>
+        <translation>'tapyrus://' no és una URI vàlida. Usi 'tapyrus:' en lloc seu.</translation>
     </message>
     <message>
         <source>Payment request fetch URL is invalid: %1</source>

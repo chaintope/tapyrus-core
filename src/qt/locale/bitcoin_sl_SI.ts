@@ -1589,7 +1589,7 @@
     </message>
     <message>
         <source>A message that was attached to the tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</source>
-        <translation>Sporočilo, ki ste ga pripeli na URI tipa Tapyrus:. Shranjeno bo skupaj s podatki o transakciji. Opomba: Sporočilo ne bo poslano preko omrežja Tapyrus.</translation>
+        <translation>Sporočilo, ki ste ga pripeli na URI tipa tapyrus:. Shranjeno bo skupaj s podatki o transakciji. Opomba: Sporočilo ne bo poslano preko omrežja Tapyrus.</translation>
     </message>
     <message>
         <source>Pay To:</source>

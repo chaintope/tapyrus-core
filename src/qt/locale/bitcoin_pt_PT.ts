@@ -447,7 +447,7 @@
     </message>
     <message>
         <source>Open a tapyrus: URI or payment request</source>
-        <translation>Abrir URI Tapyrus: ou pedido de pagamento</translation>
+        <translation>Abrir URI tapyrus: ou pedido de pagamento</translation>
     </message>
     <message>
         <source>&amp;Command-line options</source>
@@ -1313,8 +1313,8 @@
         <translation>Manuseamento de URI</translation>
     </message>
     <message>
-        <source>'Tapyrus://' is not a valid URI. Use 'Tapyrus:' instead.</source>
-        <translation>'Tapyrus://' não é um URI válido. Utilize 'Tapyrus:'.</translation>
+        <source>'tapyrus://' is not a valid URI. Use 'tapyrus:' instead.</source>
+        <translation>'tapyrus://' não é um URI válido. Utilize 'tapyrus:'.</translation>
     </message>
     <message>
         <source>Payment request fetch URL is invalid: %1</source>
@@ -2365,7 +2365,7 @@
     </message>
     <message>
         <source>A message that was attached to the tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</source>
-        <translation>Uma mensagem que estava anexada ao URI Tapyrus: que será armazenada com a transação para sua referência. Nota: Esta mensagem não será enviada através da rede Tapyrus.</translation>
+        <translation>Uma mensagem que estava anexada ao URI tapyrus: que será armazenada com a transação para sua referência. Nota: Esta mensagem não será enviada através da rede Tapyrus.</translation>
     </message>
     <message>
         <source>Pay To:</source>

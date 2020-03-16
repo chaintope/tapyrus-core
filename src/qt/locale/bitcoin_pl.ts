@@ -435,7 +435,7 @@
     </message>
     <message>
         <source>Request payments (generates QR codes and tapyrus: URIs)</source>
-        <translation>Żądaj płatności (generuje kod QR oraz Tapyrusowe URI)</translation>
+        <translation>Żądaj płatności (generuje kod QR oraz tapyrus: URIs)</translation>
     </message>
     <message>
         <source>Show the list of used sending addresses and labels</source>
@@ -447,7 +447,7 @@
     </message>
     <message>
         <source>Open a tapyrus: URI or payment request</source>
-        <translation>Otwórz URI Tapyrus: lub żądanie zapłaty</translation>
+        <translation>Otwórz URI tapyrus: lub żądanie zapłaty</translation>
     </message>
     <message>
         <source>&amp;Command-line options</source>
@@ -1336,8 +1336,8 @@
         <translation>Obsługa URI</translation>
     </message>
     <message>
-        <source>'Tapyrus://' is not a valid URI. Use 'Tapyrus:' instead.</source>
-        <translation>'Tapyrus://' nie jest poprawnym URI. Użyj 'Tapyrus:'.</translation>
+        <source>'tapyrus://' is not a valid URI. Use 'tapyrus:' instead.</source>
+        <translation>'tapyrus://' nie jest poprawnym URI. Użyj 'tapyrus:'.</translation>
     </message>
     <message>
         <source>Payment request fetch URL is invalid: %1</source>
@@ -2424,7 +2424,7 @@ Uwaga: Ponieważ opłata jest naliczana za każdy bajt, opłata "100 tapyrus za 
     </message>
     <message>
         <source>A message that was attached to the tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</source>
-        <translation>Wiadomość, która została dołączona do URI Tapyrus:, która będzie przechowywana wraz z transakcją w celach informacyjnych. Uwaga: Ta wiadomość nie będzie rozsyłana w sieci Tapyrus.</translation>
+        <translation>Wiadomość, która została dołączona do URI tapyrus:, która będzie przechowywana wraz z transakcją w celach informacyjnych. Uwaga: Ta wiadomość nie będzie rozsyłana w sieci Tapyrus.</translation>
     </message>
     <message>
         <source>Pay To:</source>

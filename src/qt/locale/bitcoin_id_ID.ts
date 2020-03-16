@@ -435,7 +435,7 @@
     </message>
     <message>
         <source>Open a tapyrus: URI or payment request</source>
-        <translation>Buka URI Tapyrus: atau permintaan pembayaran</translation>
+        <translation>Buka URI tapyrus: atau permintaan pembayaran</translation>
     </message>
     <message>
         <source>&amp;Command-line options</source>

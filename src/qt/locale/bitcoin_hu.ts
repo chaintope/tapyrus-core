@@ -420,7 +420,7 @@ Kérem a kulcsmondatban használjon &lt;b&gt; tíz vagy több véletlenszerű ka
     </message>
     <message>
         <source>Request payments (generates QR codes and tapyrus: URIs)</source>
-        <translation>Fizetési kérelem (QR-kódot és "Tapyrus:" URI azonosítót hoz létre)</translation>
+        <translation>Fizetési kérelem (QR-kódot és "tapyrus:" URI azonosítót hoz létre)</translation>
     </message>
     <message>
         <source>Show the list of used sending addresses and labels</source>
@@ -432,7 +432,7 @@ Kérem a kulcsmondatban használjon &lt;b&gt; tíz vagy több véletlenszerű ka
     </message>
     <message>
         <source>Open a tapyrus: URI or payment request</source>
-        <translation>"Tapyrus:" URI azonosító vagy fizetési kérelem megnyitása</translation>
+        <translation>"tapyrus:" URI azonosító vagy fizetési kérelem megnyitása</translation>
     </message>
     <message>
         <source>&amp;Command-line options</source>

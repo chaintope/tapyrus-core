@@ -1312,8 +1312,8 @@
         <translation>טיפול בכתובות</translation>
     </message>
     <message>
-        <source>'Tapyrus://' is not a valid URI. Use 'Tapyrus:' instead.</source>
-        <translation>'//:Tapyrus' אינה כתובת URI תקינה. השתמשו במקום ב ':Tapyrus'.</translation>
+        <source>'tapyrus://' is not a valid URI. Use 'tapyrus:' instead.</source>
+        <translation>'//:tapyrus' אינה כתובת URI תקינה. השתמשו במקום ב ':tapyrus'.</translation>
     </message>
     <message>
         <source>Payment request fetch URL is invalid: %1</source>

@@ -1329,8 +1329,8 @@ Per specificare più URL separarli con una barra verticale "|".</translation>
         <translation>Gestione URI</translation>
     </message>
     <message>
-        <source>'Tapyrus://' is not a valid URI. Use 'Tapyrus:' instead.</source>
-        <translation>'Tapyrus: //' non è un URI valido. Usa invece "Tapyrus:".</translation>
+        <source>'tapyrus://' is not a valid URI. Use 'tapyrus:' instead.</source>
+        <translation>'tapyrus: //' non è un URI valido. Usa invece "tapyrus:".</translation>
     </message>
     <message>
         <source>Payment request fetch URL is invalid: %1</source>
@@ -2400,7 +2400,7 @@ Nota: poiché la commissione è calcolata su base per byte, una commissione di "
     </message>
     <message>
         <source>A message that was attached to the tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</source>
-        <translation>Messaggio incluso nel Tapyrus URI e che sarà memorizzato con la transazione per vostro riferimento. Nota: Questo messaggio non sarà inviato attraverso la rete Tapyrus.</translation>
+        <translation>Messaggio incluso nel tapyrus URI e che sarà memorizzato con la transazione per vostro riferimento. Nota: Questo messaggio non sarà inviato attraverso la rete Tapyrus.</translation>
     </message>
     <message>
         <source>Pay To:</source>
