@@ -338,8 +338,8 @@
         <translation>Muestra la lista de direcciones de recepción y etiquetas</translation>
     </message>
     <message>
-        <source>Open a Tapyrus: URI or payment request</source>
-        <translation>Abrir un Tapyrus: URI o petición de pago</translation>
+        <source>Open a tapyrus: URI or payment request</source>
+        <translation>Abrir un tapyrus: URI o petición de pago</translation>
     </message>
     <message>
         <source>&amp;Command-line options</source>

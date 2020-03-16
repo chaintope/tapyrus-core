@@ -362,8 +362,8 @@
         <translation>Vidigi la liston de uzitaj ricevaj adresoj kaj etikedoj</translation>
     </message>
     <message>
-        <source>Open a Tapyrus: URI or payment request</source>
-        <translation>Malfermi Tapyrus:-URI-on aŭ pagpeton</translation>
+        <source>Open a tapyrus: URI or payment request</source>
+        <translation>Malfermi tapyrus:-URI-on aŭ pagpeton</translation>
     </message>
     <message>
         <source>&amp;Command-line options</source>

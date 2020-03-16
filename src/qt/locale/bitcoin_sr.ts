@@ -446,7 +446,7 @@
         <translation>Прегледајте листу коришћених адреса и етикета за пријем уплата</translation>
     </message>
     <message>
-        <source>Open a Tapyrus: URI or payment request</source>
+        <source>Open a tapyrus: URI or payment request</source>
         <translation>Отворите биткоин: URI или захтев за плаћање</translation>
     </message>
     <message>

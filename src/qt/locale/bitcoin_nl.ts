@@ -435,7 +435,7 @@
     </message>
     <message>
         <source>Request payments (generates QR codes and tapyrus: URIs)</source>
-        <translation>Vraag betaling aan (genereert QR-codes en Tapyrus: URI's)</translation>
+        <translation>Vraag betaling aan (genereert QR-codes en tapyrus: URI's)</translation>
     </message>
     <message>
         <source>Show the list of used sending addresses and labels</source>
@@ -446,8 +446,8 @@
         <translation>Toon de lijst met gebruikte ontvangstadressen en labels</translation>
     </message>
     <message>
-        <source>Open a Tapyrus: URI or payment request</source>
-        <translation>Open een Tapyrus: URI of betalingsverzoek</translation>
+        <source>Open a tapyrus: URI or payment request</source>
+        <translation>Open een tapyrus: URI of betalingsverzoek</translation>
     </message>
     <message>
         <source>&amp;Command-line options</source>
@@ -2422,8 +2422,8 @@ Notitie: Omdat de vergoeding per byte wordt gerekend, zal een vergoeding van "10
         <translation>Vul een label voor dit adres in om het aan de lijst met gebruikte adressen toe te voegen</translation>
     </message>
     <message>
-        <source>A message that was attached to the Tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</source>
-        <translation>Een bericht dat werd toegevoegd aan de Tapyrus: URI welke wordt opgeslagen met de transactie ter referentie. Opmerking: Dit bericht zal niet worden verzonden over het Tapyrusnetwerk.</translation>
+        <source>A message that was attached to the tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</source>
+        <translation>Een bericht dat werd toegevoegd aan de tapyrus: URI welke wordt opgeslagen met de transactie ter referentie. Opmerking: Dit bericht zal niet worden verzonden over het Tapyrusnetwerk.</translation>
     </message>
     <message>
         <source>Pay To:</source>

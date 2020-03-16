@@ -424,7 +424,7 @@ Var vänlig och försök igen.</translation>
     </message>
     <message>
         <source>Request payments (generates QR codes and tapyrus: URIs)</source>
-        <translation>Begär betalningar (skapar QR-koder och Tapyrus: -URIer)</translation>
+        <translation>Begär betalningar (skapar QR-koder och tapyrus: -URIer)</translation>
     </message>
     <message>
         <source>Show the list of used sending addresses and labels</source>
@@ -435,8 +435,8 @@ Var vänlig och försök igen.</translation>
         <translation>Visa listan med använda mottagningsadresser och etiketter</translation>
     </message>
     <message>
-        <source>Open a Tapyrus: URI or payment request</source>
-        <translation>Öppna en Tapyrus: URI eller betalningsbegäran</translation>
+        <source>Open a tapyrus: URI or payment request</source>
+        <translation>Öppna en tapyrus: URI eller betalningsbegäran</translation>
     </message>
     <message>
         <source>&amp;Command-line options</source>
@@ -2317,8 +2317,8 @@ Var vänlig och försök igen.</translation>
         <translation>Ange en etikett för denna adress för att lägga till den i listan med använda adresser</translation>
     </message>
     <message>
-        <source>A message that was attached to the Tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</source>
-        <translation>Ett meddelande som bifogades Tapyrus: -URIn och som lagras med transaktionen som referens. NB: Meddelandet kommer inte att sändas över Tapyrus-nätverket.</translation>
+        <source>A message that was attached to the tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</source>
+        <translation>Ett meddelande som bifogades tapyrus: -URIn och som lagras med transaktionen som referens. NB: Meddelandet kommer inte att sändas över Tapyrus-nätverket.</translation>
     </message>
     <message>
         <source>Pay To:</source>

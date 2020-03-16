@@ -565,7 +565,7 @@
     </message>
     <message>
         <location line="+3"/>
-        <source>Open a Tapyrus: URI or payment request</source>
+        <source>Open a tapyrus: URI or payment request</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3122,7 +3122,7 @@ Note:  Since the fee is calculated on a per-byte basis, a fee of &quot;100 tapyr
     </message>
     <message>
         <location line="+54"/>
-        <source>A message that was attached to the Tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</source>
+        <source>A message that was attached to the tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

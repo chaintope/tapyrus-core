@@ -442,7 +442,7 @@
         <translation>Preglejte in uredite seznam naslovov, na katere ste kdaj prejeli plačila</translation>
     </message>
     <message>
-        <source>Open a Tapyrus: URI or payment request</source>
+        <source>Open a tapyrus: URI or payment request</source>
         <translation>Izvedite plačilo iz zahtevka v datoteki ali iz URI tipa Tapyrus:</translation>
     </message>
     <message>
@@ -1588,7 +1588,7 @@
         <translation>Če vnesete oznako za zgornji naslov, se bo skupaj z naslovom shranila v imenk že uporabljenih naslovov</translation>
     </message>
     <message>
-        <source>A message that was attached to the Tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</source>
+        <source>A message that was attached to the tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</source>
         <translation>Sporočilo, ki ste ga pripeli na URI tipa Tapyrus:. Shranjeno bo skupaj s podatki o transakciji. Opomba: Sporočilo ne bo poslano preko omrežja Tapyrus.</translation>
     </message>
     <message>

@@ -411,7 +411,7 @@
     </message>
     <message>
         <source>Request payments (generates QR codes and tapyrus: URIs)</source>
-        <translation>Versoek betalings (genereer QR-kodes en Tapyrus: URI's)</translation>
+        <translation>Versoek betalings (genereer QR-kodes en tapyrus: URI's)</translation>
     </message>
     <message>
         <source>Show the list of used sending addresses and labels</source>
@@ -422,8 +422,8 @@
         <translation>Vertoon die lys van gebruikte ontvangers-adresse en etikette</translation>
     </message>
     <message>
-        <source>Open a Tapyrus: URI or payment request</source>
-        <translation>Skep 'n Tapyrus: URI of betalingsversoek</translation>
+        <source>Open a tapyrus: URI or payment request</source>
+        <translation>Skep 'n tapyrus: URI of betalingsversoek</translation>
     </message>
     <message>
         <source>&amp;Command-line options</source>

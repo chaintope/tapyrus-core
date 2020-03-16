@@ -430,7 +430,7 @@
         <translation>Показать список использованных адресов и меток получателей</translation>
     </message>
     <message>
-        <source>Open a Tapyrus: URI or payment request</source>
+        <source>Open a tapyrus: URI or payment request</source>
         <translation>Открыть биткойн: URI или запрос платежа</translation>
     </message>
     <message>

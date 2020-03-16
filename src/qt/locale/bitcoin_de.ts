@@ -435,7 +435,7 @@
     </message>
     <message>
         <source>Request payments (generates QR codes and tapyrus: URIs)</source>
-        <translation>Zahlungen anfordern (erzeugt QR-Codes und "Tapyrus:"-URIs)</translation>
+        <translation>Zahlungen anfordern (erzeugt QR-Codes und "tapyrus:"-URIs)</translation>
     </message>
     <message>
         <source>Show the list of used sending addresses and labels</source>
@@ -446,8 +446,8 @@
         <translation>Liste verwendeter Empfangsadressen und Bezeichnungen anzeigen</translation>
     </message>
     <message>
-        <source>Open a Tapyrus: URI or payment request</source>
-        <translation>Eine "Tapyrus:"-URI oder Zahlungsanforderung öffnen</translation>
+        <source>Open a tapyrus: URI or payment request</source>
+        <translation>Eine "tapyrus:"-URI oder Zahlungsanforderung öffnen</translation>
     </message>
     <message>
         <source>&amp;Command-line options</source>
@@ -1332,8 +1332,8 @@
         <translation>URI-Verarbeitung</translation>
     </message>
     <message>
-        <source>'Tapyrus://' is not a valid URI. Use 'Tapyrus:' instead.</source>
-        <translation>'Tapyrus://' ist kein gültiger URL. Bitte 'Tapyrus:' nutzen.</translation>
+        <source>'tapyrus://' is not a valid URI. Use 'tapyrus:' instead.</source>
+        <translation>'tapyrus://' ist kein gültiger URL. Bitte 'tapyrus:' nutzen.</translation>
     </message>
     <message>
         <source>Payment request fetch URL is invalid: %1</source>
@@ -2418,8 +2418,8 @@ Hinweis: Eine Gebühr von "100 tapyrus pro kB" bei einer Größe der Transaktion
         <translation>Adressbezeichnung eingeben, die dann zusammen mit der Adresse der Liste bereits verwendeter Adressen hinzugefügt wird.</translation>
     </message>
     <message>
-        <source>A message that was attached to the Tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</source>
-        <translation>Eine an die "Tapyrus:"-URI angefügte Nachricht, die zusammen mit der Transaktion gespeichert wird. Hinweis: Diese Nachricht wird nicht über das Tapyrus-Netzwerk gesendet.</translation>
+        <source>A message that was attached to the tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</source>
+        <translation>Eine an die "tapyrus:"-URI angefügte Nachricht, die zusammen mit der Transaktion gespeichert wird. Hinweis: Diese Nachricht wird nicht über das Tapyrus-Netzwerk gesendet.</translation>
     </message>
     <message>
         <source>Pay To:</source>

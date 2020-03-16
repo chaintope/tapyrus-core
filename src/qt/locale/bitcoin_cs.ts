@@ -431,7 +431,7 @@
     </message>
     <message>
         <source>Request payments (generates QR codes and tapyrus: URIs)</source>
-        <translation>Požaduj platby (generuje QR kódy a Tapyrus: URI)</translation>
+        <translation>Požaduj platby (generuje QR kódy a tapyrus: URI)</translation>
     </message>
     <message>
         <source>Show the list of used sending addresses and labels</source>
@@ -442,8 +442,8 @@
         <translation>Ukaž seznam použitých přijímacích adres a jejich označení</translation>
     </message>
     <message>
-        <source>Open a Tapyrus: URI or payment request</source>
-        <translation>Načti Tapyrus: URI nebo platební požadavek</translation>
+        <source>Open a tapyrus: URI or payment request</source>
+        <translation>Načti tapyrus: URI nebo platební požadavek</translation>
     </message>
     <message>
         <source>&amp;Command-line options</source>
@@ -1302,8 +1302,8 @@
         <translation>Zpracování URI</translation>
     </message>
     <message>
-        <source>'Tapyrus://' is not a valid URI. Use 'Tapyrus:' instead.</source>
-        <translation>'Tapyrus://' není platné URI. Místo toho použij 'Tapyrus:'.</translation>
+        <source>'tapyrus://' is not a valid URI. Use 'tapyrus:' instead.</source>
+        <translation>'tapyrus://' není platné URI. Místo toho použij 'tapyrus:'.</translation>
     </message>
     <message>
         <source>Payment request fetch URL is invalid: %1</source>
@@ -2312,8 +2312,8 @@
         <translation>Zadej označení této adresy; obojí se ti pak uloží do adresáře</translation>
     </message>
     <message>
-        <source>A message that was attached to the Tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</source>
-        <translation>Zpráva, která byla připojena k Tapyrus: URI a která se ti pro přehled uloží k transakci. Poznámka: Tahle zpráva se neposílá s platbou po Tapyrusové síti.</translation>
+        <source>A message that was attached to the tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</source>
+        <translation>Zpráva, která byla připojena k tapyrus: URI a která se ti pro přehled uloží k transakci. Poznámka: Tahle zpráva se neposílá s platbou po Tapyrusové síti.</translation>
     </message>
     <message>
         <source>Pay To:</source>

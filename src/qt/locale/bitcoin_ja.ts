@@ -446,8 +446,8 @@
         <translation>支払いを受け取るアドレスとラベルのリストを表示する</translation>
     </message>
     <message>
-        <source>Open a Tapyrus: URI or payment request</source>
-        <translation>Tapyrus: URIまたは支払いリクエストを開く</translation>
+        <source>Open a tapyrus: URI or payment request</source>
+        <translation>tapyrus: URIまたは支払いリクエストを開く</translation>
     </message>
     <message>
         <source>&amp;Command-line options</source>
@@ -2422,8 +2422,8 @@ Note:  Since the fee is calculated on a per-byte basis, a fee of "100 tapyrus pe
         <translation>このアドレスに対するラベルを入力することで、使用済みアドレスの一覧に追加することができます</translation>
     </message>
     <message>
-        <source>A message that was attached to the Tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</source>
-        <translation>Tapyrus: URIに添付されていたメッセージです。これは参照用としてトランザクションとともに保存されます。注意：このメッセージはTapyrusネットワークを通して送信されるわけではありません。</translation>
+        <source>A message that was attached to the tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</source>
+        <translation>tapyrus: URIに添付されていたメッセージです。これは参照用としてトランザクションとともに保存されます。注意：このメッセージはTapyrusネットワークを通して送信されるわけではありません。</translation>
     </message>
     <message>
         <source>Pay To:</source>

@@ -423,7 +423,7 @@
     </message>
     <message>
         <source>Request payments (generates QR codes and tapyrus: URIs)</source>
-        <translation>Pide pagos (genera codigos QR and Tapyrus: URls)</translation>
+        <translation>Pide pagos (genera codigos QR and tapyrus: URls)</translation>
     </message>
     <message>
         <source>Show the list of used sending addresses and labels</source>
@@ -434,8 +434,8 @@
         <translation>Mostrar la lista de direcciones de recepción y etiquetas</translation>
     </message>
     <message>
-        <source>Open a Tapyrus: URI or payment request</source>
-        <translation>Abrir un identificador URI Tapyrus o una petición de pago</translation>
+        <source>Open a tapyrus: URI or payment request</source>
+        <translation>Abrir un identificador URI tapyrus o una petición de pago</translation>
     </message>
     <message>
         <source>&amp;Command-line options</source>

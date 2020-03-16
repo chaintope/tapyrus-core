@@ -442,8 +442,8 @@
         <translation>Mostrar a lista de endereços de recebimento usados ​​e rótulos</translation>
     </message>
     <message>
-        <source>Open a Tapyrus: URI or payment request</source>
-        <translation>Abrir um Tapyrus: URI ou cobrança</translation>
+        <source>Open a tapyrus: URI or payment request</source>
+        <translation>Abrir um tapyrus: URI ou cobrança</translation>
     </message>
     <message>
         <source>&amp;Command-line options</source>
@@ -2418,8 +2418,8 @@ Nota:  Como a taxa é calculada por byte, uma taxa de "100 tapyrus por kB" por u
         <translation>Digite um rótulo para este endereço para adicioná-lo no catálogo</translation>
     </message>
     <message>
-        <source>A message that was attached to the Tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</source>
-        <translation>A mensagem que foi anexada ao Tapyrus: URI na qual será gravada na transação para sua referência. Nota: Essa mensagem não será gravada publicamente na rede Tapyrus.</translation>
+        <source>A message that was attached to the tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</source>
+        <translation>A mensagem que foi anexada ao tapyrus: URI na qual será gravada na transação para sua referência. Nota: Essa mensagem não será gravada publicamente na rede Tapyrus.</translation>
     </message>
     <message>
         <source>Pay To:</source>

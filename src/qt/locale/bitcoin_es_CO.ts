@@ -407,8 +407,8 @@ Exportar los datos en la pestaña actual a un archivo</translation>
         <translation>Mostrar la lista de direcciones y etiquetas de recepción usadas</translation>
     </message>
     <message>
-        <source>Open a Tapyrus: URI or payment request</source>
-        <translation>Abra un Tapyrus: URI o solicitud de pago</translation>
+        <source>Open a tapyrus: URI or payment request</source>
+        <translation>Abra un tapyrus: URI o solicitud de pago</translation>
     </message>
     <message>
         <source>&amp;Command-line options</source>

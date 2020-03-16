@@ -374,7 +374,7 @@
         <translation>Loo maksepäring (genereerib QR koodid ja Tapyrusi: URId)</translation>
     </message>
     <message>
-        <source>Open a Tapyrus: URI or payment request</source>
+        <source>Open a tapyrus: URI or payment request</source>
         <translation>Ava Tapyrusi: URI või maksepäring</translation>
     </message>
     <message>

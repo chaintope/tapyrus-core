@@ -446,7 +446,7 @@
         <translation>顯示已使用過的收款位址和標記的清單</translation>
     </message>
     <message>
-        <source>Open a Tapyrus: URI or payment request</source>
+        <source>Open a tapyrus: URI or payment request</source>
         <translation>開啓 Tapyrus 協議的資源識別碼(URI)或付款要求</translation>
     </message>
     <message>
@@ -2418,7 +2418,7 @@ Note:  Since the fee is calculated on a per-byte basis, a fee of "100 tapyrus pe
         <translation>請輸入這個位址的標記，來把它加進去已使用過位址的清單。</translation>
     </message>
     <message>
-        <source>A message that was attached to the Tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</source>
+        <source>A message that was attached to the tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</source>
         <translation>附加在 Tapyrus 付款協議的資源識別碼(URI)中的訊息，會和交易內容一起存起來，給你自己做參考。注意: 這個訊息不會送到 Tapyrus 網路上。</translation>
     </message>
     <message>

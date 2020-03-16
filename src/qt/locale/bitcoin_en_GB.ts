@@ -438,8 +438,8 @@
         <translation>Show the list of used receiving addresses and labels</translation>
     </message>
     <message>
-        <source>Open a Tapyrus: URI or payment request</source>
-        <translation>Open a Tapyrus: URI or payment request</translation>
+        <source>Open a tapyrus: URI or payment request</source>
+        <translation>Open a tapyrus: URI or payment request</translation>
     </message>
     <message>
         <source>&amp;Command-line options</source>
@@ -2342,8 +2342,8 @@
         <translation>Enter a label for this address to add it to the list of used addresses</translation>
     </message>
     <message>
-        <source>A message that was attached to the Tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</source>
-        <translation>A message that was attached to the Tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</translation>
+        <source>A message that was attached to the tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</source>
+        <translation>A message that was attached to the tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</translation>
     </message>
     <message>
         <source>Pay To:</source>

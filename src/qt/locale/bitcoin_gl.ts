@@ -222,8 +222,8 @@
         <translation>Amosar a listaxe de etiquetas e direccións para recibir empregadas</translation>
     </message>
     <message>
-        <source>Open a Tapyrus: URI or payment request</source>
-        <translation>Abrir un Tapyrus: URI ou solicitude de pago</translation>
+        <source>Open a tapyrus: URI or payment request</source>
+        <translation>Abrir un tapyrus: URI ou solicitude de pago</translation>
     </message>
     <message>
         <source>&amp;Command-line options</source>

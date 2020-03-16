@@ -379,7 +379,7 @@
     </message>
     <message>
         <source>Request payments (generates QR codes and tapyrus: URIs)</source>
-        <translation>Sol·licita pagaments (genera codis QR i Tapyrus: URI)</translation>
+        <translation>Sol·licita pagaments (genera codis QR i tapyrus: URI)</translation>
     </message>
     <message>
         <source>Show the list of used sending addresses and labels</source>
@@ -390,8 +390,8 @@
         <translation>Mostra la llista d'adreces de recepció i etiquetes utilitzades</translation>
     </message>
     <message>
-        <source>Open a Tapyrus: URI or payment request</source>
-        <translation>Obri una Tapyrus: sol·licitud d'URI o pagament</translation>
+        <source>Open a tapyrus: URI or payment request</source>
+        <translation>Obri una tapyrus: sol·licitud d'URI o pagament</translation>
     </message>
     <message>
         <source>&amp;Command-line options</source>
@@ -1844,8 +1844,8 @@
         <translation>Introduïu una etiqueta per a esta adreça per afegir-la a la llista d'adreces utilitzades</translation>
     </message>
     <message>
-        <source>A message that was attached to the Tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</source>
-        <translation>Un missatge que s'ha adjuntat al Tapyrus: URI que s'emmagatzemarà amb la transacció per a la vostra referència. Nota: el missatge no s'enviarà a través de la xarxa Tapyrus.</translation>
+        <source>A message that was attached to the tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</source>
+        <translation>Un missatge que s'ha adjuntat al tapyrus: URI que s'emmagatzemarà amb la transacció per a la vostra referència. Nota: el missatge no s'enviarà a través de la xarxa Tapyrus.</translation>
     </message>
     <message>
         <source>Pay To:</source>

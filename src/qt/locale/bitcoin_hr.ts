@@ -383,7 +383,7 @@
     </message>
     <message>
         <source>Request payments (generates QR codes and tapyrus: URIs)</source>
-        <translation>Zatraži uplatu (stvara QR kod i Tapyrus: URI adresu)</translation>
+        <translation>Zatraži uplatu (stvara QR kod i tapyrus: URI adresu)</translation>
     </message>
     <message>
         <source>Show the list of used sending addresses and labels</source>
@@ -394,8 +394,8 @@
         <translation>Prikaži popis korištenih adresa i oznaka za primanje novca</translation>
     </message>
     <message>
-        <source>Open a Tapyrus: URI or payment request</source>
-        <translation>Otvori Tapyrus: URI adresu ili zahtjev za uplatu</translation>
+        <source>Open a tapyrus: URI or payment request</source>
+        <translation>Otvori tapyrus: URI adresu ili zahtjev za uplatu</translation>
     </message>
     <message>
         <source>&amp;Command-line options</source>

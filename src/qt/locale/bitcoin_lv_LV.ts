@@ -294,7 +294,7 @@
         <translation>Pieprasīt maksājumus (izveido QR kodu un tapyrus: URIs)</translation>
     </message>
     <message>
-        <source>Open a Tapyrus: URI or payment request</source>
+        <source>Open a tapyrus: URI or payment request</source>
         <translation>Atvērt Tapyrus URI vai maksājuma pieprasījumu</translation>
     </message>
     <message>

@@ -434,7 +434,7 @@
         <translation>عرض قائمة عناوين الإستقبال المستخدمة والملصقات</translation>
     </message>
     <message>
-        <source>Open a Tapyrus: URI or payment request</source>
+        <source>Open a tapyrus: URI or payment request</source>
         <translation>فتح URI : Tapyrus أو طلب دفع</translation>
     </message>
     <message>
@@ -2226,7 +2226,7 @@
         <translation>أدخل تسمية لهذا العنوان لإضافته إلى قائمة العناوين المستخدمة</translation>
     </message>
     <message>
-        <source>A message that was attached to the Tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</source>
+        <source>A message that was attached to the tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</source>
         <translation>الرسالة التي تم إرفاقها مع البتكوين: العنوان الذي سيتم تخزينه مع المعاملة للرجوع إليه. ملاحظة: لن يتم إرسال هذه الرسالة عبر شبكة البتكوين.</translation>
     </message>
     <message>

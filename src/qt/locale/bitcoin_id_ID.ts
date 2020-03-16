@@ -434,7 +434,7 @@
         <translation>Tampilkan daftar alamat dan label yang diterima</translation>
     </message>
     <message>
-        <source>Open a Tapyrus: URI or payment request</source>
+        <source>Open a tapyrus: URI or payment request</source>
         <translation>Buka URI Tapyrus: atau permintaan pembayaran</translation>
     </message>
     <message>

@@ -446,7 +446,7 @@
         <translation>Pokaż listę adresów i etykiet użytych do odbierania</translation>
     </message>
     <message>
-        <source>Open a Tapyrus: URI or payment request</source>
+        <source>Open a tapyrus: URI or payment request</source>
         <translation>Otwórz URI Tapyrus: lub żądanie zapłaty</translation>
     </message>
     <message>
@@ -2423,7 +2423,7 @@ Uwaga: Ponieważ opłata jest naliczana za każdy bajt, opłata "100 tapyrus za 
         <translation>Wprowadź etykietę dla tego adresu by dodać go do listy użytych adresów</translation>
     </message>
     <message>
-        <source>A message that was attached to the Tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</source>
+        <source>A message that was attached to the tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</source>
         <translation>Wiadomość, która została dołączona do URI Tapyrus:, która będzie przechowywana wraz z transakcją w celach informacyjnych. Uwaga: Ta wiadomość nie będzie rozsyłana w sieci Tapyrus.</translation>
     </message>
     <message>

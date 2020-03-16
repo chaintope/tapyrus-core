@@ -435,7 +435,7 @@
     </message>
     <message>
         <source>Request payments (generates QR codes and tapyrus: URIs)</source>
-        <translation>Anmod om betalinger (genererer QR-koder og “Tapyrus:”-URI'er)</translation>
+        <translation>Anmod om betalinger (genererer QR-koder og “tapyrus:”-URI'er)</translation>
     </message>
     <message>
         <source>Show the list of used sending addresses and labels</source>
@@ -446,8 +446,8 @@
         <translation>Vis listen over brugte modtagelsesadresser og -mærkater</translation>
     </message>
     <message>
-        <source>Open a Tapyrus: URI or payment request</source>
-        <translation>Åbn en “Tapyrus:”-URI eller betalingsanmodning</translation>
+        <source>Open a tapyrus: URI or payment request</source>
+        <translation>Åbn en “tapyrus:”-URI eller betalingsanmodning</translation>
     </message>
     <message>
         <source>&amp;Command-line options</source>
@@ -1336,8 +1336,8 @@
         <translation>URI-håndtering</translation>
     </message>
     <message>
-        <source>'Tapyrus://' is not a valid URI. Use 'Tapyrus:' instead.</source>
-        <translation>'Tapyrus://' er ikke et gyldigt URI. Brug 'Tapyrus:' istedet. </translation>
+        <source>'tapyrus://' is not a valid URI. Use 'tapyrus:' instead.</source>
+        <translation>'tapyrus://' er ikke et gyldigt URI. Brug 'tapyrus:' istedet. </translation>
     </message>
     <message>
         <source>Payment request fetch URL is invalid: %1</source>
@@ -2422,8 +2422,8 @@ Note: Siden gebyret er kalkuleret på en per-byte basis, et gebyr på "100 tapyr
         <translation>Indtast et mærkat for denne adresse for at føje den til listen over brugte adresser</translation>
     </message>
     <message>
-        <source>A message that was attached to the Tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</source>
-        <translation>En besked, som blev føjet til “bitcon:”-URI'en, som vil gemmes med transaktionen til din reference. Bemærk: Denne besked vil ikke blive sendt over Tapyrus-netværket.</translation>
+        <source>A message that was attached to the tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</source>
+        <translation>En besked, som blev føjet til tapyrus:”-URI'en, som vil gemmes med transaktionen til din reference. Bemærk: Denne besked vil ikke blive sendt over Tapyrus-netværket.</translation>
     </message>
     <message>
         <source>Pay To:</source>

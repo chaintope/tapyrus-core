@@ -430,8 +430,8 @@
         <translation>Προβολή της λίστας των χρησιμοποιημένων διευθύνσεων και ετικετών λήψεως</translation>
     </message>
     <message>
-        <source>Open a Tapyrus: URI or payment request</source>
-        <translation>Άνοιγμα Tapyrus: URI αίτησης πληρωμής</translation>
+        <source>Open a tapyrus: URI or payment request</source>
+        <translation>Άνοιγμα tapyrus: URI αίτησης πληρωμής</translation>
     </message>
     <message>
         <source>&amp;Command-line options</source>

@@ -435,7 +435,7 @@
     </message>
     <message>
         <source>Request payments (generates QR codes and tapyrus: URIs)</source>
-        <translation>Cereţi plăţi (generează coduri QR şi Tapyrus-uri: URls)</translation>
+        <translation>Cereţi plăţi (generează coduri QR şi tapyrus-uri: URls)</translation>
     </message>
     <message>
         <source>Show the list of used sending addresses and labels</source>
@@ -446,7 +446,7 @@
         <translation>Arată lista de adrese pentru primire şi etichetele</translation>
     </message>
     <message>
-        <source>Open a Tapyrus: URI or payment request</source>
+        <source>Open a tapyrus: URI or payment request</source>
         <translation>Deschidere Tapyrus: o adresa URI sau o cerere de plată</translation>
     </message>
     <message>
@@ -2354,8 +2354,8 @@
         <translation>Introduceţi eticheta pentru ca această adresa să fie introdusă în lista de adrese folosite</translation>
     </message>
     <message>
-        <source>A message that was attached to the Tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</source>
-        <translation>un mesaj a fost ataşat la Tapyrus: URI care va fi stocat cu tranzacţia pentru referinţa dvs. Notă: Acest mesaj nu va fi trimis către reţeaua Tapyrus.</translation>
+        <source>A message that was attached to the tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</source>
+        <translation>un mesaj a fost ataşat la tapyrus: URI care va fi stocat cu tranzacţia pentru referinţa dvs. Notă: Acest mesaj nu va fi trimis către reţeaua Tapyrus.</translation>
     </message>
     <message>
         <source>Pay To:</source>

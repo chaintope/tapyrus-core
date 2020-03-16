@@ -408,7 +408,7 @@ Ví của bạn chưa được mã hóa.</translation>
     </message>
     <message>
         <source>Request payments (generates QR codes and tapyrus: URIs)</source>
-        <translation>Yêu cầu thanh toán(tạo mã QR và địa chỉ Tapyrus: URLs)</translation>
+        <translation>Yêu cầu thanh toán(tạo mã QR và địa chỉ tapyrus: URLs)</translation>
     </message>
     <message>
         <source>Show the list of used sending addresses and labels</source>
@@ -419,8 +419,8 @@ Ví của bạn chưa được mã hóa.</translation>
         <translation>Hiện thỉ danh sách các địa chỉ và nhãn đã dùng để nhận.</translation>
     </message>
     <message>
-        <source>Open a Tapyrus: URI or payment request</source>
-        <translation>Mở Tapyrus:URL hoặc yêu cầu thanh toán</translation>
+        <source>Open a tapyrus: URI or payment request</source>
+        <translation>Mở tapyrus:URL hoặc yêu cầu thanh toán</translation>
     </message>
     <message>
         <source>&amp;Command-line options</source>

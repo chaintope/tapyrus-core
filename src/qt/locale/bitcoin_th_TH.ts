@@ -266,8 +266,8 @@
         <translation>แสดงรายการ ที่เก็บเงินที่จะรับ Tapyrus เข้า และป้ายชื่อ ที่ใช้ไปแล้ว</translation>
     </message>
     <message>
-        <source>Open a Tapyrus: URI or payment request</source>
-        <translation>เปิด Tapyrus: URI หรือ การเรียกเก็บเงิน (การเรียกให้ชำระเงิน)</translation>
+        <source>Open a tapyrus: URI or payment request</source>
+        <translation>เปิด tapyrus: URI หรือ การเรียกเก็บเงิน (การเรียกให้ชำระเงิน)</translation>
     </message>
     <message>
         <source>&amp;Command-line options</source>

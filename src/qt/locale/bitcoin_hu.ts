@@ -431,7 +431,7 @@ Kérem a kulcsmondatban használjon &lt;b&gt; tíz vagy több véletlenszerű ka
         <translation>A használt fogadó címek és címkék megtekintése</translation>
     </message>
     <message>
-        <source>Open a Tapyrus: URI or payment request</source>
+        <source>Open a tapyrus: URI or payment request</source>
         <translation>"Tapyrus:" URI azonosító vagy fizetési kérelem megnyitása</translation>
     </message>
     <message>

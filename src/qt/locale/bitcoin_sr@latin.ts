@@ -415,7 +415,7 @@
     </message>
     <message>
         <source>Request payments (generates QR codes and tapyrus: URIs)</source>
-        <translation>Zatražite plaćanje (generiše QR kodove i Tapyrus: URI-e)</translation>
+        <translation>Zatražite plaćanje (generiše QR kodove i tapyrus: URI-e)</translation>
     </message>
     <message>
         <source>Error</source>

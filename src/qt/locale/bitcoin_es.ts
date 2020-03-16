@@ -446,7 +446,7 @@
         <translation>Muestra la lista de direcciones de recepción y etiquetas</translation>
     </message>
     <message>
-        <source>Open a Tapyrus: URI or payment request</source>
+        <source>Open a tapyrus: URI or payment request</source>
         <translation>Abrir un identificador URI "Tapyrus:" o una petición de pago</translation>
     </message>
     <message>
@@ -2421,8 +2421,8 @@ Nota: Dado que la comisión se calcula por byte, una comisión de "100 tapyrus p
         <translation>Introduce una etiqueta para esta dirección para añadirla a la lista de direcciones utilizadas</translation>
     </message>
     <message>
-        <source>A message that was attached to the Tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</source>
-        <translation>Un mensaje que se adjuntó a la Tapyrus: URL que será almacenada con la transacción para su referencia. Nota: Este mensaje no se envía a través de la red Tapyrus.</translation>
+        <source>A message that was attached to the tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</source>
+        <translation>Un mensaje que se adjuntó a la tapyrus: URL que será almacenada con la transacción para su referencia. Nota: Este mensaje no se envía a través de la red Tapyrus.</translation>
     </message>
     <message>
         <source>Pay To:</source>

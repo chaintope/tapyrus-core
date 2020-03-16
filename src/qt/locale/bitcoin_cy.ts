@@ -418,8 +418,8 @@
         <translation>Dangos rhestr o gyfeiriadau derbyn a labelau wedi eu defnyddio</translation>
     </message>
     <message>
-        <source>Open a Tapyrus: URI or payment request</source>
-        <translation>Agor Tapyrus: URI neu ofyn taliad</translation>
+        <source>Open a tapyrus: URI or payment request</source>
+        <translation>Agor tapyrus: URI neu ofyn taliad</translation>
     </message>
     <message>
         <source>&amp;Command-line options</source>

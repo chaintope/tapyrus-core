@@ -386,7 +386,7 @@
         <translation>Паказаць спіс адрасоў і метак для прымання</translation>
     </message>
     <message>
-        <source>Open a Tapyrus: URI or payment request</source>
+        <source>Open a tapyrus: URI or payment request</source>
         <translation>Адкрыць біткойн: URI ці запыт плацяжу</translation>
     </message>
     <message>

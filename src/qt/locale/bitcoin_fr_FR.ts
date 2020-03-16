@@ -434,8 +434,8 @@
         <translation>Afficher la liste des labels et adresses de réception utilisées</translation>
     </message>
     <message>
-        <source>Open a Tapyrus: URI or payment request</source>
-        <translation>Ouvrir un Tapyrus: URI ou demande de paiement</translation>
+        <source>Open a tapyrus: URI or payment request</source>
+        <translation>Ouvrir un tapyrus: URI ou demande de paiement</translation>
     </message>
     <message>
         <source>&amp;Command-line options</source>

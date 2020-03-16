@@ -398,8 +398,8 @@
         <translation>Afișează lista adreselor de primire utilizate și etichetele.</translation>
     </message>
     <message>
-        <source>Open a Tapyrus: URI or payment request</source>
-        <translation>Deschide un Tapyrus: URI sau cerere de plată</translation>
+        <source>Open a tapyrus: URI or payment request</source>
+        <translation>Deschide un tapyrus: URI sau cerere de plată</translation>
     </message>
     <message>
         <source>&amp;Command-line options</source>

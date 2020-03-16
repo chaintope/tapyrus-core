@@ -426,8 +426,8 @@
         <translation>Hiển thị danh sách các địa chỉ và nhãn đã dùng để nhận</translation>
     </message>
     <message>
-        <source>Open a Tapyrus: URI or payment request</source>
-        <translation>Mở một Tapyrus: URI hoặc yêu cầu thanh toán</translation>
+        <source>Open a tapyrus: URI or payment request</source>
+        <translation>Mở một tapyrus: URI hoặc yêu cầu thanh toán</translation>
     </message>
     <message>
         <source>&amp;Command-line options</source>
@@ -2260,8 +2260,8 @@
         <translation>Nhập một label cho cái address này để thêm vào danh sách địa chỉ đã sử dụng</translation>
     </message>
     <message>
-        <source>A message that was attached to the Tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</source>
-        <translation>Một tin nhắn được đính kèm với số Tapyrus: URI mà sẽ được lưu giữ với transaction dành cho tài liệu tham khảo. Lưu ý: Tin nhắn này sẽ không được gửi thông qua Tapyrus network.</translation>
+        <source>A message that was attached to the tapyrus: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Tapyrus network.</source>
+        <translation>Một tin nhắn được đính kèm với số tapyrus: URI mà sẽ được lưu giữ với transaction dành cho tài liệu tham khảo. Lưu ý: Tin nhắn này sẽ không được gửi thông qua Tapyrus network.</translation>
     </message>
     <message>
         <source>Pay To:</source>
