@@ -406,8 +406,8 @@
         <translation>Bar offer tabiau</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
-        <translation>Gofyn taliadau (creu côd QR a Tapyrus: URIs)</translation>
+        <source>Request payments (generates QR codes and tapyrus: URIs)</source>
+        <translation>Gofyn taliadau (creu côd QR a tapyrus: URIs)</translation>
     </message>
     <message>
         <source>Show the list of used sending addresses and labels</source>

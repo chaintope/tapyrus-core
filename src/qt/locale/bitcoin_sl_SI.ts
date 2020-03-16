@@ -430,7 +430,7 @@
         <translation>Orodna vrstica zavihkov</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
+        <source>Request payments (generates QR codes and tapyrus: URIs)</source>
         <translation>Zahtevajte plačilo (ustvarite zahtevek s kodo QR in URI tipa Tapyrus:)</translation>
     </message>
     <message>

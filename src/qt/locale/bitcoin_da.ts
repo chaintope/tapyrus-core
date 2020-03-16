@@ -434,7 +434,7 @@
         <translation>Faneværktøjslinje</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
+        <source>Request payments (generates QR codes and tapyrus: URIs)</source>
         <translation>Anmod om betalinger (genererer QR-koder og “Tapyrus:”-URI'er)</translation>
     </message>
     <message>

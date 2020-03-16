@@ -422,7 +422,7 @@
         <translation>分页工具栏</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
+        <source>Request payments (generates QR codes and tapyrus: URIs)</source>
         <translation>请求支付 (生成二维码和 Tapyrus: URI)</translation>
     </message>
     <message>

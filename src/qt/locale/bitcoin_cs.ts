@@ -430,7 +430,7 @@
         <translation>Panel s listy</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
+        <source>Request payments (generates QR codes and tapyrus: URIs)</source>
         <translation>Požaduj platby (generuje QR kódy a Tapyrus: URI)</translation>
     </message>
     <message>

@@ -434,7 +434,7 @@
         <translation>Välilehtipalkki</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
+        <source>Request payments (generates QR codes and tapyrus: URIs)</source>
         <translation>Pyydä maksuja (Luo QR koodit ja Tapyrus: URIt)</translation>
     </message>
     <message>

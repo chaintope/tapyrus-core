@@ -370,7 +370,7 @@
         <translation>Vahelehe tööriistariba</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
+        <source>Request payments (generates QR codes and tapyrus: URIs)</source>
         <translation>Loo maksepäring (genereerib QR koodid ja Tapyrusi: URId)</translation>
     </message>
     <message>

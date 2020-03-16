@@ -418,7 +418,7 @@
         <translation>Barra d'eines de les pestanyes</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
+        <source>Request payments (generates QR codes and tapyrus: URIs)</source>
         <translation>Sol·licita pagaments (genera codis QR i Tapyrus: URI)</translation>
     </message>
     <message>

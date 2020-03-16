@@ -394,7 +394,7 @@
         <translation>نوارابزار برگه‌ها</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
+        <source>Request payments (generates QR codes and tapyrus: URIs)</source>
         <translation>درخواست پرداخت ( تولید کد کیوار و ادرس بیت کوین)</translation>
     </message>
     <message>

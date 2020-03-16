@@ -422,7 +422,7 @@
         <translation>Barra de pestañas</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
+        <source>Request payments (generates QR codes and tapyrus: URIs)</source>
         <translation>Pide pagos (genera codigos QR and Tapyrus: URls)</translation>
     </message>
     <message>

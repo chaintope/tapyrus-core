@@ -395,8 +395,8 @@ Exportar los datos en la pestaña actual a un archivo</translation>
         <translation>Barra de herramientas de pestañas</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
-        <translation>Solicitar pagos (genera códigos QR y Tapyrus: URIs)</translation>
+        <source>Request payments (generates QR codes and tapyrus: URIs)</source>
+        <translation>Solicitar pagos (genera códigos QR y tapyrus: URIs)</translation>
     </message>
     <message>
         <source>Show the list of used sending addresses and labels</source>

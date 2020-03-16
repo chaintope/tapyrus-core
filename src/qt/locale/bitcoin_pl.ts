@@ -434,7 +434,7 @@
         <translation>Pasek zakładek</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
+        <source>Request payments (generates QR codes and tapyrus: URIs)</source>
         <translation>Żądaj płatności (generuje kod QR oraz Tapyrusowe URI)</translation>
     </message>
     <message>

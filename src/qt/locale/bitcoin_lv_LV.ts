@@ -290,8 +290,8 @@
         <translation>Ciļņu rīkjosla</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
-        <translation>Pieprasīt maksājumus (izveido QR kodu un Tapyrus: URIs)</translation>
+        <source>Request payments (generates QR codes and tapyrus: URIs)</source>
+        <translation>Pieprasīt maksājumus (izveido QR kodu un tapyrus: URIs)</translation>
     </message>
     <message>
         <source>Open a Tapyrus: URI or payment request</source>

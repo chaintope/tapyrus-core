@@ -434,7 +434,7 @@
         <translation>Barre d’outils des onglets</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
+        <source>Request payments (generates QR codes and tapyrus: URIs)</source>
         <translation>Demander des paiements (génère des codes QR et des URI Tapyrus:)</translation>
     </message>
     <message>

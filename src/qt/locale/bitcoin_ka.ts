@@ -398,7 +398,7 @@
         <translation>ბარათების პანელი</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
+        <source>Request payments (generates QR codes and tapyrus: URIs)</source>
         <translation>გადახდის მოთხოვნა (შეიქმნება QR-კოდები და Tapyrus: ბმულები)</translation>
     </message>
     <message>

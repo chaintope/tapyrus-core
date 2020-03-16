@@ -402,8 +402,8 @@
         <translation>Blad nutsbalk</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
-        <translation>Versoek betalings (genereer QR kodes en Tapyrus: URIs)</translation>
+        <source>Request payments (generates QR codes and tapyrus: URIs)</source>
+        <translation>Versoek betalings (genereer QR kodes en tapyrus: URIs)</translation>
     </message>
     <message>
         <source>Show the list of used sending addresses and labels</source>

@@ -382,7 +382,7 @@
         <translation>Traka kartica</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
+        <source>Request payments (generates QR codes and tapyrus: URIs)</source>
         <translation>Zatraži uplatu (stvara QR kod i Tapyrus: URI adresu)</translation>
     </message>
     <message>

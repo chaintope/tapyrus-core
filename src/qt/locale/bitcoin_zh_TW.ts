@@ -434,7 +434,7 @@
         <translation>分頁工具列</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
+        <source>Request payments (generates QR codes and tapyrus: URIs)</source>
         <translation>要求付款(產生 QR Code 和 Tapyrus 付款協議的資源識別碼: URI)</translation>
     </message>
     <message>

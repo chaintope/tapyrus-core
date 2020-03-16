@@ -410,7 +410,7 @@
         <translation>Orebalk</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
+        <source>Request payments (generates QR codes and tapyrus: URIs)</source>
         <translation>Versoek betalings (genereer QR-kodes en Tapyrus: URI's)</translation>
     </message>
     <message>

@@ -434,7 +434,7 @@
         <translation>Lišta záložiek</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
+        <source>Request payments (generates QR codes and tapyrus: URIs)</source>
         <translation>Vyžiadať platby (vygeneruje QR kódy a Tapyrus: URI)</translation>
     </message>
     <message>

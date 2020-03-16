@@ -423,7 +423,7 @@ Var vänlig och försök igen.</translation>
         <translation>Verktygsfält för tabbar</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
+        <source>Request payments (generates QR codes and tapyrus: URIs)</source>
         <translation>Begär betalningar (skapar QR-koder och Tapyrus: -URIer)</translation>
     </message>
     <message>

@@ -434,8 +434,8 @@
         <translation>Barra de ferramentas dos separadores</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
-        <translation>Solicitar pagamentos (gera códigos QR e Tapyrus: URIs)</translation>
+        <source>Request payments (generates QR codes and tapyrus: URIs)</source>
+        <translation>Solicitar pagamentos (gera códigos QR e tapyrus: URIs)</translation>
     </message>
     <message>
         <source>Show the list of used sending addresses and labels</source>

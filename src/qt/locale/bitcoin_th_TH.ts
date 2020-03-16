@@ -254,8 +254,8 @@
         <translation>แถบเครื่องมือ</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
-        <translation>เรียกเก็บ การชำระเงิน (สร้าง QR codes และ Tapyrus: URIs)</translation>
+        <source>Request payments (generates QR codes and tapyrus: URIs)</source>
+        <translation>เรียกเก็บ การชำระเงิน (สร้าง QR codes และ tapyrus: URIs)</translation>
     </message>
     <message>
         <source>Show the list of used sending addresses and labels</source>

@@ -382,8 +382,8 @@
         <translation>說明 &amp;H</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
-        <translation>要求付款 (產生QR碼 Tapyrus: URIs)</translation>
+        <source>Request payments (generates QR codes and tapyrus: URIs)</source>
+        <translation>要求付款 (產生QR碼 tapyrus: URIs)</translation>
     </message>
     <message>
         <source>Indexing blocks on disk...</source>

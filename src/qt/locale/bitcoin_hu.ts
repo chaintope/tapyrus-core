@@ -419,7 +419,7 @@ Kérem a kulcsmondatban használjon &lt;b&gt; tíz vagy több véletlenszerű ka
         <translation>Fül eszköztár</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
+        <source>Request payments (generates QR codes and tapyrus: URIs)</source>
         <translation>Fizetési kérelem (QR-kódot és "Tapyrus:" URI azonosítót hoz létre)</translation>
     </message>
     <message>

@@ -434,7 +434,7 @@
         <translation>Barra de pestañas</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
+        <source>Request payments (generates QR codes and tapyrus: URIs)</source>
         <translation>Solicitar pagos (generando códigos QR e identificadores URI "Tapyrus:")</translation>
     </message>
     <message>

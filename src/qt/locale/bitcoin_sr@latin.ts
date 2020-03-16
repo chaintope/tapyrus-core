@@ -414,7 +414,7 @@
         <translation>Alatke za tabove</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
+        <source>Request payments (generates QR codes and tapyrus: URIs)</source>
         <translation>Zatražite plaćanje (generiše QR kodove i Tapyrus: URI-e)</translation>
     </message>
     <message>

@@ -434,7 +434,7 @@
         <translation>タブツールバー</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
+        <source>Request payments (generates QR codes and tapyrus: URIs)</source>
         <translation>支払いを要求する (QRコードとTapyrus:ではじまるURIを生成する)</translation>
     </message>
     <message>

@@ -422,7 +422,7 @@
         <translation>Verktøylinje for faner</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
+        <source>Request payments (generates QR codes and tapyrus: URIs)</source>
         <translation>Forespør betalinger (genererer QR-koder og Tapyrus: URIer)</translation>
     </message>
     <message>

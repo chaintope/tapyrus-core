@@ -434,7 +434,7 @@
         <translation>Bara de unelte</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
+        <source>Request payments (generates QR codes and tapyrus: URIs)</source>
         <translation>Cereţi plăţi (generează coduri QR şi Tapyrus-uri: URls)</translation>
     </message>
     <message>

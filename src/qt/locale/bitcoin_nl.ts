@@ -434,7 +434,7 @@
         <translation>Tab-werkbalk</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
+        <source>Request payments (generates QR codes and tapyrus: URIs)</source>
         <translation>Vraag betaling aan (genereert QR-codes en Tapyrus: URI's)</translation>
     </message>
     <message>

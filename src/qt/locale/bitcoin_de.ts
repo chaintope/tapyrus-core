@@ -434,7 +434,7 @@
         <translation>Registerkartenleiste</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
+        <source>Request payments (generates QR codes and tapyrus: URIs)</source>
         <translation>Zahlungen anfordern (erzeugt QR-Codes und "Tapyrus:"-URIs)</translation>
     </message>
     <message>

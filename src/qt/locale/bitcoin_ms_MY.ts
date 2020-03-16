@@ -435,8 +435,8 @@ Alihkan fail data ke dalam tab semasa</translation>
 </translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
-        <translation>Request payments (generates QR codes and Tapyrus: URIs)
+        <source>Request payments (generates QR codes and tapyrus: URIs)</source>
+        <translation>Request payments (generates QR codes and tapyrus: URIs)
 </translation>
     </message>
     <message>

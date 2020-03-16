@@ -426,7 +426,7 @@
         <translation>Barra degli strumenti</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
+        <source>Request payments (generates QR codes and tapyrus: URIs)</source>
         <translation>Richiedi pagamenti (genera codici QR e Tapyrus: URI)</translation>
     </message>
     <message>

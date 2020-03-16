@@ -226,7 +226,7 @@
         <translation>Ички ойналар асбоблар панели</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and Tapyrus: URIs)</source>
+        <source>Request payments (generates QR codes and tapyrus: URIs)</source>
         <translation>Тўловлар (QR кодлари ва Tapyrus ёрдамида яратишлар: URI’лар) сўраш</translation>
     </message>
     <message>
