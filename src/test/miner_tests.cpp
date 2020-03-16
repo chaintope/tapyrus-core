@@ -193,7 +193,7 @@ static void TestPackageSelection(const CChainParams& chainparams, const std::vec
 
     // This tx has a high fee, but depends on the first transaction
     tx.vin[0].prevout.hashMalFix = hashParentTx;
-    tx.vout[0].nValue = 5000000000LL - 1000 - 50000; // 50k satoshi fee
+    tx.vout[0].nValue = 5000000000LL - 1000 - 50000; // 50k tapyrus fee
     uint256 hashHighFeeTx = tx.GetHashMalFix();
     mempool.addUnchecked(hashHighFeeTx, entry.Fee(50000).Time(GetTime()).SpendsCoinbase(false).FromTx(tx));
 
@@ -263,7 +263,7 @@ static void TestPackageSelection(const CChainParams& chainparams, const std::vec
     // This tx will be mineable, and should cause hashLowFeeTx2 to be selected
     // as well.
     tx.vin[0].prevout.n = 1;
-    tx.vout[0].nValue = 100000000 - 10000; // 10k satoshi fee
+    tx.vout[0].nValue = 100000000 - 10000; // 10k tapyrus fee
     mempool.addUnchecked(tx.GetHashMalFix(), entry.Fee(10000).FromTx(tx));
     pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey);
     BOOST_CHECK(pblocktemplate->block.vtx[8]->GetHashMalFix() == hashLowFeeTx2);
