@@ -195,8 +195,8 @@ def assert_array_result(object_array, to_match, expected, should_not_find=False)
 def check_json_precision():
     """Make sure json library being used does not lose precision converting TPC values"""
     n = Decimal("20000000.00000003")
-    satoshis = int(json.loads(json.dumps(float(n))) * 1.0e8)
-    if satoshis != 2000000000000003:
+    tapyrus = int(json.loads(json.dumps(float(n))) * 1.0e8)
+    if tapyrus != 2000000000000003:
         raise RuntimeError("JSON encode/decode loses precision")
 
 def count_bytes(hex_string):
