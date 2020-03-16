@@ -52,9 +52,12 @@ enum txnouttype
     TX_SCRIPTHASH,
     TX_MULTISIG,
     TX_NULL_DATA, //!< unspendable OP_RETURN script that carries data
+    TX_CUSTOM,
+#ifdef DEBUG
     TX_WITNESS_V0_SCRIPTHASH,
     TX_WITNESS_V0_KEYHASH,
     TX_WITNESS_UNKNOWN, //!< Only for Witness versions not already defined above
+#endif
 };
 
 class CNoDestination {
@@ -63,6 +66,7 @@ public:
     friend bool operator<(const CNoDestination &a, const CNoDestination &b) { return true; }
 };
 
+#ifdef DEBUG
 struct WitnessV0ScriptHash : public uint256
 {
     WitnessV0ScriptHash() : uint256() {}
@@ -99,7 +103,7 @@ struct WitnessUnknown
         return std::lexicographical_compare(w1.program, w1.program + w1.length, w2.program, w2.program + w2.length);
     }
 };
-
+#endif
 /**
  * A txout script template with a specific destination. It is either:
  *  * CNoDestination: no destination set
@@ -110,7 +114,21 @@ struct WitnessUnknown
  *  * WitnessUnknown: TX_WITNESS_UNKNOWN destination (P2W???)
  *  A CTxDestination is the internal data type encoded in a bitcoin address
  */
-typedef boost::variant<CNoDestination, CKeyID, CScriptID, WitnessV0ScriptHash, WitnessV0KeyHash, WitnessUnknown> CTxDestination;
+
+#ifdef DEBUG
+typedef boost::variant<
+    CNoDestination,
+    CKeyID,
+    CScriptID,
+    WitnessV0ScriptHash,
+    WitnessV0KeyHash,
+    WitnessUnknown> CTxDestination;
+#else
+typedef boost::variant<
+    CNoDestination,
+    CKeyID,
+    CScriptID> CTxDestination;
+#endif
 
 /** Check whether a CTxDestination is a CNoDestination. */
 bool IsValidDestination(const CTxDestination& dest);

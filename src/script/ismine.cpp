@@ -68,7 +68,9 @@ IsMineResult IsMineInner(const CKeyStore& keystore, const CScript& scriptPubKey,
     {
     case TX_NONSTANDARD:
     case TX_NULL_DATA:
+#ifdef DEBUG
     case TX_WITNESS_UNKNOWN:
+#endif
         break;
     case TX_PUBKEY:
         keyID = CPubKey(vSolutions[0]).GetID();
@@ -79,6 +81,7 @@ IsMineResult IsMineInner(const CKeyStore& keystore, const CScript& scriptPubKey,
             ret = std::max(ret, IsMineResult::SPENDABLE);
         }
         break;
+#ifdef DEBUG
     case TX_WITNESS_V0_KEYHASH:
     {
         if (sigversion == IsMineSigVersion::WITNESS_V0) {
@@ -94,6 +97,7 @@ IsMineResult IsMineInner(const CKeyStore& keystore, const CScript& scriptPubKey,
         ret = std::max(ret, IsMineInner(keystore, GetScriptForDestination(CKeyID(uint160(vSolutions[0]))), IsMineSigVersion::WITNESS_V0));
         break;
     }
+#endif
     case TX_PUBKEYHASH:
         keyID = CKeyID(uint160(vSolutions[0]));
         if (!PermitsUncompressed(sigversion)) {
@@ -119,6 +123,7 @@ IsMineResult IsMineInner(const CKeyStore& keystore, const CScript& scriptPubKey,
         }
         break;
     }
+#ifdef DEBUG
     case TX_WITNESS_V0_SCRIPTHASH:
     {
         if (sigversion == IsMineSigVersion::WITNESS_V0) {
@@ -137,7 +142,7 @@ IsMineResult IsMineInner(const CKeyStore& keystore, const CScript& scriptPubKey,
         }
         break;
     }
-
+#endif
     case TX_MULTISIG:
     {
         // Never treat bare multisig outputs as ours (they can still be made watchonly-though)

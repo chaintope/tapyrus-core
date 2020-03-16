@@ -1390,7 +1390,7 @@ class SegWitTest(BitcoinTestFramework):
         test_transaction_acceptance(self.nodes[0].rpc, self.test_node, tx3, with_witness=False, accepted=True)
 
         test_transaction_acceptance(self.nodes[1].rpc, self.std_node, tx3, with_witness=True, accepted=False)
-        test_transaction_acceptance(self.nodes[1].rpc, self.std_node, tx3, with_witness=False, accepted=False)
+        test_transaction_acceptance(self.nodes[1].rpc, self.std_node, tx3, with_witness=False, accepted=True)
         self.test_node.sync_with_ping()
         #with mininode_lock:
         #    assert(b"reserved for soft-fork upgrades" in self.test_node.last_message["reject"].reason)

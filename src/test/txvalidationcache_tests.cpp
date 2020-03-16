@@ -380,6 +380,7 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
             BOOST_CHECK(CheckInputs(invalid_with_csv_tx, state, pcoinsTip.get(), true, STANDARD_SCRIPT_VERIFY_FLAGS, true, true, txdata, nullptr));
         }
 
+#ifdef DEBUG
         // TODO: add tests for remaining script flags
 
         // Test that passing CheckInputs with a valid witness doesn't imply success
@@ -414,7 +415,6 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
             BOOST_CHECK(CheckInputs(valid_with_witness_tx, state, pcoinsTip.get(), true, STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, txdata, nullptr));
             BOOST_CHECK(CheckInputs(valid_with_witness_tx, state, pcoinsTip.get(), true, STANDARD_SCRIPT_VERIFY_FLAGS, true, true, txdata, nullptr));
         }
-
         {
             // Test a transaction with multiple inputs.
             CMutableTransaction tx;
@@ -464,6 +464,7 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
             // Should get 2 script checks for each flag back -- caching is on a whole-transaction basis.
             BOOST_CHECK_EQUAL(scriptchecks.size(), 4U);
         }
+#endif
     }
 }
 

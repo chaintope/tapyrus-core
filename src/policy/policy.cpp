@@ -73,7 +73,7 @@ bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType)
                (!fAcceptDatacarrier || scriptPubKey.size() > nMaxDatacarrierBytes))
           return false;
 
-    return whichType != TX_NONSTANDARD && whichType != TX_WITNESS_UNKNOWN;
+    return whichType != TX_NONSTANDARD;
 }
 
 bool IsStandardTx(const CTransaction& tx, std::string& reason)

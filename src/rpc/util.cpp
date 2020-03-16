@@ -91,7 +91,7 @@ public:
         obj.pushKV("iswitness", false);
         return obj;
     }
-
+#ifdef DEBUG
     UniValue operator()(const WitnessV0KeyHash& id) const
     {
         UniValue obj(UniValue::VOBJ);
@@ -120,6 +120,7 @@ public:
         obj.pushKV("witness_program", HexStr(id.program, id.program + id.length));
         return obj;
     }
+#endif
 };
 
 UniValue DescribeAddress(const CTxDestination& dest)

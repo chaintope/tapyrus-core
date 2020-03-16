@@ -203,7 +203,10 @@ BOOST_AUTO_TEST_CASE(multisig_IsStandard)
     malformed[5] << OP_1 << ToByteVector(key[0].GetPubKey()) << ToByteVector(key[1].GetPubKey());
 
     for (int i = 0; i < 6; i++)
-        BOOST_CHECK(!::IsStandard(malformed[i], whichType));
+    {
+        BOOST_CHECK(::IsStandard(malformed[i], whichType));
+        BOOST_CHECK(whichType == TX_CUSTOM);
+    }
 }
 
 BOOST_AUTO_TEST_CASE(multisig_Sign)
