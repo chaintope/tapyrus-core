@@ -435,7 +435,7 @@
     </message>
     <message>
         <source>Request payments (generates QR codes and tapyrus: URIs)</source>
-        <translation>支払いを要求する (QRコードとTapyrus:ではじまるURIを生成する)</translation>
+        <translation>支払いを要求する (QRコードとtapyrus:ではじまるURIを生成する)</translation>
     </message>
     <message>
         <source>Show the list of used sending addresses and labels</source>

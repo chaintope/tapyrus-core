@@ -419,7 +419,7 @@
     </message>
     <message>
         <source>Request payments (generates QR codes and tapyrus: URIs)</source>
-        <translation>Αίτηση πληρωμών (δημιουργεί QR codes και διευθύνσεις Tapyrus: )</translation>
+        <translation>Αίτηση πληρωμών (δημιουργεί QR codes και διευθύνσεις tapyrus: )</translation>
     </message>
     <message>
         <source>Show the list of used sending addresses and labels</source>

@@ -447,7 +447,7 @@
     </message>
     <message>
         <source>Open a tapyrus: URI or payment request</source>
-        <translation>Obre una Tapyrus: sol·licitud d'URI o pagament</translation>
+        <translation>Obre una tapyrus: sol·licitud d'URI o pagament</translation>
     </message>
     <message>
         <source>&amp;Command-line options</source>
