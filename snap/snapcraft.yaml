@@ -31,6 +31,10 @@ apps:
     plugs: [network]
     environment:
       HOME: $SNAP_USER_COMMON
+  genesis:
+    command: tapyrus-genesis
+    environment:
+      HOME: $SNAP_USER_COMMON
 
 parts:
   tapyrus-core:
