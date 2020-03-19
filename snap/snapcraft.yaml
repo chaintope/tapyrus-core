@@ -1,5 +1,5 @@
 name: tapyrus-core
-version: &version v0.3.0
+version: git
 summary:  federation governed blockchain
 description: |
         Tapyrus is a blockchain that has been forked from Bitcoin Core, and solves
@@ -36,7 +36,6 @@ parts:
   tapyrus-core:
     plugin: autotools
     source: https://github.com/chaintope/tapyrus-core.git
-    source-tag: *version
     configflags:
       - --disable-dependency-tracking
       - --enable-zmq
