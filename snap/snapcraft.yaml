@@ -43,6 +43,8 @@ parts:
       - --enable-reduce-exports
       - --with-gui=no 
       - --with-incompatible-bdb
+      - --disable-bench
+      - --disable-tests
     build-packages:
       - bsdmainutils
       - pkg-config
