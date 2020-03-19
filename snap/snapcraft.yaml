@@ -12,7 +12,7 @@ description: |
 
 base: core18
 grade: stable
-confinement: devmode
+confinement: strict
 license: MIT
 
 architectures:
