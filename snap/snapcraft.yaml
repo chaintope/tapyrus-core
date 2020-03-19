@@ -13,6 +13,7 @@ description: |
 base: core18
 grade: stable
 confinement: devmode
+license: MIT
 
 apps:
   daemon:
