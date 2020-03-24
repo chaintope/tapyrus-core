@@ -63,3 +63,5 @@ parts:
       - libdb5.3++-dev
       - libevent-dev
       - libssl1.0-dev
+    stage-packages:
+      - libboost-system1.65.1
