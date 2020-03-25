@@ -144,7 +144,7 @@ public:
         if (keystore.GetCScript(scriptId, script))
             Process(script);
     }
-
+#ifdef DEBUG
     void operator()(const WitnessV0ScriptHash& scriptID)
     {
         CScriptID id;
@@ -162,6 +162,7 @@ public:
             vKeys.push_back(id);
         }
     }
+#endif
 
     template<typename X>
     void operator()(const X &none) {}
@@ -4344,13 +4345,15 @@ bool CWalletTx::AcceptToMemoryPool(const CAmount& nAbsurdFee, CValidationState& 
 
 void CWallet::LearnRelatedScripts(const CPubKey& key, OutputType type)
 {
+#ifdef DEBUG
     if (key.IsCompressed() && (type == OutputType::P2SH_SEGWIT || type == OutputType::BECH32)) {
         CTxDestination witdest = WitnessV0KeyHash(key.GetID());
         CScript witprog = GetScriptForDestination(witdest);
         // Make sure the resulting program is solvable.
-        //assert(IsSolvable(*this, witprog));
+        assert(IsSolvable(*this, witprog));
         AddCScript(witprog);
     }
+#endif
 }
 
 void CWallet::LearnAllRelatedScripts(const CPubKey& key)

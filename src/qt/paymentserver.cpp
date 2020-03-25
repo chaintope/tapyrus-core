@@ -103,7 +103,7 @@ void PaymentServer::ipcParseCommandLine(interfaces::Node& node, int argc, char* 
             savedPaymentRequests.append(arg);
 
             SendCoinsRecipient r;
-            if (GUIUtil::parseBitcoinURI(arg, &r) && !r.address.isEmpty())
+            if (GUIUtil::parseTapyrusURI(arg, &r) && !r.address.isEmpty())
             {
                 auto tempChainParams = CreateChainParams(TAPYRUS_OP_MODE::PROD);
 
@@ -252,7 +252,7 @@ void PaymentServer::handleURIOrFile(const QString& s)
         else // normal URI
         {
             SendCoinsRecipient recipient;
-            if (GUIUtil::parseBitcoinURI(s, &recipient))
+            if (GUIUtil::parseTapyrusURI(s, &recipient))
             {
                 if (!IsValidDestinationString(recipient.address.toStdString())) {
                     Q_EMIT message(tr("URI handling"), tr("Invalid payment address %1").arg(recipient.address),

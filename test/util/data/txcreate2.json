@@ -15,7 +15,7 @@
             "scriptPubKey": {
                 "asm": "",
                 "hex": "",
-                "type": "nonstandard"
+                "type": "custom"
             }
         }
     ],

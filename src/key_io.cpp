@@ -40,7 +40,7 @@ public:
         data.insert(data.end(), id.begin(), id.end());
         return EncodeBase58Check(data);
     }
-
+#ifdef DEBUG
     std::string operator()(const WitnessV0KeyHash& id) const
     {
         std::vector<unsigned char> data = {0};
@@ -64,7 +64,7 @@ public:
         data.insert(data.end(), id.program, id.program + id.length);
         return EncodeBase58Check(data); //invalid address
     }
-
+#endif
     std::string operator()(const CNoDestination& no) const { return {}; }
 };
 

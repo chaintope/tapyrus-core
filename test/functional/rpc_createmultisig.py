@@ -23,8 +23,9 @@ class RpcCreateMultiSigTest(BitcoinTestFramework):
     def run_test(self):
         node0,node1,node2 = self.nodes
 
-        # 50 BTC starting balance
+        # 50 TPC starting balance
         node0.generate(1, self.signblockprivkey)
+
         self.sync_all()
 
         self.moved = 0
