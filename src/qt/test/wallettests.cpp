@@ -298,8 +298,7 @@ void paymentServerTest()
 
     // This payment request validates directly against the
     // caCert1 certificate authority:
-    data = DecodeBase64("\
-    Egt4NTA5K3NoYTI1NhrxAwruAzCCAeowggFToAMCAQICAQEwDQYJKoZIhvcNAQEL\
+    data = DecodeBase64("Egt4NTA5K3NoYTI1NhrxAwruAzCCAeowggFToAMCAQICAQEwDQYJKoZIhvcNAQEL\
     BQAwITEfMB0GA1UEAxMWUGF5bWVudFJlcXVlc3QgVGVzdCBDQTAeFw0xMjEyMTAx\
     NjM3MjRaFw0yMjEyMDgxNjM3MjRaMEMxGTAXBgNVBAMMEHRlc3RtZXJjaGFudC5v\
     cmcxJjAkBgNVBAoMHVBheW1lbnQgUmVxdWVzdCBUZXN0IE1lcmNoYW50MIGfMA0G\
@@ -313,9 +312,13 @@ void paymentServerTest()
     igPI+6XpExtNLO/i1WFV8ZmoiKwYsuHFiwUqC1VuaXRUZXN0T25lKoABS0j59iMU\
     Uc9MdIfwsO1BskIET0eJSGNZ7eXb9N62u+qf831PMpEHkmlGpk8rHy92nPcgua/U\
     Yt8oZMn3QaTZ5A6HjJbc3A73eLylp1a0SwCl+KDMEvDQhqMn1jAVu2v92AH3uB7n\
-    SiWVbw0tX/68iSQEGGfh9n6ee/8Myb3ICdw=\
-    ");
+    SiWVbw0tX/68iSQEGGfh9n6ee/8Myb3ICdw=");
+    QVERIFY(data.size());
     r = handleRequest(server, data);
+    QCOMPARE(r.amount, (int64_t)0);
+    QCOMPARE(r.label, QString(""));
+    QCOMPARE(r.message, QString(""));
+    QCOMPARE(r.address, QString(""));
     QCOMPARE(r.sPaymentRequest.c_str(), "");
 }
 
