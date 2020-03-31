@@ -118,3 +118,9 @@ test/cache/*
 
 libtapyrusconsensus.pc
 contrib/devtools/split-debug.sh
+
+# snap directories
+/parts
+/stage
+/prime
+*.snap

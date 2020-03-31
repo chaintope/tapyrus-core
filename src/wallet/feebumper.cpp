@@ -151,7 +151,7 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
         // walletIncrementalRelayFee.GetFeePerK() should be exact, because it's initialized
         // in that unit (fee per kb).
         // However, nOldFeeRate is a calculated value from the tx fee/size, so
-        // add 1 satoshi to the result, because it may have been rounded down.
+        // add 1 tapyrus to the result, because it may have been rounded down.
         if (nNewFeeRate.GetFeePerK() < nOldFeeRate.GetFeePerK() + 1 + walletIncrementalRelayFee.GetFeePerK()) {
             nNewFeeRate = CFeeRate(nOldFeeRate.GetFeePerK() + 1 + walletIncrementalRelayFee.GetFeePerK());
             new_fee = nNewFeeRate.GetFee(maxNewTxSize);

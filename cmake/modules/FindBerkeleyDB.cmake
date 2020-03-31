@@ -6,24 +6,24 @@
 # BDBXX_LIBRARY - Library needed to use Berkeley DB C++ API
 
 include(BrewHelper)
-find_brew_prefix(BREW_HINT berkeley-db)
+find_brew_prefix(BREW_HINT berkeley-db4)
 
 find_path(BDB_INCLUDE_DIR
 	NAMES db.h
-	HINTS ${BREW_HINT}
+	HINTS ${BREW_HINT}/include
 )
 find_library(BDB_LIBRARY
 	NAMES db libdb
-	HINTS ${BREW_HINT}
+	HINTS ${BREW_HINT}/lib
 )
 
 find_path(BDBXX_INCLUDE_DIR
 	NAMES db_cxx.h
-	HINTS ${BREW_HINT}
+	HINTS ${BREW_HINT}/include
 )
 find_library(BDBXX_LIBRARY
 	NAMES db_cxx libdb_cxx
-	HINTS ${BREW_HINT}
+	HINTS ${BREW_HINT}/lib
 )
 
 MESSAGE(STATUS "BerkeleyDB libs: " ${BDB_LIBRARY} " " ${BDBXX_LIBRARY})

@@ -455,7 +455,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         mSigObj = self.nodes[2].addmultisigaddress(2, [addr1Obj['pubkey'], addr2Obj['pubkey']])['address']
 
 
-        # send 1.2 BTC to msig addr
+        # send 1.2 TPC to msig addr
         txId = self.nodes[0].sendtoaddress(mSigObj, 1.2)
         self.sync_all()
         self.nodes[1].generate(1, self.signblockprivkey)
@@ -766,7 +766,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         # outputs 2 and 3 take the same share of the fee
         assert_equal(share[2], share[3])
 
-        # output 0 takes at least as much share of the fee, and no more than 2 satoshis more, than outputs 2 and 3
+        # output 0 takes at least as much share of the fee, and no more than 2 tapyrus more, than outputs 2 and 3
         assert_greater_than_or_equal(share[0], share[2])
         assert_greater_than_or_equal(share[2] + Decimal(2e-8), share[0])
 

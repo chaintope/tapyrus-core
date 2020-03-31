@@ -121,7 +121,9 @@ static bool SignStep(const SigningProvider& provider, const BaseSignatureCreator
     {
     case TX_NONSTANDARD:
     case TX_NULL_DATA:
+#ifdef DEBUG
     case TX_WITNESS_UNKNOWN:
+#endif
         return false;
     case TX_PUBKEY:
         if (!CreateSig(creator, sigdata, provider, sig, CPubKey(vSolutions[0]).GetID(), scriptPubKey, sigversion)) return false;
@@ -158,6 +160,7 @@ static bool SignStep(const SigningProvider& provider, const BaseSignatureCreator
         }
         return ok;
     }
+#ifdef DEBUG
     case TX_WITNESS_V0_KEYHASH:
         ret.push_back(vSolutions[0]);
         return true;
@@ -169,7 +172,7 @@ static bool SignStep(const SigningProvider& provider, const BaseSignatureCreator
             return true;
         }
         return false;
-
+#endif
     default:
         return false;
     }
@@ -211,7 +214,7 @@ bool ProduceSignature(const SigningProvider& provider, const BaseSignatureCreato
         solved = solved && SignStep(provider, creator, subscript, result, whichType, SigVersion::BASE, sigdata) && whichType != TX_SCRIPTHASH;
         P2SH = true;
     }
-
+#ifdef DEBUG
     if (solved && whichType == TX_WITNESS_V0_KEYHASH)
     {
         CScript witnessscript;
@@ -235,7 +238,7 @@ bool ProduceSignature(const SigningProvider& provider, const BaseSignatureCreato
     } else if (solved && whichType == TX_WITNESS_UNKNOWN) {
         sigdata.witness = true;
     }
-
+#endif
     if (P2SH) {
         result.push_back(std::vector<unsigned char>(subscript.begin(), subscript.end()));
     }
@@ -358,6 +361,7 @@ SignatureData DataFromTransaction(const CMutableTransaction& tx, unsigned int nI
         Solver(next_script, script_type, solutions);
         stack.script.pop_back();
     }
+#ifdef DEBUG
     if (script_type == TX_WITNESS_V0_SCRIPTHASH && !stack.witness.empty() && !stack.witness.back().empty()) {
         // Get the witnessScript
         CScript witness_script(stack.witness.back().begin(), stack.witness.back().end());
@@ -371,6 +375,7 @@ SignatureData DataFromTransaction(const CMutableTransaction& tx, unsigned int nI
         stack.witness.clear();
         sigversion = SigVersion::WITNESS_V0;
     }
+#endif
     if (script_type == TX_MULTISIG && !stack.script.empty()) {
         // Build a map of pubkey -> signature by matching sigs to pubkeys:
         assert(solutions.size() > 1);
