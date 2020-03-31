@@ -38,7 +38,6 @@ public:
         Conflicted,         /**< Conflicts with other transaction or mempool **/
         Abandoned,          /**< Abandoned from the wallet **/
         /// Generated (mined) transactions
-        Immature,           /**< Mined but waiting for maturity */
         NotAccepted         /**< Mined but not accepted */
     };
 
