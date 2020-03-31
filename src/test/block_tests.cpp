@@ -157,7 +157,7 @@ BOOST_AUTO_TEST_CASE(create_genesis_block_default)
 
     BOOST_CHECK_EQUAL(genesis.vtx[0]->vin.size(), 1);
     CScript scriptSig = genesis.vtx[0]->vin[0].scriptSig;
-    BOOST_CHECK_EQUAL(HexStr(scriptSig.begin(), scriptSig.end()), "21025700236c2890233592fcef262f4520d22af9160e3d9705855140eb2aa06c35d3");
+    BOOST_CHECK_EQUAL(HexStr(scriptSig.begin(), scriptSig.end()), "");
 
     BOOST_CHECK_EQUAL(genesis.vtx[0]->vout.size(), 1);
     BOOST_CHECK_EQUAL(genesis.vtx[0]->vout[0].nValue, 50 * COIN);
