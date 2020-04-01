@@ -77,92 +77,9 @@ static QString ipcServerName()
 
 static QList<QString> savedPaymentRequests;
 
-//
-// Sending to the server is done synchronously, at startup.
-// If the server isn't already running, startup continues,
-// and the items in savedPaymentRequest will be handled
-// when uiReady() is called.
-//
-// Warning: ipcSendCommandLine() is called early in init,
-// so don't use "Q_EMIT message()", but "QMessageBox::"!
-//
-void PaymentServer::ipcParseCommandLine(interfaces::Node& node, int argc, char* argv[])
-{
-    for (int i = 1; i < argc; i++)
-    {
-        QString arg(argv[i]);
-        if (arg.startsWith("-"))
-            continue;
-
-        // If the tapyrus: URI contains a payment request, we are not able to detect the
-        // network as that would require fetching and parsing the payment request.
-        // That means clicking such an URI which contains a testnet payment request
-        // will start a mainnet instance and throw a "wrong network" error.
-        if (arg.startsWith(BITCOIN_IPC_PREFIX, Qt::CaseInsensitive)) // tapyrus: URI
-        {
-            savedPaymentRequests.append(arg);
-
-            SendCoinsRecipient r;
-            if (GUIUtil::parseTapyrusURI(arg, &r) && !r.address.isEmpty())
-            {
-                auto tempChainParams = CreateChainParams(TAPYRUS_OP_MODE::PROD);
-
-                if (IsValidDestinationString(r.address.toStdString(), *tempChainParams)) {
-                    node.selectParams();
-                } else {
-                    tempChainParams = CreateChainParams(TAPYRUS_OP_MODE::DEV);
-                    if (IsValidDestinationString(r.address.toStdString(), *tempChainParams)) {
-                        node.selectParams();
-                    }
-                }
-            }
-        }
-    }
-}
-
-//
-// Sending to the server is done synchronously, at startup.
-// If the server isn't already running, startup continues,
-// and the items in savedPaymentRequest will be handled
-// when uiReady() is called.
-//
-bool PaymentServer::ipcSendCommandLine()
-{
-    bool fResult = false;
-    for (const QString& r : savedPaymentRequests)
-    {
-        QLocalSocket* socket = new QLocalSocket();
-        socket->connectToServer(ipcServerName(), QIODevice::WriteOnly);
-        if (!socket->waitForConnected(BITCOIN_IPC_CONNECT_TIMEOUT))
-        {
-            delete socket;
-            socket = nullptr;
-            return false;
-        }
-
-        QByteArray block;
-        QDataStream out(&block, QIODevice::WriteOnly);
-        out.setVersion(QDataStream::Qt_4_0);
-        out << r;
-        out.device()->seek(0);
-
-        socket->write(block);
-        socket->flush();
-        socket->waitForBytesWritten(BITCOIN_IPC_CONNECT_TIMEOUT);
-        socket->disconnectFromServer();
-
-        delete socket;
-        socket = nullptr;
-        fResult = true;
-    }
-
-    return fResult;
-}
-
 PaymentServer::PaymentServer(QObject* parent, bool startLocalServer) :
     QObject(parent),
     saveURIs(true),
-    uriServer(0),
     optionsModel(0)
 {
 
@@ -174,22 +91,6 @@ PaymentServer::PaymentServer(QObject* parent, bool startLocalServer) :
 
     QString name = ipcServerName();
 
-    // Clean up old socket leftover from a crash:
-    QLocalServer::removeServer(name);
-
-    if (startLocalServer)
-    {
-        uriServer = new QLocalServer(this);
-
-        if (!uriServer->listen(name)) {
-            // constructor is called early in init, so don't use "Q_EMIT message()" here
-            QMessageBox::critical(0, tr("Payment request error"),
-                tr("Cannot start tapyrus: click-to-pay handler"));
-        }
-        else {
-            connect(uriServer, SIGNAL(newConnection()), this, SLOT(handleURIConnection()));
-        }
-    }
 }
 
 PaymentServer::~PaymentServer()
@@ -270,27 +171,6 @@ void PaymentServer::handleURIOrFile(const QString& s)
         }
     }
 
-}
-
-void PaymentServer::handleURIConnection()
-{
-    QLocalSocket *clientConnection = uriServer->nextPendingConnection();
-
-    while (clientConnection->bytesAvailable() < (int)sizeof(quint32))
-        clientConnection->waitForReadyRead();
-
-    connect(clientConnection, SIGNAL(disconnected()),
-            clientConnection, SLOT(deleteLater()));
-
-    QDataStream in(clientConnection);
-    in.setVersion(QDataStream::Qt_4_0);
-    if (clientConnection->bytesAvailable() < (int)sizeof(quint16)) {
-        return;
-    }
-    QString msg;
-    in >> msg;
-
-    handleURIOrFile(msg);
 }
 
 void PaymentServer::setOptionsModel(OptionsModel *_optionsModel)

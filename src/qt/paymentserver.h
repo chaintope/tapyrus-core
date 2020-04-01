@@ -58,17 +58,6 @@ class PaymentServer : public QObject
     Q_OBJECT
 
 public:
-    // Parse URIs on command line
-    // Returns false on error
-    static void ipcParseCommandLine(interfaces::Node& node, int argc, char *argv[]);
-
-    // Returns true if there were URIs on the command line
-    // which were successfully sent to an already-running
-    // process.
-    // Note: if a payment request is given, SelectParams(MAIN/TESTNET)
-    // will be called so we startup in the right mode.
-    static bool ipcSendCommandLine();
-
     // parent should be QApplication object
     explicit PaymentServer(QObject* parent, bool startLocalServer = true);
     ~PaymentServer();
@@ -91,9 +80,6 @@ public Q_SLOTS:
     // Handle an incoming URI, URI with local file scheme or file
     void handleURIOrFile(const QString& s);
 
-private Q_SLOTS:
-    void handleURIConnection();
-
 protected:
     // Constructor registers this on the parent QApplication to
     // receive QEvent::FileOpen and QEvent:Drop events
@@ -101,7 +87,6 @@ protected:
 
 private:
     bool saveURIs;                      // true during startup
-    QLocalServer* uriServer;
     OptionsModel *optionsModel;
 
 };
