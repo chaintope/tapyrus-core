@@ -387,7 +387,7 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
         // for the same tx with a different witness.
         {
             CMutableTransaction valid_with_witness_tx;
-            valid_with_witness_tx.nVersion = 1;
+            valid_with_witness_tx.nFeatures = 1;
             valid_with_witness_tx.vin.resize(1);
             valid_with_witness_tx.vin[0].prevout.hashMalFix = spend_tx.GetHashMalFix();
             valid_with_witness_tx.vin[0].prevout.n = 1;
@@ -419,7 +419,7 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
             // Test a transaction with multiple inputs.
             CMutableTransaction tx;
 
-            tx.nVersion = 1;
+            tx.nFeatures = 1;
             tx.vin.resize(2);
             tx.vin[0].prevout.hashMalFix = spend_tx.GetHashMalFix();
             tx.vin[0].prevout.n = 0;
