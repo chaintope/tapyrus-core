@@ -111,7 +111,7 @@ Optional:
 
 To build with Qt 5 you need the following:
 
-    sudo dnf install qt5-qttools-devel qt5-qtbase-devel protobuf-devel
+    sudo dnf install qt5-qttools-devel qt5-qtbase-devel
 
 libqrencode (optional) can be installed with:
 

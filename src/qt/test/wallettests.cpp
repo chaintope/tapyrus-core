@@ -6,6 +6,7 @@
 
 #include <interfaces/node.h>
 #include <qt/tapyrusamountfield.h>
+#include <base58.h>
 #include <qt/callback.h>
 #include <qt/optionsmodel.h>
 #include <qt/platformstyle.h>
@@ -36,6 +37,7 @@
 #include <QTextEdit>
 #include <QListView>
 #include <QDialogButtonBox>
+#include <QTemporaryFile>
 
 namespace
 {
@@ -244,7 +246,84 @@ void TestGUI()
 
 } // namespace
 
+class SendCoinsRecipient;
+
+void RecipientCatcher::getRecipient(const SendCoinsRecipient& r)
+{
+    recipient = r;
+}
+
+static SendCoinsRecipient handleRequest(PaymentServer* server, std::vector<unsigned char>& data)
+{
+    RecipientCatcher sigCatcher;
+    QObject::connect(server, SIGNAL(receivedPaymentRequest(SendCoinsRecipient)),
+        &sigCatcher, SLOT(getRecipient(SendCoinsRecipient)));
+
+    // Write data to a temp file:
+    QTemporaryFile f;
+    f.open();
+    f.write((const char*)data.data(), data.size());
+    f.close();
+
+    // Create a QObject, install event filter from PaymentServer
+    // and send a file open event to the object
+    QObject object;
+    object.installEventFilter(server);
+    QFileOpenEvent event(f.fileName());
+    // If sending the event fails, this will cause sigCatcher to be empty,
+    // which will lead to a test failure anyway.
+    QCoreApplication::sendEvent(&object, &event);
+
+    QObject::disconnect(server, SIGNAL(receivedPaymentRequest(SendCoinsRecipient)),
+        &sigCatcher, SLOT(getRecipient(SendCoinsRecipient)));
+
+    // Return results from sigCatcher
+    return sigCatcher.recipient;
+}
+
+void paymentServerTest()
+{
+    SelectParams(TAPYRUS_OP_MODE::PROD);
+    auto node = interfaces::MakeNode();
+    OptionsModel optionsModel(*node);
+    PaymentServer* server = new PaymentServer(nullptr, false);
+    server->setOptionsModel(&optionsModel);
+    server->uiReady();
+
+    std::vector<unsigned char> data;
+    SendCoinsRecipient r;
+    QString merchant;
+
+    // Now feed PaymentRequests to server, and observe signals it produces
+
+    // This payment request validates directly against the
+    // caCert1 certificate authority:
+    data = DecodeBase64("Egt4NTA5K3NoYTI1NhrxAwruAzCCAeowggFToAMCAQICAQEwDQYJKoZIhvcNAQEL\
+    BQAwITEfMB0GA1UEAxMWUGF5bWVudFJlcXVlc3QgVGVzdCBDQTAeFw0xMjEyMTAx\
+    NjM3MjRaFw0yMjEyMDgxNjM3MjRaMEMxGTAXBgNVBAMMEHRlc3RtZXJjaGFudC5v\
+    cmcxJjAkBgNVBAoMHVBheW1lbnQgUmVxdWVzdCBUZXN0IE1lcmNoYW50MIGfMA0G\
+    CSqGSIb3DQEBAQUAA4GNADCBiQKBgQDHkMy8W1u6HsWlSqdWTmMKf54gICxNfxbY\
+    +rcMtAftr62hCYx2d2QiSRd1pCUzmo12IiSX3WxSHwaTnT3MFD6jRx6+zM6XdGar\
+    I2zpYle11ANzu4gAthN17uRQHV2O5QxVtzNaMdKeJLXT2L9tfEdyL++9ZUqoQmdA\
+    YG9ix330hQIDAQABoxAwDjAMBgNVHRMEBTADAQH/MA0GCSqGSIb3DQEBCwUAA4GB\
+    AIkyO99KC68bi9PFRyQQ7nvn5GlQEb3Ca1bRG5+AKN9N5vc8rZ9G2hejtM8wEXni\
+    eGBP+chVMsbTPEHKLrwREn7IvcyCcbAStaklPC3w0B/2idQSHskb6P3X13OR2bTH\
+    a2+6wuhsOZRUrVNr24rM95DKx/eCC6JN1VW+qRPU6fqzIjQSHwiw2wYSGXapFJVg\
+    igPI+6XpExtNLO/i1WFV8ZmoiKwYsuHFiwUqC1VuaXRUZXN0T25lKoABS0j59iMU\
+    Uc9MdIfwsO1BskIET0eJSGNZ7eXb9N62u+qf831PMpEHkmlGpk8rHy92nPcgua/U\
+    Yt8oZMn3QaTZ5A6HjJbc3A73eLylp1a0SwCl+KDMEvDQhqMn1jAVu2v92AH3uB7n\
+    SiWVbw0tX/68iSQEGGfh9n6ee/8Myb3ICdw=");
+    QVERIFY(data.size());
+    r = handleRequest(server, data);
+    QCOMPARE(r.amount, (int64_t)0);
+    QCOMPARE(r.label, QString(""));
+    QCOMPARE(r.message, QString(""));
+    QCOMPARE(r.address, QString(""));
+    QCOMPARE(r.sPaymentRequest.c_str(), "");
+}
+
 void WalletTests::walletTests()
 {
+    paymentServerTest();
     TestGUI();
 }

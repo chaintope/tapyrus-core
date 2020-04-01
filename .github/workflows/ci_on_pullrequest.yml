@@ -102,7 +102,7 @@ jobs:
       - run: |
           source ./default-env.sh
           HOST=x86_64-unknown-linux-gnu \
-          PACKAGES="python3-zmq qtbase5-dev qttools5-dev-tools protobuf-compiler libdbus-1-dev libharfbuzz-dev libprotobuf-dev" \
+          PACKAGES="python3-zmq qtbase5-dev qttools5-dev-tools libdbus-1-dev libharfbuzz-dev" \
           DEP_OPTS="NO_QT=1 NO_UPNP=1 ALLOW_HOST_PACKAGES=1" \
           RUN_TESTS=true \
           RUN_BENCH=false \
@@ -119,7 +119,7 @@ jobs:
       - run: |
           source ./default-env.sh
           HOST=x86_64-unknown-linux-gnu \
-          PACKAGES="python3-zmq qtbase5-dev qttools5-dev-tools libssl1.0-dev libevent-dev bsdmainutils libboost-system-dev libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev libdb5.3++-dev libminiupnpc-dev libzmq3-dev libprotobuf-dev protobuf-compiler libqrencode-dev" \
+          PACKAGES="python3-zmq qtbase5-dev qttools5-dev-tools libssl1.0-dev libevent-dev bsdmainutils libboost-system-dev libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev libdb5.3++-dev libminiupnpc-dev libzmq3-dev libqrencode-dev" \
           NO_DEPENDS=1 \
           RUN_TESTS=true \
           GOAL="install" \
