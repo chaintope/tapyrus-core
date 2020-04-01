@@ -500,9 +500,6 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     // Update nTime
     UpdateTime(pblock, consensusParams, pindexPrev);
 
-    // NOTE: If at some point we support pre-segwit miners post-segwit-activation, this needs to take segwit support into consideration
-    const bool fPreSegWit = true;
-
     UniValue aCaps(UniValue::VARR); aCaps.push_back("proposal");
 
     UniValue transactions(UniValue::VARR);
@@ -553,7 +550,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     result.pushKV("capabilities", aCaps);
 
     UniValue aRules(UniValue::VARR);
-    result.pushKV("version", pblock->nVersion);
+    result.pushKV("features", pblock->nFeatures);
     result.pushKV("rules", aRules);
 
     result.pushKV("previousblockhash", pblock->hashPrevBlock.GetHex());
@@ -933,8 +930,6 @@ UniValue testproposedblock(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_VERIFY_ERROR, state.IsInvalid() ? "Block proposal was invalid" : "Error checking block proposal");
         throw JSONRPCError(RPC_VERIFY_ERROR, strRejectReason);
     }
-
-    const CChainParams& chainparams = Params();
 
     for (auto& transaction : block.vtx) {
         if (transaction->IsCoinBase()) continue;

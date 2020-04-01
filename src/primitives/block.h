@@ -29,7 +29,7 @@ class CBlockHeaderWithoutProof
 {
 public:
     // header
-    int32_t nVersion;
+    int32_t nFeatures;
     uint256 hashPrevBlock;
     uint256 hashMerkleRoot;
     uint256 hashImMerkleRoot;
@@ -45,7 +45,7 @@ public:
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(this->nVersion);
+        READWRITE(this->nFeatures);
         READWRITE(hashPrevBlock);
         READWRITE(hashMerkleRoot);
         READWRITE(hashImMerkleRoot);
@@ -57,7 +57,7 @@ public:
 
     void SetNull()
     {
-        nVersion = 0;
+        nFeatures = 0;
         hashPrevBlock.SetNull();
         hashMerkleRoot.SetNull();
         hashImMerkleRoot.SetNull();
@@ -139,7 +139,7 @@ public:
     CBlockHeader GetBlockHeader() const
     {
         CBlockHeader block;
-        block.nVersion          = nVersion;
+        block.nFeatures         = nFeatures;
         block.hashPrevBlock     = hashPrevBlock;
         block.hashMerkleRoot    = hashMerkleRoot;
         block.hashImMerkleRoot  = hashImMerkleRoot;

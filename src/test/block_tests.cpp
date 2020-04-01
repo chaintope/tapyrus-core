@@ -60,7 +60,7 @@ BOOST_AUTO_TEST_CASE(serialized_CBlockHeaderWithoutProof_does_not_include_proof_
     CBlockHeader header = getBlockHeader();
 
     CBlockHeaderWithoutProof headerWP;
-    headerWP.nVersion = header.nVersion;
+    headerWP.nFeatures = header.nFeatures;
     headerWP.hashPrevBlock = header.hashPrevBlock;
     headerWP.hashMerkleRoot = header.hashMerkleRoot;
     headerWP.hashImMerkleRoot = header.hashImMerkleRoot;
@@ -149,7 +149,7 @@ BOOST_AUTO_TEST_CASE(create_genesis_block_default)
     CBlock genesis = createGenesisBlock(aggPubkey, aggregateKey);
 
     BOOST_CHECK_EQUAL(genesis.vtx.size(), 1);
-    BOOST_CHECK_EQUAL(genesis.nVersion, 1);
+    BOOST_CHECK_EQUAL(genesis.nFeatures, 1);
     BOOST_CHECK_EQUAL(genesis.hashPrevBlock.ToString(),
     "0000000000000000000000000000000000000000000000000000000000000000");
     BOOST_CHECK_EQUAL(genesis.hashMerkleRoot, genesis.vtx[0]->GetHash());
