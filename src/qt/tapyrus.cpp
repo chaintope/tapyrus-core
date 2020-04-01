@@ -658,10 +658,6 @@ int main(int argc, char *argv[])
         QMessageBox::critical(0, QObject::tr(PACKAGE_NAME), QObject::tr("Error: %1").arg(e.what()));
         return EXIT_FAILURE;
     }
-#ifdef ENABLE_WALLET
-    // Parse URIs on command line -- this can affect Params()
-    PaymentServer::ipcParseCommandLine(*node, argc, argv);
-#endif
 
     QScopedPointer<const NetworkStyle> networkStyle(NetworkStyle::instantiate(QString::fromStdString(TAPYRUS_MODES::GetChainName(gArgs.GetChainMode()))));
     assert(!networkStyle.isNull());
@@ -671,15 +667,6 @@ int main(int argc, char *argv[])
     initTranslations(qtTranslatorBase, qtTranslator, translatorBase, translator);
 
 #ifdef ENABLE_WALLET
-    /// 8. URI IPC sending
-    // - Do this early as we don't want to bother initializing if we are just calling IPC
-    // - Do this *after* setting up the data directory, as the data directory hash is used in the name
-    // of the server.
-    // - Do this after creating app and setting up translations, so errors are
-    // translated properly.
-    if (PaymentServer::ipcSendCommandLine())
-        exit(EXIT_SUCCESS);
-
     // Start up the payment server early, too, so impatient users that click on
     // bitcoin: links repeatedly have their payment requests routed to this process:
     app.createPaymentServer();
