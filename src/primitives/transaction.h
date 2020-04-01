@@ -193,7 +193,7 @@ struct CMutableTransaction;
  */
 template<typename Stream, typename TxType>
 inline void UnserializeTransaction(TxType& tx, Stream& s) {
-    s >> tx.nVersion;
+    s >> tx.nFeatures;
     tx.vin.clear();
     tx.vout.clear();
     s >> tx.vin;
@@ -203,7 +203,7 @@ inline void UnserializeTransaction(TxType& tx, Stream& s) {
 
 template<typename Stream, typename TxType>
 inline void SerializeTransaction(const TxType& tx, Stream& s) {
-    s << tx.nVersion;
+    s << tx.nFeatures;
     s << tx.vin;
     s << tx.vout;
     s << tx.nLockTime;
@@ -232,7 +232,7 @@ public:
     // structure, including the hash.
     const std::vector<CTxIn> vin;
     const std::vector<CTxOut> vout;
-    const int32_t nVersion;
+    const int32_t nFeatures;
     const uint32_t nLockTime;
 
 private:
@@ -321,7 +321,7 @@ struct CMutableTransaction
 {
     std::vector<CTxIn> vin;
     std::vector<CTxOut> vout;
-    int32_t nVersion;
+    int32_t nFeatures;
     uint32_t nLockTime;
 
     CMutableTransaction();

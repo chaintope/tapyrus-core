@@ -340,7 +340,7 @@ BOOST_AUTO_TEST_CASE(test_Get)
 static void CreateCreditAndSpend(const CKeyStore& keystore, const CScript& outscript, CTransactionRef& output, CMutableTransaction& input, bool success = true)
 {
     CMutableTransaction outputm;
-    outputm.nVersion = 1;
+    outputm.nFeatures = 1;
     outputm.vin.resize(1);
     outputm.vin[0].prevout.SetNull();
     outputm.vin[0].scriptSig = CScript();
@@ -356,7 +356,7 @@ static void CreateCreditAndSpend(const CKeyStore& keystore, const CScript& outsc
     assert(output->vout[0] == outputm.vout[0]);
 
     CMutableTransaction inputm;
-    inputm.nVersion = 1;
+    inputm.nFeatures = 1;
     inputm.vin.resize(1);
     inputm.vin[0].prevout.hashMalFix = output->GetHashMalFix();
     inputm.vin[0].prevout.n = 0;

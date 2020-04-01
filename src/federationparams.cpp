@@ -48,7 +48,7 @@ CBlock createGenesisBlock(const CPubKey& aggregatePubkey, const CKey& privateKey
 {
     //Genesis coinbase transaction paying block reward to the first public key in signedBlocksCondition
     CMutableTransaction txNew;
-    txNew.nVersion = 1;
+    txNew.nFeatures = 1;
     txNew.vin.resize(1);
     txNew.vout.resize(1);
     txNew.vin[0].prevout.n = 0;
@@ -63,7 +63,7 @@ CBlock createGenesisBlock(const CPubKey& aggregatePubkey, const CKey& privateKey
     //Genesis block header
     CBlock genesis;
     genesis.nTime    = blockTime;
-    genesis.nVersion = 1;
+    genesis.nFeatures = 1;
     genesis.vtx.push_back(MakeTransactionRef(std::move(txNew)));
     genesis.hashPrevBlock.SetNull();
     genesis.hashMerkleRoot = BlockMerkleRoot(genesis);

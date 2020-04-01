@@ -113,11 +113,11 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     assert(pindexPrev != nullptr);
     nHeight = pindexPrev->nHeight + 1;
 
-    pblock->nVersion = CBlock::TAPYRUS_BLOCK_VERSION;
-    // -dev only: allow overriding block.nVersion with
+    pblock->nFeatures = CBlock::TAPYRUS_BLOCK_VERSION;
+    // -dev only: allow overriding block.nFeatures with
     // -blockversion=N to test forking scenarios
     if (chainparams.MineBlocksOnDemand())
-        pblock->nVersion = gArgs.GetArg("-blockversion", pblock->nVersion);
+        pblock->nFeatures = gArgs.GetArg("-blockversion", pblock->nFeatures);
 
     pblock->nTime = GetAdjustedTime();
     const int64_t nMedianTimePast = pindexPrev->GetMedianTimePast();

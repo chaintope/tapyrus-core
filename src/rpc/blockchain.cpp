@@ -65,8 +65,8 @@ UniValue blockheaderToJSON(const CBlockIndex* blockindex)
         confirmations = chainActive.Height() - blockindex->nHeight + 1;
     result.pushKV("confirmations", confirmations);
     result.pushKV("height", blockindex->nHeight);
-    result.pushKV("version", blockindex->nVersion);
-    result.pushKV("versionHex", strprintf("%08x", blockindex->nVersion));
+    result.pushKV("features", blockindex->nFeatures);
+    result.pushKV("featuresHex", strprintf("%08x", blockindex->nFeatures));
     result.pushKV("merkleroot", blockindex->hashMerkleRoot.GetHex());
     result.pushKV("immutablemerkleroot", blockindex->hashImMerkleRoot.GetHex());
     result.pushKV("time", (int64_t)blockindex->nTime);
@@ -98,8 +98,8 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
     result.pushKV("size", (int)::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION));
     result.pushKV("weight", (int)::GetBlockWeight(block));
     result.pushKV("height", blockindex->nHeight);
-    result.pushKV("version", block.nVersion);
-    result.pushKV("versionHex", strprintf("%08x", block.nVersion));
+    result.pushKV("features", block.nFeatures);
+    result.pushKV("featuresHex", strprintf("%08x", block.nFeatures));
     result.pushKV("merkleroot", block.hashMerkleRoot.GetHex());
     result.pushKV("immutablemerkleroot", block.hashImMerkleRoot.GetHex());
     UniValue txs(UniValue::VARR);

@@ -120,10 +120,10 @@ static void CreateBlocks(const CChainParams &chainparams,
         CBlock *pblock = &pblocktemplate->block; // pointer for convenience
         {
             LOCK(cs_main);
-            pblock->nVersion = 1;
+            pblock->nFeatures = 1;
             pblock->nTime = chainActive.Tip()->GetMedianTimePast()+1;
             CMutableTransaction txCoinbase(*pblock->vtx[0]);
-            txCoinbase.nVersion = 1;
+            txCoinbase.nFeatures = 1;
             txCoinbase.vin[0].prevout.n = chainActive.Height() + 1;
             txCoinbase.vin[0].scriptSig = CScript();
             txCoinbase.vin[0].scriptSig.push_back(blockinfo[i].extranonce);
@@ -474,7 +474,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     std::vector<int> prevheights;
 
     // relative height locked
-    tx.nVersion = 1;
+    tx.nFeatures = 1;
     tx.vin.resize(1);
     prevheights.resize(1);
     tx.vin[0].prevout.hashMalFix = txFirst[0]->GetHashMalFix(); // only 1 transaction

@@ -2067,7 +2067,7 @@ void static UpdateTip(const CBlockIndex *pindexNew) {
     }
 
     LogPrintf("%s: new best=%s height=%d version=0x%08x tx=%lu date='%s' progress=%f cache=%.1fMiB(%utxo)", __func__, /* Continued */
-      pindexNew->GetBlockHash().ToString(), pindexNew->nHeight, pindexNew->nVersion,
+      pindexNew->GetBlockHash().ToString(), pindexNew->nHeight, pindexNew->nFeatures,
       (unsigned long)pindexNew->nChainTx, FormatISO8601DateTime(pindexNew->GetBlockTime()),
       GuessVerificationProgress(Params().TxData(), pindexNew), pcoinsTip->DynamicMemoryUsage() * (1.0 / (1<<20)), pcoinsTip->GetCacheSize());
     LogPrintf("\n");
@@ -2860,7 +2860,7 @@ static bool FindUndoPos(CValidationState &state, int nFile, CDiskBlockPos &pos, 
 static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, bool fCheckPOW)
 {
     //check block version
-    if(block.nVersion != CBlock::TAPYRUS_BLOCK_VERSION)
+    if(block.nFeatures != CBlock::TAPYRUS_BLOCK_VERSION)
         return state.Error("Block Version was incorrect");
 
     //Check proof of Signed Blocks in a block header
@@ -4019,7 +4019,6 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp)
     // Map of disk positions for blocks with unknown parent (only used for reindex)
     static std::multimap<uint256, CDiskBlockPos> mapBlocksUnknownParent;
     int64_t nStart = GetTimeMillis();
-    const CChainParams& chainparams = Params();
 
     int nLoaded = 0;
     try {

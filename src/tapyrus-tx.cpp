@@ -189,13 +189,13 @@ static CAmount ExtractAndValidateValue(const std::string& strValue)
     return value;
 }
 
-static void MutateTxVersion(CMutableTransaction& tx, const std::string& cmdVal)
+static void MutateTxFeatures(CMutableTransaction& tx, const std::string& cmdVal)
 {
-    int64_t newVersion;
-    if (!ParseInt64(cmdVal, &newVersion) || newVersion < 1 || newVersion > CTransaction::MAX_STANDARD_VERSION)
+    int64_t newFeatures;
+    if (!ParseInt64(cmdVal, &newFeatures) || newFeatures < 1 || newFeatures > CTransaction::MAX_STANDARD_VERSION)
         throw std::runtime_error("Invalid TX version requested: '" + cmdVal + "'");
 
-    tx.nVersion = (int) newVersion;
+    tx.nFeatures = (int) newFeatures;
 }
 
 static void MutateTxLocktime(CMutableTransaction& tx, const std::string& cmdVal)
@@ -654,8 +654,8 @@ static void MutateTx(CMutableTransaction& tx, const std::string& command,
 {
     std::unique_ptr<Secp256k1Init> ecc;
 
-    if (command == "nversion")
-        MutateTxVersion(tx, commandVal);
+    if (command == "features")
+        MutateTxFeatures(tx, commandVal);
     else if (command == "locktime")
         MutateTxLocktime(tx, commandVal);
     else if (command == "replaceable") {
