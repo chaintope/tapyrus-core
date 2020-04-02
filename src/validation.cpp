@@ -2860,7 +2860,7 @@ static bool FindUndoPos(CValidationState &state, int nFile, CDiskBlockPos &pos, 
 static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, bool fCheckPOW)
 {
     //check block version
-    if(block.nFeatures != CBlock::TAPYRUS_BLOCK_VERSION)
+    if(block.nFeatures != CBlock::TAPYRUS_BLOCK_FEATURES)
         return state.Error("Block Version was incorrect");
 
     //Check proof of Signed Blocks in a block header

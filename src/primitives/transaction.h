@@ -216,14 +216,15 @@ inline void SerializeTransaction(const TxType& tx, Stream& s) {
 class CTransaction
 {
 public:
-    // Default transaction version.
-    static const int32_t CURRENT_VERSION=1;
+    // Default transaction features.
+    static const int32_t CURRENT_FEATURES=1;
 
     // Changing the default transaction version requires a two step process: first
-    // adapting relay policy by bumping MAX_STANDARD_VERSION, and then later date
-    // bumping the default CURRENT_VERSION at which point both CURRENT_VERSION and
-    // MAX_STANDARD_VERSION will be equal.
-    static const int32_t MAX_STANDARD_VERSION=1;
+    // adapting relay policy by bumping MAX_STANDARD_FEATURES, and then later date
+    // bumping the default CURRENT_FEATURES at which point both CURRENT_FEATURES
+    // and MAX_STANDARD_FEATURES will be equal.
+    // Tapyrus: renaming MAX_STANDARD_VERSION to MAX_STANDARD_FEATURES.
+    static const int32_t MAX_STANDARD_FEATURES=1;
 
     // The local variables are made const to prevent unintended modification
     // without updating the cached hash value. However, CTransaction is not

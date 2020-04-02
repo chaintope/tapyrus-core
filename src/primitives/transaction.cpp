@@ -55,7 +55,7 @@ std::string CTxOut::ToString() const
     return strprintf("CTxOut(nValue=%d.%08d, scriptPubKey=%s)", nValue / COIN, nValue % COIN, HexStr(scriptPubKey).substr(0, 30));
 }
 
-CMutableTransaction::CMutableTransaction() : nFeatures(CTransaction::CURRENT_VERSION), nLockTime(0) {}
+CMutableTransaction::CMutableTransaction() : nFeatures(CTransaction::CURRENT_FEATURES), nLockTime(0) {}
 CMutableTransaction::CMutableTransaction(const CTransaction& tx) : vin(tx.vin), vout(tx.vout), nFeatures(tx.nFeatures), nLockTime(tx.nLockTime) {}
 
 uint256 CMutableTransaction::GetHash() const
@@ -90,7 +90,7 @@ uint256 CTransaction::ComputeHashMalFix() const
 CTransaction::CTransaction() :
             vin(),
             vout(),
-            nFeatures(CTransaction::CURRENT_VERSION),
+            nFeatures(CTransaction::CURRENT_FEATURES),
             nLockTime(0),
             hash{},
             m_witness_hash{},

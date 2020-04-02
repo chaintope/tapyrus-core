@@ -113,7 +113,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     assert(pindexPrev != nullptr);
     nHeight = pindexPrev->nHeight + 1;
 
-    pblock->nFeatures = CBlock::TAPYRUS_BLOCK_VERSION;
+    pblock->nFeatures = CBlock::TAPYRUS_BLOCK_FEATURES;
     // -dev only: allow overriding block.nFeatures with
     // -blockversion=N to test forking scenarios
     if (chainparams.MineBlocksOnDemand())

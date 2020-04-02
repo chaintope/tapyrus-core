@@ -78,7 +78,7 @@ bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType)
 
 bool IsStandardTx(const CTransaction& tx, std::string& reason)
 {
-    if (tx.nFeatures > CTransaction::MAX_STANDARD_VERSION || tx.nFeatures < 1) {
+    if (tx.nFeatures > CTransaction::MAX_STANDARD_FEATURES || tx.nFeatures < 1) {
         reason = "features";
         return false;
     }
