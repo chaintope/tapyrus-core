@@ -18,7 +18,6 @@
 #include <primitives/transaction.h>
 #include <netbase.h>
 
-#include <net_permissions.h>
 #include <random.h>
 #include <scheduler.h>
 #include <ui_interface.h>
@@ -879,22 +878,6 @@ const uint256& CNetMessage::GetMessageHash() const
         hasher.Finalize(data_hash.begin());
     return data_hash;
 }
-
-
-
-
-    // We just received a message off the wire, harvest entropy from the time (and the message checksum)
-    RandAddEvent(ReadLE32(hash.begin()));
-
-    msg.m_valid_checksum = (memcmp(hash.begin(), hdr.pchChecksum, CMessageHeader::CHECKSUM_SIZE) == 0);
-    if (!msg.m_valid_checksum) {
-        LogPrint(BCLog::NET, "CHECKSUM ERROR (%s, %u bytes), expected %s was %s\n",
-                 SanitizeString(msg.m_command), msg.m_message_size,
-                 HexStr(hash.begin(), hash.begin()+CMessageHeader::CHECKSUM_SIZE),
-                 HexStr(hdr.pchChecksum, hdr.pchChecksum+CMessageHeader::CHECKSUM_SIZE));
-    }
-
-
 
 
 // requires LOCK(cs_vSend)

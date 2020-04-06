@@ -348,7 +348,7 @@ void GetOSRand(unsigned char *ent32)
 namespace {
 
 class RNGState {
-    Mutex m_mutex;
+    CCriticalSection m_mutex;
     /* The RNG state consists of 256 bits of entropy, taken from the output of
      * one operation's SHA512 output, and fed as input to the next one.
      * Carrying 256 bits of entropy should be sufficient to guarantee
@@ -361,7 +361,7 @@ class RNGState {
     uint64_t m_counter GUARDED_BY(m_mutex) = 0;
     bool m_strongly_seeded GUARDED_BY(m_mutex) = false;
 
-    Mutex m_events_mutex;
+    CCriticalSection m_events_mutex;
     CSHA256 m_events_hasher GUARDED_BY(m_events_mutex);
 
 public:
@@ -538,7 +538,7 @@ static void SeedStartup(CSHA512& hasher, RNGState& rng) noexcept
 
     // Static environment data
     RandAddStaticEnv(hasher);
-    LogPrint(BCLog::RAND, "Feeding %i bytes of environment data into RNG\n", hasher.Size() - old_size);
+    //LogPrint(BCLog::RAND, "Feeding %i bytes of environment data into RNG\n", hasher.Size() - old_size);
 
     // Strengthen for 100 ms
     SeedStrengthen(hasher, rng, 100000);
