@@ -71,6 +71,7 @@
 #ifdef HAVE_MALLOPT_ARENA_MAX
 #include <malloc.h>
 #endif
+#include <boost/interprocess/sync/file_lock.hpp>
 
 #include <thread>
 
@@ -81,6 +82,8 @@ const char * const BITCOIN_CONF_FILENAME = "tapyrus.conf";
 const char * const BITCOIN_PID_FILENAME = "tapyrus.pid";
 
 ArgsManager gArgs;
+
+CTranslationInterface translationInterface;
 
 /** A map that contains all the currently held directory locks. After
  * successful locking, these will be held here until the global destructor

@@ -7,7 +7,7 @@
 
 #include <crypto/sha512.h>
 #include <support/cleanse.h>
-#include <util/time.h> // for GetTime()
+#include <utiltime.h> // for GetTime()
 #ifdef WIN32
 #include <compat.h> // for Windows API
 #endif

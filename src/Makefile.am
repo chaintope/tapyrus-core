@@ -413,7 +413,6 @@ libtapyrus_util_a_SOURCES = \
   random.cpp \
   rpc/protocol.cpp \
   randomenv.cpp \
-  rpc/request.cpp \
   support/cleanse.cpp \
   sync.cpp \
   threadinterrupt.cpp \
