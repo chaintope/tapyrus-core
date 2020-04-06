@@ -12,6 +12,7 @@
 #include <wincrypt.h>
 #endif
 #include <logging.h>  // for LogPrint()
+#include <sync.h>     // for WAIT_LOCK
 #include <utiltime.h> // for GetTime()
 
 #include <stdlib.h>
