@@ -1088,15 +1088,8 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
             "  \"pruneheight\": xxxxxx,        (numeric) lowest-height complete block stored (only present if pruning is enabled)\n"
             "  \"automatic_pruning\": xx,      (boolean) whether automatic pruning is enabled (only present if pruning is enabled)\n"
             "  \"prune_target_size\": xxxxxx,  (numeric) the target size used by pruning (only present if automatic pruning is enabled)\n"
-            "  \"softforks\": [                (array) status of softforks in progress\n"
-            "     {\n"
-            "        \"id\": \"xxxx\",           (string) name of softfork\n"
-            "        \"version\": xx,          (numeric) block version\n"
-            "        \"reject\": {             (object) progress toward rejecting pre-softfork blocks\n"
-            "           \"status\": xx,        (boolean) true if threshold reached\n"
-            "        },\n"
-            "     }, ...\n"
-            "  ],\n"
+            "  \"aggregate_pubkeys\": {        (object) pairs of aggregate pubkey of the federation and block height where it is used to verify block proof\n"
+            "  },\n"
             "  \"warnings\" : \"...\",           (string) any network and blockchain warnings.\n"
             "}\n"
             "\nExamples:\n"
@@ -1133,7 +1126,13 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
             obj.pushKV("prune_target_size",  nPruneTarget);
         }
     }
-
+    //aggregate pubkey list with block height
+    UniValue aggPubkeyObj(UniValue::VOBJ);
+    for (auto aggpubkeyPair& : FederationParams().GetAggregatePubkeyList())
+    {
+        aggPubkeyObj.pushKV(aggpubkeyPair.aggpubKey, aggpubkeyPair.height);
+    }
+    obj.pushKV("aggregatePubkeys", aggPubkeyObj);
     obj.pushKV("warnings", GetWarnings("statusbar"));
     return obj;
 }
