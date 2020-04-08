@@ -87,7 +87,7 @@ private:
     std::string dataDir;
     std::vector<CPubKey> aggregatePubkey;
     std::vector<aggPubkeyAndHeight> aggregatePubkeyHeight;
-    std::vector<uint> height;
+    std::vector<uint> aggregateHeight;
     CBlock genesis;
     std::vector<std::string> vSeeds;
     std::vector<SeedSpec6> vFixedSeeds;
