@@ -2874,7 +2874,7 @@ static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,
     if(!proofSize)
         return state.Error("No proof in block");
 
-    const CPubKey& aggregatePubkey = FederationParams().GetAggregatePubkey();
+    const CPubKey& aggregatePubkey = FederationParams().GetLatestAggregatePubkey();
 
     if(!aggregatePubkey.IsValid())
         return state.Error("Invalid aggregatePubkey");
@@ -3249,6 +3249,17 @@ bool ProcessNewBlock(const std::shared_ptr<const CBlock> pblock, bool fForceProc
         if (ret) {
             // Store to disk
             ret = g_chainstate.AcceptBlock(pblock, state, &pindex, fForceProcessing, nullptr, fNewBlock);
+
+            const CPubKey&blockAggPubKey = CPubKey(pindex->aggPubkey.begin(), pindex->aggPubkey.end());
+
+            const CPubKey&federationAggPubKey = FederationParams().GetLatestAggregatePubkey();
+
+
+            FederationParams().GetHeightFromAggregatePubkey(pindex->aggPubkey);
+            FederationParams().GetAggPubkeyFromHeight(pindex->nHeight);
+
+            if((pindex->aggPubkey.size() == 33) && (blockAggPubKey != federationAggPubKey))
+                const_cast<CFederationParams&>(FederationParams()).ReadAggregatePubkey(pindex->aggPubkey, pindex->nHeight);
         }
         if (!ret) {
             GetMainSignals().BlockChecked(*pblock, state);

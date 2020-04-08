@@ -14,6 +14,7 @@
 #include <key_io.h>
 #include <tapyrusmodes.h>
 #include <chainparamsseeds.h>
+#include <validation.h>
 
 #include <assert.h>
 
@@ -139,21 +140,27 @@ CFederationParams::CFederationParams(const int networkId, const std::string data
     vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_main, pnSeed6_main + ARRAYLEN(pnSeed6_main));
 }
 
-CPubKey CFederationParams::ReadAggregatePubkey(const std::vector<unsigned char>& pubkey)
+CPubKey CFederationParams::ReadAggregatePubkey(const std::vector<unsigned char>& pubkey, uint height)
 {
     if(!pubkey.size())
         throw std::runtime_error("Aggregate Public Key for Signed Block is empty");
     
     if (pubkey[0] == 0x02 || pubkey[0] == 0x03) {
-        aggregatePubkey = CPubKey(pubkey.begin(), pubkey.end());
-        if(!aggregatePubkey.IsFullyValid()) {
+        aggPubkeyAndHeight p;
+        p.aggpubkey = CPubKey(pubkey.begin(), pubkey.end());
+        p.height = height+1;
+
+        aggregatePubkeyHeight.push_back(p);
+        aggregatePubkey.push_back(p.aggpubkey);
+        height.push_back(p.height);
+        if(!p.aggpubkey.IsFullyValid()) {
             throw std::runtime_error(strprintf("Aggregate Public Key for Signed Block is invalid: %s", HexStr(pubkey)));
         }
 
-        if (aggregatePubkey.size() != CPubKey::COMPRESSED_PUBLIC_KEY_SIZE) {
+        if (p.aggpubkey.size() != CPubKey::COMPRESSED_PUBLIC_KEY_SIZE) {
             throw std::runtime_error(strprintf("Aggregate Public Key for Signed Block is invalid: %s", HexStr(pubkey)));
         }
-        return aggregatePubkey;
+        return p.aggpubkey;
 
     } else if(pubkey[0] == 0x04 || pubkey[0] == 0x06 || pubkey[0] == 0x07) {
         throw std::runtime_error(strprintf("Uncompressed public key format are not acceptable: %s", HexStr(pubkey)));
@@ -168,7 +175,7 @@ bool CFederationParams::ReadGenesisBlock(std::string genesisHex)
     unsigned long streamsize = ss.size();
     ss >> genesis;
 
-    ReadAggregatePubkey(genesis.aggPubkey);
+    ReadAggregatePubkey(genesis.aggPubkey, 0);
 
     /* Performing non trivial validation here.
     * full block validation will be done later in ConnectBlock
@@ -195,7 +202,7 @@ bool CFederationParams::ReadGenesisBlock(std::string genesisHex)
 
     //verify proof
     const uint256 blockHash = genesis.GetHashForSign();
-    if(!aggregatePubkey.Verify_Schnorr(blockHash, genesis.proof))
+    if(!aggregatePubkey.back().Verify_Schnorr(blockHash, genesis.proof))
         throw std::runtime_error("ReadGenesisBlock: Proof verification failed");
 
     return true;

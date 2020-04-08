@@ -101,7 +101,7 @@ BOOST_AUTO_TEST_CASE(AbsorbBlockProof_test) {
     ssBlockProof << blockProof;
 
     // add proof to the block
-    BOOST_CHECK(block.AbsorbBlockProof(blockProof, FederationParams().GetAggregatePubkey()));
+    BOOST_CHECK(block.AbsorbBlockProof(blockProof, FederationParams().GetLatestAggregatePubkey()));
 
     ssBlock.clear();
     ssBlock << block;
@@ -128,7 +128,7 @@ BOOST_AUTO_TEST_CASE(AbsorbBlockProof_invlalid_test) {
     blockProof[2] = 0x30 ;
 
     //returns false as all signatures in proof are not added to the block
-    BOOST_CHECK_EQUAL(false, block.AbsorbBlockProof(blockProof, FederationParams().GetAggregatePubkey()));
+    BOOST_CHECK_EQUAL(false, block.AbsorbBlockProof(blockProof, FederationParams().GetLatestAggregatePubkey()));
 
     ssBlock.clear();
     ssBlock << block;

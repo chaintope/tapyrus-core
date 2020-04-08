@@ -23,6 +23,11 @@ struct SeedSpec6 {
     uint16_t port;
 };
 
+struct aggPubkeyAndHeight {
+    CPubKey aggpubkey;
+    uint height;
+};
+
 /**
  * CFederationParams defines the base parameters (shared between bitcoin-cli and bitcoind)
  * of a given instance of the Bitcoin system.
@@ -35,14 +40,42 @@ public:
     /**
      * Parse aggPubkey in block header.
      */
-    CPubKey ReadAggregatePubkey(const std::vector<unsigned char>& pubkey);
-    const CPubKey& GetAggregatePubkey() const{ return aggregatePubkey; }
+    CPubKey ReadAggregatePubkey(const std::vector<unsigned char>& pubkey, uint height);
+    const CPubKey& GetLatestAggregatePubkey() const { return aggregatePubkey.back(); }
     bool ReadGenesisBlock(std::string genesisHex);
     const CBlock& GenesisBlock() const { return genesis; }
     const std::string& getDataDir() const { return dataDir; }
     const std::vector<SeedSpec6>& FixedSeeds() const { return vFixedSeeds; }
     /** Return the list of hostnames to look up for DNS seeds */
     const std::vector<std::string>& DNSSeeds() const { return vSeeds; }
+    const uint& GetHeightFromAggregatePubkey(std::vector<unsigned char> aggpubkey) const {
+        for (auto& c : aggregatePubkeyHeight)
+            if (c.aggpubkey == CPubKey(aggpubkey.begin(), aggpubkey.end())) {
+                return c.height;
+                break;
+            } else {
+                continue;
+            }
+    };
+    const CPubKey& GetAggPubkeyFromHeight(uint height) const {
+        if((height == 0) || (aggregatePubkeyHeight.size() == 1)) {
+            return aggregatePubkeyHeight.at(0).aggpubkey; 
+        } else {
+            for(decltype(aggregatePubkeyHeight.size()) i=0; i<aggregatePubkeyHeight.size(); i++) {
+                if((aggregatePubkeyHeight.at(i).height < height) && (height < aggregatePubkeyHeight.at(i+1).height)) {
+                   if (height == aggregatePubkeyHeight.at(i+1).height)
+                   {
+                       return aggregatePubkeyHeight.at(i+1).aggpubkey;
+                   } else {
+                       return aggregatePubkeyHeight.at(i).aggpubkey;
+                   }
+                   break;
+               } else {
+                   continue;
+               }
+            }
+        }                               
+    };
 
     CFederationParams();
     CFederationParams(const int networkId, const std::string dataDirName, const std::string genesisHex);
@@ -52,7 +85,9 @@ private:
     CMessageHeader::MessageStartChars pchMessageStart;
     std::string strNetworkID;
     std::string dataDir;
-    CPubKey aggregatePubkey;
+    std::vector<CPubKey> aggregatePubkey;
+    std::vector<aggPubkeyAndHeight> aggregatePubkeyHeight;
+    std::vector<uint> height;
     CBlock genesis;
     std::vector<std::string> vSeeds;
     std::vector<SeedSpec6> vFixedSeeds;
