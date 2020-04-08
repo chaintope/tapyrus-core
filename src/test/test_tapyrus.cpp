@@ -185,7 +185,7 @@ TestChain100Setup::CreateAndProcessBlock(const std::vector<CMutableTransaction>&
     }
     std::vector<unsigned char> blockProof;
     createSignedBlockProof(pblocktemplate->block, blockProof);
-    block.AbsorbBlockProof(blockProof, FederationParams().GetAggregatePubkey());
+    block.AbsorbBlockProof(blockProof, FederationParams().GetLatestAggregatePubkey());
 
     std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(block);
     ProcessNewBlock(shared_pblock, true, nullptr);

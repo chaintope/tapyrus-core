@@ -54,7 +54,7 @@ static CBlock BuildBlockTestCase() {
     //create proof
     std::vector<unsigned char> blockProof;
     createSignedBlockProof(block, blockProof);
-    block.AbsorbBlockProof(blockProof, FederationParams().GetAggregatePubkey());
+    block.AbsorbBlockProof(blockProof, FederationParams().GetLatestAggregatePubkey());
     return block;
 }
 
@@ -312,7 +312,7 @@ BOOST_AUTO_TEST_CASE(EmptyBlockRoundTripTest)
     //create proof
     std::vector<unsigned char> blockProof;
     createSignedBlockProof(block, blockProof);
-    block.AbsorbBlockProof(blockProof, FederationParams().GetAggregatePubkey());
+    block.AbsorbBlockProof(blockProof, FederationParams().GetLatestAggregatePubkey());
 
     // Test simple header round-trip with only coinbase
     {
