@@ -162,7 +162,7 @@ From Tapyrus version 0.4.0 onwards Tapyrus allows setting up new secure federate
 ##### :heavy_exclamation_mark:Caution
 > As Tapyrus is under active development it is recommended to use the network for testing and not as a commercial production deployment.
 
-A minimum functional tapyrus network needs 3 Tapyrus-signers and 1 Tapyrus-core node.  Following are the steps in launching a new Tapyrus-network:
+A minimum functional tapyrus network needs 3 Tapyrus-signers and 3 Tapyrus-core node for each signer.  Following are the steps in launching a new Tapyrus-network:
 
 1. [Choose a Network Id](https://github.com/chaintope/tapyrus-core/blob/issue/18_getting_started/doc/tapyrus/getting_started.md#1-choose-a-network-id)
 2. [Generate Aggregate public key of Tapyrus-signer network](https://github.com/chaintope/tapyrus-core/blob/issue/18_getting_started/doc/tapyrus/getting_started.md#1-create-a-new-genesis-block-using-tapyrus-genesis-utility)
@@ -171,24 +171,34 @@ A minimum functional tapyrus network needs 3 Tapyrus-signers and 1 Tapyrus-core 
 5. [Start Tapyrus-core nodes](https://github.com/chaintope/tapyrus-core/blob/issue/18_getting_started/doc/tapyrus/getting_started.md#5-start-tapyrus-core-nodes)
 6. [Configure Tapyrus DNS seeder](https://github.com/chaintope/tapyrus-core/blob/issue/18_getting_started/doc/tapyrus/getting_started.md#5-configure-tapyrus-dns-seeder)
 
-### 1. Choose a Network Id
+### 1. Define the federation members of the new Tapyrus network.
+
+First, your federation should decide federation members. They are signer of each block and identified by a public key of their own.
+Next you should decide a threshold of agreements to propose block signature. 
+
+There are below restrictions: 
+
+* The federation consists minimum 3 signers. There is no maximum signers restriction, but it is not tested enough in case of more than 5 signers.  
+* The threshold must be more than two third of all signers.
+
+### 2. Choose a Network Id
 Tapyrus network Ids are chosen such that the magic bytes generated from them do not occur in regular network traffic as Tapyrus relies on this to identify messages. The default network Id in production(prod) mode is 1 and development(dev) mode is 1905960821.
 
-### 2. Generate Aggregate public key of Tapyrus-signer network
+### 3. Generate Aggregate public key of Tapyrus-signer network
 
-TODO: Add syntax
+Follow the instructions in [Generate Aggregate public key and Node secret share for Tapyrus-signer network - chaintope/tapyrus-signer](https://github.com/chaintope/tapyrus-signer/blob/master/doc/setup.md#generate-aggregate-public-key-and-Node-secret-share-for-tapyrus-signer-network).
 
-### 3. Create a new genesis block using Tapyrus-genesis utility
+### 4. Create a new genesis block using Tapyrus-genesis utility
 
 Follow the instructions in [Create new genesis block using tapyrus-genesis-utility](https://github.com/chaintope/tapyrus-core/blob/v0.3.0/doc/tapyrus/getting_started.md#how-to-create-a-genesis-block)
 
-### 4. Generate genesis block proof using Tapyrus-signer network
+### 5. Generate genesis block proof using Tapyrus-signer network
 
-Recall that all blocks in Tapyrus are signed by the federation of Tapyrus-signers. In order to sign the genesis block, Tapyrus-signer provides the _'sign'_ RPC. Sign RPC returns the threshold signature.
+Recall that all blocks in Tapyrus are signed by the federation of Tapyrus-signers.
 
-TODO: Add syntax
+Follow the instructions in [Generate genesis block proof - chaintope/tapyrus-signer](https://github.com/chaintope/tapyrus-signer/blob/master/doc/setup.md#generate-genesis-block-proof)
 
-### 5. Start Tapyrus-core nodes
+### 6. Start Tapyrus-core nodes
 
 When the genesis block is ready, staring a Tapyrus-core node is straightforward.
 
@@ -234,7 +244,7 @@ chmod 600 "/Users/${USER}/Library/Application Support/Tapyrus/tapyrus.conf"
 ##### Note
 > :point_right: Please note that in order to run a tapyrus-core node on multiple networks, a sub directory  with the name <mode>-<networkdi> e.g <prod-721> is created for each one inside the configured data directory. There can be multiple genesis files in the data directory, genesis.721. Tapyrus can associate the genesis file with the corresponding network id and directory.
 
-### 6. Configure Tapyrus DNS seeder
+### 7. Configure Tapyrus DNS seeder
 
 Tapyrus seeder is used to crawl a Tapyrus network and maintain a reliable list of nodes in the network for easy lookup. One DNS seeder can be used to service one/multiple Tapyrus networks. Follow the instructions in [Tapyrus Seeder](https://github.com/chaintope/tapyrus-seeder) repository to build dnsseeder.
 
