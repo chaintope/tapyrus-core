@@ -1300,11 +1300,11 @@ class FullBlockTest(BitcoinTestFramework):
         coinbase.vout[0].nValue += additional_coinbase_value
         coinbase.rehash()
         if spend is None:
-            block = create_block(base_block_hash, coinbase, block_time, self.signblockpubkey)
+            block = create_block(base_block_hash, coinbase, block_time)
         else:
             coinbase.vout[0].nValue += spend.vout[0].nValue - 1  # all but one tapyrus to fees
             coinbase.rehash()
-            block = create_block(base_block_hash, coinbase, block_time, self.signblockpubkey)
+            block = create_block(base_block_hash, coinbase, block_time)
             tx = self.create_tx(spend, 0, 1, script)  # spend 1 tapyrus
             self.sign_tx(tx, spend)
             self.add_transactions_to_block(block, [tx])

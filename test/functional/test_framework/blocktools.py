@@ -50,7 +50,7 @@ import time, random
 # From BIP141
 WITNESS_COMMITMENT_HEADER = b"\xaa\x21\xa9\xed"
 
-def create_block(hashprev, coinbase, ntime, signblockpubkey):
+def create_block(hashprev, coinbase, ntime, signblockpubkey=""):
     """Create a block (with regtest difficulty)."""
     block = CBlock()
     if ntime is None:
