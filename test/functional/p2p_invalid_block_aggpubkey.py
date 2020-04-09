@@ -71,7 +71,7 @@ class InvalidBlockRequestTest(BitcoinTestFramework):
         self.log.info("Create 3rd block without aggpubkey")
         block3 = create_block(tip, create_coinbase(height), block_time, self.signblockpubkey)
         block3.solve(self.signblockprivkey)
-        node.p2p.send_blocks_and_test([block3], node, False)
+        node.p2p.send_blocks_and_test([block3], node, True)
         self.log.info(block3)
         best_block = node.getblock(node.getbestblockhash())
         self.log.info(best_block)
