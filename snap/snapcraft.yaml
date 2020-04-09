@@ -16,7 +16,7 @@ confinement: strict
 license: MIT
 
 architectures:
-  - build-on: [amd64, arm64, i386]
+  - build-on: [amd64, arm64]
 
 apps:
   daemon:
@@ -62,7 +62,7 @@ parts:
       - libboost-thread-dev
       - libdb5.3++-dev
       - libevent-dev
-      - libssl1.0-dev
+      - libssl1.0-dev # to be removed when chaintope/tapyrus-core#61 is done
     stage-packages:
       - libboost-system1.65.1
       - libboost-filesystem1.65.1
@@ -71,3 +71,4 @@ parts:
       - libdb5.3++
       - libevent-2.1-6
       - libevent-pthreads-2.1-6
+      - libssl1.0.0 # to be removed when chaintope/tapyrus-core#61 is done
