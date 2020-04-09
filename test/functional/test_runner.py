@@ -125,6 +125,7 @@ BASE_SCRIPTS = [
     'p2p_mempool.py',
     'p2p_invalid_locator.py',
     'p2p_invalid_block.py',
+    'p2p_invalid_block_aggpubkey.py',
     'p2p_invalid_tx.py',
     'rpc_createmultisig.py',
     'rpc_createmultisig.py --scheme SCHNORR',
