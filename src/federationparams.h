@@ -58,11 +58,11 @@ public:
             }
     };
     const CPubKey& GetAggPubkeyFromHeight(uint height) const {
-        if((height == 0) || (aggregatePubkeyHeight.size() == 1)) {
+        if((height < 1) || (aggregatePubkeyHeight.size() == 1)) {
             return aggregatePubkeyHeight.at(0).aggpubkey; 
         } else {
             for(decltype(aggregatePubkeyHeight.size()) i=0; i<aggregatePubkeyHeight.size(); i++) {
-                if((aggregatePubkeyHeight.at(i).height < height) && (height < aggregatePubkeyHeight.at(i+1).height)) {
+                if((aggregatePubkeyHeight.at(i).height < height) && (height <= aggregatePubkeyHeight.at(i+1).height)) {
                    if (height == aggregatePubkeyHeight.at(i+1).height)
                    {
                        return aggregatePubkeyHeight.at(i+1).aggpubkey;

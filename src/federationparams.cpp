@@ -148,8 +148,7 @@ CPubKey CFederationParams::ReadAggregatePubkey(const std::vector<unsigned char>&
     if (pubkey[0] == 0x02 || pubkey[0] == 0x03) {
         aggPubkeyAndHeight p;
         p.aggpubkey = CPubKey(pubkey.begin(), pubkey.end());
-        p.height = height+1;
-
+        p.height = height;
         aggregatePubkeyHeight.push_back(p);
         aggregatePubkey.push_back(p.aggpubkey);
         aggregateHeight.push_back(p.height);
