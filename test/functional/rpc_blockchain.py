@@ -249,7 +249,7 @@ class BlockchainTest(BitcoinTestFramework):
         b20 = node.getblock(b20hash)
 
         def solve_and_send_block(prevhash, height, time):
-            b = create_block(prevhash, create_coinbase(height), time, self.signblockpubkey)
+            b = create_block(prevhash, create_coinbase(height), time)
             b.solve(self.signblockprivkey)
             node.p2p.send_message(msg_block(b))
             node.p2p.sync_with_ping()
