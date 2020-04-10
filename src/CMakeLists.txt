@@ -49,10 +49,6 @@ else()
     add_compiler_flag(-Wno-unused-parameter)
 endif()
 
-# Create a target for OpenSSL
-include(BrewHelper)
-find_brew_prefix(OPENSSL_ROOT_DIR openssl)
-find_package(OpenSSL REQUIRED)
 
 # libtool style configure
 add_subdirectory(config)

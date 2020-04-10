@@ -30,5 +30,3 @@ if(CRYPTO_USE_ASM)
 	target_compile_definitions(crypto PRIVATE USE_ASM)
 endif()
 
-# Dependencies
-target_link_libraries(crypto OpenSSL::Crypto)
