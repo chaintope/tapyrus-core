@@ -150,8 +150,6 @@ CPubKey CFederationParams::ReadAggregatePubkey(const std::vector<unsigned char>&
         p.aggpubkey = CPubKey(pubkey.begin(), pubkey.end());
         p.height = height;
         aggregatePubkeyHeight.push_back(p);
-        aggregatePubkey.push_back(p.aggpubkey);
-        aggregateHeight.push_back(p.height);
         if(!p.aggpubkey.IsFullyValid()) {
             throw std::runtime_error(strprintf("Aggregate Public Key for Signed Block is invalid: %s", HexStr(pubkey)));
         }
@@ -201,7 +199,7 @@ bool CFederationParams::ReadGenesisBlock(std::string genesisHex)
 
     //verify proof
     const uint256 blockHash = genesis.GetHashForSign();
-    if(!aggregatePubkey.back().Verify_Schnorr(blockHash, genesis.proof))
+    if(!aggregatePubkeyHeight.back().aggpubkey.Verify_Schnorr(blockHash, genesis.proof))
         throw std::runtime_error("ReadGenesisBlock: Proof verification failed");
 
     return true;
