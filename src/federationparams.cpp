@@ -140,7 +140,7 @@ CFederationParams::CFederationParams(const int networkId, const std::string data
     vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_main, pnSeed6_main + ARRAYLEN(pnSeed6_main));
 }
 
-CPubKey CFederationParams::ReadAggregatePubkey(const std::vector<unsigned char>& pubkey, uint height)
+CPubKey CFederationParams::ReadAggregatePubkey(const std::vector<unsigned char>& pubkey, uint height) const
 {
     if(!pubkey.size())
         throw std::runtime_error("Aggregate Public Key for Signed Block is empty");
@@ -205,18 +205,16 @@ bool CFederationParams::ReadGenesisBlock(std::string genesisHex)
     return true;
 }
 
-uint& CFederationParams::GetHeightFromAggregatePubkey(std::vector<unsigned char> aggpubkey) 
+uint& CFederationParams::GetHeightFromAggregatePubkey(std::vector<unsigned char> aggpubkey) const
 {
-    for (auto& c : aggregatePubkeyHeight)
-        if (c.aggpubkey == CPubKey(aggpubkey.begin(), aggpubkey.end())) {
+    for (auto& c : aggregatePubkeyHeight) {
+        if (c.aggpubkey == CPubKey(aggpubkey.begin(), aggpubkey.end()))
             return c.height;
-            break;
-        } else {
-            continue;
-        }  
+    }
+    throw std::runtime_error("GetHeightFromAggregatePubkey: aggpubkey not found");
 }
 
-CPubKey& CFederationParams::GetAggPubkeyFromHeight(uint height)
+CPubKey& CFederationParams::GetAggPubkeyFromHeight(uint height) const
 {
     if(height < 1 || aggregatePubkeyHeight.size() == 1)
         return aggregatePubkeyHeight.at(0).aggpubkey; 

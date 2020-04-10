@@ -2884,7 +2884,7 @@ static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,
 
     CPubKey aggregatePubkey;
     if(nHeight >= height)
-        aggregatePubkey = const_cast<CFederationParams&>(FederationParams()).GetAggPubkeyFromHeight(nHeight);
+        aggregatePubkey = FederationParams().GetAggPubkeyFromHeight(nHeight);
     else
         aggregatePubkey = FederationParams().GetLatestAggregatePubkey();
 
@@ -3089,11 +3089,8 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
                 return state.Invalid(error("%s: block %s is marked invalid", __func__, hash.ToString()), 0, "duplicate");
             return true;
         }
-        uint height = 0;
-        if(pindex)
-           height = pindex->nHeight;
 
-        if (!CheckBlockHeader(block, state, height))
+        if (!CheckBlockHeader(block, state))
             return error("%s: Consensus::CheckBlockHeader: %s, %s", __func__, hash.ToString(), FormatStateMessage(state));
 
         // Get prev block index
@@ -3269,7 +3266,7 @@ bool ProcessNewBlock(const std::shared_ptr<const CBlock> pblock, bool fForceProc
             ret = g_chainstate.AcceptBlock(pblock, state, &pindex, fForceProcessing, nullptr, fNewBlock);
 
             if((pindex->aggPubkey.size() == 33) && (CPubKey(pindex->aggPubkey.begin(), pindex->aggPubkey.end()) != FederationParams().GetLatestAggregatePubkey()))
-                const_cast<CFederationParams&>(FederationParams()).ReadAggregatePubkey(pindex->aggPubkey, pindex->nHeight+1);
+                FederationParams().ReadAggregatePubkey(pindex->aggPubkey, pindex->nHeight+1);
         }
         if (!ret) {
             GetMainSignals().BlockChecked(*pblock, state);
