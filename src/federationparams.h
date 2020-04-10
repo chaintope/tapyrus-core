@@ -41,7 +41,7 @@ public:
      * Parse aggPubkey in block header.
      */
     CPubKey ReadAggregatePubkey(const std::vector<unsigned char>& pubkey, uint height);
-    const CPubKey& GetLatestAggregatePubkey() const { return aggregatePubkey.back(); }
+    const CPubKey& GetLatestAggregatePubkey() const { return aggregatePubkeyHeight.back().aggpubkey; }
     bool ReadGenesisBlock(std::string genesisHex);
     const CBlock& GenesisBlock() const { return genesis; }
     const std::string& getDataDir() const { return dataDir; }
@@ -85,9 +85,7 @@ private:
     CMessageHeader::MessageStartChars pchMessageStart;
     std::string strNetworkID;
     std::string dataDir;
-    std::vector<CPubKey> aggregatePubkey;
     std::vector<aggPubkeyAndHeight> aggregatePubkeyHeight;
-    std::vector<uint> aggregateHeight;
     CBlock genesis;
     std::vector<std::string> vSeeds;
     std::vector<SeedSpec6> vFixedSeeds;
