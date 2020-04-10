@@ -25,8 +25,6 @@
 #include <cstdlib>
 #include <memory>
 
-#include <openssl/x509_vfy.h>
-
 #include <QApplication>
 #include <QByteArray>
 #include <QDataStream>

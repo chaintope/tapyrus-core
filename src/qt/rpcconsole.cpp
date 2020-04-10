@@ -20,7 +20,7 @@
 #include <rpc/client.h>
 #include <util.h>
 
-#include <openssl/crypto.h>
+//#include <openssl/crypto.h>
 
 #include <univalue.h>
 
