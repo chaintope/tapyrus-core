@@ -16,6 +16,7 @@
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
 #include <cuckoocache.h>
+#include <federationparams.h>
 #include <hash.h>
 #include <index/txindex.h>
 #include <policy/fees.h>
@@ -2874,9 +2875,9 @@ static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,
     if(chainActive.Tip())
         height = chainActive.Tip()->nHeight;
 
-     CPubKey aggregatePubkey;
+    CPubKey aggregatePubkey;
     if(nHeight >= height)
-        aggregatePubkey = FederationParams().GetAggPubkeyFromHeight(nHeight);
+        aggregatePubkey = const_cast<CFederationParams&>(FederationParams()).GetAggPubkeyFromHeight(nHeight);
     else
         aggregatePubkey = FederationParams().GetLatestAggregatePubkey();
 
@@ -3286,11 +3287,7 @@ bool ProcessNewBlock(const std::shared_ptr<const CBlock> pblock, bool fForceProc
             // Store to disk
             ret = g_chainstate.AcceptBlock(pblock, state, &pindex, fForceProcessing, nullptr, fNewBlock);
 
-            const CPubKey&blockAggPubKey = CPubKey(pindex->aggPubkey.begin(), pindex->aggPubkey.end());
-
-            const CPubKey&federationAggPubKey = FederationParams().GetLatestAggregatePubkey();
-
-            if((pindex->aggPubkey.size() == 33) && (blockAggPubKey != federationAggPubKey))
+            if((pindex->aggPubkey.size() == 33) && (CPubKey(pindex->aggPubkey.begin(), pindex->aggPubkey.end()) != FederationParams().GetLatestAggregatePubkey()))
                 const_cast<CFederationParams&>(FederationParams()).ReadAggregatePubkey(pindex->aggPubkey, pindex->nHeight+1);
         }
         if (!ret) {
@@ -4154,11 +4151,7 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp)
                         std::multimap<uint256, CDiskBlockPos>::iterator it = range.first;
                         std::shared_ptr<CBlock> pblockrecursive = std::make_shared<CBlock>();
 
-                        BlockMap::iterator miSelf = mapBlockIndex.find(hash);
-                        CBlockIndex *pindex = nullptr;
-                        pindex = miSelf->second;
-
-                        if (ReadBlockFromDisk(*pblockrecursive, it->second, pindex->nHeight))
+                        if (ReadBlockFromDisk(*pblockrecursive, it->second, pblockrecursive->vtx[0]->vin[0].prevout.n))
                         {
                             LogPrint(BCLog::REINDEX, "%s: Processing out of order child %s of %s\n", __func__, pblockrecursive->GetHash().ToString(),
                                     head.ToString());

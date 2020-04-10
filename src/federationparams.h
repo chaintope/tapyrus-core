@@ -48,34 +48,10 @@ public:
     const std::vector<SeedSpec6>& FixedSeeds() const { return vFixedSeeds; }
     /** Return the list of hostnames to look up for DNS seeds */
     const std::vector<std::string>& DNSSeeds() const { return vSeeds; }
-    const uint& GetHeightFromAggregatePubkey(std::vector<unsigned char> aggpubkey) const {
-        for (auto& c : aggregatePubkeyHeight)
-            if (c.aggpubkey == CPubKey(aggpubkey.begin(), aggpubkey.end())) {
-                return c.height;
-                break;
-            } else {
-                continue;
-            }
-    };
-    const CPubKey& GetAggPubkeyFromHeight(uint height) const {
-        if((height < 1) || (aggregatePubkeyHeight.size() == 1)) {
-            return aggregatePubkeyHeight.at(0).aggpubkey; 
-        } else {
-            for(decltype(aggregatePubkeyHeight.size()) i=0; i<aggregatePubkeyHeight.size(); i++) {
-                if((aggregatePubkeyHeight.at(i).height < height) && (height <= aggregatePubkeyHeight.at(i+1).height)) {
-                   if (height == aggregatePubkeyHeight.at(i+1).height)
-                   {
-                       return aggregatePubkeyHeight.at(i+1).aggpubkey;
-                   } else {
-                       return aggregatePubkeyHeight.at(i).aggpubkey;
-                   }
-                   break;
-               } else {
-                   continue;
-               }
-            }
-        }                               
-    };
+    uint& GetHeightFromAggregatePubkey(std::vector<unsigned char> aggpubkey);
+    CPubKey& GetAggPubkeyFromHeight(uint height);
+    CPubKey RemoveAggregatePubKey(const std::vector<unsigned char>& pubkey);
+
 
     CFederationParams();
     CFederationParams(const int networkId, const std::string dataDirName, const std::string genesisHex);
@@ -85,7 +61,7 @@ private:
     CMessageHeader::MessageStartChars pchMessageStart;
     std::string strNetworkID;
     std::string dataDir;
-    std::vector<aggPubkeyAndHeight> aggregatePubkeyHeight;
+    mutable std::vector<aggPubkeyAndHeight> aggregatePubkeyHeight;
     CBlock genesis;
     std::vector<std::string> vSeeds;
     std::vector<SeedSpec6> vFixedSeeds;
@@ -121,6 +97,5 @@ std::string ReadGenesisBlock(fs::path genesisPath = GetDataDir(false));
  * @returns a signed genesis block.
  */
 CBlock createGenesisBlock(const CPubKey& aggregatePubkey, const CKey& privateKey, const time_t blockTime=time(0), const std::string paytoAddress="");
-
 
 #endif // BITCOIN_FEDERATIONPARAMS_H

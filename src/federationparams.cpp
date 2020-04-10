@@ -149,7 +149,6 @@ CPubKey CFederationParams::ReadAggregatePubkey(const std::vector<unsigned char>&
         aggPubkeyAndHeight p;
         p.aggpubkey = CPubKey(pubkey.begin(), pubkey.end());
         p.height = height;
-        aggregatePubkeyHeight.push_back(p);
         if(!p.aggpubkey.IsFullyValid()) {
             throw std::runtime_error(strprintf("Aggregate Public Key for Signed Block is invalid: %s", HexStr(pubkey)));
         }
@@ -157,6 +156,7 @@ CPubKey CFederationParams::ReadAggregatePubkey(const std::vector<unsigned char>&
         if (p.aggpubkey.size() != CPubKey::COMPRESSED_PUBLIC_KEY_SIZE) {
             throw std::runtime_error(strprintf("Aggregate Public Key for Signed Block is invalid: %s", HexStr(pubkey)));
         }
+        aggregatePubkeyHeight.push_back(p);
         return p.aggpubkey;
 
     } else if(pubkey[0] == 0x04 || pubkey[0] == 0x06 || pubkey[0] == 0x07) {
@@ -203,4 +203,29 @@ bool CFederationParams::ReadGenesisBlock(std::string genesisHex)
         throw std::runtime_error("ReadGenesisBlock: Proof verification failed");
 
     return true;
+}
+
+uint& CFederationParams::GetHeightFromAggregatePubkey(std::vector<unsigned char> aggpubkey) 
+{
+    for (auto& c : aggregatePubkeyHeight)
+        if (c.aggpubkey == CPubKey(aggpubkey.begin(), aggpubkey.end())) {
+            return c.height;
+            break;
+        } else {
+            continue;
+        }  
+}
+
+CPubKey& CFederationParams::GetAggPubkeyFromHeight(uint height)
+{
+    if(height < 1 || aggregatePubkeyHeight.size() == 1)
+        return aggregatePubkeyHeight.at(0).aggpubkey; 
+
+    if(height > aggregatePubkeyHeight.back().height)
+        return aggregatePubkeyHeight.back().aggpubkey;
+
+    for(unsigned int i = 0; i < aggregatePubkeyHeight.size(); i++) {
+        if(height == aggregatePubkeyHeight.at(i).height || (aggregatePubkeyHeight.at(i).height < height && height < aggregatePubkeyHeight.at(i+1).height))
+            return aggregatePubkeyHeight.at(i).aggpubkey;
+    }
 }
