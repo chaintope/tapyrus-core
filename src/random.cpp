@@ -485,6 +485,9 @@ static void SeedSlow(CSHA512& hasher, RNGState& rng) noexcept
     GetOSRand(buffer);
     hasher.Write(buffer, sizeof(buffer));
 
+    // Add the events hasher into the mix
+    rng.SeedEvents(hasher);
+
     // High-precision timestamp.
     //
     // Note that we also commit to a timestamp in the Fast seeder, so we indirectly commit to a
@@ -587,7 +590,12 @@ bool g_mock_deterministic_tests{false};
 
 uint64_t GetRand(uint64_t nMax) noexcept
 {
-    return FastRandomContext().randrange(nMax);
+    return FastRandomContext(g_mock_deterministic_tests).randrange(nMax);
+}
+
+std::chrono::microseconds GetRandMicros(std::chrono::microseconds duration_max) noexcept
+{
+    return std::chrono::microseconds{GetRand(duration_max.count())};
 }
 
 int GetRandInt(int nMax) noexcept
@@ -622,6 +630,7 @@ uint256 FastRandomContext::rand256() noexcept
 
 std::vector<unsigned char> FastRandomContext::randbytes(size_t len)
 {
+    if (requires_seed) RandomSeed();
     std::vector<unsigned char> ret(len);
     if (len > 0) {
         rng.Output(&ret[0], len);

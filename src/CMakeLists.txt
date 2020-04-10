@@ -74,6 +74,7 @@ add_library(util
         fs.cpp
         logging.cpp
         random.cpp
+        randomenv.cpp
         rpc/protocol.cpp
         support/cleanse.cpp
         support/lockedpool.cpp
