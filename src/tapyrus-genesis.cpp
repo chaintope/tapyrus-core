@@ -75,7 +75,7 @@ static int AppInit(int argc, char* argv[])
     try {
         SelectParams(gArgs.GetChainMode());
         SelectFederationParams(gArgs.GetChainMode(), false);
-        const_cast<CFederationParams&>(FederationParams()).ReadAggregatePubkey(ParseHex(gArgs.GetArg("-signblockpubkey", "")), 0);
+        FederationParams().ReadAggregatePubkey(ParseHex(gArgs.GetArg("-signblockpubkey", "")), 0);
     } catch (const std::exception& e) {
         fprintf(stderr, "Error: %s\n", e.what());
         return EXIT_FAILURE;

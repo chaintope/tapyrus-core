@@ -28,7 +28,6 @@ class FederationBlockTest(BitcoinTestFramework):
 
         best_block = node.getblock(node.getbestblockhash())
         tip = int(node.getbestblockhash(), 16)
-        # tip = best_block.sha256
         height = best_block["height"] + 1
         block_time = best_block["time"] + 1
 
@@ -37,11 +36,9 @@ class FederationBlockTest(BitcoinTestFramework):
         block1 = create_block(tip, create_coinbase(height), block_time, self.signblockpubkey)
         block1.solve(self.signblockprivkey)
         node.p2p.send_blocks_and_test([block1], node, True)
-
         best_block = node.getblock(node.getbestblockhash())
-
+        assert(best_block["height"] == 1)
         tip = block1.sha256
-        # tip = int(node.getbestblockhash(), 16)
         height = best_block["height"] + 1
         block_time = best_block["time"] + 1
 
@@ -50,10 +47,9 @@ class FederationBlockTest(BitcoinTestFramework):
         block2 = create_block(tip, create_coinbase(height), block_time, self.signblockpubkey)
         block2.solve(self.signblockprivkey)
         node.p2p.send_blocks_and_test([block2], node, True)
-
         best_block = node.getblock(node.getbestblockhash())
+        assert(best_block["height"] == 2)
         tip = block2.sha256
-        # tip = int(node.getbestblockhash(), 16)
         height = best_block["height"] + 1
         block_time = best_block["time"] + 1
 
@@ -63,7 +59,7 @@ class FederationBlockTest(BitcoinTestFramework):
         block3.solve(self.signblockprivkey)
         node.p2p.send_blocks_and_test([block3], node, True)
         best_block = node.getblock(node.getbestblockhash())
-        self.log.info(best_block)
+        assert(best_block["height"] == 3)
 
 
 if __name__ == '__main__':
