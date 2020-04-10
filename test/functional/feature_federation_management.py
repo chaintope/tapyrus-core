@@ -9,6 +9,7 @@ B0 -- Genesis block -- aggpubkey1
 B1 - B10 -- Generate 10 blocks with no aggpubkey -- chain becomes longer
 B11 -- Create block - aggpubkey2 - sign with aggpubkey1 -- success - aggpubkey2 is added to the list
 B -- Create block - sign with aggpubkey1 -- failure - proof verification fails
+B -- Create block with invalid aggpubkey2 - sign with aggpubkey1 -- failure - invalid aggpubkey
 B12 -- Create block - sign with aggpubkey2 -- success
 B13 - B22 -- Generate 10 blocks - no aggpubkey -- chain becomes longer
 B23 -- Create block with 1 valid transaction - sign with aggpubkey2 -- success
@@ -42,7 +43,7 @@ aggpubkey4 = 28
 
 Restart the node with -reindex option. This triggers a full rewind of block index. Verify that the tip reaches B30 at the end.
 """
-import copy
+import shutil, os
 import struct
 import time
 
@@ -119,11 +120,19 @@ class FederationManagementTest(BitcoinTestFramework):
         assert_equal(self.tip, node.getbastblockhash())
         assert(node.getblock(self.tip))
 
-        # B12 - Create block - sign with aggpubkey1 - failure
+        #B -- Create block with invalid aggpubkey2 - sign with aggpubkey1 -- failure - invalid aggpubkey
+        self.aggpubkeys[-1][4:2] = "00"
+        block_time += 1
+        blocknew = create_block(tip, create_coinbase(12), block_time, self.aggpubkeys[-1])
+        blocknew.solve(self.aggprivkey[0])
+        assert_raises_rpc_error(-22, "Invalid aggregatePubkey", node.submitblock, bytes_to_hex_str(blocknew.serialize()))
+        assert_equal(self.tip, node.getbastblockhash())
+
+        # B - Create block - sign with aggpubkey1 - failure
         block_time += 1
         blocknew = create_block(tip, create_coinbase(12), block_time)
         blocknew.solve(self.aggprivkey[0])
-        node.submitblock(bytes_to_hex_str(blocknew.serialize()))
+        assert_raises_rpc_error(-22, "Proof verification failed", node.submitblock, bytes_to_hex_str(blocknew.serialize()))
         assert_equal(self.tip, node.getbastblockhash())
 
         # B12 - Create block - sign with aggpubkey2
@@ -327,9 +336,14 @@ class FederationManagementTest(BitcoinTestFramework):
         assert_equal(blockchaininfo["aggregatePubKeys"], expectedAggPubKeys)
 
         self.log.info("Restarting node with '-reindex'")
-        #reindex
         self.stop_node(0)
         self.start_node(0, extra_args=["-reindex"])
+
+        self.log.info("Restarting node with '-loadblock'")
+        self.stop_node(0)
+        shutil.copyfile(os.path.join(self.nodes[0].datadir, NetworkDirName(), 'blocks', 'blk00000.dat'), os.path.join(self.nodes[0].datadir, 'blk00000.dat'))
+        os.remove(os.path.join(self.nodes[0].datadir, NetworkDirName(), 'blocks', 'blk00000.dat'))
+        self.start_node(0, extra_args=["-loadblock=%s" % os.path.join(self.nodes[0].datadir, 'blk00000.dat')])
 
     # Helper methods
     ################
