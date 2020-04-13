@@ -2111,7 +2111,6 @@ bool CChainState::DisconnectTip(CValidationState& state, DisconnectedBlockTransa
             // if the block being removed is the last federation block,
             // make sure that the aggregatepubkey from this block is removed from CFederationParams
             if(block.aggPubkey.size() == 33 && CPubKey(block.aggPubkey.begin(), block.aggPubkey.end()) == FederationParams().GetLatestAggregatePubkey())
-                // FederationParams().RemoveAggregatePubKey(block.aggPubkey);
                 FederationParams().RemoveAggregatePubKey();
     }
     LogPrint(BCLog::BENCH, "- Disconnect block: %.2fms\n", (GetTimeMicros() - nStart) * MILLI);
@@ -3273,8 +3272,7 @@ bool ProcessNewBlock(const std::shared_ptr<const CBlock> pblock, bool fForceProc
         if (ret) {
             // Store to disk
             ret = g_chainstate.AcceptBlock(pblock, state, &pindex, fForceProcessing, nullptr, fNewBlock);
-
-            if((pindex->aggPubkey.size() == 33) && (CPubKey(pindex->aggPubkey.begin(), pindex->aggPubkey.end()) != FederationParams().GetLatestAggregatePubkey()))
+            if(pindex && (pindex->aggPubkey.size() == 33) && (CPubKey(pindex->aggPubkey.begin(), pindex->aggPubkey.end()) != FederationParams().GetLatestAggregatePubkey()))
                 FederationParams().ReadAggregatePubkey(pindex->aggPubkey, pindex->nHeight+1);
         }
         if (!ret) {
