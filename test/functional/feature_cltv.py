@@ -98,7 +98,7 @@ class BIP65Test(BitcoinTestFramework):
         self.log.info("Test that blocks must now be at least version 4")
         #tip = block.sha256
         block_time += 1
-        block = create_block(int(tip, 16), create_coinbase(CLTV_HEIGHT), block_times)
+        block = create_block(int(tip, 16), create_coinbase(CLTV_HEIGHT), block_time)
         block.solve(self.signblockprivkey)
 
         spendtx = create_transaction(self.nodes[0], self.coinbase_txids[1],
