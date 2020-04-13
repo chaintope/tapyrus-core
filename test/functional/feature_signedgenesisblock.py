@@ -49,7 +49,8 @@ def createIncorectGenesisBlock(genesis_coinbase, signblockprivkey, signblockpubk
     genesis.vtx.append(genesis_coinbase)
     genesis.hashMerkleRoot = genesis.calc_merkle_root()
     genesis.hashImMerkleRoot = genesis.calc_immutable_merkle_root()
-    genesis.aggPubkey = hex_str_to_bytes(signblockpubkey)
+    genesis.xType = 1
+    genesis.xValue = hex_str_to_bytes(signblockpubkey)
     genesis.solve(signblockprivkey)
     return genesis
 
@@ -135,13 +136,44 @@ class SignedGenesisBlockTest(BitcoinTestFramework):
         writeIncorrectGenesisBlockToFile(self.nodes[0].datadir, genesis)
         self.nodes[0].assert_start_raises_init_error([], 'ReadGenesisBlock: invalid genesis block', match=ErrorMatch.PARTIAL_REGEX)
 
+        self.log.info("Test incorrect genesis block - Incorrect xType")
+        genesis_coinbase = createGenesisCoinbase(self.signblockpubkey)
+        genesis = CBlock()
+        genesis.nTime = int(time.time() + 600)
+        genesis.hashPrevBlock = 0
+        genesis.vtx.append(genesis_coinbase)
+        genesis.hashMerkleRoot = genesis.calc_merkle_root()
+        genesis.hashImMerkleRoot = genesis.calc_immutable_merkle_root()
+        genesis.xType = 0
+        genesis.xValue = hex_str_to_bytes(self.signblockpubkey)
+        genesis.solve(self.signblockprivkey)
+
+        writeIncorrectGenesisBlockToFile(self.nodes[0].datadir, genesis)
+        self.nodes[0].assert_start_raises_init_error([], 'ReadGenesisBlock: Proof verification failed', match=ErrorMatch.PARTIAL_REGEX)
+
+        self.log.info("Test incorrect genesis block - Incorrect xValue")
+        genesis_coinbase = createGenesisCoinbase(self.signblockpubkey)
+        genesis = CBlock()
+        genesis.nTime = int(time.time() + 600)
+        genesis.hashPrevBlock = 0
+        genesis.vtx.append(genesis_coinbase)
+        genesis.hashMerkleRoot = genesis.calc_merkle_root()
+        genesis.hashImMerkleRoot = genesis.calc_immutable_merkle_root()
+        genesis.xType = 1
+        genesis.xValue = hex_str_to_bytes(self.signblockpubkey[:32])
+        genesis.solve(self.signblockprivkey)
+
+        writeIncorrectGenesisBlockToFile(self.nodes[0].datadir, genesis)
+        self.nodes[0].assert_start_raises_init_error([], 'Aggregate Public Key for Signed Block is invalid', match=ErrorMatch.PARTIAL_REGEX)
+
         self.log.info("Test incorrect genesis block - No hashMerkleRoot")
         genesis_coinbase = createGenesisCoinbase(self.signblockpubkey)
         genesis = CBlock()
         genesis.nTime = int(time.time() + 600)
         genesis.hashPrevBlock = 0
         genesis.vtx.append(genesis_coinbase)
-        genesis.aggPubkey = hex_str_to_bytes(self.signblockpubkey)
+        genesis.xType = 1
+        genesis.xValue = hex_str_to_bytes(self.signblockpubkey)
         # not populating hashMerkleRoot and hashImMerkleRoot
         genesis.solve(self.signblockprivkey)
 
@@ -155,7 +187,8 @@ class SignedGenesisBlockTest(BitcoinTestFramework):
         genesis.hashPrevBlock = 0
         genesis.vtx.append(genesis_coinbase)
         genesis.hashMerkleRoot = genesis.calc_merkle_root()
-        genesis.aggPubkey = hex_str_to_bytes(self.signblockpubkey)
+        genesis.xType = 1
+        genesis.xValue = hex_str_to_bytes(self.signblockpubkey)
         # not populating hashImMerkleRoot
         genesis.solve(self.signblockprivkey)
 
