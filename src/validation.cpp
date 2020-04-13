@@ -2101,6 +2101,11 @@ bool CChainState::DisconnectTip(CValidationState& state, DisconnectedBlockTransa
             return error("DisconnectTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
         bool flushed = view.Flush();
         assert(flushed);
+            // if the block being removed is the last federation block,
+            // make sure that the aggregatepubkey from this block is removed from CFederationParams
+            if(block.aggPubkey.size() == 33 && CPubKey(block.aggPubkey.begin(), block.aggPubkey.end()) == FederationParams().GetLatestAggregatePubkey())
+                // FederationParams().RemoveAggregatePubKey(block.aggPubkey);
+                FederationParams().RemoveAggregatePubKey();
     }
     LogPrint(BCLog::BENCH, "- Disconnect block: %.2fms\n", (GetTimeMicros() - nStart) * MILLI);
     // Write the chain state to disk, if necessary.
@@ -2239,6 +2244,10 @@ bool CChainState::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, co
         bool flushed = view.Flush();
         assert(flushed);
     }
+        // if the block was added successfully and it is a federation block,
+        // make sure that the aggregatepubkey from this block is added to CFederationParams
+        if(blockConnecting.aggPubkey.size() == 33)
+            FederationParams().ReadAggregatePubkey(blockConnecting.aggPubkey, blockConnecting.vtx[0]->vin[0].prevout.n+1);
     int64_t nTime4 = GetTimeMicros(); nTimeFlush += nTime4 - nTime3;
     LogPrint(BCLog::BENCH, "  - Flush: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime4 - nTime3) * MILLI, nTimeFlush * MICRO, nTimeFlush * MILLI / nBlocksTotal);
     // Write the chain state to disk, if necessary.

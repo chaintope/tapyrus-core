@@ -25,7 +25,7 @@ struct SeedSpec6 {
 
 struct aggPubkeyAndHeight {
     CPubKey aggpubkey;
-    uint height;
+    int height;
 };
 
 /**
@@ -48,8 +48,9 @@ public:
     const std::vector<SeedSpec6>& FixedSeeds() const { return vFixedSeeds; }
     /** Return the list of hostnames to look up for DNS seeds */
     const std::vector<std::string>& DNSSeeds() const { return vSeeds; }
-    uint& GetHeightFromAggregatePubkey(std::vector<unsigned char> aggpubkey) const;
-    CPubKey& GetAggPubkeyFromHeight(uint height) const;
+    int GetHeightFromAggregatePubkey(std::vector<unsigned char> aggpubkey) const;
+    CPubKey& GetAggPubkeyFromHeight(int height) const;
+    bool RemoveAggregatePubKey() const;
 
     CFederationParams();
     CFederationParams(const int networkId, const std::string dataDirName, const std::string genesisHex);
