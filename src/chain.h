@@ -210,7 +210,8 @@ public:
     uint256 hashMerkleRoot;
     uint256 hashImMerkleRoot;
     uint32_t nTime;
-    std::vector<unsigned char> aggPubkey;
+    uint8_t xType;
+    std::vector<unsigned char> xValue;
     std::vector<unsigned char> proof;
 
     //! (memory only) Sequential id assigned to distinguish order in which blocks are received.
@@ -237,7 +238,8 @@ public:
         nVersion       = 0;
         hashMerkleRoot = uint256();
         nTime          = 0;
-        aggPubkey.clear();
+        xType          = 0;
+        xValue.clear();
         proof.clear();
     }
 
@@ -254,7 +256,8 @@ public:
         hashMerkleRoot = block.hashMerkleRoot;
         hashImMerkleRoot = block.hashImMerkleRoot;
         nTime          = block.nTime;
-        aggPubkey      = block.aggPubkey;
+        xType          = block.xType;
+        xValue         = block.xValue;
         proof          = block.proof;
     }
 
@@ -285,7 +288,8 @@ public:
         block.hashMerkleRoot = hashMerkleRoot;
         block.hashImMerkleRoot = hashImMerkleRoot;
         block.nTime          = nTime;
-        block.aggPubkey      = aggPubkey;
+        block.xType          = xType;
+        block.xValue         = xValue;
         block.proof          = proof;
         return block;
     }
@@ -323,12 +327,13 @@ public:
 
     std::string ToString() const
     {
-        return strprintf("CBlockIndex(pprev=%p, nHeight=%d, merkle=%s, Immerkle=%s, nTime=%u, aggPubkey=%s, proof={%s})hashBlock=%s",
+        return strprintf("CBlockIndex(pprev=%p, nHeight=%d, merkle=%s, Immerkle=%s, nTime=%u, xType=%2x, xValue=%s, proof={%s})hashBlock=%s",
             pprev, nHeight,
             hashMerkleRoot.ToString(),
             hashImMerkleRoot.ToString(),
             nTime,
-            HexStr(aggPubkey),
+            xType,
+            HexStr(xValue),
             HexStr(proof),
             GetBlockHash().ToString());
     }
@@ -406,7 +411,9 @@ public:
         READWRITE(hashMerkleRoot);
         READWRITE(hashImMerkleRoot);
         READWRITE(nTime);
-        READWRITE(aggPubkey);
+        READWRITE(xType);
+        if((TAPURUS_XTYPES)xType != TAPURUS_XTYPES::NONE)
+            READWRITE(xValue);
         READWRITE(proof);
     }
 
@@ -418,7 +425,8 @@ public:
         block.hashMerkleRoot  = hashMerkleRoot;
         block.hashImMerkleRoot  = hashImMerkleRoot;
         block.nTime           = nTime;
-        block.aggPubkey       = aggPubkey;
+        block.xType          = xType;
+        block.xValue         = xValue;
         block.proof           = proof;
         return block.GetHash();
     }

@@ -14,9 +14,11 @@ BOOST_FIXTURE_TEST_SUITE(block_tests, BasicTestingSetup)
 CBlockHeader getBlockHeader()
 {
     CBlockHeader blockHeader;
-    CDataStream stream(ParseHex("010000000000000000000000000000000000000000000000000000000000000000000000f007d2a56dbebbc2a04346e624f7dff2ee0605d6ffe9622569193fddbc9280dcf007d2a56dbebbc2a04346e624f7dff2ee0605d6ffe9622569193fddbc9280dc981a335c21025700236c2890233592fcef262f4520d22af9160e3d9705855140eb2aa06c35d301473045022100f434da668557be7a0c3dc366b2603c5a9706246d622050f633a082451d39249102201941554fdd618df3165269e3c855bbba8680e26defdd067ec97becfa1b296bef"), SER_NETWORK, PROTOCOL_VERSION);
+    CDataStream stream(ParseHex("010000000000000000000000000000000000000000000000000000000000000000000000f007d2a56dbebbc2a04346e624f7dff2ee0605d6ffe9622569193fddbc9280dcf007d2a56dbebbc2a04346e624f7dff2ee0605d6ffe9622569193fddbc9280dc981a335c0121025700236c2890233592fcef262f4520d22af9160e3d9705855140eb2aa06c35d301473045022100f434da668557be7a0c3dc366b2603c5a9706246d622050f633a082451d39249102201941554fdd618df3165269e3c855bbba8680e26defdd067ec97becfa1b296bef"), SER_NETWORK, PROTOCOL_VERSION);
     stream >> blockHeader;
 
+    assert(blockHeader.xType == 1);
+    assert(blockHeader.xValue.size() == 33);
     assert(blockHeader.proof.size() == 1);
 
     return blockHeader;
@@ -63,26 +65,27 @@ BOOST_AUTO_TEST_CASE(serialized_CBlockHeaderWithoutProof_does_not_include_proof_
     headerWP.hashMerkleRoot = header.hashMerkleRoot;
     headerWP.hashImMerkleRoot = header.hashImMerkleRoot;
     headerWP.nTime = header.nTime;
-    headerWP.aggPubkey = header.aggPubkey;
+    headerWP.xType = header.xType;
+    headerWP.xValue = header.xValue;
 
     std::vector<unsigned char> vch;
     CVectorWriter stream(SER_NETWORK, INIT_PROTO_VERSION, vch, 0);
     headerWP.Serialize(stream);
-    BOOST_CHECK(vch.size() == 138); // 138 bytes means size of proof excluded header
+    BOOST_CHECK(vch.size() == 139); // 139 bytes means size of proof excluded header with aggpubkey
 }
 
 BOOST_AUTO_TEST_CASE(get_hash_for_sign_not_include_proof_field)
 {
     CBlockHeader header = getBlockHeader();
     uint256 hash = header.GetHashForSign();
-    BOOST_CHECK(hash.ToString() == "328d8580861864af5d35b263c963718ce980f057b7b481598740efd14577d4cc");
+    BOOST_CHECK_MESSAGE(hash.ToString() == "1380cdf2310273eb455535e216d3021b4b5c0d627ae3dab09042c413871bc757", hash.ToString());
 }
 
 BOOST_AUTO_TEST_CASE(get_hash_include_proof_field)
 {
     CBlockHeader header = getBlockHeader();
     uint256 hash = header.GetHash();
-    BOOST_CHECK(hash.ToString() == "ee4a9fc2059c61a521958cb27c7ca9f50f7b042ea6c990d135c584b6fbbf23bc");
+    BOOST_CHECK_MESSAGE(hash.ToString() == "a70d1ed990b5387c65cdcbc1661e0db39a0f0431b56a3a203198c3edbce69bd3", hash.ToString());
 }
 
 BOOST_AUTO_TEST_CASE(AbsorbBlockProof_test) {
@@ -151,6 +154,8 @@ BOOST_AUTO_TEST_CASE(create_genesis_block_default)
     "0000000000000000000000000000000000000000000000000000000000000000");
     BOOST_CHECK_EQUAL(genesis.hashMerkleRoot, genesis.vtx[0]->GetHash());
     BOOST_CHECK_EQUAL(genesis.hashImMerkleRoot, genesis.vtx[0]->GetHashMalFix());
+    BOOST_CHECK_EQUAL(genesis.xType, 1);
+    BOOST_CHECK_EQUAL(genesis.xValue.size(), 33);
 
     BOOST_CHECK_EQUAL(genesis.vtx[0]->vin[0].prevout.hashMalFix.ToString(), "0000000000000000000000000000000000000000000000000000000000000000");
     BOOST_CHECK_EQUAL(genesis.vtx[0]->vin[0].prevout.n, 0);
