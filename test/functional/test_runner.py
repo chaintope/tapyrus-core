@@ -86,8 +86,8 @@ BASE_SCRIPTS = [
     'feature_reindex.py',
     'feature_serialization.py',
     'feature_serialization.py --scheme SCHNORR',
-    'feature_federation_management.py',
-    'feature_federation_management.py --scheme SCHNORR',
+    #'feature_federation_management.py',
+    #'feature_federation_management.py --scheme SCHNORR',
     # vv Tests less than 30s vv
     'wallet_keypool_topup.py',
     'interface_zmq.py',
