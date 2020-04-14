@@ -16,6 +16,7 @@
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
 #include <cuckoocache.h>
+#include <federationparams.h>
 #include <hash.h>
 #include <index/txindex.h>
 #include <policy/fees.h>
@@ -1056,8 +1057,8 @@ bool GetTransaction(const uint256& hash, CTransactionRef& txOut, const Consensus
 }
 
 //declaration for compilation
-static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, bool fCheckPOW = true);
 
+static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, int nHeight = 0, bool fCheckPOW = true);
 
 
 
@@ -1088,7 +1089,7 @@ static bool WriteBlockToDisk(const CBlock& block, CDiskBlockPos& pos, const CMes
     return true;
 }
 
-bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos)
+bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, int nHeight)
 {
     block.SetNull();
 
@@ -1106,7 +1107,7 @@ bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos)
     }
 
     CValidationState state;
-    if(!CheckBlockHeader(block.GetBlockHeader(), state, true))
+    if(!CheckBlockHeader(block.GetBlockHeader(), state, nHeight, true))
         return error("%s: ReadBlockFromDisk: %s", __func__, FormatStateMessage(state));
 
     return true;
@@ -1119,8 +1120,11 @@ bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex)
         LOCK(cs_main);
         blockPos = pindex->GetBlockPos();
     }
+    uint height = 0;
+    if(pindex->nHeight)
+       height = pindex->nHeight;
 
-    if (!ReadBlockFromDisk(block, blockPos))
+    if (!ReadBlockFromDisk(block, blockPos, height))
         return false;
     if (block.GetHash() != pindex->GetBlockHash())
         return error("ReadBlockFromDisk(CBlock&, CBlockIndex*): GetHash() doesn't match index for %s at %s",
@@ -2102,6 +2106,10 @@ bool CChainState::DisconnectTip(CValidationState& state, DisconnectedBlockTransa
             return error("DisconnectTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
         bool flushed = view.Flush();
         assert(flushed);
+            // if the block being removed is the last federation block,
+            // make sure that the aggregatepubkey from this block is removed from CFederationParams
+            if(block.aggPubkey.size() == 33 && CPubKey(block.aggPubkey.begin(), block.aggPubkey.end()) == FederationParams().GetLatestAggregatePubkey())
+                FederationParams().RemoveAggregatePubKey();
     }
     LogPrint(BCLog::BENCH, "- Disconnect block: %.2fms\n", (GetTimeMicros() - nStart) * MILLI);
     // Write the chain state to disk, if necessary.
@@ -2240,6 +2248,10 @@ bool CChainState::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, co
         bool flushed = view.Flush();
         assert(flushed);
     }
+        // if the block was added successfully and it is a federation block,
+        // make sure that the aggregatepubkey from this block is added to CFederationParams
+        if(blockConnecting.aggPubkey.size() == 33 && (CPubKey(blockConnecting.aggPubkey.begin(), blockConnecting.aggPubkey.end()) != FederationParams().GetLatestAggregatePubkey()))
+            FederationParams().ReadAggregatePubkey(blockConnecting.aggPubkey, blockConnecting.vtx[0]->vin[0].prevout.n+1);
     int64_t nTime4 = GetTimeMicros(); nTimeFlush += nTime4 - nTime3;
     LogPrint(BCLog::BENCH, "  - Flush: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime4 - nTime3) * MILLI, nTimeFlush * MICRO, nTimeFlush * MILLI / nBlocksTotal);
     // Write the chain state to disk, if necessary.
@@ -2857,7 +2869,7 @@ static bool FindUndoPos(CValidationState &state, int nFile, CDiskBlockPos &pos, 
     return true;
 }
 
-static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, bool fCheckPOW)
+static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, int nHeight, bool fCheckPOW)
 {
     //check block version
     if(block.nVersion != CBlock::TAPYRUS_BLOCK_VERSION)
@@ -2872,7 +2884,15 @@ static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,
     if(!proofSize)
         return state.Error("No proof in block");
 
-    const CPubKey& aggregatePubkey = FederationParams().GetAggregatePubkey();
+    int height = 0;
+    if(chainActive.Tip())
+        height = chainActive.Tip()->nHeight;
+
+    CPubKey aggregatePubkey;
+    if(nHeight >= height)
+        aggregatePubkey = FederationParams().GetAggPubkeyFromHeight(nHeight);
+    else
+        aggregatePubkey = FederationParams().GetLatestAggregatePubkey();
 
     if(!aggregatePubkey.IsValid())
         return state.Error("Invalid aggregatePubkey");
@@ -2892,11 +2912,6 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
 
     if (block.fChecked)
         return true;
-
-    // Check that the header is valid (particularly PoW).  This is mostly
-    // redundant with the call in AcceptBlockHeader.
-    if (!CheckBlockHeader(block, state, fCheckPOW))
-        return false;
 
     // Check the merkle root.
     if (fCheckMerkleRoot) {
@@ -2934,6 +2949,14 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
     CBlockIndex* pindexPrev = chainActive.Tip();
     if(pindexPrev && !isBlockHeightInCoinbase(block) )
         return state.DoS(100, false, REJECT_INVALID, "bad-cb-invalid", false, "incorrect block height in coinbase");
+
+    // Check that the header is valid (particularly PoW).  This is mostly
+    // redundant with the call in AcceptBlockHeader.
+    uint height = block.vtx[0]->vin[0].prevout.n;
+
+    if (!CheckBlockHeader(block, state, height, fCheckPOW))
+        return false;
+
     //the rest must not be coinbase
     for (unsigned int i = 1; i < block.vtx.size(); i++)
         if (block.vtx[i]->IsCoinBase())
@@ -4108,7 +4131,8 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp)
                     while (range.first != range.second) {
                         std::multimap<uint256, CDiskBlockPos>::iterator it = range.first;
                         std::shared_ptr<CBlock> pblockrecursive = std::make_shared<CBlock>();
-                        if (ReadBlockFromDisk(*pblockrecursive, it->second))
+
+                        if (ReadBlockFromDisk(*pblockrecursive, it->second, pblockrecursive->vtx[0]->vin[0].prevout.n))
                         {
                             LogPrint(BCLog::REINDEX, "%s: Processing out of order child %s of %s\n", __func__, pblockrecursive->GetHash().ToString(),
                                     head.ToString());

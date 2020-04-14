@@ -23,6 +23,11 @@ struct SeedSpec6 {
     uint16_t port;
 };
 
+struct aggPubkeyAndHeight {
+    CPubKey aggpubkey;
+    int height;
+};
+
 /**
  * CFederationParams defines the base parameters (shared between bitcoin-cli and bitcoind)
  * of a given instance of the Bitcoin system.
@@ -35,14 +40,17 @@ public:
     /**
      * Parse aggPubkey in block header.
      */
-    CPubKey ReadAggregatePubkey(const std::vector<unsigned char>& pubkey);
-    const CPubKey& GetAggregatePubkey() const{ return aggregatePubkey; }
+    CPubKey ReadAggregatePubkey(const std::vector<unsigned char>& pubkey, uint height) const;
+    const CPubKey& GetLatestAggregatePubkey() const { return aggregatePubkeyHeight.back().aggpubkey; }
     bool ReadGenesisBlock(std::string genesisHex);
     const CBlock& GenesisBlock() const { return genesis; }
     const std::string& getDataDir() const { return dataDir; }
     const std::vector<SeedSpec6>& FixedSeeds() const { return vFixedSeeds; }
     /** Return the list of hostnames to look up for DNS seeds */
     const std::vector<std::string>& DNSSeeds() const { return vSeeds; }
+    int GetHeightFromAggregatePubkey(std::vector<unsigned char> aggpubkey) const;
+    CPubKey& GetAggPubkeyFromHeight(int height) const;
+    bool RemoveAggregatePubKey() const;
 
     CFederationParams();
     CFederationParams(const int networkId, const std::string dataDirName, const std::string genesisHex);
@@ -52,7 +60,7 @@ private:
     CMessageHeader::MessageStartChars pchMessageStart;
     std::string strNetworkID;
     std::string dataDir;
-    CPubKey aggregatePubkey;
+    mutable std::vector<aggPubkeyAndHeight> aggregatePubkeyHeight;
     CBlock genesis;
     std::vector<std::string> vSeeds;
     std::vector<SeedSpec6> vFixedSeeds;
@@ -88,6 +96,5 @@ std::string ReadGenesisBlock(fs::path genesisPath = GetDataDir(false));
  * @returns a signed genesis block.
  */
 CBlock createGenesisBlock(const CPubKey& aggregatePubkey, const CKey& privateKey, const time_t blockTime=time(0), const std::string paytoAddress="");
-
 
 #endif // BITCOIN_FEDERATIONPARAMS_H

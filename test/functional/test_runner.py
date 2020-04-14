@@ -122,6 +122,7 @@ BASE_SCRIPTS = [
     'wallet_disable.py',
     'rpc_net.py',
     'wallet_keypool.py',
+    'p2p_federation_block.py',
     'p2p_mempool.py',
     'p2p_invalid_locator.py',
     'p2p_invalid_block.py',

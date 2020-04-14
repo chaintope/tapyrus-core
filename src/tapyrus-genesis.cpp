@@ -75,7 +75,7 @@ static int AppInit(int argc, char* argv[])
     try {
         SelectParams(gArgs.GetChainMode());
         SelectFederationParams(gArgs.GetChainMode(), false);
-        const_cast<CFederationParams&>(FederationParams()).ReadAggregatePubkey(ParseHex(gArgs.GetArg("-signblockpubkey", "")));
+        FederationParams().ReadAggregatePubkey(ParseHex(gArgs.GetArg("-signblockpubkey", "")), 0);
     } catch (const std::exception& e) {
         fprintf(stderr, "Error: %s\n", e.what());
         return EXIT_FAILURE;
@@ -111,7 +111,7 @@ static int CommandLine()
     // This is for using CPubKey.verify().
     ECCVerifyHandle globalVerifyHandle;
 
-    CBlock genesis { createGenesisBlock(FederationParams().GetAggregatePubkey(), privatekey, blockTime, payToAddress) };
+    CBlock genesis { createGenesisBlock(FederationParams().GetLatestAggregatePubkey(), privatekey, blockTime, payToAddress) };
 
     // check validity
     CValidationState state;
