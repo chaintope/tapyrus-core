@@ -182,7 +182,7 @@ bool CFederationParams::ReadGenesisBlock(std::string genesisHex)
             break;
         case TAPURUS_XTYPES::NONE:
         default:
-            break;
+            throw std::runtime_error("ReadGenesisBlock: invalid xtype in genesis block");
     }
 
     /* Performing non trivial validation here.
