@@ -61,7 +61,7 @@ def create_block(hashprev, coinbase, ntime, signblockpubkey=""):
     block.vtx.append(coinbase)
     block.hashMerkleRoot = block.calc_merkle_root()
     block.hashImMerkleRoot = block.calc_immutable_merkle_root()
-    if(signblockpubkey == b''):
+    if(signblockpubkey != ""):
         block.xType = 1
         block.xValue = hex_str_to_bytes(signblockpubkey)
     else:
