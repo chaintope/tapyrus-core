@@ -178,9 +178,9 @@ BOOST_AUTO_TEST_CASE(blockHeaderWithXType0_Invalid)
     CDataStream stream(ParseHex("010000000000000000000000000000000000000000000000000000000000000000000000f007d2a56dbebbc2a04346e624f7dff2ee0605d6ffe9622569193fddbc9280dcf007d2a56dbebbc2a04346e624f7dff2ee0605d6ffe9622569193fddbc9280dc981a335c0021025700236c2890233592fcef262f4520d22af9160e3d9705855140eb2aa06c35d341473045022100f434da668557be7a0c3dc366b2603c5a9706246d622050f633a082451d39249102201941554fdd618df3165269e3c855bbba8680e26defdd067ec97becfa1b296bef"), SER_NETWORK, PROTOCOL_VERSION);
     stream >> blockHeader;
 
-    assert(blockHeader.xType == 0);
-    assert(blockHeader.xValue.size() == 0);
-    assert(blockHeader.proof.size() == 33); //interpreted incorrectly
+    BOOST_CHECK_EQUAL(blockHeader.xType, 0);
+    BOOST_CHECK_EQUAL(blockHeader.xValue.size(), 0);
+    BOOST_CHECK_EQUAL(blockHeader.proof.size(), 33); //interpreted incorrectly
 }
 
 BOOST_AUTO_TEST_CASE(blockHeaderWithXType0_Valid)
@@ -189,9 +189,9 @@ BOOST_AUTO_TEST_CASE(blockHeaderWithXType0_Valid)
     CDataStream stream(ParseHex("010000000000000000000000000000000000000000000000000000000000000000000000f007d2a56dbebbc2a04346e624f7dff2ee0605d6ffe9622569193fddbc9280dcf007d2a56dbebbc2a04346e624f7dff2ee0605d6ffe9622569193fddbc9280dc981a335c0041473045022100f434da668557be7a0c3dc366b2603c5a9706246d622050f633a082451d39249102201941554fdd618df3165269e3c855bbba8680e26defdd067ec97becfa1b296bef"), SER_NETWORK, PROTOCOL_VERSION);
     stream >> blockHeader;
 
-    assert(blockHeader.xType == 0);
-    assert(blockHeader.xValue.size() == 0);
-    assert(blockHeader.proof.size() == 65);
+    BOOST_CHECK_EQUAL(blockHeader.xType, 0);
+    BOOST_CHECK_EQUAL(blockHeader.xValue.size(), 0);
+    BOOST_CHECK_EQUAL(blockHeader.proof.size(), 65);
 
 }
 

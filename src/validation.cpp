@@ -2886,25 +2886,6 @@ static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,
     if(!proofSize)
         return state.Error("No proof in block");
 
-    switch((TAPURUS_XTYPES)block.xType)
-    {
-        case TAPURUS_XTYPES::AGGPUBKEY:
-            if(block.xValue.size() == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE)
-            {
-                CPubKey aggregatePubkeyinBlock(block.xValue.begin(), block.xValue.end());
-                if(!aggregatePubkeyinBlock.IsFullyValid())
-                    return state.Error("Invalid aggregatePubkey in Block Header");
-            }
-            else
-                return state.Error("Unexpected xValue in Block Header");
-            break;
-        case TAPURUS_XTYPES::NONE:
-        default:
-            if(block.xValue.size() != 0)
-                return state.Error("Unexpected xValue in Block Header");
-            break;
-    }
-
     int height = 0;
     if(chainActive.Tip())
         height = chainActive.Tip()->nHeight;
@@ -2951,6 +2932,27 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
         // while still invalidating it.
         if (mutated)
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-duplicate", true, "duplicate transaction");
+    }
+
+    //check xType and xValue fields in the block header. Do not accept a block with unexpected xType
+    switch((TAPURUS_XTYPES)block.xType)
+    {
+        case TAPURUS_XTYPES::AGGPUBKEY:
+            if(block.xValue.size() == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE)
+            {
+                CPubKey aggregatePubkeyinBlock(block.xValue.begin(), block.xValue.end());
+                if(!aggregatePubkeyinBlock.IsFullyValid())
+                    return state.DoS(100, false, REJECT_INVALID, "bad-aggpubkey", false, "invalid aggregatePubkey");
+            }
+            else
+                return state.DoS(100, false, REJECT_INVALID, "bad-xType-xValue", false, "invalid aggregatePubkey");
+            break;
+        case TAPURUS_XTYPES::NONE:
+            if(block.xValue.size() != 0)
+                return state.DoS(100, false, REJECT_INVALID, "bad-xType-xValue", false, "unexpected xValue");
+            break;
+        default:
+            return state.DoS(100, false, REJECT_INVALID, "bad-xType-xValue", false, "unsupported xType");
     }
 
     // All potential-corruption validation must be done before we do any
