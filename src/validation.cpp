@@ -2245,7 +2245,7 @@ bool CChainState::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, co
     }
         // if the block was added successfully and it is a federation block,
         // make sure that the aggregatepubkey from this block is added to CFederationParams
-        if(blockConnecting.aggPubkey.size() == 33)
+        if(blockConnecting.aggPubkey.size() == 33 && (CPubKey(blockConnecting.aggPubkey.begin(), blockConnecting.aggPubkey.end()) != FederationParams().GetLatestAggregatePubkey()))
             FederationParams().ReadAggregatePubkey(blockConnecting.aggPubkey, blockConnecting.vtx[0]->vin[0].prevout.n+1);
     int64_t nTime4 = GetTimeMicros(); nTimeFlush += nTime4 - nTime3;
     LogPrint(BCLog::BENCH, "  - Flush: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime4 - nTime3) * MILLI, nTimeFlush * MICRO, nTimeFlush * MILLI / nBlocksTotal);
@@ -3291,8 +3291,6 @@ bool ProcessNewBlock(const std::shared_ptr<const CBlock> pblock, bool fForceProc
         if (ret) {
             // Store to disk
             ret = g_chainstate.AcceptBlock(pblock, state, &pindex, fForceProcessing, nullptr, fNewBlock);
-            if(pindex && (pindex->aggPubkey.size() == 33) && (CPubKey(pindex->aggPubkey.begin(), pindex->aggPubkey.end()) != FederationParams().GetLatestAggregatePubkey()))
-                FederationParams().ReadAggregatePubkey(pindex->aggPubkey, pindex->nHeight+1);
         }
         if (!ret) {
             GetMainSignals().BlockChecked(*pblock, state);
