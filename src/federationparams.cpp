@@ -69,7 +69,8 @@ CBlock createGenesisBlock(const CPubKey& aggregatePubkey, const CKey& privateKey
     genesis.hashPrevBlock.SetNull();
     genesis.hashMerkleRoot = BlockMerkleRoot(genesis);
     genesis.hashImMerkleRoot = BlockMerkleRoot(genesis, nullptr, true);
-    genesis.aggPubkey = std::vector<unsigned char>(aggregatePubkey.data(), aggregatePubkey.data() + CPubKey::COMPRESSED_PUBLIC_KEY_SIZE);
+    genesis.xType = 1;
+    genesis.xValue = std::vector<unsigned char>(aggregatePubkey.data(), aggregatePubkey.data() + CPubKey::COMPRESSED_PUBLIC_KEY_SIZE);
 
     //Genesis block proof
     uint256 blockHash = genesis.GetHashForSign();
@@ -174,7 +175,15 @@ bool CFederationParams::ReadGenesisBlock(std::string genesisHex)
     unsigned long streamsize = ss.size();
     ss >> genesis;
 
-    ReadAggregatePubkey(genesis.aggPubkey, 0);
+    switch((TAPURUS_XTYPES)genesis.xType)
+    {
+        case TAPURUS_XTYPES::AGGPUBKEY:
+            ReadAggregatePubkey(genesis.xValue, 0);
+            break;
+        case TAPURUS_XTYPES::NONE:
+        default:
+            break;
+    }
 
     /* Performing non trivial validation here.
     * full block validation will be done later in ConnectBlock
