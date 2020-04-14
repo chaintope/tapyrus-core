@@ -149,7 +149,7 @@ class SignedGenesisBlockTest(BitcoinTestFramework):
         genesis.solve(self.signblockprivkey)
 
         writeIncorrectGenesisBlockToFile(self.nodes[0].datadir, genesis)
-        self.nodes[0].assert_start_raises_init_error([], 'ReadGenesisBlock: Proof verification failed', match=ErrorMatch.PARTIAL_REGEX)
+        self.nodes[0].assert_start_raises_init_error([], 'ReadGenesisBlock: invalid xtype in genesis block', match=ErrorMatch.PARTIAL_REGEX)
 
         self.log.info("Test incorrect genesis block - Incorrect xValue")
         genesis_coinbase = createGenesisCoinbase(self.signblockpubkey)
