@@ -31,7 +31,7 @@ public:
     CAmount value(bool *value=0) const;
     void setValue(const CAmount& value);
 
-    /** Set single step in satoshis **/
+    /** Set single step in tapyrus **/
     void setSingleStep(const CAmount& step);
 
     /** Make read-only **/

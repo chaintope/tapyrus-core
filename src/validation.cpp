@@ -950,7 +950,7 @@ static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, 
         // Remove conflicting transactions from the mempool
         for (CTxMemPool::txiter it : allConflicting)
         {
-            LogPrint(BCLog::MEMPOOL, "replacing tx %s with %s for %s BTC additional fees, %d delta bytes\n",
+            LogPrint(BCLog::MEMPOOL, "replacing tx %s with %s for %s TPC additional fees, %d delta bytes\n",
                     it->GetTx().GetHashMalFix().ToString(),
                     hash.ToString(),
                     FormatMoney(nModifiedFees - nConflictingFees),

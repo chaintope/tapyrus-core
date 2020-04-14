@@ -53,13 +53,12 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.log.info('prepare some coins for multiple *rawtransaction commands')
         self.nodes[2].generate(1, self.signblockprivkey)
         self.sync_all()
-        self.nodes[0].generate(101, self.signblockprivkey)
+        #generate one block that matures immediately for spending
+        self.nodes[0].generate(1, self.signblockprivkey)
         self.sync_all()
         self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(),1.5)
         self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(),1.0)
         self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(),5.0)
-        self.sync_all()
-        self.nodes[0].generate(5, self.signblockprivkey)
         self.sync_all()
 
         self.log.info('Test getrawtransaction on genesis block coinbase returns an error')
@@ -243,7 +242,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         #use balance deltas instead of absolute values
         bal = self.nodes[2].getbalance()
 
-        # send 1.2 BTC to msig adr
+        # send 1.2 TPC to msig adr
         txId = self.nodes[0].sendtoaddress(mSigObj, 1.2)
         self.sync_all()
         self.nodes[0].generate(1, self.signblockprivkey)
@@ -294,9 +293,14 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.nodes[2].sendrawtransaction(rawTxSigned['hex'])
         rawTx = self.nodes[0].decoderawtransaction(rawTxSigned['hex'])
         self.sync_all()
-        self.nodes[0].generate(1, self.signblockprivkey)
+        new_block = self.nodes[0].generate(1, self.signblockprivkey)[0]
         self.sync_all()
-        assert_equal(self.nodes[0].getbalance(), bal+Decimal('50.00000000')+Decimal('2.19000000')) #block reward + tx
+
+        #get block reward
+        blockData = self.nodes[0].getblock(new_block)
+        blockReward = self.nodes[0].gettransaction(blockData['tx'][0])['amount']
+
+        assert_equal(self.nodes[0].getbalance(), bal+blockReward+Decimal('2.19000000')) #block reward + tx
 
         # 2of2 test for combining transactions
         bal = self.nodes[2].getbalance()
@@ -343,9 +347,14 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.nodes[2].sendrawtransaction(rawTxComb)
         rawTx2 = self.nodes[0].decoderawtransaction(rawTxComb)
         self.sync_all()
-        self.nodes[0].generate(1, self.signblockprivkey)
+        new_block = self.nodes[0].generate(1, self.signblockprivkey)[0]
         self.sync_all()
-        assert_equal(self.nodes[0].getbalance(), bal+Decimal('50.00000000')+Decimal('2.19000000')) #block reward + tx
+
+        #get block reward
+        blockData = self.nodes[0].getblock(new_block)
+        blockReward = self.nodes[0].gettransaction(blockData['tx'][0])['amount']
+
+        assert_equal(self.nodes[0].getbalance(), bal+blockReward+Decimal('2.19000000')) #block reward + tx
 
         # decoderawtransaction tests
         # witness transaction

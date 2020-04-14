@@ -49,9 +49,9 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
     def run_test(self):
         node = self.nodes[0]
 
-        self.log.info('Start with empty mempool, and 200 blocks')
+        self.log.info('Start with empty mempool, and 100 blocks')
         self.mempool_size = 0
-        wait_until(lambda: node.getblockcount() == 200, timeout=300)
+        wait_until(lambda: node.getblockcount() == 100, timeout=300)
         assert_equal(node.getmempoolinfo()['size'], self.mempool_size)
 
         self.log.info('Should not accept garbage to testmempoolaccept')

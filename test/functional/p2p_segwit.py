@@ -314,8 +314,6 @@ class SegWitTest(BitcoinTestFramework):
         self.test_node.sync_with_ping()  # make sure the block was processed
         txid = block.vtx[0].malfixsha256
 
-        self.nodes[0].generate(99, self.signblockprivkey)  # let the block mature
-
         # Create a transaction that spends the coinbase
         tx = CTransaction()
         tx.vin.append(CTxIn(COutPoint(txid, 0), b""))
@@ -1430,8 +1428,6 @@ class SegWitTest(BitcoinTestFramework):
         spend_tx.rehash()
 
         # Now test a premature spend.
-        self.nodes[0].generate(98, self.signblockprivkey)
-        sync_blocks(self.nodes)
         block2 = self.build_next_block()
         self.update_witness_block_with_transactions(block2, [spend_tx])
         test_witness_block(self.nodes[0].rpc, self.test_node, block2, with_witness=True,accepted=False)

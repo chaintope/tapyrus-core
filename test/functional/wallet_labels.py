@@ -45,11 +45,12 @@ class WalletLabelsTest(BitcoinTestFramework):
         # Note each time we call generate, all generated coins go into
         # the same address, so we call twice to get two addresses w/50 each
         node.generate(1, self.signblockprivkey)
-        node.generate(101, self.signblockprivkey)
+        node.generate(1, self.signblockprivkey)
         assert_equal(node.getbalance(), 100)
+        assert_equal(len(node.listunspent()), 2)
 
         # there should be 2 address groups
-        # each with 1 address with a balance of 50 Bitcoins
+        # each with 1 address with a balance of 50 TPC
         address_groups = node.listaddressgroupings()
         assert_equal(len(address_groups), 2)
         # the addresses aren't linked now, but will be after we send to the
@@ -140,13 +141,13 @@ class WalletLabelsTest(BitcoinTestFramework):
             if accounts_api:
                 node.move(label.name, "", node.getbalance(label.name))
             label.verify(node)
-        node.generate(101, self.signblockprivkey)
-        expected_account_balances = {"": 5200}
+        node.generate(3, self.signblockprivkey)
+        expected_account_balances = {"": 300}
         for label in labels:
             expected_account_balances[label.name] = 0
         if accounts_api:
             assert_equal(node.listaccounts(), expected_account_balances)
-            assert_equal(node.getbalance(""), 5200)
+            assert_equal(node.getbalance(""), 300)
 
         # Check that setlabel can assign a label to a new unused address.
         for label in labels:
@@ -170,7 +171,7 @@ class WalletLabelsTest(BitcoinTestFramework):
             label.verify(node)
             if accounts_api:
                 node.sendfrom("", multisig_address, 50)
-        node.generate(101, self.signblockprivkey)
+        node.generate(1, self.signblockprivkey)
         if accounts_api:
             for label in labels:
                 assert_equal(node.getbalance(label.name), 50)

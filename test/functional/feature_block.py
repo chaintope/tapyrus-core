@@ -262,14 +262,17 @@ class FullBlockTest(BitcoinTestFramework):
         b19 = self.next_block(19, spend=out[6])
         self.sync_blocks([b19], False, 16, b'bad-txns-inputs-missingorspent', reconnect=True)
 
-        # Attempt to spend a coinbase at depth too low
+        # Attempt to spend a coinbase 
         #     genesis -> b1 (0) -> b2 (1) -> b5 (2) -> b6  (3)
         #                                          \-> b12 (3) -> b13 (4) -> b15 (5) -> b20 (7)
         #                      \-> b3 (1) -> b4 (2)
+        # block is accepted as the coinbase matures immediately in Tapyrus. 
+        # invalidate the block to allow the rest of the test to proceed without change
         self.log.info("Reject a block spending an immature coinbase.")
         self.move_tip(15)
         b20 = self.next_block(20, spend=out[7])
-        self.sync_blocks([b20], False, 16, b'bad-txns-premature-spend-of-coinbase')
+        self.sync_blocks([b20], True)
+        node.invalidateblock(b20.hash)
 
         # Attempt to spend a coinbase at depth too low (on a fork this time)
         #     genesis -> b1 (0) -> b2 (1) -> b5 (2) -> b6  (3)
@@ -281,8 +284,11 @@ class FullBlockTest(BitcoinTestFramework):
         b21 = self.next_block(21, spend=out[6])
         self.sync_blocks([b21], False)
 
+        #longer chain so there is a reorg.
+        # invalidate the block to allow the rest of the test to proceed without change
         b22 = self.next_block(22, spend=out[5])
-        self.sync_blocks([b22], False, 16, b'bad-txns-premature-spend-of-coinbase')
+        self.sync_blocks([b22], True) 
+        node.invalidateblock(b22.hash)
 
         # Create a block on either side of MAX_BLOCK_BASE_SIZE and make sure its accepted/rejected
         #     genesis -> b1 (0) -> b2 (1) -> b5 (2) -> b6  (3)
@@ -457,7 +463,7 @@ class FullBlockTest(BitcoinTestFramework):
         redeem_script_hash = hash160(redeem_script)
         p2sh_script = CScript([OP_HASH160, redeem_script_hash, OP_EQUAL])
 
-        # Create a transaction that spends one satoshi to the p2sh_script, the rest to OP_TRUE
+        # Create a transaction that spends one tapyrus to the p2sh_script, the rest to OP_TRUE
         # This must be signed because it is spending a coinbase
         spend = out[11]
         tx = self.create_tx(spend, 0, 1, p2sh_script)
@@ -467,7 +473,7 @@ class FullBlockTest(BitcoinTestFramework):
         b39 = self.update_block(39, [tx])
         b39_outputs += 1
 
-        # Until block is full, add tx's with 1 satoshi to p2sh_script, the rest to OP_TRUE
+        # Until block is full, add tx's with 1 tapyrus to p2sh_script, the rest to OP_TRUE
         tx_new = None
         tx_last = tx
         total_size = len(b39.serialize())
@@ -540,7 +546,10 @@ class FullBlockTest(BitcoinTestFramework):
         self.update_block(41, [tx])
         self.sync_blocks([b41], True)
 
-        assert_equal(len(self.nodes[0].getrawmempool()), 0)
+        # tx created by b20 (b25, b29) spending out[7] is still in mempool
+        mempool = self.nodes[0].getrawmempool()
+        assert_equal(len(mempool), 1)
+        assert b29.vtx[1].hashMalFix in mempool
 
         # Fork off of b39 to create a constant base again
         #
@@ -556,7 +565,7 @@ class FullBlockTest(BitcoinTestFramework):
         self.sync_blocks([b42, b43], True)
 
         # during this reorg block b41's transactions only DEFAULT_ANCESTOR_LIMIT(=25) are put to the memorypool. rest of the transactions are rejected due to too-long-mempool-chain
-        assert_equal(len(self.nodes[0].getrawmempool()), 25)
+        assert_equal(len(self.nodes[0].getrawmempool()), 26)
         mempool = self.nodes[0].getrawmempool()
         for i in range(2,26):
             assert b41.vtx[i].hashMalFix in mempool
@@ -777,7 +786,7 @@ class FullBlockTest(BitcoinTestFramework):
         self.save_spendable_output()
 
         # after reorg mempool has 3 more unspent transactions from b57p2
-        assert_equal(len(self.nodes[0].getrawmempool()), 28)
+        assert_equal(len(self.nodes[0].getrawmempool()), 29)
         mempool = self.nodes[0].getrawmempool()
         for i in range(3,5):
             assert b57p2.vtx[i].hashMalFix in mempool
@@ -931,11 +940,11 @@ class FullBlockTest(BitcoinTestFramework):
         # -> b43 (13) -> b53 (14) -> b55 (15) -> b57 (16) -> b60 (17) -> b64 (18) -> b65 (19) -> b69 (20)
         #                                                                                    \-> b68 (20)
         #
-        # b68 - coinbase with an extra 10 satoshis,
-        #       creates a tx that has 9 satoshis from out[20] go to fees
-        #       this fails because the coinbase is trying to claim 1 satoshi too much in fees
+        # b68 - coinbase with an extra 10 tapyrus,
+        #       creates a tx that has 9 tapyrus from out[20] go to fees
+        #       this fails because the coinbase is trying to claim 1 tapyrus too much in fees
         #
-        # b69 - coinbase with extra 10 satoshis, and a tx that gives a 10 satoshi fee
+        # b69 - coinbase with extra 10 tapyrus, and a tx that gives a 10 tapyrus fee
         #       this succeeds
         #
         self.log.info("Reject a block trying to claim too much subsidy in the coinbase transaction")
@@ -1116,8 +1125,8 @@ class FullBlockTest(BitcoinTestFramework):
         b79 = self.update_block(79, [tx79])
         self.sync_blocks([b79], True)
 
-        # mempool still has the 28 transactions
-        assert_equal(len(self.nodes[0].getrawmempool()), 28)
+        # mempool still has the 29 transactions
+        assert_equal(len(self.nodes[0].getrawmempool()), 29)
 
         self.move_tip(77)
         b80 = self.next_block(80, spend=out[25])
@@ -1134,7 +1143,7 @@ class FullBlockTest(BitcoinTestFramework):
 
         # now check that tx78 and tx79 have been put back into the peer's mempool
         mempool = self.nodes[0].getrawmempool()
-        assert_equal(len(mempool), 30)
+        assert_equal(len(mempool), 31)
         assert(tx78.hashMalFix in mempool)
         assert(tx79.hashMalFix in mempool)
 
@@ -1293,10 +1302,10 @@ class FullBlockTest(BitcoinTestFramework):
         if spend is None:
             block = create_block(base_block_hash, coinbase, block_time, self.signblockpubkey)
         else:
-            coinbase.vout[0].nValue += spend.vout[0].nValue - 1  # all but one satoshi to fees
+            coinbase.vout[0].nValue += spend.vout[0].nValue - 1  # all but one tapyrus to fees
             coinbase.rehash()
             block = create_block(base_block_hash, coinbase, block_time, self.signblockpubkey)
-            tx = self.create_tx(spend, 0, 1, script)  # spend 1 satoshi
+            tx = self.create_tx(spend, 0, 1, script)  # spend 1 tapyrus
             self.sign_tx(tx, spend)
             self.add_transactions_to_block(block, [tx])
             block.hashMerkleRoot = block.calc_merkle_root()
