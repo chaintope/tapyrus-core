@@ -1428,6 +1428,7 @@ public:
         return false;
     }
 
+#ifdef DEBUG
     bool operator()(const WitnessV0KeyHash& id)
     {
         already_witness = true;
@@ -1441,7 +1442,7 @@ public:
         result = id;
         return true;
     }
-
+#endif
     template<typename T>
     bool operator()(const T& dest) { return false; }
 };
@@ -4093,7 +4094,7 @@ public:
         }
         return obj;
     }
-
+#ifdef DEBUG
     UniValue operator()(const WitnessV0KeyHash& id) const
     {
         UniValue obj(UniValue::VOBJ);
@@ -4118,6 +4119,7 @@ public:
     }
 
     UniValue operator()(const WitnessUnknown& id) const { return UniValue(UniValue::VOBJ); }
+#endif
 };
 
 static UniValue DescribeWalletAddress(CWallet* pwallet, const CTxDestination& dest)

@@ -1,0 +1,73 @@
+name: tapyrus-core
+version: git
+summary:  federation governed blockchain
+description: |
+        Tapyrus is a blockchain that has been forked from Bitcoin Core, and solves
+        the governance issues. Bitcoin uses Proof of Work as a consensus algorithm,
+        but Tapyrus creates a block (ie, approves a transaction) with multiple
+        signatures from the Signer group which consists of industry stakeholders.
+        Therefore, transactions on the blockchain are stably approved, and finality
+        is given at the time of approval. Anyone can join the Tapyrus network, and
+        anyone can access the public ledger and create and broadcast transactions freely.
+
+base: core18
+grade: stable
+confinement: strict
+license: MIT
+
+architectures:
+  - build-on: [amd64, arm64, i386]
+
+apps:
+  daemon:
+    command: tapyrusd
+    plugs: [network, network-bind]
+    environment:
+      # Override HOME so the datadir is located at
+      # ~/snap/tapyrus-core/common/.tapyrus/ instead of
+      # ~/snap/tapyrus-core/current/.tapyrus/, and each new version of the
+      # snap won't have a different data directory:
+      # https://docs.snapcraft.io/environment-variables/7983
+      HOME: $SNAP_USER_COMMON
+  cli:
+    command: tapyrus-cli
+    plugs: [network]
+    environment:
+      HOME: $SNAP_USER_COMMON
+  genesis:
+    command: tapyrus-genesis
+    environment:
+      HOME: $SNAP_USER_COMMON
+
+parts:
+  tapyrus-core:
+    plugin: autotools
+    source: https://github.com/chaintope/tapyrus-core.git
+    configflags:
+      - --disable-dependency-tracking
+      - --enable-zmq
+      - --enable-glibc-back-compat
+      - --enable-reduce-exports
+      - --with-gui=no 
+      - --with-incompatible-bdb
+      - --disable-bench
+      - --disable-tests
+    build-packages:
+      - bsdmainutils
+      - pkg-config
+      - libboost-system-dev
+      - libboost-filesystem-dev
+      - libboost-chrono-dev
+      - libboost-test-dev
+      - libboost-thread-dev
+      - libdb5.3++-dev
+      - libevent-dev
+      - libssl1.0-dev
+    stage-packages:
+      - libboost-system1.65.1
+      - libboost-filesystem1.65.1
+      - libboost-thread1.65.1
+      - libboost-chrono1.65.1
+      - libdb5.3++
+      - libevent-2.1-6
+      - libevent-pthreads-2.1-6

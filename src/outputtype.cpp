@@ -47,9 +47,14 @@ std::vector<CTxDestination> GetAllDestinationsForKey(const CPubKey& key)
 {
     CKeyID keyid = key.GetID();
     if (key.IsCompressed()) {
+#ifdef DEBUG
         CTxDestination segwit = WitnessV0KeyHash(keyid);
         CTxDestination p2sh = CScriptID(GetScriptForDestination(segwit));
         return std::vector<CTxDestination>{std::move(keyid), std::move(p2sh), std::move(segwit)};
+#else
+        CTxDestination p2sh = CScriptID(GetScriptForDestination(keyid));
+        return std::vector<CTxDestination>{std::move(keyid), std::move(p2sh)};
+#endif
     } else {
         return std::vector<CTxDestination>{std::move(keyid)};
     }

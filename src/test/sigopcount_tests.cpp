@@ -177,6 +177,7 @@ BOOST_AUTO_TEST_CASE(GetTxSigOpCost)
         assert(VerifyWithFlag(creationTx, spendingTx, flags) == SCRIPT_ERR_CHECKMULTISIGVERIFY);
     }
 
+#ifdef DEBUG
     // P2WPKH witness program
     {
         CScript p2pk = CScript() << ToByteVector(pubkey) << OP_CHECKSIG;
@@ -252,6 +253,7 @@ BOOST_AUTO_TEST_CASE(GetTxSigOpCost)
         assert(GetTransactionSigOpCost(CTransaction(spendingTx), coins, flags) == 2);
         assert(VerifyWithFlag(creationTx, spendingTx, flags) == SCRIPT_ERR_CHECKMULTISIGVERIFY);
     }
+#endif
     // OP_CHECKDATASIG 
         {
         const unsigned char vchKey[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0};

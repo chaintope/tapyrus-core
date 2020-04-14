@@ -52,7 +52,7 @@ CBlock createGenesisBlock(const CPubKey& aggregatePubkey, const CKey& privateKey
     txNew.vin.resize(1);
     txNew.vout.resize(1);
     txNew.vin[0].prevout.n = 0;
-    txNew.vin[0].scriptSig = CScript() << std::vector<unsigned char>(aggregatePubkey.data(), aggregatePubkey.data() + CPubKey::COMPRESSED_PUBLIC_KEY_SIZE);
+    txNew.vin[0].scriptSig = CScript();
     txNew.vout[0].nValue = 50 * COIN;
     //if payToaddress is invalid, pay to agg pubkey
     if(payToaddress.empty() || !IsValidDestination(DecodeDestination(payToaddress)))
