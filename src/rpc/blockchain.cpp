@@ -1086,7 +1086,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
             "  \"pruneheight\": xxxxxx,        (numeric) lowest-height complete block stored (only present if pruning is enabled)\n"
             "  \"automatic_pruning\": xx,      (boolean) whether automatic pruning is enabled (only present if pruning is enabled)\n"
             "  \"prune_target_size\": xxxxxx,  (numeric) the target size used by pruning (only present if automatic pruning is enabled)\n"
-            "  \"aggregate_pubkeys\": {        (object) pairs of aggregate pubkey of the federation and block height where it is used to verify block proof\n"
+            "  \"aggregatePubkeys\": {        (object) pairs of aggregate pubkey of the federation and block height where it is used to verify block proof\n"
             "  },\n"
             "  \"warnings\" : \"...\",           (string) any network and blockchain warnings.\n"
             "}\n"
@@ -1126,9 +1126,10 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     }
     //aggregate pubkey list with block height
     UniValue aggPubkeyObj(UniValue::VOBJ);
-    for (auto aggpubkeyPair& : FederationParams().GetAggregatePubkeyList())
+    const std::vector<aggPubkeyAndHeight>& aggregatePubkeyHeightList = FederationParams().GetAggregatePubkeyHeightList();
+    for (auto& aggpubkeyPair : aggregatePubkeyHeightList)
     {
-        aggPubkeyObj.pushKV(aggpubkeyPair.aggpubKey, aggpubkeyPair.height);
+        aggPubkeyObj.pushKV(HexStr(aggpubkeyPair.aggpubkey.begin(), aggpubkeyPair.aggpubkey.end()), aggpubkeyPair.height);
     }
     obj.pushKV("aggregatePubkeys", aggPubkeyObj);
     obj.pushKV("warnings", GetWarnings("statusbar"));
