@@ -1128,9 +1128,10 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     }
     //aggregate pubkey list with block height
     UniValue aggPubkeyObj(UniValue::VOBJ);
-    for (auto aggpubkeyPair& : FederationParams().GetAggregatePubkeyList())
+    const std::vector<aggPubkeyAndHeight>& aggregatePubkeyHeightList = FederationParams().GetAggregatePubkeyHeightList();
+    for (auto& aggpubkeyPair : aggregatePubkeyHeightList)
     {
-        aggPubkeyObj.pushKV(aggpubkeyPair.aggpubKey, aggpubkeyPair.height);
+        aggPubkeyObj.pushKV(HexStr(aggpubkeyPair.aggpubkey.begin(), aggpubkeyPair.aggpubkey.end()), aggpubkeyPair.height);
     }
     obj.pushKV("aggregatePubkeys", aggPubkeyObj);
     obj.pushKV("warnings", GetWarnings("statusbar"));
