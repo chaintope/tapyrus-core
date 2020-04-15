@@ -46,12 +46,12 @@ Restart the node with -reindex option. This triggers a full rewind of block inde
 import shutil, os
 import time
 
-from test_framework.blocktools import create_block, create_coinbase, create_tx_with_script,  createTestGenesisBlock
+from test_framework.blocktools import create_block, create_coinbase, create_tx_with_script,  createTestGenesisBlock, create_transaction
 from test_framework.key import CECKey
 from test_framework.schnorr import Schnorr
 from test_framework.mininode import P2PDataStore
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, bytes_to_hex_str
+from test_framework.util import assert_equal, bytes_to_hex_str, assert_raises_rpc_error, NetworkDirName
 from test_framework.script import CScript, OP_TRUE, OP_DROP, OP_1
 
 class FederationManagementTest(BitcoinTestFramework):
@@ -87,51 +87,51 @@ class FederationManagementTest(BitcoinTestFramework):
 
     def run_test(self):
         node = self.nodes[0]  # convenience reference to the node
+        self.address = node.getnewaddress()
         node.add_p2p_connection(P2PDataStore())
         node.p2p.wait_for_getheaders(timeout=5)
 
         self.log.info("Test starting...")
 
-        #genesis block
-        self.tip = int(self.genesisBlock.hash, 16)
-        self.blocks = [ self.tip ]
+        #genesis block (B0)
+        self.blocks = [ self.genesisBlock.hash ]
         block_time = self.genesisBlock.nTime
 
         # Create a new blocks B1 - B10
         self.blocks += node.generate(10, self.aggprivkey[0])
+        best_block = node.getblock(node.getbestblockhash())
+        self.tip = node.getbestblockhash()
 
         self.log.info("First federation block")
         # B11 - Create block - aggpubkey2 - sign with aggpubkey1
-        block_time += 1
-        blocknew = create_block(self.tip, create_coinbase(11), block_time, self.aggpubkeys[1])
+        block_time = best_block["time"] + 1
+        blocknew = create_block(int(self.tip, 16), create_coinbase(11), block_time, self.aggpubkeys[1])
         blocknew.solve(self.aggprivkey[0])
-        self.blocks += [ blocknew.sha256 ]
+        self.blocks += [ blocknew.hash ]
 
-        node.p2p.send_blocks_and_test([blocknew], node, True)
-        #res = node.submitblock(bytes_to_hex_str(blocknew.serialize()))
-        #print(res)
+        node.submitblock(bytes_to_hex_str(blocknew.serialize()))
         self.tip = self.blocks[-1]
         assert_equal(self.tip, node.getbestblockhash())
         assert(node.getblock(self.tip))
 
         #B -- Create block with invalid aggpubkey2 - sign with aggpubkey1 -- failure - invalid aggpubkey
-        self.aggpubkeys[-1][4:2] = "00"
+        aggpubkeyInv = self.aggpubkeys[-1][:-2]
         block_time += 1
-        blocknew = create_block(self.tip, create_coinbase(12), block_time, self.aggpubkeys[-1])
+        blocknew = create_block(int(self.tip, 16), create_coinbase(12), block_time, aggpubkeyInv)
         blocknew.solve(self.aggprivkey[0])
-        assert_raises_rpc_error(-22, "Invalid aggregatePubkey", node.submitblock, bytes_to_hex_str(blocknew.serialize()))
+        assert_equal(node.submitblock(bytes_to_hex_str(blocknew.serialize())), "invalid")
         assert_equal(self.tip, node.getbestblockhash())
 
-        # B - Create block - sign with aggpubkey1 - failure
+        # B - Create block - sign with aggpubkey1 - failure - Proof verification failed
         block_time += 1
-        blocknew = create_block(self.tip, create_coinbase(12), block_time)
+        blocknew = create_block(int(self.tip, 16), create_coinbase(12), block_time)
         blocknew.solve(self.aggprivkey[0])
-        assert_raises_rpc_error(-22, "Proof verification failed", node.submitblock, bytes_to_hex_str(blocknew.serialize()))
+        assert_equal(node.submitblock(bytes_to_hex_str(blocknew.serialize())), "invalid")
         assert_equal(self.tip, node.getbestblockhash())
 
         # B12 - Create block - sign with aggpubkey2
         blocknew.solve(self.aggprivkey[1])
-        self.blocks += [ blocknew.sha256 ]
+        self.blocks += [ blocknew.hash ]
 
         node.submitblock(bytes_to_hex_str(blocknew.serialize()))
         self.tip = self.blocks[-1]
@@ -140,14 +140,19 @@ class FederationManagementTest(BitcoinTestFramework):
 
         # Create a new blocks B13 - B22
         self.blocks += node.generate(10, self.aggprivkey[1])
+        best_block = node.getblock(node.getbestblockhash())
+        self.tip = node.getbestblockhash()
 
         #B23 -- Create block with 1 valid transaction - sign with aggpubkey2 -- success
-        block_time += 1
-        blocknew = create_block(self.tip, create_coinbase(23), block_time)
-        coinbaseSpent = node.getblock(self.blocks[11])['tx'][0]
-        tx = create_and_sign_transaction(coinbaseSpent, 10)
-        add_transactions_to_block(blocknew, tx)
+        block_time = best_block["time"] + 1
+        blocknew = create_block(int(self.tip, 16), create_coinbase(23), block_time)
+        spendHash = node.getblock(self.blocks[1])['tx'][0]
+        blocknew.vtx  += [create_transaction(node, spendHash, self.address, amount=1.0)]
+        blocknew.hashMerkleRoot = blocknew.calc_merkle_root()
+        blocknew.hashImMerkleRoot = blocknew.calc_immutable_merkle_root()
         blocknew.solve(self.aggprivkey[1])
+        self.blocks.append(blocknew.hash)
+        self.tip = blocknew.hash
         node.submitblock(bytes_to_hex_str(blocknew.serialize()))
         assert_equal(self.tip, node.getbestblockhash())
         assert(node.getblock(self.tip))
@@ -159,179 +164,232 @@ class FederationManagementTest(BitcoinTestFramework):
 
         #B23 -- Re Create a new block B23 -- success
         block_time += 1
-        blocknew = create_block(self.tip, create_coinbase(23), block_time)
-        coinbaseSpent = node.getblock(self.blocks[12])['tx'][0]
-        tx = create_and_sign_transaction(coinbaseSpent, 10)
-        add_transactions_to_block(blocknew, tx)
+        blocknew = create_block(int(self.tip, 16), create_coinbase(23), block_time)
+        spendHash = node.getblock(self.blocks[2])['tx'][0]
+        blocknew.vtx  += [create_transaction(node, spendHash, self.address, amount=49.0)]
+        blocknew.hashMerkleRoot = blocknew.calc_merkle_root()
+        blocknew.hashImMerkleRoot = blocknew.calc_immutable_merkle_root()
         blocknew.solve(self.aggprivkey[1])
+        self.blocks[22] = blocknew.hash
+        self.tip = blocknew.hash
         node.submitblock(bytes_to_hex_str(blocknew.serialize()))
-        self.tip = self.blocks[23] = blocknew.sha256
         assert_equal(self.tip, node.getbestblockhash())
         assert(node.getblock(self.tip))
 
         #B -- - Create block with 1 invalid transaction - sign with aggpubkey2 -- failure
         block_time += 1
-        blocknew = create_block(self.tip, create_coinbase(23), block_time)
-        coinbaseSpent = node.getblock(self.blocks[12])['tx'][0]
-        tx = create_and_sign_transaction(coinbaseSpent, 100) #invalid tx
-        add_transactions_to_block(blocknew, tx)
+        blocknew = create_block(int(self.tip, 16), create_coinbase(23), block_time)
+        spendHash = node.getblock(self.blocks[3])['tx'][0]
+        blocknew.vtx  += [create_transaction(node, spendHash, self.address, amount=100.0)] #invalid
+        blocknew.hashMerkleRoot = blocknew.calc_merkle_root()
+        blocknew.hashImMerkleRoot = blocknew.calc_immutable_merkle_root()
         blocknew.solve(self.aggprivkey[1])
-        assert_raises_rpc_error(-22, "Proof verification failed", node.submitbloc, kbytes_to_hex_str(blocknew.serialize()))
+        assert_equal(node.submitblock(bytes_to_hex_str(blocknew.serialize())), "invalid")
         assert_equal(self.tip, node.getbestblockhash())
 
         #B -- - Create block with 1 invalid transaction and aggpubkey3 - sign with aggpubkey2 -- failure and aggpubkey3 is not added to the list
-        blocknew = create_block(self.tip, create_coinbase(23), block_time, self.aggpubkey[2])
-        coinbaseSpent = node.getblock(self.blocks[13])['tx'][0]
-        tx = create_and_sign_transaction(coinbaseSpent, 100) #invalid tx
-        add_transactions_to_block(blocknew, tx)
+        blocknew = create_block(int(self.tip, 16), create_coinbase(23), block_time, self.aggpubkeys[2])
+        spendHash = node.getblock(self.blocks[4])['tx'][0]
+        blocknew.vtx  += [create_transaction(node, spendHash, self.address, amount=100.0)] #invalid
+        blocknew.hashMerkleRoot = blocknew.calc_merkle_root()
+        blocknew.hashImMerkleRoot = blocknew.calc_immutable_merkle_root()
         blocknew.solve(self.aggprivkey[1])
-        assert_raises_rpc_error(-16, "bad-txns-txouttotal-toolarge", node.submitblock, bytes_to_hex_str(blocknew.serialize()))
+        assert_equal(node.submitblock(bytes_to_hex_str(blocknew.serialize())), "invalid")
         assert_equal(self.tip, node.getbestblockhash())
 
-        # verify aggpubkey3 is not added to the list : verify that block signed using aggprickey3 is rejected
-        blocknew = create_block(self.tip, create_coinbase(24, block_time, self.aggpubkey[2]))
+        # verify aggpubkey3 is not added to the list : verify that block signed using aggprivkey3 is rejected
+        blocknew = create_block(int(self.tip, 16), create_coinbase(24), block_time, self.aggpubkeys[2])
         blocknew.solve(self.aggprivkey[2])
-        assert_raises_rpc_error(-22, "Proof verification failed", node.submitblock, bytes_to_hex_str(blocknew.serialize()))
+        assert_equal(node.submitblock(bytes_to_hex_str(blocknew.serialize())), "invalid")
         assert_equal(self.tip, node.getbestblockhash())
 
         self.log.info("Second federation block")
         #B24 -- Create block with 1 valid transaction and aggpubkey3- sign with aggpubkey2 -- success and aggpubkey3 is added to the list
         block_time += 1
-        blocknew = create_block(self.tip, create_coinbase(24), block_time, self.aggpubkey[2])
-        coinbaseSpent = node.getblock(self.blocks[13])['tx'][0]
-        tx = create_and_sign_transaction(coinbaseSpent, 100) #invalid tx
-        add_transactions_to_block(blocknew, tx)
+        blocknew = create_block(int(self.tip, 16), create_coinbase(24), block_time, self.aggpubkeys[2])
+        spendHash = node.getblock(self.blocks[4])['tx'][0]
+        blocknew.vtx  += [create_transaction(node, spendHash, self.address, amount=10.0)]
+        blocknew.hashMerkleRoot = blocknew.calc_merkle_root()
+        blocknew.hashImMerkleRoot = blocknew.calc_immutable_merkle_root()
         blocknew.solve(self.aggprivkey[1])
+        self.blocks.append(blocknew.hash)
+        self.tip = blocknew.hash
         node.submitblock(bytes_to_hex_str(blocknew.serialize()))
-        self.tip = self.blocks[24] = blocknew.sha256
         assert_equal(self.tip, node.getbestblockhash())
         assert(node.getblock(self.tip))
 
         #B25 -- Create block with 1 valid transaction - sign with aggpubkey3 -- success
         block_time += 1
-        blocknew = create_block(self.tip, create_coinbase(25), block_time)
-        coinbaseSpent = node.getblock(self.blocks[14])['tx'][0]
-        tx = create_and_sign_transaction(coinbaseSpent, 10)
-        add_transactions_to_block(blocknew, tx)
+        blocknew = create_block(int(self.tip, 16), create_coinbase(25), block_time)
+        spendHash = node.getblock(self.blocks[5])['tx'][0]
+        blocknew.vtx  += [create_transaction(node, spendHash, self.address, amount=10.0)]
+        blocknew.hashMerkleRoot = blocknew.calc_merkle_root()
+        blocknew.hashImMerkleRoot = blocknew.calc_immutable_merkle_root()
         blocknew.solve(self.aggprivkey[2])
+        self.blocks.append(blocknew.hash)
+        self.tip = blocknew.hash
+        b25 = blocknew.hash
         node.submitblock(bytes_to_hex_str(blocknew.serialize()))
-        self.tip = self.blocks[25] = blocknew.sha256
         assert_equal(self.tip, node.getbestblockhash())
         assert(node.getblock(self.tip))
+
+        # Create a new blocks B26 - B30
+        self.blocks += node.generate(5, self.aggprivkey[2])
+        best_block = node.getblock(node.getbestblockhash())
+        self.tip = node.getbestblockhash()
 
         self.log.info("Verifying getblockchaininfo")
         #getblockchaininfo
         expectedAggPubKeys = {
-            self.aggpubkey[0] : 0,
-            self.aggpubkey[1] : 12,
-            self.aggpubkey[2] : 26}
+            self.aggpubkeys[0] : 0,
+            self.aggpubkeys[1] : 12,
+            self.aggpubkeys[2] : 25}
         blockchaininfo = node.getblockchaininfo()
-        assert_equal(blockchaininfo["aggregatePubKeys"], expectedAggPubKeys)
+        assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
 
-        self.log.info("Simulate Blockchain Reorg")
-        #B24 -- Create block with previous block hash = B23 - sign with aggpubkey2 -- success - block is accepted but there is no re-org
+        self.log.info("Simulate Blockchain Reorg  - After the last federation block")
+        #B27 -- Create block with previous block hash = B26 - sign with aggpubkey3 -- success - block is accepted but there is no re-org
         block_time += 1
-        blocknew = create_block(self.blocks[23], create_coinbase(24), block_time)
-        blocknew.solve(self.aggprivkey[1])
-        node.submitblock(bytes_to_hex_str(blocknew.serialize()))
-        self.blocks[24] = blocknew.sha256
-        assert_equal(self.tip, node.getbestblockhash())
-        assert(node.getblock(self.tip))
-
-        #B25 -- Create block with previous block hash = B24 - sign with aggpubkey2 -- success - block is accepted but there is no re-org
-        block_time += 1
-        blocknew = create_block(self.blocks[24], create_coinbase(25), block_time)
-        blocknew.solve(self.aggprivkey[1])
-        node.submitblock(bytes_to_hex_str(blocknew.serialize()))
-        self.blocks[25] = blocknew.sha256
-        assert_equal(self.tip, node.getbestblockhash())
-        assert(node.getblock(self.tip))
-
-        #B26 -- Create block with previous block hash = B25 - sign with aggpubkey2 -- success - there is a chain re-org - aggpubkey3 is removed from the list
-        block_time += 1
-        blocknew = create_block(self.blocks[25], create_coinbase(26), block_time)
-        blocknew.solve(self.aggprivkey[1])
-        node.submitblock(bytes_to_hex_str(blocknew.serialize()))
-        self.tip = self.blocks[26] = blocknew.sha256
-        assert_equal(self.tip, node.getbestblockhash())
-        assert(node.getblock(self.tip))
-
-        # verify aggpubkey3 is not added to the list : verify that block signed using aggprickey3 is rejected
-        block_time += 1
-        blocknew = create_block(self.tip, create_coinbase(27), block_time)
+        self.forkblocks = self.blocks
+        blocknew = create_block(int(self.blocks[26], 16), create_coinbase(27), block_time)
         blocknew.solve(self.aggprivkey[2])
-        assert_raises_rpc_error(-22, "Proof verification failed", node.submitblock, bytes_to_hex_str(blocknew.serialize()))
-        assert_equal(self.tip, node.getbestblockhash())
-
-        self.log.info("Third Federation Block")
-        #B27 -- Create block with previous block hash = B26 and aggpubkey4 - sign with aggpubkey2 -- success - aggpubkey4 is added to the list
-        block_time += 1
-        blocknew = create_block(self.tip, create_coinbase(27), block_time, self.aggpubkey[3])
-        blocknew.solve(self.aggprivkey[1])
         node.submitblock(bytes_to_hex_str(blocknew.serialize()))
-        self.tip = self.blocks[27] = blocknew.sha256
+        self.forkblocks[27] = blocknew.hash
         assert_equal(self.tip, node.getbestblockhash())
         assert(node.getblock(self.tip))
 
-        #B -- Create block with previous block hash = B27 - sign with aggpubkey2 -- failure - proof verification failed
+        #B28 -- Create block with previous block hash = B27 - sign with aggpubkey3 -- success - block is accepted but there is no re-org
         block_time += 1
-        blocknew = create_block(self.tip, create_coinbase(28), block_time)
-        blocknew.solve(self.aggprivkey[1])
-        assert_raises_rpc_error(-22, "Proof verification failed", node.submitblock, bytes_to_hex_str(blocknew.serialize()))
-        assert_equal(self.tip, node.getbestblockhash())
-
-        #B -- Create block with previous block hash = B27 - sign with aggpubkey3 -- failure - proof verification failed
+        blocknew = create_block(int(self.forkblocks[27], 16), create_coinbase(28), block_time)
         blocknew.solve(self.aggprivkey[2])
-        assert_raises_rpc_error(-22, "Proof verification failed", node.submitblock,bytes_to_hex_str(blocknew.serialize()))
+        node.submitblock(bytes_to_hex_str(blocknew.serialize()))
+        self.forkblocks[28] = blocknew.hash
+        assert_equal(self.tip, node.getbestblockhash())
+        assert(node.getblock(self.tip))
+
+        #B29 -- Create block with previous block hash = B28 - sign with aggpubkey3 -- success - block is accepted but there is no re-org
+        block_time += 1
+        blocknew = create_block(int(self.forkblocks[28], 16), create_coinbase(29), block_time)
+        blocknew.solve(self.aggprivkey[2])
+        node.submitblock(bytes_to_hex_str(blocknew.serialize()))
+        self.forkblocks[29] = blocknew.hash
+        assert_equal(self.tip, node.getbestblockhash())
+        assert(node.getblock(self.tip))
+
+        #B30 -- Create block with previous block hash = B29 - sign with aggpubkey3 -- success - block is accepted but there is no re-org
+        block_time += 1
+        blocknew = create_block(int(self.forkblocks[29], 16), create_coinbase(30), block_time)
+        blocknew.solve(self.aggprivkey[2])
+        node.submitblock(bytes_to_hex_str(blocknew.serialize()))
+        self.forkblocks[30] = blocknew.hash
+        assert_equal(self.tip, node.getbestblockhash())
+        assert(node.getblock(self.tip))
+
+        #B31 -- Create block with previous block hash = B30 - sign with aggpubkey3 -- success - block is accepted but there is no re-org
+        block_time += 1
+        blocknew = create_block(int(self.forkblocks[30], 16), create_coinbase(31), block_time)
+        blocknew.solve(self.aggprivkey[2])
+        node.submitblock(bytes_to_hex_str(blocknew.serialize()))
+        self.forkblocks.append(blocknew.hash)
+        self.tip = blocknew.hash
+        assert_equal(self.tip, node.getbestblockhash())
+        assert(node.getblock(self.tip))
+
+        assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
+
+        self.log.info("Simulate Blockchain Reorg  - Before the last federation block")
+        #B24 -- Create block with previous block hash = B23 - sign with aggpubkey2 -- success - block is accepted as invalid chain
+        block_time += 1
+        blocknew = create_block(int(self.blocks[23], 16), create_coinbase(24), block_time)
+        blocknew.solve(self.aggprivkey[1])
+        assert_equal(node.submitblock(bytes_to_hex_str(blocknew.serialize())), "invalid")
+        assert_equal(self.tip, node.getbestblockhash())
+        assert(node.getblock(self.tip))
+
+        #B25 -- Create block with previous block hash = B24 - sign with aggpubkey2 -- success - block is accepted as invalid chain
+        block_time += 1
+        blocknew = create_block(int(self.blocks[24], 16), create_coinbase(25), block_time)
+        blocknew.solve(self.aggprivkey[1])
+        assert_equal(node.submitblock(bytes_to_hex_str(blocknew.serialize())), "invalid")
+        assert_equal(self.tip, node.getbestblockhash())
+        assert(node.getblock(self.tip))
+
+        chaintips = node.getchaintips()
+        assert_equal(len(chaintips), 3)
+
+        self.log.info("Third Federation Block - active chain")
+        #B32 -- Create block with aggpubkey4 - sign with aggpubkey3 -- success - aggpubkey4 is added to the list
+        block_time += 1
+        blocknew = create_block(int(self.tip, 16), create_coinbase(32), block_time, self.aggpubkeys[3])
+        blocknew.solve(self.aggprivkey[2])
+        node.submitblock(bytes_to_hex_str(blocknew.serialize()))
+        self.forkblocks.append(blocknew.hash)
+        self.tip = blocknew.hash
+        assert_equal(self.tip, node.getbestblockhash())
+        assert(node.getblock(self.tip))
+
+        #B -- Create block - sign with aggpubkey2 -- failure - proof verification failed
+        block_time += 1
+        blocknew = create_block(int(self.tip, 16), create_coinbase(33), block_time)
+        blocknew.solve(self.aggprivkey[1])
+        assert_equal(node.submitblock(bytes_to_hex_str(blocknew.serialize())), "invalid")
         assert_equal(self.tip, node.getbestblockhash())
 
-        #B28 -- Create block with previous block hash = B27 - sign with aggpubkey4 -- success
+        #B -- Create block - sign with aggpubkey3 -- failure - proof verification failed
+        blocknew.solve(self.aggprivkey[2])
+        assert_equal(node.submitblock(bytes_to_hex_str(blocknew.serialize())), "invalid")
+        assert_equal(self.tip, node.getbestblockhash())
+
+        #B33 -- Create block  - sign with aggpubkey4 -- success
         blocknew.solve(self.aggprivkey[3])
         node.submitblock(bytes_to_hex_str(blocknew.serialize()))
-        self.tip = self.blocks[28] = blocknew.sha256
+        self.forkblocks.append(blocknew.hash)
+        self.tip = blocknew.hash
         assert_equal(self.tip, node.getbestblockhash())
         assert(node.getblock(self.tip))
 
-        #B29 - B30 -- Generate 2 blocks - no aggpubkey -- chain becomes longer
-        self.blocks += node.generate(2, self.aggprivkey[3])
-        self.tip = self.blocks[30]
+        #B34 - B35 -- Generate 2 blocks - no aggpubkey -- chain becomes longer
+        self.forkblocks += node.generate(2, self.aggprivkey[3])
+        self.tip = self.forkblocks[35]
         assert_equal(self.tip, node.getbestblockhash())
         assert(node.getblock(self.tip))
 
         self.log.info("Fourth Federation Block")
-        #B31 -- Create block with aggpubkey5 - sign using aggpubkey4 -- success - aggpubkey5 is added to the list
+        #B36 -- Create block with aggpubkey5 - sign using aggpubkey4 -- success - aggpubkey5 is added to the list
         block_time += 1
-        blocknew = create_block(self.tip, create_coinbase(31), block_time, self.aggpubkey[4])
+        blocknew = create_block(int(self.tip, 16), create_coinbase(36), block_time, self.aggpubkeys[4])
         blocknew.solve(self.aggprivkey[3])
         node.submitblock(bytes_to_hex_str(blocknew.serialize()))
-        self.tip = self.blocks[31] = blocknew.sha256
+        self.tip = blocknew.hash
         assert_equal(self.tip, node.getbestblockhash())
         assert(node.getblock(self.tip))
 
-        #call invalidate block rpc on B31 -- success - B31 is removed from the blockchain. aggpubkey5 is removed from the list. tip is B30
+        #call invalidate block rpc on B36 -- success - B36 is removed from the blockchain. aggpubkey5 is removed from the list. tip is B35
         node.invalidateblock(self.tip)
-        self.tip = self.blocks[30]
+        self.tip = self.forkblocks[35]
         assert_equal(self.tip, node.getbestblockhash())
 
         # verify aggpubkey5 is not added to the list : verify that block signed using aggprivkey5 is rejected
         block_time += 1
-        blocknew = create_block(self.tip, create_coinbase(31), block_time)
+        blocknew = create_block(int(self.tip, 16), create_coinbase(36), block_time)
         blocknew.solve(self.aggprivkey[4])
-        assert_raises_rpc_error(-22, "Proof verification failed", node.submitblock, bytes_to_hex_str(blocknew.serialize()))
+        assert_equal(node.submitblock(bytes_to_hex_str(blocknew.serialize())), "invalid")
         assert_equal(self.tip, node.getbestblockhash())
 
         self.log.info("Verifying getblockchaininfo")
         #getblockchaininfo
         expectedAggPubKeys = {
-            self.aggpubkey[0] : 0,
-            self.aggpubkey[1] : 12,
-            self.aggpubkey[3] : 28}
+            self.aggpubkeys[0] : 0,
+            self.aggpubkeys[1] : 12,
+            self.aggpubkeys[2] : 25,
+            self.aggpubkeys[3] : 33}
         blockchaininfo = node.getblockchaininfo()
-        assert_equal(blockchaininfo["aggregatePubKeys"], expectedAggPubKeys)
+        assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
 
         self.log.info("Restarting node with '-reindex'")
         self.stop_node(0)
         self.start_node(0, extra_args=["-reindex"])
+        assert_equal(self.tip, node.getbestblockhash())
 
         self.log.info("Restarting node with '-loadblock'")
         self.stop_node(0)
