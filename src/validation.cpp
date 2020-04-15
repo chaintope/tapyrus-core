@@ -1058,7 +1058,7 @@ bool GetTransaction(const uint256& hash, CTransactionRef& txOut, const Consensus
 
 //declaration for compilation
 
-static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, int nHeight = 0, bool fCheckPOW = true);
+static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, int nHeight = -1, bool fCheckPOW = true);
 
 
 
@@ -1108,7 +1108,7 @@ bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, int nHeight)
 
     CValidationState state;
     if(!CheckBlockHeader(block.GetBlockHeader(), state, nHeight, true))
-        return error("%s: ReadBlockFromDisk: %s", __func__, FormatStateMessage(state));
+        return error("%s: ReadBlockFromDisk: %s nHeight = %d", __func__, FormatStateMessage(state), nHeight);
 
     return true;
 }
@@ -1116,13 +1116,12 @@ bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, int nHeight)
 bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex)
 {
     CDiskBlockPos blockPos;
+    uint height = 0;
     {
         LOCK(cs_main);
         blockPos = pindex->GetBlockPos();
+        height = pindex->nHeight;
     }
-    uint height = 0;
-    if(pindex->nHeight)
-       height = pindex->nHeight;
 
     if (!ReadBlockFromDisk(block, blockPos, height))
         return false;
@@ -2106,10 +2105,11 @@ bool CChainState::DisconnectTip(CValidationState& state, DisconnectedBlockTransa
             return error("DisconnectTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
         bool flushed = view.Flush();
         assert(flushed);
-            // if the block being removed is the last federation block,
-            // make sure that the aggregatepubkey from this block is removed from CFederationParams
-            if(block.xType == 1 && block.xValue.size() == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE && CPubKey(block.xValue.begin(), block.xValue.end()) == FederationParams().GetLatestAggregatePubkey())
-                FederationParams().RemoveAggregatePubKey();
+
+        // if the block being removed is the last federation block,
+        // make sure that the aggregatepubkey from this block is removed from CFederationParams
+        if(block.xType == 1 && block.xValue.size() == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE && CPubKey(block.xValue.begin(), block.xValue.end()) == FederationParams().GetLatestAggregatePubkey())
+            FederationParams().RemoveAggregatePubKey();
     }
     LogPrint(BCLog::BENCH, "- Disconnect block: %.2fms\n", (GetTimeMicros() - nStart) * MILLI);
     // Write the chain state to disk, if necessary.
@@ -2884,15 +2884,7 @@ static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,
     if(!proofSize)
         return state.Error("No proof in block");
 
-    int height = 0;
-    if(chainActive.Tip())
-        height = chainActive.Tip()->nHeight;
-
-    CPubKey aggregatePubkey;
-    if(nHeight >= height)
-        aggregatePubkey = FederationParams().GetAggPubkeyFromHeight(nHeight);
-    else
-        aggregatePubkey = FederationParams().GetLatestAggregatePubkey();
+    CPubKey aggregatePubkey = FederationParams().GetAggPubkeyFromHeight(nHeight);
 
     if(!aggregatePubkey.IsValid())
         return state.Error("Invalid aggregatePubkey");
