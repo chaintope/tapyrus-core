@@ -233,8 +233,14 @@ CPubKey& CFederationParams::GetAggPubkeyFromHeight(int height) const
     if(height < 0 || height > aggregatePubkeyHeight.back().height)
         return aggregatePubkeyHeight.back().aggpubkey;
 
-    for(unsigned int i = 0; i < aggregatePubkeyHeight.size(); i++) {
-        if(height == aggregatePubkeyHeight.at(i).height || (aggregatePubkeyHeight.at(i).height < height && height < aggregatePubkeyHeight.at(i+1).height))
+    for(int i = 0; i < aggregatePubkeyHeight.size(); i++) {
+        if(height == aggregatePubkeyHeight.at(i).height || (aggregatePubkeyHeight.at(i).height < height) && (height < aggregatePubkeyHeight.at(i+1).height))
             return aggregatePubkeyHeight.at(i).aggpubkey;
     }
+}
+bool CFederationParams::RemoveAggregatePubKey() const
+{
+    if(aggregatePubkeyHeight.size() > 1)
+        aggregatePubkeyHeight.erase(aggregatePubkeyHeight.end()-1);
+    return true;
 }
