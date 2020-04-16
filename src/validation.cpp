@@ -2106,10 +2106,6 @@ bool CChainState::DisconnectTip(CValidationState& state, DisconnectedBlockTransa
             return error("DisconnectTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
         bool flushed = view.Flush();
         assert(flushed);
-            // if the block being removed is the last federation block,
-            // make sure that the aggregatepubkey from this block is removed from CFederationParams
-            if(block.aggPubkey.size() == 33 && CPubKey(block.aggPubkey.begin(), block.aggPubkey.end()) == FederationParams().GetLatestAggregatePubkey())
-                FederationParams().RemoveAggregatePubKey();
     }
     LogPrint(BCLog::BENCH, "- Disconnect block: %.2fms\n", (GetTimeMicros() - nStart) * MILLI);
     // Write the chain state to disk, if necessary.

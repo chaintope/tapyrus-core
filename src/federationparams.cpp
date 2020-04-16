@@ -229,9 +229,3 @@ CPubKey& CFederationParams::GetAggPubkeyFromHeight(int height) const
             return aggregatePubkeyHeight.at(i).aggpubkey;
     }
 }
-bool CFederationParams::RemoveAggregatePubKey() const
-{ 
-    if(aggregatePubkeyHeight.size() > 1)
-        aggregatePubkeyHeight.erase(aggregatePubkeyHeight.end()-1);
-    return true;
-}
