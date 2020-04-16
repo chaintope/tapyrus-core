@@ -2246,8 +2246,8 @@ bool CChainState::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, co
     }
         // if the block was added successfully and it is a federation block,
         // make sure that the aggregatepubkey from this block is added to CFederationParams
-        if(blockConnecting.aggPubkey.size() == 33 && (CPubKey(blockConnecting.aggPubkey.begin(), blockConnecting.aggPubkey.end()) != FederationParams().GetLatestAggregatePubkey()))
-            FederationParams().ReadAggregatePubkey(blockConnecting.aggPubkey, blockConnecting.vtx[0]->vin[0].prevout.n+1);
+        if(blockConnecting.xType == 1 && blockConnecting.xValue.size() == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE && (CPubKey(blockConnecting.xValue.begin(), blockConnecting.xValue.end()) != FederationParams().GetLatestAggregatePubkey()))
+            FederationParams().ReadAggregatePubkey(blockConnecting.xValue, blockConnecting.vtx[0]->vin[0].prevout.n+1);
     int64_t nTime4 = GetTimeMicros(); nTimeFlush += nTime4 - nTime3;
     LogPrint(BCLog::BENCH, "  - Flush: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime4 - nTime3) * MILLI, nTimeFlush * MICRO, nTimeFlush * MILLI / nBlocksTotal);
     // Write the chain state to disk, if necessary.
@@ -2928,6 +2928,27 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-duplicate", true, "duplicate transaction");
     }
 
+    //check xType and xValue fields in the block header. Do not accept a block with unexpected xType
+    switch((TAPURUS_XTYPES)block.xType)
+    {
+        case TAPURUS_XTYPES::AGGPUBKEY:
+            if(block.xValue.size() == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE)
+            {
+                CPubKey aggregatePubkeyinBlock(block.xValue.begin(), block.xValue.end());
+                if(!aggregatePubkeyinBlock.IsFullyValid())
+                    return state.DoS(100, false, REJECT_INVALID, "bad-aggpubkey", false, "invalid aggregatePubkey");
+            }
+            else
+                return state.DoS(100, false, REJECT_INVALID, "bad-xType-xValue", false, "invalid aggregatePubkey");
+            break;
+        case TAPURUS_XTYPES::NONE:
+            if(block.xValue.size() != 0)
+                return state.DoS(100, false, REJECT_INVALID, "bad-xType-xValue", false, "unexpected xValue");
+            break;
+        default:
+            return state.DoS(100, false, REJECT_INVALID, "bad-xType-xValue", false, "unsupported xType");
+    }
+
     // All potential-corruption validation must be done before we do any
     // transaction validation, as otherwise we may mark the header as invalid
     // because we receive the wrong transactions for it.
@@ -2979,20 +3000,6 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
     return true;
 }
 
-// Compute at which vout of the block's coinbase transaction the witness
-// commitment occurs, or -1 if not found.
-static int GetWitnessCommitmentIndex(const CBlock& block)
-{
-    int commitpos = -1;
-    if (!block.vtx.empty()) {
-        for (size_t o = 0; o < block.vtx[0]->vout.size(); o++) {
-            if (block.vtx[0]->vout[o].scriptPubKey.size() >= 38 && block.vtx[0]->vout[o].scriptPubKey[0] == OP_RETURN && block.vtx[0]->vout[o].scriptPubKey[1] == 0x24 && block.vtx[0]->vout[o].scriptPubKey[2] == 0xaa && block.vtx[0]->vout[o].scriptPubKey[3] == 0x21 && block.vtx[0]->vout[o].scriptPubKey[4] == 0xa9 && block.vtx[0]->vout[o].scriptPubKey[5] == 0xed) {
-                commitpos = o;
-            }
-        }
-    }
-    return commitpos;
-}
 
 void UpdateUncommittedBlockStructures(CBlock& block, const CBlockIndex* pindexPrev, const Consensus::Params& consensusParams)
 {
@@ -4038,7 +4045,6 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp)
     // Map of disk positions for blocks with unknown parent (only used for reindex)
     static std::multimap<uint256, CDiskBlockPos> mapBlocksUnknownParent;
     int64_t nStart = GetTimeMillis();
-    const CChainParams& chainparams = Params();
 
     int nLoaded = 0;
     try {
