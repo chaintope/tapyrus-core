@@ -332,6 +332,10 @@ class FederationManagementTest(BitcoinTestFramework):
         chaintips = node.getchaintips()
         assert_equal(len(chaintips), 3)
 
+        assert(node.getblock(self.blocks[12]))
+        assert(node.getblock(self.blocks[25]))
+        assert_raises_rpc_error(-5, "Block not found", node.getblock, blocknew.hash)
+
         self.log.info("Third Federation Block - active chain")
         #B32 -- Create block with aggpubkey4 - sign with aggpubkey3 -- success - aggpubkey4 is added to the list
         block_time += 1
