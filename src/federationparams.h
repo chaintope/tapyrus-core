@@ -43,6 +43,7 @@ public:
     CPubKey ReadAggregatePubkey(const std::vector<unsigned char>& pubkey, uint height) const;
     const std::vector<aggPubkeyAndHeight>& GetAggregatePubkeyHeightList() const { return aggregatePubkeyHeight; }
     const CPubKey& GetLatestAggregatePubkey() const { return aggregatePubkeyHeight.back().aggpubkey; }
+    const std::vector<aggPubkeyAndHeight>& GetAggregatePubkeyHeightList() const { return aggregatePubkeyHeight; }
     bool ReadGenesisBlock(std::string genesisHex);
     const CBlock& GenesisBlock() const { return genesis; }
     const std::string& getDataDir() const { return dataDir; }
@@ -51,7 +52,6 @@ public:
     const std::vector<std::string>& DNSSeeds() const { return vSeeds; }
     int GetHeightFromAggregatePubkey(const CPubKey &aggpubkey) const;
     CPubKey& GetAggPubkeyFromHeight(int height) const;
-    bool RemoveAggregatePubKey() const;
 
     CFederationParams();
     CFederationParams(const int networkId, const std::string dataDirName, const std::string genesisHex);
