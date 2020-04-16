@@ -50,7 +50,6 @@ public:
     const std::vector<std::string>& DNSSeeds() const { return vSeeds; }
     int GetHeightFromAggregatePubkey(std::vector<unsigned char> aggpubkey) const;
     CPubKey& GetAggPubkeyFromHeight(int height) const;
-    bool RemoveAggregatePubKey() const;
 
     CFederationParams();
     CFederationParams(const int networkId, const std::string dataDirName, const std::string genesisHex);
