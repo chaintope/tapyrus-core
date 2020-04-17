@@ -191,15 +191,9 @@ struct CMutableTransaction;
  * - uint32_t nLockTime
  *
  */
-<<<<<<< HEAD
-template<typename Stream, typename TxType>
-inline void UnserializeTransaction(TxType& tx, Stream& s) {
-    s >> tx.nFeatures;
-=======
 template<typename Stream, typename TxfieldType>
 inline void UnserializeTransaction(TxfieldType& tx, Stream& s) {
-    s >> tx.nVersion;
->>>>>>> Renamed xType and xvalue to xfieldType and xfield
+    s >> tx.nFeatures;
     tx.vin.clear();
     tx.vout.clear();
     s >> tx.vin;
@@ -207,15 +201,9 @@ inline void UnserializeTransaction(TxfieldType& tx, Stream& s) {
     s >> tx.nLockTime;
 }
 
-<<<<<<< HEAD
-template<typename Stream, typename TxType>
-inline void SerializeTransaction(const TxType& tx, Stream& s) {
-    s << tx.nFeatures;
-=======
 template<typename Stream, typename TxfieldType>
 inline void SerializeTransaction(const TxfieldType& tx, Stream& s) {
-    s << tx.nVersion;
->>>>>>> Renamed xType and xvalue to xfieldType and xfield
+    s << tx.nFeatures;
     s << tx.vin;
     s << tx.vout;
     s << tx.nLockTime;
