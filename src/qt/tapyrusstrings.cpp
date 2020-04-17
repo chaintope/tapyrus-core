@@ -78,8 +78,7 @@ QT_TRANSLATE_NOOP("tapyrus-core", ""
 QT_TRANSLATE_NOOP("tapyrus-core", ""
 "This is the transaction fee you may pay when fee estimates are not available."),
 QT_TRANSLATE_NOOP("tapyrus-core", ""
-"This product includes software developed by the OpenSSL Project for use in "
-"the OpenSSL Toolkit %s and cryptographic software written by Eric Young and "
+"This product includes cryptographic software written by Eric Young and "
 "UPnP software written by Thomas Bernard."),
 QT_TRANSLATE_NOOP("tapyrus-core", ""
 "Total length of network version string (%i) exceeds maximum length (%i). "

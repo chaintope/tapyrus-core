@@ -100,7 +100,7 @@ public:
     void MakeNewKey(bool fCompressed);
 
     /**
-     * Convert the private key to a CPrivKey (serialized OpenSSL private key data).
+     * Convert the private key to a CPrivKey (serialized private key data).
      * This is expensive.
      */
     CPrivKey GetPrivKey() const;
