@@ -4592,7 +4592,7 @@ Note:  Since the fee is calculated on a per-byte basis, a fee of &quot;100 tapyr
     </message>
     <message>
         <location line="+8"/>
-        <source>Warning: Unknown block versions being mined! It&apos;s possible unknown rules are in effect</source>
+        <source>Warning: Unknown block features being mined! It&apos;s possible unknown rules are in effect</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
