@@ -37,7 +37,6 @@
 #include <QLocalServer>
 #include <QLocalSocket>
 #include <QNetworkAccessManager>
-#include <QNetworkProxy>
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QSslCertificate>
