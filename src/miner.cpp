@@ -117,7 +117,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     // -dev only: allow overriding block.nFeatures with
     // -blockversion=N to test forking scenarios
     if (chainparams.MineBlocksOnDemand())
-        pblock->nFeatures = gArgs.GetArg("-blockversion", pblock->nFeatures);
+        pblock->nFeatures = gArgs.GetArg("-blockfeatures", pblock->nFeatures);
 
     pblock->nTime = GetAdjustedTime();
     const int64_t nMedianTimePast = pindexPrev->GetMedianTimePast();
