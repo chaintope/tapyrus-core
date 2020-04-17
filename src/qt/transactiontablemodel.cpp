@@ -336,7 +336,7 @@ QString TransactionTableModel::lookupAddress(const std::string &address, bool to
     return description;
 }
 
-QString TransactionTableModel::formatTxfieldType(const TransactionRecord *wtx) const
+QString TransactionTableModel::formatTxType(const TransactionRecord *wtx) const
 {
     switch(wtx->type)
     {
@@ -472,7 +472,7 @@ QVariant TransactionTableModel::txWatchonlyDecoration(const TransactionRecord *w
 
 QString TransactionTableModel::formatTooltip(const TransactionRecord *rec) const
 {
-    QString tooltip = formatTxStatus(rec) + QString("\n") + formatTxfieldType(rec);
+    QString tooltip = formatTxStatus(rec) + QString("\n") + formatTxType(rec);
     if(rec->type==TransactionRecord::RecvFromOther || rec->type==TransactionRecord::SendToOther ||
        rec->type==TransactionRecord::SendToAddress || rec->type==TransactionRecord::RecvWithAddress)
     {
@@ -511,7 +511,7 @@ QVariant TransactionTableModel::data(const QModelIndex &index, int role) const
         case Date:
             return formatTxDate(rec);
         case Type:
-            return formatTxfieldType(rec);
+            return formatTxType(rec);
         case ToAddress:
             return formatTxToAddress(rec, false);
         case Amount:
@@ -527,7 +527,7 @@ QVariant TransactionTableModel::data(const QModelIndex &index, int role) const
         case Date:
             return rec->time;
         case Type:
-            return formatTxfieldType(rec);
+            return formatTxType(rec);
         case Watchonly:
             return (rec->involvesWatchAddress ? 1 : 0);
         case ToAddress:
@@ -590,8 +590,8 @@ QVariant TransactionTableModel::data(const QModelIndex &index, int role) const
             details.append(" ");
             details.append(formatTxStatus(rec));
             details.append(". ");
-            if(!formatTxfieldType(rec).isEmpty()) {
-                details.append(formatTxfieldType(rec));
+            if(!formatTxType(rec).isEmpty()) {
+                details.append(formatTxType(rec));
                 details.append(" ");
             }
             if(!rec->address.empty()) {

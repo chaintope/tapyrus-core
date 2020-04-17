@@ -299,7 +299,7 @@ class FederationManagementTest(BitcoinTestFramework):
         assert_equal(self.tip, node.getbestblockhash())
         assert(node.getblock(self.tip))
 
-        #B31 -- Create block with previous block hash = B30 - sign with aggpubkey3 -- success - block is accepted but there is no re-org
+        #B31 -- Create block with previous block hash = B30 - sign with aggpubkey3 -- success - block is accepted and re-org happens
         block_time += 1
         blocknew = create_block(int(self.forkblocks[30], 16), create_coinbase(31), block_time)
         blocknew.solve(self.aggprivkey[2])
@@ -312,7 +312,7 @@ class FederationManagementTest(BitcoinTestFramework):
         assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
 
         self.log.info("Simulate Blockchain Reorg  - Before the last federation block")
-        #B24 -- Create block with previous block hash = B23 - sign with aggpubkey2 -- success - block is accepted as invalid chain
+        #B24 -- Create block with previous block hash = B23 - sign with aggpubkey2 -- failure - block is in invalid chain
         block_time += 1
         blocknew = create_block(int(self.blocks[23], 16), create_coinbase(24), block_time)
         blocknew.solve(self.aggprivkey[1])
@@ -320,7 +320,7 @@ class FederationManagementTest(BitcoinTestFramework):
         assert_equal(self.tip, node.getbestblockhash())
         assert(node.getblock(self.tip))
 
-        #B25 -- Create block with previous block hash = B24 - sign with aggpubkey2 -- success - block is accepted as invalid chain
+        #B25 -- Create block with previous block hash = B24 - sign with aggpubkey2 -- success - block is in invalid chain
         block_time += 1
         blocknew = create_block(int(self.blocks[24], 16), create_coinbase(25), block_time)
         blocknew.solve(self.aggprivkey[1])
@@ -328,6 +328,7 @@ class FederationManagementTest(BitcoinTestFramework):
         assert_equal(self.tip, node.getbestblockhash())
         assert(node.getblock(self.tip))
 
+        #there are 3 tips in the current blockchain
         chaintips = node.getchaintips()
         assert_equal(len(chaintips), 3)
 
@@ -378,16 +379,18 @@ class FederationManagementTest(BitcoinTestFramework):
         assert_equal(self.tip, node.getbestblockhash())
         assert(node.getblock(self.tip))
 
-        #call invalidate block rpc on B36 -- success - B36 is removed from the blockchain. aggpubkey5 is removed from the list. tip is B35
-        node.invalidateblock(self.tip)
-        self.tip = self.forkblocks[35]
+        #call invalidate block rpc on B36 -- failure - B36 is a federation block
+        assert_raises_rpc_error(-8, "Federation block found", node.invalidateblock, self.tip)
+        assert_raises_rpc_error(-8, "Federation block found", node.invalidateblock, self.forkblocks[33])
+        assert_raises_rpc_error(-8, "Federation block found", node.invalidateblock, self.blocks[29])
         assert_equal(self.tip, node.getbestblockhash())
 
         #B37 - Create block - sign using aggpubkey5 -- success
         block_time += 1
-        blocknew = create_block(int(self.tip, 16), create_coinbase(36), block_time)
+        blocknew = create_block(int(self.tip, 16), create_coinbase(37), block_time)
         blocknew.solve(self.aggprivkey[4])
-        assert_equal(node.submitblock(bytes_to_hex_str(blocknew.serialize())), "invalid")
+        node.submitblock(bytes_to_hex_str(blocknew.serialize()))
+        self.tip = blocknew.hash
         assert_equal(self.tip, node.getbestblockhash())
         assert(node.getblock(self.tip))
 
@@ -397,16 +400,17 @@ class FederationManagementTest(BitcoinTestFramework):
             self.aggpubkeys[0] : 0,
             self.aggpubkeys[1] : 12,
             self.aggpubkeys[2] : 25,
-            self.aggpubkeys[3] : 33}
+            self.aggpubkeys[3] : 33,
+            self.aggpubkeys[4] : 37,
+            }
         blockchaininfo = node.getblockchaininfo()
         assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
+        self.stop_node(0)
 
         self.log.info("Restarting node with '-reindex-chainstate'")
         self.start_node(0, extra_args=["-reindex-chainstate"])
         self.sync_all()
         self.stop_node(0)
-        self.start_node(0, extra_args=["-reindex"])
-        assert_equal(self.tip, node.getbestblockhash())
 
         self.log.info("Restarting node with '-loadblock'")
         shutil.copyfile(os.path.join(self.nodes[0].datadir, NetworkDirName(), 'blocks', 'blk00000.dat'), os.path.join(self.nodes[0].datadir, 'blk00000.dat'))
