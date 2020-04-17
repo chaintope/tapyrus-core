@@ -216,10 +216,10 @@ bool CFederationParams::ReadGenesisBlock(std::string genesisHex)
     return true;
 }
 
-int CFederationParams::GetHeightFromAggregatePubkey(std::vector<unsigned char> aggpubkey) const
+int CFederationParams::GetHeightFromAggregatePubkey(const CPubKey &aggpubkey) const
 {
     for (auto& c : aggregatePubkeyHeight) {
-        if (c.aggpubkey == CPubKey(aggpubkey.begin(), aggpubkey.end()))
+        if (c.aggpubkey == aggpubkey)
             return c.height;
     }
     return -1;
@@ -227,10 +227,10 @@ int CFederationParams::GetHeightFromAggregatePubkey(std::vector<unsigned char> a
 
 CPubKey& CFederationParams::GetAggPubkeyFromHeight(int height) const
 {
-    if(height < 1 || aggregatePubkeyHeight.size() == 1)
+    if(height == 0 || aggregatePubkeyHeight.size() == 1)
         return aggregatePubkeyHeight.at(0).aggpubkey; 
 
-    if(height > aggregatePubkeyHeight.back().height)
+    if(height < 0 || height > aggregatePubkeyHeight.back().height)
         return aggregatePubkeyHeight.back().aggpubkey;
 
     for(unsigned int i = 0; i < aggregatePubkeyHeight.size(); i++) {

@@ -1356,6 +1356,9 @@ static UniValue invalidateblock(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
         }
 
+        if((pblockindex->xType == 1 && pblockindex->xValue.size()  == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE) || pblockindex->nHeight <= FederationParams().GetHeightFromAggregatePubkey(FederationParams().GetLatestAggregatePubkey()))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Federation block found");
+
         InvalidateBlock(state, pblockindex);
     }
 
@@ -1394,6 +1397,9 @@ static UniValue reconsiderblock(const JSONRPCRequest& request)
         if (!pblockindex) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
         }
+
+        if((pblockindex->xType == 1 && pblockindex->xValue.size()  == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE) || pblockindex->nHeight <= FederationParams().GetHeightFromAggregatePubkey(FederationParams().GetLatestAggregatePubkey()))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Federation block found");
 
         ResetBlockFailureFlags(pblockindex);
     }
