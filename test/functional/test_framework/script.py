@@ -679,7 +679,7 @@ def SegwitVersion1SignatureHash(script, txTo, inIdx, hashtype, amount):
         hashOutputs = uint256_from_str(hash256(serialize_outputs))
 
     ss = bytes()
-    ss += struct.pack("<i", txTo.nVersion)
+    ss += struct.pack("<i", txTo.nFeatures)
     ss += ser_uint256(hashPrevouts)
     ss += ser_uint256(hashSequence)
     ss += txTo.vin[inIdx].prevout.serialize()

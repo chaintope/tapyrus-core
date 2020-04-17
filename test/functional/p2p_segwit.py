@@ -388,19 +388,6 @@ class SegWitTest(BitcoinTestFramework):
         assert(self.test_node.last_message["getdata"].inv[0].type == blocktype)
         test_witness_block(self.nodes[0].rpc, self.test_node, block1, with_witness=True, accepted=True)
 
-        block2 = self.build_next_block(features=4)
-        block2.solve(self.signblockprivkey)
-
-        self.test_node.announce_block_and_wait_for_getdata(block2, use_header=True)
-        assert(self.test_node.last_message["getdata"].inv[0].type == blocktype)
-        test_witness_block(self.nodes[0].rpc, self.test_node, block2, with_witness=True, accepted=False)
-
-        block3 = self.build_next_block(features=(VB_TOP_BITS | (1 << 15)))
-        block3.solve(self.signblockprivkey)
-        self.test_node.announce_block_and_wait_for_getdata(block3, use_header=True)
-        assert(self.test_node.last_message["getdata"].inv[0].type == blocktype)
-        test_witness_block(self.nodes[0].rpc, self.test_node, block3, with_witness=True, accepted=False)
-
         # Check that we can getdata for witness blocks or regular blocks,
         # and the right thing happens.
         # Before activation, we should be able to request old blocks with
@@ -1495,7 +1482,7 @@ class SegWitTest(BitcoinTestFramework):
         test_transaction_acceptance(self.nodes[0].rpc, self.test_node, tx2, with_witness=False, accepted=True)
 
         test_transaction_acceptance(self.nodes[1].rpc, self.std_node, tx2, with_witness=True, accepted=False)
-        test_transaction_acceptance(self.nodes[1].rpc, self.std_node, tx2, with_witness=False, accepted=False, reason=b'scriptpubkey')
+        test_transaction_acceptance(self.nodes[1].rpc, self.std_node, tx2, with_witness=False, accepted=False)
 
         # and passes consensus.
         block = self.build_next_block()
