@@ -602,7 +602,7 @@ class CBlockHeader():
 
     def __repr__(self):
         return "CBlockHeader(nFeatures=%i hashPrevBlock=%064x hashMerkleRoot=%064x hashImMerkleRoot=%064x nTime=%s xType=%x xValue=%s proof=%s)" \
-            % (self.nVersion, self.hashPrevBlock, self.hashMerkleRoot, self.hashImMerkleRoot, time.ctime(self.nTime), self.xType, bytes_to_hex_str(self.xValue), bytes_to_hex_str(self.proof))
+            % (self.nFeatures, self.hashPrevBlock, self.hashMerkleRoot, self.hashImMerkleRoot, time.ctime(self.nTime), self.xType, bytes_to_hex_str(self.xValue), bytes_to_hex_str(self.proof))
 
 
 class CBlock(CBlockHeader):
@@ -679,7 +679,7 @@ class CBlock(CBlockHeader):
 
     def __repr__(self):
         return "CBlock(nFeatures=%i hashPrevBlock=%064x hashMerkleRoot=%064x hashImMerkleRoot=%064x nTime=%s xType=%x xValue=%s  proof=%s vtx=%s)" \
-            % (self.nVersion, self.hashPrevBlock, self.hashMerkleRoot, self.hashImMerkleRoot,
+            % (self.nFeatures, self.hashPrevBlock, self.hashMerkleRoot, self.hashImMerkleRoot,
                time.ctime(self.nTime), self.xType, bytes_to_hex_str(self.xValue), bytes_to_hex_str(self.proof), repr(self.vtx))
 
 
