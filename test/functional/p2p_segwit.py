@@ -209,7 +209,7 @@ class SegWitTest(BitcoinTestFramework):
 
     # Helper functions
 
-    def build_next_block(self, features=4):
+    def build_next_block(self, features=1):
         """Build a block on top of node0's tip."""
         tip = self.nodes[0].getbestblockhash()
         height = self.nodes[0].getblockcount() + 1
@@ -351,13 +351,15 @@ class SegWitTest(BitcoinTestFramework):
         self.update_witness_block_with_transactions(block, [tx])
         # Sending witness data before activation is not allowed (anti-spam
         # rule).
-        test_witness_block(self.nodes[0].rpc, self.test_node, block, with_witness=True, accepted=False, reason=b'bad-txnmrklroot')
-        test_witness_block(self.nodes[0].rpc, self.test_node, block, with_witness=False, accepted=True)
+        test_witness_block(self.nodes[0].rpc, self.test_node, block, with_witness=True, accepted=False)
+        test_witness_block(self.nodes[0].rpc, self.test_node, block, with_witness=False, accepted=False)
 
         #wait_until(lambda: 'reject' in self.test_node.last_message and self.test_node.last_message["reject"].reason ==  b"unexpected-witness")
 
         # But it should not be permanently marked bad...
         # Resend without witness information.
+        block.nFeatures = 1
+        block.solve(self.signblockprivkey)
         self.test_node.send_message(msg_block(block))
         self.test_node.sync_with_ping()
         assert_equal(self.nodes[0].getbestblockhash(), block.hash)
@@ -391,13 +393,13 @@ class SegWitTest(BitcoinTestFramework):
 
         self.test_node.announce_block_and_wait_for_getdata(block2, use_header=True)
         assert(self.test_node.last_message["getdata"].inv[0].type == blocktype)
-        test_witness_block(self.nodes[0].rpc, self.test_node, block2, with_witness=True, accepted=True)
+        test_witness_block(self.nodes[0].rpc, self.test_node, block2, with_witness=True, accepted=False)
 
         block3 = self.build_next_block(features=(VB_TOP_BITS | (1 << 15)))
         block3.solve(self.signblockprivkey)
         self.test_node.announce_block_and_wait_for_getdata(block3, use_header=True)
         assert(self.test_node.last_message["getdata"].inv[0].type == blocktype)
-        test_witness_block(self.nodes[0].rpc, self.test_node, block3, with_witness=True, accepted=True)
+        test_witness_block(self.nodes[0].rpc, self.test_node, block3, with_witness=True, accepted=False)
 
         # Check that we can getdata for witness blocks or regular blocks,
         # and the right thing happens.
@@ -457,7 +459,7 @@ class SegWitTest(BitcoinTestFramework):
         block = self.build_next_block()
         self.update_witness_block_with_transactions(block, [tx])
         # Now send the block without witness. It should be accepted
-        test_witness_block(self.nodes[0], self.test_node, block, with_witness=True, accepted=False, reason=b'bad-txnmrklroot')
+        test_witness_block(self.nodes[0], self.test_node, block, with_witness=True, accepted=False)
         test_witness_block(self.nodes[0], self.test_node, block, with_witness=False, accepted=True)
 
         # Now try to spend the outputs. This should fail since SCRIPT_VERIFY_WITNESS is always enabled.

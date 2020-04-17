@@ -287,9 +287,8 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
 
             "\nResult:\n"
             "{\n"
-            "  \"version\" : n,                    (numeric) The preferred block version\n"
+            "  \"features\" : n,                    (numeric) The preferred block features\n"
             "  \"rules\" : [ \"rulename\", ... ],    (array of strings) specific block rules that are to be enforced\n"
-            "  \"vbavailable\" : {                 (json object) set of pending, supported versionbit (BIP 9) softfork deployments\n"
             "      \"rulename\" : bitnumber          (numeric) identifies the bit number as indicating acceptance and readiness for the named softfork rule\n"
             "      ,...\n"
             "  },\n"
