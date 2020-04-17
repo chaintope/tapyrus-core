@@ -72,9 +72,9 @@ UniValue blockheaderToJSON(const CBlockIndex* blockindex)
     result.pushKV("time", (int64_t)blockindex->nTime);
     result.pushKV("mediantime", (int64_t)blockindex->GetMedianTimePast());
     result.pushKV("nTx", (uint64_t)blockindex->nTx);
-    result.pushKV("xType", (uint8_t)blockindex->xType);
-    if(blockindex->xValue.size())
-        result.pushKV("xValue", HexStr(blockindex->xValue));
+    result.pushKV("xfieldType", (uint8_t)blockindex->xfieldType);
+    if(blockindex->xfield.size())
+        result.pushKV("xfield", HexStr(blockindex->xfield));
     result.pushKV("proof", HexStr(blockindex->proof));
 
     if (blockindex->pprev)
@@ -118,9 +118,9 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
     result.pushKV("tx", txs);
     result.pushKV("time", block.GetBlockTime());
     result.pushKV("mediantime", (int64_t)blockindex->GetMedianTimePast());
-    result.pushKV("xType", (uint64_t)blockindex->xType);
-    if(blockindex->xValue.size())
-        result.pushKV("xValue", HexStr(blockindex->xValue));
+    result.pushKV("xfieldType", (uint64_t)blockindex->xfieldType);
+    if(blockindex->xfield.size())
+        result.pushKV("xfield", HexStr(blockindex->xfield));
     result.pushKV("proof", HexStr(block.GetBlockHeader().proof));
     result.pushKV("nTx", (uint64_t)blockindex->nTx);
 
@@ -1356,6 +1356,9 @@ static UniValue invalidateblock(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
         }
 
+        if((pblockindex->xfieldType == 1 && pblockindex->xfield.size()  == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE) || pblockindex->nHeight <= FederationParams().GetHeightFromAggregatePubkey(FederationParams().GetLatestAggregatePubkey()))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Federation block found");
+
         InvalidateBlock(state, pblockindex);
     }
 
@@ -1394,6 +1397,9 @@ static UniValue reconsiderblock(const JSONRPCRequest& request)
         if (!pblockindex) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
         }
+
+        if((pblockindex->xfieldType == 1 && pblockindex->xfield.size()  == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE) || pblockindex->nHeight <= FederationParams().GetHeightFromAggregatePubkey(FederationParams().GetLatestAggregatePubkey()))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Federation block found");
 
         ResetBlockFailureFlags(pblockindex);
     }
