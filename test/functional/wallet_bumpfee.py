@@ -71,7 +71,7 @@ class BumpFeeTest(BitcoinTestFramework):
         test_settxfee(rbf_node, dest_address)
         test_rebumping(rbf_node, dest_address)
         test_rebumping_not_replaceable(rbf_node, dest_address)
-        test_unconfirmed_not_spendable(rbf_node, rbf_node_address, self.signblockprivkey, self.signblockpubkey)
+        test_unconfirmed_not_spendable(rbf_node, rbf_node_address, self.signblockprivkey)
         test_bumpfee_metadata(rbf_node, dest_address)
         test_locked_wallet_fails(rbf_node, dest_address)
         self.log.info("Success")
@@ -189,7 +189,7 @@ def test_rebumping_not_replaceable(rbf_node, dest_address):
                           {"totalFee": 20000})
 
 
-def test_unconfirmed_not_spendable(rbf_node, rbf_node_address, signblockprivkey, signblockpubkey):
+def test_unconfirmed_not_spendable(rbf_node, rbf_node_address, signblockprivkey):
     # check that unconfirmed outputs from bumped transactions are not spendable
     rbfid = spend_one_input(rbf_node, rbf_node_address)
     rbftx = rbf_node.gettransaction(rbfid)["hex"]
@@ -206,7 +206,7 @@ def test_unconfirmed_not_spendable(rbf_node, rbf_node_address, signblockprivkey,
     # then invalidate the block so the rbf tx will be put back in the mempool.
     # This makes it possible to check whether the rbf tx outputs are
     # spendable before the rbf tx is confirmed.
-    block = submit_block_with_tx(rbf_node, rbftx, signblockprivkey, signblockpubkey)
+    block = submit_block_with_tx(rbf_node, rbftx, signblockprivkey)
     # Can not abandon conflicted tx
     assert_raises_rpc_error(-5, 'Transaction not eligible for abandonment', lambda: rbf_node.abandontransaction(txid=bumpid))
     rbf_node.invalidateblock(block.hash)
@@ -254,14 +254,14 @@ def spend_one_input(node, dest_address):
     return txid
 
 
-def submit_block_with_tx(node, tx, signblockprivkey, signblockpubkey):
+def submit_block_with_tx(node, tx, signblockprivkey):
     ctx = CTransaction()
     ctx.deserialize(io.BytesIO(hex_str_to_bytes(tx)))
 
     tip = node.getbestblockhash()
     height = node.getblockcount() + 1
     block_time = node.getblockheader(tip)["mediantime"] + 1
-    block = create_block(int(tip, 16), create_coinbase(height), block_time, signblockpubkey)
+    block = create_block(int(tip, 16), create_coinbase(height), block_time)
     block.vtx.append(ctx)
     block.rehash()
     block.hashMerkleRoot = block.calc_merkle_root()

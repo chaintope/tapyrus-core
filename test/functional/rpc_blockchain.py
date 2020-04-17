@@ -62,6 +62,7 @@ class BlockchainTest(BitcoinTestFramework):
         self.log.info("Test getblockchaininfo")
 
         keys = [
+            'aggregatePubkeys',
             'bestblockhash',
             'blocks',
             'chain',
@@ -75,6 +76,7 @@ class BlockchainTest(BitcoinTestFramework):
             'warnings',
         ]
         res = self.nodes[0].getblockchaininfo()
+        assert_equal(res['aggregatePubkeys'], {self.signblockpubkey:0})
 
         # result should have these additional pruning keys if manual pruning is enabled
         assert_equal(sorted(res.keys()), sorted(['pruneheight', 'automatic_pruning'] + keys))
@@ -249,7 +251,7 @@ class BlockchainTest(BitcoinTestFramework):
         b20 = node.getblock(b20hash)
 
         def solve_and_send_block(prevhash, height, time):
-            b = create_block(prevhash, create_coinbase(height), time, self.signblockpubkey)
+            b = create_block(prevhash, create_coinbase(height), time)
             b.solve(self.signblockprivkey)
             node.p2p.send_message(msg_block(b))
             node.p2p.sync_with_ping()

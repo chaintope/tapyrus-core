@@ -47,7 +47,7 @@ struct TestSubscriber : public CValidationInterface {
     }
 };
 
-std::shared_ptr<CBlock> Block(const uint256& prev_hash)
+std::shared_ptr<CBlock> Block(const uint256& prev_hash, int height)
 {
     static int i = 0;
     static uint64_t time = FederationParams().GenesisBlock().nTime;
@@ -63,6 +63,7 @@ std::shared_ptr<CBlock> Block(const uint256& prev_hash)
 
     CMutableTransaction txCoinbase(*pblock->vtx[0]);
     txCoinbase.vout.resize(1);
+    txCoinbase.vin[0].prevout.n = height;
     txCoinbase.vin[0].scriptWitness.SetNull();
     pblock->vtx[0] = MakeTransactionRef(std::move(txCoinbase));
 
@@ -76,7 +77,7 @@ std::shared_ptr<CBlock> FinalizeBlock(std::shared_ptr<CBlock> pblock)
 
     std::vector<unsigned char> blockProof;
     createSignedBlockProof(*pblock, blockProof);
-    pblock->AbsorbBlockProof(blockProof, FederationParams().GetAggregatePubkey());
+    pblock->AbsorbBlockProof(blockProof, FederationParams().GetLatestAggregatePubkey());
     BOOST_CHECK_EQUAL(pblock->proof.size(), blockProof.size());
     return pblock;
 }
@@ -84,22 +85,13 @@ std::shared_ptr<CBlock> FinalizeBlock(std::shared_ptr<CBlock> pblock)
 // construct a valid block
 const std::shared_ptr<const CBlock> GoodBlock(const uint256& prev_hash, const int height)
 {
-    auto pblock = Block(prev_hash);
-
-    CMutableTransaction coinbase;
-    coinbase.vin.push_back(CTxIn(COutPoint(uint256(), height), CScript(), 0));
-    coinbase.vout.push_back(pblock->vtx[0]->vout[0]);
-
-    CTransactionRef tx = MakeTransactionRef(coinbase);
-    pblock->vtx.push_back(tx);
-
-    return FinalizeBlock(pblock);
+    return FinalizeBlock(Block(prev_hash, height));
 }
 
 // construct an invalid block (but with a valid header)
 const std::shared_ptr<const CBlock> BadBlock(const uint256& prev_hash, const int height)
 {
-    auto pblock = Block(prev_hash);
+    auto pblock = Block(prev_hash, height);
 
     CMutableTransaction coinbase_spend;
     coinbase_spend.vin.push_back(CTxIn(COutPoint(pblock->vtx[0]->GetHash(), height), CScript(), 0));
@@ -114,7 +106,7 @@ const std::shared_ptr<const CBlock> BadBlock(const uint256& prev_hash, const int
 
 void BuildChain(const uint256& root, int height, const unsigned int invalid_rate, const unsigned int branch_rate, const unsigned int max_size, std::vector<std::shared_ptr<const CBlock>>& blocks)
 {
-    if (height <= 0 || blocks.size() >= max_size) return;
+    if (blocks.size() >= max_size) return;
 
     bool gen_invalid = GetRand(100) < invalid_rate;
     bool gen_fork = GetRand(100) < branch_rate;
@@ -122,12 +114,12 @@ void BuildChain(const uint256& root, int height, const unsigned int invalid_rate
     const std::shared_ptr<const CBlock> pblock = gen_invalid ? BadBlock(root, height) : GoodBlock(root, height);
     blocks.push_back(pblock);
     if (!gen_invalid) {
-        BuildChain(pblock->GetHash(), height - 1, invalid_rate, branch_rate, max_size, blocks);
+        BuildChain(pblock->GetHash(), height + 1, invalid_rate, branch_rate, max_size, blocks);
     }
 
     if (gen_fork) {
         blocks.push_back(GoodBlock(root, height));
-        BuildChain(blocks.back()->GetHash(), height - 1, invalid_rate, branch_rate, max_size, blocks);
+        BuildChain(blocks.back()->GetHash(), height + 1, invalid_rate, branch_rate, max_size, blocks);
     }
 }
 
@@ -137,7 +129,7 @@ BOOST_AUTO_TEST_CASE(processnewblock_signals_ordering)
     std::vector<std::shared_ptr<const CBlock>> blocks;
     while (blocks.size() < 50) {
         blocks.clear();
-        BuildChain(FederationParams().GenesisBlock().GetHash(), 100, 15, 10, 500, blocks);
+        BuildChain(FederationParams().GenesisBlock().GetHash(), 1, 15, 10, 500, blocks);
     }
 
     bool ignored;
@@ -198,6 +190,7 @@ BOOST_AUTO_TEST_CASE(processnewblock_signals_ordering)
     UnregisterValidationInterface(&sub);
 
     BOOST_CHECK_EQUAL(sub.m_expected_tip, chainActive.Tip()->GetBlockHash());
+    BOOST_CHECK(chainActive.Tip()->nHeight != 0);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

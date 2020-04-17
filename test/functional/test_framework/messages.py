@@ -523,7 +523,8 @@ class CBlockHeader():
             self.hashMerkleRoot = header.hashMerkleRoot
             self.hashImMerkleRoot = header.hashImMerkleRoot
             self.nTime = header.nTime
-            self.aggPubkey = header.aggPubkey
+            self.xType = header.xType
+            self.xValue = header.xValue
             self.proof = copy.deepcopy(header.proof)
             self.sha256 = header.sha256
             self.hash = header.hash
@@ -535,7 +536,8 @@ class CBlockHeader():
         self.hashMerkleRoot = 0
         self.hashImMerkleRoot = 0
         self.nTime = 0
-        self.aggPubkey = b''
+        self.xType = 0
+        self.xValue = b''
         self.proof = bytearray()
         self.sha256 = None
         self.hash = None
@@ -546,7 +548,9 @@ class CBlockHeader():
         self.hashMerkleRoot = deser_uint256(f)
         self.hashImMerkleRoot = deser_uint256(f)
         self.nTime = struct.unpack("<I", f.read(4))[0]
-        self.aggPubkey = deser_string(f)
+        self.xType = struct.unpack("B", f.read(1))[0]
+        if(self.xType != 0):
+            self.xValue = deser_string(f)
         self.proof = deser_string(f)
         self.sha256 = None
         self.hash = None
@@ -558,7 +562,9 @@ class CBlockHeader():
         r += ser_uint256(self.hashMerkleRoot)
         r += ser_uint256(self.hashImMerkleRoot)
         r += struct.pack("<I", self.nTime)
-        r += ser_string(self.aggPubkey)
+        r += struct.pack("B", self.xType)
+        if(self.xType != 0):
+            r += ser_string(self.xValue)
         r += ser_string(self.proof)
         return r
 
@@ -569,7 +575,9 @@ class CBlockHeader():
         r += ser_uint256(self.hashMerkleRoot)
         r += ser_uint256(self.hashImMerkleRoot)
         r += struct.pack("<I", self.nTime)
-        r += ser_string(self.aggPubkey)
+        r += struct.pack("B", self.xType)
+        if(self.xType != 0):
+            r += ser_string(self.xValue)
         return hash256(r)
 
     def calc_sha256(self):
@@ -580,7 +588,9 @@ class CBlockHeader():
             r += ser_uint256(self.hashMerkleRoot)
             r += ser_uint256(self.hashImMerkleRoot)
             r += struct.pack("<I", self.nTime)
-            r += ser_string(self.aggPubkey)
+            r += struct.pack("B", self.xType)
+            if(self.xType != 0):
+                r += ser_string(self.xValue)
             r += ser_string(self.proof)
             self.sha256 = uint256_from_str(hash256(r))
             self.hash = encode(hash256(r)[::-1], 'hex_codec').decode('ascii')
@@ -591,8 +601,8 @@ class CBlockHeader():
         return self.sha256
 
     def __repr__(self):
-        return "CBlockHeader(nFeatures=%i hashPrevBlock=%064x hashMerkleRoot=%064x hashImMerkleRoot=%064x nTime=%s aggPubkey=%s proof=%s)" \
-            % (self.nFeatures, self.hashPrevBlock, self.hashMerkleRoot, self.hashImMerkleRoot, time.ctime(self.nTime), bytes_to_hex_str(self.aggPubkey), bytes_to_hex_str(self.proof))
+        return "CBlockHeader(nFeatures=%i hashPrevBlock=%064x hashMerkleRoot=%064x hashImMerkleRoot=%064x nTime=%s xType=%x xValue=%s proof=%s)" \
+            % (self.nVersion, self.hashPrevBlock, self.hashMerkleRoot, self.hashImMerkleRoot, time.ctime(self.nTime), self.xType, bytes_to_hex_str(self.xValue), bytes_to_hex_str(self.proof))
 
 
 class CBlock(CBlockHeader):
@@ -668,9 +678,9 @@ class CBlock(CBlockHeader):
         self.rehash()
 
     def __repr__(self):
-        return "CBlock(nFeatures=%i hashPrevBlock=%064x hashMerkleRoot=%064x hashImMerkleRoot=%064x nTime=%s aggPubkey=%s proof=%s vtx=%s)" \
-            % (self.nFeatures, self.hashPrevBlock, self.hashMerkleRoot, self.hashImMerkleRoot,
-               time.ctime(self.nTime), bytes_to_hex_str(self.aggPubkey), bytes_to_hex_str(self.proof), repr(self.vtx))
+        return "CBlock(nFeatures=%i hashPrevBlock=%064x hashMerkleRoot=%064x hashImMerkleRoot=%064x nTime=%s xType=%x xValue=%s  proof=%s vtx=%s)" \
+            % (self.nVersion, self.hashPrevBlock, self.hashMerkleRoot, self.hashImMerkleRoot,
+               time.ctime(self.nTime), self.xType, bytes_to_hex_str(self.xValue), bytes_to_hex_str(self.proof), repr(self.vtx))
 
 
 class PrefilledTransaction():

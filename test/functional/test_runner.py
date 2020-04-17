@@ -86,6 +86,8 @@ BASE_SCRIPTS = [
     'feature_reindex.py',
     'feature_serialization.py',
     'feature_serialization.py --scheme SCHNORR',
+    'feature_federation_management.py',
+    'feature_federation_management.py --scheme SCHNORR',
     # vv Tests less than 30s vv
     'wallet_keypool_topup.py',
     'interface_zmq.py',
@@ -120,6 +122,7 @@ BASE_SCRIPTS = [
     'wallet_disable.py',
     'rpc_net.py',
     'wallet_keypool.py',
+    'p2p_federation_block.py',
     'p2p_mempool.py',
     'p2p_invalid_locator.py',
     'p2p_invalid_block.py',

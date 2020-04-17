@@ -10,7 +10,10 @@
 #include <serialize.h>
 #include <script/standard.h>
 
-#include <qt/paymentrequestplus.h>
+#if defined(HAVE_CONFIG_H)
+#include <config/bitcoin-config.h>
+#endif
+
 #include <qt/walletmodeltransaction.h>
 
 #include <interfaces/wallet.h>
@@ -63,10 +66,9 @@ public:
     // If from a payment request, this is used for storing the memo
     QString message;
 
-    // If from a payment request, paymentRequest.IsInitialized() will be true
-    PaymentRequestPlus paymentRequest;
-    // Empty if no authentication or invalid signature/cert/etc.
-    QString authenticatedMerchant;
+    // If building with BIP70 is disabled, keep the payment request around as
+    // serialized string to ensure load/store is lossless
+    std::string sPaymentRequest;
 
     bool fSubtractFeeFromAmount; // memory only
 
@@ -80,10 +82,6 @@ public:
         std::string sAddress = address.toStdString();
         std::string sLabel = label.toStdString();
         std::string sMessage = message.toStdString();
-        std::string sPaymentRequest;
-        if (!ser_action.ForRead() && paymentRequest.IsInitialized())
-            paymentRequest.SerializeToString(&sPaymentRequest);
-        std::string sAuthenticatedMerchant = authenticatedMerchant.toStdString();
 
         READWRITE(this->nVersion);
         READWRITE(sAddress);
@@ -91,16 +89,12 @@ public:
         READWRITE(amount);
         READWRITE(sMessage);
         READWRITE(sPaymentRequest);
-        READWRITE(sAuthenticatedMerchant);
 
         if (ser_action.ForRead())
         {
             address = QString::fromStdString(sAddress);
             label = QString::fromStdString(sLabel);
             message = QString::fromStdString(sMessage);
-            if (!sPaymentRequest.empty())
-                paymentRequest.parse(QByteArray::fromRawData(sPaymentRequest.data(), sPaymentRequest.size()));
-            authenticatedMerchant = QString::fromStdString(sAuthenticatedMerchant);
         }
     }
 };

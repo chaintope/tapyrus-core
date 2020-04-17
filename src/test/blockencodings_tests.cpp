@@ -38,6 +38,8 @@ static CBlock BuildBlockTestCase() {
     tx.vin[0].prevout.n = 0;
     block.vtx[1] = MakeTransactionRef(tx);
     block.nTime = 0x5c6e03b8;
+    block.xType = 0;
+    block.xValue.clear();
 
     tx.vin.resize(10);
     for (size_t i = 0; i < tx.vin.size(); i++) {
@@ -54,7 +56,7 @@ static CBlock BuildBlockTestCase() {
     //create proof
     std::vector<unsigned char> blockProof;
     createSignedBlockProof(block, blockProof);
-    block.AbsorbBlockProof(blockProof, FederationParams().GetAggregatePubkey());
+    block.AbsorbBlockProof(blockProof, FederationParams().GetLatestAggregatePubkey());
     return block;
 }
 
@@ -312,7 +314,7 @@ BOOST_AUTO_TEST_CASE(EmptyBlockRoundTripTest)
     //create proof
     std::vector<unsigned char> blockProof;
     createSignedBlockProof(block, blockProof);
-    block.AbsorbBlockProof(blockProof, FederationParams().GetAggregatePubkey());
+    block.AbsorbBlockProof(blockProof, FederationParams().GetLatestAggregatePubkey());
 
     // Test simple header round-trip with only coinbase
     {

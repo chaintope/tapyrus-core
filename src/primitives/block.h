@@ -12,6 +12,12 @@
 #include <uint256.h>
 #include <key.h>
 
+enum class TAPURUS_XTYPES
+{
+    NONE = 0, //no value field
+    AGGPUBKEY = 1, //33 byte aggpubkey
+};
+
 /** Nodes collect new transactions into a block, hash them into a hash tree,
  * and scan through nonce values to make the block's hash satisfy proof-of-work
  * requirements.  When they solve the proof-of-work, they broadcast the block
@@ -28,7 +34,8 @@ public:
     uint256 hashMerkleRoot;
     uint256 hashImMerkleRoot;
     uint32_t nTime;
-    std::vector<unsigned char> aggPubkey{CPubKey::COMPRESSED_PUBLIC_KEY_SIZE};
+    uint8_t xType;
+    std::vector<unsigned char> xValue;
 
     CBlockHeaderWithoutProof()
     {
@@ -43,7 +50,9 @@ public:
         READWRITE(hashMerkleRoot);
         READWRITE(hashImMerkleRoot);
         READWRITE(nTime);
-        READWRITE(aggPubkey);
+        READWRITE(xType);
+        if((TAPURUS_XTYPES)xType != TAPURUS_XTYPES::NONE)
+            READWRITE(xValue);
     }
 
     void SetNull()
@@ -53,7 +62,8 @@ public:
         hashMerkleRoot.SetNull();
         hashImMerkleRoot.SetNull();
         nTime = 0;
-        aggPubkey.clear();
+        xType = 0;
+        xValue.clear();
     }
 
     bool IsNull() const
@@ -134,7 +144,8 @@ public:
         block.hashMerkleRoot    = hashMerkleRoot;
         block.hashImMerkleRoot  = hashImMerkleRoot;
         block.nTime             = nTime;
-        block.aggPubkey         = aggPubkey;
+        block.xType             = xType;
+        block.xValue            = xValue;
         block.proof             = proof;
         return block;
     }

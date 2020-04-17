@@ -106,7 +106,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         height = node.getblockcount()
         tip = node.getbestblockhash()
         mtp = node.getblockheader(tip)['mediantime']
-        block = create_block(int(tip, 16), create_coinbase(height + 1), mtp + 1, self.signblockpubkey)
+        block = create_block(int(tip, 16), create_coinbase(height + 1), mtp + 1)
         block.nVersion = 1
         block.solve(self.signblockprivkey)
         return block
