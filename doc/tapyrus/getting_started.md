@@ -261,7 +261,7 @@ Referring [How To configure Tapyrus Signer Network](https://github.com/chaintope
 
 ## How to create a genesis block?
 
-Tapyrus-genesis utility is packaged with tapyrus v.0.3.0. It can generate a basic unsigned genesis block with block version 1. Time argument gives the block time. Aggregate public key of the Tapyrus-signer network can be given as an argument. Address is the tapyrus-address to which the block reward is paid. The output of this command is a block hex. Copy this into a file named 'genesis.<networkid>'
+Tapyrus-genesis utility is packaged with tapyrus v.0.3.0. It can generate a basic unsigned genesis block. Time argument gives the block time. Aggregate public key of the Tapyrus-signer network can be given as an argument. Address is the tapyrus-address to which the block reward is paid. The output of this command is a block hex. Copy this into a file named 'genesis.<networkid>'
 
 Example:
 ``` 
