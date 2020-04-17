@@ -83,8 +83,8 @@ struct DBImpl::CompactionState {
 
 // Fix user-supplied options to be reasonable
 template <class T,class V>
-static void ClipToRange(T* ptr, V minvalue, V maxfield) {
-  if (static_cast<V>(*ptr) > maxfield) *ptr = maxfield;
+static void ClipToRange(T* ptr, V minvalue, V maxvalue) {
+  if (static_cast<V>(*ptr) > maxvalue) *ptr = maxvalue;
   if (static_cast<V>(*ptr) < minvalue) *ptr = minvalue;
 }
 Options SanitizeOptions(const std::string& dbname,
