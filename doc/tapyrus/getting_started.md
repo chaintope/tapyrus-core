@@ -157,8 +157,6 @@ Verify the progress of initial block download in the new node using debug.log. T
 
 From Tapyrus version 0.4.0 onwards Tapyrus allows setting up new secure federated networks.
 
-## How to start a new tapyrus network?
-
 ##### :heavy_exclamation_mark:Caution
 > As Tapyrus is under active development it is recommended to use the network for testing and not as a commercial production deployment.
 
@@ -253,6 +251,11 @@ Start dnsseeder for the Tapyrus network with 'networkid=721' using the following
 ```./dnsseed -i 721 -h seed.tapyrus.n721.chaintope.com -n n721.chaintope.com -s <initial_seed_node>```
 
 -s option is used to configure the initial_seed_node, a node to be used as the seed node when dnsseeder is started for the first time on the network. It may be a Tapyrus core node or another dnsseed node. It is optional after the first run.
+
+### 8. Start Tapyrus signer nodes
+
+Each federation member need to keep running tapyrus-signerd process on their environment to produce blocks constantly.
+Referring [How To configure Tapyrus Signer Network](https://github.com/chaintope/tapyrus-signer/blob/master/doc/configuration.md), create configuration file for tapyrus-signerd and run it. 
 
 ## How to create a genesis block?
 
