@@ -29,14 +29,14 @@ The genesis block contains the "aggregate public key" of the federation. It is g
 
 
 ## FAQ
-* [How to build tapyrus?](https://github.com/chaintope/tapyrus-core/blob/v0.3.0/doc/tapyrus/getting_started.md#how-to-build-tapyrus)
-* [How to get the pre-built binaries?](https://github.com/chaintope/tapyrus-core/blob/v0.3.0/doc/tapyrus/getting_started.md#how-to-get-the-pre-built-binaries)
-* [How to start tapyrus in dev mode?](https://github.com/chaintope/tapyrus-core/blob/v0.3.0/doc/tapyrus/getting_started.md#how-to-start-tapyrus-in-dev-mode)
-* [How to start a node on tapyrus testnet?](https://github.com/chaintope/tapyrus-core/blob/v0.3.0/doc/tapyrus/getting_started.md#how-to-start-a-node-on-tapyrus-testnet)
-* [How to start a new tapyrus network?](https://github.com/chaintope/tapyrus-core/blob/v0.3.0/doc/tapyrus/getting_started.md#how-to-start-a-new-tapyrus-network)
-* [How to create a genesis block?](https://github.com/chaintope/tapyrus-core/blob/v0.3.0/doc/tapyrus/getting_started.md#how-to-create-a-genesis-block)
-* [How to get coins?](https://github.com/chaintope/tapyrus-core/blob/v0.3.0/doc/tapyrus/getting_started.md#how-to-get-coins)
-* [How to upgrade tapyrus?](https://github.com/chaintope/tapyrus-core/blob/v0.3.0/doc/tapyrus/getting_started.md#how-to-upgrade-tapyrus)
+* [How to build tapyrus?](/doc/tapyrus/getting_started.md#how-to-build-tapyrus)
+* [How to get the pre-built binaries?](/doc/tapyrus/getting_started.md#how-to-get-the-pre-built-binaries)
+* [How to start tapyrus in dev mode?](/doc/tapyrus/getting_started.md#how-to-start-tapyrus-in-dev-mode)
+* [How to start a node on tapyrus testnet?](/doc/tapyrus/getting_started.md#how-to-start-a-node-on-tapyrus-testnet)
+* [How to start a new tapyrus network?](/doc/tapyrus/getting_started.md#how-to-start-a-new-tapyrus-network)
+* [How to create a genesis block?](/doc/tapyrus/getting_started.md#how-to-create-a-genesis-block)
+* [How to get coins?](/doc/tapyrus/getting_started.md#how-to-get-coins)
+* [How to upgrade tapyrus?](/doc/tapyrus/getting_started.md#how-to-upgrade-tapyrus)
 
 
 ## How to build tapyrus? 
@@ -79,7 +79,7 @@ bind=127.0.0.1
 3. Choose an elliptic curve private key and public key pair. These keys would serve as the 'aggregate public key' and 'aggregate private key' in dev mode.
 
 4. Generate a new **signed genesis block** using tapyrus-genesis utility. Aggregate public key and its corresponsing private key are needed as command line options to generate a signed genesis block.
-Read [Create new genesis block using tapyrus-genesis-utility](https://github.com/chaintope/tapyrus-core/blob/v0.3.0/doc/tapyrus/getting_started.md#how-to-create-a-genesis-block)
+Read [Create new genesis block using tapyrus-genesis-utility](/doc/tapyrus/getting_started.md#how-to-create-a-genesis-block)
  section for more details.
 ``` 
 ./tapyrus-genesis -dev -time=1563342688 -address=mmtAurzUTURFq9MSizWyj5sAkWzgqR8PBn -signblockpubkey=03af80b90d25145da28c583359beb47b21796b2fe1a23c1511e443e7a64dfdb27d -signblockprivatekey=cUJN5RVzYWFoeY8rUztd47jzXCu1p57Ay8V7pqCzsBD3PEXN7Dd4
@@ -104,7 +104,7 @@ Block rewards can now be spent to create new transactions and proceed with testi
 ## How to start a node on Tapyrus testnet?
 
 ##### Note:
-> :point_right: If you wish to start a new test network then follow the instructions in [How to start a new tapyrus network?](https://github.com/chaintope/tapyrus-core/blob/v0.3.0/doc/tapyrus/getting_started.md#how-to-start-a-new-tapyrus-network)
+> :point_right: If you wish to start a new test network then follow the instructions in [How to start a new tapyrus network?](/doc/tapyrus/getting_started.md#how-to-start-a-new-tapyrus-network)
 
 
 Tapyrus software does not support a separate "testnet" mode. A new Tapyrus production, "prod" mode network with a different network Id can be created to be used as testnet.
@@ -190,7 +190,7 @@ Follow the instructions in [Generate Aggregate public key and Node secret share 
 
 ### 4. Create a new genesis block using Tapyrus-genesis utility
 
-Follow the instructions in [Create new genesis block using tapyrus-genesis-utility](https://github.com/chaintope/tapyrus-core/blob/v0.3.0/doc/tapyrus/getting_started.md#how-to-create-a-genesis-block)
+Follow the instructions in [Create new genesis block using tapyrus-genesis-utility](/doc/tapyrus/getting_started.md#how-to-create-a-genesis-block)
 
 ### 5. Generate genesis block proof using Tapyrus-signer network
 
