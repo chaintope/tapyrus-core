@@ -162,14 +162,16 @@ From Tapyrus version 0.4.0 onwards Tapyrus allows setting up new secure federate
 
 A minimum functional tapyrus network needs 3 Tapyrus-signers and 3 Tapyrus-core node for each signer.  Following are the steps in launching a new Tapyrus-network:
 
-1. [Choose a Network Id](https://github.com/chaintope/tapyrus-core/blob/issue/18_getting_started/doc/tapyrus/getting_started.md#1-choose-a-network-id)
-2. [Generate Aggregate public key of Tapyrus-signer network](https://github.com/chaintope/tapyrus-core/blob/issue/18_getting_started/doc/tapyrus/getting_started.md#1-create-a-new-genesis-block-using-tapyrus-genesis-utility)
-3. [Create a new genesis block using Tapyrus-genesis utility](https://github.com/chaintope/tapyrus-core/blob/issue/18_getting_started/doc/tapyrus/getting_started.md#2-start-tapyrus-signer-network)
-4. [Generate genesis block proof using Tapyrus-signer network](https://github.com/chaintope/tapyrus-core/blob/issue/18_getting_started/doc/tapyrus/getting_started.md#3-generate-genesis-block-proof-using-the-signer-network)
-5. [Start Tapyrus-core nodes](https://github.com/chaintope/tapyrus-core/blob/issue/18_getting_started/doc/tapyrus/getting_started.md#5-start-tapyrus-core-nodes)
-6. [Configure Tapyrus DNS seeder](https://github.com/chaintope/tapyrus-core/blob/issue/18_getting_started/doc/tapyrus/getting_started.md#5-configure-tapyrus-dns-seeder)
+1. [Define the federation members of the new Tapyrus network](/doc/tapyrus/getting_started.md#1-define-the-federation-members-of-the-new-tapyrus-network)
+2. [Choose a Network Id](/doc/tapyrus/getting_started.md#2-choose-a-network-id)
+3. [Generate Aggregate public key of Tapyrus-signer network](/doc/tapyrus/getting_started.md#3-generate-aggregate-public-key-of-tapyrus-signer-network)
+4. [Create a new genesis block using Tapyrus-genesis utility](/doc/tapyrus/getting_started.md#4-create-a-new-genesis-block-using-tapyrus-genesis-utility)
+5. [Generate genesis block proof using Tapyrus-signer network](/doc/tapyrus/getting_started.md#5-generate-genesis-block-proof-using-tapyrus-signer-network)
+6. [Start Tapyrus-core nodes](/doc/tapyrus/getting_started.md#6-start-tapyrus-core-nodes)
+7. [Configure Tapyrus DNS seeder](/doc/tapyrus/getting_started.md#7-configure-tapyrus-dns-seeder)
+8. [Start Tapyrus signer nodes](/doc/tapyrus/getting_started.md#8-start-tapyrus-signer-nodes)
 
-### 1. Define the federation members of the new Tapyrus network.
+### 1. Define the federation members of the new Tapyrus network
 
 First, your federation should decide federation members. They are signer of each block and identified by a public key of their own.
 Next you should decide a threshold of agreements to propose block signature. 
