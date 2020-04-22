@@ -215,7 +215,7 @@ rest=1
 rpcuser=user
 rpcpassword=pass
 rpcbind=0.0.0.0
-rpcallowip=172.16.2.0/24
+rpcallowip=127.0.0.1
 addseeder=seed.tapyrus.n721.chaintope.com
 ```
 ##### Note
