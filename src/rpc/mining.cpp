@@ -890,14 +890,14 @@ UniValue testproposedblock(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() != 1 )
         throw std::runtime_error(
-            "testproposedblock \"blockhex\" \"[acceptnonstdtxn]\"\n"
+            "testproposedblock \"blockhex\"\n"
             "\nValidate proposed block before signing\n"
             "\nArguments:\n"
             "1. \"blockhex\"       (string, required) The hex-encoded block from getnewblockhex\n"
             "\nResult\n"
             "\"valid\"              (bool) true when the block is valid, JSON exception on failure\n"
             "\nExamples:\n"
-            + HelpExampleCli("testproposedblock", "\"blockhex\" \"[acceptnonstdtxn]\"")
+            + HelpExampleCli("testproposedblock", "\"blockhex\"")
         );
 
     CBlock block;
