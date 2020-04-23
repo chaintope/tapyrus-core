@@ -12,7 +12,7 @@
 #include <uint256.h>
 #include <key.h>
 
-enum class TAPURUS_XFIELDTYPES
+enum class TAPYRUS_XFIELDTYPES
 {
     NONE = 0, //no xfield
     AGGPUBKEY = 1, //xfield is 33 byte aggpubkey
@@ -51,7 +51,7 @@ public:
         READWRITE(hashImMerkleRoot);
         READWRITE(nTime);
         READWRITE(xfieldType);
-        if((TAPURUS_XFIELDTYPES)xfieldType != TAPURUS_XFIELDTYPES::NONE)
+        if((TAPYRUS_XFIELDTYPES)xfieldType != TAPYRUS_XFIELDTYPES::NONE)
             READWRITE(xfield);
     }
 
