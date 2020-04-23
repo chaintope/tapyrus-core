@@ -175,12 +175,12 @@ bool CFederationParams::ReadGenesisBlock(std::string genesisHex)
     unsigned long streamsize = ss.size();
     ss >> genesis;
 
-    switch((TAPURUS_XFIELDTYPES)genesis.xfieldType)
+    switch((TAPYRUS_XFIELDTYPES)genesis.xfieldType)
     {
-        case TAPURUS_XFIELDTYPES::AGGPUBKEY:
+        case TAPYRUS_XFIELDTYPES::AGGPUBKEY:
             ReadAggregatePubkey(genesis.xfield, 0);
             break;
-        case TAPURUS_XFIELDTYPES::NONE:
+        case TAPYRUS_XFIELDTYPES::NONE:
         default:
             throw std::runtime_error("ReadGenesisBlock: invalid xfieldType in genesis block");
     }

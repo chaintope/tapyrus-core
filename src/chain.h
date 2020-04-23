@@ -412,7 +412,7 @@ public:
         READWRITE(hashImMerkleRoot);
         READWRITE(nTime);
         READWRITE(xfieldType);
-        if((TAPURUS_XFIELDTYPES)xfieldType != TAPURUS_XFIELDTYPES::NONE)
+        if((TAPYRUS_XFIELDTYPES)xfieldType != TAPYRUS_XFIELDTYPES::NONE)
             READWRITE(xfield);
         READWRITE(proof);
     }
