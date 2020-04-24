@@ -210,8 +210,8 @@ public:
     uint256 hashMerkleRoot;
     uint256 hashImMerkleRoot;
     uint32_t nTime;
-    uint8_t xType;
-    std::vector<unsigned char> xValue;
+    uint8_t xfieldType;
+    std::vector<unsigned char> xfield;
     std::vector<unsigned char> proof;
 
     //! (memory only) Sequential id assigned to distinguish order in which blocks are received.
@@ -238,8 +238,8 @@ public:
         nVersion       = 0;
         hashMerkleRoot = uint256();
         nTime          = 0;
-        xType          = 0;
-        xValue.clear();
+        xfieldType          = 0;
+        xfield.clear();
         proof.clear();
     }
 
@@ -256,8 +256,8 @@ public:
         hashMerkleRoot = block.hashMerkleRoot;
         hashImMerkleRoot = block.hashImMerkleRoot;
         nTime          = block.nTime;
-        xType          = block.xType;
-        xValue         = block.xValue;
+        xfieldType          = block.xfieldType;
+        xfield         = block.xfield;
         proof          = block.proof;
     }
 
@@ -288,8 +288,8 @@ public:
         block.hashMerkleRoot = hashMerkleRoot;
         block.hashImMerkleRoot = hashImMerkleRoot;
         block.nTime          = nTime;
-        block.xType          = xType;
-        block.xValue         = xValue;
+        block.xfieldType          = xfieldType;
+        block.xfield         = xfield;
         block.proof          = proof;
         return block;
     }
@@ -327,13 +327,13 @@ public:
 
     std::string ToString() const
     {
-        return strprintf("CBlockIndex(pprev=%p, nHeight=%d, merkle=%s, Immerkle=%s, nTime=%u, xType=%2x, xValue=%s, proof={%s})hashBlock=%s",
+        return strprintf("CBlockIndex(pprev=%p, nHeight=%d, merkle=%s, Immerkle=%s, nTime=%u, xfieldType=%2x, xfield=%s, proof={%s})hashBlock=%s",
             pprev, nHeight,
             hashMerkleRoot.ToString(),
             hashImMerkleRoot.ToString(),
             nTime,
-            xType,
-            HexStr(xValue),
+            xfieldType,
+            HexStr(xfield),
             HexStr(proof),
             GetBlockHash().ToString());
     }
@@ -411,9 +411,9 @@ public:
         READWRITE(hashMerkleRoot);
         READWRITE(hashImMerkleRoot);
         READWRITE(nTime);
-        READWRITE(xType);
-        if((TAPURUS_XTYPES)xType != TAPURUS_XTYPES::NONE)
-            READWRITE(xValue);
+        READWRITE(xfieldType);
+        if((TAPYRUS_XFIELDTYPES)xfieldType != TAPYRUS_XFIELDTYPES::NONE)
+            READWRITE(xfield);
         READWRITE(proof);
     }
 
@@ -425,8 +425,8 @@ public:
         block.hashMerkleRoot  = hashMerkleRoot;
         block.hashImMerkleRoot  = hashImMerkleRoot;
         block.nTime           = nTime;
-        block.xType          = xType;
-        block.xValue         = xValue;
+        block.xfieldType          = xfieldType;
+        block.xfield         = xfield;
         block.proof           = proof;
         return block.GetHash();
     }

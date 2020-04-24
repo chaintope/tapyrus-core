@@ -62,11 +62,11 @@ def create_block(hashprev, coinbase, ntime, signblockpubkey=""):
     block.hashMerkleRoot = block.calc_merkle_root()
     block.hashImMerkleRoot = block.calc_immutable_merkle_root()
     if(signblockpubkey != ""):
-        block.xType = 1
-        block.xValue = hex_str_to_bytes(signblockpubkey)
+        block.xfieldType = 1
+        block.xfield = hex_str_to_bytes(signblockpubkey)
     else:
-        block.xType = 0
-        block.xValue = b''
+        block.xfieldType = 0
+        block.xfield = b''
     block.calc_sha256()
     return block
 
@@ -91,8 +91,8 @@ def createTestGenesisBlock(signblockpubkey, signblockprivkey, nTime=None):
     genesis.vtx.append(genesis_coinbase)
     genesis.hashMerkleRoot = genesis.calc_merkle_root()
     genesis.hashImMerkleRoot = genesis.calc_immutable_merkle_root()
-    genesis.xType = 1
-    genesis.xValue = hex_str_to_bytes(signblockpubkey)
+    genesis.xfieldType = 1
+    genesis.xfield = hex_str_to_bytes(signblockpubkey)
     genesis.solve(signblockprivkey)
     return genesis
 
