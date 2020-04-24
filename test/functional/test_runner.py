@@ -185,6 +185,7 @@ EXTENDED_SCRIPTS = [
     'feature_bip68_sequence.py --scheme SCHNORR',
     'mining_getblocktemplate_longpoll.py',
     'p2p_timeouts.py',
+    'feature_blockheaderxfield.py',
     # vv Tests less than 60s vv
     'p2p_feefilter.py',
     # vv Tests less than 30s vv
