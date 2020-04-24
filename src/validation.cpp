@@ -2871,7 +2871,7 @@ static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,
 {
     //check block version
     if(block.nVersion != CBlock::TAPYRUS_BLOCK_VERSION)
-        return state.Error("Block Version was incorrect");
+        return state.Invalid(false, REJECT_INVALID, "bad-version", "Block Version was incorrect");
 
     //Check proof of Signed Blocks in a block header
     const unsigned int proofSize = block.proof.size();
@@ -2880,7 +2880,7 @@ static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,
         return true;
 
     if(!proofSize)
-        return state.Error("No proof in block");
+        return state.Invalid(false, REJECT_INVALID, "bad-proof", "No Proof in block");
 
     CPubKey aggregatePubkey = FederationParams().GetAggPubkeyFromHeight(nHeight);
 
@@ -2891,7 +2891,7 @@ static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,
 
     //verify signature
     if(!aggregatePubkey.Verify_Schnorr(blockHash, block.proof))
-        return state.Error("Proof verification failed");
+        return state.Invalid(false, REJECT_INVALID, "bad-proof", "Proof verification failed");
 
     return true;
 }
@@ -2902,13 +2902,6 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
 
     if (block.fChecked)
         return true;
-
-    // Check that the header is valid (particularly PoW).  This is mostly
-    // redundant with the call in AcceptBlockHeader.
-    uint height = block.vtx[0]->vin[0].prevout.n;
-
-    if (!CheckBlockHeader(block, state, height, fCheckPOW))
-        return false;
 
     // Check the merkle root.
     if (fCheckMerkleRoot) {
@@ -2930,6 +2923,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
     }
 
     //check xfieldType and xfield fields in the block header. Do not accept a block with unexpected xfieldType
+    std::string warning("");
     switch((TAPYRUS_XFIELDTYPES)block.xfieldType)
     {
         case TAPYRUS_XFIELDTYPES::AGGPUBKEY:
@@ -2947,10 +2941,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
                 return state.DoS(100, false, REJECT_INVALID, "bad-xfieldType-xfield", false, "unexpected xfield");
             break;
         default:
-        {
-            std::string warning(strprintf("Warning: Unknown xfieldType [%2x] was accepted in block [%s]", block.xfieldType, block.GetHash().ToString()));
-            DoWarning(warning);
-        }
+            warning = strprintf("Warning: Unknown xfieldType [%2x] was accepted in block [%s]", block.xfieldType, block.GetHash().ToString());
     }
 
     // All potential-corruption validation must be done before we do any
@@ -2970,6 +2961,13 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
     CBlockIndex* pindexPrev = chainActive.Tip();
     if(pindexPrev && !isBlockHeightInCoinbase(block) )
         return state.DoS(100, false, REJECT_INVALID, "bad-cb-invalid", false, "incorrect block height in coinbase");
+
+    // Check that the header is valid (particularly PoW).  This is mostly
+    // redundant with the call in AcceptBlockHeader.
+    uint height = block.vtx[0]->vin[0].prevout.n;
+
+    if (!CheckBlockHeader(block, state, height, fCheckPOW))
+        return false;
 
     //the rest must not be coinbase
     for (unsigned int i = 1; i < block.vtx.size(); i++)
@@ -2993,6 +2991,9 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
 
     if (fCheckPOW && fCheckMerkleRoot)
         block.fChecked = true;
+
+    if(state.IsValid() && warning.size())
+        DoWarning(warning);
 
     return true;
 }
