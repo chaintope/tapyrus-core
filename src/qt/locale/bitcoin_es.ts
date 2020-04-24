@@ -3551,10 +3551,6 @@ Nota: Dado que la comisión se calcula por byte, una comisión de "100 tapyrus p
         <translation>Esta es la comisión de transacción que debe pagar cuando las estimaciones de comisión no estén disponibles.</translation>
     </message>
     <message>
-        <source>This product includes software developed by the OpenSSL Project for use in the OpenSSL Toolkit %s and cryptographic software written by Eric Young and UPnP software written by Thomas Bernard.</source>
-        <translation>Este producto incluye software desarrollado por el Proyecto OpenSSL para utilizarlo en el juego de herramientas OpenSSL %s y software criptográfico escrito por Eric Young y software UPnP escrito por Thomas Bernard.</translation>
-    </message>
-    <message>
         <source>Total length of network version string (%i) exceeds maximum length (%i). Reduce the number or size of uacomments.</source>
         <translation>La longitud total de la cadena de versión de red ( %i ) supera la longitud máxima ( %i ) . Reducir el número o tamaño de uacomments .</translation>
     </message>

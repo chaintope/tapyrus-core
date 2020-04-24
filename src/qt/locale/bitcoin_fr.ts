@@ -3540,10 +3540,6 @@ Note : Les frais étant calculés par octet, des frais de « 100 tapyrus par 
         <translation>Il s’agit des frais de transaction que vous pourriez payer si aucune estimation de frais n’est proposée.</translation>
     </message>
     <message>
-        <source>This product includes software developed by the OpenSSL Project for use in the OpenSSL Toolkit %s and cryptographic software written by Eric Young and UPnP software written by Thomas Bernard.</source>
-        <translation>Ce produit comprend des logiciels développés par le Projet OpenSSL pour être utilisés dans la boîte à outils OpenSSL %s, et un logiciel cryptographique écrit par Eric Young, ainsi qu’un logiciel UPnP écrit par Thomas Bernard.</translation>
-    </message>
-    <message>
         <source>Total length of network version string (%i) exceeds maximum length (%i). Reduce the number or size of uacomments.</source>
         <translation>La taille totale de la chaîne de version de réseau (%i) dépasse la longueur maximale (%i). Réduire le nombre ou la taille des commentaires uacomments.</translation>
     </message>

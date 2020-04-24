@@ -3549,10 +3549,6 @@ Hinweis: Eine Gebühr von "100 tapyrus pro kB" bei einer Größe der Transaktion
         <translation>Das ist die Transaktionsgebühr, welche du zahlen müsstest, wenn die Gebührenschätzungen nicht verfügbar sind.</translation>
     </message>
     <message>
-        <source>This product includes software developed by the OpenSSL Project for use in the OpenSSL Toolkit %s and cryptographic software written by Eric Young and UPnP software written by Thomas Bernard.</source>
-        <translation>Dieses Produkt enthält Software, die vom OpenSSL-Projekt zur Verwendung im OpenSSL-Toolkit %s entwickelt wird, von Eric Young geschriebene kryptographische Software und von Thomas Bernard geschriebene UPnP-Software.</translation>
-    </message>
-    <message>
         <source>Total length of network version string (%i) exceeds maximum length (%i). Reduce the number or size of uacomments.</source>
         <translation>Gesamtlänge des Netzwerkversionstrings (%i) erreicht die maximale Länge (%i). Reduzieren Sie die Nummer oder die Größe von uacomments.</translation>
     </message>

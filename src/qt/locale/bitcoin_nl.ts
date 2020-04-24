@@ -3552,10 +3552,6 @@ Notitie: Omdat de vergoeding per byte wordt gerekend, zal een vergoeding van "10
         <translation>Dit is de transactievergoeding die je mogelijk betaalt indien geschatte tarief niet beschikbaar is</translation>
     </message>
     <message>
-        <source>This product includes software developed by the OpenSSL Project for use in the OpenSSL Toolkit %s and cryptographic software written by Eric Young and UPnP software written by Thomas Bernard.</source>
-        <translation>Dit product bevat software dat ontwikkeld is door het OpenSSL Project voor gebruik in de OpenSSL Toolkit %s en cryptografische software geschreven door Eric Young en UPnP software geschreven door Thomas Bernard.</translation>
-    </message>
-    <message>
         <source>Total length of network version string (%i) exceeds maximum length (%i). Reduce the number or size of uacomments.</source>
         <translation>Totale lengte van netwerkversiestring (%i) overschrijdt maximale lengte (%i). Verminder het aantal of grootte van uacomments.</translation>
     </message>
