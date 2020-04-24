@@ -185,7 +185,7 @@ struct CMutableTransaction;
 
 /**
  * Basic transaction serialization format:
- * - int32_t nVersion
+ * - int32_t nFeatures
  * - std::vector<CTxIn> vin
  * - std::vector<CTxOut> vout
  * - uint32_t nLockTime
