@@ -135,7 +135,7 @@ unsigned int CTransaction::GetTotalSize() const
 std::string CTransaction::ToString() const
 {
     std::string str;
-    str += strprintf("CTransaction(hash=%s, ver=%d, vin.size=%u, vout.size=%u, nLockTime=%u)\n",
+    str += strprintf("CTransaction(hash=%s, features=%d, vin.size=%u, vout.size=%u, nLockTime=%u)\n",
         GetHashMalFix().ToString().substr(0,10),
         nFeatures,
         vin.size(),
