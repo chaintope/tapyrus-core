@@ -3545,10 +3545,6 @@ Note:  Since the fee is calculated on a per-byte basis, a fee of "100 tapyrus pe
         <translation>이것은 수수료 견적을 이용할 수 없을 때 지불 할 수 있는 거래 수수료입니다.</translation>
     </message>
     <message>
-        <source>This product includes software developed by the OpenSSL Project for use in the OpenSSL Toolkit %s and cryptographic software written by Eric Young and UPnP software written by Thomas Bernard.</source>
-        <translation>이 제품에는 OpenSSL Project에서 OpenSSL Toolkit %s으로 사용하기 위해 개발 한 소프트웨어와 Eric Young이 작성한 암호화 소프트웨어 및 Thomas Bernard가 작성한 UPnP 소프트웨어가 포함되어 있습니다.</translation>
-    </message>
-    <message>
         <source>Total length of network version string (%i) exceeds maximum length (%i). Reduce the number or size of uacomments.</source>
         <translation>네트워크 버전 문자 (%i)의 길이가 최대길이 (%i)를 초과합니다. UA코멘트의 갯수나 길이를 줄이세요.</translation>
     </message>

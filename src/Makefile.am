@@ -19,7 +19,7 @@ else
 LIBUNIVALUE = $(UNIVALUE_LIBS)
 endif
 
-BITCOIN_INCLUDES=-I$(builddir) $(BDB_CPPFLAGS) $(BOOST_CPPFLAGS) $(LEVELDB_CPPFLAGS) $(CRYPTO_CFLAGS) $(SSL_CFLAGS)
+BITCOIN_INCLUDES=-I$(builddir) $(BDB_CPPFLAGS) $(BOOST_CPPFLAGS) $(LEVELDB_CPPFLAGS)
 
 BITCOIN_INCLUDES += -I$(srcdir)/secp256k1/include
 BITCOIN_INCLUDES += $(UNIVALUE_CFLAGS)
@@ -105,6 +105,7 @@ BITCOIN_CORE_H = \
   coins.h \
   compat.h \
   compat/byteswap.h \
+  compat/cpuid.h \
   compat/endian.h \
   compat/sanity.h \
   compressor.h \
@@ -146,6 +147,7 @@ BITCOIN_CORE_H = \
   policy/rbf.h \
   protocol.h \
   random.h \
+  randomenv.h \
   reverse_iterator.h \
   reverselock.h \
   rpc/blockchain.h \
@@ -410,6 +412,7 @@ libtapyrus_util_a_SOURCES = \
   logging.cpp \
   random.cpp \
   rpc/protocol.cpp \
+  randomenv.cpp \
   support/cleanse.cpp \
   sync.cpp \
   threadinterrupt.cpp \
@@ -458,7 +461,7 @@ tapyrusd_LDADD = \
   $(LIBMEMENV) \
   $(LIBSECP256K1)
 
-tapyrusd_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS)
+tapyrusd_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS)
 
 # tapyrus-cli binary #
 tapyrus_cli_SOURCES = tapyrus-cli.cpp
@@ -480,7 +483,7 @@ tapyrus_cli_LDADD = \
   $(LIBBITCOIN_CONSENSUS)
   
 
-tapyrus_cli_LDADD += $(BOOST_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(EVENT_LIBS)
+tapyrus_cli_LDADD += $(BOOST_LIBS) $(EVENT_LIBS)
 #
 
 # tapyrus-tx binary #
@@ -501,7 +504,7 @@ tapyrus_tx_LDADD = \
   $(LIBBITCOIN_CRYPTO) \
   $(LIBSECP256K1)
 
-tapyrus_tx_LDADD += $(BOOST_LIBS) $(CRYPTO_LIBS)
+tapyrus_tx_LDADD += $(BOOST_LIBS)
 #
 
 # tapyrus-genesis binary #
@@ -526,7 +529,7 @@ tapyrus_genesis_LDADD = \
   $(LIBLEVELDB_SSE42) \
   $(LIBMEMENV)
 
-tapyrus_genesis_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(CRYPTO_LIBS)
+tapyrus_genesis_LDADD += $(BOOST_LIBS) $(BDB_LIBS)
 #
 
 # tapyrusconsensus library #

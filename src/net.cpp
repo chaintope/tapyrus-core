@@ -17,6 +17,8 @@
 #include <crypto/sha256.h>
 #include <primitives/transaction.h>
 #include <netbase.h>
+
+#include <random.h>
 #include <scheduler.h>
 #include <ui_interface.h>
 #include <utilstrencodings.h>
@@ -461,6 +463,9 @@ CNode* CConnman::ConnectNode(CAddress addrConnect, const char *pszDest, bool fCo
     CNode* pnode = new CNode(id, nLocalServices, GetBestHeight(), hSocket, addrConnect, CalculateKeyedNetGroup(addrConnect), nonce, addr_bind, pszDest ? pszDest : "", false);
     pnode->AddRef();
 
+    // We're making a new connection, harvest entropy from the time (and our peer count)
+    RandAddEvent((uint32_t)id);
+
     return pnode;
 }
 
@@ -875,13 +880,6 @@ const uint256& CNetMessage::GetMessageHash() const
 }
 
 
-
-
-
-
-
-
-
 // requires LOCK(cs_vSend)
 size_t CConnman::SocketSendData(CNode *pnode) const
 {
@@ -1151,6 +1149,9 @@ void CConnman::AcceptConnection(const ListenSocket& hListenSocket) {
         LOCK(cs_vNodes);
         vNodes.push_back(pnode);
     }
+
+    // We received a new connection, harvest entropy from the time (and our peer count)
+    RandAddEvent((uint32_t)id);
 }
 
 void CConnman::ThreadSocketHandler()
