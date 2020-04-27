@@ -49,7 +49,7 @@ CBlock createGenesisBlock(const CPubKey& aggregatePubkey, const CKey& privateKey
 {
     //Genesis coinbase transaction paying block reward to the first public key in signedBlocksCondition
     CMutableTransaction txNew;
-    txNew.nVersion = 1;
+    txNew.nFeatures = 1;
     txNew.vin.resize(1);
     txNew.vout.resize(1);
     txNew.vin[0].prevout.n = 0;
@@ -64,13 +64,13 @@ CBlock createGenesisBlock(const CPubKey& aggregatePubkey, const CKey& privateKey
     //Genesis block header
     CBlock genesis;
     genesis.nTime    = blockTime;
-    genesis.nVersion = 1;
+    genesis.nFeatures = 1;
     genesis.vtx.push_back(MakeTransactionRef(std::move(txNew)));
     genesis.hashPrevBlock.SetNull();
     genesis.hashMerkleRoot = BlockMerkleRoot(genesis);
     genesis.hashImMerkleRoot = BlockMerkleRoot(genesis, nullptr, true);
-    genesis.xType = 1;
-    genesis.xValue = std::vector<unsigned char>(aggregatePubkey.data(), aggregatePubkey.data() + CPubKey::COMPRESSED_PUBLIC_KEY_SIZE);
+    genesis.xfieldType = 1;
+    genesis.xfield = std::vector<unsigned char>(aggregatePubkey.data(), aggregatePubkey.data() + CPubKey::COMPRESSED_PUBLIC_KEY_SIZE);
 
     //Genesis block proof
     uint256 blockHash = genesis.GetHashForSign();
@@ -175,14 +175,14 @@ bool CFederationParams::ReadGenesisBlock(std::string genesisHex)
     unsigned long streamsize = ss.size();
     ss >> genesis;
 
-    switch((TAPURUS_XTYPES)genesis.xType)
+    switch((TAPYRUS_XFIELDTYPES)genesis.xfieldType)
     {
-        case TAPURUS_XTYPES::AGGPUBKEY:
-            ReadAggregatePubkey(genesis.xValue, 0);
+        case TAPYRUS_XFIELDTYPES::AGGPUBKEY:
+            ReadAggregatePubkey(genesis.xfield, 0);
             break;
-        case TAPURUS_XTYPES::NONE:
+        case TAPYRUS_XFIELDTYPES::NONE:
         default:
-            throw std::runtime_error("ReadGenesisBlock: invalid xtype in genesis block");
+            throw std::runtime_error("ReadGenesisBlock: invalid xfieldType in genesis block");
     }
 
     /* Performing non trivial validation here.

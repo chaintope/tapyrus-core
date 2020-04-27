@@ -122,7 +122,7 @@ BOOST_AUTO_TEST_CASE(create_genesis_block_one_publickey)
     baseChainParams->ReadGenesisBlock(getTestGenesisBlockHex(aggPubkey, aggregateKey));
 
     BOOST_CHECK_EQUAL(baseChainParams->GenesisBlock().vtx.size(), 1);
-    BOOST_CHECK_EQUAL(baseChainParams->GenesisBlock().nVersion, 1);
+    BOOST_CHECK_EQUAL(baseChainParams->GenesisBlock().nFeatures, 1);
     BOOST_CHECK_EQUAL(baseChainParams->GenesisBlock().hashPrevBlock.ToString(), "0000000000000000000000000000000000000000000000000000000000000000");
     BOOST_CHECK_EQUAL(baseChainParams->GenesisBlock().hashMerkleRoot, baseChainParams->GenesisBlock().vtx[0]->GetHash());
     BOOST_CHECK_EQUAL(baseChainParams->GenesisBlock().hashImMerkleRoot, baseChainParams->GenesisBlock().vtx[0]->GetHashMalFix());

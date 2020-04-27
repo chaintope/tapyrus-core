@@ -2070,7 +2070,7 @@ void static UpdateTip(const CBlockIndex *pindexNew) {
     }
 
     LogPrintf("%s: new best=%s height=%d version=0x%08x tx=%lu date='%s' progress=%f cache=%.1fMiB(%utxo)", __func__, /* Continued */
-      pindexNew->GetBlockHash().ToString(), pindexNew->nHeight, pindexNew->nVersion,
+      pindexNew->GetBlockHash().ToString(), pindexNew->nHeight, pindexNew->nFeatures,
       (unsigned long)pindexNew->nChainTx, FormatISO8601DateTime(pindexNew->GetBlockTime()),
       GuessVerificationProgress(Params().TxData(), pindexNew), pcoinsTip->DynamicMemoryUsage() * (1.0 / (1<<20)), pcoinsTip->GetCacheSize());
     LogPrintf("\n");
@@ -2241,8 +2241,8 @@ bool CChainState::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, co
 
         // if the block was added successfully and it is a federation block,
         // make sure that the aggregatepubkey from this block is added to CFederationParams
-        if(blockConnecting.xType == 1 && blockConnecting.xValue.size() == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE && (CPubKey(blockConnecting.xValue.begin(), blockConnecting.xValue.end()) != FederationParams().GetLatestAggregatePubkey()))
-            FederationParams().ReadAggregatePubkey(blockConnecting.xValue, blockConnecting.vtx[0]->vin[0].prevout.n+1);
+        if(blockConnecting.xfieldType == 1 && blockConnecting.xfield.size() == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE && (CPubKey(blockConnecting.xfield.begin(), blockConnecting.xfield.end()) != FederationParams().GetLatestAggregatePubkey()))
+            FederationParams().ReadAggregatePubkey(blockConnecting.xfield, blockConnecting.vtx[0]->vin[0].prevout.n+1);
 
         nTime3 = GetTimeMicros(); nTimeConnectTotal += nTime3 - nTime2;
         LogPrint(BCLog::BENCH, "  - Connect total: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime3 - nTime2) * MILLI, nTimeConnectTotal * MICRO, nTimeConnectTotal * MILLI / nBlocksTotal);
@@ -2869,9 +2869,9 @@ static bool FindUndoPos(CValidationState &state, int nFile, CDiskBlockPos &pos, 
 
 static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, int nHeight, bool fCheckPOW)
 {
-    //check block version
-    if(block.nVersion != CBlock::TAPYRUS_BLOCK_VERSION)
-        return state.Error("Block Version was incorrect");
+    //check block features
+    if(block.nFeatures != CBlock::TAPYRUS_BLOCK_FEATURES)
+        return state.Invalid(false, REJECT_INVALID, "bad-features", "Incorrect Block features");
 
     //Check proof of Signed Blocks in a block header
     const unsigned int proofSize = block.proof.size();
@@ -2880,7 +2880,7 @@ static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,
         return true;
 
     if(!proofSize)
-        return state.Error("No proof in block");
+        return state.Invalid(false, REJECT_INVALID, "bad-proof", "No Proof in block");
 
     CPubKey aggregatePubkey = FederationParams().GetAggPubkeyFromHeight(nHeight);
 
@@ -2891,7 +2891,7 @@ static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,
 
     //verify signature
     if(!aggregatePubkey.Verify_Schnorr(blockHash, block.proof))
-        return state.Error("Proof verification failed");
+        return state.Invalid(false, REJECT_INVALID, "bad-proof", "Proof verification failed");
 
     return true;
 }
@@ -2922,25 +2922,26 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-duplicate", true, "duplicate transaction");
     }
 
-    //check xType and xValue fields in the block header. Do not accept a block with unexpected xType
-    switch((TAPURUS_XTYPES)block.xType)
+    //check xfieldType and xfield fields in the block header. Do not accept a block with unexpected xfieldType
+    std::string warning("");
+    switch((TAPYRUS_XFIELDTYPES)block.xfieldType)
     {
-        case TAPURUS_XTYPES::AGGPUBKEY:
-            if(block.xValue.size() == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE)
+        case TAPYRUS_XFIELDTYPES::AGGPUBKEY:
+            if(block.xfield.size() == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE)
             {
-                CPubKey aggregatePubkeyinBlock(block.xValue.begin(), block.xValue.end());
+                CPubKey aggregatePubkeyinBlock(block.xfield.begin(), block.xfield.end());
                 if(!aggregatePubkeyinBlock.IsFullyValid())
                     return state.DoS(100, false, REJECT_INVALID, "bad-aggpubkey", false, "invalid aggregatePubkey");
             }
             else
-                return state.DoS(100, false, REJECT_INVALID, "bad-xType-xValue", false, "invalid aggregatePubkey");
+                return state.DoS(100, false, REJECT_INVALID, "bad-xfieldType-xfield", false, "invalid aggregatePubkey");
             break;
-        case TAPURUS_XTYPES::NONE:
-            if(block.xValue.size() != 0)
-                return state.DoS(100, false, REJECT_INVALID, "bad-xType-xValue", false, "unexpected xValue");
+        case TAPYRUS_XFIELDTYPES::NONE:
+            if(block.xfield.size() != 0)
+                return state.DoS(100, false, REJECT_INVALID, "bad-xfieldType-xfield", false, "unexpected xfield");
             break;
         default:
-            return state.DoS(100, false, REJECT_INVALID, "bad-xType-xValue", false, "unsupported xType");
+            warning = strprintf("Warning: Unknown xfieldType [%2x] was accepted in block [%s]", block.xfieldType, block.GetHash().ToString());
     }
 
     // All potential-corruption validation must be done before we do any
@@ -2990,6 +2991,9 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
 
     if (fCheckPOW && fCheckMerkleRoot)
         block.fChecked = true;
+
+    if(state.IsValid() && warning.size())
+        DoWarning(warning);
 
     return true;
 }
@@ -4100,8 +4104,8 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp)
                           nLoaded++;
                       }
                      // if it is a federation block, load its aggregatepubkey into CFederationParams
-                    if(pblock->xType == 1 && pblock->xValue.size() == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE && (CPubKey(pblock->xValue.begin(), pblock->xValue.end()) != FederationParams().GetLatestAggregatePubkey()))
-                        FederationParams().ReadAggregatePubkey(pblock->xValue, pblock->vtx[0]->vin[0].prevout.n+1);
+                    if(pblock->xfieldType == 1 && pblock->xfield.size() == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE && (CPubKey(pblock->xfield.begin(), pblock->xfield.end()) != FederationParams().GetLatestAggregatePubkey()))
+                        FederationParams().ReadAggregatePubkey(pblock->xfield, pblock->vtx[0]->vin[0].prevout.n+1);
 
                       if (state.IsError()) {
                           break;

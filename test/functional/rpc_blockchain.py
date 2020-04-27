@@ -215,8 +215,8 @@ class BlockchainTest(BitcoinTestFramework):
         assert_is_hash_string(header['merkleroot'])
         assert isinstance(header['time'], int)
         assert isinstance(header['mediantime'], int)
-        assert isinstance(header['version'], int)
-        assert isinstance(int(header['versionHex'], 16), int)
+        assert isinstance(header['features'], int)
+        assert isinstance(int(header['featuresHex'], 16), int)
 
     def _test_stopatheight(self):
         assert_equal(self.nodes[0].getblockcount(), 100)

@@ -31,15 +31,15 @@ static CBlock BuildBlockTestCase() {
 
     block.vtx.resize(3);
     block.vtx[0] = MakeTransactionRef(tx);
-    block.nVersion = 1;
+    block.nFeatures = 1;
     block.hashPrevBlock = InsecureRand256();
 
     tx.vin[0].prevout.hashMalFix = InsecureRand256();
     tx.vin[0].prevout.n = 0;
     block.vtx[1] = MakeTransactionRef(tx);
     block.nTime = 0x5c6e03b8;
-    block.xType = 0;
-    block.xValue.clear();
+    block.xfieldType = 0;
+    block.xfield.clear();
 
     tx.vin.resize(10);
     for (size_t i = 0; i < tx.vin.size(); i++) {
@@ -303,7 +303,7 @@ BOOST_AUTO_TEST_CASE(EmptyBlockRoundTripTest)
     CBlock block;
     block.vtx.resize(1);
     block.vtx[0] = MakeTransactionRef(std::move(coinbase));
-    block.nVersion = 1;
+    block.nFeatures = 1;
     block.hashPrevBlock = InsecureRand256();
     block.nTime = 0x5c6e03b8;
 

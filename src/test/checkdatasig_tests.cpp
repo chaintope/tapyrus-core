@@ -47,7 +47,7 @@ static void CheckError(uint32_t flags, const stacktype &original_stack,
     
     ScriptError err = SCRIPT_ERR_OK;
     CMutableTransaction txCredit;
-    txCredit.nVersion = 1;
+    txCredit.nFeatures = 1;
     txCredit.nLockTime = 0;
     txCredit.vin.resize(1);
     txCredit.vout.resize(1);
@@ -70,7 +70,7 @@ static void CheckPass(uint32_t flags, const stacktype &original_stack,
 
     ScriptError err = SCRIPT_ERR_OK;
     CMutableTransaction txCredit;
-    txCredit.nVersion = 1;
+    txCredit.nFeatures = 1;
     txCredit.nLockTime = 0;
     txCredit.vin.resize(1);
     txCredit.vout.resize(1);

@@ -206,12 +206,12 @@ public:
     uint32_t nStatus;
 
     //! block header
-    int32_t nVersion;
+    int32_t nFeatures;
     uint256 hashMerkleRoot;
     uint256 hashImMerkleRoot;
     uint32_t nTime;
-    uint8_t xType;
-    std::vector<unsigned char> xValue;
+    uint8_t xfieldType;
+    std::vector<unsigned char> xfield;
     std::vector<unsigned char> proof;
 
     //! (memory only) Sequential id assigned to distinguish order in which blocks are received.
@@ -235,11 +235,11 @@ public:
         nSequenceId = 0;
         nTimeMax = 0;
 
-        nVersion       = 0;
+        nFeatures       = 0;
         hashMerkleRoot = uint256();
         nTime          = 0;
-        xType          = 0;
-        xValue.clear();
+        xfieldType          = 0;
+        xfield.clear();
         proof.clear();
     }
 
@@ -252,12 +252,12 @@ public:
     {
         SetNull();
 
-        nVersion       = block.nVersion;
+        nFeatures       = block.nFeatures;
         hashMerkleRoot = block.hashMerkleRoot;
         hashImMerkleRoot = block.hashImMerkleRoot;
         nTime          = block.nTime;
-        xType          = block.xType;
-        xValue         = block.xValue;
+        xfieldType          = block.xfieldType;
+        xfield         = block.xfield;
         proof          = block.proof;
     }
 
@@ -282,14 +282,14 @@ public:
     CBlockHeader GetBlockHeader() const
     {
         CBlockHeader block;
-        block.nVersion       = nVersion;
+        block.nFeatures       = nFeatures;
         if (pprev)
             block.hashPrevBlock = pprev->GetBlockHash();
         block.hashMerkleRoot = hashMerkleRoot;
         block.hashImMerkleRoot = hashImMerkleRoot;
         block.nTime          = nTime;
-        block.xType          = xType;
-        block.xValue         = xValue;
+        block.xfieldType          = xfieldType;
+        block.xfield         = xfield;
         block.proof          = proof;
         return block;
     }
@@ -327,13 +327,13 @@ public:
 
     std::string ToString() const
     {
-        return strprintf("CBlockIndex(pprev=%p, nHeight=%d, merkle=%s, Immerkle=%s, nTime=%u, xType=%2x, xValue=%s, proof={%s})hashBlock=%s",
+        return strprintf("CBlockIndex(pprev=%p, nHeight=%d, merkle=%s, Immerkle=%s, nTime=%u, xfieldType=%2x, xfield=%s, proof={%s})hashBlock=%s",
             pprev, nHeight,
             hashMerkleRoot.ToString(),
             hashImMerkleRoot.ToString(),
             nTime,
-            xType,
-            HexStr(xValue),
+            xfieldType,
+            HexStr(xfield),
             HexStr(proof),
             GetBlockHash().ToString());
     }
@@ -406,27 +406,27 @@ public:
             READWRITE(VARINT(nUndoPos));
 
         // block header
-        READWRITE(this->nVersion);
+        READWRITE(this->nFeatures);
         READWRITE(hashPrev);
         READWRITE(hashMerkleRoot);
         READWRITE(hashImMerkleRoot);
         READWRITE(nTime);
-        READWRITE(xType);
-        if((TAPURUS_XTYPES)xType != TAPURUS_XTYPES::NONE)
-            READWRITE(xValue);
+        READWRITE(xfieldType);
+        if((TAPYRUS_XFIELDTYPES)xfieldType != TAPYRUS_XFIELDTYPES::NONE)
+            READWRITE(xfield);
         READWRITE(proof);
     }
 
     uint256 GetBlockHash() const
     {
         CBlockHeader block;
-        block.nVersion        = nVersion;
+        block.nFeatures       = nFeatures;
         block.hashPrevBlock   = hashPrev;
         block.hashMerkleRoot  = hashMerkleRoot;
         block.hashImMerkleRoot  = hashImMerkleRoot;
         block.nTime           = nTime;
-        block.xType          = xType;
-        block.xValue         = xValue;
+        block.xfieldType          = xfieldType;
+        block.xfield         = xfield;
         block.proof           = proof;
         return block.GetHash();
     }
