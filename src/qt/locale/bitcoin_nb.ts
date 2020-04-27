@@ -3430,10 +3430,6 @@
         <translation>Dette er transaksjonsgebyret du kan betale når gebyranslag ikke er tilgjengelige.</translation>
     </message>
     <message>
-        <source>This product includes software developed by the OpenSSL Project for use in the OpenSSL Toolkit %s and cryptographic software written by Eric Young and UPnP software written by Thomas Bernard.</source>
-        <translation>Dette produktet inneholder programmet utviklet av OpenSSL-prosjektet for bruk i OpenSSL-verktøyssettet %s og kryptografisk programvare skrevet av Eric Young og UPnP-programvare skrevet av Thomas Bernard.</translation>
-    </message>
-    <message>
         <source>Total length of network version string (%i) exceeds maximum length (%i). Reduce the number or size of uacomments.</source>
         <translation>Total lengde av nettverks-versionstreng (%i) er over maks lengde (%i). Reduser tallet eller størrelsen av uacomments.</translation>
     </message>

@@ -17,8 +17,7 @@
 #include <netbase.h>
 #include <txdb.h> // for -dbcache defaults
 #include <qt/intro.h>
-
-#include <QNetworkProxy>
+#include <QDebug>
 #include <QSettings>
 #include <QStringList>
 
@@ -172,7 +171,7 @@ static void CopySettings(QSettings& dst, const QSettings& src)
 /** Back up a QSettings to an ini-formatted file. */
 static void BackupSettings(const fs::path& filename, const QSettings& src)
 {
-    qWarning() << "Backing up GUI settings to" << GUIUtil::boostPathToQString(filename);
+    qInfo() << "Backing up GUI settings to" << GUIUtil::boostPathToQString(filename);
     QSettings dst(GUIUtil::boostPathToQString(filename), QSettings::IniFormat);
     dst.clear();
     CopySettings(dst, src);
@@ -469,24 +468,6 @@ void OptionsModel::setDisplayUnit(const QVariant &value)
         settings.setValue("nDisplayUnit", nDisplayUnit);
         Q_EMIT displayUnitChanged(nDisplayUnit);
     }
-}
-
-bool OptionsModel::getProxySettings(QNetworkProxy& proxy) const
-{
-    // Directly query current base proxy, because
-    // GUI settings can be overridden with -proxy.
-    proxyType curProxy;
-    if (m_node.getProxy(NET_IPV4, curProxy)) {
-        proxy.setType(QNetworkProxy::Socks5Proxy);
-        proxy.setHostName(QString::fromStdString(curProxy.proxy.ToStringIP()));
-        proxy.setPort(curProxy.proxy.GetPort());
-
-        return true;
-    }
-    else
-        proxy.setType(QNetworkProxy::NoProxy);
-
-    return false;
 }
 
 void OptionsModel::setRestartRequired(bool fRequired)

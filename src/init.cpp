@@ -61,7 +61,6 @@
 #include <boost/bind.hpp>
 #include <boost/interprocess/sync/file_lock.hpp>
 #include <boost/thread.hpp>
-#include <openssl/crypto.h>
 
 #if ENABLE_ZMQ
 #include <zmq/zmqnotificationinterface.h>
@@ -547,8 +546,6 @@ std::string LicenseInfo()
            "\n" +
            _("This is experimental software.") + "\n" +
            strprintf(_("Distributed under the MIT software license, see the accompanying file %s or %s"), "COPYING", "<https://opensource.org/licenses/MIT>") + "\n" +
-           "\n" +
-           strprintf(_("This product includes software developed by the OpenSSL Project for use in the OpenSSL Toolkit %s and cryptographic software written by Eric Young and UPnP software written by Thomas Bernard."), "<https://www.openssl.org>") +
            "\n";
 }
 
@@ -1239,6 +1236,11 @@ bool AppInitMain()
     // Start the lightweight task scheduler thread
     CScheduler::Function serviceLoop = boost::bind(&CScheduler::serviceQueue, &scheduler);
     threadGroup.create_thread(boost::bind(&TraceThread<CScheduler::Function>, "scheduler", serviceLoop));
+
+    // Gather some entropy once per minute.
+    scheduler.scheduleEvery([]{
+        RandAddPeriodic();
+    }, 60000);
 
     GetMainSignals().RegisterBackgroundSignalScheduler(scheduler);
     GetMainSignals().RegisterWithMempoolSignals(mempool);

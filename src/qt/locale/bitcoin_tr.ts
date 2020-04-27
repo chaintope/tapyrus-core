@@ -3362,10 +3362,6 @@
         <translation>İşlem ücret tahminleri mevcut olmadığında ödeyebileceğiniz işlem ücreti budur.</translation>
     </message>
     <message>
-        <source>This product includes software developed by the OpenSSL Project for use in the OpenSSL Toolkit %s and cryptographic software written by Eric Young and UPnP software written by Thomas Bernard.</source>
-        <translation>Bu ürün OpenSSL Projesi tarafından geliştirilen OpenSSL araç takımınında kullanılmak üzere yazılan yazılımları %s Eric Young  tarafından yazılmış şifreleme yazılımını ve Thomas Bernard tarafından yazılmış UPnP yazılımını içerir.</translation>
-    </message>
-    <message>
         <source>Total length of network version string (%i) exceeds maximum length (%i). Reduce the number or size of uacomments.</source>
         <translation>Ağ sürümü zincirinin toplam boyutu (%i) en yüksek boyutu geçmektedir (%i). Kullanıcı aracı açıklamasının sayısı veya boyutunu azaltınız.</translation>
     </message>

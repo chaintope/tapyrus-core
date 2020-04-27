@@ -3538,10 +3538,6 @@ Note:  Since the fee is calculated on a per-byte basis, a fee of "100 tapyrus pe
         <translation>Це комісія за транзакцію, яку ви можете сплатити, коли кошторисна вартість недоступна.</translation>
     </message>
     <message>
-        <source>This product includes software developed by the OpenSSL Project for use in the OpenSSL Toolkit %s and cryptographic software written by Eric Young and UPnP software written by Thomas Bernard.</source>
-        <translation>Цей продукт включає в себе програмне забезпечення, розроблене проектом OpenSSL для використання в OpenSSL Toolkit %s та криптографічне програмне забезпечення, написане Еріком Янгом та програмне забезпечення UPnP, написане Томасом Бернардом.</translation>
-    </message>
-    <message>
         <source>Total length of network version string (%i) exceeds maximum length (%i). Reduce the number or size of uacomments.</source>
         <translation>Загальна довжина рядку мережевої версії (%i) перевищує максимально допустиму (%i). Зменшіть число чи розмір коментарів клієнта користувача.</translation>
     </message>

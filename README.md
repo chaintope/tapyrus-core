@@ -14,11 +14,11 @@ Anyone can join the Tapyrus network, and anyone can access the public ledger and
 
 Tapyrus has the following additions and changes to the Bitcoin implementation.:
 
-* [Support Schnorr Signature](https://github.com/chaintope/tapyrus-core/tree/master/doc/tapyrus/schnorr_signature.md)
-* [Fix transaction malleability](https://github.com/chaintope/tapyrus-core/tree/master/doc/tapyrus/fix_transaction_malleability.md)
+* [Support Schnorr Signature](/doc/tapyrus/schnorr_signature.md)
+* [Fix transaction malleability](/doc/tapyrus/fix_transaction_malleability.md)
 that enables off-chain payments using the Payment Channel on Tapyrus.
-* [Support Oracle contract](https://github.com/chaintope/tapyrus-core/tree/master/doc/tapyrus/script.md)
-* [Block generation with multiple signatures](https://github.com/chaintope/tapyrus-core/tree/master/doc/tapyrus/signedblocks.md)
+* [Support Oracle contract](/doc/tapyrus/script.md)
+* [Block generation with multiple signatures](/doc/tapyrus/signedblocks.md)
 * [WIP]Support native colored coin protocol
 * Support aggregated/threshold signatures: In tapyrus singer network, each signer execute a threshold signature scheme
 based on [provably secure distributed schnorr signatures and a {t,n} threshold scheme](http://cacr.uwaterloo.ca/techreports/2001/corr2001-13.ps)
@@ -36,7 +36,7 @@ Tapyrus consists of the following software:
 * [[WIP]Tapyrus Explorer](https://github.com/chaintope/tapyrus-explorer): Tapyrus blockchain explorer.
 * [[WIP]Electrs Tapyrus](https://github.com/chaintope/electrs-tapyrus): Tapyrus blockchain index server.
 
-See [Getting Started document](https://github.com/chaintope/tapyrus-core/blob/master/doc/tapyrus/getting_started.md) for how to install and run tapyrus.
+See [Getting Started document](/doc/tapyrus/getting_started.md) for how to install and run tapyrus.
 
 License
 -------

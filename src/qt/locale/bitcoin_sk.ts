@@ -3497,10 +3497,6 @@
         <translation>Toto je poplatok za transakciu keď odhad poplatkov ešte nie je k dispozícii.</translation>
     </message>
     <message>
-        <source>This product includes software developed by the OpenSSL Project for use in the OpenSSL Toolkit %s and cryptographic software written by Eric Young and UPnP software written by Thomas Bernard.</source>
-        <translation>Tento produkt zahrňuje programy vyvinuté projektom OpenSSL pre použití v OpenSSL Toolkite %s a kryptografický program od Erika Younga a program UPnP od Thomasa Bernarda.</translation>
-    </message>
-    <message>
         <source>Total length of network version string (%i) exceeds maximum length (%i). Reduce the number or size of uacomments.</source>
         <translation>Celková dĺžka verzie sieťového reťazca (%i) prekračuje maximálnu dĺžku (%i). Znížte počet a veľkosť komentárov.</translation>
     </message>
