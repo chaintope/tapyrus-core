@@ -16,7 +16,7 @@ confinement: strict
 license: MIT
 
 architectures:
-  - build-on: [amd64, arm64, i386]
+  - build-on: [amd64, arm64]
 
 apps:
   daemon:
