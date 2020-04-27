@@ -133,7 +133,7 @@ class SerializationTest(BitcoinTestFramework):
         #Create block with only non-DER signature P2PKH transaction
         tip = self.nodes[0].getbestblockhash()
         block_time = self.nodes[0].getblockheader(tip)['mediantime'] + 1
-        block = create_block(int(tip, 16), create_coinbase(CHAIN_HEIGHT + 1), block_time, self.signblockpubkey)
+        block = create_block(int(tip, 16), create_coinbase(CHAIN_HEIGHT + 1), block_time)
         block.vtx.append(spendtx)
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
@@ -157,7 +157,7 @@ class SerializationTest(BitcoinTestFramework):
 
         self.log.info("Accept block with DER signature")
         #recreate block with DER sig transaction
-        block = create_block(int(tip, 16), create_coinbase(CHAIN_HEIGHT + 1), block_time, self.signblockpubkey)
+        block = create_block(int(tip, 16), create_coinbase(CHAIN_HEIGHT + 1), block_time)
         block.vtx.append(copy_spendTx)
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
@@ -217,7 +217,7 @@ class SerializationTest(BitcoinTestFramework):
         #Create block with only non-DER signature P2SH transaction
         tip = self.nodes[0].getbestblockhash()
         block_time = self.nodes[0].getblockheader(tip)['mediantime'] + 1
-        block = create_block(int(tip, 16), create_coinbase(CHAIN_HEIGHT + 2), block_time, self.signblockpubkey)
+        block = create_block(int(tip, 16), create_coinbase(CHAIN_HEIGHT + 2), block_time)
         block.vtx.append(spendtx)
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
@@ -241,7 +241,7 @@ class SerializationTest(BitcoinTestFramework):
 
         self.log.info("Accept block with DER signature")
         #recreate block with DER sig transaction
-        block = create_block(int(tip, 16), create_coinbase(CHAIN_HEIGHT + 2), block_time, self.signblockpubkey)
+        block = create_block(int(tip, 16), create_coinbase(CHAIN_HEIGHT + 2), block_time)
         block.vtx.append(copy_spendTx)
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
@@ -305,7 +305,7 @@ class SerializationTest(BitcoinTestFramework):
         #Create block with only non-DER signature P2SH redeem transaction
         tip = self.nodes[0].getbestblockhash()
         block_time = self.nodes[0].getblockheader(tip)['mediantime'] + 1
-        block = create_block(int(tip, 16), create_coinbase(CHAIN_HEIGHT + 3), block_time, self.signblockpubkey)
+        block = create_block(int(tip, 16), create_coinbase(CHAIN_HEIGHT + 3), block_time)
         block.vtx.append(spendtx)
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
@@ -374,7 +374,7 @@ class SerializationTest(BitcoinTestFramework):
 
         tip = self.nodes[0].getbestblockhash()
         block_time = self.nodes[0].getblockheader(tip)['mediantime'] + 1
-        block = create_block(int(tip, 16), create_coinbase(CHAIN_HEIGHT + 4), block_time, self.signblockpubkey)
+        block = create_block(int(tip, 16), create_coinbase(CHAIN_HEIGHT + 4), block_time)
         block.vtx.append(spendtx)
         add_witness_commitment(block)
         block.hashMerkleRoot = block.calc_merkle_root()
@@ -391,7 +391,7 @@ class SerializationTest(BitcoinTestFramework):
         assert_raises_rpc_error(-22, "Block does not start with a coinbase", self.nodes[0].submitblock, bytes_to_hex_str(block.serialize(with_witness=True)))
         assert_equal(self.nodes[0].getbestblockhash(), tip)
 
-        block = create_block(int(tip, 16), create_coinbase(CHAIN_HEIGHT + 4), block_time, self.signblockpubkey)
+        block = create_block(int(tip, 16), create_coinbase(CHAIN_HEIGHT + 4), block_time)
         block.vtx.append(spendtx)
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
@@ -455,7 +455,7 @@ class SerializationTest(BitcoinTestFramework):
 
         tip = self.nodes[0].getbestblockhash()
         block_time = self.nodes[0].getblockheader(tip)['mediantime'] + 1
-        block = create_block(int(tip, 16), create_coinbase(CHAIN_HEIGHT + 5), block_time, self.signblockpubkey)
+        block = create_block(int(tip, 16), create_coinbase(CHAIN_HEIGHT + 5), block_time)
         block.vtx.append(spendtx)
         add_witness_commitment(block)
         block.hashMerkleRoot = block.calc_merkle_root()
@@ -472,7 +472,7 @@ class SerializationTest(BitcoinTestFramework):
         assert_raises_rpc_error(-22, "Block does not start with a coinbase", self.nodes[0].submitblock, bytes_to_hex_str(block.serialize(with_witness=True)))
         assert_equal(self.nodes[0].getbestblockhash(), tip)
 
-        block = create_block(int(tip, 16), create_coinbase(CHAIN_HEIGHT + 5), block_time, self.signblockpubkey)
+        block = create_block(int(tip, 16), create_coinbase(CHAIN_HEIGHT + 5), block_time)
         block.vtx.append(spendtx)
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()

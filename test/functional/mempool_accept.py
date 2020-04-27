@@ -229,9 +229,9 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
 
         self.log.info('Some nonstandard transactions')
         tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx_reference)))
-        tx.nVersion = 3  # A version currently non-standard
+        tx.nFeatures = 3  # A features currently non-standard
         self.check_mempool_result(
-            result_expected=[{'txid': tx.rehash(), 'allowed': False, 'reject-reason': '64: version'}],
+            result_expected=[{'txid': tx.rehash(), 'allowed': False, 'reject-reason': '64: features'}],
             rawtxs=[node.signrawtransactionwithwallet(bytes_to_hex_str(tx.serialize()), [], "ALL", self.options.scheme)['hex']],
         )
         tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx_reference)))

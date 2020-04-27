@@ -68,7 +68,7 @@ UniValue generateBlocks(std::shared_ptr<CReserveScript> coinbaseScript, int nGen
 
         privKey.Sign_Schnorr(blockHash, proof);
 
-        if(!pblock->AbsorbBlockProof(proof, FederationParams().GetAggregatePubkey())){
+        if(!pblock->AbsorbBlockProof(proof, FederationParams().GetLatestAggregatePubkey())){
             throw JSONRPCError(RPC_INTERNAL_ERROR, "AbsorbBlockProof, block proof not accepted");
         }
 
@@ -287,13 +287,11 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
 
             "\nResult:\n"
             "{\n"
-            "  \"version\" : n,                    (numeric) The preferred block version\n"
+            "  \"features\" : n,                    (numeric) The preferred block features\n"
             "  \"rules\" : [ \"rulename\", ... ],    (array of strings) specific block rules that are to be enforced\n"
-            "  \"vbavailable\" : {                 (json object) set of pending, supported versionbit (BIP 9) softfork deployments\n"
             "      \"rulename\" : bitnumber          (numeric) identifies the bit number as indicating acceptance and readiness for the named softfork rule\n"
             "      ,...\n"
             "  },\n"
-            "  \"vbrequired\" : n,                 (numeric) bit mask of versionbits the server requires set in submissions\n"
             "  \"previousblockhash\" : \"xxxx\",     (string) The hash of current highest block\n"
             "  \"transactions\" : [                (array) contents of non-coinbase transactions that should be included in the next block\n"
             "      {\n"
@@ -500,9 +498,6 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     // Update nTime
     UpdateTime(pblock, consensusParams, pindexPrev);
 
-    // NOTE: If at some point we support pre-segwit miners post-segwit-activation, this needs to take segwit support into consideration
-    const bool fPreSegWit = true;
-
     UniValue aCaps(UniValue::VARR); aCaps.push_back("proposal");
 
     UniValue transactions(UniValue::VARR);
@@ -553,7 +548,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     result.pushKV("capabilities", aCaps);
 
     UniValue aRules(UniValue::VARR);
-    result.pushKV("version", pblock->nVersion);
+    result.pushKV("features", pblock->nFeatures);
     result.pushKV("rules", aRules);
 
     result.pushKV("previousblockhash", pblock->hashPrevBlock.GetHex());
@@ -874,7 +869,7 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
     if(blockProof.size() != CPubKey::SCHNORR_SIGNATURE_SIZE || !CheckSchnorrSignatureEncoding(blockProof, nullptr, true) )
         throw JSONRPCError(RPC_INVALID_PARAMS, "Invalid signature encoding");
 
-    bool status = block.AbsorbBlockProof(blockProof, FederationParams().GetAggregatePubkey());
+    bool status = block.AbsorbBlockProof(blockProof, FederationParams().GetLatestAggregatePubkey());
 
     UniValue result(UniValue::VOBJ);
     CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
@@ -933,8 +928,6 @@ UniValue testproposedblock(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_VERIFY_ERROR, state.IsInvalid() ? "Block proposal was invalid" : "Error checking block proposal");
         throw JSONRPCError(RPC_VERIFY_ERROR, strRejectReason);
     }
-
-    const CChainParams& chainparams = Params();
 
     for (auto& transaction : block.vtx) {
         if (transaction->IsCoinBase()) continue;

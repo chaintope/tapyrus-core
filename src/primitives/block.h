@@ -12,6 +12,12 @@
 #include <uint256.h>
 #include <key.h>
 
+enum class TAPYRUS_XFIELDTYPES
+{
+    NONE = 0, //no xfield
+    AGGPUBKEY = 1, //xfield is 33 byte aggpubkey
+};
+
 /** Nodes collect new transactions into a block, hash them into a hash tree,
  * and scan through nonce values to make the block's hash satisfy proof-of-work
  * requirements.  When they solve the proof-of-work, they broadcast the block
@@ -23,12 +29,13 @@ class CBlockHeaderWithoutProof
 {
 public:
     // header
-    int32_t nVersion;
+    int32_t nFeatures;
     uint256 hashPrevBlock;
     uint256 hashMerkleRoot;
     uint256 hashImMerkleRoot;
     uint32_t nTime;
-    std::vector<unsigned char> aggPubkey{CPubKey::COMPRESSED_PUBLIC_KEY_SIZE};
+    uint8_t xfieldType;
+    std::vector<unsigned char> xfield;
 
     CBlockHeaderWithoutProof()
     {
@@ -38,22 +45,25 @@ public:
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(this->nVersion);
+        READWRITE(this->nFeatures);
         READWRITE(hashPrevBlock);
         READWRITE(hashMerkleRoot);
         READWRITE(hashImMerkleRoot);
         READWRITE(nTime);
-        READWRITE(aggPubkey);
+        READWRITE(xfieldType);
+        if((TAPYRUS_XFIELDTYPES)xfieldType != TAPYRUS_XFIELDTYPES::NONE)
+            READWRITE(xfield);
     }
 
     void SetNull()
     {
-        nVersion = 0;
+        nFeatures = 0;
         hashPrevBlock.SetNull();
         hashMerkleRoot.SetNull();
         hashImMerkleRoot.SetNull();
         nTime = 0;
-        aggPubkey.clear();
+        xfieldType = 0;
+        xfield.clear();
     }
 
     bool IsNull() const
@@ -73,7 +83,7 @@ public:
 class CBlockHeader : public CBlockHeaderWithoutProof
 {
 public:
-    static constexpr int32_t TAPYRUS_BLOCK_VERSION = 1;
+    static constexpr int32_t TAPYRUS_BLOCK_FEATURES = 1;
     std::vector<unsigned char> proof{CPubKey::SCHNORR_SIGNATURE_SIZE};
 
     CBlockHeader():CBlockHeaderWithoutProof(),proof() {}
@@ -129,12 +139,13 @@ public:
     CBlockHeader GetBlockHeader() const
     {
         CBlockHeader block;
-        block.nVersion          = nVersion;
+        block.nFeatures         = nFeatures;
         block.hashPrevBlock     = hashPrevBlock;
         block.hashMerkleRoot    = hashMerkleRoot;
         block.hashImMerkleRoot  = hashImMerkleRoot;
         block.nTime             = nTime;
-        block.aggPubkey         = aggPubkey;
+        block.xfieldType             = xfieldType;
+        block.xfield            = xfield;
         block.proof             = proof;
         return block;
     }

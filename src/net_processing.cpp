@@ -1432,7 +1432,7 @@ bool static ProcessHeadersMessage(CNode *pfrom, CConnman *connman, const std::ve
                 // DoS-interface between validation and net_processing) so that
                 // the interface is cleaner, and so that we disconnect on all the
                 // reasons that a peer's headers chain is incompatible
-                // with ours (eg block->nVersion softforks, MTP violations,
+                // with ours (eg block->nFeatures softforks, MTP violations,
                 // etc), and not just the duplicate-invalid case.
                 pfrom->fDisconnect = true;
             }

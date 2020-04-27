@@ -40,8 +40,8 @@ std::pair<int, int64_t> CalculateSequenceLocks(const CTransaction &tx, int flags
     int nMinHeight = -1;
     int64_t nMinTime = -1;
 
-    // tx.nVersion is signed integer so requires cast to unsigned otherwise
-    // we would be doing a signed comparison and half the range of nVersion
+    // tx.nFeatures is signed integer so requires cast to unsigned otherwise
+    // we would be doing a signed comparison and half the range of nFeatures
     // wouldn't support BIP 68.
     bool fEnforceBIP68 = flags & LOCKTIME_VERIFY_SEQUENCE;
 

@@ -506,15 +506,14 @@ class P2PDataStore(P2PInterface):
             wait_until(lambda: rpc.getbestblockhash() == blocks[-1].hash or self.reject_code_received != None, timeout=timeout)
             if(self.reject_code_received != None):
                 logger.debug('block [%064x] rejected [%d][%s]' % (block.sha256, self.reject_code_received, self.reject_reason_received))
-                raise(Exception("Block rejected : [%d][%s]" % (self.reject_code_received, self.reject_reason_received)))
 
         else:
             assert rpc.getbestblockhash() != blocks[-1].hash
 
         if reject_code is not None:
-            wait_until(lambda: self.reject_code_received == reject_code, lock=mininode_lock)
+            wait_until(lambda: self.reject_code_received != None or self.reject_code_received == reject_code, lock=mininode_lock, timeout=timeout)
         if reject_reason is not None:
-            wait_until(lambda: self.reject_reason_received == reject_reason, lock=mininode_lock)
+            wait_until(lambda: self.reject_reason_received!= None or self.reject_reason_received == reject_reason, lock=mininode_lock, timeout=timeout)
 
     def send_txs_and_test(self, txs, rpc, success=True, expect_disconnect=False, reject_code=None, reject_reason=None):
         """Send txs to test node and test whether they're accepted to the mempool.

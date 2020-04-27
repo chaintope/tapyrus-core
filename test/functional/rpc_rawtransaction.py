@@ -416,22 +416,22 @@ class RawTransactionsTest(BitcoinTestFramework):
         assert_equal(decrawtx['vin'][0]['sequence'], 4294967294)
 
         ####################################
-        # TRANSACTION VERSION NUMBER TESTS #
+        # TRANSACTION FEATURES NUMBER TESTS #
         ####################################
 
-        # Test the minimum transaction version number that fits in a signed 32-bit integer.
+        # Test the minimum transaction feature number that fits in a signed 32-bit integer.
         tx = CTransaction()
-        tx.nVersion = -0x80000000
+        tx.nFeatures = -0x80000000
         rawtx = ToHex(tx)
         decrawtx = self.nodes[0].decoderawtransaction(rawtx)
-        assert_equal(decrawtx['version'], -0x80000000)
+        assert_equal(decrawtx['features'], -0x80000000)
 
-        # Test the maximum transaction version number that fits in a signed 32-bit integer.
+        # Test the maximum transaction feature number that fits in a signed 32-bit integer.
         tx = CTransaction()
-        tx.nVersion = 0x7fffffff
+        tx.nFeatures = 0x7fffffff
         rawtx = ToHex(tx)
         decrawtx = self.nodes[0].decoderawtransaction(rawtx)
-        assert_equal(decrawtx['version'], 0x7fffffff)
+        assert_equal(decrawtx['features'], 0x7fffffff)
 
 if __name__ == '__main__':
     RawTransactionsTest().main()

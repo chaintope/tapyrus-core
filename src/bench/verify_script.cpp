@@ -19,7 +19,7 @@
 static CMutableTransaction BuildCreditingTransaction(const CScript& scriptPubKey)
 {
     CMutableTransaction txCredit;
-    txCredit.nVersion = 1;
+    txCredit.nFeatures = 1;
     txCredit.nLockTime = 0;
     txCredit.vin.resize(1);
     txCredit.vout.resize(1);
@@ -36,7 +36,7 @@ static CMutableTransaction BuildCreditingTransaction(const CScript& scriptPubKey
 static CMutableTransaction BuildSpendingTransaction(const CScript& scriptSig, const CMutableTransaction& txCredit)
 {
     CMutableTransaction txSpend;
-    txSpend.nVersion = 1;
+    txSpend.nFeatures = 1;
     txSpend.nLockTime = 0;
     txSpend.vin.resize(1);
     txSpend.vout.resize(1);

@@ -127,7 +127,7 @@ BOOST_FIXTURE_TEST_SUITE(script_tests, BasicTestingSetup)
 CMutableTransaction BuildCreditingTransaction(const CScript& scriptPubKey, int nValue = 0)
 {
     CMutableTransaction txCredit;
-    txCredit.nVersion = 1;
+    txCredit.nFeatures = 1;
     txCredit.nLockTime = 0;
     txCredit.vin.resize(1);
     txCredit.vout.resize(1);
@@ -143,7 +143,7 @@ CMutableTransaction BuildCreditingTransaction(const CScript& scriptPubKey, int n
 CMutableTransaction BuildSpendingTransaction(const CScript& scriptSig, const CScriptWitness& scriptWitness, const CTransaction& txCredit)
 {
     CMutableTransaction txSpend;
-    txSpend.nVersion = 1;
+    txSpend.nFeatures = 1;
     txSpend.nLockTime = 0;
     txSpend.vin.resize(1);
     txSpend.vout.resize(1);

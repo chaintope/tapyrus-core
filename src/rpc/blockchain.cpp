@@ -65,15 +65,16 @@ UniValue blockheaderToJSON(const CBlockIndex* blockindex)
         confirmations = chainActive.Height() - blockindex->nHeight + 1;
     result.pushKV("confirmations", confirmations);
     result.pushKV("height", blockindex->nHeight);
-    result.pushKV("version", blockindex->nVersion);
-    result.pushKV("versionHex", strprintf("%08x", blockindex->nVersion));
+    result.pushKV("features", blockindex->nFeatures);
+    result.pushKV("featuresHex", strprintf("%08x", blockindex->nFeatures));
     result.pushKV("merkleroot", blockindex->hashMerkleRoot.GetHex());
     result.pushKV("immutablemerkleroot", blockindex->hashImMerkleRoot.GetHex());
     result.pushKV("time", (int64_t)blockindex->nTime);
     result.pushKV("mediantime", (int64_t)blockindex->GetMedianTimePast());
     result.pushKV("nTx", (uint64_t)blockindex->nTx);
-    if(blockindex->aggPubkey.size())
-        result.pushKV("aggPubkey", HexStr(blockindex->aggPubkey));
+    result.pushKV("xfieldType", (uint8_t)blockindex->xfieldType);
+    if(blockindex->xfield.size())
+        result.pushKV("xfield", HexStr(blockindex->xfield));
     result.pushKV("proof", HexStr(blockindex->proof));
 
     if (blockindex->pprev)
@@ -98,8 +99,8 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
     result.pushKV("size", (int)::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION));
     result.pushKV("weight", (int)::GetBlockWeight(block));
     result.pushKV("height", blockindex->nHeight);
-    result.pushKV("version", block.nVersion);
-    result.pushKV("versionHex", strprintf("%08x", block.nVersion));
+    result.pushKV("features", block.nFeatures);
+    result.pushKV("featuresHex", strprintf("%08x", block.nFeatures));
     result.pushKV("merkleroot", block.hashMerkleRoot.GetHex());
     result.pushKV("immutablemerkleroot", block.hashImMerkleRoot.GetHex());
     UniValue txs(UniValue::VARR);
@@ -117,8 +118,9 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
     result.pushKV("tx", txs);
     result.pushKV("time", block.GetBlockTime());
     result.pushKV("mediantime", (int64_t)blockindex->GetMedianTimePast());
-    if(blockindex->aggPubkey.size())
-        result.pushKV("aggPubkey", HexStr(blockindex->aggPubkey));
+    result.pushKV("xfieldType", (uint64_t)blockindex->xfieldType);
+    if(blockindex->xfield.size())
+        result.pushKV("xfield", HexStr(blockindex->xfield));
     result.pushKV("proof", HexStr(block.GetBlockHeader().proof));
     result.pushKV("nTx", (uint64_t)blockindex->nTx);
 
@@ -649,8 +651,8 @@ static UniValue getblockheader(const JSONRPCRequest& request)
             "  \"hash\" : \"hash\",     (string) the block hash (same as provided)\n"
             "  \"confirmations\" : n,   (numeric) The number of confirmations, or -1 if the block is not on the prod chain\n"
             "  \"height\" : n,          (numeric) The block height or index\n"
-            "  \"version\" : n,         (numeric) The block version\n"
-            "  \"versionHex\" : \"00000000\", (string) The block version formatted in hexadecimal\n"
+            "  \"features\" : n,         (numeric) The block features\n"
+            "  \"featuresHex\" : \"00000000\", (string) The block features formatted in hexadecimal\n"
             "  \"merkleroot\" : \"xxxx\", (string) The merkle root\n"
             "  \"immutablemmerkleroot\" : \"xxxx\", (string) The merkle root computes without scriptSig\n"
             "  \"time\" : ttt,          (numeric) The block time in seconds since epoch (Jan 1 1970 GMT)\n"
@@ -734,8 +736,8 @@ static UniValue getblock(const JSONRPCRequest& request)
             "  \"strippedsize\" : n,    (numeric) The block size excluding witness data\n"
             "  \"weight\" : n           (numeric) The block weight as defined in BIP 141\n"
             "  \"height\" : n,          (numeric) The block height or index\n"
-            "  \"version\" : n,         (numeric) The block version\n"
-            "  \"versionHex\" : \"00000000\", (string) The block version formatted in hexadecimal\n"
+            "  \"features\" : n,         (numeric) The block features\n"
+            "  \"featuresHex\" : \"00000000\", (string) The block features formatted in hexadecimal\n"
             "  \"merkleroot\" : \"xxxx\", (string) The merkle root\n"
             "  \"immutablemerkleroot\" : \"xxxx\", (string) The merkle root computes without scriptSig\n"
             "  \"tx\" : [               (array of string) The transaction ids\n"
@@ -1086,15 +1088,8 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
             "  \"pruneheight\": xxxxxx,        (numeric) lowest-height complete block stored (only present if pruning is enabled)\n"
             "  \"automatic_pruning\": xx,      (boolean) whether automatic pruning is enabled (only present if pruning is enabled)\n"
             "  \"prune_target_size\": xxxxxx,  (numeric) the target size used by pruning (only present if automatic pruning is enabled)\n"
-            "  \"softforks\": [                (array) status of softforks in progress\n"
-            "     {\n"
-            "        \"id\": \"xxxx\",           (string) name of softfork\n"
-            "        \"version\": xx,          (numeric) block version\n"
-            "        \"reject\": {             (object) progress toward rejecting pre-softfork blocks\n"
-            "           \"status\": xx,        (boolean) true if threshold reached\n"
-            "        },\n"
-            "     }, ...\n"
-            "  ],\n"
+            "  \"aggregatePubkeys\": {        (object) pairs of aggregate pubkey of the federation and block height where it is used to verify block proof\n"
+            "  },\n"
             "  \"warnings\" : \"...\",           (string) any network and blockchain warnings.\n"
             "}\n"
             "\nExamples:\n"
@@ -1131,7 +1126,14 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
             obj.pushKV("prune_target_size",  nPruneTarget);
         }
     }
-
+    //aggregate pubkey list with block height
+    UniValue aggPubkeyObj(UniValue::VOBJ);
+    const std::vector<aggPubkeyAndHeight>& aggregatePubkeyHeightList = FederationParams().GetAggregatePubkeyHeightList();
+    for (auto& aggpubkeyPair : aggregatePubkeyHeightList)
+    {
+        aggPubkeyObj.pushKV(HexStr(aggpubkeyPair.aggpubkey.begin(), aggpubkeyPair.aggpubkey.end()), aggpubkeyPair.height);
+    }
+    obj.pushKV("aggregatePubkeys", aggPubkeyObj);
     obj.pushKV("warnings", GetWarnings("statusbar"));
     return obj;
 }
@@ -1354,6 +1356,9 @@ static UniValue invalidateblock(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
         }
 
+        if((pblockindex->xfieldType == 1 && pblockindex->xfield.size()  == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE) || pblockindex->nHeight <= FederationParams().GetHeightFromAggregatePubkey(FederationParams().GetLatestAggregatePubkey()))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Federation block found");
+
         InvalidateBlock(state, pblockindex);
     }
 
@@ -1392,6 +1397,9 @@ static UniValue reconsiderblock(const JSONRPCRequest& request)
         if (!pblockindex) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
         }
+
+        if((pblockindex->xfieldType == 1 && pblockindex->xfield.size()  == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE) || pblockindex->nHeight <= FederationParams().GetHeightFromAggregatePubkey(FederationParams().GetLatestAggregatePubkey()))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Federation block found");
 
         ResetBlockFailureFlags(pblockindex);
     }
