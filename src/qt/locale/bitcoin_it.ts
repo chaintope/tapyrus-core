@@ -3533,7 +3533,7 @@ Nota: poiché la commissione è calcolata su base per byte, una commissione di "
         <translation>Argomento non supportato -whitelistalwaysrelay è stato ignorato, utilizzare -whitelistrelay e/o -whitelistforcerelay.</translation>
     </message>
     <message>
-        <source>Warning: Unknown block versions being mined! It's possible unknown rules are in effect</source>
+        <source>Warning: Unknown block features being mined! It's possible unknown rules are in effect</source>
         <translation>Attenzione: si stanno minando versioni sconocsiute di blocchi! E' possibile che siano attive regole sconosciute</translation>
     </message>
     <message>

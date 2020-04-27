@@ -3561,7 +3561,7 @@ Note:  Since the fee is calculated on a per-byte basis, a fee of "100 tapyrus pe
         <translation>지원하지 않는 인수 -whitelistalwaysrelay 는 무시됩니다,  -whitelistrelay 나 -whitelistforcerelay 를 사용해 주세요.</translation>
     </message>
     <message>
-        <source>Warning: Unknown block versions being mined! It's possible unknown rules are in effect</source>
+        <source>Warning: Unknown block features being mined! It's possible unknown rules are in effect</source>
         <translation>경고: 알려지지 않은 버전의 블록이 채굴되었습니다. 알려지지 않은 규칙이 적용되었을 가능성이 있습니다.</translation>
     </message>
     <message>

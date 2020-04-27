@@ -49,7 +49,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_block_doublespend, TestChainSetup)
         spends.resize(2);
         for (int i = 0; i < 2; i++)
         {
-            spends[i].nVersion = 1;
+            spends[i].nFeatures = 1;
             spends[i].vin.resize(1);
             spends[i].vin[0].prevout.hashMalFix = m_coinbase_txns[count]->GetHashMalFix();
             spends[i].vin[0].prevout.n = 0;
@@ -182,7 +182,7 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
         // coinbase tx.
         CMutableTransaction spend_tx;
 
-        spend_tx.nVersion = 1;
+        spend_tx.nFeatures = 1;
         spend_tx.vin.resize(1);
         spend_tx.vin[0].prevout.hashMalFix = m_coinbase_txns[count]->GetHashMalFix();
         spend_tx.vin[0].prevout.n = 0;
@@ -279,7 +279,7 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
         // then test validity with P2SH.
         {
             CMutableTransaction invalid_under_p2sh_tx;
-            invalid_under_p2sh_tx.nVersion = 1;
+            invalid_under_p2sh_tx.nFeatures = 1;
             invalid_under_p2sh_tx.vin.resize(1);
             invalid_under_p2sh_tx.vin[0].prevout.hashMalFix = spend_tx.GetHashMalFix();
             invalid_under_p2sh_tx.vin[0].prevout.n = 0;
@@ -299,7 +299,7 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
         // Test CHECKLOCKTIMEVERIFY
         {
             CMutableTransaction invalid_with_cltv_tx;
-            invalid_with_cltv_tx.nVersion = 1;
+            invalid_with_cltv_tx.nFeatures = 1;
             invalid_with_cltv_tx.nLockTime = 100;
             invalid_with_cltv_tx.vin.resize(1);
             invalid_with_cltv_tx.vin[0].prevout.hashMalFix = spend_tx.GetHashMalFix();
@@ -341,7 +341,7 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
         // TEST CHECKSEQUENCEVERIFY
         {
             CMutableTransaction invalid_with_csv_tx;
-            invalid_with_csv_tx.nVersion = 1;
+            invalid_with_csv_tx.nFeatures = 1;
             invalid_with_csv_tx.vin.resize(1);
             invalid_with_csv_tx.vin[0].prevout.hashMalFix = spend_tx.GetHashMalFix();
             invalid_with_csv_tx.vin[0].prevout.n = 3;
@@ -387,7 +387,7 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
         // for the same tx with a different witness.
         {
             CMutableTransaction valid_with_witness_tx;
-            valid_with_witness_tx.nVersion = 1;
+            valid_with_witness_tx.nFeatures = 1;
             valid_with_witness_tx.vin.resize(1);
             valid_with_witness_tx.vin[0].prevout.hashMalFix = spend_tx.GetHashMalFix();
             valid_with_witness_tx.vin[0].prevout.n = 1;
@@ -419,7 +419,7 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
             // Test a transaction with multiple inputs.
             CMutableTransaction tx;
 
-            tx.nVersion = 1;
+            tx.nFeatures = 1;
             tx.vin.resize(2);
             tx.vin[0].prevout.hashMalFix = spend_tx.GetHashMalFix();
             tx.vin[0].prevout.n = 0;

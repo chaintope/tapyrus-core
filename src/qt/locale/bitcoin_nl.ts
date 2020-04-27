@@ -3568,7 +3568,7 @@ Notitie: Omdat de vergoeding per byte wordt gerekend, zal een vergoeding van "10
         <translation>Niet ondersteund argument -whitelistalwaysrelay genegeerd, gebruik -whitelistrelay en/of -whitelistforcerelay.</translation>
     </message>
     <message>
-        <source>Warning: Unknown block versions being mined! It's possible unknown rules are in effect</source>
+        <source>Warning: Unknown block features being mined! It's possible unknown rules are in effect</source>
         <translation>Waarschuwing: Onbekende blok versies worden gemined! Er zijn mogelijk onbekende regels in werking getreden</translation>
     </message>
     <message>

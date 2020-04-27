@@ -3564,7 +3564,7 @@ Note: Siden gebyret er kalkuleret på en per-byte basis, et gebyr på "100 tapyr
         <translation>Argument -whitelistalwaysrelay understøttes ikke og ignoreres; brug -whitelistrelay og/eller -whitelistforcerelay.</translation>
     </message>
     <message>
-        <source>Warning: Unknown block versions being mined! It's possible unknown rules are in effect</source>
+        <source>Warning: Unknown block features being mined! It's possible unknown rules are in effect</source>
         <translation>Advarsel: Ukendte blokversioner bliver minet! Det er muligt, at ukendte regler er i brug</translation>
     </message>
     <message>

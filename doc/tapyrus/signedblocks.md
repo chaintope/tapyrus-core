@@ -12,7 +12,7 @@ Tapyrus block header has three new fields: xfieldType, xfield and proof. Some fi
 
  Name | Type | Size(Bytes) | Description
 ------|------|-------------|-------------
-Version | int32_t | 4 | Block version number. Current block version is 1.
+features | int32_t | 4 | Block features. Currently it is required to be 1.
 hasPrevBlock | char\[32\] | 32 | 256-bit hash of the previous block header
 hashMerkleRoot | char\[32\] | 32 | 256-bit MerkleRoot based on the hashes of all the transactions in the block
 hashImMerkleRoot | char\[32\] | 32 | 256-bit MerkleRoot based on Tapyrus transaction id -  [Malleability fixing transaction hash](doc/fix_transaction_malleability.md)

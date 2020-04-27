@@ -2070,7 +2070,7 @@ void static UpdateTip(const CBlockIndex *pindexNew) {
     }
 
     LogPrintf("%s: new best=%s height=%d version=0x%08x tx=%lu date='%s' progress=%f cache=%.1fMiB(%utxo)", __func__, /* Continued */
-      pindexNew->GetBlockHash().ToString(), pindexNew->nHeight, pindexNew->nVersion,
+      pindexNew->GetBlockHash().ToString(), pindexNew->nHeight, pindexNew->nFeatures,
       (unsigned long)pindexNew->nChainTx, FormatISO8601DateTime(pindexNew->GetBlockTime()),
       GuessVerificationProgress(Params().TxData(), pindexNew), pcoinsTip->DynamicMemoryUsage() * (1.0 / (1<<20)), pcoinsTip->GetCacheSize());
     LogPrintf("\n");
@@ -2869,9 +2869,9 @@ static bool FindUndoPos(CValidationState &state, int nFile, CDiskBlockPos &pos, 
 
 static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, int nHeight, bool fCheckPOW)
 {
-    //check block version
-    if(block.nVersion != CBlock::TAPYRUS_BLOCK_VERSION)
-        return state.Invalid(false, REJECT_INVALID, "bad-version", "Block Version was incorrect");
+    //check block features
+    if(block.nFeatures != CBlock::TAPYRUS_BLOCK_FEATURES)
+        return state.Invalid(false, REJECT_INVALID, "bad-features", "Incorrect Block features");
 
     //Check proof of Signed Blocks in a block header
     const unsigned int proofSize = block.proof.size();

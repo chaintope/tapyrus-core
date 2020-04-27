@@ -3569,7 +3569,7 @@ Diretório de blocos especificados "%s" não existe.</translation>
         <translation>Argumento não suportado -whitelistalwaysrelay foi ignorado, utilize -whitelistrelay e/ou -whitelistforcerelay.</translation>
     </message>
     <message>
-        <source>Warning: Unknown block versions being mined! It's possible unknown rules are in effect</source>
+        <source>Warning: Unknown block features being mined! It's possible unknown rules are in effect</source>
         <translation>Aviso: Versões de bloco desconhecidas sendo mineradas! É possível que regras desconhecidas estejam ativas</translation>
     </message>
     <message>

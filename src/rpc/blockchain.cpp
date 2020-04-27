@@ -65,8 +65,8 @@ UniValue blockheaderToJSON(const CBlockIndex* blockindex)
         confirmations = chainActive.Height() - blockindex->nHeight + 1;
     result.pushKV("confirmations", confirmations);
     result.pushKV("height", blockindex->nHeight);
-    result.pushKV("version", blockindex->nVersion);
-    result.pushKV("versionHex", strprintf("%08x", blockindex->nVersion));
+    result.pushKV("features", blockindex->nFeatures);
+    result.pushKV("featuresHex", strprintf("%08x", blockindex->nFeatures));
     result.pushKV("merkleroot", blockindex->hashMerkleRoot.GetHex());
     result.pushKV("immutablemerkleroot", blockindex->hashImMerkleRoot.GetHex());
     result.pushKV("time", (int64_t)blockindex->nTime);
@@ -99,8 +99,8 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
     result.pushKV("size", (int)::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION));
     result.pushKV("weight", (int)::GetBlockWeight(block));
     result.pushKV("height", blockindex->nHeight);
-    result.pushKV("version", block.nVersion);
-    result.pushKV("versionHex", strprintf("%08x", block.nVersion));
+    result.pushKV("features", block.nFeatures);
+    result.pushKV("featuresHex", strprintf("%08x", block.nFeatures));
     result.pushKV("merkleroot", block.hashMerkleRoot.GetHex());
     result.pushKV("immutablemerkleroot", block.hashImMerkleRoot.GetHex());
     UniValue txs(UniValue::VARR);
@@ -651,8 +651,8 @@ static UniValue getblockheader(const JSONRPCRequest& request)
             "  \"hash\" : \"hash\",     (string) the block hash (same as provided)\n"
             "  \"confirmations\" : n,   (numeric) The number of confirmations, or -1 if the block is not on the prod chain\n"
             "  \"height\" : n,          (numeric) The block height or index\n"
-            "  \"version\" : n,         (numeric) The block version\n"
-            "  \"versionHex\" : \"00000000\", (string) The block version formatted in hexadecimal\n"
+            "  \"features\" : n,         (numeric) The block features\n"
+            "  \"featuresHex\" : \"00000000\", (string) The block features formatted in hexadecimal\n"
             "  \"merkleroot\" : \"xxxx\", (string) The merkle root\n"
             "  \"immutablemmerkleroot\" : \"xxxx\", (string) The merkle root computes without scriptSig\n"
             "  \"time\" : ttt,          (numeric) The block time in seconds since epoch (Jan 1 1970 GMT)\n"
@@ -736,8 +736,8 @@ static UniValue getblock(const JSONRPCRequest& request)
             "  \"strippedsize\" : n,    (numeric) The block size excluding witness data\n"
             "  \"weight\" : n           (numeric) The block weight as defined in BIP 141\n"
             "  \"height\" : n,          (numeric) The block height or index\n"
-            "  \"version\" : n,         (numeric) The block version\n"
-            "  \"versionHex\" : \"00000000\", (string) The block version formatted in hexadecimal\n"
+            "  \"features\" : n,         (numeric) The block features\n"
+            "  \"featuresHex\" : \"00000000\", (string) The block features formatted in hexadecimal\n"
             "  \"merkleroot\" : \"xxxx\", (string) The merkle root\n"
             "  \"immutablemerkleroot\" : \"xxxx\", (string) The merkle root computes without scriptSig\n"
             "  \"tx\" : [               (array of string) The transaction ids\n"

@@ -3556,7 +3556,7 @@ Note : Les frais étant calculés par octet, des frais de « 100 tapyrus par 
         <translation>Argument non pris charge -whitelistalwaysrelay ignoré, utiliser -whitelistrelay et/ou -whitelistforcerelay.</translation>
     </message>
     <message>
-        <source>Warning: Unknown block versions being mined! It's possible unknown rules are in effect</source>
+        <source>Warning: Unknown block features being mined! It's possible unknown rules are in effect</source>
         <translation>Avertissement : des versions de blocs inconnues sont minées ! Il est possible que des règles inconnues soient en vigueur</translation>
     </message>
     <message>

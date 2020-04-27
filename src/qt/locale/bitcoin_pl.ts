@@ -3570,7 +3570,7 @@ Zwróć uwagę, że poprawnie zweryfikowana wiadomość potwierdza to, że nadaw
         <translation>Niewspierany argument -whitelistalwaysrelay zignorowany, użyj -whitelistrelay i/lub -whitelistforcerelay.</translation>
     </message>
     <message>
-        <source>Warning: Unknown block versions being mined! It's possible unknown rules are in effect</source>
+        <source>Warning: Unknown block features being mined! It's possible unknown rules are in effect</source>
         <translation>Ostrzeżenie: wydobywane są nieznane wersje bloków! Możliwe, że obowiązują nieznane reguły.</translation>
     </message>
     <message>

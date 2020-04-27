@@ -1255,8 +1255,8 @@ public:
     /** Serialize txTo */
     template<typename S>
     void Serialize(S &s) const {
-        // Serialize nVersion
-        ::Serialize(s, txTo.nVersion);
+        // Serialize nFeatures
+        ::Serialize(s, txTo.nFeatures);
         // Serialize vin
         unsigned int nInputs = fAnyoneCanPay ? 1 : txTo.vin.size();
         ::WriteCompactSize(s, nInputs);
@@ -1349,8 +1349,8 @@ uint256 SignatureHash(const CScript& scriptCode, const T& txTo, unsigned int nIn
         }
 
         CHashWriter ss(SER_GETHASH, 0);
-        // Version
-        ss << txTo.nVersion;
+        // Features
+        ss << txTo.nFeatures;
         // Input prevouts/nSequence (none/all, depending on flags)
         ss << hashPrevouts;
         ss << hashSequence;

@@ -1,7 +1,7 @@
 {
     "txid": "31f8970a5ab3e64f015ca7dc28df30fa526dfa4644378b8784e0065dc0a06cf3",
     "hash": "c46ccd75b5050e942b2e86a3648f843f525fe6fc000bf0534ba5973063354493",
-    "version": 1,
+    "features": 1,
     "size": 3155,
     "vsize": 3155,
     "weight": 12620,

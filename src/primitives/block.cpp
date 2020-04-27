@@ -20,8 +20,8 @@ uint256 CBlockHeader::GetHash() const
 std::string CBlockHeader::ToString() const
 {
     std::stringstream s;
-    s << strprintf("CBlockHeader(ver=0x%08x, hashPrevBlock=%s, hashMerkleRoot=%s, hashImMerkleRoot=%s, nTime=%u, xfieldType=%2x, xfield=%s, proof={%s})) hash=%s",
-                   nVersion,
+    s << strprintf("CBlockHeader(nFeatures=0x%08x, hashPrevBlock=%s, hashMerkleRoot=%s, hashImMerkleRoot=%s, nTime=%u, xfieldType=%2x, xfield=%s, proof={%s})) hash=%s",
+                   nFeatures,
                    hashPrevBlock.ToString(),
                    hashMerkleRoot.ToString(),
                    hashImMerkleRoot.ToString(),
@@ -41,9 +41,9 @@ uint256 CBlockHeaderWithoutProof::GetHashForSign() const
 std::string CBlock::ToString() const
 {
     std::stringstream s;
-    s << strprintf("CBlock(hash=%s, ver=0x%08x, hashPrevBlock=%s, hashMerkleRoot=%s, hashImMerkleRoot=%s, nTime=%u, xfieldType=%2x, xfield=%s, proof={%s} vtx=%u)\n",
+    s << strprintf("CBlock(hash=%s, nFeatures=0x%08x, hashPrevBlock=%s, hashMerkleRoot=%s, hashImMerkleRoot=%s, nTime=%u, xfieldType=%2x, xfield=%s, proof={%s} vtx=%u)\n",
         GetHash().ToString(),
-        nVersion,
+        nFeatures,
         hashPrevBlock.ToString(),
         hashMerkleRoot.ToString(),
         hashImMerkleRoot.ToString(),
