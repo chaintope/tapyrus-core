@@ -12,10 +12,10 @@
 #include <uint256.h>
 #include <key.h>
 
-enum class TAPURUS_XTYPES
+enum class TAPYRUS_XFIELDTYPES
 {
-    NONE = 0, //no value field
-    AGGPUBKEY = 1, //33 byte aggpubkey
+    NONE = 0, //no xfield
+    AGGPUBKEY = 1, //xfield is 33 byte aggpubkey
 };
 
 /** Nodes collect new transactions into a block, hash them into a hash tree,
@@ -34,8 +34,8 @@ public:
     uint256 hashMerkleRoot;
     uint256 hashImMerkleRoot;
     uint32_t nTime;
-    uint8_t xType;
-    std::vector<unsigned char> xValue;
+    uint8_t xfieldType;
+    std::vector<unsigned char> xfield;
 
     CBlockHeaderWithoutProof()
     {
@@ -50,9 +50,9 @@ public:
         READWRITE(hashMerkleRoot);
         READWRITE(hashImMerkleRoot);
         READWRITE(nTime);
-        READWRITE(xType);
-        if((TAPURUS_XTYPES)xType != TAPURUS_XTYPES::NONE)
-            READWRITE(xValue);
+        READWRITE(xfieldType);
+        if((TAPYRUS_XFIELDTYPES)xfieldType != TAPYRUS_XFIELDTYPES::NONE)
+            READWRITE(xfield);
     }
 
     void SetNull()
@@ -62,8 +62,8 @@ public:
         hashMerkleRoot.SetNull();
         hashImMerkleRoot.SetNull();
         nTime = 0;
-        xType = 0;
-        xValue.clear();
+        xfieldType = 0;
+        xfield.clear();
     }
 
     bool IsNull() const
@@ -144,8 +144,8 @@ public:
         block.hashMerkleRoot    = hashMerkleRoot;
         block.hashImMerkleRoot  = hashImMerkleRoot;
         block.nTime             = nTime;
-        block.xType             = xType;
-        block.xValue            = xValue;
+        block.xfieldType             = xfieldType;
+        block.xfield            = xfield;
         block.proof             = proof;
         return block;
     }
