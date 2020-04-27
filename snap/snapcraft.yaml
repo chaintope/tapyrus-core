@@ -65,8 +65,9 @@ parts:
     stage-packages:
       - libboost-system1.65.1
       - libboost-filesystem1.65.1
-      - libboost-thread1.65.1
       - libboost-chrono1.65.1
+      - libboost-test1.65.1
+      - libboost-thread1.65.1
       - libdb5.3++
       - libevent-2.1-6
       - libevent-pthreads-2.1-6
