@@ -81,18 +81,18 @@ enum WalletFeature
 {
     FEATURE_BASE = 10500, // the earliest version new wallets supports (only useful for getwalletinfo's clientversion output)
 
-    FEATURE_WALLETCRYPT = 40000, // wallet encryption
-    FEATURE_COMPRPUBKEY = 60000, // compressed public keys
+    FEATURE_WALLETCRYPT = FEATURE_BASE, // wallet encryption
+    FEATURE_COMPRPUBKEY = FEATURE_BASE, // compressed public keys
 
-    FEATURE_HD = 130000, // Hierarchical key derivation after BIP32 (HD Wallet)
+    FEATURE_HD = FEATURE_BASE, // Hierarchical key derivation after BIP32 (HD Wallet)
 
-    FEATURE_HD_SPLIT = 139900, // Wallet with HD chain split (change outputs will use m/0'/1'/k)
+    FEATURE_HD_SPLIT = FEATURE_BASE, // Wallet with HD chain split (change outputs will use m/0'/1'/k)
 
-    FEATURE_NO_DEFAULT_KEY = 159900, // Wallet without a default key written
+    FEATURE_NO_DEFAULT_KEY = FEATURE_BASE, // Wallet without a default key written
 
-    FEATURE_PRE_SPLIT_KEYPOOL = 169900, // Upgraded to HD SPLIT and can have a pre-split keypool
+    FEATURE_PRE_SPLIT_KEYPOOL = FEATURE_BASE, // Upgraded to HD SPLIT and can have a pre-split keypool
 
-    FEATURE_LATEST = FEATURE_PRE_SPLIT_KEYPOOL
+    FEATURE_LATEST = FEATURE_BASE
 };
 
 //! Default for -addresstype
