@@ -12,11 +12,11 @@ set(PACKAGE_NAME "Tapyrus Core")
 
 # Version
 set(CLIENT_VERSION_MAJOR 0)
-set(CLIENT_VERSION_MINOR 3)
+set(CLIENT_VERSION_MINOR 4)
 set(CLIENT_VERSION_REVISION 0)
 set(CLIENT_VERSION_BUILD 0)
 
-option(CLIENT_VERSION_IS_RELEASE "Build a release version" OFF)
+option(CLIENT_VERSION_IS_RELEASE "Build a release version" ON)
 
 # Copyright
 set(COPYRIGHT_YEAR 2019)
