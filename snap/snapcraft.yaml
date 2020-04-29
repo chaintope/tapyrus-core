@@ -16,7 +16,7 @@ confinement: strict
 license: MIT
 
 architectures:
-  - build-on: [amd64, arm64, i386]
+  - build-on: [amd64, arm64]
 
 apps:
   daemon:
@@ -38,6 +38,12 @@ apps:
     command: tapyrus-genesis
     environment:
       HOME: $SNAP_USER_COMMON
+  service:
+    command: tapyrusd
+    plugs: [network, network-bind]
+    environment:
+      HOME: $SNAP_USER_COMMON
+    daemon: simple
 
 parts:
   tapyrus-core:
@@ -62,12 +68,13 @@ parts:
       - libboost-thread-dev
       - libdb5.3++-dev
       - libevent-dev
-      - libssl1.0-dev
     stage-packages:
       - libboost-system1.65.1
       - libboost-filesystem1.65.1
-      - libboost-thread1.65.1
       - libboost-chrono1.65.1
+      - libboost-test1.65.1
+      - libboost-thread1.65.1
       - libdb5.3++
       - libevent-2.1-6
       - libevent-pthreads-2.1-6
+      - libstdc++6
