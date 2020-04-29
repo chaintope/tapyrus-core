@@ -470,8 +470,6 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
         else if (strType == "version")
         {
             ssValue >> wss.nFileVersion;
-            if (wss.nFileVersion == 10300)
-                wss.nFileVersion = 300;
         }
         else if (strType == "cscript")
         {
@@ -613,10 +611,6 @@ DBErrors WalletBatch::LoadWallet(CWallet* pwallet)
 
     for (uint256 hash : wss.vWalletUpgrade)
         WriteTx(pwallet->mapWallet.at(hash));
-
-    // Rewrite encrypted wallets of versions 0.4.0 and 0.5.0rc:
-    if (wss.fIsEncrypted && (wss.nFileVersion == 40000 || wss.nFileVersion == 50000))
-        return DBErrors::NEED_REWRITE;
 
     if (wss.nFileVersion < CLIENT_VERSION) // Update
         WriteVersion(CLIENT_VERSION);
