@@ -76,7 +76,7 @@ class BlockchainTest(BitcoinTestFramework):
             'warnings',
         ]
         res = self.nodes[0].getblockchaininfo()
-        assert_equal(res['aggregatePubkeys'], {self.signblockpubkey:0})
+        assert_equal(res['aggregatePubkeys'], [{self.signblockpubkey:0}])
 
         # result should have these additional pruning keys if manual pruning is enabled
         assert_equal(sorted(res.keys()), sorted(['pruneheight', 'automatic_pruning'] + keys))
