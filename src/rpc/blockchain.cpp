@@ -1127,13 +1127,15 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
         }
     }
     //aggregate pubkey list with block height
-    UniValue aggPubkeyObj(UniValue::VOBJ);
+    UniValue aggPubkeyList(UniValue::VARR);
     const std::vector<aggPubkeyAndHeight>& aggregatePubkeyHeightList = FederationParams().GetAggregatePubkeyHeightList();
     for (auto& aggpubkeyPair : aggregatePubkeyHeightList)
     {
+        UniValue aggPubkeyObj(UniValue::VOBJ);
         aggPubkeyObj.pushKV(HexStr(aggpubkeyPair.aggpubkey.begin(), aggpubkeyPair.aggpubkey.end()), aggpubkeyPair.height);
+        aggPubkeyList.push_back(aggPubkeyObj);
     }
-    obj.pushKV("aggregatePubkeys", aggPubkeyObj);
+    obj.pushKV("aggregatePubkeys", aggPubkeyList);
     obj.pushKV("warnings", GetWarnings("statusbar"));
     return obj;
 }
