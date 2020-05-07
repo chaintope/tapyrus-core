@@ -254,10 +254,11 @@ class FederationManagementTest(BitcoinTestFramework):
 
         self.log.info("Verifying getblockchaininfo")
         #getblockchaininfo
-        expectedAggPubKeys = {
-            self.aggpubkeys[0] : 0,
-            self.aggpubkeys[1] : 12,
-            self.aggpubkeys[2] : 25}
+        expectedAggPubKeys = [
+            { self.aggpubkeys[0] : 0},
+            { self.aggpubkeys[1] : 12},
+            { self.aggpubkeys[2] : 25}
+        ]
         blockchaininfo = node.getblockchaininfo()
         assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
 
@@ -380,6 +381,7 @@ class FederationManagementTest(BitcoinTestFramework):
         blocknew.solve(self.aggprivkey[3])
         node.submitblock(bytes_to_hex_str(blocknew.serialize()))
         self.tip = blocknew.hash
+        self.forkblocks.append(blocknew.hash)
         assert_equal(self.tip, node.getbestblockhash())
         assert(node.getblock(self.tip))
 
@@ -395,19 +397,59 @@ class FederationManagementTest(BitcoinTestFramework):
         blocknew.solve(self.aggprivkey[4])
         node.submitblock(bytes_to_hex_str(blocknew.serialize()))
         self.tip = blocknew.hash
+        self.forkblocks.append(blocknew.hash)
         assert_equal(self.tip, node.getbestblockhash())
         assert(node.getblock(self.tip))
 
         self.log.info("Verifying getblockchaininfo")
         #getblockchaininfo
-        expectedAggPubKeys = {
-            self.aggpubkeys[0] : 0,
-            self.aggpubkeys[1] : 12,
-            self.aggpubkeys[2] : 25,
-            self.aggpubkeys[3] : 33,
-            self.aggpubkeys[4] : 37,
-            }
+        expectedAggPubKeys = [
+            { self.aggpubkeys[0] : 0},
+            { self.aggpubkeys[1] : 12},
+            { self.aggpubkeys[2] : 25},
+            { self.aggpubkeys[3] : 33},
+            { self.aggpubkeys[4] : 37},
+        ]
         blockchaininfo = node.getblockchaininfo()
+        assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
+
+        #B38 - B40 -- Generate 2 blocks - no aggpubkey -- chain becomes longer
+        self.forkblocks += node.generate(3, self.aggprivkey[4])
+        self.tip = node.getbestblockhash()
+        best_block = node.getblock(self.tip)
+
+        self.log.info("Test Repeated aggpubkeys in Federation Block")
+        #B41 -- Create block with aggpubkey0 - sign using aggpubkey5 -- success - aggpubkey0 is added to the list
+        block_time = best_block["time"] + 1
+        blocknew = create_block(int(self.tip, 16), create_coinbase(41), block_time, self.aggpubkeys[0])
+        blocknew.solve(self.aggprivkey[4])
+        node.submitblock(bytes_to_hex_str(blocknew.serialize()))
+        self.tip = blocknew.hash
+        assert_equal(self.tip, node.getbestblockhash())
+        assert(node.getblock(self.tip))
+
+        #B42 -- Create block with aggpubkey1 - sign using aggpubkey0 -- success - aggpubkey1 is added to the list
+        block_time += 1
+        blocknew = create_block(int(self.tip, 16), create_coinbase(42), block_time, self.aggpubkeys[1])
+        blocknew.solve(self.aggprivkey[0])
+        node.submitblock(bytes_to_hex_str(blocknew.serialize()))
+        self.tip = blocknew.hash
+        assert_equal(self.tip, node.getbestblockhash())
+        assert(node.getblock(self.tip))
+
+        self.log.info("Verifying getblockchaininfo")
+        #getblockchaininfo
+        expectedAggPubKeys = [
+            { self.aggpubkeys[0] : 0},
+            { self.aggpubkeys[1] : 12},
+            { self.aggpubkeys[2] : 25},
+            { self.aggpubkeys[3] : 33},
+            { self.aggpubkeys[4] : 37},
+            { self.aggpubkeys[0] : 42},
+            { self.aggpubkeys[1] : 43},
+        ]
+        blockchaininfo = node.getblockchaininfo()
+        print(blockchaininfo["aggregatePubkeys"])
         assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
         self.stop_node(0)
 
