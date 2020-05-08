@@ -3363,10 +3363,6 @@
         <translation>这是在费用估计不可用时你可能会支付的交易费。</translation>
     </message>
     <message>
-        <source>This product includes software developed by the OpenSSL Project for use in the OpenSSL Toolkit %s and cryptographic software written by Eric Young and UPnP software written by Thomas Bernard.</source>
-        <translation>此产品包含了由OpenSSL Project所开发的OpenSSL Toolkit软件%s，由Eric Young撰写的加解密软件，以及由Thomas Bernard所撰写的UPnP软件。</translation>
-    </message>
-    <message>
         <source>Total length of network version string (%i) exceeds maximum length (%i). Reduce the number or size of uacomments.</source>
         <translation>网络版本字符串的总长度 (%i) 超过最大长度 (%i) 了。请减少 uacomment 参数的数目或长度。</translation>
     </message>
@@ -3379,7 +3375,7 @@
         <translation>一个不被支持的参数 -whitelistalwaysrelay 被忽略了。请使用 -whitelistrelay 或者 -whitelistforcerelay.</translation>
     </message>
     <message>
-        <source>Warning: Unknown block versions being mined! It's possible unknown rules are in effect</source>
+        <source>Warning: Unknown block features being mined! It's possible unknown rules are in effect</source>
         <translation>警告: 未知的区块版本被挖掘！未知规则可能已生效</translation>
     </message>
     <message>

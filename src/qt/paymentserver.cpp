@@ -25,8 +25,6 @@
 #include <cstdlib>
 #include <memory>
 
-#include <openssl/x509_vfy.h>
-
 #include <QApplication>
 #include <QByteArray>
 #include <QDataStream>
@@ -39,7 +37,6 @@
 #include <QLocalServer>
 #include <QLocalSocket>
 #include <QNetworkAccessManager>
-#include <QNetworkProxy>
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QSslCertificate>

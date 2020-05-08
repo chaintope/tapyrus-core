@@ -14,6 +14,7 @@
 #include <key_io.h>
 #include <tapyrusmodes.h>
 #include <chainparamsseeds.h>
+#include <validation.h>
 
 #include <assert.h>
 
@@ -48,7 +49,7 @@ CBlock createGenesisBlock(const CPubKey& aggregatePubkey, const CKey& privateKey
 {
     //Genesis coinbase transaction paying block reward to the first public key in signedBlocksCondition
     CMutableTransaction txNew;
-    txNew.nVersion = 1;
+    txNew.nFeatures = 1;
     txNew.vin.resize(1);
     txNew.vout.resize(1);
     txNew.vin[0].prevout.n = 0;
@@ -63,12 +64,13 @@ CBlock createGenesisBlock(const CPubKey& aggregatePubkey, const CKey& privateKey
     //Genesis block header
     CBlock genesis;
     genesis.nTime    = blockTime;
-    genesis.nVersion = 1;
+    genesis.nFeatures = 1;
     genesis.vtx.push_back(MakeTransactionRef(std::move(txNew)));
     genesis.hashPrevBlock.SetNull();
     genesis.hashMerkleRoot = BlockMerkleRoot(genesis);
     genesis.hashImMerkleRoot = BlockMerkleRoot(genesis, nullptr, true);
-    genesis.aggPubkey = std::vector<unsigned char>(aggregatePubkey.data(), aggregatePubkey.data() + CPubKey::COMPRESSED_PUBLIC_KEY_SIZE);
+    genesis.xfieldType = 1;
+    genesis.xfield = std::vector<unsigned char>(aggregatePubkey.data(), aggregatePubkey.data() + CPubKey::COMPRESSED_PUBLIC_KEY_SIZE);
 
     //Genesis block proof
     uint256 blockHash = genesis.GetHashForSign();
@@ -139,21 +141,26 @@ CFederationParams::CFederationParams(const int networkId, const std::string data
     vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_main, pnSeed6_main + ARRAYLEN(pnSeed6_main));
 }
 
-CPubKey CFederationParams::ReadAggregatePubkey(const std::vector<unsigned char>& pubkey)
+CPubKey CFederationParams::ReadAggregatePubkey(const std::vector<unsigned char>& pubkey, uint height) const
 {
     if(!pubkey.size())
         throw std::runtime_error("Aggregate Public Key for Signed Block is empty");
     
     if (pubkey[0] == 0x02 || pubkey[0] == 0x03) {
-        aggregatePubkey = CPubKey(pubkey.begin(), pubkey.end());
-        if(!aggregatePubkey.IsFullyValid()) {
+        aggPubkeyAndHeight p;
+        p.aggpubkey = CPubKey(pubkey.begin(), pubkey.end());
+        p.height = height;
+        if(!p.aggpubkey.IsFullyValid()) {
             throw std::runtime_error(strprintf("Aggregate Public Key for Signed Block is invalid: %s", HexStr(pubkey)));
         }
 
-        if (aggregatePubkey.size() != CPubKey::COMPRESSED_PUBLIC_KEY_SIZE) {
+        if (p.aggpubkey.size() != CPubKey::COMPRESSED_PUBLIC_KEY_SIZE) {
             throw std::runtime_error(strprintf("Aggregate Public Key for Signed Block is invalid: %s", HexStr(pubkey)));
         }
-        return aggregatePubkey;
+
+        aggregatePubkeyHeight.push_back(p);
+
+        return p.aggpubkey;
 
     } else if(pubkey[0] == 0x04 || pubkey[0] == 0x06 || pubkey[0] == 0x07) {
         throw std::runtime_error(strprintf("Uncompressed public key format are not acceptable: %s", HexStr(pubkey)));
@@ -168,7 +175,15 @@ bool CFederationParams::ReadGenesisBlock(std::string genesisHex)
     unsigned long streamsize = ss.size();
     ss >> genesis;
 
-    ReadAggregatePubkey(genesis.aggPubkey);
+    switch((TAPYRUS_XFIELDTYPES)genesis.xfieldType)
+    {
+        case TAPYRUS_XFIELDTYPES::AGGPUBKEY:
+            ReadAggregatePubkey(genesis.xfield, 0);
+            break;
+        case TAPYRUS_XFIELDTYPES::NONE:
+        default:
+            throw std::runtime_error("ReadGenesisBlock: invalid xfieldType in genesis block");
+    }
 
     /* Performing non trivial validation here.
     * full block validation will be done later in ConnectBlock
@@ -195,8 +210,31 @@ bool CFederationParams::ReadGenesisBlock(std::string genesisHex)
 
     //verify proof
     const uint256 blockHash = genesis.GetHashForSign();
-    if(!aggregatePubkey.Verify_Schnorr(blockHash, genesis.proof))
+    if(!aggregatePubkeyHeight.back().aggpubkey.Verify_Schnorr(blockHash, genesis.proof))
         throw std::runtime_error("ReadGenesisBlock: Proof verification failed");
 
     return true;
+}
+
+int CFederationParams::GetHeightFromAggregatePubkey(const CPubKey &aggpubkey) const
+{
+    for (auto& c : aggregatePubkeyHeight) {
+        if (c.aggpubkey == aggpubkey)
+            return c.height;
+    }
+    return -1;
+}
+
+CPubKey& CFederationParams::GetAggPubkeyFromHeight(int height) const
+{
+    if(height == 0 || aggregatePubkeyHeight.size() == 1)
+        return aggregatePubkeyHeight.at(0).aggpubkey; 
+
+    if(height < 0 || height > aggregatePubkeyHeight.back().height)
+        return aggregatePubkeyHeight.back().aggpubkey;
+
+    for(unsigned int i = 0; i < aggregatePubkeyHeight.size(); i++) {
+        if(height == aggregatePubkeyHeight.at(i).height || (aggregatePubkeyHeight.at(i).height < height && height < aggregatePubkeyHeight.at(i+1).height))
+            return aggregatePubkeyHeight.at(i).aggpubkey;
+    }
 }

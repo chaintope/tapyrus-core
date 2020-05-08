@@ -12,11 +12,11 @@ set(PACKAGE_NAME "Tapyrus Core")
 
 # Version
 set(CLIENT_VERSION_MAJOR 0)
-set(CLIENT_VERSION_MINOR 3)
+set(CLIENT_VERSION_MINOR 4)
 set(CLIENT_VERSION_REVISION 0)
 set(CLIENT_VERSION_BUILD 0)
 
-option(CLIENT_VERSION_IS_RELEASE "Build a release version" OFF)
+option(CLIENT_VERSION_IS_RELEASE "Build a release version" ON)
 
 # Copyright
 set(COPYRIGHT_YEAR 2019)
@@ -143,10 +143,6 @@ check_cxx_source_compiles("
 	}
 " HAVE_SYSCTL_ARND)
 
-# OpenSSL functionality
-set(CMAKE_REQUIRED_INCLUDES ${OPENSSL_CRYPTO_INCLUDES})
-set(CMAKE_REQUIRED_LIBRARIES ${OPENSSL_CRYPTO_LIBRARY})
-check_symbol_exists(EVP_MD_CTX_new "openssl/evp.h" HAVE_DECL_EVP_MD_CTX_NEW)
 
 # Activate wallet
 set(ENABLE_WALLET ${BUILD_BITCOIN_WALLET})

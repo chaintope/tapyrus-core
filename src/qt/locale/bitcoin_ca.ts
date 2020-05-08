@@ -3460,10 +3460,6 @@ Nota: Com que la comissió es calcula en funció dels bytes, una comissió de "1
         <translation>Aquesta és la tarifa de transacció que podeu pagar quan les estimacions de tarifes no estan disponibles.</translation>
     </message>
     <message>
-        <source>This product includes software developed by the OpenSSL Project for use in the OpenSSL Toolkit %s and cryptographic software written by Eric Young and UPnP software written by Thomas Bernard.</source>
-        <translation>Aquest producte inclou programari desenvolupat pel Projecte OpenSSL per al seu ús en OpenSSL Toolkit %s i programari criptogràfic escrit per Eric Young i el programari UPnP escrit per Thomas Bernard.</translation>
-    </message>
-    <message>
         <source>Total length of network version string (%i) exceeds maximum length (%i). Reduce the number or size of uacomments.</source>
         <translation>La longitud total de la cadena de la versió de xarxa (%i) supera la longitud màxima (%i). Redueix el nombre o la mida de uacomments.</translation>
     </message>
@@ -3476,7 +3472,7 @@ Nota: Com que la comissió es calcula en funció dels bytes, una comissió de "1
         <translation>S'ha ignorat l'argument no acceptat -whitelistalways, utilitza -whitelistrelay i/o -whitelistforcerelay.</translation>
     </message>
     <message>
-        <source>Warning: Unknown block versions being mined! It's possible unknown rules are in effect</source>
+        <source>Warning: Unknown block features being mined! It's possible unknown rules are in effect</source>
         <translation>Advertència: s'està minant versions de blocs desconegudes. És possible que s'estiguin aplicant regles desconegudes</translation>
     </message>
     <message>

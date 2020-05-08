@@ -3549,10 +3549,6 @@ Hinweis: Eine Gebühr von "100 tapyrus pro kB" bei einer Größe der Transaktion
         <translation>Das ist die Transaktionsgebühr, welche du zahlen müsstest, wenn die Gebührenschätzungen nicht verfügbar sind.</translation>
     </message>
     <message>
-        <source>This product includes software developed by the OpenSSL Project for use in the OpenSSL Toolkit %s and cryptographic software written by Eric Young and UPnP software written by Thomas Bernard.</source>
-        <translation>Dieses Produkt enthält Software, die vom OpenSSL-Projekt zur Verwendung im OpenSSL-Toolkit %s entwickelt wird, von Eric Young geschriebene kryptographische Software und von Thomas Bernard geschriebene UPnP-Software.</translation>
-    </message>
-    <message>
         <source>Total length of network version string (%i) exceeds maximum length (%i). Reduce the number or size of uacomments.</source>
         <translation>Gesamtlänge des Netzwerkversionstrings (%i) erreicht die maximale Länge (%i). Reduzieren Sie die Nummer oder die Größe von uacomments.</translation>
     </message>
@@ -3565,7 +3561,7 @@ Hinweis: Eine Gebühr von "100 tapyrus pro kB" bei einer Größe der Transaktion
         <translation>Das Argument -whitelistalwaysrelay wird nicht unterstützt und deswegen ignoriert. Benutze -whitelistrelay und/oder -whitelistforcerelay.</translation>
     </message>
     <message>
-        <source>Warning: Unknown block versions being mined! It's possible unknown rules are in effect</source>
+        <source>Warning: Unknown block features being mined! It's possible unknown rules are in effect</source>
         <translation>Warnung: Unbekannte Blockversion wird durch Mining erzeugt! Es ist möglich, dass unbekannte Regeln in Kraft sind.</translation>
     </message>
     <message>

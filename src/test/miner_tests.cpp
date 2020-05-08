@@ -120,10 +120,10 @@ static void CreateBlocks(const CChainParams &chainparams,
         CBlock *pblock = &pblocktemplate->block; // pointer for convenience
         {
             LOCK(cs_main);
-            pblock->nVersion = 1;
+            pblock->nFeatures = 1;
             pblock->nTime = chainActive.Tip()->GetMedianTimePast()+1;
             CMutableTransaction txCoinbase(*pblock->vtx[0]);
-            txCoinbase.nVersion = 1;
+            txCoinbase.nFeatures = 1;
             txCoinbase.vin[0].prevout.n = chainActive.Height() + 1;
             txCoinbase.vin[0].scriptSig = CScript();
             txCoinbase.vin[0].scriptSig.push_back(blockinfo[i].extranonce);
@@ -141,7 +141,7 @@ static void CreateBlocks(const CChainParams &chainparams,
             //block proof
             std::vector<unsigned char> blockProof;
             createSignedBlockProof(*pblock, blockProof);
-            pblock->AbsorbBlockProof(blockProof, FederationParams().GetAggregatePubkey());
+            pblock->AbsorbBlockProof(blockProof, FederationParams().GetLatestAggregatePubkey());
             BOOST_CHECK_EQUAL(pblock->proof.size(), 64);
         }
         std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(*pblock);
@@ -158,7 +158,7 @@ static void CreateBlocks(const CChainParams &chainparams,
 
     std::vector<unsigned char> blockProof;
     createSignedBlockProof(pblocktemplate->block, blockProof);
-    pblocktemplate->block.AbsorbBlockProof(blockProof, FederationParams().GetAggregatePubkey());
+    pblocktemplate->block.AbsorbBlockProof(blockProof, FederationParams().GetLatestAggregatePubkey());
     BOOST_CHECK_EQUAL(pblocktemplate->block.proof.size(), CPubKey::SCHNORR_SIGNATURE_SIZE);
 
     BOOST_CHECK_EQUAL(pblocktemplate->block.vtx[0]->vin[0].prevout.n, chainActive.Height()+1); //+1 as the new block is not added to active chain yet
@@ -474,7 +474,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     std::vector<int> prevheights;
 
     // relative height locked
-    tx.nVersion = 1;
+    tx.nFeatures = 1;
     tx.vin.resize(1);
     prevheights.resize(1);
     tx.vin[0].prevout.hashMalFix = txFirst[0]->GetHashMalFix(); // only 1 transaction

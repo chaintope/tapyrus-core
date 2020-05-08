@@ -3549,10 +3549,6 @@ Note:  Since the fee is calculated on a per-byte basis, a fee of "100 tapyrus pe
         <translation>これは手数料の推定機能が利用できない場合に支払うトランザクション手数料です。</translation>
     </message>
     <message>
-        <source>This product includes software developed by the OpenSSL Project for use in the OpenSSL Toolkit %s and cryptographic software written by Eric Young and UPnP software written by Thomas Bernard.</source>
-        <translation>この製品はOpenSSLプロジェクトにより開発されたソフトウェアをOpenSSLツールキット %s として利用しています &lt;https://www.openssl.org/&gt;。また、Eric Young氏により開発された暗号ソフトウェア、Thomas Bernard氏により書かれたUPnPソフトウェアを用いています。</translation>
-    </message>
-    <message>
         <source>Total length of network version string (%i) exceeds maximum length (%i). Reduce the number or size of uacomments.</source>
         <translation>ネットワークバージョン文字 (%i) の長さが最大の長さ (%i) を超えています。UAコメントの数や長さを削減してください。</translation>
     </message>
@@ -3565,7 +3561,7 @@ Note:  Since the fee is calculated on a per-byte basis, a fee of "100 tapyrus pe
         <translation>サポートされていない引数 -whitelistalwaysrelay は無視されました。-whitelistrelay または -whitelistforcerelay を利用してください</translation>
     </message>
     <message>
-        <source>Warning: Unknown block versions being mined! It's possible unknown rules are in effect</source>
+        <source>Warning: Unknown block features being mined! It's possible unknown rules are in effect</source>
         <translation>警告: 未知のバージョンのブロックが採掘されました。未知のルールが導入された可能性があります</translation>
     </message>
     <message>

@@ -3402,10 +3402,6 @@
         <translation>Toto je transakční poplatek, který se platí, pokud náhodou není k dispozici odhad poplatků.</translation>
     </message>
     <message>
-        <source>This product includes software developed by the OpenSSL Project for use in the OpenSSL Toolkit %s and cryptographic software written by Eric Young and UPnP software written by Thomas Bernard.</source>
-        <translation>Tento produkt zahrnuje programy vyvinuté OpenSSL Projektem pro použití v OpenSSL Toolkitu %s a kryptografický program od Erika Younga a program UPnP od Thomase Bernarda.</translation>
-    </message>
-    <message>
         <source>Total length of network version string (%i) exceeds maximum length (%i). Reduce the number or size of uacomments.</source>
         <translation>Celková délka síťového identifikačního řetězce (%i) překročila svůj horní limit (%i). Omez počet nebo velikost voleb uacomment.</translation>
     </message>
@@ -3418,7 +3414,7 @@
         <translation>Nepodporovaný argument -whitelistalwaysrelay se ignoruje, použij -whitelistrelay a/nebo -whitelistforcerelay.</translation>
     </message>
     <message>
-        <source>Warning: Unknown block versions being mined! It's possible unknown rules are in effect</source>
+        <source>Warning: Unknown block features being mined! It's possible unknown rules are in effect</source>
         <translation>Upozornění: Síť těží neznámé verze bloků! Je možné, že jsou v platnosti neznámá pravidla</translation>
     </message>
     <message>

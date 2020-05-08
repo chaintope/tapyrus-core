@@ -3548,10 +3548,6 @@ Note: Siden gebyret er kalkuleret på en per-byte basis, et gebyr på "100 tapyr
         <translation>Dette er transaktionsgebyret, du kan betale, når gebyrestimeringer ikke er tilgængelige.</translation>
     </message>
     <message>
-        <source>This product includes software developed by the OpenSSL Project for use in the OpenSSL Toolkit %s and cryptographic software written by Eric Young and UPnP software written by Thomas Bernard.</source>
-        <translation>Dette produkt indeholder software, der er udviklet af OpenSSL-projektet for brug i OpenSSL-værktøjskassen %s, samt kryptografisk software, der er skrevet af Eric Young, samt UPnP-software, der er skrevet af Thomas Bernard.</translation>
-    </message>
-    <message>
         <source>Total length of network version string (%i) exceeds maximum length (%i). Reduce the number or size of uacomments.</source>
         <translation>Den totale længde på netværksversionsstrengen (%i) overstiger maksimallængden (%i). Reducér antaller af eller størrelsen på uacomments.</translation>
     </message>
@@ -3564,7 +3560,7 @@ Note: Siden gebyret er kalkuleret på en per-byte basis, et gebyr på "100 tapyr
         <translation>Argument -whitelistalwaysrelay understøttes ikke og ignoreres; brug -whitelistrelay og/eller -whitelistforcerelay.</translation>
     </message>
     <message>
-        <source>Warning: Unknown block versions being mined! It's possible unknown rules are in effect</source>
+        <source>Warning: Unknown block features being mined! It's possible unknown rules are in effect</source>
         <translation>Advarsel: Ukendte blokversioner bliver minet! Det er muligt, at ukendte regler er i brug</translation>
     </message>
     <message>

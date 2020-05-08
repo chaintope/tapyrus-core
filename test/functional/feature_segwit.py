@@ -47,8 +47,8 @@ class SegWitTest(BitcoinTestFramework):
         self.setup_clean_chain = True
         self.num_nodes = 3
         self.extra_args = [["-rpcserialversion=0",  "-addresstype=legacy", "-deprecatedrpc=addwitnessaddress", "-acceptnonstdtxn=1"],
-                           ["-blockversion=1", "-rpcserialversion=1","-addresstype=legacy", "-deprecatedrpc=addwitnessaddress"],
-                           ["-blockversion=1", "-addresstype=legacy", "-deprecatedrpc=addwitnessaddress", "-acceptnonstdtxn=1"]]
+                           ["-blockfeatures=1", "-rpcserialversion=1","-addresstype=legacy", "-deprecatedrpc=addwitnessaddress"],
+                           ["-blockfeatures=1", "-addresstype=legacy", "-deprecatedrpc=addwitnessaddress", "-acceptnonstdtxn=1"]]
 
     def setup_network(self):
         super().setup_network()

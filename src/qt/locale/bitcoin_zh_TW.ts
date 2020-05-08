@@ -3548,10 +3548,6 @@ Note:  Since the fee is calculated on a per-byte basis, a fee of "100 tapyrus pe
         <translation>這是當預估手續費還沒計算出來時，付款交易預設會付的手續費。</translation>
     </message>
     <message>
-        <source>This product includes software developed by the OpenSSL Project for use in the OpenSSL Toolkit %s and cryptographic software written by Eric Young and UPnP software written by Thomas Bernard.</source>
-        <translation>此產品包含了由 OpenSSL Project 所開發的 OpenSSL Toolkit 軟體 %s, 由 Eric Young 撰寫的加解密軟體，以及由 Thomas Bernard 所撰寫的 UPnP 軟體。</translation>
-    </message>
-    <message>
         <source>Total length of network version string (%i) exceeds maximum length (%i). Reduce the number or size of uacomments.</source>
         <translation>網路版本字串的總長度(%i)超過最大長度(%i)了。請減少 uacomment 參數的數目或長度。</translation>
     </message>
@@ -3564,7 +3560,7 @@ Note:  Since the fee is calculated on a per-byte basis, a fee of "100 tapyrus pe
         <translation>忽略不支援的參數 -whitelistalwaysrelay，請改用 -whitelistrelay 和 -whitelistforcerelay​ 的組合。</translation>
     </message>
     <message>
-        <source>Warning: Unknown block versions being mined! It's possible unknown rules are in effect</source>
+        <source>Warning: Unknown block features being mined! It's possible unknown rules are in effect</source>
         <translation>警告: 有礦工正在開採不明版本的區塊！這表示有不明的交易規則正在作用中</translation>
     </message>
     <message>

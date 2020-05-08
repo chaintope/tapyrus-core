@@ -3407,10 +3407,6 @@ Var vänlig och försök igen.</translation>
         <translation>Detta är transaktionsavgiften du kan komma att betala om uppskattad avgift inte finns tillgänglig.</translation>
     </message>
     <message>
-        <source>This product includes software developed by the OpenSSL Project for use in the OpenSSL Toolkit %s and cryptographic software written by Eric Young and UPnP software written by Thomas Bernard.</source>
-        <translation>Denna produkten innehåller mjukvara utvecklad av OpenSSL Project för användning i OpenSSL Toolkit %s och kryptografisk mjukvara utvecklad av Eric Young samt UPnP-mjukvara skriven av Thomas Bernard.</translation>
-    </message>
-    <message>
         <source>Total length of network version string (%i) exceeds maximum length (%i). Reduce the number or size of uacomments.</source>
         <translation>Total längd på strängen för nätverksversion (%i) överskrider maxlängden (%i). Minska numret eller storleken på uacomments.</translation>
     </message>
@@ -3423,7 +3419,7 @@ Var vänlig och försök igen.</translation>
         <translation>Argumentet -whitelistalwaysrelay stöds inte utan ignoreras, använd -whitelistrelay och/eller -whitelistforcerelay.</translation>
     </message>
     <message>
-        <source>Warning: Unknown block versions being mined! It's possible unknown rules are in effect</source>
+        <source>Warning: Unknown block features being mined! It's possible unknown rules are in effect</source>
         <translation>Varning: Okända blockversioner bryts! Det är möjligt att okända regler används</translation>
     </message>
     <message>

@@ -78,8 +78,7 @@ QT_TRANSLATE_NOOP("tapyrus-core", ""
 QT_TRANSLATE_NOOP("tapyrus-core", ""
 "This is the transaction fee you may pay when fee estimates are not available."),
 QT_TRANSLATE_NOOP("tapyrus-core", ""
-"This product includes software developed by the OpenSSL Project for use in "
-"the OpenSSL Toolkit %s and cryptographic software written by Eric Young and "
+"This product includes cryptographic software written by Eric Young and "
 "UPnP software written by Thomas Bernard."),
 QT_TRANSLATE_NOOP("tapyrus-core", ""
 "Total length of network version string (%i) exceeds maximum length (%i). "
@@ -102,7 +101,7 @@ QT_TRANSLATE_NOOP("tapyrus-core", ""
 "Warning: The network does not appear to fully agree! Some miners appear to "
 "be experiencing issues."),
 QT_TRANSLATE_NOOP("tapyrus-core", ""
-"Warning: Unknown block versions being mined! It's possible unknown rules are "
+"Warning: Unknown block features being mined! It's possible unknown rules are "
 "in effect"),
 QT_TRANSLATE_NOOP("tapyrus-core", ""
 "Warning: Wallet file corrupt, data salvaged! Original %s saved as %s in %s; "

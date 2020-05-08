@@ -29,14 +29,14 @@ The genesis block contains the "aggregate public key" of the federation. It is g
 
 
 ## FAQ
-* [How to build tapyrus?](https://github.com/chaintope/tapyrus-core/blob/v0.3.0/doc/tapyrus/getting_started.md#how-to-build-tapyrus)
-* [How to get the pre-built binaries?](https://github.com/chaintope/tapyrus-core/blob/v0.3.0/doc/tapyrus/getting_started.md#how-to-get-the-pre-built-binaries)
-* [How to start tapyrus in dev mode?](https://github.com/chaintope/tapyrus-core/blob/v0.3.0/doc/tapyrus/getting_started.md#how-to-start-tapyrus-in-dev-mode)
-* [How to start a node on tapyrus testnet?](https://github.com/chaintope/tapyrus-core/blob/v0.3.0/doc/tapyrus/getting_started.md#how-to-start-a-node-on-tapyrus-testnet)
-* [How to start a new tapyrus network?](https://github.com/chaintope/tapyrus-core/blob/v0.3.0/doc/tapyrus/getting_started.md#how-to-start-a-new-tapyrus-network)
-* [How to create a genesis block?](https://github.com/chaintope/tapyrus-core/blob/v0.3.0/doc/tapyrus/getting_started.md#how-to-create-a-genesis-block)
-* [How to get coins?](https://github.com/chaintope/tapyrus-core/blob/v0.3.0/doc/tapyrus/getting_started.md#how-to-get-coins)
-* [How to upgrade tapyrus?](https://github.com/chaintope/tapyrus-core/blob/v0.3.0/doc/tapyrus/getting_started.md#how-to-upgrade-tapyrus)
+* [How to build tapyrus?](/doc/tapyrus/getting_started.md#how-to-build-tapyrus)
+* [How to get the pre-built binaries?](/doc/tapyrus/getting_started.md#how-to-get-the-pre-built-binaries)
+* [How to start tapyrus in dev mode?](/doc/tapyrus/getting_started.md#how-to-start-tapyrus-in-dev-mode)
+* [How to start a node on tapyrus testnet?](/doc/tapyrus/getting_started.md#how-to-start-a-node-on-tapyrus-testnet)
+* [How to start a new tapyrus network?](/doc/tapyrus/getting_started.md#how-to-start-a-new-tapyrus-network)
+* [How to create a genesis block?](/doc/tapyrus/getting_started.md#how-to-create-a-genesis-block)
+* [How to get coins?](/doc/tapyrus/getting_started.md#how-to-get-coins)
+* [How to upgrade tapyrus?](/doc/tapyrus/getting_started.md#how-to-upgrade-tapyrus)
 
 
 ## How to build tapyrus? 
@@ -79,7 +79,7 @@ bind=127.0.0.1
 3. Choose an elliptic curve private key and public key pair. These keys would serve as the 'aggregate public key' and 'aggregate private key' in dev mode.
 
 4. Generate a new **signed genesis block** using tapyrus-genesis utility. Aggregate public key and its corresponsing private key are needed as command line options to generate a signed genesis block.
-Read [Create new genesis block using tapyrus-genesis-utility](https://github.com/chaintope/tapyrus-core/blob/v0.3.0/doc/tapyrus/getting_started.md#how-to-create-a-genesis-block)
+Read [Create new genesis block using tapyrus-genesis-utility](/doc/tapyrus/getting_started.md#how-to-create-a-genesis-block)
  section for more details.
 ``` 
 ./tapyrus-genesis -dev -time=1563342688 -address=mmtAurzUTURFq9MSizWyj5sAkWzgqR8PBn -signblockpubkey=03af80b90d25145da28c583359beb47b21796b2fe1a23c1511e443e7a64dfdb27d -signblockprivatekey=cUJN5RVzYWFoeY8rUztd47jzXCu1p57Ay8V7pqCzsBD3PEXN7Dd4
@@ -104,7 +104,7 @@ Block rewards can now be spent to create new transactions and proceed with testi
 ## How to start a node on Tapyrus testnet?
 
 ##### Note:
-> :point_right: If you wish to start a new test network then follow the instructions in [How to start a new tapyrus network?](https://github.com/chaintope/tapyrus-core/blob/v0.3.0/doc/tapyrus/getting_started.md#how-to-start-a-new-tapyrus-network)
+> :point_right: If you wish to start a new test network then follow the instructions in [How to start a new tapyrus network?](/doc/tapyrus/getting_started.md#how-to-start-a-new-tapyrus-network)
 
 
 Tapyrus software does not support a separate "testnet" mode. A new Tapyrus production, "prod" mode network with a different network Id can be created to be used as testnet.
@@ -157,38 +157,48 @@ Verify the progress of initial block download in the new node using debug.log. T
 
 From Tapyrus version 0.4.0 onwards Tapyrus allows setting up new secure federated networks.
 
-## How to start a new tapyrus network?
-
 ##### :heavy_exclamation_mark:Caution
 > As Tapyrus is under active development it is recommended to use the network for testing and not as a commercial production deployment.
 
-A minimum functional tapyrus network needs 3 Tapyrus-signers and 1 Tapyrus-core node.  Following are the steps in launching a new Tapyrus-network:
+A minimum functional tapyrus network needs 3 Tapyrus-signers and 3 Tapyrus-core node for each signer.  Following are the steps in launching a new Tapyrus-network:
 
-1. [Choose a Network Id](https://github.com/chaintope/tapyrus-core/blob/issue/18_getting_started/doc/tapyrus/getting_started.md#1-choose-a-network-id)
-2. [Generate Aggregate public key of Tapyrus-signer network](https://github.com/chaintope/tapyrus-core/blob/issue/18_getting_started/doc/tapyrus/getting_started.md#1-create-a-new-genesis-block-using-tapyrus-genesis-utility)
-3. [Create a new genesis block using Tapyrus-genesis utility](https://github.com/chaintope/tapyrus-core/blob/issue/18_getting_started/doc/tapyrus/getting_started.md#2-start-tapyrus-signer-network)
-4. [Generate genesis block proof using Tapyrus-signer network](https://github.com/chaintope/tapyrus-core/blob/issue/18_getting_started/doc/tapyrus/getting_started.md#3-generate-genesis-block-proof-using-the-signer-network)
-5. [Start Tapyrus-core nodes](https://github.com/chaintope/tapyrus-core/blob/issue/18_getting_started/doc/tapyrus/getting_started.md#5-start-tapyrus-core-nodes)
-6. [Configure Tapyrus DNS seeder](https://github.com/chaintope/tapyrus-core/blob/issue/18_getting_started/doc/tapyrus/getting_started.md#5-configure-tapyrus-dns-seeder)
+1. [Define the federation members of the new Tapyrus network](/doc/tapyrus/getting_started.md#1-define-the-federation-members-of-the-new-tapyrus-network)
+2. [Choose a Network Id](/doc/tapyrus/getting_started.md#2-choose-a-network-id)
+3. [Generate Aggregate public key of Tapyrus-signer network](/doc/tapyrus/getting_started.md#3-generate-aggregate-public-key-of-tapyrus-signer-network)
+4. [Create a new genesis block using Tapyrus-genesis utility](/doc/tapyrus/getting_started.md#4-create-a-new-genesis-block-using-tapyrus-genesis-utility)
+5. [Generate genesis block proof using Tapyrus-signer network](/doc/tapyrus/getting_started.md#5-generate-genesis-block-proof-using-tapyrus-signer-network)
+6. [Start Tapyrus-core nodes](/doc/tapyrus/getting_started.md#6-start-tapyrus-core-nodes)
+7. [Configure Tapyrus DNS seeder](/doc/tapyrus/getting_started.md#7-configure-tapyrus-dns-seeder)
+8. [Start Tapyrus signer nodes](/doc/tapyrus/getting_started.md#8-start-tapyrus-signer-nodes)
 
-### 1. Choose a Network Id
+### 1. Define the federation members of the new Tapyrus network
+
+First, your federation should decide federation members. They are signer of each block and identified by a public key of their own.
+Next you should decide a threshold of agreements to propose block signature. 
+
+There are below restrictions: 
+
+* The federation consists minimum 3 signers. There is no maximum signers restriction, but it is not tested enough in case of more than 5 signers.  
+* The threshold must be more than two third of all signers.
+
+### 2. Choose a Network Id
 Tapyrus network Ids are chosen such that the magic bytes generated from them do not occur in regular network traffic as Tapyrus relies on this to identify messages. The default network Id in production(prod) mode is 1 and development(dev) mode is 1905960821.
 
-### 2. Generate Aggregate public key of Tapyrus-signer network
+### 3. Generate Aggregate public key of Tapyrus-signer network
 
-TODO: Add syntax
+Follow the instructions in [Generate Aggregate public key and Node secret share for Tapyrus-signer network - chaintope/tapyrus-signer](https://github.com/chaintope/tapyrus-signer/blob/master/doc/setup.md#generate-aggregate-public-key-and-Node-secret-share-for-tapyrus-signer-network).
 
-### 3. Create a new genesis block using Tapyrus-genesis utility
+### 4. Create a new genesis block using Tapyrus-genesis utility
 
-Follow the instructions in [Create new genesis block using tapyrus-genesis-utility](https://github.com/chaintope/tapyrus-core/blob/v0.3.0/doc/tapyrus/getting_started.md#how-to-create-a-genesis-block)
+Follow the instructions in [Create new genesis block using tapyrus-genesis-utility](/doc/tapyrus/getting_started.md#how-to-create-a-genesis-block)
 
-### 4. Generate genesis block proof using Tapyrus-signer network
+### 5. Generate genesis block proof using Tapyrus-signer network
 
-Recall that all blocks in Tapyrus are signed by the federation of Tapyrus-signers. In order to sign the genesis block, Tapyrus-signer provides the _'sign'_ RPC. Sign RPC returns the threshold signature.
+Recall that all blocks in Tapyrus are signed by the federation of Tapyrus-signers.
 
-TODO: Add syntax
+Follow the instructions in [Generate genesis block proof - chaintope/tapyrus-signer](https://github.com/chaintope/tapyrus-signer/blob/master/doc/setup.md#generate-genesis-block-proof)
 
-### 5. Start Tapyrus-core nodes
+### 6. Start Tapyrus-core nodes
 
 When the genesis block is ready, staring a Tapyrus-core node is straightforward.
 
@@ -205,7 +215,7 @@ rest=1
 rpcuser=user
 rpcpassword=pass
 rpcbind=0.0.0.0
-rpcallowip=172.16.2.0/24
+rpcallowip=127.0.0.1
 addseeder=seed.tapyrus.n721.chaintope.com
 ```
 ##### Note
@@ -234,7 +244,7 @@ chmod 600 "/Users/${USER}/Library/Application Support/Tapyrus/tapyrus.conf"
 ##### Note
 > :point_right: Please note that in order to run a tapyrus-core node on multiple networks, a sub directory  with the name <mode>-<networkdi> e.g <prod-721> is created for each one inside the configured data directory. There can be multiple genesis files in the data directory, genesis.721. Tapyrus can associate the genesis file with the corresponding network id and directory.
 
-### 6. Configure Tapyrus DNS seeder
+### 7. Configure Tapyrus DNS seeder
 
 Tapyrus seeder is used to crawl a Tapyrus network and maintain a reliable list of nodes in the network for easy lookup. One DNS seeder can be used to service one/multiple Tapyrus networks. Follow the instructions in [Tapyrus Seeder](https://github.com/chaintope/tapyrus-seeder) repository to build dnsseeder.
 
@@ -244,9 +254,14 @@ Start dnsseeder for the Tapyrus network with 'networkid=721' using the following
 
 -s option is used to configure the initial_seed_node, a node to be used as the seed node when dnsseeder is started for the first time on the network. It may be a Tapyrus core node or another dnsseed node. It is optional after the first run.
 
+### 8. Start Tapyrus signer nodes
+
+Each federation member need to keep running tapyrus-signerd process on their environment to produce blocks constantly.
+Referring [How To configure Tapyrus Signer Network](https://github.com/chaintope/tapyrus-signer/blob/master/doc/configuration.md), create configuration file for tapyrus-signerd and run it. 
+
 ## How to create a genesis block?
 
-Tapyrus-genesis utility is packaged with tapyrus v.0.3.0. It can generate a basic unsigned genesis block with block version 1. Time argument gives the block time. Aggregate public key of the Tapyrus-signer network can be given as an argument. Address is the tapyrus-address to which the block reward is paid. The output of this command is a block hex. Copy this into a file named 'genesis.<networkid>'
+Tapyrus-genesis utility is packaged with tapyrus v.0.3.0. It can generate a basic unsigned genesis block. Time argument gives the block time. Aggregate public key of the Tapyrus-signer network can be given as an argument. Address is the tapyrus-address to which the block reward is paid. The output of this command is a block hex. Copy this into a file named 'genesis.<networkid>'
 
 Example:
 ``` 
