@@ -98,6 +98,15 @@ const char* ScriptErrorString(const ScriptError serror)
             return "Using OP_CODESEPARATOR in non-witness script";
         case SCRIPT_ERR_SIG_FINDANDDELETE:
             return "Signature is found in scriptCode";
+        case SCRIPT_ERR_OP_COLOR:
+            return "Unexpected OP_COLOR in script";
+        case SCRIPT_ERR_OP_COLORID:
+            return "Invalid ColorId in script";
+        case SCRIPT_ERR_OP_COLORMULTIPLE:
+            return "Multiple OP_COLOR found in script";
+        case SCRIPT_ERR_OP_COLORINBRANCH:
+            return "OP_COLOR is not permitted in a script branch";
+
         case SCRIPT_ERR_UNKNOWN_ERROR:
         case SCRIPT_ERR_ERROR_COUNT:
         default: break;

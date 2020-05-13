@@ -311,7 +311,7 @@ int FindAndDelete(CScript& script, const CScript& b)
     return nFound;
 }
 
-bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& script, unsigned int flags, const BaseSignatureChecker& checker, SigVersion sigversion, ScriptError* serror)
+bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& script, unsigned int flags, const BaseSignatureChecker& checker, SigVersion sigversion, ColorIdentifier *colorId,  ScriptError* serror)
 {
     static const CScriptNum bnZero(0);
     static const CScriptNum bnOne(1);
@@ -1146,6 +1146,50 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                 }
                 break;
 
+                case OP_COLOR:
+                {
+                    //colorId is not permitted in p2sh redeem script
+                    if(!colorId)
+                        return set_error(serror, SCRIPT_ERR_OP_COLOR);
+
+                    //if colorId is already initialized this must be be an extra
+                    if(colorId && colorId->type != TokenTypes::NONE)
+                        return set_error(serror, SCRIPT_ERR_OP_COLORMULTIPLE);
+
+                    //colorId is not allowed inside OP_IF
+                    if (!vfExec.empty())
+                        return set_error(serror, SCRIPT_ERR_OP_COLORINBRANCH);
+
+                    //pop one stack element and verify that it exists
+                    if (stack.size() < 1)
+                        return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+
+                    const TokenTypes vchColorIdType = (TokenTypes)stacktop(-1)[0];
+                    valtype vchColorIdPayload(stacktop(-1).begin() + 1, stacktop(-1).end() - 1);
+
+                    //check colorIdentifier TYPE. It should be between TokenTypes::NONE and TokenTypes::TOKENTYPE_MAX
+                    if(vchColorIdType <= TokenTypes::NONE || vchColorIdType > TokenTypes::TOKENTYPE_MAX)
+                        return set_error(serror, SCRIPT_ERR_OP_COLORID);
+
+                    //COLOR identifier consists of one byte of TYPE and 32 or 36 bytes of PAYLOAD.
+                    if(vchColorIdPayload.size() == 32 && vchColorIdType == TokenTypes::REISSUABLE)
+                    {
+                        colorId->type = vchColorIdType;
+                        std::copy(vchColorIdPayload.begin(), vchColorIdPayload.end(), colorId->payload.scripthash);
+                    }
+                    else if(vchColorIdPayload.size() == 36 && (vchColorIdType == TokenTypes::NON_REISSUABLE || vchColorIdType == TokenTypes::NFT))
+                    {
+                        colorId->type = (TokenTypes)vchColorIdType;
+                        colorId->payload.utxo.hashMalFix = uint256(vchColorIdPayload);
+                        colorId->payload.utxo.n = uint32_t(vchColorIdPayload[33]);
+                    }
+                    else
+                        return set_error(serror, SCRIPT_ERR_OP_COLORID);
+
+                    popstack(stack);
+                }
+                break;
+
                 default:
                     return set_error(serror, SCRIPT_ERR_BAD_OPCODE);
             }
@@ -1546,7 +1590,7 @@ static bool VerifyWitnessProgram(const CScriptWitness& witness, int witversion, 
             return set_error(serror, SCRIPT_ERR_PUSH_SIZE);
     }
 
-    if (!EvalScript(stack, scriptPubKey, flags, checker, SigVersion::WITNESS_V0, serror)) {
+    if (!EvalScript(stack, scriptPubKey, flags, checker, SigVersion::WITNESS_V0, nullptr, serror)) {
         return false;
     }
 
@@ -1573,11 +1617,12 @@ bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, const C
     }
 
     std::vector<std::vector<unsigned char> > stack, stackCopy;
-    if (!EvalScript(stack, scriptSig, flags, checker, SigVersion::BASE, serror))
+    ColorIdentifier colorId(TokenTypes::NONE);
+    if (!EvalScript(stack, scriptSig, flags, checker, SigVersion::BASE, &colorId, serror))
         // serror is set
         return false;
     stackCopy = stack;
-    if (!EvalScript(stack, scriptPubKey, flags, checker, SigVersion::BASE, serror))
+    if (!EvalScript(stack, scriptPubKey, flags, checker, SigVersion::BASE, &colorId, serror))
         // serror is set
         return false;
     if (stack.empty())
@@ -1624,7 +1669,7 @@ bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, const C
         CScript pubKey2(pubKeySerialized.begin(), pubKeySerialized.end());
         popstack(stack);
 
-        if (!EvalScript(stack, pubKey2, flags, checker, SigVersion::BASE, serror))
+        if (!EvalScript(stack, pubKey2, flags, checker, SigVersion::BASE, nullptr, serror))
             // serror is set
             return false;
         if (stack.empty())
@@ -1649,6 +1694,11 @@ bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, const C
             // for witness programs.
             stack.resize(1);
         }
+    }
+
+    if(colorId.type != TokenTypes::NONE)
+    {
+        //verify that the coin is valid
     }
 
     // The CLEANSTACK check is only performed after potential P2SH evaluation,
