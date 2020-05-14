@@ -14,7 +14,7 @@
 #include <memusage.h>
 #include <serialize.h>
 #include <uint256.h>
-#include <colorIdentifier.h>
+#include <coloridentifier.h>
 
 #include <assert.h>
 #include <stdint.h>

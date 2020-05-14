@@ -10,7 +10,7 @@
 #include <script/script_error.h>
 #include <primitives/transaction.h>
 #include <consensus/consensus.h>
-#include <colorIdentifier.h>
+#include <coloridentifier.h>
 
 #include <vector>
 #include <stdint.h>

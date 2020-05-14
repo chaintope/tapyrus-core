@@ -63,7 +63,7 @@ struct ColorIdentifier
 
     ColorIdentifier(CScript& input):type(TokenTypes::REISSUABLE)
     {
-        const std::vector<const unsigned char> scriptVector(input.begin(), input.end());
+        std::vector<unsigned char> scriptVector(input.begin(), input.end());
         CSHA256().Write(scriptVector.data(), scriptVector.size()).Finalize(payload.scripthash);
     }
 

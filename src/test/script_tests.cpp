@@ -16,7 +16,7 @@
 #include <test/test_tapyrus.h>
 #include <util.h>
 #include <utilstrencodings.h>
-#include <colorIdentifier.h>
+#include <coloridentifier.h>
 
 #if defined(HAVE_CONSENSUS_LIB)
 #include <script/tapyrusconsensus.h>
