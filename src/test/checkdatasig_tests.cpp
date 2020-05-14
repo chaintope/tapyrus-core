@@ -60,7 +60,8 @@ static void CheckError(uint32_t flags, const stacktype &original_stack,
     MutableTransactionSignatureChecker checker(&txCredit, 0, 0);
 
     stacktype stack{original_stack};
-    bool r = EvalScript(stack, script, flags, checker, SigVersion::BASE, &err);
+    ColorIdentifier colorId(TokenTypes::NONE);
+    bool r = EvalScript(stack, script, flags, checker, SigVersion::BASE, &colorId, &err);
     BOOST_CHECK(!r);
     BOOST_CHECK_EQUAL(err, expected);
 }
@@ -82,7 +83,8 @@ static void CheckPass(uint32_t flags, const stacktype &original_stack,
     MutableTransactionSignatureChecker checker(&txCredit, 0, 0);
 
     stacktype stack{original_stack};
-    bool r = EvalScript(stack, script, flags, checker, SigVersion::BASE, &err);
+    ColorIdentifier colorId(TokenTypes::NONE);
+    bool r = EvalScript(stack, script, flags, checker, SigVersion::BASE, &colorId, &err);
     BOOST_CHECK(r);
     BOOST_CHECK_EQUAL(err, SCRIPT_ERR_OK);
     BOOST_CHECK(stack == expected);

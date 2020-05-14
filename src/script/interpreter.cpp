@@ -1150,7 +1150,7 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                 {
                     //colorId is not permitted in p2sh redeem script
                     if(!colorId)
-                        return set_error(serror, SCRIPT_ERR_OP_COLOR);
+                        return set_error(serror, SCRIPT_ERR_OP_COLOR_UNEXPECTED);
 
                     //if colorId is already initialized this must be be an extra
                     if(colorId && colorId->type != TokenTypes::NONE)
@@ -1164,29 +1164,23 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                     if (stack.size() < 1)
                         return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
 
-                    const TokenTypes vchColorIdType = (TokenTypes)stacktop(-1)[0];
-                    valtype vchColorIdPayload(stacktop(-1).begin() + 1, stacktop(-1).end() - 1);
+                    valtype& vchColorid(stacktop(-1));
+                    CDataStream ss(vchColorid, SER_NETWORK, PROTOCOL_VERSION);
+                    ss >> *colorId;
 
                     //check colorIdentifier TYPE. It should be between TokenTypes::NONE and TokenTypes::TOKENTYPE_MAX
-                    if(vchColorIdType <= TokenTypes::NONE || vchColorIdType > TokenTypes::TOKENTYPE_MAX)
-                        return set_error(serror, SCRIPT_ERR_OP_COLORID);
+                    if(colorId->type <= TokenTypes::NONE || colorId->type > TokenTypes::TOKENTYPE_MAX)
+                        return set_error(serror, SCRIPT_ERR_OP_COLORID_INVALID);
 
                     //COLOR identifier consists of one byte of TYPE and 32 or 36 bytes of PAYLOAD.
-                    if(vchColorIdPayload.size() == 32 && vchColorIdType == TokenTypes::REISSUABLE)
+                    if((stacktop(-1).size() == 33 && colorId->type == TokenTypes::REISSUABLE)
+                     ||(stacktop(-1).size() == 37 
+                            && (colorId->type == TokenTypes::NON_REISSUABLE || colorId->type == TokenTypes::NFT)))
                     {
-                        colorId->type = vchColorIdType;
-                        std::copy(vchColorIdPayload.begin(), vchColorIdPayload.end(), colorId->payload.scripthash);
-                    }
-                    else if(vchColorIdPayload.size() == 36 && (vchColorIdType == TokenTypes::NON_REISSUABLE || vchColorIdType == TokenTypes::NFT))
-                    {
-                        colorId->type = (TokenTypes)vchColorIdType;
-                        colorId->payload.utxo.hashMalFix = uint256(vchColorIdPayload);
-                        colorId->payload.utxo.n = uint32_t(vchColorIdPayload[33]);
+                        popstack(stack);
                     }
                     else
-                        return set_error(serror, SCRIPT_ERR_OP_COLORID);
-
-                    popstack(stack);
+                        return set_error(serror, SCRIPT_ERR_OP_COLORID_INVALID);
                 }
                 break;
 
