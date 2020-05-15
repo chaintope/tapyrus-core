@@ -202,6 +202,14 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::v
             colorId.assign(scriptPubKey.begin()+1, scriptPubKey.begin()+38);
         }
         vSolutionsRet.push_back(hashBytes);
+
+        TokenTypes type = UintToToken(*(scriptPubKey.begin() + 1));
+        std::vector<unsigned char> colorId;
+        if(type == TokenTypes::REISSUABLE)
+            colorId.assign(scriptPubKey.begin()+1, scriptPubKey.begin()+34);
+        else
+            colorId.assign(scriptPubKey.begin()+1, scriptPubKey.begin()+38);
+
         vSolutionsRet.push_back(colorId);
         return true;
     }
