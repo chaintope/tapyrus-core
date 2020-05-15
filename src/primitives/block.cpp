@@ -78,3 +78,11 @@ bool CBlockHeader::AbsorbBlockProof(const std::vector<unsigned char>& blockproof
     return true;
 
 }
+
+ uint64_t CBlock::GetHeight() const
+ {
+    const CTransaction *coinbase(vtx[0].get());
+    if(coinbase->IsCoinBase() && coinbase->vin.size())
+        return coinbase->vin[0].prevout.n;
+    return 0;
+ }
