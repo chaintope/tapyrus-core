@@ -84,7 +84,7 @@ static bool MatchColoredPayToPubkeyHash(const CScript& script, valtype& pubkeyha
     // <COLOR identifier> : TYPE = 2/3 and 36 PAYLOAD
     else if (script.size() == 63 && script[0] ==0x25 && (script[1] == 0x02 || script[1] == 0x03) && script[38] == OP_DUP && script[39] == OP_HASH160 && script[40] == 20 && script[61] == OP_EQUALVERIFY && script[62] == OP_CHECKSIG)
     {
-        pubkeyhash = valtype(script.begin() + 42, script.begin() + 61);
+        pubkeyhash = valtype(script.begin() + 41, script.begin() + 61);
         colorid = valtype(script.begin() + 1, script.begin() + 38);
         return true;
     }
