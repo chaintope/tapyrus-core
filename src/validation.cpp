@@ -2244,7 +2244,7 @@ bool CChainState::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, co
         // if the block was added successfully and it is a federation block,
         // make sure that the aggregatepubkey from this block is added to CFederationParams
         if(blockConnecting.xfieldType == 1 && blockConnecting.xfield.size() == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE && (CPubKey(blockConnecting.xfield.begin(), blockConnecting.xfield.end()) != FederationParams().GetLatestAggregatePubkey()))
-            FederationParams().ReadAggregatePubkey(blockConnecting.xfield, blockConnecting.vtx[0]->vin[0].prevout.n+1);
+            FederationParams().ReadAggregatePubkey(blockConnecting.xfield, blockConnecting.GetHeight() + 1);
 
         nTime3 = GetTimeMicros(); nTimeConnectTotal += nTime3 - nTime2;
         LogPrint(BCLog::BENCH, "  - Connect total: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime3 - nTime2) * MILLI, nTimeConnectTotal * MICRO, nTimeConnectTotal * MILLI / nBlocksTotal);
@@ -2966,7 +2966,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
 
     // Check that the header is valid (particularly PoW).  This is mostly
     // redundant with the call in AcceptBlockHeader.
-    uint height = block.vtx[0]->vin[0].prevout.n;
+    uint height = block.GetHeight();
 
     if (!CheckBlockHeader(block, state, height, fCheckPOW))
         return false;
@@ -4107,7 +4107,7 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp)
                       }
                      // if it is a federation block, load its aggregatepubkey into CFederationParams
                     if(pblock->xfieldType == 1 && pblock->xfield.size() == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE && (CPubKey(pblock->xfield.begin(), pblock->xfield.end()) != FederationParams().GetLatestAggregatePubkey()))
-                        FederationParams().ReadAggregatePubkey(pblock->xfield, pblock->vtx[0]->vin[0].prevout.n+1);
+                        FederationParams().ReadAggregatePubkey(pblock->xfield, pblock->GetHeight() + 1);
 
                       if (state.IsError()) {
                           break;
@@ -4138,7 +4138,7 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp)
                         std::multimap<uint256, CDiskBlockPos>::iterator it = range.first;
                         std::shared_ptr<CBlock> pblockrecursive = std::make_shared<CBlock>();
 
-                        if (ReadBlockFromDisk(*pblockrecursive, it->second, pblockrecursive->vtx[0]->vin[0].prevout.n))
+                        if (ReadBlockFromDisk(*pblockrecursive, it->second, pblockrecursive->GetHeight()))
                         {
                             LogPrint(BCLog::REINDEX, "%s: Processing out of order child %s of %s\n", __func__, pblockrecursive->GetHash().ToString(),
                                     head.ToString());
@@ -4535,12 +4535,13 @@ bool isBlockHeightInCoinbase(const CBlock& block)
     if(pindex->nHeight == 0)
         return true;
 
+    uint64_t blockHeight = block.GetHeight();
 
-    if(block.GetHash() == pindex->GetBlockHash() && block.vtx[0]->vin[0].prevout.n != (uint32_t)pindex->nHeight)
+    if(block.GetHash() == pindex->GetBlockHash() && blockHeight != (uint32_t)pindex->nHeight)
         return false;
-    else if(block.GetBlockHeader().hashPrevBlock == pindex->GetBlockHash() && block.vtx[0]->vin[0].prevout.n != (uint32_t)pindex->nHeight + 1)
+    else if(block.GetBlockHeader().hashPrevBlock == pindex->GetBlockHash() && blockHeight != (uint32_t)pindex->nHeight + 1)
         return false;
-    else if(pindex->GetBlockHeader().hashPrevBlock == block.GetHash() && block.vtx[0]->vin[0].prevout.n != (uint32_t)pindex->nHeight - 1)
+    else if(pindex->GetBlockHeader().hashPrevBlock == block.GetHash() && blockHeight != (uint32_t)pindex->nHeight - 1)
         return false;
 
     else // if the two blocks are unrelated, we assume the block height is valid.

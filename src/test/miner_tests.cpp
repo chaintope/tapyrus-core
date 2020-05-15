@@ -153,7 +153,7 @@ static void CreateBlocks(const CChainParams &chainparams,
     LOCK(::mempool.cs);
 
     // Just to make sure we can still make simple blocks
-    BOOST_CHECK_EQUAL(pblocktemplate->block.vtx[0]->vin[0].prevout.n, chainActive.Height());
+    BOOST_CHECK_EQUAL(pblocktemplate->block.GetHeight(), chainActive.Height());
     BOOST_CHECK(pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey));
 
     std::vector<unsigned char> blockProof;
@@ -161,7 +161,7 @@ static void CreateBlocks(const CChainParams &chainparams,
     pblocktemplate->block.AbsorbBlockProof(blockProof, FederationParams().GetLatestAggregatePubkey());
     BOOST_CHECK_EQUAL(pblocktemplate->block.proof.size(), CPubKey::SCHNORR_SIGNATURE_SIZE);
 
-    BOOST_CHECK_EQUAL(pblocktemplate->block.vtx[0]->vin[0].prevout.n, chainActive.Height()+1); //+1 as the new block is not added to active chain yet
+    BOOST_CHECK_EQUAL(pblocktemplate->block.GetHeight(), chainActive.Height()+1); //+1 as the new block is not added to active chain yet
 }
 
 // Test suite for ancestor feerate transaction selection.
@@ -319,7 +319,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     }
 
     BOOST_CHECK_EXCEPTION(AssemblerForTest(Params()).CreateNewBlock(scriptPubKey), std::runtime_error, HasReason("bad-blk-sigops"));
-    BOOST_CHECK_EQUAL(pblocktemplate->block.vtx[0]->vin[0].prevout.n, chainActive.Height()+1);
+    BOOST_CHECK_EQUAL(pblocktemplate->block.GetHeight(), chainActive.Height()+1);
     mempool.clear();
 
     tx.vin[0].prevout.hashMalFix = txFirst[0]->GetHashMalFix();
@@ -334,7 +334,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
         tx.vin[0].prevout.hashMalFix = hash;
     }
     BOOST_CHECK(pblocktemplate = AssemblerForTest(Params()).CreateNewBlock(scriptPubKey));
-    BOOST_CHECK_EQUAL(pblocktemplate->block.vtx[0]->vin[0].prevout.n, chainActive.Height()+1);
+    BOOST_CHECK_EQUAL(pblocktemplate->block.GetHeight(), chainActive.Height()+1);
     mempool.clear();
 
     // block size > limit
@@ -355,7 +355,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
         tx.vin[0].prevout.hashMalFix = hash;
     }
     BOOST_CHECK(pblocktemplate = AssemblerForTest(Params()).CreateNewBlock(scriptPubKey));
-    BOOST_CHECK_EQUAL(pblocktemplate->block.vtx[0]->vin[0].prevout.n, chainActive.Height()+1);
+    BOOST_CHECK_EQUAL(pblocktemplate->block.GetHeight(), chainActive.Height()+1);
     mempool.clear();
 
     // orphan in mempool, template creation fails
@@ -379,7 +379,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     hash = tx.GetHashMalFix();
     mempool.addUnchecked(hash, entry.Fee(HIGHERFEE).Time(GetTime()).SpendsCoinbase(true).FromTx(tx));
     BOOST_CHECK(pblocktemplate = AssemblerForTest(Params()).CreateNewBlock(scriptPubKey));
-    BOOST_CHECK_EQUAL(pblocktemplate->block.vtx[0]->vin[0].prevout.n, chainActive.Height()+1);
+    BOOST_CHECK_EQUAL(pblocktemplate->block.GetHeight(), chainActive.Height()+1);
     mempool.clear();
 
     // coinbase in mempool, template creation fails
@@ -392,7 +392,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     mempool.addUnchecked(hash, entry.Fee(LOWFEE).Time(GetTime()).SpendsCoinbase(false).FromTx(tx));
     // Should throw bad-cb-multiple
     BOOST_CHECK_EXCEPTION(AssemblerForTest(Params()).CreateNewBlock(scriptPubKey), std::runtime_error, HasReason("bad-cb-multiple"));
-    BOOST_CHECK_EQUAL(pblocktemplate->block.vtx[0]->vin[0].prevout.n, chainActive.Height()+1);
+    BOOST_CHECK_EQUAL(pblocktemplate->block.GetHeight(), chainActive.Height()+1);
     mempool.clear();
 
     // double spend txn pair in mempool, template creation fails
@@ -406,7 +406,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     hash = tx.GetHashMalFix();
     mempool.addUnchecked(hash, entry.Fee(HIGHFEE).Time(GetTime()).SpendsCoinbase(true).FromTx(tx));
     BOOST_CHECK_EXCEPTION(AssemblerForTest(Params()).CreateNewBlock(scriptPubKey), std::runtime_error, HasReason("bad-txns-inputs-missingorspent"));
-    BOOST_CHECK_EQUAL(pblocktemplate->block.vtx[0]->vin[0].prevout.n, chainActive.Height()+1);
+    BOOST_CHECK_EQUAL(pblocktemplate->block.GetHeight(), chainActive.Height()+1);
     mempool.clear();
 
     // subsidy changing
@@ -423,7 +423,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
         chainActive.SetTip(next);
     }
     BOOST_CHECK(pblocktemplate = AssemblerForTest(Params()).CreateNewBlock(scriptPubKey));
-    BOOST_CHECK_EQUAL(pblocktemplate->block.vtx[0]->vin[0].prevout.n, chainActive.Height()+1);
+    BOOST_CHECK_EQUAL(pblocktemplate->block.GetHeight(), chainActive.Height()+1);
 
     // Extend to a 210000-long block chain.
     while (chainActive.Tip()->nHeight < 210000) {
@@ -437,7 +437,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
         chainActive.SetTip(next);
     }
     BOOST_CHECK(pblocktemplate = AssemblerForTest(Params()).CreateNewBlock(scriptPubKey));
-    BOOST_CHECK_EQUAL(pblocktemplate->block.vtx[0]->vin[0].prevout.n, chainActive.Height()+1);
+    BOOST_CHECK_EQUAL(pblocktemplate->block.GetHeight(), chainActive.Height()+1);
 
     // invalid p2sh txn in mempool, template creation fails
     tx.vin[0].prevout.hashMalFix = txFirst[0]->GetHashMalFix();
@@ -455,7 +455,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     mempool.addUnchecked(hash, entry.Fee(LOWFEE).Time(GetTime()).SpendsCoinbase(false).FromTx(tx));
     // Should throw block-validation-failed
     BOOST_CHECK_EXCEPTION(AssemblerForTest(Params()).CreateNewBlock(scriptPubKey), std::runtime_error, HasReason("block-validation-failed"));
-    BOOST_CHECK_EQUAL(pblocktemplate->block.vtx[0]->vin[0].prevout.n, chainActive.Height()+1);
+    BOOST_CHECK_EQUAL(pblocktemplate->block.GetHeight(), chainActive.Height()+1);
     mempool.clear();
 
     // Delete the dummy blocks again.
@@ -558,7 +558,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     SetMockTime(chainActive.Tip()->GetMedianTimePast() + 1);
 
     BOOST_CHECK(pblocktemplate = AssemblerForTest(Params()).CreateNewBlock(scriptPubKey));
-    BOOST_CHECK_EQUAL(pblocktemplate->block.vtx[0]->vin[0].prevout.n, chainActive.Height()+2); //+2 because of height increment above
+    BOOST_CHECK_EQUAL(pblocktemplate->block.GetHeight(), chainActive.Height()+2); //+2 because of height increment above
     BOOST_CHECK_EQUAL(pblocktemplate->block.vtx.size(), 5U);
 
     chainActive.Tip()->nHeight--;
