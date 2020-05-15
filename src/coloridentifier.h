@@ -1,8 +1,8 @@
 // Copyright (c) 2020 Chaintope Inc.
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
-#ifndef BITCOIN_COLOR_IDENTIFIER_H
-#define BITCOIN_COLOR_IDENTIFIER_H
+#ifndef TAPYRUS_COLORIDENTIFIER_H
+#define TAPYRUS_COLORIDENTIFIER_H
 
 #include <crypto/sha256.h>
 #include <streams.h>
@@ -97,4 +97,4 @@ struct ColorIdentifier
     }
 
 };
-#endif //BITCOIN_COLOR_IDENTIFIER_H
+#endif //TAPYRUS_COLORIDENTIFIER_H
