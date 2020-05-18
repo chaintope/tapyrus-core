@@ -1460,6 +1460,8 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                     // super-majority signaling has occurred.
                     return state.DoS(100,false, REJECT_INVALID, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(check.GetScriptError())));
                 }
+                //check whether the color id of coin
+                //and color id from script match.
             }
 
             if (cacheFullScriptStore && !pvChecks) {

@@ -99,6 +99,7 @@ IsMineResult IsMineInner(const CKeyStore& keystore, const CScript& scriptPubKey,
     }
 #endif
     case TX_PUBKEYHASH:
+    case TX_COLOR_PUBKEYHASH:
         keyID = CKeyID(uint160(vSolutions[0]));
         if (!PermitsUncompressed(sigversion)) {
             CPubKey pubkey;
@@ -111,6 +112,7 @@ IsMineResult IsMineInner(const CKeyStore& keystore, const CScript& scriptPubKey,
         }
         break;
     case TX_SCRIPTHASH:
+    case TX_COLOR_SCRIPTHASH:
     {
         if (sigversion != IsMineSigVersion::TOP) {
             // P2SH inside P2WSH or P2SH is invalid.

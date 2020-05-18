@@ -39,3 +39,4 @@ Tapyrus adds the following OP_codes in addition to those available in bitcoin. T
 | :---: | :---: | :---: | :---: |
 |OP_CHECKDATASIG| 0xba |  Public Key, Message, Signature | Used to add a signed message and signature to script that be publicly verified.|
 |OP_CHECKDATASIGVERIFY| 0xbb | Public Key, Message, Signature | Used to add a signed message and signature to script that be publicly verified.|
+|OP_COLOR| 0xbc | color identifier | Used to represent tokens other than TPC that are on the blockchain.|

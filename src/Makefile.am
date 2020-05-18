@@ -535,6 +535,7 @@ tapyrus_genesis_LDADD += $(BOOST_LIBS) $(BDB_LIBS)
 # tapyrusconsensus library #
 if BUILD_BITCOIN_LIBS
 include_HEADERS = script/tapyrusconsensus.h
+include_HEADERS += coloridentifier.h
 libtapyrusconsensus_la_SOURCES = $(crypto_libtapyrus_crypto_base_a_SOURCES) $(libtapyrus_consensus_a_SOURCES)
 
 if GLIBC_BACK_COMPAT

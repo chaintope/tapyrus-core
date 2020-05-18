@@ -38,6 +38,8 @@ const char* GetTxnOutputType(txnouttype t)
     case TX_MULTISIG: return "multisig";
     case TX_NULL_DATA: return "nulldata";
     case TX_CUSTOM: return "custom";
+    case TX_COLOR_PUBKEYHASH: return "coloredpubkeyhash";
+    case TX_COLOR_SCRIPTHASH: return "coloredscripthash";
 #ifdef DEBUG
     case TX_WITNESS_V0_KEYHASH: return "witness_v0_keyhash";
     case TX_WITNESS_V0_SCRIPTHASH: return "witness_v0_scripthash";
@@ -64,6 +66,26 @@ static bool MatchPayToPubkeyHash(const CScript& script, valtype& pubkeyhash)
 {
     if (script.size() == 25 && script[0] == OP_DUP && script[1] == OP_HASH160 && script[2] == 20 && script[23] == OP_EQUALVERIFY && script[24] == OP_CHECKSIG) {
         pubkeyhash = valtype(script.begin () + 3, script.begin() + 23);
+        return true;
+    }
+    return false;
+}
+
+static bool MatchColoredPayToPubkeyHash(const CScript& script, valtype& pubkeyhash, valtype& colorid)
+{
+    //<COLOR identifier> OP_COLOR OP_DUP OP_HASH160 <H(pubkey)> OP_EQUALVERIFY OP_CHECKSIG
+    // <COLOR identifier> : TYPE = 1 and 32 PAYLOAD
+    if (script.size() == 59 && script[0] ==0x21 && script[1] == 0x01 && script[34] == OP_DUP && script[35] == OP_HASH160 && script[36] == 20 && script[57] == OP_EQUALVERIFY && script[58] == OP_CHECKSIG)
+    {
+        pubkeyhash = valtype(script.begin() + 37, script.begin() + 57);
+        colorid = valtype(script.begin() + 1, script.begin() + 34);
+        return true;
+    }
+    // <COLOR identifier> : TYPE = 2/3 and 36 PAYLOAD
+    else if (script.size() == 63 && script[0] ==0x25 && (script[1] == 0x02 || script[1] == 0x03) && script[38] == OP_DUP && script[39] == OP_HASH160 && script[40] == 20 && script[61] == OP_EQUALVERIFY && script[62] == OP_CHECKSIG)
+    {
+        pubkeyhash = valtype(script.begin() + 41, script.begin() + 61);
+        colorid = valtype(script.begin() + 1, script.begin() + 38);
         return true;
     }
     return false;
@@ -162,6 +184,28 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::v
         return true;
     }
 
+    if (scriptPubKey.IsColoredPayToScriptHash())
+    {
+        typeRet = TX_COLOR_SCRIPTHASH;
+        std::vector<unsigned char> hashBytes;
+        std::vector<unsigned char> colorId;
+
+        TokenTypes type = UintToToken(*(scriptPubKey.begin() + 1));
+        if(type == TokenTypes::REISSUABLE)
+        {
+            hashBytes.assign(scriptPubKey.begin()+36, scriptPubKey.begin()+55);
+            colorId.assign(scriptPubKey.begin()+1, scriptPubKey.begin()+34);
+        }
+        else
+        {
+            hashBytes.assign(scriptPubKey.begin()+40, scriptPubKey.begin()+59);
+            colorId.assign(scriptPubKey.begin()+1, scriptPubKey.begin()+38);
+        }
+        vSolutionsRet.push_back(hashBytes);
+        vSolutionsRet.push_back(colorId);
+        return true;
+    }
+
     int witnessversion;
     std::vector<unsigned char> witnessprogram;
     if (scriptPubKey.IsWitnessProgram(witnessversion, witnessprogram)) {
@@ -189,6 +233,14 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::v
     if (MatchPayToPubkeyHash(scriptPubKey, data)) {
         typeRet = TX_PUBKEYHASH;
         vSolutionsRet.push_back(std::move(data));
+        return true;
+    }
+
+    std::vector<unsigned char> colorId;
+    if (MatchColoredPayToPubkeyHash(scriptPubKey, data, colorId)) {
+        typeRet = TX_COLOR_PUBKEYHASH;
+        vSolutionsRet.push_back(std::move(data));
+        vSolutionsRet.push_back(std::move(colorId));
         return true;
     }
 
@@ -229,16 +281,18 @@ bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet)
         addressRet = pubKey.GetID();
         return true;
     }
-    else if (whichType == TX_PUBKEYHASH)
+    else if (whichType == TX_PUBKEYHASH
+          || whichType == TX_COLOR_PUBKEYHASH)
     {
         addressRet = CKeyID(uint160(vSolutions[0]));
         return true;
     }
-    else if (whichType == TX_SCRIPTHASH)
+    else if (whichType == TX_SCRIPTHASH
+          || whichType == TX_COLOR_SCRIPTHASH)
     {
         addressRet = CScriptID(uint160(vSolutions[0]));
         return true;
-    } 
+    }
 #ifdef DEBUG
     else if (whichType == TX_WITNESS_V0_KEYHASH) {
         WitnessV0KeyHash hash;

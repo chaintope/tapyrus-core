@@ -185,12 +185,13 @@ enum opcodetype
     // More crypto
     OP_CHECKDATASIG = 0xba,
     OP_CHECKDATASIGVERIFY = 0xbb,
+    OP_COLOR = 0xbc,
 
     OP_INVALIDOPCODE = 0xff,
 };
 
 // Maximum value that an opcode can be
-static const unsigned int MAX_OPCODE = OP_CHECKDATASIGVERIFY;
+static const unsigned int MAX_OPCODE = OP_COLOR;
 
 const char* GetOpName(opcodetype opcode);
 
@@ -538,6 +539,9 @@ public:
     bool IsPayToScriptHash() const;
     bool IsPayToWitnessScriptHash() const;
     bool IsWitnessProgram(int& version, std::vector<unsigned char>& program) const;
+
+    bool IsColoredScript() const;
+    bool IsColoredPayToScriptHash() const;
 
     /** Called by IsStandardTx and P2SH/BIP62 VerifyScript (which makes it consensus-critical). */
     bool IsPushOnly(const_iterator pc) const;
