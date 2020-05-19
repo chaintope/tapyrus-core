@@ -306,6 +306,19 @@ public:
     std::unique_ptr<CWallet> wallet;
 };
 
+BOOST_AUTO_TEST_CASE(getTokenBalance)
+{
+    std::unique_ptr<CWallet> wallet;
+
+    wallet = MakeUnique<CWallet>("mock", WalletDatabase::CreateMock());
+
+    // //create a colorId Transaction
+    // BOOST_CHECK(wallet->CreateTransaction({recipient}, tx, reservekey, fee, changePos, error, dummy));
+
+    // // Check token balance for the colorId.
+    // BOOST_CHECK_EQUAL(300 * COIN, wallet->GetAvailableBalance());
+}
+
 BOOST_FIXTURE_TEST_CASE(ListCoins, ListCoinsTestingSetup)
 {
     std::string coinbaseAddress = coinbaseKey.GetPubKey().GetID().ToString();
