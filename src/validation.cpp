@@ -559,6 +559,60 @@ static bool CheckInputsFromMempoolAndCache(const CTransaction& tx, CValidationSt
     return CheckInputs(tx, state, view, true, flags, cacheSigStore, true, txdata);
 }
 
+bool CheckColorIdentifierValidity(const CTransaction& tx, CValidationState& state, CCoinsViewCache &inputs, bool isTokenTx)
+{
+    std::vector<std::vector<unsigned char> > vSolutions;
+    txnouttype whichType;
+    for(auto txout:tx.vout)
+    {
+        //identify the scriptPubkey type and get colorid from the script
+        if (!Solver(txout.scriptPubKey, whichType, vSolutions))
+            return false;
+
+        // when this transaction issues or transfers tokens,
+        // verify that the color id is valid.
+        if (whichType == TX_COLOR_PUBKEYHASH || whichType == TX_COLOR_SCRIPTHASH)
+        {
+            isTokenTx = true;
+            //get colorid from vSolutions
+            std::vector<unsigned char> vecColorId = vSolutions[1];
+            ColorIdentifier colorId(vecColorId);
+            if(colorId.type == TokenTypes::REISSUABLE)
+            {
+                //for reissuable tokens, verify that SHA256 hash of scriptPubkey of one of the inputs matches the colorid
+                bool hashFound = false;
+                for(auto txin:tx.vin)
+                {
+                    const Coin& coin = inputs.AccessCoin(txin.prevout);
+
+                    ColorIdentifier coinColorId(coin.out.scriptPubKey);
+                    if(coinColorId.payload.scripthash == colorId.payload.scripthash)
+                    {
+                        if(coin.IsSpent()
+                        || (coin.type != TokenTypes::NONE && coin.type != TokenTypes::REISSUABLE))
+                            return false;
+
+                        hashFound = true;
+                        break;
+                    }
+                }
+                if(!hashFound) return false;
+            }
+            else if(colorId.type == TokenTypes::NON_REISSUABLE || colorId.type == TokenTypes::NFT)
+            {
+                //for non-reissuable and NFT tokens, verify that the utxo represented by colorid is valid
+                //NFT's value is always 1
+                const Coin& coin = inputs.AccessCoin(colorId.payload.utxo);
+                if(coin.IsSpent()
+                || (coin.type != colorId.type && coin.type != TokenTypes::NONE)
+                || (colorId.type == TokenTypes::NFT && txout.nValue != 1))
+                    return false;
+            }
+        }
+    }
+    return true;
+}
+
 static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, const CTransactionRef& ptx,
                               bool* pfMissingInputs, int64_t nAcceptTime, std::list<CTransactionRef>* plTxnReplaced,
                               bool bypass_limits, const CAmount& nAbsurdFee, std::vector<COutPoint>& coins_to_uncache, bool test_accept)
@@ -675,6 +729,11 @@ static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, 
             }
         }
 
+        //if there are colored coins in the output verify their colorids
+        bool isTokenTx = false;
+        if(!CheckColorIdentifierValidity(tx, state, view, isTokenTx))
+            return state.DoS(0, false, REJECT_COLORID, "invalid-colorid");
+
         // Bring the best block into scope
         view.GetBestBlock();
 
@@ -717,13 +776,21 @@ static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, 
         // Keep track of transactions that spend a coinbase, which we re-scan
         // during reorgs to ensure COINBASE_MATURITY is still met.
         bool fSpendsCoinbase = false;
+        bool tpcInputFound = false;
         for (const CTxIn &txin : tx.vin) {
             const Coin &coin = view.AccessCoin(txin.prevout);
-            if (coin.IsCoinBase()) {
+            if (coin.IsCoinBase())
                 fSpendsCoinbase = true;
-                break;
-            }
+
+            if(coin.type == TokenTypes::NONE)
+                tpcInputFound = true;
+            else
+                isTokenTx = true;
         }
+
+        //Token transactions should have at least one TPC input to pay fee
+        if(isTokenTx && !tpcInputFound)
+            return state.Invalid(false, REJECT_INSUFFICIENTFEE, "bad-txns-token-without-fee");
 
         CTxMemPoolEntry entry(ptx, nFees, nAcceptTime, chainActive.Height(),
                               fSpendsCoinbase, nSigOpsCost, lp);
@@ -1460,8 +1527,6 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                     // super-majority signaling has occurred.
                     return state.DoS(100,false, REJECT_INVALID, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(check.GetScriptError())));
                 }
-                //check whether the color id of coin
-                //and color id from script match.
             }
 
             if (cacheFullScriptStore && !pvChecks) {
