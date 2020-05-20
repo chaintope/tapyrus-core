@@ -72,7 +72,7 @@ static bool MatchPayToPubkeyHash(const CScript& script, valtype& pubkeyhash)
     return false;
 }
 
-static bool MatchColoredPayToPubkeyHash(const CScript& script, valtype& pubkeyhash, valtype& colorid)
+bool MatchColoredPayToPubkeyHash(const CScript& script, std::vector<unsigned char>& pubkeyhash, std::vector<unsigned char>& colorid)
 {
     //<COLOR identifier> OP_COLOR OP_DUP OP_HASH160 <H(pubkey)> OP_EQUALVERIFY OP_CHECKSIG
     // <COLOR identifier> : TYPE = 1 byte and 32 byte PAYLOAD
