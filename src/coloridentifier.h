@@ -61,11 +61,17 @@ struct ColorIdentifier
         }
     }
 
-    ColorIdentifier(CScript& input):type(TokenTypes::REISSUABLE)
+    ColorIdentifier(const CScript& input):type(TokenTypes::REISSUABLE)
     {
         std::vector<unsigned char> scriptVector(input.begin(), input.end());
         CSHA256().Write(scriptVector.data(), scriptVector.size()).Finalize(payload.scripthash);
     }
+
+    ColorIdentifier(const std::vector<unsigned char>& in) {
+        CSerActionSerialize ser_action;
+        CDataStream s(in, SER_NETWORK, INIT_PROTO_VERSION);
+        SerializationOp(s, ser_action);
+     }
 
     ADD_SERIALIZE_METHODS;
 
@@ -97,4 +103,7 @@ struct ColorIdentifier
     }
 
 };
+
+ColorIdentifier GetColorIdFromScript(const CScript& script);
+
 #endif //TAPYRUS_COLORIDENTIFIER_H
