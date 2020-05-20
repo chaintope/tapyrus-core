@@ -54,7 +54,8 @@ struct ColorIdentifier
         CSHA256().Write((unsigned char *)s.data(), s.size()).Finalize(payload);
     }
 
-    ColorIdentifier(const CScript& input):type(TokenTypes::REISSUABLE), payload{} {
+    ColorIdentifier(const CScript& input):type(TokenTypes::REISSUABLE)
+    {
         std::vector<unsigned char> scriptVector(input.begin(), input.end());
         CSHA256().Write(scriptVector.data(), scriptVector.size()).Finalize(payload);
     }
@@ -78,6 +79,12 @@ struct ColorIdentifier
     bool operator<(const ColorIdentifier& colorId) const {
         return memcmp(this, &colorId, 33) < 0;
     }
+
+    ColorIdentifier(const std::vector<unsigned char>& in) {
+        CSerActionSerialize ser_action;
+        CDataStream s(in, SER_NETWORK, INIT_PROTO_VERSION);
+        SerializationOp(s, ser_action);
+     }
 
     ADD_SERIALIZE_METHODS;
 
@@ -108,19 +115,5 @@ struct ColorIdentifier
 };
 
 ColorIdentifier GetColorIdFromScript(const CScript& script);
-
-//this is needed to verify token balances as using a custom class as map key 
-//needs a comparison operator to order the map
-
-struct ColorIdentifierCompare
-{
-    bool operator()(const ColorIdentifier& c1, const ColorIdentifier& c2) const
-    {
-        return memcmp(&c1, &c2, 33) < 0;
-    }
-};
-
-typedef std::map<ColorIdentifier, CAmount, ColorIdentifierCompare> TxColoredCoinBalancesMap;
-
 
 #endif //TAPYRUS_COLORIDENTIFIER_H

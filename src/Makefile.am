@@ -393,6 +393,7 @@ libtapyrus_common_a_SOURCES = \
   script/sign.cpp \
   script/standard.cpp \
   warnings.cpp \
+  coloridentifier.cpp \
   $(BITCOIN_CORE_H)
 
 # util: shared between all executables.
