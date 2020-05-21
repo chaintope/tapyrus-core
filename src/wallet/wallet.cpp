@@ -499,8 +499,7 @@ void CWallet::SetMinVersion(enum WalletFeature nVersion, WalletBatch* batch_in, 
 
     {
         WalletBatch* batch = batch_in ? batch_in : new WalletBatch(*database);
-        if (nWalletVersion > 40000)
-            batch->WriteMinVersion(nWalletVersion);
+        batch->WriteMinVersion(nWalletVersion);
         if (!batch_in)
             delete batch;
     }
@@ -4037,10 +4036,6 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(const std::string& name, 
 
         // Do not upgrade versions to any version between HD_SPLIT and FEATURE_PRE_SPLIT_KEYPOOL unless already supporting HD_SPLIT
         int max_version = walletInstance->nWalletVersion;
-        if (!walletInstance->CanSupportFeature(FEATURE_HD_SPLIT) && max_version >=FEATURE_HD_SPLIT && max_version < FEATURE_PRE_SPLIT_KEYPOOL) {
-            InitError(_("Cannot upgrade a non HD split wallet without upgrading to support pre split keypool. Please use -upgradewallet=169900 or -upgradewallet with no version specified."));
-            return nullptr;
-        }
 
         bool hd_upgrade = false;
         bool split_upgrade = false;

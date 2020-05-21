@@ -53,6 +53,8 @@ enum txnouttype
     TX_MULTISIG,
     TX_NULL_DATA, //!< unspendable OP_RETURN script that carries data
     TX_CUSTOM,
+    TX_COLOR_PUBKEYHASH,
+    TX_COLOR_SCRIPTHASH,
 #ifdef DEBUG
     TX_WITNESS_V0_SCRIPTHASH,
     TX_WITNESS_V0_KEYHASH,

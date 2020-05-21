@@ -151,6 +151,8 @@ public:
     }
 
     std::string ToString() const;
+
+    uint64_t GetHeight() const;
 };
 
 /** Describes a place in the block chain to another node such that if the

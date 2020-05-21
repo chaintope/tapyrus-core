@@ -14,6 +14,7 @@
 #include <memusage.h>
 #include <serialize.h>
 #include <uint256.h>
+#include <coloridentifier.h>
 
 #include <assert.h>
 #include <stdint.h>
@@ -26,6 +27,7 @@
  * Serialized format:
  * - VARINT((coinbase ? 1 : 0) | (height << 1))
  * - the non-spent CTxOut (via CTxOutCompressor)
+ * - type
  */
 class Coin
 {
@@ -39,21 +41,29 @@ public:
     //! at which height this containing transaction was included in the active block chain
     uint32_t nHeight : 31;
 
+    //! one byte type of token contained in the transaction output
+    TokenTypes type;
+
     //! construct a Coin from a CTxOut and height/coinbase information.
-    Coin(CTxOut&& outIn, int nHeightIn, bool fCoinBaseIn) : out(std::move(outIn)), fCoinBase(fCoinBaseIn), nHeight(nHeightIn) {}
-    Coin(const CTxOut& outIn, int nHeightIn, bool fCoinBaseIn) : out(outIn), fCoinBase(fCoinBaseIn),nHeight(nHeightIn) {}
+    Coin(CTxOut&& outIn, int nHeightIn, bool fCoinBaseIn, TokenTypes typeIn=TokenTypes::NONE) : out(std::move(outIn)), fCoinBase(fCoinBaseIn), nHeight(nHeightIn), type(typeIn) {}
+    Coin(const CTxOut& outIn, int nHeightIn, bool fCoinBaseIn, TokenTypes typeIn=TokenTypes::NONE) : out(outIn), fCoinBase(fCoinBaseIn),nHeight(nHeightIn), type(typeIn) {}
 
     void Clear() {
         out.SetNull();
         fCoinBase = false;
         nHeight = 0;
+        type = TokenTypes::NONE;
     }
 
     //! empty constructor
-    Coin() : fCoinBase(false), nHeight(0) { }
+    Coin() : fCoinBase(false), nHeight(0), type(TokenTypes::NONE) { }
 
     bool IsCoinBase() const {
         return fCoinBase;
+    }
+
+    TokenTypes GetType() const {
+        return type;
     }
 
     template<typename Stream>
@@ -62,6 +72,7 @@ public:
         uint32_t code = nHeight * 2 + fCoinBase;
         ::Serialize(s, VARINT(code));
         ::Serialize(s, CTxOutCompressor(REF(out)));
+        //::Serialize(s, uint8_t(type));
     }
 
     template<typename Stream>
@@ -71,6 +82,7 @@ public:
         nHeight = code >> 1;
         fCoinBase = code & 1;
         ::Unserialize(s, CTxOutCompressor(out));
+        //::Unserialize(s, uint8_t(type));
     }
 
     bool IsSpent() const {
