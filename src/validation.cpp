@@ -561,54 +561,63 @@ static bool CheckInputsFromMempoolAndCache(const CTransaction& tx, CValidationSt
 
 bool CheckColorIdentifierValidity(const CTransaction& tx, CValidationState& state, CCoinsViewCache &inputs, bool isTokenTx)
 {
-    std::vector<std::vector<unsigned char> > vSolutions;
-    txnouttype whichType;
+    // when this transaction issues or transfers tokens,
+    // verify that the color id is valid.
     for(auto txout:tx.vout)
     {
+        if(!txout.scriptPubKey.IsColoredScript())
+            continue;
+
+        // we reach here only when OP_COLOR was found in the script
+        isTokenTx = true;
+
         //identify the scriptPubkey type and get colorid from the script
-        if (!Solver(txout.scriptPubKey, whichType, vSolutions))
+        ColorIdentifier outColorId(GetColorIdFromScript(txout.scriptPubKey));
+
+        //if the token type is none, OP_COLOR should not be used in the script.
+        if (outColorId.type == TokenTypes::NONE)
             return false;
 
-        // when this transaction issues or transfers tokens,
-        // verify that the color id is valid.
-        if (whichType == TX_COLOR_PUBKEYHASH || whichType == TX_COLOR_SCRIPTHASH)
+        bool hashFound = false;
+        for(auto txin:tx.vin)
         {
-            isTokenTx = true;
-            //get colorid from vSolutions
-            std::vector<unsigned char> vecColorId = vSolutions[1];
-            ColorIdentifier colorId(vecColorId);
-            if(colorId.type == TokenTypes::REISSUABLE)
+            const Coin& coin = inputs.AccessCoin(txin.prevout);
+            ColorIdentifier coinColorId(TokenTypes::NONE);
+
+            switch(coin.type)
             {
-                //for reissuable tokens, verify that SHA256 hash of scriptPubkey of one of the inputs matches the colorid
-                bool hashFound = false;
-                for(auto txin:tx.vin)
-                {
-                    const Coin& coin = inputs.AccessCoin(txin.prevout);
+                // when the coin is TPC this is a token issue tx. 
+                // colorid is hash(coin's scriptpubkey) or prevout
+                case TokenTypes::NONE:
+                    if(outColorId.type == TokenTypes::REISSUABLE)
+                        coinColorId = ColorIdentifier(coin.out.scriptPubKey);
+                    else
+                        coinColorId = ColorIdentifier(txin.prevout, outColorId.type);
+                    break;
 
-                    ColorIdentifier coinColorId(coin.out.scriptPubKey);
-                    if(coinColorId.payload.scripthash == colorId.payload.scripthash)
-                    {
-                        if(coin.IsSpent()
-                        || (coin.type != TokenTypes::NONE && coin.type != TokenTypes::REISSUABLE))
-                            return false;
+                // when the coin is REISSUABLE/NON_REISSUABLE/NFT this is a token transfer tx. 
+                // colorid is same as the coin's colorid
+                case TokenTypes::REISSUABLE:
+                case TokenTypes::NON_REISSUABLE:
+                case TokenTypes::NFT:
+                    coinColorId = GetColorIdFromScript(coin.out.scriptPubKey);
+                    break;
 
-                        hashFound = true;
-                        break;
-                    }
-                }
-                if(!hashFound) return false;
+                default:
+                    continue;
             }
-            else if(colorId.type == TokenTypes::NON_REISSUABLE || colorId.type == TokenTypes::NFT)
+
+            if(coinColorId == outColorId && !coin.IsSpent())
             {
-                //for non-reissuable and NFT tokens, verify that the utxo represented by colorid is valid
+                hashFound = true;
+
                 //NFT's value is always 1
-                const Coin& coin = inputs.AccessCoin(colorId.payload.utxo);
-                if(coin.IsSpent()
-                || (coin.type != colorId.type && coin.type != TokenTypes::NONE)
-                || (colorId.type == TokenTypes::NFT && txout.nValue != 1))
-                    return false;
+                if(outColorId.type == TokenTypes::NFT && txout.nValue != 1) return false;
+
+                break;
             }
         }
+        if(!hashFound) return false;
     }
     return true;
 }
