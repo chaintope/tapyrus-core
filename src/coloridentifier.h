@@ -68,9 +68,16 @@ struct ColorIdentifier
     }
 
     ColorIdentifier(const std::vector<unsigned char>& in) {
-        CSerActionSerialize ser_action;
+        CSerActionUnserialize ser_action;
         CDataStream s(in, SER_NETWORK, INIT_PROTO_VERSION);
         SerializationOp(s, ser_action);
+     }
+
+    bool operator==(const ColorIdentifier& colorId) {
+        return this->type == colorId.type && this->type == TokenTypes::NONE ?
+               true : (this->type == TokenTypes::REISSUABLE ?
+                       std::equal(&this->payload.scripthash[0], &this->payload.scripthash[31], &colorId.payload.scripthash[0])
+                       : this->payload.utxo == colorId.payload.utxo);
      }
 
     ADD_SERIALIZE_METHODS;

@@ -31,6 +31,9 @@ ColorIdentifier GetColorIdFromScript(const CScript& script)
     if(iter != script.end())
     {
         size_t index = std::distance(script.begin(), iter);
+        if(index <= 33) 
+            return ColorIdentifier(TokenTypes::NONE);
+
         if(index > 33 && script[index - 33] == 0x21) 
             colorId.assign(script.begin()+index-32, script.begin()+index);
         else if(index > 37 && script[index - 37] == 0x25) 
