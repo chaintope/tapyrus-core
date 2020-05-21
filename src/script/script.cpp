@@ -129,6 +129,7 @@ const char* GetOpName(opcodetype opcode)
     case OP_CHECKMULTISIGVERIFY    : return "OP_CHECKMULTISIGVERIFY";
     case OP_CHECKDATASIG           : return "OP_CHECKDATASIG";
     case OP_CHECKDATASIGVERIFY     : return "OP_CHECKDATASIGVERIFY";
+    case OP_COLOR                  : return "OP_COLOR";
 
     // expansion
     case OP_NOP1                   : return "OP_NOP1";
@@ -207,6 +208,34 @@ bool CScript::IsPayToScriptHash() const
             (*this)[0] == OP_HASH160 &&
             (*this)[1] == 0x14 &&
             (*this)[22] == OP_EQUAL);
+}
+
+bool CScript::IsColoredScript() const
+{
+    for(auto& byte:*this)
+        if(byte == OP_COLOR)
+            return true;
+    return false;
+}
+
+bool CScript::IsColoredPayToScriptHash() const
+{
+    // <COLOR identifier> OP_COLOR OP_HASH160 <H(redeem script)> OP_EQUAL
+    if(this->size() == 56) // <COLOR identifier> : TYPE = 1 and 32 PAYLOAD
+        return ((*this)[0] == 0x21 &&
+                (*this)[1] == 0x01 &&
+                (*this)[33] == OP_COLOR &&
+                (*this)[34] == OP_HASH160 &&
+                (*this)[35] == 0x14 &&
+                (*this)[55] == OP_EQUAL);
+    else if(this->size() == 60) // <COLOR identifier> : TYPE = 2/3 and 36 PAYLOAD
+        return ((*this)[0] == 0x25 &&
+                ((*this)[1] == 0x02 || (*this)[1] == 0x03 )&&
+                (*this)[37] == OP_COLOR &&
+                (*this)[38] == OP_HASH160 &&
+                (*this)[39] == 0x14 &&
+                (*this)[59] == OP_EQUAL);
+    return false;
 }
 
 bool CScript::IsPayToWitnessScriptHash() const

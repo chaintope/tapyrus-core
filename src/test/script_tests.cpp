@@ -16,6 +16,7 @@
 #include <test/test_tapyrus.h>
 #include <util.h>
 #include <utilstrencodings.h>
+#include <coloridentifier.h>
 
 #if defined(HAVE_CONSENSUS_LIB)
 #include <script/tapyrusconsensus.h>
@@ -102,6 +103,11 @@ static ScriptErrorDesc script_errors[] = {
     {SCRIPT_ERR_WITNESS_PUBKEYTYPE, "WITNESS_PUBKEYTYPE"},
     {SCRIPT_ERR_OP_CODESEPARATOR, "OP_CODESEPARATOR"},
     {SCRIPT_ERR_SIG_FINDANDDELETE, "SIG_FINDANDDELETE"},
+    {SCRIPT_ERR_OP_COLOR_UNEXPECTED, "OP_COLOR_UNEXPECTED"},
+    {SCRIPT_ERR_OP_COLORID_INVALID, "OP_COLORID_INVALID"},
+    {SCRIPT_ERR_OP_COLORMULTIPLE, "MULTIPLE_COLORID"},
+    {SCRIPT_ERR_OP_COLORINBRANCH, "COLOR_IN_BRANCH"}
+
 };
 
 static const char* FormatScriptError(ScriptError_t err)
@@ -317,7 +323,7 @@ private:
 
 
 public:
-    TestBuilder(const CScript& script_, const std::string& comment_, int flags_, bool P2SH = false, WitnessMode wm = WitnessMode::NONE, int witnessversion = 0, CAmount nValue_ = 0) : script(script_), havePush(false), comment(comment_), flags(flags_), scriptError(SCRIPT_ERR_OK), nValue(nValue_)
+    TestBuilder(const CScript& script_, const std::string& comment_, int flags_, bool P2SH = false, WitnessMode wm = WitnessMode::NONE, int witnessversion = 0, CAmount nValue_ = 0, bool ignoreColor = false) : script(script_), havePush(false), comment(comment_), flags(flags_), scriptError(SCRIPT_ERR_OK), nValue(nValue_)
     {
         CScript scriptPubKey = script;
         if (wm == WitnessMode::PKH) {
@@ -332,8 +338,16 @@ public:
             scriptPubKey = CScript() << witnessversion << ToByteVector(hash);
         }
         if (P2SH) {
-            redeemscript = scriptPubKey;
-            scriptPubKey = CScript() << OP_HASH160 << ToByteVector(CScriptID(redeemscript)) << OP_EQUAL;
+            if(!ignoreColor && scriptPubKey.IsColoredScript())
+            {
+                const KeyData keys;
+                redeemscript = CScript() << OP_DUP << OP_HASH160 << ToByteVector(keys.pubkey1C.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
+            }
+            else
+            {
+                redeemscript = scriptPubKey;
+                scriptPubKey = CScript() << OP_HASH160 << ToByteVector(CScriptID(redeemscript)) << OP_EQUAL;
+            }
         }
         creditTx = MakeTransactionRef(BuildCreditingTransaction(scriptPubKey, nValue));
         spendTx = BuildSpendingTransaction(CScript(), CScriptWitness(), *creditTx);
@@ -1590,7 +1604,36 @@ BOOST_AUTO_TEST_CASE(script_build)
         "CHECKSIG SCHNORR without Hashtype byte", SCRIPT_VERIFY_NONE)
                         .PushDataSig(keys.key1, SignatureScheme::SCHNORR, {})
                         .ScriptError(SCRIPT_ERR_SIG_DER));
-
+    tests.push_back(TestBuilder(CScript() << ColorIdentifier(CScript() << ToByteVector(keys.pubkey0C) << OP_CHECKSIG).toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(keys.pubkey1C.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG,
+        "CP2PKH ECDSA", 0)
+                        .PushSig(keys.key1, SignatureScheme::ECDSA)
+                        .Push(keys.pubkey1C));
+    tests.push_back(TestBuilder(CScript() << ColorIdentifier(CScript() << ToByteVector(keys.pubkey0C) << OP_CHECKSIG).toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(keys.pubkey1C.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG,
+        "CP2PKH SCHNORR", 0)
+                        .PushSig(keys.key1, SignatureScheme::SCHNORR)
+                        .Push(keys.pubkey1C));
+    tests.push_back(TestBuilder(CScript() << ColorIdentifier(CScript() << ToByteVector(keys.pubkey0C) << OP_CHECKSIG).toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(keys.pubkey1C.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG,
+        "P2SH(CP2PKH) ECDSA is invalid", SCRIPT_VERIFY_NONE, true, WitnessMode::NONE, 0, 0,true)
+                        .PushSig(keys.key0, SignatureScheme::ECDSA)
+                        .Push(keys.pubkey0)
+                        .PushRedeem()
+                        .ScriptError(SCRIPT_ERR_OP_COLOR_UNEXPECTED));
+    tests.push_back(TestBuilder(CScript() << ColorIdentifier(CScript() << ToByteVector(keys.pubkey0C) << OP_CHECKSIG).toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(keys.pubkey1C.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG,
+        "P2SH(CP2PKH) SCHNORR is invalid", SCRIPT_VERIFY_NONE, true, WitnessMode::NONE, 0, 0,true)
+                        .PushSig(keys.key0, SignatureScheme::SCHNORR)
+                        .Push(keys.pubkey0)
+                        .PushRedeem()
+                        .ScriptError(SCRIPT_ERR_OP_COLOR_UNEXPECTED));
+    tests.push_back(TestBuilder(CScript() << ColorIdentifier(CScript() << ToByteVector(keys.pubkey0C) << OP_CHECKSIG).toVector() << OP_COLOR << OP_HASH160 << ToByteVector(CScriptID(CScript() << OP_DUP << OP_HASH160 << ToByteVector(keys.pubkey1C.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG)) << OP_EQUAL,
+        "CP2SH(P2PKH) ECDSA", SCRIPT_VERIFY_NONE, true)
+                        .PushSig(keys.key1, SignatureScheme::ECDSA)
+                        .Push(keys.pubkey1C)
+                        .PushRedeem());
+    tests.push_back(TestBuilder(CScript() << ColorIdentifier(CScript() << ToByteVector(keys.pubkey0C) << OP_CHECKSIG).toVector() << OP_COLOR << OP_HASH160 << ToByteVector(CScriptID(CScript() << OP_DUP << OP_HASH160 << ToByteVector(keys.pubkey1C.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG)) << OP_EQUAL,
+        "CP2SH(P2PKH) SCHNORR", SCRIPT_VERIFY_NONE, true)
+                        .PushSig(keys.key1, SignatureScheme::SCHNORR)
+                        .Push(keys.pubkey1C)
+                        .PushRedeem());
     {
         UniValue json_tests = read_json(std::string(json_tests::script_tests, json_tests::script_tests + sizeof(json_tests::script_tests)));
 
@@ -1675,21 +1718,22 @@ BOOST_AUTO_TEST_CASE(script_PushData)
     //verify the same same set of tests using SCRIPT_VERIFY_NONE, stdFlags and mndFlags
     ScriptError err;
     std::vector<std::vector<unsigned char>> directStack;
-    BOOST_CHECK(EvalScript(directStack, CScript(&direct[0], &direct[sizeof(direct)]), SCRIPT_VERIFY_NONE, BaseSignatureChecker(), SigVersion::BASE, &err));
+    ColorIdentifier colorId(TokenTypes::NONE);
+    BOOST_CHECK(EvalScript(directStack, CScript(&direct[0], &direct[sizeof(direct)]), SCRIPT_VERIFY_NONE, BaseSignatureChecker(), SigVersion::BASE, &colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
 
     std::vector<std::vector<unsigned char>> pushdata1Stack;
-    BOOST_CHECK(!EvalScript(pushdata1Stack, CScript(&pushdata1[0], &pushdata1[sizeof(pushdata1)]), SCRIPT_VERIFY_NONE, BaseSignatureChecker(), SigVersion::BASE, &err));
+    BOOST_CHECK(!EvalScript(pushdata1Stack, CScript(&pushdata1[0], &pushdata1[sizeof(pushdata1)]), SCRIPT_VERIFY_NONE, BaseSignatureChecker(), SigVersion::BASE, &colorId, &err));
     //BOOST_CHECK(pushdata1Stack == directStack);
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_MINIMALDATA, ScriptErrorString(err));
 
     std::vector<std::vector<unsigned char>> pushdata2Stack;
-    BOOST_CHECK(!EvalScript(pushdata2Stack, CScript(&pushdata2[0], &pushdata2[sizeof(pushdata2)]), SCRIPT_VERIFY_NONE, BaseSignatureChecker(), SigVersion::BASE, &err));
+    BOOST_CHECK(!EvalScript(pushdata2Stack, CScript(&pushdata2[0], &pushdata2[sizeof(pushdata2)]), SCRIPT_VERIFY_NONE, BaseSignatureChecker(), SigVersion::BASE, &colorId, &err));
     //BOOST_CHECK(pushdata2Stack == directStack);
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_MINIMALDATA, ScriptErrorString(err));
 
     std::vector<std::vector<unsigned char>> pushdata4Stack;
-    BOOST_CHECK(!EvalScript(pushdata4Stack, CScript(&pushdata4[0], &pushdata4[sizeof(pushdata4)]), SCRIPT_VERIFY_NONE, BaseSignatureChecker(), SigVersion::BASE, &err));
+    BOOST_CHECK(!EvalScript(pushdata4Stack, CScript(&pushdata4[0], &pushdata4[sizeof(pushdata4)]), SCRIPT_VERIFY_NONE, BaseSignatureChecker(), SigVersion::BASE, &colorId, &err));
     //BOOST_CHECK(pushdata4Stack == directStack);
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_MINIMALDATA, ScriptErrorString(err));
 
@@ -1699,18 +1743,18 @@ BOOST_AUTO_TEST_CASE(script_PushData)
     pushdata2Stack.clear();
     pushdata4Stack.clear();
 
-    BOOST_CHECK(EvalScript(directStack, CScript(&direct[0], &direct[sizeof(direct)]), stdFlags, BaseSignatureChecker(), SigVersion::BASE, &err));
+    BOOST_CHECK(EvalScript(directStack, CScript(&direct[0], &direct[sizeof(direct)]), stdFlags, BaseSignatureChecker(), SigVersion::BASE, &colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
 
-    BOOST_CHECK(!EvalScript(pushdata1Stack, CScript(&pushdata1[0], &pushdata1[sizeof(pushdata1)]), stdFlags, BaseSignatureChecker(), SigVersion::BASE, &err));
+    BOOST_CHECK(!EvalScript(pushdata1Stack, CScript(&pushdata1[0], &pushdata1[sizeof(pushdata1)]), stdFlags, BaseSignatureChecker(), SigVersion::BASE, &colorId, &err));
     //BOOST_CHECK(pushdata1Stack == directStack);
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_MINIMALDATA, ScriptErrorString(err));
 
-    BOOST_CHECK(!EvalScript(pushdata2Stack, CScript(&pushdata2[0], &pushdata2[sizeof(pushdata2)]), stdFlags, BaseSignatureChecker(), SigVersion::BASE, &err));
+    BOOST_CHECK(!EvalScript(pushdata2Stack, CScript(&pushdata2[0], &pushdata2[sizeof(pushdata2)]), stdFlags, BaseSignatureChecker(), SigVersion::BASE, &colorId, &err));
     //BOOST_CHECK(pushdata2Stack == directStack);
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_MINIMALDATA, ScriptErrorString(err));
 
-    BOOST_CHECK(!EvalScript(pushdata4Stack, CScript(&pushdata4[0], &pushdata4[sizeof(pushdata4)]), stdFlags, BaseSignatureChecker(), SigVersion::BASE, &err));
+    BOOST_CHECK(!EvalScript(pushdata4Stack, CScript(&pushdata4[0], &pushdata4[sizeof(pushdata4)]), stdFlags, BaseSignatureChecker(), SigVersion::BASE, &colorId, &err));
     //BOOST_CHECK(pushdata4Stack == directStack);
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_MINIMALDATA, ScriptErrorString(err));
 
@@ -1720,18 +1764,18 @@ BOOST_AUTO_TEST_CASE(script_PushData)
     pushdata2Stack.clear();
     pushdata4Stack.clear();
 
-    BOOST_CHECK(EvalScript(directStack, CScript(&direct[0], &direct[sizeof(direct)]), mndFlags, BaseSignatureChecker(), SigVersion::BASE, &err));
+    BOOST_CHECK(EvalScript(directStack, CScript(&direct[0], &direct[sizeof(direct)]), mndFlags, BaseSignatureChecker(), SigVersion::BASE, &colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
 
-    BOOST_CHECK(!EvalScript(pushdata1Stack, CScript(&pushdata1[0], &pushdata1[sizeof(pushdata1)]), mndFlags, BaseSignatureChecker(), SigVersion::BASE, &err));
+    BOOST_CHECK(!EvalScript(pushdata1Stack, CScript(&pushdata1[0], &pushdata1[sizeof(pushdata1)]), mndFlags, BaseSignatureChecker(), SigVersion::BASE, &colorId, &err));
     //BOOST_CHECK(pushdata1Stack == directStack);
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_MINIMALDATA, ScriptErrorString(err));
 
-    BOOST_CHECK(!EvalScript(pushdata2Stack, CScript(&pushdata2[0], &pushdata2[sizeof(pushdata2)]), mndFlags, BaseSignatureChecker(), SigVersion::BASE, &err));
+    BOOST_CHECK(!EvalScript(pushdata2Stack, CScript(&pushdata2[0], &pushdata2[sizeof(pushdata2)]), mndFlags, BaseSignatureChecker(), SigVersion::BASE, &colorId, &err));
     //BOOST_CHECK(pushdata2Stack == directStack);
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_MINIMALDATA, ScriptErrorString(err));
 
-    BOOST_CHECK(!EvalScript(pushdata4Stack, CScript(&pushdata4[0], &pushdata4[sizeof(pushdata4)]), mndFlags, BaseSignatureChecker(), SigVersion::BASE, &err));
+    BOOST_CHECK(!EvalScript(pushdata4Stack, CScript(&pushdata4[0], &pushdata4[sizeof(pushdata4)]), mndFlags, BaseSignatureChecker(), SigVersion::BASE, &colorId, &err));
     //BOOST_CHECK(pushdata4Stack == directStack);
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_MINIMALDATA, ScriptErrorString(err));
 }
