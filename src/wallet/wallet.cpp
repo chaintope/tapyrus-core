@@ -2164,33 +2164,15 @@ CAmount CWallet::GetLegacyBalance(const isminefilter& filter, int minDepth, cons
 
     return balance;
 }
-
-CAmount CWallet::GetAvailableBalance(const CCoinControl* coinControl, std::vector<unsigned char> colorId) const
-{
+CAmount CWallet::GetAvailableBalance(const CCoinControl* coinControl) const {
     LOCK2(cs_main, cs_wallet);
 
     CAmount balance = 0;
     std::vector<COutput> vCoins;
     AvailableCoins(vCoins, true, coinControl);
     for (const COutput& out : vCoins) {
-        // out.tx->tx->vout[out.i].scriptPubKey.IsColoredScript()
-        TokenTypes type = UintToToken(*(out.tx->tx->vout[out.i].scriptPubKey.begin() + 1));
-        if(out.fSpendable) {
-            if(type == TokenTypes::NONE || colorId.size() == 0) {
-                balance += out.tx->tx->vout[out.i].nValue; 
-            } else if(type == TokenTypes::REISSUABLE) {
-                std::vector<unsigned char> cId;
-                cId.assign(out.tx->tx->vout[out.i].scriptPubKey.begin()+1, out.tx->tx->vout[out.i].scriptPubKey.begin()+34);
-                if(colorId == cId) {
-                    balance += out.tx->tx->vout[out.i].nValue; 
-                }
-            } else {
-                std::vector<unsigned char> cId;
-                cId.assign(out.tx->tx->vout[out.i].scriptPubKey.begin()+1, out.tx->tx->vout[out.i].scriptPubKey.begin()+38);
-                if(colorId == cId) {
-                    balance += out.tx->tx->vout[out.i].nValue; 
-                }
-            }
+        if (out.fSpendable) {
+            balance += out.tx->tx->vout[out.i].nValue; 
         }
     }
     return balance;

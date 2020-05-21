@@ -309,12 +309,19 @@ public:
 BOOST_AUTO_TEST_CASE(getTokenBalance)
 {
     std::unique_ptr<CWallet> wallet;
-
     wallet = MakeUnique<CWallet>("mock", WalletDatabase::CreateMock());
-
+    // CP2PKH(Colored P2PKH)：
+    // <COLOR identifier> OP_COLOR OP_DUP OP_HASH160 <H(pubkey)> OP_EQUALVERIFY OP_CHECKSIG
+    // CScript coloredScriptPubKey = CScript() << ParseHex("011863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262") << OP_COLOR << OP_DUP << OP_HASH160 << ParseHex("1018853670f9f3b0582c5b9ee8ce93764ac32b93") << OP_EQUALVERIFY << OP_CHECKSIG;
+    // CP2SH(Colored P2SH)：
+    // <COLOR identifier> OP_COLOR OP_HASH160 <H(redeem script)> OP_EQUAL
+    // "0x21 0x011863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262 COLOR HASH160 0x14 0xda8a647bba351bbae4cee0089d373c97ec240580 EQUAL"
+    CScript scriptPubKey = CScript() << ParseHex("011863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262") << OP_COLOR << OP_HASH160 << ParseHex("da8a647bba351bbae4cee0089d373c97ec240580") << OP_EQUAL;
     // //create a colorId Transaction
     // BOOST_CHECK(wallet->CreateTransaction({recipient}, tx, reservekey, fee, changePos, error, dummy));
 
+
+    ColorIdentifier colorId = GetColorIdFromScriptPubKey(scriptPubKey);
     // // Check token balance for the colorId.
     // BOOST_CHECK_EQUAL(300 * COIN, wallet->GetAvailableBalance());
 }

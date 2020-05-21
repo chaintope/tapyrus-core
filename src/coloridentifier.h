@@ -67,6 +67,12 @@ struct ColorIdentifier
         CSHA256().Write(scriptVector.data(), scriptVector.size()).Finalize(payload.scripthash);
     }
 
+    ColorIdentifier(const std::vector<unsigned char>& in) {
+        CSerActionSerialize ser_action;
+        CDataStream s(in, SER_NETWORK, INIT_PROTO_VERSION);
+        SerializationOp(s, ser_action);
+    }
+
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
