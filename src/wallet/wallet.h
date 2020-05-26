@@ -75,6 +75,11 @@ class CBlockPolicyEstimator;
 class CWalletTx;
 struct FeeCalculation;
 enum class FeeEstimateMode;
+struct CBalance
+{
+    ColorIdentifier colorId;
+    CAmount value;
+};
 
 /** (client) version numbers for particular wallet features */
 enum WalletFeature
@@ -943,6 +948,8 @@ public:
     CAmount GetUnconfirmedWatchOnlyBalance() const;
     CAmount GetLegacyBalance(const isminefilter& filter, int minDepth, const std::string* account) const;
     CAmount GetAvailableBalance(const CCoinControl* coinControl = nullptr) const;
+    std::vector<CBalance> GetAvailableTokenBalance(const CCoinControl* coinControl = nullptr) const;
+
     OutputType TransactionChangeType(OutputType change_type, const std::vector<CRecipient>& vecSend);
 
     /**

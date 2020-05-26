@@ -73,6 +73,13 @@ struct ColorIdentifier
         SerializationOp(s, ser_action);
     }
 
+    bool operator==(const ColorIdentifier& colorId) const {
+        return this->type == colorId.type && this->type == TokenTypes::NONE ?
+               true : (this->type == TokenTypes::REISSUABLE ?
+                       std::equal(&this->payload.scripthash[0], &this->payload.scripthash[31], &colorId.payload.scripthash[0])
+                       : this->payload.utxo == colorId.payload.utxo);
+    }
+
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
