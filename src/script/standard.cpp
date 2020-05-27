@@ -11,7 +11,7 @@
 #include <script/script.h>
 #include <util.h>
 #include <utilstrencodings.h>
-#include<coloridentifier.h>
+#include <coloridentifier.h>
 
 
 typedef std::vector<unsigned char> valtype;
@@ -457,6 +457,8 @@ bool IsValidDestination(const CTxDestination& dest) {
 ColorIdentifier GetColorIdFromScriptPubKey(const CScript& scriptPubKey) {
     std::vector<unsigned char> data;
     std::vector<unsigned char> colorId;
+    ColorIdentifier defaultColorId({TokenTypes::NONE});
+
     if(MatchColoredPayToPubkeyHash(scriptPubKey, data, colorId)) {
         return ColorIdentifier(colorId);
     } else if(scriptPubKey.IsColoredPayToScriptHash()) {
@@ -466,5 +468,5 @@ ColorIdentifier GetColorIdFromScriptPubKey(const CScript& scriptPubKey) {
           colorId = valtype(scriptPubKey.begin() + 1, scriptPubKey.begin() + 38);
         }
     }
-    return ColorIdentifier(colorId);
+    return defaultColorId;
 }

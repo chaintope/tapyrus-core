@@ -2168,13 +2168,15 @@ CAmount CWallet::GetAvailableBalance(const CCoinControl* coinControl) const
     LOCK2(cs_main, cs_wallet);
 
     CAmount balance = 0;
-    std::vector<COutput> vCoins;
-    AvailableCoins(vCoins, true, coinControl);
-    for (const COutput& out : vCoins) {
-        if (out.fSpendable) {
-            balance += out.tx->tx->vout[out.i].nValue;
+    std::vector<CBalance> balances = GetAvailableTokenBalance(coinControl);
+    
+    for(unsigned int i = 0; i < balances.size(); i++) {
+        if(balances[i].colorId.type == TokenTypes::NONE) {
+            return balances[i].value;
+            break;
         }
-    }
+    };
+
     return balance;
 }
 
@@ -2188,7 +2190,6 @@ std::vector<CBalance> CWallet::GetAvailableTokenBalance(const CCoinControl* coin
     for (const COutput& out : vCoins) {
         if (out.fSpendable) {
             CScript& scriptPubKey = const_cast<CScript&>(out.tx->tx->vout[out.i].scriptPubKey);
-            TokenTypes type = UintToToken(*(scriptPubKey.begin() + 1));
             //create a method to extract colorId using scriptpubkey;
             ColorIdentifier colorId = GetColorIdFromScriptPubKey(scriptPubKey);
 
