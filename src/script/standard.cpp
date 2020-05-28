@@ -460,13 +460,18 @@ ColorIdentifier GetColorIdFromScriptPubKey(const CScript& scriptPubKey) {
     ColorIdentifier defaultColorId({TokenTypes::NONE});
 
     if(MatchColoredPayToPubkeyHash(scriptPubKey, data, colorId)) {
-        return ColorIdentifier(colorId);
+        ColorIdentifier p2pkhColorId(colorId);
+        p2pkhColorId.type = UintToToken(*(scriptPubKey.begin()+1));
+        return p2pkhColorId;
     } else if(scriptPubKey.IsColoredPayToScriptHash()) {
         if(scriptPubKey.size() == 58) {
           colorId = valtype(scriptPubKey.begin() + 1, scriptPubKey.begin() + 34);
         } else {
           colorId = valtype(scriptPubKey.begin() + 1, scriptPubKey.begin() + 38);
         }
+        ColorIdentifier p2shColorId(colorId);
+        p2shColorId.type = UintToToken(*(scriptPubKey.begin()+1));
+        return p2shColorId;
     }
     return defaultColorId;
 }
