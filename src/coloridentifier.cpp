@@ -10,10 +10,14 @@ ColorIdentifier GetColorIdFromScript(const CScript& script)
 {
     if(!script.IsColoredScript())
 <<<<<<< HEAD
+<<<<<<< HEAD
         return ColorIdentifier();
 =======
         return ColorIdentifier(TokenTypes::NONE);
 >>>>>>> Add token type to Coin i.e. utxo
+=======
+        return ColorIdentifier();
+>>>>>>> Token balance verification and unit tests rebased with more fixes
 
     std::vector<unsigned char> pubkeyhash, colorId;
     if( MatchColoredPayToPubkeyHash(script, pubkeyhash, colorId))
@@ -40,21 +44,14 @@ ColorIdentifier GetColorIdFromScript(const CScript& script)
         return ColorIdentifier(colorId);
     }
 
-    //search for colorid in the script
-    CScript::const_iterator iter = std::find(script.begin(), script.end(), OP_COLOR);
-    if(iter != script.end())
-    {
-        size_t index = std::distance(script.begin(), iter);
-        if(index <= 33) 
-            return ColorIdentifier(TokenTypes::NONE);
-
-        if(index > 33 && script[index - 33] == 0x21) 
-            colorId.assign(script.begin()+index-32, script.begin()+index);
-        else if(index > 37 && script[index - 37] == 0x25) 
-            colorId.assign(script.begin()+index-36, script.begin()+index);
-
+    if(MatchCustomColoredScript(script, colorId))
         return ColorIdentifier(colorId);
+<<<<<<< HEAD
     }
     return ColorIdentifier(TokenTypes::NONE);
 >>>>>>> Add token type to Coin i.e. utxo
+=======
+
+    return ColorIdentifier();
+>>>>>>> Token balance verification and unit tests rebased with more fixes
 }

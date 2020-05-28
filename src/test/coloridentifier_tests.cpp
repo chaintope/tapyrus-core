@@ -20,7 +20,13 @@ BOOST_AUTO_TEST_CASE(coloridentifier_valid_unserialize)
     CDataStream ss0(ParseHex("00"), SER_NETWORK, INIT_PROTO_VERSION);
     ss0 >> c0;
     BOOST_CHECK_EQUAL(TokenToUint(c0.type), TokenToUint(TokenTypes::NONE));
+<<<<<<< HEAD
     BOOST_CHECK(memcmp(&c0.payload[0], &str[0], 32) == 0);
+=======
+    BOOST_CHECK(memcmp(&c0.payload.scripthash[0], &str[0], 32) == 0);
+    BOOST_CHECK_EQUAL(c0.payload.utxo.hashMalFix.ToString(), "0000000000000000000000000000000000000000000000000000000000000000");
+    BOOST_CHECK_EQUAL(c0.payload.utxo.n, 4294967295);
+>>>>>>> Token balance verification and unit tests rebased with more fixes
 
     try {
         CDataStream ss00(ParseHex("0100"), SER_NETWORK, INIT_PROTO_VERSION);
@@ -29,8 +35,17 @@ BOOST_AUTO_TEST_CASE(coloridentifier_valid_unserialize)
     } catch (const std::ios_base::failure& e) {
     }
 
+<<<<<<< HEAD
     CDataStream ss00(ParseHex("038282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508"), SER_NETWORK, INIT_PROTO_VERSION);
     ss00 >> c0;
+=======
+    try {
+        CDataStream ss00(ParseHex("038282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508"), SER_NETWORK, INIT_PROTO_VERSION);
+        ss00 >> c0;
+        BOOST_CHECK_MESSAGE(false, "We should have thrown");
+    } catch (const std::ios_base::failure& e) {
+    }
+>>>>>>> Token balance verification and unit tests rebased with more fixes
 
     //type REISSUABLE
     std::vector<unsigned char> scriptVector(ParseHex("038282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508"));
@@ -42,6 +57,7 @@ BOOST_AUTO_TEST_CASE(coloridentifier_valid_unserialize)
     CDataStream ss1(ParseHex("01f55efb77e5a0e37c16d8f3484024558241c215a57aa991533152813f111482f6"), SER_NETWORK, INIT_PROTO_VERSION);
     ss1 >> c1;
     BOOST_CHECK_EQUAL(HexStr(&scripthash[0], &scripthash[32]), "f55efb77e5a0e37c16d8f3484024558241c215a57aa991533152813f111482f6");
+<<<<<<< HEAD
     BOOST_CHECK_EQUAL(HexStr(&c1.payload[0], &c1.payload[32]), "f55efb77e5a0e37c16d8f3484024558241c215a57aa991533152813f111482f6");
     BOOST_CHECK_EQUAL(TokenToUint(c1.type), TokenToUint(TokenTypes::REISSUABLE));
     BOOST_CHECK(memcmp(&c1.payload[0], &scripthash[0], 32) == 0);
@@ -60,6 +76,22 @@ BOOST_AUTO_TEST_CASE(coloridentifier_valid_unserialize)
     BOOST_CHECK_EQUAL(HexStr(&c2.payload[0], &c2.payload[32], false), "9608951ee23595caa227e7668e39f9d3525a39e9dc30d7391f138576c07be84d");
     BOOST_CHECK_EQUAL(TokenToUint(c2.type), TokenToUint(TokenTypes::NON_REISSUABLE));
     BOOST_CHECK(memcmp(&c2.payload[0], &scripthash[0], 32) == 0);
+=======
+    BOOST_CHECK_EQUAL(HexStr(&c1.payload.scripthash[0], &c1.payload.scripthash[32]), "f55efb77e5a0e37c16d8f3484024558241c215a57aa991533152813f111482f6");
+    BOOST_CHECK_EQUAL(TokenToUint(c1.type), TokenToUint(TokenTypes::REISSUABLE));
+    BOOST_CHECK(memcmp(&c1.payload.scripthash[0], &scripthash[0], 32) == 0);
+    BOOST_CHECK_EQUAL(c1.payload.utxo.hashMalFix.ToString(), "f68214113f8152315391a97aa515c2418255244048f3d8167ce3a0e577fb5ef5");
+    BOOST_CHECK_EQUAL(c1.payload.utxo.n, 4294967295);
+
+    //type NON_REISSUABLE
+    //hashMalFix = 485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954
+    CDataStream ss2(ParseHex("02485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e795401000000"), SER_NETWORK, INIT_PROTO_VERSION);
+    ss2 >> c1;
+    BOOST_CHECK_EQUAL(TokenToUint(c1.type), TokenToUint(TokenTypes::NON_REISSUABLE));
+    BOOST_CHECK_EQUAL(HexStr(&c1.payload.scripthash[0], &c1.payload.scripthash[32], false), "485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954");
+    BOOST_CHECK_EQUAL(c1.payload.utxo.hashMalFix.ToString(), "54796e38bcee0b9907b2e87253afb444eb43b5aded0044238a033f70f6735248");
+    BOOST_CHECK_EQUAL(c1.payload.utxo.n, 1);
+>>>>>>> Token balance verification and unit tests rebased with more fixes
 
 }
 
@@ -73,12 +105,21 @@ BOOST_AUTO_TEST_CASE(coloridentifier_valid_serialize)
     BOOST_CHECK_EQUAL(HexStr(ss1.begin(), ss1.end(), false), "01f55efb77e5a0e37c16d8f3484024558241c215a57aa991533152813f111482f6");
 
     //type NON_REISSUABLE
+<<<<<<< HEAD
     uint256 hashMalFix(ParseHex("485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954"));
     COutPoint out(hashMalFix, 0);
     ColorIdentifier c2(out, TokenTypes::NON_REISSUABLE);
     CDataStream ss2(SER_NETWORK, INIT_PROTO_VERSION);
     ss2 << c2;
     BOOST_CHECK_EQUAL(HexStr(ss2.begin(), ss2.end()), "029608951ee23595caa227e7668e39f9d3525a39e9dc30d7391f138576c07be84d");
+=======
+    uint256 hash(ParseHex("485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954"));
+    COutPoint out(hash, 0);
+    ColorIdentifier c2(out, TokenTypes::NON_REISSUABLE);
+    CDataStream ss2(SER_NETWORK, INIT_PROTO_VERSION);
+    ss2 << c2;
+    BOOST_CHECK_EQUAL(HexStr(ss2.begin(), ss2.end()), "02485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e795400000000");
+>>>>>>> Token balance verification and unit tests rebased with more fixes
 }
 
 BOOST_AUTO_TEST_CASE(coloridentifier_compare)
@@ -92,6 +133,7 @@ BOOST_AUTO_TEST_CASE(coloridentifier_compare)
     CSHA256().Write(scriptVector.data(), scriptVector.size()).Finalize(scripthash);
     ColorIdentifier c2;
     c2.type = TokenTypes::REISSUABLE;
+<<<<<<< HEAD
     memcpy(&c2.payload[0], &scripthash[0], 32);
 
     BOOST_CHECK_EQUAL(HexStr(&scripthash[0], &scripthash[32]), "f55efb77e5a0e37c16d8f3484024558241c215a57aa991533152813f111482f6");
@@ -110,6 +152,24 @@ BOOST_AUTO_TEST_CASE(coloridentifier_compare)
     CSHA256().Write((const unsigned char *)s.data(), s.size()).Finalize(scripthash);
     c4.type = TokenTypes::NON_REISSUABLE;
     memcpy(&c4.payload[0], &scripthash[0], 32);
+=======
+    memcpy(&c2.payload.scripthash[0], &scripthash[0], 32);
+
+    BOOST_CHECK_EQUAL(HexStr(&scripthash[0], &scripthash[32]), "f55efb77e5a0e37c16d8f3484024558241c215a57aa991533152813f111482f6");
+    BOOST_CHECK_EQUAL(HexStr(&c1.payload.scripthash[0], &c1.payload.scripthash[32]), "f55efb77e5a0e37c16d8f3484024558241c215a57aa991533152813f111482f6");
+    BOOST_CHECK_EQUAL(HexStr(&c2.payload.scripthash[0], &c2.payload.scripthash[32]), "f55efb77e5a0e37c16d8f3484024558241c215a57aa991533152813f111482f6");
+    BOOST_CHECK(c1.operator==(c2));
+
+    //type NON_REISSUABLE
+    uint256 hash(ParseHex("485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954"));
+    COutPoint out(hash, 0);
+    ColorIdentifier c3(out, TokenTypes::NON_REISSUABLE);
+
+    ColorIdentifier c4;
+    c4.type = TokenTypes::NON_REISSUABLE;
+    c4.payload.utxo.hashMalFix = uint256(ParseHex("485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954"));
+    c4.payload.utxo.n = 0;
+>>>>>>> Token balance verification and unit tests rebased with more fixes
 
     BOOST_CHECK(c3.operator==(c4));
 
@@ -128,11 +188,16 @@ BOOST_AUTO_TEST_CASE(coloridentifier_map_compare)
     CSHA256().Write(scriptVector.data(), scriptVector.size()).Finalize(scripthash);
     ColorIdentifier c2;
     c2.type = TokenTypes::REISSUABLE;
+<<<<<<< HEAD
     memcpy(&c2.payload[0], &scripthash[0], 32);
+=======
+    memcpy(&c2.payload.scripthash[0], &scripthash[0], 32);
+>>>>>>> Token balance verification and unit tests rebased with more fixes
 
     BOOST_CHECK_EQUAL(c1 < c2, false);
 
     //type NON_REISSUABLE
+<<<<<<< HEAD
     uint256 hashMalFix(ParseHex("485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954"));
     COutPoint out(hashMalFix, 0);
     ColorIdentifier c3(out, TokenTypes::NON_REISSUABLE);
@@ -143,6 +208,17 @@ BOOST_AUTO_TEST_CASE(coloridentifier_map_compare)
     CSHA256().Write((const unsigned char *)s.data(), s.size()).Finalize(scripthash);
     c4.type = TokenTypes::NON_REISSUABLE;
     memcpy(&c4.payload[0], &scripthash[0], 32);
+=======
+    uint256 hash(ParseHex("485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954"));
+    COutPoint out(hash, 0);
+    ColorIdentifier c3(out, TokenTypes::NON_REISSUABLE);
+
+    ColorIdentifier c4;
+    c4.type = TokenTypes::NON_REISSUABLE;
+    c4.payload.utxo.hashMalFix = uint256(ParseHex("485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954"));
+    c4.payload.utxo.n = 0;
+
+>>>>>>> Token balance verification and unit tests rebased with more fixes
     BOOST_CHECK_EQUAL(c3 < c4, false);
 
     BOOST_CHECK_EQUAL(c1 < c3, true);
