@@ -199,4 +199,6 @@ CScript GetScriptForWitness(const CScript& redeemscript);
 
 bool MatchColoredPayToPubkeyHash(const CScript& script, std::vector<unsigned char>& pubkeyhash, std::vector<unsigned char>& colorid);
 
+bool MatchCustomColoredScript(const CScript& script, std::vector<unsigned char>& colorid);
+
 #endif // BITCOIN_SCRIPT_STANDARD_H

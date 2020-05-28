@@ -247,7 +247,8 @@ bool ProduceSignature(const SigningProvider& provider, const BaseSignatureCreato
     sigdata.scriptSig = PushAll(result);
 
     // Test solution
-    sigdata.complete = solved && VerifyScript(sigdata.scriptSig, fromPubKey, &sigdata.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, creator.Checker(), nullptr);
+    ColorIdentifier colorId;
+    sigdata.complete = solved && VerifyScript(sigdata.scriptSig, fromPubKey, &sigdata.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, creator.Checker(), colorId, nullptr);
     return sigdata.complete;
 }
 
@@ -341,7 +342,8 @@ SignatureData DataFromTransaction(const CMutableTransaction& tx, unsigned int nI
     // Get signatures
     MutableTransactionSignatureChecker tx_checker(&tx, nIn, txout.nValue);
     SignatureExtractorChecker extractor_checker(data, tx_checker);
-    if (VerifyScript(data.scriptSig, txout.scriptPubKey, &data.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, extractor_checker, nullptr)) {
+    ColorIdentifier colorId;
+    if (VerifyScript(data.scriptSig, txout.scriptPubKey, &data.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, extractor_checker, colorId, nullptr)) {
         data.complete = true;
         return data;
     }
@@ -504,8 +506,9 @@ bool IsSolvable(const SigningProvider& provider, const CScript& script)
     // important property this function is designed to test for.
     static_assert(STANDARD_SCRIPT_VERIFY_FLAGS & SCRIPT_VERIFY_WITNESS_PUBKEYTYPE, "IsSolvable requires standard script flags to include WITNESS_PUBKEYTYPE");
     if (ProduceSignature(provider, DUMMY_SIGNATURE_CREATOR, script, sigs)) {
+        ColorIdentifier colorId;
         // VerifyScript check is just defensive, and should never fail.
-        assert(VerifyScript(sigs.scriptSig, script, &sigs.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, DUMMY_CHECKER));
+        assert(VerifyScript(sigs.scriptSig, script, &sigs.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, DUMMY_CHECKER, colorId));
         return true;
     }
     return false;

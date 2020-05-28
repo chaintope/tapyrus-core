@@ -43,7 +43,9 @@ Verify(const CScript& scriptSig, const CScript& scriptPubKey, ScriptError& err)
     txTo.vin[0].scriptSig = scriptSig;
     txTo.vout[0].nValue = 1;
 
-    return VerifyScript(scriptSig, scriptPubKey, nullptr, SCRIPT_VERIFY_NONE, MutableTransactionSignatureChecker(&txTo, 0, txFrom.vout[0].nValue), &err);
+    ColorIdentifier colorId;
+
+    return VerifyScript(scriptSig, scriptPubKey, nullptr, SCRIPT_VERIFY_NONE, MutableTransactionSignatureChecker(&txTo, 0, txFrom.vout[0].nValue), colorId, &err);
 }
 
 

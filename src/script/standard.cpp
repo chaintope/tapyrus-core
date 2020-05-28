@@ -71,11 +71,11 @@ static bool MatchPayToPubkeyHash(const CScript& script, valtype& pubkeyhash)
     return false;
 }
 
-bool MatchColoredPayToPubkeyHash(const CScript& script, std::vector<unsigned char>& pubkeyhash, std::vector<unsigned char>& colorid)
+bool MatchColoredPayToPubkeyHash(const CScript& script, valtype& pubkeyhash, valtype& colorid)
 {
     //<COLOR identifier> OP_COLOR OP_DUP OP_HASH160 <H(pubkey)> OP_EQUALVERIFY OP_CHECKSIG
     // <COLOR identifier> : TYPE = 1 and 32 PAYLOAD
-    if (script.size() == 60 && script[0] ==0x21 && script[1] == 0x01 && script[34] == OP_COLOR && script[35] == OP_DUP && script[36] == OP_HASH160 && script[37] == 20 && script[58] == OP_EQUALVERIFY && script[59] == OP_CHECKSIG)
+    if (script.size() == 60 && script[0] == 0x21 && script[1] == 0x01 && script[34] == OP_COLOR && script[35] == OP_DUP && script[36] == OP_HASH160 && script[37] == 20 && script[58] == OP_EQUALVERIFY && script[59] == OP_CHECKSIG)
     {
         pubkeyhash = valtype(script.begin() + 37, script.begin() + 57);
         colorid = valtype(script.begin() + 1, script.begin() + 34);
@@ -88,6 +88,31 @@ bool MatchColoredPayToPubkeyHash(const CScript& script, std::vector<unsigned cha
         colorid = valtype(script.begin() + 1, script.begin() + 38);
         return true;
     }
+    return false;
+}
+
+bool MatchCustomColoredScript(const CScript& script, valtype& colorid)
+{
+    //search for colorid in the script
+    // patterns: 0x21<33 byte>OP_COLOR
+    // 0x25<37 byte>OP_COLOR
+    std::vector<unsigned char> colorId;
+    CScript::const_iterator iterColorId1 = std::find(script.begin(), script.end(), 0x21);
+    CScript::const_iterator iterColorId2 = std::find(script.begin(), script.end(), 0x25);
+    CScript::const_iterator iterOpColor = std::find(script.begin(), script.end(), OP_COLOR);
+
+    if(iterOpColor == script.end())
+        return false;
+
+    if(iterColorId1 != script.end() && std::distance(iterColorId1, iterOpColor) == 34)
+        colorId.assign(iterColorId1, iterColorId1 + 33);
+
+    else if(iterColorId1 != script.end() && std::distance(iterColorId2, iterOpColor) == 38)
+        colorId.assign(iterColorId2, iterColorId2 + 37);
+
+    if(colorId.size())
+        return true;
+    
     return false;
 }
 
@@ -193,23 +218,15 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::v
         TokenTypes type = UintToToken(*(scriptPubKey.begin() + 1));
         if(type == TokenTypes::REISSUABLE)
         {
-            hashBytes.assign(scriptPubKey.begin()+36, scriptPubKey.begin()+55);
+            hashBytes.assign(scriptPubKey.begin()+36, scriptPubKey.begin()+56);
             colorId.assign(scriptPubKey.begin()+1, scriptPubKey.begin()+34);
         }
         else
         {
-            hashBytes.assign(scriptPubKey.begin()+40, scriptPubKey.begin()+59);
+            hashBytes.assign(scriptPubKey.begin()+40, scriptPubKey.begin()+60);
             colorId.assign(scriptPubKey.begin()+1, scriptPubKey.begin()+38);
         }
         vSolutionsRet.push_back(hashBytes);
-
-        TokenTypes type = UintToToken(*(scriptPubKey.begin() + 1));
-        std::vector<unsigned char> colorId;
-        if(type == TokenTypes::REISSUABLE)
-            colorId.assign(scriptPubKey.begin()+1, scriptPubKey.begin()+34);
-        else
-            colorId.assign(scriptPubKey.begin()+1, scriptPubKey.begin()+38);
-
         vSolutionsRet.push_back(colorId);
         return true;
     }

@@ -212,29 +212,37 @@ bool CScript::IsPayToScriptHash() const
 
 bool CScript::IsColoredScript() const
 {
-    for(auto& byte:*this)
-        if(byte == OP_COLOR)
-            return true;
+    //search for colorid in the script
+    // 0x21<33 byte>OP_COLOR
+    // 0x25<37 byte>OP_COLOR
+    CScript::const_iterator iterColorId1 = std::find(begin(), end(), 0x21);
+    CScript::const_iterator iterColorId2 = std::find(begin(), end(), 0x25);
+    CScript::const_iterator iterOpColor = std::find(begin(), end(), OP_COLOR);
+
+    if(iterOpColor != end()
+    && ((iterColorId1 != end() && std::distance(iterColorId1, iterOpColor) == 34)
+    || (iterColorId2 != end() && std::distance(iterColorId2, iterOpColor) == 38)))
+        return true;
     return false;
 }
 
 bool CScript::IsColoredPayToScriptHash() const
 {
     // <COLOR identifier> OP_COLOR OP_HASH160 <H(redeem script)> OP_EQUAL
-    if(this->size() == 56) // <COLOR identifier> : TYPE = 1 and 32 PAYLOAD
+    if(this->size() == 58) // <COLOR identifier> : TYPE = 1 and 32 PAYLOAD
         return ((*this)[0] == 0x21 &&
                 (*this)[1] == 0x01 &&
-                (*this)[33] == OP_COLOR &&
-                (*this)[34] == OP_HASH160 &&
-                (*this)[35] == 0x14 &&
-                (*this)[55] == OP_EQUAL);
-    else if(this->size() == 60) // <COLOR identifier> : TYPE = 2/3 and 36 PAYLOAD
+                (*this)[34] == OP_COLOR &&
+                (*this)[35] == OP_HASH160 &&
+                (*this)[36] == 0x14 &&
+                (*this)[57] == OP_EQUAL);
+    else if(this->size() == 62) // <COLOR identifier> : TYPE = 2/3 and 36 PAYLOAD
         return ((*this)[0] == 0x25 &&
                 ((*this)[1] == 0x02 || (*this)[1] == 0x03 )&&
-                (*this)[37] == OP_COLOR &&
-                (*this)[38] == OP_HASH160 &&
-                (*this)[39] == 0x14 &&
-                (*this)[59] == OP_EQUAL);
+                (*this)[38] == OP_COLOR &&
+                (*this)[39] == OP_HASH160 &&
+                (*this)[40] == 0x14 &&
+                (*this)[61] == OP_EQUAL);
     return false;
 }
 

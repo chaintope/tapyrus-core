@@ -98,6 +98,7 @@ BOOST_AUTO_TEST_CASE(tx_valid)
     UniValue tests = read_json(std::string(json_tests::tx_valid, json_tests::tx_valid + sizeof(json_tests::tx_valid)));
 
     ScriptError err;
+    ColorIdentifier colorId;
     for (unsigned int idx = 0; idx < tests.size(); idx++) {
         UniValue test = tests[idx];
         std::string strTest = test.write();
@@ -163,7 +164,7 @@ BOOST_AUTO_TEST_CASE(tx_valid)
                 unsigned int verify_flags = ParseScriptFlags(test[2].get_str());
                 const CScriptWitness *witness = &tx.vin[i].scriptWitness;
                 BOOST_CHECK_MESSAGE(VerifyScript(tx.vin[i].scriptSig, mapprevOutScriptPubKeys[tx.vin[i].prevout],
-                                                 witness, verify_flags, TransactionSignatureChecker(&tx, i, amount, txdata), &err),
+                                                 witness, verify_flags, TransactionSignatureChecker(&tx, i, amount, txdata), colorId, &err),
                                     strTest);
                 BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
             }
@@ -185,6 +186,7 @@ BOOST_AUTO_TEST_CASE(tx_invalid)
     // Initialize to SCRIPT_ERR_OK. The tests expect err to be changed to a
     // value other than SCRIPT_ERR_OK.
     ScriptError err = SCRIPT_ERR_OK;
+    ColorIdentifier colorId;
     for (unsigned int idx = 0; idx < tests.size(); idx++) {
         UniValue test = tests[idx];
         std::string strTest = test.write();
@@ -249,7 +251,7 @@ BOOST_AUTO_TEST_CASE(tx_invalid)
                 }
                 const CScriptWitness *witness = &tx.vin[i].scriptWitness;
                 fValid = VerifyScript(tx.vin[i].scriptSig, mapprevOutScriptPubKeys[tx.vin[i].prevout],
-                                      witness, verify_flags, TransactionSignatureChecker(&tx, i, amount, txdata), &err);
+                                      witness, verify_flags, TransactionSignatureChecker(&tx, i, amount, txdata), colorId, &err);
             }
             BOOST_CHECK_MESSAGE(!fValid, strTest);
             BOOST_CHECK_MESSAGE(err != SCRIPT_ERR_OK, ScriptErrorString(err));
@@ -378,8 +380,9 @@ static void CreateCreditAndSpend(const CKeyStore& keystore, const CScript& outsc
 static void CheckWithFlag(const CTransactionRef& output, const CMutableTransaction& input, int flags, bool success)
 {
     ScriptError error;
+    ColorIdentifier colorId;
     CTransaction inputi(input);
-    bool ret = VerifyScript(inputi.vin[0].scriptSig, output->vout[0].scriptPubKey, &inputi.vin[0].scriptWitness, flags, TransactionSignatureChecker(&inputi, 0, output->vout[0].nValue), &error);
+    bool ret = VerifyScript(inputi.vin[0].scriptSig, output->vout[0].scriptPubKey, &inputi.vin[0].scriptWitness, flags, TransactionSignatureChecker(&inputi, 0, output->vout[0].nValue), colorId, &error);
     BOOST_CHECK(ret == success);
 }
 

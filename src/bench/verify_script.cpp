@@ -82,6 +82,7 @@ static void VerifyScriptBench(benchmark::State& state)
     witness.stack.push_back(ToByteVector(pubkey));
 
     // Benchmark.
+    ColorIdentifier colorId;
     while (state.KeepRunning()) {
         ScriptError err;
         bool success = VerifyScript(
@@ -90,6 +91,7 @@ static void VerifyScriptBench(benchmark::State& state)
             &txSpend.vin[0].scriptWitness,
             flags,
             MutableTransactionSignatureChecker(&txSpend, 0, txCredit.vout[0].nValue),
+            colorId,
             &err);
         assert(err == SCRIPT_ERR_OK);
         assert(success);

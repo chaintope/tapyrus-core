@@ -9,7 +9,7 @@
 ColorIdentifier GetColorIdFromScript(const CScript& script)
 {
     if(!script.IsColoredScript())
-        return ColorIdentifier(TokenTypes::NONE);
+        return ColorIdentifier();
 
     std::vector<unsigned char> pubkeyhash, colorId;
     if( MatchColoredPayToPubkeyHash(script, pubkeyhash, colorId))
@@ -26,20 +26,8 @@ ColorIdentifier GetColorIdFromScript(const CScript& script)
         return ColorIdentifier(colorId);
     }
 
-    //search for colorid in the script
-    CScript::const_iterator iter = std::find(script.begin(), script.end(), OP_COLOR);
-    if(iter != script.end())
-    {
-        size_t index = std::distance(script.begin(), iter);
-        if(index <= 33) 
-            return ColorIdentifier(TokenTypes::NONE);
-
-        if(index > 33 && script[index - 33] == 0x21) 
-            colorId.assign(script.begin()+index-32, script.begin()+index);
-        else if(index > 37 && script[index - 37] == 0x25) 
-            colorId.assign(script.begin()+index-36, script.begin()+index);
-
+    if(MatchCustomColoredScript(script, colorId))
         return ColorIdentifier(colorId);
-    }
-    return ColorIdentifier(TokenTypes::NONE);
+
+    return ColorIdentifier();
 }
