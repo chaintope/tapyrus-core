@@ -85,7 +85,7 @@ namespace
 
 void testTx(TestChainSetup* setup, const CTransactionRef tx, bool success, std::string errStr="")
 {
-    //LOCK(cs_main);
+    LOCK(cs_main);
     CValidationState state;
     BOOST_CHECK_EQUAL(
             success,

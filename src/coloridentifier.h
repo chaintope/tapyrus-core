@@ -103,12 +103,6 @@ struct ColorIdentifier
             READWRITE(this->payload.scripthash);
         else if(this->type == TokenTypes::NON_REISSUABLE || this->type == TokenTypes::NFT)
             READWRITE(this->payload.utxo);
-
-        //initilaize the last 4 bytes uniformly
-        /*if (ser_action.ForRead()
-        && this->type != TokenTypes::NON_REISSUABLE
-        && this->type != TokenTypes::NFT)
-            this->payload.utxo.n = 32766;*/
     }
 
     inline std::vector<unsigned char> toVector() const {
