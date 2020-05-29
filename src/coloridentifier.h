@@ -45,7 +45,6 @@ inline TokenTypes UintToToken(uint8_t t)
 struct ColorIdentifier
 {
     TokenTypes type;
-<<<<<<< HEAD
     uint8_t payload[CSHA256::OUTPUT_SIZE];
 
     ColorIdentifier():type(TokenTypes::NONE), payload{} { }
@@ -54,22 +53,6 @@ struct ColorIdentifier
         CDataStream s(SER_NETWORK, INIT_PROTO_VERSION);
         s << utxoIn;
         CSHA256().Write((unsigned char *)s.data(), s.size()).Finalize(payload);
-=======
-    union ColorIdentifierPayload{
-        uint8_t scripthash[CSHA256::OUTPUT_SIZE];
-        COutPoint utxo;
-        ColorIdentifierPayload():utxo() {}
-    } payload;
-
-    ColorIdentifier():type(TokenTypes::NONE), payload() { }
-
-    ColorIdentifier(COutPoint &utxoIn, TokenTypes typeIn) {
-        if(typeIn == TokenTypes::NON_REISSUABLE || typeIn == TokenTypes::NFT)
-        {
-            type = typeIn;
-            payload.utxo = utxoIn;
-        }
->>>>>>> Token balance verification and unit tests rebased with more fixes
     }
 
     ColorIdentifier(const CScript& input):type(TokenTypes::REISSUABLE), payload() {
@@ -138,6 +121,7 @@ struct ColorIdentifier
             READWRITE(this->payload.scripthash);
         else if(this->type == TokenTypes::NON_REISSUABLE || this->type == TokenTypes::NFT)
             READWRITE(this->payload.utxo);
+<<<<<<< HEAD
 
         //initilaize the last 4 bytes uniformly
         /*if (ser_action.ForRead()
@@ -145,6 +129,8 @@ struct ColorIdentifier
         && this->type != TokenTypes::NFT)
             this->payload.utxo.n = 32766;*/
 >>>>>>> Token balance verification and unit tests rebased with more fixes
+=======
+>>>>>>> lock cs_main in txvalidation_tests
     }
 
     inline std::vector<unsigned char> toVector() const {
