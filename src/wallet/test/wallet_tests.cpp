@@ -379,34 +379,74 @@ BOOST_FIXTURE_TEST_CASE(generate_with_incorrect_privkey, TestingSetup)
 
 }
 
-BOOST_FIXTURE_TEST_CASE(getTokenBalance, TestChainSetup)
-{
-    CBlockIndex* const nullBlock = nullptr;
-    CBlockIndex* oldTip = chainActive.Tip();
-    GetBlockFileInfo(oldTip->GetBlockPos().nFile)->nSize = MAX_BLOCKFILE_SIZE;
-    // CreateAndProcessBlock({}, GetScriptForRawPubKey(coinbaseKey.GetPubKey()));
-    CBlockIndex* newTip = chainActive.Tip();
+// void Sign(std::vector<unsigned char>& vchSig, CKey& signKey, const CScript& scriptPubKey, CMutableTransaction& inTx, int inIndex, CMutableTransaction& outTx, int outIndex)
+// {
+//     uint256 hash = SignatureHash(scriptPubKey, outTx, inIndex, SIGHASH_ALL, outTx.vout[outIndex].nValue, SigVersion::BASE);
+//     signKey.Sign_Schnorr(hash, vchSig);
+//     vchSig.push_back((unsigned char)SIGHASH_ALL);
+// }
 
-    // CP2PKH(Colored P2PKH)：
-    // <COLOR identifier> OP_COLOR OP_DUP OP_HASH160 <H(pubkey)> OP_EQUALVERIFY OP_CHECKSIG
-    CScript CP2PKHScriptPubKey = CScript() << ParseHex("011863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262") << OP_COLOR << OP_DUP << OP_HASH160 << ParseHex("1018853670f9f3b0582c5b9ee8ce93764ac32b93") << OP_EQUALVERIFY << OP_CHECKSIG;
+// BOOST_FIXTURE_TEST_CASE(getTokenBalance, TestChainSetup)
+// {
+//     const unsigned char vchKey1[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0};
 
-    // CP2SH(Colored P2SH)：
-    // <COLOR identifier> OP_COLOR OP_HASH160 <H(redeem script)> OP_EQUAL
-    CScript CP2SHScriptPubKey = CScript() << ParseHex("011863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262") << OP_COLOR << OP_HASH160 << ParseHex("da8a647bba351bbae4cee0089d373c97ec240580") << OP_EQUAL;
+//     CKey key;
+//     CPubKey pubkey;
+//     key.Set(vchKey1, vchKey1 + 32, true);
+//     pubkey = key.GetPubKey();
+//     std::vector<unsigned char> pubkeyHash(20);
+//     std::vector<unsigned char> vchPubKey(pubkey.begin(), pubkey.end());
+//     CHash160().Write(pubkey.data(), pubkey.size()).Finalize(pubkeyHash.data());
 
-    {
-        CWallet wallet("dummy", WalletDatabase::CreateDummy());
-        AddKey(wallet, coinbaseKey);
-        WalletRescanReserver reserver(&wallet);
-        reserver.reserve();
-        CreateAndProcessBlock({}, CP2PKHScriptPubKey);
+//     std::unique_ptr<CWallet> wallet = MakeUnique<CWallet>("mock", WalletDatabase::CreateMock());
+//     bool firstRun;
+//     wallet->LoadWallet(firstRun);
+//     wallet->AddKeyPubKey(key, pubkey);
+//     WalletRescanReserver reserver(wallet.get());
+//     reserver.reserve();
 
-        std::vector<CBalance> walletBalance = wallet.GetAvailableTokenBalance();
-        // printf("wallet size after 1: %u\n", walletBalance.size());
+//     CMutableTransaction coinbaseSpendTx;
+//     coinbaseSpendTx.nFeatures = 1;
+//     coinbaseSpendTx.vin.resize(1);
+//     coinbaseSpendTx.vout.resize(1);
+//     coinbaseSpendTx.vin[0].prevout.hashMalFix = m_coinbase_txns[2]->GetHashMalFix();
+//     coinbaseSpendTx.vin[0].prevout.n = 0;
+//     coinbaseSpendTx.vout[0].nValue = 300 * CENT;
+//     coinbaseSpendTx.vout[0].scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash) << OP_EQUALVERIFY << OP_CHECKSIG;
 
-        CreateAndProcessBlock({}, CP2SHScriptPubKey);
-    }
-}
+//     std::vector<unsigned char> vchSig;
+//     CMutableTransaction coinbaseIn(*m_coinbase_txns[2]);
+//     Sign(vchSig, coinbaseKey, m_coinbase_txns[2]->vout[0].scriptPubKey, coinbaseIn, 0, coinbaseSpendTx, 0);
+//     coinbaseSpendTx.vin[0].scriptSig = CScript() << vchSig;
+
+//     CreateAndProcessBlock({coinbaseSpendTx}, coinbaseSpendTx.vout[0].scriptPubKey);
+//     wallet->ScanForWalletTransactions(chainActive.Tip(), nullptr, reserver);
+
+//     BOOST_CHECK_EQUAL(wallet->GetAvailableTokenBalance().size(), 1);
+
+//     COutPoint utxo(coinbaseSpendTx.GetHashMalFix(), 0);
+//     ColorIdentifier colorid(utxo, TokenTypes::NON_REISSUABLE);
+//     CScript scriptPubKey = CScript() << colorid.toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash) << OP_EQUALVERIFY << OP_CHECKSIG;
+//     wallet->AddCScript(scriptPubKey);
+
+//     CMutableTransaction tokenIssueTx;
+//     tokenIssueTx.nFeatures = 1;
+//     tokenIssueTx.vin.resize(1);
+//     tokenIssueTx.vout.resize(2);
+//     tokenIssueTx.vin[0].prevout.hashMalFix = coinbaseSpendTx.GetHashMalFix();
+//     tokenIssueTx.vin[0].prevout.n = 0;
+//     tokenIssueTx.vout[0].nValue = 80 * CENT;
+//     tokenIssueTx.vout[0].scriptPubKey = scriptPubKey;
+//     tokenIssueTx.vout[1].nValue = 220 * CENT;
+//     tokenIssueTx.vout[1].scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash) << OP_EQUALVERIFY << OP_CHECKSIG;
+
+//     Sign(vchSig, key, coinbaseSpendTx.vout[0].scriptPubKey, coinbaseSpendTx, 0, tokenIssueTx, 0);
+//     tokenIssueTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey;
+
+//     CreateAndProcessBlock({tokenIssueTx}, tokenIssueTx.vout[0].scriptPubKey);
+//     wallet->ScanForWalletTransactions(chainActive.Tip(), nullptr, reserver);
+
+//     BOOST_CHECK_EQUAL(wallet->GetAvailableTokenBalance().size(), 2);
+// }
 
 BOOST_AUTO_TEST_SUITE_END()

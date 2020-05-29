@@ -12,7 +12,7 @@
 #include <rpc/server.h>
 #include <script/script.h>
 #include <script/script_error.h>
-#include <script/standard.cpp>
+#include <script/standard.h>
 #include <script/sign.h>
 #include <test/test_tapyrus.h>
 #include <util.h>
@@ -2500,6 +2500,14 @@ BOOST_AUTO_TEST_CASE(coloredScripts)
     BOOST_CHECK(!MatchColoredPayToPubkeyHash(ScriptPubKey, data, colorId));
     BOOST_CHECK(!ScriptPubKey.IsColoredPayToScriptHash());
     BOOST_CHECK(GetColorIdFromScriptPubKey(ScriptPubKey).type == TokenTypes::NONE);
+
+    // CP2SH(Colored P2SH)：
+    // <COLOR identifier> OP_COLOR OP_HASH160 <H(redeem script)> OP_EQUAL
+    // TokenType NON_REISSUABLE
+    CScript ColoredPayToScriptHash2 = CScript() << ParseHex("02485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e795401000000") << OP_COLOR << OP_DUP << OP_HASH160 << ParseHex("1018853670f9f3b0582c5b9ee8ce93764ac32b93") << OP_EQUALVERIFY << OP_CHECKSIG;
+    BOOST_CHECK(MatchColoredPayToPubkeyHash(ColoredPayToScriptHash2, data, colorId));
+    BOOST_CHECK(!ColoredPayToScriptHash2.IsColoredPayToScriptHash());
+    BOOST_CHECK(GetColorIdFromScriptPubKey(ColoredPayToScriptHash2).type == TokenTypes::NON_REISSUABLE);
 }
 
 #endif
