@@ -212,16 +212,7 @@ bool CScript::IsPayToScriptHash() const
 
 bool CScript::IsColoredScript() const
 {
-    //search for colorid in the script
-    // 0x21<33 byte>OP_COLOR
-    // 0x25<37 byte>OP_COLOR
-    CScript::const_iterator iterColorId1 = std::find(begin(), end(), 0x21);
-    CScript::const_iterator iterColorId2 = std::find(begin(), end(), 0x25);
-    CScript::const_iterator iterOpColor = std::find(begin(), end(), OP_COLOR);
-
-    if(iterOpColor != end()
-    && ((iterColorId1 != end() && std::distance(iterColorId1, iterOpColor) == 34)
-    || (iterColorId2 != end() && std::distance(iterColorId2, iterOpColor) == 38)))
+    if(std::find(begin(), end(), OP_COLOR) != end())
         return true;
     return false;
 }
