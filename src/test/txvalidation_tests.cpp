@@ -85,15 +85,18 @@ namespace
 
 void testTx(TestChainSetup* setup, const CTransactionRef tx, bool success, std::string errStr="")
 {
-    LOCK(cs_main);
     CValidationState state;
-    BOOST_CHECK_EQUAL(
+    {
+        LOCK(cs_main);
+
+        BOOST_CHECK_EQUAL(
             success,
             AcceptToMemoryPool(mempool, state, tx,
                 nullptr ,
                 nullptr,
                 true ,
                 0));
+    }
 
     if(success)
     {
