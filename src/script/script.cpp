@@ -212,8 +212,15 @@ bool CScript::IsPayToScriptHash() const
 
 bool CScript::IsColoredScript() const
 {
-    if(std::find(begin(), end(), OP_COLOR) != end())
-        return true;
+    const_iterator pc = begin();
+    opcodetype opcode;
+    while (pc < end())
+    {
+        if (!GetOp(pc, opcode))
+            break;
+        if (opcode == OP_COLOR)
+            return true;
+    }
     return false;
 }
 
