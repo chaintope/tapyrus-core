@@ -479,10 +479,10 @@ bool IsValidDestination(const CTxDestination& dest) {
     return dest.which() != 0;
 }
 
-ColorIdentifier GetColorIdFromScriptPubKey(const CScript& scriptPubKey) {
+ColorIdentifier GetColorIdFromScript(const CScript& scriptPubKey) {
     std::vector<unsigned char> data;
     std::vector<unsigned char> colorId;
-    ColorIdentifier defaultColorId({TokenTypes::NONE});
+    ColorIdentifier defaultColorId;
 
     if(MatchColoredPayToPubkeyHash(scriptPubKey, data, colorId)) {
         ColorIdentifier p2pkhColorId(colorId);

@@ -2489,7 +2489,7 @@ BOOST_AUTO_TEST_CASE(coloredScripts)
     //check CP2PKHScriptPubKey match ColoredPayToPubkeyHash not match ColoredPayToScriptHash
     BOOST_CHECK(MatchColoredPayToPubkeyHash(CP2PKHScriptPubKey, data, colorId));
     BOOST_CHECK(!CP2PKHScriptPubKey.IsColoredPayToScriptHash());
-    BOOST_CHECK(GetColorIdFromScriptPubKey(CP2PKHScriptPubKey).type == TokenTypes::REISSUABLE);
+    BOOST_CHECK(GetColorIdFromScript(CP2PKHScriptPubKey).type == TokenTypes::REISSUABLE);
     
     // CP2SH(Colored P2SH)：
     // <COLOR identifier> OP_COLOR OP_HASH160 <H(redeem script)> OP_EQUAL
@@ -2498,13 +2498,13 @@ BOOST_AUTO_TEST_CASE(coloredScripts)
     //check CP2SHScriptPubKey match ColoredPayToScriptHash not match ColoredPayToPubkeyHash
     BOOST_CHECK(!MatchColoredPayToPubkeyHash(CP2SHScriptPubKey, data, colorId));
     BOOST_CHECK(CP2SHScriptPubKey.IsColoredPayToScriptHash());
-    BOOST_CHECK(GetColorIdFromScriptPubKey(CP2SHScriptPubKey).type == TokenTypes::REISSUABLE);
+    BOOST_CHECK(GetColorIdFromScript(CP2SHScriptPubKey).type == TokenTypes::REISSUABLE);
 
     //check ScriptPubKey will not match ColoredPayToScriptHash and ColoredPayToPubkeyHash will return token type none
     CScript ScriptPubKey = CScript() << OP_HASH160 << ParseHex("f194d154e64f22611bc67e906e5f8fd72e6afcf1") << OP_EQUAL;
     BOOST_CHECK(!MatchColoredPayToPubkeyHash(ScriptPubKey, data, colorId));
     BOOST_CHECK(!ScriptPubKey.IsColoredPayToScriptHash());
-    BOOST_CHECK(GetColorIdFromScriptPubKey(ScriptPubKey).type == TokenTypes::NONE);
+    BOOST_CHECK(GetColorIdFromScript(ScriptPubKey).type == TokenTypes::NONE);
 
     // CP2SH(Colored P2SH)：
     // <COLOR identifier> OP_COLOR OP_HASH160 <H(redeem script)> OP_EQUAL
@@ -2512,7 +2512,7 @@ BOOST_AUTO_TEST_CASE(coloredScripts)
     CScript ColoredPayToScriptHash2 = CScript() << ParseHex("02485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e795401000000") << OP_COLOR << OP_DUP << OP_HASH160 << ParseHex("1018853670f9f3b0582c5b9ee8ce93764ac32b93") << OP_EQUALVERIFY << OP_CHECKSIG;
     BOOST_CHECK(MatchColoredPayToPubkeyHash(ColoredPayToScriptHash2, data, colorId));
     BOOST_CHECK(!ColoredPayToScriptHash2.IsColoredPayToScriptHash());
-    BOOST_CHECK(GetColorIdFromScriptPubKey(ColoredPayToScriptHash2).type == TokenTypes::NON_REISSUABLE);
+    BOOST_CHECK(GetColorIdFromScript(ColoredPayToScriptHash2).type == TokenTypes::NON_REISSUABLE);
 }
 
 #endif
