@@ -179,7 +179,8 @@ coinbaseSpendTx
 tokenIssueTx(from coinbaseSpendTx) - 100 tokens
 tokenTransferTx - 1. no fee
                 - 2. split into 50 + 40 tokens - token balance error
-                - 3. success
+                - 3. add extra tokens into 50 + 60 tokens - token balance error
+                - 4. success
 test transaction reissue
 tokenAggregateTx- 1. no fee
                 - 2. add extra tokens - token balance error
@@ -264,7 +265,18 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_reissuable_token, TestChainSetup)
 
     testTx(this, MakeTransactionRef(tokenTransferTx), false, "bad-txns-token-balance");
 
-    //tokenTransferTx - 3. success
+    //tokenTransferTx - 3. add extra tokens into 50 + 60 tokens - token balance error
+    tokenTransferTx.vout[0].nValue = 50 * CENT;
+    tokenTransferTx.vout[1].nValue = 60 * CENT;
+
+    Sign(vchSig, key0, tokenIssueTx.vout[0].scriptPubKey, tokenIssueTx, 0, tokenTransferTx, 0);
+    tokenTransferTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey0;
+    Sign(vchSig, coinbaseKey, m_coinbase_txns[3]->vout[0].scriptPubKey, coinbaseIn2, 1, tokenTransferTx, 0);
+    tokenTransferTx.vin[1].scriptSig = CScript() << vchSig;
+
+    testTx(this, MakeTransactionRef(tokenTransferTx), false, "bad-txns-token-balance");
+
+    //tokenTransferTx - 4. success
     tokenTransferTx.vout[1].nValue = 50 * CENT;
 
     Sign(vchSig, key0, tokenIssueTx.vout[0].scriptPubKey, tokenIssueTx, 0, tokenTransferTx, 0);
@@ -402,7 +414,8 @@ coinbaseSpendTx
 tokenIssueTx(from coinbaseSpendTx) - 100 tokens
 tokenTransferTx - 1. no fee
                 - 2. split into 50 + 40 tokens - token balance error
-                - 3. success
+                - 3. add extra tokens into 50 + 60 tokens - token balance error
+                - 4. success
 test transaction reissue
 tokenAggregateTx- 1. no fee
                 - 2. add extra tokens - token balance error
@@ -489,7 +502,18 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_nonreissuable_token, TestChainSetup)
 
     testTx(this, MakeTransactionRef(tokenTransferTx), false, "bad-txns-token-balance");
 
-    //tokenTransferTx - 3. success
+    //tokenTransferTx - 3. add extra tokens into 50 + 60 tokens - token balance error
+    tokenTransferTx.vout[0].nValue = 50 * CENT;
+    tokenTransferTx.vout[1].nValue = 60 * CENT;
+
+    Sign(vchSig, key0, tokenIssueTx.vout[0].scriptPubKey, tokenIssueTx, 0, tokenTransferTx, 0);
+    tokenTransferTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey0;
+    Sign(vchSig, coinbaseKey, m_coinbase_txns[3]->vout[0].scriptPubKey, coinbaseIn2, 1, tokenTransferTx, 0);
+    tokenTransferTx.vin[1].scriptSig = CScript() << vchSig;
+
+    testTx(this, MakeTransactionRef(tokenTransferTx), false, "bad-txns-token-balance");
+
+    //tokenTransferTx - 4. success
     tokenTransferTx.vout[1].nValue = 50 * CENT;
 
     Sign(vchSig, key0, tokenIssueTx.vout[0].scriptPubKey, tokenIssueTx, 0, tokenTransferTx, 0);
@@ -621,6 +645,7 @@ tokenIssueTx(from coinbaseSpendTx) - 10000 tokens  - error
 tokenTransferTx - 1. no fee
                 - 2.  success
 test transaction reissue
+chande dust threshold and verify NFT output is not affected
 tokenBurnTx     - 1. no fee
                 - 3. success
 spend burnt token - failure
@@ -719,7 +744,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_nft_token, TestChainSetup)
     tokenTransferTx.vin[1].scriptSig = CScript() << vchSig;
 
     dustRelayFee = CFeeRate(1);
-    testTx(this, MakeTransactionRef(tokenTransferTx), false, "dust");
+    testTx(this, MakeTransactionRef(tokenTransferTx), false, "invalid-colorid");
 
     dustRelayFee = CFeeRate(0);
     testTx(this, MakeTransactionRef(tokenTransferTx), false, "invalid-colorid");

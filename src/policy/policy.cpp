@@ -51,8 +51,8 @@ CAmount GetDustThreshold(const CTxOut& txout, const CFeeRate& dustRelayFeeIn)
 
 bool IsDust(const CTxOut& txout, const CFeeRate& dustRelayFeeIn)
 {
-    return (txout.nValue < GetDustThreshold(txout, dustRelayFeeIn) 
-    && !(txout.nValue == 1 and GetColorIdFromScript(txout.scriptPubKey).type == TokenTypes::NFT));
+    return (!txout.scriptPubKey.IsColoredScript()
+        && txout.nValue < GetDustThreshold(txout, dustRelayFeeIn));
 }
 
 bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType)
