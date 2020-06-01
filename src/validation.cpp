@@ -310,7 +310,7 @@ enum class FlushStateMode {
 static bool FlushStateToDisk(CValidationState &state, FlushStateMode mode, int nManualPruneHeight=0);
 static void FindFilesToPruneManual(std::set<int>& setFilesToPrune, int nManualPruneHeight);
 static void FindFilesToPrune(std::set<int>& setFilesToPrune, uint64_t nPruneAfterHeight);
-bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheSigStore, bool cacheFullScriptStore, PrecomputedTransactionData& txdata, std::vector<CScriptCheck> *pvChecks = nullptr);
+bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheSigStore, bool cacheFullScriptStore, PrecomputedTransactionData& txdata, TxColoredCoinBalancesMap& inColoredCoinBalances, std::vector<CScriptCheck> *pvChecks = nullptr);
 static FILE* OpenUndoFile(const CDiskBlockPos &pos, bool fReadOnly = false);
 
 bool CheckFinalTx(const CTransaction &tx, int flags)
@@ -556,7 +556,80 @@ static bool CheckInputsFromMempoolAndCache(const CTransaction& tx, CValidationSt
         }
     }
 
-    return CheckInputs(tx, state, view, true, flags, cacheSigStore, true, txdata);
+    TxColoredCoinBalancesMap inColoredCoinBalances;
+    return CheckInputs(tx, state, view, true, flags, cacheSigStore, true, txdata, inColoredCoinBalances);
+}
+
+bool CheckColorIdentifierValidity(const CTransaction& tx, CValidationState& state, CCoinsViewCache &inputs, TxColoredCoinBalancesMap& outColoredCoinBalances, bool& isTokenTx)
+{
+    // when this transaction issues or transfers tokens,
+    // verify that the color id is valid.
+    for(auto txout:tx.vout)
+    {
+        if(!txout.scriptPubKey.IsColoredScript())
+            continue;
+
+        // we reach here only when OP_COLOR was found in the script
+        isTokenTx = true;
+
+        //identify the scriptPubkey type and get colorid from the script
+        ColorIdentifier outColorId(GetColorIdFromScript(txout.scriptPubKey));
+
+        //if the token type is none, OP_COLOR should not be used in the script.
+        if (outColorId.type == TokenTypes::NONE)
+            return false;
+
+        bool matchFound = false;
+        for(auto txin:tx.vin)
+        {
+            //match the input coin to the token's colorid
+            const Coin& coin = inputs.AccessCoin(txin.prevout);
+            ColorIdentifier coinColorId;
+
+            switch(coin.type)
+            {
+                // when the coin is TPC this is a token issue tx. 
+                // colorid is hash(coin's scriptpubkey) or prevout
+                case TokenTypes::NONE:
+                    if(outColorId.type == TokenTypes::REISSUABLE)
+                        coinColorId = ColorIdentifier(coin.out.scriptPubKey);
+                    else
+                        coinColorId = ColorIdentifier(txin.prevout, outColorId.type);
+                    break;
+
+                // when the coin is REISSUABLE/NON_REISSUABLE/NFT this is a token transfer tx. 
+                // colorid is same as the coin's colorid
+                case TokenTypes::REISSUABLE:
+                case TokenTypes::NON_REISSUABLE:
+                case TokenTypes::NFT:
+                    coinColorId = GetColorIdFromScript(coin.out.scriptPubKey);
+                    break;
+
+                default:
+                    continue;
+            }
+
+            if(coinColorId == outColorId && !coin.IsSpent())
+            {
+                matchFound = true;
+
+                //NFT's value is always 1
+                if(outColorId.type == TokenTypes::NFT && txout.nValue != 1) return false;
+
+                //collect token balances from verified outputs.
+                auto iter = outColoredCoinBalances.find(outColorId);
+                if(iter == outColoredCoinBalances.end())
+                    outColoredCoinBalances.emplace(outColorId, txout.nValue);
+                else
+                    iter->second += txout.nValue;
+
+                //exit inner loop
+                break;
+            }
+        }
+        if(!matchFound) return false;
+    }
+    return true;
 }
 
 static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, const CTransactionRef& ptx,
@@ -675,6 +748,12 @@ static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, 
             }
         }
 
+        //if there are colored coins in the output verify their colorids
+        bool isTokenTx = false;
+        TxColoredCoinBalancesMap outColoredCoinBalances;
+        if(!CheckColorIdentifierValidity(tx, state, view, outColoredCoinBalances, isTokenTx))
+            return state.DoS(0, false, REJECT_COLORID, "invalid-colorid");
+
         // Bring the best block into scope
         view.GetBestBlock();
 
@@ -717,13 +796,21 @@ static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, 
         // Keep track of transactions that spend a coinbase, which we re-scan
         // during reorgs to ensure COINBASE_MATURITY is still met.
         bool fSpendsCoinbase = false;
+        bool tpcInputFound = false;
         for (const CTxIn &txin : tx.vin) {
             const Coin &coin = view.AccessCoin(txin.prevout);
-            if (coin.IsCoinBase()) {
+            if (coin.IsCoinBase())
                 fSpendsCoinbase = true;
-                break;
-            }
+
+            if(coin.type == TokenTypes::NONE)
+                tpcInputFound = true;
+            else
+                isTokenTx = true;
         }
+
+        //Token transactions should have at least one TPC input to pay fee
+        if(isTokenTx && !tpcInputFound)
+            return state.Invalid(false, REJECT_INSUFFICIENTFEE, "bad-txns-token-without-fee");
 
         CTxMemPoolEntry entry(ptx, nFees, nAcceptTime, chainActive.Height(),
                               fSpendsCoinbase, nSigOpsCost, lp);
@@ -910,15 +997,17 @@ static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, 
         // Check against previous transactions
         // This is done last to help prevent CPU exhaustion denial-of-service attacks.
         PrecomputedTransactionData txdata(tx);
-        if (!CheckInputs(tx, state, view, true, scriptVerifyFlags, true, false, txdata)) {
+        TxColoredCoinBalancesMap inColoredCoinBalances;
+        if (!CheckInputs(tx, state, view, true, scriptVerifyFlags, true, false, txdata, inColoredCoinBalances)) {
 
         #ifdef DEBUG
+            TxColoredCoinBalancesMap inColoredCoinBalancesTemp;
             // SCRIPT_VERIFY_CLEANSTACK requires SCRIPT_VERIFY_WITNESS, so we
             // need to turn both off, and compare against just turning off CLEANSTACK
             // to see if the failure is specifically due to witness validation.
             CValidationState stateDummy; // Want reported failures to be from first CheckInputs
-            if (!tx.HasWitness() && CheckInputs(tx, stateDummy, view, true, scriptVerifyFlags & ~(SCRIPT_VERIFY_WITNESS | SCRIPT_VERIFY_CLEANSTACK), true, false, txdata) &&
-                !CheckInputs(tx, stateDummy, view, true, scriptVerifyFlags & ~SCRIPT_VERIFY_CLEANSTACK, true, false, txdata)) {
+            if (!tx.HasWitness() && CheckInputs(tx, stateDummy, view, true, scriptVerifyFlags & ~(SCRIPT_VERIFY_WITNESS | SCRIPT_VERIFY_CLEANSTACK), true, false, txdata, inColoredCoinBalancesTemp) &&
+                !CheckInputs(tx, stateDummy, view, true, scriptVerifyFlags & ~SCRIPT_VERIFY_CLEANSTACK, true, false, txdata, inColoredCoinBalancesTemp)) {
                 // Only the witness is missing, so the transaction itself may be fine.
                 state.SetCorruptionPossible();
             }
@@ -946,6 +1035,18 @@ static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, 
         if (!CheckInputsFromMempoolAndCache(tx, state, view, pool, currentBlockScriptVerifyFlags, true, txdata)) {
             return error("%s: BUG! PLEASE REPORT THIS! CheckInputs failed against latest-block but not STANDARD flags %s, %s",
                     __func__, hash.ToString(), FormatStateMessage(state));
+        }
+
+        //verify token balances
+        for(auto in:inColoredCoinBalances)
+        {
+            TxColoredCoinBalancesMap::const_iterator iter = outColoredCoinBalances.find(in.first);
+            if(iter == outColoredCoinBalances.end() || iter->second != in.second)
+                return state.Invalid(false, REJECT_INVALID, "bad-txns-token-balance");
+
+            //verify NFT
+            if(in.first.type == TokenTypes::NFT && iter->second != 1)
+                return state.Invalid(false, REJECT_INVALID, "bad-txns-nft-division");
         }
 
         if (test_accept) {
@@ -1354,7 +1455,7 @@ void UpdateCoins(const CTransaction& tx, CCoinsViewCache& inputs, int nHeight)
 bool CScriptCheck::operator()() {
     const CScript &scriptSig = ptxTo->vin[nIn].scriptSig;
     const CScriptWitness *witness = &ptxTo->vin[nIn].scriptWitness;
-    return VerifyScript(scriptSig, m_tx_out.scriptPubKey, witness, nFlags, CachingTransactionSignatureChecker(ptxTo, nIn, m_tx_out.nValue, cacheStore, *txdata), &error);
+    return VerifyScript(scriptSig, m_tx_out.scriptPubKey, witness, nFlags, CachingTransactionSignatureChecker(ptxTo, nIn, m_tx_out.nValue, cacheStore, *txdata), colorid, &error);
 }
 
 int GetSpendHeight(const CCoinsViewCache& inputs)
@@ -1391,7 +1492,7 @@ void InitScriptExecutionCache() {
  *
  * Non-static (and re-declared) in src/test/txvalidationcache_tests.cpp
  */
-bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheSigStore, bool cacheFullScriptStore, PrecomputedTransactionData& txdata, std::vector<CScriptCheck> *pvChecks)
+bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheSigStore, bool cacheFullScriptStore, PrecomputedTransactionData& txdata, TxColoredCoinBalancesMap& inColoredCoinBalances, std::vector<CScriptCheck> *pvChecks)
 {
     if (!tx.IsCoinBase())
     {
@@ -1460,8 +1561,16 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                     // super-majority signaling has occurred.
                     return state.DoS(100,false, REJECT_INVALID, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(check.GetScriptError())));
                 }
-                //check whether the color id of coin
-                //and color id from script match.
+                ColorIdentifier colorId(check.GetColorIdentifier());
+                if(colorId.type != TokenTypes::NONE)
+                {
+                    //collect token balances from verified input.
+                    auto iter = inColoredCoinBalances.find(colorId);
+                    if(iter == inColoredCoinBalances.end())
+                        inColoredCoinBalances.emplace(colorId, coin.out.nValue);
+                    else
+                        iter->second += coin.out.nValue;
+                }
             }
 
             if (cacheFullScriptStore && !pvChecks) {
@@ -1821,6 +1930,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     for (unsigned int i = 0; i < block.vtx.size(); i++)
     {
         const CTransaction &tx = *(block.vtx[i]);
+        TxColoredCoinBalancesMap inColoredCoinBalances;
 
         nInputs += tx.vin.size();
 
@@ -1864,7 +1974,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         {
             std::vector<CScriptCheck> vChecks;
             bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
-            if (!CheckInputs(tx, state, view, fScriptChecks, flags, fCacheResults, fCacheResults, txdata[i], nScriptCheckThreads ? &vChecks : nullptr))
+            if (!CheckInputs(tx, state, view, fScriptChecks, flags, fCacheResults, fCacheResults, txdata[i], inColoredCoinBalances, nScriptCheckThreads ? &vChecks : nullptr))
                 return error("ConnectBlock(): CheckInputs on %s failed with %s",
                     tx.GetHashMalFix().ToString(), FormatStateMessage(state));
             control.Add(vChecks);

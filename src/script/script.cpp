@@ -212,9 +212,15 @@ bool CScript::IsPayToScriptHash() const
 
 bool CScript::IsColoredScript() const
 {
-    for(auto& byte:*this)
-        if(byte == OP_COLOR)
+    const_iterator pc = begin();
+    opcodetype opcode;
+    while (pc < end())
+    {
+        if (!GetOp(pc, opcode))
+            break;
+        if (opcode == OP_COLOR)
             return true;
+    }
     return false;
 }
 

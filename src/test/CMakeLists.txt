@@ -62,6 +62,7 @@ add_test_to_suite(tapyrus test_tapyrus
 		checkdatasig_tests.cpp
 		checkqueue_tests.cpp
 		coins_tests.cpp
+		coloridentifier_tests.cpp
 		compress_tests.cpp
 		crypto_tests.cpp
 		cuckoocache_tests.cpp

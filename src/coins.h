@@ -45,8 +45,8 @@ public:
     TokenTypes type;
 
     //! construct a Coin from a CTxOut and height/coinbase information.
-    Coin(CTxOut&& outIn, int nHeightIn, bool fCoinBaseIn, TokenTypes typeIn=TokenTypes::NONE) : out(std::move(outIn)), fCoinBase(fCoinBaseIn), nHeight(nHeightIn), type(typeIn) {}
-    Coin(const CTxOut& outIn, int nHeightIn, bool fCoinBaseIn, TokenTypes typeIn=TokenTypes::NONE) : out(outIn), fCoinBase(fCoinBaseIn),nHeight(nHeightIn), type(typeIn) {}
+    Coin(CTxOut&& outIn, int nHeightIn, bool fCoinBaseIn, TokenTypes typeIn) : out(std::move(outIn)), fCoinBase(fCoinBaseIn), nHeight(nHeightIn), type(typeIn) {}
+    Coin(const CTxOut& outIn, int nHeightIn, bool fCoinBaseIn, TokenTypes typeIn) : out(outIn), fCoinBase(fCoinBaseIn),nHeight(nHeightIn), type(typeIn) {}
 
     void Clear() {
         out.SetNull();
@@ -72,7 +72,7 @@ public:
         uint32_t code = nHeight * 2 + fCoinBase;
         ::Serialize(s, VARINT(code));
         ::Serialize(s, CTxOutCompressor(REF(out)));
-        //::Serialize(s, uint8_t(type));
+        ::Serialize(s, TokenToUint(type));
     }
 
     template<typename Stream>
@@ -82,7 +82,9 @@ public:
         nHeight = code >> 1;
         fCoinBase = code & 1;
         ::Unserialize(s, CTxOutCompressor(out));
-        //::Unserialize(s, uint8_t(type));
+        uint8_t itype = 0;
+        ::Unserialize(s, itype);
+        type = UintToToken(itype);
     }
 
     bool IsSpent() const {

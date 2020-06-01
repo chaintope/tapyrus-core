@@ -89,10 +89,11 @@ void AddCoins(CCoinsViewCache& cache, const CTransaction &tx, int nHeight, bool 
     bool fCoinbase = tx.IsCoinBase();
     const uint256& txid = tx.GetHashMalFix();
     for (size_t i = 0; i < tx.vout.size(); ++i) {
+        ColorIdentifier colorId(GetColorIdFromScript(tx.vout[i].scriptPubKey));
         bool overwrite = check ? cache.HaveCoin(COutPoint(txid, i)) : fCoinbase;
         // Always set the possible_overwrite flag to AddCoin for coinbase txn, in order to correctly
         // deal with the pre-BIP30 occurrences of duplicate coinbase transactions.
-        cache.AddCoin(COutPoint(txid, i), Coin(tx.vout[i], nHeight, fCoinbase), overwrite);
+        cache.AddCoin(COutPoint(txid, i), Coin(tx.vout[i], nHeight, fCoinbase, colorId.type), overwrite);
     }
 }
 

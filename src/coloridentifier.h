@@ -7,6 +7,7 @@
 #include <crypto/sha256.h>
 #include <streams.h>
 #include <version.h>
+#include <amount.h>
 
 enum class TokenTypes
 {
@@ -47,13 +48,12 @@ struct ColorIdentifier
     union ColorIdentifierPayload{
         uint8_t scripthash[CSHA256::OUTPUT_SIZE];
         COutPoint utxo;
-        ColorIdentifierPayload(){}
+        ColorIdentifierPayload():utxo() {}
     } payload;
 
-    ColorIdentifier(const TokenTypes intype):type(intype) { }
+    ColorIdentifier():type(TokenTypes::NONE), payload() { }
 
-    ColorIdentifier(COutPoint &utxoIn, TokenTypes typeIn)
-    {
+    ColorIdentifier(COutPoint &utxoIn, TokenTypes typeIn) {
         if(typeIn == TokenTypes::NON_REISSUABLE || typeIn == TokenTypes::NFT)
         {
             type = typeIn;
@@ -61,23 +61,26 @@ struct ColorIdentifier
         }
     }
 
-    ColorIdentifier(CScript& input):type(TokenTypes::REISSUABLE)
-    {
+    ColorIdentifier(const CScript& input):type(TokenTypes::REISSUABLE), payload() {
         std::vector<unsigned char> scriptVector(input.begin(), input.end());
         CSHA256().Write(scriptVector.data(), scriptVector.size()).Finalize(payload.scripthash);
     }
 
     ColorIdentifier(const std::vector<unsigned char>& in) {
-        CSerActionSerialize ser_action;
+        CSerActionUnserialize ser_action;
         CDataStream s(in, SER_NETWORK, INIT_PROTO_VERSION);
         SerializationOp(s, ser_action);
-    }
+     }
 
     bool operator==(const ColorIdentifier& colorId) const {
         return this->type == colorId.type && this->type == TokenTypes::NONE ?
                true : (this->type == TokenTypes::REISSUABLE ?
-                       std::equal(&this->payload.scripthash[0], &this->payload.scripthash[31], &colorId.payload.scripthash[0])
-                       : this->payload.utxo == colorId.payload.utxo);
+                    (memcmp(&this->payload.scripthash[0], &colorId.payload.scripthash[0], 32) == 0)
+                    : this->payload.utxo == colorId.payload.utxo);
+    }
+
+    bool operator<(const ColorIdentifier& colorId) const {
+        return memcmp(this, &colorId, 37) < 0;
     }
 
     ADD_SERIALIZE_METHODS;
@@ -102,12 +105,28 @@ struct ColorIdentifier
             READWRITE(this->payload.utxo);
     }
 
-    inline std::vector<unsigned char> toVector()
-    {
+    inline std::vector<unsigned char> toVector() const {
         CDataStream stream(SER_NETWORK, INIT_PROTO_VERSION);
         this->Serialize(stream);
         return std::vector<unsigned char>(stream.begin(), stream.end());
     }
 
 };
+
+ColorIdentifier GetColorIdFromScript(const CScript& script);
+
+//this is needed to verify token balances as using a custom class as map key 
+//needs a comparison operator to order the map
+
+struct ColorIdentifierCompare
+{
+    bool operator()(const ColorIdentifier& c1, const ColorIdentifier& c2) const
+    {
+        return memcmp(&c1, &c2, 37) < 0;
+    }
+};
+
+typedef std::map<ColorIdentifier, CAmount, ColorIdentifierCompare> TxColoredCoinBalancesMap;
+
+
 #endif //TAPYRUS_COLORIDENTIFIER_H
