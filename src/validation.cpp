@@ -1041,12 +1041,12 @@ static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, 
         for(auto in:inColoredCoinBalances)
         {
             TxColoredCoinBalancesMap::const_iterator iter = outColoredCoinBalances.find(in.first);
-            if(iter == outColoredCoinBalances.end() || iter->second != in.second)
-                return state.Invalid(false, REJECT_INVALID, "bad-txns-token-balance");
+            //if it is token burn allow it
+            if(iter == outColoredCoinBalances.end())
+                continue;
 
-            //verify NFT
-            if(in.first.type == TokenTypes::NFT && iter->second != 1)
-                return state.Invalid(false, REJECT_INVALID, "bad-txns-nft-division");
+            if(iter->second != in.second)
+                return state.Invalid(false, REJECT_INVALID, "bad-txns-token-balance");
         }
 
         if (test_accept) {
@@ -3069,6 +3069,12 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
     // First transaction must be coinbase,
     if (block.vtx.empty() || !block.vtx[0]->IsCoinBase())
         return state.DoS(100, false, REJECT_INVALID, "bad-cb-missing", false, "first tx is not coinbase");
+
+    // coinbase should not have colored output
+    for(auto txOut: block.vtx[0]->vout)
+        if(txOut.scriptPubKey.IsColoredScript())
+            return state.DoS(100, false, REJECT_INVALID, "bad-cb-issuetoken", false, "coinbase cannot issue tokens");
+
     //tapyrus coinbase must have blockheight in the prevout.n
     CBlockIndex* pindexPrev = chainActive.Tip();
     if(pindexPrev && !isBlockHeightInCoinbase(block) )
