@@ -17,6 +17,7 @@
 static const bool DEFAULT_ACCEPT_DATACARRIER = true;
 
 class CKeyID;
+class ColoredKeyID;
 class CScript;
 
 /** A reference to a CScript: the Hash160 of its serialization (see script.h) */
@@ -28,6 +29,14 @@ public:
     CScriptID(const uint160& in) : uint160(in) {}
 };
 
+/** A reference to a CScript: the Hash160 of its serialization (see script.h) */
+class ColoredScriptID : public uint160
+{
+public:
+    ColoredScriptID() : uint160() {}
+    explicit ColoredScriptID(const CScript& in);
+    ColoredScriptID(const uint160& in) : uint160(in) {}
+};
 /**
  * Default setting for nMaxDatacarrierBytes. 80 bytes of data, +1 for OP_RETURN,
  * +2 for the pushdata opcodes.
@@ -122,6 +131,8 @@ typedef boost::variant<
     CNoDestination,
     CKeyID,
     CScriptID,
+    ColoredKeyID,
+    ColoredScriptID,
     WitnessV0ScriptHash,
     WitnessV0KeyHash,
     WitnessUnknown> CTxDestination;
@@ -129,7 +140,9 @@ typedef boost::variant<
 typedef boost::variant<
     CNoDestination,
     CKeyID,
-    CScriptID> CTxDestination;
+    CScriptID,
+    ColoredKeyID,
+    ColoredScriptID> CTxDestination;
 #endif
 
 /** Check whether a CTxDestination is a CNoDestination. */

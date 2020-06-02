@@ -91,6 +91,22 @@ public:
         obj.pushKV("iswitness", false);
         return obj;
     }
+
+    UniValue operator()(const ColoredKeyID& coloredKeyID) const
+    {
+        UniValue obj(UniValue::VOBJ);
+        obj.pushKV("isscript", false);
+        obj.pushKV("iswitness", false);
+        return obj;
+    }
+
+    UniValue operator()(const ColoredScriptID& coloredScriptID) const
+    {
+        UniValue obj(UniValue::VOBJ);
+        obj.pushKV("isscript", true);
+        obj.pushKV("iswitness", false);
+        return obj;
+    }
 #ifdef DEBUG
     UniValue operator()(const WitnessV0KeyHash& id) const
     {

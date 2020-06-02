@@ -336,6 +336,19 @@ BOOST_AUTO_TEST_CASE(script_standard_GetScriptFor_)
     result = GetScriptForDestination(CScriptID(redeemScript));
     BOOST_CHECK(result == expected);
 
+    //ColoredKeyId
+    expected.clear();
+    expected << ColorIdentifier().toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(pubkeys[0].GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
+    result = GetScriptForDestination(pubkeys[0].GetColoredID());
+    BOOST_CHECK(result == expected);
+
+    //ColoredScriptID
+    CScript coloredRedeemScript(result);
+    expected.clear();
+    expected << ColorIdentifier().toVector() << OP_COLOR << OP_HASH160 << ToByteVector(CScriptID(coloredRedeemScript)) << OP_EQUAL;
+    result = GetScriptForDestination(ColoredScriptID(coloredRedeemScript));
+    BOOST_CHECK(result == expected);
+
     // CNoDestination
     expected.clear();
     result = GetScriptForDestination(CNoDestination());

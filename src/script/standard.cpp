@@ -21,6 +21,8 @@ unsigned nMaxDatacarrierBytes = MAX_OP_RETURN_RELAY;
 
 CScriptID::CScriptID(const CScript& in) : uint160(Hash160(in.begin(), in.end())) {}
 
+ColoredScriptID::ColoredScriptID(const CScript& in) : uint160(Hash160(in.begin(), in.end())) {}
+
 #ifdef DEBUG
 WitnessV0ScriptHash::WitnessV0ScriptHash(const CScript& in)
 {
@@ -408,6 +410,20 @@ public:
         *script << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
         return true;
     }
+
+    bool operator()(const ColoredKeyID &coloredKeyID) const {
+        printf("ColoredKeyID\n");
+        script->clear();
+        *script << ColorIdentifier().toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(coloredKeyID) << OP_EQUALVERIFY << OP_CHECKSIG;
+    }
+
+    bool operator()(const ColoredScriptID &coloredScriptID) const {
+        printf("ColoredScriptID\n");
+        script->clear();
+        *script << ColorIdentifier().toVector() << OP_COLOR << OP_HASH160 << ToByteVector(coloredScriptID) << OP_EQUAL;
+        return true;
+    }
+    
 #ifdef DEBUG
     bool operator()(const WitnessV0KeyHash& id) const
     {
