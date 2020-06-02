@@ -17,7 +17,6 @@
 static const bool DEFAULT_ACCEPT_DATACARRIER = true;
 
 class CKeyID;
-class ColoredKeyID;
 class CScript;
 
 /** A reference to a CScript: the Hash160 of its serialization (see script.h) */
@@ -29,14 +28,6 @@ public:
     CScriptID(const uint160& in) : uint160(in) {}
 };
 
-/** A reference to a CScript: the Hash160 of its serialization (see script.h) */
-class ColoredScriptID : public uint160
-{
-public:
-    ColoredScriptID() : uint160() {}
-    explicit ColoredScriptID(const CScript& in);
-    ColoredScriptID(const uint160& in) : uint160(in) {}
-};
 /**
  * Default setting for nMaxDatacarrierBytes. 80 bytes of data, +1 for OP_RETURN,
  * +2 for the pushdata opcodes.
@@ -131,8 +122,6 @@ typedef boost::variant<
     CNoDestination,
     CKeyID,
     CScriptID,
-    ColoredKeyID,
-    ColoredScriptID,
     WitnessV0ScriptHash,
     WitnessV0KeyHash,
     WitnessUnknown> CTxDestination;
@@ -140,9 +129,7 @@ typedef boost::variant<
 typedef boost::variant<
     CNoDestination,
     CKeyID,
-    CScriptID,
-    ColoredKeyID,
-    ColoredScriptID> CTxDestination;
+    CScriptID> CTxDestination;
 #endif
 
 /** Check whether a CTxDestination is a CNoDestination. */
@@ -191,7 +178,7 @@ bool ExtractDestinations(const CScript& scriptPubKey, txnouttype& typeRet, std::
  * script for a CKeyID destination, a P2SH script for a CScriptID, and an empty
  * script for CNoDestination.
  */
-CScript GetScriptForDestination(const CTxDestination& dest);
+CScript GetScriptForDestination(const CTxDestination& dest, bool isColored = false);
 
 /** Generate a P2PK script for the given pubkey. */
 CScript GetScriptForRawPubKey(const CPubKey& pubkey);

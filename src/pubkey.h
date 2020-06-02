@@ -31,14 +31,6 @@ public:
     explicit CKeyID(const uint160& in) : uint160(in) {}
 };
 
-/** A reference to a ColoredKey: the Hash160 of its serialized public key */
-class ColoredKeyID : public uint160
-{
-public:
-    ColoredKeyID() : uint160() {}
-    explicit ColoredKeyID(const uint160& in) : uint160(in) {}
-};
-
 typedef uint256 ChainCode;
 
 /** An encapsulated public key. */
@@ -171,12 +163,6 @@ public:
     CKeyID GetID() const
     {
         return CKeyID(Hash160(vch, vch + size()));
-    }
-
-    //! Get the ColoredKeyID of this public key (hash of its serialization)
-    ColoredKeyID GetColoredID() const
-    {
-        return ColoredKeyID(Hash160(vch, vch + size()));
     }
 
     //! Get the 256-bit hash of this public key.

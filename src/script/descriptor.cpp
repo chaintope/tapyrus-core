@@ -322,6 +322,7 @@ public:
 };
 
 CScript ConvertP2SH(const CScript& script) { return GetScriptForDestination(CScriptID(script)); }
+CScript ConvertCP2SH(const CScript& script) { return GetScriptForDestination(CScriptID(script), true); }
 #ifdef DEBUG
 CScript ConvertP2WSH(const CScript& script) { return GetScriptForDestination(WitnessV0ScriptHash(script)); }
 #endif

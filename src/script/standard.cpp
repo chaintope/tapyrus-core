@@ -21,8 +21,6 @@ unsigned nMaxDatacarrierBytes = MAX_OP_RETURN_RELAY;
 
 CScriptID::CScriptID(const CScript& in) : uint160(Hash160(in.begin(), in.end())) {}
 
-ColoredScriptID::ColoredScriptID(const CScript& in) : uint160(Hash160(in.begin(), in.end())) {}
-
 #ifdef DEBUG
 WitnessV0ScriptHash::WitnessV0ScriptHash(const CScript& in)
 {
@@ -391,8 +389,12 @@ class CScriptVisitor : public boost::static_visitor<bool>
 {
 private:
     CScript *script;
+    bool isColored;
 public:
-    explicit CScriptVisitor(CScript *scriptin) { script = scriptin; }
+    explicit CScriptVisitor(CScript *scriptin, bool isColoredin) { 
+        script = scriptin;
+        isColored = isColoredin;
+    }
 
     bool operator()(const CNoDestination &dest) const {
         script->clear();
@@ -401,26 +403,23 @@ public:
 
     bool operator()(const CKeyID &keyID) const {
         script->clear();
-        *script << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG;
+        printf("iscolored %d\n", isColored);
+        if (isColored) {
+            *script << ColorIdentifier().toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG;
+        } else {
+            *script << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG;
+        }
         return true;
     }
 
     bool operator()(const CScriptID &scriptID) const {
         script->clear();
-        *script << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
-        return true;
-    }
-
-    bool operator()(const ColoredKeyID &coloredKeyID) const {
-        printf("ColoredKeyID\n");
-        script->clear();
-        *script << ColorIdentifier().toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(coloredKeyID) << OP_EQUALVERIFY << OP_CHECKSIG;
-    }
-
-    bool operator()(const ColoredScriptID &coloredScriptID) const {
-        printf("ColoredScriptID\n");
-        script->clear();
-        *script << ColorIdentifier().toVector() << OP_COLOR << OP_HASH160 << ToByteVector(coloredScriptID) << OP_EQUAL;
+        printf("iscolored %d\n", isColored);
+        if (isColored) {
+            *script << ColorIdentifier().toVector() << OP_COLOR << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
+        } else {
+            *script << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
+        }
         return true;
     }
     
@@ -449,11 +448,11 @@ public:
 };
 } // namespace
 
-CScript GetScriptForDestination(const CTxDestination& dest)
+CScript GetScriptForDestination(const CTxDestination& dest, bool isColored)
 {
     CScript script;
 
-    boost::apply_visitor(CScriptVisitor(&script), dest);
+    boost::apply_visitor(CScriptVisitor(&script, isColored), dest);
     return script;
 }
 
