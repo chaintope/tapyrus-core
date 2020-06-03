@@ -291,7 +291,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::v
     return true;
 }
 
-bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet)
+bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet, ColorIdentifier* colorId)
 {
     std::vector<valtype> vSolutions;
     txnouttype whichType;
@@ -311,12 +311,18 @@ bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet)
           || whichType == TX_COLOR_PUBKEYHASH)
     {
         addressRet = CKeyID(uint160(vSolutions[0]));
+        if (whichType == TX_COLOR_PUBKEYHASH && colorId != nullptr) {
+          *colorId = ColorIdentifier(vSolutions[1]);
+        }
         return true;
     }
     else if (whichType == TX_SCRIPTHASH
           || whichType == TX_COLOR_SCRIPTHASH)
     {
         addressRet = CScriptID(uint160(vSolutions[0]));
+        if (whichType == TX_COLOR_PUBKEYHASH && colorId != nullptr) {
+          *colorId = ColorIdentifier(vSolutions[1]);
+        }
         return true;
     }
 #ifdef DEBUG
@@ -448,7 +454,7 @@ public:
 };
 } // namespace
 
-CScript GetScriptForDestination(const CTxDestination& dest, bool isColored)
+CScript GetScriptForDestination(const CTxDestination& dest, bool* isColored)
 {
     CScript script;
 
