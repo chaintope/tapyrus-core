@@ -44,6 +44,7 @@ apps:
     environment:
       HOME: $SNAP_USER_COMMON
     daemon: simple
+    restart-condition: always
 
 parts:
   tapyrus-core:
