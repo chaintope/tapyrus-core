@@ -13,7 +13,7 @@ TxSuccess4 - (UTXO-1)    - split REISSUABLE - 25 + 75     (UTXO-5,6)
            - (UTXO-3)    - split NON-REISSUABLE - 40 + 60 (UTXO-7,8)
            - coinbaseTx3 - issue 100 REISSUABLE           (UTXO-9)
 
-TxFailire1 - (UTXO-6)    - split REISSUABLE(75)           x
+txSuccess5 - (UTXO-6)    - split REISSUABLE(75)           x
            - (UTXO-7)    - split NON-REISSUABLE(40)       x
            - (UTXO-4)    - split NFT                      x
 
@@ -57,22 +57,22 @@ import time
 from io import BytesIO
 
 from test_framework.blocktools import create_block, create_coinbase, create_tx_with_script, create_transaction
-from test_framework.messages import CTransaction, CTxIn, CTxOut, COutPoint, msg_tx
+from test_framework.messages import CTransaction, CTxIn, CTxOut, COutPoint, msg_tx, COIN, sha256, msg_block
 from test_framework.key import CECKey
 from test_framework.schnorr import Schnorr
-from test_framework.mininode import P2PDataStore
+from test_framework.mininode import P2PDataStore, mininode_lock
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, hex_str_to_bytes, bytes_to_hex_str, assert_raises_rpc_error, NetworkDirName, hash256
+from test_framework.util import assert_equal, hex_str_to_bytes, bytes_to_hex_str, assert_raises_rpc_error, NetworkDirName
 from test_framework.script import CScript, OP_TRUE, OP_DROP, OP_1, OP_COLOR, hash160, OP_DUP, OP_HASH160, OP_EQUALVERIFY, OP_CHECKSIG, SignatureHash, SIGHASH_ALL
 
 def colorIdReissuable(script):
-    return hash256(b'01'+ script)
+    return b'\x01' + sha256(script)
 
-def colorIdNonReissuable(script):
-    return (b'02'+ script)
+def colorIdNonReissuable(utxo):
+    return b'\x02'+ sha256(utxo)
 
-def colorIdNFT(script):
-    return (b'03'+ script)
+def colorIdNFT(utxo):
+    return b'\x03'+ sha256(utxo)
 
 def CP2PHK_script(colorId, pubkey):
     pubkeyhash = hash160(hex_str_to_bytes(pubkey))
@@ -84,6 +84,8 @@ def CP2SH_script(colorId, redeemScr):
 
 def test_transaction_acceptance(node, tx, accepted, reason=None):
     """Send a transaction to the node and check that it's accepted to the mempool"""
+    with mininode_lock:
+        node.p2p.last_message = {}
     tx_message = msg_tx(tx)
     node.p2p.send_message(tx_message)
     node.p2p.sync_with_ping()
@@ -91,18 +93,25 @@ def test_transaction_acceptance(node, tx, accepted, reason=None):
     if (reason is not None and not accepted):
         # Check the rejection reason as well.
         with mininode_lock:
-            assert_equal(node.last_message["reject"].reason, reason)
+            assert_equal(node.p2p.last_message["reject"].reason, reason)
 
 class ColoredCoinTest(BitcoinTestFramework):
     def set_test_params(self):
         self.pubkeys = ["025700236c2890233592fcef262f4520d22af9160e3d9705855140eb2aa06c35d3",
         "03831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafc"]
         
-        self.privkey = ["67ae3f5bfb3464b9704d7bd3a134401cc80c3a172240ebfca9f1e40f51bb6d37",
+        privkeystr = ["67ae3f5bfb3464b9704d7bd3a134401cc80c3a172240ebfca9f1e40f51bb6d37",
         "dbb9d19637018267268dfc2cc7aec07e7217c1a2d6733e1184a0909273bf078b"]
+
+        self.privkeys = []
+        for key in privkeystr :
+            ckey = CECKey()
+            ckey.set_secretbytes(bytes.fromhex(key))
+            self.privkeys.append(ckey)
 
         self.coinbase_key = CECKey()
         self.coinbase_key.set_secretbytes(bytes.fromhex("12b004fff7f4b69ef8650e767f18f11ede158148b425660723b9f9a66e61f747"))
+        self.coinbase_pubkey = self.coinbase_key.get_pubkey()
 
         self.schnorr_key = Schnorr()
         self.schnorr_key.set_secretbytes(bytes.fromhex("12b004fff7f4b69ef8650e767f18f11ede158148b425660723b9f9a66e61f747"))
@@ -120,26 +129,120 @@ class ColoredCoinTest(BitcoinTestFramework):
         self.log.info("Test starting...")
 
         #generate 10 blocks for coinbase outputs
-        blocks = node.generate(10, self.signblockprivkey)
         coinbase_txs = []
-        for i in blocks:
-            txid = node.getblock(i)['tx'][0]
-            coinbase_tx = CTransaction()
-            coinbase_tx.deserialize(BytesIO(hex_str_to_bytes( node.gettransaction(txid)['hex'])))
-            coinbase_tx.rehash()
+        for i in range(1, 10):
+            height = node.getblockcount() + 1
+            coinbase_tx = create_coinbase(height, self.coinbase_pubkey)
             coinbase_txs.append(coinbase_tx)
+            tip = node.getbestblockhash()
+            block_time = node.getblockheader(tip)["mediantime"] + 1
+            block = create_block(int(tip, 16), coinbase_tx, block_time)
+            block.solve(self.signblockprivkey)
+            tip = block.hash
 
-        colorId = colorIdReissuable(coinbase_txs[0].vout[0].scriptPubKey)
-        script = CP2PHK_script(colorId = colorId, pubkey = self.pubkeys[0])
+            node.p2p.send_and_ping(msg_block(block))
+            assert_equal(node.getbestblockhash(), tip)
+
+        change_script = CScript([self.coinbase_pubkey, OP_CHECKSIG])
+
+        #TxSuccess1 - coinbaseTx1 - issue 100 REISSUABLE  + 30     (UTXO-1,2)
+        colorId_reissuable = colorIdReissuable(coinbase_txs[0].vout[0].scriptPubKey)
+        script_reissuable = CP2PHK_script(colorId = colorId_reissuable, pubkey = self.pubkeys[0])
 
         txSuccess1 = CTransaction()
         txSuccess1.vin.append(CTxIn(COutPoint(coinbase_txs[0].malfixsha256, 0), b""))
-        txSuccess1.vout.append(CTxOut(coinbase_txs[0].vout[0].nValue, script))
-        sig_hash, err = SignatureHash(script, txSuccess1, 0, SIGHASH_ALL)
-        txSuccess1.vin[0].scriptSig = self.coinbase_key.sign(sig_hash) + b'\x01'  # 0x1 is SIGHASH_ALL
+        txSuccess1.vout.append(CTxOut(100, script_reissuable))
+        txSuccess1.vout.append(CTxOut(30 * COIN, CScript([self.coinbase_pubkey, OP_CHECKSIG])))
+        sig_hash, err = SignatureHash(coinbase_txs[0].vout[0].scriptPubKey, txSuccess1, 0, SIGHASH_ALL)
+        signature = self.coinbase_key.sign(sig_hash) + b'\x01'  # 0x1 is SIGHASH_ALL
+        txSuccess1.vin[0].scriptSig = CScript([signature])
         txSuccess1.rehash()
 
-        test_transaction_acceptance(node, txSuccess1, accepted=False)
+        test_transaction_acceptance(node, txSuccess1, accepted=True)
+
+        #TxSuccess2 - (UTXO-2)    - issue 100 NON-REISSUABLE       (UTXO-3)
+        colorId_nonreissuable = colorIdNonReissuable(COutPoint(txSuccess1.malfixsha256, 1).serialize())
+        script_nonreissuable = CP2PHK_script(colorId = colorId_nonreissuable, pubkey = self.pubkeys[0])
+
+        txSuccess2 = CTransaction()
+        txSuccess2.vin.append(CTxIn(COutPoint(txSuccess1.malfixsha256, 1), b""))
+        txSuccess2.vout.append(CTxOut(100, script_nonreissuable))
+        sig_hash, err = SignatureHash(txSuccess1.vout[1].scriptPubKey, txSuccess2, 0, SIGHASH_ALL)
+        signature = self.coinbase_key.sign(sig_hash) + b'\x01'
+        txSuccess2.vin[0].scriptSig = CScript([signature])
+        txSuccess2.rehash()
+
+        test_transaction_acceptance(node, txSuccess2, accepted=True)
+
+        #TxSuccess3 - coinbaseTx2 - issue 1 NFT                    (UTXO-4)
+        colorId_nft = colorIdNFT(COutPoint(coinbase_txs[1].malfixsha256, 0).serialize())
+        script_nft = CP2PHK_script(colorId = colorId_nft, pubkey = self.pubkeys[0])
+
+        txSuccess3 = CTransaction()
+        txSuccess3.vin.append(CTxIn(COutPoint(coinbase_txs[1].malfixsha256, 0), b""))
+        txSuccess3.vout.append(CTxOut(1, script_nft))
+        sig_hash, err = SignatureHash(coinbase_txs[1].vout[0].scriptPubKey, txSuccess3, 0, SIGHASH_ALL)
+        signature = self.coinbase_key.sign(sig_hash) + b'\x01'
+        txSuccess3.vin[0].scriptSig = CScript([signature])
+        txSuccess3.rehash()
+
+        test_transaction_acceptance(node, txSuccess3, accepted=True)
+
+        #TxSuccess4 - (UTXO-1)    - split REISSUABLE - 25 + 75     (UTXO-5,6)
+        #           - (UTXO-3)    - split NON-REISSUABLE - 40 + 60 (UTXO-7,8)
+        #           - coinbaseTx3 - issue 100 REISSUABLE           (UTXO-9)
+        txSuccess4 = CTransaction()
+        txSuccess4.vin.append(CTxIn(COutPoint(txSuccess1.malfixsha256, 0), b""))
+        txSuccess4.vin.append(CTxIn(COutPoint(txSuccess2.malfixsha256, 0), b""))
+        txSuccess4.vin.append(CTxIn(COutPoint(coinbase_txs[2].malfixsha256, 0), b""))
+        txSuccess4.vout.append(CTxOut(25, script_reissuable))
+        txSuccess4.vout.append(CTxOut(75, script_reissuable))
+        txSuccess4.vout.append(CTxOut(40, script_nonreissuable))
+        txSuccess4.vout.append(CTxOut(60, script_nonreissuable))
+        txSuccess4.vout.append(CTxOut(100, script_reissuable))
+        sig_hash, err = SignatureHash(txSuccess1.vout[0].scriptPubKey, txSuccess4, 0, SIGHASH_ALL)
+        signature = self.privkeys[0].sign(sig_hash) + b'\x01'
+        txSuccess4.vin[0].scriptSig = CScript([signature, hex_str_to_bytes(self.pubkeys[0])])
+        sig_hash, err = SignatureHash(txSuccess2.vout[0].scriptPubKey, txSuccess4, 1, SIGHASH_ALL)
+        signature = self.privkeys[0].sign(sig_hash) + b'\x01'
+        txSuccess4.vin[1].scriptSig = CScript([signature, hex_str_to_bytes(self.pubkeys[0])])
+        sig_hash, err = SignatureHash(coinbase_txs[2].vout[0].scriptPubKey, txSuccess4, 2, SIGHASH_ALL)
+        signature = self.coinbase_key.sign(sig_hash) + b'\x01'
+        txSuccess4.vin[2].scriptSig = CScript([signature])
+        txSuccess4.rehash()
+
+        test_transaction_acceptance(node, txSuccess4, accepted=True)
+
+        #txSuccess5 - (UTXO-6)    - split REISSUABLE(75)           x
+        #           - (UTXO-7)    - split NON-REISSUABLE(40)       x
+        #           - (UTXO-4)    - split NFT                      x
+        txSuccess5 = CTransaction()
+        txSuccess5.vin.append(CTxIn(COutPoint(txSuccess4.malfixsha256, 1), b""))
+        txSuccess5.vin.append(CTxIn(COutPoint(txSuccess4.malfixsha256, 2), b""))
+        txSuccess5.vin.append(CTxIn(COutPoint(txSuccess3.malfixsha256, 0), b""))
+        txSuccess5.vin.append(CTxIn(COutPoint(coinbase_txs[3].malfixsha256, 0), b""))
+        txSuccess5.vout.append(CTxOut(35, script_reissuable))
+        txSuccess5.vout.append(CTxOut(40, script_reissuable))
+        txSuccess5.vout.append(CTxOut(20, script_nonreissuable))
+        txSuccess5.vout.append(CTxOut(20, script_nonreissuable))
+        txSuccess5.vout.append(CTxOut(1, script_nft))
+        txSuccess5.vout.append(CTxOut(1, script_nft)) #assumed to be NFT issue
+        sig_hash, err = SignatureHash(txSuccess4.vout[1].scriptPubKey, txSuccess5, 0, SIGHASH_ALL)
+        signature = self.privkeys[0].sign(sig_hash) + b'\x01'
+        txSuccess5.vin[0].scriptSig = CScript([signature, hex_str_to_bytes(self.pubkeys[0])])
+        sig_hash, err = SignatureHash(txSuccess4.vout[2].scriptPubKey, txSuccess5, 1, SIGHASH_ALL)
+        signature = self.privkeys[0].sign(sig_hash) + b'\x01'
+        txSuccess5.vin[1].scriptSig = CScript([signature, hex_str_to_bytes(self.pubkeys[0])])
+        sig_hash, err = SignatureHash(txSuccess3.vout[0].scriptPubKey, txSuccess5, 2, SIGHASH_ALL)
+        signature = self.privkeys[0].sign(sig_hash) + b'\x01'
+        txSuccess5.vin[2].scriptSig = CScript([signature, hex_str_to_bytes(self.pubkeys[0])])
+        sig_hash, err = SignatureHash(coinbase_txs[3].vout[0].scriptPubKey, txSuccess5, 3, SIGHASH_ALL)
+        signature = self.coinbase_key.sign(sig_hash) + b'\x01'
+        txSuccess5.vin[3].scriptSig = CScript([signature])
+        txSuccess5.rehash()
+
+        test_transaction_acceptance(node, txSuccess5, accepted=True)
+
 
 if __name__ == '__main__':
     ColoredCoinTest().main()

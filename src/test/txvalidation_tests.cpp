@@ -252,10 +252,12 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_reissuable_token, TestChainSetup)
 
     testTx(this, MakeTransactionRef(tokenTransferTx), false, "bad-txns-token-without-fee");
 
-    //tokenTransferTx - 2. split into 50 + 40 tokens - token balance error
+    //tokenTransferTx - 2. split into 0 + 200 tokens - token balance error
     tokenTransferTx.vin.resize(2);
     tokenTransferTx.vin[1].prevout.hashMalFix = m_coinbase_txns[3]->GetHashMalFix();
     tokenTransferTx.vin[1].prevout.n = 0;
+    tokenTransferTx.vout[0].nValue = 0;
+    tokenTransferTx.vout[1].nValue = 200 * CENT;
 
     Sign(vchSig, key0, tokenIssueTx.vout[0].scriptPubKey, tokenIssueTx, 0, tokenTransferTx, 0);
     tokenTransferTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey0;
@@ -371,7 +373,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_reissuable_token, TestChainSetup)
     Sign(vchSig, key0, tokenAggregateTx.vout[0].scriptPubKey, tokenAggregateTx, 0, tokenBurnTx, 0);
     tokenBurnTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey1;
 
-    testTx(this, MakeTransactionRef(tokenBurnTx), false, "bad-txns-token-without-fee");
+    testTx(this, MakeTransactionRef(tokenBurnTx), false, "bad-txns-in-belowout");
 
     //tokenBurnTx - 2. success
     tokenBurnTx.vin.resize(2);
@@ -424,6 +426,7 @@ tokenBurnTx     - 1. no fee
                 - 3. success
 spend burnt token- failure
 */
+
 BOOST_FIXTURE_TEST_CASE(tx_mempool_nonreissuable_token, TestChainSetup)
 {
     initKeys();
@@ -489,10 +492,12 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_nonreissuable_token, TestChainSetup)
 
     testTx(this, MakeTransactionRef(tokenTransferTx), false, "bad-txns-token-without-fee");
 
-    //tokenTransferTx  - 2. split into 50 + 40 tokens - token balance error
+    //tokenTransferTx  - 2. split into 0 + 200 tokens - token balance error
     tokenTransferTx.vin.resize(2);
     tokenTransferTx.vin[1].prevout.hashMalFix = m_coinbase_txns[3]->GetHashMalFix();
     tokenTransferTx.vin[1].prevout.n = 0;
+    tokenTransferTx.vout[0].nValue = 0 * CENT;
+    tokenTransferTx.vout[1].nValue = 200 * CENT;
 
     Sign(vchSig, key0, tokenIssueTx.vout[0].scriptPubKey, tokenIssueTx, 0, tokenTransferTx, 0);
     tokenTransferTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey0;
@@ -600,7 +605,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_nonreissuable_token, TestChainSetup)
     Sign(vchSig, key0, tokenAggregateTx.vout[0].scriptPubKey, tokenAggregateTx, 0, tokenBurnTx, 0);
     tokenBurnTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey1;
 
-    testTx(this, MakeTransactionRef(tokenBurnTx), false, "bad-txns-token-without-fee");
+    testTx(this, MakeTransactionRef(tokenBurnTx), false, "bad-txns-in-belowout");
 
     //tokenBurnTx - 2. success
     tokenBurnTx.vin.resize(2);
@@ -773,7 +778,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_nft_token, TestChainSetup)
     Sign(vchSig, key1, tokenTransferTx.vout[0].scriptPubKey, tokenTransferTx, 0, tokenBurnTx, 0);
     tokenBurnTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey1;
 
-    testTx(this, MakeTransactionRef(tokenBurnTx), false, "bad-txns-token-without-fee");
+    testTx(this, MakeTransactionRef(tokenBurnTx), false, "bad-txns-in-belowout");
 
     //tokenBurnTx - 2. success
     tokenBurnTx.vin.resize(2);
