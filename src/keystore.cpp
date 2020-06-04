@@ -7,7 +7,7 @@
 
 #include <util.h>
 
-void CBasicKeyStore::ImplicitlyLearnRelatedKeyScripts(const CPubKey& pubkey)
+void CBasicKeyStore::ImplicitlyLearnRelatedKeyScripts(const CPubKey& pubkey, bool* isColored)
 {
     AssertLockHeld(cs_KeyStore);
     CKeyID key_id = pubkey.GetID();
@@ -29,7 +29,12 @@ void CBasicKeyStore::ImplicitlyLearnRelatedKeyScripts(const CPubKey& pubkey)
 #ifdef DEBUG
         script = GetScriptForDestination(WitnessV0KeyHash(key_id));
 #else
-        script = GetScriptForDestination(key_id);
+        if (isColored) {
+            ColorIdentifier colorID = ColorIdentifier();
+            script = GetScriptForDestination(key_id, &colorID);
+        } else {
+            script = GetScriptForDestination(key_id);
+        }
 #endif
         // This does not use AddCScript, as it may be overridden.
         CScriptID id(script);
@@ -53,11 +58,11 @@ bool CBasicKeyStore::GetPubKey(const CKeyID &address, CPubKey &vchPubKeyOut) con
     return true;
 }
 
-bool CBasicKeyStore::AddKeyPubKey(const CKey& key, const CPubKey &pubkey)
+bool CBasicKeyStore::AddKeyPubKey(const CKey& key, const CPubKey &pubkey, bool* isColored)
 {
     LOCK(cs_KeyStore);
     mapKeys[pubkey.GetID()] = key;
-    ImplicitlyLearnRelatedKeyScripts(pubkey);
+    ImplicitlyLearnRelatedKeyScripts(pubkey, isColored);
     return true;
 }
 

@@ -487,7 +487,7 @@ Support for Python 2 has been discontinued for all test files and tools.
 - #13063 `6378eef` Use shared pointer to retain wallet instance (promag)
 - #13142 `56fe3dc` Separate IsMine from solvability (sipa)
 - #13194 `fd96d54` Remove template matching and pseudo opcodes (sipa)
-- #13252 `c4cc8d9` Refactor ReserveKeyFromKeyPool for safety (Empact)
+- #13252 `c4cc8d9` Refactor  for safety (Empact)
 - #13058 `343d4e4` `createwallet` RPC - create new wallet at runtime (jnewbery)
 - #13351 `2140f6c` Prevent segfault when sending to unspendable witness (MarcoFalke)
 - #13060 `3f0f394` Remove getlabeladdress RPC (jnewbery)

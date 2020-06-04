@@ -53,8 +53,8 @@ std::vector<CTxDestination> GetAllDestinationsForKey(const CPubKey& key)
         return std::vector<CTxDestination>{std::move(keyid), std::move(p2sh), std::move(segwit)};
 #else
         CTxDestination p2sh = CScriptID(GetScriptForDestination(keyid));
-        bool isColored = true;
-        CTxDestination cp2sh = CScriptID(GetScriptForDestination(keyid, &isColored));
+        ColorIdentifier colorID = ColorIdentifier();
+        CTxDestination cp2sh = CScriptID(GetScriptForDestination(keyid, &colorID));
         return std::vector<CTxDestination>{std::move(keyid), std::move(p2sh), std::move(cp2sh)};
 #endif
     } else {

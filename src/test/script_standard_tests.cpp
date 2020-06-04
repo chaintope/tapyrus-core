@@ -339,16 +339,17 @@ BOOST_AUTO_TEST_CASE(script_standard_GetScriptFor_)
     bool isColored = true;
 
     //ColoredKeyId
+    ColorIdentifier colorID = ColorIdentifier(CScript() << ToByteVector(pubkeys[0]) << OP_CHECKSIG);
     expected.clear();
-    expected << ColorIdentifier().toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(pubkeys[0].GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
-    result = GetScriptForDestination(pubkeys[0].GetID(), &isColored);
+    expected << colorID.toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(pubkeys[0].GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
+    result = GetScriptForDestination(pubkeys[0].GetID(), &colorID);
     BOOST_CHECK(result == expected);
 
     //ColoredScriptID
     CScript coloredRedeemScript(result);
     expected.clear();
-    expected << ColorIdentifier().toVector() << OP_COLOR << OP_HASH160 << ToByteVector(CScriptID(coloredRedeemScript)) << OP_EQUAL;
-    result = GetScriptForDestination(CScriptID(coloredRedeemScript), &isColored);
+    expected << colorID.toVector() << OP_COLOR << OP_HASH160 << ToByteVector(CScriptID(coloredRedeemScript)) << OP_EQUAL;
+    result = GetScriptForDestination(CScriptID(coloredRedeemScript), &colorID);
     BOOST_CHECK(result == expected);
 
     // CNoDestination
@@ -514,6 +515,24 @@ BOOST_AUTO_TEST_CASE(script_standard_IsMine)
         result = IsMine(keystore, scriptPubKey);
         BOOST_CHECK_EQUAL(result, ISMINE_NO);
     }
+
+    // CP2PKH compressed
+    {
+        ColorIdentifier colorID = ColorIdentifier(CScript() << ToByteVector(pubkeys[0]) << OP_CHECKSIG);
+        CBasicKeyStore keystore;
+        scriptPubKey = GetScriptForDestination(pubkeys[0].GetID(), &colorID);
+
+        // Keystore does not have key
+        result = IsMine(keystore, scriptPubKey);
+        BOOST_CHECK_EQUAL(result, ISMINE_NO);
+
+        bool isColored = true;
+        // Keystore has key
+        keystore.AddKey(keys[0]);
+        result = IsMine(keystore, scriptPubKey);
+        BOOST_CHECK_EQUAL(result, ISMINE_SPENDABLE);
+    }
+
 #ifdef DEBUG
     // (P2PKH inside) P2SH inside P2WSH (invalid)
     {

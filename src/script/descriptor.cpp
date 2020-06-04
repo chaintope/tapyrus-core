@@ -322,8 +322,8 @@ public:
 };
 
 CScript ConvertP2SH(const CScript& script) { return GetScriptForDestination(CScriptID(script)); }
-bool isColored = true;
-CScript ConvertCP2SH(const CScript& script) { return GetScriptForDestination(CScriptID(script), &isColored); }
+ColorIdentifier colorID = ColorIdentifier();
+CScript ConvertCP2SH(const CScript& script) { return GetScriptForDestination(CScriptID(script), &colorID); }
 #ifdef DEBUG
 CScript ConvertP2WSH(const CScript& script) { return GetScriptForDestination(WitnessV0ScriptHash(script)); }
 #endif

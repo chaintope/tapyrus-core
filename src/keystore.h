@@ -20,7 +20,7 @@ class CKeyStore : public SigningProvider
 {
 public:
     //! Add a key to the store.
-    virtual bool AddKeyPubKey(const CKey &key, const CPubKey &pubkey) =0;
+    virtual bool AddKeyPubKey(const CKey &key, const CPubKey &pubkey, bool* isColored = nullptr) =0;
 
     //! Check whether a key corresponding to a given address is present in the store.
     virtual bool HaveKey(const CKeyID &address) const =0;
@@ -54,11 +54,11 @@ protected:
     ScriptMap mapScripts GUARDED_BY(cs_KeyStore);
     WatchOnlySet setWatchOnly GUARDED_BY(cs_KeyStore);
 
-    void ImplicitlyLearnRelatedKeyScripts(const CPubKey& pubkey) EXCLUSIVE_LOCKS_REQUIRED(cs_KeyStore);
+    void ImplicitlyLearnRelatedKeyScripts(const CPubKey& pubkey, bool* isColored = nullptr) EXCLUSIVE_LOCKS_REQUIRED(cs_KeyStore);
 
 public:
-    bool AddKeyPubKey(const CKey& key, const CPubKey &pubkey) override;
-    bool AddKey(const CKey &key) { return AddKeyPubKey(key, key.GetPubKey()); }
+    bool AddKeyPubKey(const CKey& key, const CPubKey &pubkey, bool* isColored = nullptr) override;
+    bool AddKey(const CKey &key, bool* isColored = nullptr) { return AddKeyPubKey(key, key.GetPubKey(), isColored); }
     bool GetPubKey(const CKeyID &address, CPubKey& vchPubKeyOut) const override;
     bool HaveKey(const CKeyID &address) const override;
     std::set<CKeyID> GetKeys() const override;
