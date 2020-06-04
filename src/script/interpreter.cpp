@@ -1609,7 +1609,7 @@ bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, const C
     }
 
     std::vector<std::vector<unsigned char> > stack, stackCopy;
-    ColorIdentifier colorId(TokenTypes::NONE);
+    ColorIdentifier colorId;
     if (!EvalScript(stack, scriptSig, flags, checker, SigVersion::BASE, &colorId, serror))
         // serror is set
         return false;
