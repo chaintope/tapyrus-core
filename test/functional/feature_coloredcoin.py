@@ -13,42 +13,23 @@ TxSuccess4 - (UTXO-1)    - split REISSUABLE - 25 + 75     (UTXO-5,6)
            - (UTXO-3)    - split NON-REISSUABLE - 40 + 60 (UTXO-7,8)
            - coinbaseTx3 - issue 100 REISSUABLE           (UTXO-9)
 
-txSuccess5 - (UTXO-6)    - split REISSUABLE(75)           x
-           - (UTXO-7)    - split NON-REISSUABLE(40)       x
-           - (UTXO-4)    - split NFT                      x
+TxSuccess5 - (UTXO-6)    - split REISSUABLE(75)           (UTXO-10,11)
+           - (UTXO-7)    - split NON-REISSUABLE(40)       (UTXO-12)
+           - (UTXO-4)    - split NFT                      (UTXO-13)
+           - coinbaseTx4
 
-TxSuccess5 - (UTXO-6)    - split REISSUABLE(75) - 30 + 45 (UTXO-10,11)
-           - (UTXO-5)    - burn REISSUABLE(25)            (UTXO-12)*
-           - (UTXO-8)    - transfer NON-REISSUABLE(60)    (UTXO-13)
+TxSuccess6 - (UTXO-11)   - transfer REISSUABLE(40)        (UTXO-14)
+           - (UTXO-8)    - burn NON-REISSUABLE(60)        (UTXO-15)*
+           - (UTXO-13)   - transfer NFT                   (UTXO-16)
+           - coinbaseTx5 - issue 1000 REISSUABLE1, change (UTXO-17)
 
-TxSuccess6 - (UTXO-11)   - transfer REISSUABLE(45)        (UTXO-14)
-           - (UTXO-13)   - burn NON-REISSUABLE(60)        (UTXO-15)*
-           - (UTXO-4)    - transfer NFT                   (UTXO-16)
-           - coinbaseTx4 - issue 1000 REISSUABLE1         (UTXO-17)
-
-TxFailure2 - (UTXO-9,14) - aggregate REISSUABLE(45 + 100) (UTXO-18)x
+txFailure1 - (UTXO-9,14) - aggregate REISSUABLE(40 + 100) x
            - (UTXO-7)    - burn NON-REISSUABLE(40)        x
            - (UTXO-4)    - transfer NFT                   x
-           - (UTXO-18)   - burn REISSUABLE(45)            x
+           - change
 
-TxSuccess7 - (UTXO-9,14) - aggregate REISSUABLE(45 + 100) (UTXO-18)
-           - (UTXO-7)    - burn NON-REISSUABLE(40)        (UTXO-19)*
-           - (UTXO-4)    - transfer NFT                   (UTXO-20)
+txFailure2 - (UTXO-15)   - convert REISSUABLE to NON-REISSUABLE      x
 
-TxFailire3 - (UTXO-15)   - split  NON-REISSUABLE(60)      x
-
-TxFailire4 - coinbaseTx4 - issue 1000 REISSUABLE2         x
-
-TxSuccess8 - (UTXO-18)   - split REISSUABLE(145) into 10  (UTXO-21-30)
-           - coinbaseTx5 - issue 1000 REISSUABLE1         (UTXO-31)
-
-TxFailire5 - (UTXO-21,31)- aggregate REISSUABLE & REISSUABLE1 x
-
-TxFailire6 - (UTXO-17)   - convert REISSUABLE1 to NON-REISSUABLE1 x
-
-TxSuccess9 - (UTXO-17,31)- aggregate REISSUABLE1           (UTXO-32)
-           - (UTXO-21,31)- aggregate REISSUABLE            (UTXO-33)
-           - coinbaseTx6 - issue 100 NON-REISSUABLE1       (UTXO-34)
 '''
 
 import shutil, os
@@ -144,10 +125,12 @@ class ColoredCoinTest(BitcoinTestFramework):
             assert_equal(node.getbestblockhash(), tip)
 
         change_script = CScript([self.coinbase_pubkey, OP_CHECKSIG])
+        burn_script = CScript([hex_str_to_bytes(self.pubkeys[1]), OP_CHECKSIG])
 
         #TxSuccess1 - coinbaseTx1 - issue 100 REISSUABLE  + 30     (UTXO-1,2)
         colorId_reissuable = colorIdReissuable(coinbase_txs[0].vout[0].scriptPubKey)
         script_reissuable = CP2PHK_script(colorId = colorId_reissuable, pubkey = self.pubkeys[0])
+        script_transfer_reissuable = CP2PHK_script(colorId = colorId_reissuable, pubkey = self.pubkeys[1])
 
         txSuccess1 = CTransaction()
         txSuccess1.vin.append(CTxIn(COutPoint(coinbase_txs[0].malfixsha256, 0), b""))
@@ -163,6 +146,7 @@ class ColoredCoinTest(BitcoinTestFramework):
         #TxSuccess2 - (UTXO-2)    - issue 100 NON-REISSUABLE       (UTXO-3)
         colorId_nonreissuable = colorIdNonReissuable(COutPoint(txSuccess1.malfixsha256, 1).serialize())
         script_nonreissuable = CP2PHK_script(colorId = colorId_nonreissuable, pubkey = self.pubkeys[0])
+        script_transfer_nonreissuable = CP2PHK_script(colorId = colorId_nonreissuable, pubkey = self.pubkeys[1])
 
         txSuccess2 = CTransaction()
         txSuccess2.vin.append(CTxIn(COutPoint(txSuccess1.malfixsha256, 1), b""))
@@ -177,6 +161,7 @@ class ColoredCoinTest(BitcoinTestFramework):
         #TxSuccess3 - coinbaseTx2 - issue 1 NFT                    (UTXO-4)
         colorId_nft = colorIdNFT(COutPoint(coinbase_txs[1].malfixsha256, 0).serialize())
         script_nft = CP2PHK_script(colorId = colorId_nft, pubkey = self.pubkeys[0])
+        script_transfer_nft = CP2PHK_script(colorId = colorId_nft, pubkey = self.pubkeys[0])
 
         txSuccess3 = CTransaction()
         txSuccess3.vin.append(CTxIn(COutPoint(coinbase_txs[1].malfixsha256, 0), b""))
@@ -213,9 +198,10 @@ class ColoredCoinTest(BitcoinTestFramework):
 
         test_transaction_acceptance(node, txSuccess4, accepted=True)
 
-        #txSuccess5 - (UTXO-6)    - split REISSUABLE(75)           x
-        #           - (UTXO-7)    - split NON-REISSUABLE(40)       x
-        #           - (UTXO-4)    - split NFT                      x
+        #txSuccess5 - (UTXO-6)    - split REISSUABLE(75)           (UTXO-10,11)
+        #           - (UTXO-7)    - split NON-REISSUABLE(40)       (UTXO-12)
+        #           - (UTXO-4)    - split NFT                      (UTXO-13)
+        #           - coinbaseTx4
         txSuccess5 = CTransaction()
         txSuccess5.vin.append(CTxIn(COutPoint(txSuccess4.malfixsha256, 1), b""))
         txSuccess5.vin.append(CTxIn(COutPoint(txSuccess4.malfixsha256, 2), b""))
@@ -242,6 +228,80 @@ class ColoredCoinTest(BitcoinTestFramework):
         txSuccess5.rehash()
 
         test_transaction_acceptance(node, txSuccess5, accepted=True)
+
+        #TxSuccess6 - (UTXO-11)   - transfer REISSUABLE(40)        (UTXO-14)
+        #           - (UTXO-8)    - burn NON-REISSUABLE(60)        (UTXO-15)*
+        #           - (UTXO-13)   - transfer NFT                   (UTXO-16)
+        #           - coinbaseTx5 - issue 1000 REISSUABLE1, change (UTXO-17)
+        colorId_reissuable1 = colorIdReissuable(coinbase_txs[6].vout[0].scriptPubKey)
+        script_reissuable1 = CP2PHK_script(colorId = colorId_reissuable, pubkey = self.pubkeys[0])
+
+        txSuccess6 = CTransaction()
+        txSuccess6.vin.append(CTxIn(COutPoint(txSuccess5.malfixsha256, 1), b""))
+        txSuccess6.vin.append(CTxIn(COutPoint(txSuccess4.malfixsha256, 3), b""))
+        txSuccess6.vin.append(CTxIn(COutPoint(txSuccess5.malfixsha256, 4), b""))
+        txSuccess6.vin.append(CTxIn(COutPoint(coinbase_txs[4].malfixsha256, 0), b""))
+        txSuccess6.vout.append(CTxOut(40, script_transfer_reissuable))
+        txSuccess6.vout.append(CTxOut(30, script_transfer_nonreissuable))
+        txSuccess6.vout.append(CTxOut(1, script_transfer_nft))
+        txSuccess6.vout.append(CTxOut(1000, script_reissuable1))
+        txSuccess6.vout.append(CTxOut(1*COIN, change_script))
+        sig_hash, err = SignatureHash(txSuccess5.vout[1].scriptPubKey, txSuccess6, 0, SIGHASH_ALL)
+        signature = self.privkeys[0].sign(sig_hash) + b'\x01'
+        txSuccess6.vin[0].scriptSig = CScript([signature, hex_str_to_bytes(self.pubkeys[0])])
+        sig_hash, err = SignatureHash(txSuccess4.vout[3].scriptPubKey, txSuccess6, 1, SIGHASH_ALL)
+        signature = self.privkeys[0].sign(sig_hash) + b'\x01'
+        txSuccess6.vin[1].scriptSig = CScript([signature, hex_str_to_bytes(self.pubkeys[0])])
+        sig_hash, err = SignatureHash(txSuccess5.vout[4].scriptPubKey, txSuccess6, 2, SIGHASH_ALL)
+        signature = self.privkeys[0].sign(sig_hash) + b'\x01'
+        txSuccess6.vin[2].scriptSig = CScript([signature, hex_str_to_bytes(self.pubkeys[0])])
+        sig_hash, err = SignatureHash(coinbase_txs[4].vout[0].scriptPubKey, txSuccess6, 3, SIGHASH_ALL)
+        signature = self.coinbase_key.sign(sig_hash) + b'\x01'
+        txSuccess6.vin[3].scriptSig = CScript([signature])
+        txSuccess6.rehash()
+
+        test_transaction_acceptance(node, txSuccess6, accepted=True)
+
+        #txFailure1 - (UTXO-9,14) - aggregate REISSUABLE(40 + 100) x
+        #           - (UTXO-12)   - burn NON-REISSUABLE(20)        (UTXO-19)*
+        #           - (UTXO-4)    - transfer NFT                   x
+        txFailure1 = CTransaction()
+        txFailure1.vin.append(CTxIn(COutPoint(txSuccess4.malfixsha256, 4), b""))
+        txFailure1.vin.append(CTxIn(COutPoint(txSuccess6.malfixsha256, 0), b""))
+        txFailure1.vin.append(CTxIn(COutPoint(txSuccess4.malfixsha256, 2), b""))
+        txFailure1.vin.append(CTxIn(COutPoint(txSuccess5.malfixsha256, 5), b""))
+        txFailure1.vout.append(CTxOut(140, script_transfer_reissuable))
+        txFailure1.vout.append(CTxOut(1, script_transfer_nft))
+        sig_hash, err = SignatureHash(txSuccess4.vout[4].scriptPubKey, txFailure1, 0, SIGHASH_ALL)
+        signature = self.privkeys[0].sign(sig_hash) + b'\x01'
+        txFailure1.vin[0].scriptSig = CScript([signature, hex_str_to_bytes(self.pubkeys[0])])
+        sig_hash, err = SignatureHash(txSuccess6.vout[0].scriptPubKey, txFailure1, 1, SIGHASH_ALL)
+        signature = self.privkeys[0].sign(sig_hash) + b'\x01'
+        txFailure1.vin[1].scriptSig = CScript([signature, hex_str_to_bytes(self.pubkeys[0])])
+        sig_hash, err = SignatureHash(txSuccess4.vout[2].scriptPubKey, txFailure1, 2, SIGHASH_ALL)
+        signature = self.privkeys[0].sign(sig_hash) + b'\x01'
+        txFailure1.vin[2].scriptSig = CScript([signature, hex_str_to_bytes(self.pubkeys[0])])
+        sig_hash, err = SignatureHash(txSuccess5.vout[5].scriptPubKey, txFailure1, 3, SIGHASH_ALL)
+        signature = self.privkeys[1].sign(sig_hash) + b'\x01'
+        txFailure1.vin[3].scriptSig = CScript([signature, hex_str_to_bytes(self.pubkeys[1])])
+        txFailure1.rehash()
+
+        test_transaction_acceptance(node, txFailure1, accepted=False, reason=b'min relay fee not met')
+
+        #TxFailure2 - (UTXO-17)   - convert REISSUABLE to NON-REISSUABLE
+        txFailure2 = CTransaction()
+        txFailure2.vin.append(CTxIn(COutPoint(txSuccess6.malfixsha256, 3), b""))
+        txFailure2.vin.append(CTxIn(COutPoint(txSuccess6.malfixsha256, 4), b""))
+        txFailure2.vout.append(CTxOut(60, script_transfer_nonreissuable))
+        sig_hash, err = SignatureHash(txSuccess6.vout[3].scriptPubKey, txFailure2, 0, SIGHASH_ALL)
+        signature = self.privkeys[1].sign(sig_hash) + b'\x01'
+        txFailure2.vin[0].scriptSig = CScript([signature, hex_str_to_bytes(self.pubkeys[1])])
+        sig_hash, err = SignatureHash(txSuccess6.vout[4].scriptPubKey, txFailure2, 1, SIGHASH_ALL)
+        signature = self.coinbase_key.sign(sig_hash) + b'\x01'
+        txFailure2.vin[1].scriptSig = CScript([signature])
+        txFailure2.rehash()
+
+        test_transaction_acceptance(node, txFailure2, accepted=False, reason=b'invalid-colorid')
 
 
 if __name__ == '__main__':

@@ -678,32 +678,10 @@ class CBlock(CBlockHeader):
         self.rehash()
 
     def __repr__(self):
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-        return "CBlock(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x hashImMerkleRoot=%064x nTime=%s xType=%x xValue=%s  proof=%s vtx=%s)" \
-            % (self.nVersion, self.hashPrevBlock, self.hashMerkleRoot, self.hashImMerkleRoot,
-=======
-        return "CBlock(nFeatures=%i hashPrevBlock=%064x hashMerkleRoot=%064x hashImMerkleRoot=%064x nTime=%s xType=%x xValue=%s  proof=%s vtx=%s)" \
-            % (self.nFeatures, self.hashPrevBlock, self.hashMerkleRoot, self.hashImMerkleRoot,
->>>>>>> fixed build - changed nversion to nfeatures in functional test
-               time.ctime(self.nTime), self.xType, bytes_to_hex_str(self.xValue), bytes_to_hex_str(self.proof), repr(self.vtx))
-=======
-        return "CBlock(nFeatures=%i hashPrevBlock=%064x hashMerkleRoot=%064x hashImMerkleRoot=%064x nTime=%s aggPubkey=%s proof=%s vtx=%s)" \
-            % (self.nFeatures, self.hashPrevBlock, self.hashMerkleRoot, self.hashImMerkleRoot,
-               time.ctime(self.nTime), bytes_to_hex_str(self.aggPubkey), bytes_to_hex_str(self.proof), repr(self.vtx))
->>>>>>> changed transaction and block version in funftional tests
-=======
-        return "CBlock(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x hashImMerkleRoot=%064x nTime=%s xfieldType=%x xfield=%s  proof=%s vtx=%s)" \
-            % (self.nVersion, self.hashPrevBlock, self.hashMerkleRoot, self.hashImMerkleRoot,
-               time.ctime(self.nTime), self.xfieldType, bytes_to_hex_str(self.xfield), bytes_to_hex_str(self.proof), repr(self.vtx))
->>>>>>> Renamed xType and xvalue to xfieldType and xfield
-=======
         return "CBlock(nFeatures=%i hashPrevBlock=%064x hashMerkleRoot=%064x hashImMerkleRoot=%064x nTime=%s xfieldType=%x xfield=%s  proof=%s vtx=%s)" \
             % (self.nFeatures, self.hashPrevBlock, self.hashMerkleRoot, self.hashImMerkleRoot,
                time.ctime(self.nTime), self.xfieldType, bytes_to_hex_str(self.xfield), bytes_to_hex_str(self.proof), repr(self.vtx))
->>>>>>> 3289331f29f5dba056214340a793542b21f6cd5e
+
 
 
 class PrefilledTransaction():
