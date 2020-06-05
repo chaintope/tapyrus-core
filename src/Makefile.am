@@ -339,6 +339,8 @@ libtapyrus_consensus_a_SOURCES = \
   amount.h \
   arith_uint256.cpp \
   arith_uint256.h \
+  coloridentifier.cpp \
+  coloridentifier.h \
   consensus/merkle.cpp \
   consensus/merkle.h \
   consensus/params.h \
@@ -393,7 +395,6 @@ libtapyrus_common_a_SOURCES = \
   script/sign.cpp \
   script/standard.cpp \
   warnings.cpp \
-  coloridentifier.cpp \
   $(BITCOIN_CORE_H)
 
 # util: shared between all executables.
