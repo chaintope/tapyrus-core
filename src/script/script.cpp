@@ -227,29 +227,13 @@ bool CScript::IsColoredScript() const
 bool CScript::IsColoredPayToScriptHash() const
 {
     // <COLOR identifier> OP_COLOR OP_HASH160 <H(redeem script)> OP_EQUAL
-<<<<<<< HEAD
     if(this->size() == 58) // <COLOR identifier> : TYPE = 1 byte and 32 byte PAYLOAD
         return ((*this)[0] == 0x21 &&
                 ((*this)[1] == 0x01 || (*this)[1] == 0x02 || (*this)[1] == 0x03)&&
-=======
-    if(this->size() == 58) // <COLOR identifier> : TYPE = 1 and 32 PAYLOAD
-        return ((*this)[0] == 0x21 &&
-                (*this)[1] == 0x01 &&
->>>>>>> Token balance verification and unit tests rebased with more fixes
                 (*this)[34] == OP_COLOR &&
                 (*this)[35] == OP_HASH160 &&
                 (*this)[36] == 0x14 &&
                 (*this)[57] == OP_EQUAL);
-<<<<<<< HEAD
-=======
-    else if(this->size() == 62) // <COLOR identifier> : TYPE = 2/3 and 36 PAYLOAD
-        return ((*this)[0] == 0x25 &&
-                ((*this)[1] == 0x02 || (*this)[1] == 0x03 )&&
-                (*this)[38] == OP_COLOR &&
-                (*this)[39] == OP_HASH160 &&
-                (*this)[40] == 0x14 &&
-                (*this)[61] == OP_EQUAL);
->>>>>>> Token balance verification and unit tests rebased with more fixes
     return false;
 }
 

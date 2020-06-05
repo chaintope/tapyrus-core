@@ -97,6 +97,23 @@ struct ColorIdentifier
         return memcmp(this, &colorId, 37) < 0;
     }
 
+    ColorIdentifier(const std::vector<unsigned char>& in) {
+        CSerActionUnserialize ser_action;
+        CDataStream s(in, SER_NETWORK, INIT_PROTO_VERSION);
+        SerializationOp(s, ser_action);
+     }
+
+    bool operator==(const ColorIdentifier& colorId) const {
+        return this->type == colorId.type && this->type == TokenTypes::NONE ?
+               true : (this->type == TokenTypes::REISSUABLE ?
+                    (memcmp(&this->payload.scripthash[0], &colorId.payload.scripthash[0], 32) == 0)
+                    : this->payload.utxo == colorId.payload.utxo);
+    }
+
+    bool operator<(const ColorIdentifier& colorId) const {
+        return memcmp(this, &colorId, 37) < 0;
+    }
+
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
@@ -112,25 +129,9 @@ struct ColorIdentifier
             const uint8_t xtype = TokenToUint(type);
             s.write((const char *)&xtype, 1);
         }
-<<<<<<< HEAD
+
         if(type != TokenTypes::NONE)
             READWRITE(this->payload);
-=======
-
-        if(this->type == TokenTypes::REISSUABLE)
-            READWRITE(this->payload.scripthash);
-        else if(this->type == TokenTypes::NON_REISSUABLE || this->type == TokenTypes::NFT)
-            READWRITE(this->payload.utxo);
-<<<<<<< HEAD
-
-        //initilaize the last 4 bytes uniformly
-        /*if (ser_action.ForRead()
-        && this->type != TokenTypes::NON_REISSUABLE
-        && this->type != TokenTypes::NFT)
-            this->payload.utxo.n = 32766;*/
->>>>>>> Token balance verification and unit tests rebased with more fixes
-=======
->>>>>>> lock cs_main in txvalidation_tests
     }
 
     inline std::vector<unsigned char> toVector() const {

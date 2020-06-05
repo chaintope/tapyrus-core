@@ -138,6 +138,31 @@ bool MatchCustomColoredScript(const CScript& script, valtype& colorid)
     return false;
 }
 
+bool MatchCustomColoredScript(const CScript& script, valtype& colorid)
+{
+    //search for colorid in the script
+    // patterns: 0x21<33 byte>OP_COLOR
+    // 0x25<37 byte>OP_COLOR
+    std::vector<unsigned char> colorId;
+    CScript::const_iterator iterColorId1 = std::find(script.begin(), script.end(), 0x21);
+    CScript::const_iterator iterColorId2 = std::find(script.begin(), script.end(), 0x25);
+    CScript::const_iterator iterOpColor = std::find(script.begin(), script.end(), OP_COLOR);
+
+    if(iterOpColor == script.end())
+        return false;
+
+    if(iterColorId1 != script.end() && std::distance(iterColorId1, iterOpColor) == 34)
+        colorId.assign(iterColorId1, iterColorId1 + 33);
+
+    else if(iterColorId1 != script.end() && std::distance(iterColorId2, iterOpColor) == 38)
+        colorId.assign(iterColorId2, iterColorId2 + 37);
+
+    if(colorId.size())
+        return true;
+    
+    return false;
+}
+
 /** Test for "small positive integer" script opcodes - OP_1 through OP_16. */
 static constexpr bool IsSmallInteger(opcodetype opcode)
 {

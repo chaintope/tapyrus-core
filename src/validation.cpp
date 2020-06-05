@@ -794,6 +794,10 @@ static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, 
             }
         }
 
+        //Token transactions should have at least one TPC input to pay fee
+        if(isTokenTx && !tpcInputFound)
+            return state.Invalid(false, REJECT_INSUFFICIENTFEE, "bad-txns-token-without-fee");
+
         CTxMemPoolEntry entry(ptx, nFees, nAcceptTime, chainActive.Height(),
                               fSpendsCoinbase, nSigOpsCost, lp);
         unsigned int nSize = entry.GetTxSize();
@@ -3011,7 +3015,7 @@ static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,
 {
     //check block features
     if(block.nFeatures != CBlock::TAPYRUS_BLOCK_FEATURES)
-        return state.Invalid(false, REJECT_INVALID, "bad-features", "Block Features was incorrect");
+        return state.Invalid(false, REJECT_INVALID, "bad-features", "Incorrect Block features");
 
     //Check proof of Signed Blocks in a block header
     const unsigned int proofSize = block.proof.size();
