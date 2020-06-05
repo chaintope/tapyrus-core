@@ -94,7 +94,7 @@ struct ColorIdentifier
             const uint8_t xtype = TokenToUint(type);
             s.write((const char *)&xtype, 1);
         }
-        if(type != TokenTypes::NONE)
+        if(type > TokenTypes::NONE && type <= TokenTypes::TOKENTYPE_MAX)
             READWRITE(this->payload);
     }
 
