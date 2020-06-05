@@ -80,40 +80,6 @@ struct ColorIdentifier
         return memcmp(this, &colorId, 33) < 0;
     }
 
-    ColorIdentifier(const std::vector<unsigned char>& in) {
-        CSerActionUnserialize ser_action;
-        CDataStream s(in, SER_NETWORK, INIT_PROTO_VERSION);
-        SerializationOp(s, ser_action);
-     }
-
-    bool operator==(const ColorIdentifier& colorId) const {
-        return this->type == colorId.type && this->type == TokenTypes::NONE ?
-               true : (this->type == TokenTypes::REISSUABLE ?
-                    (memcmp(&this->payload.scripthash[0], &colorId.payload.scripthash[0], 32) == 0)
-                    : this->payload.utxo == colorId.payload.utxo);
-    }
-
-    bool operator<(const ColorIdentifier& colorId) const {
-        return memcmp(this, &colorId, 37) < 0;
-    }
-
-    ColorIdentifier(const std::vector<unsigned char>& in) {
-        CSerActionUnserialize ser_action;
-        CDataStream s(in, SER_NETWORK, INIT_PROTO_VERSION);
-        SerializationOp(s, ser_action);
-     }
-
-    bool operator==(const ColorIdentifier& colorId) const {
-        return this->type == colorId.type && this->type == TokenTypes::NONE ?
-               true : (this->type == TokenTypes::REISSUABLE ?
-                    (memcmp(&this->payload.scripthash[0], &colorId.payload.scripthash[0], 32) == 0)
-                    : this->payload.utxo == colorId.payload.utxo);
-    }
-
-    bool operator<(const ColorIdentifier& colorId) const {
-        return memcmp(this, &colorId, 37) < 0;
-    }
-
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
@@ -151,7 +117,7 @@ struct ColorIdentifierCompare
 {
     bool operator()(const ColorIdentifier& c1, const ColorIdentifier& c2) const
     {
-        return memcmp(&c1, &c2, 37) < 0;
+        return memcmp(&c1, &c2, 33) < 0;
     }
 };
 
