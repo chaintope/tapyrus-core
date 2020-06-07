@@ -55,7 +55,7 @@ struct ColorIdentifier
         CSHA256().Write((unsigned char *)s.data(), s.size()).Finalize(payload);
     }
 
-    ColorIdentifier(const CScript& input):type(TokenTypes::REISSUABLE), payload() {
+    ColorIdentifier(const CScript& input):type(TokenTypes::REISSUABLE), payload{} {
         std::vector<unsigned char> scriptVector(input.begin(), input.end());
         CSHA256().Write(scriptVector.data(), scriptVector.size()).Finalize(payload);
     }
@@ -96,7 +96,7 @@ struct ColorIdentifier
             s.write((const char *)&xtype, 1);
         }
 
-        if(type != TokenTypes::NONE)
+        if(type > TokenTypes::NONE && type <= TokenTypes::TOKENTYPE_MAX)
             READWRITE(this->payload);
     }
 
