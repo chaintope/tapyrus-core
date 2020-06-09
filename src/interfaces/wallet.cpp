@@ -76,9 +76,9 @@ WalletTx MakeWalletTx(CWallet& wallet, const CWalletTx& wtx)
                                                       IsMine(wallet, result.txout_address.back()) :
                                                       ISMINE_NO);
     }
-    result.credit = wtx.GetCredit(ISMINE_ALL);
-    result.debit = wtx.GetDebit(ISMINE_ALL);
-    result.change = wtx.GetChange();
+    result.credit[ColorIdentifier()] = wtx.GetCredit(ISMINE_ALL);
+    result.debit[ColorIdentifier()] = wtx.GetDebit(ISMINE_ALL);
+    result.change[ColorIdentifier()] = wtx.GetChange();
     result.time = wtx.GetTxTime();
     result.value_map = wtx.mapValue;
     result.is_coinbase = wtx.IsCoinBase();
@@ -333,12 +333,12 @@ public:
     WalletBalances getBalances() override
     {
         WalletBalances result;
-        result.balance = m_wallet.GetBalance();
-        result.unconfirmed_balance = m_wallet.GetUnconfirmedBalance();
+        result.balance[ColorIdentifier()] = m_wallet.GetBalance();
+        result.unconfirmed_balance[ColorIdentifier()] = m_wallet.GetUnconfirmedBalance();
         result.have_watch_only = m_wallet.HaveWatchOnly();
         if (result.have_watch_only) {
-            result.watch_only_balance = m_wallet.GetBalance(ISMINE_WATCH_ONLY);
-            result.unconfirmed_watch_only_balance = m_wallet.GetUnconfirmedWatchOnlyBalance();
+            result.watch_only_balance[ColorIdentifier()] = m_wallet.GetBalance(ISMINE_WATCH_ONLY);
+            result.unconfirmed_watch_only_balance[ColorIdentifier()] = m_wallet.GetUnconfirmedWatchOnlyBalance();
         }
         return result;
     }
