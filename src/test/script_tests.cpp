@@ -1718,7 +1718,7 @@ BOOST_AUTO_TEST_CASE(script_PushData)
     //verify the same same set of tests using SCRIPT_VERIFY_NONE, stdFlags and mndFlags
     ScriptError err;
     std::vector<std::vector<unsigned char>> directStack;
-    ColorIdentifier colorId(TokenTypes::NONE);
+    ColorIdentifier colorId;
     BOOST_CHECK(EvalScript(directStack, CScript(&direct[0], &direct[sizeof(direct)]), SCRIPT_VERIFY_NONE, BaseSignatureChecker(), SigVersion::BASE, &colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
 
