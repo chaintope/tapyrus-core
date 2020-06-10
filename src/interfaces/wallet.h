@@ -312,15 +312,23 @@ struct WalletBalances
 {
     TxColoredCoinBalancesMap balance;
     TxColoredCoinBalancesMap unconfirmed_balance;
-    bool have_watch_only = false;
+    bool have_watch_only;
     TxColoredCoinBalancesMap watch_only_balance;
     TxColoredCoinBalancesMap unconfirmed_watch_only_balance;
 
+    WalletBalances(){
+        balance[ColorIdentifier()] = 0;
+        unconfirmed_balance[ColorIdentifier()] = 0;
+        have_watch_only = false;
+        watch_only_balance[ColorIdentifier()] = 0;
+        unconfirmed_watch_only_balance[ColorIdentifier()] = 0;
+    }
+
     bool balanceChanged(const WalletBalances& prev) const
     {
-        return balance != prev.balance || unconfirmed_balance != prev.unconfirmed_balance ||
-               watch_only_balance != prev.watch_only_balance ||
-               unconfirmed_watch_only_balance != prev.unconfirmed_watch_only_balance;
+        return balance.at(ColorIdentifier()) != prev.balance.at(ColorIdentifier()) || unconfirmed_balance.at(ColorIdentifier()) != prev.unconfirmed_balance.at(ColorIdentifier()) ||
+               watch_only_balance.at(ColorIdentifier()) != prev.watch_only_balance.at(ColorIdentifier()) ||
+               unconfirmed_watch_only_balance.at(ColorIdentifier()) != prev.unconfirmed_watch_only_balance.at(ColorIdentifier());
     }
 };
 
