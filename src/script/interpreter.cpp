@@ -1172,10 +1172,8 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                     if(colorId->type <= TokenTypes::NONE || colorId->type > TokenTypes::TOKENTYPE_MAX)
                         return set_error(serror, SCRIPT_ERR_OP_COLORID_INVALID);
 
-                    //COLOR identifier consists of one byte of TYPE and 32 or 36 bytes of PAYLOAD.
-                    if((stacktop(-1).size() == 33 && colorId->type == TokenTypes::REISSUABLE)
-                     ||(stacktop(-1).size() == 37 
-                            && (colorId->type == TokenTypes::NON_REISSUABLE || colorId->type == TokenTypes::NFT)))
+                    //COLOR identifier consists of one byte of TYPE and 32 of PAYLOAD.
+                    if(stacktop(-1).size() == 33 && (colorId->type == TokenTypes::REISSUABLE || colorId->type == TokenTypes::NON_REISSUABLE || colorId->type == TokenTypes::NFT))
                     {
                         popstack(stack);
                     }
@@ -1611,7 +1609,7 @@ bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, const C
     }
 
     std::vector<std::vector<unsigned char> > stack, stackCopy;
-    ColorIdentifier colorId(TokenTypes::NONE);
+    ColorIdentifier colorId;
     if (!EvalScript(stack, scriptSig, flags, checker, SigVersion::BASE, &colorId, serror))
         // serror is set
         return false;
