@@ -9,6 +9,7 @@
 #include <checkpoints.h>
 #include <chain.h>
 #include <wallet/coincontrol.h>
+#include <coloridentifier.h>
 #include <consensus/consensus.h>
 #include <consensus/validation.h>
 #include <fs.h>
@@ -2191,7 +2192,7 @@ std::vector<CBalance> CWallet::GetAvailableTokenBalance(const CCoinControl* coin
         if (out.fSpendable) {
             CScript& scriptPubKey = const_cast<CScript&>(out.tx->tx->vout[out.i].scriptPubKey);
             //create a method to extract colorId using scriptpubkey;
-            ColorIdentifier colorId = GetColorIdFromScript(scriptPubKey);
+            ColorIdentifier colorId(GetColorIdFromScript(scriptPubKey));
 
             bool found = false;
             for(unsigned int i = 0; i < cbalances.size(); i++) {
