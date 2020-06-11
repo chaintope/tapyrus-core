@@ -11,6 +11,7 @@
 #include <script/script.h>
 #include <util.h>
 #include <utilstrencodings.h>
+#include <coloridentifier.h>
 #include <script/script.h>
 
 
@@ -71,7 +72,6 @@ static bool MatchPayToPubkeyHash(const CScript& script, valtype& pubkeyhash)
     }
     return false;
 }
-
 
 /** Test for "small positive integer" script opcodes - OP_1 through OP_16. */
 static constexpr bool IsSmallInteger(opcodetype opcode)

@@ -9,6 +9,7 @@
 #include <checkpoints.h>
 #include <chain.h>
 #include <wallet/coincontrol.h>
+#include <coloridentifier.h>
 #include <consensus/consensus.h>
 #include <consensus/validation.h>
 #include <fs.h>
@@ -625,7 +626,6 @@ void CWallet::AddToSpends(const COutPoint& outpoint, const uint256& wtxid)
     range = mapTxSpends.equal_range(outpoint);
     SyncMetaData(range);
 }
-
 
 void CWallet::AddToSpends(const uint256& wtxid)
 {
@@ -2164,20 +2164,54 @@ CAmount CWallet::GetLegacyBalance(const isminefilter& filter, int minDepth, cons
 
     return balance;
 }
-
 CAmount CWallet::GetAvailableBalance(const CCoinControl* coinControl) const
 {
     LOCK2(cs_main, cs_wallet);
 
     CAmount balance = 0;
+    std::vector<CBalance> balances = GetAvailableTokenBalance(coinControl);
+    
+    for(unsigned int i = 0; i < balances.size(); i++) {
+        if(balances[i].colorId.type == TokenTypes::NONE) {
+            return balances[i].value;
+            break;
+        }
+    };
+
+    return balance;
+}
+
+std::vector<CBalance> CWallet::GetAvailableTokenBalance(const CCoinControl* coinControl) const
+{
+    LOCK2(cs_main, cs_wallet);
+
+    std::vector<CBalance> cbalances;
     std::vector<COutput> vCoins;
     AvailableCoins(vCoins, true, coinControl);
     for (const COutput& out : vCoins) {
         if (out.fSpendable) {
-            balance += out.tx->tx->vout[out.i].nValue;
+            CScript& scriptPubKey = const_cast<CScript&>(out.tx->tx->vout[out.i].scriptPubKey);
+            //create a method to extract colorId using scriptpubkey;
+            ColorIdentifier colorId(GetColorIdFromScript(scriptPubKey));
+
+            bool found = false;
+            for(unsigned int i = 0; i < cbalances.size(); i++) {
+                if (cbalances[i].colorId == colorId) {
+                        found = true;
+                        cbalances[i].value += out.tx->tx->vout[out.i].nValue;
+                        break;
+                }
+            };
+
+            if(!found) {
+                cbalances.push_back({
+                    colorId,
+                    out.tx->tx->vout[out.i].nValue
+                });
+            }
         }
     }
-    return balance;
+    return cbalances;
 }
 
 void CWallet::AvailableCoins(std::vector<COutput> &vCoins, bool fOnlySafe, const CCoinControl *coinControl, const CAmount &nMinimumAmount, const CAmount &nMaximumAmount, const CAmount &nMinimumSumAmount, const uint64_t nMaximumCount, const int nMinDepth, const int nMaxDepth) const
