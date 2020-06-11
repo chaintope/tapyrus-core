@@ -351,13 +351,13 @@ public:
     mutable bool fAvailableWatchCreditCached;
     mutable bool fChangeCached;
     mutable bool fInMempool;
-    mutable CAmount nDebitCached;
-    mutable CAmount nCreditCached;
-    mutable CAmount nAvailableCreditCached;
-    mutable CAmount nWatchDebitCached;
-    mutable CAmount nWatchCreditCached;
-    mutable CAmount nAvailableWatchCreditCached;
-    mutable CAmount nChangeCached;
+    mutable TxColoredCoinBalancesMap nDebitCached;
+    mutable TxColoredCoinBalancesMap nCreditCached;
+    mutable TxColoredCoinBalancesMap nAvailableCreditCached;
+    mutable TxColoredCoinBalancesMap nWatchDebitCached;
+    mutable TxColoredCoinBalancesMap nWatchCreditCached;
+    mutable TxColoredCoinBalancesMap nAvailableWatchCreditCached;
+    mutable TxColoredCoinBalancesMap nChangeCached;
 
     CWalletTx(const CWallet* pwalletIn, CTransactionRef arg) : CMerkleTx(std::move(arg))
     {
@@ -382,13 +382,13 @@ public:
         fAvailableWatchCreditCached = false;
         fChangeCached = false;
         fInMempool = false;
-        nDebitCached = 0;
-        nCreditCached = 0;
-        nAvailableCreditCached = 0;
-        nWatchDebitCached = 0;
-        nWatchCreditCached = 0;
-        nAvailableWatchCreditCached = 0;
-        nChangeCached = 0;
+        nDebitCached[ColorIdentifier()] = 0;
+        nCreditCached[ColorIdentifier()]= 0;
+        nAvailableCreditCached[ColorIdentifier()] = 0;
+        nWatchDebitCached[ColorIdentifier()] = 0;
+        nWatchCreditCached[ColorIdentifier()] = 0;
+        nAvailableWatchCreditCached[ColorIdentifier()] = 0;
+        nChangeCached[ColorIdentifier()] = 0;
         nOrderPos = -1;
     }
 
