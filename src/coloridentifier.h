@@ -7,6 +7,7 @@
 #include <crypto/sha256.h>
 #include <streams.h>
 #include <version.h>
+#include <amount.h>
 
 enum class TokenTypes
 {
@@ -94,12 +95,12 @@ struct ColorIdentifier
             const uint8_t xtype = TokenToUint(type);
             s.write((const char *)&xtype, 1);
         }
+
         if(type > TokenTypes::NONE && type <= TokenTypes::TOKENTYPE_MAX)
             READWRITE(this->payload);
     }
 
-    inline std::vector<unsigned char> toVector()
-    {
+    inline std::vector<unsigned char> toVector() const {
         CDataStream stream(SER_NETWORK, INIT_PROTO_VERSION);
         this->Serialize(stream);
         return std::vector<unsigned char>(stream.begin(), stream.end());

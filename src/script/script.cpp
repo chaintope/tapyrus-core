@@ -212,9 +212,15 @@ bool CScript::IsPayToScriptHash() const
 
 bool CScript::IsColoredScript() const
 {
-    for(auto& byte:*this)
-        if(byte == OP_COLOR)
+    const_iterator pc = begin();
+    opcodetype opcode;
+    while (pc < end())
+    {
+        if (!GetOp(pc, opcode))
+            break;
+        if (opcode == OP_COLOR)
             return true;
+    }
     return false;
 }
 
@@ -354,4 +360,46 @@ bool GetScriptOp(CScriptBase::const_iterator& pc, CScriptBase::const_iterator en
 
     opcodeRet = static_cast<opcodetype>(opcode);
     return true;
+}
+
+
+bool MatchColoredPayToPubkeyHash(const CScript& script, std::vector<unsigned char>& pubkeyhash, std::vector<unsigned char>& colorid)
+{
+    //<COLOR identifier> OP_COLOR OP_DUP OP_HASH160 <H(pubkey)> OP_EQUALVERIFY OP_CHECKSIG
+    // <COLOR identifier> : TYPE = 1 byte and 32 byte PAYLOAD
+    if (script.size() == 60 && script[0] == 0x21  && (script[1] == 0x01 || script[1] == 0x02 || script[1] == 0x03) && script[34] == OP_COLOR && script[35] == OP_DUP && script[36] == OP_HASH160 && script[37] == 20 && script[58] == OP_EQUALVERIFY && script[59] == OP_CHECKSIG)
+    {
+        pubkeyhash = std::vector<unsigned char>(script.begin() + 38, script.begin() + 58);
+        colorid = std::vector<unsigned char>(script.begin() + 1, script.begin() + 34);
+        return true;
+    }
+    return false;
+}
+
+bool MatchCustomColoredScript(const CScript& script, std::vector<unsigned char>& colorid)
+{
+    //search for colorid in the script
+    // pattern: 0x21<33 byte>OP_COLOR
+    std::vector<unsigned char> colorId;
+    CScript::const_iterator iterColorId1 = std::find(script.begin(), script.end(), 0x21);
+    CScript::const_iterator iterOpColor = script.begin();
+    opcodetype opcode;
+    while (iterOpColor < script.end())
+    {
+        if (!script.GetOp(iterOpColor, opcode))
+            return false;
+        if (opcode == OP_COLOR)
+            break;
+    }
+
+    if(iterOpColor == script.end())
+        return false;
+
+    if(iterColorId1 != script.end() && std::distance(iterColorId1, iterOpColor) == 34)
+    {
+        colorId.assign(iterColorId1 + 1, iterColorId1 + 34);
+        return true;
+    }
+    
+    return false;
 }

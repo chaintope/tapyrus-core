@@ -593,4 +593,9 @@ public:
     virtual ~CReserveScript() {}
 };
 
+
+bool MatchColoredPayToPubkeyHash(const CScript& script, std::vector<unsigned char>& pubkeyhash, std::vector<unsigned char>& colorid);
+
+bool MatchCustomColoredScript(const CScript& script, std::vector<unsigned char>& colorid);
+
 #endif // BITCOIN_SCRIPT_SCRIPT_H

@@ -1594,7 +1594,7 @@ static bool VerifyWitnessProgram(const CScriptWitness& witness, int witversion, 
     return true;
 }
 
-bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, const CScriptWitness* witness, unsigned int flags, const BaseSignatureChecker& checker, ScriptError* serror)
+bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, const CScriptWitness* witness, unsigned int flags, const BaseSignatureChecker& checker, ColorIdentifier& colorId, ScriptError* serror)
 {
     static const CScriptWitness emptyWitness;
     if (witness == nullptr) {
@@ -1609,7 +1609,6 @@ bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, const C
     }
 
     std::vector<std::vector<unsigned char> > stack, stackCopy;
-    ColorIdentifier colorId;
     if (!EvalScript(stack, scriptSig, flags, checker, SigVersion::BASE, &colorId, serror))
         // serror is set
         return false;
@@ -1686,11 +1685,6 @@ bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, const C
             // for witness programs.
             stack.resize(1);
         }
-    }
-
-    if(colorId.type != TokenTypes::NONE)
-    {
-        //verify that the coin is valid
     }
 
     // The CLEANSTACK check is only performed after potential P2SH evaluation,
