@@ -151,6 +151,7 @@ add_library(common
         key_io.cpp
         bench/bech32.cpp
         bech32.cpp
+        coloridentifier.cpp
         )
 
 target_link_libraries(common util secp256k1)

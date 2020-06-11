@@ -890,7 +890,8 @@ bool CCoinsViewMemPool::GetCoin(const COutPoint &outpoint, Coin &coin) const {
     CTransactionRef ptx = mempool.get(outpoint.hashMalFix);
     if (ptx) {
         if (outpoint.n < ptx->vout.size()) {
-            coin = Coin(ptx->vout[outpoint.n], MEMPOOL_HEIGHT, false);
+            ColorIdentifier colorId(GetColorIdFromScript(ptx->vout[outpoint.n].scriptPubKey));
+            coin = Coin(ptx->vout[outpoint.n], MEMPOOL_HEIGHT, false, colorId.type);
             return true;
         } else {
             return false;

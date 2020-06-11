@@ -683,6 +683,7 @@ class CBlock(CBlockHeader):
                time.ctime(self.nTime), self.xfieldType, bytes_to_hex_str(self.xfield), bytes_to_hex_str(self.proof), repr(self.vtx))
 
 
+
 class PrefilledTransaction():
     def __init__(self, index=0, tx = None):
         self.index = index

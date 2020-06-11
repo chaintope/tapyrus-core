@@ -95,8 +95,9 @@ BOOST_AUTO_TEST_CASE(GetSigOpCount)
 static ScriptError VerifyWithFlag(const CTransaction& output, const CMutableTransaction& input, int flags)
 {
     ScriptError error;
+    ColorIdentifier colorId;
     CTransaction inputi(input);
-    bool ret = VerifyScript(inputi.vin[0].scriptSig, output.vout[0].scriptPubKey, &inputi.vin[0].scriptWitness, flags, TransactionSignatureChecker(&inputi, 0, output.vout[0].nValue), &error);
+    bool ret = VerifyScript(inputi.vin[0].scriptSig, output.vout[0].scriptPubKey, &inputi.vin[0].scriptWitness, flags, TransactionSignatureChecker(&inputi, 0, output.vout[0].nValue), colorId, &error);
     BOOST_CHECK((ret == true) == (error == SCRIPT_ERR_OK));
 
     return error;
