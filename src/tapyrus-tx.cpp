@@ -275,12 +275,12 @@ static void MutateTxAddOutAddr(CMutableTransaction& tx, const std::string& strIn
 
     // extract and validate ADDRESS
     std::string strAddr = vStrInputParts[1];
-    ColorIdentifier colorID;
-    CTxDestination destination = DecodeDestination(strAddr, &colorID);
+    ColorIdentifier* colorID = nullptr;
+    CTxDestination destination = DecodeDestination(strAddr, colorID);
     if (!IsValidDestination(destination)) {
         throw std::runtime_error("invalid TX output address");
     }
-    CScript scriptPubKey = GetScriptForDestination(destination, &colorID);
+    CScript scriptPubKey = GetScriptForDestination(destination, colorID);
 
     // construct TxOut, append to transaction output list
     CTxOut txout(value, scriptPubKey);
