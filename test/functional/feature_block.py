@@ -785,10 +785,11 @@ class FullBlockTest(BitcoinTestFramework):
         self.sync_blocks([b60], True)
         self.save_spendable_output()
 
-        assert_equal(len(self.nodes[0].getrawmempool()), 26)
+        # after reorg mempool has 3 more unspent transactions from b57p2
+        assert_equal(len(self.nodes[0].getrawmempool()), 29)
         mempool = self.nodes[0].getrawmempool()
-        #for i in range(3,5):
-        #    assert b57p2.vtx[i].hashMalFix in mempool
+        for i in range(3,5):
+            assert b57p2.vtx[i].hashMalFix in mempool
 
         # Test BIP30
         #
@@ -1125,7 +1126,7 @@ class FullBlockTest(BitcoinTestFramework):
         self.sync_blocks([b79], True)
 
         # mempool still has the 29 transactions
-        assert_equal(len(self.nodes[0].getrawmempool()), 26)
+        assert_equal(len(self.nodes[0].getrawmempool()), 29)
 
         self.move_tip(77)
         b80 = self.next_block(80, spend=out[25])
@@ -1142,7 +1143,7 @@ class FullBlockTest(BitcoinTestFramework):
 
         # now check that tx78 and tx79 have been put back into the peer's mempool
         mempool = self.nodes[0].getrawmempool()
-        assert_equal(len(mempool), 28)
+        assert_equal(len(mempool), 31)
         assert(tx78.hashMalFix in mempool)
         assert(tx79.hashMalFix in mempool)
 
