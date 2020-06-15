@@ -350,11 +350,9 @@ public:
         if (!m_provider->GetPubKey(pos, arg, key)) return false;
         CKeyID keyid = key.GetID();
         {
-            ColorIdentifier colorID = ColorIdentifier();
             CScript p2pk = GetScriptForRawPubKey(key);
             CScript p2pkh = GetScriptForDestination(keyid);
-            CScript cp2pkh = GetScriptForDestination(keyid, &colorID);
-            output_scripts = std::vector<CScript>{std::move(p2pk), std::move(p2pkh), std::move(cp2pkh)};
+            output_scripts = std::vector<CScript>{std::move(p2pk), std::move(p2pkh)};
             out.pubkeys.emplace(keyid, key);
         }
 #ifdef DEBUG
