@@ -60,6 +60,7 @@ parts:
       - --disable-bench
       - --disable-tests
     build-packages:
+      - build-essential
       - bsdmainutils
       - pkg-config
       - libboost-system-dev
