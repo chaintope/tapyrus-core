@@ -77,9 +77,9 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
         if (data[35] == OP_COLOR) {
             std::vector<unsigned char> cid;
             cid.assign(data[1], data[34]);
-            *colorId = ColorIdentifier(cid);
+            ColorIdentifier c(cid);
+            colorId = &c;
         }
-
         // base58-encoded Tapyrus addresses.
         // Public-key-hash-addresses have version 0 (or 111 testnet).
         // The data vector contains RIPEMD160(SHA256(pubkey)), where pubkey is the serialized public key.

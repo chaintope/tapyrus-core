@@ -60,6 +60,7 @@ public:
 //! Construct wallet tx struct.
 WalletTx MakeWalletTx(CWallet& wallet, const CWalletTx& wtx)
 {
+    ColorIdentifier colorId;
     WalletTx result;
     result.tx = wtx.tx;
     result.txin_is_mine.reserve(wtx.tx->vin.size());
@@ -72,8 +73,8 @@ WalletTx MakeWalletTx(CWallet& wallet, const CWalletTx& wtx)
     for (const auto& txout : wtx.tx->vout) {
         result.txout_is_mine.emplace_back(wallet.IsMine(txout));
         result.txout_address.emplace_back();
-        result.txout_address_is_mine.emplace_back(ExtractDestination(txout.scriptPubKey, result.txout_address.back()) ?
-                                                      IsMine(wallet, result.txout_address.back()) :
+        result.txout_address_is_mine.emplace_back(ExtractDestination(txout.scriptPubKey, result.txout_address.back(), &colorId) ?
+                                                      IsMine(wallet, result.txout_address.back(), &colorId) :
                                                       ISMINE_NO);
     }
     result.credit = wtx.GetCredit(ISMINE_ALL);

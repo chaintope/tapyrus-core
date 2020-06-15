@@ -974,18 +974,19 @@ static UniValue ProcessImport(CWallet * const pwallet, const UniValue& data, con
                     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Consistency check failed");
                 }
 
+                ColorIdentifier colorID;
                 // Consistency check.
                 if (isScript) {
                     CTxDestination destination;
 
-                    if (ExtractDestination(script, destination)) {
+                    if (ExtractDestination(script, destination, &colorID)) {
                         if (!(destination == pubkey_dest)) {
                             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Consistency check failed");
                         }
                     }
                 }
 
-                CScript pubKeyScript = GetScriptForDestination(pubkey_dest);
+                CScript pubKeyScript = GetScriptForDestination(pubkey_dest, &colorID);
 
                 if (::IsMine(*pwallet, pubKeyScript) == ISMINE_SPENDABLE) {
                     throw JSONRPCError(RPC_WALLET_ERROR, "The wallet already contains the private key for this address or script");
