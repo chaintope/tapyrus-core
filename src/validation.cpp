@@ -1046,9 +1046,6 @@ static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, 
         if(tpcin <= 0)
             return state.Invalid(false, REJECT_INSUFFICIENTFEE, "bad-txns-token-without-fee");
 
-        if(tpcin - tpcout <= 0)
-            return state.Invalid(false, REJECT_INSUFFICIENTFEE, "bad-txns-token-insufficient");
-
         for(auto& out:outColoredCoinBalances)
         {
             TxColoredCoinBalancesMap::iterator iter = inColoredCoinBalances.find(out.first);
