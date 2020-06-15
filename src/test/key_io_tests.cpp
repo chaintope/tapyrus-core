@@ -58,8 +58,9 @@ BOOST_AUTO_TEST_CASE(key_io_valid_parse)
             BOOST_CHECK_MESSAGE(!IsValidDestination(destination), "IsValid privkey as pubkey:" + strTest);
         } else {
             // Must be valid public key
-            destination = DecodeDestination(exp_base58string);
-            CScript script = GetScriptForDestination(destination);
+            ColorIdentifier colorId;
+            destination = DecodeDestination(exp_base58string, &colorId);
+            CScript script = GetScriptForDestination(destination, &colorId);
             BOOST_CHECK_MESSAGE(IsValidDestination(destination), "!IsValid:" + strTest);
             BOOST_CHECK_EQUAL(HexStr(script), HexStr(exp_payload));
 
@@ -71,10 +72,10 @@ BOOST_AUTO_TEST_CASE(key_io_valid_parse)
                     c = (c - 'A') + 'a';
                 }
             }
-            destination = DecodeDestination(exp_base58string);
+            destination = DecodeDestination(exp_base58string, &colorId);
             BOOST_CHECK_MESSAGE(IsValidDestination(destination) == try_case_flip, "!IsValid case flipped:" + strTest);
             if (IsValidDestination(destination)) {
-                script = GetScriptForDestination(destination);
+                script = GetScriptForDestination(destination, &colorId);
                 BOOST_CHECK_EQUAL(HexStr(script), HexStr(exp_payload));
             }
 

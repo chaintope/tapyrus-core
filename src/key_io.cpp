@@ -68,11 +68,18 @@ public:
     std::string operator()(const CNoDestination& no) const { return {}; }
 };
 
-CTxDestination DecodeDestination(const std::string& str, const CChainParams& params)
+CTxDestination DecodeDestination(const std::string& str, const CChainParams& params, ColorIdentifier* colorId = nullptr)
 {
     std::vector<unsigned char> data;
     uint160 hash;
     if (DecodeBase58Check(str, data)) {
+
+        if (data[35] == OP_COLOR) {
+            std::vector<unsigned char> cid;
+            cid.assign(data[1], data[34]);
+            *colorId = ColorIdentifier(cid);
+        }
+
         // base58-encoded Tapyrus addresses.
         // Public-key-hash-addresses have version 0 (or 111 testnet).
         // The data vector contains RIPEMD160(SHA256(pubkey)), where pubkey is the serialized public key.
@@ -175,9 +182,9 @@ std::string EncodeDestination(const CTxDestination& dest)
     return boost::apply_visitor(DestinationEncoder(Params()), dest);
 }
 
-CTxDestination DecodeDestination(const std::string& str)
+CTxDestination DecodeDestination(const std::string& str, ColorIdentifier* colorId)
 {
-    return DecodeDestination(str, Params());
+    return DecodeDestination(str, Params(), colorId);
 }
 
 bool IsValidDestinationString(const std::string& str, const CChainParams& params)

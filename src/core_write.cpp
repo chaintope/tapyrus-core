@@ -149,7 +149,8 @@ void ScriptToUniv(const CScript& script, UniValue& out, bool include_address)
     out.pushKV("type", GetTxnOutputType(type));
 
     CTxDestination address;
-    if (include_address && ExtractDestination(script, address)) {
+    ColorIdentifier colorId;
+    if (include_address && ExtractDestination(script, address, &colorId)) {
         out.pushKV("address", EncodeDestination(address));
     }
 }

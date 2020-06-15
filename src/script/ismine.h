@@ -25,6 +25,6 @@ enum isminetype
 typedef uint8_t isminefilter;
 
 isminetype IsMine(const CKeyStore& keystore, const CScript& scriptPubKey);
-isminetype IsMine(const CKeyStore& keystore, const CTxDestination& dest);
+isminetype IsMine(const CKeyStore& keystore, const CTxDestination& dest, ColorIdentifier *colorId = nullptr);
 
 #endif // BITCOIN_SCRIPT_ISMINE_H
