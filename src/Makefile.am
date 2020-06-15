@@ -361,6 +361,8 @@ libtapyrus_consensus_a_SOURCES = \
   script/script.h \
   script/script_error.cpp \
   script/script_error.h \
+  support/cleanse.cpp \
+  support/cleanse.h \
   serialize.h \
   span.h \
   tinyformat.h \
@@ -415,7 +417,6 @@ libtapyrus_util_a_SOURCES = \
   random.cpp \
   rpc/protocol.cpp \
   randomenv.cpp \
-  support/cleanse.cpp \
   sync.cpp \
   threadinterrupt.cpp \
   util.cpp \
