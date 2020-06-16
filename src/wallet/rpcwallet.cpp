@@ -334,8 +334,8 @@ static UniValue setlabel(const JSONRPCRequest& request)
 
     LOCK2(cs_main, pwallet->cs_wallet);
 
-    ColorIdentifier colorID;
-    CTxDestination dest = DecodeDestination(request.params[0].get_str(), &colorID);
+    ColorIdentifier* colorId = nullptr;
+    CTxDestination dest = DecodeDestination(request.params[0].get_str(), colorId);
     if (!IsValidDestination(dest)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Tapyrus address");
     }
@@ -343,7 +343,7 @@ static UniValue setlabel(const JSONRPCRequest& request)
     std::string old_label = pwallet->mapAddressBook[dest].name;
     std::string label = LabelFromValue(request.params[1]);
 
-    if (IsMine(*pwallet, dest, &colorID)) {
+    if (IsMine(*pwallet, dest, colorId)) {
         pwallet->SetAddressBook(dest, label, "receive");
         if (request.strMethod == "setaccount" && old_label != label && dest == GetLabelDestination(pwallet, old_label)) {
             // for setaccount, call GetLabelDestination so a new receive address is created for the old account
@@ -751,12 +751,12 @@ static UniValue getreceivedbyaddress(const JSONRPCRequest& request)
     LOCK2(cs_main, pwallet->cs_wallet);
 
     // Tapyrus address
-    ColorIdentifier colorID;
-    CTxDestination dest = DecodeDestination(request.params[0].get_str(), &colorID);
+    ColorIdentifier* colorId = nullptr;
+    CTxDestination dest = DecodeDestination(request.params[0].get_str(), colorId);
     if (!IsValidDestination(dest)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Tapyrus address");
     }
-    CScript scriptPubKey = GetScriptForDestination(dest, &colorID);
+    CScript scriptPubKey = GetScriptForDestination(dest, colorId);
     if (!IsMine(*pwallet, scriptPubKey)) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Address not found in wallet");
     }
@@ -844,8 +844,8 @@ static UniValue getreceivedbylabel(const JSONRPCRequest& request)
         for (const CTxOut& txout : wtx.tx->vout)
         {
             CTxDestination address;
-            ColorIdentifier colorID;
-            if (ExtractDestination(txout.scriptPubKey, address, &colorID) && IsMine(*pwallet, address, &colorID) && setAddress.count(address)) {
+            ColorIdentifier* colorId = nullptr;
+            if (ExtractDestination(txout.scriptPubKey, address, colorId) && IsMine(*pwallet, address, colorId) && setAddress.count(address)) {
                 if (wtx.GetDepthInMainChain() >= nMinDepth)
                     nAmount += txout.nValue;
             }
@@ -1256,8 +1256,8 @@ static UniValue sendmany(const JSONRPCRequest& request)
     CAmount totalAmount = 0;
     std::vector<std::string> keys = sendTo.getKeys();
     for (const std::string& name_ : keys) {
-        ColorIdentifier colorID;
-        CTxDestination dest = DecodeDestination(name_, &colorID);
+        ColorIdentifier* colorId = nullptr;
+        CTxDestination dest = DecodeDestination(name_, colorId);
         if (!IsValidDestination(dest)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid Tapyrus address: ") + name_);
         }
@@ -1267,7 +1267,7 @@ static UniValue sendmany(const JSONRPCRequest& request)
         }
         destinations.insert(dest);
 
-        CScript scriptPubKey = GetScriptForDestination(dest, &colorID);
+        CScript scriptPubKey = GetScriptForDestination(dest, colorId);
         CAmount nAmount = AmountFromValue(sendTo[name_]);
         if (nAmount <= 0)
             throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for send");
@@ -1574,15 +1574,15 @@ static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bo
         for (const CTxOut& txout : wtx.tx->vout)
         {
             CTxDestination address;
-            ColorIdentifier colorID;
-            if (!ExtractDestination(txout.scriptPubKey, address, &colorID))
+            ColorIdentifier* colorId = nullptr;
+            if (!ExtractDestination(txout.scriptPubKey, address, colorId))
                 continue;
 
             if (has_filtered_address && !(filtered_address == address)) {
                 continue;
             }
 
-            isminefilter mine = IsMine(*pwallet, address, &colorID);
+            isminefilter mine = IsMine(*pwallet, address, colorId);
             if(!(mine & filter))
                 continue;
 
@@ -4207,8 +4207,8 @@ UniValue getaddressinfo(const JSONRPCRequest& request)
     LOCK(pwallet->cs_wallet);
 
     UniValue ret(UniValue::VOBJ);
-    ColorIdentifier colorID = ColorIdentifier();
-    CTxDestination dest = DecodeDestination(request.params[0].get_str(), &colorID);
+    ColorIdentifier* colorId = nullptr;
+    CTxDestination dest = DecodeDestination(request.params[0].get_str(), colorId);
 
     // Make sure the destination is valid
     if (!IsValidDestination(dest)) {
@@ -4221,7 +4221,7 @@ UniValue getaddressinfo(const JSONRPCRequest& request)
     CScript scriptPubKey = GetScriptForDestination(dest);
     ret.pushKV("scriptPubKey", HexStr(scriptPubKey.begin(), scriptPubKey.end()));
 
-    isminetype mine = IsMine(*pwallet, dest, &colorID);
+    isminetype mine = IsMine(*pwallet, dest, colorId);
     ret.pushKV("ismine", bool(mine & ISMINE_SPENDABLE));
     ret.pushKV("iswatchonly", bool(mine & ISMINE_WATCH_ONLY));
     UniValue detail = DescribeWalletAddress(pwallet, dest);

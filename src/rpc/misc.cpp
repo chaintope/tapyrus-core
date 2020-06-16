@@ -60,8 +60,8 @@ static UniValue validateaddress(const JSONRPCRequest& request)
             + HelpExampleRpc("validateaddress", "\"1PSSGeFHDnKNxiEyFrD1wcEaHr9hrQDDWc\"")
         );
 
-    ColorIdentifier colorID = ColorIdentifier();
-    CTxDestination dest = DecodeDestination(request.params[0].get_str(), &colorID);
+    ColorIdentifier* colorId = nullptr;
+    CTxDestination dest = DecodeDestination(request.params[0].get_str(), colorId);
     bool isValid = IsValidDestination(dest);
 
     UniValue ret(UniValue::VOBJ);
@@ -78,7 +78,7 @@ static UniValue validateaddress(const JSONRPCRequest& request)
             std::string currentAddress = EncodeDestination(dest);
             ret.pushKV("address", currentAddress);
 
-            CScript scriptPubKey = GetScriptForDestination(dest, &colorID);
+            CScript scriptPubKey = GetScriptForDestination(dest, colorId);
             ret.pushKV("scriptPubKey", HexStr(scriptPubKey.begin(), scriptPubKey.end()));
 
             UniValue detail = DescribeAddress(dest);
