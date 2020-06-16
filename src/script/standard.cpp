@@ -12,6 +12,7 @@
 #include <util.h>
 #include <utilstrencodings.h>
 #include <coloridentifier.h>
+#include <script/script.h>
 
 
 typedef std::vector<unsigned char> valtype;
@@ -69,51 +70,6 @@ static bool MatchPayToPubkeyHash(const CScript& script, valtype& pubkeyhash)
         pubkeyhash = valtype(script.begin () + 3, script.begin() + 23);
         return true;
     }
-    return false;
-}
-
-bool MatchColoredPayToPubkeyHash(const CScript& script, valtype& pubkeyhash, valtype& colorid)
-{
-    //<COLOR identifier> OP_COLOR OP_DUP OP_HASH160 <H(pubkey)> OP_EQUALVERIFY OP_CHECKSIG
-    // <COLOR identifier> : TYPE = 1 and 32 PAYLOAD
-    if (script.size() == 60 && script[0] == 0x21 && script[1] == 0x01 && script[34] == OP_COLOR && script[35] == OP_DUP && script[36] == OP_HASH160 && script[37] == 20 && script[58] == OP_EQUALVERIFY && script[59] == OP_CHECKSIG)
-    {
-        pubkeyhash = valtype(script.begin() + 38, script.begin() + 58);
-        colorid = valtype(script.begin() + 1, script.begin() + 34);
-        return true;
-    }
-    // <COLOR identifier> : TYPE = 2/3 and 36 PAYLOAD
-    else if (script.size() == 64 && script[0] ==0x25 && (script[1] == 0x02 || script[1] == 0x03) && script[38] == OP_COLOR && script[39] == OP_DUP && script[40] == OP_HASH160 && script[41] == 20 && script[62] == OP_EQUALVERIFY && script[63] == OP_CHECKSIG)
-    {
-        pubkeyhash = valtype(script.begin() + 42, script.begin() + 62);
-        colorid = valtype(script.begin() + 1, script.begin() + 38);
-        return true;
-    }
-    return false;
-}
-
-bool MatchCustomColoredScript(const CScript& script, valtype& colorid)
-{
-    //search for colorid in the script
-    // patterns: 0x21<33 byte>OP_COLOR
-    // 0x25<37 byte>OP_COLOR
-    std::vector<unsigned char> colorId;
-    CScript::const_iterator iterColorId1 = std::find(script.begin(), script.end(), 0x21);
-    CScript::const_iterator iterColorId2 = std::find(script.begin(), script.end(), 0x25);
-    CScript::const_iterator iterOpColor = std::find(script.begin(), script.end(), OP_COLOR);
-
-    if(iterOpColor == script.end())
-        return false;
-
-    if(iterColorId1 != script.end() && std::distance(iterColorId1, iterOpColor) == 34)
-        colorId.assign(iterColorId1, iterColorId1 + 33);
-
-    else if(iterColorId1 != script.end() && std::distance(iterColorId2, iterOpColor) == 38)
-        colorId.assign(iterColorId2, iterColorId2 + 37);
-
-    if(colorId.size())
-        return true;
-    
     return false;
 }
 
@@ -216,17 +172,8 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::v
         std::vector<unsigned char> hashBytes;
         std::vector<unsigned char> colorId;
 
-        TokenTypes type = UintToToken(*(scriptPubKey.begin() + 1));
-        if(type == TokenTypes::REISSUABLE)
-        {
-            hashBytes.assign(scriptPubKey.begin()+37, scriptPubKey.begin()+57);
-            colorId.assign(scriptPubKey.begin()+1, scriptPubKey.begin()+34);
-        }
-        else
-        {
-            hashBytes.assign(scriptPubKey.begin()+41, scriptPubKey.begin()+61);
-            colorId.assign(scriptPubKey.begin()+1, scriptPubKey.begin()+38);
-        }
+        hashBytes.assign(scriptPubKey.begin()+37, scriptPubKey.begin()+57);
+        colorId.assign(scriptPubKey.begin()+1, scriptPubKey.begin()+34);
         vSolutionsRet.push_back(hashBytes);
         vSolutionsRet.push_back(colorId);
         return true;
@@ -496,26 +443,4 @@ CScript GetScriptForWitness(const CScript& redeemscript)
 
 bool IsValidDestination(const CTxDestination& dest) {
     return dest.which() != 0;
-}
-
-ColorIdentifier GetColorIdFromScript(const CScript& scriptPubKey) {
-    std::vector<unsigned char> data;
-    std::vector<unsigned char> colorId;
-    ColorIdentifier defaultColorId;
-
-    if(MatchColoredPayToPubkeyHash(scriptPubKey, data, colorId)) {
-        ColorIdentifier p2pkhColorId(colorId);
-        p2pkhColorId.type = UintToToken(*(scriptPubKey.begin()+1));
-        return p2pkhColorId;
-    } else if(scriptPubKey.IsColoredPayToScriptHash()) {
-        if(scriptPubKey.size() == 58) {
-          colorId = valtype(scriptPubKey.begin() + 1, scriptPubKey.begin() + 34);
-        } else {
-          colorId = valtype(scriptPubKey.begin() + 1, scriptPubKey.begin() + 38);
-        }
-        ColorIdentifier p2shColorId(colorId);
-        p2shColorId.type = UintToToken(*(scriptPubKey.begin()+1));
-        return p2shColorId;
-    }
-    return defaultColorId;
 }

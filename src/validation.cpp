@@ -560,17 +560,14 @@ static bool CheckInputsFromMempoolAndCache(const CTransaction& tx, CValidationSt
     return CheckInputs(tx, state, view, true, flags, cacheSigStore, true, txdata, inColoredCoinBalances);
 }
 
-bool CheckColorIdentifierValidity(const CTransaction& tx, CValidationState& state, CCoinsViewCache &inputs, TxColoredCoinBalancesMap& outColoredCoinBalances, bool& isTokenTx)
+bool CheckColorIdentifierValidity(const CTransaction& tx, CValidationState& state, CCoinsViewCache &inputs)
 {
     // when this transaction issues or transfers tokens,
     // verify that the color id is valid.
-    for(auto txout:tx.vout)
+    for(auto& txout:tx.vout)
     {
         if(!txout.scriptPubKey.IsColoredScript())
             continue;
-
-        // we reach here only when OP_COLOR was found in the script
-        isTokenTx = true;
 
         //identify the scriptPubkey type and get colorid from the script
         ColorIdentifier outColorId(GetColorIdFromScript(txout.scriptPubKey));
@@ -614,14 +611,8 @@ bool CheckColorIdentifierValidity(const CTransaction& tx, CValidationState& stat
                 matchFound = true;
 
                 //NFT's value is always 1
-                if(outColorId.type == TokenTypes::NFT && txout.nValue != 1) return false;
-
-                //collect token balances from verified outputs.
-                auto iter = outColoredCoinBalances.find(outColorId);
-                if(iter == outColoredCoinBalances.end())
-                    outColoredCoinBalances.emplace(outColorId, txout.nValue);
-                else
-                    iter->second += txout.nValue;
+                if(outColorId.type == TokenTypes::NFT && txout.nValue != 1)
+                    return false;
 
                 //exit inner loop
                 break;
@@ -749,9 +740,7 @@ static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, 
         }
 
         //if there are colored coins in the output verify their colorids
-        bool isTokenTx = false;
-        TxColoredCoinBalancesMap outColoredCoinBalances;
-        if(!CheckColorIdentifierValidity(tx, state, view, outColoredCoinBalances, isTokenTx))
+        if(!CheckColorIdentifierValidity(tx, state, view))
             return state.DoS(0, false, REJECT_COLORID, "invalid-colorid");
 
         // Bring the best block into scope
@@ -796,21 +785,14 @@ static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, 
         // Keep track of transactions that spend a coinbase, which we re-scan
         // during reorgs to ensure COINBASE_MATURITY is still met.
         bool fSpendsCoinbase = false;
-        bool tpcInputFound = false;
         for (const CTxIn &txin : tx.vin) {
             const Coin &coin = view.AccessCoin(txin.prevout);
             if (coin.IsCoinBase())
+            {
                 fSpendsCoinbase = true;
-
-            if(coin.type == TokenTypes::NONE)
-                tpcInputFound = true;
-            else
-                isTokenTx = true;
+                break;
+            }
         }
-
-        //Token transactions should have at least one TPC input to pay fee
-        if(isTokenTx && !tpcInputFound)
-            return state.Invalid(false, REJECT_INSUFFICIENTFEE, "bad-txns-token-without-fee");
 
         CTxMemPoolEntry entry(ptx, nFees, nAcceptTime, chainActive.Height(),
                               fSpendsCoinbase, nSigOpsCost, lp);
@@ -1001,13 +983,13 @@ static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, 
         if (!CheckInputs(tx, state, view, true, scriptVerifyFlags, true, false, txdata, inColoredCoinBalances)) {
 
         #ifdef DEBUG
-            TxColoredCoinBalancesMap inColoredCoinBalancesTemp;
+            TxColoredCoinBalancesMap tmpColoredCoinBalancesTemp;
             // SCRIPT_VERIFY_CLEANSTACK requires SCRIPT_VERIFY_WITNESS, so we
             // need to turn both off, and compare against just turning off CLEANSTACK
             // to see if the failure is specifically due to witness validation.
             CValidationState stateDummy; // Want reported failures to be from first CheckInputs
-            if (!tx.HasWitness() && CheckInputs(tx, stateDummy, view, true, scriptVerifyFlags & ~(SCRIPT_VERIFY_WITNESS | SCRIPT_VERIFY_CLEANSTACK), true, false, txdata, inColoredCoinBalancesTemp) &&
-                !CheckInputs(tx, stateDummy, view, true, scriptVerifyFlags & ~SCRIPT_VERIFY_CLEANSTACK, true, false, txdata, inColoredCoinBalancesTemp)) {
+            if (!tx.HasWitness() && CheckInputs(tx, stateDummy, view, true, scriptVerifyFlags & ~(SCRIPT_VERIFY_WITNESS | SCRIPT_VERIFY_CLEANSTACK), true, false, txdata, tmpColoredCoinBalancesTemp) &&
+                !CheckInputs(tx, stateDummy, view, true, scriptVerifyFlags & ~SCRIPT_VERIFY_CLEANSTACK, true, false, txdata, tmpColoredCoinBalancesTemp)) {
                 // Only the witness is missing, so the transaction itself may be fine.
                 state.SetCorruptionPossible();
             }
@@ -1037,16 +1019,58 @@ static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, 
                     __func__, hash.ToString(), FormatStateMessage(state));
         }
 
-        //verify token balances
-        for(auto in:inColoredCoinBalances)
-        {
-            TxColoredCoinBalancesMap::const_iterator iter = outColoredCoinBalances.find(in.first);
-            if(iter == outColoredCoinBalances.end() || iter->second != in.second)
-                return state.Invalid(false, REJECT_INVALID, "bad-txns-token-balance");
+        //verify token balances:
+        //for every output eliminate a matching input.
+        //verify that all outputs are matched
+        TxColoredCoinBalancesMap outColoredCoinBalances;
+        for (const auto& tx_out : tx.vout) {
+            ColorIdentifier outColorId(GetColorIdFromScript(tx_out.scriptPubKey));
 
-            //verify NFT
-            if(in.first.type == TokenTypes::NFT && iter->second != 1)
-                return state.Invalid(false, REJECT_INVALID, "bad-txns-nft-division");
+            //collect token balances from all outputs.
+            auto iter = outColoredCoinBalances.find(outColorId);
+            if(iter == outColoredCoinBalances.end())
+                outColoredCoinBalances.emplace(outColorId, tx_out.nValue);
+            else
+                iter->second += tx_out.nValue;
+        }
+        // Tally transaction fees
+        CAmount tpcin = 0, tpcout = 0;
+        TxColoredCoinBalancesMap::const_iterator iter = inColoredCoinBalances.find(ColorIdentifier());
+        if(iter != inColoredCoinBalances.end())  
+            tpcin = iter->second;
+
+        iter = outColoredCoinBalances.find(ColorIdentifier());
+            if(iter != outColoredCoinBalances.end())  
+                tpcout = iter->second;
+
+        if(tpcin <= 0)
+            return state.Invalid(false, REJECT_INSUFFICIENTFEE, "bad-txns-token-without-fee");
+
+        if(tpcin - tpcout <= 0)
+            return state.Invalid(false, REJECT_INSUFFICIENTFEE, "bad-txns-token-insufficient");
+
+        for(auto& out:outColoredCoinBalances)
+        {
+            TxColoredCoinBalancesMap::iterator iter = inColoredCoinBalances.find(out.first);
+
+            //output does not have a corresponding input.
+            if(iter == inColoredCoinBalances.end())
+            {
+                //if TPC input is sufficiently large this is a token issue. 
+                if(tpcin < 0 || tpcin - tpcout - ::minRelayTxFee.GetFee(nSize) < 1)
+                    return state.Invalid(false, REJECT_INSUFFICIENTFEE, "bad-txns-token-insufficient");
+            }
+            //output valus is more than input
+            else if(out.second > iter->second)
+            {
+                return state.Invalid(false, REJECT_INVALID, "bad-txns-token-balance");
+            }
+            else
+            {
+                //reduce this output from the input
+                iter->second -=  out.second;
+            }
+
         }
 
         if (test_accept) {
@@ -1562,15 +1586,12 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                     return state.DoS(100,false, REJECT_INVALID, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(check.GetScriptError())));
                 }
                 ColorIdentifier colorId(check.GetColorIdentifier());
-                if(colorId.type != TokenTypes::NONE)
-                {
-                    //collect token balances from verified input.
-                    auto iter = inColoredCoinBalances.find(colorId);
-                    if(iter == inColoredCoinBalances.end())
-                        inColoredCoinBalances.emplace(colorId, coin.out.nValue);
-                    else
-                        iter->second += coin.out.nValue;
-                }
+                //collect token balances from verified input.
+                auto iter = inColoredCoinBalances.find(colorId);
+                if(iter == inColoredCoinBalances.end())
+                    inColoredCoinBalances.emplace(colorId, coin.out.nValue);
+                else
+                    iter->second += coin.out.nValue;
             }
 
             if (cacheFullScriptStore && !pvChecks) {
@@ -3069,6 +3090,12 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
     // First transaction must be coinbase,
     if (block.vtx.empty() || !block.vtx[0]->IsCoinBase())
         return state.DoS(100, false, REJECT_INVALID, "bad-cb-missing", false, "first tx is not coinbase");
+
+    // coinbase should not have colored output
+    for(auto txOut: block.vtx[0]->vout)
+        if(txOut.scriptPubKey.IsColoredScript())
+            return state.DoS(100, false, REJECT_INVALID, "bad-cb-issuetoken", false, "coinbase cannot issue tokens");
+
     //tapyrus coinbase must have blockheight in the prevout.n
     CBlockIndex* pindexPrev = chainActive.Tip();
     if(pindexPrev && !isBlockHeightInCoinbase(block) )

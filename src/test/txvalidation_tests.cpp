@@ -86,13 +86,14 @@ namespace
 void testTx(TestChainSetup* setup, const CTransactionRef tx, bool success, std::string errStr="")
 {
     CValidationState state;
+    bool pfMissingInputs;
     {
         LOCK(cs_main);
 
         BOOST_CHECK_EQUAL(
             success,
             AcceptToMemoryPool(mempool, state, tx,
-                nullptr ,
+                &pfMissingInputs ,
                 nullptr,
                 true ,
                 0));
@@ -104,6 +105,10 @@ void testTx(TestChainSetup* setup, const CTransactionRef tx, bool success, std::
         std::vector<CMutableTransaction> txs;
         txs.push_back(CMutableTransaction(*tx));
         setup->CreateAndProcessBlock(txs, CScript() <<  ToByteVector(setup->coinbaseKey.GetPubKey()) << OP_CHECKSIG);
+    }
+    else if(pfMissingInputs)
+    {
+        BOOST_CHECK(!state.IsInvalid());
     }
     else
     {
@@ -161,6 +166,10 @@ BOOST_FIXTURE_TEST_CASE(tx_invalid_token_issue, TestChainSetup)
     tokenIssueTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey;
 
     testTx(this, MakeTransactionRef(tokenIssueTx), false, "invalid-colorid");
+
+    //test colorid in coinbase utxo
+    //"CreateNewBlock: TestBlockValidity failed: bad-cb-issuetoken, coinbase cannot issue tokens"
+    BOOST_CHECK_THROW(CreateAndProcessBlock({}, scriptPubKey), std::runtime_error);
 }
 
 /*
@@ -170,14 +179,15 @@ coinbaseSpendTx
 tokenIssueTx(from coinbaseSpendTx) - 100 tokens
 tokenTransferTx - 1. no fee
                 - 2. split into 50 + 40 tokens - token balance error
-                - 3. success
+                - 3. add extra tokens into 50 + 60 tokens - token balance error
+                - 4. success
 test transaction reissue
 tokenAggregateTx- 1. no fee
                 - 2. add extra tokens - token balance error
                 - 3. success
-TODO: tokenBurnTx     - 1. no fee
-                - 2. add extra TPC - token balance error
+tokenBurnTx     - 1. no fee
                 - 3. success
+spend burnt token- failure
 */
 BOOST_FIXTURE_TEST_CASE(tx_mempool_reissuable_token, TestChainSetup)
 {
@@ -242,10 +252,12 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_reissuable_token, TestChainSetup)
 
     testTx(this, MakeTransactionRef(tokenTransferTx), false, "bad-txns-token-without-fee");
 
-    //tokenTransferTx - 2. split into 50 + 40 tokens - token balance error
+    //tokenTransferTx - 2. split into 0 + 200 tokens - token balance error
     tokenTransferTx.vin.resize(2);
     tokenTransferTx.vin[1].prevout.hashMalFix = m_coinbase_txns[3]->GetHashMalFix();
     tokenTransferTx.vin[1].prevout.n = 0;
+    tokenTransferTx.vout[0].nValue = 0;
+    tokenTransferTx.vout[1].nValue = 200 * CENT;
 
     Sign(vchSig, key0, tokenIssueTx.vout[0].scriptPubKey, tokenIssueTx, 0, tokenTransferTx, 0);
     tokenTransferTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey0;
@@ -255,7 +267,18 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_reissuable_token, TestChainSetup)
 
     testTx(this, MakeTransactionRef(tokenTransferTx), false, "bad-txns-token-balance");
 
-    //tokenTransferTx - 3. success
+    //tokenTransferTx - 3. add extra tokens into 50 + 60 tokens - token balance error
+    tokenTransferTx.vout[0].nValue = 50 * CENT;
+    tokenTransferTx.vout[1].nValue = 60 * CENT;
+
+    Sign(vchSig, key0, tokenIssueTx.vout[0].scriptPubKey, tokenIssueTx, 0, tokenTransferTx, 0);
+    tokenTransferTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey0;
+    Sign(vchSig, coinbaseKey, m_coinbase_txns[3]->vout[0].scriptPubKey, coinbaseIn2, 1, tokenTransferTx, 0);
+    tokenTransferTx.vin[1].scriptSig = CScript() << vchSig;
+
+    testTx(this, MakeTransactionRef(tokenTransferTx), false, "bad-txns-token-balance");
+
+    //tokenTransferTx - 4. success
     tokenTransferTx.vout[1].nValue = 50 * CENT;
 
     Sign(vchSig, key0, tokenIssueTx.vout[0].scriptPubKey, tokenIssueTx, 0, tokenTransferTx, 0);
@@ -335,6 +358,55 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_reissuable_token, TestChainSetup)
     tokenAggregateTx.vin[3].scriptSig = CScript() << vchSig;
 
     testTx(this, MakeTransactionRef(tokenAggregateTx), true);
+
+    CMutableTransaction tokenBurnTx;
+
+    //tokenBurnTx - 1. no fee
+    tokenBurnTx.nFeatures = 1;
+    tokenBurnTx.vin.resize(1);
+    tokenBurnTx.vout.resize(1);
+    tokenBurnTx.vin[0].prevout.hashMalFix = tokenAggregateTx.GetHashMalFix();
+    tokenBurnTx.vin[0].prevout.n = 0;
+    tokenBurnTx.vout[0].nValue = 40 * CENT;
+    tokenBurnTx.vout[0].scriptPubKey =  CScript() << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash0) << OP_EQUALVERIFY << OP_CHECKSIG;
+
+    Sign(vchSig, key0, tokenAggregateTx.vout[0].scriptPubKey, tokenAggregateTx, 0, tokenBurnTx, 0);
+    tokenBurnTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey1;
+
+    testTx(this, MakeTransactionRef(tokenBurnTx), false, "bad-txns-in-belowout");
+
+    //tokenBurnTx - 2. success
+    tokenBurnTx.vin.resize(2);
+    tokenBurnTx.vin[1].prevout.hashMalFix = m_coinbase_txns[5]->GetHashMalFix();
+    tokenBurnTx.vin[1].prevout.n = 0;
+
+    Sign(vchSig, key1, tokenAggregateTx.vout[0].scriptPubKey, tokenAggregateTx, 0, tokenBurnTx, 0);
+    tokenBurnTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey1;
+    CMutableTransaction coinbaseIn5(*m_coinbase_txns[5]);
+    Sign(vchSig, coinbaseKey, m_coinbase_txns[5]->vout[0].scriptPubKey, coinbaseIn5, 1, tokenBurnTx, 0);
+    tokenBurnTx.vin[1].scriptSig = CScript() << vchSig;
+
+    testTx(this, MakeTransactionRef(tokenBurnTx), true);
+
+    //spend burnt token
+    CMutableTransaction spendBurntTx;
+    spendBurntTx.nFeatures = 1;
+    spendBurntTx.vin.resize(2);
+    spendBurntTx.vout.resize(1);
+    spendBurntTx.vin[0].prevout.hashMalFix = tokenAggregateTx.GetHashMalFix();
+    spendBurntTx.vin[0].prevout.n = 0;
+    spendBurntTx.vin[1].prevout.hashMalFix = tokenBurnTx.GetHashMalFix();
+    spendBurntTx.vin[1].prevout.n = 0;
+    spendBurntTx.vout[0].nValue = 40 * CENT;
+    spendBurntTx.vout[0].scriptPubKey =  CScript() << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash0) << OP_EQUALVERIFY << OP_CHECKSIG;
+
+    Sign(vchSig, key1, tokenAggregateTx.vout[0].scriptPubKey, tokenAggregateTx, 0, spendBurntTx, 0);
+    spendBurntTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey1;
+    Sign(vchSig, key0, tokenBurnTx.vout[0].scriptPubKey, tokenBurnTx, 0, spendBurntTx, 0);
+    spendBurntTx.vin[1].scriptSig = CScript() << vchSig << vchPubKey0;
+
+    //missing inputs is set
+    testTx(this, MakeTransactionRef(spendBurntTx), false, "");
 }
 
 /*
@@ -344,15 +416,17 @@ coinbaseSpendTx
 tokenIssueTx(from coinbaseSpendTx) - 100 tokens
 tokenTransferTx - 1. no fee
                 - 2. split into 50 + 40 tokens - token balance error
-                - 3. success
+                - 3. add extra tokens into 50 + 60 tokens - token balance error
+                - 4. success
 test transaction reissue
 tokenAggregateTx- 1. no fee
                 - 2. add extra tokens - token balance error
                 - 3. success
-TODO: tokenBurnTx     - 1. no fee
-                - 2. add extra TPC - token balance error
+tokenBurnTx     - 1. no fee
                 - 3. success
+spend burnt token- failure
 */
+
 BOOST_FIXTURE_TEST_CASE(tx_mempool_nonreissuable_token, TestChainSetup)
 {
     initKeys();
@@ -418,10 +492,12 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_nonreissuable_token, TestChainSetup)
 
     testTx(this, MakeTransactionRef(tokenTransferTx), false, "bad-txns-token-without-fee");
 
-    //tokenTransferTx  - 2. split into 50 + 40 tokens - token balance error
+    //tokenTransferTx  - 2. split into 0 + 200 tokens - token balance error
     tokenTransferTx.vin.resize(2);
     tokenTransferTx.vin[1].prevout.hashMalFix = m_coinbase_txns[3]->GetHashMalFix();
     tokenTransferTx.vin[1].prevout.n = 0;
+    tokenTransferTx.vout[0].nValue = 0 * CENT;
+    tokenTransferTx.vout[1].nValue = 200 * CENT;
 
     Sign(vchSig, key0, tokenIssueTx.vout[0].scriptPubKey, tokenIssueTx, 0, tokenTransferTx, 0);
     tokenTransferTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey0;
@@ -431,7 +507,18 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_nonreissuable_token, TestChainSetup)
 
     testTx(this, MakeTransactionRef(tokenTransferTx), false, "bad-txns-token-balance");
 
-    //tokenTransferTx - 3. success
+    //tokenTransferTx - 3. add extra tokens into 50 + 60 tokens - token balance error
+    tokenTransferTx.vout[0].nValue = 50 * CENT;
+    tokenTransferTx.vout[1].nValue = 60 * CENT;
+
+    Sign(vchSig, key0, tokenIssueTx.vout[0].scriptPubKey, tokenIssueTx, 0, tokenTransferTx, 0);
+    tokenTransferTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey0;
+    Sign(vchSig, coinbaseKey, m_coinbase_txns[3]->vout[0].scriptPubKey, coinbaseIn2, 1, tokenTransferTx, 0);
+    tokenTransferTx.vin[1].scriptSig = CScript() << vchSig;
+
+    testTx(this, MakeTransactionRef(tokenTransferTx), false, "bad-txns-token-balance");
+
+    //tokenTransferTx - 4. success
     tokenTransferTx.vout[1].nValue = 50 * CENT;
 
     Sign(vchSig, key0, tokenIssueTx.vout[0].scriptPubKey, tokenIssueTx, 0, tokenTransferTx, 0);
@@ -503,6 +590,55 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_nonreissuable_token, TestChainSetup)
     tokenAggregateTx.vin[2].scriptSig = CScript() << vchSig;
 
     testTx(this, MakeTransactionRef(tokenAggregateTx), true);
+
+    CMutableTransaction tokenBurnTx;
+
+    //tokenBurnTx - 1. no fee
+    tokenBurnTx.nFeatures = 1;
+    tokenBurnTx.vin.resize(1);
+    tokenBurnTx.vout.resize(1);
+    tokenBurnTx.vin[0].prevout.hashMalFix = tokenAggregateTx.GetHashMalFix();
+    tokenBurnTx.vin[0].prevout.n = 0;
+    tokenBurnTx.vout[0].nValue = 40 * CENT;
+    tokenBurnTx.vout[0].scriptPubKey =  CScript() << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash0) << OP_EQUALVERIFY << OP_CHECKSIG;
+
+    Sign(vchSig, key0, tokenAggregateTx.vout[0].scriptPubKey, tokenAggregateTx, 0, tokenBurnTx, 0);
+    tokenBurnTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey1;
+
+    testTx(this, MakeTransactionRef(tokenBurnTx), false, "bad-txns-in-belowout");
+
+    //tokenBurnTx - 2. success
+    tokenBurnTx.vin.resize(2);
+    tokenBurnTx.vin[1].prevout.hashMalFix = m_coinbase_txns[5]->GetHashMalFix();
+    tokenBurnTx.vin[1].prevout.n = 0;
+
+    Sign(vchSig, key1, tokenAggregateTx.vout[0].scriptPubKey, tokenAggregateTx, 0, tokenBurnTx, 0);
+    tokenBurnTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey1;
+    CMutableTransaction coinbaseIn5(*m_coinbase_txns[5]);
+    Sign(vchSig, coinbaseKey, m_coinbase_txns[5]->vout[0].scriptPubKey, coinbaseIn5, 1, tokenBurnTx, 0);
+    tokenBurnTx.vin[1].scriptSig = CScript() << vchSig;
+
+    testTx(this, MakeTransactionRef(tokenBurnTx), true);
+
+    //spend burnt token
+    CMutableTransaction spendBurntTx;
+    spendBurntTx.nFeatures = 1;
+    spendBurntTx.vin.resize(2);
+    spendBurntTx.vout.resize(1);
+    spendBurntTx.vin[0].prevout.hashMalFix = tokenAggregateTx.GetHashMalFix();
+    spendBurntTx.vin[0].prevout.n = 0;
+    spendBurntTx.vin[1].prevout.hashMalFix = tokenBurnTx.GetHashMalFix();
+    spendBurntTx.vin[1].prevout.n = 0;
+    spendBurntTx.vout[0].nValue = 40 * CENT;
+    spendBurntTx.vout[0].scriptPubKey =  CScript() << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash0) << OP_EQUALVERIFY << OP_CHECKSIG;
+
+    Sign(vchSig, key1, tokenAggregateTx.vout[0].scriptPubKey, tokenAggregateTx, 0, spendBurntTx, 0);
+    spendBurntTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey1;
+    Sign(vchSig, key0, tokenBurnTx.vout[0].scriptPubKey, tokenBurnTx, 0, spendBurntTx, 0);
+    spendBurntTx.vin[1].scriptSig = CScript() << vchSig << vchPubKey0;
+
+    //missing inputs is set
+    testTx(this, MakeTransactionRef(spendBurntTx), false, "");
 }
 
 /*
@@ -514,9 +650,10 @@ tokenIssueTx(from coinbaseSpendTx) - 10000 tokens  - error
 tokenTransferTx - 1. no fee
                 - 2.  success
 test transaction reissue
-TODO: tokenBurnTx     - 1. no fee
-                - 2. add extra TPC - token balance error
+chande dust threshold and verify NFT output is not affected
+tokenBurnTx     - 1. no fee
                 - 3. success
+spend burnt token - failure
 */
 
 BOOST_FIXTURE_TEST_CASE(tx_mempool_nft_token, TestChainSetup)
@@ -612,7 +749,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_nft_token, TestChainSetup)
     tokenTransferTx.vin[1].scriptSig = CScript() << vchSig;
 
     dustRelayFee = CFeeRate(1);
-    testTx(this, MakeTransactionRef(tokenTransferTx), false, "dust");
+    testTx(this, MakeTransactionRef(tokenTransferTx), false, "invalid-colorid");
 
     dustRelayFee = CFeeRate(0);
     testTx(this, MakeTransactionRef(tokenTransferTx), false, "invalid-colorid");
@@ -626,6 +763,51 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_nft_token, TestChainSetup)
     tokenTransferTx.vin[1].scriptSig = CScript() << vchSig;
 
     testTx(this, MakeTransactionRef(tokenTransferTx), true);
+
+    CMutableTransaction tokenBurnTx;
+
+    //tokenBurnTx - 1. no fee
+    tokenBurnTx.nFeatures = 1;
+    tokenBurnTx.vin.resize(1);
+    tokenBurnTx.vout.resize(1);
+    tokenBurnTx.vin[0].prevout.hashMalFix = tokenTransferTx.GetHashMalFix();
+    tokenBurnTx.vin[0].prevout.n = 0;
+    tokenBurnTx.vout[0].nValue = 1;
+    tokenBurnTx.vout[0].scriptPubKey =  CScript() << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash0) << OP_EQUALVERIFY << OP_CHECKSIG;
+
+    Sign(vchSig, key1, tokenTransferTx.vout[0].scriptPubKey, tokenTransferTx, 0, tokenBurnTx, 0);
+    tokenBurnTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey1;
+
+    testTx(this, MakeTransactionRef(tokenBurnTx), false, "bad-txns-in-belowout");
+
+    //tokenBurnTx - 2. success
+    tokenBurnTx.vin.resize(2);
+    tokenBurnTx.vin[1].prevout.hashMalFix = m_coinbase_txns[5]->GetHashMalFix();
+    tokenBurnTx.vin[1].prevout.n = 0;
+
+    Sign(vchSig, key1, tokenTransferTx.vout[0].scriptPubKey, tokenTransferTx, 0, tokenBurnTx, 0);
+    tokenBurnTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey1;
+    CMutableTransaction coinbaseIn5(*m_coinbase_txns[5]);
+    Sign(vchSig, coinbaseKey, m_coinbase_txns[5]->vout[0].scriptPubKey, coinbaseIn5, 1, tokenBurnTx, 0);
+    tokenBurnTx.vin[1].scriptSig = CScript() << vchSig;
+
+    testTx(this, MakeTransactionRef(tokenBurnTx), true);
+
+    //spend burnt token
+    CMutableTransaction spendBurntTx;
+    spendBurntTx.nFeatures = 1;
+    spendBurntTx.vin.resize(1);
+    spendBurntTx.vout.resize(1);
+    spendBurntTx.vin[0].prevout.hashMalFix = tokenTransferTx.GetHashMalFix();
+    spendBurntTx.vin[0].prevout.n = 0;
+    spendBurntTx.vout[0].nValue = 1;
+    spendBurntTx.vout[0].scriptPubKey =  CScript() << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash0) << OP_EQUALVERIFY << OP_CHECKSIG;
+
+    Sign(vchSig, key2, tokenBurnTx.vout[0].scriptPubKey, tokenBurnTx, 0, spendBurntTx, 0);
+    spendBurntTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey2;
+
+    //missing inputs is set
+    testTx(this, MakeTransactionRef(spendBurntTx), false, "");
 }
 
 BOOST_AUTO_TEST_SUITE_END()

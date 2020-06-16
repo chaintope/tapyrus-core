@@ -17,12 +17,7 @@ ColorIdentifier GetColorIdFromScript(const CScript& script)
 
     if(script.IsColoredPayToScriptHash())
     {
-        TokenTypes type = UintToToken(*(script.begin() + 1));
-
-        if(type == TokenTypes::REISSUABLE)
-            colorId.assign(script.begin()+1, script.begin()+34);
-        else
-            colorId.assign(script.begin()+1, script.begin()+38);
+        colorId.assign(script.begin()+1, script.begin()+34);
         return ColorIdentifier(colorId);
     }
 

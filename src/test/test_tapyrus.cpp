@@ -189,6 +189,8 @@ TestChainSetup::CreateAndProcessBlock(const std::vector<CMutableTransaction>& tx
 
     std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(block);
     ProcessNewBlock(shared_pblock, true, nullptr);
+    if(block.GetHeight() > 5)
+        m_coinbase_txns.push_back(block.vtx[0]);
 
     CBlock result = block;
     return result;

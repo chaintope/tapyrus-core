@@ -310,17 +310,25 @@ struct WalletAddress
 //! Collection of wallet balances.
 struct WalletBalances
 {
-    CAmount balance = 0;
-    CAmount unconfirmed_balance = 0;
-    bool have_watch_only = false;
-    CAmount watch_only_balance = 0;
-    CAmount unconfirmed_watch_only_balance = 0;
+    TxColoredCoinBalancesMap balance;
+    TxColoredCoinBalancesMap unconfirmed_balance;
+    bool have_watch_only;
+    TxColoredCoinBalancesMap watch_only_balance;
+    TxColoredCoinBalancesMap unconfirmed_watch_only_balance;
+
+    WalletBalances(){
+        balance[ColorIdentifier()] = 0;
+        unconfirmed_balance[ColorIdentifier()] = 0;
+        have_watch_only = false;
+        watch_only_balance[ColorIdentifier()] = 0;
+        unconfirmed_watch_only_balance[ColorIdentifier()] = 0;
+    }
 
     bool balanceChanged(const WalletBalances& prev) const
     {
-        return balance != prev.balance || unconfirmed_balance != prev.unconfirmed_balance ||
-               watch_only_balance != prev.watch_only_balance ||
-               unconfirmed_watch_only_balance != prev.unconfirmed_watch_only_balance;
+        return balance.at(ColorIdentifier()) != prev.balance.at(ColorIdentifier()) || unconfirmed_balance.at(ColorIdentifier()) != prev.unconfirmed_balance.at(ColorIdentifier()) ||
+               watch_only_balance.at(ColorIdentifier()) != prev.watch_only_balance.at(ColorIdentifier()) ||
+               unconfirmed_watch_only_balance.at(ColorIdentifier()) != prev.unconfirmed_watch_only_balance.at(ColorIdentifier());
     }
 };
 
@@ -332,9 +340,9 @@ struct WalletTx
     std::vector<isminetype> txout_is_mine;
     std::vector<CTxDestination> txout_address;
     std::vector<isminetype> txout_address_is_mine;
-    CAmount credit;
-    CAmount debit;
-    CAmount change;
+    TxColoredCoinBalancesMap credit;
+    TxColoredCoinBalancesMap debit;
+    TxColoredCoinBalancesMap change;
     int64_t time;
     std::map<std::string, std::string> value_map;
     bool is_coinbase;
