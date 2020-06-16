@@ -401,7 +401,10 @@ BOOST_FIXTURE_TEST_CASE(getTokenBalance, TestChainSetup)
     std::unique_ptr<CWallet> wallet = MakeUnique<CWallet>("mock", WalletDatabase::CreateMock());
     bool firstRun;
     wallet->LoadWallet(firstRun);
+
+    LOCK(wallet->cs_wallet);
     wallet->AddKeyPubKey(key, pubkey);
+    
     WalletRescanReserver reserver(wallet.get());
     reserver.reserve();
 
