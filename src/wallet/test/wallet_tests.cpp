@@ -379,76 +379,77 @@ BOOST_FIXTURE_TEST_CASE(generate_with_incorrect_privkey, TestingSetup)
 
 }
 
-void Sign(std::vector<unsigned char>& vchSig, CKey& signKey, const CScript& scriptPubKey, CMutableTransaction& inTx, int inIndex, CMutableTransaction& outTx, int outIndex)
-{
-    uint256 hash = SignatureHash(scriptPubKey, outTx, inIndex, SIGHASH_ALL, outTx.vout[outIndex].nValue, SigVersion::BASE);
-    signKey.Sign_Schnorr(hash, vchSig);
-    vchSig.push_back((unsigned char)SIGHASH_ALL);
-}
+// void Sign(std::vector<unsigned char>& vchSig, CKey& signKey, const CScript& scriptPubKey, CMutableTransaction& inTx, int inIndex, CMutableTransaction& outTx, int outIndex)
+// {
+//     uint256 hash = SignatureHash(scriptPubKey, outTx, inIndex, SIGHASH_ALL, outTx.vout[outIndex].nValue, SigVersion::BASE);
+//     signKey.Sign_Schnorr(hash, vchSig);
+//     vchSig.push_back((unsigned char)SIGHASH_ALL);
+// }
 
-BOOST_FIXTURE_TEST_CASE(getTokenBalance, TestChainSetup)
-{
-    const unsigned char vchKey1[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0};
+// BOOST_FIXTURE_TEST_CASE(getTokenBalance, TestChainSetup)
+// {
+//     const unsigned char vchKey1[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0};
 
-    CKey key;
-    CPubKey pubkey;
-    key.Set(vchKey1, vchKey1 + 32, true);
-    pubkey = key.GetPubKey();
-    std::vector<unsigned char> pubkeyHash(20);
-    std::vector<unsigned char> vchPubKey(pubkey.begin(), pubkey.end());
-    CHash160().Write(pubkey.data(), pubkey.size()).Finalize(pubkeyHash.data());
+//     CKey key;
+//     CPubKey pubkey;
+//     key.Set(vchKey1, vchKey1 + 32, true);
+//     pubkey = key.GetPubKey();
+//     std::vector<unsigned char> pubkeyHash(20);
+//     std::vector<unsigned char> vchPubKey(pubkey.begin(), pubkey.end());
+//     CHash160().Write(pubkey.data(), pubkey.size()).Finalize(pubkeyHash.data());
 
-    std::unique_ptr<CWallet> wallet = MakeUnique<CWallet>("mock", WalletDatabase::CreateMock());
-    bool firstRun;
-    wallet->LoadWallet(firstRun);
-    wallet->AddKeyPubKey(key, pubkey);
-    WalletRescanReserver reserver(wallet.get());
-    reserver.reserve();
+//     std::unique_ptr<CWallet> wallet = MakeUnique<CWallet>("mock", WalletDatabase::CreateMock());
+//     bool firstRun;
+//     wallet->LoadWallet(firstRun);
+//     wallet->AddKeyPubKey(key, pubkey);
+    
+//     WalletRescanReserver reserver(wallet.get());
+//     reserver.reserve();
 
-    BOOST_CHECK_EQUAL(wallet->GetAvailableTokenBalance().size(), 0);
+//     BOOST_CHECK_EQUAL(wallet->GetAvailableTokenBalance().size(), 0);
 
-    CMutableTransaction coinbaseSpendTx;
-    coinbaseSpendTx.nFeatures = 1;
-    coinbaseSpendTx.vin.resize(1);
-    coinbaseSpendTx.vout.resize(1);
-    coinbaseSpendTx.vin[0].prevout.hashMalFix = m_coinbase_txns[2]->GetHashMalFix();
-    coinbaseSpendTx.vin[0].prevout.n = 0;
-    coinbaseSpendTx.vout[0].nValue = 300 * CENT;
-    coinbaseSpendTx.vout[0].scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash) << OP_EQUALVERIFY << OP_CHECKSIG;
+//     CMutableTransaction coinbaseSpendTx;
+//     coinbaseSpendTx.nFeatures = 1;
+//     coinbaseSpendTx.vin.resize(1);
+//     coinbaseSpendTx.vout.resize(1);
+//     coinbaseSpendTx.vin[0].prevout.hashMalFix = m_coinbase_txns[2]->GetHashMalFix();
+//     coinbaseSpendTx.vin[0].prevout.n = 0;
+//     coinbaseSpendTx.vout[0].nValue = 300 * CENT;
+//     coinbaseSpendTx.vout[0].scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash) << OP_EQUALVERIFY << OP_CHECKSIG;
 
-    std::vector<unsigned char> vchSig;
-    CMutableTransaction coinbaseIn(*m_coinbase_txns[2]);
-    Sign(vchSig, coinbaseKey, m_coinbase_txns[2]->vout[0].scriptPubKey, coinbaseIn, 0, coinbaseSpendTx, 0);
-    coinbaseSpendTx.vin[0].scriptSig = CScript() << vchSig;
+//     std::vector<unsigned char> vchSig;
+//     CMutableTransaction coinbaseIn(*m_coinbase_txns[2]);
+//     Sign(vchSig, coinbaseKey, m_coinbase_txns[2]->vout[0].scriptPubKey, coinbaseIn, 0, coinbaseSpendTx, 0);
+//     coinbaseSpendTx.vin[0].scriptSig = CScript() << vchSig;
 
-    CreateAndProcessBlock({coinbaseSpendTx}, coinbaseSpendTx.vout[0].scriptPubKey);
-    wallet->ScanForWalletTransactions(chainActive.Tip(), nullptr, reserver);
+//     CreateAndProcessBlock({coinbaseSpendTx}, coinbaseSpendTx.vout[0].scriptPubKey);
+//     wallet->ScanForWalletTransactions(chainActive.Tip(), nullptr, reserver);
 
-    BOOST_CHECK_EQUAL(wallet->GetAvailableTokenBalance().size(), 1);
+//     BOOST_CHECK_EQUAL(wallet->GetAvailableTokenBalance().size(), 1);
 
-    COutPoint utxo(coinbaseSpendTx.GetHashMalFix(), 0);
-    ColorIdentifier colorid(utxo, TokenTypes::NON_REISSUABLE);
-    CScript scriptPubKey = CScript() << colorid.toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash) << OP_EQUALVERIFY << OP_CHECKSIG;
-    wallet->AddCScript(scriptPubKey);
+//     COutPoint utxo(coinbaseSpendTx.GetHashMalFix(), 0);
+//     ColorIdentifier colorid(utxo, TokenTypes::NON_REISSUABLE);
+//     CScript scriptPubKey = CScript() << colorid.toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash) << OP_EQUALVERIFY << OP_CHECKSIG;
+//     wallet->AddCScript(scriptPubKey);
 
-    CMutableTransaction tokenIssueTx;
-    tokenIssueTx.nFeatures = 1;
-    tokenIssueTx.vin.resize(1);
-    tokenIssueTx.vout.resize(2);
-    tokenIssueTx.vin[0].prevout.hashMalFix = coinbaseSpendTx.GetHashMalFix();
-    tokenIssueTx.vin[0].prevout.n = 0;
-    tokenIssueTx.vout[0].nValue = 80 * CENT;
-    tokenIssueTx.vout[0].scriptPubKey = scriptPubKey;
-    tokenIssueTx.vout[1].nValue = 220 * CENT;
-    tokenIssueTx.vout[1].scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash) << OP_EQUALVERIFY << OP_CHECKSIG;
+//     CMutableTransaction tokenIssueTx;
+//     tokenIssueTx.nFeatures = 1;
+//     tokenIssueTx.vin.resize(1);
+//     tokenIssueTx.vout.resize(2);
+//     tokenIssueTx.vin[0].prevout.hashMalFix = coinbaseSpendTx.GetHashMalFix();
+//     tokenIssueTx.vin[0].prevout.n = 0;
+//     tokenIssueTx.vout[0].nValue = 80 * CENT;
+//     tokenIssueTx.vout[0].scriptPubKey = scriptPubKey;
+//     tokenIssueTx.vout[1].nValue = 220 * CENT;
+//     tokenIssueTx.vout[1].scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash) << OP_EQUALVERIFY << OP_CHECKSIG;
 
-    Sign(vchSig, key, coinbaseSpendTx.vout[0].scriptPubKey, coinbaseSpendTx, 0, tokenIssueTx, 0);
-    tokenIssueTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey;
+//     Sign(vchSig, key, coinbaseSpendTx.vout[0].scriptPubKey, coinbaseSpendTx, 0, tokenIssueTx, 0);
+//     tokenIssueTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey;
 
-    CreateAndProcessBlock({tokenIssueTx}, tokenIssueTx.vout[0].scriptPubKey);
-    wallet->ScanForWalletTransactions(chainActive.Tip(), nullptr, reserver);
+//     CreateAndProcessBlock({tokenIssueTx}, tokenIssueTx.vout[0].scriptPubKey);
+//     wallet->ScanForWalletTransactions(chainActive.Tip(), nullptr, reserver);
 
-    BOOST_CHECK_EQUAL(wallet->GetAvailableTokenBalance().size(), 2);
-}
+//     BOOST_CHECK_EQUAL(wallet->GetAvailableTokenBalance().size(), 2);
+// }
 
 BOOST_AUTO_TEST_SUITE_END()
