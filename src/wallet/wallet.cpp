@@ -9,6 +9,7 @@
 #include <checkpoints.h>
 #include <chain.h>
 #include <wallet/coincontrol.h>
+#include <coloridentifier.h>
 #include <consensus/consensus.h>
 #include <consensus/validation.h>
 #include <fs.h>
@@ -1869,23 +1870,23 @@ CAmount CWalletTx::GetDebit(const isminefilter& filter) const
     if(filter & ISMINE_SPENDABLE)
     {
         if (fDebitCached)
-            debit += nDebitCached;
+            debit += nDebitCached[ColorIdentifier()];
         else
         {
-            nDebitCached = pwallet->GetDebit(*tx, ISMINE_SPENDABLE);
+            nDebitCached[ColorIdentifier()] = pwallet->GetDebit(*tx, ISMINE_SPENDABLE);
             fDebitCached = true;
-            debit += nDebitCached;
+            debit += nDebitCached[ColorIdentifier()];
         }
     }
     if(filter & ISMINE_WATCH_ONLY)
     {
         if(fWatchDebitCached)
-            debit += nWatchDebitCached;
+            debit += nWatchDebitCached[ColorIdentifier()];
         else
         {
-            nWatchDebitCached = pwallet->GetDebit(*tx, ISMINE_WATCH_ONLY);
+            nWatchDebitCached[ColorIdentifier()] = pwallet->GetDebit(*tx, ISMINE_WATCH_ONLY);
             fWatchDebitCached = true;
-            debit += nWatchDebitCached;
+            debit += nWatchDebitCached[ColorIdentifier()];
         }
     }
     return debit;
@@ -1898,23 +1899,23 @@ CAmount CWalletTx::GetCredit(const isminefilter& filter) const
     {
         // GetBalance can assume transactions in mapWallet won't change
         if (fCreditCached)
-            credit += nCreditCached;
+            credit += nCreditCached[ColorIdentifier()];
         else
         {
-            nCreditCached = pwallet->GetCredit(*tx, ISMINE_SPENDABLE);
+            nCreditCached[ColorIdentifier()] = pwallet->GetCredit(*tx, ISMINE_SPENDABLE);
             fCreditCached = true;
-            credit += nCreditCached;
+            credit += nCreditCached[ColorIdentifier()];
         }
     }
     if (filter & ISMINE_WATCH_ONLY)
     {
         if (fWatchCreditCached)
-            credit += nWatchCreditCached;
+            credit += nWatchCreditCached[ColorIdentifier()];
         else
         {
-            nWatchCreditCached = pwallet->GetCredit(*tx, ISMINE_WATCH_ONLY);
+            nWatchCreditCached[ColorIdentifier()] = pwallet->GetCredit(*tx, ISMINE_WATCH_ONLY);
             fWatchCreditCached = true;
-            credit += nWatchCreditCached;
+            credit += nWatchCreditCached[ColorIdentifier()];
         }
     }
     return credit;
@@ -1929,10 +1930,10 @@ CAmount CWalletTx::GetAvailableCredit(bool fUseCache, const isminefilter& filter
     bool* cache_used = nullptr;
 
     if (filter == ISMINE_SPENDABLE) {
-        cache = &nAvailableCreditCached;
+        cache = &nAvailableCreditCached[ColorIdentifier()];
         cache_used = &fAvailableCreditCached;
     } else if (filter == ISMINE_WATCH_ONLY) {
-        cache = &nAvailableWatchCreditCached;
+        cache = &nAvailableWatchCreditCached[ColorIdentifier()];
         cache_used = &fAvailableWatchCreditCached;
     }
 
@@ -1964,10 +1965,10 @@ CAmount CWalletTx::GetAvailableCredit(bool fUseCache, const isminefilter& filter
 CAmount CWalletTx::GetChange() const
 {
     if (fChangeCached)
-        return nChangeCached;
-    nChangeCached = pwallet->GetChange(*tx);
+        return nChangeCached[ColorIdentifier()];
+    nChangeCached[ColorIdentifier()] = pwallet->GetChange(*tx);
     fChangeCached = true;
-    return nChangeCached;
+    return nChangeCached[ColorIdentifier()];
 }
 
 bool CWalletTx::InMempool() const
@@ -2191,7 +2192,7 @@ std::vector<CBalance> CWallet::GetAvailableTokenBalance(const CCoinControl* coin
         if (out.fSpendable) {
             CScript& scriptPubKey = const_cast<CScript&>(out.tx->tx->vout[out.i].scriptPubKey);
             //create a method to extract colorId using scriptpubkey;
-            ColorIdentifier colorId = GetColorIdFromScript(scriptPubKey);
+            ColorIdentifier colorId(GetColorIdFromScript(scriptPubKey));
 
             bool found = false;
             for(unsigned int i = 0; i < cbalances.size(); i++) {

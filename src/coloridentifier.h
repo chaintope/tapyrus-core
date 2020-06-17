@@ -45,26 +45,26 @@ inline TokenTypes UintToToken(uint8_t t)
 struct ColorIdentifier
 {
     TokenTypes type;
-    union ColorIdentifierPayload{
-        uint8_t scripthash[CSHA256::OUTPUT_SIZE];
-        COutPoint utxo;
-        ColorIdentifierPayload():utxo() {}
-    } payload;
+    uint8_t payload[CSHA256::OUTPUT_SIZE];
 
-    ColorIdentifier():type(TokenTypes::NONE), payload() { }
+    ColorIdentifier():type(TokenTypes::NONE), payload{} { }
 
-    ColorIdentifier(COutPoint &utxoIn, TokenTypes typeIn) {
-        if(typeIn == TokenTypes::NON_REISSUABLE || typeIn == TokenTypes::NFT)
-        {
-            type = typeIn;
-            payload.utxo = utxoIn;
-        }
+    ColorIdentifier(COutPoint &utxoIn, TokenTypes typeIn):type(typeIn), payload{} {
+        CDataStream s(SER_NETWORK, INIT_PROTO_VERSION);
+        s << utxoIn;
+        CSHA256().Write((unsigned char *)s.data(), s.size()).Finalize(payload);
     }
 
-    ColorIdentifier(const CScript& input):type(TokenTypes::REISSUABLE), payload() {
+    ColorIdentifier(const CScript& input):type(TokenTypes::REISSUABLE), payload{} {
         std::vector<unsigned char> scriptVector(input.begin(), input.end());
-        CSHA256().Write(scriptVector.data(), scriptVector.size()).Finalize(payload.scripthash);
+        CSHA256().Write(scriptVector.data(), scriptVector.size()).Finalize(payload);
     }
+
+    ColorIdentifier(const unsigned char* pbegin, const unsigned char* pend):type(UintToToken(*pbegin)) {
+        CSerActionUnserialize ser_action;
+        CDataStream s((const char*)pbegin, (const char*)pend, SER_NETWORK, INIT_PROTO_VERSION);
+        SerializationOp(s, ser_action);
+     }
 
     ColorIdentifier(const std::vector<unsigned char>& in) {
         CSerActionUnserialize ser_action;
@@ -73,14 +73,11 @@ struct ColorIdentifier
      }
 
     bool operator==(const ColorIdentifier& colorId) const {
-        return this->type == colorId.type && this->type == TokenTypes::NONE ?
-               true : (this->type == TokenTypes::REISSUABLE ?
-                    (memcmp(&this->payload.scripthash[0], &colorId.payload.scripthash[0], 32) == 0)
-                    : this->payload.utxo == colorId.payload.utxo);
+        return this->type == colorId.type && (memcmp(&this->payload[0], &colorId.payload[0], 32) == 0);
     }
 
     bool operator<(const ColorIdentifier& colorId) const {
-        return memcmp(this, &colorId, 37) < 0;
+        return memcmp(this, &colorId, 33) < 0;
     }
 
     ADD_SERIALIZE_METHODS;
@@ -99,10 +96,8 @@ struct ColorIdentifier
             s.write((const char *)&xtype, 1);
         }
 
-        if(this->type == TokenTypes::REISSUABLE)
-            READWRITE(this->payload.scripthash);
-        else if(this->type == TokenTypes::NON_REISSUABLE || this->type == TokenTypes::NFT)
-            READWRITE(this->payload.utxo);
+        if(type > TokenTypes::NONE && type <= TokenTypes::TOKENTYPE_MAX)
+            READWRITE(this->payload);
     }
 
     inline std::vector<unsigned char> toVector() const {
@@ -122,7 +117,7 @@ struct ColorIdentifierCompare
 {
     bool operator()(const ColorIdentifier& c1, const ColorIdentifier& c2) const
     {
-        return memcmp(&c1, &c2, 37) < 0;
+        return memcmp(&c1, &c2, 33) < 0;
     }
 };
 
