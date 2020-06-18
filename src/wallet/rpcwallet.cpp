@@ -1484,7 +1484,8 @@ static UniValue addwitnessaddress(const JSONRPCRequest& request)
             "Projects should transition to using the address_type argument of getnewaddress, or option -addresstype=[bech32|p2sh-segwit] instead.\n");
     }
 
-    CTxDestination dest = DecodeDestination(request.params[0].get_str());
+    ColorIdentifier* colorId = nullptr;
+    CTxDestination dest = DecodeDestination(request.params[0].get_str(), colorId);
     if (!IsValidDestination(dest)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Tapyrus address");
     }
@@ -1500,7 +1501,7 @@ static UniValue addwitnessaddress(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_WALLET_ERROR, "Public key or redeemscript not known to wallet, or the key is uncompressed");
     }
 
-    CScript witprogram = GetScriptForDestination(w.result);
+    CScript witprogram = GetScriptForDestination(w.result, colorId);
 
     if (p2sh) {
         w.result = CScriptID(witprogram);
@@ -4218,7 +4219,7 @@ UniValue getaddressinfo(const JSONRPCRequest& request)
     std::string currentAddress = EncodeDestination(dest);
     ret.pushKV("address", currentAddress);
 
-    CScript scriptPubKey = GetScriptForDestination(dest);
+    CScript scriptPubKey = GetScriptForDestination(dest, colorId);
     ret.pushKV("scriptPubKey", HexStr(scriptPubKey.begin(), scriptPubKey.end()));
 
     isminetype mine = IsMine(*pwallet, dest, colorId);

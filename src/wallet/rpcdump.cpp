@@ -838,11 +838,12 @@ static UniValue ProcessImport(CWallet * const pwallet, const UniValue& data, con
         CTxDestination dest;
 
         if (!isScript) {
-            dest = DecodeDestination(output);
+            ColorIdentifier* colorId = nullptr;
+            dest = DecodeDestination(output, colorId);
             if (!IsValidDestination(dest)) {
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
             }
-            script = GetScriptForDestination(dest);
+            script = GetScriptForDestination(dest, colorId);
         } else {
             if (!IsHex(output)) {
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid scriptPubKey");

@@ -30,8 +30,8 @@ void CBasicKeyStore::ImplicitlyLearnRelatedKeyScripts(const CPubKey& pubkey, boo
         script = GetScriptForDestination(WitnessV0KeyHash(key_id));
 #else
         if (isColored) {
-            ColorIdentifier colorID = ColorIdentifier();
-            script = GetScriptForDestination(key_id, &colorID);
+            ColorIdentifier colorId;
+            script = GetScriptForDestination(key_id, &colorId);
         } else {
             script = GetScriptForDestination(key_id);
         }

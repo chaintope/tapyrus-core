@@ -339,17 +339,17 @@ BOOST_AUTO_TEST_CASE(script_standard_GetScriptFor_)
     bool isColored = true;
 
     //ColoredKeyId
-    ColorIdentifier colorID = ColorIdentifier(CScript() << ToByteVector(pubkeys[0]) << OP_CHECKSIG);
+    ColorIdentifier colorId = ColorIdentifier(CScript() << ToByteVector(pubkeys[0]) << OP_CHECKSIG);
     expected.clear();
-    expected << colorID.toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(pubkeys[0].GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
-    result = GetScriptForDestination(pubkeys[0].GetID(), &colorID);
+    expected << colorId.toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(pubkeys[0].GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
+    result = GetScriptForDestination(pubkeys[0].GetID(), &colorId);
     BOOST_CHECK(result == expected);
 
     //ColoredScriptID
     CScript coloredRedeemScript(result);
     expected.clear();
-    expected << colorID.toVector() << OP_COLOR << OP_HASH160 << ToByteVector(CScriptID(coloredRedeemScript)) << OP_EQUAL;
-    result = GetScriptForDestination(CScriptID(coloredRedeemScript), &colorID);
+    expected << colorId.toVector() << OP_COLOR << OP_HASH160 << ToByteVector(CScriptID(coloredRedeemScript)) << OP_EQUAL;
+    result = GetScriptForDestination(CScriptID(coloredRedeemScript), &colorId);
     BOOST_CHECK(result == expected);
 
     // CNoDestination
@@ -518,9 +518,9 @@ BOOST_AUTO_TEST_CASE(script_standard_IsMine)
 
     // CP2PKH compressed
     {
-        ColorIdentifier colorID = ColorIdentifier(CScript() << ToByteVector(pubkeys[0]) << OP_CHECKSIG);
+        ColorIdentifier colorId = ColorIdentifier(CScript() << ToByteVector(pubkeys[0]) << OP_CHECKSIG);
         CBasicKeyStore keystore;
-        scriptPubKey = GetScriptForDestination(pubkeys[0].GetID(), &colorID);
+        scriptPubKey = GetScriptForDestination(pubkeys[0].GetID(), &colorId);
 
         // Keystore does not have key
         result = IsMine(keystore, scriptPubKey);
@@ -535,9 +535,9 @@ BOOST_AUTO_TEST_CASE(script_standard_IsMine)
 
     // CP2PKH compressed (invalid colorid)
     {
-        ColorIdentifier colorID = ColorIdentifier();
+        ColorIdentifier colorId = ColorIdentifier();
         CBasicKeyStore keystore;
-        scriptPubKey = GetScriptForDestination(pubkeys[0].GetID(), &colorID);
+        scriptPubKey = GetScriptForDestination(pubkeys[0].GetID(), &colorId);
 
         // Keystore does not have key
         result = IsMine(keystore, scriptPubKey);
@@ -552,11 +552,11 @@ BOOST_AUTO_TEST_CASE(script_standard_IsMine)
 
     // CP2SH
     {
-        ColorIdentifier colorID = ColorIdentifier(CScript() << ToByteVector(pubkeys[0]) << OP_CHECKSIG);
+        ColorIdentifier colorId = ColorIdentifier(CScript() << ToByteVector(pubkeys[0]) << OP_CHECKSIG);
         CBasicKeyStore keystore;
 
-        CScript redeemScript = GetScriptForDestination(pubkeys[0].GetID(), &colorID);
-        scriptPubKey = GetScriptForDestination(CScriptID(redeemScript), &colorID);
+        CScript redeemScript = GetScriptForDestination(pubkeys[0].GetID(), &colorId);
+        scriptPubKey = GetScriptForDestination(CScriptID(redeemScript), &colorId);
 
         // Keystore does not have redeemScript or key
         result = IsMine(keystore, scriptPubKey);
@@ -576,11 +576,11 @@ BOOST_AUTO_TEST_CASE(script_standard_IsMine)
 
     // CP2SH (invalid colorid)
     {
-        ColorIdentifier colorID = ColorIdentifier();
+        ColorIdentifier colorId = ColorIdentifier();
         CBasicKeyStore keystore;
 
-        CScript redeemScript = GetScriptForDestination(pubkeys[0].GetID(), &colorID);
-        scriptPubKey = GetScriptForDestination(CScriptID(redeemScript), &colorID);
+        CScript redeemScript = GetScriptForDestination(pubkeys[0].GetID(), &colorId);
+        scriptPubKey = GetScriptForDestination(CScriptID(redeemScript), &colorId);
 
         // Keystore does not have redeemScript or key
         result = IsMine(keystore, scriptPubKey);
