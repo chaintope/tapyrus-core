@@ -213,7 +213,7 @@ bool CCryptoKeyStore::Unlock(const CKeyingMaterial& vMasterKeyIn)
     return true;
 }
 
-bool CCryptoKeyStore::AddKeyPubKey(const CKey& key, const CPubKey &pubkey, bool* isColored)
+bool CCryptoKeyStore::AddKeyPubKey(const CKey& key, const CPubKey &pubkey)
 {
     LOCK(cs_KeyStore);
     if (!IsCrypted()) {

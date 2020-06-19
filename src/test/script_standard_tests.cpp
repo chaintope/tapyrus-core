@@ -527,8 +527,7 @@ BOOST_AUTO_TEST_CASE(script_standard_IsMine)
         BOOST_CHECK_EQUAL(result, ISMINE_NO);
 
         // Keystore has key
-        bool isColored = true;
-        keystore.AddKey(keys[0], &isColored);
+        keystore.AddKey(keys[0]);
         result = IsMine(keystore, scriptPubKey);
         BOOST_CHECK_EQUAL(result, ISMINE_SPENDABLE);
     }
@@ -544,8 +543,7 @@ BOOST_AUTO_TEST_CASE(script_standard_IsMine)
         BOOST_CHECK_EQUAL(result, ISMINE_NO);
 
         // Keystore has key
-        bool isColored = true;
-        keystore.AddKey(keys[0], &isColored);
+        keystore.AddKey(keys[0]);
         result = IsMine(keystore, scriptPubKey);
         BOOST_CHECK_EQUAL(result, ISMINE_NO);
     }
@@ -568,8 +566,7 @@ BOOST_AUTO_TEST_CASE(script_standard_IsMine)
         BOOST_CHECK_EQUAL(result, ISMINE_NO);
 
         // Keystore has redeemScript and key
-        bool isColored = true;
-        keystore.AddKey(keys[0], &isColored);
+        keystore.AddKey(keys[0]);
         result = IsMine(keystore, scriptPubKey);
         BOOST_CHECK_EQUAL(result, ISMINE_SPENDABLE);
     }
@@ -592,8 +589,7 @@ BOOST_AUTO_TEST_CASE(script_standard_IsMine)
         BOOST_CHECK_EQUAL(result, ISMINE_NO);
 
         // Keystore has key but redeemScript not belongs to me
-        bool isColored = true;
-        keystore.AddKey(keys[0], &isColored);
+        keystore.AddKey(keys[0]);
         result = IsMine(keystore, scriptPubKey);
         BOOST_CHECK_EQUAL(result, ISMINE_NO);
     }
