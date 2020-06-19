@@ -532,22 +532,6 @@ BOOST_AUTO_TEST_CASE(script_standard_IsMine)
         BOOST_CHECK_EQUAL(result, ISMINE_SPENDABLE);
     }
 
-    // CP2PKH compressed (invalid colorid)
-    {
-        ColorIdentifier colorId = ColorIdentifier();
-        CBasicKeyStore keystore;
-        scriptPubKey = GetScriptForDestination(pubkeys[0].GetID(), &colorId);
-
-        // Keystore does not have key
-        result = IsMine(keystore, scriptPubKey);
-        BOOST_CHECK_EQUAL(result, ISMINE_NO);
-
-        // Keystore has key
-        keystore.AddKey(keys[0]);
-        result = IsMine(keystore, scriptPubKey);
-        // BOOST_CHECK_EQUAL(result, ISMINE_NO);
-    }
-
     // CP2SH
     {
         ColorIdentifier colorId = ColorIdentifier(CScript() << ToByteVector(pubkeys[0]) << OP_CHECKSIG);
@@ -569,29 +553,6 @@ BOOST_AUTO_TEST_CASE(script_standard_IsMine)
         keystore.AddKey(keys[0]);
         result = IsMine(keystore, scriptPubKey);
         BOOST_CHECK_EQUAL(result, ISMINE_SPENDABLE);
-    }
-
-    // CP2SH (invalid colorid)
-    {
-        ColorIdentifier colorId = ColorIdentifier();
-        CBasicKeyStore keystore;
-
-        CScript redeemScript = GetScriptForDestination(pubkeys[0].GetID(), &colorId);
-        scriptPubKey = GetScriptForDestination(CScriptID(redeemScript), &colorId);
-
-        // Keystore does not have redeemScript or key
-        result = IsMine(keystore, scriptPubKey);
-        BOOST_CHECK_EQUAL(result, ISMINE_NO);
-
-        // Keystore has redeemScript but no key
-        keystore.AddCScript(redeemScript);
-        result = IsMine(keystore, scriptPubKey);
-        BOOST_CHECK_EQUAL(result, ISMINE_NO);
-
-        // Keystore has key but redeemScript not belongs to me
-        keystore.AddKey(keys[0]);
-        result = IsMine(keystore, scriptPubKey);
-        // BOOST_CHECK_EQUAL(result, ISMINE_NO);
     }
 
 #ifdef DEBUG
