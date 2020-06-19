@@ -68,7 +68,7 @@ public:
     std::string operator()(const CNoDestination& no) const { return {}; }
 };
 
-CTxDestination DecodeDestination(const std::string& str, const CChainParams& params, ColorIdentifier* colorId = nullptr)
+CTxDestination DecodeDestination(const std::string& str, const CChainParams& params, ColorIdentifier& colorId)
 {
     std::vector<unsigned char> data;
     uint160 hash;
@@ -77,7 +77,7 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
         CScript scriptPubKey(data.begin(), data.end());
         if(scriptPubKey.IsColoredScript()) {
             ColorIdentifier cid(GetColorIdFromScript(scriptPubKey));
-            colorId = &cid;
+            colorId = cid;
         }
 
         // base58-encoded Tapyrus addresses.
@@ -182,14 +182,15 @@ std::string EncodeDestination(const CTxDestination& dest)
     return boost::apply_visitor(DestinationEncoder(Params()), dest);
 }
 
-CTxDestination DecodeDestination(const std::string& str, ColorIdentifier* colorId)
+CTxDestination DecodeDestination(const std::string& str, ColorIdentifier& colorId)
 {
     return DecodeDestination(str, Params(), colorId);
 }
 
 bool IsValidDestinationString(const std::string& str, const CChainParams& params)
 {
-    return IsValidDestination(DecodeDestination(str, params));
+    ColorIdentifier colorId;
+    return IsValidDestination(DecodeDestination(str, params, colorId));
 }
 
 bool IsValidDestinationString(const std::string& str)

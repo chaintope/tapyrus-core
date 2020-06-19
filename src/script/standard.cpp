@@ -355,7 +355,7 @@ public:
 
     bool operator()(const CKeyID &keyID) const {
         script->clear();
-        if (colorID != NULL) {
+        if (colorID != NULL && (*colorID).type != TokenTypes::NONE) {
             *script << colorID->toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG;
         } else {
             *script << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG;
@@ -365,11 +365,7 @@ public:
 
     bool operator()(const CScriptID &scriptID) const {
         script->clear();
-        if (colorID != NULL) {
-            *script << colorID->toVector() << OP_COLOR << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
-        } else {
             *script << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
-        }
         return true;
     }
     

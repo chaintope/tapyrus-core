@@ -309,7 +309,8 @@ UniValue importaddress(const JSONRPCRequest& request)
     {
         LOCK2(cs_main, pwallet->cs_wallet);
 
-        CTxDestination dest = DecodeDestination(request.params[0].get_str());
+        ColorIdentifier colorId;
+        CTxDestination dest = DecodeDestination(request.params[0].get_str(), colorId);
         if (IsValidDestination(dest)) {
             if (fP2SH) {
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Cannot use the p2sh flag with an address - use a script instead");
@@ -661,7 +662,8 @@ UniValue dumpprivkey(const JSONRPCRequest& request)
     EnsureWalletIsUnlocked(pwallet);
 
     std::string strAddress = request.params[0].get_str();
-    CTxDestination dest = DecodeDestination(strAddress);
+    ColorIdentifier colorId;
+    CTxDestination dest = DecodeDestination(strAddress, colorId);
     if (!IsValidDestination(dest)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Tapyrus address");
     }
@@ -838,12 +840,12 @@ static UniValue ProcessImport(CWallet * const pwallet, const UniValue& data, con
         CTxDestination dest;
 
         if (!isScript) {
-            ColorIdentifier* colorId = nullptr;
+            ColorIdentifier colorId;
             dest = DecodeDestination(output, colorId);
             if (!IsValidDestination(dest)) {
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
             }
-            script = GetScriptForDestination(dest, colorId);
+            script = GetScriptForDestination(dest, &colorId);
         } else {
             if (!IsHex(output)) {
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid scriptPubKey");

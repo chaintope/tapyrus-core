@@ -60,7 +60,7 @@ static UniValue validateaddress(const JSONRPCRequest& request)
             + HelpExampleRpc("validateaddress", "\"1PSSGeFHDnKNxiEyFrD1wcEaHr9hrQDDWc\"")
         );
 
-    ColorIdentifier* colorId = nullptr;
+    ColorIdentifier colorId;
     CTxDestination dest = DecodeDestination(request.params[0].get_str(), colorId);
     bool isValid = IsValidDestination(dest);
 
@@ -78,7 +78,7 @@ static UniValue validateaddress(const JSONRPCRequest& request)
             std::string currentAddress = EncodeDestination(dest);
             ret.pushKV("address", currentAddress);
 
-            CScript scriptPubKey = GetScriptForDestination(dest, colorId);
+            CScript scriptPubKey = GetScriptForDestination(dest, &colorId);
             ret.pushKV("scriptPubKey", HexStr(scriptPubKey.begin(), scriptPubKey.end()));
 
             UniValue detail = DescribeAddress(dest);
@@ -185,7 +185,8 @@ static UniValue verifymessage(const JSONRPCRequest& request)
     std::string strSign     = request.params[1].get_str();
     std::string strMessage  = request.params[2].get_str();
 
-    CTxDestination destination = DecodeDestination(strAddress);
+    ColorIdentifier colorId;
+    CTxDestination destination = DecodeDestination(strAddress, colorId);
     if (!IsValidDestination(destination)) {
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid address");
     }

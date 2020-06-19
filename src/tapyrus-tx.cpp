@@ -275,7 +275,7 @@ static void MutateTxAddOutAddr(CMutableTransaction& tx, const std::string& strIn
 
     // extract and validate ADDRESS
     std::string strAddr = vStrInputParts[1];
-    ColorIdentifier* colorId = nullptr;
+    ColorIdentifier colorId;
     CTxDestination destination = DecodeDestination(strAddr, colorId);
     if (!IsValidDestination(destination)) {
         throw std::runtime_error("invalid TX output address");
