@@ -255,17 +255,18 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
         // Taking advantage of the fact that pair serialization
         // is just the two items serialized one after the other
         ssKey >> strType;
+        ColorIdentifier colorId;
         if (strType == "name")
         {
             std::string strAddress;
             ssKey >> strAddress;
-            ssValue >> pwallet->mapAddressBook[DecodeDestination(strAddress)].name;
+            ssValue >> pwallet->mapAddressBook[DecodeDestination(strAddress, colorId)].name;
         }
         else if (strType == "purpose")
         {
             std::string strAddress;
             ssKey >> strAddress;
-            ssValue >> pwallet->mapAddressBook[DecodeDestination(strAddress)].purpose;
+            ssValue >> pwallet->mapAddressBook[DecodeDestination(strAddress, colorId)].purpose;
         }
         else if (strType == "tx")
         {
@@ -493,7 +494,7 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             ssKey >> strAddress;
             ssKey >> strKey;
             ssValue >> strValue;
-            pwallet->LoadDestData(DecodeDestination(strAddress), strKey, strValue);
+            pwallet->LoadDestData(DecodeDestination(strAddress, colorId), strKey, strValue);
         }
         else if (strType == "hdchain")
         {
