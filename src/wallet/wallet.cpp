@@ -1869,7 +1869,6 @@ CAmount CWalletTx::GetDebit(const isminefilter& filter) const
     if (tx->vin.empty())
         return 0;
 
-    //notsure
     CAmount debit = 0;
     if(filter & ISMINE_SPENDABLE)
     {
@@ -1898,7 +1897,6 @@ CAmount CWalletTx::GetDebit(const isminefilter& filter) const
 
 CAmount CWalletTx::GetCredit(const isminefilter& filter) const
 {
-    //notsure
     CAmount credit = 0;
     if (filter & ISMINE_SPENDABLE)
     {
@@ -3001,12 +2999,6 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
               feeCalc.est.fail.withinTarget, feeCalc.est.fail.totalConfirmed, feeCalc.est.fail.inMempool, feeCalc.est.fail.leftMempool);
     return true;
 }
-
-                // nValue
-                // nValueIn
-                // nValueToSelect
-                // nChange
-                // nFee
 
 /**
  * Call after CreateTransaction unless you want to abort
