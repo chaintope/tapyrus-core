@@ -402,8 +402,11 @@ BOOST_FIXTURE_TEST_CASE(generate_with_incorrect_privkey, TestingSetup)
 //     bool firstRun;
 //     wallet->LoadWallet(firstRun);
 //     wallet->AddKeyPubKey(key, pubkey);
+    
 //     WalletRescanReserver reserver(wallet.get());
 //     reserver.reserve();
+
+//     BOOST_CHECK_EQUAL(wallet->GetAvailableTokenBalance().size(), 0);
 
 //     CMutableTransaction coinbaseSpendTx;
 //     coinbaseSpendTx.nFeatures = 1;

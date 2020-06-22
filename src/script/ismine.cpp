@@ -194,8 +194,8 @@ isminetype IsMine(const CKeyStore& keystore, const CScript& scriptPubKey)
     assert(false);
 }
 
-isminetype IsMine(const CKeyStore& keystore, const CTxDestination& dest)
+isminetype IsMine(const CKeyStore& keystore, const CTxDestination& dest, ColorIdentifier* colorId)
 {
-    CScript script = GetScriptForDestination(dest);
+    CScript script = GetScriptForDestination(dest, colorId);
     return IsMine(keystore, script);
 }

@@ -25,7 +25,8 @@ CPubKey HexToPubKey(const std::string& hex_in)
 // Retrieves a public key for an address from the given CKeyStore
 CPubKey AddrToPubKey(CKeyStore* const keystore, const std::string& addr_in)
 {
-    CTxDestination dest = DecodeDestination(addr_in);
+    ColorIdentifier colorId;
+    CTxDestination dest = DecodeDestination(addr_in, colorId);
     if (!IsValidDestination(dest)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address: " + addr_in);
     }

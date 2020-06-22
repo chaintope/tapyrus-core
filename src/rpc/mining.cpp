@@ -106,13 +106,14 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
 
     int nGenerate = request.params[0].get_int();
 
-    CTxDestination destination = DecodeDestination(request.params[1].get_str());
+    ColorIdentifier colorId;
+    CTxDestination destination = DecodeDestination(request.params[1].get_str(), colorId);
     if (!IsValidDestination(destination)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: Invalid address");
     }
 
     std::shared_ptr<CReserveScript> coinbaseScript = std::make_shared<CReserveScript>();
-    coinbaseScript->reserveScript = GetScriptForDestination(destination);
+    coinbaseScript->reserveScript = GetScriptForDestination(destination, &colorId);
 
     std::vector<unsigned char> privkeyraw = ParseHex(request.params[2].get_str());
     CKey cPrivKey;
@@ -139,7 +140,8 @@ UniValue getnewblock(const JSONRPCRequest& request)
                 + HelpExampleCli("getnewblock", "")
         );
 
-    CTxDestination destination = DecodeDestination(request.params[0].get_str());
+    ColorIdentifier colorId;
+    CTxDestination destination = DecodeDestination(request.params[0].get_str(), colorId);
     if (!IsValidDestination(destination)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: Invalid address");
     }
@@ -149,7 +151,7 @@ UniValue getnewblock(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMS, "required_wait must be non-negative.");
     }
 
-    CScript coinbaseScript {GetScriptForDestination(destination)};
+    CScript coinbaseScript {GetScriptForDestination(destination, &colorId)};
 
     std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(Params()).CreateNewBlock(coinbaseScript, true));
     if (!pblocktemplate.get())
