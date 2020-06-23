@@ -411,6 +411,7 @@ BOOST_FIXTURE_TEST_CASE(ismine_wallet_tokentx, TestChainSetup) {
     CWallet wallet("dummy", WalletDatabase::CreateDummy());
     bool firstRun;
     wallet.LoadWallet(firstRun);
+    LOCK(cs_main);
     LOCK(wallet.cs_wallet);
     wallet.AddKeyPubKey(key0, pubkey0);
     WalletRescanReserver reserver(&wallet);
@@ -426,9 +427,7 @@ BOOST_FIXTURE_TEST_CASE(ismine_wallet_tokentx, TestChainSetup) {
     coinbaseSpendTx.vout[0].nValue = 100 * CENT;
     coinbaseSpendTx.vout[0].scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash0) << OP_EQUALVERIFY << OP_CHECKSIG;
 
-    LOCK(wallet.cs_wallet);
     CWalletTx coinbasewtx(&wallet, MakeTransactionRef(coinbaseSpendTx));
-    LOCK(cs_main);
     wallet.AddToWallet(coinbasewtx);
     BOOST_CHECK_EQUAL(wallet.IsMine(coinbaseSpendTx.vout[0]), ISMINE_SPENDABLE);
 
@@ -445,9 +444,7 @@ BOOST_FIXTURE_TEST_CASE(ismine_wallet_tokentx, TestChainSetup) {
     tokenIssueTx.vout[0].nValue = 100 * CENT;
     tokenIssueTx.vout[0].scriptPubKey = scriptPubKey;
 
-    LOCK(wallet.cs_wallet);
     CWalletTx tokenwtx(&wallet, MakeTransactionRef(tokenIssueTx));
-    LOCK(cs_main);
     wallet.AddToWallet(tokenwtx);
     BOOST_CHECK_EQUAL(wallet.IsMine(tokenIssueTx.vout[0]), ISMINE_SPENDABLE);
 
@@ -469,9 +466,7 @@ BOOST_FIXTURE_TEST_CASE(ismine_wallet_tokentx, TestChainSetup) {
     tokenTransferTx.vout[1].scriptPubKey = scriptPubKey2;
 
     MakeTransactionRef(tokenTransferTx);
-    LOCK(wallet.cs_wallet);
     CWalletTx tokenttx(&wallet, MakeTransactionRef(tokenTransferTx));
-    LOCK(cs_main);
     wallet.AddToWallet(tokenttx);
     BOOST_CHECK_EQUAL(wallet.IsMine(tokenTransferTx.vout[0]), ISMINE_NO);
     BOOST_CHECK_EQUAL(wallet.IsMine(tokenTransferTx.vout[1]), ISMINE_NO);
