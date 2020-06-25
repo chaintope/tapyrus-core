@@ -70,7 +70,7 @@ BOOST_AUTO_TEST_CASE(coloridentifier_valid_unserialize)
     BOOST_CHECK_EQUAL(TokenToUint(c01.type), TokenToUint(TokenTypes::NONE));
     BOOST_CHECK(memcmp(&c01.payload[0], &str[0], 32) == 0);
 
-    //type unknown - 33 bytes
+    //type unknown - 33 bytes, type byte 'c4'
     CDataStream ss06(ParseHex("c48282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508"), SER_NETWORK, INIT_PROTO_VERSION);
     ss06 >> c01;
     BOOST_CHECK_EQUAL(TokenToUint(c01.type), TokenToUint(TokenTypes::NONE));
