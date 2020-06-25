@@ -2484,7 +2484,7 @@ BOOST_AUTO_TEST_CASE(coloredScripts)
 
     // CP2PKH(Colored P2PKH)：
     // <COLOR identifier> OP_COLOR OP_DUP OP_HASH160 <H(pubkey)> OP_EQUALVERIFY OP_CHECKSIG
-    CScript CP2PKHScriptPubKey = CScript() << ParseHex("011863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262") << OP_COLOR << OP_DUP << OP_HASH160 << ParseHex("1018853670f9f3b0582c5b9ee8ce93764ac32b93") << OP_EQUALVERIFY << OP_CHECKSIG;
+    CScript CP2PKHScriptPubKey = CScript() << ParseHex("c11863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262") << OP_COLOR << OP_DUP << OP_HASH160 << ParseHex("1018853670f9f3b0582c5b9ee8ce93764ac32b93") << OP_EQUALVERIFY << OP_CHECKSIG;
 
     //check CP2PKHScriptPubKey match ColoredPayToPubkeyHash not match ColoredPayToScriptHash
     BOOST_CHECK(MatchColoredPayToPubkeyHash(CP2PKHScriptPubKey, data, colorId));
@@ -2493,7 +2493,7 @@ BOOST_AUTO_TEST_CASE(coloredScripts)
     
     // CP2SH(Colored P2SH)：
     // <COLOR identifier> OP_COLOR OP_HASH160 <H(redeem script)> OP_EQUAL
-    CScript CP2SHScriptPubKey = CScript() << ParseHex("011863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262") << OP_COLOR << OP_HASH160 << ParseHex("da8a647bba351bbae4cee0089d373c97ec240580") << OP_EQUAL;
+    CScript CP2SHScriptPubKey = CScript() << ParseHex("c11863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262") << OP_COLOR << OP_HASH160 << ParseHex("da8a647bba351bbae4cee0089d373c97ec240580") << OP_EQUAL;
 
     //check CP2SHScriptPubKey match ColoredPayToScriptHash not match ColoredPayToPubkeyHash
     BOOST_CHECK(!MatchColoredPayToPubkeyHash(CP2SHScriptPubKey, data, colorId));
@@ -2509,7 +2509,7 @@ BOOST_AUTO_TEST_CASE(coloredScripts)
     // CP2SH(Colored P2SH)：
     // <COLOR identifier> OP_COLOR OP_HASH160 <H(redeem script)> OP_EQUAL
     // TokenType NON_REISSUABLE
-    CScript ColoredPayToScriptHash2 = CScript() << ParseHex("011863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262") << OP_COLOR << OP_DUP << OP_HASH160 << ParseHex("da8a647bba351bbae4cee0089d373c97ec240580") << OP_EQUALVERIFY << OP_CHECKSIG;
+    CScript ColoredPayToScriptHash2 = CScript() << ParseHex("c11863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262") << OP_COLOR << OP_DUP << OP_HASH160 << ParseHex("da8a647bba351bbae4cee0089d373c97ec240580") << OP_EQUALVERIFY << OP_CHECKSIG;
     BOOST_CHECK(MatchColoredPayToPubkeyHash(ColoredPayToScriptHash2, data, colorId));
     BOOST_CHECK(!ColoredPayToScriptHash2.IsColoredPayToScriptHash());
     BOOST_CHECK(GetColorIdFromScript(ColoredPayToScriptHash2).type == TokenTypes::REISSUABLE);
