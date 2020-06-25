@@ -96,7 +96,7 @@ struct ColorIdentifier
             s.write((const char *)&xtype, 1);
         }
 
-        if(type > TokenTypes::NONE && type <= TokenTypes::TOKENTYPE_MAX)
+        if(type >= TokenTypes::REISSUABLE && type <= TokenTypes::TOKENTYPE_MAX)
             READWRITE(this->payload);
     }
 
