@@ -64,13 +64,13 @@ from test_framework.util import assert_equal, hex_str_to_bytes, bytes_to_hex_str
 from test_framework.script import CScript, OP_TRUE, OP_DROP, OP_1, OP_COLOR, hash160, OP_DUP, OP_HASH160, OP_EQUALVERIFY, OP_CHECKSIG, SignatureHash, SIGHASH_ALL
 
 def colorIdReissuable(script):
-    return b'\x01' + sha256(script)
+    return b'\xc1' + sha256(script)
 
 def colorIdNonReissuable(utxo):
-    return b'\x02'+ sha256(utxo)
+    return b'\xc2'+ sha256(utxo)
 
 def colorIdNFT(utxo):
-    return b'\x03'+ sha256(utxo)
+    return b'\xc3'+ sha256(utxo)
 
 def CP2PHK_script(colorId, pubkey):
     pubkeyhash = hash160(hex_str_to_bytes(pubkey))
