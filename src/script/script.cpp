@@ -229,7 +229,7 @@ bool CScript::IsColoredPayToScriptHash() const
     // <COLOR identifier> OP_COLOR OP_HASH160 <H(redeem script)> OP_EQUAL
     if(this->size() == 58) // <COLOR identifier> : TYPE = 1 byte and 32 byte PAYLOAD
         return ((*this)[0] == 0x21 &&
-                ((*this)[1] == 0x01 || (*this)[1] == 0x02 || (*this)[1] == 0x03)&&
+                ((*this)[1] == 0xc1 || (*this)[1] == 0xc2 || (*this)[1] == 0xc3)&&
                 (*this)[34] == OP_COLOR &&
                 (*this)[35] == OP_HASH160 &&
                 (*this)[36] == 0x14 &&
@@ -367,7 +367,7 @@ bool MatchColoredPayToPubkeyHash(const CScript& script, std::vector<unsigned cha
 {
     //<COLOR identifier> OP_COLOR OP_DUP OP_HASH160 <H(pubkey)> OP_EQUALVERIFY OP_CHECKSIG
     // <COLOR identifier> : TYPE = 1 byte and 32 byte PAYLOAD
-    if (script.size() == 60 && script[0] == 0x21  && (script[1] == 0x01 || script[1] == 0x02 || script[1] == 0x03) && script[34] == OP_COLOR && script[35] == OP_DUP && script[36] == OP_HASH160 && script[37] == 20 && script[58] == OP_EQUALVERIFY && script[59] == OP_CHECKSIG)
+    if (script.size() == 60 && script[0] == 0x21  && (script[1] == 0xc1 || script[1] == 0xc2 || script[1] == 0xc3) && script[34] == OP_COLOR && script[35] == OP_DUP && script[36] == OP_HASH160 && script[37] == 20 && script[58] == OP_EQUALVERIFY && script[59] == OP_CHECKSIG)
     {
         pubkeyhash = std::vector<unsigned char>(script.begin() + 38, script.begin() + 58);
         colorid = std::vector<unsigned char>(script.begin() + 1, script.begin() + 34);
