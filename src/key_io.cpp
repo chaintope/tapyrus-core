@@ -55,11 +55,9 @@ public:
     {
         // <COLOR identifier> OP_COLOR OP_HASH160 <H(redeem script)> OP_EQUAL
         std::vector<unsigned char> data;
-        if (colorId.type != TokenTypes::NONE) {
-        } else {
-            data = m_params.Base58Prefix(CChainParams::SCRIPT_ADDRESS);
-            data.insert(data.end(), id.begin(), id.end());
-        }
+        data = m_params.Base58Prefix(CChainParams::SCRIPT_ADDRESS);
+        data.insert(data.end(), id.begin(), id.end());
+        
         return EncodeBase58Check(data);
     }
 #ifdef DEBUG
