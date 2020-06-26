@@ -16,6 +16,7 @@
 #include <assert.h>
 #include <string.h>
 #include <algorithm>
+#include <coloridentifier.h>
 
 namespace
 {
@@ -23,21 +24,42 @@ class DestinationEncoder : public boost::static_visitor<std::string>
 {
 private:
     const CChainParams& m_params;
-
+    ColorIdentifier& colorId;
 public:
-    DestinationEncoder(const CChainParams& params) : m_params(params) {}
+    explicit DestinationEncoder(const CChainParams& params, ColorIdentifier& colorIdin) : m_params(params), colorId(colorIdin) { }
 
     std::string operator()(const CKeyID& id) const
     {
-        std::vector<unsigned char> data = m_params.Base58Prefix(CChainParams::PUBKEY_ADDRESS);
-        data.insert(data.end(), id.begin(), id.end());
+        std::vector<unsigned char> data;
+        //<COLOR identifier> OP_COLOR OP_DUP OP_HASH160 <H(pubkey)> OP_EQUALVERIFY OP_CHECKSIG
+        if (colorId.type != TokenTypes::NONE) {
+            std::vector<unsigned char> cid = colorId.toVector();
+            // data = m_params.Base58Prefix(CChainParams::PUBKEY_ADDRESS);
+            data.push_back(0x21);
+            data.insert(data.end(), cid.begin(), cid.end());
+            data.push_back(OP_COLOR);
+            data.push_back(OP_DUP);
+            data.push_back(OP_HASH160);
+            data.push_back(0x14);
+            data.insert(data.end(), id.begin(), id.end());
+            data.push_back(OP_EQUALVERIFY);
+            data.push_back(OP_CHECKSIG);
+        } else {
+            data = m_params.Base58Prefix(CChainParams::PUBKEY_ADDRESS);
+            data.insert(data.end(), id.begin(), id.end());
+        }
         return EncodeBase58Check(data);
     }
 
     std::string operator()(const CScriptID& id) const
     {
-        std::vector<unsigned char> data = m_params.Base58Prefix(CChainParams::SCRIPT_ADDRESS);
-        data.insert(data.end(), id.begin(), id.end());
+        // <COLOR identifier> OP_COLOR OP_HASH160 <H(redeem script)> OP_EQUAL
+        std::vector<unsigned char> data;
+        if (colorId.type != TokenTypes::NONE) {
+        } else {
+            data = m_params.Base58Prefix(CChainParams::SCRIPT_ADDRESS);
+            data.insert(data.end(), id.begin(), id.end());
+        }
         return EncodeBase58Check(data);
     }
 #ifdef DEBUG
@@ -71,6 +93,7 @@ public:
 CTxDestination DecodeDestination(const std::string& str, const CChainParams& params, ColorIdentifier& colorId)
 {
     std::vector<unsigned char> data;
+    std::vector<unsigned char> temp;
     uint160 hash;
     if (DecodeBase58Check(str, data)) {
 
@@ -78,6 +101,14 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
         if(scriptPubKey.IsColoredScript()) {
             ColorIdentifier cid(GetColorIdFromScript(scriptPubKey));
             colorId = cid;
+            std::vector<unsigned char> pkh;
+            std::vector<unsigned char> c1;
+            if (MatchColoredPayToPubkeyHash(scriptPubKey, pkh, c1)) {
+                temp.push_back(0x00);
+                temp.insert(temp.end(), data.begin()+38, data.begin()+58);
+                data.clear();
+                data = temp;
+            }
         }
 
         // base58-encoded Tapyrus addresses.
@@ -177,9 +208,9 @@ std::string EncodeExtKey(const CExtKey& key)
     return ret;
 }
 
-std::string EncodeDestination(const CTxDestination& dest)
+std::string EncodeDestination(const CTxDestination& dest, ColorIdentifier& colorId)
 {
-    return boost::apply_visitor(DestinationEncoder(Params()), dest);
+    return boost::apply_visitor(DestinationEncoder(Params(), colorId), dest);
 }
 
 CTxDestination DecodeDestination(const std::string& str, ColorIdentifier& colorId)

@@ -75,7 +75,8 @@ static UniValue validateaddress(const JSONRPCRequest& request)
         }
 #endif
         if (ret["address"].isNull()) {
-            std::string currentAddress = EncodeDestination(dest);
+            ColorIdentifier colorId;
+            std::string currentAddress = EncodeDestination(dest, colorId);
             ret.pushKV("address", currentAddress);
 
             CScript scriptPubKey = GetScriptForDestination(dest, &colorId);
@@ -149,8 +150,9 @@ static UniValue createmultisig(const JSONRPCRequest& request)
     CBasicKeyStore keystore;
     const CTxDestination dest = AddAndGetDestinationForScript(keystore, inner, output_type);
 
+    ColorIdentifier colorId;
     UniValue result(UniValue::VOBJ);
-    result.pushKV("address", EncodeDestination(dest));
+    result.pushKV("address", EncodeDestination(dest, colorId));
     result.pushKV("redeemScript", HexStr(inner.begin(), inner.end()));
 
     return result;

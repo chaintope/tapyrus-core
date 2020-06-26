@@ -172,7 +172,11 @@ public:
     AddressDescriptor(CTxDestination destination) : m_destination(std::move(destination)) {}
 
     bool IsRange() const override { return false; }
-    std::string ToString() const override { return "addr(" + EncodeDestination(m_destination) + ")"; }
+    std::string ToString() const override
+    {
+        ColorIdentifier colorId;
+        return "addr(" + EncodeDestination(m_destination, colorId) + ")";
+    }
     bool ToPrivateString(const SigningProvider& arg, std::string& out) const override { out = ToString(); return true; }
     bool Expand(int pos, const SigningProvider& arg, std::vector<CScript>& output_scripts, FlatSigningProvider& out) const override
     {
