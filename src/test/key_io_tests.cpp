@@ -119,7 +119,7 @@ BOOST_AUTO_TEST_CASE(key_io_valid_gen)
             CTxDestination dest;
             ColorIdentifier colorId;
             CScript exp_script(exp_payload.begin(), exp_payload.end());
-            ExtractDestination(exp_script, dest);
+            ExtractDestination(exp_script, dest, &colorId);
             std::string address = EncodeDestination(dest, colorId);
 
             BOOST_CHECK_EQUAL(address, exp_base58string);
