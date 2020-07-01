@@ -89,7 +89,6 @@ public:
 CTxDestination DecodeDestination(const std::string& str, const CChainParams& params, ColorIdentifier& colorId)
 {
     std::vector<unsigned char> data;
-    std::vector<unsigned char> temp;
     uint160 hash;
     uint colorIdSize = 33;
 
