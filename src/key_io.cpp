@@ -24,26 +24,18 @@ class DestinationEncoder : public boost::static_visitor<std::string>
 {
 private:
     const CChainParams& m_params;
-    ColorIdentifier& colorId;
+    ColorIdentifier colorId;
 public:
     explicit DestinationEncoder(const CChainParams& params, ColorIdentifier& colorIdin) : m_params(params), colorId(colorIdin) { }
 
     std::string operator()(const CKeyID& id) const
     {
         std::vector<unsigned char> data;
-        //<COLOR identifier> OP_COLOR OP_DUP OP_HASH160 <H(pubkey)> OP_EQUALVERIFY OP_CHECKSIG
         if (colorId.type != TokenTypes::NONE) {
             std::vector<unsigned char> cid = colorId.toVector();
-            // data = m_params.Base58Prefix(CChainParams::PUBKEY_ADDRESS);
-            data.push_back(0x21);
+            data = m_params.Base58Prefix(CChainParams::C_PUBKEY_ADDRESS);
             data.insert(data.end(), cid.begin(), cid.end());
-            data.push_back(OP_COLOR);
-            data.push_back(OP_DUP);
-            data.push_back(OP_HASH160);
-            data.push_back(0x14);
             data.insert(data.end(), id.begin(), id.end());
-            data.push_back(OP_EQUALVERIFY);
-            data.push_back(OP_CHECKSIG);
         } else {
             data = m_params.Base58Prefix(CChainParams::PUBKEY_ADDRESS);
             data.insert(data.end(), id.begin(), id.end());
@@ -53,10 +45,16 @@ public:
 
     std::string operator()(const CScriptID& id) const
     {
-        // <COLOR identifier> OP_COLOR OP_HASH160 <H(redeem script)> OP_EQUAL
         std::vector<unsigned char> data;
-        data = m_params.Base58Prefix(CChainParams::SCRIPT_ADDRESS);
-        data.insert(data.end(), id.begin(), id.end());
+        if (colorId.type != TokenTypes::NONE) {
+            std::vector<unsigned char> cid = colorId.toVector();
+            data = m_params.Base58Prefix(CChainParams::C_SCRIPT_ADDRESS);
+            data.insert(data.end(), cid.begin(), cid.end());
+            data.insert(data.end(), id.begin(), id.end());
+        } else {
+            data = m_params.Base58Prefix(CChainParams::SCRIPT_ADDRESS);
+            data.insert(data.end(), id.begin(), id.end());
+        }
         
         return EncodeBase58Check(data);
     }
@@ -93,22 +91,9 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
     std::vector<unsigned char> data;
     std::vector<unsigned char> temp;
     uint160 hash;
+    uint colorIdSize = 33;
+
     if (DecodeBase58Check(str, data)) {
-
-        CScript scriptPubKey(data.begin(), data.end());
-        if(scriptPubKey.IsColoredScript()) {
-            ColorIdentifier cid(GetColorIdFromScript(scriptPubKey));
-            colorId = cid;
-            std::vector<unsigned char> pkh;
-            std::vector<unsigned char> c1;
-            if (MatchColoredPayToPubkeyHash(scriptPubKey, pkh, c1)) {
-                temp.push_back(0x00);
-                temp.insert(temp.end(), data.begin()+38, data.begin()+58);
-                data.clear();
-                data = temp;
-            }
-        }
-
         // base58-encoded Tapyrus addresses.
         // Public-key-hash-addresses have version 0 (or 111 testnet).
         // The data vector contains RIPEMD160(SHA256(pubkey)), where pubkey is the serialized public key.
@@ -122,6 +107,25 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
         const std::vector<unsigned char>& script_prefix = params.Base58Prefix(CChainParams::SCRIPT_ADDRESS);
         if (data.size() == hash.size() + script_prefix.size() && std::equal(script_prefix.begin(), script_prefix.end(), data.begin())) {
             std::copy(data.begin() + script_prefix.size(), data.end(), hash.begin());
+            return CScriptID(hash);
+        }
+        // base58-encoded Tapyrus colored addresses.
+        // Public-key-hash-addresses have version 16 (or 36 testnet).
+        // The data vector contains ColorIdentifier and RIPEMD160(SHA256(pubkey)), where pubkey is the serialized public key.
+        const std::vector<unsigned char>& c_pubkey_prefix = params.Base58Prefix(CChainParams::C_PUBKEY_ADDRESS);
+        if (data.size() == hash.size() + c_pubkey_prefix.size() + colorIdSize && std::equal(c_pubkey_prefix.begin(), c_pubkey_prefix.end(), data.begin())) {
+            ColorIdentifier cid(&data[c_pubkey_prefix.size()],&data[c_pubkey_prefix.size() + colorIdSize]);
+            colorId = cid;
+            std::copy(data.begin() + c_pubkey_prefix.size() + colorIdSize, data.end(), hash.begin());
+            return CKeyID(hash);
+        }
+        // colored Script-hash-addresses have version 16 (or 38 testnet).
+        // The data vector contains ColorIdentifier and RIPEMD160(SHA256(cscript)), where cscript is the serialized redemption script.
+        const std::vector<unsigned char>& c_script_prefix = params.Base58Prefix(CChainParams::C_SCRIPT_ADDRESS);
+        if (data.size() == hash.size() + c_script_prefix.size() + colorIdSize && std::equal(c_script_prefix.begin(), c_script_prefix.end(), data.begin())) {
+            ColorIdentifier cid(&data[c_pubkey_prefix.size()],&data[c_pubkey_prefix.size() + colorIdSize]);
+            colorId = cid;
+            std::copy(data.begin() + c_script_prefix.size() + colorIdSize, data.end(), hash.begin());
             return CScriptID(hash);
         }
     }

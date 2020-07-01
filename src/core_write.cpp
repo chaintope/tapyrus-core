@@ -174,8 +174,12 @@ void ScriptPubKeyToUniv(const CScript& scriptPubKey,
     out.pushKV("reqSigs", nRequired);
     out.pushKV("type", GetTxnOutputType(type));
 
-    UniValue a(UniValue::VARR);
     ColorIdentifier colorId;
+    if (scriptPubKey.IsColoredScript()) {
+        colorId = GetColorIdFromScript(scriptPubKey);
+    }
+
+    UniValue a(UniValue::VARR);
     for (const CTxDestination& addr : addresses) {
         a.push_back(EncodeDestination(addr, colorId));
     }
