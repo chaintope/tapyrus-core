@@ -576,6 +576,10 @@ bool CheckColorIdentifierValidity(const CTransaction& tx, CValidationState& stat
         if (outColorId.type == TokenTypes::NONE)
             return false;
 
+        //as IsDust is not checked for tokens aviod 0 values in outputs
+        if(txout.nValue <= 0)
+            return false;
+
         bool matchFound = false;
         for(auto txin:tx.vin)
         {
