@@ -8,6 +8,8 @@
 
 #include <tinyformat.h>
 #include <utilstrencodings.h>
+#include <primitives/transaction.h>//workaround - "Outpoint not defined" in coloridentifier.h
+#include <coloridentifier.h>
 
 const char* GetOpName(opcodetype opcode)
 {
@@ -229,11 +231,14 @@ bool CScript::IsColoredPayToScriptHash() const
     // <COLOR identifier> OP_COLOR OP_HASH160 <H(redeem script)> OP_EQUAL
     if(this->size() == 58) // <COLOR identifier> : TYPE = 1 byte and 32 byte PAYLOAD
         return ((*this)[0] == 0x21 &&
-                ((*this)[1] == 0x01 || (*this)[1] == 0x02 || (*this)[1] == 0x03)&&
                 (*this)[34] == OP_COLOR &&
                 (*this)[35] == OP_HASH160 &&
                 (*this)[36] == 0x14 &&
-                (*this)[57] == OP_EQUAL);
+                (*this)[57] == OP_EQUAL &&
+
+                ((*this)[1] == TokenToUint(TokenTypes::REISSUABLE) ||
+                 (*this)[1] == TokenToUint(TokenTypes::NON_REISSUABLE) ||
+                 (*this)[1] == TokenToUint(TokenTypes::NFT)));
     return false;
 }
 
@@ -367,7 +372,18 @@ bool MatchColoredPayToPubkeyHash(const CScript& script, std::vector<unsigned cha
 {
     //<COLOR identifier> OP_COLOR OP_DUP OP_HASH160 <H(pubkey)> OP_EQUALVERIFY OP_CHECKSIG
     // <COLOR identifier> : TYPE = 1 byte and 32 byte PAYLOAD
-    if (script.size() == 60 && script[0] == 0x21  && (script[1] == 0x01 || script[1] == 0x02 || script[1] == 0x03) && script[34] == OP_COLOR && script[35] == OP_DUP && script[36] == OP_HASH160 && script[37] == 20 && script[58] == OP_EQUALVERIFY && script[59] == OP_CHECKSIG)
+    if (script.size() == 60 &&
+         script[0] == 0x21 &&
+         script[34] == OP_COLOR &&
+         script[35] == OP_DUP &&
+         script[36] == OP_HASH160 &&
+         script[37] == 20 &&
+         script[58] == OP_EQUALVERIFY &&
+         script[59] == OP_CHECKSIG &&
+
+         (script[1] == TokenToUint(TokenTypes::REISSUABLE) ||
+          script[1] == TokenToUint(TokenTypes::NON_REISSUABLE) ||
+          script[1] == TokenToUint(TokenTypes::NFT)))
     {
         pubkeyhash = std::vector<unsigned char>(script.begin() + 38, script.begin() + 58);
         colorid = std::vector<unsigned char>(script.begin() + 1, script.begin() + 34);
@@ -380,7 +396,6 @@ bool MatchCustomColoredScript(const CScript& script, std::vector<unsigned char>&
 {
     //search for colorid in the script
     // pattern: 0x21<33 byte>OP_COLOR
-    std::vector<unsigned char> colorId;
     CScript::const_iterator iterColorId1 = std::find(script.begin(), script.end(), 0x21);
     CScript::const_iterator iterOpColor = script.begin();
     opcodetype opcode;
@@ -395,9 +410,12 @@ bool MatchCustomColoredScript(const CScript& script, std::vector<unsigned char>&
     if(iterOpColor == script.end())
         return false;
 
-    if(iterColorId1 != script.end() && std::distance(iterColorId1, iterOpColor) == 34)
+    if(iterColorId1 != script.end() && std::distance(iterColorId1, iterOpColor) == 34 &&
+      (*(iterColorId1 + 1) == TokenToUint(TokenTypes::REISSUABLE) ||
+       *(iterColorId1 + 1) == TokenToUint(TokenTypes::NON_REISSUABLE) ||
+       *(iterColorId1 + 1) == TokenToUint(TokenTypes::NFT)))
     {
-        colorId.assign(iterColorId1 + 1, iterColorId1 + 34);
+        colorid.assign(iterColorId1 + 1, iterColorId1 + 34);
         return true;
     }
     

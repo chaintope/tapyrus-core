@@ -44,6 +44,7 @@ apps:
     environment:
       HOME: $SNAP_USER_COMMON
     daemon: simple
+    restart-condition: always
 
 parts:
   tapyrus-core:
@@ -59,6 +60,7 @@ parts:
       - --disable-bench
       - --disable-tests
     build-packages:
+      - build-essential
       - bsdmainutils
       - pkg-config
       - libboost-system-dev

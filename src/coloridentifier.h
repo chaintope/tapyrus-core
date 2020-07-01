@@ -11,10 +11,10 @@
 
 enum class TokenTypes
 {
-    NONE = 0, //TPC
-    REISSUABLE = 1,
-    NON_REISSUABLE = 2,
-    NFT = 3,
+    NONE = 0x00, //TPC
+    REISSUABLE = 0xc1,
+    NON_REISSUABLE = 0xc2,
+    NFT = 0xc3,
     TOKENTYPE_MAX = NFT
 };
 
@@ -22,11 +22,11 @@ inline uint8_t TokenToUint(TokenTypes t)
 {
     switch(t)
     {
-        case TokenTypes::NONE: return 0;
-        case TokenTypes::REISSUABLE: return 1;
-        case TokenTypes::NON_REISSUABLE: return 2;
-        case TokenTypes::NFT: return 3;
-        default: return 0;
+        case TokenTypes::NONE: return 0x00;
+        case TokenTypes::REISSUABLE: return 0xc1;
+        case TokenTypes::NON_REISSUABLE: return 0xc2;
+        case TokenTypes::NFT: return 0xc3;
+        default: return 0x00;
     }
 }
 
@@ -34,10 +34,10 @@ inline TokenTypes UintToToken(uint8_t t)
 {
     switch(t)
     {
-        case 0: return TokenTypes::NONE;
-        case 1: return TokenTypes::REISSUABLE;
-        case 2: return TokenTypes::NON_REISSUABLE;
-        case 3: return TokenTypes::NFT;
+        case 0x00: return TokenTypes::NONE;
+        case 0xc1: return TokenTypes::REISSUABLE;
+        case 0xc2: return TokenTypes::NON_REISSUABLE;
+        case 0xc3: return TokenTypes::NFT;
         default: return TokenTypes::NONE;
     }
 }
@@ -96,7 +96,7 @@ struct ColorIdentifier
             s.write((const char *)&xtype, 1);
         }
 
-        if(type > TokenTypes::NONE && type <= TokenTypes::TOKENTYPE_MAX)
+        if(type >= TokenTypes::REISSUABLE && type <= TokenTypes::TOKENTYPE_MAX)
             READWRITE(this->payload);
     }
 

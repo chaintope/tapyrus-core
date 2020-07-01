@@ -1168,9 +1168,6 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                     CDataStream ss(vchColorid, SER_NETWORK, PROTOCOL_VERSION);
                     ss >> *colorId;
 
-                    //check colorIdentifier TYPE. It should be between TokenTypes::NONE and TokenTypes::TOKENTYPE_MAX
-                    if(colorId->type <= TokenTypes::NONE || colorId->type > TokenTypes::TOKENTYPE_MAX)
-                        return set_error(serror, SCRIPT_ERR_OP_COLORID_INVALID);
 
                     //COLOR identifier consists of one byte of TYPE and 32 of PAYLOAD.
                     if(stacktop(-1).size() == 33 && (colorId->type == TokenTypes::REISSUABLE || colorId->type == TokenTypes::NON_REISSUABLE || colorId->type == TokenTypes::NFT))
