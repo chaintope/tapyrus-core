@@ -266,7 +266,7 @@ bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet,
           || whichType == TX_COLOR_SCRIPTHASH)
     {
         addressRet = CScriptID(uint160(vSolutions[0]));
-        if (whichType == TX_COLOR_PUBKEYHASH && colorId != nullptr) {
+        if (whichType == TX_COLOR_SCRIPTHASH && colorId != nullptr) {
           *colorId = ColorIdentifier(vSolutions[1]);
         }
         return true;

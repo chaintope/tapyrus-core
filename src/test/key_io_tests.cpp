@@ -65,6 +65,9 @@ BOOST_AUTO_TEST_CASE(key_io_valid_parse)
             BOOST_CHECK_MESSAGE(IsValidDestination(destination), "!IsValid:" + strTest);
             BOOST_CHECK_EQUAL(HexStr(script), HexStr(exp_payload));
 
+            ColorIdentifier colorid(GetColorIdFromScript(script));
+            BOOST_CHECK_EQUAL(HexStr(colorid.toVector()), HexStr(colorId.toVector()));
+
             // Try flipped case version
             for (char& c : exp_base58string) {
                 if (c >= 'a' && c <= 'z') {

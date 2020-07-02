@@ -26,8 +26,8 @@ static const std::string addr1 = "1QFqqMUD55ZV3PJEJZtaKCsQmjLT6JkjvJ";
 static const std::string addr2 = "1F5y5E5FMc5YzdJtB9hLaUe43GDxEKXENJ";
 static const std::string addr1C = "1NoJrossxPBKfCHuJXT4HadJrXRE9Fxiqs";
 static const std::string addr2C = "1CRj2HyM1CXWzHAXLQtiGLyggNT9WQqsDs";
-static const std::string caddr1 = "D1JzChcEUFYpUcNu1endmRbCeRKGKJiQDDs1kTYWD9Bx6uihrFE7HsTqW2MPWVMoqikjnzmBAWDgXnZ"; //cp2kh address
-static const std::string caddr2 = "D1h4u1Zq6Hc4WvQHsxCrc13kMjVUjK1SbNvEb4rXnoNwo1SbEM6QHipGpJCtJrCJyE1XG9gVE1yxE1t"; //invalid cp2kh address
+static const std::string caddr1 = "vhZAy3sWHvBvvAtXPqqrw4Y9pBWgcFJ1emPqowMcGNweoLQ4CHDXD6q5JJSir7XDa3ETsuJNQZjvd5"; //cp2kh address
+static const std::string caddr2 = "w6B4Zz97JtEUFV3dRTxKRjVnCYy6nTbZ4mojZ4W1g6DLFvUx3C5DNr9vF1uuFF6xYBqAzTQdYkJcg5"; //invalid cp2kh address
 
 static const std::string strAddressBad = "1HV9Lc3sNHZxwj4Zk6fB38tEmBryq2cBiF";
 

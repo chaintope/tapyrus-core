@@ -109,7 +109,7 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
             return CScriptID(hash);
         }
         // base58-encoded Tapyrus colored addresses.
-        // Public-key-hash-addresses have version 16 (or 36 testnet).
+        // Public-key-hash-addresses have version 1(0x01) (or 112(0x70) testnet).
         // The data vector contains ColorIdentifier and RIPEMD160(SHA256(pubkey)), where pubkey is the serialized public key.
         const std::vector<unsigned char>& c_pubkey_prefix = params.Base58Prefix(CChainParams::C_PUBKEY_ADDRESS);
         if (data.size() == hash.size() + c_pubkey_prefix.size() + colorIdSize && std::equal(c_pubkey_prefix.begin(), c_pubkey_prefix.end(), data.begin())) {
@@ -118,7 +118,7 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
             std::copy(data.begin() + c_pubkey_prefix.size() + colorIdSize, data.end(), hash.begin());
             return CKeyID(hash);
         }
-        // colored Script-hash-addresses have version 16 (or 38 testnet).
+        // colored Script-hash-addresses have version 6(0x06) (or 197(0xc5) testnet).
         // The data vector contains ColorIdentifier and RIPEMD160(SHA256(cscript)), where cscript is the serialized redemption script.
         const std::vector<unsigned char>& c_script_prefix = params.Base58Prefix(CChainParams::C_SCRIPT_ADDRESS);
         if (data.size() == hash.size() + c_script_prefix.size() + colorIdSize && std::equal(c_script_prefix.begin(), c_script_prefix.end(), data.begin())) {
