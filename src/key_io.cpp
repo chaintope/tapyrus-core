@@ -93,6 +93,13 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
     uint colorIdSize = 33;
 
     if (DecodeBase58Check(str, data)) {
+
+        CScript scriptPubKey(data.begin(), data.end());
+        if(scriptPubKey.IsColoredScript()) {
+            ColorIdentifier cid(GetColorIdFromScript(scriptPubKey));
+            colorId = cid;
+        }
+
         // base58-encoded Tapyrus addresses.
         // Public-key-hash-addresses have version 0 (or 111 testnet).
         // The data vector contains RIPEMD160(SHA256(pubkey)), where pubkey is the serialized public key.
