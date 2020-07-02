@@ -64,13 +64,13 @@ struct ColorIdentifier
         CSerActionUnserialize ser_action;
         CDataStream s((const char*)pbegin, (const char*)pend, SER_NETWORK, INIT_PROTO_VERSION);
         SerializationOp(s, ser_action);
-     }
+    }
 
     ColorIdentifier(const std::vector<unsigned char>& in) {
         CSerActionUnserialize ser_action;
         CDataStream s(in, SER_NETWORK, INIT_PROTO_VERSION);
         SerializationOp(s, ser_action);
-     }
+    }
 
     bool operator==(const ColorIdentifier& colorId) const {
         return this->type == colorId.type && (memcmp(&this->payload[0], &colorId.payload[0], 32) == 0);

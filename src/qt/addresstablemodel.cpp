@@ -240,7 +240,8 @@ bool AddressTableModel::setData(const QModelIndex &index, const QVariant &value,
 
     if(role == Qt::EditRole)
     {
-        CTxDestination curAddress = DecodeDestination(rec->address.toStdString());
+        ColorIdentifier colorId;
+        CTxDestination curAddress = DecodeDestination(rec->address.toStdString(), colorId);
         if(index.column() == Label)
         {
             // Do nothing, if old label == new label
@@ -251,7 +252,7 @@ bool AddressTableModel::setData(const QModelIndex &index, const QVariant &value,
             }
             walletModel->wallet().setAddressBook(curAddress, value.toString().toStdString(), strPurpose);
         } else if(index.column() == Address) {
-            CTxDestination newAddress = DecodeDestination(value.toString().toStdString());
+            CTxDestination newAddress = DecodeDestination(value.toString().toStdString(), colorId);
             // Refuse to set invalid address, set error status and return false
             if(boost::get<CNoDestination>(&newAddress))
             {
@@ -352,8 +353,9 @@ QString AddressTableModel::addRow(const QString &type, const QString &label, con
         }
         // Check for duplicate addresses
         {
+            ColorIdentifier colorId;
             if (walletModel->wallet().getAddress(
-                    DecodeDestination(strAddress), /* name= */ nullptr, /* is_mine= */ nullptr, /* purpose= */ nullptr))
+                    DecodeDestination(strAddress, colorId), /* name= */ nullptr, /* is_mine= */ nullptr, /* purpose= */ nullptr))
             {
                 editStatus = DUPLICATE_ADDRESS;
                 return QString();
@@ -388,7 +390,8 @@ QString AddressTableModel::addRow(const QString &type, const QString &label, con
     }
 
     // Add entry
-    walletModel->wallet().setAddressBook(DecodeDestination(strAddress), strLabel,
+    ColorIdentifier colorId;
+    walletModel->wallet().setAddressBook(DecodeDestination(strAddress, colorId), strLabel,
                            (type == Send ? "send" : "receive"));
     return QString::fromStdString(strAddress);
 }
@@ -403,7 +406,8 @@ bool AddressTableModel::removeRows(int row, int count, const QModelIndex &parent
         // Also refuse to remove receiving addresses.
         return false;
     }
-    walletModel->wallet().delAddressBook(DecodeDestination(rec->address.toStdString()));
+    ColorIdentifier colorId;
+    walletModel->wallet().delAddressBook(DecodeDestination(rec->address.toStdString(), colorId));
     return true;
 }
 
@@ -428,7 +432,8 @@ QString AddressTableModel::purposeForAddress(const QString &address) const
 bool AddressTableModel::getAddressData(const QString &address,
         std::string* name,
         std::string* purpose) const {
-    CTxDestination destination = DecodeDestination(address.toStdString());
+    ColorIdentifier colorId;
+    CTxDestination destination = DecodeDestination(address.toStdString(), colorId);
     return walletModel->wallet().getAddress(destination, name, /* is_mine= */ nullptr, purpose);
 }
 

@@ -22,7 +22,7 @@ CExtPubKey DecodeExtPubKey(const std::string& str);
 std::string EncodeExtPubKey(const CExtPubKey& extpubkey);
 
 std::string EncodeDestination(const CTxDestination& dest);
-CTxDestination DecodeDestination(const std::string& str);
+CTxDestination DecodeDestination(const std::string& str, ColorIdentifier& colorId);
 bool IsValidDestinationString(const std::string& str);
 bool IsValidDestinationString(const std::string& str, const CChainParams& params);
 

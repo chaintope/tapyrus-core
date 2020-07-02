@@ -114,7 +114,8 @@ void SignVerifyMessageDialog::on_signMessageButton_SM_clicked()
     /* Clear old signature to ensure users don't get confused on error with an old signature displayed */
     ui->signatureOut_SM->clear();
 
-    CTxDestination destination = DecodeDestination(ui->addressIn_SM->text().toStdString());
+    ColorIdentifier colorId;
+    CTxDestination destination = DecodeDestination(ui->addressIn_SM->text().toStdString(), colorId);
     if (!IsValidDestination(destination)) {
         ui->statusLabel_SM->setStyleSheet("QLabel { color: red; }");
         ui->statusLabel_SM->setText(tr("The entered address is invalid.") + QString(" ") + tr("Please check the address and try again."));
@@ -192,7 +193,8 @@ void SignVerifyMessageDialog::on_addressBookButton_VM_clicked()
 
 void SignVerifyMessageDialog::on_verifyMessageButton_VM_clicked()
 {
-    CTxDestination destination = DecodeDestination(ui->addressIn_VM->text().toStdString());
+    ColorIdentifier colorId;
+    CTxDestination destination = DecodeDestination(ui->addressIn_VM->text().toStdString(), colorId);
     if (!IsValidDestination(destination)) {
         ui->statusLabel_VM->setStyleSheet("QLabel { color: red; }");
         ui->statusLabel_VM->setText(tr("The entered address is invalid.") + QString(" ") + tr("Please check the address and try again."));

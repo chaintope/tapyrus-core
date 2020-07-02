@@ -92,7 +92,8 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
         if (nNet > 0)
         {
             // Credit
-            CTxDestination address = DecodeDestination(rec->address);
+            ColorIdentifier colorId;
+            CTxDestination address = DecodeDestination(rec->address, colorId);
             if (IsValidDestination(address)) {
                 std::string name;
                 isminetype ismine;
@@ -120,7 +121,8 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
         // Online transaction
         std::string strAddress = wtx.value_map["to"];
         strHTML += "<b>" + tr("To") + ":</b> ";
-        CTxDestination dest = DecodeDestination(strAddress);
+        ColorIdentifier colorId;
+        CTxDestination dest = DecodeDestination(strAddress, colorId);
         std::string name;
         if (wallet.getAddress(
                 dest, &name, /* is_mine= */ nullptr, /* purpose= */ nullptr) && !name.empty())

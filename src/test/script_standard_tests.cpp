@@ -336,6 +336,22 @@ BOOST_AUTO_TEST_CASE(script_standard_GetScriptFor_)
     result = GetScriptForDestination(CScriptID(redeemScript));
     BOOST_CHECK(result == expected);
 
+    bool isColored = true;
+
+    //ColoredKeyId
+    ColorIdentifier colorId = ColorIdentifier(CScript() << ToByteVector(pubkeys[0]) << OP_CHECKSIG);
+    expected.clear();
+    expected << colorId.toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(pubkeys[0].GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
+    result = GetScriptForDestination(pubkeys[0].GetID(), &colorId);
+    BOOST_CHECK(result == expected);
+
+    //ColoredScriptID
+    CScript coloredRedeemScript(result);
+    expected.clear();
+    expected << OP_HASH160 << ToByteVector(CScriptID(coloredRedeemScript)) << OP_EQUAL;
+    result = GetScriptForDestination(CScriptID(coloredRedeemScript), &colorId);
+    BOOST_CHECK(result == expected);
+
     // CNoDestination
     expected.clear();
     result = GetScriptForDestination(CNoDestination());
@@ -499,6 +515,87 @@ BOOST_AUTO_TEST_CASE(script_standard_IsMine)
         result = IsMine(keystore, scriptPubKey);
         BOOST_CHECK_EQUAL(result, ISMINE_NO);
     }
+
+    // CP2PKH compressed
+    {
+        ColorIdentifier colorId = ColorIdentifier(CScript() << ToByteVector(pubkeys[0]) << OP_CHECKSIG);
+        CBasicKeyStore keystore;
+        scriptPubKey = GetScriptForDestination(pubkeys[0].GetID(), &colorId);
+
+        // Keystore does not have key
+        result = IsMine(keystore, scriptPubKey);
+        BOOST_CHECK_EQUAL(result, ISMINE_NO);
+
+        // Keystore has key
+        keystore.AddKey(keys[0]);
+        result = IsMine(keystore, scriptPubKey);
+        BOOST_CHECK_EQUAL(result, ISMINE_SPENDABLE);
+    }
+
+    // CP2PKH compressed (invalid colorid)
+    {
+        ColorIdentifier colorId = ColorIdentifier();
+        CBasicKeyStore keystore;
+        scriptPubKey = GetScriptForDestination(pubkeys[0].GetID(), &colorId);
+
+        // Keystore does not have key
+        result = IsMine(keystore, scriptPubKey);
+        BOOST_CHECK_EQUAL(result, ISMINE_NO);
+
+        // Keystore has key
+        keystore.AddKey(keys[0]);
+        result = IsMine(keystore, scriptPubKey);
+        //isMine() not checking for colorId so the result still ISMINE_SPENDABLE
+        BOOST_CHECK_EQUAL(result, ISMINE_SPENDABLE);
+    }
+
+    // CP2SH
+    {
+        ColorIdentifier colorId = ColorIdentifier(CScript() << ToByteVector(pubkeys[0]) << OP_CHECKSIG);
+        CBasicKeyStore keystore;
+
+        CScript redeemScript = GetScriptForDestination(pubkeys[0].GetID(), &colorId);
+        scriptPubKey = GetScriptForDestination(CScriptID(redeemScript), &colorId);
+
+        // Keystore does not have redeemScript or key
+        result = IsMine(keystore, scriptPubKey);
+        BOOST_CHECK_EQUAL(result, ISMINE_NO);
+
+        // Keystore has redeemScript but no key
+        keystore.AddCScript(redeemScript);
+        result = IsMine(keystore, scriptPubKey);
+        BOOST_CHECK_EQUAL(result, ISMINE_NO);
+
+        // Keystore has redeemScript and key
+        keystore.AddKey(keys[0]);
+        result = IsMine(keystore, scriptPubKey);
+        BOOST_CHECK_EQUAL(result, ISMINE_SPENDABLE);
+    }
+
+    // CP2SH (invalid colorid)
+    {
+        ColorIdentifier colorId = ColorIdentifier();
+        CBasicKeyStore keystore;
+
+        CScript redeemScript = GetScriptForDestination(pubkeys[0].GetID(), &colorId);
+        scriptPubKey = GetScriptForDestination(CScriptID(redeemScript), &colorId);
+
+        // Keystore does not have redeemScript or key
+        result = IsMine(keystore, scriptPubKey);
+        BOOST_CHECK_EQUAL(result, ISMINE_NO);
+
+        // Keystore has redeemScript but no key
+        keystore.AddCScript(redeemScript);
+        result = IsMine(keystore, scriptPubKey);
+        BOOST_CHECK_EQUAL(result, ISMINE_NO);
+
+        // Keystore has key but redeemScript not belongs to me
+        keystore.AddKey(keys[0]);
+        result = IsMine(keystore, scriptPubKey);
+        //isMine() not checking for colorId so the result still ISMINE_SPENDABLE
+        BOOST_CHECK_EQUAL(result, ISMINE_SPENDABLE);
+    }
+
 #ifdef DEBUG
     // (P2PKH inside) P2SH inside P2WSH (invalid)
     {

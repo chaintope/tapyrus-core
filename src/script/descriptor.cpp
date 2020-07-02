@@ -550,7 +550,8 @@ std::unique_ptr<Descriptor> ParseScript(Span<const char>& sp, ParseScriptContext
     }
 #endif
     if (ctx == ParseScriptContext::TOP && Func("addr", expr)) {
-        CTxDestination dest = DecodeDestination(std::string(expr.begin(), expr.end()));
+        ColorIdentifier colorId;
+        CTxDestination dest = DecodeDestination(std::string(expr.begin(), expr.end()), colorId);
         if (!IsValidDestination(dest)) return nullptr;
         return MakeUnique<AddressDescriptor>(std::move(dest));
     }
