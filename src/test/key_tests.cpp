@@ -26,7 +26,8 @@ static const std::string addr1 = "1QFqqMUD55ZV3PJEJZtaKCsQmjLT6JkjvJ";
 static const std::string addr2 = "1F5y5E5FMc5YzdJtB9hLaUe43GDxEKXENJ";
 static const std::string addr1C = "1NoJrossxPBKfCHuJXT4HadJrXRE9Fxiqs";
 static const std::string addr2C = "1CRj2HyM1CXWzHAXLQtiGLyggNT9WQqsDs";
-static const std::string caddr1 = "9Sm4FmpByabwpU1e5GUhg6bYpMatN4kbNqTbByKnD8vDTK1xQHkw1yUSa1Kw6LCMCDPCGLakuKFzApT"; //cp2kh address
+static const std::string caddr1 = "D1JzChcEUFYpUcNu1endmRbCeRKGKJiQDDs1kTYWD9Bx6uihrFE7HsTqW2MPWVMoqikjnzmBAWDgXnZ"; //cp2kh address
+static const std::string caddr2 = "D1h4u1Zq6Hc4WvQHsxCrc13kMjVUjK1SbNvEb4rXnoNwo1SbEM6QHipGpJCtJrCJyE1XG9gVE1yxE1t"; //invalid cp2kh address
 
 static const std::string strAddressBad = "1HV9Lc3sNHZxwj4Zk6fB38tEmBryq2cBiF";
 
@@ -84,9 +85,14 @@ BOOST_AUTO_TEST_CASE(key_test1)
     BOOST_CHECK(DecodeDestination(addr2C, colorId) == CTxDestination(pubkey2C.GetID()));
     BOOST_CHECK(colorId.type == TokenTypes::NONE);
     BOOST_CHECK(colorId.toVector().size() == 1);
+    //valid color address
     BOOST_CHECK(DecodeDestination(caddr1, colorId) == CTxDestination(pubkey1.GetID()));
     BOOST_CHECK(colorId.type == TokenTypes::REISSUABLE);
     BOOST_CHECK(colorId.toVector().size() == 33);
+    //invalid color address
+    BOOST_CHECK(DecodeDestination(caddr2, colorId) == CTxDestination(pubkey1.GetID()));
+    BOOST_CHECK(colorId.type == TokenTypes::NONE);
+    BOOST_CHECK(colorId.toVector().size() == 1);
 
     for (int n=0; n<16; n++)
     {
