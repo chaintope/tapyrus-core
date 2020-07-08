@@ -2174,7 +2174,7 @@ CAmount CWallet::GetLegacyBalance(const isminefilter& filter, int minDepth, cons
     return balance[ColorIdentifier()];
 }
 
-CAmount CWallet::GetAvailableBalance(const CCoinControl* coinControl) const
+TxColoredCoinBalancesMap CWallet::GetAvailableBalance(const CCoinControl* coinControl) const
 {
     LOCK2(cs_main, cs_wallet);
 
@@ -2184,10 +2184,11 @@ CAmount CWallet::GetAvailableBalance(const CCoinControl* coinControl) const
     AvailableCoins(vCoins, true, coinControl);
     for (const COutput& out : vCoins) {
         if (out.fSpendable) {
-            balance[ColorIdentifier()] += out.tx->tx->vout[out.i].nValue;
+            auto colorId = GetColorIdFromScript(out.tx->tx->vout[out.i].scriptPubKey);
+            balance[colorId] += out.tx->tx->vout[out.i].nValue;
         }
     }
-    return balance[ColorIdentifier()];
+    return balance;
 }
 
 void CWallet::AvailableCoins(std::vector<COutput> &vCoins, bool fOnlySafe, const CCoinControl *coinControl, const CAmount &nMinimumAmount, const CAmount &nMaximumAmount, const CAmount &nMinimumSumAmount, const uint64_t nMaximumCount, const int nMinDepth, const int nMaxDepth) const
