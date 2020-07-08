@@ -65,6 +65,9 @@ BOOST_AUTO_TEST_CASE(key_io_valid_parse)
             BOOST_CHECK_MESSAGE(IsValidDestination(destination), "!IsValid:" + strTest);
             BOOST_CHECK_EQUAL(HexStr(script), HexStr(exp_payload));
 
+            ColorIdentifier colorid(GetColorIdFromScript(script));
+            BOOST_CHECK_EQUAL(HexStr(colorid.toVector()), HexStr(colorId.toVector()));
+
             // Try flipped case version
             for (char& c : exp_base58string) {
                 if (c >= 'a' && c <= 'z') {
@@ -117,9 +120,10 @@ BOOST_AUTO_TEST_CASE(key_io_valid_gen)
             BOOST_CHECK_MESSAGE(EncodeSecret(key) == exp_base58string, "result mismatch: " + strTest);
         } else {
             CTxDestination dest;
+            ColorIdentifier colorId;
             CScript exp_script(exp_payload.begin(), exp_payload.end());
-            ExtractDestination(exp_script, dest);
-            std::string address = EncodeDestination(dest);
+            ExtractDestination(exp_script, dest, &colorId);
+            std::string address = EncodeDestination(dest, colorId);
 
             BOOST_CHECK_EQUAL(address, exp_base58string);
         }

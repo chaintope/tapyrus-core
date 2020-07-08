@@ -68,8 +68,9 @@ void TestAddAddressesToSendBook()
         key.MakeNewKey(true);
         CTxDestination dest(GetDestinationForKey(
             key.GetPubKey(), wallet->m_default_address_type));
+        ColorIdentifier colorId;
 
-        return std::make_pair(dest, QString::fromStdString(EncodeDestination(dest)));
+        return std::make_pair(dest, QString::fromStdString(EncodeDestination(dest, colorId)));
     };
 
     CTxDestination r_key_dest, s_key_dest;

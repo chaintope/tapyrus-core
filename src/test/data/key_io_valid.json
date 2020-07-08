@@ -511,5 +511,13 @@
             "isPrivkey": false,
             "chain": "prod"
         }
+    ],
+    [
+        "vhZAy3sWHvBvvAtXPqqrw4Y9pBWgcFJ1emPqowMcGNweoLQ4CHDXD6q5JJSir7XDa3ETsuJNQZjvd5",
+        "21c13f4ae1eb3e75f3578491811d27eb59e23a512cf90c73b13c6acd4499f7c4d28bbc76a914ff197b14e502ab41f3bc8ccb48c4abac9eab35bc88ac",
+        {
+            "isPrivkey": false,
+            "chain": "prod"
+        }
     ]
 ]
