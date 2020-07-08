@@ -620,7 +620,8 @@ void CoinControlDialog::updateView()
     for (const auto& coins : model->wallet().listCoins()) {
         CCoinControlWidgetItem *itemWalletAddress = new CCoinControlWidgetItem();
         itemWalletAddress->setCheckState(COLUMN_CHECKBOX, Qt::Unchecked);
-        QString sWalletAddress = QString::fromStdString(EncodeDestination(coins.first));
+        ColorIdentifier colorId;
+        QString sWalletAddress = QString::fromStdString(EncodeDestination(coins.first, colorId));
         QString sWalletLabel = model->getAddressTableModel()->labelForAddress(sWalletAddress);
         if (sWalletLabel.isEmpty())
             sWalletLabel = tr("(no label)");
@@ -659,7 +660,7 @@ void CoinControlDialog::updateView()
             QString sAddress = "";
             if(ExtractDestination(out.txout.scriptPubKey, outputAddress))
             {
-                sAddress = QString::fromStdString(EncodeDestination(outputAddress));
+                sAddress = QString::fromStdString(EncodeDestination(outputAddress, colorId));
 
                 // if listMode or change => show tpc address. In tree mode, address is not shown again for direct wallet address outputs
                 if (!treeMode || (!(sAddress == sWalletAddress)))

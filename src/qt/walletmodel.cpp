@@ -352,7 +352,8 @@ static void NotifyAddressBookChanged(WalletModel *walletmodel,
         const CTxDestination &address, const std::string &label, bool isMine,
         const std::string &purpose, ChangeType status)
 {
-    QString strAddress = QString::fromStdString(EncodeDestination(address));
+    ColorIdentifier colorId;
+    QString strAddress = QString::fromStdString(EncodeDestination(address, colorId));
     QString strLabel = QString::fromStdString(label);
     QString strPurpose = QString::fromStdString(purpose);
 

@@ -151,7 +151,7 @@ void ScriptToUniv(const CScript& script, UniValue& out, bool include_address)
     CTxDestination address;
     ColorIdentifier colorId;
     if (include_address && ExtractDestination(script, address, &colorId)) {
-        out.pushKV("address", EncodeDestination(address));
+        out.pushKV("address", EncodeDestination(address, colorId));
     }
 }
 
@@ -174,9 +174,14 @@ void ScriptPubKeyToUniv(const CScript& scriptPubKey,
     out.pushKV("reqSigs", nRequired);
     out.pushKV("type", GetTxnOutputType(type));
 
+    ColorIdentifier colorId;
+    if (scriptPubKey.IsColoredScript()) {
+        colorId = GetColorIdFromScript(scriptPubKey);
+    }
+
     UniValue a(UniValue::VARR);
     for (const CTxDestination& addr : addresses) {
-        a.push_back(EncodeDestination(addr));
+        a.push_back(EncodeDestination(addr, colorId));
     }
     out.pushKV("addresses", a);
 }

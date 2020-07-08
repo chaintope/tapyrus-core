@@ -75,11 +75,6 @@ class CBlockPolicyEstimator;
 class CWalletTx;
 struct FeeCalculation;
 enum class FeeEstimateMode;
-struct CBalance
-{
-    ColorIdentifier colorId;
-    CAmount value;
-};
 
 /** (client) version numbers for particular wallet features */
 enum WalletFeature
