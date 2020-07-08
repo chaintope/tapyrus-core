@@ -318,7 +318,7 @@ BOOST_FIXTURE_TEST_CASE(ListCoins, ListCoinsTestingSetup)
     BOOST_CHECK_EQUAL(list.begin()->second.size(), 6U);
 
     // Check initial balance from 6 coinbase transaction.
-    BOOST_CHECK_EQUAL(300 * COIN, wallet->GetAvailableBalance());
+    BOOST_CHECK_EQUAL(300 * COIN, wallet->GetAvailableBalance()[ColorIdentifier()]);
 
     // Add a transaction creating a change address, and confirm ListCoins still
     // returns the coin associated with the change address underneath the

@@ -947,8 +947,7 @@ public:
     CAmount GetUnconfirmedBalance() const;
     CAmount GetUnconfirmedWatchOnlyBalance() const;
     CAmount GetLegacyBalance(const isminefilter& filter, int minDepth, const std::string* account) const;
-    CAmount GetAvailableBalance(const CCoinControl* coinControl = nullptr) const;
-    std::vector<CBalance> GetAvailableTokenBalance(const CCoinControl* coinControl = nullptr) const;
+    TxColoredCoinBalancesMap GetAvailableBalance(const CCoinControl* coinControl = nullptr) const;
 
     OutputType TransactionChangeType(OutputType change_type, const std::vector<CRecipient>& vecSend);
 

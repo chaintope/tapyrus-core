@@ -2164,7 +2164,8 @@ CAmount CWallet::GetLegacyBalance(const isminefilter& filter, int minDepth, cons
 
     return balance;
 }
-CAmount CWallet::GetAvailableBalance(const CCoinControl* coinControl) const
+
+TxColoredCoinBalancesMap CWallet::GetAvailableBalance(const CCoinControl* coinControl) const
 {
     LOCK2(cs_main, cs_wallet);
 
@@ -2188,8 +2189,10 @@ std::vector<CBalance> CWallet::GetAvailableTokenBalance(const CCoinControl* coin
     std::vector<CBalance> cbalances;
     std::vector<COutput> vCoins;
     AvailableCoins(vCoins, true, coinControl);
+    ColorIdentifier colorId;
     for (const COutput& out : vCoins) {
         if (out.fSpendable) {
+<<<<<<< Updated upstream
             CScript& scriptPubKey = const_cast<CScript&>(out.tx->tx->vout[out.i].scriptPubKey);
             //create a method to extract colorId using scriptpubkey;
             ColorIdentifier colorId(GetColorIdFromScript(scriptPubKey));
@@ -2212,6 +2215,13 @@ std::vector<CBalance> CWallet::GetAvailableTokenBalance(const CCoinControl* coin
         }
     }
     return cbalances;
+=======
+            colorId = GetColorIdFromScript(out.tx->tx->vout[out.i].scriptPubKey);
+            balance[colorId] += out.tx->tx->vout[out.i].nValue;
+        }
+    }
+    return balance;
+>>>>>>> Stashed changes
 }
 
 void CWallet::AvailableCoins(std::vector<COutput> &vCoins, bool fOnlySafe, const CCoinControl *coinControl, const CAmount &nMinimumAmount, const CAmount &nMaximumAmount, const CAmount &nMinimumSumAmount, const uint64_t nMaximumCount, const int nMinDepth, const int nMaxDepth) const

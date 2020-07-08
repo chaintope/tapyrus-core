@@ -358,7 +358,7 @@ public:
     CAmount getBalance() override { return m_wallet.GetBalance(); }
     CAmount getAvailableBalance(const CCoinControl& coin_control) override
     {
-        return m_wallet.GetAvailableBalance(&coin_control);
+        return m_wallet.GetAvailableBalance(&coin_control)[ColorIdentifier()];
     }
     isminetype txinIsMine(const CTxIn& txin) override
     {
