@@ -77,8 +77,9 @@ WalletTx MakeWalletTx(CWallet& wallet, const CWalletTx& wtx)
                                                       IsMine(wallet, result.txout_address.back(), colorId) :
                                                       ISMINE_NO);
     }
+    ColorIdentifier cid;
     result.credit[ColorIdentifier()] = wtx.GetCredit(ISMINE_ALL);
-    result.debit[ColorIdentifier()] = wtx.GetDebit(ISMINE_ALL);
+    result.debit[ColorIdentifier()] = wtx.GetDebit(ISMINE_ALL, cid);
     result.change[ColorIdentifier()] = wtx.GetChange();
     result.time = wtx.GetTxTime();
     result.value_map = wtx.mapValue;
@@ -373,7 +374,10 @@ public:
     CAmount getDebit(const CTxIn& txin, isminefilter filter) override
     {
         LOCK2(::cs_main, m_wallet.cs_wallet);
-        return m_wallet.GetDebit(txin, filter);
+        const CWalletTx* parent = m_wallet.GetWalletTx(txin.prevout.hashMalFix);
+        ColorIdentifier colorId = GetColorIdFromScript(parent->tx->vout[txin.prevout.n].scriptPubKey);
+        // return m_wallet.GetDebit(txin, filter)[txin.colorId];
+        return m_wallet.GetDebit(txin, filter)[colorId];
     }
     CAmount getCredit(const CTxOut& txout, isminefilter filter) override
     {
