@@ -275,15 +275,12 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
     if (node.getLogCategories() != BCLog::NONE)
     {
         strHTML += "<hr><br>" + tr("Debug information") + "<br><br>";
-        ColorIdentifier colorId;
         for (const CTxIn& txin : wtx.tx->vin)
             if(wallet.txinIsMine(txin))
                 strHTML += "<b>" + tr("Debit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, -wallet.getDebit(txin, ISMINE_ALL)) + "<br>";
-        for (const CTxOut& txout : wtx.tx->vout) {
-            colorId = GetColorIdFromScript(txout.scriptPubKey);
+        for (const CTxOut& txout : wtx.tx->vout)
             if(wallet.txoutIsMine(txout))
                 strHTML += "<b>" + tr("Credit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, wallet.getCredit(txout, ISMINE_ALL)) + "<br>";
-        }
 
         strHTML += "<br><b>" + tr("Transaction") + ":</b><br>";
         strHTML += GUIUtil::HtmlEscape(wtx.tx->ToString(), true);

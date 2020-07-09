@@ -1826,9 +1826,8 @@ static void ListTransactions(CWallet* const pwallet, const CWalletTx& wtx, const
 
     wtx.GetAmounts(listReceived, listSent, nFee, strSentAccount, filter);
 
-    ColorIdentifier colorId;
     bool fAllAccounts = (strAccount == std::string("*"));
-    bool involvesWatchonly = wtx.IsFromMe(ISMINE_WATCH_ONLY, colorId);
+    bool involvesWatchonly = wtx.IsFromMe(ISMINE_WATCH_ONLY);
 
     // Sent
     if ((!listSent.empty() || nFee != 0) && (fAllAccounts || strAccount == strSentAccount))
@@ -2414,15 +2413,13 @@ static UniValue gettransaction(const JSONRPCRequest& request)
     }
     const CWalletTx& wtx = it->second;
 
-    ColorIdentifier colorId;
-
     CAmount nCredit = wtx.GetCredit(filter);
-    CAmount nDebit = wtx.GetDebit(filter, colorId);
+    CAmount nDebit = wtx.GetDebit(filter);
     CAmount nNet = nCredit - nDebit;
-    CAmount nFee = (wtx.IsFromMe(filter, colorId) ? wtx.tx->GetValueOut() - nDebit : 0);
+    CAmount nFee = (wtx.IsFromMe(filter) ? wtx.tx->GetValueOut() - nDebit : 0);
 
     entry.pushKV("amount", ValueFromAmount(nNet - nFee));
-    if (wtx.IsFromMe(filter, colorId))
+    if (wtx.IsFromMe(filter))
         entry.pushKV("fee", ValueFromAmount(nFee));
 
     WalletTxToJSON(wtx, entry);
