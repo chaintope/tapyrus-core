@@ -16,11 +16,12 @@ std::string COutPoint::ToString() const
     return strprintf("COutPoint(%s, %u)", hashMalFix.ToString().substr(0,10), n);
 }
 
-CTxIn::CTxIn(COutPoint prevoutIn, CScript scriptSigIn, uint32_t nSequenceIn)
+CTxIn::CTxIn(COutPoint prevoutIn, CScript scriptSigIn, uint32_t nSequenceIn, ColorIdentifier colorId)
 {
     prevout = prevoutIn;
     scriptSig = scriptSigIn;
     nSequence = nSequenceIn;
+    colorId = colorId;
 }
 
 CTxIn::CTxIn(uint256 hashPrevTx, uint32_t nOut, CScript scriptSigIn, uint32_t nSequenceIn)
@@ -28,6 +29,7 @@ CTxIn::CTxIn(uint256 hashPrevTx, uint32_t nOut, CScript scriptSigIn, uint32_t nS
     prevout = COutPoint(hashPrevTx, nOut);
     scriptSig = scriptSigIn;
     nSequence = nSequenceIn;
+    colorId = ColorIdentifier(prevout, TokenTypes::REISSUABLE);
 }
 
 std::string CTxIn::ToString() const
