@@ -1928,19 +1928,22 @@ CAmount CWalletTx::GetCredit(const isminefilter& filter) const
     return credit;
 }
 
-CAmount CWalletTx::GetAvailableCredit(bool fUseCache, const isminefilter& filter) const
+TxColoredCoinBalancesMap CWalletTx::GetAvailableCredit(bool fUseCache, const isminefilter& filter) const
 {
-    if (pwallet == nullptr)
-        return 0;
+    TxColoredCoinBalancesMap nCredit;
+    nCredit[ColorIdentifier()] = 0;
 
-    CAmount* cache = nullptr;
+    if (pwallet == nullptr)
+        return nCredit;
+
+    TxColoredCoinBalancesMap* cache = nullptr;
     bool* cache_used = nullptr;
 
     if (filter == ISMINE_SPENDABLE) {
-        cache = &nAvailableCreditCached[ColorIdentifier()];
+        cache = &nAvailableCreditCached;
         cache_used = &fAvailableCreditCached;
     } else if (filter == ISMINE_WATCH_ONLY) {
-        cache = &nAvailableWatchCreditCached[ColorIdentifier()];
+        cache = &nAvailableWatchCreditCached;
         cache_used = &fAvailableWatchCreditCached;
     }
 
@@ -1948,26 +1951,25 @@ CAmount CWalletTx::GetAvailableCredit(bool fUseCache, const isminefilter& filter
         return *cache;
     }
 
-    TxColoredCoinBalancesMap nCredit;
-    nCredit[ColorIdentifier()] = 0;
     uint256 hashTx = GetHash();
     for (unsigned int i = 0; i < tx->vout.size(); i++)
     {
         if (!pwallet->IsSpent(hashTx, i))
         {
             const CTxOut &txout = tx->vout[i];
-            nCredit[ColorIdentifier()] += pwallet->GetCredit(txout, filter);
-            if (!MoneyRange(nCredit[ColorIdentifier()]))
+            ColorIdentifier colorId(GetColorIdFromScript(tx->vout[i].scriptPubKey));
+            nCredit[colorId] += pwallet->GetCredit(txout, filter);
+            if (!MoneyRange(nCredit[colorId]))
                 throw std::runtime_error(std::string(__func__) + " : value out of range");
         }
     }
 
     if (cache) {
-        *cache = nCredit[ColorIdentifier()];
+        *cache = nCredit;
         assert(cache_used);
         *cache_used = true;
     }
-    return nCredit[ColorIdentifier()];
+    return nCredit;
 }
 
 CAmount CWalletTx::GetChange() const
@@ -2093,7 +2095,7 @@ CAmount CWallet::GetBalance(const isminefilter& filter, const int min_depth) con
         {
             const CWalletTx* pcoin = &entry.second;
             if (pcoin->IsTrusted() && pcoin->GetDepthInMainChain() >= min_depth) {
-                nTotal[ColorIdentifier()] += pcoin->GetAvailableCredit(true, filter);
+                nTotal[ColorIdentifier()] += pcoin->GetAvailableCredit(true, filter)[ColorIdentifier()];
             }
         }
     }
@@ -2101,7 +2103,7 @@ CAmount CWallet::GetBalance(const isminefilter& filter, const int min_depth) con
     return nTotal[ColorIdentifier()];
 }
 
-CAmount CWallet::GetUnconfirmedBalance() const
+TxColoredCoinBalancesMap CWallet::GetUnconfirmedBalance() const
 {
     TxColoredCoinBalancesMap nTotal;
     nTotal[ColorIdentifier()] = 0;
@@ -2110,11 +2112,15 @@ CAmount CWallet::GetUnconfirmedBalance() const
         for (const auto& entry : mapWallet)
         {
             const CWalletTx* pcoin = &entry.second;
-            if (!pcoin->IsTrusted() && pcoin->GetDepthInMainChain() == 0 && pcoin->InMempool())
-                nTotal[ColorIdentifier()] += pcoin->GetAvailableCredit();
+            if (!pcoin->IsTrusted() && pcoin->GetDepthInMainChain() == 0 && pcoin->InMempool()) {
+                TxColoredCoinBalancesMap credits = pcoin->GetAvailableCredit();
+                for (auto credit: credits) {
+                    nTotal[credit.first] += credit.second;
+                }
+            }
         }
     }
-    return nTotal[ColorIdentifier()];
+    return nTotal;
 }
 
 CAmount CWallet::GetUnconfirmedWatchOnlyBalance() const
@@ -2127,7 +2133,7 @@ CAmount CWallet::GetUnconfirmedWatchOnlyBalance() const
         {
             const CWalletTx* pcoin = &entry.second;
             if (!pcoin->IsTrusted() && pcoin->GetDepthInMainChain() == 0 && pcoin->InMempool())
-                nTotal[ColorIdentifier()]  += pcoin->GetAvailableCredit(true, ISMINE_WATCH_ONLY);
+                nTotal[ColorIdentifier()]  += pcoin->GetAvailableCredit(true, ISMINE_WATCH_ONLY)[ColorIdentifier()];
         }
     }
     return nTotal[ColorIdentifier()];

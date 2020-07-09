@@ -335,7 +335,7 @@ public:
     {
         WalletBalances result;
         result.balance[ColorIdentifier()] = m_wallet.GetBalance();
-        result.unconfirmed_balance[ColorIdentifier()] = m_wallet.GetUnconfirmedBalance();
+        result.unconfirmed_balance = m_wallet.GetUnconfirmedBalance();
         result.have_watch_only = m_wallet.HaveWatchOnly();
         if (result.have_watch_only) {
             result.watch_only_balance[ColorIdentifier()] = m_wallet.GetBalance(ISMINE_WATCH_ONLY);
