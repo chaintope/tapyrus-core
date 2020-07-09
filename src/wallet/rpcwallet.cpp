@@ -472,7 +472,7 @@ static UniValue getaddressesbyaccount(const JSONRPCRequest& request)
 
 static CTransactionRef SendMoney(CWallet * const pwallet, const CTxDestination &address, CAmount nValue, bool fSubtractFeeFromAmount, const CCoinControl& coin_control, mapValue_t mapValue, std::string fromAccount)
 {
-    CAmount curBalance = pwallet->GetBalance();
+    CAmount curBalance = pwallet->GetBalance()[ColorIdentifier()];
 
     // Check amount
     if (nValue <= 0)
@@ -955,7 +955,7 @@ static UniValue getbalance(const JSONRPCRequest& request)
         }
     }
 
-    return ValueFromAmount(pwallet->GetBalance(filter, min_depth));
+    return ValueFromAmount(pwallet->GetBalance(filter, min_depth)[colorId]);
 }
 
 static UniValue getunconfirmedbalance(const JSONRPCRequest &request)
@@ -3054,7 +3054,7 @@ static UniValue getwalletinfo(const JSONRPCRequest& request)
     size_t kpExternalSize = pwallet->KeypoolCountExternalKeys();
     obj.pushKV("walletname", pwallet->GetName());
     obj.pushKV("walletversion", pwallet->GetVersion());
-    obj.pushKV("balance",       ValueFromAmount(pwallet->GetBalance()));
+    obj.pushKV("balance",       ValueFromAmount(pwallet->GetBalance()[ColorIdentifier()]));
     obj.pushKV("unconfirmed_balance", ValueFromAmount(pwallet->GetUnconfirmedBalance()[ColorIdentifier()]));
     obj.pushKV("txcount",       (int)pwallet->mapWallet.size());
     obj.pushKV("keypoololdest", pwallet->GetOldestKeyPoolTime());

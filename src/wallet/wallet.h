@@ -938,9 +938,9 @@ public:
     void ResendWalletTransactions(int64_t nBestBlockTime, CConnman* connman) override;
     // ResendWalletTransactionsBefore may only be called if fBroadcastTransactions!
     std::vector<uint256> ResendWalletTransactionsBefore(int64_t nTime, CConnman* connman);
-    CAmount GetBalance(const isminefilter& filter=ISMINE_SPENDABLE, const int min_depth=0) const;
+    TxColoredCoinBalancesMap GetBalance(const isminefilter& filter=ISMINE_SPENDABLE, const int min_depth=0) const;
     TxColoredCoinBalancesMap GetUnconfirmedBalance() const;
-    CAmount GetUnconfirmedWatchOnlyBalance() const;
+    TxColoredCoinBalancesMap GetUnconfirmedWatchOnlyBalance() const;
     CAmount GetLegacyBalance(const isminefilter& filter, int minDepth, const std::string* account, ColorIdentifier& colorId) const;
     TxColoredCoinBalancesMap GetAvailableBalance(const CCoinControl* coinControl = nullptr) const;
 

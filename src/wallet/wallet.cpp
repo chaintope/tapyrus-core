@@ -2085,7 +2085,7 @@ void CWallet::ResendWalletTransactions(int64_t nBestBlockTime, CConnman* connman
  */
 
 
-CAmount CWallet::GetBalance(const isminefilter& filter, const int min_depth) const
+TxColoredCoinBalancesMap CWallet::GetBalance(const isminefilter& filter, const int min_depth) const
 {
     TxColoredCoinBalancesMap nTotal;
     nTotal[ColorIdentifier()] = 0;
@@ -2095,12 +2095,15 @@ CAmount CWallet::GetBalance(const isminefilter& filter, const int min_depth) con
         {
             const CWalletTx* pcoin = &entry.second;
             if (pcoin->IsTrusted() && pcoin->GetDepthInMainChain() >= min_depth) {
-                nTotal[ColorIdentifier()] += pcoin->GetAvailableCredit(true, filter)[ColorIdentifier()];
+                TxColoredCoinBalancesMap credits = pcoin->GetAvailableCredit(true, filter);
+                for (auto credit: credits) {
+                    nTotal[credit.first] += credit.second;
+                }
             }
         }
     }
 
-    return nTotal[ColorIdentifier()];
+    return nTotal;
 }
 
 TxColoredCoinBalancesMap CWallet::GetUnconfirmedBalance() const
@@ -2123,7 +2126,7 @@ TxColoredCoinBalancesMap CWallet::GetUnconfirmedBalance() const
     return nTotal;
 }
 
-CAmount CWallet::GetUnconfirmedWatchOnlyBalance() const
+TxColoredCoinBalancesMap CWallet::GetUnconfirmedWatchOnlyBalance() const
 {
     TxColoredCoinBalancesMap nTotal;
     nTotal[ColorIdentifier()] = 0;
@@ -2132,11 +2135,15 @@ CAmount CWallet::GetUnconfirmedWatchOnlyBalance() const
         for (const auto& entry : mapWallet)
         {
             const CWalletTx* pcoin = &entry.second;
-            if (!pcoin->IsTrusted() && pcoin->GetDepthInMainChain() == 0 && pcoin->InMempool())
-                nTotal[ColorIdentifier()]  += pcoin->GetAvailableCredit(true, ISMINE_WATCH_ONLY)[ColorIdentifier()];
+            if (!pcoin->IsTrusted() && pcoin->GetDepthInMainChain() == 0 && pcoin->InMempool()) {
+                TxColoredCoinBalancesMap credits = pcoin->GetAvailableCredit(true, ISMINE_WATCH_ONLY);
+                for (auto credit: credits) {
+                    nTotal[credit.first] += credit.second;
+                }
+            }
         }
     }
-    return nTotal[ColorIdentifier()];
+    return nTotal;
 }
 
 // Calculate total balance in a different way from GetBalance. The biggest
