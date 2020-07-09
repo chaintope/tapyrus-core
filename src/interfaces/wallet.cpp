@@ -334,12 +334,12 @@ public:
     WalletBalances getBalances() override
     {
         WalletBalances result;
-        result.balance[ColorIdentifier()] = m_wallet.GetBalance();
+        result.balance = m_wallet.GetBalance();
         result.unconfirmed_balance = m_wallet.GetUnconfirmedBalance();
         result.have_watch_only = m_wallet.HaveWatchOnly();
         if (result.have_watch_only) {
-            result.watch_only_balance[ColorIdentifier()] = m_wallet.GetBalance(ISMINE_WATCH_ONLY);
-            result.unconfirmed_watch_only_balance[ColorIdentifier()] = m_wallet.GetUnconfirmedWatchOnlyBalance();
+            result.watch_only_balance = m_wallet.GetBalance(ISMINE_WATCH_ONLY);
+            result.unconfirmed_watch_only_balance = m_wallet.GetUnconfirmedWatchOnlyBalance();
         }
         return result;
     }
@@ -355,7 +355,7 @@ public:
         num_blocks = ::chainActive.Height();
         return true;
     }
-    CAmount getBalance() override { return m_wallet.GetBalance(); }
+    CAmount getBalance() override { return m_wallet.GetBalance()[ColorIdentifier()]; }
     CAmount getAvailableBalance(const CCoinControl& coin_control) override
     {
         return m_wallet.GetAvailableBalance(&coin_control)[ColorIdentifier()];
