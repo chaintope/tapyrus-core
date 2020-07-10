@@ -1453,7 +1453,7 @@ bool CWallet::IsAllFromMe(const CTransaction& tx, const isminefilter& filter) co
     return true;
 }
 
-CAmount CWallet::GetCredit(const CTransaction& tx, const isminefilter& filter) const
+TxColoredCoinBalancesMap CWallet::GetCredit(const CTransaction& tx, const isminefilter& filter) const
 {
     TxColoredCoinBalancesMap nCredit;
     nCredit[ColorIdentifier()] = 0;
@@ -1464,7 +1464,7 @@ CAmount CWallet::GetCredit(const CTransaction& tx, const isminefilter& filter) c
         if (!MoneyRange(nCredit[colorId]))
             throw std::runtime_error(std::string(__func__) + ": value out of range");
     }
-    return nCredit[ColorIdentifier()];
+    return nCredit;
 }
 
 CAmount CWallet::GetChange(const CTransaction& tx) const
@@ -1473,7 +1473,8 @@ CAmount CWallet::GetChange(const CTransaction& tx) const
     nChange[ColorIdentifier()] = 0;
     for (const CTxOut& txout : tx.vout)
     {
-        nChange[ColorIdentifier()] += GetChange(txout);
+        ColorIdentifier colorId(GetColorIdFromScript(txout.scriptPubKey));
+        nChange[colorId] += GetChange(txout);
         if (!MoneyRange(nChange[ColorIdentifier()]))
             throw std::runtime_error(std::string(__func__) + ": value out of range");
     }
@@ -1655,19 +1656,21 @@ void CWalletTx::GetAmounts(std::list<COutputEntry>& listReceived,
     listSent.clear();
     strSentAccount = strFromAccount;
 
-    // Compute fee:
-    CAmount nDebit = GetDebit(filter);
-    if (nDebit > 0) // debit>0 means we signed/sent this transaction
-    {
-        CAmount nValueOut = tx->GetValueOut();
-        nFee = nDebit - nValueOut;
-    }
-
     // Sent/received.
     for (unsigned int i = 0; i < tx->vout.size(); ++i)
     {
         const CTxOut& txout = tx->vout[i];
         isminetype fIsMine = pwallet->IsMine(txout);
+
+        ColorIdentifier colorId(GetColorIdFromScript(txout.scriptPubKey));
+        // Compute fee:
+        CAmount nDebit = GetDebit(filter, colorId);
+        if (nDebit > 0) // debit>0 means we signed/sent this transaction
+        {
+            CAmount nValueOut = tx->GetValueOut();
+            nFee = nDebit - nValueOut;
+        }
+        
         // Only need to handle txouts if AT LEAST one of these is true:
         //   1) they debit from us (sent)
         //   2) the output is to us (received)
@@ -1893,13 +1896,13 @@ std::set<uint256> CWalletTx::GetConflicts() const
     return result;
 }
 
-CAmount CWalletTx::GetDebit(const isminefilter& filter) const
+//requirecolorid
+CAmount CWalletTx::GetDebit(const isminefilter& filter, ColorIdentifier& colorId) const
 {
     if (tx->vin.empty())
         return 0;
 
     CAmount debit = 0;
-    ColorIdentifier colorId;
     if(filter & ISMINE_SPENDABLE)
     {
         if (fDebitCached)
@@ -1925,33 +1928,34 @@ CAmount CWalletTx::GetDebit(const isminefilter& filter) const
     return debit;
 }
 
-CAmount CWalletTx::GetCredit(const isminefilter& filter) const
+CAmount CWalletTx::GetCredit(const isminefilter& filter, ColorIdentifier& colorId) const
 {
-    CAmount credit = 0;
+    TxColoredCoinBalancesMap credit;
+    credit[colorId] = 0;
     if (filter & ISMINE_SPENDABLE)
     {
         // GetBalance can assume transactions in mapWallet won't change
         if (fCreditCached)
-            credit += nCreditCached[ColorIdentifier()];
+            credit[colorId] += nCreditCached[colorId];
         else
         {
-            nCreditCached[ColorIdentifier()] = pwallet->GetCredit(*tx, ISMINE_SPENDABLE);
+            nCreditCached = pwallet->GetCredit(*tx, ISMINE_SPENDABLE);
             fCreditCached = true;
-            credit += nCreditCached[ColorIdentifier()];
+            credit[colorId] += nCreditCached[colorId];
         }
     }
     if (filter & ISMINE_WATCH_ONLY)
     {
         if (fWatchCreditCached)
-            credit += nWatchCreditCached[ColorIdentifier()];
+            credit[colorId] += nWatchCreditCached[colorId];
         else
         {
-            nWatchCreditCached[ColorIdentifier()] = pwallet->GetCredit(*tx, ISMINE_WATCH_ONLY);
+            nWatchCreditCached = pwallet->GetCredit(*tx, ISMINE_WATCH_ONLY);
             fWatchCreditCached = true;
-            credit += nWatchCreditCached[ColorIdentifier()];
+            credit[colorId] += nWatchCreditCached[colorId];
         }
     }
-    return credit;
+    return credit[colorId];
 }
 
 TxColoredCoinBalancesMap CWalletTx::GetAvailableCredit(bool fUseCache, const isminefilter& filter) const
@@ -2194,7 +2198,7 @@ CAmount CWallet::GetLegacyBalance(const isminefilter& filter, int minDepth, cons
         // Loop through tx outputs and add incoming payments. For outgoing txs,
         // treat change outputs specially, as part of the amount debited.
         TxColoredCoinBalancesMap debit;
-        debit[colorId] = wtx.GetDebit(filter);
+        debit[colorId] = wtx.GetDebit(filter, colorId);
         const bool outgoing = debit[colorId] > 0;
         for (const CTxOut& out : wtx.tx->vout) {
             ColorIdentifier cid = GetColorIdFromScript(out.scriptPubKey);

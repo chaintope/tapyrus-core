@@ -443,8 +443,8 @@ public:
     }
 
     //! filter decides which addresses will count towards the debit
-    CAmount GetDebit(const isminefilter& filter) const;
-    CAmount GetCredit(const isminefilter& filter) const;
+    CAmount GetDebit(const isminefilter& filter, ColorIdentifier& colorId) const;
+    CAmount GetCredit(const isminefilter& filter, ColorIdentifier& colorId) const;
     TxColoredCoinBalancesMap GetAvailableCredit(bool fUseCache=true, const isminefilter& filter=ISMINE_SPENDABLE) const;
     CAmount GetChange() const;
 
@@ -459,7 +459,8 @@ public:
 
     bool IsFromMe(const isminefilter& filter) const
     {
-        return (GetDebit(filter) > 0);
+        ColorIdentifier colorId;
+        return (GetDebit(filter, colorId) > 0);
     }
 
     // True if only scriptSigs are different
@@ -1041,7 +1042,7 @@ public:
     CAmount GetDebit(const CTransaction& tx, const isminefilter& filter, ColorIdentifier& colorId) const;
     /** Returns whether all of the inputs match the filter */
     bool IsAllFromMe(const CTransaction& tx, const isminefilter& filter) const;
-    CAmount GetCredit(const CTransaction& tx, const isminefilter& filter) const;
+    TxColoredCoinBalancesMap GetCredit(const CTransaction& tx, const isminefilter& filter) const;
     CAmount GetChange(const CTransaction& tx) const;
     void ChainStateFlushed(const CBlockLocator& loc) override;
 
