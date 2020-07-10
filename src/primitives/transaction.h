@@ -62,8 +62,6 @@ public:
  * transaction's output that it claims and a signature that matches the
  * output's public key.
  */
-#include <coloridentifier.h>
-
 class CTxIn
 {
 public:
@@ -71,7 +69,6 @@ public:
     CScript scriptSig;
     uint32_t nSequence;
     CScriptWitness scriptWitness; //! Only serialized through CTransaction
-    ColorIdentifier colorId;
 
     /* Setting nSequence to this value for every input in a transaction
      * disables nLockTime. */
@@ -105,7 +102,7 @@ public:
         nSequence = SEQUENCE_FINAL;
     }
 
-    explicit CTxIn(COutPoint prevoutIn, CScript scriptSigIn=CScript(), uint32_t nSequenceIn=SEQUENCE_FINAL, ColorIdentifier colorId=ColorIdentifier());
+    explicit CTxIn(COutPoint prevoutIn, CScript scriptSigIn=CScript(), uint32_t nSequenceIn=SEQUENCE_FINAL);
     CTxIn(uint256 hashPrevTx, uint32_t nOut, CScript scriptSigIn=CScript(), uint32_t nSequenceIn=SEQUENCE_FINAL);
 
     ADD_SERIALIZE_METHODS;
@@ -124,8 +121,7 @@ public:
     {
         return (a.prevout   == b.prevout &&
                 a.scriptSig == b.scriptSig &&
-                a.nSequence == b.nSequence &&
-                a.colorId == b.colorId);
+                a.nSequence == b.nSequence);
     }
 
     friend bool operator!=(const CTxIn& a, const CTxIn& b)
