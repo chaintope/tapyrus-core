@@ -1392,20 +1392,44 @@ bool CWallet::IsMine(const CTransaction& tx) const
 
 bool CWallet::IsFromMe(const CTransaction& tx) const
 {
-    return (GetDebit(tx, ISMINE_ALL) > 0);
-}
-
-CAmount CWallet::GetDebit(const CTransaction& tx, const isminefilter& filter) const
-{
-    TxColoredCoinBalancesMap nDebit;
-    nDebit[ColorIdentifier()] = 0;
+    LOCK(cs_wallet);
+    ColorIdentifier colorId;
     for (const CTxIn& txin : tx.vin)
     {
-        nDebit[ColorIdentifier()] += GetDebit(txin, filter)[ColorIdentifier()];
-        if (!MoneyRange(nDebit[ColorIdentifier()]))
-            throw std::runtime_error(std::string(__func__) + ": value out of range");
+        auto mi = mapWallet.find(txin.prevout.hashMalFix);
+        if (mi == mapWallet.end())
+            return false; // any unknown inputs can't be from us
+
+        const CWalletTx& prev = (*mi).second;
+        if (txin.prevout.n < prev.tx->vout.size()) {
+            ColorIdentifier colorId(GetColorIdFromScript(prev.tx->vout[txin.prevout.n].scriptPubKey));
+
+            if (GetDebit(tx, ISMINE_ALL, colorId) > 0)
+                return true;
+        }
     }
-    return nDebit[ColorIdentifier()];
+    return false;
+}
+
+CAmount CWallet::GetDebit(const CTransaction& tx, const isminefilter& filter, ColorIdentifier& colorId) const
+{
+    TxColoredCoinBalancesMap nDebit;
+    nDebit[colorId] = 0;
+
+    for (const CTxIn& txin : tx.vin) {
+
+       TxColoredCoinBalancesMap debits = GetDebit(txin, filter);
+        for (auto debit: debits) {
+            if (debit.first == colorId) {
+                nDebit[debit.first] += debit.second;
+
+                if (!MoneyRange(nDebit[debit.first]))
+                throw std::runtime_error(std::string(__func__) + ": value out of range");
+            }
+        };
+    }
+
+    return nDebit[colorId];
 }
 
 bool CWallet::IsAllFromMe(const CTransaction& tx, const isminefilter& filter) const
@@ -1435,8 +1459,9 @@ CAmount CWallet::GetCredit(const CTransaction& tx, const isminefilter& filter) c
     nCredit[ColorIdentifier()] = 0;
     for (const CTxOut& txout : tx.vout)
     {
-        nCredit[ColorIdentifier()] += GetCredit(txout, filter);
-        if (!MoneyRange(nCredit[ColorIdentifier()]))
+        ColorIdentifier colorId(GetColorIdFromScript(txout.scriptPubKey));
+        nCredit[colorId] += GetCredit(txout, filter);
+        if (!MoneyRange(nCredit[colorId]))
             throw std::runtime_error(std::string(__func__) + ": value out of range");
     }
     return nCredit[ColorIdentifier()];
@@ -1874,13 +1899,14 @@ CAmount CWalletTx::GetDebit(const isminefilter& filter) const
         return 0;
 
     CAmount debit = 0;
+    ColorIdentifier colorId;
     if(filter & ISMINE_SPENDABLE)
     {
         if (fDebitCached)
             debit += nDebitCached[ColorIdentifier()];
         else
         {
-            nDebitCached[ColorIdentifier()] = pwallet->GetDebit(*tx, ISMINE_SPENDABLE);
+            nDebitCached[ColorIdentifier()] = pwallet->GetDebit(*tx, ISMINE_SPENDABLE, colorId);
             fDebitCached = true;
             debit += nDebitCached[ColorIdentifier()];
         }
@@ -1891,7 +1917,7 @@ CAmount CWalletTx::GetDebit(const isminefilter& filter) const
             debit += nWatchDebitCached[ColorIdentifier()];
         else
         {
-            nWatchDebitCached[ColorIdentifier()] = pwallet->GetDebit(*tx, ISMINE_WATCH_ONLY);
+            nWatchDebitCached[ColorIdentifier()] = pwallet->GetDebit(*tx, ISMINE_WATCH_ONLY, colorId);
             fWatchDebitCached = true;
             debit += nWatchDebitCached[ColorIdentifier()];
         }
@@ -2296,14 +2322,15 @@ void CWallet::AvailableCoins(std::vector<COutput> &vCoins, bool fOnlySafe, const
 
             bool solvable = IsSolvable(*this, pcoin->tx->vout[i].scriptPubKey);
             bool spendable = ((mine & ISMINE_SPENDABLE) != ISMINE_NO) || (((mine & ISMINE_WATCH_ONLY) != ISMINE_NO) && (coinControl && coinControl->fAllowWatchOnly && solvable));
+            ColorIdentifier colorId(GetColorIdFromScript(pcoin->tx->vout[i].scriptPubKey));
 
             vCoins.push_back(COutput(pcoin, i, nDepth, spendable, solvable, safeTx, (coinControl && coinControl->fAllowWatchOnly)));
 
             // Checks the sum amount of all UTXO's.
             if (nMinimumSumAmount != MAX_MONEY) {
-                nTotal[ColorIdentifier()] += pcoin->tx->vout[i].nValue;
+                nTotal[colorId] += pcoin->tx->vout[i].nValue;
 
-                if (nTotal[ColorIdentifier()] >= nMinimumSumAmount) {
+                if (nTotal[colorId] >= nMinimumSumAmount) {
                     return;
                 }
             }
