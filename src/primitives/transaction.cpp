@@ -9,6 +9,7 @@
 #include <hash.h>
 #include <tinyformat.h>
 #include <utilstrencodings.h>
+#include <coloridentifier.h>
 
 std::string COutPoint::ToString() const
 {
