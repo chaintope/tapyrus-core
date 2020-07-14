@@ -1453,7 +1453,7 @@ bool CWallet::IsAllFromMe(const CTransaction& tx, const isminefilter& filter) co
     return true;
 }
 
-CAmount CWallet::GetCredit(const CTransaction& tx, const isminefilter& filter) const
+TxColoredCoinBalancesMap CWallet::GetCredit(const CTransaction& tx, const isminefilter& filter) const
 {
     TxColoredCoinBalancesMap nCredit;
     nCredit[ColorIdentifier()] = 0;
@@ -1464,10 +1464,10 @@ CAmount CWallet::GetCredit(const CTransaction& tx, const isminefilter& filter) c
         if (!MoneyRange(nCredit[colorId]))
             throw std::runtime_error(std::string(__func__) + ": value out of range");
     }
-    return nCredit[ColorIdentifier()];
+    return nCredit;
 }
 
-CAmount CWallet::GetChange(const CTransaction& tx) const
+TxColoredCoinBalancesMap CWallet::GetChange(const CTransaction& tx) const
 {
     TxColoredCoinBalancesMap nChange;
     nChange[ColorIdentifier()] = 0;
@@ -1475,10 +1475,10 @@ CAmount CWallet::GetChange(const CTransaction& tx) const
     {
         ColorIdentifier colorId(GetColorIdFromScript(txout.scriptPubKey));
         nChange[colorId] += GetChange(txout);
-        if (!MoneyRange(nChange[ColorIdentifier()]))
+        if (!MoneyRange(nChange[colorId]))
             throw std::runtime_error(std::string(__func__) + ": value out of range");
     }
-    return nChange[ColorIdentifier()];
+    return nChange;
 }
 
 CPubKey CWallet::GenerateNewSeed()
@@ -1656,19 +1656,21 @@ void CWalletTx::GetAmounts(std::list<COutputEntry>& listReceived,
     listSent.clear();
     strSentAccount = strFromAccount;
 
-    // Compute fee:
-    CAmount nDebit = GetDebit(filter);
-    if (nDebit > 0) // debit>0 means we signed/sent this transaction
-    {
-        CAmount nValueOut = tx->GetValueOut();
-        nFee = nDebit - nValueOut;
-    }
-
     // Sent/received.
     for (unsigned int i = 0; i < tx->vout.size(); ++i)
     {
         const CTxOut& txout = tx->vout[i];
         isminetype fIsMine = pwallet->IsMine(txout);
+
+        ColorIdentifier colorId(GetColorIdFromScript(txout.scriptPubKey));
+        // Compute fee:
+        CAmount nDebit = GetDebit(filter, colorId);
+        if (nDebit > 0) // debit>0 means we signed/sent this transaction
+        {
+            CAmount nValueOut = tx->GetValueOut();
+            nFee = nDebit - nValueOut;
+        }
+        
         // Only need to handle txouts if AT LEAST one of these is true:
         //   1) they debit from us (sent)
         //   2) the output is to us (received)
@@ -1894,9 +1896,8 @@ std::set<uint256> CWalletTx::GetConflicts() const
     return result;
 }
 
-CAmount CWalletTx::GetDebit(const isminefilter& filter) const
+CAmount CWalletTx::GetDebit(const isminefilter& filter, ColorIdentifier& colorId) const
 {
-    ColorIdentifier colorId;
     if (tx->vin.empty())
         return 0;
 
@@ -1926,33 +1927,34 @@ CAmount CWalletTx::GetDebit(const isminefilter& filter) const
     return debit;
 }
 
-CAmount CWalletTx::GetCredit(const isminefilter& filter) const
+CAmount CWalletTx::GetCredit(const isminefilter& filter, ColorIdentifier& colorId) const
 {
-    CAmount credit = 0;
+    TxColoredCoinBalancesMap credit;
+    credit[colorId] = 0;
     if (filter & ISMINE_SPENDABLE)
     {
         // GetBalance can assume transactions in mapWallet won't change
         if (fCreditCached)
-            credit += nCreditCached[ColorIdentifier()];
+            credit[colorId] += nCreditCached[colorId];
         else
         {
-            nCreditCached[ColorIdentifier()] = pwallet->GetCredit(*tx, ISMINE_SPENDABLE);
+            nCreditCached = pwallet->GetCredit(*tx, ISMINE_SPENDABLE);
             fCreditCached = true;
-            credit += nCreditCached[ColorIdentifier()];
+            credit[colorId] += nCreditCached[colorId];
         }
     }
     if (filter & ISMINE_WATCH_ONLY)
     {
         if (fWatchCreditCached)
-            credit += nWatchCreditCached[ColorIdentifier()];
+            credit[colorId] += nWatchCreditCached[colorId];
         else
         {
-            nWatchCreditCached[ColorIdentifier()] = pwallet->GetCredit(*tx, ISMINE_WATCH_ONLY);
+            nWatchCreditCached = pwallet->GetCredit(*tx, ISMINE_WATCH_ONLY);
             fWatchCreditCached = true;
-            credit += nWatchCreditCached[ColorIdentifier()];
+            credit[colorId] += nWatchCreditCached[colorId];
         }
     }
-    return credit;
+    return credit[colorId];
 }
 
 TxColoredCoinBalancesMap CWalletTx::GetAvailableCredit(bool fUseCache, const isminefilter& filter) const
@@ -1999,13 +2001,13 @@ TxColoredCoinBalancesMap CWalletTx::GetAvailableCredit(bool fUseCache, const ism
     return nCredit;
 }
 
-CAmount CWalletTx::GetChange() const
+CAmount CWalletTx::GetChange(ColorIdentifier& colorId) const
 {
     if (fChangeCached)
-        return nChangeCached[ColorIdentifier()];
-    nChangeCached[ColorIdentifier()] = pwallet->GetChange(*tx);
+        return nChangeCached[colorId];
+    nChangeCached[colorId] = pwallet->GetChange(*tx)[colorId];
     fChangeCached = true;
-    return nChangeCached[ColorIdentifier()];
+    return nChangeCached[colorId];
 }
 
 bool CWalletTx::InMempool() const
@@ -2195,7 +2197,7 @@ CAmount CWallet::GetLegacyBalance(const isminefilter& filter, int minDepth, cons
         // Loop through tx outputs and add incoming payments. For outgoing txs,
         // treat change outputs specially, as part of the amount debited.
         TxColoredCoinBalancesMap debit;
-        debit[colorId] = wtx.GetDebit(filter);
+        debit[colorId] = wtx.GetDebit(filter, colorId);
         const bool outgoing = debit[colorId] > 0;
         for (const CTxOut& out : wtx.tx->vout) {
             ColorIdentifier cid = GetColorIdFromScript(out.scriptPubKey);
@@ -2653,6 +2655,7 @@ OutputType CWallet::TransactionChangeType(OutputType change_type, const std::vec
     return m_default_address_type;
 }
 
+//requirecolorid
 bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransactionRef& tx, CReserveKey& reservekey, CAmount& nFeeRet,
                          int& nChangePosInOut, std::string& strFailReason, const CCoinControl& coin_control, bool sign)
 {
@@ -2662,12 +2665,13 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
     unsigned int nSubtractFeeFromAmount = 0;
     for (const auto& recipient : vecSend)
     {
-        if (nValue[ColorIdentifier()] < 0 || recipient.nAmount < 0)
+        ColorIdentifier colorId = GetColorIdFromScript(recipient.scriptPubKey);
+        if (nValue[colorId] < 0 || recipient.nAmount < 0)
         {
             strFailReason = _("Transaction amounts must not be negative");
             return false;
         }
-        nValue[ColorIdentifier()] += recipient.nAmount;
+        nValue[colorId] += recipient.nAmount;
 
         if (recipient.fSubtractFeeFromAmount)
             nSubtractFeeFromAmount++;
@@ -2767,8 +2771,8 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
 
             nFeeRet = 0;
             bool pick_new_inputs = true;
-            TxColoredCoinBalancesMap nValueIn;
-            nValueIn[ColorIdentifier()] = 0;
+            CAmount nValueIn;
+            nValueIn = 0;
 
             // BnB selector is the only selector used when this is true.
             // That should only happen on the first pass through the loop.
@@ -2781,10 +2785,10 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 txNew.vout.clear();
                 bool fFirst = true;
 
-                TxColoredCoinBalancesMap nValueToSelect;
-                nValueToSelect[ColorIdentifier()]  = nValue[ColorIdentifier()];
+                CAmount nValueToSelect;
+                nValueToSelect = nValue[ColorIdentifier()];
                 if (nSubtractFeeFromAmount == 0)
-                    nValueToSelect[ColorIdentifier()] += nFeeRet;
+                    nValueToSelect += nFeeRet;
 
                 // vouts to the payees
                 coin_selection_params.tx_noinputs_size = 11; // Static vsize overhead + outputs vsize. 4 nVersion, 4 nLocktime, 1 input count, 1 output count, 1 witness overhead (dummy, flag, stack size)
@@ -2825,11 +2829,11 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 // Choose coins to use
                 bool bnb_used;
                 if (pick_new_inputs) {
-                    nValueIn[ColorIdentifier()] = 0;
+                    nValueIn = 0;
                     setCoins.clear();
                     coin_selection_params.change_spend_size = CalculateMaximumSignedInputSize(change_prototype_txout, this);
                     coin_selection_params.effective_fee = nFeeRateNeeded;
-                    if (!SelectCoins(vAvailableCoins, nValueToSelect[ColorIdentifier()], setCoins, nValueIn[ColorIdentifier()], coin_control, coin_selection_params, bnb_used))
+                    if (!SelectCoins(vAvailableCoins, nValueToSelect, setCoins, nValueIn, coin_control, coin_selection_params, bnb_used))
                     {
                         // If BnB was used, it was the first pass. No longer the first pass and continue loop with knapsack.
                         if (bnb_used) {
@@ -2843,7 +2847,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     }
                 }
 
-                const CAmount nChange = nValueIn[ColorIdentifier()] - nValueToSelect[ColorIdentifier()];
+                const CAmount nChange = nValueIn - nValueToSelect;
                 if (nChange > 0)
                 {
                     // Fill a vout to ourself
