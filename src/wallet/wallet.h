@@ -443,8 +443,8 @@ public:
     }
 
     //! filter decides which addresses will count towards the debit
+    CAmount GetCredit(const isminefilter& filter) const;
     CAmount GetDebit(const isminefilter& filter, ColorIdentifier& colorId) const;
-    CAmount GetCredit(const isminefilter& filter, ColorIdentifier& colorId) const;
     TxColoredCoinBalancesMap GetAvailableCredit(bool fUseCache=true, const isminefilter& filter=ISMINE_SPENDABLE) const;
     CAmount GetChange(ColorIdentifier& colorId) const;
 
@@ -1042,7 +1042,7 @@ public:
     CAmount GetDebit(const CTransaction& tx, const isminefilter& filter, ColorIdentifier& colorId) const;
     /** Returns whether all of the inputs match the filter */
     bool IsAllFromMe(const CTransaction& tx, const isminefilter& filter) const;
-    TxColoredCoinBalancesMap GetCredit(const CTransaction& tx, const isminefilter& filter) const;
+    CAmount GetCredit(const CTransaction& tx, const isminefilter& filter) const;
     TxColoredCoinBalancesMap GetChange(const CTransaction& tx) const;
     void ChainStateFlushed(const CBlockLocator& loc) override;
 
