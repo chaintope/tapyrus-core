@@ -1656,21 +1656,19 @@ void CWalletTx::GetAmounts(std::list<COutputEntry>& listReceived,
     listSent.clear();
     strSentAccount = strFromAccount;
 
+    // Compute fee:
+    CAmount nDebit = GetDebit(filter);
+    if (nDebit > 0) // debit>0 means we signed/sent this transaction
+    {
+        CAmount nValueOut = tx->GetValueOut();
+        nFee = nDebit - nValueOut;
+    }
+
     // Sent/received.
     for (unsigned int i = 0; i < tx->vout.size(); ++i)
     {
         const CTxOut& txout = tx->vout[i];
         isminetype fIsMine = pwallet->IsMine(txout);
-
-        ColorIdentifier colorId(GetColorIdFromScript(txout.scriptPubKey));
-        // Compute fee:
-        CAmount nDebit = GetDebit(filter, colorId);
-        if (nDebit > 0) // debit>0 means we signed/sent this transaction
-        {
-            CAmount nValueOut = tx->GetValueOut();
-            nFee = nDebit - nValueOut;
-        }
-        
         // Only need to handle txouts if AT LEAST one of these is true:
         //   1) they debit from us (sent)
         //   2) the output is to us (received)
@@ -1896,8 +1894,9 @@ std::set<uint256> CWalletTx::GetConflicts() const
     return result;
 }
 
-CAmount CWalletTx::GetDebit(const isminefilter& filter, ColorIdentifier& colorId) const
+CAmount CWalletTx::GetDebit(const isminefilter& filter) const
 {
+    ColorIdentifier colorId;
     if (tx->vin.empty())
         return 0;
 
@@ -2196,7 +2195,7 @@ CAmount CWallet::GetLegacyBalance(const isminefilter& filter, int minDepth, cons
         // Loop through tx outputs and add incoming payments. For outgoing txs,
         // treat change outputs specially, as part of the amount debited.
         TxColoredCoinBalancesMap debit;
-        debit[colorId] = wtx.GetDebit(filter, colorId);
+        debit[colorId] = wtx.GetDebit(filter);
         const bool outgoing = debit[colorId] > 0;
         for (const CTxOut& out : wtx.tx->vout) {
             ColorIdentifier cid = GetColorIdFromScript(out.scriptPubKey);

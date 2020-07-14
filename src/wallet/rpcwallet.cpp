@@ -2414,11 +2414,8 @@ static UniValue gettransaction(const JSONRPCRequest& request)
     const CWalletTx& wtx = it->second;
 
     CAmount nCredit = wtx.GetCredit(filter);
-    // CAmount nDebit = wtx.GetDebit(filter);
+    CAmount nDebit = wtx.GetDebit(filter);
 
-    ColorIdentifier colorId;
-    // CAmount nCredit = wtx.GetCredit(filter, colorId);
-    CAmount nDebit = wtx.GetDebit(filter, colorId);
     CAmount nNet = nCredit - nDebit;
     CAmount nFee = (wtx.IsFromMe(filter) ? wtx.tx->GetValueOut() - nDebit : 0);
 

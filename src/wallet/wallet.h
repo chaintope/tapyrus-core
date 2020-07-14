@@ -444,7 +444,7 @@ public:
 
     //! filter decides which addresses will count towards the debit
     CAmount GetCredit(const isminefilter& filter) const;
-    CAmount GetDebit(const isminefilter& filter, ColorIdentifier& colorId) const;
+    CAmount GetDebit(const isminefilter& filter) const;
     TxColoredCoinBalancesMap GetAvailableCredit(bool fUseCache=true, const isminefilter& filter=ISMINE_SPENDABLE) const;
     CAmount GetChange(ColorIdentifier& colorId) const;
 
@@ -459,8 +459,7 @@ public:
 
     bool IsFromMe(const isminefilter& filter) const
     {
-        ColorIdentifier colorId;
-        return (GetDebit(filter, colorId) > 0);
+        return (GetDebit(filter) > 0);
     }
 
     // True if only scriptSigs are different
