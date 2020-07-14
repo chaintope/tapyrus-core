@@ -1467,7 +1467,7 @@ TxColoredCoinBalancesMap CWallet::GetCredit(const CTransaction& tx, const ismine
     return nCredit;
 }
 
-CAmount CWallet::GetChange(const CTransaction& tx) const
+TxColoredCoinBalancesMap CWallet::GetChange(const CTransaction& tx) const
 {
     TxColoredCoinBalancesMap nChange;
     nChange[ColorIdentifier()] = 0;
@@ -1475,10 +1475,10 @@ CAmount CWallet::GetChange(const CTransaction& tx) const
     {
         ColorIdentifier colorId(GetColorIdFromScript(txout.scriptPubKey));
         nChange[colorId] += GetChange(txout);
-        if (!MoneyRange(nChange[ColorIdentifier()]))
+        if (!MoneyRange(nChange[colorId]))
             throw std::runtime_error(std::string(__func__) + ": value out of range");
     }
-    return nChange[ColorIdentifier()];
+    return nChange;
 }
 
 CPubKey CWallet::GenerateNewSeed()
@@ -1896,7 +1896,6 @@ std::set<uint256> CWalletTx::GetConflicts() const
     return result;
 }
 
-//requirecolorid
 CAmount CWalletTx::GetDebit(const isminefilter& filter, ColorIdentifier& colorId) const
 {
     if (tx->vin.empty())
@@ -1906,23 +1905,23 @@ CAmount CWalletTx::GetDebit(const isminefilter& filter, ColorIdentifier& colorId
     if(filter & ISMINE_SPENDABLE)
     {
         if (fDebitCached)
-            debit += nDebitCached[ColorIdentifier()];
+            debit += nDebitCached[colorId];
         else
         {
-            nDebitCached[ColorIdentifier()] = pwallet->GetDebit(*tx, ISMINE_SPENDABLE, colorId);
+            nDebitCached[colorId] = pwallet->GetDebit(*tx, ISMINE_SPENDABLE, colorId);
             fDebitCached = true;
-            debit += nDebitCached[ColorIdentifier()];
+            debit += nDebitCached[colorId];
         }
     }
     if(filter & ISMINE_WATCH_ONLY)
     {
         if(fWatchDebitCached)
-            debit += nWatchDebitCached[ColorIdentifier()];
+            debit += nWatchDebitCached[colorId];
         else
         {
-            nWatchDebitCached[ColorIdentifier()] = pwallet->GetDebit(*tx, ISMINE_WATCH_ONLY, colorId);
+            nWatchDebitCached[colorId] = pwallet->GetDebit(*tx, ISMINE_WATCH_ONLY, colorId);
             fWatchDebitCached = true;
-            debit += nWatchDebitCached[ColorIdentifier()];
+            debit += nWatchDebitCached[colorId];
         }
     }
     return debit;
@@ -2002,13 +2001,13 @@ TxColoredCoinBalancesMap CWalletTx::GetAvailableCredit(bool fUseCache, const ism
     return nCredit;
 }
 
-CAmount CWalletTx::GetChange() const
+CAmount CWalletTx::GetChange(ColorIdentifier& colorId) const
 {
     if (fChangeCached)
-        return nChangeCached[ColorIdentifier()];
-    nChangeCached[ColorIdentifier()] = pwallet->GetChange(*tx);
+        return nChangeCached[colorId];
+    nChangeCached[colorId] = pwallet->GetChange(*tx)[colorId];
     fChangeCached = true;
-    return nChangeCached[ColorIdentifier()];
+    return nChangeCached[colorId];
 }
 
 bool CWalletTx::InMempool() const
