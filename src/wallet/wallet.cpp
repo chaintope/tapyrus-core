@@ -1453,7 +1453,7 @@ bool CWallet::IsAllFromMe(const CTransaction& tx, const isminefilter& filter) co
     return true;
 }
 
-TxColoredCoinBalancesMap CWallet::GetCredit(const CTransaction& tx, const isminefilter& filter) const
+CAmount CWallet::GetCredit(const CTransaction& tx, const isminefilter& filter) const
 {
     TxColoredCoinBalancesMap nCredit;
     nCredit[ColorIdentifier()] = 0;
@@ -1464,7 +1464,7 @@ TxColoredCoinBalancesMap CWallet::GetCredit(const CTransaction& tx, const ismine
         if (!MoneyRange(nCredit[colorId]))
             throw std::runtime_error(std::string(__func__) + ": value out of range");
     }
-    return nCredit;
+    return nCredit[ColorIdentifier()];
 }
 
 TxColoredCoinBalancesMap CWallet::GetChange(const CTransaction& tx) const
@@ -1927,34 +1927,33 @@ CAmount CWalletTx::GetDebit(const isminefilter& filter, ColorIdentifier& colorId
     return debit;
 }
 
-CAmount CWalletTx::GetCredit(const isminefilter& filter, ColorIdentifier& colorId) const
+CAmount CWalletTx::GetCredit(const isminefilter& filter) const
 {
-    TxColoredCoinBalancesMap credit;
-    credit[colorId] = 0;
+    CAmount credit = 0;
     if (filter & ISMINE_SPENDABLE)
     {
         // GetBalance can assume transactions in mapWallet won't change
         if (fCreditCached)
-            credit[colorId] += nCreditCached[colorId];
+            credit += nCreditCached[ColorIdentifier()];
         else
         {
-            nCreditCached = pwallet->GetCredit(*tx, ISMINE_SPENDABLE);
+            nCreditCached[ColorIdentifier()] = pwallet->GetCredit(*tx, ISMINE_SPENDABLE);
             fCreditCached = true;
-            credit[colorId] += nCreditCached[colorId];
+            credit += nCreditCached[ColorIdentifier()];
         }
     }
     if (filter & ISMINE_WATCH_ONLY)
     {
         if (fWatchCreditCached)
-            credit[colorId] += nWatchCreditCached[colorId];
+            credit += nWatchCreditCached[ColorIdentifier()];
         else
         {
-            nWatchCreditCached = pwallet->GetCredit(*tx, ISMINE_WATCH_ONLY);
+            nWatchCreditCached[ColorIdentifier()] = pwallet->GetCredit(*tx, ISMINE_WATCH_ONLY);
             fWatchCreditCached = true;
-            credit[colorId] += nWatchCreditCached[colorId];
+            credit += nWatchCreditCached[ColorIdentifier()];
         }
     }
-    return credit[colorId];
+    return credit;
 }
 
 TxColoredCoinBalancesMap CWalletTx::GetAvailableCredit(bool fUseCache, const isminefilter& filter) const
