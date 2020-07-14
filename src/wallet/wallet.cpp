@@ -1467,7 +1467,7 @@ CAmount CWallet::GetCredit(const CTransaction& tx, const isminefilter& filter) c
     return nCredit[ColorIdentifier()];
 }
 
-TxColoredCoinBalancesMap CWallet::GetChange(const CTransaction& tx) const
+CAmount CWallet::GetChange(const CTransaction& tx) const
 {
     TxColoredCoinBalancesMap nChange;
     nChange[ColorIdentifier()] = 0;
@@ -1475,10 +1475,10 @@ TxColoredCoinBalancesMap CWallet::GetChange(const CTransaction& tx) const
     {
         ColorIdentifier colorId(GetColorIdFromScript(txout.scriptPubKey));
         nChange[colorId] += GetChange(txout);
-        if (!MoneyRange(nChange[colorId]))
+        if (!MoneyRange(nChange[ColorIdentifier()]))
             throw std::runtime_error(std::string(__func__) + ": value out of range");
     }
-    return nChange;
+    return nChange[ColorIdentifier()];
 }
 
 CPubKey CWallet::GenerateNewSeed()
@@ -1999,13 +1999,13 @@ TxColoredCoinBalancesMap CWalletTx::GetAvailableCredit(bool fUseCache, const ism
     return nCredit;
 }
 
-CAmount CWalletTx::GetChange(ColorIdentifier& colorId) const
+CAmount CWalletTx::GetChange() const
 {
     if (fChangeCached)
-        return nChangeCached[colorId];
-    nChangeCached[colorId] = pwallet->GetChange(*tx)[colorId];
+        return nChangeCached[ColorIdentifier()];
+    nChangeCached[ColorIdentifier()] = pwallet->GetChange(*tx);
     fChangeCached = true;
-    return nChangeCached[colorId];
+    return nChangeCached[ColorIdentifier()];
 }
 
 bool CWalletTx::InMempool() const

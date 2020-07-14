@@ -446,7 +446,7 @@ public:
     CAmount GetCredit(const isminefilter& filter) const;
     CAmount GetDebit(const isminefilter& filter) const;
     TxColoredCoinBalancesMap GetAvailableCredit(bool fUseCache=true, const isminefilter& filter=ISMINE_SPENDABLE) const;
-    CAmount GetChange(ColorIdentifier& colorId) const;
+    CAmount GetChange() const;
 
     // Get the marginal bytes if spending the specified output from this transaction
     int GetSpendSize(unsigned int out, bool use_max_sig = false) const
@@ -1042,7 +1042,7 @@ public:
     /** Returns whether all of the inputs match the filter */
     bool IsAllFromMe(const CTransaction& tx, const isminefilter& filter) const;
     CAmount GetCredit(const CTransaction& tx, const isminefilter& filter) const;
-    TxColoredCoinBalancesMap GetChange(const CTransaction& tx) const;
+    CAmount GetChange(const CTransaction& tx) const;
     void ChainStateFlushed(const CBlockLocator& loc) override;
 
     DBErrors LoadWallet(bool& fFirstRunRet);
