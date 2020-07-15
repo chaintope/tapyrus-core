@@ -470,9 +470,9 @@ static UniValue getaddressesbyaccount(const JSONRPCRequest& request)
     return ret;
 }
 
-static CTransactionRef SendMoney(CWallet * const pwallet, const CTxDestination &address, CAmount nValue, bool fSubtractFeeFromAmount, const CCoinControl& coin_control, mapValue_t mapValue, std::string fromAccount)
+static CTransactionRef SendMoney(CWallet * const pwallet, const CTxDestination &address, CAmount nValue, bool fSubtractFeeFromAmount, const CCoinControl& coin_control, mapValue_t mapValue, std::string fromAccount, ColorIdentifier& colorId)
 {
-    CAmount curBalance = pwallet->GetBalance()[ColorIdentifier()];
+    CAmount curBalance = pwallet->GetBalance()[colorId];
 
     // Check amount
     if (nValue <= 0)
@@ -486,7 +486,7 @@ static CTransactionRef SendMoney(CWallet * const pwallet, const CTxDestination &
     }
 
     // Parse Tapyrus address
-    CScript scriptPubKey = GetScriptForDestination(address);
+    CScript scriptPubKey = GetScriptForDestination(address, &colorId);
 
     // Create and send the transaction
     CReserveKey reservekey(pwallet);
@@ -596,7 +596,7 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
 
     EnsureWalletIsUnlocked(pwallet);
 
-    CTransactionRef tx = SendMoney(pwallet, dest, nAmount, fSubtractFeeFromAmount, coin_control, std::move(mapValue), {} /* fromAccount */);
+    CTransactionRef tx = SendMoney(pwallet, dest, nAmount, fSubtractFeeFromAmount, coin_control, std::move(mapValue), {} /* fromAccount */, colorId);
     return tx->GetHashMalFix().GetHex();
 }
 
@@ -1120,7 +1120,7 @@ static UniValue sendfrom(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Account has insufficient funds");
 
     CCoinControl no_coin_control; // This is a deprecated API
-    CTransactionRef tx = SendMoney(pwallet, dest, nAmount, false, no_coin_control, std::move(mapValue), std::move(strAccount));
+    CTransactionRef tx = SendMoney(pwallet, dest, nAmount, false, no_coin_control, std::move(mapValue), std::move(strAccount), colorId);
     return tx->GetHashMalFix().GetHex();
 }
 
@@ -3051,12 +3051,24 @@ static UniValue getwalletinfo(const JSONRPCRequest& request)
     LOCK2(cs_main, pwallet->cs_wallet);
 
     UniValue obj(UniValue::VOBJ);
+    UniValue balances(UniValue::VOBJ);
+    UniValue unconfirmBalancesObj(UniValue::VOBJ);
+
+    TxColoredCoinBalancesMap walletbalances = pwallet->GetBalance();
+    for (auto const& wb : walletbalances) {
+       balances.pushKV(HexStr(wb.first.toVector()).c_str(), ValueFromAmount(wb.second));
+    };
+
+    TxColoredCoinBalancesMap walletunconfirmedbalances = pwallet->GetUnconfirmedBalance();
+    for (auto const& uwb : walletunconfirmedbalances) {
+       unconfirmBalancesObj.pushKV(HexStr(uwb.first.toVector()).c_str(), ValueFromAmount(uwb.second));
+    };
 
     size_t kpExternalSize = pwallet->KeypoolCountExternalKeys();
     obj.pushKV("walletname", pwallet->GetName());
     obj.pushKV("walletversion", pwallet->GetVersion());
-    obj.pushKV("balance",       ValueFromAmount(pwallet->GetBalance()[ColorIdentifier()]));
-    obj.pushKV("unconfirmed_balance", ValueFromAmount(pwallet->GetUnconfirmedBalance()[ColorIdentifier()]));
+    obj.pushKV("balance", balances);
+    obj.pushKV("unconfirmed_balance", unconfirmBalancesObj);
     obj.pushKV("txcount",       (int)pwallet->mapWallet.size());
     obj.pushKV("keypoololdest", pwallet->GetOldestKeyPoolTime());
     obj.pushKV("keypoolsize", (int64_t)kpExternalSize);
