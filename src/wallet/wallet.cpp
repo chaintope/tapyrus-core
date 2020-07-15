@@ -2665,12 +2665,13 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
     unsigned int nSubtractFeeFromAmount = 0;
     for (const auto& recipient : vecSend)
     {
-        if (nValue[ColorIdentifier()] < 0 || recipient.nAmount < 0)
+        ColorIdentifier colorId = GetColorIdFromScript(recipient.scriptPubKey);
+        if (nValue[colorId] < 0 || recipient.nAmount < 0)
         {
             strFailReason = _("Transaction amounts must not be negative");
             return false;
         }
-        nValue[ColorIdentifier()] += recipient.nAmount;
+        nValue[colorId] += recipient.nAmount;
 
         if (recipient.fSubtractFeeFromAmount)
             nSubtractFeeFromAmount++;
@@ -2770,8 +2771,8 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
 
             nFeeRet = 0;
             bool pick_new_inputs = true;
-            TxColoredCoinBalancesMap nValueIn;
-            nValueIn[ColorIdentifier()] = 0;
+            CAmount nValueIn;
+            nValueIn = 0;
 
             // BnB selector is the only selector used when this is true.
             // That should only happen on the first pass through the loop.
@@ -2784,10 +2785,10 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 txNew.vout.clear();
                 bool fFirst = true;
 
-                TxColoredCoinBalancesMap nValueToSelect;
-                nValueToSelect[ColorIdentifier()]  = nValue[ColorIdentifier()];
+                CAmount nValueToSelect;
+                nValueToSelect = nValue[ColorIdentifier()];
                 if (nSubtractFeeFromAmount == 0)
-                    nValueToSelect[ColorIdentifier()] += nFeeRet;
+                    nValueToSelect += nFeeRet;
 
                 // vouts to the payees
                 coin_selection_params.tx_noinputs_size = 11; // Static vsize overhead + outputs vsize. 4 nVersion, 4 nLocktime, 1 input count, 1 output count, 1 witness overhead (dummy, flag, stack size)
@@ -2828,11 +2829,11 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 // Choose coins to use
                 bool bnb_used;
                 if (pick_new_inputs) {
-                    nValueIn[ColorIdentifier()] = 0;
+                    nValueIn = 0;
                     setCoins.clear();
                     coin_selection_params.change_spend_size = CalculateMaximumSignedInputSize(change_prototype_txout, this);
                     coin_selection_params.effective_fee = nFeeRateNeeded;
-                    if (!SelectCoins(vAvailableCoins, nValueToSelect[ColorIdentifier()], setCoins, nValueIn[ColorIdentifier()], coin_control, coin_selection_params, bnb_used))
+                    if (!SelectCoins(vAvailableCoins, nValueToSelect, setCoins, nValueIn, coin_control, coin_selection_params, bnb_used))
                     {
                         // If BnB was used, it was the first pass. No longer the first pass and continue loop with knapsack.
                         if (bnb_used) {
@@ -2846,7 +2847,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     }
                 }
 
-                const CAmount nChange = nValueIn[ColorIdentifier()] - nValueToSelect[ColorIdentifier()];
+                const CAmount nChange = nValueIn - nValueToSelect;
                 if (nChange > 0)
                 {
                     // Fill a vout to ourself
