@@ -669,7 +669,7 @@ BOOST_FIXTURE_TEST_CASE(wallet_token_balance, TestChainSetup)
     testTx(this, MakeTransactionRef(tokenAggregateTx), true);
     wallet->ScanForWalletTransactions(chainActive.Genesis(), nullptr, reserver);
     BOOST_CHECK_EQUAL(wallet->GetBalance().size(), 2);
-    BOOST_CHECK_EQUAL(wallet->GetBalance()[defaultColorId)], 0 * CENT);
+    BOOST_CHECK_EQUAL(wallet->GetBalance()[defaultColorId], 0 * CENT);
     BOOST_CHECK_EQUAL(wallet->GetBalance()[colorId], 200 * CENT);
 
     CMutableTransaction tokenBurnTx;
