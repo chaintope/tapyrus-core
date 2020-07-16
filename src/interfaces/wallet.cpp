@@ -81,10 +81,6 @@ WalletTx MakeWalletTx(CWallet& wallet, const CWalletTx& wtx)
         result.debit[cid] = wtx.GetDebit(ISMINE_ALL, cid);
         result.change[cid] = wtx.GetChange(cid);
     }
-    ColorIdentifier c;
-    result.credit[c] = wtx.GetCredit(ISMINE_ALL, c);
-    result.debit[c] = wtx.GetDebit(ISMINE_ALL, c);
-    result.change[c] = wtx.GetChange(c);
     result.time = wtx.GetTxTime();
     result.value_map = wtx.mapValue;
     result.is_coinbase = wtx.IsCoinBase();
