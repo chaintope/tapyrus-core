@@ -49,8 +49,9 @@ static void CoinSelection(benchmark::State& state)
     while (state.KeepRunning()) {
         std::set<CInputCoin> setCoinsRet;
         CAmount nValueRet;
+        ColorIdentifier colorId;
         bool bnb_used;
-        bool success = wallet.SelectCoinsMinConf(1003 * COIN, filter_standard, groups, setCoinsRet, nValueRet, coin_selection_params, bnb_used);
+        bool success = wallet.SelectCoinsMinConf(1003 * COIN, filter_standard, groups, setCoinsRet, nValueRet, coin_selection_params, bnb_used, colorId);
         assert(success);
         assert(nValueRet == 1003 * COIN);
         assert(setCoinsRet.size() == 2);
