@@ -18,10 +18,11 @@ static void addCoin(const CAmount& nValue, const CWallet& wallet, std::vector<Ou
     tx.vout.resize(nInput + 1);
     tx.vout[nInput].nValue = nValue;
     CWalletTx* wtx = new CWalletTx(&wallet, MakeTransactionRef(std::move(tx)));
+    ColorIdentifier colorId(GetColorIdFromScript(tx.vout[nInput].scriptPubKey));
 
     int nAge = 6 * 24;
     COutput output(wtx, nInput, nAge, true /* spendable */, true /* solvable */, true /* safe */);
-    groups.emplace_back(output.GetInputCoin(), 6, false, 0, 0);
+    groups.emplace_back(output.GetInputCoin(), 6, false, 0, 0, colorId);
 }
 
 // Simple benchmark for wallet coin selection. Note that it maybe be necessary
@@ -66,8 +67,9 @@ static void add_coin(const CAmount& nValue, int nInput, std::vector<OutputGroup>
     CMutableTransaction tx;
     tx.vout.resize(nInput + 1);
     tx.vout[nInput].nValue = nValue;
+    ColorIdentifier colorId(GetColorIdFromScript(tx.vout[nInput].scriptPubKey));
     std::unique_ptr<CWalletTx> wtx(new CWalletTx(&testWallet, MakeTransactionRef(std::move(tx))));
-    set.emplace_back(COutput(wtx.get(), nInput, 0, true, true, true).GetInputCoin(), 0, true, 0, 0);
+    set.emplace_back(COutput(wtx.get(), nInput, 0, true, true, true).GetInputCoin(), 0, true, 0, 0, colorId);
     wtxn.emplace_back(std::move(wtx));
 }
 // Copied from src/wallet/test/coinselector_tests.cpp

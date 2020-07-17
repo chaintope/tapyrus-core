@@ -294,7 +294,7 @@ bool KnapsackSolver(const CAmount& nTargetValue, std::vector<OutputGroup>& group
 
  ******************************************************************************/
 
-void OutputGroup::Insert(const CInputCoin& output, int depth, bool from_me, size_t ancestors, size_t descendants) {
+void OutputGroup::Insert(const CInputCoin& output, int depth, bool from_me, size_t ancestors, size_t descendants, ColorIdentifier& colorId) {
     m_outputs.push_back(output);
     m_from_me &= from_me;
     m_value += output.effective_value;
@@ -307,6 +307,7 @@ void OutputGroup::Insert(const CInputCoin& output, int depth, bool from_me, size
     // coin itself; thus, this value is counted as the max, not the sum
     m_descendants = std::max(m_descendants, descendants);
     effective_value = m_value;
+    color_id = colorId;
 }
 
 std::vector<CInputCoin>::iterator OutputGroup::Discard(const CInputCoin& output) {

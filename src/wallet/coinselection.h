@@ -9,6 +9,7 @@
 #include <amount.h>
 #include <primitives/transaction.h>
 #include <random.h>
+#include <coloridentifier.h>
 
 //! target minimum change amount
 static const CAmount MIN_CHANGE = CENT;
@@ -76,20 +77,22 @@ struct OutputGroup
     CAmount effective_value{0};
     CAmount fee{0};
     CAmount long_term_fee{0};
+    ColorIdentifier color_id;
 
     OutputGroup() {}
-    OutputGroup(std::vector<CInputCoin>&& outputs, bool from_me, CAmount value, int depth, size_t ancestors, size_t descendants)
+    OutputGroup(std::vector<CInputCoin>&& outputs, bool from_me, CAmount value, int depth, size_t ancestors, size_t descendants, ColorIdentifier& colorId)
     : m_outputs(std::move(outputs))
     , m_from_me(from_me)
     , m_value(value)
     , m_depth(depth)
     , m_ancestors(ancestors)
     , m_descendants(descendants)
+    , color_id(colorId)
     {}
-    OutputGroup(const CInputCoin& output, int depth, bool from_me, size_t ancestors, size_t descendants) : OutputGroup() {
-        Insert(output, depth, from_me, ancestors, descendants);
+    OutputGroup(const CInputCoin& output, int depth, bool from_me, size_t ancestors, size_t descendants, ColorIdentifier& colorId) : OutputGroup() {
+        Insert(output, depth, from_me, ancestors, descendants, colorId);
     }
-    void Insert(const CInputCoin& output, int depth, bool from_me, size_t ancestors, size_t descendants);
+    void Insert(const CInputCoin& output, int depth, bool from_me, size_t ancestors, size_t descendants, ColorIdentifier& colorId);
     std::vector<CInputCoin>::iterator Discard(const CInputCoin& output);
     bool EligibleForSpending(const CoinEligibilityFilter& eligibility_filter) const;
 };

@@ -107,7 +107,8 @@ inline std::vector<OutputGroup>& GroupCoins(const std::vector<CInputCoin>& coins
 {
     static std::vector<OutputGroup> static_groups;
     static_groups.clear();
-    for (auto& coin : coins) static_groups.emplace_back(coin, 0, true, 0, 0);
+    ColorIdentifier colorId;
+    for (auto& coin : coins) static_groups.emplace_back(coin, 0, true, 0, 0, colorId);
     return static_groups;
 }
 
@@ -115,7 +116,8 @@ inline std::vector<OutputGroup>& GroupCoins(const std::vector<COutput>& coins)
 {
     static std::vector<OutputGroup> static_groups;
     static_groups.clear();
-    for (auto& coin : coins) static_groups.emplace_back(coin.GetInputCoin(), coin.nDepth, coin.tx->fDebitCached && coin.tx->nDebitCached[ColorIdentifier()] == 1 /* HACK: we can't figure out the is_me flag so we use the conditions defined above; perhaps set safe to false for !fIsFromMe in add_coin() */, 0, 0);
+    ColorIdentifier colorId;
+    for (auto& coin : coins) static_groups.emplace_back(coin.GetInputCoin(), coin.nDepth, coin.tx->fDebitCached && coin.tx->nDebitCached[colorId] == 1 /* HACK: we can't figure out the is_me flag so we use the conditions defined above; perhaps set safe to false for !fIsFromMe in add_coin() */, 0, 0, colorId);
     return static_groups;
 }
 

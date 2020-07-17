@@ -4431,9 +4431,11 @@ std::vector<OutputGroup> CWallet::GroupOutputs(const std::vector<COutput>& outpu
     std::map<CTxDestination, OutputGroup> gmap;
     CTxDestination dst;
     for (const auto& output : outputs) {
+        ColorIdentifier colorId(GetColorIdFromScript(output.tx->tx->vout[output.i].scriptPubKey));
+
         if (output.fSpendable) {
             CInputCoin input_coin = output.GetInputCoin();
-
+            
             size_t ancestors, descendants;
             mempool.GetTransactionAncestry(output.tx->GetHash(), ancestors, descendants);
             if (!single_coin && ExtractDestination(output.tx->tx->vout[output.i].scriptPubKey, dst)) {
@@ -4444,9 +4446,9 @@ std::vector<OutputGroup> CWallet::GroupOutputs(const std::vector<COutput>& outpu
                     groups.push_back(gmap[dst]);
                     gmap.erase(dst);
                 }
-                gmap[dst].Insert(input_coin, output.nDepth, output.tx->IsFromMe(ISMINE_ALL), ancestors, descendants);
+                gmap[dst].Insert(input_coin, output.nDepth, output.tx->IsFromMe(ISMINE_ALL), ancestors, descendants, colorId);
             } else {
-                groups.emplace_back(input_coin, output.nDepth, output.tx->IsFromMe(ISMINE_ALL), ancestors, descendants);
+                groups.emplace_back(input_coin, output.nDepth, output.tx->IsFromMe(ISMINE_ALL), ancestors, descendants, colorId);
             }
         }
     }
