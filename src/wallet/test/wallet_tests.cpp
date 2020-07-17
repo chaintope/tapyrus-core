@@ -287,7 +287,8 @@ public:
         int changePos = -1;
         std::string error;
         CCoinControl dummy;
-        BOOST_CHECK(wallet->CreateTransaction({recipient}, tx, reservekey, fee, changePos, error, dummy));
+        ColorIdentifier colorId;
+        BOOST_CHECK(wallet->CreateTransaction({recipient}, tx, reservekey, fee, changePos, error, dummy, colorId));
         CValidationState state;
         BOOST_CHECK(wallet->CommitTransaction(tx, {}, {}, {}, reservekey, nullptr, state));
         CMutableTransaction blocktx;

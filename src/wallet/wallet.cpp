@@ -2464,7 +2464,7 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, const CoinEligibil
     }
 }
 
-bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAmount& nTargetValue, std::set<CInputCoin>& setCoinsRet, CAmount& nValueRet, const CCoinControl& coin_control, CoinSelectionParams& coin_selection_params, bool& bnb_used) const
+bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAmount& nTargetValue, std::set<CInputCoin>& setCoinsRet, CAmount& nValueRet, const CCoinControl& coin_control, CoinSelectionParams& coin_selection_params, bool& bnb_used, ColorIdentifier& colorId) const
 {
     std::vector<COutput> vCoins(vAvailableCoins);
 
@@ -2476,10 +2476,13 @@ bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAm
 
         for (const COutput& out : vCoins)
         {
+            ColorIdentifier cid(GetColorIdFromScript(out.tx->tx->vout[out.i].scriptPubKey));
             if (!out.fSpendable)
-                 continue;
-            nValueRet += out.tx->tx->vout[out.i].nValue;
-            setCoinsRet.insert(out.GetInputCoin());
+                continue;
+            if (colorId == cid) {
+                nValueRet += out.tx->tx->vout[out.i].nValue;
+                setCoinsRet.insert(out.GetInputCoin());
+            }
         }
         return (nValueRet >= nTargetValue);
     }
@@ -2504,8 +2507,10 @@ bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAm
             if (pcoin->tx->vout.size() <= outpoint.n)
                 return false;
             // Just to calculate the marginal byte size
-            nValueFromPresetInputs += pcoin->tx->vout[outpoint.n].nValue;
-            setPresetCoins.insert(CInputCoin(pcoin->tx, outpoint.n));
+            if (colorId == GetColorIdFromScript(pcoin->tx->vout[outpoint.n].scriptPubKey)) {
+                nValueFromPresetInputs += pcoin->tx->vout[outpoint.n].nValue;
+                setPresetCoins.insert(CInputCoin(pcoin->tx, outpoint.n));
+            }
         } else
             return false; // TODO: Allow non-wallet inputs
     }
@@ -2574,7 +2579,7 @@ bool CWallet::SignTransaction(CMutableTransaction &tx)
     return true;
 }
 
-bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nChangePosInOut, std::string& strFailReason, bool lockUnspents, const std::set<int>& setSubtractFeeFromOutputs, CCoinControl coinControl)
+bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nChangePosInOut, std::string& strFailReason, bool lockUnspents, const std::set<int>& setSubtractFeeFromOutputs, CCoinControl coinControl, ColorIdentifier& colorId)
 {
     std::vector<CRecipient> vecSend;
 
@@ -2597,7 +2602,7 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nC
 
     CReserveKey reservekey(this);
     CTransactionRef tx_new;
-    if (!CreateTransaction(vecSend, tx_new, reservekey, nFeeRet, nChangePosInOut, strFailReason, coinControl, false)) {
+    if (!CreateTransaction(vecSend, tx_new, reservekey, nFeeRet, nChangePosInOut, strFailReason, coinControl, colorId, false)) {
         return false;
     }
 
@@ -2657,21 +2662,21 @@ OutputType CWallet::TransactionChangeType(OutputType change_type, const std::vec
 }
 
 bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransactionRef& tx, CReserveKey& reservekey, CAmount& nFeeRet,
-                         int& nChangePosInOut, std::string& strFailReason, const CCoinControl& coin_control, bool sign)
+                         int& nChangePosInOut, std::string& strFailReason, const CCoinControl& coin_control, ColorIdentifier& colorId, bool sign)
 {
     TxColoredCoinBalancesMap nValue;
-    nValue[ColorIdentifier()] = 0;
+    nValue[colorId] = 0;
     int nChangePosRequest = nChangePosInOut;
     unsigned int nSubtractFeeFromAmount = 0;
     for (const auto& recipient : vecSend)
     {
-        ColorIdentifier colorId = GetColorIdFromScript(recipient.scriptPubKey);
-        if (nValue[colorId] < 0 || recipient.nAmount < 0)
+        ColorIdentifier cid = GetColorIdFromScript(recipient.scriptPubKey);
+        if (nValue[cid] < 0 || recipient.nAmount < 0)
         {
             strFailReason = _("Transaction amounts must not be negative");
             return false;
         }
-        nValue[colorId] += recipient.nAmount;
+        nValue[cid] += recipient.nAmount;
 
         if (recipient.fSubtractFeeFromAmount)
             nSubtractFeeFromAmount++;
@@ -2733,7 +2738,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
 
             // coin control: send change to custom address
             if (!boost::get<CNoDestination>(&coin_control.destChange)) {
-                scriptChange = GetScriptForDestination(coin_control.destChange);
+                scriptChange = GetScriptForDestination(coin_control.destChange, &colorId);
             } else { // no coin control: send change to newly generated address
                 // Note: We use a new key here to keep it from being obvious which side is the change.
                 //  The drawback is that by not reusing a previous key, the change may be lost if a
@@ -2759,7 +2764,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 const OutputType change_type = TransactionChangeType(coin_control.m_change_type ? *coin_control.m_change_type : m_default_change_type, vecSend);
 
                 LearnRelatedScripts(vchPubKey, change_type);
-                scriptChange = GetScriptForDestination(GetDestinationForKey(vchPubKey, change_type));
+                scriptChange = GetScriptForDestination(GetDestinationForKey(vchPubKey, change_type), &colorId);
             }
             CTxOut change_prototype_txout(0, scriptChange);
             coin_selection_params.change_output_size = GetSerializeSize(change_prototype_txout, SER_DISK, 0);
@@ -2786,7 +2791,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 bool fFirst = true;
 
                 CAmount nValueToSelect;
-                nValueToSelect = nValue[ColorIdentifier()];
+                nValueToSelect = nValue[colorId];
                 if (nSubtractFeeFromAmount == 0)
                     nValueToSelect += nFeeRet;
 
@@ -2833,7 +2838,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     setCoins.clear();
                     coin_selection_params.change_spend_size = CalculateMaximumSignedInputSize(change_prototype_txout, this);
                     coin_selection_params.effective_fee = nFeeRateNeeded;
-                    if (!SelectCoins(vAvailableCoins, nValueToSelect, setCoins, nValueIn, coin_control, coin_selection_params, bnb_used))
+                    if (!SelectCoins(vAvailableCoins, nValueToSelect, setCoins, nValueIn, coin_control, coin_selection_params, bnb_used, colorId))
                     {
                         // If BnB was used, it was the first pass. No longer the first pass and continue loop with knapsack.
                         if (bnb_used) {

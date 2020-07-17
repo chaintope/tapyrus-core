@@ -250,9 +250,10 @@ BOOST_AUTO_TEST_CASE(bnb_search_test)
     add_coin(3 * CENT);
     add_coin(2 * CENT);
     CCoinControl coin_control;
+    ColorIdentifier colorId;
     coin_control.fAllowOtherInputs = true;
     coin_control.Select(COutPoint(vCoins.at(0).tx->GetHash(), vCoins.at(0).i));
-    BOOST_CHECK(testWallet.SelectCoins(vCoins, 10 * CENT, setCoinsRet, nValueRet, coin_control, coin_selection_params_bnb, bnb_used));
+    BOOST_CHECK(testWallet.SelectCoins(vCoins, 10 * CENT, setCoinsRet, nValueRet, coin_control, coin_selection_params_bnb, bnb_used, colorId));
     BOOST_CHECK(!bnb_used);
     BOOST_CHECK(!coin_selection_params_bnb.use_bnb);
 }
