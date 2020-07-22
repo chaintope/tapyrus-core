@@ -1242,7 +1242,7 @@ bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, int nHeight)
 bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex)
 {
     CDiskBlockPos blockPos;
-    uint height = 0;
+    uint64_t height = 0;
     {
         LOCK(cs_main);
         blockPos = pindex->GetBlockPos();
@@ -3104,7 +3104,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
 
     // Check that the header is valid (particularly PoW).  This is mostly
     // redundant with the call in AcceptBlockHeader.
-    uint height = block.GetHeight();
+    uint64_t height = block.GetHeight();
 
     if (!CheckBlockHeader(block, state, height, fCheckPOW))
         return false;

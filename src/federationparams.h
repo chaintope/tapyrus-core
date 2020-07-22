@@ -25,7 +25,7 @@ struct SeedSpec6 {
 
 struct aggPubkeyAndHeight {
     CPubKey aggpubkey;
-    int height;
+    uint64_t height;
 };
 
 /**
@@ -40,7 +40,7 @@ public:
     /**
      * Parse aggPubkey in block header.
      */
-    CPubKey ReadAggregatePubkey(const std::vector<unsigned char>& pubkey, uint height) const;
+    CPubKey ReadAggregatePubkey(const std::vector<unsigned char>& pubkey, uint64_t height) const;
     const std::vector<aggPubkeyAndHeight>& GetAggregatePubkeyHeightList() const { return aggregatePubkeyHeight; }
     const CPubKey& GetLatestAggregatePubkey() const { return aggregatePubkeyHeight.back().aggpubkey; }
     bool ReadGenesisBlock(std::string genesisHex);

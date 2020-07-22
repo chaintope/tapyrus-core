@@ -142,7 +142,7 @@ CFederationParams::CFederationParams(const int networkId, const std::string data
     vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_main, pnSeed6_main + ARRAYLEN(pnSeed6_main));
 }
 
-CPubKey CFederationParams::ReadAggregatePubkey(const std::vector<unsigned char>& pubkey, uint height) const
+CPubKey CFederationParams::ReadAggregatePubkey(const std::vector<unsigned char>& pubkey, uint64_t height) const
 {
     if(!pubkey.size())
         throw std::runtime_error("Aggregate Public Key for Signed Block is empty");
