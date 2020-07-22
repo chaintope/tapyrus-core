@@ -6,7 +6,7 @@ export PATH=$(echo $PATH | tr ':' "\n" | sed '/\/opt\/python/d' | tr "\n" ":" | 
 
 # Install
 env | grep -E '^(CCACHE_|WINEDEBUG|LC_ALL|BOOST_TEST_RANDOM|CONFIG_SHELL)' | tee /tmp/env
-if [ -n "$DPKG_ADD_ARCH" ]; then dpkg --add-architecture "$DPKG_ADD_ARCH" ; fi
+if [ -n "$DPKG_ADD_ARCH" ]; then sudo dpkg --add-architecture "$DPKG_ADD_ARCH" ; fi
 RETRY sudo apt-get update
 RETRY sudo apt-get install --no-install-recommends --no-upgrade -qq $PACKAGES $BUILD_PACKAGES
 
@@ -15,7 +15,7 @@ echo \> \$HOME/.tapyrus  # Make sure default datadir does not exist and is never
 mkdir -p depends/SDKs depends/sdk-sources
 if [ -n "$OSX_SDK" -a ! -f depends/sdk-sources/MacOSX${OSX_SDK}.sdk.tar.gz ]; then curl --location --fail $SDK_URL/MacOSX${OSX_SDK}.sdk.tar.gz -o depends/sdk-sources/MacOSX${OSX_SDK}.sdk.tar.gz; fi
 if [ -n "$OSX_SDK" -a -f depends/sdk-sources/MacOSX${OSX_SDK}.sdk.tar.gz ]; then tar -C depends/SDKs -xf depends/sdk-sources/MacOSX${OSX_SDK}.sdk.tar.gz; fi
-if [[ $HOST = *-mingw32 ]]; then update-alternatives --set $HOST-g++ $(which $HOST-g++-posix); fi
+if [[ $HOST = *-mingw32 ]]; then sudo update-alternatives --set $HOST-g++ $(which $HOST-g++-posix); fi
 if [ -z "$NO_DEPENDS" ]; then CONFIG_SHELL= make $MAKEJOBS -C depends HOST=$HOST $DEP_OPTS; fi
 
 # Script
