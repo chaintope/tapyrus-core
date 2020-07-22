@@ -90,7 +90,7 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
 {
     std::vector<unsigned char> data;
     uint160 hash;
-    uint colorIdSize = 33;
+    uint64_t colorIdSize = 33;
 
     if (DecodeBase58Check(str, data)) {
 
