@@ -194,7 +194,9 @@ static UniValue getnewaddress(const JSONRPCRequest& request)
 
     pwallet->SetAddressBook(dest, label, "receive");
 
-    return EncodeDestination(dest);
+    ColorIdentifier colorId;
+
+    return EncodeDestination(dest, colorId);
 }
 
 CTxDestination GetLabelDestination(CWallet* const pwallet, const std::string& label, bool bForceNew=false)
@@ -244,8 +246,9 @@ static UniValue getaccountaddress(const JSONRPCRequest& request)
     std::string account = LabelFromValue(request.params[0]);
 
     UniValue ret(UniValue::VSTR);
+    ColorIdentifier colorId;
 
-    ret = EncodeDestination(GetLabelDestination(pwallet, account));
+    ret = EncodeDestination(GetLabelDestination(pwallet, account), colorId);
     return ret;
 }
 
@@ -299,8 +302,9 @@ static UniValue getrawchangeaddress(const JSONRPCRequest& request)
 
     pwallet->LearnRelatedScripts(vchPubKey, output_type);
     CTxDestination dest = GetDestinationForKey(vchPubKey, output_type);
+    ColorIdentifier colorId;
 
-    return EncodeDestination(dest);
+    return EncodeDestination(dest, colorId);
 }
 
 
@@ -458,8 +462,9 @@ static UniValue getaddressesbyaccount(const JSONRPCRequest& request)
     for (const std::pair<const CTxDestination, CAddressBookData>& item : pwallet->mapAddressBook) {
         const CTxDestination& dest = item.first;
         const std::string& strName = item.second.name;
+        ColorIdentifier colorId;
         if (strName == strAccount) {
-            ret.push_back(EncodeDestination(dest));
+            ret.push_back(EncodeDestination(dest, colorId));
         }
     }
     return ret;
@@ -640,7 +645,8 @@ static UniValue listaddressgroupings(const JSONRPCRequest& request)
         for (const CTxDestination& address : grouping)
         {
             UniValue addressInfo(UniValue::VARR);
-            addressInfo.push_back(EncodeDestination(address));
+            ColorIdentifier colorId;
+            addressInfo.push_back(EncodeDestination(address, colorId));
             addressInfo.push_back(ValueFromAmount(balances[address]));
             {
                 if (pwallet->mapAddressBook.find(address) != pwallet->mapAddressBook.end()) {
@@ -1391,7 +1397,8 @@ static UniValue addmultisigaddress(const JSONRPCRequest& request)
     pwallet->SetAddressBook(dest, label, "send");
 
     UniValue result(UniValue::VOBJ);
-    result.pushKV("address", EncodeDestination(dest));
+    ColorIdentifier colorId;
+    result.pushKV("address", EncodeDestination(dest, colorId));
     result.pushKV("redeemScript", HexStr(inner.begin(), inner.end()));
     return result;
 }
@@ -1520,7 +1527,7 @@ static UniValue addwitnessaddress(const JSONRPCRequest& request)
         pwallet->SetAddressBook(w.result, "", "receive");
     }
 
-    return EncodeDestination(w.result);
+    return EncodeDestination(w.result, colorId);
 }
 
 struct tallyitem
@@ -1644,10 +1651,11 @@ static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bo
         }
         else
         {
+            ColorIdentifier colorId;
             UniValue obj(UniValue::VOBJ);
             if(fIsWatchonly)
                 obj.pushKV("involvesWatchonly", true);
-            obj.pushKV("address",       EncodeDestination(address));
+            obj.pushKV("address",       EncodeDestination(address, colorId));
             obj.pushKV("account",       label);
             obj.pushKV("amount",        ValueFromAmount(nAmount));
             obj.pushKV("confirmations", (nConf == std::numeric_limits<int>::max() ? 0 : nConf));
@@ -1791,7 +1799,8 @@ static UniValue listreceivedbylabel(const JSONRPCRequest& request)
 static void MaybePushAddress(UniValue & entry, const CTxDestination &dest)
 {
     if (IsValidDestination(dest)) {
-        entry.pushKV("address", EncodeDestination(dest));
+        ColorIdentifier colorId;
+        entry.pushKV("address", EncodeDestination(dest, colorId));
     }
 }
 
@@ -3420,8 +3429,9 @@ static UniValue listunspent(const JSONRPCRequest& request)
 
     for (const COutput& out : vecOutputs) {
         CTxDestination address;
+        ColorIdentifier colorId;
         const CScript& scriptPubKey = out.tx->tx->vout[out.i].scriptPubKey;
-        bool fValidAddress = ExtractDestination(scriptPubKey, address);
+        bool fValidAddress = ExtractDestination(scriptPubKey, address, &colorId);
 
         if (destinations.size() && (!fValidAddress || !destinations.count(address)))
             continue;
@@ -3431,7 +3441,7 @@ static UniValue listunspent(const JSONRPCRequest& request)
         entry.pushKV("vout", out.i);
 
         if (fValidAddress) {
-            entry.pushKV("address", EncodeDestination(address));
+            entry.pushKV("address", EncodeDestination(address, colorId));
 
             auto i = pwallet->mapAddressBook.find(address);
             if (i != pwallet->mapAddressBook.end()) {
@@ -4050,19 +4060,20 @@ public:
 
         CTxDestination embedded;
         UniValue a(UniValue::VARR);
-        if (ExtractDestination(subscript, embedded)) {
+        ColorIdentifier colorId;
+        if (ExtractDestination(subscript, embedded, &colorId)) {
             // Only when the script corresponds to an address.
             UniValue subobj(UniValue::VOBJ);
             UniValue detail = DescribeAddress(embedded);
             subobj.pushKVs(detail);
             UniValue wallet_detail = boost::apply_visitor(*this, embedded);
             subobj.pushKVs(wallet_detail);
-            subobj.pushKV("address", EncodeDestination(embedded));
+            subobj.pushKV("address", EncodeDestination(embedded, colorId));
             subobj.pushKV("scriptPubKey", HexStr(subscript.begin(), subscript.end()));
             // Always report the pubkey at the top level, so that `getnewaddress()['pubkey']` always works.
             if (subobj.exists("pubkey")) obj.pushKV("pubkey", subobj["pubkey"]);
             obj.pushKV("embedded", std::move(subobj));
-            if (include_addresses) a.push_back(EncodeDestination(embedded));
+            if (include_addresses) a.push_back(EncodeDestination(embedded, colorId));
         } else if (which_type == TX_MULTISIG) {
             // Also report some information on multisig scripts (which do not have a corresponding address).
             // TODO: abstract out the common functionality between this logic and ExtractDestinations.
@@ -4070,7 +4081,7 @@ public:
             UniValue pubkeys(UniValue::VARR);
             for (size_t i = 1; i < solutions_data.size() - 1; ++i) {
                 CPubKey key(solutions_data[i].begin(), solutions_data[i].end());
-                if (include_addresses) a.push_back(EncodeDestination(key.GetID()));
+                if (include_addresses) a.push_back(EncodeDestination(key.GetID(), colorId));
                 pubkeys.push_back(HexStr(key.begin(), key.end()));
             }
             obj.pushKV("pubkeys", std::move(pubkeys));
@@ -4223,7 +4234,7 @@ UniValue getaddressinfo(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
     }
 
-    std::string currentAddress = EncodeDestination(dest);
+    std::string currentAddress = EncodeDestination(dest, colorId);
     ret.pushKV("address", currentAddress);
 
     CScript scriptPubKey = GetScriptForDestination(dest, &colorId);
@@ -4308,9 +4319,10 @@ static UniValue getaddressesbylabel(const JSONRPCRequest& request)
 
     // Find all addresses that have the given label
     UniValue ret(UniValue::VOBJ);
+    ColorIdentifier colorId;
     for (const std::pair<const CTxDestination, CAddressBookData>& item : pwallet->mapAddressBook) {
         if (item.second.name == label) {
-            ret.pushKV(EncodeDestination(item.first), AddressBookDataToJSON(item.second, false));
+            ret.pushKV(EncodeDestination(item.first, colorId), AddressBookDataToJSON(item.second, false));
         }
     }
 

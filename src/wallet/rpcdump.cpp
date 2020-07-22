@@ -71,18 +71,19 @@ static bool GetWalletAddressesForKey(CWallet * const pwallet, const CKeyID &keyi
     bool fLabelFound = false;
     CKey key;
     pwallet->GetKey(keyid, key);
+    ColorIdentifier colorId;
     for (const auto& dest : GetAllDestinationsForKey(key.GetPubKey())) {
         if (pwallet->mapAddressBook.count(dest)) {
             if (!strAddr.empty()) {
                 strAddr += ",";
             }
-            strAddr += EncodeDestination(dest);
+            strAddr += EncodeDestination(dest, colorId);
             strLabel = EncodeDumpString(pwallet->mapAddressBook[dest].name);
             fLabelFound = true;
         }
     }
     if (!fLabelFound) {
-        strAddr = EncodeDestination(GetDestinationForKey(key.GetPubKey(), pwallet->m_default_address_type));
+        strAddr = EncodeDestination(GetDestinationForKey(key.GetPubKey(), pwallet->m_default_address_type), colorId);
     }
     return fLabelFound;
 }
@@ -572,8 +573,9 @@ UniValue importwallet(const JSONRPCRequest& request)
                 CPubKey pubkey = key.GetPubKey();
                 assert(key.VerifyPubKey(pubkey));
                 CKeyID keyid = pubkey.GetID();
+                ColorIdentifier colorId;
                 if (pwallet->HaveKey(keyid)) {
-                    pwallet->WalletLogPrintf("Skipping import of %s (key already present)\n", EncodeDestination(keyid));
+                    pwallet->WalletLogPrintf("Skipping import of %s (key already present)\n", EncodeDestination(keyid, colorId));
                     continue;
                 }
                 int64_t nTime = DecodeDumpTime(vstr[1]);
@@ -591,7 +593,7 @@ UniValue importwallet(const JSONRPCRequest& request)
                         fLabel = true;
                     }
                 }
-                pwallet->WalletLogPrintf("Importing %s...\n", EncodeDestination(keyid));
+                pwallet->WalletLogPrintf("Importing %s...\n", EncodeDestination(keyid, colorId));
                 if (!pwallet->AddKeyPubKey(key, pubkey)) {
                     fGood = false;
                     continue;
@@ -788,7 +790,8 @@ UniValue dumpwallet(const JSONRPCRequest& request)
     for (const CScriptID &scriptid : scripts) {
         CScript script;
         std::string create_time = "0";
-        std::string address = EncodeDestination(scriptid);
+        ColorIdentifier colorId;
+        std::string address = EncodeDestination(scriptid, colorId);
         // get birth times for scripts with metadata
         auto it = pwallet->m_script_metadata.find(scriptid);
         if (it != pwallet->m_script_metadata.end()) {

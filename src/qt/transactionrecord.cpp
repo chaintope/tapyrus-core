@@ -48,6 +48,7 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
             {
                 TransactionRecord sub(hash, nTime);
                 CTxDestination address;
+                ColorIdentifier colorId;
                 sub.idx = i; // vout index
                 sub.credit = txout.nValue;
                 sub.involvesWatchAddress = mine & ISMINE_WATCH_ONLY;
@@ -55,7 +56,7 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
                 {
                     // Received by Bitcoin Address
                     sub.type = TransactionRecord::RecvWithAddress;
-                    sub.address = EncodeDestination(wtx.txout_address[i]);
+                    sub.address = EncodeDestination(wtx.txout_address[i], colorId);
                 }
                 else
                 {
@@ -108,6 +109,7 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
 
             for (unsigned int nOut = 0; nOut < wtx.tx->vout.size(); nOut++)
             {
+                ColorIdentifier colorId;
                 const CTxOut& txout = wtx.tx->vout[nOut];
                 TransactionRecord sub(hash, nTime);
                 sub.idx = nOut;
@@ -124,7 +126,7 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
                 {
                     // Sent to Bitcoin Address
                     sub.type = TransactionRecord::SendToAddress;
-                    sub.address = EncodeDestination(wtx.txout_address[nOut]);
+                    sub.address = EncodeDestination(wtx.txout_address[nOut], colorId);
                 }
                 else
                 {

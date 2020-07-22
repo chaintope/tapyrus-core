@@ -39,6 +39,8 @@ public:
         base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1,128);
         base58Prefixes[EXT_PUBLIC_KEY] = {0x04, 0x88, 0xB2, 0x1E};
         base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x88, 0xAD, 0xE4};
+        base58Prefixes[C_PUBKEY_ADDRESS] = std::vector<unsigned char>(1,1);
+        base58Prefixes[C_SCRIPT_ADDRESS] = std::vector<unsigned char>(1,6);
 
         fDefaultConsistencyChecks = false;
         fMineBlocksOnDemand = false;
@@ -69,6 +71,8 @@ public:
         base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1,239);
         base58Prefixes[EXT_PUBLIC_KEY] = {0x04, 0x35, 0x87, 0xCF};
         base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x35, 0x83, 0x94};
+        base58Prefixes[C_PUBKEY_ADDRESS] = std::vector<unsigned char>(1,112);
+        base58Prefixes[C_SCRIPT_ADDRESS] = std::vector<unsigned char>(1,197);	
 
         /* enable fallback fee on dev */
         m_fallback_fee_enabled = true;

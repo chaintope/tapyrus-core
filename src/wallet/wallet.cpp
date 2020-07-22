@@ -369,7 +369,8 @@ bool CWallet::LoadCScript(const CScript& redeemScript)
      * these. Do not add them to the wallet and warn. */
     if (redeemScript.size() > MAX_SCRIPT_ELEMENT_SIZE)
     {
-        std::string strAddr = EncodeDestination(CScriptID(redeemScript));
+        ColorIdentifier colorId;
+        std::string strAddr = EncodeDestination(CScriptID(redeemScript), colorId);
         WalletLogPrintf("%s: Warning: This wallet contains a redeemScript of size %i which exceeds maximum size %i thus can never be redeemed. Do not use address %s.\n", __func__, redeemScript.size(), MAX_SCRIPT_ELEMENT_SIZE, strAddr);
         return true;
     }
@@ -1393,14 +1394,15 @@ bool CWallet::IsFromMe(const CTransaction& tx) const
 
 CAmount CWallet::GetDebit(const CTransaction& tx, const isminefilter& filter) const
 {
-    CAmount nDebit = 0;
+    TxColoredCoinBalancesMap nDebit;
+    nDebit[ColorIdentifier()] = 0;
     for (const CTxIn& txin : tx.vin)
     {
-        nDebit += GetDebit(txin, filter);
-        if (!MoneyRange(nDebit))
+        nDebit[ColorIdentifier()] += GetDebit(txin, filter);
+        if (!MoneyRange(nDebit[ColorIdentifier()]))
             throw std::runtime_error(std::string(__func__) + ": value out of range");
     }
-    return nDebit;
+    return nDebit[ColorIdentifier()];
 }
 
 bool CWallet::IsAllFromMe(const CTransaction& tx, const isminefilter& filter) const
@@ -1426,26 +1428,28 @@ bool CWallet::IsAllFromMe(const CTransaction& tx, const isminefilter& filter) co
 
 CAmount CWallet::GetCredit(const CTransaction& tx, const isminefilter& filter) const
 {
-    CAmount nCredit = 0;
+    TxColoredCoinBalancesMap nCredit;
+    nCredit[ColorIdentifier()] = 0;
     for (const CTxOut& txout : tx.vout)
     {
-        nCredit += GetCredit(txout, filter);
-        if (!MoneyRange(nCredit))
+        nCredit[ColorIdentifier()] += GetCredit(txout, filter);
+        if (!MoneyRange(nCredit[ColorIdentifier()]))
             throw std::runtime_error(std::string(__func__) + ": value out of range");
     }
-    return nCredit;
+    return nCredit[ColorIdentifier()];
 }
 
 CAmount CWallet::GetChange(const CTransaction& tx) const
 {
-    CAmount nChange = 0;
+    TxColoredCoinBalancesMap nChange;
+    nChange[ColorIdentifier()] = 0;
     for (const CTxOut& txout : tx.vout)
     {
-        nChange += GetChange(txout);
-        if (!MoneyRange(nChange))
+        nChange[ColorIdentifier()] += GetChange(txout);
+        if (!MoneyRange(nChange[ColorIdentifier()]))
             throw std::runtime_error(std::string(__func__) + ": value out of range");
     }
-    return nChange;
+    return nChange[ColorIdentifier()];
 }
 
 CPubKey CWallet::GenerateNewSeed()
@@ -1941,25 +1945,26 @@ CAmount CWalletTx::GetAvailableCredit(bool fUseCache, const isminefilter& filter
         return *cache;
     }
 
-    CAmount nCredit = 0;
+    TxColoredCoinBalancesMap nCredit;
+    nCredit[ColorIdentifier()] = 0;
     uint256 hashTx = GetHash();
     for (unsigned int i = 0; i < tx->vout.size(); i++)
     {
         if (!pwallet->IsSpent(hashTx, i))
         {
             const CTxOut &txout = tx->vout[i];
-            nCredit += pwallet->GetCredit(txout, filter);
-            if (!MoneyRange(nCredit))
+            nCredit[ColorIdentifier()] += pwallet->GetCredit(txout, filter);
+            if (!MoneyRange(nCredit[ColorIdentifier()]))
                 throw std::runtime_error(std::string(__func__) + " : value out of range");
         }
     }
 
     if (cache) {
-        *cache = nCredit;
+        *cache = nCredit[ColorIdentifier()];
         assert(cache_used);
         *cache_used = true;
     }
-    return nCredit;
+    return nCredit[ColorIdentifier()];
 }
 
 CAmount CWalletTx::GetChange() const
@@ -2077,49 +2082,52 @@ void CWallet::ResendWalletTransactions(int64_t nBestBlockTime, CConnman* connman
 
 CAmount CWallet::GetBalance(const isminefilter& filter, const int min_depth) const
 {
-    CAmount nTotal = 0;
+    TxColoredCoinBalancesMap nTotal;
+    nTotal[ColorIdentifier()] = 0;
     {
         LOCK2(cs_main, cs_wallet);
         for (const auto& entry : mapWallet)
         {
             const CWalletTx* pcoin = &entry.second;
             if (pcoin->IsTrusted() && pcoin->GetDepthInMainChain() >= min_depth) {
-                nTotal += pcoin->GetAvailableCredit(true, filter);
+                nTotal[ColorIdentifier()] += pcoin->GetAvailableCredit(true, filter);
             }
         }
     }
 
-    return nTotal;
+    return nTotal[ColorIdentifier()];
 }
 
 CAmount CWallet::GetUnconfirmedBalance() const
 {
-    CAmount nTotal = 0;
+    TxColoredCoinBalancesMap nTotal;
+    nTotal[ColorIdentifier()] = 0;
     {
         LOCK2(cs_main, cs_wallet);
         for (const auto& entry : mapWallet)
         {
             const CWalletTx* pcoin = &entry.second;
             if (!pcoin->IsTrusted() && pcoin->GetDepthInMainChain() == 0 && pcoin->InMempool())
-                nTotal += pcoin->GetAvailableCredit();
+                nTotal[ColorIdentifier()] += pcoin->GetAvailableCredit();
         }
     }
-    return nTotal;
+    return nTotal[ColorIdentifier()];
 }
 
 CAmount CWallet::GetUnconfirmedWatchOnlyBalance() const
 {
-    CAmount nTotal = 0;
+    TxColoredCoinBalancesMap nTotal;
+    nTotal[ColorIdentifier()] = 0;
     {
         LOCK2(cs_main, cs_wallet);
         for (const auto& entry : mapWallet)
         {
             const CWalletTx* pcoin = &entry.second;
             if (!pcoin->IsTrusted() && pcoin->GetDepthInMainChain() == 0 && pcoin->InMempool())
-                nTotal += pcoin->GetAvailableCredit(true, ISMINE_WATCH_ONLY);
+                nTotal[ColorIdentifier()]  += pcoin->GetAvailableCredit(true, ISMINE_WATCH_ONLY);
         }
     }
-    return nTotal;
+    return nTotal[ColorIdentifier()];
 }
 
 // Calculate total balance in a different way from GetBalance. The biggest
@@ -2132,7 +2140,8 @@ CAmount CWallet::GetLegacyBalance(const isminefilter& filter, int minDepth, cons
 {
     LOCK2(cs_main, cs_wallet);
 
-    CAmount balance = 0;
+    TxColoredCoinBalancesMap balance;
+    balance[ColorIdentifier()] = 0;
     for (const auto& entry : mapWallet) {
         const CWalletTx& wtx = entry.second;
         const int depth = wtx.GetDepthInMainChain();
@@ -2148,70 +2157,37 @@ CAmount CWallet::GetLegacyBalance(const isminefilter& filter, int minDepth, cons
             if (outgoing && IsChange(out)) {
                 debit -= out.nValue;
             } else if (IsMine(out) & filter && depth >= minDepth && (!account || *account == GetLabelName(out.scriptPubKey))) {
-                balance += out.nValue;
+                balance[ColorIdentifier()] += out.nValue;
             }
         }
 
         // For outgoing txs, subtract amount debited.
         if (outgoing && (!account || *account == wtx.strFromAccount)) {
-            balance -= debit;
+            balance[ColorIdentifier()] -= debit;
         }
     }
 
     if (account) {
-        balance += WalletBatch(*database).GetAccountCreditDebit(*account);
+        balance[ColorIdentifier()] += WalletBatch(*database).GetAccountCreditDebit(*account);
     }
 
-    return balance;
+    return balance[ColorIdentifier()];
 }
+
 CAmount CWallet::GetAvailableBalance(const CCoinControl* coinControl) const
 {
     LOCK2(cs_main, cs_wallet);
 
-    CAmount balance = 0;
-    std::vector<CBalance> balances = GetAvailableTokenBalance(coinControl);
-    
-    for(unsigned int i = 0; i < balances.size(); i++) {
-        if(balances[i].colorId.type == TokenTypes::NONE) {
-            return balances[i].value;
-            break;
-        }
-    };
-
-    return balance;
-}
-
-std::vector<CBalance> CWallet::GetAvailableTokenBalance(const CCoinControl* coinControl) const
-{
-    LOCK2(cs_main, cs_wallet);
-
-    std::vector<CBalance> cbalances;
+    TxColoredCoinBalancesMap balance;
+    balance[ColorIdentifier()] = 0;
     std::vector<COutput> vCoins;
     AvailableCoins(vCoins, true, coinControl);
     for (const COutput& out : vCoins) {
         if (out.fSpendable) {
-            CScript& scriptPubKey = const_cast<CScript&>(out.tx->tx->vout[out.i].scriptPubKey);
-            //create a method to extract colorId using scriptpubkey;
-            ColorIdentifier colorId(GetColorIdFromScript(scriptPubKey));
-
-            bool found = false;
-            for(unsigned int i = 0; i < cbalances.size(); i++) {
-                if (cbalances[i].colorId == colorId) {
-                        found = true;
-                        cbalances[i].value += out.tx->tx->vout[out.i].nValue;
-                        break;
-                }
-            };
-
-            if(!found) {
-                cbalances.push_back({
-                    colorId,
-                    out.tx->tx->vout[out.i].nValue
-                });
-            }
+            balance[ColorIdentifier()] += out.tx->tx->vout[out.i].nValue;
         }
     }
-    return cbalances;
+    return balance[ColorIdentifier()];
 }
 
 void CWallet::AvailableCoins(std::vector<COutput> &vCoins, bool fOnlySafe, const CCoinControl *coinControl, const CAmount &nMinimumAmount, const CAmount &nMaximumAmount, const CAmount &nMinimumSumAmount, const uint64_t nMaximumCount, const int nMinDepth, const int nMaxDepth) const
@@ -2220,7 +2196,8 @@ void CWallet::AvailableCoins(std::vector<COutput> &vCoins, bool fOnlySafe, const
     AssertLockHeld(cs_wallet);
 
     vCoins.clear();
-    CAmount nTotal = 0;
+    TxColoredCoinBalancesMap nTotal;
+    nTotal[ColorIdentifier()] = 0;
 
     for (const auto& entry : mapWallet)
     {
@@ -2305,9 +2282,9 @@ void CWallet::AvailableCoins(std::vector<COutput> &vCoins, bool fOnlySafe, const
 
             // Checks the sum amount of all UTXO's.
             if (nMinimumSumAmount != MAX_MONEY) {
-                nTotal += pcoin->tx->vout[i].nValue;
+                nTotal[ColorIdentifier()] += pcoin->tx->vout[i].nValue;
 
-                if (nTotal >= nMinimumSumAmount) {
+                if (nTotal[ColorIdentifier()] >= nMinimumSumAmount) {
                     return;
                 }
             }
@@ -2632,17 +2609,18 @@ OutputType CWallet::TransactionChangeType(OutputType change_type, const std::vec
 bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransactionRef& tx, CReserveKey& reservekey, CAmount& nFeeRet,
                          int& nChangePosInOut, std::string& strFailReason, const CCoinControl& coin_control, bool sign)
 {
-    CAmount nValue = 0;
+    TxColoredCoinBalancesMap nValue;
+    nValue[ColorIdentifier()] = 0;
     int nChangePosRequest = nChangePosInOut;
     unsigned int nSubtractFeeFromAmount = 0;
     for (const auto& recipient : vecSend)
     {
-        if (nValue < 0 || recipient.nAmount < 0)
+        if (nValue[ColorIdentifier()] < 0 || recipient.nAmount < 0)
         {
             strFailReason = _("Transaction amounts must not be negative");
             return false;
         }
-        nValue += recipient.nAmount;
+        nValue[ColorIdentifier()] += recipient.nAmount;
 
         if (recipient.fSubtractFeeFromAmount)
             nSubtractFeeFromAmount++;
@@ -2742,7 +2720,8 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
 
             nFeeRet = 0;
             bool pick_new_inputs = true;
-            CAmount nValueIn = 0;
+            TxColoredCoinBalancesMap nValueIn;
+            nValueIn[ColorIdentifier()] = 0;
 
             // BnB selector is the only selector used when this is true.
             // That should only happen on the first pass through the loop.
@@ -2755,9 +2734,10 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 txNew.vout.clear();
                 bool fFirst = true;
 
-                CAmount nValueToSelect = nValue;
+                TxColoredCoinBalancesMap nValueToSelect;
+                nValueToSelect[ColorIdentifier()]  = nValue[ColorIdentifier()];
                 if (nSubtractFeeFromAmount == 0)
-                    nValueToSelect += nFeeRet;
+                    nValueToSelect[ColorIdentifier()] += nFeeRet;
 
                 // vouts to the payees
                 coin_selection_params.tx_noinputs_size = 11; // Static vsize overhead + outputs vsize. 4 nVersion, 4 nLocktime, 1 input count, 1 output count, 1 witness overhead (dummy, flag, stack size)
@@ -2798,11 +2778,11 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 // Choose coins to use
                 bool bnb_used;
                 if (pick_new_inputs) {
-                    nValueIn = 0;
+                    nValueIn[ColorIdentifier()] = 0;
                     setCoins.clear();
                     coin_selection_params.change_spend_size = CalculateMaximumSignedInputSize(change_prototype_txout, this);
                     coin_selection_params.effective_fee = nFeeRateNeeded;
-                    if (!SelectCoins(vAvailableCoins, nValueToSelect, setCoins, nValueIn, coin_control, coin_selection_params, bnb_used))
+                    if (!SelectCoins(vAvailableCoins, nValueToSelect[ColorIdentifier()], setCoins, nValueIn[ColorIdentifier()], coin_control, coin_selection_params, bnb_used))
                     {
                         // If BnB was used, it was the first pass. No longer the first pass and continue loop with knapsack.
                         if (bnb_used) {
@@ -2816,7 +2796,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     }
                 }
 
-                const CAmount nChange = nValueIn - nValueToSelect;
+                const CAmount nChange = nValueIn[ColorIdentifier()] - nValueToSelect[ColorIdentifier()];
                 if (nChange > 0)
                 {
                     // Fill a vout to ourself
@@ -3197,18 +3177,20 @@ bool CWallet::SetAddressBook(const CTxDestination& address, const std::string& s
     }
     NotifyAddressBookChanged(this, address, strName, ::IsMine(*this, address) != ISMINE_NO,
                              strPurpose, (fUpdated ? CT_UPDATED : CT_NEW) );
-    if (!strPurpose.empty() && !WalletBatch(*database).WritePurpose(EncodeDestination(address), strPurpose))
+    ColorIdentifier colorId;
+    if (!strPurpose.empty() && !WalletBatch(*database).WritePurpose(EncodeDestination(address, colorId), strPurpose))
         return false;
-    return WalletBatch(*database).WriteName(EncodeDestination(address), strName);
+    return WalletBatch(*database).WriteName(EncodeDestination(address, colorId), strName);
 }
 
 bool CWallet::DelAddressBook(const CTxDestination& address)
 {
+    ColorIdentifier colorId;
     {
         LOCK(cs_wallet); // mapAddressBook
 
         // Delete destdata tuples associated with address
-        std::string strAddress = EncodeDestination(address);
+        std::string strAddress = EncodeDestination(address, colorId);
         for (const std::pair<const std::string, std::string> &item : mapAddressBook[address].destdata)
         {
             WalletBatch(*database).EraseDestData(strAddress, item.first);
@@ -3218,8 +3200,8 @@ bool CWallet::DelAddressBook(const CTxDestination& address)
 
     NotifyAddressBookChanged(this, address, "", ::IsMine(*this, address) != ISMINE_NO, "", CT_DELETED);
 
-    WalletBatch(*database).ErasePurpose(EncodeDestination(address));
-    return WalletBatch(*database).EraseName(EncodeDestination(address));
+    WalletBatch(*database).ErasePurpose(EncodeDestination(address, colorId));
+    return WalletBatch(*database).EraseName(EncodeDestination(address, colorId));
 }
 
 const std::string& CWallet::GetLabelName(const CScript& scriptPubKey) const
@@ -3860,15 +3842,17 @@ bool CWallet::AddDestData(const CTxDestination &dest, const std::string &key, co
     if (boost::get<CNoDestination>(&dest))
         return false;
 
+    ColorIdentifier colorId;
     mapAddressBook[dest].destdata.insert(std::make_pair(key, value));
-    return WalletBatch(*database).WriteDestData(EncodeDestination(dest), key, value);
+    return WalletBatch(*database).WriteDestData(EncodeDestination(dest, colorId), key, value);
 }
 
 bool CWallet::EraseDestData(const CTxDestination &dest, const std::string &key)
 {
     if (!mapAddressBook[dest].destdata.erase(key))
         return false;
-    return WalletBatch(*database).EraseDestData(EncodeDestination(dest), key);
+    ColorIdentifier colorId;
+    return WalletBatch(*database).EraseDestData(EncodeDestination(dest, colorId), key);
 }
 
 void CWallet::LoadDestData(const CTxDestination &dest, const std::string &key, const std::string &value)
