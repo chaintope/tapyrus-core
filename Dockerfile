@@ -1,20 +1,3 @@
-# Create Docker image for Tapyrus Core.
-#
-# In default, this image run as testnet full node.
-#
-# ## Run other network
-# If you want to run in other network, you can mount your directory which has conf and genesis.dat
-# files on node's datadir
-#
-# Like this
-#      $ docker run -d -P --name tapyrus-regtest -v /my/regtest/datadir:/var/lib/tapyrus [Image]
-#
-# ## Run utility commands
-# You can run utility commands (like tapyrus-cli) using docker exec.
-#
-# Example
-#      $ docker exec [Container ID] tapyrus-cli -conf=/var/lib/tapyrus/tapyrus.conf getblockchaininfo
-
 FROM ubuntu:18.04 as builder
 
 ARG MAKEJOBS=3
