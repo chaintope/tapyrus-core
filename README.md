@@ -38,6 +38,11 @@ Tapyrus consists of the following software:
 
 See [Getting Started document](/doc/tapyrus/getting_started.md) for how to install and run tapyrus.
 
+Run as a Docker container?
+---------------------------
+
+See [Docker Image for Tapyrus Core](/doc/docker_image.md).
+
 License
 -------
 
