@@ -512,7 +512,7 @@ void testTx(TestChainSetup* setup, const CTransactionRef tx, bool success, std::
     }
 }
 
-void Sign(std::vector<unsigned char>& vchSig, CKey& signKey, const CScript& scriptPubKey, CMutableTransaction& inTx, int inIndex, CMutableTransaction& outTx, int outIndex)
+void Sign(std::vector<unsigned char>& vchSig, CKey& signKey, const CScript& scriptPubKey, int inIndex, CMutableTransaction& outTx, int outIndex)
 {
     uint256 hash = SignatureHash(scriptPubKey, outTx, inIndex, SIGHASH_ALL, outTx.vout[outIndex].nValue, SigVersion::BASE);
     signKey.Sign_Schnorr(hash, vchSig);
@@ -548,8 +548,7 @@ BOOST_FIXTURE_TEST_CASE(wallet_token_balance, TestChainSetup)
     coinbaseSpendTx.vout[0].scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash0) << OP_EQUALVERIFY << OP_CHECKSIG;
 
     std::vector<unsigned char> vchSig;
-    CMutableTransaction coinbaseIn(*m_coinbase_txns[2]);
-    Sign(vchSig, coinbaseKey, m_coinbase_txns[2]->vout[0].scriptPubKey, coinbaseIn, 0, coinbaseSpendTx, 0);
+    Sign(vchSig, coinbaseKey, m_coinbase_txns[2]->vout[0].scriptPubKey, 0, coinbaseSpendTx, 0);
     coinbaseSpendTx.vin[0].scriptSig = CScript() << vchSig;
 
     testTx(this, MakeTransactionRef(coinbaseSpendTx), true);
@@ -571,7 +570,7 @@ BOOST_FIXTURE_TEST_CASE(wallet_token_balance, TestChainSetup)
     tokenIssueTx.vout[0].nValue = 100 * CENT;
     tokenIssueTx.vout[0].scriptPubKey = scriptPubKey;
 
-    Sign(vchSig, key0, coinbaseSpendTx.vout[0].scriptPubKey, coinbaseSpendTx, 0, tokenIssueTx, 0);
+    Sign(vchSig, key0, coinbaseSpendTx.vout[0].scriptPubKey, 0, tokenIssueTx, 0);
     tokenIssueTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey0;
 
     testTx(this, MakeTransactionRef(tokenIssueTx), true);
@@ -601,9 +600,9 @@ BOOST_FIXTURE_TEST_CASE(wallet_token_balance, TestChainSetup)
     tokenTransferTx.vout[1].scriptPubKey = scriptPubKey2;
 
     CMutableTransaction coinbaseIn2(*m_coinbase_txns[3]);
-    Sign(vchSig, key0, tokenIssueTx.vout[0].scriptPubKey, tokenIssueTx, 0, tokenTransferTx, 0);
+    Sign(vchSig, key0, tokenIssueTx.vout[0].scriptPubKey, 0, tokenTransferTx, 0);
     tokenTransferTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey0;
-    Sign(vchSig, coinbaseKey, m_coinbase_txns[3]->vout[0].scriptPubKey, coinbaseIn2, 1, tokenTransferTx, 0);
+    Sign(vchSig, coinbaseKey, m_coinbase_txns[3]->vout[0].scriptPubKey, 1, tokenTransferTx, 0);
     tokenTransferTx.vin[1].scriptSig = CScript() << vchSig;
 
     testTx(this,  MakeTransactionRef(tokenTransferTx), true);
@@ -616,7 +615,7 @@ BOOST_FIXTURE_TEST_CASE(wallet_token_balance, TestChainSetup)
     //reissue same tokens - create input
     coinbaseSpendTx.vin[0].prevout.hashMalFix = m_coinbase_txns[1]->GetHashMalFix();
 
-    Sign(vchSig, coinbaseKey, m_coinbase_txns[1]->vout[0].scriptPubKey, coinbaseIn, 0, coinbaseSpendTx, 0);
+    Sign(vchSig, coinbaseKey, m_coinbase_txns[1]->vout[0].scriptPubKey,0, coinbaseSpendTx, 0);
     coinbaseSpendTx.vin[0].scriptSig = CScript() << vchSig;
 
     testTx(this, MakeTransactionRef(coinbaseSpendTx), true);
@@ -629,7 +628,7 @@ BOOST_FIXTURE_TEST_CASE(wallet_token_balance, TestChainSetup)
     //reissue same tokens
     tokenIssueTx.vin[0].prevout.hashMalFix = coinbaseSpendTx.GetHashMalFix();
 
-    Sign(vchSig, key0, coinbaseSpendTx.vout[0].scriptPubKey, coinbaseSpendTx, 0, tokenIssueTx, 0);
+    Sign(vchSig, key0, coinbaseSpendTx.vout[0].scriptPubKey, 0, tokenIssueTx, 0);
     tokenIssueTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey0;
 
     testTx(this, MakeTransactionRef(tokenIssueTx), true);
@@ -655,13 +654,13 @@ BOOST_FIXTURE_TEST_CASE(wallet_token_balance, TestChainSetup)
     tokenAggregateTx.vout[0].scriptPubKey = scriptPubKey1;
 
     CMutableTransaction coinbaseIn3(*m_coinbase_txns[4]);
-    Sign(vchSig, key1, tokenTransferTx.vout[0].scriptPubKey, tokenTransferTx, 0, tokenAggregateTx, 0);
+    Sign(vchSig, key1, tokenTransferTx.vout[0].scriptPubKey, 0, tokenAggregateTx, 0);
     tokenAggregateTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey1;
-    Sign(vchSig, key2, tokenTransferTx.vout[1].scriptPubKey, tokenTransferTx, 1, tokenAggregateTx, 0);
+    Sign(vchSig, key2, tokenTransferTx.vout[1].scriptPubKey, 1, tokenAggregateTx, 0);
     tokenAggregateTx.vin[1].scriptSig = CScript() << vchSig << vchPubKey2;
-    Sign(vchSig, key0, tokenIssueTx.vout[0].scriptPubKey, tokenIssueTx, 2, tokenAggregateTx, 0);
+    Sign(vchSig, key0, tokenIssueTx.vout[0].scriptPubKey, 2, tokenAggregateTx, 0);
     tokenAggregateTx.vin[2].scriptSig = CScript() << vchSig << vchPubKey0;
-    Sign(vchSig, coinbaseKey, m_coinbase_txns[4]->vout[0].scriptPubKey, coinbaseIn3, 3, tokenAggregateTx, 0);
+    Sign(vchSig, coinbaseKey, m_coinbase_txns[4]->vout[0].scriptPubKey, 3, tokenAggregateTx, 0);
     tokenAggregateTx.vin[3].scriptSig = CScript() << vchSig;
 
     testTx(this, MakeTransactionRef(tokenAggregateTx), true);
@@ -683,10 +682,10 @@ BOOST_FIXTURE_TEST_CASE(wallet_token_balance, TestChainSetup)
     tokenBurnTx.vout[0].nValue = 40 * CENT;
     tokenBurnTx.vout[0].scriptPubKey =  CScript() << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash0) << OP_EQUALVERIFY << OP_CHECKSIG;
 
-    Sign(vchSig, key1, tokenAggregateTx.vout[0].scriptPubKey, tokenAggregateTx, 0, tokenBurnTx, 0);
+    Sign(vchSig, key1, tokenAggregateTx.vout[0].scriptPubKey, 0, tokenBurnTx, 0);
     tokenBurnTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey1;
     CMutableTransaction coinbaseIn5(*m_coinbase_txns[5]);
-    Sign(vchSig, coinbaseKey, m_coinbase_txns[5]->vout[0].scriptPubKey, coinbaseIn5, 1, tokenBurnTx, 0);
+    Sign(vchSig, coinbaseKey, m_coinbase_txns[5]->vout[0].scriptPubKey, 1, tokenBurnTx, 0);
     tokenBurnTx.vin[1].scriptSig = CScript() << vchSig;
 
     testTx(this, MakeTransactionRef(tokenBurnTx), true);
@@ -708,9 +707,9 @@ BOOST_FIXTURE_TEST_CASE(wallet_token_balance, TestChainSetup)
     spendBurntTx.vout[0].nValue = 40 * CENT;
     spendBurntTx.vout[0].scriptPubKey =  CScript() << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash0) << OP_EQUALVERIFY << OP_CHECKSIG;
 
-    Sign(vchSig, key1, tokenAggregateTx.vout[0].scriptPubKey, tokenAggregateTx, 0, spendBurntTx, 0);
+    Sign(vchSig, key1, tokenAggregateTx.vout[0].scriptPubKey, 0, spendBurntTx, 0);
     spendBurntTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey1;
-    Sign(vchSig, key0, tokenBurnTx.vout[0].scriptPubKey, tokenBurnTx, 0, spendBurntTx, 0);
+    Sign(vchSig, key0, tokenBurnTx.vout[0].scriptPubKey, 0, spendBurntTx, 0);
     spendBurntTx.vin[1].scriptSig = CScript() << vchSig << vchPubKey0;
 
     testTx(this, MakeTransactionRef(spendBurntTx), false, "");
