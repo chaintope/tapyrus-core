@@ -2180,8 +2180,7 @@ CAmount CWallet::GetLegacyBalance(const isminefilter& filter, int minDepth, cons
 {
     LOCK2(cs_main, cs_wallet);
 
-    TxColoredCoinBalancesMap balance;
-    balance[colorId] = 0;
+    CAmount balance = 0;
     for (const auto& entry : mapWallet) {
         const CWalletTx& wtx = entry.second;
         const int depth = wtx.GetDepthInMainChain();
@@ -2191,29 +2190,30 @@ CAmount CWallet::GetLegacyBalance(const isminefilter& filter, int minDepth, cons
 
         // Loop through tx outputs and add incoming payments. For outgoing txs,
         // treat change outputs specially, as part of the amount debited.
-        TxColoredCoinBalancesMap debit;
-        debit[colorId] = wtx.GetDebit(filter, colorId);
-        const bool outgoing = debit[colorId] > 0;
+        CAmount debit { wtx.GetDebit(filter, colorId) };
+        const bool outgoing = debit > 0;
         for (const CTxOut& out : wtx.tx->vout) {
             ColorIdentifier cid = GetColorIdFromScript(out.scriptPubKey);
+            if (!(colorId == cid)) continue;
+
             if (outgoing && IsChange(out)) {
-                debit[cid] -= out.nValue;
+                debit -= out.nValue;
             } else if (IsMine(out) & filter && depth >= minDepth && (!account || *account == GetLabelName(out.scriptPubKey))) {
-                balance[cid] += out.nValue;
+                balance += out.nValue;
             }
         }
 
         // For outgoing txs, subtract amount debited.
         if (outgoing && (!account || *account == wtx.strFromAccount)) {
-            balance[colorId] -= debit[colorId];
+            balance -= debit;
         }
     }
 
     if (account) {
-        balance[colorId] += WalletBatch(*database).GetAccountCreditDebit(*account);
+        balance += WalletBatch(*database).GetAccountCreditDebit(*account);
     }
 
-    return balance[colorId];
+    return balance;
 }
 
 TxColoredCoinBalancesMap CWallet::GetAvailableBalance(const CCoinControl* coinControl) const
