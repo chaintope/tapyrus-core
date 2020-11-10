@@ -1039,7 +1039,7 @@ public:
     bool IsMine(const CTransaction& tx) const;
     /** should probably be renamed to IsRelevantToMe */
     bool IsFromMe(const CTransaction& tx) const;
-    CAmount GetDebit(const CTransaction& tx, const isminefilter& filter, ColorIdentifier& colorId) const;
+    TxColoredCoinBalancesMap GetDebit(const CTransaction& tx, const isminefilter& filter) const;
     /** Returns whether all of the inputs match the filter */
     bool IsAllFromMe(const CTransaction& tx, const isminefilter& filter) const;
     TxColoredCoinBalancesMap GetCredit(const CTransaction& tx, const isminefilter& filter) const;
@@ -1197,7 +1197,6 @@ public:
     void WalletLogPrintf(std::string fmt, Params... parameters) const {
         LogPrintf(("%s " + fmt).c_str(), GetDisplayName(), parameters...);
     };
-
 };
 
 /** A key allocated from the key pool. */

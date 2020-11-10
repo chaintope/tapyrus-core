@@ -1411,25 +1411,20 @@ bool CWallet::IsFromMe(const CTransaction& tx) const
     return false;
 }
 
-CAmount CWallet::GetDebit(const CTransaction& tx, const isminefilter& filter, ColorIdentifier& colorId) const
+TxColoredCoinBalancesMap CWallet::GetDebit(const CTransaction& tx, const isminefilter& filter) const
 {
     TxColoredCoinBalancesMap nDebit;
-    nDebit[colorId] = 0;
 
     for (const CTxIn& txin : tx.vin) {
-
-       TxColoredCoinBalancesMap debits = GetDebit(txin, filter);
+        TxColoredCoinBalancesMap debits = GetDebit(txin, filter);
         for (auto debit: debits) {
-            if (debit.first == colorId) {
-                nDebit[debit.first] += debit.second;
+            nDebit[debit.first] += debit.second;
 
-                if (!MoneyRange(nDebit[debit.first]))
+            if (!MoneyRange(nDebit[debit.first]))
                 throw std::runtime_error(std::string(__func__) + ": value out of range");
-            }
-        };
+        }
     }
-
-    return nDebit[colorId];
+    return nDebit;
 }
 
 bool CWallet::IsAllFromMe(const CTransaction& tx, const isminefilter& filter) const
@@ -1908,7 +1903,7 @@ CAmount CWalletTx::GetDebit(const isminefilter& filter, ColorIdentifier& colorId
             debit += nDebitCached[colorId];
         else
         {
-            nDebitCached[colorId] = pwallet->GetDebit(*tx, ISMINE_SPENDABLE, colorId);
+            nDebitCached = pwallet->GetDebit(*tx, ISMINE_SPENDABLE);
             fDebitCached = true;
             debit += nDebitCached[colorId];
         }
@@ -1919,7 +1914,7 @@ CAmount CWalletTx::GetDebit(const isminefilter& filter, ColorIdentifier& colorId
             debit += nWatchDebitCached[colorId];
         else
         {
-            nWatchDebitCached[colorId] = pwallet->GetDebit(*tx, ISMINE_WATCH_ONLY, colorId);
+            nWatchDebitCached = pwallet->GetDebit(*tx, ISMINE_WATCH_ONLY);
             fWatchDebitCached = true;
             debit += nWatchDebitCached[colorId];
         }

@@ -736,4 +736,134 @@ BOOST_FIXTURE_TEST_CASE(wallet_token_balance, TestChainSetup)
     BOOST_CHECK_EQUAL(wallet->GetLegacyBalance(ISMINE_SPENDABLE, 0, nullptr, colorId),  0);
 }
 
+BOOST_FIXTURE_TEST_CASE(wallet_tx_getdebit, TestChainSetup)
+{
+    initKeys();
+    LOCK(cs_main);
+
+    // Prepare a dummy wallet that has all the coinbase transaction coins from genesis.
+    CWallet wallet("dummy", WalletDatabase::CreateDummy());
+    CWallet *pwallet = &wallet;
+    AddKey(wallet, coinbaseKey);
+    AddKey(wallet, key0);
+    WalletRescanReserver reserver(&wallet);
+    reserver.reserve();
+    wallet.ScanForWalletTransactions(chainActive.Genesis(), nullptr, reserver);
+
+    ColorIdentifier defaultColorId;
+    ColorIdentifier colorId(ColorIdentifier(m_coinbase_txns[0]->vout[0].scriptPubKey));
+
+    // Check the initial balance state.
+    BOOST_CHECK_EQUAL(wallet.GetBalance()[defaultColorId], 250 * COIN);
+    BOOST_CHECK_EQUAL(wallet.GetBalance()[colorId], 0);
+
+    // Create Token issue transaction
+    CMutableTransaction tx;
+    tx.nFeatures = 1;
+    tx.vin.resize(1);
+    tx.vout.resize(2);
+    tx.vin[0].prevout.hashMalFix = m_coinbase_txns[0]->GetHashMalFix();
+    tx.vin[0].prevout.n = 0;
+    tx.vout[0].nValue = 100 * CENT;
+    tx.vout[0].scriptPubKey = CScript() << colorId.toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash0) << OP_EQUALVERIFY << OP_CHECKSIG;;
+    tx.vout[1].nValue = m_coinbase_txns[0]->vout[0].nValue;
+    tx.vout[1].scriptPubKey =  CScript() << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash0) << OP_EQUALVERIFY << OP_CHECKSIG;
+
+    CWalletTx wtx(pwallet, MakeTransactionRef(tx));
+    wallet.AddToWallet(wtx);
+
+    BOOST_CHECK_EQUAL(wtx.GetDebit(ISMINE_SPENDABLE, defaultColorId), 50 * COIN);
+    BOOST_CHECK_EQUAL(wtx.GetDebit(ISMINE_SPENDABLE, colorId), 0);
+
+    // Create a tx that has two debits, 50 TPC and 100 cent colored coin.
+    CMutableTransaction tx2;
+    tx2.nFeatures = 1;
+    tx2.vin.resize(2);
+    tx2.vout.resize(2);
+    tx2.vin[0].prevout.hashMalFix = tx.GetHashMalFix();
+    tx2.vin[0].prevout.n = 0;
+    tx2.vin[1].prevout.hashMalFix = tx.GetHashMalFix();
+    tx2.vin[1].prevout.n = 1;
+    tx2.vout[0].nValue = 100 * CENT;
+    tx2.vout[0].scriptPubKey = CScript() << colorId.toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash0) << OP_EQUALVERIFY << OP_CHECKSIG;;
+    tx2.vout[1].nValue = tx.vout[1].nValue;
+    tx2.vout[1].scriptPubKey =  CScript() << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash0) << OP_EQUALVERIFY << OP_CHECKSIG;
+
+    CWalletTx wtx2(pwallet, MakeTransactionRef(tx2));
+    wallet.AddToWallet(wtx2);
+
+    BOOST_CHECK_EQUAL(wtx2.GetDebit(ISMINE_SPENDABLE, defaultColorId), 50 * COIN);
+    BOOST_CHECK_EQUAL(wtx2.GetDebit(ISMINE_SPENDABLE, colorId), 100 * CENT);
+}
+
+BOOST_FIXTURE_TEST_CASE(wallet_tx_getdebit_with_watch_only, TestChainSetup)
+{
+    initKeys();
+    LOCK(cs_main);
+
+    // Prepare a dummy wallet that has all the coinbase transaction coins from genesis.
+    CWallet wallet("dummy", WalletDatabase::CreateDummy());
+    CWallet *pwallet = &wallet;
+    AddKey(wallet, coinbaseKey);
+    WalletRescanReserver reserver(&wallet);
+    reserver.reserve();
+    wallet.ScanForWalletTransactions(chainActive.Genesis(), nullptr, reserver);
+
+    ColorIdentifier defaultColorId;
+    ColorIdentifier colorId(ColorIdentifier(m_coinbase_txns[0]->vout[0].scriptPubKey));
+
+    // Check the initial balance state.
+    BOOST_CHECK_EQUAL(wallet.GetBalance()[defaultColorId], 250 * COIN);
+    BOOST_CHECK_EQUAL(wallet.GetBalance()[colorId], 0);
+
+    auto colored_custom_script = CScript() << colorId.toVector() << OP_COLOR << OP_9 << OP_ADD << OP_11 << OP_EQUAL;
+    auto uncolored_custom_script = CScript() << OP_9 << OP_ADD << OP_11 << OP_EQUAL;
+
+    {
+        LOCK(wallet.cs_wallet);
+        wallet.AddWatchOnly(colored_custom_script, 0);
+        wallet.AddWatchOnly(uncolored_custom_script, 0);
+    }
+
+    // Create Token issue transaction
+    CMutableTransaction tx;
+    tx.nFeatures = 1;
+    tx.vin.resize(1);
+    tx.vout.resize(2);
+    tx.vin[0].prevout.hashMalFix = m_coinbase_txns[0]->GetHashMalFix();
+    tx.vin[0].prevout.n = 0;
+    tx.vout[0].nValue = 100 * CENT;
+    tx.vout[0].scriptPubKey = colored_custom_script;
+    tx.vout[1].nValue = m_coinbase_txns[0]->vout[0].nValue;
+    tx.vout[1].scriptPubKey =  uncolored_custom_script;
+
+    CWalletTx wtx(pwallet, MakeTransactionRef(tx));
+    wallet.AddToWallet(wtx);
+
+    BOOST_CHECK_EQUAL(wtx.GetDebit(ISMINE_SPENDABLE, defaultColorId), 50 * COIN);
+    BOOST_CHECK_EQUAL(wtx.GetDebit(ISMINE_WATCH_ONLY, defaultColorId), 0);
+    BOOST_CHECK_EQUAL(wtx.GetDebit(ISMINE_WATCH_ONLY, colorId), 0);
+
+    // Create a tx that has two debits, 50 TPC and 100 cent colored coin.
+    CMutableTransaction tx2;
+    tx2.nFeatures = 1;
+    tx2.vin.resize(2);
+    tx2.vout.resize(2);
+    tx2.vin[0].prevout.hashMalFix = tx.GetHashMalFix();
+    tx2.vin[0].prevout.n = 0;
+    tx2.vin[1].prevout.hashMalFix = tx.GetHashMalFix();
+    tx2.vin[1].prevout.n = 1;
+    tx2.vout[0].nValue = 100 * CENT;
+    tx2.vout[0].scriptPubKey = colored_custom_script;
+    tx2.vout[1].nValue = tx.vout[1].nValue;
+    tx2.vout[1].scriptPubKey = uncolored_custom_script;
+
+    CWalletTx wtx2(pwallet, MakeTransactionRef(tx2));
+    wallet.AddToWallet(wtx2);
+
+    BOOST_CHECK_EQUAL(wtx2.GetDebit(ISMINE_WATCH_ONLY, defaultColorId), 50 * COIN);
+    BOOST_CHECK_EQUAL(wtx2.GetDebit(ISMINE_WATCH_ONLY, colorId), 100 * CENT);
+}
+
+
 BOOST_AUTO_TEST_SUITE_END()
