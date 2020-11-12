@@ -2513,6 +2513,13 @@ BOOST_AUTO_TEST_CASE(coloredScripts)
     BOOST_CHECK(MatchColoredPayToPubkeyHash(ColoredPayToScriptHash2, data, colorId));
     BOOST_CHECK(!ColoredPayToScriptHash2.IsColoredPayToScriptHash());
     BOOST_CHECK(GetColorIdFromScript(ColoredPayToScriptHash2).type == TokenTypes::REISSUABLE);
+
+    // Custom script
+    CScript ColoredCustomScript = CScript() << ParseHex("c11863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262") << OP_COLOR << OP_9 << OP_ADD << OP_11 << OP_EQUAL;
+    BOOST_CHECK(MatchCustomColoredScript(ColoredPayToScriptHash2, colorId));
+    BOOST_CHECK(!ColoredCustomScript.IsColoredPayToScriptHash());
+    BOOST_CHECK(ColoredCustomScript.IsColoredScript());
+    BOOST_CHECK(GetColorIdFromScript(ColoredCustomScript).type == TokenTypes::REISSUABLE);
 }
 
 #endif
