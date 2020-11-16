@@ -709,31 +709,6 @@ BOOST_FIXTURE_TEST_CASE(wallet_token_balance, TestChainSetup)
     BOOST_CHECK_EQUAL(wallet->GetBalance()[colorId], 0 * CENT);
     BOOST_CHECK_EQUAL(wallet->GetLegacyBalance(ISMINE_SPENDABLE, 0, nullptr, defaultColorId),  40 * CENT);
     BOOST_CHECK_EQUAL(wallet->GetLegacyBalance(ISMINE_SPENDABLE, 0, nullptr, colorId),  0 * CENT);
-
-    //spend burnt token
-    CMutableTransaction spendBurntTx;
-    spendBurntTx.nFeatures = 1;
-    spendBurntTx.vin.resize(2);
-    spendBurntTx.vout.resize(1);
-    spendBurntTx.vin[0].prevout.hashMalFix = tokenAggregateTx.GetHashMalFix();
-    spendBurntTx.vin[0].prevout.n = 0;
-    spendBurntTx.vin[1].prevout.hashMalFix = tokenBurnTx.GetHashMalFix();
-    spendBurntTx.vin[1].prevout.n = 0;
-    spendBurntTx.vout[0].nValue = 40 * CENT;
-    spendBurntTx.vout[0].scriptPubKey =  CScript() << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash0) << OP_EQUALVERIFY << OP_CHECKSIG;
-
-    Sign(vchSig, key1, tokenAggregateTx.vout[0].scriptPubKey, 0, spendBurntTx, 0);
-    spendBurntTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey1;
-    Sign(vchSig, key0, tokenBurnTx.vout[0].scriptPubKey, 0, spendBurntTx, 0);
-    spendBurntTx.vin[1].scriptSig = CScript() << vchSig << vchPubKey0;
-
-    testTx(this, MakeTransactionRef(spendBurntTx), false, "");
-    wallet->ScanForWalletTransactions(chainActive.Genesis(), nullptr, reserver);
-    BOOST_CHECK_EQUAL(wallet->GetBalance().size(), 1);
-    BOOST_CHECK_EQUAL(wallet->GetBalance()[defaultColorId], 40 * CENT);
-    BOOST_CHECK_EQUAL(wallet->GetBalance()[colorId], 0 * CENT);
-    BOOST_CHECK_EQUAL(wallet->GetLegacyBalance(ISMINE_SPENDABLE, 0, nullptr, defaultColorId),  40 * CENT);
-    BOOST_CHECK_EQUAL(wallet->GetLegacyBalance(ISMINE_SPENDABLE, 0, nullptr, colorId),  0);
 }
 
 BOOST_FIXTURE_TEST_CASE(wallet_tx_getdebit, TestChainSetup)
