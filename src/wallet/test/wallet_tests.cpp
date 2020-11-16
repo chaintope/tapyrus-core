@@ -689,7 +689,7 @@ BOOST_FIXTURE_TEST_CASE(wallet_token_balance, TestChainSetup)
     BOOST_CHECK_EQUAL(wallet->GetLegacyBalance(ISMINE_SPENDABLE, 0, nullptr, colorId),  0 * CENT);
 }
 
-BOOST_FIXTURE_TEST_CASE(wallet_tx_getdebit, TestChainSetup)
+BOOST_FIXTURE_TEST_CASE(wallet_tx_getdebit_and_getcredit, TestChainSetup)
 {
     initKeys();
     LOCK(cs_main);
@@ -727,6 +727,8 @@ BOOST_FIXTURE_TEST_CASE(wallet_tx_getdebit, TestChainSetup)
 
     BOOST_CHECK_EQUAL(wtx.GetDebit(ISMINE_SPENDABLE, defaultColorId), 50 * COIN);
     BOOST_CHECK_EQUAL(wtx.GetDebit(ISMINE_SPENDABLE, colorId), 0);
+    BOOST_CHECK_EQUAL(wtx.GetCredit(ISMINE_SPENDABLE, defaultColorId), 50 * COIN);
+    BOOST_CHECK_EQUAL(wtx.GetCredit(ISMINE_SPENDABLE, colorId), 100 * CENT);
 
     // Create a tx that has two debits, 50 TPC and 100 cent colored coin.
     CMutableTransaction tx2;
@@ -747,9 +749,11 @@ BOOST_FIXTURE_TEST_CASE(wallet_tx_getdebit, TestChainSetup)
 
     BOOST_CHECK_EQUAL(wtx2.GetDebit(ISMINE_SPENDABLE, defaultColorId), 50 * COIN);
     BOOST_CHECK_EQUAL(wtx2.GetDebit(ISMINE_SPENDABLE, colorId), 100 * CENT);
+    BOOST_CHECK_EQUAL(wtx2.GetCredit(ISMINE_SPENDABLE, defaultColorId), 50 * COIN);
+    BOOST_CHECK_EQUAL(wtx2.GetCredit(ISMINE_SPENDABLE, colorId), 100 * CENT);
 }
 
-BOOST_FIXTURE_TEST_CASE(wallet_tx_getdebit_with_watch_only, TestChainSetup)
+BOOST_FIXTURE_TEST_CASE(wallet_tx_getdebit_and_getcredit_with_watch_only, TestChainSetup)
 {
     initKeys();
     LOCK(cs_main);
@@ -796,6 +800,9 @@ BOOST_FIXTURE_TEST_CASE(wallet_tx_getdebit_with_watch_only, TestChainSetup)
     BOOST_CHECK_EQUAL(wtx.GetDebit(ISMINE_SPENDABLE, defaultColorId), 50 * COIN);
     BOOST_CHECK_EQUAL(wtx.GetDebit(ISMINE_WATCH_ONLY, defaultColorId), 0);
     BOOST_CHECK_EQUAL(wtx.GetDebit(ISMINE_WATCH_ONLY, colorId), 0);
+    BOOST_CHECK_EQUAL(wtx.GetCredit(ISMINE_SPENDABLE, defaultColorId), 0);
+    BOOST_CHECK_EQUAL(wtx.GetCredit(ISMINE_WATCH_ONLY, defaultColorId), 50 * COIN);
+    BOOST_CHECK_EQUAL(wtx.GetCredit(ISMINE_WATCH_ONLY, colorId), 100 * CENT);
 
     // Create a tx that has two debits, 50 TPC and 100 cent colored coin.
     CMutableTransaction tx2;
@@ -816,7 +823,8 @@ BOOST_FIXTURE_TEST_CASE(wallet_tx_getdebit_with_watch_only, TestChainSetup)
 
     BOOST_CHECK_EQUAL(wtx2.GetDebit(ISMINE_WATCH_ONLY, defaultColorId), 50 * COIN);
     BOOST_CHECK_EQUAL(wtx2.GetDebit(ISMINE_WATCH_ONLY, colorId), 100 * CENT);
+    BOOST_CHECK_EQUAL(wtx2.GetCredit(ISMINE_WATCH_ONLY, defaultColorId), 50 * COIN);
+    BOOST_CHECK_EQUAL(wtx2.GetCredit(ISMINE_WATCH_ONLY, colorId), 100 * CENT);
 }
-
 
 BOOST_AUTO_TEST_SUITE_END()
