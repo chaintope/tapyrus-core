@@ -478,38 +478,16 @@ BOOST_FIXTURE_TEST_CASE(ismine_wallet_tokentx, TestChainSetup) {
     BOOST_CHECK_EQUAL(wallet.IsMine(tokenTransferTx.vout[1]), ISMINE_SPENDABLE);
 }
 
-void testTx(TestChainSetup* setup, const CTransactionRef tx, bool success, std::string errStr="")
+void broadcastAndProcessBlock(TestChainSetup* setup, const CTransactionRef tx)
 {
     CValidationState state;
     bool pfMissingInputs;
     {
         LOCK(cs_main);
-
-        BOOST_CHECK_EQUAL(
-            success,
-            AcceptToMemoryPool(mempool, state, tx,
-                &pfMissingInputs ,
-                nullptr,
-                true ,
-                0));
+        AcceptToMemoryPool(mempool, state, tx, &pfMissingInputs, nullptr, true, 0);
     }
-
-    if(success)
-    {
-        BOOST_CHECK(state.IsValid());
-        std::vector<CMutableTransaction> txs;
-        txs.push_back(CMutableTransaction(*tx));
-        setup->CreateAndProcessBlock(txs, CScript() <<  ToByteVector(setup->coinbaseKey.GetPubKey()) << OP_CHECKSIG);
-    }
-    else if(pfMissingInputs)
-    {
-        BOOST_CHECK(!state.IsInvalid());
-    }
-    else
-    {
-        BOOST_CHECK(state.IsInvalid());
-        BOOST_CHECK_EQUAL(state.GetRejectReason(), errStr);
-    }
+    setup->CreateAndProcessBlock({ CMutableTransaction(*tx) },
+                                 CScript() <<  ToByteVector(setup->coinbaseKey.GetPubKey()) << OP_CHECKSIG);
 }
 
 void Sign(std::vector<unsigned char>& vchSig, CKey& signKey, const CScript& scriptPubKey, int inIndex, CMutableTransaction& outTx, int outIndex)
@@ -551,7 +529,7 @@ BOOST_FIXTURE_TEST_CASE(wallet_token_balance, TestChainSetup)
     Sign(vchSig, coinbaseKey, m_coinbase_txns[2]->vout[0].scriptPubKey, 0, coinbaseSpendTx, 0);
     coinbaseSpendTx.vin[0].scriptSig = CScript() << vchSig;
 
-    testTx(this, MakeTransactionRef(coinbaseSpendTx), true);
+    broadcastAndProcessBlock(this, MakeTransactionRef(coinbaseSpendTx));
 
     wallet->ScanForWalletTransactions(chainActive.Genesis(), nullptr, reserver);
     ColorIdentifier defaultColorId;
@@ -576,7 +554,7 @@ BOOST_FIXTURE_TEST_CASE(wallet_token_balance, TestChainSetup)
     Sign(vchSig, key0, coinbaseSpendTx.vout[0].scriptPubKey, 0, tokenIssueTx, 0);
     tokenIssueTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey0;
 
-    testTx(this, MakeTransactionRef(tokenIssueTx), true);
+    broadcastAndProcessBlock(this, MakeTransactionRef(tokenIssueTx));
 
     wallet->ScanForWalletTransactions(chainActive.Genesis(), nullptr, reserver);
     BOOST_CHECK_EQUAL(wallet->GetBalance().size(), 2);
@@ -610,7 +588,7 @@ BOOST_FIXTURE_TEST_CASE(wallet_token_balance, TestChainSetup)
     Sign(vchSig, coinbaseKey, m_coinbase_txns[3]->vout[0].scriptPubKey, 1, tokenTransferTx, 0);
     tokenTransferTx.vin[1].scriptSig = CScript() << vchSig;
 
-    testTx(this,  MakeTransactionRef(tokenTransferTx), true);
+    broadcastAndProcessBlock(this, MakeTransactionRef(tokenTransferTx));
 
     wallet->ScanForWalletTransactions(chainActive.Genesis(), nullptr, reserver);
     BOOST_CHECK_EQUAL(wallet->GetBalance().size(), 2);
@@ -625,7 +603,7 @@ BOOST_FIXTURE_TEST_CASE(wallet_token_balance, TestChainSetup)
     Sign(vchSig, coinbaseKey, m_coinbase_txns[1]->vout[0].scriptPubKey,0, coinbaseSpendTx, 0);
     coinbaseSpendTx.vin[0].scriptSig = CScript() << vchSig;
 
-    testTx(this, MakeTransactionRef(coinbaseSpendTx), true);
+    broadcastAndProcessBlock(this, MakeTransactionRef(coinbaseSpendTx));
 
     wallet->ScanForWalletTransactions(chainActive.Genesis(), nullptr, reserver);
     BOOST_CHECK_EQUAL(wallet->GetBalance().size(), 2);
@@ -640,7 +618,7 @@ BOOST_FIXTURE_TEST_CASE(wallet_token_balance, TestChainSetup)
     Sign(vchSig, key0, coinbaseSpendTx.vout[0].scriptPubKey, 0, tokenIssueTx, 0);
     tokenIssueTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey0;
 
-    testTx(this, MakeTransactionRef(tokenIssueTx), true);
+    broadcastAndProcessBlock(this, MakeTransactionRef(tokenIssueTx));
     wallet->ScanForWalletTransactions(chainActive.Genesis(), nullptr, reserver);
     BOOST_CHECK_EQUAL(wallet->GetBalance().size(), 2);
     BOOST_CHECK_EQUAL(wallet->GetBalance()[defaultColorId], 0 * CENT);
@@ -674,7 +652,7 @@ BOOST_FIXTURE_TEST_CASE(wallet_token_balance, TestChainSetup)
     Sign(vchSig, coinbaseKey, m_coinbase_txns[4]->vout[0].scriptPubKey, 3, tokenAggregateTx, 0);
     tokenAggregateTx.vin[3].scriptSig = CScript() << vchSig;
 
-    testTx(this, MakeTransactionRef(tokenAggregateTx), true);
+    broadcastAndProcessBlock(this, MakeTransactionRef(tokenAggregateTx));
     wallet->ScanForWalletTransactions(chainActive.Genesis(), nullptr, reserver);
     BOOST_CHECK_EQUAL(wallet->GetBalance().size(), 2);
     BOOST_CHECK_EQUAL(wallet->GetBalance()[defaultColorId], 0 * CENT);
@@ -701,7 +679,7 @@ BOOST_FIXTURE_TEST_CASE(wallet_token_balance, TestChainSetup)
     Sign(vchSig, coinbaseKey, m_coinbase_txns[5]->vout[0].scriptPubKey, 1, tokenBurnTx, 0);
     tokenBurnTx.vin[1].scriptSig = CScript() << vchSig;
 
-    testTx(this, MakeTransactionRef(tokenBurnTx), true);
+    broadcastAndProcessBlock(this, MakeTransactionRef(tokenBurnTx));
 
     wallet->ScanForWalletTransactions(chainActive.Genesis(), nullptr, reserver);
     BOOST_CHECK_EQUAL(wallet->GetBalance().size(), 1);
