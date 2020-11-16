@@ -1440,7 +1440,6 @@ bool CWallet::IsAllFromMe(const CTransaction& tx, const isminefilter& filter) co
 TxColoredCoinBalancesMap CWallet::GetCredit(const CTransaction& tx, const isminefilter& filter) const
 {
     TxColoredCoinBalancesMap nCredit;
-    nCredit[ColorIdentifier()] = 0;
     for (const CTxOut& txout : tx.vout)
     {
         ColorIdentifier colorId(GetColorIdFromScript(txout.scriptPubKey));
