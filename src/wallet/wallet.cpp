@@ -1392,20 +1392,9 @@ bool CWallet::IsMine(const CTransaction& tx) const
 
 bool CWallet::IsFromMe(const CTransaction& tx) const
 {
-    LOCK(cs_wallet);
-    ColorIdentifier colorId;
-    for (const CTxIn& txin : tx.vin)
-    {
-        auto mi = mapWallet.find(txin.prevout.hashMalFix);
-        if (mi == mapWallet.end())
-            return false; // any unknown inputs can't be from us
-
-        const CWalletTx& prev = (*mi).second;
-        if (txin.prevout.n < prev.tx->vout.size()) {
-            ColorIdentifier colorId(GetColorIdFromScript(prev.tx->vout[txin.prevout.n].scriptPubKey));
-
-            if (GetDebit(tx, ISMINE_ALL, colorId) > 0)
-                return true;
+    for (std::pair<const ColorIdentifier, CAmount>& item: GetDebit(tx, ISMINE_ALL)) {
+        if (item.second > 0) {
+            return true;
         }
     }
     return false;
