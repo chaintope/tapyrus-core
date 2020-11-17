@@ -2514,12 +2514,28 @@ BOOST_AUTO_TEST_CASE(coloredScripts)
     BOOST_CHECK(!ColoredPayToScriptHash2.IsColoredPayToScriptHash());
     BOOST_CHECK(GetColorIdFromScript(ColoredPayToScriptHash2).type == TokenTypes::REISSUABLE);
 
-    // Custom script
+    // Custom script:
     CScript ColoredCustomScript = CScript() << ParseHex("c11863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262") << OP_COLOR << OP_9 << OP_ADD << OP_11 << OP_EQUAL;
     BOOST_CHECK(MatchCustomColoredScript(ColoredPayToScriptHash2, colorId));
     BOOST_CHECK(!ColoredCustomScript.IsColoredPayToScriptHash());
     BOOST_CHECK(ColoredCustomScript.IsColoredScript());
     BOOST_CHECK(GetColorIdFromScript(ColoredCustomScript).type == TokenTypes::REISSUABLE);
+
+    // In a case of 32 bytes colored identifier
+    CScript InvalidColoredCustomScript1 = CScript() << ParseHex("c11863143c14c5166804bd19203356da136c985678cd4d27a1b8c63296049032") << OP_COLOR << OP_9 << OP_ADD << OP_11 << OP_EQUAL;
+    BOOST_CHECK(!MatchCustomColoredScript(InvalidColoredCustomScript1, colorId));
+    // In a case of 34 bytes of colored identifier
+    CScript InvalidColoredCustomScript2 = CScript() << ParseHex("c11863143c14c5166804bd19203356da136c985678cd4d27a1b8c632960490326200") << OP_COLOR << OP_9 << OP_ADD << OP_11 << OP_EQUAL;
+    BOOST_CHECK(!MatchCustomColoredScript(InvalidColoredCustomScript2, colorId));
+    // In a case of OP_COLOR is putted at before colord identifier
+    CScript InvalidColoredCustomScript3 = CScript() << OP_COLOR << ParseHex("c11863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262") << OP_9 << OP_ADD << OP_11 << OP_EQUAL;
+    BOOST_CHECK(!MatchCustomColoredScript(InvalidColoredCustomScript3, colorId));
+    // In a case of there is not OP_COLOR
+    CScript InvalidColoredCustomScript4 = CScript() << ParseHex("c11863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262") << OP_9 << OP_ADD << OP_11 << OP_EQUAL;
+    BOOST_CHECK(!MatchCustomColoredScript(InvalidColoredCustomScript4, colorId));
+    // In a case of the script that drops colored identifier before evaluating OP_COLOR
+    CScript InvalidColoredCustomScript5 = CScript() << ParseHex("c11863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262") << OP_DROP << OP_COLOR << OP_9 << OP_ADD << OP_11 << OP_EQUAL;
+    BOOST_CHECK(!MatchCustomColoredScript(InvalidColoredCustomScript5, colorId));
 }
 
 #endif
