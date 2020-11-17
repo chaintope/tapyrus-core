@@ -410,7 +410,7 @@ bool MatchCustomColoredScript(const CScript& script, std::vector<unsigned char>&
     if(iterOpColor == script.end())
         return false;
 
-    if(iterColorId1 != script.end() && std::distance(iterColorId1 + 1, iterOpColor - 1) == 33 &&
+    if(iterColorId1 != script.end() && std::distance(iterColorId1 + 1, iterOpColor - 1) == COLOR_IDENTIFIER_SIZE &&
       (*(iterColorId1 + 1) == TokenToUint(TokenTypes::REISSUABLE) ||
        *(iterColorId1 + 1) == TokenToUint(TokenTypes::NON_REISSUABLE) ||
        *(iterColorId1 + 1) == TokenToUint(TokenTypes::NFT)))

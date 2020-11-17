@@ -9,6 +9,9 @@
 #include <version.h>
 #include <amount.h>
 
+// Size of color identifier data in bytes
+static const unsigned int COLOR_IDENTIFIER_SIZE = 33;
+
 enum class TokenTypes
 {
     NONE = 0x00, //TPC
@@ -73,11 +76,11 @@ struct ColorIdentifier
     }
 
     bool operator==(const ColorIdentifier& colorId) const {
-        return this->type == colorId.type && (memcmp(&this->payload[0], &colorId.payload[0], 32) == 0);
+        return this->type == colorId.type && (memcmp(&this->payload[0], &colorId.payload[0], COLOR_IDENTIFIER_SIZE - 1) == 0);
     }
 
     bool operator<(const ColorIdentifier& colorId) const {
-        return memcmp(this, &colorId, 33) < 0;
+        return memcmp(this, &colorId, COLOR_IDENTIFIER_SIZE) < 0;
     }
 
     ADD_SERIALIZE_METHODS;
@@ -117,7 +120,7 @@ struct ColorIdentifierCompare
 {
     bool operator()(const ColorIdentifier& c1, const ColorIdentifier& c2) const
     {
-        return memcmp(&c1, &c2, 33) < 0;
+        return memcmp(&c1, &c2, COLOR_IDENTIFIER_SIZE) < 0;
     }
 };
 
