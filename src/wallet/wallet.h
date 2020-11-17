@@ -377,13 +377,13 @@ public:
         fAvailableWatchCreditCached = false;
         fChangeCached = false;
         fInMempool = false;
-        nDebitCached[ColorIdentifier()] = 0;
-        nCreditCached[ColorIdentifier()]= 0;
-        nAvailableCreditCached[ColorIdentifier()] = 0;
-        nWatchDebitCached[ColorIdentifier()] = 0;
-        nWatchCreditCached[ColorIdentifier()] = 0;
-        nAvailableWatchCreditCached[ColorIdentifier()] = 0;
-        nChangeCached[ColorIdentifier()] = 0;
+        nDebitCached.clear();
+        nCreditCached.clear();
+        nAvailableCreditCached.clear();
+        nWatchDebitCached.clear();
+        nWatchCreditCached.clear();
+        nAvailableWatchCreditCached.clear();
+        nChangeCached.clear();
         nOrderPos = -1;
     }
 
