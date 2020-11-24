@@ -1988,7 +1988,7 @@ CAmount CWalletTx::GetChange(ColorIdentifier& colorId) const
 {
     if (fChangeCached)
         return nChangeCached[colorId];
-    nChangeCached[colorId] = pwallet->GetChange(*tx)[colorId];
+    nChangeCached = pwallet->GetChange(*tx);
     fChangeCached = true;
     return nChangeCached[colorId];
 }

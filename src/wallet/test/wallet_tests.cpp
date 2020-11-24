@@ -827,4 +827,40 @@ BOOST_FIXTURE_TEST_CASE(wallet_tx_getdebit_and_getcredit_with_watch_only, TestCh
     BOOST_CHECK_EQUAL(wtx2.GetCredit(ISMINE_WATCH_ONLY, colorId), 100 * CENT);
 }
 
+BOOST_FIXTURE_TEST_CASE(wallet_tx_getchange, TestChainSetup)
+{
+    initKeys();
+    LOCK(cs_main);
+
+    // Prepare a dummy wallet that has all the coinbase transaction coins from genesis.
+    CWallet wallet("dummy", WalletDatabase::CreateDummy());
+    CWallet *pwallet = &wallet;
+    AddKey(wallet, coinbaseKey);
+    AddKey(wallet, key0);
+    WalletRescanReserver reserver(&wallet);
+    reserver.reserve();
+    wallet.ScanForWalletTransactions(chainActive.Genesis(), nullptr, reserver);
+
+    ColorIdentifier defaultColorId;
+    ColorIdentifier colorId(ColorIdentifier(m_coinbase_txns[0]->vout[0].scriptPubKey));
+
+    // Create Token issue transaction
+    CMutableTransaction tx;
+    tx.nFeatures = 1;
+    tx.vin.resize(1);
+    tx.vout.resize(2);
+    tx.vin[0].prevout.hashMalFix = m_coinbase_txns[0]->GetHashMalFix();
+    tx.vin[0].prevout.n = 0;
+    tx.vout[0].nValue = 100 * CENT;
+    tx.vout[0].scriptPubKey = CScript() << colorId.toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash0) << OP_EQUALVERIFY << OP_CHECKSIG;;
+    tx.vout[1].nValue = m_coinbase_txns[0]->vout[0].nValue;
+    tx.vout[1].scriptPubKey =  CScript() << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash0) << OP_EQUALVERIFY << OP_CHECKSIG;
+
+    CWalletTx wtx(pwallet, MakeTransactionRef(tx));
+    wallet.AddToWallet(wtx);
+
+    BOOST_CHECK_EQUAL(wtx.GetChange(defaultColorId), 50 * COIN);
+    BOOST_CHECK_EQUAL(wtx.GetChange(colorId), 100 * CENT);
+}
+
 BOOST_AUTO_TEST_SUITE_END()
