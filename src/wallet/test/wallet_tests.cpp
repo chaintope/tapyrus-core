@@ -504,7 +504,12 @@ BOOST_FIXTURE_TEST_CASE(wallet_token_balance, TestChainSetup)
     std::vector<unsigned char> vchPubKey1(pubkey1.begin(), pubkey1.end());
     std::vector<unsigned char> vchPubKey2(pubkey2.begin(), pubkey2.end());
 
+    std::vector<unsigned char> coinbasePubKeyHash(20);
+    CPubKey coinbasePubKey = coinbaseKey.GetPubKey();
+    CHash160().Write(coinbasePubKey.data(), coinbasePubKey.size()).Finalize(coinbasePubKeyHash.data());
+
     std::unique_ptr<CWallet> wallet = MakeUnique<CWallet>("mock", WalletDatabase::CreateMock());
+    CWallet *pwallet = wallet.get();
     bool firstRun;
     wallet->LoadWallet(firstRun);
     // LOCK(cs_main);
@@ -516,6 +521,7 @@ BOOST_FIXTURE_TEST_CASE(wallet_token_balance, TestChainSetup)
     reserver.reserve();
     wallet->ScanForWalletTransactions(chainActive.Genesis(), nullptr, reserver);
 
+    // Case: Pay TPC to the wallet from coinbase tx.
     CMutableTransaction coinbaseSpendTx;
     coinbaseSpendTx.nFeatures = 1;
     coinbaseSpendTx.vin.resize(1);
@@ -529,20 +535,64 @@ BOOST_FIXTURE_TEST_CASE(wallet_token_balance, TestChainSetup)
     Sign(vchSig, coinbaseKey, m_coinbase_txns[2]->vout[0].scriptPubKey, 0, coinbaseSpendTx, 0);
     coinbaseSpendTx.vin[0].scriptSig = CScript() << vchSig;
 
+    ColorIdentifier defaultColorId;
+
+    // Add to wallet and mempool
+    {
+        CWalletTx wtx(pwallet, MakeTransactionRef(coinbaseSpendTx));
+        wallet->AddToWallet(wtx);
+        wallet->TransactionAddedToMempool(MakeTransactionRef(coinbaseSpendTx));
+    }
+    BOOST_CHECK_EQUAL(wallet->GetUnconfirmedBalance()[defaultColorId],  100 * CENT);
+
     broadcastAndProcessBlock(this, MakeTransactionRef(coinbaseSpendTx));
 
-    wallet->ScanForWalletTransactions(chainActive.Genesis(), nullptr, reserver);
-    ColorIdentifier defaultColorId;
+    wallet->ScanForWalletTransactions(chainActive.Genesis(), nullptr, reserver, true);
     BOOST_CHECK_EQUAL(wallet->GetBalance().size(), 1);
     BOOST_CHECK_EQUAL(wallet->GetBalance()[defaultColorId], 100 * CENT);
     BOOST_CHECK_EQUAL(wallet->GetLegacyBalance(ISMINE_SPENDABLE, 0, nullptr, defaultColorId),  100 * CENT);
+    BOOST_CHECK_EQUAL(wallet->GetUnconfirmedBalance()[defaultColorId],  0);
+
+    // Case: Issue Colored Coin to the wallet from coinbase tx.
+    COutPoint outPoint(m_coinbase_txns[0]->GetHashMalFix(), 0);
+    ColorIdentifier colorIdFromCoinbase(ColorIdentifier(outPoint, TokenTypes::NON_REISSUABLE));
+    CMutableTransaction issueFromCoinbaseTx;
+    issueFromCoinbaseTx.nFeatures = 1;
+    issueFromCoinbaseTx.vin.resize(1);
+    issueFromCoinbaseTx.vout.resize(1);
+    issueFromCoinbaseTx.vin[0].prevout.hashMalFix = m_coinbase_txns[0]->GetHashMalFix();
+    issueFromCoinbaseTx.vin[0].prevout.n = 0;
+    issueFromCoinbaseTx.vout[0].nValue = 100 * CENT;
+    issueFromCoinbaseTx.vout[0].scriptPubKey = CScript() << colorIdFromCoinbase.toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash0) << OP_EQUALVERIFY << OP_CHECKSIG;
+    Sign(vchSig, coinbaseKey, m_coinbase_txns[0]->vout[0].scriptPubKey, 0, issueFromCoinbaseTx, 0);
+    issueFromCoinbaseTx.vin[0].scriptSig = CScript() << vchSig;
+
+    // Add to wallet and mempool
+    {
+        CWalletTx wtx(pwallet, MakeTransactionRef(issueFromCoinbaseTx));
+        wallet->AddToWallet(wtx);
+        wallet->TransactionAddedToMempool(MakeTransactionRef(issueFromCoinbaseTx));
+    }
+    BOOST_CHECK_EQUAL(wallet->GetUnconfirmedBalance()[defaultColorId],  0);
+    BOOST_CHECK_EQUAL(wallet->GetUnconfirmedBalance()[colorIdFromCoinbase],  100 * CENT);
+
+    broadcastAndProcessBlock(this, MakeTransactionRef(issueFromCoinbaseTx));
+
+    wallet->ScanForWalletTransactions(chainActive.Genesis(), nullptr, reserver, true);
+    BOOST_CHECK_EQUAL(wallet->GetBalance().size(), 2);
+    BOOST_CHECK_EQUAL(wallet->GetBalance()[defaultColorId], 100 * CENT);
+    BOOST_CHECK_EQUAL(wallet->GetBalance()[colorIdFromCoinbase], 100 * CENT);
+    BOOST_CHECK_EQUAL(wallet->GetLegacyBalance(ISMINE_SPENDABLE, 0, nullptr, defaultColorId),  100 * CENT);
+    BOOST_CHECK_EQUAL(wallet->GetLegacyBalance(ISMINE_SPENDABLE, 0, nullptr, colorIdFromCoinbase),  100 * CENT);
+    BOOST_CHECK_EQUAL(wallet->GetUnconfirmedBalance()[defaultColorId],  0);
+    BOOST_CHECK_EQUAL(wallet->GetUnconfirmedBalance()[colorIdFromCoinbase],  0);
 
     //token issue TYPE=1
     ColorIdentifier colorId(ColorIdentifier(coinbaseSpendTx.vout[0].scriptPubKey));
     CScript scriptPubKey = CScript() << colorId.toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash0) << OP_EQUALVERIFY << OP_CHECKSIG;
     CMutableTransaction tokenIssueTx;
 
-    //tokenIssueTx(from coinbaseSpendTx) - 100 tokens
+    // Case: Issue colored coin from own UTXO.
     tokenIssueTx.nFeatures = 1;
     tokenIssueTx.vin.resize(1);
     tokenIssueTx.vout.resize(1);
@@ -554,10 +604,21 @@ BOOST_FIXTURE_TEST_CASE(wallet_token_balance, TestChainSetup)
     Sign(vchSig, key0, coinbaseSpendTx.vout[0].scriptPubKey, 0, tokenIssueTx, 0);
     tokenIssueTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey0;
 
+    // Add to wallet and mempool
+    {
+        CWalletTx wtx(pwallet, MakeTransactionRef(tokenIssueTx));
+        wallet->AddToWallet(wtx);
+        wallet->TransactionAddedToMempool(MakeTransactionRef(tokenIssueTx));
+    }
+    BOOST_CHECK_EQUAL(wallet->GetUnconfirmedBalance()[defaultColorId],  0);
+    // The tokenIssueTx such as created by own would be recognized as Trusted, then it considered confirmed balance.
+    BOOST_CHECK_EQUAL(wallet->GetUnconfirmedBalance()[colorId],  0);
+    BOOST_CHECK_EQUAL(wallet->GetBalance()[colorId],  100 * CENT);
+
     broadcastAndProcessBlock(this, MakeTransactionRef(tokenIssueTx));
 
-    wallet->ScanForWalletTransactions(chainActive.Genesis(), nullptr, reserver);
-    BOOST_CHECK_EQUAL(wallet->GetBalance().size(), 2);
+    wallet->ScanForWalletTransactions(chainActive.Genesis(), nullptr, reserver, true);
+    BOOST_CHECK_EQUAL(wallet->GetBalance().size(), 3);
     BOOST_CHECK_EQUAL(wallet->GetBalance()[defaultColorId],  0);
     BOOST_CHECK_EQUAL(wallet->GetBalance()[colorId],  100 * CENT);
     BOOST_CHECK_EQUAL(wallet->GetLegacyBalance(ISMINE_SPENDABLE, 0, nullptr, defaultColorId),  0);
@@ -591,7 +652,7 @@ BOOST_FIXTURE_TEST_CASE(wallet_token_balance, TestChainSetup)
     broadcastAndProcessBlock(this, MakeTransactionRef(tokenTransferTx));
 
     wallet->ScanForWalletTransactions(chainActive.Genesis(), nullptr, reserver);
-    BOOST_CHECK_EQUAL(wallet->GetBalance().size(), 2);
+    BOOST_CHECK_EQUAL(wallet->GetBalance().size(), 3);
     BOOST_CHECK_EQUAL(wallet->GetBalance()[defaultColorId], 0 * CENT);
     BOOST_CHECK_EQUAL(wallet->GetBalance()[colorId], 100 * CENT); //both scriptpubkey have same colorid
     BOOST_CHECK_EQUAL(wallet->GetLegacyBalance(ISMINE_SPENDABLE, 0, nullptr, defaultColorId),  0 * CENT);
@@ -606,7 +667,7 @@ BOOST_FIXTURE_TEST_CASE(wallet_token_balance, TestChainSetup)
     broadcastAndProcessBlock(this, MakeTransactionRef(coinbaseSpendTx));
 
     wallet->ScanForWalletTransactions(chainActive.Genesis(), nullptr, reserver);
-    BOOST_CHECK_EQUAL(wallet->GetBalance().size(), 2);
+    BOOST_CHECK_EQUAL(wallet->GetBalance().size(), 3);
     BOOST_CHECK_EQUAL(wallet->GetBalance()[defaultColorId], 100 * CENT);
     BOOST_CHECK_EQUAL(wallet->GetBalance()[colorId], 100 * CENT);
     BOOST_CHECK_EQUAL(wallet->GetLegacyBalance(ISMINE_SPENDABLE, 0, nullptr, defaultColorId),  100 * CENT);
@@ -620,7 +681,7 @@ BOOST_FIXTURE_TEST_CASE(wallet_token_balance, TestChainSetup)
 
     broadcastAndProcessBlock(this, MakeTransactionRef(tokenIssueTx));
     wallet->ScanForWalletTransactions(chainActive.Genesis(), nullptr, reserver);
-    BOOST_CHECK_EQUAL(wallet->GetBalance().size(), 2);
+    BOOST_CHECK_EQUAL(wallet->GetBalance().size(), 3);
     BOOST_CHECK_EQUAL(wallet->GetBalance()[defaultColorId], 0 * CENT);
     BOOST_CHECK_EQUAL(wallet->GetBalance()[colorId], 200 * CENT);
     BOOST_CHECK_EQUAL(wallet->GetLegacyBalance(ISMINE_SPENDABLE, 0, nullptr, defaultColorId),  0);
@@ -654,7 +715,7 @@ BOOST_FIXTURE_TEST_CASE(wallet_token_balance, TestChainSetup)
 
     broadcastAndProcessBlock(this, MakeTransactionRef(tokenAggregateTx));
     wallet->ScanForWalletTransactions(chainActive.Genesis(), nullptr, reserver);
-    BOOST_CHECK_EQUAL(wallet->GetBalance().size(), 2);
+    BOOST_CHECK_EQUAL(wallet->GetBalance().size(), 3);
     BOOST_CHECK_EQUAL(wallet->GetBalance()[defaultColorId], 0 * CENT);
     BOOST_CHECK_EQUAL(wallet->GetBalance()[colorId], 200 * CENT);
     BOOST_CHECK_EQUAL(wallet->GetLegacyBalance(ISMINE_SPENDABLE, 0, nullptr, defaultColorId),  0);
@@ -682,7 +743,7 @@ BOOST_FIXTURE_TEST_CASE(wallet_token_balance, TestChainSetup)
     broadcastAndProcessBlock(this, MakeTransactionRef(tokenBurnTx));
 
     wallet->ScanForWalletTransactions(chainActive.Genesis(), nullptr, reserver);
-    BOOST_CHECK_EQUAL(wallet->GetBalance().size(), 1);
+    BOOST_CHECK_EQUAL(wallet->GetBalance().size(), 2);
     BOOST_CHECK_EQUAL(wallet->GetBalance()[defaultColorId], 40 * CENT);
     BOOST_CHECK_EQUAL(wallet->GetBalance()[colorId], 0 * CENT);
     BOOST_CHECK_EQUAL(wallet->GetLegacyBalance(ISMINE_SPENDABLE, 0, nullptr, defaultColorId),  40 * CENT);
