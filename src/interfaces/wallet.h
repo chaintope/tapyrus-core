@@ -340,12 +340,30 @@ struct WalletTx
     std::vector<isminetype> txout_is_mine;
     std::vector<CTxDestination> txout_address;
     std::vector<isminetype> txout_address_is_mine;
-    TxColoredCoinBalancesMap credit;
-    TxColoredCoinBalancesMap debit;
-    TxColoredCoinBalancesMap change;
+    TxColoredCoinBalancesMap credits;
+    TxColoredCoinBalancesMap debits;
+    TxColoredCoinBalancesMap changes;
     int64_t time;
     std::map<std::string, std::string> value_map;
     bool is_coinbase;
+
+    CAmount getCredit(const ColorIdentifier& colorId = ColorIdentifier()) const
+    {
+        auto it = credits.find(colorId);
+        return it != credits.end() ? it->second : 0;
+    }
+
+    CAmount getDebit(const ColorIdentifier& colorId = ColorIdentifier()) const
+    {
+        auto it = debits.find(colorId);
+        return it != debits.end() ? it->second : 0;
+    }
+
+    CAmount getChange(const ColorIdentifier& colorId = ColorIdentifier()) const
+    {
+        auto it = changes.find(colorId);
+        return it != changes.end() ? it->second : 0;
+    }
 };
 
 //! Updated transaction status.

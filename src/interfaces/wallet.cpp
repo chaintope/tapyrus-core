@@ -76,11 +76,11 @@ WalletTx MakeWalletTx(CWallet& wallet, const CWalletTx& wtx)
         result.txout_address_is_mine.emplace_back(ExtractDestination(txout.scriptPubKey, result.txout_address.back(), colorId) ?
                                                       IsMine(wallet, result.txout_address.back(), colorId) :
                                                       ISMINE_NO);
-        ColorIdentifier cid = GetColorIdFromScript(txout.scriptPubKey);
-        result.credit[cid] = wtx.GetCredit(ISMINE_ALL, cid);
-        result.debit[cid] = wtx.GetDebit(ISMINE_ALL, cid);
-        result.change[cid] = wtx.GetChange(cid);
     }
+    result.credits = wallet.GetCredit(*wtx.tx, ISMINE_ALL);
+    result.debits = wallet.GetDebit(*wtx.tx, ISMINE_ALL);
+    result.changes = wallet.GetChange(*wtx.tx);
+
     result.time = wtx.GetTxTime();
     result.value_map = wtx.mapValue;
     result.is_coinbase = wtx.IsCoinBase();
