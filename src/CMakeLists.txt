@@ -185,6 +185,8 @@ add_library(server
         httprpc.cpp
         httpserver.cpp
         init.cpp
+        interfaces/handler.cpp
+        interfaces/node.cpp
         dbwrapper.cpp
         merkleblock.cpp
         miner.cpp

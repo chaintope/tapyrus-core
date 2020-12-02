@@ -11,6 +11,8 @@ find_brew_prefix(QT5_PREFIX qt5)
 set(QT_REQUIRED_COMPONENTS Core Widgets Network DBus Test)
 find_package(Qt5 COMPONENTS ${QT_REQUIRED_COMPONENTS} REQUIRED HINTS "${QT5_PREFIX}")
 
+find_package(QREncode REQUIRED)
+
 # Find out more about Qt. This is similar to
 # http://code.qt.io/cgit/qt/qtwebkit.git/tree/Source/cmake/OptionsQt.cmake
 get_target_property(QT_CORE_TYPE Qt5::Core TYPE)
@@ -106,6 +108,7 @@ qt5_add_resources(QRC_BITCOIN_CPP tapyrus.qrc)
 
 add_library(tapyrus-qt-base
 	bantablemodel.cpp
+	callback.h
 	tapyrusaddressvalidator.cpp
 	tapyrusamountfield.cpp
 	tapyrusgui.cpp
@@ -156,6 +159,8 @@ target_link_libraries(tapyrus-qt-base
 	rpcclient
 	Qt5::Widgets
 	Qt5::Network
+	Qt5::DBus
+	qrencode
 )
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")

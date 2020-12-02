@@ -17,6 +17,7 @@ add_library(wallet
 	feebumper.cpp
 	fees.cpp
 	init.cpp
+	../interfaces/wallet.cpp
 	rpcdump.cpp
 	rpcwallet.cpp
 	wallet.cpp
