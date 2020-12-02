@@ -29,8 +29,9 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
 {
     QList<TransactionRecord> parts;
     int64_t nTime = wtx.time;
-    CAmount nCredit = wtx.credit.at(ColorIdentifier());
-    CAmount nDebit = wtx.debit.at(ColorIdentifier());
+
+    CAmount nCredit = wtx.getCredit();
+    CAmount nDebit = wtx.getDebit();
     CAmount nNet = nCredit - nDebit;
     uint256 hash = wtx.tx->GetHashMalFix();
     std::map<std::string, std::string> mapValue = wtx.value_map;
@@ -94,8 +95,7 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
         if (fAllFromMe && fAllToMe)
         {
             // Payment to self
-            CAmount nChange = wtx.change.at(ColorIdentifier());
-
+            CAmount nChange = wtx.getChange();
             parts.append(TransactionRecord(hash, nTime, TransactionRecord::SendToSelf, "",
                             -(nDebit - nChange), nCredit - nChange));
             parts.last().involvesWatchAddress = involvesWatchAddress;   // maybe pass to TransactionRecord as constructor argument
