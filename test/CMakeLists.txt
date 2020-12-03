@@ -7,14 +7,14 @@ if(CMAKE_SYSTEM_NAME MATCHES "Windows")
 	set(EXEEXT ".exe")
 endif()
 
-if(NOT BUILD_BITCOIN_WALLET)
+if(NOT BUILD_TAPYRUS_WALLET)
 	set(ENABLE_WALLET_TRUE "#")
 endif()
 
-if(NOT BUILD_BITCOIN_TX OR NOT BUILD_BITCOIN_TX)
-	set(BUILD_BITCOIN_UTILS_TRUE "#")
+if(NOT BUILD_TAPYRUS_TX OR NOT BUILD_TAPYRUS_TX)
+	set(BUILD_TAPYRUS_UTILS_TRUE "#")
 endif()
-if(NOT BUILD_BITCOIN_ZMQ)
+if(NOT BUILD_TAPYRUS_ZMQ)
 	set(ENABLE_ZMQ_TRUE "#")
 endif()
 
@@ -62,7 +62,7 @@ add_custom_target(check-functional
 
 add_dependencies(check-all check-functional)
 
-if(BUILD_BITCOIN_TX)
+if(BUILD_TAPYRUS_TX)
 	add_custom_target(check-tapyrus-util
 		COMMAND
 			${CMAKE_COMMAND} -E echo "Running test/util/tapyrus-util-test.py..."

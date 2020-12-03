@@ -139,7 +139,7 @@ if(BOOST_TEST_DYN_LINK)
 	target_compile_definitions(test_tapyrus PRIVATE BOOST_TEST_DYN_LINK)
 endif(BOOST_TEST_DYN_LINK)
 
-if(BUILD_BITCOIN_WALLET)
+if(BUILD_TAPYRUS_WALLET)
 	target_sources(test_tapyrus
 		PRIVATE
 			../wallet/test/accounting_tests.cpp

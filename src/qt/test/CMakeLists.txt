@@ -21,7 +21,7 @@ add_test_to_suite(tapyrus-qt test-tapyrus-qt
 target_link_libraries(test-tapyrus-qt tapyrus-qt-base Qt5::Test)
 
 # Wallet
-if(BUILD_BITCOIN_WALLET)
+if(BUILD_TAPYRUS_WALLET)
 	# Add wallet functionality to test_tapyrus_qt
 	target_sources(test-tapyrus-qt
 		PRIVATE
