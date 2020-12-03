@@ -145,10 +145,10 @@ check_cxx_source_compiles("
 
 
 # Activate wallet
-set(ENABLE_WALLET ${BUILD_BITCOIN_WALLET})
+set(ENABLE_WALLET ${BUILD_TAPYRUS_WALLET})
 
 # Activate ZeroMQ
-set(ENABLE_ZMQ ${BUILD_BITCOIN_ZMQ})
+set(ENABLE_ZMQ ${BUILD_TAPYRUS_ZMQ})
 
 # Generate the config
 configure_file(bitcoin-config.h.cmake.in bitcoin-config.h ESCAPE_QUOTES)

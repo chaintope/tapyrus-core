@@ -9,15 +9,15 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_C_VISIBILITY_PRESET hidden)
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 
-option(BUILD_BITCOIN_WALLET "Activate the wallet functionality" ON)
-option(BUILD_BITCOIN_ZMQ "Activate the ZeroMQ functionalities" ON)
-option(BUILD_BITCOIN_SEEDER "Build tapyrus-seeder" ON)
-option(BUILD_BITCOIN_CLI "Build tapyrus-cli" ON)
+option(BUILD_TAPYRUS_WALLET "Activate the wallet functionality" ON)
+option(BUILD_TAPYRUS_ZMQ "Activate the ZeroMQ functionalities" ON)
+option(BUILD_TAPYRUS_SEEDER "Build tapyrus-seeder" ON)
+option(BUILD_TAPYRUS_CLI "Build tapyrus-cli" ON)
 option(BUILD_TAPYRUS_GENESIS "Build tapyrus-genesis" ON)
-option(BUILD_BITCOIN_TX "Build tapyrus-tx" ON)
+option(BUILD_TAPYRUS_TX "Build tapyrus-tx" ON)
 
 # TODO: Fix qt building problem and turn ON.
-option(BUILD_BITCOIN_QT "Build tapyrus-qt" ON)
+option(BUILD_TAPYRUS_QT "Build tapyrus-qt" ON)
 
 # Ensure that WINDRES_PREPROC is enabled when using windres.
 if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
@@ -173,7 +173,7 @@ add_library(tapyrusconsensus
         )
 target_link_libraries(tapyrusconsensus common)
 
-# Bitcoin server facilities
+# Tapyrus server facilities
 add_library(server
         addrman.cpp
         addrdb.cpp
@@ -247,13 +247,13 @@ add_subdirectory(test)
 add_subdirectory(bench)
 
 # Wallet
-if(BUILD_BITCOIN_WALLET)
+if(BUILD_TAPYRUS_WALLET)
     add_subdirectory(wallet)
     target_link_libraries(server wallet)
 endif()
 
 # ZeroMQ
-if(BUILD_BITCOIN_ZMQ)
+if(BUILD_TAPYRUS_ZMQ)
     add_subdirectory(zmq)
     target_link_libraries(server zmq)
 endif()
@@ -263,7 +263,7 @@ add_library(rpcclient rpc/client.cpp)
 target_link_libraries(rpcclient univalue util)
 
 # tapyrus-cli
-if(BUILD_BITCOIN_CLI)
+if(BUILD_TAPYRUS_CLI)
     add_executable(tapyrus-cli tapyrus-cli.cpp)
     if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
         target_sources(tapyrus-cli PRIVATE tapyrus-cli-res.rc)
@@ -273,7 +273,7 @@ if(BUILD_BITCOIN_CLI)
 endif()
 
 # tapyrus-tx
-if(BUILD_BITCOIN_TX)
+if(BUILD_TAPYRUS_TX)
     add_executable(tapyrus-tx tapyrus-tx.cpp)
     if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
         target_sources(tapyrus-tx PRIVATE tapyrus-tx-res.rc)
@@ -303,9 +303,9 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
     target_sources(tapyrusd PRIVATE tapyrus-res.rc)
 endif()
 
-# Bitcoin-qt
-if(BUILD_BITCOIN_QT)
+# Tapyrus-qt
+if(BUILD_TAPYRUS_QT)
     add_subdirectory(qt)
 endif()
 
-message(status "BUILD_BITCOIN_QT=${BUILD_BITCOIN_QT}")
+message(status "BUILD_TAPYRUS_QT=${BUILD_TAPYRUS_QT}")
