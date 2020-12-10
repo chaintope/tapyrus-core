@@ -25,4 +25,4 @@ if [ -v GENESIS_BLOCK_WITH_SIG -a ! -e ${DATA_DIR}/genesis.${network_id} ]; then
   echo ${GENESIS_BLOCK_WITH_SIG} > ${DATA_DIR}/genesis.${network_id}
 fi
 
-exec sh -c "$*"
+exec bash -c "$*"
