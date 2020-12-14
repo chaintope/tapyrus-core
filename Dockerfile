@@ -1,6 +1,5 @@
 FROM ubuntu:18.04 as builder
 
-ARG MAKEJOBS=3
 ENV LC_ALL C.UTF-8
 ENV BUILD_PACKAGES "build-essential libtool autotools-dev automake pkg-config bsdmainutils curl git ca-certificates ccache"
 ENV PACKAGES "python3-zmq libssl1.0-dev libevent-dev bsdmainutils libboost-system-dev libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev libdb5.3++-dev libminiupnpc-dev libzmq3-dev libqrencode-dev"
@@ -12,9 +11,9 @@ RUN apt-get update && \
     apt-get install --no-install-recommends --no-upgrade -qq $PACKAGES $BUILD_PACKAGES && \
     ./autogen.sh && \
     ./configure --enable-cxx --disable-shared --disable-replication --with-pic --with-incompatible-bdb && \
-    make -j $MAKEJOBS -C depends && \
+    make -j"$(($(nproc)+1))" -C depends && \
     ./configure $TAPYRUS_CONFIG && \
-    make -j $MAKEJOBS && \
+    make -j"$(($(nproc)+1))" && \
     make install
 
 FROM ubuntu:18.04
