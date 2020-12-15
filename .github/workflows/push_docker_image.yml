@@ -27,7 +27,7 @@ jobs:
         name: Prepare
         id: prep
         run: |
-          DOCKER_IMAGE=chaintope/tapyrusd
+          DOCKER_IMAGE=tapyrus/tapyrusd
           VERSION=noop
           if [[ $GITHUB_REF == refs/tags/* ]]; then
             VERSION=${GITHUB_REF#refs/tags/}
@@ -84,5 +84,5 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
-          repository: chaintope/tapyrus-core
+          repository: tapyrus/tapyrusd
           readme-filepath: ./doc/docker_image.md
