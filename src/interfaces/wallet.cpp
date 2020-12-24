@@ -335,12 +335,12 @@ public:
     WalletBalances getBalances() override
     {
         WalletBalances result;
-        result.balance = m_wallet.GetBalance();
-        result.unconfirmed_balance = m_wallet.GetUnconfirmedBalance();
+        result.balances = m_wallet.GetBalance();
+        result.unconfirmed_balances = m_wallet.GetUnconfirmedBalance();
         result.have_watch_only = m_wallet.HaveWatchOnly();
         if (result.have_watch_only) {
-            result.watch_only_balance = m_wallet.GetBalance(ISMINE_WATCH_ONLY);
-            result.unconfirmed_watch_only_balance = m_wallet.GetUnconfirmedWatchOnlyBalance();
+            result.watch_only_balances = m_wallet.GetBalance(ISMINE_WATCH_ONLY);
+            result.unconfirmed_watch_only_balances = m_wallet.GetUnconfirmedWatchOnlyBalance();
         }
         return result;
     }

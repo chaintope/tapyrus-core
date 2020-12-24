@@ -310,25 +310,45 @@ struct WalletAddress
 //! Collection of wallet balances.
 struct WalletBalances
 {
-    TxColoredCoinBalancesMap balance;
-    TxColoredCoinBalancesMap unconfirmed_balance;
+    TxColoredCoinBalancesMap balances;
+    TxColoredCoinBalancesMap unconfirmed_balances;
     bool have_watch_only;
-    TxColoredCoinBalancesMap watch_only_balance;
-    TxColoredCoinBalancesMap unconfirmed_watch_only_balance;
+    TxColoredCoinBalancesMap watch_only_balances;
+    TxColoredCoinBalancesMap unconfirmed_watch_only_balances;
 
     WalletBalances(){
-        balance[ColorIdentifier()] = 0;
-        unconfirmed_balance[ColorIdentifier()] = 0;
         have_watch_only = false;
-        watch_only_balance[ColorIdentifier()] = 0;
-        unconfirmed_watch_only_balance[ColorIdentifier()] = 0;
+    }
+
+    CAmount getBalance(const ColorIdentifier& colorId = ColorIdentifier()) const
+    {
+        auto it = balances.find(colorId);
+        return it != balances.end() ? it->second : 0;
+    }
+
+    CAmount getUnconfirmedBalance(const ColorIdentifier& colorId = ColorIdentifier()) const
+    {
+        auto it = unconfirmed_balances.find(colorId);
+        return it != unconfirmed_balances.end() ? it->second : 0;
+    }
+
+    CAmount getWatchOnlyBalance(const ColorIdentifier& colorId = ColorIdentifier()) const
+    {
+        auto it = watch_only_balances.find(colorId);
+        return it != watch_only_balances.end() ? it->second : 0;
+    }
+
+    CAmount getUnconfirmedWatchOnlyBalance(const ColorIdentifier& colorId = ColorIdentifier()) const
+    {
+        auto it = unconfirmed_watch_only_balances.find(colorId);
+        return it != unconfirmed_watch_only_balances.end() ? it->second : 0;
     }
 
     bool balanceChanged(const WalletBalances& prev) const
     {
-        return balance.at(ColorIdentifier()) != prev.balance.at(ColorIdentifier()) || unconfirmed_balance.at(ColorIdentifier()) != prev.unconfirmed_balance.at(ColorIdentifier()) ||
-               watch_only_balance.at(ColorIdentifier()) != prev.watch_only_balance.at(ColorIdentifier()) ||
-               unconfirmed_watch_only_balance.at(ColorIdentifier()) != prev.unconfirmed_watch_only_balance.at(ColorIdentifier());
+        return balances != prev.balances || unconfirmed_balances != prev.unconfirmed_balances ||
+               watch_only_balances != prev.watch_only_balances ||
+               unconfirmed_watch_only_balances != prev.unconfirmed_watch_only_balances;
     }
 };
 
