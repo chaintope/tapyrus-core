@@ -119,7 +119,7 @@ OverviewPage::OverviewPage(const PlatformStyle *platformStyle, QWidget *parent) 
 {
     ui->setupUi(this);
 
-    m_balances.balance[ColorIdentifier()] = -1;
+    m_balances.balances[ColorIdentifier()] = -1;
 
     // use a SingleColorIcon for the "out of sync warning" icon
     QIcon icon = platformStyle->SingleColorIcon(":/icons/warning");
@@ -161,12 +161,18 @@ void OverviewPage::setBalance(const interfaces::WalletBalances& balances)
 {
     int unit = walletModel->getOptionsModel()->getDisplayUnit();
     m_balances = balances;
-    ui->labelBalance->setText(BitcoinUnits::formatWithUnit(unit, balances.balance.at(ColorIdentifier()), false, BitcoinUnits::separatorAlways));
-    ui->labelUnconfirmed->setText(BitcoinUnits::formatWithUnit(unit, balances.unconfirmed_balance.at(ColorIdentifier()), false, BitcoinUnits::separatorAlways));
-    ui->labelTotal->setText(BitcoinUnits::formatWithUnit(unit, balances.balance.at(ColorIdentifier()) + balances.unconfirmed_balance.at(ColorIdentifier()), false, BitcoinUnits::separatorAlways));
-    ui->labelWatchAvailable->setText(BitcoinUnits::formatWithUnit(unit, balances.watch_only_balance.at(ColorIdentifier()), false, BitcoinUnits::separatorAlways));
-    ui->labelWatchPending->setText(BitcoinUnits::formatWithUnit(unit, balances.unconfirmed_watch_only_balance.at(ColorIdentifier()), false, BitcoinUnits::separatorAlways));
-    ui->labelWatchTotal->setText(BitcoinUnits::formatWithUnit(unit, balances.watch_only_balance.at(ColorIdentifier()) + balances.unconfirmed_watch_only_balance.at(ColorIdentifier()), false, BitcoinUnits::separatorAlways));
+
+    CAmount balance = balances.getBalance();
+    CAmount unconfirmed_balance = balances.getUnconfirmedBalance();
+    CAmount watch_only_balance = balances.getWatchOnlyBalance();
+    CAmount unconfirmed_watch_only_balance = balances.getUnconfirmedWatchOnlyBalance();
+
+    ui->labelBalance->setText(BitcoinUnits::formatWithUnit(unit, balance, false, BitcoinUnits::separatorAlways));
+    ui->labelUnconfirmed->setText(BitcoinUnits::formatWithUnit(unit, balance, false, BitcoinUnits::separatorAlways));
+    ui->labelTotal->setText(BitcoinUnits::formatWithUnit(unit, balance + unconfirmed_balance, false, BitcoinUnits::separatorAlways));
+    ui->labelWatchAvailable->setText(BitcoinUnits::formatWithUnit(unit, watch_only_balance, false, BitcoinUnits::separatorAlways));
+    ui->labelWatchPending->setText(BitcoinUnits::formatWithUnit(unit, unconfirmed_watch_only_balance, false, BitcoinUnits::separatorAlways));
+    ui->labelWatchTotal->setText(BitcoinUnits::formatWithUnit(unit, watch_only_balance + unconfirmed_watch_only_balance, false, BitcoinUnits::separatorAlways));
 }
 
 // show/hide watch-only labels
@@ -228,7 +234,7 @@ void OverviewPage::updateDisplayUnit()
 {
     if(walletModel && walletModel->getOptionsModel())
     {
-        if (m_balances.balance[ColorIdentifier()] != -1) {
+        if (m_balances.getBalance() != -1) {
             setBalance(m_balances);
         }
 
