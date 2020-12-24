@@ -848,7 +848,7 @@ static UniValue ProcessImport(CWallet * const pwallet, const UniValue& data, con
             if (!IsValidDestination(dest)) {
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
             }
-            script = GetScriptForDestination(dest, &colorId);
+            script = GetScriptForDestination(dest, colorId);
         } else {
             if (!IsHex(output)) {
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid scriptPubKey");
@@ -980,7 +980,7 @@ static UniValue ProcessImport(CWallet * const pwallet, const UniValue& data, con
                     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Consistency check failed");
                 }
 
-                ColorIdentifier* colorId = nullptr;
+                ColorIdentifier colorId;
                 // Consistency check.
                 if (isScript) {
                     CTxDestination destination;

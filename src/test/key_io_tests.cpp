@@ -61,7 +61,7 @@ BOOST_AUTO_TEST_CASE(key_io_valid_parse)
         } else {
             // Must be valid public key
             destination = DecodeDestination(exp_base58string, colorId);
-            CScript script = GetScriptForDestination(destination, &colorId);
+            CScript script = GetScriptForDestination(destination, colorId);
             BOOST_CHECK_MESSAGE(IsValidDestination(destination), "!IsValid:" + strTest);
             BOOST_CHECK_EQUAL(HexStr(script), HexStr(exp_payload));
 
@@ -79,7 +79,7 @@ BOOST_AUTO_TEST_CASE(key_io_valid_parse)
             destination = DecodeDestination(exp_base58string, colorId);
             BOOST_CHECK_MESSAGE(IsValidDestination(destination) == try_case_flip, "!IsValid case flipped:" + strTest);
             if (IsValidDestination(destination)) {
-                script = GetScriptForDestination(destination, &colorId);
+                script = GetScriptForDestination(destination, colorId);
                 BOOST_CHECK_EQUAL(HexStr(script), HexStr(exp_payload));
             }
 
@@ -122,7 +122,7 @@ BOOST_AUTO_TEST_CASE(key_io_valid_gen)
             CTxDestination dest;
             ColorIdentifier colorId;
             CScript exp_script(exp_payload.begin(), exp_payload.end());
-            ExtractDestination(exp_script, dest, &colorId);
+            ExtractDestination(exp_script, dest, colorId);
             std::string address = EncodeDestination(dest, colorId);
 
             BOOST_CHECK_EQUAL(address, exp_base58string);

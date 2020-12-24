@@ -237,7 +237,13 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::v
     return true;
 }
 
-bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet, ColorIdentifier* colorId)
+bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet)
+{
+    ColorIdentifier colorId;
+    return ExtractDestination(scriptPubKey, addressRet, colorId);
+}
+
+bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet, ColorIdentifier& colorId)
 {
     std::vector<valtype> vSolutions;
     txnouttype whichType;
@@ -257,8 +263,8 @@ bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet,
           || whichType == TX_COLOR_PUBKEYHASH)
     {
         addressRet = CKeyID(uint160(vSolutions[0]));
-        if (whichType == TX_COLOR_PUBKEYHASH && colorId != nullptr) {
-          *colorId = ColorIdentifier(vSolutions[1]);
+        if (whichType == TX_COLOR_PUBKEYHASH) {
+          colorId = ColorIdentifier(vSolutions[1]);
         }
         return true;
     }
@@ -266,8 +272,8 @@ bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet,
           || whichType == TX_COLOR_SCRIPTHASH)
     {
         addressRet = CScriptID(uint160(vSolutions[0]));
-        if (whichType == TX_COLOR_SCRIPTHASH && colorId != nullptr) {
-          *colorId = ColorIdentifier(vSolutions[1]);
+        if (whichType == TX_COLOR_SCRIPTHASH) {
+          colorId = ColorIdentifier(vSolutions[1]);
         }
         return true;
     }
@@ -341,11 +347,11 @@ class CScriptVisitor : public boost::static_visitor<bool>
 {
 private:
     CScript *script;
-    ColorIdentifier *colorID;
+    ColorIdentifier colorId;
 public:
-    explicit CScriptVisitor(CScript *scriptin, ColorIdentifier* colorIdin) { 
+    explicit CScriptVisitor(CScript *scriptin, const ColorIdentifier &colorIdin) {
         script = scriptin;
-        colorID = colorIdin;
+        colorId = colorIdin;
     }
 
     bool operator()(const CNoDestination &dest) const {
@@ -355,8 +361,8 @@ public:
 
     bool operator()(const CKeyID &keyID) const {
         script->clear();
-        if (colorID != NULL && (*colorID).type != TokenTypes::NONE) {
-            *script << colorID->toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG;
+        if (colorId.type != TokenTypes::NONE) {
+            *script << colorId.toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG;
         } else {
             *script << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG;
         }
@@ -394,7 +400,16 @@ public:
 };
 } // namespace
 
-CScript GetScriptForDestination(const CTxDestination& dest, ColorIdentifier* colorId)
+CScript GetScriptForDestination(const CTxDestination& dest)
+{
+    CScript script;
+    ColorIdentifier colorId;
+
+    boost::apply_visitor(CScriptVisitor(&script, colorId), dest);
+    return script;
+}
+
+CScript GetScriptForDestination(const CTxDestination& dest, const ColorIdentifier& colorId)
 {
     CScript script;
 

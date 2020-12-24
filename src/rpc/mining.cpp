@@ -113,7 +113,7 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
     }
 
     std::shared_ptr<CReserveScript> coinbaseScript = std::make_shared<CReserveScript>();
-    coinbaseScript->reserveScript = GetScriptForDestination(destination, &colorId);
+    coinbaseScript->reserveScript = GetScriptForDestination(destination, colorId);
 
     std::vector<unsigned char> privkeyraw = ParseHex(request.params[2].get_str());
     CKey cPrivKey;
@@ -151,7 +151,7 @@ UniValue getnewblock(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMS, "required_wait must be non-negative.");
     }
 
-    CScript coinbaseScript {GetScriptForDestination(destination, &colorId)};
+    CScript coinbaseScript {GetScriptForDestination(destination, colorId)};
 
     std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(Params()).CreateNewBlock(coinbaseScript, true));
     if (!pblocktemplate.get())

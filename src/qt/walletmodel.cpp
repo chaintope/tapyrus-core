@@ -160,7 +160,7 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
 
             ColorIdentifier colorId;
             CTxDestination dest = DecodeDestination(rcp.address.toStdString(), colorId);
-            CScript scriptPubKey = GetScriptForDestination(dest, &colorId);
+            CScript scriptPubKey = GetScriptForDestination(dest, colorId);
             CRecipient recipient = {scriptPubKey, rcp.amount, rcp.fSubtractFeeFromAmount};
             vecSend.push_back(recipient);
 
