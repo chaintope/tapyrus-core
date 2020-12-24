@@ -347,7 +347,7 @@ static UniValue setlabel(const JSONRPCRequest& request)
     std::string old_label = pwallet->mapAddressBook[dest].name;
     std::string label = LabelFromValue(request.params[1]);
 
-    if (IsMine(*pwallet, dest, &colorId)) {
+    if (IsMine(*pwallet, dest, colorId)) {
         pwallet->SetAddressBook(dest, label, "receive");
         if (request.strMethod == "setaccount" && old_label != label && dest == GetLabelDestination(pwallet, old_label)) {
             // for setaccount, call GetLabelDestination so a new receive address is created for the old account
@@ -470,7 +470,7 @@ static UniValue getaddressesbyaccount(const JSONRPCRequest& request)
     return ret;
 }
 
-static CTransactionRef SendMoney(CWallet * const pwallet, const CTxDestination &address, CAmount nValue, bool fSubtractFeeFromAmount, const CCoinControl& coin_control, mapValue_t mapValue, std::string fromAccount, ColorIdentifier& colorId)
+static CTransactionRef SendMoney(CWallet * const pwallet, const CTxDestination &address, CAmount nValue, bool fSubtractFeeFromAmount, const CCoinControl& coin_control, mapValue_t mapValue, std::string fromAccount, const ColorIdentifier& colorId)
 {
     CAmount curBalance = pwallet->GetBalance()[colorId];
 
@@ -486,7 +486,7 @@ static CTransactionRef SendMoney(CWallet * const pwallet, const CTxDestination &
     }
 
     // Parse Tapyrus address
-    CScript scriptPubKey = GetScriptForDestination(address, &colorId);
+    CScript scriptPubKey = GetScriptForDestination(address, colorId);
 
     // Create and send the transaction
     CReserveKey reservekey(pwallet);
@@ -765,7 +765,7 @@ static UniValue getreceivedbyaddress(const JSONRPCRequest& request)
     if (!IsValidDestination(dest)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Tapyrus address");
     }
-    CScript scriptPubKey = GetScriptForDestination(dest, &colorId);
+    CScript scriptPubKey = GetScriptForDestination(dest, colorId);
     if (!IsMine(*pwallet, scriptPubKey)) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Address not found in wallet");
     }
@@ -853,7 +853,7 @@ static UniValue getreceivedbylabel(const JSONRPCRequest& request)
         for (const CTxOut& txout : wtx.tx->vout)
         {
             CTxDestination address;
-            ColorIdentifier* colorId = nullptr;
+            ColorIdentifier colorId;
             if (ExtractDestination(txout.scriptPubKey, address, colorId) && IsMine(*pwallet, address, colorId) && setAddress.count(address)) {
                 if (wtx.GetDepthInMainChain() >= nMinDepth)
                     nAmount += txout.nValue;
@@ -1278,7 +1278,7 @@ static UniValue sendmany(const JSONRPCRequest& request)
         }
         destinations.insert(dest);
 
-        CScript scriptPubKey = GetScriptForDestination(dest, &colorId);
+        CScript scriptPubKey = GetScriptForDestination(dest, colorId);
         CAmount nAmount = AmountFromValue(sendTo[name_]);
         if (nAmount <= 0)
             throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for send");
@@ -1514,7 +1514,7 @@ static UniValue addwitnessaddress(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_WALLET_ERROR, "Public key or redeemscript not known to wallet, or the key is uncompressed");
     }
 
-    CScript witprogram = GetScriptForDestination(w.result, &colorId);
+    CScript witprogram = GetScriptForDestination(w.result, colorId);
 
     if (p2sh) {
         w.result = CScriptID(witprogram);
@@ -1589,7 +1589,7 @@ static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bo
         for (const CTxOut& txout : wtx.tx->vout)
         {
             CTxDestination address;
-            ColorIdentifier* colorId = nullptr;
+            ColorIdentifier colorId;
             if (!ExtractDestination(txout.scriptPubKey, address, colorId))
                 continue;
 
@@ -3460,7 +3460,7 @@ static UniValue listunspent(const JSONRPCRequest& request)
         CTxDestination address;
         ColorIdentifier colorId;
         const CScript& scriptPubKey = out.tx->tx->vout[out.i].scriptPubKey;
-        bool fValidAddress = ExtractDestination(scriptPubKey, address, &colorId);
+        bool fValidAddress = ExtractDestination(scriptPubKey, address, colorId);
 
         if (destinations.size() && (!fValidAddress || !destinations.count(address)))
             continue;
@@ -4090,7 +4090,7 @@ public:
         CTxDestination embedded;
         UniValue a(UniValue::VARR);
         ColorIdentifier colorId;
-        if (ExtractDestination(subscript, embedded, &colorId)) {
+        if (ExtractDestination(subscript, embedded, colorId)) {
             // Only when the script corresponds to an address.
             UniValue subobj(UniValue::VOBJ);
             UniValue detail = DescribeAddress(embedded);
@@ -4266,10 +4266,10 @@ UniValue getaddressinfo(const JSONRPCRequest& request)
     std::string currentAddress = EncodeDestination(dest, colorId);
     ret.pushKV("address", currentAddress);
 
-    CScript scriptPubKey = GetScriptForDestination(dest, &colorId);
+    CScript scriptPubKey = GetScriptForDestination(dest, colorId);
     ret.pushKV("scriptPubKey", HexStr(scriptPubKey.begin(), scriptPubKey.end()));
 
-    isminetype mine = IsMine(*pwallet, dest, &colorId);
+    isminetype mine = IsMine(*pwallet, dest, colorId);
     ret.pushKV("ismine", bool(mine & ISMINE_SPENDABLE));
     ret.pushKV("iswatchonly", bool(mine & ISMINE_WATCH_ONLY));
     UniValue detail = DescribeWalletAddress(pwallet, dest);

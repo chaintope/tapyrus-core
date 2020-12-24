@@ -79,7 +79,7 @@ static UniValue validateaddress(const JSONRPCRequest& request)
             std::string currentAddress = EncodeDestination(dest, colorId);
             ret.pushKV("address", currentAddress);
 
-            CScript scriptPubKey = GetScriptForDestination(dest, &colorId);
+            CScript scriptPubKey = GetScriptForDestination(dest, colorId);
             ret.pushKV("scriptPubKey", HexStr(scriptPubKey.begin(), scriptPubKey.end()));
 
             UniValue detail = DescribeAddress(dest);

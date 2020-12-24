@@ -150,7 +150,7 @@ void ScriptToUniv(const CScript& script, UniValue& out, bool include_address)
 
     CTxDestination address;
     ColorIdentifier colorId;
-    if (include_address && ExtractDestination(script, address, &colorId)) {
+    if (include_address && ExtractDestination(script, address, colorId)) {
         out.pushKV("address", EncodeDestination(address, colorId));
     }
 }
