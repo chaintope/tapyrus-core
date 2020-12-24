@@ -631,7 +631,7 @@ BOOST_FIXTURE_TEST_CASE(wallet_token_balance, BalanceTestingSetup)
 
     ProcessBlockAndScanForWalletTxns(MakeTransactionRef(tokenIssueTx));
 
-    BOOST_CHECK_EQUAL(wallet->GetBalance().size(), 3);
+    BOOST_CHECK_EQUAL(wallet->GetBalance().size(), 2);
     BOOST_CHECK_EQUAL(wallet->GetBalance()[defaultColorId],  0);
     BOOST_CHECK_EQUAL(wallet->GetBalance()[colorId],  100 * CENT);
     BOOST_CHECK_EQUAL(wallet->GetLegacyBalance(ISMINE_SPENDABLE, 0, nullptr, defaultColorId),  0);
@@ -663,7 +663,7 @@ BOOST_FIXTURE_TEST_CASE(wallet_token_balance, BalanceTestingSetup)
 
     ProcessBlockAndScanForWalletTxns(MakeTransactionRef(tokenTransferTx));
 
-    BOOST_CHECK_EQUAL(wallet->GetBalance().size(), 3);
+    BOOST_CHECK_EQUAL(wallet->GetBalance().size(), 2);
     BOOST_CHECK_EQUAL(wallet->GetBalance()[defaultColorId], 0 * CENT);
     BOOST_CHECK_EQUAL(wallet->GetBalance()[colorId], 100 * CENT); //both scriptpubkey have same colorid
     BOOST_CHECK_EQUAL(wallet->GetLegacyBalance(ISMINE_SPENDABLE, 0, nullptr, defaultColorId),  0 * CENT);
@@ -691,7 +691,7 @@ BOOST_FIXTURE_TEST_CASE(wallet_token_balance, BalanceTestingSetup)
 
     ProcessBlockAndScanForWalletTxns(MakeTransactionRef(tokenIssueTx));
 
-    BOOST_CHECK_EQUAL(wallet->GetBalance().size(), 3);
+    BOOST_CHECK_EQUAL(wallet->GetBalance().size(), 2);
     BOOST_CHECK_EQUAL(wallet->GetBalance()[defaultColorId], 0 * CENT);
     BOOST_CHECK_EQUAL(wallet->GetBalance()[colorId], 200 * CENT);
     BOOST_CHECK_EQUAL(wallet->GetLegacyBalance(ISMINE_SPENDABLE, 0, nullptr, defaultColorId),  0);
@@ -725,7 +725,7 @@ BOOST_FIXTURE_TEST_CASE(wallet_token_balance, BalanceTestingSetup)
 
     ProcessBlockAndScanForWalletTxns(MakeTransactionRef(tokenAggregateTx));
 
-    BOOST_CHECK_EQUAL(wallet->GetBalance().size(), 3);
+    BOOST_CHECK_EQUAL(wallet->GetBalance().size(), 2);
     BOOST_CHECK_EQUAL(wallet->GetBalance()[defaultColorId], 0 * CENT);
     BOOST_CHECK_EQUAL(wallet->GetBalance()[colorId], 200 * CENT);
     BOOST_CHECK_EQUAL(wallet->GetLegacyBalance(ISMINE_SPENDABLE, 0, nullptr, defaultColorId),  0);

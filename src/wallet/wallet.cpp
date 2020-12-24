@@ -1453,7 +1453,6 @@ TxColoredCoinBalancesMap CWallet::GetCredit(const CTransaction& tx, const ismine
 TxColoredCoinBalancesMap CWallet::GetChange(const CTransaction& tx) const
 {
     TxColoredCoinBalancesMap nChange;
-    nChange[ColorIdentifier()] = 0;
     for (const CTxOut& txout : tx.vout)
     {
         ColorIdentifier colorId(GetColorIdFromScript(txout.scriptPubKey));
@@ -1913,7 +1912,7 @@ CAmount CWalletTx::GetDebit(const isminefilter& filter, ColorIdentifier& colorId
 CAmount CWalletTx::GetCredit(const isminefilter& filter, ColorIdentifier& colorId) const
 {
     TxColoredCoinBalancesMap credit;
-    credit[colorId] = 0;
+
     if (filter & ISMINE_SPENDABLE)
     {
         // GetBalance can assume transactions in mapWallet won't change
@@ -1943,7 +1942,6 @@ CAmount CWalletTx::GetCredit(const isminefilter& filter, ColorIdentifier& colorI
 TxColoredCoinBalancesMap CWalletTx::GetAvailableCredit(bool fUseCache, const isminefilter& filter) const
 {
     TxColoredCoinBalancesMap nCredit;
-    nCredit[ColorIdentifier()] = 0;
 
     if (pwallet == nullptr)
         return nCredit;
@@ -2100,7 +2098,6 @@ void CWallet::ResendWalletTransactions(int64_t nBestBlockTime, CConnman* connman
 TxColoredCoinBalancesMap CWallet::GetBalance(const isminefilter& filter, const int min_depth) const
 {
     TxColoredCoinBalancesMap nTotal;
-    nTotal[ColorIdentifier()] = 0;
     {
         LOCK2(cs_main, cs_wallet);
         for (const auto& entry : mapWallet)
@@ -2121,7 +2118,6 @@ TxColoredCoinBalancesMap CWallet::GetBalance(const isminefilter& filter, const i
 TxColoredCoinBalancesMap CWallet::GetUnconfirmedBalance() const
 {
     TxColoredCoinBalancesMap nTotal;
-    nTotal[ColorIdentifier()] = 0;
     {
         LOCK2(cs_main, cs_wallet);
         for (const auto& entry : mapWallet)
@@ -2141,7 +2137,6 @@ TxColoredCoinBalancesMap CWallet::GetUnconfirmedBalance() const
 TxColoredCoinBalancesMap CWallet::GetUnconfirmedWatchOnlyBalance() const
 {
     TxColoredCoinBalancesMap nTotal;
-    nTotal[ColorIdentifier()] = 0;
     {
         LOCK2(cs_main, cs_wallet);
         for (const auto& entry : mapWallet)
@@ -2209,7 +2204,7 @@ TxColoredCoinBalancesMap CWallet::GetAvailableBalance(const CCoinControl* coinCo
     LOCK2(cs_main, cs_wallet);
 
     TxColoredCoinBalancesMap balance;
-    balance[ColorIdentifier()] = 0;
+
     std::vector<COutput> vCoins;
     AvailableCoins(vCoins, true, coinControl);
     for (const COutput& out : vCoins) {
@@ -2228,7 +2223,6 @@ void CWallet::AvailableCoins(std::vector<COutput> &vCoins, bool fOnlySafe, const
 
     vCoins.clear();
     TxColoredCoinBalancesMap nTotal;
-    nTotal[ColorIdentifier()] = 0;
 
     for (const auto& entry : mapWallet)
     {
@@ -2643,7 +2637,6 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                          int& nChangePosInOut, std::string& strFailReason, const CCoinControl& coin_control, bool sign)
 {
     TxColoredCoinBalancesMap nValue;
-    nValue[ColorIdentifier()] = 0;
     int nChangePosRequest = nChangePosInOut;
     unsigned int nSubtractFeeFromAmount = 0;
     for (const auto& recipient : vecSend)
