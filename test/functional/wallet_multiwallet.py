@@ -145,7 +145,10 @@ class MultiWalletTest(BitcoinTestFramework):
         wallets[0].generate(1, self.signblockprivkey)
         for wallet_name, wallet in zip(wallet_names, wallets):
             info = wallet.getwalletinfo()
-            assert_equal(info['balance']['TPC'], 50 if wallet is wallets[0] else 0)
+            if wallet is wallets[0]:
+                assert_equal(info['balance']['TPC'], 50)
+            else:
+                assert 'TPC' not in info['balance'].keys()
             assert_equal(info['walletname'], wallet_name)
 
         # accessing invalid wallet fails
