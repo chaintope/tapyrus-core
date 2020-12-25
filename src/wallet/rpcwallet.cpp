@@ -3029,13 +3029,12 @@ static UniValue getwalletinfo(const JSONRPCRequest& request)
             "  \"walletversion\": xxxxx,            (numeric) the wallet version\n"
             "  \"balance\":                         (json mapping of each colorid to their total confirmed balance of the wallet in " + CURRENCY_UNIT + "\n"
             "       {\n"
-            "         \"xxxx\":\"xxxx\"             (string) color id in hex string : (numeric) The total confirmed balance of the wallet " + CURRENCY_UNIT + "\n"
+            "         \"xxxx\":\"xxxx\"             (string) \"TPC\" or color id in hex string : (numeric) The total confirmed balance of the wallet " + CURRENCY_UNIT + "\n"
             "       }\n"
             "  \"unconfirmed_balance\":             (json mapping of each colorid to their total unconfirmed balance of the wallet in " + CURRENCY_UNIT + "\n"
             "       {\n"
-            "         \"xxxx\":\"xxxx\"             (string) color id in hex string : (numeric) The total unconfirmed balance of the wallet " + CURRENCY_UNIT + "\n"
+            "         \"xxxx\":\"xxxx\"             (string) \"TPC\" or color id in hex string : (numeric) The total unconfirmed balance of the wallet " + CURRENCY_UNIT + "\n"
             "       }\n"
-            "  \"unconfirmed_balance\": xxx,        (numeric) the total unconfirmed balance of the wallet in " + CURRENCY_UNIT + "\n"
             "  \"txcount\": xxxxxxx,                (numeric) the total number of transactions in the wallet\n"
             "  \"keypoololdest\": xxxxxx,           (numeric) the timestamp (seconds since Unix epoch) of the oldest pre-generated key in the key pool\n"
             "  \"keypoolsize\": xxxx,               (numeric) how many new keys are pre-generated (only counts external keys)\n"
@@ -3063,12 +3062,20 @@ static UniValue getwalletinfo(const JSONRPCRequest& request)
 
     TxColoredCoinBalancesMap walletbalances = pwallet->GetBalance();
     for (auto const& wb : walletbalances) {
-       balances.pushKV(HexStr(wb.first.toVector()).c_str(), ValueFromAmount(wb.second));
+        if (wb.first.type == TokenTypes::NONE) {
+            balances.pushKV("TPC", ValueFromAmount(wb.second));
+        } else {
+            balances.pushKV(HexStr(wb.first.toVector()).c_str(), ValueFromAmount(wb.second));
+        }
     };
 
     TxColoredCoinBalancesMap walletunconfirmedbalances = pwallet->GetUnconfirmedBalance();
     for (auto const& uwb : walletunconfirmedbalances) {
-       unconfirmBalancesObj.pushKV(HexStr(uwb.first.toVector()).c_str(), ValueFromAmount(uwb.second));
+        if (uwb.first.type == TokenTypes::NONE) {
+            unconfirmBalancesObj.pushKV("TPC", ValueFromAmount(uwb.second));
+        } else {
+            unconfirmBalancesObj.pushKV(HexStr(uwb.first.toVector()).c_str(), ValueFromAmount(uwb.second));
+        }
     };
 
     size_t kpExternalSize = pwallet->KeypoolCountExternalKeys();
