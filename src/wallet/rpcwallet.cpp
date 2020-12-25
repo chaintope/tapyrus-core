@@ -3027,13 +3027,13 @@ static UniValue getwalletinfo(const JSONRPCRequest& request)
             "{\n"
             "  \"walletname\": xxxxx,               (string) the wallet name\n"
             "  \"walletversion\": xxxxx,            (numeric) the wallet version\n"
-            "  \"balance\":                         (json mapping of each colorid to their total confirmed balance of the wallet in " + CURRENCY_UNIT + "\n"
+            "  \"balance\":                         (object) the balances of each " + CURRENCY_UNIT  + " and colored coins of the wallet\n"
             "       {\n"
-            "         \"xxxx\":\"xxxx\"             (string) \"TPC\" or color id in hex string : (numeric) The total confirmed balance of the wallet " + CURRENCY_UNIT + "\n"
+            "         \"xxxx\":\"xxxx\"             (string) \"" + CURRENCY_UNIT  + "\" or color id in hex string : (numeric) The total confirmed balance of the wallet. The unit is " + CURRENCY_UNIT + " for the native coin. If it is a colored coin, the unit is the same digits as " + CURRENCY_UNIT + "\n"
             "       }\n"
-            "  \"unconfirmed_balance\":             (json mapping of each colorid to their total unconfirmed balance of the wallet in " + CURRENCY_UNIT + "\n"
+            "  \"unconfirmed_balance\":             (object) the unconfirmed balances of each " + CURRENCY_UNIT  + " and colored coins of the wallet\n"
             "       {\n"
-            "         \"xxxx\":\"xxxx\"             (string) \"TPC\" or color id in hex string : (numeric) The total unconfirmed balance of the wallet " + CURRENCY_UNIT + "\n"
+            "         \"xxxx\":\"xxxx\"             (string) \"" + CURRENCY_UNIT  + "\" or color id in hex string : (numeric) The total unconfirmed balance of the wallet. The unit is " + CURRENCY_UNIT + " for the native coin. If it is a colored coin, the unit is the same digits as " + CURRENCY_UNIT + "\n"
             "       }\n"
             "  \"txcount\": xxxxxxx,                (numeric) the total number of transactions in the wallet\n"
             "  \"keypoololdest\": xxxxxx,           (numeric) the timestamp (seconds since Unix epoch) of the oldest pre-generated key in the key pool\n"
@@ -3063,7 +3063,7 @@ static UniValue getwalletinfo(const JSONRPCRequest& request)
     TxColoredCoinBalancesMap walletbalances = pwallet->GetBalance();
     for (auto const& wb : walletbalances) {
         if (wb.first.type == TokenTypes::NONE) {
-            balances.pushKV("TPC", ValueFromAmount(wb.second));
+            balances.pushKV(CURRENCY_UNIT.c_str(), ValueFromAmount(wb.second));
         } else {
             balances.pushKV(HexStr(wb.first.toVector()).c_str(), ValueFromAmount(wb.second));
         }
@@ -3072,7 +3072,7 @@ static UniValue getwalletinfo(const JSONRPCRequest& request)
     TxColoredCoinBalancesMap walletunconfirmedbalances = pwallet->GetUnconfirmedBalance();
     for (auto const& uwb : walletunconfirmedbalances) {
         if (uwb.first.type == TokenTypes::NONE) {
-            unconfirmBalancesObj.pushKV("TPC", ValueFromAmount(uwb.second));
+            unconfirmBalancesObj.pushKV(CURRENCY_UNIT.c_str(), ValueFromAmount(uwb.second));
         } else {
             unconfirmBalancesObj.pushKV(HexStr(uwb.first.toVector()).c_str(), ValueFromAmount(uwb.second));
         }
