@@ -2647,6 +2647,13 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
             strFailReason = _("Transaction amounts must not be negative");
             return false;
         }
+
+        if (colorId.type != TokenTypes::NONE && recipient.fSubtractFeeFromAmount)
+        {
+            strFailReason = _("Recipient that receives colored coin must not be a target of subtract fee");
+            return false;
+        }
+
         nValue[colorId] += recipient.nAmount;
 
         if (recipient.fSubtractFeeFromAmount)

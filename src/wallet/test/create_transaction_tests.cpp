@@ -36,6 +36,16 @@ BOOST_FIXTURE_TEST_CASE(test_create_transaction, TestWalletSetup)
     BOOST_CHECK(wallet->CreateTransaction(vecSend, tx, reservekey, nFeeRequired, nChangePosRet, strError, coinControl));
     BOOST_CHECK_EQUAL(strError.size(), 0);
     BOOST_CHECK_EQUAL(tx->vout.size(), 2);
+
+    // Try to set recipient who receives colored coin, fSubtractFeeFromAmount as true, and
+    // it should fail.
+    ColorIdentifier cid;
+    CDataStream stream(ParseHex("c1f335bd3240ddfd87a2c2fc5a53210606460f19143f5e475729c46e06fcc9858f"), SER_NETWORK, INIT_PROTO_VERSION);
+    stream >> cid;
+    vecSend.clear();
+    vecSend.push_back({GetScriptForDestination({ pubkey.GetID() }, cid), 100 * CENT, true});
+    BOOST_CHECK(!wallet->CreateTransaction(vecSend, tx, reservekey, nFeeRequired, nChangePosRet, strError, coinControl));
+    BOOST_CHECK_EQUAL(strError, "Recipient that receives colored coin must not be a target of subtract fee");
 }
 
 BOOST_AUTO_TEST_SUITE_END()
