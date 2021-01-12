@@ -2672,7 +2672,11 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
             return false;
         }
 
+<<<<<<< HEAD
         mapValue[colorId] += recipient.nAmount;
+=======
+        nValue[colorId] += recipient.nAmount;
+>>>>>>> Make CreateTransaction raise an error when a recipient that receives colored coin would be set as a target of subtracting fee
 
         if (recipient.fSubtractFeeFromAmount)
             nSubtractFeeFromAmount++;
