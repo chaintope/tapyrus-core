@@ -260,3 +260,84 @@ std::string getSignedTestBlock()
 }
 
 
+/**
+     * Import Coin to the wallet from coinbase output
+     * @param amount
+     * @return
+     */
+bool TestWalletSetup::ImportCoin(const CAmount amount) {
+    CPubKey pubkey;
+    wallet->GetKeyFromPool(pubkey, false);
+
+    CMutableTransaction tx;
+    tx.nFeatures = 1;
+    tx.vin.resize(1);
+    tx.vout.resize(1);
+    tx.vin[0].prevout.hashMalFix = m_coinbase_txns[0]->GetHashMalFix();
+    tx.vin[0].prevout.n = 0;
+    tx.vout[0].nValue = amount;
+    tx.vout[0].scriptPubKey = GetScriptForDestination({ pubkey.GetID() });
+
+    std::vector<unsigned char> vchSig;
+    Sign(vchSig, coinbaseKey, m_coinbase_txns[0]->vout[0].scriptPubKey, 0, tx, 0);
+    tx.vin[0].scriptSig = CScript() << vchSig;
+
+    if (!AddToWalletAndMempool(MakeTransactionRef(tx))) {
+        return false;
+    }
+
+    if (!ProcessBlockAndScanForWalletTxns(MakeTransactionRef(tx))) {
+        return false;
+    }
+    return true;
+}
+
+void TestWalletSetup::initWallet()
+{
+    std::vector<unsigned char> coinbasePubKeyHash(20);
+    CPubKey coinbasePubKey = coinbaseKey.GetPubKey();
+    CHash160().Write(coinbasePubKey.data(), coinbasePubKey.size()).Finalize(
+            coinbasePubKeyHash.data());
+
+    wallet = MakeUnique<CWallet>("mock", WalletDatabase::CreateMock());
+    bool firstRun;
+    wallet->LoadWallet(firstRun);
+}
+
+bool TestWalletSetup::ProcessBlockAndScanForWalletTxns(const CTransactionRef tx) {
+    CValidationState state;
+    bool pfMissingInputs;
+    {
+        LOCK(cs_main);
+        if(!AcceptToMemoryPool(mempool, state, tx, &pfMissingInputs, nullptr, true, 0)) {
+            return false;
+        }
+    }
+    CreateAndProcessBlock({ CMutableTransaction(*tx) }, CScript() <<  ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG);
+
+    WalletRescanReserver reserver(wallet.get());
+    reserver.reserve();
+
+    if(wallet->ScanForWalletTransactions(chainActive.Genesis(), nullptr, reserver, true)) {
+        return false;
+    }
+
+    return true;
+}
+
+bool TestWalletSetup::AddToWalletAndMempool(const CTransactionRef tx) {
+    CWalletTx wtx(wallet.get(), tx);
+    if(!wallet->AddToWallet(wtx)) {
+        return false;
+    }
+    wallet->TransactionAddedToMempool(tx);
+
+    return true;
+}
+
+void TestWalletSetup::Sign(std::vector<unsigned char>& vchSig, CKey& signKey, const CScript& scriptPubKey, int inIndex, CMutableTransaction& outTx, int outIndex)
+{
+    uint256 hash = SignatureHash(scriptPubKey, outTx, inIndex, SIGHASH_ALL, outTx.vout[outIndex].nValue, SigVersion::BASE);
+    signKey.Sign_Schnorr(hash, vchSig);
+    vchSig.push_back((unsigned char)SIGHASH_ALL);
+}
