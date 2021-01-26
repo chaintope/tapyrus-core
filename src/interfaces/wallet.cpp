@@ -227,10 +227,14 @@ public:
     {
         LOCK2(cs_main, m_wallet.cs_wallet);
         auto pending = MakeUnique<PendingWalletTxImpl>(m_wallet);
-        if (!m_wallet.CreateTransaction(recipients, pending->m_tx, pending->m_key, fee, change_pos,
+        CWallet::ChangePosInOut mapChangePosInOut;
+        mapChangePosInOut[ColorIdentifier()] = change_pos;
+        if (!m_wallet.CreateTransaction(recipients, pending->m_tx, pending->m_key, fee, mapChangePosInOut,
                 fail_reason, coin_control, sign)) {
             return {};
         }
+        change_pos = mapChangePosInOut[ColorIdentifier()];
+
         return std::move(pending);
     }
     bool transactionCanBeAbandoned(const uint256& txid) override { return m_wallet.TransactionCanBeAbandoned(txid); }
