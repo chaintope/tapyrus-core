@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef TAPYRUS_WALLET_TEST_TEST_TAPYRUS_WALLET_H
-#define TAPYRUS_WALLET_TEST_TEST_TAPYRUS_WALLET_H
+#ifndef TAPYRUS_TEST_TAPYRUS_WALLET_H
+#define TAPYRUS_TEST_TAPYRUS_WALLET_H
 
 #include <test/test_tapyrus.h>
 #include <wallet/wallet.h>
@@ -29,4 +29,4 @@ private:
     void Sign(std::vector<unsigned char>& vchSig, CKey& signKey, const CScript& scriptPubKey, int inIndex, CMutableTransaction& outTx, int outIndex);
 };
 
-#endif //TAPYRUS_WALLET_TEST_TEST_TAPYRUS_WALLET_H
+#endif //TAPYRUS_TEST_TAPYRUS_WALLET_H
