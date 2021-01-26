@@ -101,7 +101,8 @@ BITCOIN_TESTS += \
   wallet/test/psbt_wallet_tests.cpp \
   wallet/test/wallet_tests.cpp \
   wallet/test/wallet_crypto_tests.cpp \
-  wallet/test/coinselector_tests.cpp
+  wallet/test/coinselector_tests.cpp \
+  wallet/test/create_transaction_tests.cpp
 
 BITCOIN_TEST_SUITE += \
   wallet/test/wallet_test_fixture.cpp \
