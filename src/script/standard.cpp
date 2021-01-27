@@ -349,6 +349,10 @@ private:
     CScript *script;
     ColorIdentifier colorId;
 public:
+    explicit CScriptVisitor(CScript *scriptin) {
+        script = scriptin;
+    }
+
     explicit CScriptVisitor(CScript *scriptin, const ColorIdentifier &colorIdin) {
         script = scriptin;
         colorId = colorIdin;
@@ -403,9 +407,8 @@ public:
 CScript GetScriptForDestination(const CTxDestination& dest)
 {
     CScript script;
-    ColorIdentifier colorId;
 
-    boost::apply_visitor(CScriptVisitor(&script, colorId), dest);
+    boost::apply_visitor(CScriptVisitor(&script), dest);
     return script;
 }
 
