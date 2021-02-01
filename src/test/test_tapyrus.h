@@ -150,10 +150,10 @@ public:
 
     bool ImportCoin(const CAmount amount);
     bool IssueNonReissunableColoredCoin(const CAmount amount, ColorIdentifier& cid);
-private:
-    void initWallet();
     bool ProcessBlockAndScanForWalletTxns(const CTransactionRef tx);
     bool AddToWalletAndMempool(const CTransactionRef tx);
+private:
+    void initWallet();
     void Sign(std::vector<unsigned char>& vchSig, CKey& signKey, const CScript& scriptPubKey, int inIndex, CMutableTransaction& outTx, int outIndex);
 };
 
