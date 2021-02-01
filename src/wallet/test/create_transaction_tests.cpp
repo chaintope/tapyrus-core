@@ -232,4 +232,13 @@ BOOST_FIXTURE_TEST_CASE(test_creating_colored_transaction, TestWalletSetup)
     BOOST_CHECK_EQUAL(wallet->GetBalance()[cid], 1);
 }
 
+BOOST_FIXTURE_TEST_CASE(test_creating_colored_transaction, TestWalletSetup)
+{
+    ImportCoin(10 * COIN);
+
+    ColorIdentifier cid;
+    BOOST_CHECK(IssueNonReissunableColoredCoin(100 * CENT, cid));
+    BOOST_CHECK_EQUAL(wallet->GetBalance()[cid], 100 * CENT);
+}
+
 BOOST_AUTO_TEST_SUITE_END()

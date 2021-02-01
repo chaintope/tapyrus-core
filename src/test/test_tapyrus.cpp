@@ -17,6 +17,7 @@
 #include <rpc/server.h>
 #include <rpc/register.h>
 #include <script/sigcache.h>
+#include <wallet/coincontrol.h>
 
 constexpr unsigned int CPubKey::SCHNORR_SIGNATURE_SIZE;
 
@@ -340,4 +341,56 @@ void TestWalletSetup::Sign(std::vector<unsigned char>& vchSig, CKey& signKey, co
     uint256 hash = SignatureHash(scriptPubKey, outTx, inIndex, SIGHASH_ALL, outTx.vout[outIndex].nValue, SigVersion::BASE);
     signKey.Sign_Schnorr(hash, vchSig);
     vchSig.push_back((unsigned char)SIGHASH_ALL);
+}
+
+bool TestWalletSetup::IssueNonReissunableColoredCoin(const CAmount amount, ColorIdentifier& cid) {
+    CPubKey pubkey;
+    wallet->GetKeyFromPool(pubkey, false);
+
+    // create UTXO and color id for issue
+    CCoinControl coinControl;
+    CReserveKey reservekey(wallet.get());
+    CAmount nFeeRequired;
+    std::string strError;
+    int nChangePosRet = -1;
+    std::vector<CRecipient> vecSend;
+    CScript scriptpubkey = GetScriptForDestination({ pubkey.GetID() });
+    vecSend.push_back({scriptpubkey, 1 * CENT, false});
+    CTransactionRef tx;
+    if (!wallet->CreateTransaction(vecSend, tx, reservekey, nFeeRequired, nChangePosRet, strError, coinControl)) {
+        return false;
+    }
+    auto i = std::find_if(tx->vout.begin(), tx->vout.end(), [&]( const CTxOut &out ) {
+        return out.scriptPubKey == scriptpubkey;
+    }) - tx->vout.begin();
+
+    // tx should be hold in the wallet before use its outputs for next transactions
+    if (!AddToWalletAndMempool(tx)) {
+        return false;
+    }
+
+    COutPoint out(tx->GetHashMalFix(), i);
+    ColorIdentifier colorId(out, TokenTypes::NON_REISSUABLE);
+    cid = colorId;
+
+    CMutableTransaction issueTx;
+    issueTx.nFeatures = 1;
+    issueTx.vin.resize(1);
+    issueTx.vout.resize(1);
+    issueTx.vin[0].prevout = out;
+    issueTx.vout[0].nValue = amount;
+    issueTx.vout[0].scriptPubKey = GetScriptForDestination({ pubkey.GetID() }, colorId);
+    if(!wallet->SignTransaction(issueTx)) {
+        return false;
+    }
+
+    if (!AddToWalletAndMempool(MakeTransactionRef(issueTx))) {
+        return false;
+    }
+
+    if (!ProcessBlockAndScanForWalletTxns(tx) || !ProcessBlockAndScanForWalletTxns(MakeTransactionRef(issueTx))) {
+        return false;
+    }
+
+    return true;
 }

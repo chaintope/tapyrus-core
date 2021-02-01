@@ -149,7 +149,7 @@ public:
     std::unique_ptr<CWallet> wallet;
 
     bool ImportCoin(const CAmount amount);
-
+    bool IssueNonReissunableColoredCoin(const CAmount amount, ColorIdentifier& cid);
 private:
     void initWallet();
     bool ProcessBlockAndScanForWalletTxns(const CTransactionRef tx);
