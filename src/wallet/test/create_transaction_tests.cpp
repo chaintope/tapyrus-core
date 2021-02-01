@@ -50,11 +50,48 @@ BOOST_FIXTURE_TEST_CASE(test_create_transaction, TestWalletSetup)
 
 BOOST_FIXTURE_TEST_CASE(test_creating_colored_transaction, TestWalletSetup)
 {
+    std::vector<unsigned char> vchPubkey = ParseHex("03363d90d447b00c9c99ceac05b6262ee053441c7e55552ffe526bad8f83ff4640");
+    CPubKey pubkey(vchPubkey.begin(), vchPubkey.end());
+
     ImportCoin(10 * COIN);
 
     ColorIdentifier cid;
     BOOST_CHECK(IssueNonReissunableColoredCoin(100 * CENT, cid));
     BOOST_CHECK_EQUAL(wallet->GetBalance()[cid], 100 * CENT);
+
+    // Create a tx that sends colored coin to the pubkey
+    CCoinControl coinControl;
+    CReserveKey reservekey(wallet.get());
+    CAmount nFeeRequired;
+    std::string strError;
+    int nChangePosRet = -1;
+    std::vector<CRecipient> vecSend;
+    CScript scriptpubkey = GetScriptForDestination({ pubkey.GetID() }, cid);
+    CRecipient recipient = {scriptpubkey, 100 * CENT, false};
+    vecSend.push_back(recipient);
+    CTransactionRef tx;
+    BOOST_CHECK(wallet->CreateTransaction(vecSend, tx, reservekey, nFeeRequired, nChangePosRet, strError, coinControl));
+    BOOST_CHECK_EQUAL(strError.size(), 0);
+    BOOST_CHECK_EQUAL(tx->vout.size(), 2);
+
+    // The one of outputs should be payment to counterparty.
+    auto i = std::find_if(tx->vout.begin(), tx->vout.end(), [&]( const CTxOut &out ) {
+        return out.scriptPubKey == scriptpubkey;
+    }) - tx->vout.begin();
+    BOOST_CHECK_EQUAL(tx->vout[i].nValue, 100 * CENT);
+
+    // The another one should be change of paying fee by TPC.
+    auto j = std::find_if(tx->vout.begin(), tx->vout.end(), [&]( const CTxOut &out ) {
+        return out.scriptPubKey != scriptpubkey;
+    }) - tx->vout.begin();
+    BOOST_CHECK(wallet->IsMine(tx->vout[j]));
+    BOOST_CHECK(!tx->vout[j].scriptPubKey.IsColoredScript());
+
+    // tx should be acceptable to a block.
+    BOOST_CHECK(AddToWalletAndMempool(tx));
+    BOOST_CHECK(ProcessBlockAndScanForWalletTxns(tx));
+
+    BOOST_CHECK_EQUAL(wallet->GetBalance()[cid], 0);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
