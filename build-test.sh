@@ -27,7 +27,7 @@ test -n "$CONFIG_SHELL" && bash -c "$CONFIG_SHELL" -c "./autogen.sh" || ./autoge
 mkdir build && cd build
 ../configure --cache-file=config.cache $BITCOIN_CONFIG_ALL $BITCOIN_CONFIG || ( cat config.log && false)
 make distdir VERSION=$HOST
-cd tapyrus-$HOST
+cd tapyrus-core-$HOST
 ./configure --cache-file=../config.cache $BITCOIN_CONFIG_ALL $BITCOIN_CONFIG || ( cat config.log && false)
 make $MAKEJOBS $GOAL || ( echo "Build failure. Verbose build follows." && make $GOAL V=1 ; false )
 if [ "$RUN_TESTS" = "true" ]; then LD_LIBRARY_PATH=${GITHUB_WORKSPACE}/depends/$HOST/lib make $MAKEJOBS check VERBOSE=1; fi
