@@ -1,5 +1,5 @@
 ---
-name: "tapyrus-core-linux-0.3"
+name: "tapyrus-core-linux-0.4"
 enable_cache: true
 suites:
 - "bionic"
