@@ -17,6 +17,7 @@
 #include <rpc/server.h>
 #include <rpc/register.h>
 #include <script/sigcache.h>
+#include <wallet/coincontrol.h>
 
 constexpr unsigned int CPubKey::SCHNORR_SIGNATURE_SIZE;
 
