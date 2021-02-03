@@ -15,14 +15,6 @@
 typedef std::vector<uint8_t> valtype;
 typedef std::vector<valtype> stacktype;
 
-// explicit instantiation
-template class GenericTransactionSignatureChecker<CTransaction>;
-template class GenericTransactionSignatureChecker<CMutableTransaction>;
-
-using TransactionSignatureChecker = GenericTransactionSignatureChecker<CTransaction>;
-using MutableTransactionSignatureChecker = GenericTransactionSignatureChecker<CMutableTransaction>;
-
-
 BOOST_FIXTURE_TEST_SUITE(checkdatasig_tests, BasicTestingSetup)
 
 const uint8_t vchPrivkey[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
