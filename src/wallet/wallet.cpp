@@ -2440,9 +2440,18 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, const CoinEligibil
     }
 }
 
-bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAmount& nTargetValue, std::set<CInputCoin>& setCoinsRet, CAmount& nValueRet, const CCoinControl& coin_control, CoinSelectionParams& coin_selection_params, bool& bnb_used) const
+bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAmount& nTargetValue, const ColorIdentifier& colorId, std::set<CInputCoin>& setCoinsRet, CAmount& nValueRet, const CCoinControl& coin_control, CoinSelectionParams& coin_selection_params, bool& bnb_used) const
 {
     std::vector<COutput> vCoins(vAvailableCoins);
+
+    // remove coins that are not mach with the colorId
+    for (std::vector<COutput>::iterator it = vCoins.begin(); it != vCoins.end();)
+    {
+        if (!it->IsColoredWith(colorId))
+            it = vCoins.erase(it);
+        else
+            ++it;
+    }
 
     // coin control -> return all selected outputs (we want all selected to go into the transaction for sure)
     if (coin_control.HasSelected() && !coin_control.fAllowOtherInputs)
@@ -2452,6 +2461,9 @@ bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAm
 
         for (const COutput& out : vCoins)
         {
+            if (!out.IsColoredWith(colorId)) {
+                continue;
+            }
             if (!out.fSpendable)
                  continue;
             nValueRet += out.tx->tx->vout[out.i].nValue;
@@ -2468,6 +2480,10 @@ bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAm
     coin_control.ListSelected(vPresetInputs);
     for (const COutPoint& outpoint : vPresetInputs)
     {
+        if (!IsColoredOutPointWith(outpoint, colorId)) {
+            continue;
+        }
+
         // For now, don't use BnB if preset inputs are selected. TODO: Enable this later
         bnb_used = false;
         coin_selection_params.use_bnb = false;
@@ -2632,17 +2648,17 @@ OutputType CWallet::TransactionChangeType(OutputType change_type, const std::vec
     return m_default_address_type;
 }
 
-//requirecolorid
 bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransactionRef& tx, CReserveKey& reservekey, CAmount& nFeeRet,
                          int& nChangePosInOut, std::string& strFailReason, const CCoinControl& coin_control, bool sign)
 {
-    TxColoredCoinBalancesMap nValue;
+    TxColoredCoinBalancesMap mapValue;
+
     int nChangePosRequest = nChangePosInOut;
     unsigned int nSubtractFeeFromAmount = 0;
     for (const auto& recipient : vecSend)
     {
         ColorIdentifier colorId = GetColorIdFromScript(recipient.scriptPubKey);
-        if (nValue[colorId] < 0 || recipient.nAmount < 0)
+        if (mapValue[colorId] < 0 || recipient.nAmount < 0)
         {
             strFailReason = _("Transaction amounts must not be negative");
             return false;
@@ -2654,11 +2670,19 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
             return false;
         }
 
-        nValue[colorId] += recipient.nAmount;
+        mapValue[colorId] += recipient.nAmount;
 
         if (recipient.fSubtractFeeFromAmount)
             nSubtractFeeFromAmount++;
     }
+
+    auto it = mapValue.find(ColorIdentifier());
+    if (it == mapValue.end()) {
+        // Add initial value for TPC. Even if the value would be sent of TPC is zero, it should be
+        // treated in loops below for paying fee.
+        mapValue[ColorIdentifier()] = 0;
+    }
+
     if (vecSend.empty())
     {
         strFailReason = _("Transaction must have at least one recipient");
@@ -2702,7 +2726,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
     CAmount nFeeNeeded;
     int nBytes;
     {
-        std::set<CInputCoin> setCoins;
+        std::map<ColorIdentifier, std::set<CInputCoin>, ColorIdentifierCompare> mapCoins;
         LOCK2(cs_main, cs_wallet);
         {
             std::vector<COutput> vAvailableCoins;
@@ -2754,8 +2778,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
 
             nFeeRet = 0;
             bool pick_new_inputs = true;
-            CAmount nValueIn;
-            nValueIn = 0;
+            std::map<ColorIdentifier, CAmount, ColorIdentifierCompare> mapValueIn;
 
             // BnB selector is the only selector used when this is true.
             // That should only happen on the first pass through the loop.
@@ -2767,11 +2790,6 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 txNew.vin.clear();
                 txNew.vout.clear();
                 bool fFirst = true;
-
-                CAmount nValueToSelect;
-                nValueToSelect = nValue[ColorIdentifier()];
-                if (nSubtractFeeFromAmount == 0)
-                    nValueToSelect += nFeeRet;
 
                 // vouts to the payees
                 coin_selection_params.tx_noinputs_size = 11; // Static vsize overhead + outputs vsize. 4 nVersion, 4 nLocktime, 1 input count, 1 output count, 1 witness overhead (dummy, flag, stack size)
@@ -2812,62 +2830,84 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 // Choose coins to use
                 bool bnb_used;
                 if (pick_new_inputs) {
-                    nValueIn = 0;
-                    setCoins.clear();
+                    mapValueIn.clear();
+                    mapCoins.clear();
                     coin_selection_params.change_spend_size = CalculateMaximumSignedInputSize(change_prototype_txout, this);
                     coin_selection_params.effective_fee = nFeeRateNeeded;
-                    if (!SelectCoins(vAvailableCoins, nValueToSelect, setCoins, nValueIn, coin_control, coin_selection_params, bnb_used))
-                    {
-                        // If BnB was used, it was the first pass. No longer the first pass and continue loop with knapsack.
-                        if (bnb_used) {
-                            coin_selection_params.use_bnb = false;
-                            continue;
+
+                    for (const auto& i : mapValue) {
+                        ColorIdentifier colorId = i.first;
+                        CAmount targetValue = i.second;
+
+                        if (nSubtractFeeFromAmount == 0 && colorId == ColorIdentifier()) {
+                            targetValue += nFeeRet;
                         }
-                        else {
-                            strFailReason = _("Insufficient funds");
-                            return false;
+
+                        if (!SelectCoins(vAvailableCoins, targetValue, colorId, mapCoins[colorId], mapValueIn[colorId], coin_control, coin_selection_params, bnb_used))
+                        {
+                            // If BnB was used, it was the first pass. No longer the first pass and continue loop with knapsack.
+                            if (bnb_used) {
+                                coin_selection_params.use_bnb = false;
+                                continue;
+                            }
+                            else {
+                                strFailReason = _("Insufficient funds");
+                                return false;
+                            }
                         }
                     }
                 }
 
-                const CAmount nChange = nValueIn - nValueToSelect;
-                if (nChange > 0)
-                {
-                    // Fill a vout to ourself
-                    CTxOut newTxOut(nChange, scriptChange);
+                for (const auto& i : mapValue) {
+                    ColorIdentifier colorId = i.first;
+                    CAmount targetValue = i.second;
 
-                    // Never create dust outputs; if we would, just
-                    // add the dust to the fee.
-                    // The nChange when BnB is used is always going to go to fees.
-                    if (IsDust(newTxOut, discard_rate) || bnb_used)
+                    if (nSubtractFeeFromAmount == 0 && colorId == ColorIdentifier()) {
+                        targetValue += nFeeRet;
+                    }
+
+                    const CAmount nChange = mapValueIn[colorId] - targetValue;
+                    if (nChange > 0)
                     {
+                        // Fill a vout to ourself
+                        CTxOut newTxOut(nChange, scriptChange);
+
+                        // Never create dust outputs; if we would, just
+                        // add the dust to the fee.
+                        // The nChange when BnB is used is always going to go to fees.
+                        // If the output is for a colored coin, it allows to create dust outputs.
+                        if (colorId == ColorIdentifier() && (IsDust(newTxOut, discard_rate) || bnb_used))
+                        {
+                            nChangePosInOut = -1;
+                            nFeeRet += nChange;
+                        }
+                        else
+                        {
+                            if (nChangePosInOut == -1)
+                            {
+                                // Insert change txn at random position:
+                                nChangePosInOut = GetRandInt(txNew.vout.size()+1);
+                            }
+                            else if ((unsigned int)nChangePosInOut > txNew.vout.size())
+                            {
+                                strFailReason = _("Change index out of range");
+                                return false;
+                            }
+
+                            std::vector<CTxOut>::iterator position = txNew.vout.begin()+nChangePosInOut;
+                            txNew.vout.insert(position, newTxOut);
+                        }
+                    } else {
                         nChangePosInOut = -1;
-                        nFeeRet += nChange;
                     }
-                    else
-                    {
-                        if (nChangePosInOut == -1)
-                        {
-                            // Insert change txn at random position:
-                            nChangePosInOut = GetRandInt(txNew.vout.size()+1);
-                        }
-                        else if ((unsigned int)nChangePosInOut > txNew.vout.size())
-                        {
-                            strFailReason = _("Change index out of range");
-                            return false;
-                        }
-
-                        std::vector<CTxOut>::iterator position = txNew.vout.begin()+nChangePosInOut;
-                        txNew.vout.insert(position, newTxOut);
-                    }
-                } else {
-                    nChangePosInOut = -1;
                 }
 
                 // Dummy fill vin for maximum size estimation
                 //
-                for (const auto& coin : setCoins) {
-                    txNew.vin.push_back(CTxIn(coin.outpoint,CScript()));
+                for (const auto& i : mapCoins) {
+                    for (const auto& coin : i.second) {
+                        txNew.vin.push_back(CTxIn(coin.outpoint,CScript()));
+                    }
                 }
 
                 nBytes = CalculateMaximumSignedTxSize(txNew, this, coin_control.fAllowWatchOnly);
@@ -2960,7 +3000,12 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
 
         // Shuffle selected coins and fill in final vin
         txNew.vin.clear();
-        std::vector<CInputCoin> selected_coins(setCoins.begin(), setCoins.end());
+        std::vector<CInputCoin> selected_coins;
+        for (const auto& i : mapCoins) {
+            for (const auto& coin : i.second) {
+                selected_coins.push_back(coin);
+            }
+        }
         std::shuffle(selected_coins.begin(), selected_coins.end(), FastRandomContext());
 
         // Note how the sequence number is set to non-maxint so that
@@ -3647,6 +3692,12 @@ void CWallet::DeleteLabel(const std::string& label)
 {
     WalletBatch batch(*database);
     batch.EraseAccount(label);
+}
+
+bool CWallet::IsColoredOutPointWith(const COutPoint& outpoint, const ColorIdentifier& colorId) const
+{
+    const CWalletTx* wtx = GetWalletTx(outpoint.hashMalFix);
+    return GetColorIdFromScript(wtx->tx->vout[outpoint.n].scriptPubKey) == colorId;
 }
 
 bool CReserveKey::GetReservedKey(CPubKey& pubkey, bool internal)

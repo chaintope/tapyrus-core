@@ -11,6 +11,7 @@
 #include <wallet/test/wallet_test_fixture.h>
 #include <test/test_tapyrus.h>
 #include <consensus/validation.h>
+#include <core_io.h>
 
 BOOST_FIXTURE_TEST_SUITE(create_transaction_tests, WalletTestingSetup)
 
@@ -59,7 +60,7 @@ BOOST_FIXTURE_TEST_CASE(test_creating_colored_transaction, TestWalletSetup)
     BOOST_CHECK(IssueNonReissunableColoredCoin(100 * CENT, cid));
     BOOST_CHECK_EQUAL(wallet->GetBalance()[cid], 100 * CENT);
 
-    // Create a tx that sends colored coin to the pubkey
+    // Create a tx that sends only colored coin not TPC to the pubkey.
     CCoinControl coinControl;
     CReserveKey reservekey(wallet.get());
     CAmount nFeeRequired;

@@ -522,6 +522,16 @@ public:
     {
         return CInputCoin(tx->tx, i, nInputBytes);
     }
+
+    /**
+     * Returns whether the output is colored output for the `colorId`
+     * @param colorId
+     * @return bool
+     */
+    bool IsColoredWith(const ColorIdentifier& colorId) const
+    {
+        return GetColorIdFromScript(tx->tx->vout[i].scriptPubKey) == colorId;
+    }
 };
 
 /** Private key that includes an expiration date in case it never gets used. */
@@ -776,8 +786,9 @@ public:
      * all coins from coinControl are selected; Never select unconfirmed coins
      * if they are not ours
      */
-    bool SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAmount& nTargetValue, std::set<CInputCoin>& setCoinsRet, CAmount& nValueRet,
-                    const CCoinControl& coin_control, CoinSelectionParams& coin_selection_params, bool& bnb_used) const;
+    bool SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAmount& nTargetValue, const ColorIdentifier& colorId,
+                     std::set<CInputCoin>& setCoinsRet, CAmount& nValueRet, const CCoinControl& coin_control,
+                     CoinSelectionParams& coin_selection_params, bool& bnb_used) const;
 
     /** Get a name for this wallet for logging/debugging purposes.
      */
@@ -1197,6 +1208,8 @@ public:
     void WalletLogPrintf(std::string fmt, Params... parameters) const {
         LogPrintf(("%s " + fmt).c_str(), GetDisplayName(), parameters...);
     };
+
+    bool IsColoredOutPointWith(const COutPoint &outpoint, const ColorIdentifier &colorId) const;
 };
 
 /** A key allocated from the key pool. */

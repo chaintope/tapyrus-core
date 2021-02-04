@@ -53,7 +53,7 @@ static void add_coin(const CAmount& nValue, int nInput, CoinSet& set)
     set.emplace(MakeTransactionRef(tx), nInput);
 }
 
-static void add_coin(const CAmount& nValue, int nAge = 6*24, bool fIsFromMe = false, int nInput=0)
+static void add_coin(const CAmount& nValue, int nAge = 6*24, bool fIsFromMe = false, int nInput=0, CScript scriptpubkey=CScript())
 {
     balance += nValue;
     static int nextLockTime = 0;
@@ -61,6 +61,7 @@ static void add_coin(const CAmount& nValue, int nAge = 6*24, bool fIsFromMe = fa
     tx.nLockTime = nextLockTime++;        // so all transactions get different hashes
     tx.vout.resize(nInput + 1);
     tx.vout[nInput].nValue = nValue;
+    tx.vout[nInput].scriptPubKey = scriptpubkey;
     if (fIsFromMe) {
         // IsFromMe() returns (GetDebit() > 0), and GetDebit() is 0 if vin.empty(),
         // so stop vin being empty, and cache a non-zero Debit to fake out IsFromMe()
@@ -250,7 +251,7 @@ BOOST_AUTO_TEST_CASE(bnb_search_test)
     CCoinControl coin_control;
     coin_control.fAllowOtherInputs = true;
     coin_control.Select(COutPoint(vCoins.at(0).tx->GetHash(), vCoins.at(0).i));
-    BOOST_CHECK(testWallet.SelectCoins(vCoins, 10 * CENT, setCoinsRet, nValueRet, coin_control, coin_selection_params_bnb, bnb_used));
+    BOOST_CHECK(testWallet.SelectCoins(vCoins, 10 * CENT, ColorIdentifier(), setCoinsRet, nValueRet, coin_control, coin_selection_params_bnb, bnb_used));
     BOOST_CHECK(!bnb_used);
     BOOST_CHECK(!coin_selection_params_bnb.use_bnb);
 }
@@ -580,6 +581,39 @@ BOOST_AUTO_TEST_CASE(SelectCoins_test)
                     testWallet.SelectCoinsMinConf(target, filter_standard, GroupCoins(vCoins), out_set, out_value, coin_selection_params_knapsack, bnb_used));
         BOOST_CHECK_GE(out_value, target);
     }
+}
+
+BOOST_AUTO_TEST_CASE(SelectCoins_for_colored_coin_selection_test)
+{
+    CCoinControl coin_control;
+    CoinSelectionParams coin_selection_params(true, 0, 0, CFeeRate(3000), 0);
+    CoinSet setCoinsRet;
+    CAmount nValueRet;
+    bool bnb_used;
+
+    // Create three coins for TPC and two type of colored coin.
+    ColorIdentifier colorId1(ParseHex("c11863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262"));
+    ColorIdentifier colorId2(ParseHex("c3ec2fd806701a3f55808cbec3922c38dafaa3070c48c803e9043ee3642c660b46"));
+    CScript CP2PKHScriptPubKey1 = CScript() << colorId1.toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ParseHex("1018853670f9f3b0582c5b9ee8ce93764ac32b93") << OP_EQUALVERIFY << OP_CHECKSIG;
+    CScript CP2PKHScriptPubKey2 = CScript() << colorId2.toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ParseHex("1018853670f9f3b0582c5b9ee8ce93764ac32b93") << OP_EQUALVERIFY << OP_CHECKSIG;
+    empty_wallet();
+    add_coin(10 * CENT);
+    add_coin(10 * CENT, 6*24, false, 0, CP2PKHScriptPubKey1);
+    add_coin(10 * CENT, 6*24, false, 0, CP2PKHScriptPubKey2);
+
+    // Select TPC output and it should select only the first coin.
+    BOOST_CHECK(testWallet.SelectCoins(vCoins, 10 * CENT, ColorIdentifier(), setCoinsRet, nValueRet, coin_control, coin_selection_params, bnb_used));
+    BOOST_CHECK(equal_sets(setCoinsRet, {vCoins.at(0).GetInputCoin()}));
+    BOOST_CHECK_EQUAL(nValueRet, 10 * CENT);
+
+    // Select colored coin output and it should select only the second coin.
+    BOOST_CHECK(testWallet.SelectCoins(vCoins, 10 * CENT, colorId1, setCoinsRet, nValueRet, coin_control, coin_selection_params, bnb_used));
+    BOOST_CHECK(equal_sets(setCoinsRet, {vCoins.at(1).GetInputCoin()}));
+    BOOST_CHECK_EQUAL(nValueRet, 10 * CENT);
+
+    BOOST_CHECK(testWallet.SelectCoins(vCoins, 10 * CENT, colorId2, setCoinsRet, nValueRet, coin_control, coin_selection_params, bnb_used));
+    BOOST_CHECK(equal_sets(setCoinsRet, {vCoins.at(2).GetInputCoin()}));
+    BOOST_CHECK_EQUAL(nValueRet, 10 * CENT);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

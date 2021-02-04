@@ -79,6 +79,10 @@ struct ColorIdentifier
         return this->type == colorId.type && (memcmp(&this->payload[0], &colorId.payload[0], COLOR_IDENTIFIER_SIZE - 1) == 0);
     }
 
+    bool operator!=(const ColorIdentifier& colorId) const {
+        return !(*this == colorId);
+    }
+
     bool operator<(const ColorIdentifier& colorId) const {
         return memcmp(this, &colorId, COLOR_IDENTIFIER_SIZE) < 0;
     }
