@@ -26,6 +26,9 @@ Before every major release:
 * Update `src/chainparams.cpp` chainTxData with statistics about the transaction count and rate. Use the output of the RPC `getchaintxstats`, see
   [this pull request](https://github.com/bitcoin/bitcoin/pull/12270) for an example. Reviewers can verify the results by running `getchaintxstats <window_block_count> <window_last_block_hash>` with the `window_block_count` and `window_last_block_hash` from your output.
 * Update version of `contrib/gitian-descriptors/*.yml`: usually one'd want to do this on master after branching off the release - but be sure to at least do it before a new major release
+* Branch new branch like `v0.5` from `master` for future minor releases (minor releases like `v0.5.1` will be released from the version branch)
+* Update `source-branch` in `snap/snapcraft.yml` to match the version branch (commit it directly to the version branch)
+* Tag the version branch
 
 ### First time / New builders
 
