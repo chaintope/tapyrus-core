@@ -57,8 +57,8 @@ BOOST_FIXTURE_TEST_CASE(test_creating_colored_transaction, TestWalletSetup)
     ImportCoin(10 * COIN);
 
     ColorIdentifier cid;
-    BOOST_CHECK(IssueNonReissunableColoredCoin(100 * CENT, cid));
-    BOOST_CHECK_EQUAL(wallet->GetBalance()[cid], 100 * CENT);
+    BOOST_CHECK(IssueNonReissunableColoredCoin(200 * CENT, cid));
+    BOOST_CHECK_EQUAL(wallet->GetBalance()[cid], 200 * CENT);
 
     // Create a tx that sends only colored coin not TPC to the pubkey.
     CCoinControl coinControl;
@@ -73,26 +73,31 @@ BOOST_FIXTURE_TEST_CASE(test_creating_colored_transaction, TestWalletSetup)
     CTransactionRef tx;
     BOOST_CHECK(wallet->CreateTransaction(vecSend, tx, reservekey, nFeeRequired, nChangePosRet, strError, coinControl));
     BOOST_CHECK_EQUAL(strError.size(), 0);
-    BOOST_CHECK_EQUAL(tx->vout.size(), 2);
+    BOOST_CHECK_EQUAL(tx->vout.size(), 3);
 
     // The one of outputs should be payment to counterparty.
-    auto i = std::find_if(tx->vout.begin(), tx->vout.end(), [&]( const CTxOut &out ) {
+    auto payment_ouput_index = std::find_if(tx->vout.begin(), tx->vout.end(), [&]( const CTxOut &out ) {
         return out.scriptPubKey == scriptpubkey;
     }) - tx->vout.begin();
-    BOOST_CHECK_EQUAL(tx->vout[i].nValue, 100 * CENT);
+    BOOST_CHECK_EQUAL(tx->vout[payment_ouput_index].nValue, 100 * CENT);
+    BOOST_CHECK(tx->vout[payment_ouput_index].scriptPubKey == scriptpubkey);
 
-    // The another one should be change of paying fee by TPC.
-    auto j = std::find_if(tx->vout.begin(), tx->vout.end(), [&]( const CTxOut &out ) {
-        return out.scriptPubKey != scriptpubkey;
+    // The other outputs should be change outputs.
+    auto change_output = std::find_if(tx->vout.begin(), tx->vout.end(), [&]( const CTxOut &out ) {
+        return wallet->IsMine(out) && out.scriptPubKey.IsColoredScript();
+    });
+    BOOST_CHECK(change_output != tx->vout.end());
+
+    auto colored_change_output_index = std::find_if(tx->vout.begin(), tx->vout.end(), [&]( const CTxOut &out ) {
+        return wallet->IsMine(out) && out.scriptPubKey.IsColoredScript();
     }) - tx->vout.begin();
-    BOOST_CHECK(wallet->IsMine(tx->vout[j]));
-    BOOST_CHECK(!tx->vout[j].scriptPubKey.IsColoredScript());
+    BOOST_CHECK_EQUAL(tx->vout[colored_change_output_index].nValue, 100 * CENT);
 
     // tx should be acceptable to a block.
     BOOST_CHECK(AddToWalletAndMempool(tx));
     BOOST_CHECK(ProcessBlockAndScanForWalletTxns(tx));
 
-    BOOST_CHECK_EQUAL(wallet->GetBalance()[cid], 0);
+    BOOST_CHECK_EQUAL(wallet->GetBalance()[cid], 100 * CENT);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

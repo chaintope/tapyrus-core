@@ -2869,8 +2869,16 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     const CAmount nChange = mapValueIn[colorId] - targetValue;
                     if (nChange > 0)
                     {
+                        CScript sc;
+                        if (colorId != ColorIdentifier()) {
+                            sc = CScript() << colorId.toVector() << OP_COLOR;
+                            sc += scriptChange;
+                        } else {
+                            sc = scriptChange;
+                        }
+
                         // Fill a vout to ourself
-                        CTxOut newTxOut(nChange, scriptChange);
+                        CTxOut newTxOut(nChange, sc);
 
                         // Never create dust outputs; if we would, just
                         // add the dust to the fee.
