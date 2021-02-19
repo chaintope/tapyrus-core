@@ -352,12 +352,13 @@ bool TestWalletSetup::IssueNonReissunableColoredCoin(const CAmount amount, Color
     CReserveKey reservekey(wallet.get());
     CAmount nFeeRequired;
     std::string strError;
-    int nChangePosRet = -1;
+    CWallet::ChangePosInOut mapChangePosRet;
+    mapChangePosRet[ColorIdentifier()] = -1;
     std::vector<CRecipient> vecSend;
     CScript scriptpubkey = GetScriptForDestination({ pubkey.GetID() });
     vecSend.push_back({scriptpubkey, 1 * CENT, false});
     CTransactionRef tx;
-    if (!wallet->CreateTransaction(vecSend, tx, reservekey, nFeeRequired, nChangePosRet, strError, coinControl)) {
+    if (!wallet->CreateTransaction(vecSend, tx, reservekey, nFeeRequired, mapChangePosRet, strError, coinControl)) {
         return false;
     }
     auto i = std::find_if(tx->vout.begin(), tx->vout.end(), [&]( const CTxOut &out ) {
