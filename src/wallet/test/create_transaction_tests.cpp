@@ -234,6 +234,66 @@ BOOST_FIXTURE_TEST_CASE(test_creating_colored_transaction, TestWalletSetup)
     BOOST_CHECK_EQUAL(wallet->GetBalance()[cid], 1);
 }
 
+BOOST_FIXTURE_TEST_CASE(test_creating_hybrid_transaction, TestWalletSetup)
+{
+    std::vector<unsigned char> vchPubkey = ParseHex("03363d90d447b00c9c99ceac05b6262ee053441c7e55552ffe526bad8f83ff4640");
+    CPubKey pubkey(vchPubkey.begin(), vchPubkey.end());
+
+    ImportCoin(10 * COIN);
+
+    ColorIdentifier cid;
+    BOOST_CHECK(IssueNonReissunableColoredCoin(200 * CENT, cid));
+    BOOST_CHECK_EQUAL(wallet->GetBalance()[cid], 200 * CENT);
+
+    // Create a tx that sends tpc and colored coin.
+    CCoinControl coinControl;
+    CReserveKey reservekey(wallet.get());
+    CAmount nFeeRequired;
+    std::string strError;
+    CWallet::ChangePosInOut mapChangePosRet;
+    mapChangePosRet[ColorIdentifier()] = 1;
+    mapChangePosRet[cid] = 2;
+    std::vector<CRecipient> vecSend;
+    CScript scriptpubkey = GetScriptForDestination({ pubkey.GetID() });
+    CScript coloredScriptpubkey = GetScriptForDestination({ pubkey.GetID() }, cid);
+    vecSend.push_back({coloredScriptpubkey, 100 * CENT, false});
+    vecSend.push_back({scriptpubkey, 100 * CENT, false});
+    CTransactionRef tx;
+    BOOST_CHECK(wallet->CreateTransaction(vecSend, tx, reservekey, nFeeRequired, mapChangePosRet, strError, coinControl));
+    BOOST_CHECK_EQUAL(strError.size(), 0);
+    BOOST_CHECK_EQUAL(tx->vout.size(), 4);
+
+    // tx should be acceptable to a block.
+    BOOST_CHECK(AddToWalletAndMempool(tx));
+    BOOST_CHECK(ProcessBlockAndScanForWalletTxns(tx));
+
+    BOOST_CHECK_EQUAL(mapChangePosRet[ColorIdentifier()], 1);
+    BOOST_CHECK_EQUAL(mapChangePosRet[cid], 2);
+
+    // The one of outputs should be payment to counterparty.
+    auto payment_ouput_index = std::find_if(tx->vout.begin(), tx->vout.end(), [&]( const CTxOut &out ) {
+        return out.scriptPubKey == scriptpubkey;
+    }) - tx->vout.begin();
+    BOOST_CHECK_EQUAL(tx->vout[payment_ouput_index].nValue, 100 * CENT);
+
+    // The one of outputs should be colored coin payment to counterparty.
+    auto colored_payment_ouput_index = std::find_if(tx->vout.begin(), tx->vout.end(), [&]( const CTxOut &out ) {
+        return out.scriptPubKey == coloredScriptpubkey;
+    }) - tx->vout.begin();
+    BOOST_CHECK_EQUAL(tx->vout[colored_payment_ouput_index].nValue, 100 * CENT);
+
+    // The other outputs should be change outputs.
+    BOOST_CHECK(wallet->IsMine(tx->vout[1]));
+    BOOST_CHECK(!tx->vout[1].scriptPubKey.IsColoredScript());
+
+    BOOST_CHECK(wallet->IsMine(tx->vout[2]));
+    BOOST_CHECK(tx->vout[2].scriptPubKey.IsColoredScript());
+    BOOST_CHECK_EQUAL(tx->vout[2].nValue, 100 * CENT);
+    BOOST_CHECK(wallet->IsColoredOutPointWith({tx->GetHashMalFix(), 2}, cid));
+
+    BOOST_CHECK_EQUAL(wallet->GetBalance()[cid], 100 * CENT);
+}
+
 BOOST_FIXTURE_TEST_CASE(test_creating_colored_transaction, TestWalletSetup)
 {
     std::vector<unsigned char> vchPubkey = ParseHex("03363d90d447b00c9c99ceac05b6262ee053441c7e55552ffe526bad8f83ff4640");
@@ -250,37 +310,33 @@ BOOST_FIXTURE_TEST_CASE(test_creating_colored_transaction, TestWalletSetup)
     CReserveKey reservekey(wallet.get());
     CAmount nFeeRequired;
     std::string strError;
-    int nChangePosRet = -1;
+    CWallet::ChangePosInOut mapChangePosRet;
+    mapChangePosRet[ColorIdentifier()] = 1;
+    mapChangePosRet[cid] = 2;
     std::vector<CRecipient> vecSend;
     CScript scriptpubkey = GetScriptForDestination({ pubkey.GetID() }, cid);
     CRecipient recipient = {scriptpubkey, 100 * CENT, false};
     vecSend.push_back(recipient);
     CTransactionRef tx;
-    BOOST_CHECK(wallet->CreateTransaction(vecSend, tx, reservekey, nFeeRequired, nChangePosRet, strError, coinControl));
+    BOOST_CHECK(wallet->CreateTransaction(vecSend, tx, reservekey, nFeeRequired, mapChangePosRet, strError, coinControl));
     BOOST_CHECK_EQUAL(strError.size(), 0);
     BOOST_CHECK_EQUAL(tx->vout.size(), 3);
-
-    // The one of outputs should be payment to counterparty.
-    auto payment_ouput_index = std::find_if(tx->vout.begin(), tx->vout.end(), [&]( const CTxOut &out ) {
-        return out.scriptPubKey == scriptpubkey;
-    }) - tx->vout.begin();
-    BOOST_CHECK_EQUAL(tx->vout[payment_ouput_index].nValue, 100 * CENT);
-    BOOST_CHECK(tx->vout[payment_ouput_index].scriptPubKey == scriptpubkey);
-
-    // The other outputs should be change outputs.
-    auto change_output = std::find_if(tx->vout.begin(), tx->vout.end(), [&]( const CTxOut &out ) {
-        return wallet->IsMine(out) && out.scriptPubKey.IsColoredScript();
-    });
-    BOOST_CHECK(change_output != tx->vout.end());
-
-    auto colored_change_output_index = std::find_if(tx->vout.begin(), tx->vout.end(), [&]( const CTxOut &out ) {
-        return wallet->IsMine(out) && out.scriptPubKey.IsColoredScript();
-    }) - tx->vout.begin();
-    BOOST_CHECK_EQUAL(tx->vout[colored_change_output_index].nValue, 100 * CENT);
 
     // tx should be acceptable to a block.
     BOOST_CHECK(AddToWalletAndMempool(tx));
     BOOST_CHECK(ProcessBlockAndScanForWalletTxns(tx));
+
+    // The one of outputs should be payment to counterparty.
+    BOOST_CHECK_EQUAL(tx->vout[0].nValue, 100 * CENT);
+    BOOST_CHECK(tx->vout[0].scriptPubKey == scriptpubkey);
+
+    // The other outputs should be change outputs.
+    BOOST_CHECK(wallet->IsMine(tx->vout[1]));
+    BOOST_CHECK(!tx->vout[1].scriptPubKey.IsColoredScript());
+
+    BOOST_CHECK(wallet->IsMine(tx->vout[2]));
+    BOOST_CHECK(wallet->IsColoredOutPointWith({tx->GetHashMalFix(), 2}, cid));
+    BOOST_CHECK_EQUAL(tx->vout[2].nValue, 100 * CENT);
 
     BOOST_CHECK_EQUAL(wallet->GetBalance()[cid], 100 * CENT);
 }
