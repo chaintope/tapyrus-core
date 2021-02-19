@@ -2589,9 +2589,12 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nC
 
     CReserveKey reservekey(this);
     CTransactionRef tx_new;
-    if (!CreateTransaction(vecSend, tx_new, reservekey, nFeeRet, nChangePosInOut, strFailReason, coinControl, false)) {
+    CWallet::ChangePosInOut mapChangePosInOut;
+    mapChangePosInOut[ColorIdentifier()] = nChangePosInOut;
+    if (!CreateTransaction(vecSend, tx_new, reservekey, nFeeRet, mapChangePosInOut, strFailReason, coinControl, false)) {
         return false;
     }
+    nChangePosInOut = mapChangePosInOut[ColorIdentifier()];
 
     if (nChangePosInOut != -1) {
         tx.vout.insert(tx.vout.begin() + nChangePosInOut, tx_new->vout[nChangePosInOut]);
@@ -2649,11 +2652,11 @@ OutputType CWallet::TransactionChangeType(OutputType change_type, const std::vec
 }
 
 bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransactionRef& tx, CReserveKey& reservekey, CAmount& nFeeRet,
-                         int& nChangePosInOut, std::string& strFailReason, const CCoinControl& coin_control, bool sign)
+                                ChangePosInOut& mapChangePosInOut, std::string& strFailReason, const CCoinControl& coin_control, bool sign)
 {
     TxColoredCoinBalancesMap mapValue;
 
-    int nChangePosRequest = nChangePosInOut;
+    ChangePosInOut mapChangePosRequest(mapChangePosInOut);
     unsigned int nSubtractFeeFromAmount = 0;
     for (const auto& recipient : vecSend)
     {
@@ -2786,7 +2789,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
             // Start with no fee and loop until there is enough fee
             while (true)
             {
-                nChangePosInOut = nChangePosRequest;
+                mapChangePosInOut = mapChangePosRequest;
                 txNew.vin.clear();
                 txNew.vout.clear();
                 bool fFirst = true;
@@ -2886,27 +2889,27 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                         // If the output is for a colored coin, it allows to create dust outputs.
                         if (colorId == ColorIdentifier() && (IsDust(newTxOut, discard_rate) || bnb_used))
                         {
-                            nChangePosInOut = -1;
+                            mapChangePosInOut[colorId] = -1;
                             nFeeRet += nChange;
                         }
                         else
                         {
-                            if (nChangePosInOut == -1)
+                            if (mapChangePosInOut[colorId] == -1)
                             {
                                 // Insert change txn at random position:
-                                nChangePosInOut = GetRandInt(txNew.vout.size()+1);
+                                mapChangePosInOut[colorId] = GetRandInt(txNew.vout.size()+1);
                             }
-                            else if ((unsigned int)nChangePosInOut > txNew.vout.size())
+                            else if ((unsigned int)mapChangePosInOut[colorId] > txNew.vout.size())
                             {
                                 strFailReason = _("Change index out of range");
                                 return false;
                             }
 
-                            std::vector<CTxOut>::iterator position = txNew.vout.begin()+nChangePosInOut;
+                            std::vector<CTxOut>::iterator position = txNew.vout.begin()+mapChangePosInOut[colorId];
                             txNew.vout.insert(position, newTxOut);
                         }
                     } else {
-                        nChangePosInOut = -1;
+                        mapChangePosInOut[colorId] = -1;
                     }
                 }
 
@@ -2950,7 +2953,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     // new inputs. We now know we only need the smaller fee
                     // (because of reduced tx size) and so we should add a
                     // change output. Only try this once.
-                    if (nChangePosInOut == -1 && nSubtractFeeFromAmount == 0 && pick_new_inputs) {
+                    if (mapChangePosInOut[ColorIdentifier()] == -1 && nSubtractFeeFromAmount == 0 && pick_new_inputs) {
                         unsigned int tx_size_with_change = nBytes + coin_selection_params.change_output_size + 2; // Add 2 as a buffer in case increasing # of outputs changes compact size
                         CAmount fee_needed_with_change = GetMinimumFee(*this, tx_size_with_change, coin_control, ::mempool, ::feeEstimator, nullptr);
                         CAmount minimum_value_for_change = GetDustThreshold(change_prototype_txout, discard_rate);
@@ -2962,9 +2965,9 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     }
 
                     // If we have change output already, just increase it
-                    if (nFeeRet > nFeeNeeded && nChangePosInOut != -1 && nSubtractFeeFromAmount == 0) {
+                    if (nFeeRet > nFeeNeeded && mapChangePosInOut[ColorIdentifier()] != -1 && nSubtractFeeFromAmount == 0) {
                         CAmount extraFeePaid = nFeeRet - nFeeNeeded;
-                        std::vector<CTxOut>::iterator change_position = txNew.vout.begin()+nChangePosInOut;
+                        std::vector<CTxOut>::iterator change_position = txNew.vout.begin()+mapChangePosInOut[ColorIdentifier()];
                         change_position->nValue += extraFeePaid;
                         nFeeRet -= extraFeePaid;
                     }
@@ -2980,9 +2983,9 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 }
 
                 // Try to reduce change to include necessary fee
-                if (nChangePosInOut != -1 && nSubtractFeeFromAmount == 0) {
+                if (mapChangePosInOut[ColorIdentifier()] != -1 && nSubtractFeeFromAmount == 0) {
                     CAmount additionalFeeNeeded = nFeeNeeded - nFeeRet;
-                    std::vector<CTxOut>::iterator change_position = txNew.vout.begin()+nChangePosInOut;
+                    std::vector<CTxOut>::iterator change_position = txNew.vout.begin()+mapChangePosInOut[ColorIdentifier()];
                     // Only reduce change if remaining amount is still a large enough output.
                     if (change_position->nValue >= MIN_FINAL_CHANGE + additionalFeeNeeded) {
                         change_position->nValue -= additionalFeeNeeded;
@@ -3004,7 +3007,14 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
             }
         }
 
-        if (nChangePosInOut == -1) reservekey.ReturnKey(); // Return any reserved key if we don't have change
+        bool use_reservekey = false;
+        for (auto it : mapChangePosInOut) {
+            if (it.second != -1) {
+                use_reservekey = true;
+                break;
+            }
+        }
+        if (!use_reservekey) reservekey.ReturnKey(); // Return any reserved key if we don't have any changes
 
         // Shuffle selected coins and fill in final vin
         txNew.vin.clear();
