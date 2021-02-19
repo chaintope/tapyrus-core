@@ -339,6 +339,68 @@ BOOST_FIXTURE_TEST_CASE(test_creating_colored_transaction, TestWalletSetup)
     BOOST_CHECK_EQUAL(tx->vout[2].nValue, 100 * CENT);
 
     BOOST_CHECK_EQUAL(wallet->GetBalance()[cid], 100 * CENT);
+
+    // Test to create a colored output which has small value.
+    nFeeRequired = 0;
+    strError = "";
+    mapChangePosRet.clear();
+    mapChangePosRet[ColorIdentifier()] = 1;
+    mapChangePosRet[cid] = 2;
+    vecSend.clear();
+    vecSend.push_back({scriptpubkey, 1, false});
+
+    BOOST_CHECK(wallet->CreateTransaction(vecSend, tx, reservekey, nFeeRequired, mapChangePosRet, strError, coinControl));
+    BOOST_CHECK_EQUAL(strError.size(), 0);
+    BOOST_CHECK_EQUAL(tx->vout.size(), 3);
+
+    // tx should be acceptable to a block.
+    BOOST_CHECK(AddToWalletAndMempool(tx));
+    BOOST_CHECK(ProcessBlockAndScanForWalletTxns(tx));
+
+    // The one of outputs should be payment to counterparty.
+    BOOST_CHECK_EQUAL(tx->vout[0].nValue, 1);
+    BOOST_CHECK(tx->vout[0].scriptPubKey == scriptpubkey);
+
+    // The other outputs should be change outputs.
+    BOOST_CHECK(wallet->IsMine(tx->vout[1]));
+    BOOST_CHECK(!tx->vout[1].scriptPubKey.IsColoredScript());
+
+    BOOST_CHECK(wallet->IsMine(tx->vout[2]));
+    BOOST_CHECK(wallet->IsColoredOutPointWith({tx->GetHashMalFix(), 2}, cid));
+    BOOST_CHECK_EQUAL(tx->vout[2].nValue, 99999999);
+
+    BOOST_CHECK_EQUAL(wallet->GetBalance()[cid], 99999999);
+
+    // Test to create a colored change output which has small value.
+    nFeeRequired = 0;
+    strError = "";
+    mapChangePosRet.clear();
+    mapChangePosRet[ColorIdentifier()] = 1;
+    mapChangePosRet[cid] = 2;
+    vecSend.clear();
+    vecSend.push_back({scriptpubkey, 99999998, false});
+
+    BOOST_CHECK(wallet->CreateTransaction(vecSend, tx, reservekey, nFeeRequired, mapChangePosRet, strError, coinControl));
+    BOOST_CHECK_EQUAL(strError.size(), 0);
+    BOOST_CHECK_EQUAL(tx->vout.size(), 3);
+
+    // tx should be acceptable to a block.
+    BOOST_CHECK(AddToWalletAndMempool(tx));
+    BOOST_CHECK(ProcessBlockAndScanForWalletTxns(tx));
+
+    // The one of outputs should be payment to counterparty.
+    BOOST_CHECK_EQUAL(tx->vout[0].nValue, 99999998);
+    BOOST_CHECK(tx->vout[0].scriptPubKey == scriptpubkey);
+
+    // The other outputs should be change outputs.
+    BOOST_CHECK(wallet->IsMine(tx->vout[1]));
+    BOOST_CHECK(!tx->vout[1].scriptPubKey.IsColoredScript());
+
+    BOOST_CHECK(wallet->IsMine(tx->vout[2]));
+    BOOST_CHECK(wallet->IsColoredOutPointWith({tx->GetHashMalFix(), 2}, cid));
+    BOOST_CHECK_EQUAL(tx->vout[2].nValue, 1);
+
+    BOOST_CHECK_EQUAL(wallet->GetBalance()[cid], 1);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
