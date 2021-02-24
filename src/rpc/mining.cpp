@@ -96,12 +96,12 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
             "\nArguments:\n"
             "1. nblocks      (numeric, required) How many blocks are generated immediately.\n"
             "2. address      (string, required) The address to send the newly generated bitcoin to.\n"
-            "3. private key  (hex string, required) aggregate private key to sign the generated blocks.\n"
+            "3. private key  (string, required) The aggregate private key to sign the generated blocks. The format is WIF.\n"
             "\nResult:\n"
             "[ blockhashes ]     (array) hashes of blocks generated\n"
             "\nExamples:\n"
-            "\nGenerate 11 blocks to myaddress signed with 1 privatekey n"
-            + HelpExampleCli("generatetoaddress", "11 \"myaddress\" \"c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3\"")
+            "\nGenerate 11 blocks to myaddress signed with 1 private key"
+            + HelpExampleCli("generatetoaddress", "11 \"myaddress\" \"L3wNcWW97SZYV6fb6b5VgoEvtybc9d1Uu6LeiQkVN4Z38VTivKT6\"")
         );
 
     int nGenerate = request.params[0].get_int();
@@ -114,10 +114,7 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
     std::shared_ptr<CReserveScript> coinbaseScript = std::make_shared<CReserveScript>();
     coinbaseScript->reserveScript = GetScriptForDestination(destination);
 
-    std::vector<unsigned char> privkeyraw = ParseHex(request.params[2].get_str());
-    CKey cPrivKey;
-    cPrivKey.Set(privkeyraw.begin(), privkeyraw.end(), true);
-
+    CKey cPrivKey = DecodeSecret(request.params[2].get_str());
     if(!cPrivKey.size())
         throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "No private key given or invalid private key.");
 
