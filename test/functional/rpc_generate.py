@@ -86,14 +86,14 @@ class GenerateWithPrivateKeysTest(BitcoinTestFramework):
         
         #test error cases
         self.signblockprivkey_wif = "cUkubrEpPKnC7BniXkV8DCotfFFk5tpAh1GHRTT6q3PF5jqWYR3E" # invalid key
-        assert_raises_rpc_error(-33, "Given private key doesn't correspond to the Aggregate Key.", self.nodes[0].generate, 1, self.signblockprivkey_wif)
-        assert_raises_rpc_error(-33, "Given private key doesn't correspond to the Aggregate Key.", self.nodes[0].generate, 10, self.signblockprivkey_wif)
+        assert_raises_rpc_error(-32603, "AbsorbBlockProof, block proof not accepted", self.nodes[0].generate, 1, self.signblockprivkey_wif)
+        assert_raises_rpc_error(-32603, "AbsorbBlockProof, block proof not accepted", self.nodes[0].generate, 10, self.signblockprivkey_wif)
 
         self.signblockprivkey_wif = self.signblockprivkey_wif + "00"
-        assert_raises_rpc_error(-34, "No private key given or invalid private key", self.nodes[0].generate, 10, self.signblockprivkey_wif)
+        assert_raises_rpc_error(-12, "No private key given or invalid private key", self.nodes[0].generate, 10, self.signblockprivkey_wif)
 
         self.signblockprivkey_wif = self.signblockprivkey_wif[:-2] + "00"
-        assert_raises_rpc_error(-34, "No private key given or invalid private key", self.nodes[0].generate, 10, self.signblockprivkey_wif)
+        assert_raises_rpc_error(-12, "No private key given or invalid private key", self.nodes[0].generate, 10, self.signblockprivkey_wif)
 
         assert_raises_rpc_error(-34, "No private key given or invalid private key",self.nodes[0].generate)
 
