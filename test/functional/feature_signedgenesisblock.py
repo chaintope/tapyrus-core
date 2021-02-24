@@ -272,7 +272,7 @@ class SignedGenesisBlockTest(BitcoinTestFramework):
         self.nodes[0].add_p2p_connection(P2PInterface())
 
         self.log.info("Generating 10 blocks")
-        blocks = self.nodes[0].generate(10, self.signblockprivkey)
+        blocks = self.nodes[0].generate(10, self.signblockprivkey_wif)
         self.sync_all([self.nodes[0:1]])
         assert_equal(self.nodes[0].getbestblockhash(), blocks[-1])
         self.stop_node(0)

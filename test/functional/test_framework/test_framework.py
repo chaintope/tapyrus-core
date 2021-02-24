@@ -96,6 +96,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         self.bind_to_localhost_only = True
         self.signblockpubkey = "025700236c2890233592fcef262f4520d22af9160e3d9705855140eb2aa06c35d3"
         self.signblockprivkey = "67ae3f5bfb3464b9704d7bd3a134401cc80c3a172240ebfca9f1e40f51bb6d37"
+        self.signblockprivkey_wif = "cR4F4fGuKjDWxiYDtGtyM77WkrVhTgokVyM2ERxoxp7R4RQP9dgE"
         self.genesisBlock = None
         self.mode = TAPYRUS_MODES.DEV
         self.set_test_params()
@@ -453,7 +454,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             for peer in range(4):
                 for j in range(25):
                     set_node_times(self.nodes, block_time)
-                    self.nodes[peer].generate(1, self.signblockprivkey)
+                    self.nodes[peer].generate(1, self.signblockprivkey_wif)
                     block_time += 10 * 60
                 # Must sync before next peer starts generating blocks
                 sync_blocks(self.nodes)

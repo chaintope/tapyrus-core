@@ -33,14 +33,12 @@ class GenerateWithPrivateKeysTest(BitcoinTestFramework):
         self.num_nodes = 1
         self.supports_cli = True
 
-        self.invalidKey = "d61cb76ffd678c98320f6c9c5b341c41141add40d5804f6e7de4cabc9ab2f1c2"
-
     def run_test(self):
         self.genesisblockhash = self.nodes[0].getbestblockhash()
 
         #test generate 0
         height = 0
-        blocks = self.nodes[0].generate(0, self.signblockprivkey)
+        blocks = self.nodes[0].generate(0, self.signblockprivkey_wif)
         assert_equal(len(blocks), 0)
         hash = self.nodes[0].getbestblockhash()
         newblock = self.nodes[0].getblock(hash)
@@ -48,7 +46,7 @@ class GenerateWithPrivateKeysTest(BitcoinTestFramework):
         assert_equal(hash, self.genesisblockhash)
 
         #test generate 1 - default private keys
-        blocks = self.nodes[0].generate(1, self.signblockprivkey)
+        blocks = self.nodes[0].generate(1, self.signblockprivkey_wif)
         assert_equal(len(blocks), 1)
         newblock = self.nodes[0].getblock(blocks[0])
         height += 1
@@ -58,7 +56,7 @@ class GenerateWithPrivateKeysTest(BitcoinTestFramework):
         assert_equal(len(newblock['proof']), 128) #hex string length
 
         #test generate 10 - default private keys
-        blocks = self.nodes[0].generate(10, self.signblockprivkey)
+        blocks = self.nodes[0].generate(10, self.signblockprivkey_wif)
         assert_equal(len(blocks), 10)
         for hash in blocks:
             height += 1
@@ -68,7 +66,7 @@ class GenerateWithPrivateKeysTest(BitcoinTestFramework):
             assert_equal(len(newblock['proof']), 128)
 
         #test generate 1 with 1 private key
-        blocks = self.nodes[0].generate(1, self.signblockprivkey)
+        blocks = self.nodes[0].generate(1, self.signblockprivkey_wif)
         assert_equal(len(blocks), 1)
         newblock = self.nodes[0].getblock(blocks[0])
         height += 1
@@ -77,7 +75,7 @@ class GenerateWithPrivateKeysTest(BitcoinTestFramework):
         assert_equal(len(newblock['proof']), 128)
         
         #test generate 10 with 1 private key
-        blocks = self.nodes[0].generate(10, self.signblockprivkey)
+        blocks = self.nodes[0].generate(10, self.signblockprivkey_wif)
         assert_equal(len(blocks), 10)
         for hash in blocks:
             height += 1
@@ -87,15 +85,15 @@ class GenerateWithPrivateKeysTest(BitcoinTestFramework):
             assert_equal(len(newblock['proof']), 128)
         
         #test error cases
-        self.signblockprivkey = self.invalidKey
-        assert_raises_rpc_error(-32603, "AbsorbBlockProof, block proof not accepted", self.nodes[0].generate, 1, self.signblockprivkey)
-        assert_raises_rpc_error(-32603, "AbsorbBlockProof, block proof not accepted", self.nodes[0].generate, 10, self.signblockprivkey)
+        self.signblockprivkey_wif = "cUkubrEpPKnC7BniXkV8DCotfFFk5tpAh1GHRTT6q3PF5jqWYR3E" # invalid key
+        assert_raises_rpc_error(-32603, "AbsorbBlockProof, block proof not accepted", self.nodes[0].generate, 1, self.signblockprivkey_wif)
+        assert_raises_rpc_error(-32603, "AbsorbBlockProof, block proof not accepted", self.nodes[0].generate, 10, self.signblockprivkey_wif)
 
-        self.signblockprivkey = self.signblockprivkey + "00"
-        assert_raises_rpc_error(-12, "No private key given or invalid private key", self.nodes[0].generate, 10, self.signblockprivkey)
+        self.signblockprivkey_wif = self.signblockprivkey_wif + "00"
+        assert_raises_rpc_error(-12, "No private key given or invalid private key", self.nodes[0].generate, 10, self.signblockprivkey_wif)
 
-        self.signblockprivkey = self.signblockprivkey[:-2] + "00"
-        assert_raises_rpc_error(-12, "No private key given or invalid private key", self.nodes[0].generate, 10, self.signblockprivkey)
+        self.signblockprivkey_wif = self.signblockprivkey_wif[:-2] + "00"
+        assert_raises_rpc_error(-12, "No private key given or invalid private key", self.nodes[0].generate, 10, self.signblockprivkey_wif)
 
         assert_raises_rpc_error(-12, "No private key given or invalid private key",self.nodes[0].generate)
 

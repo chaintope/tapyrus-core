@@ -17,7 +17,7 @@ class ScantxoutsetTest(BitcoinTestFramework):
         self.setup_clean_chain = True
     def run_test(self):
         self.log.info("Mining blocks...")
-        self.nodes[0].generate(1, self.signblockprivkey)
+        self.nodes[0].generate(1, self.signblockprivkey_wif)
 
         assert_raises_rpc_error(-5, "Unknown address type 'p2sh-segwit'",  self.nodes[0].getnewaddress, "", "p2sh-segwit")
         assert_raises_rpc_error(-5, "Unknown address type 'bech32'",  self.nodes[0].getnewaddress, "", "bech32")
@@ -47,14 +47,14 @@ class ScantxoutsetTest(BitcoinTestFramework):
         self.nodes[0].sendtoaddress("mpQ8rokAhp1TAtJQR6F6TaUmjAWkAWYYBq", 16.384) # (m/1/1/1500)
 
 
-        self.nodes[0].generate(1, self.signblockprivkey)
+        self.nodes[0].generate(1, self.signblockprivkey_wif)
 
         self.log.info("Stop node, remove wallet, mine again some blocks...")
         self.stop_node(0)
         if(os.path.exists(os.path.join(self.nodes[0].datadir, NetworkDirName(), 'wallets'))):
             shutil.rmtree(os.path.join(self.nodes[0].datadir, NetworkDirName(), 'wallets'))
         self.start_node(0)
-        self.nodes[0].generate(1, self.signblockprivkey)
+        self.nodes[0].generate(1, self.signblockprivkey_wif)
 
         self.restart_node(0, ['-nowallet'])
         self.log.info("Test if we have found the non HD unspent outputs.")

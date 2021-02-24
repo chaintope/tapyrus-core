@@ -86,6 +86,15 @@ class FederationManagementTest(BitcoinTestFramework):
         "1c3e5453c0f9aa74a8eb0216310b2b013f017813a648fce364bf41dbc0b37647",
         "ea9fe9fd2f1761fc6f1f0f23eb4d4141d7b05f2b95a1b7a9912cd97bddd9036c"]
 
+        self.aggprivkey_wif = ["cR4F4fGuKjDWxiYDtGtyM77WkrVhTgokVyM2ERxoxp7R4RQP9dgE",
+        "cUwpWhH9CbYwjUWzfz1UVaSjSQm9ALXWRqeFFiZKnn8cV6wqNXQA",
+        "cTHVmjaAwKtU75t89fg42SLx43nRxhsri6YY1Eynvs1V1tPRCfae",
+        "cPD3D5AvmXhw7NGxQeaRhTVNW2UoYeibQAMhye7jzyM4ETG9d1ez",
+        "cQqYVqYhK47EWvDViNwcyhc6sLS6tkuhED7T3rvumeGRtVJcEQHh",
+        "cNXbwddRQrPR4k7Us7eSrRUHFBerNBKwxrExTSs4gdH1rjHdoNuL",
+        "cVSnGe9DzWfEgahMjSXs5nuVqnwvyanG9aaEQF6m7M5mSY2wfZzW"]
+
+
         self.blocks = []
 
         self.coinbase_key = CECKey()
@@ -112,7 +121,7 @@ class FederationManagementTest(BitcoinTestFramework):
         block_time = self.genesisBlock.nTime
 
         # Create a new blocks B1 - B10
-        self.blocks += node.generate(10, self.aggprivkey[0])
+        self.blocks += node.generate(10, self.aggprivkey_wif[0])
         best_block = node.getblock(node.getbestblockhash())
         self.tip = node.getbestblockhash()
 
@@ -153,7 +162,7 @@ class FederationManagementTest(BitcoinTestFramework):
         assert(node.getblock(self.tip))
 
         # Create a new blocks B13 - B22
-        self.blocks += node.generate(10, self.aggprivkey[1])
+        self.blocks += node.generate(10, self.aggprivkey_wif[1])
         best_block = node.getblock(node.getbestblockhash())
         self.tip = node.getbestblockhash()
 
@@ -248,7 +257,7 @@ class FederationManagementTest(BitcoinTestFramework):
         assert(node.getblock(self.tip))
 
         # Create a new blocks B26 - B30
-        self.blocks += node.generate(5, self.aggprivkey[2])
+        self.blocks += node.generate(5, self.aggprivkey_wif[2])
         best_block = node.getblock(node.getbestblockhash())
         self.tip = node.getbestblockhash()
 
@@ -369,7 +378,7 @@ class FederationManagementTest(BitcoinTestFramework):
         assert(node.getblock(self.tip))
 
         #B34 - B35 -- Generate 2 blocks - no aggpubkey -- chain becomes longer
-        self.forkblocks += node.generate(2, self.aggprivkey[3])
+        self.forkblocks += node.generate(2, self.aggprivkey_wif[3])
         self.tip = self.forkblocks[35]
         assert_equal(self.tip, node.getbestblockhash())
         assert(node.getblock(self.tip))
@@ -414,7 +423,7 @@ class FederationManagementTest(BitcoinTestFramework):
         assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
 
         #B38 - B40 -- Generate 2 blocks - no aggpubkey -- chain becomes longer
-        self.forkblocks += node.generate(3, self.aggprivkey[4])
+        self.forkblocks += node.generate(3, self.aggprivkey_wif[4])
         self.tip = node.getbestblockhash()
         best_block = node.getblock(self.tip)
 
