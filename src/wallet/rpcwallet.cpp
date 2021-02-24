@@ -3980,11 +3980,8 @@ UniValue generate(const JSONRPCRequest& request)
     int num_generate = request.params[0].get_int();
 
     CKey cPrivKey = DecodeSecret(request.params[1].get_str());
-    if(!cPrivKey.IsValid())
-        throw JSONRPCError(RPC_WALLET_INVALID_PRIVATE_KEY, "No private key given or invalid private key.");
-
-    if(cPrivKey.GetPubKey() != FederationParams().GetLatestAggregatePubkey())
-        throw JSONRPCError(RPC_WALLET_INVALID_AGGREGATE_KEY, "Given private key doesn't correspond to the Aggregate Key.");
+    if(!cPrivKey.size())
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "No private key given or invalid private key.");
 
     std::shared_ptr<CReserveScript> coinbase_script;
     pwallet->GetScriptForMining(coinbase_script);
