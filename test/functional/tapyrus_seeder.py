@@ -33,7 +33,7 @@ class TapyrusSeederTest (BitcoinTestFramework):
             initialize_datadir(self.options.tmpdir, i)
             self.writeGenesisBlockToFile(self.nodes[i].datadir, networkid=2)
 
-        self.nodes[0].generate(101, self.signblockprivkey)
+        self.nodes[0].generate(101, self.signblockprivkey_wif)
         self.sync_all([self.nodes])
         self.log.info("Network is at block height 101")
 
@@ -49,7 +49,7 @@ class TapyrusSeederTest (BitcoinTestFramework):
         self.log.info("Running for 24 hours")
         while(current_time - start_time < 86400):
             for i in range(4):
-                self.nodes[i].generate(1, self.signblockprivkey)
+                self.nodes[i].generate(1, self.signblockprivkey_wif)
                 time.sleep(10)
                 self.sync_all([self.nodes])
                 current_time = time.time()

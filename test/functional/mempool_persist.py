@@ -53,7 +53,7 @@ class MempoolPersistTest(BitcoinTestFramework):
         assert_equal(chain_height, 100)
 
         self.log.debug("Mine a single block to get out of IBD")
-        self.nodes[0].generate(1, self.signblockprivkey)
+        self.nodes[0].generate(1, self.signblockprivkey_wif)
         self.sync_all()
 
         self.log.debug("Send 5 transactions from node2 (to its own address)")

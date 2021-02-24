@@ -74,10 +74,10 @@ class KeyPoolTest(BitcoinTestFramework):
         assert_equal(nodes[0].getwalletinfo()["unlocked_until"], 0)
 
         # drain them by mining
-        nodes[0].generate(1, self.signblockprivkey)
-        nodes[0].generate(1, self.signblockprivkey)
-        nodes[0].generate(1, self.signblockprivkey)
-        assert_raises_rpc_error(-12, "Keypool ran out", nodes[0].generate, 1, self.signblockprivkey)
+        nodes[0].generate(1, self.signblockprivkey_wif)
+        nodes[0].generate(1, self.signblockprivkey_wif)
+        nodes[0].generate(1, self.signblockprivkey_wif)
+        assert_raises_rpc_error(-12, "Keypool ran out", nodes[0].generate, 1, self.signblockprivkey_wif)
 
         nodes[0].walletpassphrase('test', 100)
         nodes[0].keypoolrefill(100)

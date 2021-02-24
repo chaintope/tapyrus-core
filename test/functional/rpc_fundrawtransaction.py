@@ -53,9 +53,9 @@ class RawTransactionsTest(BitcoinTestFramework):
         #            = 2 bytes * minRelayTxFeePerByte
         feeTolerance = 2 * min_relay_tx_fee/1000
 
-        self.nodes[2].generate(1, self.signblockprivkey)
+        self.nodes[2].generate(1, self.signblockprivkey_wif)
         self.sync_all()
-        self.nodes[0].generate(5, self.signblockprivkey)
+        self.nodes[0].generate(5, self.signblockprivkey_wif)
         self.sync_all()
 
         # ensure that setting changePosition in fundraw with an exact match is handled properly
@@ -80,7 +80,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 1.0)
         self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 5.0)
 
-        self.nodes[0].generate(1, self.signblockprivkey)
+        self.nodes[0].generate(1, self.signblockprivkey_wif)
         self.sync_all()
 
         ###############
@@ -458,7 +458,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         # send 1.2 TPC to msig addr
         txId = self.nodes[0].sendtoaddress(mSigObj, 1.2)
         self.sync_all()
-        self.nodes[1].generate(1, self.signblockprivkey)
+        self.nodes[1].generate(1, self.signblockprivkey_wif)
         self.sync_all()
 
         self.log.info("block reward tests.")
@@ -474,7 +474,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         signedTx = self.nodes[2].signrawtransactionwithwallet(fundedTx['hex'], [], "ALL", self.options.scheme)
         txId = self.nodes[2].sendrawtransaction(signedTx['hex'])
         self.sync_all()
-        new_block = self.nodes[1].generate(1, self.signblockprivkey)[0]
+        new_block = self.nodes[1].generate(1, self.signblockprivkey_wif)[0]
         self.sync_all()
 
         #get its block reward
@@ -539,7 +539,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.nodes[1].walletpassphrase("test", 600)
         signedTx = self.nodes[1].signrawtransactionwithwallet(fundedTx['hex'], [], "ALL", self.options.scheme)
         txId = self.nodes[1].sendrawtransaction(signedTx['hex'])
-        self.nodes[1].generate(1, self.signblockprivkey)
+        self.nodes[1].generate(1, self.signblockprivkey_wif)
         self.sync_all()
 
         # make sure funds are received at node0
@@ -555,12 +555,12 @@ class RawTransactionsTest(BitcoinTestFramework):
         #empty node1, send some small coins from node0 to node1
         self.nodes[1].sendtoaddress(self.nodes[0].getnewaddress(), self.nodes[1].getbalance(), "", "", True)
         self.sync_all()
-        self.nodes[0].generate(1, self.signblockprivkey)
+        self.nodes[0].generate(1, self.signblockprivkey_wif)
         self.sync_all()
 
         for i in range(0,20):
             self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 0.01)
-        self.nodes[0].generate(1, self.signblockprivkey)
+        self.nodes[0].generate(1, self.signblockprivkey_wif)
         self.sync_all()
 
         #fund a tx with ~20 small inputs
@@ -585,12 +585,12 @@ class RawTransactionsTest(BitcoinTestFramework):
         #again, empty node1, send some small coins from node0 to node1
         self.nodes[1].sendtoaddress(self.nodes[0].getnewaddress(), self.nodes[1].getbalance(), "", "", True)
         self.sync_all()
-        self.nodes[0].generate(1, self.signblockprivkey)
+        self.nodes[0].generate(1, self.signblockprivkey_wif)
         self.sync_all()
 
         for i in range(0,20):
             self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 0.01)
-        self.nodes[0].generate(1, self.signblockprivkey)
+        self.nodes[0].generate(1, self.signblockprivkey_wif)
         self.sync_all()
 
         #fund a tx with ~20 small inputs
@@ -604,7 +604,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         fundedAndSignedTx = self.nodes[1].signrawtransactionwithwallet(fundedTx['hex'], [], "ALL", self.options.scheme)
         txId = self.nodes[1].sendrawtransaction(fundedAndSignedTx['hex'])
         self.sync_all()
-        new_block = self.nodes[0].generate(1, self.signblockprivkey)[0]
+        new_block = self.nodes[0].generate(1, self.signblockprivkey_wif)[0]
         self.sync_all()
 
         #get its block reward
@@ -672,7 +672,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         signedtx = self.nodes[0].signrawtransactionwithwallet(signedtx["hex"], [], "ALL", self.options.scheme)
         assert(signedtx["complete"])
         self.nodes[0].sendrawtransaction(signedtx["hex"])
-        self.nodes[0].generate(1, self.signblockprivkey)
+        self.nodes[0].generate(1, self.signblockprivkey_wif)
         self.sync_all()
 
         #######################

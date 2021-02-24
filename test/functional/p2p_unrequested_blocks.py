@@ -84,7 +84,7 @@ class AcceptBlockTest(BitcoinTestFramework):
         self.nodes[1].setmocktime(self.mocktime)
 
         # 1. Have nodes mine a block (leave IBD)
-        [ n.generate(1, self.signblockprivkey) for n in self.nodes ]
+        [ n.generate(1, self.signblockprivkey_wif) for n in self.nodes ]
         tips = [ int("0x" + n.getbestblockhash(), 0) for n in self.nodes ]
 
         # 2. Send one block that builds on each tip.

@@ -60,7 +60,7 @@ class NodeNetworkLimitedTest(BitcoinTestFramework):
 
         self.log.info("Mine enough blocks to reach the NODE_NETWORK_LIMITED range.")
         connect_nodes_bi(self.nodes, 0, 1)
-        blocks = self.nodes[1].generate(292, self.signblockprivkey)
+        blocks = self.nodes[1].generate(292, self.signblockprivkey_wif)
         sync_blocks([self.nodes[0], self.nodes[1]])
 
         self.log.info("Make sure we can max retrieve block at tip-288.")
@@ -103,7 +103,7 @@ class NodeNetworkLimitedTest(BitcoinTestFramework):
         self.disconnect_all()
 
         # mine 10 blocks on node 0 (pruned node)
-        self.nodes[0].generate(10, self.signblockprivkey)
+        self.nodes[0].generate(10, self.signblockprivkey_wif)
 
         # connect node1 (non pruned) with node0 (pruned) and check if the can sync
         connect_nodes_bi(self.nodes, 0, 1)

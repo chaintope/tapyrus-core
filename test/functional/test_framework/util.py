@@ -580,7 +580,7 @@ def mine_large_block(node, utxos=None):
         utxos.extend(node.listunspent())
     fee = 100 * node.getnetworkinfo()["relayfee"]
     create_lots_of_big_transactions(node, txouts, utxos, num, fee=fee)
-    node.generate(1, self.signblockprivkey)
+    node.generate(1, self.signblockprivkey_wif)
 
 def find_vout_for_address(node, txid, addr):
     """

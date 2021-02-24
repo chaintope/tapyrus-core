@@ -48,10 +48,10 @@ class DeprecatedRpcTest(BitcoinTestFramework):
         # - setlabel
         #
         address0 = self.nodes[0].getnewaddress()
-        self.nodes[0].generatetoaddress(101, address0, self.signblockprivkey)
+        self.nodes[0].generatetoaddress(101, address0, self.signblockprivkey_wif)
         self.sync_all()
         address1 = self.nodes[1].getnewaddress()
-        self.nodes[1].generatetoaddress(101, address1, self.signblockprivkey)
+        self.nodes[1].generatetoaddress(101, address1, self.signblockprivkey_wif)
 
         self.log.info("- getaccount")
         assert_raises_rpc_error(-32, "getaccount is deprecated", self.nodes[0].getaccount, address0)
