@@ -94,7 +94,7 @@ Read [Create new genesis block using tapyrus-genesis-utility](/doc/tapyrus/getti
 
 7. Generate new blocks using _'generatetoaddress'_ RPC when using external wallet. _'generatetoaddress'_ or _'generate'_ RPC when using the default wallet. Tapyrus-core does not have the capability to generate blocks on its own. It relies on Tapyrus-signer network for block creation. In order to generate blocks in dev mode these RPCs need to be used.
 ```
-tapyrus-cli -dev -networkid=1905960821 -datadir=/var/lib/tapyrus-dev -conf=/etc/tapyrus/tapyrus.conf -rpcport=17858 generatetoaddress 1 \"mmtAurzUTURFq9MSizWyj5sAkWzgqR8PBn\" \"c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3\"
+tapyrus-cli -dev -networkid=1905960821 -datadir=/var/lib/tapyrus-dev -conf=/etc/tapyrus/tapyrus.conf -rpcport=17858 generatetoaddress 1 \"mmtAurzUTURFq9MSizWyj5sAkWzgqR8PBn\" \"cUJN5RVzYWFoeY8rUztd47jzXCu1p57Ay8V7pqCzsBD3PEXN7Dd4\"
 ```
 ##### :heavy_exclamation_mark:Caution
 > generate and generatetoaddress RPCs can generate blocks with valid block proofs. Do not use these RPCs in production mode when the signer network is active as the node could diverge.
