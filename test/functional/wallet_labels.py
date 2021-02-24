@@ -44,8 +44,8 @@ class WalletLabelsTest(BitcoinTestFramework):
 
         # Note each time we call generate, all generated coins go into
         # the same address, so we call twice to get two addresses w/50 each
-        node.generate(1, self.signblockprivkey)
-        node.generate(1, self.signblockprivkey)
+        node.generate(1, self.signblockprivkey_wif)
+        node.generate(1, self.signblockprivkey_wif)
         assert_equal(node.getbalance(), 100)
         assert_equal(len(node.listunspent()), 2)
 
@@ -82,7 +82,7 @@ class WalletLabelsTest(BitcoinTestFramework):
         assert_equal(set([a[0] for a in address_groups[0]]), linked_addresses)
         assert_equal([a[1] for a in address_groups[0]], [0, 0])
 
-        node.generate(1, self.signblockprivkey)
+        node.generate(1, self.signblockprivkey_wif)
 
         # we want to reset so that the "" label has what's expected.
         # otherwise we're off by exactly the fee amount as that's mined
@@ -116,7 +116,7 @@ class WalletLabelsTest(BitcoinTestFramework):
             label.verify(node)
 
         # Check the amounts received.
-        node.generate(1, self.signblockprivkey)
+        node.generate(1, self.signblockprivkey_wif)
         for label in labels:
             assert_equal(
                 node.getreceivedbyaddress(label.addresses[0]), amount_to_send)
@@ -129,7 +129,7 @@ class WalletLabelsTest(BitcoinTestFramework):
                 node.sendfrom(label.name, to_label.receive_address, amount_to_send)
             else:
                 node.sendtoaddress(to_label.addresses[0], amount_to_send)
-        node.generate(1, self.signblockprivkey)
+        node.generate(1, self.signblockprivkey_wif)
         for label in labels:
             if accounts_api:
                 address = node.getaccountaddress(label.name)
@@ -141,7 +141,7 @@ class WalletLabelsTest(BitcoinTestFramework):
             if accounts_api:
                 node.move(label.name, "", node.getbalance(label.name))
             label.verify(node)
-        node.generate(3, self.signblockprivkey)
+        node.generate(3, self.signblockprivkey_wif)
         expected_account_balances = {"": 300}
         for label in labels:
             expected_account_balances[label.name] = 0
@@ -171,7 +171,7 @@ class WalletLabelsTest(BitcoinTestFramework):
             label.verify(node)
             if accounts_api:
                 node.sendfrom("", multisig_address, 50)
-        node.generate(1, self.signblockprivkey)
+        node.generate(1, self.signblockprivkey_wif)
         if accounts_api:
             for label in labels:
                 assert_equal(node.getbalance(label.name), 50)

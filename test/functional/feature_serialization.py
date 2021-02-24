@@ -92,7 +92,7 @@ class SerializationTest(BitcoinTestFramework):
         self.nodeaddress = self.nodes[0].getnewaddress()
         self.pubkey = self.nodes[0].getaddressinfo(self.nodeaddress)["pubkey"]
         self.log.info("Mining %d blocks", CHAIN_HEIGHT)
-        self.coinbase_txids = [self.nodes[0].getblock(b)['tx'][0] for b in self.nodes[0].generate(CHAIN_HEIGHT, self.signblockprivkey) ]
+        self.coinbase_txids = [self.nodes[0].getblock(b)['tx'][0] for b in self.nodes[0].generate(CHAIN_HEIGHT, self.signblockprivkey_wif) ]
 
         ##  P2PKH transaction
         ########################

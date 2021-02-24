@@ -26,7 +26,7 @@ class WalletGroupTest(BitcoinTestFramework):
 
     def run_test (self):
         # Mine some coins
-        self.nodes[0].generate(5, self.signblockprivkey)
+        self.nodes[0].generate(5, self.signblockprivkey_wif)
 
         # Get some addresses from the two nodes
         addr1 = [self.nodes[1].getnewaddress() for i in range(3)]
@@ -37,7 +37,7 @@ class WalletGroupTest(BitcoinTestFramework):
         [self.nodes[0].sendtoaddress(addr, 1.0) for addr in addrs]
         [self.nodes[0].sendtoaddress(addr, 0.5) for addr in addrs]
 
-        self.nodes[0].generate(1, self.signblockprivkey)
+        self.nodes[0].generate(1, self.signblockprivkey_wif)
         self.sync_all()
 
         # For each node, send 0.2 coins back to 0;
@@ -69,7 +69,7 @@ class WalletGroupTest(BitcoinTestFramework):
         # Empty out node2's wallet
         self.nodes[2].sendtoaddress(address=self.nodes[0].getnewaddress(), amount=self.nodes[2].getbalance(), subtractfeefromamount=True)
         self.sync_all()
-        self.nodes[0].generate(1, self.signblockprivkey)
+        self.nodes[0].generate(1, self.signblockprivkey_wif)
 
         # Fill node2's wallet with 10000 outputs corresponding to the same
         # scriptPubKey
@@ -81,7 +81,7 @@ class WalletGroupTest(BitcoinTestFramework):
             funded_tx = self.nodes[0].fundrawtransaction(ToHex(tx))
             signed_tx = self.nodes[0].signrawtransactionwithwallet(funded_tx['hex'], [], "ALL", self.options.scheme)
             self.nodes[0].sendrawtransaction(signed_tx['hex'])
-            self.nodes[0].generate(1, self.signblockprivkey)
+            self.nodes[0].generate(1, self.signblockprivkey_wif)
 
         self.sync_all()
 

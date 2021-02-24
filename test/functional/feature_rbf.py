@@ -27,7 +27,7 @@ def make_utxo(node, amount, confirmed=True, scriptPubKey=CScript([1])):
     """
     fee = 1*COIN
     while node.getbalance() < tapyrus_round((amount + fee)/COIN):
-        node.generate(100, self.signblockprivkey)
+        node.generate(100, self.signblockprivkey_wif)
 
     new_addr = node.getnewaddress()
     txid = node.sendtoaddress(new_addr, tapyrus_round((amount+fee)/COIN))
@@ -53,7 +53,7 @@ def make_utxo(node, amount, confirmed=True, scriptPubKey=CScript([1])):
     if confirmed:
         mempool_size = len(node.getrawmempool())
         while mempool_size > 0:
-            node.generate(1, self.signblockprivkey)
+            node.generate(1, self.signblockprivkey_wif)
             new_size = len(node.getrawmempool())
             # Error out if we have something stuck in the mempool, as this
             # would likely be a bug.
@@ -76,7 +76,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
 
     def run_test(self):
         # Leave IBD
-        self.nodes[0].generate(1, self.signblockprivkey)
+        self.nodes[0].generate(1, self.signblockprivkey_wif)
 
         make_utxo(self.nodes[0], 1*COIN)
 

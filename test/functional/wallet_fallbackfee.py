@@ -13,7 +13,7 @@ class WalletRBFTest(BitcoinTestFramework):
         self.setup_clean_chain = True
 
     def run_test(self):
-        self.nodes[0].generate(1, self.signblockprivkey)
+        self.nodes[0].generate(1, self.signblockprivkey_wif)
 
         # sending a transaction without fee estimations must be possible by default on regtest
         self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 1)
