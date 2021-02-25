@@ -2491,10 +2491,6 @@ bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAm
     coin_control.ListSelected(vPresetInputs);
     for (const COutPoint& outpoint : vPresetInputs)
     {
-        if (!IsColoredOutPointWith(outpoint, colorId)) {
-            continue;
-        }
-
         // For now, don't use BnB if preset inputs are selected. TODO: Enable this later
         bnb_used = false;
         coin_selection_params.use_bnb = false;
