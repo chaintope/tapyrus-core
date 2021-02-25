@@ -5,11 +5,10 @@
 #include <wallet/wallet.h>
 #include <wallet/coincontrol.h>
 #include <vector>
-#include <set>
 #include <boost/test/unit_test.hpp>
 #include <validation.h>
 #include <wallet/test/wallet_test_fixture.h>
-#include <test/test_tapyrus.h>
+#include <wallet/test/test_tapyrus_wallet.h>
 #include <consensus/validation.h>
 #include <core_io.h>
 
