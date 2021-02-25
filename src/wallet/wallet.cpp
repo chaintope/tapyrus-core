@@ -2480,10 +2480,6 @@ bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAm
     coin_control.ListSelected(vPresetInputs);
     for (const COutPoint& outpoint : vPresetInputs)
     {
-        if (!IsColoredOutPointWith(outpoint, colorId)) {
-            continue;
-        }
-
         // For now, don't use BnB if preset inputs are selected. TODO: Enable this later
         bnb_used = false;
         coin_selection_params.use_bnb = false;
@@ -2491,6 +2487,10 @@ bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAm
         std::map<uint256, CWalletTx>::const_iterator it = mapWallet.find(outpoint.hashMalFix);
         if (it != mapWallet.end())
         {
+            if (!IsColoredOutPointWith(outpoint, colorId)) {
+                continue;
+            }
+
             const CWalletTx* pcoin = &it->second;
             // Clearly invalid input, fail
             if (pcoin->tx->vout.size() <= outpoint.n)
