@@ -27,13 +27,13 @@ static void SetupTapyrusGenesisArgs()
 
     // Signed Blocks options
     gArgs.AddArg("-signblockpubkey=<pubkey>", "Sets the aggregate public key for Signed Blocks", false, OptionsCategory::GENESIS);
+    gArgs.AddArg("-signblockprivatekey=<privatekey-WIF>", "Optional. Sets the aggregate private key in WIF to be used to sign genesis block. If it is not set, this command creates no proof in genesis block.", false, OptionsCategory::GENESIS);
 
     // Genesis Block options
     gArgs.AddArg("-time=<time>", "Specify genesis block time as UNIX Time. If this don't set, use current time.", false, OptionsCategory::GENESIS);
     gArgs.AddArg("-address=<pay_to_address>", "Optional. Specify coinbase script pay to address.", false, OptionsCategory::GENESIS);
 
     // Hidden
-    gArgs.AddArg("-signblockprivatekey=<privatekey-WIF>", "Optional. Sets the aggregate private key in WIF to be used to sign genesis block. If it is not set, this command create no proof in genesis block.", false, OptionsCategory::HIDDEN);
     gArgs.AddArg("-h", "", false, OptionsCategory::HIDDEN);
     gArgs.AddArg("-help", "", false, OptionsCategory::HIDDEN);
 }
