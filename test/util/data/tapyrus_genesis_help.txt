@@ -1,4 +1,4 @@
-Tapyrus Core tapyrus-genesis utility version v0.2.0.0
+Tapyrus Core tapyrus-genesis utility version v0.4.1.0-faf7c5399
 
 Usage:   tapyrus-genesis [options]
          Create hex-encoded tapyrus genesis block
@@ -14,6 +14,11 @@ Genesis block:
 
   -address=<pay_to_address>
        Optional. Specify coinbase script pay to address.
+
+  -signblockprivatekey=<privatekey-WIF>
+       Optional. Sets the aggregate private key in WIF to be used to sign
+       genesis block. If it is not set, this command creates no proof in
+       genesis block.
 
   -signblockpubkey=<pubkey>
        Sets the aggregate public key for Signed Blocks
