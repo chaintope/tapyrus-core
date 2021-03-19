@@ -50,6 +50,17 @@ apps:
     daemon: simple
     restart-condition: always
 
+layout:
+  # Make sure /var/tmp is writable by mounting as tmpfs.
+  #
+  # Berkeley DB sometimes creates temporary backing files under /var/tmp.
+  # BDB should respect TMPDIR environment variable to determine where to create
+  # such temporary files, however curiously, it sometimes ignores the
+  # environment variable. Unwritable temporary directory will prevent wallet
+  # database files from reloading.
+  /var/tmp:
+    type: tmpfs
+
 parts:
   tapyrus-core:
     plugin: autotools
