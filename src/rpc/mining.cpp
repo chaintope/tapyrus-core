@@ -115,7 +115,7 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
     coinbaseScript->reserveScript = GetScriptForDestination(destination);
 
     CKey cPrivKey = DecodeSecret(request.params[2].get_str());
-    if(!cPrivKey.size())
+    if(!cPrivKey.IsValid())
         throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "No private key given or invalid private key.");
 
     return generateBlocks(coinbaseScript, nGenerate, false, cPrivKey);

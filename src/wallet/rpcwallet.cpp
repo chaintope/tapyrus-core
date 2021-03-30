@@ -3954,7 +3954,7 @@ UniValue generate(const JSONRPCRequest& request)
     int num_generate = request.params[0].get_int();
 
     CKey cPrivKey = DecodeSecret(request.params[1].get_str());
-    if(!cPrivKey.size())
+    if(!cPrivKey.IsValid())
         throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "No private key given or invalid private key.");
 
     std::shared_ptr<CReserveScript> coinbase_script;
