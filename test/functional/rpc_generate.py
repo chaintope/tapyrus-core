@@ -90,12 +90,12 @@ class GenerateWithPrivateKeysTest(BitcoinTestFramework):
         assert_raises_rpc_error(-33, "Given private key doesn't correspond to the Aggregate Key.", self.nodes[0].generate, 10, self.signblockprivkey_wif)
 
         self.signblockprivkey_wif = self.signblockprivkey_wif + "00"
-        assert_raises_rpc_error(-12, "No private key given or invalid private key", self.nodes[0].generate, 10, self.signblockprivkey_wif)
+        assert_raises_rpc_error(-34, "No private key given or invalid private key", self.nodes[0].generate, 10, self.signblockprivkey_wif)
 
         self.signblockprivkey_wif = self.signblockprivkey_wif[:-2] + "00"
-        assert_raises_rpc_error(-12, "No private key given or invalid private key", self.nodes[0].generate, 10, self.signblockprivkey_wif)
+        assert_raises_rpc_error(-34, "No private key given or invalid private key", self.nodes[0].generate, 10, self.signblockprivkey_wif)
 
-        assert_raises_rpc_error(-12, "No private key given or invalid private key",self.nodes[0].generate)
+        assert_raises_rpc_error(-34, "No private key given or invalid private key",self.nodes[0].generate)
 
 if __name__ == '__main__':
     GenerateWithPrivateKeysTest().main()
