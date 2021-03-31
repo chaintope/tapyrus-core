@@ -117,7 +117,7 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
 
     CKey cPrivKey = DecodeSecret(request.params[2].get_str());
     if(!cPrivKey.IsValid())
-        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "No private key given or invalid private key.");
+        throw JSONRPCError(RPC_WALLET_INVALID_PRIVATE_KEY, "No private key given or invalid private key.");
 
     if(cPrivKey.GetPubKey() != FederationParams().GetLatestAggregatePubkey())
         throw JSONRPCError(RPC_WALLET_INVALID_AGGREGATE_KEY, "Given private key doesn't correspond to the Aggregate Key.");
