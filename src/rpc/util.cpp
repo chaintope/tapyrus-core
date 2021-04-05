@@ -25,8 +25,7 @@ CPubKey HexToPubKey(const std::string& hex_in)
 // Retrieves a public key for an address from the given CKeyStore
 CPubKey AddrToPubKey(CKeyStore* const keystore, const std::string& addr_in)
 {
-    ColorIdentifier colorId;
-    CTxDestination dest = DecodeDestination(addr_in, colorId);
+    CTxDestination dest = DecodeDestination(addr_in);
     if (!IsValidDestination(dest)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address: " + addr_in);
     }
@@ -82,6 +81,7 @@ public:
         UniValue obj(UniValue::VOBJ);
         obj.pushKV("isscript", false);
         obj.pushKV("iswitness", false);
+        obj.pushKV("istoken", false);
         return obj;
     }
 
@@ -90,6 +90,27 @@ public:
         UniValue obj(UniValue::VOBJ);
         obj.pushKV("isscript", true);
         obj.pushKV("iswitness", false);
+        obj.pushKV("istoken", false);
+        return obj;
+    }
+
+    UniValue operator()(const CColorKeyID& colorKeyID) const
+    {
+        UniValue obj(UniValue::VOBJ);
+        obj.pushKV("isscript", false);
+        obj.pushKV("iswitness", false);
+        obj.pushKV("istoken", true);
+        obj.pushKV("color", colorKeyID.color.toString().c_str());
+        return obj;
+    }
+
+    UniValue operator()(const CColorScriptID& colorScriptID) const
+    {
+        UniValue obj(UniValue::VOBJ);
+        obj.pushKV("isscript", true);
+        obj.pushKV("iswitness", false);
+        obj.pushKV("istoken", true);
+        obj.pushKV("color", colorScriptID.color.toString().c_str());
         return obj;
     }
 #ifdef DEBUG

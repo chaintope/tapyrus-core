@@ -60,8 +60,7 @@ static UniValue validateaddress(const JSONRPCRequest& request)
             + HelpExampleRpc("validateaddress", "\"1PSSGeFHDnKNxiEyFrD1wcEaHr9hrQDDWc\"")
         );
 
-    ColorIdentifier colorId;
-    CTxDestination dest = DecodeDestination(request.params[0].get_str(), colorId);
+    CTxDestination dest = DecodeDestination(request.params[0].get_str());
     bool isValid = IsValidDestination(dest);
 
     UniValue ret(UniValue::VOBJ);
@@ -75,11 +74,10 @@ static UniValue validateaddress(const JSONRPCRequest& request)
         }
 #endif
         if (ret["address"].isNull()) {
-            ColorIdentifier colorId;
-            std::string currentAddress = EncodeDestination(dest, colorId);
+            std::string currentAddress = EncodeDestination(dest);
             ret.pushKV("address", currentAddress);
 
-            CScript scriptPubKey = GetScriptForDestination(dest, colorId);
+            CScript scriptPubKey = GetScriptForDestination(dest);
             ret.pushKV("scriptPubKey", HexStr(scriptPubKey.begin(), scriptPubKey.end()));
 
             UniValue detail = DescribeAddress(dest);
@@ -150,9 +148,8 @@ static UniValue createmultisig(const JSONRPCRequest& request)
     CBasicKeyStore keystore;
     const CTxDestination dest = AddAndGetDestinationForScript(keystore, inner, output_type);
 
-    ColorIdentifier colorId;
     UniValue result(UniValue::VOBJ);
-    result.pushKV("address", EncodeDestination(dest, colorId));
+    result.pushKV("address", EncodeDestination(dest));
     result.pushKV("redeemScript", HexStr(inner.begin(), inner.end()));
 
     return result;
@@ -187,8 +184,7 @@ static UniValue verifymessage(const JSONRPCRequest& request)
     std::string strSign     = request.params[1].get_str();
     std::string strMessage  = request.params[2].get_str();
 
-    ColorIdentifier colorId;
-    CTxDestination destination = DecodeDestination(strAddress, colorId);
+    CTxDestination destination = DecodeDestination(strAddress);
     if (!IsValidDestination(destination)) {
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid address");
     }

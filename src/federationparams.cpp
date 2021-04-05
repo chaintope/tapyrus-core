@@ -49,7 +49,6 @@ CBlock createGenesisBlock(const CPubKey& aggregatePubkey, const CKey& privateKey
 {
     //Genesis coinbase transaction paying block reward to the first public key in signedBlocksCondition
     CMutableTransaction txNew;
-    ColorIdentifier colorId;
     txNew.nFeatures = 1;
     txNew.vin.resize(1);
     txNew.vout.resize(1);
@@ -57,7 +56,7 @@ CBlock createGenesisBlock(const CPubKey& aggregatePubkey, const CKey& privateKey
     txNew.vin[0].scriptSig = CScript();
     txNew.vout[0].nValue = 50 * COIN;
     //if payToaddress is invalid, pay to agg pubkey
-    if(payToaddress.empty() || !IsValidDestination(DecodeDestination(payToaddress, colorId)))
+    if(payToaddress.empty() || !IsValidDestination(DecodeDestination(payToaddress)))
         txNew.vout[0].scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(aggregatePubkey.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
     else
         txNew.vout[0].scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(payToaddress) << OP_EQUALVERIFY << OP_CHECKSIG;

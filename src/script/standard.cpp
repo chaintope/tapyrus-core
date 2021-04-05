@@ -239,12 +239,6 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::v
 
 bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet)
 {
-    ColorIdentifier colorId;
-    return ExtractDestination(scriptPubKey, addressRet, colorId);
-}
-
-bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet, ColorIdentifier& colorId)
-{
     std::vector<valtype> vSolutions;
     txnouttype whichType;
     if (!Solver(scriptPubKey, whichType, vSolutions))
@@ -259,22 +253,30 @@ bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet,
         addressRet = pubKey.GetID();
         return true;
     }
-    else if (whichType == TX_PUBKEYHASH
-          || whichType == TX_COLOR_PUBKEYHASH)
+    else if (whichType == TX_PUBKEYHASH)
     {
         addressRet = CKeyID(uint160(vSolutions[0]));
-        if (whichType == TX_COLOR_PUBKEYHASH) {
-          colorId = ColorIdentifier(vSolutions[1]);
-        }
         return true;
     }
-    else if (whichType == TX_SCRIPTHASH
-          || whichType == TX_COLOR_SCRIPTHASH)
+    else if (whichType == TX_COLOR_PUBKEYHASH) {
+        ColorIdentifier color(vSolutions[1]);
+        if (color.type == TokenTypes::NONE)
+            return false;
+
+        addressRet = CColorKeyID(uint160(vSolutions[0]), color);
+        return true;
+    }
+    else if (whichType == TX_SCRIPTHASH)
     {
         addressRet = CScriptID(uint160(vSolutions[0]));
-        if (whichType == TX_COLOR_SCRIPTHASH) {
-          colorId = ColorIdentifier(vSolutions[1]);
-        }
+        return true;
+    }
+    else if (whichType == TX_COLOR_SCRIPTHASH) {
+        ColorIdentifier color(vSolutions[1]);
+        if (color.type == TokenTypes::NONE)
+            return false;
+
+        addressRet = CColorScriptID(uint160(vSolutions[0]), color);
         return true;
     }
 #ifdef DEBUG
@@ -347,15 +349,9 @@ class CScriptVisitor : public boost::static_visitor<bool>
 {
 private:
     CScript *script;
-    ColorIdentifier colorId;
 public:
     explicit CScriptVisitor(CScript *scriptin) {
         script = scriptin;
-    }
-
-    explicit CScriptVisitor(CScript *scriptin, const ColorIdentifier &colorIdin) {
-        script = scriptin;
-        colorId = colorIdin;
     }
 
     bool operator()(const CNoDestination &dest) const {
@@ -365,20 +361,27 @@ public:
 
     bool operator()(const CKeyID &keyID) const {
         script->clear();
-        if (colorId.type != TokenTypes::NONE) {
-            *script << colorId.toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG;
-        } else {
-            *script << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG;
-        }
+        *script << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG;
         return true;
     }
 
     bool operator()(const CScriptID &scriptID) const {
         script->clear();
-            *script << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
+        *script << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
         return true;
     }
     
+    bool operator()(const CColorKeyID &colorkeyID) const {
+        script->clear();
+        *script << colorkeyID.color.toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(colorkeyID) << OP_EQUALVERIFY << OP_CHECKSIG;
+        return true;
+    }
+
+    bool operator()(const CColorScriptID &colorscriptID) const {
+        script->clear();
+        *script << colorscriptID.color.toVector() << OP_COLOR << OP_HASH160 << ToByteVector(colorscriptID) << OP_EQUAL;
+        return true;
+    }
 #ifdef DEBUG
     bool operator()(const WitnessV0KeyHash& id) const
     {
@@ -409,14 +412,6 @@ CScript GetScriptForDestination(const CTxDestination& dest)
     CScript script;
 
     boost::apply_visitor(CScriptVisitor(&script), dest);
-    return script;
-}
-
-CScript GetScriptForDestination(const CTxDestination& dest, const ColorIdentifier& colorId)
-{
-    CScript script;
-
-    boost::apply_visitor(CScriptVisitor(&script, colorId), dest);
     return script;
 }
 

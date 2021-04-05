@@ -72,27 +72,20 @@ BOOST_AUTO_TEST_CASE(key_test1)
     BOOST_CHECK(!key2C.VerifyPubKey(pubkey2));
     BOOST_CHECK(key2C.VerifyPubKey(pubkey2C));
 
-    ColorIdentifier colorId;
-    BOOST_CHECK(DecodeDestination(addr1, colorId) == CTxDestination(pubkey1.GetID()));
-    BOOST_CHECK(colorId.type == TokenTypes::NONE);
-    BOOST_CHECK(colorId.toVector().size() == 1);
-    BOOST_CHECK(DecodeDestination(addr2, colorId)  == CTxDestination(pubkey2.GetID()));
-    BOOST_CHECK(colorId.type == TokenTypes::NONE);
-    BOOST_CHECK(colorId.toVector().size() == 1);
-    BOOST_CHECK(DecodeDestination(addr1C, colorId) == CTxDestination(pubkey1C.GetID()));
-    BOOST_CHECK(colorId.type == TokenTypes::NONE);
-    BOOST_CHECK(colorId.toVector().size() == 1);
-    BOOST_CHECK(DecodeDestination(addr2C, colorId) == CTxDestination(pubkey2C.GetID()));
-    BOOST_CHECK(colorId.type == TokenTypes::NONE);
-    BOOST_CHECK(colorId.toVector().size() == 1);
+    
+    BOOST_CHECK(DecodeDestination(addr1) == CTxDestination(pubkey1.GetID()));
+    BOOST_CHECK(DecodeDestination(addr2)  == CTxDestination(pubkey2.GetID()));
+    BOOST_CHECK(DecodeDestination(addr1C) == CTxDestination(pubkey1C.GetID()));
+    BOOST_CHECK(DecodeDestination(addr2C) == CTxDestination(pubkey2C.GetID()));
     //valid color address
-    BOOST_CHECK(DecodeDestination(caddr1, colorId) == CTxDestination(pubkey1.GetID()));
-    BOOST_CHECK(colorId.type == TokenTypes::REISSUABLE);
-    BOOST_CHECK(colorId.toVector().size() == 33);
+    CTxDestination dest = DecodeDestination(caddr1);
+    BOOST_CHECK(dest != CTxDestination(pubkey1.GetID()));
+    BOOST_CHECK(dest.which() ==  3);
+    BOOST_CHECK(boost::get<CColorKeyID>(dest).color.type == TokenTypes::REISSUABLE);
+    BOOST_CHECK(boost::get<CColorKeyID>(dest).color.toVector().size() == 33);
     //invalid color address
-    BOOST_CHECK(DecodeDestination(caddr2, colorId) == CTxDestination(pubkey1.GetID()));
-    BOOST_CHECK(colorId.type == TokenTypes::NONE);
-    BOOST_CHECK(colorId.toVector().size() == 1);
+    dest = DecodeDestination(caddr2);
+    BOOST_CHECK(dest.which() ==  0);
 
     for (int n=0; n<16; n++)
     {
