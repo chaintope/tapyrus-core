@@ -128,13 +128,14 @@ bool TestWalletSetup::IssueNonReissunableColoredCoin(const CAmount amount, Color
     ColorIdentifier colorId(out, TokenTypes::NON_REISSUABLE);
     cid = colorId;
 
+    CColorKeyID colorkeyid({ pubkey.GetID() }, colorId);
     CMutableTransaction issueTx;
     issueTx.nFeatures = 1;
     issueTx.vin.resize(1);
     issueTx.vout.resize(1);
     issueTx.vin[0].prevout = out;
     issueTx.vout[0].nValue = amount;
-    issueTx.vout[0].scriptPubKey = GetScriptForDestination({ pubkey.GetID() }, colorId);
+    issueTx.vout[0].scriptPubKey = GetScriptForDestination(colorkeyid);
     {
         LOCK(wallet->cs_wallet);
         if(!wallet->SignTransaction(issueTx)) {

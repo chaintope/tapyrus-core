@@ -8,7 +8,7 @@
 #include <streams.h>
 #include <version.h>
 #include <amount.h>
-
+#include <pubkey.h>
 // Size of color identifier data in bytes
 static const unsigned int COLOR_IDENTIFIER_SIZE = 33;
 
@@ -113,6 +113,12 @@ struct ColorIdentifier
         return std::vector<unsigned char>(stream.begin(), stream.end());
     }
 
+    inline std::string toString() const {
+        CDataStream stream(SER_NETWORK, INIT_PROTO_VERSION);
+        this->Serialize(stream);
+        return stream.str();
+    }
+
 };
 
 ColorIdentifier GetColorIdFromScript(const CScript& script);
@@ -129,6 +135,16 @@ struct ColorIdentifierCompare
 };
 
 typedef std::map<ColorIdentifier, CAmount, ColorIdentifierCompare> TxColoredCoinBalancesMap;
+
+
+/** A reference to a CKey with color: the Hash160 of its serialized public key */
+class CColorKeyID : public uint160
+{
+public:
+    ColorIdentifier color;
+    explicit CColorKeyID(const ColorIdentifier& colorin) : uint160(), color(colorin) {}
+    explicit CColorKeyID(const uint160& in, const ColorIdentifier& colorin) : uint160(in), color(colorin) {}
+};
 
 
 #endif //TAPYRUS_COLORIDENTIFIER_H
