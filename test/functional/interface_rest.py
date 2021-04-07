@@ -77,14 +77,14 @@ class RESTTest (BitcoinTestFramework):
         # Random address so node1's balance doesn't increase
         not_related_address = "2MxqoHEdNQTyYeX1mHcbrrpzgojbosTpCvJ"
 
-        self.nodes[0].generate(1, self.signblockprivkey)
+        self.nodes[0].generate(1, self.signblockprivkey_wif)
         self.sync_all()
 
         assert_equal(self.nodes[0].getbalance(), 50)
 
         txid = self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 0.1)
         self.sync_all()
-        self.nodes[1].generatetoaddress(1, not_related_address, self.signblockprivkey)
+        self.nodes[1].generatetoaddress(1, not_related_address, self.signblockprivkey_wif)
         self.sync_all()
         bb_hash = self.nodes[0].getbestblockhash()
 
@@ -167,7 +167,7 @@ class RESTTest (BitcoinTestFramework):
             assert_equal(json_obj[tx]['depends'], txs[i - 1:i])
 
         # Now mine the transactions
-        newblockhash = self.nodes[1].generate(1, self.signblockprivkey)
+        newblockhash = self.nodes[1].generate(1, self.signblockprivkey_wif)
         self.sync_all()
 
         # Check if the 3 tx show up in the new block
@@ -207,7 +207,7 @@ class RESTTest (BitcoinTestFramework):
         json_obj = self.test_rest_request("/getutxos/checkmempool/{}-{}".format(*spent))
         assert_equal(len(json_obj['utxos']), 0)
 
-        self.nodes[0].generate(1, self.signblockprivkey)
+        self.nodes[0].generate(1, self.signblockprivkey_wif)
         self.sync_all()
 
         json_obj = self.test_rest_request("/getutxos/{}-{}".format(*spending))
@@ -270,7 +270,7 @@ class RESTTest (BitcoinTestFramework):
             assert_equal(json_obj[0][key], rpc_block_json[key])
 
         # See if we can get 5 headers in one response
-        self.nodes[1].generate(5, self.signblockprivkey)
+        self.nodes[1].generate(5, self.signblockprivkey_wif)
         self.sync_all()
         json_obj = self.test_rest_request("/headers/5/{}".format(bb_hash))
         assert_equal(len(json_obj), 5)  # now we should have 5 header objects

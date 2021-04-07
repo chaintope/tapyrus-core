@@ -214,7 +214,7 @@ class SendHeadersTest(BitcoinTestFramework):
 
         # Clear out block announcements from each p2p listener
         [x.clear_block_announcements() for x in self.nodes[0].p2ps]
-        self.nodes[0].generate(count, self.signblockprivkey)
+        self.nodes[0].generate(count, self.signblockprivkey_wif)
         return int(self.nodes[0].getbestblockhash(), 16)
 
     def mine_reorg(self, length):
@@ -224,7 +224,7 @@ class SendHeadersTest(BitcoinTestFramework):
         to-be-reorged-out blocks are mined, so that we don't break later tests.
         return the list of block hashes newly mined."""
 
-        self.nodes[0].generate(length, self.signblockprivkey)  # make sure all invalidated blocks are node0's
+        self.nodes[0].generate(length, self.signblockprivkey_wif)  # make sure all invalidated blocks are node0's
         sync_blocks(self.nodes, wait=0.1)
         for x in self.nodes[0].p2ps:
             if(x.nServices != 0):
@@ -234,7 +234,7 @@ class SendHeadersTest(BitcoinTestFramework):
         tip_height = self.nodes[1].getblockcount()
         hash_to_invalidate = self.nodes[1].getblockhash(tip_height - (length - 1))
         self.nodes[1].invalidateblock(hash_to_invalidate)
-        all_hashes = self.nodes[1].generate(length + 1, self.signblockprivkey)  # Must be longer than the orig chain
+        all_hashes = self.nodes[1].generate(length + 1, self.signblockprivkey_wif)  # Must be longer than the orig chain
         sync_blocks(self.nodes, wait=0.1)
         return [int(x, 16) for x in all_hashes]
 
@@ -255,7 +255,7 @@ class SendHeadersTest(BitcoinTestFramework):
         self.test_nonnull_locators(test_node, inv_node)
 
     def test_null_locators(self, test_node, inv_node):
-        tip = self.nodes[0].getblockheader(self.nodes[0].generate(1, self.signblockprivkey)[0])
+        tip = self.nodes[0].getblockheader(self.nodes[0].generate(1, self.signblockprivkey_wif)[0])
         tip_hash = int(tip["hash"], 16)
 
         inv_node.check_last_inv_announcement(inv=[tip_hash])

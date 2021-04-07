@@ -113,7 +113,7 @@ UniValue importprivkey(const JSONRPCRequest& request)
             "\nAdds a private key (as returned by dumpprivkey) to your wallet. Requires a new wallet backup.\n"
             "Hint: use importmulti to import more than one private key.\n"
             "\nArguments:\n"
-            "1. \"privkey\"          (string, required) The private key (see dumpprivkey)\n"
+            "1. \"privkey\"          (string, required) The private key that is formatted in WIF (see dumpprivkey)\n"
             "2. \"label\"            (string, optional, default=\"\") An optional label\n"
             "3. rescan               (boolean, optional, default=true) Rescan the wallet for transactions\n"
             "\nNote: This call can take over an hour to complete if rescan is true, during that time, other rpc calls\n"
@@ -649,7 +649,7 @@ UniValue dumpprivkey(const JSONRPCRequest& request)
             "\nArguments:\n"
             "1. \"address\"   (string, required) The bitcoin address for the private key\n"
             "\nResult:\n"
-            "\"key\"                (string) The private key\n"
+            "\"key\"                (string) The private key that is formatted in WIF\n"
             "\nExamples:\n"
             + HelpExampleCli("dumpprivkey", "\"myaddress\"")
             + HelpExampleCli("importprivkey", "\"mykey\"")

@@ -117,7 +117,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         block = self.build_block_on_tip(self.nodes[0])
         self.test_node.send_and_ping(msg_block(block))
         assert(int(self.nodes[0].getbestblockhash(), 16) == block.sha256)
-        self.nodes[0].generate(10, self.signblockprivkey)
+        self.nodes[0].generate(10, self.signblockprivkey_wif)
         sync_blocks(self.nodes[0:1], wait=150)
 
         total_value = block.vtx[0].vout[0].nValue
@@ -163,7 +163,7 @@ class CompactBlocksTest(BitcoinTestFramework):
 
         def check_announcement_of_new_block(node, peer, predicate):
             peer.clear_block_announcement()
-            block_hash = int(node.generate(1, self.signblockprivkey)[0], 16)
+            block_hash = int(node.generate(1, self.signblockprivkey_wif)[0], 16)
             peer.wait_for_block_announcement(block_hash, timeout=30)
             assert(peer.block_announced)
 
@@ -240,7 +240,7 @@ class CompactBlocksTest(BitcoinTestFramework):
 
     # This test actually causes bitcoind to (reasonably!) disconnect us, so do this last.
     def test_invalid_cmpctblock_message(self):
-        self.nodes[0].generate(101, self.signblockprivkey)
+        self.nodes[0].generate(101, self.signblockprivkey_wif)
         block = self.build_block_on_tip(self.nodes[0])
 
         cmpct_block = P2PHeaderAndShortIDs()
@@ -256,7 +256,7 @@ class CompactBlocksTest(BitcoinTestFramework):
     # bitcoind's choice of nonce.
     def test_compactblock_construction(self, node, test_node, version, use_witness_address):
         # Generate a bunch of transactions.
-        node.generate(101, self.signblockprivkey)
+        node.generate(101, self.signblockprivkey_wif)
         num_transactions = 25
         address = node.getnewaddress()
         if use_witness_address:
@@ -265,7 +265,7 @@ class CompactBlocksTest(BitcoinTestFramework):
             address = node.addwitnessaddress(address)
             value_to_send = node.getbalance()
             node.sendtoaddress(address, tapyrus_round(value_to_send-Decimal(0.1)))
-            node.generate(1, self.signblockprivkey)
+            node.generate(1, self.signblockprivkey_wif)
 
         segwit_tx_generated = False
         for i in range(num_transactions):
@@ -287,7 +287,7 @@ class CompactBlocksTest(BitcoinTestFramework):
 
         # Now mine a block, and look at the resulting compact block.
         test_node.clear_block_announcement()
-        block_hash = int(node.generate(1, self.signblockprivkey)[0], 16)
+        block_hash = int(node.generate(1, self.signblockprivkey_wif)[0], 16)
 
         # Store the raw block in our internal format.
         block = FromHex(CBlock(), node.getblock("%02x" % block_hash, False))
@@ -626,7 +626,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         new_blocks = []
         for i in range(MAX_CMPCTBLOCK_DEPTH + 1):
             test_node.clear_block_announcement()
-            new_blocks.append(node.generate(1, self.signblockprivkey)[0])
+            new_blocks.append(node.generate(1, self.signblockprivkey_wif)[0])
             wait_until(test_node.received_block_announcement, timeout=30, lock=mininode_lock)
 
         test_node.clear_block_announcement()
@@ -634,7 +634,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         wait_until(lambda: "cmpctblock" in test_node.last_message, timeout=30, lock=mininode_lock)
 
         test_node.clear_block_announcement()
-        node.generate(1, self.signblockprivkey)
+        node.generate(1, self.signblockprivkey_wif)
         wait_until(test_node.received_block_announcement, timeout=30, lock=mininode_lock)
         test_node.clear_block_announcement()
         with mininode_lock:

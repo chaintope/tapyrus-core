@@ -51,12 +51,12 @@ class BumpFeeTest(BitcoinTestFramework):
 
         # fund rbf node with 10 coins of 0.001 TPC (100,000 tapyrus)
         self.log.info("Mining blocks...")
-        peer_node.generate(11, self.signblockprivkey)
+        peer_node.generate(11, self.signblockprivkey_wif)
         self.sync_all()
         for i in range(25):
             peer_node.sendtoaddress(rbf_node_address, 0.001)
         self.sync_all()
-        peer_node.generate(1, self.signblockprivkey)
+        peer_node.generate(1, self.signblockprivkey_wif)
         self.sync_all()
         assert_equal(rbf_node.getbalance(), Decimal("0.025"))
 
@@ -71,7 +71,7 @@ class BumpFeeTest(BitcoinTestFramework):
         test_settxfee(rbf_node, dest_address)
         test_rebumping(rbf_node, dest_address)
         test_rebumping_not_replaceable(rbf_node, dest_address)
-        test_unconfirmed_not_spendable(rbf_node, rbf_node_address, self.signblockprivkey)
+        test_unconfirmed_not_spendable(rbf_node, rbf_node_address, self.signblockprivkey, self.signblockprivkey_wif)
         test_bumpfee_metadata(rbf_node, dest_address)
         test_locked_wallet_fails(rbf_node, dest_address)
         self.log.info("Success")
@@ -189,7 +189,7 @@ def test_rebumping_not_replaceable(rbf_node, dest_address):
                           {"totalFee": 20000})
 
 
-def test_unconfirmed_not_spendable(rbf_node, rbf_node_address, signblockprivkey):
+def test_unconfirmed_not_spendable(rbf_node, rbf_node_address, signblockprivkey, signblockprivkey_wif):
     # check that unconfirmed outputs from bumped transactions are not spendable
     rbfid = spend_one_input(rbf_node, rbf_node_address)
     rbftx = rbf_node.gettransaction(rbfid)["hex"]
@@ -222,7 +222,7 @@ def test_unconfirmed_not_spendable(rbf_node, rbf_node_address, signblockprivkey)
     assert_equal([t for t in rbf_node.listunspent(minconf=0, include_unsafe=False) if t["txid"] == rbfid], [])
 
     # check that the main output from the rbf tx is spendable after confirmed
-    rbf_node.generate(1, signblockprivkey)
+    rbf_node.generate(1, signblockprivkey_wif)
     assert_equal(
         sum(1 for t in rbf_node.listunspent(minconf=0, include_unsafe=False)
             if t["txid"] == rbfid and t["address"] == rbf_node_address and t["spendable"]), 1)

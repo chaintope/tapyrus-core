@@ -81,7 +81,7 @@ class TxnMallTest(BitcoinTestFramework):
 
         # Have node0 mine a block, if requested:
         if (self.options.mine_block):
-            self.nodes[0].generate(1, self.signblockprivkey)
+            self.nodes[0].generate(1, self.signblockprivkey_wif)
             sync_blocks(self.nodes[0:2])
 
         tx1 = self.nodes[0].gettransaction(txid1)
@@ -110,7 +110,7 @@ class TxnMallTest(BitcoinTestFramework):
         assert_equal(txid1, txid1_clone)
 
         # ... mine a block...
-        new_block = self.nodes[2].generate(1, self.signblockprivkey)[0]
+        new_block = self.nodes[2].generate(1, self.signblockprivkey_wif)[0]
 
         #get its block reward
         blockData = self.nodes[2].getblock(new_block)
@@ -120,7 +120,7 @@ class TxnMallTest(BitcoinTestFramework):
         connect_nodes(self.nodes[1], 2)
         self.nodes[2].sendrawtransaction(node0_tx2["hex"])
         self.nodes[2].sendrawtransaction(tx2["hex"])
-        new_block = self.nodes[2].generate(1, self.signblockprivkey)[0]  # Mine another block to make sure we sync
+        new_block = self.nodes[2].generate(1, self.signblockprivkey_wif)[0]  # Mine another block to make sure we sync
         sync_blocks(self.nodes)
 
         blockData = self.nodes[2].getblock(new_block)
