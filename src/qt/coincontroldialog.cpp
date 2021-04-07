@@ -659,7 +659,7 @@ void CoinControlDialog::updateView()
             QString sAddress = "";
             if(ExtractDestination(out.txout.scriptPubKey, outputAddress))
             {
-                sAddress = QString::fromStdString(EncodeDestination(outputAddress, colorId));
+                sAddress = QString::fromStdString(EncodeDestination(outputAddress));
 
                 // if listMode or change => show tpc address. In tree mode, address is not shown again for direct wallet address outputs
                 if (!treeMode || (!(sAddress == sWalletAddress)))
