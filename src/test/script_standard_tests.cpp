@@ -336,20 +336,19 @@ BOOST_AUTO_TEST_CASE(script_standard_GetScriptFor_)
     result = GetScriptForDestination(CScriptID(redeemScript));
     BOOST_CHECK(result == expected);
 
-    bool isColored = true;
-
     //ColoredKeyId
     ColorIdentifier colorId = ColorIdentifier(CScript() << ToByteVector(pubkeys[0]) << OP_CHECKSIG);
     expected.clear();
     expected << colorId.toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(pubkeys[0].GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
-    result = GetScriptForDestination(pubkeys[0].GetID(), colorId);
+    CColorKeyID keyid(pubkeys[0].GetID(), colorId);
+    result = GetScriptForDestination(keyid);
     BOOST_CHECK(result == expected);
 
     //ColoredScriptID
-    CScript coloredRedeemScript(result);
     expected.clear();
-    expected << OP_HASH160 << ToByteVector(CScriptID(coloredRedeemScript)) << OP_EQUAL;
-    result = GetScriptForDestination(CScriptID(coloredRedeemScript), colorId);
+    expected << colorId.toVector() << OP_COLOR << OP_HASH160 << ToByteVector(CScriptID(redeemScript)) << OP_EQUAL;
+    CColorScriptID scriptid(CScriptID(redeemScript), colorId);
+    result = GetScriptForDestination(scriptid);
     BOOST_CHECK(result == expected);
 
     // CNoDestination
@@ -520,7 +519,8 @@ BOOST_AUTO_TEST_CASE(script_standard_IsMine)
     {
         ColorIdentifier colorId = ColorIdentifier(CScript() << ToByteVector(pubkeys[0]) << OP_CHECKSIG);
         CBasicKeyStore keystore;
-        scriptPubKey = GetScriptForDestination(pubkeys[0].GetID(), colorId);
+        CColorKeyID keyid(pubkeys[0].GetID(), colorId);
+        scriptPubKey = GetScriptForDestination(keyid);
 
         // Keystore does not have key
         result = IsMine(keystore, scriptPubKey);
@@ -536,7 +536,8 @@ BOOST_AUTO_TEST_CASE(script_standard_IsMine)
     {
         ColorIdentifier colorId = ColorIdentifier();
         CBasicKeyStore keystore;
-        scriptPubKey = GetScriptForDestination(pubkeys[0].GetID(), colorId);
+        CColorKeyID keyid(pubkeys[0].GetID(), colorId);
+        scriptPubKey = GetScriptForDestination(keyid);
 
         // Keystore does not have key
         result = IsMine(keystore, scriptPubKey);
@@ -545,17 +546,17 @@ BOOST_AUTO_TEST_CASE(script_standard_IsMine)
         // Keystore has key
         keystore.AddKey(keys[0]);
         result = IsMine(keystore, scriptPubKey);
-        //isMine() not checking for colorId so the result still ISMINE_SPENDABLE
-        BOOST_CHECK_EQUAL(result, ISMINE_SPENDABLE);
+        BOOST_CHECK_EQUAL(result, ISMINE_NO);
     }
 
     // CP2SH
     {
         ColorIdentifier colorId = ColorIdentifier(CScript() << ToByteVector(pubkeys[0]) << OP_CHECKSIG);
         CBasicKeyStore keystore;
-
-        CScript redeemScript = GetScriptForDestination(pubkeys[0].GetID(), colorId);
-        scriptPubKey = GetScriptForDestination(CScriptID(redeemScript), colorId);
+        CColorKeyID colorpubkeyid(pubkeys[0].GetID(), colorId);
+        CScript redeemScript = GetScriptForDestination(colorpubkeyid);
+        CColorScriptID colorscriptid(CScriptID(redeemScript), colorId);
+        scriptPubKey = GetScriptForDestination(colorscriptid);
 
         // Keystore does not have redeemScript or key
         result = IsMine(keystore, scriptPubKey);
@@ -576,9 +577,10 @@ BOOST_AUTO_TEST_CASE(script_standard_IsMine)
     {
         ColorIdentifier colorId = ColorIdentifier();
         CBasicKeyStore keystore;
-
-        CScript redeemScript = GetScriptForDestination(pubkeys[0].GetID(), colorId);
-        scriptPubKey = GetScriptForDestination(CScriptID(redeemScript), colorId);
+        CColorKeyID colorpubkeyid(pubkeys[0].GetID(), colorId);
+        CScript redeemScript = GetScriptForDestination(colorpubkeyid);
+        CColorScriptID colorscriptid(CScriptID(redeemScript), colorId);
+        scriptPubKey = GetScriptForDestination(colorscriptid);
 
         // Keystore does not have redeemScript or key
         result = IsMine(keystore, scriptPubKey);
@@ -592,8 +594,7 @@ BOOST_AUTO_TEST_CASE(script_standard_IsMine)
         // Keystore has key but redeemScript not belongs to me
         keystore.AddKey(keys[0]);
         result = IsMine(keystore, scriptPubKey);
-        //isMine() not checking for colorId so the result still ISMINE_SPENDABLE
-        BOOST_CHECK_EQUAL(result, ISMINE_SPENDABLE);
+        BOOST_CHECK_EQUAL(result, ISMINE_NO);
     }
 
 #ifdef DEBUG

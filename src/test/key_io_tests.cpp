@@ -46,7 +46,6 @@ BOOST_AUTO_TEST_CASE(key_io_valid_parse)
             SelectParams(TAPYRUS_OP_MODE::DEV);
         bool try_case_flip = find_value(metadata, "tryCaseFlip").isNull() ? false : find_value(metadata, "tryCaseFlip").get_bool();
 
-        ColorIdentifier colorId;
         if (isPrivkey) {
             bool isCompressed = find_value(metadata, "isCompressed").get_bool();
             // Must be valid private key
@@ -56,17 +55,17 @@ BOOST_AUTO_TEST_CASE(key_io_valid_parse)
             BOOST_CHECK_MESSAGE(privkey.size() == exp_payload.size() && std::equal(privkey.begin(), privkey.end(), exp_payload.begin()), "key mismatch:" + strTest);
 
             // Private key must be invalid public key
-            destination = DecodeDestination(exp_base58string, colorId);
+            destination = DecodeDestination(exp_base58string);
             BOOST_CHECK_MESSAGE(!IsValidDestination(destination), "IsValid privkey as pubkey:" + strTest);
         } else {
             // Must be valid public key
-            destination = DecodeDestination(exp_base58string, colorId);
-            CScript script = GetScriptForDestination(destination, colorId);
+            destination = DecodeDestination(exp_base58string);
+            CScript script = GetScriptForDestination(destination);
             BOOST_CHECK_MESSAGE(IsValidDestination(destination), "!IsValid:" + strTest);
             BOOST_CHECK_EQUAL(HexStr(script), HexStr(exp_payload));
 
             ColorIdentifier colorid(GetColorIdFromScript(script));
-            BOOST_CHECK_EQUAL(HexStr(colorid.toVector()), HexStr(colorId.toVector()));
+            BOOST_CHECK_EQUAL(HexStr(colorid.toVector()), HexStr(colorid.toVector()));
 
             // Try flipped case version
             for (char& c : exp_base58string) {
@@ -76,10 +75,10 @@ BOOST_AUTO_TEST_CASE(key_io_valid_parse)
                     c = (c - 'A') + 'a';
                 }
             }
-            destination = DecodeDestination(exp_base58string, colorId);
+            destination = DecodeDestination(exp_base58string);
             BOOST_CHECK_MESSAGE(IsValidDestination(destination) == try_case_flip, "!IsValid case flipped:" + strTest);
             if (IsValidDestination(destination)) {
-                script = GetScriptForDestination(destination, colorId);
+                script = GetScriptForDestination(destination);
                 BOOST_CHECK_EQUAL(HexStr(script), HexStr(exp_payload));
             }
 
@@ -120,10 +119,9 @@ BOOST_AUTO_TEST_CASE(key_io_valid_gen)
             BOOST_CHECK_MESSAGE(EncodeSecret(key) == exp_base58string, "result mismatch: " + strTest);
         } else {
             CTxDestination dest;
-            ColorIdentifier colorId;
             CScript exp_script(exp_payload.begin(), exp_payload.end());
-            ExtractDestination(exp_script, dest, colorId);
-            std::string address = EncodeDestination(dest, colorId);
+            ExtractDestination(exp_script, dest);
+            std::string address = EncodeDestination(dest);
 
             BOOST_CHECK_EQUAL(address, exp_base58string);
         }
@@ -153,8 +151,7 @@ BOOST_AUTO_TEST_CASE(key_io_invalid)
         // must be invalid as public and as private key
         for (auto chain : { TAPYRUS_OP_MODE::PROD, TAPYRUS_OP_MODE::DEV}) {
             SelectParams(chain);
-            ColorIdentifier colorId;
-            destination = DecodeDestination(exp_base58string, colorId);
+            destination = DecodeDestination(exp_base58string);
             BOOST_CHECK_MESSAGE(!IsValidDestination(destination), "IsValid pubkey in mainnet:" + strTest);
             privkey = DecodeSecret(exp_base58string);
             BOOST_CHECK_MESSAGE(!privkey.IsValid(), "IsValid privkey in mainnet:" + strTest);

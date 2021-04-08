@@ -27,7 +27,13 @@ public:
     explicit CScriptID(const CScript& in);
     CScriptID(const uint160& in) : uint160(in) {}
 };
-
+class CColorScriptID : public uint160
+{
+public:
+    ColorIdentifier color;
+    explicit CColorScriptID(const ColorIdentifier& colorin) : uint160(), color(colorin) {}
+    explicit CColorScriptID(const uint160& in, const ColorIdentifier& colorin) : uint160(in), color(colorin) {}
+};
 /**
  * Default setting for nMaxDatacarrierBytes. 80 bytes of data, +1 for OP_RETURN,
  * +2 for the pushdata opcodes.
@@ -111,6 +117,8 @@ struct WitnessUnknown
  *  * CNoDestination: no destination set
  *  * CKeyID: TX_PUBKEYHASH destination (P2PKH)
  *  * CScriptID: TX_SCRIPTHASH destination (P2SH)
+ *  * CColorKeyID: TX_COLOR_SCRIPTHASH destination (CP2PKH)
+ *  * CColorScriptID: TX_COLOR_SCRIPTHASH destination (CP2SH)
  *  * WitnessV0ScriptHash: TX_WITNESS_V0_SCRIPTHASH destination (P2WSH)
  *  * WitnessV0KeyHash: TX_WITNESS_V0_KEYHASH destination (P2WPKH)
  *  * WitnessUnknown: TX_WITNESS_UNKNOWN destination (P2W???)
@@ -122,6 +130,8 @@ typedef boost::variant<
     CNoDestination,
     CKeyID,
     CScriptID,
+    CColorKeyID,
+    CColorScriptID,
     WitnessV0ScriptHash,
     WitnessV0KeyHash,
     WitnessUnknown> CTxDestination;
@@ -129,7 +139,9 @@ typedef boost::variant<
 typedef boost::variant<
     CNoDestination,
     CKeyID,
-    CScriptID> CTxDestination;
+    CScriptID,
+    CColorKeyID,
+    CColorScriptID> CTxDestination;
 #endif
 
 /** Check whether a CTxDestination is a CNoDestination. */
@@ -158,7 +170,6 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::v
  * P2PKH, P2SH, P2WPKH, and P2WSH scripts.
  */
 bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet);
-bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet, ColorIdentifier& colorId);
 
 /**
  * Parse a standard scriptPubKey with one or more destination addresses. For
@@ -180,7 +191,6 @@ bool ExtractDestinations(const CScript& scriptPubKey, txnouttype& typeRet, std::
  * script for CNoDestination.
  */
 CScript GetScriptForDestination(const CTxDestination& dest);
-CScript GetScriptForDestination(const CTxDestination& dest, const ColorIdentifier& colorId);
 
 /** Generate a P2PK script for the given pubkey. */
 CScript GetScriptForRawPubKey(const CPubKey& pubkey);

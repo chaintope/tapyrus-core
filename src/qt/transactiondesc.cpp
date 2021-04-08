@@ -92,8 +92,7 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
         if (nNet > 0)
         {
             // Credit
-            ColorIdentifier colorId;
-            CTxDestination address = DecodeDestination(rec->address, colorId);
+            CTxDestination address = DecodeDestination(rec->address);
             if (IsValidDestination(address)) {
                 std::string name;
                 isminetype ismine;
@@ -121,8 +120,7 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
         // Online transaction
         std::string strAddress = wtx.value_map["to"];
         strHTML += "<b>" + tr("To") + ":</b> ";
-        ColorIdentifier colorId;
-        CTxDestination dest = DecodeDestination(strAddress, colorId);
+        CTxDestination dest = DecodeDestination(strAddress);
         std::string name;
         if (wallet.getAddress(
                 dest, &name, /* is_mine= */ nullptr, /* purpose= */ nullptr) && !name.empty())
@@ -189,7 +187,6 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
                 {
                     // Offline transaction
                     CTxDestination address;
-                    ColorIdentifier colorId;
                     if (ExtractDestination(txout.scriptPubKey, address))
                     {
                         strHTML += "<b>" + tr("To") + ":</b> ";
@@ -197,7 +194,7 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
                         if (wallet.getAddress(
                                 address, &name, /* is_mine= */ nullptr, /* purpose= */ nullptr) && !name.empty())
                             strHTML += GUIUtil::HtmlEscape(name) + " ";
-                        strHTML += GUIUtil::HtmlEscape(EncodeDestination(address, colorId));
+                        strHTML += GUIUtil::HtmlEscape(EncodeDestination(address));
                         if(toSelf == ISMINE_SPENDABLE)
                             strHTML += " (own address)";
                         else if(toSelf & ISMINE_WATCH_ONLY)
@@ -299,13 +296,12 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
                     strHTML += "<li>";
                     const CTxOut &vout = prev.out;
                     CTxDestination address;
-                    ColorIdentifier colorId;
                     if (ExtractDestination(vout.scriptPubKey, address))
                     {
                         std::string name;
                         if (wallet.getAddress(address, &name, /* is_mine= */ nullptr, /* purpose= */ nullptr) && !name.empty())
                             strHTML += GUIUtil::HtmlEscape(name) + " ";
-                        strHTML += QString::fromStdString(EncodeDestination(address, colorId));
+                        strHTML += QString::fromStdString(EncodeDestination(address));
                     }
                     strHTML = strHTML + " " + tr("Amount") + "=" + BitcoinUnits::formatHtmlWithUnit(unit, vout.nValue);
                     strHTML = strHTML + " IsMine=" + (wallet.txoutIsMine(vout) & ISMINE_SPENDABLE ? tr("true") : tr("false")) + "</li>";

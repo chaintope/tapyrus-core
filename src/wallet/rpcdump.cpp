@@ -71,19 +71,18 @@ static bool GetWalletAddressesForKey(CWallet * const pwallet, const CKeyID &keyi
     bool fLabelFound = false;
     CKey key;
     pwallet->GetKey(keyid, key);
-    ColorIdentifier colorId;
     for (const auto& dest : GetAllDestinationsForKey(key.GetPubKey())) {
         if (pwallet->mapAddressBook.count(dest)) {
             if (!strAddr.empty()) {
                 strAddr += ",";
             }
-            strAddr += EncodeDestination(dest, colorId);
+            strAddr += EncodeDestination(dest);
             strLabel = EncodeDumpString(pwallet->mapAddressBook[dest].name);
             fLabelFound = true;
         }
     }
     if (!fLabelFound) {
-        strAddr = EncodeDestination(GetDestinationForKey(key.GetPubKey(), pwallet->m_default_address_type), colorId);
+        strAddr = EncodeDestination(GetDestinationForKey(key.GetPubKey(), pwallet->m_default_address_type));
     }
     return fLabelFound;
 }
@@ -310,8 +309,7 @@ UniValue importaddress(const JSONRPCRequest& request)
     {
         LOCK2(cs_main, pwallet->cs_wallet);
 
-        ColorIdentifier colorId;
-        CTxDestination dest = DecodeDestination(request.params[0].get_str(), colorId);
+        CTxDestination dest = DecodeDestination(request.params[0].get_str());
         if (IsValidDestination(dest)) {
             if (fP2SH) {
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Cannot use the p2sh flag with an address - use a script instead");
@@ -573,9 +571,8 @@ UniValue importwallet(const JSONRPCRequest& request)
                 CPubKey pubkey = key.GetPubKey();
                 assert(key.VerifyPubKey(pubkey));
                 CKeyID keyid = pubkey.GetID();
-                ColorIdentifier colorId;
                 if (pwallet->HaveKey(keyid)) {
-                    pwallet->WalletLogPrintf("Skipping import of %s (key already present)\n", EncodeDestination(keyid, colorId));
+                    pwallet->WalletLogPrintf("Skipping import of %s (key already present)\n", EncodeDestination(keyid));
                     continue;
                 }
                 int64_t nTime = DecodeDumpTime(vstr[1]);
@@ -593,7 +590,7 @@ UniValue importwallet(const JSONRPCRequest& request)
                         fLabel = true;
                     }
                 }
-                pwallet->WalletLogPrintf("Importing %s...\n", EncodeDestination(keyid, colorId));
+                pwallet->WalletLogPrintf("Importing %s...\n", EncodeDestination(keyid));
                 if (!pwallet->AddKeyPubKey(key, pubkey)) {
                     fGood = false;
                     continue;
@@ -664,8 +661,7 @@ UniValue dumpprivkey(const JSONRPCRequest& request)
     EnsureWalletIsUnlocked(pwallet);
 
     std::string strAddress = request.params[0].get_str();
-    ColorIdentifier colorId;
-    CTxDestination dest = DecodeDestination(strAddress, colorId);
+    CTxDestination dest = DecodeDestination(strAddress);
     if (!IsValidDestination(dest)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Tapyrus address");
     }
@@ -790,8 +786,7 @@ UniValue dumpwallet(const JSONRPCRequest& request)
     for (const CScriptID &scriptid : scripts) {
         CScript script;
         std::string create_time = "0";
-        ColorIdentifier colorId;
-        std::string address = EncodeDestination(scriptid, colorId);
+        std::string address = EncodeDestination(scriptid);
         // get birth times for scripts with metadata
         auto it = pwallet->m_script_metadata.find(scriptid);
         if (it != pwallet->m_script_metadata.end()) {
@@ -843,12 +838,11 @@ static UniValue ProcessImport(CWallet * const pwallet, const UniValue& data, con
         CTxDestination dest;
 
         if (!isScript) {
-            ColorIdentifier colorId;
-            dest = DecodeDestination(output, colorId);
+            dest = DecodeDestination(output);
             if (!IsValidDestination(dest)) {
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
             }
-            script = GetScriptForDestination(dest, colorId);
+            script = GetScriptForDestination(dest);
         } else {
             if (!IsHex(output)) {
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid scriptPubKey");
@@ -980,19 +974,18 @@ static UniValue ProcessImport(CWallet * const pwallet, const UniValue& data, con
                     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Consistency check failed");
                 }
 
-                ColorIdentifier colorId;
                 // Consistency check.
                 if (isScript) {
                     CTxDestination destination;
 
-                    if (ExtractDestination(script, destination, colorId)) {
+                    if (ExtractDestination(script, destination)) {
                         if (!(destination == pubkey_dest)) {
                             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Consistency check failed");
                         }
                     }
                 }
 
-                CScript pubKeyScript = GetScriptForDestination(pubkey_dest, colorId);
+                CScript pubKeyScript = GetScriptForDestination(pubkey_dest);
 
                 if (::IsMine(*pwallet, pubKeyScript) == ISMINE_SPENDABLE) {
                     throw JSONRPCError(RPC_WALLET_ERROR, "The wallet already contains the private key for this address or script");

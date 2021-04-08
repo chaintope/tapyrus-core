@@ -212,9 +212,8 @@ QString formatTapyrusURI(const SendCoinsRecipient &info)
 
 bool isDust(interfaces::Node& node, const QString& address, const CAmount& amount)
 {
-    ColorIdentifier colorId;
-    CTxDestination dest = DecodeDestination(address.toStdString(), colorId);
-    CScript script = GetScriptForDestination(dest, colorId);
+    CTxDestination dest = DecodeDestination(address.toStdString());
+    CScript script = GetScriptForDestination(dest);
     CTxOut txOut(amount, script);
     return IsDust(txOut, node.getDustRelayFee());
 }

@@ -174,8 +174,7 @@ public:
     bool IsRange() const override { return false; }
     std::string ToString() const override
     {
-        ColorIdentifier colorId;
-        return "addr(" + EncodeDestination(m_destination, colorId) + ")";
+        return "addr(" + EncodeDestination(m_destination) + ")";
     }
     bool ToPrivateString(const SigningProvider& arg, std::string& out) const override { out = ToString(); return true; }
     bool Expand(int pos, const SigningProvider& arg, std::vector<CScript>& output_scripts, FlatSigningProvider& out) const override
@@ -554,8 +553,7 @@ std::unique_ptr<Descriptor> ParseScript(Span<const char>& sp, ParseScriptContext
     }
 #endif
     if (ctx == ParseScriptContext::TOP && Func("addr", expr)) {
-        ColorIdentifier colorId;
-        CTxDestination dest = DecodeDestination(std::string(expr.begin(), expr.end()), colorId);
+        CTxDestination dest = DecodeDestination(std::string(expr.begin(), expr.end()));
         if (!IsValidDestination(dest)) return nullptr;
         return MakeUnique<AddressDescriptor>(std::move(dest));
     }

@@ -158,9 +158,8 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
             setAddress.insert(rcp.address);
             ++nAddresses;
 
-            ColorIdentifier colorId;
-            CTxDestination dest = DecodeDestination(rcp.address.toStdString(), colorId);
-            CScript scriptPubKey = GetScriptForDestination(dest, colorId);
+            CTxDestination dest = DecodeDestination(rcp.address.toStdString());
+            CScript scriptPubKey = GetScriptForDestination(dest);
             CRecipient recipient = {scriptPubKey, rcp.amount, rcp.fSubtractFeeFromAmount};
             vecSend.push_back(recipient);
 
@@ -240,8 +239,7 @@ WalletModel::SendCoinsReturn WalletModel::sendCoins(WalletModelTransaction &tran
         // Don't touch the address book when we have a payment request
         {
             std::string strAddress = rcp.address.toStdString();
-            ColorIdentifier colorId;
-            CTxDestination dest = DecodeDestination(strAddress, colorId);
+            CTxDestination dest = DecodeDestination(strAddress);
             std::string strLabel = rcp.label.toStdString();
             {
                 // Check if we have a new address or an updated label
@@ -352,8 +350,7 @@ static void NotifyAddressBookChanged(WalletModel *walletmodel,
         const CTxDestination &address, const std::string &label, bool isMine,
         const std::string &purpose, ChangeType status)
 {
-    ColorIdentifier colorId;
-    QString strAddress = QString::fromStdString(EncodeDestination(address, colorId));
+    QString strAddress = QString::fromStdString(EncodeDestination(address));
     QString strLabel = QString::fromStdString(label);
     QString strPurpose = QString::fromStdString(purpose);
 
@@ -453,8 +450,7 @@ void WalletModel::loadReceiveRequests(std::vector<std::string>& vReceiveRequests
 
 bool WalletModel::saveReceiveRequest(const std::string &sAddress, const int64_t nId, const std::string &sRequest)
 {
-    ColorIdentifier colorId;
-    CTxDestination dest = DecodeDestination(sAddress, colorId);
+    CTxDestination dest = DecodeDestination(sAddress);
 
     std::stringstream ss;
     ss << nId;

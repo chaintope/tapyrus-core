@@ -44,7 +44,8 @@ BOOST_FIXTURE_TEST_CASE(test_create_transaction, TestWalletSetup)
     CDataStream stream(ParseHex("c1f335bd3240ddfd87a2c2fc5a53210606460f19143f5e475729c46e06fcc9858f"), SER_NETWORK, INIT_PROTO_VERSION);
     stream >> cid;
     vecSend.clear();
-    vecSend.push_back({GetScriptForDestination({ pubkey.GetID() }, cid), 100 * CENT, true});
+    CColorKeyID keyid({ pubkey.GetID() }, cid);
+    vecSend.push_back({GetScriptForDestination(keyid), 100 * CENT, true});
     BOOST_CHECK(!wallet->CreateTransaction(vecSend, tx, reservekey, nFeeRequired, mapChangePosRet, strError, coinControl));
     BOOST_CHECK_EQUAL(strError, "Recipient that receives colored coin must not be a target of subtract fee");
 
@@ -81,7 +82,8 @@ BOOST_FIXTURE_TEST_CASE(test_creating_hybrid_transaction, TestWalletSetup)
     mapChangePosRet[cid] = 2;
     std::vector<CRecipient> vecSend;
     CScript scriptpubkey = GetScriptForDestination({ pubkey.GetID() });
-    CScript coloredScriptpubkey = GetScriptForDestination({ pubkey.GetID() }, cid);
+    CColorKeyID colorkeyid({ pubkey.GetID() }, cid);
+    CScript coloredScriptpubkey = GetScriptForDestination(colorkeyid);
     vecSend.push_back({coloredScriptpubkey, 100 * CENT, false});
     vecSend.push_back({scriptpubkey, 100 * CENT, false});
     CTransactionRef tx;
@@ -140,7 +142,8 @@ BOOST_FIXTURE_TEST_CASE(test_creating_colored_transaction, TestWalletSetup)
     mapChangePosRet[ColorIdentifier()] = 1;
     mapChangePosRet[cid] = 2;
     std::vector<CRecipient> vecSend;
-    CScript scriptpubkey = GetScriptForDestination({ pubkey.GetID() }, cid);
+    CColorKeyID colorkeyid({ pubkey.GetID() }, cid);
+    CScript scriptpubkey = GetScriptForDestination(colorkeyid);
     CRecipient recipient = {scriptpubkey, 100 * CENT, false};
     vecSend.push_back(recipient);
     CTransactionRef tx;

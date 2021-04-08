@@ -420,8 +420,7 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
             CTxOut out(0, CScript() << OP_RETURN << data);
             rawTx.vout.push_back(out);
         } else {
-            ColorIdentifier colorId;
-            CTxDestination destination = DecodeDestination(name_, colorId);
+            CTxDestination destination = DecodeDestination(name_);
             if (!IsValidDestination(destination)) {
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid Tapyrus address: ") + name_);
             }
@@ -430,7 +429,7 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
                 throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid parameter, duplicated address: ") + name_);
             }
 
-            CScript scriptPubKey = GetScriptForDestination(destination, colorId);
+            CScript scriptPubKey = GetScriptForDestination(destination);
             CAmount nAmount = AmountFromValue(outputs[name_]);
 
             CTxOut out(nAmount, scriptPubKey);
@@ -625,8 +624,7 @@ static UniValue decodescript(const JSONRPCRequest& request)
     if (type.isStr() && type.get_str() != "scripthash") {
         // P2SH cannot be wrapped in a P2SH. If this script is already a P2SH,
         // don't return the address for a P2SH of the P2SH.
-        ColorIdentifier colorId;
-        r.pushKV("p2sh", EncodeDestination(CScriptID(script), colorId));
+        r.pushKV("p2sh", EncodeDestination(CScriptID(script)));
         // P2SH and witness programs cannot be wrapped in P2WSH, if this script
         // is a witness program, don't return addresses for a segwit programs.
         if (type.get_str() == "pubkey" || type.get_str() == "pubkeyhash" || type.get_str() == "multisig" || type.get_str() == "nonstandard") {
