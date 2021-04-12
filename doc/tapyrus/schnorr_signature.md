@@ -13,7 +13,7 @@ To sign m for public key pubkey(sk):
 1. Let d' = int(sk).
 1. Fail if d' = 0 or d' >= n, where n is the order of the elliptic curve
 1. Let P = d'G.
-1. Let k = nonce_rfc6979(m, sk).
+1. Let k' = nonce_rfc6979(m, sk).
 1. Let R = k'G.
 1. Let k = k' if jacobi(y(R)) = 1, otherwise let k = n - k'.
 1. Let e = int(sha256(bytes(x(R)) || bytes(P) || m)) mod n.
