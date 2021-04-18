@@ -594,7 +594,7 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
 
     bool fSubtractFeeFromAmount = false;
     if (!request.params[4].isNull()) {
-        fSubtractFeeFromAmount = request.params[5].get_bool();
+        fSubtractFeeFromAmount = request.params[4].get_bool();
     }
 
     CCoinControl coin_control;
