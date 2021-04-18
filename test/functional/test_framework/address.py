@@ -13,15 +13,11 @@ chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 
 def byte_to_base58(b, c, version):
     result = ''
-<<<<<<< HEAD
     if(c is not None):
         str = bytes_to_hex_str(c)
     else:
         str = ''
     str += bytes_to_hex_str(b)
-=======
-    str = bytes_to_hex_str(c) + bytes_to_hex_str(b)
->>>>>>> Fixed colored address formatting on python and added token description to RPC outputs
     str = bytes_to_hex_str(chr(version).encode('latin-1')) + str
     checksum = bytes_to_hex_str(hash256(hex_str_to_bytes(str)))
     str += checksum[:8]
