@@ -125,6 +125,7 @@ class WalletColoredCoinTest(BitcoinTestFramework):
 
         #  PART 2: using cp2sh address
         utxo = self.nodes[0].listunspent()[0]
+        pubkeyhash = hash160(hex_str_to_bytes(self.nodes[1].getaddressinfo(self.nodes[1].getnewaddress())["pubkey"]))
         scripthash = hash160( CScript([OP_DUP, OP_HASH160, pubkeyhash, OP_EQUALVERIFY, OP_CHECKSIG ]) )
         colorid2 = b'\xc1' + sha256(hex_str_to_bytes(utxo['scriptPubKey']))
         cp2sh_address = byte_to_base58(scripthash, colorid2, 197)
@@ -143,13 +144,13 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         assert_equal(len(walletinfo['balance']), 3)
         assert_equal(walletinfo['balance']['TPC'], 28)
         assert_equal(walletinfo['balance'][bytes_to_hex_str(colorid1)], 100)
-        assert_equal(walletinfo['balance'][bytes_to_hex_str(colorid2)], 100)
+        assert_equal(walletinfo['balance'][bytes_to_hex_str(colorid2)], 0)
 
         walletinfo = self.nodes[1].getwalletinfo()
         assert_equal(len(walletinfo['balance']), 3)
         assert_equal(walletinfo['balance']['TPC'], 20)
         assert_equal(walletinfo['balance'][bytes_to_hex_str(colorid1)], 0)
-        assert_equal(walletinfo['balance'][bytes_to_hex_str(colorid2)], 0)
+        assert_equal(walletinfo['balance'][bytes_to_hex_str(colorid2)], 100)
 
         walletinfo = self.nodes[2].getwalletinfo()
         assert_equal(len(walletinfo['balance']), 1)
