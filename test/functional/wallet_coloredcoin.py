@@ -165,18 +165,13 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         txid = self.nodes[0].sendtoaddress(cp2pkh_address, 10)
         self.sync_all([self.nodes[0:3]])
 
-        l1 = self.nodes[0].listtransactions()
-        l2 = self.nodes[1].listtransactions()
-
-        print(l1, l2)
-
-        assert_array_result(l1,
+        assert_array_result(self.nodes[0].listtransactions(),
                             {"txid": txid},
                             {"category": "send",
                             "token" : bytes_to_hex_str(colorid1),
                             "amount": Decimal("-10.0"),
                             "confirmations": 0})
-        assert_array_result(l2,
+        assert_array_result(self.nodes[1].listtransactions(),
                             {"txid": txid},
                             {"category": "receive",
                             "token" : bytes_to_hex_str(colorid1),
