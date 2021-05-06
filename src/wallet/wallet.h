@@ -443,8 +443,8 @@ public:
     }
 
     //! filter decides which addresses will count towards the debit
-    CAmount GetDebit(const isminefilter& filter, ColorIdentifier& colorId) const;
-    CAmount GetCredit(const isminefilter& filter, ColorIdentifier& colorId) const;
+    CAmount GetDebit(const isminefilter& filter, const ColorIdentifier& colorId) const;
+    CAmount GetCredit(const isminefilter& filter, const ColorIdentifier& colorId) const;
     TxColoredCoinBalancesMap GetAvailableCredit(bool fUseCache=true, const isminefilter& filter=ISMINE_SPENDABLE) const;
     CAmount GetChange(ColorIdentifier& colorId) const;
 
@@ -1047,17 +1047,18 @@ public:
      * Returns amount of debit if the input matches the
      * filter, otherwise returns 0
      */
-    TxColoredCoinBalancesMap GetDebit(const CTxIn& txin, const isminefilter& filter) const;
-    isminetype IsMine(const CTxOut& txout) const;
+    CAmount GetDebit(const CTxIn& txin, const isminefilter& filter, ColorIdentifier& colorId) const;
     CAmount GetCredit(const CTxOut& txout, const isminefilter& filter) const;
-    bool IsChange(const CTxOut& txout) const;
     CAmount GetChange(const CTxOut& txout) const;
+    bool IsChange(const CTxOut& txout) const;
+    isminetype IsMine(const CTxOut& txout) const;
     bool IsMine(const CTransaction& tx) const;
     /** should probably be renamed to IsRelevantToMe */
     bool IsFromMe(const CTransaction& tx) const;
-    TxColoredCoinBalancesMap GetDebit(const CTransaction& tx, const isminefilter& filter) const;
     /** Returns whether all of the inputs match the filter */
     bool IsAllFromMe(const CTransaction& tx, const isminefilter& filter) const;
+
+    TxColoredCoinBalancesMap GetDebit(const CTransaction& tx, const isminefilter& filter) const;
     TxColoredCoinBalancesMap GetCredit(const CTransaction& tx, const isminefilter& filter) const;
     TxColoredCoinBalancesMap GetChange(const CTransaction& tx) const;
     void ChainStateFlushed(const CBlockLocator& loc) override;

@@ -153,8 +153,9 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         assert_equal(walletinfo['balance'][bytes_to_hex_str(colorid2)], 100)
 
         walletinfo = self.nodes[2].getwalletinfo()
-        assert_equal(len(walletinfo['balance']), 1)
+        assert_equal(len(walletinfo['balance']), 2)
         assert_equal(walletinfo['balance']['TPC'], 152)
+        assert_equal(walletinfo['balance'][bytes_to_hex_str(colorid2)], 0)
 
         # send colored coins from node0 to node1 using sendtoaddress:
         new_address = self.nodes[1].getnewaddress()
@@ -164,50 +165,57 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         txid = self.nodes[0].sendtoaddress(cp2pkh_address, 10)
         self.sync_all([self.nodes[0:3]])
 
-        #assert_array_result(self.nodes[0].listtransactions(),
-        #                    {"txid": txid},
-        #                    {"category": "send",
-        #                    "token" : bytes_to_hex_str(colorid1),
-        #                    "amount": Decimal("-10.0"),
-        #                    "confirmations": 0})
-        #assert_array_result(self.nodes[1].listtransactions(),
-        #                    {"txid": txid},
-        #                    {"category": "receive",
-        #                    "token" : bytes_to_hex_str(colorid1),
-        #                    "amount": Decimal("10.0"),
-        #                    "confirmations": 0})
-        # mine a block, confirmations should change:
+        l1 = self.nodes[0].listtransactions()
+        l2 = self.nodes[1].listtransactions()
+
+        print(l1, l2)
+
+        assert_array_result(l1,
+                            {"txid": txid},
+                            {"category": "send",
+                            "token" : bytes_to_hex_str(colorid1),
+                            "amount": Decimal("-10.0"),
+                            "confirmations": 0})
+        assert_array_result(l2,
+                            {"txid": txid},
+                            {"category": "receive",
+                            "token" : bytes_to_hex_str(colorid1),
+                            "amount": Decimal("10.0"),
+                            "confirmations": 0})
+        #mine a block, confirmations should change:
         self.nodes[2].generate(1, self.signblockprivkey_wif)
         self.sync_all([self.nodes[0:3]])
-        #assert_array_result(self.nodes[0].listtransactions(),
-        #                    {"txid": txid},
-        #                    {"category": "send",
-        #                    "token" : bytes_to_hex_str(colorid1),
-        #                    "amount": Decimal("-10.0"),
-        #                    "confirmations": 1})
-        #assert_array_result(self.nodes[1].listtransactions(),
-        #                    {"txid": txid},
-        #                    {"category": "receive",
-        #                    "token" : bytes_to_hex_str(colorid1),
-        #                    "amount": Decimal("10.0"),
-        #                    "confirmations": 1})
+        assert_array_result(self.nodes[0].listtransactions(),
+                            {"txid": txid},
+                            {"category": "send",
+                            "token" : bytes_to_hex_str(colorid1),
+                            "amount": Decimal("-10.0"),
+                            "confirmations": 1})
+        assert_array_result(self.nodes[1].listtransactions(),
+                            {"txid": txid},
+                            {"category": "receive",
+                            "token" : bytes_to_hex_str(colorid1),
+                            "amount": Decimal("10.0"),
+                            "confirmations": 1})
 
 
-        '''walletinfo = self.nodes[0].getwalletinfo()
+        walletinfo = self.nodes[0].getwalletinfo()
         assert_equal(len(walletinfo['balance']), 3)
-        assert_equal(walletinfo['balance']['TPC'], 27.99998420)
+        assert_equal(str(walletinfo['balance']['TPC']), '27.99990480')
         assert_equal(walletinfo['balance'][bytes_to_hex_str(colorid1)], 90)
-        assert_equal(walletinfo['balance'][bytes_to_hex_str(colorid2)], 100)
+        assert_equal(walletinfo['balance'][bytes_to_hex_str(colorid2)], 0)
 
         walletinfo = self.nodes[1].getwalletinfo()
         assert_equal(len(walletinfo['balance']), 3)
         assert_equal(walletinfo['balance']['TPC'], 20)
         assert_equal(walletinfo['balance'][bytes_to_hex_str(colorid1)], 10)
-        assert_equal(walletinfo['balance'][bytes_to_hex_str(colorid2)], 0)
+        assert_equal(walletinfo['balance'][bytes_to_hex_str(colorid2)], 100)
 
         walletinfo = self.nodes[2].getwalletinfo()
-        assert_equal(len(walletinfo['balance']), 1)
-        assert_equal(walletinfo['balance']['TPC'], 202)'''
+        assert_equal(len(walletinfo['balance']), 3)
+        assert_equal(str(walletinfo['balance']['TPC']), '202.00009520')
+        assert_equal(walletinfo['balance'][bytes_to_hex_str(colorid1)], 0)
+        assert_equal(walletinfo['balance'][bytes_to_hex_str(colorid2)], 0)
 
 if __name__ == '__main__':
     WalletColoredCoinTest().main()

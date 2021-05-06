@@ -1316,45 +1316,21 @@ void CWallet::BlockUntilSyncedToCurrentChain() {
 }
 
 
-isminetype CWallet::IsMine(const CTxIn &txin) const
-{
-    {
-        LOCK(cs_wallet);
-        std::map<uint256, CWalletTx>::const_iterator mi = mapWallet.find(txin.prevout.hashMalFix);
-        if (mi != mapWallet.end())
-        {
-            const CWalletTx& prev = (*mi).second;
-            if (txin.prevout.n < prev.tx->vout.size())
-                return IsMine(prev.tx->vout[txin.prevout.n]);
-        }
-    }
-    return ISMINE_NO;
-}
-
 // Note that this function doesn't distinguish between a 0-valued input,
 // and a not-"is mine" (according to the filter) input.
-TxColoredCoinBalancesMap CWallet::GetDebit(const CTxIn &txin, const isminefilter& filter) const
+CAmount CWallet::GetDebit(const CTxIn &txin, const isminefilter& filter, ColorIdentifier& colorId) const
 {
-    TxColoredCoinBalancesMap debits;
+    LOCK(cs_wallet);
+    std::map<uint256, CWalletTx>::const_iterator mi = mapWallet.find(txin.prevout.hashMalFix);
+    if (mi != mapWallet.end())
     {
-        LOCK(cs_wallet);
-        std::map<uint256, CWalletTx>::const_iterator mi = mapWallet.find(txin.prevout.hashMalFix);
-        if (mi != mapWallet.end())
+        const CWalletTx& prev = (*mi).second;
+        if (txin.prevout.n < prev.tx->vout.size())
         {
-            const CWalletTx& prev = (*mi).second;
-            if (txin.prevout.n < prev.tx->vout.size())
-                if (IsMine(prev.tx->vout[txin.prevout.n]) & filter) {
-                    ColorIdentifier colorId(GetColorIdFromScript(prev.tx->vout[txin.prevout.n].scriptPubKey));
-                    debits[colorId] = prev.tx->vout[txin.prevout.n].nValue;
-                }
+            colorId = GetColorIdFromScript(prev.tx->vout[txin.prevout.n].scriptPubKey);
+            return (IsMine(prev.tx->vout[txin.prevout.n]) & filter ? prev.tx->vout[txin.prevout.n].nValue : 0 );
         }
     }
-    return debits;
-}
-
-isminetype CWallet::IsMine(const CTxOut& txout) const
-{
-    return ::IsMine(*this, txout.scriptPubKey);
 }
 
 CAmount CWallet::GetCredit(const CTxOut& txout, const isminefilter& filter) const
@@ -1393,6 +1369,26 @@ CAmount CWallet::GetChange(const CTxOut& txout) const
     return (IsChange(txout) ? txout.nValue : 0);
 }
 
+isminetype CWallet::IsMine(const CTxIn &txin) const
+{
+    {
+        LOCK(cs_wallet);
+        std::map<uint256, CWalletTx>::const_iterator mi = mapWallet.find(txin.prevout.hashMalFix);
+        if (mi != mapWallet.end())
+        {
+            const CWalletTx& prev = (*mi).second;
+            if (txin.prevout.n < prev.tx->vout.size())
+                return IsMine(prev.tx->vout[txin.prevout.n]);
+        }
+    }
+    return ISMINE_NO;
+}
+
+isminetype CWallet::IsMine(const CTxOut& txout) const
+{
+    return ::IsMine(*this, txout.scriptPubKey);
+}
+
 bool CWallet::IsMine(const CTransaction& tx) const
 {
     for (const CTxOut& txout : tx.vout)
@@ -1409,22 +1405,6 @@ bool CWallet::IsFromMe(const CTransaction& tx) const
         }
     }
     return false;
-}
-
-TxColoredCoinBalancesMap CWallet::GetDebit(const CTransaction& tx, const isminefilter& filter) const
-{
-    TxColoredCoinBalancesMap nDebit;
-
-    for (const CTxIn& txin : tx.vin) {
-        TxColoredCoinBalancesMap debits = GetDebit(txin, filter);
-        for (auto debit: debits) {
-            nDebit[debit.first] += debit.second;
-
-            if (!MoneyRange(nDebit[debit.first]))
-                throw std::runtime_error(std::string(__func__) + ": value out of range");
-        }
-    }
-    return nDebit;
 }
 
 bool CWallet::IsAllFromMe(const CTransaction& tx, const isminefilter& filter) const
@@ -1446,6 +1426,21 @@ bool CWallet::IsAllFromMe(const CTransaction& tx, const isminefilter& filter) co
             return false;
     }
     return true;
+}
+
+TxColoredCoinBalancesMap CWallet::GetDebit(const CTransaction& tx, const isminefilter& filter) const
+{
+    TxColoredCoinBalancesMap nDebit;
+    ColorIdentifier colorId;
+
+    for (const CTxIn& txin : tx.vin) {
+        CAmount debit = GetDebit(txin, filter, colorId);
+        nDebit[colorId] += debit;
+
+        if (!MoneyRange(nDebit[colorId]))
+            throw std::runtime_error(std::string(__func__) + ": value out of range");
+    }
+    return nDebit;
 }
 
 TxColoredCoinBalancesMap CWallet::GetCredit(const CTransaction& tx, const isminefilter& filter) const
@@ -1658,9 +1653,9 @@ void CWalletTx::GetAmounts(std::list<COutputEntry>& listReceived,
         ColorIdentifier colorId(GetColorIdFromScript(txout.scriptPubKey));
         // Compute fee:
         CAmount nDebit = GetDebit(filter, colorId);
-        if (nDebit > 0) // debit>0 means we signed/sent this transaction
+        if (nDebit > 0 && colorId.type == TokenTypes::NONE) // debit>0 means we signed/sent this transaction
         {
-            CAmount nValueOut = tx->GetValueOut();
+            CAmount nValueOut = tx->GetValueOut(colorId);
             nFee = nDebit - nValueOut;
         }
         
@@ -1889,7 +1884,7 @@ std::set<uint256> CWalletTx::GetConflicts() const
     return result;
 }
 
-CAmount CWalletTx::GetDebit(const isminefilter& filter, ColorIdentifier& colorId) const
+CAmount CWalletTx::GetDebit(const isminefilter& filter, const ColorIdentifier& colorId) const
 {
     if (tx->vin.empty())
         return 0;
@@ -1920,34 +1915,33 @@ CAmount CWalletTx::GetDebit(const isminefilter& filter, ColorIdentifier& colorId
     return debit;
 }
 
-CAmount CWalletTx::GetCredit(const isminefilter& filter, ColorIdentifier& colorId) const
+CAmount CWalletTx::GetCredit(const isminefilter& filter, const ColorIdentifier& colorId) const
 {
-    TxColoredCoinBalancesMap credit;
-
+    CAmount credit;
     if (filter & ISMINE_SPENDABLE)
     {
         // GetBalance can assume transactions in mapWallet won't change
         if (fCreditCached)
-            credit[colorId] += nCreditCached[colorId];
+            credit += nCreditCached[colorId];
         else
         {
             nCreditCached = pwallet->GetCredit(*tx, ISMINE_SPENDABLE);
             fCreditCached = true;
-            credit[colorId] += nCreditCached[colorId];
+            credit += nCreditCached[colorId];
         }
     }
     if (filter & ISMINE_WATCH_ONLY)
     {
         if (fWatchCreditCached)
-            credit[colorId] += nWatchCreditCached[colorId];
+            credit += nWatchCreditCached[colorId];
         else
         {
             nWatchCreditCached = pwallet->GetCredit(*tx, ISMINE_WATCH_ONLY);
             fWatchCreditCached = true;
-            credit[colorId] += nWatchCreditCached[colorId];
+            credit += nWatchCreditCached[colorId];
         }
     }
-    return credit[colorId];
+    return credit;
 }
 
 TxColoredCoinBalancesMap CWalletTx::GetAvailableCredit(bool fUseCache, const isminefilter& filter) const
@@ -2397,7 +2391,7 @@ const CTxOut& CWallet::FindNonChangeParentOutput(const CTransaction& tx, int out
     return ptx->vout[n];
 }
 
-bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, const CoinEligibilityFilter& eligibility_filter, std::vector<OutputGroup> groups,
+bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, const CoinEligibilityFilter& eligibility_filter, std::vector<OutputGroup> groups, 
                                  std::set<CInputCoin>& setCoinsRet, CAmount& nValueRet, const CoinSelectionParams& coin_selection_params, bool& bnb_used) const
 {
     setCoinsRet.clear();
@@ -2666,8 +2660,12 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                                 ChangePosInOut& mapChangePosInOut, std::string& strFailReason, const CCoinControl& coin_control, bool sign)
 {
     TxColoredCoinBalancesMap mapValue;
+    // Add initial value for TPC. Even if the value would be sent of TPC is zero, it should be
+    // treated in loops below for paying fee.
+    mapValue[ColorIdentifier()] = 0;
 
     ChangePosInOut mapChangePosRequest(mapChangePosInOut);
+    mapChangePosRequest[ColorIdentifier()] = -1;
     unsigned int nSubtractFeeFromAmount = 0;
     for (const auto& recipient : vecSend)
     {
@@ -2689,13 +2687,6 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
 
         if (recipient.fSubtractFeeFromAmount)
             nSubtractFeeFromAmount++;
-    }
-
-    auto it = mapValue.find(ColorIdentifier());
-    if (it == mapValue.end()) {
-        // Add initial value for TPC. Even if the value would be sent of TPC is zero, it should be
-        // treated in loops below for paying fee.
-        mapValue[ColorIdentifier()] = 0;
     }
 
     if (vecSend.empty())
@@ -2877,7 +2868,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     ColorIdentifier colorId = i.first;
                     CAmount targetValue = i.second;
 
-                    if (nSubtractFeeFromAmount == 0 && colorId == ColorIdentifier()) {
+                    if (nSubtractFeeFromAmount == 0 && colorId.type == TokenTypes::NONE) {
                         targetValue += nFeeRet;
                     }
 
@@ -2885,7 +2876,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     if (nChange > 0)
                     {
                         CScript sc;
-                        if (colorId != ColorIdentifier()) {
+                        if (colorId.type != TokenTypes::NONE) {
                             sc = CScript() << colorId.toVector() << OP_COLOR;
                             sc += scriptChange;
                         } else {
@@ -2899,29 +2890,20 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                         // add the dust to the fee.
                         // The nChange when BnB is used is always going to go to fees.
                         // If the output is for a colored coin, it allows to create dust outputs.
-                        if (colorId == ColorIdentifier() && (IsDust(newTxOut, discard_rate) || bnb_used))
+                        if (colorId .type == TokenTypes::NONE && (IsDust(newTxOut, discard_rate) || bnb_used))
                         {
                             mapChangePosInOut[colorId] = -1;
                             nFeeRet += nChange;
                         }
                         else
                         {
-                            if (mapChangePosInOut[colorId] == -1)
-                            {
-                                // Insert change txn at random position:
-                                mapChangePosInOut[colorId] = GetRandInt(txNew.vout.size()+1);
-                            }
-                            else if ((unsigned int)mapChangePosInOut[colorId] > txNew.vout.size())
-                            {
-                                strFailReason = _("Change index out of range");
-                                return false;
-                            }
+                            //add change output
+                            int newchangeindex = txNew.vout.size();
+                            mapChangePosInOut[colorId] = newchangeindex;
 
                             std::vector<CTxOut>::iterator position = txNew.vout.begin()+mapChangePosInOut[colorId];
                             txNew.vout.insert(position, newTxOut);
                         }
-                    } else {
-                        mapChangePosInOut[colorId] = -1;
                     }
                 }
 

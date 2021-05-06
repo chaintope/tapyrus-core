@@ -104,7 +104,7 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
             //
             // Debit
             //
-            CAmount nTxFee = nDebit - wtx.tx->GetValueOut();
+            CAmount nTxFee = nDebit - wtx.tx->GetValueOut(ColorIdentifier());
 
             for (unsigned int nOut = 0; nOut < wtx.tx->vout.size(); nOut++)
             {

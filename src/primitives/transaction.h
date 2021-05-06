@@ -209,6 +209,7 @@ inline void SerializeTransaction(const TxType& tx, Stream& s) {
     s << tx.nLockTime;
 }
 
+struct ColorIdentifier;
 
 /** The basic transaction that is broadcasted on the network and contained in
  * blocks.  A transaction can contain multiple inputs and outputs.
@@ -275,7 +276,7 @@ public:
     const uint256& GetHashMalFix() const { return hashMalFix; }
 
     // Return sum of txouts.
-    CAmount GetValueOut() const;
+    CAmount GetValueOut(ColorIdentifier colorId) const;
     // GetValueIn() is a method on CCoinsViewCache, because
     // inputs must be known to compute value in.
 
