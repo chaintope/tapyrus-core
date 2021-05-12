@@ -2436,7 +2436,7 @@ static UniValue gettransaction(const JSONRPCRequest& request)
     }
     const CWalletTx& wtx = it->second;
 
-    std::set<ColorIdentifier> txColorIdSet;
+    std::set<ColorIdentifier> txColorIdSet{ColorIdentifier()};
     for(auto iter = wtx.nCreditCached.begin(); iter != wtx.nCreditCached.end(); iter++)
         txColorIdSet.insert(iter->first);
     for(auto iter = wtx.nDebitCached.begin(); iter != wtx.nDebitCached.end(); iter++)
@@ -2447,12 +2447,19 @@ static UniValue gettransaction(const JSONRPCRequest& request)
         CAmount nCredit = wtx.GetCredit(filter, colorId);
         CAmount nDebit = wtx.GetDebit(filter, colorId);
         CAmount nNet = nCredit - nDebit;
-        CAmount nFee = (wtx.IsFromMe(filter) ? wtx.tx->GetValueOut(ColorIdentifier()) - nDebit : 0);
+        CAmount nFee = (wtx.IsFromMe(filter) ? wtx.tx->GetValueOut(colorId) - nDebit : 0);
 
-        entry.pushKV("token", CURRENCY_UNIT);
+        if(colorId.type == TokenTypes::NONE)
+            entry.pushKV("token", CURRENCY_UNIT);
+        else
+        {
+            assert(nFee == 0);
+            std::string cid(colorId.toString());
+            entry.pushKV("token", HexStr(cid.begin(), cid.end()));
+        }
         entry.pushKV("amount", ValueFromAmount(nNet - nFee));
-        if (wtx.IsFromMe(filter) && nFee)
-            entry.pushKV("fee", ValueFromAmount(nFee));
+        entry.pushKV("fee", ValueFromAmount(nFee));
+        
     }
     WalletTxToJSON(wtx, entry);
 
@@ -3105,7 +3112,8 @@ static UniValue getwalletinfo(const JSONRPCRequest& request)
         if (uwb.first.type == TokenTypes::NONE) {
             unconfirmBalancesObj.pushKV(CURRENCY_UNIT.c_str(), ValueFromAmount(uwb.second));
         } else {
-            unconfirmBalancesObj.pushKV(HexStr(uwb.first.toVector()).c_str(), ValueFromAmount(uwb.second));
+            std::string cid(uwb.first.toString());
+            unconfirmBalancesObj.pushKV(HexStr(cid.begin(), cid.end()), ValueFromAmount(uwb.second));
         }
     };
 

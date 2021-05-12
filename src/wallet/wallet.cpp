@@ -1331,6 +1331,7 @@ CAmount CWallet::GetDebit(const CTxIn &txin, const isminefilter& filter, ColorId
             return (IsMine(prev.tx->vout[txin.prevout.n]) & filter ? prev.tx->vout[txin.prevout.n].nValue : 0 );
         }
     }
+    return 0;
 }
 
 CAmount CWallet::GetCredit(const CTxOut& txout, const isminefilter& filter) const
@@ -1917,7 +1918,7 @@ CAmount CWalletTx::GetDebit(const isminefilter& filter, const ColorIdentifier& c
 
 CAmount CWalletTx::GetCredit(const isminefilter& filter, const ColorIdentifier& colorId) const
 {
-    CAmount credit;
+    CAmount credit = 0;
     if (filter & ISMINE_SPENDABLE)
     {
         // GetBalance can assume transactions in mapWallet won't change
@@ -2665,7 +2666,8 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
     mapValue[ColorIdentifier()] = 0;
 
     ChangePosInOut mapChangePosRequest(mapChangePosInOut);
-    mapChangePosRequest[ColorIdentifier()] = -1;
+    if(mapChangePosRequest.empty())
+       mapChangePosRequest[ColorIdentifier()] = -1;
     unsigned int nSubtractFeeFromAmount = 0;
     for (const auto& recipient : vecSend)
     {
@@ -2864,48 +2866,81 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     }
                 }
 
+                //first fill in the colored coin change outputs
                 for (const auto& i : mapValue) {
                     ColorIdentifier colorId = i.first;
                     CAmount targetValue = i.second;
 
-                    if (nSubtractFeeFromAmount == 0 && colorId.type == TokenTypes::NONE) {
-                        targetValue += nFeeRet;
-                    }
+                    if (colorId.type == TokenTypes::NONE)
+                        continue;
 
                     const CAmount nChange = mapValueIn[colorId] - targetValue;
                     if (nChange > 0)
                     {
-                        CScript sc;
-                        if (colorId.type != TokenTypes::NONE) {
-                            sc = CScript() << colorId.toVector() << OP_COLOR;
-                            sc += scriptChange;
-                        } else {
-                            sc = scriptChange;
-                        }
+                        CScript sc = CScript() << colorId.toVector() << OP_COLOR;
+                        sc += scriptChange;
 
-                        // Fill a vout to ourself
+                        // Fill a colored vout to ourself
                         CTxOut newTxOut(nChange, sc);
 
-                        // Never create dust outputs; if we would, just
-                        // add the dust to the fee.
-                        // The nChange when BnB is used is always going to go to fees.
-                        // If the output is for a colored coin, it allows to create dust outputs.
-                        if (colorId .type == TokenTypes::NONE && (IsDust(newTxOut, discard_rate) || bnb_used))
+                        // add colored coin change at the end
+                        mapChangePosInOut[colorId] = txNew.vout.size();
+                        txNew.vout.push_back(newTxOut);
+                    }
+                    else
+                        mapChangePosInOut[colorId] = -1;
+                }
+
+                //handle TPC change with fee
+                ColorIdentifier colorId;
+                CAmount targetValue = mapValue[colorId];
+
+                const CAmount nChange = mapValueIn[colorId] - targetValue;
+                if (nChange > 0)
+                {
+                    // Fill a vout to ourself
+                    CTxOut newTxOut(nChange, scriptChange);
+
+                    // Never create dust outputs; if we would, just
+                    // add the dust to the fee.
+                    // The nChange when BnB is used is always going to go to fees.
+                    // If the output is for a colored coin, it allows to create dust outputs.
+                    if (IsDust(newTxOut, discard_rate) || bnb_used)
+                    {
+                        mapChangePosInOut[colorId] = -1;
+                        nFeeRet += nChange;
+                    }
+                    else
+                    {
+                        //if changeposition is fixed for this transaction insert it there
+                        if (mapChangePosInOut[colorId] == -1)
                         {
-                            mapChangePosInOut[colorId] = -1;
-                            nFeeRet += nChange;
+                            //add change output to the end
+                            mapChangePosInOut[colorId] = txNew.vout.size();
+                            txNew.vout.push_back(newTxOut);
                         }
                         else
                         {
-                            //add change output
-                            int newchangeindex = txNew.vout.size();
-                            mapChangePosInOut[colorId] = newchangeindex;
-
+                            if ((unsigned int)mapChangePosInOut[colorId] > txNew.vout.size())
+                            {
+                                strFailReason = _("Change index out of range");
+                                return false;
+                            }
                             std::vector<CTxOut>::iterator position = txNew.vout.begin()+mapChangePosInOut[colorId];
                             txNew.vout.insert(position, newTxOut);
+
+                            //colored coin change outputs may be incorrect after this insert. fix them
+                            for(auto& i : mapChangePosInOut)
+                            {
+                                if(i.first.type != TokenTypes::NONE
+                                && i.second > mapChangePosInOut[colorId])
+                                    i.second++;
+                            }
                         }
                     }
                 }
+                else
+                    mapChangePosInOut[colorId] = -1;
 
                 // Dummy fill vin for maximum size estimation
                 //
