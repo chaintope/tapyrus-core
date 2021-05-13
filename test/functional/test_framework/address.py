@@ -11,9 +11,13 @@ from . import segwit_addr
 
 chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 
-def byte_to_base58(b, version):
+def byte_to_base58(b, c, version):
     result = ''
-    str = bytes_to_hex_str(b)
+    if(c is not None):
+        str = bytes_to_hex_str(c)
+    else:
+        str = ''
+    str += bytes_to_hex_str(b)
     str = bytes_to_hex_str(chr(version).encode('latin-1')) + str
     checksum = bytes_to_hex_str(hash256(hex_str_to_bytes(str)))
     str += checksum[:8]
@@ -28,23 +32,29 @@ def byte_to_base58(b, version):
 
 # TODO: def base58_decode
 
-def keyhash_to_p2pkh(hash, main = False):
+def keyhash_to_p2pkh(hash, main = False, color = None):
     assert (len(hash) == 20)
-    version = 0 if main else 111
-    return byte_to_base58(hash, version)
+    if color is None:
+        version = 0 if main else 111
+    else:
+        version = 1 if main else 112
+    return byte_to_base58(hash, color, version)
 
-def scripthash_to_p2sh(hash, main = False):
+def scripthash_to_p2sh(hash, main = False, color = None):
     assert (len(hash) == 20)
-    version = 5 if main else 196
-    return byte_to_base58(hash, version)
+    if color is None:
+        version = 5 if main else 196
+    else:
+        version = 6 if main else 197
+    return byte_to_base58(hash, color, version)
 
-def key_to_p2pkh(key, main = False):
+def key_to_p2pkh(key, main = False, color = None):
     key = check_key(key)
-    return keyhash_to_p2pkh(hash160(key), main)
+    return keyhash_to_p2pkh(hash160(key), main, color)
 
-def script_to_p2sh(script, main = False):
+def script_to_p2sh(script, main = False, color = None):
     script = check_script(script)
-    return scripthash_to_p2sh(hash160(script), main)
+    return scripthash_to_p2sh(hash160(script), main, color)
 
 def key_to_p2sh_p2wpkh(key, main = False):
     key = check_key(key)

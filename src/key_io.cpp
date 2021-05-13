@@ -116,24 +116,24 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
         // Public-key-hash-addresses have version 1(0x01) (or 112(0x70) testnet).
         // The data vector contains ColorIdentifier and RIPEMD160(SHA256(pubkey)), where pubkey is the serialized public key.
         const std::vector<unsigned char>& c_pubkey_prefix = params.Base58Prefix(CChainParams::C_PUBKEY_ADDRESS);
-        if (data.size() == hash.size() + c_pubkey_prefix.size() + 33 
+        if (data.size() == hash.size() + c_pubkey_prefix.size() + COLOR_IDENTIFIER_SIZE
         && std::equal(c_pubkey_prefix.begin(), c_pubkey_prefix.end(), data.begin())) {
-            ColorIdentifier cid(&data[c_pubkey_prefix.size()],&data[c_pubkey_prefix.size() + 33]);
+            ColorIdentifier cid(&data[c_pubkey_prefix.size()],&data[c_pubkey_prefix.size() + COLOR_IDENTIFIER_SIZE]);
             if(cid.type != TokenTypes::NONE)
             {
-                std::copy(data.begin() + c_pubkey_prefix.size() + 33, data.end(), hash.begin());
+                std::copy(data.begin() + c_pubkey_prefix.size() + COLOR_IDENTIFIER_SIZE, data.end(), hash.begin());
                 return CColorKeyID(hash, std::move(cid));
             }
         }
         // colored Script-hash-addresses have version 6(0x06) (or 197(0xc5) testnet).
         // The data vector contains ColorIdentifier and RIPEMD160(SHA256(cscript)), where cscript is the serialized redemption script.
         const std::vector<unsigned char>& c_script_prefix = params.Base58Prefix(CChainParams::C_SCRIPT_ADDRESS);
-        if (data.size() == hash.size() + c_script_prefix.size() + 33 
+        if (data.size() == hash.size() + c_script_prefix.size() + COLOR_IDENTIFIER_SIZE
         && std::equal(c_script_prefix.begin(), c_script_prefix.end(), data.begin())) {
-            ColorIdentifier cid(&data[c_pubkey_prefix.size()],&data[c_pubkey_prefix.size() + 33]);
+            ColorIdentifier cid(&data[c_pubkey_prefix.size()],&data[c_pubkey_prefix.size() + COLOR_IDENTIFIER_SIZE]);
             if(cid.type != TokenTypes::NONE)
             {
-                std::copy(data.begin() + c_script_prefix.size() + 33, data.end(), hash.begin());
+                std::copy(data.begin() + c_script_prefix.size() + COLOR_IDENTIFIER_SIZE, data.end(), hash.begin());
                 return CColorScriptID(hash, std::move(cid));
             }
         }

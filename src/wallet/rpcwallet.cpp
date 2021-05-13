@@ -555,10 +555,11 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
     }
     ColorIdentifier colorId;
-    if(dest.which() == 3 || dest.which() == 4)
-    {
+    if(dest.which() == 3)
         colorId = boost::get<CColorKeyID>(dest).color;
-    }
+    else if(dest.which() == 4)
+        colorId = boost::get<CColorScriptID>(dest).color;
+
     if (colorId.type != TokenTypes::NONE
       && pwallet->GetBalance()[colorId] == 0 ) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No Token found in wallet. But token address was given.");
@@ -1834,6 +1835,19 @@ static void ListTransactions(CWallet* const pwallet, const CWalletTx& wtx, const
             if (IsDeprecatedRPCEnabled("accounts")) entry.pushKV("account", strSentAccount);
             MaybePushAddress(entry, s.destination);
             entry.pushKV("category", "send");
+
+            ColorIdentifier colorId;
+            if(s.destination.which() == 3)
+                colorId = boost::get<CColorKeyID>(s.destination).color;
+            else if(s.destination.which() == 4)
+                colorId = boost::get<CColorScriptID>(s.destination).color;
+
+            if(colorId.type == TokenTypes::NONE)
+                entry.pushKV("token",  "TPC");
+            else
+            {   std::string cid(colorId.toString());
+                entry.pushKV("token",  HexStr(cid.begin(), cid.end()));
+            }
             entry.pushKV("amount", ValueFromAmount(-s.amount));
             if (pwallet->mapAddressBook.count(s.destination)) {
                 entry.pushKV("label", pwallet->mapAddressBook[s.destination].name);
@@ -1874,6 +1888,18 @@ static void ListTransactions(CWallet* const pwallet, const CWalletTx& wtx, const
                 else
                 {
                     entry.pushKV("category", "receive");
+                }
+                ColorIdentifier colorId;
+                if(r.destination.which() == 3)
+                    colorId = boost::get<CColorKeyID>(r.destination).color;
+                else if(r.destination.which() == 4)
+                    colorId = boost::get<CColorScriptID>(r.destination).color;
+
+                if(colorId.type == TokenTypes::NONE)
+                    entry.pushKV("token",  "TPC");
+                else
+                {   std::string cid(colorId.toString());
+                    entry.pushKV("token",  HexStr(cid.begin(), cid.end()));
                 }
                 entry.pushKV("amount", ValueFromAmount(r.amount));
                 if (pwallet->mapAddressBook.count(r.destination)) {
@@ -3463,6 +3489,18 @@ static UniValue listunspent(const JSONRPCRequest& request)
         if (fValidAddress) {
             entry.pushKV("address", EncodeDestination(address));
 
+            ColorIdentifier colorId;
+            if(address.which() == 3)
+                colorId = boost::get<CColorKeyID>(address).color;
+            else if(address.which() == 4)
+                colorId = boost::get<CColorScriptID>(address).color;
+
+            if(colorId.type == TokenTypes::NONE)
+                entry.pushKV("token",  "TPC");
+            else
+            {   std::string cid(colorId.toString());
+                entry.pushKV("token",  HexStr(cid.begin(), cid.end()));
+            }
             auto i = pwallet->mapAddressBook.find(address);
             if (i != pwallet->mapAddressBook.end()) {
                 entry.pushKV("label", i->second.name);

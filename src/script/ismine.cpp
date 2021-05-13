@@ -115,7 +115,7 @@ IsMineResult IsMineInner(const CKeyStore& keystore, const CScript& scriptPubKey,
     case TX_COLOR_SCRIPTHASH:
     {
         if (sigversion != IsMineSigVersion::TOP) {
-            // P2SH inside P2WSH or P2SH is invalid.
+            // P2SH inside P2SH is invalid.
             return IsMineResult::INVALID;
         }
         CScriptID scriptID = CScriptID(uint160(vSolutions[0]));
