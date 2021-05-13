@@ -145,6 +145,18 @@ public:
         if (keystore.GetCScript(scriptId, script))
             Process(script);
     }
+
+    void operator()(const CColorKeyID &ckeyId) {
+        const CKeyID keyId(ckeyId.getKeyID());
+        if (keystore.HaveKey(keyId))
+            vKeys.push_back(keyId);
+    }
+
+    void operator()(const CColorScriptID &cscriptId) {
+        CScript script;
+        if (keystore.GetCScript(cscriptId, script))
+            Process(script);
+    }
 #ifdef DEBUG
     void operator()(const WitnessV0ScriptHash& scriptID)
     {
