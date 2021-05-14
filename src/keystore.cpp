@@ -29,13 +29,13 @@ void CBasicKeyStore::ImplicitlyLearnRelatedKeyScripts(const CPubKey& pubkey)
 
 #ifdef DEBUG
         script = GetScriptForDestination(WitnessV0KeyHash(key_id));
-        CScriptID id(script);
-        mapScripts[id] = std::move(script);
+        CScriptID id1(script);
+        mapScripts[id1] = std::move(script);
 #endif
         script = GetScriptForDestination(key_id);
         // This does not use AddCScript, as it may be overridden.
-        CScriptID id(script);
-        mapScripts[id] = std::move(script);
+        CScriptID id2(script);
+        mapScripts[id2] = std::move(script);
     }
 }
 
