@@ -25,12 +25,13 @@ void CBasicKeyStore::ImplicitlyLearnRelatedKeyScripts(const CPubKey& pubkey)
     // existing keys, and are present in memory, even without being explicitly
     // loaded (e.g. from a file).
     if (pubkey.IsCompressed()) {
-        CScript script;
+
 #ifdef DEBUG
-        script = GetScriptForDestination(WitnessV0KeyHash(key_id));
-#else
-        script = GetScriptForDestination(key_id);
+        CScript script = GetScriptForDestination(WitnessV0KeyHash(key_id));
+        CScriptID id(script);
+        mapScripts[id] = std::move(script);
 #endif
+        CScript script = GetScriptForDestination(key_id);
         // This does not use AddCScript, as it may be overridden.
         CScriptID id(script);
         mapScripts[id] = std::move(script);
