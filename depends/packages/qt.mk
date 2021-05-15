@@ -158,72 +158,91 @@ define $(package)_extract_cmds
   echo "$($(package)_qttools_sha256_hash)  $($(package)_source_dir)/$($(package)_qttools_file_name)" >> $($(package)_extract_dir)/.$($(package)_file_name).hash && \
   $(build_SHA256SUM) -c $($(package)_extract_dir)/.$($(package)_file_name).hash && \
   mkdir qtbase && \
-  tar --strip-components=1 -xf $($(package)_source) -C qtbase && \
+  tar --no-same-owner --strip-components=1 -xf $($(package)_source) -C qtbase && \
   mkdir qttranslations && \
-  tar --strip-components=1 -xf $($(package)_source_dir)/$($(package)_qttranslations_file_name) -C qttranslations && \
+  tar --no-same-owner --strip-components=1 -xf $($(package)_source_dir)/$($(package)_qttranslations_file_name) -C qttranslations && \
   mkdir qttools && \
-  tar --strip-components=1 -xf $($(package)_source_dir)/$($(package)_qttools_file_name) -C qttools
+  tar --no-same-owner --strip-components=1 -xf $($(package)_source_dir)/$($(package)_qttools_file_name) -C qttools
 endef
 
+# Preprocessing steps work as follows:
+#
+# 1. Apply our patches to the extracted source. See each patch for more info.
+#
+# 2. Point to lrelease in qttools/bin/lrelease; otherwise Qt will look for it in
+# $(host)/native/bin/lrelease and not find it.
+#
+# 3. Create a macOS-Clang-Linux mkspec using our mac-qmake.conf.
+#
+# 4. After making a copy of the mkspec for the linux-arm-gnueabi host, named
+# bitcoin-linux-g++, replace instances of linux-arm-gnueabi with $(host). This
+# way we can generically support hosts like riscv64-linux-gnu, which Qt doesn't
+# ship a mkspec for. See it's usage in config_opts_* above.
+#
+# 5. Put our C, CXX and LD FLAGS into gcc-base.conf. Only used for non-host builds.
+#
+# 6. Do similar for the win32-g++ mkspec.
+#
+# 7. In clang.conf, swap out clang & clang++, for our compiler + flags. See #17466.
+#
+# 8. Adjust a regex in toolchain.prf, to accommodate Guix's usage of
+# CROSS_LIBRARY_PATH. See #15277.
 define $(package)_preprocess_cmds
-  sed -i.old "s|FT_Get_Font_Format|FT_Get_X11_Font_Format|" qtbase/src/platformsupport/fontdatabases/freetype/qfontengine_ft.cpp && \
+  patch -p1 -i $($(package)_patch_dir)/drop_lrelease_dependency.patch && \
+  patch -p1 -i $($(package)_patch_dir)/dont_hardcode_pwd.patch && \
+  patch -p1 -i $($(package)_patch_dir)/fix_qt_pkgconfig.patch && \
+  patch -p1 -i $($(package)_patch_dir)/fix_no_printer.patch && \
+  patch -p1 -i $($(package)_patch_dir)/fix_android_qmake_conf.patch && \
+  patch -p1 -i $($(package)_patch_dir)/fix_android_jni_static.patch && \
+  patch -p1 -i $($(package)_patch_dir)/fix_android_pch.patch && \
+  patch -p1 -i $($(package)_patch_dir)/no-xlib.patch && \
+  patch -p1 -i $($(package)_patch_dir)/no_sdk_version_check.patch && \
+  patch -p1 -i $($(package)_patch_dir)/fix_lib_paths.patch && \
+  patch -p1 -i $($(package)_patch_dir)/fix_bigsur_drawing.patch && \
+  patch -p1 -i $($(package)_patch_dir)/qtbase-moc-ignore-gcc-macro.patch && \
   sed -i.old "s|updateqm.commands = \$$$$\$$$$LRELEASE|updateqm.commands = $($(package)_extract_dir)/qttools/bin/lrelease|" qttranslations/translations/translations.pro && \
-  sed -i.old "/updateqm.depends =/d" qttranslations/translations/translations.pro && \
-  sed -i.old "s/src_plugins.depends = src_sql src_network/src_plugins.depends = src_network/" qtbase/src/src.pro && \
-  sed -i.old "s|X11/extensions/XIproto.h|X11/X.h|" qtbase/src/plugins/platforms/xcb/qxcbxsettings.cpp && \
-  sed -i.old 's/if \[ "$$$$XPLATFORM_MAC" = "yes" \]; then xspecvals=$$$$(macSDKify/if \[ "$$$$BUILD_ON_MAC" = "yes" \]; then xspecvals=$$$$(macSDKify/' qtbase/configure && \
-  sed -i.old 's/CGEventCreateMouseEvent(0, kCGEventMouseMoved, pos, 0)/CGEventCreateMouseEvent(0, kCGEventMouseMoved, pos, kCGMouseButtonLeft)/' qtbase/src/plugins/platforms/cocoa/qcocoacursor.mm && \
   mkdir -p qtbase/mkspecs/macx-clang-linux &&\
-  cp -f qtbase/mkspecs/macx-clang/Info.plist.lib qtbase/mkspecs/macx-clang-linux/ &&\
-  cp -f qtbase/mkspecs/macx-clang/Info.plist.app qtbase/mkspecs/macx-clang-linux/ &&\
   cp -f qtbase/mkspecs/macx-clang/qplatformdefs.h qtbase/mkspecs/macx-clang-linux/ &&\
   cp -f $($(package)_patch_dir)/mac-qmake.conf qtbase/mkspecs/macx-clang-linux/qmake.conf && \
   cp -r qtbase/mkspecs/linux-arm-gnueabi-g++ qtbase/mkspecs/bitcoin-linux-g++ && \
   sed -i.old "s/arm-linux-gnueabi-/$(host)-/g" qtbase/mkspecs/bitcoin-linux-g++/qmake.conf && \
-  patch -p1 -i $($(package)_patch_dir)/fix_qt_pkgconfig.patch &&\
-  patch -p1 -i $($(package)_patch_dir)/fix_configure_mac.patch &&\
-  patch -p1 -i $($(package)_patch_dir)/fix_no_printer.patch &&\
-  patch -p1 -i $($(package)_patch_dir)/fix_rcc_determinism.patch &&\
-  patch -p1 -i $($(package)_patch_dir)/xkb-default.patch &&\
   echo "!host_build: QMAKE_CFLAGS     += $($(package)_cflags) $($(package)_cppflags)" >> qtbase/mkspecs/common/gcc-base.conf && \
   echo "!host_build: QMAKE_CXXFLAGS   += $($(package)_cxxflags) $($(package)_cppflags)" >> qtbase/mkspecs/common/gcc-base.conf && \
   echo "!host_build: QMAKE_LFLAGS     += $($(package)_ldflags)" >> qtbase/mkspecs/common/gcc-base.conf && \
-  echo "QMAKE_LINK_OBJECT_MAX = 10" >> qtbase/mkspecs/win32-g++/qmake.conf &&\
-  echo "QMAKE_LINK_OBJECT_SCRIPT = object_script" >> qtbase/mkspecs/win32-g++/qmake.conf &&\
-  sed -i.old "s|QMAKE_CFLAGS            = |!host_build: QMAKE_CFLAGS            = $($(package)_cflags) $($(package)_cppflags) |" qtbase/mkspecs/win32-g++/qmake.conf && \
-  sed -i.old "s|QMAKE_LFLAGS            = |!host_build: QMAKE_LFLAGS            = $($(package)_ldflags) |" qtbase/mkspecs/win32-g++/qmake.conf && \
-  sed -i.old "s|QMAKE_CXXFLAGS          = |!host_build: QMAKE_CXXFLAGS            = $($(package)_cxxflags) $($(package)_cppflags) |" qtbase/mkspecs/win32-g++/qmake.conf
+  sed -i.old "s|QMAKE_CC                = \$$$$\$$$${CROSS_COMPILE}clang|QMAKE_CC                = $($(package)_cc)|" qtbase/mkspecs/common/clang.conf && \
+  sed -i.old "s|QMAKE_CXX               = \$$$$\$$$${CROSS_COMPILE}clang++|QMAKE_CXX               = $($(package)_cxx)|" qtbase/mkspecs/common/clang.conf && \
+  sed -i.old "s/LIBRARY_PATH/(CROSS_)?\0/g" qtbase/mkspecs/features/toolchain.prf
 endef
 
 define $(package)_config_cmds
   export PKG_CONFIG_SYSROOT_DIR=/ && \
   export PKG_CONFIG_LIBDIR=$(host_prefix)/lib/pkgconfig && \
   export PKG_CONFIG_PATH=$(host_prefix)/share/pkgconfig  && \
+  cd qtbase && \
   ./configure $($(package)_config_opts) && \
-  echo "host_build: QT_CONFIG ~= s/system-zlib/zlib" >> mkspecs/qconfig.pri && \
-  echo "CONFIG += force_bootstrap" >> mkspecs/qconfig.pri && \
-  $(MAKE) sub-src-clean && \
-  cd ../qttranslations && ../qtbase/bin/qmake qttranslations.pro -o Makefile && \
-  cd translations && ../../qtbase/bin/qmake translations.pro -o Makefile && cd ../.. && \
-  cd qttools/src/linguist/lrelease/ && ../../../../qtbase/bin/qmake lrelease.pro -o Makefile && \
-  cd ../lupdate/ && ../../../../qtbase/bin/qmake lupdate.pro -o Makefile && cd ../../../..
+  cd .. && \
+  $(MAKE) -C qtbase sub-src-clean && \
+  qtbase/bin/qmake -o qttranslations/Makefile qttranslations/qttranslations.pro && \
+  qtbase/bin/qmake -o qttranslations/translations/Makefile qttranslations/translations/translations.pro && \
+  qtbase/bin/qmake -o qttools/src/linguist/lrelease/Makefile qttools/src/linguist/lrelease/lrelease.pro && \
+  qtbase/bin/qmake -o qttools/src/linguist/lupdate/Makefile qttools/src/linguist/lupdate/lupdate.pro && \
+  qtbase/bin/qmake -o qttools/src/linguist/lconvert/Makefile qttools/src/linguist/lconvert/lconvert.pro
 endef
 
 define $(package)_build_cmds
-  $(MAKE) -C src $(addprefix sub-,$($(package)_qt_libs)) && \
-  $(MAKE) -C ../qttools/src/linguist/lrelease && \
-  $(MAKE) -C ../qttools/src/linguist/lupdate && \
-  $(MAKE) -C ../qttranslations
+  $(MAKE) -C qtbase/src $(addprefix sub-,$($(package)_qt_libs)) && \
+  $(MAKE) -C qttools/src/linguist/lrelease && \
+  $(MAKE) -C qttools/src/linguist/lupdate && \
+  $(MAKE) -C qttools/src/linguist/lconvert && \
+  $(MAKE) -C qttranslations
 endef
 
 define $(package)_stage_cmds
-  $(MAKE) -C src INSTALL_ROOT=$($(package)_staging_dir) $(addsuffix -install_subtargets,$(addprefix sub-,$($(package)_qt_libs))) && cd .. && \
+  $(MAKE) -C qtbase/src INSTALL_ROOT=$($(package)_staging_dir) $(addsuffix -install_subtargets,$(addprefix sub-,$($(package)_qt_libs))) && \
   $(MAKE) -C qttools/src/linguist/lrelease INSTALL_ROOT=$($(package)_staging_dir) install_target && \
   $(MAKE) -C qttools/src/linguist/lupdate INSTALL_ROOT=$($(package)_staging_dir) install_target && \
-  $(MAKE) -C qttranslations INSTALL_ROOT=$($(package)_staging_dir) install_subtargets && \
-  if `test -f qtbase/src/plugins/platforms/xcb/xcb-static/libxcb-static.a`; then \
-    cp qtbase/src/plugins/platforms/xcb/xcb-static/libxcb-static.a $($(package)_staging_prefix_dir)/lib; \
-  fi
+  $(MAKE) -C qttools/src/linguist/lconvert INSTALL_ROOT=$($(package)_staging_dir) install_target && \
+  $(MAKE) -C qttranslations INSTALL_ROOT=$($(package)_staging_dir) install_subtargets
 endef
 
 define $(package)_postprocess_cmds
