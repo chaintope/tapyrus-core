@@ -1,4 +1,4 @@
-Tapyrus Core [![Build Status](https://github.com/chaintope/tapyrus-core/workflows/CI%20on%20Push/badge.svg?branch=master)](https://github.com/chaintope/tapyrus-core/actions?query=workflow%3A%22CI+on+Push%22)
+Tapyrus Core [![Build Status](https://github.com/azuchi/bls12-381/actions/workflows/main.yml/badge.svg?branch=main)](https://github.com/azuchi/bls12-381/actions/workflows/main.yml)
 =====================================
 
 ![tapyrus](doc/images/tapyrus-logo.png)

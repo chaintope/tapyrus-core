@@ -2684,7 +2684,6 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
             return false;
         }
 
-
         mapValue[colorId] += recipient.nAmount;
 
         if (recipient.fSubtractFeeFromAmount)
