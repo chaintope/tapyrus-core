@@ -123,7 +123,7 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         assert_equal(len(walletinfo['balance']), 1)
         assert_equal(walletinfo['balance']['TPC'], 101)
 
-        #  PART 1: using cp2pkh address
+        #  PART 2: using cp2sh address
         utxo = self.nodes[0].listunspent()[0]
         scripthash = hash160( CScript([OP_DUP, OP_HASH160, pubkeyhash, OP_EQUALVERIFY, OP_CHECKSIG ]) )
         colorid2 = b'\xc1' + sha256(hex_str_to_bytes(utxo['scriptPubKey']))

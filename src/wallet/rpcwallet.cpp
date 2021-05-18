@@ -137,6 +137,22 @@ static std::string LabelFromValue(const UniValue& value)
     return label;
 }
 
+static void addTokenKV(const CTxDestination& address, UniValue& entry)
+{
+    ColorIdentifier colorId;
+    if(address.which() == 3)
+        colorId = boost::get<CColorKeyID>(address).color;
+    else if(address.which() == 4)
+        colorId = boost::get<CColorScriptID>(address).color;
+
+    if(colorId.type == TokenTypes::NONE)
+        entry.pushKV("token", CURRENCY_UNIT);
+    else
+    {   std::string cid(colorId.toString());
+        entry.pushKV("token", HexStr(cid.begin(), cid.end()));
+    }
+}
+
 static UniValue getnewaddress(const JSONRPCRequest& request)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
@@ -1113,7 +1129,6 @@ static UniValue sendfrom(const JSONRPCRequest& request)
     EnsureWalletIsUnlocked(pwallet);
 
     // Check funds
-    //dest.type == 
     ColorIdentifier colorId;
     CAmount nBalance = pwallet->GetLegacyBalance(ISMINE_SPENDABLE, nMinDepth, &strAccount, colorId);
     if (nAmount > nBalance)
@@ -1654,6 +1669,9 @@ static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bo
                 obj.pushKV("involvesWatchonly", true);
             obj.pushKV("address",       EncodeDestination(address));
             obj.pushKV("account",       label);
+
+            addTokenKV(address, obj);
+
             obj.pushKV("amount",        ValueFromAmount(nAmount));
             obj.pushKV("confirmations", (nConf == std::numeric_limits<int>::max() ? 0 : nConf));
             obj.pushKV("label", label);
@@ -1836,18 +1854,8 @@ static void ListTransactions(CWallet* const pwallet, const CWalletTx& wtx, const
             MaybePushAddress(entry, s.destination);
             entry.pushKV("category", "send");
 
-            ColorIdentifier colorId;
-            if(s.destination.which() == 3)
-                colorId = boost::get<CColorKeyID>(s.destination).color;
-            else if(s.destination.which() == 4)
-                colorId = boost::get<CColorScriptID>(s.destination).color;
+            addTokenKV(s.destination, entry);
 
-            if(colorId.type == TokenTypes::NONE)
-                entry.pushKV("token",  "TPC");
-            else
-            {   std::string cid(colorId.toString());
-                entry.pushKV("token",  HexStr(cid.begin(), cid.end()));
-            }
             entry.pushKV("amount", ValueFromAmount(-s.amount));
             if (pwallet->mapAddressBook.count(s.destination)) {
                 entry.pushKV("label", pwallet->mapAddressBook[s.destination].name);
@@ -1889,18 +1897,8 @@ static void ListTransactions(CWallet* const pwallet, const CWalletTx& wtx, const
                 {
                     entry.pushKV("category", "receive");
                 }
-                ColorIdentifier colorId;
-                if(r.destination.which() == 3)
-                    colorId = boost::get<CColorKeyID>(r.destination).color;
-                else if(r.destination.which() == 4)
-                    colorId = boost::get<CColorScriptID>(r.destination).color;
+                addTokenKV(r.destination, entry);
 
-                if(colorId.type == TokenTypes::NONE)
-                    entry.pushKV("token",  "TPC");
-                else
-                {   std::string cid(colorId.toString());
-                    entry.pushKV("token",  HexStr(cid.begin(), cid.end()));
-                }
                 entry.pushKV("amount", ValueFromAmount(r.amount));
                 if (pwallet->mapAddressBook.count(r.destination)) {
                     entry.pushKV("label", account);
@@ -3489,18 +3487,8 @@ static UniValue listunspent(const JSONRPCRequest& request)
         if (fValidAddress) {
             entry.pushKV("address", EncodeDestination(address));
 
-            ColorIdentifier colorId;
-            if(address.which() == 3)
-                colorId = boost::get<CColorKeyID>(address).color;
-            else if(address.which() == 4)
-                colorId = boost::get<CColorScriptID>(address).color;
+            addTokenKV(address, entry);
 
-            if(colorId.type == TokenTypes::NONE)
-                entry.pushKV("token",  "TPC");
-            else
-            {   std::string cid(colorId.toString());
-                entry.pushKV("token",  HexStr(cid.begin(), cid.end()));
-            }
             auto i = pwallet->mapAddressBook.find(address);
             if (i != pwallet->mapAddressBook.end()) {
                 entry.pushKV("label", i->second.name);
