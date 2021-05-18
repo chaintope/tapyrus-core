@@ -4,19 +4,18 @@ on: [push, pull_request]
 
 jobs:
   arm:
-    name: "[PENDING]ARM"
+    name: "ARM"
     runs-on: ubuntu-18.04
     steps:
-      - run: echo "PENDING. make install is failing."
-#      - uses: actions/checkout@v1
-#      - run: |
-#          source ./default-env.sh
-#          HOST=arm-linux-gnueabihf \
-#          PACKAGES="g++-arm-linux-gnueabihf" \
-#          DEP_OPTS="NO_QT=1" \
-#          GOAL="install" \
-#          BITCOIN_CONFIG="--enable-glibc-back-compat --enable-reduce-exports" \
-#          bash -xe ./build-test.sh
+      - uses: actions/checkout@v1
+      - run: |
+          source ./default-env.sh
+          HOST=arm-linux-gnueabihf \
+          PACKAGES="g++-arm-linux-gnueabihf" \
+          DEP_OPTS="NO_QT=1" \
+          GOAL="install" \
+          BITCOIN_CONFIG="--enable-glibc-back-compat --enable-reduce-exports" \
+          bash -xe ./build-test.sh
 
   win32:
     name: "WIN32"
