@@ -2036,7 +2036,10 @@ UniValue scantxoutset(const JSONRPCRequest& request)
             if(colorId.type == TokenTypes::NONE)
                 unspent.pushKV("token", CURRENCY_UNIT);
             else
-                unspent.pushKV("token", colorId.toString());
+            {
+                std::string cid(colorId.toString());
+                unspent.pushKV("token", HexStr(cid.begin(), cid.end()));
+            }
             unspent.pushKV("amount", ValueFromAmount(txo.nValue));
             unspent.pushKV("height", (int32_t)coin.nHeight);
 
