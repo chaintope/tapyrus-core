@@ -149,6 +149,7 @@ BASE_SCRIPTS = [
     'wallet_listsinceblock.py --scheme SCHNORR',
     'p2p_leak.py',
     'wallet_encryption.py',
+    'wallet_coloredcoin.py',
     'feature_dersig.py',
     'rpc_uptime.py',
     'wallet_resendwallettransactions.py',

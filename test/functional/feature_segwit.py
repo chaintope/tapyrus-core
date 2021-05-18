@@ -266,9 +266,9 @@ class SegWitTest(BitcoinTestFramework):
             else:
                 [p2wpkh, p2sh_p2wpkh, p2pk, p2pkh, p2sh_p2pk, p2sh_p2pkh, p2wsh_p2pk, p2wsh_p2pkh, p2sh_p2wsh_p2pk, p2sh_p2wsh_p2pkh] = self.p2pkh_address_to_script(v)
                 # normal P2PKH and P2PK with compressed keys should always be spendable
-                spendable_anytime.extend([p2pkh, p2pk])
+                spendable_anytime.extend([p2pkh, p2pk, p2sh_p2pkh])
                 # P2SH_P2PK, P2SH_P2PKH with compressed keys are spendable after direct importaddress
-                spendable_after_importaddress.extend([p2sh_p2pk, p2sh_p2pkh])
+                spendable_after_importaddress.extend([p2sh_p2pk])
                 unseen_anytime.extend([p2wsh_p2pk, p2wsh_p2pkh, p2sh_p2wsh_p2pk, p2sh_p2wsh_p2pkh,p2wpkh, p2sh_p2wpkh])
 
         for i in uncompressed_spendable_address:
@@ -375,7 +375,7 @@ class SegWitTest(BitcoinTestFramework):
         spendable_txid.append(self.mine_and_test_listunspent(spendable_anytime + spendable_after_importaddress, 2))
         solvable_txid.append(self.mine_and_test_listunspent(solvable_anytime + solvable_after_importaddress, 1))
         self.mine_and_test_listunspent(unsolvable_after_importaddress, 1)
-        #self.mine_and_test_listunspent(unseen_anytime, 0)
+        self.mine_and_test_listunspent(unseen_anytime, 0)
 
         # addwitnessaddress should refuse to return a witness address if an uncompressed key is used
         # note that no witness address should be returned by unsolvable addresses
@@ -388,7 +388,7 @@ class SegWitTest(BitcoinTestFramework):
         spendable_txid.append(self.mine_and_test_listunspent(spendable_anytime + spendable_after_importaddress, 2))
         solvable_txid.append(self.mine_and_test_listunspent(solvable_anytime + solvable_after_importaddress, 1))
         self.mine_and_test_listunspent(unsolvable_after_importaddress, 1)
-        #self.mine_and_test_listunspent(unseen_anytime, 0)
+        self.mine_and_test_listunspent(unseen_anytime, 0)
 
         # Repeat some tests. This time we don't add witness scripts with importaddress
         # Import a compressed key and an uncompressed key, generate some multisig addresses
@@ -528,7 +528,7 @@ class SegWitTest(BitcoinTestFramework):
             assert_equal(watchcount, len(script_list))
             assert_equal(spendcount, 0)
         else:
-            assert_equal(watchcount, 0)
+            assert_equal(spendcount, 0)
         return txid
 
     def p2sh_address_to_script(self,v):

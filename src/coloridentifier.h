@@ -136,6 +136,7 @@ struct ColorIdentifierCompare
 
 typedef std::map<ColorIdentifier, CAmount, ColorIdentifierCompare> TxColoredCoinBalancesMap;
 
+class CKeyID;
 
 /** A reference to a CKey with color: the Hash160 of its serialized public key */
 class CColorKeyID : public uint160
@@ -144,7 +145,9 @@ public:
     ColorIdentifier color;
     explicit CColorKeyID(const ColorIdentifier& colorin) : uint160(), color(colorin) {}
     explicit CColorKeyID(const uint160& in, const ColorIdentifier& colorin) : uint160(in), color(colorin) {}
+    CKeyID getKeyID() const;
 };
+
 
 
 #endif //TAPYRUS_COLORIDENTIFIER_H
