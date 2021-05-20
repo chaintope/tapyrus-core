@@ -2894,6 +2894,8 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 //handle TPC change with fee
                 ColorIdentifier colorId;
                 CAmount targetValue = mapValue[colorId];
+                if (nSubtractFeeFromAmount == 0)
+                    targetValue += nFeeRet;
 
                 const CAmount nChange = mapValueIn[colorId] - targetValue;
                 if (nChange > 0)

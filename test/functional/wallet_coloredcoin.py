@@ -207,7 +207,7 @@ class WalletColoredCoinTest(BitcoinTestFramework):
 
         walletinfo = self.nodes[2].getwalletinfo()
         assert_equal(len(walletinfo['balance']), 1)
-        assert_equal(str(walletinfo['balance']['TPC']), '202.00007940')
+        assert_equal(str(walletinfo['balance']['TPC']), '202.00009520')
 
 if __name__ == '__main__':
     WalletColoredCoinTest().main()
