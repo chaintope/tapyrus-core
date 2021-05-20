@@ -9,12 +9,14 @@ RUN apt-get update && \
     apt-get install --no-install-recommends --no-upgrade -qq $PACKAGES $BUILD_PACKAGES
 
 WORKDIR /tapyrus-core
+
+COPY depends ./depends
+RUN make -j"$(($(nproc)+1))" -C depends
+
 COPY . .
 
 RUN ./autogen.sh && \
-    ./configure --enable-cxx --disable-shared --disable-replication --with-pic --with-incompatible-bdb && \
-    make -j"$(($(nproc)+1))" -C depends && \
-    ./configure $TAPYRUS_CONFIG && \
+    ./configure --enable-cxx --disable-shared --disable-replication --with-pic --with-incompatible-bdb $TAPYRUS_CONFIG && \
     make -j"$(($(nproc)+1))" && \
     make install
 
