@@ -136,25 +136,4 @@ struct TestMemPoolEntryHelper
     TestMemPoolEntryHelper &SigOpsCost(unsigned int _sigopsCost) { sigOpCost = _sigopsCost; return *this; }
 };
 
-class TestWalletSetup : public TestChainSetup {
-public:
-    TestWalletSetup(): TestChainSetup() {
-        initWallet();
-    }
-
-    ~TestWalletSetup() {
-        wallet.reset();
-    }
-
-    std::unique_ptr<CWallet> wallet;
-
-    bool ImportCoin(const CAmount amount);
-    bool IssueNonReissunableColoredCoin(const CAmount amount, ColorIdentifier& cid);
-    bool ProcessBlockAndScanForWalletTxns(const CTransactionRef tx);
-    bool AddToWalletAndMempool(const CTransactionRef tx);
-private:
-    void initWallet();
-    void Sign(std::vector<unsigned char>& vchSig, CKey& signKey, const CScript& scriptPubKey, int inIndex, CMutableTransaction& outTx, int outIndex);
-};
-
 #endif //TAPYRUS_TEST_TEST_TAPYRUS_H
