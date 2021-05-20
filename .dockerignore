@@ -3,13 +3,13 @@
 *.tar.gz
 
 *.exe
-src/bitcoin
 src/tapyrusd
 src/tapyrus-cli
 src/tapyrus-tx
 src/tapyrus-genesis
 src/test/test_tapyrus
 src/test/test_tapyrus_fuzzy
+src/qt/tapyrus-qt
 src/qt/test/test_tapyrus-qt
 
 # autoreconf
@@ -46,12 +46,6 @@ src/qt/moc_*.cpp
 src/qt/forms/ui_*.h
 
 src/qt/test/moc*.cpp
-
-src/qt/bitcoin-qt.config
-src/qt/bitcoin-qt.creator
-src/qt/bitcoin-qt.creator.user
-src/qt/bitcoin-qt.files
-src/qt/bitcoin-qt.includes
 
 .deps
 .dirstamp
