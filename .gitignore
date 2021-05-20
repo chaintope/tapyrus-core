@@ -124,3 +124,6 @@ contrib/devtools/split-debug.sh
 /stage
 /prime
 *.snap
+
+# for test
+tapyrus.conf
