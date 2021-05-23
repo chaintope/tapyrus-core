@@ -16,7 +16,6 @@
 #include <txdb.h>
 #include <txmempool.h>
 #include <consensus/consensus.h>
-#include <wallet/wallet.h>
 
 #include <memory>
 
