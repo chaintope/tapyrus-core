@@ -34,28 +34,28 @@ class ListTransactionsTest(BitcoinTestFramework):
         self.sync_all()
         assert_array_result(self.nodes[0].listtransactions(),
                             {"txid": txid},
-                            {"category": "send", "amount": Decimal("-0.1"), "confirmations": 0})
+                            {"category": "send", "token": "TPC", "amount": Decimal("-0.1"), "confirmations": 0})
         assert_array_result(self.nodes[1].listtransactions(),
                             {"txid": txid},
-                            {"category": "receive", "amount": Decimal("0.1"), "confirmations": 0})
+                            {"category": "receive", "token": "TPC", "amount": Decimal("0.1"), "confirmations": 0})
         # mine a block, confirmations should change:
         self.nodes[0].generate(1, self.signblockprivkey_wif)
         self.sync_all()
         assert_array_result(self.nodes[0].listtransactions(),
                             {"txid": txid},
-                            {"category": "send", "amount": Decimal("-0.1"), "confirmations": 1})
+                            {"category": "send", "token": "TPC", "amount": Decimal("-0.1"), "confirmations": 1})
         assert_array_result(self.nodes[1].listtransactions(),
                             {"txid": txid},
-                            {"category": "receive", "amount": Decimal("0.1"), "confirmations": 1})
+                            {"category": "receive", "token": "TPC", "amount": Decimal("0.1"), "confirmations": 1})
 
         # send-to-self:
         txid = self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 0.2)
         assert_array_result(self.nodes[0].listtransactions(),
                             {"txid": txid, "category": "send"},
-                            {"amount": Decimal("-0.2")})
+                            {"token": "TPC", "amount": Decimal("-0.2")})
         assert_array_result(self.nodes[0].listtransactions(),
                             {"txid": txid, "category": "receive"},
-                            {"amount": Decimal("0.2")})
+                            {"token": "TPC", "amount": Decimal("0.2")})
 
         # sendmany from node1: twice to self, twice to node2:
         send_to = {self.nodes[0].getnewaddress(): 0.11,
@@ -65,28 +65,28 @@ class ListTransactionsTest(BitcoinTestFramework):
         txid = self.nodes[1].sendmany("", send_to)
         self.sync_all()
         assert_array_result(self.nodes[1].listtransactions(),
-                            {"category": "send", "amount": Decimal("-0.11")},
+                            {"category": "send", "token": "TPC", "amount": Decimal("-0.11")},
                             {"txid": txid})
         assert_array_result(self.nodes[0].listtransactions(),
-                            {"category": "receive", "amount": Decimal("0.11")},
+                            {"category": "receive", "token": "TPC", "amount": Decimal("0.11")},
                             {"txid": txid})
         assert_array_result(self.nodes[1].listtransactions(),
-                            {"category": "send", "amount": Decimal("-0.22")},
+                            {"category": "send", "token": "TPC", "amount": Decimal("-0.22")},
                             {"txid": txid})
         assert_array_result(self.nodes[1].listtransactions(),
-                            {"category": "receive", "amount": Decimal("0.22")},
+                            {"category": "receive", "token": "TPC", "amount": Decimal("0.22")},
                             {"txid": txid})
         assert_array_result(self.nodes[1].listtransactions(),
-                            {"category": "send", "amount": Decimal("-0.33")},
+                            {"category": "send", "token": "TPC", "amount": Decimal("-0.33")},
                             {"txid": txid})
         assert_array_result(self.nodes[0].listtransactions(),
-                            {"category": "receive", "amount": Decimal("0.33")},
+                            {"category": "receive", "token": "TPC", "amount": Decimal("0.33")},
                             {"txid": txid})
         assert_array_result(self.nodes[1].listtransactions(),
-                            {"category": "send", "amount": Decimal("-0.44")},
+                            {"category": "send", "token": "TPC", "amount": Decimal("-0.44")},
                             {"txid": txid})
         assert_array_result(self.nodes[1].listtransactions(),
-                            {"category": "receive", "amount": Decimal("0.44")},
+                            {"category": "receive", "token": "TPC", "amount": Decimal("0.44")},
                             {"txid": txid})
 
         pubkey = self.nodes[1].getaddressinfo(self.nodes[1].getnewaddress())['pubkey']
@@ -97,7 +97,7 @@ class ListTransactionsTest(BitcoinTestFramework):
         self.sync_all()
         assert not [tx for tx in self.nodes[0].listtransactions(dummy="*", count=100, skip=0, include_watchonly=False) if "label" in tx and tx["label"] == "watchonly"]
         txs = [tx for tx in self.nodes[0].listtransactions(dummy="*", count=100, skip=0, include_watchonly=True) if "label" in tx and tx['label'] == 'watchonly']
-        assert_array_result(txs, {"category": "receive", "amount": Decimal("0.1")}, {"txid": txid})
+        assert_array_result(txs, {"category": "receive", "token": "TPC", "amount": Decimal("0.1")}, {"txid": txid})
 
         self.run_rbf_opt_in_test()
 
