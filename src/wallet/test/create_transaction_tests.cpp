@@ -120,7 +120,7 @@ BOOST_FIXTURE_TEST_CASE(test_creating_hybrid_transaction, TestWalletSetup)
     BOOST_CHECK(wallet->IsMine(tx->vout[ mapChangePosRet[cid] ]));
     BOOST_CHECK(tx->vout[ mapChangePosRet[cid] ].scriptPubKey.IsColoredScript());
     BOOST_CHECK_EQUAL(tx->vout[ mapChangePosRet[cid] ].nValue, 100 * CENT);
-    BOOST_CHECK(wallet->IsColoredOutPointWith({tx->GetHashMalFix(), (uint)mapChangePosRet[cid]}, cid));
+    BOOST_CHECK(wallet->IsColoredOutPointWith(COutPoint(tx->GetHashMalFix(), (uint)mapChangePosRet[cid]), cid));
 
     BOOST_CHECK_EQUAL(wallet->GetBalance()[cid], 100 * CENT);
 }
@@ -167,7 +167,7 @@ BOOST_FIXTURE_TEST_CASE(test_creating_colored_transaction, TestWalletSetup)
     BOOST_CHECK(!tx->vout[1].scriptPubKey.IsColoredScript());
 
     BOOST_CHECK(wallet->IsMine(tx->vout[2]));
-    BOOST_CHECK(wallet->IsColoredOutPointWith({tx->GetHashMalFix(), 2}, cid));
+    BOOST_CHECK(wallet->IsColoredOutPointWith(COutPoint(tx->GetHashMalFix(), 2), cid));
     BOOST_CHECK_EQUAL(tx->vout[2].nValue, 100 * CENT);
 
     BOOST_CHECK_EQUAL(wallet->GetBalance()[cid], 100 * CENT);
@@ -198,7 +198,7 @@ BOOST_FIXTURE_TEST_CASE(test_creating_colored_transaction, TestWalletSetup)
     BOOST_CHECK(!tx->vout[1].scriptPubKey.IsColoredScript());
 
     BOOST_CHECK(wallet->IsMine(tx->vout[2]));
-    BOOST_CHECK(wallet->IsColoredOutPointWith({tx->GetHashMalFix(), 2}, cid));
+    BOOST_CHECK(wallet->IsColoredOutPointWith(COutPoint(tx->GetHashMalFix(), 2), cid));
     BOOST_CHECK_EQUAL(tx->vout[2].nValue, 99999999);
 
     BOOST_CHECK_EQUAL(wallet->GetBalance()[cid], 99999999);
@@ -229,7 +229,7 @@ BOOST_FIXTURE_TEST_CASE(test_creating_colored_transaction, TestWalletSetup)
     BOOST_CHECK(!tx->vout[1].scriptPubKey.IsColoredScript());
 
     BOOST_CHECK(wallet->IsMine(tx->vout[2]));
-    BOOST_CHECK(wallet->IsColoredOutPointWith({tx->GetHashMalFix(), 2}, cid));
+    BOOST_CHECK(wallet->IsColoredOutPointWith(COutPoint(tx->GetHashMalFix(), 2), cid));
     BOOST_CHECK_EQUAL(tx->vout[2].nValue, 1);
 
     BOOST_CHECK_EQUAL(wallet->GetBalance()[cid], 1);
