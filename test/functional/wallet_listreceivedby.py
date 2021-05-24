@@ -41,11 +41,11 @@ class ReceivedByTest(BitcoinTestFramework):
         self.sync_all()
         assert_array_result(self.nodes[1].listreceivedbyaddress(),
                             {"address": addr},
-                            {"address": addr, "label": "", "amount": Decimal("0.1"), "confirmations": 10, "txids": [txid, ]})
+                            {"address": addr, "label": "", "token": "TPC", "amount": Decimal("0.1"), "confirmations": 10, "txids": [txid, ]})
         # With min confidence < 10
         assert_array_result(self.nodes[1].listreceivedbyaddress(5),
                             {"address": addr},
-                            {"address": addr, "label": "", "amount": Decimal("0.1"), "confirmations": 10, "txids": [txid, ]})
+                            {"address": addr, "label": "", "token": "TPC", "amount": Decimal("0.1"), "confirmations": 10, "txids": [txid, ]})
         # With min confidence > 10, should not find Tx
         assert_array_result(self.nodes[1].listreceivedbyaddress(11), {"address": addr}, {}, True)
 
@@ -53,11 +53,11 @@ class ReceivedByTest(BitcoinTestFramework):
         empty_addr = self.nodes[1].getnewaddress()
         assert_array_result(self.nodes[1].listreceivedbyaddress(0, True),
                             {"address": empty_addr},
-                            {"address": empty_addr, "label": "", "amount": 0, "confirmations": 0, "txids": []})
+                            {"address": empty_addr, "label": "", "token": "TPC", "amount": 0, "confirmations": 0, "txids": []})
 
         # Test Address filtering
         # Only on addr
-        expected = {"address": addr, "label": "", "amount": Decimal("0.1"), "confirmations": 10, "txids": [txid, ]}
+        expected = {"address": addr, "label": "", "token": "TPC", "amount": Decimal("0.1"), "confirmations": 10, "txids": [txid, ]}
         res = self.nodes[1].listreceivedbyaddress(minconf=0, include_empty=True, include_watchonly=True, address_filter=addr)
         assert_array_result(res, {"address": addr}, expected)
         assert_equal(len(res), 1)
@@ -71,12 +71,12 @@ class ReceivedByTest(BitcoinTestFramework):
         self.nodes[0].generate(1, self.signblockprivkey_wif)
         self.sync_all()
         # Same test as above should still pass
-        expected = {"address": addr, "label": "", "amount": Decimal("0.1"), "confirmations": 11, "txids": [txid, ]}
+        expected = {"address": addr, "label": "", "token": "TPC", "amount": Decimal("0.1"), "confirmations": 11, "txids": [txid, ]}
         res = self.nodes[1].listreceivedbyaddress(0, True, True, addr)
         assert_array_result(res, {"address": addr}, expected)
         assert_equal(len(res), 1)
         # Same test as above but with other_addr should still pass
-        expected = {"address": other_addr, "label": "", "amount": Decimal("0.1"), "confirmations": 1, "txids": [txid2, ]}
+        expected = {"address": other_addr, "label": "", "token": "TPC", "amount": Decimal("0.1"), "confirmations": 1, "txids": [txid2, ]}
         res = self.nodes[1].listreceivedbyaddress(0, True, True, other_addr)
         assert_array_result(res, {"address": other_addr}, expected)
         assert_equal(len(res), 1)

@@ -67,8 +67,8 @@ def small_txpuzzle_randfee(from_node, conflist, unconflist, amount, min_fee, fee
     for inp in tx.vin:
         inp.scriptSig = SCRIPT_SIG[inp.prevout.n]
     txid = from_node.sendrawtransaction(ToHex(tx), True)
-    unconflist.append({"txid": txid, "vout": 0, "amount": total_in - amount - fee})
-    unconflist.append({"txid": txid, "vout": 1, "amount": amount})
+    unconflist.append({"txid": txid, "vout": 0, "token": "TPC", "amount": total_in - amount - fee})
+    unconflist.append({"txid": txid, "vout": 1, "token": "TPC", "amount": amount})
 
     return (ToHex(tx), fee)
 
@@ -97,8 +97,8 @@ def split_inputs(from_node, txins, txouts, initial_split=False):
         tx.vin[0].scriptSig = SCRIPT_SIG[prevtxout["vout"]]
         completetx = ToHex(tx)
     txid = from_node.sendrawtransaction(completetx, True)
-    txouts.append({"txid": txid, "vout": 0, "amount": half_change})
-    txouts.append({"txid": txid, "vout": 1, "amount": rem_change})
+    txouts.append({"txid": txid, "vout": 0, "token": "TPC", "amount": half_change})
+    txouts.append({"txid": txid, "vout": 1, "token": "TPC", "amount": rem_change})
 
 def check_estimates(node, fees_seen):
     """Call estimatesmartfee and verify that the estimates meet certain invariants."""

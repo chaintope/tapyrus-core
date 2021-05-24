@@ -379,7 +379,7 @@ public:
         LOCK2(::cs_main, m_wallet.cs_wallet);
         const CWalletTx* parent = m_wallet.GetWalletTx(txin.prevout.hashMalFix);
         ColorIdentifier colorId(GetColorIdFromScript(parent->tx->vout[txin.prevout.n].scriptPubKey));
-        return m_wallet.GetDebit(txin, filter)[colorId];
+        return m_wallet.GetDebit(txin, filter, colorId);
     }
     CAmount getCredit(const CTxOut& txout, isminefilter filter) override
     {

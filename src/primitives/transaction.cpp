@@ -117,13 +117,13 @@ CTransaction::CTransaction(CMutableTransaction&& tx) :
             hashMalFix{ComputeHashMalFix()}
     {}
 
-CAmount CTransaction::GetValueOut() const
+CAmount CTransaction::GetValueOut(ColorIdentifier colorId) const
 {
     CAmount nValueOut = 0;
     for (const auto& tx_out : vout) {
         ColorIdentifier outColorId(GetColorIdFromScript(tx_out.scriptPubKey));
 
-        if(outColorId.type == TokenTypes::NONE)
+        if(outColorId == colorId)
             nValueOut += tx_out.nValue;
 
         if (!MoneyRange(tx_out.nValue) || !MoneyRange(nValueOut))

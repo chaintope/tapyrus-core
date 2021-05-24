@@ -248,4 +248,30 @@ BOOST_AUTO_TEST_CASE(coloridentifier_map_compare)
     BOOST_CHECK_EQUAL(c5 < c4, true);
 }
 
+BOOST_AUTO_TEST_CASE(coloridentifier_string_conversion)
+{
+    //type REISSUABLE
+    std::vector<unsigned char> scriptVector(ParseHex("c38282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508"));
+    ColorIdentifier c1(CScript() << scriptVector);
+
+    BOOST_CHECK_EQUAL(c1.toHexString(), "c1f335bd3240ddfd87a2c2fc5a53210606460f19143f5e475729c46e06fcc9858f");
+
+    //type NON_REISSUABLE
+    uint256 hashMalFix(ParseHex("485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954"));
+    COutPoint out(hashMalFix, 0);
+    ColorIdentifier c2(out, TokenTypes::NON_REISSUABLE);
+
+    BOOST_CHECK_EQUAL(c2.toHexString(), "c29608951ee23595caa227e7668e39f9d3525a39e9dc30d7391f138576c07be84d");
+
+    //type NONE
+    ColorIdentifier c3;
+    BOOST_CHECK_EQUAL(c3.toHexString(), "TPC");
+
+    //type unknown
+    ColorIdentifier c4;
+    memcpy(&c4, "048282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508", 33);
+
+    BOOST_CHECK_EQUAL(c4.toHexString(), "00");
+
+}
 BOOST_AUTO_TEST_SUITE_END()

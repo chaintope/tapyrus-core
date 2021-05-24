@@ -145,12 +145,7 @@ static void addTokenKV(const CTxDestination& address, UniValue& entry)
     else if(address.which() == 4)
         colorId = boost::get<CColorScriptID>(address).color;
 
-    if(colorId.type == TokenTypes::NONE)
-        entry.pushKV("token", CURRENCY_UNIT);
-    else
-    {   std::string cid(colorId.toString());
-        entry.pushKV("token", HexStr(cid.begin(), cid.end()));
-    }
+    entry.pushKV("token", colorId.toHexString());
 }
 
 static UniValue getnewaddress(const JSONRPCRequest& request)
@@ -581,12 +576,13 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No Token found in wallet. But token address was given.");
     }
 
-    mapValue_t mapValue;
     // Amount
     CAmount nAmount = AmountFromValue(request.params[1]);
     if (nAmount <= 0)
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for send");
 
+    // Wallet comments
+    mapValue_t mapValue;
     if (!request.params[2].isNull() && !request.params[2].get_str().empty())
         mapValue["comment"] = request.params[2].get_str();
     if (!request.params[3].isNull() && !request.params[3].get_str().empty())
@@ -614,6 +610,9 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
 
 
     EnsureWalletIsUnlocked(pwallet);
+
+    if(pwallet->GetBalance()[colorId] < nAmount)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Insufficient token balance in wallet");
 
     CTransactionRef tx = SendMoney(pwallet, dest, nAmount, fSubtractFeeFromAmount, coin_control, std::move(mapValue), {} /* fromAccount */, colorId);
     return tx->GetHashMalFix().GetHex();
@@ -1698,6 +1697,7 @@ static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bo
             if (entry.second.fIsWatchonly)
                 obj.pushKV("involvesWatchonly", true);
             obj.pushKV("account",       entry.first);
+            obj.pushKV("token", CURRENCY_UNIT);
             obj.pushKV("amount",        ValueFromAmount(nAmount));
             obj.pushKV("confirmations", (nConf == std::numeric_limits<int>::max() ? 0 : nConf));
             obj.pushKV("label",         entry.first);
@@ -1922,6 +1922,7 @@ static void AcentryToJSON(const CAccountingEntry& acentry, const std::string& st
         entry.pushKV("account", acentry.strAccount);
         entry.pushKV("category", "move");
         entry.pushKV("time", acentry.nTime);
+        entry.pushKV("token", CURRENCY_UNIT);
         entry.pushKV("amount", ValueFromAmount(acentry.nCreditDebit));
         if (IsDeprecatedRPCEnabled("accounts")) entry.pushKV("otheraccount", acentry.strOtherAccount);
         entry.pushKV("comment", acentry.strComment);
@@ -2430,16 +2431,24 @@ static UniValue gettransaction(const JSONRPCRequest& request)
     }
     const CWalletTx& wtx = it->second;
 
-    ColorIdentifier colorId;
-    CAmount nCredit = wtx.GetCredit(filter, colorId);
-    CAmount nDebit = wtx.GetDebit(filter, colorId);
-    CAmount nNet = nCredit - nDebit;
-    CAmount nFee = (wtx.IsFromMe(filter) ? wtx.tx->GetValueOut() - nDebit : 0);
+    std::set<ColorIdentifier> txColorIdSet{ColorIdentifier()};
+    for(auto iter = wtx.nCreditCached.begin(); iter != wtx.nCreditCached.end(); iter++)
+        txColorIdSet.insert(iter->first);
+    for(auto iter = wtx.nDebitCached.begin(); iter != wtx.nDebitCached.end(); iter++)
+        txColorIdSet.insert(iter->first);
 
-    entry.pushKV("amount", ValueFromAmount(nNet - nFee));
-    if (wtx.IsFromMe(filter))
+    for(auto &colorId:txColorIdSet)
+    {
+        CAmount nCredit = wtx.GetCredit(filter, colorId);
+        CAmount nDebit = wtx.GetDebit(filter, colorId);
+        CAmount nNet = nCredit - nDebit;
+        CAmount nFee = (wtx.IsFromMe(filter) ? wtx.tx->GetValueOut(colorId) - nDebit : 0);
+
+        entry.pushKV("token", colorId.toHexString());
+        entry.pushKV("amount", ValueFromAmount(nNet - nFee));
         entry.pushKV("fee", ValueFromAmount(nFee));
-
+        
+    }
     WalletTxToJSON(wtx, entry);
 
     UniValue details(UniValue::VARR);
@@ -3088,11 +3097,7 @@ static UniValue getwalletinfo(const JSONRPCRequest& request)
 
     TxColoredCoinBalancesMap walletunconfirmedbalances = pwallet->GetUnconfirmedBalance();
     for (auto const& uwb : walletunconfirmedbalances) {
-        if (uwb.first.type == TokenTypes::NONE) {
-            unconfirmBalancesObj.pushKV(CURRENCY_UNIT.c_str(), ValueFromAmount(uwb.second));
-        } else {
-            unconfirmBalancesObj.pushKV(HexStr(uwb.first.toVector()).c_str(), ValueFromAmount(uwb.second));
-        }
+        unconfirmBalancesObj.pushKV(uwb.first.toHexString(), ValueFromAmount(uwb.second));
     };
 
     size_t kpExternalSize = pwallet->KeypoolCountExternalKeys();
@@ -3507,6 +3512,8 @@ static UniValue listunspent(const JSONRPCRequest& request)
         }
 
         entry.pushKV("scriptPubKey", HexStr(scriptPubKey.begin(), scriptPubKey.end()));
+        ColorIdentifier colorId(GetColorIdFromScript(scriptPubKey));
+        entry.pushKV("token", colorId.toHexString());
         entry.pushKV("amount", ValueFromAmount(out.tx->tx->vout[out.i].nValue));
         entry.pushKV("confirmations", out.nDepth);
         entry.pushKV("spendable", out.fSpendable);

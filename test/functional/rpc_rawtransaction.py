@@ -161,12 +161,14 @@ class RawTransactionsTest(BitcoinTestFramework):
                 {
                     "txid": txid,
                     "scriptPubKey": pubkey,
+                    "token": "TPC",
                     "amount": 1,
                 }
             ], "ALL", self.options.scheme)
             assert_raises_rpc_error(-3, "Missing txid", self.nodes[0].signrawtransactionwithwallet, rawtx, [
                 {
                     "scriptPubKey": pubkey,
+                    "token": "TPC",
                     "vout": 3,
                     "amount": 1,
                 }
@@ -174,6 +176,7 @@ class RawTransactionsTest(BitcoinTestFramework):
             assert_raises_rpc_error(-3, "Missing scriptPubKey", self.nodes[0].signrawtransactionwithwallet, rawtx, [
                 {
                     "txid": txid,
+                    "token": "TPC",
                     "vout": 3,
                     "amount": 1
                 }
@@ -282,7 +285,7 @@ class RawTransactionsTest(BitcoinTestFramework):
                 break
 
         bal = self.nodes[0].getbalance()
-        inputs = [{ "txid" : txId, "vout" : vout['n'], "scriptPubKey" : vout['scriptPubKey']['hex'], "amount" : vout['value']}]
+        inputs = [{ "txid" : txId, "vout" : vout['n'], "scriptPubKey" : vout['scriptPubKey']['hex'], "token": "TPC", "amount" : vout['value']}]
         outputs = { self.nodes[0].getnewaddress() : 2.19 }
         rawTx = self.nodes[2].createrawtransaction(inputs, outputs)
         rawTxPartialSigned = self.nodes[1].signrawtransactionwithwallet(rawTx, inputs, "ALL", self.options.scheme)
@@ -332,7 +335,7 @@ class RawTransactionsTest(BitcoinTestFramework):
                 break
 
         bal = self.nodes[0].getbalance()
-        inputs = [{ "txid" : txId, "vout" : vout['n'], "scriptPubKey" : vout['scriptPubKey']['hex'], "redeemScript" : mSigObjValid['hex'], "amount" : vout['value']}]
+        inputs = [{ "txid" : txId, "vout" : vout['n'], "scriptPubKey" : vout['scriptPubKey']['hex'], "redeemScript" : mSigObjValid['hex'], "token": "TPC", "amount" : vout['value']}]
         outputs = { self.nodes[0].getnewaddress() : 2.19 }
         rawTx2 = self.nodes[2].createrawtransaction(inputs, outputs)
         rawTxPartialSigned1 = self.nodes[1].signrawtransactionwithwallet(rawTx2, inputs, "ALL", self.options.scheme)

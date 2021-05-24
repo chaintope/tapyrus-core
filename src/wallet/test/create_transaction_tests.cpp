@@ -98,7 +98,8 @@ BOOST_FIXTURE_TEST_CASE(test_creating_hybrid_transaction, TestWalletSetup)
     BOOST_CHECK(ProcessBlockAndScanForWalletTxns(tx));
 
     BOOST_CHECK_EQUAL(mapChangePosRet[ColorIdentifier()], 1);
-    BOOST_CHECK_EQUAL(mapChangePosRet[cid], 2);
+    BOOST_CHECK_EQUAL(mapChangePosRet[cid], 3);
+    BOOST_CHECK_NE(mapChangePosRet[ColorIdentifier()], mapChangePosRet[cid]);
 
     // The one of outputs should be payment to counterparty.
     auto payment_ouput_index = std::find_if(tx->vout.begin(), tx->vout.end(), [&]( const CTxOut &out ) {
@@ -113,13 +114,13 @@ BOOST_FIXTURE_TEST_CASE(test_creating_hybrid_transaction, TestWalletSetup)
     BOOST_CHECK_EQUAL(tx->vout[colored_payment_ouput_index].nValue, 100 * CENT);
 
     // The other outputs should be change outputs.
-    BOOST_CHECK(wallet->IsMine(tx->vout[1]));
+    BOOST_CHECK(wallet->IsMine(tx->vout[ mapChangePosRet[ColorIdentifier()] ]));
     BOOST_CHECK(!tx->vout[1].scriptPubKey.IsColoredScript());
 
-    BOOST_CHECK(wallet->IsMine(tx->vout[2]));
-    BOOST_CHECK(tx->vout[2].scriptPubKey.IsColoredScript());
-    BOOST_CHECK_EQUAL(tx->vout[2].nValue, 100 * CENT);
-    BOOST_CHECK(wallet->IsColoredOutPointWith({tx->GetHashMalFix(), 2}, cid));
+    BOOST_CHECK(wallet->IsMine(tx->vout[ mapChangePosRet[cid] ]));
+    BOOST_CHECK(tx->vout[ mapChangePosRet[cid] ].scriptPubKey.IsColoredScript());
+    BOOST_CHECK_EQUAL(tx->vout[ mapChangePosRet[cid] ].nValue, 100 * CENT);
+    BOOST_CHECK(wallet->IsColoredOutPointWith(COutPoint(tx->GetHashMalFix(), (unsigned int)mapChangePosRet[cid]), cid));
 
     BOOST_CHECK_EQUAL(wallet->GetBalance()[cid], 100 * CENT);
 }
@@ -166,7 +167,7 @@ BOOST_FIXTURE_TEST_CASE(test_creating_colored_transaction, TestWalletSetup)
     BOOST_CHECK(!tx->vout[1].scriptPubKey.IsColoredScript());
 
     BOOST_CHECK(wallet->IsMine(tx->vout[2]));
-    BOOST_CHECK(wallet->IsColoredOutPointWith({tx->GetHashMalFix(), 2}, cid));
+    BOOST_CHECK(wallet->IsColoredOutPointWith(COutPoint(tx->GetHashMalFix(), 2), cid));
     BOOST_CHECK_EQUAL(tx->vout[2].nValue, 100 * CENT);
 
     BOOST_CHECK_EQUAL(wallet->GetBalance()[cid], 100 * CENT);
@@ -197,7 +198,7 @@ BOOST_FIXTURE_TEST_CASE(test_creating_colored_transaction, TestWalletSetup)
     BOOST_CHECK(!tx->vout[1].scriptPubKey.IsColoredScript());
 
     BOOST_CHECK(wallet->IsMine(tx->vout[2]));
-    BOOST_CHECK(wallet->IsColoredOutPointWith({tx->GetHashMalFix(), 2}, cid));
+    BOOST_CHECK(wallet->IsColoredOutPointWith(COutPoint(tx->GetHashMalFix(), 2), cid));
     BOOST_CHECK_EQUAL(tx->vout[2].nValue, 99999999);
 
     BOOST_CHECK_EQUAL(wallet->GetBalance()[cid], 99999999);
@@ -228,10 +229,11 @@ BOOST_FIXTURE_TEST_CASE(test_creating_colored_transaction, TestWalletSetup)
     BOOST_CHECK(!tx->vout[1].scriptPubKey.IsColoredScript());
 
     BOOST_CHECK(wallet->IsMine(tx->vout[2]));
-    BOOST_CHECK(wallet->IsColoredOutPointWith({tx->GetHashMalFix(), 2}, cid));
+    BOOST_CHECK(wallet->IsColoredOutPointWith(COutPoint(tx->GetHashMalFix(), 2), cid));
     BOOST_CHECK_EQUAL(tx->vout[2].nValue, 1);
 
     BOOST_CHECK_EQUAL(wallet->GetBalance()[cid], 1);
 }
+
 
 BOOST_AUTO_TEST_SUITE_END()
