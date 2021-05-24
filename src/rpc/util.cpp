@@ -100,7 +100,7 @@ public:
         obj.pushKV("isscript", false);
         obj.pushKV("iswitness", false);
         obj.pushKV("istoken", true);
-        obj.pushKV("color", colorKeyID.color.toString().c_str());
+        obj.pushKV("color", colorKeyID.color.toHexString());
         return obj;
     }
 
@@ -110,7 +110,7 @@ public:
         obj.pushKV("isscript", true);
         obj.pushKV("iswitness", false);
         obj.pushKV("istoken", true);
-        obj.pushKV("color", colorScriptID.color.toString().c_str());
+        obj.pushKV("color", colorScriptID.color.toHexString());
         return obj;
     }
 #ifdef DEBUG

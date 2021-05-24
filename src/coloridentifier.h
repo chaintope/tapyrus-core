@@ -9,6 +9,10 @@
 #include <version.h>
 #include <amount.h>
 #include <pubkey.h>
+#include <utilstrencodings.h>
+
+extern const std::string CURRENCY_UNIT;
+
 // Size of color identifier data in bytes
 static const unsigned int COLOR_IDENTIFIER_SIZE = 33;
 
@@ -113,10 +117,8 @@ struct ColorIdentifier
         return std::vector<unsigned char>(stream.begin(), stream.end());
     }
 
-    inline std::string toString() const {
-        CDataStream stream(SER_NETWORK, INIT_PROTO_VERSION);
-        this->Serialize(stream);
-        return stream.str();
+    inline std::string toHexString() const {
+        return this->type == TokenTypes::NONE ? CURRENCY_UNIT : HexStr(this->toVector());
     }
 
 };

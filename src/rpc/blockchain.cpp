@@ -2033,13 +2033,7 @@ UniValue scantxoutset(const JSONRPCRequest& request)
             unspent.pushKV("vout", (int32_t)outpoint.n);
             unspent.pushKV("scriptPubKey", HexStr(txo.scriptPubKey.begin(), txo.scriptPubKey.end()));
             ColorIdentifier colorId(GetColorIdFromScript(txo.scriptPubKey));
-            if(colorId.type == TokenTypes::NONE)
-                unspent.pushKV("token", CURRENCY_UNIT);
-            else
-            {
-                std::string cid(colorId.toString());
-                unspent.pushKV("token", HexStr(cid.begin(), cid.end()));
-            }
+            unspent.pushKV("token", colorId.toHexString());
             unspent.pushKV("amount", ValueFromAmount(txo.nValue));
             unspent.pushKV("height", (int32_t)coin.nHeight);
 

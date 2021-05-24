@@ -145,12 +145,7 @@ static void addTokenKV(const CTxDestination& address, UniValue& entry)
     else if(address.which() == 4)
         colorId = boost::get<CColorScriptID>(address).color;
 
-    if(colorId.type == TokenTypes::NONE)
-        entry.pushKV("token", CURRENCY_UNIT);
-    else
-    {   std::string cid(colorId.toString());
-        entry.pushKV("token", HexStr(cid.begin(), cid.end()));
-    }
+    entry.pushKV("token", colorId.toHexString());
 }
 
 static UniValue getnewaddress(const JSONRPCRequest& request)
@@ -2449,14 +2444,7 @@ static UniValue gettransaction(const JSONRPCRequest& request)
         CAmount nNet = nCredit - nDebit;
         CAmount nFee = (wtx.IsFromMe(filter) ? wtx.tx->GetValueOut(colorId) - nDebit : 0);
 
-        if(colorId.type == TokenTypes::NONE)
-            entry.pushKV("token", CURRENCY_UNIT);
-        else
-        {
-            assert(nFee == 0);
-            std::string cid(colorId.toString());
-            entry.pushKV("token", HexStr(cid.begin(), cid.end()));
-        }
+        entry.pushKV("token", colorId.toHexString());
         entry.pushKV("amount", ValueFromAmount(nNet - nFee));
         entry.pushKV("fee", ValueFromAmount(nFee));
         
@@ -3109,12 +3097,7 @@ static UniValue getwalletinfo(const JSONRPCRequest& request)
 
     TxColoredCoinBalancesMap walletunconfirmedbalances = pwallet->GetUnconfirmedBalance();
     for (auto const& uwb : walletunconfirmedbalances) {
-        if (uwb.first.type == TokenTypes::NONE) {
-            unconfirmBalancesObj.pushKV(CURRENCY_UNIT.c_str(), ValueFromAmount(uwb.second));
-        } else {
-            std::string cid(uwb.first.toString());
-            unconfirmBalancesObj.pushKV(HexStr(cid.begin(), cid.end()), ValueFromAmount(uwb.second));
-        }
+        unconfirmBalancesObj.pushKV(uwb.first.toHexString(), ValueFromAmount(uwb.second));
     };
 
     size_t kpExternalSize = pwallet->KeypoolCountExternalKeys();
@@ -3530,13 +3513,7 @@ static UniValue listunspent(const JSONRPCRequest& request)
 
         entry.pushKV("scriptPubKey", HexStr(scriptPubKey.begin(), scriptPubKey.end()));
         ColorIdentifier colorId(GetColorIdFromScript(scriptPubKey));
-        if(colorId.type == TokenTypes::NONE)
-            entry.pushKV("token", CURRENCY_UNIT);
-        else
-        {
-            std::string cid(colorId.toString());
-            entry.pushKV("token", HexStr(cid.begin(), cid.end()));
-        }
+        entry.pushKV("token", colorId.toHexString());
         entry.pushKV("amount", ValueFromAmount(out.tx->tx->vout[out.i].nValue));
         entry.pushKV("confirmations", out.nDepth);
         entry.pushKV("spendable", out.fSpendable);
