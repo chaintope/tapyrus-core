@@ -7,7 +7,7 @@ SDK_PATH ?= $(BASEDIR)/SDKs
 NO_QT ?=
 NO_WALLET ?=
 NO_UPNP ?=
-FALLBACK_DOWNLOAD_PATH ?= https://drahtbot.space/depends_download_fallback
+FALLBACK_DOWNLOAD_PATH ?= https://s3-ap-northeast-1.amazonaws.com/repo.tapyrus.chaintope.com
 
 BUILD = $(shell ./config.guess)
 HOST ?= $(BUILD)
