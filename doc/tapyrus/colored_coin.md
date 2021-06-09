@@ -78,10 +78,13 @@ The number of inputs, the number of outputs, and the type of tokens can be set, 
 
 To burn a token, create a transaction with a UTXO with the token to be burned and a UTXO with a TPC for the fee as inputs, 
 and add an output that receives TPC change. 
-Since the value of a UTXO for a token is entirely the amount of the token, in order to set the fees, it is necessary to set the UTXO of TPC. 
-Also, do not use `OP_COLOR` opcode in the scriptPubkey of the output to burn it.
+Since the value of a UTXO for a token is entirely the amount of the token, in order to set the fees, it is necessary to set the UTXO of TPC.
 
 It is also possible to combine the above three token processes into a single transaction.
+
+Each combination and valid/invalid pattern described in the following:
+
+* https://docs.google.com/spreadsheets/d/1hYEe5YVz5NiMzBD2cTYLWdOEPVUkTmVIRp8ytypdr2g/
 
 ## Address
 

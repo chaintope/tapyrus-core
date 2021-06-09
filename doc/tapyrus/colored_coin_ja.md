@@ -73,9 +73,13 @@ TYPE|定義|PAYLOAD
 
 トークンを焼却する場合は、焼却するトークンを持つUTXOと手数料用のTPCを持つUTXOをインプットにしたトランザクションを作成し、
 手数料を差し引いたTPCのお釣りを受け取るアウトプットを追加する。トークンのUTXOのvalue値は全てトークンの量であるため、
-手数料を設定するためには必ず、TPCのUTXOをセットする必要がある。また、焼却するためアウトプットのscriptPubkeyに`OP_COLOR` opcodeを使用してはならない。
+手数料を設定するためには必ず、TPCのUTXOをセットする必要がある。
 
 また、上記３つのトークン処理を１つのトランザクションを組み合わせることは可能である。
+
+各組み合わせおよび有効/無効のパターンについて、以下の資料に掲載する:
+
+* https://docs.google.com/spreadsheets/d/1hYEe5YVz5NiMzBD2cTYLWdOEPVUkTmVIRp8ytypdr2g/
 
 ## アドレス
 
