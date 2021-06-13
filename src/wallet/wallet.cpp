@@ -2791,10 +2791,9 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                             strFailReason = _("Transaction amount too small");
                         return false;
                     }
-                    //if this is a token burn transaction the amount in the transaction is meant to be dropped. so no output is added. for other transaction types the output is added
-                    if(coin_control.colorTxType != ColoredTxType::BURN ||
-                        (coin_control.colorTxType == ColoredTxType::BURN &&
-                        !recipient.scriptPubKey.IsColoredScript()))
+                    //if this is a token burn transaction the amount in the transaction is meant to br dropped. so no output is added
+                    if(recipient.scriptPubKey.IsColoredScript() &&
+                        coin_control.colorTxType != ColoredTxType::BURN)
                             txNew.vout.push_back(txout);
                 }
 
