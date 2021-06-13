@@ -12,6 +12,13 @@
 
 #include <boost/optional.hpp>
 
+enum class ColoredTxType
+{
+    NONE = 0,
+    ISSUE = 1,
+    TRANSFER = 2,
+    BURN = 3
+};
 /** Coin Control Features. */
 class CCoinControl
 {
@@ -36,6 +43,8 @@ public:
     bool m_avoid_partial_spends;
     //! Fee estimation mode to control arguments to estimateSmartFee
     FeeEstimateMode m_fee_mode;
+    //! Colored transaction type to identify token issue and token burn trasnactions for special processing
+    ColoredTxType colorTxType;
 
     CCoinControl()
     {

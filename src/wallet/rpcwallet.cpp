@@ -608,6 +608,8 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
         }
     }
 
+    if (colorId.type != TokenTypes::NONE)
+        coin_control.colorTxType = ColoredTxType::TRANSFER; 
 
     EnsureWalletIsUnlocked(pwallet);
 
@@ -4837,6 +4839,359 @@ UniValue walletcreatefundedpsbt(const JSONRPCRequest& request)
     return result;
 }
 
+static UniValue getcolor(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    if (request.fHelp || request.params.size() < 2 || request.params.size() > 3)
+        throw std::runtime_error(
+            "getcolor \"token_type\" \"txid/scriptpubkey\" index \n"
+            "\nGet the color of the token that can be generated when using the script pubkey given as parameter or transaction id and index pair given as parameter.\n"
+            + HelpRequiringPassphrase(pwallet) +
+            "\nArguments:\n"
+            "1. \"token_type\"        (numberic, required) Value can be 1 or 2 or 3.\n"
+            " 1. REISSUABLE\n"
+            " 2. NON-REISSUABLE\n"
+            " 3. NFT\n"
+            "2. \"scriptpubkey\"     (string, optional) Script pubkey that is used to issue REISSUABLE token\n"
+            "2. \"txid\"             (string, optional) Transaction id from which the NON-REISSUABLE or NFT tokens are issued\n"
+            "3. \"index\"            (numeric, optional) Index in the above transaction id used for issuing token\n"
+            "\nResult:\n"
+            "\"color\"               (string) The color or token.\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getcolor", "\"1\" 8282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508")
+            + HelpExampleCli("getcolor", "\"2\" 485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954" "0")
+            + HelpExampleCli("getcolor", "\"3\" 485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954" "1")
+        );
+
+    RPCTypeCheck(request.params, {UniValue::VNUM, UniValue::VSTR});
+
+
+    TokenTypes tokentype;
+    int inType = request.params[0].get_int();
+    switch(inType)
+    {
+        case 1: tokentype = TokenTypes::REISSUABLE; break;
+        case 2: tokentype = TokenTypes::NON_REISSUABLE; break;
+        case 3: tokentype = TokenTypes::NFT; break;
+        default: tokentype = TokenTypes::NONE;
+    }
+
+    if (tokentype == TokenTypes::NONE) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Unknown token type given.");
+    }
+
+    if (tokentype == TokenTypes::REISSUABLE && !request.params[2].isNull()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Extra parameter for Reissuable token.");
+    }
+
+    const std::string& scriptOrTxid(request.params[1].get_str());
+    ColorIdentifier colorId;
+    if(tokentype == TokenTypes::REISSUABLE)
+    {
+        std::vector<unsigned char> vscript = ParseHex(scriptOrTxid);
+        CScript script(vscript.begin(), vscript.end());
+        colorId = ColorIdentifier(script);
+    }
+    else
+    {
+        COutPoint out(uint256S(scriptOrTxid), request.params[2].get_int());
+        colorId = ColorIdentifier(out, tokentype);
+    }
+
+    return colorId.toHexString();
+}
+
+static UniValue issuetoken(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    if (request.fHelp || request.params.size() < 3 || request.params.size() > 4)
+        throw std::runtime_error(
+            "issuetoken \"token_type\" \"token_value\" \"txid/scriptpubkey\" index \n"
+            "\nIssue new colored coins or tokens and store then in the wallet.\n"
+            + HelpRequiringPassphrase(pwallet) +
+            "\nArguments:\n"
+            "1. \"token_type\"        (numberic, required) Value can be 1 or 2 or 3.\n"
+            " 1. REISSUABLE\n"
+            " 2. NON-REISSUABLE\n"
+            " 3. NFT\n"
+            "2. \"token_value\"      (numberic, required) Number of tokens to be issued \n"
+            "3. \"scriptpubkey\"     (string, optional) Script pubkey that is used to issue REISSUABLE token\n"
+            "3. \"txid\"             (string, optional) Transaction id from which the NON-REISSUABLE or NFT tokens are issued\n"
+            "4. \"index\"            (numeric, optional) Index in the above transaction id used for issuing token\n"
+            "\nResult:\n"
+            "\"color\"               (string) The color or token.\n"
+            "\nExamples:\n"
+            + HelpExampleCli("issuetoken", "\"1\" \"100\" 8282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508")
+            + HelpExampleCli("issuetoken", "\"2\" \"1000\" 485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954" "0")
+            + HelpExampleCli("issuetoken", "\"3\" \"500\" 485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954" "1")
+        );
+    RPCTypeCheck(request.params, {UniValue::VNUM, UniValue::VNUM, UniValue::VSTR});
+
+    TokenTypes tokentype;
+    switch(request.params[0].get_int())
+    {
+        case 1: tokentype = TokenTypes::REISSUABLE; break;
+        case 2: tokentype = TokenTypes::NON_REISSUABLE; break;
+        case 3: tokentype = TokenTypes::NFT; break;
+        default: tokentype = TokenTypes::NONE;
+    }
+
+    if (tokentype == TokenTypes::NONE) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Unknown token type given.");
+    }
+
+    if (tokentype == TokenTypes::REISSUABLE && !request.params[3].isNull()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Extra parameter for Reissuable token.");
+    }
+
+    // token Amount
+    CAmount tokenValue = AmountFromValue(request.params[1]);
+    if (tokenValue <= 0)
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid token amount in issue");
+
+    CCoinControl coin_control;
+    coin_control.colorTxType = ColoredTxType::ISSUE;
+
+    const std::string scriptOrTxid(request.params[2].get_str());
+    ColorIdentifier colorId;
+    if(tokentype == TokenTypes::REISSUABLE)
+    {
+        std::vector<unsigned char> vscript = ParseHex(scriptOrTxid);
+        CScript script(vscript.begin(), vscript.end());
+        colorId = ColorIdentifier(script);
+    }
+    else
+    {
+        COutPoint out(std::move(uint256S(scriptOrTxid)), request.params[3].get_int());
+        colorId = ColorIdentifier(out, tokentype);
+        coin_control.Select(out);
+    }
+
+    //TODO : validate utxo
+    if (pwallet->IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS)) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Error: Private keys are disabled for this wallet");
+    }
+
+    LOCK2(cs_main, pwallet->cs_wallet);
+
+    if (!pwallet->IsLocked()) {
+        pwallet->TopUpKeyPool();
+    }
+
+    // Generate a new key that is added to wallet
+    CPubKey newKey;
+    if (!pwallet->GetKeyFromPool(newKey)) {
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+    }
+
+    CKeyID key_id = newKey.GetID();
+    CScript redeemScript = GetScriptForDestination(key_id);
+    CColorScriptID colorscriptid(CScriptID(redeemScript), colorId);
+    CTxDestination colorDest = CColorScriptID(colorscriptid, colorId);
+
+    //setting the lable as colorid
+    pwallet->SetAddressBook(colorDest, colorId.toHexString(), "issue");
+
+    CScript scriptpubkey = GetScriptForDestination(colorDest);
+
+    // Create and send the transaction
+    CReserveKey reservekey(pwallet);
+    CAmount nFeeRequired;
+    std::string strError;
+    std::vector<CRecipient> vecSend;
+    CWallet::ChangePosInOut mapChangePosRet;
+    mapChangePosRet[ColorIdentifier()] = -1;
+    CRecipient recipient = {scriptpubkey, tokenValue, false};
+    vecSend.push_back(recipient);
+    CTransactionRef tx;
+
+    if (!pwallet->CreateTransaction(vecSend, tx, reservekey, nFeeRequired, mapChangePosRet, strError, coin_control)) {
+        throw JSONRPCError(RPC_WALLET_ERROR, strError);
+    }
+    CValidationState state;
+    mapValue_t mapValue;
+    mapValue["comment"] = colorId.toHexString();
+    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, {} /* std::move(fromAccount)*/, reservekey, g_connman.get(), state)) {
+        strError = strprintf("Error: The transaction was rejected! Reason given: %s", FormatStateMessage(state));
+        throw JSONRPCError(RPC_WALLET_ERROR, strError);
+    }
+
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("color", colorId.toHexString());
+    result.pushKV("txid", tx->GetHashMalFix().GetHex());
+    return result;
+}
+
+static UniValue reissuetoken(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    if (request.fHelp || request.params.size() != 2)
+        throw std::runtime_error(
+            "reissuetoken \"color\" value \n"
+            "\nReissue colored coins or tokens with the given color. The token must be of type REISSUABLE for this RPC to issue the token.\n"
+            + HelpRequiringPassphrase(pwallet) +
+            "\nArguments:\n"
+            "1. \"color\"            (string, required) The tapyrus color / token to be reissued.\n"
+            "2. \"value\"            (numeric or string, required) The amount to issue. eg 0.1\n"
+            "\nResult:\n"
+            "\"txid\"                  (string) The transaction id.\n"
+            "\nExamples:\n"
+            + HelpExampleCli("reissuetoken", "\"c18282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23f\" 0.1")
+        );
+
+    const std::vector<unsigned char> vColorId(ParseHex(request.params[0].get_str()));
+    ColorIdentifier colorId(vColorId);
+
+    if(colorId.type != TokenTypes::REISSUABLE)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Unknown token type given.");
+
+    throw JSONRPCError(RPC_METHOD_NOT_FOUND, "Not implemented.");
+}
+
+static UniValue transfertoken(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    if (request.fHelp || request.params.size() != 2)
+        throw std::runtime_error(
+            "transfertoken \"address\" amount \n"
+            "\nSend colored coins or tokens to a given address.\n"
+            + HelpRequiringPassphrase(pwallet) +
+            "\nArguments:\n"
+            "1. \"address\"            (string, required) The colored tapyrus address to send to.\n"
+            "2. \"amount\"             (numeric or string, required) The amount in to send. eg 0.1\n"
+            "\nResult:\n"
+            "\"txid\"                  (string) The transaction id.\n"
+            "\nExamples:\n"
+            + HelpExampleCli("transfertoken", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" 0.1")
+        );
+
+    return sendtoaddress(request);
+}
+
+/* burn token essentially means that we want to create a transaction that sends the remaining amount of colored coins to another address belonging to us. i.e send  pwallet->GetBalance()[colorId] - nValue to getnewaddress */
+static CTransactionRef BurnToken(CWallet * const pwallet, const ColorIdentifier& colorId, CAmount nValue)
+{
+    CAmount curBalance = pwallet->GetBalance()[colorId];
+
+    // Check amount
+    if (nValue <= 0)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid amount");
+
+    if (nValue > curBalance)
+        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Insufficient funds");
+
+    if (pwallet->GetBroadcastTransactions() && !g_connman) {
+        throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
+    }
+
+    CScript scriptPubKey = CScript() << colorId.toVector() << OP_COLOR << OP_TRUE;
+    mapValue_t mapValue;
+    mapValue["comment"] = colorId.toHexString();
+
+    // Create and send the transaction
+    CReserveKey reservekey(pwallet);
+    CAmount nFeeRequired;
+    std::string strError;
+    std::vector<CRecipient> vecSend;
+    CWallet::ChangePosInOut mapChangePosRet;
+    mapChangePosRet[ColorIdentifier()] = -1;
+    CRecipient recipient = {scriptPubKey, nValue, false};
+    vecSend.push_back(recipient);
+    CTransactionRef tx;
+    CCoinControl coin_control;
+    coin_control.colorTxType = ColoredTxType::BURN;
+    //coin_control.destChange = colorDest;
+    if (!pwallet->CreateTransaction(vecSend, tx, reservekey, nFeeRequired, mapChangePosRet, strError, coin_control)) {
+        throw JSONRPCError(RPC_WALLET_ERROR, strError);
+    }
+
+    CValidationState state;
+    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, {} /*std::move(fromAccount)*/, reservekey, g_connman.get(), state)) {
+        strError = strprintf("Error: The transaction was rejected! Reason given: %s", FormatStateMessage(state));
+        throw JSONRPCError(RPC_WALLET_ERROR, strError);
+    }
+    return tx;
+}
+
+static UniValue burntoken(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    if (request.fHelp || request.params.size() != 2)
+        throw std::runtime_error(
+            "burntoken \"color\" value \n"
+            "\nBurn colored coins or tokens in the wallet.\n"
+            + HelpRequiringPassphrase(pwallet) +
+            "\nArguments:\n"
+            "1. \"color\"            (string, required) The tapyrus color / token to burn.\n"
+            "2. \"value\"             (numeric or string, required) The amount to burn. eg 0.1\n"
+            "\nResult:\n"
+            "\"txid\"                  (string) The transaction id.\n"
+            "\nExamples:\n"
+            + HelpExampleCli("burntoken", "\"c38282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23f\" 0.1")
+        );
+
+    // Make sure the results are valid at least up to the most recent block
+    // the user could have gotten from another RPC command prior to now
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    LOCK2(cs_main, pwallet->cs_wallet);
+
+    const std::vector<unsigned char> vColorId(ParseHex(request.params[0].get_str()));
+    ColorIdentifier colorId(vColorId);
+
+    if(colorId.type != TokenTypes::REISSUABLE)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Unknown token type given.");
+
+    if (colorId.type != TokenTypes::NONE
+      && pwallet->GetBalance()[colorId] == 0 ) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No Token found in wallet. But token address was given.");
+    }
+
+    // Amount
+    CAmount nAmount = AmountFromValue(request.params[1]);
+    if (nAmount <= 0)
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for burn");
+
+    EnsureWalletIsUnlocked(pwallet);
+
+    if(pwallet->GetBalance()[colorId] < nAmount)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Insufficient token balance in wallet");
+
+    CTransactionRef tx = BurnToken(pwallet, colorId, nAmount);
+
+    return tx->GetHashMalFix().GetHex();
+}
+
 extern UniValue abortrescan(const JSONRPCRequest& request); // in rpcdump.cpp
 extern UniValue dumpprivkey(const JSONRPCRequest& request); // in rpcdump.cpp
 extern UniValue importprivkey(const JSONRPCRequest& request);
@@ -4848,6 +5203,11 @@ extern UniValue importprunedfunds(const JSONRPCRequest& request);
 extern UniValue removeprunedfunds(const JSONRPCRequest& request);
 extern UniValue importmulti(const JSONRPCRequest& request);
 extern UniValue rescanblockchain(const JSONRPCRequest& request);
+extern UniValue getcolor(const JSONRPCRequest& request);
+extern UniValue issuetoken(const JSONRPCRequest& request);
+extern UniValue reissuetoken(const JSONRPCRequest& request);
+extern UniValue transfertoken(const JSONRPCRequest& request);
+extern UniValue burntoken(const JSONRPCRequest& request);
 
 static const CRPCCommand commands[] =
 { //  category              name                                actor (function)                argNames
@@ -4920,6 +5280,13 @@ static const CRPCCommand commands[] =
     { "wallet",             "listlabels",                       &listlabels,                    {"purpose"} },
     { "wallet",             "listreceivedbylabel",              &listreceivedbylabel,           {"minconf","include_empty","include_watchonly"} },
     { "wallet",             "setlabel",                         &setlabel,                      {"address","label"} },
+
+    /** colored coin RPCs */
+    { "wallet",                    "getcolor",               &getcolor,                      {"type","txid","index"} },
+    { "wallet",                    "issuetoken",             &issuetoken,                      {"type","value","txid","index"} },
+    { "wallet",                    "reissuetoken",           &reissuetoken,                      {"color","value"} },
+    { "wallet",                    "transfertoken",          &transfertoken,                      {"address","value"} },
+    { "wallet",                    "burntoken",              &burntoken,                      {"color","value"} },
 
     { "generating",         "generate",                         &generate,                      {"nblocks","privkeys"} },
 };
