@@ -2832,7 +2832,10 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                             strFailReason = _("Transaction amount too small");
                         return false;
                     }
-                    txNew.vout.push_back(txout);
+                    //if this is a token burn transaction the amount in the transaction is meant to br dropped. so no output is added
+                    if(recipient.scriptPubKey.IsColoredScript() &&
+                        coin_control.colorTxType != ColoredTxType::BURN)
+                            txNew.vout.push_back(txout);
                 }
 
                 // Choose coins to use
@@ -2844,10 +2847,16 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     coin_selection_params.effective_fee = nFeeRateNeeded;
 
                     for (const auto& i : mapValue) {
+                        //if this token issue we need not do select coin using the colorid
+                        //as the token is not in the wallet yet. it is just being issued
+                        if(coin_control.colorTxType == ColoredTxType::ISSUE 
+                                     && i.first.type != TokenTypes::NONE)
+                            continue;
+
                         ColorIdentifier colorId = i.first;
                         CAmount targetValue = i.second;
 
-                        if (nSubtractFeeFromAmount == 0 && colorId == ColorIdentifier()) {
+                        if (nSubtractFeeFromAmount == 0 && colorId.type == TokenTypes::NONE) {
                             targetValue += nFeeRet;
                         }
 
