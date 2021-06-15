@@ -1,4 +1,4 @@
-Tapyrus Core [![Build Status](https://github.com/azuchi/bls12-381/actions/workflows/main.yml/badge.svg?branch=main)](https://github.com/azuchi/bls12-381/actions/workflows/main.yml)
+Tapyrus Core [![Build Status](https://github.com/chaintope/tapyrus-core/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/chaintope/tapryus-core/actions/workflows/ci.yml)
 =====================================
 
 ![tapyrus](doc/images/tapyrus-logo.png)
