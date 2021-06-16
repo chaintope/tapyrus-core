@@ -195,13 +195,13 @@ class WalletColoredCoinTest(BitcoinTestFramework):
                             {"txid": txid},
                             {"category": "send",
                             "token" : bytes_to_hex_str(colorid1),
-                            "amount": Decimal("-10.0"),
+                            "amount": -10,
                             "confirmations": 0})
         assert_array_result(self.nodes[1].listtransactions(),
                             {"txid": txid},
                             {"category": "receive",
                             "token" : bytes_to_hex_str(colorid1),
-                            "amount": Decimal("10.0"),
+                            "amount": 10,
                             "confirmations": 0})
         #mine a block, confirmations should change:
         self.nodes[2].generate(1, self.signblockprivkey_wif)
@@ -210,13 +210,13 @@ class WalletColoredCoinTest(BitcoinTestFramework):
                             {"txid": txid},
                             {"category": "send",
                             "token" : bytes_to_hex_str(colorid1),
-                            "amount": Decimal("-10.0"),
+                            "amount": -10,
                             "confirmations": 1})
         assert_array_result(self.nodes[1].listtransactions(),
                             {"txid": txid},
                             {"category": "receive",
                             "token" : bytes_to_hex_str(colorid1),
-                            "amount": Decimal("10.0"),
+                            "amount": 10,
                             "confirmations": 1})
 
 
@@ -249,13 +249,13 @@ class WalletColoredCoinTest(BitcoinTestFramework):
                             {"txid": txid_transfer},
                             {"category": "send",
                             "token" : bytes_to_hex_str(colorid2),
-                            "amount": Decimal("-10.0"),
+                            "amount": -10,
                             "confirmations": 0})
         assert_array_result(self.nodes[0].listtransactions(),
                             {"txid": txid_transfer},
                             {"category": "receive",
                             "token" : bytes_to_hex_str(colorid2),
-                            "amount": Decimal("10.0"),
+                            "amount": 10,
                             "confirmations": 0})
         #mine a block, confirmations should change:
         self.nodes[2].generate(1, self.signblockprivkey_wif)
@@ -264,13 +264,13 @@ class WalletColoredCoinTest(BitcoinTestFramework):
                             {"txid": txid_transfer},
                             {"category": "send",
                             "token" : bytes_to_hex_str(colorid2),
-                            "amount": Decimal("-10.0"),
+                            "amount": -10,
                             "confirmations": 1})
         assert_array_result(self.nodes[0].listtransactions(),
                             {"txid": txid_transfer},
                             {"category": "receive",
                             "token" : bytes_to_hex_str(colorid2),
-                            "amount": Decimal("10.0"),
+                            "amount": 10,
                             "confirmations": 1})
 
 
@@ -308,12 +308,11 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         txid_issue = res['txid']
         assert_equal(res['color'], colorid3)
 
-
         assert_array_result(self.nodes[2].listtransactions(),
                             {"txid": txid_issue},
                             {"category": "receive",
                             "token" : colorid3,
-                            "amount": Decimal("100.0"),
+                            "amount": 100,
                             "confirmations": 0})
         #mine a block, confirmations should change:
         self.nodes[2].generate(1, self.signblockprivkey_wif)
@@ -322,7 +321,7 @@ class WalletColoredCoinTest(BitcoinTestFramework):
                             {"txid": txid_issue},
                             {"category": "receive",
                             "token" : colorid3,
-                            "amount": Decimal("100.0"),
+                            "amount": 100,
                             "confirmations": 1})
 
         walletinfo = self.nodes[0].getwalletinfo()

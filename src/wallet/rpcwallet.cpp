@@ -137,7 +137,7 @@ static std::string LabelFromValue(const UniValue& value)
     return label;
 }
 
-static void addTokenKV(const CTxDestination& address, UniValue& entry)
+static void addTokenKV(const CTxDestination& address, const CAmount nAmount, UniValue& entry)
 {
     ColorIdentifier colorId;
     if(address.which() == 3)
@@ -146,6 +146,8 @@ static void addTokenKV(const CTxDestination& address, UniValue& entry)
         colorId = boost::get<CColorScriptID>(address).color;
 
     entry.pushKV("token", colorId.toHexString());
+
+    entry.pushKV("amount", (colorId.type == TokenTypes::NONE ? ValueFromAmount(nAmount) : nAmount ));
 }
 
 static UniValue getnewaddress(const JSONRPCRequest& request)
@@ -531,7 +533,7 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
             + HelpRequiringPassphrase(pwallet) +
             "\nArguments:\n"
             "1. \"address\"            (string, required) The tapyrus address to send to.\n"
-            "2. \"amount\"             (numeric or string, required) The amount in " + CURRENCY_UNIT + " to send. eg 0.1\n"
+            "2. \"amount\"             (numeric or string, required) The amount in " + CURRENCY_UNIT + "or tapyrus token to send. eg 0.1\n"
             "3. \"comment\"            (string, optional) A comment used to store what the transaction is for. \n"
             "                             This is not part of the transaction, just kept in your wallet.\n"
             "4. \"comment_to\"         (string, optional) A comment to store the name of the person or organization \n"
@@ -577,7 +579,7 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
     }
 
     // Amount
-    CAmount nAmount = AmountFromValue(request.params[1]);
+    CAmount nAmount = (colorId.type == TokenTypes::NONE ? AmountFromValue(request.params[1]) : request.params[1].get_int64());
     if (nAmount <= 0)
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for send");
 
@@ -1671,9 +1673,8 @@ static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bo
             obj.pushKV("address",       EncodeDestination(address));
             obj.pushKV("account",       label);
 
-            addTokenKV(address, obj);
+            addTokenKV(address,nAmount, obj);
 
-            obj.pushKV("amount",        ValueFromAmount(nAmount));
             obj.pushKV("confirmations", (nConf == std::numeric_limits<int>::max() ? 0 : nConf));
             obj.pushKV("label", label);
             UniValue transactions(UniValue::VARR);
@@ -1856,9 +1857,8 @@ static void ListTransactions(CWallet* const pwallet, const CWalletTx& wtx, const
             MaybePushAddress(entry, s.destination);
             entry.pushKV("category", "send");
 
-            addTokenKV(s.destination, entry);
+            addTokenKV(s.destination, -s.amount, entry);
 
-            entry.pushKV("amount", ValueFromAmount(-s.amount));
             if (pwallet->mapAddressBook.count(s.destination)) {
                 entry.pushKV("label", pwallet->mapAddressBook[s.destination].name);
             }
@@ -1899,9 +1899,8 @@ static void ListTransactions(CWallet* const pwallet, const CWalletTx& wtx, const
                 {
                     entry.pushKV("category", "receive");
                 }
-                addTokenKV(r.destination, entry);
+                addTokenKV(r.destination, r.amount, entry);
 
-                entry.pushKV("amount", ValueFromAmount(r.amount));
                 if (pwallet->mapAddressBook.count(r.destination)) {
                     entry.pushKV("label", account);
                 }
@@ -2447,7 +2446,7 @@ static UniValue gettransaction(const JSONRPCRequest& request)
         CAmount nFee = (wtx.IsFromMe(filter) ? wtx.tx->GetValueOut(colorId) - nDebit : 0);
 
         entry.pushKV("token", colorId.toHexString());
-        entry.pushKV("amount", ValueFromAmount(nNet - nFee));
+        entry.pushKV("amount", (colorId.type == TokenTypes::NONE) ?nNet - nFee : ValueFromAmount(nNet - nFee));
         entry.pushKV("fee", ValueFromAmount(nFee));
         
     }
@@ -3093,7 +3092,7 @@ static UniValue getwalletinfo(const JSONRPCRequest& request)
         if (wb.first.type == TokenTypes::NONE) {
             balances.pushKV(CURRENCY_UNIT.c_str(), ValueFromAmount(wb.second));
         } else {
-            balances.pushKV(HexStr(wb.first.toVector()).c_str(), ValueFromAmount(wb.second));
+            balances.pushKV(HexStr(wb.first.toVector()).c_str(), wb.second);
         }
     };
 
@@ -3494,7 +3493,7 @@ static UniValue listunspent(const JSONRPCRequest& request)
         if (fValidAddress) {
             entry.pushKV("address", EncodeDestination(address));
 
-            addTokenKV(address, entry);
+            addTokenKV(address, out.tx->tx->vout[out.i].nValue, entry);
 
             auto i = pwallet->mapAddressBook.find(address);
             if (i != pwallet->mapAddressBook.end()) {
@@ -3514,9 +3513,6 @@ static UniValue listunspent(const JSONRPCRequest& request)
         }
 
         entry.pushKV("scriptPubKey", HexStr(scriptPubKey.begin(), scriptPubKey.end()));
-        ColorIdentifier colorId(GetColorIdFromScript(scriptPubKey));
-        entry.pushKV("token", colorId.toHexString());
-        entry.pushKV("amount", ValueFromAmount(out.tx->tx->vout[out.i].nValue));
         entry.pushKV("confirmations", out.nDepth);
         entry.pushKV("spendable", out.fSpendable);
         entry.pushKV("solvable", out.fSolvable);
@@ -4854,7 +4850,7 @@ static UniValue getcolor(const JSONRPCRequest& request)
             "\nGet the color of the token that can be generated when using the script pubkey given as parameter or transaction id and index pair given as parameter.\n"
             + HelpRequiringPassphrase(pwallet) +
             "\nArguments:\n"
-            "1. \"token_type\"        (numberic, required) Value can be 1 or 2 or 3.\n"
+            "1. \"token_type\"       (numberic, required) Value can be 1 or 2 or 3.\n"
             " 1. REISSUABLE\n"
             " 2. NON-REISSUABLE\n"
             " 3. NFT\n"
@@ -4918,11 +4914,11 @@ static UniValue issuetoken(const JSONRPCRequest& request)
 
     if (request.fHelp || request.params.size() < 3 || request.params.size() > 4)
         throw std::runtime_error(
-            "issuetoken \"token_type\" \"token_value\" \"txid/scriptpubkey\" index \n"
+            "issuetoken \"token_type\" \"token_value\" \"txid/scriptpubkey\" \"index\" \n"
             "\nIssue new colored coins or tokens and store then in the wallet.\n"
             + HelpRequiringPassphrase(pwallet) +
             "\nArguments:\n"
-            "1. \"token_type\"        (numberic, required) Value can be 1 or 2 or 3.\n"
+            "1. \"token_type\"       (numberic, required) Value can be 1 or 2 or 3.\n"
             " 1. REISSUABLE\n"
             " 2. NON-REISSUABLE\n"
             " 3. NFT\n"
@@ -4931,7 +4927,10 @@ static UniValue issuetoken(const JSONRPCRequest& request)
             "3. \"txid\"             (string, optional) Transaction id from which the NON-REISSUABLE or NFT tokens are issued\n"
             "4. \"index\"            (numeric, optional) Index in the above transaction id used for issuing token\n"
             "\nResult:\n"
-            "\"color\"               (string) The color or token.\n"
+            "{\n"
+            "  \"color\"               (string) The color or token.\n"
+            "  \"txid\":               (string) The transaction id.\n"
+            "}\n"
             "\nExamples:\n"
             + HelpExampleCli("issuetoken", "\"1\" \"100\" 8282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508")
             + HelpExampleCli("issuetoken", "\"2\" \"1000\" 485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954" "0")
@@ -4956,8 +4955,8 @@ static UniValue issuetoken(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Extra parameter for Reissuable token.");
     }
 
-    // token Amount
-    CAmount tokenValue = AmountFromValue(request.params[1]);
+    // token value
+    CAmount tokenValue = request.params[1].get_int64();
     if (tokenValue <= 0)
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid token amount in issue");
 
@@ -5045,16 +5044,16 @@ static UniValue reissuetoken(const JSONRPCRequest& request)
 
     if (request.fHelp || request.params.size() != 2)
         throw std::runtime_error(
-            "reissuetoken \"color\" value \n"
+            "reissuetoken \"color\" \"value\" \n"
             "\nReissue colored coins or tokens with the given color. The token must be of type REISSUABLE for this RPC to issue the token.\n"
             + HelpRequiringPassphrase(pwallet) +
             "\nArguments:\n"
-            "1. \"color\"            (string, required) The tapyrus color / token to be reissued.\n"
-            "2. \"value\"            (numeric or string, required) The amount to issue. eg 0.1\n"
+            "1. \"color\"              (string, required) The tapyrus color / token to be reissued.\n"
+            "2. \"value\"              (numeric, required) The amount to issue. eg 10\n"
             "\nResult:\n"
             "\"txid\"                  (string) The transaction id.\n"
             "\nExamples:\n"
-            + HelpExampleCli("reissuetoken", "\"c18282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23f\" 0.1")
+            + HelpExampleCli("reissuetoken", "\"c18282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23f\" 10")
         );
 
     const std::vector<unsigned char> vColorId(ParseHex(request.params[0].get_str()));
@@ -5077,16 +5076,16 @@ static UniValue transfertoken(const JSONRPCRequest& request)
 
     if (request.fHelp || request.params.size() != 2)
         throw std::runtime_error(
-            "transfertoken \"address\" amount \n"
+            "transfertoken \"address\" \"amount\" \n"
             "\nSend colored coins or tokens to a given address.\n"
             + HelpRequiringPassphrase(pwallet) +
             "\nArguments:\n"
             "1. \"address\"            (string, required) The colored tapyrus address to send to.\n"
-            "2. \"amount\"             (numeric or string, required) The amount in to send. eg 0.1\n"
+            "2. \"amount\"             (numeric, required) The amount in to send. eg 10\n"
             "\nResult:\n"
             "\"txid\"                  (string) The transaction id.\n"
             "\nExamples:\n"
-            + HelpExampleCli("transfertoken", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" 0.1")
+            + HelpExampleCli("transfertoken", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" 10")
         );
 
     return sendtoaddress(request);
@@ -5148,16 +5147,16 @@ static UniValue burntoken(const JSONRPCRequest& request)
 
     if (request.fHelp || request.params.size() != 2)
         throw std::runtime_error(
-            "burntoken \"color\" value \n"
+            "burntoken \"color\" \"value\" \n"
             "\nBurn colored coins or tokens in the wallet.\n"
             + HelpRequiringPassphrase(pwallet) +
             "\nArguments:\n"
-            "1. \"color\"            (string, required) The tapyrus color / token to burn.\n"
-            "2. \"value\"             (numeric or string, required) The amount to burn. eg 0.1\n"
+            "1. \"color\"              (string, required) The tapyrus color / token to burn.\n"
+            "2. \"value\"              (numeric, required) The amount to burn. eg 10\n"
             "\nResult:\n"
             "\"txid\"                  (string) The transaction id.\n"
             "\nExamples:\n"
-            + HelpExampleCli("burntoken", "\"c38282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23f\" 0.1")
+            + HelpExampleCli("burntoken", "\"c38282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23f\" 10")
         );
 
     // Make sure the results are valid at least up to the most recent block
@@ -5177,8 +5176,7 @@ static UniValue burntoken(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No Token found in wallet. But token address was given.");
     }
 
-    // Amount
-    CAmount nAmount = AmountFromValue(request.params[1]);
+    CAmount nAmount = request.params[1].get_int64();
     if (nAmount <= 0)
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for burn");
 
