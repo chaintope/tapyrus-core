@@ -428,9 +428,14 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
             if (!destinations.insert(destination).second) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid parameter, duplicated address: ") + name_);
             }
+            ColorIdentifier colorId;
+            if(destination.which() == 3)
+                colorId = boost::get<CColorKeyID>(destination).color;
+            else if(destination.which() == 4)
+                colorId = boost::get<CColorScriptID>(destination).color;
 
             CScript scriptPubKey = GetScriptForDestination(destination);
-            CAmount nAmount = AmountFromValue(outputs[name_]);
+            CAmount nAmount = (colorId.type == TokenTypes::NONE ? AmountFromValue(outputs[name_]) : outputs[name_].get_int64());
 
             CTxOut out(nAmount, scriptPubKey);
             rawTx.vout.push_back(out);
