@@ -4845,6 +4845,44 @@ UniValue walletcreatefundedpsbt(const JSONRPCRequest& request)
     return result;
 }
 
+static ColorIdentifier getColorIdFromRequest(const JSONRPCRequest& request, bool tokenValueIsPresent = true) 
+{
+    TokenTypes tokentype;
+    switch(request.params[0].get_int())
+    {
+        case 1: tokentype = TokenTypes::REISSUABLE; break;
+        case 2: tokentype = TokenTypes::NON_REISSUABLE; break;
+        case 3: tokentype = TokenTypes::NFT; break;
+        default: tokentype = TokenTypes::NONE;
+    }
+
+    if (tokentype == TokenTypes::NONE) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Unknown token type given.");
+    }
+
+    if (tokentype == TokenTypes::REISSUABLE && !request.params[3].isNull()){
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Extra parameter for Reissuable token.");
+    }
+
+    int indexOfTxid = tokenValueIsPresent ? 2 : 1;
+
+    const std::string scriptOrTxid(request.params[indexOfTxid].get_str());
+    ColorIdentifier colorId;
+    if(tokentype == TokenTypes::REISSUABLE)
+    {
+        std::vector<unsigned char> vscript = ParseHex(scriptOrTxid);
+        CScript script(vscript.begin(), vscript.end());
+        colorId = ColorIdentifier(script);
+    }
+    else
+    {
+        COutPoint out(std::move(uint256S(scriptOrTxid)), request.params[indexOfTxid + 1].get_int());
+        colorId = ColorIdentifier(out, tokentype);
+    }
+
+    return colorId;
+}
+
 static UniValue getcolor(const JSONRPCRequest& request)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
@@ -4877,38 +4915,7 @@ static UniValue getcolor(const JSONRPCRequest& request)
 
     RPCTypeCheck(request.params, {UniValue::VNUM, UniValue::VSTR});
 
-
-    TokenTypes tokentype;
-    int inType = request.params[0].get_int();
-    switch(inType)
-    {
-        case 1: tokentype = TokenTypes::REISSUABLE; break;
-        case 2: tokentype = TokenTypes::NON_REISSUABLE; break;
-        case 3: tokentype = TokenTypes::NFT; break;
-        default: tokentype = TokenTypes::NONE;
-    }
-
-    if (tokentype == TokenTypes::NONE) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Unknown token type given.");
-    }
-
-    if (tokentype == TokenTypes::REISSUABLE && !request.params[2].isNull()) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Extra parameter for Reissuable token.");
-    }
-
-    const std::string& scriptOrTxid(request.params[1].get_str());
-    ColorIdentifier colorId;
-    if(tokentype == TokenTypes::REISSUABLE)
-    {
-        std::vector<unsigned char> vscript = ParseHex(scriptOrTxid);
-        CScript script(vscript.begin(), vscript.end());
-        colorId = ColorIdentifier(script);
-    }
-    else
-    {
-        COutPoint out(uint256S(scriptOrTxid), request.params[2].get_int());
-        colorId = ColorIdentifier(out, tokentype);
-    }
+    const ColorIdentifier colorId = getColorIdFromRequest(request, false);
 
     return colorId.toHexString();
 }
@@ -4948,22 +4955,7 @@ static UniValue issuetoken(const JSONRPCRequest& request)
         );
     RPCTypeCheck(request.params, {UniValue::VNUM, UniValue::VNUM, UniValue::VSTR});
 
-    TokenTypes tokentype;
-    switch(request.params[0].get_int())
-    {
-        case 1: tokentype = TokenTypes::REISSUABLE; break;
-        case 2: tokentype = TokenTypes::NON_REISSUABLE; break;
-        case 3: tokentype = TokenTypes::NFT; break;
-        default: tokentype = TokenTypes::NONE;
-    }
-
-    if (tokentype == TokenTypes::NONE) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Unknown token type given.");
-    }
-
-    if (tokentype == TokenTypes::REISSUABLE && !request.params[3].isNull()) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Extra parameter for Reissuable token.");
-    }
+    const ColorIdentifier colorId = getColorIdFromRequest(request);
 
     // token value
     CAmount tokenValue = request.params[1].get_int64();
@@ -4972,19 +4964,9 @@ static UniValue issuetoken(const JSONRPCRequest& request)
 
     CCoinControl coin_control;
     coin_control.colorTxType = ColoredTxType::ISSUE;
-
-    const std::string scriptOrTxid(request.params[2].get_str());
-    ColorIdentifier colorId;
-    if(tokentype == TokenTypes::REISSUABLE)
+    if(colorId.type != TokenTypes::REISSUABLE)
     {
-        std::vector<unsigned char> vscript = ParseHex(scriptOrTxid);
-        CScript script(vscript.begin(), vscript.end());
-        colorId = ColorIdentifier(script);
-    }
-    else
-    {
-        COutPoint out(std::move(uint256S(scriptOrTxid)), request.params[3].get_int());
-        colorId = ColorIdentifier(out, tokentype);
+        COutPoint out(uint256S(request.params[2].get_str()), request.params[3].get_int());
         coin_control.Select(out);
     }
 
