@@ -2452,7 +2452,7 @@ static UniValue gettransaction(const JSONRPCRequest& request)
         CAmount nFee = (wtx.IsFromMe(filter) ? wtx.tx->GetValueOut(colorId) - nDebit : 0);
 
         entry.pushKV("token", colorId.toHexString());
-        entry.pushKV("amount", (colorId.type == TokenTypes::NONE) ?nNet - nFee : ValueFromAmount(nNet - nFee));
+        entry.pushKV("amount", (colorId.type == TokenTypes::NONE) ? ValueFromAmount(nNet - nFee) : nNet - nFee);
         entry.pushKV("fee", ValueFromAmount(nFee));
         
     }
