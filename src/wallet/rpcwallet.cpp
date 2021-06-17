@@ -969,11 +969,12 @@ static UniValue getbalance(const JSONRPCRequest& request)
         if (!IsDeprecatedRPCEnabled("accounts") && account_param != "*") {
             throw JSONRPCError(RPC_METHOD_DEPRECATED, "dummy first argument must be excluded or set to \"*\".");
         } else if (IsDeprecatedRPCEnabled("accounts")) {
-            return ValueFromAmount(pwallet->GetLegacyBalance(filter, min_depth, account, colorId));
+            CAmount amount = pwallet->GetLegacyBalance(filter, min_depth, account, colorId);
+            return colorId.type == TokenTypes::NONE ? ValueFromAmount(amount) : amount;
         }
     }
-
-    return ValueFromAmount(pwallet->GetBalance(filter, min_depth)[colorId]);
+    CAmount amount = pwallet->GetBalance(filter, min_depth)[colorId];
+    return colorId.type == TokenTypes::NONE ? ValueFromAmount(amount) : amount;
 }
 
 static UniValue getunconfirmedbalance(const JSONRPCRequest &request)
@@ -2446,7 +2447,7 @@ static UniValue gettransaction(const JSONRPCRequest& request)
         CAmount nFee = (wtx.IsFromMe(filter) ? wtx.tx->GetValueOut(colorId) - nDebit : 0);
 
         entry.pushKV("token", colorId.toHexString());
-        entry.pushKV("amount", (colorId.type == TokenTypes::NONE) ?nNet - nFee : ValueFromAmount(nNet - nFee));
+        entry.pushKV("amount", (colorId.type == TokenTypes::NONE) ? ValueFromAmount(nNet - nFee) : nNet - nFee);
         entry.pushKV("fee", ValueFromAmount(nFee));
         
     }
