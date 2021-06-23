@@ -4860,11 +4860,16 @@ static ColorIdentifier getColorIdFromRequest(const JSONRPCRequest& request, bool
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Unknown token type given.");
     }
 
-    if (tokentype == TokenTypes::REISSUABLE && !request.params[3].isNull()){
+    int indexOfTxid = tokenValueIsPresent ? 2 : 1;
+
+    if (tokentype == TokenTypes::REISSUABLE && !request.params[indexOfTxid + 1].isNull()){
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Extra parameter for Reissuable token.");
     }
 
-    int indexOfTxid = tokenValueIsPresent ? 2 : 1;
+    if ((tokentype == TokenTypes::NON_REISSUABLE || tokentype == TokenTypes::NFT )
+      && request.params[indexOfTxid + 1].isNull()){
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Index parameter missing for Non-Reissuable or NFT token.");
+    }
 
     const std::string scriptOrTxid(request.params[indexOfTxid].get_str());
     ColorIdentifier colorId;
@@ -5159,9 +5164,6 @@ static UniValue burntoken(const JSONRPCRequest& request)
 
     const std::vector<unsigned char> vColorId(ParseHex(request.params[0].get_str()));
     ColorIdentifier colorId(vColorId);
-
-    if(colorId.type != TokenTypes::REISSUABLE)
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Unknown token type given.");
 
     if (colorId.type != TokenTypes::NONE
       && pwallet->GetBalance()[colorId] == 0 ) {
