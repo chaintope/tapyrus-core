@@ -4130,7 +4130,7 @@ static ColorIdentifier getColorIdFromRequest(const JSONRPCRequest& request, bool
 
     if ((tokentype == TokenTypes::NON_REISSUABLE || tokentype == TokenTypes::NFT )
       && request.params[indexOfTxid + 1].isNull()){
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Index parameter missing for Non-Reissuable or NFT token.");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Parameter missing for Non-Reissuable or NFT token.");
     }
 
     const std::string scriptOrTxid(request.params[indexOfTxid].get_str());
@@ -4227,7 +4227,7 @@ static UniValue issuetoken(const JSONRPCRequest& request)
     // token value
     CAmount tokenValue = request.params[1].get_int64();
     if (tokenValue <= 0)
-        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid token amount in issue");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid token amount");
 
     CCoinControl coin_control;
     coin_control.colorTxType = ColoredTxType::ISSUE;
@@ -4237,10 +4237,17 @@ static UniValue issuetoken(const JSONRPCRequest& request)
         coin_control.Select(out);
     }
 
+    if(colorId.type == TokenTypes::NFT && tokenValue != 1) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid token amount for NFT. It must be 1");
+    }
+
     //TODO : validate utxo
     if (pwallet->IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS)) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Error: Private keys are disabled for this wallet");
     }
+    // Make sure the results are valid at least up to the most recent block
+    // the user could have gotten from another RPC command prior to now
+    pwallet->BlockUntilSyncedToCurrentChain();
 
     LOCK2(cs_main, pwallet->cs_wallet);
 
@@ -4347,7 +4354,6 @@ static UniValue transfertoken(const JSONRPCRequest& request)
     return sendtoaddress(request);
 }
 
-/* burn token essentially means that we want to create a transaction that sends the remaining amount of colored coins to another address belonging to us. i.e send  pwallet->GetBalance()[colorId] - nValue to getnewaddress */
 static CTransactionRef BurnToken(CWallet * const pwallet, const ColorIdentifier& colorId, CAmount nValue)
 {
     CAmount curBalance = pwallet->GetBalance()[colorId];
