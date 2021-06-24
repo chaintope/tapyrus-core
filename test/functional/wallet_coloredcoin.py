@@ -15,6 +15,9 @@
         3. transfertoken
         4. burntoken
         5. getcolor
+        createrawtransaction
+        sendtoaddress
+
 
     """
 from codecs import encode
@@ -56,10 +59,10 @@ class WalletColoredCoinTest(BitcoinTestFramework):
                         [ 1, 300],                                #level 0
                         [ 4, 267, 100, 100, 1],                   #level 1 create part1
                         [ 6, 234, 200, 100, 1, 100, 1],           #level 2 create part2
-                        [ 6, "233.9995056", 180, 90, 0, 90, 0],   #level 3 sendtoaddress
-                        [ 6, "233.9991256", 160, 80, 0, 80, 0],   #level 4 transfertoken
-                        [ 6, "233.9988814", 140, 60, 0, 60, 0],   #level 5 burn partial
-                        [ 6, "233.9988814", 140, 60, 0, 60, 0],   #level 6 burn full
+                        [ 6, "233.9999753", 180, 90, 0, 90, 0],   #level 3 sendtoaddress
+                        [ 6, "233.9999563", 160, 80, 0, 80, 0],   #level 4 transfertoken
+                        [ 6, "233.9999441", 140, 60, 0, 60, 0],   #level 5 burn partial
+                        [ 6, "233.9999441", 140, 60, 0, 60, 0],   #level 6 burn full
                       ], 
                      [ #'''nodes 1'''
                         [ 0, 0],                     #level 0
@@ -68,16 +71,16 @@ class WalletColoredCoinTest(BitcoinTestFramework):
                         [ 6, 60, 20, 10, 1, 10, 1],  #level 3
                         [ 6, 60, 40, 20, 1, 20, 1],  #level 4
                         [ 6, 60, 40, 20, 1, 20, 1],  #level 5
-                        [ 4, "59.9995950", 0, 0, 0], #level 6
+                        [ 4, "59.9999798", 0, 0, 0], #level 6
                       ],
                      [ #'''nodes 2'''
                         [ 1, 50],                 #level 0
                         [ 1, 103],                #level 1
                         [ 1, 156],                #level 2
-                        [ 1, "206.0004944"],      #level 3
-                        [ 1, "256.0008744"],      #level 4
-                        [ 1, "306.0008744"],      #level 5
-                        [ 1, "356.0011186"],      #level 6
+                        [ 1, "206.0000247"],      #level 3
+                        [ 1, "256.0000437"],      #level 4
+                        [ 1, "306.0000437"],      #level 5
+                        [ 1, "356.0000621"],      #level 6
                       ] 
         ]
 
@@ -106,15 +109,10 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         connect_nodes_bi(self.nodes, 1, 2)
         connect_nodes_bi(self.nodes, 0, 2)
         self.sync_all([self.nodes[0:3]])
-
-    def check_fee_amount(self, curr_balance, balance_with_fee, fee_per_byte, tx_size):
-        """Return curr_balance after asserting the fee was in range"""
-        fee = balance_with_fee - curr_balance
-        assert_fee_amount(fee, tx_size, fee_per_byte * 1000)
-        return curr_balance
-
-    def get_vsize(self, txn):
-        return self.nodes[0].decoderawtransaction(txn)['vsize']
+        relayfee = self.nodes[0].getnetworkinfo()['relayfee']
+        self.nodes[0].settxfee(relayfee)
+        self.nodes[1].settxfee(relayfee)
+        self.nodes[2].settxfee(relayfee)
 
     def test_getcolorRPC(self, utxos):
         '''test getcolor RPC using 2 different types of color addresses '''
@@ -156,8 +154,8 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         assert_raises_rpc_error(-8, "Unknown token type given", self.nodes[0].getcolor, 4, utxos[4]['txid'], utxos[4]['vout'])
         assert_raises_rpc_error(-8, "Unknown token type given", self.nodes[0].getcolor, 0, utxos[4]['txid'], utxos[4]['vout'])
         assert_raises_rpc_error(-8, "Extra parameter for Reissuable token", self.nodes[0].getcolor, 1, utxos[4]['txid'], utxos[4]['vout'])
-        assert_raises_rpc_error(-8, "Index parameter missing for Non-Reissuable or NFT token", self.nodes[0].getcolor, 2, utxos[4]['txid'])
-        assert_raises_rpc_error(-8, "Index parameter missing for Non-Reissuable or NFT token", self.nodes[0].getcolor, 3, utxos[4]['txid'])
+        assert_raises_rpc_error(-8, "Parameter missing for Non-Reissuable or NFT token", self.nodes[0].getcolor, 2, utxos[4]['txid'])
+        assert_raises_rpc_error(-8, "Parameter missing for Non-Reissuable or NFT token", self.nodes[0].getcolor, 3, utxos[4]['txid'])
 
     def test_createrawtransaction(self, utxos):
         '''test transaction with colored output using createrawtransaction 
@@ -186,21 +184,21 @@ class WalletColoredCoinTest(BitcoinTestFramework):
             inputs=[{'txid': utxos[5]['txid'], 'vout': utxos[5]['vout']}],
             outputs=[{self.nodes[1].getnewaddress(): 10}, {self.nodes[0].getnewaddress() : 39}, { cp2pkh_address1 : 100}],
         ), [], "ALL", self.options.scheme)['hex']
-        txid_in_block = self.nodes[0].sendrawtransaction(hexstring=raw_tx_in_block, allowhighfees=True)
+        self.nodes[0].sendrawtransaction(hexstring=raw_tx_in_block, allowhighfees=True)
 
         #  create transaction 2 with colorid2
         raw_tx_in_block = self.nodes[0].signrawtransactionwithwallet(self.nodes[0].createrawtransaction(
             inputs=[{'txid': utxos[1]['txid'], 'vout': utxos[1]['vout']}],
             outputs=[{self.nodes[1].getnewaddress(): 10}, {self.nodes[0].getnewaddress() : 39}, { cp2pkh_address2 : 100}],
         ), [], "ALL", self.options.scheme)['hex']
-        txid_in_block = self.nodes[0].sendrawtransaction(hexstring=raw_tx_in_block, allowhighfees=True)
+        self.nodes[0].sendrawtransaction(hexstring=raw_tx_in_block, allowhighfees=True)
 
         #  create transaction 3 with colorid3
         raw_tx_in_block = self.nodes[0].signrawtransactionwithwallet(self.nodes[0].createrawtransaction(
             inputs=[{'txid': utxos[2]['txid'], 'vout': utxos[2]['vout']}],
             outputs=[{self.nodes[1].getnewaddress(): 10}, {self.nodes[0].getnewaddress() : 39}, { cp2pkh_address3 : 1}],
         ), [], "ALL", self.options.scheme)['hex']
-        txid_in_block = self.nodes[0].sendrawtransaction(hexstring=raw_tx_in_block, allowhighfees=True)
+        self.nodes[0].sendrawtransaction(hexstring=raw_tx_in_block, allowhighfees=True)
 
         self.sync_all([self.nodes[0:3]])
         self.nodes[2].generate(1, self.signblockprivkey_wif)
@@ -214,21 +212,21 @@ class WalletColoredCoinTest(BitcoinTestFramework):
             inputs=[{'txid': utxos[0]['txid'], 'vout': utxos[0]['vout']}],
             outputs=[{self.nodes[1].getnewaddress(): 10}, {self.nodes[0].getnewaddress() : 39}, { cp2sh_address1 : 100}],
         ), [], "ALL", self.options.scheme)['hex']
-        txid_in_block = self.nodes[0].sendrawtransaction(hexstring=raw_tx_in_block, allowhighfees=True)
+        self.nodes[0].sendrawtransaction(hexstring=raw_tx_in_block, allowhighfees=True)
 
         #  create transaction 2 with colorid4
         raw_tx_in_block = self.nodes[0].signrawtransactionwithwallet(self.nodes[0].createrawtransaction(
             inputs=[{'txid': utxos[3]['txid'], 'vout': utxos[3]['vout']}],
             outputs=[{self.nodes[1].getnewaddress(): 10}, {self.nodes[0].getnewaddress() : 39}, { cp2sh_address4 : 100}],
         ), [], "ALL", self.options.scheme)['hex']
-        txid_in_block = self.nodes[0].sendrawtransaction(hexstring=raw_tx_in_block, allowhighfees=True)
+        self.nodes[0].sendrawtransaction(hexstring=raw_tx_in_block, allowhighfees=True)
 
         #  create transaction 3 with colorid5
         raw_tx_in_block = self.nodes[0].signrawtransactionwithwallet(self.nodes[0].createrawtransaction(
             inputs=[{'txid': utxos[4]['txid'], 'vout': utxos[4]['vout']}],
             outputs=[{self.nodes[1].getnewaddress(): 10}, {self.nodes[0].getnewaddress() : 39}, { cp2sh_address5 : 1}],
         ), [], "ALL", self.options.scheme)['hex']
-        txid_in_block = self.nodes[0].sendrawtransaction(hexstring=raw_tx_in_block, allowhighfees=True)
+        self.nodes[0].sendrawtransaction(hexstring=raw_tx_in_block, allowhighfees=True)
 
         self.sync_all([self.nodes[0:3]])
         self.nodes[2].generate(1, self.signblockprivkey_wif)
@@ -377,7 +375,6 @@ class WalletColoredCoinTest(BitcoinTestFramework):
 
         self.nodes[2].generate(1, self.signblockprivkey_wif)
         self.sync_all([self.nodes[0:3]])
-        sleep(10)
 
         self.test_nodeBalances()
 
@@ -390,7 +387,6 @@ class WalletColoredCoinTest(BitcoinTestFramework):
 
         self.nodes[2].generate(1, self.signblockprivkey_wif)
         self.sync_all([self.nodes[0:3]])
-        sleep(30)
 
         self.test_nodeBalances()
 
@@ -399,12 +395,13 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         assert_raises_rpc_error(-1, "Burn colored coins or tokens in the wallet", self.nodes[0].burntoken, "c4")
         assert_raises_rpc_error(-1, "Burn colored coins or tokens in the wallet", self.nodes[0].burntoken, self.colorids[1])
         assert_raises_rpc_error(-3, "Invalid amount for burn", self.nodes[0].burntoken, self.colorids[1], -10)
+        assert_raises_rpc_error(-5, "No Token found in wallet. But token address was given.", self.nodes[1].burntoken, self.colorids[1], 10)
+        assert_raises_rpc_error(-5, "No Token found in wallet. But token address was given.", self.nodes[1].burntoken, self.colorids[2], 10)
+        assert_raises_rpc_error(-5, "No Token found in wallet. But token address was given.", self.nodes[1].burntoken, self.colorids[3], 10)
 
     def test_issuetoken(self):
 
         self.log.info("Testing issuetoken")
-        self.nodes[2].generate(6, self.signblockprivkey_wif)
-        self.sync_all([self.nodes[0:3]])
         node2_utxos = self.nodes[2].listunspent()
 
         res1 = self.nodes[2].issuetoken(1, 100, node2_utxos[0]['scriptPubKey'])
@@ -426,10 +423,7 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         self.sync_all([self.nodes[0:3]])
 
         walletinfo = self.nodes[2].getwalletinfo()
-        while(walletinfo['balance']['TPC'] < 600):
-            sleep(5)
-            walletinfo = self.nodes[2].getwalletinfo()
-        assert_equal(walletinfo['balance']['TPC'], decimal.Decimal('606.00152360'))
+        assert_equal(walletinfo['balance']['TPC'], decimal.Decimal('150.00005718'))
         assert_equal(walletinfo['balance'][res1['color']], 300)
         assert_equal(walletinfo['balance'][res2['color']], 100)
         assert_equal(walletinfo['balance'][res3['color']], 1)
@@ -438,12 +432,12 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         assert_raises_rpc_error(-8, "Unknown token type given", self.nodes[0].issuetoken, 4, 10, node2_utxos[4]['txid'], node2_utxos[4]['vout'])
         assert_raises_rpc_error(-8, "Unknown token type given", self.nodes[0].issuetoken, 0, 10, node2_utxos[4]['txid'], node2_utxos[4]['vout'])
         assert_raises_rpc_error(-8, "Unknown token type given", self.nodes[0].issuetoken, -1, 10, node2_utxos[4]['txid'], node2_utxos[4]['vout'])
-        assert_raises_rpc_error(-8, "Invalid token amount in issue", self.nodes[0].issuetoken, 0, -10, node2_utxos[4]['txid'], -1)
+        assert_raises_rpc_error(-8, "Invalid token amount", self.nodes[0].issuetoken, 2, -10, node2_utxos[4]['txid'], -1)
         assert_raises_rpc_error(-8, "Extra parameter for Reissuable token", self.nodes[0].issuetoken, 1, 10, node2_utxos[4]['txid'], node2_utxos[4]['vout'])
-        assert_raises_rpc_error(-8, "Index parameter missing for Non-Reissuable or NFT token", self.nodes[0].issuetoken, 2, 10, node2_utxos[4]['txid'])
-        assert_raises_rpc_error(-8, "Index parameter missing for Non-Reissuable or NFT token", self.nodes[0].issuetoken, 3, 10, node2_utxos[4]['txid'])
-        assert_raises_rpc_error(-8, "Invalid token amount in issue", self.nodes[0].issuetoken, 0, -10, node2_utxos[4]['txid'], node2_utxos[4]['vout'])
-        assert_raises_rpc_error(-8, "Index parameter missing for Non-Reissuable or NFT token", self.nodes[0].issuetoken, 3, 10, node2_utxos[4]['txid'], node2_utxos[4]['vout'])
+        assert_raises_rpc_error(-8, "Parameter missing for Non-Reissuable or NFT token", self.nodes[0].issuetoken, 2, 10, node2_utxos[4]['txid'])
+        assert_raises_rpc_error(-8, "Parameter missing for Non-Reissuable or NFT token", self.nodes[0].issuetoken, 3, 10, node2_utxos[4]['txid'])
+        assert_raises_rpc_error(-8, "Invalid token amount", self.nodes[0].issuetoken, 2, -10, node2_utxos[4]['txid'], node2_utxos[4]['vout'])
+        assert_raises_rpc_error(-8, "Invalid token amount for NFT. It must be 1", self.nodes[0].issuetoken, 3, 10, node2_utxos[4]['txid'], node2_utxos[4]['vout'])
 
     def run_test(self):
         # Check that there's no UTXO on any of the nodes
