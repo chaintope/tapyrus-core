@@ -134,6 +134,7 @@ BASE_SCRIPTS = [
     'wallet_importprunedfunds.py',
     'rpc_zmq.py',
     'rpc_signmessage.py',
+    'wallet_balance.py',
     'feature_nulldummy.py',
     'mempool_accept.py',
     'mempool_accept.py --scheme SCHNORR',
@@ -164,6 +165,7 @@ BASE_SCRIPTS = [
     'p2p_node_network_limited.py',
     'feature_blocksdir.py',
     'feature_config_args.py',
+    'rpc_help.py',
     'feature_help.py',
     'feature_coloredcoin.py'
     # Don't append tests at the end to avoid merge conflicts

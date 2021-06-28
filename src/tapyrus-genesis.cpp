@@ -33,6 +33,9 @@ static void SetupTapyrusGenesisArgs()
     gArgs.AddArg("-time=<time>", "Specify genesis block time as UNIX Time. If this don't set, use current time.", false, OptionsCategory::GENESIS);
     gArgs.AddArg("-address=<pay_to_address>", "Optional. Specify coinbase script pay to address.", false, OptionsCategory::GENESIS);
 
+    // Dev mode option
+    gArgs.AddArg("-dev", "Specify dev environment.", false, OptionsCategory::GENESIS);
+
     // Hidden
     gArgs.AddArg("-h", "", false, OptionsCategory::HIDDEN);
     gArgs.AddArg("-help", "", false, OptionsCategory::HIDDEN);
@@ -71,7 +74,7 @@ static int AppInit(int argc, char* argv[])
         return EXIT_SUCCESS;
     }
 
-    // Check for  -dev parameter (Params() calls are only valid after this clause)
+    // Check for -dev parameter (Params() calls are only valid after this clause)
     try {
         SelectParams(gArgs.GetChainMode());
         SelectFederationParams(gArgs.GetChainMode(), false);

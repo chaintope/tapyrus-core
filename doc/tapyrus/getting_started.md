@@ -68,8 +68,6 @@ $ sudo mkdir /var/lib/tapyrus-dev
 networkid=1905960821
 dev=1
 [dev]
-port=12858
-rpcport=17858
 server=1
 keypool=1
 discover=0

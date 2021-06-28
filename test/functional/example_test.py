@@ -16,8 +16,8 @@ from collections import defaultdict
 
 # Avoid wildcard * imports if possible
 from test_framework.blocktools import (create_block, create_coinbase)
+from test_framework.messages import CInv
 from test_framework.mininode import (
-    CInv,
     P2PInterface,
     mininode_lock,
     msg_block,
@@ -112,7 +112,7 @@ class ExampleTest(BitcoinTestFramework):
         # sync_all() should not include node2, since we're not expecting it to
         # sync.
         connect_nodes(self.nodes[0], 1)
-        self.sync_all([self.nodes[0:1]])
+        self.sync_all([self.nodes[0:2]])
 
     # Use setup_nodes() to customize the node start behaviour (for example if
     # you don't want to start all nodes at the start of the test).
@@ -132,11 +132,11 @@ class ExampleTest(BitcoinTestFramework):
         """Main test logic"""
 
         # Create P2P connections will wait for a verack to make sure the connection is fully up
-        self.nodes[0].add_p2p_connection(BaseNode())
+        peer_messaging = self.nodes[0].add_p2p_connection(BaseNode())
 
         # Generating a block on one of the nodes will get us out of IBD
-        blocks = [int(self.nodes[0].generate(nblocks=1)[0], 16)]
-        self.sync_all([self.nodes[0:1]])
+        blocks = [int(self.nodes[0].generate(1, self.signblockprivkey_wif)[0], 16)]
+        self.sync_all([self.nodes[0:2]])
 
         # Notice above how we called an RPC by calling a method with the same
         # name on the node object. Notice also how we used a keyword argument
@@ -159,7 +159,7 @@ class ExampleTest(BitcoinTestFramework):
         self.tip = int(self.nodes[0].getbestblockhash(), 16)
         self.block_time = self.nodes[0].getblock(self.nodes[0].getbestblockhash())['time'] + 1
 
-        height = 1
+        height = self.nodes[0].getblockcount() + 1
 
         for i in range(10):
             # Use the mininode and blocktools functionality to manually build a block
@@ -169,7 +169,7 @@ class ExampleTest(BitcoinTestFramework):
             block.solve(self.signblockprivkey)
             block_message = msg_block(block)
             # Send message is used to send a P2P message to the node over our P2PInterface
-            self.nodes[0].p2p.send_message(block_message)
+            peer_messaging.send_message(block_message)
             self.tip = block.sha256
             blocks.append(self.tip)
             self.block_time += 1

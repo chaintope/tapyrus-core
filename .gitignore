@@ -57,7 +57,6 @@ src/qt/test/moc*.cpp
 *.pyc
 *.o
 *.o-*
-*.patch
 *.a
 *.pb.cc
 *.pb.h
@@ -68,6 +67,10 @@ src/qt/test/moc*.cpp
 
 *.json.h
 *.raw.h
+
+# Only ignore unexpected patches
+*.patch
+!depends/patches/**/*.patch
 
 #libtool object files
 *.lo

@@ -1,4 +1,4 @@
-Tapyrus Core [![Build Status](https://github.com/azuchi/bls12-381/actions/workflows/main.yml/badge.svg?branch=main)](https://github.com/azuchi/bls12-381/actions/workflows/main.yml)
+Tapyrus Core [![Build Status](https://github.com/chaintope/tapyrus-core/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/chaintope/tapyrus-core/actions/workflows/ci.yml)
 =====================================
 
 ![tapyrus](doc/images/tapyrus-logo.png)
@@ -33,7 +33,7 @@ Tapyrus consists of the following software:
 * [Tapyrus Seeder](https://github.com/chaintope/tapyrus-seeder): DNS seeder for configuring Tapyrus network.
 * [Tapyrus Faucet](https://github.com/chaintope/tapyrus-faucet): Faucet for Tapyrus testnet.
 * [[WIP]Tapyrus SPV](https://github.com/chaintope/tapyrus-spv): A lightweight client implementation for Tapyrus blockchain.
-* [[WIP]Tapyrus Explorer](https://github.com/chaintope/tapyrus-explorer): Tapyrus blockchain explorer.
+* [Tapyrus Explorer](https://github.com/chaintope/tapyrus-explorer): Tapyrus blockchain explorer.
 * [Electrs Tapyrus](https://github.com/chaintope/electrs-tapyrus): Tapyrus blockchain index server.
 
 See [Getting Started document](/doc/tapyrus/getting_started.md) for how to install and run tapyrus.
