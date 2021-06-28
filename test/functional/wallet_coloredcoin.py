@@ -428,6 +428,7 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         sleep(15)
         self.nodes[2].generate(1, self.signblockprivkey_wif)
         self.sync_all([self.nodes[0:3]])
+        sleep(30)
 
         walletinfo = self.nodes[2].getwalletinfo()
         assert_equal(walletinfo['balance']['TPC'], decimal.Decimal('1406.00015236'))
