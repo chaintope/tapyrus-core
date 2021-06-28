@@ -480,7 +480,6 @@ class RawTransactionsTest(BitcoinTestFramework):
         #get its block reward
         blockData = self.nodes[1].getblock(new_block)
         blockReward = self.nodes[1].gettransaction(blockData['tx'][0])['amount']
-        print("%s\n%s\n" % (blockData, self.nodes[1].gettransaction(blockData['tx'][0])))
 
         # no change in node0
         assert_equal(oldBalance0, self.nodes[0].getbalance())
