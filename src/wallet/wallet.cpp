@@ -2874,6 +2874,8 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                             }
                         }
                     }
+                } else {
+                    bnb_used = false;
                 }
 
                 //first fill in the colored coin change outputs
