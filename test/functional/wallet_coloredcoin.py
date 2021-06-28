@@ -425,6 +425,7 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         self.nodes[2].issuetoken(1, 100, node2_utxos[0]['scriptPubKey'])
         assert_equal(res1['color'], self.nodes[2].getcolor(1, node2_utxos[0]['scriptPubKey']))
 
+        sleep(15)
         self.nodes[2].generate(1, self.signblockprivkey_wif)
         self.sync_all([self.nodes[0:3]])
 
