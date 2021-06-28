@@ -430,7 +430,7 @@ class WalletColoredCoinTest(BitcoinTestFramework):
 
         walletinfo = self.nodes[2].getwalletinfo()
         assert_equal(walletinfo['balance']['TPC'], decimal.Decimal('1406.00015236'))
-        assert_equal(walletinfo['balance'][res1['color']], 100)
+        assert_equal(walletinfo['balance'][res1['color']], 300)
         assert_equal(walletinfo['balance'][res2['color']], 100)
         assert_equal(walletinfo['balance'][res3['color']], 1)
 
