@@ -2310,7 +2310,15 @@ void CWallet::AvailableCoins(std::vector<COutput> &vCoins, bool fOnlySafe, const
             bool solvable = IsSolvable(*this, pcoin->tx->vout[i].scriptPubKey);
             bool spendable = ((mine & ISMINE_SPENDABLE) != ISMINE_NO) || (((mine & ISMINE_WATCH_ONLY) != ISMINE_NO) && (coinControl && coinControl->fAllowWatchOnly && solvable));
 
-            vCoins.push_back(COutput(pcoin, i, nDepth, spendable, solvable, safeTx, (coinControl && coinControl->fAllowWatchOnly)));
+            if(coinControl && coinControl->m_colorTxType == ColoredTxType::ISSUE
+                           && coinControl->m_colorId.type == TokenTypes::REISSUABLE
+                           && colorId.type == TokenTypes::NONE)
+            {
+                if(coinControl->m_colorId == ColorIdentifier(pcoin->tx->vout[i].scriptPubKey) )
+                    vCoins.push_back(COutput(pcoin, i, nDepth, spendable, solvable, safeTx, (coinControl && coinControl->fAllowWatchOnly)));
+            }
+            else
+                vCoins.push_back(COutput(pcoin, i, nDepth, spendable, solvable, safeTx, (coinControl && coinControl->fAllowWatchOnly)));
 
             // Checks the sum amount of all UTXO's.
             if (nMinimumSumAmount != MAX_MONEY) {
@@ -2833,8 +2841,8 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                         return false;
                     }
                     //if this is a token burn transaction the amount in the transaction is meant to be dropped. so no output is added. for other transaction types the output is added
-                    if(coin_control.colorTxType != ColoredTxType::BURN ||
-                        (coin_control.colorTxType == ColoredTxType::BURN &&
+                    if(coin_control.m_colorTxType != ColoredTxType::BURN ||
+                        (coin_control.m_colorTxType == ColoredTxType::BURN &&
                         !recipient.scriptPubKey.IsColoredScript()))
                             txNew.vout.push_back(txout);
                 }
@@ -2850,7 +2858,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     for (const auto& i : mapValue) {
                         //if this token issue we need not do select coin using the colorid
                         //as the token is not in the wallet yet. it is just being issued
-                        if(coin_control.colorTxType == ColoredTxType::ISSUE 
+                        if(coin_control.m_colorTxType == ColoredTxType::ISSUE 
                                      && i.first.type != TokenTypes::NONE)
                             continue;
 
