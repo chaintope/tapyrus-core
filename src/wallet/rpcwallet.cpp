@@ -611,7 +611,10 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
     }
 
     if (colorId.type != TokenTypes::NONE)
-        coin_control.colorTxType = ColoredTxType::TRANSFER; 
+    {
+        coin_control.m_colorTxType = ColoredTxType::TRANSFER; 
+        coin_control.m_colorId = colorId;
+    }
 
     EnsureWalletIsUnlocked(pwallet);
 
@@ -4968,7 +4971,8 @@ static UniValue issuetoken(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid token amount");
 
     CCoinControl coin_control;
-    coin_control.colorTxType = ColoredTxType::ISSUE;
+    coin_control.m_colorTxType = ColoredTxType::ISSUE;
+    coin_control.m_colorId = colorId;
     if(colorId.type != TokenTypes::REISSUABLE)
     {
         COutPoint out(uint256S(request.params[2].get_str()), request.params[3].get_int());
@@ -5125,7 +5129,8 @@ static CTransactionRef BurnToken(CWallet * const pwallet, const ColorIdentifier&
     vecSend.push_back(recipient);
     CTransactionRef tx;
     CCoinControl coin_control;
-    coin_control.colorTxType = ColoredTxType::BURN;
+    coin_control.m_colorTxType = ColoredTxType::BURN;
+    coin_control.m_colorId = colorId;
     //coin_control.destChange = colorDest;
     if (!pwallet->CreateTransaction(vecSend, tx, reservekey, nFeeRequired, mapChangePosRet, strError, coin_control)) {
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
