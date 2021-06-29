@@ -22,7 +22,7 @@
     """
 from codecs import encode
 import decimal
-from time import sleep
+from time import sleep, time
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
@@ -407,7 +407,7 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         self.sync_all([self.nodes[0:3]])
         node2_utxos = self.nodes[2].listunspent()
 
-        # Lock UTXO so nodes[2] doesn't accidentally spend it
+        # Lock UTXO used in REISSUABLE token so nodes[2] doesn't accidentally spend it
         self.nodes[2].lockunspent(False, [{"txid": node2_utxos[0]['txid'], "vout": node2_utxos[0]['vout']}])
 
         res1 = self.nodes[2].issuetoken(1, 100, node2_utxos[0]['scriptPubKey'])
@@ -425,10 +425,8 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         self.nodes[2].issuetoken(1, 100, node2_utxos[0]['scriptPubKey'])
         assert_equal(res1['color'], self.nodes[2].getcolor(1, node2_utxos[0]['scriptPubKey']))
 
-        sleep(15)
         self.nodes[2].generate(1, self.signblockprivkey_wif)
         self.sync_all([self.nodes[0:3]])
-        sleep(30)
 
         walletinfo = self.nodes[2].getwalletinfo()
         assert_equal(walletinfo['balance']['TPC'], decimal.Decimal('1406.00015236'))
