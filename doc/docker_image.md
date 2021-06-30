@@ -69,7 +69,7 @@ $ docker run tapyrus/tapyrusd:latest tapyrus-genesis -dev -signblockpubkey=03af8
 #### Create `tapyrus.conf`
 
 ```bash
-cat << EOS > tapyrus.conf
+$ cat << EOS > tapyrus.conf
 networkid=3
 txindex=1
 regtest=1
