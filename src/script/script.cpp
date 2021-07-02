@@ -285,6 +285,23 @@ bool CScript::IsPushOnly(const_iterator pc) const
     return true;
 }
 
+bool CScript::IsMultipleDatacarrier(const_iterator pc) const
+{
+    while (pc < end())
+    {
+        opcodetype opcode;
+        if (!GetOp(pc, opcode))
+            return false;
+
+        if(opcode == OP_RETURN)
+            continue;
+
+        if (opcode > OP_16)
+            return false;
+    }
+    return true;
+}
+
 bool CScript::IsPushOnly() const
 {
     return this->IsPushOnly(begin());

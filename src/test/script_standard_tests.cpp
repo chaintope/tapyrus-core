@@ -94,6 +94,20 @@ BOOST_AUTO_TEST_CASE(script_standard_Solver_success)
     BOOST_CHECK_EQUAL(whichType, TX_NULL_DATA);
     BOOST_CHECK_EQUAL(solutions.size(), 0U);
 
+    // TX_MULTIPLE_DATA
+    s.clear();
+    s << OP_RETURN <<
+        std::vector<unsigned char>({0}) <<
+        std::vector<unsigned char>({75}) <<
+        std::vector<unsigned char>({255}) <<
+        OP_RETURN <<
+        std::vector<unsigned char>({0}) <<
+        std::vector<unsigned char>({75}) <<
+        std::vector<unsigned char>({255});
+    BOOST_CHECK(Solver(s, whichType, solutions));
+    BOOST_CHECK_EQUAL(whichType, TX_MULTIPLE_DATA);
+    BOOST_CHECK_EQUAL(solutions.size(), 0U);
+
     // TX_WITNESS_V0_KEYHASH
     s.clear();
     s << OP_0 << ToByteVector(pubkeys[0].GetID());
@@ -182,6 +196,11 @@ BOOST_AUTO_TEST_CASE(script_standard_Solver_failure)
     s.clear();
     s << OP_RETURN << std::vector<unsigned char>({75}) << OP_ADD;
     BOOST_CHECK(Solver(s, whichType, solutions));
+
+    // TX_MULTIPLE_DATA with other opcodes
+    s.clear();
+    s << OP_RETURN << std::vector<unsigned char>({75}) << OP_RETURN << std::vector<unsigned char>({75}) << OP_ADD;
+    BOOST_CHECK(Solver(s, whichType, solutions));
 }
 
 BOOST_AUTO_TEST_CASE(script_standard_ExtractDestination)
@@ -224,6 +243,11 @@ BOOST_AUTO_TEST_CASE(script_standard_ExtractDestination)
     // TX_NULL_DATA
     s.clear();
     s << OP_RETURN << std::vector<unsigned char>({75});
+    BOOST_CHECK(!ExtractDestination(s, address));
+
+    // TX_MULTIPLE_DATA
+    s.clear();
+    s << OP_RETURN << std::vector<unsigned char>({75}) << OP_RETURN << std::vector<unsigned char>({75});
     BOOST_CHECK(!ExtractDestination(s, address));
 
 #ifdef DEBUG
@@ -309,6 +333,11 @@ BOOST_AUTO_TEST_CASE(script_standard_ExtractDestinations)
     // TX_NULL_DATA
     s.clear();
     s << OP_RETURN << std::vector<unsigned char>({75});
+    BOOST_CHECK(!ExtractDestinations(s, whichType, addresses, nRequired));
+
+    // TX_MULTIPLE_DATA
+    s.clear();
+    s << OP_RETURN << std::vector<unsigned char>({75}) << OP_RETURN << std::vector<unsigned char>({75});
     BOOST_CHECK(!ExtractDestinations(s, whichType, addresses, nRequired));
 }
 

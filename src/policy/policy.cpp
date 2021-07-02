@@ -72,7 +72,9 @@ bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType)
             return false;
     } else if (whichType == TX_NULL_DATA &&
                (!fAcceptDatacarrier || scriptPubKey.size() > nMaxDatacarrierBytes))
-          return false;
+            return false;
+      else if (whichType == TX_MULTIPLE_DATA && !fAcceptMultipleDatacarrier)
+            return false;
 
     return whichType != TX_NONSTANDARD;
 }
@@ -121,7 +123,7 @@ bool IsStandardTx(const CTransaction& tx, std::string& reason)
             return false;
         }
 
-        if (whichType == TX_NULL_DATA)
+        if (whichType == TX_NULL_DATA || whichType == TX_MULTIPLE_DATA)
             nDataOut++;
         else if ((whichType == TX_MULTISIG) && (!fIsBareMultisigStd)) {
             reason = "bare-multisig";

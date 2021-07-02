@@ -275,6 +275,14 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
             rawtxs=[bytes_to_hex_str(tx.serialize())],
         )
 
+        self.log.info('A transaction with multiple OP_RETURNs in one output')
+        tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx_reference)))
+        tx.vout[0].scriptPubKey = CScript([OP_RETURN, b'\xff', OP_RETURN, b'\xff'])
+        self.check_mempool_result(
+            result_expected=[{'txid': tx.rehash(), 'allowed': False, 'reject-reason': '64: scriptpubkey'}],
+            rawtxs=[bytes_to_hex_str(tx.serialize())],
+        )
+
         self.log.info('A timelocked transaction')
         tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx_reference)))
         tx.vin[0].nSequence -= 1  # Should be non-max, so locktime is not ignored
@@ -294,6 +302,25 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
             allowhighfees=True,
         )
 
+        self.restart_node(0, ["-datacarriermultiple"])
+        self.log.info('A transaction with multiple OP_RETURNs in one output')
+        tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx_reference)))
+        tx.vout[0].scriptPubKey = CScript([OP_RETURN, b'\xff', OP_RETURN, b'\xff'])
+        signed_tx = node.signrawtransactionwithwallet(bytes_to_hex_str(tx.serialize()))['hex']
+        tx.deserialize(BytesIO(hex_str_to_bytes(signed_tx)))
+        self.check_mempool_result(
+            result_expected=[{'txid': tx.rehash(), 'allowed': True}],
+            rawtxs=[bytes_to_hex_str(tx.serialize())],
+        )
+
+        self.log.info('A transaction with multiple OP_RETURNs in multiple outputs')
+        tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx_reference)))
+        tx.vout[0].scriptPubKey = CScript([OP_RETURN, b'\xff', OP_RETURN, b'\xff'])
+        tx.vout = [tx.vout[0]] * 2
+        self.check_mempool_result(
+            result_expected=[{'txid': tx.rehash(), 'allowed': False, 'reject-reason': '64: multi-op-return'}],
+            rawtxs=[bytes_to_hex_str(tx.serialize())],
+        )
 
 if __name__ == '__main__':
     MempoolAcceptanceTest().main()

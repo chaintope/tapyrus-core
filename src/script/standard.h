@@ -15,6 +15,7 @@
 #include <stdint.h>
 
 static const bool DEFAULT_ACCEPT_DATACARRIER = true;
+static const bool DEFAULT_ACCEPT_MULTIPLE_DATACARRIER = false;
 
 class CKeyID;
 class CScript;
@@ -45,9 +46,11 @@ static const unsigned int MAX_OP_RETURN_RELAY = 83;
  * type is designated as TX_NULL_DATA.
  */
 extern bool fAcceptDatacarrier;
+extern bool fAcceptMultipleDatacarrier;
 
 /** Maximum size of TX_NULL_DATA scripts that this node considers standard. */
 extern unsigned nMaxDatacarrierBytes;
+extern unsigned nMaxMultipleDatacarrier;
 
 enum txnouttype
 {
@@ -61,6 +64,7 @@ enum txnouttype
     TX_CUSTOM,
     TX_COLOR_PUBKEYHASH,
     TX_COLOR_SCRIPTHASH,
+    TX_MULTIPLE_DATA, //!< multiple OP_RETURN script that carries multiple data
 #ifdef DEBUG
     TX_WITNESS_V0_SCRIPTHASH,
     TX_WITNESS_V0_KEYHASH,
