@@ -419,18 +419,18 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         res3 = self.nodes[2].issuetoken(3, 1, node2_utxos[2]['txid'], node2_utxos[2]['vout'])
         assert_equal(res3['color'], self.nodes[2].getcolor(3, node2_utxos[2]['txid'], node2_utxos[2]['vout']))
 
-        self.nodes[2].issuetoken(1, 100, node2_utxos[0]['scriptPubKey'])
-        assert_equal(res1['color'], self.nodes[2].getcolor(1, node2_utxos[0]['scriptPubKey']))
+        #self.nodes[2].issuetoken(1, 100, node2_utxos[0]['scriptPubKey'])
+        #assert_equal(res1['color'], self.nodes[2].getcolor(1, node2_utxos[0]['scriptPubKey']))
 
-        self.nodes[2].issuetoken(1, 100, node2_utxos[0]['scriptPubKey'])
-        assert_equal(res1['color'], self.nodes[2].getcolor(1, node2_utxos[0]['scriptPubKey']))
+        #self.nodes[2].issuetoken(1, 100, node2_utxos[0]['scriptPubKey'])
+        #assert_equal(res1['color'], self.nodes[2].getcolor(1, node2_utxos[0]['scriptPubKey']))
 
         self.nodes[2].generate(1, self.signblockprivkey_wif)
         self.sync_all([self.nodes[0:3]])
 
         walletinfo = self.nodes[2].getwalletinfo()
         assert_equal(walletinfo['balance']['TPC'], decimal.Decimal('1406.00015236'))
-        assert_equal(walletinfo['balance'][res1['color']], 300)
+        assert_equal(walletinfo['balance'][res1['color']], 100)
         assert_equal(walletinfo['balance'][res2['color']], 100)
         assert_equal(walletinfo['balance'][res3['color']], 1)
 
