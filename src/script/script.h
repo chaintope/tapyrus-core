@@ -547,9 +547,6 @@ public:
     bool IsPushOnly(const_iterator pc) const;
     bool IsPushOnly() const;
 
-    /** Called by IsStandardTx for multiple data carrier scripts */
-    bool IsMultipleDatacarrier(const_iterator pc) const;
-
     /** Check if the script contains valid OP_CODES */
     bool HasValidOps() const;
 

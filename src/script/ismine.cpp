@@ -68,7 +68,6 @@ IsMineResult IsMineInner(const CKeyStore& keystore, const CScript& scriptPubKey,
     {
     case TX_NONSTANDARD:
     case TX_NULL_DATA:
-    case TX_MULTIPLE_DATA:
 #ifdef DEBUG
     case TX_WITNESS_UNKNOWN:
 #endif

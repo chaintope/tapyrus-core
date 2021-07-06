@@ -40,7 +40,6 @@ const char* GetTxnOutputType(txnouttype t)
     case TX_SCRIPTHASH: return "scripthash";
     case TX_MULTISIG: return "multisig";
     case TX_NULL_DATA: return "nulldata";
-    case TX_MULTIPLE_DATA: return "multipledata";
     case TX_CUSTOM: return "custom";
     case TX_COLOR_PUBKEYHASH: return "coloredpubkeyhash";
     case TX_COLOR_SCRIPTHASH: return "coloredscripthash";
@@ -192,12 +191,13 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::v
     // So long as script passes the IsUnspendable() test and all but the first
     // byte passes the IsPushOnly() test we don't care what exactly is in the
     // script.
-    if (scriptPubKey.size() >= 1 && scriptPubKey[0] == OP_RETURN) {
+    if (scriptPubKey.size() >= 1
+     && scriptPubKey[0] == OP_RETURN){
+        typeRet = TX_NULL_DATA;
         if(scriptPubKey.IsPushOnly(scriptPubKey.begin()+1))
-            typeRet = TX_NULL_DATA;
-        else if(scriptPubKey.IsMultipleDatacarrier(scriptPubKey.begin()+1))
-            typeRet = TX_MULTIPLE_DATA;
-        return true;
+            return true;
+        else
+            return false;
     }
 
     std::vector<unsigned char> data;
@@ -315,7 +315,7 @@ bool ExtractDestinations(const CScript& scriptPubKey, txnouttype& typeRet, std::
     std::vector<valtype> vSolutions;
     if (!Solver(scriptPubKey, typeRet, vSolutions))
         return false;
-    if (typeRet == TX_NULL_DATA || typeRet == TX_MULTIPLE_DATA){
+    if (typeRet == TX_NULL_DATA){
         // This is data, not addresses
         return false;
     }
