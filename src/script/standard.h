@@ -50,7 +50,6 @@ extern bool fAcceptMultipleDatacarrier;
 
 /** Maximum size of TX_NULL_DATA scripts that this node considers standard. */
 extern unsigned nMaxDatacarrierBytes;
-extern unsigned nMaxMultipleDatacarrier;
 
 enum txnouttype
 {
@@ -64,7 +63,6 @@ enum txnouttype
     TX_CUSTOM,
     TX_COLOR_PUBKEYHASH,
     TX_COLOR_SCRIPTHASH,
-    TX_MULTIPLE_DATA, //!< multiple OP_RETURN script that carries multiple data
 #ifdef DEBUG
     TX_WITNESS_V0_SCRIPTHASH,
     TX_WITNESS_V0_KEYHASH,
