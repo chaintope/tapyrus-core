@@ -182,7 +182,17 @@ BOOST_AUTO_TEST_CASE(script_standard_Solver_failure)
     // TX_NULL_DATA with other opcodes
     s.clear();
     s << OP_RETURN << std::vector<unsigned char>({75}) << OP_ADD;
+    BOOST_CHECK(!Solver(s, whichType, solutions));
+
+    // TX_NULL_DATA with other opcodes
+    s.clear();
+    s << OP_RETURN << std::vector<unsigned char>({75}) << OP_1;
     BOOST_CHECK(Solver(s, whichType, solutions));
+
+    // TX_NULL_DATA with other opcodes
+    s.clear();
+    s << OP_RETURN << std::vector<unsigned char>({75}) << OP_RETURN;
+    BOOST_CHECK(!Solver(s, whichType, solutions));
 }
 
 BOOST_AUTO_TEST_CASE(script_standard_ExtractDestination)
