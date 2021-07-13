@@ -159,6 +159,9 @@ class ColoredCoinTest(BitcoinTestFramework):
         txSuccess1.rehash()
 
         test_transaction_acceptance(node, txSuccess1, accepted=True)
+        tx_info = node.getrawtransaction(txSuccess1.hashMalFix, 1)
+        assert_equal(tx_info['vout'][0]['token'], bytes_to_hex_str(colorId_reissuable))
+        assert_equal(tx_info['vout'][0]['value'], 100)
 
         #TxSuccess2 - (UTXO-2)    - issue 100 NON-REISSUABLE       (UTXO-3)
         colorId_nonreissuable = colorIdNonReissuable(COutPoint(txSuccess1.malfixsha256, 1).serialize())
@@ -174,6 +177,9 @@ class ColoredCoinTest(BitcoinTestFramework):
         txSuccess2.rehash()
 
         test_transaction_acceptance(node, txSuccess2, accepted=True)
+        tx_info = node.getrawtransaction(txSuccess2.hashMalFix, 1)
+        assert_equal(tx_info['vout'][0]['token'], bytes_to_hex_str(colorId_nonreissuable))
+        assert_equal(tx_info['vout'][0]['value'], 100)
 
         #TxSuccess3 - coinbaseTx2 - issue 1 NFT                    (UTXO-4)
         colorId_nft = colorIdNFT(COutPoint(coinbase_txs[1].malfixsha256, 0).serialize())
@@ -189,6 +195,9 @@ class ColoredCoinTest(BitcoinTestFramework):
         txSuccess3.rehash()
 
         test_transaction_acceptance(node, txSuccess3, accepted=True)
+        tx_info = node.getrawtransaction(txSuccess3.hashMalFix, 1)
+        assert_equal(tx_info['vout'][0]['token'], bytes_to_hex_str(colorId_nft))
+        assert_equal(tx_info['vout'][0]['value'], 1)
 
         #TxFailure4 - (UTXO-1)    - split REISSUABLE - 25 + 75     (UTXO-5,6)
         #           - (UTXO-3)    - split NON-REISSUABLE - 40 + 60 (UTXO-7,8)

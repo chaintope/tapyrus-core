@@ -227,7 +227,9 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
 
         UniValue out(UniValue::VOBJ);
 
-        out.pushKV("value", ValueFromAmount(txout.nValue));
+        ColorIdentifier colorId(std::move(GetColorIdFromScript(txout.scriptPubKey)));
+        out.pushKV("token", colorId.toHexString());
+        out.pushKV("value", (colorId.type == TokenTypes::NONE ? ValueFromAmount(txout.nValue) : txout.nValue ));
         out.pushKV("n", (int64_t)i);
 
         UniValue o(UniValue::VOBJ);
