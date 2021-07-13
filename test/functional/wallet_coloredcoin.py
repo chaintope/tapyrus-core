@@ -354,6 +354,15 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         #mine a block, confirmations should change:
         self.nodes[2].generate(1, self.signblockprivkey_wif)
         self.sync_all([self.nodes[0:3]])
+        unspent = self.nodes[0].listunspent()
+        assert_array_result(unspent, {"txid": txid1, "token" : self.colorids[1]},
+                            {"amount": self.balance_expected[0][self.level][3], "confirmations": 1})
+        assert_array_result(unspent, {"txid": txid2, "token" : self.colorids[1]},
+                            {"amount": self.balance_expected[0][self.level][3], "confirmations": 1})
+        assert_array_result(unspent, {"txid": txid3, "token" : self.colorids[2]},
+                            {"amount": self.balance_expected[0][self.level][5], "confirmations": 1})
+        assert_array_result(unspent, {"txid": txid5, "token" : self.colorids[4]},
+                            {"amount": self.balance_expected[0][self.level][5], "confirmations": 1})
 
         txlist = self.nodes[0].listtransactions()
         assert_array_result(txlist,{"txid": txid1},{"confirmations": 1})
@@ -364,7 +373,11 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         if(rpcname == "sendtoaddress"):
             assert_array_result(txlist,{"txid": txid4},{"confirmations": 1})
             assert_array_result(txlist,{"txid": txid6},{"confirmations": 1})
-
+            unspent = self.nodes[1].listunspent()
+            assert_array_result(unspent, {"txid": txid4, "token" : self.colorids[3]},
+                                {"amount": 1, "confirmations": 1})
+            assert_array_result(unspent, {"txid": txid6, "token" : self.colorids[5]},
+                                {"amount": 1, "confirmations": 1})
         self.test_nodeBalances()
 
     def test_burntoken(self):
@@ -406,6 +419,12 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         self.nodes[2].generate(20, self.signblockprivkey_wif)
         self.sync_all([self.nodes[0:3]])
         node2_utxos = self.nodes[2].listunspent()
+
+        while(True):
+            if len(node2_utxos) > 20:
+                break
+            sleep(5)
+            node2_utxos = self.nodes[2].listunspent()
 
         # Lock UTXO used in REISSUABLE token so nodes[2] doesn't accidentally spend it
         self.nodes[2].lockunspent(False, [{"txid": node2_utxos[0]['txid'], "vout": node2_utxos[0]['vout']}])
