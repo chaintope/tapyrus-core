@@ -666,9 +666,14 @@ static UniValue listaddressgroupings(const JSONRPCRequest& request)
         UniValue jsonGrouping(UniValue::VARR);
         for (const CTxDestination& address : grouping)
         {
+            ColorIdentifier colorId;
+            if(address.which() == 3)
+                colorId = boost::get<CColorKeyID>(address).color;
+            else if(address.which() == 4)
+                colorId = boost::get<CColorScriptID>(address).color;
             UniValue addressInfo(UniValue::VARR);
             addressInfo.push_back(EncodeDestination(address));
-            addressInfo.push_back(ValueFromAmount(balances[address]));
+            addressInfo.push_back(colorId.type == TokenTypes::NONE ? ValueFromAmount(balances[address]) : balances[address]);
             {
                 if (pwallet->mapAddressBook.find(address) != pwallet->mapAddressBook.end()) {
                     addressInfo.push_back(pwallet->mapAddressBook.find(address)->second.name);

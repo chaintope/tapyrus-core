@@ -135,6 +135,12 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         assert_equal(len(walletinfo['balance']), 1)
         assert_equal(walletinfo['balance']['TPC'], 101)
 
+        assert_array_result(self.nodes[0].listunspent(),
+                            {"txid": txid_in_block,
+                            "token" : bytes_to_hex_str(colorid1)},
+                            {"amount": 100,
+                            "confirmations": 1})
+
         colorFromNode = self.nodes[0].getcolor(1, utxo['scriptPubKey'])
         assert_equal(hex_str_to_bytes(colorFromNode), colorid1)
         colorFromNode = self.nodes[0].getcolor(2, txid_in_block, 1)
@@ -174,6 +180,12 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         walletinfo = self.nodes[2].getwalletinfo()
         assert_equal(len(walletinfo['balance']), 1)
         assert_equal(walletinfo['balance']['TPC'], 152)
+
+        assert_array_result(self.nodes[1].listunspent(),
+                            {"txid": txid_in_block,
+                            "token" : bytes_to_hex_str(colorid2)},
+                            {"amount": 100,
+                            "confirmations": 1})
 
         colorFromNode = self.nodes[0].getcolor(1, utxo['scriptPubKey'])
         assert_equal(hex_str_to_bytes(colorFromNode), colorid2)

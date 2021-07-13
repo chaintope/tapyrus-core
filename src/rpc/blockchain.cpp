@@ -1028,7 +1028,10 @@ UniValue gettxout(const JSONRPCRequest& request)
     } else {
         ret.pushKV("confirmations", (int64_t)(pindex->nHeight - coin.nHeight + 1));
     }
-    ret.pushKV("value", ValueFromAmount(coin.out.nValue));
+
+    ColorIdentifier colorId(std::move(GetColorIdFromScript(coin.out.scriptPubKey)));
+    ret.pushKV("token", colorId.toHexString());
+    ret.pushKV("value", (colorId.type == TokenTypes::NONE ? ValueFromAmount(coin.out.nValue) : coin.out.nValue ));
     UniValue o(UniValue::VOBJ);
     ScriptPubKeyToUniv(coin.out.scriptPubKey, o, true);
     ret.pushKV("scriptPubKey", o);
@@ -1967,7 +1970,7 @@ UniValue scantxoutset(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Scan already in progress, use action \"abort\" or \"status\"");
         }
         std::set<CScript> needles;
-        CAmount total_in = 0;
+        TxColoredCoinBalancesMap total_in;
 
         // loop through the scan objects
         for (const UniValue& scanobject : request.params[1].get_array().getValues()) {
@@ -2026,21 +2029,24 @@ UniValue scantxoutset(const JSONRPCRequest& request)
             const Coin& coin = it.second;
             const CTxOut& txo = coin.out;
             input_txos.push_back(txo);
-            total_in += txo.nValue;
+            ColorIdentifier colorId(std::move(GetColorIdFromScript(txo.scriptPubKey)));
+            total_in[colorId] += txo.nValue;
 
             UniValue unspent(UniValue::VOBJ);
             unspent.pushKV("txid", outpoint.hashMalFix.GetHex());
             unspent.pushKV("vout", (int32_t)outpoint.n);
             unspent.pushKV("scriptPubKey", HexStr(txo.scriptPubKey.begin(), txo.scriptPubKey.end()));
-            ColorIdentifier colorId(GetColorIdFromScript(txo.scriptPubKey));
             unspent.pushKV("token", colorId.toHexString());
-            unspent.pushKV("amount", ValueFromAmount(txo.nValue));
+            unspent.pushKV("amount", (colorId.type == TokenTypes::NONE ? ValueFromAmount(txo.nValue) : txo.nValue ));
             unspent.pushKV("height", (int32_t)coin.nHeight);
 
             unspents.push_back(unspent);
         }
         result.pushKV("unspents", unspents);
-        result.pushKV("total_amount", ValueFromAmount(total_in));
+        UniValue total(UniValue::VOBJ);
+        for(auto single_in : total_in)
+            total.pushKV(single_in.first.toHexString(), (single_in.first.type == TokenTypes::NONE ? ValueFromAmount(single_in.second) : single_in.second ));
+        result.pushKV("total_amount", total);
     } else {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid command");
     }

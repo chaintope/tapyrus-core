@@ -555,7 +555,9 @@ static bool rest_getutxos(HTTPRequest* req, const std::string& strURIPart)
         for (const CCoin& coin : outs) {
             UniValue utxo(UniValue::VOBJ);
             utxo.pushKV("height", (int32_t)coin.nHeight);
-            utxo.pushKV("value", ValueFromAmount(coin.out.nValue));
+            ColorIdentifier colorId(std::move(GetColorIdFromScript(coin.out.scriptPubKey)));
+            utxo.pushKV("token", colorId.toHexString());
+            utxo.pushKV("value", (colorId.type == TokenTypes::NONE ? ValueFromAmount(coin.out.nValue) : coin.out.nValue ));
 
             // include the script in a json output
             UniValue o(UniValue::VOBJ);
