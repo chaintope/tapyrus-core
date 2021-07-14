@@ -162,7 +162,7 @@ class BlockchainTest(BitcoinTestFramework):
         node = self.nodes[0]
         res = node.gettxoutsetinfo()
 
-        assert_equal(res['total_amount'], Decimal('5000.00000000'))
+        assert_equal(res['total_amount'], {'TPC': Decimal('5000.00000000')})
         assert_equal(res['transactions'], 100)
         assert_equal(res['height'], 100)
         assert_equal(res['txouts'], 100)
@@ -180,7 +180,7 @@ class BlockchainTest(BitcoinTestFramework):
 
         res2 = node.gettxoutsetinfo()
         assert_equal(res2['transactions'], 0)
-        assert_equal(res2['total_amount'], Decimal('0'))
+        assert_equal(res2['total_amount'], {'TPC': Decimal('0')})
         assert_equal(res2['height'], 0)
         assert_equal(res2['txouts'], 0)
         assert_equal(res2['bogosize'], 0),
