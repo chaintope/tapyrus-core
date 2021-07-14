@@ -805,9 +805,9 @@ struct CCoinsStats
     uint64_t nBogoSize;
     uint256 hashSerialized;
     uint64_t nDiskSize;
-    CAmount nTotalAmount;
+    TxColoredCoinBalancesMap mTotalAmount;
 
-    CCoinsStats() : nHeight(0), nTransactions(0), nTransactionOutputs(0), nBogoSize(0), nDiskSize(0), nTotalAmount(0) {}
+    CCoinsStats() : nHeight(0), nTransactions(0), nTransactionOutputs(0), nBogoSize(0), nDiskSize(0){ mTotalAmount[ColorIdentifier()] = 0; }
 };
 
 static void ApplyStats(CCoinsStats &stats, CHashWriter& ss, const uint256& hash, const std::map<uint32_t, Coin>& outputs)
@@ -821,7 +821,7 @@ static void ApplyStats(CCoinsStats &stats, CHashWriter& ss, const uint256& hash,
         ss << output.second.out.scriptPubKey;
         ss << VARINT(output.second.out.nValue, VarIntMode::NONNEGATIVE_SIGNED);
         stats.nTransactionOutputs++;
-        stats.nTotalAmount += output.second.out.nValue;
+        stats.mTotalAmount[GetColorIdFromScript(output.second.out.scriptPubKey)] += output.second.out.nValue;
         stats.nBogoSize += 32 /* txid */ + 4 /* vout index */ + 4 /* height + coinbase */ + 8 /* amount */ +
                            2 /* scriptPubKey len */ + output.second.out.scriptPubKey.size() /* scriptPubKey */;
     }
@@ -951,7 +951,11 @@ static UniValue gettxoutsetinfo(const JSONRPCRequest& request)
         ret.pushKV("bogosize", (int64_t)stats.nBogoSize);
         ret.pushKV("hash_serialized_2", stats.hashSerialized.GetHex());
         ret.pushKV("disk_size", stats.nDiskSize);
-        ret.pushKV("total_amount", ValueFromAmount(stats.nTotalAmount));
+
+        UniValue amount(UniValue::VOBJ);
+        for(auto amountPair:stats.mTotalAmount)
+            amount.pushKV(amountPair.first.toHexString(), amountPair.first.type == TokenTypes::NONE ? ValueFromAmount(amountPair.second) : amountPair.second );
+        ret.pushKV("total_amount", amount);
     } else {
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Unable to read UTXO set");
     }
@@ -1029,7 +1033,7 @@ UniValue gettxout(const JSONRPCRequest& request)
         ret.pushKV("confirmations", (int64_t)(pindex->nHeight - coin.nHeight + 1));
     }
 
-    ColorIdentifier colorId(std::move(GetColorIdFromScript(coin.out.scriptPubKey)));
+    ColorIdentifier colorId(GetColorIdFromScript(coin.out.scriptPubKey));
     ret.pushKV("token", colorId.toHexString());
     ret.pushKV("value", (colorId.type == TokenTypes::NONE ? ValueFromAmount(coin.out.nValue) : coin.out.nValue ));
     UniValue o(UniValue::VOBJ);
@@ -2029,7 +2033,7 @@ UniValue scantxoutset(const JSONRPCRequest& request)
             const Coin& coin = it.second;
             const CTxOut& txo = coin.out;
             input_txos.push_back(txo);
-            ColorIdentifier colorId(std::move(GetColorIdFromScript(txo.scriptPubKey)));
+            ColorIdentifier colorId(GetColorIdFromScript(txo.scriptPubKey));
             total_in[colorId] += txo.nValue;
 
             UniValue unspent(UniValue::VOBJ);
