@@ -199,6 +199,7 @@
     ],
     "vout": [
         {
+            "token": "TPC",
             "value": 1.37820000,
             "n": 0,
             "scriptPubKey": {
@@ -212,6 +213,7 @@
             }
         },
         {
+            "token": "TPC",
             "value": 0.01000001,
             "n": 1,
             "scriptPubKey": {
