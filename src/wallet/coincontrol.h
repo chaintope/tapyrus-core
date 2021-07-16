@@ -44,7 +44,8 @@ public:
     //! Fee estimation mode to control arguments to estimateSmartFee
     FeeEstimateMode m_fee_mode;
     //! Colored transaction type to identify token issue and token burn trasnactions for special processing
-    ColoredTxType colorTxType;
+    ColoredTxType m_colorTxType;
+    ColorIdentifier m_colorId;
 
     CCoinControl()
     {

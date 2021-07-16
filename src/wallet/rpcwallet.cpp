@@ -611,7 +611,10 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
     }
 
     if (colorId.type != TokenTypes::NONE)
-        coin_control.colorTxType = ColoredTxType::TRANSFER; 
+    {
+        coin_control.m_colorTxType = ColoredTxType::TRANSFER; 
+        coin_control.m_colorId = colorId;
+    }
 
     EnsureWalletIsUnlocked(pwallet);
 
@@ -4855,11 +4858,16 @@ static ColorIdentifier getColorIdFromRequest(const JSONRPCRequest& request, bool
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Unknown token type given.");
     }
 
-    if (tokentype == TokenTypes::REISSUABLE && !request.params[3].isNull()){
+    int indexOfTxid = tokenValueIsPresent ? 2 : 1;
+
+    if (tokentype == TokenTypes::REISSUABLE && !request.params[indexOfTxid + 1].isNull()){
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Extra parameter for Reissuable token.");
     }
 
-    int indexOfTxid = tokenValueIsPresent ? 2 : 1;
+    if ((tokentype == TokenTypes::NON_REISSUABLE || tokentype == TokenTypes::NFT )
+      && request.params[indexOfTxid + 1].isNull()){
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Parameter missing for Non-Reissuable or NFT token.");
+    }
 
     const std::string scriptOrTxid(request.params[indexOfTxid].get_str());
     ColorIdentifier colorId;
@@ -4955,20 +4963,28 @@ static UniValue issuetoken(const JSONRPCRequest& request)
     // token value
     CAmount tokenValue = request.params[1].get_int64();
     if (tokenValue <= 0)
-        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid token amount in issue");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid token amount");
 
     CCoinControl coin_control;
-    coin_control.colorTxType = ColoredTxType::ISSUE;
+    coin_control.m_colorTxType = ColoredTxType::ISSUE;
+    coin_control.m_colorId = colorId;
     if(colorId.type != TokenTypes::REISSUABLE)
     {
         COutPoint out(uint256S(request.params[2].get_str()), request.params[3].get_int());
         coin_control.Select(out);
     }
 
+    if(colorId.type == TokenTypes::NFT && tokenValue != 1) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid token amount for NFT. It must be 1");
+    }
+
     //TODO : validate utxo
     if (pwallet->IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS)) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Error: Private keys are disabled for this wallet");
     }
+    // Make sure the results are valid at least up to the most recent block
+    // the user could have gotten from another RPC command prior to now
+    pwallet->BlockUntilSyncedToCurrentChain();
 
     LOCK2(cs_main, pwallet->cs_wallet);
 
@@ -5078,7 +5094,6 @@ static UniValue transfertoken(const JSONRPCRequest& request)
     return sendtoaddress(request);
 }
 
-/* burn token essentially means that we want to create a transaction that sends the remaining amount of colored coins to another address belonging to us. i.e send  pwallet->GetBalance()[colorId] - nValue to getnewaddress */
 static CTransactionRef BurnToken(CWallet * const pwallet, const ColorIdentifier& colorId, CAmount nValue)
 {
     CAmount curBalance = pwallet->GetBalance()[colorId];
@@ -5109,7 +5124,8 @@ static CTransactionRef BurnToken(CWallet * const pwallet, const ColorIdentifier&
     vecSend.push_back(recipient);
     CTransactionRef tx;
     CCoinControl coin_control;
-    coin_control.colorTxType = ColoredTxType::BURN;
+    coin_control.m_colorTxType = ColoredTxType::BURN;
+    coin_control.m_colorId = colorId;
     //coin_control.destChange = colorDest;
     if (!pwallet->CreateTransaction(vecSend, tx, reservekey, nFeeRequired, mapChangePosRet, strError, coin_control)) {
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
@@ -5154,9 +5170,6 @@ static UniValue burntoken(const JSONRPCRequest& request)
 
     const std::vector<unsigned char> vColorId(ParseHex(request.params[0].get_str()));
     ColorIdentifier colorId(vColorId);
-
-    if(colorId.type != TokenTypes::REISSUABLE)
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Unknown token type given.");
 
     if (colorId.type != TokenTypes::NONE
       && pwallet->GetBalance()[colorId] == 0 ) {
