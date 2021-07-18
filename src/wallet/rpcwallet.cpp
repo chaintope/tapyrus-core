@@ -4190,6 +4190,155 @@ static UniValue getcolor(const JSONRPCRequest& request)
     return colorId.toHexString();
 }
 
+// Construct two transctions:
+// first transaction to create a utxo with the given scriptpubkey.
+// second transaction to issue token using tx1's output
+static UniValue IssueReissuableToken(CWallet* const pwallet, const std::string& script, CAmount tokenValue, CCoinControl& coin_control)
+{
+    LOCK2(cs_main, pwallet->cs_wallet);
+
+    if (!pwallet->IsLocked()) {
+        pwallet->TopUpKeyPool();
+    }
+
+    CTransactionRef tx1;
+    //creating tx1
+    {
+        std::vector<unsigned char> vscript = ParseHex(script);
+        CScript scriptPubKey(vscript.begin(), vscript.end());
+
+        txnouttype type;
+        std::vector<CTxDestination> vDest;
+        int nRequired;
+        if (ExtractDestinations(scriptPubKey, type, vDest, nRequired)) {
+            for (const CTxDestination &dest : vDest)
+                if(!IsValidDestination(dest))
+                    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid Tapyrus address: ") + script);
+        }
+        pwallet->SetAddressBook(vDest[0], "", "receive");
+
+        // Create and send the transaction
+        CReserveKey reservekey(pwallet);
+        CAmount nFeeRequired;
+        std::string strError;
+        std::vector<CRecipient> vecSend;
+        CWallet::ChangePosInOut mapChangePosRet;
+        mapChangePosRet[ColorIdentifier()] = -1;
+        CRecipient recipient = {scriptPubKey, DEFAULT_TRANSACTION_MINFEE, false};
+        vecSend.push_back(recipient);
+
+        if (!pwallet->CreateTransaction(vecSend, tx1, reservekey, nFeeRequired, mapChangePosRet, strError, coin_control))
+        {
+            throw JSONRPCError(RPC_WALLET_ERROR, strError);
+        }
+        CValidationState state;
+        mapValue_t mapValue;
+        if (!pwallet->CommitTransaction(tx1, std::move(mapValue), {} /* orderForm */, {} /* std::move(fromAccount)*/, reservekey, g_connman.get(), state)) {
+            strError = strprintf("Error: The transaction was rejected! Reason given: %s", FormatStateMessage(state));
+            throw JSONRPCError(RPC_WALLET_ERROR, strError);
+        }
+    }
+
+    CTransactionRef tx2;
+    //creating tx2
+    {
+        // Generate a new key that is added to wallet
+        CPubKey newKey;
+        if (!pwallet->GetKeyFromPool(newKey)) {
+            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+        }
+
+        CKeyID key_id = newKey.GetID();
+        CScript redeemScript = GetScriptForDestination(key_id);
+        CColorScriptID colorscriptid(CScriptID(redeemScript), coin_control.m_colorId);
+        CTxDestination colorDest = CColorScriptID(colorscriptid, coin_control.m_colorId);
+
+        //setting the lable as colorid
+        pwallet->SetAddressBook(colorDest, coin_control.m_colorId.toHexString(), "issue");
+
+        CScript scriptpubkey = GetScriptForDestination(colorDest);
+
+        // Create and send the transaction
+        CReserveKey reservekey(pwallet);
+        CAmount nFeeRequired;
+        std::string strError;
+        std::vector<CRecipient> vecSend;
+        CWallet::ChangePosInOut mapChangePosRet;
+        mapChangePosRet[ColorIdentifier()] = -1;
+        CRecipient recipient = {scriptpubkey, tokenValue, false};
+        vecSend.push_back(recipient);
+        COutPoint out(tx1->GetHashMalFix(), 0);
+        coin_control.Select(out);
+
+        if (!pwallet->CreateTransaction(vecSend, tx2, reservekey, nFeeRequired, mapChangePosRet, strError, coin_control))
+        {
+            throw JSONRPCError(RPC_WALLET_ERROR, strError);
+        }
+        CValidationState state;
+        mapValue_t mapValue;
+        if (!pwallet->CommitTransaction(tx2, std::move(mapValue), {} /* orderForm */, {} /* std::move(fromAccount)*/, reservekey, g_connman.get(), state)) {
+            strError = strprintf("Error: The transaction was rejected! Reason given: %s", FormatStateMessage(state));
+            throw JSONRPCError(RPC_WALLET_ERROR, strError);
+        }
+    }
+
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("color", coin_control.m_colorId.toHexString());
+    result.pushKV("txid", tx2->GetHashMalFix().GetHex());
+    return result;
+}
+
+static UniValue IssueToken(CWallet* const pwallet, CAmount tokenValue, CCoinControl& coin_control)
+{
+    LOCK2(cs_main, pwallet->cs_wallet);
+
+    if (!pwallet->IsLocked()) {
+        pwallet->TopUpKeyPool();
+    }
+
+    // Generate a new key that is added to wallet
+    CPubKey newKey;
+    if (!pwallet->GetKeyFromPool(newKey)) {
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+    }
+
+    CKeyID key_id = newKey.GetID();
+    CScript redeemScript = GetScriptForDestination(key_id);
+    CColorScriptID colorscriptid(CScriptID(redeemScript), coin_control.m_colorId);
+    CTxDestination colorDest = CColorScriptID(colorscriptid, coin_control.m_colorId);
+
+    //setting the lable as colorid
+    pwallet->SetAddressBook(colorDest, coin_control.m_colorId.toHexString(), "issue");
+
+    CScript scriptpubkey = GetScriptForDestination(colorDest);
+
+    // Create and send the transaction
+    CReserveKey reservekey(pwallet);
+    CAmount nFeeRequired;
+    std::string strError;
+    std::vector<CRecipient> vecSend;
+    CWallet::ChangePosInOut mapChangePosRet;
+    mapChangePosRet[ColorIdentifier()] = -1;
+    CRecipient recipient = {scriptpubkey, tokenValue, false};
+    vecSend.push_back(recipient);
+    CTransactionRef tx;
+
+    if (!pwallet->CreateTransaction(vecSend, tx, reservekey, nFeeRequired, mapChangePosRet, strError, coin_control)) {
+        throw JSONRPCError(RPC_WALLET_ERROR, strError);
+    }
+    CValidationState state;
+    mapValue_t mapValue;
+    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, {} /* std::move(fromAccount)*/, reservekey, g_connman.get(), state)) {
+        strError = strprintf("Error: The transaction was rejected! Reason given: %s", FormatStateMessage(state));
+        throw JSONRPCError(RPC_WALLET_ERROR, strError);
+    }
+
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("color", coin_control.m_colorId.toHexString());
+    result.pushKV("txid", tx->GetHashMalFix().GetHex());
+    return result;
+}
+
 static UniValue issuetoken(const JSONRPCRequest& request)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
@@ -4232,6 +4381,10 @@ static UniValue issuetoken(const JSONRPCRequest& request)
     if (tokenValue <= 0)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid token amount");
 
+    if(colorId.type == TokenTypes::NFT && tokenValue != 1) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid token amount for NFT. It must be 1");
+    }
+
     CCoinControl coin_control;
     coin_control.m_colorTxType = ColoredTxType::ISSUE;
     coin_control.m_colorId = colorId;
@@ -4239,10 +4392,6 @@ static UniValue issuetoken(const JSONRPCRequest& request)
     {
         COutPoint out(uint256S(request.params[2].get_str()), request.params[3].get_int());
         coin_control.Select(out);
-    }
-
-    if(colorId.type == TokenTypes::NFT && tokenValue != 1) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid token amount for NFT. It must be 1");
     }
 
     //TODO : validate utxo
@@ -4253,51 +4402,11 @@ static UniValue issuetoken(const JSONRPCRequest& request)
     // the user could have gotten from another RPC command prior to now
     pwallet->BlockUntilSyncedToCurrentChain();
 
-    LOCK2(cs_main, pwallet->cs_wallet);
-
-    if (!pwallet->IsLocked()) {
-        pwallet->TopUpKeyPool();
-    }
-
-    // Generate a new key that is added to wallet
-    CPubKey newKey;
-    if (!pwallet->GetKeyFromPool(newKey)) {
-        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
-    }
-
-    CKeyID key_id = newKey.GetID();
-    CScript redeemScript = GetScriptForDestination(key_id);
-    CColorScriptID colorscriptid(CScriptID(redeemScript), colorId);
-    CTxDestination colorDest = CColorScriptID(colorscriptid, colorId);
-    CScript scriptpubkey = GetScriptForDestination(colorDest);
-    pwallet->SetAddressBook(colorDest, "", "send");
-
-    // Create and send the transaction
-    CReserveKey reservekey(pwallet);
-    CAmount nFeeRequired;
-    std::string strError;
-    std::vector<CRecipient> vecSend;
-    CWallet::ChangePosInOut mapChangePosRet;
-    mapChangePosRet[ColorIdentifier()] = -1;
-    CRecipient recipient = {scriptpubkey, tokenValue, false};
-    vecSend.push_back(recipient);
-    CTransactionRef tx;
-
-    if (!pwallet->CreateTransaction(vecSend, tx, reservekey, nFeeRequired, mapChangePosRet, strError, coin_control)) {
-        throw JSONRPCError(RPC_WALLET_ERROR, strError);
-    }
-    CValidationState state;
-    mapValue_t mapValue;
-    mapValue["comment"] = colorId.toHexString();
-    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, reservekey, g_connman.get(), state)) {
-        strError = strprintf("Error: The transaction was rejected! Reason given: %s", FormatStateMessage(state));
-        throw JSONRPCError(RPC_WALLET_ERROR, strError);
-    }
-
-    UniValue result(UniValue::VOBJ);
-    result.pushKV("color", colorId.toHexString());
-    result.pushKV("txid", tx->GetHashMalFix().GetHex());
-    return result;
+    // For reissuable tokens try to create a UTXO with the given scriptpubkey first and then issuing transaction using that utxo 
+    if(coin_control.m_colorId.type == TokenTypes::REISSUABLE)
+        return IssueReissuableToken(pwallet, request.params[2].getValStr(), tokenValue, coin_control);
+    else
+        return IssueToken(pwallet, tokenValue, coin_control);
 }
 
 static UniValue reissuetoken(const JSONRPCRequest& request)
