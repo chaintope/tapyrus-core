@@ -41,7 +41,6 @@ class WalletColoredCoinTest(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 4
         self.setup_clean_chain = True
-        self.extra_args = [["-minrelaytxfee=0.00001"],["-minrelaytxfee=0.00001"],["-minrelaytxfee=0.00001"], []]
 
         self.pubkeys = ["025700236c2890233592fcef262f4520d22af9160e3d9705855140eb2aa06c35d3",
         "03831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafc"]
@@ -64,6 +63,7 @@ class WalletColoredCoinTest(BitcoinTestFramework):
                         [ 6, "233.9999126", 160, 80, 0, 80, 0],   #level 4 transfertoken
                         [ 6, "233.9998881", 140, 60, 0, 60, 0],   #level 5 burn partial
                         [ 6, "233.9998881", 140, 60, 0, 60, 0],   #level 6 burn full
+                        [ 7, "283.9998996", 140, 60, 0, 60, 0, 200],   #level 7 reissue full
                       ], 
                      [ #'''nodes 1'''
                         [ 0, 0],                     #level 0
@@ -73,6 +73,7 @@ class WalletColoredCoinTest(BitcoinTestFramework):
                         [ 6, 60, 40, 20, 1, 20, 1],  #level 4
                         [ 6, 60, 40, 20, 1, 20, 1],  #level 5
                         [ 4, "59.9999595", 0, 0, 0], #level 6
+                        [ 4, "109.9999595", 0, 0, 0], #level 7
                       ],
                      [ #'''nodes 2'''
                         [ 1, 50],                 #level 0
@@ -82,6 +83,7 @@ class WalletColoredCoinTest(BitcoinTestFramework):
                         [ 1, "256.0000874"],      #level 4
                         [ 1, "306.0000874"],      #level 5
                         [ 1, "356.0001119"],      #level 6
+                        [ 1, "456.0001264"],      #level 7
                       ] 
         ]
 
@@ -409,9 +411,41 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         assert_raises_rpc_error(-1, "Burn colored coins or tokens in the wallet", self.nodes[0].burntoken, "c4")
         assert_raises_rpc_error(-1, "Burn colored coins or tokens in the wallet", self.nodes[0].burntoken, self.colorids[1])
         assert_raises_rpc_error(-3, "Invalid amount for burn", self.nodes[0].burntoken, self.colorids[1], -10)
-        assert_raises_rpc_error(-5, "No Token found in wallet. But token address was given.", self.nodes[1].burntoken, self.colorids[1], 10)
-        assert_raises_rpc_error(-5, "No Token found in wallet. But token address was given.", self.nodes[1].burntoken, self.colorids[2], 10)
-        assert_raises_rpc_error(-5, "No Token found in wallet. But token address was given.", self.nodes[1].burntoken, self.colorids[3], 10)
+        assert_raises_rpc_error(-8, "TPC cannot be burnt using burntoken", self.nodes[1].burntoken, "00", 10)
+        assert_raises_rpc_error(-8, "Insufficient token balance in wallet", self.nodes[1].burntoken, self.colorids[1], 10)
+        assert_raises_rpc_error(-8, "Insufficient token balance in wallet", self.nodes[1].burntoken, self.colorids[2], 10)
+        assert_raises_rpc_error(-8, "Insufficient token balance in wallet", self.nodes[1].burntoken, self.colorids[3], 10)
+
+    def test_reissuetoken(self):
+
+        self.log.info("Testing reissuetoken")
+        self.nodes[0].generate(1, self.signblockprivkey_wif)
+        self.nodes[1].generate(1, self.signblockprivkey_wif)
+        self.nodes[2].generate(1, self.signblockprivkey_wif)
+
+        #this is a new colorid for reissue token
+        tpc_script = findTPC(self.nodes[0].listunspent())
+
+        self.nodes[0].issuetoken(1, 100, tpc_script)
+        self.sync_all([self.nodes[0:3]])
+
+        res = self.nodes[0].reissuetoken(self.nodes[0].getcolor(1, tpc_script), 100)
+        assert_equal(res['color'], self.nodes[0].getcolor(1, tpc_script))
+
+        assert_raises_rpc_error(-8, "Token type not supported", self.nodes[0].reissuetoken, self.colorids[0], 100)
+        assert_raises_rpc_error(-8, "Token type not supported", self.nodes[0].reissuetoken, self.colorids[2], 100)
+        assert_raises_rpc_error(-8, "Token type not supported", self.nodes[0].reissuetoken, self.colorids[3], 100)
+        assert_raises_rpc_error(-8, "Token type not supported", self.nodes[0].reissuetoken, self.colorids[4], 100)
+        assert_raises_rpc_error(-8, "Token type not supported", self.nodes[0].reissuetoken, self.colorids[5], 100)
+
+        assert_raises_rpc_error(-8, "Script corresponding to color "+ self.colorids[1] +" could not be found in the wallet", self.nodes[0].reissuetoken, self.colorids[1], 100)
+        assert_raises_rpc_error(-8, "Script corresponding to color "+ self.colorids[1] +" could not be found in the wallet", self.nodes[1].reissuetoken, self.colorids[1], 100)
+        assert_raises_rpc_error(-8, "Script corresponding to color "+ self.colorids[1] +" could not be found in the wallet", self.nodes[2].reissuetoken, self.colorids[1], 100)
+
+        self.nodes[2].generate(1, self.signblockprivkey_wif)
+        self.sync_all([self.nodes[0:3]])
+
+        self.test_nodeBalances()
 
     def test_issuetoken(self):
 
@@ -448,7 +482,7 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         self.sync_all([self.nodes[0:3]])
 
         walletinfo = self.nodes[2].getwalletinfo()
-        assert_equal(walletinfo['balance']['TPC'], decimal.Decimal('1406.00015236'))
+        assert_equal(walletinfo['balance']['TPC'], decimal.Decimal('1506.00014086'))
         assert_equal(walletinfo['balance'][res1['color']], 300)
         assert_equal(walletinfo['balance'][res2['color']], 100)
         assert_equal(walletinfo['balance'][res3['color']], 1)
@@ -488,10 +522,16 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         self.test_sendRPC('sendtoaddress')
         self.test_sendRPC('transfertoken')
         self.test_burntoken()
+        self.test_reissuetoken()
         self.test_issuetoken()
 
 
 reverse_bytes = (lambda txid  : txid[-1: -len(txid)-1: -1])
+
+def findTPC(list):
+    for item in list:
+        if item['token'] == 'TPC':
+            return item['scriptPubKey']
 
 if __name__ == '__main__':
     WalletColoredCoinTest().main()

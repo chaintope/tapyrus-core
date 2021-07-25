@@ -67,6 +67,7 @@ public:
     bool HaveCScript(const CScriptID &hash) const override;
     std::set<CScriptID> GetCScripts() const override;
     bool GetCScript(const CScriptID &hash, CScript& redeemScriptOut) const override;
+    bool GetCScriptForColor(const ColorIdentifier &colorId, CScript& scriptOut, bool searchP2PK=false) const;
 
     bool AddWatchOnly(const CScript &dest) override;
     bool RemoveWatchOnly(const CScript &dest) override;
