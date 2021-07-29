@@ -161,18 +161,19 @@ static UniValue getnewaddress(const JSONRPCRequest& request)
 
     if (request.fHelp || request.params.size() > 2)
         throw std::runtime_error(
-            "getnewaddress ( \"label\" \"address_type\" )\n"
+            "getnewaddress ( \"label\" \"color\" )\n"
             "\nReturns a new Tapyrus address for receiving payments.\n"
             "If 'label' is specified, it is added to the address book \n"
             "so payments received with the address will be associated with 'label'.\n"
             "\nArguments:\n"
             "1. \"label\"          (string, optional) The label name for the address to be linked to. If not provided, the default label \"\" is used. It can also be set to the empty string \"\" to represent the default label. The label does not need to exist, it will be created if there is no label by the given name.\n"
-            "2. \"address_type\"   (string, optional) The address type to use. Options are \"legacy\", \"p2sh-segwit\", and \"bech32\". Default is set by -addresstype.\n"
+            "2. \"color\"          (string, optional) For new token addresses the token or color.\n"
             "\nResult:\n"
-            "\"address\"    (string) The new bitcoin address\n"
+            "\"address\"    (string) The new Tapyrus address\n"
             "\nExamples:\n"
             + HelpExampleCli("getnewaddress", "")
-            + HelpExampleRpc("getnewaddress", "")
+            + HelpExampleCli("getnewaddress", "\"\", \"c38282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23f\"")
+            + HelpExampleRpc("getnewaddress", "\"\", \"c38282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23f\"")
         );
 
     if (pwallet->IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS)) {
@@ -186,11 +187,12 @@ static UniValue getnewaddress(const JSONRPCRequest& request)
     if (!request.params[0].isNull())
         label = LabelFromValue(request.params[0]);
 
-    OutputType output_type = pwallet->m_default_address_type;
-    if (!request.params[1].isNull()) {
-        if (!ParseOutputType(request.params[1].get_str(), output_type)) {
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Unknown address type '%s'", request.params[1].get_str()));
-        }
+    ColorIdentifier colorId;
+    if (!request.params[1].isNull())
+    {
+        const std::vector<unsigned char> vColorId(ParseHex(request.params[1].get_str()));
+        colorId = ColorIdentifier(vColorId);
+        LogPrintf("colorid = %s", colorId.toHexString());
     }
 
     if (!pwallet->IsLocked()) {
@@ -202,8 +204,14 @@ static UniValue getnewaddress(const JSONRPCRequest& request)
     if (!pwallet->GetKeyFromPool(newKey)) {
         throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
     }
-    pwallet->LearnRelatedScripts(newKey, output_type);
-    CTxDestination dest = GetDestinationForKey(newKey, output_type);
+
+    CTxDestination dest;
+    OutputType output_type = pwallet->m_default_address_type;
+
+    if (colorId.type == TokenTypes::NONE)
+        dest = GetDestinationForKey(newKey, output_type);
+    else
+        dest = CColorKeyID(newKey.GetID(), colorId);
 
     pwallet->SetAddressBook(dest, label, "receive");
 
@@ -274,11 +282,11 @@ static UniValue getrawchangeaddress(const JSONRPCRequest& request)
 
     if (request.fHelp || request.params.size() > 1)
         throw std::runtime_error(
-            "getrawchangeaddress ( \"address_type\" )\n"
+            "getrawchangeaddress ( \"color\" )\n"
             "\nReturns a new Tapyrus address, for receiving change.\n"
             "This is for use with raw transactions, NOT normal use.\n"
             "\nArguments:\n"
-            "1. \"address_type\"           (string, optional) The address type to use. Options are \"legacy\", \"p2sh-segwit\", and \"bech32\". Default is set by -changetype.\n"
+            "1. \"color\"         (string, optional) For new token addresses the token or color.\n"
             "\nResult:\n"
             "\"address\"    (string) The address\n"
             "\nExamples:\n"
@@ -296,11 +304,12 @@ static UniValue getrawchangeaddress(const JSONRPCRequest& request)
         pwallet->TopUpKeyPool();
     }
 
-    OutputType output_type = pwallet->m_default_change_type != OutputType::CHANGE_AUTO ? pwallet->m_default_change_type : pwallet->m_default_address_type;
-    if (!request.params[0].isNull()) {
-        if (!ParseOutputType(request.params[0].get_str(), output_type)) {
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Unknown address type '%s'", request.params[0].get_str()));
-        }
+    ColorIdentifier colorId;
+    if (!request.params[0].isNull())
+    {
+        const std::vector<unsigned char> vColorId(ParseHex(request.params[0].get_str()));
+        colorId = ColorIdentifier(vColorId);
+        LogPrintf("colorid = %s", colorId.toHexString());
     }
 
     CReserveKey reservekey(pwallet);
@@ -310,8 +319,12 @@ static UniValue getrawchangeaddress(const JSONRPCRequest& request)
 
     reservekey.KeepKey();
 
-    pwallet->LearnRelatedScripts(vchPubKey, output_type);
-    CTxDestination dest = GetDestinationForKey(vchPubKey, output_type);
+    CTxDestination dest;
+    OutputType output_type = pwallet->m_default_change_type;
+    if (colorId.type == TokenTypes::NONE)
+        dest = GetDestinationForKey(vchPubKey, output_type);
+    else
+        dest = CColorKeyID(vchPubKey.GetID(), colorId);
 
     return EncodeDestination(dest);
 }
@@ -1360,7 +1373,7 @@ static UniValue addmultisigaddress(const JSONRPCRequest& request)
     }
 
     if (request.fHelp || request.params.size() < 2 || request.params.size() > 4) {
-        std::string msg = "addmultisigaddress nrequired [\"key\",...] ( \"label\" \"address_type\" )\n"
+        std::string msg = "addmultisigaddress nrequired [\"key\",...] ( \"label\" )\n"
             "\nAdd a nrequired-to-sign multisignature address to the wallet. Requires a new wallet backup.\n"
             "Each key is a Tapyrus address or hex-encoded public key.\n"
             "This functionality is only intended for use with non-watchonly addresses.\n"
@@ -1375,7 +1388,6 @@ static UniValue addmultisigaddress(const JSONRPCRequest& request)
             "       ...,\n"
             "     ]\n"
             "3. \"label\"                        (string, optional) A label to assign the addresses to.\n"
-            "4. \"address_type\"                 (string, optional) The address type to use. Options are \"legacy\", \"p2sh-segwit\", and \"bech32\". Default is set by -addresstype.\n"
 
             "\nResult:\n"
             "{\n"
@@ -1411,11 +1423,6 @@ static UniValue addmultisigaddress(const JSONRPCRequest& request)
     }
 
     OutputType output_type = pwallet->m_default_address_type;
-    if (!request.params[3].isNull()) {
-        if (!ParseOutputType(request.params[3].get_str(), output_type)) {
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Unknown address type '%s'", request.params[3].get_str()));
-        }
-    }
 
     // Construct using pay-to-script-hash:
     CScript inner = CreateMultisigRedeemscript(required, pubkeys);
@@ -4991,11 +4998,8 @@ static UniValue issuetoken(const JSONRPCRequest& request)
     CScript redeemScript = GetScriptForDestination(key_id);
     CColorScriptID colorscriptid(CScriptID(redeemScript), colorId);
     CTxDestination colorDest = CColorScriptID(colorscriptid, colorId);
-
-    //setting the lable as colorid
-    pwallet->SetAddressBook(colorDest, colorId.toHexString(), "issue");
-
     CScript scriptpubkey = GetScriptForDestination(colorDest);
+    pwallet->SetAddressBook(colorDest, "", "send");
 
     // Create and send the transaction
     CReserveKey reservekey(pwallet);
@@ -5208,7 +5212,7 @@ static const CRPCCommand commands[] =
     { "hidden",             "resendwallettransactions",         &resendwallettransactions,      {} },
     { "wallet",             "abandontransaction",               &abandontransaction,            {"txid"} },
     { "wallet",             "abortrescan",                      &abortrescan,                   {} },
-    { "wallet",             "addmultisigaddress",               &addmultisigaddress,            {"nrequired","keys","label|account","address_type"} },
+    { "wallet",             "addmultisigaddress",               &addmultisigaddress,            {"nrequired","keys","label|account"} },
     { "hidden",             "addwitnessaddress",                &addwitnessaddress,             {"address","p2sh"} },
     { "wallet",             "backupwallet",                     &backupwallet,                  {"destination"} },
     { "wallet",             "bumpfee",                          &bumpfee,                       {"txid", "options"} },
@@ -5218,8 +5222,8 @@ static const CRPCCommand commands[] =
     { "wallet",             "encryptwallet",                    &encryptwallet,                 {"passphrase"} },
     { "wallet",             "getaddressinfo",                   &getaddressinfo,                {"address"} },
     { "wallet",             "getbalance",                       &getbalance,                    {"account|dummy","minconf","include_watchonly"} },
-    { "wallet",             "getnewaddress",                    &getnewaddress,                 {"label|account","address_type"} },
-    { "wallet",             "getrawchangeaddress",              &getrawchangeaddress,           {"address_type"} },
+    { "wallet",             "getnewaddress",                    &getnewaddress,                 {"label|account","color"} },
+    { "wallet",             "getrawchangeaddress",              &getrawchangeaddress,           {"color"} },
     { "wallet",             "getreceivedbyaddress",             &getreceivedbyaddress,          {"address","minconf"} },
     { "wallet",             "gettransaction",                   &gettransaction,                {"txid","include_watchonly"} },
     { "wallet",             "getunconfirmedbalance",            &getunconfirmedbalance,         {} },

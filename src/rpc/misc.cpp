@@ -94,7 +94,7 @@ static UniValue createmultisig(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() < 2 || request.params.size() > 3)
     {
-        std::string msg = "createmultisig nrequired [\"key\",...] ( \"address_type\" )\n"
+        std::string msg = "createmultisig nrequired [\"key\",...])\n"
             "\nCreates a multi-signature address with n signature of m keys required.\n"
             "It returns a json object with the address and redeemScript.\n"
             "\nArguments:\n"
@@ -104,7 +104,6 @@ static UniValue createmultisig(const JSONRPCRequest& request)
             "       \"key\"                    (string) The hex-encoded public key\n"
             "       ,...\n"
             "     ]\n"
-            "3. \"address_type\"               (string, optional) The address type to use. Options are \"legacy\", \"p2sh-segwit\", and \"bech32\". Default is legacy.\n"
 
             "\nResult:\n"
             "{\n"
@@ -135,13 +134,7 @@ static UniValue createmultisig(const JSONRPCRequest& request)
         }
     }
 
-    // Get the output type
     OutputType output_type = OutputType::LEGACY;
-    if (!request.params[2].isNull()) {
-        if (!ParseOutputType(request.params[2].get_str(), output_type)) {
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Unknown address type '%s'", request.params[2].get_str()));
-        }
-    }
 
     // Construct using pay-to-script-hash:
     const CScript inner = CreateMultisigRedeemscript(required, pubkeys);
