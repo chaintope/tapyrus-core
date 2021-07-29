@@ -892,7 +892,6 @@ bool CWallet::GetLabelDestination(CTxDestination &dest, const std::string& label
         if (!GetKeyFromPool(account.vchPubKey, false))
             return false;
 
-        LearnRelatedScripts(account.vchPubKey, m_default_address_type);
         dest = GetDestinationForKey(account.vchPubKey, m_default_address_type);
         SetAddressBook(dest, label, "receive");
         batch.WriteAccount(label, account);
@@ -2773,7 +2772,6 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
 
                 const OutputType change_type = TransactionChangeType(coin_control.m_change_type ? *coin_control.m_change_type : m_default_change_type, vecSend);
 
-                LearnRelatedScripts(vchPubKey, change_type);
                 scriptChange = GetScriptForDestination(GetDestinationForKey(vchPubKey, change_type));
             }
             CTxOut change_prototype_txout(0, scriptChange);
@@ -3809,7 +3807,6 @@ void CWallet::MarkReserveKeysAsUsed(int64_t keypool_id)
         if (batch.ReadPool(index, keypool)) { //TODO: This should be unnecessary
             m_pool_key_to_index.erase(keypool.vchPubKey.GetID());
         }
-        LearnAllRelatedScripts(keypool.vchPubKey);
         batch.ErasePool(index);
         WalletLogPrintf("keypool index %d removed\n", index);
         it = setKeyPool->erase(it);
@@ -4496,25 +4493,6 @@ bool CWalletTx::AcceptToMemoryPool(const CAmount& nAbsurdFee, CValidationState& 
                                 nullptr /* plTxnReplaced */, false /* bypass_limits */, nAbsurdFee);
     fInMempool |= ret;
     return ret;
-}
-
-void CWallet::LearnRelatedScripts(const CPubKey& key, OutputType type)
-{
-#ifdef DEBUG
-    if (key.IsCompressed() && (type == OutputType::P2SH_SEGWIT || type == OutputType::BECH32)) {
-        CTxDestination witdest = WitnessV0KeyHash(key.GetID());
-        CScript witprog = GetScriptForDestination(witdest);
-        // Make sure the resulting program is solvable.
-        assert(IsSolvable(*this, witprog));
-        AddCScript(witprog);
-    }
-#endif
-}
-
-void CWallet::LearnAllRelatedScripts(const CPubKey& key)
-{
-    // OutputType::P2SH_SEGWIT always adds all necessary scripts for all types.
-    LearnRelatedScripts(key, OutputType::LEGACY);
 }
 
 std::vector<OutputGroup> CWallet::GroupOutputs(const std::vector<COutput>& outputs, bool single_coin) const {

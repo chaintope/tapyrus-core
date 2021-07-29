@@ -379,7 +379,6 @@ QString AddressTableModel::addRow(const QString &type, const QString &label, con
                 return QString();
             }
         }
-        walletModel->wallet().learnRelatedScripts(newKey, address_type);
         strAddress = EncodeDestination(GetDestinationForKey(newKey, address_type));
     }
     else
