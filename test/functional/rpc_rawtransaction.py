@@ -138,49 +138,48 @@ class RawTransactionsTest(BitcoinTestFramework):
             self.nodes[2].createrawtransaction(inputs=[{'txid': txid, 'vout': 9}], outputs=[{address: 99}, {'data': '99'}, {'data': '99'}]),
         )
 
-        for type in ["legacy"]:
-            addr = self.nodes[0].getnewaddress("", type)
-            addrinfo = self.nodes[0].getaddressinfo(addr)
-            pubkey = addrinfo["scriptPubKey"]
+        addr = self.nodes[0].getnewaddress("")
+        addrinfo = self.nodes[0].getaddressinfo(addr)
+        pubkey = addrinfo["scriptPubKey"]
 
-            self.log.info('sendrawtransaction with missing prevtx info (%s)' %(type))
+        self.log.info('sendrawtransaction with missing prevtx info')
 
-            # Test `signrawtransactionwithwallet` invalid `prevtxs`
-            inputs  = [ {'txid' : txid, 'vout' : 3, 'sequence' : 1000}]
-            outputs = { self.nodes[0].getnewaddress() : 1 }
-            rawtx   = self.nodes[0].createrawtransaction(inputs, outputs)
+        # Test `signrawtransactionwithwallet` invalid `prevtxs`
+        inputs  = [ {'txid' : txid, 'vout' : 3, 'sequence' : 1000}]
+        outputs = { self.nodes[0].getnewaddress() : 1 }
+        rawtx   = self.nodes[0].createrawtransaction(inputs, outputs)
 
-            prevtx = dict(txid=txid, scriptPubKey=pubkey, vout=3, amount=1)
-            succ = self.nodes[0].signrawtransactionwithwallet(rawtx, [prevtx], "ALL", self.options.scheme)
-            assert succ["complete"]
-            del prevtx["amount"]
-            succ = self.nodes[0].signrawtransactionwithwallet(rawtx, [prevtx], "ALL", self.options.scheme)
-            assert succ["complete"]
+        prevtx = dict(txid=txid, scriptPubKey=pubkey, vout=3, amount=1)
+        succ = self.nodes[0].signrawtransactionwithwallet(rawtx, [prevtx], "ALL", self.options.scheme)
+        assert succ["complete"]
+        del prevtx["amount"]
+        succ = self.nodes[0].signrawtransactionwithwallet(rawtx, [prevtx], "ALL", self.options.scheme)
+        assert succ["complete"]
 
-            assert_raises_rpc_error(-3, "Missing vout", self.nodes[0].signrawtransactionwithwallet, rawtx, [
-                {
-                    "txid": txid,
-                    "scriptPubKey": pubkey,
-                    "token": "TPC",
-                    "amount": 1,
-                }
-            ], "ALL", self.options.scheme)
-            assert_raises_rpc_error(-3, "Missing txid", self.nodes[0].signrawtransactionwithwallet, rawtx, [
-                {
-                    "scriptPubKey": pubkey,
-                    "token": "TPC",
-                    "vout": 3,
-                    "amount": 1,
-                }
-            ], "ALL", self.options.scheme)
-            assert_raises_rpc_error(-3, "Missing scriptPubKey", self.nodes[0].signrawtransactionwithwallet, rawtx, [
-                {
-                    "txid": txid,
-                    "token": "TPC",
-                    "vout": 3,
-                    "amount": 1
-                }
-            ], "ALL", self.options.scheme)
+        assert_raises_rpc_error(-3, "Missing vout", self.nodes[0].signrawtransactionwithwallet, rawtx, [
+            {
+                "txid": txid,
+                "scriptPubKey": pubkey,
+                "token": "TPC",
+                "amount": 1,
+            }
+        ], "ALL", self.options.scheme)
+        assert_raises_rpc_error(-3, "Missing txid", self.nodes[0].signrawtransactionwithwallet, rawtx, [
+            {
+                "scriptPubKey": pubkey,
+                "token": "TPC",
+                "vout": 3,
+                "amount": 1,
+            }
+        ], "ALL", self.options.scheme)
+        assert_raises_rpc_error(-3, "Missing scriptPubKey", self.nodes[0].signrawtransactionwithwallet, rawtx, [
+            {
+                "txid": txid,
+                "token": "TPC",
+                "vout": 3,
+                "amount": 1
+            }
+        ], "ALL", self.options.scheme)
 
         #########################################
         # sendrawtransaction with missing input #
