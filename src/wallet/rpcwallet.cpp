@@ -192,7 +192,6 @@ static UniValue getnewaddress(const JSONRPCRequest& request)
     {
         const std::vector<unsigned char> vColorId(ParseHex(request.params[1].get_str()));
         colorId = ColorIdentifier(vColorId);
-        LogPrintf("colorid = %s", colorId.toHexString());
     }
 
     if (!pwallet->IsLocked()) {
@@ -309,7 +308,6 @@ static UniValue getrawchangeaddress(const JSONRPCRequest& request)
     {
         const std::vector<unsigned char> vColorId(ParseHex(request.params[0].get_str()));
         colorId = ColorIdentifier(vColorId);
-        LogPrintf("colorid = %s", colorId.toHexString());
     }
 
     CReserveKey reservekey(pwallet);
