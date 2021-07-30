@@ -19,14 +19,11 @@ class ScantxoutsetTest(BitcoinTestFramework):
         self.log.info("Mining blocks...")
         self.nodes[0].generate(1, self.signblockprivkey_wif)
 
-        assert_raises_rpc_error(-5, "Unknown address type 'p2sh-segwit'",  self.nodes[0].getnewaddress, "", "p2sh-segwit")
-        assert_raises_rpc_error(-5, "Unknown address type 'bech32'",  self.nodes[0].getnewaddress, "", "bech32")
-
-        addr_LEGACY1 = self.nodes[0].getnewaddress("", "legacy")
+        addr_LEGACY1 = self.nodes[0].getnewaddress("")
         pubk1 = self.nodes[0].getaddressinfo(addr_LEGACY1)['pubkey']
-        addr_LEGACY2 = self.nodes[0].getnewaddress("", "legacy")
+        addr_LEGACY2 = self.nodes[0].getnewaddress("")
         pubk2 = self.nodes[0].getaddressinfo(addr_LEGACY2)['pubkey']
-        addr_LEGACY3 = self.nodes[0].getnewaddress("", "legacy")
+        addr_LEGACY3 = self.nodes[0].getnewaddress("")
         pubk3 = self.nodes[0].getaddressinfo(addr_LEGACY3)['pubkey']
         self.nodes[0].sendtoaddress(addr_LEGACY1, 0.001)
         self.nodes[0].sendtoaddress(addr_LEGACY2, 0.002)
