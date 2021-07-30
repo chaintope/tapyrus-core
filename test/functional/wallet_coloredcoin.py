@@ -15,6 +15,7 @@
         3. transfertoken
         4. burntoken
         5. getcolor
+        6. reissuetoken
         createrawtransaction
         sendtoaddress
 
@@ -41,7 +42,7 @@ class WalletColoredCoinTest(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 4
         self.setup_clean_chain = True
-        self.extra_args = [["-dustrelayfee=1000"], ["-dustrelayfee=1000"], ["-dustrelayfee=1000"], ["-dustrelayfee=1000"]]
+        self.extra_args = [["-dustrelayfee=0"], ["-dustrelayfee=0"], ["-dustrelayfee=0"], ["-dustrelayfee=0"]]
 
         self.pubkeys = ["025700236c2890233592fcef262f4520d22af9160e3d9705855140eb2aa06c35d3",
         "03831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafc"]
