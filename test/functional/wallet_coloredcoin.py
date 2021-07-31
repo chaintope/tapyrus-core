@@ -22,7 +22,7 @@
 
     """
 from codecs import encode
-import decimal
+import decimal, math
 from time import sleep, time
 
 from test_framework.test_framework import BitcoinTestFramework
@@ -54,43 +54,43 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         self.colorids = []
 
         # this is the complete balance info of nodes 0, 1 and 2
-        # level represents the state in the test case when balance is verified
-        # first member of each level is the total number of tokens in the wallet (including TPC)
+        # stage represents the stage in the test case when balance is verified
+        # first member of each stage is the total number of tokens in the wallet (including TPC)
         self.balance_expected = [
                      [ #'''nodes 0'''
-                        [ 1, 300],                                #level 0
-                        [ 4, 267, 100, 100, 1],                   #level 1 create part1
-                        [ 6, 234, 200, 100, 1, 100, 1],           #level 2 create part2
-                        [ 6, "233.9999506", 180, 90, 0, 90, 0],   #level 3 sendtoaddress
-                        [ 6, "233.9999126", 160, 80, 0, 80, 0],   #level 4 transfertoken
-                        [ 6, "233.9998881", 140, 60, 0, 60, 0],   #level 5 burn partial
-                        [ 6, "233.9998881", 140, 60, 0, 60, 0],   #level 6 burn full
-                        [ 7, "283.9998996", 140, 60, 0, 60, 0, 200],   #level 7 reissue full
+                        [ 1, 300],                                #stage 0
+                        [ 4, 267, 100, 100, 1],                   #stage 1 create part1
+                        [ 6, 234, 200, 100, 1, 100, 1],           #stage 2 create part2
+                        [ 6, 233, 180, 90, 0, 90, 0],             #stage 3 sendtoaddress
+                        [ 6, 233, 160, 80, 0, 80, 0],             #stage 4 transfertoken
+                        [ 6, 233, 140, 60, 0, 60, 0],             #stage 5 burn partial
+                        [ 6, 233, 140, 60, 0, 60, 0],             #stage 6 burn full
+                        [ 7, 283, 140, 60, 0, 60, 0, 200],        #stage 7 reissue full
                       ], 
                      [ #'''nodes 1'''
-                        [ 0, 0],                     #level 0
-                        [ 4, 30, 0, 0, 0],           #level 1
-                        [ 6, 60, 0, 0, 0, 0, 0],     #level 2
-                        [ 6, 60, 20, 10, 1, 10, 1],  #level 3
-                        [ 6, 60, 40, 20, 1, 20, 1],  #level 4
-                        [ 6, 60, 40, 20, 1, 20, 1],  #level 5
-                        [ 4, "59.9999595", 0, 0, 0], #level 6
-                        [ 4, "109.9999595", 0, 0, 0], #level 7
+                        [ 0, 0],                     #stage 0
+                        [ 4, 30, 0, 0, 0],           #stage 1
+                        [ 6, 60, 0, 0, 0, 0, 0],     #stage 2
+                        [ 6, 60, 20, 10, 1, 10, 1],  #stage 3
+                        [ 6, 60, 40, 20, 1, 20, 1],  #stage 4
+                        [ 6, 60, 40, 20, 1, 20, 1],  #stage 5
+                        [ 4, 59, 0, 0, 0],           #stage 6
+                        [ 4, 109, 0, 0, 0],          #stage 7
                       ],
                      [ #'''nodes 2'''
-                        [ 1, 50],                 #level 0
-                        [ 1, 103],                #level 1
-                        [ 1, 156],                #level 2
-                        [ 1, "206.0000494"],      #level 3
-                        [ 1, "256.0000874"],      #level 4
-                        [ 1, "306.0000874"],      #level 5
-                        [ 1, "356.0001119"],      #level 6
-                        [ 1, "456.0001264"],      #level 7
+                        [ 1, 50],                 #stage 0
+                        [ 1, 103],                #stage 1
+                        [ 1, 156],                #stage 2
+                        [ 1, 206],                #stage 3
+                        [ 1, 256],                #stage 4
+                        [ 1, 306],                #stage 5
+                        [ 1, 356],                #stage 6
+                        [ 1, 456],                #stage 7
                       ] 
         ]
 
     #class variable to remember the stage of testing
-    level = 0
+    stage = 0
 
     def test_nodeBalances(self):
         ''' check all node balances in one place:'''
@@ -99,11 +99,11 @@ class WalletColoredCoinTest(BitcoinTestFramework):
 
         for i in [0, 1, 2]: #node
             walletinfo = self.nodes[i].getwalletinfo()
-            assert_equal(len(walletinfo['balance']), self.balance_expected[i][self.level][0])
-            assert_equal(round(self.nodes[i].getbalance(), 7), decimal.Decimal(self.balance_expected[i][self.level][1]))
-            for j in range(2, self.balance_expected[i][self.level][0]): #colorid
-                assert_equal(walletinfo['balance'][self.colorids[j-1]], self.balance_expected[i][self.level][j])
-        self.level += 1
+            assert_equal(len(walletinfo['balance']), self.balance_expected[i][self.stage][0])
+            assert_equal(math.floor(self.nodes[i].getbalance()), self.balance_expected[i][self.stage][1])
+            for j in range(2, self.balance_expected[i][self.stage][0]): #colorid
+                assert_equal(walletinfo['balance'][self.colorids[j-1]], self.balance_expected[i][self.stage][j])
+        self.stage += 1
 
     def setup_network(self):
         self.add_nodes(4)
@@ -360,13 +360,13 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         self.sync_all([self.nodes[0:3]])
         unspent = self.nodes[0].listunspent()
         assert_array_result(unspent, {"txid": txid1, "token" : self.colorids[1]},
-                            {"amount": self.balance_expected[0][self.level][3], "confirmations": 1})
+                            {"amount": self.balance_expected[0][self.stage][3], "confirmations": 1})
         assert_array_result(unspent, {"txid": txid2, "token" : self.colorids[1]},
-                            {"amount": self.balance_expected[0][self.level][3], "confirmations": 1})
+                            {"amount": self.balance_expected[0][self.stage][3], "confirmations": 1})
         assert_array_result(unspent, {"txid": txid3, "token" : self.colorids[2]},
-                            {"amount": self.balance_expected[0][self.level][5], "confirmations": 1})
+                            {"amount": self.balance_expected[0][self.stage][5], "confirmations": 1})
         assert_array_result(unspent, {"txid": txid5, "token" : self.colorids[4]},
-                            {"amount": self.balance_expected[0][self.level][5], "confirmations": 1})
+                            {"amount": self.balance_expected[0][self.stage][5], "confirmations": 1})
 
         txlist = self.nodes[0].listtransactions()
         assert_array_result(txlist,{"txid": txid1},{"confirmations": 1})
