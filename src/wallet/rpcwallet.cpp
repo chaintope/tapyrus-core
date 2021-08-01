@@ -32,6 +32,7 @@
 #include <wallet/wallet.h>
 #include <wallet/walletdb.h>
 #include <wallet/walletutil.h>
+#include <wallet/fees.h>
 
 #include <stdint.h>
 
@@ -4222,7 +4223,8 @@ static UniValue IssueReissuableToken(CWallet* const pwallet, const std::string& 
         std::vector<CRecipient> vecSend;
         CWallet::ChangePosInOut mapChangePosRet;
         mapChangePosRet[ColorIdentifier()] = -1;
-        CRecipient recipient = {scriptPubKey, DEFAULT_TRANSACTION_MINFEE, false};
+        CAmount amt = GetDiscardRate(*pwallet, ::feeEstimator).GetFee(250);
+        CRecipient recipient = {scriptPubKey, amt + DEFAULT_FALLBACK_FEE, false};
         vecSend.push_back(recipient);
 
         if (!pwallet->CreateTransaction(vecSend, tx1, reservekey, nFeeRequired, mapChangePosRet, strError, coin_control))
@@ -4256,7 +4258,7 @@ static UniValue IssueReissuableToken(CWallet* const pwallet, const std::string& 
         CTxDestination colorDest = CColorScriptID(colorscriptid, coin_control.m_colorId);
 
         //setting the lable as colorid
-        pwallet->SetAddressBook(colorDest, coin_control.m_colorId.toHexString(), "issue");
+        pwallet->SetAddressBook(colorDest, "", "send");
 
         CScript scriptpubkey = GetScriptForDestination(colorDest);
 
@@ -4311,7 +4313,7 @@ static UniValue IssueToken(CWallet* const pwallet, CAmount tokenValue, CCoinCont
     CTxDestination colorDest = CColorScriptID(colorscriptid, coin_control.m_colorId);
 
     //setting the lable as colorid
-    pwallet->SetAddressBook(colorDest, coin_control.m_colorId.toHexString(), "issue");
+    pwallet->SetAddressBook(colorDest, "", "issue");
 
     CScript scriptpubkey = GetScriptForDestination(colorDest);
 
@@ -4388,15 +4390,6 @@ static UniValue issuetoken(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid token amount for NFT. It must be 1");
     }
 
-    CCoinControl coin_control;
-    coin_control.m_colorTxType = ColoredTxType::ISSUE;
-    coin_control.m_colorId = colorId;
-    if(colorId.type != TokenTypes::REISSUABLE)
-    {
-        COutPoint out(uint256S(request.params[2].get_str()), request.params[3].get_int());
-        coin_control.Select(out);
-    }
-
     //TODO : validate utxo
     if (pwallet->IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS)) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Error: Private keys are disabled for this wallet");
@@ -4405,11 +4398,19 @@ static UniValue issuetoken(const JSONRPCRequest& request)
     // the user could have gotten from another RPC command prior to now
     pwallet->BlockUntilSyncedToCurrentChain();
 
+    CCoinControl coin_control;
+    coin_control.m_colorId = colorId;
+
     // For reissuable tokens try to create a UTXO with the given scriptpubkey first and then issuing transaction using that utxo 
     if(coin_control.m_colorId.type == TokenTypes::REISSUABLE)
         return IssueReissuableToken(pwallet, request.params[2].getValStr(), tokenValue, coin_control);
     else
+    {
+        COutPoint out(uint256S(request.params[2].get_str()), request.params[3].get_int());
+        coin_control.Select(out);
+        coin_control.m_colorTxType = ColoredTxType::ISSUE;
         return IssueToken(pwallet, tokenValue, coin_control);
+    }
 }
 
 static UniValue reissuetoken(const JSONRPCRequest& request)

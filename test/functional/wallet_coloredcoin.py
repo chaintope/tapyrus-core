@@ -75,7 +75,7 @@ class WalletColoredCoinTest(BitcoinTestFramework):
                         [ 6, 60, 40, 20, 1, 20, 1],  #stage 4
                         [ 6, 60, 40, 20, 1, 20, 1],  #stage 5
                         [ 4, 59, 0, 0, 0],           #stage 6
-                        [ 4, 109, 0, 0, 0],          #stage 7
+                        [ 4, 59, 0, 0, 0],           #stage 7
                       ],
                      [ #'''nodes 2'''
                         [ 1, 50],                 #stage 0
@@ -85,7 +85,7 @@ class WalletColoredCoinTest(BitcoinTestFramework):
                         [ 1, 256],                #stage 4
                         [ 1, 306],                #stage 5
                         [ 1, 356],                #stage 6
-                        [ 1, 456],                #stage 7
+                        [ 1, 406],                #stage 7
                       ] 
         ]
 
@@ -114,10 +114,6 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         connect_nodes_bi(self.nodes, 1, 2)
         connect_nodes_bi(self.nodes, 0, 2)
         self.sync_all([self.nodes[0:3]])
-        relayfee = self.nodes[0].getnetworkinfo()['relayfee']
-        self.nodes[0].settxfee(2 * relayfee)
-        self.nodes[1].settxfee(2 * relayfee)
-        self.nodes[2].settxfee(2 * relayfee)
 
     def test_getcolorRPC(self, utxos):
         '''test getcolor RPC using 2 different types of color addresses '''
@@ -422,14 +418,22 @@ class WalletColoredCoinTest(BitcoinTestFramework):
 
         self.log.info("Testing reissuetoken")
         self.nodes[0].generate(1, self.signblockprivkey_wif)
-        self.nodes[1].generate(1, self.signblockprivkey_wif)
-        self.nodes[2].generate(1, self.signblockprivkey_wif)
 
         #this is a new colorid for reissue token
         tpc_script = findTPC(self.nodes[0].listunspent())
 
-        self.nodes[0].issuetoken(1, 100, tpc_script)
+        res = self.nodes[0].issuetoken(1, 100, tpc_script)
+        assert_equal(res['color'], self.nodes[0].getcolor(1, tpc_script))
         self.sync_all([self.nodes[0:3]])
+
+        #wait for the wallet to synch to avoid script not found error in reissuetoken
+        while(True):
+            walletinfo = self.nodes[0].getwalletinfo()
+            try:
+                walletinfo['balance'][res['color']]
+                break
+            except:
+                sleep(5)
 
         res = self.nodes[0].reissuetoken(self.nodes[0].getcolor(1, tpc_script), 100)
         assert_equal(res['color'], self.nodes[0].getcolor(1, tpc_script))
@@ -462,11 +466,13 @@ class WalletColoredCoinTest(BitcoinTestFramework):
             sleep(5)
             node2_utxos = self.nodes[2].listunspent()
 
-        # Lock UTXO used in REISSUABLE token so nodes[2] doesn't accidentally spend it
-        self.nodes[2].lockunspent(False, [{"txid": node2_utxos[0]['txid'], "vout": node2_utxos[0]['vout']}])
+        #find a TPC script so that issue token and later reissue token can be tested
+        tpc_script = findTPC(node2_utxos)
 
-        res1 = self.nodes[2].issuetoken(1, 100, node2_utxos[0]['scriptPubKey'])
-        assert_equal(res1['color'], self.nodes[2].getcolor(1, node2_utxos[0]['scriptPubKey']))
+        res1 = self.nodes[2].issuetoken(1, 100, tpc_script)
+        assert_equal(res1['color'], self.nodes[2].getcolor(1, tpc_script))
+
+        node2_utxos = self.nodes[2].listunspent()
 
         res2 = self.nodes[2].issuetoken(2, 100, node2_utxos[1]['txid'], node2_utxos[1]['vout'])
         assert_equal(res2['color'], self.nodes[2].getcolor(2, node2_utxos[1]['txid'], node2_utxos[1]['vout']))
@@ -480,11 +486,22 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         self.nodes[2].issuetoken(1, 100, node2_utxos[0]['scriptPubKey'])
         assert_equal(res1['color'], self.nodes[2].getcolor(1, node2_utxos[0]['scriptPubKey']))
 
+        #wait for the wallet to synch to avoid script not found error in reissuetoken
+        '''while(True):
+            walletinfo = self.nodes[2].getwalletinfo()
+            if walletinfo['balance'][res1['color']] == 300:
+                break
+            sleep(5)
+
+        print(node2_utxos[0]['scriptPubKey'])
+        res4 = self.nodes[2].reissuetoken(res1['color'], 100)
+        assert_equal(res1['color'], res4['color'])'''
+
         self.nodes[2].generate(1, self.signblockprivkey_wif)
         self.sync_all([self.nodes[0:3]])
 
         walletinfo = self.nodes[2].getwalletinfo()
-        assert_equal(walletinfo['balance']['TPC'], decimal.Decimal('1506.00014086'))
+        assert_equal(math.floor(walletinfo['balance']['TPC']), 1456)
         assert_equal(walletinfo['balance'][res1['color']], 300)
         assert_equal(walletinfo['balance'][res2['color']], 100)
         assert_equal(walletinfo['balance'][res3['color']], 1)
