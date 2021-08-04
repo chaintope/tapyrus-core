@@ -460,19 +460,11 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         self.sync_all([self.nodes[0:3]])
         node2_utxos = self.nodes[2].listunspent()
 
-        while(True):
-            if len(node2_utxos) > 20:
-                break
-            sleep(5)
-            node2_utxos = self.nodes[2].listunspent()
-
         #find a TPC script so that issue token and later reissue token can be tested
         tpc_script = findTPC(node2_utxos)
 
         res1 = self.nodes[2].issuetoken(1, 100, tpc_script)
         assert_equal(res1['color'], self.nodes[2].getcolor(1, tpc_script))
-
-        node2_utxos = self.nodes[2].listunspent()
 
         res2 = self.nodes[2].issuetoken(2, 100, node2_utxos[1]['txid'], node2_utxos[1]['vout'])
         assert_equal(res2['color'], self.nodes[2].getcolor(2, node2_utxos[1]['txid'], node2_utxos[1]['vout']))
@@ -487,15 +479,15 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         assert_equal(res1['color'], self.nodes[2].getcolor(1, node2_utxos[0]['scriptPubKey']))
 
         #wait for the wallet to synch to avoid script not found error in reissuetoken
-        '''while(True):
+        while(True):
             walletinfo = self.nodes[2].getwalletinfo()
-            if walletinfo['balance'][res1['color']] == 300:
-                break
-            sleep(5)
+            if walletinfo['balance'][res1['color']] != 300:
+                sleep(5)
+                continue
+            break
 
-        print(node2_utxos[0]['scriptPubKey'])
         res4 = self.nodes[2].reissuetoken(res1['color'], 100)
-        assert_equal(res1['color'], res4['color'])'''
+        assert_equal(res1['color'], res4['color'])
 
         self.nodes[2].generate(1, self.signblockprivkey_wif)
         self.sync_all([self.nodes[0:3]])
