@@ -4223,8 +4223,7 @@ static UniValue IssueReissuableToken(CWallet* const pwallet, const std::string& 
         std::vector<CRecipient> vecSend;
         CWallet::ChangePosInOut mapChangePosRet;
         mapChangePosRet[ColorIdentifier()] = -1;
-        CAmount amt = GetDiscardRate(*pwallet, ::feeEstimator).GetFee(250);
-        CRecipient recipient = {scriptPubKey, amt + DEFAULT_FALLBACK_FEE, false};
+        CRecipient recipient = {scriptPubKey, DEFAULT_FALLBACK_FEE, false};
         vecSend.push_back(recipient);
 
         if (!pwallet->CreateTransaction(vecSend, tx1, reservekey, nFeeRequired, mapChangePosRet, strError, coin_control))
@@ -4445,14 +4444,16 @@ static UniValue reissuetoken(const JSONRPCRequest& request)
     if(colorId.type != TokenTypes::REISSUABLE)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Token type not supported");
 
-    CScript script;
-    if(!pwallet->GetCScriptForColor(colorId, script, true))
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Script corresponding to color " + colorId.toHexString() + " could not be found in the wallet");
-
     // token value
     CAmount tokenValue = request.params[1].get_int64();
     if (tokenValue <= 0)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid token amount");
+
+    LOCK2(cs_main, pwallet->cs_wallet);
+
+    CScript script;
+    if(!pwallet->GetCScriptForColor(colorId, script, true))
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Script corresponding to color " + colorId.toHexString() + " could not be found in the wallet");
 
     CCoinControl coin_control;
     coin_control.m_colorId = colorId;
