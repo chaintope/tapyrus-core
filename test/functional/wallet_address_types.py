@@ -82,7 +82,7 @@ class AddressTypeTest(BitcoinTestFramework):
 
 
     def test_change_output_type(self, node_sender, destinations):
-        txid = self.nodes[node_sender].sendmany(fromaccount="", amounts=dict.fromkeys(destinations, 0.001))
+        txid = self.nodes[node_sender].sendmany(amounts=dict.fromkeys(destinations, 0.001))
         raw_tx = self.nodes[node_sender].getrawtransaction(txid)
         tx = self.nodes[node_sender].decoderawtransaction(raw_tx)
 
@@ -146,7 +146,7 @@ class AddressTypeTest(BitcoinTestFramework):
                 sends[address] = to_send * 10 * (1 + n)
 
             self.log.debug("Sending: {}".format(sends))
-            self.nodes[from_node].sendmany("", sends)
+            self.nodes[from_node].sendmany(sends)
             sync_mempools(self.nodes)
 
             unconf_balances = self.get_balances(False)

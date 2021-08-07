@@ -62,7 +62,7 @@ class ListTransactionsTest(BitcoinTestFramework):
                    self.nodes[1].getnewaddress(): 0.22,
                    self.nodes[0].getnewaddress(): 0.33,
                    self.nodes[1].getnewaddress(): 0.44}
-        txid = self.nodes[1].sendmany("", send_to)
+        txid = self.nodes[1].sendmany(send_to)
         self.sync_all()
         assert_array_result(self.nodes[1].listtransactions(),
                             {"category": "send", "token": "TPC", "amount": Decimal("-0.11")},
@@ -95,8 +95,8 @@ class ListTransactionsTest(BitcoinTestFramework):
         txid = self.nodes[1].sendtoaddress(multisig["address"], 0.1)
         self.nodes[1].generate(1, self.signblockprivkey_wif)
         self.sync_all()
-        assert not [tx for tx in self.nodes[0].listtransactions(dummy="*", count=100, skip=0, include_watchonly=False) if "label" in tx and tx["label"] == "watchonly"]
-        txs = [tx for tx in self.nodes[0].listtransactions(dummy="*", count=100, skip=0, include_watchonly=True) if "label" in tx and tx['label'] == 'watchonly']
+        assert not [tx for tx in self.nodes[0].listtransactions(count=100, skip=0, include_watchonly=False) if "label" in tx and tx["label"] == "watchonly"]
+        txs = [tx for tx in self.nodes[0].listtransactions(count=100, skip=0, include_watchonly=True) if "label" in tx and tx['label'] == 'watchonly']
         assert_array_result(txs, {"category": "receive", "token": "TPC", "amount": Decimal("0.1")}, {"txid": txid})
 
         self.run_rbf_opt_in_test()

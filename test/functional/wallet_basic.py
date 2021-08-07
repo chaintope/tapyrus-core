@@ -201,7 +201,7 @@ class WalletTest(BitcoinTestFramework):
         node_0_bal = self.check_fee_amount(self.nodes[0].getbalance(), Decimal('20'), fee_per_byte, self.get_vsize(self.nodes[2].getrawtransaction(txid)))
 
         # Sendmany 10 TPC
-        txid = self.nodes[2].sendmany('', {address: 10}, 0, "", [])
+        txid = self.nodes[2].sendmany({address: 10}, 0, "", [])
         # generate block on another node so that balance is not distorted by block reward
         self.sync_all([self.nodes[0:3]])
         self.nodes[1].generate(1, self.signblockprivkey_wif)
@@ -211,7 +211,7 @@ class WalletTest(BitcoinTestFramework):
         assert_equal(self.nodes[0].getbalance(), node_0_bal)
 
         # Sendmany 10 TPC with subtract fee from amount
-        txid = self.nodes[2].sendmany('', {address: 10}, 0, "", [address])
+        txid = self.nodes[2].sendmany({address: 10}, 0, "", [address])
         # generate block on another node so that balance is not distorted by block reward
         self.sync_all([self.nodes[0:3]])
         self.nodes[1].generate(1, self.signblockprivkey_wif)
