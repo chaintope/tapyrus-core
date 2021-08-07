@@ -91,7 +91,7 @@ class SegWitTest(BitcoinTestFramework):
             newaddress = self.nodes[i].getnewaddress()
             self.pubkey.append(self.nodes[i].getaddressinfo(newaddress)["pubkey"])
             multiscript = CScript([OP_1, hex_str_to_bytes(self.pubkey[-1]), OP_1, OP_CHECKMULTISIG])
-            p2sh_ms_addr = self.nodes[i].addmultisigaddress(1, [self.pubkey[-1]], '', 'legacy')['address']
+            p2sh_ms_addr = self.nodes[i].addmultisigaddress(1, [self.pubkey[-1]], '')['address']
             #p2sh-ms address is not  p2sh-p2wsh-ms in tapyrus
             assert_equal(p2sh_ms_addr, script_to_p2sh(multiscript))
             p2sh_ids.append([])
