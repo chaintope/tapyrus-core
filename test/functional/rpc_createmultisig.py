@@ -29,7 +29,6 @@ class RpcCreateMultiSigTest(BitcoinTestFramework):
         self.sync_all()
 
         self.moved = 0
-        self.output_type = "legacy"
         for self.nkeys in [3,5]:
             for self.nsigs in [2,3]:
                 self.get_keys()
@@ -56,12 +55,12 @@ class RpcCreateMultiSigTest(BitcoinTestFramework):
     def do_multisig(self):
         node0,node1,node2 = self.nodes
 
-        msig = node2.createmultisig(self.nsigs, self.pub, self.output_type)
+        msig = node2.createmultisig(self.nsigs, self.pub)
         madd = msig["address"]
         mredeem = msig["redeemScript"]
 
         # compare against addmultisigaddress
-        msigw = node1.addmultisigaddress(self.nsigs, self.pub, None, self.output_type)
+        msigw = node1.addmultisigaddress(self.nsigs, self.pub, None)
         maddw = msigw["address"]
         mredeemw = msigw["redeemScript"]
         # addmultisigiaddress and createmultisig work the same
@@ -92,7 +91,7 @@ class RpcCreateMultiSigTest(BitcoinTestFramework):
         assert tx in node0.getblock(blk)["tx"]
 
         txinfo = node0.getrawtransaction(tx, True, blk)
-        self.log.info("n/m=%d/%d %s size=%d vsize=%d weight=%d" % (self.nsigs, self.nkeys, self.output_type, txinfo["size"], txinfo["vsize"], txinfo["weight"]))
+        self.log.info("n/m=%d/%d size=%d vsize=%d weight=%d" % (self.nsigs, self.nkeys, txinfo["size"], txinfo["vsize"], txinfo["weight"]))
 
 if __name__ == '__main__':
     RpcCreateMultiSigTest().main()
