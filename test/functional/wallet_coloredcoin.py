@@ -428,14 +428,7 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         assert_equal(res['color'], self.nodes[0].getcolor(1, tpc_utxo['scriptPubKey']))
         self.sync_all([self.nodes[0:3]])
 
-        #wait for the wallet to synch to avoid script not found error in reissuetoken
-        while(True):
-            walletinfo = self.nodes[0].getwalletinfo()
-            try:
-                walletinfo['balance'][res['color']]
-                break
-            except:
-                sleep(5)
+        sleep(45)
 
         res = self.nodes[0].reissuetoken(self.nodes[0].getcolor(1, tpc_utxo['scriptPubKey']), 100)
         assert_equal(res['color'], self.nodes[0].getcolor(1, tpc_utxo['scriptPubKey']))
