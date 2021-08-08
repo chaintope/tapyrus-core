@@ -26,12 +26,6 @@ void CBasicKeyStore::ImplicitlyLearnRelatedKeyScripts(const CPubKey& pubkey)
     // loaded (e.g. from a file).
     if (pubkey.IsCompressed()) {
         CScript script;
-
-#ifdef DEBUG
-        script = GetScriptForDestination(WitnessV0KeyHash(key_id));
-        CScriptID id1(script);
-        mapScripts[id1] = std::move(script);
-#endif
         script = GetScriptForDestination(key_id);
         // This does not use AddCScript, as it may be overridden.
         CScriptID id2(script);
@@ -188,20 +182,6 @@ CKeyID GetKeyForDestination(const CKeyStore& store, const CTxDestination& dest)
     if (auto id = boost::get<CKeyID>(&dest)) {
         return *id;
     }
-#ifdef DEBUG
-    if (auto witness_id = boost::get<WitnessV0KeyHash>(&dest)) {
-        return CKeyID(*witness_id);
-    }
-    if (auto script_id = boost::get<CScriptID>(&dest)) {
-        CScript script;
-        CTxDestination inner_dest;
-        if (store.GetCScript(*script_id, script) && ExtractDestination(script, inner_dest)) {
-            if (auto inner_witness_id = boost::get<WitnessV0KeyHash>(&inner_dest)) {
-                return CKeyID(*inner_witness_id);
-            }
-        }
-    }
-#endif
     return CKeyID();
 }
 

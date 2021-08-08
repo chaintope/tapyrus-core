@@ -65,7 +65,6 @@ class AddressTypeTest(BitcoinTestFramework):
         if not multisig:
             # P2PKH
             assert(not info['isscript'])
-            assert(not info['iswitness'])
             if color:
                 assert(info['istoken'])
                 assert_equal(info['color'], self.colorid)
@@ -76,7 +75,6 @@ class AddressTypeTest(BitcoinTestFramework):
             # P2SH-multisig
             assert(info['isscript'])
             assert_equal(info['script'], 'multisig')
-            assert(not info['iswitness'])
             assert(not info['istoken'])
             assert('pubkeys' in info)
 

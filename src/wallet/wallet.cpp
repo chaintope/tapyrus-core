@@ -157,25 +157,6 @@ public:
         if (keystore.GetCScript(cscriptId, script))
             Process(script);
     }
-#ifdef DEBUG
-    void operator()(const WitnessV0ScriptHash& scriptID)
-    {
-        CScriptID id;
-        CRIPEMD160().Write(scriptID.begin(), 32).Finalize(id.begin());
-        CScript script;
-        if (keystore.GetCScript(id, script)) {
-            Process(script);
-        }
-    }
-
-    void operator()(const WitnessV0KeyHash& keyid)
-    {
-        CKeyID id(keyid);
-        if (keystore.HaveKey(id)) {
-            vKeys.push_back(id);
-        }
-    }
-#endif
 
     template<typename X>
     void operator()(const X &none) {}
