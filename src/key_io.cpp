@@ -62,31 +62,6 @@ public:
         data.insert(data.end(), id.begin(), id.end());
         return EncodeBase58Check(data);
     }
-#ifdef DEBUG
-    std::string operator()(const WitnessV0KeyHash& id) const
-    {
-        std::vector<unsigned char> data = {0};
-        data.insert(data.end(), id.begin(), id.end());
-        return EncodeBase58Check(data); //invalid address
-    }
-
-    std::string operator()(const WitnessV0ScriptHash& id) const
-    {
-        std::vector<unsigned char> data = {0};
-        data.insert(data.end(), id.begin(), id.end());
-        return EncodeBase58Check(data); //invalid address
-    }
-
-    std::string operator()(const WitnessUnknown& id) const
-    {
-        if (id.version < 1 || id.version > 16 || id.length < 2 || id.length > 40) {
-            return {};
-        }
-        std::vector<unsigned char> data = {(unsigned char)id.version};
-        data.insert(data.end(), id.program, id.program + id.length);
-        return EncodeBase58Check(data); //invalid address
-    }
-#endif
     std::string operator()(const CNoDestination& no) const { return {}; }
 };
 

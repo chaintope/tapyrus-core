@@ -68,9 +68,6 @@ IsMineResult IsMineInner(const CKeyStore& keystore, const CScript& scriptPubKey,
     {
     case TX_NONSTANDARD:
     case TX_NULL_DATA:
-#ifdef DEBUG
-    case TX_WITNESS_UNKNOWN:
-#endif
         break;
     case TX_PUBKEY:
         keyID = CPubKey(vSolutions[0]).GetID();
@@ -81,23 +78,6 @@ IsMineResult IsMineInner(const CKeyStore& keystore, const CScript& scriptPubKey,
             ret = std::max(ret, IsMineResult::SPENDABLE);
         }
         break;
-#ifdef DEBUG
-    case TX_WITNESS_V0_KEYHASH:
-    {
-        if (sigversion == IsMineSigVersion::WITNESS_V0) {
-            // P2WPKH inside P2WSH is invalid.
-            return IsMineResult::INVALID;
-        }
-        if (sigversion == IsMineSigVersion::TOP && !keystore.HaveCScript(CScriptID(CScript() << OP_0 << vSolutions[0]))) {
-            // We do not support bare witness outputs unless the P2SH version of it would be
-            // acceptable as well. This protects against matching before segwit activates.
-            // This also applies to the P2WSH case.
-            break;
-        }
-        ret = std::max(ret, IsMineInner(keystore, GetScriptForDestination(CKeyID(uint160(vSolutions[0]))), IsMineSigVersion::WITNESS_V0));
-        break;
-    }
-#endif
     case TX_PUBKEYHASH:
     case TX_COLOR_PUBKEYHASH:
         keyID = CKeyID(uint160(vSolutions[0]));
@@ -125,26 +105,6 @@ IsMineResult IsMineInner(const CKeyStore& keystore, const CScript& scriptPubKey,
         }
         break;
     }
-#ifdef DEBUG
-    case TX_WITNESS_V0_SCRIPTHASH:
-    {
-        if (sigversion == IsMineSigVersion::WITNESS_V0) {
-            // P2WSH inside P2WSH is invalid.
-            return IsMineResult::INVALID;
-        }
-        if (sigversion == IsMineSigVersion::TOP && !keystore.HaveCScript(CScriptID(CScript() << OP_0 << vSolutions[0]))) {
-            break;
-        }
-        uint160 hash;
-        CRIPEMD160().Write(&vSolutions[0][0], vSolutions[0].size()).Finalize(hash.begin());
-        CScriptID scriptID = CScriptID(hash);
-        CScript subscript;
-        if (keystore.GetCScript(scriptID, subscript)) {
-            ret = std::max(ret, IsMineInner(keystore, subscript, IsMineSigVersion::WITNESS_V0));
-        }
-        break;
-    }
-#endif
     case TX_MULTISIG:
     {
         // Never treat bare multisig outputs as ours (they can still be made watchonly-though)
