@@ -455,7 +455,7 @@ class WalletTest(BitcoinTestFramework):
         assert(extra_txid not in self.nodes[0].getrawmempool())
         assert(extra_txid in [tx["txid"] for tx in self.nodes[0].listtransactions()])
         self.nodes[0].abandontransaction(extra_txid)
-        total_txs = len(self.nodes[0].listtransactions("*", 99999))
+        total_txs = len(self.nodes[0].listtransactions(99999))
 
         # Try with walletrejectlongchains
         # Double chain limit but require combining inputs, so we pass SelectCoinsMinConf
@@ -474,7 +474,7 @@ class WalletTest(BitcoinTestFramework):
         assert_raises_rpc_error(-4, "Transaction has too long of a mempool chain", self.nodes[0].sendtoaddress, sending_addr, node0_balance - Decimal('0.01'))
 
         # Verify nothing new in wallet
-        assert_equal(total_txs, len(self.nodes[0].listtransactions("*", 99999)))
+        assert_equal(total_txs, len(self.nodes[0].listtransactions(99999)))
 
         # Test getaddressinfo. Note that these addresses are taken from disablewallet.py
         assert_raises_rpc_error(-5, "Invalid address", self.nodes[0].getaddressinfo, "3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy")
