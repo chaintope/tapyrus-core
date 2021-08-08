@@ -121,9 +121,6 @@ static bool SignStep(const SigningProvider& provider, const BaseSignatureCreator
     {
     case TX_NONSTANDARD:
     case TX_NULL_DATA:
-#ifdef DEBUG
-    case TX_WITNESS_UNKNOWN:
-#endif
         return false;
     case TX_PUBKEY:
         if (!CreateSig(creator, sigdata, provider, sig, CPubKey(vSolutions[0]), scriptPubKey, sigversion)) return false;
@@ -162,19 +159,6 @@ static bool SignStep(const SigningProvider& provider, const BaseSignatureCreator
         }
         return ok;
     }
-#ifdef DEBUG
-    case TX_WITNESS_V0_KEYHASH:
-        ret.push_back(vSolutions[0]);
-        return true;
-
-    case TX_WITNESS_V0_SCRIPTHASH:
-        CRIPEMD160().Write(&vSolutions[0][0], vSolutions[0].size()).Finalize(h160.begin());
-        if (GetCScript(provider, sigdata, h160, scriptRet)) {
-            ret.push_back(std::vector<unsigned char>(scriptRet.begin(), scriptRet.end()));
-            return true;
-        }
-        return false;
-#endif
     default:
         return false;
     }
@@ -216,31 +200,6 @@ bool ProduceSignature(const SigningProvider& provider, const BaseSignatureCreato
         solved = solved && SignStep(provider, creator, subscript, result, whichType, SigVersion::BASE, sigdata) && whichType != TX_SCRIPTHASH;
         P2SH = true;
     }
-#ifdef DEBUG
-    if (solved && whichType == TX_WITNESS_V0_KEYHASH)
-    {
-        CScript witnessscript;
-        witnessscript << OP_DUP << OP_HASH160 << ToByteVector(result[0]) << OP_EQUALVERIFY << OP_CHECKSIG;
-        txnouttype subType;
-        solved = solved && SignStep(provider, creator, witnessscript, result, subType, SigVersion::WITNESS_V0, sigdata);
-        sigdata.scriptWitness.stack = result;
-        sigdata.witness = true;
-        result.clear();
-    }
-    else if (solved && whichType == TX_WITNESS_V0_SCRIPTHASH)
-    {
-        CScript witnessscript(result[0].begin(), result[0].end());
-        sigdata.witness_script = witnessscript;
-        txnouttype subType;
-        solved = solved && SignStep(provider, creator, witnessscript, result, subType, SigVersion::WITNESS_V0, sigdata) && subType != TX_SCRIPTHASH && subType != TX_WITNESS_V0_SCRIPTHASH && subType != TX_WITNESS_V0_KEYHASH;
-        result.push_back(std::vector<unsigned char>(witnessscript.begin(), witnessscript.end()));
-        sigdata.scriptWitness.stack = result;
-        sigdata.witness = true;
-        result.clear();
-    } else if (solved && whichType == TX_WITNESS_UNKNOWN) {
-        sigdata.witness = true;
-    }
-#endif
     if (P2SH) {
         result.push_back(std::vector<unsigned char>(subscript.begin(), subscript.end()));
     }
@@ -365,21 +324,6 @@ SignatureData DataFromTransaction(const CMutableTransaction& tx, unsigned int nI
         Solver(next_script, script_type, solutions);
         stack.script.pop_back();
     }
-#ifdef DEBUG
-    if (script_type == TX_WITNESS_V0_SCRIPTHASH && !stack.witness.empty() && !stack.witness.back().empty()) {
-        // Get the witnessScript
-        CScript witness_script(stack.witness.back().begin(), stack.witness.back().end());
-        data.witness_script = witness_script;
-        next_script = std::move(witness_script);
-
-        // Get witnessScript type
-        Solver(next_script, script_type, solutions);
-        stack.witness.pop_back();
-        stack.script = std::move(stack.witness);
-        stack.witness.clear();
-        sigversion = SigVersion::WITNESS_V0;
-    }
-#endif
     if (script_type == TX_MULTISIG && !stack.script.empty()) {
         // Build a map of pubkey -> signature by matching sigs to pubkeys:
         assert(solutions.size() > 1);
