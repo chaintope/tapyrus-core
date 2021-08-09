@@ -209,8 +209,6 @@ DEBUG_MODE_SCRIPTS = [
     'feature_block.py',
     'feature_cltv.py',
     'feature_cltv.py  --scheme SCHNORR',
-    'feature_segwit.py',
-    'feature_segwit.py  --scheme SCHNORR',
     'mempool_limit.py',
     'mempool_limit.py  --scheme SCHNORR',
     'mining_prioritisetransaction.py',
