@@ -10,15 +10,14 @@ Tapyrus does not differentiate version1 and version 2 compact blocks. Witness tr
 
 """
 
-from decimal import Decimal
 import random
 
-from test_framework.blocktools import create_block, create_coinbase, add_witness_commitment
-from test_framework.messages import BlockTransactions, BlockTransactionsRequest, calculate_shortid, CBlock, CBlockHeader, CInv, COutPoint, CTransaction, CTxIn, CTxInWitness, CTxOut, FromHex, HeaderAndShortIDs, msg_block, msg_blocktxn, msg_cmpctblock, msg_getblocktxn, msg_getdata, msg_getheaders, msg_headers, msg_inv, msg_sendcmpct, msg_sendheaders, msg_tx, msg_witness_block, msg_witness_blocktxn, NODE_NETWORK, NODE_WITNESS, P2PHeaderAndShortIDs, PrefilledTransaction, ser_uint256, ToHex
+from test_framework.blocktools import create_block, create_coinbase
+from test_framework.messages import BlockTransactions, BlockTransactionsRequest, calculate_shortid, CBlock, CBlockHeader, CInv, COutPoint, CTransaction, CTxIn, CTxOut, FromHex, HeaderAndShortIDs, msg_block, msg_blocktxn, msg_cmpctblock, msg_getblocktxn, msg_getdata, msg_getheaders, msg_headers, msg_inv, msg_sendcmpct, msg_sendheaders, msg_tx, msg_witness_block, msg_witness_blocktxn, NODE_NETWORK, NODE_WITNESS, P2PHeaderAndShortIDs, PrefilledTransaction, ToHex
 from test_framework.mininode import mininode_lock, P2PInterface
 from test_framework.script import CScript, OP_TRUE, OP_DROP
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, get_bip9_status, tapyrus_round, sync_blocks, wait_until
+from test_framework.util import assert_equal, sync_blocks, wait_until
 
 # TestP2PConn: A peer we use to send messages to bitcoind, and store responses.
 class TestP2PConn(P2PInterface):
@@ -99,7 +98,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         self.setup_clean_chain = True
         # Node0 = pre-segwit, node1 = segwit-aware
         self.num_nodes = 2
-        self.extra_args = [["-acceptnonstdtxn=1"], ["-txindex", "-deprecatedrpc=addwitnessaddress", "-acceptnonstdtxn=1"]]
+        self.extra_args = [["-acceptnonstdtxn=1"], ["-txindex", "-acceptnonstdtxn=1"]]
         self.utxos = []
 
     def build_block_on_tip(self, node):
@@ -254,29 +253,17 @@ class CompactBlocksTest(BitcoinTestFramework):
 
     # Compare the generated shortids to what we expect based on BIP 152, given
     # bitcoind's choice of nonce.
-    def test_compactblock_construction(self, node, test_node, version, use_witness_address):
+    def test_compactblock_construction(self, node, test_node, version):
         # Generate a bunch of transactions.
         node.generate(101, self.signblockprivkey_wif)
         num_transactions = 25
         address = node.getnewaddress()
-        if use_witness_address:
-            # Want at least one segwit spend, so move all funds to
-            # a witness address.
-            address = node.addwitnessaddress(address)
-            value_to_send = node.getbalance()
-            node.sendtoaddress(address, tapyrus_round(value_to_send-Decimal(0.1)))
-            node.generate(1, self.signblockprivkey_wif)
 
-        segwit_tx_generated = False
         for i in range(num_transactions):
             txid = node.sendtoaddress(address, 0.1)
             hex_tx = node.gettransaction(txid)["hex"]
             tx = FromHex(CTransaction(), hex_tx)
-            if not tx.wit.is_null():
-                segwit_tx_generated = True
 
-        if use_witness_address:
-            assert(segwit_tx_generated) # check that our test is not broken
 
         # Wait until we've seen the block announcement for the resulting tip
         tip = int(node.getbestblockhash(), 16)
@@ -304,7 +291,7 @@ class CompactBlocksTest(BitcoinTestFramework):
             assert("cmpctblock" in test_node.last_message)
             # Convert the on-the-wire representation to absolute indexes
             header_and_shortids = HeaderAndShortIDs(test_node.last_message["cmpctblock"].header_and_shortids)
-        self.check_compactblock_construction_from_block(version, header_and_shortids, block_hash, block, use_witness_address)
+        self.check_compactblock_construction_from_block(version, header_and_shortids, block_hash, block)
 
         # Now fetch the compact block using a normal non-announce getdata
         with mininode_lock:
@@ -321,9 +308,9 @@ class CompactBlocksTest(BitcoinTestFramework):
             # Convert the on-the-wire representation to absolute indexes
             header_and_shortids = HeaderAndShortIDs(test_node.last_message["cmpctblock"].header_and_shortids)
 
-        self.check_compactblock_construction_from_block(version, header_and_shortids, block_hash, block, use_witness_address)
+        self.check_compactblock_construction_from_block(version, header_and_shortids, block_hash, block)
 
-    def check_compactblock_construction_from_block(self, version, header_and_shortids, block_hash, block, use_witness_address):
+    def check_compactblock_construction_from_block(self, version, header_and_shortids, block_hash, block):
         # Check that we got the right block!
         header_and_shortids.header.calc_sha256()
         assert_equal(header_and_shortids.header.sha256, block_hash)
@@ -792,7 +779,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         sync_blocks(self.nodes)
 
         self.log.info("Testing compactblock construction...")
-        self.test_compactblock_construction(self.nodes[0], self.test_node, 1, False)
+        self.test_compactblock_construction(self.nodes[0], self.test_node, 1)
         sync_blocks(self.nodes)
 
         self.log.info("Testing compactblock requests... ")
@@ -835,7 +822,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         sync_blocks(self.nodes)
 
         self.log.info("Testing compactblock construction...")
-        self.test_compactblock_construction(self.nodes[1], self.old_node, 1, False)
+        self.test_compactblock_construction(self.nodes[1], self.old_node, 1)
 
         sync_blocks(self.nodes)
 
