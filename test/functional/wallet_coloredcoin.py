@@ -17,7 +17,7 @@
         5. getcolor
         6. reissuetoken
         7. createrawtransaction
-        sendtoaddress
+        8. sendtoaddress
 
 
     """
