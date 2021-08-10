@@ -16,7 +16,7 @@
         4. burntoken
         5. getcolor
         6. reissuetoken
-        createrawtransaction
+        7. createrawtransaction
         sendtoaddress
 
 
