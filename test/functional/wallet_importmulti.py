@@ -10,7 +10,6 @@ from test_framework.util import assert_equal, assert_greater_than, assert_raises
 class ImportMultiTest (BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
-        self.extra_args = [["-addresstype=legacy"], ["-addresstype=legacy"]]
         self.setup_clean_chain = True
 
     def setup_network(self):
