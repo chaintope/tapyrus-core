@@ -42,7 +42,7 @@ class NULLDUMMYTest(BitcoinTestFramework):
         self.num_nodes = 1
         self.setup_clean_chain = True
         # This script tests NULLDUMMY activation, using default segwit activation(ALWAYS_ON)
-        self.extra_args = [['-whitelist=127.0.0.1', '-addresstype=legacy', "-deprecatedrpc=addwitnessaddress"]]
+        self.extra_args = [['-whitelist=127.0.0.1']]
         self.mocktime = int(time.time())
 
     def run_test(self):
