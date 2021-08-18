@@ -310,6 +310,8 @@ static UniValue getrawchangeaddress(const JSONRPCRequest& request)
     {
         const std::vector<unsigned char> vColorId(ParseHex(request.params[0].get_str()));
         colorId = ColorIdentifier(vColorId);
+        if(colorId.type == TokenTypes::NONE)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid color parameter.");
     }
 
     CReserveKey reservekey(pwallet);
