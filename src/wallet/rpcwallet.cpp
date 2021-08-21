@@ -32,7 +32,6 @@
 #include <wallet/wallet.h>
 #include <wallet/walletdb.h>
 #include <wallet/walletutil.h>
-#include <wallet/fees.h>
 
 #include <stdint.h>
 
@@ -4288,7 +4287,10 @@ static UniValue IssueReissuableToken(CWallet* const pwallet, const std::string& 
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("color", coin_control.m_colorId.toHexString());
-    result.pushKV("txid", tx2->GetHashMalFix().GetHex());
+    UniValue txidlist(UniValue::VARR);
+    txidlist.push_back(tx1->GetHashMalFix().GetHex());
+    txidlist.push_back(tx2->GetHashMalFix().GetHex());
+    result.pushKV("txids", txidlist);
     return result;
 }
 
@@ -4369,7 +4371,13 @@ static UniValue issuetoken(const JSONRPCRequest& request)
             "\nResult:\n"
             "{\n"
             "  \"color\"               (string) The color or token.\n"
-            "  \"txid\":               (string) The transaction id.\n"
+            "  \"txid\":               (string) The transaction id in case of NON-REISSUABLE and NFC tokens.\n"
+            "   or\n"
+            "  \"txids:\"              (json array of string) The transaction ids of the two transactions created in case of REISSUABLE token\n"
+            "    [\n"
+            "      \"txid1\"           (string) transaction to create spendable UTXO\n"
+            "      \"txid2\"           (string) transaction to issue token spending the above UTXO\n"
+            "    ]\n"
             "}\n"
             "\nExamples:\n"
             + HelpExampleCli("issuetoken", "\"1\" \"100\" 8282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508")
@@ -4432,7 +4440,11 @@ static UniValue reissuetoken(const JSONRPCRequest& request)
             "\nResult:\n"
             "{\n"
             "  \"color\"               (string) The color or token.\n"
-            "  \"txid\":               (string) The transaction id.\n"
+            "  \"txids:\"              (json array of string) The transaction ids of the two transactions created to issue the token\n"
+            "    [\n"
+            "      \"txid1\"           (string) transaction to create spendable UTXO\n"
+            "      \"txid2\"           (string) transaction to issue token spending the above UTXO\n"
+            "    ]\n"
             "}\n"
             "\nExamples:\n"
             + HelpExampleCli("reissuetoken", "\"c18282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23f\" 10")

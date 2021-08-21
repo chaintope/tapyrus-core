@@ -65,7 +65,7 @@ class WalletColoredCoinTest(BitcoinTestFramework):
                         [ 6, 233, 160, 80, 0, 80, 0],             #stage 4 transfertoken
                         [ 6, 233, 140, 60, 0, 60, 0],             #stage 5 burn partial
                         [ 6, 233, 140, 60, 0, 60, 0],             #stage 6 burn full
-                        [ 7, 283, 140, 60, 0, 60, 0, 200],        #stage 7 reissue full
+                        [ 7, 283, 140, 60, 0, 60, 0, 200],        #stage 7 reissue
                       ], 
                      [ #'''nodes 1'''
                         [ 0, 0],                     #stage 0
@@ -428,10 +428,13 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         assert_equal(res['color'], self.nodes[0].getcolor(1, tpc_utxo['scriptPubKey']))
         self.sync_all([self.nodes[0:3]])
 
-        sleep(45)
+        sleep(25)
+        self.nodes[0].lockunspent(True, [{"txid": tpc_utxo['txid'], "vout": tpc_utxo['vout']}])
+        sleep(20)
 
         res = self.nodes[0].reissuetoken(self.nodes[0].getcolor(1, tpc_utxo['scriptPubKey']), 100)
         assert_equal(res['color'], self.nodes[0].getcolor(1, tpc_utxo['scriptPubKey']))
+        assert_equal(len(res['txids']), 2)
 
         assert_raises_rpc_error(-8, "Token type not supported", self.nodes[0].reissuetoken, self.colorids[0], 100)
         assert_raises_rpc_error(-8, "Token type not supported", self.nodes[0].reissuetoken, self.colorids[2], 100)
@@ -462,6 +465,7 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         color_tcp_script = self.nodes[2].getcolor(1, tpc_utxo['scriptPubKey'])
         res1 = self.nodes[2].issuetoken(1, 100, tpc_utxo['scriptPubKey'])
         assert_equal(res1['color'], color_tcp_script)
+        assert_equal(len(res1['txids']), 2)
 
         node2_utxos = self.nodes[2].listunspent(3)
 
@@ -471,14 +475,13 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         res3 = self.nodes[2].issuetoken(3, 1, node2_utxos[2]['txid'], node2_utxos[2]['vout'])
         assert_equal(res3['color'], self.nodes[2].getcolor(3, node2_utxos[2]['txid'], node2_utxos[2]['vout']))
 
-        self.nodes[2].issuetoken(1, 100, tpc_utxo['scriptPubKey'])
-        assert_equal(res1['color'], color_tcp_script)
+        res4 = self.nodes[2].issuetoken(1, 100, tpc_utxo['scriptPubKey'])
+        assert_equal(res4['color'], color_tcp_script)
+        assert_equal(len(res4['txids']), 2)
 
-        self.nodes[2].issuetoken(1, 100, tpc_utxo['scriptPubKey'])
-        assert_equal(res1['color'], color_tcp_script)
-
-        #res4 = self.nodes[2].reissuetoken(color_tcp_script, 100)
-        #assert_equal(res4['color'], color_tcp_script)
+        res4 = self.nodes[2].issuetoken(1, 100, tpc_utxo['scriptPubKey'])
+        assert_equal(res4['color'], color_tcp_script)
+        assert_equal(len(res4['txids']), 2)
 
         self.nodes[2].generate(1, self.signblockprivkey_wif)
         self.sync_all([self.nodes[0:3]])
@@ -488,7 +491,6 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         assert_equal(walletinfo['balance'][res1['color']], 300)
         assert_equal(walletinfo['balance'][res2['color']], 100)
         assert_equal(walletinfo['balance'][res3['color']], 1)
-        #assert_equal(walletinfo['balance'][res4['color']], 200)
 
         #negative tests
         assert_raises_rpc_error(-8, "Unknown token type given", self.nodes[0].issuetoken, 4, 10, node2_utxos[4]['txid'], node2_utxos[4]['vout'])
