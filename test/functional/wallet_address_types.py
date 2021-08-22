@@ -44,6 +44,7 @@ from test_framework.util import (
     assert_greater_than,
     sync_blocks,
     sync_mempools,
+    assert_raises_rpc_error
 )
 
 class AddressTypeTest(BitcoinTestFramework):
@@ -174,6 +175,19 @@ class AddressTypeTest(BitcoinTestFramework):
         assert_equal(self.nodes[1].getbalance(), new_balances[1] + 1)
 
         self.test_change_output_type(0, [to_address])
+
+        assert_raises_rpc_error(-8, "Invalid color parameter", self.nodes[1].getnewaddress, '', 'c427282888')
+        assert_raises_rpc_error(-8, "Invalid color parameter", self.nodes[1].getnewaddress, 'c0', 'c027282888')
+        assert_raises_rpc_error(-8, "Invalid color parameter", self.nodes[1].getnewaddress, '', '27282888')
+        assert_raises_rpc_error(-1, "end of data", self.nodes[1].getnewaddress, '', 'c127282888')
+        assert_raises_rpc_error(-1, "end of data", self.nodes[1].getnewaddress, '', 'c10100')
+
+        assert_raises_rpc_error(-8, "Invalid color parameter", self.nodes[1].getrawchangeaddress, 'c427282888')
+        assert_raises_rpc_error(-8, "Invalid color parameter", self.nodes[1].getrawchangeaddress, 'c027282888')
+        assert_raises_rpc_error(-8, "Invalid color parameter", self.nodes[1].getrawchangeaddress, '27282888')
+        assert_raises_rpc_error(-1, "end of data", self.nodes[1].getrawchangeaddress, 'c127282888')
+        assert_raises_rpc_error(-1, "end of data", self.nodes[1].getrawchangeaddress, 'c10100')
+
 
 if __name__ == '__main__':
     AddressTypeTest().main()
