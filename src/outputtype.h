@@ -31,7 +31,6 @@ const std::string& FormatOutputType(OutputType type);
 
 /**
  * Get a destination of the requested type (if possible) to the specified key.
- * The caller must make sure LearnRelatedScripts has been called beforehand.
  */
 CTxDestination GetDestinationForKey(const CPubKey& key, OutputType);
 

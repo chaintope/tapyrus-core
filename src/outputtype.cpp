@@ -38,6 +38,7 @@ const std::string& FormatOutputType(OutputType type)
 CTxDestination GetDestinationForKey(const CPubKey& key, OutputType type)
 {
     switch (type) {
+    case OutputType::CHANGE_AUTO:
     case OutputType::LEGACY: return key.GetID();
     default: assert(false);
     }
