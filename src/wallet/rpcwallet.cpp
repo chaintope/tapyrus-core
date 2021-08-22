@@ -192,6 +192,8 @@ static UniValue getnewaddress(const JSONRPCRequest& request)
     {
         const std::vector<unsigned char> vColorId(ParseHex(request.params[1].get_str()));
         colorId = ColorIdentifier(vColorId);
+        if(colorId.type == TokenTypes::NONE)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid color parameter.");
     }
 
     if (!pwallet->IsLocked()) {
@@ -266,6 +268,8 @@ static UniValue getrawchangeaddress(const JSONRPCRequest& request)
     {
         const std::vector<unsigned char> vColorId(ParseHex(request.params[0].get_str()));
         colorId = ColorIdentifier(vColorId);
+        if(colorId.type == TokenTypes::NONE)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid color parameter.");
     }
 
     CReserveKey reservekey(pwallet);
@@ -979,7 +983,7 @@ static UniValue addmultisigaddress(const JSONRPCRequest& request)
         return NullUniValue;
     }
 
-    if (request.fHelp || request.params.size() < 1 || request.params.size() > 3) 
+    if (request.fHelp || request.params.size() < 1 || request.params.size() > 3)
         throw std::runtime_error("addmultisigaddress nrequired [\"key\",...] ( \"label\" )\n"
             "\nAdd a nrequired-to-sign multisignature address to the wallet. Requires a new wallet backup.\n"
             "Each key is a Tapyrus address or hex-encoded public key.\n"
