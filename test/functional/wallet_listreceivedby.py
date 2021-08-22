@@ -42,29 +42,23 @@ class ReceivedByTest(BitcoinTestFramework):
         assert_array_result(self.nodes[1].listreceivedbyaddress(),
                             {"address": addr},
                             {"address": addr, "label": "", "token": "TPC", "amount": Decimal("0.1"), "confirmations": 10, "txids": [txid, ]})
-        # With min confidence < 10
-        assert_array_result(self.nodes[1].listreceivedbyaddress(5),
-                            {"address": addr},
-                            {"address": addr, "label": "", "token": "TPC", "amount": Decimal("0.1"), "confirmations": 10, "txids": [txid, ]})
-        # With min confidence > 10, should not find Tx
-        assert_array_result(self.nodes[1].listreceivedbyaddress(11), {"address": addr}, {}, True)
 
         # Empty Tx
         empty_addr = self.nodes[1].getnewaddress()
-        assert_array_result(self.nodes[1].listreceivedbyaddress(0, True),
+        assert_array_result(self.nodes[1].listreceivedbyaddress(True),
                             {"address": empty_addr},
                             {"address": empty_addr, "label": "", "token": "TPC", "amount": 0, "confirmations": 0, "txids": []})
 
         # Test Address filtering
         # Only on addr
         expected = {"address": addr, "label": "", "token": "TPC", "amount": Decimal("0.1"), "confirmations": 10, "txids": [txid, ]}
-        res = self.nodes[1].listreceivedbyaddress(minconf=0, include_empty=True, include_watchonly=True, address_filter=addr)
+        res = self.nodes[1].listreceivedbyaddress(include_empty=True, include_watchonly=True, address_filter=addr)
         assert_array_result(res, {"address": addr}, expected)
         assert_equal(len(res), 1)
         # Error on invalid address
-        assert_raises_rpc_error(-4, "address_filter parameter was invalid", self.nodes[1].listreceivedbyaddress, minconf=0, include_empty=True, include_watchonly=True, address_filter="bamboozling")
+        assert_raises_rpc_error(-4, "address_filter parameter was invalid", self.nodes[1].listreceivedbyaddress, include_empty=True, include_watchonly=True, address_filter="bamboozling")
         # Another address receive money
-        res = self.nodes[1].listreceivedbyaddress(0, True, True)
+        res = self.nodes[1].listreceivedbyaddress(True, True)
         assert_equal(len(res), 2)  # Right now 2 entries
         other_addr = self.nodes[1].getnewaddress()
         txid2 = self.nodes[0].sendtoaddress(other_addr, 0.1)
@@ -72,21 +66,21 @@ class ReceivedByTest(BitcoinTestFramework):
         self.sync_all()
         # Same test as above should still pass
         expected = {"address": addr, "label": "", "token": "TPC", "amount": Decimal("0.1"), "confirmations": 11, "txids": [txid, ]}
-        res = self.nodes[1].listreceivedbyaddress(0, True, True, addr)
+        res = self.nodes[1].listreceivedbyaddress(True, True, addr)
         assert_array_result(res, {"address": addr}, expected)
         assert_equal(len(res), 1)
         # Same test as above but with other_addr should still pass
         expected = {"address": other_addr, "label": "", "token": "TPC", "amount": Decimal("0.1"), "confirmations": 1, "txids": [txid2, ]}
-        res = self.nodes[1].listreceivedbyaddress(0, True, True, other_addr)
+        res = self.nodes[1].listreceivedbyaddress(True, True, other_addr)
         assert_array_result(res, {"address": other_addr}, expected)
         assert_equal(len(res), 1)
         # Should be two entries though without filter
-        res = self.nodes[1].listreceivedbyaddress(0, True, True)
+        res = self.nodes[1].listreceivedbyaddress(True, True)
         assert_equal(len(res), 3)  # Became 3 entries
 
         # Not on random addr
         other_addr = self.nodes[0].getnewaddress()  # note on node[0]! just a random addr
-        res = self.nodes[1].listreceivedbyaddress(0, True, True, other_addr)
+        res = self.nodes[1].listreceivedbyaddress(True, True, other_addr)
         assert_equal(len(res), 0)
 
         self.log.info("getreceivedbyaddress Test")
@@ -101,7 +95,7 @@ class ReceivedByTest(BitcoinTestFramework):
         assert_equal(balance, Decimal("0.0"))
 
         # Check balance is 0.1
-        balance = self.nodes[1].getreceivedbyaddress(addr, 0)
+        balance = self.nodes[1].getunconfirmedbalance()
         assert_equal(balance, Decimal("0.1"))
 
         # Bury Tx under 10 block so it will be returned by the default getreceivedbyaddress
@@ -148,7 +142,7 @@ class ReceivedByTest(BitcoinTestFramework):
         # Create a new label named "mynewlabel" that has a 0 balance
         address = self.nodes[1].getnewaddress()
         self.nodes[1].setlabel(address, "mynewlabel")
-        received_by_label_json = [r for r in self.nodes[1].listreceivedbylabel(0, True) if r["label"] == "mynewlabel"][0]
+        received_by_label_json = [r for r in self.nodes[1].listreceivedbylabel(True) if r["label"] == "mynewlabel"][0]
 
         # Test includeempty of listreceivedbylabel
         assert_equal(received_by_label_json["amount"], Decimal("0.0"))
