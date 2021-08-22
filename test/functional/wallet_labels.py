@@ -62,8 +62,7 @@ class WalletLabelsTest(BitcoinTestFramework):
         common_address = "msf4WtN1YQKXvNtvdFYt9JBnUD2FB41kjr"
         txid = node.sendmany(
             amounts={common_address: 100},
-            subtractfeefrom=[common_address],
-            minconf=1,
+            subtractfeefrom=[common_address]
         )
         tx_details = node.gettransaction(txid)
         fee = -tx_details['details'][0]['fee']
