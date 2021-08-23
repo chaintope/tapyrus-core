@@ -624,13 +624,13 @@ static UniValue decodescript(const JSONRPCRequest& request)
     UniValue type;
     type = find_value(r, "type");
 
-    if (type.isStr() && type.get_str() != "scripthash") {
+    if (type.isStr() && type.get_str() != "scripthash" && type.get_str() != "coloredscripthash") {
         // P2SH cannot be wrapped in a P2SH. If this script is already a P2SH,
         // don't return the address for a P2SH of the P2SH.
         r.pushKV("p2sh", EncodeDestination(CScriptID(script)));
         // P2SH and witness programs cannot be wrapped in P2WSH, if this script
         // is a witness program, don't return addresses for a segwit programs.
-        if (type.get_str() == "pubkey" || type.get_str() == "pubkeyhash" || type.get_str() == "multisig" || type.get_str() == "nonstandard") {
+        if (type.get_str() == "pubkey" || type.get_str() == "pubkeyhash" || type.get_str() == "multisig" || type.get_str() == "coloredpubkeyhash" || type.get_str() == "nonstandard") {
             txnouttype which_type;
             std::vector<std::vector<unsigned char>> solutions_data;
             Solver(script, which_type, solutions_data);
@@ -643,6 +643,8 @@ static UniValue decodescript(const JSONRPCRequest& request)
                     }
                 }
             }
+            else if(which_type == TX_COLOR_PUBKEYHASH)
+                r.pushKV("token", GetColorIdFromScript(script).toHexString());
         }
     }
 

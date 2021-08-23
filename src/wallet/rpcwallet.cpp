@@ -674,7 +674,13 @@ static UniValue getreceivedbyaddress(const JSONRPCRequest& request)
                     nAmount += txout.nValue;
     }
 
-    return  ValueFromAmount(nAmount);
+    ColorIdentifier colorId;
+    if(dest.which() == 3)
+        colorId = boost::get<CColorKeyID>(dest).color;
+    else if(dest.which() == 4)
+        colorId = boost::get<CColorScriptID>(dest).color;
+
+    return colorId.type == TokenTypes::NONE ? ValueFromAmount(nAmount) : nAmount;
 }
 
 
@@ -3550,6 +3556,8 @@ UniValue getaddressinfo(const JSONRPCRequest& request)
 
     std::string currentAddress = EncodeDestination(dest);
     ret.pushKV("address", currentAddress);
+
+    addTokenKV(dest, 0, ret);
 
     CScript scriptPubKey = GetScriptForDestination(dest);
     ret.pushKV("scriptPubKey", HexStr(scriptPubKey.begin(), scriptPubKey.end()));
