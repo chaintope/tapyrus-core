@@ -213,8 +213,6 @@ DEBUG_MODE_SCRIPTS = [
     'feature_segwit.py  --scheme SCHNORR',
     'mempool_limit.py',
     'mempool_limit.py  --scheme SCHNORR',
-    'mining_prioritisetransaction.py',
-    'mining_prioritisetransaction.py --scheme SCHNORR',
     'p2p_compactblocks.py',
     'p2p_segwit.py',
     'wallet_basic.py',

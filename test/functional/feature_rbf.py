@@ -110,9 +110,6 @@ class ReplaceByFeeTest(BitcoinTestFramework):
         self.log.info("Running test RPC...")
         self.test_rpc()
 
-        self.log.info("Running test prioritised transactions...")
-        self.test_prioritised_transactions()
-
         self.log.info("Passed")
 
     def test_simple_doublespend(self):
@@ -486,63 +483,6 @@ class ReplaceByFeeTest(BitcoinTestFramework):
         # If tx3b was accepted, tx3c won't look like a replacement,
         # but make sure it is accepted anyway
         self.nodes[0].sendrawtransaction(tx3c_hex, True)
-
-    def test_prioritised_transactions(self):
-        # Ensure that fee deltas used via prioritisetransaction are
-        # correctly used by replacement logic
-
-        # 1. Check that feeperkb uses modified fees
-        tx0_outpoint = make_utxo(self.nodes[0], int(1.1*COIN))
-
-        tx1a = CTransaction()
-        tx1a.vin = [CTxIn(tx0_outpoint, nSequence=0)]
-        tx1a.vout = [CTxOut(1 * COIN, CScript([b'a' * 35]))]
-        tx1a_hex = txToHex(tx1a)
-        tx1a_txid = self.nodes[0].sendrawtransaction(tx1a_hex, True)
-
-        # Higher fee, but the actual fee per KB is much lower.
-        tx1b = CTransaction()
-        tx1b.vin = [CTxIn(tx0_outpoint, nSequence=0)]
-        tx1b.vout = [CTxOut(int(0.001*COIN), CScript([b'a'*740000]))]
-        tx1b_hex = txToHex(tx1b)
-
-        # Verify tx1b cannot replace tx1a.
-        assert_raises_rpc_error(-26, "insufficient fee", self.nodes[0].sendrawtransaction, tx1b_hex, True)
-
-        # Use prioritisetransaction to set tx1a's fee to 0.
-        self.nodes[0].prioritisetransaction(txid=tx1a_txid, fee_delta=int(-0.1*COIN))
-
-        # Now tx1b should be able to replace tx1a
-        tx1b_txid = self.nodes[0].sendrawtransaction(tx1b_hex, True)
-
-        assert(tx1b_txid in self.nodes[0].getrawmempool())
-
-        # 2. Check that absolute fee checks use modified fee.
-        tx1_outpoint = make_utxo(self.nodes[0], int(1.1*COIN))
-
-        tx2a = CTransaction()
-        tx2a.vin = [CTxIn(tx1_outpoint, nSequence=0)]
-        tx2a.vout = [CTxOut(1 * COIN, CScript([b'a' * 35]))]
-        tx2a_hex = txToHex(tx2a)
-        self.nodes[0].sendrawtransaction(tx2a_hex, True)
-
-        # Lower fee, but we'll prioritise it
-        tx2b = CTransaction()
-        tx2b.vin = [CTxIn(tx1_outpoint, nSequence=0)]
-        tx2b.vout = [CTxOut(int(1.01 * COIN), CScript([b'a' * 35]))]
-        tx2b.rehash()
-        tx2b_hex = txToHex(tx2b)
-
-        # Verify tx2b cannot replace tx2a.
-        assert_raises_rpc_error(-26, "insufficient fee", self.nodes[0].sendrawtransaction, tx2b_hex, True)
-
-        # Now prioritise tx2b to have a higher modified fee
-        self.nodes[0].prioritisetransaction(txid=tx2b.hash, fee_delta=int(0.1*COIN))
-
-        # tx2b should now be accepted
-        tx2b_txid = self.nodes[0].sendrawtransaction(tx2b_hex, True)
-
-        assert(tx2b_txid in self.nodes[0].getrawmempool())
 
     def test_rpc(self):
         us0 = self.nodes[0].listunspent()[0]
