@@ -373,7 +373,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         rawtx = self.nodes[0].createrawtransaction(inputs, outputs)
         fundedTx = self.nodes[0].fundrawtransaction(rawtx)
         #create same transaction over sendtoaddress
-        txId = self.nodes[0].sendmany("", outputs)
+        txId = self.nodes[0].sendmany(outputs)
         signedFee = self.nodes[0].getrawmempool(True)[txId]['fee']
 
         #compare fee
@@ -570,7 +570,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         fundedTx = self.nodes[1].fundrawtransaction(rawtx)
 
         #create same transaction over sendtoaddress
-        txId = self.nodes[1].sendmany("", outputs)
+        txId = self.nodes[1].sendmany(outputs)
         signedFee = self.nodes[1].getrawmempool(True)[txId]['fee']
 
         #compare fee

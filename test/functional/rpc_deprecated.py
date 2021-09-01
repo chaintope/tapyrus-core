@@ -53,57 +53,25 @@ class DeprecatedRpcTest(BitcoinTestFramework):
         address1 = self.nodes[1].getnewaddress()
         self.nodes[1].generatetoaddress(101, address1, self.signblockprivkey_wif)
 
-        self.log.info("- getaccount")
-        assert_raises_rpc_error(-32, "getaccount is deprecated", self.nodes[0].getaccount, address0)
-        self.nodes[1].getaccount(address1)
-
-        self.log.info("- setaccount")
-        assert_raises_rpc_error(-32, "setaccount is deprecated", self.nodes[0].setaccount, address0, "label0")
-        self.nodes[1].setaccount(address1, "label1")
-
         self.log.info("- setlabel")
         self.nodes[0].setlabel(address0, "label0")
         self.nodes[1].setlabel(address1, "label1")
-
-        self.log.info("- getaccountaddress")
-        assert_raises_rpc_error(-32, "getaccountaddress is deprecated", self.nodes[0].getaccountaddress, "label0")
-        self.nodes[1].getaccountaddress("label1")
-
-        self.log.info("- getaddressesbyaccount")
-        assert_raises_rpc_error(-32, "getaddressesbyaccount is deprecated", self.nodes[0].getaddressesbyaccount, "label0")
-        self.nodes[1].getaddressesbyaccount("label1")
 
         self.log.info("- getaddressesbylabel")
         self.nodes[0].getaddressesbylabel("label0")
         self.nodes[1].getaddressesbylabel("label1")
 
-        self.log.info("- getreceivedbyaccount")
-        assert_raises_rpc_error(-32, "getreceivedbyaccount is deprecated", self.nodes[0].getreceivedbyaccount, "label0")
-        self.nodes[1].getreceivedbyaccount("label1")
-
         self.log.info("- getreceivedbylabel")
         self.nodes[0].getreceivedbylabel("label0")
         self.nodes[1].getreceivedbylabel("label1")
-
-        self.log.info("- listaccounts")
-        assert_raises_rpc_error(-32, "listaccounts is deprecated", self.nodes[0].listaccounts)
-        self.nodes[1].listaccounts()
 
         self.log.info("- listlabels")
         self.nodes[0].listlabels()
         self.nodes[1].listlabels()
 
-        self.log.info("- listreceivedbyaccount")
-        assert_raises_rpc_error(-32, "listreceivedbyaccount is deprecated", self.nodes[0].listreceivedbyaccount)
-        self.nodes[1].listreceivedbyaccount()
-
         self.log.info("- listreceivedbylabel")
         self.nodes[0].listreceivedbylabel()
         self.nodes[1].listreceivedbylabel()
-
-        self.log.info("- move")
-        assert_raises_rpc_error(-32, "move is deprecated", self.nodes[0].move, "label0", "label0b", 10)
-        self.nodes[1].move("label1", "label1b", 10)
 
 if __name__ == '__main__':
     DeprecatedRpcTest().main()

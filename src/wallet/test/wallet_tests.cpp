@@ -290,7 +290,7 @@ public:
         CCoinControl dummy;
         BOOST_CHECK(wallet->CreateTransaction({recipient}, tx, reservekey, fee, mapChangePosRet, error, dummy));
         CValidationState state;
-        BOOST_CHECK(wallet->CommitTransaction(tx, {}, {}, {}, reservekey, nullptr, state));
+        BOOST_CHECK(wallet->CommitTransaction(tx, {}, {}, reservekey, nullptr, state));
         CMutableTransaction blocktx;
         {
             LOCK(wallet->cs_wallet);
