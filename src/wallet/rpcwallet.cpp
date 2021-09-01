@@ -4231,7 +4231,7 @@ static UniValue IssueReissuableToken(CWallet* const pwallet, const std::string& 
         }
         CValidationState state;
         mapValue_t mapValue;
-        if (!pwallet->CommitTransaction(tx1, std::move(mapValue), {} /* orderForm */, {} /* std::move(fromAccount)*/, reservekey, g_connman.get(), state)) {
+        if (!pwallet->CommitTransaction(tx1, std::move(mapValue), {} /* orderForm */, reservekey, g_connman.get(), state)) {
             strError = strprintf("Error: The transaction was rejected! Reason given: %s", FormatStateMessage(state));
             throw JSONRPCError(RPC_WALLET_ERROR, strError);
         }
@@ -4279,7 +4279,7 @@ static UniValue IssueReissuableToken(CWallet* const pwallet, const std::string& 
         }
         CValidationState state;
         mapValue_t mapValue;
-        if (!pwallet->CommitTransaction(tx2, std::move(mapValue), {} /* orderForm */, {} /* std::move(fromAccount)*/, reservekey, g_connman.get(), state)) {
+        if (!pwallet->CommitTransaction(tx2, std::move(mapValue), {} /* orderForm */, reservekey, g_connman.get(), state)) {
             strError = strprintf("Error: The transaction was rejected! Reason given: %s", FormatStateMessage(state));
             throw JSONRPCError(RPC_WALLET_ERROR, strError);
         }
@@ -4331,7 +4331,7 @@ static UniValue IssueToken(CWallet* const pwallet, CAmount tokenValue, CCoinCont
     }
     CValidationState state;
     mapValue_t mapValue;
-    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, {} /* std::move(fromAccount)*/, reservekey, g_connman.get(), state)) {
+    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, reservekey, g_connman.get(), state)) {
         strError = strprintf("Error: The transaction was rejected! Reason given: %s", FormatStateMessage(state));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
