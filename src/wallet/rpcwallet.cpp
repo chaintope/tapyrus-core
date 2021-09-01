@@ -4313,9 +4313,6 @@ static UniValue IssueToken(CWallet* const pwallet, CAmount tokenValue, CCoinCont
     CColorScriptID colorscriptid(CScriptID(redeemScript), coin_control.m_colorId);
     CTxDestination colorDest = CColorScriptID(colorscriptid, coin_control.m_colorId);
 
-    //setting the lable as colorid
-    pwallet->SetAddressBook(colorDest, "", "issue");
-
     CScript scriptpubkey = GetScriptForDestination(colorDest);
 
     // Create and send the transaction
