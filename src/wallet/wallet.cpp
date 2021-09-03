@@ -157,25 +157,6 @@ public:
         if (keystore.GetCScript(cscriptId, script))
             Process(script);
     }
-#ifdef DEBUG
-    void operator()(const WitnessV0ScriptHash& scriptID)
-    {
-        CScriptID id;
-        CRIPEMD160().Write(scriptID.begin(), 32).Finalize(id.begin());
-        CScript script;
-        if (keystore.GetCScript(id, script)) {
-            Process(script);
-        }
-    }
-
-    void operator()(const WitnessV0KeyHash& keyid)
-    {
-        CKeyID id(keyid);
-        if (keystore.HaveKey(id)) {
-            vKeys.push_back(id);
-        }
-    }
-#endif
 
     template<typename X>
     void operator()(const X &none) {}
@@ -984,15 +965,6 @@ bool CWallet::AddToWallet(const CWalletTx& wtxIn, bool fFlushOnClose)
         if (wtxIn.fFromMe && wtxIn.fFromMe != wtx.fFromMe)
         {
             wtx.fFromMe = wtxIn.fFromMe;
-            fUpdated = true;
-        }
-        // If we have a witness-stripped version of this transaction, and we
-        // see a new version with a witness, then we must be upgrading a pre-segwit
-        // wallet.  Store the new version of the transaction with the witness,
-        // as the stripped-version must be invalid.
-        // TODO: Store all versions of the transaction, instead of just one.
-        if (wtxIn.tx->HasWitness() && !wtx.tx->HasWitness()) {
-            wtx.SetTx(wtxIn.tx);
             fUpdated = true;
         }
     }
@@ -2309,7 +2281,15 @@ void CWallet::AvailableCoins(std::vector<COutput> &vCoins, bool fOnlySafe, const
             bool solvable = IsSolvable(*this, pcoin->tx->vout[i].scriptPubKey);
             bool spendable = ((mine & ISMINE_SPENDABLE) != ISMINE_NO) || (((mine & ISMINE_WATCH_ONLY) != ISMINE_NO) && (coinControl && coinControl->fAllowWatchOnly && solvable));
 
-            vCoins.push_back(COutput(pcoin, i, nDepth, spendable, solvable, safeTx, (coinControl && coinControl->fAllowWatchOnly)));
+            if(coinControl && coinControl->m_colorTxType == ColoredTxType::ISSUE
+                           && coinControl->m_colorId.type == TokenTypes::REISSUABLE
+                           && colorId.type == TokenTypes::NONE)
+            {
+                if(coinControl->m_colorId == ColorIdentifier(pcoin->tx->vout[i].scriptPubKey) )
+                    vCoins.push_back(COutput(pcoin, i, nDepth, spendable, solvable, safeTx, (coinControl && coinControl->fAllowWatchOnly)));
+            }
+            else
+                vCoins.push_back(COutput(pcoin, i, nDepth, spendable, solvable, safeTx, (coinControl && coinControl->fAllowWatchOnly)));
 
             // Checks the sum amount of all UTXO's.
             if (nMinimumSumAmount != MAX_MONEY) {
@@ -2641,17 +2621,6 @@ OutputType CWallet::TransactionChangeType(OutputType change_type, const std::vec
         return OutputType::LEGACY;
     }
 
-    // if any destination is P2WPKH or P2WSH, use P2WPKH for the change
-    // output.
-    for (const auto& recipient : vecSend) {
-        // Check if any destination contains a witness program:
-        int witnessversion = 0;
-        std::vector<unsigned char> witnessprogram;
-        if (recipient.scriptPubKey.IsWitnessProgram(witnessversion, witnessprogram)) {
-            return OutputType::LEGACY;
-        }
-    }
-
     // else use m_default_address_type for change
     return m_default_address_type;
 }
@@ -2798,7 +2767,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 bool fFirst = true;
 
                 // vouts to the payees
-                coin_selection_params.tx_noinputs_size = 11; // Static vsize overhead + outputs vsize. 4 nVersion, 4 nLocktime, 1 input count, 1 output count, 1 witness overhead (dummy, flag, stack size)
+                coin_selection_params.tx_noinputs_size = 10; // Static vsize overhead + outputs vsize. 4 nVersion, 4 nLocktime, 1 input count, 1 output count
                 for (const auto& recipient : vecSend)
                 {
                     CTxOut txout(recipient.nAmount, recipient.scriptPubKey);
@@ -2831,8 +2800,8 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                         return false;
                     }
                     //if this is a token burn transaction the amount in the transaction is meant to be dropped. so no output is added. for other transaction types the output is added
-                    if(coin_control.colorTxType != ColoredTxType::BURN ||
-                        (coin_control.colorTxType == ColoredTxType::BURN &&
+                    if(coin_control.m_colorTxType != ColoredTxType::BURN ||
+                        (coin_control.m_colorTxType == ColoredTxType::BURN &&
                         !recipient.scriptPubKey.IsColoredScript()))
                             txNew.vout.push_back(txout);
                 }
@@ -2848,7 +2817,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     for (const auto& i : mapValue) {
                         //if this token issue we need not do select coin using the colorid
                         //as the token is not in the wallet yet. it is just being issued
-                        if(coin_control.colorTxType == ColoredTxType::ISSUE 
+                        if(coin_control.m_colorTxType == ColoredTxType::ISSUE 
                                      && i.first.type != TokenTypes::NONE)
                             continue;
 

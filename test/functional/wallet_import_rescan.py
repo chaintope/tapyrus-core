@@ -69,7 +69,7 @@ class Variant(collections.namedtuple("Variant", "call data rescan prune")):
     def check(self, txid=None, amount=None, confirmations=None):
         """Verify that listreceivedbyaddress returns expected values."""
 
-        addresses = self.node.listreceivedbyaddress(minconf=0, include_watchonly=True, address_filter=self.address['address'])
+        addresses = self.node.listreceivedbyaddress(include_watchonly=True, address_filter=self.address['address'])
         if self.expected_txs:
             assert_equal(len(addresses[0]["txids"]), self.expected_txs)
 
@@ -111,7 +111,7 @@ class ImportRescanTest(BitcoinTestFramework):
         self.num_nodes = 2 + len(IMPORT_NODES)
 
     def setup_network(self):
-        extra_args = [["-addresstype=legacy"] for _ in range(self.num_nodes)]
+        extra_args = [[] for _ in range(self.num_nodes)]
         for i, import_node in enumerate(IMPORT_NODES, 2):
             if import_node.prune:
                 extra_args[i] += ["-prune=1"]
