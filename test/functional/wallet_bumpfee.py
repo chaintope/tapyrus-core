@@ -200,7 +200,7 @@ def test_unconfirmed_not_spendable(rbf_node, rbf_node_address, signblockprivkey,
 
     # check that outputs from the bump transaction are not spendable
     # due to the replaces_txid check in CWallet::AvailableCoins
-    assert_equal([t for t in rbf_node.listunspent(minconf=0, include_unsafe=False) if t["txid"] == bumpid], [])
+    assert_equal([t for t in rbf_node.listunspent(include_unsafe=False) if t["txid"] == bumpid], [])
 
     # submit a block with the rbf tx to clear the bump tx out of the mempool,
     # then invalidate the block so the rbf tx will be put back in the mempool.
@@ -219,12 +219,12 @@ def test_unconfirmed_not_spendable(rbf_node, rbf_node_address, signblockprivkey,
     # check that outputs from the rbf tx are not spendable before the
     # transaction is confirmed, due to the replaced_by_txid check in
     # CWallet::AvailableCoins
-    assert_equal([t for t in rbf_node.listunspent(minconf=0, include_unsafe=False) if t["txid"] == rbfid], [])
+    assert_equal([t for t in rbf_node.listunspent(include_unsafe=False) if t["txid"] == rbfid], [])
 
     # check that the main output from the rbf tx is spendable after confirmed
     rbf_node.generate(1, signblockprivkey_wif)
     assert_equal(
-        sum(1 for t in rbf_node.listunspent(minconf=0, include_unsafe=False)
+        sum(1 for t in rbf_node.listunspent(include_unsafe=False)
             if t["txid"] == rbfid and t["address"] == rbf_node_address and t["spendable"]), 1)
 
 
