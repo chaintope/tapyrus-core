@@ -94,11 +94,8 @@ typedef std::pair<CPubKey, std::vector<unsigned char>> SigPair;
 // in order to construct final scriptSigs and scriptWitnesses.
 struct SignatureData {
     bool complete = false; ///< Stores whether the scriptSig and scriptWitness are complete
-    bool witness = false; ///< Stores whether the input this SigData corresponds to is a witness input
     CScript scriptSig; ///< The scriptSig of an input. Contains complete signatures or the traditional partial signatures format
     CScript redeem_script; ///< The redeemScript (if any) for the input
-    CScript witness_script; ///< The witnessScript (if any) for the input. witnessScripts are used in P2WSH outputs.
-    CScriptWitness scriptWitness; ///< The scriptWitness of an input. Contains complete signatures or the traditional partial signatures format. scriptWitness is part of a transaction input per BIP 144.
     std::map<CKeyID, SigPair> signatures; ///< BIP 174 style partial signatures for the input. May contain all signatures necessary for producing a final scriptSig or scriptWitness.
     std::map<CKeyID, CPubKey> misc_pubkeys;
 
@@ -115,18 +112,14 @@ static constexpr uint8_t PSBT_GLOBAL_UNSIGNED_TX = 0x00;
 
 // Input types
 static constexpr uint8_t PSBT_IN_NON_WITNESS_UTXO = 0x00;
-static constexpr uint8_t PSBT_IN_WITNESS_UTXO = 0x01;
 static constexpr uint8_t PSBT_IN_PARTIAL_SIG = 0x02;
 static constexpr uint8_t PSBT_IN_SIGHASH = 0x03;
 static constexpr uint8_t PSBT_IN_REDEEMSCRIPT = 0x04;
-static constexpr uint8_t PSBT_IN_WITNESSSCRIPT = 0x05;
 static constexpr uint8_t PSBT_IN_BIP32_DERIVATION = 0x06;
 static constexpr uint8_t PSBT_IN_SCRIPTSIG = 0x07;
-static constexpr uint8_t PSBT_IN_SCRIPTWITNESS = 0x08;
 
 // Output types
 static constexpr uint8_t PSBT_OUT_REDEEMSCRIPT = 0x00;
-static constexpr uint8_t PSBT_OUT_WITNESSSCRIPT = 0x01;
 static constexpr uint8_t PSBT_OUT_BIP32_DERIVATION = 0x02;
 
 // The separator is 0x00. Reading this in means that the unserializer can interpret it
@@ -202,11 +195,8 @@ void SerializeHDKeypaths(Stream& s, const std::map<CPubKey, std::vector<uint32_t
 struct PSBTInput
 {
     CTransactionRef non_witness_utxo;
-    CTxOut witness_utxo;
     CScript redeem_script;
-    CScript witness_script;
     CScript final_script_sig;
-    CScriptWitness final_script_witness;
     std::map<CPubKey, std::vector<uint32_t>> hd_keypaths;
     std::map<CKeyID, SigPair> partial_sigs;
     std::map<std::vector<unsigned char>, std::vector<unsigned char>> unknown;
@@ -227,12 +217,9 @@ struct PSBTInput
             SerializeToVector(s, PSBT_IN_NON_WITNESS_UTXO);
             OverrideStream<Stream> os(&s, s.GetType(), s.GetVersion() | SERIALIZE_TRANSACTION_NO_WITNESS);
             SerializeToVector(os, non_witness_utxo);
-        } else if (!witness_utxo.IsNull()) {
-            SerializeToVector(s, PSBT_IN_WITNESS_UTXO);
-            SerializeToVector(s, witness_utxo);
         }
 
-        if (final_script_sig.empty() && final_script_witness.IsNull()) {
+        if (final_script_sig.empty()) {
             // Write any partial signatures
             for (auto sig_pair : partial_sigs) {
                 SerializeToVector(s, PSBT_IN_PARTIAL_SIG, MakeSpan(sig_pair.second.first));
@@ -251,12 +238,6 @@ struct PSBTInput
                 s << redeem_script;
             }
 
-            // Write the witness script
-            if (!witness_script.empty()) {
-                SerializeToVector(s, PSBT_IN_WITNESSSCRIPT);
-                s << witness_script;
-            }
-
             // Write any hd keypaths
             SerializeHDKeypaths(s, hd_keypaths, PSBT_IN_BIP32_DERIVATION);
         }
@@ -265,11 +246,6 @@ struct PSBTInput
         if (!final_script_sig.empty()) {
             SerializeToVector(s, PSBT_IN_SCRIPTSIG);
             s << final_script_sig;
-        }
-        // write script witness
-        if (!final_script_witness.IsNull()) {
-            SerializeToVector(s, PSBT_IN_SCRIPTWITNESS);
-            SerializeToVector(s, final_script_witness.stack);
         }
 
         // Write unknown things
@@ -311,14 +287,6 @@ struct PSBTInput
                     UnserializeFromVector(os, non_witness_utxo);
                     break;
                 }
-                case PSBT_IN_WITNESS_UTXO:
-                    if (!witness_utxo.IsNull()) {
-                        throw std::ios_base::failure("Duplicate Key, input witness utxo already provided");
-                    } else if (key.size() != 1) {
-                        throw std::ios_base::failure("Witness utxo key is more than one byte type");
-                    }
-                    UnserializeFromVector(s, witness_utxo);
-                    break;
                 case PSBT_IN_PARTIAL_SIG:
                 {
                     // Make sure that the key is the size of pubkey + 1
@@ -360,16 +328,6 @@ struct PSBTInput
                     s >> redeem_script;
                     break;
                 }
-                case PSBT_IN_WITNESSSCRIPT:
-                {
-                    if (!witness_script.empty()) {
-                        throw std::ios_base::failure("Duplicate Key, input witnessScript already provided");
-                    } else if (key.size() != 1) {
-                        throw std::ios_base::failure("Input witnessScript key is more than one byte type");
-                    }
-                    s >> witness_script;
-                    break;
-                }
                 case PSBT_IN_BIP32_DERIVATION:
                 {
                     DeserializeHDKeypaths(s, key, hd_keypaths);
@@ -383,16 +341,6 @@ struct PSBTInput
                         throw std::ios_base::failure("Final scriptSig key is more than one byte type");
                     }
                     s >> final_script_sig;
-                    break;
-                }
-                case PSBT_IN_SCRIPTWITNESS:
-                {
-                    if (!final_script_witness.IsNull()) {
-                        throw std::ios_base::failure("Duplicate Key, input final scriptWitness already provided");
-                    } else if (key.size() != 1) {
-                        throw std::ios_base::failure("Final scriptWitness key is more than one byte type");
-                    }
-                    UnserializeFromVector(s, final_script_witness.stack);
                     break;
                 }
                 // Unknown stuff
@@ -419,7 +367,6 @@ struct PSBTInput
 struct PSBTOutput
 {
     CScript redeem_script;
-    CScript witness_script;
     std::map<CPubKey, std::vector<uint32_t>> hd_keypaths;
     std::map<std::vector<unsigned char>, std::vector<unsigned char>> unknown;
 
@@ -436,12 +383,6 @@ struct PSBTOutput
         if (!redeem_script.empty()) {
             SerializeToVector(s, PSBT_OUT_REDEEMSCRIPT);
             s << redeem_script;
-        }
-
-        // Write the witness script
-        if (!witness_script.empty()) {
-            SerializeToVector(s, PSBT_OUT_WITNESSSCRIPT);
-            s << witness_script;
         }
 
         // Write any hd keypaths
@@ -482,16 +423,6 @@ struct PSBTOutput
                         throw std::ios_base::failure("Output redeemScript key is more than one byte type");
                     }
                     s >> redeem_script;
-                    break;
-                }
-                case PSBT_OUT_WITNESSSCRIPT:
-                {
-                    if (!witness_script.empty()) {
-                        throw std::ios_base::failure("Duplicate Key, output witnessScript already provided");
-                    } else if (key.size() != 1) {
-                        throw std::ios_base::failure("Output witnessScript key is more than one byte type");
-                    }
-                    s >> witness_script;
                     break;
                 }
                 case PSBT_OUT_BIP32_DERIVATION:
@@ -615,8 +546,8 @@ struct PartiallySignedTransaction
                     tx = std::move(mtx);
                     // Make sure that all scriptSigs and scriptWitnesses are empty
                     for (const CTxIn& txin : tx->vin) {
-                        if (!txin.scriptSig.empty() || !txin.scriptWitness.IsNull()) {
-                            throw std::ios_base::failure("Unsigned tx does not have empty scriptSigs and scriptWitnesses.");
+                        if (!txin.scriptSig.empty()) {
+                            throw std::ios_base::failure("Unsigned tx does not have empty scriptSigs.");
                         }
                     }
                     break;

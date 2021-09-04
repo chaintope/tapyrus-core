@@ -3871,7 +3871,6 @@ bool FillPSBT(const CWallet* pwallet, PartiallySignedTransaction& psbtx, const C
             CTxOut utxo = wtx.tx->vout[txin.prevout.n];
             // Update both UTXOs from the wallet.
             input.non_witness_utxo = wtx.tx;
-            input.witness_utxo = utxo;
         }
 
         // Get the Sighash type
@@ -3886,14 +3885,6 @@ bool FillPSBT(const CWallet* pwallet, PartiallySignedTransaction& psbtx, const C
             complete &= SignPSBTInput(PublicOnlySigningProvider(pwallet), *psbtx.tx, input, sigdata, i, sighash_type);
         }
 
-        if (it != pwallet->mapWallet.end()) {
-            // Drop the unnecessary UTXO if we added both from the wallet.
-            if (sigdata.witness) {
-                input.non_witness_utxo = nullptr;
-            } else {
-                input.witness_utxo.SetNull();
-            }
-        }
 
         // Get public key paths
         if (bip32derivs) {

@@ -25,7 +25,6 @@ enum class IsMineSigVersion
 {
     TOP = 0,        //! scriptPubKey execution
     P2SH = 1,       //! P2SH redeemScript
-    WITNESS_V0 = 2  //! P2WSH witness script execution
 };
 
 /**

@@ -78,9 +78,6 @@ public:
  *  * CScriptID: TX_SCRIPTHASH destination (P2SH)
  *  * CColorKeyID: TX_COLOR_SCRIPTHASH destination (CP2PKH)
  *  * CColorScriptID: TX_COLOR_SCRIPTHASH destination (CP2SH)
- *  * WitnessV0ScriptHash: TX_WITNESS_V0_SCRIPTHASH destination (P2WSH)
- *  * WitnessV0KeyHash: TX_WITNESS_V0_KEYHASH destination (P2WPKH)
- *  * WitnessUnknown: TX_WITNESS_UNKNOWN destination (P2W???)
  *  A CTxDestination is the internal data type encoded in a bitcoin address
  */
 

@@ -14,9 +14,6 @@
 #include <assert.h>
 #include <string>
 
-static const std::string OUTPUT_TYPE_STRING_LEGACY = "legacy";
-static const std::string OUTPUT_TYPE_STRING_P2SH_SEGWIT = "p2sh-segwit";
-static const std::string OUTPUT_TYPE_STRING_BECH32 = "bech32";
 
 bool ParseOutputType(const std::string& type, OutputType& output_type)
 {
