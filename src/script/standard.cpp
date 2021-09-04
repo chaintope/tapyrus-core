@@ -383,11 +383,6 @@ CScript GetScriptForMultisig(int nRequired, const std::vector<CPubKey>& keys)
     return script;
 }
 
-CScript GetScriptForWitness(const CScript& redeemscript)
-{
-    return CScript();
-}
-
 bool IsValidDestination(const CTxDestination& dest) {
     return dest.which() != 0;
 }
