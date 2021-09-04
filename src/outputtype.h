@@ -14,8 +14,6 @@
 
 enum class OutputType {
     LEGACY,
-    P2SH_SEGWIT,
-    BECH32,
 
     /**
      * Special output type for change outputs only. Automatically choose type
@@ -25,9 +23,6 @@ enum class OutputType {
      */
     CHANGE_AUTO,
 };
-
-bool ParseOutputType(const std::string& str, OutputType& output_type);
-const std::string& FormatOutputType(OutputType type);
 
 /**
  * Get a destination of the requested type (if possible) to the specified key.

@@ -15,23 +15,6 @@
 #include <string>
 
 
-bool ParseOutputType(const std::string& type, OutputType& output_type)
-{
-    if (type == OUTPUT_TYPE_STRING_LEGACY) {
-        output_type = OutputType::LEGACY;
-        return true;
-    } 
-    return false;
-}
-
-const std::string& FormatOutputType(OutputType type)
-{
-    switch (type) {
-    case OutputType::LEGACY: return OUTPUT_TYPE_STRING_LEGACY;
-    default: assert(false);
-    }
-}
-
 CTxDestination GetDestinationForKey(const CPubKey& key, OutputType type)
 {
     switch (type) {

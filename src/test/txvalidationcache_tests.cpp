@@ -167,7 +167,6 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
     CScript p2pk_scriptPubKey = CScript() << ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG;
     CScript p2sh_scriptPubKey = GetScriptForDestination(CScriptID(p2pk_scriptPubKey));
     CScript p2pkh_scriptPubKey = GetScriptForDestination(coinbaseKey.GetPubKey().GetID());
-    CScript p2wpkh_scriptPubKey = GetScriptForWitness(p2pkh_scriptPubKey);
 
     CBasicKeyStore keystore;
     keystore.AddKey(coinbaseKey);
@@ -192,8 +191,6 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
         spend_tx.vout[0].nValue = 11*CENT;
         spend_tx.vout[0].scriptPubKey = p2sh_scriptPubKey;
         spend_tx.vout[1].nValue = 11*CENT;
-        spend_tx.vout[1].scriptPubKey = p2wpkh_scriptPubKey;
-        spend_tx.vout[2].nValue = 11*CENT;
         spend_tx.vout[2].scriptPubKey = CScript() << OP_CHECKLOCKTIMEVERIFY << OP_DROP << ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG;
         spend_tx.vout[3].nValue = 11*CENT;
         spend_tx.vout[3].scriptPubKey = CScript() << OP_CHECKSEQUENCEVERIFY << OP_DROP << ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG;

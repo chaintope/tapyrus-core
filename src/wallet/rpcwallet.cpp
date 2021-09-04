@@ -2893,9 +2893,6 @@ void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& f
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot specify both changeAddress and address_type options");
             }
             coinControl.m_change_type = pwallet->m_default_change_type;
-            if (!ParseOutputType(options["change_type"].get_str(), *coinControl.m_change_type)) {
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Unknown change type '%s'", options["change_type"].get_str()));
-            }
         }
 
         if (options.exists("includeWatching"))
