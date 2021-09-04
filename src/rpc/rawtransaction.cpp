@@ -94,9 +94,9 @@ static UniValue getrawtransaction(const JSONRPCRequest& request)
             "  \"in_active_chain\": b, (bool) Whether specified block is in the active chain or not (only present with explicit \"blockhash\" argument)\n"
             "  \"hex\" : \"data\",       (string) The serialized, hex-encoded data for 'txid'\n"
             "  \"txid\" : \"id\",        (string) The transaction id (same as provided)\n"
-            "  \"hash\" : \"id\",        (string) The transaction hash including scriptSig (differs from txid). For witness transactions it is the witness hash\n"
+            "  \"hash\" : \"id\",        (string) The transaction hash including scriptSig (differs from txid).\n"
             "  \"size\" : n,             (numeric) The serialized transaction size\n"
-            "  \"vsize\" : n,            (numeric) The virtual transaction size (differs from size for witness transactions)\n"
+            "  \"vsize\" : n,            (numeric) The virtual transaction size \n"
             "  \"weight\" : n,           (numeric) The transaction's weight (between vsize*4-3 and vsize*4)\n"
             "  \"version\" : n,          (numeric) The version\n"
             "  \"locktime\" : ttt,       (numeric) The lock time\n"
@@ -109,7 +109,6 @@ static UniValue getrawtransaction(const JSONRPCRequest& request)
             "         \"hex\": \"hex\"   (string) hex\n"
             "       },\n"
             "       \"sequence\": n      (numeric) The script sequence number\n"
-            "       \"txinwitness\": [\"hex\", ...] (array of string) hex-encoded witness data (if any)\n"
             "     }\n"
             "     ,...\n"
             "  ],\n"
@@ -524,9 +523,9 @@ static UniValue decoderawtransaction(const JSONRPCRequest& request)
             "\nResult:\n"
             "{\n"
             "  \"txid\" : \"id\",        (string) The transaction id\n"
-            "  \"hash\" : \"id\",        (string) The transaction hash (including scriptSig) for witness transactions it is the witness hash)\n"
+            "  \"hash\" : \"id\",        (string) The transaction hash (including scriptSig)\n"
             "  \"size\" : n,             (numeric) The transaction size\n"
-            "  \"vsize\" : n,            (numeric) The virtual transaction size (differs from size for witness transactions)\n"
+            "  \"vsize\" : n,            (numeric) The virtual transaction size\n"
             "  \"weight\" : n,           (numeric) The transaction's weight (between vsize*4 - 3 and vsize*4)\n"
             "  \"version\" : n,          (numeric) The version\n"
             "  \"locktime\" : ttt,       (numeric) The lock time\n"
@@ -538,7 +537,6 @@ static UniValue decoderawtransaction(const JSONRPCRequest& request)
             "         \"asm\": \"asm\",  (string) asm\n"
             "         \"hex\": \"hex\"   (string) hex\n"
             "       },\n"
-            "       \"txinwitness\": [\"hex\", ...] (array of string) hex-encoded witness data (if any)\n"
             "       \"sequence\": n     (numeric) The script sequence number\n"
             "     }\n"
             "     ,...\n"
@@ -628,8 +626,7 @@ static UniValue decodescript(const JSONRPCRequest& request)
         // P2SH cannot be wrapped in a P2SH. If this script is already a P2SH,
         // don't return the address for a P2SH of the P2SH.
         r.pushKV("p2sh", EncodeDestination(CScriptID(script)));
-        // P2SH and witness programs cannot be wrapped in P2WSH, if this script
-        // is a witness program, don't return addresses for a segwit programs.
+
         if (type.get_str() == "pubkey" || type.get_str() == "pubkeyhash" || type.get_str() == "multisig" || type.get_str() == "nonstandard") {
             txnouttype which_type;
             std::vector<std::vector<unsigned char>> solutions_data;
@@ -1309,7 +1306,6 @@ UniValue decodepsbt(const JSONRPCRequest& request)
             "          \"asm\" : \"asm\",            (string) The asm\n"
             "          \"hex\" : \"hex\",            (string) The hex\n"
             "        }\n"
-            "       \"final_scriptwitness\": [\"hex\", ...] (array of string) hex-encoded witness data (if any)\n"
             "      \"unknown\" : {                (json object) The unknown global fields\n"
             "        \"key\" : \"value\"            (key-value pair) An unknown key-value pair\n"
             "         ...\n"
@@ -1401,7 +1397,7 @@ UniValue decodepsbt(const JSONRPCRequest& request)
             in.pushKV("sighash", SighashToStr((unsigned char)input.sighash_type));
         }
 
-        // Redeem script and witness script
+        // Redeem script
         if (!input.redeem_script.empty()) {
             UniValue r(UniValue::VOBJ);
             ScriptToUniv(input.redeem_script, r, false);
@@ -1425,7 +1421,7 @@ UniValue decodepsbt(const JSONRPCRequest& request)
             in.pushKV("bip32_derivs", keypaths);
         }
 
-        // Final scriptSig and scriptwitness
+        // Final scriptSig
         if (!input.final_script_sig.empty()) {
             UniValue scriptsig(UniValue::VOBJ);
             scriptsig.pushKV("asm", ScriptToAsmStr(input.final_script_sig, true));
@@ -1452,7 +1448,7 @@ UniValue decodepsbt(const JSONRPCRequest& request)
     for (unsigned int i = 0; i < psbtx.outputs.size(); ++i) {
         const PSBTOutput& output = psbtx.outputs[i];
         UniValue out(UniValue::VOBJ);
-        // Redeem script and witness script
+        // Redeem script
         if (!output.redeem_script.empty()) {
             UniValue r(UniValue::VOBJ);
             ScriptToUniv(output.redeem_script, r, false);
@@ -1558,7 +1554,7 @@ UniValue finalizepsbt(const JSONRPCRequest& request)
             "finalizepsbt \"psbt\" ( extract )\n"
             "Finalize the inputs of a PSBT. If the transaction is fully signed, it will produce a\n"
             "network serialized transaction which can be broadcast with sendrawtransaction. Otherwise a PSBT will be\n"
-            "created which has the final_scriptSig and final_scriptWitness fields filled for inputs that are complete.\n"
+            "created which has the final_scriptSig field filled for inputs that are complete.\n"
             "Implements the Finalizer and Extractor roles.\n"
             "\nArguments:\n"
             "1. \"psbt\"                 (string) A base64 string of a PSBT\n"
