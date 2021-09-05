@@ -181,14 +181,14 @@ class AddressTypeTest(BitcoinTestFramework):
         assert_raises_rpc_error(-8, "Invalid color parameter", self.nodes[1].getnewaddress, '', 'c427282888')
         assert_raises_rpc_error(-8, "Invalid color parameter", self.nodes[1].getnewaddress, 'c0', 'c027282888')
         assert_raises_rpc_error(-8, "Invalid color parameter", self.nodes[1].getnewaddress, '', '27282888')
-        assert_raises_rpc_error(-1, "end of data", self.nodes[1].getnewaddress, '', 'c127282888')
-        assert_raises_rpc_error(-1, "end of data", self.nodes[1].getnewaddress, '', 'c10100')
+        assert_raises_rpc_error(-8, "Invalid color parameter", self.nodes[1].getnewaddress, '', 'c127282888')
+        assert_raises_rpc_error(-8, "Invalid color parameter", self.nodes[1].getnewaddress, '', 'c10100')
 
         assert_raises_rpc_error(-8, "Invalid color parameter", self.nodes[1].getrawchangeaddress, 'c427282888')
         assert_raises_rpc_error(-8, "Invalid color parameter", self.nodes[1].getrawchangeaddress, 'c027282888')
         assert_raises_rpc_error(-8, "Invalid color parameter", self.nodes[1].getrawchangeaddress, '27282888')
-        assert_raises_rpc_error(-1, "end of data", self.nodes[1].getrawchangeaddress, 'c127282888')
-        assert_raises_rpc_error(-1, "end of data", self.nodes[1].getrawchangeaddress, 'c10100')
+        assert_raises_rpc_error(-8, "Invalid color parameter", self.nodes[1].getrawchangeaddress, 'c127282888')
+        assert_raises_rpc_error(-8, "Invalid color parameter", self.nodes[1].getrawchangeaddress, 'c10100')
 
 if __name__ == '__main__':
     AddressTypeTest().main()

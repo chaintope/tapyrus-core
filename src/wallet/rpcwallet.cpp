@@ -191,7 +191,13 @@ static UniValue getnewaddress(const JSONRPCRequest& request)
     if (!request.params[1].isNull())
     {
         const std::vector<unsigned char> vColorId(ParseHex(request.params[1].get_str()));
-        colorId = ColorIdentifier(vColorId);
+        try {
+            colorId = ColorIdentifier(vColorId);
+        }
+        catch(...) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid color parameter.");
+        }
+
         if(colorId.type == TokenTypes::NONE)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid color parameter.");
     }
@@ -267,7 +273,13 @@ static UniValue getrawchangeaddress(const JSONRPCRequest& request)
     if (!request.params[0].isNull())
     {
         const std::vector<unsigned char> vColorId(ParseHex(request.params[0].get_str()));
-        colorId = ColorIdentifier(vColorId);
+        try {
+            colorId = ColorIdentifier(vColorId);
+        }
+        catch(...) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid color parameter.");
+        }
+
         if(colorId.type == TokenTypes::NONE)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid color parameter.");
     }
