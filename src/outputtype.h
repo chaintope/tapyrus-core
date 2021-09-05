@@ -15,12 +15,6 @@
 enum class OutputType {
     LEGACY,
 
-    /**
-     * Special output type for change outputs only. Automatically choose type
-     * based on address type setting and the types other of non-change outputs
-     * (see -changetype option documentation and implementation in
-     * CWallet::TransactionChangeType for details).
-     */
     CHANGE_AUTO,
 };
 
