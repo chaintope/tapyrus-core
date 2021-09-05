@@ -704,7 +704,9 @@ static UniValue getreceivedbylabel(const JSONRPCRequest& request)
             "\nArguments:\n"
             "1. \"label\"        (string, required) The selected label, may be the default label using \"\".\n"
             "\nResult:\n"
-            "amount              (numeric) The total amount in " + CURRENCY_UNIT + " received for this label.\n"
+            "{\n"
+            "token:amount        (numeric) The total amount in " + CURRENCY_UNIT + "or token received for this label.\n"
+            "}\n"
             "\nExamples:\n"
             "\nAmount received by the default label with at least 1 confirmation\n"
             + HelpExampleCli("getreceivedbylabel", "\"\"") +
@@ -730,7 +732,7 @@ static UniValue getreceivedbylabel(const JSONRPCRequest& request)
     std::set<CTxDestination> setAddress = pwallet->GetLabelAddresses(label);
 
     // Tally
-    CAmount nAmount = 0;
+    TxColoredCoinBalancesMap walletbalances = pwallet->GetBalance();
     for (const std::pair<const uint256, CWalletTx>& pairWtx : pwallet->mapWallet) {
         const CWalletTx& wtx = pairWtx.second;
         if (wtx.IsCoinBase() || !CheckFinalTx(*wtx.tx))
@@ -740,13 +742,26 @@ static UniValue getreceivedbylabel(const JSONRPCRequest& request)
         {
             CTxDestination address;
             if (ExtractDestination(txout.scriptPubKey, address) && IsMine(*pwallet, address) && setAddress.count(address)) {
+                ColorIdentifier colorId;
+                if(address.which() == 3)
+                    colorId = boost::get<CColorKeyID>(address).color;
+                else if(address.which() == 4)
+                    colorId = boost::get<CColorScriptID>(address).color;
+
                 if (wtx.GetDepthInMainChain() >= nMinDepth)
-                    nAmount += txout.nValue;
+                    walletbalances[colorId] += txout.nValue;
             }
         }
     }
 
-    return ValueFromAmount(nAmount);
+    UniValue balances(UniValue::VOBJ);
+    for (auto const& wb : walletbalances) {
+        if (wb.first.type == TokenTypes::NONE)
+            balances.pushKV(CURRENCY_UNIT.c_str(), ValueFromAmount(wb.second));
+        else
+            balances.pushKV(HexStr(wb.first.toVector()).c_str(), wb.second);
+    };
+    return balances;
 }
 
 
@@ -1043,13 +1058,12 @@ static UniValue addmultisigaddress(const JSONRPCRequest& request)
 
 struct tallyitem
 {
-    CAmount nAmount;
+    TxColoredCoinBalancesMap nAmount;
     int nConf;
     std::vector<uint256> txids;
     bool fIsWatchonly;
-    tallyitem()
+    tallyitem():nAmount()
     {
-        nAmount = 0;
         nConf = std::numeric_limits<int>::max();
         fIsWatchonly = false;
     }
@@ -1095,6 +1109,12 @@ static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bo
             if (!ExtractDestination(txout.scriptPubKey, address))
                 continue;
 
+            ColorIdentifier colorId;
+            if(address.which() == 3)
+                colorId = boost::get<CColorKeyID>(address).color;
+            else if(address.which() == 4)
+                colorId = boost::get<CColorScriptID>(address).color;
+
             if (has_filtered_address && !(filtered_address == address)) {
                 continue;
             }
@@ -1104,7 +1124,7 @@ static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bo
                 continue;
 
             tallyitem& item = mapTally[address];
-            item.nAmount += txout.nValue;
+            item.nAmount[colorId] += txout.nValue;
             item.nConf = std::min(item.nConf, nDepth);
             item.txids.push_back(wtx.GetHash());
             if (mine & ISMINE_WATCH_ONLY)
@@ -1136,6 +1156,12 @@ static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bo
         if (it == mapTally.end() && !fIncludeEmpty)
             continue;
 
+        ColorIdentifier colorId;
+        if(address.which() == 3)
+            colorId = boost::get<CColorKeyID>(address).color;
+        else if(address.which() == 4)
+            colorId = boost::get<CColorScriptID>(address).color;
+
         CAmount nAmount = 0;
         int nConf = std::numeric_limits<int>::max();
         bool fIsWatchonly = false;
@@ -1149,7 +1175,7 @@ static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bo
         if (by_label)
         {
             tallyitem& _item = label_tally[label];
-            _item.nAmount += nAmount;
+            _item.nAmount[colorId] += nAmount;
             _item.nConf = std::min(_item.nConf, nConf);
             _item.fIsWatchonly = fIsWatchonly;
         }
@@ -1160,7 +1186,7 @@ static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bo
                 obj.pushKV("involvesWatchonly", true);
             obj.pushKV("address",       EncodeDestination(address));
 
-            addTokenKV(address,nAmount, obj);
+            addTokenKV(address, nAmount, obj);
 
             obj.pushKV("confirmations", (nConf == std::numeric_limits<int>::max() ? 0 : nConf));
             obj.pushKV("label", label);
@@ -1181,13 +1207,20 @@ static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bo
     {
         for (const auto& entry : label_tally)
         {
+            ColorIdentifier colorId;
+            if(address.which() == 3)
+                colorId = boost::get<CColorKeyID>(address).color;
+            else if(address.which() == 4)
+                colorId = boost::get<CColorScriptID>(address).color;
+
             CAmount nAmount = entry.second.nAmount;
             int nConf = entry.second.nConf;
             UniValue obj(UniValue::VOBJ);
             if (entry.second.fIsWatchonly)
                 obj.pushKV("involvesWatchonly", true);
-            obj.pushKV("token", CURRENCY_UNIT);
-            obj.pushKV("amount",        ValueFromAmount(nAmount));
+
+            addTokenKV(address, nAmount, obj);
+
             obj.pushKV("confirmations", (nConf == std::numeric_limits<int>::max() ? 0 : nConf));
             obj.pushKV("label",         entry.first);
             ret.push_back(obj);
