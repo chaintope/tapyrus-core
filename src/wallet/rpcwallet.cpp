@@ -158,7 +158,8 @@ static bool checkColorIdParam(const UniValue& param, ColorIdentifier& colorId) {
         if(colorId.type == TokenTypes::NONE) return false;
     }
     catch(...) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid color parameter.");
+        colorId.type = TokenTypes::NONE;
+        return false;
     }
     return true;
 }
@@ -202,6 +203,9 @@ static UniValue getnewaddress(const JSONRPCRequest& request)
 
     ColorIdentifier colorId;
     if (!request.params[1].isNull() && !checkColorIdParam(request.params[1], colorId))
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid color parameter.");
+
+    if(colorId.type == TokenTypes::NONE)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid color parameter.");
 
     if (!pwallet->IsLocked()) {
@@ -273,6 +277,9 @@ static UniValue getrawchangeaddress(const JSONRPCRequest& request)
 
     ColorIdentifier colorId;
     if (!request.params[0].isNull() && !checkColorIdParam(request.params[0], colorId))
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid color parameter.");
+
+    if(colorId.type == TokenTypes::NONE)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid color parameter.");
 
     CReserveKey reservekey(pwallet);
