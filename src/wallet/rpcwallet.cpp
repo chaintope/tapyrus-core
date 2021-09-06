@@ -150,6 +150,19 @@ static void addTokenKV(const CTxDestination& address, const CAmount nAmount, Uni
     entry.pushKV("amount", (colorId.type == TokenTypes::NONE ? ValueFromAmount(nAmount) : nAmount ));
 }
 
+static bool checkColorIdParam(const UniValue& param, ColorIdentifier& colorId) {
+    try {
+        const std::vector<unsigned char> vColorId(ParseHex(param.get_str()));
+        if(vColorId.size() != 33) return false;
+        colorId = ColorIdentifier(vColorId);
+        if(colorId.type == TokenTypes::NONE) return false;
+    }
+    catch(...) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid color parameter.");
+    }
+    return true;
+}
+
 static UniValue getnewaddress(const JSONRPCRequest& request)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
@@ -188,19 +201,8 @@ static UniValue getnewaddress(const JSONRPCRequest& request)
         label = LabelFromValue(request.params[0]);
 
     ColorIdentifier colorId;
-    if (!request.params[1].isNull())
-    {
-        const std::vector<unsigned char> vColorId(ParseHex(request.params[1].get_str()));
-        try {
-            colorId = ColorIdentifier(vColorId);
-        }
-        catch(...) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid color parameter.");
-        }
-
-        if(colorId.type == TokenTypes::NONE)
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid color parameter.");
-    }
+    if (!request.params[1].isNull() && !checkColorIdParam(request.params[1], colorId))
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid color parameter.");
 
     if (!pwallet->IsLocked()) {
         pwallet->TopUpKeyPool();
@@ -270,19 +272,8 @@ static UniValue getrawchangeaddress(const JSONRPCRequest& request)
     }
 
     ColorIdentifier colorId;
-    if (!request.params[0].isNull())
-    {
-        const std::vector<unsigned char> vColorId(ParseHex(request.params[0].get_str()));
-        try {
-            colorId = ColorIdentifier(vColorId);
-        }
-        catch(...) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid color parameter.");
-        }
-
-        if(colorId.type == TokenTypes::NONE)
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid color parameter.");
-    }
+    if (!request.params[0].isNull() && !checkColorIdParam(request.params[0], colorId))
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid color parameter.");
 
     CReserveKey reservekey(pwallet);
     CPubKey vchPubKey;
@@ -4491,13 +4482,8 @@ static UniValue reissuetoken(const JSONRPCRequest& request)
         );
 
     ColorIdentifier colorId;
-    const std::vector<unsigned char> vColorId(ParseHex(request.params[0].get_str()));
-    try {
-        colorId = ColorIdentifier(vColorId);
-    }
-    catch(...) {
+    if (!request.params[0].isNull() && !checkColorIdParam(request.params[0], colorId))
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid color parameter.");
-    }
 
     if(colorId.type != TokenTypes::REISSUABLE)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Unknown token type given.");
@@ -4606,13 +4592,8 @@ static UniValue burntoken(const JSONRPCRequest& request)
     LOCK2(cs_main, pwallet->cs_wallet);
 
     ColorIdentifier colorId;
-    const std::vector<unsigned char> vColorId(ParseHex(request.params[0].get_str()));
-    try {
-        colorId = ColorIdentifier(vColorId);
-    }
-    catch(...) {
+    if (!request.params[0].isNull() && !checkColorIdParam(request.params[0], colorId))
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid color parameter.");
-    }
 
     if(colorId.type != TokenTypes::REISSUABLE)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Unknown token type given.");
