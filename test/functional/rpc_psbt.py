@@ -104,7 +104,7 @@ class PSBTTest(BitcoinTestFramework):
 
         # Make sure that a psbt with signatures cannot be converted
         signedtx = self.nodes[0].signrawtransactionwithwallet(rawtx['hex'], [], "ALL", self.options.scheme)
-        assert_raises_rpc_error(-22, "Inputs must not have scriptSigs and scriptWitnesses", self.nodes[0].converttopsbt, signedtx['hex'])
+        assert_raises_rpc_error(-22, "Inputs must not have scriptSigs", self.nodes[0].converttopsbt, signedtx['hex'])
 
         # Explicilty allow converting non-empty txs
         new_psbt = self.nodes[0].converttopsbt(rawtx['hex'])

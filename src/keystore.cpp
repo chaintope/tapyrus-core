@@ -26,12 +26,6 @@ void CBasicKeyStore::ImplicitlyLearnRelatedKeyScripts(const CPubKey& pubkey)
     // loaded (e.g. from a file).
     if (pubkey.IsCompressed()) {
         CScript script;
-
-#ifdef DEBUG
-        script = GetScriptForDestination(WitnessV0KeyHash(key_id));
-        CScriptID id1(script);
-        mapScripts[id1] = std::move(script);
-#endif
         script = GetScriptForDestination(key_id);
         // This does not use AddCScript, as it may be overridden.
         CScriptID id2(script);
@@ -127,6 +121,37 @@ bool CBasicKeyStore::GetCScript(const CScriptID &hash, CScript& redeemScriptOut)
     }
     return false;
 }
+/* search keymap and script map to find the script corresponding to the color id given. */
+bool CBasicKeyStore::GetCScriptForColor(const ColorIdentifier &colorId, CScript& scriptOut, bool searchP2PK) const
+{
+    LOCK(cs_KeyStore);
+    ScriptMap::const_iterator msi = mapScripts.begin();
+    while (msi != mapScripts.end())
+    {
+        if(ColorIdentifier(msi->second) == colorId)
+        {
+            scriptOut = (*msi).second;
+            return true;
+        }
+        ++msi;
+    }
+    KeyMap::const_iterator mki = mapKeys.begin();
+    while (mki != mapKeys.end())
+    {
+        scriptOut = GetScriptForDestination(mki->first);
+        if(ColorIdentifier(scriptOut) == colorId)
+            return true;
+        if(searchP2PK)
+        {
+            CScript p2pk = CScript() << ToByteVector(mki->second) << OP_CHECKSIG;
+            if(ColorIdentifier(p2pk) == colorId)
+                return true;
+        }
+        ++mki;
+    }
+    scriptOut = CScript();
+    return false;
+}
 
 static bool ExtractPubKey(const CScript &dest, CPubKey& pubKeyOut)
 {
@@ -188,20 +213,6 @@ CKeyID GetKeyForDestination(const CKeyStore& store, const CTxDestination& dest)
     if (auto id = boost::get<CKeyID>(&dest)) {
         return *id;
     }
-#ifdef DEBUG
-    if (auto witness_id = boost::get<WitnessV0KeyHash>(&dest)) {
-        return CKeyID(*witness_id);
-    }
-    if (auto script_id = boost::get<CScriptID>(&dest)) {
-        CScript script;
-        CTxDestination inner_dest;
-        if (store.GetCScript(*script_id, script) && ExtractDestination(script, inner_dest)) {
-            if (auto inner_witness_id = boost::get<WitnessV0KeyHash>(&inner_dest)) {
-                return CKeyID(*inner_witness_id);
-            }
-        }
-    }
-#endif
     return CKeyID();
 }
 
