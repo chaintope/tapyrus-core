@@ -4490,8 +4490,14 @@ static UniValue reissuetoken(const JSONRPCRequest& request)
             + HelpExampleCli("reissuetoken", "\"c18282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23f\" 10")
         );
 
+    ColorIdentifier colorId;
     const std::vector<unsigned char> vColorId(ParseHex(request.params[0].get_str()));
-    ColorIdentifier colorId(vColorId);
+    try {
+        colorId = ColorIdentifier(vColorId);
+    }
+    catch(...) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid color parameter.");
+    }
 
     if(colorId.type != TokenTypes::REISSUABLE)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Unknown token type given.");
@@ -4599,8 +4605,14 @@ static UniValue burntoken(const JSONRPCRequest& request)
 
     LOCK2(cs_main, pwallet->cs_wallet);
 
+    ColorIdentifier colorId;
     const std::vector<unsigned char> vColorId(ParseHex(request.params[0].get_str()));
-    ColorIdentifier colorId(vColorId);
+    try {
+        colorId = ColorIdentifier(vColorId);
+    }
+    catch(...) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid color parameter.");
+    }
 
     if(colorId.type != TokenTypes::REISSUABLE)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Unknown token type given.");
