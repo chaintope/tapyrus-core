@@ -436,7 +436,7 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         assert_equal(res['color'], self.nodes[0].getcolor(1, tpc_utxo['scriptPubKey']))
         assert_equal(len(res['txids']), 2)
 
-        assert_raises_rpc_error(-8, "Token type not supported", self.nodes[0].reissuetoken, self.colorids[0], 100)
+        assert_raises_rpc_error(-8, "Invalid color parameter", self.nodes[0].reissuetoken, self.colorids[0], 100)
         assert_raises_rpc_error(-8, "Token type not supported", self.nodes[0].reissuetoken, self.colorids[2], 100)
         assert_raises_rpc_error(-8, "Token type not supported", self.nodes[0].reissuetoken, self.colorids[3], 100)
         assert_raises_rpc_error(-8, "Token type not supported", self.nodes[0].reissuetoken, self.colorids[4], 100)
