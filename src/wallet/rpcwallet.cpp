@@ -4569,11 +4569,6 @@ static UniValue burntoken(const JSONRPCRequest& request)
     if (!request.params[0].isNull() && !checkColorIdParam(request.params[0], colorId))
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid color parameter.");
 
-    if (colorId.type != TokenTypes::NONE
-      && pwallet->GetBalance()[colorId] == 0 ) {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No Token found in wallet. But token address was given.");
-    }
-
     CAmount nAmount = request.params[1].get_int64();
     if (nAmount <= 0)
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for burn");
@@ -4582,7 +4577,7 @@ static UniValue burntoken(const JSONRPCRequest& request)
          throw JSONRPCError(RPC_INVALID_PARAMETER, "TPC cannot be burnt using burntoken");
 
     CAmount curBalance = pwallet->GetBalance()[colorId];
-    if (curBalance == 0 || curBalance < nAmount)
+    if (colorId.type != TokenTypes::NONE && (curBalance == 0 || curBalance < nAmount))
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Insufficient token balance in wallet");
 
     CTransactionRef tx = BurnToken(pwallet, colorId, nAmount);
