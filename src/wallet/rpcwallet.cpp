@@ -158,7 +158,6 @@ static bool checkColorIdParam(const UniValue& param, ColorIdentifier& colorId) {
         if(colorId.type == TokenTypes::NONE) return false;
     }
     catch(...) {
-        colorId.type = TokenTypes::NONE;
         return false;
     }
     return true;
