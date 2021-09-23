@@ -5,12 +5,6 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Utilities for manipulating blocks and transactions."""
 
-from .address import (
-    key_to_p2sh_p2wpkh,
-    key_to_p2wpkh,
-    script_to_p2sh_p2wsh,
-    script_to_p2wsh,
-)
 from .messages import (
     CBlock,
     COIN,
@@ -41,11 +35,14 @@ from .script import (
     OP_DUP,
     OP_HASH160,
     OP_EQUALVERIFY,
-    OP_CHECKSIG
+    OP_CHECKSIG,
+    OP_COLOR,
+    OP_EQUAL
 )
 from .util import assert_equal
 from io import BytesIO
 import time, random
+from enum import Enum
 
 # From BIP141
 WITNESS_COMMITMENT_HEADER = b"\xaa\x21\xa9\xed"
@@ -191,6 +188,32 @@ def create_raw_transaction(node, txid, to_address, *, amount):
     assert_equal(signresult["complete"], True)
     return signresult['hex']
 
+# Colored coin definitions
+##########################
+def TOKEN_TYPES(Enum):
+    NONE = 0
+    REISSUABLE = 1
+    NONREISSUABLE = 2
+    NFT = 3
+
+def findTPC(list):
+    for item in list:
+        if item['token'] == 'TPC':
+            return item
+
+def create_colored_transaction(token_type, amount, node, issue=True, colorId=None, to_node=None):
+    tpc_utxo = findTPC(node.listunspent())
+    if(issue):
+        if(token_type == 1):
+            return node.issuetoken(token_type, amount, tpc_utxo['scriptPubKey'])
+        else:
+            return node.issuetoken(token_type, amount, tpc_utxo['txid'], tpc_utxo['vout'])
+    else:
+        if(colorId == None or to_node == None):
+            raise ("colorId and to_node parameters are required when transfering token")
+        to_address = to_node.getnewaddress(color=colorId)
+        return node.sendtoaddress(to_address, amount)
+
 def get_legacy_sigopcount_block(block, accurate=True):
     count = 0
     for tx in block.vtx:
@@ -222,37 +245,3 @@ def witness_script(use_p2wsh, pubkey):
         scripthash = sha256(witness_program)
         pkscript = CScript([OP_0, scripthash])
     return bytes_to_hex_str(pkscript)
-
-def create_witness_tx(node, use_p2wsh, utxo, pubkey, amount):
-    """Return a transaction (in hex) that spends the given utxo to a segwit output.
-
-    Optionally wrap the segwit output using P2SH."""
-    if use_p2wsh:
-        program = CScript([OP_1, hex_str_to_bytes(pubkey), OP_1, OP_CHECKMULTISIG])
-        addr = script_to_p2sh_p2wsh(program)
-    else:
-        addr = key_to_p2sh_p2wpkh(pubkey)
-    return node.createrawtransaction([utxo], {addr: amount})
-
-def send_to_witness(use_p2wsh, node, utxo, pubkey, encode_p2sh, amount, sign=True, insert_redeem_script=""):
-    """Create a transaction spending a given utxo to a segwit output.
-
-    The output corresponds to the given pubkey: use_p2wsh determines whether to
-    use P2WPKH or P2WSH; encode_p2sh determines whether to wrap in P2SH.
-    sign=True will have the given node sign the transaction.
-    insert_redeem_script will be added to the scriptSig, if given."""
-
-    scheme = random.choice(["ECDSA", "SCHNORR"])
-    tx_to_witness = create_witness_tx(node, use_p2wsh, utxo, pubkey, amount)
-    if (sign):
-        signed = node.signrawtransactionwithwallet(tx_to_witness, [], "ALL", scheme)
-        if(encode_p2sh):
-            assert("errors" not in signed or len(["errors"]) == 0)
-        return node.sendrawtransaction(signed["hex"])
-    else:
-        if (insert_redeem_script):
-            tx = FromHex(CTransaction(), tx_to_witness)
-            tx.vin[0].scriptSig += CScript([hex_str_to_bytes(insert_redeem_script)])
-            tx_to_witness = ToHex(tx)
-
-    return node.sendrawtransaction(tx_to_witness)
