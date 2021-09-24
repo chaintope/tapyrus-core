@@ -258,24 +258,24 @@ def create_witness_tx(node, use_p2wsh, utxo, pubkey, amount):
      return node.createrawtransaction([utxo], {addr: amount})
 
 def send_to_witness(use_p2wsh, node, utxo, pubkey, encode_p2sh, amount, sign=True, insert_redeem_script=""):
-     """Create a transaction spending a given utxo to a segwit output.
+    """Create a transaction spending a given utxo to a segwit output.
 
-     The output corresponds to the given pubkey: use_p2wsh determines whether to
-     use P2WPKH or P2WSH; encode_p2sh determines whether to wrap in P2SH.
-     sign=True will have the given node sign the transaction.
-     insert_redeem_script will be added to the scriptSig, if given."""
+    The output corresponds to the given pubkey: use_p2wsh determines whether to
+    use P2WPKH or P2WSH; encode_p2sh determines whether to wrap in P2SH.
+    sign=True will have the given node sign the transaction.
+    insert_redeem_script will be added to the scriptSig, if given."""
 
-     scheme = random.choice(["ECDSA", "SCHNORR"])
-     tx_to_witness = create_witness_tx(node, use_p2wsh, utxo, pubkey, amount)
-     if (sign):
-         signed = node.signrawtransactionwithwallet(tx_to_witness, [], "ALL", scheme)
-         if(encode_p2sh):
-             assert("errors" not in signed or len(["errors"]) == 0)
-         return node.sendrawtransaction(signed["hex"])
-     else:
-         if (insert_redeem_script):
-             tx = FromHex(CTransaction(), tx_to_witness)
-             tx.vin[0].scriptSig += CScript([hex_str_to_bytes(insert_redeem_script)])
-             tx_to_witness = ToHex(tx)
+    scheme = random.choice(["ECDSA", "SCHNORR"])
+    tx_to_witness = create_witness_tx(node, use_p2wsh, utxo, pubkey, amount)
+    if (sign):
+        signed = node.signrawtransactionwithwallet(tx_to_witness, [], "ALL", scheme)
+        if(encode_p2sh):
+            assert("errors" not in signed or len(["errors"]) == 0)
+        return node.sendrawtransaction(signed["hex"])
+    else:
+        if (insert_redeem_script):
+            tx = FromHex(CTransaction(), tx_to_witness)
+            tx.vin[0].scriptSig += CScript([hex_str_to_bytes(insert_redeem_script)])
+            tx_to_witness = ToHex(tx)
 
-     return node.sendrawtransaction(tx_to_witness)
+    return node.sendrawtransaction(tx_to_witness)
