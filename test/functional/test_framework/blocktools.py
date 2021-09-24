@@ -247,15 +247,15 @@ def witness_script(use_p2wsh, pubkey):
     return bytes_to_hex_str(pkscript)
 
 def create_witness_tx(node, use_p2wsh, utxo, pubkey, amount):
-     """Return a transaction (in hex) that spends the given utxo to a segwit output.
+    """Return a transaction (in hex) that spends the given utxo to a segwit output.
 
-     Optionally wrap the segwit output using P2SH."""
-     if use_p2wsh:
-         program = CScript([OP_1, hex_str_to_bytes(pubkey), OP_1, OP_CHECKMULTISIG])
-         addr = script_to_p2sh_p2wsh(program)
-     else:
-         addr = key_to_p2sh_p2wpkh(pubkey)
-     return node.createrawtransaction([utxo], {addr: amount})
+    Optionally wrap the segwit output using P2SH."""
+    if use_p2wsh:
+        program = CScript([OP_1, hex_str_to_bytes(pubkey), OP_1, OP_CHECKMULTISIG])
+        addr = script_to_p2sh_p2wsh(program)
+    else:
+        addr = key_to_p2sh_p2wpkh(pubkey)
+    return node.createrawtransaction([utxo], {addr: amount})
 
 def send_to_witness(use_p2wsh, node, utxo, pubkey, encode_p2sh, amount, sign=True, insert_redeem_script=""):
     """Create a transaction spending a given utxo to a segwit output.
