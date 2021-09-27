@@ -49,19 +49,14 @@ TxFailure8 - (UTXO-15)   - convert REISSUABLE to NON-REISSUABLE
 
 '''
 
-import shutil, os
-import time
-
-from io import BytesIO
-
-from test_framework.blocktools import create_block, create_coinbase, create_tx_with_script, create_transaction
+from test_framework.blocktools import create_block, create_coinbase
 from test_framework.messages import CTransaction, CTxIn, CTxOut, COutPoint, msg_tx, COIN, sha256, msg_block
 from test_framework.key import CECKey
 from test_framework.schnorr import Schnorr
 from test_framework.mininode import P2PDataStore, mininode_lock
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, hex_str_to_bytes, bytes_to_hex_str, assert_raises_rpc_error, NetworkDirName
-from test_framework.script import CScript, OP_TRUE, OP_DROP, OP_1, OP_COLOR, hash160, OP_DUP, OP_HASH160, OP_EQUALVERIFY, OP_CHECKSIG, SignatureHash, SIGHASH_ALL
+from test_framework.util import assert_equal, hex_str_to_bytes, bytes_to_hex_str
+from test_framework.script import CScript, OP_COLOR, hash160, OP_DUP, OP_HASH160, OP_EQUALVERIFY, OP_CHECKSIG, SignatureHash, SIGHASH_ALL, OP_EQUAL
 
 def colorIdReissuable(script):
     return b'\xc1' + sha256(script)

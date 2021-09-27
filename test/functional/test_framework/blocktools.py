@@ -11,6 +11,7 @@ from .address import (
     script_to_p2sh_p2wsh,
     script_to_p2wsh,
 )
+
 from .messages import (
     CBlock,
     COIN,
@@ -41,11 +42,14 @@ from .script import (
     OP_DUP,
     OP_HASH160,
     OP_EQUALVERIFY,
-    OP_CHECKSIG
+    OP_CHECKSIG,
+    OP_COLOR,
+    OP_EQUAL
 )
 from .util import assert_equal
 from io import BytesIO
 import time, random
+from enum import Enum
 
 # From BIP141
 WITNESS_COMMITMENT_HEADER = b"\xaa\x21\xa9\xed"
@@ -190,6 +194,32 @@ def create_raw_transaction(node, txid, to_address, *, amount):
     signresult = node.signrawtransactionwithwallet(rawtx, [], "ALL", scheme)
     assert_equal(signresult["complete"], True)
     return signresult['hex']
+
+# Colored coin definitions
+##########################
+def TOKEN_TYPES(Enum):
+    NONE = 0
+    REISSUABLE = 1
+    NONREISSUABLE = 2
+    NFT = 3
+
+def findTPC(list):
+    for item in list:
+        if item['token'] == 'TPC':
+            return item
+
+def create_colored_transaction(token_type, amount, node, issue=True, colorId=None, to_node=None):
+    tpc_utxo = findTPC(node.listunspent())
+    if(issue):
+        if(token_type == 1):
+            return node.issuetoken(token_type, amount, tpc_utxo['scriptPubKey'])
+        else:
+            return node.issuetoken(token_type, amount, tpc_utxo['txid'], tpc_utxo['vout'])
+    else:
+        if(colorId == None or to_node == None):
+            raise ("colorId and to_node parameters are required when transfering token")
+        to_address = to_node.getnewaddress(color=colorId)
+        return node.sendtoaddress(to_address, amount)
 
 def get_legacy_sigopcount_block(block, accurate=True):
     count = 0
