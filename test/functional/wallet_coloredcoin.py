@@ -410,7 +410,7 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         assert_raises_rpc_error(-1, "Burn colored coins or tokens in the wallet", self.nodes[0].burntoken, "c4")
         assert_raises_rpc_error(-1, "Burn colored coins or tokens in the wallet", self.nodes[0].burntoken, self.colorids[1])
         assert_raises_rpc_error(-3, "Invalid amount for burn", self.nodes[0].burntoken, self.colorids[1], -10)
-        assert_raises_rpc_error(-8, "TPC cannot be burnt using burntoken", self.nodes[1].burntoken, "00", 10)
+        assert_raises_rpc_error(-8, "Invalid color parameter", self.nodes[1].burntoken, "00", 10)
         assert_raises_rpc_error(-8, "Insufficient token balance in wallet", self.nodes[1].burntoken, self.colorids[1], 10)
         assert_raises_rpc_error(-8, "Insufficient token balance in wallet", self.nodes[1].burntoken, self.colorids[2], 10)
         assert_raises_rpc_error(-8, "Insufficient token balance in wallet", self.nodes[1].burntoken, self.colorids[3], 10)
@@ -433,7 +433,7 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         assert_equal(res['color'], reissue_color)
         assert_equal(len(res['txids']), 2)
 
-        assert_raises_rpc_error(-8, "Token type not supported", self.nodes[0].reissuetoken, self.colorids[0], 100)
+        assert_raises_rpc_error(-8, "Invalid color parameter", self.nodes[0].reissuetoken, self.colorids[0], 100)
         assert_raises_rpc_error(-8, "Token type not supported", self.nodes[0].reissuetoken, self.colorids[2], 100)
         assert_raises_rpc_error(-8, "Token type not supported", self.nodes[0].reissuetoken, self.colorids[3], 100)
         assert_raises_rpc_error(-8, "Token type not supported", self.nodes[0].reissuetoken, self.colorids[4], 100)
