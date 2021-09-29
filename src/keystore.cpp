@@ -121,6 +121,37 @@ bool CBasicKeyStore::GetCScript(const CScriptID &hash, CScript& redeemScriptOut)
     }
     return false;
 }
+/* search keymap and script map to find the script corresponding to the color id given. */
+bool CBasicKeyStore::GetCScriptForColor(const ColorIdentifier &colorId, CScript& scriptOut, bool searchP2PK) const
+{
+    LOCK(cs_KeyStore);
+    ScriptMap::const_iterator msi = mapScripts.begin();
+    while (msi != mapScripts.end())
+    {
+        if(ColorIdentifier(msi->second) == colorId)
+        {
+            scriptOut = (*msi).second;
+            return true;
+        }
+        ++msi;
+    }
+    KeyMap::const_iterator mki = mapKeys.begin();
+    while (mki != mapKeys.end())
+    {
+        scriptOut = GetScriptForDestination(mki->first);
+        if(ColorIdentifier(scriptOut) == colorId)
+            return true;
+        if(searchP2PK)
+        {
+            CScript p2pk = CScript() << ToByteVector(mki->second) << OP_CHECKSIG;
+            if(ColorIdentifier(p2pk) == colorId)
+                return true;
+        }
+        ++mki;
+    }
+    scriptOut = CScript();
+    return false;
+}
 
 static bool ExtractPubKey(const CScript &dest, CPubKey& pubKeyOut)
 {
