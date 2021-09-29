@@ -984,7 +984,7 @@ static UniValue addmultisigaddress(const JSONRPCRequest& request)
         return NullUniValue;
     }
 
-    if (request.fHelp || request.params.size() < 1 || request.params.size() > 3) 
+    if (request.fHelp || request.params.size() < 1 || request.params.size() > 3)
         throw std::runtime_error("addmultisigaddress nrequired [\"key\",...] ( \"label\" )\n"
             "\nAdd a nrequired-to-sign multisignature address to the wallet. Requires a new wallet backup.\n"
             "Each key is a Tapyrus address or hex-encoded public key.\n"
