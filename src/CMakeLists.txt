@@ -308,4 +308,4 @@ if(BUILD_TAPYRUS_QT)
     add_subdirectory(qt)
 endif()
 
-message(status "BUILD_TAPYRUS_QT=${BUILD_TAPYRUS_QT}")
+message("BUILD_TAPYRUS_QT=${BUILD_TAPYRUS_QT}")
