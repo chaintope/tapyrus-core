@@ -956,7 +956,6 @@ public:
     CAmount GetLegacyBalance(const isminefilter& filter, int minDepth, const std::string* account, ColorIdentifier& colorId) const;
     TxColoredCoinBalancesMap GetAvailableBalance(const CCoinControl* coinControl = nullptr) const;
 
-    OutputType TransactionChangeType(OutputType change_type, const std::vector<CRecipient>& vecSend);
 
     /**
      * A map for to represent positions in outputs for each color identifier.

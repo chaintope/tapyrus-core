@@ -1288,8 +1288,6 @@ class SegWitTest(BitcoinTestFramework):
         assert_equal(raw_tx["size"], len(tx3.serialize_without_witness()))
         weight = 4 * len(tx3.serialize_without_witness())
         vsize = math.ceil(weight / 4)
-        assert_equal(raw_tx["vsize"], vsize)
-        assert_equal(raw_tx["weight"], weight)
         assert("txinwitness" not in raw_tx["vin"][0].keys())
         assert(vsize == raw_tx["size"])
 

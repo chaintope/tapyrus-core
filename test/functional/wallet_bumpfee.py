@@ -166,7 +166,7 @@ def test_settxfee(rbf_node, dest_address):
     requested_feerate = Decimal("0.00025000")
     rbf_node.settxfee(requested_feerate)
     bumped_tx = rbf_node.bumpfee(rbfid)
-    actual_feerate = bumped_tx["fee"] * 1000 / rbf_node.getrawtransaction(bumped_tx["txid"], True)["vsize"]
+    actual_feerate = bumped_tx["fee"] * 1000 / rbf_node.getrawtransaction(bumped_tx["txid"], True)["size"]
     # Assert that the difference between the requested feerate and the actual
     # feerate of the bumped transaction is small.
     assert_greater_than(Decimal("0.00001000"), abs(requested_feerate - actual_feerate))

@@ -78,9 +78,6 @@ public:
  *  * CScriptID: TX_SCRIPTHASH destination (P2SH)
  *  * CColorKeyID: TX_COLOR_SCRIPTHASH destination (CP2PKH)
  *  * CColorScriptID: TX_COLOR_SCRIPTHASH destination (CP2SH)
- *  * WitnessV0ScriptHash: TX_WITNESS_V0_SCRIPTHASH destination (P2WSH)
- *  * WitnessV0KeyHash: TX_WITNESS_V0_KEYHASH destination (P2WPKH)
- *  * WitnessUnknown: TX_WITNESS_UNKNOWN destination (P2W???)
  *  A CTxDestination is the internal data type encoded in a bitcoin address
  */
 
@@ -145,15 +142,6 @@ CScript GetScriptForRawPubKey(const CPubKey& pubkey);
 /** Generate a multisig script. */
 CScript GetScriptForMultisig(int nRequired, const std::vector<CPubKey>& keys);
 
-/**
- * Generate a pay-to-witness script for the given redeem script. If the redeem
- * script is P2PK or P2PKH, this returns a P2WPKH script, otherwise it returns a
- * P2WSH script.
- *
- * TODO: replace calls to GetScriptForWitness with GetScriptForDestination using
- * the various witness-specific CTxDestination subtypes.
- */
-CScript GetScriptForWitness(const CScript& redeemscript);
 
 bool MatchColoredPayToPubkeyHash(const CScript& script, std::vector<unsigned char>& pubkeyhash, std::vector<unsigned char>& colorid);
 
