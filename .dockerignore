@@ -116,3 +116,4 @@ contrib/devtools/split-debug.sh
 
 snap
 cmake
+depends
