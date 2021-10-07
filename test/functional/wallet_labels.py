@@ -12,27 +12,26 @@ RPCs tested are:
 
 """
 import math
+from decimal import Decimal
 from collections import defaultdict
+from test_framework.blocktools import create_colored_transaction
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, assert_raises_rpc_error
+from test_framework.util import assert_equal, assert_raises_rpc_error, assert_array_result
 
 class WalletLabelsTest(BitcoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
-        self.num_nodes = 2
-        self.extra_args = [['-deprecatedrpc=accounts'], []]
+        self.num_nodes = 1
 
     def setup_network(self):
         """Don't connect nodes."""
         self.setup_nodes()
 
     def run_test(self):
-        """Run the test twice - once using the accounts API and once using the labels API."""
-        self.log.info("Test labels API")
-        self._run_subtest(self.nodes[1])
+        """Run the test using the labels API."""
+        node = self.nodes[0]
 
-    def _run_subtest(self, node):
         # Check that there's no UTXO on any of the nodes
         assert_equal(len(node.listunspent()), 0)
 
@@ -78,12 +77,13 @@ class WalletLabelsTest(BitcoinTestFramework):
 
         amount_to_send = 1.0
 
+        self.log.debug("Checking lables with TPC")
         # Create labels and make sure subsequent label API calls
         # recognize the label/address associations.
         labels = [Label(name) for name in ("a", "b", "c", "d", "e")]
         for label in labels:
             address = node.getnewaddress(label.name)
-            label.add_receive_address(address)
+            label.add_address(address)
             label.verify(node)
 
         # Check all labels are returned by listlabels.
@@ -100,24 +100,62 @@ class WalletLabelsTest(BitcoinTestFramework):
         for label in labels:
             assert_equal(
                 node.getreceivedbyaddress(label.addresses[0]), amount_to_send)
-            assert_equal(node.getreceivedbylabel(label.name), amount_to_send)
+            assert_equal(node.getreceivedbylabel(label.name), {'TPC': Decimal('1.00000000')})
 
-        # Check that sendfrom label reduces listaccounts balances.
+        self.log.debug("Checking lables with tokens")
+        colorId = create_colored_transaction(1, 10, node)['color']
+        for label in labels:
+            address = node.getnewaddress(label.name, colorId)
+            label.add_coloraddress(address)
+            label.verify(node, colorId)
+
+        # Send a transaction to each label, and make sure this forces
+        # getaccountaddress to generate a new receiving address.
+        for label in labels:
+            node.sendtoaddress(label.caddresses[0], 1)
+            label.verify(node, colorId)
+
+        # Check the amounts received.
+        node.generate(1, self.signblockprivkey_wif)
+        for label in labels:
+            assert_equal(
+                node.getreceivedbyaddress(label.caddresses[0]), 1)
+            assert_equal(node.getreceivedbylabel(label.name), {'TPC': Decimal('1.00000000'), colorId : 1})
+
+
+        self.log.debug("Check that sendfrom label reduces listaccounts balances in TPC")
         for i, label in enumerate(labels):
             to_label = labels[(i + 1) % len(labels)]
             node.sendtoaddress(to_label.addresses[0], amount_to_send)
         node.generate(1, self.signblockprivkey_wif)
         for label in labels:
             address = node.getnewaddress(label.name)
-            label.add_receive_address(address)
+            label.add_address(address)
             label.verify(node)
-            assert_equal(node.getreceivedbylabel(label.name), 2)
+            assert_equal(node.getreceivedbylabel(label.name), {'TPC': Decimal('2.00000000'), colorId: 1})
             label.verify(node)
         node.generate(3, self.signblockprivkey_wif)
         expected_account_balances = {"": 300}
         for label in labels:
             expected_account_balances[label.name] = 0
-        assert_equal(math.floor(node.getbalance()), 300)
+        assert_equal(math.floor(node.getbalance()), 350)
+
+        self.log.debug("Check that sendfrom label reduces listaccounts balances in tokens")
+        for i, label in enumerate(labels):
+            to_label = labels[(i + 1) % len(labels)]
+            node.sendtoaddress(to_label.caddresses[0], 1)
+        node.generate(1, self.signblockprivkey_wif)
+        for label in labels:
+            address = node.getnewaddress(label.name, colorId)
+            label.add_coloraddress(address)
+            label.verify(node, colorId)
+            assert_equal(node.getreceivedbylabel(label.name), {'TPC': Decimal('2.0000000'), colorId : 2})
+            label.verify(node, colorId)
+        node.generate(3, self.signblockprivkey_wif)
+        expected_account_balances = {"": 400}
+        for label in labels:
+            expected_account_balances[label.name] = 0
+        assert_equal(math.floor(node.getbalance()), 550)
 
         # Check that setlabel can assign a label to a new unused address.
         for label in labels:
@@ -125,7 +163,8 @@ class WalletLabelsTest(BitcoinTestFramework):
             node.setlabel(address, label.name)
             label.add_address(address)
             label.verify(node)
-            assert_raises_rpc_error(-11, "No addresses with label", node.getaddressesbylabel, "")
+            #colored coin issue txs are without labels.
+            assert_equal(len(node.getaddressesbylabel("")), 2)
 
         # Check that addmultisigaddress can assign labels.
         for label in labels:
@@ -155,17 +194,20 @@ class Label:
         self.receive_address = None
         # List of all addresses assigned with this label
         self.addresses = []
+        # List of all colored addresses assigned with this label
+        self.caddresses = []
         # Map of address to address purpose
         self.purpose = defaultdict(lambda: "receive")
+
+    def add_coloraddress(self, address):
+        assert_equal(address not in self.caddresses, True)
+        self.caddresses.append(address)
 
     def add_address(self, address):
         assert_equal(address not in self.addresses, True)
         self.addresses.append(address)
 
-    def add_receive_address(self, address):
-        self.add_address(address)
-
-    def verify(self, node):
+    def verify(self, node, colorid=None):
         for address in self.addresses:
             assert_equal(
                 node.getaddressinfo(address)['labels'][0],
@@ -173,10 +215,17 @@ class Label:
                  "purpose": self.purpose[address]})
             assert_equal(node.getaddressinfo(address)['label'], self.name)
 
-        assert_equal(
-            node.getaddressesbylabel(self.name),
-            {address: {"purpose": self.purpose[address]} for address in self.addresses})
+        assert((node.getaddressesbylabel(self.name)[address] ==  {"purpose": self.purpose[address]}) for address in self.addresses)
 
+        if colorid != None:
+            for address in self.caddresses:
+                assert_equal(
+                    node.getaddressinfo(address)['labels'][0],
+                    {"name": self.name,
+                    "purpose": self.purpose[address]})
+                assert_equal(node.getaddressinfo(address)['label'], self.name)
+
+            assert((node.getaddressesbylabel(self.name)[caddress] ==  {"purpose": self.purpose[address]}) for address in self.caddresses)
 
 def change_label(node, address, old_label, new_label):
     assert_equal(address in old_label.addresses, True)

@@ -5,6 +5,7 @@
 #include <wallet/coincontrol.h>
 
 #include <util.h>
+#include <coloridentifier.h>
 
 void CCoinControl::SetNull()
 {
@@ -19,6 +20,7 @@ void CCoinControl::SetNull()
     m_confirm_target.reset();
     m_signal_bip125_rbf.reset();
     m_fee_mode = FeeEstimateMode::UNSET;
-    colorTxType = ColoredTxType::NONE;
+    m_colorTxType = ColoredTxType::NONE;
+    m_colorId = ColorIdentifier();
 }
 

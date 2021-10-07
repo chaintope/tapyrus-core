@@ -93,7 +93,7 @@ fs::path GetDefaultDataDir();
  * Helper function to create data directory name using network mode and network id
 */
 std::string GetDataDirNameFromNetworkId(const int networkID);
-const fs::path &GetBlocksDir(bool fNetSpecific = true);
+const fs::path &GetBlocksDir();
 const fs::path &GetDataDir(bool fNetSpecific = true);
 void ClearDatadirCache();
 fs::path GetConfigFile(const std::string& confPath);

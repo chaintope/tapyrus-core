@@ -12,19 +12,18 @@ jobs:
     if: ${{ github.repository == 'chaintope/tapyrus-core' }}
     runs-on: ubuntu-latest
     steps:
-      -
-        name: Checkout
+      - name: Checkout
         uses: actions/checkout@v2
-      -
-        name: Repo metadata
+
+      - name: Repo metadata
         id: repo
         uses: actions/github-script@v3
         with:
           script: |
             const repo = await github.repos.get(context.repo)
             return repo.data
-      -
-        name: Prepare
+
+      - name: Prepare
         id: prep
         run: |
           DOCKER_IMAGE=tapyrus/tapyrusd
@@ -48,33 +47,37 @@ jobs:
           echo ::set-output name=version::${VERSION}
           echo ::set-output name=tags::${TAGS}
           echo ::set-output name=created::$(date -u +'%Y-%m-%dT%H:%M:%SZ')
-      -
-        name: Set up QEMU
+
+      - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
-      -
-        name: Set up Docker Buildx
+
+      - name: Set up Docker Buildx
+        id: buildx
         uses: docker/setup-buildx-action@v1
-      -
-        name: Cache Docker layers
+
+      - name: Cache Docker layers
         uses: actions/cache@v2
         with:
           path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          key: ${{ github.ref }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-buildx-
-      -
-        name: Login to DockerHub
+            ${{ github.ref }}-${{ github.sha }}
+            ${{ github.ref }}
+            refs/head/master
+
+      - name: Login to DockerHub
         uses: docker/login-action@v1
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      -
-        name: Build and push
+
+      - name: Build and push
         id: docker_build
         uses: docker/build-push-action@v2
         with:
           context: .
           file: ./Dockerfile
+          builder: ${{ steps.buildx.outputs.name }}
           platforms: linux/amd64,linux/arm64/v8
           push: true
           tags: ${{ steps.prep.outputs.tags }}
@@ -89,10 +92,12 @@ jobs:
             org.opencontainers.image.licenses=${{ fromJson(steps.repo.outputs.result).license.spdx_id }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache-new
+
       - name: Move cache
         run: |
           rm -rf /tmp/.buildx-cache
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
       - name: Update repo description
         uses: peter-evans/dockerhub-description@v2
         with:
