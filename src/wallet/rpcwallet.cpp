@@ -4476,6 +4476,7 @@ static UniValue reissuetoken(const JSONRPCRequest& request)
     if (tokenValue <= 0)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid token amount");
 
+>>>>>>> c153914da8f0f5b3e7674113a40872f0f1e36fbc
     LOCK2(cs_main, pwallet->cs_wallet);
 
     CScript script;
