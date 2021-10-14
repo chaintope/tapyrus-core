@@ -161,6 +161,7 @@ BASE_SCRIPTS = [
     'p2p_unrequested_blocks.py',
     'rpc_generate.py',
     'feature_includeconf.py',
+    'feature_tokencreation.py',
     'feature_logging.py',
     'p2p_node_network_limited.py',
     'feature_blocksdir.py',

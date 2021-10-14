@@ -94,10 +94,8 @@ static UniValue getrawtransaction(const JSONRPCRequest& request)
             "  \"in_active_chain\": b, (bool) Whether specified block is in the active chain or not (only present with explicit \"blockhash\" argument)\n"
             "  \"hex\" : \"data\",       (string) The serialized, hex-encoded data for 'txid'\n"
             "  \"txid\" : \"id\",        (string) The transaction id (same as provided)\n"
-            "  \"hash\" : \"id\",        (string) The transaction hash including scriptSig (differs from txid). For witness transactions it is the witness hash\n"
+            "  \"hash\" : \"id\",        (string) The transaction hash including scriptSig (differs from txid).\n"
             "  \"size\" : n,             (numeric) The serialized transaction size\n"
-            "  \"vsize\" : n,            (numeric) The virtual transaction size (differs from size for witness transactions)\n"
-            "  \"weight\" : n,           (numeric) The transaction's weight (between vsize*4-3 and vsize*4)\n"
             "  \"version\" : n,          (numeric) The version\n"
             "  \"locktime\" : ttt,       (numeric) The lock time\n"
             "  \"vin\" : [               (array of json objects)\n"
@@ -109,7 +107,6 @@ static UniValue getrawtransaction(const JSONRPCRequest& request)
             "         \"hex\": \"hex\"   (string) hex\n"
             "       },\n"
             "       \"sequence\": n      (numeric) The script sequence number\n"
-            "       \"txinwitness\": [\"hex\", ...] (array of string) hex-encoded witness data (if any)\n"
             "     }\n"
             "     ,...\n"
             "  ],\n"
@@ -524,10 +521,8 @@ static UniValue decoderawtransaction(const JSONRPCRequest& request)
             "\nResult:\n"
             "{\n"
             "  \"txid\" : \"id\",        (string) The transaction id\n"
-            "  \"hash\" : \"id\",        (string) The transaction hash (including scriptSig) for witness transactions it is the witness hash)\n"
+            "  \"hash\" : \"id\",        (string) The transaction hash (including scriptSig)\n"
             "  \"size\" : n,             (numeric) The transaction size\n"
-            "  \"vsize\" : n,            (numeric) The virtual transaction size (differs from size for witness transactions)\n"
-            "  \"weight\" : n,           (numeric) The transaction's weight (between vsize*4 - 3 and vsize*4)\n"
             "  \"version\" : n,          (numeric) The version\n"
             "  \"locktime\" : ttt,       (numeric) The lock time\n"
             "  \"vin\" : [               (array of json objects)\n"
@@ -538,7 +533,6 @@ static UniValue decoderawtransaction(const JSONRPCRequest& request)
             "         \"asm\": \"asm\",  (string) asm\n"
             "         \"hex\": \"hex\"   (string) hex\n"
             "       },\n"
-            "       \"txinwitness\": [\"hex\", ...] (array of string) hex-encoded witness data (if any)\n"
             "       \"sequence\": n     (numeric) The script sequence number\n"
             "     }\n"
             "     ,...\n"
@@ -628,8 +622,6 @@ static UniValue decodescript(const JSONRPCRequest& request)
         // P2SH cannot be wrapped in a P2SH. If this script is already a P2SH,
         // don't return the address for a P2SH of the P2SH.
         r.pushKV("p2sh", EncodeDestination(CScriptID(script)));
-        // P2SH and witness programs cannot be wrapped in P2WSH, if this script
-        // is a witness program, don't return addresses for a segwit programs.
         if (type.get_str() == "pubkey" || type.get_str() == "pubkeyhash" || type.get_str() == "multisig" || type.get_str() == "coloredpubkeyhash" || type.get_str() == "nonstandard") {
             txnouttype which_type;
             std::vector<std::vector<unsigned char>> solutions_data;
@@ -657,11 +649,6 @@ static void TxInErrorToJSON(const CTxIn& txin, UniValue& vErrorsRet, const std::
     UniValue entry(UniValue::VOBJ);
     entry.pushKV("txid", txin.prevout.hashMalFix.ToString());
     entry.pushKV("vout", (uint64_t)txin.prevout.n);
-    UniValue witness(UniValue::VARR);
-    for (unsigned int i = 0; i < txin.scriptWitness.stack.size(); i++) {
-        witness.push_back(HexStr(txin.scriptWitness.stack[i].begin(), txin.scriptWitness.stack[i].end()));
-    }
-    entry.pushKV("witness", witness);
     entry.pushKV("scriptSig", HexStr(txin.scriptSig.begin(), txin.scriptSig.end()));
     entry.pushKV("sequence", (uint64_t)txin.nSequence);
     entry.pushKV("error", strMessage);
@@ -820,7 +807,7 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival
 
             // if redeemScript given and not using the local wallet (private keys
             // given), add redeemScript to the keystore so it can be signed:
-            if (is_temp_keystore && (scriptPubKey.IsPayToScriptHash() || scriptPubKey.IsPayToWitnessScriptHash())) {
+            if (is_temp_keystore && scriptPubKey.IsPayToScriptHash() ) {
                 RPCTypeCheckObj(prevOut,
                     {
                         {"redeemScript", UniValueType(UniValue::VSTR)},
@@ -830,8 +817,6 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival
                     std::vector<unsigned char> rsData(ParseHexV(v, "redeemScript"));
                     CScript redeemScript(rsData.begin(), rsData.end());
                     keystore->AddCScript(redeemScript);
-                    // Automatically also add the P2WSH wrapped version of the script (to deal with P2SH-P2WSH).
-                    keystore->AddCScript(GetScriptForWitness(redeemScript));
                 }
             }
         }
@@ -866,14 +851,9 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival
 
         UpdateInput(txin, sigdata);
 
-        // amount must be specified for valid segwit signature
-        if (amount == MAX_MONEY && !txin.scriptWitness.IsNull()) {
-            throw JSONRPCError(RPC_TYPE_ERROR, strprintf("Missing amount for %s", coin.out.ToString()));
-        }
-
         ScriptError serror = SCRIPT_ERR_OK;
         ColorIdentifier colorId;
-        if (!VerifyScript(txin.scriptSig, prevPubKey, &txin.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, TransactionSignatureChecker(&txConst, i, amount), colorId, &serror)) {
+        if (!VerifyScript(txin.scriptSig, prevPubKey, nullptr, STANDARD_SCRIPT_VERIFY_FLAGS, TransactionSignatureChecker(&txConst, i, amount), colorId, &serror)) {
             if (serror == SCRIPT_ERR_INVALID_STACK_OPERATION) {
                 // Unable to sign input and verification failed (possible attempt to partially sign).
                 TxInErrorToJSON(txin, vErrors, "Unable to sign input, invalid stack size (possibly missing key)");
@@ -1302,26 +1282,12 @@ UniValue decodepsbt(const JSONRPCRequest& request)
             "      \"non_witness_utxo\" : {   (json object, optional) Decoded network transaction for non-witness UTXOs\n"
             "        ...\n"
             "      },\n"
-            "      \"witness_utxo\" : {            (json object, optional) Transaction output for witness UTXOs\n"
-            "        \"amount\" : x.xxx,           (numeric) The value in " + CURRENCY_UNIT + "\n"
-            "        \"scriptPubKey\" : {          (json object)\n"
-            "          \"asm\" : \"asm\",            (string) The asm\n"
-            "          \"hex\" : \"hex\",            (string) The hex\n"
-            "          \"type\" : \"pubkeyhash\",    (string) The type, eg 'pubkeyhash'\n"
-            "          \"address\" : \"address\"     (string) Tapyrus address if there is one\n"
-            "        }\n"
-            "      },\n"
             "      \"partial_signatures\" : {             (json object, optional)\n"
             "        \"pubkey\" : \"signature\",           (string) The public key and signature that corresponds to it.\n"
             "        ,...\n"
             "      }\n"
             "      \"sighash\" : \"type\",                  (string, optional) The sighash type to be used\n"
             "      \"redeem_script\" : {       (json object, optional)\n"
-            "          \"asm\" : \"asm\",            (string) The asm\n"
-            "          \"hex\" : \"hex\",            (string) The hex\n"
-            "          \"type\" : \"pubkeyhash\",    (string) The type, eg 'pubkeyhash'\n"
-            "        }\n"
-            "      \"witness_script\" : {       (json object, optional)\n"
             "          \"asm\" : \"asm\",            (string) The asm\n"
             "          \"hex\" : \"hex\",            (string) The hex\n"
             "          \"type\" : \"pubkeyhash\",    (string) The type, eg 'pubkeyhash'\n"
@@ -1337,7 +1303,6 @@ UniValue decodepsbt(const JSONRPCRequest& request)
             "          \"asm\" : \"asm\",            (string) The asm\n"
             "          \"hex\" : \"hex\",            (string) The hex\n"
             "        }\n"
-            "       \"final_scriptwitness\": [\"hex\", ...] (array of string) hex-encoded witness data (if any)\n"
             "      \"unknown\" : {                (json object) The unknown global fields\n"
             "        \"key\" : \"value\"            (key-value pair) An unknown key-value pair\n"
             "         ...\n"
@@ -1352,11 +1317,6 @@ UniValue decodepsbt(const JSONRPCRequest& request)
             "          \"hex\" : \"hex\",            (string) The hex\n"
             "          \"type\" : \"pubkeyhash\",    (string) The type, eg 'pubkeyhash'\n"
             "        }\n"
-            "      \"witness_script\" : {       (json object, optional)\n"
-            "          \"asm\" : \"asm\",            (string) The asm\n"
-            "          \"hex\" : \"hex\",            (string) The hex\n"
-            "          \"type\" : \"pubkeyhash\",    (string) The type, eg 'pubkeyhash'\n"
-            "      }\n"
             "      \"bip32_derivs\" : [          (array of json objects, optional)\n"
             "        {\n"
             "          \"pubkey\" : \"pubkey\",                     (string) The public key this path corresponds to\n"
@@ -1411,19 +1371,7 @@ UniValue decodepsbt(const JSONRPCRequest& request)
         const PSBTInput& input = psbtx.inputs[i];
         UniValue in(UniValue::VOBJ);
         // UTXOs
-        if (!input.witness_utxo.IsNull()) {
-            const CTxOut& txout = input.witness_utxo;
-
-            UniValue out(UniValue::VOBJ);
-
-            out.pushKV("amount", ValueFromAmount(txout.nValue));
-            total_in += txout.nValue;
-
-            UniValue o(UniValue::VOBJ);
-            ScriptToUniv(txout.scriptPubKey, o, true);
-            out.pushKV("scriptPubKey", o);
-            in.pushKV("witness_utxo", out);
-        } else if (input.non_witness_utxo) {
+        if (input.non_witness_utxo) {
             UniValue non_wit(UniValue::VOBJ);
             TxToUniv(*input.non_witness_utxo, uint256(), non_wit, false);
             in.pushKV("non_witness_utxo", non_wit);
@@ -1446,16 +1394,11 @@ UniValue decodepsbt(const JSONRPCRequest& request)
             in.pushKV("sighash", SighashToStr((unsigned char)input.sighash_type));
         }
 
-        // Redeem script and witness script
+        // Redeem script
         if (!input.redeem_script.empty()) {
             UniValue r(UniValue::VOBJ);
             ScriptToUniv(input.redeem_script, r, false);
             in.pushKV("redeem_script", r);
-        }
-        if (!input.witness_script.empty()) {
-            UniValue r(UniValue::VOBJ);
-            ScriptToUniv(input.witness_script, r, false);
-            in.pushKV("witness_script", r);
         }
 
         // keypaths
@@ -1475,19 +1418,12 @@ UniValue decodepsbt(const JSONRPCRequest& request)
             in.pushKV("bip32_derivs", keypaths);
         }
 
-        // Final scriptSig and scriptwitness
+        // Final scriptSig
         if (!input.final_script_sig.empty()) {
             UniValue scriptsig(UniValue::VOBJ);
             scriptsig.pushKV("asm", ScriptToAsmStr(input.final_script_sig, true));
             scriptsig.pushKV("hex", HexStr(input.final_script_sig));
             in.pushKV("final_scriptSig", scriptsig);
-        }
-        if (!input.final_script_witness.IsNull()) {
-            UniValue txinwitness(UniValue::VARR);
-            for (const auto& item : input.final_script_witness.stack) {
-                txinwitness.push_back(HexStr(item.begin(), item.end()));
-            }
-            in.pushKV("final_scriptwitness", txinwitness);
         }
 
         // Unknown data
@@ -1509,16 +1445,11 @@ UniValue decodepsbt(const JSONRPCRequest& request)
     for (unsigned int i = 0; i < psbtx.outputs.size(); ++i) {
         const PSBTOutput& output = psbtx.outputs[i];
         UniValue out(UniValue::VOBJ);
-        // Redeem script and witness script
+        // Redeem script
         if (!output.redeem_script.empty()) {
             UniValue r(UniValue::VOBJ);
             ScriptToUniv(output.redeem_script, r, false);
             out.pushKV("redeem_script", r);
-        }
-        if (!output.witness_script.empty()) {
-            UniValue r(UniValue::VOBJ);
-            ScriptToUniv(output.witness_script, r, false);
-            out.pushKV("witness_script", r);
         }
 
         // keypaths
@@ -1620,7 +1551,7 @@ UniValue finalizepsbt(const JSONRPCRequest& request)
             "finalizepsbt \"psbt\" ( extract )\n"
             "Finalize the inputs of a PSBT. If the transaction is fully signed, it will produce a\n"
             "network serialized transaction which can be broadcast with sendrawtransaction. Otherwise a PSBT will be\n"
-            "created which has the final_scriptSig and final_scriptWitness fields filled for inputs that are complete.\n"
+            "created which has the final_scriptSig field filled for inputs that are complete.\n"
             "Implements the Finalizer and Extractor roles.\n"
             "\nArguments:\n"
             "1. \"psbt\"                 (string) A base64 string of a PSBT\n"
@@ -1664,7 +1595,6 @@ UniValue finalizepsbt(const JSONRPCRequest& request)
         CMutableTransaction mtx(*psbtx.tx);
         for (unsigned int i = 0; i < mtx.vin.size(); ++i) {
             mtx.vin[i].scriptSig = psbtx.inputs[i].final_script_sig;
-            mtx.vin[i].scriptWitness = psbtx.inputs[i].final_script_witness;
         }
         ssTx << mtx;
         result.pushKV("hex", HexStr(ssTx.begin(), ssTx.end()));

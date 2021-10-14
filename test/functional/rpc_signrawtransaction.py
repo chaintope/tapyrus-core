@@ -101,7 +101,6 @@ class SignRawTransactionsTest(BitcoinTestFramework):
         # 5) Script verification errors have certain properties
         assert 'txid' in rawTxSigned['errors'][0]
         assert 'vout' in rawTxSigned['errors'][0]
-        assert 'witness' in rawTxSigned['errors'][0]
         assert 'scriptSig' in rawTxSigned['errors'][0]
         assert 'sequence' in rawTxSigned['errors'][0]
         assert 'error' in rawTxSigned['errors'][0]
@@ -111,7 +110,6 @@ class SignRawTransactionsTest(BitcoinTestFramework):
         assert_equal(rawTxSigned['errors'][0]['vout'], inputs[1]['vout'])
         assert_equal(rawTxSigned['errors'][1]['txid'], inputs[2]['txid'])
         assert_equal(rawTxSigned['errors'][1]['vout'], inputs[2]['vout'])
-        assert not rawTxSigned['errors'][0]['witness']
 
         # Perform same test with signrawtransaction
         rawTxSigned2 = self.nodes[0].signrawtransaction(rawTx, scripts, privKeys, "ALL", scheme)

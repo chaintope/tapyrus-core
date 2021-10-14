@@ -150,6 +150,19 @@ static void addTokenKV(const CTxDestination& address, const CAmount nAmount, Uni
     entry.pushKV("amount", (colorId.type == TokenTypes::NONE ? ValueFromAmount(nAmount) : nAmount ));
 }
 
+static bool checkColorIdParam(const UniValue& param, ColorIdentifier& colorId) {
+    try {
+        const std::vector<unsigned char> vColorId(ParseHex(param.get_str()));
+        if(vColorId.size() != 33) return false;
+        colorId = ColorIdentifier(vColorId);
+        if(colorId.type == TokenTypes::NONE) return false;
+    }
+    catch(...) {
+        return false;
+    }
+    return true;
+}
+
 static UniValue getnewaddress(const JSONRPCRequest& request)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
@@ -188,13 +201,8 @@ static UniValue getnewaddress(const JSONRPCRequest& request)
         label = LabelFromValue(request.params[0]);
 
     ColorIdentifier colorId;
-    if (!request.params[1].isNull())
-    {
-        const std::vector<unsigned char> vColorId(ParseHex(request.params[1].get_str()));
-        colorId = ColorIdentifier(vColorId);
-        if(colorId.type == TokenTypes::NONE)
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid color parameter.");
-    }
+    if (!request.params[1].isNull() && !checkColorIdParam(request.params[1], colorId))
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid color parameter.");
 
     if (!pwallet->IsLocked()) {
         pwallet->TopUpKeyPool();
@@ -264,13 +272,8 @@ static UniValue getrawchangeaddress(const JSONRPCRequest& request)
     }
 
     ColorIdentifier colorId;
-    if (!request.params[0].isNull())
-    {
-        const std::vector<unsigned char> vColorId(ParseHex(request.params[0].get_str()));
-        colorId = ColorIdentifier(vColorId);
-        if(colorId.type == TokenTypes::NONE)
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid color parameter.");
-    }
+    if (!request.params[0].isNull() && !checkColorIdParam(request.params[0], colorId))
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid color parameter.");
 
     CReserveKey reservekey(pwallet);
     CPubKey vchPubKey;
@@ -2858,7 +2861,6 @@ void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& f
             {
                 {"changeAddress", UniValueType(UniValue::VSTR)},
                 {"changePosition", UniValueType(UniValue::VNUM)},
-                {"change_type", UniValueType(UniValue::VSTR)},
                 {"includeWatching", UniValueType(UniValue::VBOOL)},
                 {"lockUnspents", UniValueType(UniValue::VBOOL)},
                 {"feeRate", UniValueType()}, // will be checked below
@@ -2882,15 +2884,8 @@ void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& f
         if (options.exists("changePosition"))
             change_position = options["changePosition"].get_int();
 
-        if (options.exists("change_type")) {
-            if (options.exists("changeAddress")) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot specify both changeAddress and address_type options");
-            }
-            coinControl.m_change_type = pwallet->m_default_change_type;
-            if (!ParseOutputType(options["change_type"].get_str(), *coinControl.m_change_type)) {
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Unknown change type '%s'", options["change_type"].get_str()));
-            }
-        }
+
+        coinControl.m_change_type = pwallet->m_default_change_type;
 
         if (options.exists("includeWatching"))
             coinControl.fAllowWatchOnly = options["includeWatching"].get_bool();
@@ -2979,7 +2974,6 @@ static UniValue fundrawtransaction(const JSONRPCRequest& request)
                             "   {\n"
                             "     \"changeAddress\"          (string, optional, default pool address) The bitcoin address to receive the change\n"
                             "     \"changePosition\"         (numeric, optional, default random) The index of the change output\n"
-                            "     \"change_type\"            (string, optional) The output type to use. Only valid if changeAddress is not specified. Options are \"legacy\", \"p2sh-segwit\", and \"bech32\". Default is set by -changetype.\n"
                             "     \"includeWatching\"        (boolean, optional, default false) Also select inputs which are watch only\n"
                             "     \"lockUnspents\"           (boolean, optional, default false) Lock selected unspent outputs\n"
                             "     \"feeRate\"                (numeric, optional, default not set: makes wallet determine the fee) Set a specific fee rate in " + CURRENCY_UNIT + "/kB\n"
@@ -3867,7 +3861,6 @@ bool FillPSBT(const CWallet* pwallet, PartiallySignedTransaction& psbtx, const C
             CTxOut utxo = wtx.tx->vout[txin.prevout.n];
             // Update both UTXOs from the wallet.
             input.non_witness_utxo = wtx.tx;
-            input.witness_utxo = utxo;
         }
 
         // Get the Sighash type
@@ -3882,14 +3875,6 @@ bool FillPSBT(const CWallet* pwallet, PartiallySignedTransaction& psbtx, const C
             complete &= SignPSBTInput(PublicOnlySigningProvider(pwallet), *psbtx.tx, input, sigdata, i, sighash_type);
         }
 
-        if (it != pwallet->mapWallet.end()) {
-            // Drop the unnecessary UTXO if we added both from the wallet.
-            if (sigdata.witness) {
-                input.non_witness_utxo = nullptr;
-            } else {
-                input.witness_utxo.SetNull();
-            }
-        }
 
         // Get public key paths
         if (bip32derivs) {
@@ -4037,7 +4022,6 @@ UniValue walletcreatefundedpsbt(const JSONRPCRequest& request)
                             "   {\n"
                             "     \"changeAddress\"          (string, optional, default pool address) The bitcoin address to receive the change\n"
                             "     \"changePosition\"         (numeric, optional, default random) The index of the change output\n"
-                            "     \"change_type\"            (string, optional) The output type to use. Only valid if changeAddress is not specified. Options are \"legacy\", \"p2sh-segwit\", and \"bech32\". Default is set by -changetype.\n"
                             "     \"includeWatching\"        (boolean, optional, default false) Also select inputs which are watch only\n"
                             "     \"lockUnspents\"           (boolean, optional, default false) Lock selected unspent outputs\n"
                             "     \"feeRate\"                (numeric, optional, default not set: makes wallet determine the fee) Set a specific fee rate in " + CURRENCY_UNIT + "/kB\n"
@@ -4447,8 +4431,9 @@ static UniValue reissuetoken(const JSONRPCRequest& request)
             + HelpExampleCli("reissuetoken", "\"c18282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23f\" 10")
         );
 
-    const std::vector<unsigned char> vColorId(ParseHex(request.params[0].get_str()));
-    ColorIdentifier colorId(vColorId);
+    ColorIdentifier colorId;
+    if (!request.params[0].isNull() && !checkColorIdParam(request.params[0], colorId))
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid color parameter.");
 
     if(colorId.type != TokenTypes::REISSUABLE)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Token type not supported");
@@ -4560,10 +4545,9 @@ static UniValue burntoken(const JSONRPCRequest& request)
     pwallet->BlockUntilSyncedToCurrentChain();
 
     LOCK2(cs_main, pwallet->cs_wallet);
-
-    const std::vector<unsigned char> vColorId(ParseHex(request.params[0].get_str()));
-    ColorIdentifier colorId(vColorId);
-    CAmount curBalance = pwallet->GetBalance()[colorId];
+    ColorIdentifier colorId;
+    if (!request.params[0].isNull() && !checkColorIdParam(request.params[0], colorId))
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid color parameter.");
 
     CAmount nAmount = request.params[1].get_int64();
     if (nAmount <= 0)
@@ -4572,7 +4556,8 @@ static UniValue burntoken(const JSONRPCRequest& request)
     if (colorId.type == TokenTypes::NONE)
          throw JSONRPCError(RPC_INVALID_PARAMETER, "TPC cannot be burnt using burntoken");
 
-    if (curBalance == 0 || curBalance < nAmount)
+    CAmount curBalance = pwallet->GetBalance()[colorId];
+    if (colorId.type != TokenTypes::NONE && (curBalance == 0 || curBalance < nAmount))
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Insufficient token balance in wallet");
 
     CTransactionRef tx = BurnToken(pwallet, colorId, nAmount);

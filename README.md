@@ -34,7 +34,7 @@ Tapyrus consists of the following software:
 * [Tapyrus Faucet](https://github.com/chaintope/tapyrus-faucet): Faucet for Tapyrus testnet.
 * [[WIP]Tapyrus SPV](https://github.com/chaintope/tapyrus-spv): A lightweight client implementation for Tapyrus blockchain.
 * [Tapyrus Explorer](https://github.com/chaintope/tapyrus-explorer): Tapyrus blockchain explorer.
-* [Electrs Tapyrus](https://github.com/chaintope/electrs-tapyrus): Tapyrus blockchain index server.
+* [Esplora Tapyrus](https://github.com/chaintope/esplora-tapyrus): Tapyrus blockchain index server.
 
 See [Getting Started document](/doc/tapyrus/getting_started.md) for how to install and run tapyrus.
 

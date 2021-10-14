@@ -91,7 +91,7 @@ class RpcCreateMultiSigTest(BitcoinTestFramework):
         assert tx in node0.getblock(blk)["tx"]
 
         txinfo = node0.getrawtransaction(tx, True, blk)
-        self.log.info("n/m=%d/%d size=%d vsize=%d weight=%d" % (self.nsigs, self.nkeys, txinfo["size"], txinfo["vsize"], txinfo["weight"]))
+        self.log.info("n/m=%d/%d size=%d" % (self.nsigs, self.nkeys, txinfo["size"]))
 
 if __name__ == '__main__':
     RpcCreateMultiSigTest().main()

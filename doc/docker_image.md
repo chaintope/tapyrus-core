@@ -1,5 +1,11 @@
 # Docker Image for Tapyrus Core
 
+The official repository for the Tapyrus Core docker image is below:
+
+https://hub.docker.com/r/tapyrus/tapyrusd
+
+You can access each release images and latest master branch image (specifies `edge` version).
+
 ## Quick Start
 
 ### Testnet
@@ -166,3 +172,18 @@ $ docker run -v /my/own/datadir:/var/lib/tapyrus -e GENESIS_BLOCK_WITH_SIG='0000
 ```
 
 The `-v /my/own/datadir:/var/lib/tapyrus` part of the command mounts the `/my/own/datadir` directory from the underlying host system as `/var/lib/tapyrus` inside the container, where tapyrus-core by default will write its data files.
+
+# For maintainer
+
+The `tapyrusd` image will be built/published with GitHub Actions.
+In order to reduce the build time, the dependencies under the `depends` directory will not be built every time, 
+and the [tapyrus/builder](https://hub.docker.com/r/tapyrus/builder) image will be used with these dependencies pre-built.
+
+Therefore, if there are any changes in the dependencies under the `depends` directory, you need to update the `tapyrus/builder` image.
+You can update the image using the [Push Tapyrus Builder image](https://github.com/chaintope/tapyrus-core/actions/workflows/push_tapyrus-builder_image.yml) action.
+This action is manually triggered, so you will have to trigger it manually in the action screen.
+You will be prompted to enter a new tag (e.g. `v0.1.0`). 
+
+However, this build will take a long time. If you need to build quickly, it is probably faster to publish the image built in your local environment to DockerHub.
+
+After that, replace the tag at the top of the [tapyrusd Dockerfile](https://github.com/chaintope/tapyrus-core/blob/master/Dockerfile) with the new one.
