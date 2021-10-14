@@ -1125,7 +1125,7 @@ static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bo
                 continue;
 
             tallyitem& item = mapTally[address];
-            item.nAmount+= txout.nValue;
+            item.nAmount += txout.nValue;
             item.nConf = std::min(item.nConf, nDepth);
             item.txids.push_back(wtx.GetHash());
             if (mine & ISMINE_WATCH_ONLY)
@@ -1775,7 +1775,7 @@ static UniValue gettransaction(const JSONRPCRequest& request)
         CAmount nFee = (wtx.IsFromMe(filter) ? wtx.tx->GetValueOut(colorId) - nDebit : 0);
 
         entry.pushKV("token", colorId.toHexString());
-        entry.pushKV("amount", (colorId.type == TokenTypes::NONE) ? ValueFromAmount(nNet - nFee) : nNet - nFee);
+        entry.pushKV("amount", (colorId.type == TokenTypes::NONE) ? ValueFromAmount(nNet - nFee) : nNet);
         entry.pushKV("fee", ValueFromAmount(nFee));
         
     }
@@ -2425,7 +2425,7 @@ static UniValue getwalletinfo(const JSONRPCRequest& request)
         if (wb.first.type == TokenTypes::NONE) {
             balances.pushKV(CURRENCY_UNIT.c_str(), ValueFromAmount(wb.second));
         } else {
-            balances.pushKV(HexStr(wb.first.toVector()).c_str(), wb.second);
+            balances.pushKV(wb.first.toHexString(), wb.second);
         }
     };
 
