@@ -208,24 +208,22 @@ class Label:
         self.addresses.append(address)
 
     def verify(self, node, colorid=None):
-        for address in self.addresses:
+        address_to_use = []
+        if colorid != None:
+            address_to_use = self.addresses
+        else:
+            address_to_use = self.caddresses
+
+        for address in address_to_use:
+            print(len(address_to_use), address, self.name, node.getaddressinfo(address))
             assert_equal(
                 node.getaddressinfo(address)['labels'][0],
                 {"name": self.name,
                  "purpose": self.purpose[address]})
             assert_equal(node.getaddressinfo(address)['label'], self.name)
 
-        assert((node.getaddressesbylabel(self.name)[address] ==  {"purpose": self.purpose[address]}) for address in self.addresses)
+        assert((node.getaddressesbylabel(self.name)[address] ==  {"purpose": self.purpose[address]}) for address in address_to_use)
 
-        if colorid != None:
-            for address in self.caddresses:
-                assert_equal(
-                    node.getaddressinfo(address)['labels'][0],
-                    {"name": self.name,
-                    "purpose": self.purpose[address]})
-                assert_equal(node.getaddressinfo(address)['label'], self.name)
-
-            assert((node.getaddressesbylabel(self.name)[caddress] ==  {"purpose": self.purpose[address]}) for address in self.caddresses)
 
 def change_label(node, address, old_label, new_label):
     assert_equal(address in old_label.addresses, True)
