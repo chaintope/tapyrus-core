@@ -11,6 +11,7 @@ RPCs tested are:
     - setlabel
 
 """
+from time import sleep
 import math
 from decimal import Decimal
 from collections import defaultdict
@@ -107,6 +108,8 @@ class WalletLabelsTest(BitcoinTestFramework):
         for label in labels:
             address = node.getnewaddress(label.name, colorId)
             label.add_coloraddress(address)
+            #add sleep to avoid race conditin in getaddressinfo that causes lable to be seen as ''
+            sleep(1)
             label.verify(node, colorId)
 
         # Send a transaction to each label, and make sure this forces
@@ -215,7 +218,6 @@ class Label:
             address_to_use = self.caddresses
 
         for address in address_to_use:
-            print(len(address_to_use), address, self.name, node.getaddressinfo(address))
             assert_equal(
                 node.getaddressinfo(address)['labels'][0],
                 {"name": self.name,
