@@ -765,7 +765,7 @@ static UniValue getreceivedbylabel(const JSONRPCRequest& request)
         if (wb.first.type == TokenTypes::NONE)
             balances.pushKV(CURRENCY_UNIT.c_str(), ValueFromAmount(wb.second));
         else
-            balances.pushKV(HexStr(wb.first.toVector()).c_str(), wb.second);
+            balances.pushKV(wb.first.toHexString(), wb.second);
     };
     return balances;
 }
