@@ -103,6 +103,9 @@ class WalletLabelsTest(BitcoinTestFramework):
                 node.getreceivedbyaddress(label.addresses[0]), amount_to_send)
             assert_equal(node.getreceivedbylabel(label.name), {'TPC': Decimal('1.00000000')})
 
+        # generate extra blocks so that they can be used in token issue.
+        node.generate(6, self.signblockprivkey_wif)
+
         self.log.debug("Checking lables with tokens")
         colorId = create_colored_transaction(1, 10, node)['color']
         for label in labels:
@@ -124,6 +127,8 @@ class WalletLabelsTest(BitcoinTestFramework):
         for label in labels:
             assert_equal(
                 node.getreceivedbyaddress(label.caddresses[0]), 1)
+            assert_equal(
+                node.getreceivedbyaddress(label.addresses[0]), amount_to_send)
             assert_equal(node.getreceivedbylabel(label.name), {'TPC': Decimal('1.00000000'), colorId : 1})
 
 
@@ -139,10 +144,7 @@ class WalletLabelsTest(BitcoinTestFramework):
             assert_equal(node.getreceivedbylabel(label.name), {'TPC': Decimal('2.00000000'), colorId: 1})
             label.verify(node)
         node.generate(3, self.signblockprivkey_wif)
-        expected_account_balances = {"": 300}
-        for label in labels:
-            expected_account_balances[label.name] = 0
-        assert_equal(math.floor(node.getbalance()), 350)
+        assert_equal(math.floor(node.getbalance()), 650)
 
         self.log.debug("Check that sendfrom label reduces listaccounts balances in tokens")
         for i, label in enumerate(labels):
@@ -156,10 +158,7 @@ class WalletLabelsTest(BitcoinTestFramework):
             assert_equal(node.getreceivedbylabel(label.name), {'TPC': Decimal('2.0000000'), colorId : 2})
             label.verify(node, colorId)
         node.generate(3, self.signblockprivkey_wif)
-        expected_account_balances = {"": 400}
-        for label in labels:
-            expected_account_balances[label.name] = 0
-        assert_equal(math.floor(node.getbalance()), 550)
+        assert_equal(math.floor(node.getbalance()), 850)
 
         # Check that setlabel can assign a label to a new unused address.
         for label in labels:
