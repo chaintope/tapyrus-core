@@ -108,8 +108,9 @@ class WalletLabelsTest(BitcoinTestFramework):
         for label in labels:
             address = node.getnewaddress(label.name, colorId)
             label.add_coloraddress(address)
-            #add sleep to avoid race conditin in getaddressinfo that causes lable to be seen as ''
-            sleep(1)
+
+        #separate calls to getaddressinfo to avoid race conditin in address book reading when getnewaddress and getaddressinfo are in the same loop''
+        for label in labels:
             label.verify(node, colorId)
 
         # Send a transaction to each label, and make sure this forces
@@ -212,7 +213,7 @@ class Label:
 
     def verify(self, node, colorid=None):
         address_to_use = []
-        if colorid != None:
+        if colorid == None:
             address_to_use = self.addresses
         else:
             address_to_use = self.caddresses
