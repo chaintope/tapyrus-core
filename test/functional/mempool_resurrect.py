@@ -50,9 +50,16 @@ class MempoolCoinbaseTest(BitcoinTestFramework):
         for node in self.nodes:
             node.invalidateblock(blocks[0])
 
+        color_txid=[create_colored_transaction(2, 1000, self.nodes[0])['txid'], create_colored_transaction(3, 1, self.nodes[0])['txid']]
+        blocks.extend(self.nodes[0].generate(1, self.signblockprivkey_wif))
+        assert_equal(set(self.nodes[0].getrawmempool()), set())
+
+        for node in self.nodes:
+            node.invalidateblock(blocks[2])
+
         # All txns should be back in mempool with 0 confirmations
-        assert_equal(set(self.nodes[0].getrawmempool()), set(spends1_id+spends2_id))
-        for txid in spends1_id+spends2_id:
+        assert_equal(set(self.nodes[0].getrawmempool()), set(spends1_id+spends2_id+color_txid))
+        for txid in spends1_id+spends2_id+color_txid:
             tx = self.nodes[0].gettransaction(txid)
             assert(tx["confirmations"] == 0)
 
@@ -60,35 +67,7 @@ class MempoolCoinbaseTest(BitcoinTestFramework):
         self.nodes[0].generate(1, self.signblockprivkey_wif)
         # mempool should be empty, all txns confirmed
         assert_equal(set(self.nodes[0].getrawmempool()), set())
-        for txid in spends1_id+spends2_id:
-            tx = self.nodes[0].gettransaction(txid)
-            assert(tx["confirmations"] > 0)
-        
-
-        blocks.extend(self.nodes[0].generate(1, self.signblockprivkey_wif))
-
-        color_txid=[create_colored_transaction(2, 1000, self.nodes[0])['txid'], create_colored_transaction(3, 1, self.nodes[0])['txid']]
-
-        blocks.extend(self.nodes[0].generate(1, self.signblockprivkey_wif))
-
-        assert_equal(set(self.nodes[0].getrawmempool()), set())
-        for txid in color_txid:
-            tx = self.nodes[0].gettransaction(txid)
-            assert(tx["confirmations"] > 0)
-        
-        for node in self.nodes:
-            node.invalidateblock(blocks[3])
-
-        assert_equal(set(self.nodes[0].getrawmempool()), set(color_txid))
-        for txid in color_txid:
-            tx = self.nodes[0].gettransaction(txid)
-            assert(tx["confirmations"] == 0)
-
-        
-        self.nodes[0].generate(1, self.signblockprivkey_wif)
-       
-        assert_equal(set(self.nodes[0].getrawmempool()), set())
-        for txid in color_txid:
+        for txid in spends1_id+spends2_id+color_txid:
             tx = self.nodes[0].gettransaction(txid)
             assert(tx["confirmations"] > 0)
 
