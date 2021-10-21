@@ -13,6 +13,7 @@ from test_framework.util import (
     assert_raises_rpc_error,
     sync_blocks,
 )
+from test_framework.blocktools import create_colored_transaction
 
 
 class ReceivedByTest(BitcoinTestFramework):
@@ -133,11 +134,13 @@ class ReceivedByTest(BitcoinTestFramework):
         # listreceivedbylabel should return updated received list
         assert_array_result(self.nodes[1].listreceivedbylabel(),
                             {"label": label},
-                            {"label": received_by_label_json["label"], "amount": (received_by_label_json["amount"] + Decimal("0.1"))})
+                            {"label": received_by_label_json["label"], 
+                             "token": 'TPC',
+                             "amount": (received_by_label_json["amount"] + Decimal("0.1"))})
 
         # getreceivedbylabel should return updated receive total
         balance = self.nodes[1].getreceivedbylabel(label)
-        assert_equal(balance, balance_by_label + Decimal("0.1"))
+        assert_equal(balance['TPC'], balance_by_label['TPC'] + Decimal("0.1"))
 
         # Create a new label named "mynewlabel" that has a 0 balance
         address = self.nodes[1].getnewaddress()
@@ -149,7 +152,52 @@ class ReceivedByTest(BitcoinTestFramework):
 
         # Test getreceivedbylabel for 0 amount labels
         balance = self.nodes[1].getreceivedbylabel("mynewlabel")
-        assert_equal(balance, Decimal("0.0"))
+        assert_equal(balance, {})
+
+        self.log.info("listreceivedbylabel + getreceivedbylabel Test with tokens")
+
+        colorId = create_colored_transaction(1, 10, self.nodes[0])['color']
+
+        address = self.nodes[1].getnewaddress("", colorId)
+        assert_equal(self.nodes[1].getaddressinfo(address)['label'], label)
+        received_by_label_json = [r for r in self.nodes[1].listreceivedbylabel() if r["label"] == label][0]
+        balance_by_label = self.nodes[1].getreceivedbylabel(label)
+
+        txid = self.nodes[0].sendtoaddress(address, 1)
+        self.sync_all()
+
+        # listreceivedbylabel should return received_by_label_json because of 0 confirmations
+        assert_array_result(self.nodes[1].listreceivedbylabel(),
+                            {"label": label},
+                            received_by_label_json)
+
+        # getreceivedbyaddress should return same balance because of 0 confirmations
+        balance = self.nodes[1].getreceivedbylabel(label)
+        assert_equal(balance, balance_by_label)
+
+        self.nodes[1].generate(10, self.signblockprivkey_wif)
+        self.sync_all()
+        # listreceivedbylabel should return updated received list
+        assert_array_result(self.nodes[1].listreceivedbylabel(),
+                            {"token": colorId},
+                            {"label": received_by_label_json["label"], 
+                             "amount": 1})
+
+        # getreceivedbylabel should return updated receive total
+        balance = self.nodes[1].getreceivedbylabel(label)
+        assert_equal(balance[colorId], 1)
+
+        # Create a new label named "mynewlabel" that has a 0 balance
+        address = self.nodes[1].getnewaddress("", colorId)
+        self.nodes[1].setlabel(address, "mynewcolorlabel")
+        received_by_label_json = [r for r in self.nodes[1].listreceivedbylabel(True) if r["label"] == "mynewcolorlabel"][0]
+
+        # Test includeempty of listreceivedbylabel
+        assert_equal(received_by_label_json["amount"], Decimal("0.0"))
+
+        # Test getreceivedbylabel for 0 amount labels
+        balance = self.nodes[1].getreceivedbylabel("mynewcolorlabel")
+        assert_equal(balance, {})
 
 if __name__ == '__main__':
     ReceivedByTest().main()
