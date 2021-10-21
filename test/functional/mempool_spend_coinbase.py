@@ -14,7 +14,7 @@ but less mature coinbase spends are NOT.
 """
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.blocktools import create_raw_transaction
+from test_framework.blocktools import create_raw_transaction,create_colored_transaction
 from test_framework.util import assert_equal, assert_raises_rpc_error
 
 
@@ -30,7 +30,7 @@ class MempoolSpendCoinbaseTest(BitcoinTestFramework):
         # Coinbase at height chain_height-100+1 ok in mempool, should
         # get mined. Coinbase at height chain_height-100+2 is
         # is too immature to spend.
-        b = [self.nodes[0].getblockhash(n) for n in range(1, 3)]
+        b = [self.nodes[0].getblockhash(n) for n in range(1, 4)]
         coinbase_txids = [self.nodes[0].getblock(h)['tx'][0] for h in b]
         spends_raw = [create_raw_transaction(self.nodes[0], txid, node0_address, amount=49.99) for txid in coinbase_txids]
 
@@ -49,6 +49,12 @@ class MempoolSpendCoinbaseTest(BitcoinTestFramework):
         # ... and now height 102 can be spent:
         spend_102_id = self.nodes[0].sendrawtransaction(spends_raw[1])
         assert_equal(self.nodes[0].getrawmempool(), [ spend_102_id ])
+
+        self.nodes[0].generate(1, self.signblockprivkey_wif)
+        assert_equal(set(self.nodes[0].getrawmempool()), set())
+
+        color_txid=[create_colored_transaction(2, 1000, self.nodes[0])['txid'], create_colored_transaction(3, 1, self.nodes[0])['txid']]
+        assert_equal(self.nodes[0].getrawmempool(),  color_txid )
 
 if __name__ == '__main__':
     MempoolSpendCoinbaseTest().main()
