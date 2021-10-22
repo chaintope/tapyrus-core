@@ -99,7 +99,6 @@ BASE_SCRIPTS = [
     'wallet_txn_clone.py --scheme SCHNORR',
     'rpc_getchaintips.py',
     'interface_rest.py',
-    'mempool_spend_coinbase.py',
     'mempool_reorg.py',
     'mempool_reorg.py --scheme SCHNORR',
     'mempool_persist.py',
