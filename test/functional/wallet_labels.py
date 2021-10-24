@@ -107,7 +107,7 @@ class WalletLabelsTest(BitcoinTestFramework):
         node.generate(6, self.signblockprivkey_wif)
 
         self.log.debug("Checking lables with tokens")
-        colorId = create_colored_transaction(1, 10, node)['color']
+        colorId = create_colored_transaction(2, 10, node)['color']
         for label in labels:
             address = node.getnewaddress(label.name, colorId)
             label.add_coloraddress(address)
@@ -166,8 +166,7 @@ class WalletLabelsTest(BitcoinTestFramework):
             node.setlabel(address, label.name)
             label.add_address(address)
             label.verify(node)
-            #colored coin issue txs are without labels.
-            assert_equal(len(node.getaddressesbylabel("")), 2)
+            assert_raises_rpc_error(-11, "No addresses with label", node.getaddressesbylabel, "")
 
         # Check that addmultisigaddress can assign labels.
         for label in labels:
