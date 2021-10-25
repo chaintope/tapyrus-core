@@ -31,7 +31,7 @@ Tapyrus v0.5.0 is supported on three platforms : Linux, MacOS and Windows(WSL)
 
 *Colored coin*
 
-With version v0.5.0 Tapyrus blockchain supports tokens or colored coins. Tapyrus consensus, script and wallet layers have been enhanced to support the same. Apart from TPC, the default tapyrus coin NFTs, single issue tokens and reissuable tokens are now supported. Tokens may be issued, sent or received and burnt on Tapyrus blockchain. Complete specification of colored coins in Tapyrus can be found in [[Tapyrus colored coin](../../tapyrus/colored_coin.md)]
+With version v0.5.0 Tapyrus blockchain supports tokens or colored coins. Tapyrus consensus, script and wallet layers have been enhanced to support the same. Apart from TPC, the default tapyrus coin, other tokens like NFTs, single issue tokens and reissuable tokens are now supported. Tokens may be issued, sent or received and burnt on Tapyrus blockchain. Complete specification of colored coins in Tapyrus can be found in [[Tapyrus colored coin](../../tapyrus/colored_coin.md)]
 
 *Script*
 
