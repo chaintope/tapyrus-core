@@ -380,6 +380,9 @@ class TestNodeCLI():
             if match:
                 code, message = match.groups()
                 raise JSONRPCException(dict(code=int(code), message=message))
+            #if stop command could not be delivered its not an error.
+            if command == 'stop' and re.match(r'error: Could not connect to the server\n(.*)', cli_stderr):
+                return 0
             # Ignore cli_stdout, raise with cli_stderr
             raise subprocess.CalledProcessError(returncode, self.binary, output=cli_stderr)
         try:
