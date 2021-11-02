@@ -49,6 +49,10 @@ apps:
       HOME: $SNAP_USER_COMMON
     daemon: simple
     restart-condition: always
+  tx:
+    command: tapyrus-tx
+    environment:
+      HOME: $SNAP_USER_COMMON
 
 layout:
   # Make sure /var/tmp is writable by mounting as tmpfs.
