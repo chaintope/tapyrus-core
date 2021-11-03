@@ -9,7 +9,7 @@ Test re-org scenarios with a mempool that contains transactions
 that spend (directly or indirectly) coinbase transactions.
 """
 
-from test_framework.blocktools import create_raw_transaction
+from test_framework.blocktools import create_raw_transaction, create_colored_transaction
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error
 
@@ -59,6 +59,8 @@ class MempoolCoinbaseTest(BitcoinTestFramework):
         self.nodes[0].generate(1, self.signblockprivkey_wif)
         # Time-locked transaction is still too immature to spend
         assert_raises_rpc_error(-26, 'non-final', self.nodes[0].sendrawtransaction, timelock_tx)
+        print(spend_102_id)
+        print(spend_103_id)
 
         # Create 102_1 and 103_1:
         spend_102_1_raw = create_raw_transaction(self.nodes[0], spend_102_id, node1_address, amount=49.98)
@@ -77,12 +79,14 @@ class MempoolCoinbaseTest(BitcoinTestFramework):
         self.sync_all()
 
         assert_equal(set(self.nodes[0].getrawmempool()), {spend_101_id, spend_102_1_id, timelock_tx_id})
+        print(self.nodes[0].getrawmempool())
 
         for node in self.nodes:
             node.invalidateblock(last_block[0])
         # Time-locked transaction is now too immature and has been removed from the mempool
         # spend_103_1 has been re-orged out of the chain and is back in the mempool
         assert_equal(set(self.nodes[0].getrawmempool()), {spend_101_id, spend_102_1_id, spend_103_1_id})
+        print(self.nodes[0].getrawmempool())
 
         # Use invalidateblock to re-org back and make all those coinbase spends
         # immature/invalid:
@@ -90,9 +94,17 @@ class MempoolCoinbaseTest(BitcoinTestFramework):
             node.invalidateblock(new_blocks[0])
 
         self.sync_all()
+        color_txid=create_colored_transaction(2, 1000, self.nodes[0])['txid'] 
+        color_txid_1= create_colored_transaction(3, 1, self.nodes[0])['txid']
+        print(color_txid)
+        new_blocks.extend(self.nodes[1].generate(1, self.signblockprivkey_wif))
+        #assert_equal(set(self.nodes[0].getrawmempool()), set())
+
+        for node in self.nodes:
+            node.invalidateblock(new_blocks[2])
 
         # mempool should be empty.
-        assert_equal(set(self.nodes[0].getrawmempool()), {spend_101_id, spend_102_id, spend_102_1_id, spend_103_id, spend_103_1_id})
+        assert_equal(set(self.nodes[0].getrawmempool()), {spend_101_id, spend_102_id, spend_102_1_id, spend_103_id, spend_103_1_id,color_txid,color_txid_1})
 
 if __name__ == '__main__':
     MempoolCoinbaseTest().main()
