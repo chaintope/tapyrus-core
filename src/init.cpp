@@ -536,7 +536,7 @@ std::string LicenseInfo()
     const std::string URL_WEBSITE = "<https://www.chaintope.com/en/chaintope-blockchain-protocol>";
 
     return CopyrightHolders(strprintf(_("Copyright (C) %i-%i"), 2009, COPYRIGHT_YEAR) + " ") + "\n" +
-           "Copyright (C) 2020 Chaintope Inc.\n"
+           "Copyright (C) 2021 Chaintope Inc.\n"
            "\n" +
            strprintf(_("Please contribute if you find %s useful. "
                        "Visit %s for further information about the software."),
