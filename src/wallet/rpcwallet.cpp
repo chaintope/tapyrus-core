@@ -4660,7 +4660,7 @@ static const CRPCCommand commands[] =
     { "wallet",                    "getcolor",               &getcolor,                      {"type","txid","index"} },
     { "wallet",                    "issuetoken",             &issuetoken,                      {"type","value","txid","index"} },
     { "wallet",                    "reissuetoken",           &reissuetoken,                      {"color","value"} },
-    { "wallet",                    "transfertoken",          &transfertoken,                      {"address","value"} },
+    { "wallet",                    "transfertoken",          &transfertoken,                      {"address","amount"} },
     { "wallet",                    "burntoken",              &burntoken,                      {"color","value"} },
 
     { "generating",         "generate",                         &generate,                      {"nblocks","privkeys"} },
