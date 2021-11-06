@@ -151,9 +151,9 @@ BASE_SCRIPTS = [
     'p2p_leak.py',
     'wallet_encryption.py',
     'wallet_coloredcoin.py',
-    'wallet_coloredcoin.py --scheme SCHNORR'
-    'wallet_coloredcoin.py --usecli'
-    'wallet_coloredcoin.py --usecli --scheme SCHNORR'
+    'wallet_coloredcoin.py --scheme SCHNORR',
+    'wallet_coloredcoin.py --usecli',
+    'wallet_coloredcoin.py --usecli --scheme SCHNORR',
     'feature_dersig.py',
     'rpc_uptime.py',
     'wallet_resendwallettransactions.py',
