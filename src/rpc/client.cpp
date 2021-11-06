@@ -154,7 +154,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "getcolor", 0, "token_type"},
     { "getcolor", 2, "index"},
     { "reissuetoken", 1, "value"},
-    { "burntoken", 1, "value"}
+    { "burntoken", 1, "value"},
 };
 
 class CRPCConvertTable
