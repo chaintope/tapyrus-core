@@ -162,12 +162,14 @@ BASE_SCRIPTS = [
     'rpc_generate.py',
     'feature_includeconf.py',
     'feature_tokencreation.py',
+    'feature_tokencreation.py  --usecli',
     'feature_logging.py',
     'p2p_node_network_limited.py',
     'feature_blocksdir.py',
     'feature_config_args.py',
     'rpc_help.py',
     'feature_help.py',
+    'feature_help.py --usecli',
     'feature_coloredcoin.py'
     # Don't append tests at the end to avoid merge conflicts
     # Put them in a random line within the section that fits their approximate run-time
