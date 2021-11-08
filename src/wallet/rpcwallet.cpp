@@ -4479,12 +4479,12 @@ static UniValue transfertoken(const JSONRPCRequest& request)
 
     if (request.fHelp || request.params.size() != 2)
         throw std::runtime_error(
-            "transfertoken \"address\" \"amount\" \n"
+            "transfertoken \"address\" \"value\" \n"
             "\nSend colored coins or tokens to a given address.\n"
             + HelpRequiringPassphrase(pwallet) +
             "\nArguments:\n"
             "1. \"address\"            (string, required) The colored tapyrus address to send to.\n"
-            "2. \"amount\"             (numeric, required) The amount in to send. eg 10\n"
+            "2. \"value\"              (numeric, required) The amount in to send. eg 10\n"
             "\nResult:\n"
             "\"txid\"                  (string) The transaction id.\n"
             "\nExamples:\n"
@@ -4660,7 +4660,7 @@ static const CRPCCommand commands[] =
     { "wallet",                    "getcolor",               &getcolor,                      {"type","txid","index"} },
     { "wallet",                    "issuetoken",             &issuetoken,                      {"type","value","txid","index"} },
     { "wallet",                    "reissuetoken",           &reissuetoken,                      {"color","value"} },
-    { "wallet",                    "transfertoken",          &transfertoken,                      {"address","amount"} },
+    { "wallet",                    "transfertoken",          &transfertoken,                      {"address","value"} },
     { "wallet",                    "burntoken",              &burntoken,                      {"color","value"} },
 
     { "generating",         "generate",                         &generate,                      {"nblocks","privkeys"} },
