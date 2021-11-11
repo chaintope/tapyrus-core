@@ -4179,8 +4179,8 @@ static UniValue getcolor(const JSONRPCRequest& request)
             "\"color\"               (string) The color or token.\n"
             "\nExamples:\n"
             + HelpExampleCli("getcolor", "\"1\" 8282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508")
-            + HelpExampleCli("getcolor", "\"2\" 485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954" "0")
-            + HelpExampleCli("getcolor", "\"3\" 485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954" "1")
+            + HelpExampleCli("getcolor", "\"2\" 485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954 0")
+            + HelpExampleCli("getcolor", "\"3\" 485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954 1")
         );
 
     RPCTypeCheck(request.params, {UniValue::VNUM, UniValue::VSTR});
@@ -4352,7 +4352,7 @@ static UniValue issuetoken(const JSONRPCRequest& request)
     if (request.fHelp || request.params.size() < 3 || request.params.size() > 4)
         throw std::runtime_error(
             "issuetoken \"token_type\" \"token_value\" \"txid/scriptpubkey\" \"index\" \n"
-            "\nIssue new colored coins or tokens and store then in the wallet.\n"
+            "\nIssue new colored coins or tokens and store them in the wallet.\n"
             + HelpRequiringPassphrase(pwallet) +
             "\nArguments:\n"
             "1. \"token_type\"       (numberic, required) Value can be 1 or 2 or 3.\n"
@@ -4376,8 +4376,8 @@ static UniValue issuetoken(const JSONRPCRequest& request)
             "}\n"
             "\nExamples:\n"
             + HelpExampleCli("issuetoken", "\"1\" \"100\" 8282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508")
-            + HelpExampleCli("issuetoken", "\"2\" \"1000\" 485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954" "0")
-            + HelpExampleCli("issuetoken", "\"3\" \"500\" 485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954" "1")
+            + HelpExampleCli("issuetoken", "\"2\" \"1000\" 485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954 0")
+            + HelpExampleCli("issuetoken", "\"3\" \"500\" 485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954 1")
         );
     RPCTypeCheck(request.params, {UniValue::VNUM, UniValue::VNUM, UniValue::VSTR});
 
@@ -4431,7 +4431,7 @@ static UniValue reissuetoken(const JSONRPCRequest& request)
             + HelpRequiringPassphrase(pwallet) +
             "\nArguments:\n"
             "1. \"color\"              (string, required) The tapyrus color / token to be reissued.\n"
-            "2. \"value\"              (numeric, required) The amount to issue. eg 10\n"
+            "2. \"value\"              (numeric, required) The number of tokens to issue. eg 10\n"
             "\nResult:\n"
             "{\n"
             "  \"color\"               (string) The color or token.\n"
@@ -4484,7 +4484,7 @@ static UniValue transfertoken(const JSONRPCRequest& request)
             + HelpRequiringPassphrase(pwallet) +
             "\nArguments:\n"
             "1. \"address\"            (string, required) The colored tapyrus address to send to.\n"
-            "2. \"value\"              (numeric, required) The amount in to send. eg 10\n"
+            "2. \"value\"              (numeric, required) The number of tokens to send. eg 10\n"
             "\nResult:\n"
             "\"txid\"                  (string) The transaction id.\n"
             "\nExamples:\n"
