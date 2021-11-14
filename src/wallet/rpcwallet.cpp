@@ -2852,14 +2852,14 @@ static UniValue listunspent(const JSONRPCRequest& request)
     return results;
 }
 
-void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& fee_out, int& change_position, UniValue options)
+void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& fee_out, CWallet::ChangePosInOut& change_position, UniValue options)
 {
     // Make sure the results are valid at least up to the most recent block
     // the user could have gotten from another RPC command prior to now
     pwallet->BlockUntilSyncedToCurrentChain();
 
     CCoinControl coinControl;
-    change_position = -1;
+    int tpc_change_position = -1;
     bool lockUnspents = false;
     UniValue subtractFeeFromOutputs;
     std::set<int> setSubtractFeeFromOutputs;
@@ -2896,7 +2896,7 @@ void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& f
         }
 
         if (options.exists("changePosition"))
-            change_position = options["changePosition"].get_int();
+            tpc_change_position = options["changePosition"].get_int();
 
 
         coinControl.m_change_type = pwallet->m_default_change_type;
@@ -2939,7 +2939,7 @@ void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& f
     if (tx.vout.size() == 0)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "TX must have at least one output");
 
-    if (change_position != -1 && (change_position < 0 || (unsigned int)change_position > tx.vout.size()))
+    if (tpc_change_position != -1 && (tpc_change_position < 0 || (unsigned int)tpc_change_position > tx.vout.size()))
         throw JSONRPCError(RPC_INVALID_PARAMETER, "changePosition out of bounds");
 
     for (unsigned int idx = 0; idx < subtractFeeFromOutputs.size(); idx++) {
@@ -2955,6 +2955,18 @@ void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& f
 
     std::string strFailReason;
 
+    //if we are funding token transaction make sure to mark the coincontrol as transfer
+    for(auto& vout:tx.vout)
+    {
+        ColorIdentifier colorId = GetColorIdFromScript(vout.scriptPubKey);
+        if(colorId.type != TokenTypes::NONE)
+        {
+            coinControl.m_colorTxType = ColoredTxType::TRANSFER;
+            coinControl.m_colorId = colorId;
+            break;
+        }
+    }
+    change_position[ColorIdentifier()] =  tpc_change_position;
     if (!pwallet->FundTransaction(tx, fee_out, change_position, strFailReason, lockUnspents, setSubtractFeeFromOutputs, coinControl)) {
         throw JSONRPCError(RPC_WALLET_ERROR, strFailReason);
     }
@@ -3032,13 +3044,13 @@ static UniValue fundrawtransaction(const JSONRPCRequest& request)
     }
 
     CAmount fee;
-    int change_position;
+    CWallet::ChangePosInOut change_position;
     FundTransaction(pwallet, tx, fee, change_position, request.params[1]);
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("hex", EncodeHexTx(tx));
     result.pushKV("fee", ValueFromAmount(fee));
-    result.pushKV("changepos", change_position);
+    result.pushKV("changepos", change_position[ColorIdentifier()]);
 
     return result;
 }
@@ -4075,7 +4087,7 @@ UniValue walletcreatefundedpsbt(const JSONRPCRequest& request)
     );
 
     CAmount fee;
-    int change_position;
+    CWallet::ChangePosInOut change_position;
     CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], request.params[3]["replaceable"]);
     FundTransaction(pwallet, rawTx, fee, change_position, request.params[3]);
 
@@ -4104,7 +4116,7 @@ UniValue walletcreatefundedpsbt(const JSONRPCRequest& request)
     UniValue result(UniValue::VOBJ);
     result.pushKV("psbt", EncodeBase64((unsigned char*)ssTx.data(), ssTx.size()));
     result.pushKV("fee", ValueFromAmount(fee));
-    result.pushKV("changepos", change_position);
+    result.pushKV("changepos", change_position[ColorIdentifier()]);
     return result;
 }
 
