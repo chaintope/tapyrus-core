@@ -31,7 +31,7 @@ class PSBTTest(BitcoinTestFramework):
         #create tokens
         colorId = create_colored_transaction(1, 100, self.nodes[0])['color']
 
-        psbtx2 = self.nodes[0].walletcreatefundedpsbt([], {self.nodes[2].getnewaddress("tokenpsbt", colorId):10})['psbt']
+        psbtx2 = self.nodes[0].walletcreatefundedpsbt([], {self.nodes[2].getnewaddress("tokenpsbt", colorId):10, self.nodes[0].getnewaddress("tokenpsbt", colorId):90})['psbt']
 
         # Node 1 should not be able to add anything to it but still return the psbtx same as before
         psbtx = self.nodes[1].walletprocesspsbt(psbtx1)['psbt']
@@ -57,10 +57,15 @@ class PSBTTest(BitcoinTestFramework):
         pubkey2 = self.nodes[2].getaddressinfo(self.nodes[2].getnewaddress())['pubkey']
         p2sh = self.nodes[1].addmultisigaddress(2, [pubkey0, pubkey1, pubkey2], "")['address']
         p2pkh = self.nodes[1].getnewaddress("")
+        cp2pkh = self.nodes[1].getnewaddress("", colorId)
 
         # fund those addresses
         rawtx = self.nodes[0].createrawtransaction([], {p2sh:10, p2pkh:10})
         rawtx = self.nodes[0].fundrawtransaction(rawtx, {"changePosition":2})
+        rawtx = self.nodes[0].createrawtransaction([], {cp2pkh :10})
+        rawtx = self.nodes[0].fundrawtransaction(rawtx)
+        rawtx = self.nodes[0].createrawtransaction([], {p2sh:10, p2pkh:10, cp2pkh : 10})
+        rawtx = self.nodes[0].fundrawtransaction(rawtx)
         signed_tx = self.nodes[0].signrawtransactionwithwallet(rawtx['hex'], [], "ALL", self.options.scheme)['hex']
         txid = self.nodes[0].sendrawtransaction(signed_tx, True)
         self.nodes[0].generate(6, self.signblockprivkey_wif)
