@@ -2584,6 +2584,11 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, ChangeP
         tx.vout[idx].nValue = tx_new->vout[idx].nValue;
     }
 
+    //if the new transaction added new change outputs copy them all
+    for (unsigned int idx = tx.vout.size(); idx < tx_new->vout.size(); idx++) {
+        tx.vout.push_back(tx_new->vout[idx]);
+    }
+
     if (mapChangePosInOut[ColorIdentifier()] != -1) {
         // We don't have the normal Create/Commit cycle, and don't want to risk
         // reusing change, so just remove the key from the keypool here.
