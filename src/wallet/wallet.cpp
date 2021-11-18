@@ -2582,6 +2582,7 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, ChangeP
     // subtracted from them.
     for (unsigned int idx = 0; idx < tx.vout.size(); idx++) {
         tx.vout[idx].nValue = tx_new->vout[idx].nValue;
+        tx.vout[idx].scriptPubKey = tx_new->vout[idx].scriptPubKey;
     }
 
     //if the new transaction added new change outputs copy them all
