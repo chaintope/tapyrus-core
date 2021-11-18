@@ -76,6 +76,7 @@ class MempoolCoinbaseTest(BitcoinTestFramework):
         spend_102_1_id = self.nodes[0].sendrawtransaction(spend_102_1_raw)
 
         self.sync_all()
+        
         assert_equal(set(self.nodes[0].getrawmempool()), {spend_101_id, spend_102_1_id, timelock_tx_id})
         
         for node in self.nodes:
@@ -90,10 +91,12 @@ class MempoolCoinbaseTest(BitcoinTestFramework):
             node.invalidateblock(new_blocks[0])
 
         self.sync_all()
+        # create a coloured coin transaction 
         color_txid=create_colored_transaction(2, 1000, self.nodes[0])['txid'] 
         color_txid_1= create_colored_transaction(3, 1, self.nodes[0])['txid']
         new_blocks.extend(self.nodes[1].generate(1, self.signblockprivkey_wif))
-
+        
+        # Use inavalidate block to re-org
         for node in self.nodes:
             node.invalidateblock(new_blocks[2])
 
