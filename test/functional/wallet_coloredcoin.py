@@ -427,14 +427,37 @@ class WalletColoredCoinTest(BitcoinTestFramework):
     def test_burntoken(self):
         self.log.info("Testing burntoken")
         #partial
-        self.nodes[0].burntoken(self.colorids[1], 20)
-        self.nodes[0].burntoken(self.colorids[2], 20)
+        txid1 = self.nodes[0].burntoken(self.colorids[1], 20)
+        txid2 = self.nodes[0].burntoken(self.colorids[2], 20)
         self.nodes[0].burntoken(self.colorids[4], 20)
 
         self.nodes[2].generate(1, self.signblockprivkey_wif)
         self.sync_all([self.nodes[0:3]])
 
         self.test_nodeBalances()
+
+        #check if there is a warning when signing burn tokens
+        burn_warning = self.nodes[0].signrawtransactionwithwallet(self.nodes[0].createrawtransaction(
+        inputs=[{'txid': txid1, 'vout': 0}, {'txid': txid1, 'vout': 1}],
+        outputs=[{self.nodes[1].getnewaddress("", self.colorids[1]): 10}]), [], "ALL", self.options.scheme)['warning']
+
+        assert_equal(burn_warning, "token burn detected")
+
+        burn_warning = self.nodes[0].signrawtransactionwithwallet(self.nodes[0].createrawtransaction(
+        inputs=[{'txid': txid1, 'vout': 0}, {'txid': txid1, 'vout': 1}],
+        outputs=[{self.nodes[1].getnewaddress("", self.colorids[1]): 20}]), [], "ALL", self.options.scheme)['warning']
+
+        assert_equal(burn_warning, "token burn detected")
+
+        burn_warning = self.nodes[0].signrawtransactionwithwallet(self.nodes[0].createrawtransaction(
+        inputs=[{'txid': txid1, 'vout': 0}, {'txid': txid1, 'vout': 1}],
+        outputs=[{self.nodes[1].getnewaddress("", self.colorids[1]): 60}]), [], "ALL", self.options.scheme)
+        assert('warning' not in burn_warning.keys())
+
+        burn_warning = self.nodes[0].signrawtransactionwithwallet(self.nodes[0].createrawtransaction(
+        inputs=[{'txid': txid2, 'vout': 0}, {'txid': txid2, 'vout': 1}],
+        outputs=[{self.nodes[1].getnewaddress("", self.colorids[2]): 40}, {self.nodes[0].getnewaddress("", self.colorids[2]): 20}]), [], "ALL", self.options.scheme)
+        assert('warning' not in burn_warning.keys())
 
         #full burn
         self.nodes[1].burntoken(self.colorids[1], 40)
