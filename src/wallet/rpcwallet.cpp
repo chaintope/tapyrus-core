@@ -3110,6 +3110,7 @@ UniValue signrawtransactionwithwallet(const JSONRPCRequest& request)
             "    }\n"
             "    ,...\n"
             "  ]\n"
+            "  \"warning\" : \"token burn detected\" (string, optional) warning only in burn token transactions \n"
             "}\n"
 
             "\nExamples:\n"
