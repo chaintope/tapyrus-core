@@ -437,26 +437,53 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         self.test_nodeBalances()
 
         #check if there is a warning when signing burn tokens
-        burn_warning = self.nodes[0].signrawtransactionwithwallet(self.nodes[0].createrawtransaction(
-        inputs=[{'txid': txid1, 'vout': 0}, {'txid': txid1, 'vout': 1}],
-        outputs=[{self.nodes[1].getnewaddress("", self.colorids[1]): 10}]), [], "ALL", self.options.scheme)['warning']
-
+        if self.options.usecli:
+            address = self.nodes[1].getnewaddress("", "%s" % self.colorids[1])
+            tx = self.nodes[0].createrawtransaction(
+                "[{\"txid\": \"%s\", \"vout\": %d },{\"txid\": \"%s\", \"vout\": %d }]" % (txid1, 0, txid1, 1),
+                "[{\"%s\": 10}]" % (address))
+            burn_warning = self.nodes[0].signrawtransactionwithwallet("%s"%tx, [], "ALL", self.options.scheme)['warning']
+        else:
+            burn_warning = self.nodes[0].signrawtransactionwithwallet(self.nodes[0].createrawtransaction(
+            inputs=[{'txid': txid1, 'vout': 0}, {'txid': txid1, 'vout': 1}],
+            outputs=[{self.nodes[1].getnewaddress("", self.colorids[1]): 10}]), [], "ALL", self.options.scheme)['warning']
         assert_equal(burn_warning, "token burn detected")
 
-        burn_warning = self.nodes[0].signrawtransactionwithwallet(self.nodes[0].createrawtransaction(
-        inputs=[{'txid': txid1, 'vout': 0}, {'txid': txid1, 'vout': 1}],
-        outputs=[{self.nodes[1].getnewaddress("", self.colorids[1]): 20}]), [], "ALL", self.options.scheme)['warning']
-
+        if self.options.usecli:
+            address = self.nodes[1].getnewaddress("", "%s" %self.colorids[1])
+            tx = self.nodes[0].createrawtransaction(
+                "[{\"txid\": \"%s\", \"vout\": %d },{\"txid\": \"%s\", \"vout\": %d }]" % (txid1, 0, txid1, 1),
+                "[{\"%s\": 20}]" % (address))
+            burn_warning = self.nodes[0].signrawtransactionwithwallet("%s"%tx, [], "ALL", self.options.scheme)['warning']
+        else:
+            burn_warning = self.nodes[0].signrawtransactionwithwallet(self.nodes[0].createrawtransaction(
+            inputs=[{'txid': txid1, 'vout': 0}, {'txid': txid1, 'vout': 1}],
+            outputs=[{self.nodes[1].getnewaddress("", self.colorids[1]): 20}]), [], "ALL", self.options.scheme)['warning']
         assert_equal(burn_warning, "token burn detected")
 
-        burn_warning = self.nodes[0].signrawtransactionwithwallet(self.nodes[0].createrawtransaction(
-        inputs=[{'txid': txid1, 'vout': 0}, {'txid': txid1, 'vout': 1}],
-        outputs=[{self.nodes[1].getnewaddress("", self.colorids[1]): 60}]), [], "ALL", self.options.scheme)
+        if self.options.usecli:
+            address = self.nodes[1].getnewaddress("", "%s" % (self.colorids[1]))
+            tx = self.nodes[0].createrawtransaction(
+                "[{\"txid\": \"%s\", \"vout\": %d },{\"txid\": \"%s\", \"vout\": %d }]" % (txid1, 0, txid1, 1),
+                "[{\"%s\": 60}]" % (address))
+            burn_warning = self.nodes[0].signrawtransactionwithwallet("%s"%tx, [], "ALL", self.options.scheme)
+        else:
+            burn_warning = self.nodes[0].signrawtransactionwithwallet(self.nodes[0].createrawtransaction(
+            inputs=[{'txid': txid1, 'vout': 0}, {'txid': txid1, 'vout': 1}],
+            outputs=[{self.nodes[1].getnewaddress("", self.colorids[1]): 60}]), [], "ALL", self.options.scheme)
         assert('warning' not in burn_warning.keys())
 
-        burn_warning = self.nodes[0].signrawtransactionwithwallet(self.nodes[0].createrawtransaction(
-        inputs=[{'txid': txid2, 'vout': 0}, {'txid': txid2, 'vout': 1}],
-        outputs=[{self.nodes[1].getnewaddress("", self.colorids[2]): 40}, {self.nodes[0].getnewaddress("", self.colorids[2]): 20}]), [], "ALL", self.options.scheme)
+        if self.options.usecli:
+            address1 = self.nodes[1].getnewaddress("", "%s" % (self.colorids[2]))
+            address2 = self.nodes[0].getnewaddress("", "%s" % (self.colorids[2]))
+            tx = self.nodes[0].createrawtransaction(
+                "[{\"txid\": \"%s\", \"vout\": %d },{\"txid\": \"%s\", \"vout\": %d }]" % (txid2, 0, txid2, 1),
+                "[{\"%s\": 40}, {\"%s\": 20}]" % (address1, address2))
+            burn_warning = self.nodes[0].signrawtransactionwithwallet("%s"%tx, [], "ALL", self.options.scheme)
+        else:
+            burn_warning = self.nodes[0].signrawtransactionwithwallet(self.nodes[0].createrawtransaction(
+            inputs=[{'txid': txid2, 'vout': 0}, {'txid': txid2, 'vout': 1}],
+            outputs=[{self.nodes[1].getnewaddress("", self.colorids[2]): 40}, {self.nodes[0].getnewaddress("", self.colorids[2]): 20}]), [], "ALL", self.options.scheme)
         assert('warning' not in burn_warning.keys())
 
         #full burn
