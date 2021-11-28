@@ -10,6 +10,7 @@ from test_framework.messages import CTransaction, FromHex, ToHex
 from test_framework.util import (
     assert_equal,
 )
+from test_framework.blocktools import create_colored_transaction
 
 def assert_approx(v, vexp, vspan=0.00001):
     if v < vexp - vspan:
@@ -27,15 +28,25 @@ class WalletGroupTest(BitcoinTestFramework):
     def run_test (self):
         # Mine some coins
         self.nodes[0].generate(5, self.signblockprivkey_wif)
+        colorid1 = create_colored_transaction(2, 100, self.nodes[0])['color']
+        self.nodes[0].generate(1, self.signblockprivkey_wif)
+        self.sync_all()
 
         # Get some addresses from the two nodes
         addr1 = [self.nodes[1].getnewaddress() for i in range(3)]
         addr2 = [self.nodes[2].getnewaddress() for i in range(3)]
         addrs = addr1 + addr2
 
+        caddr1 = [self.nodes[1].getnewaddress("", colorid1) for i in range(3)]
+        caddr2 = [self.nodes[2].getnewaddress("", colorid1) for i in range(3)]
+        caddrs = caddr1 + caddr2
+
         # Send 1 + 0.5 coin to each address
         [self.nodes[0].sendtoaddress(addr, 1.0) for addr in addrs]
         [self.nodes[0].sendtoaddress(addr, 0.5) for addr in addrs]
+
+        [self.nodes[0].sendtoaddress(caddr, 1) for caddr in caddrs]
+        [self.nodes[0].sendtoaddress(caddr, 2) for caddr in caddrs]
 
         self.nodes[0].generate(1, self.signblockprivkey_wif)
         self.sync_all()
@@ -55,6 +66,17 @@ class WalletGroupTest(BitcoinTestFramework):
         assert_approx(v[0], 0.2)
         assert_approx(v[1], 0.3, 0.0001)
 
+        ctxid1 = self.nodes[1].sendtoaddress(self.nodes[0].getnewaddress("", colorid1), 2)
+        ctx1 = self.nodes[1].getrawtransaction(ctxid1, True)
+        # txid1 should have 2 input and 2 outputs
+        assert_equal(2, len(ctx1["vin"]))
+        assert_equal(2, len(ctx1["vout"]))
+        # one output should be 2, the other should be fee
+        v = [vout["value"] for vout in ctx1["vout"]]
+        v.sort()
+        assert_approx(v[0], 0.5, 0.0001)
+        assert_approx(v[1], 2)
+
         txid2 = self.nodes[2].sendtoaddress(self.nodes[0].getnewaddress(), 0.2)
         tx2 = self.nodes[2].getrawtransaction(txid2, True)
         # txid2 should have 2 inputs and 2 outputs
@@ -66,8 +88,25 @@ class WalletGroupTest(BitcoinTestFramework):
         assert_approx(v[0], 0.2)
         assert_approx(v[1], 1.3, 0.0001)
 
+        ctxid2 = self.nodes[2].sendtoaddress(self.nodes[0].getnewaddress("", colorid1), 2)
+        ctx2 = self.nodes[2].getrawtransaction(ctxid2, True)
+        # txid2 should have 4 inputs and 3 outputs
+        assert_equal(4, len(ctx2["vin"]))
+        assert_equal(3, len(ctx2["vout"]))
+        # one output should be 2, the other should be fee
+        v = [vout["value"] for vout in ctx2["vout"]]
+        v.sort()
+        assert_approx(v[0], 1)
+        assert_approx(v[1], 1.5, 0.0002)
+        assert_approx(v[2], 2)
+
         # Empty out node2's wallet
         self.nodes[2].sendtoaddress(address=self.nodes[0].getnewaddress(), amount=self.nodes[2].getbalance(), subtractfeefromamount=True)
+        self.sync_all()
+        self.nodes[2].generate(1, self.signblockprivkey_wif)
+
+        amt = self.nodes[2].getwalletinfo()['balance'][colorid1]
+        self.nodes[2].sendtoaddress(address=self.nodes[0].getnewaddress("", colorid1), amount=amt)
         self.sync_all()
         self.nodes[0].generate(1, self.signblockprivkey_wif)
 
