@@ -505,6 +505,7 @@ static UniValue createrawtransaction(const JSONRPCRequest& request)
 
     CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], request.params[3]);
 
+    LogPrintf("createrawtransaction rawTx :[%s]", EncodeHexTx(rawTx));
     return EncodeHexTx(rawTx);
 }
 
