@@ -564,8 +564,10 @@ bool CheckColorIdentifierValidity(const CTransaction& tx, CValidationState& stat
 {
     // when this transaction issues or transfers tokens,
     // verify that the color id is valid.
+    LogPrintf("CheckColorIdentifierValidity\n");
     for(auto& txout:tx.vout)
     {
+        LogPrintf("txout [%d] [%s]\n", txout.nValue, HexStr(txout.scriptPubKey));
         if(!txout.scriptPubKey.IsColoredScript())
             continue;
 
