@@ -853,7 +853,7 @@ static bool GetUTXOStats(CCoinsView *view, CCoinsStats &stats)
                 outputs.clear();
             }
             prevkey = key.hashMalFix;
-            outputs[key.n] = std::move(coin);
+            outputs.emplace(key.n, coin);
         } else {
             return error("%s: unable to read value", __func__);
         }
