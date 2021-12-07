@@ -587,7 +587,8 @@ bool CheckColorIdentifierValidity(const CTransaction& tx, CValidationState& stat
             const Coin& coin = inputs.AccessCoin(txin.prevout);
             ColorIdentifier coinColorId;
 
-            switch(coin.type)
+            ColorIdentifier cid = GetColorIdFromScript(coin.out.scriptPubKey);
+            switch(cid.type)
             {
                 // when the coin is TPC this is a token issue tx. 
                 // colorid is hash(coin's scriptpubkey) or prevout
@@ -1736,9 +1737,11 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         for (size_t o = 0; o < tx.vout.size(); o++) {
             if (!tx.vout[o].scriptPubKey.IsUnspendable()) {
                 COutPoint out(hash, o);
+                ColorIdentifier cid = GetColorIdFromScript(tx.vout[o].scriptPubKey);
                 Coin coin;
                 bool is_spent = view.SpendCoin(out, &coin);
-                if (!is_spent || tx.vout[o] != coin.out || pindex->nHeight != coin.nHeight || is_coinbase != coin.fCoinBase) {
+                ColorIdentifier coincid = GetColorIdFromScript(coin.out.scriptPubKey);
+                if (!is_spent || tx.vout[o] != coin.out || pindex->nHeight != coin.nHeight || is_coinbase != coin.fCoinBase || cid != coincid ) {
                     fClean = false; // transaction output mismatch
                 }
             }

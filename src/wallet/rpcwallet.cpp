@@ -2422,16 +2422,12 @@ static UniValue getwalletinfo(const JSONRPCRequest& request)
 
     TxColoredCoinBalancesMap walletbalances = pwallet->GetBalance();
     for (auto const& wb : walletbalances) {
-        if (wb.first.type == TokenTypes::NONE) {
-            balances.pushKV(CURRENCY_UNIT.c_str(), ValueFromAmount(wb.second));
-        } else {
-            balances.pushKV(wb.first.toHexString(), wb.second);
-        }
+        balances.pushKV(wb.first.toHexString(), wb.first.type == TokenTypes::NONE ? ValueFromAmount(wb.second) : wb.second);
     };
 
     TxColoredCoinBalancesMap walletunconfirmedbalances = pwallet->GetUnconfirmedBalance();
     for (auto const& uwb : walletunconfirmedbalances) {
-        unconfirmBalancesObj.pushKV(uwb.first.toHexString(), ValueFromAmount(uwb.second));
+        unconfirmBalancesObj.pushKV(uwb.first.toHexString(), uwb.first.type == TokenTypes::NONE ? ValueFromAmount(uwb.second) : uwb.second);
     };
 
     size_t kpExternalSize = pwallet->KeypoolCountExternalKeys();
