@@ -28,9 +28,8 @@ class MempoolCoinbaseTest(BitcoinTestFramework):
         colorid = res['color']
         ctxid = res['txid']
 
-        # Mine four blocks. After this, nodes[0] blocks
-        # 101, 102, and 103 are spend-able.
-        new_blocks = self.nodes[1].generate(1, self.signblockprivkey_wif)
+        #one block to confirm the coin issue
+        self.nodes[0].generate(1, self.signblockprivkey_wif)
         self.sync_all()
 
         #create multiple coiored coin outputs for use later
@@ -38,7 +37,9 @@ class MempoolCoinbaseTest(BitcoinTestFramework):
         color_tx = self.nodes[0].createrawtransaction([{"txid": ctxid, "vout": 0}, {"txid": txid_fee, "vout": 0} ], [{self.nodes[0].getnewaddress("", colorid): 100}, {self.nodes[0].getnewaddress("", colorid): 100}, {self.nodes[0].getnewaddress("", colorid): 100}, {self.nodes[0].getnewaddress("", colorid): 100}, {self.nodes[1].getnewaddress("", colorid): 600}, {self.nodes[0].getnewaddress():49.99}])
         color_txid = self.nodes[0].sendrawtransaction(self.nodes[0].signrawtransactionwithwallet(color_tx, [], "ALL", self.options.scheme)["hex"])
 
-        new_blocks = self.nodes[1].generate(3, self.signblockprivkey_wif)
+        # Mine 3 blocks
+        #  blocks 1 to 103 are spend-able.
+        self.nodes[0].generate(3, self.signblockprivkey_wif)
         self.sync_all()
 
         node0_address = self.nodes[0].getnewaddress()
@@ -46,7 +47,7 @@ class MempoolCoinbaseTest(BitcoinTestFramework):
         node0_caddress = self.nodes[0].getnewaddress("", colorid)
         node1_caddress = self.nodes[1].getnewaddress("", colorid)
 
-        for (address_n0, address_n1, amt, height) in [(node0_address, node1_address, 49.99, 2)]:
+        for (address_n0, address_n1, amt, height) in [(node0_address, node1_address, 49.99, 2), (node0_caddress, node1_caddress, 50, 8)]:
             # Three scenarios for re-orging coinbase spends in the memory pool:
             # 1. Direct coinbase spend  :  spend_101
             # 2. Indirect (coinbase spend in chain, child in mempool) : spend_102 and spend_102_1
@@ -91,7 +92,7 @@ class MempoolCoinbaseTest(BitcoinTestFramework):
             # Broadcast and mine spend_102 and 103:
             spend_102_id = self.nodes[0].sendrawtransaction(spend_102_raw)
             spend_103_id = self.nodes[0].sendrawtransaction(spend_103_raw)
-            self.nodes[0].generate(1, self.signblockprivkey_wif)
+            new_blocks =  self.nodes[0].generate(1, self.signblockprivkey_wif)
             # Time-locked transaction is still too immature to spend
             assert_raises_rpc_error(-26, 'non-final', self.nodes[0].sendrawtransaction, timelock_tx)
 
@@ -109,7 +110,6 @@ class MempoolCoinbaseTest(BitcoinTestFramework):
             # Broadcast and mine 103_1:
             spend_103_1_id = self.nodes[0].sendrawtransaction(spend_103_1_raw)
             last_block = self.nodes[0].generate(1, self.signblockprivkey_wif)
-            self.log.info("spend_103_1_id %s" % spend_103_1_id)
             # Time-locked transaction can now be spent
             timelock_tx_id = self.nodes[0].sendrawtransaction(timelock_tx)
 
@@ -134,8 +134,13 @@ class MempoolCoinbaseTest(BitcoinTestFramework):
 
             self.sync_all()
 
-            # mempool should be empty.
-            assert_equal(set(self.nodes[0].getrawmempool()), {spend_101_id, spend_102_id, spend_102_1_id, spend_103_id, spend_103_1_id, ctxid, color_txid})
+            # mempool should have all trasnactions.
+            assert_equal(set(self.nodes[0].getrawmempool()), {spend_101_id, spend_102_id, spend_102_1_id, spend_103_id, spend_103_1_id})
+
+            self.nodes[0].generate(1, self.signblockprivkey_wif)
+
+            # finally mempool should be empty
+            assert_equal(self.nodes[0].getrawmempool(), [])
 
             self.log.info("Done")
 
