@@ -19,32 +19,38 @@ MAX_BIP125_RBF_SEQUENCE = 0xfffffffd
 class PSBTTest(BitcoinTestFramework):
 
     def set_test_params(self):
-        self.setup_clean_chain = False
+        self.setup_clean_chain = True
         self.num_nodes = 3
 
     def run_test(self):
-        self.nodes[0].generate(10, self.signblockprivkey_wif)
+        self.nodes[0].generate(1, self.signblockprivkey_wif)
+        #create tokens
+        colorId = create_colored_transaction(2, 100, self.nodes[0])['color']
+        self.sync_all()
+        self.nodes[2].generate(1, self.signblockprivkey_wif)
 
         # Create and fund a raw tx for sending 10 TPC
         psbtx1 = self.nodes[0].walletcreatefundedpsbt([], {self.nodes[2].getnewaddress():10})['psbt']
 
-        #create tokens
-        colorId = create_colored_transaction(1, 100, self.nodes[0])['color']
-
-        psbtx2 = self.nodes[0].walletcreatefundedpsbt([], {self.nodes[2].getnewaddress("tokenpsbt", colorId):10, self.nodes[0].getnewaddress("tokenpsbt", colorId):90})['psbt']
-
         # Node 1 should not be able to add anything to it but still return the psbtx same as before
         psbtx = self.nodes[1].walletprocesspsbt(psbtx1)['psbt']
         assert_equal(psbtx1, psbtx)
-        psbtx = self.nodes[1].walletprocesspsbt(psbtx2)['psbt']
-        assert_equal(psbtx2, psbtx)
 
         # Sign the transaction and send
         signed_tx = self.nodes[0].walletprocesspsbt(psbtx1)['psbt']
         final_tx = self.nodes[0].finalizepsbt(signed_tx)['hex']
         self.nodes[0].sendrawtransaction(final_tx, True)
 
+        self.nodes[0].generate(1, self.signblockprivkey_wif)
+        self.sync_all()
+
+        # Create and fund a raw tx for sending colored coin
+        psbtx2 = self.nodes[0].walletcreatefundedpsbt([], {self.nodes[2].getnewaddress("tokenpsbt", colorId):10, self.nodes[0].getnewaddress("tokenpsbt", colorId):90})['psbt']
+
+        psbtx = self.nodes[1].walletprocesspsbt(psbtx2)['psbt']
+        assert_equal(psbtx2, psbtx)
         signed_tx = self.nodes[0].walletprocesspsbt(psbtx2)['psbt']
+
         final_tx = self.nodes[0].finalizepsbt(signed_tx)['hex']
         self.nodes[0].sendrawtransaction(final_tx, True)
 
@@ -64,7 +70,7 @@ class PSBTTest(BitcoinTestFramework):
         rawtx = self.nodes[0].fundrawtransaction(rawtx, {"changePosition":2})
         rawtx = self.nodes[0].createrawtransaction([], {cp2pkh :10})
         rawtx = self.nodes[0].fundrawtransaction(rawtx)
-        rawtx = self.nodes[0].createrawtransaction([], {p2sh:10, p2pkh:10, cp2pkh : 10})
+        rawtx = self.nodes[0].createrawtransaction([], {p2sh:30, p2pkh:30, cp2pkh : 10})
         rawtx = self.nodes[0].fundrawtransaction(rawtx)
         signed_tx = self.nodes[0].signrawtransactionwithwallet(rawtx['hex'], [], "ALL", self.options.scheme)['hex']
         txid = self.nodes[0].sendrawtransaction(signed_tx, True)
