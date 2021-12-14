@@ -1,5 +1,5 @@
 ---
-name: "tapyrus-core-osx-0.4"
+name: "tapyrus-core-osx-0.5"
 enable_cache: true
 suites:
 - "bionic"
