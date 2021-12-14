@@ -506,10 +506,14 @@ class WalletColoredCoinTest(BitcoinTestFramework):
 
         #negative cases
         if not self.options.usecli:
+            assert_raises_rpc_error(-3, "Invalid amount", self.nodes[0].burntoken, self.colorids[1], 'foo')
+            assert_raises_rpc_error(-3, "Invalid amount", self.nodes[0].burntoken, self.colorids[1], '66ae')
+            assert_raises_rpc_error(-3, "Invalid amount", self.nodes[0].burntoken, self.colorids[1], 66.99)
             assert_raises_rpc_error(-1, "Burn colored coins or tokens in the wallet", self.nodes[0].burntoken, "00")
             assert_raises_rpc_error(-1, "Burn colored coins or tokens in the wallet", self.nodes[0].burntoken, "c4")
             assert_raises_rpc_error(-1, "Burn colored coins or tokens in the wallet", self.nodes[0].burntoken, self.colorids[1])
-            assert_raises_rpc_error(-3, "Invalid amount for burn", self.nodes[0].burntoken, self.colorids[1], -10)
+            assert_raises_rpc_error(-3, "Amount out of range", self.nodes[0].burntoken, self.colorids[1], -10)
+            assert_raises_rpc_error(-3, "Invalid amount for burn", self.nodes[0].burntoken, self.colorids[1], 0)
             assert_raises_rpc_error(-8, "Invalid color parameter", self.nodes[1].burntoken, "00", 10)
             assert_raises_rpc_error(-8, "Insufficient token balance in wallet", self.nodes[1].burntoken, self.colorids[1], 10)
             assert_raises_rpc_error(-8, "Insufficient token balance in wallet", self.nodes[1].burntoken, self.colorids[2], 10)
@@ -534,6 +538,12 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         assert_equal(len(res['txids']), 2)
 
         if not self.options.usecli:
+            assert_raises_rpc_error(-3, "Invalid amount", self.nodes[0].reissuetoken, self.colorids[1], 'foo')
+            assert_raises_rpc_error(-3, "Invalid amount", self.nodes[0].reissuetoken, self.colorids[1], '66ae')
+            assert_raises_rpc_error(-3, "Invalid amount", self.nodes[0].reissuetoken, self.colorids[1], 66.99)
+            assert_raises_rpc_error(-3, "Amount out of range", self.nodes[0].reissuetoken, self.colorids[1], -10)
+            assert_raises_rpc_error(-3, "Invalid token amount", self.nodes[0].reissuetoken, self.colorids[1], 0)
+
             assert_raises_rpc_error(-8, "Invalid color parameter", self.nodes[0].reissuetoken, self.colorids[0], 100)
             assert_raises_rpc_error(-8, "Token type not supported", self.nodes[0].reissuetoken, self.colorids[2], 100)
             assert_raises_rpc_error(-8, "Token type not supported", self.nodes[0].reissuetoken, self.colorids[3], 100)
@@ -608,12 +618,17 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         assert_raises_rpc_error(-8, "Unknown token type given", self.nodes[0].issuetoken, 4, 10, node2_utxos[4]['txid'], node2_utxos[4]['vout'])
         assert_raises_rpc_error(-8, "Unknown token type given", self.nodes[0].issuetoken, 0, 10, node2_utxos[4]['txid'], node2_utxos[4]['vout'])
         assert_raises_rpc_error(-8, "Unknown token type given", self.nodes[0].issuetoken, -1, 10, node2_utxos[4]['txid'], node2_utxos[4]['vout'])
-        assert_raises_rpc_error(-8, "Invalid token amount", self.nodes[0].issuetoken, 2, -10, node2_utxos[4]['txid'], -1)
         assert_raises_rpc_error(-8, "Extra parameter for Reissuable token", self.nodes[0].issuetoken, 1, 10, node2_utxos[4]['txid'], node2_utxos[4]['vout'])
         assert_raises_rpc_error(-8, "Parameter missing for Non-Reissuable or NFT token", self.nodes[0].issuetoken, 2, 10, node2_utxos[4]['txid'])
         assert_raises_rpc_error(-8, "Parameter missing for Non-Reissuable or NFT token", self.nodes[0].issuetoken, 3, 10, node2_utxos[4]['txid'])
-        assert_raises_rpc_error(-8, "Invalid token amount", self.nodes[0].issuetoken, 2, -10, node2_utxos[4]['txid'], node2_utxos[4]['vout'])
         assert_raises_rpc_error(-8, "Invalid token amount for NFT. It must be 1", self.nodes[0].issuetoken, 3, 10, node2_utxos[4]['txid'], node2_utxos[4]['vout'])
+
+        if not self.options.usecli:
+            assert_raises_rpc_error(-3, "Expected type number, got string", self.nodes[0].issuetoken, 2, 'foo', node2_utxos[4]['txid'], node2_utxos[4]['vout'])
+            assert_raises_rpc_error(-3, "Expected type number, got string", self.nodes[0].issuetoken, 2, '66ae', node2_utxos[4]['txid'], node2_utxos[4]['vout'])
+            assert_raises_rpc_error(-3, "Invalid amount", self.nodes[0].issuetoken, 2, 66.99, node2_utxos[4]['txid'], node2_utxos[4]['vout'])
+            assert_raises_rpc_error(-3, "Amount out of range", self.nodes[0].issuetoken, 2, -10, node2_utxos[4]['txid'], node2_utxos[4]['vout'])
+            assert_raises_rpc_error(-3, "Invalid token amount", self.nodes[0].issuetoken, 2, 0, node2_utxos[4]['txid'], node2_utxos[4]['vout'])
 
     def run_test(self):
         # Check that there's no UTXO on any of the nodes
