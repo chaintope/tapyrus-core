@@ -4393,9 +4393,9 @@ static UniValue issuetoken(const JSONRPCRequest& request)
     const ColorIdentifier colorId = getColorIdFromRequest(request);
 
     // token value
-    CAmount tokenValue = request.params[1].get_int64();
+    CAmount tokenValue = TokenAmountFromValue(request.params[1]);
     if (tokenValue <= 0)
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid token amount");
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid token amount");
 
     if(colorId.type == TokenTypes::NFT && tokenValue != 1) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid token amount for NFT. It must be 1");
@@ -4462,9 +4462,9 @@ static UniValue reissuetoken(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Token type not supported");
 
     // token value
-    CAmount tokenValue = request.params[1].get_int64();
+    CAmount tokenValue = TokenAmountFromValue(request.params[1]);
     if (tokenValue <= 0)
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid token amount");
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid token amount");
 
     LOCK2(cs_main, pwallet->cs_wallet);
 
@@ -4572,7 +4572,7 @@ static UniValue burntoken(const JSONRPCRequest& request)
     if (!request.params[0].isNull() && !checkColorIdParam(request.params[0], colorId))
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid color parameter.");
 
-    CAmount nAmount = request.params[1].get_int64();
+    CAmount nAmount = TokenAmountFromValue(request.params[1]);
     if (nAmount <= 0)
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for burn");
 
