@@ -451,7 +451,7 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
     }
 
     // Amount
-    CAmount nAmount = (colorId.type == TokenTypes::NONE ? AmountFromValue(request.params[1]) : request.params[1].get_int64());
+    CAmount nAmount = (colorId.type == TokenTypes::NONE ? AmountFromValue(request.params[1]) : TokenAmountFromValue(request.params[1]));
     if (nAmount <= 0)
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for send");
 

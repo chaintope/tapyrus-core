@@ -16,6 +16,7 @@ Test the following RPCs:
 from collections import OrderedDict
 from decimal import Decimal
 from io import BytesIO
+from test_framework.blocktools import create_colored_transaction, create_raw_transaction
 from test_framework.messages import CTransaction, ToHex
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error, bytes_to_hex_str, connect_nodes_bi, hex_str_to_bytes
@@ -54,10 +55,15 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.sync_all()
         #generate one block that matures immediately for spending
         self.nodes[0].generate(1, self.signblockprivkey_wif)
+        colorid = create_colored_transaction(2, 500, self.nodes[0])['color']
+        self.nodes[0].generate(1, self.signblockprivkey_wif)
         self.sync_all()
         self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(),1.5)
         self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(),1.0)
         self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(),5.0)
+        self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress("", colorid), 5)
+        self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress("", colorid), 10)
+        self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress("", colorid), 50)
         self.sync_all()
 
         self.log.info('Test getrawtransaction on genesis block coinbase returns an error')
@@ -86,15 +92,23 @@ class RawTransactionsTest(BitcoinTestFramework):
         # Test `createrawtransaction` invalid `outputs`
         address = self.nodes[0].getnewaddress()
         address2 = self.nodes[0].getnewaddress()
+        caddress = self.nodes[0].getnewaddress("", colorid)
+        caddress2 = self.nodes[0].getnewaddress("", colorid)
         assert_raises_rpc_error(-1, "JSON value is not an array as expected", self.nodes[0].createrawtransaction, [], 'foo')
         self.nodes[0].createrawtransaction(inputs=[], outputs={})  # Should not throw for backwards compatibility
         self.nodes[0].createrawtransaction(inputs=[], outputs=[])
         assert_raises_rpc_error(-8, "Data must be hexadecimal string", self.nodes[0].createrawtransaction, [], {'data': 'foo'})
         assert_raises_rpc_error(-5, "Invalid Tapyrus address", self.nodes[0].createrawtransaction, [], {'foo': 0})
         assert_raises_rpc_error(-3, "Invalid amount", self.nodes[0].createrawtransaction, [], {address: 'foo'})
+        assert_raises_rpc_error(-3, "Invalid amount", self.nodes[0].createrawtransaction, [], {caddress: 'foo'})
+        assert_raises_rpc_error(-3, "Invalid amount", self.nodes[0].createrawtransaction, [], {caddress: '66ae'})
+        assert_raises_rpc_error(-3, "Invalid amount", self.nodes[0].createrawtransaction, [], {caddress: 66.99})
         assert_raises_rpc_error(-3, "Amount out of range", self.nodes[0].createrawtransaction, [], {address: -1})
+        assert_raises_rpc_error(-3, "Amount out of range", self.nodes[0].createrawtransaction, [], {caddress: -1})
         assert_raises_rpc_error(-8, "Invalid parameter, duplicated address: %s" % address, self.nodes[0].createrawtransaction, [], multidict([(address, 1), (address, 1)]))
+        assert_raises_rpc_error(-8, "Invalid parameter, duplicated address: %s" % caddress, self.nodes[0].createrawtransaction, [], multidict([(caddress, 1), (caddress, 1)]))
         assert_raises_rpc_error(-8, "Invalid parameter, duplicated address: %s" % address, self.nodes[0].createrawtransaction, [], [{address: 1}, {address: 1}])
+        assert_raises_rpc_error(-8, "Invalid parameter, duplicated address: %s" % caddress, self.nodes[0].createrawtransaction, [], [{caddress: 1}, {caddress: 1}])
         assert_raises_rpc_error(-8, "Invalid parameter, key-value pair must contain exactly one key", self.nodes[0].createrawtransaction, [], [{'a': 1, 'b': 2}])
         assert_raises_rpc_error(-8, "Invalid parameter, key-value pair not an object as expected", self.nodes[0].createrawtransaction, [], [['key-value pair1'], ['2']])
 
@@ -115,12 +129,26 @@ class RawTransactionsTest(BitcoinTestFramework):
             bytes_to_hex_str(tx.serialize()),
             self.nodes[2].createrawtransaction(inputs=[{'txid': txid, 'vout': 9}], outputs=[{address: 99}]),
         )
+        # One colored output
+        tx.deserialize(BytesIO(hex_str_to_bytes(self.nodes[2].createrawtransaction(inputs=[{'txid': txid, 'vout': 9}], outputs={caddress: 99}))))
+        assert_equal(len(tx.vout), 1)
+        assert_equal(
+            bytes_to_hex_str(tx.serialize()),
+            self.nodes[2].createrawtransaction(inputs=[{'txid': txid, 'vout': 9}], outputs=[{caddress: 99}]),
+        )
         # Two outputs
         tx.deserialize(BytesIO(hex_str_to_bytes(self.nodes[2].createrawtransaction(inputs=[{'txid': txid, 'vout': 9}], outputs=OrderedDict([(address, 99), (address2, 99)])))))
         assert_equal(len(tx.vout), 2)
         assert_equal(
             bytes_to_hex_str(tx.serialize()),
             self.nodes[2].createrawtransaction(inputs=[{'txid': txid, 'vout': 9}], outputs=[{address: 99}, {address2: 99}]),
+        )
+        # Two colored outputs
+        tx.deserialize(BytesIO(hex_str_to_bytes(self.nodes[2].createrawtransaction(inputs=[{'txid': txid, 'vout': 9}], outputs=OrderedDict([(caddress, 99), (caddress2, 99)])))))
+        assert_equal(len(tx.vout), 2)
+        assert_equal(
+            bytes_to_hex_str(tx.serialize()),
+            self.nodes[2].createrawtransaction(inputs=[{'txid': txid, 'vout': 9}], outputs=[{caddress: 99}, {caddress2: 99}]),
         )
         # Two data outputs
         tx.deserialize(BytesIO(hex_str_to_bytes(self.nodes[2].createrawtransaction(inputs=[{'txid': txid, 'vout': 9}], outputs=multidict([('data', '99'), ('data', '99')])))))
@@ -130,11 +158,11 @@ class RawTransactionsTest(BitcoinTestFramework):
             self.nodes[2].createrawtransaction(inputs=[{'txid': txid, 'vout': 9}], outputs=[{'data': '99'}, {'data': '99'}]),
         )
         # Multiple mixed outputs
-        tx.deserialize(BytesIO(hex_str_to_bytes(self.nodes[2].createrawtransaction(inputs=[{'txid': txid, 'vout': 9}], outputs=multidict([(address, 99), ('data', '99'), ('data', '99')])))))
-        assert_equal(len(tx.vout), 3)
+        tx.deserialize(BytesIO(hex_str_to_bytes(self.nodes[2].createrawtransaction(inputs=[{'txid': txid, 'vout': 9}], outputs=multidict([(address, 99), (caddress, 99), ('data', '99'), ('data', '99')])))))
+        assert_equal(len(tx.vout), 4)
         assert_equal(
             bytes_to_hex_str(tx.serialize()),
-            self.nodes[2].createrawtransaction(inputs=[{'txid': txid, 'vout': 9}], outputs=[{address: 99}, {'data': '99'}, {'data': '99'}]),
+            self.nodes[2].createrawtransaction(inputs=[{'txid': txid, 'vout': 9}], outputs=[{address: 99}, {caddress: 99}, {'data': '99'}, {'data': '99'}]),
         )
 
         addr = self.nodes[0].getnewaddress("")
