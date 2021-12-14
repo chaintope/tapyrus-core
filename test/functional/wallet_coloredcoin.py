@@ -424,6 +424,11 @@ class WalletColoredCoinTest(BitcoinTestFramework):
                                 {"amount": 1, "confirmations": 1})
         self.test_nodeBalances()
 
+        #negative
+        assert_raises_rpc_error(-3, "Invalid amount", sendrpc, cp2pkh_address1, 'foo')
+        assert_raises_rpc_error(-3, "Invalid amount", sendrpc, cp2pkh_address1, '66ae')
+        assert_raises_rpc_error(-3, "Invalid amount", sendrpc, cp2pkh_address1, 66.99)
+
     def test_burntoken(self):
         self.log.info("Testing burntoken")
         #partial

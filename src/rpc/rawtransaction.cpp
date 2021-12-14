@@ -433,7 +433,7 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
                 colorId = boost::get<CColorScriptID>(destination).color;
 
             CScript scriptPubKey = GetScriptForDestination(destination);
-            CAmount nAmount = (colorId.type == TokenTypes::NONE ? AmountFromValue(outputs[name_]) : outputs[name_].get_int64());
+            CAmount nAmount = (colorId.type == TokenTypes::NONE ? AmountFromValue(outputs[name_]) : TokenAmountFromValue(outputs[name_]));
 
             CTxOut out(nAmount, scriptPubKey);
             rawTx.vout.push_back(out);
