@@ -47,7 +47,7 @@ class MempoolCoinbaseTest(BitcoinTestFramework):
         node0_caddress = self.nodes[0].getnewaddress("", colorid)
         node1_caddress = self.nodes[1].getnewaddress("", colorid)
 
-        for (address_n0, address_n1, amt, height) in [(node0_address, node1_address, 49.99, 3), (node0_caddress, node1_caddress, 50, 8)]:
+        for (address_n0, address_n1, amt, height) in [(node0_address, node1_address, 49.99, 30), (node0_caddress, node1_caddress, 50, 80)]:
             # Three scenarios for re-orging coinbase spends in the memory pool:
             # 1. Direct coinbase spend  :  spend_101
             # 2. Indirect (coinbase spend in chain, child in mempool) : spend_102 and spend_102_1
