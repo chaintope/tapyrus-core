@@ -47,7 +47,6 @@ class MempoolCoinbaseTest(BitcoinTestFramework):
         #collect coinbase tx ids whose outputs will be spent or used as fee later
         b = [ self.nodes[0].getblockhash(n) for n in range(3, 15) ]
         coinbase_txids = [ self.nodes[0].getblock(h)['tx'][0] for h in b ]
-        print(coinbase_txids, len(coinbase_txids))
 
         node0_address = self.nodes[0].getnewaddress()
         node1_address = self.nodes[1].getnewaddress()
