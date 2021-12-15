@@ -62,7 +62,6 @@ class MempoolCoinbaseTest(BitcoinTestFramework):
             # and make sure the mempool code behaves correctly.
             self.log.info("From address [%s]" % address_n0)
 
-
             #create transactions with colored coin and with TPC
             if amt == 50:
                 spend_101_raw = self.nodes[0].createrawtransaction([{"txid": color_txid, "vout": 1}, {"txid": coinbase_txids[height], "vout": 0}], [{address_n1: amt}, {node0_address: 49.99}])
