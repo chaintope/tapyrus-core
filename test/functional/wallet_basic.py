@@ -167,9 +167,11 @@ class WalletTest(BitcoinTestFramework):
 
         # create both transactions
         txns_to_send = []
-        for utxo in node0utxos:
+        spend_i = 0
+        for i, utxo in enumerate(node0utxos):
             if utxo['token'] != 'TPC':
                 continue
+            spend_i = i
             inputs = []
             outputs = {}
             inputs.append({"txid": utxo["txid"], "vout": utxo["vout"]})
@@ -190,8 +192,8 @@ class WalletTest(BitcoinTestFramework):
         assert_equal(self.nodes[2].getbalance(), 141)
 
         # Verify that a spent output cannot be locked anymore
-        spent_0 = {"txid": node0utxos[0]["txid"], "vout": node0utxos[0]["vout"]}
-        assert_raises_rpc_error(-8, "Invalid parameter, expected unspent output", self.nodes[0].lockunspent, False, [spent_0])
+        spent_itx = {"txid": node0utxos[spend_i]["txid"], "vout": node0utxos[spend_i]["vout"]}
+        assert_raises_rpc_error(-8, "Invalid parameter, expected unspent output", self.nodes[0].lockunspent, False, [spent_itx])
 
         # Send 10 TPC normal
         address = self.nodes[0].getnewaddress("test")
