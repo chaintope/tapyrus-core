@@ -16,20 +16,22 @@ from test_framework.util import assert_equal, assert_raises_rpc_error
 class MempoolCoinbaseTest(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
+        self.setup_clean_chain = True
 
     alert_filename = None  # Set by setup_network
 
     def run_test(self):
-        # Start with a 100 block chain
-        assert_equal(self.nodes[0].getblockcount(), 100)
+        # Start with a 1 block chain
+        self.nodes[0].generate(1, self.signblockprivkey_wif)
+        assert_equal(self.nodes[0].getblockcount(), 1)
 
         # create a coloured coin transaction 
         res = create_colored_transaction(2, 1000, self.nodes[0])
         colorid = res['color']
         ctxid = res['txid']
 
-        #one block to confirm the coin issue
-        self.nodes[0].generate(1, self.signblockprivkey_wif)
+        #new blocks to confirm the coin issue
+        self.nodes[0].generate(10, self.signblockprivkey_wif)
         self.sync_all()
 
         #create multiple coiored coin outputs for use later
@@ -38,16 +40,21 @@ class MempoolCoinbaseTest(BitcoinTestFramework):
         color_txid = self.nodes[0].sendrawtransaction(self.nodes[0].signrawtransactionwithwallet(color_tx, [], "ALL", self.options.scheme)["hex"])
 
         # Mine 3 blocks
-        #  blocks 1 to 103 are spend-able.
-        self.nodes[0].generate(3, self.signblockprivkey_wif)
+        #  blocks 3 to 15 are spend-able.
+        self.nodes[0].generate(5, self.signblockprivkey_wif)
         self.sync_all()
+
+        #collect coinbase tx ids whose outputs will be spent or used as fee later
+        b = [ self.nodes[0].getblockhash(n) for n in range(3, 15) ]
+        coinbase_txids = [ self.nodes[0].getblock(h)['tx'][0] for h in b ]
+        print(coinbase_txids, len(coinbase_txids))
 
         node0_address = self.nodes[0].getnewaddress()
         node1_address = self.nodes[1].getnewaddress()
         node0_caddress = self.nodes[0].getnewaddress("", colorid)
         node1_caddress = self.nodes[1].getnewaddress("", colorid)
 
-        for (address_n0, address_n1, amt, height) in [(node0_address, node1_address, 49.99, 30), (node0_caddress, node1_caddress, 50, 80)]:
+        for (address_n0, address_n1, amt, height) in [(node0_address, node1_address, 49.99, 3), (node0_caddress, node1_caddress, 50, 7)]:
             # Three scenarios for re-orging coinbase spends in the memory pool:
             # 1. Direct coinbase spend  :  spend_101
             # 2. Indirect (coinbase spend in chain, child in mempool) : spend_102 and spend_102_1
@@ -56,31 +63,26 @@ class MempoolCoinbaseTest(BitcoinTestFramework):
             # and make sure the mempool code behaves correctly.
             self.log.info("From address [%s]" % address_n0)
 
-            #collect coinbase tx ids whose outputs will be spent or used as fee later
-            b = [ self.nodes[0].getblockhash(n) for n in range(height, height + 4) ]
-            coinbase_txids = [ self.nodes[0].getblock(h)['tx'][0] for h in b ]
 
             #create transactions with colored coin and with TPC
             if amt == 50:
-                spend_101_raw = self.nodes[0].createrawtransaction([{"txid": color_txid, "vout": 1}, {"txid": coinbase_txids[0], "vout": 0}], [{address_n1: amt}, {node0_address: 49.99}])
+                spend_101_raw = self.nodes[0].createrawtransaction([{"txid": color_txid, "vout": 1}, {"txid": coinbase_txids[height], "vout": 0}], [{address_n1: amt}, {node0_address: 49.99}])
                 spend_101_raw = self.nodes[0].signrawtransactionwithwallet(spend_101_raw, [], "ALL", self.options.scheme)["hex"]
 
-                spend_102_raw = self.nodes[0].createrawtransaction([{"txid": color_txid, "vout": 2}, {"txid": coinbase_txids[1], "vout": 0}], [{address_n0: amt}, {node0_address: 49.99}])
+                spend_102_raw = self.nodes[0].createrawtransaction([{"txid": color_txid, "vout": 2}, {"txid": coinbase_txids[height+1], "vout": 0}], [{address_n0: amt}, {node0_address: 49.99}])
                 spend_102_raw = self.nodes[0].signrawtransactionwithwallet(spend_102_raw, [], "ALL", self.options.scheme)["hex"]
 
-                spend_103_raw = self.nodes[0].createrawtransaction([{"txid": color_txid, "vout": 3}, {"txid": coinbase_txids[2], "vout": 0}], [{address_n0: amt}, {node0_address: 49.99}])
+                spend_103_raw = self.nodes[0].createrawtransaction([{"txid": color_txid, "vout": 3}, {"txid": coinbase_txids[height+2], "vout": 0}], [{address_n0: amt}, {node0_address: 49.99}])
                 spend_103_raw = self.nodes[0].signrawtransactionwithwallet(spend_103_raw, [], "ALL", self.options.scheme)["hex"]
 
                 # Create a transaction which is time-locked to two blocks in the future
-                timelock_tx = self.nodes[0].createrawtransaction([{"txid": color_txid, "vout": 0}, {"txid": coinbase_txids[3], "vout": 0}], [{address_n0: amt}, {node0_address: 49.99}])
+                timelock_tx = self.nodes[0].createrawtransaction([{"txid": color_txid, "vout": 0}, {"txid": coinbase_txids[height+3], "vout": 0}], [{address_n0: amt}, {node0_address: 49.99}])
             else:
-                spend_101_raw = create_raw_transaction(self.nodes[0], coinbase_txids[1], address_n1, amount=amt)
-                spend_102_raw = create_raw_transaction(self.nodes[0], coinbase_txids[2], address_n0, amount=amt)
-                spend_103_raw = create_raw_transaction(self.nodes[0], coinbase_txids[3], address_n0, amount=amt)
+                spend_101_raw = create_raw_transaction(self.nodes[0], coinbase_txids[height+1], address_n1, amount=amt)
+                spend_102_raw = create_raw_transaction(self.nodes[0], coinbase_txids[height+2], address_n0, amount=amt)
+                spend_103_raw = create_raw_transaction(self.nodes[0], coinbase_txids[height+3], address_n0, amount=amt)
                 # Create a transaction which is time-locked to two blocks in the future
-                timelock_tx = self.nodes[0].createrawtransaction([{"txid": coinbase_txids[0], "vout": 0}], {address_n0: amt})
-
-                timelock_tx = self.nodes[0].createrawtransaction([{"txid": coinbase_txids[0], "vout": 0}], {address_n0: amt})
+                timelock_tx = self.nodes[0].createrawtransaction([{"txid": coinbase_txids[height], "vout": 0}], {address_n0: amt})
 
             # Set the time lock
             timelock_tx = timelock_tx.replace("ffffffff", "11111191", 1)
