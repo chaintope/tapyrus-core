@@ -33,7 +33,7 @@ class MempoolCoinbaseTest(BitcoinTestFramework):
         self.sync_all()
 
         #create multiple coiored coin outputs for use later
-        txid_fee = self.nodes[0].getblock(self.nodes[0].getblockhash(1))['tx'][0]
+        txid_fee = self.nodes[0].getblock(self.nodes[0].getblockhash(2))['tx'][0]
         color_tx = self.nodes[0].createrawtransaction([{"txid": ctxid, "vout": 0}, {"txid": txid_fee, "vout": 0} ], [{self.nodes[0].getnewaddress("", colorid): 100}, {self.nodes[0].getnewaddress("", colorid): 100}, {self.nodes[0].getnewaddress("", colorid): 100}, {self.nodes[0].getnewaddress("", colorid): 100}, {self.nodes[1].getnewaddress("", colorid): 600}, {self.nodes[0].getnewaddress():49.99}])
         color_txid = self.nodes[0].sendrawtransaction(self.nodes[0].signrawtransactionwithwallet(color_tx, [], "ALL", self.options.scheme)["hex"])
 
@@ -47,7 +47,7 @@ class MempoolCoinbaseTest(BitcoinTestFramework):
         node0_caddress = self.nodes[0].getnewaddress("", colorid)
         node1_caddress = self.nodes[1].getnewaddress("", colorid)
 
-        for (address_n0, address_n1, amt, height) in [(node0_address, node1_address, 49.99, 2), (node0_caddress, node1_caddress, 50, 8)]:
+        for (address_n0, address_n1, amt, height) in [(node0_address, node1_address, 49.99, 3), (node0_caddress, node1_caddress, 50, 8)]:
             # Three scenarios for re-orging coinbase spends in the memory pool:
             # 1. Direct coinbase spend  :  spend_101
             # 2. Indirect (coinbase spend in chain, child in mempool) : spend_102 and spend_102_1
