@@ -433,7 +433,7 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
                 colorId = boost::get<CColorScriptID>(destination).color;
 
             CScript scriptPubKey = GetScriptForDestination(destination);
-            CAmount nAmount = (colorId.type == TokenTypes::NONE ? AmountFromValue(outputs[name_]) : outputs[name_].get_int64());
+            CAmount nAmount = (colorId.type == TokenTypes::NONE ? AmountFromValue(outputs[name_]) : TokenAmountFromValue(outputs[name_]));
 
             CTxOut out(nAmount, scriptPubKey);
             rawTx.vout.push_back(out);
@@ -829,6 +829,7 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival
     // Script verification errors
     UniValue vErrors(UniValue::VARR);
 
+    TxColoredCoinBalancesMap inBalances, outBalances;
     // Use CTransaction for the constant parts of the
     // transaction to avoid rehashing.
     const CTransaction txConst(mtx);
@@ -842,6 +843,7 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival
         }
         const CScript& prevPubKey = coin.out.scriptPubKey;
         const CAmount& amount = coin.out.nValue;
+        inBalances[GetColorIdFromScript(coin.out.scriptPubKey)] += amount;
 
         SignatureData sigdata = DataFromTransaction(mtx, i, coin.out);
         // Only sign SIGHASH_SINGLE if there's a corresponding output:
@@ -851,9 +853,9 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival
 
         UpdateInput(txin, sigdata);
 
+        ColorIdentifier tempColorId;
         ScriptError serror = SCRIPT_ERR_OK;
-        ColorIdentifier colorId;
-        if (!VerifyScript(txin.scriptSig, prevPubKey, nullptr, STANDARD_SCRIPT_VERIFY_FLAGS, TransactionSignatureChecker(&txConst, i, amount), colorId, &serror)) {
+        if (!VerifyScript(txin.scriptSig, prevPubKey, nullptr, STANDARD_SCRIPT_VERIFY_FLAGS, TransactionSignatureChecker(&txConst, i, amount), tempColorId, &serror)) {
             if (serror == SCRIPT_ERR_INVALID_STACK_OPERATION) {
                 // Unable to sign input and verification failed (possible attempt to partially sign).
                 TxInErrorToJSON(txin, vErrors, "Unable to sign input, invalid stack size (possibly missing key)");
@@ -864,12 +866,25 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival
     }
     bool fComplete = vErrors.empty();
 
+    //add a warning for token burn
+    bool burn = false;
+    for(const auto& out : mtx.vout)
+        outBalances[GetColorIdFromScript(out.scriptPubKey)] += out.nValue;
+
+    for(const auto& in:inBalances)
+        if(in.first.type != TokenTypes::NONE && in.second > outBalances[in.first])
+        {
+            burn = true;
+            break;
+        }
     UniValue result(UniValue::VOBJ);
     result.pushKV("hex", EncodeHexTx(mtx));
     result.pushKV("complete", fComplete);
     if (!vErrors.empty()) {
         result.pushKV("errors", vErrors);
     }
+    if(burn)
+        result.pushKV("warning", "token burn detected");
 
     return result;
 }

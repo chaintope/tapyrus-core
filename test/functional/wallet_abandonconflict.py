@@ -12,6 +12,7 @@
  no effect on transactions which are already abandoned.
 """
 from decimal import Decimal
+from test_framework.blocktools import create_colored_transaction
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error, connect_nodes, disconnect_nodes, sync_blocks, sync_mempools
@@ -22,12 +23,15 @@ class AbandonConflictTest(BitcoinTestFramework):
         self.extra_args = [["-minrelaytxfee=0.00001"], []]
 
     def run_test(self):
+        colorid = create_colored_transaction(2, 100, self.nodes[0])['color']
         self.nodes[1].generate(1, self.signblockprivkey_wif)
         sync_blocks(self.nodes)
         balance = self.nodes[0].getbalance()
         txA = self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), Decimal("10"))
         txB = self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), Decimal("10"))
         txC = self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), Decimal("10"))
+        txD = self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress("", colorid), 15)
+        self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress("", colorid), 80)
         sync_mempools(self.nodes)
         self.nodes[1].generate(1, self.signblockprivkey_wif)
 
@@ -48,6 +52,7 @@ class AbandonConflictTest(BitcoinTestFramework):
         nA = next(i for i, vout in enumerate(self.nodes[0].getrawtransaction(txA, 1)["vout"]) if vout["value"] == Decimal("10"))
         nB = next(i for i, vout in enumerate(self.nodes[0].getrawtransaction(txB, 1)["vout"]) if vout["value"] == Decimal("10"))
         nC = next(i for i, vout in enumerate(self.nodes[0].getrawtransaction(txC, 1)["vout"]) if vout["value"] == Decimal("10"))
+        nD = next(i for i, vout in enumerate(self.nodes[0].getrawtransaction(txD, 1)["vout"]) if vout["value"] == 15)
 
         inputs =[]
         # spend 10tpc outputs from txA and txB
@@ -67,21 +72,28 @@ class AbandonConflictTest(BitcoinTestFramework):
         inputs = []
         inputs.append({"txid":txAB1, "vout":nAB})
         inputs.append({"txid":txC, "vout":nC})
+        inputs.append({"txid":txD, "vout":nD})
         outputs = {}
         outputs[self.nodes[0].getnewaddress()] = Decimal("24.9996")
+        outputs[self.nodes[1].getnewaddress("", colorid)] = 7
+        outputs[self.nodes[0].getnewaddress("", colorid)] = 8
         signed2 = self.nodes[0].signrawtransactionwithwallet(self.nodes[0].createrawtransaction(inputs, outputs), [], "ALL", self.options.scheme)
         txABC2 = self.nodes[0].sendrawtransaction(signed2["hex"])
 
         # Create a child tx spending ABC2
         signed3_change = Decimal("24.999")
-        inputs = [ {"txid":txABC2, "vout":0} ]
-        outputs = { self.nodes[0].getnewaddress(): signed3_change }
+        inputs = [ {"txid":txABC2, "vout":0}, {"txid":txABC2, "vout":2}]
+        outputs = [{ self.nodes[0].getnewaddress(): signed3_change}, {self.nodes[0].getnewaddress("", colorid): 2}, {self.nodes[1].getnewaddress("", colorid): 6 }]
         signed3 = self.nodes[0].signrawtransactionwithwallet(self.nodes[0].createrawtransaction(inputs, outputs), [], "ALL", self.options.scheme)
         # note tx is never directly referenced, only abandoned as a child of the above
         self.nodes[0].sendrawtransaction(signed3["hex"])
 
         # In mempool txs from self should increase balance from change
         newbalance = self.nodes[0].getbalance()
+        walletinfo = self.nodes[0].getwalletinfo()
+        assert_equal(walletinfo['balance'][colorid], 7)
+        walletinfo = self.nodes[1].getwalletinfo()
+        assert_equal(walletinfo['balance'][colorid], 80)
         assert_equal(newbalance, balance - Decimal("30") + signed3_change)
         balance = newbalance
 
@@ -93,6 +105,11 @@ class AbandonConflictTest(BitcoinTestFramework):
         # Verify txs no longer in either node's mempool
         assert_equal(len(self.nodes[0].getrawmempool()), 0)
         assert_equal(len(self.nodes[1].getrawmempool()), 0)
+
+        walletinfo = self.nodes[0].getwalletinfo()
+        assert_equal(walletinfo['balance'][colorid], 5)
+        walletinfo = self.nodes[1].getwalletinfo()
+        assert_equal(walletinfo['balance'][colorid], 80)
 
         # Not in mempool txs from self should only reduce balance
         # inputs are still spent, but change not received

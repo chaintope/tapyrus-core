@@ -116,6 +116,18 @@ CAmount AmountFromValue(const UniValue& value)
     return amount;
 }
 
+CAmount TokenAmountFromValue(const UniValue& value)
+{
+    if (!value.isNum() && !value.isStr())
+        throw JSONRPCError(RPC_TYPE_ERROR, "Amount is not a number or string");
+    CAmount amount;
+    if (!ParseInt64(value.getValStr(), &amount))
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
+    if (!MoneyRange(amount))
+        throw JSONRPCError(RPC_TYPE_ERROR, "Amount out of range");
+    return amount;
+}
+
 uint256 ParseHashV(const UniValue& v, std::string strName)
 {
     std::string strHex;

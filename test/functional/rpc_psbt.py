@@ -8,6 +8,7 @@
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import sync_blocks, assert_equal, assert_raises_rpc_error, find_output
+from test_framework.blocktools import create_colored_transaction
 
 import json
 import os
@@ -18,10 +19,16 @@ MAX_BIP125_RBF_SEQUENCE = 0xfffffffd
 class PSBTTest(BitcoinTestFramework):
 
     def set_test_params(self):
-        self.setup_clean_chain = False
+        self.setup_clean_chain = True
         self.num_nodes = 3
 
     def run_test(self):
+        self.nodes[0].generate(1, self.signblockprivkey_wif)
+        #create tokens
+        colorId = create_colored_transaction(2, 100, self.nodes[0])['color']
+        self.sync_all()
+        self.nodes[2].generate(1, self.signblockprivkey_wif)
+
         # Create and fund a raw tx for sending 10 TPC
         psbtx1 = self.nodes[0].walletcreatefundedpsbt([], {self.nodes[2].getnewaddress():10})['psbt']
 
@@ -30,48 +37,53 @@ class PSBTTest(BitcoinTestFramework):
         assert_equal(psbtx1, psbtx)
 
         # Sign the transaction and send
-        signed_tx = self.nodes[0].walletprocesspsbt(psbtx)['psbt']
+        signed_tx = self.nodes[0].walletprocesspsbt(psbtx1)['psbt']
         final_tx = self.nodes[0].finalizepsbt(signed_tx)['hex']
-        self.nodes[0].sendrawtransaction(final_tx)
+        self.nodes[0].sendrawtransaction(final_tx, True)
 
-        # Create p2sh, p2wpkh, and p2wsh addresses
+        self.nodes[0].generate(1, self.signblockprivkey_wif)
+        self.sync_all()
+
+        # Create and fund a raw tx for sending colored coin
+        psbtx2 = self.nodes[0].walletcreatefundedpsbt([], {self.nodes[2].getnewaddress("tokenpsbt", colorId):10, self.nodes[0].getnewaddress("tokenpsbt", colorId):90})['psbt']
+
+        psbtx = self.nodes[1].walletprocesspsbt(psbtx2)['psbt']
+        assert_equal(psbtx2, psbtx)
+        signed_tx = self.nodes[0].walletprocesspsbt(psbtx2)['psbt']
+
+        final_tx = self.nodes[0].finalizepsbt(signed_tx)['hex']
+        self.nodes[0].sendrawtransaction(final_tx, True)
+
+        self.nodes[0].generate(1, self.signblockprivkey_wif)
+        self.sync_all()
+
+        # Create p2sh and p2pkh addresses
         pubkey0 = self.nodes[0].getaddressinfo(self.nodes[0].getnewaddress())['pubkey']
         pubkey1 = self.nodes[1].getaddressinfo(self.nodes[1].getnewaddress())['pubkey']
         pubkey2 = self.nodes[2].getaddressinfo(self.nodes[2].getnewaddress())['pubkey']
         p2sh = self.nodes[1].addmultisigaddress(2, [pubkey0, pubkey1, pubkey2], "")['address']
-        p2wsh = self.nodes[1].addmultisigaddress(2, [pubkey0, pubkey1, pubkey2], "")['address']
-        p2sh_p2wsh = self.nodes[1].addmultisigaddress(2, [pubkey0, pubkey1, pubkey2], "")['address']
-        p2wpkh = self.nodes[1].getnewaddress("")
         p2pkh = self.nodes[1].getnewaddress("")
-        p2sh_p2wpkh = self.nodes[1].getnewaddress("")
+        cp2pkh = self.nodes[1].getnewaddress("", colorId)
 
         # fund those addresses
         rawtx = self.nodes[0].createrawtransaction([], {p2sh:10, p2pkh:10})
         rawtx = self.nodes[0].fundrawtransaction(rawtx, {"changePosition":2})
+        rawtx = self.nodes[0].createrawtransaction([], {cp2pkh :10})
+        rawtx = self.nodes[0].fundrawtransaction(rawtx)
+        rawtx = self.nodes[0].createrawtransaction([], {p2sh:30, p2pkh:30, cp2pkh : 10})
+        rawtx = self.nodes[0].fundrawtransaction(rawtx)
         signed_tx = self.nodes[0].signrawtransactionwithwallet(rawtx['hex'], [], "ALL", self.options.scheme)['hex']
-        txid = self.nodes[0].sendrawtransaction(signed_tx)
+        txid = self.nodes[0].sendrawtransaction(signed_tx, True)
         self.nodes[0].generate(6, self.signblockprivkey_wif)
         self.sync_all()
 
         # Find the output pos
         p2sh_pos = -1
-        p2wsh_pos = -1
-        p2wpkh_pos = -1
         p2pkh_pos = -1
-        p2sh_p2wsh_pos = -1
-        p2sh_p2wpkh_pos = -1
         decoded = self.nodes[0].decoderawtransaction(signed_tx)
         for out in decoded['vout']:
             if out['scriptPubKey']['addresses'][0] == p2sh:
                 p2sh_pos = out['n']
-            #elif out['scriptPubKey']['addresses'][0] == p2wsh:
-            #    p2wsh_pos = out['n']
-            #elif out['scriptPubKey']['addresses'][0] == p2wpkh:
-            #    p2wpkh_pos = out['n']
-            #elif out['scriptPubKey']['addresses'][0] == p2sh_p2wsh:
-            #    p2sh_p2wsh_pos = out['n']
-            #elif out['scriptPubKey']['addresses'][0] == p2sh_p2wpkh:
-            #    p2sh_p2wpkh_pos = out['n']
             elif out['scriptPubKey']['addresses'][0] == p2pkh:
                 p2pkh_pos = out['n']
 
@@ -79,7 +91,7 @@ class PSBTTest(BitcoinTestFramework):
         rawtx = self.nodes[1].walletcreatefundedpsbt([{"txid":txid,"vout":p2pkh_pos}], {self.nodes[1].getnewaddress():29.99})['psbt']
         walletprocesspsbt_out = self.nodes[1].walletprocesspsbt(rawtx)
         assert_equal(walletprocesspsbt_out['complete'], True)
-        self.nodes[1].sendrawtransaction(self.nodes[1].finalizepsbt(walletprocesspsbt_out['psbt'])['hex'])
+        self.nodes[1].sendrawtransaction(self.nodes[1].finalizepsbt(walletprocesspsbt_out['psbt'])['hex'], True)
 
         # partially sign multisig things with node 1
         psbtx = self.nodes[1].walletcreatefundedpsbt([{"txid":txid,"vout":p2sh_pos}], {self.nodes[1].getnewaddress():29.99})['psbt']
@@ -90,7 +102,7 @@ class PSBTTest(BitcoinTestFramework):
         # partially sign with node 2. This should be complete and sendable
         walletprocesspsbt_out = self.nodes[2].walletprocesspsbt(psbtx)
         assert_equal(walletprocesspsbt_out['complete'], True)
-        self.nodes[2].sendrawtransaction(self.nodes[2].finalizepsbt(walletprocesspsbt_out['psbt'])['hex'])
+        self.nodes[2].sendrawtransaction(self.nodes[2].finalizepsbt(walletprocesspsbt_out['psbt'])['hex'], True)
 
         # check that walletprocesspsbt fails to decode a non-psbt
         rawtx = self.nodes[1].createrawtransaction([{"txid":txid,"vout":p2pkh_pos}], {self.nodes[1].getnewaddress():9.99})
@@ -135,7 +147,7 @@ class PSBTTest(BitcoinTestFramework):
         # Combine, finalize, and send the psbts
         combined = self.nodes[0].combinepsbt([psbt1, psbt2])
         finalized = self.nodes[0].finalizepsbt(combined)['hex']
-        self.nodes[0].sendrawtransaction(finalized)
+        self.nodes[0].sendrawtransaction(finalized, True)
         self.nodes[0].generate(6, self.signblockprivkey_wif)
         sync_blocks(self.nodes)
         #mempool is not synched.

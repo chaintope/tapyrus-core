@@ -70,7 +70,16 @@ In order to builds for macOS, you need to download the free SDK and extract a fi
     $ mkdir -p gitian-builder/inputs
     $ cp 'path/to/extracted-SDK-file' gitian-builder/inputs
 
-In this version, needs MacOSX10.11.sdk.tar.gz as `extracted-SDK-file`.
+In this version, needs `Xcode-11.3.1-11C505-extracted-SDK-with-libcxx-headers.tar.gz` as `extracted-SDK-file`.
+
+To get `Xcode-11.3.1-11C505-extracted-SDK-with-libcxx-headers.tar.gz`:
+
+1. Download `Xcode 11.3.1.xip` from [Apple download page](https://developer.apple.com/download/more/).
+2. `$ sudo apt-get install cpio`
+3. `$ git clone https://github.com/bitcoin-core/apple-sdk-tools.git`
+4. `$ python3 apple-sdk-tools/extract_xcode.py -f Xcode_11.3.1.xip | cpio -d -i`
+5. After that, `Xcode.app` dir has been created, and the Xcode data has been extracted.
+6. Generate sdk: `$ ./tapyrus-core/contrib/macdeploy/gen-sdk Xcode.app`
 
 ### Build binaries
 

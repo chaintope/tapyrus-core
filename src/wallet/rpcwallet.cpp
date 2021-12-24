@@ -307,7 +307,7 @@ static UniValue setlabel(const JSONRPCRequest& request)
             "setlabel \"address\" \"label\"\n"
             "\nSets the label associated with the given address.\n"
             "\nArguments:\n"
-            "1. \"address\"         (string, required) The bitcoin address to be associated with a label.\n"
+            "1. \"address\"         (string, required) The tapyrus address to be associated with a label.\n"
             "2. \"label\"           (string, required) The label to assign to the address.\n"
             "\nExamples:\n"
             + HelpExampleCli("setlabel", "\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\" \"tabby\"")
@@ -451,7 +451,7 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
     }
 
     // Amount
-    CAmount nAmount = (colorId.type == TokenTypes::NONE ? AmountFromValue(request.params[1]) : request.params[1].get_int64());
+    CAmount nAmount = (colorId.type == TokenTypes::NONE ? AmountFromValue(request.params[1]) : TokenAmountFromValue(request.params[1]));
     if (nAmount <= 0)
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for send");
 
@@ -516,7 +516,7 @@ static UniValue listaddressgroupings(const JSONRPCRequest& request)
             "[\n"
             "  [\n"
             "    [\n"
-            "      \"address\",            (string) The bitcoin address\n"
+            "      \"address\",            (string) The tapyrus address\n"
             "      amount,                 (numeric) The amount in " + CURRENCY_UNIT + "\n"
             "      \"label\"               (string, optional) The label\n"
             "    ]\n"
@@ -576,7 +576,7 @@ static UniValue signmessage(const JSONRPCRequest& request)
             "\nSign a message with the private key of an address"
             + HelpRequiringPassphrase(pwallet) + "\n"
             "\nArguments:\n"
-            "1. \"address\"         (string, required) The bitcoin address to use for the private key.\n"
+            "1. \"address\"         (string, required) The tapyrus address to use for the private key.\n"
             "2. \"message\"         (string, required) The message to create a signature of.\n"
             "\nResult:\n"
             "\"signature\"          (string) The signature of the message encoded in base 64\n"
@@ -638,7 +638,7 @@ static UniValue getreceivedbyaddress(const JSONRPCRequest& request)
             "getreceivedbyaddress \"address\"\n"
             "\nReturns the total amount received by the given address in transactions.\n"
             "\nArguments:\n"
-            "1. \"address\"         (string, required) The bitcoin address for transactions.\n"
+            "1. \"address\"         (string, required) The tapyrus address for transactions.\n"
             "\nResult:\n"
             "amount   (numeric) The total amount in " + CURRENCY_UNIT + " received at this address.\n"
             "\nExamples:\n"
@@ -862,7 +862,7 @@ static UniValue sendmany(const JSONRPCRequest& request)
             "\nArguments:\n"
             "1. \"amounts\"             (string, required) A json object with addresses and amounts\n"
             "    {\n"
-            "      \"address\":amount   (numeric or string) The bitcoin address is the key, the numeric amount (can be string) in " + CURRENCY_UNIT + " is the value\n"
+            "      \"address\":amount   (numeric or string) The tapyrus address is the key, the numeric amount (can be string) in " + CURRENCY_UNIT + " is the value\n"
             "      ,...\n"
             "    }\n"
             "2. \"comment\"             (string, optional) A comment\n"
@@ -1013,9 +1013,9 @@ static UniValue addmultisigaddress(const JSONRPCRequest& request)
 
             "\nArguments:\n"
             "1. nrequired                        (numeric, required) The number of required signatures out of the n keys or addresses.\n"
-            "2. \"keys\"                         (string, required) A json array of bitcoin addresses or hex-encoded public keys\n"
+            "2. \"keys\"                         (string, required) A json array of tapyrus addresses or hex-encoded public keys\n"
             "     [\n"
-            "       \"address\"                  (string) bitcoin address or hex-encoded public key\n"
+            "       \"address\"                  (string) tapyrus address or hex-encoded public key\n"
             "       ...,\n"
             "     ]\n"
             "3. \"label\"                        (string, optional) A label to assign the addresses to.\n"
@@ -1435,7 +1435,7 @@ UniValue listtransactions(const JSONRPCRequest& request)
             "\nResult:\n"
             "[\n"
             "  {\n"
-            "    \"address\":\"address\",    (string) The bitcoin address of the transaction. Not present for \n"
+            "    \"address\":\"address\",    (string) The tapyrus address of the transaction. Not present for \n"
             "                                                move transactions (category = move).\n"
             "    \"category\":\"send|receive|move\", (string) The transaction category. 'move' is a local (off blockchain)\n"
             "                                                transaction between accounts, and not associated with an address,\n"
@@ -1571,7 +1571,7 @@ static UniValue listsinceblock(const JSONRPCRequest& request)
             "\nResult:\n"
             "{\n"
             "  \"transactions\": [\n"
-            "    \"address\":\"address\",    (string) The bitcoin address of the transaction. Not present for move transactions (category = move).\n"
+            "    \"address\":\"address\",    (string) The tapyrus address of the transaction. Not present for move transactions (category = move).\n"
             "    \"category\":\"send|receive\",     (string) The transaction category. 'send' has negative amounts, 'receive' has positive amounts.\n"
             "    \"amount\": x.xxx,          (numeric) The amount in " + CURRENCY_UNIT + ". This is negative for the 'send' category, and for the 'move' category for moves \n"
             "                                          outbound. It is positive for the 'receive' category, and for the 'move' category for inbound funds.\n"
@@ -1719,7 +1719,7 @@ static UniValue gettransaction(const JSONRPCRequest& request)
             "                                                   may be unknown for unconfirmed transactions not in the mempool\n"
             "  \"details\" : [\n"
             "    {\n"
-            "      \"address\" : \"address\",          (string) The bitcoin address involved in the transaction\n"
+            "      \"address\" : \"address\",          (string) The tapyrus address involved in the transaction\n"
             "      \"category\" : \"send|receive\",    (string) The category, either 'send' or 'receive'\n"
             "      \"amount\" : x.xxx,                 (numeric) The amount in " + CURRENCY_UNIT + "\n"
             "      \"label\" : \"label\",              (string) A comment for the address/transaction, if any\n"
@@ -2422,16 +2422,12 @@ static UniValue getwalletinfo(const JSONRPCRequest& request)
 
     TxColoredCoinBalancesMap walletbalances = pwallet->GetBalance();
     for (auto const& wb : walletbalances) {
-        if (wb.first.type == TokenTypes::NONE) {
-            balances.pushKV(CURRENCY_UNIT.c_str(), ValueFromAmount(wb.second));
-        } else {
-            balances.pushKV(wb.first.toHexString(), wb.second);
-        }
+        balances.pushKV(wb.first.toHexString(), wb.first.type == TokenTypes::NONE ? ValueFromAmount(wb.second) : wb.second);
     };
 
     TxColoredCoinBalancesMap walletunconfirmedbalances = pwallet->GetUnconfirmedBalance();
     for (auto const& uwb : walletunconfirmedbalances) {
-        unconfirmBalancesObj.pushKV(uwb.first.toHexString(), ValueFromAmount(uwb.second));
+        unconfirmBalancesObj.pushKV(uwb.first.toHexString(), uwb.first.type == TokenTypes::NONE ? ValueFromAmount(uwb.second) : uwb.second);
     };
 
     size_t kpExternalSize = pwallet->KeypoolCountExternalKeys();
@@ -2700,9 +2696,9 @@ static UniValue listunspent(const JSONRPCRequest& request)
             "\nArguments:\n"
             "1. minconf          (numeric, optional, default=1) The minimum confirmations to filter\n"
             "2. maxconf          (numeric, optional, default=9999999) The maximum confirmations to filter\n"
-            "3. \"addresses\"      (string) A json array of bitcoin addresses to filter\n"
+            "3. \"addresses\"      (string) A json array of tapyrus addresses to filter\n"
             "    [\n"
-            "      \"address\"     (string) bitcoin address\n"
+            "      \"address\"     (string) tapyrus address\n"
             "      ,...\n"
             "    ]\n"
             "4. include_unsafe (bool, optional, default=true) Include outputs that are not safe to spend\n"
@@ -2719,7 +2715,7 @@ static UniValue listunspent(const JSONRPCRequest& request)
             "  {\n"
             "    \"txid\" : \"txid\",          (string) the transaction id \n"
             "    \"vout\" : n,               (numeric) the vout value\n"
-            "    \"address\" : \"address\",    (string) the bitcoin address\n"
+            "    \"address\" : \"address\",    (string) the tapyrus address\n"
             "    \"label\" : \"label\",        (string) The associated label, or \"\" for the default label\n"
             "    \"scriptPubKey\" : \"key\",   (string) the script key\n"
             "    \"amount\" : x.xxx,         (numeric) the transaction output amount in " + CURRENCY_UNIT + "\n"
@@ -2852,14 +2848,14 @@ static UniValue listunspent(const JSONRPCRequest& request)
     return results;
 }
 
-void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& fee_out, int& change_position, UniValue options)
+void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& fee_out, CWallet::ChangePosInOut& change_position, UniValue options)
 {
     // Make sure the results are valid at least up to the most recent block
     // the user could have gotten from another RPC command prior to now
     pwallet->BlockUntilSyncedToCurrentChain();
 
     CCoinControl coinControl;
-    change_position = -1;
+    int tpc_change_position = -1;
     bool lockUnspents = false;
     UniValue subtractFeeFromOutputs;
     std::set<int> setSubtractFeeFromOutputs;
@@ -2896,7 +2892,7 @@ void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& f
         }
 
         if (options.exists("changePosition"))
-            change_position = options["changePosition"].get_int();
+            tpc_change_position = options["changePosition"].get_int();
 
 
         coinControl.m_change_type = pwallet->m_default_change_type;
@@ -2939,7 +2935,7 @@ void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& f
     if (tx.vout.size() == 0)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "TX must have at least one output");
 
-    if (change_position != -1 && (change_position < 0 || (unsigned int)change_position > tx.vout.size()))
+    if (tpc_change_position != -1 && (tpc_change_position < 0 || (unsigned int)tpc_change_position > tx.vout.size()))
         throw JSONRPCError(RPC_INVALID_PARAMETER, "changePosition out of bounds");
 
     for (unsigned int idx = 0; idx < subtractFeeFromOutputs.size(); idx++) {
@@ -2955,6 +2951,18 @@ void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& f
 
     std::string strFailReason;
 
+    //if we are funding token transaction make sure to mark the coincontrol as transfer
+    for(auto& vout:tx.vout)
+    {
+        ColorIdentifier colorId = GetColorIdFromScript(vout.scriptPubKey);
+        if(colorId.type != TokenTypes::NONE)
+        {
+            coinControl.m_colorTxType = ColoredTxType::TRANSFER;
+            coinControl.m_colorId = colorId;
+            break;
+        }
+    }
+    change_position[ColorIdentifier()] =  tpc_change_position;
     if (!pwallet->FundTransaction(tx, fee_out, change_position, strFailReason, lockUnspents, setSubtractFeeFromOutputs, coinControl)) {
         throw JSONRPCError(RPC_WALLET_ERROR, strFailReason);
     }
@@ -2986,8 +2994,8 @@ static UniValue fundrawtransaction(const JSONRPCRequest& request)
                             "1. \"hexstring\"           (string, required) The hex string of the raw transaction\n"
                             "2. options                 (object, optional)\n"
                             "   {\n"
-                            "     \"changeAddress\"          (string, optional, default pool address) The bitcoin address to receive the change\n"
-                            "     \"changePosition\"         (numeric, optional, default random) The index of the change output\n"
+                            "     \"changeAddress\"          (string, optional, default pool address) The tapyrus address to receive the change\n"
+                            "     \"changePosition\"         (numeric, optional, default random) The index of the " + CURRENCY_UNIT + " change output\n"
                             "     \"includeWatching\"        (boolean, optional, default false) Also select inputs which are watch only\n"
                             "     \"lockUnspents\"           (boolean, optional, default false) Lock selected unspent outputs\n"
                             "     \"feeRate\"                (numeric, optional, default not set: makes wallet determine the fee) Set a specific fee rate in " + CURRENCY_UNIT + "/kB\n"
@@ -3032,13 +3040,13 @@ static UniValue fundrawtransaction(const JSONRPCRequest& request)
     }
 
     CAmount fee;
-    int change_position;
+    CWallet::ChangePosInOut change_position;
     FundTransaction(pwallet, tx, fee, change_position, request.params[1]);
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("hex", EncodeHexTx(tx));
     result.pushKV("fee", ValueFromAmount(fee));
-    result.pushKV("changepos", change_position);
+    result.pushKV("changepos", change_position[ColorIdentifier()]);
 
     return result;
 }
@@ -3098,6 +3106,7 @@ UniValue signrawtransactionwithwallet(const JSONRPCRequest& request)
             "    }\n"
             "    ,...\n"
             "  ]\n"
+            "  \"warning\" : \"token burn detected\" (string, optional) warning only in burn token transactions \n"
             "}\n"
 
             "\nExamples:\n"
@@ -3516,13 +3525,13 @@ UniValue getaddressinfo(const JSONRPCRequest& request)
     if (request.fHelp || request.params.size() != 1) {
         throw std::runtime_error(
             "getaddressinfo \"address\"\n"
-            "\nReturn information about the given bitcoin address. Some information requires the address\n"
+            "\nReturn information about the given tapyrus address. Some information requires the address\n"
             "to be in the wallet.\n"
             "\nArguments:\n"
-            "1. \"address\"                    (string, required) The bitcoin address to get the information of.\n"
+            "1. \"address\"                    (string, required) The tapyrus address to get the information of.\n"
             "\nResult:\n"
             "{\n"
-            "  \"address\" : \"address\",        (string) The bitcoin address validated\n"
+            "  \"address\" : \"address\",        (string) The tapyrus address validated\n"
             "  \"scriptPubKey\" : \"hex\",       (string) The hex encoded scriptPubKey generated by the address\n"
             "  \"ismine\" : true|false,        (boolean) If the address is yours or not\n"
             "  \"iswatchonly\" : true|false,   (boolean) If the address is watchonly\n"
@@ -4022,7 +4031,7 @@ UniValue walletcreatefundedpsbt(const JSONRPCRequest& request)
                             "2. \"outputs\"               (array, required) a json array with outputs (key-value pairs)\n"
                             "   [\n"
                             "    {\n"
-                            "      \"address\": x.xxx,    (obj, optional) A key-value pair. The key (string) is the bitcoin address, the value (float or string) is the amount in " + CURRENCY_UNIT + "\n"
+                            "      \"address\": x.xxx,    (obj, optional) A key-value pair. The key (string) is the tapyrus address, the value (float or string) is the amount in " + CURRENCY_UNIT + "\n"
                             "    },\n"
                             "    {\n"
                             "      \"data\": \"hex\"        (obj, optional) A key-value pair. The key must be \"data\", the value is hex encoded data\n"
@@ -4034,8 +4043,8 @@ UniValue walletcreatefundedpsbt(const JSONRPCRequest& request)
                             "                             Allows this transaction to be replaced by a transaction with higher fees. If provided, it is an error if explicit sequence numbers are incompatible.\n"
                             "4. options                 (object, optional)\n"
                             "   {\n"
-                            "     \"changeAddress\"          (string, optional, default pool address) The bitcoin address to receive the change\n"
-                            "     \"changePosition\"         (numeric, optional, default random) The index of the change output\n"
+                            "     \"changeAddress\"          (string, optional, default pool address) The tapyrus address to receive the change\n"
+                            "     \"changePosition\"         (numeric, optional, default random) The index of the " + CURRENCY_UNIT + " change output\n"
                             "     \"includeWatching\"        (boolean, optional, default false) Also select inputs which are watch only\n"
                             "     \"lockUnspents\"           (boolean, optional, default false) Lock selected unspent outputs\n"
                             "     \"feeRate\"                (numeric, optional, default not set: makes wallet determine the fee) Set a specific fee rate in " + CURRENCY_UNIT + "/kB\n"
@@ -4075,7 +4084,7 @@ UniValue walletcreatefundedpsbt(const JSONRPCRequest& request)
     );
 
     CAmount fee;
-    int change_position;
+    CWallet::ChangePosInOut change_position;
     CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], request.params[3]["replaceable"]);
     FundTransaction(pwallet, rawTx, fee, change_position, request.params[3]);
 
@@ -4104,7 +4113,7 @@ UniValue walletcreatefundedpsbt(const JSONRPCRequest& request)
     UniValue result(UniValue::VOBJ);
     result.pushKV("psbt", EncodeBase64((unsigned char*)ssTx.data(), ssTx.size()));
     result.pushKV("fee", ValueFromAmount(fee));
-    result.pushKV("changepos", change_position);
+    result.pushKV("changepos", change_position[ColorIdentifier()]);
     return result;
 }
 
@@ -4179,8 +4188,8 @@ static UniValue getcolor(const JSONRPCRequest& request)
             "\"color\"               (string) The color or token.\n"
             "\nExamples:\n"
             + HelpExampleCli("getcolor", "\"1\" 8282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508")
-            + HelpExampleCli("getcolor", "\"2\" 485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954" "0")
-            + HelpExampleCli("getcolor", "\"3\" 485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954" "1")
+            + HelpExampleCli("getcolor", "\"2\" 485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954 0")
+            + HelpExampleCli("getcolor", "\"3\" 485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954 1")
         );
 
     RPCTypeCheck(request.params, {UniValue::VNUM, UniValue::VSTR});
@@ -4352,7 +4361,7 @@ static UniValue issuetoken(const JSONRPCRequest& request)
     if (request.fHelp || request.params.size() < 3 || request.params.size() > 4)
         throw std::runtime_error(
             "issuetoken \"token_type\" \"token_value\" \"txid/scriptpubkey\" \"index\" \n"
-            "\nIssue new colored coins or tokens and store then in the wallet.\n"
+            "\nIssue new colored coins or tokens and store them in the wallet.\n"
             + HelpRequiringPassphrase(pwallet) +
             "\nArguments:\n"
             "1. \"token_type\"       (numberic, required) Value can be 1 or 2 or 3.\n"
@@ -4376,17 +4385,17 @@ static UniValue issuetoken(const JSONRPCRequest& request)
             "}\n"
             "\nExamples:\n"
             + HelpExampleCli("issuetoken", "\"1\" \"100\" 8282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508")
-            + HelpExampleCli("issuetoken", "\"2\" \"1000\" 485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954" "0")
-            + HelpExampleCli("issuetoken", "\"3\" \"500\" 485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954" "1")
+            + HelpExampleCli("issuetoken", "\"2\" \"1000\" 485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954 0")
+            + HelpExampleCli("issuetoken", "\"3\" \"500\" 485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954 1")
         );
     RPCTypeCheck(request.params, {UniValue::VNUM, UniValue::VNUM, UniValue::VSTR});
 
     const ColorIdentifier colorId = getColorIdFromRequest(request);
 
     // token value
-    CAmount tokenValue = request.params[1].get_int64();
+    CAmount tokenValue = TokenAmountFromValue(request.params[1]);
     if (tokenValue <= 0)
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid token amount");
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid token amount");
 
     if(colorId.type == TokenTypes::NFT && tokenValue != 1) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid token amount for NFT. It must be 1");
@@ -4431,7 +4440,7 @@ static UniValue reissuetoken(const JSONRPCRequest& request)
             + HelpRequiringPassphrase(pwallet) +
             "\nArguments:\n"
             "1. \"color\"              (string, required) The tapyrus color / token to be reissued.\n"
-            "2. \"value\"              (numeric, required) The amount to issue. eg 10\n"
+            "2. \"value\"              (numeric, required) The number of tokens to issue. eg 10\n"
             "\nResult:\n"
             "{\n"
             "  \"color\"               (string) The color or token.\n"
@@ -4453,9 +4462,9 @@ static UniValue reissuetoken(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Token type not supported");
 
     // token value
-    CAmount tokenValue = request.params[1].get_int64();
+    CAmount tokenValue = TokenAmountFromValue(request.params[1]);
     if (tokenValue <= 0)
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid token amount");
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid token amount");
 
     LOCK2(cs_main, pwallet->cs_wallet);
 
@@ -4479,12 +4488,12 @@ static UniValue transfertoken(const JSONRPCRequest& request)
 
     if (request.fHelp || request.params.size() != 2)
         throw std::runtime_error(
-            "transfertoken \"address\" \"amount\" \n"
+            "transfertoken \"address\" \"value\" \n"
             "\nSend colored coins or tokens to a given address.\n"
             + HelpRequiringPassphrase(pwallet) +
             "\nArguments:\n"
             "1. \"address\"            (string, required) The colored tapyrus address to send to.\n"
-            "2. \"amount\"             (numeric, required) The amount in to send. eg 10\n"
+            "2. \"value\"              (numeric, required) The number of tokens to send. eg 10\n"
             "\nResult:\n"
             "\"txid\"                  (string) The transaction id.\n"
             "\nExamples:\n"
@@ -4563,7 +4572,7 @@ static UniValue burntoken(const JSONRPCRequest& request)
     if (!request.params[0].isNull() && !checkColorIdParam(request.params[0], colorId))
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid color parameter.");
 
-    CAmount nAmount = request.params[1].get_int64();
+    CAmount nAmount = TokenAmountFromValue(request.params[1]);
     if (nAmount <= 0)
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for burn");
 

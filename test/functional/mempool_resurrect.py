@@ -5,7 +5,7 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test resurrection of mined transactions when the blockchain is re-organized."""
 
-from test_framework.blocktools import create_raw_transaction
+from test_framework.blocktools import create_raw_transaction, create_colored_transaction
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal
 
@@ -49,9 +49,19 @@ class MempoolCoinbaseTest(BitcoinTestFramework):
         for node in self.nodes:
             node.invalidateblock(blocks[0])
 
+        color_ids=[create_colored_transaction(2, 1000, self.nodes[0])['txid'], create_colored_transaction(3, 1, self.nodes[0])['txid']]
+        blocks.extend(self.nodes[0].generate(1, self.signblockprivkey_wif))
+
+        # mempool should be empty, all txns confirmed 
+        assert_equal(set(self.nodes[0].getrawmempool()), set())
+
+        # Use invalidate to re-org back 
+        for node in self.nodes:
+            node.invalidateblock(blocks[2])
+
         # All txns should be back in mempool with 0 confirmations
-        assert_equal(set(self.nodes[0].getrawmempool()), set(spends1_id+spends2_id))
-        for txid in spends1_id+spends2_id:
+        assert_equal(set(self.nodes[0].getrawmempool()), set(spends1_id+spends2_id+color_ids))
+        for txid in spends1_id+spends2_id+color_ids:
             tx = self.nodes[0].gettransaction(txid)
             assert(tx["confirmations"] == 0)
 
@@ -59,7 +69,7 @@ class MempoolCoinbaseTest(BitcoinTestFramework):
         self.nodes[0].generate(1, self.signblockprivkey_wif)
         # mempool should be empty, all txns confirmed
         assert_equal(set(self.nodes[0].getrawmempool()), set())
-        for txid in spends1_id+spends2_id:
+        for txid in spends1_id+spends2_id+color_ids:
             tx = self.nodes[0].gettransaction(txid)
             assert(tx["confirmations"] > 0)
 
