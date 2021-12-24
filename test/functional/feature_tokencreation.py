@@ -12,6 +12,7 @@ from test_framework.blocktools import findTPC, create_colored_transaction, TOKEN
 class TokenAPITest(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 3
+        self.supports_cli = True
         self.setup_clean_chain = True
 
     def run_test(self):

@@ -148,6 +148,14 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "rescanblockchain", 1, "stop_height"},
     { "createwallet", 1, "disable_private_keys"},
     { "testproposedblock", 1, "nonstandard"},
+    { "issuetoken", 0, "type"},
+    { "issuetoken", 1, "value"},
+    { "issuetoken", 3, "index"},
+    { "getcolor", 0, "type"},
+    { "getcolor", 2, "index"},
+    { "reissuetoken", 1, "value"},
+    { "burntoken", 1, "value"},
+    { "transfertoken", 1, "value"},
 };
 
 class CRPCConvertTable

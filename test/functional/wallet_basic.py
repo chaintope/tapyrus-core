@@ -5,7 +5,7 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test the wallet."""
 from decimal import Decimal
-import time
+import time, math
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
@@ -18,6 +18,7 @@ from test_framework.util import (
     sync_mempools,
     wait_until,
 )
+from test_framework.blocktools import create_colored_transaction
 
 class WalletTest(BitcoinTestFramework):
     def set_test_params(self):
@@ -52,39 +53,45 @@ class WalletTest(BitcoinTestFramework):
         self.log.info("Mining blocks...")
 
         self.nodes[0].generate(1, self.signblockprivkey_wif)
+        out = create_colored_transaction(2, 100, self.nodes[0])
+        colorid1 = out['color']
+        ctxid = out['txid']
+        self.nodes[0].generate(1, self.signblockprivkey_wif)
 
         walletinfo = self.nodes[0].getwalletinfo()
-        assert_equal(walletinfo['balance']['TPC'], 50)
+        assert_equal(walletinfo['balance']['TPC'], 100)
+        assert_equal(walletinfo['balance'][colorid1], 100)
 
         self.sync_all([self.nodes[0:3]])
         self.nodes[1].generate(1, self.signblockprivkey_wif)
         self.sync_all([self.nodes[0:3]])
 
-        assert_equal(self.nodes[0].getbalance(), 50)
-        assert_equal(self.nodes[1].getbalance(), 50)
+        assert_equal(self.nodes[0].getbalance(), 100)
+        assert_equal(math.floor(self.nodes[1].getbalance()), 50)
         assert_equal(self.nodes[2].getbalance(), 0)
 
         # Check that only first and second nodes have UTXOs
         utxos = self.nodes[0].listunspent()
-        assert_equal(len(utxos), 1)
+        assert_equal(len(utxos), 3)
         assert_equal(len(self.nodes[1].listunspent()), 1)
         assert_equal(len(self.nodes[2].listunspent()), 0)
 
         self.log.info("test gettxout")
-        confirmed_txid, confirmed_index = utxos[0]["txid"], utxos[0]["vout"]
+        utxo = [utxo for utxo in utxos if utxo["amount"] >= 50 and utxo["token"] == 'TPC']
+        confirmed_txid, confirmed_index = utxo[0]["txid"], utxo[0]["vout"]
         # First, outputs that are unspent both in the chain and in the
         # mempool should appear with or without include_mempool
         txout = self.nodes[0].gettxout(txid=confirmed_txid, n=confirmed_index, include_mempool=False)
-        assert_equal(txout['value'], 50)
+        assert_equal(math.floor(txout['value']), 50)
         txout = self.nodes[0].gettxout(txid=confirmed_txid, n=confirmed_index, include_mempool=True)
-        assert_equal(txout['value'], 50)
+        assert_equal(math.floor(txout['value']), 50)
 
         # Send 21 TPC from 0 to 2 using sendtoaddress call.
         # Locked memory should use at least 32 bytes to sign each transaction
         self.log.info("test getmemoryinfo")
         memory_before = self.nodes[0].getmemoryinfo()
-        self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 11)
-        mempool_txid = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 10)
+        mempool_txid1 = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 11)
+        mempool_txid2 = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 10)
         memory_after = self.nodes[0].getmemoryinfo()
         assert(memory_before['locked']['used'] + 64 <= memory_after['locked']['used'])
 
@@ -92,21 +99,26 @@ class WalletTest(BitcoinTestFramework):
         # utxo spent in mempool should be visible if you exclude mempool
         # but invisible if you include mempool
         txout = self.nodes[0].gettxout(confirmed_txid, confirmed_index, False)
-        assert_equal(txout['value'], 50)
+        assert_equal(math.floor(txout['value']), 50)
         txout = self.nodes[0].gettxout(confirmed_txid, confirmed_index, True)
         assert txout is None
         # new utxo from mempool should be invisible if you exclude mempool
         # but visible if you include mempool
-        txout = self.nodes[0].gettxout(mempool_txid, 0, False)
+        txout = self.nodes[0].gettxout(mempool_txid1, 0, False)
         assert txout is None
-        txout1 = self.nodes[0].gettxout(mempool_txid, 0, True)
-        txout2 = self.nodes[0].gettxout(mempool_txid, 1, True)
+        txout = self.nodes[0].gettxout(mempool_txid2, 0, False)
+        assert txout is None
+        txout1 = self.nodes[0].gettxout(mempool_txid1, 0, True)
+        txout2 = self.nodes[0].gettxout(mempool_txid1, 1, True)
+        txout3 = self.nodes[0].gettxout(mempool_txid2, 0, True)
+        txout4 = self.nodes[0].gettxout(mempool_txid2, 1, True)
         # note the mempool tx will have randomly assigned indices
         # but 10 will go to node2 and the rest will go to node0
         balance = self.nodes[0].getbalance()
-        assert_equal(set([txout1['value'], txout2['value']]), set([10, balance]))
+        assert_equal([txout1['value'] + txout2['value'] + txout3['value'] + txout4['value']], [Decimal('10') + Decimal('11') + balance])
         walletinfo = self.nodes[0].getwalletinfo()
         assert_equal(walletinfo['balance']['TPC'], balance)
+        assert_equal(walletinfo['balance'][colorid1], 100)
 
         # Have node0 mine a block, thus it will collect its own fee.
         self.nodes[0].generate(1, self.signblockprivkey_wif)
@@ -144,18 +156,22 @@ class WalletTest(BitcoinTestFramework):
 
         # node0 should end up with 100 TPC in block rewards plus fees, but
         # minus the 21 plus fees sent to node2
-        assert_equal(self.nodes[0].getbalance(), 100 - 21)
+        assert_equal(self.nodes[0].getbalance(), 150 - 21)
         assert_equal(self.nodes[2].getbalance(), 21)
 
         # Node0 should have two unspent outputs.
         # Create a couple of transactions to send them to node2, submit them through
         # node1, and make sure both node0 and node2 pick them up properly:
         node0utxos = self.nodes[0].listunspent(1)
-        assert_equal(len(node0utxos), 2)
+        assert_equal(len(node0utxos), 4)
 
         # create both transactions
         txns_to_send = []
-        for utxo in node0utxos:
+        spend_i = 0
+        for i, utxo in enumerate(node0utxos):
+            if utxo['token'] != 'TPC':
+                continue
+            spend_i = i
             inputs = []
             outputs = {}
             inputs.append({"txid": utxo["txid"], "vout": utxo["vout"]})
@@ -166,17 +182,18 @@ class WalletTest(BitcoinTestFramework):
         # Have node 1 (miner) send the transactions
         self.nodes[1].sendrawtransaction(txns_to_send[0]["hex"], True)
         self.nodes[1].sendrawtransaction(txns_to_send[1]["hex"], True)
+        self.nodes[1].sendrawtransaction(txns_to_send[2]["hex"], True)
 
         # Have node1 mine a block to confirm transactions:
         self.nodes[1].generate(1, self.signblockprivkey_wif)
         self.sync_all([self.nodes[0:3]])
 
         assert_equal(self.nodes[0].getbalance(), 0)
-        assert_equal(self.nodes[2].getbalance(), 94)
+        assert_equal(self.nodes[2].getbalance(), 141)
 
         # Verify that a spent output cannot be locked anymore
-        spent_0 = {"txid": node0utxos[0]["txid"], "vout": node0utxos[0]["vout"]}
-        assert_raises_rpc_error(-8, "Invalid parameter, expected unspent output", self.nodes[0].lockunspent, False, [spent_0])
+        spent_itx = {"txid": node0utxos[spend_i]["txid"], "vout": node0utxos[spend_i]["vout"]}
+        assert_raises_rpc_error(-8, "Invalid parameter, expected unspent output", self.nodes[0].lockunspent, False, [spent_itx])
 
         # Send 10 TPC normal
         address = self.nodes[0].getnewaddress("test")
@@ -187,7 +204,7 @@ class WalletTest(BitcoinTestFramework):
         self.sync_all([self.nodes[0:3]])
         self.nodes[1].generate(1, self.signblockprivkey_wif)[0]
         self.sync_all([self.nodes[0:3]])
-        node_2_bal = self.check_fee_amount(self.nodes[2].getbalance(), Decimal('84'), fee_per_byte, self.get_vsize(self.nodes[2].getrawtransaction(txid)))
+        node_2_bal = self.check_fee_amount(self.nodes[2].getbalance(), Decimal('131'), fee_per_byte, self.get_vsize(self.nodes[2].getrawtransaction(txid)))
         assert_equal(self.nodes[0].getbalance(), Decimal('10'))
 
         # Send 10 TPC with subtract fee from amount

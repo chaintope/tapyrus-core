@@ -60,13 +60,15 @@ Restart the node with -reindex, -reindex-chainstate and -loadblock options. This
 import shutil, os
 import time
 
-from test_framework.blocktools import create_block, create_coinbase, create_tx_with_script,  createTestGenesisBlock, create_transaction
+from io import BytesIO
+from test_framework.blocktools import create_block, create_coinbase, create_tx_with_script,  createTestGenesisBlock, create_transaction, create_colored_transaction
 from test_framework.key import CECKey
 from test_framework.schnorr import Schnorr
 from test_framework.mininode import P2PDataStore
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, bytes_to_hex_str, assert_raises_rpc_error, NetworkDirName
+from test_framework.util import assert_equal, bytes_to_hex_str, assert_raises_rpc_error, NetworkDirName, hex_str_to_bytes
 from test_framework.script import CScript, OP_TRUE, OP_DROP, OP_1
+from test_framework.messages import CTransaction
 
 class FederationManagementTest(BitcoinTestFramework):
     def set_test_params(self):
@@ -121,7 +123,9 @@ class FederationManagementTest(BitcoinTestFramework):
         block_time = self.genesisBlock.nTime
 
         # Create a new blocks B1 - B10
-        self.blocks += node.generate(10, self.aggprivkey_wif[0])
+        self.blocks += node.generate(1, self.aggprivkey_wif[0])
+        create_colored_transaction(2, 100, node)
+        self.blocks += node.generate(9, self.aggprivkey_wif[0])
         best_block = node.getblock(node.getbestblockhash())
         self.tip = node.getbestblockhash()
 
@@ -169,8 +173,14 @@ class FederationManagementTest(BitcoinTestFramework):
         #B23 -- Create block with 1 valid transaction - sign with aggpubkey2 -- success
         block_time = best_block["time"] + 1
         blocknew = create_block(int(self.tip, 16), create_coinbase(23), block_time)
-        spendHash = node.getblock(self.blocks[1])['tx'][0]
-        blocknew.vtx  += [create_transaction(node, spendHash, self.address, amount=1.0)]
+        spendHash = node.getblock(self.blocks[2])['tx'][1]
+        vout = next(i for i, vout in enumerate(self.nodes[0].getrawtransaction(spendHash, 1)["vout"]) if vout["value"] != 100)
+        rawtx = node.createrawtransaction(inputs=[{"txid": spendHash, "vout": vout}], outputs={self.address:1.0})
+        signresult = node.signrawtransactionwithwallet(rawtx, [], "ALL", self.options.scheme)
+        assert_equal(signresult["complete"], True)
+        tx = CTransaction()
+        tx.deserialize(BytesIO(hex_str_to_bytes(signresult['hex'])))
+        blocknew.vtx += [tx]
         blocknew.hashMerkleRoot = blocknew.calc_merkle_root()
         blocknew.hashImMerkleRoot = blocknew.calc_immutable_merkle_root()
         blocknew.solve(self.aggprivkey[1])
@@ -458,7 +468,6 @@ class FederationManagementTest(BitcoinTestFramework):
             { self.aggpubkeys[1] : 43},
         ]
         blockchaininfo = node.getblockchaininfo()
-        print(blockchaininfo["aggregatePubkeys"])
         assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
         self.stop_node(0)
 

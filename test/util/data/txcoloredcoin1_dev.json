@@ -1,0 +1,35 @@
+{
+    "txid": "547789c33af716366e085dfad92c4f0b2383477ebd258e49fc9c69cee7554baf",
+    "hash": "c7b8deb6e48b7644340d3b725ad636d7d9ea00319d404530a8a2fea0948756b6",
+    "features": 1,
+    "size": 120,
+    "locktime": 0,
+    "vin": [
+        {
+            "txid": "4d49a71ec9da436f71ec4ee231d04f292a29cd316f598bb7068feccabdc59485",
+            "vout": 0,
+            "scriptSig": {
+                "asm": "",
+                "hex": ""
+            },
+            "sequence": 4294967295
+        }
+    ],
+    "vout": [
+        {
+            "token": "c36db65fd59fd356f6729140571b5bcd6bb3b83492a16e1bf0a3884442fc3c8a0e",
+            "value": 100000000,
+            "n": 0,
+            "scriptPubKey": {
+                "asm": "c36db65fd59fd356f6729140571b5bcd6bb3b83492a16e1bf0a3884442fc3c8a0e OP_COLOR OP_DUP OP_HASH160 36064e2a029fd1978650b650785b9e74d333e007 OP_EQUALVERIFY OP_CHECKSIG",
+                "hex": "21c36db65fd59fd356f6729140571b5bcd6bb3b83492a16e1bf0a3884442fc3c8a0ebc76a91436064e2a029fd1978650b650785b9e74d333e00788ac",
+                "reqSigs": 1,
+                "type": "coloredpubkeyhash",
+                "addresses": [
+                    "22VZyRTDaMem4DcgBgRZgbo7PZm45gXSMWzHrYiYE9j1qVUcyQmXnYqSuNzquMMkw2d1uS7sKucKmLBP"
+                ]
+            }
+        }
+    ],
+    "hex": "01000000018594c5bdcaec8f06b78b596f31cd292a294fd031e24eec716f43dac91ea7494d0000000000ffffffff0100e1f505000000003c21c36db65fd59fd356f6729140571b5bcd6bb3b83492a16e1bf0a3884442fc3c8a0ebc76a91436064e2a029fd1978650b650785b9e74d333e00788ac00000000"
+}

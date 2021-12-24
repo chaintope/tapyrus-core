@@ -69,7 +69,7 @@ parts:
   tapyrus-core:
     plugin: autotools
     source: https://github.com/chaintope/tapyrus-core.git
-    source-branch: master # KEEP THIS ALWAYS MATCH TO THE BRANCH
+    source-branch: v0.5
     configflags:
       - --disable-dependency-tracking
       - --enable-zmq

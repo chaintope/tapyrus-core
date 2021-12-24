@@ -27,7 +27,6 @@
  * Serialized format:
  * - VARINT((coinbase ? 1 : 0) | (height << 1))
  * - the non-spent CTxOut (via CTxOutCompressor)
- * - type
  */
 class Coin
 {
@@ -41,29 +40,21 @@ public:
     //! at which height this containing transaction was included in the active block chain
     uint32_t nHeight : 31;
 
-    //! one byte type of token contained in the transaction output
-    TokenTypes type;
-
     //! construct a Coin from a CTxOut and height/coinbase information.
-    Coin(CTxOut&& outIn, int nHeightIn, bool fCoinBaseIn, TokenTypes typeIn) : out(std::move(outIn)), fCoinBase(fCoinBaseIn), nHeight(nHeightIn), type(typeIn) {}
-    Coin(const CTxOut& outIn, int nHeightIn, bool fCoinBaseIn, TokenTypes typeIn) : out(outIn), fCoinBase(fCoinBaseIn),nHeight(nHeightIn), type(typeIn) {}
+    Coin(CTxOut&& outIn, int nHeightIn, bool fCoinBaseIn) : out(std::move(outIn)), fCoinBase(fCoinBaseIn), nHeight(nHeightIn) {}
+    Coin(const CTxOut& outIn, int nHeightIn, bool fCoinBaseIn) : out(outIn), fCoinBase(fCoinBaseIn),nHeight(nHeightIn){}
 
     void Clear() {
         out.SetNull();
         fCoinBase = false;
         nHeight = 0;
-        type = TokenTypes::NONE;
     }
 
     //! empty constructor
-    Coin() : fCoinBase(false), nHeight(0), type(TokenTypes::NONE) { }
+    Coin() : fCoinBase(false), nHeight(0) { }
 
     bool IsCoinBase() const {
         return fCoinBase;
-    }
-
-    TokenTypes GetType() const {
-        return type;
     }
 
     template<typename Stream>
@@ -72,7 +63,6 @@ public:
         uint32_t code = nHeight * 2 + fCoinBase;
         ::Serialize(s, VARINT(code));
         ::Serialize(s, CTxOutCompressor(REF(out)));
-        ::Serialize(s, TokenToUint(type));
     }
 
     template<typename Stream>
@@ -82,9 +72,6 @@ public:
         nHeight = code >> 1;
         fCoinBase = code & 1;
         ::Unserialize(s, CTxOutCompressor(out));
-        uint8_t itype = 0;
-        ::Unserialize(s, itype);
-        type = UintToToken(itype);
     }
 
     bool IsSpent() const {

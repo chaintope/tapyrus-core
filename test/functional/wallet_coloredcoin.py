@@ -42,6 +42,7 @@ from test_framework.blocktools import findTPC, create_colored_transaction, TOKEN
 class WalletColoredCoinTest(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 4
+        self.supports_cli = True
         self.setup_clean_chain = True
         self.extra_args = [["-dustrelayfee=0"], ["-dustrelayfee=0"], ["-dustrelayfee=0"], ["-dustrelayfee=0"]]
 
@@ -182,25 +183,46 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         #  PART 1: using cp2pkh address
         # 
         #  create transaction 1 with colorid1
-        raw_tx_in_block = self.nodes[0].signrawtransactionwithwallet(self.nodes[0].createrawtransaction(
-            inputs=[{'txid': utxos[5]['txid'], 'vout': utxos[5]['vout']}],
-            outputs=[{self.nodes[1].getnewaddress(): 10}, {self.nodes[0].getnewaddress() : 39}, { cp2pkh_address1 : 100}],
-        ), [], "ALL", self.options.scheme)['hex']
-        self.nodes[0].sendrawtransaction(hexstring=raw_tx_in_block, allowhighfees=True)
+        if self.options.usecli:
+            rawtx = self.nodes[0].createrawtransaction(
+                "[{\"txid\": \"%s\", \"vout\": %d }]" % (utxos[5]['txid'], utxos[5]['vout']),
+                "[{\"%s\": 10}, {\"%s\" : 39}, { \"%s\" : 100}]" % (self.nodes[1].getnewaddress(), self.nodes[0].getnewaddress(), cp2pkh_address1))
+            raw_tx_in_block = self.nodes[0].signrawtransactionwithwallet("%s"%rawtx, [], "ALL", self.options.scheme)['hex']
+            self.nodes[0].sendrawtransaction("%s"%raw_tx_in_block, True)
+        else:
+            raw_tx_in_block = self.nodes[0].signrawtransactionwithwallet(self.nodes[0].createrawtransaction(
+                inputs=[{'txid': utxos[5]['txid'], 'vout': utxos[5]['vout']}],
+                outputs=[{self.nodes[1].getnewaddress(): 10}, {self.nodes[0].getnewaddress() : 39}, { cp2pkh_address1 : 100}],
+            ), [], "ALL", self.options.scheme)['hex']
+            self.nodes[0].sendrawtransaction(hexstring=raw_tx_in_block, allowhighfees=True)
 
         #  create transaction 2 with colorid2
-        raw_tx_in_block = self.nodes[0].signrawtransactionwithwallet(self.nodes[0].createrawtransaction(
-            inputs=[{'txid': utxos[1]['txid'], 'vout': utxos[1]['vout']}],
-            outputs=[{self.nodes[1].getnewaddress(): 10}, {self.nodes[0].getnewaddress() : 39}, { cp2pkh_address2 : 100}],
-        ), [], "ALL", self.options.scheme)['hex']
-        self.nodes[0].sendrawtransaction(hexstring=raw_tx_in_block, allowhighfees=True)
+        if self.options.usecli:
+            rawtx = self.nodes[0].createrawtransaction(
+                "[{\"txid\": \"%s\", \"vout\": %d }]" % (utxos[1]['txid'], utxos[1]['vout']),
+                "[{\"%s\": 10}, {\"%s\" : 39}, { \"%s\" : 100}]" % (self.nodes[1].getnewaddress(), self.nodes[0].getnewaddress(), cp2pkh_address2))
+            raw_tx_in_block = self.nodes[0].signrawtransactionwithwallet("%s"%rawtx, [], "ALL", self.options.scheme)['hex']
+            self.nodes[0].sendrawtransaction("%s"%raw_tx_in_block, True)
+        else:
+            raw_tx_in_block = self.nodes[0].signrawtransactionwithwallet(self.nodes[0].createrawtransaction(
+                inputs=[{'txid': utxos[1]['txid'], 'vout': utxos[1]['vout']}],
+                outputs=[{self.nodes[1].getnewaddress(): 10}, {self.nodes[0].getnewaddress() : 39}, { cp2pkh_address2 : 100}],
+            ), [], "ALL", self.options.scheme)['hex']
+            self.nodes[0].sendrawtransaction(hexstring=raw_tx_in_block, allowhighfees=True)
 
         #  create transaction 3 with colorid3
-        raw_tx_in_block = self.nodes[0].signrawtransactionwithwallet(self.nodes[0].createrawtransaction(
-            inputs=[{'txid': utxos[2]['txid'], 'vout': utxos[2]['vout']}],
-            outputs=[{self.nodes[1].getnewaddress(): 10}, {self.nodes[0].getnewaddress() : 39}, { cp2pkh_address3 : 1}],
-        ), [], "ALL", self.options.scheme)['hex']
-        self.nodes[0].sendrawtransaction(hexstring=raw_tx_in_block, allowhighfees=True)
+        if self.options.usecli:
+            rawtx = self.nodes[0].createrawtransaction(
+                "[{\"txid\": \"%s\", \"vout\": %d }]" % (utxos[2]['txid'], utxos[2]['vout']),
+                "[{\"%s\": 10}, {\"%s\" : 39}, { \"%s\" : 1}]" % (self.nodes[1].getnewaddress(), self.nodes[0].getnewaddress(), cp2pkh_address3))
+            raw_tx_in_block = self.nodes[0].signrawtransactionwithwallet("%s"%rawtx, [], "ALL", self.options.scheme)['hex']
+            self.nodes[0].sendrawtransaction("%s"%raw_tx_in_block, True)
+        else:
+            raw_tx_in_block = self.nodes[0].signrawtransactionwithwallet(self.nodes[0].createrawtransaction(
+                inputs=[{'txid': utxos[2]['txid'], 'vout': utxos[2]['vout']}],
+                outputs=[{self.nodes[1].getnewaddress(): 10}, {self.nodes[0].getnewaddress() : 39}, { cp2pkh_address3 : 1}],
+            ), [], "ALL", self.options.scheme)['hex']
+            self.nodes[0].sendrawtransaction(hexstring=raw_tx_in_block, allowhighfees=True)
 
         self.sync_all([self.nodes[0:3]])
         self.nodes[2].generate(1, self.signblockprivkey_wif)
@@ -210,25 +232,46 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         #  PART 2: using cp2sh address
         # 
         #  create transaction 1 with colorid1
-        raw_tx_in_block = self.nodes[0].signrawtransactionwithwallet(self.nodes[0].createrawtransaction(
-            inputs=[{'txid': utxos[0]['txid'], 'vout': utxos[0]['vout']}],
-            outputs=[{self.nodes[1].getnewaddress(): 10}, {self.nodes[0].getnewaddress() : 39}, { cp2sh_address1 : 100}],
-        ), [], "ALL", self.options.scheme)['hex']
-        self.nodes[0].sendrawtransaction(hexstring=raw_tx_in_block, allowhighfees=True)
+        if self.options.usecli:
+            rawtx = self.nodes[0].createrawtransaction(
+                "[{\"txid\": \"%s\", \"vout\": %d }]" % (utxos[0]['txid'], utxos[0]['vout']),
+                "[{\"%s\": 10}, {\"%s\" : 39}, { \"%s\" : 100}]" % (self.nodes[1].getnewaddress(), self.nodes[0].getnewaddress(), cp2sh_address1))
+            raw_tx_in_block = self.nodes[0].signrawtransactionwithwallet("%s"%rawtx, [], "ALL", self.options.scheme)['hex']
+            self.nodes[0].sendrawtransaction("%s"%raw_tx_in_block, True)
+        else:
+            raw_tx_in_block = self.nodes[0].signrawtransactionwithwallet(self.nodes[0].createrawtransaction(
+                inputs=[{'txid': utxos[0]['txid'], 'vout': utxos[0]['vout']}],
+                outputs=[{self.nodes[1].getnewaddress(): 10}, {self.nodes[0].getnewaddress() : 39}, { cp2sh_address1 : 100}],
+            ), [], "ALL", self.options.scheme)['hex']
+            self.nodes[0].sendrawtransaction(hexstring=raw_tx_in_block, allowhighfees=True)
 
         #  create transaction 2 with colorid4
-        raw_tx_in_block = self.nodes[0].signrawtransactionwithwallet(self.nodes[0].createrawtransaction(
+        if self.options.usecli:
+            rawtx = self.nodes[0].createrawtransaction(
+                "[{\"txid\": \"%s\", \"vout\": %d }]" % (utxos[3]['txid'], utxos[3]['vout']),
+                "[{\"%s\": 10}, {\"%s\" : 39}, { \"%s\" : 100}]" % (self.nodes[1].getnewaddress(), self.nodes[0].getnewaddress(), cp2sh_address4))
+            raw_tx_in_block = self.nodes[0].signrawtransactionwithwallet("%s"%rawtx, [], "ALL", self.options.scheme)['hex']
+            self.nodes[0].sendrawtransaction("%s"%raw_tx_in_block, True)
+        else:
+            raw_tx_in_block = self.nodes[0].signrawtransactionwithwallet(self.nodes[0].createrawtransaction(
             inputs=[{'txid': utxos[3]['txid'], 'vout': utxos[3]['vout']}],
             outputs=[{self.nodes[1].getnewaddress(): 10}, {self.nodes[0].getnewaddress() : 39}, { cp2sh_address4 : 100}],
         ), [], "ALL", self.options.scheme)['hex']
-        self.nodes[0].sendrawtransaction(hexstring=raw_tx_in_block, allowhighfees=True)
+            self.nodes[0].sendrawtransaction(hexstring=raw_tx_in_block, allowhighfees=True)
 
         #  create transaction 3 with colorid5
-        raw_tx_in_block = self.nodes[0].signrawtransactionwithwallet(self.nodes[0].createrawtransaction(
+        if self.options.usecli:
+            rawtx = self.nodes[0].createrawtransaction(
+                "[{\"txid\": \"%s\", \"vout\": %d }]" % (utxos[4]['txid'], utxos[4]['vout']),
+                "[{\"%s\": 10}, {\"%s\" : 39}, { \"%s\" : 1}]" % (self.nodes[1].getnewaddress(), self.nodes[0].getnewaddress(), cp2sh_address5))
+            raw_tx_in_block = self.nodes[0].signrawtransactionwithwallet("%s"%rawtx, [], "ALL", self.options.scheme)['hex']
+            self.nodes[0].sendrawtransaction("%s"%raw_tx_in_block, True)
+        else:
+            raw_tx_in_block = self.nodes[0].signrawtransactionwithwallet(self.nodes[0].createrawtransaction(
             inputs=[{'txid': utxos[4]['txid'], 'vout': utxos[4]['vout']}],
             outputs=[{self.nodes[1].getnewaddress(): 10}, {self.nodes[0].getnewaddress() : 39}, { cp2sh_address5 : 1}],
         ), [], "ALL", self.options.scheme)['hex']
-        self.nodes[0].sendrawtransaction(hexstring=raw_tx_in_block, allowhighfees=True)
+            self.nodes[0].sendrawtransaction(hexstring=raw_tx_in_block, allowhighfees=True)
 
         self.sync_all([self.nodes[0:3]])
         self.nodes[2].generate(1, self.signblockprivkey_wif)
@@ -381,17 +424,73 @@ class WalletColoredCoinTest(BitcoinTestFramework):
                                 {"amount": 1, "confirmations": 1})
         self.test_nodeBalances()
 
+        #negative
+        if not self.options.usecli:
+            assert_raises_rpc_error(-3, "Invalid amount", sendrpc, cp2pkh_address1, 'foo')
+            assert_raises_rpc_error(-3, "Invalid amount", sendrpc, cp2pkh_address1, '66ae')
+            assert_raises_rpc_error(-3, "Invalid amount", sendrpc, cp2pkh_address1, 66.99)
+
     def test_burntoken(self):
         self.log.info("Testing burntoken")
         #partial
-        self.nodes[0].burntoken(self.colorids[1], 20)
-        self.nodes[0].burntoken(self.colorids[2], 20)
+        txid1 = self.nodes[0].burntoken(self.colorids[1], 20)
+        txid2 = self.nodes[0].burntoken(self.colorids[2], 20)
         self.nodes[0].burntoken(self.colorids[4], 20)
 
         self.nodes[2].generate(1, self.signblockprivkey_wif)
         self.sync_all([self.nodes[0:3]])
 
         self.test_nodeBalances()
+
+        #check if there is a warning when signing burn tokens
+        if self.options.usecli:
+            address = self.nodes[1].getnewaddress("", "%s" % self.colorids[1])
+            tx = self.nodes[0].createrawtransaction(
+                "[{\"txid\": \"%s\", \"vout\": %d },{\"txid\": \"%s\", \"vout\": %d }]" % (txid1, 0, txid1, 1),
+                "[{\"%s\": 10}]" % (address))
+            burn_warning = self.nodes[0].signrawtransactionwithwallet("%s"%tx, [], "ALL", self.options.scheme)['warning']
+        else:
+            burn_warning = self.nodes[0].signrawtransactionwithwallet(self.nodes[0].createrawtransaction(
+            inputs=[{'txid': txid1, 'vout': 0}, {'txid': txid1, 'vout': 1}],
+            outputs=[{self.nodes[1].getnewaddress("", self.colorids[1]): 10}]), [], "ALL", self.options.scheme)['warning']
+        assert_equal(burn_warning, "token burn detected")
+
+        if self.options.usecli:
+            address = self.nodes[1].getnewaddress("", "%s" %self.colorids[1])
+            tx = self.nodes[0].createrawtransaction(
+                "[{\"txid\": \"%s\", \"vout\": %d },{\"txid\": \"%s\", \"vout\": %d }]" % (txid1, 0, txid1, 1),
+                "[{\"%s\": 20}]" % (address))
+            burn_warning = self.nodes[0].signrawtransactionwithwallet("%s"%tx, [], "ALL", self.options.scheme)['warning']
+        else:
+            burn_warning = self.nodes[0].signrawtransactionwithwallet(self.nodes[0].createrawtransaction(
+            inputs=[{'txid': txid1, 'vout': 0}, {'txid': txid1, 'vout': 1}],
+            outputs=[{self.nodes[1].getnewaddress("", self.colorids[1]): 20}]), [], "ALL", self.options.scheme)['warning']
+        assert_equal(burn_warning, "token burn detected")
+
+        if self.options.usecli:
+            address = self.nodes[1].getnewaddress("", "%s" % (self.colorids[1]))
+            tx = self.nodes[0].createrawtransaction(
+                "[{\"txid\": \"%s\", \"vout\": %d },{\"txid\": \"%s\", \"vout\": %d }]" % (txid1, 0, txid1, 1),
+                "[{\"%s\": 60}]" % (address))
+            burn_warning = self.nodes[0].signrawtransactionwithwallet("%s"%tx, [], "ALL", self.options.scheme)
+        else:
+            burn_warning = self.nodes[0].signrawtransactionwithwallet(self.nodes[0].createrawtransaction(
+            inputs=[{'txid': txid1, 'vout': 0}, {'txid': txid1, 'vout': 1}],
+            outputs=[{self.nodes[1].getnewaddress("", self.colorids[1]): 60}]), [], "ALL", self.options.scheme)
+        assert('warning' not in burn_warning.keys())
+
+        if self.options.usecli:
+            address1 = self.nodes[1].getnewaddress("", "%s" % (self.colorids[2]))
+            address2 = self.nodes[0].getnewaddress("", "%s" % (self.colorids[2]))
+            tx = self.nodes[0].createrawtransaction(
+                "[{\"txid\": \"%s\", \"vout\": %d },{\"txid\": \"%s\", \"vout\": %d }]" % (txid2, 0, txid2, 1),
+                "[{\"%s\": 40}, {\"%s\": 20}]" % (address1, address2))
+            burn_warning = self.nodes[0].signrawtransactionwithwallet("%s"%tx, [], "ALL", self.options.scheme)
+        else:
+            burn_warning = self.nodes[0].signrawtransactionwithwallet(self.nodes[0].createrawtransaction(
+            inputs=[{'txid': txid2, 'vout': 0}, {'txid': txid2, 'vout': 1}],
+            outputs=[{self.nodes[1].getnewaddress("", self.colorids[2]): 40}, {self.nodes[0].getnewaddress("", self.colorids[2]): 20}]), [], "ALL", self.options.scheme)
+        assert('warning' not in burn_warning.keys())
 
         #full burn
         self.nodes[1].burntoken(self.colorids[1], 40)
@@ -406,14 +505,19 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         self.test_nodeBalances()
 
         #negative cases
-        assert_raises_rpc_error(-1, "Burn colored coins or tokens in the wallet", self.nodes[0].burntoken, "00")
-        assert_raises_rpc_error(-1, "Burn colored coins or tokens in the wallet", self.nodes[0].burntoken, "c4")
-        assert_raises_rpc_error(-1, "Burn colored coins or tokens in the wallet", self.nodes[0].burntoken, self.colorids[1])
-        assert_raises_rpc_error(-3, "Invalid amount for burn", self.nodes[0].burntoken, self.colorids[1], -10)
-        assert_raises_rpc_error(-8, "Invalid color parameter", self.nodes[1].burntoken, "00", 10)
-        assert_raises_rpc_error(-8, "Insufficient token balance in wallet", self.nodes[1].burntoken, self.colorids[1], 10)
-        assert_raises_rpc_error(-8, "Insufficient token balance in wallet", self.nodes[1].burntoken, self.colorids[2], 10)
-        assert_raises_rpc_error(-8, "Insufficient token balance in wallet", self.nodes[1].burntoken, self.colorids[3], 10)
+        if not self.options.usecli:
+            assert_raises_rpc_error(-3, "Invalid amount", self.nodes[0].burntoken, self.colorids[1], 'foo')
+            assert_raises_rpc_error(-3, "Invalid amount", self.nodes[0].burntoken, self.colorids[1], '66ae')
+            assert_raises_rpc_error(-3, "Invalid amount", self.nodes[0].burntoken, self.colorids[1], 66.99)
+            assert_raises_rpc_error(-1, "Burn colored coins or tokens in the wallet", self.nodes[0].burntoken, "00")
+            assert_raises_rpc_error(-1, "Burn colored coins or tokens in the wallet", self.nodes[0].burntoken, "c4")
+            assert_raises_rpc_error(-1, "Burn colored coins or tokens in the wallet", self.nodes[0].burntoken, self.colorids[1])
+            assert_raises_rpc_error(-3, "Amount out of range", self.nodes[0].burntoken, self.colorids[1], -10)
+            assert_raises_rpc_error(-3, "Invalid amount for burn", self.nodes[0].burntoken, self.colorids[1], 0)
+            assert_raises_rpc_error(-8, "Invalid color parameter", self.nodes[1].burntoken, "00", 10)
+            assert_raises_rpc_error(-8, "Insufficient token balance in wallet", self.nodes[1].burntoken, self.colorids[1], 10)
+            assert_raises_rpc_error(-8, "Insufficient token balance in wallet", self.nodes[1].burntoken, self.colorids[2], 10)
+            assert_raises_rpc_error(-8, "Insufficient token balance in wallet", self.nodes[1].burntoken, self.colorids[3], 10)
 
     def test_reissuetoken(self):
 
@@ -433,17 +537,24 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         assert_equal(res['color'], reissue_color)
         assert_equal(len(res['txids']), 2)
 
-        assert_raises_rpc_error(-8, "Invalid color parameter", self.nodes[0].reissuetoken, self.colorids[0], 100)
-        assert_raises_rpc_error(-8, "Token type not supported", self.nodes[0].reissuetoken, self.colorids[2], 100)
-        assert_raises_rpc_error(-8, "Token type not supported", self.nodes[0].reissuetoken, self.colorids[3], 100)
-        assert_raises_rpc_error(-8, "Token type not supported", self.nodes[0].reissuetoken, self.colorids[4], 100)
-        assert_raises_rpc_error(-8, "Token type not supported", self.nodes[0].reissuetoken, self.colorids[5], 100)
+        if not self.options.usecli:
+            assert_raises_rpc_error(-3, "Invalid amount", self.nodes[0].reissuetoken, self.colorids[1], 'foo')
+            assert_raises_rpc_error(-3, "Invalid amount", self.nodes[0].reissuetoken, self.colorids[1], '66ae')
+            assert_raises_rpc_error(-3, "Invalid amount", self.nodes[0].reissuetoken, self.colorids[1], 66.99)
+            assert_raises_rpc_error(-3, "Amount out of range", self.nodes[0].reissuetoken, self.colorids[1], -10)
+            assert_raises_rpc_error(-3, "Invalid token amount", self.nodes[0].reissuetoken, self.colorids[1], 0)
 
-        assert_raises_rpc_error(-8, "Script corresponding to color "+ self.colorids[1] +" could not be found in the wallet", self.nodes[0].reissuetoken, self.colorids[1], 100)
-        assert_raises_rpc_error(-8, "Script corresponding to color "+ self.colorids[1] +" could not be found in the wallet", self.nodes[1].reissuetoken, self.colorids[1], 100)
-        assert_raises_rpc_error(-8, "Script corresponding to color "+ self.colorids[1] +" could not be found in the wallet", self.nodes[2].reissuetoken, self.colorids[1], 100)
-        assert_raises_rpc_error(-8, "Script corresponding to color "+ reissue_color+" could not be found in the wallet", self.nodes[1].reissuetoken, reissue_color, 100)
-        assert_raises_rpc_error(-8, "Script corresponding to color "+ reissue_color+" could not be found in the wallet", self.nodes[2].reissuetoken, reissue_color, 100)
+            assert_raises_rpc_error(-8, "Invalid color parameter", self.nodes[0].reissuetoken, self.colorids[0], 100)
+            assert_raises_rpc_error(-8, "Token type not supported", self.nodes[0].reissuetoken, self.colorids[2], 100)
+            assert_raises_rpc_error(-8, "Token type not supported", self.nodes[0].reissuetoken, self.colorids[3], 100)
+            assert_raises_rpc_error(-8, "Token type not supported", self.nodes[0].reissuetoken, self.colorids[4], 100)
+            assert_raises_rpc_error(-8, "Token type not supported", self.nodes[0].reissuetoken, self.colorids[5], 100)
+
+            assert_raises_rpc_error(-8, "Script corresponding to color "+ self.colorids[1] +" could not be found in the wallet", self.nodes[0].reissuetoken, self.colorids[1], 100)
+            assert_raises_rpc_error(-8, "Script corresponding to color "+ self.colorids[1] +" could not be found in the wallet", self.nodes[1].reissuetoken, self.colorids[1], 100)
+            assert_raises_rpc_error(-8, "Script corresponding to color "+ self.colorids[1] +" could not be found in the wallet", self.nodes[2].reissuetoken, self.colorids[1], 100)
+            assert_raises_rpc_error(-8, "Script corresponding to color "+ reissue_color+" could not be found in the wallet", self.nodes[1].reissuetoken, reissue_color, 100)
+            assert_raises_rpc_error(-8, "Script corresponding to color "+ reissue_color+" could not be found in the wallet", self.nodes[2].reissuetoken, reissue_color, 100)
 
         self.nodes[2].generate(1, self.signblockprivkey_wif)
         self.sync_all([self.nodes[0:3]])
@@ -507,12 +618,17 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         assert_raises_rpc_error(-8, "Unknown token type given", self.nodes[0].issuetoken, 4, 10, node2_utxos[4]['txid'], node2_utxos[4]['vout'])
         assert_raises_rpc_error(-8, "Unknown token type given", self.nodes[0].issuetoken, 0, 10, node2_utxos[4]['txid'], node2_utxos[4]['vout'])
         assert_raises_rpc_error(-8, "Unknown token type given", self.nodes[0].issuetoken, -1, 10, node2_utxos[4]['txid'], node2_utxos[4]['vout'])
-        assert_raises_rpc_error(-8, "Invalid token amount", self.nodes[0].issuetoken, 2, -10, node2_utxos[4]['txid'], -1)
         assert_raises_rpc_error(-8, "Extra parameter for Reissuable token", self.nodes[0].issuetoken, 1, 10, node2_utxos[4]['txid'], node2_utxos[4]['vout'])
         assert_raises_rpc_error(-8, "Parameter missing for Non-Reissuable or NFT token", self.nodes[0].issuetoken, 2, 10, node2_utxos[4]['txid'])
         assert_raises_rpc_error(-8, "Parameter missing for Non-Reissuable or NFT token", self.nodes[0].issuetoken, 3, 10, node2_utxos[4]['txid'])
-        assert_raises_rpc_error(-8, "Invalid token amount", self.nodes[0].issuetoken, 2, -10, node2_utxos[4]['txid'], node2_utxos[4]['vout'])
         assert_raises_rpc_error(-8, "Invalid token amount for NFT. It must be 1", self.nodes[0].issuetoken, 3, 10, node2_utxos[4]['txid'], node2_utxos[4]['vout'])
+
+        if not self.options.usecli:
+            assert_raises_rpc_error(-3, "Expected type number, got string", self.nodes[0].issuetoken, 2, 'foo', node2_utxos[4]['txid'], node2_utxos[4]['vout'])
+            assert_raises_rpc_error(-3, "Expected type number, got string", self.nodes[0].issuetoken, 2, '66ae', node2_utxos[4]['txid'], node2_utxos[4]['vout'])
+            assert_raises_rpc_error(-3, "Invalid amount", self.nodes[0].issuetoken, 2, 66.99, node2_utxos[4]['txid'], node2_utxos[4]['vout'])
+            assert_raises_rpc_error(-3, "Amount out of range", self.nodes[0].issuetoken, 2, -10, node2_utxos[4]['txid'], node2_utxos[4]['vout'])
+            assert_raises_rpc_error(-3, "Invalid token amount", self.nodes[0].issuetoken, 2, 0, node2_utxos[4]['txid'], node2_utxos[4]['vout'])
 
     def run_test(self):
         # Check that there's no UTXO on any of the nodes
