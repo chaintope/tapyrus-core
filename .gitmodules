@@ -1,4 +1,7 @@
 [submodule "src/secp256k1"]
 	path = src/secp256k1
 	url = https://github.com/chaintope/secp256k1.git
+<<<<<<< HEAD
 
+=======
+>>>>>>> new submodule src/secp256k1
