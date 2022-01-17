@@ -7,7 +7,9 @@ jobs:
     name: "ARM"
     runs-on: ubuntu-18.04
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
       - run: |
           source ./default-env.sh
           HOST=arm-linux-gnueabihf \
@@ -21,7 +23,9 @@ jobs:
     name: "WIN32"
     runs-on: ubuntu-18.04
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
       - run: |
           source ./default-env.sh
           HOST=i686-w64-mingw32 \
@@ -36,7 +40,9 @@ jobs:
     name: "WIN64"
     runs-on: ubuntu-18.04
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
       - run: |
           source ./default-env.sh
           HOST=x86_64-w64-mingw32 \
@@ -69,7 +75,9 @@ jobs:
     runs-on: ubuntu-18.04
 
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
       - name: Build debug
         run: |
           source ./default-env.sh
@@ -89,7 +97,9 @@ jobs:
     runs-on: ubuntu-18.04
 
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
       - name: Build release
         run: |
           source ./default-env.sh
@@ -107,7 +117,9 @@ jobs:
     name: "x86_64 Linux (uses qt5 dev package instead of depends Qt to speed up build and avoid timeout)"
     runs-on: ubuntu-18.04
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
       - run: |
           source ./default-env.sh
           HOST=x86_64-unknown-linux-gnu \
@@ -124,7 +136,9 @@ jobs:
     name: "x86_64 Linux (Qt5 & system libs)"
     runs-on: ubuntu-18.04
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
       - run: |
           source ./default-env.sh
           HOST=x86_64-unknown-linux-gnu \
@@ -139,7 +153,9 @@ jobs:
     name: "x86_64 Linux, No wallet"
     runs-on: ubuntu-18.04
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
       - run: |
           source ./default-env.sh
           HOST=x86_64-unknown-linux-gnu \
@@ -154,7 +170,9 @@ jobs:
     name: Cross Mac Debug
     runs-on: ubuntu-18.04
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
       - run: |
           source ./default-env.sh
           HOST=x86_64-apple-darwin14 \
@@ -168,7 +186,9 @@ jobs:
     name: Cross Mac Release
     runs-on: ubuntu-18.04
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
       - run: |
           source ./default-env.sh
           HOST=x86_64-apple-darwin14 \
@@ -185,7 +205,9 @@ jobs:
     runs-on: ubuntu-18.04
 
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
       - name: Build
         run: |
           RETRY() { for i in {1..3};do $*&&break;sleep 1;done }
