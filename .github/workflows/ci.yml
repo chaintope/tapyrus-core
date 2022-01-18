@@ -78,6 +78,7 @@ jobs:
           NO_DEPENDS=1 \
           DEP_OPTS="NO_QT=1" \
           RUN_TESTS=true \
+          RUN_BENCH=true \
           DEBUD_MODE=true \
           GOAL="install" \
           BITCOIN_CONFIG="--enable-zmq --with-incompatible-bdb --enable-reduce-exports --with-gui=no --enable-debug CPPFLAGS=-DDEBUG  CPPFLAGS=-DDEBUG_LOCKORDER" \
@@ -98,6 +99,7 @@ jobs:
           NO_DEPENDS=1 \
           DEP_OPTS="NO_QT=1" \
           RUN_TESTS=true \
+          RUN_BENCH=true \
           DEBUD_MODE=false \
           GOAL="install" \
           BITCOIN_CONFIG="--enable-zmq --with-incompatible-bdb --enable-reduce-exports --with-gui=no CPPFLAGS=-DDEBUG_LOCKORDER" \
@@ -114,7 +116,7 @@ jobs:
           PACKAGES="python3-zmq qtbase5-dev qttools5-dev-tools libdbus-1-dev libharfbuzz-dev" \
           DEP_OPTS="NO_QT=1 NO_UPNP=1 ALLOW_HOST_PACKAGES=1" \
           RUN_TESTS=true \
-          RUN_BENCH=false \
+          RUN_BENCH=true \
           GOAL="install" \
           BITCOIN_CONFIG="--enable-zmq --with-gui=qt5 --enable-glibc-back-compat --enable-reduce-exports --enable-debug" \
           CXXFLAGS="-g0 -O2" \
@@ -131,6 +133,7 @@ jobs:
           PACKAGES="python3-zmq qtbase5-dev qttools5-dev-tools libevent-dev bsdmainutils libboost-system-dev libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev libdb5.3++-dev libminiupnpc-dev libzmq3-dev libqrencode-dev" \
           NO_DEPENDS=1 \
           RUN_TESTS=true \
+          RUN_BENCH=true \
           GOAL="install" \
           BITCOIN_CONFIG="--enable-zmq --with-incompatible-bdb --enable-glibc-back-compat --enable-reduce-exports --with-gui=qt5 CPPFLAGS=-DDEBUG_LOCKORDER" \
           bash -xe ./build-test.sh
@@ -146,6 +149,7 @@ jobs:
           PACKAGES="python3" \
           DEP_OPTS="NO_WALLET=1" \
           RUN_TESTS=true \
+          RUN_BENCH=true \
           GOAL="install" \
           BITCOIN_CONFIG="--enable-glibc-back-compat --enable-reduce-exports" \
           bash -xe ./build-test.sh
