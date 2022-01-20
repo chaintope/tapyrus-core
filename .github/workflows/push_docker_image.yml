@@ -2,10 +2,8 @@ name: Push Docker Image
 
 on:
   push:
-    branches:
-      - master
     tags:
-      - 'v*.*.*'
+      - v*
 
 jobs:
   multi:
