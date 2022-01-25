@@ -149,7 +149,7 @@ void ReceiveRequestDialog::update()
         html += "<b>"+tr("Wallet")+"</b>: " + GUIUtil::HtmlEscape(model->getWalletName()) + "<br>";
     }
     ui->outUri->setText(html);
-
+/*
 #ifdef USE_QRCODE
     ui->lblQRCode->setText("");
     if(!uri.isEmpty())
@@ -198,7 +198,7 @@ void ReceiveRequestDialog::update()
             ui->btnSaveAs->setEnabled(true);
         }
     }
-#endif
+#endif*/
 }
 
 void ReceiveRequestDialog::on_btnCopyURI_clicked()

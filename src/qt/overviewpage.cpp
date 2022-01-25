@@ -117,6 +117,8 @@ OverviewPage::OverviewPage(const PlatformStyle *platformStyle, QWidget *parent) 
     walletModel(0),
     txdelegate(new TxViewDelegate(platformStyle, this))
 {
+    m_index = m_tokens.begin();
+
     ui->setupUi(this);
 
     m_balances.balances[ColorIdentifier()] = -1;
@@ -139,6 +141,14 @@ OverviewPage::OverviewPage(const PlatformStyle *platformStyle, QWidget *parent) 
     showOutOfSyncWarning(true);
     connect(ui->labelWalletStatus, SIGNAL(clicked()), this, SLOT(handleOutOfSyncWarningClicks()));
     connect(ui->labelTransactionsStatus, SIGNAL(clicked()), this, SLOT(handleOutOfSyncWarningClicks()));
+    connect(ui->nextButton, SIGNAL(clicked()), this, SLOT(next()));
+    connect(ui->prevButton, SIGNAL(clicked()), this, SLOT(prev()));
+
+    if(m_tokens.size() <= 1)
+    {
+        ui->nextButton->setEnabled(false);
+        ui->prevButton->setEnabled(false);
+    }
 }
 
 void OverviewPage::handleTransactionClicked(const QModelIndex &index)
@@ -157,15 +167,39 @@ OverviewPage::~OverviewPage()
     delete ui;
 }
 
+void OverviewPage::prev()
+{
+    if(m_index != m_tokens.begin())
+        m_index--;
+    setBalance(m_balances);
+}
+
+void OverviewPage::next()
+{
+    if(m_index != m_tokens.end())
+    {
+        m_index++;
+        if(m_index == m_tokens.end())
+            m_index = m_tokens.begin();
+    }
+    setBalance(m_balances);
+}
+
 void OverviewPage::setBalance(const interfaces::WalletBalances& balances)
 {
     int unit = walletModel->getOptionsModel()->getDisplayUnit();
     m_balances = balances;
+    m_tokens = m_balances.getTokens();
+    //ColorIdentifierCompare compare;
+    //std::sort(tokenset.begin(), tokenset.end(), compare);
 
-    CAmount balance = balances.getBalance();
-    CAmount unconfirmed_balance = balances.getUnconfirmedBalance();
-    CAmount watch_only_balance = balances.getWatchOnlyBalance();
-    CAmount unconfirmed_watch_only_balance = balances.getUnconfirmedWatchOnlyBalance();
+    ColorIdentifier token = *m_index;
+    CAmount balance = balances.getBalance(token);
+    CAmount unconfirmed_balance = balances.getUnconfirmedBalance(token);
+    CAmount watch_only_balance = balances.getWatchOnlyBalance(token);
+    CAmount unconfirmed_watch_only_balance = balances.getUnconfirmedWatchOnlyBalance(token);
+
+    if(token.type != TokenTypes::NONE) unit = -1;
 
     ui->labelBalance->setText(BitcoinUnits::formatWithUnit(unit, balance, false, BitcoinUnits::separatorAlways));
     ui->labelUnconfirmed->setText(BitcoinUnits::formatWithUnit(unit, balance, false, BitcoinUnits::separatorAlways));
@@ -217,6 +251,7 @@ void OverviewPage::setWalletModel(WalletModel *model)
         // Keep up to date with wallet
         interfaces::Wallet& wallet = model->wallet();
         interfaces::WalletBalances balances = wallet.getBalances();
+        m_tokens = m_balances.getTokens();
         setBalance(balances);
         connect(model, SIGNAL(balanceChanged(interfaces::WalletBalances)), this, SLOT(setBalance(interfaces::WalletBalances)));
 

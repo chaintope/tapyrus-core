@@ -535,13 +535,15 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
-    int ret = EXIT_FAILURE;
+    int ret = EXIT_SUCCESS;
     try {
         ret = CommandLineRPC(argc, argv);
     }
     catch (const std::exception& e) {
+        ret = EXIT_FAILURE;
         PrintExceptionContinue(&e, "CommandLineRPC()");
     } catch (...) {
+        ret = EXIT_FAILURE;
         PrintExceptionContinue(nullptr, "CommandLineRPC()");
     }
     return ret;

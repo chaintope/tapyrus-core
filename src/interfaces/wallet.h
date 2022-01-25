@@ -192,10 +192,10 @@ public:
     virtual bool tryGetBalances(WalletBalances& balances, int& num_blocks) = 0;
 
     //! Get balance.
-    virtual CAmount getBalance() = 0;
+    virtual CAmount getBalance(ColorIdentifier colorId = ColorIdentifier()) = 0;
 
     //! Get available balance.
-    virtual CAmount getAvailableBalance(const CCoinControl& coin_control) = 0;
+    virtual CAmount getAvailableBalance(const CCoinControl& coin_control, ColorIdentifier colorId = ColorIdentifier()) = 0;
 
     //! Return whether transaction input belongs to wallet.
     virtual isminetype txinIsMine(const CTxIn& txin) = 0;
@@ -316,6 +316,20 @@ struct WalletBalances
         have_watch_only = false;
     }
 
+    //collect all tokens in the wallet from all the balance lists
+    std::set<ColorIdentifier> getTokens() const{
+        std::set<ColorIdentifier> tokens;
+        for(auto pair:balances)
+            tokens.insert(pair.first);
+        for(auto pair:unconfirmed_balances)
+            tokens.insert(pair.first);
+        for(auto pair:watch_only_balances)
+            tokens.insert(pair.first);
+        for(auto pair:unconfirmed_watch_only_balances)
+            tokens.insert(pair.first);
+
+        return tokens;
+    }
     CAmount getBalance(const ColorIdentifier& colorId = ColorIdentifier()) const
     {
         auto it = balances.find(colorId);

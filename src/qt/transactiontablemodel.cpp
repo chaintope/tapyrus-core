@@ -445,10 +445,10 @@ QVariant TransactionTableModel::txStatusDecoration(const TransactionRecord *wtx)
     case TransactionStatus::Confirming:
         switch(wtx->status.depth)
         {
-        case 1: return QIcon(":/icons/transaction_1");
-        case 2: return QIcon(":/icons/transaction_2");
+        case 1: return QIcon(":/icons/transactionboost::placeholders::_1");
+        case 2: return QIcon(":/icons/transactionboost::placeholders::_2");
         case 3: return QIcon(":/icons/transaction_3");
-        case 4: return QIcon(":/icons/transaction_4");
+        case 4: return QIcon(":/icons/transactionboost::placeholders::_4");
         default: return QIcon(":/icons/transaction_5");
         };
     case TransactionStatus::Confirmed:
@@ -736,8 +736,8 @@ static void ShowProgress(TransactionTableModel *ttm, const std::string &title, i
 void TransactionTableModel::subscribeToCoreSignals()
 {
     // Connect signals to wallet
-    m_handler_transaction_changed = walletModel->wallet().handleTransactionChanged(boost::bind(NotifyTransactionChanged, this, _1, _2));
-    m_handler_show_progress = walletModel->wallet().handleShowProgress(boost::bind(ShowProgress, this, _1, _2));
+    m_handler_transaction_changed = walletModel->wallet().handleTransactionChanged(boost::bind(NotifyTransactionChanged, this, boost::placeholders::_1, boost::placeholders::_2));
+    m_handler_show_progress = walletModel->wallet().handleShowProgress(boost::bind(ShowProgress, this, boost::placeholders::_1, boost::placeholders::_2));
 }
 
 void TransactionTableModel::unsubscribeFromCoreSignals()
