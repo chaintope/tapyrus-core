@@ -311,14 +311,48 @@ struct WalletBalances
     bool have_watch_only;
     TxColoredCoinBalancesMap watch_only_balances;
     TxColoredCoinBalancesMap unconfirmed_watch_only_balances;
+    std::set<ColorIdentifier> tokens;
+    std::set<ColorIdentifier>::iterator tokenIndex;
 
     WalletBalances(){
         have_watch_only = false;
     }
 
+    CAmount getBalance() const
+    {
+        auto it = balances.find(*tokenIndex);
+        return it != balances.end() ? it->second : 0;
+    }
+
+    CAmount getUnconfirmedBalance() const
+    {
+        auto it = unconfirmed_balances.find(*tokenIndex);
+        return it != unconfirmed_balances.end() ? it->second : 0;
+    }
+
+    CAmount getWatchOnlyBalance() const
+    {
+        auto it = watch_only_balances.find(*tokenIndex);
+        return it != watch_only_balances.end() ? it->second : 0;
+    }
+
+    CAmount getUnconfirmedWatchOnlyBalance() const
+    {
+        auto it = unconfirmed_watch_only_balances.find(*tokenIndex);
+        return it != unconfirmed_watch_only_balances.end() ? it->second : 0;
+    }
+
+    bool balanceChanged(const WalletBalances& prev) const
+    {
+        return balances != prev.balances || unconfirmed_balances != prev.unconfirmed_balances ||
+               watch_only_balances != prev.watch_only_balances ||
+               unconfirmed_watch_only_balances != prev.unconfirmed_watch_only_balances;
+    }
+
     //collect all tokens in the wallet from all the balance lists
-    std::set<ColorIdentifier> getTokens() const{
-        std::set<ColorIdentifier> tokens;
+    void refreshTokens() {
+        tokens.clear();
+
         for(auto pair:balances)
             tokens.insert(pair.first);
         for(auto pair:unconfirmed_balances)
@@ -328,37 +362,38 @@ struct WalletBalances
         for(auto pair:unconfirmed_watch_only_balances)
             tokens.insert(pair.first);
 
-        return tokens;
-    }
-    CAmount getBalance(const ColorIdentifier& colorId = ColorIdentifier()) const
-    {
-        auto it = balances.find(colorId);
-        return it != balances.end() ? it->second : 0;
+        tokenIndex = tokens.begin();
     }
 
-    CAmount getUnconfirmedBalance(const ColorIdentifier& colorId = ColorIdentifier()) const
+    void prev()
     {
-        auto it = unconfirmed_balances.find(colorId);
-        return it != unconfirmed_balances.end() ? it->second : 0;
+        if(tokenIndex != tokens.begin())
+            tokenIndex--;
+        else
+        {
+            tokenIndex = tokens.end();
+            tokenIndex--;
+        }
     }
 
-    CAmount getWatchOnlyBalance(const ColorIdentifier& colorId = ColorIdentifier()) const
+    void next()
     {
-        auto it = watch_only_balances.find(colorId);
-        return it != watch_only_balances.end() ? it->second : 0;
+        if(tokenIndex != tokens.end())
+        {
+            tokenIndex++;
+            if(tokenIndex == tokens.end())
+                tokenIndex = tokens.begin();
+        }
     }
 
-    CAmount getUnconfirmedWatchOnlyBalance(const ColorIdentifier& colorId = ColorIdentifier()) const
+    bool isToken()
     {
-        auto it = unconfirmed_watch_only_balances.find(colorId);
-        return it != unconfirmed_watch_only_balances.end() ? it->second : 0;
+        return (*tokenIndex).type != TokenTypes::NONE;
     }
 
-    bool balanceChanged(const WalletBalances& prev) const
+    std::string getTokenName()
     {
-        return balances != prev.balances || unconfirmed_balances != prev.unconfirmed_balances ||
-               watch_only_balances != prev.watch_only_balances ||
-               unconfirmed_watch_only_balances != prev.unconfirmed_watch_only_balances;
+        return (*tokenIndex).toHexString();
     }
 };
 

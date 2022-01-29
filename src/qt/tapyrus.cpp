@@ -442,8 +442,6 @@ void TapyrusApplication::addWallet(WalletModel* walletModel)
     if (m_wallet_models.empty()) {
         window->setCurrentWallet(walletModel->getWalletName());
     }
-    connect(walletModel, SIGNAL(coinsSent(WalletModel*, SendCoinsRecipient, QByteArray)),
-         paymentServer, SLOT(fetchPaymentACK(WalletModel*, const SendCoinsRecipient&, QByteArray)));
      connect(walletModel, SIGNAL(unload()), this, SLOT(removeWallet()));
 
     m_wallet_models.push_back(walletModel);

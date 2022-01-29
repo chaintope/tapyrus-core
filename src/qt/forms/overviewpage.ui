@@ -136,7 +136,7 @@
                <cursorShape>IBeamCursor</cursorShape>
               </property>
               <property name="toolTip">
-               <string>Your current spendable balance</string>
+               <string>Color of the Token or TPC </string>
               </property>
               <property name="text">
                <string notr="true">TPC</string>
