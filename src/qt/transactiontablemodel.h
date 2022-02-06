@@ -37,7 +37,8 @@ public:
         Date = 2,
         Type = 3,
         ToAddress = 4,
-        Amount = 5
+        Token = 5,
+        Amount = 6
     };
 
     /** Roles to get specific information from a transaction row.
@@ -58,6 +59,8 @@ public:
         AddressRole,
         /** Label of address related to transaction */
         LabelRole,
+        /** Token of address related to transaction */
+        TokenRole,
         /** Net amount of transaction */
         AmountRole,
         /** Transaction hash */
@@ -101,6 +104,7 @@ private:
     QString formatTxDate(const TransactionRecord *wtx) const;
     QString formatTxType(const TransactionRecord *wtx) const;
     QString formatTxToAddress(const TransactionRecord *wtx, bool tooltip) const;
+    QString formatTxToken(const TransactionRecord *wtx) const;
     QString formatTxAmount(const TransactionRecord *wtx, bool showUnconfirmed=true, TapyrusUnits::SeparatorStyle separators=TapyrusUnits::separatorStandard) const;
     QString formatTooltip(const TransactionRecord *rec) const;
     QVariant txStatusDecoration(const TransactionRecord *wtx) const;

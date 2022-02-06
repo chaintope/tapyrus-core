@@ -14,6 +14,7 @@
 #include <qt/guiutil.h>
 #include <qt/optionsmodel.h>
 #include <qt/platformstyle.h>
+#include <qt/tapyrusunits.h>
 
 #include <QApplication>
 #include <QClipboard>
@@ -79,6 +80,23 @@ void SendCoinsEntry::on_addressBookButton_clicked()
 void SendCoinsEntry::on_payTo_textChanged(const QString &address)
 {
     updateLabel(address);
+    if(model && model->isColoredAddress(address))
+    {
+        //unit is TOKEN
+        ui->payAmount->setDisplayUnit(TapyrusUnits::TOKEN);
+        ui->payAmount_is->setDisplayUnit(TapyrusUnits::TOKEN);
+        ui->payAmount_s->setDisplayUnit(TapyrusUnits::TOKEN);
+        ui->labelTokenName->setText(model->getColorFromAddress(address).toHexString().c_str());
+        ui->checkboxSubtractFeeFromAmount->setEnabled(false);
+        ui->checkboxSubtractFeeFromAmount->setCheckState(Qt::Unchecked);
+    }
+    else
+    {
+        updateDisplayUnit();
+        ui->labelTokenName->clear();
+        ui->checkboxSubtractFeeFromAmount->setEnabled(true);
+        ui->checkboxSubtractFeeFromAmount->setCheckState(Qt::Unchecked);
+    }
 }
 
 void SendCoinsEntry::setModel(WalletModel *_model)
@@ -96,6 +114,7 @@ void SendCoinsEntry::clear()
     // clear UI elements for normal payment
     ui->payTo->clear();
     ui->addAsLabel->clear();
+    ui->labelTokenName->clear();
     ui->payAmount->clear();
     ui->checkboxSubtractFeeFromAmount->setCheckState(Qt::Unchecked);
     ui->messageTextLabel->clear();
@@ -251,4 +270,11 @@ bool SendCoinsEntry::updateLabel(const QString &address)
     }
 
     return false;
+}
+
+CAmount SendCoinsEntry::getAvailableBalance(CCoinControl& coin_control)
+{
+    const QString address = ui->payTo->text();
+    ColorIdentifier colorId = model->getColorFromAddress(address);
+    return model->wallet().getAvailableBalance(coin_control, colorId);
 }

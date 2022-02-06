@@ -7,6 +7,7 @@
 #include <config/bitcoin-config.h>
 #endif
 
+#include <QDebug>
 #include <qt/sendcoinsdialog.h>
 #include <qt/forms/ui_sendcoinsdialog.h>
 
@@ -283,7 +284,7 @@ void SendCoinsDialog::on_sendButton_clicked()
     for (const SendCoinsRecipient &rcp : currentTransaction.getRecipients())
     {
         // generate bold amount string with wallet name in case of multiwallet
-        QString amount = "<b>" + TapyrusUnits::formatHtmlWithUnit(model->getOptionsModel()->getDisplayUnit(), rcp.amount);
+        QString amount = "<b>" + model->isColoredAddress(rcp.address) ? TapyrusUnits::formatHtmlWithUnit(TapyrusUnits::TOKEN, rcp.amount) : TapyrusUnits::formatHtmlWithUnit(model->getOptionsModel()->getDisplayUnit(), rcp.amount);
         if (model->isMultiwallet()) {
             amount.append(" <u>"+tr("from wallet %1").arg(GUIUtil::HtmlEscape(model->getWalletName()))+"</u> ");
         }
@@ -613,8 +614,9 @@ void SendCoinsDialog::useAvailableBalance(SendCoinsEntry* entry)
         coin_control = *CoinControlDialog::coinControl();
     }
 
-    // Calculate available amount to send.
-    CAmount amount = model->wallet().getAvailableBalance(coin_control);
+    // get available amount to send from the entry
+    CAmount amount = entry->getAvailableBalance(coin_control);
+    qDebug() << "amount:" << amount;
     for (int i = 0; i < ui->entries->count(); ++i) {
         SendCoinsEntry* e = qobject_cast<SendCoinsEntry*>(ui->entries->itemAt(i)->widget());
         if (e && !e->isHidden() && e != entry) {
@@ -623,7 +625,7 @@ void SendCoinsDialog::useAvailableBalance(SendCoinsEntry* entry)
     }
 
     if (amount > 0) {
-      entry->checkSubtractFeeFromAmount();
+      //entry->checkSubtractFeeFromAmount();
       entry->setAmount(amount);
     } else {
       entry->setAmount(0);

@@ -223,7 +223,7 @@ TransactionTableModel::TransactionTableModel(const PlatformStyle *_platformStyle
         fProcessingQueuedTransactions(false),
         platformStyle(_platformStyle)
 {
-    columns << QString() << QString() << tr("Date") << tr("Type") << tr("Label") << TapyrusUnits::getAmountColumnTitle(walletModel->getOptionsModel()->getDisplayUnit());
+    columns << QString() << QString() << tr("Date") << tr("Type") << tr("Label") << tr("Token") << TapyrusUnits::getAmountColumnTitle(walletModel->getOptionsModel()->getDisplayUnit());
     priv->refreshWallet(walletModel->wallet());
 
     connect(walletModel->getOptionsModel(), SIGNAL(displayUnitChanged(int)), this, SLOT(updateDisplayUnit()));
@@ -418,9 +418,15 @@ QVariant TransactionTableModel::addressColor(const TransactionRecord *wtx) const
     return QVariant();
 }
 
+QString TransactionTableModel::formatTxToken(const TransactionRecord *wtx) const
+{
+    ColorIdentifier colorId = walletModel->getColorFromAddress(QString::fromStdString(wtx->address));
+    return QString(colorId.toHexString().c_str());
+}
+
 QString TransactionTableModel::formatTxAmount(const TransactionRecord *wtx, bool showUnconfirmed, TapyrusUnits::SeparatorStyle separators) const
 {
-    QString str = TapyrusUnits::format(walletModel->getOptionsModel()->getDisplayUnit(), wtx->credit + wtx->debit, false, separators);
+    QString str = walletModel->isColoredAddress(QString::fromStdString(wtx->address)) ? TapyrusUnits::format(TapyrusUnits::TOKEN, wtx->credit + wtx->debit, false, separators) : TapyrusUnits::format(walletModel->getOptionsModel()->getDisplayUnit(), wtx->credit + wtx->debit, false, separators);
     if(showUnconfirmed)
     {
         if(!wtx->status.countsForBalance)
@@ -514,6 +520,8 @@ QVariant TransactionTableModel::data(const QModelIndex &index, int role) const
             return formatTxType(rec);
         case ToAddress:
             return formatTxToAddress(rec, false);
+        case Token:
+            return formatTxToken(rec);
         case Amount:
             return formatTxAmount(rec, true, TapyrusUnits::separatorAlways);
         }
@@ -532,6 +540,8 @@ QVariant TransactionTableModel::data(const QModelIndex &index, int role) const
             return (rec->involvesWatchAddress ? 1 : 0);
         case ToAddress:
             return formatTxToAddress(rec, true);
+        case Token:
+            return formatTxToken(rec);
         case Amount:
             return qint64(rec->credit + rec->debit);
         }
@@ -574,6 +584,8 @@ QVariant TransactionTableModel::data(const QModelIndex &index, int role) const
         return QString::fromStdString(rec->address);
     case LabelRole:
         return walletModel->getAddressTableModel()->labelForAddress(QString::fromStdString(rec->address));
+    case TokenRole:
+        return QString::fromStdString(walletModel->getColorFromAddress(QString::fromStdString(rec->address)).toHexString());
     case AmountRole:
         return qint64(rec->credit + rec->debit);
     case TxHashRole:
@@ -644,6 +656,8 @@ QVariant TransactionTableModel::headerData(int section, Qt::Orientation orientat
                 return tr("Whether or not a watch-only address is involved in this transaction.");
             case ToAddress:
                 return tr("User-defined intent/purpose of the transaction.");
+            case Token:
+                return tr("Token type/ color of the transaction.");
             case Amount:
                 return tr("Amount removed from or added to balance.");
             }
