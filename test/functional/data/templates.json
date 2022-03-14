@@ -1,0 +1,75 @@
+{
+    "txs" : [
+        {
+            "name" : "join2",
+            "in" : 2,
+            "out" : 1
+        },
+        {
+            "name" : "join4",
+            "in" : 4,
+            "out" : 1
+        },
+        {
+            "name" : "send",
+            "in" : 1,
+            "out" : 1
+        },
+        {
+            "name" : "split2",
+            "in" : 1,
+            "out" : 2
+        },
+        {
+            "name" : "split3",
+            "in" : 1,
+            "out" : 3
+        },
+        {
+            "name" : "split4",
+            "in" : 1,
+            "out" : 4
+        },
+        {
+            "name" : "split5",
+            "in" : 1,
+            "out" : 5
+        },
+        {
+            "name" : "split6",
+            "in" : 1,
+            "out" : 6
+        },
+        {
+            "name" : "split7",
+            "in" : 1,
+            "out" : 7
+        },
+        {
+            "name" : "split8",
+            "in" : 1,
+            "out" : 8
+        },
+        {
+            "name" : "split9",
+            "in" : 1,
+            "out" : 9
+        },
+        {
+            "name" : "split10",
+            "in" : 1,
+            "out" : 10
+        },
+        {
+            "name" : "split20",
+            "in" : 1,
+            "out" : 20
+        },
+        {
+            "name" : "split50",
+            "in" : 1,
+            "out" : 50
+        }
+    ]
+}
+
