@@ -44,3 +44,10 @@ RPC trace is generated in the tmpdir after from the test framework log. It conta
 67                            listunspent 1.712024
 68                          getnewaddress 0.261340
 69                   createrawtransaction 0.001576
+
+
+TODO
+----
+
+1. Expand transaction template - add colored coins, signature type, invalid tx
+2. Test with testnet node
