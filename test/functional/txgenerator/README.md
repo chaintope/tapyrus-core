@@ -38,12 +38,12 @@ RPC Trace
 
 RPC trace is generated in the tmpdir after from the test framework log. It contains the RPC call id, rpc name and elapsed time as follows:
 
-64                   createrawtransaction 0.001198
-65           signrawtransactionwithwallet 0.001889
-66                     sendrawtransaction 0.001697
-67                            listunspent 1.712024
-68                          getnewaddress 0.261340
-69                   createrawtransaction 0.001576
+    |64|                   createrawtransaction |0.001198|
+    |65|           signrawtransactionwithwallet |0.001889|
+    |66|                     sendrawtransaction |0.001697|
+    |67|                            listunspent |1.712024|
+    |68|                          getnewaddress |0.261340|
+    |69|                   createrawtransaction |0.001576|
 
 
 TODO
