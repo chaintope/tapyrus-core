@@ -6,11 +6,11 @@ Tx Generator is python process based on functional test framework that can be us
 Options
 --------
 
-*--maxBlockCount* : stop the block and generation when the number of blocks reaches this count.
-*--maxUtxoCount* : stop the transaction generation when the number of utxos in the wallet reaches this count
-*--daemon* : option to set the daemon mode i.e. to start a node in any network and populate its blocks with transactions. the node's wallet spends all its utxos
-*--daemon_datadir* : data directory for daemon mode. default is -"~/.tapyrus/tapyrus-testnet"-
-*--daemon_genesis* : genesis block hex for daemon mode. default is the testnet genesis block
+*--maxBlockCount* : stop the block and generation when the number of blocks reaches this count.  
+*--maxUtxoCount* : stop the transaction generation when the number of utxos in the wallet reaches this count  
+*--daemon* : option to set the daemon mode i.e. to start a node in any network and populate its blocks with transactions. the node's wallet spends all its utxos  
+*--daemon_datadir* : data directory for daemon mode. default is -"~/.tapyrus/tapyrus-testnet"-  
+*--daemon_genesis* : genesis block hex for daemon mode. default is the testnet genesis block  
 
 To run
 -------
@@ -18,26 +18,26 @@ To run
 1. Spend wallet
     $ python /test/functional/txgenerator/txgenerator.py
             --tracerpc
-            --nocleanup
+            --nocleanup  
 
-    _output:_ rpc_trace.log
+    _output:_ rpc_trace.log  
 
 2. Generate wallet
     $ python /test/functional/txgenerator/txgenerator.py
             --tracerpc
             --nocleanup
             --maxBlockCount
-            --maxUtxoCount
+            --maxUtxoCount  
 
-    _output:_ rpc_trace.log, node0.zip, wallet_<tmp>
+    _output:_ rpc_trace.log, node0.zip, wallet_<tmp>  
 
 3. Populate a node
     $ python /test/functional/txgenerator/txgenerator.py
             --tracerpc
             --nocleanup
-            --daemon
+            --daemon  
 
-    _output:_ rpc_trace.log
+    _output:_ rpc_trace.log  
 
 RPC Trace
 ----------
