@@ -271,6 +271,19 @@ class TapyrusWalletPerformanceTest(BitcoinTestFramework):
         self.nodes[0] = TestNode(0, datadir, rpchost=None, timewait=self.rpc_timewait, bitcoind=self.options.bitcoind, bitcoin_cli=self.options.bitcoincli, mocktime=self.mocktime, coverage_dir=self.options.coveragedir, signblockpubkey=self.signblockpubkey, extra_conf=["bind=127.0.0.1"], extra_args=[], use_cli=False, networkid=1939510133)
         self.nodes[0].start()
 
+        self.log.info("Starting block generator")
+        self.block_generator = BlockGenertorThread(self.options.maxBlockCount, self.nodes[0], self.signblockprivkey_wif)
+        self.block_generator.start()
+
+        self.log.info("Starting transaction generator")
+        self.tx_generator = TapyruxTxGenerator(self.options.maxUtxoCount, self.nodes[0])
+        loop = asyncio.get_event_loop()
+        loop.create_task(self.tx_generator.generatetx(self.options.maxUtxoCount))
+        loop.create_task(self.tx_generator.generatetx(self.options.maxUtxoCount))
+        loop.create_task(self.tx_generator.generatetx(self.options.maxUtxoCount))
+        loop.create_task(self.logsize())
+        self.block_generator.join()
+
         return
 
     def expand_wallet(self):
