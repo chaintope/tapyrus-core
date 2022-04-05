@@ -14,5 +14,5 @@ RUN apt-get update && \
 WORKDIR /tapyrus-core
 
 COPY . ./depends
-RUN  if [ "$TARGETARCH" = "arm64" ]; then export BUILD_HOST="aarch64-linux-gnu"; fi && \
+RUN  if [ "$TARGETARCH" = "arm64" ]; then BUILD_HOST="aarch64-linux-gnu"; fi && \
      make HOST=$BUILD_HOST -j"$(($(nproc)+1))" -C depends
