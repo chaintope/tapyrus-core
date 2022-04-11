@@ -1,4 +1,5 @@
 FROM ubuntu:18.04
+ARG TARGETARCH
 
 ENV LC_ALL C.UTF-8
 ENV BUILD_PACKAGES "build-essential libtool autotools-dev automake pkg-config bsdmainutils curl git ca-certificates ccache"
@@ -10,4 +11,5 @@ RUN apt-get update && \
 WORKDIR /tapyrus-core
 
 COPY . ./depends
-RUN make -j"$(($(nproc)+1))" -C depends
+RUN  if [ "$TARGETARCH" = "arm64" ]; then BUILD_HOST="aarch64-linux-gnu"; else BUILD_HOST="x86_64-pc-linux-gnu"; fi && \
+     make HOST=$BUILD_HOST -j"$(($(nproc)+1))" -C depends

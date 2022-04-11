@@ -19,7 +19,7 @@ Tapyrus has the following additions and changes to the Bitcoin implementation.:
 that enables off-chain payments using the Payment Channel on Tapyrus.
 * [Support Oracle contract](/doc/tapyrus/script.md)
 * [Block generation with multiple signatures](/doc/tapyrus/signedblocks.md)
-* [WIP]Support native colored coin protocol
+* [Support native colored coin protocol](/doc/tapyrus/colored_coin.md)
 * Support aggregated/threshold signatures: In tapyrus singer network, each signer execute a threshold signature scheme
 based on [provably secure distributed schnorr signatures and a {t,n} threshold scheme](http://cacr.uwaterloo.ca/techreports/2001/corr2001-13.ps)
  and generates a valid signature for the aggregate public key required for block approval.
