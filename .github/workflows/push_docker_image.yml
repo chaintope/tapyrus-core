@@ -2,10 +2,8 @@ name: Push Docker Image
 
 on:
   push:
-    branches:
-      - master
     tags:
-      - 'v*.*.*'
+      - v*
 
 jobs:
   multi:
@@ -14,7 +12,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-
+        with:
+          submodules: recursive
       - name: Repo metadata
         id: repo
         uses: actions/github-script@v3
