@@ -3578,7 +3578,13 @@ UniValue getaddressinfo(const JSONRPCRequest& request)
     std::string currentAddress = EncodeDestination(dest);
     ret.pushKV("address", currentAddress);
 
-    addTokenKV(dest, 0, ret);
+        ColorIdentifier colorId;
+    if(dest.which() == 3)
+        colorId = boost::get<CColorKeyID>(dest).color;
+    else if(dest.which() == 4)
+        colorId = boost::get<CColorScriptID>(dest).color;
+
+    entry.pushKV("token", colorId.toHexString());
 
     CScript scriptPubKey = GetScriptForDestination(dest);
     ret.pushKV("scriptPubKey", HexStr(scriptPubKey.begin(), scriptPubKey.end()));
