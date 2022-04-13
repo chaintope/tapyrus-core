@@ -1,13 +1,15 @@
-FROM tapyrus/builder:v0.1.0 as builder
+FROM --platform=$TARGETPLATFORM tapyrus/builder:test_aarch64 as builder
+ARG TARGETARCH
 
 ENV LC_ALL C.UTF-8
-ENV TAPYRUS_CONFIG "--disable-tests --disable-bench --disable-dependency-tracking --prefix=/tapyrus-core/depends/x86_64-pc-linux-gnu --bindir=/tapyrus-core/dist/bin  --libdir=/tapyrus-core/dist/lib --enable-zmq --enable-reduce-exports --with-incompatible-bdb --with-gui=no CPPFLAGS=-DDEBUG_LOCKORDER"
+ENV TAPYRUS_CONFIG "--disable-tests --disable-bench --disable-dependency-tracking  --bindir=/tapyrus-core/dist/bin  --libdir=/tapyrus-core/dist/lib --enable-zmq --enable-reduce-exports --with-incompatible-bdb --with-gui=no CPPFLAGS=-DDEBUG_LOCKORDER"
 
 WORKDIR /tapyrus-core
 COPY . .
 
 RUN ./autogen.sh && \
-    ./configure --enable-cxx --disable-shared --disable-replication --with-pic --with-incompatible-bdb $TAPYRUS_CONFIG && \
+    if [ "$TARGETARCH" = "arm64" ]; then BUILD_HOST="aarch64-linux-gnu"; else BUILD_HOST="x86_64-pc-linux-gnu"; fi && \
+    ./configure --prefix=/tapyrus-core/depends/$BUILD_HOST --enable-cxx --disable-shared --disable-replication --with-pic --with-incompatible-bdb $TAPYRUS_CONFIG && \
     make -j"$(($(nproc)+1))" && \
     make install
 
