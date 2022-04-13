@@ -52,11 +52,8 @@ static CMutableTransaction BuildSpendingTransaction(const CScript& scriptSig, co
 
 // Microbenchmark for verification of a basic P2WPKH script. Can be easily
 // modified to measure performance of other types of scripts.
-static void VerifyScriptBench(benchmark::State& state)
+static void VerifyScriptBench(benchmark::State& state, SignatureScheme scheme)
 {
-    const int flags = SCRIPT_VERIFY_WITNESS ;
-    const int witnessversion = 0;
-
     // Keypair.
     CKey key;
     static const std::array<unsigned char, 32> vchKey = {
@@ -70,16 +67,19 @@ static void VerifyScriptBench(benchmark::State& state)
     CHash160().Write(pubkey.begin(), pubkey.size()).Finalize(pubkeyHash.begin());
 
     // Script.
-    CScript scriptPubKey = CScript() << witnessversion << ToByteVector(pubkeyHash);
     CScript scriptSig;
-    CScript witScriptPubkey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash) << OP_EQUALVERIFY << OP_CHECKSIG;
-    const CMutableTransaction& txCredit = BuildCreditingTransaction(scriptPubKey);
+    CScript scriptPubkey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash) << OP_EQUALVERIFY << OP_CHECKSIG;
+    const CMutableTransaction& txCredit = BuildCreditingTransaction(scriptPubkey);
     CMutableTransaction txSpend = BuildSpendingTransaction(scriptSig, txCredit);
-    CScriptWitness& witness = txSpend.vin[0].scriptWitness;
-    witness.stack.emplace_back();
-    key.Sign_ECDSA(SignatureHash(witScriptPubkey, txSpend, 0, SIGHASH_ALL, txCredit.vout[0].nValue, SigVersion::WITNESS_V0), witness.stack.back());
-    witness.stack.back().push_back(static_cast<unsigned char>(SIGHASH_ALL));
-    witness.stack.push_back(ToByteVector(pubkey));
+    std::vector<unsigned char> vchSig;
+
+    if(scheme == SignatureScheme::ECDSA)
+        key.Sign_ECDSA(SignatureHash(scriptPubkey, txSpend, 0, SIGHASH_ALL, txCredit.vout[0].nValue, SigVersion::BASE), vchSig);
+    else
+        key.Sign_Schnorr(SignatureHash(scriptPubkey, txSpend, 0, SIGHASH_ALL, txCredit.vout[0].nValue, SigVersion::BASE), vchSig);
+
+    vchSig.push_back(SIGHASH_ALL);
+    txSpend.vin[0].scriptSig = CScript() << vchSig << ToByteVector(pubkey);
 
     // Benchmark.
     ColorIdentifier colorId;
@@ -88,8 +88,8 @@ static void VerifyScriptBench(benchmark::State& state)
         bool success = VerifyScript(
             txSpend.vin[0].scriptSig,
             txCredit.vout[0].scriptPubKey,
-            &txSpend.vin[0].scriptWitness,
-            flags,
+            nullptr,
+            0,
             MutableTransactionSignatureChecker(&txSpend, 0, txCredit.vout[0].nValue),
             colorId,
             &err);
@@ -103,10 +103,21 @@ static void VerifyScriptBench(benchmark::State& state)
             txCredit.vout[0].scriptPubKey.data(),
             txCredit.vout[0].scriptPubKey.size(),
             txCredit.vout[0].nValue,
-            (const unsigned char*)stream.data(), stream.size(), 0, flags, nullptr);
+            (const unsigned char*)stream.data(), stream.size(), 0, 0, nullptr);
         assert(csuccess == 1);
 #endif
     }
 }
 
-BENCHMARK(VerifyScriptBench, 6300);
+static void VerifyScriptECDSABench(benchmark::State& state)
+{
+    VerifyScriptBench(state, SignatureScheme::ECDSA);
+}
+
+static void VerifyScriptSchnorrBench(benchmark::State& state)
+{
+    VerifyScriptBench(state, SignatureScheme::SCHNORR);
+}
+
+BENCHMARK(VerifyScriptECDSABench, 6300);
+BENCHMARK(VerifyScriptSchnorrBench, 6300);
