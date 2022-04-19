@@ -1,4 +1,4 @@
-FROM --platform=$TARGETPLATFORM tapyrus/builder:test_aarch64 as builder
+FROM --platform=$TARGETPLATFORM tapyrus/builder:v0.2.0 as builder
 ARG TARGETARCH
 
 ENV LC_ALL C.UTF-8
