@@ -27,7 +27,7 @@ Check out the source code in the following directory hierarchy.
     cd /path/to/your/toplevel/build
     git clone https://github.com/chaintope/tapyrus-gitian.sigs.git
     git clone https://github.com/devrandom/gitian-builder.git
-    git clone https://github.com/chaintope/tapyrus-core.git
+    git clone https://github.com/chaintope/tapyrus-core.git --recursive
 
 ### Bitcoin maintainers/release engineers, suggestion for writing release notes
 
