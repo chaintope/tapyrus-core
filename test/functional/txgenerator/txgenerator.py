@@ -20,10 +20,11 @@ In benchmark mode it is used to create a wallet with maxUtxoCount(20000) utxos.
 * What happens to the listunspent execution time if all UTXOs are used and set to 0? What happens if I make a new remittance?
 
 """
+from ast import Pass
 import threading
 import asyncio
 import json
-import random
+import random, time
 import os, sys
 import decimal
 import shutil
@@ -34,13 +35,24 @@ import logging, re
 root_folder = os.path.abspath(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(root_folder)
 
-from test_framework.test_node import TestNode
+from test_framework.test_node import TestNode, FailedToStartError
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import wait_until, get_datadir_path, initialize_datadir
+from test_framework.util import wait_until, get_datadir_path, initialize_datadir, wait_until, get_rpc_proxy, rpc_url
+from test_framework.authproxy import JSONRPCException
+from test_framework.blocktools import create_raw_transaction
 
 decimal.getcontext().prec = 4
+
+DAEMON_MAX_BLOCK_COUNT = 9999999999
+
 TESTNET_GENESIS = "01000000000000000000000000000000000000000000000000000000000000000000000044cc181bd0e95c5b999a13d1fc0d193fa8223af97511ad2098217555a841b3518f18ec2536f0bb9d6d4834fcc712e9563840fe9f089db9e8fe890bffb82165849f52ba5e01210366262690cbdf648132ce0c088962c6361112582364ede120f3780ab73438fc4b402b1ed9996920f57a425f6f9797557c0e73d0c9fbafdebcaa796b136e0946ffa98d928f8130b6a572f83da39530b13784eeb7007465b673aa95091619e7ee208501010000000100000000000000000000000000000000000000000000000000000000000000000000000000ffffffff0100f2052a010000002776a92231415132437447336a686f37385372457a4b6533766636647863456b4a74356e7a4188ac00000000"
 TESTNET_DATADIR = "~/.tapyrus/tapyrus-testnet"
+TESTNET_RPCUSER = "rpcuser"
+TESTNET_RPCPASS = "rpcpassword"
+TESTNET_IPV4 = "127.0.0.1"
+TESTNET_NETWORKID = 1939510133
+TESTNET_RPCPORT = 2377
+TESTNET_PRIVKEY =  "KxMxt3zYKAjRKKAaDfK8jgH9XQbHnd9HFimmoVQCLdLkDakGMsxu"
 
 class RPCContextFilter(logging.Filter):
     '''class defines a filter to extract RPC name and elapsed time from the test framework's "BitcoinRPC" logger'''
@@ -220,6 +232,56 @@ class TapyruxTxGenerator():
         loop = asyncio.get_event_loop()
         loop.stop()
 
+class TestnetDaemonNode():
+
+    def __init__(self, i, datadir, rpcuser, rpcpassword, rpcipv4, rpcport, timewait, use_cli, networkid, log):
+
+        self.process = None
+        self.datadir = datadir
+
+        self.cli = None# TestNodeCLI(bitcoin_cli, self.datadir)
+        self.use_cli = use_cli
+
+        self.rpc_connected = False
+        self.rpc = None
+        self.url = "http://%s:%s@%s:%d" % (rpcuser, rpcpassword, rpcipv4, rpcport)
+        self.networkid = networkid
+        self.rpc_timeout = timewait
+        self.coverage_dir = os.getcwd()
+
+        self.p2ps = []
+        self.log = log
+
+
+    def wait_for_rpc_connection(self):
+        """Sets up an RPC connection to the testnet tapyrusd process. Returns False if unable to connect."""
+        # Poll at a rate of four times per second
+        poll_per_s = 4
+        for _ in range(poll_per_s * self.rpc_timeout):
+            try:
+                self.rpc = get_rpc_proxy(self.url, 0, 120, os.getcwd())
+                self.rpc.getblockcount()
+                # If the call to getblockcount() succeeds then the RPC connection is up
+                self.rpc_connected = True
+                self.log.debug("RPC connected to %s", self.url)
+                return
+            except IOError as e:
+                #if e.errno != errno.ECONNREFUSED:  # Port not yet open?
+                    raise  # unknown IO error
+            except JSONRPCException as e:  # Initialization phase
+                if e.error['code'] != -28:  # RPC in warmup?
+                    raise  # unknown JSON RPC exception
+            except ValueError as e:  # cookie file not found and no rpcuser or rpcassword. tapyrusd still starting
+                if "No RPC credentials" not in str(e):
+                    raise
+            time.sleep(1.0 / poll_per_s)
+        self._raise_assertion_error("Unable to connect to tapyrusd")
+
+    def __getattr__(self, name):
+        """Dispatches any unrecognised messages to the RPC connection or a CLI instance."""
+        assert self.rpc_connected and self.rpc is not None, self._node_msg("Error: no RPC connection")
+        return getattr(self.rpc, name)
+
 
 class TapyrusWalletPerformanceTest(BitcoinTestFramework):
     ''' this is the test class. it has three modes, daemon, expand wallet or shrink wallet. these are chosen based on parameters given on cmd line'''
@@ -253,6 +315,9 @@ class TapyrusWalletPerformanceTest(BitcoinTestFramework):
         initialize_datadir(self.options.tmpdir, 0)
         self.log.debug("Data dir: %s" % datadir)
 
+    def __del__(self):
+        Pass
+
     async def logsize(self):
         while True:
             unspent = self.nodes[0].listunspent()
@@ -260,31 +325,34 @@ class TapyrusWalletPerformanceTest(BitcoinTestFramework):
             self.log.debug("Wallet size : %d" % cnt)
             await asyncio.sleep(1)
 
-    def daemon_mode(self):
-        '''in daemon mode we start a new node in the network using the TestNode class with the config file and genesis block. when the node starts we wait for the blockchain to sync and then generate transactions'''
-        self.log.info("Initializing")
-        self.nodes[0].stop()
+    def setup_nodes(self):
+        if not self.options.daemon:
+            return super().setup_nodes()
+
         datadir = initialize_datadir(self.options.daemon_datadir, 0)
         with open(os.path.join(datadir, "genesis.1939510133"), 'w', encoding='utf8') as f:
             f.write(TESTNET_GENESIS)
 
-        self.nodes[0] = TestNode(0, datadir, rpchost=None, timewait=self.rpc_timewait, bitcoind=self.options.bitcoind, bitcoin_cli=self.options.bitcoincli, mocktime=self.mocktime, coverage_dir=self.options.coveragedir, signblockpubkey=self.signblockpubkey, extra_conf=["bind=127.0.0.1"], extra_args=[], use_cli=False, networkid=1939510133)
-        self.nodes[0].start()
+        node = TestnetDaemonNode(0, datadir, self.options.daemon_rpcuser, self.options.daemon_rpcpassword, self.options.daemon_ipv4, self.options.daemon_rpcport, 90, False, self.options.daemon_networkid, self.log)
+        self.nodes.append(node)
+        node.wait_for_rpc_connection()
 
-        self.log.info("Starting block generator")
-        self.block_generator = BlockGenertorThread(self.options.maxBlockCount, self.nodes[0], self.signblockprivkey_wif)
-        self.block_generator.start()
+    def daemon_mode(self):
+        '''in daemon mode we start a new node in the network using the TestNode class with the config file and genesis block. when the node starts we wait for the blockchain to sync and then generate transactions'''
+        self.nodes[0].getblockchaininfo()
+        self.log.info("Importing wallet transactions")
+        self.nodes[0].importprivkey(TESTNET_PRIVKEY, "testnet", True)
+        balance = self.nodes[0].getbalance()
 
-        self.log.info("Starting transaction generator")
-        self.tx_generator = TapyruxTxGenerator(self.options.maxUtxoCount, self.nodes[0])
+        self.log.info("Starting transaction generator with balance : %d", balance)
+        self.tx_generator = TapyruxTxGenerator(DAEMON_MAX_BLOCK_COUNT, self.nodes[0])
         loop = asyncio.get_event_loop()
-        loop.create_task(self.tx_generator.generatetx(self.options.maxUtxoCount))
-        loop.create_task(self.tx_generator.generatetx(self.options.maxUtxoCount))
-        loop.create_task(self.tx_generator.generatetx(self.options.maxUtxoCount))
+        loop.create_task(self.tx_generator.generatetx(DAEMON_MAX_BLOCK_COUNT))
+        loop.create_task(self.tx_generator.generatetx(DAEMON_MAX_BLOCK_COUNT))
+        loop.create_task(self.tx_generator.generatetx(DAEMON_MAX_BLOCK_COUNT))
         loop.create_task(self.logsize())
-        self.block_generator.join()
+        loop.run_forever()
 
-        return
 
     def expand_wallet(self):
         self.log.info("Starting block generator")
@@ -380,6 +448,18 @@ class TapyrusWalletPerformanceTest(BitcoinTestFramework):
                             default=TESTNET_DATADIR, help="data directory for daemon mode. default is testnet")
         parser.add_argument("--daemon_genesis", dest="daemon_genesis",
                             default=TESTNET_GENESIS, help="genesis block hex or daemon mode. default is testnet")
+        parser.add_argument("--daemon_networkid", dest="daemon_networkid",
+                            default=TESTNET_NETWORKID, help="Networkid of testnet")
+        parser.add_argument("--daemon_rpcport", dest="daemon_rpcport",
+                            default=TESTNET_RPCPORT, help="RPC port number of testnet node")
+        parser.add_argument("--daemon_rpcuser", dest="daemon_rpcuser",
+                            default=TESTNET_RPCUSER, help="RPC username of testnet node")
+        parser.add_argument("--daemon_rpcpassword", dest="daemon_rpcpassword",
+                            default=TESTNET_RPCPASS, help="RPC password of testnet node")
+        parser.add_argument("--daemon_ipv4", dest="daemon_ipv4",
+                            default=TESTNET_IPV4, help="IPv4 address of testnet node. default is localhost")
+        parser.add_argument("--daemon_privkey", dest="daemon_privkey",
+                            default=TESTNET_PRIVKEY, help="Sign Block Private key of testnet. default is testnet key")
         parser.add_argument("--maxBlockCount", dest="maxBlockCount", default=0,
                             help="Stop the node when maxBlockCount blocks are reached")
         parser.add_argument("--maxUtxoCount", dest="maxUtxoCount", default=0,
