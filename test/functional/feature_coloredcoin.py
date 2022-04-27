@@ -369,6 +369,7 @@ class ColoredCoinTest(BitcoinTestFramework):
         txSuccess7 = CTransaction()
         txSuccess7.vin.append(CTxIn(COutPoint(coinbase_txs[5].malfixsha256, 0), b""))
         txSuccess7.vout.append(CTxOut(1000, script_reissuable1))
+        txSuccess7.vout.append(CTxOut(4999998000, change_script))
         sig_hash, err = SignatureHash(coinbase_txs[5].vout[0].scriptPubKey, txSuccess7, 0, SIGHASH_ALL)
         signature = self.coinbase_key.sign(sig_hash) + b'\x01'
         txSuccess7.vin[0].scriptSig = CScript([signature])
