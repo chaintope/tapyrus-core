@@ -433,6 +433,17 @@ class ColoredCoinTest(BitcoinTestFramework):
 
         test_transaction_acceptance(node, TxFailure8, accepted=False, reason=b'invalid-colorid')
 
+        #TxSuccess9 - (UTXO-17) - issue 10 REISSUABLE1, change
+        txSuccess9 = CTransaction()
+        txSuccess9.vin.append(CTxIn(COutPoint(txSuccess7.malfixsha256, 1), b""))
+        txSuccess9.vout.append(CTxOut(10, script_reissuable1))
+        txSuccess9.vout.append(CTxOut(4999997733, change_script))
+        sig_hash, err = SignatureHash(txSuccess7.vout[1].scriptPubKey, txSuccess9, 1, SIGHASH_ALL)
+        signature = self.coinbase_key.sign(sig_hash) + b'\x01'
+        txSuccess9.vin[0].scriptSig = CScript([signature])
+        txSuccess9.rehash()
+
+        test_transaction_acceptance(node, txSuccess9, accepted=False, reason=b'min relay fee not met')
 
 if __name__ == '__main__':
     ColoredCoinTest().main()
