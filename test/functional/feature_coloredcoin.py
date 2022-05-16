@@ -365,6 +365,20 @@ class ColoredCoinTest(BitcoinTestFramework):
 
         test_transaction_acceptance(node, txSuccess6, accepted=True)
 
+        #TxFailure6a - coinbaseTx5 - issue 1000 REISSUABLE1, change (UTXO-17)
+        # fee that is same with min relay fee
+        TxFailure6a = CTransaction()
+        TxFailure6a.vin.append(CTxIn(COutPoint(coinbase_txs[5].malfixsha256, 0), b""))
+        TxFailure6a.vout.append(CTxOut(1000, script_reissuable1))
+        TxFailure6a.vout.append(CTxOut(4999999731, change_script))
+        sig_hash, err = SignatureHash(coinbase_txs[5].vout[0].scriptPubKey, TxFailure6a, 0, SIGHASH_ALL)
+        signature = self.coinbase_key.sign(sig_hash) + b'\x01'
+        TxFailure6a.vin[0].scriptSig = CScript([signature])
+        TxFailure6a.rehash()
+
+        test_transaction_acceptance(node, TxFailure6a, accepted=False, reason=b"bad-txns-token-insufficient")
+
+
         #TxSuccess7 - coinbaseTx5 - issue 1000 REISSUABLE1, change (UTXO-17)
         txSuccess7 = CTransaction()
         txSuccess7.vin.append(CTxIn(COutPoint(coinbase_txs[5].malfixsha256, 0), b""))
