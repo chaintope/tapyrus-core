@@ -8,7 +8,7 @@ Tapyrus network has different kinds of nodes, this is a minimal list at the time
 
 | Node type |    How many? | Purpose |
 | :---: | :---: | :---: |
-|Tapyrus Signer | min 3, max 15  | A network of signers that collects Unapproved transactions from the Tapyrus network and creates a block. |
+|Tapyrus Signer | min 3, unbounded  | A network of signers that collects Unapproved transactions from the Tapyrus network and creates a block. |
 | Tapyrus Core  | min 1, unbounded  | Tapyrus full node implementation |
 | Tapyrus Seeder | min 1, unbounded  | DNS seeder for configuring Tapyrus network |
 
