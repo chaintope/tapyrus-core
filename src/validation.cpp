@@ -1050,7 +1050,7 @@ static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, 
                 if(tpcin < 0 || tpcin - tpcout - ::minRelayTxFee.GetFee(nSize) <= 0)
                     return state.Invalid(false, REJECT_INSUFFICIENTFEE, "bad-txns-token-insufficient");
             }
-            //output valus is more than input
+            //output value is more than input
             else if(out.second > iter->second)
             {
                 return state.Invalid(false, REJECT_INVALID, "bad-txns-token-balance");
