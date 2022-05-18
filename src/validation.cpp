@@ -1047,7 +1047,7 @@ static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, 
             if(iter == inColoredCoinBalances.end())
             {
                 //if TPC input is sufficiently large this is a token issue. 
-                if(tpcin < 0 || tpcin - tpcout - ::minRelayTxFee.GetFee(nSize) <= 0)
+                if(tpcin < 0 || tpcin - tpcout - ::minRelayTxFee.GetFee(nSize) < 0)
                     return state.Invalid(false, REJECT_INSUFFICIENTFEE, "bad-txns-token-insufficient");
             }
             //output value is more than input

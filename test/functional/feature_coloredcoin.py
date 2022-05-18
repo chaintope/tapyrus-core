@@ -55,7 +55,7 @@ from test_framework.key import CECKey
 from test_framework.schnorr import Schnorr
 from test_framework.mininode import P2PDataStore, mininode_lock
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, hex_str_to_bytes, bytes_to_hex_str
+from test_framework.util import assert_equal, hex_str_to_bytes, bytes_to_hex_str, count_bytes
 from test_framework.script import CScript, OP_COLOR, hash160, OP_DUP, OP_HASH160, OP_EQUALVERIFY, OP_CHECKSIG, SignatureHash, SIGHASH_ALL, OP_EQUAL
 
 def colorIdReissuable(script):
@@ -438,7 +438,12 @@ class ColoredCoinTest(BitcoinTestFramework):
         txSuccess9 = CTransaction()
         txSuccess9.vin.append(CTxIn(COutPoint(txSuccess7.malfixsha256, 1), b""))
         txSuccess9.vout.append(CTxOut(10, script_reissuable1))
-        txSuccess9.vout.append(CTxOut(4999997733, change_script))
+        txSuccess9.vout.append(CTxOut(4999999649, change_script))
+        sig_hash, err = SignatureHash(txSuccess7.vout[1].scriptPubKey, txSuccess9, 1, SIGHASH_ALL)
+        signature = self.coinbase_key.sign(sig_hash) + b'\x01'
+        txSuccess9.vin[0].scriptSig = CScript([signature])
+        #make fee < min relay fee and re sign
+        txSuccess9.vout[1].nValue = txSuccess7.vout[1].nValue + 2 - len(txSuccess9.serialize_without_witness())
         sig_hash, err = SignatureHash(txSuccess7.vout[1].scriptPubKey, txSuccess9, 1, SIGHASH_ALL)
         signature = self.coinbase_key.sign(sig_hash) + b'\x01'
         txSuccess9.vin[0].scriptSig = CScript([signature])
