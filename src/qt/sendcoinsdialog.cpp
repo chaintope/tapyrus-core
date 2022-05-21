@@ -7,7 +7,6 @@
 #include <config/bitcoin-config.h>
 #endif
 
-#include <QDebug>
 #include <qt/sendcoinsdialog.h>
 #include <qt/forms/ui_sendcoinsdialog.h>
 
@@ -616,7 +615,6 @@ void SendCoinsDialog::useAvailableBalance(SendCoinsEntry* entry)
 
     // get available amount to send from the entry
     CAmount amount = entry->getAvailableBalance(coin_control);
-    qDebug() << "amount:" << amount;
     for (int i = 0; i < ui->entries->count(); ++i) {
         SendCoinsEntry* e = qobject_cast<SendCoinsEntry*>(ui->entries->itemAt(i)->widget());
         if (e && !e->isHidden() && e != entry) {

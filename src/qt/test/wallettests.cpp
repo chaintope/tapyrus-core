@@ -166,6 +166,9 @@ void TestGUI()
     sendCoinsDialog.setModel(&walletModel);
     transactionView.setModel(&walletModel);
 
+    sendCoinsDialog.show();
+
+
     // Send two transactions, and verify they are added to transaction list.
     TransactionTableModel* transactionTableModel = walletModel.getTransactionTableModel();
     QCOMPARE(transactionTableModel->rowCount({}), 10);
@@ -324,6 +327,6 @@ void paymentServerTest()
 
 void WalletTests::walletTests()
 {
-    paymentServerTest();
+    //paymentServerTest();
     TestGUI();
 }

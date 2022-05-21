@@ -18,16 +18,14 @@ RecentRequestsTableModel::RecentRequestsTableModel(WalletModel *parent) :
     nReceiveRequestsMaxId = 0;
 
     // Load entries from wallet
-    std::vector<std::string> vReceiveRequests;
-    parent->loadReceiveRequests(vReceiveRequests);
+    std::vector<std::string> vReceiveRequests; 
     for (const std::string& request : vReceiveRequests)
         addNewRequest(request);
 
     /* These columns must match the indices in the ColumnIndex enumeration */
-    columns << tr("Date") << tr("Label") << tr("Message") << getAmountTitle();
-
-    connect(walletModel->getOptionsModel(), SIGNAL(displayUnitChanged(int)), this, SLOT(updateDisplayUnit()));
-}
+    columns << tr("Date") << tr("Label") << tr("Message")  << tr("Token") << getAmountTitle();
+  ;
+}  
 
 RecentRequestsTableModel::~RecentRequestsTableModel()
 {
@@ -78,6 +76,9 @@ QVariant RecentRequestsTableModel::data(const QModelIndex &index, int role) cons
             {
                 return rec->recipient.message;
             }
+        case Token:
+            return QVariant(rec->recipient.colorid.toHexString().c_str());
+
         case Amount:
             if (rec->recipient.amount == 0 && role == Qt::DisplayRole)
                 return tr("(no amount requested)");
@@ -228,6 +229,8 @@ bool RecentRequestEntryLessThan::operator()(RecentRequestEntry &left, RecentRequ
         return pLeft->recipient.label < pRight->recipient.label;
     case RecentRequestsTableModel::Message:
         return pLeft->recipient.message < pRight->recipient.message;
+    case RecentRequestsTableModel::Token:
+        return pLeft->recipient.colorid < pRight->recipient.colorid;
     case RecentRequestsTableModel::Amount:
         return pLeft->recipient.amount < pRight->recipient.amount;
     default:

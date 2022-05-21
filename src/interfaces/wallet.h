@@ -316,6 +316,7 @@ struct WalletBalances
 
     WalletBalances(){
         have_watch_only = false;
+        tokenIndex = tokens.begin();
     }
 
     CAmount getBalance() const
