@@ -55,7 +55,7 @@ from test_framework.key import CECKey
 from test_framework.schnorr import Schnorr
 from test_framework.mininode import P2PDataStore, mininode_lock
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, hex_str_to_bytes, bytes_to_hex_str
+from test_framework.util import assert_equal, hex_str_to_bytes, bytes_to_hex_str, count_bytes
 from test_framework.script import CScript, OP_COLOR, hash160, OP_DUP, OP_HASH160, OP_EQUALVERIFY, OP_CHECKSIG, SignatureHash, SIGHASH_ALL, OP_EQUAL
 
 def colorIdReissuable(script):
@@ -365,10 +365,12 @@ class ColoredCoinTest(BitcoinTestFramework):
 
         test_transaction_acceptance(node, txSuccess6, accepted=True)
 
+
         #TxSuccess7 - coinbaseTx5 - issue 1000 REISSUABLE1, change (UTXO-17)
         txSuccess7 = CTransaction()
         txSuccess7.vin.append(CTxIn(COutPoint(coinbase_txs[5].malfixsha256, 0), b""))
         txSuccess7.vout.append(CTxOut(1000, script_reissuable1))
+        txSuccess7.vout.append(CTxOut(4999999731, change_script))
         sig_hash, err = SignatureHash(coinbase_txs[5].vout[0].scriptPubKey, txSuccess7, 0, SIGHASH_ALL)
         signature = self.coinbase_key.sign(sig_hash) + b'\x01'
         txSuccess7.vin[0].scriptSig = CScript([signature])
@@ -432,6 +434,22 @@ class ColoredCoinTest(BitcoinTestFramework):
 
         test_transaction_acceptance(node, TxFailure8, accepted=False, reason=b'invalid-colorid')
 
+        #TxSuccess9 - (UTXO-17) - issue 10 REISSUABLE1, change
+        txSuccess9 = CTransaction()
+        txSuccess9.vin.append(CTxIn(COutPoint(txSuccess7.malfixsha256, 1), b""))
+        txSuccess9.vout.append(CTxOut(10, script_reissuable1))
+        txSuccess9.vout.append(CTxOut(4999999649, change_script))
+        sig_hash, err = SignatureHash(txSuccess7.vout[1].scriptPubKey, txSuccess9, 1, SIGHASH_ALL)
+        signature = self.coinbase_key.sign(sig_hash) + b'\x01'
+        txSuccess9.vin[0].scriptSig = CScript([signature])
+        #make fee < min relay fee and re sign
+        txSuccess9.vout[1].nValue = txSuccess7.vout[1].nValue + 2 - len(txSuccess9.serialize_without_witness())
+        sig_hash, err = SignatureHash(txSuccess7.vout[1].scriptPubKey, txSuccess9, 1, SIGHASH_ALL)
+        signature = self.coinbase_key.sign(sig_hash) + b'\x01'
+        txSuccess9.vin[0].scriptSig = CScript([signature])
+        txSuccess9.rehash()
+
+        test_transaction_acceptance(node, txSuccess9, accepted=False, reason=b'min relay fee not met')
 
 if __name__ == '__main__':
     ColoredCoinTest().main()
