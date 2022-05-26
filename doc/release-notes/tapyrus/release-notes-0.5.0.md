@@ -51,18 +51,18 @@ Tapyrus core wallet now supports colored coins. Coin issue, transfer and burn ca
 
 Tapyrus RPCs has been modified to remove old deprecated features and parameters. Account API support has been removed. Colored coin support has been added to other RPCs as follows.
 
-* getnewaddress addresstype parameter has been removed and color parameter has been added.
-* getrawchangeaddress address type parameter has been removed and color parameter has been added.
-* addmultisigaddress address type parameter has been removed
-* getreceivedbyaddress minconf parameter has been removed.
-* getreceivedbylabel minconf parameter has been removed.
-* getbalance account parameter has been removed and color parameter has been added
-* sendmany account and minconf parameters have been removed and color parameter has been added.
-* listreceivedbyaddress  minconf parameter has been removed.
-* listreceivedbylabel minconf parameter has been removed.
-* listtransactions dummy parameter has been removed.
-* listunspent account has been removed from the result.
-* fundrawtransaction iswitness flag has been removed.
+* getnewaddress - addresstype parameter has been removed and color parameter has been added.
+* getrawchangeaddress - address type parameter has been removed and color parameter has been added.
+* addmultisigaddress - address type parameter has been removed.
+* getreceivedbyaddress - minconf parameter has been removed.
+* getreceivedbylabel - minconf parameter has been removed.
+* getbalance - account parameter has been removed and color parameter has been added.
+* sendmany - account and minconf parameters have been removed and color parameter has been added.
+* listreceivedbyaddress - minconf parameter has been removed.
+* listreceivedbylabel - minconf parameter has been removed.
+* listtransactions - dummy parameter has been removed.
+* listunspent - account has been removed from the result.
+* fundrawtransaction - iswitness flag has been removed.
 
 *Removed RPCs*
 
