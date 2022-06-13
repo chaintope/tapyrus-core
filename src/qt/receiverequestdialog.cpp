@@ -139,8 +139,10 @@ void ReceiveRequestDialog::update()
     html += "<b>"+tr("URI")+"</b>: ";
     html += "<a href=\""+uri+"\">" + GUIUtil::HtmlEscape(uri) + "</a><br>";
     html += "<b>"+tr("Address")+"</b>: " + GUIUtil::HtmlEscape(info.address) + "<br>";
+    if(info.colorid.type != TokenTypes::NONE)
+        html += "<b>"+tr("Token")+"</b>: " + info.colorid.toHexString().c_str() + "<br>";
     if(info.amount)
-        html += "<b>"+tr("Amount")+"</b>: " + TapyrusUnits::formatHtmlWithUnit(model->getOptionsModel()->getDisplayUnit(), info.amount) + "<br>";
+        html += "<b>"+tr("Amount")+"</b>: " + ((info.colorid.type != TokenTypes::NONE) ?TapyrusUnits::formatHtmlWithUnit(model->getOptionsModel()->getDisplayUnit(), info.amount):TapyrusUnits::formatHtmlWithUnit(TapyrusUnits::TOKEN, info.amount) )+ "<br>";
     if(!info.label.isEmpty())
         html += "<b>"+tr("Label")+"</b>: " + GUIUtil::HtmlEscape(info.label) + "<br>";
     if(!info.message.isEmpty())
@@ -149,7 +151,7 @@ void ReceiveRequestDialog::update()
         html += "<b>"+tr("Wallet")+"</b>: " + GUIUtil::HtmlEscape(model->getWalletName()) + "<br>";
     }
     ui->outUri->setText(html);
-/*
+
 #ifdef USE_QRCODE
     ui->lblQRCode->setText("");
     if(!uri.isEmpty())
@@ -198,7 +200,7 @@ void ReceiveRequestDialog::update()
             ui->btnSaveAs->setEnabled(true);
         }
     }
-#endif*/
+#endif
 }
 
 void ReceiveRequestDialog::on_btnCopyURI_clicked()

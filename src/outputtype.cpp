@@ -15,11 +15,12 @@
 #include <string>
 
 
-CTxDestination GetDestinationForKey(const CPubKey& key, OutputType type)
+CTxDestination GetDestinationForKey(const CPubKey& key, OutputType type, const ColorIdentifier& colorId)
 {
     switch (type) {
     case OutputType::CHANGE_AUTO:
     case OutputType::LEGACY: return key.GetID();
+    case OutputType::TOKEN: return CColorKeyID(key.GetID(), colorId); 
     default: assert(false);
     }
 }
@@ -35,7 +36,7 @@ std::vector<CTxDestination> GetAllDestinationsForKey(const CPubKey& key)
     }
 }
 
-CTxDestination AddAndGetDestinationForScript(CKeyStore& keystore, const CScript& script, OutputType type)
+CTxDestination AddAndGetDestinationForScript(CKeyStore& keystore, const CScript& script, OutputType type, const ColorIdentifier& colorId)
 {
     // Add script to keystore
     keystore.AddCScript(script);
@@ -43,6 +44,8 @@ CTxDestination AddAndGetDestinationForScript(CKeyStore& keystore, const CScript&
     switch (type) {
     case OutputType::LEGACY:
         return CScriptID(script);
+    case OutputType::TOKEN:
+        return CColorScriptID(script, colorId);
     default: assert(false);
     }
 }

@@ -34,7 +34,6 @@ public:
         OpenUntilDate,      /**< Transaction not yet final, waiting for date */
         OpenUntilBlock,     /**< Transaction not yet final, waiting for block */
         Unconfirmed,        /**< Not yet mined into a block **/
-        Confirming,         /**< Confirmed, but waiting for the recommended number of confirmations **/
         Conflicted,         /**< Conflicts with other transaction or mempool **/
         Abandoned,          /**< Abandoned from the wallet **/
         /// Generated (mined) transactions
@@ -80,7 +79,13 @@ public:
         SendToOther,
         RecvWithAddress,
         RecvFromOther,
-        SendToSelf
+        SendToSelf,
+        TokenIssue,
+        TokenSendToAddress,
+        TokenSendToOther,
+        TokenRecvWithAddress,
+        TokenRecvFromOther,
+        TokenSendToSelf
     };
 
     /** Number of confirmation recommended for accepting a transaction */
@@ -108,7 +113,7 @@ public:
     /** Decompose CWallet transaction to model transaction records.
      */
     static bool showTransaction();
-    static QList<TransactionRecord> decomposeTransaction(const interfaces::WalletTx& wtx);
+    static QList<TransactionRecord> decomposeTransaction(interfaces::Node& node, const interfaces::WalletTx& wtx);
 
     /** @name Immutable transaction attributes
       @{*/

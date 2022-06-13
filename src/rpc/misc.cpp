@@ -136,7 +136,7 @@ static UniValue createmultisig(const JSONRPCRequest& request)
     // Construct using pay-to-script-hash:
     const CScript inner = CreateMultisigRedeemscript(required, pubkeys);
     CBasicKeyStore keystore;
-    const CTxDestination dest = AddAndGetDestinationForScript(keystore, inner, output_type);
+    const CTxDestination dest = AddAndGetDestinationForScript(keystore, inner, output_type, ColorIdentifier());
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("address", EncodeDestination(dest));

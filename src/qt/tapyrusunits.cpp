@@ -59,7 +59,7 @@ QString TapyrusUnits::shortName(int unit)
     {
     case uTPC: return QString::fromUtf8("tpcs");
     case TAP: return QString("tap");
-    case TOKEN: return QString("");
+    case TOKEN: return QString("token");
     default: return longName(unit);
     }
 }

@@ -25,76 +25,102 @@ bool TransactionRecord::showTransaction()
 /*
  * Decompose CWallet transaction to model transaction records.
  */
-QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interfaces::WalletTx& wtx)
+QList<TransactionRecord> TransactionRecord::decomposeTransaction(interfaces::Node& node, const interfaces::WalletTx& wtx)
 {
     QList<TransactionRecord> parts;
     int64_t nTime = wtx.time;
 
-    CAmount nCredit = wtx.getCredit();
-    CAmount nDebit = wtx.getDebit();
-    CAmount nNet = nCredit - nDebit;
+    std::set<ColorIdentifier> txColorIdSet{wtx.getAllColorIds(node)};
+
+    //credit, debit and net are separate for each colorid
+    std::map<const ColorIdentifier, std::tuple<CAmount, CAmount, CAmount> > creditMap;
+    for(auto color : txColorIdSet)
+    {
+        CAmount nCredit = wtx.getCredit(color);
+        CAmount nDebit = wtx.getDebit(color);
+        CAmount nNet = nCredit - nDebit;
+        creditMap.emplace(color, std::make_tuple(nCredit, nDebit, nNet) );
+    }
+
     uint256 hash = wtx.tx->GetHashMalFix();
     std::map<std::string, std::string> mapValue = wtx.value_map;
 
-    if (nNet > 0 || wtx.is_coinbase)
+    bool involvesWatchAddress = false;
+    isminetype fAllFromMe = ISMINE_SPENDABLE;
+    for (isminetype mine : wtx.txin_is_mine)
     {
-        //
-        // Credit
-        //
-        for(unsigned int i = 0; i < wtx.tx->vout.size(); i++)
-        {
-            const CTxOut& txout = wtx.tx->vout[i];
-            isminetype mine = wtx.txout_is_mine[i];
-            if(mine)
-            {
-                TransactionRecord sub(hash, nTime);
-                CTxDestination address;
-                sub.idx = i; // vout index
-                sub.credit = txout.nValue;
-                sub.involvesWatchAddress = mine & ISMINE_WATCH_ONLY;
-                if (wtx.txout_address_is_mine[i])
-                {
-                    // Received by Bitcoin Address
-                    sub.type = TransactionRecord::RecvWithAddress;
-                    sub.address = EncodeDestination(wtx.txout_address[i]);
-                }
-                else
-                {
-                    // Received by IP connection (deprecated features), or a multisignature or other non-simple transaction
-                    sub.type = TransactionRecord::RecvFromOther;
-                    sub.address = mapValue["from"];
-                }
-                if (wtx.is_coinbase)
-                {
-                    // Generated
-                    sub.type = TransactionRecord::Generated;
-                }
-
-                parts.append(sub);
-            }
-        }
+        if(mine & ISMINE_WATCH_ONLY) involvesWatchAddress = true;
+        if(fAllFromMe > mine) fAllFromMe = mine;
     }
-    else
-    {
-        bool involvesWatchAddress = false;
-        isminetype fAllFromMe = ISMINE_SPENDABLE;
-        for (isminetype mine : wtx.txin_is_mine)
-        {
-            if(mine & ISMINE_WATCH_ONLY) involvesWatchAddress = true;
-            if(fAllFromMe > mine) fAllFromMe = mine;
-        }
 
-        isminetype fAllToMe = ISMINE_SPENDABLE;
-        for (isminetype mine : wtx.txout_is_mine)
+    isminetype fAllToMe = ISMINE_SPENDABLE;
+    for (isminetype mine : wtx.txout_is_mine)
+    {
+        if(mine & ISMINE_WATCH_ONLY) involvesWatchAddress = true;
+        if(fAllToMe > mine) fAllToMe = mine;
+    }
+
+    for(unsigned int i = 0; i < wtx.tx->vout.size(); i++)
+    {
+        const CTxOut& txout = wtx.tx->vout[i];
+        ColorIdentifier colorId = GetColorIdFromScript(txout.scriptPubKey);
+
+        CAmount nCredit = std::get<0>(creditMap[colorId]);
+        CAmount nDebit = std::get<1>(creditMap[colorId]);
+        CAmount nNet = std::get<2>(creditMap[colorId]);
+
+        if (nNet > 0 || wtx.is_coinbase)
         {
-            if(mine & ISMINE_WATCH_ONLY) involvesWatchAddress = true;
-            if(fAllToMe > mine) fAllToMe = mine;
+            //
+            // Credit
+            //
+
+            isminetype mine = wtx.txout_is_mine[i];
+            if(!mine)
+                continue;
+
+            TransactionRecord sub(hash, nTime);
+            sub.idx = i; // vout index
+            sub.credit = nCredit;
+            sub.involvesWatchAddress = mine & ISMINE_WATCH_ONLY;
+            if (wtx.txout_address_is_mine[i])
+            {
+                // Received by Tapyrus Address
+                if(colorId.type == TokenTypes::NONE)
+                    sub.type = TransactionRecord::RecvWithAddress;
+                else
+                    sub.type = TransactionRecord::TokenRecvWithAddress;
+                sub.address = EncodeDestination(wtx.txout_address[i]);
+            }
+            else
+            {
+                // Received by IP connection (deprecated features), or a multisignature or other non-simple transaction
+                if(colorId.type == TokenTypes::NONE)
+                    sub.type = TransactionRecord::RecvFromOther;
+                else
+                    sub.type = TransactionRecord::TokenRecvFromOther;
+                sub.address = mapValue["from"];
+            }
+
+
+            if(!wtx.is_tokenInput &&  wtx.is_tokenOutput);
+            {
+                sub.type = TransactionRecord::TokenIssue;
+            }
+
+            if(wtx.is_coinbase)
+            {
+                sub.type = TransactionRecord::Generated;
+            }
+
+            parts.append(sub);
+            continue;
         }
 
         if (fAllFromMe && fAllToMe)
         {
             // Payment to self
-            CAmount nChange = wtx.getChange();
+            CAmount nChange = wtx.getChange(colorId);
             parts.append(TransactionRecord(hash, nTime, TransactionRecord::SendToSelf, "",
                             -(nDebit - nChange), nCredit - nChange));
             parts.last().involvesWatchAddress = involvesWatchAddress;   // maybe pass to TransactionRecord as constructor argument
@@ -104,46 +130,46 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
             //
             // Debit
             //
-            CAmount nTxFee = nDebit - wtx.tx->GetValueOut(ColorIdentifier());
+            CAmount nTxFee = std::get<1>(creditMap[ColorIdentifier()]) - wtx.tx->GetValueOut(ColorIdentifier());
 
-            for (unsigned int nOut = 0; nOut < wtx.tx->vout.size(); nOut++)
+            TransactionRecord sub(hash, nTime);
+            sub.idx = i;
+            sub.involvesWatchAddress = involvesWatchAddress;
+
+            // Ignore parts sent to self, as this is usually the change
+            // from a transaction sent back to our own address.
+            if(wtx.txout_is_mine[i])
+                continue;
+
+            if (!boost::get<CNoDestination>(&wtx.txout_address[i]))
             {
-                const CTxOut& txout = wtx.tx->vout[nOut];
-                TransactionRecord sub(hash, nTime);
-                sub.idx = nOut;
-                sub.involvesWatchAddress = involvesWatchAddress;
-
-                if(wtx.txout_is_mine[nOut])
-                {
-                    // Ignore parts sent to self, as this is usually the change
-                    // from a transaction sent back to our own address.
-                    continue;
-                }
-
-                if (!boost::get<CNoDestination>(&wtx.txout_address[nOut]))
-                {
-                    // Sent to Bitcoin Address
+                // Sent to Tapyrus Address
+                if(colorId.type == TokenTypes::NONE)
                     sub.type = TransactionRecord::SendToAddress;
-                    sub.address = EncodeDestination(wtx.txout_address[nOut]);
-                }
                 else
-                {
-                    // Sent to IP, or other non-address transaction like OP_EVAL
-                    sub.type = TransactionRecord::SendToOther;
-                    sub.address = mapValue["to"];
-                }
-
-                CAmount nValue = txout.nValue;
-                /* Add fee to first output */
-                if (nTxFee > 0)
-                {
-                    nValue += nTxFee;
-                    nTxFee = 0;
-                }
-                sub.debit = -nValue;
-
-                parts.append(sub);
+                    sub.type = TransactionRecord::TokenSendToAddress;
+                sub.address = EncodeDestination(wtx.txout_address[i]);
             }
+            else
+            {
+                // Sent to IP, or other non-address transaction like OP_EVAL
+                if(colorId.type == TokenTypes::NONE)
+                    sub.type = TransactionRecord::SendToOther;
+                else
+                    sub.type = TransactionRecord::TokenSendToOther;
+                sub.address = mapValue["to"];
+            }
+
+            CAmount nValue = nDebit;
+            /* Add fee to first tpc output */
+            if (nTxFee > 0 && colorId.type == TokenTypes::NONE)
+            {
+                nValue += nTxFee;
+                nTxFee = 0;
+            }
+            sub.debit = -nValue;
+
+            parts.append(sub);
         }
         else
         {
@@ -208,10 +234,6 @@ void TransactionRecord::updateStatus(const interfaces::WalletTxStatus& wtx, int 
             status.status = TransactionStatus::Unconfirmed;
             if (wtx.is_abandoned)
                 status.status = TransactionStatus::Abandoned;
-        }
-        else if (status.depth < RecommendedNumConfirmations)
-        {
-            status.status = TransactionStatus::Confirming;
         }
         else
         {

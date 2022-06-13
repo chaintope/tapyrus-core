@@ -11,6 +11,7 @@
 #include <script/standard.h>           // For CTxDestination
 #include <support/allocators/secure.h> // For SecureString
 #include <ui_interface.h>              // For ChangeType
+#include "node.h"
 
 #include <functional>
 #include <map>
@@ -166,19 +167,19 @@ public:
     virtual CTransactionRef getTx(const uint256& txid) = 0;
 
     //! Get transaction information.
-    virtual WalletTx getWalletTx(const uint256& txid) = 0;
+    virtual WalletTx getWalletTx(Node& node, const uint256& txid) = 0;
 
     //! Get list of all wallet transactions.
-    virtual std::vector<WalletTx> getWalletTxs() = 0;
+    virtual std::vector<WalletTx> getWalletTxs(Node& node) = 0;
 
     //! Try to get updated status for a particular transaction, if possible without blocking.
-    virtual bool tryGetTxStatus(const uint256& txid,
+    virtual bool tryGetTxStatus(Node& node, const uint256& txid,
         WalletTxStatus& tx_status,
         int& num_blocks,
         int64_t& adjusted_time) = 0;
 
     //! Get transaction details.
-    virtual WalletTx getWalletTxDetails(const uint256& txid,
+    virtual WalletTx getWalletTxDetails(Node& node, const uint256& txid,
         WalletTxStatus& tx_status,
         WalletOrderForm& order_form,
         bool& in_mempool,
@@ -412,6 +413,8 @@ struct WalletTx
     int64_t time;
     std::map<std::string, std::string> value_map;
     bool is_coinbase;
+    bool is_tokenInput;
+    bool is_tokenOutput;
 
     CAmount getCredit(const ColorIdentifier& colorId = ColorIdentifier()) const
     {
@@ -429,6 +432,40 @@ struct WalletTx
     {
         auto it = changes.find(colorId);
         return it != changes.end() ? it->second : 0;
+    }
+
+    std::set<ColorIdentifier> getAllColorIds(Node& node) const
+    {
+        std::set<ColorIdentifier> txColorIdSet{ColorIdentifier()};
+        //Get all color ids from all inputs and outputs
+        for(auto in :tx->vin)
+        {
+            Coin prev;
+            if(node.getUnspentOutput(in.prevout, prev))
+                txColorIdSet.insert(GetColorIdFromScript(prev.out.scriptPubKey));
+        }
+        for(auto out:tx->vout)
+            txColorIdSet.insert(GetColorIdFromScript(out.scriptPubKey));
+
+        return txColorIdSet;
+    }
+
+    bool isTokenInput(Node& node) const
+    {
+        Coin prev;
+        for(auto in :tx->vin)
+            if(node.getUnspentOutput(in.prevout, prev) && GetColorIdFromScript(prev.out.scriptPubKey).type != TokenTypes::NONE)
+                return true;
+        return false;
+    }
+
+    bool isTokenOutput() const
+    {
+        for(auto out:tx->vout)
+            if(GetColorIdFromScript(out.scriptPubKey).type != TokenTypes::NONE)
+                return true;
+
+        return false;
     }
 };
 

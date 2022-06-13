@@ -9,6 +9,7 @@
 #include <amount.h>     // For CAmount
 #include <net.h>        // For CConnman::NumConnections
 #include <netaddress.h> // For Network
+#include <coins.h>
 
 #include <functional>
 #include <memory>
@@ -21,7 +22,6 @@
 class CCoinControl;
 class CFeeRate;
 class CNodeStats;
-class Coin;
 class RPCTimerInterface;
 class UniValue;
 class proxyType;

@@ -189,7 +189,7 @@ QString formatTapyrusURI(const SendCoinsRecipient &info)
 
     if (info.amount)
     {
-        ret += QString("?amount=%1").arg(TapyrusUnits::format(TapyrusUnits::TPC, info.amount, false, TapyrusUnits::separatorNever));
+        ret += QString("?amount=%1").arg(info.colorid.type == TokenTypes::NONE ? TapyrusUnits::format(TapyrusUnits::TPC, info.amount, false, TapyrusUnits::separatorNever) : TapyrusUnits::format(TapyrusUnits::TOKEN, info.amount, false, TapyrusUnits::separatorNever));
         paramCount++;
     }
 

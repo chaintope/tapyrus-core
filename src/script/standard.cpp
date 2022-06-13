@@ -23,6 +23,7 @@ unsigned nMaxDatacarrierBytes = MAX_OP_RETURN_RELAY;
 
 CScriptID::CScriptID(const CScript& in) : uint160(Hash160(in.begin(), in.end())) {}
 
+CColorScriptID::CColorScriptID(const CScript& in, const ColorIdentifier& colorin): uint160(Hash160(in.begin(), in.end())), color(colorin) {}
 
 const char* GetTxnOutputType(txnouttype t)
 {

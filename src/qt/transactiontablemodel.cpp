@@ -34,6 +34,7 @@ static int column_alignments[] = {
         Qt::AlignLeft|Qt::AlignVCenter, /* date */
         Qt::AlignLeft|Qt::AlignVCenter, /* type */
         Qt::AlignLeft|Qt::AlignVCenter, /* address */
+        Qt::AlignLeft|Qt::AlignVCenter,  /* token */
         Qt::AlignRight|Qt::AlignVCenter /* amount */
     };
 
@@ -73,14 +74,14 @@ public:
 
     /* Query entire wallet anew from core.
      */
-    void refreshWallet(interfaces::Wallet& wallet)
+    void refreshWallet(interfaces::Node& node, interfaces::Wallet& wallet)
     {
         qDebug() << "TransactionTablePriv::refreshWallet";
         cachedWallet.clear();
         {
-            for (const auto& wtx : wallet.getWalletTxs()) {
+            for (const auto& wtx : wallet.getWalletTxs(node)) {
                 if (TransactionRecord::showTransaction()) {
-                    cachedWallet.append(TransactionRecord::decomposeTransaction(wtx));
+                    cachedWallet.append(TransactionRecord::decomposeTransaction(node, wtx));
                 }
             }
         }
@@ -91,7 +92,7 @@ public:
 
        Call with transaction that was added, removed or changed.
      */
-    void updateWallet(interfaces::Wallet& wallet, const uint256 &hash, int status, bool showTransaction)
+    void updateWallet(interfaces::Wallet& wallet, const uint256 &hash, int status, bool showTransaction, interfaces::Node& node)
     {
         qDebug() << "TransactionTablePriv::updateWallet: " + QString::fromStdString(hash.ToString()) + " " + QString::number(status);
 
@@ -127,7 +128,7 @@ public:
             if(showTransaction)
             {
                 // Find transaction in wallet
-                interfaces::WalletTx wtx = wallet.getWalletTx(hash);
+                interfaces::WalletTx wtx = wallet.getWalletTx(node, hash);
                 if(!wtx.tx)
                 {
                     qWarning() << "TransactionTablePriv::updateWallet: Warning: Got CT_NEW, but transaction is not in wallet";
@@ -135,7 +136,7 @@ public:
                 }
                 // Added -- insert at the right position
                 QList<TransactionRecord> toInsert =
-                        TransactionRecord::decomposeTransaction(wtx);
+                        TransactionRecord::decomposeTransaction(node, wtx);
                 if(!toInsert.isEmpty()) /* only if something to insert */
                 {
                     parent->beginInsertRows(QModelIndex(), lowerIndex, lowerIndex+toInsert.size()-1);
@@ -176,7 +177,7 @@ public:
         return cachedWallet.size();
     }
 
-    TransactionRecord *index(interfaces::Wallet& wallet, int idx)
+    TransactionRecord *index(interfaces::Node& node, interfaces::Wallet& wallet, int idx)
     {
         if(idx >= 0 && idx < cachedWallet.size())
         {
@@ -192,7 +193,7 @@ public:
             interfaces::WalletTxStatus wtx;
             int numBlocks;
             int64_t adjustedTime;
-            if (wallet.tryGetTxStatus(rec->hash, wtx, numBlocks, adjustedTime) && rec->statusUpdateNeeded(numBlocks)) {
+            if (wallet.tryGetTxStatus(node, rec->hash, wtx, numBlocks, adjustedTime) && rec->statusUpdateNeeded(numBlocks)) {
                 rec->updateStatus(wtx, numBlocks, adjustedTime);
             }
             return rec;
@@ -224,7 +225,7 @@ TransactionTableModel::TransactionTableModel(const PlatformStyle *_platformStyle
         platformStyle(_platformStyle)
 {
     columns << QString() << QString() << tr("Date") << tr("Type") << tr("Label") << tr("Token") << TapyrusUnits::getAmountColumnTitle(walletModel->getOptionsModel()->getDisplayUnit());
-    priv->refreshWallet(walletModel->wallet());
+    priv->refreshWallet(walletModel->node(), walletModel->wallet());
 
     connect(walletModel->getOptionsModel(), SIGNAL(displayUnitChanged(int)), this, SLOT(updateDisplayUnit()));
 
@@ -249,7 +250,7 @@ void TransactionTableModel::updateTransaction(const QString &hash, int status, b
     uint256 updated;
     updated.SetHex(hash.toStdString());
 
-    priv->updateWallet(walletModel->wallet(), updated, status, showTransaction);
+    priv->updateWallet(walletModel->wallet(), updated, status, showTransaction, walletModel->node());
 }
 
 void TransactionTableModel::updateConfirmations()
@@ -291,9 +292,6 @@ QString TransactionTableModel::formatTxStatus(const TransactionRecord *wtx) cons
         break;
     case TransactionStatus::Abandoned:
         status = tr("Abandoned");
-        break;
-    case TransactionStatus::Confirming:
-        status = tr("Confirming (%1 of %2 recommended confirmations)").arg(wtx->status.depth).arg(TransactionRecord::RecommendedNumConfirmations);
         break;
     case TransactionStatus::Confirmed:
         status = tr("Confirmed (%1 confirmations)").arg(wtx->status.depth);
@@ -351,6 +349,17 @@ QString TransactionTableModel::formatTxType(const TransactionRecord *wtx) const
         return tr("Payment to yourself");
     case TransactionRecord::Generated:
         return tr("Mined");
+    case TransactionRecord::TokenRecvWithAddress:
+        return tr("Token Received with");
+    case TransactionRecord::TokenRecvFromOther:
+        return tr("Token Received from");
+    case TransactionRecord::TokenSendToAddress:
+    case TransactionRecord::TokenSendToOther:
+        return tr("Token Sent to");
+    case TransactionRecord::TokenSendToSelf:
+        return tr("Token Payment to yourself");
+    case TransactionRecord::TokenIssue:
+        return tr("Token issue");
     default:
         return QString();
     }
@@ -362,11 +371,17 @@ QVariant TransactionTableModel::txAddressDecoration(const TransactionRecord *wtx
     {
     case TransactionRecord::Generated:
         return QIcon(":/icons/tx_mined");
+    case TransactionRecord::TokenIssue:
+        return QIcon(":/icons/tx_mined");
     case TransactionRecord::RecvWithAddress:
     case TransactionRecord::RecvFromOther:
+    case TransactionRecord::TokenRecvWithAddress:
+    case TransactionRecord::TokenRecvFromOther:
         return QIcon(":/icons/tx_input");
     case TransactionRecord::SendToAddress:
     case TransactionRecord::SendToOther:
+    case TransactionRecord::TokenSendToAddress:
+    case TransactionRecord::TokenSendToOther:
         return QIcon(":/icons/tx_output");
     default:
         return QIcon(":/icons/tx_inout");
@@ -384,12 +399,17 @@ QString TransactionTableModel::formatTxToAddress(const TransactionRecord *wtx, b
     switch(wtx->type)
     {
     case TransactionRecord::RecvFromOther:
+    case TransactionRecord::TokenRecvFromOther:
         return QString::fromStdString(wtx->address) + watchAddress;
     case TransactionRecord::RecvWithAddress:
     case TransactionRecord::SendToAddress:
     case TransactionRecord::Generated:
+    case TransactionRecord::TokenRecvWithAddress:
+    case TransactionRecord::TokenSendToAddress:
+    case TransactionRecord::TokenIssue:
         return lookupAddress(wtx->address, tooltip) + watchAddress;
     case TransactionRecord::SendToOther:
+    case TransactionRecord::TokenSendToOther:
         return QString::fromStdString(wtx->address) + watchAddress;
     case TransactionRecord::SendToSelf:
     default:
@@ -405,12 +425,16 @@ QVariant TransactionTableModel::addressColor(const TransactionRecord *wtx) const
     case TransactionRecord::RecvWithAddress:
     case TransactionRecord::SendToAddress:
     case TransactionRecord::Generated:
+    case TransactionRecord::TokenRecvWithAddress:
+    case TransactionRecord::TokenSendToAddress:
+    case TransactionRecord::TokenIssue:
         {
         QString label = walletModel->getAddressTableModel()->labelForAddress(QString::fromStdString(wtx->address));
         if(label.isEmpty())
             return COLOR_BAREADDRESS;
         } break;
     case TransactionRecord::SendToSelf:
+    case TransactionRecord::TokenSendToSelf:
         return COLOR_BAREADDRESS;
     default:
         break;
@@ -448,15 +472,6 @@ QVariant TransactionTableModel::txStatusDecoration(const TransactionRecord *wtx)
         return QIcon(":/icons/transaction_0");
     case TransactionStatus::Abandoned:
         return QIcon(":/icons/transaction_abandoned");
-    case TransactionStatus::Confirming:
-        switch(wtx->status.depth)
-        {
-        case 1: return QIcon(":/icons/transaction_1");
-        case 2: return QIcon(":/icons/transaction_2");
-        case 3: return QIcon(":/icons/transaction_3");
-        case 4: return QIcon(":/icons/transaction_4");
-        default: return QIcon(":/icons/transaction_5");
-        };
     case TransactionStatus::Confirmed:
         return QIcon(":/icons/transaction_confirmed");
     case TransactionStatus::Conflicted:
@@ -480,7 +495,8 @@ QString TransactionTableModel::formatTooltip(const TransactionRecord *rec) const
 {
     QString tooltip = formatTxStatus(rec) + QString("\n") + formatTxType(rec);
     if(rec->type==TransactionRecord::RecvFromOther || rec->type==TransactionRecord::SendToOther ||
-       rec->type==TransactionRecord::SendToAddress || rec->type==TransactionRecord::RecvWithAddress)
+       rec->type==TransactionRecord::SendToAddress || rec->type==TransactionRecord::RecvWithAddress ||rec->type==TransactionRecord::TokenRecvFromOther || rec->type==TransactionRecord::TokenSendToOther ||
+       rec->type==TransactionRecord::TokenSendToAddress || rec->type==TransactionRecord::TokenRecvWithAddress)
     {
         tooltip += QString(" ") + formatTxToAddress(rec, true);
     }
@@ -543,7 +559,7 @@ QVariant TransactionTableModel::data(const QModelIndex &index, int role) const
         case Token:
             return formatTxToken(rec);
         case Amount:
-            return qint64(rec->credit + rec->debit);
+            return formatTxAmount(rec, true, TapyrusUnits::separatorAlways);
         }
         break;
     case Qt::ToolTipRole:
@@ -587,7 +603,7 @@ QVariant TransactionTableModel::data(const QModelIndex &index, int role) const
     case TokenRole:
         return QString::fromStdString(walletModel->getColorFromAddress(QString::fromStdString(rec->address)).toHexString());
     case AmountRole:
-        return qint64(rec->credit + rec->debit);
+        return formatTxAmount(rec, true, TapyrusUnits::separatorAlways);
     case TxHashRole:
         return rec->getTxHash();
     case TxHexRole:
@@ -669,10 +685,10 @@ QVariant TransactionTableModel::headerData(int section, Qt::Orientation orientat
 QModelIndex TransactionTableModel::index(int row, int column, const QModelIndex &parent) const
 {
     Q_UNUSED(parent);
-    TransactionRecord *data = priv->index(walletModel->wallet(), row);
+    TransactionRecord *data = priv->index(walletModel->node(), walletModel->wallet(), row);
     if(data)
     {
-        return createIndex(row, column, priv->index(walletModel->wallet(), row));
+        return createIndex(row, column, priv->index(walletModel->node(), walletModel->wallet(), row));
     }
     return QModelIndex();
 }

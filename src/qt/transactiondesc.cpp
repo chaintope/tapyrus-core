@@ -43,8 +43,6 @@ QString TransactionDesc::FormatTxStatus(const interfaces::WalletTx& wtx, const i
             return tr("conflicted with a transaction with %1 confirmations").arg(-nDepth);
         else if (nDepth == 0)
             return tr("0/unconfirmed, %1").arg((inMempool ? tr("in memory pool") : tr("not in memory pool"))) + (status.is_abandoned ? ", "+tr("abandoned") : "");
-        else if (nDepth < 6)
-            return tr("%1/unconfirmed").arg(nDepth);
         else
             return tr("%1 confirmations").arg(nDepth);
     }
@@ -57,17 +55,25 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
     interfaces::WalletTxStatus status;
     interfaces::WalletOrderForm orderForm;
     bool inMempool;
-    interfaces::WalletTx wtx = wallet.getWalletTxDetails(rec->hash, status, orderForm, inMempool, numBlocks, adjustedTime);
+    interfaces::WalletTx wtx = wallet.getWalletTxDetails(node, rec->hash, status, orderForm, inMempool, numBlocks, adjustedTime);
 
     QString strHTML;
 
     strHTML.reserve(4000);
     strHTML += "<html><font face='verdana, arial, helvetica, sans-serif'>";
 
+    std::set<ColorIdentifier> txColorIdSet{wtx.getAllColorIds(node)};
+
+    std::map<const ColorIdentifier, std::tuple<CAmount, CAmount, CAmount> > creditMap;
+    for(auto color : txColorIdSet)
+    {
+        CAmount nCredit = wtx.getCredit(color);
+        CAmount nDebit = wtx.getDebit(color);
+        CAmount nNet = nCredit - nDebit;
+        creditMap.emplace(color, std::make_tuple(nCredit, nDebit, nNet) );
+    }
+
     int64_t nTime = wtx.time;
-    CAmount nCredit = wtx.getCredit();
-    CAmount nDebit = wtx.getDebit();
-    CAmount nNet = nCredit - nDebit;
 
     strHTML += "<b>" + tr("Status") + ":</b> " + FormatTxStatus(wtx, status, inMempool, numBlocks, adjustedTime);
     strHTML += "<br>";
@@ -77,7 +83,11 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
     //
     // From
     //
-    if (wtx.is_coinbase)
+    if(!wtx.is_tokenInput && wtx.is_tokenOutput)
+    {
+        strHTML += "<b>" + tr("Source") + ":</b> " + tr("Token Issue") + "<br>";
+    }
+    else if (wtx.is_coinbase)
     {
         strHTML += "<b>" + tr("Source") + ":</b> " + tr("Generated") + "<br>";
     }
@@ -85,31 +95,6 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
     {
         // Online transaction
         strHTML += "<b>" + tr("From") + ":</b> " + GUIUtil::HtmlEscape(wtx.value_map["from"]) + "<br>";
-    }
-    else
-    {
-        // Offline transaction
-        if (nNet > 0)
-        {
-            // Credit
-            CTxDestination address = DecodeDestination(rec->address);
-            if (IsValidDestination(address)) {
-                std::string name;
-                isminetype ismine;
-                if (wallet.getAddress(address, &name, &ismine, /* purpose= */ nullptr))
-                {
-                    strHTML += "<b>" + tr("From") + ":</b> " + tr("unknown") + "<br>";
-                    strHTML += "<b>" + tr("To") + ":</b> ";
-                    strHTML += GUIUtil::HtmlEscape(rec->address);
-                    QString addressOwned = ismine == ISMINE_SPENDABLE ? tr("own address") : tr("watch-only");
-                    if (!name.empty())
-                        strHTML += " (" + addressOwned + ", " + tr("label") + ": " + GUIUtil::HtmlEscape(name) + ")";
-                    else
-                        strHTML += " (" + addressOwned + ")";
-                    strHTML += "<br>";
-                }
-            }
-        }
     }
 
     //
@@ -128,98 +113,107 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
         strHTML += GUIUtil::HtmlEscape(strAddress) + "<br>";
     }
 
-    //
-    // Amount
-    //
-    if (wtx.is_coinbase && nCredit == 0)
+    isminetype fAllFromMe = ISMINE_SPENDABLE;
+    for (isminetype mine : wtx.txin_is_mine)
     {
-        //
-        // Coinbase
-        //
-        CAmount nUnmatured = 0;
-        for (const CTxOut& txout : wtx.tx->vout)
-            nUnmatured += wallet.getCredit(txout, ISMINE_ALL);
-        strHTML += "<b>" + tr("Credit") + ":</b> ";
-        if (status.is_in_main_chain)
-            strHTML += TapyrusUnits::formatHtmlWithUnit(unit, nUnmatured);
-        else
-            strHTML += "(" + tr("not accepted") + ")";
-        strHTML += "<br>";
+        if(fAllFromMe > mine) fAllFromMe = mine;
     }
-    else if (nNet > 0)
+
+    isminetype fAllToMe = ISMINE_SPENDABLE;
+    for (isminetype mine : wtx.txout_is_mine)
     {
-        //
-        // Credit
-        //
-        strHTML += "<b>" + tr("Credit") + ":</b> " + TapyrusUnits::formatHtmlWithUnit(unit, nNet) + "<br>";
+        if(fAllToMe > mine) fAllToMe = mine;
     }
-    else
+    if(fAllFromMe && ISMINE_WATCH_ONLY)
+        strHTML += "<b>" + tr("From") + ":</b> " + tr("watch-only") + "<br>";
+
+    for (const CTxOut& txout : wtx.tx->vout)
     {
-        isminetype fAllFromMe = ISMINE_SPENDABLE;
-        for (isminetype mine : wtx.txin_is_mine)
+        ColorIdentifier colorId = GetColorIdFromScript(txout.scriptPubKey);
+
+        CAmount nCredit = std::get<0>(creditMap[colorId]);
+        CAmount nDebit = std::get<1>(creditMap[colorId]);
+        CAmount nNet = std::get<2>(creditMap[colorId]);
+
+        //
+        // Amount
+        //
+        if (wtx.is_coinbase)
         {
-            if(fAllFromMe > mine) fAllFromMe = mine;
+            //
+            // Coinbase
+            //
+            strHTML += "<b>" + tr("Token") + ":</b> " + TapyrusUnits::longName(unit) + "<br>";
+            strHTML += "<b>" + tr("Credit") + ":</b> ";
+            if (status.is_in_main_chain)
+                strHTML += TapyrusUnits::formatHtmlWithUnit(unit, nNet);
+            else
+                strHTML += "(" + tr("not accepted") + ")";
+            strHTML += "<br>";
         }
-
-        isminetype fAllToMe = ISMINE_SPENDABLE;
-        for (isminetype mine : wtx.txout_is_mine)
+        else if (nNet > 0)
         {
-            if(fAllToMe > mine) fAllToMe = mine;
+            //
+            // Credit
+            //
+            strHTML += "<b>" + tr("Token") + ":</b> " + (colorId.type == TokenTypes::NONE ? TapyrusUnits::longName(unit) : colorId.toHexString().c_str()) + "<br>";
+            strHTML += "<b>" + tr("Credit") + ":</b> " + (colorId.type == TokenTypes::NONE ?  TapyrusUnits::formatHtmlWithUnit(unit, nNet) : TapyrusUnits::formatHtmlWithUnit(TapyrusUnits::TOKEN, nNet)) + "<br>";
+
+            // Offline transaction
+            CTxDestination address = DecodeDestination(rec->address);
+            if (IsValidDestination(address)) {
+                std::string name;
+                isminetype ismine;
+                if (wallet.getAddress(address, &name, &ismine, /* purpose= */ nullptr))
+                {
+                    strHTML += "<b>" + tr("From") + ":</b> " + tr("unknown") + "<br>";
+                    strHTML += "<b>" + tr("To") + ":</b> ";
+                    strHTML += GUIUtil::HtmlEscape(rec->address);
+                    QString addressOwned = ismine == ISMINE_SPENDABLE ? tr("own address") : tr("watch-only");
+                    if (!name.empty())
+                        strHTML += " (" + addressOwned + ", " + tr("label") + ": " + GUIUtil::HtmlEscape(name) + ")";
+                    else
+                        strHTML += " (" + addressOwned + ")";
+                    strHTML += "<br>";
+                }
+            }
         }
-
-        if (fAllFromMe)
+        else if (fAllFromMe)
         {
-            if(fAllFromMe & ISMINE_WATCH_ONLY)
-                strHTML += "<b>" + tr("From") + ":</b> " + tr("watch-only") + "<br>";
-
             //
             // Debit
             //
             auto mine = wtx.txout_is_mine.begin();
-            for (const CTxOut& txout : wtx.tx->vout)
-            {
-                // Ignore change
-                isminetype toSelf = *(mine++);
-                if ((toSelf == ISMINE_SPENDABLE) && (fAllFromMe == ISMINE_SPENDABLE))
-                    continue;
 
-                if (!wtx.value_map.count("to") || wtx.value_map["to"].empty())
+            // Ignore change
+            isminetype toSelf = *(mine++);
+            //if ((toSelf == ISMINE_SPENDABLE) && (fAllFromMe == ISMINE_SPENDABLE))
+            //    continue;
+
+            if (!wtx.value_map.count("to") || wtx.value_map["to"].empty())
+            {
+                // Offline transaction
+                CTxDestination address;
+                if (ExtractDestination(txout.scriptPubKey, address))
                 {
-                    // Offline transaction
-                    CTxDestination address;
-                    if (ExtractDestination(txout.scriptPubKey, address))
-                    {
-                        strHTML += "<b>" + tr("To") + ":</b> ";
-                        std::string name;
-                        if (wallet.getAddress(
-                                address, &name, /* is_mine= */ nullptr, /* purpose= */ nullptr) && !name.empty())
-                            strHTML += GUIUtil::HtmlEscape(name) + " ";
-                        strHTML += GUIUtil::HtmlEscape(EncodeDestination(address));
-                        if(toSelf == ISMINE_SPENDABLE)
-                            strHTML += " (own address)";
-                        else if(toSelf & ISMINE_WATCH_ONLY)
-                            strHTML += " (watch-only)";
-                        strHTML += "<br>";
-                    }
+                    strHTML += "<b>" + tr("To") + ":</b> ";
+                    std::string name;
+                    if (wallet.getAddress(
+                            address, &name, /* is_mine= */ nullptr, /* purpose= */ nullptr) && !name.empty())
+                        strHTML += GUIUtil::HtmlEscape(name) + " ";
+                    strHTML += GUIUtil::HtmlEscape(EncodeDestination(address));
+                    if(toSelf == ISMINE_SPENDABLE)
+                        strHTML += " (own address)";
+                    else if(toSelf & ISMINE_WATCH_ONLY)
+                        strHTML += " (watch-only)";
+                    strHTML += "<br>";
                 }
-
-                strHTML += "<b>" + tr("Debit") + ":</b> " + TapyrusUnits::formatHtmlWithUnit(unit, -txout.nValue) + "<br>";
-                if(toSelf)
-                    strHTML += "<b>" + tr("Credit") + ":</b> " + TapyrusUnits::formatHtmlWithUnit(unit, txout.nValue) + "<br>";
             }
 
-            if (fAllToMe)
-            {
-                // Payment to self
-                CAmount nChange = wtx.getChange();
-                CAmount nValue = nCredit - nChange;
-                strHTML += "<b>" + tr("Total debit") + ":</b> " + TapyrusUnits::formatHtmlWithUnit(unit, -nValue) + "<br>";
-                strHTML += "<b>" + tr("Total credit") + ":</b> " + TapyrusUnits::formatHtmlWithUnit(unit, nValue) + "<br>";
-            }
-
-            CAmount nTxFee = nDebit - wtx.tx->GetValueOut(ColorIdentifier());
-            if (nTxFee > 0)
-                strHTML += "<b>" + tr("Transaction fee") + ":</b> " + TapyrusUnits::formatHtmlWithUnit(unit, -nTxFee) + "<br>";
+            strHTML += "<b>" + tr("Token") + ":</b> " + (colorId.type == TokenTypes::NONE ? TapyrusUnits::longName(unit) : colorId.toHexString().c_str()) + "<br>";
+            strHTML += "<b>" + tr("Debit") + ":</b> " + (colorId.type == TokenTypes::NONE ?  TapyrusUnits::formatHtmlWithUnit(unit, -nDebit) : TapyrusUnits::formatHtmlWithUnit(TapyrusUnits::TOKEN, -nDebit) )+ "<br>";
+            if(toSelf)
+                strHTML += "<b>" + tr("Credit") + ":</b> " + (colorId.type == TokenTypes::NONE ?  TapyrusUnits::formatHtmlWithUnit(unit, nCredit) : TapyrusUnits::formatHtmlWithUnit(TapyrusUnits::TOKEN, nCredit) ) + "<br>";
         }
         else
         {
@@ -229,19 +223,22 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
             auto mine = wtx.txin_is_mine.begin();
             for (const CTxIn& txin : wtx.tx->vin) {
                 if (*(mine++)) {
-                    strHTML += "<b>" + tr("Debit") + ":</b> " + TapyrusUnits::formatHtmlWithUnit(unit, -wallet.getDebit(txin, ISMINE_ALL)) + "<br>";
+                    strHTML += "<b>" + tr("Debit") + ":</b> " + (colorId.type == TokenTypes::NONE ? TapyrusUnits::formatHtmlWithUnit(unit, -wallet.getDebit(txin, ISMINE_ALL)) : TapyrusUnits::formatHtmlWithUnit(TapyrusUnits::TOKEN, -wallet.getDebit(txin, ISMINE_ALL))) + "<br>";
                 }
             }
             mine = wtx.txout_is_mine.begin();
             for (const CTxOut& txout : wtx.tx->vout) {
                 if (*(mine++)) {
-                    strHTML += "<b>" + tr("Credit") + ":</b> " + TapyrusUnits::formatHtmlWithUnit(unit, wallet.getCredit(txout, ISMINE_ALL)) + "<br>";
+                    strHTML += "<b>" + tr("Credit") + ":</b> " + (colorId.type == TokenTypes::NONE ? TapyrusUnits::formatHtmlWithUnit(unit, wallet.getCredit(txout, ISMINE_ALL)) : TapyrusUnits::formatHtmlWithUnit(TapyrusUnits::TOKEN, wallet.getCredit(txout, ISMINE_ALL))) + "<br>";
                 }
             }
         }
     }
 
-    strHTML += "<b>" + tr("Net amount") + ":</b> " + TapyrusUnits::formatHtmlWithUnit(unit, nNet, true) + "<br>";
+
+    CAmount nTxFee = std::get<1>(creditMap[ColorIdentifier()]) - wtx.tx->GetValueOut(ColorIdentifier());
+    if (nTxFee > 0)
+        strHTML += "<br><b>" + tr("Transaction fee") + ":</b> " + TapyrusUnits::formatHtmlWithUnit(unit, -nTxFee) + "<br>";
 
     //
     // Message
