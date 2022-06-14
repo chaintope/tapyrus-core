@@ -33,6 +33,7 @@ class CColorScriptID : public uint160
 public:
     ColorIdentifier color;
     explicit CColorScriptID(const ColorIdentifier& colorin) : uint160(), color(colorin) {}
+    explicit CColorScriptID(const CScript& in, const ColorIdentifier& colorin);
     explicit CColorScriptID(const uint160& in, const ColorIdentifier& colorin) : uint160(in), color(colorin) {}
 };
 /**

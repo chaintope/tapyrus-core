@@ -336,7 +336,7 @@ void AddressTableModel::updateEntry(const QString &address,
     priv->updateEntry(address, label, isMine, purpose, status);
 }
 
-QString AddressTableModel::addRow(const QString &type, const QString &label, const QString &address, const OutputType address_type)
+QString AddressTableModel::addRow(const QString &type, const QString &label, const QString &address, const QString &colorin, const OutputType address_type)
 {
     std::string strLabel = label.toStdString();
     std::string strAddress = address.toStdString();
@@ -363,6 +363,7 @@ QString AddressTableModel::addRow(const QString &type, const QString &label, con
     else if(type == Receive)
     {
         // Generate a new address to associate with given label
+        ColorIdentifier colorId(ParseHex(colorin.toStdString().c_str()));
         CPubKey newKey;
         if(!walletModel->wallet().getKeyFromPool(false /* internal */, newKey))
         {
@@ -379,7 +380,7 @@ QString AddressTableModel::addRow(const QString &type, const QString &label, con
                 return QString();
             }
         }
-        strAddress = EncodeDestination(GetDestinationForKey(newKey, address_type));
+        strAddress = EncodeDestination(GetDestinationForKey(newKey, address_type, colorId));
     }
     else
     {
