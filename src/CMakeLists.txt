@@ -15,9 +15,7 @@ option(BUILD_TAPYRUS_SEEDER "Build tapyrus-seeder" ON)
 option(BUILD_TAPYRUS_CLI "Build tapyrus-cli" ON)
 option(BUILD_TAPYRUS_GENESIS "Build tapyrus-genesis" ON)
 option(BUILD_TAPYRUS_TX "Build tapyrus-tx" ON)
-
-# TODO: Fix qt building problem and turn ON.
-option(BUILD_TAPYRUS_QT "Build tapyrus-qt" ON)
+option(ENABLE_QRCODE "Build QR support in wallet" OFF)
 
 # Ensure that WINDRES_PREPROC is enabled when using windres.
 if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
@@ -308,4 +306,4 @@ if(BUILD_TAPYRUS_QT)
     add_subdirectory(qt)
 endif()
 
-message(status "BUILD_TAPYRUS_QT=${BUILD_TAPYRUS_QT}")
+message(STATUS "BUILD_TAPYRUS_QT=${BUILD_TAPYRUS_QT}")

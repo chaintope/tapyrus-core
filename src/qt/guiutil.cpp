@@ -158,7 +158,7 @@ bool parseTapyrusURI(const QUrl &uri, SendCoinsRecipient *out)
         {
             if(!i->second.isEmpty())
             {
-                if(!BitcoinUnits::parse(BitcoinUnits::TPC, i->second, &rv.amount))
+                if(!TapyrusUnits::parse(TapyrusUnits::TPC, i->second, &rv.amount))
                 {
                     return false;
                 }
@@ -189,7 +189,7 @@ QString formatTapyrusURI(const SendCoinsRecipient &info)
 
     if (info.amount)
     {
-        ret += QString("?amount=%1").arg(BitcoinUnits::format(BitcoinUnits::TPC, info.amount, false, BitcoinUnits::separatorNever));
+        ret += QString("?amount=%1").arg(TapyrusUnits::format(TapyrusUnits::TPC, info.amount, false, TapyrusUnits::separatorNever));
         paramCount++;
     }
 

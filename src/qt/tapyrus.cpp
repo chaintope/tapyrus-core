@@ -152,11 +152,11 @@ void DebugMessageHandler(QtMsgType type, const QMessageLogContext& context, cons
 /** Class encapsulating Bitcoin Core startup and shutdown.
  * Allows running startup and shutdown in a different thread from the UI thread.
  */
-class BitcoinCore: public QObject
+class TapyrusCore: public QObject
 {
     Q_OBJECT
 public:
-    explicit BitcoinCore(interfaces::Node& node);
+    explicit TapyrusCore(interfaces::Node& node);
 
 public Q_SLOTS:
     void initialize();
@@ -174,13 +174,13 @@ private:
     interfaces::Node& m_node;
 };
 
-/** Main Bitcoin application object */
-class BitcoinApplication: public QApplication
+/** Main Tapyrus application object */
+class TapyrusApplication: public QApplication
 {
     Q_OBJECT
 public:
-    explicit BitcoinApplication(interfaces::Node& node, int &argc, char **argv);
-    ~BitcoinApplication();
+    explicit TapyrusApplication(interfaces::Node& node, int &argc, char **argv);
+    ~TapyrusApplication();
 
 #ifdef ENABLE_WALLET
     /// Create payment server
@@ -244,18 +244,18 @@ private:
 
 #include <qt/tapyrus.moc>
 
-BitcoinCore::BitcoinCore(interfaces::Node& node) :
+TapyrusCore::TapyrusCore(interfaces::Node& node) :
     QObject(), m_node(node)
 {
 }
 
-void BitcoinCore::handleRunawayException(const std::exception *e)
+void TapyrusCore::handleRunawayException(const std::exception *e)
 {
     PrintExceptionContinue(e, "Runaway exception");
     Q_EMIT runawayException(QString::fromStdString(m_node.getWarnings("gui")));
 }
 
-void BitcoinCore::initialize()
+void TapyrusCore::initialize()
 {
     try
     {
@@ -269,7 +269,7 @@ void BitcoinCore::initialize()
     }
 }
 
-void BitcoinCore::shutdown()
+void TapyrusCore::shutdown()
 {
     try
     {
@@ -284,7 +284,7 @@ void BitcoinCore::shutdown()
     }
 }
 
-BitcoinApplication::BitcoinApplication(interfaces::Node& node, int &argc, char **argv):
+TapyrusApplication::TapyrusApplication(interfaces::Node& node, int &argc, char **argv):
     QApplication(argc, argv),
     coreThread(0),
     m_node(node),
@@ -302,10 +302,10 @@ BitcoinApplication::BitcoinApplication(interfaces::Node& node, int &argc, char *
     setQuitOnLastWindowClosed(false);
 }
 
-void BitcoinApplication::setupPlatformStyle()
+void TapyrusApplication::setupPlatformStyle()
 {
     // UI per-platform customization
-    // This must be done inside the BitcoinApplication constructor, or after it, because
+    // This must be done inside the TapyrusApplication constructor, or after it, because
     // PlatformStyle::instantiate requires a QApplication
     std::string platformName;
     platformName = gArgs.GetArg("-uiplatform", BitcoinGUI::DEFAULT_UIPLATFORM);
@@ -315,7 +315,7 @@ void BitcoinApplication::setupPlatformStyle()
     assert(platformStyle);
 }
 
-BitcoinApplication::~BitcoinApplication()
+TapyrusApplication::~TapyrusApplication()
 {
     if(coreThread)
     {
@@ -338,18 +338,18 @@ BitcoinApplication::~BitcoinApplication()
 }
 
 #ifdef ENABLE_WALLET
-void BitcoinApplication::createPaymentServer()
+void TapyrusApplication::createPaymentServer()
 {
     paymentServer = new PaymentServer(this);
 }
 #endif
 
-void BitcoinApplication::createOptionsModel(bool resetSettings)
+void TapyrusApplication::createOptionsModel(bool resetSettings)
 {
     optionsModel = new OptionsModel(m_node, nullptr, resetSettings);
 }
 
-void BitcoinApplication::createWindow(const NetworkStyle *networkStyle)
+void TapyrusApplication::createWindow(const NetworkStyle *networkStyle)
 {
     window = new BitcoinGUI(m_node, platformStyle, networkStyle, 0);
 
@@ -357,7 +357,7 @@ void BitcoinApplication::createWindow(const NetworkStyle *networkStyle)
     connect(pollShutdownTimer, SIGNAL(timeout()), window, SLOT(detectShutdown()));
 }
 
-void BitcoinApplication::createSplashScreen(const NetworkStyle *networkStyle)
+void TapyrusApplication::createSplashScreen(const NetworkStyle *networkStyle)
 {
     SplashScreen *splash = new SplashScreen(m_node, 0, networkStyle);
     // We don't hold a direct pointer to the splash screen after creation, but the splash
@@ -367,12 +367,12 @@ void BitcoinApplication::createSplashScreen(const NetworkStyle *networkStyle)
     connect(this, SIGNAL(requestedShutdown()), splash, SLOT(close()));
 }
 
-void BitcoinApplication::startThread()
+void TapyrusApplication::startThread()
 {
     if(coreThread)
         return;
     coreThread = new QThread(this);
-    BitcoinCore *executor = new BitcoinCore(m_node);
+    TapyrusCore *executor = new TapyrusCore(m_node);
     executor->moveToThread(coreThread);
 
     /*  communication to and from thread */
@@ -388,7 +388,7 @@ void BitcoinApplication::startThread()
     coreThread->start();
 }
 
-void BitcoinApplication::parameterSetup()
+void TapyrusApplication::parameterSetup()
 {
     // Default printtoconsole to false for the GUI. GUI programs should not
     // print to the console unnecessarily.
@@ -398,14 +398,14 @@ void BitcoinApplication::parameterSetup()
     m_node.initParameterInteraction();
 }
 
-void BitcoinApplication::requestInitialize()
+void TapyrusApplication::requestInitialize()
 {
     qDebug() << __func__ << ": Requesting initialize";
     startThread();
     Q_EMIT requestedInitialize();
 }
 
-void BitcoinApplication::requestShutdown()
+void TapyrusApplication::requestShutdown()
 {
     // Show a simple window indicating shutdown status
     // Do this first as some of the steps may take some time below,
@@ -434,7 +434,7 @@ void BitcoinApplication::requestShutdown()
     Q_EMIT requestedShutdown();
 }
 
-void BitcoinApplication::addWallet(WalletModel* walletModel)
+void TapyrusApplication::addWallet(WalletModel* walletModel)
 {
 #ifdef ENABLE_WALLET
     window->addWallet(walletModel);
@@ -442,15 +442,13 @@ void BitcoinApplication::addWallet(WalletModel* walletModel)
     if (m_wallet_models.empty()) {
         window->setCurrentWallet(walletModel->getWalletName());
     }
-    connect(walletModel, SIGNAL(coinsSent(WalletModel*, SendCoinsRecipient, QByteArray)),
-         paymentServer, SLOT(fetchPaymentACK(WalletModel*, const SendCoinsRecipient&, QByteArray)));
      connect(walletModel, SIGNAL(unload()), this, SLOT(removeWallet()));
 
     m_wallet_models.push_back(walletModel);
 #endif
 }
 
-void BitcoinApplication::removeWallet()
+void TapyrusApplication::removeWallet()
 {
 #ifdef ENABLE_WALLET
     WalletModel* walletModel = static_cast<WalletModel*>(sender());
@@ -460,7 +458,7 @@ void BitcoinApplication::removeWallet()
 #endif
 }
 
-void BitcoinApplication::initializeResult(bool success)
+void TapyrusApplication::initializeResult(bool success)
 {
     qDebug() << __func__ << ": Initialization result: " << success;
     // Set exit result.
@@ -518,18 +516,18 @@ void BitcoinApplication::initializeResult(bool success)
     }
 }
 
-void BitcoinApplication::shutdownResult()
+void TapyrusApplication::shutdownResult()
 {
     quit(); // Exit second main loop invocation after shutdown finished
 }
 
-void BitcoinApplication::handleRunawayException(const QString &message)
+void TapyrusApplication::handleRunawayException(const QString &message)
 {
     QMessageBox::critical(0, "Runaway exception", BitcoinGUI::tr("A fatal error occurred. Tapyrus can no longer continue safely and will quit.") + QString("\n\n") + message);
     ::exit(EXIT_FAILURE);
 }
 
-WId BitcoinApplication::getMainWinId() const
+WId TapyrusApplication::getMainWinId() const
 {
     if (!window)
         return 0;
@@ -561,17 +559,11 @@ int main(int argc, char *argv[])
     Q_INIT_RESOURCE(tapyrus);
     Q_INIT_RESOURCE(tapyrus_locale);
 
-    BitcoinApplication app(*node, argc, argv);
-#if QT_VERSION > 0x050100
     // Generate high-dpi pixmaps
     QApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
-#endif
-#if QT_VERSION >= 0x050600
     QGuiApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
-#endif
-#ifdef Q_OS_MAC
-    QApplication::setAttribute(Qt::AA_DontShowIconsInMenus);
-#endif
+
+    TapyrusApplication app(*node, argc, argv);
 
     // Register meta types used for QMetaObject::invokeMethod
     qRegisterMetaType< bool* >();
