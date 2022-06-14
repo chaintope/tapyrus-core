@@ -10,7 +10,7 @@
 #include <secp256k1.h>
 
 // validAggPrivateKey and validAggPubKeyString for tests are from
-// https://bitbucket.org/chaintope/tapyrus-signer/src/5337b5e10c1bed6ecca19fd8b411fdcfbe9f1cef/README.md?at=feature%2Fschnorr_signature
+// https://github.com/chaintope/tapyrus-signer/src/5337b5e10c1bed6ecca19fd8b411fdcfbe9f1cef/README.md?at=feature%2Fschnorr_signature
 
 //67ae3f5bfb3464b9704d7bd3a134401cc80c3a172240ebfca9f1e40f51bb6d37
 const unsigned char validAggPrivateKey[32] = {0x67, 0xae, 0x3f, 0x5b, 0xfb, 0x34, 0x64, 0xb9, 0x70, 0x4d, 0x7b, 0xd3, 0xa1, 0x34, 0x40, 0x1c, 0xc8, 0x0c, 0x3a, 0x17, 0x22, 0x40, 0xeb, 0xfc, 0xa9, 0xf1, 0xe4, 0x0f, 0x51, 0xbb, 0x6d, 0x37};
