@@ -358,10 +358,10 @@ public:
         num_blocks = ::chainActive.Height();
         return true;
     }
-    CAmount getBalance() override { return m_wallet.GetBalance()[ColorIdentifier()]; }
-    CAmount getAvailableBalance(const CCoinControl& coin_control) override
+    CAmount getBalance(ColorIdentifier colorId) override { return m_wallet.GetBalance()[colorId]; }
+    CAmount getAvailableBalance(const CCoinControl& coin_control, ColorIdentifier colorId) override
     {
-        return m_wallet.GetAvailableBalance(&coin_control)[ColorIdentifier()];
+        return m_wallet.GetAvailableBalance(&coin_control)[colorId];
     }
     isminetype txinIsMine(const CTxIn& txin) override
     {
