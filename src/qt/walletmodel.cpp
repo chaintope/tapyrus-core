@@ -125,6 +125,18 @@ bool WalletModel::validateAddress(const QString &address)
     return IsValidDestinationString(address.toStdString());
 }
 
+bool WalletModel::isColoredAddress(const QString &address)
+{
+    return IsColoredDestination(address.toStdString(), nullptr);
+}
+
+ColorIdentifier WalletModel::getColorFromAddress(const QString &address)
+{
+    ColorIdentifier colorId;
+    if(IsColoredDestination(address.toStdString(), &colorId))
+        return colorId;
+}
+
 WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransaction &transaction, const CCoinControl& coinControl)
 {
     CAmount total = 0;
