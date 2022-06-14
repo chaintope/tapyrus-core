@@ -36,9 +36,12 @@ public:
     void setClientModel(ClientModel *clientModel);
     void setWalletModel(WalletModel *walletModel);
     void showOutOfSyncWarning(bool fShow);
+    void updateBalances();
 
 public Q_SLOTS:
     void setBalance(const interfaces::WalletBalances& balances);
+    void prev();
+    void next();
 
 Q_SIGNALS:
     void transactionClicked(const QModelIndex &index);
@@ -52,6 +55,10 @@ private:
 
     TxViewDelegate *txdelegate;
     std::unique_ptr<TransactionFilterProxy> filter;
+
+    //list of tokens in the wallet for easy display.
+    std::set<ColorIdentifier> m_tokens;
+    std::set<ColorIdentifier>::iterator m_index;
 
 private Q_SLOTS:
     void updateDisplayUnit();

@@ -213,3 +213,21 @@ bool IsValidDestinationString(const std::string& str)
 {
     return IsValidDestinationString(str, Params());
 }
+
+bool IsColoredDestination(const std::string& str, ColorIdentifier* colorId)
+{
+   CTxDestination dest = DecodeDestination(str, Params());
+    if(dest.which() == 3)
+    {
+        if(colorId)
+            *colorId = boost::get<CColorKeyID>(dest).color;
+        return true;
+    }
+    else if(dest.which() == 4)
+    {
+        if(colorId)
+            *colorId = boost::get<CColorScriptID>(dest).color;
+        return true;
+    }
+   return false;
+}
