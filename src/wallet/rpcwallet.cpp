@@ -1,6 +1,6 @@
 // Copyright (c) 2010 Satoshi Nakamoto
 // Copyright (c) 2009-2018 The Bitcoin Core developers
-// Copyright (c) 2019 Chaintope Inc.
+// Copyright (c) 2019-2022 Chaintope Inc.
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -3578,7 +3578,13 @@ UniValue getaddressinfo(const JSONRPCRequest& request)
     std::string currentAddress = EncodeDestination(dest);
     ret.pushKV("address", currentAddress);
 
-    addTokenKV(dest, 0, ret);
+    ColorIdentifier colorId;
+    if(dest.which() == 3)
+        colorId = boost::get<CColorKeyID>(dest).color;
+    else if(dest.which() == 4)
+        colorId = boost::get<CColorScriptID>(dest).color;
+
+    ret.pushKV("token", colorId.toHexString());
 
     CScript scriptPubKey = GetScriptForDestination(dest);
     ret.pushKV("scriptPubKey", HexStr(scriptPubKey.begin(), scriptPubKey.end()));

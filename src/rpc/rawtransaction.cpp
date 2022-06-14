@@ -1,6 +1,6 @@
 // Copyright (c) 2010 Satoshi Nakamoto
 // Copyright (c) 2009-2018 The Bitcoin Core developers
-// Copyright (c) 2019 Chaintope Inc.
+// Copyright (c) 2019-2022 Chaintope Inc.
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -96,7 +96,7 @@ static UniValue getrawtransaction(const JSONRPCRequest& request)
             "  \"txid\" : \"id\",        (string) The transaction id (same as provided)\n"
             "  \"hash\" : \"id\",        (string) The transaction hash including scriptSig (differs from txid).\n"
             "  \"size\" : n,             (numeric) The serialized transaction size\n"
-            "  \"version\" : n,          (numeric) The version\n"
+            "  \"features\" : n,         (numeric) The transaction features\n"
             "  \"locktime\" : ttt,       (numeric) The lock time\n"
             "  \"vin\" : [               (array of json objects)\n"
             "     {\n"
@@ -523,7 +523,7 @@ static UniValue decoderawtransaction(const JSONRPCRequest& request)
             "  \"txid\" : \"id\",        (string) The transaction id\n"
             "  \"hash\" : \"id\",        (string) The transaction hash (including scriptSig)\n"
             "  \"size\" : n,             (numeric) The transaction size\n"
-            "  \"version\" : n,          (numeric) The version\n"
+            "  \"features\" : n,          (numeric) The transaction features\n"
             "  \"locktime\" : ttt,       (numeric) The lock time\n"
             "  \"vin\" : [               (array of json objects)\n"
             "     {\n"
