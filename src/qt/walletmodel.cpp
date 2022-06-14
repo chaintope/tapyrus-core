@@ -554,3 +554,10 @@ bool WalletModel::isMultiwallet()
 {
     return m_node.getWallets().size() > 1;
 }
+
+//Constructor definition moved here to initialize colorid
+SendCoinsRecipient::SendCoinsRecipient(const QString &addr, const QString &_label, const CAmount& _amount, const QString &_message):
+    address(addr), label(_label), amount(_amount), message(_message), fSubtractFeeFromAmount(false), nVersion(SendCoinsRecipient::CURRENT_VERSION)
+    {
+        IsColoredDestination(address.toStdString(), &colorid);
+    }
