@@ -142,7 +142,7 @@ void ReceiveRequestDialog::update()
     if(info.colorid.type != TokenTypes::NONE)
         html += "<b>"+tr("Token")+"</b>: " + info.colorid.toHexString().c_str() + "<br>";
     if(info.amount)
-        html += "<b>"+tr("Amount")+"</b>: " + ((info.colorid.type != TokenTypes::NONE) ?TapyrusUnits::formatHtmlWithUnit(model->getOptionsModel()->getDisplayUnit(), info.amount):TapyrusUnits::formatHtmlWithUnit(TapyrusUnits::TOKEN, info.amount) )+ "<br>";
+        html += "<b>"+tr("Amount")+"</b>: " + (info.colorid.type == TokenTypes::NONE ? TapyrusUnits::formatHtmlWithUnit(model->getOptionsModel()->getDisplayUnit(), info.amount): TapyrusUnits::formatHtmlWithUnit(TapyrusUnits::TOKEN, info.amount) ) + "<br>";
     if(!info.label.isEmpty())
         html += "<b>"+tr("Label")+"</b>: " + GUIUtil::HtmlEscape(info.label) + "<br>";
     if(!info.message.isEmpty())

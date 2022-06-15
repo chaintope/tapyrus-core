@@ -83,9 +83,9 @@ QVariant RecentRequestsTableModel::data(const QModelIndex &index, int role) cons
             if (rec->recipient.amount == 0 && role == Qt::DisplayRole)
                 return tr("(no amount requested)");
             else if (role == Qt::EditRole)
-                return TapyrusUnits::format(walletModel->getOptionsModel()->getDisplayUnit(), rec->recipient.amount, false, TapyrusUnits::separatorNever);
+                return rec->recipient.colorid.type == TokenTypes::NONE ?  TapyrusUnits::format(walletModel->getOptionsModel()->getDisplayUnit(), rec->recipient.amount, false, TapyrusUnits::separatorNever) : TapyrusUnits::formatWithUnit(TapyrusUnits::TOKEN, rec->recipient.amount);
             else
-                return TapyrusUnits::format(walletModel->getOptionsModel()->getDisplayUnit(), rec->recipient.amount);
+                return rec->recipient.colorid.type == TokenTypes::NONE ? TapyrusUnits::format(walletModel->getOptionsModel()->getDisplayUnit(), rec->recipient.amount) : TapyrusUnits::formatWithUnit(TapyrusUnits::TOKEN, rec->recipient.amount);
         }
     }
     else if (role == Qt::TextAlignmentRole)
