@@ -155,7 +155,11 @@ void TestGUI()
     wallet->SetBroadcastTransactions(true);
 
     // Create widgets for sending coins and listing transactions.
+#if defined(MAC_OSX)
+    std::unique_ptr<const PlatformStyle> platformStyle(PlatformStyle::instantiate("macosx"));
+#else
     std::unique_ptr<const PlatformStyle> platformStyle(PlatformStyle::instantiate("other"));
+#endif
     SendCoinsDialog sendCoinsDialog(platformStyle.get());
     TransactionView transactionView(platformStyle.get());
     auto node = interfaces::MakeNode();
