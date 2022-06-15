@@ -85,11 +85,16 @@ TransactionView::TransactionView(const PlatformStyle *platformStyle, QWidget *pa
 
     typeWidget->addItem(tr("All"), TransactionFilterProxy::ALL_TYPES);
     typeWidget->addItem(tr("Received with"), TransactionFilterProxy::TYPE(TransactionRecord::RecvWithAddress) |
-                                        TransactionFilterProxy::TYPE(TransactionRecord::RecvFromOther));
+                TransactionFilterProxy::TYPE(TransactionRecord::RecvFromOther)|
+                TransactionFilterProxy::TYPE(TransactionRecord::TokenRecvWithAddress)|
+                TransactionFilterProxy::TYPE(TransactionRecord::TokenRecvFromOther));
     typeWidget->addItem(tr("Sent to"), TransactionFilterProxy::TYPE(TransactionRecord::SendToAddress) |
-                                  TransactionFilterProxy::TYPE(TransactionRecord::SendToOther));
-    typeWidget->addItem(tr("To yourself"), TransactionFilterProxy::TYPE(TransactionRecord::SendToSelf));
+                TransactionFilterProxy::TYPE(TransactionRecord::SendToOther)|
+                TransactionFilterProxy::TYPE(TransactionRecord::TokenSendToAddress)|
+                TransactionFilterProxy::TYPE(TransactionRecord::TokenSendToOther));
+    typeWidget->addItem(tr("To yourself"), TransactionFilterProxy::TYPE(TransactionRecord::SendToSelf) | TransactionFilterProxy::TYPE(TransactionRecord::TokenSendToSelf));
     typeWidget->addItem(tr("Mined"), TransactionFilterProxy::TYPE(TransactionRecord::Generated));
+    typeWidget->addItem(tr("Token"), TransactionFilterProxy::TYPE(TransactionRecord::TokenRecvWithAddress)|TransactionFilterProxy::TYPE(TransactionRecord::TokenRecvFromOther)|TransactionFilterProxy::TYPE(TransactionRecord::TokenSendToAddress)|TransactionFilterProxy::TYPE(TransactionRecord::TokenSendToOther));
     typeWidget->addItem(tr("Other"), TransactionFilterProxy::TYPE(TransactionRecord::Other));
 
     hlayout->addWidget(typeWidget);

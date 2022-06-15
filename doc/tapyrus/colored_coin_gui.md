@@ -21,3 +21,7 @@ Receiving tokens is also similar to receiving TPC. In addition to lable, message
 
 A new entry is added to the payment history table after the address is generated.
 ![Received payment dialog](./images/Tapyrus-receive-dialog.png)
+
+A new column called Token is added to the transaction table. It shows the token name or TPC for every transaction output. Amount column for TPC is formatted according to wallet setting. For tokens, it is always the number of tokens.
+
+![Transaction page](./images/Tapyrus-transaction-page.png)

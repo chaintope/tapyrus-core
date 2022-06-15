@@ -58,7 +58,7 @@ public:
 };
 
 //! Construct wallet tx struct.
-WalletTx MakeWalletTx(CWallet& wallet, const CWalletTx& wtx)
+WalletTx MakeWalletTx(Node& node, CWallet& wallet, const CWalletTx& wtx)
 {
     WalletTx result;
     result.tx = wtx.tx;
@@ -83,11 +83,13 @@ WalletTx MakeWalletTx(CWallet& wallet, const CWalletTx& wtx)
     result.time = wtx.GetTxTime();
     result.value_map = wtx.mapValue;
     result.is_coinbase = wtx.IsCoinBase();
+    result.is_tokenInput = result.isTokenInput(node);
+    result.is_tokenOutput = result.isTokenOutput();
     return result;
 }
 
 //! Construct wallet tx status struct.
-WalletTxStatus MakeWalletTxStatus(const CWalletTx& wtx)
+WalletTxStatus MakeWalletTxStatus(Node& node, const CWalletTx& wtx)
 {
     WalletTxStatus result;
     auto mi = ::mapBlockIndex.find(wtx.hashBlock);
@@ -274,26 +276,26 @@ public:
         }
         return {};
     }
-    WalletTx getWalletTx(const uint256& txid) override
+    WalletTx getWalletTx(Node& node, const uint256& txid) override
     {
         LOCK2(::cs_main, m_wallet.cs_wallet);
         auto mi = m_wallet.mapWallet.find(txid);
         if (mi != m_wallet.mapWallet.end()) {
-            return MakeWalletTx(m_wallet, mi->second);
+            return MakeWalletTx(node, m_wallet, mi->second);
         }
         return {};
     }
-    std::vector<WalletTx> getWalletTxs() override
+    std::vector<WalletTx> getWalletTxs(Node& node) override
     {
         LOCK2(::cs_main, m_wallet.cs_wallet);
         std::vector<WalletTx> result;
         result.reserve(m_wallet.mapWallet.size());
         for (const auto& entry : m_wallet.mapWallet) {
-            result.emplace_back(MakeWalletTx(m_wallet, entry.second));
+            result.emplace_back(MakeWalletTx(node, m_wallet, entry.second));
         }
         return result;
     }
-    bool tryGetTxStatus(const uint256& txid,
+    bool tryGetTxStatus(Node& node, const uint256& txid,
         interfaces::WalletTxStatus& tx_status,
         int& num_blocks,
         int64_t& adjusted_time) override
@@ -312,10 +314,10 @@ public:
         }
         num_blocks = ::chainActive.Height();
         adjusted_time = GetAdjustedTime();
-        tx_status = MakeWalletTxStatus(mi->second);
+        tx_status = MakeWalletTxStatus(node, mi->second);
         return true;
     }
-    WalletTx getWalletTxDetails(const uint256& txid,
+    WalletTx getWalletTxDetails(Node& node, const uint256& txid,
         WalletTxStatus& tx_status,
         WalletOrderForm& order_form,
         bool& in_mempool,
@@ -329,8 +331,8 @@ public:
             adjusted_time = GetAdjustedTime();
             in_mempool = mi->second.InMempool();
             order_form = mi->second.vOrderForm;
-            tx_status = MakeWalletTxStatus(mi->second);
-            return MakeWalletTx(m_wallet, mi->second);
+            tx_status = MakeWalletTxStatus(node, mi->second);
+            return MakeWalletTx(node, m_wallet, mi->second);
         }
         return {};
     }
