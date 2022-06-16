@@ -43,8 +43,8 @@ Build Tapyrus Core
 
 1. Clone the Tapyrus Core source code and cd into `tapyrus`
 
-        git clone https://github.com/chaintope/tapyrus-core
-        cd tapyrus
+        git clone --recursive https://github.com/chaintope/tapyrus-core
+        cd tapyrus-core
 
 2.  Build Tapyrus Core:
 
