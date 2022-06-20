@@ -78,7 +78,7 @@ bool EditAddressDialog::saveCurrentRow()
         address = model->addRow(
                 AddressTableModel::Send,
                 ui->labelEdit->text(),
-                ui->addressEdit->text(),
+                ui->addressEdit->text(), "",
                 model->GetDefaultAddressType());
         break;
     case EditReceivingAddress:

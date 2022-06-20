@@ -143,7 +143,7 @@ void TestGUI()
     wallet->LoadWallet(firstRun);
     {
         LOCK(wallet->cs_wallet);
-        wallet->SetAddressBook(GetDestinationForKey(test.coinbaseKey.GetPubKey(), wallet->m_default_address_type), "", "receive");
+        wallet->SetAddressBook(GetDestinationForKey(test.coinbaseKey.GetPubKey(), wallet->m_default_address_type, ColorIdentifier()), "", "receive");
         wallet->AddKeyPubKey(test.coinbaseKey, test.coinbaseKey.GetPubKey());
     }
     {
@@ -155,7 +155,11 @@ void TestGUI()
     wallet->SetBroadcastTransactions(true);
 
     // Create widgets for sending coins and listing transactions.
+#if defined(MAC_OSX)
+    std::unique_ptr<const PlatformStyle> platformStyle(PlatformStyle::instantiate("macosx"));
+#else
     std::unique_ptr<const PlatformStyle> platformStyle(PlatformStyle::instantiate("other"));
+#endif
     SendCoinsDialog sendCoinsDialog(platformStyle.get());
     TransactionView transactionView(platformStyle.get());
     auto node = interfaces::MakeNode();
@@ -188,7 +192,7 @@ void TestGUI()
     QString balanceText = balanceLabel->text();
     int unit = walletModel.getOptionsModel()->getDisplayUnit();
     CAmount balance = walletModel.wallet().getBalance();
-    QString balanceComparison = BitcoinUnits::formatWithUnit(unit, balance, false, BitcoinUnits::separatorAlways);
+    QString balanceComparison = TapyrusUnits::formatWithUnit(unit, balance, false, TapyrusUnits::separatorAlways);
     QCOMPARE(balanceText, balanceComparison);
 
     // Check Request Payment button

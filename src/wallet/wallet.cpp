@@ -856,7 +856,7 @@ bool CWallet::GetLabelDestination(CTxDestination &dest, const std::string& label
             bForceNew = true;
         else {
             // Check if the current key has been used (TODO: check other addresses with the same key)
-            CScript scriptPubKey = GetScriptForDestination(GetDestinationForKey(account.vchPubKey, m_default_address_type));
+            CScript scriptPubKey = GetScriptForDestination(GetDestinationForKey(account.vchPubKey, m_default_address_type, ColorIdentifier()));
             for (std::map<uint256, CWalletTx>::iterator it = mapWallet.begin();
                  it != mapWallet.end() && account.vchPubKey.IsValid();
                  ++it)
@@ -873,11 +873,11 @@ bool CWallet::GetLabelDestination(CTxDestination &dest, const std::string& label
         if (!GetKeyFromPool(account.vchPubKey, false))
             return false;
 
-        dest = GetDestinationForKey(account.vchPubKey, m_default_address_type);
+        dest = GetDestinationForKey(account.vchPubKey, m_default_address_type, ColorIdentifier());
         SetAddressBook(dest, label, "receive");
         batch.WriteAccount(label, account);
     } else {
-        dest = GetDestinationForKey(account.vchPubKey, m_default_address_type);
+        dest = GetDestinationForKey(account.vchPubKey, m_default_address_type, ColorIdentifier());
     }
 
     return true;
@@ -2727,7 +2727,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
 
                 const OutputType change_type =  m_default_change_type;
 
-                scriptChange = GetScriptForDestination(GetDestinationForKey(vchPubKey, change_type));
+                scriptChange = GetScriptForDestination(GetDestinationForKey(vchPubKey, change_type, ColorIdentifier()));
             }
             CTxOut change_prototype_txout(0, scriptChange);
             coin_selection_params.change_output_size = GetSerializeSize(change_prototype_txout, SER_DISK, 0);

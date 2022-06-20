@@ -60,5 +60,6 @@
 
 #cmakedefine ENABLE_WALLET 1
 #cmakedefine ENABLE_ZMQ 1
+#cmakedefine ENABLE_QRCODE 0
 
 #endif // BITCOIN_BITCOIN_CONFIG_H
