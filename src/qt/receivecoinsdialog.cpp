@@ -139,11 +139,12 @@ void ReceiveCoinsDialog::on_receiveButton_clicked()
 
     QString address;
     QString label = ui->reqLabel->text();
-    const ColorIdentifier colorid(ParseHex(ui->tokenName->text().toStdString().c_str()));
+    QString color = ui->tokenName->text();
+    const ColorIdentifier colorid(color.length() ? ParseHex(color.toStdString().c_str()) : ColorIdentifier());
     /* Generate new receiving address */
     OutputType address_type = ui->tokenName->text().isEmpty() ?  model->wallet().getDefaultAddressType() : OutputType::TOKEN;
 
-    address = model->getAddressTableModel()->addRow(AddressTableModel::Receive, label, "", ui->tokenName->text(), address_type);
+    address = model->getAddressTableModel()->addRow(AddressTableModel::Receive, label, "", color, address_type);
     SendCoinsRecipient info(address, label, ui->reqAmount->value(), ui->reqMessage->text());
     info.colorid = colorid;
     ReceiveRequestDialog *dialog = new ReceiveRequestDialog(this);

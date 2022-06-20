@@ -363,7 +363,7 @@ QString AddressTableModel::addRow(const QString &type, const QString &label, con
     else if(type == Receive)
     {
         // Generate a new address to associate with given label
-        ColorIdentifier colorId(ParseHex(colorin.toStdString().c_str()));
+        ColorIdentifier colorId(colorin.length() ? ParseHex(colorin.toStdString().c_str()) : ColorIdentifier());
         CPubKey newKey;
         if(!walletModel->wallet().getKeyFromPool(false /* internal */, newKey))
         {
