@@ -218,7 +218,7 @@ static UniValue getnewaddress(const JSONRPCRequest& request)
     OutputType output_type = pwallet->m_default_address_type;
 
     if (colorId.type == TokenTypes::NONE)
-        dest = GetDestinationForKey(newKey, output_type);
+        dest = GetDestinationForKey(newKey, output_type, colorId);
     else
         dest = CColorKeyID(newKey.GetID(), colorId);
 
@@ -285,7 +285,7 @@ static UniValue getrawchangeaddress(const JSONRPCRequest& request)
     CTxDestination dest;
     OutputType output_type = pwallet->m_default_change_type;
     if (colorId.type == TokenTypes::NONE)
-        dest = GetDestinationForKey(vchPubKey, output_type);
+        dest = GetDestinationForKey(vchPubKey, output_type, colorId);
     else
         dest = CColorKeyID(vchPubKey.GetID(), colorId);
 
@@ -1054,7 +1054,7 @@ static UniValue addmultisigaddress(const JSONRPCRequest& request)
 
     // Construct using pay-to-script-hash:
     CScript inner = CreateMultisigRedeemscript(required, pubkeys);
-    CTxDestination dest = AddAndGetDestinationForScript(*pwallet, inner, output_type);
+    CTxDestination dest = AddAndGetDestinationForScript(*pwallet, inner, output_type, ColorIdentifier());
     pwallet->SetAddressBook(dest, label, "send");
 
     UniValue result(UniValue::VOBJ);
