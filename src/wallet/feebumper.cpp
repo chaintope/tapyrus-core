@@ -95,7 +95,7 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
     // if there was no change output or multiple change outputs, fail
     int nOutput = -1;
     for (size_t i = 0; i < wtx.tx->vout.size(); ++i) {
-        if (wallet->IsChange(wtx.tx->vout[i])) {
+        if (wallet->IsChange(wtx.tx->vout[i]) && GetColorIdFromScript(wtx.tx->vout[i].scriptPubKey).type == TokenTypes::NONE) {
             if (nOutput != -1) {
                 errors.push_back("Transaction has multiple change outputs");
                 return Result::WALLET_ERROR;

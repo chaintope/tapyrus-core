@@ -137,9 +137,9 @@ ColorIdentifier WalletModel::getColorFromAddress(const QString &address)
         return colorId;
 }
 
-WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransaction &transaction, const CCoinControl& coinControl)
+WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransaction &transaction, CCoinControl& coinControl)
 {
-    CAmount total = 0;
+    TxColoredCoinBalancesMap total, nBalance;
     bool fSubtractFeeFromAmount = false;
     QList<SendCoinsRecipient> recipients = transaction.getRecipients();
     std::vector<CRecipient> vecSend;
@@ -175,20 +175,21 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
             CRecipient recipient = {scriptPubKey, rcp.amount, rcp.fSubtractFeeFromAmount};
             vecSend.push_back(recipient);
 
-            total += rcp.amount;
+            total[rcp.colorid] += rcp.amount;
         }
+        coinControl.m_colorId = rcp.colorid;
+        nBalance[rcp.colorid] += m_wallet->getAvailableBalance(coinControl);
     }
     if(setAddress.size() != nAddresses)
     {
         return DuplicateAddress;
     }
 
-    CAmount nBalance = m_wallet->getAvailableBalance(coinControl);
-
-    if(total > nBalance)
-    {
-        return AmountExceedsBalance;
-    }
+    for(auto colorwiseBlance : total)
+        if(colorwiseBlance.second > nBalance[colorwiseBlance.first])
+        {
+            return AmountExceedsBalance;
+        }
 
     {
         CAmount nFeeRequired = 0;
@@ -203,7 +204,8 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
 
         if(!newTx)
         {
-            if(!fSubtractFeeFromAmount && (total + nFeeRequired) > nBalance)
+            coinControl.m_colorId = ColorIdentifier();
+            if(!fSubtractFeeFromAmount && (total[ColorIdentifier()] + nFeeRequired) > m_wallet->getAvailableBalance(coinControl))
             {
                 return SendCoinsReturn(AmountWithFeeExceedsBalance);
             }

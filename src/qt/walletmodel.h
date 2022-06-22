@@ -51,7 +51,7 @@ QT_END_NAMESPACE
 class SendCoinsRecipient
 {
 public:
-    explicit SendCoinsRecipient() : amount(0), fSubtractFeeFromAmount(false), colorid(), nVersion(SendCoinsRecipient::CURRENT_VERSION)  { }
+    explicit SendCoinsRecipient() : amount(0), colorid(), fSubtractFeeFromAmount(false), nVersion(SendCoinsRecipient::CURRENT_VERSION)  { }
     //only decleration is here
     explicit SendCoinsRecipient(const QString &addr, const QString &_label, const CAmount& _amount, const QString &_message);
 
@@ -158,7 +158,7 @@ public:
     };
 
     // prepare transaction for getting txfee before sending coins
-    SendCoinsReturn prepareTransaction(WalletModelTransaction &transaction, const CCoinControl& coinControl);
+    SendCoinsReturn prepareTransaction(WalletModelTransaction &transaction,  CCoinControl& coinControl);
 
     // Send coins to a list of recipients
     SendCoinsReturn sendCoins(WalletModelTransaction &transaction);
