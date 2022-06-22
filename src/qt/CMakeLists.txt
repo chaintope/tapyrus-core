@@ -3,15 +3,13 @@
 project(tapyrus-qt)
 
 # This ensure that AUTOMOC doesn't run on generated files.
-cmake_policy(SET CMP0071 OLD)
+cmake_policy(SET CMP0071 NEW)
 
 include(BrewHelper)
 find_brew_prefix(QT5_PREFIX qt5)
 
 set(QT_REQUIRED_COMPONENTS Core Widgets Network DBus Test)
 find_package(Qt5 COMPONENTS ${QT_REQUIRED_COMPONENTS} REQUIRED HINTS "${QT5_PREFIX}")
-
-find_package(QREncode REQUIRED)
 
 # Find out more about Qt. This is similar to
 # http://code.qt.io/cgit/qt/qtwebkit.git/tree/Source/cmake/OptionsQt.cmake
@@ -157,17 +155,32 @@ add_library(tapyrus-qt-base
 	qrc_tapyrus_locale.cpp
 )
 
+# Linux support
+if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+	list(APPEND QT_PLUGIN_COMPONENTS QXcbIntegrationPlugin)
+	list(APPEND QT_PLUGIN_PLATFORM_DEFINITIONS -DQT_QPA_PLATFORM_XCB=1)
+endif()
 # Windows support
 if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+	list(APPEND QT_PLUGIN_COMPONENTS QWindowsIntegrationPlugin)
+	list(APPEND QT_PLUGIN_PLATFORM_DEFINITIONS -DQT_QPA_PLATFORM_WINDOWS=1)
 	target_sources(tapyrus-qt-base PRIVATE winshutdownmonitor.cpp)
 endif()
-
-target_include_directories(tapyrus-qt-base
-	PUBLIC
-		.
-		${CMAKE_CURRENT_BINARY_DIR}
-		${CMAKE_CURRENT_BINARY_DIR}/forms
-)
+# OSX support
+if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+	list(APPEND QT_PLUGIN_COMPONENTS QCocoaIntegrationPlugin)
+	list(APPEND QT_PLUGIN_PLATFORM_DEFINITIONS -DQT_QPA_PLATFORM_COCOA=1)
+	target_sources(tapyrus-qt-base PRIVATE
+		macdockiconhandler.mm
+		macnotificationhandler.mm
+	)
+	set_property(TARGET tapyrus-qt-base PROPERTY AUTOMOC_MOC_OPTIONS "-DQ_OS_MAC")
+	target_link_libraries(tapyrus-qt-base
+		"-framework Foundation"
+		"-framework ApplicationServices"
+		"-framework AppKit"
+	)
+endif()
 
 target_link_libraries(tapyrus-qt-base
 	server
@@ -175,12 +188,8 @@ target_link_libraries(tapyrus-qt-base
 	Qt5::Widgets
 	Qt5::Network
 	Qt5::DBus
-	qrencode
 )
 
-if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-	set_property(TARGET tapyrus-qt-base PROPERTY AUTOMOC_MOC_OPTIONS "-DQ_OS_MAC")
-endif()
 
 # Wallet
 if(BUILD_TAPYRUS_WALLET)
@@ -218,6 +227,11 @@ if(BUILD_TAPYRUS_WALLET)
 	)
 
 	target_link_libraries(tapyrus-qt-base wallet)
+
+	if(ENABLE_QRCODE)
+ 		find_package(QREncode REQUIRED)
+ 		target_link_libraries(tapyrus-qt-base QREncode::qrencode)
+ 	endif()
 endif()
 
 # The executable

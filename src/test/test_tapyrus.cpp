@@ -191,8 +191,7 @@ TestChainSetup::CreateAndProcessBlock(const std::vector<CMutableTransaction>& tx
     if(block.GetHeight() > 5)
         m_coinbase_txns.push_back(block.vtx[0]);
 
-    CBlock result = block;
-    return result;
+    return block;
 }
 
 

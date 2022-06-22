@@ -11,6 +11,7 @@
 #include <script/standard.h>           // For CTxDestination
 #include <support/allocators/secure.h> // For SecureString
 #include <ui_interface.h>              // For ChangeType
+#include "node.h"
 
 #include <functional>
 #include <map>
@@ -166,19 +167,19 @@ public:
     virtual CTransactionRef getTx(const uint256& txid) = 0;
 
     //! Get transaction information.
-    virtual WalletTx getWalletTx(const uint256& txid) = 0;
+    virtual WalletTx getWalletTx(Node& node, const uint256& txid) = 0;
 
     //! Get list of all wallet transactions.
-    virtual std::vector<WalletTx> getWalletTxs() = 0;
+    virtual std::vector<WalletTx> getWalletTxs(Node& node) = 0;
 
     //! Try to get updated status for a particular transaction, if possible without blocking.
-    virtual bool tryGetTxStatus(const uint256& txid,
+    virtual bool tryGetTxStatus(Node& node, const uint256& txid,
         WalletTxStatus& tx_status,
         int& num_blocks,
         int64_t& adjusted_time) = 0;
 
     //! Get transaction details.
-    virtual WalletTx getWalletTxDetails(const uint256& txid,
+    virtual WalletTx getWalletTxDetails(Node& node, const uint256& txid,
         WalletTxStatus& tx_status,
         WalletOrderForm& order_form,
         bool& in_mempool,
@@ -192,10 +193,10 @@ public:
     virtual bool tryGetBalances(WalletBalances& balances, int& num_blocks) = 0;
 
     //! Get balance.
-    virtual CAmount getBalance() = 0;
+    virtual CAmount getBalance(ColorIdentifier colorId = ColorIdentifier()) = 0;
 
     //! Get available balance.
-    virtual CAmount getAvailableBalance(const CCoinControl& coin_control) = 0;
+    virtual CAmount getAvailableBalance(const CCoinControl& coin_control, ColorIdentifier colorId = ColorIdentifier()) = 0;
 
     //! Return whether transaction input belongs to wallet.
     virtual isminetype txinIsMine(const CTxIn& txin) = 0;
@@ -311,32 +312,35 @@ struct WalletBalances
     bool have_watch_only;
     TxColoredCoinBalancesMap watch_only_balances;
     TxColoredCoinBalancesMap unconfirmed_watch_only_balances;
+    std::set<ColorIdentifier> tokens;
+    std::set<ColorIdentifier>::iterator tokenIndex;
 
     WalletBalances(){
         have_watch_only = false;
+        tokenIndex = tokens.begin();
     }
 
-    CAmount getBalance(const ColorIdentifier& colorId = ColorIdentifier()) const
+    CAmount getBalance() const
     {
-        auto it = balances.find(colorId);
+        auto it = balances.find(*tokenIndex);
         return it != balances.end() ? it->second : 0;
     }
 
-    CAmount getUnconfirmedBalance(const ColorIdentifier& colorId = ColorIdentifier()) const
+    CAmount getUnconfirmedBalance() const
     {
-        auto it = unconfirmed_balances.find(colorId);
+        auto it = unconfirmed_balances.find(*tokenIndex);
         return it != unconfirmed_balances.end() ? it->second : 0;
     }
 
-    CAmount getWatchOnlyBalance(const ColorIdentifier& colorId = ColorIdentifier()) const
+    CAmount getWatchOnlyBalance() const
     {
-        auto it = watch_only_balances.find(colorId);
+        auto it = watch_only_balances.find(*tokenIndex);
         return it != watch_only_balances.end() ? it->second : 0;
     }
 
-    CAmount getUnconfirmedWatchOnlyBalance(const ColorIdentifier& colorId = ColorIdentifier()) const
+    CAmount getUnconfirmedWatchOnlyBalance() const
     {
-        auto it = unconfirmed_watch_only_balances.find(colorId);
+        auto it = unconfirmed_watch_only_balances.find(*tokenIndex);
         return it != unconfirmed_watch_only_balances.end() ? it->second : 0;
     }
 
@@ -345,6 +349,53 @@ struct WalletBalances
         return balances != prev.balances || unconfirmed_balances != prev.unconfirmed_balances ||
                watch_only_balances != prev.watch_only_balances ||
                unconfirmed_watch_only_balances != prev.unconfirmed_watch_only_balances;
+    }
+
+    //collect all tokens in the wallet from all the balance lists
+    void refreshTokens() {
+        tokens.clear();
+
+        for(auto pair:balances)
+            tokens.insert(pair.first);
+        for(auto pair:unconfirmed_balances)
+            tokens.insert(pair.first);
+        for(auto pair:watch_only_balances)
+            tokens.insert(pair.first);
+        for(auto pair:unconfirmed_watch_only_balances)
+            tokens.insert(pair.first);
+
+        tokenIndex = tokens.begin();
+    }
+
+    void prev()
+    {
+        if(tokenIndex != tokens.begin())
+            tokenIndex--;
+        else
+        {
+            tokenIndex = tokens.end();
+            tokenIndex--;
+        }
+    }
+
+    void next()
+    {
+        if(tokenIndex != tokens.end())
+        {
+            tokenIndex++;
+            if(tokenIndex == tokens.end())
+                tokenIndex = tokens.begin();
+        }
+    }
+
+    bool isToken()
+    {
+        return (*tokenIndex).type != TokenTypes::NONE;
+    }
+
+    std::string getTokenName()
+    {
+        return (*tokenIndex).toHexString();
     }
 };
 
@@ -362,6 +413,8 @@ struct WalletTx
     int64_t time;
     std::map<std::string, std::string> value_map;
     bool is_coinbase;
+    bool is_tokenInput;
+    bool is_tokenOutput;
 
     CAmount getCredit(const ColorIdentifier& colorId = ColorIdentifier()) const
     {
@@ -379,6 +432,40 @@ struct WalletTx
     {
         auto it = changes.find(colorId);
         return it != changes.end() ? it->second : 0;
+    }
+
+    std::set<ColorIdentifier> getAllColorIds(Node& node) const
+    {
+        std::set<ColorIdentifier> txColorIdSet{ColorIdentifier()};
+        //Get all color ids from all inputs and outputs
+        for(auto in :tx->vin)
+        {
+            Coin prev;
+            if(node.getUnspentOutput(in.prevout, prev))
+                txColorIdSet.insert(GetColorIdFromScript(prev.out.scriptPubKey));
+        }
+        for(auto out:tx->vout)
+            txColorIdSet.insert(GetColorIdFromScript(out.scriptPubKey));
+
+        return txColorIdSet;
+    }
+
+    bool isTokenInput(Node& node) const
+    {
+        Coin prev;
+        for(auto in :tx->vin)
+            if(node.getUnspentOutput(in.prevout, prev) && GetColorIdFromScript(prev.out.scriptPubKey).type != TokenTypes::NONE)
+                return true;
+        return false;
+    }
+
+    bool isTokenOutput() const
+    {
+        for(auto out:tx->vout)
+            if(GetColorIdFromScript(out.scriptPubKey).type != TokenTypes::NONE)
+                return true;
+
+        return false;
     }
 };
 

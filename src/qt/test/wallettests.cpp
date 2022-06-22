@@ -3,6 +3,8 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 #include <qt/test/wallettests.h>
 #include <qt/test/util.h>
+#include <wallet/coincontrol.h>
+#include <consensus/validation.h>
 
 #include <interfaces/node.h>
 #include <qt/tapyrusamountfield.h>
@@ -133,7 +135,7 @@ void BumpFee(TransactionView& view, const uint256& txid, bool expectDisabled, st
 //     src/qt/test/test_tapyrus_qt -platform cocoa    # macOS
 void TestGUI()
 {
-    // Set up wallet and chain with 105 blocks (5 mature blocks for spending).
+    // Set up wallet and chain with 5 blocks (5 mature blocks for spending).
     TestChainSetup test;
     for (int i = 0; i < 5; ++i) {
         test.CreateAndProcessBlock({}, GetScriptForRawPubKey(test.coinbaseKey.GetPubKey()));
@@ -143,7 +145,7 @@ void TestGUI()
     wallet->LoadWallet(firstRun);
     {
         LOCK(wallet->cs_wallet);
-        wallet->SetAddressBook(GetDestinationForKey(test.coinbaseKey.GetPubKey(), wallet->m_default_address_type), "", "receive");
+        wallet->SetAddressBook(GetDestinationForKey(test.coinbaseKey.GetPubKey(), wallet->m_default_address_type, ColorIdentifier()), "", "receive");
         wallet->AddKeyPubKey(test.coinbaseKey, test.coinbaseKey.GetPubKey());
     }
     {
@@ -155,7 +157,11 @@ void TestGUI()
     wallet->SetBroadcastTransactions(true);
 
     // Create widgets for sending coins and listing transactions.
+#if defined(MAC_OSX)
+    std::unique_ptr<const PlatformStyle> platformStyle(PlatformStyle::instantiate("macosx"));
+#else
     std::unique_ptr<const PlatformStyle> platformStyle(PlatformStyle::instantiate("other"));
+#endif
     SendCoinsDialog sendCoinsDialog(platformStyle.get());
     TransactionView transactionView(platformStyle.get());
     auto node = interfaces::MakeNode();
@@ -188,7 +194,7 @@ void TestGUI()
     QString balanceText = balanceLabel->text();
     int unit = walletModel.getOptionsModel()->getDisplayUnit();
     CAmount balance = walletModel.wallet().getBalance();
-    QString balanceComparison = BitcoinUnits::formatWithUnit(unit, balance, false, BitcoinUnits::separatorAlways);
+    QString balanceComparison = TapyrusUnits::formatWithUnit(unit, balance, false, TapyrusUnits::separatorAlways);
     QCOMPARE(balanceText, balanceComparison);
 
     // Check Request Payment button
@@ -231,6 +237,201 @@ void TestGUI()
     QCOMPARE(labelInput->text(), QString(""));
     QCOMPARE(amountInput->value(), CAmount(0));
     QCOMPARE(messageInput->text(), QString(""));
+
+    // Check addition to history
+    int currentRowCount = requestTableModel->rowCount({});
+    QCOMPARE(currentRowCount, initialRowCount+1);
+
+    // Check Remove button
+    QTableView* table = receiveCoinsDialog.findChild<QTableView*>("recentRequestsView");
+    table->selectRow(currentRowCount-1);
+    QPushButton* removeRequestButton = receiveCoinsDialog.findChild<QPushButton*>("removeRequestButton");
+    removeRequestButton->click();
+    QCOMPARE(requestTableModel->rowCount({}), currentRowCount-1);
+}
+
+CMutableTransaction createTokenIssueTransaction(std::shared_ptr<CWallet> pwallet, CCoinControl& coin_control, int amount)
+{
+    CPubKey newKey;
+    pwallet->GetKeyFromPool(newKey);
+    CKeyID key_id = newKey.GetID();
+    CScript redeemScript = GetScriptForDestination(key_id);
+    CColorScriptID colorscriptid(CScriptID(redeemScript), coin_control.m_colorId);
+    CTxDestination colorDest = CColorScriptID(colorscriptid, coin_control.m_colorId);
+
+    CScript scriptpubkey = GetScriptForDestination(colorDest);
+
+    // Create and send the transaction
+    CReserveKey reservekey(pwallet.get());
+    CAmount nFeeRequired;
+    std::string strError;
+    std::vector<CRecipient> vecSend;
+    CWallet::ChangePosInOut mapChangePosRet;
+    mapChangePosRet[ColorIdentifier()] = -1;
+    CRecipient recipient = {scriptpubkey, amount, false};
+    vecSend.push_back(recipient);
+    CTransactionRef tx;
+
+    if(!pwallet->CreateTransaction(vecSend, tx, reservekey, nFeeRequired, mapChangePosRet, strError, coin_control))
+    {
+        fprintf(stdout, "%s\n", qPrintable(strError.c_str()));
+        return  CMutableTransaction();
+    }
+    CValidationState state;
+    mapValue_t mapValue;
+    if(!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, reservekey, g_connman.get(), state))
+    {
+        fprintf(stdout, "%s\n", qPrintable(strError.c_str()));
+        return  CMutableTransaction();
+    }
+    return  CMutableTransaction(*tx);
+}
+
+void TestGUI_coloredCoin()
+{
+    // Set up wallet and chain with 5 blocks (5 mature blocks for spending).
+    TestChainSetup test;
+    std::vector<const CBlock> blocks;
+    static int height = 1;
+    for (int i = 0; i < 5; ++i) {
+        blocks.push_back(test.CreateAndProcessBlock({}, GetScriptForRawPubKey(test.coinbaseKey.GetPubKey())));
+    }
+    std::shared_ptr<CWallet> wallet = std::make_shared<CWallet>("mock", WalletDatabase::CreateMock());
+    bool firstRun;
+    wallet->LoadWallet(firstRun);
+    ColorIdentifier colorId1, colorId2;
+
+    {
+        LOCK(wallet->cs_wallet);
+        wallet->SetAddressBook(GetDestinationForKey(test.coinbaseKey.GetPubKey(), wallet->m_default_address_type, ColorIdentifier()), "", "receive");
+        wallet->AddKeyPubKey(test.coinbaseKey, test.coinbaseKey.GetPubKey());
+    }
+    {
+        LOCK(cs_main);
+        WalletRescanReserver reserver(wallet.get());
+        reserver.reserve();
+        wallet->ScanForWalletTransactions(chainActive.Genesis(), nullptr, reserver, true);
+    }
+    //issue token
+    {
+        LOCK(wallet->cs_wallet);
+
+        CCoinControl coin_control;
+        std::vector<CMutableTransaction> txList;
+        COutPoint out1(blocks[height++].vtx[0]->GetHashMalFix(), 0);
+        coin_control.Select(out1);
+        coin_control.m_colorTxType = ColoredTxType::ISSUE;
+        colorId1 = ColorIdentifier(out1, TokenTypes::NON_REISSUABLE);
+        coin_control.m_colorId = colorId1;
+        txList.push_back(createTokenIssueTransaction(wallet, coin_control, 100));
+
+        blocks.push_back(test.CreateAndProcessBlock(txList, GetScriptForRawPubKey(test.coinbaseKey.GetPubKey())));
+
+        wallet->SetAddressBook(GetDestinationForKey(test.coinbaseKey.GetPubKey(), wallet->m_default_address_type, colorId1), "", "receive");
+    }
+    {
+        LOCK(cs_main);
+        WalletRescanReserver reserver(wallet.get());
+        reserver.reserve();
+        wallet->ScanForWalletTransactions(chainActive.Genesis(), nullptr, reserver, true);
+    }
+    wallet->SetBroadcastTransactions(true);
+
+    // Create widgets for sending coins and listing transactions.
+#if defined(MAC_OSX)
+    std::unique_ptr<const PlatformStyle> platformStyle(PlatformStyle::instantiate("macosx"));
+#else
+    std::unique_ptr<const PlatformStyle> platformStyle(PlatformStyle::instantiate("other"));
+#endif
+    SendCoinsDialog sendCoinsDialog(platformStyle.get());
+    TransactionView transactionView(platformStyle.get());
+    auto node = interfaces::MakeNode();
+    OptionsModel optionsModel(*node);
+    AddWallet(wallet);
+    WalletModel walletModel(std::move(node->getWallets().back()), *node, platformStyle.get(), &optionsModel);
+    RemoveWallet(wallet);
+    sendCoinsDialog.setModel(&walletModel);
+    transactionView.setModel(&walletModel);
+
+    // Send two transactions, and verify they are added to transaction list along with coinbase.
+    TransactionTableModel* transactionTableModel = walletModel.getTransactionTableModel();
+    QCOMPARE(transactionTableModel->rowCount({}), 13);
+    uint256 txid1 = SendCoins(*wallet.get(), sendCoinsDialog, CColorKeyID(colorId1), 40, false /* rbf */);
+    uint256 txid2 = SendCoins(*wallet.get(), sendCoinsDialog, CColorKeyID(colorId1), 50, true /* rbf */);
+    QCOMPARE(transactionTableModel->rowCount({}), 15);
+    QVERIFY(FindTx(*transactionTableModel, txid1).isValid());
+    QVERIFY(FindTx(*transactionTableModel, txid2).isValid());
+
+    // Call bumpfee. Test disabled, canceled, enabled, then failing cases.
+    BumpFee(transactionView, txid2, false /* expect disabled */, {} /* expected error */, true /* cancel */);
+    BumpFee(transactionView, txid2, false /* expect disabled */, {} /* expected error */, false /* cancel */);
+    BumpFee(transactionView, txid2, true /* expect disabled */, "already bumped" /* expected error */, false /* cancel */);
+
+    // Check current  TPC balance on OverviewPage
+    OverviewPage overviewPage(platformStyle.get());
+    overviewPage.setWalletModel(&walletModel);
+    QLabel* balanceLabel = overviewPage.findChild<QLabel*>("labelBalance");
+    QString balanceText = balanceLabel->text();
+    int unit = walletModel.getOptionsModel()->getDisplayUnit();
+    CAmount balance = walletModel.wallet().getBalance();
+    QString balanceComparison = TapyrusUnits::formatWithUnit(unit, balance, false, TapyrusUnits::separatorAlways);
+    QCOMPARE(balanceText, balanceComparison);
+
+    // Check current  color coin balance on OverviewPage
+    QPushButton* nextButton = overviewPage.findChild<QPushButton*>("nextButton");
+    nextButton->click();
+    balanceLabel = overviewPage.findChild<QLabel*>("labelBalance");
+    balanceText = balanceLabel->text();
+    balance = walletModel.wallet().getBalance(colorId1);
+    balanceComparison = TapyrusUnits::formatWithUnit( TapyrusUnit::TOKEN, balance, false, TapyrusUnits::separatorAlways);
+    QCOMPARE(balanceText, balanceComparison);
+
+    // Check Request Payment button
+    ReceiveCoinsDialog receiveCoinsDialog(platformStyle.get());
+    receiveCoinsDialog.setModel(&walletModel);
+    RecentRequestsTableModel* requestTableModel = walletModel.getRecentRequestsTableModel();
+
+    // Label input
+    QLineEdit* labelInput = receiveCoinsDialog.findChild<QLineEdit*>("reqLabel");
+    labelInput->setText("TEST_LABEL_1");
+
+    // Color input
+    QLineEdit* tokenInput = receiveCoinsDialog.findChild<QLineEdit*>("tokenName");
+    tokenInput->setText(colorId1.toHexString().c_str());
+
+    // Amount input
+    BitcoinAmountField* amountInput = receiveCoinsDialog.findChild<BitcoinAmountField*>("reqAmount");
+    amountInput->setValue(10);
+
+    // Message input
+    QLineEdit* messageInput = receiveCoinsDialog.findChild<QLineEdit*>("reqMessage");
+    messageInput->setText("TEST_MESSAGE_1");
+    int initialRowCount = requestTableModel->rowCount({});
+    QPushButton* requestPaymentButton = receiveCoinsDialog.findChild<QPushButton*>("receiveButton");
+    requestPaymentButton->click();
+    for (QWidget* widget : QApplication::topLevelWidgets()) {
+        if (widget->inherits("ReceiveRequestDialog")) {
+            ReceiveRequestDialog* receiveRequestDialog = qobject_cast<ReceiveRequestDialog*>(widget);
+            QTextEdit* rlist = receiveRequestDialog->QObject::findChild<QTextEdit*>("outUri");
+            QString paymentText = rlist->toPlainText();
+            QStringList paymentTextList = paymentText.split('\n');
+            QCOMPARE(paymentTextList.at(0), QString("Payment information"));
+            QVERIFY(paymentTextList.at(1).indexOf(QString("URI: tapyrus:")) != -1);
+            QVERIFY(paymentTextList.at(2).indexOf(QString("Address:")) != -1);
+            QCOMPARE(paymentTextList.at(3), QString("Token: ") + QString::fromStdString(colorId1.toHexString()));
+            QCOMPARE(paymentTextList.at(4), QString("Amount: 10 token"));
+            QCOMPARE(paymentTextList.at(5), QString("Label: TEST_LABEL_1"));
+            QCOMPARE(paymentTextList.at(6), QString("Message: TEST_MESSAGE_1"));
+        }
+    }
+
+    // Clear button
+    QPushButton* clearButton = receiveCoinsDialog.findChild<QPushButton*>("clearButton");
+    clearButton->click();
+    QCOMPARE(labelInput->text(), QString(""));
+    QCOMPARE(amountInput->value(), CAmount(0));
+    QCOMPARE(messageInput->text(), QString(""));
+    QCOMPARE(tokenInput->text(), QString(""));
 
     // Check addition to history
     int currentRowCount = requestTableModel->rowCount({});
@@ -326,4 +527,5 @@ void WalletTests::walletTests()
 {
     paymentServerTest();
     TestGUI();
+    TestGUI_coloredCoin();
 }
