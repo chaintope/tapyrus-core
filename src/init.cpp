@@ -354,7 +354,7 @@ void SetupServerArgs()
     // When adding new options to the categories, please keep and ensure alphabetical ordering.
     gArgs.AddArg("-?", "Print this help message and exit", false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-version", "Print version and exit", false, OptionsCategory::OPTIONS);
-    gArgs.AddArg("-networkid=<id>", "Network Identifier, a number representing to this tapyrus network", false, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-networkid=<id>", "Network Identifier, an unsigned number representing this tapyrus network. The range is from 0 to 4294967295.", false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-alertnotify=<cmd>", "Execute command when a relevant alert is received or we see a really long fork (%s in cmd is replaced by message)", false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-assumevalid=<hex>", "If this block is in the chain assume that it and its ancestors are valid and potentially skip their script verification (0 to verify all, default: 0)", false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-blocksdir=<dir>", "Specify blocks directory (default: <datadir>/blocks)", false, OptionsCategory::OPTIONS);

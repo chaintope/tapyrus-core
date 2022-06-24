@@ -490,6 +490,20 @@ int64_t ArgsManager::GetArg(const std::string& strArg, int64_t nDefault) const
     return nDefault;
 }
 
+bool ArgsManager::IsGetArgInRange(const std::string& strArg, const int64_t min, const int64_t max, const int64_t nDefault, int64_t& value) const
+{
+    std::pair<bool,std::string> found_res = ArgsManagerHelper::GetArg(*this, strArg);
+    if (found_res.first)
+    {
+        value = atoi64(found_res.second);
+        if(value >= min && value <= max)
+            return true;
+    }
+    else
+        value = nDefault;
+    return false;
+}
+
 bool ArgsManager::GetBoolArg(const std::string& strArg, bool fDefault) const
 {
     if (IsArgNegated(strArg)) return false;
@@ -685,7 +699,7 @@ static fs::path pathCached;
 static fs::path pathCachedNetSpecific;
 static CCriticalSection csPathCached;
 
-std::string GetDataDirNameFromNetworkId(const int networkId)
+std::string GetDataDirNameFromNetworkId(const uint networkId)
 {
     const std::string strNetworkId(std::to_string(networkId));
     return TAPYRUS_MODES::GetChainName(gArgs.GetChainMode()) + (strNetworkId.size() ? "-" + strNetworkId : "");
