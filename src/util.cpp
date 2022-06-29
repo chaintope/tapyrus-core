@@ -494,13 +494,13 @@ bool ArgsManager::IsGetArgInRange(const std::string& strArg, const int64_t min, 
 {
     std::pair<bool,std::string> found_res = ArgsManagerHelper::GetArg(*this, strArg);
     if (found_res.first)
-    {
         value = atoi64(found_res.second);
-        if(value >= min && value <= max)
-            return true;
-    }
     else
         value = nDefault;
+
+    if(value >= min && value <= max)
+        return true;
+
     return false;
 }
 
