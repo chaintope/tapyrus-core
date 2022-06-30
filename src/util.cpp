@@ -699,7 +699,7 @@ static fs::path pathCached;
 static fs::path pathCachedNetSpecific;
 static CCriticalSection csPathCached;
 
-std::string GetDataDirNameFromNetworkId(const uint networkId)
+std::string GetDataDirNameFromNetworkId(const uint32_t networkId)
 {
     const std::string strNetworkId(std::to_string(networkId));
     return TAPYRUS_MODES::GetChainName(gArgs.GetChainMode()) + (strNetworkId.size() ? "-" + strNetworkId : "");

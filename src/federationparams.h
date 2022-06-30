@@ -53,10 +53,10 @@ public:
     CPubKey& GetAggPubkeyFromHeight(int height) const;
 
     CFederationParams();
-    CFederationParams(const uint networkId, const std::string dataDirName, const std::string genesisHex);
+    CFederationParams(const uint32_t networkId, const std::string dataDirName, const std::string genesisHex);
 
 private:
-    uint nNetworkId;
+    uint32_t nNetworkId;
     CMessageHeader::MessageStartChars pchMessageStart;
     std::string strNetworkID;
     std::string dataDir;

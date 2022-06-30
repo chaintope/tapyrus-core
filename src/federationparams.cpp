@@ -106,7 +106,7 @@ std::unique_ptr<CFederationParams> CreateFederationParams(const TAPYRUS_OP_MODE 
     bool inRange = gArgs.IsGetArgInRange("-networkid", 1, 4294967295,  TAPYRUS_MODES::GetDefaultNetworkId(mode), nid);
     if(!inRange || nid <= 0)
         throw std::runtime_error(strprintf("Network Id [%ld] was out of range. Expected range is 1 to 4294967295.", nid));
-    const uint networkId = (uint32_t)nid;
+    const uint32_t networkId = (uint32_t)nid;
     const std::string dataDirName(GetDataDirNameFromNetworkId(networkId));
     const std::string genesisHex(withGenesis ? ReadGenesisBlock() : "");
 
@@ -118,7 +118,7 @@ void SelectFederationParams(const TAPYRUS_OP_MODE mode, const bool withGenesis)
     globalChainFederationParams = CreateFederationParams(mode, withGenesis);
 }
 
-CFederationParams::CFederationParams(const uint networkId, const std::string dataDirName, const std::string genesisHex) : nNetworkId(networkId), strNetworkID(std::to_string(networkId)), dataDir(dataDirName) {
+CFederationParams::CFederationParams(const uint32_t networkId, const std::string dataDirName, const std::string genesisHex) : nNetworkId(networkId), strNetworkID(std::to_string(networkId)), dataDir(dataDirName) {
 
     /**
      * The message start string is designed to be unlikely to occur in normal data.
