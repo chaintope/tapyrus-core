@@ -103,7 +103,7 @@ std::unique_ptr<CFederationParams> CreateFederationParams(const TAPYRUS_OP_MODE 
     gArgs.SelectConfigNetwork(TAPYRUS_MODES::GetChainName(mode));
 
     int64_t nid;
-    bool inRange = gArgs.IsGetArgInRange("-networkid", 1, 4294967295,  TAPYRUS_MODES::GetDefaultNetworkId(mode), nid);
+    bool inRange = gArgs.IsGetArgInRange("-networkid", 1, UINT_MAX,  TAPYRUS_MODES::GetDefaultNetworkId(mode), nid);
     if(!inRange || nid <= 0)
         throw std::runtime_error(strprintf("Network Id [%ld] was out of range. Expected range is 1 to 4294967295.", nid));
     const uint32_t networkId = (uint32_t)nid;
