@@ -28,7 +28,7 @@ class TxViewDelegate : public QAbstractItemDelegate
     Q_OBJECT
 public:
     explicit TxViewDelegate(const PlatformStyle *_platformStyle, QObject *parent=nullptr):
-        QAbstractItemDelegate(parent), unit(BitcoinUnits::TPC),
+        QAbstractItemDelegate(parent), unit(TapyrusUnits::TPC),
         platformStyle(_platformStyle)
     {
 
@@ -86,7 +86,7 @@ public:
             foreground = option.palette.color(QPalette::Text);
         }
         painter->setPen(foreground);
-        QString amountText = BitcoinUnits::formatWithUnit(unit, amount, true, BitcoinUnits::separatorAlways);
+        QString amountText = TapyrusUnits::formatWithUnit(unit, amount, true, TapyrusUnits::separatorAlways);
         if(!confirmed)
         {
             amountText = QString("[") + amountText + QString("]");
@@ -167,12 +167,12 @@ void OverviewPage::setBalance(const interfaces::WalletBalances& balances)
     CAmount watch_only_balance = balances.getWatchOnlyBalance();
     CAmount unconfirmed_watch_only_balance = balances.getUnconfirmedWatchOnlyBalance();
 
-    ui->labelBalance->setText(BitcoinUnits::formatWithUnit(unit, balance, false, BitcoinUnits::separatorAlways));
-    ui->labelUnconfirmed->setText(BitcoinUnits::formatWithUnit(unit, balance, false, BitcoinUnits::separatorAlways));
-    ui->labelTotal->setText(BitcoinUnits::formatWithUnit(unit, balance + unconfirmed_balance, false, BitcoinUnits::separatorAlways));
-    ui->labelWatchAvailable->setText(BitcoinUnits::formatWithUnit(unit, watch_only_balance, false, BitcoinUnits::separatorAlways));
-    ui->labelWatchPending->setText(BitcoinUnits::formatWithUnit(unit, unconfirmed_watch_only_balance, false, BitcoinUnits::separatorAlways));
-    ui->labelWatchTotal->setText(BitcoinUnits::formatWithUnit(unit, watch_only_balance + unconfirmed_watch_only_balance, false, BitcoinUnits::separatorAlways));
+    ui->labelBalance->setText(TapyrusUnits::formatWithUnit(unit, balance, false, TapyrusUnits::separatorAlways));
+    ui->labelUnconfirmed->setText(TapyrusUnits::formatWithUnit(unit, balance, false, TapyrusUnits::separatorAlways));
+    ui->labelTotal->setText(TapyrusUnits::formatWithUnit(unit, balance + unconfirmed_balance, false, TapyrusUnits::separatorAlways));
+    ui->labelWatchAvailable->setText(TapyrusUnits::formatWithUnit(unit, watch_only_balance, false, TapyrusUnits::separatorAlways));
+    ui->labelWatchPending->setText(TapyrusUnits::formatWithUnit(unit, unconfirmed_watch_only_balance, false, TapyrusUnits::separatorAlways));
+    ui->labelWatchTotal->setText(TapyrusUnits::formatWithUnit(unit, watch_only_balance + unconfirmed_watch_only_balance, false, TapyrusUnits::separatorAlways));
 }
 
 // show/hide watch-only labels
