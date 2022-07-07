@@ -92,7 +92,7 @@ fs::path GetDefaultDataDir();
 /*
  * Helper function to create data directory name using network mode and network id
 */
-std::string GetDataDirNameFromNetworkId(const int networkID);
+std::string GetDataDirNameFromNetworkId(const uint32_t networkID);
 const fs::path &GetBlocksDir();
 const fs::path &GetDataDir(bool fNetSpecific = true);
 void ClearDatadirCache();
@@ -228,6 +228,18 @@ public:
      * @return command-line argument (0 if invalid number) or default value
      */
     int64_t GetArg(const std::string& strArg, int64_t nDefault) const;
+
+    /**
+     * Return whether an integer argument is within the expected range
+     *
+     * @param strArg Argument to get (e.g. "-foo")
+     * @param min (e.g. 1)
+     * @param max (e.g. 4294967295)
+     * @param nDefault (e.g. 0)
+     * @param value return value assigned to this arg
+     * @return true if the value is in range. false otherwise(even when not found)
+     */
+    bool IsGetArgInRange(const std::string& strArg, const int64_t min, const int64_t max, const int64_t nDefault, int64_t& value) const;
 
     /**
      * Return boolean argument or default value
