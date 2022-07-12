@@ -13,7 +13,7 @@ discover=0
 
 dev=1
 [dev]
-port=12383
+port=2577
 rpcport=12381
 networkid=1905960821
 EOS
