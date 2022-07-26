@@ -27,6 +27,8 @@ import subprocess
 import sys
 import re
 
+cached_result = None
+
 def main():
     config = configparser.ConfigParser()
     config.optionxform = str
@@ -109,6 +111,12 @@ def bctest(testDir, testObj, buildenv):
         if not outputType:
             logging.error("Output file %s does not have a file extension" % outputFn)
             raise Exception
+    elif "generate" in testObj:
+        save = testObj["generate"]
+    elif "compare_equal" in testObj:
+        compare_equal = testObj["compare_equal"]
+    elif "compare_notequal" in testObj:
+        compare_notequal = testObj["compare_notequal"]
 
     # Run the test
     proc = subprocess.Popen(execrun, stdin=stdinCfg, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
@@ -118,35 +126,42 @@ def bctest(testDir, testObj, buildenv):
         logging.error("OSError, Failed to execute " + execprog)
         raise
 
-    if outputData:
-        data_mismatch, formatting_mismatch = False, False
-        # Parse command output and expected output
-        try:
-            a_parsed = parse_output(outs[0], outputType)
-            # pprint.pprint(a_parsed)
-        except Exception as e:
-            logging.error('Error parsing command output as %s: %s' % (outputType, e))
-            raise
-        try:
-            b_parsed = parse_output(outputData, outputType)
-        except Exception as e:
-            logging.error('Error parsing expected output %s as %s: %s' % (outputFn, outputType, e))
-            raise
-        # Compare data
-        if a_parsed != b_parsed:
-            logging.error("Output data mismatch for " + outputFn + " (format " + outputType + ")")
-            data_mismatch = True
-        # Compare formatting in formats other than 'txt'
-        if outputType != "txt" and outs[0] != outputData:
-            error_message = "Output formatting mismatch for " + outputFn + ":\n"
-            error_message += "".join(difflib.context_diff(outputData.splitlines(True),
-                                                          outs[0].splitlines(True),
-                                                          fromfile=outputFn,
-                                                          tofile="returned"))
-            logging.error(error_message)
-            formatting_mismatch = True
+    if save:
+        cached_result = outs
+    elif compare_equal:
+        assert outs == cached_result
+    elif compare_notequal:
+        assert not outs == cached_result
+    else:
+        if outputData:
+            data_mismatch, formatting_mismatch = False, False
+            # Parse command output and expected output
+            try:
+                a_parsed = parse_output(outs[0], outputType)
+                # pprint.pprint(a_parsed)
+            except Exception as e:
+                logging.error('Error parsing command output as %s: %s' % (outputType, e))
+                raise
+            try:
+                b_parsed = parse_output(outputData, outputType)
+            except Exception as e:
+                logging.error('Error parsing expected output %s as %s: %s' % (outputFn, outputType, e))
+                raise
+            # Compare data
+            if a_parsed != b_parsed:
+                logging.error("Output data mismatch for " + outputFn + " (format " + outputType + ")")
+                data_mismatch = True
+            # Compare formatting in formats other than 'txt'
+            if outputType != "txt" and outs[0] != outputData:
+                error_message = "Output formatting mismatch for " + outputFn + ":\n"
+                error_message += "".join(difflib.context_diff(outputData.splitlines(True),
+                                                            outs[0].splitlines(True),
+                                                            fromfile=outputFn,
+                                                            tofile="returned"))
+                logging.error(error_message)
+                formatting_mismatch = True
 
-        assert not data_mismatch and not formatting_mismatch
+            assert not data_mismatch and not formatting_mismatch
 
     # Compare the return code to the expected return code
     wantRC = 0

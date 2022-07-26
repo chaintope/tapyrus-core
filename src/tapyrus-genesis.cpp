@@ -98,7 +98,7 @@ static int generateNewKeyPair()
     assert(pubkey.IsFullyValid());
     assert(secret.VerifyPubKey(pubkey));
 
-    fprintf(stdout, "\"public key\": \"%s\"\n", HexStr(pubkey.begin(), pubkey.end()).c_str());
+    fprintf(stdout, "\"public key\":\"%s\"\n", HexStr(pubkey.begin(), pubkey.end()).c_str());
     fprintf(stdout, "\"private key\":\"%s\"\n", EncodeSecret(secret).c_str());
     return EXIT_SUCCESS;
 }
