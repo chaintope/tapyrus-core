@@ -35,6 +35,7 @@ static void SetupTapyrusGenesisArgs()
 
     // Dev mode option
     gArgs.AddArg("-dev", "Specify dev environment.", false, OptionsCategory::GENESIS);
+    gArgs.AddArg("-generatekey", "Generate a public key, private key pair in dev mode.", false, OptionsCategory::GENESIS);
 
     // Hidden
     gArgs.AddArg("-h", "", false, OptionsCategory::HIDDEN);
@@ -78,7 +79,6 @@ static int AppInit(int argc, char* argv[])
     try {
         SelectParams(gArgs.GetChainMode());
         SelectFederationParams(gArgs.GetChainMode(), false);
-        FederationParams().ReadAggregatePubkey(ParseHex(gArgs.GetArg("-signblockpubkey", "")), 0);
     } catch (const std::exception& e) {
         fprintf(stderr, "Error: %s\n", e.what());
         return EXIT_FAILURE;
@@ -87,8 +87,62 @@ static int AppInit(int argc, char* argv[])
     return CONTINUE_EXECUTION;
 }
 
+static int generateNewKeyPair()
+{
+    //generate a secret key
+    CKey secret;
+    secret.MakeNewKey(true);//compressed
+
+    //generate its public key
+    CPubKey pubkey = secret.GetPubKey();
+    assert(pubkey.IsFullyValid());
+    assert(secret.VerifyPubKey(pubkey));
+
+    fprintf(stdout, "\"public key\": \"%s\"\n", HexStr(pubkey.begin(), pubkey.end()).c_str());
+    fprintf(stdout, "\"private key\":\"%s\"\n", EncodeSecret(secret).c_str());
+    return EXIT_SUCCESS;
+}
+
+static int generateGenesis(CKey& privatekey, long long blockTime, std::string& payToAddress)
+{
+    CBlock genesis { createGenesisBlock(FederationParams().GetLatestAggregatePubkey(), privatekey, blockTime, payToAddress) };
+
+    // check validity
+    CValidationState state;
+    bool fCheckProof = privatekey.IsValid();
+    if(!CheckBlock(genesis, state, fCheckProof)) {
+        fprintf(stderr, "error: Consensus::CheckBlock: %s", FormatStateMessage(state).c_str());
+        return EXIT_FAILURE;
+    }
+
+    // serialize
+    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+    ss << genesis;
+    std::string genesis_hex = HexStr(ss.begin(), ss.end());
+
+    // print
+    fprintf(stdout, "%s\n", genesis_hex.c_str());
+    return EXIT_SUCCESS;
+}
+
 static int CommandLine()
 {
+    auto generateKey = gArgs.GetBoolArg("-generatekey", false);
+    if(generateKey && gArgs.GetChainMode() != TAPYRUS_OP_MODE::DEV)
+    {
+        fprintf(stderr, "Error: generateKey is supported only in DEV mode.\n");
+        return EXIT_FAILURE;
+    }
+
+    try {
+        std::string pubkey = gArgs.GetArg("-signblockpubkey", "");
+        if(pubkey.size())
+            FederationParams().ReadAggregatePubkey(ParseHex(pubkey), 0);
+    } catch (const std::exception& e) {
+        fprintf(stderr, "Error: %s\n", e.what());
+        return EXIT_FAILURE;
+    }
+
     std::string wif = gArgs.GetArg("-signblockprivatekey", "");
     CKey privatekey(DecodeSecret(wif));
     if(wif.size() && !privatekey.IsValid())
@@ -114,24 +168,11 @@ static int CommandLine()
     // This is for using CPubKey.verify().
     ECCVerifyHandle globalVerifyHandle;
 
-    CBlock genesis { createGenesisBlock(FederationParams().GetLatestAggregatePubkey(), privatekey, blockTime, payToAddress) };
-
-    // check validity
-    CValidationState state;
-    bool fCheckProof = privatekey.IsValid();
-    if(!CheckBlock(genesis, state, fCheckProof)) {
-        fprintf(stderr, "error: Consensus::CheckBlock: %s", FormatStateMessage(state).c_str());
-        return EXIT_FAILURE;
-    }
-
-    // serialize
-    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
-    ss << genesis;
-    std::string genesis_hex = HexStr(ss.begin(), ss.end());
-
-    // print
-    fprintf(stdout, "%s\n", genesis_hex.c_str());
-    return EXIT_SUCCESS;
+    //generate after ECC initialization
+    if(generateKey)
+        return generateNewKeyPair();
+    else
+        return generateGenesis(privatekey, blockTime, payToAddress);
 }
 
 int main(int argc, char* argv[])
