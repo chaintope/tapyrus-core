@@ -123,7 +123,7 @@ bool IsStandardTx(const CTransaction& tx, std::string& reason)
 
         if (whichType == TX_NULL_DATA)
             nDataOut++;
-        else if ((whichType == TX_MULTISIG) && (!fIsBareMultisigStd)) {
+        else if (whichType == TX_MULTISIG) {
             reason = "bare-multisig";
             return false;
         } else if (IsDust(txout, ::dustRelayFee)) {

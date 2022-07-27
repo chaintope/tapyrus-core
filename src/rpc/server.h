@@ -16,8 +16,7 @@
 #include <string>
 
 #include <univalue.h>
-
-static const unsigned int DEFAULT_RPC_SERIALIZE_VERSION = 1;
+#include <primitives/transaction.h>
 
 class CRPCCommand;
 
@@ -204,7 +203,7 @@ void InterruptRPC();
 void StopRPC();
 std::string JSONRPCExecBatch(const JSONRPCRequest& jreq, const UniValue& vReq);
 
-// Retrieves any serialization flags requested in command line argument
-int RPCSerializationFlags();
+// Default serialization flag
+int RPCSerializationFlags() { return SERIALIZE_TRANSACTION_NO_WITNESS; }
 
 #endif // BITCOIN_RPC_SERVER_H
