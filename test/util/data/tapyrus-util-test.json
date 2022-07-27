@@ -731,16 +731,7 @@
       "-dev",
       "-generatekey"
     ],
-    "generate":true,
+    "check":"check_generateKey",
     "description": "Ensure generatekey is successful in dev mode"
-  },
-  {
-    "exec": "./tapyrus-genesis",
-    "args": [
-      "-dev",
-      "-generatekey"
-    ],
-    "compare_notequal":true,
-    "description": "Ensure generatekey creates new key everytime in dev mode"
   }
 ]
