@@ -563,4 +563,9 @@ void RPCRunLater(const std::string& name, std::function<void(void)> func, int64_
     deadlineTimers.emplace(name, std::unique_ptr<RPCTimerBase>(timerInterface->NewTimer(func, nSeconds*1000)));
 }
 
+int RPCSerializationFlags()
+{
+    return SERIALIZE_TRANSACTION_NO_WITNESS;
+}
+
 CRPCTable tableRPC;

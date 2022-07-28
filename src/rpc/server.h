@@ -204,6 +204,6 @@ void StopRPC();
 std::string JSONRPCExecBatch(const JSONRPCRequest& jreq, const UniValue& vReq);
 
 // Default serialization flag
-int RPCSerializationFlags() { return SERIALIZE_TRANSACTION_NO_WITNESS; }
+int RPCSerializationFlags();
 
 #endif // BITCOIN_RPC_SERVER_H
