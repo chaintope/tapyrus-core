@@ -2,8 +2,6 @@ name: Push Docker Image
 
 on:
   push:
-    tags:
-      - v*
 
 jobs:
   multi:
@@ -78,7 +76,7 @@ jobs:
           file: ./Dockerfile
           builder: ${{ steps.buildx.outputs.name }}
           platforms: linux/amd64,linux/arm64/v8
-          push: true
+          push: false
           tags: ${{ steps.prep.outputs.tags }}
           labels: |
             org.opencontainers.image.title=${{ fromJson(steps.repo.outputs.result).name }}
