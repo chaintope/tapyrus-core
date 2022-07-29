@@ -26,6 +26,7 @@ import pprint
 import subprocess
 import sys
 import re
+from io import BytesIO
 
 def main():
     config = configparser.ConfigParser()
@@ -114,9 +115,15 @@ def bctest(testDir, testObj, buildenv):
     proc = subprocess.Popen(execrun, stdin=stdinCfg, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
     try:
         outs = proc.communicate(input=inputData)
+        if "check" in testObj:
+            checkFn = globals()[testObj['check'] ]
+            checkFn(outs)
+
     except OSError:
         logging.error("OSError, Failed to execute " + execprog)
         raise
+    except Exception as e:
+        logging.error("Error, Failed to execute %s" % str(e))
 
     if outputData:
         data_mismatch, formatting_mismatch = False, False
@@ -140,9 +147,9 @@ def bctest(testDir, testObj, buildenv):
         if outputType != "txt" and outs[0] != outputData:
             error_message = "Output formatting mismatch for " + outputFn + ":\n"
             error_message += "".join(difflib.context_diff(outputData.splitlines(True),
-                                                          outs[0].splitlines(True),
-                                                          fromfile=outputFn,
-                                                          tofile="returned"))
+                                                        outs[0].splitlines(True),
+                                                        fromfile=outputFn,
+                                                        tofile="returned"))
             logging.error(error_message)
             formatting_mismatch = True
 
@@ -167,6 +174,14 @@ def bctest(testDir, testObj, buildenv):
         if want_error not in outs[1]:
             logging.error("Error mismatch:\n" + "Expected: " + want_error + "\nReceived: " + outs[1].rstrip())
             raise Exception
+
+def check_generateKey(out):
+    keys = out[0].split("\n")
+    privkey = keys[0].split(":")[1]
+    pubkey = keys[1].split(":")[1]
+
+    assert(len(pubkey)) # 33 bytes is 66 char string + 2 for prefix
+    assert(len(privkey))
 
 def parse_output(a, fmt):
     """Parse the output according to specified format.

@@ -704,5 +704,34 @@
     ],
     "output_cmp": "tapyrus_genesis_help.txt",
     "description": "Help text"
+  },
+  {
+    "exec": "./tapyrus-genesis",
+    "args": [
+      "-generatekey"
+    ],
+    "return_code": 1,
+    "error_txt": "generateKey is supported only in DEV mode.",
+    "description": "Ensure generatekey is accepted only in dev mode."
+  },
+  {
+    "exec": "./tapyrus-genesis",
+    "args": [
+      "-generatekey",
+      "-signblockpubkey=025700236c2890233592fcef262f4520d22af9160e3d9705855140eb2aa06c35d3",
+      "-signblockprivatekey=KzhFbkH3tfXFoH4xVs5qyncT8dCHoEi4RwCZ81WJThTQogHMGb49"
+    ],
+    "return_code": 1,
+    "error_txt": "generateKey is supported only in DEV mode.",
+    "description": "Ensure generatekey takes precedence over generate genesis block."
+  },
+  {
+    "exec": "./tapyrus-genesis",
+    "args": [
+      "-dev",
+      "-generatekey"
+    ],
+    "check":"check_generateKey",
+    "description": "Ensure generatekey is successful in dev mode"
   }
 ]

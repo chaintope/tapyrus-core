@@ -18,6 +18,9 @@ Genesis block:
   -dev
        Specify dev environment.
 
+  -generatekey
+       Generate a public key, private key pair in dev mode.
+
   -signblockprivatekey=<privatekey-WIF>
        Optional. Sets the aggregate private key in WIF to be used to sign
        genesis block. If it is not set, this command creates no proof in
