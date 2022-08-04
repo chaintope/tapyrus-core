@@ -4221,11 +4221,12 @@ static UniValue IssueReissuableToken(CWallet* const pwallet, const std::string& 
         txnouttype type;
         std::vector<CTxDestination> vDest;
         int nRequired;
-        if (ExtractDestinations(scriptPubKey, type, vDest, nRequired)) {
-            for (const CTxDestination &dest : vDest)
-                if(!IsValidDestination(dest))
-                    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid Tapyrus address: ") + script);
+        if (!ExtractDestinations(scriptPubKey, type, vDest, nRequired)) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid Tapyrus address: ") + script);
         }
+        for (const CTxDestination &dest : vDest)
+            if(!IsValidDestination(dest))
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid Tapyrus address: ") + script);
         pwallet->SetAddressBook(vDest[0], "", "receive");
 
         // Create and send the transaction
