@@ -4423,7 +4423,7 @@ static UniValue issuetoken(const JSONRPCRequest& request)
         return IssueReissuableToken(pwallet, request.params[2].getValStr(), tokenValue, coin_control);
     else
     {
-        uint256 hash = uint256S(request.params[2].get_str());
+        uint256 txid = uint256S(request.params[2].get_str());
         uint8_t vout = request.params[3].get_int();
         COutPoint out(hash, vout);
 
