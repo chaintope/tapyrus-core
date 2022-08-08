@@ -157,11 +157,11 @@ class InvalidTxRequestTest(BitcoinTestFramework):
 
         # restart node with sending BIP61 messages disabled, check that it disconnects without sending the reject message
         self.log.info('Test a transaction that is rejected, with BIP61 disabled')
-        self.restart_node(0, ['-enablebip61=0','-persistmempool=0'])
+        self.restart_node(0, ['-persistmempool=0'])
         self.reconnect_p2p(num_connections=1)
         node.p2p.send_txs_and_test([tx1], node, success=False, expect_disconnect=False)
         # send_txs_and_test will have waited for disconnect, so we can safely check that no reject has been received
-        assert_equal(node.p2p.reject_code_received, None)
+        assert_equal(node.p2p.reject_code_received, 64)
 
 if __name__ == '__main__':
     InvalidTxRequestTest().main()
