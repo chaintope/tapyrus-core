@@ -4425,11 +4425,11 @@ static UniValue issuetoken(const JSONRPCRequest& request)
     {
         uint256 txid = uint256S(request.params[2].get_str());
         uint8_t vout = request.params[3].get_int();
-        COutPoint out(hash, vout);
+        COutPoint out(txid, vout);
 
         //Check if the UTXO belongs to us and is spendable
         //1. check transaction id
-        auto it = pwallet->mapWallet.find(hash);
+        auto it = pwallet->mapWallet.find(txid);
         if (it == pwallet->mapWallet.end()) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid or non-wallet transaction id :") + request.params[2].get_str());
         }
