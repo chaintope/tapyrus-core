@@ -2058,6 +2058,96 @@ UniValue scantxoutset(const JSONRPCRequest& request)
     return result;
 }
 
+static UniValue getcolor(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() < 2 || request.params.size() > 3)
+        throw std::runtime_error(
+            "getcolor \"token_type\" \"txid/scriptpubkey\" index \n"
+            "\nGet the color of the token that can be generated when using the script pubkey given as parameter or transaction id and index pair given as parameter.\n"
+            "\nArguments:\n"
+            "1. \"token_type\"       (numberic, required) Value can be 1 or 2 or 3.\n"
+            " 1. REISSUABLE\n"
+            " 2. NON-REISSUABLE\n"
+            " 3. NFT\n"
+            "2. \"scriptpubkey\"     (string, optional) Script pubkey that is used to issue REISSUABLE token\n"
+            "2. \"txid\"             (string, optional) Transaction id from which the NON-REISSUABLE or NFT tokens are issued\n"
+            "3. \"index\"            (numeric, optional) Index in the above transaction id used for issuing token\n"
+            "\nResult:\n"
+            "\"color\"               (string) The color or token.\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getcolor", "\"1\" 8282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508")
+            + HelpExampleCli("getcolor", "\"2\" 485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954 0")
+            + HelpExampleCli("getcolor", "\"3\" 485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954 1")
+        );
+
+    RPCTypeCheck(request.params, {UniValue::VNUM, UniValue::VSTR});
+
+    TokenTypes tokentype;
+    switch(request.params[0].get_int())
+    {
+        case 1: tokentype = TokenTypes::REISSUABLE; break;
+        case 2: tokentype = TokenTypes::NON_REISSUABLE; break;
+        case 3: tokentype = TokenTypes::NFT; break;
+        default: tokentype = TokenTypes::NONE;
+    }
+
+    if (tokentype == TokenTypes::NONE) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Unknown token type given.");
+    }
+
+    if (tokentype == TokenTypes::REISSUABLE && !request.params[2].isNull()){
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Extra parameter for Reissuable token.");
+    }
+
+    if ((tokentype == TokenTypes::NON_REISSUABLE || tokentype == TokenTypes::NFT )
+      && request.params[2].isNull()){
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Parameter missing for Non-Reissuable or NFT token.");
+    }
+
+    ColorIdentifier colorId;
+    if(tokentype == TokenTypes::REISSUABLE)
+    {
+        std::vector<unsigned char> vscript = ParseHex(request.params[1].get_str());
+        CScript script(vscript.begin(), vscript.end());
+
+        if(script.IsColoredScript())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Script input for tokens cannot be another token script.");
+
+        CTxDestination dest;
+        if (!ExtractDestination(script, dest)) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid Tapyrus script"));
+        }
+        if(!IsValidDestination(dest))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid Tapyrus script"));
+
+        colorId = ColorIdentifier(script);
+    }
+    else
+    {
+        uint256 txid(ParseHashV(request.params[1].get_str(), "txid"));
+
+        // Check that the transaction id is valid
+        CTransactionRef tx;
+        uint256 hashBlock;
+        if (!GetTransaction(txid, tx, Params().GetConsensus(), hashBlock, true)) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid transaction id :") + request.params[1].get_str());
+        }
+
+        uint8_t vout = request.params[2].get_int();
+        COutPoint out(txid, vout);
+
+        // check vout
+        if(vout < 0 || vout >= tx->vout.size() || GetColorIdFromScript(tx->vout[vout].scriptPubKey).type != TokenTypes::NONE) {
+            std::string strError = strprintf("Invalid vout %d in tx: %s", request.params[2].get_int(), request.params[1].get_str());
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strError);
+        }
+
+        colorId = ColorIdentifier(out, tokentype);
+    }
+
+    return colorId.toHexString();
+}
+
 static const CRPCCommand commands[] =
 { //  category              name                      actor (function)         argNames
   //  --------------------- ------------------------  -----------------------  ----------
@@ -2083,6 +2173,7 @@ static const CRPCCommand commands[] =
 
     { "blockchain",         "preciousblock",          &preciousblock,          {"blockhash"} },
     { "blockchain",         "scantxoutset",           &scantxoutset,           {"action", "scanobjects"} },
+    { "blockchain",         "getcolor",               &getcolor,               {"type","txid","index"} },
 
     /* Not shown in help */
     { "hidden",             "invalidateblock",        &invalidateblock,        {"blockhash"} },

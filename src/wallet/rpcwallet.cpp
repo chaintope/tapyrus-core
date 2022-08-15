@@ -4168,42 +4168,6 @@ static ColorIdentifier getColorIdFromRequest(const JSONRPCRequest& request, bool
     return colorId;
 }
 
-static UniValue getcolor(const JSONRPCRequest& request)
-{
-    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
-    CWallet* const pwallet = wallet.get();
-
-    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
-        return NullUniValue;
-    }
-
-    if (request.fHelp || request.params.size() < 2 || request.params.size() > 3)
-        throw std::runtime_error(
-            "getcolor \"token_type\" \"txid/scriptpubkey\" index \n"
-            "\nGet the color of the token that can be generated when using the script pubkey given as parameter or transaction id and index pair given as parameter.\n"
-            + HelpRequiringPassphrase(pwallet) +
-            "\nArguments:\n"
-            "1. \"token_type\"       (numberic, required) Value can be 1 or 2 or 3.\n"
-            " 1. REISSUABLE\n"
-            " 2. NON-REISSUABLE\n"
-            " 3. NFT\n"
-            "2. \"scriptpubkey\"     (string, optional) Script pubkey that is used to issue REISSUABLE token\n"
-            "2. \"txid\"             (string, optional) Transaction id from which the NON-REISSUABLE or NFT tokens are issued\n"
-            "3. \"index\"            (numeric, optional) Index in the above transaction id used for issuing token\n"
-            "\nResult:\n"
-            "\"color\"               (string) The color or token.\n"
-            "\nExamples:\n"
-            + HelpExampleCli("getcolor", "\"1\" 8282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508")
-            + HelpExampleCli("getcolor", "\"2\" 485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954 0")
-            + HelpExampleCli("getcolor", "\"3\" 485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954 1")
-        );
-
-    RPCTypeCheck(request.params, {UniValue::VNUM, UniValue::VSTR});
-
-    const ColorIdentifier colorId = getColorIdFromRequest(request, false);
-
-    return colorId.toHexString();
-}
 
 // Construct two transctions:
 // first transaction to create a utxo with the given scriptpubkey.
@@ -4672,7 +4636,6 @@ static const CRPCCommand commands[] =
     { "wallet",             "setlabel",                         &setlabel,                      {"address","label"} },
 
     /** colored coin RPCs */
-    { "wallet",                    "getcolor",               &getcolor,                      {"type","txid","index"} },
     { "wallet",                    "issuetoken",             &issuetoken,                      {"type","value","txid","index"} },
     { "wallet",                    "reissuetoken",           &reissuetoken,                      {"color","value"} },
     { "wallet",                    "transfertoken",          &transfertoken,                      {"address","value"} },
