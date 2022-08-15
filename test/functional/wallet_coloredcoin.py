@@ -159,6 +159,9 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         assert_raises_rpc_error(-8, "Extra parameter for Reissuable token", self.nodes[0].getcolor, 1, utxos[4]['txid'], utxos[4]['vout'])
         assert_raises_rpc_error(-8, "Parameter missing for Non-Reissuable or NFT token", self.nodes[0].getcolor, 2, utxos[4]['txid'])
         assert_raises_rpc_error(-8, "Parameter missing for Non-Reissuable or NFT token", self.nodes[0].getcolor, 3, utxos[4]['txid'])
+        assert_raises_rpc_error(-8, "Invalid Tapyrus script", self.nodes[0].getcolor, 1, "ty")
+        assert_raises_rpc_error(-8, "txid must be hexadecimal string (not 'ty')", self.nodes[0].getcolor, 3, "ty", 0)
+        assert_raises_rpc_error(-8, "Invalid transaction id :0011001100110011001100110011001100110011001100110011001100110011", self.nodes[0].getcolor, 3, "0011001100110011001100110011001100110011001100110011001100110011", 0)
 
     def test_createrawtransaction(self, utxos):
         '''test transaction with colored output using createrawtransaction 
@@ -650,12 +653,12 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         utxos = self.nodes[0].listunspent()
 
         self.test_getcolorRPC(utxos)
-        self.test_createrawtransaction(utxos)
+        '''self.test_createrawtransaction(utxos)
         self.test_sendRPC('sendtoaddress')
         self.test_sendRPC('transfertoken')
         self.test_burntoken()
         self.test_reissuetoken()
-        self.test_issuetoken()
+        self.test_issuetoken()'''
 
 
 reverse_bytes = (lambda txid  : txid[-1: -len(txid)-1: -1])
