@@ -653,12 +653,12 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         utxos = self.nodes[0].listunspent()
 
         self.test_getcolorRPC(utxos)
-        '''self.test_createrawtransaction(utxos)
+        self.test_createrawtransaction(utxos)
         self.test_sendRPC('sendtoaddress')
         self.test_sendRPC('transfertoken')
         self.test_burntoken()
         self.test_reissuetoken()
-        self.test_issuetoken()'''
+        self.test_issuetoken()
 
 
 reverse_bytes = (lambda txid  : txid[-1: -len(txid)-1: -1])
