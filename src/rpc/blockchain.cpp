@@ -744,9 +744,9 @@ static UniValue getblock(const JSONRPCRequest& request)
             "  ],\n"
             "  \"time\" : ttt,          (numeric) The block time in seconds since epoch (Jan 1 1970 GMT)\n"
             "  \"mediantime\" : ttt,    (numeric) The median block time in seconds since epoch (Jan 1 1970 GMT)\n"
-            "   \"xfieldType\" : n       (numeric) Indicate the type of what is stored in the following xfield
-            "   \"xfield\" : \"xxx\"     (string) The data in xfield e.g. aggregate publib key
-            "  \"proof\": \"xxxx\"      (string) Threshold signature of signers who accepted the block \n"
+            "   \"xfieldType\" : n       (numeric) Indicate the type of what is stored in the following xfield\n"
+            "   \"xfield\" : \"xxx\"     (string) The data in xfield e.g. aggregate publib key\n"
+            "  \"proof\": \"xxxx\"      (string) Threshold signature of signers who accepted the block\n"
             "  \"nTx\" : n,             (numeric) The number of transactions in the block.\n"
             "  \"previousblockhash\" : \"hash\",  (string) The hash of the previous block\n"
             "  \"nextblockhash\" : \"hash\"       (string) The hash of the next block\n"
