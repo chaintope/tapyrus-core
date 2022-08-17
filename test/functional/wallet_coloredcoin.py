@@ -677,7 +677,10 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         assert_equal(self.nodes[0].getbalance(), 300)
 
         total_unspent = len(self.nodes[0].listunspent())
-        token_unspent = len(self.nodes[0].listunspent(6,9999999,[],True,{"only_token": True}))
+        if self.options.usecli:
+            token_unspent = len(self.nodes[0].listunspent(query_options="{\"only_token\": true}"))
+        else:
+            token_unspent = len(self.nodes[0].listunspent(query_options={"only_token": True}))
         assert_equal(total_unspent, 6)
         assert_equal(token_unspent, 0)
 
@@ -696,7 +699,8 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         self.test_burntoken()
         self.test_reissuetoken()
         self.test_issuetoken()
-        self.test_only_token_filter()
+        if not self.options.usecli:
+            self.test_only_token_filter()
 
 
 reverse_bytes = (lambda txid  : txid[-1: -len(txid)-1: -1])
