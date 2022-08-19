@@ -23,7 +23,6 @@
     """
 from codecs import encode
 import math
-from time import sleep
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
@@ -37,7 +36,7 @@ from test_framework.util import (
 from test_framework.messages import sha256
 from test_framework.script import CScript, hash160, OP_DUP, OP_HASH160, OP_EQUALVERIFY, OP_CHECKSIG
 from test_framework.address import byte_to_base58
-from test_framework.blocktools import findTPC, create_colored_transaction, TOKEN_TYPES
+from test_framework.blocktools import findTPC
 
 class WalletColoredCoinTest(BitcoinTestFramework):
     def set_test_params(self):
