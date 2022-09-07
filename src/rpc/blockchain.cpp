@@ -1701,7 +1701,6 @@ static UniValue getblockstats(const JSONRPCRequest& request)
             mintxsize = std::min(mintxsize, tx_size);
             total_size += tx_size;
         }
-
         if (loop_inputs) {
 
             if (!g_txindex) {
