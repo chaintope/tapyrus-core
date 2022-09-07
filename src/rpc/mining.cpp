@@ -126,13 +126,16 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
 
 UniValue getnewblock(const JSONRPCRequest& request)
 {
-    if (request.fHelp || request.params.size() > 2)
+    if (request.fHelp || request.params.size() > 3)
         throw std::runtime_error(
                 "getnewblock\n"
                 "\nGets hex representation of a proposed, unmined new block\n"
                 "\nArguments:\n"
-                "1. address         (string, required) The address to send fees and the newly generated coin.\n"
-                "2. required_age    (numeric, optional, default=0) How many seconds a transaction must have been in the mempool to be inluded in the block proposal. This may help with faster block convergence among functionaries using compact blocks.\n"
+                "1. address                    (string, required) The address to send fees and the newly generated coin.\n"
+                "2. required_age               (numeric, optional, default=0) How many seconds a transaction must have been in the mempool to be inluded in the block proposal. This may help with faster block convergence among functionaries using compact blocks.\n"
+                "3. xfield_type:new_xfield_value (multiple, optional) Change network wide value of the xfield parameter from the next block. The xfield parameter is identified by the xfield_type.\n"
+                " xfield_type supported are:\n"
+                "    1 : Aggregate Public Key of the Tapyrus Signer network.  (string )\n"
                 "\nResult\n"
                 "blockhex      (hex) The block hex\n"
                 "\nExamples:\n"
@@ -149,9 +152,50 @@ UniValue getnewblock(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMS, "required_wait must be non-negative.");
     }
 
+    const std::string xfieldParam = request.params[2].isNull() ? "" : request.params[2].get_str();
+    TAPYRUS_XFIELDTYPES xfieldType = TAPYRUS_XFIELDTYPES::NONE;
+
+    //using lambda to avoid temp variables
+    xfieldType = [xfieldParam](int splitAt, TAPYRUS_XFIELDTYPES max) -> TAPYRUS_XFIELDTYPES
+        { int x = splitAt > 0 ? atoi(xfieldParam.substr(0,splitAt)) : 0;
+          return x > 0 && x < int(max) ? TAPYRUS_XFIELDTYPES(x) : TAPYRUS_XFIELDTYPES::NONE;
+        } (xfieldParam.find(':'), TAPYRUS_XFIELDTYPES::MAX_XFIELDTYPE );
+
+    if ( xfieldType ==  TAPYRUS_XFIELDTYPES::NONE )
+    {
+        throw JSONRPCError(RPC_INVALID_PARAMS, "xfield_type parameter could not be parsed. Check if the xfield parameter has format: <xfield_type:new_xfield_value>.");
+    }
+
+    xFieldInput xfield;
+    xfield.invalid = false;
+
+    switch(xfieldType){
+        case TAPYRUS_XFIELDTYPES::AGGPUBKEY:
+        {
+            std::string aggPubkeyString = xfieldParam.substr(xfieldParam.find(':')+1);
+            if (IsHex(aggPubkeyString)) {
+                std::vector<unsigned char> data = ParseHex(aggPubkeyString);
+                CPubKey aggPubKey(data);
+                if (aggPubKey.IsFullyValid() && aggPubKey.IsCompressed())
+                {
+                    xfield.xFieldValue.aggPubKey = std::vector<unsigned char>(data.begin(), data.end());
+                    break;
+                }
+            }
+            xfield.invalid = true;
+        }
+        break;
+        default:
+            xfield.invalid = true;
+    }
+
+    if (xfield.invalid == true) {
+        throw JSONRPCError(RPC_INVALID_PARAMS, "xfield parameter was invalid. It is expected to be <xfield_type:new_xfield_value>.");
+    }
+
     CScript coinbaseScript {GetScriptForDestination(destination)};
 
-    std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(Params()).CreateNewBlock(coinbaseScript, true));
+    std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(Params()).CreateNewBlock(coinbaseScript, true, xfieldType, &xfield));
     if (!pblocktemplate.get())
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Wallet keypool empty");
     {

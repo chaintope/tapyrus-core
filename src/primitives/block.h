@@ -16,6 +16,8 @@ enum class TAPYRUS_XFIELDTYPES
 {
     NONE = 0, //no xfield
     AGGPUBKEY = 1, //xfield is 33 byte aggpubkey
+
+    MAX_XFIELDTYPE
 };
 
 /** Nodes collect new transactions into a block, hash them into a hash tree,

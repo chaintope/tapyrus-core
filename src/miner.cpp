@@ -91,7 +91,7 @@ void BlockAssembler::resetBlock()
     nFees = 0;
 }
 
-std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, bool fMineWitnessTx, int required_age_in_secs)
+std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, int required_age_in_secs, TAPYRUS_XFIELDTYPES xfieldType, const xFieldInput* value)
 {
     int64_t nTimeStart = GetTimeMicros();
 
@@ -118,6 +118,12 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     // -blockversion=N to test forking scenarios
     if (chainparams.MineBlocksOnDemand())
         pblock->nFeatures = gArgs.GetArg("-blockfeatures", pblock->nFeatures);
+
+    if(xfieldType != TAPYRUS_XFIELDTYPES::NONE)
+    {
+        pblock->xfieldType = (uint8_t)xfieldType;
+        pblock->xfield = value->xFieldValue.aggPubKey;
+    }
 
     pblock->nTime = GetAdjustedTime();
     const int64_t nMedianTimePast = pindexPrev->GetMedianTimePast();

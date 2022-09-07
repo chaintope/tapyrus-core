@@ -611,7 +611,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_required_age_in_secs)
                              entry.Fee(1000).Time(GetTime() - 60).SpendsCoinbase(true).FromTx(tx));
     }
 
-    BOOST_CHECK(pblocktemplate = AssemblerForTest(Params()).CreateNewBlock(scriptPubKey, true, 60));
+    BOOST_CHECK(pblocktemplate = AssemblerForTest(Params()).CreateNewBlock(scriptPubKey, 60));
     BOOST_CHECK(pblocktemplate->block.vtx.size() == 2); // index 0 is coinbase tx.
     BOOST_CHECK(pblocktemplate->block.vtx[1]->GetHashMalFix() == hashPastTimeTx);
 }
