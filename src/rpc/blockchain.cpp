@@ -96,7 +96,6 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
         confirmations = chainActive.Height() - blockindex->nHeight + 1;
     result.pushKV("confirmations", confirmations);
     result.pushKV("size", (int)::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION));
-    result.pushKV("weight", (int)::GetBlockWeight(block));
     result.pushKV("height", blockindex->nHeight);
     result.pushKV("features", block.nFeatures);
     result.pushKV("featuresHex", strprintf("%08x", block.nFeatures));
@@ -1596,12 +1595,10 @@ static UniValue getblockstats(const JSONRPCRequest& request)
             "  \"outs\": xxxxx,            (numeric) The number of outputs\n"
             "  \"subsidy\": xxxxx,         (numeric) The block subsidy\n"
             "  \"swtotal_size\": xxxxx,    (numeric) Total size of all segwit transactions\n"
-            "  \"swtotal_weight\": xxxxx,  (numeric) Total weight of all segwit transactions divided by segwit scale factor (4)\n"
             "  \"swtxs\": xxxxx,           (numeric) The number of segwit transactions\n"
             "  \"time\": xxxxx,            (numeric) The block time\n"
             "  \"total_out\": xxxxx,       (numeric) Total amount in all outputs (excluding coinbase and thus reward [ie subsidy + totalfee])\n"
             "  \"total_size\": xxxxx,      (numeric) Total size of all non-coinbase transactions\n"
-            "  \"total_weight\": xxxxx,    (numeric) Total weight of all non-coinbase transactions divided by segwit scale factor (4)\n"
             "  \"totalfee\": xxxxx,        (numeric) The fee total\n"
             "  \"txs\": xxxxx,             (numeric) The number of transactions (excluding coinbase)\n"
             "  \"utxo_increase\": xxxxx,   (numeric) The increase/decrease in the number of unspent outputs\n"
@@ -1675,10 +1672,8 @@ static UniValue getblockstats(const JSONRPCRequest& request)
     int64_t mintxsize = MAX_BLOCK_SERIALIZED_SIZE;
     int64_t outputs = 0;
     int64_t swtotal_size = 0;
-    int64_t swtotal_weight = 0;
     int64_t swtxs = 0;
     int64_t total_size = 0;
-    int64_t total_weight = 0;
     int64_t utxo_size_inc = 0;
     std::vector<CAmount> fee_array;
     std::vector<std::pair<CAmount, int64_t>> feerate_array;
@@ -1714,16 +1709,9 @@ static UniValue getblockstats(const JSONRPCRequest& request)
             total_size += tx_size;
         }
 
-        int64_t weight = 0;
-        if (do_calculate_weight) {
-            weight = GetTransactionWeight(*tx);
-            total_weight += weight;
-        }
-
         if (do_calculate_sw && tx->HasWitness()) {
             ++swtxs;
             swtotal_size += tx_size;
-            swtotal_weight += weight;
         }
 
         if (loop_inputs) {
@@ -1754,10 +1742,10 @@ static UniValue getblockstats(const JSONRPCRequest& request)
             minfee = std::min(minfee, txfee);
             totalfee += txfee;
 
-            // New feerate uses tapyrus per virtual byte instead of per serialized byte
-            CAmount feerate = weight ? (txfee * WITNESS_SCALE_FACTOR) / weight : 0;
+            // New feerate uses tapyrus per byte
+            CAmount feerate = txfee;
             if (do_feerate_percentiles) {
-                feerate_array.emplace_back(std::make_pair(feerate, weight));
+                feerate_array.emplace_back(std::make_pair(feerate, tx_size));
             }
             maxfeerate = std::max(maxfeerate, feerate);
             minfeerate = std::min(minfeerate, feerate);
@@ -1765,7 +1753,7 @@ static UniValue getblockstats(const JSONRPCRequest& request)
     }
 
     CAmount feerate_percentiles[NUM_GETBLOCKSTATS_PERCENTILES] = { 0 };
-    CalculatePercentilesByWeight(feerate_percentiles, feerate_array, total_weight);
+    CalculatePercentilesByWeight(feerate_percentiles, feerate_array, total_size);
 
     UniValue feerates_res(UniValue::VARR);
     for (int64_t i = 0; i < NUM_GETBLOCKSTATS_PERCENTILES; i++) {
@@ -1774,7 +1762,7 @@ static UniValue getblockstats(const JSONRPCRequest& request)
 
     UniValue ret_all(UniValue::VOBJ);
     ret_all.pushKV("avgfee", (block.vtx.size() > 1) ? totalfee / (block.vtx.size() - 1) : 0);
-    ret_all.pushKV("avgfeerate", total_weight ? (totalfee * WITNESS_SCALE_FACTOR) / total_weight : 0); // Unit: sat/vbyte
+    ret_all.pushKV("avgfeerate", totalfee / total_size); // Unit: tap/byte
     ret_all.pushKV("avgtxsize", (block.vtx.size() > 1) ? total_size / (block.vtx.size() - 1) : 0);
     ret_all.pushKV("blockhash", pindex->GetBlockHash().GetHex());
     ret_all.pushKV("feerate_percentiles", feerates_res);
@@ -1792,12 +1780,10 @@ static UniValue getblockstats(const JSONRPCRequest& request)
     ret_all.pushKV("outs", outputs);
     ret_all.pushKV("subsidy", GetBlockSubsidy(pindex->nHeight, Params().GetConsensus()));
     ret_all.pushKV("swtotal_size", swtotal_size);
-    ret_all.pushKV("swtotal_weight", swtotal_weight);
     ret_all.pushKV("swtxs", swtxs);
     ret_all.pushKV("time", pindex->GetBlockTime());
     ret_all.pushKV("total_out", total_out);
     ret_all.pushKV("total_size", total_size);
-    ret_all.pushKV("total_weight", total_weight);
     ret_all.pushKV("totalfee", totalfee);
     ret_all.pushKV("txs", (int64_t)block.vtx.size());
     ret_all.pushKV("utxo_increase", outputs - inputs);

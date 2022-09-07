@@ -25,7 +25,7 @@ CTxMemPoolEntry::CTxMemPoolEntry(const CTransactionRef& _tx, const CAmount& _nFe
     tx(_tx), nFee(_nFee), nTime(_nTime), entryHeight(_entryHeight),
     spendsCoinbase(_spendsCoinbase), sigOpCost(_sigOpsCost), lockPoints(lp)
 {
-    nTxWeight = GetTransactionWeight(*tx);
+    nTxWeight = GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
     nUsageSize = RecursiveDynamicUsage(tx);
 
     nCountWithDescendants = 1;

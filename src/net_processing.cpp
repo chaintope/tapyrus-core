@@ -694,7 +694,7 @@ bool AddOrphanTx(const CTransactionRef& tx, NodeId peer) EXCLUSIVE_LOCKS_REQUIRE
     // have been mined or received.
     // 100 orphans, each of which is at most 100,000 bytes big is
     // at most 10 megabytes of orphans and somewhat more byprev index (in the worst case):
-    unsigned int sz = GetTransactionWeight(*tx);
+    unsigned int sz = GetSerializeSize(*tx, SER_NETWORK, PROTOCOL_VERSION);
     if (sz > MAX_STANDARD_TX_WEIGHT)
     {
         LogPrint(BCLog::MEMPOOL, "ignoring large orphan tx (size: %u, hash: %s)\n", sz, hash.ToString());

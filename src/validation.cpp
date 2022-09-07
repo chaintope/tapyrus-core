@@ -3080,7 +3080,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
     // checks that use witness data may be performed here.
 
     // Size limits
-    if (block.vtx.empty() || block.vtx.size() * WITNESS_SCALE_FACTOR > MAX_BLOCK_WEIGHT || ::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS) * WITNESS_SCALE_FACTOR > MAX_BLOCK_WEIGHT)
+    if (block.vtx.empty() || block.vtx.size() > MAX_BLOCK_BASE_SIZE || ::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS) > MAX_BLOCK_BASE_SIZE)
         return state.DoS(100, false, REJECT_INVALID, "bad-blk-length", false, "size limits failed");
 
     // First transaction must be coinbase,
@@ -3197,16 +3197,6 @@ static bool ContextualCheckBlock(const CBlock& block, CValidationState& state, c
         if (tx->HasWitness()) {
             return state.DoS(100, false, REJECT_INVALID, "unexpected-witness", true, strprintf("%s : unexpected witness data found", __func__));
         }
-    }
-
-    // After the coinbase witness reserved value and commitment are verified,
-    // we can check if the block weight passes (before we've checked the
-    // coinbase witness, it would be possible for the weight to be too
-    // large by filling up the coinbase witness, which doesn't change
-    // the block hash, so we couldn't mark the block as permanently
-    // failed).
-    if (GetBlockWeight(block) > MAX_BLOCK_WEIGHT) {
-        return state.DoS(100, false, REJECT_INVALID, "bad-blk-weight", false, strprintf("%s : weight limit failed", __func__));
     }
 
     return true;

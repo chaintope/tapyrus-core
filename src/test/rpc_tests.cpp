@@ -369,10 +369,10 @@ BOOST_AUTO_TEST_CASE(rpc_getblockstats_calculate_percentiles_by_weight)
     feerates.clear();
 
     feerates.emplace_back(std::make_pair(1, 9));
-    feerates.emplace_back(std::make_pair(2 , 16)); //10th + 25th percentile
-    feerates.emplace_back(std::make_pair(4 ,50)); //50th + 75th percentile
-    feerates.emplace_back(std::make_pair(5 ,10));
-    feerates.emplace_back(std::make_pair(9 ,15));  // 90th percentile
+    feerates.emplace_back(std::make_pair(2, 16)); //10th + 25th percentile
+    feerates.emplace_back(std::make_pair(4, 50)); //50th + 75th percentile
+    feerates.emplace_back(std::make_pair(5, 10));
+    feerates.emplace_back(std::make_pair(9, 15));  // 90th percentile
 
     CalculatePercentilesByWeight(result2, feerates, total_weight);
 

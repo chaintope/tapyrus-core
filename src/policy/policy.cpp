@@ -88,7 +88,7 @@ bool IsStandardTx(const CTransaction& tx, std::string& reason)
     // almost as much to process as they cost the sender in fees, because
     // computing signature hashes is O(ninputs*txsize). Limiting transactions
     // to MAX_STANDARD_TX_WEIGHT mitigates CPU exhaustion attacks.
-    unsigned int sz = GetTransactionWeight(tx);
+    unsigned int sz = GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
     if (sz > MAX_STANDARD_TX_WEIGHT) {
         reason = "tx-size";
         return false;
@@ -251,10 +251,10 @@ int64_t GetVirtualTransactionSize(int64_t nWeight, int64_t nSigOpCost)
 
 int64_t GetVirtualTransactionSize(const CTransaction& tx, int64_t nSigOpCost)
 {
-    return GetVirtualTransactionSize(GetTransactionWeight(tx), nSigOpCost);
+    return GetVirtualTransactionSize(GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION), nSigOpCost);
 }
 
 int64_t GetVirtualTransactionInputSize(const CTxIn& txin, int64_t nSigOpCost)
 {
-    return GetVirtualTransactionSize(GetTransactionInputWeight(txin), nSigOpCost);
+    return GetVirtualTransactionSize(GetSerializeSize(txin, SER_NETWORK, PROTOCOL_VERSION), nSigOpCost);
 }

@@ -151,7 +151,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     pblock->vtx[0] = MakeTransactionRef(std::move(coinbaseTx));
     pblocktemplate->vTxFees[0] = -nFees;
 
-    LogPrintf("CreateNewBlock(): block weight: %u txs: %u fees: %ld sigops %d\n", GetBlockWeight(*pblock), nBlockTx, nFees, nBlockSigOpsCost);
+    LogPrintf("CreateNewBlock(): block size: %u txs: %u fees: %ld sigops %d\n",  ::GetSerializeSize(*pblock, SER_NETWORK, PROTOCOL_VERSION), nBlockTx, nFees, nBlockSigOpsCost);
 
     // Fill in header
     pblock->hashPrevBlock  = pindexPrev->GetBlockHash();

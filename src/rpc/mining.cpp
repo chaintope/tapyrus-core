@@ -539,7 +539,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
         assert(nTxSigOps % WITNESS_SCALE_FACTOR == 0);
         nTxSigOps /= WITNESS_SCALE_FACTOR;
         entry.pushKV("sigops", nTxSigOps);
-        entry.pushKV("weight", GetTransactionWeight(tx));
+        entry.pushKV("size", (int64_t)GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION));
 
         transactions.push_back(entry);
     }
