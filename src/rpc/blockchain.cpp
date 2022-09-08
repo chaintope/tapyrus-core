@@ -2075,7 +2075,7 @@ static UniValue getcolor(const JSONRPCRequest& request)
             "\nResult:\n"
             "\"color\"               (string) The color or token.\n"
             "\nExamples:\n"
-            + HelpExampleCli("getcolor", "\"1\" 8282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508")
+            + HelpExampleCli("getcolor", "\"1\" 76a9141234567890abcdefa1a2a3a4a5a6a7a8a9a0aaab88ac")
             + HelpExampleCli("getcolor", "\"2\" 485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954 0")
             + HelpExampleCli("getcolor", "\"3\" 485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954 1")
         );

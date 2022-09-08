@@ -4354,7 +4354,7 @@ static UniValue issuetoken(const JSONRPCRequest& request)
             "    ]\n"
             "}\n"
             "\nExamples:\n"
-            + HelpExampleCli("issuetoken", "\"1\" \"100\" 8282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508")
+            + HelpExampleCli("issuetoken", "\"1\" \"100\" 76a9141234567890abcdefa1a2a3a4a5a6a7a8a9a0aaab88ac")
             + HelpExampleCli("issuetoken", "\"2\" \"1000\" 485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954 0")
             + HelpExampleCli("issuetoken", "\"3\" \"500\" 485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954 1")
         );
