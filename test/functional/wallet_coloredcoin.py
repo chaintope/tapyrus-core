@@ -631,6 +631,12 @@ class WalletColoredCoinTest(BitcoinTestFramework):
             assert_raises_rpc_error(-3, "Invalid amount", self.nodes[0].issuetoken, 2, 66.99, node2_utxos[4]['txid'], node2_utxos[4]['vout'])
             assert_raises_rpc_error(-3, "Amount out of range", self.nodes[0].issuetoken, 2, -10, node2_utxos[4]['txid'], node2_utxos[4]['vout'])
             assert_raises_rpc_error(-3, "Invalid token amount", self.nodes[0].issuetoken, 2, 0, node2_utxos[4]['txid'], node2_utxos[4]['vout'])
+            assert_raises_rpc_error(-8, "Invalid Tapyrus script: fuy", self.nodes[0].issuetoken, 1, 100, "fuy")
+            assert_raises_rpc_error(-8, "Invalid or non-wallet transaction id :aaa", self.nodes[0].issuetoken, 2, 100, "aaa", 1)
+            assert_raises_rpc_error(-8, str("Invalid or non-wallet transaction id :%s" % node2_utxos[1]['txid']), self.nodes[0].issuetoken, 2, 100, node2_utxos[1]['txid'], 1)
+            assert_raises_rpc_error(-8, str("Invalid or non-wallet transaction id :%s" %  res4['txids'][1]), self.nodes[0].issuetoken, 2, 100, res4['txids'][1], 10)
+            assert_raises_rpc_error(-8, "Invalid vout 10 in tx: "+ node2_utxos[1]['txid'], self.nodes[2].issuetoken, 2, 100, node2_utxos[1]['txid'], 10)
+            assert_raises_rpc_error(-8, str("Invalid vout 0 in tx: %s" % res1['txids'][1]), self.nodes[2].issuetoken, 2, 100, res1['txids'][1], 0)
 
     def run_test(self):
         # Check that there's no UTXO on any of the nodes
