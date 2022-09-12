@@ -194,7 +194,6 @@ BOOST_AUTO_TEST_CASE(GetTxSigOpCost)
         BOOST_CHECK_EQUAL(GetTransactionSigOps(CTransaction(spendingTx), coins, flags), 0);
 
         BOOST_CHECK_EQUAL(GetTransactionSigOps(CTransaction(creationTx), coins, flags), 1);
-
         BOOST_CHECK_EQUAL(VerifyWithFlag(creationTx, spendingTx, flags) ,SCRIPT_ERR_CHECKDATASIGVERIFY);
     }
     // OP_CHECKDATASIG nested in P2SH
