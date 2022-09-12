@@ -152,7 +152,7 @@ extern std::atomic_bool g_is_mempool_loaded;
 typedef std::unordered_map<uint256, CBlockIndex*, BlockHasher> BlockMap;
 extern BlockMap& mapBlockIndex;
 extern uint64_t nLastBlockTx;
-extern uint64_t nLastBlockWeight;
+extern uint64_t nLastBlockSize;
 extern const std::string strMessageMagic;
 extern CWaitableCriticalSection g_best_block_mutex;
 extern CConditionVariable g_best_block_cv;

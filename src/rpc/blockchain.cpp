@@ -731,7 +731,6 @@ static UniValue getblock(const JSONRPCRequest& request)
             "  \"hash\" : \"hash\",     (string) The block hash (same as provided)\n"
             "  \"confirmations\" : n,   (numeric) The number of confirmations, or -1 if the block is not on the prod chain\n"
             "  \"size\" : n,            (numeric) The block size\n"
-            "  \"weight\" : n           (numeric) The block weight as defined in BIP 141\n"
             "  \"height\" : n,          (numeric) The block height or index\n"
             "  \"features\" : n,         (numeric) The block features\n"
             "  \"featuresHex\" : \"00000000\", (string) The block features formatted in hexadecimal\n"

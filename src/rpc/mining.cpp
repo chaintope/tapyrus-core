@@ -218,7 +218,7 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
             "\nResult:\n"
             "{\n"
             "  \"blocks\": nnn,             (numeric) The current block\n"
-            "  \"currentblockweight\": nnn, (numeric) The last block weight\n"
+            "  \"currentblocksize\": nnn,   (numeric) The last block size\n"
             "  \"currentblocktx\": nnn,     (numeric) The last block transaction\n"
             "  \"pooledtx\": n              (numeric) The size of the mempool\n"
             "  \"chain\": \"xxxx\",           (string) current network name\n"
@@ -234,7 +234,7 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
 
     UniValue obj(UniValue::VOBJ);
     obj.pushKV("blocks",           (int)chainActive.Height());
-    obj.pushKV("currentblockweight", (uint64_t)nLastBlockWeight);
+    obj.pushKV("currentblocksize", (uint64_t)nLastBlockSize);
     obj.pushKV("currentblocktx",   (uint64_t)nLastBlockTx);
     // TODO: push signed block multisig condition
     obj.pushKV("pooledtx",         (uint64_t)mempool.size());
@@ -536,8 +536,8 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
         int index_in_template = i - 1;
         entry.pushKV("fee", pblocktemplate->vTxFees[index_in_template]);
         int64_t nTxSigOps = pblocktemplate->vTxSigOpsCost[index_in_template];
-        assert(nTxSigOps % WITNESS_SCALE_FACTOR == 0);
-        nTxSigOps /= WITNESS_SCALE_FACTOR;
+        //assert(nTxSigOps % WITNESS_SCALE_FACTOR == 0);
+        //nTxSigOps /= WITNESS_SCALE_FACTOR;
         entry.pushKV("sigops", nTxSigOps);
         entry.pushKV("size", (int64_t)GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION));
 
@@ -569,10 +569,10 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     result.pushKV("noncerange", "00000000ffffffff");
     int64_t nSigOpLimit = MAX_BLOCK_SIGOPS_COST;
     int64_t nSizeLimit = MAX_BLOCK_SERIALIZED_SIZE;
-    assert(nSigOpLimit % WITNESS_SCALE_FACTOR == 0);
-    nSigOpLimit /= WITNESS_SCALE_FACTOR;
-    assert(nSizeLimit % WITNESS_SCALE_FACTOR == 0);
-    nSizeLimit /= WITNESS_SCALE_FACTOR;
+    //assert(nSigOpLimit % WITNESS_SCALE_FACTOR == 0);
+    //nSigOpLimit /= WITNESS_SCALE_FACTOR;
+    //assert(nSizeLimit % WITNESS_SCALE_FACTOR == 0);
+    //nSizeLimit /= WITNESS_SCALE_FACTOR;
     result.pushKV("sigoplimit", nSigOpLimit);
     result.pushKV("sizelimit", nSizeLimit);
     result.pushKV("curtime", pblock->GetBlockTime());
