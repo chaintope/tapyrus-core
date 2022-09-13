@@ -6,12 +6,17 @@
 """Test colored coin issue using create_colored_transaction python API in tapyrus wallet."""
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, hex_str_to_bytes, assert_raises_rpc_error
+from test_framework.util import assert_equal, hex_str_to_bytes, assert_raises_rpc_error, bytes_to_hex_str
 from test_framework.blocktools import findTPC, create_colored_transaction
-from test_framework.messages import sha256
+from test_framework.messages import sha256, CTransaction, COutPoint, CTxIn, CTxOut, COIN
+from test_framework.script import CScript,OP_1, OP_EQUAL
 from codecs import encode
+from test_framework.blocktools import create_block
 
 reverse_bytes = (lambda txid  : txid[-1: -len(txid)-1: -1])
+
+BLOCK_1_COINBASE = "7258ed58b571f8bbff23c779f6d1e7f9c285700c4bcf0aa3f33292ff9983b5d7"
+BLOCK_1_COINBASE_COLORID = "c2a54e3b8cdf649f1c80e16ba03a227b364565a4dabcfd3d0293b474200b456a42"
 
 class TokenAPITest(BitcoinTestFramework):
     def set_test_params(self):
@@ -22,6 +27,29 @@ class TokenAPITest(BitcoinTestFramework):
     def run_test(self):
 
         self.log.info("Creating blocks")
+        tip = self.nodes[0].getbestblockhash()
+        best_block = self.nodes[0].getblock(tip)
+        block_time = best_block["time"] + 1
+        #create a block with coinbase txid  this is the same across executions i.e with a constant script.
+        coinbase = CTransaction()
+        coinbase.vin.append(CTxIn(outpoint=COutPoint(0, 1), nSequence=0xffffffff))
+        coinbaseoutput = CTxOut()
+        coinbaseoutput.nValue = 50 * COIN
+        coinbaseoutput.scriptPubKey = CScript([OP_1, OP_EQUAL])
+        coinbase.vout = [coinbaseoutput]
+        block1 = create_block(int(tip, 16), coinbase, block_time)
+        block1.solve(self.signblockprivkey)
+        self.nodes[0].submitblock(bytes_to_hex_str(block1.serialize()))
+
+        #block1 is accepted and has a constant txid
+        assert_equal(self.nodes[0].getbestblockhash(), block1.hash)
+        assert_equal(BLOCK_1_COINBASE, block1.vtx[0].hashMalFix)
+
+        #getcolor with the same txid should give the same colorid
+        colorFromNode = self.nodes[0].getcolor(2, BLOCK_1_COINBASE, 0)
+        assert_equal(colorFromNode, BLOCK_1_COINBASE_COLORID)
+        self.sync_all()
+
         self.nodes[0].generate(2, self.signblockprivkey_wif)
         self.sync_all()
         self.nodes[1].generate(2, self.signblockprivkey_wif)

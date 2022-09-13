@@ -4355,8 +4355,8 @@ static UniValue issuetoken(const JSONRPCRequest& request)
             "}\n"
             "\nExamples:\n"
             + HelpExampleCli("issuetoken", "\"1\" \"100\" 76a9141234567890abcdefa1a2a3a4a5a6a7a8a9a0aaab88ac")
-            + HelpExampleCli("issuetoken", "\"2\" \"1000\" 485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954 0")
-            + HelpExampleCli("issuetoken", "\"3\" \"500\" 485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954 1")
+            + HelpExampleCli("issuetoken", "\"2\" \"1000\" 7258ed58b571f8bbff23c779f6d1e7f9c285700c4bcf0aa3f33292ff9983b5d7 0")
+            + HelpExampleCli("issuetoken", "\"3\" \"1\" 7258ed58b571f8bbff23c779f6d1e7f9c285700c4bcf0aa3f33292ff9983b5d7 0")
         );
     RPCTypeCheck(request.params, {UniValue::VNUM, UniValue::VNUM, UniValue::VSTR});
 
