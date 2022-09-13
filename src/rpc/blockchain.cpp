@@ -95,7 +95,6 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
     if (chainActive.Contains(blockindex))
         confirmations = chainActive.Height() - blockindex->nHeight + 1;
     result.pushKV("confirmations", confirmations);
-    result.pushKV("strippedsize", (int)::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS));
     result.pushKV("size", (int)::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION));
     result.pushKV("weight", (int)::GetBlockWeight(block));
     result.pushKV("height", blockindex->nHeight);
@@ -730,24 +729,24 @@ static UniValue getblock(const JSONRPCRequest& request)
             "\"data\"             (string) A string that is serialized, hex-encoded data for block 'hash'.\n"
             "\nResult (for verbosity = 1):\n"
             "{\n"
-            "  \"hash\" : \"hash\",     (string) the block hash (same as provided)\n"
+            "  \"hash\" : \"hash\",     (string) The block hash (same as provided)\n"
             "  \"confirmations\" : n,   (numeric) The number of confirmations, or -1 if the block is not on the prod chain\n"
             "  \"size\" : n,            (numeric) The block size\n"
-            "  \"strippedsize\" : n,    (numeric) The block size excluding witness data\n"
             "  \"weight\" : n           (numeric) The block weight as defined in BIP 141\n"
             "  \"height\" : n,          (numeric) The block height or index\n"
             "  \"features\" : n,         (numeric) The block features\n"
             "  \"featuresHex\" : \"00000000\", (string) The block features formatted in hexadecimal\n"
             "  \"merkleroot\" : \"xxxx\", (string) The merkle root\n"
-            "  \"immutablemerkleroot\" : \"xxxx\", (string) The merkle root computes without scriptSig\n"
+            "  \"immutablemerkleroot\" : \"xxxx\", (string) The merkle root computed without scriptSig\n"
             "  \"tx\" : [               (array of string) The transaction ids\n"
             "     \"transactionid\"     (string) The transaction id\n"
             "     ,...\n"
             "  ],\n"
             "  \"time\" : ttt,          (numeric) The block time in seconds since epoch (Jan 1 1970 GMT)\n"
             "  \"mediantime\" : ttt,    (numeric) The median block time in seconds since epoch (Jan 1 1970 GMT)\n"
-            "  \"aggpubkey\":\"xxxx\"   (string, optional) Aggregate public key if it was present in the block\n"
-            "  \"proof\": \"xxxx\"      (string) Threshold signature of signers who accepted the block \n"
+            "  \"xfieldType\" : n        (numeric) Indicate the type of what is stored in the following xfield\n"
+            "  \"xfield\" : \"xxx\"      (string) The data in xfield e.g. aggregate publib key\n"
+            "  \"proof\": \"xxxx\"      (string) Threshold signature of signers who accepted the block\n"
             "  \"nTx\" : n,             (numeric) The number of transactions in the block.\n"
             "  \"previousblockhash\" : \"hash\",  (string) The hash of the previous block\n"
             "  \"nextblockhash\" : \"hash\"       (string) The hash of the next block\n"

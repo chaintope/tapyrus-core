@@ -4185,11 +4185,12 @@ static UniValue IssueReissuableToken(CWallet* const pwallet, const std::string& 
         txnouttype type;
         std::vector<CTxDestination> vDest;
         int nRequired;
-        if (ExtractDestinations(scriptPubKey, type, vDest, nRequired)) {
-            for (const CTxDestination &dest : vDest)
-                if(!IsValidDestination(dest))
-                    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid Tapyrus address: ") + script);
+        if (!ExtractDestinations(scriptPubKey, type, vDest, nRequired)) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid Tapyrus script: ") + script);
         }
+        for (const CTxDestination &dest : vDest)
+            if(!IsValidDestination(dest))
+                throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid Tapyrus script:") + script);
         pwallet->SetAddressBook(vDest[0], "", "receive");
 
         // Create and send the transaction
@@ -4371,7 +4372,6 @@ static UniValue issuetoken(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid token amount for NFT. It must be 1");
     }
 
-    //TODO : validate utxo
     if (pwallet->IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS)) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Error: Private keys are disabled for this wallet");
     }
@@ -4387,7 +4387,29 @@ static UniValue issuetoken(const JSONRPCRequest& request)
         return IssueReissuableToken(pwallet, request.params[2].getValStr(), tokenValue, coin_control);
     else
     {
-        COutPoint out(uint256S(request.params[2].get_str()), request.params[3].get_int());
+        uint256 txid = uint256S(request.params[2].get_str());
+        uint8_t vout = request.params[3].get_int();
+        COutPoint out(txid, vout);
+
+        //Check if the UTXO belongs to us and is spendable
+        //1. check transaction id
+        auto it = pwallet->mapWallet.find(txid);
+        if (it == pwallet->mapWallet.end()) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid or non-wallet transaction id :") + request.params[2].get_str());
+        }
+
+        //2. vout and its type
+        if(vout < 0 || vout >= it->second.tx->vout.size() || GetColorIdFromScript(it->second.tx->vout[vout].scriptPubKey).type != TokenTypes::NONE) {
+            std::string strError = strprintf("Invalid vout %d in tx: %s", request.params[3].get_int(), request.params[2].get_str());
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strError);
+        }
+
+        //3. spendable
+        CTxOut txout(it->second.tx->vout[vout].nValue, it->second.tx->vout[vout].scriptPubKey);
+        if(pwallet->IsMine(txout)  != ISMINE_SPENDABLE)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Transaction is not spendable :") + request.params[2].get_str() + " : " + request.params[3].get_str());
+
+        //This output is ours. Add it to coin control so that it will be used as an input in transaction creation
         coin_control.Select(out);
         coin_control.m_colorTxType = ColoredTxType::ISSUE;
         return IssueToken(pwallet, tokenValue, coin_control);
