@@ -4168,42 +4168,6 @@ static ColorIdentifier getColorIdFromRequest(const JSONRPCRequest& request, bool
     return colorId;
 }
 
-static UniValue getcolor(const JSONRPCRequest& request)
-{
-    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
-    CWallet* const pwallet = wallet.get();
-
-    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
-        return NullUniValue;
-    }
-
-    if (request.fHelp || request.params.size() < 2 || request.params.size() > 3)
-        throw std::runtime_error(
-            "getcolor \"token_type\" \"txid/scriptpubkey\" index \n"
-            "\nGet the color of the token that can be generated when using the script pubkey given as parameter or transaction id and index pair given as parameter.\n"
-            + HelpRequiringPassphrase(pwallet) +
-            "\nArguments:\n"
-            "1. \"token_type\"       (numberic, required) Value can be 1 or 2 or 3.\n"
-            " 1. REISSUABLE\n"
-            " 2. NON-REISSUABLE\n"
-            " 3. NFT\n"
-            "2. \"scriptpubkey\"     (string, optional) Script pubkey that is used to issue REISSUABLE token\n"
-            "2. \"txid\"             (string, optional) Transaction id from which the NON-REISSUABLE or NFT tokens are issued\n"
-            "3. \"index\"            (numeric, optional) Index in the above transaction id used for issuing token\n"
-            "\nResult:\n"
-            "\"color\"               (string) The color or token.\n"
-            "\nExamples:\n"
-            + HelpExampleCli("getcolor", "\"1\" 8282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508")
-            + HelpExampleCli("getcolor", "\"2\" 485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954 0")
-            + HelpExampleCli("getcolor", "\"3\" 485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954 1")
-        );
-
-    RPCTypeCheck(request.params, {UniValue::VNUM, UniValue::VSTR});
-
-    const ColorIdentifier colorId = getColorIdFromRequest(request, false);
-
-    return colorId.toHexString();
-}
 
 // Construct two transctions:
 // first transaction to create a utxo with the given scriptpubkey.
@@ -4391,9 +4355,9 @@ static UniValue issuetoken(const JSONRPCRequest& request)
             "    ]\n"
             "}\n"
             "\nExamples:\n"
-            + HelpExampleCli("issuetoken", "\"1\" \"100\" 76a9145834479edbbe0539b31ffd3a8f8ebadc2165ed0188ac")
-            + HelpExampleCli("issuetoken", "\"2\" \"1000\" 485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954 0")
-            + HelpExampleCli("issuetoken", "\"3\" \"1\" 485273f6703f038a234400edadb543eb44b4af5372e8b207990beebc386e7954 1")
+            + HelpExampleCli("issuetoken", "\"1\" \"100\" 76a9141234567890abcdefa1a2a3a4a5a6a7a8a9a0aaab88ac")
+            + HelpExampleCli("issuetoken", "\"2\" \"1000\" 7258ed58b571f8bbff23c779f6d1e7f9c285700c4bcf0aa3f33292ff9983b5d7 0")
+            + HelpExampleCli("issuetoken", "\"3\" \"1\" 7258ed58b571f8bbff23c779f6d1e7f9c285700c4bcf0aa3f33292ff9983b5d7 0")
         );
     RPCTypeCheck(request.params, {UniValue::VNUM, UniValue::VNUM, UniValue::VSTR});
 
@@ -4627,7 +4591,6 @@ extern UniValue importprunedfunds(const JSONRPCRequest& request);
 extern UniValue removeprunedfunds(const JSONRPCRequest& request);
 extern UniValue importmulti(const JSONRPCRequest& request);
 extern UniValue rescanblockchain(const JSONRPCRequest& request);
-extern UniValue getcolor(const JSONRPCRequest& request);
 extern UniValue issuetoken(const JSONRPCRequest& request);
 extern UniValue reissuetoken(const JSONRPCRequest& request);
 extern UniValue transfertoken(const JSONRPCRequest& request);
@@ -4694,7 +4657,6 @@ static const CRPCCommand commands[] =
     { "wallet",             "setlabel",                         &setlabel,                      {"address","label"} },
 
     /** colored coin RPCs */
-    { "wallet",                    "getcolor",               &getcolor,                      {"type","txid","index"} },
     { "wallet",                    "issuetoken",             &issuetoken,                      {"type","value","txid","index"} },
     { "wallet",                    "reissuetoken",           &reissuetoken,                      {"color","value"} },
     { "wallet",                    "transfertoken",          &transfertoken,                      {"address","value"} },

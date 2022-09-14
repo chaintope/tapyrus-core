@@ -23,7 +23,6 @@
     """
 from codecs import encode
 import math
-from time import sleep
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
@@ -37,7 +36,7 @@ from test_framework.util import (
 from test_framework.messages import sha256
 from test_framework.script import CScript, hash160, OP_DUP, OP_HASH160, OP_EQUALVERIFY, OP_CHECKSIG
 from test_framework.address import byte_to_base58
-from test_framework.blocktools import findTPC, create_colored_transaction, TOKEN_TYPES
+from test_framework.blocktools import findTPC
 
 class WalletColoredCoinTest(BitcoinTestFramework):
     def set_test_params(self):
@@ -159,6 +158,9 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         assert_raises_rpc_error(-8, "Extra parameter for Reissuable token", self.nodes[0].getcolor, 1, utxos[4]['txid'], utxos[4]['vout'])
         assert_raises_rpc_error(-8, "Parameter missing for Non-Reissuable or NFT token", self.nodes[0].getcolor, 2, utxos[4]['txid'])
         assert_raises_rpc_error(-8, "Parameter missing for Non-Reissuable or NFT token", self.nodes[0].getcolor, 3, utxos[4]['txid'])
+        assert_raises_rpc_error(-8, "Invalid Tapyrus script", self.nodes[0].getcolor, 1, "ty")
+        assert_raises_rpc_error(-8, "txid must be hexadecimal string (not 'ty')", self.nodes[0].getcolor, 3, "ty", 0)
+        assert_raises_rpc_error(-8, "Invalid transaction id :0011001100110011001100110011001100110011001100110011001100110011", self.nodes[0].getcolor, 3, "0011001100110011001100110011001100110011001100110011001100110011", 0)
 
     def test_createrawtransaction(self, utxos):
         '''test transaction with colored output using createrawtransaction 
