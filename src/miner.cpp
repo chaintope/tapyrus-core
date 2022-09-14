@@ -56,8 +56,8 @@ BlockAssembler::Options::Options() {
 BlockAssembler::BlockAssembler(const CChainParams& params, const Options& options) : chainparams(params)
 {
     blockMinFeeRate = options.blockMinFeeRate;
-    // Limit weight to between 4K and MAX_BLOCK_SERIALIZED_SIZE-4K for sanity:
-    nBlockMaxSize = std::max<size_t>(4000, std::min<size_t>(MAX_BLOCK_SERIALIZED_SIZE - 4000, options.nBlockMaxSize));
+    // Limit weight to between 1K and MAX_BLOCK_SERIALIZED_SIZE-1K for sanity:
+    nBlockMaxSize = std::max<size_t>(1000, std::min<size_t>(MAX_BLOCK_SERIALIZED_SIZE - 1000, options.nBlockMaxSize));
 }
 
 static BlockAssembler::Options DefaultOptions()
@@ -83,8 +83,8 @@ void BlockAssembler::resetBlock()
     inBlock.clear();
 
     // Reserve space for coinbase tx
-    nBlockSize = 4000;
-    nBlockSigOpsCost = 400;
+    nBlockSize = 1000;
+    nBlockSigOpsCost = 100;
 
     // These counters do not include coinbase tx
     nBlockTx = 0;
@@ -386,7 +386,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
             ++nConsecutiveFailed;
 
             if (nConsecutiveFailed > MAX_CONSECUTIVE_FAILURES && nBlockSize >
-                    nBlockMaxSize - 4000) {
+                    nBlockMaxSize - 1000) {
                 // Give up if we're close to full and haven't succeeded in a while
                 break;
             }

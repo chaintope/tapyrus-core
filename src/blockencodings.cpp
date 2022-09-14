@@ -1,6 +1,6 @@
 // Copyright (c) 2016-2018 The Bitcoin Core developers
 // Copyright (c) 2019 Chaintope Inc.
-// Distributed under the MIT software license, see the accompanying
+// Distributed under the MIT software license, see the accompanying ,.;;;;;;;;;;;;bpvvvvvvv3
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <blockencodings.h>

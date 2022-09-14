@@ -249,32 +249,27 @@ static void TestPackageSelection(const CChainParams& chainparams, const std::vec
     tx.vin[0].prevout.hashMalFix = hashFreeTx2;
     tx.vout.resize(1);
     feeToUse = blockMinFeeRate.GetFee(freeTxSize);
-    tx.vout[0].nValue = 5000000000LL - 100000000 - feeToUse;
+    tx.vout[0].nValue = 5000000000LL - 100000000 - 2*feeToUse;
     uint256 hashLowFeeTx2 = tx.GetHashMalFix();
-    mempool.addUnchecked(hashLowFeeTx2, entry.Fee(feeToUse).SpendsCoinbase(false).FromTx(tx));
+    mempool.addUnchecked(hashLowFeeTx2, entry.Fee(2*feeToUse).SpendsCoinbase(false).FromTx(tx));
     pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey);
 
     // Verify that this tx isn't selected.
-    std::cout<< hashFreeTx2.GetHex() << " " << hashLowFeeTx2.GetHex() << std::endl;
     for (size_t i=0; i<pblocktemplate->block.vtx.size(); ++i) {
         BOOST_CHECK(pblocktemplate->block.vtx[i]->GetHashMalFix() != hashFreeTx2);
         BOOST_CHECK(pblocktemplate->block.vtx[i]->GetHashMalFix() != hashLowFeeTx2);
     }
-    for (size_t i=0; i<pblocktemplate->block.vtx.size(); ++i) {
-        std::cout<< "1 "  << pblocktemplate->block.vtx[i]->GetHashMalFix().GetHex()<<std::endl;
-    }
+
     // This tx will be mineable, and should cause hashLowFeeTx2 to be selected
     // as well.
     tx.vin[0].prevout.n = 1;
     tx.vout[0].nValue = 100000000 - 10000; // 10k tapyrus fee
-     std::cout << tx.GetHashMalFix() <<std::endl;
     mempool.addUnchecked(tx.GetHashMalFix(), entry.Fee(10000).FromTx(tx));
     pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey);
-    for (size_t i=0; i<pblocktemplate->block.vtx.size(); ++i) {
-        std::cout<< "2 " <<pblocktemplate->block.vtx[i]->GetHashMalFix().GetHex()<<std::endl;
-    }
+
     BOOST_CHECK(pblocktemplate->block.vtx.size() == 9);
-    //BOOST_CHECK(pblocktemplate->block.vtx[8]->GetHashMalFix() == hashLowFeeTx2);
+    BOOST_CHECK(pblocktemplate->block.vtx[4]->GetHashMalFix() == hashFreeTx2);
+    BOOST_CHECK(pblocktemplate->block.vtx[6]->GetHashMalFix() == hashLowFeeTx2);
 }
 
 // NOTE: These tests rely on CreateNewBlock doing its own self-validation!
