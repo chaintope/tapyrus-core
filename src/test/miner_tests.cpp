@@ -255,24 +255,19 @@ static void TestPackageSelection(const CChainParams& chainparams, const std::vec
     pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey);
 
     // Verify that this tx isn't selected.
-    std::cout<< hashFreeTx2.GetHex() << " " << hashLowFeeTx2.GetHex() << std::endl;
     for (size_t i=0; i<pblocktemplate->block.vtx.size(); ++i) {
         BOOST_CHECK(pblocktemplate->block.vtx[i]->GetHashMalFix() != hashFreeTx2);
         BOOST_CHECK(pblocktemplate->block.vtx[i]->GetHashMalFix() != hashLowFeeTx2);
     }
-    for (size_t i=0; i<pblocktemplate->block.vtx.size(); ++i) {
-        std::cout<< "1 "  << pblocktemplate->block.vtx[i]->GetHashMalFix().GetHex()<<std::endl;
-    }
+
     // This tx will be mineable, and should cause hashLowFeeTx2 to be selected
     // as well.
     tx.vin[0].prevout.n = 1;
     tx.vout[0].nValue = 100000000 - 10000; // 10k tapyrus fee
-     std::cout << tx.GetHashMalFix() <<std::endl;
     mempool.addUnchecked(tx.GetHashMalFix(), entry.Fee(10000).FromTx(tx));
     pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey);
     BOOST_CHECK(pblocktemplate->block.vtx.size() == 9);
     BOOST_CHECK(pblocktemplate->block.vtx[8]->GetHashMalFix() == hashLowFeeTx2);
-}
 
 // NOTE: These tests rely on CreateNewBlock doing its own self-validation!
 BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
