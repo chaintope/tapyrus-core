@@ -26,7 +26,7 @@ TESTSDIR = os.path.dirname(os.path.realpath(__file__))
 
 class GetblockstatsTest(BitcoinTestFramework):
 
-    start_height = 101
+    start_height = 1
     max_stat_pos = 2
     STATS_NEED_TXINDEX = [
         'avgfee',
@@ -59,15 +59,16 @@ class GetblockstatsTest(BitcoinTestFramework):
         self.extra_args = [['-txindex'], ['-paytxfee=0.003']]
         self.setup_clean_chain = True
         self.mocktime = 1561689492
-        self.signblockpubkey = "0201c537fd7eb7928700927b48e51ceec621fc8ba1177ee2ad67336ed91e2f63a1"
-        self.signblockprivkey = "aa3680d5d48a8283413f7a108367c7299ca73f553735860a87b08f39395618b7"
+        self.signblockpubkey = "02bf2027c8455800c7626542219e6208b5fe787483689f1391d6d443ec85673ecf"
+        self.signblockprivkey = "aa2c70c4b85a09be514292d04b27bbb0cc3f86d306d58fe87743d10a095ada07"
+        self.signblockprivkey_wif = "cTHVmjaAwKtU75t89fg42SLx43nRxhsri6YY1Eynvs1V1tPRCfae"
         self.genesisBlock = createTestGenesisBlock(self.signblockpubkey, self.signblockprivkey, self.mocktime - 10)
 
     def get_stats(self):
         return [self.nodes[0].getblockstats(hash_or_height=self.start_height + i) for i in range(self.max_stat_pos+1)]
 
     def generate_test_data(self, filename):
-        self.nodes[0].generate(101, self.signblockprivkey_wif)
+        self.nodes[0].generate(1, self.signblockprivkey_wif)
 
         self.nodes[0].sendtoaddress(address=self.nodes[1].getnewaddress(), amount=10, subtractfeefromamount=True)
         self.nodes[0].generate(1, self.signblockprivkey_wif)

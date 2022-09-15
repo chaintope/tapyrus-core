@@ -1656,8 +1656,7 @@ static UniValue getblockstats(const JSONRPCRequest& request)
         SetHasKeys(stats, "utxo_size_inc", "totalfee", "avgfee", "avgfeerate", "minfee", "maxfee", "minfeerate", "maxfeerate");
     const bool loop_outputs = do_all || loop_inputs || stats.count("total_out");
     const bool do_calculate_size = do_all || do_mediantxsize ||
-        SetHasKeys(stats, "total_size", "avgtxsize", "mintxsize", "maxtxsize");
-    const bool do_calculate_weight = do_all || SetHasKeys(stats, "total_size", "avgfeerate","avgfeerate", "feerate_percentiles", "minfeerate", "maxfeerate");
+        SetHasKeys(stats, "total_size", "avgtxsize", "mintxsize", "maxtxsize", "avgfeerate", "feerate_percentiles", "minfeerate", "maxfeerate");
 
     CAmount maxfee = 0;
     CAmount maxfeerate = 0;
@@ -1741,7 +1740,7 @@ static UniValue getblockstats(const JSONRPCRequest& request)
             totalfee += txfee;
 
             // New feerate uses tapyrus per byte
-            CAmount feerate = txfee;
+            CAmount feerate = tx_size ? txfee : 0;
             if (do_feerate_percentiles) {
                 feerate_array.emplace_back(std::make_pair(feerate, tx_size));
             }
@@ -1751,7 +1750,7 @@ static UniValue getblockstats(const JSONRPCRequest& request)
     }
 
     CAmount feerate_percentiles[NUM_GETBLOCKSTATS_PERCENTILES] = { 0 };
-    CalculatePercentilesByWeight(feerate_percentiles, feerate_array, total_size > 0 ? total_size : utxo_size_inc + 169);
+    CalculatePercentilesByWeight(feerate_percentiles, feerate_array, total_size > 0 ? total_size : utxo_size_inc + 169);//block header size
 
     UniValue feerates_res(UniValue::VARR);
     for (int64_t i = 0; i < NUM_GETBLOCKSTATS_PERCENTILES; i++) {
