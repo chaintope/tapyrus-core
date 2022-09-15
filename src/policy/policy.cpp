@@ -35,16 +35,8 @@ CAmount GetDustThreshold(const CTxOut& txout, const CFeeRate& dustRelayFeeIn)
         return 0;
 
     size_t nSize = GetSerializeSize(txout, SER_DISK, 0);
-    int witnessversion = 0;
-    std::vector<unsigned char> witnessprogram;
-
-    /*if (txout.scriptPubKey.IsWitnessProgram(witnessversion, witnessprogram)) {
-        // sum the sizes of the parts of a transaction input
-        // with 75% segwit discount applied to the script size.
-        nSize += (32 + 4 + 1 + (107 / WITNESS_SCALE_FACTOR) + 4);
-    } else {*/
-        nSize += (32 + 4 + 1 + 107 + 4); // the 148 mentioned above
-    //}
+    // sum the sizes of the parts of a transaction input
+    nSize += (32 + 4 + 1 + 107 + 4); // the 148 mentioned above
 
     return dustRelayFeeIn.GetFee(nSize);
 }
@@ -244,9 +236,9 @@ CFeeRate incrementalRelayFee = CFeeRate(DEFAULT_INCREMENTAL_RELAY_FEE);
 CFeeRate dustRelayFee = CFeeRate(DUST_RELAY_TX_FEE);
 unsigned int nBytesPerSigOp = DEFAULT_BYTES_PER_SIGOP;
 
-int64_t GetVirtualTransactionSize(int64_t nWeight, int64_t nSigOpCost)
+int64_t GetVirtualTransactionSize(int64_t nSize, int64_t nSigOpCost)
 {
-    return std::max(nWeight, nSigOpCost * nBytesPerSigOp);
+    return std::max(nSize, nSigOpCost * nBytesPerSigOp);
 }
 
 int64_t GetVirtualTransactionSize(const CTransaction& tx, int64_t nSigOpCost)
