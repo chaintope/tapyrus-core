@@ -140,6 +140,7 @@ UniValue getnewblock(const JSONRPCRequest& request)
                 "blockhex      (hex) The block hex\n"
                 "\nExamples:\n"
                 + HelpExampleCli("getnewblock", "")
+                + HelpExampleCli("getnewblock", "address 0 \"1:03831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafc\"")
         );
 
     CTxDestination destination = DecodeDestination(request.params[0].get_str());
@@ -154,45 +155,47 @@ UniValue getnewblock(const JSONRPCRequest& request)
 
     const std::string xfieldParam = request.params[2].isNull() ? "" : request.params[2].get_str();
     TAPYRUS_XFIELDTYPES xfieldType = TAPYRUS_XFIELDTYPES::NONE;
-
-    //using lambda to avoid temp variables
-    xfieldType = [xfieldParam](int splitAt, TAPYRUS_XFIELDTYPES max) -> TAPYRUS_XFIELDTYPES
-        { int x = splitAt > 0 ? atoi(xfieldParam.substr(0,splitAt)) : 0;
-          return x > 0 && x < int(max) ? TAPYRUS_XFIELDTYPES(x) : TAPYRUS_XFIELDTYPES::NONE;
-        } (xfieldParam.find(':'), TAPYRUS_XFIELDTYPES::MAX_XFIELDTYPE );
-
-    if ( xfieldType ==  TAPYRUS_XFIELDTYPES::NONE )
-    {
-        throw JSONRPCError(RPC_INVALID_PARAMS, "xfield_type parameter could not be parsed. Check if the xfield parameter has format: <xfield_type:new_xfield_value>.");
-    }
-
     xFieldInput xfield;
-    xfield.invalid = false;
+    xfield.invalid = true;
 
-    switch(xfieldType){
-        case TAPYRUS_XFIELDTYPES::AGGPUBKEY:
+    if (!request.params[2].isNull())
+    {
+        //using lambda to avoid temp variables
+        xfieldType = [xfieldParam](int splitAt, TAPYRUS_XFIELDTYPES max) -> TAPYRUS_XFIELDTYPES
+            { int x = splitAt > 0 ? atoi(xfieldParam.substr(0,splitAt)) : 0;
+            return x > 0 && x < int(max) ? TAPYRUS_XFIELDTYPES(x) : TAPYRUS_XFIELDTYPES::NONE;
+            } (xfieldParam.find(':'), TAPYRUS_XFIELDTYPES::MAX_XFIELDTYPE );
+
+        if(xfieldType ==  TAPYRUS_XFIELDTYPES::NONE)
         {
-            std::string aggPubkeyString = xfieldParam.substr(xfieldParam.find(':')+1);
-            if (IsHex(aggPubkeyString)) {
-                std::vector<unsigned char> data = ParseHex(aggPubkeyString);
-                CPubKey aggPubKey(data);
-                if (aggPubKey.IsFullyValid() && aggPubKey.IsCompressed())
-                {
-                    xfield.xFieldValue.aggPubKey = std::vector<unsigned char>(data.begin(), data.end());
-                    break;
-                }
-            }
-            xfield.invalid = true;
+            throw JSONRPCError(RPC_INVALID_PARAMS, "xfield_type parameter could not be parsed. Check if the xfield parameter has format: <xfield_type:new_xfield_value>.");
         }
-        break;
-        default:
-            xfield.invalid = true;
-    }
 
-    if (xfield.invalid == true) {
-        throw JSONRPCError(RPC_INVALID_PARAMS, "xfield parameter was invalid. It is expected to be <xfield_type:new_xfield_value>.");
-    }
+        switch(xfieldType){
+            case TAPYRUS_XFIELDTYPES::AGGPUBKEY:
+            {
+                std::string aggPubkeyString = xfieldParam.substr(xfieldParam.find(':')+1);
+                if (IsHex(aggPubkeyString)) {
+                    std::vector<unsigned char> data = ParseHex(aggPubkeyString);
+                    CPubKey aggPubKey(data);
+                    if (aggPubKey.IsFullyValid() && aggPubKey.IsCompressed())
+                    {
+                        xfield.xFieldValue.aggPubKey = std::vector<unsigned char>(data.begin(), data.end());
+                        xfield.invalid = false;
+                        break;
+                    }
+                }
+                xfield.invalid = true;
+            }
+            break;
+            default:
+                xfield.invalid = true;
+        }
 
+        if (xfield.invalid == true) {
+            throw JSONRPCError(RPC_INVALID_PARAMS, "xfield parameter was invalid. It is expected to be <xfield_type:new_xfield_value>.");
+        }
+    }
     CScript coinbaseScript {GetScriptForDestination(destination)};
 
     std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(Params()).CreateNewBlock(coinbaseScript, true, xfieldType, &xfield));

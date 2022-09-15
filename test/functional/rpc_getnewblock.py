@@ -27,8 +27,13 @@ class GetNewBlockTest(BitcoinTestFramework):
         self.log.info("Test starting...")
         self.nodes[0].generate(1, self.signblockprivkey_wif)
 
-        self.log.info("getnewblock aggpubkey tests")
+        self.log.info("getnewblock regression tests")
         address = self.nodes[0].getnewaddress()
+        blockhex = self.nodes[0].getnewblock(address)
+        blockhex = self.nodes[0].getnewblock(address, 1)
+        assert_raises_rpc_error(-1, "JSON value is not a string as expected", self.nodes[0].getnewblock)
+
+        self.log.info("getnewblock aggpubkey tests")
         blockhex = self.nodes[0].getnewblock(address, 0,"1:03831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafc")
         block = FromHex(CBlock(), blockhex)
         assert_equal(block.xfieldType, 1)
