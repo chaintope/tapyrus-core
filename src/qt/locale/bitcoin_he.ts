@@ -2660,7 +2660,7 @@ Note:  Since the fee is calculated on a per-byte basis, a fee of "100 tapyrus pe
         <translation>גודל ההעברה הכללי</translation>
     </message>
     <message>
-        <source>Transaction virtual size</source>
+        <source>Transaction size</source>
         <translation>גודל וירטואלי של עסקה</translation>
     </message>
     <message>

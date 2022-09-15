@@ -2738,7 +2738,7 @@ Zwróć uwagę, że poprawnie zweryfikowana wiadomość potwierdza to, że nadaw
         <translation>Rozmiar transakcji</translation>
     </message>
     <message>
-        <source>Transaction virtual size</source>
+        <source>Transaction size</source>
         <translation>Wirtualny rozmiar transakcji</translation>
     </message>
     <message>

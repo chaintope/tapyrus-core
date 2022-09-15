@@ -236,17 +236,17 @@ CFeeRate incrementalRelayFee = CFeeRate(DEFAULT_INCREMENTAL_RELAY_FEE);
 CFeeRate dustRelayFee = CFeeRate(DUST_RELAY_TX_FEE);
 unsigned int nBytesPerSigOp = DEFAULT_BYTES_PER_SIGOP;
 
-int64_t GetVirtualTransactionSize(int64_t nSize, int64_t nSigOpCost)
+int64_t GetTransactionSize(int64_t nSize, int64_t nSigOpCost)
 {
     return std::max(nSize, nSigOpCost * nBytesPerSigOp);
 }
 
-int64_t GetVirtualTransactionSize(const CTransaction& tx, int64_t nSigOpCost)
+int64_t GetTransactionSize(const CTransaction& tx, int64_t nSigOpCost)
 {
-    return GetVirtualTransactionSize(GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION), nSigOpCost);
+    return GetTransactionSize(GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION), nSigOpCost);
 }
 
 int64_t GetVirtualTransactionInputSize(const CTxIn& txin, int64_t nSigOpCost)
 {
-    return GetVirtualTransactionSize(GetSerializeSize(txin, SER_NETWORK, PROTOCOL_VERSION), nSigOpCost);
+    return GetTransactionSize(GetSerializeSize(txin, SER_NETWORK, PROTOCOL_VERSION), nSigOpCost);
 }

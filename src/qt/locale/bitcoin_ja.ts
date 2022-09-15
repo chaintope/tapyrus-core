@@ -2736,7 +2736,7 @@ Note:  Since the fee is calculated on a per-byte basis, a fee of "100 tapyrus pe
         <translation>トランザクションの全体サイズ</translation>
     </message>
     <message>
-        <source>Transaction virtual size</source>
+        <source>Transaction size</source>
         <translation>トランザクションの仮想サイズ</translation>
     </message>
     <message>

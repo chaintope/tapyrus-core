@@ -3540,7 +3540,7 @@ Note:  Since the fee is calculated on a per-byte basis, a fee of &quot;100 tapyr
     </message>
     <message>
         <location line="+1"/>
-        <source>Transaction virtual size</source>
+        <source>Transaction size</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

@@ -17,7 +17,7 @@
 class CCoinsViewCache;
 class CTxOut;
 
-/** Default for -blockmaxweight, which controls the range of block weights the mining code will create **/
+/** Default blockmax size, which controls the range of block size the mining code will create **/
 static const unsigned int DEFAULT_BLOCK_MAX_SIZE = MAX_BLOCK_BASE_SIZE - 1000;
 /** Default for -blockmintxfee, which sets the minimum feerate for a transaction in blocks created by mining code **/
 static const unsigned int DEFAULT_BLOCK_MIN_TX_FEE = 1000;
@@ -76,8 +76,8 @@ extern CFeeRate dustRelayFee;
 extern unsigned int nBytesPerSigOp;
 
 /** Compute the virtual transaction size (weight reinterpreted as bytes). */
-int64_t GetVirtualTransactionSize(int64_t nWeight, int64_t nSigOpCost);
-int64_t GetVirtualTransactionSize(const CTransaction& tx, int64_t nSigOpCost = 0);
+int64_t GetTransactionSize(int64_t nWeight, int64_t nSigOpCost);
+int64_t GetTransactionSize(const CTransaction& tx, int64_t nSigOpCost = 0);
 int64_t GetVirtualTransactionInputSize(const CTxIn& tx, int64_t nSigOpCost = 0);
 
 #endif // BITCOIN_POLICY_POLICY_H
