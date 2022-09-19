@@ -1750,7 +1750,7 @@ static UniValue getblockstats(const JSONRPCRequest& request)
     }
 
     CAmount feerate_percentiles[NUM_GETBLOCKSTATS_PERCENTILES] = { 0 };
-    CalculatePercentilesByWeight(feerate_percentiles, feerate_array, total_size);// > 0 ? total_size : 169);//block header size
+    CalculatePercentilesByWeight(feerate_percentiles, feerate_array, total_size);
 
     UniValue feerates_res(UniValue::VARR);
     for (int64_t i = 0; i < NUM_GETBLOCKSTATS_PERCENTILES; i++) {

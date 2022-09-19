@@ -380,7 +380,7 @@ BOOST_AUTO_TEST_CASE(MempoolAncestorIndexingTest)
     uint64_t tx7Size = GetTransactionSize(tx7);
 
     /* set the fee to just below tx2's feerate when including ancestor */
-    CAmount fee = (20000/(tx2Size*2))*(tx7Size + tx6Size) - 1;
+    CAmount fee = (20000/tx2Size)*(tx7Size + tx6Size) - 1;
 
     pool.addUnchecked(tx7.GetHashMalFix(), entry.Fee(fee).FromTx(tx7));
     BOOST_CHECK_EQUAL(pool.size(), 7U);
@@ -445,10 +445,13 @@ BOOST_AUTO_TEST_CASE(MempoolSizeLimitTest)
     pool.TrimToSize(pool.DynamicMemoryUsage()); // should do nothing
     BOOST_CHECK(pool.exists(tx1.GetHashMalFix()));
     BOOST_CHECK(pool.exists(tx2.GetHashMalFix()));
+    BOOST_CHECK_EQUAL(pool.GetMinFee(1).GetFeePerK(), 0);
 
     pool.TrimToSize(pool.DynamicMemoryUsage() * 3 / 4); // should remove the lower-feerate transaction
     BOOST_CHECK(pool.exists(tx1.GetHashMalFix()));
     BOOST_CHECK(!pool.exists(tx2.GetHashMalFix()));
+    CFeeRate maxFeeRateRemoved1(5000, GetTransactionSize(tx2, tx2.vin[0].scriptSig.GetSigOpCount(true) + tx2.vout[0].scriptPubKey.GetSigOpCount(true)));
+    BOOST_CHECK_EQUAL(pool.GetMinFee(1).GetFeePerK(), maxFeeRateRemoved1.GetFeePerK() + 1000);
 
     pool.addUnchecked(tx2.GetHashMalFix(), entry.FromTx(tx2));
     CMutableTransaction tx3 = CMutableTransaction();
@@ -465,13 +468,18 @@ BOOST_AUTO_TEST_CASE(MempoolSizeLimitTest)
     BOOST_CHECK(pool.exists(tx2.GetHashMalFix()));
     BOOST_CHECK(pool.exists(tx3.GetHashMalFix()));
 
+    CFeeRate maxFeeRateRemoved2(10000, GetTransactionSize(tx1, tx1.vin[0].scriptSig.GetSigOpCount(true) + tx1.vout[0].scriptPubKey.GetSigOpCount(true)));
+    BOOST_CHECK_EQUAL(pool.GetMinFee(1).GetFeePerK(), maxFeeRateRemoved2.GetFeePerK() + 1000);
+
     pool.TrimToSize(GetTransactionSize(tx1)); // mempool is limited to tx1's size in memory usage, so nothing fits
     BOOST_CHECK(!pool.exists(tx1.GetHashMalFix()));
     BOOST_CHECK(!pool.exists(tx2.GetHashMalFix()));
     BOOST_CHECK(!pool.exists(tx3.GetHashMalFix()));
 
-    CFeeRate maxFeeRateRemoved(25000, GetTransactionSize(tx3) + GetTransactionSize(tx2));
-    BOOST_CHECK_EQUAL(pool.GetMinFee(1).GetFeePerK(), maxFeeRateRemoved.GetFeePerK() + 1000);
+    CFeeRate maxFeeRateRemoved3(25000, 
+       GetTransactionSize(tx3, tx3.vin[0].scriptSig.GetSigOpCount(true) + tx3.vout[0].scriptPubKey.GetSigOpCount(true))
+      + GetTransactionSize(tx2, tx2.vin[0].scriptSig.GetSigOpCount(true) + tx2.vout[0].scriptPubKey.GetSigOpCount(true)));
+    BOOST_CHECK_EQUAL(pool.GetMinFee(1).GetFeePerK(), maxFeeRateRemoved3.GetFeePerK() + 1000);
 
     CMutableTransaction tx4 = CMutableTransaction();
     tx4.vin.resize(2);
@@ -548,19 +556,19 @@ BOOST_AUTO_TEST_CASE(MempoolSizeLimitTest)
     std::vector<CTransactionRef> vtx;
     SetMockTime(42);
     SetMockTime(42 + CTxMemPool::ROLLING_FEE_HALFLIFE);
-    BOOST_CHECK_EQUAL(pool.GetMinFee(1).GetFeePerK(), maxFeeRateRemoved.GetFeePerK() + 1000);
+    BOOST_CHECK_EQUAL(pool.GetMinFee(1).GetFeePerK(), maxFeeRateRemoved3.GetFeePerK() + 1000);
     // ... we should keep the same min fee until we get a block
     pool.removeForBlock(vtx, 1);
     SetMockTime(42 + 2*CTxMemPool::ROLLING_FEE_HALFLIFE);
-    BOOST_CHECK_EQUAL(pool.GetMinFee(1).GetFeePerK(), llround((maxFeeRateRemoved.GetFeePerK() + 1000)/2.0));
+    BOOST_CHECK_EQUAL(pool.GetMinFee(1).GetFeePerK(), llround((maxFeeRateRemoved3.GetFeePerK() + 1000)/2.0));
     // ... then feerate should drop 1/2 each halflife
 
     SetMockTime(42 + 2*CTxMemPool::ROLLING_FEE_HALFLIFE + CTxMemPool::ROLLING_FEE_HALFLIFE/2);
-    BOOST_CHECK_EQUAL(pool.GetMinFee(pool.DynamicMemoryUsage() * 5 / 2).GetFeePerK(), llround((maxFeeRateRemoved.GetFeePerK() + 1000)/4.0));
+    BOOST_CHECK_EQUAL(pool.GetMinFee(pool.DynamicMemoryUsage() * 5 / 2).GetFeePerK(), llround((maxFeeRateRemoved3.GetFeePerK() + 1000)/4.0));
     // ... with a 1/2 halflife when mempool is < 1/2 its target size
 
     SetMockTime(42 + 2*CTxMemPool::ROLLING_FEE_HALFLIFE + CTxMemPool::ROLLING_FEE_HALFLIFE/2 + CTxMemPool::ROLLING_FEE_HALFLIFE/4);
-    BOOST_CHECK_EQUAL(pool.GetMinFee(pool.DynamicMemoryUsage() * 9 / 2).GetFeePerK(), llround((maxFeeRateRemoved.GetFeePerK() + 1000)/8.0));
+    BOOST_CHECK_EQUAL(pool.GetMinFee(pool.DynamicMemoryUsage() * 9 / 2).GetFeePerK(), llround((maxFeeRateRemoved3.GetFeePerK() + 1000)/8.0));
     // ... with a 1/4 halflife when mempool is < 1/4 its target size
 
     SetMockTime(42 + 7*CTxMemPool::ROLLING_FEE_HALFLIFE + CTxMemPool::ROLLING_FEE_HALFLIFE/2 + CTxMemPool::ROLLING_FEE_HALFLIFE/4);

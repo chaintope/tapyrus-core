@@ -65,7 +65,6 @@ static BlockAssembler::Options DefaultOptions()
     // Block resource limits
     // If -blockmaxweight is not given, limit to DEFAULT_BLOCK_MAX_WEIGHT
     BlockAssembler::Options options;
-    //options.nBlockMaxSize = gArgs.GetArg("-blockmaxweight", DEFAULT_BLOCK_MAX_WEIGHT);
     if (gArgs.IsArgSet("-blockmintxfee")) {
         CAmount n = 0;
         ParseMoney(gArgs.GetArg("-blockmintxfee", ""), n);

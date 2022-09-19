@@ -122,7 +122,7 @@ struct TestMemPoolEntryHelper
 
     TestMemPoolEntryHelper() :
         nFee(0), nTime(0), nHeight(1),
-        spendsCoinbase(false), sigOpCost(4) { }
+        spendsCoinbase(false), sigOpCost(1) { }
 
     CTxMemPoolEntry FromTx(const CMutableTransaction& tx);
     CTxMemPoolEntry FromTx(const CTransactionRef& tx);
