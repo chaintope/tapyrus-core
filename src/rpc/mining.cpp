@@ -140,7 +140,7 @@ UniValue getnewblock(const JSONRPCRequest& request)
                 "blockhex      (hex) The block hex\n"
                 "\nExamples:\n"
                 + HelpExampleCli("getnewblock", "")
-                + HelpExampleCli("getnewblock", "address 0 \"1:03831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafc\"")
+                + HelpExampleCli("getnewblock", "\"1DV3jX8bujEW4vAUYgsKDNa8UwAxAXGiEb\" 10 \"1:03831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafc\"")
         );
 
     CTxDestination destination = DecodeDestination(request.params[0].get_str());

@@ -21,6 +21,7 @@ class GetNewBlockTest(BitcoinTestFramework):
 
     def set_test_params(self):
         self.num_nodes = 1
+        self.supports_cli = True
 
     def run_test (self):
 
@@ -29,9 +30,14 @@ class GetNewBlockTest(BitcoinTestFramework):
 
         self.log.info("getnewblock regression tests")
         address = self.nodes[0].getnewaddress()
-        blockhex = self.nodes[0].getnewblock(address)
-        blockhex = self.nodes[0].getnewblock(address, 1)
+        self.nodes[0].getnewblock(address)
+        self.nodes[0].getnewblock(address, 1)
+        self.nodes[0].getnewblock(address, 0)
+
         assert_raises_rpc_error(-1, "JSON value is not a string as expected", self.nodes[0].getnewblock)
+        assert_raises_rpc_error(-1, "JSON value is not a string as expected", self.nodes[0].getnewblock, -10)
+        assert_raises_rpc_error(-32602, "required_wait must be non-negative", self.nodes[0].getnewblock, address, -10)
+        assert_raises_rpc_error(-1, "JSON integer out of range", self.nodes[0].getnewblock, address, 565786879879785)
 
         self.log.info("getnewblock aggpubkey tests")
         blockhex = self.nodes[0].getnewblock(address, 0,"1:03831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafc")
