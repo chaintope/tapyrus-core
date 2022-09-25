@@ -12,6 +12,7 @@
 #include <stdint.h>
 #include <string>
 #include <vector>
+#include <primitives/block.h>
 
 #define BEGIN(a)            ((char*)&(a))
 #define END(a)              ((char*)&((&(a))[1]))
@@ -130,6 +131,15 @@ template<typename T>
 inline std::string HexStr(const T& vch, bool fSpaces=false)
 {
     return HexStr(vch.begin(), vch.end(), fSpaces);
+}
+template<>
+inline std::string HexStr(const xfieldInBlock& in, bool fSpaces)
+{
+    if(in.xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY)
+        return std::string("1:")+HexStr(in.xfield.aggPubKey.begin(), in.xfield.aggPubKey.end(), fSpaces);
+    else if(in.xfieldType == TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE)
+        return std::string("2:")+HexStr(&in.xfield.maxBlockSize, &in.xfield.maxBlockSize+4, fSpaces);
+    return std::string();
 }
 
 /**

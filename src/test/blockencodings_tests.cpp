@@ -38,7 +38,6 @@ static CBlock BuildBlockTestCase() {
     tx.vin[0].prevout.n = 0;
     block.vtx[1] = MakeTransactionRef(tx);
     block.nTime = 0x5c6e03b8;
-    block.xfieldType = 0;
     block.xfield.clear();
 
     tx.vin.resize(10);

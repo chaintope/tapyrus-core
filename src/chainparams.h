@@ -7,14 +7,12 @@
 #ifndef BITCOIN_CHAINPARAMS_H
 #define BITCOIN_CHAINPARAMS_H
 
-#include <federationparams.h>
 #include <consensus/params.h>
+#include <federationparams.h>
 #include <protocol.h>
 #include <streams.h>
-#include <memory>
-#include <vector>
-#include <fs.h>
 #include <tapyrusmodes.h>
+#include <vector>
 
 
 typedef std::map<int, uint256> MapCheckpoints;

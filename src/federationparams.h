@@ -28,6 +28,11 @@ struct AggPubkeyAndHeight {
     uint32_t height;
 };
 
+struct maxBlockSizeAndHeight {
+    int64_t maxBlockSize;
+    uint64_t height;
+};
+
 /**
  * CFederationParams defines the base parameters (shared between bitcoin-cli and bitcoind)
  * of a given instance of the Bitcoin system.
@@ -43,6 +48,11 @@ public:
     CPubKey ReadAggregatePubkey(const std::vector<unsigned char>& pubkey, uint64_t height) const;
     const std::vector<AggPubkeyAndHeight>& GetAggregatePubkeyHeightList() const { return aggregatePubkeyHeight; }
     const CPubKey& GetLatestAggregatePubkey() const { return aggregatePubkeyHeight.back().aggpubkey; }
+
+    int32_t ReadMaxBlockSize(const int32_t maxBlockSize, uint64_t height) const;
+    const std::vector<maxBlockSizeAndHeight>& GetMaxBlockSizeHeightList() const { return maxBlockSizeHeight; }
+    int32_t GetLatestMaxBlockSize() const { return maxBlockSizeHeight.back().maxBlockSize; }
+
     bool ReadGenesisBlock(std::string genesisHex);
     const CBlock& GenesisBlock() const { return genesis; }
     const std::string& getDataDir() const { return dataDir; }

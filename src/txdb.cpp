@@ -291,7 +291,6 @@ bool CBlockTreeDB::LoadBlockIndexGuts(std::function<CBlockIndex*(const uint256&)
                 pindexNew->hashMerkleRoot = diskindex.hashMerkleRoot;
                 pindexNew->hashImMerkleRoot = diskindex.hashImMerkleRoot;
                 pindexNew->nTime          = diskindex.nTime;
-                pindexNew->xfieldType          = diskindex.xfieldType;
                 pindexNew->xfield         = diskindex.xfield;
                 pindexNew->proof          = diskindex.proof;
                 pindexNew->nStatus        = diskindex.nStatus;

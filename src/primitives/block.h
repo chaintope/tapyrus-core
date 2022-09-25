@@ -12,13 +12,85 @@
 #include <uint256.h>
 #include <key.h>
 
-enum class TAPYRUS_XFIELDTYPES
+enum class TAPYRUS_XFIELDTYPES : uint8_t
 {
     NONE = 0, //no xfield
     AGGPUBKEY = 1, //xfield is 33 byte aggpubkey
+    MAXBLOCKSIZE = 2, //xfield is 4 byte max block size
 
     MAX_XFIELDTYPE
 };
+
+/*
+class representing xfield in a block.
+Its size is the size of largest mamber i.e aggpubkey 
+But the actual data depends on the context and should be determined by checking the xfield type in block header.
+*/
+union xfieldData{
+    std::vector<unsigned char> aggPubKey;
+    int32_t maxBlockSize;
+
+    //default constructor
+    xfieldData():aggPubKey({'\0'}){}
+
+    //copy constructor
+    xfieldData(const xfieldData& copy):aggPubKey(copy.aggPubKey){}
+    xfieldData(xfieldData& copy):aggPubKey(copy.aggPubKey){}
+
+    //copy assignment
+    xfieldData& operator=(const xfieldData& copy){
+        aggPubKey = copy.aggPubKey;
+        return *this;
+    }
+    xfieldData& operator=(xfieldData& copy){
+        aggPubKey = copy.aggPubKey;
+        return *this;
+    }
+
+    //constructor to fill aggpubkey
+    xfieldData(const std::vector<unsigned char>& copy):aggPubKey(copy.begin(), copy.end()){}
+
+    //constructor to fill maxblocksize
+    xfieldData(int32_t n_maxblockSize){
+        this->maxBlockSize = n_maxblockSize;
+    }
+
+    //destructor
+    ~xfieldData(){}
+
+};
+
+struct xfieldInBlock {
+    TAPYRUS_XFIELDTYPES xfieldType;
+    xfieldData xfield;
+
+    template<typename Stream>
+    void Unserialize(Stream& s)
+    {
+        ::Unserialize(s, VARINT(static_cast<uint8_t>(xfieldType)));
+        if(this->xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY)
+            ::Unserialize(s, xfield.aggPubKey);
+        else if(this->xfieldType == TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE)
+            ::Unserialize(s, xfield.maxBlockSize);
+    }
+
+    template<typename Stream>
+    void Serialize(Stream& s) const
+    {
+        ::Serialize(s, VARINT(static_cast<uint8_t>(xfieldType)));
+        if(this->xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY)
+            ::Serialize(s, xfield.aggPubKey);
+        else if(this->xfieldType == TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE)
+            ::Serialize(s, xfield.maxBlockSize);
+    }
+
+    void clear()
+    {
+        xfieldType = TAPYRUS_XFIELDTYPES::NONE;
+    }
+};
+
+
 
 /** Nodes collect new transactions into a block, hash them into a hash tree,
  * and scan through nonce values to make the block's hash satisfy proof-of-work
@@ -36,13 +108,19 @@ public:
     uint256 hashMerkleRoot;
     uint256 hashImMerkleRoot;
     uint32_t nTime;
-    uint8_t xfieldType;
-    std::vector<unsigned char> xfield;
+    xfieldInBlock xfield;
 
     CBlockHeaderWithoutProof()
     {
         SetNull();
     }
+
+    CBlockHeaderWithoutProof(CBlockHeaderWithoutProof&&) = default;
+    CBlockHeaderWithoutProof(const CBlockHeaderWithoutProof& copy) = default;
+    CBlockHeaderWithoutProof(CBlockHeaderWithoutProof& copy) = default;
+    CBlockHeaderWithoutProof& operator=(const CBlockHeaderWithoutProof& copy) = default;
+    CBlockHeaderWithoutProof& operator=(CBlockHeaderWithoutProof& copy) = default;
+
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
@@ -52,9 +130,7 @@ public:
         READWRITE(hashMerkleRoot);
         READWRITE(hashImMerkleRoot);
         READWRITE(nTime);
-        READWRITE(xfieldType);
-        if((TAPYRUS_XFIELDTYPES)xfieldType != TAPYRUS_XFIELDTYPES::NONE)
-            READWRITE(xfield);
+        READWRITE(xfield);
     }
 
     void SetNull()
@@ -64,7 +140,6 @@ public:
         hashMerkleRoot.SetNull();
         hashImMerkleRoot.SetNull();
         nTime = 0;
-        xfieldType = 0;
         xfield.clear();
     }
 
@@ -103,6 +178,11 @@ public:
 
     CBlockHeader():CBlockHeaderWithoutProof(),proof() {}
 
+    CBlockHeader(CBlockHeader&& copy) = default;
+    CBlockHeader(const CBlockHeader& copy) = default;
+    CBlockHeader(CBlockHeader& copy) = default;
+    CBlockHeader& operator=(const CBlockHeader& copy) = default;
+    CBlockHeader& operator=(CBlockHeader& copy) = default;
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
@@ -159,7 +239,6 @@ public:
         block.hashMerkleRoot    = hashMerkleRoot;
         block.hashImMerkleRoot  = hashImMerkleRoot;
         block.nTime             = nTime;
-        block.xfieldType             = xfieldType;
         block.xfield            = xfield;
         block.proof             = proof;
         return block;

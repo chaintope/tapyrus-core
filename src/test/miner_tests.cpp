@@ -268,6 +268,7 @@ static void TestPackageSelection(const CChainParams& chainparams, const std::vec
     pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey);
     BOOST_CHECK(pblocktemplate->block.vtx.size() == 9);
     BOOST_CHECK(pblocktemplate->block.vtx[8]->GetHashMalFix() == hashLowFeeTx2);
+}
 
 // NOTE: These tests rely on CreateNewBlock doing its own self-validation!
 BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)

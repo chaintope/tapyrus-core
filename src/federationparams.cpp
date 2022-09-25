@@ -69,8 +69,8 @@ CBlock createGenesisBlock(const CPubKey& aggregatePubkey, const CKey& privateKey
     genesis.hashPrevBlock.SetNull();
     genesis.hashMerkleRoot = BlockMerkleRoot(genesis);
     genesis.hashImMerkleRoot = BlockMerkleRoot(genesis, nullptr, true);
-    genesis.xfieldType = 1;
-    genesis.xfield = std::vector<unsigned char>(aggregatePubkey.data(), aggregatePubkey.data() + CPubKey::COMPRESSED_PUBLIC_KEY_SIZE);
+    genesis.xfield.xfieldType = TAPYRUS_XFIELDTYPES::AGGPUBKEY;
+    genesis.xfield.xfield.aggPubKey = std::vector<unsigned char>(aggregatePubkey.data(), aggregatePubkey.data() + CPubKey::COMPRESSED_PUBLIC_KEY_SIZE);
 
     //Genesis block proof
     uint256 blockHash = genesis.GetHashForSign();
@@ -174,17 +174,23 @@ CPubKey CFederationParams::ReadAggregatePubkey(const std::vector<unsigned char>&
     }
 }
 
+int32_t CFederationParams::ReadMaxBlockSize(const int32_t maxBlockSize, uint64_t height) const
+{
+    maxBlockSizeHeight.push_back(maxBlockSizeAndHeight{maxBlockSize, height});
+}
+
 bool CFederationParams::ReadGenesisBlock(std::string genesisHex)
 {
     CDataStream ss(ParseHex(genesisHex), SER_NETWORK, PROTOCOL_VERSION);
     unsigned long streamsize = ss.size();
     ss >> genesis;
 
-    switch((TAPYRUS_XFIELDTYPES)genesis.xfieldType)
+    switch(genesis.xfield.xfieldType)
     {
         case TAPYRUS_XFIELDTYPES::AGGPUBKEY:
-            ReadAggregatePubkey(genesis.xfield, 0);
+            ReadAggregatePubkey(genesis.xfield.xfield.aggPubKey, 0);
             break;
+        case TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE:
         case TAPYRUS_XFIELDTYPES::NONE:
         default:
             throw std::runtime_error("ReadGenesisBlock: invalid xfieldType in genesis block");
