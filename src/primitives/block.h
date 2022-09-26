@@ -67,7 +67,9 @@ struct xfieldInBlock {
     template<typename Stream>
     void Unserialize(Stream& s)
     {
-        ::Unserialize(s, VARINT(static_cast<uint8_t>(xfieldType)));
+        uint8_t ixfieldType;
+        ::Unserialize(s, ixfieldType);
+        this->xfieldType = static_cast<TAPYRUS_XFIELDTYPES>(ixfieldType);
         if(this->xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY)
             ::Unserialize(s, xfield.aggPubKey);
         else if(this->xfieldType == TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE)
@@ -77,7 +79,8 @@ struct xfieldInBlock {
     template<typename Stream>
     void Serialize(Stream& s) const
     {
-        ::Serialize(s, VARINT(static_cast<uint8_t>(xfieldType)));
+        uint8_t ixfieldType  = static_cast<uint8_t>(this->xfieldType);
+        ::Serialize(s, ixfieldType);
         if(this->xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY)
             ::Serialize(s, xfield.aggPubKey);
         else if(this->xfieldType == TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE)

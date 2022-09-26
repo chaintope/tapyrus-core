@@ -217,8 +217,21 @@ BOOST_AUTO_TEST_CASE(blockHeaderWithxfieldType2_xfield0)
     stream >> blockHeader;
 
     BOOST_CHECK(blockHeader.xfield.xfieldType == TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE);
-    BOOST_CHECK_EQUAL(blockHeader.xfield.xfield.aggPubKey.size(), 0);
+    BOOST_CHECK_EQUAL(blockHeader.xfield.xfield.maxBlockSize, 0);
     BOOST_CHECK_EQUAL(blockHeader.proof.size(), 65);
 }
+
+
+BOOST_AUTO_TEST_CASE(blockHeaderWithxfieldType2_maxblocksize)
+{
+    CBlockHeader blockHeader;
+    CDataStream stream(ParseHex("010000000000000000000000000000000000000000000000000000000000000000000000f007d2a56dbebbc2a04346e624f7dff2ee0605d6ffe9622569193fddbc9280dcf007d2a56dbebbc2a04346e624f7dff2ee0605d6ffe9622569193fddbc9280dc981a335c020006A8041473045022100f434da668557be7a0c3dc366b2603c5a9706246d622050f633a082451d39249102201941554fdd618df3165269e3c855bbba8680e26defdd067ec97becfa1b296bef"), SER_NETWORK, PROTOCOL_VERSION);
+    stream >> blockHeader;
+
+    BOOST_CHECK(blockHeader.xfield.xfieldType == TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE);
+    BOOST_CHECK_EQUAL(blockHeader.xfield.xfield.maxBlockSize, 400000);
+    BOOST_CHECK_EQUAL(blockHeader.proof.size(), 65);
+}
+
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -122,7 +122,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     if (chainparams.MineBlocksOnDemand())
         pblock->nFeatures = gArgs.GetArg("-blockfeatures", pblock->nFeatures);
 
-    if(pXField->xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY)
+    if(pXField && pXField->xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY)
     {
         pblock->xfieldType = (uint8_t)xfieldType;
         pblock->xfield = value->aggPubKey;
