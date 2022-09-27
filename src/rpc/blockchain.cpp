@@ -1593,8 +1593,6 @@ static UniValue getblockstats(const JSONRPCRequest& request)
             "  \"mintxsize\": xxxxx,       (numeric) Minimum transaction size\n"
             "  \"outs\": xxxxx,            (numeric) The number of outputs\n"
             "  \"subsidy\": xxxxx,         (numeric) The block subsidy\n"
-            "  \"swtotal_size\": xxxxx,    (numeric) Total size of all segwit transactions\n"
-            "  \"swtxs\": xxxxx,           (numeric) The number of segwit transactions\n"
             "  \"time\": xxxxx,            (numeric) The block time\n"
             "  \"total_out\": xxxxx,       (numeric) Total amount in all outputs (excluding coinbase and thus reward [ie subsidy + totalfee])\n"
             "  \"total_size\": xxxxx,      (numeric) Total size of all non-coinbase transactions\n"
@@ -1668,8 +1666,6 @@ static UniValue getblockstats(const JSONRPCRequest& request)
     int64_t maxtxsize = 0;
     int64_t mintxsize = MAX_BLOCK_SERIALIZED_SIZE;
     int64_t outputs = 0;
-    int64_t swtotal_size = 0;
-    int64_t swtxs = 0;
     int64_t total_size = 0;
     int64_t utxo_size_inc = 0;
     std::vector<CAmount> fee_array;
@@ -1704,11 +1700,6 @@ static UniValue getblockstats(const JSONRPCRequest& request)
             maxtxsize = std::max(maxtxsize, tx_size);
             mintxsize = std::min(mintxsize, tx_size);
             total_size += tx_size;
-        }
-
-        if (do_calculate_sw && tx->HasWitness()) {
-            ++swtxs;
-            swtotal_size += tx_size;
         }
 
         if (loop_inputs) {
@@ -1776,8 +1767,6 @@ static UniValue getblockstats(const JSONRPCRequest& request)
     ret_all.pushKV("mintxsize", mintxsize == MAX_BLOCK_SERIALIZED_SIZE ? 0 : mintxsize);
     ret_all.pushKV("outs", outputs);
     ret_all.pushKV("subsidy", GetBlockSubsidy(pindex->nHeight, Params().GetConsensus()));
-    ret_all.pushKV("swtotal_size", swtotal_size);
-    ret_all.pushKV("swtxs", swtxs);
     ret_all.pushKV("time", pindex->GetBlockTime());
     ret_all.pushKV("total_out", total_out);
     ret_all.pushKV("total_size", total_size);
