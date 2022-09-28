@@ -254,8 +254,8 @@ public:
         hashMerkleRoot = block.hashMerkleRoot;
         hashImMerkleRoot = block.hashImMerkleRoot;
         nTime          = block.nTime;
-        xfield         = block.xfield;
         proof          = block.proof;
+        xfield.operator=(block.xfield);
     }
 
     CDiskBlockPos GetBlockPos() const {
@@ -285,8 +285,9 @@ public:
         block.hashMerkleRoot = hashMerkleRoot;
         block.hashImMerkleRoot = hashImMerkleRoot;
         block.nTime          = nTime;
-        block.xfield         = xfield;
         block.proof          = proof;
+
+        block.xfield.operator=(xfield);
         return block;
     }
 

@@ -31,21 +31,7 @@ union xfieldData{
     int32_t maxBlockSize;
 
     //default constructor
-    xfieldData():aggPubKey({'\0'}){}
-
-    //copy constructor
-    xfieldData(const xfieldData& copy):aggPubKey(copy.aggPubKey){}
-    xfieldData(xfieldData& copy):aggPubKey(copy.aggPubKey){}
-
-    //copy assignment
-    xfieldData& operator=(const xfieldData& copy){
-        aggPubKey = copy.aggPubKey;
-        return *this;
-    }
-    xfieldData& operator=(xfieldData& copy){
-        aggPubKey = copy.aggPubKey;
-        return *this;
-    }
+    xfieldData():aggPubKey({}){}
 
     //constructor to fill aggpubkey
     xfieldData(const std::vector<unsigned char>& copy):aggPubKey(copy.begin(), copy.end()){}
@@ -64,8 +50,48 @@ struct xfieldInBlock {
     TAPYRUS_XFIELDTYPES xfieldType;
     xfieldData xfield;
 
+    //default constructor
+    xfieldInBlock()
+    {
+        xfieldType = TAPYRUS_XFIELDTYPES::NONE;
+    }
+
+    //copy constructor
+    xfieldInBlock(const xfieldInBlock& copy){
+        xfieldType = copy.xfieldType;
+        if(copy.xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY)
+            xfield.aggPubKey =copy.xfield.aggPubKey;
+        else if(copy.xfieldType == TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE)
+            xfield.maxBlockSize = copy.xfield.maxBlockSize;
+    }
+    xfieldInBlock(xfieldInBlock& copy){
+        xfieldType = copy.xfieldType;
+        if(copy.xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY)
+            xfield.aggPubKey =copy.xfield.aggPubKey;
+        else if(copy.xfieldType == TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE)
+            xfield.maxBlockSize = copy.xfield.maxBlockSize;
+    }
+
+    //copy assignment
+    xfieldInBlock& operator=(const xfieldInBlock& copy){
+        xfieldType = copy.xfieldType;
+        if(copy.xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY)
+            xfield.aggPubKey =copy.xfield.aggPubKey;
+        else if(copy.xfieldType == TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE)
+            xfield.maxBlockSize = copy.xfield.maxBlockSize;
+        return *this;
+    }
+    xfieldInBlock& operator=(xfieldInBlock& copy){
+        xfieldType = copy.xfieldType;
+        if(copy.xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY)
+            xfield.aggPubKey =copy.xfield.aggPubKey;
+        else if(copy.xfieldType == TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE)
+            xfield.maxBlockSize = copy.xfield.maxBlockSize;
+        return *this;
+    }
+
     template<typename Stream>
-    void Unserialize(Stream& s)
+    inline void Unserialize(Stream& s)
     {
         uint8_t ixfieldType;
         ::Unserialize(s, ixfieldType);
@@ -77,7 +103,7 @@ struct xfieldInBlock {
     }
 
     template<typename Stream>
-    void Serialize(Stream& s) const
+    inline void Serialize(Stream& s) const
     {
         uint8_t ixfieldType  = static_cast<uint8_t>(this->xfieldType);
         ::Serialize(s, ixfieldType);

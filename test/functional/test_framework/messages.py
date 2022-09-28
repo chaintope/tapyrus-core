@@ -549,8 +549,10 @@ class CBlockHeader():
         self.hashImMerkleRoot = deser_uint256(f)
         self.nTime = struct.unpack("<I", f.read(4))[0]
         self.xfieldType = struct.unpack("B", f.read(1))[0]
-        if(self.xfieldType != 0):
+        if(self.xfieldType == 1):
             self.xfield = deser_string(f)
+        elif(self.xfieldType == 2):
+            self.xfield = struct.unpack("<I", f.read(4))[0]
         self.proof = deser_string(f)
         self.sha256 = None
         self.hash = None
@@ -563,8 +565,10 @@ class CBlockHeader():
         r += ser_uint256(self.hashImMerkleRoot)
         r += struct.pack("<I", self.nTime)
         r += struct.pack("B", self.xfieldType)
-        if(self.xfieldType != 0):
+        if(self.xfieldType == 1):
             r += ser_string(self.xfield)
+        elif(self.xfieldType == 2):
+            r += struct.pack(self.xfield)
         r += ser_string(self.proof)
         return r
 
@@ -576,8 +580,10 @@ class CBlockHeader():
         r += ser_uint256(self.hashImMerkleRoot)
         r += struct.pack("<I", self.nTime)
         r += struct.pack("B", self.xfieldType)
-        if(self.xfieldType != 0):
+        if(self.xfieldType == 1):
             r += ser_string(self.xfield)
+        elif(self.xfieldType == 2):
+            r += struct.pack(self.xfield)
         return hash256(r)
 
     def calc_sha256(self):
@@ -589,8 +595,10 @@ class CBlockHeader():
             r += ser_uint256(self.hashImMerkleRoot)
             r += struct.pack("<I", self.nTime)
             r += struct.pack("B", self.xfieldType)
-            if(self.xfieldType != 0):
+            if(self.xfieldType == 1):
                 r += ser_string(self.xfield)
+            elif(self.xfieldType == 2):
+                r += struct.pack("<I", self.xfield)
             r += ser_string(self.proof)
             self.sha256 = uint256_from_str(hash256(r))
             self.hash = encode(hash256(r)[::-1], 'hex_codec').decode('ascii')
