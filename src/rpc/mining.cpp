@@ -140,7 +140,7 @@ UniValue getnewblock(const JSONRPCRequest& request)
                 "blockhex      (hex) The block hex\n"
                 "\nExamples:\n"
                 + HelpExampleCli("getnewblock", "")
-                + HelpExampleCli("getnewblock", "\"1DV3jX8bujEW4vAUYgsKDNa8UwAxAXGiEb\" 10 \"1:03831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafc\"")
+                + HelpExampleCli("getnewblock", "\"mt8EZJFAhhhxv57NFYfXPecDoAbWWqnRqX\" 10 \"1:03831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafc\"")
         );
 
     CTxDestination destination = DecodeDestination(request.params[0].get_str());
@@ -155,11 +155,13 @@ UniValue getnewblock(const JSONRPCRequest& request)
 
     const std::string xfieldParam = request.params[2].isNull() ? "" : request.params[2].get_str();
     TAPYRUS_XFIELDTYPES xfieldType = TAPYRUS_XFIELDTYPES::NONE;
-    xFieldInput xfield;
-    xfield.invalid = true;
+    xFieldData xfield;
 
     if (!request.params[2].isNull())
     {
+        if(xfieldParam.find(':') == std::string::npos)
+            throw JSONRPCError(RPC_INVALID_PARAMS, "xfield parameter could not be parsed. Check if the xfield parameter has format: <xfield_type:new_xfield_value>.");
+
         //using lambda to avoid temp variables
         xfieldType = [xfieldParam](int splitAt, TAPYRUS_XFIELDTYPES max) -> TAPYRUS_XFIELDTYPES
             { int x = splitAt > 0 ? atoi(xfieldParam.substr(0,splitAt)) : 0;
@@ -167,9 +169,7 @@ UniValue getnewblock(const JSONRPCRequest& request)
             } (xfieldParam.find(':'), TAPYRUS_XFIELDTYPES::MAX_XFIELDTYPE );
 
         if(xfieldType ==  TAPYRUS_XFIELDTYPES::NONE)
-        {
-            throw JSONRPCError(RPC_INVALID_PARAMS, "xfield_type parameter could not be parsed. Check if the xfield parameter has format: <xfield_type:new_xfield_value>.");
-        }
+            throw JSONRPCError(RPC_INVALID_PARAMS, "Unknown xfield type");
 
         switch(xfieldType){
             case TAPYRUS_XFIELDTYPES::AGGPUBKEY:
@@ -180,20 +180,16 @@ UniValue getnewblock(const JSONRPCRequest& request)
                     CPubKey aggPubKey(data);
                     if (aggPubKey.IsFullyValid() && aggPubKey.IsCompressed())
                     {
-                        xfield.xFieldValue.aggPubKey = std::vector<unsigned char>(data.begin(), data.end());
-                        xfield.invalid = false;
+                        xfield.aggPubKey = std::vector<unsigned char>(data.begin(), data.end());
                         break;
                     }
+                    throw JSONRPCError(RPC_INVALID_PARAMS, "xfield parameter was invalid. Aggregate public key was uncompressed or invalid");
                 }
-                xfield.invalid = true;
+                throw JSONRPCError(RPC_INVALID_PARAMS, "xfield parameter was invalid. Aggregate public key could not be parsed");
             }
             break;
             default:
-                xfield.invalid = true;
-        }
-
-        if (xfield.invalid == true) {
-            throw JSONRPCError(RPC_INVALID_PARAMS, "xfield parameter was invalid. It is expected to be <xfield_type:new_xfield_value>.");
+                throw JSONRPCError(RPC_INVALID_PARAMS, "xfield parameter was invalid. Unknown xfield type");
         }
     }
     CScript coinbaseScript {GetScriptForDestination(destination)};

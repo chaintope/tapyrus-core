@@ -125,8 +125,7 @@ struct update_for_parent_inclusion
 xFieldData is a union holding either aggpubkey or max block size. It is extensible in the future
 */
 
-struct xFieldInput{
-    bool invalid;
+
     union xFieldData{
         std::vector<unsigned char> aggPubKey;
 
@@ -138,12 +137,7 @@ struct xFieldInput{
         xFieldData(unsigned char* begin, unsigned char* end):aggPubKey(begin, end){}
         ~xFieldData(){}
 
-    } xFieldValue;
-
-    xFieldInput():invalid(true), xFieldValue(){}
-    xFieldInput(unsigned char* begin, unsigned char* end):xFieldValue(begin, end){}
-    ~xFieldInput(){}
-};
+    };
 
 /** Generate a new block, without valid proof-of-work */
 class BlockAssembler
@@ -181,7 +175,7 @@ public:
     BlockAssembler(const CChainParams& params, const Options& options);
 
     /** Construct a new block template with coinbase to scriptPubKeyIn */
-    std::unique_ptr<CBlockTemplate> CreateNewBlock(const CScript& scriptPubKeyIn, int required_age_in_secs=0, TAPYRUS_XFIELDTYPES xfieldType = TAPYRUS_XFIELDTYPES::NONE, const xFieldInput* Value = nullptr);
+    std::unique_ptr<CBlockTemplate> CreateNewBlock(const CScript& scriptPubKeyIn, int required_age_in_secs=0, TAPYRUS_XFIELDTYPES xfieldType = TAPYRUS_XFIELDTYPES::NONE, const xFieldData* Value = nullptr);
 
 private:
     // utility functions

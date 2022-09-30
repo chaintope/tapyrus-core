@@ -91,7 +91,7 @@ void BlockAssembler::resetBlock()
     nFees = 0;
 }
 
-std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, int required_age_in_secs, TAPYRUS_XFIELDTYPES xfieldType, const xFieldInput* value)
+std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, int required_age_in_secs, TAPYRUS_XFIELDTYPES xfieldType, const xFieldData* value)
 {
     int64_t nTimeStart = GetTimeMicros();
 
@@ -122,7 +122,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     if(xfieldType != TAPYRUS_XFIELDTYPES::NONE)
     {
         pblock->xfieldType = (uint8_t)xfieldType;
-        pblock->xfield = value->xFieldValue.aggPubKey;
+        pblock->xfield = value->aggPubKey;
     }
 
     pblock->nTime = GetAdjustedTime();
