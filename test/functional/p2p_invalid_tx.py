@@ -20,8 +20,9 @@ from test_framework.mininode import P2PDataStore
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
     assert_equal,
-    wait_until,
+    wait_until
 )
+from time import sleep
 
 
 class InvalidTxRequestTest(BitcoinTestFramework):
@@ -155,13 +156,12 @@ class InvalidTxRequestTest(BitcoinTestFramework):
         wait_until(lambda: 1 == len(node.getpeerinfo()), timeout=12)  # p2ps[1] is no longer connected
         assert_equal(expected_mempool, set(node.getrawmempool()))
 
-        # restart node with sending BIP61 messages disabled, check that it disconnects without sending the reject message
-        self.log.info('Test a transaction that is rejected, with BIP61 disabled')
-        self.restart_node(0, ['-persistmempool=0'])
+        # verify that enablebip61 is not accepted by tapyrusd anymore
+        self.nodes[0].assert_start_raises_init_error(['-enablebip61=0', '-persistmempool=0'], 'Error parsing command line arguments: Invalid parameter -enablebip61')
         self.reconnect_p2p(num_connections=1)
         node.p2p.send_txs_and_test([tx1], node, success=False, expect_disconnect=False)
         # send_txs_and_test will have waited for disconnect, so we can safely check that no reject has been received
-        assert_equal(node.p2p.reject_code_received, 64)
+        assert_equal(node.p2p.reject_code_received, None)
 
 if __name__ == '__main__':
     InvalidTxRequestTest().main()

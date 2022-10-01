@@ -38,6 +38,11 @@ class ConfArgsTest(BitcoinTestFramework):
 
         self.test_config_file_parser()
 
+        self.log.info("unsupported options(removed in tapyrus only)")
+        self.nodes[0].assert_start_raises_init_error(['-enablebip61=0'], 'Error parsing command line arguments: Invalid parameter -enablebip61')
+        self.nodes[0].assert_start_raises_init_error(['-permitbaremultisig=0'], 'Error parsing command line arguments: Invalid parameter -permitbaremultisig')
+        self.nodes[0].assert_start_raises_init_error(['-rpcserialversion'], 'Error parsing command line arguments: Invalid parameter -rpcserialversion')
+
         self.log.info("-dnsseeder and -dnsseed tests")
         # -dnsseeder and -dnsseed tests
         self.start_node(0, ['-addseeder=seed.tapyrus.dev.chaintope.com','-addseeder=static-seed.tapyrus.dev.chaintope.com'])
