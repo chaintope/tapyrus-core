@@ -50,8 +50,8 @@ public:
     const CPubKey& GetLatestAggregatePubkey() const { return aggregatePubkeyHeight.back().aggpubkey; }
 
     int32_t ReadMaxBlockSize(const int32_t maxBlockSize, uint64_t height) const;
-    const std::vector<maxBlockSizeAndHeight>& GetMaxBlockSizeHeightList() const { return maxBlockSizeHeight; }
-    int32_t GetLatestMaxBlockSize() const { return maxBlockSizeHeight.back().maxBlockSize; }
+    const std::vector<XFieldChange>& GetMaxBlockSizeHeightList() const { return XFieldChangeHeight[TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE]; }
+    int32_t GetLatestMaxBlockSize() const { return XFieldChangeHeight[TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE].back().xfield.maxBlockSize; }
 
     bool ReadGenesisBlock(std::string genesisHex);
     const CBlock& GenesisBlock() const { return genesis; }

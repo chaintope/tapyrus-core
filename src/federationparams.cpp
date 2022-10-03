@@ -158,7 +158,7 @@ CPubKey CFederationParams::ReadAggregatePubkey(const std::vector<unsigned char>&
             throw std::runtime_error(strprintf("Aggregate Public Key for Signed Block is invalid: %s", HexStr(pubkey)));
         }
 
-        if (p.aggpubkey.size() != CPubKey::COMPRESSED_PUBLIC_KEY_SIZE) {
+        if (a.xfield.aggPubKey.size() != CPubKey::COMPRESSED_PUBLIC_KEY_SIZE) {
             throw std::runtime_error(strprintf("Aggregate Public Key for Signed Block is invalid: %s", HexStr(pubkey)));
         }
         if(height && GetAggPubkeyFromHeight(height) == p.aggpubkey)
@@ -176,7 +176,7 @@ CPubKey CFederationParams::ReadAggregatePubkey(const std::vector<unsigned char>&
 
 int32_t CFederationParams::ReadMaxBlockSize(const int32_t maxBlockSize, uint64_t height) const
 {
-    maxBlockSizeHeight.push_back(maxBlockSizeAndHeight{maxBlockSize, height});
+    XFieldChangeHeight[TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE].push_back(XFieldChange{maxBlockSize, height});
 }
 
 bool CFederationParams::ReadGenesisBlock(std::string genesisHex)
@@ -221,7 +221,7 @@ bool CFederationParams::ReadGenesisBlock(std::string genesisHex)
 
     //verify proof
     const uint256 blockHash = genesis.GetHashForSign();
-    if(!aggregatePubkeyHeight.back().aggpubkey.Verify_Schnorr(blockHash, genesis.proof))
+    if(!XFieldChangeHeight[TAPYRUS_XFIELDTYPES::AGGPUBKEY].back().xfield.aggPubKey.Verify_Schnorr(blockHash, genesis.proof))
         throw std::runtime_error("ReadGenesisBlock: Proof verification failed");
 
     return true;
@@ -229,8 +229,8 @@ bool CFederationParams::ReadGenesisBlock(std::string genesisHex)
 
 int CFederationParams::GetHeightFromAggregatePubkey(const CPubKey &aggpubkey) const
 {
-    for (auto& c : aggregatePubkeyHeight) {
-        if (c.aggpubkey == aggpubkey)
+    for (auto& c : XFieldChangeHeight[TAPYRUS_XFIELDTYPES::AGGPUBKEY]) {
+        if (c.aggPubKey == aggpubkey)
             return c.height;
     }
     return -1;
@@ -238,14 +238,14 @@ int CFederationParams::GetHeightFromAggregatePubkey(const CPubKey &aggpubkey) co
 
 CPubKey& CFederationParams::GetAggPubkeyFromHeight(int height) const
 {
-    if(height == 0 || aggregatePubkeyHeight.size() == 1)
-        return aggregatePubkeyHeight.at(0).aggpubkey; 
+    if(height == 0 || XFieldChangeHeight[TAPYRUS_XFIELDTYPES::AGGPUBKEY].size() == 1)
+        return CPubKey(XFieldChangeHeight[TAPYRUS_XFIELDTYPES::AGGPUBKEY].at(0).aggPubKey); 
 
-    if(height < 0 || height > aggregatePubkeyHeight.back().height)
-        return aggregatePubkeyHeight.back().aggpubkey;
+    if(height < 0 || height > XFieldChangeHeight[TAPYRUS_XFIELDTYPES::AGGPUBKEY].back().height)
+        return CPubKey(XFieldChangeHeight[TAPYRUS_XFIELDTYPES::AGGPUBKEY].back().aggPubKey);
 
-    for(unsigned int i = 0; i < aggregatePubkeyHeight.size(); i++) {
-        if(height == aggregatePubkeyHeight.at(i).height || (aggregatePubkeyHeight.at(i).height < height && height < aggregatePubkeyHeight.at(i+1).height))
-            return aggregatePubkeyHeight.at(i).aggpubkey;
+    for(unsigned int i = 0; i < XFieldChangeHeight[TAPYRUS_XFIELDTYPES::AGGPUBKEY].size(); i++) {
+        if(height == XFieldChangeHeight[TAPYRUS_XFIELDTYPES::AGGPUBKEY].at(i).height || (XFieldChangeHeight[TAPYRUS_XFIELDTYPES::AGGPUBKEY].at(i).height < height && height < XFieldChangeHeight[TAPYRUS_XFIELDTYPES::AGGPUBKEY].at(i+1).height))
+            return CPubKey(XFieldChangeHeight[TAPYRUS_XFIELDTYPES::AGGPUBKEY].at(i).aggPubKey);
     }
 }
