@@ -49,9 +49,8 @@ public:
     const std::vector<AggPubkeyAndHeight>& GetAggregatePubkeyHeightList() const { return aggregatePubkeyHeight; }
     const CPubKey& GetLatestAggregatePubkey() const { return aggregatePubkeyHeight.back().aggpubkey; }
 
-    int32_t ReadMaxBlockSize(const int32_t maxBlockSize, uint64_t height) const;
-    const std::vector<XFieldChange>& GetMaxBlockSizeHeightList() const { return XFieldChangeHeight[TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE]; }
-    int32_t GetLatestMaxBlockSize() const { return XFieldChangeHeight[TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE].back().xfield.maxBlockSize; }
+    int32_t ReadMaxBlockSize(const int32_t maxBlockSize, uint32_t height) const;
+    const std::vector<XFieldChange>& GetMaxBlockSizeHeightList() const;
 
     bool ReadGenesisBlock(std::string genesisHex);
     const CBlock& GenesisBlock() const { return genesis; }
@@ -59,8 +58,9 @@ public:
     const std::vector<SeedSpec6>& FixedSeeds() const { return vFixedSeeds; }
     /** Return the list of hostnames to look up for DNS seeds */
     const std::vector<std::string>& DNSSeeds() const { return vSeeds; }
-    int GetHeightFromAggregatePubkey(const CPubKey &aggpubkey) const;
-    CPubKey& GetAggPubkeyFromHeight(int height) const;
+    uint32_t GetHeightFromAggregatePubkey(const CPubKey &aggpubkey) const;
+    CPubKey GetAggPubkeyFromHeight(uint32_t height) const;
+    uint32_t GetMaxBlockSizeFromHeight(uint32_t height) const;
 
     CFederationParams();
     CFederationParams(const uint32_t networkId, const std::string dataDirName, const std::string genesisHex);

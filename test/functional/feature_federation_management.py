@@ -4,6 +4,7 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test federation management block processing.
+xfield type 1 is aggregatepubkey.
 
 B0 -- Genesis block -- aggpubkey1
 B1 - B10 -- Generate 10 blocks with no aggpubkey -- chain becomes longer
@@ -99,18 +100,7 @@ class FederationManagementTest(BitcoinTestFramework):
 
         self.blocks = []
 
-        self.coinbase_key = CECKey()
-        self.coinbase_key.set_secretbytes(bytes.fromhex("12b004fff7f4b69ef8650e767f18f11ede158148b425660723b9f9a66e61f747"))
-
-        self.schnorr_key = Schnorr()
-        self.schnorr_key.set_secretbytes(bytes.fromhex("12b004fff7f4b69ef8650e767f18f11ede158148b425660723b9f9a66e61f747"))
-
-        #test has 4 nodes.
-        # node0 is the test node where all blocks are sent.
-        # node1 is passive, always in synch with node0
-        # node2 is started and stopped at different points to test network synch
-        # node3 is a new node added to the network at the end of the test
-        self.num_nodes = 4
+        self.num_nodes = 1
         self.sig_scheme = 0
         self.setup_clean_chain = True
         self.genesisBlock = createTestGenesisBlock(self.aggpubkeys[0], self.aggprivkey[0], int(time.time() - 100))

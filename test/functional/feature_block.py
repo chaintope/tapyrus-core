@@ -80,7 +80,6 @@ class FullBlockTest(BitcoinTestFramework):
         self.num_nodes = 1
         self.sig_scheme = 0
         self.setup_clean_chain = True
-        self.extra_args = [["-acceptnonstdtxn=1"]]
         self.genesisBlock = createTestGenesisBlock(self.signblockpubkey, self.signblockprivkey, int(time.time() - 100))
 
     def run_test(self):
@@ -311,6 +310,8 @@ class FullBlockTest(BitcoinTestFramework):
         assert_equal(len(b23.serialize()), MAX_BLOCK_BASE_SIZE)
         self.sync_blocks([b23], True)
         self.save_spendable_output()
+        self.log.info("block %s"%b23)
+        exit(0)
 
         self.log.info("Trying to create a block of size MAX_BLOCK_BASE_SIZE + 1")
         self.move_tip(15)

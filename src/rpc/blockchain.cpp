@@ -1137,6 +1137,18 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
         aggPubkeyList.push_back(aggPubkeyObj);
     }
     obj.pushKV("aggregatePubkeys", aggPubkeyList);
+
+    UniValue maxBlockSizeList(UniValue::VARR);
+    const std::vector<XFieldChange>& maxBlockSizeHeightList = FederationParams().GetMaxBlockSizeHeightList();
+    for (auto& maxBlockSizeHeightPair : maxBlockSizeHeightList)
+    {
+        UniValue maxBlockSizeObj(UniValue::VOBJ);
+        std::stringstream ss;
+        ss << maxBlockSizeHeightPair.xfield.xfield.maxBlockSize;
+        maxBlockSizeObj.pushKV(ss.str(), (uint64_t)maxBlockSizeHeightPair.height);
+        maxBlockSizeList.push_back(maxBlockSizeObj);
+    }
+    obj.pushKV("blockSizeChanges", maxBlockSizeList);
     obj.pushKV("warnings", GetWarnings("statusbar"));
     return obj;
 }

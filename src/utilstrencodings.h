@@ -133,7 +133,7 @@ inline std::string HexStr(const T& vch, bool fSpaces=false)
     return HexStr(vch.begin(), vch.end(), fSpaces);
 }
 template<>
-inline std::string HexStr(const xfieldInBlock& in, bool fSpaces)
+inline std::string HexStr(const CXField& in, bool fSpaces)
 {
     if(in.xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY)
         return std::string("1:")+HexStr(in.xfield.aggPubKey.begin(), in.xfield.aggPubKey.end(), fSpaces);

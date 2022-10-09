@@ -29,6 +29,7 @@ from .messages import (
     ser_uint256,
     sha256,
     uint256_from_str,
+    msg_block
 )
 from .script import (
     CScript,
@@ -194,6 +195,21 @@ def create_raw_transaction(node, txid, to_address, *, amount):
     signresult = node.signrawtransactionwithwallet(rawtx, [], "ALL", scheme)
     assert_equal(signresult["complete"], True)
     return signresult['hex']
+
+def generate_blocks(n, node, coinbase_pubkey, signblockprivkey):
+    coinbase_txs = []
+    for i in range(1, n):
+        height = node.getblockcount() + 1
+        coinbase_tx = create_coinbase(height, coinbase_pubkey)
+        coinbase_txs.append(coinbase_tx)
+        tip = node.getbestblockhash()
+        block_time = node.getblockheader(tip)["mediantime"] + 1
+        block = create_block(int(tip, 16), coinbase_tx, block_time)
+        block.solve(signblockprivkey)
+        tip = block.hash
+
+        node.p2p.send_and_ping(msg_block(block))
+    return coinbase_txs
 
 # Colored coin definitions
 ##########################

@@ -568,7 +568,7 @@ class CBlockHeader():
         if(self.xfieldType == 1):
             r += ser_string(self.xfield)
         elif(self.xfieldType == 2):
-            r += struct.pack(self.xfield)
+            r += struct.pack("<I", self.xfield)
         r += ser_string(self.proof)
         return r
 
@@ -583,7 +583,7 @@ class CBlockHeader():
         if(self.xfieldType == 1):
             r += ser_string(self.xfield)
         elif(self.xfieldType == 2):
-            r += struct.pack(self.xfield)
+            r += struct.pack("<I", self.xfield)
         return hash256(r)
 
     def calc_sha256(self):
@@ -608,9 +608,15 @@ class CBlockHeader():
         self.calc_sha256()
         return self.sha256
 
+    def __xfield__(self):
+        if self.xfieldType == 1:
+            return bytes_to_hex_str(self.xfield)
+        elif self.xfieldType == 2:
+            return int(self.xfield)
+
     def __repr__(self):
         return "CBlockHeader(nFeatures=%i hashPrevBlock=%064x hashMerkleRoot=%064x hashImMerkleRoot=%064x nTime=%s xfieldType=%x xfield=%s proof=%s)" \
-            % (self.nFeatures, self.hashPrevBlock, self.hashMerkleRoot, self.hashImMerkleRoot, time.ctime(self.nTime), self.xfieldType, bytes_to_hex_str(self.xfield), bytes_to_hex_str(self.proof))
+            % (self.nFeatures, self.hashPrevBlock, self.hashMerkleRoot, self.hashImMerkleRoot, time.ctime(self.nTime), self.xfieldType, self.__xfield__(), bytes_to_hex_str(self.proof))
 
 
 class CBlock(CBlockHeader):
@@ -688,9 +694,7 @@ class CBlock(CBlockHeader):
     def __repr__(self):
         return "CBlock(nFeatures=%i hashPrevBlock=%064x hashMerkleRoot=%064x hashImMerkleRoot=%064x nTime=%s xfieldType=%x xfield=%s  proof=%s vtx=%s)" \
             % (self.nFeatures, self.hashPrevBlock, self.hashMerkleRoot, self.hashImMerkleRoot,
-               time.ctime(self.nTime), self.xfieldType, bytes_to_hex_str(self.xfield), bytes_to_hex_str(self.proof), repr(self.vtx))
-
-
+               time.ctime(self.nTime), self.xfieldType, self.__xfield__(), bytes_to_hex_str(self.proof), repr(self.vtx))
 
 class PrefilledTransaction():
     def __init__(self, index=0, tx = None):

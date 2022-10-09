@@ -30,41 +30,53 @@ union xfieldData{
     std::vector<unsigned char> aggPubKey;
     int32_t maxBlockSize;
 
-    //default constructor
-    xfieldData():aggPubKey({}){}
-
-    //constructor to fill aggpubkey
-    xfieldData(const std::vector<unsigned char>& copy):aggPubKey(copy.begin(), copy.end()){}
-
-    //constructor to fill maxblocksize
-    xfieldData(int32_t n_maxblockSize){
-        this->maxBlockSize = n_maxblockSize;
-    }
+    //constructors
+    explicit xfieldData():aggPubKey(){}
+    explicit xfieldData(std::vector<unsigned char> in_aggpubkey):aggPubKey(in_aggpubkey){}
+    explicit xfieldData(int32_t in_maxblocksize):maxBlockSize(in_maxblocksize){}
 
     //destructor
     ~xfieldData(){}
 
 };
 
-struct xfieldInBlock {
+struct CXField {
     TAPYRUS_XFIELDTYPES xfieldType;
     xfieldData xfield;
 
     //default constructor
-    xfieldInBlock()
-    {
-        xfieldType = TAPYRUS_XFIELDTYPES::NONE;
-    }
+    CXField():xfieldType(TAPYRUS_XFIELDTYPES::NONE){}
+
+    //constrructor for aggpubkey
+    explicit CXField(std::vector<unsigned char> aggpubkey):xfieldType(TAPYRUS_XFIELDTYPES::AGGPUBKEY),xfield(aggpubkey){}
+    //constrructor for maxblocksize
+    explicit CXField(int32_t maxblocksize):xfieldType(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE),xfield(maxblocksize){}
 
     //copy constructor
-    xfieldInBlock(const xfieldInBlock& copy){
+    explicit CXField(const CXField& copy){
         xfieldType = copy.xfieldType;
         if(copy.xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY)
             xfield.aggPubKey =copy.xfield.aggPubKey;
         else if(copy.xfieldType == TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE)
             xfield.maxBlockSize = copy.xfield.maxBlockSize;
     }
-    xfieldInBlock(xfieldInBlock& copy){
+    explicit CXField(CXField& copy){
+        xfieldType = copy.xfieldType;
+        if(copy.xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY)
+            xfield.aggPubKey =copy.xfield.aggPubKey;
+        else if(copy.xfieldType == TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE)
+            xfield.maxBlockSize = copy.xfield.maxBlockSize;
+    }
+
+    //move constructor
+    explicit CXField(const CXField&& copy){
+        xfieldType = copy.xfieldType;
+        if(copy.xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY)
+            xfield.aggPubKey =copy.xfield.aggPubKey;
+        else if(copy.xfieldType == TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE)
+            xfield.maxBlockSize = copy.xfield.maxBlockSize;
+    }
+    explicit CXField(CXField&& copy){
         xfieldType = copy.xfieldType;
         if(copy.xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY)
             xfield.aggPubKey =copy.xfield.aggPubKey;
@@ -73,7 +85,7 @@ struct xfieldInBlock {
     }
 
     //copy assignment
-    xfieldInBlock& operator=(const xfieldInBlock& copy){
+    CXField& operator=(const CXField& copy){
         xfieldType = copy.xfieldType;
         if(copy.xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY)
             xfield.aggPubKey =copy.xfield.aggPubKey;
@@ -81,7 +93,7 @@ struct xfieldInBlock {
             xfield.maxBlockSize = copy.xfield.maxBlockSize;
         return *this;
     }
-    xfieldInBlock& operator=(xfieldInBlock& copy){
+    CXField& operator=(CXField& copy){
         xfieldType = copy.xfieldType;
         if(copy.xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY)
             xfield.aggPubKey =copy.xfield.aggPubKey;
@@ -137,7 +149,7 @@ public:
     uint256 hashMerkleRoot;
     uint256 hashImMerkleRoot;
     uint32_t nTime;
-    xfieldInBlock xfield;
+    CXField xfield;
 
     CBlockHeaderWithoutProof()
     {
@@ -275,7 +287,7 @@ public:
 
     std::string ToString() const;
 
-    uint64_t GetHeight() const;
+    uint32_t GetHeight() const;
 };
 
 /** Describes a place in the block chain to another node such that if the

@@ -3073,6 +3073,35 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-duplicate", true, "duplicate transaction");
     }
 
+    //check xfieldType and xfield fields in the block header. Do not accept a block with unexpected xfieldType
+    std::string warning("");
+    switch((TAPYRUS_XFIELDTYPES)block.xfield.xfieldType)
+    {
+        case TAPYRUS_XFIELDTYPES::AGGPUBKEY:
+            if(block.xfield.xfield.aggPubKey.size() == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE)
+            {
+                CPubKey aggregatePubkeyinBlock(block.xfield.xfield.aggPubKey.begin(), block.xfield.xfield.aggPubKey.end());
+                if(!aggregatePubkeyinBlock.IsFullyValid())
+                    return state.DoS(100, false, REJECT_INVALID, "bad-aggpubkey", false, "invalid aggregatePubkey");
+            }
+            else
+                return state.DoS(100, false, REJECT_INVALID, "bad-xfieldType-xfield", false, "invalid aggregatePubkey in xfield");
+            break;
+        case TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE:
+            if(block.xfield.xfield.maxBlockSize <= 0)
+                return state.DoS(100, false, REJECT_INVALID, "bad-xfieldType-xfield", false, "invalid max block size in xfield");
+            else if(block.xfield.xfield.maxBlockSize < 165 + 45)//min block header + min coinbase
+                return state.DoS(100, false, REJECT_INVALID, "bad-xfieldType-xfield", false, "max block size in xfield too small ");
+            break;
+        case TAPYRUS_XFIELDTYPES::NONE:
+            if(block.xfield.xfield.aggPubKey.size() != 0)
+                return state.DoS(100, false, REJECT_INVALID, "bad-xfieldType-xfield", false, "unexpected xfield");
+            break;
+        default:
+            warning = strprintf("Warning: Unknown xfieldType [%2x] was accepted in block [%s]", (int8_t)block.xfield.xfieldType, block.GetHash().ToString());
+    }
+
+    uint32_t height = block.GetHeight();
     // All potential-corruption validation must be done before we do any
     // transaction validation, as otherwise we may mark the header as invalid
     // because we receive the wrong transactions for it.
@@ -3080,7 +3109,8 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
     // checks that use witness data may be performed here.
 
     // Size limits
-    if (block.vtx.empty() || block.vtx.size() > MAX_BLOCK_SIZE || ::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS) > MAX_BLOCK_SIZE
+    uint32_t currentBlockSize = FederationParams().GetMaxBlockSizeFromHeight(height);
+    if (block.vtx.empty() || block.vtx.size() > currentBlockSize || ::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS) > currentBlockSize)
         return state.DoS(100, false, REJECT_INVALID, "bad-blk-length", false, "size limits failed");
 
     // First transaction must be coinbase,

@@ -210,7 +210,7 @@ public:
     uint256 hashMerkleRoot;
     uint256 hashImMerkleRoot;
     uint32_t nTime;
-    xfieldInBlock xfield;
+    CXField xfield;
     std::vector<unsigned char> proof;
 
     //! (memory only) Sequential id assigned to distinguish order in which blocks are received.
