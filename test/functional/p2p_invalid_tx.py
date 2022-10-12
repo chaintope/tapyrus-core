@@ -22,7 +22,6 @@ from test_framework.util import (
     assert_equal,
     wait_until
 )
-from time import sleep
 
 
 class InvalidTxRequestTest(BitcoinTestFramework):
@@ -157,7 +156,7 @@ class InvalidTxRequestTest(BitcoinTestFramework):
         assert_equal(expected_mempool, set(node.getrawmempool()))
 
         # verify that enablebip61 is not accepted by tapyrusd anymore
-        self.nodes[0].assert_start_raises_init_error(['-enablebip61=0', '-persistmempool=0'], 'Error parsing command line arguments: Invalid parameter -enablebip61')
+        self.nodes[0].assert_start_raises_init_error(['-persistmempool=0', '-enablebip61=0'], 'Error parsing command line arguments: Invalid parameter -enablebip61')
         self.reconnect_p2p(num_connections=1)
         node.p2p.send_txs_and_test([tx1], node, success=False, expect_disconnect=False)
         # send_txs_and_test will have waited for disconnect, so we can safely check that no reject has been received
