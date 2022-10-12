@@ -198,7 +198,7 @@ def create_raw_transaction(node, txid, to_address, *, amount):
 
 def generate_blocks(n, node, coinbase_pubkey, signblockprivkey):
     coinbase_txs = []
-    for i in range(1, n):
+    for i in range(0, n):
         height = node.getblockcount() + 1
         coinbase_tx = create_coinbase(height, coinbase_pubkey)
         coinbase_txs.append(coinbase_tx)

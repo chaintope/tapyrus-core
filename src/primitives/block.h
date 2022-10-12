@@ -32,8 +32,8 @@ union xfieldData{
 
     //constructors
     explicit xfieldData():aggPubKey(){}
-    explicit xfieldData(std::vector<unsigned char> in_aggpubkey):aggPubKey(in_aggpubkey){}
-    explicit xfieldData(int32_t in_maxblocksize):maxBlockSize(in_maxblocksize){}
+    explicit xfieldData(const std::vector<unsigned char> in_aggpubkey):aggPubKey(in_aggpubkey){}
+    explicit xfieldData(const int32_t in_maxblocksize):maxBlockSize(in_maxblocksize){}
 
     //destructor
     ~xfieldData(){}
