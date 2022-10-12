@@ -37,7 +37,6 @@ union xfieldData{
 
     //destructor
     ~xfieldData(){}
-
 };
 
 struct CXField {

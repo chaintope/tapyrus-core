@@ -124,6 +124,16 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     if(pXField && pXField->xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY)
     {
+        pblock->xfield.xfieldType = pXField->xfieldType;
+        pblock->xfield.xfield.aggPubKey = pXField->xfield.aggPubKey;
+    }
+    else if(pXField && pXField->xfieldType == TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE)
+    {
+        pblock->xfield.xfieldType = pXField->xfieldType;
+        pblock->xfield.xfield.maxBlockSize = pXField->xfield.maxBlockSize;
+    }
+    if(xfieldType != TAPYRUS_XFIELDTYPES::NONE)
+    {
         pblock->xfieldType = (uint8_t)xfieldType;
         pblock->xfield = value->aggPubKey;
     }

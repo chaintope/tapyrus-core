@@ -125,6 +125,10 @@ struct update_for_parent_inclusion
 xFieldData is a union holding either aggpubkey or max block size. It is extensible in the future
 */
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 2f76f9580 (New <xfield_type:xfield> parameter in getnewblock RPC (#232))
     union xFieldData{
         std::vector<unsigned char> aggPubKey;
 

@@ -157,6 +157,8 @@ UniValue getnewblock(const JSONRPCRequest& request)
     TAPYRUS_XFIELDTYPES xfieldType = TAPYRUS_XFIELDTYPES::NONE;
     xFieldData xfield;
 
+    xFieldData xfield;
+
     if (!request.params[2].isNull())
     {
         if(xfieldParam.find(':') == std::string::npos)
@@ -188,6 +190,15 @@ UniValue getnewblock(const JSONRPCRequest& request)
                 throw JSONRPCError(RPC_INVALID_PARAMS, "xfield parameter was invalid. Aggregate public key could not be parsed");
             }
             break;
+            case TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE:
+            {
+                std::string xfieldString = xfieldParam.substr(xfieldParam.find(':')+1);
+                xfield.xfield.maxBlockSize = atoi(xfieldString);
+                if(xfield.xfield.maxBlockSize <=0 || xfield.xfield.maxBlockSize > 0xFFFFFFFF || xfieldString.size() > sizeof(int32_t) * 2)
+                    throw JSONRPCError(RPC_INVALID_PARAMS, "xfield max block size was invalid. It is expected to be <xfield_type:new_xfield_value>.");
+                xfield.xfieldType = TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE;
+            }
+            break;
             default:
                 throw JSONRPCError(RPC_INVALID_PARAMS, "xfield parameter was invalid. Unknown xfield type");
         }
@@ -195,6 +206,7 @@ UniValue getnewblock(const JSONRPCRequest& request)
     CScript coinbaseScript {GetScriptForDestination(destination)};
 
     std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(Params()).CreateNewBlock(coinbaseScript, true, &xfield));
+
     if (!pblocktemplate.get())
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Wallet keypool empty");
     {
