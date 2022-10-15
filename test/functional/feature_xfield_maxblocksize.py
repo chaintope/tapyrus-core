@@ -16,6 +16,7 @@ Simulate Blockchain Reorg  - After the last federation block and Before the last
 
 Test the output of RPC Getblockchaininfo before reorg and after reorg. Verify block aggpubkey and maxblock size changes against block height
 
+During reorg, the max block size from a block removed block is removed from the list. IF the same block comes back the same 
 Restart the node with -reindex, -reindex-chainstate and -loadblock options. This triggers a full rewind of block index. Verify that the tip reaches B51 at the end.
 """
 import time
@@ -613,11 +614,45 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         blocknew.solve(self.aggprivkey[1])
         node.p2p.send_blocks_and_test([blocknew], node, success=True)
         self.tip = blocknew.hash
+        reorg_tip = blocknew.hash
         assert_equal(self.tip, node.getbestblockhash())
 
-        #there are 3 tips in the current blockchain
         chaintips = node.getchaintips()
-        self.log.info("Verifying chaintips:%s "%chaintips)
+        assert_equal(len(chaintips), 15)
+
+        self.log.info("Verifying getblockchaininfo")
+        expectedAggPubKeys = [
+            { self.aggpubkeys[0] : 0},
+            { self.aggpubkeys[1] : 17}
+        ]
+        expectedblockheights = [
+            { '500000' : 18},
+            { '3000000' : 30}
+        ]
+        blockchaininfo = node.getblockchaininfo()
+        assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
+        assert_equal(blockchaininfo["blockSizeChanges"], expectedblockheights)
+
+        self.log.info("Verify blocksize re-orged out is available once again")
+
+        #B51 -- in old branch
+        self.tip = tip_before_reorg
+        self.block_time += 1
+        blocknew = self.new_block(51, spend=self.unspent[22])
+        blocknew.solve(self.aggprivkey[1])
+        node.p2p.send_blocks_and_test([blocknew], node, success=False, request_block=False)
+        assert_equal(reorg_tip, node.getbestblockhash())
+        self.tip = blocknew.hash
+
+        #B52  -- extra block on old branch
+        self.block_time += 1
+        blocknew = self.new_block(52, spend=self.unspent[23])
+        blocknew.solve(self.aggprivkey[1])
+        node.p2p.send_blocks_and_test([blocknew], node, success=True)
+        self.tip = blocknew.hash
+        assert_equal(self.tip, node.getbestblockhash())
+
+        chaintips = node.getchaintips()
         assert_equal(len(chaintips), 15)
 
         self.log.info("Verifying getblockchaininfo")
@@ -628,7 +663,7 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         expectedblockheights = [
             { '500000' : 18},
             { '3000000' : 30},
-            { '3999500': 44}
+            { '3999500' : 44}
         ]
         blockchaininfo = node.getblockchaininfo()
         assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)

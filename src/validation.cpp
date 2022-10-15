@@ -2251,6 +2251,13 @@ bool CChainState::DisconnectTip(CValidationState& state, DisconnectedBlockTransa
     chainActive.SetTip(pindexDelete->pprev);
 
     UpdateTip(pindexDelete->pprev);
+
+    //if xfield information change is being discarded during this reorg remove it from federation params.
+    if(FederationParams().GetMaxBlockSizeHeightList().size())
+    {
+        FederationParams().RemoveMaxBlockSize(pindexDelete->nHeight+1);
+    }
+
     // Let wallets know transactions went from 1-confirmed to
     // 0-confirmed or conflicted:
     GetMainSignals().BlockDisconnected(pblock);

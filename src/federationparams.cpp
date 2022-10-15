@@ -281,3 +281,10 @@ const std::vector<XFieldChange>& CFederationParams::GetMaxBlockSizeHeightList() 
         return {};
     return XFieldChangeHeight[TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE];
 }
+
+int CFederationParams::RemoveMaxBlockSize(uint32_t height) const
+{
+    std::vector<XFieldChange>& list = XFieldChangeHeight[TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE];
+    if(list.rbegin()->height == height)
+        list.resize(list.size() - 1 );
+}

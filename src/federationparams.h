@@ -51,6 +51,7 @@ public:
 
     int32_t ReadMaxBlockSize(const int32_t maxBlockSize, uint32_t height) const;
     const std::vector<XFieldChange>& GetMaxBlockSizeHeightList() const;
+    int RemoveMaxBlockSize(uint32_t height) const;
 
     bool ReadGenesisBlock(std::string genesisHex);
     const CBlock& GenesisBlock() const { return genesis; }
