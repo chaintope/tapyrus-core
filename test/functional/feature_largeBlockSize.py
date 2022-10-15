@@ -60,14 +60,13 @@ class MaxBlockSizeInXFieldTest(BitcoinTestFramework):
             block_size = size * 1000000
             self.log.info("Checking Block size %d"%block_size)
 
-            for cnt in range(1,4):
-                tip  = int(self.nodes[0].getbestblockhash(), 16)
-                blocknew = create_block(tip, create_coinbase(cnt+11), self.block_time )
-                blocknew.xfieldType = 2
-                blocknew.xfield = block_size + 1000
-                blocknew.solve(self.signblockprivkey)
-                self.nodes[0].p2p.send_blocks_and_test([blocknew], self.nodes[0], success=True)
-                assert_equal(blocknew.hash, self.nodes[0].getbestblockhash())
+            tip  = int(self.nodes[0].getbestblockhash(), 16)
+            blocknew = create_block(tip, create_coinbase((i*2)+11), self.block_time )
+            blocknew.xfieldType = 2
+            blocknew.xfield = block_size + 1000
+            blocknew.solve(self.signblockprivkey)
+            self.nodes[0].p2p.send_blocks_and_test([blocknew], self.nodes[0], success=True)
+            assert_equal(blocknew.hash, self.nodes[0].getbestblockhash())
 
             self.send_txs_for_large_block(self.nodes[0], blocknew.vtx[0].malfixsha256, block_size)
             blockhex = self.nodes[0].generate(1, self.signblockprivkey_wif)
