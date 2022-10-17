@@ -262,6 +262,9 @@ uint32_t CFederationParams::GetMaxBlockSizeFromHeight(uint32_t height) const
 
     const std::vector<XFieldChange>& listofXfieldChanges = XFieldChangeHeight[TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE];
 
+    if(listofXfieldChanges.empty())
+        return MAX_BLOCK_BASE_SIZE;
+
     if(height == 0 || listofXfieldChanges.size() == 1)
         return listofXfieldChanges.at(0).xfield.xfield.maxBlockSize;
 
@@ -275,16 +278,22 @@ uint32_t CFederationParams::GetMaxBlockSizeFromHeight(uint32_t height) const
     return listofXfieldChanges.back().xfield.xfield.maxBlockSize;
 }
 
-const std::vector<XFieldChange>& CFederationParams::GetMaxBlockSizeHeightList() const
+const std::vector<XFieldChange>* CFederationParams::GetMaxBlockSizeHeightList() const
 {
     if(XFieldChangeHeight.find(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE) == XFieldChangeHeight.end())
-        return {};
-    return XFieldChangeHeight[TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE];
+        return nullptr;
+    return &XFieldChangeHeight[TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE];
 }
 
-int CFederationParams::RemoveMaxBlockSize(uint32_t height) const
+void CFederationParams::RemoveMaxBlockSize(uint32_t height) const
 {
+    if(XFieldChangeHeight.find(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE) == XFieldChangeHeight.end())
+        return;
     std::vector<XFieldChange>& list = XFieldChangeHeight[TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE];
-    if(list.rbegin()->height == height)
+
+    if(list.size() == 1 && list.begin()->height == height)
+        XFieldChangeHeight.erase(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE);
+
+    if(list.size() > 1 && list.rbegin()->height == height)
         list.resize(list.size() - 1 );
 }

@@ -2253,7 +2253,7 @@ bool CChainState::DisconnectTip(CValidationState& state, DisconnectedBlockTransa
     UpdateTip(pindexDelete->pprev);
 
     //if xfield information change is being discarded during this reorg remove it from federation params.
-    if(FederationParams().GetMaxBlockSizeHeightList().size())
+    if(FederationParams().GetMaxBlockSizeHeightList() != nullptr)
     {
         FederationParams().RemoveMaxBlockSize(pindexDelete->nHeight+1);
     }

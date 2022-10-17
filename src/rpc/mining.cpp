@@ -154,18 +154,15 @@ UniValue getnewblock(const JSONRPCRequest& request)
     }
 
     const std::string xfieldParam = request.params[2].isNull() ? "" : request.params[2].get_str();
-    TAPYRUS_XFIELDTYPES xfieldType = TAPYRUS_XFIELDTYPES::NONE;
-    xFieldData xfield;
 
-    xFieldData xfield;
-
+    CXField xfield;
     if (!request.params[2].isNull())
     {
         if(xfieldParam.find(':') == std::string::npos)
             throw JSONRPCError(RPC_INVALID_PARAMS, "xfield parameter could not be parsed. Check if the xfield parameter has format: <xfield_type:new_xfield_value>.");
 
         //using lambda to avoid temp variables
-        xfieldType = [xfieldParam](int splitAt, TAPYRUS_XFIELDTYPES max) -> TAPYRUS_XFIELDTYPES
+        xfield.xfieldType = [xfieldParam](int splitAt, TAPYRUS_XFIELDTYPES max) -> TAPYRUS_XFIELDTYPES
             { int x = splitAt > 0 ? atoi(xfieldParam.substr(0,splitAt)) : 0;
             return x > 0 && x < int(max) ? TAPYRUS_XFIELDTYPES(x) : TAPYRUS_XFIELDTYPES::NONE;
             } (xfieldParam.find(':'), TAPYRUS_XFIELDTYPES::MAX_XFIELDTYPE );
@@ -173,7 +170,11 @@ UniValue getnewblock(const JSONRPCRequest& request)
         if(xfieldType ==  TAPYRUS_XFIELDTYPES::NONE)
             throw JSONRPCError(RPC_INVALID_PARAMS, "Unknown xfield type");
 
+<<<<<<< HEAD
         switch(xfieldType){
+=======
+        switch(xfield.xfieldType){
+>>>>>>> 93bc50835 (change getMaxBlocksizelist to return pointer to avoid false positives in reference)
             case TAPYRUS_XFIELDTYPES::AGGPUBKEY:
             {
                 std::string aggPubkeyString = xfieldParam.substr(xfieldParam.find(':')+1);
@@ -182,7 +183,7 @@ UniValue getnewblock(const JSONRPCRequest& request)
                     CPubKey aggPubKey(data);
                     if (aggPubKey.IsFullyValid() && aggPubKey.IsCompressed())
                     {
-                        xfield.aggPubKey = std::vector<unsigned char>(data.begin(), data.end());
+                        xfield.xfield.aggPubKey = std::vector<unsigned char>(data.begin(), data.end());
                         break;
                     }
                     throw JSONRPCError(RPC_INVALID_PARAMS, "xfield parameter was invalid. Aggregate public key was uncompressed or invalid");
