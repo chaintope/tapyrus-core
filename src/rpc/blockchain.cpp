@@ -1139,7 +1139,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     obj.pushKV("aggregatePubkeys", aggPubkeyList);
 
     UniValue maxBlockSizeList(UniValue::VARR);
-    const std::vector<XFieldChange>const* maxBlockSizeHeightList = FederationParams().GetMaxBlockSizeHeightList();
+    const std::vector<XFieldChange>* maxBlockSizeHeightList = FederationParams().GetMaxBlockSizeHeightList();
     if(maxBlockSizeHeightList != nullptr)
     {
         for (auto& maxBlockSizeHeightPair : *maxBlockSizeHeightList)
