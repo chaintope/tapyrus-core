@@ -228,9 +228,9 @@ static void TestPackageSelection(const CChainParams& chainparams, const std::vec
     // of the transactions is below the min relay fee
     // Remove the low fee transaction and replace with a higher fee transaction
     mempool.removeRecursive(tx);
-    tx.vout[0].nValue -= 2*feeToUse; // Now we should be just over the min relay fee
+    tx.vout[0].nValue -= 2; // Now we should be just over the min relay fee
     hashLowFeeTx = tx.GetHashMalFix();
-    mempool.addUnchecked(hashLowFeeTx, entry.Fee(feeToUse*2).FromTx(tx));
+    mempool.addUnchecked(hashLowFeeTx, entry.Fee(feeToUse+2).FromTx(tx));
     pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey);
     BOOST_CHECK(pblocktemplate->block.vtx[4]->GetHashMalFix() == hashFreeTx);
     BOOST_CHECK(pblocktemplate->block.vtx[5]->GetHashMalFix() == hashLowFeeTx);
@@ -249,9 +249,9 @@ static void TestPackageSelection(const CChainParams& chainparams, const std::vec
     tx.vin[0].prevout.hashMalFix = hashFreeTx2;
     tx.vout.resize(1);
     feeToUse = blockMinFeeRate.GetFee(freeTxSize);
-    tx.vout[0].nValue = 5000000000LL - 100000000 - 2*feeToUse;
+    tx.vout[0].nValue = 5000000000LL - 100000000 - feeToUse;
     uint256 hashLowFeeTx2 = tx.GetHashMalFix();
-    mempool.addUnchecked(hashLowFeeTx2, entry.Fee(2*feeToUse).SpendsCoinbase(false).FromTx(tx));
+    mempool.addUnchecked(hashLowFeeTx2, entry.Fee(feeToUse).SpendsCoinbase(false).FromTx(tx));
     pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey);
 
     // Verify that this tx isn't selected.
