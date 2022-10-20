@@ -310,8 +310,6 @@ class FullBlockTest(BitcoinTestFramework):
         assert_equal(len(b23.serialize()), MAX_BLOCK_BASE_SIZE)
         self.sync_blocks([b23], True)
         self.save_spendable_output()
-        self.log.info("block %s"%b23)
-        exit(0)
 
         self.log.info("Trying to create a block of size MAX_BLOCK_BASE_SIZE + 1")
         self.move_tip(15)
@@ -547,10 +545,9 @@ class FullBlockTest(BitcoinTestFramework):
         self.update_block(41, [tx])
         self.sync_blocks([b41], True)
 
-        # tx created by b20 (b25, b29) spending out[7] is still in mempool
+        # tx created by b20 (b25, b29) is not standard
         mempool = self.nodes[0].getrawmempool()
-        assert_equal(len(mempool), 1)
-        assert b29.vtx[1].hashMalFix in mempool
+        assert_equal(len(mempool), 0)
 
         # Fork off of b39 to create a constant base again
         #
@@ -565,11 +562,8 @@ class FullBlockTest(BitcoinTestFramework):
         self.save_spendable_output()
         self.sync_blocks([b42, b43], True)
 
-        # during this reorg block b41's transactions only DEFAULT_ANCESTOR_LIMIT(=25) are put to the memorypool. rest of the transactions are rejected due to too-long-mempool-chain
-        assert_equal(len(self.nodes[0].getrawmempool()), 26)
-        mempool = self.nodes[0].getrawmempool()
-        for i in range(2,26):
-            assert b41.vtx[i].hashMalFix in mempool
+        # during this reorg block b41's transactions only DEFAULT_ANCESTOR_LIMIT(=25) are expected to be put to the memorypool. but are non standard. rest of the transactions are rejected due to too-long-mempool-chain
+        assert_equal(len(self.nodes[0].getrawmempool()), 0)
 
         # Test a number of really invalid scenarios
         #
@@ -786,11 +780,8 @@ class FullBlockTest(BitcoinTestFramework):
         self.sync_blocks([b60], True)
         self.save_spendable_output()
 
-        # after reorg mempool has 3 more unspent transactions from b57p2
-        assert_equal(len(self.nodes[0].getrawmempool()), 29)
-        mempool = self.nodes[0].getrawmempool()
-        for i in range(3,5):
-            assert b57p2.vtx[i].hashMalFix in mempool
+        # after reorg the 3 unspent transactions from b57p2 are not standard
+        assert_equal(len(self.nodes[0].getrawmempool()), 0)
 
         # Test BIP30
         #
@@ -1126,8 +1117,8 @@ class FullBlockTest(BitcoinTestFramework):
         b79 = self.update_block(79, [tx79])
         self.sync_blocks([b79], True)
 
-        # mempool still has the 29 transactions
-        assert_equal(len(self.nodes[0].getrawmempool()), 29)
+        # mempool still has the 0 transactions
+        assert_equal(len(self.nodes[0].getrawmempool()), 0)
 
         self.move_tip(77)
         b80 = self.next_block(80, spend=out[25])
@@ -1144,7 +1135,7 @@ class FullBlockTest(BitcoinTestFramework):
 
         # now check that tx78 and tx79 have been put back into the peer's mempool
         mempool = self.nodes[0].getrawmempool()
-        assert_equal(len(mempool), 31)
+        assert_equal(len(mempool), 2)
         assert(tx78.hashMalFix in mempool)
         assert(tx79.hashMalFix in mempool)
 

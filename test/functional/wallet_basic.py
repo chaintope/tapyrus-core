@@ -246,10 +246,10 @@ class WalletTest(BitcoinTestFramework):
         sync_mempools(self.nodes[0:2])
 
         self.stop_nodes()
-        self.start_node(3, extra_args = ['-acceptnonstdtxn=1'])
-        self.start_node(2, extra_args = ['-acceptnonstdtxn=1'])
-        self.start_node(1, extra_args = ['-acceptnonstdtxn=1'])
-        self.start_node(0, extra_args = ['-acceptnonstdtxn=1'])
+        self.start_node(3)
+        self.start_node(2)
+        self.start_node(1)
+        self.start_node(0)
         connect_nodes_bi(self.nodes, 0, 1)
         connect_nodes_bi(self.nodes, 1, 2)
         connect_nodes_bi(self.nodes, 0, 2)
@@ -270,7 +270,6 @@ class WalletTest(BitcoinTestFramework):
         # 1. create raw_tx
         # 2. hex-changed one output to 0.0
         # 3. sign and send
-        # 4. check if recipient (node0) can list the zero value tx
         usp = self.nodes[1].listunspent(query_options={'minimumAmount': '49.998'})[0]
         inputs = [{"txid": usp['txid'], "vout": usp['vout']}]
         outputs = {self.nodes[1].getnewaddress(): 49.998, self.nodes[0].getnewaddress(): 11.11}
@@ -279,7 +278,7 @@ class WalletTest(BitcoinTestFramework):
         signed_raw_tx = self.nodes[1].signrawtransactionwithwallet(raw_tx, [], "ALL", self.options.scheme)
         decoded_raw_tx = self.nodes[1].decoderawtransaction(signed_raw_tx['hex'])
         zero_value_txid = decoded_raw_tx['txid']
-        self.nodes[1].sendrawtransaction(signed_raw_tx['hex'], True)
+        assert_raises_rpc_error(-26, "dust", self.nodes[1].sendrawtransaction, signed_raw_tx['hex'])
 
         self.sync_all()
         self.nodes[1].generate(1, self.signblockprivkey_wif)  # mine a block
@@ -291,7 +290,7 @@ class WalletTest(BitcoinTestFramework):
             if uTx['txid'] == zero_value_txid:
                 found = True
                 assert_equal(uTx['amount'], Decimal('0'))
-        assert(found)
+        assert(not found)
 
         # do some -walletbroadcast tests
         self.stop_nodes()

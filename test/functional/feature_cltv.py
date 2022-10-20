@@ -56,7 +56,7 @@ def cltv_validate(node, tx, height):
 class BIP65Test(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
-        self.extra_args = [['-whitelist=127.0.0.1', "-acceptnonstdtxn=1"]]
+        self.extra_args = [['-whitelist=127.0.0.1']]
         self.setup_clean_chain = True
 
     def run_test(self):
@@ -95,7 +95,6 @@ class BIP65Test(BitcoinTestFramework):
             else:
                 assert b'Negative locktime' in self.nodes[0].p2p.last_message["reject"].reason
 
-        self.log.info("Test that blocks must now be at least version 4")
         #tip = block.sha256
         block_time += 1
         block = create_block(int(tip, 16), create_coinbase(CLTV_HEIGHT), block_time)
@@ -133,7 +132,7 @@ class BIP65Test(BitcoinTestFramework):
             else:
                 assert b'Negative locktime' in self.nodes[0].p2p.last_message["reject"].reason
 
-        self.log.info("Test that a version 4 block with a valid-according-to-CLTV transaction is accepted")
+        self.log.info("Test that a block with a valid-according-to-CLTV transaction is accepted")
         spendtx = cltv_validate(self.nodes[0], spendtx, CLTV_HEIGHT - 1)
         spendtx.rehash()
 

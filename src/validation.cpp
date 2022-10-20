@@ -3108,18 +3108,6 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
             warning = strprintf("Warning: Unknown xfieldType [%2x] was accepted in block [%s]", (int8_t)block.xfield.xfieldType, block.GetHash().ToString());
     }
 
-    uint32_t height = block.GetHeight();
-    // All potential-corruption validation must be done before we do any
-    // transaction validation, as otherwise we may mark the header as invalid
-    // because we receive the wrong transactions for it.
-    // Note that witness malleability is checked in ContextualCheckBlock, so no
-    // checks that use witness data may be performed here.
-
-    // Size limits
-    uint32_t currentBlockSize = FederationParams().GetMaxBlockSizeFromHeight(height);
-    if (block.vtx.empty() || block.vtx.size() > currentBlockSize || ::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS) > currentBlockSize)
-        return state.DoS(100, false, REJECT_INVALID, "bad-blk-length", false, "size limits failed");
-
     // First transaction must be coinbase,
     if (block.vtx.empty() || !block.vtx[0]->IsCoinBase())
         return state.DoS(100, false, REJECT_INVALID, "bad-cb-missing", false, "first tx is not coinbase");
@@ -3133,6 +3121,18 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
     CBlockIndex* pindexPrev = chainActive.Tip();
     if(pindexPrev && !isBlockHeightInCoinbase(block) )
         return state.DoS(100, false, REJECT_INVALID, "bad-cb-invalid", false, "incorrect block height in coinbase");
+
+    uint32_t height = block.GetHeight();
+    // All potential-corruption validation must be done before we do any
+    // transaction validation, as otherwise we may mark the header as invalid
+    // because we receive the wrong transactions for it.
+    // Note that witness malleability is checked in ContextualCheckBlock, so no
+    // checks that use witness data may be performed here.
+
+    // Size limits
+    uint32_t currentBlockSize = FederationParams().GetMaxBlockSizeFromHeight(height);
+    if (block.vtx.empty() || block.vtx.size() > currentBlockSize || ::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS) > currentBlockSize)
+        return state.DoS(100, false, REJECT_INVALID, "bad-blk-length", false, "size limits failed");
 
     // Check that the header is valid (particularly PoW).  This is mostly
     // redundant with the call in AcceptBlockHeader.

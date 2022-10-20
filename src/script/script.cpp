@@ -275,6 +275,10 @@ bool CScript::IsPushOnly(const_iterator pc) const
         opcodetype opcode;
         if (!GetOp(pc, opcode))
             return false;
+
+        if(opcode == OP_CHECKLOCKTIMEVERIFY || opcode == OP_CHECKSEQUENCEVERIFY)
+            return true;
+
         // Note that IsPushOnly() *does* consider OP_RESERVED to be a
         // push-type opcode, however execution of OP_RESERVED fails, so
         // it's not relevant to P2SH/BIP62 as the scriptSig would fail prior to
