@@ -54,18 +54,10 @@ const XFieldChange& CXFieldHistoryMap::Get(TAPYRUS_XFIELDTYPES type, uint256 blo
     return listofXfieldChanges.back();
 }
 
-void CXFieldHistory::InitializeFromBlockDB(TAPYRUS_XFIELDTYPES type, CBlockTreeDB* pblocktree) {
-    const char key(std::to_string(static_cast<int8_t>(type))[0]);
-    XFieldChangeListWrapper xFieldListDB(key);
-    pblocktree->ReadXField(key, xFieldListDB);
-    for(auto &XFieldDB:xFieldListDB)
-        this->Add(type, XFieldDB);
-}
-
 void CXFieldHistory::ToUniValue(TAPYRUS_XFIELDTYPES type, UniValue* xFieldChangeUnival) {
     *xFieldChangeUnival = UniValue(UniValue::VARR);
-    const XFieldChangeListWrapper& xFieldChangeList = this->operator[](type);
-    for (auto& xFieldChange : xFieldChangeList)
+    XFieldChangeListWrapper& xFieldChangeList = this->operator[](type);
+    for (const auto& xFieldChange : xFieldChangeList)
     {
         UniValue xFieldChangeObj(UniValue::VOBJ);
         std::string value = XFieldDataToString(xFieldChange.xfieldValue);
@@ -73,6 +65,16 @@ void CXFieldHistory::ToUniValue(TAPYRUS_XFIELDTYPES type, UniValue* xFieldChange
         //xFieldChangeObj.push_back(HexStr(xFieldChange.blockHash));
         xFieldChangeUnival->push_back(xFieldChangeObj);
     }
+}
+
+int32_t CXFieldHistoryMap::GetReorgHeight()
+{
+    std::vector<uint32_t> changeHeights;
+    for(auto x : XFIELDTYPES_INIT_LIST)
+    {
+        changeHeights.push_back((isTemp ? this->getXFieldHistoryMap() : xfieldHistory).find(x)->second.xfieldChanges.rbegin()->height);
+    }
+    return *std::max_element(changeHeights.begin(), changeHeights.end());
 }
 
 bool IsXFieldNew(const CXField& xfield, CXFieldHistoryMap* pxfieldHistory)

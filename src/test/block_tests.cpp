@@ -18,8 +18,9 @@ CBlockHeader getBlockHeader()
     CDataStream stream(ParseHex("010000000000000000000000000000000000000000000000000000000000000000000000f007d2a56dbebbc2a04346e624f7dff2ee0605d6ffe9622569193fddbc9280dcf007d2a56dbebbc2a04346e624f7dff2ee0605d6ffe9622569193fddbc9280dc981a335c0121025700236c2890233592fcef262f4520d22af9160e3d9705855140eb2aa06c35d301473045022100f434da668557be7a0c3dc366b2603c5a9706246d622050f633a082451d39249102201941554fdd618df3165269e3c855bbba8680e26defdd067ec97becfa1b296bef"), SER_NETWORK, PROTOCOL_VERSION);
     stream >> blockHeader;
 
+    BOOST_CHECK(blockHeader.xfield.IsValid());
     assert(blockHeader.xfield.xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY);
-    //assert(blockHeader.xfield.aggPubKey.size() == 33);
+    assert(XFieldDataToString(blockHeader.xfield.xfieldValue).size()/2 == 33);
     assert(blockHeader.proof.size() == 1);
 
     return blockHeader;
@@ -66,7 +67,6 @@ BOOST_AUTO_TEST_CASE(serialized_CBlockHeaderWithoutProof_does_not_include_proof_
     headerWP.hashMerkleRoot = header.hashMerkleRoot;
     headerWP.hashImMerkleRoot = header.hashImMerkleRoot;
     headerWP.nTime = header.nTime;
-    headerWP.xfieldType = header.xfieldType;
     headerWP.xfield = header.xfield;
 
     std::vector<unsigned char> vch;
@@ -161,8 +161,9 @@ BOOST_AUTO_TEST_CASE(create_genesis_block_default)
     "0000000000000000000000000000000000000000000000000000000000000000");
     BOOST_CHECK_EQUAL(genesis.hashMerkleRoot, genesis.vtx[0]->GetHash());
     BOOST_CHECK_EQUAL(genesis.hashImMerkleRoot, genesis.vtx[0]->GetHashMalFix());
+    BOOST_CHECK(genesis.xfield.IsValid());
     BOOST_CHECK(genesis.xfield.xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY);
-    //BOOST_CHECK_EQUAL(genesis.xfield.xfieldValue.aggPubKey.size(), 33);
+    BOOST_CHECK_EQUAL(XFieldDataToString(genesis.xfield.xfieldValue).size(), 66);//hex
 
     BOOST_CHECK_EQUAL(genesis.vtx[0]->vin[0].prevout.hashMalFix.ToString(), "0000000000000000000000000000000000000000000000000000000000000000");
     BOOST_CHECK_EQUAL(genesis.vtx[0]->vin[0].prevout.n, 0);
@@ -185,8 +186,9 @@ BOOST_AUTO_TEST_CASE(blockHeaderWithxfieldType0_Invalid)
     CDataStream stream(ParseHex("010000000000000000000000000000000000000000000000000000000000000000000000f007d2a56dbebbc2a04346e624f7dff2ee0605d6ffe9622569193fddbc9280dcf007d2a56dbebbc2a04346e624f7dff2ee0605d6ffe9622569193fddbc9280dc981a335c0021025700236c2890233592fcef262f4520d22af9160e3d9705855140eb2aa06c35d341473045022100f434da668557be7a0c3dc366b2603c5a9706246d622050f633a082451d39249102201941554fdd618df3165269e3c855bbba8680e26defdd067ec97becfa1b296bef"), SER_NETWORK, PROTOCOL_VERSION);
     stream >> blockHeader;
 
+    BOOST_CHECK(blockHeader.xfield.IsValid());
     BOOST_CHECK(blockHeader.xfield.xfieldType == TAPYRUS_XFIELDTYPES::NONE);
-    //BOOST_CHECK_EQUAL(blockHeader.xfield.xfieldValue.aggPubKey.size(), 0);
+    BOOST_CHECK_EQUAL(XFieldDataToString(blockHeader.xfield.xfieldValue).size(), 0);
     BOOST_CHECK_EQUAL(blockHeader.proof.size(), 33); //interpreted incorrectly
 }
 
@@ -196,8 +198,9 @@ BOOST_AUTO_TEST_CASE(blockHeaderWithxfieldType0_Valid)
     CDataStream stream(ParseHex("010000000000000000000000000000000000000000000000000000000000000000000000f007d2a56dbebbc2a04346e624f7dff2ee0605d6ffe9622569193fddbc9280dcf007d2a56dbebbc2a04346e624f7dff2ee0605d6ffe9622569193fddbc9280dc981a335c0041473045022100f434da668557be7a0c3dc366b2603c5a9706246d622050f633a082451d39249102201941554fdd618df3165269e3c855bbba8680e26defdd067ec97becfa1b296bef"), SER_NETWORK, PROTOCOL_VERSION);
     stream >> blockHeader;
 
+    BOOST_CHECK(blockHeader.xfield.IsValid());
     BOOST_CHECK(blockHeader.xfield.xfieldType == TAPYRUS_XFIELDTYPES::NONE);
-    //BOOST_CHECK_EQUAL(blockHeader.xfield.aggPubKey.size(), 0);
+    BOOST_CHECK_EQUAL(XFieldDataToString(blockHeader.xfield.xfieldValue).size(), 0);
     BOOST_CHECK_EQUAL(blockHeader.proof.size(), 65);
 
 }
@@ -213,9 +216,12 @@ BOOST_AUTO_TEST_CASE(blockHeaderWithxfieldType2_xfield365)
     CDataStream stream(ParseHex("010000000000000000000000000000000000000000000000000000000000000000000000f007d2a56dbebbc2a04346e624f7dff2ee0605d6ffe9622569193fddbc9280dcf007d2a56dbebbc2a04346e624f7dff2ee0605d6ffe9622569193fddbc9280dc981a335c02fd6d0141473045022100f434da668557be7a0c3dc366b2603c5a9706246d622050f633a082451d39249102201941554fdd618df3165269e3c855bbba8680e26defdd067ec97becfa1b296bef41473045022100f434da668557be7a0c3dc366b2603c5a9706246d622050f633a082451d39249102201941554fdd618df3165269e3c855bbba8680e26defdd067ec97becfa1b296bef41473045022100f434da668557be7a0c3dc366b2603c5a9706246d622050f633a082451d39249102201941554fdd618df3165269e3c855bbba8680e26defdd067ec97becfa1b296bef41473045022100f434da668557be7a0c3dc366b2603c5a9706246d622050f633a082451d39249102201941554fdd618df3165269e3c855bbba8680e26defdd067ec97becfa1b296bef41473045022100f434da668557be7a0c3dc366b2603c5a9706246d622050f633a082451d39249102201941554fdd618df3165269e3c855bbba8680e26defdd067ec97becfa1b296bef41473045022100f434da668557be7a0c3dc366b2603c5a9706246d622050f633a082451d39249102201941554fdd618df3165269e3c855bbba8680e26defdd067ec97becfa1b296bef"), SER_NETWORK, PROTOCOL_VERSION);
     stream >> blockHeader;
 
-    BOOST_CHECK(blockHeader.xfield.xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY);
-    //BOOST_CHECK_EQUAL(blockHeader.xfield.aggPubKey.size(), 365);
-    BOOST_CHECK_EQUAL(blockHeader.proof.size(), 65);
+    BOOST_CHECK(blockHeader.xfield.IsValid());
+    BOOST_CHECK(blockHeader.xfield.xfieldType == TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE);
+    BOOST_CHECK_EQUAL(XFieldDataToString(blockHeader.xfield.xfieldValue).size(), 8);//only 8 bytes are read
+    int32_t size = boost::get<XFieldMaxBlockSize>(blockHeader.xfield.xfieldValue).data;
+    BOOST_CHECK_EQUAL(size, 1090612733);
+    BOOST_CHECK_EQUAL(blockHeader.proof.size(), 71);//interpreted incorrectly
 }
 
 BOOST_AUTO_TEST_CASE(blockHeaderWithxfieldType2_xfield0)
@@ -224,9 +230,11 @@ BOOST_AUTO_TEST_CASE(blockHeaderWithxfieldType2_xfield0)
     CDataStream stream(ParseHex("010000000000000000000000000000000000000000000000000000000000000000000000f007d2a56dbebbc2a04346e624f7dff2ee0605d6ffe9622569193fddbc9280dcf007d2a56dbebbc2a04346e624f7dff2ee0605d6ffe9622569193fddbc9280dc981a335c020041473045022100f434da668557be7a0c3dc366b2603c5a9706246d622050f633a082451d39249102201941554fdd618df3165269e3c855bbba8680e26defdd067ec97becfa1b296bef"), SER_NETWORK, PROTOCOL_VERSION);
     stream >> blockHeader;
 
+    BOOST_CHECK(blockHeader.xfield.IsValid());
     BOOST_CHECK(blockHeader.xfield.xfieldType == TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE);
-    //BOOST_CHECK_EQUAL(blockHeader.xfield.maxBlockSize, 0);
-    BOOST_CHECK_EQUAL(blockHeader.proof.size(), 65);
+    int32_t size = boost::get<XFieldMaxBlockSize>(blockHeader.xfield.xfieldValue).data;
+    BOOST_CHECK_EQUAL(size, 809976064);
+    BOOST_CHECK_EQUAL(blockHeader.proof.size(), 69);//interpreted incorrectly
 }
 
 
@@ -236,8 +244,10 @@ BOOST_AUTO_TEST_CASE(blockHeaderWithxfieldType2_maxblocksize)
     CDataStream stream(ParseHex("010000000000000000000000000000000000000000000000000000000000000000000000f007d2a56dbebbc2a04346e624f7dff2ee0605d6ffe9622569193fddbc9280dcf007d2a56dbebbc2a04346e624f7dff2ee0605d6ffe9622569193fddbc9280dc981a335c02801a060041473045022100f434da668557be7a0c3dc366b2603c5a9706246d622050f633a082451d39249102201941554fdd618df3165269e3c855bbba8680e26defdd067ec97becfa1b296bef"), SER_NETWORK, PROTOCOL_VERSION);
     stream >> blockHeader;
 
+    BOOST_CHECK(blockHeader.xfield.IsValid());
     BOOST_CHECK(blockHeader.xfield.xfieldType == TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE);
-    //BOOST_CHECK_EQUAL(blockHeader.xfield.maxBlockSize, 400000);
+    int32_t size = boost::get<XFieldMaxBlockSize>(blockHeader.xfield.xfieldValue).data;
+    BOOST_CHECK_EQUAL(size, 400000);
     BOOST_CHECK_EQUAL(blockHeader.proof.size(), 65);
 }
 
@@ -247,8 +257,10 @@ BOOST_AUTO_TEST_CASE(blockHeaderWithxfieldType2_maxblocksize2)
     CDataStream stream(ParseHex("010000000000000000000000000000000000000000000000000000000000000000000000f007d2a56dbebbc2a04346e624f7dff2ee0605d6ffe9622569193fddbc9280dcf007d2a56dbebbc2a04346e624f7dff2ee0605d6ffe9622569193fddbc9280dc981a335c020000008041473045022100f434da668557be7a0c3dc366b2603c5a9706246d622050f633a082451d39249102201941554fdd618df3165269e3c855bbba8680e26defdd067ec97becfa1b296bef"), SER_NETWORK, PROTOCOL_VERSION);
     stream >> blockHeader;
 
+    BOOST_CHECK(blockHeader.xfield.IsValid());
     BOOST_CHECK(blockHeader.xfield.xfieldType == TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE);
-    //BOOST_CHECK_EQUAL(blockHeader.xfield.maxBlockSize, -2147483648);
+    int32_t size = boost::get<XFieldMaxBlockSize>(blockHeader.xfield.xfieldValue).data;
+    BOOST_CHECK_EQUAL(size, -2147483648);
     BOOST_CHECK_EQUAL(blockHeader.proof.size(), 65);
 }
 
@@ -259,9 +271,9 @@ BOOST_AUTO_TEST_CASE(blockHeaderWithxfieldType2_maxxfieldtype)
     CDataStream stream(ParseHex("010000000000000000000000000000000000000000000000000000000000000000000000f007d2a56dbebbc2a04346e624f7dff2ee0605d6ffe9622569193fddbc9280dcf007d2a56dbebbc2a04346e624f7dff2ee0605d6ffe9622569193fddbc9280dc981a335c030041473045022100f434da668557be7a0c3dc366b2603c5a9706246d622050f633a082451d39249102201941554fdd618df3165269e3c855bbba8680e26defdd067ec97becfa1b296bef"), SER_NETWORK, PROTOCOL_VERSION);
     stream >> blockHeader;
 
+    BOOST_CHECK(!blockHeader.xfield.IsValid());
     BOOST_CHECK(blockHeader.xfield.xfieldType == TAPYRUS_XFIELDTYPES(3));
-    //BOOST_CHECK_EQUAL(blockHeader.xfield.aggPubKey.size(), 0);
-    //BOOST_CHECK_EQUAL(blockHeader.xfield.maxBlockSize, 0);
+    BOOST_CHECK_EQUAL(XFieldDataToString(blockHeader.xfield.xfieldValue), "");
     BOOST_CHECK_EQUAL(blockHeader.proof.size(), 0);
 }
 

@@ -153,7 +153,7 @@ bool CFederationParams::ReadGenesisBlock(std::string genesisHex)
     ss >> genesis;
     CPubKey aggPubKeyToVerify;
 
-    switch((TAPYRUS_XFIELDTYPES)genesis.xfieldType)
+    switch(genesis.xfield.xfieldType)
     {
         case TAPYRUS_XFIELDTYPES::AGGPUBKEY: {
             std::vector<unsigned char>* pubkey = &boost::get<XFieldAggPubKey>(genesis.xfield.xfieldValue).data;

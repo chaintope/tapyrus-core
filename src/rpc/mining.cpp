@@ -212,7 +212,7 @@ UniValue getnewblock(const JSONRPCRequest& request)
     }
     CScript coinbaseScript {GetScriptForDestination(destination)};
 
-    std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(Params()).CreateNewBlock(coinbaseScript, true, xfieldType, &xfield));
+    std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(Params()).CreateNewBlock(coinbaseScript, true, &xfield));
     if (!pblocktemplate.get())
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Wallet keypool empty");
     {

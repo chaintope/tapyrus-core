@@ -175,7 +175,7 @@ public:
     BlockAssembler(const CChainParams& params, const Options& options);
 
     /** Construct a new block template with coinbase to scriptPubKeyIn */
-    std::unique_ptr<CBlockTemplate> CreateNewBlock(const CScript& scriptPubKeyIn, int required_age_in_secs=0, TAPYRUS_XFIELDTYPES xfieldType = TAPYRUS_XFIELDTYPES::NONE, const xFieldData* Value = nullptr);
+    std::unique_ptr<CBlockTemplate> CreateNewBlock(const CScript& scriptPubKeyIn, int required_age_in_secs=0, CXField* pXField = nullptr);
 
 private:
     // utility functions

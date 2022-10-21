@@ -112,7 +112,7 @@ public:
 
     inline bool IsValid() const {
         //min based on BlockAssembler(1K and MAX_BLOCK_SIZE-1K)
-        return data > 1000 && data <= 4294967295;
+        return data > 1000;
     }
 
     inline std::string ToString() const;

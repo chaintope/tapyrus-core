@@ -7,7 +7,6 @@
 
 #include <policy/policy.h>
 #include <federationparams.h>
-#include <dbwrapper.h>
 /* 
  * struct to store xfieldValue, block hash and height for every xfield update in the blockchain.
  */
@@ -21,7 +20,6 @@ struct XFieldChange {
     explicit XFieldChange(const XFieldData& in_data, uint32_t in_height, uint256 in_blockHash):xfieldValue(in_data), height(in_height), blockHash(in_blockHash){}
     explicit XFieldChange(const XFieldData&& in_data, uint32_t in_height, uint256 in_blockHash):xfieldValue(in_data), height(in_height), blockHash(in_blockHash){}
     XFieldChange(const XFieldChange& copy):xfieldValue(copy.xfieldValue),height(copy.height),blockHash(copy.blockHash){}
-    XFieldChange(const XFieldChange&& copy):xfieldValue(copy.xfieldValue),height(copy.height),blockHash(copy.blockHash){}
     ~XFieldChange() = default;
 
     bool operator==(const XFieldChange& copy) const {
@@ -158,7 +156,7 @@ public:
 
     virtual const XFieldChange& Get(TAPYRUS_XFIELDTYPES type, uint32_t height);
     virtual const XFieldChange& Get(TAPYRUS_XFIELDTYPES type, uint256 blockHash);
-
+    int32_t GetReorgHeight();
 };
 
 /*
@@ -185,7 +183,6 @@ public:
         return xfieldHistory;
     }
 
-    void InitializeFromBlockDB(TAPYRUS_XFIELDTYPES type, CBlockTreeDB* pblocktree);
     void ToUniValue(TAPYRUS_XFIELDTYPES type, UniValue* xfieldChanges);
 };
 

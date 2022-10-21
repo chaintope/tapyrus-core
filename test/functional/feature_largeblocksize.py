@@ -26,8 +26,8 @@ reverse_bytes = (lambda txid  : txid[-1: -len(txid)-1: -1])
 
 # TestP2PConn: A peer we use to send messages to bitcoind, and store responses.
 class TestP2PConn(P2PDataStore):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, time_to_connect):
+        super().__init__(time_to_connect)
         self.last_sendcmpct = []
         self.block_announced = False
         # Store the hashes of blocks we've seen announced.
@@ -52,7 +52,7 @@ class MaxBlockSizeInXFieldTest(BitcoinTestFramework):
         self.block_time = int(time.time())
         self.nodes[0].generate(10, self.signblockprivkey_wif)
 
-        self.nodes[0].add_p2p_connection(TestP2PConn())
+        self.nodes[0].add_p2p_connection(TestP2PConn(self.nodes[0].time_to_connect))
         self.nodes[0].p2p.wait_for_getheaders(timeout=5)
 
         for (i,size) in enumerate(range(1,25)):

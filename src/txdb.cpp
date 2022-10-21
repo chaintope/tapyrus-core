@@ -184,6 +184,14 @@ bool CBlockTreeDB::WriteXField(const XFieldChange& xFieldChange) {
     return Write(key, helper.xfieldChanges);
 }
 
+bool CBlockTreeDB::RewriteXField(std::vector<XFieldChange>& xFieldChanges) {
+    const char key = GetXFieldDBKey(xFieldChanges.begin()->xfieldValue);
+    XFieldChangeListWrapper helper(key);
+    for(auto& change :xFieldChanges)
+        helper.xfieldChanges.push_back(change);
+    return Write(key, helper.xfieldChanges);
+}
+
 CCoinsViewCursor *CCoinsViewDB::Cursor() const
 {
     CCoinsViewDBCursor *i = new CCoinsViewDBCursor(const_cast<CDBWrapper&>(db).NewIterator(), GetBestBlock());
@@ -286,7 +294,6 @@ bool CBlockTreeDB::LoadBlockIndexGuts(std::function<CBlockIndex*(const uint256&)
                 pindexNew->hashMerkleRoot = diskindex.hashMerkleRoot;
                 pindexNew->hashImMerkleRoot = diskindex.hashImMerkleRoot;
                 pindexNew->nTime          = diskindex.nTime;
-                pindexNew->xfieldType          = diskindex.xfieldType;
                 pindexNew->xfield         = diskindex.xfield;
                 pindexNew->proof          = diskindex.proof;
                 pindexNew->nStatus        = diskindex.nStatus;
