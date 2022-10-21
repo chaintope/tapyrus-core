@@ -219,7 +219,6 @@ DEBUG_MODE_SCRIPTS = [
     'mempool_limit.py',
     'mempool_limit.py  --scheme SCHNORR',
     'p2p_compactblocks.py',
-    'p2p_segwit.py',
     'wallet_basic.py',
     'wallet_basic.py --scheme SCHNORR',
     'rpc_scantxoutset.py'
