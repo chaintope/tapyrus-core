@@ -631,6 +631,15 @@ class WalletColoredCoinTest(BitcoinTestFramework):
             assert_raises_rpc_error(-3, "Invalid token amount", self.nodes[0].issuetoken, 2, 0, node2_utxos[4]['txid'], node2_utxos[4]['vout'])
 
     def test_only_token_filter(self):
+
+        self.log.info("Testing only_token filter in listunspent")
+        # all utxos
+        assert_equal(len(self.nodes[0].listunspent()), 15)
+        # token utxos
+        assert_equal(len(self.nodes[0].listunspent(1,99999,[],False,{"only_token": True})), 6)
+        # utxos with "only_token" = false  is the same as no filter
+        assert_equal(len(self.nodes[0].listunspent(1,99999,[],False,{"only_token": False})), 15)
+
         # issue token on node 0 to create safe unconfirmed token transactions
         tpc_utxo = findTPC(self.nodes[0].listunspent())
         pubkeyhash = hash160(hex_str_to_bytes(self.nodes[0].getaddressinfo(tpc_utxo['address'])['pubkey']))
@@ -655,15 +664,13 @@ class WalletColoredCoinTest(BitcoinTestFramework):
 
         #checking different combinations of min and max confirmations
         res = [7, 8, 6, 6, 1, 2, 1, 2]
-        i = 0
-        for options in [[0,30,[],False], [0,30,[],True], \
+        for i, options in enumerate( [[0,30,[],False], [0,30,[],True], \
                         [1,30,[],False], [1,30,[],True], \
                         [0,10,[],False], [0,10,[],True], \
-                        [0,0,[],False],  [0,0,[],True] ]:
+                        [0,0,[],False],  [0,0,[],True] ]):
 
             token_unspent = self.nodes[0].listunspent(options[0],options[1],options[2],options[3],{"only_token": True})
             assert_equal(len(token_unspent), res[i])
-            i = i+1
 
     def run_test(self):
         # Check that there's no UTXO on any of the nodes
