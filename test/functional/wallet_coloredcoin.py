@@ -638,6 +638,48 @@ class WalletColoredCoinTest(BitcoinTestFramework):
             assert_raises_rpc_error(-8, "Invalid vout 10 in tx: "+ node2_utxos[1]['txid'], self.nodes[2].issuetoken, 2, 100, node2_utxos[1]['txid'], 10)
             assert_raises_rpc_error(-8, str("Invalid vout 0 in tx: %s" % res1['txids'][1]), self.nodes[2].issuetoken, 2, 100, res1['txids'][1], 0)
 
+    def test_only_token_filter(self):
+
+        self.log.info("Testing only_token filter in listunspent")
+        # all utxos
+        assert_equal(len(self.nodes[0].listunspent()), 15)
+        # token utxos
+        assert_equal(len(self.nodes[0].listunspent(1,99999,[],False,{"only_token": True})), 6)
+        # utxos with "only_token" = false  is the same as no filter
+        assert_equal(len(self.nodes[0].listunspent(1,99999,[],False,{"only_token": False})), 15)
+
+        # issue token on node 0 to create safe unconfirmed token transactions
+        tpc_utxo = findTPC(self.nodes[0].listunspent())
+        pubkeyhash = hash160(hex_str_to_bytes(self.nodes[0].getaddressinfo(tpc_utxo['address'])['pubkey']))
+        scr1 =  CScript([OP_DUP, OP_HASH160, pubkeyhash, OP_EQUALVERIFY, OP_CHECKSIG ])
+
+        res1 = self.nodes[0].issuetoken(1, 100, bytes_to_hex_str(scr1))
+        token_unspent = len(self.nodes[0].listunspent(6,9999999,[],False,{"only_token": True}))
+        assert_equal(token_unspent, 6) #unconfirmed token is not counted because of min confirmations
+
+        # send a new token to node 0 to create unsafe token
+        self.nodes[1].generate(2, self.signblockprivkey_wif)
+        tpc_utxo = findTPC(self.nodes[1].listunspent())
+        pubkeyhash = hash160(hex_str_to_bytes(self.nodes[1].getaddressinfo(tpc_utxo['address'])['pubkey']))
+        scr2 =  CScript([OP_DUP, OP_HASH160, pubkeyhash, OP_EQUALVERIFY, OP_CHECKSIG ])
+
+        res2 = self.nodes[1].issuetoken(1, 100, bytes_to_hex_str(scr2))
+        node0_caddress = self.nodes[0].getnewaddress("", res2['color'])
+        self.nodes[1].sendtoaddress(node0_caddress, 50)
+        self.sync_all([self.nodes[0:3]])
+        token_unspent = len(self.nodes[0].listunspent(6,9999999,[],False,{"only_token": True}))
+        assert_equal(token_unspent, 6)  #unconfirmed token is not counted because of min confirmations
+
+        #checking different combinations of min and max confirmations
+        res = [7, 8, 6, 6, 1, 2, 1, 2]
+        for i, options in enumerate( [[0,30,[],False], [0,30,[],True], \
+                        [1,30,[],False], [1,30,[],True], \
+                        [0,10,[],False], [0,10,[],True], \
+                        [0,0,[],False],  [0,0,[],True] ]):
+
+            token_unspent = self.nodes[0].listunspent(options[0],options[1],options[2],options[3],{"only_token": True})
+            assert_equal(len(token_unspent), res[i])
+
     def run_test(self):
         # Check that there's no UTXO on any of the nodes
         assert_equal(len(self.nodes[0].listunspent()), 0)
@@ -648,6 +690,14 @@ class WalletColoredCoinTest(BitcoinTestFramework):
 
         self.nodes[0].generate(6, self.signblockprivkey_wif)
         assert_equal(self.nodes[0].getbalance(), 300)
+
+        total_unspent = len(self.nodes[0].listunspent())
+        if self.options.usecli:
+            token_unspent = len(self.nodes[0].listunspent(query_options="{\"only_token\": true}"))
+        else:
+            token_unspent = len(self.nodes[0].listunspent(query_options={"only_token": True}))
+        assert_equal(total_unspent, 6)
+        assert_equal(token_unspent, 0)
 
         self.sync_all([self.nodes[0:3]])
         self.nodes[2].generate(1, self.signblockprivkey_wif)
@@ -664,6 +714,8 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         self.test_burntoken()
         self.test_reissuetoken()
         self.test_issuetoken()
+        if not self.options.usecli:
+            self.test_only_token_filter()
 
 
 reverse_bytes = (lambda txid  : txid[-1: -len(txid)-1: -1])
