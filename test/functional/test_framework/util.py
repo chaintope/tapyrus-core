@@ -244,7 +244,7 @@ def wait_until(predicate, *, attempts=float('inf'), timeout=float('inf'), lock=N
     if attempt >= attempts:
         raise AssertionError("Predicate {} not true after {} attempts".format(predicate_source, attempts))
     elif time.time() >= time_end:
-        raise AssertionError("Predicate {} not true after {} seconds".format(predicate_source, timeout))
+        raise TimeoutError("Predicate {} not true after {} seconds".format(predicate_source, timeout))
     raise RuntimeError('Unreachable')
 
 # RPC/P2P connection constants and functions
@@ -409,7 +409,7 @@ def sync_blocks(rpc_connections, *, wait=1, timeout=60):
         if best_hash.count(best_hash[0]) == len(rpc_connections):
             return
         time.sleep(wait)
-    raise AssertionError("Block sync timed out:{}".format("".join("\n  {!r}".format(b) for b in best_hash)))
+    raise TimeoutError("Block sync timed out:{}".format("".join("\n  {!r}".format(b) for b in best_hash)))
 
 def sync_mempools(rpc_connections, *, wait=1, timeout=60, flush_scheduler=True):
     """

@@ -43,10 +43,12 @@ class TestStatus(Enum):
     PASSED = 1
     FAILED = 2
     SKIPPED = 3
+    TIMEOUT = 4
 
 TEST_EXIT_PASSED = 0
 TEST_EXIT_FAILED = 1
 TEST_EXIT_SKIPPED = 77
+TEST_EXIT_TIMEOUT = 124
 
 
 class BitcoinTestMetaClass(type):
@@ -174,6 +176,9 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             success = TestStatus.PASSED
         except JSONRPCException as e:
             self.log.exception("JSONRPC error")
+        except TimeoutError as e:
+            success = TestStatus.TIMEOUT
+            self.log.warning("Timeout. try again later")
         except SkipTest as e:
             self.log.warning("Test Skipped: %s" % e.message)
             success = TestStatus.SKIPPED
@@ -214,6 +219,9 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         elif success == TestStatus.SKIPPED:
             self.log.info("Test skipped")
             exit_code = TEST_EXIT_SKIPPED
+        elif success == TestStatus.TIMEOUT:
+            self.log.info("Test timeout")
+            exit_code = TEST_EXIT_TIMEOUT
         else:
             self.log.error("Test failed. Test logging available at %s/test_framework.log", self.options.tmpdir)
             self.log.error("Hint: Call {} '{}' to consolidate all logs".format(os.path.normpath(os.path.dirname(os.path.realpath(__file__)) + "/../combine_logs.py"), self.options.tmpdir))

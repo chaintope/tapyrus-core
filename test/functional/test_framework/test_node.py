@@ -231,7 +231,14 @@ class TestNode():
         return True
 
     def wait_until_stopped(self, timeout=BITCOIND_PROC_WAIT_TIMEOUT):
-        wait_until(self.is_node_stopped, timeout=timeout)
+        i = 0
+        while i < 2:
+            try:
+                i = i + 1
+                wait_until(self.is_node_stopped, timeout=timeout)
+            except TimeoutError as e:
+                pass
+
 
     def assert_start_raises_init_error(self, extra_args=None, expected_msg=None, match=ErrorMatch.FULL_TEXT, *args, **kwargs):
         """Attempt to start the node and expect it to raise an error.

@@ -511,9 +511,9 @@ class P2PDataStore(P2PInterface):
             assert rpc.getbestblockhash() != blocks[-1].hash
 
         if reject_code is not None:
-            wait_until(lambda: self.reject_code_received != None or self.reject_code_received == reject_code, lock=mininode_lock, timeout=timeout)
+            wait_until(lambda: self.reject_code_received != None or self.reject_code_received == reject_code or not self.is_connected, lock=mininode_lock, timeout=timeout)
         if reject_reason is not None:
-            wait_until(lambda: self.reject_reason_received!= None or self.reject_reason_received == reject_reason, lock=mininode_lock, timeout=timeout)
+            wait_until(lambda: self.reject_reason_received!= None or self.reject_reason_received == reject_reason or not self.is_connected, lock=mininode_lock, timeout=timeout)
 
     def send_txs_and_test(self, txs, rpc, success=True, expect_disconnect=False, reject_code=None, reject_reason=None):
         """Send txs to test node and test whether they're accepted to the mempool.
@@ -550,6 +550,6 @@ class P2PDataStore(P2PInterface):
                 assert tx.hashMalFix not in raw_mempool, "{} tx found in mempool".format(tx.hashMalFix)
 
         if reject_code is not None:
-            wait_until(lambda: self.reject_code_received == reject_code, lock=mininode_lock)
+            wait_until(lambda: self.reject_code_received == reject_code or not self.is_connected, lock=mininode_lock)
         if reject_reason is not None:
-            wait_until(lambda: self.reject_reason_received == reject_reason, lock=mininode_lock)
+            wait_until(lambda: self.reject_reason_received == reject_reason or not self.is_connected, lock=mininode_lock)
