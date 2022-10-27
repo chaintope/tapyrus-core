@@ -284,7 +284,7 @@ class AcceptBlockTest(BitcoinTestFramework):
             # Only wait a short while so the test doesn't take forever if we do get
             # disconnected
             test_node.sync_with_ping(timeout=1)
-        except AssertionError:
+        except TimeoutError:
             test_node.wait_for_disconnect()
 
             self.nodes[0].disconnect_p2ps()
