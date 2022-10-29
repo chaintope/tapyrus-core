@@ -2739,7 +2739,7 @@ Zwróć uwagę, że poprawnie zweryfikowana wiadomość potwierdza to, że nadaw
     </message>
     <message>
         <source>Transaction size</source>
-        <translation>Wirtualny rozmiar transakcji</translation>
+        <translation>Rozmiar transakcji</translation>
     </message>
     <message>
         <source>Output index</source>

@@ -2723,7 +2723,7 @@ Note:  Since the fee is calculated on a per-byte basis, a fee of "100 tapyrus pe
     </message>
     <message>
         <source>Transaction size</source>
-        <translation>Віртуальний розмір транзакції</translation>
+        <translation>Pозмір транзакції</translation>
     </message>
     <message>
         <source>Output index</source>

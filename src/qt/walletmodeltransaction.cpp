@@ -29,7 +29,7 @@ std::unique_ptr<interfaces::PendingWalletTx>& WalletModelTransaction::getWtx()
 
 unsigned int WalletModelTransaction::getTransactionSize()
 {
-    return wtx ? wtx->getVirtualSize() : 0;
+    return wtx ? wtx->getTransactionSize() : 0;
 }
 
 CAmount WalletModelTransaction::getTransactionFee() const

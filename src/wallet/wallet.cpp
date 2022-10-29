@@ -1605,7 +1605,7 @@ int CalculateMaximumSignedInputSize(const CTxOut& txout, const CWallet* wallet, 
         // implies that we can sign for every input.
         return -1;
     }
-    return GetVirtualTransactionInputSize(txn.vin[0]);
+    return GetTransactionInputSize(txn.vin[0]);
 }
 
 void CWalletTx::GetAmounts(std::list<COutputEntry>& listReceived,

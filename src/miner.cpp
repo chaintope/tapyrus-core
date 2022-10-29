@@ -56,14 +56,13 @@ BlockAssembler::Options::Options() {
 BlockAssembler::BlockAssembler(const CChainParams& params, const Options& options) : chainparams(params)
 {
     blockMinFeeRate = options.blockMinFeeRate;
-    // Limit size to between 1K and MAX_BLOCK_SERIALIZED_SIZE-1K for sanity:
-    nBlockMaxSize = std::max<size_t>(1000, std::min<size_t>(MAX_BLOCK_SERIALIZED_SIZE - 1000, options.nBlockMaxSize));
+    // Limit size to between 1K and MAX_BLOCK_SIZE-1K for sanity:
+    nBlockMaxSize = std::max<size_t>(1000, std::min<size_t>(MAX_BLOCK_SIZE - 1000, options.nBlockMaxSize));
 }
 
 static BlockAssembler::Options DefaultOptions()
 {
     // Block resource limits
-    // If -blockmaxweight is not given, limit to DEFAULT_BLOCK_MAX_WEIGHT
     BlockAssembler::Options options;
     if (gArgs.IsArgSet("-blockmintxfee")) {
         CAmount n = 0;
@@ -188,10 +187,9 @@ void BlockAssembler::onlyUnconfirmed(CTxMemPool::setEntries& testSet)
 
 bool BlockAssembler::TestPackage(uint64_t packageSize, int64_t packageSigOpsCost) const
 {
-    // TODO: switch to weight-based accounting for packages instead of vsize-based accounting.
     if (nBlockSize +  packageSize >= nBlockMaxSize)
         return false;
-    if (nBlockSigOpsCost + packageSigOpsCost >= MAX_BLOCK_SIGOPS_COST)
+    if (nBlockSigOpsCost + packageSigOpsCost >= MAX_BLOCK_SIGOPS)
         return false;
     return true;
 }

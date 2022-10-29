@@ -2737,7 +2737,7 @@ Note: Siden gebyret er kalkuleret på en per-byte basis, et gebyr på "100 tapyr
     </message>
     <message>
         <source>Transaction size</source>
-        <translation>Transaktion virtuel størrelse</translation>
+        <translation>Transaktion størrelse</translation>
     </message>
     <message>
         <source>Output index</source>

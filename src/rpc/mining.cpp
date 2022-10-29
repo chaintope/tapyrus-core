@@ -312,7 +312,6 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
             "         ],\n"
             "         \"fee\": n,                    (numeric) difference in value between transaction inputs and outputs (in tapyrus); for coinbase transactions, this is a negative Number of the total collected block fees (ie, not including the block subsidy); if key is not present, fee is unknown and clients MUST NOT assume there isn't one\n"
             "         \"sigops\" : n,                (numeric) total SigOps cost, as counted for purposes of block limits; if key is not present, sigop cost is unknown and clients MUST NOT assume it is zero\n"
-            "         \"weight\" : n,                (numeric) total transaction weight, as counted for purposes of block limits\n"
             "      }\n"
             "      ,...\n"
             "  ],\n"
@@ -330,7 +329,6 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
             "  \"noncerange\" : \"00000000ffffffff\",(string) A range of valid nonces\n"
             "  \"sigoplimit\" : n,                 (numeric) limit of sigops in blocks\n"
             "  \"sizelimit\" : n,                  (numeric) limit of block size\n"
-            "  \"weightlimit\" : n,                (numeric) limit of block weight\n"
             "  \"curtime\" : ttt,                  (numeric) current timestamp in seconds since epoch (Jan 1 1970 GMT)\n"
             "  \"bits\" : \"xxxxxxxx\",              (string) compressed target of next block\n"
             "  \"height\" : n                      (numeric) The height of the next block\n"
@@ -565,8 +563,8 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     result.pushKV("mintime", (int64_t)pindexPrev->GetMedianTimePast()+1);
     result.pushKV("mutable", aMutable);
     result.pushKV("noncerange", "00000000ffffffff");
-    result.pushKV("sigoplimit", (int64_t)MAX_BLOCK_SIGOPS_COST);
-    result.pushKV("sizelimit", (int64_t)MAX_BLOCK_BASE_SIZE);
+    result.pushKV("sigoplimit", (int64_t)MAX_BLOCK_SIGOPS);
+    result.pushKV("sizelimit", (int64_t)MAX_BLOCK_SIZE);
     result.pushKV("curtime", pblock->GetBlockTime());
     result.pushKV("proof", HexStr(pblock->proof));
     result.pushKV("height", (int64_t)(pindexPrev->nHeight+1));
@@ -678,8 +676,7 @@ static UniValue estimatesmartfee(const JSONRPCRequest& request)
             "estimatesmartfee conf_target (\"estimate_mode\")\n"
             "\nEstimates the approximate fee per kilobyte needed for a transaction to begin\n"
             "confirmation within conf_target blocks if possible and return the number of blocks\n"
-            "for which the estimate is valid. Uses virtual transaction size as defined\n"
-            "in BIP 141 (witness data is discounted).\n"
+            "for which the estimate is valid.\n"
             "\nArguments:\n"
             "1. conf_target     (numeric) Confirmation target in blocks (1 - 1008)\n"
             "2. \"estimate_mode\" (string, optional, default=CONSERVATIVE) The fee estimate mode.\n"
@@ -742,8 +739,7 @@ static UniValue estimaterawfee(const JSONRPCRequest& request)
             "         implementation of fee estimation. The parameters it can be called with\n"
             "         and the results it returns will change if the internal implementation changes.\n"
             "\nEstimates the approximate fee per kilobyte needed for a transaction to begin\n"
-            "confirmation within conf_target blocks if possible. Uses virtual transaction size as\n"
-            "defined in BIP 141 (witness data is discounted).\n"
+            "confirmation within conf_target blocks if possible.\n"
             "\nArguments:\n"
             "1. conf_target (numeric) Confirmation target in blocks (1 - 1008)\n"
             "2. threshold   (numeric, optional) The proportion of transactions in a given feerate range that must have been\n"

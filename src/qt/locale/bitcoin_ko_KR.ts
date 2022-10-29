@@ -2738,7 +2738,7 @@ Note:  Since the fee is calculated on a per-byte basis, a fee of "100 tapyrus pe
     </message>
     <message>
         <source>Transaction size</source>
-        <translation>가상 거래 사이즈</translation>
+        <translation>거래 사이즈</translation>
     </message>
     <message>
         <source>Output index</source>

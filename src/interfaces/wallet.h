@@ -279,8 +279,8 @@ public:
     //! Get transaction data.
     virtual const CTransaction& get() = 0;
 
-    //! Get virtual transaction size.
-    virtual int64_t getVirtualSize() = 0;
+    //! Get transaction size.
+    virtual int64_t getTransactionSize() = 0;
 
     //! Send pending transaction and commit to wallet.
     virtual bool commit(WalletValueMap value_map,

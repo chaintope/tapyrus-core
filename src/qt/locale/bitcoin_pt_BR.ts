@@ -2733,7 +2733,7 @@ Nota:  Como a taxa é calculada por byte, uma taxa de "100 tapyrus por kB" por u
     </message>
     <message>
         <source>Transaction size</source>
-        <translation>Tamanho virtual da transação</translation>
+        <translation>Tamanho da transação</translation>
     </message>
     <message>
         <source>Output index</source>

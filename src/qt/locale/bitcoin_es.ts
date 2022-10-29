@@ -2736,7 +2736,7 @@ Nota: Dado que la comisión se calcula por byte, una comisión de "100 tapyrus p
     </message>
     <message>
         <source>Transaction size</source>
-        <translation>Tamaño virtual de transacción</translation>
+        <translation>Tamaño de transacción</translation>
     </message>
     <message>
         <source>Output index</source>

@@ -10,15 +10,13 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-/** The maximum allowed size for a serialized block, in bytes (only for buffer size limits) */
-static const unsigned int MAX_BLOCK_SERIALIZED_SIZE = 4000000;
 /**
   * The maximum allowed size for a block, in bytes (network rule).
   */
-static const unsigned int MAX_BLOCK_BASE_SIZE = 1000000;
+static const unsigned int MAX_BLOCK_SIZE = 1000000;
 /** 
  * The maximum allowed number of signature check operations in a block (network rule) */
-static const int64_t MAX_BLOCK_SIGOPS_COST = 20000;
+static const int64_t MAX_BLOCK_SIGOPS = MAX_BLOCK_SIZE/50;
 
 static const size_t MIN_TRANSACTION_SIZE = 60; // 60 is the lower bound for the size of a valid serialized CTransaction
 static const size_t MIN_SERIALIZABLE_TRANSACTION_SIZE = 10; // 10 is the lower bound for the size of a serialized CTransaction

@@ -246,7 +246,7 @@ int64_t GetTransactionSize(const CTransaction& tx, int64_t nSigOpCost)
     return GetTransactionSize(GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION), nSigOpCost);
 }
 
-int64_t GetVirtualTransactionInputSize(const CTxIn& txin, int64_t nSigOpCost)
+int64_t GetTransactionInputSize(const CTxIn& txin, int64_t nSigOpCost)
 {
     return GetTransactionSize(GetSerializeSize(txin, SER_NETWORK, PROTOCOL_VERSION), nSigOpCost);
 }

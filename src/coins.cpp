@@ -246,7 +246,7 @@ bool CCoinsViewCache::HaveInputs(const CTransaction& tx) const
 }
 
 static const size_t MIN_TRANSACTION_OUTPUT_SIZE = ::GetSerializeSize(CTxOut(), SER_NETWORK, PROTOCOL_VERSION);
-static const size_t MAX_OUTPUTS_PER_BLOCK = MAX_BLOCK_BASE_SIZE / MIN_TRANSACTION_OUTPUT_SIZE;
+static const size_t MAX_OUTPUTS_PER_BLOCK = MAX_BLOCK_SIZE / MIN_TRANSACTION_OUTPUT_SIZE;
 
 const Coin& AccessByTxid(const CCoinsViewCache& view, const uint256& txid)
 {

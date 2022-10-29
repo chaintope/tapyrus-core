@@ -2737,7 +2737,7 @@ Note : Les frais étant calculés par octet, des frais de « 100 tapyrus par 
     </message>
     <message>
         <source>Transaction size</source>
-        <translation>Taille virtuelle de la transaction</translation>
+        <translation>Taille de la transaction</translation>
     </message>
     <message>
         <source>Output index</source>

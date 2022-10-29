@@ -2733,7 +2733,7 @@ Hinweis: Eine Gebühr von "100 tapyrus pro kB" bei einer Größe der Transaktion
     </message>
     <message>
         <source>Transaction size</source>
-        <translation>Virtuelle Größe der Transaktion</translation>
+        <translation>Größe der Transaktion</translation>
     </message>
     <message>
         <source>Output index</source>
