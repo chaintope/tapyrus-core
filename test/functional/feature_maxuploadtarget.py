@@ -20,8 +20,8 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, mine_large_block
 
 class TestP2PConn(P2PInterface):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, time_to_connect):
+        super().__init__(time_to_connect)
         self.block_receive_map = defaultdict(int)
 
     def on_inv(self, message):

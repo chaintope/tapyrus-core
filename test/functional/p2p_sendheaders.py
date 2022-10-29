@@ -111,8 +111,8 @@ from test_framework.util import (
 DIRECT_FETCH_RESPONSE_TIME = 0.05
 
 class BaseNode(P2PInterface):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, time_to_connect):
+        super().__init__(time_to_connect)
 
         self.block_announced = False
         self.last_blockhash_announced = None
@@ -240,12 +240,12 @@ class SendHeadersTest(BitcoinTestFramework):
 
     def run_test(self):
         # Setup the p2p connections
-        inv_node = self.nodes[0].add_p2p_connection(BaseNode())
+        inv_node = self.nodes[0].add_p2p_connection(BaseNode(self.nodes[0].time_to_connect))
         # Make sure NODE_NETWORK is not set for test_node, so no block download
         # will occur outside of direct fetching
-        test_node = self.nodes[0].add_p2p_connection(BaseNode(), services=NODE_WITNESS, wait_for_verack=False)
+        test_node = self.nodes[0].add_p2p_connection(BaseNode(self.nodes[0].time_to_connect), services=NODE_WITNESS, wait_for_verack=False)
         test_node.wait_for_disconnect()
-        test_node = self.nodes[0].add_p2p_connection(BaseNode())
+        test_node = self.nodes[0].add_p2p_connection(BaseNode(self.nodes[0].time_to_connect))
 
         # Ensure verack's have been processed by our peer
         inv_node.sync_with_ping()

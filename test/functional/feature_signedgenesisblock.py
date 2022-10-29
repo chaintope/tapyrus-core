@@ -269,7 +269,7 @@ class SignedGenesisBlockTest(BitcoinTestFramework):
         self.log.info("Starting node")
         self.writeGenesisBlockToFile(self.nodes[0].datadir)
         self.start_node(0)
-        self.nodes[0].add_p2p_connection(P2PInterface())
+        self.nodes[0].add_p2p_connection(P2PInterface(self.nodes[0].time_to_connect))
 
         self.log.info("Generating 10 blocks")
         blocks = self.nodes[0].generate(10, self.signblockprivkey_wif)
@@ -296,7 +296,7 @@ class SignedGenesisBlockTest(BitcoinTestFramework):
         shutil.rmtree(self.nodes[0].datadir)
         shutil.copytree(os.path.join(self.options.tmpdir, "backup"), self.nodes[0].datadir)
         self.start_node(0)
-        self.nodes[0].add_p2p_connection(P2PInterface())
+        self.nodes[0].add_p2p_connection(P2PInterface(self.nodes[0].time_to_connect))
         self.sync_all([self.nodes[0:1]])
 
         assert_equal(self.nodes[0].getbestblockhash(), blocks[-1])

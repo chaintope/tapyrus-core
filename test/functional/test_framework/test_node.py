@@ -5,6 +5,7 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Class for tapyrus node under test"""
 
+from datetime import datetime
 import decimal
 import errno
 from enum import Enum
@@ -156,6 +157,7 @@ class TestNode():
         """Sets up an RPC connection to the tapyrusd process. Returns False if unable to connect."""
         # Poll at a rate of four times per second
         poll_per_s = 4
+        start_time = datetime.now()
         for _ in range(poll_per_s * self.rpc_timeout):
             if self.process.poll() is not None:
                 raise FailedToStartError(self._node_msg(
@@ -167,7 +169,8 @@ class TestNode():
                 self.rpc_connected = True
                 self.url = self.rpc.url
                 self.log.debug("RPC successfully started")
-                return
+                self.time_to_connect = datetime.now() - start_time
+                return self.time_to_connect
             except IOError as e:
                 if e.errno != errno.ECONNREFUSED:  # Port not yet open?
                     raise  # unknown IO error
@@ -252,7 +255,7 @@ class TestNode():
              tempfile.NamedTemporaryFile(dir=self.stdout_dir, delete=False) as log_stdout:
             try:
                 self.start(extra_args, stdout=log_stdout, stderr=log_stderr, *args, **kwargs)
-                self.wait_for_rpc_connection()
+                timeout = self.wait_for_rpc_connection()
                 self.stop_node()
                 self.wait_until_stopped()
             except FailedToStartError as e:

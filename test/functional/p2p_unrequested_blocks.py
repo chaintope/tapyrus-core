@@ -77,10 +77,10 @@ class AcceptBlockTest(BitcoinTestFramework):
     def run_test(self):
         # Setup the p2p connections
         # test_node connects to node0 (not whitelisted)
-        test_node = self.nodes[0].add_p2p_connection(P2PInterface())
+        test_node = self.nodes[0].add_p2p_connection(P2PInterface(self.nodes[0].time_to_connect))
         self.nodes[0].setmocktime(self.mocktime)
         # min_work_node connects to node1 (whitelisted)
-        min_work_node = self.nodes[1].add_p2p_connection(P2PInterface())
+        min_work_node = self.nodes[1].add_p2p_connection(P2PInterface(self.nodes[1].time_to_connect))
         self.nodes[1].setmocktime(self.mocktime)
 
         # 1. Have nodes mine a block (leave IBD)
@@ -203,7 +203,7 @@ class AcceptBlockTest(BitcoinTestFramework):
         self.nodes[0].disconnect_p2ps()
         self.nodes[1].disconnect_p2ps()
 
-        test_node = self.nodes[0].add_p2p_connection(P2PInterface())
+        test_node = self.nodes[0].add_p2p_connection(P2PInterface(self.nodes[0].time_to_connect))
 
         test_node.send_message(msg_block(block_h1f))
 
@@ -288,7 +288,7 @@ class AcceptBlockTest(BitcoinTestFramework):
             test_node.wait_for_disconnect()
 
             self.nodes[0].disconnect_p2ps()
-            test_node = self.nodes[0].add_p2p_connection(P2PInterface())
+            test_node = self.nodes[0].add_p2p_connection(P2PInterface(self.nodes[0].time_to_connect))
 
         # We should have failed reorg and switched back to 290 (but have block 291)
         assert_equal(self.nodes[0].getblockcount(), 290)

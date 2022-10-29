@@ -236,7 +236,7 @@ class BlockchainTest(BitcoinTestFramework):
     def _test_waitforblockheight(self):
         self.log.info("Test waitforblockheight")
         node = self.nodes[0]
-        node.add_p2p_connection(P2PInterface())
+        node.add_p2p_connection(P2PInterface(node.time_to_connect))
 
         current_height = node.getblock(node.getbestblockhash())['height']
 

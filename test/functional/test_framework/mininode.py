@@ -222,7 +222,7 @@ class P2PInterface(P2PConnection):
 
     Individual testcases should subclass this and override the on_* methods
     if they want to alter message handling behaviour."""
-    def __init__(self):
+    def __init__(self, time_to_connect):
         super().__init__()
 
         # Track number of messages of each type received and the most recent
@@ -235,6 +235,8 @@ class P2PInterface(P2PConnection):
 
         # The network services received from the peer
         self.nServices = 0
+
+        self.timeout = time_to_connect * 5
 
     def peer_connect(self, *args, services=NODE_NETWORK, send_version=True, **kwargs):
         create_conn = super().peer_connect(*args, **kwargs)
@@ -417,8 +419,8 @@ class P2PDataStore(P2PInterface):
 
     Keeps a block and transaction store and responds correctly to getdata and getheaders requests."""
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, time_to_connect):
+        super().__init__(time_to_connect)
         self.reject_code_received = None
         self.reject_reason_received = None
         # store of blocks. key is block hash, value is a CBlock object

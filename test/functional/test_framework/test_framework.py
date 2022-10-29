@@ -15,6 +15,7 @@ import shutil
 import sys
 import tempfile
 import time
+from subprocess import TimeoutExpired
 
 from .authproxy import JSONRPCException
 from . import coverage
@@ -178,7 +179,10 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             self.log.exception("JSONRPC error")
         except TimeoutError as e:
             success = TestStatus.TIMEOUT
-            self.log.warning("Timeout. try again later")
+            self.log.warning("Timeout. %s" % e.strerror)
+        except TimeoutExpired as e:
+            success = TestStatus.TIMEOUT
+            self.log.warning("Timeout. %s" % e.stderr)
         except SkipTest as e:
             self.log.warning("Test Skipped: %s" % e.message)
             success = TestStatus.SKIPPED
@@ -295,7 +299,8 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         node = self.nodes[i]
 
         node.start(*args, **kwargs)
-        node.wait_for_rpc_connection()
+        elapsed = node.wait_for_rpc_connection()
+        self.log.debug("Time taken %s" % elapsed)
 
         if self.options.coveragedir is not None:
             coverage.write_all_rpc_commands(self.options.coveragedir, node.rpc)

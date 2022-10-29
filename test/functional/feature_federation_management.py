@@ -113,7 +113,7 @@ class FederationManagementTest(BitcoinTestFramework):
     def run_test(self):
         node = self.nodes[0]  # convenience reference to the node
         self.address = node.getnewaddress()
-        node.add_p2p_connection(P2PDataStore())
+        node.add_p2p_connection(P2PDataStore(node.time_to_connect))
         node.p2p.wait_for_getheaders(timeout=5)
 
         self.log.info("Test starting...")

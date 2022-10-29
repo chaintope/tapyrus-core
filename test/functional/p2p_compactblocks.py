@@ -21,8 +21,8 @@ from test_framework.util import assert_equal, sync_blocks, wait_until
 
 # TestP2PConn: A peer we use to send messages to bitcoind, and store responses.
 class TestP2PConn(P2PInterface):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, time_to_connect):
+        super().__init__(time_to_connect)
         self.last_sendcmpct = []
         self.block_announced = False
         # Store the hashes of blocks we've seen announced.

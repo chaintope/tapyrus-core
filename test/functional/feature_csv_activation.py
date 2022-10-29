@@ -158,12 +158,12 @@ class BIP68_112_113Test(BitcoinTestFramework):
 
         if not success and reject_code == 16:
             #reconnect as this node is disconnected for sending the invalid block.
-            self.nodes[0].add_p2p_connection(P2PDataStore())
+            self.nodes[0].add_p2p_connection(P2PDataStore(self.nodes[0].time_to_connect))
             self.nodes[0].p2p.wait_for_getheaders(timeout=5)
 
     def run_test(self):
         SCHEME = self.options.scheme
-        self.nodes[0].add_p2p_connection(P2PDataStore())
+        self.nodes[0].add_p2p_connection(P2PDataStore(self.nodes[0].time_to_connect))
 
         self.log.info("Generate blocks in the past for coinbase outputs.")
         long_past_time = int(time.time()) - 600 * 1000  # enough to build up to 1000 blocks 10 minutes apart without worrying about getting into the future

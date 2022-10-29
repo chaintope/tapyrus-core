@@ -155,8 +155,8 @@ def test_witness_block(rpc, p2p, block, with_witness, accepted, reason=None):
             assert_equal(p2p.last_message["reject"].reason, reason)
 
 class TestP2PConn(P2PInterface):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, time_to_connect):
+        super().__init__(time_to_connect)
         self.getdataset = set()
 
     def on_getdata(self, message):

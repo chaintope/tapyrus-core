@@ -21,8 +21,8 @@ from test_framework.util import wait_until
 banscore = 10
 
 class CLazyNode(P2PInterface):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, time_to_connect):
+        super().__init__(time_to_connect)
         self.unexpected_msg = False
         self.ever_connected = False
 
@@ -70,14 +70,14 @@ class CNodeNoVersionBan(CLazyNode):
 # Node that never sends a version. This one just sits idle and hopes to receive
 # any message (it shouldn't!)
 class CNodeNoVersionIdle(CLazyNode):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, time_to_connect):
+        super().__init__(time_to_connect)
 
 # Node that sends a version but not a verack.
 class CNodeNoVerackIdle(CLazyNode):
-    def __init__(self):
+    def __init__(self, time_to_connect):
         self.version_received = False
-        super().__init__()
+        super().__init__(time_to_connect)
 
     def on_reject(self, message): pass
     def on_verack(self, message): pass
@@ -95,9 +95,9 @@ class P2PLeakTest(BitcoinTestFramework):
         self.extra_args = [['-banscore=' + str(banscore)]]
 
     def run_test(self):
-        no_version_bannode = self.nodes[0].add_p2p_connection(CNodeNoVersionBan(), send_version=False, wait_for_verack=False)
-        no_version_idlenode = self.nodes[0].add_p2p_connection(CNodeNoVersionIdle(), send_version=False, wait_for_verack=False)
-        no_verack_idlenode = self.nodes[0].add_p2p_connection(CNodeNoVerackIdle())
+        no_version_bannode = self.nodes[0].add_p2p_connection(CNodeNoVersionBan(self.nodes[0].time_to_connect), send_version=False, wait_for_verack=False)
+        no_version_idlenode = self.nodes[0].add_p2p_connection(CNodeNoVersionIdle(self.nodes[0].time_to_connect), send_version=False, wait_for_verack=False)
+        no_verack_idlenode = self.nodes[0].add_p2p_connection(CNodeNoVerackIdle(self.nodes[0].time_to_connect))
 
         wait_until(lambda: no_version_bannode.ever_connected, timeout=10, lock=mininode_lock)
         wait_until(lambda: no_version_idlenode.ever_connected, timeout=10, lock=mininode_lock)

@@ -27,8 +27,8 @@ def allInvsMatch(invsExpected, testnode):
     return False
 
 class TestP2PConn(P2PInterface):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, time_to_connect):
+        super().__init__(time_to_connect)
         self.txinvs = []
 
     def on_inv(self, message):
