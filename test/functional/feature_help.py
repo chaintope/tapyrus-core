@@ -18,7 +18,7 @@ class HelpTest(BitcoinTestFramework):
         # Don't start the node
 
     def get_node_output(self, *, ret_code_expected):
-        ret_code = self.nodes[0].process.wait(timeout=5)
+        ret_code = self.nodes[0].process.wait(timeout=self.nodes[0].time_to_connect*2)
         assert_equal(ret_code, ret_code_expected)
         self.nodes[0].stdout.seek(0)
         self.nodes[0].stderr.seek(0)
