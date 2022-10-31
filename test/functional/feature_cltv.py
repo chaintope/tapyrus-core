@@ -61,11 +61,7 @@ class BIP65Test(BitcoinTestFramework):
 
     def run_test(self):
         SCHEME = self.options.scheme
-<<<<<<< HEAD
         self.nodes[0].add_p2p_connection(P2PInterface(self.nodes[0].time_to_connect))
-=======
-        self.nodes[0].add_p2p_connection(P2PInterface(node.time_to_connect))
->>>>>>> ccd3137a1 (change rpc timeout to a dynamic value dependant on the time taken to connect to the node)
 
         self.log.info("Mining %d blocks", CLTV_HEIGHT-1)
         self.coinbase_txids = [self.nodes[0].getblock(b)['tx'][0] for b in self.nodes[0].generate(CLTV_HEIGHT-1, self.signblockprivkey_wif)]
