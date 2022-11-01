@@ -56,8 +56,13 @@ BlockAssembler::Options::Options() {
 BlockAssembler::BlockAssembler(const CChainParams& params, const Options& options) : chainparams(params)
 {
     blockMinFeeRate = options.blockMinFeeRate;
+    nBlockMaxSize = DEFAULT_BLOCK_MAX_SIZE;
+    if (gArgs.IsArgSet("-blockmaxsize")) {
+        nBlockMaxSize = gArgs.GetArg("-blockmaxsize", DEFAULT_BLOCK_MAX_SIZE);
+    }
+
     // Limit size to between 1K and MAX_BLOCK_SIZE-1K for sanity:
-    nBlockMaxSize = std::max<size_t>(1000, std::min<size_t>(MAX_BLOCK_SIZE - 1000, options.nBlockMaxSize));
+    nBlockMaxSize = std::max((unsigned int)1000, std::min((unsigned int)(MAX_BLOCK_SIZE-1000), nBlockMaxSize));
 }
 
 static BlockAssembler::Options DefaultOptions()
