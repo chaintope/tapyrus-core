@@ -232,9 +232,9 @@ class SegWitTest(BitcoinTestFramework):
     def run_test(self):
         # Setup the p2p connections
         # self.test_node sets NODE_WITNESS|NODE_NETWORK
-        self.test_node = self.nodes[0].add_p2p_connection(TestP2PConn(), services=NODE_NETWORK | NODE_WITNESS, wait_for_verack = False)
+        self.test_node = self.nodes[0].add_p2p_connection(TestP2PConn(self.nodes[0].time_to_connect), services=NODE_NETWORK | NODE_WITNESS, wait_for_verack = False)
         self.test_node.wait_for_disconnect(timeout=10)
-        self.test_node = self.nodes[0].add_p2p_connection(TestP2PConn(), services=NODE_NETWORK)
+        self.test_node = self.nodes[0].add_p2p_connection(TestP2PConn(self.nodes[0].time_to_connect), services=NODE_NETWORK)
 
         # self.old_node sets only NODE_NETWORK
         self.old_node = self.nodes[0].add_p2p_connection(TestP2PConn(), services=NODE_NETWORK)

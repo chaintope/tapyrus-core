@@ -761,8 +761,8 @@ class CompactBlocksTest(BitcoinTestFramework):
 
     def run_test(self):
         # Setup the p2p connections
-        self.test_node = self.nodes[0].add_p2p_connection(TestP2PConn())
-        self.old_node = self.nodes[1].add_p2p_connection(TestP2PConn(), services=NODE_NETWORK)
+        self.test_node = self.nodes[0].add_p2p_connection(TestP2PConn(self.nodes[0].time_to_connect))
+        self.old_node = self.nodes[1].add_p2p_connection(TestP2PConn(self.nodes[1].time_to_connect), services=NODE_NETWORK)
         
         self.log.info("Tapyrus NODE_WITNESS connections are unsupported")
         self.segwit_node = self.nodes[1].add_p2p_connection(TestP2PConn(), services=NODE_NETWORK | NODE_WITNESS, wait_for_verack = False)
