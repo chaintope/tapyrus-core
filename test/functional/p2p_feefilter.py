@@ -55,7 +55,7 @@ class FeeFilterTest(BitcoinTestFramework):
         node1.generate(1, self.signblockprivkey_wif)
         sync_blocks(self.nodes)
 
-        self.nodes[0].add_p2p_connection(TestP2PConn())
+        self.nodes[0].add_p2p_connection(TestP2PConn(self.nodes[0].time_to_connect))
 
         # Test that invs are received for all txs at feerate of 20 sat/byte
         node1.settxfee(Decimal("0.00020000"))

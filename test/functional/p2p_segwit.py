@@ -237,9 +237,9 @@ class SegWitTest(BitcoinTestFramework):
         self.test_node = self.nodes[0].add_p2p_connection(TestP2PConn(self.nodes[0].time_to_connect), services=NODE_NETWORK)
 
         # self.old_node sets only NODE_NETWORK
-        self.old_node = self.nodes[0].add_p2p_connection(TestP2PConn(), services=NODE_NETWORK)
+        self.old_node = self.nodes[0].add_p2p_connection(TestP2PConn(self.nodes[0].time_to_connect), services=NODE_NETWORK)
         # self.std_node is for testing node1 (acceptnonstdtxn=true)
-        self.std_node = self.nodes[1].add_p2p_connection(TestP2PConn(), services=NODE_NETWORK)
+        self.std_node = self.nodes[1].add_p2p_connection(TestP2PConn(self.nodes[1].time_to_connect), services=NODE_NETWORK)
 
         assert self.test_node.nServices & NODE_WITNESS == 0
         assert self.old_node.nServices & NODE_WITNESS == 0
