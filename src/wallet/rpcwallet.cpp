@@ -32,6 +32,7 @@
 #include <wallet/wallet.h>
 #include <wallet/walletdb.h>
 #include <wallet/walletutil.h>
+#include <xfieldhistory.h>
 
 #include <stdint.h>
 
@@ -3320,7 +3321,11 @@ UniValue generate(const JSONRPCRequest& request)
     if(!cPrivKey.IsValid())
         throw JSONRPCError(RPC_WALLET_INVALID_PRIVATE_KEY, "No private key given or invalid private key.");
 
-    if(cPrivKey.GetPubKey() != FederationParams().GetLatestAggregatePubkey())
+    XFieldHistory xFieldHistory;
+    XFieldAggPubKey aggpubkeyChange;
+    xFieldHistory.GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+
+    if(cPrivKey.GetPubKey() != aggpubkeyChange.getPubKey())
         throw JSONRPCError(RPC_WALLET_INVALID_AGGREGATE_KEY, "Given private key doesn't correspond to the Aggregate Key.");
 
     std::shared_ptr<CReserveScript> coinbase_script;

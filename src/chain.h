@@ -332,8 +332,7 @@ public:
             hashMerkleRoot.ToString(),
             hashImMerkleRoot.ToString(),
             nTime,
-            xfieldType,
-            HexStr(xfield),
+            xfield.ToString(),
             HexStr(proof),
             GetBlockHash().ToString());
     }

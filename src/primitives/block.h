@@ -8,10 +8,12 @@
 #define BITCOIN_PRIMITIVES_BLOCK_H
 
 #include <primitives/transaction.h>
+#include <primitives/xfield.h>
 #include <serialize.h>
 #include <uint256.h>
 #include <key.h>
 
+<<<<<<< HEAD
 enum class TAPYRUS_XFIELDTYPES
 {
     NONE = 0, //no xfield
@@ -19,6 +21,8 @@ enum class TAPYRUS_XFIELDTYPES
 
     MAX_XFIELDTYPE
 };
+=======
+>>>>>>> ceb1fab5f (Move xfield relates code to new header and cpp files. move xField change related changes to out of federration params and make it a global map)
 
 /** Nodes collect new transactions into a block, hash them into a hash tree,
  * and scan through nonce values to make the block's hash satisfy proof-of-work
