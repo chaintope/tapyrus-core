@@ -62,7 +62,7 @@ BlockAssembler::BlockAssembler(const CChainParams& params, const Options& option
     }
 
     // Limit size to between 1K and MAX_BLOCK_SIZE-1K for sanity:
-    nBlockMaxSize = std::max((unsigned int)1000, std::min((unsigned int)(MAX_BLOCK_SIZE-1000), nBlockMaxSize));
+    nBlockMaxSize = std::max((unsigned int)1000, std::min((unsigned int)DEFAULT_BLOCK_MAX_SIZE, nBlockMaxSize));
 }
 
 static BlockAssembler::Options DefaultOptions()
@@ -131,11 +131,6 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     {
         pblock->xfield.xfieldType = pXField->xfieldType;
         pblock->xfield.xfield.maxBlockSize = pXField->xfield.maxBlockSize;
-    }
-    if(xfieldType != TAPYRUS_XFIELDTYPES::NONE)
-    {
-        pblock->xfieldType = (uint8_t)xfieldType;
-        pblock->xfield = value->aggPubKey;
     }
 
     pblock->nTime = GetAdjustedTime();

@@ -167,7 +167,7 @@ UniValue getnewblock(const JSONRPCRequest& request)
             return x > 0 && x < int(max) ? TAPYRUS_XFIELDTYPES(x) : TAPYRUS_XFIELDTYPES::NONE;
             } (xfieldParam.find(':'), TAPYRUS_XFIELDTYPES::MAX_XFIELDTYPE );
 
-        if(xfieldType ==  TAPYRUS_XFIELDTYPES::NONE)
+        if(xfield.xfieldType ==  TAPYRUS_XFIELDTYPES::NONE)
             throw JSONRPCError(RPC_INVALID_PARAMS, "Unknown xfield type");
 
 <<<<<<< HEAD

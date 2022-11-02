@@ -238,11 +238,7 @@ unsigned int nBytesPerSigOp = DEFAULT_BYTES_PER_SIGOP;
 
 int64_t GetTransactionSize(int64_t nSize, int64_t nSigOpCost)
 {
-<<<<<<< HEAD
     return std::max(nSize, nSigOpCost * nBytesPerSigOp);
-=======
-    return std::max(nWeight, nSigOpCost * nBytesPerSigOp);
->>>>>>> remove related defines line WITNESS_SCALING_FACTOR and Transaction virtual size
 }
 
 int64_t GetTransactionSize(const CTransaction& tx, int64_t nSigOpCost)

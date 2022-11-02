@@ -258,12 +258,12 @@ CPubKey CFederationParams::GetAggPubkeyFromHeight(uint32_t height) const
 uint32_t CFederationParams::GetMaxBlockSizeFromHeight(uint32_t height) const
 {
     if(XFieldChangeHeight.find(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE) == XFieldChangeHeight.end())
-        return MAX_BLOCK_BASE_SIZE;
+        return MAX_BLOCK_SIZE;
 
     const std::vector<XFieldChange>& listofXfieldChanges = XFieldChangeHeight[TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE];
 
     if(listofXfieldChanges.empty())
-        return MAX_BLOCK_BASE_SIZE;
+        return MAX_BLOCK_SIZE;
 
     if(height == 0 || listofXfieldChanges.size() == 1)
         return listofXfieldChanges.at(0).xfield.xfield.maxBlockSize;
