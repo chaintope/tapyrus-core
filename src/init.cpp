@@ -1514,6 +1514,19 @@ bool AppInitMain()
                         break;
                     }
                 }
+                //********************************************************** Step 11a: Load Xfield data from db
+                std::vector<XFieldEntry> xFieldList;
+                pblocktree->ReadXFieldAggpubkeys(xFieldList);
+                for(auto &XFieldData:xFieldList)
+                {
+                    //verify the aggpubkey from the xfield in the block db and then add to federation params
+                    CBlockIndex* pindex = LookupBlockIndex(XFieldData.blockHash);
+                    if (!pindex)//block might not be in the best chain
+                        continue;
+
+                    if((TAPYRUS_XFIELDTYPES)pindex->xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY && pindex->xfield == XFieldData.aggpubkey)
+                        FederationParams().ReadAggregatePubkey(XFieldData.aggpubkey, XFieldData.height);
+                }
 
                 if (!is_coinsview_empty) {
                     uiInterface.InitMessage(_("Verifying blocks..."));

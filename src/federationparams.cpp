@@ -157,9 +157,10 @@ CPubKey CFederationParams::ReadAggregatePubkey(const std::vector<unsigned char>&
         if (p.aggpubkey.size() != CPubKey::COMPRESSED_PUBLIC_KEY_SIZE) {
             throw std::runtime_error(strprintf("Aggregate Public Key for Signed Block is invalid: %s", HexStr(pubkey)));
         }
+        if(height && GetAggPubkeyFromHeight(height) == p.aggpubkey)
+            return p.aggpubkey;
 
         aggregatePubkeyHeight.push_back(p);
-
         return p.aggpubkey;
 
     } else if(pubkey[0] == 0x04 || pubkey[0] == 0x06 || pubkey[0] == 0x07) {

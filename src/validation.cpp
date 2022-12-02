@@ -2366,8 +2366,12 @@ bool CChainState::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, co
 
         // if the block was added successfully and it is a federation block,
         // make sure that the aggregatepubkey from this block is added to CFederationParams
-        if(blockConnecting.xfieldType == 1 && blockConnecting.xfield.size() == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE && (CPubKey(blockConnecting.xfield.begin(), blockConnecting.xfield.end()) != FederationParams().GetLatestAggregatePubkey()))
+        if((TAPYRUS_XFIELDTYPES)blockConnecting.xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY && blockConnecting.xfield.size() == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE && (CPubKey(blockConnecting.xfield.begin(), blockConnecting.xfield.end()) != FederationParams().GetLatestAggregatePubkey()))
+        {
             FederationParams().ReadAggregatePubkey(blockConnecting.xfield, blockConnecting.GetHeight() + 1);
+            XFieldEntry xfieldEntry(blockConnecting.xfield, blockConnecting.GetHeight() + 1, blockConnecting.GetHash());
+            pblocktree->AddXFieldAggpubkey(xfieldEntry);
+        }
 
         nTime3 = GetTimeMicros(); nTimeConnectTotal += nTime3 - nTime2;
         LogPrint(BCLog::BENCH, "  - Connect total: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime3 - nTime2) * MILLI, nTimeConnectTotal * MICRO, nTimeConnectTotal * MILLI / nBlocksTotal);

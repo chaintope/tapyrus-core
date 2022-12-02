@@ -22,6 +22,34 @@ class CBlockIndex;
 class CCoinsViewDBCursor;
 class uint256;
 
+/*
+struct to store and retrieve xfield aggpubkey change information into level db blocks db
+*/ 
+
+struct XFieldEntry {
+    std::vector<unsigned char> aggpubkey;
+    int32_t height;
+    uint256 blockHash;
+
+    explicit XFieldEntry(const std::vector<unsigned char>& paggpubkey, const int32_t inheight, const uint256& inblockHash) : aggpubkey(paggpubkey), height(inheight), blockHash(inblockHash) {}
+    explicit XFieldEntry() : aggpubkey(), height(0), blockHash() {}
+
+    template<typename Stream>
+    void Serialize(Stream &s) const {
+        s << aggpubkey;
+        s << height;
+        s << blockHash;
+    }
+
+    template<typename Stream>
+    void Unserialize(Stream& s) {
+        s >> aggpubkey;
+        s >> height;
+        s >> blockHash;
+    }
+};
+
+
 //! No need to periodic flush if at least this much space still available.
 static constexpr int MAX_BLOCK_COINSDB_USAGE = 10;
 //! -dbcache default (MiB)
@@ -97,6 +125,8 @@ public:
     bool WriteFlag(const std::string &name, bool fValue);
     bool ReadFlag(const std::string &name, bool &fValue);
     bool LoadBlockIndexGuts(std::function<CBlockIndex*(const uint256&)> insertBlockIndex);
+    bool ReadXFieldAggpubkeys(std::vector<XFieldEntry> & xFieldList);
+    bool AddXFieldAggpubkey(XFieldEntry & xFieldEntry);
 };
 
 #endif // BITCOIN_TXDB_H
