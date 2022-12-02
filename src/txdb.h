@@ -134,8 +134,13 @@ public:
     bool WriteFlag(const std::string &name, bool fValue);
     bool ReadFlag(const std::string &name, bool &fValue);
     bool LoadBlockIndexGuts(std::function<CBlockIndex*(const uint256&)> insertBlockIndex);
+<<<<<<< HEAD
     bool ReadXFieldAggpubkeys(std::vector<XFieldAggpubkey> & xFieldList);
     bool WriteXFieldAggpubkey(const XFieldAggpubkey & XFieldAggpubkey);
+=======
+    bool ReadXFieldAggpubkeys(std::vector<XFieldEntry> & xFieldList);
+    bool AddXFieldAggpubkey(XFieldEntry & xFieldEntry);
+>>>>>>> 1cd816256 (make aggpubkey persistent upon node restart)
 };
 
 #endif // BITCOIN_TXDB_H
