@@ -461,11 +461,6 @@ class FederationManagementTest(BitcoinTestFramework):
         assert_equal(self.tip, syn_node.getbestblockhash())
         assert(node.getblock(self.tip))
 
-        self.stop_node(0)
-        self.log.info("Restarting node with '-reindex'")
-        self.start_node(0, extra_args=["-reindex"])
-        #self.connectNodeAndCheck(1, expectedAggPubKeys)
-
         self.log.info("Verifying getblockchaininfo")
         #getblockchaininfo
         expectedAggPubKeys = [
@@ -486,15 +481,15 @@ class FederationManagementTest(BitcoinTestFramework):
         connect_nodes(self.nodes[0], 1)
         self.connectNodeAndCheck(2, expectedAggPubKeys)
 
+        self.stop_node(0)
+        self.log.info("Restarting node with '-reindex'")
+        self.start_node(0, extra_args=["-reindex"])
+        self.connectNodeAndCheck(1, expectedAggPubKeys)
+
         #B38 - B40 -- Generate 2 blocks - no aggpubkey -- chain becomes longer
         self.forkblocks += node.generate(3, self.aggprivkey_wif[4])
         self.tip = node.getbestblockhash()
         best_block = node.getblock(self.tip)
-
-        self.stop_node(0)
-        self.log.info("Restarting node with '-reindex-chainstate'")
-        self.start_node(0, extra_args=["-reindex-chainstate"])
-        #self.connectNodeAndCheck(1, expectedAggPubKeys)
 
         self.log.info("Test Repeated aggpubkeys in Federation Block")
         #B41 -- Create block with aggpubkey0 - sign using aggpubkey5 -- success - aggpubkey0 is added to the list

@@ -3236,6 +3236,17 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
         if (!CheckBlockHeader(block, state, aggPubkeys))
             return error("%s: Consensus::CheckBlockHeader: %s, %s", __func__, hash.ToString(), FormatStateMessage(state));
 
+        //if this header was valid and has an aggpubkey change remember it until we finish processing the headers message
+        if(aggPubkeys && (TAPYRUS_XFIELDTYPES)block.xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY
+          && block.xfield.size() == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE
+          && CPubKey(block.xfield.begin(), block.xfield.end()) != aggPubkeys->rbegin()->aggpubkey)
+        {
+            aggPubkeyAndHeight x;
+            x.aggpubkey = CPubKey(block.xfield.begin(), block.xfield.end());
+            x.height = -1;
+            aggPubkeys->push_back(x);
+        }
+
         // Get prev block index
         CBlockIndex* pindexPrev = nullptr;
         BlockMap::iterator mi = mapBlockIndex.find(block.hashPrevBlock);
