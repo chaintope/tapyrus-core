@@ -105,7 +105,7 @@ class FederationManagementTest(BitcoinTestFramework):
         self.schnorr_key = Schnorr()
         self.schnorr_key.set_secretbytes(bytes.fromhex("12b004fff7f4b69ef8650e767f18f11ede158148b425660723b9f9a66e61f747"))
 
-        self.num_nodes = 1
+        self.num_nodes = 2
         self.sig_scheme = 0
         self.setup_clean_chain = True
         self.genesisBlock = createTestGenesisBlock(self.aggpubkeys[0], self.aggprivkey[0], int(time.time() - 100))
@@ -115,6 +115,7 @@ class FederationManagementTest(BitcoinTestFramework):
         self.address = node.getnewaddress()
         node.add_p2p_connection(P2PDataStore())
         node.p2p.wait_for_getheaders(timeout=5)
+        self.stop_node(1)
 
         self.log.info("Test starting...")
 
@@ -427,11 +428,6 @@ class FederationManagementTest(BitcoinTestFramework):
         assert_equal(self.tip, node.getbestblockhash())
         assert(node.getblock(self.tip))
 
-        self.stop_node(0)
-        self.log.info("Restarting node with '-reindex'")
-        self.start_node(0, extra_args=["-reindex"])
-        #self.connectNodeAndCheck(1, expectedAggPubKeys)
-
         self.log.info("Verifying getblockchaininfo")
         #getblockchaininfo
         expectedAggPubKeys = [
@@ -444,15 +440,15 @@ class FederationManagementTest(BitcoinTestFramework):
         blockchaininfo = node.getblockchaininfo()
         assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
 
+        self.stop_node(0)
+        self.log.info("Restarting node with '-reindex'")
+        self.start_node(0, extra_args=["-reindex"])
+        self.connectNodeAndCheck(1, expectedAggPubKeys)
+
         #B38 - B40 -- Generate 2 blocks - no aggpubkey -- chain becomes longer
         self.forkblocks += node.generate(3, self.aggprivkey_wif[4])
         self.tip = node.getbestblockhash()
         best_block = node.getblock(self.tip)
-
-        self.stop_node(0)
-        self.log.info("Restarting node with '-reindex-chainstate'")
-        self.start_node(0, extra_args=["-reindex-chainstate"])
-        #self.connectNodeAndCheck(1, expectedAggPubKeys)
 
         self.log.info("Test Repeated aggpubkeys in Federation Block")
         #B41 -- Create block with aggpubkey0 - sign using aggpubkey5 -- success - aggpubkey0 is added to the list
@@ -486,20 +482,21 @@ class FederationManagementTest(BitcoinTestFramework):
         ]
         blockchaininfo = node.getblockchaininfo()
         assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
-        #self.connectNodeAndCheck(1, expectedAggPubKeys)
+        self.connectNodeAndCheck(1, expectedAggPubKeys)
         self.stop_node(0)
 
         self.log.info("Restarting node with '-loadblock'")
         shutil.copyfile(os.path.join(self.nodes[0].datadir, NetworkDirName(), 'blocks', 'blk00000.dat'), os.path.join(self.nodes[0].datadir, 'blk00000.dat'))
+        shutil.copyfile(os.path.join(self.nodes[0].datadir, NetworkDirName(), 'blocks', 'blk00000.dat'), os.path.join(self.nodes[1].datadir, 'blk00000.dat'))
         os.remove(os.path.join(self.nodes[0].datadir, NetworkDirName(), 'blocks', 'blk00000.dat'))
 
         self.start_node(0, ["-loadblock=%s" % os.path.join(self.nodes[0].datadir, 'blk00000.dat'), "-reindex"])
         blockchaininfo = self.nodes[0].getblockchaininfo()
         assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
 
-        '''self.start_node(1, ["-loadblock=%s" % os.path.join(self.nodes[1].datadir, 'blocks', 'blk00000.dat')])
+        self.start_node(1, ["-loadblock=%s" % os.path.join(self.nodes[1].datadir, 'blk00000.dat')])
         blockchaininfo = self.nodes[1].getblockchaininfo()
-        assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)'''
+        assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
 
     def connectNodeAndCheck(self, n, expectedAggPubKeys):
         self.start_node(n)
@@ -507,6 +504,7 @@ class FederationManagementTest(BitcoinTestFramework):
         self.sync_all([self.nodes[0:n+1]])
         blockchaininfo = self.nodes[n].getblockchaininfo()
         assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
+        self.stop_node(n)
 
 if __name__ == '__main__':
     FederationManagementTest().main()
