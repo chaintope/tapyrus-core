@@ -107,6 +107,7 @@ add_test_to_suite(tapyrus test_tapyrus
 		timedata_tests.cpp
 		torcontrol_tests.cpp
 		transaction_tests.cpp
+		txdb_tests.cpp
 		txindex_tests.cpp
 		txvalidation_tests.cpp
 		txvalidationcache_tests.cpp
