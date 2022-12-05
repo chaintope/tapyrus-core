@@ -165,7 +165,7 @@ public:
      * If a block header hasn't already been seen, call CheckBlockHeader on it, ensure
      * that it doesn't descend from an invalid block, and then add it to mapBlockIndex.
      */
-    bool AcceptBlockHeader(const CBlockHeader& block, CValidationState& state, CBlockIndex** ppindex, std::vector<aggPubkeyAndHeight>* aggPubkeys = nullptr) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    bool AcceptBlockHeader(const CBlockHeader& block, CValidationState& state, CBlockIndex** ppindex, std::vector<AggPubkeyAndHeight>* aggPubkeys = nullptr) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     bool AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CValidationState& state, CBlockIndex** ppindex, bool fRequested, const CDiskBlockPos* dbp, bool* fNewBlock) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     // Block (dis)connection on a given view:
@@ -1173,7 +1173,7 @@ bool GetTransaction(const uint256& hash, CTransactionRef& txOut, const Consensus
 
 //declaration for compilation
 
-static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,  std::vector<aggPubkeyAndHeight>* aggPubkeys = nullptr, int nHeight = -1, bool fCheckPOW = true);
+static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,  std::vector<AggPubkeyAndHeight>* aggPubkeys = nullptr, int nHeight = -1, bool fCheckPOW = true);
 
 
 
@@ -2369,8 +2369,8 @@ bool CChainState::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, co
         if((TAPYRUS_XFIELDTYPES)blockConnecting.xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY && blockConnecting.xfield.size() == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE && (CPubKey(blockConnecting.xfield.begin(), blockConnecting.xfield.end()) != FederationParams().GetLatestAggregatePubkey()))
         {
             FederationParams().ReadAggregatePubkey(blockConnecting.xfield, blockConnecting.GetHeight() + 1);
-            XFieldEntry xfieldEntry(blockConnecting.xfield, blockConnecting.GetHeight() + 1, blockConnecting.GetHash());
-            pblocktree->AddXFieldAggpubkey(xfieldEntry);
+            XFieldAggpubkey XFieldAggpubkey(blockConnecting.xfield, blockConnecting.GetHeight() + 1, blockConnecting.GetHash());
+            pblocktree->WriteXFieldAggpubkey(XFieldAggpubkey);
         }
 
         nTime3 = GetTimeMicros(); nTimeConnectTotal += nTime3 - nTime2;
@@ -2996,7 +2996,7 @@ static bool FindUndoPos(CValidationState &state, int nFile, CDiskBlockPos &pos, 
     return true;
 }
 
-static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,  std::vector<aggPubkeyAndHeight>* aggPubkeys, int nHeight, bool fCheckPOW)
+static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,  std::vector<AggPubkeyAndHeight>* aggPubkeys, int nHeight, bool fCheckPOW)
 {
     //check block features
     if(block.nFeatures != CBlock::TAPYRUS_BLOCK_FEATURES)
@@ -3033,8 +3033,7 @@ static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,
     if(!proofSize)
         return state.Invalid(false, REJECT_INVALID, "bad-proof", "No Proof in block");
 
-    CPubKey aggregatePubkey = aggPubkeys ?
-         [nHeight](const std::vector<aggPubkeyAndHeight>& list) { return list.rbegin()->aggpubkey; }(*aggPubkeys) : FederationParams().GetAggPubkeyFromHeight(nHeight);
+    CPubKey aggregatePubkey = aggPubkeys ? aggPubkeys->rbegin()->aggpubkey : FederationParams().GetAggPubkeyFromHeight(nHeight);
 
     if(!aggregatePubkey.IsValid())
         return state.Error("Invalid aggregatePubkey");
@@ -3216,7 +3215,7 @@ static bool ContextualCheckBlock(const CBlock& block, CValidationState& state, c
     return true;
 }
 
-bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState& state, CBlockIndex** ppindex, std::vector<aggPubkeyAndHeight>* aggPubkeys)
+bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState& state, CBlockIndex** ppindex, std::vector<AggPubkeyAndHeight>* aggPubkeys)
 {
     AssertLockHeld(cs_main);
     // Check for duplicate
@@ -3242,7 +3241,7 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
           && block.xfield.size() == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE
           && CPubKey(block.xfield.begin(), block.xfield.end()) != aggPubkeys->rbegin()->aggpubkey)
         {
-            aggPubkeyAndHeight x;
+            AggPubkeyAndHeight x;
             x.aggpubkey = CPubKey(block.xfield.begin(), block.xfield.end());
             x.height = -1;
             aggPubkeys->push_back(x);

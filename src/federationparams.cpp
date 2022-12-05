@@ -147,7 +147,7 @@ CPubKey CFederationParams::ReadAggregatePubkey(const std::vector<unsigned char>&
         throw std::runtime_error("Aggregate Public Key for Signed Block is empty");
     
     if (pubkey[0] == 0x02 || pubkey[0] == 0x03) {
-        aggPubkeyAndHeight p;
+        AggPubkeyAndHeight p;
         p.aggpubkey = CPubKey(pubkey.begin(), pubkey.end());
         p.height = height;
         if(!p.aggpubkey.IsFullyValid()) {

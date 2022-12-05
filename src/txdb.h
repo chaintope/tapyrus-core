@@ -26,13 +26,13 @@ class uint256;
 struct to store and retrieve xfield aggpubkey change information into level db blocks db
 */ 
 
-struct XFieldEntry {
+struct XFieldAggpubkey {
     std::vector<unsigned char> aggpubkey;
     int32_t height;
     uint256 blockHash;
 
-    explicit XFieldEntry(const std::vector<unsigned char>& paggpubkey, const int32_t inheight, const uint256& inblockHash) : aggpubkey(paggpubkey), height(inheight), blockHash(inblockHash) {}
-    explicit XFieldEntry() : aggpubkey(), height(0), blockHash() {}
+    explicit XFieldAggpubkey(const std::vector<unsigned char>& paggpubkey, const int32_t inheight, const uint256& inblockHash) : aggpubkey(paggpubkey), height(inheight), blockHash(inblockHash) {}
+    explicit XFieldAggpubkey() : aggpubkey(), height(0), blockHash() {}
 
     template<typename Stream>
     void Serialize(Stream &s) const {
@@ -125,8 +125,8 @@ public:
     bool WriteFlag(const std::string &name, bool fValue);
     bool ReadFlag(const std::string &name, bool &fValue);
     bool LoadBlockIndexGuts(std::function<CBlockIndex*(const uint256&)> insertBlockIndex);
-    bool ReadXFieldAggpubkeys(std::vector<XFieldEntry> & xFieldList);
-    bool AddXFieldAggpubkey(XFieldEntry & xFieldEntry);
+    bool ReadXFieldAggpubkeys(std::vector<XFieldAggpubkey> & xFieldList);
+    bool WriteXFieldAggpubkey(XFieldAggpubkey & XFieldAggpubkey);
 };
 
 #endif // BITCOIN_TXDB_H

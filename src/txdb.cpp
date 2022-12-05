@@ -170,14 +170,14 @@ bool CBlockTreeDB::ReadLastBlockFile(int &nFile) {
     return Read(DB_LAST_BLOCK, nFile);
 }
 
-bool CBlockTreeDB::ReadXFieldAggpubkeys(std::vector<XFieldEntry> & xFieldList) {
+bool CBlockTreeDB::ReadXFieldAggpubkeys(std::vector<XFieldAggpubkey> & xFieldList) {
     return Read(DB_XFIELD_AGGPUBKEY, xFieldList);
 }
 
-bool CBlockTreeDB::AddXFieldAggpubkey(XFieldEntry & xFieldEntry) {
-    std::vector<XFieldEntry> xFieldList;
+bool CBlockTreeDB::WriteXFieldAggpubkey(XFieldAggpubkey & xFieldAggpubkey) {
+    std::vector<XFieldAggpubkey> xFieldList;
     Read(DB_XFIELD_AGGPUBKEY, xFieldList);
-    xFieldList.push_back(xFieldEntry);
+    xFieldList.push_back(xFieldAggpubkey);
     return Write(DB_XFIELD_AGGPUBKEY, xFieldList);
 }
 

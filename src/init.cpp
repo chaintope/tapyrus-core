@@ -1514,8 +1514,8 @@ bool AppInitMain()
                         break;
                     }
                 }
-                //********************************************************** Step 11a: Load Xfield data from db
-                std::vector<XFieldEntry> xFieldList;
+                // Step 7a: Load Xfield data from db
+                std::vector<XFieldAggpubkey> xFieldList;
                 pblocktree->ReadXFieldAggpubkeys(xFieldList);
                 for(auto &XFieldData:xFieldList)
                 {
