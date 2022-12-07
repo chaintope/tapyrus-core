@@ -2366,7 +2366,10 @@ bool CChainState::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, co
 
         // if the block was added successfully and it is a federation block,
         // make sure that the aggregatepubkey from this block is added to CFederationParams
-        if((TAPYRUS_XFIELDTYPES)blockConnecting.xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY && blockConnecting.xfield.size() == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE && (CPubKey(blockConnecting.xfield.begin(), blockConnecting.xfield.end()) != FederationParams().GetLatestAggregatePubkey()))
+        bool xFieldValid(false), xFieldEqual(false);
+        blockConnecting.checkXField(FederationParams().GetLatestAggregatePubkey(), xFieldValid, xFieldEqual);
+
+        if(xFieldValid && !xFieldEqual)
         {
             FederationParams().ReadAggregatePubkey(blockConnecting.xfield, blockConnecting.GetHeight() + 1);
             XFieldAggpubkey XFieldAggpubkey(blockConnecting.xfield, blockConnecting.GetHeight() + 1, blockConnecting.GetHash());
@@ -3266,9 +3269,11 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
         pindex = AddToBlockIndex(block);
 
     //if this header was valid and has an aggpubkey change remember it until we finish processing the headers message
-    if(aggPubkeys && (TAPYRUS_XFIELDTYPES)block.xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY
-        && block.xfield.size() == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE
-        && CPubKey(block.xfield.begin(), block.xfield.end()) != aggPubkeys->rbegin()->aggpubkey)
+    bool xFieldValid(false), xFieldEqual(false);
+    if(aggPubkeys)
+        block.checkXField(aggPubkeys->rbegin()->aggpubkey, xFieldValid, xFieldEqual);
+
+    if(xFieldValid && !xFieldEqual)
     {
         AggPubkeyAndHeight x;
         x.aggpubkey = CPubKey(block.xfield.begin(), block.xfield.end());
