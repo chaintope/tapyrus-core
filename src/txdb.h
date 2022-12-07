@@ -47,6 +47,15 @@ struct XFieldAggpubkey {
         s >> height;
         s >> blockHash;
     }
+
+    bool operator==(const XFieldAggpubkey& rhs) const
+    {
+        if(this->aggpubkey == rhs.aggpubkey
+           && this->height == rhs.height
+           && this->blockHash == rhs.blockHash)
+           return true;
+        return false;
+    }
 };
 
 
@@ -126,7 +135,7 @@ public:
     bool ReadFlag(const std::string &name, bool &fValue);
     bool LoadBlockIndexGuts(std::function<CBlockIndex*(const uint256&)> insertBlockIndex);
     bool ReadXFieldAggpubkeys(std::vector<XFieldAggpubkey> & xFieldList);
-    bool WriteXFieldAggpubkey(XFieldAggpubkey & XFieldAggpubkey);
+    bool WriteXFieldAggpubkey(const XFieldAggpubkey & XFieldAggpubkey);
 };
 
 #endif // BITCOIN_TXDB_H
