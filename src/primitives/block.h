@@ -79,16 +79,15 @@ public:
         return (int64_t)nTime;
     }
 
-    void checkXField(const CPubKey &value, bool& xFieldValid, bool &equal) const
+    bool checkXField(const CPubKey &value, bool& xFieldValid) const
     {
         if((TAPYRUS_XFIELDTYPES)this->xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY
             && this->xfield.size() == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE)
             {
                 xFieldValid = true;
-                equal = CPubKey(this->xfield.begin(), this->xfield.end()) == value;
+                return CPubKey(this->xfield.begin(), this->xfield.end()) == value;
             }
-        else
-            xFieldValid = false;
+        return false;
     }
 };
 

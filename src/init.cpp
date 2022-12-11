@@ -1524,10 +1524,12 @@ bool AppInitMain()
                     if (!pindex)//block might not be in the best chain
                         continue;
 
-                    if((TAPYRUS_XFIELDTYPES)pindex->xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY && pindex->xfield == XFieldData.aggpubkey)
+                    bool xFieldValid(false), xFieldEqual(false);
+                    xFieldEqual = pindex->GetBlockHeader().checkXField(CPubKey(XFieldData.aggpubkey.begin(), XFieldData.aggpubkey.end()), xFieldValid);
+
+                    if(xFieldValid && xFieldEqual)
                         FederationParams().ReadAggregatePubkey(XFieldData.aggpubkey, XFieldData.height);
                 }
-
                 if (!is_coinsview_empty) {
                     uiInterface.InitMessage(_("Verifying blocks..."));
                     if (fHavePruned && gArgs.GetArg("-checkblocks", DEFAULT_CHECKBLOCKS) > MIN_BLOCKS_TO_KEEP) {

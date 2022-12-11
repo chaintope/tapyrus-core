@@ -20,7 +20,7 @@ BOOST_AUTO_TEST_CASE(txdb_aggpubkey_serialize_tests)
     xFieldAggpubkey = xFieldAggpubkeyList[0];
     BOOST_CHECK_EQUAL(HexStr(xFieldAggpubkey.aggpubkey.begin(), xFieldAggpubkey.aggpubkey.begin()+xFieldAggpubkey.aggpubkey.size()), "025700236c2890233592fcef262f4520d22af9160e3d9705855140eb2aa06c35d3");
     BOOST_CHECK_EQUAL(xFieldAggpubkey.height, 10);
-    BOOST_CHECK_EQUAL(xFieldAggpubkey.blockHash, uint256S("0000000000000000000000000000000000000000000000000000000000000000000000"));
+    BOOST_CHECK_EQUAL(xFieldAggpubkey.blockHash, uint256S("0000000000000000000000000000000000000000000000000000000000000000"));
 
     // 2 items
     CDataStream stream1(ParseHex("0221025700236c2890233592fcef262f4520d22af9160e3d9705855140eb2aa06c35d30a00000000000000000000000000000000000000000000000000000000000000000000002103b44f1cfcf46aba8bc98e2fd39f137cc43d98ab7792e4848b09c06198b042ca8b00000000d39be6bcedc39831203a6ab531040f9ab30d1e66c1cbcd657c38b590d91e0da7"), SER_NETWORK, PROTOCOL_VERSION);
@@ -96,6 +96,21 @@ BOOST_AUTO_TEST_CASE(txdb_aggpubkey_unserialize_tests)
     stream1 << xFieldAggpubkeyList;
     BOOST_CHECK_EQUAL(xFieldAggpubkeyList.size(), 2);
     BOOST_CHECK_EQUAL(HexStr(stream1.begin(), stream1.end()), "0221025700236c2890233592fcef262f4520d22af9160e3d9705855140eb2aa06c35d300000000d39be6bcedc39831203a6ab531040f9ab30d1e66c1cbcd657c38b590d91e0da721023b435ce7b804aa66dcd65a855282479be5057fd82ce4c7c2e2430920de8b9e9e640000009242e5b1aa02206e5123db3561e52b36f038d0564a99ae54799478fa3447a1eb");
+
+    xFieldAggpubkeyList.clear();
+    int len = 0;
+    for(int i = 0 ; i < 300; ++i)
+    {
+        xFieldAggpubkey.aggpubkey = ParseHex("025700236c2890233592fcef262f4520d22af9160e3d9705855140eb2aa06c35d3");
+        xFieldAggpubkey.height = i;
+        xFieldAggpubkey.blockHash = uint256S("a70d1ed990b5387c65cdcbc1661e0db39a0f0431b56a3a203198c3edbce69bd3");
+        xFieldAggpubkeyList.push_back(xFieldAggpubkey);
+        len += 140;
+    }
+
+    CDataStream stream2(SER_NETWORK, PROTOCOL_VERSION);
+    stream2 << xFieldAggpubkeyList;
+    BOOST_CHECK_EQUAL(HexStr(stream2.begin(), stream2.end()).size(), len + 6);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
