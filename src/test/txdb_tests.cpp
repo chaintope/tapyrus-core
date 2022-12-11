@@ -9,7 +9,7 @@
 
 BOOST_FIXTURE_TEST_SUITE(txdb_tests, BasicTestingSetup)
 
-BOOST_AUTO_TEST_CASE(txdb_aggpubkey_serialize_tests)
+BOOST_AUTO_TEST_CASE(txdb_aggpubkey_unserialize_tests)
 {
     XFieldAggpubkey xFieldAggpubkey;
     std::vector<XFieldAggpubkey> xFieldAggpubkeyList;
@@ -72,7 +72,7 @@ BOOST_AUTO_TEST_CASE(txdb_aggpubkey_serialize_tests)
     BOOST_CHECK_EQUAL(xFieldAggpubkeyList.size(), 1);
 }
 
-BOOST_AUTO_TEST_CASE(txdb_aggpubkey_unserialize_tests)
+BOOST_AUTO_TEST_CASE(txdb_aggpubkey_serialize_tests)
 {
     std::vector<XFieldAggpubkey> xFieldAggpubkeyList;
     XFieldAggpubkey xFieldAggpubkey;
