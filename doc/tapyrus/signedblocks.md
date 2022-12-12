@@ -46,6 +46,7 @@ Genesis Block header also has the aggregate public key in xfield. Thus the aggre
 
 | Field  | Type | Length | Default serialization |
 |--------|------|--------|------------|
+|n | varint | 1 - 5 bytes| little endian |
 |agg_pub_key| vector of char | 1 + 33 | 1 byte length + 33 bytes pubkey |
 |height | unsigned 32 bit integer| 4 | little endian |
 |block_hash | unsigned 256 bit integer | 32 | little endian |

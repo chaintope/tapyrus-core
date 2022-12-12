@@ -1525,7 +1525,7 @@ bool AppInitMain()
                         continue;
 
                     bool xFieldValid(false), xFieldEqual(false);
-                    xFieldEqual = pindex->GetBlockHeader().checkXField(CPubKey(XFieldData.aggpubkey.begin(), XFieldData.aggpubkey.end()), xFieldValid);
+                    xFieldEqual = pindex->GetBlockHeader().CheckXField(CPubKey(XFieldData.aggpubkey.begin(), XFieldData.aggpubkey.end()), xFieldValid);
 
                     if(xFieldValid && xFieldEqual)
                         FederationParams().ReadAggregatePubkey(XFieldData.aggpubkey, XFieldData.height);
