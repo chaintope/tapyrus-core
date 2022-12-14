@@ -1514,7 +1514,22 @@ bool AppInitMain()
                         break;
                     }
                 }
+                // Step 7a: Load Xfield data from db
+                std::vector<XFieldAggpubkey> xFieldList;
+                pblocktree->ReadXFieldAggpubkeys(xFieldList);
+                for(auto &XFieldData:xFieldList)
+                {
+                    //verify the aggpubkey from the xfield in the block db and then add to federation params
+                    CBlockIndex* pindex = LookupBlockIndex(XFieldData.blockHash);
+                    if (!pindex)//block might not be in the best chain
+                        continue;
 
+                    bool xFieldValid(false), xFieldEqual(false);
+                    xFieldEqual = pindex->GetBlockHeader().CheckXField(CPubKey(XFieldData.aggpubkey.begin(), XFieldData.aggpubkey.end()), xFieldValid);
+
+                    if(xFieldValid && xFieldEqual)
+                        FederationParams().ReadAggregatePubkey(XFieldData.aggpubkey, XFieldData.height);
+                }
                 if (!is_coinsview_empty) {
                     uiInterface.InitMessage(_("Verifying blocks..."));
                     if (fHavePruned && gArgs.GetArg("-checkblocks", DEFAULT_CHECKBLOCKS) > MIN_BLOCKS_TO_KEEP) {

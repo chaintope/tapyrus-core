@@ -29,6 +29,8 @@ static const char DB_FLAG = 'F';
 static const char DB_REINDEX_FLAG = 'R';
 static const char DB_LAST_BLOCK = 'l';
 
+static const char DB_XFIELD_AGGPUBKEY = '1';
+
 namespace {
 
 struct CoinEntry {
@@ -166,6 +168,18 @@ void CBlockTreeDB::ReadReindexing(bool &fReindexing) {
 
 bool CBlockTreeDB::ReadLastBlockFile(int &nFile) {
     return Read(DB_LAST_BLOCK, nFile);
+}
+
+bool CBlockTreeDB::ReadXFieldAggpubkeys(std::vector<XFieldAggpubkey> & xFieldList) {
+    return Read(DB_XFIELD_AGGPUBKEY, xFieldList);
+}
+
+bool CBlockTreeDB::WriteXFieldAggpubkey(const XFieldAggpubkey& xFieldAggpubkey) {
+    std::vector<XFieldAggpubkey> xFieldList;
+    Read(DB_XFIELD_AGGPUBKEY, xFieldList);
+    if(std::find(xFieldList.begin(), xFieldList.end(), xFieldAggpubkey) == xFieldList.end())
+        xFieldList.push_back(xFieldAggpubkey);
+    return Write(DB_XFIELD_AGGPUBKEY, xFieldList);
 }
 
 CCoinsViewCursor *CCoinsViewDB::Cursor() const
