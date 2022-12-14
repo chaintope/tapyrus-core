@@ -28,10 +28,10 @@ struct to store and retrieve xfield aggpubkey change information into level db b
 
 struct XFieldAggpubkey {
     std::vector<unsigned char> aggpubkey;
-    int32_t height;
+    uint32_t height;
     uint256 blockHash;
 
-    explicit XFieldAggpubkey(const std::vector<unsigned char>& paggpubkey, const int32_t inheight, const uint256& inblockHash) : aggpubkey(paggpubkey), height(inheight), blockHash(inblockHash) {}
+    explicit XFieldAggpubkey(const std::vector<unsigned char>& paggpubkey, const uint32_t inheight, const uint256& inblockHash) : aggpubkey(paggpubkey), height(inheight), blockHash(inblockHash) {}
     explicit XFieldAggpubkey() : aggpubkey(), height(0), blockHash() {}
 
     template<typename Stream>
