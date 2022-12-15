@@ -302,8 +302,10 @@ class FederationManagementTest(BitcoinTestFramework):
         self.start_node(0)
         connect_nodes(self.nodes[0], 1)
 
+        #restarting node0 to test presistance of aggpubkey change
         self.stop_node(0)
         self.start_node(0)
+        connect_nodes(self.nodes[0], 1)
 
         self.log.info("Simulate Blockchain Reorg  - After the last federation block")
         #B27 -- Create block with previous block hash = B26 - sign with aggpubkey3 -- success - block is accepted but there is no re-org
@@ -484,7 +486,8 @@ class FederationManagementTest(BitcoinTestFramework):
         self.stop_node(0)
         self.log.info("Restarting node with '-reindex'")
         self.start_node(0, extra_args=["-reindex"])
-        self.connectNodeAndCheck(1, expectedAggPubKeys)
+        connect_nodes(self.nodes[0], 1)
+        self.connectNodeAndCheck(2, expectedAggPubKeys)
 
         #B38 - B40 -- Generate 2 blocks - no aggpubkey -- chain becomes longer
         self.forkblocks += node.generate(3, self.aggprivkey_wif[4])
