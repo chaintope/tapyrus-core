@@ -3241,7 +3241,7 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
           && block.xfield.size() == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE
           && CPubKey(block.xfield.begin(), block.xfield.end()) != aggPubkeys->rbegin()->aggpubkey)
         {
-            aggPubkeyAndHeight x;
+            AggPubkeyAndHeight x;
             x.aggpubkey = CPubKey(block.xfield.begin(), block.xfield.end());
             x.height = -1;
             aggPubkeys->push_back(x);
