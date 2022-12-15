@@ -4188,7 +4188,7 @@ bool LoadGenesisBlock()
     return g_chainstate.LoadGenesisBlock();
 }
 
-bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp)
+bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, std::vector<XFieldAggpubkey>* xFieldList)
 {
     // Map of disk positions for blocks with unknown parent (only used for reindex)
     static std::multimap<uint256, CDiskBlockPos> mapBlocksUnknownParent;
@@ -4253,6 +4253,14 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp)
                       CValidationState state;
                       if (g_chainstate.AcceptBlock(pblock, state, nullptr, true, dbp, nullptr, &aggPubkeys)) {
                           nLoaded++;
+
+                          // the purpose of this reindexing may be to correct xfield aggpubkey in leveldb if xFieldList is not null
+                          if(xFieldList && (TAPYRUS_XFIELDTYPES)pblock->xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY)
+                          {
+                            XFieldAggpubkey newXfield(pblock->xfield, pblock->GetHeight(), hash);
+                            if(std::find(xFieldList->begin(), xFieldList->end(), newXfield) == xFieldList->end())
+                                xFieldList->push_back(newXfield);
+                          }
                       }
                       if (state.IsError()) {
                           break;

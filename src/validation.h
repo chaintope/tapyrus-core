@@ -44,6 +44,7 @@ class CBlockPolicyEstimator;
 class CTxMemPool;
 class CValidationState;
 struct ChainTxData;
+struct XFieldAggpubkey;
 
 struct PrecomputedTransactionData;
 struct LockPoints;
@@ -253,7 +254,7 @@ FILE* OpenBlockFile(const CDiskBlockPos &pos, bool fReadOnly = false);
 /** Translation to a filesystem path */
 fs::path GetBlockPosFilename(const CDiskBlockPos &pos, const char *prefix);
 /** Import blocks from an external file */
-bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp = nullptr);
+bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp = nullptr,  std::vector<XFieldAggpubkey>* xFieldList = nullptr);
 /** Ensures we have a genesis block in the block tree, possibly writing one to disk. */
 bool LoadGenesisBlock();
 /** Load the block tree and coins database from disk,

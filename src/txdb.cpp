@@ -182,6 +182,10 @@ bool CBlockTreeDB::WriteXFieldAggpubkey(const XFieldAggpubkey& xFieldAggpubkey) 
     return Write(DB_XFIELD_AGGPUBKEY, xFieldList);
 }
 
+bool CBlockTreeDB::ResetXFieldAggpubkeys(std::vector<XFieldAggpubkey>& xFieldList) {
+    return Write(DB_XFIELD_AGGPUBKEY, xFieldList);
+}
+
 CCoinsViewCursor *CCoinsViewDB::Cursor() const
 {
     CCoinsViewDBCursor *i = new CCoinsViewDBCursor(const_cast<CDBWrapper&>(db).NewIterator(), GetBestBlock());

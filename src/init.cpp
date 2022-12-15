@@ -385,6 +385,7 @@ void SetupServerArgs()
             "(default: 0 = disable pruning blocks, 1 = allow manual pruning via RPC, >=%u = automatically prune block files to stay under the specified target size in MiB)", MIN_DISK_SPACE_FOR_BLOCK_FILES / 1024 / 1024), false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-reindex", "Rebuild chain state and block index from the blk*.dat files on disk", false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-reindex-chainstate", "Rebuild chain state from the currently indexed blocks", false, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-reloadxfield", "Rebuild aggpubkey change list in blocktree db from xfield in block headers from the blk*.dat files on disk", false, OptionsCategory::OPTIONS);
 #ifndef WIN32
     gArgs.AddArg("-sysperms", "Create new files with system default permissions, instead of umask 077 (only effective with disabled wallet functionality)", false, OptionsCategory::OPTIONS);
 #else
@@ -634,13 +635,14 @@ static void CleanupBlockRevFiles()
     }
 }
 
-static void ThreadImport(std::vector<fs::path> vImportFiles)
+static void ThreadImport(std::vector<fs::path> vImportFiles, bool fReloadxfield)
 {
     RenameThread("bitcoin-loadblk");
     ScheduleBatchPriority();
 
     {
     CImportingNow imp;
+    std::vector<XFieldAggpubkey> xFieldList;
 
     // -reindex
     if (fReindex) {
@@ -653,7 +655,7 @@ static void ThreadImport(std::vector<fs::path> vImportFiles)
             if (!file)
                 break; // This error is logged in OpenBlockFile
             LogPrintf("Reindexing block file blk%05u.dat...\n", (unsigned int)nFile);
-            LoadExternalBlockFile(file, &pos);
+            LoadExternalBlockFile(file, &pos, &xFieldList);
             nFile++;
         }
         pblocktree->WriteReindexing(false);
@@ -670,7 +672,7 @@ static void ThreadImport(std::vector<fs::path> vImportFiles)
         if (file) {
             fs::path pathBootstrapOld = GetDataDir() / "bootstrap.dat.old";
             LogPrintf("Importing bootstrap.dat...\n");
-            LoadExternalBlockFile(file);
+            LoadExternalBlockFile(file, nullptr, &xFieldList);
             RenameOver(pathBootstrap, pathBootstrapOld);
         } else {
             LogPrintf("Warning: Could not open bootstrap file %s\n", pathBootstrap.string());
@@ -682,10 +684,14 @@ static void ThreadImport(std::vector<fs::path> vImportFiles)
         FILE *file = fsbridge::fopen(path, "rb");
         if (file) {
             LogPrintf("Importing blocks file %s...\n", path.string());
-            LoadExternalBlockFile(file);
+            LoadExternalBlockFile(file, nullptr, &xFieldList);
         } else {
             LogPrintf("Warning: Could not open blocks file %s\n", path.string());
         }
+    }
+
+    if (fReloadxfield && xFieldList.size()) {
+        pblocktree->ResetXFieldAggpubkeys(xFieldList);
     }
 
     // scan for better chains in the block chain database, that are not yet connected in the active best chain
@@ -1389,6 +1395,7 @@ bool AppInitMain()
 
     fReindex = gArgs.GetBoolArg("-reindex", false);
     bool fReindexChainState = gArgs.GetBoolArg("-reindex-chainstate", false);
+    bool fReloadxfield = gArgs.GetBoolArg("-reloadxfield", false);
 
     // cache size calculations
     int64_t nTotalCache = (gArgs.GetArg("-dbcache", nDefaultDbCache) << 20);
@@ -1413,7 +1420,7 @@ bool AppInitMain()
 
     bool fLoaded = false;
     while (!fLoaded && !ShutdownRequested()) {
-        bool fReset = fReindex;
+        bool fReset = fReindex || fReloadxfield;
         std::string strLoadError;
 
         uiInterface.InitMessage(_("Loading block index..."));
@@ -1640,7 +1647,7 @@ bool AppInitMain()
         vImportFiles.push_back(strFile);
     }
 
-    threadGroup.create_thread(boost::bind(&ThreadImport, vImportFiles));
+    threadGroup.create_thread(boost::bind(&ThreadImport, vImportFiles, fReloadxfield));
 
     // Wait for genesis block to be processed
     {
