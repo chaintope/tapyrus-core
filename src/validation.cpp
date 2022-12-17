@@ -4255,7 +4255,7 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, std::vector<XFieldA
                           nLoaded++;
 
                           // the purpose of this reindexing may be to correct xfield aggpubkey in leveldb if xFieldList is not null
-                          if(xFieldList && (TAPYRUS_XFIELDTYPES)pblock->xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY)
+                          if(xFieldList && (TAPYRUS_XFIELDTYPES)pblock->xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY && pblock->GetHeight() > 0)
                           {
                             XFieldAggpubkey newXfield(pblock->xfield, pblock->GetHeight() + 1, hash);
                             if(std::find(xFieldList->begin(), xFieldList->end(), newXfield) == xFieldList->end())

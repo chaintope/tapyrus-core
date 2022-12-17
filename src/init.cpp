@@ -385,7 +385,7 @@ void SetupServerArgs()
             "(default: 0 = disable pruning blocks, 1 = allow manual pruning via RPC, >=%u = automatically prune block files to stay under the specified target size in MiB)", MIN_DISK_SPACE_FOR_BLOCK_FILES / 1024 / 1024), false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-reindex", "Rebuild chain state and block index from the blk*.dat files on disk", false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-reindex-chainstate", "Rebuild chain state from the currently indexed blocks", false, OptionsCategory::OPTIONS);
-    gArgs.AddArg("-reloadxfield", "Rebuild aggpubkey change list in blocktree db from xfield in block headers from the blk*.dat files on disk", false, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-reloadxfield", "Rebuild xfield change list in blocktree db from xfield in block headers from the blk*.dat files on disk", false, OptionsCategory::OPTIONS);
 #ifndef WIN32
     gArgs.AddArg("-sysperms", "Create new files with system default permissions, instead of umask 077 (only effective with disabled wallet functionality)", false, OptionsCategory::OPTIONS);
 #else
@@ -645,7 +645,7 @@ static void ThreadImport(std::vector<fs::path> vImportFiles, bool fReloadxfield)
     std::vector<XFieldAggpubkey> xFieldList;
 
     // -reindex
-    if (fReindex) {
+    if (fReindex || fReloadxfield) {
         int nFile = 0;
         while (true) {
             CDiskBlockPos pos(nFile, 0);

@@ -627,7 +627,8 @@ class FederationManagementTest(BitcoinTestFramework):
         assert(node.getblock(self.tip))
 
         os.mkdir(os.path.join(self.nodes[3].datadir, 'blocks'))
-        shutil.copyfile(os.path.join(self.nodes[1].datadir, NetworkDirName(), 'blocks', 'blk00000.dat'), os.path.join(self.nodes[3].datadir, 'blocks', 'blk00000.dat'))
+        shutil.copyfile(os.path.join(self.nodes[1].datadir, NetworkDirName(), 'blocks', 'blk00000.dat'), os.path.join(self.nodes[3].datadir, 'blk00000.dat'))
+        shutil.copyfile(os.path.join(self.nodes[1].datadir, NetworkDirName(), 'blocks', 'blk00000.dat'), os.path.join(self.nodes[3].datadir,  NetworkDirName(), 'bootstrap.dat'))
 
         #B51 -- Create block with aggpubkey5 - sign using aggpubkey1 -- success - aggpubkey5 is added to the list
         block_time += 10
@@ -644,7 +645,7 @@ class FederationManagementTest(BitcoinTestFramework):
         best_block = self.nodes[1].getblock(self.tip)
         self.sync_all([self.nodes[0:3]])
 
-        self.start_node(3, ["-reloadxfield"])
+        self.start_node(3, ["-reloadxfield", "-loadblock=%s" % os.path.join(self.nodes[3].datadir, 'blk00000.dat')])
         #reindex takes time. wait before checking blockchain info
         time.sleep(5)
         connect_nodes(self.nodes[3], 0)
