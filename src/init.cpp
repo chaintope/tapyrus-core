@@ -1531,11 +1531,10 @@ bool AppInitMain()
                     if (!pindex)//block might not be in the best chain
                         continue;
 
-                    bool xFieldValid(false), xFieldEqual(false);
-                    xFieldEqual = pindex->GetBlockHeader().CheckXField(CPubKey(XFieldData.aggpubkey.begin(), XFieldData.aggpubkey.end()), xFieldValid);
 
-                    if(xFieldValid && xFieldEqual)
-                        FederationParams().ReadAggregatePubkey(XFieldData.aggpubkey, XFieldData.height);
+                    if(pindex->GetBlockHeader().isXFieldValid()
+                        && pindex->GetBlockHeader().isXFieldEqual(CPubKey(XFieldData.aggpubkey.begin(), XFieldData.aggpubkey.end())))
+                            FederationParams().ReadAggregatePubkey(XFieldData.aggpubkey, XFieldData.height);
                 }
                 if (!is_coinsview_empty) {
                     uiInterface.InitMessage(_("Verifying blocks..."));

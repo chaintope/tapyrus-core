@@ -2366,10 +2366,8 @@ bool CChainState::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, co
 
         // if the block was added successfully and it is a federation block,
         // make sure that the aggregatepubkey from this block is added to CFederationParams
-        bool xFieldValid(false), xFieldEqual(false);
-        xFieldEqual = blockConnecting.CheckXField(FederationParams().GetLatestAggregatePubkey(), xFieldValid);
-
-        if(xFieldValid && !xFieldEqual)
+        if(blockConnecting.isXFieldValid()
+            && !blockConnecting.isXFieldEqual(FederationParams().GetLatestAggregatePubkey()))
         {
             FederationParams().ReadAggregatePubkey(blockConnecting.xfield, blockConnecting.GetHeight() + 1);
             XFieldAggpubkey XFieldAggpubkey(blockConnecting.xfield, blockConnecting.GetHeight() + 1, blockConnecting.GetHash());
@@ -3269,11 +3267,9 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
         pindex = AddToBlockIndex(block);
 
     //if this header was valid and has an aggpubkey change remember it until we finish processing the headers message
-    bool xFieldValid(false), xFieldEqual(false);
-    if(aggPubkeys)
-       xFieldEqual = block.CheckXField(aggPubkeys->rbegin()->aggpubkey, xFieldValid);
-
-    if(xFieldValid && !xFieldEqual)
+    if(aggPubkeys
+        && block.isXFieldValid()
+        && !block.isXFieldEqual(aggPubkeys->rbegin()->aggpubkey))
     {
         AggPubkeyAndHeight x;
         x.aggpubkey = CPubKey(block.xfield.begin(), block.xfield.end());
