@@ -20,7 +20,7 @@ If you are running a private tapyrus network using versions v0.3.0, v0.4.0 or v0
 Downgrading warning
 -------------------
 
-Tapyrus blockchain created by older versions(v0.3.0, v0.4.0 and v0.4.1) is not compatible with v0.5.2 and vice-versa. The testnet was reset with the release of v0.5.0 which is compatile with v0.5.2
+Tapyrus blockchain created by older versions(v0.3.0, v0.4.0 and v0.4.1) is not compatible with v0.5.2 and vice-versa.
 
 Compatibility
 ==============
