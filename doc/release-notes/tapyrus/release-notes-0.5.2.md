@@ -34,7 +34,7 @@ Tapyrus v0.5.2 is supported on three platforms, Linux, MacOS and Windows(WSL) in
 
 Tapyrus-core version v0.5.2 contains critical bug fixes to make Federation Management reliable:
  1. Adding a new node to the tapyrus-core network after an aggregate public key update(using xField in the block header) is now supported.
- 2. A node restarted after aggregate pubkey update can now use the block tree db key to persist and retrieve the list of aggpubkeys instead of using `-reindex`
+ 2. A node restarted after aggregate pubkey update can now use the block tree db key to persist and retrieve the list of aggpubkeys instead of using `-reindex`.
  3. A new command line argument `-reloadxfield` is added to create the block tree db entry in older nodes while upgrading.
 
 *Token issue fee*
