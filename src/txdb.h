@@ -136,6 +136,7 @@ public:
     bool LoadBlockIndexGuts(std::function<CBlockIndex*(const uint256&)> insertBlockIndex);
     bool ReadXFieldAggpubkeys(std::vector<XFieldAggpubkey> & xFieldList);
     bool WriteXFieldAggpubkey(const XFieldAggpubkey & XFieldAggpubkey);
+    bool ResetXFieldAggpubkeys(std::vector<XFieldAggpubkey>& xFieldList);
 };
 
 #endif // BITCOIN_TXDB_H

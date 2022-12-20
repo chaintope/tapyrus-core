@@ -182,6 +182,13 @@ bool CBlockTreeDB::WriteXFieldAggpubkey(const XFieldAggpubkey& xFieldAggpubkey) 
     return Write(DB_XFIELD_AGGPUBKEY, xFieldList);
 }
 
+bool CBlockTreeDB::ResetXFieldAggpubkeys(std::vector<XFieldAggpubkey>& xFieldList) {
+    std::sort(xFieldList.begin(), xFieldList.end(), [](XFieldAggpubkey const& i, XFieldAggpubkey const& j)-> bool{ return i.height < j.height; } );
+    auto lastUnique = std::unique(xFieldList.begin(), xFieldList.end(), [](XFieldAggpubkey const& i, XFieldAggpubkey const& j)-> bool{ return i.height == j.height; } );
+    xFieldList.erase(lastUnique, xFieldList.end());
+    return Write(DB_XFIELD_AGGPUBKEY, xFieldList);
+}
+
 CCoinsViewCursor *CCoinsViewDB::Cursor() const
 {
     CCoinsViewDBCursor *i = new CCoinsViewDBCursor(const_cast<CDBWrapper&>(db).NewIterator(), GetBestBlock());

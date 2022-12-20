@@ -302,6 +302,11 @@ class FederationManagementTest(BitcoinTestFramework):
         self.start_node(0)
         connect_nodes(self.nodes[0], 1)
 
+        #restarting node0 to test presistance of aggpubkey change
+        self.stop_node(0)
+        self.start_node(0)
+        connect_nodes(self.nodes[0], 1)
+
         self.log.info("Simulate Blockchain Reorg  - After the last federation block")
         #B27 -- Create block with previous block hash = B26 - sign with aggpubkey3 -- success - block is accepted but there is no re-org
         block_time += 1
@@ -519,11 +524,15 @@ class FederationManagementTest(BitcoinTestFramework):
         self.stop_node(0)
         self.stop_node(1)
 
-        self.log.info("Restarting node with '-loadblock'")
+        # copy blocks directorry to other nodes to test -loadblock, -reindex and -reloadxfield
         shutil.copyfile(os.path.join(self.nodes[0].datadir, NetworkDirName(), 'blocks', 'blk00000.dat'), os.path.join(self.nodes[0].datadir, 'blk00000.dat'))
-        shutil.copyfile(os.path.join(self.nodes[0].datadir, NetworkDirName(), 'blocks', 'blk00000.dat'), os.path.join(self.nodes[1].datadir, 'blk00000.dat'))
+        os.mkdir(os.path.join(self.nodes[1].datadir, 'blocks'))
+        shutil.copyfile(os.path.join(self.nodes[0].datadir, NetworkDirName(), 'blocks', 'blk00000.dat'), os.path.join(self.nodes[1].datadir, 'blocks', 'blk00000.dat'))
+        os.mkdir(os.path.join(self.nodes[2].datadir, 'blocks'))
+        shutil.copyfile(os.path.join(self.nodes[0].datadir, NetworkDirName(), 'blocks', 'blk00000.dat'), os.path.join(self.nodes[2].datadir, 'blocks', 'blk00000.dat'))
         os.remove(os.path.join(self.nodes[0].datadir, NetworkDirName(), 'blocks', 'blk00000.dat'))
 
+        self.log.info("Restarting node0 with '-loadblock'")
         self.start_node(0, ["-loadblock=%s" % os.path.join(self.nodes[0].datadir, 'blk00000.dat'), "-reindex"])
         #reindex takes time. wait before checking blockchain info
         time.sleep(5)
@@ -534,11 +543,128 @@ class FederationManagementTest(BitcoinTestFramework):
         blockchaininfo = self.nodes[1].getblockchaininfo()
         assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
 
+        self.log.info("Starting node2 with '-reloadxfield'")
+        self.start_node(2, ["-reloadxfield"])
+        connect_nodes(self.nodes[2], 0)
+        connect_nodes(self.nodes[2], 1)
+        #reindex takes time. wait before checking blockchain info
+        time.sleep(5)
+        blockchaininfo = self.nodes[2].getblockchaininfo()
+        assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
+
         #finally add the new node to the newtork and check if it can synch
-        self.start_node(2)
         self.start_node(3)
         connect_nodes(self.nodes[1], 3)
+        connect_nodes(self.nodes[2], 3)
         self.sync_all([self.nodes[0:4]])
+        self.stop_node(3)
+
+        #B43 -- Create block on node2 - sign using aggpubkey1 -- success - chain is extended
+        block_time += 10
+        blocknew = create_block(int(self.tip, 16), create_coinbase(43), block_time)
+        blocknew.solve(self.aggprivkey[1])
+        self.nodes[1].submitblock(bytes_to_hex_str(blocknew.serialize()))
+        self.sync_all([self.nodes[0:2]])
+        self.tip = blocknew.hash
+        assert_equal(self.tip, node.getbestblockhash())
+        assert(node.getblock(self.tip))
+
+        blockoutofsync = []
+        #B44 out of sync -- Create block - sign using aggpubkey1 -- store for sending later
+        block_time += 1
+        blockoutofsync.append(create_block(int(self.tip, 16), create_coinbase(44), block_time))
+        blockoutofsync[0].solve(self.aggprivkey[1])
+        self.tip = blockoutofsync[0].hash
+
+        #B45 -- Create block on node1 - sign using aggpubkey1 -- success
+        block_time += 1
+        blockoutofsync.append(create_block(int(self.tip, 16), create_coinbase(45), block_time))
+        blockoutofsync[1].solve(self.aggprivkey[1])
+        self.tip = blockoutofsync[1].hash
+
+        #B46
+        block_time += 1
+        blockoutofsync.append(create_block(int(self.tip, 16), create_coinbase(46), block_time))
+        blockoutofsync[2].solve(self.aggprivkey[1])
+        self.tip = blockoutofsync[2].hash
+
+        #B47 -- Create block on node1 - sign using aggpubkey1 -- success
+        block_time += 1
+        blockoutofsync.append(create_block(int(self.tip, 16), create_coinbase(47), block_time))
+        blockoutofsync[3].solve(self.aggprivkey[1])
+        self.tip = blockoutofsync[3].hash
+
+        #B48
+        block_time += 1
+        blockoutofsync.append(create_block(int(self.tip, 16), create_coinbase(48), block_time))
+        blockoutofsync[4].solve(self.aggprivkey[1])
+        self.tip = blockoutofsync[4].hash
+
+        #B49 -- Create block on node1 - sign using aggpubkey1 -- success
+        block_time += 1
+        blocknew = create_block(int(self.tip, 16), create_coinbase(49), block_time)
+        blocknew.solve(self.aggprivkey[1])
+        self.tip = blocknew.hash
+
+        self.log.info("Sendig out of sync blocks to node1'")
+        #as submit block only accepts blocks in sequence try to submit many blocks
+        ret = self.nodes[1].submitblock(bytes_to_hex_str(blockoutofsync[0].serialize()))
+        ret = self.nodes[1].submitblock(bytes_to_hex_str(blockoutofsync[1].serialize()))
+        ret = self.nodes[1].submitblock(bytes_to_hex_str(blockoutofsync[2].serialize()))
+        ret = self.nodes[1].submitblock(bytes_to_hex_str(blockoutofsync[3].serialize()))
+        ret = self.nodes[1].submitblock(bytes_to_hex_str(blockoutofsync[4].serialize()))
+        ret = self.nodes[1].submitblock(bytes_to_hex_str(blocknew.serialize()))
+
+        #B50 -- Create block on nodes 0-2 - sign using aggpubkey1 -- success
+        block_time += 1
+        blocknew = create_block(int(self.tip, 16), create_coinbase(50), block_time)
+        blocknew.solve(self.aggprivkey[1])
+        self.tip = blocknew.hash
+        self.nodes[1].submitblock(bytes_to_hex_str(blocknew.serialize()))
+
+        self.sync_all([self.nodes[0:2]])
+        assert_equal(self.tip, node.getbestblockhash())
+        assert(node.getblock(self.tip))
+
+        os.mkdir(os.path.join(self.nodes[3].datadir, 'blocks'))
+        shutil.copyfile(os.path.join(self.nodes[1].datadir, NetworkDirName(), 'blocks', 'blk00000.dat'), os.path.join(self.nodes[3].datadir, 'blk00000.dat'))
+        shutil.copyfile(os.path.join(self.nodes[1].datadir, NetworkDirName(), 'blocks', 'blk00000.dat'), os.path.join(self.nodes[3].datadir,  NetworkDirName(), 'bootstrap.dat'))
+
+        #B51 -- Create block with aggpubkey5 - sign using aggpubkey1 -- success - aggpubkey5 is added to the list
+        block_time += 10
+        blocknew = create_block(int(self.tip, 16), create_coinbase(51), block_time, self.aggpubkeys[5])
+        blocknew.solve(self.aggprivkey[1])
+        self.nodes[1].submitblock(bytes_to_hex_str(blocknew.serialize()))
+        self.tip = blocknew.hash
+        assert_equal(self.tip, self.nodes[1].getbestblockhash())
+        assert(self.nodes[1].getblock(self.tip))
+
+        #B52 - B56 -- Generate 5 blocks - no aggpubkey -- chain becomes longer
+        self.forkblocks += self.nodes[1].generate(5, self.aggprivkey_wif[5])
+        self.tip = self.nodes[1].getbestblockhash()
+        best_block = self.nodes[1].getblock(self.tip)
+        self.sync_all([self.nodes[0:3]])
+
+        self.start_node(3, ["-reloadxfield", "-loadblock=%s" % os.path.join(self.nodes[3].datadir, 'blk00000.dat')])
+        #reindex takes time. wait before checking blockchain info
+        time.sleep(5)
+        connect_nodes(self.nodes[3], 0)
+
+        self.log.info("Verifying getblockchaininfo")
+        expectedAggPubKeys = [
+            { self.aggpubkeys[0] : 0},
+            { self.aggpubkeys[1] : 12},
+            { self.aggpubkeys[2] : 25},
+            { self.aggpubkeys[3] : 33},
+            { self.aggpubkeys[4] : 37},
+            { self.aggpubkeys[0] : 42},
+            { self.aggpubkeys[1] : 43},
+            { self.aggpubkeys[5] : 52},
+        ]
+        for n in self.nodes:
+            blockchaininfo = n.getblockchaininfo()
+            assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
+            assert_equal(blockchaininfo["blocks"], 56)
 
     def connectNodeAndCheck(self, n, expectedAggPubKeys):
         self.start_node(n)

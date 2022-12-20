@@ -2366,10 +2366,8 @@ bool CChainState::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, co
 
         // if the block was added successfully and it is a federation block,
         // make sure that the aggregatepubkey from this block is added to CFederationParams
-        bool xFieldValid(false), xFieldEqual(false);
-        xFieldEqual = blockConnecting.CheckXField(FederationParams().GetLatestAggregatePubkey(), xFieldValid);
-
-        if(xFieldValid && !xFieldEqual)
+        if(blockConnecting.isXFieldValid()
+            && !blockConnecting.isXFieldEqual(FederationParams().GetLatestAggregatePubkey()))
         {
             FederationParams().ReadAggregatePubkey(blockConnecting.xfield, blockConnecting.GetHeight() + 1);
             XFieldAggpubkey XFieldAggpubkey(blockConnecting.xfield, blockConnecting.GetHeight() + 1, blockConnecting.GetHash());
@@ -3269,11 +3267,9 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
         pindex = AddToBlockIndex(block);
 
     //if this header was valid and has an aggpubkey change remember it until we finish processing the headers message
-    bool xFieldValid(false), xFieldEqual(false);
-    if(aggPubkeys)
-       xFieldEqual = block.CheckXField(aggPubkeys->rbegin()->aggpubkey, xFieldValid);
-
-    if(xFieldValid && !xFieldEqual)
+    if(aggPubkeys
+        && block.isXFieldValid()
+        && !block.isXFieldEqual(aggPubkeys->rbegin()->aggpubkey))
     {
         AggPubkeyAndHeight x;
         x.aggpubkey = CPubKey(block.xfield.begin(), block.xfield.end());
@@ -4188,7 +4184,7 @@ bool LoadGenesisBlock()
     return g_chainstate.LoadGenesisBlock();
 }
 
-bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp)
+bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, std::vector<XFieldAggpubkey>* xFieldList)
 {
     // Map of disk positions for blocks with unknown parent (only used for reindex)
     static std::multimap<uint256, CDiskBlockPos> mapBlocksUnknownParent;
@@ -4253,6 +4249,14 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp)
                       CValidationState state;
                       if (g_chainstate.AcceptBlock(pblock, state, nullptr, true, dbp, nullptr, &aggPubkeys)) {
                           nLoaded++;
+
+                          // the purpose of this reindexing may be to correct xfield aggpubkey in leveldb if xFieldList is not null
+                          if(xFieldList && (TAPYRUS_XFIELDTYPES)pblock->xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY && pblock->GetHeight() > 0)
+                          {
+                            XFieldAggpubkey newXfield(pblock->xfield, pblock->GetHeight() + 1, hash);
+                            if(std::find(xFieldList->begin(), xFieldList->end(), newXfield) == xFieldList->end())
+                                xFieldList->push_back(newXfield);
+                          }
                       }
                       if (state.IsError()) {
                           break;
