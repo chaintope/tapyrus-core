@@ -6,7 +6,7 @@ Please report bugs using the issue tracker at github:
 
 Project source code is hosted at github; you can get
 source-only tarballs/zipballs directly from there:
-  https://github.com/chaintope/tapyrus-core/tarball/v0.5.2  # .tar.gz
+  https://github.com/chaintope/tapyrus-core/tarball/v0.5.2
 
 
 How to Upgrade
