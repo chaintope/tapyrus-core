@@ -50,6 +50,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <tapyrusmodes.h>
+#include <xfieldhistory.h>
 
 #ifndef WIN32
 #include <signal.h>
@@ -1222,6 +1223,9 @@ bool AppInitMain()
     }
     LogPrintf("Genesis Block [%s] of Tapyrus network [%s] Loaded successfully\n", FederationParams().GenesisBlock().GetHash().ToString(), FederationParams().NetworkIDString());
 
+    //initialize xfieldhistory as soon as genesis block is available
+    XFieldHistory xFieldHistory(FederationParams().GenesisBlock());
+
     InitSignatureCache();
     InitScriptExecutionCache();
 
@@ -1520,11 +1524,11 @@ bool AppInitMain()
                     if (!pindex)//block might not be in the best chain
                         continue;
 
+                // Step 7a: Load Xfield data from db
+                XFieldHistory xFieldHistory;
+                for(auto x : XFIELDTYPES_INIT_LIST)
+                    xFieldHistory.InitializeFromBlockDB(x, pblocktree.get());
 
-                    if(pindex->GetBlockHeader().isXFieldValid()
-                        && pindex->GetBlockHeader().isXFieldEqual(CPubKey(XFieldData.aggpubkey.begin(), XFieldData.aggpubkey.end())))
-                            FederationParams().ReadAggregatePubkey(XFieldData.aggpubkey, XFieldData.height);
-                }
                 if (!is_coinsview_empty) {
                     uiInterface.InitMessage(_("Verifying blocks..."));
                     if (fHavePruned && gArgs.GetArg("-checkblocks", DEFAULT_CHECKBLOCKS) > MIN_BLOCKS_TO_KEEP) {

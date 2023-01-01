@@ -20,6 +20,8 @@
 #define UEND(a)             ((unsigned char*)&((&(a))[1]))
 #define ARRAYLEN(array)     (sizeof(array)/sizeof((array)[0]))
 
+struct CXField;
+
 /** Used by SanitizeString() */
 enum SafeChars
 {
@@ -131,15 +133,6 @@ template<typename T>
 inline std::string HexStr(const T& vch, bool fSpaces=false)
 {
     return HexStr(vch.begin(), vch.end(), fSpaces);
-}
-template<>
-inline std::string HexStr(const CXField& in, bool fSpaces)
-{
-    if(in.xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY)
-        return std::string("1:")+HexStr(in.xfield.aggPubKey.begin(), in.xfield.aggPubKey.end(), fSpaces);
-    else if(in.xfieldType == TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE)
-        return std::string("2:")+HexStr(&in.xfield.maxBlockSize, &in.xfield.maxBlockSize+4, fSpaces);
-    return std::string();
 }
 
 /**

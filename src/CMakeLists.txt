@@ -150,6 +150,7 @@ add_library(common
         bench/bech32.cpp
         bech32.cpp
         coloridentifier.cpp
+        xfieldhistory.cpp
         )
 
 target_link_libraries(common util secp256k1)

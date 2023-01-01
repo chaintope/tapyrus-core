@@ -17,6 +17,7 @@
 #include <rpc/server.h>
 #include <rpc/register.h>
 #include <script/sigcache.h>
+#include <xfieldhistory.h>
 
 constexpr unsigned int CPubKey::SCHNORR_SIGNATURE_SIZE;
 
@@ -63,6 +64,7 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
     writeTestGenesisBlockToFile(GetDataDir());
     SelectFederationParams(TAPYRUS_OP_MODE::PROD);
     noui_connect();
+    XFieldHistory xFieldHistory(FederationParams().GenesisBlock());
 }
 
 BasicTestingSetup::~BasicTestingSetup()
@@ -182,9 +184,13 @@ TestChainSetup::CreateAndProcessBlock(const std::vector<CMutableTransaction>& tx
         unsigned int extraNonce = 0;
         IncrementExtraNonce(&block, chainActive.Tip(), extraNonce);
     }
+    XFieldHistory xFieldHistory;
+    XFieldAggPubKey aggpubkeyChange;
+    xFieldHistory.GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+    CPubKey aggpubkey(aggpubkeyChange.getPubKey());
     std::vector<unsigned char> blockProof;
     createSignedBlockProof(pblocktemplate->block, blockProof);
-    block.AbsorbBlockProof(blockProof, FederationParams().GetLatestAggregatePubkey());
+    block.AbsorbBlockProof(blockProof, aggpubkey);
 
     std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(block);
     ProcessNewBlock(shared_pblock, true, nullptr);

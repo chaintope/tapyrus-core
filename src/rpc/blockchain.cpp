@@ -20,6 +20,7 @@
 #include <policy/feerate.h>
 #include <policy/policy.h>
 #include <primitives/transaction.h>
+#include <primitives/xfield.h>
 #include <rpc/server.h>
 #include <script/descriptor.h>
 #include <streams.h>
@@ -31,6 +32,7 @@
 #include <hash.h>
 #include <validationinterface.h>
 #include <warnings.h>
+#include <xfieldhistory.h>
 
 #include <assert.h>
 #include <stdint.h>
@@ -72,7 +74,7 @@ UniValue blockheaderToJSON(const CBlockIndex* blockindex)
     result.pushKV("time", (int64_t)blockindex->nTime);
     result.pushKV("mediantime", (int64_t)blockindex->GetMedianTimePast());
     result.pushKV("nTx", (uint64_t)blockindex->nTx);
-    result.pushKV("xfield", HexStr(blockindex->xfield));
+    result.pushKV("xfield", blockindex->xfield.ToString());
     result.pushKV("proof", HexStr(blockindex->proof));
 
     if (blockindex->pprev)
@@ -114,7 +116,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
     result.pushKV("tx", txs);
     result.pushKV("time", block.GetBlockTime());
     result.pushKV("mediantime", (int64_t)blockindex->GetMedianTimePast());
-    result.pushKV("xfield", HexStr(blockindex->xfield));
+    result.pushKV("xfield", blockindex->xfield.ToString());
     result.pushKV("proof", HexStr(block.GetBlockHeader().proof));
     result.pushKV("nTx", (uint64_t)blockindex->nTx);
 
@@ -1127,31 +1129,15 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
             obj.pushKV("prune_target_size",  nPruneTarget);
         }
     }
-    //aggregate pubkey list with block height
-    UniValue aggPubkeyList(UniValue::VARR);
-    const std::vector<AggPubkeyAndHeight>& aggregatePubkeyHeightList = FederationParams().GetAggregatePubkeyHeightList();
-    for (auto& aggpubkeyPair : aggregatePubkeyHeightList)
+    //aggregate pubkey list with block height and block hash
+    UniValue xFieldChangeList(UniValue::VARR);
+    XFieldHistory xFieldHistory;
+    for(auto x : XFIELDTYPES_INIT_LIST)
     {
-        UniValue aggPubkeyObj(UniValue::VOBJ);
-        aggPubkeyObj.pushKV(HexStr(aggpubkeyPair.aggpubkey.begin(), aggpubkeyPair.aggpubkey.end()), (int)aggpubkeyPair.height);
-        aggPubkeyList.push_back(aggPubkeyObj);
+        xFieldHistory.ToUniValue(x, &xFieldChangeList);
+        obj.pushKV(GetXFieldNameForRpc(x), xFieldChangeList);
     }
-    obj.pushKV("aggregatePubkeys", aggPubkeyList);
 
-    UniValue maxBlockSizeList(UniValue::VARR);
-    const std::vector<XFieldChange>* maxBlockSizeHeightList = FederationParams().GetMaxBlockSizeHeightList();
-    if(maxBlockSizeHeightList != nullptr)
-    {
-        for (auto& maxBlockSizeHeightPair : *maxBlockSizeHeightList)
-        {
-            UniValue maxBlockSizeObj(UniValue::VOBJ);
-            std::stringstream ss;
-            ss << maxBlockSizeHeightPair.xfield.xfield.maxBlockSize;
-            maxBlockSizeObj.pushKV(ss.str(), (uint64_t)maxBlockSizeHeightPair.height);
-            maxBlockSizeList.push_back(maxBlockSizeObj);
-        }
-        obj.pushKV("blockSizeChanges", maxBlockSizeList);
-    }
     obj.pushKV("warnings", GetWarnings("statusbar"));
     return obj;
 }
@@ -1374,9 +1360,6 @@ static UniValue invalidateblock(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
         }
 
-        if((pblockindex->xfield.xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY && pblockindex->xfield.xfield.aggPubKey.size()  == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE) || pblockindex->nHeight <= FederationParams().GetHeightFromAggregatePubkey(FederationParams().GetLatestAggregatePubkey()))
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Federation block found");
-
         InvalidateBlock(state, pblockindex);
     }
 
@@ -1415,9 +1398,6 @@ static UniValue reconsiderblock(const JSONRPCRequest& request)
         if (!pblockindex) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
         }
-
-        if((pblockindex->xfield.xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY && pblockindex->xfield.xfield.aggPubKey.size()  == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE) || pblockindex->nHeight <= FederationParams().GetHeightFromAggregatePubkey(FederationParams().GetLatestAggregatePubkey()))
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Federation block found");
 
         ResetBlockFailureFlags(pblockindex);
     }

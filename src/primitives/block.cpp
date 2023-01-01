@@ -20,13 +20,13 @@ uint256 CBlockHeader::GetHash() const
 std::string CBlockHeader::ToString() const
 {
     std::stringstream s;
-    s << strprintf("CBlockHeader(nFeatures=0x%08x, hashPrevBlock=%s, hashMerkleRoot=%s, hashImMerkleRoot=%s, nTime=%u, xfield=%s, proof={%s})) hash=%s",
+    s << strprintf("CBlockHeader(nFeatures=0x%08x, hashPrevBlock=%s, hashMerkleRoot=%s, hashImMerkleRoot=%s, nTime=%u, xfield=[%s], proof={%s})) hash=%s",
                    nFeatures,
                    hashPrevBlock.ToString(),
                    hashMerkleRoot.ToString(),
                    hashImMerkleRoot.ToString(),
                    nTime,
-                   HexStr(xfield),
+                   xfield.ToString(),
                    HexStr(proof),
                    GetHash().ToString());
     return s.str();
@@ -40,14 +40,14 @@ uint256 CBlockHeaderWithoutProof::GetHashForSign() const
 std::string CBlock::ToString() const
 {
     std::stringstream s;
-    s << strprintf("CBlock(hash=%s, nFeatures=0x%08x, hashPrevBlock=%s, hashMerkleRoot=%s, hashImMerkleRoot=%s, nTime=%u, xfield=%s, proof={%s} vtx=%u)\n",
+    s << strprintf("CBlock(hash=%s, nFeatures=0x%08x, hashPrevBlock=%s, hashMerkleRoot=%s, hashImMerkleRoot=%s, nTime=%u, xfield=[%s], proof={%s} vtx=%u)\n",
         GetHash().ToString(),
         nFeatures,
         hashPrevBlock.ToString(),
         hashMerkleRoot.ToString(),
         hashImMerkleRoot.ToString(),
         nTime,
-        HexStr(xfield),
+        xfield.ToString(),
         HexStr(proof),
         vtx.size());
         for (const auto& tx : vtx) {

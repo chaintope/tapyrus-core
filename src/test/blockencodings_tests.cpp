@@ -7,6 +7,7 @@
 #include <consensus/merkle.h>
 #include <chainparams.h>
 #include <random.h>
+#include <xfieldhistory.h>
 
 #include <test/test_tapyrus.h>
 
@@ -53,9 +54,13 @@ static CBlock BuildBlockTestCase() {
     assert(!mutated);
 
     //create proof
+    XFieldHistory xFieldHistory;
+    XFieldAggPubKey aggpubkeyChange;
+    xFieldHistory.GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+    CPubKey aggpubkey(aggpubkeyChange.getPubKey());
     std::vector<unsigned char> blockProof;
     createSignedBlockProof(block, blockProof);
-    block.AbsorbBlockProof(blockProof, FederationParams().GetLatestAggregatePubkey());
+    block.AbsorbBlockProof(blockProof,aggpubkey);
     return block;
 }
 
@@ -310,10 +315,15 @@ BOOST_AUTO_TEST_CASE(EmptyBlockRoundTripTest)
     block.hashMerkleRoot = BlockMerkleRoot(block, &mutated);
     block.hashImMerkleRoot = BlockMerkleRoot(block, &mutated, true);
     assert(!mutated);
+
     //create proof
+    XFieldHistory xFieldHistory;
+    XFieldAggPubKey aggpubkeyChange;
+    xFieldHistory.GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+    CPubKey aggpubkey(aggpubkeyChange.getPubKey());
     std::vector<unsigned char> blockProof;
     createSignedBlockProof(block, blockProof);
-    block.AbsorbBlockProof(blockProof, FederationParams().GetLatestAggregatePubkey());
+    block.AbsorbBlockProof(blockProof, aggpubkey);
 
     // Test simple header round-trip with only coinbase
     {

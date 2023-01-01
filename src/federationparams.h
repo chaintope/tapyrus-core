@@ -23,15 +23,6 @@ struct SeedSpec6 {
     uint16_t port;
 };
 
-struct AggPubkeyAndHeight {
-    CPubKey aggpubkey;
-    uint32_t height;
-};
-
-struct maxBlockSizeAndHeight {
-    int64_t maxBlockSize;
-    uint64_t height;
-};
 
 /**
  * CFederationParams defines the base parameters (shared between bitcoin-cli and bitcoind)
@@ -42,16 +33,6 @@ class CFederationParams
 public:
     std::string NetworkIDString() const { return strNetworkID; }
     const CMessageHeader::MessageStartChars& MessageStart() const { return pchMessageStart; }
-    /**
-     * Parse aggPubkey in block header.
-     */
-    CPubKey ReadAggregatePubkey(const std::vector<unsigned char>& pubkey, uint64_t height) const;
-    const std::vector<AggPubkeyAndHeight>& GetAggregatePubkeyHeightList() const { return aggregatePubkeyHeight; }
-    const CPubKey& GetLatestAggregatePubkey() const { return aggregatePubkeyHeight.back().aggpubkey; }
-
-    int32_t ReadMaxBlockSize(const int32_t maxBlockSize, uint32_t height) const;
-    const std::vector<XFieldChange>* GetMaxBlockSizeHeightList() const;
-    void RemoveMaxBlockSize(uint32_t height) const;
 
     bool ReadGenesisBlock(std::string genesisHex);
     const CBlock& GenesisBlock() const { return genesis; }
@@ -59,9 +40,6 @@ public:
     const std::vector<SeedSpec6>& FixedSeeds() const { return vFixedSeeds; }
     /** Return the list of hostnames to look up for DNS seeds */
     const std::vector<std::string>& DNSSeeds() const { return vSeeds; }
-    uint32_t GetHeightFromAggregatePubkey(const CPubKey &aggpubkey) const;
-    CPubKey GetAggPubkeyFromHeight(uint32_t height) const;
-    uint32_t GetMaxBlockSizeFromHeight(uint32_t height) const;
 
     CFederationParams();
     CFederationParams(const uint32_t networkId, const std::string dataDirName, const std::string genesisHex);
@@ -71,7 +49,6 @@ private:
     CMessageHeader::MessageStartChars pchMessageStart;
     std::string strNetworkID;
     std::string dataDir;
-    mutable std::vector<AggPubkeyAndHeight> aggregatePubkeyHeight;
     CBlock genesis;
     std::vector<std::string> vSeeds;
     std::vector<SeedSpec6> vFixedSeeds;

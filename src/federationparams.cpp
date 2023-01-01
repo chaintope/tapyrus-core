@@ -15,6 +15,7 @@
 #include <tapyrusmodes.h>
 #include <chainparamsseeds.h>
 #include <validation.h>
+#include <xfieldhistory.h>
 
 #include <assert.h>
 
@@ -70,7 +71,7 @@ CBlock createGenesisBlock(const CPubKey& aggregatePubkey, const CKey& privateKey
     genesis.hashMerkleRoot = BlockMerkleRoot(genesis);
     genesis.hashImMerkleRoot = BlockMerkleRoot(genesis, nullptr, true);
     genesis.xfield.xfieldType = TAPYRUS_XFIELDTYPES::AGGPUBKEY;
-    genesis.xfield.xfield.aggPubKey = std::vector<unsigned char>(aggregatePubkey.data(), aggregatePubkey.data() + CPubKey::COMPRESSED_PUBLIC_KEY_SIZE);
+    genesis.xfield.xfieldValue = XFieldAggPubKey(std::vector<unsigned char>(aggregatePubkey.begin(), aggregatePubkey.end()));
 
     //Genesis block proof
     uint256 blockHash = genesis.GetHashForSign();
@@ -138,46 +139,11 @@ CFederationParams::CFederationParams(const uint32_t networkId, const std::string
     pchMessageStart[3] = stream[0];
 
     if(genesisHex.size())
-        ReadGenesisBlock(genesisHex);
+        this->ReadGenesisBlock(genesisHex);
 
     vSeeds = gArgs.GetArgs("-addseeder");
 
     vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_main, pnSeed6_main + ARRAYLEN(pnSeed6_main));
-}
-
-CPubKey CFederationParams::ReadAggregatePubkey(const std::vector<unsigned char>& pubkey, uint32_t height) const
-{
-    if(!pubkey.size())
-        throw std::runtime_error("Aggregate Public Key for Signed Block is empty");
-    
-    if (pubkey[0] == 0x02 || pubkey[0] == 0x03) {
-        AggPubkeyAndHeight p;
-        p.aggpubkey = CPubKey(pubkey.begin(), pubkey.end());
-        p.height = height;
-        if(!p.aggpubkey.IsFullyValid()) {
-            throw std::runtime_error(strprintf("Aggregate Public Key for Signed Block is invalid: %s", HexStr(pubkey)));
-        }
-
-        if (aggPubKey.size() != CPubKey::COMPRESSED_PUBLIC_KEY_SIZE) {
-            throw std::runtime_error(strprintf("Aggregate Public Key for Signed Block is invalid: %s", HexStr(pubkey)));
-        }
-        if(height && GetAggPubkeyFromHeight(height) == p.aggpubkey)
-            return p.aggpubkey;
-
-        aggregatePubkeyHeight.push_back(p);
-        return p.aggpubkey;
-
-    } else if(pubkey[0] == 0x04 || pubkey[0] == 0x06 || pubkey[0] == 0x07) {
-        throw std::runtime_error(strprintf("Uncompressed public key format are not acceptable: %s", HexStr(pubkey)));
-    } else {
-        throw std::runtime_error(strprintf("Aggregate Public Key for Signed Block is invalid: %s", HexStr(pubkey)));
-    }
-}
-
-int32_t CFederationParams::ReadMaxBlockSize(const int32_t maxBlockSize, uint32_t height) const
-{
-    XFieldChangeHeight[TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE].push_back(XFieldChange{CXField(maxBlockSize), height});
-    return maxBlockSize;
 }
 
 bool CFederationParams::ReadGenesisBlock(std::string genesisHex)
@@ -188,9 +154,9 @@ bool CFederationParams::ReadGenesisBlock(std::string genesisHex)
 
     switch(genesis.xfield.xfieldType)
     {
-        case TAPYRUS_XFIELDTYPES::AGGPUBKEY:
-            ReadAggregatePubkey(genesis.xfield.xfield.aggPubKey, 0);
-            break;
+        case TAPYRUS_XFIELDTYPES::AGGPUBKEY: {
+            std::vector<unsigned char>* pubkey = &boost::get<XFieldAggPubKey>(genesis.xfield.xfieldValue).data; break;
+        }
         case TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE:
         case TAPYRUS_XFIELDTYPES::NONE:
         default:
@@ -222,78 +188,13 @@ bool CFederationParams::ReadGenesisBlock(std::string genesisHex)
 
     //verify proof
     const uint256 blockHash = genesis.GetHashForSign();
-    CPubKey aggPubKeyToVerify(XFieldChangeHeight[TAPYRUS_XFIELDTYPES::AGGPUBKEY].back().xfield.xfield.aggPubKey);
+    XFieldHistory xfieldhistory(genesis);
+    XFieldAggPubKey xfieldAggPubKey;
+    xfieldhistory.GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, xfieldAggPubKey);
+    CPubKey aggPubKeyToVerify(xfieldAggPubKey.getPubKey());
     if(!aggPubKeyToVerify.Verify_Schnorr(blockHash, genesis.proof))
         throw std::runtime_error("ReadGenesisBlock: Proof verification failed");
 
     return true;
 }
 
-uint32_t CFederationParams::GetHeightFromAggregatePubkey(const CPubKey &aggpubkey) const
-{
-    for (auto& c : XFieldChangeHeight[TAPYRUS_XFIELDTYPES::AGGPUBKEY]) {
-        if (CPubKey(c.xfield.xfield.aggPubKey) == aggpubkey)
-            return c.height;
-    }
-    return -1;
-}
-
-CPubKey CFederationParams::GetAggPubkeyFromHeight(uint32_t height) const
-{
-    const std::vector<XFieldChange>& listofXfieldChanges = XFieldChangeHeight[TAPYRUS_XFIELDTYPES::AGGPUBKEY];
-
-    if(height == 0 || listofXfieldChanges.size() == 1)
-        return CPubKey(listofXfieldChanges.at(0).xfield.xfield.aggPubKey); 
-
-    if(height < 0 || height > listofXfieldChanges.back().height)
-        return CPubKey(listofXfieldChanges.back().xfield.xfield.aggPubKey);
-
-    for(unsigned int i = 0; i < listofXfieldChanges.size(); i++) {
-        if(height == listofXfieldChanges.at(i).height || (listofXfieldChanges.at(i).height < height && height < listofXfieldChanges.at(i+1).height))
-            return CPubKey(listofXfieldChanges.at(i).xfield.xfield.aggPubKey);
-    }
-    return CPubKey(listofXfieldChanges.back().xfield.xfield.aggPubKey);
-}
-
-uint32_t CFederationParams::GetMaxBlockSizeFromHeight(uint32_t height) const
-{
-    if(XFieldChangeHeight.find(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE) == XFieldChangeHeight.end())
-        return MAX_BLOCK_SIZE;
-
-    const std::vector<XFieldChange>& listofXfieldChanges = XFieldChangeHeight[TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE];
-
-    if(listofXfieldChanges.empty())
-        return MAX_BLOCK_SIZE;
-
-    if(height == 0 || listofXfieldChanges.size() == 1)
-        return listofXfieldChanges.at(0).xfield.xfield.maxBlockSize;
-
-    if(height < 0 || height > listofXfieldChanges.back().height)
-        return listofXfieldChanges.back().xfield.xfield.maxBlockSize;
-
-    for(unsigned int i = 0; i < listofXfieldChanges.size(); i++) {
-        if(height == listofXfieldChanges.at(i).height || (listofXfieldChanges.at(i).height < height && height < listofXfieldChanges.at(i+1).height))
-            return listofXfieldChanges.at(i).xfield.xfield.maxBlockSize;
-    }
-    return listofXfieldChanges.back().xfield.xfield.maxBlockSize;
-}
-
-const std::vector<XFieldChange>* CFederationParams::GetMaxBlockSizeHeightList() const
-{
-    if(XFieldChangeHeight.find(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE) == XFieldChangeHeight.end())
-        return nullptr;
-    return &XFieldChangeHeight[TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE];
-}
-
-void CFederationParams::RemoveMaxBlockSize(uint32_t height) const
-{
-    if(XFieldChangeHeight.find(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE) == XFieldChangeHeight.end())
-        return;
-    std::vector<XFieldChange>& list = XFieldChangeHeight[TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE];
-
-    if(list.size() == 1 && list.begin()->height == height)
-        XFieldChangeHeight.erase(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE);
-
-    if(list.size() > 1 && list.rbegin()->height == height)
-        list.resize(list.size() - 1 );
-}

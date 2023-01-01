@@ -14,6 +14,7 @@
 #include <validation.h>
 #include <validation.cpp>
 #include <validationinterface.h>
+#include <xfieldhistory.h>
 
 struct RegtestingSetup : public TestingSetup {
     RegtestingSetup() : TestingSetup(TAPYRUS_MODES::DEV) {}
@@ -75,9 +76,13 @@ std::shared_ptr<CBlock> FinalizeBlock(std::shared_ptr<CBlock> pblock)
     pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
     pblock->hashImMerkleRoot = BlockMerkleRoot(*pblock, nullptr, true);
 
+    XFieldHistory xFieldHistory;
+    XFieldAggPubKey aggpubkeyChange;
+    xFieldHistory.GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+    CPubKey aggpubkey(aggpubkeyChange.getPubKey());
     std::vector<unsigned char> blockProof;
     createSignedBlockProof(*pblock, blockProof);
-    pblock->AbsorbBlockProof(blockProof, FederationParams().GetLatestAggregatePubkey());
+    pblock->AbsorbBlockProof(blockProof, aggpubkey);
     BOOST_CHECK_EQUAL(pblock->proof.size(), blockProof.size());
     return pblock;
 }

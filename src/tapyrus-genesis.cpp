@@ -17,6 +17,7 @@
 #include <tinyformat.h>
 #include <script/standard.h>
 #include <stdio.h>
+#include <xfieldhistory.h>
 
 static const int CONTINUE_EXECUTION=-1;
 
@@ -106,7 +107,11 @@ static int generateNewKeyPair()
 
 static int generateGenesis(CKey& privatekey, long long blockTime, std::string& payToAddress)
 {
-    CBlock genesis { createGenesisBlock(FederationParams().GetLatestAggregatePubkey(), privatekey, blockTime, payToAddress) };
+    XFieldHistory xFieldHistory;
+    XFieldAggPubKey aggpubkeyChange;
+    xFieldHistory.GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+
+    CBlock genesis { createGenesisBlock(aggpubkeyChange.getPubKey(), privatekey, blockTime, payToAddress) };
 
     // check validity
     CValidationState state;
@@ -135,10 +140,15 @@ static int CommandLine()
         return EXIT_FAILURE;
     }
 
+    XFieldHistory xFieldHistory;
+    CPubKey aggpubkey;
     try {
         std::string pubkey = gArgs.GetArg("-signblockpubkey", "");
         if(pubkey.size())
-            FederationParams().ReadAggregatePubkey(ParseHex(pubkey), 0);
+        {
+            std::vector<unsigned char> key( ParseHex(pubkey) );
+            aggpubkey = CPubKey(key.begin(), key.end());
+        }
     } catch (const std::exception& e) {
         fprintf(stderr, "Error: %s\n", e.what());
         return EXIT_FAILURE;
@@ -149,6 +159,12 @@ static int CommandLine()
     if(wif.size() && !privatekey.IsValid())
     {
         fprintf(stderr, "Error: Aggregate private key was invalid.\n");
+        return EXIT_FAILURE;
+    }
+
+    if(aggpubkey != privatekey.GetPubKey())
+    {
+        fprintf(stderr, "Error: Aggregate private key does not correspond to given Aggregate public key.\n");
         return EXIT_FAILURE;
     }
 
