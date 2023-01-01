@@ -18,6 +18,7 @@
 #include <uint256.h>
 #include <util.h>
 #include <utilstrencodings.h>
+#include <xfieldhistory.h>
 
 #include <test/test_tapyrus.h>
 #include <test/test_keys_helper.h>
@@ -139,9 +140,13 @@ static void CreateBlocks(const CChainParams &chainparams,
             pblock->hashImMerkleRoot = BlockMerkleRoot(*pblock, nullptr, true);
             
             //block proof
+            XFieldHistory xFieldHistory;
+            XFieldAggPubKey aggpubkeyChange;
+            xFieldHistory.GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+            CPubKey aggpubkey(aggpubkeyChange.getPubKey());
             std::vector<unsigned char> blockProof;
             createSignedBlockProof(*pblock, blockProof);
-            pblock->AbsorbBlockProof(blockProof, FederationParams().GetLatestAggregatePubkey());
+            pblock->AbsorbBlockProof(blockProof, aggpubkey);
             BOOST_CHECK_EQUAL(pblock->proof.size(), 64);
         }
         std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(*pblock);
@@ -156,9 +161,13 @@ static void CreateBlocks(const CChainParams &chainparams,
     BOOST_CHECK_EQUAL(pblocktemplate->block.GetHeight(), chainActive.Height());
     BOOST_CHECK(pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey));
 
+    XFieldHistory xFieldHistory;
+    XFieldAggPubKey aggpubkeyChange;
+    xFieldHistory.GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+    CPubKey aggpubkey(aggpubkeyChange.getPubKey());
     std::vector<unsigned char> blockProof;
     createSignedBlockProof(pblocktemplate->block, blockProof);
-    pblocktemplate->block.AbsorbBlockProof(blockProof, FederationParams().GetLatestAggregatePubkey());
+    pblocktemplate->block.AbsorbBlockProof(blockProof, aggpubkey);
     BOOST_CHECK_EQUAL(pblocktemplate->block.proof.size(), CPubKey::SCHNORR_SIGNATURE_SIZE);
 
     BOOST_CHECK_EQUAL(pblocktemplate->block.GetHeight(), chainActive.Height()+1); //+1 as the new block is not added to active chain yet

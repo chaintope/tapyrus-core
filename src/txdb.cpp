@@ -13,6 +13,7 @@
 #include <uint256.h>
 #include <util.h>
 #include <ui_interface.h>
+#include <xfieldhistory.h>
 
 #include <stdint.h>
 
@@ -170,23 +171,24 @@ bool CBlockTreeDB::ReadLastBlockFile(int &nFile) {
     return Read(DB_LAST_BLOCK, nFile);
 }
 
-bool CBlockTreeDB::ReadXFieldAggpubkeys(std::vector<XFieldAggpubkey> & xFieldList) {
-    return Read(DB_XFIELD_AGGPUBKEY, xFieldList);
+bool CBlockTreeDB::ReadXFieldAggpubkeys(std::vector<XFieldChange>& xFieldList) {
+    return ReadXField(XFieldAggPubKey::BLOCKTREE_DB_KEY, xFieldList);
+}
+bool CBlockTreeDB::ReadXFieldMaxBlockSize(std::vector<XFieldChange>& xFieldList) {
+    return ReadXField(XFieldMaxBlockSize::BLOCKTREE_DB_KEY, xFieldList);
+}
+bool CBlockTreeDB::ReadXField(char key, std::vector<XFieldChange>& xFieldList) {
+    return Read(key, xFieldList);
 }
 
-bool CBlockTreeDB::WriteXFieldAggpubkey(const XFieldAggpubkey& xFieldAggpubkey) {
-    std::vector<XFieldAggpubkey> xFieldList;
-    Read(DB_XFIELD_AGGPUBKEY, xFieldList);
-    if(std::find(xFieldList.begin(), xFieldList.end(), xFieldAggpubkey) == xFieldList.end())
-        xFieldList.push_back(xFieldAggpubkey);
-    return Write(DB_XFIELD_AGGPUBKEY, xFieldList);
-}
-
-bool CBlockTreeDB::ResetXFieldAggpubkeys(std::vector<XFieldAggpubkey>& xFieldList) {
-    std::sort(xFieldList.begin(), xFieldList.end(), [](XFieldAggpubkey const& i, XFieldAggpubkey const& j)-> bool{ return i.height < j.height; } );
-    auto lastUnique = std::unique(xFieldList.begin(), xFieldList.end(), [](XFieldAggpubkey const& i, XFieldAggpubkey const& j)-> bool{ return i.height == j.height; } );
-    xFieldList.erase(lastUnique, xFieldList.end());
-    return Write(DB_XFIELD_AGGPUBKEY, xFieldList);
+template <typename T>
+bool CBlockTreeDB::WriteXFieldAggpubkey(const XFieldChange& xFieldChange) {
+    std::vector<XFieldChange> xFieldList;
+    const char key = boost::get<T>(xFieldChange.xfieldValue).BLOCKTREE_DB_KEY;
+    ReadXField(key, xFieldList);
+    if(std::find(xFieldList.begin(), xFieldList.end(), xFieldChange) == xFieldList.end())
+        xFieldList.push_back(xFieldChange);
+    return Write(key, xFieldList);
 }
 
 CCoinsViewCursor *CCoinsViewDB::Cursor() const

@@ -199,6 +199,7 @@ BITCOIN_CORE_H = \
   wallet/walletutil.h \
   wallet/coinselection.h \
   warnings.h \
+  xfieldhistory.h \
   zmq/zmqabstractnotifier.h \
   zmq/zmqconfig.h\
   zmq/zmqnotificationinterface.h \
@@ -352,6 +353,8 @@ libtapyrus_consensus_a_SOURCES = \
   primitives/block.h \
   primitives/transaction.cpp \
   primitives/transaction.h \
+  primitives/xfield.cpp \
+  primitives/xfield.h \
   pubkey.cpp \
   pubkey.h \
   script/tapyrusconsensus.cpp \
@@ -397,6 +400,7 @@ libtapyrus_common_a_SOURCES = \
   script/sign.cpp \
   script/standard.cpp \
   warnings.cpp \
+  xfieldhistory.cpp \
   $(BITCOIN_CORE_H)
 
 # util: shared between all executables.
