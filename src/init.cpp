@@ -1,4 +1,4 @@
-// Copyright (c) 2009-2010 Satoshi Nakamoto
+ // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2018 The Bitcoin Core developers
 // Copyright (c) 2018-2021 Chaintope Inc.
 // Distributed under the MIT software license, see the accompanying
@@ -1226,6 +1226,9 @@ bool AppInitMain()
     }
     LogPrintf("Genesis Block [%s] of Tapyrus network [%s] Loaded successfully\n", FederationParams().GenesisBlock().GetHash().ToString(), FederationParams().NetworkIDString());
 
+    //initialize xfieldhistory as soon as genesis block is available
+    XFieldHistory xFieldHistory(FederationParams().GenesisBlock());
+
     InitSignatureCache();
     InitScriptExecutionCache();
 
@@ -1514,16 +1517,11 @@ bool AppInitMain()
                         break;
                     }
                 }
+
                 // Step 7a: Load Xfield data from db
-                CXFieldHistory xFieldHistory;
+                XFieldHistory xFieldHistory;
                 for(auto x : XFIELDTYPES_INIT_LIST)
-                {
-                    const char key(std::to_string(static_cast<int8_t>(x))[0]);
-                    XFieldChangeListWrapper xFieldListDB(key);
-                    pblocktree->ReadXField(key, xFieldListDB);
-                    for(auto &XFieldDB:xFieldListDB)
-                        xFieldHistory.Add(x, XFieldDB);
-                }
+                    xFieldHistory.InitializeFromBlockDB(x, pblocktree.get());
 
                 if (!is_coinsview_empty) {
                     uiInterface.InitMessage(_("Verifying blocks..."));
