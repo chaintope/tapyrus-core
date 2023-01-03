@@ -165,8 +165,8 @@ public:
      * If a block header hasn't already been seen, call CheckBlockHeader on it, ensure
      * that it doesn't descend from an invalid block, and then add it to mapBlockIndex.
      */
-    bool AcceptBlockHeader(const CBlockHeader& block, CValidationState& state, CBlockIndex** ppindex) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
-    bool AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CValidationState& state, CBlockIndex** ppindex, bool fRequested, const CDiskBlockPos* dbp, bool* fNewBlock) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    bool AcceptBlockHeader(const CBlockHeader& block, CValidationState& state, CBlockIndex** ppindex, std::vector<AggPubkeyAndHeight>* aggPubkeys = nullptr) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    bool AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CValidationState& state, CBlockIndex** ppindex, bool fRequested, const CDiskBlockPos* dbp, bool* fNewBlock, std::vector<AggPubkeyAndHeight>* aggPubkeys = nullptr) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     // Block (dis)connection on a given view:
     DisconnectResult DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view);
@@ -1047,10 +1047,10 @@ static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, 
             if(iter == inColoredCoinBalances.end())
             {
                 //if TPC input is sufficiently large this is a token issue. 
-                if(tpcin < 0 || tpcin - tpcout - ::minRelayTxFee.GetFee(nSize) < 1)
+                if(tpcin < 0 || tpcin - tpcout - ::minRelayTxFee.GetFee(nSize) < 0)
                     return state.Invalid(false, REJECT_INSUFFICIENTFEE, "bad-txns-token-insufficient");
             }
-            //output valus is more than input
+            //output value is more than input
             else if(out.second > iter->second)
             {
                 return state.Invalid(false, REJECT_INVALID, "bad-txns-token-balance");
@@ -1173,7 +1173,7 @@ bool GetTransaction(const uint256& hash, CTransactionRef& txOut, const Consensus
 
 //declaration for compilation
 
-static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, int nHeight = -1, bool fCheckPOW = true);
+static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,  std::vector<AggPubkeyAndHeight>* aggPubkeys = nullptr, int nHeight = -1, bool fCheckPOW = true);
 
 
 
@@ -1222,7 +1222,7 @@ bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, int nHeight)
     }
 
     CValidationState state;
-    if(!CheckBlockHeader(block.GetBlockHeader(), state, nHeight, true))
+    if(!CheckBlockHeader(block.GetBlockHeader(), state, nullptr, nHeight, true))
         return error("%s: ReadBlockFromDisk: %s nHeight = %d", __func__, FormatStateMessage(state), nHeight);
 
     return true;
@@ -2366,8 +2366,13 @@ bool CChainState::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, co
 
         // if the block was added successfully and it is a federation block,
         // make sure that the aggregatepubkey from this block is added to CFederationParams
-        if(blockConnecting.xfieldType == 1 && blockConnecting.xfield.size() == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE && (CPubKey(blockConnecting.xfield.begin(), blockConnecting.xfield.end()) != FederationParams().GetLatestAggregatePubkey()))
+        if(blockConnecting.isXFieldValid()
+            && !blockConnecting.isXFieldEqual(FederationParams().GetLatestAggregatePubkey()))
+        {
             FederationParams().ReadAggregatePubkey(blockConnecting.xfield, blockConnecting.GetHeight() + 1);
+            XFieldAggpubkey XFieldAggpubkey(blockConnecting.xfield, blockConnecting.GetHeight() + 1, blockConnecting.GetHash());
+            pblocktree->WriteXFieldAggpubkey(XFieldAggpubkey);
+        }
 
         nTime3 = GetTimeMicros(); nTimeConnectTotal += nTime3 - nTime2;
         LogPrint(BCLog::BENCH, "  - Connect total: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime3 - nTime2) * MILLI, nTimeConnectTotal * MICRO, nTimeConnectTotal * MILLI / nBlocksTotal);
@@ -2992,11 +2997,33 @@ static bool FindUndoPos(CValidationState &state, int nFile, CDiskBlockPos &pos, 
     return true;
 }
 
-static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, int nHeight, bool fCheckPOW)
+static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,  std::vector<AggPubkeyAndHeight>* aggPubkeys, int nHeight, bool fCheckPOW)
 {
     //check block features
     if(block.nFeatures != CBlock::TAPYRUS_BLOCK_FEATURES)
         return state.Invalid(false, REJECT_INVALID, "bad-features", "Incorrect Block features");
+
+    //check xfieldType and xfield fields in the block header. Do not accept a block with unexpected xfieldType
+    std::string warning("");
+    switch((TAPYRUS_XFIELDTYPES)block.xfieldType)
+    {
+        case TAPYRUS_XFIELDTYPES::AGGPUBKEY:
+            if(block.xfield.size() == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE)
+            {
+                CPubKey aggregatePubkeyinBlock(block.xfield.begin(), block.xfield.end());
+                if(!aggregatePubkeyinBlock.IsFullyValid())
+                    return state.Invalid(false, REJECT_INVALID, "bad-aggpubkey", "invalid aggregatePubkey");
+            }
+            else
+                return state.Invalid(false, REJECT_INVALID, "bad-xfieldType-xfield", "invalid aggregatePubkey");
+            break;
+        case TAPYRUS_XFIELDTYPES::NONE:
+            if(block.xfield.size() != 0)
+                return state.Invalid(false, REJECT_INVALID, "bad-xfieldType-xfield", "unexpected xfield");
+            break;
+        default:
+            warning = strprintf("Warning: Unknown xfieldType [%2x] was accepted in block [%s]", block.xfieldType, block.GetHash().ToString());
+    }
 
     //Check proof of Signed Blocks in a block header
     const unsigned int proofSize = block.proof.size();
@@ -3007,21 +3034,21 @@ static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,
     if(!proofSize)
         return state.Invalid(false, REJECT_INVALID, "bad-proof", "No Proof in block");
 
-    CPubKey aggregatePubkey = FederationParams().GetAggPubkeyFromHeight(nHeight);
-
-    if(!aggregatePubkey.IsValid())
-        return state.Error("Invalid aggregatePubkey");
+    CPubKey aggregatePubkey = aggPubkeys ? aggPubkeys->rbegin()->aggpubkey : FederationParams().GetAggPubkeyFromHeight(nHeight);
 
     const uint256 blockHash = block.GetHashForSign();
 
     //verify signature
     if(!aggregatePubkey.Verify_Schnorr(blockHash, block.proof))
-        return state.Invalid(false, REJECT_INVALID, "bad-proof", "Proof verification failed");
+        return state.Invalid(false, REJECT_INVALID, "bad-proof", strprintf("Proof verification failed at height [%d]", nHeight));
+
+    if(state.IsValid() && warning.size())
+        DoWarning(warning);
 
     return true;
 }
 
-bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bool fCheckMerkleRoot)
+bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bool fCheckMerkleRoot, std::vector<AggPubkeyAndHeight>* aggPubkeys)
 {
     // These are checks that are independent of context.
 
@@ -3045,28 +3072,6 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
         // while still invalidating it.
         if (mutated)
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-duplicate", true, "duplicate transaction");
-    }
-
-    //check xfieldType and xfield fields in the block header. Do not accept a block with unexpected xfieldType
-    std::string warning("");
-    switch((TAPYRUS_XFIELDTYPES)block.xfieldType)
-    {
-        case TAPYRUS_XFIELDTYPES::AGGPUBKEY:
-            if(block.xfield.size() == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE)
-            {
-                CPubKey aggregatePubkeyinBlock(block.xfield.begin(), block.xfield.end());
-                if(!aggregatePubkeyinBlock.IsFullyValid())
-                    return state.DoS(100, false, REJECT_INVALID, "bad-aggpubkey", false, "invalid aggregatePubkey");
-            }
-            else
-                return state.DoS(100, false, REJECT_INVALID, "bad-xfieldType-xfield", false, "invalid aggregatePubkey");
-            break;
-        case TAPYRUS_XFIELDTYPES::NONE:
-            if(block.xfield.size() != 0)
-                return state.DoS(100, false, REJECT_INVALID, "bad-xfieldType-xfield", false, "unexpected xfield");
-            break;
-        default:
-            warning = strprintf("Warning: Unknown xfieldType [%2x] was accepted in block [%s]", block.xfieldType, block.GetHash().ToString());
     }
 
     // All potential-corruption validation must be done before we do any
@@ -3097,7 +3102,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
     // redundant with the call in AcceptBlockHeader.
     uint64_t height = block.GetHeight();
 
-    if (!CheckBlockHeader(block, state, height, fCheckPOW))
+    if (!CheckBlockHeader(block, state, aggPubkeys, height, fCheckPOW))
         return false;
 
     //the rest must not be coinbase
@@ -3123,8 +3128,6 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
     if (fCheckPOW && fCheckMerkleRoot)
         block.fChecked = true;
 
-    if(state.IsValid() && warning.size())
-        DoWarning(warning);
 
     return true;
 }
@@ -3210,7 +3213,7 @@ static bool ContextualCheckBlock(const CBlock& block, CValidationState& state, c
     return true;
 }
 
-bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState& state, CBlockIndex** ppindex)
+bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState& state, CBlockIndex** ppindex, std::vector<AggPubkeyAndHeight>* aggPubkeys)
 {
     AssertLockHeld(cs_main);
     // Check for duplicate
@@ -3228,7 +3231,7 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
             return true;
         }
 
-        if (!CheckBlockHeader(block, state))
+        if (!CheckBlockHeader(block, state, aggPubkeys))
             return error("%s: Consensus::CheckBlockHeader: %s, %s", __func__, hash.ToString(), FormatStateMessage(state));
 
         // Get prev block index
@@ -3263,6 +3266,17 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
     if (pindex == nullptr)
         pindex = AddToBlockIndex(block);
 
+    //if this header was valid and has an aggpubkey change remember it until we finish processing the headers message
+    if(aggPubkeys
+        && block.isXFieldValid()
+        && !block.isXFieldEqual(aggPubkeys->rbegin()->aggpubkey))
+    {
+        AggPubkeyAndHeight x;
+        x.aggpubkey = CPubKey(block.xfield.begin(), block.xfield.end());
+        x.height = pindex->nHeight;
+        aggPubkeys->push_back(x);
+    }
+
     if (ppindex)
         *ppindex = pindex;
 
@@ -3274,12 +3288,13 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
 // Exposed wrapper for AcceptBlockHeader
 bool ProcessNewBlockHeaders(const std::vector<CBlockHeader>& headers, CValidationState& state, const CBlockIndex** ppindex, CBlockHeader *first_invalid)
 {
+    auto aggPubkeyList = FederationParams().GetAggregatePubkeyHeightList();
     if (first_invalid != nullptr) first_invalid->SetNull();
     {
         LOCK(cs_main);
         for (const CBlockHeader& header : headers) {
             CBlockIndex *pindex = nullptr; // Use a temp pindex instead of ppindex to avoid a const_cast
-            if (!g_chainstate.AcceptBlockHeader(header, state, &pindex)) {
+            if (!g_chainstate.AcceptBlockHeader(header, state, &pindex, &aggPubkeyList)) {
                 if (first_invalid) *first_invalid = header;
                 return false;
             }
@@ -3312,7 +3327,7 @@ static CDiskBlockPos SaveBlockToDisk(const CBlock& block, int nHeight, const CDi
 }
 
 /** Store block on disk. If dbp is non-nullptr, the file is known to already reside on disk */
-bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CValidationState& state, CBlockIndex** ppindex, bool fRequested, const CDiskBlockPos* dbp, bool* fNewBlock)
+bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CValidationState& state, CBlockIndex** ppindex, bool fRequested, const CDiskBlockPos* dbp, bool* fNewBlock, std::vector<AggPubkeyAndHeight>* aggPubkeys)
 {
     const CBlock& block = *pblock;
 
@@ -3322,7 +3337,7 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
     CBlockIndex *pindexDummy = nullptr;
     CBlockIndex *&pindex = ppindex ? *ppindex : pindexDummy;
 
-    if (!AcceptBlockHeader(block, state, &pindex))
+    if (!AcceptBlockHeader(block, state, &pindex, aggPubkeys))
         return false;
 
     // Try to process all requested blocks that we don't have, but only
@@ -3351,7 +3366,7 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
         if (fTooFarAhead) return true;        // Block height is too high
     }
 
-    if (!CheckBlock(block, state) ||
+    if (!CheckBlock(block, state, false, true, aggPubkeys) ||
         !ContextualCheckBlock(block, state, pindex->pprev)) {
         if (state.IsInvalid() && !state.CorruptionPossible()) {
             pindex->nStatus |= BLOCK_FAILED_VALID;
@@ -4169,13 +4184,14 @@ bool LoadGenesisBlock()
     return g_chainstate.LoadGenesisBlock();
 }
 
-bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp)
+bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, std::vector<XFieldAggpubkey>* xFieldList)
 {
     // Map of disk positions for blocks with unknown parent (only used for reindex)
     static std::multimap<uint256, CDiskBlockPos> mapBlocksUnknownParent;
     int64_t nStart = GetTimeMillis();
 
     int nLoaded = 0;
+    auto aggPubkeys = FederationParams().GetAggregatePubkeyHeightList();
     try {
         // This takes over fileIn and calls fclose() on it in the CBufferedFile destructor
         CBufferedFile blkdat(fileIn, 2*MAX_BLOCK_SERIALIZED_SIZE, MAX_BLOCK_SERIALIZED_SIZE+8, SER_DISK, CLIENT_VERSION);
@@ -4231,13 +4247,17 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp)
                     CBlockIndex* pindex = LookupBlockIndex(hash);
                     if (!pindex || (pindex->nStatus & BLOCK_HAVE_DATA) == 0) {
                       CValidationState state;
-                      if (g_chainstate.AcceptBlock(pblock, state, nullptr, true, dbp, nullptr)) {
+                      if (g_chainstate.AcceptBlock(pblock, state, nullptr, true, dbp, nullptr, &aggPubkeys)) {
                           nLoaded++;
-                      }
-                     // if it is a federation block, load its aggregatepubkey into CFederationParams
-                    if(pblock->xfieldType == 1 && pblock->xfield.size() == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE && (CPubKey(pblock->xfield.begin(), pblock->xfield.end()) != FederationParams().GetLatestAggregatePubkey()))
-                        FederationParams().ReadAggregatePubkey(pblock->xfield, pblock->GetHeight() + 1);
 
+                          // the purpose of this reindexing may be to correct xfield aggpubkey in leveldb if xFieldList is not null
+                          if(xFieldList && (TAPYRUS_XFIELDTYPES)pblock->xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY && pblock->GetHeight() > 0)
+                          {
+                            XFieldAggpubkey newXfield(pblock->xfield, pblock->GetHeight() + 1, hash);
+                            if(std::find(xFieldList->begin(), xFieldList->end(), newXfield) == xFieldList->end())
+                                xFieldList->push_back(newXfield);
+                          }
+                      }
                       if (state.IsError()) {
                           break;
                       }

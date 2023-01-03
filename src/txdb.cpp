@@ -29,6 +29,8 @@ static const char DB_FLAG = 'F';
 static const char DB_REINDEX_FLAG = 'R';
 static const char DB_LAST_BLOCK = 'l';
 
+static const char DB_XFIELD_AGGPUBKEY = '1';
+
 namespace {
 
 struct CoinEntry {
@@ -166,6 +168,25 @@ void CBlockTreeDB::ReadReindexing(bool &fReindexing) {
 
 bool CBlockTreeDB::ReadLastBlockFile(int &nFile) {
     return Read(DB_LAST_BLOCK, nFile);
+}
+
+bool CBlockTreeDB::ReadXFieldAggpubkeys(std::vector<XFieldAggpubkey> & xFieldList) {
+    return Read(DB_XFIELD_AGGPUBKEY, xFieldList);
+}
+
+bool CBlockTreeDB::WriteXFieldAggpubkey(const XFieldAggpubkey& xFieldAggpubkey) {
+    std::vector<XFieldAggpubkey> xFieldList;
+    Read(DB_XFIELD_AGGPUBKEY, xFieldList);
+    if(std::find(xFieldList.begin(), xFieldList.end(), xFieldAggpubkey) == xFieldList.end())
+        xFieldList.push_back(xFieldAggpubkey);
+    return Write(DB_XFIELD_AGGPUBKEY, xFieldList);
+}
+
+bool CBlockTreeDB::ResetXFieldAggpubkeys(std::vector<XFieldAggpubkey>& xFieldList) {
+    std::sort(xFieldList.begin(), xFieldList.end(), [](XFieldAggpubkey const& i, XFieldAggpubkey const& j)-> bool{ return i.height < j.height; } );
+    auto lastUnique = std::unique(xFieldList.begin(), xFieldList.end(), [](XFieldAggpubkey const& i, XFieldAggpubkey const& j)-> bool{ return i.height == j.height; } );
+    xFieldList.erase(lastUnique, xFieldList.end());
+    return Write(DB_XFIELD_AGGPUBKEY, xFieldList);
 }
 
 CCoinsViewCursor *CCoinsViewDB::Cursor() const
