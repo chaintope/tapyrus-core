@@ -23,9 +23,9 @@ struct SeedSpec6 {
     uint16_t port;
 };
 
-struct aggPubkeyAndHeight {
+struct AggPubkeyAndHeight {
     CPubKey aggpubkey;
-    uint64_t height;
+    uint32_t height;
 };
 
 /**
@@ -41,7 +41,7 @@ public:
      * Parse aggPubkey in block header.
      */
     CPubKey ReadAggregatePubkey(const std::vector<unsigned char>& pubkey, uint64_t height) const;
-    const std::vector<aggPubkeyAndHeight>& GetAggregatePubkeyHeightList() const { return aggregatePubkeyHeight; }
+    const std::vector<AggPubkeyAndHeight>& GetAggregatePubkeyHeightList() const { return aggregatePubkeyHeight; }
     const CPubKey& GetLatestAggregatePubkey() const { return aggregatePubkeyHeight.back().aggpubkey; }
     bool ReadGenesisBlock(std::string genesisHex);
     const CBlock& GenesisBlock() const { return genesis; }
@@ -60,7 +60,7 @@ private:
     CMessageHeader::MessageStartChars pchMessageStart;
     std::string strNetworkID;
     std::string dataDir;
-    mutable std::vector<aggPubkeyAndHeight> aggregatePubkeyHeight;
+    mutable std::vector<AggPubkeyAndHeight> aggregatePubkeyHeight;
     CBlock genesis;
     std::vector<std::string> vSeeds;
     std::vector<SeedSpec6> vFixedSeeds;
