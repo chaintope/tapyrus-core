@@ -637,6 +637,7 @@ static void ThreadImport(std::vector<fs::path> vImportFiles, bool fReloadxfield)
 {
     RenameThread("bitcoin-loadblk");
     ScheduleBatchPriority();
+    CTempXFieldHistory tempXFieldHistory;
 
     {
     CImportingNow imp;
@@ -653,7 +654,7 @@ static void ThreadImport(std::vector<fs::path> vImportFiles, bool fReloadxfield)
             if (!file)
                 break; // This error is logged in OpenBlockFile
             LogPrintf("Reindexing block file blk%05u.dat...\n", (unsigned int)nFile);
-            LoadExternalBlockFile(file, &pos, &xFieldList);
+            LoadExternalBlockFile(file, &pos, &tempXFieldHistory);
             nFile++;
         }
         pblocktree->WriteReindexing(false);
@@ -670,7 +671,7 @@ static void ThreadImport(std::vector<fs::path> vImportFiles, bool fReloadxfield)
         if (file) {
             fs::path pathBootstrapOld = GetDataDir() / "bootstrap.dat.old";
             LogPrintf("Importing bootstrap.dat...\n");
-            LoadExternalBlockFile(file, nullptr, &xFieldList);
+            LoadExternalBlockFile(file, nullptr, &tempXFieldHistory);
             RenameOver(pathBootstrap, pathBootstrapOld);
         } else {
             LogPrintf("Warning: Could not open bootstrap file %s\n", pathBootstrap.string());
@@ -682,7 +683,7 @@ static void ThreadImport(std::vector<fs::path> vImportFiles, bool fReloadxfield)
         FILE *file = fsbridge::fopen(path, "rb");
         if (file) {
             LogPrintf("Importing blocks file %s...\n", path.string());
-            LoadExternalBlockFile(file, nullptr, &xFieldList);
+            LoadExternalBlockFile(file, nullptr, &tempXFieldHistory);
         } else {
             LogPrintf("Warning: Could not open blocks file %s\n", path.string());
         }
@@ -1224,9 +1225,6 @@ bool AppInitMain()
     }
     LogPrintf("Genesis Block [%s] of Tapyrus network [%s] Loaded successfully\n", FederationParams().GenesisBlock().GetHash().ToString(), FederationParams().NetworkIDString());
 
-    //initialize xfieldhistory as soon as genesis block is available
-    XFieldHistory xFieldHistory(FederationParams().GenesisBlock());
-
     InitSignatureCache();
     InitScriptExecutionCache();
 
@@ -1526,7 +1524,7 @@ bool AppInitMain()
                         continue;
 
                 // Step 7a: Load Xfield data from db
-                XFieldHistory xFieldHistory;
+                CXFieldHistory xFieldHistory;
                 for(auto x : XFIELDTYPES_INIT_LIST)
                     xFieldHistory.InitializeFromBlockDB(x, pblocktree.get());
 
