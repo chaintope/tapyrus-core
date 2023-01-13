@@ -54,9 +54,8 @@ static CBlock BuildBlockTestCase() {
     assert(!mutated);
 
     //create proof
-    XFieldHistory xFieldHistory;
     XFieldAggPubKey aggpubkeyChange;
-    xFieldHistory.GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+    CXFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
     CPubKey aggpubkey(aggpubkeyChange.getPubKey());
     std::vector<unsigned char> blockProof;
     createSignedBlockProof(block, blockProof);
@@ -317,9 +316,8 @@ BOOST_AUTO_TEST_CASE(EmptyBlockRoundTripTest)
     assert(!mutated);
 
     //create proof
-    XFieldHistory xFieldHistory;
     XFieldAggPubKey aggpubkeyChange;
-    xFieldHistory.GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+    CXFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
     CPubKey aggpubkey(aggpubkeyChange.getPubKey());
     std::vector<unsigned char> blockProof;
     createSignedBlockProof(block, blockProof);

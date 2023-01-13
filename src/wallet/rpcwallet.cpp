@@ -3321,9 +3321,8 @@ UniValue generate(const JSONRPCRequest& request)
     if(!cPrivKey.IsValid())
         throw JSONRPCError(RPC_WALLET_INVALID_PRIVATE_KEY, "No private key given or invalid private key.");
 
-    XFieldHistory xFieldHistory;
     XFieldAggPubKey aggpubkeyChange;
-    xFieldHistory.GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+    CXFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
 
     if(cPrivKey.GetPubKey() != aggpubkeyChange.getPubKey())
         throw JSONRPCError(RPC_WALLET_INVALID_AGGREGATE_KEY, "Given private key doesn't correspond to the Aggregate Key.");

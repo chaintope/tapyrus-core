@@ -188,9 +188,8 @@ bool CFederationParams::ReadGenesisBlock(std::string genesisHex)
 
     //verify proof
     const uint256 blockHash = genesis.GetHashForSign();
-    XFieldHistory xfieldhistory(genesis);
     XFieldAggPubKey xfieldAggPubKey;
-    xfieldhistory.GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, xfieldAggPubKey);
+    CXFieldHistory(genesis).GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, xfieldAggPubKey);
     CPubKey aggPubKeyToVerify(xfieldAggPubKey.getPubKey());
     if(!aggPubKeyToVerify.Verify_Schnorr(blockHash, genesis.proof))
         throw std::runtime_error("ReadGenesisBlock: Proof verification failed");

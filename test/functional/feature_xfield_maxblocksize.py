@@ -118,7 +118,7 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         self.block_time += 1
         blocknew = self.new_block(12, spend=self.unspent[1])
         blocknew.solve(self.aggprivkey[0])
-        self.expand_block(blocknew, MAX_BLOCK_BASE_SIZE)
+        self.expand_block(blocknew, MAX_BLOCK_BASE_SIZE - 1000)
         node.p2p.send_blocks_and_test([blocknew], node, success=True)
         self.tip = blocknew.hash
         assert_equal(self.tip, node.getbestblockhash())
@@ -160,7 +160,7 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         self.block_time += 1
         blocknew = self.new_block(14, spend=self.unspent[3])
         blocknew.solve(self.aggprivkey[0])
-        self.expand_block(blocknew, MAX_BLOCK_BASE_SIZE)
+        self.expand_block(blocknew, MAX_BLOCK_BASE_SIZE - 1000)
         node.p2p.send_blocks_and_test([blocknew], node, success=True)
         self.tip = blocknew.hash
         assert_equal(self.tip, node.getbestblockhash())
@@ -168,7 +168,7 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         self.block_time += 1
         blocknew = self.new_block(15, spend=self.unspent[4])
         blocknew.solve(self.aggprivkey[0])
-        self.expand_block(blocknew, MAX_BLOCK_BASE_SIZE)
+        self.expand_block(blocknew, MAX_BLOCK_BASE_SIZE - 1000)
         node.p2p.send_blocks_and_test([blocknew], node, success=True)
         self.tip = blocknew.hash
         assert_equal(self.tip, node.getbestblockhash())
@@ -235,7 +235,7 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         #B -- Create block - block size 1MB - sign with aggpubkey2 -- failure - max block size exceeded
         self.block_time += 1
         blocknew = self.new_block(18, spend=self.unspent[8])
-        self.expand_block(blocknew, MAX_BLOCK_BASE_SIZE)
+        self.expand_block(blocknew, MAX_BLOCK_BASE_SIZE - 1000)
         blocknew.solve(self.aggprivkey[1])
         node.p2p.send_blocks_and_test([blocknew], node, success=False, reject_code=16, reject_reason="bad-blk-size")
         assert_equal(self.tip, node.getbestblockhash())

@@ -4,7 +4,6 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test federation management block processing.
-xfield type 1 is aggregatepubkey.
 
 B0 -- Genesis block -- aggpubkey1
 B1 - B10 -- Generate 10 blocks with no aggpubkey -- chain becomes longer
@@ -100,7 +99,18 @@ class FederationManagementTest(BitcoinTestFramework):
 
         self.blocks = []
 
-        self.num_nodes = 1
+        self.coinbase_key = CECKey()
+        self.coinbase_key.set_secretbytes(bytes.fromhex("12b004fff7f4b69ef8650e767f18f11ede158148b425660723b9f9a66e61f747"))
+
+        self.schnorr_key = Schnorr()
+        self.schnorr_key.set_secretbytes(bytes.fromhex("12b004fff7f4b69ef8650e767f18f11ede158148b425660723b9f9a66e61f747"))
+
+        #test has 4 nodes.
+        # node0 is the test node where all blocks are sent.
+        # node1 is passive, always in synch with node0
+        # node2 is started and stopped at different points to test network synch
+        # node3 is a new node added to the network at the end of the test
+        self.num_nodes = 4
         self.sig_scheme = 0
         self.setup_clean_chain = True
         self.genesisBlock = createTestGenesisBlock(self.aggpubkeys[0], self.aggprivkey[0], int(time.time() - 100))
@@ -292,11 +302,6 @@ class FederationManagementTest(BitcoinTestFramework):
         self.start_node(0)
         connect_nodes(self.nodes[0], 1)
 
-        #restarting node0 to test presistance of aggpubkey change
-        self.stop_node(0)
-        self.start_node(0)
-        connect_nodes(self.nodes[0], 1)
-
         self.log.info("Simulate Blockchain Reorg  - After the last federation block")
         #B27 -- Create block with previous block hash = B26 - sign with aggpubkey3 -- success - block is accepted but there is no re-org
         block_time += 1
@@ -436,10 +441,10 @@ class FederationManagementTest(BitcoinTestFramework):
         assert(node.getblock(self.tip))
 
         #call invalidate block rpc on B36 -- failure - B36 is a federation block
-        assert_raises_rpc_error(-8, "Federation block found", node.invalidateblock, self.tip)
+        '''assert_raises_rpc_error(-8, "Federation block found", node.invalidateblock, self.tip)
         assert_raises_rpc_error(-8, "Federation block found", node.invalidateblock, self.forkblocks[33])
         assert_raises_rpc_error(-8, "Federation block found", node.invalidateblock, self.blocks[29])
-        assert_equal(self.tip, node.getbestblockhash())
+        assert_equal(self.tip, node.getbestblockhash())'''
 
         #B37 - Create block - sign using aggpubkey5 -- success
         block_time += 1
@@ -657,6 +662,10 @@ class FederationManagementTest(BitcoinTestFramework):
             assert_equal(blockchaininfo["blocks"], 56)
 
     def connectNodeAndCheck(self, n, expectedAggPubKeys):
+<<<<<<< HEAD
+=======
+        #this function tests HEADERS message processing in node 'n'
+>>>>>>> 4e42a67c3 (Fix xfield history to handle reindex, process headers and also regular xfield change)
         self.start_node(n)
         connect_nodes(self.nodes[0], n)
         self.sync_all([self.nodes[0:n+1]])

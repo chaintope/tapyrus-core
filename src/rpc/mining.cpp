@@ -69,9 +69,8 @@ UniValue generateBlocks(std::shared_ptr<CReserveScript> coinbaseScript, int nGen
 
         privKey.Sign_Schnorr(blockHash, proof);
 
-        XFieldHistory xFieldHistory;
         XFieldAggPubKey aggpubkeyChange;
-        xFieldHistory.GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+        CXFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
 
         if(!pblock->AbsorbBlockProof(proof, aggpubkeyChange.getPubKey())) {
             throw JSONRPCError(RPC_INTERNAL_ERROR, "AbsorbBlockProof, block proof not accepted");
@@ -123,9 +122,8 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
     if(!cPrivKey.IsValid())
         throw JSONRPCError(RPC_WALLET_INVALID_PRIVATE_KEY, "No private key given or invalid private key.");
 
-    XFieldHistory xFieldHistory;
     XFieldAggPubKey aggpubkeyChange;
-    xFieldHistory.GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+    CXFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
 
     if(cPrivKey.GetPubKey() != aggpubkeyChange.getPubKey())
         throw JSONRPCError(RPC_WALLET_INVALID_AGGREGATE_KEY, "Given private key doesn't correspond to the Aggregate Key.");
@@ -888,9 +886,8 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
     if(blockProof.size() != CPubKey::SCHNORR_SIGNATURE_SIZE || !CheckSchnorrSignatureEncoding(blockProof, nullptr, true) )
         throw JSONRPCError(RPC_INVALID_PARAMS, "Invalid signature encoding");
 
-    XFieldHistory xFieldHistory;
     XFieldAggPubKey aggpubkeyChange;
-    xFieldHistory.GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+    CXFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
     CPubKey aggpubkey(aggpubkeyChange.getPubKey());
 
     bool status = block.AbsorbBlockProof(blockProof, aggpubkey);

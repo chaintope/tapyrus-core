@@ -1130,12 +1130,12 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
         }
     }
     //aggregate pubkey list with block height and block hash
-    UniValue xFieldChangeList(UniValue::VARR);
-    XFieldHistory xFieldHistory;
+    UniValue xfieldChanges(UniValue::VARR);
+    CXFieldHistory xFieldHistory;
     for(auto x : XFIELDTYPES_INIT_LIST)
     {
-        xFieldHistory.ToUniValue(x, &xFieldChangeList);
-        obj.pushKV(GetXFieldNameForRpc(x), xFieldChangeList);
+        xFieldHistory.ToUniValue(x, &xfieldChanges);
+        obj.pushKV(GetXFieldNameForRpc(x), xfieldChanges);
     }
 
     obj.pushKV("warnings", GetWarnings("statusbar"));

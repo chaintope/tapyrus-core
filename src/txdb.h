@@ -11,6 +11,7 @@
 #include <dbwrapper.h>
 #include <chain.h>
 #include <primitives/block.h>
+#include <xfieldhistory.h>
 
 #include <map>
 #include <memory>
@@ -135,12 +136,9 @@ public:
     bool WriteFlag(const std::string &name, bool fValue);
     bool ReadFlag(const std::string &name, bool &fValue);
     bool LoadBlockIndexGuts(std::function<CBlockIndex*(const uint256&)> insertBlockIndex);
-    bool ReadXFieldAggpubkeys(std::vector<XFieldChange> & xFieldList);
-    bool ReadXFieldMaxBlockSize(std::vector<XFieldChange>& xFieldList);
-    bool ReadXField(char key, std::vector<XFieldChange>& xFieldList);
 
-    template <typename T>
-    bool WriteXFieldAggpubkey(const XFieldChange & xFieldChange);
+    bool ReadXField(const char key, XFieldChangeListWrapper& xFieldList);
+    bool WriteXField(const XFieldChange & xFieldChange);
 };
 
 #endif // BITCOIN_TXDB_H

@@ -107,9 +107,8 @@ static int generateNewKeyPair()
 
 static int generateGenesis(CKey& privatekey, long long blockTime, std::string& payToAddress)
 {
-    XFieldHistory xFieldHistory;
     XFieldAggPubKey aggpubkeyChange;
-    xFieldHistory.GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+    CXFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
 
     CBlock genesis { createGenesisBlock(aggpubkeyChange.getPubKey(), privatekey, blockTime, payToAddress) };
 
@@ -140,7 +139,6 @@ static int CommandLine()
         return EXIT_FAILURE;
     }
 
-    XFieldHistory xFieldHistory;
     CPubKey aggpubkey;
     try {
         std::string pubkey = gArgs.GetArg("-signblockpubkey", "");

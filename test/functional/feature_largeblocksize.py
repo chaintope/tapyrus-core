@@ -13,7 +13,7 @@ import time
 from timeit import default_timer as timer
 from test_framework.blocktools import create_block, create_coinbase
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal
+from test_framework.util import assert_equal, connect_nodes
 from test_framework.mininode import P2PDataStore
 from test_framework.script import CScript, OP_TRUE, SignatureHash, SIGHASH_ALL
 from test_framework.messages import CTransaction, CTxOut, CTxIn, COutPoint, ser_compact_size, COIN
@@ -61,7 +61,7 @@ class MaxBlockSizeInXFieldTest(BitcoinTestFramework):
             self.log.info("Checking Block size %d"%block_size)
 
             tip  = int(self.nodes[0].getbestblockhash(), 16)
-            blocknew = create_block(tip, create_coinbase((i*2)+11), self.block_time )
+            blocknew = create_block(tip, create_coinbase((i*3)+11), self.block_time )
             blocknew.xfieldType = 2
             blocknew.xfield = block_size + 1000
             blocknew.solve(self.signblockprivkey)
@@ -71,22 +71,21 @@ class MaxBlockSizeInXFieldTest(BitcoinTestFramework):
             self.send_txs_for_large_block(self.nodes[0], blocknew.vtx[0].malfixsha256, block_size)
             blockhex = self.nodes[0].generate(1, self.signblockprivkey_wif)
             self.start_node(1)
-            self.sync_all([self.nodes[0:1]])
+            connect_nodes(self.nodes[0], 1)
+            self.sync_all([self.nodes[0:2]])
             blocknew = self.nodes[0].getblock(blockhex[0])
             self.nodes[1].generate(1, self.signblockprivkey_wif)
-            self.sync_all([self.nodes[0:1]])
+            self.sync_all([self.nodes[0:2]])
             self.stop_node(1)
 
         self.start_node(1)
-        self.start_node(2)
+        connect_nodes(self.nodes[0], 1)
 
-        #wait for the blocks to synch
+        self.log.info("Waiting for All nodes to synch...")
         start_time = timer()
-        while True:
-            best_hash = [x.getbestblockhash() for x in self.nodes]
-            if best_hash.count(best_hash[0]) == len([self.nodes]):
-                break
-            time.sleep(30)
+        self.start_node(2)
+        connect_nodes(self.nodes[0], 2)
+        self.sync_all([self.nodes[0:3]])
         stop_time = timer()
         self.log.info("All Node sync took %d seconds"% (stop_time - start_time))
 
