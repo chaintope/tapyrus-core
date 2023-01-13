@@ -284,4 +284,6 @@ std::string XFieldDataToString(const XFieldData &xfieldValue);
 
 char GetXFieldDBKey(const XFieldData& xFieldValue);
 
+char GetXFieldDBKey(const XFieldData& xFieldValue);
+
 #endif // BITCOIN_PRIMITIVES_XFIELD_H

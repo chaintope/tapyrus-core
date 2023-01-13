@@ -1226,9 +1226,6 @@ bool AppInitMain()
     }
     LogPrintf("Genesis Block [%s] of Tapyrus network [%s] Loaded successfully\n", FederationParams().GenesisBlock().GetHash().ToString(), FederationParams().NetworkIDString());
 
-    //initialize xfieldhistory as soon as genesis block is available
-    XFieldHistory xFieldHistory(FederationParams().GenesisBlock());
-
     InitSignatureCache();
     InitScriptExecutionCache();
 
@@ -1519,7 +1516,7 @@ bool AppInitMain()
                 }
 
                 // Step 7a: Load Xfield data from db
-                XFieldHistory xFieldHistory;
+                CXFieldHistory xFieldHistory;
                 for(auto x : XFIELDTYPES_INIT_LIST)
                     xFieldHistory.InitializeFromBlockDB(x, pblocktree.get());
 

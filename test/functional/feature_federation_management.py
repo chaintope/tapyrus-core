@@ -302,11 +302,6 @@ class FederationManagementTest(BitcoinTestFramework):
         self.start_node(0)
         connect_nodes(self.nodes[0], 1)
 
-        #restarting node0 to test presistance of aggpubkey change
-        self.stop_node(0)
-        self.start_node(0)
-        connect_nodes(self.nodes[0], 1)
-
         self.log.info("Simulate Blockchain Reorg  - After the last federation block")
         #B27 -- Create block with previous block hash = B26 - sign with aggpubkey3 -- success - block is accepted but there is no re-org
         block_time += 1
@@ -531,8 +526,18 @@ class FederationManagementTest(BitcoinTestFramework):
         os.mkdir(os.path.join(self.nodes[2].datadir, 'blocks'))
         shutil.copyfile(os.path.join(self.nodes[0].datadir, NetworkDirName(), 'blocks', 'blk00000.dat'), os.path.join(self.nodes[2].datadir, 'blocks', 'blk00000.dat'))
         os.remove(os.path.join(self.nodes[0].datadir, NetworkDirName(), 'blocks', 'blk00000.dat'))
+<<<<<<< HEAD
         extra_args=["-loadblock=%s" % os.path.join(self.nodes[0].datadir, 'blk00000.dat'), "-reindex"]
         self.start_node(0, extra_args)
+=======
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+        extra_args=["-loadblock=%s" % os.path.join(self.nodes[0].datadir, 'blk00000.dat'), "-reindex"]
+        self.start_node(0, extra_args)
+=======
+>>>>>>> 2b53b465c (Fix xfield history to handle reindex, process headers and also regular xfield change)
+>>>>>>> dcaad800a (Fix xfield history to handle reindex, process headers and also regular xfield change)
 
         #reindex takes time. wait before checking blockchain info
         time.sleep(5)
@@ -668,13 +673,27 @@ class FederationManagementTest(BitcoinTestFramework):
             assert_equal(blockchaininfo["blocks"], 56)
 
     def connectNodeAndCheck(self, n, expectedAggPubKeys):
+<<<<<<< HEAD
         #this function tests HEADERS message processing in node 'n'
+=======
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+        #this function tests HEADERS message processing in node 'n'
+>>>>>>> 4e42a67c3 (Fix xfield history to handle reindex, process headers and also regular xfield change)
+>>>>>>> 2b53b465c (Fix xfield history to handle reindex, process headers and also regular xfield change)
+>>>>>>> dcaad800a (Fix xfield history to handle reindex, process headers and also regular xfield change)
         self.start_node(n)
         connect_nodes(self.nodes[0], n)
         self.sync_all([self.nodes[0:n+1]])
         blockchaininfo = self.nodes[n].getblockchaininfo()
         assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
         self.stop_node(n)
+<<<<<<< HEAD
+=======
+>>>>>>> 5e5257d9f (Fix xfield history to handle reindex, process headers and also regular xfield change)
+>>>>>>> 2b53b465c (Fix xfield history to handle reindex, process headers and also regular xfield change)
 
 if __name__ == '__main__':
     FederationManagementTest().main()

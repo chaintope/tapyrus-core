@@ -2370,9 +2370,10 @@ bool CChainState::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, co
         // if the block was added successfully and it is a federation block,
         // make sure that the xfield from this block is added to xFieldHistory
         CXFieldHistory xfieldHistory;
-        if(blockConnecting.xfield.IsValid()
-            && blockConnecting.GetHeight() > 0
-            && IsXFieldNew(blockConnecting.xfield, &xfieldHistory))
+        if(pblock
+            && pblock->xfield.IsValid()
+            && pblock->GetHeight() > 0
+            && IsXFieldNew(pblock->xfield, &xfieldHistory))
         {
             XFieldChange newChange(blockConnecting.xfield.xfieldValue, blockConnecting.GetHeight() + 1, blockConnecting.GetHash());
             xfieldHistory.Add(blockConnecting.xfield.xfieldType, newChange);
