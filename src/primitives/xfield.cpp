@@ -79,3 +79,16 @@ std::string GetXFieldNameForRpc(TAPYRUS_XFIELDTYPES x){
             return "";
     }
 }
+
+char GetXFieldDBKey(const XFieldData& xfieldValue) {
+    switch(GetXFieldTypeFrom(xfieldValue))
+    {
+        case TAPYRUS_XFIELDTYPES::AGGPUBKEY:
+            return boost::get<XFieldAggPubKey>(xfieldValue).BLOCKTREE_DB_KEY;
+        case TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE:
+            return boost::get<XFieldMaxBlockSize>(xfieldValue).BLOCKTREE_DB_KEY;
+        case TAPYRUS_XFIELDTYPES::NONE:
+        default:
+            return '\0';
+    }
+}

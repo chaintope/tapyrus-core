@@ -6,6 +6,8 @@
 #define BITCOIN_XFIELD_HISTORY_H
 
 #include <policy/policy.h>
+#include <federationparams.h>
+#include <dbwrapper.h>
 /* 
  * struct to store xfieldValue, block hash and height for every xfield update in the blockchain.
  */
@@ -22,93 +24,219 @@ struct XFieldChange {
     XFieldChange(const XFieldChange&& copy):xfieldValue(copy.xfieldValue),height(copy.height),blockHash(copy.blockHash){}
     ~XFieldChange() = default;
 
+    bool operator==(const XFieldChange& copy) const {
+        return xfieldValue == copy.xfieldValue
+            && height == copy.height
+            && blockHash == copy.blockHash;
+    }
 
-    ADD_SERIALIZE_METHODS;
-
-    template<typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
+    template<typename Stream>
+    void Serialize(Stream& s) const {
         switch(GetXFieldTypeFrom(xfieldValue))
         {
             case TAPYRUS_XFIELDTYPES::AGGPUBKEY:
-                READWRITE(boost::get<XFieldAggPubKey>(xfieldValue)); break;
+                ::Serialize(s, boost::get<XFieldAggPubKey>(xfieldValue)); break;
             case TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE:
-                READWRITE(boost::get<XFieldMaxBlockSize>(xfieldValue)); break;
+                ::Serialize(s, boost::get<XFieldMaxBlockSize>(xfieldValue)); break;
             case TAPYRUS_XFIELDTYPES::NONE:
             default:
                 break;
         }
-        READWRITE(height);
-        READWRITE(blockHash);
+        ::Serialize(s, height);
+        ::Serialize(s, blockHash);
+    }
+    //no unserialize method in this class.
+    //it is implemented in XFieldChangeListWrapper
+};
+
+typedef std::vector<const XFieldChange> XFieldChangeList;
+
+/*
+ * helper class to unserialize vector of XFieldChange from blocktree db
+ * db entry contains only XFieldData, height and block hash.
+ * It is not possible to know the type of XFieldData and therefore the size of data 
+ * to read from the stream without the the db key.
+ * We store the key in this class to help in unserialization of XFieldData.
+ */
+struct XFieldChangeListWrapper
+{
+    char key;
+    XFieldChangeList xfieldChanges;
+
+    explicit XFieldChangeListWrapper(char keyIn):key(keyIn),xfieldChanges(){}
+
+    //methods to simulate vector
+    inline size_t size() const { return xfieldChanges.size();}
+    inline XFieldChangeList::iterator begin() const {return xfieldChanges.begin();}
+    inline XFieldChangeList::iterator end() const {return xfieldChanges.end();}
+    inline XFieldChangeList::reverse_iterator rbegin() const {return xfieldChanges.rbegin();}
+    inline XFieldChangeList::reverse_iterator rend() const {return xfieldChanges.rend();}
+    inline const XFieldChange& back() const {return xfieldChanges.back();}
+    inline const XFieldChange& at(size_t i) const {return xfieldChanges.at(i);}
+    inline const XFieldChange& operator[](size_t i) const { return xfieldChanges.operator[](i);}
+
+    inline void push_back(const XFieldChange& item) { return xfieldChanges.push_back(item); }
+
+    TAPYRUS_XFIELDTYPES getXFieldType(const char key) {
+        return static_cast<TAPYRUS_XFIELDTYPES>( static_cast<uint8_t>(key));
+    }
+
+    template<typename Stream>
+    void Serialize(Stream& s) const {
+        ::Serialize(s, xfieldChanges);
+    }
+
+    template<typename Stream>
+    void Unserialize(Stream& s) {
+        uint len = 0;
+        s >> VARINT(len);
+        while(s.size())
+        {
+            XFieldChange xfieldChange;
+            switch(key)
+            {
+                case XFieldAggPubKey::BLOCKTREE_DB_KEY: {
+                    XFieldAggPubKey value;
+                    ::Unserialize(s, value);
+                    xfieldChange.xfieldValue = value; break;
+                }
+                case XFieldMaxBlockSize::BLOCKTREE_DB_KEY: {
+                    XFieldMaxBlockSize value;
+                    ::Unserialize(s, value);
+                    xfieldChange.xfieldValue = value; break;
+                }
+                default:
+                    break;
+            }
+            ::Unserialize(s, xfieldChange.height);
+            ::Unserialize(s, xfieldChange.blockHash);
+            xfieldChanges.push_back(xfieldChange);
+        }
+        assert(len == xfieldChanges.size());
     }
 };
 
 class CBlockTreeDB;
 class UniValue;
-/* 
-Global map to store all xfield changes.
-This is moved out of federation params.
-*/
 
-class XFieldHistory{
+typedef std::map< TAPYRUS_XFIELDTYPES, XFieldChangeListWrapper > XFieldHistoryMapType;
+/*  This map is used instead of the list in federation params upto v0.5.2
+ *
+ * XFieldHistoryMapType is a Global map to store all xfield changes.
+ *
+ * class CXFieldHistoryMap contains a static map of XFieldHistoryMapType.
+ * (All objects of this class read and write to the same map.) 
+ * This is the full list of xfield change in the active chain.
+ * When the isTemp flag is set in the constructor, all methods access the temp map.
+ */
+class CXFieldHistoryMap{
 
-    static std::map< const TAPYRUS_XFIELDTYPES, std::vector<XFieldChange> > XFieldHistoryMap;
+    const bool isTemp;
+
+protected:
+    static XFieldHistoryMapType xfieldHistory;
+    inline CXFieldHistoryMap(bool temp):isTemp(temp) { }
 
 public:
-    XFieldHistory() {}
-    XFieldHistory(const CBlock& genesis) {
-        if(XFieldHistoryMap.size() != 0)
-            return;
+    virtual ~CXFieldHistoryMap(){}
+    virtual XFieldHistoryMapType& getXFieldHistoryMap() const = 0;
+
+    template <typename T>
+    void GetLatest(TAPYRUS_XFIELDTYPES type, T & xfieldval) const {
+        auto& listofXfieldChanges = (isTemp ? this->getXFieldHistoryMap() : xfieldHistory).find(type)->second;
+        xfieldval = boost::get<T>(listofXfieldChanges.rbegin()->xfieldValue);
+    }
+
+    virtual XFieldChangeListWrapper& operator[](TAPYRUS_XFIELDTYPES type) const {
+        return xfieldHistory.find(type)->second;
+    }
+
+    virtual bool IsNew(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange) const;
+    virtual void Add(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange);
+    //void Remove(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange);
+
+    virtual const XFieldChange& Get(TAPYRUS_XFIELDTYPES type, uint32_t height);
+    virtual const XFieldChange& Get(TAPYRUS_XFIELDTYPES type, uint256 blockHash);
+
+};
+
+/*
+ * class CXFieldHistory is an interface to access the initialoized map. this is the same as
+ * CXFieldHistoryMap except for the constructor
+ */
+class CXFieldHistory : public CXFieldHistoryMap{
+
+public:
+    CXFieldHistory():CXFieldHistoryMap(false) {}
+    virtual ~CXFieldHistory(){}
+
+    //constructor to initialize the confirmed global map
+    inline explicit CXFieldHistory(const CBlock& genesis):CXFieldHistoryMap(false) {
+        xfieldHistory.emplace(TAPYRUS_XFIELDTYPES::AGGPUBKEY, XFieldChangeListWrapper(XFieldAggPubKey::BLOCKTREE_DB_KEY));
+        xfieldHistory.emplace(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, XFieldChangeListWrapper(XFieldMaxBlockSize::BLOCKTREE_DB_KEY));
+
         this->Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY, XFieldChange(genesis.xfield.xfieldValue, 0, genesis.GetHash()));
         this->Add(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, XFieldChange(DEFAULT_BLOCK_MAX_SIZE, 0, genesis.GetHash()));
     }
 
-    const std::vector<XFieldChange>* operator[](TAPYRUS_XFIELDTYPES type) const { return &XFieldHistoryMap[type];}
+    XFieldHistoryMapType& getXFieldHistoryMap() const override {
+        return xfieldHistory;
+    }
 
     void InitializeFromBlockDB(TAPYRUS_XFIELDTYPES type, CBlockTreeDB* pblocktree);
-    void Add(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange);
-    void Remove(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange);
-    void ToUniValue(TAPYRUS_XFIELDTYPES type, UniValue* xFieldChangeList);
-
-    const XFieldChange& Get(TAPYRUS_XFIELDTYPES type, uint32_t height);
-    const XFieldChange& Get(TAPYRUS_XFIELDTYPES type, uint256 blockHash);
-
-    template <typename T>
-    void GetLatest(TAPYRUS_XFIELDTYPES type, T & xfieldval) const {
-        const std::vector<XFieldChange>& listofXfieldChanges = XFieldHistoryMap[type];
-        xfieldval = boost::get<T>(listofXfieldChanges.rbegin()->xfieldValue);
-    }
-    /*uint32_t GetHeightFromAggregatePubkey(const CPubKey &aggpubkey) const;
-    CPubKey GetAggPubkeyFromHeight(uint32_t height) const;
-    CPubKey AddAggregatePubkey(const std::vector<unsigned char>& pubkey, uint32_t height);
-    std::vector<XFieldChange>* GetAggregatePubkeyHeightList() const;
-    CPubKey XFieldAggPubKey aggpubkeyChange;
-    xFieldHistory.GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
-    CPubKey aggpubkey(aggpubkeyChange.getPubKey());() const;
-    bool RemoveAggregatePubkey(const CPubKey &aggpubkey );
-
-    uint32_t GetHeightFromMaxBlockSize(const uint32_t maxBlockSize) const;
-    uint32_t GetMaxBlockSizeFromHeight(uint32_t height) const;
-    uint32_t AddMaxBlockSize(const uint32_t maxBlockSize, uint32_t height);
-    const std::vector<XFieldChange>* GetMaxBlockSizeHeightList() const;
-    uint32_t GetLatestMaxBlockSiz() const;
-    bool RemoveMaxBlockSize(const uint32_t maxBlockSize);*/
+    void ToUniValue(TAPYRUS_XFIELDTYPES type, UniValue* xfieldChanges);
 };
 
+/*
+ * class CTempXFieldHistory lets us use a temporary map to help handle situations like 
+ * LoadBlockFromDisk and ProcessBlockHeaders where the global map will not be accurate. 
+ * (The blocks being processed in LoadBlockFromDisk are not confirmed and not in the active chain. 
+ * So its proof cannot be verified using the CXFieldHistoryMap. Similarly max block size 
+ * cannot be validated.) This temp map uses RAII idiom and deallocates the memory 
+ * when the object goes out of scope. 
+ */
+class CTempXFieldHistory : public CXFieldHistoryMap{
 
-class XFieldIsLastInHistoryVisitor : public boost::static_visitor< bool >
-{
+    XFieldHistoryMapType* xfieldHistoryTemp;
 public:
+    //constructor to initialize the temp map
+    inline explicit CTempXFieldHistory():CXFieldHistoryMap(true){
+        xfieldHistoryTemp = new XFieldHistoryMapType;
+        for(const auto& item : xfieldHistory)
+            xfieldHistoryTemp->insert(item);
+    }
+
+    virtual ~CTempXFieldHistory(){
+        delete xfieldHistoryTemp;
+        xfieldHistoryTemp = nullptr;
+    }
+
+    XFieldHistoryMapType& getXFieldHistoryMap() const override {
+        return *xfieldHistoryTemp;
+    }
+
+    XFieldChangeListWrapper& operator[](TAPYRUS_XFIELDTYPES type) const override {
+        return xfieldHistoryTemp->find(type)->second;
+    }
+
+};
+
+class IsXFieldLastInHistoryVisitor : public boost::static_visitor< bool >
+{
+    CXFieldHistoryMap* history;
+public:
+    IsXFieldLastInHistoryVisitor(CXFieldHistoryMap* historyIn):history(historyIn) {}
 
     template <typename T>
     bool operator()(const T &xField) const {
+        assert(history);
         TAPYRUS_XFIELDTYPES X = GetXFieldTypeFrom(xField);
-        XFieldHistory history;
-        return boost::get<T>(history[X]->rbegin()->xfieldValue).operator==(T(xField));
+        return boost::get<T>((*history)[X].rbegin()->xfieldValue).operator==(T(xField));
     }
 
 };
 
-bool IsXFieldNewToHistory(const CXField& xfield);
+bool IsXFieldNew(const CXField& xfield, CXFieldHistoryMap* pxfieldHistory);
 
 
 #endif // BITCOIN_XFIELD_HISTORY_H

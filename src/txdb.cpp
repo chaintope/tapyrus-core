@@ -171,24 +171,17 @@ bool CBlockTreeDB::ReadLastBlockFile(int &nFile) {
     return Read(DB_LAST_BLOCK, nFile);
 }
 
-bool CBlockTreeDB::ReadXFieldAggpubkeys(std::vector<XFieldChange>& xFieldList) {
-    return ReadXField(XFieldAggPubKey::BLOCKTREE_DB_KEY, xFieldList);
-}
-bool CBlockTreeDB::ReadXFieldMaxBlockSize(std::vector<XFieldChange>& xFieldList) {
-    return ReadXField(XFieldMaxBlockSize::BLOCKTREE_DB_KEY, xFieldList);
-}
-bool CBlockTreeDB::ReadXField(char key, std::vector<XFieldChange>& xFieldList) {
-    return Read(key, xFieldList);
+bool CBlockTreeDB::ReadXField(const char key, XFieldChangeListWrapper& helper) {
+    return Read(key, helper);
 }
 
-template <typename T>
-bool CBlockTreeDB::WriteXFieldAggpubkey(const XFieldChange& xFieldChange) {
-    std::vector<XFieldChange> xFieldList;
-    const char key = boost::get<T>(xFieldChange.xfieldValue).BLOCKTREE_DB_KEY;
-    ReadXField(key, xFieldList);
-    if(std::find(xFieldList.begin(), xFieldList.end(), xFieldChange) == xFieldList.end())
-        xFieldList.push_back(xFieldChange);
-    return Write(key, xFieldList);
+bool CBlockTreeDB::WriteXField(const XFieldChange& xFieldChange) {
+    const char key = GetXFieldDBKey(xFieldChange.xfieldValue);
+    XFieldChangeListWrapper helper(key);
+    Read(key, helper);
+    if(std::find(helper.xfieldChanges.begin(), helper.xfieldChanges.end(), xFieldChange) == helper.xfieldChanges.end())
+        helper.xfieldChanges.push_back(xFieldChange);
+    return Write(key, helper.xfieldChanges);
 }
 
 CCoinsViewCursor *CCoinsViewDB::Cursor() const

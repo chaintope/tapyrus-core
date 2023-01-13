@@ -7,19 +7,28 @@
 #include <txdb.h>
 #include <univalue.h>
 
-std::map< const TAPYRUS_XFIELDTYPES, std::vector<XFieldChange> >  XFieldHistory::XFieldHistoryMap;
+XFieldHistoryMapType CXFieldHistoryMap::xfieldHistory;
 
-void XFieldHistory::Add(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange) {
-    XFieldHistoryMap[type].push_back(xFieldChange);
+bool CXFieldHistoryMap::IsNew(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange) const
+{
+    auto& listofXfieldChanges = (isTemp ? this->getXFieldHistoryMap() : xfieldHistory).find(type)->second;
+
+    for(const auto& xfieldItem : listofXfieldChanges)
+        if( xfieldItem == xFieldChange )
+            return false;
+    return true;
 }
 
-void XFieldHistory::Remove(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange) {
-    //XFieldHistoryMap[type].erase(xFieldChange);
+void CXFieldHistoryMap::Add(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange) {
+    if(!IsNew(type, xFieldChange))
+        return;
+
+    (isTemp ? this->getXFieldHistoryMap() : xfieldHistory).find(type)->second.push_back(xFieldChange);
 }
 
-const XFieldChange& XFieldHistory::Get(TAPYRUS_XFIELDTYPES type, uint32_t height) {
+const XFieldChange& CXFieldHistoryMap::Get(TAPYRUS_XFIELDTYPES type, uint32_t height) {
 
-    const std::vector<XFieldChange>& listofXfieldChanges = XFieldHistoryMap[type];
+    auto& listofXfieldChanges = (isTemp ? this->getXFieldHistoryMap() : xfieldHistory).find(type)->second;
 
     if(height == 0 || listofXfieldChanges.size() == 1)
         return listofXfieldChanges[0]; 
@@ -34,11 +43,10 @@ const XFieldChange& XFieldHistory::Get(TAPYRUS_XFIELDTYPES type, uint32_t height
     return listofXfieldChanges.back();
 }
 
-const XFieldChange& XFieldHistory::Get(TAPYRUS_XFIELDTYPES type, uint256 blockHash) {
+const XFieldChange& CXFieldHistoryMap::Get(TAPYRUS_XFIELDTYPES type, uint256 blockHash) {
 
-    const std::vector<XFieldChange>& listofXfieldChanges = XFieldHistoryMap[type];
-    //TODO: return the corrext xfield for any block.
-    //do not use == for this search
+    auto& listofXfieldChanges = (isTemp ? this->getXFieldHistoryMap() : xfieldHistory).find(type)->second;
+    //TODO: return the corrext xfield applicable to any block by checking the index.
     for(unsigned int i = 0; i < listofXfieldChanges.size(); i++) {
         if(blockHash == listofXfieldChanges.at(i).blockHash)
             return listofXfieldChanges.at(i);
@@ -46,105 +54,31 @@ const XFieldChange& XFieldHistory::Get(TAPYRUS_XFIELDTYPES type, uint256 blockHa
     return listofXfieldChanges.back();
 }
 
-/*
-CPubKey XFieldHistory::GetAggPubkeyFromHeight(uint32_t height) const
-{
-    auto& aggPubKey = boost::get<XFieldAggPubKey>(Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, height).xfieldValue).aggPubKey;
-    return CPubKey(aggPubKey.begin(), aggPubKey.end());
-}
-
-uint32_t XFieldHistory::GetMaxBlockSizeFromHeight(uint32_t height) const
-{
-    return boost::get<XFieldMaxBlockSize>(Get(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, height).xfieldValue).maxBlockSize;
-}
-
-std::vector<XFieldChange>* XFieldHistory::GetAggregatePubkeyHeightList() const
-{
-    if(XFieldHistoryMap.find(TAPYRUS_XFIELDTYPES::AGGPUBKEY) == XFieldHistoryMap.end())
-        return nullptr;
-    return &XFieldHistoryMap[TAPYRUS_XFIELDTYPES::AGGPUBKEY];
-}
-
-std::vector<XFieldChange>* XFieldHistory::GetMaxBlockSizeHeightList() const
-{
-    if(XFieldHistoryMap.find(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE) == XFieldHistoryMap.end())
-        return nullptr;
-    return &XFieldHistoryMap[TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE];
-}
-
-uint32_t XFieldHistory::GetHeightFromAggregatePubkey(const CPubKey &aggpubkey) const
-{
-    for (auto& c : XFieldHistoryMap[TAPYRUS_XFIELDTYPES::AGGPUBKEY]) {
-        if (c.xfieldValue == aggpubkey)
-            return c.height;
-    }
-    return -1;
-}
-
-uint32_t XFieldHistory::GetHeightFromMaxBlockSize(const uint32_t maxBlockSize) const
-{
-    for (auto& c : XFieldHistoryMap[TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE]) {
-        if (c.xfieldValue == maxBlockSize)
-            return c.height;
-    }
-    return -1;
-}
-
-CPubKey XFieldHistory::XFieldAggPubKey aggpubkeyChange;
-    xFieldHistory.GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
-    CPubKey aggpubkey(aggpubkeyChange.getPubKey());() const {
-    XFieldAggPubKey& aggPubKey = boost::get<XFieldAggPubKey>(Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, height).xfieldValue).aggPubKey;
-    return CPubKey(aggPubKey.begin(), aggPubKey.end());
-}
-uint32_t XFieldHistory::GetLatestMaxBlockSiz() const {
-    return boost::get<XFieldMaxBlockSize>(XFieldHistoryMap[TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE].rbegin().xfieldValue).maxBlockSize;
-}
-
-bool RemoveAggregatePubkey(const CPubKey &aggpubkey ) {
-    auto & AggPubKeyChangeList = XFieldHistoryMap[TAPYRUS_XFIELDTYPES::AGGPUBKEY];
-
-    AggPubKeyChangeList.iterator findIter =  std::find_if(AggPubKeyChangeList.begin(), AggPubKeyChangeList.end(), [aggpubkey](XFieldChange* iter){ boost::get<XFieldAggPubKey*>(iter)->aggPubKey == aggpubkey; });
-
-    if(findIter == AggPubKeyChangeList.end())
-        return false;
-    AggPubKeyChangeList.erase(findIter);
-    return true;
-}
-bool RemoveMaxBlockSize(const uint32_t maxBlockSize) {
-    auto & MaxBlockSizeChangeList = XFieldHistoryMap[TAPYRUS_XFIELDTYPES::AGGPUBKEY];
-
-    MaxBlockSizeChangeList.iterator findIter =  std::find_if(MaxBlockSizeChangeList.begin(), MaxBlockSizeChangeList.end(), [aggpubkey](XFieldChange* iter){ boost::get<XFieldMaxBlockSize*>(iter)->maxBlockSize == maxBlockSize; });
-
-    if(findIter == MaxBlockSizeChangeList.end())
-        return false;
-    MaxBlockSizeChangeList.erase(findIter);
-    return true;
-}*/
-
-void XFieldHistory::InitializeFromBlockDB(TAPYRUS_XFIELDTYPES type, CBlockTreeDB* pblocktree) {
-    std::vector<XFieldChange> xFieldListDB;
-    pblocktree->Read(static_cast<char>(type), xFieldListDB);
+void CXFieldHistory::InitializeFromBlockDB(TAPYRUS_XFIELDTYPES type, CBlockTreeDB* pblocktree) {
+    const char key(std::to_string(static_cast<int8_t>(type))[0]);
+    XFieldChangeListWrapper xFieldListDB(key);
+    pblocktree->ReadXField(key, xFieldListDB);
     for(auto &XFieldDB:xFieldListDB)
         this->Add(type, XFieldDB);
 }
 
-void XFieldHistory::ToUniValue(TAPYRUS_XFIELDTYPES type, UniValue* xFieldChangeUnival) {
+void CXFieldHistory::ToUniValue(TAPYRUS_XFIELDTYPES type, UniValue* xFieldChangeUnival) {
     *xFieldChangeUnival = UniValue(UniValue::VARR);
-    const std::vector<XFieldChange>* xFieldChangeList = this->operator[](type);
-    for (auto& xFieldChange : * xFieldChangeList)
+    const XFieldChangeListWrapper& xFieldChangeList = this->operator[](type);
+    for (auto& xFieldChange : xFieldChangeList)
     {
         UniValue xFieldChangeObj(UniValue::VOBJ);
         std::string value = XFieldDataToString(xFieldChange.xfieldValue);
-        xFieldChangeObj.push_back(value);
-        xFieldChangeObj.push_back((uint64_t)xFieldChange.height);
-        xFieldChangeObj.push_back(HexStr(xFieldChange.blockHash));
+        xFieldChangeObj.pushKV(value, (uint64_t)xFieldChange.height);
+        //xFieldChangeObj.push_back(HexStr(xFieldChange.blockHash));
         xFieldChangeUnival->push_back(xFieldChangeObj);
     }
 }
 
-bool IsXFieldNewToHistory(const CXField& xfield)
+bool IsXFieldNew(const CXField& xfield, CXFieldHistoryMap* pxfieldHistory)
 {
+    IsXFieldLastInHistoryVisitor checkVisitor(pxfieldHistory);
     return xfield.IsValid()
           && std::find(XFIELDTYPES_INIT_LIST.begin(), XFIELDTYPES_INIT_LIST.end(), xfield.xfieldType) != XFIELDTYPES_INIT_LIST.end()
-          && !boost::apply_visitor(XFieldIsLastInHistoryVisitor(), xfield.xfieldValue);
+          && !boost::apply_visitor(checkVisitor, xfield.xfieldValue);
 }

@@ -140,9 +140,8 @@ static void CreateBlocks(const CChainParams &chainparams,
             pblock->hashImMerkleRoot = BlockMerkleRoot(*pblock, nullptr, true);
             
             //block proof
-            XFieldHistory xFieldHistory;
             XFieldAggPubKey aggpubkeyChange;
-            xFieldHistory.GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+            CXFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
             CPubKey aggpubkey(aggpubkeyChange.getPubKey());
             std::vector<unsigned char> blockProof;
             createSignedBlockProof(*pblock, blockProof);
@@ -161,9 +160,8 @@ static void CreateBlocks(const CChainParams &chainparams,
     BOOST_CHECK_EQUAL(pblocktemplate->block.GetHeight(), chainActive.Height());
     BOOST_CHECK(pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey));
 
-    XFieldHistory xFieldHistory;
     XFieldAggPubKey aggpubkeyChange;
-    xFieldHistory.GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+    CXFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
     CPubKey aggpubkey(aggpubkeyChange.getPubKey());
     std::vector<unsigned char> blockProof;
     createSignedBlockProof(pblocktemplate->block, blockProof);

@@ -61,9 +61,8 @@ static std::shared_ptr<CBlock> PrepareBlock(const CScript& coinbase_scriptPubKey
     assert(privKey.IsValid());
     privKey.Sign_Schnorr(blockHash, proof);
 
-    XFieldHistory xFieldHistory;
     XFieldAggPubKey aggpubkeyChange;
-    xFieldHistory.GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+    CXFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
 
     block->AbsorbBlockProof(proof, aggpubkeyChange.getPubKey());
 

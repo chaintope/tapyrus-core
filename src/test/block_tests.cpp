@@ -104,9 +104,8 @@ BOOST_AUTO_TEST_CASE(AbsorbBlockProof_test) {
     CDataStream ssBlockProof(SER_NETWORK, PROTOCOL_VERSION);
     ssBlockProof << blockProof;
 
-    XFieldHistory xFieldHistory;
     XFieldAggPubKey aggpubkeyChange;
-    xFieldHistory.GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+    CXFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
     CPubKey aggpubkey(aggpubkeyChange.getPubKey());
     // add proof to the block
     BOOST_CHECK(block.AbsorbBlockProof(blockProof, aggpubkey));
@@ -136,9 +135,8 @@ BOOST_AUTO_TEST_CASE(AbsorbBlockProof_invlalid_test) {
     blockProof[2] = 0x30 ;
 
     //returns false as all signatures in proof are not added to the block
-    XFieldHistory xFieldHistory;
     XFieldAggPubKey aggpubkeyChange;
-    xFieldHistory.GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+    CXFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
     CPubKey aggpubkey(aggpubkeyChange.getPubKey());
     BOOST_CHECK_EQUAL(false, block.AbsorbBlockProof(blockProof, aggpubkey));
 
