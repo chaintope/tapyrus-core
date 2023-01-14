@@ -473,7 +473,7 @@ class FederationManagementTest(BitcoinTestFramework):
         assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
 
         self.stop_node(0)
-        self.log.info("Restarting node with '-reindex'")
+        self.log.info("Restarting node0 with '-reindex'")
         self.start_node(0, extra_args=["-reindex"])
         connect_nodes(self.nodes[0], 1)
         self.connectNodeAndCheck(2, expectedAggPubKeys)
@@ -545,8 +545,8 @@ class FederationManagementTest(BitcoinTestFramework):
         blockchaininfo = self.nodes[1].getblockchaininfo()
         assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
 
-        self.log.info("Starting node2 with '-reloadxfield'")
-        self.start_node(2, ["-reloadxfield"])
+        #self.log.info("Starting node2 with '-reloadxfield'")
+        self.start_node(2)
         connect_nodes(self.nodes[2], 0)
         connect_nodes(self.nodes[2], 1)
         #reindex takes time. wait before checking blockchain info
@@ -647,7 +647,7 @@ class FederationManagementTest(BitcoinTestFramework):
         best_block = self.nodes[1].getblock(self.tip)
         self.sync_all([self.nodes[0:3]])
 
-        self.start_node(3, ["-reloadxfield", "-loadblock=%s" % os.path.join(self.nodes[3].datadir, 'blk00000.dat')])
+        self.start_node(3, ["-loadblock=%s" % os.path.join(self.nodes[3].datadir, 'blk00000.dat')])
         #reindex takes time. wait before checking blockchain info
         time.sleep(5)
         connect_nodes(self.nodes[3], 0)
