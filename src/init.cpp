@@ -688,8 +688,9 @@ static void ThreadImport(std::vector<fs::path> vImportFiles, bool fReloadxfield)
         }
     }
 
-    if (fReloadxfield && xFieldList.size()) {
-        pblocktree->ResetXFieldAggpubkeys(xFieldList);
+    if (fReloadxfield && tempXFieldHistory[TAPYRUS_XFIELDTYPES::AGGPUBKEY].size() != CXFieldHistory()[TAPYRUS_XFIELDTYPES::AGGPUBKEY].size()) {
+        for(auto &change : tempXFieldHistory[TAPYRUS_XFIELDTYPES::AGGPUBKEY])
+            pblocktree->WriteXField(change);
     }
 
     // scan for better chains in the block chain database, that are not yet connected in the active best chain
@@ -1512,15 +1513,6 @@ bool AppInitMain()
                         break;
                     }
                 }
-                // Step 7a: Load Xfield data from db
-                std::vector<XFieldAggpubkey> xFieldList;
-                pblocktree->ReadXFieldAggpubkeys(xFieldList);
-                for(auto &XFieldData:xFieldList)
-                {
-                    //verify the aggpubkey from the xfield in the block db and then add to federation params
-                    CBlockIndex* pindex = LookupBlockIndex(XFieldData.blockHash);
-                    if (!pindex)//block might not be in the best chain
-                        continue;
 
                 // Step 7a: Load Xfield data from db
                 CXFieldHistory xFieldHistory;

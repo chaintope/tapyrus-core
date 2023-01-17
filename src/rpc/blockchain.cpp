@@ -1360,6 +1360,10 @@ static UniValue invalidateblock(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
         }
 
+        //do not allow invalidate if there is an xfield change
+        if(pblockindex->nHeight <= CXFieldHistory().GetReorgHeight())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot invalidate block as Xfield change found in chain after this block.");
+
         InvalidateBlock(state, pblockindex);
     }
 
@@ -1398,6 +1402,10 @@ static UniValue reconsiderblock(const JSONRPCRequest& request)
         if (!pblockindex) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
         }
+
+        //do not allow reorg if there is any xfield change
+        if(pblockindex->nHeight <= CXFieldHistory().GetReorgHeight())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot invalidate block as Xfield change found in chain after this block.");
 
         ResetBlockFailureFlags(pblockindex);
     }

@@ -177,11 +177,7 @@ UniValue getnewblock(const JSONRPCRequest& request)
         if(xfield.xfieldType ==  TAPYRUS_XFIELDTYPES::NONE)
             throw JSONRPCError(RPC_INVALID_PARAMS, "Unknown xfield type");
 
-<<<<<<< HEAD
-        switch(xfieldType){
-=======
         switch(xfield.xfieldType){
->>>>>>> 93bc50835 (change getMaxBlocksizelist to return pointer to avoid false positives in reference)
             case TAPYRUS_XFIELDTYPES::AGGPUBKEY:
             {
                 std::string aggPubkeyString = xfieldParam.substr(xfieldParam.find(':')+1);

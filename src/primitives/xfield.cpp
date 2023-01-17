@@ -32,7 +32,7 @@ XFieldAggPubKey::XFieldAggPubKey(const std::vector<unsigned char>& pubkey):data(
 }
 
 inline std::string XFieldMaxBlockSize::ToString() const {
-    return HexStr(&data, &data + sizeof(data));
+    return std::to_string(data);
 }
 
 template <typename T>

@@ -112,7 +112,8 @@ public:
     }
 
     inline bool IsValid() const {
-        return data > 0;
+        //BlockAssembler uses limits 1K and MAX_BLOCK_SIZE-1K
+        return data > 1000;
     }
 
     inline std::string ToString() const;
