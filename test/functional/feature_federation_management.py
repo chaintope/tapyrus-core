@@ -441,10 +441,10 @@ class FederationManagementTest(BitcoinTestFramework):
         assert(node.getblock(self.tip))
 
         #call invalidate block rpc on B36 -- failure - B36 is a federation block
-        '''assert_raises_rpc_error(-8, "Federation block found", node.invalidateblock, self.tip)
-        assert_raises_rpc_error(-8, "Federation block found", node.invalidateblock, self.forkblocks[33])
-        assert_raises_rpc_error(-8, "Federation block found", node.invalidateblock, self.blocks[29])
-        assert_equal(self.tip, node.getbestblockhash())'''
+        assert_raises_rpc_error(-8, "Cannot invalidate block as Xfield change found in chain after this block", node.invalidateblock, self.tip)
+        assert_raises_rpc_error(-8, "Cannot invalidate block as Xfield change found in chain after this block", node.invalidateblock, self.forkblocks[33])
+        assert_raises_rpc_error(-8, "Cannot invalidate block as Xfield change found in chain after this block", node.invalidateblock, self.blocks[29])
+        assert_equal(self.tip, node.getbestblockhash())
 
         #B37 - Create block - sign using aggpubkey5 -- success
         block_time += 1
@@ -662,10 +662,7 @@ class FederationManagementTest(BitcoinTestFramework):
             assert_equal(blockchaininfo["blocks"], 56)
 
     def connectNodeAndCheck(self, n, expectedAggPubKeys):
-<<<<<<< HEAD
-=======
         #this function tests HEADERS message processing in node 'n'
->>>>>>> 4e42a67c3 (Fix xfield history to handle reindex, process headers and also regular xfield change)
         self.start_node(n)
         connect_nodes(self.nodes[0], n)
         self.sync_all([self.nodes[0:n+1]])
