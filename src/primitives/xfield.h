@@ -74,8 +74,7 @@ public:
     std::vector<unsigned char> data;
     static const char BLOCKTREE_DB_KEY = '1';
     explicit XFieldAggPubKey():data() { }
-    XFieldAggPubKey(const std::vector<unsigned char>& dataIn);
-    //XFieldAggPubKey(const CPubKey& dataIn):data(dataIn) {};
+    XFieldAggPubKey(const std::vector<unsigned char>& dataIn):data(dataIn.begin(), dataIn.end()){};
 
     bool operator==(const std::vector<unsigned char>& dataIn) const { return data == dataIn; }
     bool operator==(const XFieldAggPubKey& xfield) const { return xfield.operator==(this->data); }
