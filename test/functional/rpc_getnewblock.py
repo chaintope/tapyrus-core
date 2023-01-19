@@ -55,10 +55,17 @@ class GetNewBlockTest(BitcoinTestFramework):
 
         self.log.info("getnewblock aggpubkey negative tests")
         assert_raises_rpc_error(-32602, "xfield parameter could not be parsed. Check if the xfield parameter has format: <xfield_type:new_xfield_value>", self.nodes[0].getnewblock, address, 0,"03831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafc")
+<<<<<<< HEAD
         assert_raises_rpc_error(-32602, "Unknown xfield type", self.nodes[0].getnewblock, address, 0,"2:03831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafc")
         assert_raises_rpc_error(-32602, "Unknown xfield type", self.nodes[0].getnewblock, address, 0,"0:03831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafc")
         assert_raises_rpc_error(-32602, "Unknown xfield type", self.nodes[0].getnewblock, address, 0,"2:831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafc")
         assert_raises_rpc_error(-32602, "Unknown xfield type", self.nodes[0].getnewblock, address, 0,"2:03ac")
+=======
+        assert_raises_rpc_error(-32602, "Unknown xfield type", self.nodes[0].getnewblock, address, 0,"3:03831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafc")
+        assert_raises_rpc_error(-32602, "Unknown xfield type", self.nodes[0].getnewblock, address, 0,"0:03831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafc")
+        assert_raises_rpc_error(-32602, "Unknown xfield type", self.nodes[0].getnewblock, address, 0,"3:831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafc")
+        assert_raises_rpc_error(-32602, "Unknown xfield type", self.nodes[0].getnewblock, address, 0,"3:03ac")
+>>>>>>> d1c0a3ef4 (fixed builds - remove conflict markers)
         assert_raises_rpc_error(-32602, "xfield parameter was invalid. Aggregate public key could not be parsed", self.nodes[0].getnewblock, address, 0,"1:fghjgf131423fafc")
         assert_raises_rpc_error(-32602, "xfield parameter was invalid. Aggregate public key could not be parsed", self.nodes[0].getnewblock, address, 0,"1:831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafz")
         assert_raises_rpc_error(-32602, "xfield parameter was invalid. Aggregate public key was uncompressed or invalid", self.nodes[0].getnewblock, address, 0,"1:831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafc")
@@ -67,7 +74,43 @@ class GetNewBlockTest(BitcoinTestFramework):
         assert_raises_rpc_error(-32602, "xfield parameter was invalid. Aggregate public key was uncompressed or invalid", self.nodes[0].getnewblock, address, 0,"1:831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafc")
         assert_raises_rpc_error(-32602, "xfield parameter was invalid. Aggregate public key was uncompressed or invalid", self.nodes[0].getnewblock, address, 0,"1:0496b538e853519c726a2c91e61ec11600ae1390813a627c66fb8be7947be63c52da7589379515d4e0a604f8141781e62294721166bf621e73a82cbf2342c858ee")
 
+<<<<<<< HEAD
 
+=======
+        self.log.info("getnewblock maxblocksize tests")
+        address = self.nodes[0].getnewaddress()
+        blockhex = self.nodes[0].getnewblock(address, 0,"2:400000")
+        block = FromHex(CBlock(), blockhex)
+        assert_equal(block.xfieldType, 2)
+        assert_equal(block.xfield, 400000)
+
+        blockhex = self.nodes[0].getnewblock(address, 10,"2:1001")
+        block = FromHex(CBlock(), blockhex)
+        assert_equal(block.xfieldType, 2)
+        assert_equal(block.xfield, 1001)
+
+        blockhex = self.nodes[0].getnewblock(address, 10,"2:4294967295")
+        block = FromHex(CBlock(), blockhex)
+        assert_equal(block.xfieldType, 2)
+        assert_equal(block.xfield, 4294967295)
+
+        blockhex = self.nodes[0].getnewblock(address, 10,"2:9000")
+        block = FromHex(CBlock(), blockhex)
+        assert_equal(block.xfieldType, 2)
+        assert_equal(block.xfield, 9000)
+
+        self.log.info("getnewblock maxblocksize negative tests")
+        assert_raises_rpc_error(-32602, "xfield max block size was invalid. It is expected to be <xfield_type:new_xfield_value>", self.nodes[0].getnewblock, address, 0,"2:")
+        assert_raises_rpc_error(-32602, "xfield max block size was invalid. It is expected to be a positive quantity between 1000 and 4294967295", self.nodes[0].getnewblock, address, 0,"2:0")
+        assert_raises_rpc_error(-32602, "xfield max block size was invalid. It is expected to be a positive quantity between 1000 and 4294967295", self.nodes[0].getnewblock, address, 0,"2:090")
+        assert_raises_rpc_error(-32602, "xfield max block size was invalid. It is expected to be <xfield_type:new_xfield_value>", self.nodes[0].getnewblock, address, 0,"2:4294967296")
+        assert_raises_rpc_error(-32602, "xfield max block size was invalid. It is expected to be <xfield_type:new_xfield_value>", self.nodes[0].getnewblock, address, 0,"2:76f6f7")
+        assert_raises_rpc_error(-32602, "xfield max block size was invalid. It is expected to be <xfield_type:new_xfield_value>", self.nodes[0].getnewblock, address, 0,"2:-3898798798797897")
+        assert_raises_rpc_error(-32602, "xfield max block size was invalid. It is expected to be <xfield_type:new_xfield_value>", self.nodes[0].getnewblock, address, 0,"2:-1")
+        assert_raises_rpc_error(-32602, "xfield max block size was invalid. It is expected to be <xfield_type:new_xfield_value>", self.nodes[0].getnewblock, address, 0,"2:567587687987998")
+        assert_raises_rpc_error(-32602, "xfield max block size was invalid. It is expected to be <xfield_type:new_xfield_value>", self.nodes[0].getnewblock, address, 0,"2:-0")
+        assert_raises_rpc_error(-32602, "Unknown xfield type", self.nodes[0].getnewblock, address, 0,"3:0")
+>>>>>>> d1c0a3ef4 (fixed builds - remove conflict markers)
 
 if __name__ == '__main__':
     GetNewBlockTest().main ()

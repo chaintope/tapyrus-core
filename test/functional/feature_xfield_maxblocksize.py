@@ -27,7 +27,7 @@ from test_framework.key import CECKey
 from test_framework.schnorr import Schnorr
 from test_framework.mininode import P2PDataStore
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, bytes_to_hex_str, hex_str_to_bytes, NetworkDirName
+from test_framework.util import assert_equal, bytes_to_hex_str, hex_str_to_bytes, NetworkDirName, connect_nodes
 from test_framework.script import CScript, OP_CHECKSIG, OP_TRUE, SignatureHash, SIGHASH_ALL
 from test_framework.messages import CTransaction, MAX_BLOCK_BASE_SIZE, CTxOut, CTxIn, COutPoint, uint256_from_str, ser_compact_size
 
@@ -79,7 +79,12 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         self.schnorr_key = Schnorr()
         self.schnorr_key.set_secretbytes(bytes.fromhex("12b004fff7f4b69ef8650e767f18f11ede158148b425660723b9f9a66e61f747"))
 
-        self.num_nodes = 1
+        #test has 4 nodes.
+        # node0 is the test node where all blocks are sent.
+        # node1 is passive, always in synch with node0
+        # node2 is started and stopped at different points to test network synch
+        # node3 is a new node added to the network at the end of the test
+        self.num_nodes = 4
         self.sig_scheme = 0
         self.setup_clean_chain = True
         self.mocktime = int(time.time() - 50)
@@ -92,8 +97,11 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
 
     def run_test(self):
         node = self.nodes[0]
+        syn_node = self.nodes[1]
         self.address = node.getnewaddress()
         self.reconnect_p2p(node)
+        self.stop_node(2)
+        self.stop_node(3)
 
         self.log.info("Test starting...")
 
@@ -122,6 +130,9 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         node.p2p.send_blocks_and_test([blocknew], node, success=True)
         self.tip = blocknew.hash
         assert_equal(self.tip, node.getbestblockhash())
+        self.sync_all([self.nodes[0:2]])
+        assert_equal(self.tip, syn_node.getbestblockhash())
+        assert(node.getblock(self.tip))
 
         self.log.info("Reject a block of size MAX_BLOCK_BASE_SIZE + 1")
         #B -  Create block - block size 1MB +1 - sign with aggpubkey1 -- failure
@@ -172,6 +183,9 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         node.p2p.send_blocks_and_test([blocknew], node, success=True)
         self.tip = blocknew.hash
         assert_equal(self.tip, node.getbestblockhash())
+        self.sync_all([self.nodes[0:2]])
+        assert_equal(self.tip, syn_node.getbestblockhash())
+        assert(node.getblock(self.tip))
 
         #B16 -- Create block with aggpubkey2 - sign with aggpubkey1 -- success - aggpubkey2 is added to list 
         self.log.info("Accept block which changes aggpubkey")
@@ -182,6 +196,12 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         self.tip = blocknew.hash
         assert_equal(self.tip, node.getbestblockhash())
 
+        #restarting node0 to test presistance of aggpubkey change
+        self.stop_node(0)
+        self.start_node(0)
+        connect_nodes(self.nodes[0], 1)
+        self.reconnect_p2p(node)
+
         #B -- Create block with 0 maxblock size - sign with aggpubkey2 -- failure - block serialization fails
         self.log.info("Reject blocks with invalid max block size")
         self.block_time += 1
@@ -189,27 +209,19 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         blocknew.xfieldType = 2
         blocknew.xfield = 0
         blocknew.solve(self.aggprivkey[1])
-        node.p2p.send_blocks_and_test([blocknew], node, success=False, reject_code=16, reject_reason="bad-xfieldType-xfield")
+        node.p2p.send_blocks_and_test([blocknew], node, success=False, request_block=False)
         assert_equal(self.tip, node.getbestblockhash())
 
         #B -- Create block with small maxblock size - sign with aggpubkey2 -- failure - max block size invalid
-        self.reconnect_p2p(node)
-        chaintips = node.getchaintips()
-        assert_equal(len(chaintips), 4)
-
         self.block_time += 1
         blocknew = self.new_block(17, spend=self.unspent[6])
         blocknew.xfieldType = 2
         blocknew.xfield = 100
         blocknew.solve(self.aggprivkey[1])
-        node.p2p.send_blocks_and_test([blocknew], node, success=False, reject_code=16, reject_reason="bad-xfieldType-xfield")
+        node.p2p.send_blocks_and_test([blocknew], node, success=False, request_block=False)
         assert_equal(self.tip, node.getbestblockhash())
 
         #B -- Create block with negative maxblock size - sign with aggpubkey2 -- failure - max block size invalid
-        self.reconnect_p2p(node)
-        chaintips = node.getchaintips()
-        assert_equal(len(chaintips), 5)
-
         self.block_time += 1
         blocknew = self.new_block(17, spend=self.unspent[6])
         blocknew.xfieldType = 2
@@ -217,7 +229,7 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         blockhex = blocknew.serialize()
         blockhex=blockhex.replace(b'\x02\x00\x00\x00\x00', b'\x02\x80\x80\x80\x80')
         blocknew.solve(self.aggprivkey[1])
-        node.p2p.send_blocks_and_test([blocknew], node, success=False, reject_code=16, reject_reason="bad-xfieldType-xfield")
+        node.p2p.send_blocks_and_test([blocknew], node, success=False, request_block=False)
         assert_equal(self.tip, node.getbestblockhash())
 
         #B17 -- Create block - new max block size 0.5MB - sign with aggpubkey2 -- success
@@ -237,13 +249,13 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         blocknew = self.new_block(18, spend=self.unspent[8])
         self.expand_block(blocknew, MAX_BLOCK_BASE_SIZE - 1000)
         blocknew.solve(self.aggprivkey[1])
-        node.p2p.send_blocks_and_test([blocknew], node, success=False, reject_code=16, reject_reason="bad-blk-size")
+        node.p2p.send_blocks_and_test([blocknew], node, success=False, request_block=False)
         assert_equal(self.tip, node.getbestblockhash())
 
         #B18 -- Create block - block size 0.5B -- success
         self.reconnect_p2p(node)
         chaintips = node.getchaintips()
-        assert_equal(len(chaintips), 7)
+        assert_equal(len(chaintips), 4)
 
         self.block_time += 1
         blocknew = self.new_block(18, spend=self.unspent[8])
@@ -263,14 +275,14 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         blocknew = self.new_block(29, spend=self.unspent[9])
         self.expand_block(blocknew, 3 * MAX_BLOCK_BASE_SIZE)
         blocknew.solve(self.aggprivkey[1])
-        node.p2p.send_blocks_and_test([blocknew], node, success=False, reject_code=16, reject_reason="bad-blk-size")
+        node.p2p.send_blocks_and_test([blocknew], node, success=False, request_block=False)
         assert_equal(self.tip, node.getbestblockhash())
 
         #B29 -- Create block - new  maxblocksize 3MB - sign with aggpubkey2 -- success
         self.log.info("Accept block which changes max block size to 3MB")
         self.reconnect_p2p(node)
         chaintips = node.getchaintips()
-        assert_equal(len(chaintips), 8)
+        assert_equal(len(chaintips), 5)
 
         self.block_time += 1
         blocknew = self.new_block(29, spend=self.unspent[9])
@@ -301,13 +313,13 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         blocknew = self.new_block(36, spend=self.unspent[11])
         self.expand_block(blocknew, (3 * MAX_BLOCK_BASE_SIZE) + 1)
         blocknew.solve(self.aggprivkey[1])
-        node.p2p.send_blocks_and_test([blocknew], node, success=False, reject_code=16, reject_reason="bad-blk-size")
+        node.p2p.send_blocks_and_test([blocknew], node, success=False, request_block=False)
         assert_equal(self.tip, node.getbestblockhash())
 
         #B36 -- Create block - block size 1MB + 1 - sign with aggpubkey2 -- success
         self.reconnect_p2p(node)
         chaintips = node.getchaintips()
-        assert_equal(len(chaintips), 9)
+        assert_equal(len(chaintips), 6)
 
         self.block_time += 1
         blocknew = self.new_block(36, spend=self.unspent[11])
@@ -359,7 +371,7 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         #B37 -- Re Create a new block B37 -- success
         self.reconnect_p2p(node)
         chaintips = node.getchaintips()
-        assert_equal(len(chaintips), 10)
+        assert_equal(len(chaintips), 7)
 
         self.block_time += 1
         blocknew = self.new_block(37, spend=self.unspent[12])
@@ -380,9 +392,6 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
 
         #B -- - Create block with 1 invalid transaction and new maxblocksize - sign with aggpubkey2 -- failure and new maxblocksize is not added to the list
         self.reconnect_p2p(node)
-        chaintips = node.getchaintips()
-        assert_equal(len(chaintips), 11)
-
         self.block_time += 1
         blocknew = self.new_block(38, spend=self.unspent[12])
         blocknew.vtx[1].vout[0].amount = 1000
@@ -395,9 +404,12 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         #B38 - B42 -- Generate 5 blocks - no change in aggpubkey or block size -- chain becomes longer
         self.reconnect_p2p(node)
         chaintips = node.getchaintips()
-        assert_equal(len(chaintips), 12)
+        assert_equal(len(chaintips), 9)
         generate_blocks(5, node, self.coinbase_pubkey, self.aggprivkey[1])
         self.tip  = node.getbestblockhash()
+        self.sync_all([self.nodes[0:2]])
+        assert_equal(self.tip, syn_node.getbestblockhash())
+        assert(node.getblock(self.tip))
 
         self.log.info("Accept block which changes max block size to 3.99MB")
         #B43 -- set block length to 3.99 MB -- sign with aggpubkey1 -- success
@@ -426,13 +438,21 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
             { self.aggpubkeys[1] : 17}
         ]
         expectedblockheights = [
+            { '999000': 0},
             { '500000' : 18},
             { '3000000' : 30},
             { '3999500' : 44}
         ]
         blockchaininfo = node.getblockchaininfo()
         assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
-        assert_equal(blockchaininfo["blockSizeChanges"], expectedblockheights)
+        assert_equal(blockchaininfo["maxBlockSizes"], expectedblockheights)
+
+        self.stop_node(0)
+        self.log.info("Restarting node0 with '-reindex'")
+        self.start_node(0, extra_args=["-reindex"])
+        connect_nodes(self.nodes[0], 1)
+        self.reconnect_p2p(node)
+        self.connectNodeAndCheck(2, expectedAggPubKeys, expectedblockheights)
 
         #B -- send block of 3.99 MB + 1 -- sign with aggpubkey1 -- failure
         self.block_time += 1
@@ -446,12 +466,11 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         self.reconnect_p2p(node)
 
         chaintips = node.getchaintips()
-        assert_equal(len(chaintips), 13)
+        assert_equal(len(chaintips), 2)
         generate_blocks(3, node, self.coinbase_pubkey, self.aggprivkey[1])
         tip_before_reorg = node.getbestblockhash()
 
-
-        self.log.info("Simulate Blockchain Reorg  - After the last  block size change")
+        self.log.info("Simulate Blockchain Reorg  - After the last block size change")
         self.block_time += 1
         self.tip = reorg_start
 
@@ -617,70 +636,161 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         reorg_tip = blocknew.hash
         assert_equal(self.tip, node.getbestblockhash())
 
-        chaintips = node.getchaintips()
-        assert_equal(len(chaintips), 15)
-
         self.log.info("Verifying getblockchaininfo")
         expectedAggPubKeys = [
             { self.aggpubkeys[0] : 0},
             { self.aggpubkeys[1] : 17}
         ]
         expectedblockheights = [
-            { '500000' : 18},
-            { '3000000' : 30}
-        ]
-        blockchaininfo = node.getblockchaininfo()
-        assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
-        assert_equal(blockchaininfo["blockSizeChanges"], expectedblockheights)
-
-        self.log.info("Verify blocksize re-orged out is available once again")
-
-        #B51 -- in old branch
-        self.tip = tip_before_reorg
-        self.block_time += 1
-        blocknew = self.new_block(51, spend=self.unspent[22])
-        blocknew.solve(self.aggprivkey[1])
-        node.p2p.send_blocks_and_test([blocknew], node, success=False, request_block=False)
-        assert_equal(reorg_tip, node.getbestblockhash())
-        self.tip = blocknew.hash
-
-        #B52  -- extra block on old branch
-        self.block_time += 1
-        blocknew = self.new_block(52, spend=self.unspent[23])
-        blocknew.solve(self.aggprivkey[1])
-        node.p2p.send_blocks_and_test([blocknew], node, success=True)
-        self.tip = blocknew.hash
-        assert_equal(self.tip, node.getbestblockhash())
-
-        chaintips = node.getchaintips()
-        assert_equal(len(chaintips), 15)
-
-        self.log.info("Verifying getblockchaininfo")
-        expectedAggPubKeys = [
-            { self.aggpubkeys[0] : 0},
-            { self.aggpubkeys[1] : 17}
-        ]
-        expectedblockheights = [
+            { '999000': 0},
             { '500000' : 18},
             { '3000000' : 30},
             { '3999500' : 44}
         ]
         blockchaininfo = node.getblockchaininfo()
         assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
-        assert_equal(blockchaininfo["blockSizeChanges"], expectedblockheights)
+        assert_equal(blockchaininfo["maxBlockSizes"], expectedblockheights)
+
+        self.stop_node(0)
+        self.log.info("Restarting node0 with '-reindex'")
+        self.start_node(0, extra_args=["-reindex"])
+        connect_nodes(self.nodes[0], 1)
+        self.reconnect_p2p(node)
+        self.connectNodeAndCheck(2, expectedAggPubKeys, expectedblockheights)
+
+        #B -- in old branch
+        self.block_time += 1
+        blocknew = self.new_block(51, spend=self.unspent[22])
+        blocknew.solve(self.aggprivkey[1])
+        node.p2p.send_blocks_and_test([blocknew], node, success=False, request_block=False)
+        assert_equal(reorg_tip, node.getbestblockhash())
+
+        assert_equal(self.tip, node.getbestblockhash())
+        self.sync_all([self.nodes[0:2]])
+        assert_equal(self.tip, syn_node.getbestblockhash())
+
+        chaintips = node.getchaintips()
+        assert_equal(len(chaintips), 3)
+
+        self.log.info("Verifying getblockchaininfo")
+        expectedAggPubKeys = [
+            { self.aggpubkeys[0] : 0},
+            { self.aggpubkeys[1] : 17}
+        ]
+        expectedblockheights = [
+            { '999000': 0},
+            { '500000' : 18},
+            { '3000000' : 30},
+            { '3999500' : 44}
+        ]
+        blockchaininfo = node.getblockchaininfo()
+        assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
+        assert_equal(blockchaininfo["maxBlockSizes"], expectedblockheights)
 
         self.log.info("Restarting node with '-reindex-chainstate'")
         self.stop_node(0)
         self.start_node(0, extra_args=["-reindex-chainstate"])
+        self.reconnect_p2p(node)
         self.sync_all()
         self.stop_node(0)
 
-        self.log.info("Restarting node with '-loadblock'")
+       # copy blocks directorry to other nodes to test -loadblock, -reindex and -reloadxfield
         shutil.copyfile(os.path.join(self.nodes[0].datadir, NetworkDirName(), 'blocks', 'blk00000.dat'), os.path.join(self.nodes[0].datadir, 'blk00000.dat'))
+        os.mkdir(os.path.join(self.nodes[1].datadir, 'blocks'))
+        shutil.copyfile(os.path.join(self.nodes[0].datadir, NetworkDirName(), 'blocks', 'blk00000.dat'), os.path.join(self.nodes[1].datadir, 'blocks', 'blk00000.dat'))
+        os.mkdir(os.path.join(self.nodes[2].datadir, 'blocks'))
+        shutil.copyfile(os.path.join(self.nodes[0].datadir, NetworkDirName(), 'blocks', 'blk00000.dat'), os.path.join(self.nodes[2].datadir, 'blocks', 'blk00000.dat'))
         os.remove(os.path.join(self.nodes[0].datadir, NetworkDirName(), 'blocks', 'blk00000.dat'))
-        extra_args=["-loadblock=%s" % os.path.join(self.nodes[0].datadir, 'blk00000.dat'), "-reindex"]
-        self.start_node(0, extra_args)
 
+        self.log.info("Restarting node0 with '-loadblock'")
+        self.start_node(0, ["-loadblock=%s" % os.path.join(self.nodes[0].datadir, 'blk00000.dat'), "-reindex"])
+        self.reconnect_p2p(node)
+        #reindex takes time. wait before checking blockchain info
+        time.sleep(5)
+        blockchaininfo = self.nodes[0].getblockchaininfo()
+        assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
+
+        self.start_node(1, ["-loadblock=%s" % os.path.join(self.nodes[1].datadir, 'blk00000.dat')])
+        blockchaininfo = self.nodes[1].getblockchaininfo()
+        assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
+
+        #self.log.info("Starting node2 with '-reloadxfield'")
+        self.start_node(2)
+        connect_nodes(self.nodes[2], 0)
+        connect_nodes(self.nodes[2], 1)
+        #reindex takes time. wait before checking blockchain info
+        time.sleep(5)
+        blockchaininfo = self.nodes[2].getblockchaininfo()
+        assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
+
+        #finally add the new node to the newtork and check if it can synch
+        self.start_node(3)
+        connect_nodes(self.nodes[1], 3)
+        connect_nodes(self.nodes[2], 3)
+        self.sync_all([self.nodes[0:4]])
+        self.stop_node(3)
+
+        blockoutofsync = []
+        #B44 out of sync -- Create block - sign using aggpubkey1 -- store for sending later
+        block_time += 1
+        blockoutofsync.append(create_block(int(self.tip, 16), create_coinbase(53), block_time))
+        blockoutofsync[0].solve(self.aggprivkey[1])
+        self.tip = blockoutofsync[0].hash
+
+        #B45 -- Create block on node1 - sign using aggpubkey1 -- success
+        block_time += 1
+        blockoutofsync.append(create_block(int(self.tip, 16), create_coinbase(54), block_time))
+        blockoutofsync[1].solve(self.aggprivkey[1])
+        self.tip = blockoutofsync[1].hash
+
+        #B46
+        block_time += 1
+        blockoutofsync.append(create_block(int(self.tip, 16), create_coinbase(55), block_time))
+        blockoutofsync[2].solve(self.aggprivkey[1])
+        self.tip = blockoutofsync[2].hash
+
+        #B47 -- Create block on node1 - sign using aggpubkey1 -- success
+        block_time += 1
+        blockoutofsync.append(create_block(int(self.tip, 16), create_coinbase(56), block_time))
+        blockoutofsync[3].solve(self.aggprivkey[1])
+        self.tip = blockoutofsync[3].hash
+
+        #B48
+        block_time += 1
+        blockoutofsync.append(create_block(int(self.tip, 16), create_coinbase(57), block_time))
+        blockoutofsync[4].solve(self.aggprivkey[1])
+        self.tip = blockoutofsync[4].hash
+
+        #B49 -- Create block on node1 - sign using aggpubkey1 -- success
+        block_time += 1
+        blocknew = create_block(int(self.tip, 16), create_coinbase(58), block_time)
+        blocknew.solve(self.aggprivkey[1])
+        self.tip = blocknew.hash
+
+        self.log.info("Sendig out of sync blocks to node1'")
+        #as submit block only accepts blocks in sequence try to submit many blocks
+        ret = self.nodes[1].submitblock(bytes_to_hex_str(blockoutofsync[0].serialize()))
+        ret = self.nodes[1].submitblock(bytes_to_hex_str(blockoutofsync[1].serialize()))
+        ret = self.nodes[1].submitblock(bytes_to_hex_str(blockoutofsync[2].serialize()))
+        ret = self.nodes[1].submitblock(bytes_to_hex_str(blockoutofsync[3].serialize()))
+        ret = self.nodes[1].submitblock(bytes_to_hex_str(blockoutofsync[4].serialize()))
+        ret = self.nodes[1].submitblock(bytes_to_hex_str(blocknew.serialize()))
+
+        for n in self.nodes:
+            blockchaininfo = n.getblockchaininfo()
+            assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
+            assert_equal(blockchaininfo["maxBlockSizes"], expectedblockheights)
+            assert_equal(blockchaininfo["blocks"], 58)
+
+    def connectNodeAndCheck(self, n, expectedAggPubKeys, expectedblockheights):
+        #this function tests HEADERS message processing in node 'n'
+        self.start_node(n)
+        connect_nodes(self.nodes[0], n)
+        self.sync_all([self.nodes[0:n+1]])
+        blockchaininfo = self.nodes[n].getblockchaininfo()
+        assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
+        assert_equal(blockchaininfo["maxBlockSizes"], expectedblockheights)
+        self.stop_node(n)
 
     def create_tx_with_script(self, prevtx, n, script_sig=b"", amount = 1, script_pub_key=CScript()):
         tx = CTransaction()

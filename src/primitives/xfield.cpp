@@ -10,27 +10,6 @@ inline std::string XFieldAggPubKey::ToString() const {
     return HexStr(data);
 }
 
-XFieldAggPubKey::XFieldAggPubKey(const std::vector<unsigned char>& pubkey):data(pubkey) {
-    if(!pubkey.size())
-        throw std::runtime_error("Aggregate Public Key for Signed Block is empty");
-    
-    if (pubkey[0] == 0x02 || pubkey[0] == 0x03) {
-        CPubKey aggPubKey(pubkey.begin(), pubkey.end());
-        if(!aggPubKey.IsFullyValid()) {
-            throw std::runtime_error(strprintf("Aggregate Public Key for Signed Block is invalid: %s", HexStr(pubkey)));
-        }
-
-        if (aggPubKey.size() != CPubKey::COMPRESSED_PUBLIC_KEY_SIZE) {
-            throw std::runtime_error(strprintf("Aggregate Public Key for Signed Block is invalid: %s size was: %d", HexStr(pubkey), aggPubKey.size()));
-        }
-        return;
-
-    } else if(pubkey[0] == 0x04 || pubkey[0] == 0x06 || pubkey[0] == 0x07) {
-        throw std::runtime_error(strprintf("Uncompressed public key format are not acceptable: %s", HexStr(pubkey)));
-    }
-    throw std::runtime_error(strprintf("Aggregate Public Key for Signed Block is invalid: %s", HexStr(pubkey)));
-}
-
 inline std::string XFieldMaxBlockSize::ToString() const {
     return HexStr(&data, &data + sizeof(data));
 }

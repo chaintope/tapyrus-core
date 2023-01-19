@@ -151,11 +151,29 @@ bool CFederationParams::ReadGenesisBlock(std::string genesisHex)
     CDataStream ss(ParseHex(genesisHex), SER_NETWORK, PROTOCOL_VERSION);
     unsigned long streamsize = ss.size();
     ss >> genesis;
+    CPubKey aggPubKeyToVerify;
 
     switch((TAPYRUS_XFIELDTYPES)genesis.xfieldType)
     {
         case TAPYRUS_XFIELDTYPES::AGGPUBKEY: {
-            std::vector<unsigned char>* pubkey = &boost::get<XFieldAggPubKey>(genesis.xfield.xfieldValue).data; break;
+            std::vector<unsigned char>* pubkey = &boost::get<XFieldAggPubKey>(genesis.xfield.xfieldValue).data;
+            if(!pubkey->size())
+                throw std::runtime_error("Aggregate Public Key for Signed Block is empty");
+
+            if ((*pubkey)[0] == 0x02 || (*pubkey)[0] == 0x03) {
+                aggPubKeyToVerify = CPubKey(pubkey->begin(), pubkey->end());
+                if(!aggPubKeyToVerify.IsFullyValid()) {
+                    throw std::runtime_error(strprintf("Aggregate Public Key for Signed Block is invalid: %s", HexStr(aggPubKeyToVerify)));
+                }
+
+                if (aggPubKeyToVerify.size() != CPubKey::COMPRESSED_PUBLIC_KEY_SIZE) {
+                    throw std::runtime_error(strprintf("Aggregate Public Key for Signed Block is invalid: %s size was: %d", HexStr(aggPubKeyToVerify), aggPubKeyToVerify.size()));
+                }
+                break;
+
+            } else if((*pubkey)[0] == 0x04 || (*pubkey)[0] == 0x06 || (*pubkey)[0] == 0x07) {
+                throw std::runtime_error(strprintf("Uncompressed public key format are not acceptable: %s", HexStr(*pubkey)));
+            }
         }
         case TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE:
         case TAPYRUS_XFIELDTYPES::NONE:
@@ -188,12 +206,12 @@ bool CFederationParams::ReadGenesisBlock(std::string genesisHex)
 
     //verify proof
     const uint256 blockHash = genesis.GetHashForSign();
-    XFieldAggPubKey xfieldAggPubKey;
-    CXFieldHistory(genesis).GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, xfieldAggPubKey);
-    CPubKey aggPubKeyToVerify(xfieldAggPubKey.getPubKey());
+
     if(!aggPubKeyToVerify.Verify_Schnorr(blockHash, genesis.proof))
         throw std::runtime_error("ReadGenesisBlock: Proof verification failed");
 
+    //initialize xfield history
+    CXFieldHistory history(genesis);
     return true;
 }
 

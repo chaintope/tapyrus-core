@@ -197,9 +197,12 @@ UniValue getnewblock(const JSONRPCRequest& request)
             case TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE:
             {
                 std::string xfieldString = xfieldParam.substr(xfieldParam.find(':')+1);
-                xfield.xfieldValue = XFieldMaxBlockSize(atoi(xfieldString));
-                if(!boost::apply_visitor(XFieldValidityVisitor(), xfield.xfieldValue))
+                uint32_t val;
+                if(!xfieldString.size() || !ParseUInt32(xfieldString, &val))
                     throw JSONRPCError(RPC_INVALID_PARAMS, "xfield max block size was invalid. It is expected to be <xfield_type:new_xfield_value>.");
+                xfield.xfieldValue = XFieldMaxBlockSize(val);
+                if(!boost::apply_visitor(XFieldValidityVisitor(), xfield.xfieldValue))
+                    throw JSONRPCError(RPC_INVALID_PARAMS, "xfield max block size was invalid. It is expected to be a positive quantity between 1000 and 4294967295.");
                 xfield.xfieldType = TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE;
             }
             break;

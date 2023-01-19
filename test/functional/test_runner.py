@@ -66,6 +66,7 @@ BASE_SCRIPTS = [
     # Longest test should go first, to favor running tests in parallel
     'wallet_hd.py',
     'wallet_backup.py',
+    'feature_largeblocksize.py',
     # vv Tests less than 5m vv
     'rpc_fundrawtransaction.py',
     'rpc_fundrawtransaction.py --scheme SCHNORR',
@@ -93,6 +94,8 @@ BASE_SCRIPTS = [
     'feature_serialization.py --scheme SCHNORR',
     'feature_federation_management.py',
     'feature_federation_management.py --scheme SCHNORR',
+    'feature_xfield_maxblocksize.py',
+    'feature_xfield_maxblocksize.py --scheme SCHNORR',
     # vv Tests less than 30s vv
     'wallet_keypool_topup.py',
     'interface_zmq.py',
