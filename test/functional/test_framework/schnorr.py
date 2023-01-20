@@ -14,7 +14,7 @@ import hashlib
 import hmac
 import threading
 
-ssl = ctypes.cdll.LoadLibrary(ctypes.util.find_library('ssl'))
+ssl = ctypes.cdll.LoadLibrary(ctypes.util.find_library('ssl') or 'libeay32')
 
 ssl.BN_new.restype = ctypes.c_void_p
 ssl.BN_new.argtypes = []

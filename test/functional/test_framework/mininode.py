@@ -236,6 +236,8 @@ class P2PInterface(P2PConnection):
         # The network services received from the peer
         self.nServices = 0
 
+        # timeout needs to be long enough to wait for the network and wallet to sync.
+        # 5 is just a random number, there is no reason behind it.
         self.timeout = time_to_connect * 5
 
     def peer_connect(self, *args, services=NODE_NETWORK, send_version=True, **kwargs):
