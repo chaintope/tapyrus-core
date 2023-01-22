@@ -27,9 +27,9 @@ from test_framework.key import CECKey
 from test_framework.schnorr import Schnorr
 from test_framework.mininode import P2PDataStore
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, bytes_to_hex_str, hex_str_to_bytes, NetworkDirName, connect_nodes
+from test_framework.util import assert_equal, bytes_to_hex_str, hex_str_to_bytes, NetworkDirName, connect_nodes, assert_raises_rpc_error
 from test_framework.script import CScript, OP_CHECKSIG, OP_TRUE, SignatureHash, SIGHASH_ALL
-from test_framework.messages import CTransaction, MAX_BLOCK_BASE_SIZE, CTxOut, CTxIn, COutPoint, uint256_from_str, ser_compact_size
+from test_framework.messages import CTransaction, MAX_BLOCK_BASE_SIZE, CTxOut, CTxIn, COutPoint, uint256_from_str, ser_compact_size, msg_headers, CBlockHeader
 
 MAX_BLOCK_SIGOPS = 20000
 MAX_SCRIPT_SIZE = 10000
@@ -55,6 +55,13 @@ class TestP2PConn(P2PDataStore):
             if x.type == 2:
                 self.block_announced = True
                 self.announced_blockhashes.add(x.hash)
+
+    def send_header_for_blocks(self, new_blocks):
+        for block in new_blocks:
+            self.block_store[block.sha256] = block
+        headers_message = msg_headers()
+        headers_message.headers = [CBlockHeader(b) for b in new_blocks]
+        self.send_message(headers_message)
 
 class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
     def set_test_params(self):
@@ -194,6 +201,7 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         blocknew.solve(self.aggprivkey[0])
         node.p2p.send_blocks_and_test([blocknew], node, success=True)
         self.tip = blocknew.hash
+        b16 = blocknew.hash
         assert_equal(self.tip, node.getbestblockhash())
 
         #restarting node0 to test presistance of aggpubkey change
@@ -387,7 +395,7 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         blocknew = self.new_block(38, spend=self.unspent[12])
         blocknew.vtx[1].vout[0].amount = 1000
         blocknew.solve(self.aggprivkey[1])
-        node.p2p.send_blocks_and_test([blocknew], node, success=False)
+        node.p2p.send_blocks_and_test([blocknew], node, success=False, request_block=False)
         assert_equal(self.tip, node.getbestblockhash())
 
         #B -- - Create block with 1 invalid transaction and new maxblocksize - sign with aggpubkey2 -- failure and new maxblocksize is not added to the list
@@ -398,14 +406,14 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         blocknew.xfieldType = 2
         blocknew.xfield = int(4 * MAX_BLOCK_BASE_SIZE)
         blocknew.solve(self.aggprivkey[1])
-        node.p2p.send_blocks_and_test([blocknew], node, success=False)
+        node.p2p.send_blocks_and_test([blocknew], node, success=False, request_block=False)
         assert_equal(self.tip, node.getbestblockhash())
 
         #B38 - B42 -- Generate 5 blocks - no change in aggpubkey or block size -- chain becomes longer
         self.reconnect_p2p(node)
         chaintips = node.getchaintips()
         assert_equal(len(chaintips), 9)
-        generate_blocks(5, node, self.coinbase_pubkey, self.aggprivkey[1])
+        self.unspent = self.unspent + generate_blocks(5, node, self.coinbase_pubkey, self.aggprivkey[1])
         self.tip  = node.getbestblockhash()
         self.sync_all([self.nodes[0:2]])
         assert_equal(self.tip, syn_node.getbestblockhash())
@@ -420,6 +428,7 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         blocknew.solve(self.aggprivkey[1])
         node.p2p.send_blocks_and_test([blocknew], node, success=True)
         self.tip = blocknew.hash
+        b43 = blocknew.hash
         assert_equal(self.tip, node.getbestblockhash())
 
         #B44 -- send block of 3.99 MB -- sign with aggpubkey1 -- success
@@ -427,7 +436,7 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         blocknew = self.new_block(44, spend=self.unspent[14])
         self.expand_block(blocknew, 3999500)
         blocknew.solve(self.aggprivkey[1])
-        node.p2p.send_blocks_and_test([blocknew], node, success=True, timeout=120)
+        node.p2p.send_blocks_and_test([blocknew], node, success=True)
         self.tip = blocknew.hash
         reorg_start = blocknew.hash
         assert_equal(self.tip, node.getbestblockhash())
@@ -454,20 +463,12 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         self.reconnect_p2p(node)
         self.connectNodeAndCheck(2, expectedAggPubKeys, expectedblockheights)
 
-        #B -- send block of 3.99 MB + 1 -- sign with aggpubkey1 -- failure
-        self.block_time += 1
-        blocknew = self.new_block(45, spend=self.unspent[15])
-        self.expand_block(blocknew, 3999501)
-        blocknew.solve(self.aggprivkey[1])
-        node.p2p.send_blocks_and_test([blocknew], node, success=False, timeout=120)
-        assert_equal(self.tip, node.getbestblockhash())
-
         #B45 - B47 -- Generate 3 blocks - no change in aggpubkey or block size -- chain becomes longer
         self.reconnect_p2p(node)
 
         chaintips = node.getchaintips()
-        assert_equal(len(chaintips), 2)
-        generate_blocks(3, node, self.coinbase_pubkey, self.aggprivkey[1])
+        assert_equal(len(chaintips), 1)
+        self.unspent = self.unspent + generate_blocks(3, node, self.coinbase_pubkey, self.aggprivkey[1])
         tip_before_reorg = node.getbestblockhash()
 
         self.log.info("Simulate Blockchain Reorg  - After the last block size change")
@@ -513,7 +514,7 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         self.tip = blocknew.hash
         assert_equal(self.tip, node.getbestblockhash())
 
-        #B50 -- Create block with previous block hash = B49 - sign with aggpubkey1 -- success - block is accepted and re-org happens
+        #B50 -- Create block with previous block hash = B49 - sign with aggpubkey1 -- success - block is accepted
         self.block_time += 1
         blocknew = self.new_block(50, spend=self.unspent[20])
         blocknew.solve(self.aggprivkey[1])
@@ -522,120 +523,6 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         tip_before_reorg = blocknew.hash
         assert_equal(self.tip, node.getbestblockhash())
 
-        self.log.info("Simulate Blockchain Reorg - Before the last block size change")
-        #B38 -- Create block with previous block hash = B37 - sign with aggpubkey2 -- failure - block is in invalid chain
-        self.block_time += 1
-        self.tip = reorg_failure
-        blocknew = self.new_block(38, spend=self.unspent[13])
-        blocknew.solve(self.aggprivkey[1])
-        node.p2p.send_blocks_and_test([blocknew], node, success=False, request_block=False)
-        self.tip = blocknew.hash
-        assert_equal(tip_before_reorg, node.getbestblockhash())
-
-        #B39
-        self.block_time += 1
-        blocknew = self.new_block(39, spend=self.unspent[14])
-        blocknew.solve(self.aggprivkey[1])
-        node.p2p.send_blocks_and_test([blocknew], node, success=False, request_block=False)
-        assert_equal(tip_before_reorg, node.getbestblockhash())
-        self.tip = blocknew.hash
-
-        #B40
-        self.block_time += 1
-        blocknew = self.new_block(40, spend=self.unspent[15])
-        blocknew.solve(self.aggprivkey[1])
-        node.p2p.send_blocks_and_test([blocknew], node, success=False, request_block=False)
-        assert_equal(tip_before_reorg, node.getbestblockhash())
-        self.tip = blocknew.hash
-
-        #41
-        self.block_time += 1
-        blocknew = self.new_block(41, spend=self.unspent[16])
-        blocknew.solve(self.aggprivkey[1])
-        node.p2p.send_blocks_and_test([blocknew], node, success=False, request_block=False)
-        assert_equal(tip_before_reorg, node.getbestblockhash())
-        self.tip = blocknew.hash
-
-        #B42
-        self.block_time += 1
-        blocknew = self.new_block(42, spend=self.unspent[17])
-        blocknew.solve(self.aggprivkey[1])
-        node.p2p.send_blocks_and_test([blocknew], node, success=False, request_block=False)
-        assert_equal(tip_before_reorg, node.getbestblockhash())
-        self.tip = blocknew.hash
-
-        #B43
-        self.block_time += 1
-        blocknew = self.new_block(43, spend=self.unspent[18])
-        blocknew.solve(self.aggprivkey[1])
-        node.p2p.send_blocks_and_test([blocknew], node, success=False, request_block=False)
-        assert_equal(tip_before_reorg, node.getbestblockhash())
-        self.tip = blocknew.hash
-
-        #B44
-        self.block_time += 1
-        blocknew = self.new_block(44, spend=self.unspent[19])
-        blocknew.solve(self.aggprivkey[1])
-        node.p2p.send_blocks_and_test([blocknew], node, success=False, request_block=False)
-        assert_equal(tip_before_reorg, node.getbestblockhash())
-        self.tip = blocknew.hash
-
-        #B45
-        self.block_time += 1
-        blocknew = self.new_block(45, spend=self.unspent[20])
-        blocknew.solve(self.aggprivkey[1])
-        node.p2p.send_blocks_and_test([blocknew], node, success=False, request_block=False)
-        assert_equal(tip_before_reorg, node.getbestblockhash())
-        self.tip = blocknew.hash
-
-        #B46
-        self.block_time += 1
-        blocknew = self.new_block(46, spend=self.unspent[21])
-        blocknew.solve(self.aggprivkey[1])
-        node.p2p.send_blocks_and_test([blocknew], node, success=False, request_block=False)
-        assert_equal(tip_before_reorg, node.getbestblockhash())
-        self.tip = blocknew.hash
-
-        #B47
-        self.block_time += 1
-        blocknew = self.new_block(47, spend=self.unspent[22])
-        blocknew.solve(self.aggprivkey[1])
-        node.p2p.send_blocks_and_test([blocknew], node, success=False, request_block=False)
-        assert_equal(tip_before_reorg, node.getbestblockhash())
-        self.tip = blocknew.hash
-
-        #B48
-        self.block_time += 1
-        blocknew = self.new_block(48, spend=self.unspent[23])
-        blocknew.solve(self.aggprivkey[1])
-        node.p2p.send_blocks_and_test([blocknew], node, success=False, request_block=False)
-        assert_equal(tip_before_reorg, node.getbestblockhash())
-        self.tip = blocknew.hash
-
-        #B49
-        self.block_time += 1
-        blocknew = self.new_block(49, spend=self.unspent[24])
-        blocknew.solve(self.aggprivkey[1])
-        node.p2p.send_blocks_and_test([blocknew], node, success=False, request_block=False)
-        assert_equal(tip_before_reorg, node.getbestblockhash())
-        self.tip = blocknew.hash
-
-        #B50
-        self.block_time += 1
-        blocknew = self.new_block(50, spend=blocknew.vtx[0])
-        blocknew.solve(self.aggprivkey[1])
-        node.p2p.send_blocks_and_test([blocknew], node, success=False, request_block=False)
-        assert_equal(tip_before_reorg, node.getbestblockhash())
-        self.tip = blocknew.hash
-
-        #B51
-        blocknew = self.new_block(51, spend=blocknew.vtx[0])
-        blocknew.solve(self.aggprivkey[1])
-        node.p2p.send_blocks_and_test([blocknew], node, success=True)
-        self.tip = blocknew.hash
-        reorg_tip = blocknew.hash
-        assert_equal(self.tip, node.getbestblockhash())
-
         self.log.info("Verifying getblockchaininfo")
         expectedAggPubKeys = [
             { self.aggpubkeys[0] : 0},
@@ -650,6 +537,10 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         blockchaininfo = node.getblockchaininfo()
         assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
         assert_equal(blockchaininfo["maxBlockSizes"], expectedblockheights)
+
+        #call invalidate block rpc on B43, B16 -- failure
+        assert_raises_rpc_error(-8, "Cannot invalidate block as Xfield change found in chain after this block", node.invalidateblock, b16)
+        assert_raises_rpc_error(-8, "Cannot invalidate block as Xfield change found in chain after this block", node.invalidateblock, b43)
 
         self.stop_node(0)
         self.log.info("Restarting node0 with '-reindex'")
@@ -658,19 +549,18 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         self.reconnect_p2p(node)
         self.connectNodeAndCheck(2, expectedAggPubKeys, expectedblockheights)
 
-        #B -- in old branch
+        #B51 -- success
         self.block_time += 1
-        blocknew = self.new_block(51, spend=self.unspent[22])
+        blocknew = self.new_block(51, spend=self.unspent[21])
         blocknew.solve(self.aggprivkey[1])
-        node.p2p.send_blocks_and_test([blocknew], node, success=False, request_block=False)
-        assert_equal(reorg_tip, node.getbestblockhash())
-
+        node.p2p.send_blocks_and_test([blocknew], node, success=True, request_block=True)
+        self.tip = blocknew.hash
         assert_equal(self.tip, node.getbestblockhash())
         self.sync_all([self.nodes[0:2]])
         assert_equal(self.tip, syn_node.getbestblockhash())
 
         chaintips = node.getchaintips()
-        assert_equal(len(chaintips), 3)
+        assert_equal(len(chaintips), 1)
 
         self.log.info("Verifying getblockchaininfo")
         expectedAggPubKeys = [
@@ -687,12 +577,13 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
         assert_equal(blockchaininfo["maxBlockSizes"], expectedblockheights)
 
-        self.log.info("Restarting node with '-reindex-chainstate'")
+        self.log.info("Restarting node0 with '-reindex-chainstate'")
         self.stop_node(0)
         self.start_node(0, extra_args=["-reindex-chainstate"])
         self.reconnect_p2p(node)
-        self.sync_all()
+        self.sync_all([self.nodes[0:2]])
         self.stop_node(0)
+        self.stop_node(1)
 
        # copy blocks directorry to other nodes to test -loadblock, -reindex and -reloadxfield
         shutil.copyfile(os.path.join(self.nodes[0].datadir, NetworkDirName(), 'blocks', 'blk00000.dat'), os.path.join(self.nodes[0].datadir, 'blk00000.dat'))
@@ -731,56 +622,50 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         self.stop_node(3)
 
         blockoutofsync = []
-        #B44 out of sync -- Create block - sign using aggpubkey1 -- store for sending later
-        block_time += 1
-        blockoutofsync.append(create_block(int(self.tip, 16), create_coinbase(53), block_time))
+        #B52 out of sync -- Create block - sign using aggpubkey1 -- store for sending later
+        blockoutofsync.append(self.new_block(52, spend=self.unspent[22]))
         blockoutofsync[0].solve(self.aggprivkey[1])
         self.tip = blockoutofsync[0].hash
 
-        #B45 -- Create block on node1 - sign using aggpubkey1 -- success
-        block_time += 1
-        blockoutofsync.append(create_block(int(self.tip, 16), create_coinbase(54), block_time))
+        #B53
+        blockoutofsync.append(self.new_block(53, spend=self.unspent[23]))
         blockoutofsync[1].solve(self.aggprivkey[1])
         self.tip = blockoutofsync[1].hash
 
-        #B46
-        block_time += 1
-        blockoutofsync.append(create_block(int(self.tip, 16), create_coinbase(55), block_time))
+        #B54
+        blockoutofsync.append(self.new_block(54, spend=self.unspent[24]))
         blockoutofsync[2].solve(self.aggprivkey[1])
         self.tip = blockoutofsync[2].hash
 
-        #B47 -- Create block on node1 - sign using aggpubkey1 -- success
-        block_time += 1
-        blockoutofsync.append(create_block(int(self.tip, 16), create_coinbase(56), block_time))
+        #B55
+        blockoutofsync.append(self.new_block(55, spend=self.unspent[25]))
         blockoutofsync[3].solve(self.aggprivkey[1])
         self.tip = blockoutofsync[3].hash
 
-        #B48
-        block_time += 1
-        blockoutofsync.append(create_block(int(self.tip, 16), create_coinbase(57), block_time))
+        #B56
+        blockoutofsync.append(self.new_block(56, spend=self.unspent[26]))
         blockoutofsync[4].solve(self.aggprivkey[1])
         self.tip = blockoutofsync[4].hash
 
-        #B49 -- Create block on node1 - sign using aggpubkey1 -- success
-        block_time += 1
-        blocknew = create_block(int(self.tip, 16), create_coinbase(58), block_time)
-        blocknew.solve(self.aggprivkey[1])
-        self.tip = blocknew.hash
+        self.log.info("Sendig out of sync blocks to node0'")
+        node.p2p.send_header_for_blocks(blockoutofsync[0:2])
+        [node.p2p.wait_for_getdata(x.sha256) for x in blockoutofsync[0:2]]
+        node.p2p.send_header_for_blocks(blockoutofsync[4:])
+        node.p2p.send_blocks_and_test(blockoutofsync[2:], node, success=True, request_block=True)
+        assert_equal(self.tip, node.getbestblockhash())
 
-        self.log.info("Sendig out of sync blocks to node1'")
-        #as submit block only accepts blocks in sequence try to submit many blocks
-        ret = self.nodes[1].submitblock(bytes_to_hex_str(blockoutofsync[0].serialize()))
-        ret = self.nodes[1].submitblock(bytes_to_hex_str(blockoutofsync[1].serialize()))
-        ret = self.nodes[1].submitblock(bytes_to_hex_str(blockoutofsync[2].serialize()))
-        ret = self.nodes[1].submitblock(bytes_to_hex_str(blockoutofsync[3].serialize()))
-        ret = self.nodes[1].submitblock(bytes_to_hex_str(blockoutofsync[4].serialize()))
-        ret = self.nodes[1].submitblock(bytes_to_hex_str(blocknew.serialize()))
+        #finally add the new node to the newtork and check if it can synch
+        self.log.info("Starting node3")
+        self.start_node(3)
+        connect_nodes(self.nodes[0], 3)
+        time.sleep(10)
+        self.sync_all()
 
         for n in self.nodes:
             blockchaininfo = n.getblockchaininfo()
             assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
             assert_equal(blockchaininfo["maxBlockSizes"], expectedblockheights)
-            assert_equal(blockchaininfo["blocks"], 58)
+            assert_equal(blockchaininfo["blocks"], 56)
 
     def connectNodeAndCheck(self, n, expectedAggPubKeys, expectedblockheights):
         #this function tests HEADERS message processing in node 'n'
