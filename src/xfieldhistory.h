@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_XFIELD_HISTORY_H
-#define BITCOIN_XFIELD_HISTORY_H
+#ifndef TAPYRUS_XFIELDHISTORY_H
+#define TAPYRUS_XFIELDHISTORY_H
 
 #include <policy/policy.h>
 #include <federationparams.h>
@@ -239,4 +239,4 @@ public:
 bool IsXFieldNew(const CXField& xfield, CXFieldHistoryMap* pxfieldHistory);
 
 
-#endif // BITCOIN_XFIELD_HISTORY_H
+#endif // TAPYRUS_XFIELDHISTORY_H
