@@ -358,7 +358,6 @@ class FederationManagementTest(BitcoinTestFramework):
         self.start_node(0)
         connect_nodes(self.nodes[0], 1)
 
-        self.log.info("Simulate Blockchain Reorg  - Before the last federation block")
         #B24 -- Create block with previous block hash = B23 - sign with aggpubkey2 -- failure - block is in invalid chain
         block_time += 1
         blocknew = create_block(int(self.blocks[23], 16), create_coinbase(24), block_time)
