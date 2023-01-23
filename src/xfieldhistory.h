@@ -51,10 +51,9 @@ typedef std::vector<const XFieldChange> XFieldChangeList;
 
 /*
  * helper class to unserialize vector of XFieldChange from blocktree db
- * db entry contains only XFieldData, height and block hash.
- * It is not possible to know the type of XFieldData and therefore the size of data 
- * to read from the stream without the the db key.
- * We store the key in this class to help in unserialization of XFieldData.
+ * db entry contains only XFieldData, height and block hash (no XFieldType).
+ * It is not possible to know the type and therefore the size of data to read from the stream.
+ * We store a the key in this class to help in unserialization of XFieldData.
  */
 struct XFieldChangeListWrapper
 {
@@ -118,7 +117,7 @@ class CBlockTreeDB;
 class UniValue;
 
 typedef std::map< TAPYRUS_XFIELDTYPES, XFieldChangeListWrapper > XFieldHistoryMapType;
-/*  This map is used instead of the list in federation params upto v0.5.2
+/*  This map is used instead of the list in federation params after v0.5.2
  *
  * XFieldHistoryMapType is a Global map to store all xfield changes.
  *
@@ -126,6 +125,8 @@ typedef std::map< TAPYRUS_XFIELDTYPES, XFieldChangeListWrapper > XFieldHistoryMa
  * (All objects of this class read and write to the same map.) 
  * This is the full list of xfield change in the active chain.
  * When the isTemp flag is set in the constructor, all methods access the temp map.
+ *
+ * Note that this class is pure virtual. It is always accessed via CXFieldHistory or CTempXFieldHistory.
  */
 class CXFieldHistoryMap{
 
@@ -159,8 +160,9 @@ public:
 };
 
 /*
- * class CXFieldHistory is an interface to access the initialoized map. this is the same as
- * CXFieldHistoryMap except for the constructor
+ * class CXFieldHistory is an interface to access the global map of xfiled changes
+ * in the active chain which is guaranteed to be initialized.
+ * this defines ots own constructor and other utility methods that act on the data in CXFieldHistoryMap
  */
 class CXFieldHistory : public CXFieldHistoryMap{
 
@@ -186,12 +188,15 @@ public:
 };
 
 /*
- * class CTempXFieldHistory lets us use a temporary map to help handle situations like 
- * LoadBlockFromDisk and ProcessBlockHeaders where the global map will not be accurate. 
- * (The blocks being processed in LoadBlockFromDisk are not confirmed and not in the active chain. 
- * So its proof cannot be verified using the CXFieldHistoryMap. Similarly max block size 
- * cannot be validated.) This temp map uses RAII idiom and deallocates the memory 
- * when the object goes out of scope. 
+ * class CTempXFieldHistory lets us use a temporary map to help handle situations like
+ * LoadBlockFromDisk and ProcessBlockHeaders where the global map will not be accurate.
+ * (The blocks being processed in LoadBlockFromDisk are not confirmed and not in the active chain.
+ * If there is an aggregatePubKey change in one of the blocks, proof cannot be verified
+ * for the rest of the blocks using the global CXFieldHistoryMap.)
+ * This temp map used to store the xfield change encountered during processing
+ * until the method completes. When the block is confirmed after AcceptBlock the xfield change
+ * is added to the global list in CXFieldHistory.
+ * IT uses RAII idiom and deallocates the memory when the object goes out of scope.
  */
 class CTempXFieldHistory : public CXFieldHistoryMap{
 
