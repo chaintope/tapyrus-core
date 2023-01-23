@@ -35,7 +35,7 @@ enum class TAPYRUS_XFIELDTYPES : uint8_t
 
 };
 
-// To check if an xfield in a block is valid. THis is used to verify xfield in a block and hence includes NONE
+// To check if an xfield in a block is valid. This is used to verify xfield in a block and hence includes NONE
 inline bool IsValid(TAPYRUS_XFIELDTYPES type) {
     return type == TAPYRUS_XFIELDTYPES::NONE
         || type == TAPYRUS_XFIELDTYPES::AGGPUBKEY
