@@ -88,7 +88,7 @@ class SerializationTest(BitcoinTestFramework):
         self.pubkey = ""
 
     def run_test(self):
-        self.nodes[0].add_p2p_connection(P2PDataStore())
+        self.nodes[0].add_p2p_connection(P2PDataStore(self.nodes[0].time_to_connect))
         self.nodeaddress = self.nodes[0].getnewaddress()
         self.pubkey = self.nodes[0].getaddressinfo(self.nodeaddress)["pubkey"]
         self.log.info("Mining %d blocks", CHAIN_HEIGHT)

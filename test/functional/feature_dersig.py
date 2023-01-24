@@ -47,7 +47,7 @@ class BIP66Test(BitcoinTestFramework):
         self.setup_clean_chain = True
 
     def run_test(self):
-        self.nodes[0].add_p2p_connection(P2PInterface())
+        self.nodes[0].add_p2p_connection(P2PInterface(self.nodes[0].time_to_connect))
 
         self.log.info("Mining %d blocks", DERSIG_HEIGHT - 1)
         self.coinbase_txids = [self.nodes[0].getblock(b)['tx'][0] for b in self.nodes[0].generate(DERSIG_HEIGHT - 1, self.signblockprivkey_wif)]

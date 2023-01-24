@@ -24,14 +24,14 @@ class InvalidLocatorTest(BitcoinTestFramework):
         block_count = node.getblockcount()
         for msg in [msg_getheaders(), msg_getblocks()]:
             self.log.info('Wait for disconnect when sending {} hashes in locator'.format(MAX_LOCATOR_SZ + 1))
-            node.add_p2p_connection(P2PInterface())
+            node.add_p2p_connection(P2PInterface(node.time_to_connect))
             msg.locator.vHave = [int(node.getblockhash(i - 1), 16) for i in range(block_count, block_count - (MAX_LOCATOR_SZ + 1), -1)]
             node.p2p.send_message(msg)
             node.p2p.wait_for_disconnect()
             node.disconnect_p2ps()
 
             self.log.info('Wait for response when sending {} hashes in locator'.format(MAX_LOCATOR_SZ))
-            node.add_p2p_connection(P2PInterface())
+            node.add_p2p_connection(P2PInterface(node.time_to_connect))
             msg.locator.vHave = [int(node.getblockhash(i - 1), 16) for i in range(block_count, block_count - (MAX_LOCATOR_SZ), -1)]
             node.p2p.send_message(msg)
             if type(msg) == msg_getheaders:

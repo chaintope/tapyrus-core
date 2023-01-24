@@ -246,10 +246,10 @@ class WalletTest(BitcoinTestFramework):
         sync_mempools(self.nodes[0:2])
 
         self.stop_nodes()
-        self.start_node(3, extra_args = ['-acceptnonstdtxn=1'])
-        self.start_node(2, extra_args = ['-acceptnonstdtxn=1'])
-        self.start_node(1, extra_args = ['-acceptnonstdtxn=1'])
-        self.start_node(0, extra_args = ['-acceptnonstdtxn=1'])
+        self.start_node(3)
+        self.start_node(2)
+        self.start_node(1)
+        self.start_node(0)
         connect_nodes_bi(self.nodes, 0, 1)
         connect_nodes_bi(self.nodes, 1, 2)
         connect_nodes_bi(self.nodes, 0, 2)
@@ -279,19 +279,9 @@ class WalletTest(BitcoinTestFramework):
         signed_raw_tx = self.nodes[1].signrawtransactionwithwallet(raw_tx, [], "ALL", self.options.scheme)
         decoded_raw_tx = self.nodes[1].decoderawtransaction(signed_raw_tx['hex'])
         zero_value_txid = decoded_raw_tx['txid']
-        self.nodes[1].sendrawtransaction(signed_raw_tx['hex'], True)
+        assert_raises_rpc_error(-26, "dust", self.nodes[1].sendrawtransaction, signed_raw_tx['hex'], True)
 
         self.sync_all()
-        self.nodes[1].generate(1, self.signblockprivkey_wif)  # mine a block
-        self.sync_all()
-
-        unspent_txs = self.nodes[0].listunspent()  # zero value tx must be in listunspents output
-        found = False
-        for uTx in unspent_txs:
-            if uTx['txid'] == zero_value_txid:
-                found = True
-                assert_equal(uTx['amount'], Decimal('0'))
-        assert(found)
 
         # do some -walletbroadcast tests
         self.stop_nodes()

@@ -24,7 +24,7 @@ class FederationBlockTest(BitcoinTestFramework):
     def run_test(self):
         # Add p2p connection to node0
         node = self.nodes[0]  # convenience reference to the node
-        node.add_p2p_connection(P2PDataStore())
+        node.add_p2p_connection(P2PDataStore(node.time_to_connect))
 
         best_block = node.getblock(node.getbestblockhash())
         tip = int(node.getbestblockhash(), 16)

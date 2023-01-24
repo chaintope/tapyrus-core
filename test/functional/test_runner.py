@@ -30,17 +30,20 @@ import re
 import logging
 
 # Formatting. Default colors to empty strings.
-BOLD, BLUE, RED, GREY = ("", ""), ("", ""), ("", ""), ("", "")
+BOLD, BLUE, RED, GREY, YELLOW = ("", ""), ("", ""), ("", ""), ("", ""), ("", "")
 try:
     # Make sure python thinks it can write unicode to its stdout
     "\u2713".encode("utf_8").decode(sys.stdout.encoding)
+    "\u2727".encode("utf_8").decode(sys.stdout.encoding)
     TICK = "✓ "
     CROSS = "✖ "
     CIRCLE = "○ "
+    BOX = "✧ "
 except UnicodeDecodeError:
     TICK = "P "
     CROSS = "x "
     CIRCLE = "o "
+    BOX = "~ "
 
 if os.name == 'posix':
     # primitive formatting on supported
@@ -49,9 +52,11 @@ if os.name == 'posix':
     BLUE = ('\033[0m', '\033[0;34m')
     RED = ('\033[0m', '\033[0;31m')
     GREY = ('\033[0m', '\033[1;30m')
+    YELLOW = ('\033[0m', '\033[1;33m')
 
 TEST_EXIT_PASSED = 0
 TEST_EXIT_SKIPPED = 77
+TEST_EXIT_TIMEOUT = 124
 
 # 20 minutes represented in seconds
 TRAVIS_TIMEOUT_DURATION = 20 * 60
@@ -339,7 +344,7 @@ def main():
     if not args.keepcache:
         shutil.rmtree("%s/test/cache" % config["environment"]["BUILDDIR"], ignore_errors=True)
 
-    run_tests(
+    exit_code, retry_list = run_tests(
         test_list,
         config["environment"]["SRCDIR"],
         config["environment"]["BUILDDIR"],
@@ -351,7 +356,28 @@ def main():
         failfast=args.failfast,
     )
 
-def run_tests(test_list, src_dir, build_dir, tmpdir, jobs=1, enable_coverage=False, args=None, combined_logs_len=0, failfast=False):
+    if len(retry_list) == 0:
+        sys.exit(exit_code)
+
+    print("Retrying TIMEOUT tests.")
+
+    exit_code, retry = run_tests(
+        retry_list,
+        config["environment"]["SRCDIR"],
+        config["environment"]["BUILDDIR"],
+        tmpdir,
+        jobs=args.jobs,
+        enable_coverage=args.coverage,
+        args=passon_args,
+        combined_logs_len=args.combinedlogslen,
+        failfast=args.failfast,
+        retry = True
+    )
+
+    sys.exit(exit_code)
+
+
+def run_tests(test_list, src_dir, build_dir, tmpdir, jobs=1, enable_coverage=False, args=None, combined_logs_len=0, failfast=False, retry = False):
     args = args or []
 
     # Warn if tapyrusd is already running (unix only)
@@ -361,14 +387,9 @@ def run_tests(test_list, src_dir, build_dir, tmpdir, jobs=1, enable_coverage=Fal
     except (OSError, subprocess.SubprocessError):
         pass
 
-    # Warn if there is a cache directory
-    cache_dir = "%s/test/cache" % build_dir
-    if os.path.isdir(cache_dir):
-        print("%sWARNING!%s There is a cache directory here: %s. If tests fail unexpectedly, try deleting the cache directory." % (BOLD[1], BOLD[0], cache_dir))
-
     tests_dir = src_dir + '/test/functional/'
 
-    flags = ['--cachedir={}'.format(cache_dir)] + args
+    flags = args
 
     if enable_coverage:
         coverage = RPCCoverage()
@@ -377,29 +398,44 @@ def run_tests(test_list, src_dir, build_dir, tmpdir, jobs=1, enable_coverage=Fal
     else:
         coverage = None
 
-    if len(test_list) > 1 and jobs > 1:
-        # Populate cache
-        try:
-            subprocess.check_output([sys.executable, tests_dir + 'create_cache.py'] + flags + ["--tmpdir=%s/cache" % tmpdir])
-        except subprocess.CalledProcessError as e:
-            sys.stdout.buffer.write(e.output)
-            raise
+    # create cache only on first attempt
+    if not retry :
+
+        # Warn if there is a cache directory
+        cache_dir = "%s/test/cache" % build_dir
+        if os.path.isdir(cache_dir):
+            print("%sWARNING!%s There is a cache directory here: %s. If tests fail unexpectedly, try deleting the cache directory." % (BOLD[1], BOLD[0], cache_dir))
+
+        flags = ['--cachedir={}'.format(cache_dir)] + args
+
+        if len(test_list) > 1 and jobs > 1:
+            # Populate cache
+            try:
+                subprocess.check_output([sys.executable, tests_dir + 'create_cache.py'] + flags + ["--tmpdir=%s/cache" % tmpdir])
+            except subprocess.CalledProcessError as e:
+                sys.stdout.buffer.write(e.output)
+                raise
 
     #Run Tests
     job_queue = TestHandler(jobs, tests_dir, tmpdir, test_list, flags)
     start_time = time.time()
     test_results = []
+    retry_list = []
 
     max_len_name = len(max(test_list, key=len))
 
     for _ in range(len(test_list)):
-        test_result, testdir, stdout, stderr = job_queue.get_next()
+        test_result, testdir, stdout, stderr, retry = job_queue.get_next()
         test_results.append(test_result)
+        if retry is not None:
+            retry_list.append(retry)
 
         if test_result.status == "Passed":
             logging.debug("\n%s%s%s passed, Duration: %s s" % (BOLD[1], test_result.name, BOLD[0], test_result.time))
         elif test_result.status == "Skipped":
             logging.debug("\n%s%s%s skipped" % (BOLD[1], test_result.name, BOLD[0]))
+        elif test_result.status == "Timeout":
+            logging.debug("\n%s%s%s timeout" % (BOLD[1], test_result.name, BOLD[0]))
         else:
             print("\n%s%s%s failed, Duration: %s s\n" % (BOLD[1], test_result.name, BOLD[0], test_result.time))
             print(BOLD[1] + 'stdout:\n' + BOLD[0] + stdout + '\n')
@@ -435,7 +471,7 @@ def run_tests(test_list, src_dir, build_dir, tmpdir, jobs=1, enable_coverage=Fal
     # processes which need to be killed.
     job_queue.kill_and_join()
 
-    sys.exit(not all_passed)
+    return (not all_passed), retry_list
 
 def print_results(test_results, max_len_name, runtime):
     results = "\n" + BOLD[1] + "%s | %s | %s\n\n" % ("TEST".ljust(max_len_name), "STATUS   ", "DURATION") + BOLD[0]
@@ -473,6 +509,7 @@ class TestHandler:
         self.flags = flags
         self.num_running = 0
         self.jobs = []
+        self.retry = None
 
     def get_next(self):
         while self.num_running < self.num_jobs and self.test_list:
@@ -489,9 +526,9 @@ class TestHandler:
             self.jobs.append((test,
                               time.time(),
                               subprocess.Popen([sys.executable, self.tests_dir + test_argv[0]] + test_argv[1:] + self.flags + portseed_arg + tmpdir_arg,
-                                               universal_newlines=True,
-                                               stdout=log_stdout,
-                                               stderr=log_stderr),
+                              universal_newlines=True,
+                              stdout=log_stdout,
+                              stderr=log_stderr),
                               testdir,
                               log_stdout,
                               log_stderr))
@@ -513,12 +550,15 @@ class TestHandler:
                         status = "Passed"
                     elif proc.returncode == TEST_EXIT_SKIPPED:
                         status = "Skipped"
+                    elif proc.returncode == TEST_EXIT_TIMEOUT:
+                        self.retry = name
+                        status = "Timeout"
                     else:
                         status = "Failed"
                     self.num_running -= 1
                     self.jobs.remove(job)
 
-                    return TestResult(name, status, int(time.time() - start_time)), testdir, stdout, stderr
+                    return TestResult(name, status, int(time.time() - start_time)), testdir, stdout, stderr, self.retry
             print('.', end='', flush=True)
 
     def kill_and_join(self):
@@ -546,6 +586,8 @@ class TestResult():
             return 2, self.name.lower()
         elif self.status == "Skipped":
             return 1, self.name.lower()
+        elif self.status == "Timeout":
+            return 3, self.name.lower()
 
     def __repr__(self):
         if self.status == "Passed":
@@ -557,12 +599,15 @@ class TestResult():
         elif self.status == "Skipped":
             color = GREY
             glyph = CIRCLE
+        elif self.status == "Timeout":
+            color = YELLOW
+            glyph = BOX
 
         return color[1] + "%s | %s%s | %s s\n" % (self.name.ljust(self.padding), glyph, self.status.ljust(7), self.time) + color[0]
 
     @property
     def was_successful(self):
-        return self.status != "Failed"
+        return self.status != "Failed" and self.status != "Timeout"
 
 
 def check_script_prefixes():

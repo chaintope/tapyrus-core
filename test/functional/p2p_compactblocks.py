@@ -21,8 +21,8 @@ from test_framework.util import assert_equal, sync_blocks, wait_until
 
 # TestP2PConn: A peer we use to send messages to bitcoind, and store responses.
 class TestP2PConn(P2PInterface):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, time_to_connect):
+        super().__init__(time_to_connect)
         self.last_sendcmpct = []
         self.block_announced = False
         # Store the hashes of blocks we've seen announced.
@@ -761,13 +761,13 @@ class CompactBlocksTest(BitcoinTestFramework):
 
     def run_test(self):
         # Setup the p2p connections
-        self.test_node = self.nodes[0].add_p2p_connection(TestP2PConn())
-        self.old_node = self.nodes[1].add_p2p_connection(TestP2PConn(), services=NODE_NETWORK)
+        self.test_node = self.nodes[0].add_p2p_connection(TestP2PConn(self.nodes[0].time_to_connect))
+        self.old_node = self.nodes[1].add_p2p_connection(TestP2PConn(self.nodes[1].time_to_connect), services=NODE_NETWORK)
         
         self.log.info("Tapyrus NODE_WITNESS connections are unsupported")
-        self.segwit_node = self.nodes[1].add_p2p_connection(TestP2PConn(), services=NODE_NETWORK | NODE_WITNESS, wait_for_verack = False)
+        self.segwit_node = self.nodes[1].add_p2p_connection(TestP2PConn(self.nodes[1].time_to_connect), services=NODE_NETWORK | NODE_WITNESS, wait_for_verack = False)
         self.segwit_node.wait_for_disconnect(timeout=10)
-        self.extra_node = self.nodes[1].add_p2p_connection(TestP2PConn(), services=NODE_NETWORK)
+        self.extra_node = self.nodes[1].add_p2p_connection(TestP2PConn(self.nodes[1].time_to_connect), services=NODE_NETWORK)
 
         # We will need UTXOs to construct transactions in later tests.
         self.make_utxos()

@@ -34,7 +34,7 @@ from test_framework.util import (
 # message is received from the node-under-test. Subclass P2PInterface and
 # override the on_*() methods if you need custom behaviour.
 class BaseNode(P2PInterface):
-    def __init__(self):
+    def __init__(self, time_to_connect):
         """Initialize the P2PInterface
 
         Used to initialize custom properties for the Node that aren't
@@ -45,7 +45,7 @@ class BaseNode(P2PInterface):
 
         Call super().__init__() first for standard initialization and then
         initialize custom properties."""
-        super().__init__()
+        super().__init__(time_to_connect)
         # Stores a dictionary of all blocks received
         self.block_receive_map = defaultdict(int)
 

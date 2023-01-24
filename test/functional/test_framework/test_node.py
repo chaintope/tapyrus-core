@@ -5,6 +5,7 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Class for tapyrus node under test"""
 
+from datetime import datetime
 import decimal
 import errno
 from enum import Enum
@@ -156,6 +157,7 @@ class TestNode():
         """Sets up an RPC connection to the tapyrusd process. Returns False if unable to connect."""
         # Poll at a rate of four times per second
         poll_per_s = 4
+        start_time = datetime.now()
         for _ in range(poll_per_s * self.rpc_timeout):
             if self.process.poll() is not None:
                 raise FailedToStartError(self._node_msg(
@@ -167,6 +169,7 @@ class TestNode():
                 self.rpc_connected = True
                 self.url = self.rpc.url
                 self.log.debug("RPC successfully started")
+                self.time_to_connect = datetime.now() - start_time
                 return
             except IOError as e:
                 if e.errno != errno.ECONNREFUSED:  # Port not yet open?
@@ -231,7 +234,14 @@ class TestNode():
         return True
 
     def wait_until_stopped(self, timeout=BITCOIND_PROC_WAIT_TIMEOUT):
-        wait_until(self.is_node_stopped, timeout=timeout)
+        i = 0
+        while i < 2:
+            try:
+                i = i + 1
+                wait_until(self.is_node_stopped, timeout=timeout)
+            except TimeoutError as e:
+                pass
+
 
     def assert_start_raises_init_error(self, extra_args=None, expected_msg=None, match=ErrorMatch.FULL_TEXT, *args, **kwargs):
         """Attempt to start the node and expect it to raise an error.

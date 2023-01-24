@@ -74,12 +74,12 @@ class BlockHeaderXFieldTest(BitcoinTestFramework):
         The node gets disconnected several times in this test. This helper
         method reconnects the p2p and restarts the network thread."""
         self.nodes[0].disconnect_p2ps()
-        self.nodes[0].add_p2p_connection(P2PDataStore())
+        self.nodes[0].add_p2p_connection(P2PDataStore(self.nodes[0].time_to_connect))
         self.nodes[0].p2p.wait_for_getheaders(timeout=5)
 
     def run_test(self):
         node = self.nodes[0]
-        node.add_p2p_connection(P2PDataStore())
+        node.add_p2p_connection(P2PDataStore(node.time_to_connect))
         node.p2p.wait_for_getheaders(timeout=5)
 
         self.tip = node.getbestblockhash()

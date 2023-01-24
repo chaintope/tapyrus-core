@@ -119,7 +119,7 @@ class FederationManagementTest(BitcoinTestFramework):
         node = self.nodes[0]  # convenience reference to the node
         syn_node = self.nodes[1]  # convenience reference to the node
         self.address = node.getnewaddress()
-        node.add_p2p_connection(P2PDataStore())
+        node.add_p2p_connection(P2PDataStore(node.time_to_connect))
         node.p2p.wait_for_getheaders(timeout=5)
         self.stop_node(2)
         self.stop_node(3)
