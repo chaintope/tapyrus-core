@@ -47,7 +47,7 @@ struct XFieldChange {
     //it is implemented in XFieldChangeListWrapper
 };
 
-typedef std::vector<const XFieldChange> XFieldChangeList;
+typedef std::vector<XFieldChange> XFieldChangeList;
 
 /*
  * helper class to unserialize vector of XFieldChange from blocktree db
@@ -64,10 +64,10 @@ struct XFieldChangeListWrapper
 
     //methods to simulate vector
     inline size_t size() const { return xfieldChanges.size();}
-    inline XFieldChangeList::iterator begin() const {return xfieldChanges.begin();}
-    inline XFieldChangeList::iterator end() const {return xfieldChanges.end();}
-    inline XFieldChangeList::reverse_iterator rbegin() const {return xfieldChanges.rbegin();}
-    inline XFieldChangeList::reverse_iterator rend() const {return xfieldChanges.rend();}
+    inline XFieldChangeList::iterator begin() {return xfieldChanges.begin();}
+    inline XFieldChangeList::iterator end() {return xfieldChanges.end();}
+    inline XFieldChangeList::reverse_iterator rbegin() {return xfieldChanges.rbegin();}
+    inline XFieldChangeList::reverse_iterator rend() {return xfieldChanges.rend();}
     inline const XFieldChange& back() const {return xfieldChanges.back();}
     inline const XFieldChange& at(size_t i) const {return xfieldChanges.at(i);}
     inline const XFieldChange& operator[](size_t i) const { return xfieldChanges.operator[](i);}
