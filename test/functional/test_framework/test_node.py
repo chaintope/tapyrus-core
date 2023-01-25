@@ -170,7 +170,7 @@ class TestNode():
                 self.url = self.rpc.url
                 self.log.debug("RPC successfully started")
                 self.time_to_connect = datetime.now() - start_time
-                return
+                return self.time_to_connect
             except IOError as e:
                 if e.errno != errno.ECONNREFUSED:  # Port not yet open?
                     raise  # unknown IO error
