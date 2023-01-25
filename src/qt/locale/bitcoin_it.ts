@@ -2709,8 +2709,8 @@ Nota: poiché la commissione è calcolata su base per byte, una commissione di "
         <translation>Dimensione totale della transazione</translation>
     </message>
     <message>
-        <source>Transaction virtual size</source>
-        <translation>Dimensione virtuale della transazione</translation>
+        <source>Transaction size</source>
+        <translation>Dimensione della transazione</translation>
     </message>
     <message>
         <source>Output index</source>

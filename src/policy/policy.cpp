@@ -35,16 +35,8 @@ CAmount GetDustThreshold(const CTxOut& txout, const CFeeRate& dustRelayFeeIn)
         return 0;
 
     size_t nSize = GetSerializeSize(txout, SER_DISK, 0);
-    int witnessversion = 0;
-    std::vector<unsigned char> witnessprogram;
-
-    if (txout.scriptPubKey.IsWitnessProgram(witnessversion, witnessprogram)) {
-        // sum the sizes of the parts of a transaction input
-        // with 75% segwit discount applied to the script size.
-        nSize += (32 + 4 + 1 + (107 / WITNESS_SCALE_FACTOR) + 4);
-    } else {
-        nSize += (32 + 4 + 1 + 107 + 4); // the 148 mentioned above
-    }
+    // sum the sizes of the parts of a transaction input
+    nSize += (32 + 4 + 1 + 107 + 4); // the 148 mentioned above
 
     return dustRelayFeeIn.GetFee(nSize);
 }
@@ -87,9 +79,9 @@ bool IsStandardTx(const CTransaction& tx, std::string& reason)
     // Extremely large transactions with lots of inputs can cost the network
     // almost as much to process as they cost the sender in fees, because
     // computing signature hashes is O(ninputs*txsize). Limiting transactions
-    // to MAX_STANDARD_TX_WEIGHT mitigates CPU exhaustion attacks.
-    unsigned int sz = GetTransactionWeight(tx);
-    if (sz > MAX_STANDARD_TX_WEIGHT) {
+    // to MAX_STANDARD_TX_SIZE mitigates CPU exhaustion attacks.
+    unsigned int sz = GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
+    if (sz > MAX_STANDARD_TX_SIZE) {
         reason = "tx-size";
         return false;
     }
@@ -244,17 +236,17 @@ CFeeRate incrementalRelayFee = CFeeRate(DEFAULT_INCREMENTAL_RELAY_FEE);
 CFeeRate dustRelayFee = CFeeRate(DUST_RELAY_TX_FEE);
 unsigned int nBytesPerSigOp = DEFAULT_BYTES_PER_SIGOP;
 
-int64_t GetVirtualTransactionSize(int64_t nWeight, int64_t nSigOpCost)
+int64_t GetTransactionSize(int64_t nSize, int64_t nSigOpCost)
 {
-    return (std::max(nWeight, nSigOpCost * nBytesPerSigOp) + WITNESS_SCALE_FACTOR - 1) / WITNESS_SCALE_FACTOR;
+    return std::max(nSize, nSigOpCost * nBytesPerSigOp);
 }
 
-int64_t GetVirtualTransactionSize(const CTransaction& tx, int64_t nSigOpCost)
+int64_t GetTransactionSize(const CTransaction& tx, int64_t nSigOpCost)
 {
-    return GetVirtualTransactionSize(GetTransactionWeight(tx), nSigOpCost);
+    return GetTransactionSize(GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION), nSigOpCost);
 }
 
-int64_t GetVirtualTransactionInputSize(const CTxIn& txin, int64_t nSigOpCost)
+int64_t GetTransactionInputSize(const CTxIn& txin, int64_t nSigOpCost)
 {
-    return GetVirtualTransactionSize(GetTransactionInputWeight(txin), nSigOpCost);
+    return GetTransactionSize(GetSerializeSize(txin, SER_NETWORK, PROTOCOL_VERSION), nSigOpCost);
 }

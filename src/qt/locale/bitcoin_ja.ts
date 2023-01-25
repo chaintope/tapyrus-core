@@ -2138,7 +2138,7 @@
         <source>Specify a custom fee per kB (1,000 bytes) of the transaction's virtual size.
 
 Note:  Since the fee is calculated on a per-byte basis, a fee of "100 tapyrus per kB" for a transaction size of 500 bytes (half of 1 kB) would ultimately yield a fee of only 50 tapyrus.</source>
-        <translation>トランザクションの仮想サイズの kB (1,000 バイト) あたりのカスタム手数料を指定します。
+        <translation>トランザクションサイズの kB (1,000 バイト) あたりのカスタム手数料を指定します。
 
 注:  手数料はバイト単位で計算されるので、500 バイト (1 kBの半分) のトランザクションサイズに対する "kB あたり 100 tapyrus" の手数料は、最終的にわずか 50 tapyrusとなります。</translation>
     </message>
@@ -2736,8 +2736,8 @@ Note:  Since the fee is calculated on a per-byte basis, a fee of "100 tapyrus pe
         <translation>トランザクションの全体サイズ</translation>
     </message>
     <message>
-        <source>Transaction virtual size</source>
-        <translation>トランザクションの仮想サイズ</translation>
+        <source>Transaction size</source>
+        <translation>トランザクションサイズ</translation>
     </message>
     <message>
         <source>Output index</source>

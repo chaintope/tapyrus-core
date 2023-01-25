@@ -2670,8 +2670,8 @@
         <translation>Tamanho total da transição</translation>
     </message>
     <message>
-        <source>Transaction virtual size</source>
-        <translation>Tamanho da transação virtual</translation>
+        <source>Transaction size</source>
+        <translation>Tamanho da transação</translation>
     </message>
     <message>
         <source>Output index</source>

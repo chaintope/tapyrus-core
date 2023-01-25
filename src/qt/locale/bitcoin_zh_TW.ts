@@ -2732,8 +2732,8 @@ Note:  Since the fee is calculated on a per-byte basis, a fee of "100 tapyrus pe
         <translation>交易總大小</translation>
     </message>
     <message>
-        <source>Transaction virtual size</source>
-        <translation>交易擬真大小</translation>
+        <source>Transaction size</source>
+        <translation>交易大小</translation>
     </message>
     <message>
         <source>Output index</source>

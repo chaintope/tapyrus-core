@@ -2736,8 +2736,8 @@ Notitie: Omdat de vergoeding per byte wordt gerekend, zal een vergoeding van "10
         <translation>Transactie totale grootte</translation>
     </message>
     <message>
-        <source>Transaction virtual size</source>
-        <translation>Transactie virtuele grootte</translation>
+        <source>Transaction size</source>
+        <translation>Transactie grootte</translation>
     </message>
     <message>
         <source>Output index</source>

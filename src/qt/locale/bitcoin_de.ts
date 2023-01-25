@@ -2732,8 +2732,8 @@ Hinweis: Eine Gebühr von "100 tapyrus pro kB" bei einer Größe der Transaktion
         <translation>Gesamte Transaktionsgröße</translation>
     </message>
     <message>
-        <source>Transaction virtual size</source>
-        <translation>Virtuelle Größe der Transaktion</translation>
+        <source>Transaction size</source>
+        <translation>Größe der Transaktion</translation>
     </message>
     <message>
         <source>Output index</source>

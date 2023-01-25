@@ -159,10 +159,10 @@ BOOST_AUTO_TEST_CASE(GetTxSigOpCost)
         // Legacy counting only includes signature operations in scriptSigs and scriptPubKeys
         // of a transaction and does not take the actual executed sig operations into account.
         // spendingTx in itself does not contain a signature operation.
-        assert(GetTransactionSigOpCost(CTransaction(spendingTx), coins, flags) == 0);
+        assert(GetTransactionSigOps(CTransaction(spendingTx), coins, flags) == 0);
         // creationTx contains two signature operations in its scriptPubKey, but legacy counting
         // is not accurate.
-        assert(GetTransactionSigOpCost(CTransaction(creationTx), coins, flags) == MAX_PUBKEYS_PER_MULTISIG * WITNESS_SCALE_FACTOR);
+        assert(GetTransactionSigOps(CTransaction(creationTx), coins, flags) == MAX_PUBKEYS_PER_MULTISIG);
         // Sanity check: script verification fails because of an invalid signature.
         assert(VerifyWithFlag(creationTx, spendingTx, flags) == SCRIPT_ERR_CHECKMULTISIGVERIFY);
     }
@@ -174,7 +174,7 @@ BOOST_AUTO_TEST_CASE(GetTxSigOpCost)
         CScript scriptSig = CScript() << OP_0 << OP_0 << ToByteVector(redeemScript);
 
         BuildTxs(spendingTx, coins, creationTx, scriptPubKey, scriptSig, CScriptWitness());
-        assert(GetTransactionSigOpCost(CTransaction(spendingTx), coins, flags) == 2 * WITNESS_SCALE_FACTOR);
+        assert(GetTransactionSigOps(CTransaction(spendingTx), coins, flags) == 2);
         assert(VerifyWithFlag(creationTx, spendingTx, flags) == SCRIPT_ERR_CHECKMULTISIGVERIFY);
     }
 
@@ -191,9 +191,9 @@ BOOST_AUTO_TEST_CASE(GetTxSigOpCost)
 
         BuildTxs(spendingTx, coins, creationTx, scriptPubKey, scriptSig, CScriptWitness());
 
-        BOOST_CHECK_EQUAL(GetTransactionSigOpCost(CTransaction(spendingTx), coins, flags), 0);
+        BOOST_CHECK_EQUAL(GetTransactionSigOps(CTransaction(spendingTx), coins, flags), 0);
 
-        BOOST_CHECK_EQUAL(GetTransactionSigOpCost(CTransaction(creationTx), coins, flags),  4);
+        BOOST_CHECK_EQUAL(GetTransactionSigOps(CTransaction(creationTx), coins, flags), 1);
 
         BOOST_CHECK_EQUAL(VerifyWithFlag(creationTx, spendingTx, flags) ,SCRIPT_ERR_CHECKDATASIGVERIFY);
     }
@@ -210,10 +210,10 @@ BOOST_AUTO_TEST_CASE(GetTxSigOpCost)
 
         BuildTxs(spendingTx, coins, creationTx, scriptPubKey, scriptSig, CScriptWitness());
 
-        BOOST_CHECK_EQUAL(GetTransactionSigOpCost(CTransaction(spendingTx), coins, flags) , 4);
+        BOOST_CHECK_EQUAL(GetTransactionSigOps(CTransaction(spendingTx), coins, flags), 1);
 
         // No change in the cost without SCRIPT_VERIFY_WITNESS flag.
-        BOOST_CHECK_EQUAL(GetTransactionSigOpCost(CTransaction(spendingTx), coins, flags & ~SCRIPT_VERIFY_WITNESS), 4);
+        BOOST_CHECK_EQUAL(GetTransactionSigOps(CTransaction(spendingTx), coins, flags & ~SCRIPT_VERIFY_WITNESS), 1);
 
         BOOST_CHECK_EQUAL(VerifyWithFlag(creationTx, spendingTx, flags) , SCRIPT_ERR_CHECKDATASIGVERIFY);
     }
