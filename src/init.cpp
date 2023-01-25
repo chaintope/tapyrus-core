@@ -632,7 +632,7 @@ static void CleanupBlockRevFiles()
     }
 }
 
-static void ThreadImport(std::vector<fs::path> vImportFiles, bool fReloadxfield)
+static void ThreadImport(std::vector<fs::path> vImportFiles)
 {
     RenameThread("bitcoin-loadblk");
     ScheduleBatchPriority();
@@ -643,7 +643,7 @@ static void ThreadImport(std::vector<fs::path> vImportFiles, bool fReloadxfield)
     std::vector<XFieldAggpubkey> xFieldList;
 
     // -reindex
-    if (fReindex || fReloadxfield) {
+    if (fReindex) {
         int nFile = 0;
         while (true) {
             CDiskBlockPos pos(nFile, 0);
@@ -686,11 +686,6 @@ static void ThreadImport(std::vector<fs::path> vImportFiles, bool fReloadxfield)
         } else {
             LogPrintf("Warning: Could not open blocks file %s\n", path.string());
         }
-    }
-
-    if (fReloadxfield && tempXFieldHistory[TAPYRUS_XFIELDTYPES::AGGPUBKEY].size() != CXFieldHistory()[TAPYRUS_XFIELDTYPES::AGGPUBKEY].size()) {
-        for(auto &change : tempXFieldHistory[TAPYRUS_XFIELDTYPES::AGGPUBKEY])
-            pblocktree->WriteXField(change);
     }
 
     // scan for better chains in the block chain database, that are not yet connected in the active best chain
@@ -1387,7 +1382,6 @@ bool AppInitMain()
 
     fReindex = gArgs.GetBoolArg("-reindex", false);
     bool fReindexChainState = gArgs.GetBoolArg("-reindex-chainstate", false);
-    bool fReloadxfield = gArgs.GetBoolArg("-reloadxfield", false);
 
     // cache size calculations
     int64_t nTotalCache = (gArgs.GetArg("-dbcache", nDefaultDbCache) << 20);
@@ -1412,7 +1406,7 @@ bool AppInitMain()
 
     bool fLoaded = false;
     while (!fLoaded && !ShutdownRequested()) {
-        bool fReset = fReindex || fReloadxfield;
+        bool fReset = fReindex;
         std::string strLoadError;
 
         uiInterface.InitMessage(_("Loading block index..."));
@@ -1629,7 +1623,7 @@ bool AppInitMain()
         vImportFiles.push_back(strFile);
     }
 
-    threadGroup.create_thread(boost::bind(&ThreadImport, vImportFiles, fReloadxfield));
+    threadGroup.create_thread(boost::bind(&ThreadImport, vImportFiles));
 
     // Wait for genesis block to be processed
     {
