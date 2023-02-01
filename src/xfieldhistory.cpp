@@ -64,8 +64,8 @@ void CXFieldHistory::InitializeFromBlockDB(TAPYRUS_XFIELDTYPES type, CBlockTreeD
 
 void CXFieldHistory::ToUniValue(TAPYRUS_XFIELDTYPES type, UniValue* xFieldChangeUnival) {
     *xFieldChangeUnival = UniValue(UniValue::VARR);
-    const XFieldChangeListWrapper& xFieldChangeList = this->operator[](type);
-    for (auto& xFieldChange : xFieldChangeList)
+    XFieldChangeListWrapper& xFieldChangeList = this->operator[](type);
+    for (const auto& xFieldChange : xFieldChangeList)
     {
         UniValue xFieldChangeObj(UniValue::VOBJ);
         std::string value = XFieldDataToString(xFieldChange.xfieldValue);

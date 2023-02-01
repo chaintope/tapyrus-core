@@ -188,7 +188,7 @@ bool CBlockTreeDB::RewriteXField(std::vector<XFieldChange>& xFieldChanges) {
     
     const char key = GetXFieldDBKey(xFieldChanges.begin()->xfieldValue);
     XFieldChangeListWrapper helper(key);
-    helper.xfieldChanges = xFieldChanges;
+    std::copy(xFieldChanges.begin(),xFieldChanges.end(), helper.xfieldChanges.begin());
     return Write(key, helper.xfieldChanges);
 }
 
@@ -294,7 +294,6 @@ bool CBlockTreeDB::LoadBlockIndexGuts(std::function<CBlockIndex*(const uint256&)
                 pindexNew->hashMerkleRoot = diskindex.hashMerkleRoot;
                 pindexNew->hashImMerkleRoot = diskindex.hashImMerkleRoot;
                 pindexNew->nTime          = diskindex.nTime;
-                pindexNew->xfieldType          = diskindex.xfieldType;
                 pindexNew->xfield         = diskindex.xfield;
                 pindexNew->proof          = diskindex.proof;
                 pindexNew->nStatus        = diskindex.nStatus;

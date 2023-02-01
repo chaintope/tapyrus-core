@@ -13,13 +13,6 @@
 #include <uint256.h>
 #include <key.h>
 
-enum class TAPYRUS_XFIELDTYPES
-{
-    NONE = 0, //no xfield
-    AGGPUBKEY = 1, //xfield is 33 byte aggpubkey
-    MAXBLOCKSIZE = 2, //xfield is 4 byte max block size
-};
-
 /** Nodes collect new transactions into a block, hash them into a hash tree,
  * and scan through nonce values to make the block's hash satisfy proof-of-work
  * requirements.  When they solve the proof-of-work, they broadcast the block
@@ -84,21 +77,6 @@ public:
         return (int64_t)nTime;
     }
 
-<<<<<<< HEAD
-    inline bool isXFieldValid() const
-    {
-        if((TAPYRUS_XFIELDTYPES)this->xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY
-            && this->xfield.size() == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE)
-                return true;
-        return false;
-    }
-
-    inline bool isXFieldEqual(const CPubKey &value) const
-    {
-        return CPubKey(this->xfield.begin(), this->xfield.end()) == value;
-    }
-=======
->>>>>>> 3d50203d1 (add reloadxfield to test)
 };
 
 class CBlockHeader : public CBlockHeaderWithoutProof

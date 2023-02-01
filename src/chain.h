@@ -210,8 +210,7 @@ public:
     uint256 hashMerkleRoot;
     uint256 hashImMerkleRoot;
     uint32_t nTime;
-    uint8_t xfieldType;
-    std::vector<unsigned char> xfield;
+    CXField xfield;
     std::vector<unsigned char> proof;
 
     //! (memory only) Sequential id assigned to distinguish order in which blocks are received.
@@ -238,7 +237,6 @@ public:
         nFeatures       = 0;
         hashMerkleRoot = uint256();
         nTime          = 0;
-        xfieldType          = 0;
         xfield.clear();
         proof.clear();
     }
@@ -256,9 +254,8 @@ public:
         hashMerkleRoot = block.hashMerkleRoot;
         hashImMerkleRoot = block.hashImMerkleRoot;
         nTime          = block.nTime;
-        xfieldType          = block.xfieldType;
-        xfield         = block.xfield;
         proof          = block.proof;
+        xfield.operator=(block.xfield);
     }
 
     CDiskBlockPos GetBlockPos() const {
@@ -288,9 +285,9 @@ public:
         block.hashMerkleRoot = hashMerkleRoot;
         block.hashImMerkleRoot = hashImMerkleRoot;
         block.nTime          = nTime;
-        block.xfieldType          = xfieldType;
-        block.xfield         = xfield;
         block.proof          = proof;
+
+        block.xfield.operator=(xfield);
         return block;
     }
 
@@ -327,7 +324,7 @@ public:
 
     std::string ToString() const
     {
-        return strprintf("CBlockIndex(pprev=%p, nHeight=%d, merkle=%s, Immerkle=%s, nTime=%u, xfieldType=%2x, xfield=%s, proof={%s})hashBlock=%s",
+        return strprintf("CBlockIndex(pprev=%p, nHeight=%d, merkle=%s, Immerkle=%s, nTime=%u, xfield=%s, proof={%s})hashBlock=%s",
             pprev, nHeight,
             hashMerkleRoot.ToString(),
             hashImMerkleRoot.ToString(),
@@ -410,9 +407,7 @@ public:
         READWRITE(hashMerkleRoot);
         READWRITE(hashImMerkleRoot);
         READWRITE(nTime);
-        READWRITE(xfieldType);
-        if((TAPYRUS_XFIELDTYPES)xfieldType != TAPYRUS_XFIELDTYPES::NONE)
-            READWRITE(xfield);
+        READWRITE(xfield);
         READWRITE(proof);
     }
 
@@ -424,8 +419,7 @@ public:
         block.hashMerkleRoot  = hashMerkleRoot;
         block.hashImMerkleRoot  = hashImMerkleRoot;
         block.nTime           = nTime;
-        block.xfieldType          = xfieldType;
-        block.xfield         = xfield;
+        block.xfield          = xfield;
         block.proof           = proof;
         return block.GetHash();
     }

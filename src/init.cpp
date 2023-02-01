@@ -1514,16 +1514,6 @@ bool AppInitMain()
                     }
                 }
                 // Step 7a: Load Xfield data from db
-                std::vector<XFieldAggpubkey> xFieldList;
-                pblocktree->ReadXFieldAggpubkeys(xFieldList);
-                for(auto &XFieldData:xFieldList)
-                {
-                    //verify the aggpubkey from the xfield in the block db and then add to federation params
-                    CBlockIndex* pindex = LookupBlockIndex(XFieldData.blockHash);
-                    if (!pindex)//block might not be in the best chain
-                        continue;
-
-                // Step 7a: Load Xfield data from db
                 CXFieldHistory xFieldHistory;
                 for(auto x : XFIELDTYPES_INIT_LIST)
                     xFieldHistory.InitializeFromBlockDB(x, pblocktree.get());

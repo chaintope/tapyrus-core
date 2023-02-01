@@ -21,7 +21,7 @@ struct XFieldChange {
     explicit XFieldChange(const XFieldData& in_data, uint32_t in_height, uint256 in_blockHash):xfieldValue(in_data), height(in_height), blockHash(in_blockHash){}
     explicit XFieldChange(const XFieldData&& in_data, uint32_t in_height, uint256 in_blockHash):xfieldValue(in_data), height(in_height), blockHash(in_blockHash){}
     XFieldChange(const XFieldChange& copy):xfieldValue(copy.xfieldValue),height(copy.height),blockHash(copy.blockHash){}
-    XFieldChange(const XFieldChange&& copy):xfieldValue(copy.xfieldValue),height(copy.height),blockHash(copy.blockHash){}
+    //XFieldChange(const XFieldChange&& copy):xfieldValue(copy.xfieldValue),height(copy.height),blockHash(copy.blockHash){}
     ~XFieldChange() = default;
 
     bool operator==(const XFieldChange& copy) const {

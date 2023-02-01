@@ -3036,9 +3036,6 @@ static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,
     if(!aggregatePubkey.Verify_Schnorr(blockHash, block.proof))
         return state.Invalid(false, REJECT_INVALID, "bad-proof", strprintf("Proof verification failed at height [%d]", nHeight));
 
-    if(state.IsValid() && warning.size())
-        DoWarning(warning);
-
     return true;
 }
 
@@ -4178,7 +4175,6 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
     int64_t nStart = GetTimeMillis();
 
     int nLoaded = 0;
-    auto aggPubkeys = FederationParams().GetAggregatePubkeyHeightList();
     try {
         // This takes over fileIn and calls fclose() on it in the CBufferedFile destructor
         CBufferedFile blkdat(fileIn, 2*MAX_BLOCK_SIZE, MAX_BLOCK_SIZE+8, SER_DISK, CLIENT_VERSION);
