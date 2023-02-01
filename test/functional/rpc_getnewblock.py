@@ -53,6 +53,7 @@ class GetNewBlockTest(BitcoinTestFramework):
         assert_equal(block.xfieldType, 1)
         assert_equal(block.xfield, bytes.fromhex("02bf2027c8455800c7626542219e6208b5fe787483689f1391d6d443ec85673ecf"))
 
+
         self.log.info("getnewblock aggpubkey negative tests")
         assert_raises_rpc_error(-32602, "xfield parameter could not be parsed. Check if the xfield parameter has format: <xfield_type:new_xfield_value>", self.nodes[0].getnewblock, address, 0,"03831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafc")
         assert_raises_rpc_error(-32602, "Unknown xfield type", self.nodes[0].getnewblock, address, 0,"3:03831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafc")
