@@ -75,6 +75,16 @@ void CXFieldHistory::ToUniValue(TAPYRUS_XFIELDTYPES type, UniValue* xFieldChange
     }
 }
 
+int32_t CXFieldHistoryMap::GetReorgHeight()
+{
+    std::vector<uint32_t> changeHeights;
+    for(auto x : XFIELDTYPES_INIT_LIST)
+    {
+        changeHeights.push_back((isTemp ? this->getXFieldHistoryMap() : xfieldHistory).find(x)->second.xfieldChanges.rbegin()->height);
+    }
+    return *std::max_element(changeHeights.begin(), changeHeights.end());
+}
+
 bool IsXFieldNew(const CXField& xfield, CXFieldHistoryMap* pxfieldHistory)
 {
     IsXFieldLastInHistoryVisitor checkVisitor(pxfieldHistory);
