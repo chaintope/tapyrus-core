@@ -26,8 +26,8 @@ reverse_bytes = (lambda txid  : txid[-1: -len(txid)-1: -1])
 
 # TestP2PConn: A peer we use to send messages to bitcoind, and store responses.
 class TestP2PConn(P2PDataStore):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, time_to_connect):
+        super().__init__(time_to_connect)
         self.last_sendcmpct = []
         self.block_announced = False
         # Store the hashes of blocks we've seen announced.
