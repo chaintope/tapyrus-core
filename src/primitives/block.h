@@ -77,9 +77,6 @@ public:
         return (int64_t)nTime;
     }
 
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
     inline bool isXFieldValid() const
     {
         if((TAPYRUS_XFIELDTYPES)this->xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY
@@ -92,9 +89,6 @@ public:
     {
         return CPubKey(this->xfield.begin(), this->xfield.end()) == value;
     }
-=======
->>>>>>> 3d50203d1 (add reloadxfield to test)
->>>>>>> 865a7a783 (add reloadxfield to test)
 };
 
 class CBlockHeader : public CBlockHeaderWithoutProof

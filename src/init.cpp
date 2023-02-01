@@ -1514,7 +1514,6 @@ bool AppInitMain()
                         break;
                     }
                 }
-
                 // Step 7a: Load Xfield data from db
                 CXFieldHistory xFieldHistory;
                 for(auto x : XFIELDTYPES_INIT_LIST)

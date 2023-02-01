@@ -218,8 +218,12 @@ BOOST_AUTO_TEST_CASE(blockHeaderWithxfieldType2_xfield365)
 
     BOOST_CHECK(blockHeader.xfield.IsValid());
     BOOST_CHECK(blockHeader.xfield.xfieldType == TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE);
+<<<<<<< HEAD
     int32_t size = boost::get<XFieldMaxBlockSize>(blockHeader.xfield.xfieldValue).data;
     BOOST_CHECK_EQUAL(size, 1090612733);
+=======
+    BOOST_CHECK_EQUAL(XFieldDataToString(blockHeader.xfield.xfieldValue).size(), 8);//only 8 bytes are read
+>>>>>>> 98845828d (fixed build after rebase, fixed block unit test)
     BOOST_CHECK_EQUAL(blockHeader.proof.size(), 71);//interpreted incorrectly
 }
 
@@ -231,8 +235,12 @@ BOOST_AUTO_TEST_CASE(blockHeaderWithxfieldType2_xfield0)
 
     BOOST_CHECK(blockHeader.xfield.IsValid());
     BOOST_CHECK(blockHeader.xfield.xfieldType == TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE);
+<<<<<<< HEAD
     int32_t size = boost::get<XFieldMaxBlockSize>(blockHeader.xfield.xfieldValue).data;
     BOOST_CHECK_EQUAL(size, 809976064);
+=======
+    BOOST_CHECK_EQUAL(XFieldDataToString(blockHeader.xfield.xfieldValue), "00f80101");
+>>>>>>> 98845828d (fixed build after rebase, fixed block unit test)
     BOOST_CHECK_EQUAL(blockHeader.proof.size(), 69);//interpreted incorrectly
 }
 
