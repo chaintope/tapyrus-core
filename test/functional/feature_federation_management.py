@@ -302,6 +302,11 @@ class FederationManagementTest(BitcoinTestFramework):
         self.start_node(0)
         connect_nodes(self.nodes[0], 1)
 
+        #restarting node0 to test presistance of aggpubkey change
+        self.stop_node(0)
+        self.start_node(0)
+        connect_nodes(self.nodes[0], 1)
+
         self.log.info("Simulate Blockchain Reorg  - After the last federation block")
         #B27 -- Create block with previous block hash = B26 - sign with aggpubkey3 -- success - block is accepted but there is no re-org
         block_time += 1
@@ -358,6 +363,7 @@ class FederationManagementTest(BitcoinTestFramework):
         self.start_node(0)
         connect_nodes(self.nodes[0], 1)
 
+        self.log.info("Simulate Blockchain Reorg  - Before the last federation block")
         #B24 -- Create block with previous block hash = B23 - sign with aggpubkey2 -- failure - block is in invalid chain
         block_time += 1
         blocknew = create_block(int(self.blocks[23], 16), create_coinbase(24), block_time)
@@ -440,9 +446,9 @@ class FederationManagementTest(BitcoinTestFramework):
         assert(node.getblock(self.tip))
 
         #call invalidate block rpc on B36 -- failure - B36 is a federation block
-        assert_raises_rpc_error(-8, "Cannot invalidate block as Xfield change found in chain after this block", node.invalidateblock, self.tip)
-        assert_raises_rpc_error(-8, "Cannot invalidate block as Xfield change found in chain after this block", node.invalidateblock, self.forkblocks[33])
-        assert_raises_rpc_error(-8, "Cannot invalidate block as Xfield change found in chain after this block", node.invalidateblock, self.blocks[29])
+        assert_raises_rpc_error(-8, "Federation block found", node.invalidateblock, self.tip)
+        assert_raises_rpc_error(-8, "Federation block found", node.invalidateblock, self.forkblocks[33])
+        assert_raises_rpc_error(-8, "Federation block found", node.invalidateblock, self.blocks[29])
         assert_equal(self.tip, node.getbestblockhash())
 
         #B37 - Create block - sign using aggpubkey5 -- success
@@ -537,8 +543,8 @@ class FederationManagementTest(BitcoinTestFramework):
         blockchaininfo = self.nodes[1].getblockchaininfo()
         assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
 
-        #self.log.info("Starting node2 with '-reloadxfield'")
-        self.start_node(2)
+        self.log.info("Starting node2 with '-reloadxfield'")
+        self.start_node(2, ["-reloadxfield"])
         connect_nodes(self.nodes[2], 0)
         connect_nodes(self.nodes[2], 1)
         #reindex takes time. wait before checking blockchain info
@@ -639,7 +645,7 @@ class FederationManagementTest(BitcoinTestFramework):
         best_block = self.nodes[1].getblock(self.tip)
         self.sync_all([self.nodes[0:3]])
 
-        self.start_node(3, ["-loadblock=%s" % os.path.join(self.nodes[3].datadir, 'blk00000.dat')])
+        self.start_node(3, ["-reloadxfield", "-loadblock=%s" % os.path.join(self.nodes[3].datadir, 'blk00000.dat')])
         #reindex takes time. wait before checking blockchain info
         time.sleep(5)
         connect_nodes(self.nodes[3], 0)
