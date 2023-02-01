@@ -606,7 +606,7 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
 
         #self.log.info("Starting node2 with '-reloadxfield'")
-        self.start_node(2)
+        self.start_node(2, ["-reloadxfield"])
         connect_nodes(self.nodes[2], 0)
         connect_nodes(self.nodes[2], 1)
         #reindex takes time. wait before checking blockchain info

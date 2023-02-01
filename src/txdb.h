@@ -139,6 +139,7 @@ public:
 
     bool ReadXField(const char key, XFieldChangeListWrapper& xFieldList);
     bool WriteXField(const XFieldChange & xFieldChange);
+    bool RewriteXField(std::vector<XFieldChange> & xFieldChanges);
 };
 
 #endif // BITCOIN_TXDB_H

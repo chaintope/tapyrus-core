@@ -13,16 +13,12 @@
 #include <uint256.h>
 #include <key.h>
 
-<<<<<<< HEAD
 enum class TAPYRUS_XFIELDTYPES
 {
     NONE = 0, //no xfield
     AGGPUBKEY = 1, //xfield is 33 byte aggpubkey
-
-    MAX_XFIELDTYPE
+    MAXBLOCKSIZE = 2, //xfield is 4 byte max block size
 };
-=======
->>>>>>> ceb1fab5f (Move xfield relates code to new header and cpp files. move xField change related changes to out of federration params and make it a global map)
 
 /** Nodes collect new transactions into a block, hash them into a hash tree,
  * and scan through nonce values to make the block's hash satisfy proof-of-work
@@ -40,13 +36,19 @@ public:
     uint256 hashMerkleRoot;
     uint256 hashImMerkleRoot;
     uint32_t nTime;
-    uint8_t xfieldType;
-    std::vector<unsigned char> xfield;
+    CXField xfield;
 
     CBlockHeaderWithoutProof()
     {
         SetNull();
     }
+
+    CBlockHeaderWithoutProof(CBlockHeaderWithoutProof&&) = default;
+    CBlockHeaderWithoutProof(const CBlockHeaderWithoutProof& copy) = default;
+    CBlockHeaderWithoutProof(CBlockHeaderWithoutProof& copy) = default;
+    CBlockHeaderWithoutProof& operator=(const CBlockHeaderWithoutProof& copy) = default;
+    CBlockHeaderWithoutProof& operator=(CBlockHeaderWithoutProof& copy) = default;
+
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
@@ -56,9 +58,7 @@ public:
         READWRITE(hashMerkleRoot);
         READWRITE(hashImMerkleRoot);
         READWRITE(nTime);
-        READWRITE(xfieldType);
-        if((TAPYRUS_XFIELDTYPES)xfieldType != TAPYRUS_XFIELDTYPES::NONE)
-            READWRITE(xfield);
+        READWRITE(xfield);
     }
 
     void SetNull()
@@ -68,7 +68,6 @@ public:
         hashMerkleRoot.SetNull();
         hashImMerkleRoot.SetNull();
         nTime = 0;
-        xfieldType = 0;
         xfield.clear();
     }
 
@@ -85,6 +84,7 @@ public:
         return (int64_t)nTime;
     }
 
+<<<<<<< HEAD
     inline bool isXFieldValid() const
     {
         if((TAPYRUS_XFIELDTYPES)this->xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY
@@ -97,6 +97,8 @@ public:
     {
         return CPubKey(this->xfield.begin(), this->xfield.end()) == value;
     }
+=======
+>>>>>>> 3d50203d1 (add reloadxfield to test)
 };
 
 class CBlockHeader : public CBlockHeaderWithoutProof
@@ -107,6 +109,11 @@ public:
 
     CBlockHeader():CBlockHeaderWithoutProof(),proof() {}
 
+    CBlockHeader(CBlockHeader&& copy) = default;
+    CBlockHeader(const CBlockHeader& copy) = default;
+    CBlockHeader(CBlockHeader& copy) = default;
+    CBlockHeader& operator=(const CBlockHeader& copy) = default;
+    CBlockHeader& operator=(CBlockHeader& copy) = default;
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
@@ -163,7 +170,6 @@ public:
         block.hashMerkleRoot    = hashMerkleRoot;
         block.hashImMerkleRoot  = hashImMerkleRoot;
         block.nTime             = nTime;
-        block.xfieldType             = xfieldType;
         block.xfield            = xfield;
         block.proof             = proof;
         return block;
@@ -171,7 +177,7 @@ public:
 
     std::string ToString() const;
 
-    uint64_t GetHeight() const;
+    uint32_t GetHeight() const;
 };
 
 /** Describes a place in the block chain to another node such that if the

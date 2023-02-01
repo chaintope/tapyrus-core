@@ -184,6 +184,14 @@ bool CBlockTreeDB::WriteXField(const XFieldChange& xFieldChange) {
     return Write(key, helper.xfieldChanges);
 }
 
+bool CBlockTreeDB::RewriteXField(std::vector<XFieldChange>& xFieldChanges) {
+    
+    const char key = GetXFieldDBKey(xFieldChanges.begin()->xfieldValue);
+    XFieldChangeListWrapper helper(key);
+    helper.xfieldChanges = xFieldChanges;
+    return Write(key, helper.xfieldChanges);
+}
+
 CCoinsViewCursor *CCoinsViewDB::Cursor() const
 {
     CCoinsViewDBCursor *i = new CCoinsViewDBCursor(const_cast<CDBWrapper&>(db).NewIterator(), GetBestBlock());

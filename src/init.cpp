@@ -689,8 +689,8 @@ static void ThreadImport(std::vector<fs::path> vImportFiles, bool fReloadxfield)
         }
     }
 
-    if (fReloadxfield && xFieldList.size()) {
-        pblocktree->ResetXFieldAggpubkeys(xFieldList);
+    if (fReloadxfield) {
+        pblocktree->RewriteXField(tempXFieldHistory[TAPYRUS_XFIELDTYPES::AGGPUBKEY].xfieldChanges);
     }
 
     // scan for better chains in the block chain database, that are not yet connected in the active best chain
