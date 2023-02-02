@@ -7,7 +7,6 @@
 
 #include <policy/policy.h>
 #include <federationparams.h>
-#include <dbwrapper.h>
 /* 
  * struct to store xfieldValue, block hash and height for every xfield update in the blockchain.
  */
@@ -184,7 +183,6 @@ public:
         return xfieldHistory;
     }
 
-    void InitializeFromBlockDB(TAPYRUS_XFIELDTYPES type, CBlockTreeDB* pblocktree);
     void ToUniValue(TAPYRUS_XFIELDTYPES type, UniValue* xfieldChanges);
 };
 

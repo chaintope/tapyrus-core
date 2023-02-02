@@ -54,14 +54,6 @@ const XFieldChange& CXFieldHistoryMap::Get(TAPYRUS_XFIELDTYPES type, uint256 blo
     return listofXfieldChanges.back();
 }
 
-void CXFieldHistory::InitializeFromBlockDB(TAPYRUS_XFIELDTYPES type, CBlockTreeDB* pblocktree) {
-    const char key(std::to_string(static_cast<int8_t>(type))[0]);
-    XFieldChangeListWrapper xFieldListDB(key);
-    pblocktree->ReadXField(key, xFieldListDB);
-    for(auto &XFieldDB:xFieldListDB)
-        this->Add(type, XFieldDB);
-}
-
 void CXFieldHistory::ToUniValue(TAPYRUS_XFIELDTYPES type, UniValue* xFieldChangeUnival) {
     *xFieldChangeUnival = UniValue(UniValue::VARR);
     XFieldChangeListWrapper& xFieldChangeList = this->operator[](type);
