@@ -1517,7 +1517,13 @@ bool AppInitMain()
                 // Step 7a: Load Xfield data from db
                 CXFieldHistory xFieldHistory;
                 for(auto x : XFIELDTYPES_INIT_LIST)
-                    xFieldHistory.InitializeFromBlockDB(x, pblocktree.get());
+                {
+                    const char key(std::to_string(static_cast<int8_t>(x))[0]);
+                    XFieldChangeListWrapper xFieldListDB(key);
+                    pblocktree->ReadXField(key, xFieldListDB);
+                    for(auto &XFieldDB:xFieldListDB)
+                        xFieldHistory.Add(x, XFieldDB);
+                }
 
                 if (!is_coinsview_empty) {
                     uiInterface.InitMessage(_("Verifying blocks..."));
