@@ -11,7 +11,7 @@ inline std::string XFieldAggPubKey::ToString() const {
 }
 
 inline std::string XFieldMaxBlockSize::ToString() const {
-    return HexStr(&data, &data + sizeof(data));
+    return std::to_string(data);
 }
 
 template <typename T>
