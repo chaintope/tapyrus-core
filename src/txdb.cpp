@@ -185,10 +185,10 @@ bool CBlockTreeDB::WriteXField(const XFieldChange& xFieldChange) {
 }
 
 bool CBlockTreeDB::RewriteXField(std::vector<XFieldChange>& xFieldChanges) {
-    
     const char key = GetXFieldDBKey(xFieldChanges.begin()->xfieldValue);
     XFieldChangeListWrapper helper(key);
-    std::copy(xFieldChanges.begin(),xFieldChanges.end(), helper.xfieldChanges.begin());
+    for(auto& change :xFieldChanges)
+        helper.xfieldChanges.push_back(change);
     return Write(key, helper.xfieldChanges);
 }
 

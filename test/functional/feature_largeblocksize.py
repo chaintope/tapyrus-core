@@ -52,7 +52,7 @@ class MaxBlockSizeInXFieldTest(BitcoinTestFramework):
         self.block_time = int(time.time())
         self.nodes[0].generate(10, self.signblockprivkey_wif)
 
-        self.nodes[0].add_p2p_connection(TestP2PConn())
+        self.nodes[0].add_p2p_connection(TestP2PConn(self.nodes[0].time_to_connect))
         self.nodes[0].p2p.wait_for_getheaders(timeout=5)
 
         for (i,size) in enumerate(range(1,25)):
