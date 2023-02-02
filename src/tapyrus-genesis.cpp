@@ -105,12 +105,12 @@ static int generateNewKeyPair()
     return EXIT_SUCCESS;
 }
 
-static int generateGenesis(CKey& privatekey, long long blockTime, std::string& payToAddress)
+static int generateGenesis(CPubKey aggpubkey, CKey& privatekey, long long blockTime, std::string& payToAddress)
 {
-    XFieldAggPubKey aggpubkeyChange;
-    CXFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+    CBlock genesis { createGenesisBlock(aggpubkey, privatekey, blockTime, payToAddress) };
 
-    CBlock genesis { createGenesisBlock(aggpubkeyChange.getPubKey(), privatekey, blockTime, payToAddress) };
+    //initialize xfield history
+    CXFieldHistory history(genesis);
 
     // check validity
     CValidationState state;
@@ -146,11 +146,22 @@ static int CommandLine()
         {
             std::vector<unsigned char> key( ParseHex(pubkey) );
             aggpubkey = CPubKey(key.begin(), key.end());
+            if(!aggpubkey.IsFullyValid())
+            {
+                fprintf(stderr, "Error: Aggregate Public Key was invalid.\n");
+                return EXIT_FAILURE;
+            }
         }
     } catch (const std::exception& e) {
         fprintf(stderr, "Error: %s\n", e.what());
         return EXIT_FAILURE;
     }
+
+    // This is for using CKey.sign().
+    ECC_Start();
+
+    // This is for using CPubKey.verify().
+    ECCVerifyHandle globalVerifyHandle;
 
     std::string wif = gArgs.GetArg("-signblockprivatekey", "");
     CKey privatekey(DecodeSecret(wif));
@@ -160,7 +171,7 @@ static int CommandLine()
         return EXIT_FAILURE;
     }
 
-    if(aggpubkey != privatekey.GetPubKey())
+    if(privatekey.IsValid() && aggpubkey != privatekey.GetPubKey())
     {
         fprintf(stderr, "Error: Aggregate private key does not correspond to given Aggregate public key.\n");
         return EXIT_FAILURE;
@@ -177,17 +188,11 @@ static int CommandLine()
          return EXIT_FAILURE;
      }
 
-    // This is for using CKey.sign().
-    ECC_Start();
-
-    // This is for using CPubKey.verify().
-    ECCVerifyHandle globalVerifyHandle;
-
     //generate after ECC initialization
     if(generateKey)
         return generateNewKeyPair();
     else
-        return generateGenesis(privatekey, blockTime, payToAddress);
+        return generateGenesis(aggpubkey, privatekey, blockTime, payToAddress);
 }
 
 int main(int argc, char* argv[])
