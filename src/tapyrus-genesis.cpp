@@ -107,10 +107,10 @@ static int generateNewKeyPair()
 
 static int generateGenesis(CKey& privatekey, long long blockTime, std::string& payToAddress)
 {
-    XFieldAggPubKey aggpubkeyChange;
-    CXFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+    CBlock genesis { createGenesisBlock(privatekey.GetPubKey(), privatekey, blockTime, payToAddress) };
 
-    CBlock genesis { createGenesisBlock(aggpubkeyChange.getPubKey(), privatekey, blockTime, payToAddress) };
+    //initialize xfield history
+    CXFieldHistory history(genesis);
 
     // check validity
     CValidationState state;
@@ -152,6 +152,12 @@ static int CommandLine()
         return EXIT_FAILURE;
     }
 
+    // This is for using CKey.sign().
+    ECC_Start();
+
+    // This is for using CPubKey.verify().
+    ECCVerifyHandle globalVerifyHandle;
+
     std::string wif = gArgs.GetArg("-signblockprivatekey", "");
     CKey privatekey(DecodeSecret(wif));
     if(wif.size() && !privatekey.IsValid())
@@ -176,12 +182,6 @@ static int CommandLine()
          fprintf(stderr, "Error: Invalid address specified in -address option.\n");
          return EXIT_FAILURE;
      }
-
-    // This is for using CKey.sign().
-    ECC_Start();
-
-    // This is for using CPubKey.verify().
-    ECCVerifyHandle globalVerifyHandle;
 
     //generate after ECC initialization
     if(generateKey)
