@@ -107,7 +107,7 @@ static int generateNewKeyPair()
 
 static int generateGenesis(CPubKey aggpubkey, CKey& privatekey, long long blockTime, std::string& payToAddress)
 {
-    CBlock genesis { createGenesisBlock(privatekey.GetPubKey(), privatekey, blockTime, payToAddress) };
+    CBlock genesis { createGenesisBlock(aggpubkey, privatekey, blockTime, payToAddress) };
 
     //initialize xfield history
     CXFieldHistory history(genesis);
