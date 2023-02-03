@@ -657,7 +657,7 @@
       "-signblockpubkey=03af80b90d25145da28c583359beb47b21796b2fe1a23c1511e443e7a64dfdb27d02ce7edc292d7b747fab2f23584bbafaffde5c8ff17cf689969614441e0527b90002785a891f323acd6cef0fc509bb14304410595914267c50467e51c87142acbb5e"
     ],
     "return_code": 1,
-    "error_txt": "Aggregate Public Key for Signed Block is invalid: 03af80b90d25145da28c583359beb47b21796b2fe1a23c1511e443e7a64dfdb27d02ce7edc292d7b747fab2f23584bbafaffde5c8ff17cf689969614441e0527b90002785a891f323acd6cef0fc509bb14304410595914267c50467e51c87142acbb5e",
+    "error_txt": "Error: Aggregate Public Key was invalid.",
     "description": "Check length of Aggregate Public Key for Signed Block when private key is not valid."
   },
   { "exec": "./tapyrus-genesis",
@@ -667,7 +667,7 @@
       "-signblockpubkey=af80b90d25145da28c583359beb47b21796b2fe1a23c1511e443e7a64dfdb27d"
     ],
     "return_code": 1,
-    "error_txt": "Aggregate Public Key for Signed Block is invalid: af80b90d25145da28c583359beb47b21796b2fe1a23c1511e443e7a64dfdb27d",
+    "error_txt": "Error: Aggregate Public Key was invalid.",
     "description": "Ensure invalid pubkey is not accepted - no prefix."
   },
   { "exec": "./tapyrus-genesis",
@@ -677,7 +677,7 @@
       "-signblockpubkey=03af80b90d25145da28c583359beb47b21796b2fe1a23c1511e443e7a64dfdb27f"
     ],
     "return_code": 1,
-    "error_txt": "Aggregate Public Key for Signed Block is invalid: 03af80b90d25145da28c583359beb47b21796b2fe1a23c1511e443e7a64dfdb27f",
+    "error_txt": "Error: Aggregate Public Key was invalid.",
     "description": "Ensure invalid pubkey is not accepted."
   },
   { "exec": "./tapyrus-genesis",

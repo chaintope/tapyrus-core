@@ -105,9 +105,9 @@ static int generateNewKeyPair()
     return EXIT_SUCCESS;
 }
 
-static int generateGenesis(CKey& privatekey, long long blockTime, std::string& payToAddress)
+static int generateGenesis(CPubKey aggpubkey, CKey& privatekey, long long blockTime, std::string& payToAddress)
 {
-    CBlock genesis { createGenesisBlock(privatekey.GetPubKey(), privatekey, blockTime, payToAddress) };
+    CBlock genesis { createGenesisBlock(aggpubkey, privatekey, blockTime, payToAddress) };
 
     //initialize xfield history
     CXFieldHistory history(genesis);
@@ -146,6 +146,11 @@ static int CommandLine()
         {
             std::vector<unsigned char> key( ParseHex(pubkey) );
             aggpubkey = CPubKey(key.begin(), key.end());
+            if(!aggpubkey.IsFullyValid())
+            {
+                fprintf(stderr, "Error: Aggregate Public Key was invalid.\n");
+                return EXIT_FAILURE;
+            }
         }
     } catch (const std::exception& e) {
         fprintf(stderr, "Error: %s\n", e.what());
@@ -166,7 +171,7 @@ static int CommandLine()
         return EXIT_FAILURE;
     }
 
-    if(aggpubkey != privatekey.GetPubKey())
+    if(privatekey.IsValid() && aggpubkey != privatekey.GetPubKey())
     {
         fprintf(stderr, "Error: Aggregate private key does not correspond to given Aggregate public key.\n");
         return EXIT_FAILURE;
@@ -187,7 +192,7 @@ static int CommandLine()
     if(generateKey)
         return generateNewKeyPair();
     else
-        return generateGenesis(privatekey, blockTime, payToAddress);
+        return generateGenesis(aggpubkey, privatekey, blockTime, payToAddress);
 }
 
 int main(int argc, char* argv[])
