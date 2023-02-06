@@ -427,10 +427,8 @@ def run_tests(test_list, src_dir, build_dir, tmpdir, jobs=1, enable_coverage=Fal
     max_len_name = len(max(test_list, key=len))
 
     for _ in range(len(test_list)):
-        test_result, testdir, stdout, stderr, retry = job_queue.get_next()
+        test_result, testdir, stdout, stderr = job_queue.get_next()
         test_results.append(test_result)
-        if retry is not None:
-            retry_list.append(retry)
 
         if test_result.status == "Passed":
             logging.debug("\n%s%s%s passed, Duration: %s s" % (BOLD[1], test_result.name, BOLD[0], test_result.time))
@@ -438,6 +436,7 @@ def run_tests(test_list, src_dir, build_dir, tmpdir, jobs=1, enable_coverage=Fal
             logging.debug("\n%s%s%s skipped" % (BOLD[1], test_result.name, BOLD[0]))
         elif test_result.status == "Timeout":
             logging.debug("\n%s%s%s timeout" % (BOLD[1], test_result.name, BOLD[0]))
+            retry_list.append(test_result.name)
         else:
             print("\n%s%s%s failed, Duration: %s s\n" % (BOLD[1], test_result.name, BOLD[0], test_result.time))
             print(BOLD[1] + 'stdout:\n' + BOLD[0] + stdout + '\n')
@@ -553,14 +552,13 @@ class TestHandler:
                     elif proc.returncode == TEST_EXIT_SKIPPED:
                         status = "Skipped"
                     elif proc.returncode == TEST_EXIT_TIMEOUT:
-                        self.retry = name
                         status = "Timeout"
                     else:
                         status = "Failed"
                     self.num_running -= 1
                     self.jobs.remove(job)
 
-                    return TestResult(name, status, int(time.time() - start_time)), testdir, stdout, stderr, self.retry
+                    return TestResult(name, status, int(time.time() - start_time)), testdir, stdout, stderr
             print('.', end='', flush=True)
 
     def kill_and_join(self):

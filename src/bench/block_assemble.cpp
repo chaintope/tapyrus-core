@@ -28,21 +28,6 @@
 #include <list>
 #include <vector>
 
-const std::string GENESIS_BLOCK("0100000000000000000000000000000000000000000000000000000000000000000000002b5331139c6bc8646bb4e5737c51378133f70b9712b75548cb3c05f9188670e7440d295e7300c5640730c4634402a3e66fb5d921f76b48d8972a484cc0361e660f288661012103af80b90d25145da28c583359beb47b21796b2fe1a23c1511e443e7a64dfdb27d40214f99266b9f569fbff5fdd9fff78bbdf258fafd79f5df2578030914f58913a6ecaf0a1564223a3366be20da378aa3555bdc961b1a09ae966f21d3c0c8eaddc201010000000100000000000000000000000000000000000000000000000000000000000000000000000000ffffffff0100f2052a010000001976a91445d405b9ed450fec89044f9b7a99a4ef6fe2cd3f88ac00000000");
-
-const std::string SIGN_BLOCK_PUBKEY("03af80b90d25145da28c583359beb47b21796b2fe1a23c1511e443e7a64dfdb27d");
-
-const std::string SIGN_BLOCK_PRIVKEY("cUJN5RVzYWFoeY8rUztd47jzXCu1p57Ay8V7pqCzsBD3PEXN7Dd4");
-
-static void writeTestGenesisBlockToFile(fs::path genesisPath)
-{
-    genesisPath /= TAPYRUS_GENESIS_FILENAME;
-    //printf("Writing Genesis Block to [%s]\n", genesisPath.string().c_str());
-    fs::ofstream stream(genesisPath);
-    stream << GENESIS_BLOCK;
-    stream.close();
-}
-
 static std::shared_ptr<CBlock> PrepareBlock(const CScript& coinbase_scriptPubKey)
 {
     auto block = std::make_shared<CBlock>(
@@ -88,6 +73,7 @@ static void AssembleBlock(benchmark::State& state)
     writeTestGenesisBlockToFile(GetDataDir(false));
     SelectParams(TAPYRUS_OP_MODE::DEV);
     SelectFederationParams(TAPYRUS_OP_MODE::DEV);
+    CXFieldHistory xFieldHistory(FederationParams().GenesisBlock());
 
     const CKey privKey(DecodeSecret(SIGN_BLOCK_PRIVKEY));
     const CPubKey pubkey(privKey.GetPubKey());

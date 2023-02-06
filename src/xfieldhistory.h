@@ -85,7 +85,7 @@ struct XFieldChangeListWrapper
 
     template<typename Stream>
     void Unserialize(Stream& s) {
-        uint len = 0;
+        uint32_t len = 0;
         s >> VARINT(len);
         while(s.size())
         {
@@ -176,7 +176,7 @@ public:
         xfieldHistory.emplace(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, XFieldChangeListWrapper(XFieldMaxBlockSize::BLOCKTREE_DB_KEY));
 
         this->Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY, XFieldChange(genesis.xfield.xfieldValue, 0, genesis.GetHash()));
-        this->Add(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, XFieldChange(DEFAULT_BLOCK_MAX_SIZE, 0, genesis.GetHash()));
+        this->Add(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, XFieldChange(MAX_BLOCK_SIZE, 0, genesis.GetHash()));
     }
 
     XFieldHistoryMapType& getXFieldHistoryMap() const override {
