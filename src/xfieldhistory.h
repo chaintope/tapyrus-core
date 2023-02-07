@@ -236,5 +236,19 @@ public:
 
 bool IsXFieldNew(const CXField& xfield, CXFieldHistoryMap* pxfieldHistory);
 
+/** 
+ * The maximum block size according the current xfield history */
+int32_t volatile CURRENT_MAXBLOCKSIZE() {
+    XFieldMaxBlockSize xfieldMaxBlockSize;
+    CXFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, xfieldMaxBlockSize);
+    return xfieldMaxBlockSize.data;
+};
+
+/** 
+ * The maximum allowed number of signature check operations in a block (network rule) */
+int32_t volatile MAX_BLOCK_SIGOPS() { return CURRENT_MAXBLOCKSIZE() / 50; };
+
+/** The maximum number of sigops we're willing to relay/mine in a single tx */
+int32_t volatile MAX_STANDARD_TX_SIGOPS() { return MAX_BLOCK_SIGOPS() / 5; };
 
 #endif // TAPYRUS_XFIELDHISTORY_H

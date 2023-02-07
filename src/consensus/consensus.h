@@ -14,9 +14,8 @@
   * The maximum allowed size for a block, in bytes (network rule).
   */
 static const unsigned int MAX_BLOCK_SIZE = 1000000;
-/** 
- * The maximum allowed number of signature check operations in a block (network rule) */
-static const int64_t MAX_BLOCK_SIGOPS = MAX_BLOCK_SIZE/50;
+/** Default blockmax size, which controls the range of block size the mining code will create **/
+static const unsigned int DEFAULT_BLOCK_MAX_SIZE = MAX_BLOCK_SIZE - 1000;
 
 static const size_t MIN_TRANSACTION_SIZE = 60; // 60 is the lower bound for the size of a valid serialized CTransaction
 static const size_t MIN_SERIALIZABLE_TRANSACTION_SIZE = 10; // 10 is the lower bound for the size of a serialized CTransaction

@@ -226,6 +226,7 @@ struct CXField {
             case TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE:
                 ::Serialize(s, boost::get<XFieldMaxBlockSize>(xfieldValue)); break;
             case TAPYRUS_XFIELDTYPES::NONE:
+            default:
                 break;
         }
         if(GetXFieldTypeFrom(xfieldValue) != xfieldType)
