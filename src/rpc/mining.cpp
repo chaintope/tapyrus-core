@@ -551,7 +551,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
 
         int index_in_template = i - 1;
         entry.pushKV("fee", pblocktemplate->vTxFees[index_in_template]);
-        int64_t nTxSigOps = pblocktemplate->vTxSigOpsCost[index_in_template];
+        int32_t nTxSigOps = pblocktemplate->vTxSigOpsCost[index_in_template];
         entry.pushKV("sigops", nTxSigOps);
         entry.pushKV("size", (int64_t)GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION));
 

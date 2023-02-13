@@ -781,7 +781,7 @@ static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, 
             return state.Invalid(false, REJECT_NONSTANDARD, "bad-txns-nonstandard-inputs");
 #endif
 
-        int64_t nSigOps = GetTransactionSigOps(tx, view, STANDARD_SCRIPT_VERIFY_FLAGS);
+        int32_t nSigOps = GetTransactionSigOps(tx, view, STANDARD_SCRIPT_VERIFY_FLAGS);
 
         // nModifiedFees includes any fee deltas from PrioritiseTransaction
         CAmount nModifiedFees = nFees;

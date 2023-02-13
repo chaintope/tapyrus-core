@@ -76,7 +76,7 @@ extern unsigned int nBytesPerSigOp;
 
 /** Compute the transaction size (size reinterpreted as bytes). */
 int64_t GetTransactionSize(int64_t nSize, int64_t nSigOpCost);
-int64_t GetTransactionSize(const CTransaction& tx, int64_t nSigOpCost = 0);
-int64_t GetTransactionInputSize(const CTxIn& tx, int64_t nSigOpCost = 0);
+int64_t GetTransactionSize(const CTransaction& tx, int32_t nSigOpCost = 0);
+int64_t GetTransactionInputSize(const CTxIn& tx, int32_t nSigOpCost = 0);
 
 #endif // BITCOIN_POLICY_POLICY_H
