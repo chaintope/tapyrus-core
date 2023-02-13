@@ -3,7 +3,6 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <bench/bench.h>
-#include <bench/bench_genesis.h>
 #include <federationparams.h>
 #include <assert.h>
 #include <iostream>
