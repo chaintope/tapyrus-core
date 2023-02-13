@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_BENCH_GENESIS_H
-#define BITCOIN_BENCH_GENESIS_H
+#ifndef TAPYRUS_BENCH_BENCH_GENESIS_H
+#define TAPYRUS_BENCH_BENCH_GENESIS_H
 
 #include <string>
 
@@ -15,4 +15,4 @@ const std::string SIGN_BLOCK_PUBKEY("03af80b90d25145da28c583359beb47b21796b2fe1a
 const std::string SIGN_BLOCK_PRIVKEY("cUJN5RVzYWFoeY8rUztd47jzXCu1p57Ay8V7pqCzsBD3PEXN7Dd4");
 
 void writeTestGenesisBlockToFile(boost::filesystem::path genesisPath);
-#endif // BITCOIN_BENCH_GENESIS_H
+#endif // TAPYRUS_BENCH_BENCH_GENESIS_H
