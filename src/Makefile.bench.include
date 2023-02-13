@@ -15,7 +15,6 @@ bench_bench_tapyrus_SOURCES = \
   bench/bench_tapyrus.cpp \
   bench/bench.cpp \
   bench/bench.h \
-  bench/bench_geneis.h \
   bench/block_assemble.cpp \
   bench/checkblock.cpp \
   bench/checkqueue.cpp \

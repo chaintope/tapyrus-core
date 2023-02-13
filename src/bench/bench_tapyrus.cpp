@@ -4,7 +4,6 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <bench/bench.h>
-#include <bench/bench_genesis.h>
 
 #include <crypto/sha256.h>
 #include <key.h>
