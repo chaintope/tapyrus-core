@@ -83,3 +83,13 @@ bool IsXFieldNew(const CXField& xfield, CXFieldHistoryMap* pxfieldHistory)
           && std::find(XFIELDTYPES_INIT_LIST.begin(), XFIELDTYPES_INIT_LIST.end(), xfield.xfieldType) != XFIELDTYPES_INIT_LIST.end()
           && !boost::apply_visitor(checkVisitor, xfield.xfieldValue);
 }
+
+uint32_t CURRENT_MAXBLOCKSIZE() {
+    XFieldMaxBlockSize xfieldMaxBlockSize;
+    CXFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, xfieldMaxBlockSize);
+    return xfieldMaxBlockSize.data;
+};
+
+uint32_t MAX_BLOCK_SIGOPS() { return uint32_t(CURRENT_MAXBLOCKSIZE() / 50); };
+
+uint32_t MAX_STANDARD_TX_SIGOPS() { return uint32_t(MAX_BLOCK_SIGOPS() / 5); };
