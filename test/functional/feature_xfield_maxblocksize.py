@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 # Copyright (c) 2015-2018 The Bitcoin Core developers
 # Copyright (c) 2019 Chaintope Inc.
