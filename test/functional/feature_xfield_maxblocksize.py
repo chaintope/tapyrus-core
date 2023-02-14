@@ -167,7 +167,7 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         #B -  Create block - block more than MAX_BLOCK_SIGOPS - sign with aggpubkey1 -- failure
         self.log.info("Reject a block with too many checksigs")
         self.block_time += 1
-        blocknew = self.new_block(14, spend=self.unspent[3], script=CScript([OP_CHECKSIG] * 20000))#MAX_BLOCK_SIGOPS
+        blocknew = self.new_block(14, spend=self.unspent[3], script=CScript([OP_CHECKSIG] * 20001))#MAX_BLOCK_SIGOPS
         blocknew.solve(self.aggprivkey[0])
         node.p2p.send_blocks_and_test([blocknew], node, success=False, reject_code=16, reject_reason="bad-blk-sigops")
         assert_equal(self.tip, node.getbestblockhash())
