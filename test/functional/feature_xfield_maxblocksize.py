@@ -436,7 +436,7 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
             { self.aggpubkeys[1] : 17}
         ]
         expectedblockheights = [
-            { '999000': 0},
+            { '1000000': 0},
             { '500000' : 18},
             { '3000000' : 30},
             { '3999500' : 44}
@@ -518,7 +518,7 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
             { self.aggpubkeys[1] : 17}
         ]
         expectedblockheights = [
-            { '999000': 0},
+            { '1000000': 0},
             { '500000' : 18},
             { '3000000' : 30},
             { '3999500' : 44}
@@ -557,7 +557,7 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
             { self.aggpubkeys[1] : 17}
         ]
         expectedblockheights = [
-            { '999000': 0},
+            { '1000000': 0},
             { '500000' : 18},
             { '3000000' : 30},
             { '3999500' : 44}
