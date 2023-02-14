@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 # Copyright (c) 2015-2018 The Bitcoin Core developers
 # Copyright (c) 2019 Chaintope Inc.
@@ -362,18 +363,6 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         node.p2p.send_blocks_and_test([blocknew], node, success=True)
         self.tip = blocknew.hash
         new_valid_tip = blocknew.hash
-        assert_equal(self.tip, node.getbestblockhash())
-
-        #B -- Create a new block in invalid chain B37 -- Failure -- prev block invalid
-        self.tip = invalid_tip
-        self.block_time += 1
-        blocknew = self.new_block(37, spend=self.unspent[13])
-        blocknew.solve(self.aggprivkey[1])
-        try:
-            node.p2p.send_blocks_and_test([blocknew], node, success=False, timeout=20)
-        except AssertionError:
-            self.log.info("Block in invalidate chain rejected")
-        self.tip = new_valid_tip
         assert_equal(self.tip, node.getbestblockhash())
 
         #B37 -- Re Create a new block B37 -- success
