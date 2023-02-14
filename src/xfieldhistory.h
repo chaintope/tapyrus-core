@@ -85,7 +85,7 @@ struct XFieldChangeListWrapper
 
     template<typename Stream>
     void Unserialize(Stream& s) {
-        uint len = 0;
+        uint32_t len = 0;
         s >> VARINT(len);
         while(s.size())
         {
