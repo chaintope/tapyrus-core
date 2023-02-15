@@ -393,7 +393,7 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         #B38 - B42 -- Generate 5 blocks - no change in aggpubkey or block size -- chain becomes longer
         self.reconnect_p2p(node)
         chaintips = node.getchaintips()
-        assert_equal(len(chaintips), 9)
+        assert_equal(len(chaintips), 8)
         self.unspent = self.unspent + generate_blocks(5, node, self.coinbase_pubkey, self.aggprivkey[1])
         self.tip  = node.getbestblockhash()
         self.sync_all([self.nodes[0:2]])
