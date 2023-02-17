@@ -417,6 +417,7 @@ bool ReplayBlocks(CCoinsView* view);
 inline CBlockIndex* LookupBlockIndex(const uint256& hash)
 {
     AssertLockHeld(cs_main);
+    LogPrintf("PR244 LookupBlockIndex :\n");
     BlockMap::const_iterator it = mapBlockIndex.find(hash);
     return it == mapBlockIndex.end() ? nullptr : it->second;
 }
