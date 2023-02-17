@@ -3024,17 +3024,27 @@ static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,
     //Aggpubkey to verify blocks is read from temp xfieldhistory if it is given in the argument list. otherwise it is read from the global list according to the block height.
     XFieldAggPubKey aggregatePubkeyObj;
     if(pxfieldHistory) {
+        LogPrintf("PR244 LoadExternalBlockFile  AcceptBlockHeader CheckBlockHeader pxfieldHistory NOT NULL:\n");
         pxfieldHistory->GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggregatePubkeyObj);
+        LogPrintf("PR244 LoadExternalBlockFile  AcceptBlockHeader CheckBlockHeader GetLatest done\n");
     }
     else
+    {
+        LogPrintf("PR244 LoadExternalBlockFile  AcceptBlockHeader CheckBlockHeader pxfieldHistory NULL:\n");
         aggregatePubkeyObj = boost::get<const XFieldAggPubKey>(CXFieldHistory().Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, nHeight).xfieldValue);
+        LogPrintf("PR244 LoadExternalBlockFile  AcceptBlockHeader CheckBlockHeader GetLatest done\n");
+    }
     CPubKey aggregatePubkey(aggregatePubkeyObj.getPubKey());
 
     const uint256 blockHash = block.GetHashForSign();
 
     //verify signature
+    LogPrintf("PR244 LoadExternalBlockFile  AcceptBlockHeader CheckBlockHeader Verify_Schnorr\n");
     if(!aggregatePubkey.Verify_Schnorr(blockHash, block.proof))
+    {
+        LogPrintf("PR244 LoadExternalBlockFile  AcceptBlockHeader CheckBlockHeader Verify_Schnorr failed\n");
         return state.Invalid(false, REJECT_INVALID, "bad-proof", strprintf("Proof verification failed at height [%d]", nHeight));
+    }
 
     return true;
 }
@@ -3206,6 +3216,7 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
     if (hash != FederationParams().GenesisBlock().GetHash()) {
         if (miSelf != mapBlockIndex.end()) {
             // Block header is already known.
+            LogPrintf("PR244 LoadExternalBlockFile  AcceptBlockHeader Block header is already known:\n");
             pindex = miSelf->second;
             if (ppindex)
                 *ppindex = pindex;
@@ -3215,7 +3226,10 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
         }
 
         if (!CheckBlockHeader(block, state, pxfieldHistory))
+        {
+            LogPrintf("PR244 LoadExternalBlockFile  AcceptBlockHeader CheckBlockHeader FAILED:\n");
             return error("%s: Consensus::CheckBlockHeader: %s, %s", __func__, hash.ToString(), FormatStateMessage(state));
+        }
 
         // Get prev block index
         CBlockIndex* pindexPrev = nullptr;
@@ -3322,7 +3336,10 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
     CBlockIndex *&pindex = ppindex ? *ppindex : pindexDummy;
 
     if (!AcceptBlockHeader(block, state, &pindex, pxfieldHistory))
+    {
+        LogPrintf("PR244 LoadExternalBlockFile  AcceptBlockHeader FAILED:\n");
         return false;
+    }
 
     // Try to process all requested blocks that we don't have, but only
     // process an unrequested block if it's new and has enough work to
