@@ -133,8 +133,12 @@ class CXFieldHistoryMap{
     const bool isTemp;
 
 protected:
+    //critical section to wait for xfield history to be initialized
+    static CWaitableCriticalSection cs_XFieldHistoryWait;
+    //conditional variable to notify other waiting threads
+    static CConditionVariable condvar_XFieldHistoryWait;
+
     static XFieldHistoryMapType xfieldHistory;
-    std::mutex cs;
     inline CXFieldHistoryMap(bool temp):isTemp(temp) { }
 
 public:
@@ -143,6 +147,9 @@ public:
 
     template <typename T>
     void GetLatest(TAPYRUS_XFIELDTYPES type, T & xfieldval) const {
+        WaitableLock lock(cs_XFieldHistoryWait);
+        condvar_XFieldHistoryWait.wait_for(lock, std::chrono::milliseconds(500));
+
         auto& listofXfieldChanges = (isTemp ? this->getXFieldHistoryMap() : xfieldHistory).find(type)->second;
         xfieldval = boost::get<T>(listofXfieldChanges.rbegin()->xfieldValue);
     }
@@ -173,13 +180,15 @@ public:
 
     //constructor to initialize the confirmed global map
     inline explicit CXFieldHistory(const CBlock& genesis):CXFieldHistoryMap(false) {
-
+        WaitableLock lock_GenesisWait(cs_XFieldHistoryWait);
 
         xfieldHistory.emplace(TAPYRUS_XFIELDTYPES::AGGPUBKEY, XFieldChangeListWrapper(XFieldAggPubKey::BLOCKTREE_DB_KEY));
         xfieldHistory.emplace(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, XFieldChangeListWrapper(XFieldMaxBlockSize::BLOCKTREE_DB_KEY));
 
         this->Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY, XFieldChange(genesis.xfield.xfieldValue, 0, genesis.GetHash()));
         this->Add(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, XFieldChange(MAX_BLOCK_SIZE, 0, genesis.GetHash()));
+
+        condvar_XFieldHistoryWait.notify_all();
     }
 
     XFieldHistoryMapType& getXFieldHistoryMap() const override {
@@ -206,6 +215,9 @@ class CTempXFieldHistory : public CXFieldHistoryMap{
 public:
     //constructor to initialize the temp map
     inline explicit CTempXFieldHistory():CXFieldHistoryMap(true){
+        WaitableLock lock(cs_XFieldHistoryWait);
+        condvar_XFieldHistoryWait.wait_for(lock, std::chrono::milliseconds(500));
+
         xfieldHistoryTemp = new XFieldHistoryMapType;
         for(const auto& item : xfieldHistory)
             xfieldHistoryTemp->insert(item);

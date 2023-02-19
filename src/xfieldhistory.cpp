@@ -8,6 +8,9 @@
 #include <univalue.h>
 
 XFieldHistoryMapType CXFieldHistoryMap::xfieldHistory;
+CWaitableCriticalSection CXFieldHistoryMap::cs_XFieldHistoryWait;
+CConditionVariable CXFieldHistoryMap::condvar_XFieldHistoryWait;
+
 
 bool CXFieldHistoryMap::IsNew(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange) const
 {
@@ -20,7 +23,6 @@ bool CXFieldHistoryMap::IsNew(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFie
 }
 
 void CXFieldHistoryMap::Add(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange) {
-    std::unique_lock<std::mutex> lock(cs);
     if(!IsNew(type, xFieldChange))
         return;
 
@@ -28,7 +30,11 @@ void CXFieldHistoryMap::Add(TAPYRUS_XFIELDTYPES type, const XFieldChange& xField
 }
 
 const XFieldChange& CXFieldHistoryMap::Get(TAPYRUS_XFIELDTYPES type, uint32_t height) {
-
+    // Wait for initialization
+    {
+        WaitableLock lock(cs_XFieldHistoryWait);
+        condvar_XFieldHistoryWait.wait_for(lock, std::chrono::milliseconds(500));
+    }
     auto& listofXfieldChanges = (isTemp ? this->getXFieldHistoryMap() : xfieldHistory).find(type)->second;
 
     if(height == 0 || listofXfieldChanges.size() == 1)
@@ -45,7 +51,11 @@ const XFieldChange& CXFieldHistoryMap::Get(TAPYRUS_XFIELDTYPES type, uint32_t he
 }
 
 const XFieldChange& CXFieldHistoryMap::Get(TAPYRUS_XFIELDTYPES type, uint256 blockHash) {
-
+    // Wait for initialization
+    {
+        WaitableLock lock(cs_XFieldHistoryWait);
+        condvar_XFieldHistoryWait.wait_for(lock, std::chrono::milliseconds(500));
+    }
     auto& listofXfieldChanges = (isTemp ? this->getXFieldHistoryMap() : xfieldHistory).find(type)->second;
     //TODO: return the corrext xfield applicable to any block by checking the index.
     for(unsigned int i = 0; i < listofXfieldChanges.size(); i++) {
