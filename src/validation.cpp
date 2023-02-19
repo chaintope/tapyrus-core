@@ -3026,23 +3026,19 @@ static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,
     if(pxfieldHistory) {
         LogPrintf("PR244 LoadExternalBlockFile  AcceptBlockHeader CheckBlockHeader pxfieldHistory NOT NULL:\n");
         pxfieldHistory->GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggregatePubkeyObj);
-        LogPrintf("PR244 LoadExternalBlockFile  AcceptBlockHeader CheckBlockHeader GetLatest done\n");
     }
     else
     {
         LogPrintf("PR244 LoadExternalBlockFile  AcceptBlockHeader CheckBlockHeader pxfieldHistory NULL:\n");
         aggregatePubkeyObj = boost::get<const XFieldAggPubKey>(CXFieldHistory().Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, nHeight).xfieldValue);
-        LogPrintf("PR244 LoadExternalBlockFile  AcceptBlockHeader CheckBlockHeader GetLatest done\n");
     }
     CPubKey aggregatePubkey(aggregatePubkeyObj.getPubKey());
 
     const uint256 blockHash = block.GetHashForSign();
 
     //verify signature
-    LogPrintf("PR244 LoadExternalBlockFile  AcceptBlockHeader CheckBlockHeader Verify_Schnorr\n");
     if(!aggregatePubkey.Verify_Schnorr(blockHash, block.proof))
     {
-        LogPrintf("PR244 LoadExternalBlockFile  AcceptBlockHeader CheckBlockHeader Verify_Schnorr failed\n");
         return state.Invalid(false, REJECT_INVALID, "bad-proof", strprintf("Proof verification failed at height [%d]", nHeight));
     }
 
@@ -3216,7 +3212,6 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
     if (hash != FederationParams().GenesisBlock().GetHash()) {
         if (miSelf != mapBlockIndex.end()) {
             // Block header is already known.
-            LogPrintf("PR244 LoadExternalBlockFile  AcceptBlockHeader Block header is already known:\n");
             pindex = miSelf->second;
             if (ppindex)
                 *ppindex = pindex;
@@ -3227,7 +3222,6 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
 
         if (!CheckBlockHeader(block, state, pxfieldHistory))
         {
-            LogPrintf("PR244 LoadExternalBlockFile  AcceptBlockHeader CheckBlockHeader FAILED:\n");
             return error("%s: Consensus::CheckBlockHeader: %s, %s", __func__, hash.ToString(), FormatStateMessage(state));
         }
 
@@ -4215,17 +4209,14 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
                 blkdat >> nSize;
                 if (nSize < 80 || nSize > MAX_BLOCK_SIZE)
                 {
-                    LogPrintf("PR244 LoadExternalBlockFile nSize < 80:\n");
                     continue;
                 }
             } catch (const std::exception&) {
                 // no valid block header found; don't complain
-                 LogPrintf("PR244 LoadExternalBlockFile no valid block header found :\n");
                 break;
             }
             try {
                 // read block
-                LogPrintf("PR244 LoadExternalBlockFile read block :\n");
                 uint64_t nBlockPos = blkdat.GetPos();
                 if (dbp)
                     dbp->nPos = nBlockPos;
@@ -4234,16 +4225,13 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
                 std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>();
                 CBlock& block = *pblock;
                 blkdat >> block;
-                LogPrintf("PR244 LoadExternalBlockFile read block deserialized :\n");
                 nRewind = blkdat.GetPos();
 
                 uint256 hash = block.GetHash();
                 {
                     LOCK(cs_main);
                     // detect out of order blocks, and store them for later
-                    LogPrintf("PR244 LoadExternalBlockFile  detect out of order blocks :\n");
                     if (hash != FederationParams().GenesisBlock().GetHash() && !LookupBlockIndex(block.hashPrevBlock)) {
-                        LogPrintf("PR244 LoadExternalBlockFile out of order blocks :\n");
                         LogPrint(BCLog::REINDEX, "%s: Out of order block %s, parent %s not known\n", __func__, hash.ToString(),
                                 block.hashPrevBlock.ToString());
                         if (dbp)
@@ -4255,12 +4243,10 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
                     CBlockIndex* pindex = LookupBlockIndex(hash);
                     if (!pindex || (pindex->nStatus & BLOCK_HAVE_DATA) == 0) {
                         CValidationState state;
-                         LogPrintf("PR244 LoadExternalBlockFile AcceptBlock:\n");
                         if (g_chainstate.AcceptBlock(pblock, state, nullptr, true, dbp, nullptr, pxfieldHistory)) {
                             nLoaded++;
                         }
                         if (state.IsError()) {
-                        LogPrintf("PR244 LoadExternalBlockFile AcceptBlock error:\n");
                           break;
                       }
                     } else if (hash != FederationParams().GenesisBlock().GetHash() && pindex->nHeight % 1000 == 0) {
@@ -4271,9 +4257,7 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
                 // Activate the genesis block so normal node progress can continue
                 if (hash == FederationParams().GenesisBlock().GetHash()) {
                     CValidationState state;
-                    LogPrintf("PR244 LoadExternalBlockFile  Activate the genesis block :\n");
                     if (!ActivateBestChain(state)) {
-                        LogPrintf("PR244 LoadExternalBlockFile  Activate the genesis block error:\n");
                         break;
                     }
                 }

@@ -1451,12 +1451,9 @@ bool AppInitMain()
 
                 // If the loaded chain has a wrong genesis, bail out immediately
                 // (we're likely using a testnet datadir, or the other way around).
-                LogPrintf("PR244 LookupBlockIndex:\n");
                 if (!mapBlockIndex.empty() && !LookupBlockIndex(FederationParams().GenesisBlock().GetHash())) {
-                    LogPrintf("PR244 LookupBlockIndex error:\n");
                     return InitError(_("Incorrect or no genesis block found. Wrong datadir for network?"));
                 }
-                LogPrintf("PR244 LookupBlockIndex done:\n");
 
                 // Check for changed -prune state.  What we are concerned about is a user who has pruned blocks
                 // in the past, but is now trying to run unpruned.
@@ -1469,13 +1466,10 @@ bool AppInitMain()
                 // If we're not mid-reindex (based on disk + args), add a genesis block on disk
                 // (otherwise we use the one already on disk).
                 // This is called again in ThreadImport after the reindex completes.
-                LogPrintf("PR244 LoadGenesisBlock:\n");
                 if (!fReindex && !LoadGenesisBlock()) {
                     strLoadError = _("Error initializing block database");
-                    LogPrintf("PR244 LoadGenesisBlock error:\n");
                     break;
                 }
-                 LogPrintf("PR244 LoadGenesisBlock done:\n");
 
                 // At this point we're either in reindex or we've loaded a useful
                 // block tree into mapBlockIndex!
@@ -1520,7 +1514,6 @@ bool AppInitMain()
                     }
                 }
                 // Step 7a: Load Xfield data from db
-                LogPrintf("PR244 CXFieldHistory :\n");
                 CXFieldHistory xFieldHistory;
                 for(auto x : XFIELDTYPES_INIT_LIST)
                 {
@@ -1530,7 +1523,6 @@ bool AppInitMain()
                     for(auto &XFieldDB:xFieldListDB)
                         xFieldHistory.Add(x, XFieldDB);
                 }
-                LogPrintf("PR244 CXFieldHistory done:\n");
 
                 if (!is_coinsview_empty) {
                     uiInterface.InitMessage(_("Verifying blocks..."));
