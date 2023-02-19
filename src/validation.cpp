@@ -3259,6 +3259,7 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
 
     //if this header was valid and has any xfield change remember it until we finish processing the headers message
     if(pxfieldHistory
+        && hash != FederationParams().GenesisBlock().GetHash()
         && block.xfield.IsValid()
         && pindex->nHeight > 0
         && IsXFieldNew(block.xfield, pxfieldHistory))
