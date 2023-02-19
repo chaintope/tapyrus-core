@@ -3337,7 +3337,6 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
     LogPrintf("PR244 calling AcceptBlockHeader\n");
     if (!AcceptBlockHeader(block, state, &pindex, pxfieldHistory))
     {
-        LogPrintf("PR244 LoadExternalBlockFile  AcceptBlockHeader FAILED:\n");
         return false;
     }
 
@@ -3367,12 +3366,14 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
         if (fTooFarAhead) return true;        // Block height is too high
     }
 
+    LogPrintf("PR244 CheckBlock and  ContextualCheckBlock\n");
     if (!CheckBlock(block, state, false, true, pxfieldHistory) ||
         !ContextualCheckBlock(block, state, pindex->pprev)) {
         if (state.IsInvalid() && !state.CorruptionPossible()) {
             pindex->nStatus |= BLOCK_FAILED_VALID;
             setDirtyBlockIndex.insert(pindex);
         }
+        LogPrintf("PR244 failed  %s\n", FormatStateMessage(state));
         return error("%s: %s", __func__, FormatStateMessage(state));
     }
 
@@ -3391,6 +3392,7 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
         }
         ReceivedBlockTransactions(block, pindex, blockPos);
     } catch (const std::runtime_error& e) {
+        LogPrintf("PR244 calling AbortNode  %s\n", e.what());
         return AbortNode(state, std::string("System error: ") + e.what());
     }
 
@@ -3398,6 +3400,7 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
 
     CheckBlockIndex();
 
+    LogPrintf("PR244 AcceptBlock return  true\n");
     return true;
 }
 
@@ -4249,11 +4252,12 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
                     CBlockIndex* pindex = LookupBlockIndex(hash);
                     if (!pindex || (pindex->nStatus & BLOCK_HAVE_DATA) == 0) {
                         CValidationState state;
-                        LogPrintf("PR244 calling AcceptBlock");
+                        LogPrintf("PR244 calling AcceptBlock\n");
                         if (g_chainstate.AcceptBlock(pblock, state, nullptr, true, dbp, nullptr, pxfieldHistory)) {
                             nLoaded++;
                         }
                         if (state.IsError()) {
+                            LogPrintf("PR244 error break\n");
                           break;
                       }
                     } else if (hash != FederationParams().GenesisBlock().GetHash() && pindex->nHeight % 1000 == 0) {
