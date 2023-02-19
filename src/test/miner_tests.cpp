@@ -289,6 +289,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     // Note that by default, these tests run with size accounting enabled.
     auto chainParams = FederationParams();
     chainParams.ReadGenesisBlock(getTestGenesisBlockHex(aggPubkey, aggregateKey));
+    CXFieldHistory history(FederationParams().GenesisBlock());
     std::unique_ptr<CBlockTemplate> pblocktemplate;
     int baseheight = 0;
     std::vector<CTransactionRef> txFirst;
@@ -588,6 +589,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_required_age_in_secs)
 
     auto chainParams = FederationParams();
     chainParams.ReadGenesisBlock(getTestGenesisBlockHex(aggPubkey, aggregateKey));
+    CXFieldHistory history(FederationParams().GenesisBlock());
     std::unique_ptr<CBlockTemplate> pblocktemplate;
     int baseheight = 0;
     std::vector<CTransactionRef> txFirst;

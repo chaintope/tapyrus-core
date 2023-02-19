@@ -3210,6 +3210,7 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
     BlockMap::iterator miSelf = mapBlockIndex.find(hash);
     CBlockIndex *pindex = nullptr;
     if (hash != FederationParams().GenesisBlock().GetHash()) {
+         LogPrintf("PR244 not  genesis hash");
         if (miSelf != mapBlockIndex.end()) {
             // Block header is already known.
             pindex = miSelf->second;
@@ -3222,6 +3223,7 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
 
         if (!CheckBlockHeader(block, state, pxfieldHistory))
         {
+            LogPrintf("PR244 CheckBlockHeader error");
             return error("%s: Consensus::CheckBlockHeader: %s, %s", __func__, hash.ToString(), FormatStateMessage(state));
         }
 
@@ -3264,6 +3266,7 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
         && pindex->nHeight > 0
         && IsXFieldNew(block.xfield, pxfieldHistory))
     {
+        LogPrintf("PR244 new XFieldChange");
         XFieldChange newChange(block.xfield.xfieldValue, pindex->nHeight + 1, block.GetHash());
         pxfieldHistory->Add(block.xfield.xfieldType, newChange);
     }
@@ -3271,6 +3274,7 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
     if (ppindex)
         *ppindex = pindex;
 
+    LogPrintf("PR244 calling CheckBlockIndex");
     CheckBlockIndex();
 
     return true;
@@ -3330,6 +3334,7 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
     CBlockIndex *pindexDummy = nullptr;
     CBlockIndex *&pindex = ppindex ? *ppindex : pindexDummy;
 
+    LogPrintf("PR244 calling AcceptBlockHeader");
     if (!AcceptBlockHeader(block, state, &pindex, pxfieldHistory))
     {
         LogPrintf("PR244 LoadExternalBlockFile  AcceptBlockHeader FAILED:\n");
@@ -4244,6 +4249,7 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
                     CBlockIndex* pindex = LookupBlockIndex(hash);
                     if (!pindex || (pindex->nStatus & BLOCK_HAVE_DATA) == 0) {
                         CValidationState state;
+                        LogPrintf("PR244 calling AcceptBlock");
                         if (g_chainstate.AcceptBlock(pblock, state, nullptr, true, dbp, nullptr, pxfieldHistory)) {
                             nLoaded++;
                         }

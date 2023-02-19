@@ -147,10 +147,15 @@ public:
 
     template <typename T>
     void GetLatest(TAPYRUS_XFIELDTYPES type, T & xfieldval) const {
-        WaitableLock lock(cs_XFieldHistoryWait);
-        condvar_XFieldHistoryWait.wait_for(lock, std::chrono::milliseconds(500));
-
         auto& listofXfieldChanges = (isTemp ? this->getXFieldHistoryMap() : xfieldHistory).find(type)->second;
+        while(true){
+            if(listofXfieldChanges.size())
+                break;
+            WaitableLock lock(cs_XFieldHistoryWait);
+            condvar_XFieldHistoryWait.wait_for(lock, std::chrono::milliseconds(500));
+            listofXfieldChanges = (isTemp ? this->getXFieldHistoryMap() : xfieldHistory).find(type)->second;
+        }
+        
         xfieldval = boost::get<T>(listofXfieldChanges.rbegin()->xfieldValue);
     }
 
