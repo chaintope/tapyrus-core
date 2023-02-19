@@ -4335,12 +4335,13 @@ void CChainState::CheckBlockIndex()
     for (auto& entry : mapBlockIndex) {
         forward.insert(std::make_pair(entry.second->pprev, entry.second));
     }
-
+    LogPrintf("PR244 CheckBlockIndex  assert 1\n");
     assert(forward.size() == mapBlockIndex.size());
 
     std::pair<std::multimap<CBlockIndex*,CBlockIndex*>::iterator,std::multimap<CBlockIndex*,CBlockIndex*>::iterator> rangeGenesis = forward.equal_range(nullptr);
     CBlockIndex *pindex = rangeGenesis.first->second;
     rangeGenesis.first++;
+    LogPrintf("PR244 CheckBlockIndex  assert 2\n");
     assert(rangeGenesis.first == rangeGenesis.second); // There is only one index entry with parent nullptr.
 
     // Iterate over the entire block tree, using depth-first search.
@@ -4367,8 +4368,10 @@ void CChainState::CheckBlockIndex()
 
         // Begin: actual consistency checks.
         if (pindex->pprev == nullptr) {
+            LogPrintf("PR244 CheckBlockIndex  assert 3\n");
             // Genesis block checks.
             assert(pindex->GetBlockHash() == FederationParams().GenesisBlock().GetHash()); // Genesis block's hash must match.
+            LogPrintf("PR244 CheckBlockIndex  assert 4\n");
             assert(pindex == chainActive.Genesis()); // The current active chain's genesis block must be this block.
         }
         if (pindex->nChainTx == 0) assert(pindex->nSequenceId <= 0);  // nSequenceId can't be set positive for blocks that aren't linked (negative is used for preciousblock)
@@ -4376,12 +4379,16 @@ void CChainState::CheckBlockIndex()
         // HAVE_DATA is only equivalent to nTx > 0 (or VALID_TRANSACTIONS) if no pruning has occurred.
         if (!fHavePruned) {
             // If we've never pruned, then HAVE_DATA should be equivalent to nTx > 0
+            LogPrintf("PR244 CheckBlockIndex  assert 5\n");
             assert(!(pindex->nStatus & BLOCK_HAVE_DATA) == (pindex->nTx == 0));
+            LogPrintf("PR244 CheckBlockIndex  assert 6\n");
             assert(pindexFirstMissing == pindexFirstNeverProcessed);
         } else {
             // If we have pruned, then we can only say that HAVE_DATA implies nTx > 0
+            LogPrintf("PR244 CheckBlockIndex  assert 5 else\n");
             if (pindex->nStatus & BLOCK_HAVE_DATA) assert(pindex->nTx > 0);
         }
+        LogPrintf("PR244 CheckBlockIndex  assert ...\n");
         if (pindex->nStatus & BLOCK_HAVE_UNDO) assert(pindex->nStatus & BLOCK_HAVE_DATA);
         assert(((pindex->nStatus & BLOCK_VALID_MASK) >= BLOCK_VALID_TRANSACTIONS) == (pindex->nTx > 0)); // This is pruning-independent.
         // All parents having had data (at some point) is equivalent to all parents being VALID_TRANSACTIONS, which is equivalent to nChainTx being set.
@@ -4395,6 +4402,7 @@ void CChainState::CheckBlockIndex()
         if ((pindex->nStatus & BLOCK_VALID_MASK) >= BLOCK_VALID_CHAIN) assert(pindexFirstNotChainValid == nullptr); // CHAIN valid implies all parents are CHAIN valid
         if ((pindex->nStatus & BLOCK_VALID_MASK) >= BLOCK_VALID_SCRIPTS) assert(pindexFirstNotScriptsValid == nullptr); // SCRIPTS valid implies all parents are SCRIPTS valid
         if (pindexFirstInvalid == nullptr) {
+            LogPrintf("PR244 CheckBlockIndex  assert 7\n");
             // Checks for not-invalid blocks.
             assert((pindex->nStatus & BLOCK_FAILED_MASK) == 0); // The failed mask cannot be set for blocks without invalid parents.
         }
@@ -4405,6 +4413,7 @@ void CChainState::CheckBlockIndex()
                 // setBlockIndexCandidates.  chainActive.Tip() must also be there
                 // even if some data has been pruned.
                 if (pindexFirstMissing == nullptr || pindex == chainActive.Tip()) {
+                    LogPrintf("PR244 CheckBlockIndex  assert 8\n");
                     assert(setBlockIndexCandidates.count(pindex));
                 }
                 // If some parent is missing, then it could be that this block was in
@@ -4412,12 +4421,14 @@ void CChainState::CheckBlockIndex()
                 // In this case it must be in mapBlocksUnlinked -- see test below.
             }
         } else { // If this block sorts worse than the current tip or some ancestor's block has never been seen, it cannot be in setBlockIndexCandidates.
+        LogPrintf("PR244 CheckBlockIndex  assert 8 else\n");
             assert(setBlockIndexCandidates.count(pindex) == 0);
         }
         // Check whether this block is in mapBlocksUnlinked.
         std::pair<std::multimap<CBlockIndex*,CBlockIndex*>::iterator,std::multimap<CBlockIndex*,CBlockIndex*>::iterator> rangeUnlinked = mapBlocksUnlinked.equal_range(pindex->pprev);
         bool foundInUnlinked = false;
         while (rangeUnlinked.first != rangeUnlinked.second) {
+            LogPrintf("PR244 CheckBlockIndex  assert 9\n");
             assert(rangeUnlinked.first->first == pindex->pprev);
             if (rangeUnlinked.first->second == pindex) {
                 foundInUnlinked = true;
@@ -4427,11 +4438,13 @@ void CChainState::CheckBlockIndex()
         }
         if (pindex->pprev && (pindex->nStatus & BLOCK_HAVE_DATA) && pindexFirstNeverProcessed != nullptr && pindexFirstInvalid == nullptr) {
             // If this block has block data available, some parent was never received, and has no invalid parents, it must be in mapBlocksUnlinked.
+            LogPrintf("PR244 CheckBlockIndex  assert 10\n");
             assert(foundInUnlinked);
         }
         if (!(pindex->nStatus & BLOCK_HAVE_DATA)) assert(!foundInUnlinked); // Can't be in mapBlocksUnlinked if we don't HAVE_DATA
         if (pindexFirstMissing == nullptr) assert(!foundInUnlinked); // We aren't missing data for any parent -- cannot be in mapBlocksUnlinked.
         if (pindex->pprev && (pindex->nStatus & BLOCK_HAVE_DATA) && pindexFirstNeverProcessed == nullptr && pindexFirstMissing != nullptr) {
+            LogPrintf("PR244 CheckBlockIndex  assert 11\n");
             // We HAVE_DATA for this block, have received data for all parents at some point, but we're currently missing data for some parent.
             assert(fHavePruned); // We must have pruned.
             // This block may have entered mapBlocksUnlinked if:
@@ -4444,6 +4457,7 @@ void CChainState::CheckBlockIndex()
             // setBlockIndexCandidates, then it must be in mapBlocksUnlinked.
             if (!CBlockIndexWorkComparator()(pindex, chainActive.Tip()) && setBlockIndexCandidates.count(pindex) == 0) {
                 if (pindexFirstInvalid == nullptr) {
+                    LogPrintf("PR244 CheckBlockIndex  assert 12\n");
                     assert(foundInUnlinked);
                 }
             }
@@ -4476,6 +4490,7 @@ void CChainState::CheckBlockIndex()
             // Find which child we just visited.
             std::pair<std::multimap<CBlockIndex*,CBlockIndex*>::iterator,std::multimap<CBlockIndex*,CBlockIndex*>::iterator> rangePar = forward.equal_range(pindexPar);
             while (rangePar.first->second != pindex) {
+                LogPrintf("PR244 CheckBlockIndex  assert 13\n");
                 assert(rangePar.first != rangePar.second); // Our parent must have at least the node we're coming from as child.
                 rangePar.first++;
             }
@@ -4495,6 +4510,7 @@ void CChainState::CheckBlockIndex()
     }
 
     // Check that we actually traversed the entire map.
+    LogPrintf("PR244 CheckBlockIndex  assert 14\n");
     assert(nNodes == forward.size());
 }
 
