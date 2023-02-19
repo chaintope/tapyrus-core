@@ -3274,9 +3274,9 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
     if (ppindex)
         *ppindex = pindex;
 
-    LogPrintf("PR244 calling CheckBlockIndex\n");
     CheckBlockIndex();
 
+    LogPrintf("PR244 AcceptBlockHeader return true\n");
     return true;
 }
 
@@ -4263,8 +4263,10 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
 
                 // Activate the genesis block so normal node progress can continue
                 if (hash == FederationParams().GenesisBlock().GetHash()) {
+                    LogPrintf("PR244 Activate the genesis block \n");
                     CValidationState state;
                     if (!ActivateBestChain(state)) {
+                        LogPrintf("PR244 ActivateBestChain failed \n");
                         break;
                     }
                 }
@@ -4304,6 +4306,7 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
             }
         }
     } catch (const std::runtime_error& e) {
+        LogPrintf("PR244 AbortNode  %s \n",e.what());
         AbortNode(std::string("System error: ") + e.what());
     }
     if (nLoaded > 0)
