@@ -3024,13 +3024,14 @@ static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,
     //Aggpubkey to verify blocks is read from temp xfieldhistory if it is given in the argument list. otherwise it is read from the global list according to the block height.
     XFieldAggPubKey aggregatePubkeyObj;
     if(pxfieldHistory) {
-        LogPrintf("PR244 LoadExternalBlockFile  AcceptBlockHeader CheckBlockHeader pxfieldHistory NOT NULL:\n");
+        LogPrintf("PR244 pxfieldHistory NOT NULL:\n");
         pxfieldHistory->GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggregatePubkeyObj);
     }
     else
     {
-        LogPrintf("PR244 LoadExternalBlockFile  AcceptBlockHeader CheckBlockHeader pxfieldHistory NULL:\n");
+        LogPrintf("PR244  pxfieldHistory NULL:\n");
         aggregatePubkeyObj = boost::get<const XFieldAggPubKey>(CXFieldHistory().Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, nHeight).xfieldValue);
+         LogPrintf("PR244 get  done:\n");
     }
     CPubKey aggregatePubkey(aggregatePubkeyObj.getPubKey());
 
@@ -3210,7 +3211,7 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
     BlockMap::iterator miSelf = mapBlockIndex.find(hash);
     CBlockIndex *pindex = nullptr;
     if (hash != FederationParams().GenesisBlock().GetHash()) {
-         LogPrintf("PR244 not  genesis hash\n");
+         LogPrintf("PR244 not genesis hash\n");
         if (miSelf != mapBlockIndex.end()) {
             // Block header is already known.
             pindex = miSelf->second;
@@ -3218,6 +3219,7 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
                 *ppindex = pindex;
             if (pindex->nStatus & BLOCK_FAILED_MASK)
                 return state.Invalid(error("%s: block %s is marked invalid", __func__, hash.ToString()), 0, "duplicate");
+            LogPrintf("PR244 returing\n");
             return true;
         }
 
@@ -3261,12 +3263,10 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
 
     //if this header was valid and has any xfield change remember it until we finish processing the headers message
     if(pxfieldHistory
-        && hash != FederationParams().GenesisBlock().GetHash()
         && block.xfield.IsValid()
         && pindex->nHeight > 0
         && IsXFieldNew(block.xfield, pxfieldHistory))
     {
-        LogPrintf("PR244 new XFieldChange\n");
         XFieldChange newChange(block.xfield.xfieldValue, pindex->nHeight + 1, block.GetHash());
         pxfieldHistory->Add(block.xfield.xfieldType, newChange);
     }
