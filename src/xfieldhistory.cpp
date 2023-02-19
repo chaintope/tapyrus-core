@@ -23,10 +23,12 @@ bool CXFieldHistoryMap::IsNew(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFie
 }
 
 void CXFieldHistoryMap::Add(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange) {
+    WaitableLock lock_GenesisWait(cs_XFieldHistoryWait);
     if(!IsNew(type, xFieldChange))
         return;
 
     (isTemp ? this->getXFieldHistoryMap() : xfieldHistory).find(type)->second.push_back(xFieldChange);
+    condvar_XFieldHistoryWait.notify_all();
 }
 
 const XFieldChange& CXFieldHistoryMap::Get(TAPYRUS_XFIELDTYPES type, uint32_t height) {

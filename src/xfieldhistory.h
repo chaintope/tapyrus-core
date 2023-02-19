@@ -185,15 +185,12 @@ public:
 
     //constructor to initialize the confirmed global map
     inline explicit CXFieldHistory(const CBlock& genesis):CXFieldHistoryMap(false) {
-        WaitableLock lock_GenesisWait(cs_XFieldHistoryWait);
-
         xfieldHistory.emplace(TAPYRUS_XFIELDTYPES::AGGPUBKEY, XFieldChangeListWrapper(XFieldAggPubKey::BLOCKTREE_DB_KEY));
         xfieldHistory.emplace(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, XFieldChangeListWrapper(XFieldMaxBlockSize::BLOCKTREE_DB_KEY));
 
         this->Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY, XFieldChange(genesis.xfield.xfieldValue, 0, genesis.GetHash()));
         this->Add(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, XFieldChange(MAX_BLOCK_SIZE, 0, genesis.GetHash()));
 
-        condvar_XFieldHistoryWait.notify_all();
     }
 
     XFieldHistoryMapType& getXFieldHistoryMap() const override {
