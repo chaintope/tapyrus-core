@@ -20,6 +20,7 @@ bool CXFieldHistoryMap::IsNew(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFie
 }
 
 void CXFieldHistoryMap::Add(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange) {
+    std::unique_lock<std::mutex> lock(cs);
     if(!IsNew(type, xFieldChange))
         return;
 

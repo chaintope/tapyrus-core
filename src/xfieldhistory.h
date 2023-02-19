@@ -134,6 +134,7 @@ class CXFieldHistoryMap{
 
 protected:
     static XFieldHistoryMapType xfieldHistory;
+    std::mutex cs;
     inline CXFieldHistoryMap(bool temp):isTemp(temp) { }
 
 public:
@@ -172,6 +173,8 @@ public:
 
     //constructor to initialize the confirmed global map
     inline explicit CXFieldHistory(const CBlock& genesis):CXFieldHistoryMap(false) {
+        std::unique_lock<std::mutex> lock(cs);
+
         xfieldHistory.emplace(TAPYRUS_XFIELDTYPES::AGGPUBKEY, XFieldChangeListWrapper(XFieldAggPubKey::BLOCKTREE_DB_KEY));
         xfieldHistory.emplace(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, XFieldChangeListWrapper(XFieldMaxBlockSize::BLOCKTREE_DB_KEY));
 
