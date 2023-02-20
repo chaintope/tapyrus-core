@@ -29,6 +29,9 @@ import tempfile
 import re
 import logging
 
+import resource
+
+
 # Formatting. Default colors to empty strings.
 BOLD, BLUE, RED, GREY, YELLOW = ("", ""), ("", ""), ("", ""), ("", ""), ("", "")
 try:
@@ -532,7 +535,8 @@ class TestHandler:
                               stderr=log_stderr),
                               testdir,
                               log_stdout,
-                              log_stderr))
+                              log_stderr,
+                              preexec_fn =resource.setrlimit(resource.RLIMIT_CORE, (-1, -1)) ))
         if not self.jobs:
             raise IndexError('pop from empty list')
         while True:
