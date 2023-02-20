@@ -3387,6 +3387,7 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
     try {
         CDiskBlockPos blockPos = SaveBlockToDisk(block, pindex->nHeight, dbp);
         if (blockPos.IsNull()) {
+            LogPrintf("PR244 SaveBlockToDisk failed  %s\n", FormatStateMessage(state));
             state.Error(strprintf("%s: Failed to find position to write new block to disk", __func__));
             return false;
         }
@@ -4260,6 +4261,7 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
                             LogPrintf("PR244 error break\n");
                           break;
                       }
+                      LogPrintf("PR244 status: %s \n", state.GetDebugMessage());
                     } else if (hash != FederationParams().GenesisBlock().GetHash() && pindex->nHeight % 1000 == 0) {
                       LogPrint(BCLog::REINDEX, "Block Import: already had block %s at height %d\n", hash.ToString(), pindex->nHeight);
                     }
@@ -4315,7 +4317,7 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
     }
     if (nLoaded > 0)
         LogPrintf("Loaded %i blocks from external file in %dms\n", nLoaded, GetTimeMillis() - nStart);
-    LogPrintf("PR244 LoadExternalBlockFile return\n");
+    LogPrintf("PR244 LoadExternalBlockFile return %d\n",nLoaded);
     return nLoaded > 0;
 }
 
