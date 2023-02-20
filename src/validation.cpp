@@ -3137,6 +3137,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
     if (fCheckPOW && fCheckMerkleRoot)
         block.fChecked = true;
 
+    LogPrintf("PR244 CheckBlock ok\n", currentBlockSize);
     return true;
 }
 
@@ -3208,6 +3209,7 @@ static bool ContextualCheckBlock(const CBlock& block, CValidationState& state, c
         }
     }
 
+    LogPrintf("PR244 ContextualCheckBlock ok\n", currentBlockSize);
     return true;
 }
 
