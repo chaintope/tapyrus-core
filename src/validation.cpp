@@ -3098,13 +3098,12 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
     LogPrintf("PR244 Check Size limits\n");
     XFieldMaxBlockSize maxBlockSizeChange;
     CXFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, maxBlockSizeChange);
-    LogPrintf("PR244 currentBlockSize:%d\n", currentBlockSize);
     uint32_t currentBlockSize = maxBlockSizeChange.data;
+    LogPrintf("PR244 currentBlockSize:%d\n", currentBlockSize);
     if (block.vtx.empty() || block.vtx.size() > currentBlockSize || ::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS) > currentBlockSize)
     {
         LogPrintf("PR244 size liomit failed\n");
-        return state.DoS(100, false, REJECT_INVALID, "bad-blk-length", false, "size 
-        limits failed");
+        return state.DoS(100, false, REJECT_INVALID, "bad-blk-length", false, "size limits failed");
     }
     LogPrintf("PR244 size ok\n", currentBlockSize);
 
@@ -3209,7 +3208,7 @@ static bool ContextualCheckBlock(const CBlock& block, CValidationState& state, c
         }
     }
 
-    LogPrintf("PR244 ContextualCheckBlock ok\n", currentBlockSize);
+    LogPrintf("PR244 ContextualCheckBlock ok\n");
     return true;
 }
 
