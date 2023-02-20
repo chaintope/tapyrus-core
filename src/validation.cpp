@@ -4292,13 +4292,15 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
                 std::deque<uint256> queue;
                 queue.push_back(hash);
                 while (!queue.empty()) {
+                    LogPrintf("PR244 queue processing\n");
                     uint256 head = queue.front();
                     queue.pop_front();
                     std::pair<std::multimap<uint256, CDiskBlockPos>::iterator, std::multimap<uint256, CDiskBlockPos>::iterator> range = mapBlocksUnknownParent.equal_range(head);
                     while (range.first != range.second) {
+                        LogPrintf("PR244 queue inner loop\n");
                         std::multimap<uint256, CDiskBlockPos>::iterator it = range.first;
                         std::shared_ptr<CBlock> pblockrecursive = std::make_shared<CBlock>();
-
+                        LogPrintf("PR244 queue pblockrecursive %p\n", pblockrecursive);
                         if (ReadBlockFromDisk(*pblockrecursive, it->second, pblockrecursive->GetHeight()))
                         {
                             LogPrint(BCLog::REINDEX, "%s: Processing out of order child %s of %s\n", __func__, pblockrecursive->GetHash().ToString(),
@@ -4315,7 +4317,9 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
                         mapBlocksUnknownParent.erase(it);
                         NotifyHeaderTip();
                     }
+                    LogPrintf("PR244 queue inner loop done\n");
                 }
+                LogPrintf("PR244 queue done\n");
             } catch (const std::exception& e) {
                 LogPrintf("%s: Deserialize or I/O error - %s\n", __func__, e.what());
             }
