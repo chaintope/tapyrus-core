@@ -2377,7 +2377,7 @@ bool CChainState::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, co
             XFieldChange newChange(blockConnecting.xfield.xfieldValue, blockConnecting.GetHeight() + 1, blockConnecting.GetHash());
             xfieldHistory.Add(blockConnecting.xfield.xfieldType, newChange);
             pblocktree->WriteXField(newChange);
-            SaveToFederationParams(blockConnecting.xfield.xfieldValue) {
+            SaveToFederationParams(blockConnecting.xfield.xfieldValue);
         }
 
         nTime3 = GetTimeMicros(); nTimeConnectTotal += nTime3 - nTime2;
