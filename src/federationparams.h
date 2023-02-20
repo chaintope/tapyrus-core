@@ -43,6 +43,9 @@ public:
     CFederationParams();
     CFederationParams(const uint32_t networkId, const std::string dataDirName, const std::string genesisHex);
 
+//    mutable CPubKey aggPubKey;
+//    mutable int32_t maxBlockSize;
+
 private:
     uint32_t nNetworkId;
     CMessageHeader::MessageStartChars pchMessageStart;

@@ -267,4 +267,6 @@ std::string GetXFieldNameForRpc(TAPYRUS_XFIELDTYPES x);
 
 char GetXFieldDBKey(const XFieldData& xFieldValue);
 
+void SaveToFederationParams(const XFieldData& xfieldValue);
+
 #endif // BITCOIN_PRIMITIVES_XFIELD_H

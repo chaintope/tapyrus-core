@@ -133,11 +133,6 @@ class CXFieldHistoryMap{
     const bool isTemp;
 
 protected:
-    //critical section to wait for xfield history to be initialized
-    static CWaitableCriticalSection cs_XFieldHistoryWait;
-    //conditional variable to notify other waiting threads
-    static CConditionVariable condvar_XFieldHistoryWait;
-
     static XFieldHistoryMapType xfieldHistory;
     inline CXFieldHistoryMap(bool temp):isTemp(temp) { }
 
@@ -147,14 +142,8 @@ public:
 
     template <typename T>
     void GetLatest(TAPYRUS_XFIELDTYPES type, T & xfieldval) const {
-        WaitableLock lock(cs_XFieldHistoryWait);
+
         auto& listofXfieldChanges = (isTemp ? this->getXFieldHistoryMap() : xfieldHistory).find(type)->second;
-        do{
-            listofXfieldChanges = (isTemp ? this->getXFieldHistoryMap() : xfieldHistory).find(type)->second;
-            if(listofXfieldChanges.size())
-                break;
-            condvar_XFieldHistoryWait.wait_for(lock, std::chrono::milliseconds(500));
-        }while(true);
 
         xfieldval = boost::get<T>(listofXfieldChanges.rbegin()->xfieldValue);
     }

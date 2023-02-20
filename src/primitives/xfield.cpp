@@ -5,6 +5,7 @@
 #include <primitives/xfield.h>
 #include <tinyformat.h>
 #include <utilstrencodings.h>
+#include <federationparams.h>
 
 inline std::string XFieldAggPubKey::ToString() const {
     return HexStr(data);
@@ -70,4 +71,17 @@ char GetXFieldDBKey(const XFieldData& xfieldValue) {
         default:
             return '\0';
     }
+}
+
+void SaveToFederationParams(const XFieldData& xfieldValue) {
+    /*switch(GetXFieldTypeFrom(xfieldValue))
+    {
+        case TAPYRUS_XFIELDTYPES::AGGPUBKEY:
+            FederationParams().aggPubKey = boost::get<XFieldAggPubKey>(xfieldValue).data; break;
+        case TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE:
+            FederationParams().maxBlockSize = boost::get<XFieldMaxBlockSize>(xfieldValue).data; break;
+        case TAPYRUS_XFIELDTYPES::NONE:
+        default:
+            return;
+    }*/
 }

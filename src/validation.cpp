@@ -2377,6 +2377,7 @@ bool CChainState::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, co
             XFieldChange newChange(blockConnecting.xfield.xfieldValue, blockConnecting.GetHeight() + 1, blockConnecting.GetHash());
             xfieldHistory.Add(blockConnecting.xfield.xfieldType, newChange);
             pblocktree->WriteXField(newChange);
+            SaveToFederationParams(blockConnecting.xfield.xfieldValue) {
         }
 
         nTime3 = GetTimeMicros(); nTimeConnectTotal += nTime3 - nTime2;
@@ -3094,17 +3095,24 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
     // checks that use witness data may be performed here.
 
     // Size limits
-    /*XFieldMaxBlockSize maxBlockSizeChange;
+    LogPrintf("PR244 Check Size limits\n");
+    XFieldMaxBlockSize maxBlockSizeChange;
     CXFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, maxBlockSizeChange);
-
+    LogPrintf("PR244 currentBlockSize:%d\n", currentBlockSize);
     uint32_t currentBlockSize = maxBlockSizeChange.data;
     if (block.vtx.empty() || block.vtx.size() > currentBlockSize || ::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS) > currentBlockSize)
-        return state.DoS(100, false, REJECT_INVALID, "bad-blk-length", false, "size limits failed");*/
+    {
+        LogPrintf("PR244 size liomit failed\n");
+        return state.DoS(100, false, REJECT_INVALID, "bad-blk-length", false, "size 
+        limits failed");
+    }
+    LogPrintf("PR244 size ok\n", currentBlockSize);
 
     // Check that the header is valid (particularly PoW).  This is mostly
     // redundant with the call in AcceptBlockHeader.
     if (!CheckBlockHeader(block, state, pxfieldHistory, height, fCheckPOW))
         return false;
+    LogPrintf("PR244 CheckBlockHeader ok\n", currentBlockSize);
 
     //the rest must not be coinbase
     for (unsigned int i = 1; i < block.vtx.size(); i++)

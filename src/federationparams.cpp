@@ -144,6 +144,11 @@ CFederationParams::CFederationParams(const uint32_t networkId, const std::string
     vSeeds = gArgs.GetArgs("-addseeder");
 
     vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_main, pnSeed6_main + ARRAYLEN(pnSeed6_main));
+
+    //std::vector<unsigned char>* pubkey = &boost::get<XFieldAggPubKey>(genesis.xfield.xfieldValue).data;
+    //aggPubKey = CPubKey(pubkey->begin(), pubkey->end());
+
+//    maxBlockSize = MAX_BLOCK_SIZE;
 }
 
 bool CFederationParams::ReadGenesisBlock(std::string genesisHex)
