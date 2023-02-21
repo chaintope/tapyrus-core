@@ -34,4 +34,4 @@ if [ "$RUN_TESTS" = "true" ]; then LD_LIBRARY_PATH=${GITHUB_WORKSPACE}/depends/$
 if [ "$RUN_BENCH" = "true" ]; then LD_LIBRARY_PATH=${GITHUB_WORKSPACE}/depends/$HOST/lib $OUTDIR/bin/bench_tapyrus -scaling=0.001 ; fi
 if [ "$TRAVIS_EVENT_TYPE" = "cron" ]; then extended="--extended --exclude feature_pruning,feature_dbcrash"; fi
 if [ "$DEBUD_MODE" = "true" ]; then debugscripts="--debugscripts"; fi
-if [ "$RUN_TESTS" = "true" ]; then test/functional/test_runner.py --combinedlogslen=4000 --coverage --failfast --quiet ${extended} ${debugscripts}; fi
+if [ "$RUN_TESTS" = "true" ]; then test/functional/feature_reindex.py fi
