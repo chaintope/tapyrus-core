@@ -519,6 +519,8 @@ class TestHandler:
         while self.num_running < self.num_jobs and self.test_list:
             # Add tests
             self.num_running += 1
+            new_env = os.environ.copy()
+            new_env['ulimit'] = 65535
             test = self.test_list.pop(0)
             portseed = len(self.test_list)
             portseed_arg = ["--portseed={}".format(portseed)]
@@ -527,16 +529,17 @@ class TestHandler:
             test_argv = test.split()
             testdir = "{}/{}_{}".format(self.tmpdir, re.sub(".py$", "", test_argv[0]), portseed)
             tmpdir_arg = ["--tmpdir={}".format(testdir)]
-            self.jobs.append((test,
+            self.jobs.append(test,
                               time.time(),
                               subprocess.Popen([sys.executable, self.tests_dir + test_argv[0]] + test_argv[1:] + self.flags + portseed_arg + tmpdir_arg,
                               universal_newlines=True,
                               stdout=log_stdout,
-                              stderr=log_stderr),
+                              stderr=log_stderr,
+                              env = new_env,
+                              preexec_fn = resource.setrlimit(resource.RLIMIT_CORE, (-1, -1))),
                               testdir,
                               log_stdout,
-                              log_stderr,
-                              preexec_fn =resource.setrlimit(resource.RLIMIT_CORE, (-1, -1)) ))
+                              log_stderr)
         if not self.jobs:
             raise IndexError('pop from empty list')
         while True:

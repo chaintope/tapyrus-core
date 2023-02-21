@@ -3105,13 +3105,13 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
         LogPrintf("PR244 size liomit failed\n");
         return state.DoS(100, false, REJECT_INVALID, "bad-blk-length", false, "size limits failed");
     }
-    LogPrintf("PR244 size ok\n", currentBlockSize);
+    LogPrintf("PR244 size ok\n");
 
     // Check that the header is valid (particularly PoW).  This is mostly
     // redundant with the call in AcceptBlockHeader.
     if (!CheckBlockHeader(block, state, pxfieldHistory, height, fCheckPOW))
         return false;
-    LogPrintf("PR244 CheckBlockHeader ok\n", currentBlockSize);
+    LogPrintf("PR244 CheckBlockHeader ok\n");
 
     //the rest must not be coinbase
     for (unsigned int i = 1; i < block.vtx.size(); i++)
@@ -3136,7 +3136,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
     if (fCheckPOW && fCheckMerkleRoot)
         block.fChecked = true;
 
-    LogPrintf("PR244 CheckBlock ok\n", currentBlockSize);
+    LogPrintf("PR244 CheckBlock ok\n");
     return true;
 }
 
