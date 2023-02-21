@@ -519,8 +519,6 @@ class TestHandler:
         while self.num_running < self.num_jobs and self.test_list:
             # Add tests
             self.num_running += 1
-            new_env = os.environ.copy()
-            new_env['ulimit'] = 65535
             test = self.test_list.pop(0)
             portseed = len(self.test_list)
             portseed_arg = ["--portseed={}".format(portseed)]
@@ -535,8 +533,7 @@ class TestHandler:
                               universal_newlines=True,
                               stdout=log_stdout,
                               stderr=log_stderr,
-                              env = new_env,
-                              preexec_fn = resource.setrlimit(resource.RLIMIT_CORE, (-1, -1))),
+                              preexec_fn = lambda:resource.setrlimit(resource.RLIMIT_CORE, (-1, -1))),
                               testdir,
                               log_stdout,
                               log_stderr)
