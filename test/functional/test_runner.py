@@ -28,7 +28,6 @@ import subprocess
 import tempfile
 import re
 import logging
-
 import resource
 
 
@@ -514,6 +513,7 @@ class TestHandler:
         self.num_running = 0
         self.jobs = []
         self.retry = None
+        self.enable_core = lambda:resource.setrlimit(resource.RLIMIT_CORE, (-1, -1))
 
     def get_next(self):
         while self.num_running < self.num_jobs and self.test_list:
@@ -527,16 +527,16 @@ class TestHandler:
             test_argv = test.split()
             testdir = "{}/{}_{}".format(self.tmpdir, re.sub(".py$", "", test_argv[0]), portseed)
             tmpdir_arg = ["--tmpdir={}".format(testdir)]
-            self.jobs.append(test,
+            self.jobs.append((test,
                               time.time(),
                               subprocess.Popen([sys.executable, self.tests_dir + test_argv[0]] + test_argv[1:] + self.flags + portseed_arg + tmpdir_arg,
                               universal_newlines=True,
                               stdout=log_stdout,
                               stderr=log_stderr,
-                              preexec_fn = lambda:resource.setrlimit(resource.RLIMIT_CORE, (-1, -1))),
+                              preexec_fn = self.enable_core),
                               testdir,
                               log_stdout,
-                              log_stderr)
+                              log_stderr))
         if not self.jobs:
             raise IndexError('pop from empty list')
         while True:
