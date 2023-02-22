@@ -4160,6 +4160,9 @@ bool CChainState::LoadGenesisBlock()
         return error("%s: failed to write genesis block: %s", __func__, e.what());
     }
 
+     //initialize xfield history
+     CXFieldHistory history(FederationParams().GenesisBlock());
+
     return true;
 }
 
