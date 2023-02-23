@@ -484,8 +484,9 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         blocknew = self.new_block(48, spend=self.unspent[18])
         blocknew.solve(self.aggprivkey[1])
         node.p2p.send_blocks_and_test([blocknew], node, success=False, request_block=False)
+        time.sleep(30) #wait for the reorg to complete
         self.tip = blocknew.hash
-        assert_equal(tip_before_reorg, node.getbestblockhash())
+        assert_equal(self.tip, node.getbestblockhash())
 
         #B49 -- Create block with previous block hash = B48 - sign with aggpubkey1 -- success - block is accepted
         self.block_time += 1
