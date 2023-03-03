@@ -517,7 +517,8 @@ case $host in
          *)
            AC_PATH_TOOL([INSTALLNAMETOOL], [install_name_tool], install_name_tool)
            AC_PATH_TOOL([OTOOL], [otool], otool)
-           AC_PATH_PROGS([GENISOIMAGE], [genisoimage mkisofs],genisoimage)
+           AC_PATH_PROGS([XORRISOFS], [xorrisofs], xorrisofs)
+           AC_PATH_PROGS([DMG], [dmg], dmg)
            AC_PATH_PROGS([RSVG_CONVERT], [rsvg-convert rsvg],rsvg-convert)
            AC_PATH_PROGS([IMAGEMAGICK_CONVERT], [convert],convert)
            AC_PATH_PROGS([TIFFCP], [tiffcp],tiffcp)
@@ -867,7 +868,7 @@ fi
 BITCOIN_QT_INIT
 
 dnl sets $tapyrus_enable_qt, $tapyrus_enable_qt_test, $tapyrus_enable_qt_dbus
-BITCOIN_QT_CONFIGURE([$use_pkgconfig])
+BITCOIN_QT_CONFIGURE
 
 if test x$build_tapyrus_utils$build_tapyrusd$tapyrus_enable_qt$use_tests$use_bench = xnonononono; then
     use_boost=no
