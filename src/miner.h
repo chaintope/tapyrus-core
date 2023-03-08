@@ -121,23 +121,6 @@ struct update_for_parent_inclusion
     CTxMemPool::txiter iter;
 };
 
-/* extensible structure to store the xfield input from RPC getnewblock
-xFieldData is a union holding either aggpubkey or max block size. It is extensible in the future
-*/
-
-
-    union xFieldData{
-        std::vector<unsigned char> aggPubKey;
-
-        /*
-         default constructor and destructor
-         need to be changed when new xfield types are added
-        */
-        xFieldData():aggPubKey({'\0'}){}
-        xFieldData(unsigned char* begin, unsigned char* end):aggPubKey(begin, end){}
-        ~xFieldData(){}
-
-    };
 
 /** Generate a new block, without valid proof-of-work */
 class BlockAssembler

@@ -14,7 +14,6 @@
 void writeTestGenesisBlockToFile(fs::path genesisPath)
 {
     genesisPath /= TAPYRUS_GENESIS_FILENAME;
-    //printf("Writing Genesis Block to [%s]\n", genesisPath.string().c_str());
     fs::ofstream stream(genesisPath);
     stream << GENESIS_BLOCK;
     stream.close();

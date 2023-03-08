@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022 Chaintope Inc.
+// Copyright (c) 2019-2023 Chaintope Inc.
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -51,9 +51,9 @@ typedef std::vector<XFieldChange> XFieldChangeList;
 
 /*
  * helper class to unserialize vector of XFieldChange from blocktree db
- * db entry contains only XFieldData, height and block hash (no XFieldType).
+ * entry containing only XFieldData, height and block hash (no XFieldType).
  * It is not possible to know the type and therefore the size of data to read from the stream.
- * We store a the key in this class to help in unserialization of XFieldData.
+ * We store the key in this class to help in unserialization of XFieldData.
  */
 struct XFieldChangeListWrapper
 {
@@ -103,7 +103,7 @@ struct XFieldChangeListWrapper
                     xfieldChange.xfieldValue = value; break;
                 }
                 default:
-                    break;
+                    throw std::runtime_error("unknown xfield found. restart node with -reloadxfield option to correct the db.");
             }
             ::Unserialize(s, xfieldChange.height);
             ::Unserialize(s, xfieldChange.blockHash);
@@ -160,7 +160,7 @@ public:
 };
 
 /*
- * class CXFieldHistory is an interface to access the global map of xfiled changes
+ * class CXFieldHistory is an interface to access the global map of xfield changes
  * in the active chain which is guaranteed to be initialized.
  * this defines ots own constructor and other utility methods that act on the data in CXFieldHistoryMap
  */

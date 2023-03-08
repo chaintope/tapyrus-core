@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022 Chaintope Inc.
+// Copyright (c) 2019-2023 Chaintope Inc.
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -62,7 +62,6 @@ void CXFieldHistory::ToUniValue(TAPYRUS_XFIELDTYPES type, UniValue* xFieldChange
         UniValue xFieldChangeObj(UniValue::VOBJ);
         std::string value = XFieldDataToString(xFieldChange.xfieldValue);
         xFieldChangeObj.pushKV(value, (uint64_t)xFieldChange.height);
-        //xFieldChangeObj.push_back(HexStr(xFieldChange.blockHash));
         xFieldChangeUnival->push_back(xFieldChangeObj);
     }
 }

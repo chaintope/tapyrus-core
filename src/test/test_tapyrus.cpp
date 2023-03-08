@@ -233,7 +233,6 @@ void writeTestGenesisBlockToFile(fs::path genesisPath, std::string genesisFileNa
         genesisPath /= genesisFileName;
     else
         genesisPath /= TAPYRUS_GENESIS_FILENAME;
-    //printf("Writing Genesis Block to [%s]\n", genesisPath.string().c_str());
     fs::ofstream stream(genesisPath);
     CKey privKey;
     privKey.Set(validAggPrivateKey, validAggPrivateKey + 32, true);
