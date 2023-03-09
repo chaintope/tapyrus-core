@@ -11,7 +11,6 @@
 #include "test_tapyrus.h"
 #include "test_keys_helper.h"
 
-XFieldHistoryMapType CXFieldHistoryMap::xfieldHistory;
 
 struct XFieldHistorySetup : public TestingSetup {
     XFieldHistorySetup() : TestingSetup(TAPYRUS_MODES::DEV) {
