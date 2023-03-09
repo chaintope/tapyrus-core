@@ -58,7 +58,7 @@
 #include <QUrlQuery>
 #include <QVBoxLayout>
 
-const std::string TapyrusGUI::DEFAULT_UIPLATFORM =
+const std::string BitcoinGUI::DEFAULT_UIPLATFORM =
 #if defined(Q_OS_MAC)
         "macosx"
 #elif defined(Q_OS_WIN)
@@ -68,7 +68,7 @@ const std::string TapyrusGUI::DEFAULT_UIPLATFORM =
 #endif
         ;
 
-TapyrusGUI::TapyrusGUI(interfaces::Node& node, const PlatformStyle *_platformStyle, const NetworkStyle *networkStyle, QWidget *parent) :
+BitcoinGUI::BitcoinGUI(interfaces::Node& node, const PlatformStyle *_platformStyle, const NetworkStyle *networkStyle, QWidget *parent) :
     QMainWindow(parent),
     m_node(node),
     platformStyle(_platformStyle)
@@ -206,7 +206,7 @@ TapyrusGUI::TapyrusGUI(interfaces::Node& node, const PlatformStyle *_platformSty
 #endif
 }
 
-TapyrusGUI::~TapyrusGUI()
+BitcoinGUI::~BitcoinGUI()
 {
     // Unsubscribe from notifications from core
     unsubscribeFromCoreSignals();
@@ -223,7 +223,7 @@ TapyrusGUI::~TapyrusGUI()
     delete rpcConsole;
 }
 
-void TapyrusGUI::createActions()
+void BitcoinGUI::createActions()
 {
     QActionGroup *tabGroup = new QActionGroup(this);
 
@@ -355,7 +355,7 @@ void TapyrusGUI::createActions()
     new QShortcut(QKeySequence(Qt::CTRL + Qt::SHIFT + Qt::Key_D), this, SLOT(showDebugWindow()));
 }
 
-void TapyrusGUI::createMenuBar()
+void BitcoinGUI::createMenuBar()
 {
 #ifdef Q_OS_MAC
     // Create a decoupled menu bar on Mac which stays even if the window is closed
@@ -400,7 +400,7 @@ void TapyrusGUI::createMenuBar()
     help->addAction(aboutQtAction);
 }
 
-void TapyrusGUI::createToolBars()
+void BitcoinGUI::createToolBars()
 {
     if(walletFrame)
     {
@@ -436,7 +436,7 @@ void TapyrusGUI::createToolBars()
     }
 }
 
-void TapyrusGUI::setClientModel(ClientModel *_clientModel)
+void BitcoinGUI::setClientModel(ClientModel *_clientModel)
 {
     this->clientModel = _clientModel;
     if(_clientModel)
@@ -502,7 +502,7 @@ void TapyrusGUI::setClientModel(ClientModel *_clientModel)
 }
 
 #ifdef ENABLE_WALLET
-bool TapyrusGUI::addWallet(WalletModel *walletModel)
+bool BitcoinGUI::addWallet(WalletModel *walletModel)
 {
     if(!walletFrame)
         return false;
@@ -518,7 +518,7 @@ bool TapyrusGUI::addWallet(WalletModel *walletModel)
     return walletFrame->addWallet(walletModel);
 }
 
-bool TapyrusGUI::removeWallet(WalletModel* walletModel)
+bool BitcoinGUI::removeWallet(WalletModel* walletModel)
 {
     if (!walletFrame) return false;
     QString name = walletModel->getWalletName();
@@ -534,20 +534,20 @@ bool TapyrusGUI::removeWallet(WalletModel* walletModel)
     return walletFrame->removeWallet(name);
 }
 
-bool TapyrusGUI::setCurrentWallet(const QString& name)
+bool BitcoinGUI::setCurrentWallet(const QString& name)
 {
     if(!walletFrame)
         return false;
     return walletFrame->setCurrentWallet(name);
 }
 
-bool TapyrusGUI::setCurrentWalletBySelectorIndex(int index)
+bool BitcoinGUI::setCurrentWalletBySelectorIndex(int index)
 {
     QString internal_name = m_wallet_selector->itemData(index).toString();
     return setCurrentWallet(internal_name);
 }
 
-void TapyrusGUI::removeAllWallets()
+void BitcoinGUI::removeAllWallets()
 {
     if(!walletFrame)
         return;
@@ -556,7 +556,7 @@ void TapyrusGUI::removeAllWallets()
 }
 #endif // ENABLE_WALLET
 
-void TapyrusGUI::setWalletActionsEnabled(bool enabled)
+void BitcoinGUI::setWalletActionsEnabled(bool enabled)
 {
     overviewAction->setEnabled(enabled);
     sendCoinsAction->setEnabled(enabled);
@@ -574,7 +574,7 @@ void TapyrusGUI::setWalletActionsEnabled(bool enabled)
     openAction->setEnabled(enabled);
 }
 
-void TapyrusGUI::createTrayIcon(const NetworkStyle *networkStyle)
+void BitcoinGUI::createTrayIcon(const NetworkStyle *networkStyle)
 {
 #ifndef Q_OS_MAC
     trayIcon = new QSystemTrayIcon(this);
@@ -587,7 +587,7 @@ void TapyrusGUI::createTrayIcon(const NetworkStyle *networkStyle)
     notificator = new Notificator(QApplication::applicationName(), trayIcon, this);
 }
 
-void TapyrusGUI::createTrayIconMenu()
+void BitcoinGUI::createTrayIconMenu()
 {
 #ifndef Q_OS_MAC
     // return if trayIcon is unset (only on non-Mac OSes)
@@ -624,7 +624,7 @@ void TapyrusGUI::createTrayIconMenu()
 }
 
 #ifndef Q_OS_MAC
-void TapyrusGUI::trayIconActivated(QSystemTrayIcon::ActivationReason reason)
+void BitcoinGUI::trayIconActivated(QSystemTrayIcon::ActivationReason reason)
 {
     if(reason == QSystemTrayIcon::Trigger)
     {
@@ -634,7 +634,7 @@ void TapyrusGUI::trayIconActivated(QSystemTrayIcon::ActivationReason reason)
 }
 #endif
 
-void TapyrusGUI::optionsClicked()
+void BitcoinGUI::optionsClicked()
 {
     if(!clientModel || !clientModel->getOptionsModel())
         return;
@@ -644,7 +644,7 @@ void TapyrusGUI::optionsClicked()
     dlg.exec();
 }
 
-void TapyrusGUI::aboutClicked()
+void BitcoinGUI::aboutClicked()
 {
     if(!clientModel)
         return;
@@ -653,7 +653,7 @@ void TapyrusGUI::aboutClicked()
     dlg.exec();
 }
 
-void TapyrusGUI::showDebugWindow()
+void BitcoinGUI::showDebugWindow()
 {
     rpcConsole->showNormal();
     rpcConsole->show();
@@ -661,19 +661,19 @@ void TapyrusGUI::showDebugWindow()
     rpcConsole->activateWindow();
 }
 
-void TapyrusGUI::showDebugWindowActivateConsole()
+void BitcoinGUI::showDebugWindowActivateConsole()
 {
     rpcConsole->setTabFocus(RPCConsole::TAB_CONSOLE);
     showDebugWindow();
 }
 
-void TapyrusGUI::showHelpMessageClicked()
+void BitcoinGUI::showHelpMessageClicked()
 {
     helpMessageDialog->show();
 }
 
 #ifdef ENABLE_WALLET
-void TapyrusGUI::openClicked()
+void BitcoinGUI::openClicked()
 {
     OpenURIDialog dlg(this);
     if(dlg.exec())
@@ -682,42 +682,42 @@ void TapyrusGUI::openClicked()
     }
 }
 
-void TapyrusGUI::gotoOverviewPage()
+void BitcoinGUI::gotoOverviewPage()
 {
     overviewAction->setChecked(true);
     if (walletFrame) walletFrame->gotoOverviewPage();
 }
 
-void TapyrusGUI::gotoHistoryPage()
+void BitcoinGUI::gotoHistoryPage()
 {
     historyAction->setChecked(true);
     if (walletFrame) walletFrame->gotoHistoryPage();
 }
 
-void TapyrusGUI::gotoReceiveCoinsPage()
+void BitcoinGUI::gotoReceiveCoinsPage()
 {
     receiveCoinsAction->setChecked(true);
     if (walletFrame) walletFrame->gotoReceiveCoinsPage();
 }
 
-void TapyrusGUI::gotoSendCoinsPage(QString addr)
+void BitcoinGUI::gotoSendCoinsPage(QString addr)
 {
     sendCoinsAction->setChecked(true);
     if (walletFrame) walletFrame->gotoSendCoinsPage(addr);
 }
 
-void TapyrusGUI::gotoSignMessageTab(QString addr)
+void BitcoinGUI::gotoSignMessageTab(QString addr)
 {
     if (walletFrame) walletFrame->gotoSignMessageTab(addr);
 }
 
-void TapyrusGUI::gotoVerifyMessageTab(QString addr)
+void BitcoinGUI::gotoVerifyMessageTab(QString addr)
 {
     if (walletFrame) walletFrame->gotoVerifyMessageTab(addr);
 }
 #endif // ENABLE_WALLET
 
-void TapyrusGUI::updateNetworkState()
+void BitcoinGUI::updateNetworkState()
 {
     int count = clientModel->getNumConnections();
     QString icon;
@@ -746,17 +746,17 @@ void TapyrusGUI::updateNetworkState()
     connectionsControl->setPixmap(platformStyle->SingleColorIcon(icon).pixmap(STATUSBAR_ICONSIZE,STATUSBAR_ICONSIZE));
 }
 
-void TapyrusGUI::setNumConnections(int count)
+void BitcoinGUI::setNumConnections(int count)
 {
     updateNetworkState();
 }
 
-void TapyrusGUI::setNetworkActive(bool networkActive)
+void BitcoinGUI::setNetworkActive(bool networkActive)
 {
     updateNetworkState();
 }
 
-void TapyrusGUI::updateHeadersSyncProgressLabel()
+void BitcoinGUI::updateHeadersSyncProgressLabel()
 {
     int64_t headersTipTime = clientModel->getHeaderTipTime();
     int headersTipHeight = clientModel->getHeaderTipHeight();
@@ -765,7 +765,7 @@ void TapyrusGUI::updateHeadersSyncProgressLabel()
         progressBarLabel->setText(tr("Syncing Headers (%1%)...").arg(QString::number(100.0 / (headersTipHeight+estHeadersLeft)*headersTipHeight, 'f', 1)));
 }
 
-void TapyrusGUI::setNumBlocks(int count, const QDateTime& blockDate, double nVerificationProgress, bool header)
+void BitcoinGUI::setNumBlocks(int count, const QDateTime& blockDate, double nVerificationProgress, bool header)
 {
     if (modalOverlay)
     {
@@ -875,7 +875,7 @@ void TapyrusGUI::setNumBlocks(int count, const QDateTime& blockDate, double nVer
     progressBar->setToolTip(tooltip);
 }
 
-void TapyrusGUI::message(const QString &title, const QString &message, unsigned int style, bool *ret)
+void BitcoinGUI::message(const QString &title, const QString &message, unsigned int style, bool *ret)
 {
     QString strTitle = tr("Tapyrus"); // default title
     // Default to information icon
@@ -935,7 +935,7 @@ void TapyrusGUI::message(const QString &title, const QString &message, unsigned 
         notificator->notify(static_cast<Notificator::Class>(nNotifyIcon), strTitle, message);
 }
 
-void TapyrusGUI::changeEvent(QEvent *e)
+void BitcoinGUI::changeEvent(QEvent *e)
 {
     QMainWindow::changeEvent(e);
 #ifndef Q_OS_MAC // Ignored on Mac
@@ -959,7 +959,7 @@ void TapyrusGUI::changeEvent(QEvent *e)
 #endif
 }
 
-void TapyrusGUI::closeEvent(QCloseEvent *event)
+void BitcoinGUI::closeEvent(QCloseEvent *event)
 {
 #ifndef Q_OS_MAC // Ignored on Mac
     if(clientModel && clientModel->getOptionsModel())
@@ -982,7 +982,7 @@ void TapyrusGUI::closeEvent(QCloseEvent *event)
 #endif
 }
 
-void TapyrusGUI::showEvent(QShowEvent *event)
+void BitcoinGUI::showEvent(QShowEvent *event)
 {
     // enable the debug window when the main window shows up
     openRPCConsoleAction->setEnabled(true);
@@ -991,7 +991,7 @@ void TapyrusGUI::showEvent(QShowEvent *event)
 }
 
 #ifdef ENABLE_WALLET
-void TapyrusGUI::incomingTransaction(const QString& date, int unit, const CAmount& amount, const QString& type, const QString& address, const QString& label, const QString& walletName)
+void BitcoinGUI::incomingTransaction(const QString& date, int unit, const CAmount& amount, const QString& type, const QString& address, const QString& label, const QString& walletName)
 {
     // On new transaction, make an info balloon
     QString msg = tr("Date: %1\n").arg(date) +
@@ -1009,14 +1009,14 @@ void TapyrusGUI::incomingTransaction(const QString& date, int unit, const CAmoun
 }
 #endif // ENABLE_WALLET
 
-void TapyrusGUI::dragEnterEvent(QDragEnterEvent *event)
+void BitcoinGUI::dragEnterEvent(QDragEnterEvent *event)
 {
     // Accept only URIs
     if(event->mimeData()->hasUrls())
         event->acceptProposedAction();
 }
 
-void TapyrusGUI::dropEvent(QDropEvent *event)
+void BitcoinGUI::dropEvent(QDropEvent *event)
 {
     if(event->mimeData()->hasUrls())
     {
@@ -1028,7 +1028,7 @@ void TapyrusGUI::dropEvent(QDropEvent *event)
     event->acceptProposedAction();
 }
 
-bool TapyrusGUI::eventFilter(QObject *object, QEvent *event)
+bool BitcoinGUI::eventFilter(QObject *object, QEvent *event)
 {
     // Catch status tip events
     if (event->type() == QEvent::StatusTip)
@@ -1041,7 +1041,7 @@ bool TapyrusGUI::eventFilter(QObject *object, QEvent *event)
 }
 
 #ifdef ENABLE_WALLET
-bool TapyrusGUI::handlePaymentRequest(const SendCoinsRecipient& recipient)
+bool BitcoinGUI::handlePaymentRequest(const SendCoinsRecipient& recipient)
 {
     // URI has to be valid
     if (walletFrame && walletFrame->handlePaymentRequest(recipient))
@@ -1053,7 +1053,7 @@ bool TapyrusGUI::handlePaymentRequest(const SendCoinsRecipient& recipient)
     return false;
 }
 
-void TapyrusGUI::setHDStatus(int hdEnabled)
+void BitcoinGUI::setHDStatus(int hdEnabled)
 {
     labelWalletHDStatusIcon->setPixmap(platformStyle->SingleColorIcon(hdEnabled ? ":/icons/hd_enabled" : ":/icons/hd_disabled").pixmap(STATUSBAR_ICONSIZE,STATUSBAR_ICONSIZE));
     labelWalletHDStatusIcon->setToolTip(hdEnabled ? tr("HD key generation is <b>enabled</b>") : tr("HD key generation is <b>disabled</b>"));
@@ -1062,7 +1062,7 @@ void TapyrusGUI::setHDStatus(int hdEnabled)
     labelWalletHDStatusIcon->setEnabled(hdEnabled);
 }
 
-void TapyrusGUI::setEncryptionStatus(int status)
+void BitcoinGUI::setEncryptionStatus(int status)
 {
     switch(status)
     {
@@ -1091,7 +1091,7 @@ void TapyrusGUI::setEncryptionStatus(int status)
     }
 }
 
-void TapyrusGUI::updateWalletStatus()
+void BitcoinGUI::updateWalletStatus()
 {
     if (!walletFrame) {
         return;
@@ -1106,7 +1106,7 @@ void TapyrusGUI::updateWalletStatus()
 }
 #endif // ENABLE_WALLET
 
-void TapyrusGUI::updateProxyIcon()
+void BitcoinGUI::updateProxyIcon()
 {
     std::string ip_port;
     bool proxy_enabled = clientModel->getProxyInfo(ip_port);
@@ -1124,7 +1124,7 @@ void TapyrusGUI::updateProxyIcon()
     }
 }
 
-void TapyrusGUI::showNormalIfMinimized(bool fToggleHidden)
+void BitcoinGUI::showNormalIfMinimized(bool fToggleHidden)
 {
     if(!clientModel)
         return;
@@ -1149,12 +1149,12 @@ void TapyrusGUI::showNormalIfMinimized(bool fToggleHidden)
         hide();
 }
 
-void TapyrusGUI::toggleHidden()
+void BitcoinGUI::toggleHidden()
 {
     showNormalIfMinimized(true);
 }
 
-void TapyrusGUI::detectShutdown()
+void BitcoinGUI::detectShutdown()
 {
     if (m_node.shutdownRequested())
     {
@@ -1164,7 +1164,7 @@ void TapyrusGUI::detectShutdown()
     }
 }
 
-void TapyrusGUI::showProgress(const QString &title, int nProgress)
+void BitcoinGUI::showProgress(const QString &title, int nProgress)
 {
     if (nProgress == 0)
     {
@@ -1187,7 +1187,7 @@ void TapyrusGUI::showProgress(const QString &title, int nProgress)
         progressDialog->setValue(nProgress);
 }
 
-void TapyrusGUI::setTrayIconVisible(bool fHideTrayIcon)
+void BitcoinGUI::setTrayIconVisible(bool fHideTrayIcon)
 {
     if (trayIcon)
     {
@@ -1195,13 +1195,13 @@ void TapyrusGUI::setTrayIconVisible(bool fHideTrayIcon)
     }
 }
 
-void TapyrusGUI::showModalOverlay()
+void BitcoinGUI::showModalOverlay()
 {
     if (modalOverlay && (progressBar->isVisible() || modalOverlay->isLayerVisible()))
         modalOverlay->toggleVisibility();
 }
 
-static bool ThreadSafeMessageBox(TapyrusGUI *gui, const std::string& message, const std::string& caption, unsigned int style)
+static bool ThreadSafeMessageBox(BitcoinGUI *gui, const std::string& message, const std::string& caption, unsigned int style)
 {
     bool modal = (style & CClientUIInterface::MODAL);
     // The SECURE flag has no effect in the Qt GUI.
@@ -1218,21 +1218,21 @@ static bool ThreadSafeMessageBox(TapyrusGUI *gui, const std::string& message, co
     return ret;
 }
 
-void TapyrusGUI::subscribeToCoreSignals()
+void BitcoinGUI::subscribeToCoreSignals()
 {
     // Connect signals to client
     m_handler_message_box = m_node.handleMessageBox(boost::bind(ThreadSafeMessageBox, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
     m_handler_question = m_node.handleQuestion(boost::bind(ThreadSafeMessageBox, this, boost::placeholders::_1, boost::placeholders::_3, boost::placeholders::_4));
 }
 
-void TapyrusGUI::unsubscribeFromCoreSignals()
+void BitcoinGUI::unsubscribeFromCoreSignals()
 {
     // Disconnect signals from client
     m_handler_message_box->disconnect();
     m_handler_question->disconnect();
 }
 
-void TapyrusGUI::toggleNetworkActive()
+void BitcoinGUI::toggleNetworkActive()
 {
     m_node.setNetworkActive(!m_node.getNetworkActive());
 }
