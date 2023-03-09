@@ -74,10 +74,6 @@ struct XFieldChangeListWrapper
 
     inline void push_back(const XFieldChange& item) { return xfieldChanges.push_back(item); }
 
-    TAPYRUS_XFIELDTYPES getXFieldType(const char key) {
-        return static_cast<TAPYRUS_XFIELDTYPES>( static_cast<uint8_t>(key));
-    }
-
     template<typename Stream>
     void Serialize(Stream& s) const {
         ::Serialize(s, xfieldChanges);

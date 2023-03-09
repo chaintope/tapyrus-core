@@ -33,7 +33,7 @@ const XFieldChange& CXFieldHistoryMap::Get(TAPYRUS_XFIELDTYPES type, uint32_t he
     if(height == 0 || listofXfieldChanges.size() == 1)
         return listofXfieldChanges[0]; 
 
-    if(height < 0 || height > listofXfieldChanges.back().height)
+    if(height > listofXfieldChanges.back().height)
         return listofXfieldChanges.back();
 
     for(unsigned int i = 0; i < listofXfieldChanges.size(); i++) {
