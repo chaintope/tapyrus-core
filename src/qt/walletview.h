@@ -9,7 +9,7 @@
 
 #include <QStackedWidget>
 
-class TapyrusGUI;
+class BitcoinGUI;
 class ClientModel;
 class OverviewPage;
 class PlatformStyle;
@@ -39,7 +39,7 @@ public:
     explicit WalletView(const PlatformStyle *platformStyle, QWidget *parent);
     ~WalletView();
 
-    void setTapyrusGUI(TapyrusGUI *gui);
+    void setBitcoinGUI(BitcoinGUI *gui);
     /** Set the client model.
         The client model represents the part of the core that communicates with the P2P network, and is wallet-agnostic.
     */

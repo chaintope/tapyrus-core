@@ -8,7 +8,7 @@
 #include <QDialog>
 #include <QObject>
 
-class TapyrusGUI;
+class BitcoinGUI;
 
 namespace interfaces {
     class Node;
@@ -46,7 +46,7 @@ class ShutdownWindow : public QWidget
 
 public:
     explicit ShutdownWindow(QWidget *parent=0, Qt::WindowFlags f=0);
-    static QWidget *showShutdownWindow(TapyrusGUI *window);
+    static QWidget *showShutdownWindow(BitcoinGUI *window);
 
 protected:
     void closeEvent(QCloseEvent *event);
