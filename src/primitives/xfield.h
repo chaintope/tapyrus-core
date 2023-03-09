@@ -75,6 +75,7 @@ public:
     static const char BLOCKTREE_DB_KEY = '1';
     explicit XFieldAggPubKey():data() { }
     XFieldAggPubKey(const std::vector<unsigned char>& dataIn):data(dataIn.begin(), dataIn.end()){};
+    XFieldAggPubKey(const CPubKey& dataIn):data(dataIn.begin(), dataIn.end()){};
 
     bool operator==(const std::vector<unsigned char>& dataIn) const { return data == dataIn; }
     bool operator==(const XFieldAggPubKey& xfield) const { return xfield.operator==(this->data); }
@@ -262,8 +263,6 @@ public:
 inline bool IsXFieldValid(const CXField& xField) { return xField.IsValid(); }
 
 std::string XFieldDataToString(const XFieldData &xfieldValue);
-
-std::string GetXFieldNameForRpc(TAPYRUS_XFIELDTYPES x);
 
 char GetXFieldDBKey(const XFieldData& xFieldValue);
 

@@ -9,6 +9,7 @@
 #include <vector>
 #include <stdint.h>
 #include <amount.h>
+#include "primitives/xfield.h"
 
 class CBlock;
 class CBlockIndex;
@@ -30,6 +31,9 @@ UniValue mempoolToJSON(bool fVerbose = false);
 
 /** Block header to JSON */
 UniValue blockheaderToJSON(const CBlockIndex* blockindex);
+
+/** String name of Xfield in block header */
+std::string GetXFieldNameForRpc(TAPYRUS_XFIELDTYPES x);
 
 /** Used by getblockstats to get feerates at different percentiles by size  */
 void CalculatePercentilesBySize(CAmount result[NUM_GETBLOCKSTATS_PERCENTILES], std::vector<std::pair<CAmount, int64_t>>& scores, int64_t total_size);

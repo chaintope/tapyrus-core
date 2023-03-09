@@ -1068,6 +1068,17 @@ static UniValue verifychain(const JSONRPCRequest& request)
     return CVerifyDB().VerifyDB(pcoinsTip.get(), nCheckLevel, nCheckDepth);
 }
 
+std::string GetXFieldNameForRpc(TAPYRUS_XFIELDTYPES x){
+    switch(x){
+        case TAPYRUS_XFIELDTYPES::AGGPUBKEY:
+            return "aggregatePubkeys";
+        case TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE:
+            return "maxBlockSizes";
+        case TAPYRUS_XFIELDTYPES::NONE:
+        default:
+            return "";
+    }
+}
 
 UniValue getblockchaininfo(const JSONRPCRequest& request)
 {

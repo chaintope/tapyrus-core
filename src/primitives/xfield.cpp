@@ -47,17 +47,6 @@ std::string XFieldDataToString(const XFieldData &xfieldValue) {
     return "";
 }
 
-std::string GetXFieldNameForRpc(TAPYRUS_XFIELDTYPES x){
-    switch(x){
-        case TAPYRUS_XFIELDTYPES::AGGPUBKEY:
-            return "aggregatePubkeys";
-        case TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE:
-            return "maxBlockSizes";
-        case TAPYRUS_XFIELDTYPES::NONE:
-        default:
-            return "";
-    }
-}
 
 char GetXFieldDBKey(const XFieldData& xfieldValue) {
     switch(GetXFieldTypeFrom(xfieldValue))
