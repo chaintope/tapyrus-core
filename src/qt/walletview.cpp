@@ -88,7 +88,7 @@ WalletView::~WalletView()
 {
 }
 
-void WalletView::setTapyrusGUI(TapyrusGUI *gui)
+void WalletView::setBitcoinGUI(BitcoinGUI *gui)
 {
     if (gui)
     {
