@@ -60,3 +60,8 @@ char GetXFieldDBKey(const XFieldData& xfieldValue) {
             return '\0';
     }
 }
+
+std::string BadXFieldException::what()
+{
+    return std::string("Type and data mismatch in CXField. xfieldType=" + std::to_string((uint8_t)type) +" xfieldValue=" + XFieldDataToString(xfieldValue).c_str());
+}

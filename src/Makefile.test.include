@@ -96,7 +96,8 @@ BITCOIN_TESTS =\
   test/chainparams_tests.cpp \
   test/checkdatasig_tests.cpp \
   test/federationparams_tests.cpp \
-  test/xfieldhistory_tests.cpp
+  test/xfieldhistory_tests.cpp \
+  test/xfield_tests.cpp
 
 if ENABLE_WALLET
 BITCOIN_TESTS += \

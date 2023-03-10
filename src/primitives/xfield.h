@@ -133,6 +133,17 @@ typedef boost::variant<
 inline TAPYRUS_XFIELDTYPES GetXFieldTypeFrom(XFieldData xfieldDataIn) {
     return TAPYRUS_XFIELDTYPES(xfieldDataIn.which());
 }
+
+//Exception to identify xfield composition problems
+class BadXFieldException {
+    TAPYRUS_XFIELDTYPES type;
+    XFieldData xfieldValue;
+public:
+    BadXFieldException(TAPYRUS_XFIELDTYPES type_in, XFieldData xfieldValue_in):type(type_in), xfieldValue(xfieldValue_in) {}
+
+    std::string what();
+};
+
 /*
  * This method defines the association between TAPYRUS_XFIELDTYPES and XFieldData classes
  */
@@ -214,7 +225,8 @@ struct CXField {
             case TAPYRUS_XFIELDTYPES::NONE:
                 break;
         }
-        assert(GetXFieldTypeFrom(xfieldValue) == xfieldType);
+        if(GetXFieldTypeFrom(xfieldValue) != xfieldType)
+            throw BadXFieldException(xfieldType, xfieldValue);
     }
 
     template<typename Stream>
@@ -237,6 +249,8 @@ struct CXField {
             case TAPYRUS_XFIELDTYPES::NONE:
                 break;
         }
+        if(GetXFieldTypeFrom(xfieldValue) != xfieldType)
+            throw BadXFieldException(xfieldType, xfieldValue);
     }
 
     inline void clear() {

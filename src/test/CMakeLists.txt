@@ -115,6 +115,7 @@ add_test_to_suite(tapyrus test_tapyrus
 		util_tests.cpp
 		validation_block_tests.cpp
 		xfieldhistory_tests.cpp
+		xfield_tests.cpp
 	# Tests generated from JSON
 	${JSON_HEADERS}
 )
