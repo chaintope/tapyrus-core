@@ -1,5 +1,5 @@
 # ===========================================================================
-#       http://www.gnu.org/software/autoconf-archive/ax_boost_base.html
+#      https://www.gnu.org/software/autoconf-archive/ax_boost_base.html
 # ===========================================================================
 #
 # SYNOPSIS
@@ -11,7 +11,7 @@
 #   Test for the Boost C++ libraries of a particular version (or newer)
 #
 #   If no path to the installed boost library is given the macro searchs
-#   under /usr, /usr/local, /opt and /opt/local and evaluates the
+#   under /usr, /usr/local, /opt, /opt/local and /opt/homebrew and evaluates the
 #   $BOOST_ROOT environment variable. Further documentation is available at
 #   <http://randspringer.de/boost/index.html>.
 #
@@ -33,15 +33,15 @@
 #   and this notice are preserved. This file is offered as-is, without any
 #   warranty.
 
-#serial 45
+#serial 48
 
- # example boost program (need to pass version)
- m4_define([_AX_BOOST_BASE_PROGRAM],
-           [AC_LANG_PROGRAM([[
- #include <boost/version.hpp>
- ]],[[
- (void) ((void)sizeof(char[1 - 2*!!((BOOST_VERSION) < ($1))]));
- ]])])
+# example boost program (need to pass version)
+m4_define([_AX_BOOST_BASE_PROGRAM],
+          [AC_LANG_PROGRAM([[
+#include <boost/version.hpp>
+]],[[
+(void) ((void)sizeof(char[1 - 2*!!((BOOST_VERSION) < ($1))]));
+]])])
 
 AC_DEFUN([AX_BOOST_BASE],
 [
@@ -52,84 +52,79 @@ AC_ARG_WITH([boost],
      or disable it (ARG=no)
      @<:@ARG=yes@:>@ ])],
     [
-        AS_CASE([$withval],
-        [no],[want_boost="no";_AX_BOOST_BASE_boost_path=""],
-        [yes],[want_boost="yes";_AX_BOOST_BASE_boost_path=""],
-        [want_boost="yes";_AX_BOOST_BASE_boost_path="$withval"])
+     AS_CASE([$withval],
+       [no],[want_boost="no";_AX_BOOST_BASE_boost_path=""],
+       [yes],[want_boost="yes";_AX_BOOST_BASE_boost_path=""],
+       [want_boost="yes";_AX_BOOST_BASE_boost_path="$withval"])
     ],
     [want_boost="yes"])
 
 
 AC_ARG_WITH([boost-libdir],
-[AS_HELP_STRING([--with-boost-libdir=LIB_DIR],
+  [AS_HELP_STRING([--with-boost-libdir=LIB_DIR],
     [Force given directory for boost libraries.
-      Note that this will override library path detection,
-      so use this parameter only if default library detection fails
-      and you know exactly where your boost libraries are located.])],
-    [
-    AS_IF([test -d "$withval"],
-        [_AX_BOOST_BASE_boost_lib_path="$withval"],
-        [AC_MSG_ERROR([--with-boost-libdir expected directory name])])
-    ],
-    [_AX_BOOST_BASE_boost_lib_path=""])
-    BOOST_LDFLAGS=""
-    BOOST_CPPFLAGS=""
-    AS_IF([test "x$want_boost" = "xyes"],
-        [_AX_BOOST_BASE_RUNDETECT([$1],[$2],[$3])])
-    AC_SUBST(BOOST_CPPFLAGS)
-    AC_SUBST(BOOST_LDFLAGS)
-    ])
+     Note that this will override library path detection,
+     so use this parameter only if default library detection fails
+     and you know exactly where your boost libraries are located.])],
+  [
+   AS_IF([test -d "$withval"],
+         [_AX_BOOST_BASE_boost_lib_path="$withval"],
+    [AC_MSG_ERROR([--with-boost-libdir expected directory name])])
+  ],
+  [_AX_BOOST_BASE_boost_lib_path=""])
+
+BOOST_LDFLAGS=""
+BOOST_CPPFLAGS=""
+AS_IF([test "x$want_boost" = "xyes"],
+      [_AX_BOOST_BASE_RUNDETECT([$1],[$2],[$3])])
+AC_SUBST(BOOST_CPPFLAGS)
+AC_SUBST(BOOST_LDFLAGS)
+])
 
 
-    # convert a version string in $2 to numeric and affect to polymorphic var $1
-    AC_DEFUN([_AX_BOOST_BASE_TONUMERICVERSION],[
-    AS_IF([test "x$2" = "x"],[_AX_BOOST_BASE_TONUMERICVERSION_req="1.20.0"],[_AX_BOOST_BASE_TONUMERICVERSION_req="$2"])
-    _AX_BOOST_BASE_TONUMERICVERSION_req_shorten=`expr $_AX_BOOST_BASE_TONUMERICVERSION_req : '\([[0-9]]*\.[[0-9]]*\)'`
-    _AX_BOOST_BASE_TONUMERICVERSION_req_major=`expr $_AX_BOOST_BASE_TONUMERICVERSION_req : '\([[0-9]]*\)'`
-    AS_IF([test "x$_AX_BOOST_BASE_TONUMERICVERSION_req_major" = "x"],
+# convert a version string in $2 to numeric and affect to polymorphic var $1
+AC_DEFUN([_AX_BOOST_BASE_TONUMERICVERSION],[
+  AS_IF([test "x$2" = "x"],[_AX_BOOST_BASE_TONUMERICVERSION_req="1.20.0"],[_AX_BOOST_BASE_TONUMERICVERSION_req="$2"])
+  _AX_BOOST_BASE_TONUMERICVERSION_req_shorten=`expr $_AX_BOOST_BASE_TONUMERICVERSION_req : '\([[0-9]]*\.[[0-9]]*\)'`
+  _AX_BOOST_BASE_TONUMERICVERSION_req_major=`expr $_AX_BOOST_BASE_TONUMERICVERSION_req : '\([[0-9]]*\)'`
+  AS_IF([test "x$_AX_BOOST_BASE_TONUMERICVERSION_req_major" = "x"],
         [AC_MSG_ERROR([You should at least specify libboost major version])])
-    _AX_BOOST_BASE_TONUMERICVERSION_req_minor=`expr $_AX_BOOST_BASE_TONUMERICVERSION_req : '[[0-9]]*\.\([[0-9]]*\)'`
-    AS_IF([test "x$_AX_BOOST_BASE_TONUMERICVERSION_req_minor" = "x"],
+  _AX_BOOST_BASE_TONUMERICVERSION_req_minor=`expr $_AX_BOOST_BASE_TONUMERICVERSION_req : '[[0-9]]*\.\([[0-9]]*\)'`
+  AS_IF([test "x$_AX_BOOST_BASE_TONUMERICVERSION_req_minor" = "x"],
         [_AX_BOOST_BASE_TONUMERICVERSION_req_minor="0"])
-    _AX_BOOST_BASE_TONUMERICVERSION_req_sub_minor=`expr $_AX_BOOST_BASE_TONUMERICVERSION_req : '[[0-9]]*\.[[0-9]]*\.\([[0-9]]*\)'`
-    AS_IF([test "X$_AX_BOOST_BASE_TONUMERICVERSION_req_sub_minor" = "X"],
+  _AX_BOOST_BASE_TONUMERICVERSION_req_sub_minor=`expr $_AX_BOOST_BASE_TONUMERICVERSION_req : '[[0-9]]*\.[[0-9]]*\.\([[0-9]]*\)'`
+  AS_IF([test "X$_AX_BOOST_BASE_TONUMERICVERSION_req_sub_minor" = "X"],
         [_AX_BOOST_BASE_TONUMERICVERSION_req_sub_minor="0"])
-    _AX_BOOST_BASE_TONUMERICVERSION_RET=`expr $_AX_BOOST_BASE_TONUMERICVERSION_req_major \* 100000 \+  $_AX_BOOST_BASE_TONUMERICVERSION_req_minor \* 100 \+ $_AX_BOOST_BASE_TONUMERICVERSION_req_sub_minor`
-    AS_VAR_SET($1,$_AX_BOOST_BASE_TONUMERICVERSION_RET)
-    ])
+  _AX_BOOST_BASE_TONUMERICVERSION_RET=`expr $_AX_BOOST_BASE_TONUMERICVERSION_req_major \* 100000 \+  $_AX_BOOST_BASE_TONUMERICVERSION_req_minor \* 100 \+ $_AX_BOOST_BASE_TONUMERICVERSION_req_sub_minor`
+  AS_VAR_SET($1,$_AX_BOOST_BASE_TONUMERICVERSION_RET)
+])
 
-    dnl Run the detection of boost should be run only if $want_boost
-    AC_DEFUN([_AX_BOOST_BASE_RUNDETECT],[
-      _AX_BOOST_BASE_TONUMERICVERSION(WANT_BOOST_VERSION,[$1])
-
+dnl Run the detection of boost should be run only if $want_boost
+AC_DEFUN([_AX_BOOST_BASE_RUNDETECT],[
+    _AX_BOOST_BASE_TONUMERICVERSION(WANT_BOOST_VERSION,[$1])
     succeeded=no
 
-    AC_REQUIRE([AC_CANONICAL_HOST])
 
+    AC_REQUIRE([AC_CANONICAL_HOST])
     dnl On 64-bit systems check for system libraries in both lib64 and lib.
     dnl The former is specified by FHS, but e.g. Debian does not adhere to
     dnl this (as it rises problems for generic multi-arch support).
     dnl The last entry in the list is chosen by default when no libraries
     dnl are found, e.g. when only header-only libraries are installed!
     AS_CASE([${host_cpu}],
-        [x86_64],[libsubdirs="lib64 libx32 lib lib64"],
-        [ppc64|powerpc64|s390x|sparc64|aarch64|ppc64le|powerpc64le|riscv64],[libsubdirs="lib64 lib lib64"],
-        [libsubdirs="lib"]
+      [x86_64],[libsubdirs="lib64 libx32 lib lib64"],
+      [ppc64|powerpc64|s390x|sparc64|aarch64|ppc64le|powerpc64le|riscv64],[libsubdirs="lib64 lib lib64"],
+      [libsubdirs="lib"]
     )
 
     dnl allow for real multi-arch paths e.g. /usr/lib/x86_64-linux-gnu. Give
     dnl them priority over the other paths since, if libs are found there, they
     dnl are almost assuredly the ones desired.
     AS_CASE([${host_cpu}],
-        [i?86],[multiarch_libsubdir="lib/i386-${host_os}"],
-        [multiarch_libsubdir="lib/${host_cpu}-${host_os}"]
+      [i?86],[multiarch_libsubdir="lib/i386-${host_os}"],
+      [armv7l],[multiarch_libsubdir="lib/arm-${host_os}"],
+      [multiarch_libsubdir="lib/${host_cpu}-${host_os}"]
     )
-
-    dnl some arches may advertise a cpu type that doesn't line up with their
-    dnl prefix's cpu type. For example, uname may report armv7l while libs are
-    dnl installed to /usr/lib/arm-linux-gnueabihf. Try getting the compiler's
-    dnl value for an extra chance of finding the correct path.
-    libsubdirs="lib/`$CXX -dumpmachine 2>/dev/null` $libsubdirs"
 
     dnl first we check the system location for boost libraries
     dnl this location ist chosen if boost libraries are installed with the --layout=system option
@@ -155,7 +150,7 @@ AC_ARG_WITH([boost-libdir],
         else
             search_libsubdirs="$multiarch_libsubdir $libsubdirs"
         fi
-        for _AX_BOOST_BASE_boost_path_tmp in /usr /usr/local /opt /opt/local ; do
+        for _AX_BOOST_BASE_boost_path_tmp in /usr /usr/local /opt /opt/local /opt/homebrew/; do
             if test -d "$_AX_BOOST_BASE_boost_path_tmp/include/boost" && test -r "$_AX_BOOST_BASE_boost_path_tmp/include/boost" ; then
                 for libsubdir in $search_libsubdirs ; do
                     if ls "$_AX_BOOST_BASE_boost_path_tmp/$libsubdir/libboost_"* >/dev/null 2>&1 ; then break; fi
@@ -170,7 +165,7 @@ AC_ARG_WITH([boost-libdir],
     dnl overwrite ld flags if we have required special directory with
     dnl --with-boost-libdir parameter
     AS_IF([test "x$_AX_BOOST_BASE_boost_lib_path" != "x"],
-        [BOOST_LDFLAGS="-L$_AX_BOOST_BASE_boost_lib_path"])
+          [BOOST_LDFLAGS="-L$_AX_BOOST_BASE_boost_lib_path"])
 
     AC_MSG_CHECKING([for boostlib >= $1 ($WANT_BOOST_VERSION)])
     CPPFLAGS_SAVED="$CPPFLAGS"
@@ -184,14 +179,6 @@ AC_ARG_WITH([boost-libdir],
     AC_REQUIRE([AC_PROG_CXX])
     AC_LANG_PUSH(C++)
         AC_COMPILE_IFELSE([_AX_BOOST_BASE_PROGRAM($WANT_BOOST_VERSION)],[
-    @%:@include <boost/version.hpp>
-    ]], [[
-    #if BOOST_VERSION >= $WANT_BOOST_VERSION
-    // Everything is okay
-    #else
-    #  error Boost version is too old
-    #endif
-    ]])],[
         AC_MSG_RESULT(yes)
     succeeded=yes
     found_system=yes
@@ -239,7 +226,7 @@ AC_ARG_WITH([boost-libdir],
             fi
         else
             if test "x$cross_compiling" != "xyes" ; then
-                for _AX_BOOST_BASE_boost_path in /usr /usr/local /opt /opt/local ; do
+                for _AX_BOOST_BASE_boost_path in /usr /usr/local /opt /opt/local /opt/homebrew ; do
                     if test -d "$_AX_BOOST_BASE_boost_path" && test -r "$_AX_BOOST_BASE_boost_path" ; then
                         for i in `ls -d $_AX_BOOST_BASE_boost_path/include/boost-* 2>/dev/null`; do
                             _version_tmp=`echo $i | sed "s#$_AX_BOOST_BASE_boost_path##" | sed 's/\/include\/boost-//' | sed 's/_/./'`
@@ -251,6 +238,7 @@ AC_ARG_WITH([boost-libdir],
                         done
                     fi
                 done
+
                 VERSION_UNDERSCORE=`echo $_version | sed 's/\./_/'`
                 BOOST_CPPFLAGS="-I$best_path/include/boost-$VERSION_UNDERSCORE"
                 if test -z "$_AX_BOOST_BASE_boost_lib_path" ; then
@@ -307,6 +295,8 @@ AC_ARG_WITH([boost-libdir],
         # execute ACTION-IF-FOUND (if present):
         ifelse([$2], , :, [$2])
     fi
+
     CPPFLAGS="$CPPFLAGS_SAVED"
     LDFLAGS="$LDFLAGS_SAVED"
+
 ])
