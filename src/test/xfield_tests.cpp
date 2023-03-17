@@ -73,6 +73,17 @@ BOOST_AUTO_TEST_CASE(CXField_serialize)
 
 }
 
+// BOOST_CHECK_EXCEPTION predicates to check the specific validation error
+class HasReason {
+public:
+    HasReason(const std::string& reason) : m_reason(reason) {}
+    bool operator() (const BadXFieldException& e) const {
+        return std::string(e.what()).find(m_reason) != std::string::npos;
+    };
+private:
+    const std::string m_reason;
+};
+
 BOOST_AUTO_TEST_CASE(CXField_unserialize)
 {
     CXField xfieldAggPubKey;
@@ -86,7 +97,7 @@ BOOST_AUTO_TEST_CASE(CXField_unserialize)
 
     CDataStream stream2(ParseHex(std::string("02ffffffff"+ HexStr(FederationParams().GenesisBlock().GetHash()))), SER_NETWORK, PROTOCOL_VERSION);
     stream2 >> xfieldMaxBlockSize;
-    
+
     BOOST_CHECK(xfieldMaxBlockSize.xfieldType == TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE);
     BOOST_CHECK(xfieldMaxBlockSize.xfieldValue == XFieldData(XFieldMaxBlockSize(0xffffffff)));
 
@@ -99,8 +110,12 @@ BOOST_AUTO_TEST_CASE(CXField_unserialize)
     CDataStream stream5(ParseHex(std::string("0300"+ HexStr(FederationParams().GenesisBlock().GetHash()))), SER_NETWORK, PROTOCOL_VERSION);
     BOOST_CHECK_THROW(xfieldMaxBlockSize.Unserialize(stream5), BadXFieldException);
 
-    CDataStream stream7(ParseHex(std::string("032102473757a955a23f75379820f3071abf5b3343b78eb54e52373d06259ffa6c550b"+ HexStr(FederationParams().GenesisBlock().GetHash()))), SER_NETWORK, PROTOCOL_VERSION);
-    BOOST_CHECK_THROW(xfieldAggPubKey.Unserialize(stream7), BadXFieldException);
+    //incorrectly unserialized
+    CXField xfield;
+    CDataStream stream7(ParseHex(std::string("022102473757a955a23f75379820f3071abf5b3343b78eb54e52373d06259ffa6c550b"+ HexStr(FederationParams().GenesisBlock().GetHash()))), SER_NETWORK, PROTOCOL_VERSION);
+    stream7 >> xfield;
+    BOOST_CHECK(xfield.xfieldType == TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE);
+    BOOST_CHECK(xfield.xfieldValue == XFieldData(XFieldMaxBlockSize(0x37470221)));
 
 }
 

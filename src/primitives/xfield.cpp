@@ -44,7 +44,6 @@ std::string XFieldDataToString(const XFieldData &xfieldValue) {
         default:
             return "";
     }
-    return "";
 }
 
 
@@ -61,7 +60,10 @@ char GetXFieldDBKey(const XFieldData& xfieldValue) {
     }
 }
 
-std::string BadXFieldException::what()
+const char* BadXFieldException::what() const _NOEXCEPT
 {
-    return std::string("Type and data mismatch in CXField. xfieldType=" + std::to_string((uint8_t)type) +" xfieldValue=" + XFieldDataToString(xfieldValue).c_str());
+    if(unknown)
+        return strprintf("Upgrade node. Unknown xfield found in block. Node cannot synch to the blockchain with xfieldType=%s", std::to_string((uint8_t)type).c_str()).c_str();
+    else
+        return strprintf("Type and data mismatch in CXField. xfieldType=%s  xfieldValue=%s", std::to_string((uint8_t)type).c_str(), XFieldDataToString(xfieldValue).c_str()).c_str();
 }

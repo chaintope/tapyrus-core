@@ -135,13 +135,17 @@ inline TAPYRUS_XFIELDTYPES GetXFieldTypeFrom(XFieldData xfieldDataIn) {
 }
 
 //Exception to identify xfield composition problems
-class BadXFieldException {
+class BadXFieldException:public std::exception {
     TAPYRUS_XFIELDTYPES type;
     XFieldData xfieldValue;
+    bool unknown;
 public:
-    BadXFieldException(TAPYRUS_XFIELDTYPES type_in, XFieldData xfieldValue_in):type(type_in), xfieldValue(xfieldValue_in) {}
+    explicit BadXFieldException(TAPYRUS_XFIELDTYPES type_in, XFieldData xfieldValue_in):type(type_in), xfieldValue(xfieldValue_in), unknown(false) {
+        if(!IsValid(type))
+            unknown = true;
+    }
 
-    std::string what();
+    virtual const char* what() const _NOEXCEPT;
 };
 
 /*

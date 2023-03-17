@@ -15,8 +15,8 @@
  * As XFieldHistory is a global, the order of execution of test in this file seems to affect the results.
  * serialize tests behave differently depending on whether the 'add' test case executed before it or not.
  * To avoid this we use different test suits:
- * xfieldhistory_tests  - global map tests - add, remove, temp etc
- * xfield_tests  - serialize and deserialize xfieldchange anf CXField
+ * xfieldhistory_tests  - global map tests - add, remove, temp and serialize xfieldchange
+ * xfield_tests  -  deserialize xfieldchange and CXField
  */
 
 struct XFieldHistorySetup : public TestingSetup {
