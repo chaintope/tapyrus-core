@@ -145,7 +145,7 @@ public:
             unknown = true;
     }
 
-    virtual const char* what() const _NOEXCEPT;
+    virtual const char* what() const noexcept;
 };
 
 /*

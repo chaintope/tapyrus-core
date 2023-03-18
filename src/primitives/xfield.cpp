@@ -60,7 +60,7 @@ char GetXFieldDBKey(const XFieldData& xfieldValue) {
     }
 }
 
-const char* BadXFieldException::what() const _NOEXCEPT
+const char* BadXFieldException::what() const noexcept
 {
     if(unknown)
         return strprintf("Upgrade node. Unknown xfield found in block. Node cannot synch to the blockchain with xfieldType=%s", std::to_string((uint8_t)type).c_str()).c_str();
