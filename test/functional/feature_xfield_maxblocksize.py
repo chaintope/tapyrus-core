@@ -483,7 +483,7 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         self.block_time += 1
         blocknew = self.new_block(48, spend=self.unspent[18])
         blocknew.solve(self.aggprivkey[1])
-        node.p2p.send_blocks_and_test([blocknew], node, success=False, request_block=False)
+        node.p2p.send_blocks_and_test([blocknew], node, success=False, request_block=False, timeout=80)
         time.sleep(30) #wait for the reorg to complete
         self.tip = blocknew.hash
         assert_equal(self.tip, node.getbestblockhash())

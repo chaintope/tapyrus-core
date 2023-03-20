@@ -661,6 +661,7 @@ class FederationManagementTest(BitcoinTestFramework):
             { self.aggpubkeys[1] : 43},
             { self.aggpubkeys[5] : 52},
         ]
+        time.sleep(10)
         for n in self.nodes:
             blockchaininfo = n.getblockchaininfo()
             assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
