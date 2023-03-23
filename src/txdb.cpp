@@ -13,6 +13,7 @@
 #include <uint256.h>
 #include <util.h>
 #include <ui_interface.h>
+#include <xfieldhistory.h>
 
 #include <stdint.h>
 
@@ -170,23 +171,25 @@ bool CBlockTreeDB::ReadLastBlockFile(int &nFile) {
     return Read(DB_LAST_BLOCK, nFile);
 }
 
-bool CBlockTreeDB::ReadXFieldAggpubkeys(std::vector<XFieldAggpubkey> & xFieldList) {
-    return Read(DB_XFIELD_AGGPUBKEY, xFieldList);
+bool CBlockTreeDB::ReadXField(const char key, XFieldChangeListWrapper& helper) {
+    return Read(key, helper);
 }
 
-bool CBlockTreeDB::WriteXFieldAggpubkey(const XFieldAggpubkey& xFieldAggpubkey) {
-    std::vector<XFieldAggpubkey> xFieldList;
-    Read(DB_XFIELD_AGGPUBKEY, xFieldList);
-    if(std::find(xFieldList.begin(), xFieldList.end(), xFieldAggpubkey) == xFieldList.end())
-        xFieldList.push_back(xFieldAggpubkey);
-    return Write(DB_XFIELD_AGGPUBKEY, xFieldList);
+bool CBlockTreeDB::WriteXField(const XFieldChange& xFieldChange) {
+    const char key = GetXFieldDBKey(xFieldChange.xfieldValue);
+    XFieldChangeListWrapper helper(key);
+    Read(key, helper);
+    if(std::find(helper.xfieldChanges.begin(), helper.xfieldChanges.end(), xFieldChange) == helper.xfieldChanges.end())
+        helper.xfieldChanges.push_back(xFieldChange);
+    return Write(key, helper.xfieldChanges);
 }
 
-bool CBlockTreeDB::ResetXFieldAggpubkeys(std::vector<XFieldAggpubkey>& xFieldList) {
-    std::sort(xFieldList.begin(), xFieldList.end(), [](XFieldAggpubkey const& i, XFieldAggpubkey const& j)-> bool{ return i.height < j.height; } );
-    auto lastUnique = std::unique(xFieldList.begin(), xFieldList.end(), [](XFieldAggpubkey const& i, XFieldAggpubkey const& j)-> bool{ return i.height == j.height; } );
-    xFieldList.erase(lastUnique, xFieldList.end());
-    return Write(DB_XFIELD_AGGPUBKEY, xFieldList);
+bool CBlockTreeDB::RewriteXField(std::vector<XFieldChange>& xFieldChanges) {
+    const char key = GetXFieldDBKey(xFieldChanges.begin()->xfieldValue);
+    XFieldChangeListWrapper helper(key);
+    for(auto& change :xFieldChanges)
+        helper.xfieldChanges.push_back(change);
+    return Write(key, helper.xfieldChanges);
 }
 
 CCoinsViewCursor *CCoinsViewDB::Cursor() const
@@ -291,7 +294,6 @@ bool CBlockTreeDB::LoadBlockIndexGuts(std::function<CBlockIndex*(const uint256&)
                 pindexNew->hashMerkleRoot = diskindex.hashMerkleRoot;
                 pindexNew->hashImMerkleRoot = diskindex.hashImMerkleRoot;
                 pindexNew->nTime          = diskindex.nTime;
-                pindexNew->xfieldType          = diskindex.xfieldType;
                 pindexNew->xfield         = diskindex.xfield;
                 pindexNew->proof          = diskindex.proof;
                 pindexNew->nStatus        = diskindex.nStatus;

@@ -3,13 +3,21 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <bench/bench.h>
-
+#include <federationparams.h>
 #include <assert.h>
 #include <iostream>
 #include <iomanip>
 #include <algorithm>
 #include <regex>
 #include <numeric>
+
+void writeTestGenesisBlockToFile(fs::path genesisPath)
+{
+    genesisPath /= TAPYRUS_GENESIS_FILENAME;
+    fs::ofstream stream(genesisPath);
+    stream << GENESIS_BLOCK;
+    stream.close();
+}
 
 void benchmark::ConsolePrinter::header()
 {

@@ -17,6 +17,7 @@
 #include <rpc/server.h>
 #include <rpc/register.h>
 #include <script/sigcache.h>
+#include <xfieldhistory.h>
 
 constexpr unsigned int CPubKey::SCHNORR_SIGNATURE_SIZE;
 
@@ -63,6 +64,7 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
     writeTestGenesisBlockToFile(GetDataDir());
     SelectFederationParams(TAPYRUS_OP_MODE::PROD);
     noui_connect();
+    CXFieldHistory xFieldHistory(FederationParams().GenesisBlock());
 }
 
 BasicTestingSetup::~BasicTestingSetup()
@@ -182,9 +184,12 @@ TestChainSetup::CreateAndProcessBlock(const std::vector<CMutableTransaction>& tx
         unsigned int extraNonce = 0;
         IncrementExtraNonce(&block, chainActive.Tip(), extraNonce);
     }
+    XFieldAggPubKey aggpubkeyChange;
+    CXFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+    CPubKey aggpubkey(aggpubkeyChange.getPubKey());
     std::vector<unsigned char> blockProof;
     createSignedBlockProof(pblocktemplate->block, blockProof);
-    block.AbsorbBlockProof(blockProof, FederationParams().GetLatestAggregatePubkey());
+    block.AbsorbBlockProof(blockProof, aggpubkey);
 
     std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(block);
     ProcessNewBlock(shared_pblock, true, nullptr);
@@ -228,7 +233,6 @@ void writeTestGenesisBlockToFile(fs::path genesisPath, std::string genesisFileNa
         genesisPath /= genesisFileName;
     else
         genesisPath /= TAPYRUS_GENESIS_FILENAME;
-    //printf("Writing Genesis Block to [%s]\n", genesisPath.string().c_str());
     fs::ofstream stream(genesisPath);
     CKey privKey;
     privKey.Set(validAggPrivateKey, validAggPrivateKey + 32, true);

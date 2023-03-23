@@ -25,6 +25,7 @@
 #include <utilstrencodings.h>
 #include <validationinterface.h>
 #include <warnings.h>
+#include <xfieldhistory.h>
 
 #include <memory>
 #include <stdint.h>
@@ -68,7 +69,10 @@ UniValue generateBlocks(std::shared_ptr<CReserveScript> coinbaseScript, int nGen
 
         privKey.Sign_Schnorr(blockHash, proof);
 
-        if(!pblock->AbsorbBlockProof(proof, FederationParams().GetLatestAggregatePubkey())){
+        XFieldAggPubKey aggpubkeyChange;
+        CXFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+
+        if(!pblock->AbsorbBlockProof(proof, aggpubkeyChange.getPubKey())) {
             throw JSONRPCError(RPC_INTERNAL_ERROR, "AbsorbBlockProof, block proof not accepted");
         }
 
@@ -118,7 +122,10 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
     if(!cPrivKey.IsValid())
         throw JSONRPCError(RPC_WALLET_INVALID_PRIVATE_KEY, "No private key given or invalid private key.");
 
-    if(cPrivKey.GetPubKey() != FederationParams().GetLatestAggregatePubkey())
+    XFieldAggPubKey aggpubkeyChange;
+    CXFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+
+    if(cPrivKey.GetPubKey() != aggpubkeyChange.getPubKey())
         throw JSONRPCError(RPC_WALLET_INVALID_AGGREGATE_KEY, "Given private key doesn't correspond to the Aggregate Key.");
 
     return generateBlocks(coinbaseScript, nGenerate, false, cPrivKey);
@@ -154,24 +161,22 @@ UniValue getnewblock(const JSONRPCRequest& request)
     }
 
     const std::string xfieldParam = request.params[2].isNull() ? "" : request.params[2].get_str();
-    TAPYRUS_XFIELDTYPES xfieldType = TAPYRUS_XFIELDTYPES::NONE;
-    xFieldData xfield;
-
+    CXField xfield;
     if (!request.params[2].isNull())
     {
         if(xfieldParam.find(':') == std::string::npos)
             throw JSONRPCError(RPC_INVALID_PARAMS, "xfield parameter could not be parsed. Check if the xfield parameter has format: <xfield_type:new_xfield_value>.");
 
         //using lambda to avoid temp variables
-        xfieldType = [xfieldParam](int splitAt, TAPYRUS_XFIELDTYPES max) -> TAPYRUS_XFIELDTYPES
+        xfield.xfieldType = [xfieldParam](int splitAt, TAPYRUS_XFIELDTYPES max) -> TAPYRUS_XFIELDTYPES
             { int x = splitAt > 0 ? atoi(xfieldParam.substr(0,splitAt)) : 0;
-            return x > 0 && x < int(max) ? TAPYRUS_XFIELDTYPES(x) : TAPYRUS_XFIELDTYPES::NONE;
-            } (xfieldParam.find(':'), TAPYRUS_XFIELDTYPES::MAX_XFIELDTYPE );
+            return x > 0 && x <= int(max) ? TAPYRUS_XFIELDTYPES(x) : TAPYRUS_XFIELDTYPES::NONE;
+            } (xfieldParam.find(':'), TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE );
 
-        if(xfieldType ==  TAPYRUS_XFIELDTYPES::NONE)
+        if(xfield.xfieldType ==  TAPYRUS_XFIELDTYPES::NONE)
             throw JSONRPCError(RPC_INVALID_PARAMS, "Unknown xfield type");
 
-        switch(xfieldType){
+        switch(xfield.xfieldType){
             case TAPYRUS_XFIELDTYPES::AGGPUBKEY:
             {
                 std::string aggPubkeyString = xfieldParam.substr(xfieldParam.find(':')+1);
@@ -180,12 +185,25 @@ UniValue getnewblock(const JSONRPCRequest& request)
                     CPubKey aggPubKey(data);
                     if (aggPubKey.IsFullyValid() && aggPubKey.IsCompressed())
                     {
-                        xfield.aggPubKey = std::vector<unsigned char>(data.begin(), data.end());
+                        xfield.xfieldValue = XFieldAggPubKey(data);
+                        xfield.xfieldType = TAPYRUS_XFIELDTYPES::AGGPUBKEY;
                         break;
                     }
                     throw JSONRPCError(RPC_INVALID_PARAMS, "xfield parameter was invalid. Aggregate public key was uncompressed or invalid");
                 }
                 throw JSONRPCError(RPC_INVALID_PARAMS, "xfield parameter was invalid. Aggregate public key could not be parsed");
+            }
+            break;
+            case TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE:
+            {
+                std::string xfieldString = xfieldParam.substr(xfieldParam.find(':')+1);
+                uint32_t val;
+                if(!xfieldString.size() || !ParseUInt32(xfieldString, &val))
+                    throw JSONRPCError(RPC_INVALID_PARAMS, "xfield max block size was invalid. It is expected to be <xfield_type:new_xfield_value>.");
+                xfield.xfieldValue = XFieldMaxBlockSize(val);
+                if(!boost::apply_visitor(XFieldValidityVisitor(), xfield.xfieldValue))
+                    throw JSONRPCError(RPC_INVALID_PARAMS, "xfield max block size was invalid. It is expected to be a positive quantity between 1000 and 4294967295.");
+                xfield.xfieldType = TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE;
             }
             break;
             default:
@@ -194,7 +212,7 @@ UniValue getnewblock(const JSONRPCRequest& request)
     }
     CScript coinbaseScript {GetScriptForDestination(destination)};
 
-    std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(Params()).CreateNewBlock(coinbaseScript, true, xfieldType, &xfield));
+    std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(Params()).CreateNewBlock(coinbaseScript, true, &xfield));
     if (!pblocktemplate.get())
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Wallet keypool empty");
     {
@@ -865,7 +883,11 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
     if(blockProof.size() != CPubKey::SCHNORR_SIGNATURE_SIZE || !CheckSchnorrSignatureEncoding(blockProof, nullptr, true) )
         throw JSONRPCError(RPC_INVALID_PARAMS, "Invalid signature encoding");
 
-    bool status = block.AbsorbBlockProof(blockProof, FederationParams().GetLatestAggregatePubkey());
+    XFieldAggPubKey aggpubkeyChange;
+    CXFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+    CPubKey aggpubkey(aggpubkeyChange.getPubKey());
+
+    bool status = block.AbsorbBlockProof(blockProof, aggpubkey);
 
     UniValue result(UniValue::VOBJ);
     CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);

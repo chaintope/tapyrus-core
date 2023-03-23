@@ -15,6 +15,7 @@
 #include <tapyrusmodes.h>
 #include <chainparamsseeds.h>
 #include <validation.h>
+#include <xfieldhistory.h>
 
 #include <assert.h>
 
@@ -69,8 +70,8 @@ CBlock createGenesisBlock(const CPubKey& aggregatePubkey, const CKey& privateKey
     genesis.hashPrevBlock.SetNull();
     genesis.hashMerkleRoot = BlockMerkleRoot(genesis);
     genesis.hashImMerkleRoot = BlockMerkleRoot(genesis, nullptr, true);
-    genesis.xfieldType = 1;
-    genesis.xfield = std::vector<unsigned char>(aggregatePubkey.data(), aggregatePubkey.data() + CPubKey::COMPRESSED_PUBLIC_KEY_SIZE);
+    genesis.xfield.xfieldType = TAPYRUS_XFIELDTYPES::AGGPUBKEY;
+    genesis.xfield.xfieldValue = XFieldAggPubKey(std::vector<unsigned char>(aggregatePubkey.begin(), aggregatePubkey.end()));
 
     //Genesis block proof
     uint256 blockHash = genesis.GetHashForSign();
@@ -138,40 +139,11 @@ CFederationParams::CFederationParams(const uint32_t networkId, const std::string
     pchMessageStart[3] = stream[0];
 
     if(genesisHex.size())
-        ReadGenesisBlock(genesisHex);
+        this->ReadGenesisBlock(genesisHex);
 
     vSeeds = gArgs.GetArgs("-addseeder");
 
     vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_main, pnSeed6_main + ARRAYLEN(pnSeed6_main));
-}
-
-CPubKey CFederationParams::ReadAggregatePubkey(const std::vector<unsigned char>& pubkey, uint64_t height) const
-{
-    if(!pubkey.size())
-        throw std::runtime_error("Aggregate Public Key for Signed Block is empty");
-    
-    if (pubkey[0] == 0x02 || pubkey[0] == 0x03) {
-        AggPubkeyAndHeight p;
-        p.aggpubkey = CPubKey(pubkey.begin(), pubkey.end());
-        p.height = height;
-        if(!p.aggpubkey.IsFullyValid()) {
-            throw std::runtime_error(strprintf("Aggregate Public Key for Signed Block is invalid: %s", HexStr(pubkey)));
-        }
-
-        if (p.aggpubkey.size() != CPubKey::COMPRESSED_PUBLIC_KEY_SIZE) {
-            throw std::runtime_error(strprintf("Aggregate Public Key for Signed Block is invalid: %s", HexStr(pubkey)));
-        }
-        if(height && GetAggPubkeyFromHeight(height) == p.aggpubkey)
-            return p.aggpubkey;
-
-        aggregatePubkeyHeight.push_back(p);
-        return p.aggpubkey;
-
-    } else if(pubkey[0] == 0x04 || pubkey[0] == 0x06 || pubkey[0] == 0x07) {
-        throw std::runtime_error(strprintf("Uncompressed public key format are not acceptable: %s", HexStr(pubkey)));
-    } else {
-        throw std::runtime_error(strprintf("Aggregate Public Key for Signed Block is invalid: %s", HexStr(pubkey)));
-    }
 }
 
 bool CFederationParams::ReadGenesisBlock(std::string genesisHex)
@@ -179,12 +151,31 @@ bool CFederationParams::ReadGenesisBlock(std::string genesisHex)
     CDataStream ss(ParseHex(genesisHex), SER_NETWORK, PROTOCOL_VERSION);
     unsigned long streamsize = ss.size();
     ss >> genesis;
+    CPubKey aggPubKeyToVerify;
 
-    switch((TAPYRUS_XFIELDTYPES)genesis.xfieldType)
+    switch(genesis.xfield.xfieldType)
     {
-        case TAPYRUS_XFIELDTYPES::AGGPUBKEY:
-            ReadAggregatePubkey(genesis.xfield, 0);
-            break;
+        case TAPYRUS_XFIELDTYPES::AGGPUBKEY: {
+            std::vector<unsigned char>* pubkey = &boost::get<XFieldAggPubKey>(genesis.xfield.xfieldValue).data;
+            if(!pubkey->size())
+                throw std::runtime_error("Aggregate Public Key for Signed Block is empty");
+
+            if ((*pubkey)[0] == 0x02 || (*pubkey)[0] == 0x03) {
+                aggPubKeyToVerify = CPubKey(pubkey->begin(), pubkey->end());
+                if(!aggPubKeyToVerify.IsFullyValid()) {
+                    throw std::runtime_error(strprintf("Aggregate Public Key for Signed Block is invalid: %s", HexStr(aggPubKeyToVerify)));
+                }
+
+                if (aggPubKeyToVerify.size() != CPubKey::COMPRESSED_PUBLIC_KEY_SIZE) {
+                    throw std::runtime_error(strprintf("Aggregate Public Key for Signed Block is invalid: %s size was: %d", HexStr(aggPubKeyToVerify), aggPubKeyToVerify.size()));
+                }
+                break;
+
+            } else if((*pubkey)[0] == 0x04 || (*pubkey)[0] == 0x06 || (*pubkey)[0] == 0x07) {
+                throw std::runtime_error(strprintf("Uncompressed public key format are not acceptable: %s", HexStr(*pubkey)));
+            }
+        }
+        case TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE:
         case TAPYRUS_XFIELDTYPES::NONE:
         default:
             throw std::runtime_error("ReadGenesisBlock: invalid xfieldType in genesis block");
@@ -215,31 +206,12 @@ bool CFederationParams::ReadGenesisBlock(std::string genesisHex)
 
     //verify proof
     const uint256 blockHash = genesis.GetHashForSign();
-    if(!aggregatePubkeyHeight.back().aggpubkey.Verify_Schnorr(blockHash, genesis.proof))
+
+    if(!aggPubKeyToVerify.Verify_Schnorr(blockHash, genesis.proof))
         throw std::runtime_error("ReadGenesisBlock: Proof verification failed");
 
+    //initialize xfield history
+    CXFieldHistory history(genesis);
     return true;
 }
 
-int CFederationParams::GetHeightFromAggregatePubkey(const CPubKey &aggpubkey) const
-{
-    for (auto& c : aggregatePubkeyHeight) {
-        if (c.aggpubkey == aggpubkey)
-            return c.height;
-    }
-    return -1;
-}
-
-CPubKey& CFederationParams::GetAggPubkeyFromHeight(int height) const
-{
-    if(height == 0 || aggregatePubkeyHeight.size() == 1)
-        return aggregatePubkeyHeight.at(0).aggpubkey; 
-
-    if(height < 0 || height > aggregatePubkeyHeight.back().height)
-        return aggregatePubkeyHeight.back().aggpubkey;
-
-    for(unsigned int i = 0; i < aggregatePubkeyHeight.size(); i++) {
-        if(height == aggregatePubkeyHeight.at(i).height || (aggregatePubkeyHeight.at(i).height < height && height < aggregatePubkeyHeight.at(i+1).height))
-            return aggregatePubkeyHeight.at(i).aggpubkey;
-    }
-}

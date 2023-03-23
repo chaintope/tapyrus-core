@@ -94,7 +94,7 @@ void BlockAssembler::resetBlock()
     nFees = 0;
 }
 
-std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, int required_age_in_secs, TAPYRUS_XFIELDTYPES xfieldType, const xFieldData* value)
+std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, int required_age_in_secs, CXField* pXField)
 {
     int64_t nTimeStart = GetTimeMicros();
 
@@ -122,10 +122,10 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     if (chainparams.MineBlocksOnDemand())
         pblock->nFeatures = gArgs.GetArg("-blockfeatures", pblock->nFeatures);
 
-    if(xfieldType != TAPYRUS_XFIELDTYPES::NONE)
+    if(pXField && pXField->xfieldType != TAPYRUS_XFIELDTYPES::NONE)
     {
-        pblock->xfieldType = (uint8_t)xfieldType;
-        pblock->xfield = value->aggPubKey;
+        pblock->xfield.xfieldType = pXField->xfieldType;
+        pblock->xfield.xfieldValue = pXField->xfieldValue;
     }
 
     pblock->nTime = GetAdjustedTime();
@@ -159,10 +159,6 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     // Fill in header
     pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
     UpdateTime(pblock, chainparams.GetConsensus(), pindexPrev);
-    //aggPubkey is not needed in every block.
-    //unused until federation management is implemented.
-    //std::vector<unsigned char> aggPubkey(chainparams.GetLatestAggregatePubkey().begin(), chainparams.GetLatestAggregatePubkey().end());
-    //pblock->aggPubkey = aggPubkey;
     pblock->proof.clear();
     pblocktemplate->vTxSigOpsCost[0] = GetLegacySigOpCount(*pblock->vtx[0]);
 

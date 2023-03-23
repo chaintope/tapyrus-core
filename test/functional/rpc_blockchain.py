@@ -38,6 +38,7 @@ from test_framework.blocktools import (
 )
 from test_framework.messages import (
     msg_block,
+    MAX_BLOCK_BASE_SIZE
 )
 from test_framework.mininode import (
     P2PInterface,
@@ -68,6 +69,7 @@ class BlockchainTest(BitcoinTestFramework):
             'chain',
             'headers',
             'initialblockdownload',
+            'maxBlockSizes',
             'mediantime',
             'mode',
             'pruned',
@@ -77,6 +79,7 @@ class BlockchainTest(BitcoinTestFramework):
         ]
         res = self.nodes[0].getblockchaininfo()
         assert_equal(res['aggregatePubkeys'], [{self.signblockpubkey:0}])
+        assert_equal(res['maxBlockSizes'], [{'%s' % str(MAX_BLOCK_BASE_SIZE):0}])
 
         # result should have these additional pruning keys if manual pruning is enabled
         assert_equal(sorted(res.keys()), sorted(['pruneheight', 'automatic_pruning'] + keys))

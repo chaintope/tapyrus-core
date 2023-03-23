@@ -20,6 +20,7 @@
 #include <sync.h>
 #include <chainparams.h>
 #include <chain.h>
+#include <xfieldhistory.h>
 
 #include <algorithm>
 #include <exception>
@@ -44,7 +45,7 @@ class CBlockPolicyEstimator;
 class CTxMemPool;
 class CValidationState;
 struct ChainTxData;
-struct XFieldAggpubkey;
+struct XFieldChange;
 
 struct PrecomputedTransactionData;
 struct LockPoints;
@@ -251,7 +252,7 @@ FILE* OpenBlockFile(const CDiskBlockPos &pos, bool fReadOnly = false);
 /** Translation to a filesystem path */
 fs::path GetBlockPosFilename(const CDiskBlockPos &pos, const char *prefix);
 /** Import blocks from an external file */
-bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp = nullptr,  std::vector<XFieldAggpubkey>* xFieldList = nullptr);
+bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp = nullptr, CXFieldHistoryMap* pxfieldHistory = nullptr);
 /** Ensures we have a genesis block in the block tree, possibly writing one to disk. */
 bool LoadGenesisBlock();
 /** Load the block tree and coins database from disk,
@@ -391,7 +392,7 @@ bool ReadRawBlockFromDisk(std::vector<uint8_t>& block, const CBlockIndex* pindex
 /** Functions for validating blocks and updating the block tree */
 
 /** Context-independent validity checks */
-bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW = true, bool fCheckMerkleRoot = true, std::vector<AggPubkeyAndHeight>* aggPubkeys = nullptr);
+bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW = true, bool fCheckMerkleRoot = true, CXFieldHistoryMap* pxfieldHistory = nullptr);
 
 /** Check a block is completely valid from start to finish (only works on top of our current best block) */
 bool TestBlockValidity(CValidationState& state, const CBlock& block, CBlockIndex* pindexPrev, bool fCheckPOW = true, bool fCheckMerkleRoot = true) EXCLUSIVE_LOCKS_REQUIRED(cs_main);

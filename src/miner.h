@@ -121,23 +121,6 @@ struct update_for_parent_inclusion
     CTxMemPool::txiter iter;
 };
 
-/* extensible structure to store the xfield input from RPC getnewblock
-xFieldData is a union holding either aggpubkey or max block size. It is extensible in the future
-*/
-
-
-    union xFieldData{
-        std::vector<unsigned char> aggPubKey;
-
-        /*
-         default constructor and destructor
-         need to be changed when new xfield types are added
-        */
-        xFieldData():aggPubKey({'\0'}){}
-        xFieldData(unsigned char* begin, unsigned char* end):aggPubKey(begin, end){}
-        ~xFieldData(){}
-
-    };
 
 /** Generate a new block, without valid proof-of-work */
 class BlockAssembler
@@ -175,7 +158,7 @@ public:
     BlockAssembler(const CChainParams& params, const Options& options);
 
     /** Construct a new block template with coinbase to scriptPubKeyIn */
-    std::unique_ptr<CBlockTemplate> CreateNewBlock(const CScript& scriptPubKeyIn, int required_age_in_secs=0, TAPYRUS_XFIELDTYPES xfieldType = TAPYRUS_XFIELDTYPES::NONE, const xFieldData* Value = nullptr);
+    std::unique_ptr<CBlockTemplate> CreateNewBlock(const CScript& scriptPubKeyIn, int required_age_in_secs=0, CXField* pXField = nullptr);
 
 private:
     // utility functions

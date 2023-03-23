@@ -1,6 +1,6 @@
 *.tar.gz
+.devcontainer
 .vscode
-
 *.exe
 src/tapyrus
 src/tapyrusd

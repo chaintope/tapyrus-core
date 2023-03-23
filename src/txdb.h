@@ -11,6 +11,7 @@
 #include <dbwrapper.h>
 #include <chain.h>
 #include <primitives/block.h>
+#include <xfieldhistory.h>
 
 #include <map>
 #include <memory>
@@ -21,6 +22,7 @@
 class CBlockIndex;
 class CCoinsViewDBCursor;
 class uint256;
+struct XFieldChange;
 
 /*
 struct to store and retrieve xfield aggpubkey change information into level db blocks db
@@ -134,9 +136,10 @@ public:
     bool WriteFlag(const std::string &name, bool fValue);
     bool ReadFlag(const std::string &name, bool &fValue);
     bool LoadBlockIndexGuts(std::function<CBlockIndex*(const uint256&)> insertBlockIndex);
-    bool ReadXFieldAggpubkeys(std::vector<XFieldAggpubkey> & xFieldList);
-    bool WriteXFieldAggpubkey(const XFieldAggpubkey & XFieldAggpubkey);
-    bool ResetXFieldAggpubkeys(std::vector<XFieldAggpubkey>& xFieldList);
+
+    bool ReadXField(const char key, XFieldChangeListWrapper& xFieldList);
+    bool WriteXField(const XFieldChange & xFieldChange);
+    bool RewriteXField(std::vector<XFieldChange> & xFieldChanges);
 };
 
 #endif // BITCOIN_TXDB_H

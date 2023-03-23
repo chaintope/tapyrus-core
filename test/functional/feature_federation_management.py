@@ -446,9 +446,9 @@ class FederationManagementTest(BitcoinTestFramework):
         assert(node.getblock(self.tip))
 
         #call invalidate block rpc on B36 -- failure - B36 is a federation block
-        assert_raises_rpc_error(-8, "Federation block found", node.invalidateblock, self.tip)
-        assert_raises_rpc_error(-8, "Federation block found", node.invalidateblock, self.forkblocks[33])
-        assert_raises_rpc_error(-8, "Federation block found", node.invalidateblock, self.blocks[29])
+        assert_raises_rpc_error(-8, "Cannot invalidate block as Xfield change found in chain after this block", node.invalidateblock, self.tip)
+        assert_raises_rpc_error(-8, "Cannot invalidate block as Xfield change found in chain after this block", node.invalidateblock, self.forkblocks[33])
+        assert_raises_rpc_error(-8, "Cannot invalidate block as Xfield change found in chain after this block", node.invalidateblock, self.blocks[29])
         assert_equal(self.tip, node.getbestblockhash())
 
         #B37 - Create block - sign using aggpubkey5 -- success
@@ -478,7 +478,7 @@ class FederationManagementTest(BitcoinTestFramework):
         assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
 
         self.stop_node(0)
-        self.log.info("Restarting node with '-reindex'")
+        self.log.info("Restarting node0 with '-reindex'")
         self.start_node(0, extra_args=["-reindex"])
         connect_nodes(self.nodes[0], 1)
         self.connectNodeAndCheck(2, expectedAggPubKeys)
@@ -531,9 +531,9 @@ class FederationManagementTest(BitcoinTestFramework):
         os.mkdir(os.path.join(self.nodes[2].datadir, 'blocks'))
         shutil.copyfile(os.path.join(self.nodes[0].datadir, NetworkDirName(), 'blocks', 'blk00000.dat'), os.path.join(self.nodes[2].datadir, 'blocks', 'blk00000.dat'))
         os.remove(os.path.join(self.nodes[0].datadir, NetworkDirName(), 'blocks', 'blk00000.dat'))
+        extra_args=["-loadblock=%s" % os.path.join(self.nodes[0].datadir, 'blk00000.dat'), "-reindex"]
+        self.start_node(0, extra_args)
 
-        self.log.info("Restarting node0 with '-loadblock'")
-        self.start_node(0, ["-loadblock=%s" % os.path.join(self.nodes[0].datadir, 'blk00000.dat'), "-reindex"])
         #reindex takes time. wait before checking blockchain info
         time.sleep(5)
         blockchaininfo = self.nodes[0].getblockchaininfo()
@@ -661,12 +661,14 @@ class FederationManagementTest(BitcoinTestFramework):
             { self.aggpubkeys[1] : 43},
             { self.aggpubkeys[5] : 52},
         ]
+        time.sleep(10)
         for n in self.nodes:
             blockchaininfo = n.getblockchaininfo()
             assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
             assert_equal(blockchaininfo["blocks"], 56)
 
     def connectNodeAndCheck(self, n, expectedAggPubKeys):
+        #this function tests HEADERS message processing in node 'n'
         self.start_node(n)
         connect_nodes(self.nodes[0], n)
         self.sync_all([self.nodes[0:n+1]])

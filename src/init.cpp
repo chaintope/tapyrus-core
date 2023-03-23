@@ -50,6 +50,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <tapyrusmodes.h>
+#include <xfieldhistory.h>
 
 #ifndef WIN32
 #include <signal.h>
@@ -636,6 +637,7 @@ static void ThreadImport(std::vector<fs::path> vImportFiles, bool fReloadxfield)
 {
     RenameThread("bitcoin-loadblk");
     ScheduleBatchPriority();
+    CTempXFieldHistory tempXFieldHistory;
 
     {
     CImportingNow imp;
@@ -643,6 +645,9 @@ static void ThreadImport(std::vector<fs::path> vImportFiles, bool fReloadxfield)
 
     // -reindex
     if (fReindex || fReloadxfield) {
+        // To avoid ending up in a situation without genesis block, initialize it:
+        LoadGenesisBlock();
+
         int nFile = 0;
         while (true) {
             CDiskBlockPos pos(nFile, 0);
@@ -652,14 +657,12 @@ static void ThreadImport(std::vector<fs::path> vImportFiles, bool fReloadxfield)
             if (!file)
                 break; // This error is logged in OpenBlockFile
             LogPrintf("Reindexing block file blk%05u.dat...\n", (unsigned int)nFile);
-            LoadExternalBlockFile(file, &pos, &xFieldList);
+            LoadExternalBlockFile(file, &pos, &tempXFieldHistory);
             nFile++;
         }
         pblocktree->WriteReindexing(false);
         fReindex = false;
         LogPrintf("Reindexing finished\n");
-        // To avoid ending up in a situation without genesis block, re-try initializing (no-op if reindexing worked):
-        LoadGenesisBlock();
     }
 
     // hardcoded $DATADIR/bootstrap.dat
@@ -669,7 +672,7 @@ static void ThreadImport(std::vector<fs::path> vImportFiles, bool fReloadxfield)
         if (file) {
             fs::path pathBootstrapOld = GetDataDir() / "bootstrap.dat.old";
             LogPrintf("Importing bootstrap.dat...\n");
-            LoadExternalBlockFile(file, nullptr, &xFieldList);
+            LoadExternalBlockFile(file, nullptr, &tempXFieldHistory);
             RenameOver(pathBootstrap, pathBootstrapOld);
         } else {
             LogPrintf("Warning: Could not open bootstrap file %s\n", pathBootstrap.string());
@@ -681,14 +684,14 @@ static void ThreadImport(std::vector<fs::path> vImportFiles, bool fReloadxfield)
         FILE *file = fsbridge::fopen(path, "rb");
         if (file) {
             LogPrintf("Importing blocks file %s...\n", path.string());
-            LoadExternalBlockFile(file, nullptr, &xFieldList);
+            LoadExternalBlockFile(file, nullptr, &tempXFieldHistory);
         } else {
             LogPrintf("Warning: Could not open blocks file %s\n", path.string());
         }
     }
 
-    if (fReloadxfield && xFieldList.size()) {
-        pblocktree->ResetXFieldAggpubkeys(xFieldList);
+    if (fReloadxfield) {
+        pblocktree->RewriteXField(tempXFieldHistory[TAPYRUS_XFIELDTYPES::AGGPUBKEY].xfieldChanges);
     }
 
     // scan for better chains in the block chain database, that are not yet connected in the active best chain
@@ -1512,20 +1515,16 @@ bool AppInitMain()
                     }
                 }
                 // Step 7a: Load Xfield data from db
-                std::vector<XFieldAggpubkey> xFieldList;
-                pblocktree->ReadXFieldAggpubkeys(xFieldList);
-                for(auto &XFieldData:xFieldList)
+                CXFieldHistory xFieldHistory;
+                for(auto x : XFIELDTYPES_INIT_LIST)
                 {
-                    //verify the aggpubkey from the xfield in the block db and then add to federation params
-                    CBlockIndex* pindex = LookupBlockIndex(XFieldData.blockHash);
-                    if (!pindex)//block might not be in the best chain
-                        continue;
-
-
-                    if(pindex->GetBlockHeader().isXFieldValid()
-                        && pindex->GetBlockHeader().isXFieldEqual(CPubKey(XFieldData.aggpubkey.begin(), XFieldData.aggpubkey.end())))
-                            FederationParams().ReadAggregatePubkey(XFieldData.aggpubkey, XFieldData.height);
+                    const char key(std::to_string(static_cast<int8_t>(x))[0]);
+                    XFieldChangeListWrapper xFieldListDB(key);
+                    pblocktree->ReadXField(key, xFieldListDB);
+                    for(auto &XFieldDB:xFieldListDB)
+                        xFieldHistory.Add(x, XFieldDB);
                 }
+
                 if (!is_coinsview_empty) {
                     uiInterface.InitMessage(_("Verifying blocks..."));
                     if (fHavePruned && gArgs.GetArg("-checkblocks", DEFAULT_CHECKBLOCKS) > MIN_BLOCKS_TO_KEEP) {

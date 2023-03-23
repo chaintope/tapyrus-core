@@ -9,6 +9,7 @@
 #include <key.h>
 #include <utilstrencodings.h>
 #include <validation.h>
+#include <streams.h>
 
 #include <memory>
 
@@ -66,6 +67,9 @@ int main(int argc, char** argv)
     SHA256AutoDetect();
     ECC_Start();
     SetupEnvironment();
+    writeTestGenesisBlockToFile(GetDataDir(false));
+    SelectFederationParams(TAPYRUS_OP_MODE::PROD);
+    CXFieldHistory xFieldHistory(FederationParams().GenesisBlock());
 
     int64_t evaluations = gArgs.GetArg("-evals", DEFAULT_BENCH_EVALUATIONS);
     std::string regex_filter = gArgs.GetArg("-filter", DEFAULT_BENCH_FILTER);

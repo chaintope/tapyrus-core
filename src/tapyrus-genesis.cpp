@@ -17,6 +17,7 @@
 #include <tinyformat.h>
 #include <script/standard.h>
 #include <stdio.h>
+#include <xfieldhistory.h>
 
 static const int CONTINUE_EXECUTION=-1;
 
@@ -104,9 +105,12 @@ static int generateNewKeyPair()
     return EXIT_SUCCESS;
 }
 
-static int generateGenesis(CKey& privatekey, long long blockTime, std::string& payToAddress)
+static int generateGenesis(CPubKey aggpubkey, CKey& privatekey, long long blockTime, std::string& payToAddress)
 {
-    CBlock genesis { createGenesisBlock(FederationParams().GetLatestAggregatePubkey(), privatekey, blockTime, payToAddress) };
+    CBlock genesis { createGenesisBlock(aggpubkey, privatekey, blockTime, payToAddress) };
+
+    //initialize xfield history
+    CXFieldHistory history(genesis);
 
     // check validity
     CValidationState state;
@@ -135,20 +139,41 @@ static int CommandLine()
         return EXIT_FAILURE;
     }
 
+    CPubKey aggpubkey;
     try {
         std::string pubkey = gArgs.GetArg("-signblockpubkey", "");
         if(pubkey.size())
-            FederationParams().ReadAggregatePubkey(ParseHex(pubkey), 0);
+        {
+            std::vector<unsigned char> key( ParseHex(pubkey) );
+            aggpubkey = CPubKey(key.begin(), key.end());
+            if(!aggpubkey.IsFullyValid())
+            {
+                fprintf(stderr, "Error: Aggregate Public Key was invalid.\n");
+                return EXIT_FAILURE;
+            }
+        }
     } catch (const std::exception& e) {
         fprintf(stderr, "Error: %s\n", e.what());
         return EXIT_FAILURE;
     }
+
+    // This is for using CKey.sign().
+    ECC_Start();
+
+    // This is for using CPubKey.verify().
+    ECCVerifyHandle globalVerifyHandle;
 
     std::string wif = gArgs.GetArg("-signblockprivatekey", "");
     CKey privatekey(DecodeSecret(wif));
     if(wif.size() && !privatekey.IsValid())
     {
         fprintf(stderr, "Error: Aggregate private key was invalid.\n");
+        return EXIT_FAILURE;
+    }
+
+    if(privatekey.IsValid() && aggpubkey != privatekey.GetPubKey())
+    {
+        fprintf(stderr, "Error: Aggregate private key does not correspond to given Aggregate public key.\n");
         return EXIT_FAILURE;
     }
 
@@ -163,17 +188,11 @@ static int CommandLine()
          return EXIT_FAILURE;
      }
 
-    // This is for using CKey.sign().
-    ECC_Start();
-
-    // This is for using CPubKey.verify().
-    ECCVerifyHandle globalVerifyHandle;
-
     //generate after ECC initialization
     if(generateKey)
         return generateNewKeyPair();
     else
-        return generateGenesis(privatekey, blockTime, payToAddress);
+        return generateGenesis(aggpubkey, privatekey, blockTime, payToAddress);
 }
 
 int main(int argc, char* argv[])

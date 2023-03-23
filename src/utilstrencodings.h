@@ -19,6 +19,8 @@
 #define UEND(a)             ((unsigned char*)&((&(a))[1]))
 #define ARRAYLEN(array)     (sizeof(array)/sizeof((array)[0]))
 
+struct CXField;
+
 /** Used by SanitizeString() */
 enum SafeChars
 {
