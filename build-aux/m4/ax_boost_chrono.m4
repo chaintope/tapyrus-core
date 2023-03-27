@@ -62,13 +62,13 @@ AC_DEFUN([AX_BOOST_CHRONO],
         LDFLAGS="$LDFLAGS $BOOST_LDFLAGS"
         export LDFLAGS
 
-        AC_CACHE_CHECK(whether the Boost::Chrono library is available,
+        AC_CACHE_CHECK(whether the std::chrono library is available,
                        ax_cv_boost_chrono,
         [AC_LANG_PUSH([C++])
              CXXFLAGS_SAVE=$CXXFLAGS
 
              AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[@%:@include <boost/chrono.hpp>]],
-                                   [[boost::chrono::system_clock::time_point* time = new boost::chrono::system_clock::time_point; delete time;]])],
+                                   [[std::chrono::system_clock::time_point* time = new std::chrono::system_clock::time_point; delete time;]])],
                    ax_cv_boost_chrono=yes, ax_cv_boost_chrono=no)
              CXXFLAGS=$CXXFLAGS_SAVE
              AC_LANG_POP([C++])
@@ -76,7 +76,7 @@ AC_DEFUN([AX_BOOST_CHRONO],
         if test "x$ax_cv_boost_chrono" = "xyes"; then
             AC_SUBST(BOOST_CPPFLAGS)
 
-            AC_DEFINE(HAVE_BOOST_CHRONO,,[define if the Boost::Chrono library is available])
+            AC_DEFINE(HAVE_BOOST_CHRONO,,[define if the std::chrono library is available])
             BOOSTLIBDIR=`echo $BOOST_LDFLAGS | sed -e 's/@<:@^\/@:>@*//'`
 
             LDFLAGS_SAVE=$LDFLAGS

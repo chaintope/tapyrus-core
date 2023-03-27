@@ -61,7 +61,7 @@ int64_t GetSystemTimeInSeconds()
 
 void MilliSleep(int64_t n)
 {
-    boost::this_thread::sleep_for(boost::chrono::milliseconds(n));
+    boost::this_thread::sleep_for(std::chrono::milliseconds(n));
 }
 
 std::string FormatISO8601DateTime(int64_t nTime) {

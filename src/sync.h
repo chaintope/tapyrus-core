@@ -170,14 +170,52 @@ public:
     {
         return lock.owns_lock();
     }
+
+protected:
+    // needed for reverse_lock
+    CCriticalBlock() { }
+
+public:
+    /**
+     * An RAII-style reverse lock. Unlocks on construction and locks on destruction.
+     */
+    class reverse_lock {
+    public:
+        explicit reverse_lock(CCriticalBlock& _lock, const char* _guardname, const char* _file, int _line) : lock(_lock), file(_file), line(_line) {
+            CheckLastCritical((void*)lock.mutex(), lockname, _guardname, _file, _line);
+            lock.unlock();
+            LeaveCritical();
+            lock.swap(templock);
+        }
+
+        ~reverse_lock() {
+            templock.swap(lock);
+            EnterCritical(lockname.c_str(), file.c_str(), line, lock.mutex());
+            lock.lock();
+        }
+
+    private:
+        reverse_lock(reverse_lock const&);
+        reverse_lock& operator=(reverse_lock const&);
+
+        CCriticalBlock& lock;
+        CCriticalBlock templock;
+        std::string lockname;
+        const std::string file;
+        const int line;
+    };
+    friend class reverse_lock;
 };
 
 #define PASTE(x, y) x ## y
 #define PASTE2(x, y) PASTE(x, y)
 
+#define REVERSE_LOCK(g) typename std::decay<decltype(g)>::type::reverse_lock UNIQUE_NAME(revlock)(g, #g, __FILE__, __LINE__)
+
 #define LOCK(cs) CCriticalBlock PASTE2(criticalblock, __COUNTER__)(cs, #cs, __FILE__, __LINE__)
 #define LOCK2(cs1, cs2) CCriticalBlock criticalblock1(cs1, #cs1, __FILE__, __LINE__), criticalblock2(cs2, #cs2, __FILE__, __LINE__)
 #define TRY_LOCK(cs, name) CCriticalBlock name(cs, #cs, __FILE__, __LINE__, true)
+#define WAIT_LOCK(cs, name) CCriticalBlock name(cs, #cs, __FILE__, __LINE__)
 
 #define ENTER_CRITICAL_SECTION(cs)                            \
     {                                                         \

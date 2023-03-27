@@ -7,7 +7,7 @@
 
 //
 // NOTE:
-// boost::thread / boost::chrono should be ported to std::thread / std::chrono
+// boost::thread / std::chrono should be ported to std::thread / std::chrono
 // when we support C++11.
 //
 #include <boost/chrono/chrono.hpp>
@@ -43,7 +43,7 @@ public:
     typedef std::function<void(void)> Function;
 
     // Call func at/after time t
-    void schedule(Function f, boost::chrono::system_clock::time_point t=boost::chrono::system_clock::now());
+    void schedule(Function f, std::chrono::system_clock::time_point t=std::chrono::system_clock::now());
 
     // Convenience method: call f once deltaSeconds from now
     void scheduleFromNow(Function f, int64_t deltaMilliSeconds);
@@ -68,14 +68,14 @@ public:
 
     // Returns number of tasks waiting to be serviced,
     // and first and last task times
-    size_t getQueueInfo(boost::chrono::system_clock::time_point &first,
-                        boost::chrono::system_clock::time_point &last) const;
+    size_t getQueueInfo(std::chrono::system_clock::time_point &first,
+                        std::chrono::system_clock::time_point &last) const;
 
     // Returns true if there are threads actively running in serviceQueue()
     bool AreThreadsServicingQueue() const;
 
 private:
-    std::multimap<boost::chrono::system_clock::time_point, Function> taskQueue;
+    std::multimap<std::chrono::system_clock::time_point, Function> taskQueue;
     boost::condition_variable newTaskScheduled;
     mutable boost::mutex newTaskMutex;
     int nThreadsServicingQueue;
