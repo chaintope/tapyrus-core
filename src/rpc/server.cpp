@@ -15,7 +15,6 @@
 #include <util.h>
 #include <utilstrencodings.h>
 
-#include <boost/bind.hpp>
 #include <boost/signals2/signal.hpp>
 #include <boost/algorithm/string/case_conv.hpp> // for to_upper()
 #include <boost/algorithm/string/classification.hpp>
@@ -522,7 +521,7 @@ std::vector<std::string> CRPCTable::listCommands() const
 
     std::transform( mapCommands.begin(), mapCommands.end(),
                    std::back_inserter(commandList),
-                   boost::bind(&commandMap::value_type::first, boost::placeholders::_1) );
+                   std::bind(&commandMap::value_type::first, std::placeholders::_1) );
     return commandList;
 }
 

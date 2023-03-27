@@ -92,7 +92,7 @@ static void AssembleBlock(benchmark::State& state)
         ::pcoinsdbview.reset(new CCoinsViewDB(1 << 23, true));
         ::pcoinsTip.reset(new CCoinsViewCache(pcoinsdbview.get()));
 
-        thread_group.create_thread(boost::bind(&CScheduler::serviceQueue, &scheduler));
+        thread_group.create_thread(std::bind(&CScheduler::serviceQueue, &scheduler));
         GetMainSignals().RegisterBackgroundSignalScheduler(scheduler);
         LoadGenesisBlock();
         CValidationState state;
