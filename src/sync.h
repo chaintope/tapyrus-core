@@ -7,6 +7,7 @@
 #define BITCOIN_SYNC_H
 
 #include <threadsafety.h>
+#include <reverselock.h>
 
 #include <condition_variable>
 #include <thread>
@@ -171,40 +172,6 @@ public:
         return lock.owns_lock();
     }
 
-protected:
-    // needed for reverse_lock
-    CCriticalBlock() { }
-
-public:
-    /**
-     * An RAII-style reverse lock. Unlocks on construction and locks on destruction.
-     */
-    class reverse_lock {
-    public:
-        explicit reverse_lock(CCriticalBlock& _lock, const char* _guardname, const char* _file, int _line) : lock(_lock), file(_file), line(_line) {
-            CheckLastCritical((void*)lock.mutex(), lockname, _guardname, _file, _line);
-            lock.unlock();
-            LeaveCritical();
-            lock.swap(templock);
-        }
-
-        ~reverse_lock() {
-            templock.swap(lock);
-            EnterCritical(lockname.c_str(), file.c_str(), line, lock.mutex());
-            lock.lock();
-        }
-
-    private:
-        reverse_lock(reverse_lock const&);
-        reverse_lock& operator=(reverse_lock const&);
-
-        CCriticalBlock& lock;
-        CCriticalBlock templock;
-        std::string lockname;
-        const std::string file;
-        const int line;
-    };
-    friend class reverse_lock;
 };
 
 #define PASTE(x, y) x ## y
