@@ -5,7 +5,7 @@ on: [push, pull_request]
 jobs:
   arm:
     name: "ARM"
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
         with:
@@ -19,26 +19,9 @@ jobs:
           BITCOIN_CONFIG="--enable-glibc-back-compat --enable-reduce-exports" \
           bash -xe ./build-test.sh
 
-  win32:
-    name: "WIN32"
-    runs-on: ubuntu-18.04
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          submodules: recursive
-      - run: |
-          source ./default-env.sh
-          HOST=i686-w64-mingw32 \
-          DPKG_ADD_ARCH="i386" \
-          DEP_OPTS="NO_QT=1" \
-          PACKAGES="python3 nsis g++-mingw-w64-i686 wine-binfmt wine32" \
-          GOAL="install" \
-          BITCOIN_CONFIG="--enable-reduce-exports" \
-          bash -xe ./build-test.sh
-
   win64:
     name: "WIN64"
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
         with:
@@ -52,27 +35,10 @@ jobs:
           BITCOIN_CONFIG="--enable-reduce-exports" \
           bash -xe ./build-test.sh
 
-  linux-32bit-dash:
-    name: "[PENDING]32-bit + dash"
-    runs-on: ubuntu-18.04
-    steps:
-      - run: echo "PENDING. Runnning time is over 2 hours limit."
-#      - uses: actions/checkout@v1
-#      - run: |
-#          source ./default-env.sh
-#          HOST=i686-pc-linux-gnu \
-#          PACKAGES="g++-multilib python3-zmq" \
-#          DEP_OPTS="NO_QT=1" \
-#          RUN_TESTS=true \
-#          GOAL="install" \
-#          BITCOIN_CONFIG="--enable-zmq --enable-glibc-back-compat --enable-reduce-exports LDFLAGS=-static-libstdc++" \
-#          CONFIG_SHELL="/bin/dash" \
-#          bash -xe ./build-test.sh
-
   build_x86_linux_no_gui_debug:
     name: x86 Linux, No GUI, Debug
 
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
 
     steps:
       - uses: actions/checkout@v2
@@ -95,7 +61,7 @@ jobs:
   build_x86_linux_no_gui_release:
     name: x86 Linux, No GUI, Release
 
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
 
     steps:
       - uses: actions/checkout@v2
@@ -117,7 +83,7 @@ jobs:
 
   linux-with-qt:
     name: "x86_64 Linux (uses qt5 dev package instead of depends Qt to speed up build and avoid timeout)"
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
         with:
@@ -136,7 +102,7 @@ jobs:
 
   linux-with-qt-and-system-lib:
     name: "x86_64 Linux (Qt5 & system libs)"
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
         with:
@@ -154,7 +120,7 @@ jobs:
 
   linux-no-wallet:
     name: "x86_64 Linux, No wallet"
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
         with:
@@ -172,32 +138,32 @@ jobs:
 
   cross-mac_debug:
     name: Cross Mac Debug
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
         with:
           submodules: recursive
       - run: |
           source ./default-env.sh
-          HOST=x86_64-apple-darwin14 \
-          PACKAGES="cmake imagemagick libcap-dev librsvg2-bin libz-dev libbz2-dev libtiff-tools python-dev python3-setuptools-git xorriso" \
-          OSX_SDK=10.11 \
+          HOST=x86_64-apple-darwin16 \
+          PACKAGES="cmake imagemagick libcap-dev librsvg2-bin libz-dev libbz2-dev libtiff-tools python3-dev python3-setuptools xorriso libtinfo5" \
+          OSX_SDK=10.14 \
           GOAL="all deploy" \
           DEBUD_MODE=true \
           BITCOIN_CONFIG="--enable-gui --enable-reduce-exports --enable-werror CPPFLAGS=-DDEBUG " \
           bash -xe ./build-test.sh
   cross-mac_release:
     name: Cross Mac Release
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
         with:
           submodules: recursive
       - run: |
           source ./default-env.sh
-          HOST=x86_64-apple-darwin14 \
-          PACKAGES="cmake imagemagick libcap-dev librsvg2-bin libz-dev libbz2-dev libtiff-tools python-dev python3-setuptools-git xorriso" \
-          OSX_SDK=10.11 \
+          HOST=x86_64-apple-darwin16 \
+          PACKAGES="cmake imagemagick libcap-dev librsvg2-bin libz-dev libbz2-dev libtiff-tools python3-dev python3-setuptools xorriso libtinfo5" \
+          OSX_SDK=10.14 \
           GOAL="all deploy" \
           DEBUD_MODE=false \
           BITCOIN_CONFIG="--enable-gui --enable-reduce-exports --enable-werror" \
@@ -206,7 +172,7 @@ jobs:
   lint:
     name: "[PARTIAL_PENDING]lint"
 
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
 
     steps:
       - uses: actions/checkout@v2
