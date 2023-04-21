@@ -179,9 +179,9 @@ jobs:
           submodules: recursive
       - run: |
           source ./default-env.sh
-          HOST=x86_64-apple-darwin14 \
+          HOST=x86_64-apple-darwin16 \
           PACKAGES="cmake imagemagick libcap-dev librsvg2-bin libz-dev libbz2-dev libtiff-tools python3-dev python3-setuptools xorriso libtinfo5" \
-          OSX_SDK=10.11 \
+          OSX_SDK=10.14 \
           GOAL="all deploy" \
           DEBUD_MODE=true \
           BITCOIN_CONFIG="--enable-gui --enable-reduce-exports --enable-werror CPPFLAGS=-DDEBUG " \
@@ -195,9 +195,9 @@ jobs:
           submodules: recursive
       - run: |
           source ./default-env.sh
-          HOST=x86_64-apple-darwin14 \
+          HOST=x86_64-apple-darwin16 \
           PACKAGES="cmake imagemagick libcap-dev librsvg2-bin libz-dev libbz2-dev libtiff-tools python3-dev python3-setuptools xorriso libtinfo5" \
-          OSX_SDK=10.11 \
+          OSX_SDK=10.14 \
           GOAL="all deploy" \
           DEBUD_MODE=false \
           BITCOIN_CONFIG="--enable-gui --enable-reduce-exports --enable-werror" \
