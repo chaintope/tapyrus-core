@@ -52,23 +52,6 @@ jobs:
           BITCOIN_CONFIG="--enable-reduce-exports" \
           bash -xe ./build-test.sh
 
-  linux-32bit-dash:
-    name: "[PENDING]32-bit + dash"
-    runs-on: ubuntu-20.04
-    steps:
-      - run: echo "PENDING. Runnning time is over 2 hours limit."
-#      - uses: actions/checkout@v1
-#      - run: |
-#          source ./default-env.sh
-#          HOST=i686-pc-linux-gnu \
-#          PACKAGES="g++-multilib python3-zmq" \
-#          DEP_OPTS="NO_QT=1" \
-#          RUN_TESTS=true \
-#          GOAL="install" \
-#          BITCOIN_CONFIG="--enable-zmq --enable-glibc-back-compat --enable-reduce-exports LDFLAGS=-static-libstdc++" \
-#          CONFIG_SHELL="/bin/dash" \
-#          bash -xe ./build-test.sh
-
   build_x86_linux_no_gui_debug:
     name: x86 Linux, No GUI, Debug
 
