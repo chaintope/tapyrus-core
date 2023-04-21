@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-export MAKEJOBS=-j3
+export MAKEJOBS=-j"$(($(nproc)+1))"
 export RUN_TESTS=false
 export RUN_BENCH=false  # Set to true for any one job that has debug enabled, to quickly check bench is not crashing or hitting assertions
 export LC_ALL=C.UTF-8
