@@ -27,6 +27,7 @@
 
 #include <list>
 #include <vector>
+#include <array>
 
 static std::shared_ptr<CBlock> PrepareBlock(const CScript& coinbase_scriptPubKey)
 {
