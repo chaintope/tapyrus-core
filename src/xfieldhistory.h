@@ -238,13 +238,13 @@ bool IsXFieldNew(const CXField& xfield, CXFieldHistoryMap* pxfieldHistory);
 
 /** 
  * The maximum block size according the current xfield history */
-uint32_t CURRENT_MAXBLOCKSIZE();
+uint32_t getCurrentMaxBlockSize();
 
 /** 
  * The maximum allowed number of signature check operations in a block (network rule) */
-uint32_t MAX_BLOCK_SIGOPS();
+uint32_t getMaxBlockSigops();
 
 /** The maximum number of sigops we're willing to relay/mine in a single tx */
-uint32_t MAX_STANDARD_TX_SIGOPS();
+uint32_t getMaxStandardTxSigops();
 
 #endif // TAPYRUS_XFIELDHISTORY_H
