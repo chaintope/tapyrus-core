@@ -84,12 +84,12 @@ bool IsXFieldNew(const CXField& xfield, CXFieldHistoryMap* pxfieldHistory)
           && !boost::apply_visitor(checkVisitor, xfield.xfieldValue);
 }
 
-uint32_t getCurrentMaxBlockSize() {
+uint32_t GetCurrentMaxBlockSize() {
     XFieldMaxBlockSize xfieldMaxBlockSize;
     CXFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, xfieldMaxBlockSize);
     return xfieldMaxBlockSize.data;
 };
 
-uint32_t getMaxBlockSigops() { return uint32_t(getCurrentMaxBlockSize() / 50); };
+uint32_t GetMaxBlockSigops() { return uint32_t(GetCurrentMaxBlockSize() / 50); };
 
-uint32_t getMaxStandardTxSigops() { return uint32_t(getMaxBlockSigops() / 5); };
+uint32_t GetMaxStandardTxSigops() { return uint32_t(GetMaxBlockSigops() / 5); };

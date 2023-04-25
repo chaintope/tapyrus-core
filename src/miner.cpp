@@ -60,8 +60,8 @@ BlockAssembler::BlockAssembler(const CChainParams& params, const Options& option
     if (gArgs.IsArgSet("-blockmaxsize")) {
         nBlockMaxSize = gArgs.GetArg("-blockmaxsize", DEFAULT_BLOCK_MAX_SIZE);
     }
-    // Limit size to between 1K and getCurrentMaxBlockSize-1K for sanity:
-    nBlockMaxSize = std::max((unsigned int)1000, std::min((unsigned int)(getCurrentMaxBlockSize()-1000), nBlockMaxSize));
+    // Limit size to between 1K and GetCurrentMaxBlockSize-1K for sanity:
+    nBlockMaxSize = std::max((unsigned int)1000, std::min((unsigned int)(GetCurrentMaxBlockSize()-1000), nBlockMaxSize));
 }
 
 static BlockAssembler::Options DefaultOptions()
@@ -189,7 +189,7 @@ bool BlockAssembler::TestPackage(uint64_t packageSize, int32_t packageSigOpsCost
 {
     if (nBlockSize +  packageSize >= nBlockMaxSize)
         return false;
-    if (nBlockSigOpsCost + packageSigOpsCost >= getMaxBlockSigops())
+    if (nBlockSigOpsCost + packageSigOpsCost >= GetMaxBlockSigops())
         return false;
     return true;
 }

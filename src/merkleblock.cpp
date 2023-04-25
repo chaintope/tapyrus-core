@@ -137,7 +137,7 @@ uint256 CPartialMerkleTree::ExtractMatches(std::vector<uint256> &vMatch, std::ve
     if (nTransactions == 0)
         return uint256();
     // check for excessively high numbers of transactions
-    if (nTransactions > getCurrentMaxBlockSize() / MIN_TRANSACTION_SIZE)
+    if (nTransactions > GetCurrentMaxBlockSize() / MIN_TRANSACTION_SIZE)
         return uint256();
     // there can never be more hashes provided than one for every txid
     if (vHash.size() > nTransactions)

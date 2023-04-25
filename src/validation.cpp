@@ -808,7 +808,7 @@ static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, 
         // itself can contain sigops MAX_STANDARD_TX_SIGOPS is less than
         // MAX_BLOCK_SIGOPS; we still consider this an invalid rather than
         // merely non-standard transaction.
-        if (nSigOps > getMaxStandardTxSigops())
+        if (nSigOps > GetMaxStandardTxSigops())
             return state.DoS(0, false, REJECT_NONSTANDARD, "bad-txns-too-many-sigops", false,
                 strprintf("%d", nSigOps));
 
@@ -1978,7 +1978,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         // * p2sh (when P2SH enabled in flags and excludes coinbase)
         // * witness (when witness enabled in flags and excludes coinbase)
         nSigOpsCost += GetTransactionSigOps(tx, view, flags);
-        if (nSigOpsCost > getMaxBlockSigops())
+        if (nSigOpsCost > GetMaxBlockSigops())
             return state.DoS(100, error("ConnectBlock(): too many sigops"),
                              REJECT_INVALID, "bad-blk-sigops");
 
@@ -3116,7 +3116,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
     {
         nSigOps += GetLegacySigOpCount(*tx);
     }
-    if (nSigOps > getMaxBlockSigops())
+    if (nSigOps > GetMaxBlockSigops())
         return state.DoS(100, false, REJECT_INVALID, "bad-blk-sigops", false, strprintf("out-of-bounds SigOpCount [%d]", nSigOps));
 
     if (fCheckPOW && fCheckMerkleRoot)
@@ -4180,7 +4180,7 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
     int nLoaded = 0;
     try {
         // This takes over fileIn and calls fclose() on it in the CBufferedFile destructor
-        CBufferedFile blkdat(fileIn, 2*getCurrentMaxBlockSize(), getCurrentMaxBlockSize()+8, SER_DISK, CLIENT_VERSION);
+        CBufferedFile blkdat(fileIn, 2*GetCurrentMaxBlockSize(), GetCurrentMaxBlockSize()+8, SER_DISK, CLIENT_VERSION);
         uint64_t nRewind = blkdat.GetPos();
         while (!blkdat.eof()) {
             boost::this_thread::interruption_point();
@@ -4199,7 +4199,7 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
                     continue;
                 // read size
                 blkdat >> nSize;
-                if (nSize < 80 || nSize > getCurrentMaxBlockSize())
+                if (nSize < 80 || nSize > GetCurrentMaxBlockSize())
                     continue;
             } catch (const std::exception&) {
                 // no valid block header found; don't complain
