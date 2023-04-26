@@ -551,7 +551,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
 
         int index_in_template = i - 1;
         entry.pushKV("fee", pblocktemplate->vTxFees[index_in_template]);
-        int64_t nTxSigOps = pblocktemplate->vTxSigOpsCost[index_in_template];
+        int32_t nTxSigOps = pblocktemplate->vTxSigOpsCost[index_in_template];
         entry.pushKV("sigops", nTxSigOps);
         entry.pushKV("size", (int64_t)GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION));
 
@@ -581,8 +581,8 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     result.pushKV("mintime", (int64_t)pindexPrev->GetMedianTimePast()+1);
     result.pushKV("mutable", aMutable);
     result.pushKV("noncerange", "00000000ffffffff");
-    result.pushKV("sigoplimit", (int64_t)MAX_BLOCK_SIGOPS);
-    result.pushKV("sizelimit", (int64_t)MAX_BLOCK_SIZE);
+    result.pushKV("sigoplimit", (int64_t)GetMaxBlockSigops());
+    result.pushKV("sizelimit", (int64_t)GetCurrentMaxBlockSize());
     result.pushKV("curtime", pblock->GetBlockTime());
     result.pushKV("proof", HexStr(pblock->proof));
     result.pushKV("height", (int64_t)(pindexPrev->nHeight+1));

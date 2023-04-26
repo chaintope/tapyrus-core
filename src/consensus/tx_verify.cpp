@@ -9,6 +9,7 @@
 #include <primitives/transaction.h>
 #include <script/interpreter.h>
 #include <consensus/validation.h>
+#include <xfieldhistory.h>
 
 // TODO remove the following dependencies
 #include <chain.h>
@@ -135,9 +136,9 @@ unsigned int GetP2SHSigOpCount(const CTransaction& tx, const CCoinsViewCache& in
     return nSigOps;
 }
 
-int64_t GetTransactionSigOps(const CTransaction& tx, const CCoinsViewCache& inputs, int flags)
+int32_t GetTransactionSigOps(const CTransaction& tx, const CCoinsViewCache& inputs, int flags)
 {
-    int64_t nSigOps = GetLegacySigOpCount(tx);
+    int32_t nSigOps = GetLegacySigOpCount(tx);
 
     if (tx.IsCoinBase())
         return nSigOps;
@@ -163,7 +164,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
     if (tx.vout.empty())
         return state.DoS(10, false, REJECT_INVALID, "bad-txns-vout-empty");
     // Size limits (this doesn't take the witness into account, as that hasn't been checked for malleability)
-    if (::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS) > MAX_BLOCK_SIZE)
+    if (::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS) > GetCurrentMaxBlockSize())
         return state.DoS(100, false, REJECT_INVALID, "bad-txns-oversize");
 
     // Check for negative or overflow output values

@@ -11,14 +11,14 @@
 #include <policy/feerate.h>
 #include <script/interpreter.h>
 #include <script/standard.h>
+#include <xfieldhistory.h>
 
 #include <string>
 
 class CCoinsViewCache;
 class CTxOut;
 
-/** Default blockmax size, which controls the range of block size the mining code will create **/
-static const unsigned int DEFAULT_BLOCK_MAX_SIZE = MAX_BLOCK_SIZE - 1000;
+
 /** Default for -blockmintxfee, which sets the minimum feerate for a transaction in blocks created by mining code **/
 static const unsigned int DEFAULT_BLOCK_MIN_TX_FEE = 1000;
 /** The maximum size for transactions we're willing to relay/mine */
@@ -27,8 +27,7 @@ static const unsigned int MAX_STANDARD_TX_SIZE = 100000;
 static const unsigned int MIN_STANDARD_TX_SIZE = 82;
 /** Maximum number of signature check operations in an IsStandard() P2SH script */
 static const unsigned int MAX_P2SH_SIGOPS = 15;
-/** The maximum number of sigops we're willing to relay/mine in a single tx */
-static const unsigned int MAX_STANDARD_TX_SIGOPS = MAX_BLOCK_SIGOPS/5;
+
 /** Default for -maxmempool, maximum megabytes of mempool memory usage */
 static const unsigned int DEFAULT_MAX_MEMPOOL_SIZE = 300;
 /** Default for -incrementalrelayfee, which sets the minimum feerate increase for mempool limiting or BIP 125 replacement **/
@@ -77,7 +76,7 @@ extern unsigned int nBytesPerSigOp;
 
 /** Compute the transaction size (size reinterpreted as bytes). */
 int64_t GetTransactionSize(int64_t nSize, int64_t nSigOpCost);
-int64_t GetTransactionSize(const CTransaction& tx, int64_t nSigOpCost = 0);
-int64_t GetTransactionInputSize(const CTxIn& tx, int64_t nSigOpCost = 0);
+int64_t GetTransactionSize(const CTransaction& tx, int32_t nSigOpCost = 0);
+int64_t GetTransactionInputSize(const CTxIn& tx, int32_t nSigOpCost = 0);
 
 #endif // BITCOIN_POLICY_POLICY_H

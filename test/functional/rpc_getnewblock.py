@@ -42,13 +42,6 @@ class GetNewBlockTest(BitcoinTestFramework):
         assert_raises_rpc_error(-5, "Error: Invalid address", self.nodes[0].getnewblock, address+ "00")
         assert_raises_rpc_error(-1, "JSON integer out of range", self.nodes[0].getnewblock, address, 565786879879785)
 
-        self.log.info("getnewblock negative tests")
-        assert_raises_rpc_error(-32602, "xfield parameter could not be parsed. Check if the xfield parameter has format: <xfield_type:new_xfield_value>", self.nodes[0].getnewblock, address, 0,"03831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafc")
-        assert_raises_rpc_error(-32602, "Unknown xfield type", self.nodes[0].getnewblock, address, 0,"3:03831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafc")
-        assert_raises_rpc_error(-32602, "Unknown xfield type", self.nodes[0].getnewblock, address, 0,"0:03831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafc")
-        assert_raises_rpc_error(-32602, "Unknown xfield type", self.nodes[0].getnewblock, address, 0,"3:831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafc")
-        assert_raises_rpc_error(-32602, "Unknown xfield type", self.nodes[0].getnewblock, address, 0,"3:03ac")
-
         self.log.info("getnewblock aggpubkey tests")
         blockhex = self.nodes[0].getnewblock(address, 0,"1:03831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafc")
         block = FromHex(CBlock(), blockhex)
@@ -62,6 +55,12 @@ class GetNewBlockTest(BitcoinTestFramework):
 
 
         self.log.info("getnewblock aggpubkey negative tests")
+        assert_raises_rpc_error(-32602, "xfield parameter could not be parsed. Check if the xfield parameter has format: <xfield_type:new_xfield_value>", self.nodes[0].getnewblock, address, 0,"03831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafc")
+        assert_raises_rpc_error(-32602, "Unknown xfield type", self.nodes[0].getnewblock, address, 0,"3:03831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafc")
+        assert_raises_rpc_error(-32602, "Unknown xfield type", self.nodes[0].getnewblock, address, 0,"0:03831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafc")
+        assert_raises_rpc_error(-32602, "Unknown xfield type", self.nodes[0].getnewblock, address, 0,"3:831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafc")
+        assert_raises_rpc_error(-32602, "Unknown xfield type", self.nodes[0].getnewblock, address, 0,"3:03ac")
+
         assert_raises_rpc_error(-32602, "xfield parameter was invalid. Aggregate public key could not be parsed", self.nodes[0].getnewblock, address, 0,"1:fghjgf131423fafc")
         assert_raises_rpc_error(-32602, "xfield parameter was invalid. Aggregate public key could not be parsed", self.nodes[0].getnewblock, address, 0,"1:831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafz")
         assert_raises_rpc_error(-32602, "xfield parameter was invalid. Aggregate public key was uncompressed or invalid", self.nodes[0].getnewblock, address, 0,"1:831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafc")

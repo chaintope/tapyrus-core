@@ -227,6 +227,7 @@ struct CXField {
             case TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE:
                 ::Serialize(s, boost::get<XFieldMaxBlockSize>(xfieldValue)); break;
             case TAPYRUS_XFIELDTYPES::NONE:
+            default:
                 break;
         }
         if(GetXFieldTypeFrom(xfieldValue) != xfieldType)
@@ -281,6 +282,8 @@ public:
 inline bool IsXFieldValid(const CXField& xField) { return xField.IsValid(); }
 
 std::string XFieldDataToString(const XFieldData &xfieldValue);
+
+char GetXFieldDBKey(const XFieldData& xFieldValue);
 
 char GetXFieldDBKey(const XFieldData& xFieldValue);
 

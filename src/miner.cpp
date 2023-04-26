@@ -60,9 +60,8 @@ BlockAssembler::BlockAssembler(const CChainParams& params, const Options& option
     if (gArgs.IsArgSet("-blockmaxsize")) {
         nBlockMaxSize = gArgs.GetArg("-blockmaxsize", DEFAULT_BLOCK_MAX_SIZE);
     }
-
-    // Limit size to between 1K and MAX_BLOCK_SIZE-1K for sanity:
-    nBlockMaxSize = std::max((unsigned int)1000, std::min((unsigned int)(MAX_BLOCK_SIZE-1000), nBlockMaxSize));
+    // Limit size to between 1K and GetCurrentMaxBlockSize-1K for sanity:
+    nBlockMaxSize = std::max((unsigned int)1000, std::min((unsigned int)(GetCurrentMaxBlockSize()-1000), nBlockMaxSize));
 }
 
 static BlockAssembler::Options DefaultOptions()
@@ -186,11 +185,11 @@ void BlockAssembler::onlyUnconfirmed(CTxMemPool::setEntries& testSet)
     }
 }
 
-bool BlockAssembler::TestPackage(uint64_t packageSize, int64_t packageSigOpsCost) const
+bool BlockAssembler::TestPackage(uint64_t packageSize, int32_t packageSigOpsCost) const
 {
     if (nBlockSize +  packageSize >= nBlockMaxSize)
         return false;
-    if (nBlockSigOpsCost + packageSigOpsCost >= MAX_BLOCK_SIGOPS)
+    if (nBlockSigOpsCost + packageSigOpsCost >= GetMaxBlockSigops())
         return false;
     return true;
 }
@@ -360,7 +359,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
         uint64_t packageSize = iter->GetSizeWithAncestors();
         CAmount packageFees = iter->GetModFeesWithAncestors();
-        int64_t packageSigOpsCost = iter->GetSigOpCostWithAncestors();
+        int32_t packageSigOpsCost = iter->GetSigOpCostWithAncestors();
         if (fUsingModified) {
             packageSize = modit->nSizeWithAncestors;
             packageFees = modit->nModFeesWithAncestors;
