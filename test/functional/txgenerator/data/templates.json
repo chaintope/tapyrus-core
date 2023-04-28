@@ -1,0 +1,35 @@
+{
+    "txs" : [
+        {
+            "name" : "join",
+            "in" : 2,
+            "out" : 1,
+            "change" : 0
+        },
+        {
+            "name" : "joinwithchange",
+            "in" : 2,
+            "out" : 1,
+            "change" : 1
+        },
+        {
+            "name" : "send",
+            "in" : 1,
+            "out" : 1,
+            "change" : 0
+        },
+        {
+            "name" : "sendwithchange",
+            "in" : 1,
+            "out" : 1,
+            "change" : 1
+        },
+        {
+            "name" : "split",
+            "in" : 1,
+            "out" : 2,
+            "change" : 0
+        }
+    ]
+}
+
