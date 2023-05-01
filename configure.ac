@@ -620,9 +620,8 @@ dnl Check for endianness
 AC_C_BIGENDIAN
 
 dnl Check for pthread compile/link requirements
-if test $host !=  *mingw*; then
-   AX_PTHREAD
-fi
+AX_PTHREAD
+
 
 # The following macro will add the necessary defines to bitcoin-config.h, but
 # they also need to be passed down to any subprojects. Pull the results out of
