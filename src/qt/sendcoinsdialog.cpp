@@ -28,6 +28,8 @@
 #include <policy/fees.h>
 #include <wallet/fees.h>
 
+#include <array>
+
 #include <QFontMetrics>
 #include <QScrollBar>
 #include <QSettings>

@@ -31,6 +31,7 @@
 #include <utilstrencodings.h>
 
 #include <memory>
+#include <array>
 
 #if defined(NDEBUG)
 # error "Tapyrus cannot be compiled without assertions."
@@ -1074,7 +1075,8 @@ static void RelayAddress(const CAddress& addr, bool fReachable, CConnman* connma
     const CSipHasher hasher = connman->GetDeterministicRandomizer(RANDOMIZER_ID_ADDRESS_RELAY).Write(hashAddr << 32).Write((GetTime() + hashAddr) / (24*60*60));
     FastRandomContext insecure_rand;
 
-    std::array<std::pair<uint64_t, CNode*>,2> best{{{0, nullptr}, {0, nullptr}}};
+    typedef std::pair<uint64_t, CNode*> NodePair;
+    std::array<NodePair,2> best{{NodePair{0, nullptr}, NodePair{0, nullptr}}};
     assert(nRelayNodes <= best.size());
 
     auto sortfunc = [&best, &hasher, nRelayNodes](CNode* pnode) {
