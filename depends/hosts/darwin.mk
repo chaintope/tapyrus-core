@@ -1,7 +1,6 @@
 OSX_MIN_VERSION=10.14
 OSX_SDK_VERSION=10.14
 OSX_SDK=$(SDK_PATH)/MacOSX$(OSX_SDK_VERSION).sdk
-LD64_VERSION=253.9
 
 clang_prog=$(build_prefix)/bin/clang
 clangxx_prog=$(clang_prog)++
@@ -9,8 +8,8 @@ llvm_config_prog=$(build_prefix)/bin/llvm-config
 
 clang_resource_dir=$(build_prefix)/lib/clang/$(native_cctools_clang_version)
 
-darwin_CC=$(clang_prog) -target $(host)  -isysroot$(OSX_SDK) -mlinker-version=$(LD64_VERSION)
-darwin_CXX=$(clangxx_prog) -target $(host) -isysroot$(OSX_SDK) -mlinker-version=$(LD64_VERSION) -stdlib=libc++
+darwin_CC=$(clang_prog) -target $(host)  -isysroot$(OSX_SDK)
+darwin_CXX=$(clangxx_prog) -target $(host) -isysroot$(OSX_SDK) -stdlib=libc++
 
 darwin_CFLAGS=-pipe -std=c11
 darwin_CXXFLAGS=-pipe -std=c++17
