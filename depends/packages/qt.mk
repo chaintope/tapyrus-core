@@ -17,7 +17,6 @@ $(package)_patches += fix_montery_include.patch
 $(package)_patches += dont_hardcode_pwd.patch
 $(package)_patches += qtbase-moc-ignore-gcc-macro.patch
 $(package)_patches += rcc_hardcode_timestamp.patch
-$(package)_patches += duplicate_lcqpafonts.patch
 $(package)_patches += fast_fixed_dtoa_no_optimize.patch
 
 $(package)_qttranslations_file_name=qttranslations-$($(package)_suffix)
@@ -215,11 +214,12 @@ define $(package)_preprocess_cmds
   patch -p1 -i $($(package)_patch_dir)/dont_hardcode_pwd.patch &&\
   patch -p1 -i $($(package)_patch_dir)/qtbase-moc-ignore-gcc-macro.patch &&\
   patch -p1 -i $($(package)_patch_dir)/rcc_hardcode_timestamp.patch &&\
-  patch -p1 -i $($(package)_patch_dir)/duplicate_lcqpafonts.patch &&\
   patch -p1 -i $($(package)_patch_dir)/fast_fixed_dtoa_no_optimize.patch &&\
   sed -i.old "s|updateqm.commands = \$$$$\$$$$LRELEASE|updateqm.commands = $($(package)_extract_dir)/qttools/bin/lrelease|" qttranslations/translations/translations.pro && \
   sed -i.old 's/CGEventCreateMouseEvent(0, kCGEventMouseMoved, pos, 0)/CGEventCreateMouseEvent(0, kCGEventMouseMoved, pos, kCGMouseButtonLeft)/' qtbase/src/plugins/platforms/cocoa/qcocoacursor.mm && \
   mkdir -p qtbase/mkspecs/macx-clang-linux &&\
+  cp -f qtbase/mkspecs/macx-clang/Info.plist.lib qtbase/mkspecs/macx-clang-linux/ &&\
+  cp -f qtbase/mkspecs/macx-clang/Info.plist.app qtbase/mkspecs/macx-clang-linux/ &&\
   cp -f qtbase/mkspecs/macx-clang/qplatformdefs.h qtbase/mkspecs/macx-clang-linux/ &&\
   cp -f $($(package)_patch_dir)/mac-qmake.conf qtbase/mkspecs/macx-clang-linux/qmake.conf && \
   cp -r qtbase/mkspecs/linux-arm-gnueabi-g++ qtbase/mkspecs/bitcoin-linux-g++ && \
