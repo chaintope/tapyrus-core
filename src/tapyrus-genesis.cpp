@@ -151,6 +151,11 @@ static int CommandLine()
                 fprintf(stderr, "Error: Aggregate Public Key was invalid.\n");
                 return EXIT_FAILURE;
             }
+            if(!aggpubkey.IsCompressed())
+            {
+                fprintf(stderr, "Error: Uncompressed Aggregate Public Keys are not supported.\n");
+                return EXIT_FAILURE;
+            }
         }
     } catch (const std::exception& e) {
         fprintf(stderr, "Error: %s\n", e.what());
