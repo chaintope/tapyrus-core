@@ -775,7 +775,7 @@
     ],
     "return_code": 1,
     "error_txt": "Error: Aggregate private key does not correspond to given Aggregate public key",
-    "description": "Ensure aggregate pubkey and aggregate private correspond to each other."
+    "description": "Ensure aggregate pubkey and aggregate private key correspond to each other."
   },
   {
     "exec": "./tapyrus-genesis",
