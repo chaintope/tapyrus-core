@@ -765,7 +765,7 @@
     ],
     "return_code": 1,
     "error_txt": "Error: Uncompressed Aggregate Public Keys are not supported",
-    "description": "Ensure uncompressed pubkeys are not accepted as aggregate pubkey in dev mode."
+    "description": "Ensure uncompressed pubkeys are not accepted as aggregate pubkey."
   },
   {
     "exec": "./tapyrus-genesis",
