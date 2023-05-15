@@ -153,7 +153,7 @@ static int CommandLine()
             }
             if(!aggpubkey.IsCompressed())
             {
-                fprintf(stderr, "Error: Uncompressed Aggregate Public Keys are not supported.\n");
+                fprintf(stderr, "Error: Uncompressed Aggregate Public Key are not supported.\n");
                 return EXIT_FAILURE;
             }
         }
