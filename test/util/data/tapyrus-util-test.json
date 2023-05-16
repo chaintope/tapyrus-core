@@ -742,7 +742,7 @@
       "-signblockprivatekey=5KbckfYoaBR1a7PuR2JAE2E1jGZ4hMmmCT9nNwJ3rfqf78oWr92"
     ],
     "return_code": 1,
-    "error_txt": "Error: Uncompressed Aggregate Public Keys are not supported",
+    "error_txt": "Error: Uncompressed Aggregate Public Key is not supported",
     "description": "Ensure uncompressed pubkeys are not accepted as aggregate pubkey."
   },
   {
@@ -751,10 +751,10 @@
       "-dev",
       "-time=1563342688",
       "-signblockpubkey=04473757a955a23f75379820f3071abf5b3343b78eb54e52373d06259ffa6c550bd0acc38ff1b182a5de0c795aa7109e8348ca5436d65a267ef134af595ec6c75e",
-      "-signblockprivatekey=L55noj9NZSxyX9E6M2ijiUQSDZeXK8ga5YRmHpeFcERmBnvc7bS3"
+      "-signblockprivatekey=cVSnGe9DzWfEgahMjSXs5nuVqnwvyanG9aaEQF6m7M5mSY2wfZzW"
     ],
     "return_code": 1,
-    "error_txt": "Error: Uncompressed Aggregate Public Keys are not supported",
+    "error_txt": "Error: Uncompressed Aggregate Public Key is not supported",
     "description": "Ensure uncompressed pubkeys are not accepted as aggregate pubkey in dev mode."
   },
   {
@@ -764,7 +764,7 @@
       "-signblockprivatekey=5KSSJQ7UNfFGwVgpCZDSHm5rVNhMFcFtvWM3zQ8mW4qNDEN7LFd"
     ],
     "return_code": 1,
-    "error_txt": "Error: Uncompressed Aggregate Public Keys are not supported",
+    "error_txt": "Error: Uncompressed Aggregate Public Key is not supported",
     "description": "Ensure uncompressed pubkeys are not accepted as aggregate pubkey."
   },
   {
