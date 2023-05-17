@@ -733,5 +733,59 @@
     ],
     "check":"check_generateKey",
     "description": "Ensure generatekey is successful in dev mode"
+  },
+  {
+    "exec": "./tapyrus-genesis",
+    "args": [
+      "-time=1563342688",
+      "-signblockpubkey=04473757a955a23f75379820f3071abf5b3343b78eb54e52373d06259ffa6c550bd0acc38ff1b182a5de0c795aa7109e8348ca5436d65a267ef134af595ec6c75e",
+      "-signblockprivatekey=5KbckfYoaBR1a7PuR2JAE2E1jGZ4hMmmCT9nNwJ3rfqf78oWr92"
+    ],
+    "return_code": 1,
+    "error_txt": "Error: Uncompressed Aggregate Public Key is not supported",
+    "description": "Ensure uncompressed pubkeys are not accepted as aggregate pubkey."
+  },
+  {
+    "exec": "./tapyrus-genesis",
+    "args": [
+      "-dev",
+      "-time=1563342688",
+      "-signblockpubkey=04473757a955a23f75379820f3071abf5b3343b78eb54e52373d06259ffa6c550bd0acc38ff1b182a5de0c795aa7109e8348ca5436d65a267ef134af595ec6c75e",
+      "-signblockprivatekey=cVSnGe9DzWfEgahMjSXs5nuVqnwvyanG9aaEQF6m7M5mSY2wfZzW"
+    ],
+    "return_code": 1,
+    "error_txt": "Error: Uncompressed Aggregate Public Key is not supported",
+    "description": "Ensure uncompressed pubkeys are not accepted as aggregate pubkey in dev mode."
+  },
+  {
+    "exec": "./tapyrus-genesis",
+    "args": [
+      "-signblockpubkey=04b0da749730dc9b4b1f4a14d6902877a92541f5368778853d9c4a0cb7802dcfb25e01fc8fde47c96c98a4f3a8123e33a38a50cf9025cc8c4494a518f991792bb7",
+      "-signblockprivatekey=5KSSJQ7UNfFGwVgpCZDSHm5rVNhMFcFtvWM3zQ8mW4qNDEN7LFd"
+    ],
+    "return_code": 1,
+    "error_txt": "Error: Uncompressed Aggregate Public Key is not supported",
+    "description": "Ensure uncompressed pubkeys are not accepted as aggregate pubkey."
+  },
+  {
+    "exec": "./tapyrus-genesis",
+    "args": [
+      "-signblockpubkey=025700236c2890233592fcef262f4520d22af9160e3d9705855140eb2aa06c35d3",
+      "-signblockprivatekey=5KSSJQ7UNfFGwVgpCZDSHm5rVNhMFcFtvWM3zQ8mW4qNDEN7LFd"
+    ],
+    "return_code": 1,
+    "error_txt": "Error: Aggregate private key does not correspond to given Aggregate public key",
+    "description": "Ensure aggregate pubkey and aggregate private key correspond to each other."
+  },
+  {
+    "exec": "./tapyrus-genesis",
+    "args": [
+      "-dev",
+      "-signblockpubkey=025700236c2890233592fcef262f4520d22af9160e3d9705855140eb2aa06c35d3",
+      "-signblockprivatekey=cUJN5RVzYWFoeY8rUztd47jzXCu1p57Ay8V7pqCzsBD3PEXN7Dd4"
+    ],
+    "return_code": 1,
+    "error_txt": "Error: Aggregate private key does not correspond to given Aggregate public key",
+    "description": "Ensure aggregate pubkey and aggregate private key correspond to each other in dev mode."
   }
 ]
