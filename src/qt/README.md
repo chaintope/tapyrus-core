@@ -32,7 +32,7 @@ Tests.
 
 ### TapyrusGUI.(h/cpp)
 
-Represents the main window of the Bitcoin UI.
+Represents the main window of the Tapyrus UI.
 
 ### \*model.(h/cpp)
 
