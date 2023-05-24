@@ -28,23 +28,7 @@ make install # optional
 Dependencies
 ---------------------
 
-These dependencies are required:
-
- Library     | Purpose          | Description
- ------------|------------------|----------------------
- libboost    | Utility          | Library for threading, data structures, etc
- libevent    | Networking       | OS independent asynchronous networking
-
-Optional dependencies:
-
- Library     | Purpose          | Description
- ------------|------------------|----------------------
- miniupnpc   | UPnP Support     | Firewall-jumping support
- libdb4.8    | Berkeley DB      | Wallet storage (only needed when wallet enabled)
- univalue    | Utility          | JSON parsing and encoding (bundled version will be used unless --with-system-univalue passed to configure)
- libzmq3     | ZMQ notification | Optional, allows generating ZMQ notifications (requires ZMQ version >= 4.x)
-
-For the versions used, see [dependencies.md](dependencies.md)
+For a complete overview and versions used, see [dependencies.md](dependencies.md)
 
 Memory Requirements
 --------------------
@@ -56,6 +40,14 @@ tuned to conserve memory with additional CXXFLAGS:
 
     ./configure CXXFLAGS="--param ggc-min-expand=1 --param ggc-min-heapsize=32768"
 
+Alternatively, or in addition, debugging information can be skipped for compilation. The default compile flags are
+`-g -O2`, and can be changed with:
+
+    ./configure CXXFLAGS="-O2"
+
+Finally, clang (often less resource hungry) can be used instead of gcc, which is used by default:
+
+    ./configure CXX=clang++ CC=clang
 
 ## Linux Distribution Specific Instructions
 
@@ -65,7 +57,11 @@ tuned to conserve memory with additional CXXFLAGS:
 
 Build requirements:
 
-    sudo apt-get install build-essential libtool autotools-dev automake pkg-config libevent-dev bsdmainutils python3 libboost-system-dev libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev
+    sudo apt-get install build-essential libtool autotools-dev automake pkg-config bsdmainutils python3
+
+Now, you can either build from self-compiled [depends](/depends/README.md) or install the required dependencies:
+
+    sudo apt-get install libevent-dev libboost-dev
 
 BerkeleyDB is required for the wallet.
 
@@ -90,11 +86,24 @@ Optional (see --with-miniupnpc and --enable-upnp-default):
 
 ZMQ dependencies (provides ZMQ API 4.x):
 
-    sudo apt-get install libzmq3-dev
+    sudo apt-get install zeromq-devel
 
-#### GUI
+ GUI dependencies:
 
-tapyrus-core does not support gui
+If you want to build tapyrus-qt, make sure that the required packages for Qt development
+are installed. Qt 5 is necessary to build the GUI.
+To build without GUI pass `--without-gui`.
+
+To build with Qt 5 you need the following:
+
+    sudo apt-get install libqt5gui5 libqt5core5a libqt5dbus5 qttools5-dev qttools5-dev-tools
+
+libqrencode (optional) can be installed with:
+
+    sudo apt-get install libqrencode-dev
+
+Once these are installed, they will be found by configure and a tapyrus-qt executable will be
+built by default.
 
 ### Fedora
 
@@ -102,19 +111,34 @@ tapyrus-core does not support gui
 
 Build requirements:
 
-    sudo dnf install gcc-c++ libtool make autoconf automake libevent-devel boost-devel libdb4-devel libdb4-cxx-devel python3
+    sudo dnf install gcc-c++ libtool make autoconf automake python3
 
-Optional:
+Now, you can either build from self-compiled [depends](/depends/README.md) or install the required dependencies:
 
-    sudo dnf install miniupnpc-devel
+    sudo dnf install libevent-devel boost-devel
+
+Berkeley DB is required for the legacy wallet:
+
+    sudo dnf install libdb4-devel libdb4-cxx-devel
+
+GUI dependencies:
+
+If you want to build tapyrus-qt, make sure that the required packages for Qt development are installed. Qt 5 is necessary to build the GUI. To build without GUI pass --without-gui.
 
 To build with Qt 5 you need the following:
 
     sudo dnf install qt5-qttools-devel qt5-qtbase-devel
 
+Additionally, to support Wayland protocol for modern desktop environments:
+
+    sudo dnf install qt5-qtwayland
+
 libqrencode (optional) can be installed with:
 
     sudo dnf install qrencode-devel
+
+Once these are installed, they will be found by configure and a tapyrus-qt executable will be built by default.
+
 
 Notes
 -----
@@ -229,39 +253,20 @@ Setup and Build Example: Arch Linux
 -----------------------------------
 This example lists the steps necessary to setup and build a command line only, non-wallet distribution of the latest changes on Arch Linux:
 
-    pacman -S git base-devel boost libevent python
-    git clone --recursive https://github.com/chaintope/tapyrus-core
+    pacman --sync --needed autoconf automake boost gcc git libevent libtool make pkgconf python3
+    git clone https://github.com/chaintope/tapyrus-core.git
     cd tapyrus-core/
     ./autogen.sh
-    ./configure --disable-wallet --without-gui --without-miniupnpc
+    ./configure --with_gui=no
     make check
 
 Note:
 Enabling wallet support requires either compiling against a Berkeley DB newer than 4.8 (package `db`) using `--with-incompatible-bdb`,
 or building and depending on a local version of Berkeley DB 4.8. The readily available Arch Linux packages are currently built using
-`--with-incompatible-bdb` according to the [PKGBUILD](https://projects.archlinux.org/svntogit/community.git/tree/bitcoin/trunk/PKGBUILD).
+`--with-incompatible-bdb` according to the [PKGBUILD](https://projects.archlinux.org/svntogit/community.git/tree/tapyrus/trunk/PKGBUILD).
 As mentioned above, when maintaining portability of the wallet between the standard Tapyrus Core distributions and independently built
 node software is desired, Berkeley DB 4.8 must be used.
 
-
-ARM Cross-compilation
--------------------
-These steps can be performed on, for example, an Ubuntu VM. The depends system
-will also work on other Linux distributions, however the commands for
-installing the toolchain will be different.
-
-Make sure you install the build requirements mentioned above.
-Then, install the toolchain and curl:
-
-    sudo apt-get install g++-arm-linux-gnueabihf curl
-
-To build executables for ARM:
-
-    cd depends
-    make HOST=arm-linux-gnueabihf NO_QT=1
-    cd ..
-    ./configure --prefix=$PWD/depends/arm-linux-gnueabihf --enable-glibc-back-compat --enable-reduce-exports LDFLAGS=-static-libstdc++
-    make
 
 
 For further documentation on the depends system see [README.md](../depends/README.md) in the depends directory.

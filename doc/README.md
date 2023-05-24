@@ -1,22 +1,21 @@
-Bitcoin Core
+Tapyrus Core
 =============
 
-Setup
----------------------
-Bitcoin Core is the original Bitcoin client and it builds the backbone of the network. It downloads and, by default, stores the entire history of Bitcoin transactions (which is currently more than 100 GBs); depending on the speed of your computer and network connection, the synchronization process can take anywhere from a few hours to a day or more.
+Tapyrus is a blockchain that has been forked from Bitcoin Core, and solves the governance issues. Bitcoin uses Proof of Work as a consensus algorithm, but Tapyrus creates a block (ie, approves a transaction) with multiple signatures from the Signer group which consists of industry stakeholders. Therefore, transactions on the blockchain are stably approved, and finality is given at the time of approval. Anyone can join the Tapyrus network, and anyone can access the public ledger and create and broadcast transactions freely.
 
-To download Bitcoin Core, visit [bitcoincore.org](https://bitcoincore.org/en/releases/).
+
+To download Tapyrus Core, visit [tapyrus-core](https://github.com/chaintope/tapyrus-core/releases/tag/v0.5.2).
 
 Running
 ---------------------
-The following are some helpful notes on how to run Bitcoin Core on your native platform.
+The following are some helpful notes on how to run Tapyrus Core on your native platform.
 
 ### Unix
 
 Unpack the files into a directory and run:
 
 - `bin/tapyrus_qt` (GUI) or
-- `bin/bitcoind` (headless)
+- `bin/tapyrusd` (headless)
 
 ### Windows
 
@@ -24,25 +23,23 @@ Unpack the files into a directory, and then run tapyrus_qt.exe.
 
 ### macOS
 
-Drag Bitcoin Core to your applications folder, and then run Bitcoin Core.
+Drag Tapyrus Core to your applications folder, and then run Tapyrus Core.
 
 ### Need Help?
 
-* See the documentation at the [Bitcoin Wiki](https://en.bitcoin.it/wiki/Main_Page)
-for help and more information.
-* Ask for help on [#bitcoin](http://webchat.freenode.net?channels=bitcoin) on Freenode. If you don't have an IRC client use [webchat here](http://webchat.freenode.net?channels=bitcoin).
-* Ask for help on the [BitcoinTalk](https://bitcointalk.org/) forums, in the [Technical Support board](https://bitcointalk.org/index.php?board=4.0).
+* See the documentation on Bitcoin at [Bitcoin Wiki](https://en.bitcoin.it/wiki/Main_Page)
+for help and introduction.
+* See the documentation on Tapyrus-core at https://github.com/chaintope/tapyrus-core#readme 
+
 
 Building
 ---------------------
-The following are developer notes on how to build Bitcoin Core on your native platform. They are not complete guides, but include notes on the necessary libraries, compile flags, etc.
+The following are developer notes on how to build Tapyrus Core on your native platform. They are not complete guides, but include notes on the necessary libraries, compile flags, etc.
 
 - [Dependencies](dependencies.md)
 - [macOS Build Notes](build-osx.md)
 - [Unix Build Notes](build-unix.md)
 - [Windows Build Notes](build-windows.md)
-- [OpenBSD Build Notes](build-openbsd.md)
-- [NetBSD Build Notes](build-netbsd.md)
 - [Gitian Building Guide](gitian-building.md)
 
 Development
@@ -62,10 +59,6 @@ The Bitcoin repo's [root README](/README.md) contains relevant information on th
 - [Dnsseed Policy](dnsseed-policy.md)
 - [Benchmarking](benchmarking.md)
 
-### Resources
-* Discuss on the [BitcoinTalk](https://bitcointalk.org/) forums, in the [Development & Technical Discussion board](https://bitcointalk.org/index.php?board=6.0).
-* Discuss project-specific development on #bitcoin-core-dev on Freenode. If you don't have an IRC client use [webchat here](http://webchat.freenode.net/?channels=bitcoin-core-dev).
-* Discuss general Bitcoin development on #bitcoin-dev on Freenode. If you don't have an IRC client use [webchat here](http://webchat.freenode.net/?channels=bitcoin-dev).
 
 ### Miscellaneous
 - [Assets Attribution](assets-attribution.md)
