@@ -4236,7 +4236,7 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
                     }
 
                     // process in case the block isn't known yet
-                    LogPrint(BCLog::REINDEX, "%s: before LookupBlockIndex", __func__);
+                    LogPrint(BCLog::REINDEX, "%s: before LookupBlockIndex\n", __func__);
                     CBlockIndex* pindex = LookupBlockIndex(hash);
                     if (!pindex || (pindex->nStatus & BLOCK_HAVE_DATA) == 0) {
                         CValidationState state;
@@ -4244,14 +4244,14 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
                             nLoaded++;
                         }
                         if (state.IsError()) {
-                            LogPrint(BCLog::REINDEX, "%s: AcceptBlock state: %s-%s", __func__, state.GetRejectReason(), state.GetDebugMessage());
+                            LogPrint(BCLog::REINDEX, "%s: AcceptBlock state: %s-%s\n", __func__, state.GetRejectReason(), state.GetDebugMessage());
                           break;
                       }
                     } else if (hash != FederationParams().GenesisBlock().GetHash() && pindex->nHeight % 1000 == 0) {
                       LogPrint(BCLog::REINDEX, "%s Block Import: already had block %s at height %d\n", __func__, hash.ToString(), pindex->nHeight);
                     }
                     else
-                    LogPrint(BCLog::REINDEX, "%s: LookupBlockIndex returned null", __func__);
+                    LogPrint(BCLog::REINDEX, "%s: LookupBlockIndex returned null\n", __func__);
                 }
 
                 // Activate the genesis block so normal node progress can continue
