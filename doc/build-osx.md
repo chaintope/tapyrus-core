@@ -11,18 +11,27 @@ Install the macOS command line tools:
 
 When the popup appears, click `Install`.
 
-Then install [Homebrew](https://brew.sh).
+To install the Homebrew package manager, see: https://brew.sh
 
 Dependencies
 ----------------------
 
-    brew install automake berkeley-db4 libtool boost miniupnpc pkg-config python qt libevent qrencode
+To build tapuris-core without GUI install only these dependenciies
 
-See [dependencies.md](dependencies.md) for a complete overview.
+    brew install automake berkeley-db4 libtool boost miniupnpc pkg-config python libevent zeromq
+
+GUI Dependencies
+---------------------
+
+To build tapyrus-qt GUI install the following along with the above
+
+    brew install qt5 qrencode
 
 If you want to build the disk image with `make deploy` (.dmg / optional), you need RSVG
 
-    brew install librsvg
+    brew install librsvg xorrisofs
+
+See [dependencies.md](dependencies.md) for a complete overview.
 
 Berkeley DB
 -----------
@@ -41,7 +50,7 @@ from the root of the repository.
 Build Tapyrus Core
 ------------------------
 
-1. Clone the Tapyrus Core source code and cd into `tapyrus`
+1. Clone the Tapyrus Core source code and cd into `tapyrus-core`
 
         git clone --recursive https://github.com/chaintope/tapyrus-core
         cd tapyrus-core
@@ -49,8 +58,6 @@ Build Tapyrus Core
 2.  Build Tapyrus Core:
 
     Configure and build the headless Tapyrus Core binaries.
-
-    It is recommanded to diable the GUI build by passing `--without-gui` to configure.
 
         ./autogen.sh
         ./configure --without-gui
