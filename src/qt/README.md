@@ -30,15 +30,15 @@ Resources such as the icon.
 
 Tests.
 
-### bitcoingui.(h/cpp)
+### TapyrusGUI.(h/cpp)
 
-Represents the main window of the Bitcoin UI.
+Represents the main window of the Tapyrus UI.
 
 ### \*model.(h/cpp)
 
 The model. When it has a corresponding controller, it generally inherits from  [QAbstractTableModel](https://doc.qt.io/qt-5/qabstracttablemodel.html). Models that are used by controllers as helpers inherit from other Qt classes like [QValidator](https://doc.qt.io/qt-5/qvalidator.html).
 
-ClientModel is used by the main application `bitcoingui` and several models like `peertablemodel`.
+ClientModel is used by the main application `TapyrusGUI` and several models like `peertablemodel`.
 
 ### \*page.(h/cpp)
 
