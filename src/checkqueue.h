@@ -10,8 +10,6 @@
 #include <algorithm>
 #include <vector>
 
-#include <boost/thread/condition_variable.hpp>
-#include <boost/thread/mutex.hpp>
 
 template <typename T>
 class CCheckQueueControl;
@@ -31,48 +29,51 @@ class CCheckQueue
 {
 private:
     //! Mutex to protect the inner state
-    boost::mutex mutex;
+    std::mutex mutex;
 
     //! Worker threads block on this when out of work
-    boost::condition_variable condWorker;
+    std::condition_variable condWorker;
 
     //! Master thread blocks on this when out of work
-    boost::condition_variable condMaster;
+    std::condition_variable condMaster;
 
     //! The queue of elements to be processed.
     //! As the order of booleans doesn't matter, it is used as a LIFO (stack)
-    std::vector<T> queue;
+    std::vector<T> queue GUARDED_BY(mutex);
 
     //! The number of workers (including the master) that are idle.
-    int nIdle;
+    int nIdle GUARDED_BY(mutex){0};
 
     //! The total number of workers (including the master).
-    int nTotal;
+    int nTotal GUARDED_BY(mutex){0};
 
     //! The temporary evaluation result.
-    bool fAllOk;
+    bool fAllOk GUARDED_BY(mutex){true};
 
     /**
      * Number of verifications that haven't completed yet.
      * This includes elements that are no longer queued, but still in the
      * worker's own batches.
      */
-    unsigned int nTodo;
+    unsigned int nTodo GUARDED_BY(mutex){0};
 
     //! The maximum number of elements to be processed in one batch
     unsigned int nBatchSize;
 
+    std::vector<std::thread> m_worker_threads;
+    bool m_request_stop GUARDED_BY(mutex){false};
+
     /** Internal function that does bulk of the verification work. */
     bool Loop(bool fMaster = false)
     {
-        boost::condition_variable& cond = fMaster ? condMaster : condWorker;
+        std::condition_variable& cond = fMaster ? condMaster : condWorker;
         std::vector<T> vChecks;
         vChecks.reserve(nBatchSize);
         unsigned int nNow = 0;
         bool fOk = true;
         do {
             {
-                boost::unique_lock<boost::mutex> lock(mutex);
+                WaitableLock lock(mutex);
                 // first do the clean-up of the previous loop run (allowing us to do it in the same critsect)
                 if (nNow) {
                     fAllOk &= fOk;
@@ -85,7 +86,7 @@ private:
                     nTotal++;
                 }
                 // logically, the do loop starts here
-                while (queue.empty()) {
+                while (queue.empty() && !m_request_stop) {
                     if (fMaster && nTodo == 0) {
                         nTotal--;
                         bool fRet = fAllOk;
@@ -98,6 +99,9 @@ private:
                     nIdle++;
                     cond.wait(lock); // wait
                     nIdle--;
+                }
+                if (m_request_stop) {
+                    return false;
                 }
                 // Decide how many work units to process now.
                 // * Do not try to do everything at once, but aim for increasingly smaller batches so
@@ -130,10 +134,22 @@ public:
     //! Create a new check queue
     explicit CCheckQueue(unsigned int nBatchSizeIn) : nIdle(0), nTotal(0), fAllOk(true), nTodo(0), nBatchSize(nBatchSizeIn) {}
 
-    //! Worker thread
-    void Thread()
+//! Create a pool of new worker threads.
+    void StartWorkerThreads(const int threads_num)
     {
-        Loop();
+        {
+            WaitableLock loc(mutex);
+            nIdle = 0;
+            nTotal = 0;
+            fAllOk = true;
+        }
+        assert(m_worker_threads.empty());
+        for (int n = 0; n < threads_num; ++n) {
+            m_worker_threads.emplace_back([this, n]() {
+                RenameThread(strprintf("scriptch.%i", n).c_str());
+                Loop(false /* worker thread */);
+            });
+        }
     }
 
     //! Wait until execution finishes, and return whether all evaluations were successful.
@@ -145,7 +161,7 @@ public:
     //! Add a batch of checks to the queue
     void Add(std::vector<T>& vChecks)
     {
-        boost::unique_lock<boost::mutex> lock(mutex);
+        WaitableLock lock(mutex);
         for (T& check : vChecks) {
             queue.push_back(T());
             check.swap(queue.back());
@@ -157,8 +173,27 @@ public:
             condWorker.notify_all();
     }
 
+ //! Stop all of the worker threads.
+    void StopWorkerThreads()
+    {
+        {
+            WaitableLock lock(mutex);
+            m_request_stop = true;
+        }
+        condWorker.notify_all();
+        for (std::thread& t : m_worker_threads) {
+            t.join();
+        }
+        m_worker_threads.clear();
+        {
+            WaitableLock lock(mutex);
+            m_request_stop = false;
+        }
+    }
+
     ~CCheckQueue()
     {
+        assert(m_worker_threads.empty());
     }
 
 };
