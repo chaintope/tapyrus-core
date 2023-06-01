@@ -11,6 +11,7 @@
 #include <utiltime.h>
 
 #include <atomic>
+#include <thread>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/thread.hpp>
 #include <ctime>
@@ -61,7 +62,7 @@ int64_t GetSystemTimeInSeconds()
 
 void MilliSleep(int64_t n)
 {
-    boost::this_thread::sleep_for(boost::chrono::milliseconds(n));
+    std::this_thread::sleep_for(std::chrono::milliseconds(n));
 }
 
 std::string FormatISO8601DateTime(int64_t nTime) {
