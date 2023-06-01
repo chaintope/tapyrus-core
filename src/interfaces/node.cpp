@@ -41,7 +41,6 @@
 #endif
 
 #include <atomic>
-#include <boost/thread/thread.hpp>
 #include <univalue.h>
 
 namespace interfaces {

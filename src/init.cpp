@@ -60,7 +60,8 @@
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/algorithm/string/split.hpp>
 #include <boost/interprocess/sync/file_lock.hpp>
-#include <boost/thread.hpp>
+
+#include <thread>
 
 #if ENABLE_ZMQ
 #include <zmq/zmqnotificationinterface.h>
@@ -166,7 +167,6 @@ public:
 static std::unique_ptr<CCoinsViewErrorCatcher> pcoinscatcher;
 static std::unique_ptr<ECCVerifyHandle> globalVerifyHandle;
 
-static boost::thread_group threadGroup;
 static CScheduler scheduler;
 
 void Interrupt()
@@ -215,9 +215,7 @@ void Shutdown()
     StopTorControl();
 
     // After everything has been shut down, but before things get flushed, stop the
-    // CScheduler/checkqueue threadGroup
-    threadGroup.interrupt_all();
-    threadGroup.join_all();
+    // CScheduler/checkqueue, scheduler and load block thread. 
     StopScriptCheckWorkerThreads();
 
     // After the threads that potentially access these pointers have been stopped,
@@ -1236,7 +1234,7 @@ bool AppInitMain()
 
     // Start the lightweight task scheduler thread
     CScheduler::Function serviceLoop = std::bind(&CScheduler::serviceQueue, &scheduler);
-    threadGroup.create_thread(std::bind(&TraceThread<CScheduler::Function>, "scheduler", serviceLoop));
+    scheduler.m_service_thread = std::thread(TraceThread<CScheduler::Function>, "scheduler", serviceLoop);
 
     // Gather some entropy once per minute.
     scheduler.scheduleEvery([]{
@@ -1634,7 +1632,7 @@ bool AppInitMain()
         vImportFiles.push_back(strFile);
     }
 
-    threadGroup.create_thread(std::bind(&ThreadImport, vImportFiles, fReloadxfield));
+    scheduler.m_load_block = std::thread(std::bind(&ThreadImport, vImportFiles, fReloadxfield));
 
     // Wait for genesis block to be processed
     {

@@ -86,14 +86,14 @@ static void AssembleBlock(benchmark::State& state)
     InitSignatureCache();
     InitScriptExecutionCache();
 
-    boost::thread_group thread_group;
+    std::vector<std::thread> thread_group;
     CScheduler scheduler;
     {
         ::pblocktree.reset(new CBlockTreeDB(1 << 20, true));
         ::pcoinsdbview.reset(new CCoinsViewDB(1 << 23, true));
         ::pcoinsTip.reset(new CCoinsViewCache(pcoinsdbview.get()));
 
-        thread_group.create_thread(std::bind(&CScheduler::serviceQueue, &scheduler));
+        thread_group.emplace_back(std::bind(&CScheduler::serviceQueue, &scheduler));
         GetMainSignals().RegisterBackgroundSignalScheduler(scheduler);
         LoadGenesisBlock();
         CValidationState state;
@@ -130,8 +130,9 @@ static void AssembleBlock(benchmark::State& state)
         PrepareBlock(SCRIPT_PUB);
     }
 
-    thread_group.interrupt_all();
-    thread_group.join_all();
+    for (auto& thread: thread_group) {
+        if (thread.joinable()) thread.join();
+    }
     GetMainSignals().FlushBackgroundCallbacks();
     GetMainSignals().UnregisterBackgroundSignalScheduler();
 }

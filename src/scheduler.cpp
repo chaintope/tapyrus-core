@@ -98,6 +98,12 @@ void CScheduler::stop(bool drain)
             stopRequested = true;
     }
     newTaskScheduled.notify_all();
+
+    if (m_service_thread.joinable())
+        m_service_thread.join();
+
+    if(m_load_block.joinable())
+        m_load_block.join();
 }
 
 void CScheduler::schedule(CScheduler::Function f, boost::chrono::system_clock::time_point t)

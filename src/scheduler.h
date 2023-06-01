@@ -5,14 +5,12 @@
 #ifndef BITCOIN_SCHEDULER_H
 #define BITCOIN_SCHEDULER_H
 
-//
-// NOTE:
-// boost::thread / boost::chrono should be ported to std::thread / std::chrono
-// when we support C++11.
-//
-#include <boost/chrono/chrono.hpp>
-#include <boost/thread.hpp>
+
+
 #include <map>
+#include <thread>
+#include <utility>
+#include <list>
 
 #include <sync.h>
 
@@ -25,7 +23,7 @@
 // CScheduler* s = new CScheduler();
 // s->scheduleFromNow(doSomething, 11); // Assuming a: void doSomething() { }
 // s->scheduleFromNow(std::bind(Class::func, this, argument), 3);
-// boost::thread* t = new boost::thread(std::bind(CScheduler::serviceQueue, s));
+// std::thread* t = new std::thread(std::bind(CScheduler::serviceQueue, s));
 //
 // ... then at program shutdown, clean up the thread running serviceQueue:
 // t->interrupt();
@@ -39,6 +37,9 @@ class CScheduler
 public:
     CScheduler();
     ~CScheduler();
+
+    std::thread m_service_thread;
+    std::thread m_load_block;
 
     typedef std::function<void(void)> Function;
 
@@ -57,8 +58,7 @@ public:
 
     // To keep things as simple as possible, there is no unschedule.
 
-    // Services the queue 'forever'. Should be run in a thread,
-    // and interrupted using boost::interrupt_thread
+    // Services the queue 'forever'. Should be run in a thread
     void serviceQueue();
 
     // Tell any threads running serviceQueue to stop as soon as they're

@@ -7,6 +7,8 @@
 #include <test/test_tapyrus.h>
 
 #include <boost/test/unit_test.hpp>
+#include <boost/thread/lock_types.hpp>
+#include <boost/thread/shared_mutex.hpp>
 
 BOOST_FIXTURE_TEST_SUITE(reverselock_tests, BasicTestingSetup)
 
