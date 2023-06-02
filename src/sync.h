@@ -73,6 +73,7 @@ public:
 #ifdef DEBUG_LOCKORDER
 void EnterCritical(const char* pszName, const char* pszFile, int nLine, void* cs, bool fTry = false);
 void LeaveCritical();
+void CheckLastCritical(void* cs, std::string& lockname, const char* guardname, const char* file, int line);
 std::string LocksHeld();
 void AssertLockHeldInternal(const char* pszName, const char* pszFile, int nLine, void* cs) ASSERT_EXCLUSIVE_LOCK(cs);
 void AssertLockNotHeldInternal(const char* pszName, const char* pszFile, int nLine, void* cs);

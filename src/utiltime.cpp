@@ -11,8 +11,8 @@
 #include <utiltime.h>
 
 #include <atomic>
-#include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/thread.hpp>
+#include <ctime>
+#include <thread>
 #include <ctime>
 #include <tinyformat.h>
 
@@ -40,16 +40,14 @@ int64_t GetMockTime()
 
 int64_t GetTimeMillis()
 {
-    int64_t now = (boost::posix_time::microsec_clock::universal_time() -
-                   boost::posix_time::ptime(boost::gregorian::date(1970,1,1))).total_milliseconds();
+    int64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
     assert(now > 0);
     return now;
 }
 
 int64_t GetTimeMicros()
 {
-    int64_t now = (boost::posix_time::microsec_clock::universal_time() -
-                   boost::posix_time::ptime(boost::gregorian::date(1970,1,1))).total_microseconds();
+    int64_t now = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
     assert(now > 0);
     return now;
 }
@@ -61,7 +59,7 @@ int64_t GetSystemTimeInSeconds()
 
 void MilliSleep(int64_t n)
 {
-    boost::this_thread::sleep_for(boost::chrono::milliseconds(n));
+    std::this_thread::sleep_for(std::chrono::milliseconds(n));
 }
 
 std::string FormatISO8601DateTime(int64_t nTime) {
