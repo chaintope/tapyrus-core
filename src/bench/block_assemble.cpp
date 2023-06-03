@@ -83,6 +83,24 @@ static void AssembleBlock(benchmark::State& state)
     CBasicKeyStore tempKeystore;
     tempKeystore.AddKey(privKey);
 
+    InitSignatureCache();
+    InitScriptExecutionCache();
+
+    CScheduler scheduler;
+    std::thread thread(std::bind(&CScheduler::serviceQueue, &scheduler));
+    {
+        ::pblocktree.reset(new CBlockTreeDB(1 << 20, true));
+        ::pcoinsdbview.reset(new CCoinsViewDB(1 << 23, true));
+        ::pcoinsTip.reset(new CCoinsViewCache(pcoinsdbview.get()));
+
+        GetMainSignals().RegisterBackgroundSignalScheduler(scheduler);
+
+        LoadGenesisBlock();
+        CValidationState state;
+        ActivateBestChain(state);
+        assert(::chainActive.Tip() != nullptr);
+    }
+
     // Collect some loose transactions that spend the coinbases of our mined blocks
     constexpr size_t NUM_BLOCKS{200};
     std::array<CTransactionRef, NUM_BLOCKS> txs;
@@ -111,6 +129,12 @@ static void AssembleBlock(benchmark::State& state)
     while (state.KeepRunning()) {
         PrepareBlock(SCRIPT_PUB);
     }
+
+    scheduler.stop();
+    if(thread.joinable())
+        thread.join();
+    GetMainSignals().FlushBackgroundCallbacks();
+    GetMainSignals().UnregisterBackgroundSignalScheduler();
 }
 
 BENCHMARK(AssembleBlock, 700);
