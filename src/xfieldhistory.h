@@ -33,9 +33,9 @@ struct XFieldChange {
         switch(GetXFieldTypeFrom(xfieldValue))
         {
             case TAPYRUS_XFIELDTYPES::AGGPUBKEY:
-                ::Serialize(s, boost::get<XFieldAggPubKey>(xfieldValue)); break;
+                ::Serialize(s, std::get<XFieldAggPubKey>(xfieldValue)); break;
             case TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE:
-                ::Serialize(s, boost::get<XFieldMaxBlockSize>(xfieldValue)); break;
+                ::Serialize(s, std::get<XFieldMaxBlockSize>(xfieldValue)); break;
             case TAPYRUS_XFIELDTYPES::NONE:
             default:
                 break;
@@ -139,7 +139,7 @@ public:
     template <typename T>
     void GetLatest(TAPYRUS_XFIELDTYPES type, T & xfieldval) const {
         auto& listofXfieldChanges = (isTemp ? this->getXFieldHistoryMap() : xfieldHistory).find(type)->second;
-        xfieldval = boost::get<T>(listofXfieldChanges.rbegin()->xfieldValue);
+        xfieldval = std::get<T>(listofXfieldChanges.rbegin()->xfieldValue);
     }
 
     virtual XFieldChangeListWrapper& operator[](TAPYRUS_XFIELDTYPES type) const {
@@ -219,7 +219,7 @@ public:
 
 };
 
-class IsXFieldLastInHistoryVisitor : public boost::static_visitor< bool >
+class IsXFieldLastInHistoryVisitor
 {
     CXFieldHistoryMap* history;
 public:
@@ -229,7 +229,7 @@ public:
     bool operator()(const T &xField) const {
         assert(history);
         TAPYRUS_XFIELDTYPES X = GetXFieldTypeFrom(xField);
-        return boost::get<T>((*history)[X].rbegin()->xfieldValue).operator==(T(xField));
+        return std::get<T>((*history)[X].rbegin()->xfieldValue).operator==(T(xField));
     }
 
 };

@@ -427,10 +427,10 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
                 throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid parameter, duplicated address: ") + name_);
             }
             ColorIdentifier colorId;
-            if(destination.which() == 3)
-                colorId = boost::get<CColorKeyID>(destination).color;
-            else if(destination.which() == 4)
-                colorId = boost::get<CColorScriptID>(destination).color;
+            if(destination.index() == 3)
+                colorId = std::get<CColorKeyID>(destination).color;
+            else if(destination.index() == 4)
+                colorId = std::get<CColorScriptID>(destination).color;
 
             CScript scriptPubKey = GetScriptForDestination(destination);
             CAmount nAmount = (colorId.type == TokenTypes::NONE ? AmountFromValue(outputs[name_]) : TokenAmountFromValue(outputs[name_]));

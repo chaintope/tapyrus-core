@@ -5,6 +5,7 @@
 #include <primitives/xfield.h>
 #include <tinyformat.h>
 #include <utilstrencodings.h>
+#include <variant>
 
 inline std::string XFieldAggPubKey::ToString() const {
     return HexStr(data);
@@ -16,7 +17,7 @@ inline std::string XFieldMaxBlockSize::ToString() const {
 
 template <typename T>
 bool GetXFieldValueFrom(XFieldData& xfieldValue, T& value) {
-    value = boost::get<T>(xfieldValue);
+    value = std::get<T>(xfieldValue);
     return std::atoi(value.BLOCKTREE_DB_KEY) == GetXFieldTypeFrom(xfieldValue);
 }
 
@@ -29,7 +30,7 @@ std::string CXField::ToString() const {
 
 bool CXField::IsValid() const {
     return ::IsValid(this->xfieldType)
-        && boost::apply_visitor(XFieldValidityVisitor(), this->xfieldValue)
+        && std::visit(XFieldValidityVisitor(), this->xfieldValue)
         && GetXFieldTypeFrom(this->xfieldValue) == this->xfieldType;
 }
 
@@ -37,9 +38,9 @@ std::string XFieldDataToString(const XFieldData &xfieldValue) {
     switch(GetXFieldTypeFrom(xfieldValue))
     {
         case TAPYRUS_XFIELDTYPES::AGGPUBKEY:
-            return boost::get<XFieldAggPubKey>(xfieldValue).ToString();
+            return std::get<XFieldAggPubKey>(xfieldValue).ToString();
         case TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE:
-            return boost::get<XFieldMaxBlockSize>(xfieldValue).ToString();
+            return std::get<XFieldMaxBlockSize>(xfieldValue).ToString();
         case TAPYRUS_XFIELDTYPES::NONE:
         default:
             return "";
@@ -51,9 +52,9 @@ char GetXFieldDBKey(const XFieldData& xfieldValue) {
     switch(GetXFieldTypeFrom(xfieldValue))
     {
         case TAPYRUS_XFIELDTYPES::AGGPUBKEY:
-            return boost::get<XFieldAggPubKey>(xfieldValue).BLOCKTREE_DB_KEY;
+            return std::get<XFieldAggPubKey>(xfieldValue).BLOCKTREE_DB_KEY;
         case TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE:
-            return boost::get<XFieldMaxBlockSize>(xfieldValue).BLOCKTREE_DB_KEY;
+            return std::get<XFieldMaxBlockSize>(xfieldValue).BLOCKTREE_DB_KEY;
         case TAPYRUS_XFIELDTYPES::NONE:
         default:
             return '\0';

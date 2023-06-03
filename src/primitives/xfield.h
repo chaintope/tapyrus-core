@@ -10,7 +10,7 @@
 #include <uint256.h>
 #include <key.h>
 
-#include <boost/variant.hpp>
+#include <variant>
 #include <type_traits>
 #include <typeinfo>
 
@@ -122,7 +122,7 @@ public:
 /*
  * union of above classes to represent xfieldValue.
  */
-typedef boost::variant<
+typedef std::variant<
     XFieldEmpty,
     XFieldAggPubKey,
     XFieldMaxBlockSize> XFieldData;
@@ -131,7 +131,7 @@ typedef boost::variant<
  * This method defines the association between XFieldData and TAPYRUS_XFIELDTYPES
  */
 inline TAPYRUS_XFIELDTYPES GetXFieldTypeFrom(XFieldData xfieldDataIn) {
-    return TAPYRUS_XFIELDTYPES(xfieldDataIn.which());
+    return TAPYRUS_XFIELDTYPES(xfieldDataIn.index());
 }
 
 //Exception to identify xfield composition problems
@@ -223,9 +223,9 @@ struct CXField {
         switch(xfieldType)
         {
             case TAPYRUS_XFIELDTYPES::AGGPUBKEY:
-                ::Serialize(s, boost::get<XFieldAggPubKey>(xfieldValue)); break;
+                ::Serialize(s, std::get<XFieldAggPubKey>(xfieldValue)); break;
             case TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE:
-                ::Serialize(s, boost::get<XFieldMaxBlockSize>(xfieldValue)); break;
+                ::Serialize(s, std::get<XFieldMaxBlockSize>(xfieldValue)); break;
             case TAPYRUS_XFIELDTYPES::NONE:
             default:
                 break;
@@ -269,7 +269,7 @@ struct CXField {
 };
 
 
-class XFieldValidityVisitor : public boost::static_visitor< bool >
+class XFieldValidityVisitor
 {
 public:
 

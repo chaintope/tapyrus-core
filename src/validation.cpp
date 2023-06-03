@@ -3025,7 +3025,7 @@ static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,
         pxfieldHistory->GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggregatePubkeyObj);
     }
     else
-        aggregatePubkeyObj = boost::get<const XFieldAggPubKey>(CXFieldHistory().Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, nHeight).xfieldValue);
+        aggregatePubkeyObj = std::get<XFieldAggPubKey>(CXFieldHistory().Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, nHeight).xfieldValue);
     CPubKey aggregatePubkey(aggregatePubkeyObj.getPubKey());
 
     const uint256 blockHash = block.GetHashForSign();

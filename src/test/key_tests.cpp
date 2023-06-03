@@ -79,13 +79,13 @@ BOOST_AUTO_TEST_CASE(key_test1)
     BOOST_CHECK(DecodeDestination(addr2C) == CTxDestination(pubkey2C.GetID()));
     //valid color address
     CTxDestination dest = DecodeDestination(caddr1);
-    BOOST_CHECK(dest != CTxDestination(pubkey1.GetID()));
-    BOOST_CHECK(dest.which() ==  3);
-    BOOST_CHECK(boost::get<CColorKeyID>(dest).color.type == TokenTypes::REISSUABLE);
-    BOOST_CHECK(boost::get<CColorKeyID>(dest).color.toVector().size() == 33);
+    BOOST_CHECK(dest.index() != CTxDestination(pubkey1.GetID()).index());
+    BOOST_CHECK(dest.index() ==  3);
+    BOOST_CHECK(std::get<CColorKeyID>(dest).color.type == TokenTypes::REISSUABLE);
+    BOOST_CHECK(std::get<CColorKeyID>(dest).color.toVector().size() == 33);
     //invalid color address
     dest = DecodeDestination(caddr2);
-    BOOST_CHECK(dest.which() ==  0);
+    BOOST_CHECK(dest.index() ==  0);
 
     for (int n=0; n<16; n++)
     {
