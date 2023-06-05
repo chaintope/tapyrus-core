@@ -368,7 +368,7 @@ def main():
         config["environment"]["SRCDIR"],
         config["environment"]["BUILDDIR"],
         tmpdir,
-        jobs=args.jobs,
+        jobs=1,
         enable_coverage=args.coverage,
         args=passon_args,
         combined_logs_len=args.combinedlogslen,
