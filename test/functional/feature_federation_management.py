@@ -556,6 +556,8 @@ class FederationManagementTest(BitcoinTestFramework):
         self.start_node(3)
         connect_nodes(self.nodes[1], 3)
         connect_nodes(self.nodes[2], 3)
+        #initial block download and synch takes time. wait before checking blockchain info
+        time.sleep(15)
         self.sync_all([self.nodes[0:4]])
         self.stop_node(3)
 

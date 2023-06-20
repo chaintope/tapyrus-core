@@ -17,8 +17,7 @@ Simulate Blockchain Reorg  - After the last federation block and Before the last
 
 Test the output of RPC Getblockchaininfo before reorg and after reorg. Verify block aggpubkey and maxblock size changes against block height
 
-During reorg, the max block size from a block removed block is removed from the list. IF the same block comes back the same 
-Restart the node with -reindex, -reindex-chainstate and -loadblock options. This triggers a full rewind of block index. Verify that the tip reaches B51 at the end.
+Restart the node with -reindex, -reindex-chainstate, -reloadxfield and -loadblock options. This triggers a full rewind of block index. Verify that the tip reaches B51 at the end.
 """
 import time
 import shutil, os
@@ -458,12 +457,11 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         self.connectNodeAndCheck(2, expectedAggPubKeys, expectedblockheights)
 
         #B45 - B47 -- Generate 3 blocks - no change in aggpubkey or block size -- chain becomes longer
-        self.reconnect_p2p(node)
-
         chaintips = node.getchaintips()
         assert_equal(len(chaintips), 1)
         self.unspent = self.unspent + generate_blocks(3, node, self.coinbase_pubkey, self.aggprivkey[1])
         tip_before_reorg = node.getbestblockhash()
+        time.sleep(30)
 
         self.log.info("Simulate Blockchain Reorg  - After the last block size change")
         self.block_time += 1
@@ -496,8 +494,7 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         self.block_time += 1
         blocknew = self.new_block(48, spend=self.unspent[21])
         blocknew.solve(self.aggprivkey[1])
-        node.p2p.send_blocks_and_test([blocknew], node, success=False, request_block=False, timeout=80)
-        time.sleep(30) #wait for the reorg to complete
+        node.p2p.send_blocks_and_test([blocknew], node, success=True, request_block=False, timeout=300)
         self.tip = blocknew.hash
         assert_equal(self.tip, node.getbestblockhash())
 
