@@ -51,7 +51,6 @@ EXPECTED_BOOST_INCLUDES=(
     boost/algorithm/string/classification.hpp
     boost/algorithm/string/replace.hpp
     boost/algorithm/string/split.hpp
-    boost/bind.hpp
     boost/chrono/chrono.hpp
     boost/date_time/posix_time/posix_time.hpp
     boost/filesystem.hpp
@@ -74,9 +73,6 @@ EXPECTED_BOOST_INCLUDES=(
     boost/thread/condition_variable.hpp
     boost/thread/mutex.hpp
     boost/thread/thread.hpp
-    boost/variant.hpp
-    boost/variant/apply_visitor.hpp
-    boost/variant/static_visitor.hpp
 )
 
 for BOOST_INCLUDE in $(git grep '^#include <boost/' -- "*.cpp" "*.h" | cut -f2 -d: | cut -f2 -d'<' | cut -f1 -d'>' | sort -u); do

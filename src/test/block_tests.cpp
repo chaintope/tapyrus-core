@@ -218,7 +218,7 @@ BOOST_AUTO_TEST_CASE(blockHeaderWithxfieldType2_xfield365)
 
     BOOST_CHECK(blockHeader.xfield.IsValid());
     BOOST_CHECK(blockHeader.xfield.xfieldType == TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE);
-    int32_t size = boost::get<XFieldMaxBlockSize>(blockHeader.xfield.xfieldValue).data;
+    int32_t size = std::get<XFieldMaxBlockSize>(blockHeader.xfield.xfieldValue).data;
     BOOST_CHECK_EQUAL(size, 1090612733);
     BOOST_CHECK_EQUAL(blockHeader.proof.size(), 71);//interpreted incorrectly
 }
@@ -231,7 +231,7 @@ BOOST_AUTO_TEST_CASE(blockHeaderWithxfieldType2_xfield0)
 
     BOOST_CHECK(blockHeader.xfield.IsValid());
     BOOST_CHECK(blockHeader.xfield.xfieldType == TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE);
-    int32_t size = boost::get<XFieldMaxBlockSize>(blockHeader.xfield.xfieldValue).data;
+    int32_t size = std::get<XFieldMaxBlockSize>(blockHeader.xfield.xfieldValue).data;
     BOOST_CHECK_EQUAL(size, 809976064);
     BOOST_CHECK_EQUAL(blockHeader.proof.size(), 69);//interpreted incorrectly
 }
@@ -245,7 +245,7 @@ BOOST_AUTO_TEST_CASE(blockHeaderWithxfieldType2_maxblocksize)
 
     BOOST_CHECK(blockHeader.xfield.IsValid());
     BOOST_CHECK(blockHeader.xfield.xfieldType == TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE);
-    int32_t size = boost::get<XFieldMaxBlockSize>(blockHeader.xfield.xfieldValue).data;
+    int32_t size = std::get<XFieldMaxBlockSize>(blockHeader.xfield.xfieldValue).data;
     BOOST_CHECK_EQUAL(size, 400000);
     BOOST_CHECK_EQUAL(blockHeader.proof.size(), 65);
 }
@@ -258,7 +258,7 @@ BOOST_AUTO_TEST_CASE(blockHeaderWithxfieldType2_maxblocksize2)
 
     BOOST_CHECK(blockHeader.xfield.IsValid());
     BOOST_CHECK(blockHeader.xfield.xfieldType == TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE);
-    int32_t size = boost::get<XFieldMaxBlockSize>(blockHeader.xfield.xfieldValue).data;
+    int32_t size = std::get<XFieldMaxBlockSize>(blockHeader.xfield.xfieldValue).data;
     BOOST_CHECK_EQUAL(size, -2147483648);
     BOOST_CHECK_EQUAL(blockHeader.proof.size(), 65);
 }

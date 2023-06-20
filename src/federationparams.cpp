@@ -156,7 +156,7 @@ bool CFederationParams::ReadGenesisBlock(std::string genesisHex)
     switch(genesis.xfield.xfieldType)
     {
         case TAPYRUS_XFIELDTYPES::AGGPUBKEY: {
-            std::vector<unsigned char>* pubkey = &boost::get<XFieldAggPubKey>(genesis.xfield.xfieldValue).data;
+            std::vector<unsigned char>* pubkey = &std::get<XFieldAggPubKey>(genesis.xfield.xfieldValue).data;
             if(!pubkey->size())
                 throw std::runtime_error("Aggregate Public Key for Signed Block is empty");
 

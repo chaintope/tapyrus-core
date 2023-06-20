@@ -141,10 +141,10 @@ static std::string LabelFromValue(const UniValue& value)
 static void addTokenKV(const CTxDestination& address, const CAmount nAmount, UniValue& entry)
 {
     ColorIdentifier colorId;
-    if(address.which() == 3)
-        colorId = boost::get<CColorKeyID>(address).color;
-    else if(address.which() == 4)
-        colorId = boost::get<CColorScriptID>(address).color;
+    if(address.index() == 3)
+        colorId = std::get<CColorKeyID>(address).color;
+    else if(address.index() == 4)
+        colorId = std::get<CColorScriptID>(address).color;
 
     entry.pushKV("token", colorId.toHexString());
 
@@ -441,10 +441,10 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
     }
     ColorIdentifier colorId;
-    if(dest.which() == 3)
-        colorId = boost::get<CColorKeyID>(dest).color;
-    else if(dest.which() == 4)
-        colorId = boost::get<CColorScriptID>(dest).color;
+    if(dest.index() == 3)
+        colorId = std::get<CColorKeyID>(dest).color;
+    else if(dest.index() == 4)
+        colorId = std::get<CColorScriptID>(dest).color;
 
     if (colorId.type != TokenTypes::NONE
       && pwallet->GetBalance()[colorId] == 0 ) {
@@ -543,10 +543,10 @@ static UniValue listaddressgroupings(const JSONRPCRequest& request)
         for (const CTxDestination& address : grouping)
         {
             ColorIdentifier colorId;
-            if(address.which() == 3)
-                colorId = boost::get<CColorKeyID>(address).color;
-            else if(address.which() == 4)
-                colorId = boost::get<CColorScriptID>(address).color;
+            if(address.index() == 3)
+                colorId = std::get<CColorKeyID>(address).color;
+            else if(address.index() == 4)
+                colorId = std::get<CColorScriptID>(address).color;
             UniValue addressInfo(UniValue::VARR);
             addressInfo.push_back(EncodeDestination(address));
             addressInfo.push_back(colorId.type == TokenTypes::NONE ? ValueFromAmount(balances[address]) : balances[address]);
@@ -604,7 +604,7 @@ static UniValue signmessage(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid address");
     }
 
-    const CKeyID *keyID = boost::get<CKeyID>(&dest);
+    const CKeyID *keyID = std::get_if<CKeyID>(&dest);
     if (!keyID) {
         throw JSONRPCError(RPC_TYPE_ERROR, "Address does not refer to key");
     }
@@ -686,10 +686,10 @@ static UniValue getreceivedbyaddress(const JSONRPCRequest& request)
     }
 
     ColorIdentifier colorId;
-    if(dest.which() == 3)
-        colorId = boost::get<CColorKeyID>(dest).color;
-    else if(dest.which() == 4)
-        colorId = boost::get<CColorScriptID>(dest).color;
+    if(dest.index() == 3)
+        colorId = std::get<CColorKeyID>(dest).color;
+    else if(dest.index() == 4)
+        colorId = std::get<CColorScriptID>(dest).color;
 
     return colorId.type == TokenTypes::NONE ? ValueFromAmount(nAmount) : nAmount;
 }
@@ -750,10 +750,10 @@ static UniValue getreceivedbylabel(const JSONRPCRequest& request)
             CTxDestination address;
             if (ExtractDestination(txout.scriptPubKey, address) && IsMine(*pwallet, address) && setAddress.count(address)) {
                 ColorIdentifier colorId;
-                if(address.which() == 3)
-                    colorId = boost::get<CColorKeyID>(address).color;
-                else if(address.which() == 4)
-                    colorId = boost::get<CColorScriptID>(address).color;
+                if(address.index() == 3)
+                    colorId = std::get<CColorKeyID>(address).color;
+                else if(address.index() == 4)
+                    colorId = std::get<CColorScriptID>(address).color;
 
                 if (wtx.GetDepthInMainChain() >= nMinDepth)
                     lable_balance[colorId] += txout.nValue;
@@ -1159,10 +1159,10 @@ static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bo
             continue;
 
         ColorIdentifier colorId;
-        if(address.which() == 3)
-            colorId = boost::get<CColorKeyID>(address).color;
-        else if(address.which() == 4)
-            colorId = boost::get<CColorScriptID>(address).color;
+        if(address.index() == 3)
+            colorId = std::get<CColorKeyID>(address).color;
+        else if(address.index() == 4)
+            colorId = std::get<CColorScriptID>(address).color;
 
         CAmount nAmount = 0;
         int nConf = std::numeric_limits<int>::max();
@@ -2838,7 +2838,7 @@ static UniValue listunspent(const JSONRPCRequest& request)
             }
 
             if (scriptPubKey.IsPayToScriptHash()) {
-                const CScriptID& hash = boost::get<CScriptID>(address);
+                const CScriptID& hash = std::get<CScriptID>(address);
                 CScript redeemScript;
                 if (pwallet->GetCScript(hash, redeemScript)) {
                     entry.pushKV("redeemScript", HexStr(redeemScript.begin(), redeemScript.end()));
@@ -3430,7 +3430,7 @@ UniValue rescanblockchain(const JSONRPCRequest& request)
     return response;
 }
 
-class DescribeWalletAddressVisitor : public boost::static_visitor<UniValue>
+class DescribeWalletAddressVisitor
 {
 public:
     CWallet * const pwallet;
@@ -3451,7 +3451,7 @@ public:
             UniValue subobj(UniValue::VOBJ);
             UniValue detail = DescribeAddress(embedded);
             subobj.pushKVs(detail);
-            UniValue wallet_detail = boost::apply_visitor(*this, embedded);
+            UniValue wallet_detail = std::visit(*this, embedded);
             subobj.pushKVs(wallet_detail);
             subobj.pushKV("address", EncodeDestination(embedded));
             subobj.pushKV("scriptPubKey", HexStr(subscript.begin(), subscript.end()));
@@ -3510,7 +3510,7 @@ static UniValue DescribeWalletAddress(CWallet* pwallet, const CTxDestination& de
     UniValue ret(UniValue::VOBJ);
     UniValue detail = DescribeAddress(dest);
     ret.pushKVs(detail);
-    ret.pushKVs(boost::apply_visitor(DescribeWalletAddressVisitor(pwallet), dest));
+    ret.pushKVs(std::visit(DescribeWalletAddressVisitor(pwallet), dest));
     return ret;
 }
 
@@ -3591,10 +3591,10 @@ UniValue getaddressinfo(const JSONRPCRequest& request)
     ret.pushKV("address", currentAddress);
 
     ColorIdentifier colorId;
-    if(dest.which() == 3)
-        colorId = boost::get<CColorKeyID>(dest).color;
-    else if(dest.which() == 4)
-        colorId = boost::get<CColorScriptID>(dest).color;
+    if(dest.index() == 3)
+        colorId = std::get<CColorKeyID>(dest).color;
+    else if(dest.index() == 4)
+        colorId = std::get<CColorScriptID>(dest).color;
 
     ret.pushKV("token", colorId.toHexString());
 

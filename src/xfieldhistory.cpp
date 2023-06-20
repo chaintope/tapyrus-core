@@ -81,7 +81,7 @@ bool IsXFieldNew(const CXField& xfield, CXFieldHistoryMap* pxfieldHistory)
     IsXFieldLastInHistoryVisitor checkVisitor(pxfieldHistory);
     return xfield.IsValid()
           && std::find(XFIELDTYPES_INIT_LIST.begin(), XFIELDTYPES_INIT_LIST.end(), xfield.xfieldType) != XFIELDTYPES_INIT_LIST.end()
-          && !boost::apply_visitor(checkVisitor, xfield.xfieldValue);
+          && !std::visit(checkVisitor, xfield.xfieldValue);
 }
 
 uint32_t GetCurrentMaxBlockSize() {

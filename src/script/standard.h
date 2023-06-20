@@ -10,7 +10,7 @@
 #include <script/interpreter.h>
 #include <uint256.h>
 
-#include <boost/variant.hpp>
+#include <variant>
 
 #include <stdint.h>
 
@@ -81,7 +81,7 @@ public:
  *  A CTxDestination is the internal data type encoded in a bitcoin address
  */
 
-typedef boost::variant<
+typedef std::variant<
     CNoDestination,
     CKeyID,
     CScriptID,

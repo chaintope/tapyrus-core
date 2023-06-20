@@ -27,7 +27,7 @@ BOOST_AUTO_TEST_CASE(XFieldChange_deserialize)
 
     BOOST_CHECK(xfieldList.xfieldChanges.size() == 1);
 
-    CPubKey pubkey(boost::get<XFieldAggPubKey>(xfieldList.xfieldChanges[0].xfieldValue).data),
+    CPubKey pubkey(std::get<XFieldAggPubKey>(xfieldList.xfieldChanges[0].xfieldValue).data),
     pubkeyActual(ParseHex("02473757a955a23f75379820f3071abf5b3343b78eb54e52373d06259ffa6c550b"));
     BOOST_CHECK(std::equal(pubkey.begin(), pubkey.end(), pubkeyActual.begin()));
     BOOST_CHECK(xfieldList.xfieldChanges[0].height == 0);
@@ -38,7 +38,7 @@ BOOST_AUTO_TEST_CASE(XFieldChange_deserialize)
     stream2 >> xfieldList2;
 
     BOOST_CHECK(xfieldList2.xfieldChanges.size() == 1);
-    uint32_t maxblocksize = boost::get<XFieldMaxBlockSize>(xfieldList2.xfieldChanges[0].xfieldValue).data;
+    uint32_t maxblocksize = std::get<XFieldMaxBlockSize>(xfieldList2.xfieldChanges[0].xfieldValue).data;
 
     BOOST_CHECK(maxblocksize == 0xffffffff);
     BOOST_CHECK(xfieldList2.xfieldChanges[0].height == 0);
