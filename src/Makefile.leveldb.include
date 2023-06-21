@@ -4,15 +4,12 @@
 
 LIBLEVELDB_INT = leveldb/libleveldb.a
 LIBMEMENV_INT  = leveldb/libmemenv.a
-LIBLEVELDB_SSE42_INT  = leveldb/libleveldb_sse42.a
 
 EXTRA_LIBRARIES += $(LIBLEVELDB_INT)
 EXTRA_LIBRARIES += $(LIBMEMENV_INT)
-EXTRA_LIBRARIES += $(LIBLEVELDB_SSE42_INT)
 
 LIBLEVELDB += $(LIBLEVELDB_INT)
 LIBMEMENV += $(LIBMEMENV_INT)
-LIBLEVELDB_SSE42 = $(LIBLEVELDB_SSE42_INT)
 
 LEVELDB_CPPFLAGS += -I$(srcdir)/leveldb/include
 LEVELDB_CPPFLAGS += -I$(srcdir)/leveldb/helpers/memenv
@@ -33,12 +30,8 @@ leveldb_libleveldb_a_CPPFLAGS = $(AM_CPPFLAGS) $(LEVELDB_CPPFLAGS_INT) $(LEVELDB
 leveldb_libleveldb_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 
 leveldb_libleveldb_a_SOURCES=
-leveldb_libleveldb_a_SOURCES += leveldb/port/atomic_pointer.h
-leveldb_libleveldb_a_SOURCES += leveldb/port/port_example.h
-leveldb_libleveldb_a_SOURCES += leveldb/port/port_posix.h
-leveldb_libleveldb_a_SOURCES += leveldb/port/win/stdint.h
+leveldb_libleveldb_a_SOURCES += leveldb/port/port_stdcxx.h
 leveldb_libleveldb_a_SOURCES += leveldb/port/port.h
-leveldb_libleveldb_a_SOURCES += leveldb/port/port_win.h
 leveldb_libleveldb_a_SOURCES += leveldb/port/thread_annotations.h
 leveldb_libleveldb_a_SOURCES += leveldb/include/leveldb/db.h
 leveldb_libleveldb_a_SOURCES += leveldb/include/leveldb/options.h
@@ -129,21 +122,13 @@ leveldb_libleveldb_a_SOURCES += leveldb/util/options.cc
 leveldb_libleveldb_a_SOURCES += leveldb/util/status.cc
 
 if TARGET_WINDOWS
-leveldb_libleveldb_a_SOURCES += leveldb/util/env_win.cc
-leveldb_libleveldb_a_SOURCES += leveldb/port/port_win.cc
+leveldb_libleveldb_a_SOURCES += leveldb/util/env_windows.cc
 else
-leveldb_libleveldb_a_SOURCES += leveldb/port/port_posix.cc
+leveldb_libleveldb_a_SOURCES += leveldb/util/env_posix.cc
 endif
 
 leveldb_libmemenv_a_CPPFLAGS = $(leveldb_libleveldb_a_CPPFLAGS)
 leveldb_libmemenv_a_CXXFLAGS = $(leveldb_libleveldb_a_CXXFLAGS)
+leveldb_libmemenv_a_LDFLAGS = $(leveldb_libleveldb_a_LDFLAGS)
 leveldb_libmemenv_a_SOURCES =  leveldb/helpers/memenv/memenv.cc
 leveldb_libmemenv_a_SOURCES += leveldb/helpers/memenv/memenv.h
-
-leveldb_libleveldb_sse42_a_CPPFLAGS = $(leveldb_libleveldb_a_CPPFLAGS)
-leveldb_libleveldb_sse42_a_CXXFLAGS = $(leveldb_libleveldb_a_CXXFLAGS)
-if ENABLE_HWCRC32
-leveldb_libleveldb_sse42_a_CPPFLAGS += -DLEVELDB_PLATFORM_POSIX_SSE
-leveldb_libleveldb_sse42_a_CXXFLAGS += $(SSE42_CXXFLAGS)
-endif
-leveldb_libleveldb_sse42_a_SOURCES =  leveldb/port/port_posix_sse.cc
