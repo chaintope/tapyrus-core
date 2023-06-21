@@ -134,7 +134,7 @@ public:
     //! Create a new check queue
     explicit CCheckQueue(unsigned int nBatchSizeIn) : nIdle(0), nTotal(0), fAllOk(true), nTodo(0), nBatchSize(nBatchSizeIn) {}
 
-//! Create a pool of new worker threads.
+    //! Create a pool of new worker threads.
     void StartWorkerThreads(const int threads_num)
     {
         {
@@ -173,7 +173,7 @@ public:
             condWorker.notify_all();
     }
 
- //! Stop all of the worker threads.
+    //! Stop all of the worker threads.
     void StopWorkerThreads()
     {
         {
