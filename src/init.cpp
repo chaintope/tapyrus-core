@@ -214,8 +214,8 @@ void Shutdown()
 
     StopTorControl();
 
-    // After everything has been shut down, but before things get flushed
-    //2. stop scheduler and load block threads.
+    // After everything has been shut down, but before things get flushed,
+    //stop scheduler and load block threads.
     scheduler.stop();
 
     // After the threads that potentially access these pointers have been stopped,
@@ -1234,7 +1234,7 @@ bool AppInitMain()
 
     // Start the lightweight task scheduler thread
     CScheduler::Function serviceLoop = std::bind(&CScheduler::serviceQueue, &scheduler);
-    scheduler.m_service_thread = std::thread(TraceThread<CScheduler::Function>, "scheduler", serviceLoop);
+    scheduler.m_service_thread = std::thread(&TraceThread, "scheduler", serviceLoop);
 
     // Gather some entropy once per minute.
     scheduler.scheduleEvery([]{

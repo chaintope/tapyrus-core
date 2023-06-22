@@ -645,25 +645,25 @@ std::string HelpMessageOpt(const std::string &option, const std::string &message
            std::string("\n\n");
 }
 
-static std::string FormatException(const std::exception* pex, const char* pszThread)
+static std::string FormatException(const std::exception* pex, std::string_view thread_name)
 {
 #ifdef WIN32
-    char pszModule[MAX_PATH] = "";
-    GetModuleFileNameA(nullptr, pszModule, sizeof(pszModule));
+    char module[MAX_PATH] = "";
+    GetModuleFileNameA(nullptr, module, sizeof(module));
 #else
-    const char* pszModule = "tapyrus";
+    std::string module = "tapyrus";
 #endif
     if (pex)
         return strprintf(
-            "EXCEPTION: %s       \n%s       \n%s in %s       \n", typeid(*pex).name(), pex->what(), pszModule, pszThread);
+            "EXCEPTION: %s       \n%s       \n%s in %s       \n", typeid(*pex).name(), pex->what(), module, thread_name);
     else
         return strprintf(
-            "UNKNOWN EXCEPTION       \n%s in %s       \n", pszModule, pszThread);
+            "UNKNOWN EXCEPTION       \n%s in %s       \n", module, thread_name);
 }
 
-void PrintExceptionContinue(const std::exception* pex, const char* pszThread)
+void PrintExceptionContinue(const std::exception* pex, std::string_view thread_name)
 {
-    std::string message = FormatException(pex, pszThread);
+    std::string message = FormatException(pex, thread_name);
     LogPrintf("\n\n************************\n%s\n", message);
     fprintf(stderr, "\n\n************************\n%s\n", message.c_str());
 }
@@ -1120,20 +1120,40 @@ void runCommand(const std::string& strCommand)
         LogPrintf("runCommand error: system(%s) returned %d\n", strCommand, nErr);
 }
 
-void RenameThread(const char* name)
+void RenameThread(const std::string& name)
 {
 #if defined(PR_SET_NAME)
     // Only the first 15 characters are used (16 - NUL terminator)
     ::prctl(PR_SET_NAME, name, 0, 0, 0);
 #elif (defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__))
-    pthread_set_name_np(pthread_self(), name);
+    pthread_set_name_np(pthread_self(), name.c_str());
 
 #elif defined(MAC_OSX)
-    pthread_setname_np(name);
+    pthread_setname_np(name.c_str());
 #else
     // Prevent warnings for unused parameters...
     (void)name;
 #endif
+}
+
+void TraceThread(std::string name,  std::function<void()> func)
+{
+    std::string s("tapyrus-"+name);
+    RenameThread(s);
+    try
+    {
+        LogPrintf("%s thread start\n", name);
+        func();
+        LogPrintf("%s thread exit\n", name);
+    }
+    catch (const std::exception& e) {
+        PrintExceptionContinue(&e, name);
+        throw;
+    }
+    catch (...) {
+        PrintExceptionContinue(nullptr, name);
+        throw;
+    }
 }
 
 void SetupEnvironment()

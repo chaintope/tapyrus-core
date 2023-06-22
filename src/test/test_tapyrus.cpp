@@ -18,6 +18,9 @@
 #include <rpc/register.h>
 #include <script/sigcache.h>
 #include <xfieldhistory.h>
+#include <util.h>
+
+#include <thread>
 
 constexpr unsigned int CPubKey::SCHNORR_SIGNATURE_SIZE;
 
@@ -99,7 +102,7 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
         // We have to run a scheduler thread to prevent ActivateBestChain
         // from blocking due to queue overrun.
         CScheduler::Function serviceLoop = std::bind(&CScheduler::serviceQueue, &scheduler);
-        scheduler.m_service_thread = std::thread(TraceThread<CScheduler::Function>, "scheduler", serviceLoop);
+        scheduler.m_service_thread = std::thread(&TraceThread, "scheduler", serviceLoop);
         GetMainSignals().RegisterBackgroundSignalScheduler(scheduler);
 
         mempool.setSanityCheck(1.0);

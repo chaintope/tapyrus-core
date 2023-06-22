@@ -1825,7 +1825,6 @@ void StartScriptCheckWorkerThreads(int threads_num)
     g_chainstate.scriptcheckqueue = std::make_unique< CCheckQueue<CScriptCheck> >(128, threads_num);
 }
 
-
 static unsigned int GetBlockScriptFlags(const CBlockIndex* pindex) {
     AssertLockHeld(cs_main);
 

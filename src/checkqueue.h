@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <vector>
+#include <logging.h>
 
 
 template <typename T>
@@ -132,8 +133,7 @@ public:
     std::mutex ControlMutex;
 
     //! Create a new check queue
-    explicit CCheckQueue(unsigned int batch_size, int worker_threads_num)
-        : nBatchSize(batch_size)
+    explicit CCheckQueue(unsigned int batch_size, int worker_threads_num) : nIdle(0), nTotal(0), fAllOk(true), nTodo(0), nBatchSize(batch_size), m_request_stop(false)
     {
         {
             WaitableLock loc(mutex);
@@ -144,7 +144,7 @@ public:
         assert(m_worker_threads.empty());
         for (int n = 0; n < worker_threads_num; ++n) {
             m_worker_threads.emplace_back([this, n]() {
-                RenameThread(strprintf("scriptch.%i", n).c_str());
+                RenameThread(strprintf("scriptch.%i", n));
                 Loop(false /* worker thread */);
         });
         }
@@ -166,12 +166,18 @@ public:
     //! Add a batch of checks to the queue
     void Add(std::vector<T>& vChecks)
     {
-        WaitableLock lock(mutex);
-        for (T& check : vChecks) {
-            queue.push_back(T());
-            check.swap(queue.back());
+        if (vChecks.empty()) {
+            return;
         }
-        nTodo += vChecks.size();
+
+        {
+            WaitableLock lock(mutex);
+            for (T& check : vChecks) {
+                queue.push_back(T());
+                check.swap(queue.back());
+            }
+        }
+
         if (vChecks.size() == 1)
             condWorker.notify_one();
         else if (vChecks.size() > 1)
@@ -181,10 +187,7 @@ public:
     //! Stop all of the worker threads.
     ~CCheckQueue()
     {
-        {
-            WaitableLock lock(mutex);
-            m_request_stop = true;
-        }
+        m_request_stop = true;
         condWorker.notify_all();
         for (std::thread& t : m_worker_threads) {
             t.join();

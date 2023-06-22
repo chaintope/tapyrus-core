@@ -263,7 +263,7 @@ void BaseIndex::Start()
         return;
     }
 
-    m_thread_sync = std::thread(&TraceThread<std::function<void()>>, GetName(),
+    m_thread_sync = std::thread(&TraceThread, GetName(),
                                 std::bind(&BaseIndex::ThreadSync, this));
 }
 
