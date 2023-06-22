@@ -98,7 +98,8 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
 
         // We have to run a scheduler thread to prevent ActivateBestChain
         // from blocking due to queue overrun.
-        scheduler.m_service_thread = std::thread([&] { TraceThread("scheduler", [&] { scheduler.serviceQueue(); }); });
+        CScheduler::Function serviceLoop = std::bind(&CScheduler::serviceQueue, &scheduler);
+        scheduler.m_service_thread = std::thread(TraceThread<CScheduler::Function>, "scheduler", serviceLoop);
         GetMainSignals().RegisterBackgroundSignalScheduler(scheduler);
 
         mempool.setSanityCheck(1.0);
