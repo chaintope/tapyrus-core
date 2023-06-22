@@ -158,6 +158,8 @@ public:
     std::multimap<CBlockIndex*, CBlockIndex*> mapBlocksUnlinked;
     CBlockIndex *pindexBestInvalid = nullptr;
 
+    std::unique_ptr< CCheckQueue<CScriptCheck> >scriptcheckqueue;
+
     bool LoadBlockIndex(CBlockTreeDB& blocktree) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     bool ActivateBestChain(CValidationState &state, std::shared_ptr<const CBlock> pblock);
@@ -211,7 +213,6 @@ private:
 
     bool RollforwardBlock(const CBlockIndex* pindex, CCoinsViewCache& inputs) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 } g_chainstate;
-
 
 
 CCriticalSection cs_main;
@@ -1819,17 +1820,11 @@ static bool WriteUndoDataForBlock(const CBlockUndo& blockundo, CValidationState&
     return true;
 }
 
-static CCheckQueue<CScriptCheck> scriptcheckqueue(128);
-
 void StartScriptCheckWorkerThreads(int threads_num)
 {
-    scriptcheckqueue.StartWorkerThreads(threads_num);
+    g_chainstate.scriptcheckqueue = std::make_unique< CCheckQueue<CScriptCheck> >(128, threads_num);
 }
 
-void StopScriptCheckWorkerThreads()
-{
-    scriptcheckqueue.StopWorkerThreads();
-}
 
 static unsigned int GetBlockScriptFlags(const CBlockIndex* pindex) {
     AssertLockHeld(cs_main);
@@ -1935,7 +1930,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     CBlockUndo blockundo;
 
-    CCheckQueueControl<CScriptCheck> control(fScriptChecks && nScriptCheckThreads ? &scriptcheckqueue : nullptr);
+    CCheckQueueControl<CScriptCheck> control(fScriptChecks && nScriptCheckThreads ? scriptcheckqueue.get() : nullptr);
 
     std::vector<int> prevheights;
     CAmount nFees = 0;

@@ -264,8 +264,6 @@ bool LoadChainTip();
 void UnloadBlockIndex();
 /** Run instances of script checking worker threads */
 void StartScriptCheckWorkerThreads(int threads_num);
-/** Stop all of the script checking worker threads */
-void StopScriptCheckWorkerThreads();
 /** Check whether we are doing an initial block download (synchronizing from disk or network) */
 bool IsInitialBlockDownload();
 /** Retrieve a transaction (from memory pool, or from disk, if possible) */

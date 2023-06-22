@@ -132,10 +132,8 @@ public:
     std::mutex ControlMutex;
 
     //! Create a new check queue
-    explicit CCheckQueue(unsigned int nBatchSizeIn) : nIdle(0), nTotal(0), fAllOk(true), nTodo(0), nBatchSize(nBatchSizeIn) {}
-
-    //! Create a pool of new worker threads.
-    void StartWorkerThreads(const int threads_num)
+    explicit CCheckQueue(unsigned int batch_size, int worker_threads_num)
+        : nBatchSize(batch_size)
     {
         {
             WaitableLock loc(mutex);
@@ -144,13 +142,20 @@ public:
             fAllOk = true;
         }
         assert(m_worker_threads.empty());
-        for (int n = 0; n < threads_num; ++n) {
+        for (int n = 0; n < worker_threads_num; ++n) {
             m_worker_threads.emplace_back([this, n]() {
                 RenameThread(strprintf("scriptch.%i", n).c_str());
                 Loop(false /* worker thread */);
-            });
+        });
         }
     }
+
+    // Since this class manages its own resources, which is a thread
+    // pool `m_worker_threads`, copy and move operations are not appropriate.
+    CCheckQueue(const CCheckQueue&) = delete;
+    CCheckQueue& operator=(const CCheckQueue&) = delete;
+    CCheckQueue(CCheckQueue&&) = delete;
+    CCheckQueue& operator=(CCheckQueue&&) = delete;
 
     //! Wait until execution finishes, and return whether all evaluations were successful.
     bool Wait()
@@ -174,7 +179,7 @@ public:
     }
 
     //! Stop all of the worker threads.
-    void StopWorkerThreads()
+    ~CCheckQueue()
     {
         {
             WaitableLock lock(mutex);
@@ -184,16 +189,6 @@ public:
         for (std::thread& t : m_worker_threads) {
             t.join();
         }
-        m_worker_threads.clear();
-        {
-            WaitableLock lock(mutex);
-            m_request_stop = false;
-        }
-    }
-
-    ~CCheckQueue()
-    {
-        assert(m_worker_threads.empty());
     }
 
 };

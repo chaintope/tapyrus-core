@@ -214,10 +214,7 @@ void Shutdown()
 
     StopTorControl();
 
-    // After everything has been shut down, but before things get flushed,
-    //1. stop the checkqueue threads.
-    StopScriptCheckWorkerThreads();
-
+    // After everything has been shut down, but before things get flushed
     //2. stop scheduler and load block threads.
     scheduler.stop();
 
