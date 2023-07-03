@@ -46,7 +46,7 @@ static void CCheckQueueSpeedPrevectorJob(benchmark::State& state)
             vChecks.reserve(BATCH_SIZE);
             for (size_t x = 0; x < BATCH_SIZE; ++x)
                 vChecks.emplace_back(insecure_rand);
-            control.Add(vChecks);
+            control.Add(std::move(vChecks));
         }
         // control waits for completion by RAII, but
         // it is done explicitly here for clarity

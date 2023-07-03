@@ -160,7 +160,7 @@ public:
     }
 
     //! Add a batch of checks to the queue
-    void Add(std::vector<T>& vChecks)
+    void Add(std::vector<T>&& vChecks)
     {
         if (vChecks.empty()) {
             return;
@@ -222,10 +222,10 @@ public:
         return fRet;
     }
 
-    void Add(std::vector<T>& vChecks)
+    void Add(std::vector<T>&& vChecks)
     {
         if (pqueue != nullptr)
-            pqueue->Add(vChecks);
+            pqueue->Add(std::move(vChecks));
     }
 
     ~CCheckQueueControl()

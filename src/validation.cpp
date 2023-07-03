@@ -1987,7 +1987,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             if (!CheckInputs(tx, state, view, fScriptChecks, flags, fCacheResults, fCacheResults, txdata[i], inColoredCoinBalances, nScriptCheckThreads ? &vChecks : nullptr))
                 return error("ConnectBlock(): CheckInputs on %s failed with %s",
                     tx.GetHashMalFix().ToString(), FormatStateMessage(state));
-            control.Add(vChecks);
+            control.Add(std::move(vChecks));
         }
 
         CTxUndo undoDummy;
