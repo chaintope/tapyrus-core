@@ -33,7 +33,6 @@ struct FakeCheck {
     {
         return true;
     }
-    void swap(FakeCheck& x){};
 };
 
 struct FakeCheckCheckCompletion {
@@ -43,21 +42,15 @@ struct FakeCheckCheckCompletion {
         n_calls.fetch_add(1, std::memory_order_relaxed);
         return true;
     }
-    void swap(FakeCheckCheckCompletion& x){};
 };
 
 struct FailingCheck {
     bool fails;
     FailingCheck(bool _fails) : fails(_fails){};
-    FailingCheck() : fails(true){};
     bool operator()()
     {
         return !fails;
     }
-    void swap(FailingCheck& x)
-    {
-        std::swap(fails, x.fails);
-    };
 };
 
 struct UniqueCheck {
@@ -65,14 +58,12 @@ struct UniqueCheck {
     static std::unordered_multiset<size_t> results;
     size_t check_id;
     UniqueCheck(size_t check_id_in) : check_id(check_id_in){};
-    UniqueCheck() : check_id(0){};
     bool operator()()
     {
         std::lock_guard<std::mutex> l(m);
         results.insert(check_id);
         return true;
     }
-    void swap(UniqueCheck& x) { std::swap(x.check_id, check_id); };
 };
 
 
@@ -83,7 +74,6 @@ struct MemoryCheck {
     {
         return true;
     }
-    MemoryCheck(){};
     MemoryCheck(const MemoryCheck& x)
     {
         // We have to do this to make sure that destructor calls are paired
@@ -100,21 +90,19 @@ struct MemoryCheck {
     {
         fake_allocated_memory.fetch_sub(b, std::memory_order_relaxed);
     };
-    void swap(MemoryCheck& x) { std::swap(b, x.b); };
 };
 
 struct FrozenCleanupCheck {
-    static volatile std::atomic<uint64_t> nFrozen;
+    static std::atomic<uint64_t> nFrozen;
     static std::condition_variable cv;
     static std::mutex m;
     // Freezing can't be the default initialized behavior given how the queue
     // swaps in default initialized Checks.
-    bool should_freeze {false};
-    bool operator()()
+    bool should_freeze {true};
+    bool operator()() const
     {
         return true;
     }
-    FrozenCleanupCheck() {}
     ~FrozenCleanupCheck()
     {
         if (should_freeze) {
@@ -124,12 +112,22 @@ struct FrozenCleanupCheck {
             cv.wait(l, []{ return nFrozen.load(std::memory_order_relaxed) == 0;});
         }
     }
-    void swap(FrozenCleanupCheck& x){std::swap(should_freeze, x.should_freeze);};
+    FrozenCleanupCheck(FrozenCleanupCheck&& other) noexcept
+    {
+        should_freeze = other.should_freeze;
+        other.should_freeze = false;
+    }
+    FrozenCleanupCheck& operator=(FrozenCleanupCheck&& other) noexcept
+    {
+        should_freeze = other.should_freeze;
+        other.should_freeze = false;
+        return *this;
+    }
 };
 
 // Static Allocations
 std::mutex FrozenCleanupCheck::m{};
-volatile std::atomic<uint64_t> FrozenCleanupCheck::nFrozen{0};
+std::atomic<uint64_t> FrozenCleanupCheck::nFrozen{0};
 std::condition_variable FrozenCleanupCheck::cv{};
 std::mutex UniqueCheck::m;
 std::unordered_multiset<size_t> UniqueCheck::results;
@@ -154,19 +152,19 @@ static void Correct_Queue_range(std::vector<size_t> range)
 
     // Make vChecks here to save on malloc (this test can be slow...)
     std::vector<FakeCheckCheckCompletion> vChecks;
+    vChecks.reserve(9);
     for (auto i : range) {
         size_t total = i;
         FakeCheckCheckCompletion::n_calls = 0;
         CCheckQueueControl<FakeCheckCheckCompletion> control(small_queue);
         while (total) {
-            vChecks.resize(std::min(total, (size_t) InsecureRandRange(10)));
+            vChecks.clear();
+            vChecks.resize(std::min<size_t>(total, InsecureRandRange(10)));
             total -= vChecks.size();
             control.Add(vChecks);
         }
         BOOST_REQUIRE(control.Wait());
-        if (FakeCheckCheckCompletion::n_calls != i) {
-            BOOST_REQUIRE_EQUAL(FakeCheckCheckCompletion::n_calls, i);
-        }
+        BOOST_REQUIRE_EQUAL(FakeCheckCheckCompletion::n_calls, i);
     }
     delete small_queue;
 }

@@ -364,17 +364,6 @@ public:
 
     bool operator()();
 
-    void swap(CScriptCheck &check) {
-        std::swap(ptxTo, check.ptxTo);
-        std::swap(m_tx_out, check.m_tx_out);
-        std::swap(nIn, check.nIn);
-        std::swap(nFlags, check.nFlags);
-        std::swap(cacheStore, check.cacheStore);
-        std::swap(error, check.error);
-        std::swap(txdata, check.txdata);
-        std::swap(colorid, check.colorid);
-    }
-
     ScriptError GetScriptError() const { return error; }
     const ColorIdentifier& GetColorIdentifier() const { return colorid; }
 };
