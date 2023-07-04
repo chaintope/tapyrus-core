@@ -93,7 +93,7 @@ struct MemoryCheck {
 };
 
 struct FrozenCleanupCheck {
-    static std::atomic<uint64_t> nFrozen;
+    static volatile std::atomic<uint64_t> nFrozen;
     static std::condition_variable cv;
     static std::mutex m;
     // Freezing can't be the default initialized behavior given how the queue
@@ -128,7 +128,7 @@ struct FrozenCleanupCheck {
 
 // Static Allocations
 std::mutex FrozenCleanupCheck::m{};
-std::atomic<uint64_t> FrozenCleanupCheck::nFrozen{0};
+volatile std::atomic<uint64_t> FrozenCleanupCheck::nFrozen{0};
 std::condition_variable FrozenCleanupCheck::cv{};
 std::mutex UniqueCheck::m;
 std::unordered_multiset<size_t> UniqueCheck::results;
@@ -162,7 +162,15 @@ static void Correct_Queue_range(std::vector<size_t> range)
             vChecks.clear();
             vChecks.resize(std::min<size_t>(total, InsecureRandRange(10)));
             total -= vChecks.size();
+<<<<<<< HEAD
             control.Add(std::move(vChecks));
+=======
+            control.Add(vChecks);
+        }
+        BOOST_REQUIRE(control.Wait());
+        if (FakeCheckCheckCompletion::n_calls != i) {
+            BOOST_REQUIRE_EQUAL(FakeCheckCheckCompletion::n_calls, i);
+>>>>>>> f8910dbe0c (initialize m_request_stop variable in the constructor and handle  empty queue length separately)
         }
         BOOST_REQUIRE(control.Wait());
         BOOST_REQUIRE_EQUAL(FakeCheckCheckCompletion::n_calls, i);

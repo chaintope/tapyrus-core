@@ -23,11 +23,10 @@
 #include <script/sigcache.h>
 #include <xfieldhistory.h>
 
-#include <boost/thread.hpp>
-
 #include <list>
 #include <vector>
 #include <array>
+#include <thread>
 
 static std::shared_ptr<CBlock> PrepareBlock(const CScript& coinbase_scriptPubKey)
 {

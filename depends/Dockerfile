@@ -3,7 +3,7 @@ ARG TARGETARCH
 
 ENV LC_ALL C.UTF-8
 ENV BUILD_PACKAGES "build-essential libtool autotools-dev automake pkg-config bsdmainutils curl git ca-certificates ccache"
-ENV PACKAGES "python3-zmq libevent-dev libboost-system-dev libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev libdb5.3++-dev libminiupnpc-dev libzmq3-dev libqrencode-dev"
+ENV PACKAGES "python3-zmq libevent-dev libboost-filesystem-dev libboost-test-dev libdb5.3++-dev libminiupnpc-dev libzmq3-dev libqrencode-dev"
 
 RUN apt-get update && \
     apt-get install --no-install-recommends --no-upgrade -qq $PACKAGES $BUILD_PACKAGES
