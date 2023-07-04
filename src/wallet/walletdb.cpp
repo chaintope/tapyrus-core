@@ -17,8 +17,7 @@
 #include <wallet/wallet.h>
 
 #include <atomic>
-
-#include <boost/thread.hpp>
+#include <thread>
 
 //
 // WalletBatch

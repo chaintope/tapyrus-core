@@ -44,10 +44,10 @@
 #include <xfieldhistory.h>
 
 #include <future>
+#include <thread>
 #include <sstream>
 
 #include <boost/algorithm/string/replace.hpp>
-#include <boost/thread.hpp>
 
 #if defined(NDEBUG)
 # error "Tapyrus cannot be compiled without assertions."

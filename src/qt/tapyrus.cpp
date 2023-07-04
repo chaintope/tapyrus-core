@@ -39,9 +39,8 @@
 #include <walletinitinterface.h>
 
 #include <memory>
+#include <thread>
 #include <stdint.h>
-
-#include <boost/thread.hpp>
 
 #include <QApplication>
 #include <QDebug>

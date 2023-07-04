@@ -13,7 +13,6 @@
 #include <atomic>
 #include <ctime>
 #include <thread>
-#include <ctime>
 #include <tinyformat.h>
 
 static std::atomic<int64_t> nMockTime(0); //!< For unit testing

@@ -22,7 +22,7 @@ $(package)_toolset_$(host_os)=clang
 else
 $(package)_toolset_$(host_os)=gcc
 endif
-$(package)_config_libraries=chrono,filesystem,system,thread,test
+$(package)_config_libraries=filesystem,test
 $(package)_cxxflags=-std=c++17 -fvisibility=hidden
 $(package)_cxxflags_linux=-fPIC
 endef
