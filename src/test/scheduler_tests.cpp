@@ -13,6 +13,7 @@
 #include <thread>
 #include <vector>
 
+
 BOOST_AUTO_TEST_SUITE(scheduler_tests);
 
 static void microTask(CScheduler& s, std::mutex& mutex, int& counter, int delta, std::chrono::system_clock::time_point rescheduleTime)
@@ -21,6 +22,7 @@ static void microTask(CScheduler& s, std::mutex& mutex, int& counter, int delta,
         std::unique_lock<std::mutex> lock(mutex);
         counter += delta;
     }
+
     std::chrono::system_clock::time_point noTime = std::chrono::system_clock::time_point::min();
     if (rescheduleTime != noTime) {
         CScheduler::Function f = std::bind(&microTask, std::ref(s), std::ref(mutex), std::ref(counter), -delta + 1, noTime);
@@ -63,6 +65,7 @@ BOOST_AUTO_TEST_CASE(manythreads)
     for (int i = 0; i < 100; ++i) {
         std::chrono::system_clock::time_point t = now + std::chrono::microseconds(randomMsec(rng));
         std::chrono::system_clock::time_point tReschedule = now + std::chrono::microseconds(500 + randomMsec(rng));
+
         int whichCounter = zeroToNine(rng);
         CScheduler::Function f = std::bind(&microTask, std::ref(microTasks),
                                              std::ref(counterMutex[whichCounter]), std::ref(counter[whichCounter]),

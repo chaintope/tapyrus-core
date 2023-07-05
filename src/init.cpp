@@ -218,6 +218,9 @@ void Shutdown()
     //stop scheduler and load block threads.
     scheduler.stop();
 
+    //2. stop scheduler and load block threads.
+    scheduler.stop();
+
     // After the threads that potentially access these pointers have been stopped,
     // destruct and reset all to nullptr.
     peerLogic.reset();

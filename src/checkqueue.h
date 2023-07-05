@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <vector>
+#include <logging.h>
 
 
 template <typename T>
