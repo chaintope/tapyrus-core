@@ -40,7 +40,6 @@
 #include <univalue.h>
 
 #include <boost/algorithm/string.hpp>
-#include <boost/thread/thread.hpp> // boost::thread::interrupt
 
 #include <memory>
 #include <mutex>
@@ -839,7 +838,6 @@ static bool GetUTXOStats(CCoinsView *view, CCoinsStats &stats)
     uint256 prevkey;
     std::map<uint32_t, Coin> outputs;
     while (pcursor->Valid()) {
-        boost::this_thread::interruption_point();
         COutPoint key;
         Coin coin;
         if (pcursor->GetKey(key) && pcursor->GetValue(coin)) {
@@ -1832,7 +1830,6 @@ bool FindScriptPubKey(std::atomic<int>& scan_progress, const std::atomic<bool>& 
         Coin coin;
         if (!cursor->GetKey(key) || !cursor->GetValue(coin)) return false;
         if (++count % 8192 == 0) {
-            boost::this_thread::interruption_point();
             if (should_abort) {
                 // allow to abort the scan via the abort reference
                 return false;

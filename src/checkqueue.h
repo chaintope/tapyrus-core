@@ -10,8 +10,6 @@
 #include <algorithm>
 #include <vector>
 
-#include <boost/thread/condition_variable.hpp>
-#include <boost/thread/mutex.hpp>
 
 template <typename T>
 class CCheckQueueControl;
@@ -31,13 +29,13 @@ class CCheckQueue
 {
 private:
     //! Mutex to protect the inner state
-    boost::mutex mutex;
+    std::mutex mutex;
 
     //! Worker threads block on this when out of work
-    boost::condition_variable condWorker;
+    std::condition_variable condWorker;
 
     //! Master thread blocks on this when out of work
-    boost::condition_variable condMaster;
+    std::condition_variable condMaster;
 
     //! The queue of elements to be processed.
     //! As the order of booleans doesn't matter, it is used as a LIFO (stack)
@@ -62,17 +60,20 @@ private:
     //! The maximum number of elements to be processed in one batch
     unsigned int nBatchSize;
 
+    std::vector<std::thread> m_worker_threads;
+    bool m_request_stop;
+
     /** Internal function that does bulk of the verification work. */
     bool Loop(bool fMaster = false)
     {
-        boost::condition_variable& cond = fMaster ? condMaster : condWorker;
+        std::condition_variable& cond = fMaster ? condMaster : condWorker;
         std::vector<T> vChecks;
         vChecks.reserve(nBatchSize);
         unsigned int nNow = 0;
         bool fOk = true;
         do {
             {
-                boost::unique_lock<boost::mutex> lock(mutex);
+                WaitableLock lock(mutex);
                 // first do the clean-up of the previous loop run (allowing us to do it in the same critsect)
                 if (nNow) {
                     fAllOk &= fOk;
@@ -85,7 +86,7 @@ private:
                     nTotal++;
                 }
                 // logically, the do loop starts here
-                while (queue.empty()) {
+                while (queue.empty() && !m_request_stop) {
                     if (fMaster && nTodo == 0) {
                         nTotal--;
                         bool fRet = fAllOk;
@@ -99,19 +100,18 @@ private:
                     cond.wait(lock); // wait
                     nIdle--;
                 }
+                if (m_request_stop) {
+                    return false;
+                }
                 // Decide how many work units to process now.
                 // * Do not try to do everything at once, but aim for increasingly smaller batches so
                 //   all workers finish approximately simultaneously.
                 // * Try to account for idle jobs which will instantly start helping.
                 // * Don't do batches smaller than 1 (duh), or larger than nBatchSize.
                 nNow = std::max(1U, std::min(nBatchSize, (unsigned int)queue.size() / (nTotal + nIdle + 1)));
-                vChecks.resize(nNow);
-                for (unsigned int i = 0; i < nNow; i++) {
-                    // We want the lock on the mutex to be as short as possible, so swap jobs from the global
-                    // queue to the local batch vector instead of copying.
-                    vChecks[i].swap(queue.back());
-                    queue.pop_back();
-                }
+                auto start_it = queue.end() - nNow;
+                vChecks.assign(std::make_move_iterator(start_it), std::make_move_iterator(queue.end()));
+                queue.erase(start_it, queue.end());
                 // Check whether we need to do work at all
                 fOk = fAllOk;
             }
@@ -125,16 +125,32 @@ private:
 
 public:
     //! Mutex to ensure only one concurrent CCheckQueueControl
-    boost::mutex ControlMutex;
+    std::mutex ControlMutex;
 
     //! Create a new check queue
-    explicit CCheckQueue(unsigned int nBatchSizeIn) : nIdle(0), nTotal(0), fAllOk(true), nTodo(0), nBatchSize(nBatchSizeIn) {}
-
-    //! Worker thread
-    void Thread()
+    explicit CCheckQueue(unsigned int batch_size, int worker_threads_num) : nIdle(0), nTotal(0), fAllOk(true), nTodo(0), nBatchSize(batch_size), m_request_stop(false)
     {
-        Loop();
+        {
+            WaitableLock loc(mutex);
+            nIdle = 0;
+            nTotal = 0;
+            fAllOk = true;
+        }
+        assert(m_worker_threads.empty());
+        for (int n = 0; n < worker_threads_num; ++n) {
+            m_worker_threads.emplace_back([this, n]() {
+                RenameThread(strprintf("scriptch.%i", n));
+                Loop(false /* worker thread */);
+        });
+        }
     }
+
+    // Since this class manages its own resources, which is a thread
+    // pool `m_worker_threads`, copy and move operations are not appropriate.
+    CCheckQueue(const CCheckQueue&) = delete;
+    CCheckQueue& operator=(const CCheckQueue&) = delete;
+    CCheckQueue(CCheckQueue&&) = delete;
+    CCheckQueue& operator=(CCheckQueue&&) = delete;
 
     //! Wait until execution finishes, and return whether all evaluations were successful.
     bool Wait()
@@ -143,22 +159,32 @@ public:
     }
 
     //! Add a batch of checks to the queue
-    void Add(std::vector<T>& vChecks)
+    void Add(std::vector<T>&& vChecks)
     {
-        boost::unique_lock<boost::mutex> lock(mutex);
-        for (T& check : vChecks) {
-            queue.push_back(T());
-            check.swap(queue.back());
+        if (vChecks.empty()) {
+            return;
         }
-        nTodo += vChecks.size();
+
+        {
+            WaitableLock lock(mutex);
+            queue.insert(queue.end(), std::make_move_iterator(vChecks.begin()), std::make_move_iterator(vChecks.end()));
+            nTodo += vChecks.size();
+        }
+
         if (vChecks.size() == 1)
             condWorker.notify_one();
         else if (vChecks.size() > 1)
             condWorker.notify_all();
     }
 
+    //! Stop all of the worker threads.
     ~CCheckQueue()
     {
+        m_request_stop = true;
+        condWorker.notify_all();
+        for (std::thread& t : m_worker_threads) {
+            t.join();
+        }
     }
 
 };
@@ -195,10 +221,10 @@ public:
         return fRet;
     }
 
-    void Add(std::vector<T>& vChecks)
+    void Add(std::vector<T>&& vChecks)
     {
         if (pqueue != nullptr)
-            pqueue->Add(vChecks);
+            pqueue->Add(std::move(vChecks));
     }
 
     ~CCheckQueueControl()

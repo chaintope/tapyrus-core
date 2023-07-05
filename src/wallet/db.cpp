@@ -129,8 +129,6 @@ bool BerkeleyEnvironment::Open(bool retry)
     if (fDbEnvInit)
         return true;
 
-    boost::this_thread::interruption_point();
-
     fs::path pathIn = strPath;
     TryCreateDirectories(pathIn);
     if (!LockDirectory(pathIn, ".walletlock")) {
@@ -202,8 +200,6 @@ void BerkeleyEnvironment::MakeMock()
 {
     if (fDbEnvInit)
         throw std::runtime_error("BerkeleyEnvironment::MakeMock: Already initialized");
-
-    boost::this_thread::interruption_point();
 
     LogPrint(BCLog::DB, "BerkeleyEnvironment::MakeMock\n");
 
@@ -725,7 +721,6 @@ bool BerkeleyBatch::PeriodicFlush(BerkeleyDatabase& database)
 
         if (nRefCount == 0)
         {
-            boost::this_thread::interruption_point();
             std::map<std::string, int>::iterator mi = env->mapFileUseCount.find(strFile);
             if (mi != env->mapFileUseCount.end())
             {

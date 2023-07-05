@@ -158,6 +158,8 @@ public:
     std::multimap<CBlockIndex*, CBlockIndex*> mapBlocksUnlinked;
     CBlockIndex *pindexBestInvalid = nullptr;
 
+    std::unique_ptr< CCheckQueue<CScriptCheck> >scriptcheckqueue;
+
     bool LoadBlockIndex(CBlockTreeDB& blocktree) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     bool ActivateBestChain(CValidationState &state, std::shared_ptr<const CBlock> pblock);
@@ -211,7 +213,6 @@ private:
 
     bool RollforwardBlock(const CBlockIndex* pindex, CCoinsViewCache& inputs) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 } g_chainstate;
-
 
 
 CCriticalSection cs_main;
@@ -1552,8 +1553,7 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                 // Verify signature
                 CScriptCheck check(coin.out, tx, i, flags, cacheSigStore, &txdata);
                 if (pvChecks) {
-                    pvChecks->push_back(CScriptCheck());
-                    check.swap(pvChecks->back());
+                    pvChecks->emplace_back(std::move(check));
                 } else if (!check()) {
                     if (flags & STANDARD_NOT_MANDATORY_VERIFY_FLAGS) {
                         // Check whether the failure was caused by a
@@ -1819,13 +1819,10 @@ static bool WriteUndoDataForBlock(const CBlockUndo& blockundo, CValidationState&
     return true;
 }
 
-static CCheckQueue<CScriptCheck> scriptcheckqueue(128);
-
-void ThreadScriptCheck() {
-    RenameThread("tapyrus-scriptch");
-    scriptcheckqueue.Thread();
+void StartScriptCheckWorkerThreads(int threads_num)
+{
+    g_chainstate.scriptcheckqueue = std::make_unique< CCheckQueue<CScriptCheck> >(128, threads_num);
 }
-
 
 static unsigned int GetBlockScriptFlags(const CBlockIndex* pindex) {
     AssertLockHeld(cs_main);
@@ -1931,7 +1928,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     CBlockUndo blockundo;
 
-    CCheckQueueControl<CScriptCheck> control(fScriptChecks && nScriptCheckThreads ? &scriptcheckqueue : nullptr);
+    CCheckQueueControl<CScriptCheck> control(fScriptChecks && nScriptCheckThreads ? scriptcheckqueue.get() : nullptr);
 
     std::vector<int> prevheights;
     CAmount nFees = 0;
@@ -1990,7 +1987,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             if (!CheckInputs(tx, state, view, fScriptChecks, flags, fCacheResults, fCacheResults, txdata[i], inColoredCoinBalances, nScriptCheckThreads ? &vChecks : nullptr))
                 return error("ConnectBlock(): CheckInputs on %s failed with %s",
                     tx.GetHashMalFix().ToString(), FormatStateMessage(state));
-            control.Add(vChecks);
+            control.Add(std::move(vChecks));
         }
 
         CTxUndo undoDummy;
@@ -2609,8 +2606,6 @@ bool CChainState::ActivateBestChain(CValidationState &state, std::shared_ptr<con
     CBlockIndex *pindexNewTip = nullptr;
     int nStopAtHeight = gArgs.GetArg("-stopatheight", DEFAULT_STOPATHEIGHT);
     do {
-        boost::this_thread::interruption_point();
-
         if (GetMainSignals().CallbacksPending() > 10) {
             // Block until the validation queue drains. This should largely
             // never happen in normal operation, however may happen during
@@ -3676,8 +3671,6 @@ bool CChainState::LoadBlockIndex(CBlockTreeDB& blocktree)
     if (!blocktree.LoadBlockIndexGuts([this](const uint256& hash) EXCLUSIVE_LOCKS_REQUIRED(cs_main) { return this->InsertBlockIndex(hash); }))
         return false;
 
-    boost::this_thread::interruption_point();
-
     std::vector<std::pair<int, CBlockIndex*> > vSortedByHeight;
     vSortedByHeight.reserve(mapBlockIndex.size());
     for (const std::pair<const uint256, CBlockIndex*>& item : mapBlockIndex)
@@ -3836,7 +3829,6 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
     int reportDone = 0;
     LogPrintf("[0%%]..."); /* Continued */
     for (pindex = chainActive.Tip(); pindex && pindex->pprev; pindex = pindex->pprev) {
-        boost::this_thread::interruption_point();
         int percentageDone = std::max(1, std::min(99, (int)(((double)(chainActive.Height() - pindex->nHeight)) / (double)nCheckDepth * (nCheckLevel >= 4 ? 50 : 100))));
         if (reportDone < percentageDone/10) {
             // report every 10% step
@@ -3894,7 +3886,6 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
     // check level 4: try reconnecting blocks
     if (nCheckLevel >= 4) {
         while (pindex != chainActive.Tip()) {
-            boost::this_thread::interruption_point();
             uiInterface.ShowProgress(_("Verifying blocks..."), std::max(1, std::min(99, 100 - (int)(((double)(chainActive.Height() - pindex->nHeight)) / (double)nCheckDepth * 50))), false);
             pindex = chainActive.Next(pindex);
             CBlock block;
@@ -4182,8 +4173,6 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
         CBufferedFile blkdat(fileIn, 2*GetCurrentMaxBlockSize(), GetCurrentMaxBlockSize()+8, SER_DISK, CLIENT_VERSION);
         uint64_t nRewind = blkdat.GetPos();
         while (!blkdat.eof()) {
-            boost::this_thread::interruption_point();
-
             LogPrint(BCLog::REINDEX, "%s: nRewind : %d (%s out of order)\n", __func__, nRewind,
                              outOfOrder ? "after" : "before");
             blkdat.SetPos(nRewind);

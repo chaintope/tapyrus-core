@@ -18,6 +18,9 @@
 #include <rpc/register.h>
 #include <script/sigcache.h>
 #include <xfieldhistory.h>
+#include <util.h>
+
+#include <thread>
 
 constexpr unsigned int CPubKey::SCHNORR_SIGNATURE_SIZE;
 
@@ -98,7 +101,8 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
 
         // We have to run a scheduler thread to prevent ActivateBestChain
         // from blocking due to queue overrun.
-        threadGroup.create_thread(std::bind(&CScheduler::serviceQueue, &scheduler));
+        CScheduler::Function serviceLoop = std::bind(&CScheduler::serviceQueue, &scheduler);
+        scheduler.m_service_thread = std::thread(&TraceThread, "scheduler", serviceLoop);
         GetMainSignals().RegisterBackgroundSignalScheduler(scheduler);
 
         mempool.setSanityCheck(1.0);
@@ -115,8 +119,7 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
             }
         }
         nScriptCheckThreads = 3;
-        for (int i=0; i < nScriptCheckThreads-1; i++)
-            threadGroup.create_thread(&ThreadScriptCheck);
+        StartScriptCheckWorkerThreads(nScriptCheckThreads);
         g_connman = std::unique_ptr<CConnman>(new CConnman(0x1337, 0x1337)); // Deterministic randomness for tests.
         connman = g_connman.get();
         peerLogic.reset(new PeerLogicValidation(connman, scheduler));
@@ -124,8 +127,7 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
 
 TestingSetup::~TestingSetup()
 {
-        threadGroup.interrupt_all();
-        threadGroup.join_all();
+        scheduler.stop();
         GetMainSignals().FlushBackgroundCallbacks();
         GetMainSignals().UnregisterBackgroundSignalScheduler();
         g_connman.reset();

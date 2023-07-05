@@ -34,7 +34,6 @@
 #include <vector>
 
 #include <boost/signals2/signal.hpp>
-#include <boost/thread/condition_variable.hpp> // for boost::thread_interrupted
 
 // Application startup time (used for uptime calculation)
 int64_t GetStartupTime();
@@ -72,7 +71,7 @@ bool error(const char* fmt, const Args&... args)
     return false;
 }
 
-void PrintExceptionContinue(const std::exception *pex, const char* pszThread);
+void PrintExceptionContinue(const std::exception *pex, std::string_view thread_name);
 bool FileCommit(FILE *file);
 bool TruncateFile(FILE *file, unsigned int length);
 int RaiseFileDescriptorLimit(int nMinFD);
@@ -339,35 +338,12 @@ std::string HelpMessageOpt(const std::string& option, const std::string& message
  */
 int GetNumCores();
 
-void RenameThread(const char* name);
+void RenameThread(const std::string& name);
 
 /**
  * .. and a wrapper that just calls func once
  */
-template <typename Callable> void TraceThread(const char* name,  Callable func)
-{
-    std::string s = strprintf("tapyrus-%s", name);
-    RenameThread(s.c_str());
-    try
-    {
-        LogPrintf("%s thread start\n", name);
-        func();
-        LogPrintf("%s thread exit\n", name);
-    }
-    catch (const boost::thread_interrupted&)
-    {
-        LogPrintf("%s thread interrupt\n", name);
-        throw;
-    }
-    catch (const std::exception& e) {
-        PrintExceptionContinue(&e, name);
-        throw;
-    }
-    catch (...) {
-        PrintExceptionContinue(nullptr, name);
-        throw;
-    }
-}
+void TraceThread(std::string name,  std::function<void()> func);
 
 std::string CopyrightHolders(const std::string& strPrefix);
 

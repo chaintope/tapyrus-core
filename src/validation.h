@@ -262,8 +262,8 @@ bool LoadBlockIndex() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 bool LoadChainTip();
 /** Unload database information */
 void UnloadBlockIndex();
-/** Run an instance of the script checking thread */
-void ThreadScriptCheck();
+/** Run instances of script checking worker threads */
+void StartScriptCheckWorkerThreads(int threads_num);
 /** Check whether we are doing an initial block download (synchronizing from disk or network) */
 bool IsInitialBlockDownload();
 /** Retrieve a transaction (from memory pool, or from disk, if possible) */
@@ -363,17 +363,6 @@ public:
         m_tx_out(outIn), ptxTo(&txToIn), nIn(nInIn), nFlags(nFlagsIn), cacheStore(cacheIn), error(SCRIPT_ERR_UNKNOWN_ERROR), txdata(txdataIn), colorid(coloridIn) { }
 
     bool operator()();
-
-    void swap(CScriptCheck &check) {
-        std::swap(ptxTo, check.ptxTo);
-        std::swap(m_tx_out, check.m_tx_out);
-        std::swap(nIn, check.nIn);
-        std::swap(nFlags, check.nFlags);
-        std::swap(cacheStore, check.cacheStore);
-        std::swap(error, check.error);
-        std::swap(txdata, check.txdata);
-        std::swap(colorid, check.colorid);
-    }
 
     ScriptError GetScriptError() const { return error; }
     const ColorIdentifier& GetColorIdentifier() const { return colorid; }
