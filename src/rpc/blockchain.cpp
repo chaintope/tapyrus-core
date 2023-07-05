@@ -838,6 +838,13 @@ static bool GetUTXOStats(CCoinsView *view, CCoinsStats &stats)
     uint256 prevkey;
     std::map<uint32_t, Coin> outputs;
     while (pcursor->Valid()) {
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+        std::this_thread::yield();
+>>>>>>> e6bf36329a (remove boost::thread and use std::thread)
+=======
+>>>>>>> fa463ddba5 (remove  this_thread::yield)
         COutPoint key;
         Coin coin;
         if (pcursor->GetKey(key) && pcursor->GetValue(coin)) {
