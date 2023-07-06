@@ -277,13 +277,6 @@ bool CBlockTreeDB::LoadBlockIndexGuts(std::function<CBlockIndex*(const uint256&)
 
     // Load mapBlockIndex
     while (pcursor->Valid()) {
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-        std::this_thread::yield();;
->>>>>>> a00ca8f603 (replace boost::interuption point with std:: yield)
-=======
->>>>>>> fa463ddba5 (remove  this_thread::yield)
         std::pair<char, uint256> key;
         if (pcursor->GetKey(key) && key.first == DB_BLOCK_INDEX) {
             CDiskBlockIndex diskindex;
@@ -394,13 +387,6 @@ bool CCoinsViewDB::Upgrade() {
     std::pair<unsigned char, uint256> key;
     std::pair<unsigned char, uint256> prev_key = {DB_COINS, uint256()};
     while (pcursor->Valid()) {
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-        std::this_thread::yield();;
->>>>>>> a00ca8f603 (replace boost::interuption point with std:: yield)
-=======
->>>>>>> fa463ddba5 (remove  this_thread::yield)
         if (ShutdownRequested()) {
             break;
         }
