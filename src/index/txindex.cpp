@@ -152,13 +152,6 @@ bool TxIndex::DB::MigrateData(CBlockTreeDB& block_tree_db, const CBlockLocator& 
     bool interrupted = false;
     std::unique_ptr<CDBIterator> cursor(block_tree_db.NewIterator());
     for (cursor->Seek(begin_key); cursor->Valid(); cursor->Next()) {
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-        std::this_thread::yield();;
->>>>>>> a00ca8f603 (replace boost::interuption point with std:: yield)
-=======
->>>>>>> fa463ddba5 (remove  this_thread::yield)
         if (ShutdownRequested()) {
             interrupted = true;
             break;
