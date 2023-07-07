@@ -427,10 +427,8 @@ def run_tests(test_list, src_dir, build_dir, tmpdir, jobs=1, enable_coverage=Fal
     max_len_name = len(max(test_list, key=len))
 
     for _ in range(len(test_list)):
-        test_result, testdir, stdout, stderr, retry = job_queue.get_next()
+        test_result, testdir, stdout, stderr = job_queue.get_next()
         test_results.append(test_result)
-        if retry is not None:
-            retry_list.append(retry)
 
         if test_result.status == "Passed":
             logging.debug("\n%s%s%s passed, Duration: %s s" % (BOLD[1], test_result.name, BOLD[0], test_result.time))
@@ -512,10 +510,8 @@ class TestHandler:
         self.flags = flags
         self.num_running = 0
         self.jobs = []
-        self.retry = None
 
     def get_next(self):
-        self.retry = None
         while self.num_running < self.num_jobs and self.test_list:
             # Add tests
             self.num_running += 1
@@ -555,7 +551,6 @@ class TestHandler:
                     elif proc.returncode == TEST_EXIT_SKIPPED:
                         status = "Skipped"
                     elif proc.returncode == TEST_EXIT_TIMEOUT:
-                        self.retry = name
                         status = "Timeout"
                         proc.send_signal(signal.SIGINT)
                     else:
@@ -563,7 +558,7 @@ class TestHandler:
                     self.num_running -= 1
                     self.jobs.remove(job)
 
-                    return TestResult(name, status, int(time.time() - start_time)), testdir, stdout, stderr, self.retry
+                    return TestResult(name, status, int(time.time() - start_time)), testdir, stdout, stderr
             print('.', end='', flush=True)
 
     def kill_and_join(self):
