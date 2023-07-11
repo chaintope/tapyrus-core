@@ -17,7 +17,7 @@
 #include <sys/stat.h>
 #endif
 
-#include <boost/thread.hpp>
+#include <thread>
 
 namespace {
 //! Make sure database has a unique fileid within the environment. If it
