@@ -95,21 +95,16 @@ target_include_directories(util
 
 # Target specific configs
 if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-    set(Boost_USE_STATIC_LIBS ON)
-    set(Boost_THREADAPI win32)
-
     find_package(SHLWAPI REQUIRED)
     target_link_libraries(util ${SHLWAPI_LIBRARY})
     target_include_directories(util PUBLIC ${SHLWAPI_INCLUDE_DIR})
 
     find_library(WS2_32_LIBRARY NAMES ws2_32)
     target_link_libraries(util ${WS2_32_LIBRARY})
-
-    target_compile_definitions(util PUBLIC BOOST_THREAD_USE_LIB)
 endif()
 
 # Boost packages
-set(BOOST_PACKAGES_REQUIRED chrono filesystem program_options thread)
+set(BOOST_PACKAGES_REQUIRED filesystem program_options)
 
 function(prepend var prefix)
     set(listVar "")
@@ -121,7 +116,7 @@ endfunction(prepend)
 
 prepend(BOOST_LIBRARIES "Boost::" ${BOOST_PACKAGES_REQUIRED})
 
-find_package(Boost 1.58 REQUIRED ${BOOST_PACKAGES_REQUIRED})
+find_package(Boost 1.81 REQUIRED ${BOOST_PACKAGES_REQUIRED})
 target_link_libraries(util univalue crypto ${BOOST_LIBRARIES})
 
 # Make sure boost uses std::atomic (it doesn't before 1.63)

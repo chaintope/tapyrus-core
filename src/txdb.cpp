@@ -16,8 +16,7 @@
 #include <xfieldhistory.h>
 
 #include <stdint.h>
-
-#include <boost/thread.hpp>
+#include <thread>
 
 static const char DB_COIN = 'C';
 static const char DB_COINS = 'c';

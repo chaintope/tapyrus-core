@@ -12,7 +12,6 @@
 #include <util.h>
 #include <utilstrencodings.h>
 #include <coloridentifier.h>
-#include <script/script.h>
 
 
 typedef std::vector<unsigned char> valtype;
