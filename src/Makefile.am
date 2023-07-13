@@ -458,7 +458,6 @@ tapyrusd_LDADD = \
   $(LIBBITCOIN_CONSENSUS) \
   $(LIBBITCOIN_CRYPTO) \
   $(LIBLEVELDB) \
-  $(LIBLEVELDB_SSE42) \
   $(LIBMEMENV) \
   $(LIBSECP256K1)
 
@@ -527,7 +526,6 @@ tapyrus_genesis_LDADD = \
   $(LIBBITCOIN_CRYPTO) \
   $(LIBSECP256K1) \
   $(LIBLEVELDB) \
-  $(LIBLEVELDB_SSE42) \
   $(LIBMEMENV)
 
 tapyrus_genesis_LDADD += $(BOOST_LIBS) $(BDB_LIBS)
@@ -608,9 +606,7 @@ if HARDEN
 endif
 
 
-if EMBEDDED_LEVELDB
 include Makefile.leveldb.include
-endif
 
 if ENABLE_TESTS
 include Makefile.test.include
