@@ -27,8 +27,8 @@ LEVELDB_CPPFLAGS_INT += -DLEVELDB_PLATFORM_POSIX
 endif
 
 leveldb_libleveldb_a_CPPFLAGS = $(AM_CPPFLAGS) $(LEVELDB_CPPFLAGS_INT) $(LEVELDB_CPPFLAGS)
-leveldb_libleveldb_a_CXXFLAGS = $(filter-out -Wconditional-uninitialized -Werror=conditional-uninitialized -Wsuggest-override -Werror=suggest-override, $(AM_CXXFLAGS)) $(PIE_FLAGS) -static
-leveldb_libleveldb_a_LDFLAGS = $(AM_LDFLAGS) -static
+leveldb_libleveldb_a_CXXFLAGS = $(filter-out -Wconditional-uninitialized -Werror=conditional-uninitialized -Wsuggest-override -Werror=suggest-override, $(AM_CXXFLAGS)) $(PIE_FLAGS)
+leveldb_libleveldb_a_LDFLAGS = $(AM_LDFLAGS)
 
 leveldb_libleveldb_a_SOURCES=
 leveldb_libleveldb_a_SOURCES += leveldb/port/port_stdcxx.h
@@ -41,6 +41,7 @@ leveldb_libleveldb_a_SOURCES += leveldb/include/leveldb/filter_policy.h
 leveldb_libleveldb_a_SOURCES += leveldb/include/leveldb/slice.h
 leveldb_libleveldb_a_SOURCES += leveldb/include/leveldb/table_builder.h
 leveldb_libleveldb_a_SOURCES += leveldb/include/leveldb/env.h
+leveldb_libleveldb_a_SOURCES += leveldb/include/leveldb/export.h
 leveldb_libleveldb_a_SOURCES += leveldb/include/leveldb/c.h
 leveldb_libleveldb_a_SOURCES += leveldb/include/leveldb/iterator.h
 leveldb_libleveldb_a_SOURCES += leveldb/include/leveldb/cache.h
@@ -72,6 +73,7 @@ leveldb_libleveldb_a_SOURCES += leveldb/table/format.h
 leveldb_libleveldb_a_SOURCES += leveldb/table/iterator_wrapper.h
 leveldb_libleveldb_a_SOURCES += leveldb/util/crc32c.h
 leveldb_libleveldb_a_SOURCES += leveldb/util/env_posix_test_helper.h
+leveldb_libleveldb_a_SOURCES += leveldb/util/env_windows_test_helper.h
 leveldb_libleveldb_a_SOURCES += leveldb/util/arena.h
 leveldb_libleveldb_a_SOURCES += leveldb/util/random.h
 leveldb_libleveldb_a_SOURCES += leveldb/util/posix_logger.h
@@ -114,7 +116,6 @@ leveldb_libleveldb_a_SOURCES += leveldb/util/coding.cc
 leveldb_libleveldb_a_SOURCES += leveldb/util/comparator.cc
 leveldb_libleveldb_a_SOURCES += leveldb/util/crc32c.cc
 leveldb_libleveldb_a_SOURCES += leveldb/util/env.cc
-leveldb_libleveldb_a_SOURCES += leveldb/util/env_posix.cc
 leveldb_libleveldb_a_SOURCES += leveldb/util/filter_policy.cc
 leveldb_libleveldb_a_SOURCES += leveldb/util/hash.cc
 leveldb_libleveldb_a_SOURCES += leveldb/util/histogram.cc
@@ -124,6 +125,7 @@ leveldb_libleveldb_a_SOURCES += leveldb/util/status.cc
 
 if TARGET_WINDOWS
 leveldb_libleveldb_a_SOURCES += leveldb/util/env_windows.cc
+leveldb_libleveldb_a_SOURCES += leveldb/util/windows_logger.h
 else
 leveldb_libleveldb_a_SOURCES += leveldb/util/env_posix.cc
 endif
