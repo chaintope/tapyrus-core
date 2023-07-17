@@ -238,6 +238,32 @@ class SendHeadersTest(BitcoinTestFramework):
         sync_blocks(self.nodes, wait=0.1)
         return [int(x, 16) for x in all_hashes]
 
+    def mine_federation_block(self, test_node):
+        """254 test  -  add a federation block to change the aggpukey and then restart the node with -reloadxfield."""
+
+        newaggpubkey = "02bf2027c8455800c7626542219e6208b5fe787483689f1391d6d443ec85673ecf";
+
+        # Clear out block announcements from each p2p listener
+        tip = self.nodes[0].getblockheader(self.nodes[0].getbestblockhash())
+        block = create_block(int(tip["hash"], 16), create_coinbase(tip["height"] + 1), tip["mediantime"] + 1, newaggpubkey)
+        block.solve(self.signblockprivkey)
+        test_node.send_header_for_blocks([block])
+        test_node.clear_block_announcements()
+        test_node.send_get_headers(locator=[], hashstop=int(block.hash, 16))
+        test_node.sync_with_ping()
+        assert_equal(test_node.block_announced, False)
+        test_node.send_message(msg_block(block))
+
+        #restart node
+        self.stop_node(0)
+        self.start_node(0, ["-reloadxfield"])
+
+        #  new aggprivkey is used to sign the  rest of the blocks
+        self.signblockpubkey = "02bf2027c8455800c7626542219e6208b5fe787483689f1391d6d443ec85673ecf"
+        self.signblockprivkey = "aa2c70c4b85a09be514292d04b27bbb0cc3f86d306d58fe87743d10a095ada07"
+        self.signblockprivkey_wif = "cTHVmjaAwKtU75t89fg42SLx43nRxhsri6YY1Eynvs1V1tPRCfae"
+
+
     def run_test(self):
         # Setup the p2p connections
         inv_node = self.nodes[0].add_p2p_connection(BaseNode(self.nodes[0].time_to_connect))
@@ -450,7 +476,7 @@ class SendHeadersTest(BitcoinTestFramework):
 
         self.log.info("Part 3: success!")
 
-        self.log.info("Part 4: Testing direct fetch behavior...")
+        self.log.info("Part 4a: Testing direct fetch behavior...")
         tip = self.mine_blocks(1)
         height = self.nodes[0].getblockcount() + 1
         last_time = self.nodes[0].getblock(self.nodes[0].getbestblockhash())['time']
@@ -496,7 +522,7 @@ class SendHeadersTest(BitcoinTestFramework):
         height = self.nodes[0].getblockcount() - 1
         blocks = []
 
-        self.log.info("Part 4: Now announce a header that forks the last two blocks!")
+        self.log.info("Part 4a: Now announce a header that forks the last two blocks!")
         # Create extra blocks for later
         for b in range(20):
             blocks.append(create_block(tip, create_coinbase(height), block_time))
@@ -531,7 +557,62 @@ class SendHeadersTest(BitcoinTestFramework):
         with mininode_lock:
             assert "getdata" not in test_node.last_message
 
-        self.log.info("Part 4: success!")
+        self.log.info("Part 4a: success!")
+
+        self.log.info("Part 4b: Testing direct fetch behavior after federation block...")
+
+        #mine a federation block
+        tip = self.mine_federation_block(test_node)
+        height = self.nodes[0].getblockcount() + 1
+        last_time = self.nodes[0].getblock(self.nodes[0].getbestblockhash())['time']
+        block_time = last_time + 1
+
+        # Setup the p2p connections again
+        inv_node = self.nodes[0].add_p2p_connection(BaseNode(self.nodes[0].time_to_connect))
+        test_node = self.nodes[0].add_p2p_connection(BaseNode(self.nodes[0].time_to_connect))
+
+        #repeat sequence  in 4a
+        tip = self.mine_blocks(1)
+        height = self.nodes[0].getblockcount() + 1
+        last_time = self.nodes[0].getblock(self.nodes[0].getbestblockhash())['time']
+        block_time = last_time + 1
+
+        # Create 2 blocks.  Send the blocks, then send the headers.
+        blocks = []
+        for b in range(2):
+            blocks.append(create_block(tip, create_coinbase(height), block_time))
+            blocks[-1].solve(self.signblockprivkey)
+            tip = blocks[-1].sha256
+            block_time += 1
+            height += 1
+            inv_node.send_message(msg_block(blocks[-1]))
+
+        inv_node.sync_with_ping()  # Make sure blocks are processed
+        test_node.last_message.pop("getdata", None)
+        test_node.send_header_for_blocks(blocks)
+        test_node.sync_with_ping()
+        # should not have received any getdata messages
+        with mininode_lock:
+            assert "getdata" not in test_node.last_message
+
+        # This time, direct fetch should work
+        blocks = []
+        for b in range(3):
+            blocks.append(create_block(tip, create_coinbase(height), block_time))
+            blocks[-1].solve(self.signblockprivkey)
+            tip = blocks[-1].sha256
+            block_time += 1
+            height += 1
+
+        test_node.send_header_for_blocks(blocks)
+        test_node.sync_with_ping()
+        test_node.wait_for_getdata([x.sha256 for x in blocks], timeout=DIRECT_FETCH_RESPONSE_TIME)
+
+        [test_node.send_message(msg_block(x)) for x in blocks]
+
+        test_node.sync_with_ping()
+
+        self.log.info("Part 4b: success!")
 
         # Now deliver all those blocks we announced.
         [test_node.send_message(msg_block(x)) for x in blocks]

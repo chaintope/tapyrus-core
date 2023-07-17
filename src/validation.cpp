@@ -4167,14 +4167,11 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
     int64_t nStart = GetTimeMillis();
 
     int nLoaded = 0;
-    bool outOfOrder = false;
     try {
         // This takes over fileIn and calls fclose() on it in the CBufferedFile destructor
         CBufferedFile blkdat(fileIn, 2*GetCurrentMaxBlockSize(), GetCurrentMaxBlockSize()+8, SER_DISK, CLIENT_VERSION);
         uint64_t nRewind = blkdat.GetPos();
         while (!blkdat.eof()) {
-            LogPrint(BCLog::REINDEX, "%s: nRewind : %d (%s out of order)\n", __func__, nRewind,
-                             outOfOrder ? "after" : "before");
             blkdat.SetPos(nRewind);
             nRewind++; // start one byte further next time, in case of failure
             blkdat.SetLimit(); // remove former limit
@@ -4203,11 +4200,9 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
                 blkdat.SetLimit(nBlockPos + nSize);
                 blkdat.SetPos(nBlockPos);
                 std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>();
-                LogPrint(BCLog::REINDEX, "%s: trying to read block %s\n", __func__, pblock->GetHash().ToString());
                 CBlock& block = *pblock;
                 blkdat >> block;
                 nRewind = blkdat.GetPos();
-                LogPrint(BCLog::REINDEX, "%s: Read ok. nRewind = %d\n", __func__, nRewind);
 
                 uint256 hash = block.GetHash();
                 {
@@ -4216,14 +4211,12 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
                     if (hash != FederationParams().GenesisBlock().GetHash() && !LookupBlockIndex(block.hashPrevBlock)) {
                         LogPrint(BCLog::REINDEX, "%s: Out of order block %s, parent %s not known\n", __func__, hash.ToString(),
                                 block.hashPrevBlock.ToString());
-                        outOfOrder = true;
                         if (dbp)
                             mapBlocksUnknownParent.insert(std::make_pair(block.hashPrevBlock, *dbp));
                         continue;
                     }
 
                     // process in case the block isn't known yet
-                    LogPrint(BCLog::REINDEX, "%s: before LookupBlockIndex\n", __func__);
                     CBlockIndex* pindex = LookupBlockIndex(hash);
                     if (!pindex || (pindex->nStatus & BLOCK_HAVE_DATA) == 0) {
                         CValidationState state;
@@ -4231,14 +4224,11 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
                             nLoaded++;
                         }
                         if (state.IsError()) {
-                            LogPrint(BCLog::REINDEX, "%s: AcceptBlock state: %s-%s\n", __func__, state.GetRejectReason(), state.GetDebugMessage());
                           break;
                       }
                     } else if (hash != FederationParams().GenesisBlock().GetHash() && pindex->nHeight % 1000 == 0) {
                       LogPrint(BCLog::REINDEX, "%s Block Import: already had block %s at height %d\n", __func__, hash.ToString(), pindex->nHeight);
                     }
-                    else
-                    LogPrint(BCLog::REINDEX, "%s: LookupBlockIndex returned null\n", __func__);
                 }
 
                 // Activate the genesis block so normal node progress can continue
@@ -4262,7 +4252,11 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
                         std::multimap<uint256, CDiskBlockPos>::iterator it = range.first;
                         std::shared_ptr<CBlock> pblockrecursive = std::make_shared<CBlock>();
 
-                        if (ReadBlockFromDisk(*pblockrecursive, it->second, pblockrecursive->GetHeight()))
+                        BlockMap::iterator miSelf = mapBlockIndex.find(hash);
+                        CBlockIndex *pindex = nullptr;
+                        pindex = miSelf->second;
+
+                        if (ReadBlockFromDisk(*pblockrecursive, it->second, pindex->nHeight))
                         {
                             LogPrint(BCLog::REINDEX, "%s: Processing out of order child %s of %s\n", __func__, pblockrecursive->GetHash().ToString(),
                                     head.ToString());
