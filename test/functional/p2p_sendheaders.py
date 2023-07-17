@@ -569,7 +569,10 @@ class SendHeadersTest(BitcoinTestFramework):
 
         # Setup the p2p connections again
         inv_node = self.nodes[0].add_p2p_connection(BaseNode(self.nodes[0].time_to_connect))
+        inv_node.sync_with_ping()
+
         test_node = self.nodes[0].add_p2p_connection(BaseNode(self.nodes[0].time_to_connect))
+        test_node.sync_with_ping()
 
         #repeat sequence  in 4a
         tip = self.mine_blocks(1)
