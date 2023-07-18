@@ -56,7 +56,8 @@ Part 3: Headers announcements stop after large reorg and resume after getheaders
   * peer sends response-type [expect headers if getheaders, getheaders/getdata if mining new block]
   * node mines 1 block [expect: 1 header, peer responds with getdata]
 
-Part 4: Test direct fetch behavior
+Part 4a: Test direct fetch behavior
+Part 4b: Test direct fetch behavior after federation block
 a. Announce 2 old block headers.
    Expect: no getdata requests.
 b. Announce 3 new blocks via 1 headers message.
@@ -107,6 +108,7 @@ from test_framework.util import (
     sync_blocks,
     wait_until,
 )
+from time import sleep
 
 DIRECT_FETCH_RESPONSE_TIME = 0.05
 
@@ -262,6 +264,8 @@ class SendHeadersTest(BitcoinTestFramework):
         self.signblockpubkey = "02bf2027c8455800c7626542219e6208b5fe787483689f1391d6d443ec85673ecf"
         self.signblockprivkey = "aa2c70c4b85a09be514292d04b27bbb0cc3f86d306d58fe87743d10a095ada07"
         self.signblockprivkey_wif = "cTHVmjaAwKtU75t89fg42SLx43nRxhsri6YY1Eynvs1V1tPRCfae"
+
+        return block.hash
 
 
     def run_test(self):
@@ -569,10 +573,14 @@ class SendHeadersTest(BitcoinTestFramework):
 
         # Setup the p2p connections again
         inv_node = self.nodes[0].add_p2p_connection(BaseNode(self.nodes[0].time_to_connect))
-        inv_node.sync_with_ping()
+        inv_node.sync_with_ping(timeout=100)
 
         test_node = self.nodes[0].add_p2p_connection(BaseNode(self.nodes[0].time_to_connect))
-        test_node.sync_with_ping()
+        test_node.sync_with_ping(timeout=100)
+
+        #wait for the federation block to sync
+        while self.nodes[0].getbestblockhash() != tip:
+            sleep(1)
 
         #repeat sequence  in 4a
         tip = self.mine_blocks(1)
