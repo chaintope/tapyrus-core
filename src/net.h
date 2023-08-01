@@ -394,7 +394,7 @@ private:
     std::vector<ListenSocket> vhListenSocket;
     std::atomic<bool> fNetworkActive;
     banmap_t setBanned;
-    Mutex cs_setBanned;
+    RecursiveMutex cs_setBanned;
     bool setBannedIsDirty;
     bool fAddressesInitialized;
     CAddrMan addrman;
@@ -629,10 +629,10 @@ public:
     uint64_t nSendBytes;
     std::deque<std::vector<unsigned char>> vSendMsg;
     RecursiveMutex cs_vSend;
-    Mutex cs_hSocket;
+    RecursiveMutex cs_hSocket;
     RecursiveMutex cs_vRecv;
 
-    Mutex cs_vProcessMsg;
+    RecursiveMutex cs_vProcessMsg;
     std::list<CNetMessage> vProcessMsg;
     size_t nProcessQueueSize;
 
@@ -673,7 +673,7 @@ public:
     bool fRelayTxes; //protected by cs_filter
     bool fSentAddr;
     CSemaphoreGrant grantOutbound;
-    Mutex cs_filter;
+    RecursiveMutex cs_filter;
     std::unique_ptr<CBloomFilter> pfilter;
     std::atomic<int> nRefCount;
 
@@ -706,7 +706,7 @@ public:
     // There is no final sorting before sending, as they are always sent immediately
     // and in the order requested.
     std::vector<uint256> vInventoryBlockToSend;
-    Mutex cs_inventory;
+    RecursiveMutex cs_inventory;
     std::set<uint256> setAskFor;
     std::multimap<int64_t, CInv> mapAskFor;
     int64_t nNextInvSend;
