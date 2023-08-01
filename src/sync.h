@@ -20,7 +20,7 @@
 ////////////////////////////////////////////////
 
 /*
-CCriticalSection mutex;
+Mutex mutex;
     std::recursive_mutex mutex;
 
 LOCK(mutex);
@@ -68,6 +68,15 @@ public:
     {
         return PARENT::try_lock();
     }
+
+    using UniqueLock = std::unique_lock<PARENT>;
+
+#ifdef __clang__
+    //! For negative capabilities in the Clang Thread Safety Analysis.
+    //! A negative requirement uses the EXCLUSIVE_LOCKS_REQUIRED attribute, in conjunction
+    //! with the ! operator, to indicate that a mutex should not be held.
+    const AnnotatedMixin& operator!() const { return *this; }
+#endif // __clang__
 };
 
 #ifdef DEBUG_LOCKORDER
@@ -93,16 +102,10 @@ void inline DeleteLock(void* cs) {}
  * Wrapped mutex: supports recursive locking, but no waiting
  * TODO: We should move away from using the recursive lock by default.
  */
-class CCriticalSection : public AnnotatedMixin<std::recursive_mutex>
-{
-public:
-    ~CCriticalSection() {
-        DeleteLock((void*)this);
-    }
-};
+using RecursiveMutex = AnnotatedMixin<std::recursive_mutex>;
 
 /** Wrapped mutex: supports waiting but not recursive locking */
-typedef AnnotatedMixin<std::mutex> CWaitableCriticalSection;
+using Mutex = AnnotatedMixin<std::mutex>;
 
 /** Just a typedef for std::condition_variable, can be wrapped later if desired */
 typedef std::condition_variable CConditionVariable;
@@ -114,11 +117,12 @@ typedef std::unique_lock<std::mutex> WaitableLock;
 void PrintLockContention(const char* pszName, const char* pszFile, int nLine);
 #endif
 
-/** Wrapper around std::unique_lock<CCriticalSection> */
+/** Wrapper around std::unique_lock<Mutex> */
+template <typename MutexType>
 class SCOPED_LOCKABLE CCriticalBlock
 {
 private:
-    std::unique_lock<CCriticalSection> lock;
+    std::unique_lock<MutexType> lock;
 
     void Enter(const char* pszName, const char* pszFile, int nLine)
     {
@@ -143,7 +147,7 @@ private:
     }
 
 public:
-    CCriticalBlock(CCriticalSection& mutexIn, const char* pszName, const char* pszFile, int nLine, bool fTry = false) EXCLUSIVE_LOCK_FUNCTION(mutexIn) : lock(mutexIn, std::defer_lock)
+    CCriticalBlock(MutexType& mutexIn, const char* pszName, const char* pszFile, int nLine, bool fTry = false) EXCLUSIVE_LOCK_FUNCTION(mutexIn) : lock(mutexIn, std::defer_lock)
     {
         if (fTry)
             TryEnter(pszName, pszFile, nLine);
@@ -151,11 +155,11 @@ public:
             Enter(pszName, pszFile, nLine);
     }
 
-    CCriticalBlock(CCriticalSection* pmutexIn, const char* pszName, const char* pszFile, int nLine, bool fTry = false) EXCLUSIVE_LOCK_FUNCTION(pmutexIn)
+    CCriticalBlock(MutexType* pmutexIn, const char* pszName, const char* pszFile, int nLine, bool fTry = false) EXCLUSIVE_LOCK_FUNCTION(pmutexIn)
     {
         if (!pmutexIn) return;
 
-        lock = std::unique_lock<CCriticalSection>(*pmutexIn, std::defer_lock);
+        lock = std::unique_lock<MutexType>(*pmutexIn, std::defer_lock);
         if (fTry)
             TryEnter(pszName, pszFile, nLine);
         else

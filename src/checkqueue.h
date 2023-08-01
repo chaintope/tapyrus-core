@@ -29,7 +29,7 @@ class CCheckQueue
 {
 private:
     //! Mutex to protect the inner state
-    std::mutex mutex;
+    Mutex mutex;
 
     //! Worker threads block on this when out of work
     std::condition_variable condWorker;

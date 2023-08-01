@@ -56,6 +56,7 @@ BOOST_FIXTURE_TEST_SUITE(denialofservice_tests, TestingSetup)
 // work.
 BOOST_AUTO_TEST_CASE(outbound_slow_chain_eviction)
 {
+    LOCK(NetEventsInterface::g_msgproc_mutex);
 
     // Mock an outbound peer
     CAddress addr1(ip(0xa0b0c001), NODE_NONE);
@@ -287,6 +288,7 @@ BOOST_AUTO_TEST_CASE(DoS_banscore)
 
 BOOST_AUTO_TEST_CASE(DoS_bantime)
 {
+    LOCK(NetEventsInterface::g_msgproc_mutex);
 
     connman->ClearBanned();
     int64_t nStartTime = GetTime();

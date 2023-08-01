@@ -76,7 +76,7 @@ struct COrphanTx {
     NodeId fromPeer;
     int64_t nTimeExpire;
 };
-static CCriticalSection g_cs_orphans;
+static RecursiveMutex g_cs_orphans;
 std::map<uint256, COrphanTx> mapOrphanTransactions GUARDED_BY(g_cs_orphans);
 
 void EraseOrphansFor(NodeId peer);
@@ -198,10 +198,13 @@ struct CNodeState {
     const CService address;
     //! Whether we have a fully established connection.
     bool fCurrentlyConnected;
+
+    /** Protects misbehavior data members */
+    Mutex m_misbehavior_mutex;
     //! Accumulated misbehaviour score for this peer.
-    int nMisbehavior;
+    int nMisbehavior GUARDED_BY(m_misbehavior_mutex){0};
     //! Whether this peer should be disconnected and banned (unless whitelisted).
-    bool fShouldBan;
+    bool fShouldBan GUARDED_BY(m_misbehavior_mutex){false};
     //! String name of this peer (debugging/logging purposes).
     const std::string name;
     //! List of asynchronously-determined block rejections to notify this peer about.
@@ -625,8 +628,11 @@ void PeerLogicValidation::FinalizeNode(NodeId nodeid, bool& fUpdateConnectionTim
     if (state->fSyncStarted)
         nSyncStarted--;
 
-    if (state->nMisbehavior == 0 && state->fCurrentlyConnected) {
-        fUpdateConnectionTime = true;
+    {
+        LOCK(state->m_misbehavior_mutex);
+        if (state->nMisbehavior == 0 && state->fCurrentlyConnected) {
+            fUpdateConnectionTime = true;
+        }
     }
 
     for (const QueuedBlock& entry : state->vBlocksInFlight) {
@@ -656,7 +662,10 @@ bool GetNodeStateStats(NodeId nodeid, CNodeStateStats &stats) {
     CNodeState *state = State(nodeid);
     if (state == nullptr)
         return false;
-    stats.nMisbehavior = state->nMisbehavior;
+    {
+        LOCK(state->m_misbehavior_mutex);
+        stats.nMisbehavior = state->nMisbehavior;
+    }
     stats.nSyncHeight = state->pindexBestKnownBlock ? state->pindexBestKnownBlock->nHeight : -1;
     stats.nCommonHeight = state->pindexLastCommonBlock ? state->pindexLastCommonBlock->nHeight : -1;
     for (const QueuedBlock& queue : state->vBlocksInFlight) {
@@ -800,6 +809,7 @@ void Misbehaving(NodeId pnode, int howmuch, const std::string& message) EXCLUSIV
     if (state == nullptr)
         return;
 
+    LOCK(state->m_misbehavior_mutex);
     state->nMisbehavior += howmuch;
     int banscore = gArgs.GetArg("-banscore", DEFAULT_BANSCORE_THRESHOLD);
     std::string message_prefixed = message.empty() ? "" : (": " + message);
@@ -887,7 +897,7 @@ void PeerLogicValidation::BlockConnected(const std::shared_ptr<const CBlock>& pb
 }
 
 // All of the following cache a recent block, and are protected by cs_most_recent_block
-static CCriticalSection cs_most_recent_block;
+static Mutex cs_most_recent_block;
 static std::shared_ptr<const CBlock> most_recent_block GUARDED_BY(cs_most_recent_block);
 static std::shared_ptr<const CBlockHeaderAndShortTxIDs> most_recent_compact_block GUARDED_BY(cs_most_recent_block);
 static uint256 most_recent_block_hash GUARDED_BY(cs_most_recent_block);
@@ -2888,6 +2898,7 @@ static bool SendRejectsAndCheckIfBanned(CNode* pnode, CConnman* connman)
     }
     state.rejects.clear();
 
+    LOCK(state.m_misbehavior_mutex);
     if (state.fShouldBan) {
         state.fShouldBan = false;
         if (pnode->fWhitelisted)

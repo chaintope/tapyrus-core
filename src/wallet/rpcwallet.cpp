@@ -1077,7 +1077,7 @@ struct tallyitem
     }
 };
 
-static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bool by_label)
+static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bool by_label) EXCLUSIVE_LOCKS_REQUIRED(pwallet->cs_wallet)
 {
     // Whether to include empty labels
     bool fIncludeEmpty = false;
@@ -1340,7 +1340,7 @@ static void MaybePushAddress(UniValue & entry, const CTxDestination &dest)
  * @param  ret        The UniValue into which the result is stored.
  * @param  filter     The "is mine" filter bool.
  */
-static void ListTransactions(CWallet* const pwallet, const CWalletTx& wtx, int nMinDepth, bool fLong, UniValue& ret, const isminefilter& filter)
+static void ListTransactions(CWallet* const pwallet, const CWalletTx& wtx, int nMinDepth, bool fLong, UniValue& ret, const isminefilter& filter)  EXCLUSIVE_LOCKS_REQUIRED(pwallet->cs_wallet)
 {
     CAmount nFee;
     std::string strSentAccount;
@@ -4404,23 +4404,26 @@ static UniValue issuetoken(const JSONRPCRequest& request)
         COutPoint out(txid, vout);
 
         //Check if the UTXO belongs to us and is spendable
-        //1. check transaction id
-        auto it = pwallet->mapWallet.find(txid);
-        if (it == pwallet->mapWallet.end()) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid or non-wallet transaction id :") + request.params[2].get_str());
+        {
+            LOCK(pwallet->cs_wallet);
+
+            //1. check transaction id
+            auto it = pwallet->mapWallet.find(txid);
+            if (it == pwallet->mapWallet.end()) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid or non-wallet transaction id :") + request.params[2].get_str());
+            }
+
+            //2. vout and its type
+            if(vout < 0 || vout >= it->second.tx->vout.size() || GetColorIdFromScript(it->second.tx->vout[vout].scriptPubKey).type != TokenTypes::NONE) {
+                std::string strError = strprintf("Invalid vout %d in tx: %s", request.params[3].get_int(), request.params[2].get_str());
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strError);
+            }
+
+            //3. spendable
+            CTxOut txout(it->second.tx->vout[vout].nValue, it->second.tx->vout[vout].scriptPubKey);
+            if(pwallet->IsMine(txout)  != ISMINE_SPENDABLE)
+                throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Transaction is not spendable :") + request.params[2].get_str() + " : " + request.params[3].get_str());
         }
-
-        //2. vout and its type
-        if(vout < 0 || vout >= it->second.tx->vout.size() || GetColorIdFromScript(it->second.tx->vout[vout].scriptPubKey).type != TokenTypes::NONE) {
-            std::string strError = strprintf("Invalid vout %d in tx: %s", request.params[3].get_int(), request.params[2].get_str());
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strError);
-        }
-
-        //3. spendable
-        CTxOut txout(it->second.tx->vout[vout].nValue, it->second.tx->vout[vout].scriptPubKey);
-        if(pwallet->IsMine(txout)  != ISMINE_SPENDABLE)
-            throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Transaction is not spendable :") + request.params[2].get_str() + " : " + request.params[3].get_str());
-
         //This output is ours. Add it to coin control so that it will be used as an input in transaction creation
         coin_control.Select(out);
         coin_control.m_colorTxType = ColoredTxType::ISSUE;

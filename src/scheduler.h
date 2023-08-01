@@ -79,11 +79,11 @@ public:
 private:
     std::multimap<std::chrono::system_clock::time_point, Function> taskQueue;
     std::condition_variable newTaskScheduled;
-    mutable std::mutex newTaskMutex;
+    mutable Mutex newTaskMutex;
     int nThreadsServicingQueue;
     bool stopRequested;
     bool stopWhenEmpty;
-    bool shouldStop() const { return stopRequested || (stopWhenEmpty && taskQueue.empty()); }
+    bool shouldStop() const{ return stopRequested || (stopWhenEmpty && taskQueue.empty()); }
 };
 
 /**
@@ -100,9 +100,9 @@ class SingleThreadedSchedulerClient {
 private:
     CScheduler *m_pscheduler;
 
-    CCriticalSection m_cs_callbacks_pending;
-    std::list<std::function<void (void)>> m_callbacks_pending GUARDED_BY(m_cs_callbacks_pending);
-    bool m_are_callbacks_running GUARDED_BY(m_cs_callbacks_pending) = false;
+    Mutex m_cs_callbacks_pending;
+    std::list<std::function<void (void)>> m_callbacks_pending;
+    bool m_are_callbacks_running = false;
 
     void MaybeScheduleProcessQueue();
     void ProcessQueue();

@@ -24,6 +24,7 @@ public:
     //! Ensure that bucket placement is always the same for testing purposes.
     void MakeDeterministic()
     {
+        LOCK(cs);
         nKey.SetNull();
         insecure_rand = FastRandomContext(true);
     }
