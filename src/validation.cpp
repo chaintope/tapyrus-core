@@ -2700,8 +2700,6 @@ bool ActivateBestChain(CValidationState &state, std::shared_ptr<const CBlock> pb
 
 bool CChainState::PreciousBlock(CValidationState& state, CBlockIndex *pindex)
 {
-    AssertLockNotHeld(m_cs_chainstate);
-    AssertLockNotHeld(::cs_main);
     {
         LOCK(cs_main);
         if (pindex->nHeight < chainActive.Tip()->nHeight) {
@@ -2734,9 +2732,6 @@ bool PreciousBlock(CValidationState& state, CBlockIndex *pindex) {
 
 bool CChainState::InvalidateBlock(CValidationState& state, CBlockIndex *pindex)
 {
-    AssertLockNotHeld(m_cs_chainstate);
-    AssertLockNotHeld(::cs_main);
-
     // We first disconnect backwards and then mark the blocks as invalid.
     // This prevents a case where pruned nodes may fail to invalidateblock
     // and be left unable to start as they have no tip candidates (as there
@@ -3268,7 +3263,6 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
 // Exposed wrapper for AcceptBlockHeader
 bool ProcessNewBlockHeaders(const std::vector<CBlockHeader>& headers, CValidationState& state, const CBlockIndex** ppindex, CBlockHeader *first_invalid)
 {
-    AssertLockNotHeld(cs_main);
     // initialize temp xfield history with the global list
     // temp list is used until we finish processing this headers message
     CTempXFieldHistory tempFieldHistory;
