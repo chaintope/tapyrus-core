@@ -29,7 +29,7 @@ namespace {
 class AtomicCounter {
  private:
   port::Mutex mu_;
-  int count_ GUARDED_BY(mu_);
+  int count_;
  public:
   AtomicCounter() : count_(0) { }
   void Increment() {
