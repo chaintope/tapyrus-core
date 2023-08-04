@@ -176,7 +176,6 @@ public:
      *  See also comments around ArgsManager::ArgsManager() below. */
     static inline bool UseDefaultSection(const ArgsManager& am, const std::string& arg)
     {
-        LOCK(am.cs_args);
         return (am.m_network == TAPYRUS_MODES::PROD || am.m_network_only_args.count(arg) == 0);
     }
 
@@ -336,7 +335,6 @@ void ArgsManager::WarnForSectionOnlyArgs()
 
     // if it's okay to use the default section for this network, don't worry
     if (m_network == TAPYRUS_MODES::PROD) return;
-    LOCK(cs_args);
 
     for (const auto& arg : m_network_only_args) {
         std::pair<bool, std::string> found_result;
@@ -427,7 +425,6 @@ bool ArgsManager::IsArgKnown(const std::string& key) const
     } else {
         arg_no_net = std::string("-") + key.substr(option_index + 1, std::string::npos);
     }
-    LOCK(cs_args);
 
     for (const auto& arg_map : m_available_args) {
         if (arg_map.second.count(arg_no_net)) return true;
@@ -545,7 +542,6 @@ void ArgsManager::AddArg(const std::string& name, const std::string& help, const
     if (eq_index == std::string::npos) {
         eq_index = name.size();
     }
-    LOCK(cs_args);
     std::map<std::string, Arg>& arg_map = m_available_args[cat];
     auto ret = arg_map.emplace(name.substr(0, eq_index), Arg(name.substr(eq_index, name.size() - eq_index), help, debug_only));
     assert(ret.second); // Make sure an insertion actually happened
@@ -562,7 +558,6 @@ std::string ArgsManager::GetHelpMessage() const
 {
     const bool show_debug = gArgs.GetBoolArg("-help-debug", false);
 
-    LOCK(cs_args);
     std::string usage = "";
     for (const auto& arg_map : m_available_args) {
         switch(arg_map.first) {
@@ -876,7 +871,6 @@ bool ArgsManager::ReadConfigFiles(std::string& error, bool ignore_invalid_keys)
         }
         // if there is an -includeconf in the override args, but it is empty, that means the user
         // passed '-noincludeconf' on the command line, in which case we should not include anything
-            LOCK(cs_args);
             if (m_override_args.count("-includeconf") == 0) {
             std::string chain_id = TAPYRUS_MODES::GetChainName( GetChainMode());
             std::vector<std::string> includeconf(GetArgs("-includeconf"));
@@ -889,8 +883,11 @@ bool ArgsManager::ReadConfigFiles(std::string& error, bool ignore_invalid_keys)
 
             // Remove -includeconf from configuration, so we can warn about recursion
             // later
-            m_config_args.erase("-includeconf");
-            m_config_args.erase(std::string("-") + chain_id + ".includeconf");
+            {
+                LOCK(cs_args);
+                m_config_args.erase("-includeconf");
+                m_config_args.erase(std::string("-") + chain_id + ".includeconf");
+            }
 
 
             for (const std::string& to_include : includeconf) {
