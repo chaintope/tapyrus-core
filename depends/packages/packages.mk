@@ -11,6 +11,8 @@ wallet_packages=bdb
 
 upnp_packages=miniupnpc
 
+usdt_linux_packages=systemtap
+
 darwin_native_packages = native_ds_store native_mac_alias
 
 ifneq ($(build_os),darwin)
