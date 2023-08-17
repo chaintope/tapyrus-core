@@ -88,6 +88,10 @@ ZMQ dependencies (provides ZMQ API 4.x):
 
     sudo apt-get install zeromq-devel
 
+User-Space, Statically Defined Tracing (USDT) dependencies:
+
+    sudo apt install systemtap-sdt-dev
+
  GUI dependencies:
 
 If you want to build tapyrus-qt, make sure that the required packages for Qt development
