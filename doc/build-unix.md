@@ -125,6 +125,10 @@ Berkeley DB is required for the legacy wallet:
 
     sudo dnf install libdb4-devel libdb4-cxx-devel
 
+User-Space, Statically Defined Tracing (USDT) dependencies:
+
+    sudo dnf install systemtap-sdt-devel
+
 GUI dependencies:
 
 If you want to build tapyrus-qt, make sure that the required packages for Qt development are installed. Qt 5 is necessary to build the GUI. To build without GUI pass --without-gui.
