@@ -29,7 +29,7 @@ To build tapyrus-qt GUI install the following along with the above
 
 If you want to build the disk image with `make deploy` (.dmg / optional), you need RSVG
 
-    brew install librsvg xorriso
+    brew install librsvg
 
 See [dependencies.md](dependencies.md) for a complete overview.
 
