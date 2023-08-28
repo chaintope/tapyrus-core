@@ -233,10 +233,12 @@ DEBUG_MODE_SCRIPTS = [
 ]
 
 # TODO: enable these scripts in CI.
-# Now they fail with error"bcc.usdt.USDTException: failed to enable probe 'net:inbound_message'; a possible cause can be that the probe requires a pid to enable"
+# Now they fail with errors while compiling the script embedded inside these python tests
 USDT_SCRIPTS = [
     'interface_usdt_net.py',
     'interface_usdt_utxocache.py',
+    'interface_usdt_validation.py',
+    'interface_usdt_coinselection.py',
 ]
 
 # Place EXTENDED_SCRIPTS first since it has the 3 longest running tests
