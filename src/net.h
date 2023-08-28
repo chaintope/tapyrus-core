@@ -867,6 +867,10 @@ public:
     std::string GetAddrName() const;
     //! Sets the addrName only if it was not previously set
     void MaybeSetAddrName(const std::string& addrNameIn);
+
+    static std::string GetConnectionType(const CNode* pnode) {
+        return tfm::format("%s-%s-%s-%s-%s-%s-%s", pnode->fInbound? "In" : "Out", pnode->fOneShot? "O" : "", pnode->fWhitelisted? "W" : "", pnode->fFeeler? "F" : "", pnode->m_limited_node? "L" : "", pnode->m_manual_connection? "M" : "", pnode->fRelayTxes? "Tx" : "");
+    }
 };
 
 

@@ -1,4 +1,4 @@
-FROM --platform=$TARGETPLATFORM tapyrus/builder:v0.3.0 as builder
+FROM --platform=$TARGETPLATFORM tapyrus/builder:v0.4.0 as builder
 ARG TARGETARCH
 
 ENV LC_ALL C.UTF-8
@@ -30,3 +30,5 @@ VOLUME ["$DATA_DIR"]
 
 ENTRYPOINT ["entrypoint.sh"]
 CMD ["tapyrusd -datadir=${DATA_DIR} -conf=${CONF_DIR}/tapyrus.conf"]
+
+#run this container with --privileged option to use bpf trace scripts

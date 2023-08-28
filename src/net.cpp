@@ -23,6 +23,7 @@
 #include <ui_interface.h>
 #include <utilstrencodings.h>
 #include <xfieldhistory.h>
+#include <trace.h>
 
 #ifdef WIN32
 #include <string.h>
@@ -2833,6 +2834,15 @@ void CConnman::PushMessage(CNode* pnode, CSerializedNetMsg&& msg)
     memcpy(hdr.pchChecksum, hash.begin(), CMessageHeader::CHECKSUM_SIZE);
 
     CVectorWriter{SER_NETWORK, INIT_PROTO_VERSION, serializedHeader, 0, hdr};
+
+    TRACE6(net, outbound_message,
+        pnode->GetId(),
+        pnode->GetAddrName().c_str(),
+        CNode::GetConnectionType(pnode).c_str(),
+        msg.command.c_str(),
+        nMessageSize,
+        msg.data
+    );
 
     size_t nBytesSent = 0;
     {

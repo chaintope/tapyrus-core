@@ -48,7 +48,7 @@ jobs:
         run: |
           source ./default-env.sh
           HOST=x86_64-unknown-linux-gnu \
-          PACKAGES="python3-zmq libevent-dev bsdmainutils libboost-filesystem-dev libboost-test-dev libdb5.3++-dev libminiupnpc-dev libzmq3-dev libqrencode-dev" \
+          PACKAGES="python3-zmq libevent-dev bsdmainutils libboost-filesystem-dev libboost-test-dev libdb5.3++-dev libminiupnpc-dev libzmq3-dev libqrencode-dev systemtap-sdt-dev bpfcc-tools bpftrace" \
           NO_DEPENDS=1 \
           DEP_OPTS="NO_QT=1" \
           RUN_TESTS=true \
@@ -59,7 +59,7 @@ jobs:
           bash -xe ./build-test.sh
 
   build_x86_linux_no_gui_release:
-    name: x86 Linux, No GUI, Release
+    name: x86 Linux, No GUI, Release, USDT
 
     runs-on: ubuntu-20.04
 
@@ -71,14 +71,14 @@ jobs:
         run: |
           source ./default-env.sh
           HOST=x86_64-unknown-linux-gnu \
-          PACKAGES="python3-zmq libevent-dev bsdmainutils libboost-filesystem-dev libboost-test-dev libdb5.3++-dev libminiupnpc-dev libzmq3-dev libqrencode-dev" \
+          PACKAGES="python3-zmq libevent-dev bsdmainutils libboost-filesystem-dev libboost-test-dev libdb5.3++-dev libminiupnpc-dev libzmq3-dev libqrencode-dev systemtap-sdt-dev bpfcc-tools bpftrace" \
           NO_DEPENDS=1 \
           DEP_OPTS="NO_QT=1" \
           RUN_TESTS=true \
           RUN_BENCH=true \
           DEBUD_MODE=false \
           GOAL="install" \
-          BITCOIN_CONFIG="--enable-zmq --with-incompatible-bdb --enable-reduce-exports --with-gui=no CPPFLAGS=-DDEBUG_LOCKORDER" \
+          BITCOIN_CONFIG="--enable-zmq --with-incompatible-bdb --enable-reduce-exports --with-gui=no --enable-usdt CPPFLAGS=-DDEBUG_LOCKORDER" \
           bash -xe ./build-test.sh
 
   linux-with-qt:

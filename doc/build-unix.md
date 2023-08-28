@@ -88,7 +88,13 @@ ZMQ dependencies (provides ZMQ API 4.x):
 
     sudo apt-get install zeromq-devel
 
- GUI dependencies:
+User-Space, Statically Defined Tracing (USDT) dependencies:
+
+    sudo apt install systemtap-sdt-dev
+
+#### GUI
+
+GUI dependencies:
 
 If you want to build tapyrus-qt, make sure that the required packages for Qt development
 are installed. Qt 5 is necessary to build the GUI.
@@ -113,7 +119,11 @@ Build requirements:
 
     sudo dnf install gcc-c++ libtool make autoconf automake python3
 
-Now, you can either build from self-compiled [depends](/depends/README.md) or install the required dependencies:
+User-Space, Statically Defined Tracing (USDT) dependencies:
+
+    sudo dnf install systemtap
+
+Optional:
 
     sudo dnf install libevent-devel boost-devel
 

@@ -23,8 +23,10 @@ These are the dependencies currently used by Tapyrus Core. You can find instruct
 | MiniUPnPc | [2.0.2](https://miniupnp.tuxfamily.org/files/) |  | No |  |  |
 | qrencode | [4.1.1](https://fukuchi.org/works/qrencode) |  | No |  |  |
 | Qt | [5.15.5](https://download.qt.io/official_releases/qt/5.15/5.15.6/submodules) | 5.15 | No |  |  |
+| systemtap | [4.7](https://sourceware.org/systemtap/) |  |  |  | Linux only |
 | XCB | [1.14](https://xcb.freedesktop.org/dist) |  |  |  | Linux only |
 | xkbcommon | [0.8.4](https://xkbcommon.org/download/)  |  |  |  | Linux only |
 | xcb_proto | [1.14.1](https://xorg.freedesktop.org/archive/individual/proto)  |  |  |  |  |
 | xproto | [7.0.31](https://xorg.freedesktop.org/releases/individual/proto)  |  |  |  | |
 | ZeroMQ | [4.3.4](https://github.com/zeromq/libzmq/releases/download/v4.3.4) |  | No |  |  |
+|
