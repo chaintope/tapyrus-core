@@ -30,6 +30,7 @@
 #include <utilmoneystr.h>
 #include <wallet/fees.h>
 #include <wallet/walletutil.h>
+#include <trace.h>
 
 #include <algorithm>
 #include <assert.h>
@@ -2648,6 +2649,11 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
             nSubtractFeeFromAmount++;
     }
 
+    for (const auto& entity:mapValue)
+    {
+        TRACE3(coin_selection, coins_requested, m_name.c_str(), entity.first.toHexString().c_str(), entity.second);
+    }
+
     if (vecSend.empty())
     {
         strFailReason = _("Transaction must have at least one recipient");
@@ -2829,6 +2835,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                                 return false;
                             }
                         }
+                        TRACE5(coin_selection, selected_coins, bnb_used ? "BNB" : "knapsack", colorId.toHexString().c_str(), targetValue, mapCoins[colorId].size(), mapValueIn[colorId]);
                     }
                 } else {
                     bnb_used = false;
@@ -2906,6 +2913,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                                 && i.second > mapChangePosInOut[colorId])
                                     i.second++;
                             }
+                            TRACE3(coin_selection, change_info, colorId.toHexString().c_str(), mapChangePosInOut[colorId], newTxOut.nValue);
                         }
                     }
                 }
@@ -2970,6 +2978,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                         change_position->nValue += extraFeePaid;
                         nFeeRet -= extraFeePaid;
                     }
+                    TRACE2(coin_selection, fee_info, nFeeNeeded, nFeeRet);
                     break; // Done, enough fee included.
                 }
                 else if (!pick_new_inputs) {

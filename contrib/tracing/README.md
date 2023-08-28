@@ -269,3 +269,26 @@ Added   : 963902039acf07d715f0109c7fdebe5939c350e62d6c93424f7923cd7f79faa   0   
 Added   : 9e546ec670cabceba8d3b2ccb98fe4f21b5e717d8e7193f60c84d530ad04d83   0      TPC             5000000000       3 Yes
 
 ```
+
+### log_coinselection.bt
+
+A `bpftrace` script to log information about the coins that areselected by the wallet for every transaction created in the wallet. Based on the `coin_selection:coins_requested`, `coin_selection:selected_coins`, 
+`coin_selection:change_info` and `coin_selection:fee_info` tracepoints.
+
+```bash
+$ bpftrace contrib/tracing/log_coinselection.bt
+```
+
+```
+Logging Coin selection 
+Request [2500000000] of token [TPC] from wallet ''
+Select [2500440000] token [TPC] using [1] outputs with value [5012250000] using [knapsack]
+Request [0] of token [TPC] from wallet ''
+Request [100] of token [c209ab800ea82b024f882862277bc65ac87a96af8c33da06813ed312e2b8dae] from wallet ''
+Select [0] token [TPC] using [1] outputs with value [2510340000] using [knapsack]
+Request [0] of token [TPC] from wallet ''
+Request [25] of token [c209ab800ea82b024f882862277bc65ac87a96af8c33da06813ed312e2b8dae] from wallet ''
+Select [0] token [TPC] using [0] outputs with value [0] using [knapsack]
+Select [790000] token [TPC] using [1] outputs with value [485500000] using [knapsack]
+Select [25] token [c209ab800ea82b024f882862277bc65ac87a96af8c33da06813ed312e2b8dae] using [1] outputs with value [100] using [knapsack]
+```

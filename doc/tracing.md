@@ -170,6 +170,45 @@ Arguments passed:
 5. Value of the coin as `int64`
 6. If the coin is a coinbase as `bool`
 
+### Context `coin_selection`
+
+#### Tracepoint `coin_selection:coins_requested`
+
+Is called when `CreateTransaction` starts.
+
+Arguments passed:
+1. Wallet name as `pointer to C-style string`
+2. ColorId of the coin requested as `pointer to C-style string`
+3. Requested target value as `int64`
+
+#### Tracepoint `coin_selection:selected_coins`
+
+Is called when the first `SelectCoins` completes.
+
+Arguments passed:
+1. Algirithm name as `pointer to C-style string`. Is may be "BNB" or "Knapsack"
+2. ColorId of the coin selected as `pointer to C-style string`
+3. Selected target value as `int64`
+4. Number of coins selected as `int64`
+5. Total value of selected coins as `int64`
+
+#### Tracepoint `coin_selection:change_info`
+
+Is called after colored coin change is finalized.
+
+Arguments passed:
+1. ColorId of the coin selected as `pointer to C-style string`
+2. Position of the colored coin change in the transaction as `int64`
+3. Value of the change output as `int64`
+
+#### Tracepoint `coin_selection:fee_info`
+
+Is called after colored coin change is finalized.
+
+Arguments passed:
+1. Fee requires at the current network load as `int64`
+2. Actual fee paid as `int64`
+
 ## Adding tracepoints to Tapyrus Core
 
 To add a new tracepoint, `#include <util/trace.h>` in the compilation unit where
