@@ -5,11 +5,11 @@
 LIBLEVELDB_INT = leveldb/libleveldb.a
 LIBMEMENV_INT  = leveldb/libmemenv.a
 
-EXTRA_LIBRARIES += $(LIBLEVELDB_INT)
-EXTRA_LIBRARIES += $(LIBMEMENV_INT)
+LIBLEVELDB += $(LIBLEVELDB_INT)
+LIBMEMENV += $(LIBMEMENV_INT)
 
-LIBLEVELDB = $(LIBLEVELDB_INT)
-LIBMEMENV = $(LIBMEMENV_INT)
+EXTRA_LIBRARIES += $(LIBLEVELDB)
+EXTRA_LIBRARIES += $(LIBMEMENV)
 
 LEVELDB_CPPFLAGS =
 LEVELDB_CPPFLAGS += -I$(srcdir)/leveldb/include
@@ -29,7 +29,6 @@ endif
 
 leveldb_libleveldb_a_CPPFLAGS = $(AM_CPPFLAGS) $(LEVELDB_CPPFLAGS_INT) $(LEVELDB_CPPFLAGS)
 leveldb_libleveldb_a_CXXFLAGS = $(filter-out -Wconditional-uninitialized -Werror=conditional-uninitialized -Wsuggest-override -Werror=suggest-override, $(AM_CXXFLAGS)) $(PIE_FLAGS)
-leveldb_libleveldb_a_LDFLAGS = $(AM_LDFLAGS)
 
 leveldb_libleveldb_a_SOURCES=
 leveldb_libleveldb_a_SOURCES += leveldb/port/port_stdcxx.h
@@ -133,6 +132,5 @@ endif
 
 leveldb_libmemenv_a_CPPFLAGS = $(leveldb_libleveldb_a_CPPFLAGS)
 leveldb_libmemenv_a_CXXFLAGS = $(leveldb_libleveldb_a_CXXFLAGS)
-leveldb_libmemenv_a_LDFLAGS = $(leveldb_libleveldb_a_LDFLAGS)
 leveldb_libmemenv_a_SOURCES =  leveldb/helpers/memenv/memenv.cc
 leveldb_libmemenv_a_SOURCES += leveldb/helpers/memenv/memenv.h
