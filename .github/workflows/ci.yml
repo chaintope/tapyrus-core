@@ -59,7 +59,7 @@ jobs:
           bash -xe ./build-test.sh
 
   build_x86_linux_no_gui_release:
-    name: x86 Linux, No GUI, Release
+    name: x86 Linux, No GUI, Release, USDT
 
     runs-on: ubuntu-20.04
 
@@ -78,7 +78,7 @@ jobs:
           RUN_BENCH=true \
           DEBUD_MODE=false \
           GOAL="install" \
-          BITCOIN_CONFIG="--enable-zmq --with-incompatible-bdb --enable-reduce-exports --with-gui=no CPPFLAGS=-DDEBUG_LOCKORDER" \
+          BITCOIN_CONFIG="--enable-zmq --with-incompatible-bdb --enable-reduce-exports --with-gui=no --enable-usdt CPPFLAGS=-DDEBUG_LOCKORDER" \
           bash -xe ./build-test.sh
 
   linux-with-qt:

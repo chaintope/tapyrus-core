@@ -29,6 +29,9 @@
 #include <util.h>
 #include <utilmoneystr.h>
 #include <utilstrencodings.h>
+#include <util.h>
+#include <trace.h>
+#include <validation.h>
 
 #include <memory>
 #include <array>
@@ -2978,6 +2981,15 @@ bool PeerLogicValidation::ProcessMessages(CNode* pfrom, std::atomic<bool>& inter
            HexStr(hdr.pchChecksum, hdr.pchChecksum+CMessageHeader::CHECKSUM_SIZE));
         return fMoreWork;
     }
+
+    TRACE6(net, inbound_message,
+        pfrom->GetId(),
+        pfrom->GetAddrName().c_str(),
+        CNode::GetConnectionType(pfrom).c_str(),
+        msg.hdr.GetCommand(),
+        nMessageSize,
+        msg.vRecv.data()
+    );
 
     // Process message
     bool fRet = false;

@@ -194,6 +194,7 @@ BITCOIN_CORE_H = \
   wallet/coinselection.h \
   warnings.h \
   xfieldhistory.h \
+  trace.h \
   zmq/zmqabstractnotifier.h \
   zmq/zmqconfig.h\
   zmq/zmqnotificationinterface.h \

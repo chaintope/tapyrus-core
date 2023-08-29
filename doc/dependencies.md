@@ -29,3 +29,4 @@ These are the dependencies currently used by Tapyrus Core. You can find instruct
 | xcb_proto | [1.14.1](https://xorg.freedesktop.org/archive/individual/proto)  |  |  |  |  |
 | xproto | [7.0.31](https://xorg.freedesktop.org/releases/individual/proto)  |  |  |  | |
 | ZeroMQ | [4.3.4](https://github.com/zeromq/libzmq/releases/download/v4.3.4) |  | No |  |  |
+|

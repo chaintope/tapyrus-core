@@ -37,6 +37,9 @@ if test -n "@debug@" && test -z "@no_qt@" && test "x$with_gui" != xno; then
   with_gui=qt5_debug
 fi
 
+ if test -z "$enable_usdt" && test -n "@no_usdt@"; then
+   enable_usdt=no
+ fi
 if test x@host_os@ = xdarwin; then
   BREW=no
   PORT=no
