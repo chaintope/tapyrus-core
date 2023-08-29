@@ -7,6 +7,7 @@
 
 #include <consensus/consensus.h>
 #include <random.h>
+#include <trace.h>
 
 bool CCoinsView::GetCoin(const COutPoint &outpoint, Coin &coin) const { return false; }
 uint256 CCoinsView::GetBestBlock() const { return uint256(); }
@@ -83,6 +84,14 @@ void CCoinsViewCache::AddCoin(const COutPoint &outpoint, Coin&& coin, bool possi
     it->second.coin = std::move(coin);
     it->second.flags |= CCoinsCacheEntry::DIRTY | (fresh ? CCoinsCacheEntry::FRESH : 0);
     cachedCoinsUsage += it->second.coin.DynamicMemoryUsage();
+
+    TRACE6(utxocache, utxocache_add,
+        outpoint.hashMalFix.GetHex().c_str(),
+        (uint32_t)outpoint.n,
+        GetColorIdFromScript(coin.out.scriptPubKey).toHexString().c_str(),
+        (uint32_t)coin.nHeight,
+        (int64_t)coin.out.nValue,
+        (bool)coin.IsCoinBase());
 }
 
 void AddCoins(CCoinsViewCache& cache, const CTransaction &tx, int nHeight, bool check) {
@@ -100,6 +109,13 @@ bool CCoinsViewCache::SpendCoin(const COutPoint &outpoint, Coin* moveout) {
     CCoinsMap::iterator it = FetchCoin(outpoint);
     if (it == cacheCoins.end()) return false;
     cachedCoinsUsage -= it->second.coin.DynamicMemoryUsage();
+    TRACE6(utxocache, utxocache_spent,
+        outpoint.hashMalFix.GetHex().c_str(),
+        (uint32_t)outpoint.n,
+        GetColorIdFromScript(it->second.coin.out.scriptPubKey).toHexString().c_str(),
+        (uint32_t)it->second.coin.nHeight,
+        (int64_t)it->second.coin.out.nValue,
+        (bool)it->second.coin.IsCoinBase());
     if (moveout) {
         *moveout = std::move(it->second.coin);
     }
@@ -213,6 +229,13 @@ void CCoinsViewCache::Uncache(const COutPoint& hash)
     CCoinsMap::iterator it = cacheCoins.find(hash);
     if (it != cacheCoins.end() && it->second.flags == 0) {
         cachedCoinsUsage -= it->second.coin.DynamicMemoryUsage();
+        TRACE6(utxocache, utxocache_uncache,
+            hash.hashMalFix.GetHex().c_str(),
+            (uint32_t)hash.n,
+            GetColorIdFromScript(it->second.coin.out.scriptPubKey).toHexString().c_str(),
+            (uint32_t)it->second.coin.nHeight,
+            (int64_t)it->second.coin.out.nValue,
+            (bool)it->second.coin.IsCoinBase());
         cacheCoins.erase(it);
     }
 }

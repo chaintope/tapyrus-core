@@ -163,3 +163,109 @@ Warning: incomplete message (only 32568 out of 53552 bytes)! inbound msg 'tx' fr
 …
 Possibly lost 2 samples
 ```
+
+### connectblock_benchmark.bt
+
+A `bpftrace` script to benchmark the `ConnectBlock()` function during, for
+example, a blockchain re-index. Based on the `validation:block_connected` USDT
+tracepoint.
+
+The script takes three positional arguments. The first two arguments, the start,
+and end height indicate between which blocks the benchmark should be run. The
+third acts as a duration threshold in milliseconds. When the `ConnectBlock()`
+function takes longer than the threshold, information about the block, is
+printed. For more details, see the header comment in the script.
+
+The following command can be used to benchmark, for example, `ConnectBlock()`
+between height 1 and 100  while logging all blocks with minimuun time to connect set to 0.
+
+```
+$ bpftrace contrib/tracing/connectblock_benchmark.bt 1 100 0
+```
+
+In a different terminal, starting Tapyrus Core with
+re-indexing enabled.
+
+```
+$ ./src/tapyrusd -reindex
+```
+
+This produces the following output.
+```
+Attaching 5 probes...
+ConnectBlock benchmark between height 1 and 100 inclusive
+Starting Connect Block Benchmark between height 1 and 100.
+Starting Connect Block Benchmark between height 1 and 100.
+BENCH   62 blk/s     74 tx/s      74 inputs/s       62 sigops/s (height 30)
+BENCH   10 blk/s     10 tx/s      10 inputs/s        0 sigops/s (height 31)
+Starting Connect Block Benchmark between height 1 and 100.
+BENCH   37 blk/s     41 tx/s      41 inputs/s       28 sigops/s (height 25)
+Starting Connect Block Benchmark between height 1 and 100.
+BENCH   48 blk/s     53 tx/s      53 inputs/s       30 sigops/s (height 37)
+BENCH   15 blk/s     15 tx/s      15 inputs/s        9 sigops/s (height 42)
+Starting Connect Block Benchmark between height 1 and 100.
+BENCH   42 blk/s     47 tx/s      47 inputs/s       31 sigops/s (height 42)
+Starting Connect Block Benchmark between height 1 and 100.
+BENCH   42 blk/s     47 tx/s      47 inputs/s       31 sigops/s (height 42)
+Starting Connect Block Benchmark between height 1 and 100.
+BENCH   42 blk/s     47 tx/s      47 inputs/s       31 sigops/s (height 42)
+BENCH    3 blk/s      3 tx/s       3 inputs/s        0 sigops/s (height 43)
+BENCH   39 blk/s     39 tx/s      39 inputs/s       15 sigops/s (height 56)
+Starting Connect Block Benchmark between height 1 and 100.
+BENCH   50 blk/s     55 tx/s      55 inputs/s       31 sigops/s (height 50)
+BENCH    6 blk/s      6 tx/s       6 inputs/s        5 sigops/s (height 56)
+...
+
+Took 16483 ms to connect the blocks between height 1 and 100.
+
+Histogram of block connection times in milliseconds (ms).
+@durations: 
+[0]                  397 |@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@|
+
+
+
+```
+
+### log_utxocache_flush.py
+
+A BCC Python script to log the UTXO cache flushes. Based on the
+`utxocache:utxocache_flush` tracepoint.
+
+```bash
+$ python3 contrib/tracing/log_utxocache_flush.py ./src/tapyrusd
+```
+
+```
+Logging utxocache flushes. Ctrl-C to end...
+Duration (µs)   Mode       Coins Count     Memory Usage    Prune
+730451          IF_NEEDED  22990           3323.54 kB      True
+637657          ALWAYS     122320          17124.80 kB     False
+81349           ALWAYS     0               1383.49 kB      False
+```
+
+### log_utxos.bt
+
+A `bpftrace` script to log information about the coins that are added, spent, or
+uncached from the UTXO set. Based on the `utxocache:utxocache_add`, `utxocache:utxocache_spend` and
+`utxocache:utxocache_uncache` tracepoints.
+
+```bash
+$ bpftrace contrib/tracing/log_utxos.bt
+```
+
+This should produce an output similar to the following. If you see bpftrace
+warnings like `Lost 24 events`, the eBPF perf ring-buffer is filled faster
+than it is being read. You can increase the ring-buffer size by setting the
+ENV variable `BPFTRACE_PERF_RB_PAGES` (default 64) at a cost of higher
+memory usage. See the [bpftrace reference guide] for more information.
+
+[bpftrace reference guide]: https://github.com/iovisor/bpftrace/blob/master/docs/reference_guide.md#98-bpftrace_perf_rb_pages
+
+```bash
+Attaching 4 probes...
+OP        Outpoint                                                                Token            Value        Height Coinbase
+Added   : 409b414378be14dfd03daed6d390ffd27b4e122f1866009536d52331860fd4b   0      TPC             5000000000       1 Yes
+Added   : 963902039acf07d715f0109c7fdebe5939c350e62d6c93424f7923cd7f79faa   0      TPC             5000000000       2 Yes
+Added   : 9e546ec670cabceba8d3b2ccb98fe4f21b5e717d8e7193f60c84d530ad04d83   0      TPC             5000000000       3 Yes
+
+```
