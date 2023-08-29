@@ -37,6 +37,7 @@
 #include <ui_interface.h>
 #include <undo.h>
 #include <util.h>
+#include <trace.h>
 #include <utilmoneystr.h>
 #include <utilstrencodings.h>
 #include <validationinterface.h>
@@ -1851,7 +1852,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 {
     AssertLockHeld(cs_main);
     assert(pindex);
-    assert(*pindex->phashBlock == block.GetHash());
+    uint256 block_hash{block.GetHash()};
+    assert(*pindex->phashBlock == block_hash);
+
     int64_t nTimeStart = GetTimeMicros();
 
     // Check it again in case a previous version let a bad block in
@@ -2032,6 +2035,15 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     int64_t nTime6 = GetTimeMicros(); nTimeCallbacks += nTime6 - nTime5;
     LogPrint(BCLog::BENCH, "    - Callbacks: %.2fms [%.2fs (%.2fms/blk)]\n", MILLI * (nTime6 - nTime5), nTimeCallbacks * MICRO, nTimeCallbacks * MILLI / nBlocksTotal);
 
+    TRACE6(validation, block_connected,
+        block_hash.begin(),
+        pindex->nHeight,
+        block.vtx.size(),
+        nInputs,
+        nSigOpsCost,
+        nTime5 - nTimeStart // in microseconds (µs)
+    );
+
     return true;
 }
 
@@ -2051,6 +2063,10 @@ bool static FlushStateToDisk(CValidationState &state, FlushStateMode mode, int n
     static int64_t nLastFlush = 0;
     std::set<int> setFilesToPrune;
     bool full_flush_completed = false;
+
+    const size_t coins_count = pcoinsTip->GetCacheSize();
+    const size_t coins_mem_usage = pcoinsTip->DynamicMemoryUsage();
+
     try {
     {
         bool fFlushForPrune = false;
@@ -2136,6 +2152,12 @@ bool static FlushStateToDisk(CValidationState &state, FlushStateMode mode, int n
                 return AbortNode(state, "Failed to write to coin database");
             nLastFlush = nNow;
             full_flush_completed = true;
+            TRACE5(utxocache, utxocache_flush,
+                (int64_t)(GetTimeMicros() - nNow), // in microseconds (µs)
+                (uint32_t)mode,
+                (uint64_t)coins_count,
+                (uint64_t)coins_mem_usage,
+                (bool)fFlushForPrune);
         }
     }
     if (full_flush_completed) {

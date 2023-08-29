@@ -93,6 +93,83 @@ to user-space in full. Messages longer than a 32kb might be cut off. This can
 be detected in tracing scripts by comparing the message size to the length of
 the passed message.
 
+### Context `validation`
+
+#### Tracepoint `validation:block_connected`
+
+Is called *after* a block is connected to the chain. Can, for example, be used
+to benchmark block connections together with `-reindex`.
+
+Arguments passed:
+1. Block Header Hash as `pointer to unsigned chars` (i.e. 32 bytes in little-endian)
+2. Block Height as `int32`
+3. Transactions in the Block as `uint64`
+4. Inputs spend in the Block as `int32`
+5. SigOps in the Block (excluding coinbase SigOps) `uint64`
+6. Time it took to connect the Block in microseconds (µs) as `uint64`
+
+### Context `utxocache`
+
+The following tracepoints cover the in-memory UTXO cache. UTXOs are, for example,
+added to and removed (spent) from the cache when we connect a new block.
+**Note**: Tapyrus Core uses temporary clones of the _main_ UTXO cache
+(`chainstate.CoinsTip()`). For example, the RPCs `generateblock` and
+`getblocktemplate` call `TestBlockValidity()`, which applies the UTXO set
+changes to a temporary cache. Similarly, mempool consistency checks, which are
+frequent on regtest, also apply the the UTXO set changes to a temporary cache.
+Changes to the _main_ UTXO cache and to temporary caches trigger the tracepoints.
+We can't tell if a temporary cache or the _main_ cache was changed.
+
+#### Tracepoint `utxocache:utxocache_flush`
+
+Is called *after* the in-memory UTXO cache is flushed.
+
+Arguments passed:
+1. Time it took to flush the cache microseconds as `int64`
+2. Flush state mode as `uint32`. It's an enumerator class with values `0`
+   (`NONE`), `1` (`IF_NEEDED`), `2` (`PERIODIC`), `3` (`ALWAYS`)
+3. Cache size (number of coins) before the flush as `uint64`
+4. Cache memory usage in bytes as `uint64`
+5. If pruning caused the flush as `bool`
+
+#### Tracepoint `utxocache:utxocache_add`
+
+Is called when a coin is added to a UTXO cache. This can be a temporary UTXO cache too.
+
+Arguments passed:
+1. Transaction ID (hash) as `pointer to unsigned chars` (i.e. 64 bytes hex string in little-endian)
+2. Output index as `uint32`
+3. Block height the coin was added to the UTXO-set as  `uint32`
+4. Value of the coin as `int64`
+5. If the coin is a coinbase as `bool`
+
+#### Tracepoint `utxocache:utxocache_spent`
+
+Is called when a coin is spent from a UTXO cache. This can be a temporary UTXO cache too.
+
+Arguments passed:
+1. Transaction ID (hash) as `pointer to C-style string` (64 bytes)
+2. Output index as `uint32`
+3. Token name as `pointer to C-style string`(66 bytes)
+4. Block height the coin was spent, as `uint32`
+5. Value of the coin as `int64`
+6. If the coin is a coinbase as `bool`
+
+#### Tracepoint `utxocache:utxocache_uncache`
+
+Is called when a coin is purposefully unloaded from a UTXO cache. This
+happens, for example, when we load an UTXO into a cache when trying to accept
+a transaction that turns out to be invalid. The loaded UTXO is uncached to avoid
+filling our UTXO cache up with irrelevant UTXOs.
+
+Arguments passed:
+1. Transaction ID (hash) as `pointer to C-style string` (64 bytes)
+2. Output index as `uint32`
+3. Token name as `pointer to C-style string`(66 bytes)
+4. Block height the coin was uncached, as `uint32`
+5. Value of the coin as `int64`
+6. If the coin is a coinbase as `bool`
+
 ## Adding tracepoints to Tapyrus Core
 
 To add a new tracepoint, `#include <util/trace.h>` in the compilation unit where

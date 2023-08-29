@@ -236,6 +236,7 @@ DEBUG_MODE_SCRIPTS = [
 # Now they fail with error"bcc.usdt.USDTException: failed to enable probe 'net:inbound_message'; a possible cause can be that the probe requires a pid to enable"
 USDT_SCRIPTS = [
     'interface_usdt_net.py',
+    'interface_usdt_utxocache.py',
 ]
 
 # Place EXTENDED_SCRIPTS first since it has the 3 longest running tests
