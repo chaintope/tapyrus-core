@@ -82,7 +82,7 @@ class NetTracepointTest(BitcoinTestFramework):
 
     def run_test(self):
         # Tests the net:inbound_message and net:outbound_message tracepoints
-        # See https://github.com/bitcoin/bitcoin/blob/master/doc/tracing.md#context-net
+        # See https://github.com/chaintope/tapyrus-core/blob/master/doc/tracing.md#context-net
 
         class P2PMessage(ctypes.Structure):
             _fields_ = [
