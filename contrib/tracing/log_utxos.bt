@@ -1,0 +1,65 @@
+#!/usr/bin/env bpftrace
+
+/*
+
+  USAGE:
+
+  bpftrace contrib/tracing/log_utxos.bt
+
+  This script requires a 'tapyrusd' binary compiled with eBPF support and the
+  'utxocache' tracepoints. By default, it's assumed that 'tapyrusd' is
+  located in './src/tapyrusd'. This can be modified in the script below.
+
+  NOTE: requires bpftrace v0.12.0 or above.
+*/
+
+BEGIN
+{
+    printf("%-7s %-80s %16s %7s %8s\n",
+          "OP", "Outpoint", "Value", "Height", "Coinbase");
+}
+
+/*
+  Attaches to the 'utxocache:add' tracepoint and prints additions to the UTXO set cache.
+*/
+usdt:./src/tapyrusd:utxocache:add
+{
+  @txid = buf((uint8*)arg0, 32);
+  $index = (uint32)arg1;
+  $height = (uint32)arg2;
+  $value = (int64)arg3;
+  $isCoinbase = arg4;
+
+  printf("Added  ");
+  printf(":%r %-6d %16ld %7d %s\n", @txid, $index, $value, $height, ($isCoinbase ? "Yes" : "No" ));
+}
+
+/*
+  Attaches to the 'utxocache:spent' tracepoint and prints spents from the UTXO set cache.
+*/
+usdt:./src/tapyrusd:utxocache:spent
+{
+  @txid = buf((uint8*)arg0, 32);
+  $index = (uint32)arg1;
+  $height = (uint32)arg2;
+  $value = (int64)arg3;
+  $isCoinbase = arg4;
+
+  printf("Spent   ");
+  printf(":%r %-6d %16ld %7d %s\n", @txid, $index, $value, $height, ($isCoinbase ? "Yes" : "No" ));
+}
+
+/*
+  Attaches to the 'utxocache:uncache' tracepoint and uncache UTXOs from the UTXO set cache.
+*/
+usdt:./src/tapyrusd:utxocache:uncache
+{
+  @txid = buf((uint8*)arg0, 32);
+  $index = (uint32)arg1;
+  $height = (uint32)arg2;
+  $value = (int64)arg3;
+  $isCoinbase = arg4;
+
+  printf("Uncache ");
+  printf(":%r %-6d %16ld %7d %s\n", @txid, $index, $value, $height, ($isCoinbase ? "Yes" : "No" ));
+}

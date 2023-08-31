@@ -336,7 +336,7 @@ class UTXOCacheTracepointTest(BitcoinTestFramework):
 
     def test_flush(self):
         """ Tests the utxocache:utxocache_flush tracepoint API.
-            See https://github.com/bitcoin/bitcoin/blob/master/doc/tracing.md#tracepoint-utxocacheflush"""
+            See https://github.com/chaintope/tapyrus-core/blob/master/doc/tracing.md#context-utxocache"""
 
         self.log.info("test the utxocache_flush tracepoint API")
         self.log.info("hook into the utxocache_flush tracepoint")

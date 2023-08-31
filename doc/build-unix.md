@@ -117,25 +117,7 @@ Build requirements:
 
     sudo dnf install gcc-c++ libtool make autoconf automake python3
 
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
 Now, you can either build from self-compiled [depends](/depends/README.md) or install the required dependencies:
-=======
-User-Space, Statically Defined Tracing (USDT) dependencies:
-
-    sudo dnf install systemtap
-
->>>>>>> 82a6d0d55a (add tracepoints to utco cache)
-User-Space, Statically Defined Tracing (USDT) dependencies:
-
-    sudo dnf install systemtap
-
-Optional:
-<<<<<<< HEAD
-=======
->>>>>>> 79687c640f (add tracepoints to utco cache)
->>>>>>> 82a6d0d55a (add tracepoints to utco cache)
 
     sudo dnf install libevent-devel boost-devel
 
