@@ -15,51 +15,54 @@
 
 BEGIN
 {
-    printf("%-7s %-80s %16s %7s %8s\n",
-          "OP", "Outpoint", "Value", "Height", "Coinbase");
+    printf("%-7s %-70s %30s %16s %7s %8s\n",
+          "OP", "Outpoint", "Token",  "Value", "Height", "Coinbase");
 }
 
 /*
-  Attaches to the 'utxocache:add' tracepoint and prints additions to the UTXO set cache.
+  Attaches to the 'utxocache_add' tracepoint and prints additions to the UTXO set cache.
 */
-usdt:./src/tapyrusd:utxocache:add
+usdt:./src/tapyrusd:utxocache_add
 {
-  @txid = buf((uint8*)arg0, 32);
+  @txid = str(arg0);
   $index = (uint32)arg1;
-  $height = (uint32)arg2;
-  $value = (int64)arg3;
-  $isCoinbase = arg4;
+  @token = str(arg2);
+  $height = (uint32)arg3;
+  $value = (int64)arg4;
+  $isCoinbase = arg5;
 
   printf("Added  ");
-  printf(":%r %-6d %16ld %7d %s\n", @txid, $index, $value, $height, ($isCoinbase ? "Yes" : "No" ));
+  printf(":%s %-6d %s %16ld %7d %s\n", @txid, $index, @token, $value, $height, ($isCoinbase ? "Yes" : "No" ));
 }
 
 /*
-  Attaches to the 'utxocache:spent' tracepoint and prints spents from the UTXO set cache.
+  Attaches to the 'utxocache_spent' tracepoint and prints spents from the UTXO set cache.
 */
-usdt:./src/tapyrusd:utxocache:spent
+usdt:./src/tapyrusd:utxocache_spent
 {
-  @txid = buf((uint8*)arg0, 32);
+  @txid = str(arg0);
   $index = (uint32)arg1;
-  $height = (uint32)arg2;
-  $value = (int64)arg3;
-  $isCoinbase = arg4;
+  @token = str(arg2);
+  $height = (uint32)arg3;
+  $value = (int64)arg4;
+  $isCoinbase = arg5;
 
   printf("Spent   ");
-  printf(":%r %-6d %16ld %7d %s\n", @txid, $index, $value, $height, ($isCoinbase ? "Yes" : "No" ));
+  printf(":%s %-6d %s %16ld %7d %s\n", @txid, $index, @token, $value, $height, ($isCoinbase ? "Yes" : "No" ));
 }
 
 /*
-  Attaches to the 'utxocache:uncache' tracepoint and uncache UTXOs from the UTXO set cache.
+  Attaches to the 'utxocache_uncache' tracepoint and uncache UTXOs from the UTXO set cache.
 */
-usdt:./src/tapyrusd:utxocache:uncache
+usdt:./src/tapyrusd:utxocache_uncache
 {
-  @txid = buf((uint8*)arg0, 32);
+  @txid = str(arg0);
   $index = (uint32)arg1;
-  $height = (uint32)arg2;
-  $value = (int64)arg3;
-  $isCoinbase = arg4;
+  @token = str(arg2);
+  $height = (uint32)arg3;
+  $value = (int64)arg4;
+  $isCoinbase = arg5;
 
   printf("Uncache ");
-  printf(":%r %-6d %16ld %7d %s\n", @txid, $index, $value, $height, ($isCoinbase ? "Yes" : "No" ));
+  printf(":%s %-6d %s %16ld %7d %s\n", @txid, $index, @token, $value, $height, ($isCoinbase ? "Yes" : "No" ));
 }
