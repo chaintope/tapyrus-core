@@ -2836,11 +2836,11 @@ void CConnman::PushMessage(CNode* pnode, CSerializedNetMsg&& msg)
     CVectorWriter{SER_NETWORK, INIT_PROTO_VERSION, serializedHeader, 0, hdr};
 
     TRACE6(net, outbound_message,
-        uint64_t(pnode->GetId()),
+        pnode->GetId(),
         pnode->GetAddrName().c_str(),
         CNode::GetConnectionType(pnode).c_str(),
         msg.command.c_str(),
-        uint64_t(nMessageSize),
+        nMessageSize,
         msg.data.data()
     );
 

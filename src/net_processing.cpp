@@ -2983,11 +2983,11 @@ bool PeerLogicValidation::ProcessMessages(CNode* pfrom, std::atomic<bool>& inter
     }
 
     TRACE6(net, inbound_message,
-        uint64_t(pfrom->GetId()),
+        pfrom->GetId(),
         pfrom->GetAddrName().c_str(),
         CNode::GetConnectionType(pfrom).c_str(),
         msg.hdr.GetCommand().c_str(),
-        uint64_t(nMessageSize),
+        nMessageSize,
         msg.vRecv.data()
     );
 
