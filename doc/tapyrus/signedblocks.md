@@ -33,7 +33,7 @@ Value | Name|Type|Size(Bytes)|Description
 
 * when xfieldType is not 0, xfield is encoded according to the type of data it contains.
 - aggregate public key is a vector of char i.e the length and value are encoded. length uses variable length "varint" encoding.
-- max block size is an integer i.e 4 byte little endian encoding.
+- max block size is an unsigned 32 bit integer i.e 4 byte little endian encoding.
 
 **Aggregate public key**
 Tapyrus-core needs an aggregate public key to verify the threshold signature in blocks. 
