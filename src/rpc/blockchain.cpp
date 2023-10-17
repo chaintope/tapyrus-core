@@ -623,7 +623,7 @@ static UniValue getblockhash(const JSONRPCRequest& request)
 
     LOCK(cs_main);
 
-    int nHeight = request.params[0].get_int();
+    uint32_t nHeight = request.params[0].get_int();
     if (nHeight < 0 || nHeight > chainActive.Height())
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Block height out of range");
 

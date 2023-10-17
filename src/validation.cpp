@@ -4653,7 +4653,7 @@ bool isBlockHeightInCoinbase(const CBlock& block)
     if(pindex->nHeight == 0)
         return true;
 
-    uint64_t blockHeight = block.GetHeight();
+    uint32_t blockHeight = block.GetHeight();
 
     if(block.GetHash() == pindex->GetBlockHash() && blockHeight != (uint32_t)pindex->nHeight)
         return false;
