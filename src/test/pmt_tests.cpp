@@ -50,7 +50,7 @@ BOOST_AUTO_TEST_CASE(pmt_test1)
         std::vector<uint256> vTxid(nTx, uint256());
         for (unsigned int j=0; j<nTx; j++)
             vTxid[j] = block.vtx[j]->GetHashMalFix();
-        int nHeight = 1, nTx_ = nTx;
+        uint32_t nHeight = 1, nTx_ = nTx;
         while (nTx_ > 1) {
             nTx_ = (nTx_+1)/2;
             nHeight++;

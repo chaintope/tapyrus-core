@@ -133,7 +133,11 @@ public:
         UniValue tmpVal((bool)val_);
         return pushKV(key, tmpVal);
     }
-    bool pushKV(const std::string& key, int val_) {
+    bool pushKV(const std::string& key, uint32_t val_) {
+        UniValue tmpVal((uint64_t)val_);
+        return pushKV(key, tmpVal);
+    }
+    bool pushKV(const std::string& key, int32_t val_) {
         UniValue tmpVal((int64_t)val_);
         return pushKV(key, tmpVal);
     }

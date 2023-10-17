@@ -45,8 +45,8 @@ unsigned int ParseConfirmTarget(const UniValue& value)
 
 UniValue generateBlocks(std::shared_ptr<CReserveScript> coinbaseScript, int nGenerate, bool keepScript, const CKey& privKey)
 {
-    int nHeightEnd = 0;
-    int nHeight = 0;
+    uint32_t nHeightEnd = 0;
+    uint32_t nHeight = 0;
 
     {   // Don't keep cs_main locked
         LOCK(cs_main);
