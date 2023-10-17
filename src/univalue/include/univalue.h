@@ -34,6 +34,9 @@ public:
     UniValue(bool val_) {
         setBool(val_);
     }
+    UniValue(uint32_t val_) {
+        setInt((uint64_t)val_);
+    }
     UniValue(int val_) {
         setInt(val_);
     }

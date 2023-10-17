@@ -61,7 +61,7 @@ void CXFieldHistory::ToUniValue(TAPYRUS_XFIELDTYPES type, UniValue* xFieldChange
     {
         UniValue xFieldChangeObj(UniValue::VOBJ);
         std::string value = XFieldDataToString(xFieldChange.xfieldValue);
-        xFieldChangeObj.pushKV(value, (uint64_t)xFieldChange.height);
+        xFieldChangeObj.pushKV(value, xFieldChange.height);
         xFieldChangeUnival->push_back(xFieldChangeObj);
     }
 }

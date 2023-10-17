@@ -62,7 +62,7 @@ public:
 
     /** Default value for -checkmempool and -checkblockindex argument */
     bool DefaultConsistencyChecks() const { return fDefaultConsistencyChecks; }
-    uint64_t PruneAfterHeight() const { return nPruneAfterHeight; }
+    uint32_t PruneAfterHeight() const { return nPruneAfterHeight; }
     /** Make miner stop after a block is found. In RPC, don't return until nGenProcLimit blocks are generated */
     bool MineBlocksOnDemand() const { return fMineBlocksOnDemand; }
     /** Return true if the fallback fee is by default enabled for this network */
@@ -79,7 +79,7 @@ protected:
     Consensus::Params consensus;
     int rpcPort;
     int nDefaultPort;
-    uint64_t nPruneAfterHeight;
+    uint32_t nPruneAfterHeight;
     bool fDefaultConsistencyChecks;
     bool fMineBlocksOnDemand;
     std::vector<unsigned char> base58Prefixes[MAX_BASE58_TYPES];
