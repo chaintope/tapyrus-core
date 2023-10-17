@@ -906,7 +906,7 @@ static UniValue pruneblockchain(const JSONRPCRequest& request)
     }
 
     PruneBlockFilesManual(height);
-    return uint64_t(height);
+    return UniValue(height);
 }
 
 static UniValue gettxoutsetinfo(const JSONRPCRequest& request)

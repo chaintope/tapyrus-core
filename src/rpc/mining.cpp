@@ -587,7 +587,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     result.pushKV("sizelimit", (int64_t)GetCurrentMaxBlockSize());
     result.pushKV("curtime", pblock->GetBlockTime());
     result.pushKV("proof", HexStr(pblock->proof));
-    result.pushKV("height", (int64_t)(pindexPrev->nHeight+1));
+    result.pushKV("height", (pindexPrev->nHeight+1));
 
     if (!pblocktemplate->vchCoinbaseCommitment.empty() && fSupportsSegwit) {
         result.pushKV("default_witness_commitment", HexStr(pblocktemplate->vchCoinbaseCommitment.begin(), pblocktemplate->vchCoinbaseCommitment.end()));
