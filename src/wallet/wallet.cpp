@@ -2913,9 +2913,9 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                                 && i.second > mapChangePosInOut[colorId])
                                     i.second++;
                             }
-                            TRACE3(coin_selection, change_info, colorId.toHexString().c_str(), mapChangePosInOut[colorId], newTxOut.nValue);
                         }
                     }
+                    TRACE3(coin_selection, change_info, colorId.toHexString().c_str(), mapChangePosInOut[colorId], newTxOut.nValue);
                 }
                 else
                     mapChangePosInOut[colorId] = -1;
@@ -2978,7 +2978,6 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                         change_position->nValue += extraFeePaid;
                         nFeeRet -= extraFeePaid;
                     }
-                    TRACE2(coin_selection, fee_info, nFeeNeeded, nFeeRet);
                     break; // Done, enough fee included.
                 }
                 else if (!pick_new_inputs) {
@@ -2998,6 +2997,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     if (change_position->nValue >= MIN_FINAL_CHANGE + additionalFeeNeeded) {
                         change_position->nValue -= additionalFeeNeeded;
                         nFeeRet += additionalFeeNeeded;
+                        TRACE2(coin_selection, fee_info, nFeeNeeded, nFeeRet);
                         break; // Done, able to increase fee from change
                     }
                 }

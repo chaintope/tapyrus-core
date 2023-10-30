@@ -1,0 +1,43 @@
+#!/usr/bin/env bpftrace
+
+BEGIN
+{
+  printf("Logging Coin selection \n")
+}
+
+usdt:./src/tapyrusd:coin_selection:coins_requested
+{
+  $wallet =  str(arg0);
+  $color = str(arg1);
+  $value = (int64)arg2;
+
+  printf("Request [%ld] of token [%s] from wallet '%s'\n", $value, $color, $wallet);
+}
+
+usdt:./src/tapyrusd:coin_selection:selected_coins
+{
+  $algo = str(arg0);
+  $color = str(arg1);
+  $value = (int64)arg2;
+  $numcoins = (int64)arg3;
+  $available = (int64)arg4;
+
+  printf("Select [%ld] token [%s] using [%d] outputs with value [%ld] using [%s]\n", $value, $color, $numcoins, $available, $algo);
+}
+
+usdt:./src/tapyrusd:coin_selection:change_info
+{
+  $color = str(arg0);
+  $position = (int64)arg1;
+  $amount = (int64)arg2;
+
+  printf("Change of [%ld] od token [%s] added at position[%d]\n", $amount, $color, $position);
+}
+
+usdt:./src/tapyrusd:coin_selection:fee_info
+{
+  $fee_need = (int64)arg0;
+  $fee = (int64)arg1;
+
+  printf("Fee [%ld] against estimate of [%ld] paid\n", $fee, $fee_need);
+}
