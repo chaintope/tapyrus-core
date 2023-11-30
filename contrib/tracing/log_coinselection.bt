@@ -7,37 +7,37 @@ BEGIN
 
 usdt:./src/tapyrusd:coin_selection:coins_requested
 {
-  $wallet =  str(arg0);
-  $color = str(arg1);
-  $value = (int64)arg2;
+ @value =  (uint64)arg0;
+ $color = str(arg1);
 
-  printf("Request [%ld] of token [%s] from wallet '%s'\n", $value, $color, $wallet);
+  printf("Request [%s] : value [%d]\n", $color, @value);
 }
 
 usdt:./src/tapyrusd:coin_selection:selected_coins
 {
-  $algo = str(arg0);
-  $color = str(arg1);
-  $value = (int64)arg2;
-  $numcoins = (int64)arg3;
-  $available = (int64)arg4;
+  $color = str(arg0);
+  @value = (uint64)arg1;
+  @mapValueIn = (uint64)arg2;
+  @count = (uint64)arg3;
+  $algo = str(arg4);
 
-  printf("Select [%ld] token [%s] using [%d] outputs with value [%ld] using [%s]\n", $value, $color, $numcoins, $available, $algo);
+  printf("Select [%s]: try to select [%d] using [%d]", $color, @value, @count);
+  printf(" coins of total value [%d]", @mapValueIn);
+  printf(" algorithm tried is [%s]\n", $algo);
 }
 
 usdt:./src/tapyrusd:coin_selection:change_info
 {
-  $color = str(arg0);
-  $position = (int64)arg1;
-  $amount = (int64)arg2;
+  @amount = (uint64)arg0;
+  $color = str(arg1);
 
-  printf("Change of [%ld] od token [%s] added at position[%d]\n", $amount, $color, $position);
+  printf("Change [%s] : value [%d]\n", $color, @amount);
 }
 
 usdt:./src/tapyrusd:coin_selection:fee_info
 {
-  $fee_need = (int64)arg0;
-  $fee = (int64)arg1;
+  @fee = (uint64)arg0;
+  @fee_need = (uint64)arg1;
 
-  printf("Fee [%ld] against estimate of [%ld] paid\n", $fee, $fee_need);
+  printf("Fee [TPC] : value [%d] need [%d]\n", @fee, @fee_need);
 }

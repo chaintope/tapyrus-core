@@ -281,14 +281,22 @@ $ bpftrace contrib/tracing/log_coinselection.bt
 
 ```
 Logging Coin selection 
-Request [2500000000] of token [TPC] from wallet ''
-Select [2500440000] token [TPC] using [1] outputs with value [5012250000] using [knapsack]
-Request [0] of token [TPC] from wallet ''
-Request [100] of token [c209ab800ea82b024f882862277bc65ac87a96af8c33da06813ed312e2b8dae] from wallet ''
-Select [0] token [TPC] using [1] outputs with value [2510340000] using [knapsack]
-Request [0] of token [TPC] from wallet ''
-Request [25] of token [c209ab800ea82b024f882862277bc65ac87a96af8c33da06813ed312e2b8dae] from wallet ''
-Select [0] token [TPC] using [0] outputs with value [0] using [knapsack]
-Select [790000] token [TPC] using [1] outputs with value [485500000] using [knapsack]
-Select [25] token [c209ab800ea82b024f882862277bc65ac87a96af8c33da06813ed312e2b8dae] using [1] outputs with value [100] using [knapsack]
+Request [TPC] : value [0]
+Request [c1bd82e2fa1915af84781716691a1a1d25ed00543d2c11f457513d995398f5a] : value [100]
+Select [TPC]: try to select [0] using [1] coins of total value [20000] algorithm tried is [knapsack]
+Select [TPC]: try to select [5160] using [1] coins of total value [20000] algorithm tried is [knapsack]
+Fee [TPC] : value [5160] need [5160]
+Request [TPC] : value [20000]
+Select [TPC]: try to select [20880] using [1] coins of total value [999987620] algorithm tried is [knapsack]
+Request [TPC] : value [0]
+Request [c156a0931bb87cd802a2a722bfe329fe986066c979cae3ecbc73a0e4b423843] : value [100]
+Select [TPC]: try to select [0] using [1] coins of total value [20000] algorithm tried is [knapsack]
+Select [TPC]: try to select [5160] using [1] coins of total value [20000] algorithm tried is [knapsack]
+Fee [TPC] : value [5160] need [5160]
+Request [TPC] : value [0]
+Request [c156a0931bb87cd802a2a722bfe329fe986066c979cae3ecbc73a0e4b423843] : value [50]
+Select [TPC]: try to select [0] using [0] coins of total value [0] algorithm tried is [knapsack]
+Select [TPC]: try to select [1580] using [1] coins of total value [999990300] algorithm tried is [knapsack]
+Select [c156a0931bb87cd802a2a722bfe329fe986066c979cae3ecbc73a0e4b423843]: try to select [50] using [1] coins of total value [100] algorithm tried is [knapsack]
+Change [c156a0931bb87cd802a2a722bfe329fe986066c979cae3ecbc73a0e4b423843] : value [50]
 ```
