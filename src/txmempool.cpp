@@ -15,6 +15,7 @@
 #include <reverse_iterator.h>
 #include <streams.h>
 #include <timedata.h>
+#include <trace.h>
 #include <util.h>
 #include <utilmoneystr.h>
 #include <utiltime.h>
@@ -410,11 +411,25 @@ void CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry,
 
     vTxHashes.emplace_back(tx.GetHashMalFix(), newit);
     newit->vTxHashesIdx = vTxHashes.size() - 1;
+
+    TRACE3(mempool, added,
+        entry.GetTx().GetHashMalFix().ToString().c_str(),
+        entry.GetTxSize(),
+        entry.GetFee()
+    );
 }
 
 void CTxMemPool::removeUnchecked(txiter it, MemPoolRemovalReason reason)
 {
     NotifyEntryRemoved(it->GetSharedTx(), reason);
+
+    TRACE5(mempool, removed,
+        it->GetTx().GetHashMalFix().ToString().c_str(),
+        RemovalReasonToString(reason).c_str(),
+        it->GetTxSize(),
+        it->GetFee(),
+        it->GetTime()
+    );
     const uint256 hash = it->GetTx().GetHashMalFix();
     for (const CTxIn& txin : it->GetTx().vin)
         mapNextTx.erase(txin.prevout);
@@ -1082,3 +1097,16 @@ void CTxMemPool::GetTransactionAncestry(const uint256& txid, size_t& ancestors, 
 }
 
 SaltedTxidHasher::SaltedTxidHasher() : k0(GetRand(std::numeric_limits<uint64_t>::max())), k1(GetRand(std::numeric_limits<uint64_t>::max())) {}
+
+std::string RemovalReasonToString(const MemPoolRemovalReason& r) noexcept
+{
+    switch (r) {
+        case MemPoolRemovalReason::EXPIRY: return "expiry";
+        case MemPoolRemovalReason::SIZELIMIT: return "sizelimit";
+        case MemPoolRemovalReason::REORG: return "reorg";
+        case MemPoolRemovalReason::BLOCK: return "block";
+        case MemPoolRemovalReason::CONFLICT: return "conflict";
+        case MemPoolRemovalReason::REPLACED: return "replaced";
+    }
+    assert(false);
+}

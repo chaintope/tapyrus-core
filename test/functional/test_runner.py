@@ -239,6 +239,7 @@ USDT_SCRIPTS = [
     'interface_usdt_utxocache.py',
     'interface_usdt_validation.py',
     'interface_usdt_coinselection.py',
+    'interface_usdt_mempool.py',
 ]
 
 # Place EXTENDED_SCRIPTS first since it has the 3 longest running tests

@@ -1078,6 +1078,15 @@ static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, 
                     hash.ToString(),
                     FormatMoney(nModifiedFees - nConflictingFees),
                     (int)nSize - (int)nConflictingSize);
+            TRACE7(mempool, replaced,
+                it->GetTx().GetHashMalFix().ToString().c_str(),
+                nSize,
+                nModifiedFees,
+                it->GetTime(),
+                hash.ToString().c_str(),
+                nConflictingSize,
+                nConflictingFees
+            );
             if (plTxnReplaced)
                 plTxnReplaced->push_back(it->GetSharedTx());
         }
@@ -1116,6 +1125,10 @@ static bool AcceptToMemoryPoolWithTime(CTxMemPool& pool, CValidationState &state
     if (!res) {
         for (const COutPoint& hashTx : coins_to_uncache)
             pcoinsTip->Uncache(hashTx);
+            TRACE2(mempool, rejected,
+                tx->GetHashMalFix().ToString().c_str(),
+                state.GetRejectReason().c_str()
+        );
     }
     // After we've (potentially) uncached entries, ensure our coins cache is still within its size limits
     CValidationState stateDummy;

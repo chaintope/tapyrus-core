@@ -351,6 +351,8 @@ enum class MemPoolRemovalReason {
     REPLACED     //! Removed for replacement
 };
 
+std::string RemovalReasonToString(const MemPoolRemovalReason& r) noexcept;
+
 class SaltedTxidHasher
 {
 private:
