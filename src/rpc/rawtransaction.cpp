@@ -1129,17 +1129,16 @@ static UniValue sendrawtransaction(const JSONRPCRequest& request)
     bool fHaveMempool = mempool.exists(hashTx);
     if (!fHaveMempool && !fHaveChain) {
         // push to local node and sync with wallets
-        CValidationState state;
-        bool fMissingInputs;
-        if (!AcceptToMemoryPool(mempool, state, std::move(tx), &fMissingInputs,
-                                nullptr /* plTxnReplaced */, false /* bypass_limits */, nMaxRawTxFee)) {
-            if (state.IsInvalid()) {
-                throw JSONRPCError(RPC_TRANSACTION_REJECTED, FormatStateMessage(state));
+        CTxMempoolAcceptanceOptions opt;
+        opt.nAbsurdFee = nMaxRawTxFee;
+        if (!AcceptToMemoryPool(std::move(tx), opt)) {
+            if (opt.state.IsInvalid()) {
+                throw JSONRPCError(RPC_TRANSACTION_REJECTED, FormatStateMessage(opt.state));
             } else {
-                if (fMissingInputs) {
+                if (opt.missingInputs.size()) {
                     throw JSONRPCError(RPC_TRANSACTION_ERROR, "Missing inputs");
                 }
-                throw JSONRPCError(RPC_TRANSACTION_ERROR, FormatStateMessage(state));
+                throw JSONRPCError(RPC_TRANSACTION_ERROR, FormatStateMessage(opt.state));
             }
         } else {
             // If wallet is enabled, ensure that the wallet has been made aware
@@ -1231,22 +1230,21 @@ static UniValue testmempoolaccept(const JSONRPCRequest& request)
     UniValue result_0(UniValue::VOBJ);
     result_0.pushKV("txid", tx_hash.GetHex());
 
-    CValidationState state;
-    bool missing_inputs;
-    bool test_accept_res;
+    CTxMempoolAcceptanceOptions opt;
+    opt.flags = MempoolAcceptanceFlags::TEST_ONLY;
+    bool accept;
     {
         LOCK(cs_main);
-        test_accept_res = AcceptToMemoryPool(mempool, state, std::move(tx), &missing_inputs,
-            nullptr /* plTxnReplaced */, false /* bypass_limits */, max_raw_tx_fee, /* test_accept */ true);
+        accept = AcceptToMemoryPool(std::move(tx), opt);
     }
-    result_0.pushKV("allowed", test_accept_res);
-    if (!test_accept_res) {
-        if (state.IsInvalid()) {
-            result_0.pushKV("reject-reason", strprintf("%i: %s", state.GetRejectCode(), state.GetRejectReason()));
-        } else if (missing_inputs) {
+    result_0.pushKV("allowed", accept);
+    if (!accept) {
+        if (opt.state.IsInvalid()) {
+            result_0.pushKV("reject-reason", strprintf("%i: %s", opt.state.GetRejectCode(), opt.state.GetRejectReason()));
+        } else if (opt.missingInputs.size()) {
             result_0.pushKV("reject-reason", "missing-inputs");
         } else {
-            result_0.pushKV("reject-reason", state.GetRejectReason());
+            result_0.pushKV("reject-reason", opt.state.GetRejectReason());
         }
     }
 

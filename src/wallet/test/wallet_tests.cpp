@@ -511,11 +511,11 @@ public:
     }
 
     bool ProcessBlockAndScanForWalletTxns(const CTransactionRef tx) {
-        CValidationState state;
+        CTxMempoolAcceptanceOptions opt;
         bool pfMissingInputs;
         {
             LOCK(cs_main);
-            AcceptToMemoryPool(mempool, state, tx, &pfMissingInputs, nullptr, true, 0);
+            AcceptToMemoryPool(tx, opt);
         }
         CreateAndProcessBlock({ CMutableTransaction(*tx) }, CScript() <<  ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG);
 
