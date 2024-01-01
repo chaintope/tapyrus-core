@@ -20,6 +20,7 @@
 #include <hash.h>
 #include <index/txindex.h>
 #include <policy/fees.h>
+#include <policy/packages.h>
 #include <policy/policy.h>
 #include <policy/rbf.h>
 #include <primitives/block.h>
@@ -525,7 +526,7 @@ static void UpdateMempoolForReorg(DisconnectedBlockTransactions &disconnectpool,
 
 // Used to avoid mempool polluting consensus critical paths if CCoinsViewMempool
 // were somehow broken and returning the wrong scriptPubKeys
-static bool CheckInputsFromMempoolAndCache(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& view, const CTxMemPool& pool,
+static bool CheckInputsFromMempoolAndCache(ValidationContext context, const CTransaction& tx, CValidationState& state, const CCoinsViewCache& view, const CTxMemPool& pool,
                  unsigned int flags, bool cacheSigStore, PrecomputedTransactionData& txdata) {
     AssertLockHeld(cs_main);
 
@@ -549,10 +550,10 @@ static bool CheckInputsFromMempoolAndCache(const CTransaction& tx, CValidationSt
             assert(txFrom->GetHashMalFix() == txin.prevout.hashMalFix);
             assert(txFrom->vout.size() > txin.prevout.n);
             assert(txFrom->vout[txin.prevout.n] == coin.out);
-        } else {
-            const Coin& coinFromDisk = pcoinsTip->AccessCoin(txin.prevout);
-            assert(!coinFromDisk.IsSpent());
-            assert(coinFromDisk.out == coin.out);
+        } else if(context != ValidationContext::PACKAGE) { //transactions in a package are not expected to be present in the disk
+                const Coin& coinFromDisk = pcoinsTip->AccessCoin(txin.prevout);
+                assert(!coinFromDisk.IsSpent());
+                assert(coinFromDisk.out == coin.out);
         }
     }
 
@@ -757,9 +758,58 @@ static unsigned int GetBlockScriptFlags(const CBlockIndex* pindex) {
     return flags;
 }
 
-static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAcceptanceOptions& opt)
+bool TestPackageAcceptance(const Package& package,
+                                  CValidationState& state,
+                                  PackageValidationState& results,
+                                  std::vector<const CTxMemPoolEntry >& validPool)
 {
-    const CTransaction& tx = *ptx;
+    assert(std::all_of(package.cbegin(), package.cend(),
+        [&mempool](const auto& tx){
+            return !mempool.exists(tx->GetHashMalFix());
+    }));
+
+    bool all_valid = true;
+    bool test_accept_res = false;
+    CCoinsViewMemPool viewMemPool(pcoinsTip.get(), mempool);
+
+    if(!CheckPackage(package, state))
+        return false;
+
+    // testmempool acceptance first
+    for(auto &tx : package) {
+        {
+            LOCK(::cs_main);
+            test_accept_res = AcceptToMemoryPool(ValidationContext::PACKAGE, mempool, state, tx, validPool, &state.missingInputs, nullptr, true, 0, true);
+        }
+
+        results.emplace(tx->GetHashMalFix(), state);
+        all_valid &= test_accept_res;
+    }
+
+    return all_valid;
+}
+
+void SubmitToMempool(std::vector<const CTxMemPoolEntry >& validPool, CValidationState& state)
+{
+    for(auto &entry : validPool) {
+        {
+            // Store transaction in mempool if validation succeeded
+            LOCK(::cs_main);
+            mempool.addUnchecked(entry.tx->GetHashMalFix(), entry, false);
+        }
+
+        // trim mempool and check if tx was trimmed
+        LimitMempoolSize(mempool, gArgs.GetArg("-maxmempool", DEFAULT_MAX_MEMPOOL_SIZE) * 1000000, gArgs.GetArg("-mempoolexpiry", DEFAULT_MEMPOOL_EXPIRY) * 60 * 60);
+        if (!mempool.exists(hash))
+            return state.DoS(0, false, REJECT_INSUFFICIENTFEE, "mempool full");
+
+        GetMainSignals().TransactionAddedToMempool(entry.tx);
+    }
+}
+
+static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, const CTransactionRef &tx, CTxMempoolAcceptanceOptions opt)
+{
+    const CTransaction& tx = opt.tx;
     const uint256 hash = tx.GetHashMalFix();
     AssertLockHeld(cs_main);
 
@@ -771,7 +821,7 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
     // missing inputs is a vector for package validation
     opt.missingInputs.clear();
 
-    if (!CheckTransaction(tx, state))
+    if (!CheckTransaction(tx, acceptanceConfig.state))
         return false; // state filled in by CheckTransaction
 
     // Coinbase is only valid in a block, not as a loose transaction
@@ -813,7 +863,6 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
         CCoinsView dummy;
         CCoinsViewCache view(&dummy);
 
-        LockPoints lp;
         CCoinsViewMemPool viewMemPool(pcoinsTip.get(), pool);
         view.SetBackend(viewMemPool);
 
@@ -822,7 +871,7 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
             return false;
 
         //if there are colored coins in the output verify their colorids
-        if(!CheckColorIdentifierValidity(tx, state, view))
+        if(!CheckColorIdentifierValidity(tx, acceptanceConfig.state, view))
             return state.DoS(0, false, REJECT_COLORID, "invalid-colorid");
 
         // Bring the best block into scope
@@ -836,6 +885,7 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
         // be mined yet.
         // Must keep pool.cs for this unless we change CheckSequenceLocks to take a
         // CoinsViewCache instead of create its own
+        LockPoints lp;
         if (!CheckSequenceLocks(tx, STANDARD_LOCKTIME_VERIFY_FLAGS, &lp))
             return state.DoS(0, false, REJECT_NONSTANDARD, "non-BIP68-final");
 
@@ -858,7 +908,16 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
             return state.Invalid(false, REJECT_NONSTANDARD, "bad-txns-nonstandard-inputs");
 #endif
 
+
+        // Check that the transaction doesn't have an excessive number of
+        // sigops, making it impossible to mine. Since the coinbase transaction
+        // itself can contain sigops MAX_STANDARD_TX_SIGOPS is less than
+        // MAX_BLOCK_SIGOPS; we still consider this an invalid rather than
+        // merely non-standard transaction.
         int32_t nSigOps = GetTransactionSigOps(tx, view, STANDARD_SCRIPT_VERIFY_FLAGS);
+        if (nSigOps > GetMaxStandardTxSigops())
+            return state.DoS(0, false, REJECT_NONSTANDARD, "bad-txns-too-many-sigops", false,
+                strprintf("%d", nSigOps));
 
         // nModifiedFees includes any fee deltas from PrioritiseTransaction
         CAmount nModifiedFees = nFees;
@@ -879,15 +938,6 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
         CTxMemPoolEntry entry(ptx, nFees, opt.nAcceptTime, chainActive.Height(),
                               fSpendsCoinbase, nSigOps, lp);
         unsigned int nSize = entry.GetTxSize();
-
-        // Check that the transaction doesn't have an excessive number of
-        // sigops, making it impossible to mine. Since the coinbase transaction
-        // itself can contain sigops MAX_STANDARD_TX_SIGOPS is less than
-        // MAX_BLOCK_SIGOPS; we still consider this an invalid rather than
-        // merely non-standard transaction.
-        if (nSigOps > GetMaxStandardTxSigops())
-            return state.DoS(0, false, REJECT_NONSTANDARD, "bad-txns-too-many-sigops", false,
-                strprintf("%d", nSigOps));
 
         CAmount mempoolRejectFee = pool.GetMinFee(gArgs.GetArg("-maxmempool", DEFAULT_MAX_MEMPOOL_SIZE) * 1000000).GetFee(nSize);
         if (opt.flags != MempoolAcceptanceFlags::BYPASSS_LIMITS
