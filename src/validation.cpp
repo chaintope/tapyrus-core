@@ -810,7 +810,7 @@ bool SubmitPackageToMempool(const std::vector<CTxMemPoolEntry>& validPool, CVali
 
 static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAcceptanceOptions& opt)
 {
-    const CTransaction& tx = *ptx;
+    const CTransaction& tx = opt.tx;
     const uint256 hash = tx.GetHashMalFix();
     AssertLockHeld(cs_main);
 
@@ -822,7 +822,7 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
     // missing inputs is a vector for package validation
     opt.missingInputs.clear();
 
-    if (!CheckTransaction(tx, state))
+    if (!CheckTransaction(tx, acceptanceConfig.state))
         return false; // state filled in by CheckTransaction
 
     // Coinbase is only valid in a block, not as a loose transaction
@@ -871,7 +871,7 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
             return false;
 
         //if there are colored coins in the output verify their colorids
-        if(!CheckColorIdentifierValidity(tx, state, view))
+        if(!CheckColorIdentifierValidity(tx, acceptanceConfig.state, view))
             return state.DoS(0, false, REJECT_COLORID, "invalid-colorid");
 
         // Bring the best block into scope
@@ -1113,8 +1113,7 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
         // This is done last to help prevent CPU exhaustion denial-of-service attacks.
         PrecomputedTransactionData txdata(tx);
         TxColoredCoinBalancesMap inColoredCoinBalances;
-        if (!CheckInputs(tx, state, view, true, scriptVerifyFlags, true, false, txdata, inColoredCoinBalances)) {
-
+        if (!CheckInputs(tx, state, view, true, STANDARD_SCRIPT_VERIFY_FLAGS, true, false, txdata, inColoredCoinBalances)) {
             return false; // state filled in by CheckInputs
         }
 
@@ -1144,6 +1143,7 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
             return false;
         }
 
+<<<<<<< HEAD
         // if validation of the package tx was successful remember its mempoolentry
         // if submission is needed this list is used otherwise it is unused
         if(opt.context == ValidationContext::PACKAGE) {
@@ -1151,6 +1151,12 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
             if(opt.submitPool)
                 opt.submitPool->push_back(std::move(entry));
         }
+=======
+        // is validation of the package tx was successful remember its mempoolentry
+        // if submission is needed this list is used otherwise it is unused
+        if(context == ValidationContext::PACKAGE)
+            validPool.push_back(entry);
+>>>>>>> 89c18fee0f (added Package test accept to mempool and submit package)
 
         if (opt.flags == MempoolAcceptanceFlags::TEST_ONLY) {
             // Tx was accepted, but not added
@@ -1165,7 +1171,10 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
                     hash.ToString(),
                     FormatMoney(nModifiedFees - nConflictingFees),
                     (int)nSize - (int)nConflictingSize);
+<<<<<<< HEAD
 
+=======
+>>>>>>> 89c18fee0f (added Package test accept to mempool and submit package)
             TRACE7(mempool, replaced,
                 it->GetTx().GetHashMalFix().begin(),
                 it->GetTxSize(),
@@ -1175,6 +1184,10 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
                 tx.GetTotalSize(),
                 nConflictingFees
             );
+<<<<<<< HEAD
+=======
+
+>>>>>>> 89c18fee0f (added Package test accept to mempool and submit package)
             opt.txnReplaced.push_back(it->GetSharedTx());
         }
         pool.RemoveStaged(allConflicting, false, MemPoolRemovalReason::REPLACED);
