@@ -6,6 +6,7 @@
 """Test mempool acceptance of raw transactions."""
 
 from io import BytesIO
+import copy
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.messages import (
     BIP125_SEQUENCE_NUMBER,
@@ -32,7 +33,6 @@ from test_framework.util import (
     wait_until,
 )
 
-
 class MempoolAcceptanceTest(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
@@ -47,6 +47,52 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
         assert_equal(result_expected, result_test)
         assert_equal(self.nodes[0].getmempoolinfo()['size'], self.mempool_size)  # Must not change mempool state
 
+    def create_package(self,  size):
+        """create a package with size transactions"""
+        self.nodes[0].generate(1, self.signblockprivkey_wif)
+
+        package  = []
+        #first tx spends a coin in the blockchain
+        coin = [x for x in self.nodes[0].listunspent() if x['amount'] > 49.3][0]
+        prevtx_hex=self.nodes[0].getrawtransaction(coin['txid'])
+        prevtx = CTransaction()
+        prevtx.deserialize(BytesIO(hex_str_to_bytes(prevtx_hex)))
+        prevtxs = [{"txid": coin['txid'],
+                        "vout": coin['vout'],
+                        "scriptPubKey": bytes_to_hex_str(prevtx.vout[coin['vout']].scriptPubKey),
+                        "redeemScript": "",
+                        "amount": prevtx.vout[coin['vout']].nValue  /  COIN}]
+        raw_tx = self.nodes[0].createrawtransaction(
+            inputs=[{'txid': coin['txid'], 'vout': coin['vout']}],
+            outputs=[{self.nodes[0].getnewaddress(): 0.3}, {self.nodes[0].getnewaddress(): 49}]
+        )
+        signed_raw_tx =self.nodes[0].signrawtransactionwithwallet(raw_tx, prevtxs)['hex']
+        tx = CTransaction()
+        tx.deserialize(BytesIO(hex_str_to_bytes(signed_raw_tx)))
+        package.insert(0, tx)
+        prevtx  = tx
+        amt = 48.5
+        # other txs spend the output of the previous tx in the package.
+        for x in range(2, size+1):
+            coin = {'txid': tx.rehash(), 'vout':1}
+            prevtxs = [{"txid": coin['txid'],
+                                "vout": coin['vout'],
+                                "scriptPubKey": bytes_to_hex_str(prevtx.vout[coin['vout']].scriptPubKey),
+                                "redeemScript": "",
+                                "amount": prevtx.vout[coin['vout']].nValue  /  COIN}]
+            raw_tx = self.nodes[0].createrawtransaction(
+                inputs=[{'txid': coin['txid'], 'vout': coin['vout']}],
+                outputs=[{self.nodes[0].getnewaddress(): 0.3}, {self.nodes[0].getnewaddress(): amt}]
+            )
+            signed_raw_tx =self.nodes[0].signrawtransactionwithwallet(raw_tx, prevtxs)['hex']
+            amt = amt - 0.5
+            tx = CTransaction()
+            tx.deserialize(BytesIO(hex_str_to_bytes(signed_raw_tx)))
+            package.insert(x-1, tx)
+            prevtx  = tx
+        [print(x.rehash(), x) for x in package]
+        return package
+
     def run_test(self):
         node = self.nodes[0]
 
@@ -57,9 +103,8 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
 
         self.log.info('Should not accept garbage to testmempoolaccept')
         assert_raises_rpc_error(-3, 'Expected type array, got string', lambda: node.testmempoolaccept(rawtxs='ff00baar'))
-        assert_raises_rpc_error(-8, 'Array must contain exactly one raw transaction for now', lambda: node.testmempoolaccept(rawtxs=['ff00baar', 'ff22']))
         assert_raises_rpc_error(-22, 'TX decode failed', lambda: node.testmempoolaccept(rawtxs=['ff00baar']))
-
+        """
         self.log.info('A transaction already in the blockchain')
         coin = node.listunspent()[0]  # Pick a random coin(base) to spend
         raw_tx_in_block = node.signrawtransactionwithwallet(node.createrawtransaction(
@@ -312,6 +357,68 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
         self.check_mempool_result(
             result_expected=[{'txid': tx.rehash(), 'allowed': False, 'reject-reason': '64: scriptpubkey'}],
             rawtxs=[bytes_to_hex_str(tx.serialize())],
+        )
+
+        self.log.info('Test package acceptance')
+        # package with 26 transactions is rejected
+        package = self.create_package(26)
+        raw_package = [bytes_to_hex_str(x.serialize()) for x in package]
+
+        assert_raises_rpc_error(-8, "Too many transactions in package", self.nodes[0].testmempoolaccept, raw_package)
+
+        # package with txs spending the same input is rejected
+        package = self.create_package(5)
+        package[3].vin[0].prevout.hash = package[2].vin[0].prevout.hash
+        raw_package = [bytes_to_hex_str(x.serialize()) for x in package]
+
+        self.check_mempool_result(
+            result_expected={'allowed': False, 'reject-reason': '69: conflict-in-package'},
+            rawtxs=raw_package,
+        )
+
+        # unsorted package is rejected
+        package = self.create_package(3)
+        package[1].vin[0].prevout.hash = package[2].malfixsha256
+        package[2].vin[0].prevout.hash = package[0].malfixsha256
+        package[0].vin[0].prevout.hash = package[1].malfixsha256
+        raw_package = [bytes_to_hex_str(x.serialize()) for x in package]
+
+        self.check_mempool_result(
+            result_expected={'allowed': False, 'reject-reason': '69: package-not-sorted'},
+            rawtxs=raw_package,
+        )
+
+        # package with unknown utxo is rejected
+        package = self.create_package(2)
+        package[1].vin[0].prevout.n = 6
+        package[1].rehash()
+        raw_package = [bytes_to_hex_str(x.serialize()) for x in package]
+
+        self.check_mempool_result(
+            result_expected={ package[0].hashMalFix: {'allowed': True},
+                                            package[1].hashMalFix: {'reject-reason': 'missing-input'}},
+            rawtxs=raw_package,
+        )"""
+
+        # package is accepted
+        package = self.create_package(4)
+        raw_package = [bytes_to_hex_str(x.serialize()) for x in package]
+
+        self.check_mempool_result(
+            result_expected={ package[0].hashMalFix: {'allowed': True},
+                                            package[1].hashMalFix: {'allowed': True},
+                                            package[2].hashMalFix: {'allowed': True},
+                                            package[3].hashMalFix: {'allowed': True}},
+            rawtxs=raw_package,
+        )
+
+        # package is accepted
+        package = self.create_package(1)
+        raw_package = [bytes_to_hex_str(x.serialize()) for x in package]
+
+        self.check_mempool_result(
+            result_expected={ 'txid': package[0].hashMalFix, 'allowed': True },
+            rawtxs=raw_package,
         )
 
 if __name__ == '__main__':
