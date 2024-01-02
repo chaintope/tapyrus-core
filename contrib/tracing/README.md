@@ -300,3 +300,62 @@ Select [TPC]: try to select [1580] using [1] coins of total value [999990300] al
 Select [c156a0931bb87cd802a2a722bfe329fe986066c979cae3ecbc73a0e4b423843]: try to select [50] using [1] coins of total value [100] algorithm tried is [knapsack]
 Change [c156a0931bb87cd802a2a722bfe329fe986066c979cae3ecbc73a0e4b423843] : value [50]
 ```
+
+
+
+### mempool_monitor.py
+
+A BCC Python script producing mempool statistics and an event log. Based on the
+`mempool:added`, `mempool:removed`, `mempool:replaced`, and `mempool:rejected`
+tracepoints.
+
+Statistics include incidence and rate for each event type since the script was
+started (`total`) as well as during the last minute (`1 min`) and ten minutes
+(`10 min`). The event log shows mempool events in real time, each entry
+comprising a timestamp along with all event data available via the event's
+tracepoint.
+
+```console
+$ python3 contrib/tracing/mempool_monitor.py ./src/tapyrusd
+```
+
+```
+  Mempool Monitor
+ Press CTRL-C to stop.
+
+ ┌─Event count───────────────────────┐  ┌─Event rate─────────────────────────────┐
+ │ Event       total   1 min  10 min │  │ Event        total     1 min    10 min │
+ │ added        27tx     0tx    27tx │  │ added      0.2tx/s   0.0tx/s   0.2tx/s │
+ │ removed      24tx     0tx    24tx │  │ removed    0.2tx/s   0.0tx/s   0.2tx/s │
+ │ replaced      0tx     0tx     0tx │  │ replaced   0.0tx/s   0.0tx/s   0.0tx/s │
+ │ rejected      0tx     0tx     0tx │  │ rejected   0.0tx/s   0.0tx/s   0.0tx/s │
+ └───────────────────────────────────┘  └────────────────────────────────────────┘
+
+ ┌─Event log────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+ │ 17:30:58Z removed 6265383865356439326133343065333264386335663335623835373038316465 with feerate 20.00 sat/vB (12380 sat, 619 vbytes) received│
+ │  1.0 seconds ago: block                                                                                                                      │
+ │ 17:30:58Z removed 6239623131306639626465383765303339356534373839346138316335366238 with feerate 20.00 sat/vB (9700 sat, 485 vbytes) received │
+ │ 1.0 seconds ago: block                                                                                                                       │
+ │ 17:30:58Z removed 3930623232623037393461356365306363353363373739373231356563323464 with feerate 20.00 sat/vB (5160 sat, 258 vbytes) received │
+ │ 1.0 seconds ago: block                                                                                                                       │
+ │ 17:30:58Z removed 3361393839393238623062303462353433353363363033396362666538383635 with feerate 20.00 sat/vB (6500 sat, 325 vbytes) received │
+ │ 1.0 seconds ago: block                                                                                                                       │
+ │ 17:30:58Z removed 3333373166646438386666343762663534633965613161666235386264346330 with feerate 20.00 sat/vB (6760 sat, 338 vbytes) received │
+ │ 2.0 seconds ago: block                                                                                                                       │
+ │ 17:30:58Z removed 6265383865356439326133343065333264386335663335623835373038316465 with feerate 20.00 sat/vB (12380 sat, 619 vbytes) received│
+ │  2.0 seconds ago: block                                                                                                                      │
+ │ 17:30:58Z removed 6239623131306639626465383765303339356534373839346138316335366238 with feerate 20.00 sat/vB (9700 sat, 485 vbytes) received │
+ │ 2.0 seconds ago: block                                                                                                                       │
+ │ 17:30:58Z removed 3930623232623037393461356365306363353363373739373231356563323464 with feerate 20.00 sat/vB (5160 sat, 258 vbytes) received │
+ │ 2.0 seconds ago: block                                                                                                                       │
+ │ 17:30:58Z removed 3361393839393238623062303462353433353363363033396362666538383635 with feerate 20.00 sat/vB (6500 sat, 325 vbytes) received │
+ │ 2.0 seconds ago: block                                                                                                                       │
+ │ 17:30:58Z added 6534663263633761646437613062356265663733373837626339376463393435 with feerate 20.00 sat/vB (4500 sat, 225 vbytes)            │
+ │ 17:30:59Z added 3939376565386637366461393239646332366337313463666334333630623039 with feerate 20.00 sat/vB (5160 sat, 258 vbytes)            │
+ │ 17:31:00Z added 6534663263633761646437613062356265663733373837626339376463393435 with feerate 20.00 sat/vB (4500 sat, 225 vbytes)            │
+ │ 17:31:00Z added 3939376565386637366461393239646332366337313463666334333630623039 with feerate 20.00 sat/vB (5160 sat, 258 vbytes)            │
+ │ 17:31:01Z added 6534663263633761646437613062356265663733373837626339376463393435 with feerate 20.00 sat/vB (4500 sat, 225 vbytes)            │
+ │ 17:31:01Z added 3939376565386637366461393239646332366337313463666334333630623039 with feerate 20.00 sat/vB (5160 sat, 258 vbytes)            │
+ │                                                                                                                                                                              │
+ └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
