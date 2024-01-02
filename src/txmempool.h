@@ -49,14 +49,6 @@ struct LockPoints
     LockPoints() : height(0), time(0), maxInputBlock(nullptr) { }
 };
 
-
-enum class ValidationContext {
-    TRANSACTION,
-    BLOCK,
-    INDEX,
-    PACKAGE
-};
-
 class CTxMemPool;
 
 /** \class CTxMemPoolEntry
