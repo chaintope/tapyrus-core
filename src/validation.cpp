@@ -772,6 +772,7 @@ bool TestPackageAcceptance(const Package& package,
     if(!CheckPackage(package, state))
         return false;
 
+    opt.package_pool = new CCoinsViewMemPool(pcoinsTip.get(), mempool);
     // testmempool acceptance first
     for(auto &tx : package) {
         {
@@ -784,6 +785,9 @@ bool TestPackageAcceptance(const Package& package,
         results.emplace(tx->GetHashMalFix(), opt.state);
         all_valid &= test_accept_res;
     }
+
+    delete opt.package_pool;
+    opt.package_pool = nullptr;
 
     return all_valid;
 }
