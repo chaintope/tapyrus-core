@@ -1276,6 +1276,7 @@ static UniValue testmempoolaccept(const JSONRPCRequest& request)
     success = TestPackageAcceptance(package, state, pkg_results, &submitPool);
 
     UniValue result(UniValue::VOBJ);
+    UniValue result_0(UniValue::VOBJ);
 
     encodePackageResult(success, pkg_results, state, result);
 
