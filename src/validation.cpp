@@ -772,7 +772,6 @@ bool TestPackageAcceptance(const Package& package,
     if(!CheckPackage(package, state))
         return false;
 
-    opt.package_pool = new CCoinsViewMemPool(pcoinsTip.get(), mempool);
     // testmempool acceptance first
     for(auto &tx : package) {
         {
@@ -785,9 +784,6 @@ bool TestPackageAcceptance(const Package& package,
         results.emplace(tx->GetHashMalFix(), opt.state);
         all_valid &= test_accept_res;
     }
-
-    delete opt.package_pool;
-    opt.package_pool = nullptr;
 
     return all_valid;
 }
@@ -908,7 +904,7 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
             return state.DoS(0, false, REJECT_NONSTANDARD, "bad-witness-nonstandard", true);
 #else
         // Check for non-standard pay-to-script-hash in inputs
-        if (!AreInputsStandard(tx, view))
+        if (!acceptnonstdtxn && !AreInputsStandard(tx, view))
             return state.Invalid(false, REJECT_NONSTANDARD, "bad-txns-nonstandard-inputs");
 #endif
 
