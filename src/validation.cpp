@@ -904,7 +904,7 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
             return state.DoS(0, false, REJECT_NONSTANDARD, "bad-witness-nonstandard", true);
 #else
         // Check for non-standard pay-to-script-hash in inputs
-        if (!acceptnonstdtxn && !AreInputsStandard(tx, view))
+        if (!AreInputsStandard(tx, view))
             return state.Invalid(false, REJECT_NONSTANDARD, "bad-txns-nonstandard-inputs");
 #endif
 
