@@ -52,25 +52,11 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
             '-reindex',  # Need reindex for txindex
         ]] * self.num_nodes
 
-<<<<<<< HEAD
     def check_submit_mempool_result(self, node, result_expected, *args, **kwargs):
         """Wrapper to check result of submitpackage rpc on node_0's mempool"""
         result_test = node.submitpackage(*args, **kwargs)
         assert_equal(result_expected, result_test)
         assert_equal(node.getmempoolinfo()['size'], self.mempool_size)
-=======
-    def check_submit_mempool_result(self, result_expected, *args, **kwargs):
-        """Wrapper to check result of submitpackage rpc on node_0's mempool"""
-        result_test = self.nodes[0].submitpackage(*args, **kwargs)
-        assert_equal(result_expected, result_test)
-        assert_equal(self.nodes[0].getmempoolinfo()['size'], self.mempool_size + len(kwargs['rawtxs']))
-
-    def check_mempool_result(self, result_expected, *args, **kwargs):
-        """Wrapper to check result of testmempoolaccept rpc on node_0's mempool"""
-        result_test = self.nodes[0].testmempoolaccept(*args, **kwargs)
-        assert_equal(result_expected, result_test)
-        assert_equal(self.nodes[0].getmempoolinfo()['size'], self.mempool_size)
->>>>>>> cf1659d9c3 (add submit package tests)
 
     def check_mempool_result(self, node, result_expected, *args, **kwargs):
         """Wrapper to check result of testmempoolaccept rpc on node_0's mempool"""
