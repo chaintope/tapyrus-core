@@ -413,7 +413,7 @@ void CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry,
     newit->vTxHashesIdx = vTxHashes.size() - 1;
 
     TRACE3(mempool, added,
-        entry.GetTx().GetHashMalFix().ToString().c_str(),
+        entry.GetTx().GetHashMalFix().begin(),
         entry.GetTxSize(),
         entry.GetFee()
     );
@@ -424,7 +424,7 @@ void CTxMemPool::removeUnchecked(txiter it, MemPoolRemovalReason reason)
     NotifyEntryRemoved(it->GetSharedTx(), reason);
 
     TRACE5(mempool, removed,
-        it->GetTx().GetHashMalFix().ToString().c_str(),
+        it->GetTx().GetHashMalFix().begin(),
         RemovalReasonToString(reason).c_str(),
         it->GetTxSize(),
         it->GetFee(),

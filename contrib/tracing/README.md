@@ -320,42 +320,38 @@ $ python3 contrib/tracing/mempool_monitor.py ./src/tapyrusd
 ```
 
 ```
-  Mempool Monitor
+ Mempool Monitor
  Press CTRL-C to stop.
 
  ┌─Event count───────────────────────┐  ┌─Event rate─────────────────────────────┐
  │ Event       total   1 min  10 min │  │ Event        total     1 min    10 min │
- │ added        27tx     0tx    27tx │  │ added      0.2tx/s   0.0tx/s   0.2tx/s │
- │ removed      24tx     0tx    24tx │  │ removed    0.2tx/s   0.0tx/s   0.2tx/s │
- │ replaced      0tx     0tx     0tx │  │ replaced   0.0tx/s   0.0tx/s   0.0tx/s │
+ │ added        77tx    77tx    77tx │  │ added      3.3tx/s   3.3tx/s   3.3tx/s │
+ │ removed      73tx    73tx    73tx │  │ removed    3.1tx/s   3.1tx/s   3.1tx/s │
+ │ replaced     10tx    10tx    10tx │  │ replaced   0.4tx/s   0.4tx/s   0.4tx/s │
  │ rejected      0tx     0tx     0tx │  │ rejected   0.0tx/s   0.0tx/s   0.0tx/s │
  └───────────────────────────────────┘  └────────────────────────────────────────┘
 
- ┌─Event log────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
- │ 17:30:58Z removed 6265383865356439326133343065333264386335663335623835373038316465 with feerate 20.00 sat/vB (12380 sat, 619 vbytes) received│
- │  1.0 seconds ago: block                                                                                                                      │
- │ 17:30:58Z removed 6239623131306639626465383765303339356534373839346138316335366238 with feerate 20.00 sat/vB (9700 sat, 485 vbytes) received │
- │ 1.0 seconds ago: block                                                                                                                       │
- │ 17:30:58Z removed 3930623232623037393461356365306363353363373739373231356563323464 with feerate 20.00 sat/vB (5160 sat, 258 vbytes) received │
- │ 1.0 seconds ago: block                                                                                                                       │
- │ 17:30:58Z removed 3361393839393238623062303462353433353363363033396362666538383635 with feerate 20.00 sat/vB (6500 sat, 325 vbytes) received │
- │ 1.0 seconds ago: block                                                                                                                       │
- │ 17:30:58Z removed 3333373166646438386666343762663534633965613161666235386264346330 with feerate 20.00 sat/vB (6760 sat, 338 vbytes) received │
- │ 2.0 seconds ago: block                                                                                                                       │
- │ 17:30:58Z removed 6265383865356439326133343065333264386335663335623835373038316465 with feerate 20.00 sat/vB (12380 sat, 619 vbytes) received│
- │  2.0 seconds ago: block                                                                                                                      │
- │ 17:30:58Z removed 6239623131306639626465383765303339356534373839346138316335366238 with feerate 20.00 sat/vB (9700 sat, 485 vbytes) received │
- │ 2.0 seconds ago: block                                                                                                                       │
- │ 17:30:58Z removed 3930623232623037393461356365306363353363373739373231356563323464 with feerate 20.00 sat/vB (5160 sat, 258 vbytes) received │
- │ 2.0 seconds ago: block                                                                                                                       │
- │ 17:30:58Z removed 3361393839393238623062303462353433353363363033396362666538383635 with feerate 20.00 sat/vB (6500 sat, 325 vbytes) received │
- │ 2.0 seconds ago: block                                                                                                                       │
- │ 17:30:58Z added 6534663263633761646437613062356265663733373837626339376463393435 with feerate 20.00 sat/vB (4500 sat, 225 vbytes)            │
- │ 17:30:59Z added 3939376565386637366461393239646332366337313463666334333630623039 with feerate 20.00 sat/vB (5160 sat, 258 vbytes)            │
- │ 17:31:00Z added 6534663263633761646437613062356265663733373837626339376463393435 with feerate 20.00 sat/vB (4500 sat, 225 vbytes)            │
- │ 17:31:00Z added 3939376565386637366461393239646332366337313463666334333630623039 with feerate 20.00 sat/vB (5160 sat, 258 vbytes)            │
- │ 17:31:01Z added 6534663263633761646437613062356265663733373837626339376463393435 with feerate 20.00 sat/vB (4500 sat, 225 vbytes)            │
- │ 17:31:01Z added 3939376565386637366461393239646332366337313463666334333630623039 with feerate 20.00 sat/vB (5160 sat, 258 vbytes)            │
- │                                                                                                                                                                              │
- └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
-```
+ ┌─Event log──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+ │ 12:12:19Z added 654ad6849b0354127c28c30a334eaadc0e43b209cb0c7ab89ed33fcecf3011d4 with feerate 20.00 sat/vB (4500 sat, 225 vbytes)                                          │
+ │ 12:12:19Z removed 061ed887bb2b78f53a6b3af8254f73b80ef68c53aa660e6aed25fb7dc60ff68a with feerate 4.44 sat/vB (1000 sat, 225 vbytes) received 0.2 seconds ago: replaced      │
+ │ 12:12:19Z removed 654ad6849b0354127c28c30a334eaadc0e43b209cb0c7ab89ed33fcecf3011d4 with feerate 20.00 sat/vB (4500 sat, 225 vbytes) received 0.2 seconds ago: conflict     │
+ │ 12:12:19Z added 061ed887bb2b78f53a6b3af8254f73b80ef68c53aa660e6aed25fb7dc60ff68a with feerate 4.44 sat/vB (1000 sat, 225 vbytes)                                           │
+ │ 12:12:19Z removed 59c97113cf688faf52655ae256a14ceb62b7e32874eb7c1d332cfbcd4a9bb497 with feerate 295.86 sat/vB (100000 sat, 338 vbytes) received 1.3 seconds ago: block     │
+ │ 12:12:19Z removed 2e0c5acee9e98e3494c4068828c8dccae379f37e819d72f21411dda599ebdf2b with feerate 261.78 sat/vB (50000 sat, 191 vbytes) received 1.3 seconds ago: block      │
+ │ 12:12:19Z removed 8d7f39b40e501aa8cf2f66de7e3106ac3d0054d068b0bb49b5cd2c55bee020ea with feerate 261.78 sat/vB (50000 sat, 191 vbytes) received 1.3 seconds ago: block      │
+ │ 12:12:19Z removed 284ed4e3f90d69dee0fe8dc33a94733da1bb3d5349214652cc757a14400c77f5 with feerate 4.44 sat/vB (1000 sat, 225 vbytes) received 1.3 seconds ago: block         │
+ │ 12:12:19Z removed d475a4bca28875cfb23fc37369769b14287db821c5e8b2c9090ed787abb24fc2 with feerate 157.07 sat/vB (30000 sat, 191 vbytes) received 1.3 seconds ago: block      │
+ │ 12:12:19Z removed 49c3a44e4ac6e8ca818591a36c6b6eb42dccb303d1487dac05d3b7a6a9ac8329 with feerate 44.44 sat/vB (10000 sat, 225 vbytes) received 0.3 seconds ago: block       │
+ │ 12:12:19Z removed 1b90139a711ad0b596e2f5060ede2241e465de556b7edc17d2494f6929c33ed9 with feerate 25.00 sat/vB (5625 sat, 225 vbytes) received 0.3 seconds ago: block        │
+ │ 12:12:19Z removed 50d99394d193c007d4054f915c2086ae0ec1bc169b1ba87dbbd3a18782c5203f with feerate 20.00 sat/vB (4500 sat, 225 vbytes) received 3.3 seconds ago: block        │
+ │ 12:12:19Z removed 98c4fcd7fd1a90f795179469d8ff2e413200fe35daa2a44be0b1f7014f7eb5a1 with feerate 20.00 sat/vB (4500 sat, 225 vbytes) received 0.3 seconds ago: block        │
+ │ 12:12:19Z removed aa919229a6bd58a000dc63cf6810dd368a1c0f0ab27ce17b6bf3a442704598b0 with feerate 13.33 sat/vB (3000 sat, 225 vbytes) received 0.3 seconds ago: block        │
+ │ 12:12:19Z removed b753dcd297312f78c87630c5043a43775e013dd0d8069588b695d189637c8307 with feerate 4.46 sat/vB (1000 sat, 224 vbytes) received 1.3 seconds ago: block         │
+ │ 12:12:19Z removed 061ed887bb2b78f53a6b3af8254f73b80ef68c53aa660e6aed25fb7dc60ff68a with feerate 4.44 sat/vB (1000 sat, 225 vbytes) received 0.3 seconds ago: block         │
+ │ 12:12:19Z added fac2cb1a0b8960c09748d413491cfedc9c9c103b88fb9f4d304b189358cc55ac with feerate 20.00 sat/vB (10380 sat, 519 vbytes)                                         │
+ │ 12:12:19Z removed fac2cb1a0b8960c09748d413491cfedc9c9c103b88fb9f4d304b189358cc55ac with feerate 20.00 sat/vB (10380 sat, 519 vbytes) received 0.3 seconds ago: replaced    │
+ │ 12:12:19Z replaced fac2cb1a0b8960c09748d413491cfedc9c9c103b88fb9f4d304b189358cc55ac received 0.3 seconds ago (12975 sat, 519 vbytes) with 6a7ee859cf04ffc864512359099e5982f│
+ │ 3d5c5750139d0dc5658bfa69085cae8 (10380 sat, 518 vbytes)                                                                                                                    │
+ │ 12:12:19Z added 6a7ee859cf04ffc864512359099e5982f3d5c5750139d0dc5658bfa69085cae8 with feerate 25.05 sat/vB (12975 sat, 518 vbytes)                                         │
+ │ 12:12:19Z added b2b33fd55c20e68f1a806a7c7a557001690837200d5f6a30098ea825927daac1 with feerate 4.44 sat/vB (1000 sat, 225 vbytes)
+ ```
