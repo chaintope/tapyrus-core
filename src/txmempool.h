@@ -80,12 +80,12 @@ private:
     // mempool; if we remove this transaction we must remove all of these
     // descendants as well.
     uint64_t nCountWithDescendants;  //!< number of descendant transactions
-    uint64_t nSizeWithDescendants;   //!< ... and size
+    int64_t nSizeWithDescendants;   //!< ... and size
     CAmount nModFeesWithDescendants; //!< ... and total fees (all including us)
 
     // Analogous statistics for ancestor transactions
     uint64_t nCountWithAncestors;
-    uint64_t nSizeWithAncestors;
+    int64_t nSizeWithAncestors;
     CAmount nModFeesWithAncestors;
     int32_t nSigOpCostWithAncestors;
 
@@ -98,7 +98,7 @@ public:
     const CTransaction& GetTx() const { return *this->tx; }
     CTransactionRef GetSharedTx() const { return this->tx; }
     const CAmount& GetFee() const { return nFee; }
-    size_t GetTxSize() const;
+    int32_t GetTxSize() const;
     int64_t GetTime() const { return nTime; }
     unsigned int GetHeight() const { return entryHeight; }
     int32_t GetSigOpCost() const { return sigOpCost; }
@@ -107,9 +107,9 @@ public:
     const LockPoints& GetLockPoints() const { return lockPoints; }
 
     // Adjusts the descendant state.
-    void UpdateDescendantState(int64_t modifySize, CAmount modifyFee, int64_t modifyCount);
+    void UpdateDescendantState(int32_t modifySize, CAmount modifyFee, int64_t modifyCount);
     // Adjusts the ancestor state
-    void UpdateAncestorState(int64_t modifySize, CAmount modifyFee, int64_t modifyCount, int32_t modifySigOps);
+    void UpdateAncestorState(int32_t modifySize, CAmount modifyFee, int64_t modifyCount, int32_t modifySigOps);
     // Updates the fee delta used for mining priority score, and the
     // modified fees with descendants.
     void UpdateFeeDelta(int64_t feeDelta);
@@ -117,13 +117,13 @@ public:
     void UpdateLockPoints(const LockPoints& lp);
 
     uint64_t GetCountWithDescendants() const { return nCountWithDescendants; }
-    uint64_t GetSizeWithDescendants() const { return nSizeWithDescendants; }
+    int64_t GetSizeWithDescendants() const { return nSizeWithDescendants; }
     CAmount GetModFeesWithDescendants() const { return nModFeesWithDescendants; }
 
     bool GetSpendsCoinbase() const { return spendsCoinbase; }
 
     uint64_t GetCountWithAncestors() const { return nCountWithAncestors; }
-    uint64_t GetSizeWithAncestors() const { return nSizeWithAncestors; }
+    int64_t GetSizeWithAncestors() const { return nSizeWithAncestors; }
     CAmount GetModFeesWithAncestors() const { return nModFeesWithAncestors; }
     int32_t GetSigOpCostWithAncestors() const { return nSigOpCostWithAncestors; }
 
@@ -133,7 +133,7 @@ public:
 // Helpers for modifying CTxMemPool::mapTx, which is a boost multi_index.
 struct update_descendant_state
 {
-    update_descendant_state(int64_t _modifySize, CAmount _modifyFee, int64_t _modifyCount) :
+    update_descendant_state(int32_t _modifySize, CAmount _modifyFee, int64_t _modifyCount) :
         modifySize(_modifySize), modifyFee(_modifyFee), modifyCount(_modifyCount)
     {}
 
@@ -141,14 +141,14 @@ struct update_descendant_state
         { e.UpdateDescendantState(modifySize, modifyFee, modifyCount); }
 
     private:
-        int64_t modifySize;
+        int32_t modifySize;
         CAmount modifyFee;
         int64_t modifyCount;
 };
 
 struct update_ancestor_state
 {
-    update_ancestor_state(int64_t _modifySize, CAmount _modifyFee, int64_t _modifyCount, int32_t _modifySigOpsCost) :
+    update_ancestor_state(int32_t _modifySize, CAmount _modifyFee, int64_t _modifyCount, int32_t _modifySigOpsCost) :
         modifySize(_modifySize), modifyFee(_modifyFee), modifyCount(_modifyCount), modifySigOpsCost(_modifySigOpsCost)
     {}
 
@@ -156,7 +156,7 @@ struct update_ancestor_state
         { e.UpdateAncestorState(modifySize, modifyFee, modifyCount, modifySigOpsCost); }
 
     private:
-        int64_t modifySize;
+        int32_t modifySize;
         CAmount modifyFee;
         int64_t modifyCount;
         int32_t modifySigOpsCost;
@@ -350,6 +350,8 @@ enum class MemPoolRemovalReason {
     CONFLICT,    //! Removed for conflict with in-block transaction
     REPLACED     //! Removed for replacement
 };
+
+std::string RemovalReasonToString(const MemPoolRemovalReason& r) noexcept;
 
 class SaltedTxidHasher
 {
