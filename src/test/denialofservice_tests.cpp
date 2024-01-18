@@ -76,7 +76,8 @@ BOOST_AUTO_TEST_CASE(outbound_slow_chain_eviction)
         peerLogic->SendMessages(&dummyNode1); // should result in getheaders
     }
     {
-        LOCK2(cs_main, dummyNode1.cs_vSend);
+        LOCK(cs_main);
+        LOCK(dummyNode1.cs_vSend);
         BOOST_CHECK(dummyNode1.vSendMsg.size() > 0);
         dummyNode1.vSendMsg.clear();
     }
@@ -89,7 +90,8 @@ BOOST_AUTO_TEST_CASE(outbound_slow_chain_eviction)
         peerLogic->SendMessages(&dummyNode1); // should result in getheaders
     }
     {
-        LOCK2(cs_main, dummyNode1.cs_vSend);
+        LOCK(cs_main);
+        LOCK(dummyNode1.cs_vSend);
         BOOST_CHECK(dummyNode1.vSendMsg.size() > 0);
     }
     // Wait 3 more minutes
