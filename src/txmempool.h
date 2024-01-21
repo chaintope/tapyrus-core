@@ -49,14 +49,6 @@ struct LockPoints
     LockPoints() : height(0), time(0), maxInputBlock(nullptr) { }
 };
 
-
-enum class ValidationContext {
-    TRANSACTION,
-    BLOCK,
-    INDEX,
-    PACKAGE
-};
-
 class CTxMemPool;
 
 /** \class CTxMemPoolEntry
@@ -137,39 +129,6 @@ public:
     int32_t GetSigOpCostWithAncestors() const { return nSigOpCostWithAncestors; }
 
     mutable size_t vTxHashesIdx; //!< Index in mempool's vTxHashes
-};
-
-/* is the tx validation stand alone or part of a bigger entity */
-enum class ValidationContext {
-    TRANSACTION,
-    BLOCK,
-    INDEX,
-    PACKAGE
-};
-
-/* Options to change the behaviour of Accept to mempool
-* these are intended to be consolidated in one integer as flag
-* int flags = BYPASSS_LIMITS | TEST_ONLY
-*/
-enum class MempoolAcceptanceFlags
-{
-    NONE = 0,
-    BYPASSS_LIMITS = 1,
-    TEST_ONLY = 2
-};
-
-/* All configurable inputs and outputs of accept to mempool are consolidated here for ease of use*/
-struct CTxMempoolAcceptanceOptions {
-    ValidationContext context;
-    MempoolAcceptanceFlags flags;
-    CAmount nAbsurdFee;
-    CValidationState state;
-    int64_t nAcceptTime;
-    std::vector<CTransactionRef> txnReplaced;
-    std::vector<COutPoint> coins_to_uncache;
-    std::vector<COutPoint> missingInputs;
-
-    CTxMempoolAcceptanceOptions():context(ValidationContext::TRANSACTION), flags(MempoolAcceptanceFlags::NONE),nAbsurdFee(0), nAcceptTime(0){}
 };
 
 // Helpers for modifying CTxMemPool::mapTx, which is a boost multi_index.
@@ -852,6 +811,46 @@ struct DisconnectedBlockTransactions {
     {
         cachedInnerUsage = 0;
         queuedTx.clear();
+    }
+};
+
+
+/* is the tx validation stand alone or part of a bigger entity */
+enum class ValidationContext {
+    TRANSACTION,
+    BLOCK,
+    INDEX,
+    PACKAGE
+};
+
+/* Options to change the behaviour of Accept to mempool
+* these are intended to be consolidated in one integer as flag
+* int flags = BYPASSS_LIMITS | TEST_ONLY
+*/
+enum class MempoolAcceptanceFlags
+{
+    NONE = 0,
+    BYPASSS_LIMITS = 1,
+    TEST_ONLY = 2
+};
+
+/* All configurable inputs and outputs of accept to mempool are consolidated here for ease of use*/
+struct CTxMempoolAcceptanceOptions {
+    ValidationContext context;
+    MempoolAcceptanceFlags flags;
+    CAmount nAbsurdFee;
+    CValidationState state;
+    int64_t nAcceptTime;
+    CCoinsViewMemPool* mempool_view;
+    std::vector<CTransactionRef> txnReplaced;
+    std::vector<COutPoint> coins_to_uncache;
+    std::vector<COutPoint> missingInputs;
+    std::vector<const CTxMemPoolEntry >* submitPool;
+
+    CTxMempoolAcceptanceOptions();
+    ~CTxMempoolAcceptanceOptions() {
+        delete mempool_view;
+        mempool_view = nullptr;
     }
 };
 

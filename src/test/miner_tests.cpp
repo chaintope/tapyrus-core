@@ -98,7 +98,9 @@ static CBlockIndex CreateBlockIndex(int nHeight)
 static bool TestSequenceLocks(const CTransaction &tx, int flags)
 {
     LOCK(mempool.cs);
-    return CheckSequenceLocks(tx, flags);
+    CCoinsViewCache& coins_tip = *pcoinsTip;
+    CCoinsViewMemPool viewMemPool(&coins_tip, mempool);
+    return CheckSequenceLocks(tx, flags, viewMemPool);
 }
 
 /**

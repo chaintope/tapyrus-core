@@ -45,6 +45,7 @@
 #include <validationinterface.h>
 #include <warnings.h>
 #include <xfieldhistory.h>
+#include <core_io.h>
 
 #include <future>
 #include <thread>
@@ -366,8 +367,7 @@ bool TestLockPointValidity(const LockPoints* lp)
     // LockPoints still valid
     return true;
 }
-
-bool CheckSequenceLocks(const CTransaction &tx, int flags, LockPoints* lp, bool useExistingLockPoints)
+bool CheckSequenceLocks(const CTransaction &tx, int flags, CCoinsViewMemPool& viewMemPool, LockPoints* lp, bool useExistingLockPoints)
 {
     AssertLockHeld(cs_main);
     AssertLockHeld(mempool.cs);
@@ -393,7 +393,6 @@ bool CheckSequenceLocks(const CTransaction &tx, int flags, LockPoints* lp, bool 
     }
     else {
         // pcoinsTip contains the UTXO set for chainActive.Tip()
-        CCoinsViewMemPool viewMemPool(pcoinsTip.get(), mempool);
         std::vector<int> prevheights;
         prevheights.resize(tx.vin.size());
         for (size_t txinIndex = 0; txinIndex < tx.vin.size(); txinIndex++) {
@@ -761,16 +760,14 @@ static unsigned int GetBlockScriptFlags(const CBlockIndex* pindex) {
 bool TestPackageAcceptance(const Package& package,
                                   CValidationState& state,
                                   PackageValidationState& results,
-                                  std::vector<const CTxMemPoolEntry >& validPool)
+                                  std::vector<const CTxMemPoolEntry >* validPool)
 {
-    assert(std::all_of(package.cbegin(), package.cend(),
-        [&mempool](const auto& tx){
-            return !mempool.exists(tx->GetHashMalFix());
-    }));
-
     bool all_valid = true;
     bool test_accept_res = false;
-    CCoinsViewMemPool viewMemPool(pcoinsTip.get(), mempool);
+    CTxMempoolAcceptanceOptions opt;
+    opt.context = ValidationContext::PACKAGE;
+    opt.flags = MempoolAcceptanceFlags::TEST_ONLY;
+    opt.submitPool = validPool;
 
     if(!CheckPackage(package, state))
         return false;
@@ -778,38 +775,42 @@ bool TestPackageAcceptance(const Package& package,
     // testmempool acceptance first
     for(auto &tx : package) {
         {
+            opt.state = CValidationState();
             LOCK(::cs_main);
-            test_accept_res = AcceptToMemoryPool(ValidationContext::PACKAGE, mempool, state, tx, validPool, &state.missingInputs, nullptr, true, 0, true);
+            test_accept_res = AcceptToMemoryPool(tx, opt);
         }
 
-        results.emplace(tx->GetHashMalFix(), state);
+        opt.state.missingInputs = opt.missingInputs.size() > 0;
+        results.emplace(tx->GetHashMalFix(), opt.state);
         all_valid &= test_accept_res;
     }
 
     return all_valid;
 }
 
-void SubmitToMempool(std::vector<const CTxMemPoolEntry >& validPool, CValidationState& state)
+bool SubmitPackageToMempool(std::vector<const CTxMemPoolEntry >& validPool, CValidationState& state)
 {
     for(auto &entry : validPool) {
+        CTransactionRef tx(entry.GetSharedTx());
         {
             // Store transaction in mempool if validation succeeded
             LOCK(::cs_main);
-            mempool.addUnchecked(entry.tx->GetHashMalFix(), entry, false);
+            LOCK(mempool.cs);
+            mempool.addUnchecked(tx->GetHashMalFix(), entry, false);
         }
 
-        // trim mempool and check if tx was trimmed
-        LimitMempoolSize(mempool, gArgs.GetArg("-maxmempool", DEFAULT_MAX_MEMPOOL_SIZE) * 1000000, gArgs.GetArg("-mempoolexpiry", DEFAULT_MEMPOOL_EXPIRY) * 60 * 60);
-        if (!mempool.exists(hash))
+        if (!mempool.exists(tx->GetHashMalFix()))
             return state.DoS(0, false, REJECT_INSUFFICIENTFEE, "mempool full");
 
-        GetMainSignals().TransactionAddedToMempool(entry.tx);
+        //signlaing for gui, wallet etc
+        GetMainSignals().TransactionAddedToMempool(tx);
     }
+    return true;
 }
 
-static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, const CTransactionRef &tx, CTxMempoolAcceptanceOptions opt)
+static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAcceptanceOptions& opt)
 {
-    const CTransaction& tx = opt.tx;
+    const CTransaction& tx = *ptx;
     const uint256 hash = tx.GetHashMalFix();
     AssertLockHeld(cs_main);
 
@@ -821,7 +822,7 @@ static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, const CTransactionRef &tx
     // missing inputs is a vector for package validation
     opt.missingInputs.clear();
 
-    if (!CheckTransaction(tx, acceptanceConfig.state))
+    if (!CheckTransaction(tx, state))
         return false; // state filled in by CheckTransaction
 
     // Coinbase is only valid in a block, not as a loose transaction
@@ -863,15 +864,14 @@ static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, const CTransactionRef &tx
         CCoinsView dummy;
         CCoinsViewCache view(&dummy);
 
-        CCoinsViewMemPool viewMemPool(pcoinsTip.get(), pool);
-        view.SetBackend(viewMemPool);
+        view.SetBackend(*opt.mempool_view);
 
         // do all inputs exist?
         if(!DoAllInputsExist(tx, state, opt, view))
             return false;
 
         //if there are colored coins in the output verify their colorids
-        if(!CheckColorIdentifierValidity(tx, acceptanceConfig.state, view))
+        if(!CheckColorIdentifierValidity(tx, state, view))
             return state.DoS(0, false, REJECT_COLORID, "invalid-colorid");
 
         // Bring the best block into scope
@@ -886,7 +886,7 @@ static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, const CTransactionRef &tx
         // Must keep pool.cs for this unless we change CheckSequenceLocks to take a
         // CoinsViewCache instead of create its own
         LockPoints lp;
-        if (!CheckSequenceLocks(tx, STANDARD_LOCKTIME_VERIFY_FLAGS, &lp))
+        if (!CheckSequenceLocks(tx, STANDARD_LOCKTIME_VERIFY_FLAGS, *opt.mempool_view, &lp))
             return state.DoS(0, false, REJECT_NONSTANDARD, "non-BIP68-final");
 
         CAmount nFees = 0;
@@ -1133,7 +1133,7 @@ static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, const CTransactionRef &tx
         // There is a similar check in CreateNewBlock() to prevent creating
         // invalid blocks (using TestBlockValidity), however allowing such
         // transactions into the mempool can be exploited as a DoS attack.
-        if (!CheckInputsFromMempoolAndCache(tx, state, view, pool, SCRIPT_VERIFY_NONE, true, txdata)) {
+        if (!CheckInputsFromMempoolAndCache(opt.context, tx, opt.state, view, pool, SCRIPT_VERIFY_NONE, true, txdata)) {
             return error("%s: BUG! PLEASE REPORT THIS! CheckInputs failed against latest-block but not STANDARD flags %s, %s",
                     __func__, hash.ToString(), FormatStateMessage(state));
         }

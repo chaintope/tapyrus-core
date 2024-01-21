@@ -102,7 +102,7 @@ class BIP66Test(BitcoinTestFramework):
         # First we show that this tx is valid except for DERSIG by getting it
         # rejected from the mempool for exactly that reason.
         assert_equal(
-            [{'txid': spendtx.hashMalFix, 'allowed': False, 'reject-reason': '16: mandatory-script-verify-flag-failed (Non-canonical DER signature)'}],
+            [{ spendtx.hashMalFix : { 'allowed': False, 'reject-reason': '16: mandatory-script-verify-flag-failed (Non-canonical DER signature)'}}],
             self.nodes[0].testmempoolaccept(rawtxs=[bytes_to_hex_str(spendtx.serialize())], allowhighfees=True)
         )
 

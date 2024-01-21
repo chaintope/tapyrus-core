@@ -21,12 +21,12 @@ static constexpr uint32_t MAX_PACKAGE_COUNT{25};
 // submitted package must be child-with-unconfirmed-parents (all of the transactions are an ancestor
 // of the child), package limits are ultimately bounded by mempool package limits. Ensure that the
 // defaults reflect this constraint.
-//static_assert(DEFAULT_DESCENDANT_LIMIT >= MAX_PACKAGE_COUNT);
-//static_assert(DEFAULT_ANCESTOR_LIMIT >= MAX_PACKAGE_COUNT);
+static_assert(DEFAULT_DESCENDANT_LIMIT >= MAX_PACKAGE_COUNT);
+static_assert(DEFAULT_ANCESTOR_LIMIT >= MAX_PACKAGE_COUNT);
 
-/** A package is an ordered list of transactions. The transactions cannot conflict with (spend the
+/** A package is an set of transactions. The transactions cannot conflict with (spend the
  * same inputs as) one another. */
-using Package = std::set<CTransactionRef>;
+using Package = std::vector<CTransactionRef>;
 
 using PackageValidationState = std::map<const uint256, const CValidationState >;
 /** Context-free package policy checks:
@@ -40,8 +40,9 @@ bool CheckPackage(const Package& txns, CValidationState& state);
 bool TestPackageAcceptance(const Package& package,
                                   CValidationState& state,
                                   PackageValidationState& results,
-                                  std::vector<const CTxMemPoolEntry >& validPool)
+                                  std::vector<const CTxMemPoolEntry >* validPool=nullptr);
+bool ArePackageTransactionsAccepted(const PackageValidationState& results);
 
-bool SubmitPackage(std::vector<const CTxMemPoolEntry >& validPool, CValidationState& state);
+bool SubmitPackageToMempool(std::vector<const CTxMemPoolEntry >& validPool, CValidationState& state);
 
 #endif // TAPYRUS_POLICY_PACKAGES_H

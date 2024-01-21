@@ -2165,6 +2165,11 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
 
         LOCK2(cs_main, g_cs_orphans);
 
+<<<<<<< HEAD
+=======
+        CValidationState state;
+
+>>>>>>> eeadb1bfa8 (Add packages rpcs testmempoolaccept and submit package to tapyrus core)
         pfrom->setAskFor.erase(inv.hash);
         mapAlreadyAskedFor.erase(inv.hash);
 
