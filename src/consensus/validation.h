@@ -95,7 +95,16 @@ public:
     std::string GetDebugMessage() const { return strDebugMessage; }
     std::string Describe() const {
         std::stringstream ss;
-        ss << "State: " << "nDoS: " << nDoS  << "Reject:" << chRejectCode << " :  "  << strRejectReason << "; " <<  strDebugMessage << "; " << (missingInputs ? "missing-inputs" : "") << (corruptionPossible ? "corruptionPossible" : "");
+        if(nDoS)
+            ss  << "nDoS: " << nDoS ;
+        if(chRejectCode)
+            ss << "reject-reason:" << chRejectCode << " :  "  << strRejectReason << "; " ;
+        if(!strDebugMessage.empty())
+            ss << strDebugMessage << " ";
+        if(corruptionPossible)
+            ss << "corruption possible";
+        if(missingInputs)
+            ss << "missing inputs";
         return ss.str();
     }
 };

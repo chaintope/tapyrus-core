@@ -31,7 +31,7 @@ bool  CheckPackage(const Package& txns, CValidationState& state)
     // spend nonexistent coins).
     std::unordered_set<uint256, SaltedTxidHasher> later_txids;
     std::transform(txns.cbegin(), txns.cend(), std::inserter(later_txids, later_txids.end()),
-                   [](const auto& tx) { return tx->GetHash(); });
+                   [](const auto& tx) { return tx->GetHashMalFix(); });
     for (const auto& tx : txns) {
         for (const auto& input : tx->vin) {
             if (later_txids.find(input.prevout.hashMalFix) != later_txids.end()) {
@@ -56,6 +56,23 @@ bool  CheckPackage(const Package& txns, CValidationState& state)
         // and we want to report that from CheckTransaction instead.
         std::transform(tx->vin.cbegin(), tx->vin.cend(), std::inserter(inputs_seen, inputs_seen.end()),
                        [](const auto& input) { return input.prevout; });
+    }
+
+    // Make sure that none of the package transactions are in the mempool already
+    for (const auto& tx : txns) {
+        if(mempool.exists(tx->GetHashMalFix()))
+            return state.Invalid(false, REJECT_PACKAGE_INVALID, "package-tx-in-mempool");
+    }
+    return true;
+}
+
+
+bool ArePackageTransactionsAccepted(const PackageValidationState& results)
+{
+    for (const auto& r : results) {
+        if(r.second.IsInvalid() || r.second.IsError() || r.second.missingInputs) {
+            return false;
+        }
     }
     return true;
 }
