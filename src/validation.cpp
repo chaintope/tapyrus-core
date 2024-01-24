@@ -560,6 +560,73 @@ static bool CheckInputsFromMempoolAndCache(const CTransaction& tx, CValidationSt
     return CheckInputs(tx, state, view, true, flags, cacheSigStore, true, txdata, inColoredCoinBalances);
 }
 
+static bool CheckConflictsInMempool(const CTransaction& tx, std::set<uint256>& setConflicts, CValidationState& state)
+{
+    for (const CTxIn &txin : tx.vin)
+    {
+        auto itConflicting = mempool.mapNextTx.find(txin.prevout);
+        if (itConflicting != mempool.mapNextTx.end())
+        {
+            const CTransaction *ptxConflicting = itConflicting->second;
+            if (!setConflicts.count(ptxConflicting->GetHashMalFix()))
+            {
+                // Allow opt-out of transaction replacement by setting
+                // nSequence > MAX_BIP125_RBF_SEQUENCE (SEQUENCE_FINAL-2) on all inputs.
+                //
+                // SEQUENCE_FINAL-1 is picked to still allow use of nLockTime by
+                // non-replaceable transactions. All inputs rather than just one
+                // is for the sake of multi-party protocols, where we don't
+                // want a single party to be able to disable replacement.
+                //
+                // The opt-out ignores descendants as anyone relying on
+                // first-seen mempool behavior should be checking all
+                // unconfirmed ancestors anyway; doing otherwise is hopelessly
+                // insecure.
+                bool fReplacementOptOut = true;
+                if (fEnableReplacement)
+                {
+                    for (const CTxIn &_txin : ptxConflicting->vin)
+                    {
+                        if (_txin.nSequence <= MAX_BIP125_RBF_SEQUENCE)
+                        {
+                            fReplacementOptOut = false;
+                            break;
+                        }
+                    }
+                }
+                if (fReplacementOptOut) {
+                    return state.Invalid(false, REJECT_DUPLICATE, "txn-mempool-conflict");
+                }
+                setConflicts.insert(ptxConflicting->GetHashMalFix());
+            }
+        }
+    }
+    return true;
+}
+
+static bool DoAllInputsExist(const CTransaction& tx, CValidationState& state, CTxMempoolAcceptanceOptions& opt, CCoinsViewCache &view)
+{
+    for (const CTxIn& txin : tx.vin) {
+        if (!pcoinsTip->HaveCoinInCache(txin.prevout)) {
+            opt.coins_to_uncache.push_back(txin.prevout);
+        }
+        if (!view.HaveCoin(txin.prevout)) {
+            // Are inputs missing because we already have the tx?
+            for (size_t out = 0; out < tx.vout.size(); out++) {
+                // Optimistically just do efficient check of cache for outputs
+                if (pcoinsTip->HaveCoinInCache(COutPoint(tx.GetHashMalFix(), out))) {
+                    return state.Invalid(false, REJECT_DUPLICATE, "txn-already-known");
+                }
+            }
+            // Otherwise assume this might be an orphan tx for which we just haven't seen parents yet
+            opt.missingInputs.push_back(txin.prevout);
+
+            return false; // fMissingInputs and !state.IsInvalid() is used to detect this condition, don't set state.Invalid()
+        }
+    }
+    return true;
+}
+
 bool CheckColorIdentifierValidity(const CTransaction& tx, CValidationState& state, CCoinsViewCache &inputs)
 {
     // when this transaction issues or transfers tokens,
@@ -663,8 +730,8 @@ static bool VerifyTokenBalances(const CTransaction& tx,  CValidationState& state
         //output does not have a corresponding input.
         if(iter == inColoredCoinBalances.end())
         {
-            //if TPC input is sufficiently large this is a token issue.
-            if(tpcin < 0 || tpcin - tpcout - minrelayFee < 0)
+            //if TPC input is sufficiently large this is a token issue. 
+            if(tpcin < 0 || tpcin - tpcout - minrelayFee< 0)
                 return state.Invalid(false, REJECT_INSUFFICIENTFEE, "bad-txns-token-insufficient");
         }
         //output value is more than input
@@ -730,45 +797,8 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
 
     // Check for conflicts with in-memory transactions
     std::set<uint256> setConflicts;
-    for (const CTxIn &txin : tx.vin)
-    {
-        auto itConflicting = pool.mapNextTx.find(txin.prevout);
-        if (itConflicting != pool.mapNextTx.end())
-        {
-            const CTransaction *ptxConflicting = itConflicting->second;
-            if (!setConflicts.count(ptxConflicting->GetHashMalFix()))
-            {
-                // Allow opt-out of transaction replacement by setting
-                // nSequence > MAX_BIP125_RBF_SEQUENCE (SEQUENCE_FINAL-2) on all inputs.
-                //
-                // SEQUENCE_FINAL-1 is picked to still allow use of nLockTime by
-                // non-replaceable transactions. All inputs rather than just one
-                // is for the sake of multi-party protocols, where we don't
-                // want a single party to be able to disable replacement.
-                //
-                // The opt-out ignores descendants as anyone relying on
-                // first-seen mempool behavior should be checking all
-                // unconfirmed ancestors anyway; doing otherwise is hopelessly
-                // insecure.
-                bool fReplacementOptOut = true;
-                if (fEnableReplacement)
-                {
-                    for (const CTxIn &_txin : ptxConflicting->vin)
-                    {
-                        if (_txin.nSequence <= MAX_BIP125_RBF_SEQUENCE)
-                        {
-                            fReplacementOptOut = false;
-                            break;
-                        }
-                    }
-                }
-                if (fReplacementOptOut) {
-                    return state.Invalid(false, REJECT_DUPLICATE, "txn-mempool-conflict");
-                }
-                setConflicts.insert(ptxConflicting->GetHashMalFix());
-            }
-        }
-    }
+    if(!CheckConflictsInMempool(tx, setConflicts, state))
+        return false;
 
     {
         CCoinsView dummy;
@@ -779,24 +809,8 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
         view.SetBackend(viewMemPool);
 
         // do all inputs exist?
-        for (const CTxIn& txin : tx.vin) {
-            if (!pcoinsTip->HaveCoinInCache(txin.prevout)) {
-                opt.coins_to_uncache.push_back(txin.prevout);
-            }
-            if (!view.HaveCoin(txin.prevout)) {
-                // Are inputs missing because we already have the tx?
-                for (size_t out = 0; out < tx.vout.size(); out++) {
-                    // Optimistically just do efficient check of cache for outputs
-                    if (pcoinsTip->HaveCoinInCache(COutPoint(hash, out))) {
-                        return state.Invalid(false, REJECT_DUPLICATE, "txn-already-known");
-                    }
-                }
-                // Otherwise assume this might be an orphan tx for which we just haven't seen parents yet
-                opt.missingInputs.push_back(txin.prevout);
-
-                return false; // fMissingInputs and !state.IsInvalid() is used to detect this condition, don't set state.Invalid()
-            }
-        }
+        if(!DoAllInputsExist(tx, state, opt, view))
+            return false;
 
         //if there are colored coins in the output verify their colorids
         if(!CheckColorIdentifierValidity(tx, state, view))
@@ -1036,13 +1050,11 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
             }
         }
 
-        constexpr unsigned int scriptVerifyFlags = STANDARD_SCRIPT_VERIFY_FLAGS;
-
         // Check against previous transactions
         // This is done last to help prevent CPU exhaustion denial-of-service attacks.
         PrecomputedTransactionData txdata(tx);
         TxColoredCoinBalancesMap inColoredCoinBalances;
-        if (!CheckInputs(tx, state, view, true, scriptVerifyFlags, true, false, txdata, inColoredCoinBalances)) {
+        if (!CheckInputs(tx, state, view, true, STANDARD_SCRIPT_VERIFY_FLAGS, true, false, txdata, inColoredCoinBalances)) {
 
             return false; // state filled in by CheckInputs
         }
@@ -1068,7 +1080,7 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
         }
 
         //verify token balances:
-        if(!VerifyTokenBalances(tx, state, inColoredCoinBalances, ::minRelayTxFee.GetFee(nSize))) {
+       if(!VerifyTokenBalances(tx, opt.state, inColoredCoinBalances, ::minRelayTxFee.GetFee(nSize) )) {
             return false;
         }
 
