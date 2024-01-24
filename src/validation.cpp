@@ -1105,9 +1105,9 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
                 hash.begin(),
                 tx.GetTotalSize(),
                 nConflictingFees
-            );
-            if (plTxnReplaced)
-                plTxnReplaced->push_back(it->GetSharedTx());
+            )
+
+            opt.txnReplaced.push_back(it->GetSharedTx());
         }
         pool.RemoveStaged(allConflicting, false, MemPoolRemovalReason::REPLACED);
 
@@ -1144,7 +1144,7 @@ bool AcceptToMemoryPool(const CTransactionRef &tx, CTxMempoolAcceptanceOptions& 
             pcoinsTip->Uncache(hashTx);
             TRACE2(mempool, rejected,
                 tx->GetHashMalFix().begin(),
-                state.GetRejectReason().c_str()
+                opt.state.GetRejectReason().c_str()
         );
     }
     // After we've (potentially) uncached entries, ensure our coins cache is still within its size limits
