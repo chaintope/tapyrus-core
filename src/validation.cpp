@@ -731,8 +731,8 @@ static bool VerifyTokenBalances(const CTransaction& tx,  CValidationState& state
         //output does not have a corresponding input.
         if(iter == inColoredCoinBalances.end())
         {
-            //if TPC input is sufficiently large this is a token issue. 
-            if(tpcin < 0 || tpcin - tpcout - minrelayFee< 0)
+            //if TPC input is sufficiently large this is a token issue.
+            if(tpcin < 0 || tpcin - tpcout - minrelayFee < 0)
                 return state.Invalid(false, REJECT_INSUFFICIENTFEE, "bad-txns-token-insufficient");
         }
         //output value is more than input
