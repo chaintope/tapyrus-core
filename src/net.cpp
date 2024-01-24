@@ -87,9 +87,9 @@ static const uint64_t RANDOMIZER_ID_LOCALHOSTNONCE = 0xd93e69e2bbfa5735ULL; // S
 bool fDiscover = true;
 bool fListen = true;
 bool fRelayTxes = true;
-CCriticalSection cs_mapLocalHost;
-std::map<CNetAddr, LocalServiceInfo> mapLocalHost;
-static bool vfLimited[NET_MAX] = {};
+Mutex cs_mapLocalHost;
+std::map<CNetAddr, LocalServiceInfo> mapLocalHost GUARDED_BY(cs_mapLocalHost);
+static bool vfLimited[NET_MAX] GUARDED_BY(cs_mapLocalHost)= {};
 std::string strSubVersion;
 
 limitedmap<uint256, int64_t> mapAlreadyAskedFor(MAX_INV_SZ);
@@ -618,7 +618,6 @@ void CConnman::SweepBanned()
     int64_t now = GetTime();
     bool notifyUI = false;
     {
-        LOCK(cs_setBanned);
         banmap_t::iterator it = setBanned.begin();
         while(it != setBanned.end())
         {
@@ -2054,10 +2053,7 @@ void CConnman::ThreadMessageHandler()
             if (flagInterruptMsgProc)
                 return;
             // Send messages
-            {
-                LOCK(pnode->cs_sendProcessing);
-                m_msgproc->SendMessages(pnode);
-            }
+            m_msgproc->SendMessages(pnode);
 
             if (flagInterruptMsgProc)
                 return;

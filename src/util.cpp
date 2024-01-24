@@ -85,14 +85,15 @@ ArgsManager gArgs;
 
 CTranslationInterface translationInterface;
 
+/** Mutex to protect dir_locks. */
+static std::mutex cs_dir_locks;
+
 /** A map that contains all the currently held directory locks. After
  * successful locking, these will be held here until the global destructor
  * cleans them up and thus automatically unlocks them, or ReleaseDirectoryLocks
  * is called.
  */
 static std::map<std::string, std::unique_ptr<boost::interprocess::file_lock>> dir_locks;
-/** Mutex to protect dir_locks. */
-static std::mutex cs_dir_locks;
 
 bool LockDirectory(const fs::path& directory, const std::string lockfile_name, bool probe_only)
 {
@@ -541,7 +542,6 @@ void ArgsManager::AddArg(const std::string& name, const std::string& help, const
     if (eq_index == std::string::npos) {
         eq_index = name.size();
     }
-
     std::map<std::string, Arg>& arg_map = m_available_args[cat];
     auto ret = arg_map.emplace(name.substr(0, eq_index), Arg(name.substr(eq_index, name.size() - eq_index), help, debug_only));
     assert(ret.second); // Make sure an insertion actually happened
@@ -697,7 +697,7 @@ fs::path GetDefaultDataDir()
 static fs::path g_blocks_path_cache_net_specific;
 static fs::path pathCached;
 static fs::path pathCachedNetSpecific;
-static CCriticalSection csPathCached;
+static RecursiveMutex csPathCached;
 
 std::string GetDataDirNameFromNetworkId(const uint32_t networkId)
 {
@@ -871,7 +871,7 @@ bool ArgsManager::ReadConfigFiles(std::string& error, bool ignore_invalid_keys)
         }
         // if there is an -includeconf in the override args, but it is empty, that means the user
         // passed '-noincludeconf' on the command line, in which case we should not include anything
-        if (m_override_args.count("-includeconf") == 0) {
+            if (m_override_args.count("-includeconf") == 0) {
             std::string chain_id = TAPYRUS_MODES::GetChainName( GetChainMode());
             std::vector<std::string> includeconf(GetArgs("-includeconf"));
             {
@@ -888,6 +888,7 @@ bool ArgsManager::ReadConfigFiles(std::string& error, bool ignore_invalid_keys)
                 m_config_args.erase("-includeconf");
                 m_config_args.erase(std::string("-") + chain_id + ".includeconf");
             }
+
 
             for (const std::string& to_include : includeconf) {
                 fs::ifstream include_config(GetConfigFile(to_include));

@@ -657,14 +657,6 @@ static UniValue submitblock(const JSONRPCRequest& request)
         }
     }
 
-    {
-        LOCK(cs_main);
-        const CBlockIndex* pindex = LookupBlockIndex(block.hashPrevBlock);
-        if (pindex) {
-            UpdateUncommittedBlockStructures(block, pindex, Params().GetConsensus());
-        }
-    }
-
     bool new_block;
     submitblock_StateCatcher sc(block.GetHash());
     RegisterValidationInterface(&sc);

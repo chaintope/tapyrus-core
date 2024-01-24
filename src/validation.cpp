@@ -120,7 +120,7 @@ private:
      * Every received block is assigned a unique and increasing identifier, so we
      * know which one to give priority in case of a fork.
      */
-    CCriticalSection cs_nBlockSequenceId;
+    Mutex cs_nBlockSequenceId;
     /** Blocks loaded from disk are assigned id 0, so start the counter at 1. */
     int32_t nBlockSequenceId = 1;
     /** Decreasing counter (used by subsequent preciousblock calls). */
@@ -152,7 +152,7 @@ private:
      * the ChainState CriticalSection
      * A lock that must be held when modifying this ChainState - held in ActivateBestChain()
      */
-    CCriticalSection m_cs_chainstate;
+    Mutex m_cs_chainstate;
 
 public:
     CChain chainActive;
@@ -217,12 +217,12 @@ private:
 } g_chainstate;
 
 
-CCriticalSection cs_main;
+RecursiveMutex cs_main;
 
 BlockMap& mapBlockIndex = g_chainstate.mapBlockIndex;
 CChain& chainActive = g_chainstate.chainActive;
 CBlockIndex *pindexBestHeader = nullptr;
-CWaitableCriticalSection g_best_block_mutex;
+Mutex g_best_block_mutex;
 CConditionVariable g_best_block_cv;
 uint256 g_best_block;
 int nScriptCheckThreads = 0;
@@ -263,7 +263,7 @@ namespace {
      */
     std::multimap<CBlockIndex*, CBlockIndex*>& mapBlocksUnlinked = g_chainstate.mapBlocksUnlinked;
 
-    CCriticalSection cs_LastBlockFile;
+    RecursiveMutex cs_LastBlockFile;
     std::vector<CBlockFileInfo> vinfoBlockFile;
     int nLastBlockFile = 0;
     /** Global flag to indicate we should check to see if there are
@@ -2217,7 +2217,10 @@ static void AppendWarning(std::string& res, const std::string& warn)
 }
 
 /** Check warning conditions and do some notifications on new chain tip set. */
-void static UpdateTip(const CBlockIndex *pindexNew) {
+void static UpdateTip(const CBlockIndex *pindexNew)
+{
+    AssertLockHeld(::cs_main);
+
     // New best block
     mempool.AddTransactionsUpdated(1);
 
@@ -2247,6 +2250,8 @@ void static UpdateTip(const CBlockIndex *pindexNew) {
   */
 bool CChainState::DisconnectTip(CValidationState& state, DisconnectedBlockTransactions *disconnectpool)
 {
+    AssertLockHeld(cs_main);
+
     CBlockIndex *pindexDelete = chainActive.Tip();
     assert(pindexDelete);
     // Read block from disk.
@@ -2371,6 +2376,8 @@ public:
  */
 bool CChainState::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, const std::shared_ptr<const CBlock>& pblock, ConnectTrace& connectTrace, DisconnectedBlockTransactions &disconnectpool)
 {
+    AssertLockHeld(cs_main);
+
     assert(pindexNew->pprev == chainActive.Tip());
     // Read block from disk.
     int64_t nTime1 = GetTimeMicros();
@@ -2761,8 +2768,6 @@ bool PreciousBlock(CValidationState& state, CBlockIndex *pindex) {
 
 bool CChainState::InvalidateBlock(CValidationState& state, CBlockIndex *pindex)
 {
-    AssertLockHeld(cs_main);
-
     // We first disconnect backwards and then mark the blocks as invalid.
     // This prevents a case where pruned nodes may fail to invalidateblock
     // and be left unable to start as they have no tip candidates (as there
@@ -3155,11 +3160,6 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
 }
 
 
-void UpdateUncommittedBlockStructures(CBlock& block, const CBlockIndex* pindexPrev, const Consensus::Params& consensusParams)
-{
-
-}
-
 
 /** Context-dependent validity checks.
  *  By "context", we mean only the previous block headers, but not the UTXO
@@ -3170,7 +3170,7 @@ void UpdateUncommittedBlockStructures(CBlock& block, const CBlockIndex* pindexPr
  *  in ConnectBlock().
  *  Note that -reindex-chainstate skips the validation that happens here!
  */
-static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& state, const CBlockIndex* pindexPrev, int64_t nAdjustedTime)
+static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& state, const CBlockIndex* pindexPrev, int64_t nAdjustedTime) EXCLUSIVE_LOCKS_REQUIRED(::cs_main)
 {
     assert(pindexPrev != nullptr);
     const int nHeight = pindexPrev->nHeight + 1;
@@ -3848,7 +3848,7 @@ CVerifyDB::~CVerifyDB()
 
 bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth)
 {
-    LOCK(cs_main);
+    AssertLockHeld(cs_main);
     if (chainActive.Tip() == nullptr || chainActive.Tip()->pprev == nullptr)
         return true;
 
@@ -3941,6 +3941,7 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
 /** Apply the effects of a block on the utxo cache, ignoring that it may already have been applied. */
 bool CChainState::RollforwardBlock(const CBlockIndex* pindex, CCoinsViewCache& inputs)
 {
+    AssertLockHeld(cs_main);
     // TODO: merge with ConnectBlock
     CBlock block;
     if (!ReadBlockFromDisk(block, pindex)) {
@@ -4110,7 +4111,9 @@ bool RewindBlockIndex() {
     return true;
 }
 
-void CChainState::UnloadBlockIndex() {
+void CChainState::UnloadBlockIndex()
+{
+    AssertLockHeld(::cs_main);
     nBlockSequenceId = 1;
     m_failed_blocks.clear();
     setBlockIndexCandidates.clear();
@@ -4507,6 +4510,7 @@ void CChainState::CheckBlockIndex()
 
 std::string CBlockFileInfo::ToString() const
 {
+    AssertLockHeld(::cs_main);
     return strprintf("CBlockFileInfo(blocks=%u, size=%u, heights=%u...%u, time=%s...%s)", nBlocks, nSize, nHeightFirst, nHeightLast, FormatISO8601Date(nTimeFirst), FormatISO8601Date(nTimeLast));
 }
 

@@ -157,7 +157,7 @@ protected:
         Arg(const std::string& help_param, const std::string& help_text, bool debug_only) : m_help_param(help_param), m_help_text(help_text), m_debug_only(debug_only) {};
     };
 
-    mutable CCriticalSection cs_args;
+    mutable RecursiveMutex cs_args;
     std::map<std::string, std::vector<std::string>> m_override_args;
     std::map<std::string, std::vector<std::string>> m_config_args;
     std::string m_network;
@@ -290,7 +290,7 @@ public:
     /**
      * Clear available arguments
      */
-    void ClearArgs() { m_available_args.clear(); }
+    void ClearArgs() { LOCK(cs_args); m_available_args.clear(); }
 
     /**
      * Get the help string
@@ -305,7 +305,7 @@ public:
     /**
      * Clear test arguments
      */
-    void ClearOverrideArgs() { m_override_args.clear(); }
+    void ClearOverrideArgs() { LOCK(cs_args); m_override_args.clear(); }
 };
 
 extern ArgsManager gArgs;

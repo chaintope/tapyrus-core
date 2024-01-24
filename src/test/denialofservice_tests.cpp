@@ -56,7 +56,6 @@ BOOST_FIXTURE_TEST_SUITE(denialofservice_tests, TestingSetup)
 // work.
 BOOST_AUTO_TEST_CASE(outbound_slow_chain_eviction)
 {
-
     // Mock an outbound peer
     CAddress addr1(ip(0xa0b0c001), NODE_NONE);
     CNode dummyNode1(id++, ServiceFlags(NODE_NETWORK|NODE_WITNESS), 0, INVALID_SOCKET, addr1, 0, 0, CAddress(), "", /*fInboundIn=*/ false);
@@ -77,7 +76,8 @@ BOOST_AUTO_TEST_CASE(outbound_slow_chain_eviction)
         peerLogic->SendMessages(&dummyNode1); // should result in getheaders
     }
     {
-        LOCK2(cs_main, dummyNode1.cs_vSend);
+        LOCK(cs_main);
+        LOCK(dummyNode1.cs_vSend);
         BOOST_CHECK(dummyNode1.vSendMsg.size() > 0);
         dummyNode1.vSendMsg.clear();
     }
@@ -90,7 +90,8 @@ BOOST_AUTO_TEST_CASE(outbound_slow_chain_eviction)
         peerLogic->SendMessages(&dummyNode1); // should result in getheaders
     }
     {
-        LOCK2(cs_main, dummyNode1.cs_vSend);
+        LOCK(cs_main);
+        LOCK(dummyNode1.cs_vSend);
         BOOST_CHECK(dummyNode1.vSendMsg.size() > 0);
     }
     // Wait 3 more minutes
@@ -287,7 +288,6 @@ BOOST_AUTO_TEST_CASE(DoS_banscore)
 
 BOOST_AUTO_TEST_CASE(DoS_bantime)
 {
-
     connman->ClearBanned();
     int64_t nStartTime = GetTime();
     SetMockTime(nStartTime); // Overrides future calls to GetTime()

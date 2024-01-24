@@ -147,7 +147,7 @@ class NodeImpl : public Node
     }
     int64_t getTotalBytesRecv() override { return g_connman ? g_connman->GetTotalBytesRecv() : 0; }
     int64_t getTotalBytesSent() override { return g_connman ? g_connman->GetTotalBytesSent() : 0; }
-    size_t getMempoolSize() override { return ::mempool.size(); }
+    size_t getMempoolSize() override { LOCK(mempool.cs); return ::mempool.size(); }
     size_t getMempoolDynamicUsage() override { return ::mempool.DynamicMemoryUsage(); }
     bool getHeaderTip(int& height, int64_t& block_time) override
     {
