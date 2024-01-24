@@ -564,6 +564,7 @@ static bool CheckConflictsInMempool(const CTransaction& tx, std::set<uint256>& s
 {
     for (const CTxIn &txin : tx.vin)
     {
+        AssertLockHeld(mempool.cs);
         auto itConflicting = mempool.mapNextTx.find(txin.prevout);
         if (itConflicting != mempool.mapNextTx.end())
         {
@@ -1105,7 +1106,7 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
                 hash.begin(),
                 tx.GetTotalSize(),
                 nConflictingFees
-            )
+            );
 
             opt.txnReplaced.push_back(it->GetSharedTx());
         }
