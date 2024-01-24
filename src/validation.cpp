@@ -628,6 +628,59 @@ bool CheckColorIdentifierValidity(const CTransaction& tx, CValidationState& stat
     return true;
 }
 
+static bool VerifyTokenBalances(const CTransaction& tx,  CValidationState& state, TxColoredCoinBalancesMap& inColoredCoinBalances, CAmount minrelayFee)
+{
+    //for every output eliminate a matching input.
+    //verify that all outputs are matched
+    TxColoredCoinBalancesMap outColoredCoinBalances;
+    for (const auto& tx_out : tx.vout) {
+        ColorIdentifier outColorId(GetColorIdFromScript(tx_out.scriptPubKey));
+
+        //collect token balances from all outputs.
+        auto iter = outColoredCoinBalances.find(outColorId);
+        if(iter == outColoredCoinBalances.end())
+            outColoredCoinBalances.emplace(outColorId, tx_out.nValue);
+        else
+            iter->second += tx_out.nValue;
+    }
+    // Tally transaction fees
+    CAmount tpcin = 0, tpcout = 0;
+    TxColoredCoinBalancesMap::const_iterator iter = inColoredCoinBalances.find(ColorIdentifier());
+    if(iter != inColoredCoinBalances.end())
+        tpcin = iter->second;
+
+    iter = outColoredCoinBalances.find(ColorIdentifier());
+        if(iter != outColoredCoinBalances.end())
+            tpcout = iter->second;
+
+    if(tpcin <= 0)
+        return state.Invalid(false, REJECT_INSUFFICIENTFEE, "bad-txns-token-without-fee");
+
+    for(auto& out:outColoredCoinBalances)
+    {
+        TxColoredCoinBalancesMap::iterator iter = inColoredCoinBalances.find(out.first);
+
+        //output does not have a corresponding input.
+        if(iter == inColoredCoinBalances.end())
+        {
+            //if TPC input is sufficiently large this is a token issue.
+            if(tpcin < 0 || tpcin - tpcout - minrelayFee < 0)
+                return state.Invalid(false, REJECT_INSUFFICIENTFEE, "bad-txns-token-insufficient");
+        }
+        //output value is more than input
+        else if(out.second > iter->second)
+        {
+            return state.Invalid(false, REJECT_INVALID, "bad-txns-token-balance");
+        }
+        else
+        {
+            //reduce this output from the input
+            iter->second -=  out.second;
+        }
+    }
+    return true;
+}
+
 static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAcceptanceOptions& opt)
 {
     const CTransaction& tx = *ptx;
@@ -1015,56 +1068,9 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
         }
 
         //verify token balances:
-        //for every output eliminate a matching input.
-        //verify that all outputs are matched
-        TxColoredCoinBalancesMap outColoredCoinBalances;
-        for (const auto& tx_out : tx.vout) {
-            ColorIdentifier outColorId(GetColorIdFromScript(tx_out.scriptPubKey));
-
-            //collect token balances from all outputs.
-            auto iter = outColoredCoinBalances.find(outColorId);
-            if(iter == outColoredCoinBalances.end())
-                outColoredCoinBalances.emplace(outColorId, tx_out.nValue);
-            else
-                iter->second += tx_out.nValue;
+        if(!VerifyTokenBalances(tx, state, inColoredCoinBalances, ::minRelayTxFee.GetFee(nSize))) {
+            return false;
         }
-        // Tally transaction fees
-        CAmount tpcin = 0, tpcout = 0;
-        TxColoredCoinBalancesMap::const_iterator iter = inColoredCoinBalances.find(ColorIdentifier());
-        if(iter != inColoredCoinBalances.end())  
-            tpcin = iter->second;
-
-        iter = outColoredCoinBalances.find(ColorIdentifier());
-            if(iter != outColoredCoinBalances.end())  
-                tpcout = iter->second;
-
-        if(tpcin <= 0)
-            return state.Invalid(false, REJECT_INSUFFICIENTFEE, "bad-txns-token-without-fee");
-
-        for(auto& out:outColoredCoinBalances)
-        {
-            TxColoredCoinBalancesMap::iterator iter = inColoredCoinBalances.find(out.first);
-
-            //output does not have a corresponding input.
-            if(iter == inColoredCoinBalances.end())
-            {
-                //if TPC input is sufficiently large this is a token issue. 
-                if(tpcin < 0 || tpcin - tpcout - ::minRelayTxFee.GetFee(nSize) < 0)
-                    return state.Invalid(false, REJECT_INSUFFICIENTFEE, "bad-txns-token-insufficient");
-            }
-            //output value is more than input
-            else if(out.second > iter->second)
-            {
-                return state.Invalid(false, REJECT_INVALID, "bad-txns-token-balance");
-            }
-            else
-            {
-                //reduce this output from the input
-                iter->second -=  out.second;
-            }
-
-        }
-
 
         if (opt.flags == MempoolAcceptanceFlags::TEST_ONLY) {
             // Tx was accepted, but not added
