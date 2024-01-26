@@ -2165,13 +2165,11 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
 
         LOCK2(cs_main, g_cs_orphans);
 
-        bool fMissingInputs = false;
-        CValidationState state;
-
         pfrom->setAskFor.erase(inv.hash);
         mapAlreadyAskedFor.erase(inv.hash);
 
         CTxMempoolAcceptanceOptions opt;
+        CValidationState& state = opt.state;
         if (!AlreadyHave(inv) &&
             AcceptToMemoryPool(ptx, opt)) {
             mempool.check(pcoinsTip.get());
@@ -2202,12 +2200,10 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
                     const CTransaction& orphanTx = *porphanTx;
                     const uint256& orphanHash = orphanTx.GetHashMalFix();
                     NodeId fromPeer = (*mi)->second.fromPeer;
-                    bool fMissingInputs2 = false;
                     // Use a dummy CValidationState so someone can't setup nodes to counter-DoS based on orphan
                     // resolution (that is, feeding people an invalid transaction based on LegitTxX in order to get
                     // anyone relaying LegitTxX banned)
-                    CValidationState stateDummy;
-
+                    CValidationState& stateDummy = opt.state;
 
                     if (setMisbehaving.count(fromPeer))
                         continue;
@@ -2220,7 +2216,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
                         }
                         vEraseQueue.push_back(orphanHash);
                     }
-                    else if (!fMissingInputs2)
+                    else if (opt.missingInputs.size())
                     {
                         int nDos = 0;
                         if (stateDummy.IsInvalid(nDos) && nDos > 0)
@@ -2249,7 +2245,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
             for (uint256 hash : vEraseQueue)
                 EraseOrphanTx(hash);
         }
-        else if (fMissingInputs)
+        else if (opt.missingInputs.size())
         {
             bool fRejectedParents = false; // It may be the case that the orphans parents have all been rejected
             for (const CTxIn& txin : tx.vin) {
@@ -2315,7 +2311,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
             AddToCompactExtraTransactions(removedTx);
 
         int nDoS = 0;
-        if (state.IsInvalid(nDoS))
+        if (opt.state.IsInvalid(nDoS))
         {
             LogPrint(BCLog::MEMPOOLREJ, "%s from peer=%d was not accepted: %s\n", tx.GetHashMalFix().ToString(),
                 pfrom->GetId(),

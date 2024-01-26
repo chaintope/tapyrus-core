@@ -512,7 +512,6 @@ public:
 
     bool ProcessBlockAndScanForWalletTxns(const CTransactionRef tx) {
         CTxMempoolAcceptanceOptions opt;
-        bool pfMissingInputs;
         {
             LOCK(cs_main);
             AcceptToMemoryPool(tx, opt);
