@@ -2169,6 +2169,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         mapAlreadyAskedFor.erase(inv.hash);
 
         CTxMempoolAcceptanceOptions opt;
+        CValidationState& state = opt.state;
         if (!AlreadyHave(inv) &&
             AcceptToMemoryPool(ptx, opt)) {
             mempool.check(pcoinsTip.get());
