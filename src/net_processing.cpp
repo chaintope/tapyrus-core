@@ -2169,7 +2169,6 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         mapAlreadyAskedFor.erase(inv.hash);
 
         CTxMempoolAcceptanceOptions opt;
-        CValidationState& state = opt.state;
         if (!AlreadyHave(inv) &&
             AcceptToMemoryPool(ptx, opt)) {
             mempool.check(pcoinsTip.get());
@@ -2203,12 +2202,11 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
                     // Use a dummy CValidationState so someone can't setup nodes to counter-DoS based on orphan
                     // resolution (that is, feeding people an invalid transaction based on LegitTxX in order to get
                     // anyone relaying LegitTxX banned)
-                    CValidationState& stateDummy = opt.state;
 
                     if (setMisbehaving.count(fromPeer))
                         continue;
-                    CTxMempoolAcceptanceOptions opt;
-                    if (AcceptToMemoryPool(porphanTx, opt)) {
+                    CTxMempoolAcceptanceOptions opt2;
+                    if (AcceptToMemoryPool(porphanTx, opt2)) {
                         LogPrint(BCLog::MEMPOOL, "   accepted orphan tx %s\n", orphanHash.ToString());
                         RelayTransaction(orphanTx, connman);
                         for (unsigned int i = 0; i < orphanTx.vout.size(); i++) {
@@ -2216,10 +2214,10 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
                         }
                         vEraseQueue.push_back(orphanHash);
                     }
-                    else if (opt.missingInputs.size())
+                    else if (opt2.missingInputs.size())
                     {
                         int nDos = 0;
-                        if (stateDummy.IsInvalid(nDos) && nDos > 0)
+                        if (opt2.state.IsInvalid(nDos) && nDos > 0)
                         {
                             // Punish peer that gave us an invalid orphan tx
                             Misbehaving(fromPeer, nDos);
@@ -2230,7 +2228,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
                         // Probably non-standard or insufficient fee
                         LogPrint(BCLog::MEMPOOL, "   removed orphan tx %s\n", orphanHash.ToString());
                         vEraseQueue.push_back(orphanHash);
-                        if (!orphanTx.HasWitness() && !stateDummy.CorruptionPossible()) {
+                        if (!orphanTx.HasWitness() && !opt2.state.CorruptionPossible()) {
                             // Do not use rejection cache for witness transactions or
                             // witness-stripped transactions, as they can have been malleated.
                             // See https://github.com/bitcoin/bitcoin/issues/8279 for details.
@@ -2275,7 +2273,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
                 recentRejects->insert(tx.GetHashMalFix());
             }
         } else {
-            if (!tx.HasWitness() && !state.CorruptionPossible()) {
+            if (!tx.HasWitness() && !opt.state.CorruptionPossible()) {
                 // Do not use rejection cache for witness transactions or
                 // witness-stripped transactions, as they can have been malleated.
                 // See https://github.com/bitcoin/bitcoin/issues/8279 for details.
@@ -2298,11 +2296,11 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
                 // score for, as we expect peers to do the same with us in that
                 // case.
                 int nDoS = 0;
-                if (!state.IsInvalid(nDoS) || nDoS == 0) {
+                if (!opt.state.IsInvalid(nDoS) || nDoS == 0) {
                     LogPrintf("Force relaying tx %s from whitelisted peer=%d\n", tx.GetHashMalFix().ToString(), pfrom->GetId());
                     RelayTransaction(tx, connman);
                 } else {
-                    LogPrintf("Not relaying invalid transaction %s from whitelisted peer=%d (%s)\n", tx.GetHashMalFix().ToString(), pfrom->GetId(), FormatStateMessage(state));
+                    LogPrintf("Not relaying invalid transaction %s from whitelisted peer=%d (%s)\n", tx.GetHashMalFix().ToString(), pfrom->GetId(), FormatStateMessage(opt.state));
                 }
             }
         }
@@ -2315,10 +2313,10 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         {
             LogPrint(BCLog::MEMPOOLREJ, "%s from peer=%d was not accepted: %s\n", tx.GetHashMalFix().ToString(),
                 pfrom->GetId(),
-                FormatStateMessage(state));
-            if (state.GetRejectCode() > 0 && state.GetRejectCode() < REJECT_INTERNAL) { // Never send AcceptToMemoryPool's internal codes over P2P
-                connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::REJECT, strCommand, (unsigned char)state.GetRejectCode(),
-                                   state.GetRejectReason().substr(0, MAX_REJECT_MESSAGE_LENGTH), inv.hash));
+                FormatStateMessage(opt.state));
+            if (opt.state.GetRejectCode() > 0 && opt.state.GetRejectCode() < REJECT_INTERNAL) { // Never send AcceptToMemoryPool's internal codes over P2P
+                connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::REJECT, strCommand, (unsigned char)opt.state.GetRejectCode(),
+                                   opt.state.GetRejectReason().substr(0, MAX_REJECT_MESSAGE_LENGTH), inv.hash));
             }
             if (nDoS > 0) {
                 Misbehaving(pfrom->GetId(), nDoS);
