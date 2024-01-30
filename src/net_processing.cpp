@@ -2214,7 +2214,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
                         }
                         vEraseQueue.push_back(orphanHash);
                     }
-                    else if (opt2.missingInputs.size())
+                    else if (!opt2.missingInputs.size())
                     {
                         int nDos = 0;
                         if (opt2.state.IsInvalid(nDos) && nDos > 0)
