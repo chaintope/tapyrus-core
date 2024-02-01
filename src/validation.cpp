@@ -1113,7 +1113,7 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
         // This is done last to help prevent CPU exhaustion denial-of-service attacks.
         PrecomputedTransactionData txdata(tx);
         TxColoredCoinBalancesMap inColoredCoinBalances;
-        if (!CheckInputs(tx, state, view, true, STANDARD_SCRIPT_VERIFY_FLAGS, true, false, txdata, inColoredCoinBalances)) {
+        if (!CheckInputs(tx, state, view, true, scriptVerifyFlags, true, false, txdata, inColoredCoinBalances)) {
 
             return false; // state filled in by CheckInputs
         }
@@ -1165,6 +1165,7 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
                     hash.ToString(),
                     FormatMoney(nModifiedFees - nConflictingFees),
                     (int)nSize - (int)nConflictingSize);
+
             TRACE7(mempool, replaced,
                 it->GetTx().GetHashMalFix().begin(),
                 it->GetTxSize(),
@@ -2059,7 +2060,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         // * legacy (always)
         // * p2sh (when P2SH enabled in flags and excludes coinbase)
         // * witness (when witness enabled in flags and excludes coinbase)
-        nSigOpsCost += GetTransactionSigOps(tx, view, flags);
+        nSigOpsCost += GetTransactionSigOps(tx, view, SCRIPT_VERIFY_NONE);
         if (nSigOpsCost > GetMaxBlockSigops())
             return state.DoS(100, error("ConnectBlock(): too many sigops"),
                              REJECT_INVALID, "bad-blk-sigops");
@@ -2069,7 +2070,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         {
             std::vector<CScriptCheck> vChecks;
             bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
-            if (!CheckInputs(tx, state, view, fScriptChecks, flags, fCacheResults, fCacheResults, txdata[i], inColoredCoinBalances, nScriptCheckThreads ? &vChecks : nullptr))
+            if (!CheckInputs(tx, state, view, fScriptChecks, SCRIPT_VERIFY_NONE, fCacheResults, fCacheResults, txdata[i], inColoredCoinBalances, nScriptCheckThreads ? &vChecks : nullptr))
                 return error("ConnectBlock(): CheckInputs on %s failed with %s",
                     tx.GetHashMalFix().ToString(), FormatStateMessage(state));
             control.Add(std::move(vChecks));
