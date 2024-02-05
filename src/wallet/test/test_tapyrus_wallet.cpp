@@ -60,11 +60,10 @@ void TestWalletSetup::initWallet()
 }
 
 bool TestWalletSetup::ProcessBlockAndScanForWalletTxns(const CTransactionRef tx) {
-    CValidationState state;
-    bool pfMissingInputs;
+    CTxMempoolAcceptanceOptions opt;
     {
         LOCK(cs_main);
-        if(!AcceptToMemoryPool(mempool, state, tx, &pfMissingInputs, nullptr, true, 0)) {
+        if(!AcceptToMemoryPool(tx, opt)) {
             return false;
         }
     }

@@ -42,23 +42,21 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_reject_coinbase, TestChainSetup)
 
     unsigned int initialPoolSize = mempool.size();
 
+    CTxMempoolAcceptanceOptions opt;
+    opt.flags = MempoolAcceptanceFlags::BYPASSS_LIMITS;
     BOOST_CHECK_EQUAL(
             false,
-            AcceptToMemoryPool(mempool, state, MakeTransactionRef(coinbaseTx),
-                nullptr ,
-                nullptr,
-                true ,
-                0));
+            AcceptToMemoryPool(MakeTransactionRef(coinbaseTx), opt));
 
     // Check that the transaction hasn't been added to mempool.
     BOOST_CHECK_EQUAL(mempool.size(), initialPoolSize);
 
     // Check that the validation state reflects the unsuccessful attempt.
-    BOOST_CHECK(state.IsInvalid());
-    BOOST_CHECK_EQUAL(state.GetRejectReason(), "coinbase");
+    BOOST_CHECK(opt.state.IsInvalid());
+    BOOST_CHECK_EQUAL(opt.state.GetRejectReason(), "coinbase");
 
     int nDoS;
-    BOOST_CHECK_EQUAL(state.IsInvalid(nDoS), true);
+    BOOST_CHECK_EQUAL(opt.state.IsInvalid(nDoS), true);
     BOOST_CHECK_EQUAL(nDoS, 100);
 }
 namespace
@@ -85,35 +83,31 @@ namespace
 
 void testTx(TestChainSetup* setup, const CTransactionRef tx, bool success, std::string errStr="")
 {
-    CValidationState state;
-    bool pfMissingInputs;
+    CTxMempoolAcceptanceOptions opt;
+    opt.flags = MempoolAcceptanceFlags::BYPASSS_LIMITS;
     {
         LOCK(cs_main);
 
         BOOST_CHECK_EQUAL(
             success,
-            AcceptToMemoryPool(mempool, state, tx,
-                &pfMissingInputs ,
-                nullptr,
-                true ,
-                0));
+            AcceptToMemoryPool( tx, opt));
     }
 
     if(success)
     {
-        BOOST_CHECK(state.IsValid());
+        BOOST_CHECK(opt.state.IsValid());
         std::vector<CMutableTransaction> txs;
         txs.push_back(CMutableTransaction(*tx));
         setup->CreateAndProcessBlock(txs, CScript() <<  ToByteVector(setup->coinbaseKey.GetPubKey()) << OP_CHECKSIG);
     }
-    else if(pfMissingInputs)
+    else if(opt.missingInputs.size())
     {
-        BOOST_CHECK(!state.IsInvalid());
+        BOOST_CHECK(!opt.state.IsInvalid());
     }
     else
     {
-        BOOST_CHECK(state.IsInvalid());
-        BOOST_CHECK_EQUAL(state.GetRejectReason(), errStr);
+        BOOST_CHECK(opt.state.IsInvalid());
+        BOOST_CHECK_EQUAL(opt.state.GetRejectReason(), errStr);
     }
 }
 
