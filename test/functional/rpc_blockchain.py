@@ -175,7 +175,7 @@ class BlockchainTest(BitcoinTestFramework):
         assert size > 3200
         assert size < 32000
         assert_equal(len(res['bestblock']), 64)
-        assert_equal(len(res['hash_serialized_2']), 64)
+        assert_equal(len(res['hash_serialized_3']), 64)
 
         self.log.info("Test that gettxoutsetinfo() works for blockchain with just the genesis block")
         b1hash = node.getblockhash(1)
@@ -188,7 +188,7 @@ class BlockchainTest(BitcoinTestFramework):
         assert_equal(res2['txouts'], 0)
         assert_equal(res2['bogosize'], 0),
         assert_equal(res2['bestblock'], node.getblockhash(0))
-        assert_equal(len(res2['hash_serialized_2']), 64)
+        assert_equal(len(res2['hash_serialized_3']), 64)
 
         self.log.info("Test that gettxoutsetinfo() returns the same result after invalidate/reconsider block")
         node.reconsiderblock(b1hash)
