@@ -760,7 +760,7 @@ static unsigned int GetBlockScriptFlags(const CBlockIndex* pindex) {
 bool TestPackageAcceptance(const Package& package,
                                   CValidationState& state,
                                   PackageValidationState& results,
-                                  std::vector<const CTxMemPoolEntry >* validPool)
+                                  std::vector<CTxMemPoolEntry >* validPool)
 {
     bool all_valid = true;
     bool test_accept_res = false;
@@ -788,22 +788,22 @@ bool TestPackageAcceptance(const Package& package,
     return all_valid;
 }
 
-bool SubmitPackageToMempool(std::vector<const CTxMemPoolEntry >& validPool, CValidationState& state)
+bool SubmitPackageToMempool(const std::vector<CTxMemPoolEntry>& validPool, CValidationState& state)
 {
     for(auto &entry : validPool) {
-        CTransactionRef tx(entry.GetSharedTx());
+        auto &tx(entry.GetTx());
         {
             // Store transaction in mempool if validation succeeded
             LOCK(::cs_main);
             LOCK(mempool.cs);
-            mempool.addUnchecked(tx->GetHashMalFix(), entry, false);
+            mempool.addUnchecked(tx.GetHashMalFix(), entry, false);
         }
 
-        if (!mempool.exists(tx->GetHashMalFix()))
-            return state.DoS(0, false, REJECT_INSUFFICIENTFEE, "mempool full");
+        if (!mempool.exists(tx.GetHashMalFix()))
+            return state.DoS(0, false, REJECT_PACKAGE_MEMPOOL, "mempool full");
 
         //signlaing for gui, wallet etc
-        GetMainSignals().TransactionAddedToMempool(tx);
+        GetMainSignals().TransactionAddedToMempool(entry.GetSharedTx());
     }
     return true;
 }
@@ -2050,7 +2050,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         // * legacy (always)
         // * p2sh (when P2SH enabled in flags and excludes coinbase)
         // * witness (when witness enabled in flags and excludes coinbase)
-        nSigOpsCost += GetTransactionSigOps(tx, view, SCRIPT_VERIFY_NONE);
+        nSigOpsCost += GetTransactionSigOps(tx, view, flags);
         if (nSigOpsCost > GetMaxBlockSigops())
             return state.DoS(100, error("ConnectBlock(): too many sigops"),
                              REJECT_INVALID, "bad-blk-sigops");
@@ -2060,7 +2060,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         {
             std::vector<CScriptCheck> vChecks;
             bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
-            if (!CheckInputs(tx, state, view, fScriptChecks, SCRIPT_VERIFY_NONE, fCacheResults, fCacheResults, txdata[i], inColoredCoinBalances, nScriptCheckThreads ? &vChecks : nullptr))
+            if (!CheckInputs(tx, state, view, fScriptChecks, flags, fCacheResults, fCacheResults, txdata[i], inColoredCoinBalances, nScriptCheckThreads ? &vChecks : nullptr))
                 return error("ConnectBlock(): CheckInputs on %s failed with %s",
                     tx.GetHashMalFix().ToString(), FormatStateMessage(state));
             control.Add(std::move(vChecks));

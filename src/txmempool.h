@@ -845,7 +845,7 @@ struct CTxMempoolAcceptanceOptions {
     std::vector<CTransactionRef> txnReplaced;
     std::vector<COutPoint> coins_to_uncache;
     std::vector<COutPoint> missingInputs;
-    std::vector<const CTxMemPoolEntry >* submitPool;
+    std::vector<CTxMemPoolEntry >* submitPool;
 
     CTxMempoolAcceptanceOptions();
     ~CTxMempoolAcceptanceOptions() {
