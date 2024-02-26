@@ -131,23 +131,23 @@ class MempoolPackagesTest(BitcoinTestFramework):
             assert_equal(mempool[x], v_descendants[x])
         assert(chain[0] not in v_descendants.keys())
 
-        # Check that ancestor modified fees includes fee deltas from
+        # Check that ancestor modified fees 
+        # tapyrus does not allow prioritize transaction and so fee delta
         mempool = self.nodes[0].getrawmempool(True)
         ancestor_fees = 0
         for x in chain:
-            ancestor_fees += mempool[x]['fee']
-            assert_equal(mempool[x]['fees']['ancestor'], ancestor_fees + Decimal('0.00001'))
-            assert_equal(mempool[x]['ancestorfees'], ancestor_fees * COIN + 1000)
+            ancestor_fees =  ancestor_fees + mempool[x]['fee']
+            assert_equal(mempool[x]['fees']['ancestor'], ancestor_fees)
+            assert_equal(mempool[x]['ancestorfees'], ancestor_fees * COIN)
 
-
-        # Check that descendant modified fees includes fee deltas from
+        # Check that descendant modified fees
+        # tapyrus does not allow prioritize transaction and so fee delta
         mempool = self.nodes[0].getrawmempool(True)
-
         descendant_fees = 0
         for x in reversed(chain):
-            descendant_fees += mempool[x]['fee']
-            assert_equal(mempool[x]['fees']['descendant'], descendant_fees + Decimal('0.00001'))
-            assert_equal(mempool[x]['descendantfees'], descendant_fees * COIN + 1000)
+            descendant_fees  =  descendant_fees + mempool[x]['fee']
+            assert_equal(mempool[x]['fees']['descendant'], descendant_fees)
+            assert_equal(mempool[x]['descendantfees'], descendant_fees * COIN)
 
         # Adding one more transaction on to the chain should fail.
         assert_raises_rpc_error(-26, "too-long-mempool-chain", self.chain_transaction, self.nodes[0], txid, vout, value, fee, 1)
@@ -166,12 +166,12 @@ class MempoolPackagesTest(BitcoinTestFramework):
 
         descendant_fees = 0
         for x in reversed(chain):
-            descendant_fees += mempool[x]['fee']
+            descendant_fees = descendant_fees + mempool[x]['fee']
             if (x == chain[-1]):
-                assert_equal(mempool[x]['modifiedfee'], mempool[x]['fee']+tapyrus_round(0.00002))
-                assert_equal(mempool[x]['fees']['modified'], mempool[x]['fee']+tapyrus_round(0.00002))
-            assert_equal(mempool[x]['descendantfees'], descendant_fees * COIN + 2000)
-            assert_equal(mempool[x]['fees']['descendant'], descendant_fees+tapyrus_round(0.00002))
+                assert_equal(mempool[x]['modifiedfee'], mempool[x]['fee'])
+                assert_equal(mempool[x]['fees']['modified'], mempool[x]['fee'])
+            assert_equal(mempool[x]['descendantfees'], descendant_fees * COIN)
+            assert_equal(mempool[x]['fees']['descendant'], descendant_fees)
 
         # TODO: check that node1's mempool is as expected
 

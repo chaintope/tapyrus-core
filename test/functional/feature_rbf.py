@@ -17,7 +17,7 @@ MAX_REPLACEMENT_LIMIT = 100
 def txToHex(tx):
     return bytes_to_hex_str(tx.serialize())
 
-def make_utxo(node, amount, confirmed=True, scriptPubKey=CScript([1])):
+def make_utxo(node, amount, scheme, signblockprivkey_wif, confirmed=True, scriptPubKey=CScript([1])):
     """Create a txout with a given amount and scriptPubKey
 
     Mines coins as needed.
@@ -27,7 +27,7 @@ def make_utxo(node, amount, confirmed=True, scriptPubKey=CScript([1])):
     """
     fee = 1*COIN
     while node.getbalance() < tapyrus_round((amount + fee)/COIN):
-        node.generate(100, self.signblockprivkey_wif)
+        node.generate(100, signblockprivkey_wif)
 
     new_addr = node.getnewaddress()
     txid = node.sendtoaddress(new_addr, tapyrus_round((amount+fee)/COIN))
@@ -45,7 +45,7 @@ def make_utxo(node, amount, confirmed=True, scriptPubKey=CScript([1])):
     tx2.vout = [CTxOut(amount, scriptPubKey)]
     tx2.rehash()
 
-    signed_tx = node.signrawtransactionwithwallet(txToHex(tx2), [], "ALL", self.options.scheme)
+    signed_tx = node.signrawtransactionwithwallet(txToHex(tx2), [], "ALL", scheme)
 
     txid = node.sendrawtransaction(signed_tx['hex'], True)
 
@@ -53,7 +53,7 @@ def make_utxo(node, amount, confirmed=True, scriptPubKey=CScript([1])):
     if confirmed:
         mempool_size = len(node.getrawmempool())
         while mempool_size > 0:
-            node.generate(1, self.signblockprivkey_wif)
+            node.generate(1, signblockprivkey_wif)
             new_size = len(node.getrawmempool())
             # Error out if we have something stuck in the mempool, as this
             # would likely be a bug.
@@ -71,14 +71,16 @@ class ReplaceByFeeTest(BitcoinTestFramework):
                            "-limitancestorcount=50",
                            "-limitancestorsize=101",
                            "-limitdescendantcount=200",
-                           "-limitdescendantsize=101"],
-                           ["-mempoolreplacement=0"]]
+                           "-limitdescendantsize=101",
+                           "-txindex"],
+                           ["-mempoolreplacement=0",
+                            "-txindex"]]
 
     def run_test(self):
         # Leave IBD
         self.nodes[0].generate(1, self.signblockprivkey_wif)
 
-        make_utxo(self.nodes[0], 1*COIN)
+        make_utxo(self.nodes[0], 1*COIN, self.options.scheme, self.signblockprivkey_wif)
 
         # Ensure nodes are synced
         self.sync_all()
@@ -114,7 +116,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
 
     def test_simple_doublespend(self):
         """Simple doublespend"""
-        tx0_outpoint = make_utxo(self.nodes[0], int(1.1*COIN))
+        tx0_outpoint = make_utxo(self.nodes[0], int(1.1*COIN), self.options.scheme, self.signblockprivkey_wif)
 
         # make_utxo may have generated a bunch of blocks, so we need to sync
         # before we can spend the coins generated, or else the resulting
@@ -166,7 +168,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
         """Doublespend of a long chain"""
 
         initial_nValue = 50*COIN
-        tx0_outpoint = make_utxo(self.nodes[0], initial_nValue)
+        tx0_outpoint = make_utxo(self.nodes[0], initial_nValue, self.options.scheme, self.signblockprivkey_wif)
 
         prevout = tx0_outpoint
         remaining_value = initial_nValue
@@ -206,7 +208,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
         """Doublespend of a big tree of transactions"""
 
         initial_nValue = 50*COIN
-        tx0_outpoint = make_utxo(self.nodes[0], initial_nValue)
+        tx0_outpoint = make_utxo(self.nodes[0], initial_nValue, self.options.scheme, self.signblockprivkey_wif)
 
         def branch(prevout, initial_value, max_txs, tree_width=5, fee=0.0001*COIN, _total_txs=None):
             if _total_txs is None:
@@ -263,13 +265,13 @@ class ReplaceByFeeTest(BitcoinTestFramework):
 
         for tx in tree_txs:
             tx.rehash()
-            assert (tx.hash not in mempool)
+            assert (tx.hashMalFix not in mempool)
 
         # Try again, but with more total transactions than the "max txs
         # double-spent at once" anti-DoS limit.
         for n in (MAX_REPLACEMENT_LIMIT+1, MAX_REPLACEMENT_LIMIT*2):
             fee = int(0.0001*COIN)
-            tx0_outpoint = make_utxo(self.nodes[0], initial_nValue)
+            tx0_outpoint = make_utxo(self.nodes[0], initial_nValue, self.options.scheme, self.signblockprivkey_wif)
             tree_txs = list(branch(tx0_outpoint, initial_nValue, n, fee=fee))
             assert_equal(len(tree_txs), n)
 
@@ -282,11 +284,11 @@ class ReplaceByFeeTest(BitcoinTestFramework):
 
             for tx in tree_txs:
                 tx.rehash()
-                self.nodes[0].getrawtransaction(tx.hash)
+                self.nodes[0].getrawtransaction(tx.hashMalFix)
 
     def test_replacement_feeperkb(self):
         """Replacement requires fee-per-KB to be higher"""
-        tx0_outpoint = make_utxo(self.nodes[0], int(1.1*COIN))
+        tx0_outpoint = make_utxo(self.nodes[0], int(1.1*COIN), self.options.scheme, self.signblockprivkey_wif)
 
         tx1a = CTransaction()
         tx1a.vin = [CTxIn(tx0_outpoint, nSequence=0)]
@@ -296,18 +298,24 @@ class ReplaceByFeeTest(BitcoinTestFramework):
 
         # Higher fee, but the fee per KB is much lower, so the replacement is
         # rejected.
+        # large transaction with many outputs but within tapyrus script limits
         tx1b = CTransaction()
         tx1b.vin = [CTxIn(tx0_outpoint, nSequence=0)]
-        tx1b.vout = [CTxOut(int(0.001*COIN), CScript([b'a'*999000]))]
+        tx1b.vout.append(CTxOut(int(0.001*COIN), CScript([b'\x51'])))
+        current_size = 0
+        while current_size < 20:
+            script_output = CScript([b'\x6a', b'\x51' * (500) ]) #less than MAX_SCRIPT_ELEMENT_SIZE
+            current_size = current_size + 1
+            tx1b.vout.append(CTxOut(int(0.001*COIN), script_output))
         tx1b_hex = txToHex(tx1b)
-
+    
         # This will raise an exception due to insufficient fee
         assert_raises_rpc_error(-26, "insufficient fee", self.nodes[0].sendrawtransaction, tx1b_hex, True)
 
     def test_spends_of_conflicting_outputs(self):
         """Replacements that spend conflicting tx outputs are rejected"""
-        utxo1 = make_utxo(self.nodes[0], int(1.2*COIN))
-        utxo2 = make_utxo(self.nodes[0], 3*COIN)
+        utxo1 = make_utxo(self.nodes[0], int(1.2*COIN), self.options.scheme, self.signblockprivkey_wif)
+        utxo2 = make_utxo(self.nodes[0], 3*COIN, self.options.scheme, self.signblockprivkey_wif)
 
         tx1a = CTransaction()
         tx1a.vin = [CTxIn(utxo1, nSequence=0)]
@@ -346,8 +354,8 @@ class ReplaceByFeeTest(BitcoinTestFramework):
 
     def test_new_unconfirmed_inputs(self):
         """Replacements that add new unconfirmed inputs are rejected"""
-        confirmed_utxo = make_utxo(self.nodes[0], int(1.1*COIN))
-        unconfirmed_utxo = make_utxo(self.nodes[0], int(0.1*COIN), False)
+        confirmed_utxo = make_utxo(self.nodes[0], int(1.1*COIN), self.options.scheme, self.signblockprivkey_wif)
+        unconfirmed_utxo = make_utxo(self.nodes[0], int(0.1*COIN), self.options.scheme, self.signblockprivkey_wif, False)
 
         tx1 = CTransaction()
         tx1.vin = [CTxIn(confirmed_utxo)]
@@ -370,7 +378,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
 
         # Start by creating a single transaction with many outputs
         initial_nValue = 10*COIN
-        utxo = make_utxo(self.nodes[0], initial_nValue)
+        utxo = make_utxo(self.nodes[0], initial_nValue, self.options.scheme, self.signblockprivkey_wif)
         fee = int(0.0001*COIN)
         split_value = int((initial_nValue-fee)/(MAX_REPLACEMENT_LIMIT+1))
 
@@ -418,7 +426,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
 
     def test_opt_in(self):
         """Replacing should only work if orig tx opted in"""
-        tx0_outpoint = make_utxo(self.nodes[0], int(1.1*COIN))
+        tx0_outpoint = make_utxo(self.nodes[0], int(1.1*COIN), self.options.scheme, self.signblockprivkey_wif)
 
         # Create a non-opting in transaction
         tx1a = CTransaction()
@@ -436,7 +444,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
         # This will raise an exception
         assert_raises_rpc_error(-26, "txn-mempool-conflict", self.nodes[0].sendrawtransaction, tx1b_hex, True)
 
-        tx1_outpoint = make_utxo(self.nodes[0], int(1.1*COIN))
+        tx1_outpoint = make_utxo(self.nodes[0], int(1.1*COIN), self.options.scheme, self.signblockprivkey_wif)
 
         # Create a different non-opting in transaction
         tx2a = CTransaction()

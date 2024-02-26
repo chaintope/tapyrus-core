@@ -19,12 +19,11 @@ class NotificationsTest(BitcoinTestFramework):
         self.block_filename = os.path.join(self.options.tmpdir, "blocks.txt")
         self.tx_filename = os.path.join(self.options.tmpdir, "transactions.txt")
 
-        # -alertnotify and -blocknotify on node0, walletnotify on node1
-        self.extra_args = [["-blockfeatures=2",
-                            "-alertnotify=echo %%s >> %s" % self.alert_filename,
+        # -alertnotify on node0 is not triggered in tapyrus as we do not allow blocks with unsupported nfeatures. and large forks do not trigger alerts.
+        #  -blocknotify on node0, walletnotify on node1
+        self.extra_args = [["-alertnotify=echo %%s >> %s" % self.alert_filename,
                             "-blocknotify=echo %%s >> %s" % self.block_filename],
-                           ["-blockfeatures=211",
-                            "-rescan",
+                           ["-rescan",
                             "-walletnotify=echo %%s >> %s" % self.tx_filename]]
         super().setup_network()
 
@@ -61,27 +60,6 @@ class NotificationsTest(BitcoinTestFramework):
         txids_rpc = list(map(lambda t: t['txid'], self.nodes[1].listtransactions(block_count)))
         with open(self.tx_filename, 'r', encoding="ascii") as f:
             assert_equal(sorted(txids_rpc), sorted(l.strip() for l in f.read().splitlines()))
-
-        # Mine another 41 up-version blocks. -alertnotify should trigger on the 51st.
-        self.log.info("test -alertnotify")
-        self.nodes[1].generate(41, self.signblockprivkey_wif)
-        self.sync_all()
-
-        # Give bitcoind 10 seconds to write the alert notification
-        wait_until(lambda: os.path.isfile(self.alert_filename) and os.path.getsize(self.alert_filename), timeout=10)
-
-        with open(self.alert_filename, 'r', encoding='utf8') as f:
-            alert_text = f.read()
-
-        # Mine more up-version blocks, should not get more alerts:
-        self.nodes[1].generate(2, self.signblockprivkey_wif)
-        self.sync_all()
-
-        with open(self.alert_filename, 'r', encoding='utf8') as f:
-            alert_text2 = f.read()
-
-        self.log.info("-alertnotify should not continue notifying for more unknown version blocks")
-        assert_equal(alert_text, alert_text2)
 
 if __name__ == '__main__':
     NotificationsTest().main()

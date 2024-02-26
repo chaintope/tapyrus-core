@@ -14,12 +14,18 @@ if uploadtarget has been reached.
 from collections import defaultdict
 import time
 
-from test_framework.messages import CInv, msg_getdata
-from test_framework.mininode import P2PInterface
+from test_framework.blocktools import createTestGenesisBlock
+from test_framework.messages import CInv, msg_getdata, ToHex
+from test_framework.mininode import P2PDataStore
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, mine_large_block
+from test_framework.util import assert_equal, hex_str_to_bytes, connect_nodes_bi
+from test_framework.script import CScript
+from test_framework.messages import CTransaction, CTxOut, CTxIn, COutPoint, COIN, MSG_TX, MSG_TYPE_MASK, MSG_BLOCK, msg_block, msg_tx
 
-class TestP2PConn(P2PInterface):
+MAX_SCRIPT_SIZE = 10000
+MAX_SCRIPT_ELEMENT_SIZE = 520
+
+class TestP2PConn(P2PDataStore):
     def __init__(self, time_to_connect):
         super().__init__(time_to_connect)
         self.block_receive_map = defaultdict(int)
@@ -33,21 +39,49 @@ class TestP2PConn(P2PInterface):
 
 class MaxUploadTest(BitcoinTestFramework):
 
+    def mine_large_block(self, node, utxos):
+        self.send_txs_for_large_block(node, utxos)
+        blockhex = node.generate(1, self.signblockprivkey_wif)
+
+    def send_txs_for_large_block(self, node, utxos, size=1000000):
+        current_size = 0
+        i = 0
+        while size - current_size > MAX_SCRIPT_SIZE and i < len(utxos):
+            spend_addr = node.gettransaction(utxos[i]['txid'])['details'][0]['address']
+            scr = node.getaddressinfo(spend_addr)['scriptPubKey']
+            tx = self.create_tx_with_large_script(int(utxos[i]['txid'], 16), 0, CScript(hex_str_to_bytes(scr)))
+            tx_raw = ToHex(tx)
+            current_size = current_size + len(tx_raw)
+            tx_signed = node.signrawtransactionwithwallet(tx_raw)
+            status = node.sendrawtransaction(tx_signed['hex'], True)
+            i = i + 1
+
+    def create_tx_with_large_script(self, prevtx, n, scriptPubKey):
+        tx = CTransaction()
+        tx.vin.append(CTxIn(COutPoint(prevtx, n), b"", 0xffffffff))
+        tx.vout.append(CTxOut(48*COIN, scriptPubKey))
+        current_size = 0
+        script_output = CScript([b''])
+        while  MAX_SCRIPT_SIZE - current_size  > MAX_SCRIPT_ELEMENT_SIZE:
+            script_output = script_output + CScript([b'\x6a', b'\x51' * (MAX_SCRIPT_ELEMENT_SIZE - 5) ])
+            current_size = current_size + MAX_SCRIPT_ELEMENT_SIZE
+        tx.vout.append(CTxOut(1*COIN, script_output))
+        tx.calc_sha256()
+        return tx
+
     def set_test_params(self):
         self.setup_clean_chain = True
-        self.num_nodes = 1
-        self.extra_args = [["-maxuploadtarget=800"]]
-
-        # Cache for utxos, as the listunspent may take a long time later in the test
-        self.utxo_cache = []
-
-    def run_test(self):
+        self.num_nodes = 2
+        self.extra_args = [["-maxuploadtarget=800"], ["-maxuploadtarget=800"]]
         # Before we connect anything, we first set the time on the node
         # to be in the past, otherwise things break because the CNode
         # time counters can't be reset backward after initialization
-        old_time = int(time.time() - 2*60*60*24*7)
-        self.nodes[0].setmocktime(old_time)
+        self.mocktime =  int(time.time() - 2*60*60*24*7)
+        self.genesisBlock =  createTestGenesisBlock(self.signblockpubkey, self.signblockprivkey, self.mocktime)
 
+        self.utxo_cache = []
+
+    def run_test(self):
         # Generate some old blocks
         self.nodes[0].generate(31, self.signblockprivkey_wif)
 
@@ -57,10 +91,10 @@ class MaxUploadTest(BitcoinTestFramework):
         p2p_conns = []
 
         for _ in range(3):
-            p2p_conns.append(self.nodes[0].add_p2p_connection(TestP2PConn(self.nodes[0].time_to_connect)))
+            p2p_conns.append(self.nodes[0].add_p2p_connection(TestP2PConn(self.nodes[1].time_to_connect)))
 
         # Now mine a big block
-        mine_large_block(self.nodes[0], self.utxo_cache)
+        self.mine_large_block(self.nodes[0], self.utxo_cache)
 
         # Store the hash; we'll request this later
         big_old_block = self.nodes[0].getbestblockhash()
@@ -70,8 +104,11 @@ class MaxUploadTest(BitcoinTestFramework):
         # Advance to two days ago
         self.nodes[0].setmocktime(int(time.time()) - 2*60*60*24)
 
+        self.nodes[0].generate(31, self.signblockprivkey_wif)
+
         # Mine one more block, so that the prior block looks old
-        mine_large_block(self.nodes[0], self.utxo_cache)
+        self.utxo_cache = [i for i in  self.nodes[0].listunspent() if i['amount'] > 49 * COIN]
+        self.mine_large_block(self.nodes[0], self.utxo_cache)
 
         # We'll be requesting this new block too
         big_new_block = self.nodes[0].getbestblockhash()

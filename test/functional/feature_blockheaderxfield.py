@@ -44,7 +44,7 @@ class BlockHeaderXFieldTest(BitcoinTestFramework):
     def createblockproof(self, block, signblockprivkey):
         # create block proof with xField for all xfieldTypes
         r = b""
-        r += struct.pack("<i", block.nVersion)
+        r += struct.pack("<i", block.nFeatures)
         r += ser_uint256(block.hashPrevBlock)
         r += ser_uint256(block.hashMerkleRoot)
         r += ser_uint256(block.hashImMerkleRoot)
@@ -57,7 +57,7 @@ class BlockHeaderXFieldTest(BitcoinTestFramework):
 
     def serializeblock_err(self, block):
         r = b""
-        r += struct.pack("<i", block.nVersion)
+        r += struct.pack("<i", block.nFeatures)
         r += ser_uint256(block.hashPrevBlock)
         r += ser_uint256(block.hashMerkleRoot)
         r += ser_uint256(block.hashImMerkleRoot)
@@ -94,30 +94,31 @@ class BlockHeaderXFieldTest(BitcoinTestFramework):
 
         node.p2p.send_blocks_and_test([block], node, success=False, request_block=False)
 
-        self.log.info("Incorrect xfield with xfieldType = 1")
+        self.log.info("Valid xfield with xfieldType = 1")
         block = create_block(int(self.tip, 16), create_coinbase(1), block_time)
         block.xfieldType = 1
-        block.xfield = b'1' 
+        block.xfield = hex_str_to_bytes(self.signblockpubkey) 
         self.createblockproof(block, self.signblockprivkey)
 
-        node.p2p.send_blocks_and_test([block], node, success=False, request_block=False, reject_code=16, reject_reason="bad-xfieldType-xfield")
+        node.p2p.send_blocks_and_test([block], node, success=True, request_block=True)
+        assert_equal(block.hash, node.getbestblockhash())
 
-        blockchaininfo = node.getblockchaininfo()
-        assert_equal(blockchaininfo['warnings'], "This is a pre-release test build - use at your own risk - do not use for mining or merchant applications")
-
-        self.log.info("Incorrect xfield with xfieldType = 2")
+        self.log.info("Valid xfield with xfieldType = 2")
         block = create_block(int(self.tip, 16), create_coinbase(1), block_time)
         block.xfieldType = 2
+        block.xfield = b'ffff'
+        self.createblockproof(block, self.signblockprivkey)
+
+        node.p2p.send_blocks_and_test([block], node, success=True, request_block=True)
+        assert_equal(block.hash, node.getbestblockhash())
+
+        self.log.info("Valid xfield with xfieldType = 3")
+        block = create_block(int(self.tip, 16), create_coinbase(1), block_time)
+        block.xfieldType = 3
         block.xfield = b'1'
         self.createblockproof(block, self.signblockprivkey)
 
-        assert_raises_rpc_error(-22, "", node.submitblock, bytes_to_hex_str(self.serializeblock_err(block)))
-
-        blockchaininfo = node.getblockchaininfo()
-        assert_equal(blockchaininfo['warnings'], "This is a pre-release test build - use at your own risk - do not use for mining or merchant applications")
-
-        self.log.info("Valid xfield with xfieldType = 2")
-        node.p2p.send_blocks_and_test([block], node, True, True)
+        node.p2p.send_blocks_and_test([block], node, success=True, request_block=True)
         assert_equal(block.hash, node.getbestblockhash())
 
         blockchaininfo = node.getblockchaininfo()

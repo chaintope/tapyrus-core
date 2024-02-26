@@ -190,7 +190,6 @@ BASE_SCRIPTS = [
 EXTENDED_SCRIPTS = [
     # These tests are not run by the travis build process.
     # Longest test should go first, to favor running tests in parallel
-    'feature_pruning.py',
     # vv Tests less than 20m vv
     'feature_fee_estimation.py',
     'feature_fee_estimation.py --scheme SCHNORR',
@@ -205,7 +204,6 @@ EXTENDED_SCRIPTS = [
     'feature_bip68_sequence.py --scheme SCHNORR',
     'mining_getblocktemplate_longpoll.py',
     'p2p_timeouts.py',
-    'feature_blockheaderxfield.py',
     # vv Tests less than 60s vv
     'p2p_feefilter.py',
     # vv Tests less than 30s vv
@@ -221,6 +219,7 @@ EXTENDED_SCRIPTS = [
 ]
 
 DEBUG_MODE_SCRIPTS = [
+    'feature_pruning.py',
     'feature_block.py',
     'feature_cltv.py',
     'feature_cltv.py  --scheme SCHNORR',

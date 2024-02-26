@@ -132,7 +132,7 @@ class ExampleTest(BitcoinTestFramework):
         """Main test logic"""
 
         # Create P2P connections will wait for a verack to make sure the connection is fully up
-        peer_messaging = self.nodes[0].add_p2p_connection(BaseNode())
+        peer_messaging = self.nodes[0].add_p2p_connection(BaseNode(self.nodes[0].time_to_connect))
 
         # Generating a block on one of the nodes will get us out of IBD
         blocks = [int(self.nodes[0].generate(1, self.signblockprivkey_wif)[0], 16)]
@@ -184,7 +184,7 @@ class ExampleTest(BitcoinTestFramework):
         self.log.info("Add P2P connection to node2")
         self.nodes[0].disconnect_p2ps()
 
-        self.nodes[2].add_p2p_connection(BaseNode())
+        self.nodes[2].add_p2p_connection(BaseNode(self.nodes[2].time_to_connect))
 
         self.log.info("Wait for node2 reach current tip. Test that it has propagated all the blocks to us")
 
