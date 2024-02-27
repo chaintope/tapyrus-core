@@ -1,6 +1,4 @@
-#!/usr/bin/env python3
-# Copyright (c) 2014-2018 The Bitcoin Core developers
-# Copyright (c) 2019 Chaintope Inc.
+# Copyright (c) 2014-2019 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test logic for skipping signature validation on old blocks.
@@ -15,17 +13,22 @@ transactions:
     1:        block 1 with coinbase transaction output.
     2:      a block containing a transaction spending the coinbase
               transaction output. The transaction has an invalid signature.
-    3-202: bury the bad block with 200 blocks
+    3-6102: bury the bad block with 6100 blocks:
+               block time of the best block is 60 * 60 * 24 * 7 * 2 more than block2
 
-Start 2 nodes:
+Start three nodes:
 
-    - node0 has no -assumevalid parameter. Try to sync to block 202. It will
+    - node0 has no -assumevalid parameter. Try to sync to block 6102. It will
       reject block 2 and only sync as far as block 1
     - node1 has -assumevalid set to the hash of block 2. Try to sync to
-      block 202. node1 will sync all the way to block 202.
+      block 6102. node1 will sync all the way to block 6102.
+    - node2 has -assumevalid set to the hash of block 2. Try to sync to
+      block 200. node2 will reject block 2 since it's assumed valid, but it
+      isn't buried by at least two weeks' work.
 """
 import time
 
+from test_framework.blocktools import createTestGenesisBlock
 from test_framework.blocktools import (create_block, create_coinbase)
 from test_framework.key import CECKey
 from test_framework.messages import (
@@ -51,10 +54,15 @@ class BaseNode(P2PInterface):
 class AssumeValidTest(BitcoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
-        self.num_nodes = 2
+        self.num_nodes = 3
+        self.genesistime =  int(time.time() - 3*60*60*24*7) #  3 weeks
+        self.genesisBlock =  createTestGenesisBlock(self.signblockpubkey, self.signblockprivkey, self.genesistime)
+
+        # Need a bit of extra time when running with the thread sanitizer
+        self.rpc_timeout = 120
 
     def setup_network(self):
-        self.add_nodes(2)
+        self.add_nodes(3)
         # Start node0. We don't start the other nodes yet since
         # we need to pre-mine a block with an invalid transaction
         # signature so we can pass in the block hash as assumevalid.
@@ -88,8 +96,6 @@ class AssumeValidTest(BitcoinTestFramework):
                 assert False, "blockchain too long: %d" % current_height
             elif current_height == height:
                 break
-            else:
-                assert False, "blockchain not progressing: %d" % current_height
 
     def run_test(self):
         p2p0 = self.nodes[0].add_p2p_connection(BaseNode(self.nodes[0].time_to_connect))
@@ -97,7 +103,7 @@ class AssumeValidTest(BitcoinTestFramework):
 
         # Build the blockchain
         self.tip = int(self.nodes[0].getbestblockhash(), 16)
-        self.block_time = self.nodes[0].getblock(self.nodes[0].getbestblockhash())['time'] + 1
+        self.block_time = self.nodes[0].getblock(self.nodes[0].getbestblockhash())['time'] + 1000
 
         self.blocks = []
 
@@ -134,44 +140,57 @@ class AssumeValidTest(BitcoinTestFramework):
         block2.rehash()
         self.blocks.append(block2)
         self.tip = block2.sha256
-        self.block_time += 1
         height += 1
 
-        # Bury the assumed valid block 200 deep
-        for i in range(200):
+        # Bury the assumed valid block 2 weeks worth of blocks deep i.e
+        # block time of the best block is 60 * 60 * 24 * 7 * 2 more than block2
+        for i in range(6100):
             block = create_block(self.tip, create_coinbase(height), self.block_time)
             block.hashMerkleRoot = block.calc_merkle_root()
             block.hashImMerkleRoot = block.calc_immutable_merkle_root()
             block.solve(self.signblockprivkey)
             self.blocks.append(block)
             self.tip = block.sha256
-            self.block_time += 1
+            self.block_time += 200
             height += 1
 
         self.nodes[0].disconnect_p2ps()
 
-        # Start node1 and node2 with assumevalid so they accept a block with a bad signature.
-        self.start_node(1, extra_args=["-assumevalid=" + hex(block2.sha256)])
+        # Start node1 and node2 with assumevalid so they accept a block with a
+        # bad signature.
+        self.start_node(1, extra_args=[f"-assumevalid={block2.hash}"])
+        self.start_node(2, extra_args=[f"-assumevalid={block2.hash}"])
 
         p2p0 = self.nodes[0].add_p2p_connection(BaseNode(self.nodes[0].time_to_connect))
-        p2p1  = self.nodes[1].add_p2p_connection(BaseNode(self.nodes[1].time_to_connect))
+        p2p1 = self.nodes[1].add_p2p_connection(BaseNode(self.nodes[1].time_to_connect))
+        p2p2 = self.nodes[2].add_p2p_connection(BaseNode(self.nodes[2].time_to_connect))
 
         # send header lists to all three nodes
-        p2p0.send_header_for_blocks(self.blocks[0:200])
-        p2p0.send_header_for_blocks(self.blocks[200:])
-        p2p1.send_header_for_blocks(self.blocks[0:200])
-        p2p1.send_header_for_blocks(self.blocks[200:])
+        p2p0.send_header_for_blocks(self.blocks[0:2000])
+        p2p0.send_header_for_blocks(self.blocks[2000:4000])
+        p2p0.send_header_for_blocks(self.blocks[4000:6000])
+        p2p0.send_header_for_blocks(self.blocks[6000:])
+        p2p1.send_header_for_blocks(self.blocks[0:2000])
+        p2p1.send_header_for_blocks(self.blocks[2000:4000])
+        p2p1.send_header_for_blocks(self.blocks[4000:6000])
+        p2p1.send_header_for_blocks(self.blocks[6000:])
+        p2p2.send_header_for_blocks(self.blocks[0:200])
 
         # Send blocks to node0. Block 2 will be rejected.
         self.send_blocks_until_disconnected(p2p0)
         self.assert_blockchain_height(self.nodes[0], 1)
 
         # Send all blocks to node1. All blocks will be accepted.
-        for i in range(202):
+        for i in range(6102):
             p2p1.send_message(msg_block(self.blocks[i]))
-            if i < 2:
-                time.sleep(5)
-        assert_equal(self.nodes[1].getblock(self.nodes[1].getbestblockhash())['height'], 202)
+        # Syncing 6100 blocks can take a while on slow systems. Give it plenty
+        # of time to sync.
+        p2p1.sync_with_ping(120)
+        assert_equal(self.nodes[1].getblock(self.nodes[1].getbestblockhash())["height"], 6102)
+
+        # Send blocks to node2. Block 2 will be rejected.
+        self.send_blocks_until_disconnected(p2p2)
+        self.assert_blockchain_height(self.nodes[2], 1)
 
 
 if __name__ == '__main__':
