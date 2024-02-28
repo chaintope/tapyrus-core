@@ -5,9 +5,9 @@ on: [push, pull_request]
 jobs:
   arm:
     name: "ARM"
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
       - run: |
@@ -38,9 +38,9 @@ jobs:
 
   win64:
     name: "WIN64"
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
       - run: |
@@ -72,10 +72,10 @@ jobs:
   build_x86_linux_no_gui_debug:
     name: x86 Linux, No GUI, Debug
 
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
       - name: Build debug
@@ -95,10 +95,10 @@ jobs:
   build_x86_linux_no_gui_release:
     name: x86 Linux, No GUI, Release
 
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
       - name: Build release
@@ -117,9 +117,9 @@ jobs:
 
   linux-with-qt:
     name: "x86_64 Linux (uses qt5 dev package instead of depends Qt to speed up build and avoid timeout)"
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
       - run: |
@@ -136,9 +136,9 @@ jobs:
 
   linux-with-qt-and-system-lib:
     name: "x86_64 Linux (Qt5 & system libs)"
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
       - run: |
@@ -154,9 +154,9 @@ jobs:
 
   linux-no-wallet:
     name: "x86_64 Linux, No wallet"
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
       - run: |
@@ -172,9 +172,9 @@ jobs:
 
   cross-mac_debug:
     name: Cross Mac Debug
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
       - run: |
@@ -188,9 +188,9 @@ jobs:
           bash -xe ./build-test.sh
   cross-mac_release:
     name: Cross Mac Release
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
       - run: |
@@ -206,10 +206,10 @@ jobs:
   lint:
     name: "[PARTIAL_PENDING]lint"
 
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
       - name: Build
