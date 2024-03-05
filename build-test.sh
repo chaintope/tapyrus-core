@@ -28,7 +28,7 @@ mkdir build && cd build
 ../configure --cache-file=config.cache $BITCOIN_CONFIG_ALL $BITCOIN_CONFIG || ( cat config.log && false)
 make distdir VERSION=$HOST
 cd tapyrus-core-$HOST
-./configure --cache-file=../config.cache $BITCOIN_CONFIG_ALL $BITCOIN_CONFIG || ( cat config.log && false)
+env CONFIG_SITE="${BASEPREFIX}/${HOST}/share/config.site" ./configure --cache-file=../config.cache $BITCOIN_CONFIG_ALL $BITCOIN_CONFIG || ( cat config.log && false)
 make $MAKEJOBS $GOAL || ( echo "Build failure. Verbose build follows." && make $GOAL V=1 ; false )
 if [ "$RUN_TESTS" = "true" ]; then LD_LIBRARY_PATH=${GITHUB_WORKSPACE}/depends/$HOST/lib make $MAKEJOBS check VERBOSE=1; fi
 if [ "$RUN_BENCH" = "true" ]; then LD_LIBRARY_PATH=${GITHUB_WORKSPACE}/depends/$HOST/lib $OUTDIR/bin/bench_tapyrus -scaling=0.001 ; fi

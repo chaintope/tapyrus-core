@@ -1,7 +1,7 @@
 # Copyright (c) 2017 The Bitcoin developers
 
 set(CMAKE_SYSTEM_NAME Darwin)
-set(TOOLCHAIN_PREFIX x86_64-apple-darwin11)
+set(TOOLCHAIN_PREFIX x86_64-apple-darwin)
 
 # On OSX, we use clang by default.
 set(CMAKE_C_COMPILER clang)
