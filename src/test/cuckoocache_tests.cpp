@@ -6,6 +6,7 @@
 #include <cuckoocache.h>
 #include <script/sigcache.h>
 #include <test/test_tapyrus.h>
+#include <deque>
 #include <random.h>
 #include <thread>
 
