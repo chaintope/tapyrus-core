@@ -76,7 +76,9 @@ class MultiWalletTest(BitcoinTestFramework):
             assert_equal(os.path.isfile(wallet_file(wallet_name)), True)
 
         # should not initialize if wallet path can't be created
-        exp_stderr = "(The system cannot find the path specified|Not a directory|File exists):"
+        # boost::filesystem gives  different  error strings  in  debug  mode  and release  mode  
+        # so  we just verify  that the error is from boost::file_system
+        exp_stderr = "boost::filesystem::"
         self.nodes[0].assert_start_raises_init_error(['-wallet=wallet.dat/bad'], exp_stderr, match=ErrorMatch.PARTIAL_REGEX)
 
         self.nodes[0].assert_start_raises_init_error(['-walletdir=wallets'], 'Error: Specified -walletdir "wallets" does not exist')
