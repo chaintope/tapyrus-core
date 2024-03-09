@@ -32,7 +32,7 @@ jobs:
           DEP_OPTS="NO_QT=1" \
           PACKAGES="python3 nsis g++-mingw-w64-x86-64 wine-binfmt wine64" \
           GOAL="install" \
-          BITCOIN_CONFIG="--enable-reduce-exports" \
+          BITCOIN_CONFIG="--enable-reduce-exports --disable-shared" \
           bash -xe ./build-test.sh
 
   build_x86_linux_no_gui_debug:
