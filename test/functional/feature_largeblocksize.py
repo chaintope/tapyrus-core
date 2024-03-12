@@ -15,12 +15,8 @@ from test_framework.blocktools import create_block, create_coinbase
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, connect_nodes
 from test_framework.mininode import P2PDataStore
-from test_framework.script import CScript, OP_TRUE, SignatureHash, SIGHASH_ALL
+from test_framework.script import CScript, MAX_SCRIPT_SIZE, MAX_SCRIPT_ELEMENT_SIZE
 from test_framework.messages import CTransaction, CTxOut, CTxIn, COutPoint, ser_compact_size, COIN
-
-MAX_SCRIPT_SIZE = 10000
-MAX_SCRIPT_ELEMENT_SIZE = 520
-SCR_SIZE = len(ser_compact_size(MAX_SCRIPT_SIZE))
 
 reverse_bytes = (lambda txid  : txid[-1: -len(txid)-1: -1])
 

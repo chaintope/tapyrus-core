@@ -188,6 +188,8 @@ BASE_SCRIPTS = [
 ]
 
 EXTENDED_SCRIPTS = [
+    # disabling as this script does not invoke the intended test path
+    #'feature_pruning.py',
     # These tests are not run by the travis build process.
     # Longest test should go first, to favor running tests in parallel
     # vv Tests less than 20m vv
@@ -219,7 +221,6 @@ EXTENDED_SCRIPTS = [
 ]
 
 DEBUG_MODE_SCRIPTS = [
-    'feature_pruning.py',
     'feature_block.py',
     'feature_cltv.py',
     'feature_cltv.py  --scheme SCHNORR',

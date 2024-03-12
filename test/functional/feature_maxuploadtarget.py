@@ -19,11 +19,9 @@ from test_framework.messages import CInv, msg_getdata, ToHex
 from test_framework.mininode import P2PInterface
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, hex_str_to_bytes, connect_nodes_bi
-from test_framework.script import CScript
+from test_framework.script import CScript, MAX_SCRIPT_ELEMENT_SIZE, MAX_SCRIPT_SIZE
 from test_framework.messages import CTransaction, CTxOut, CTxIn, COutPoint, COIN, MSG_TX, MSG_TYPE_MASK, MSG_BLOCK, msg_block, msg_tx
 
-MAX_SCRIPT_SIZE = 10000
-MAX_SCRIPT_ELEMENT_SIZE = 520
 
 class TestP2PConn(P2PInterface):
     def __init__(self, time_to_connect):
