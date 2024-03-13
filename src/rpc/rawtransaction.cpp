@@ -1177,8 +1177,8 @@ static UniValue sendrawtransaction(const JSONRPCRequest& request)
 
 static void encodePackageResult(bool success, const PackageValidationState& pkg_results, CValidationState& state, UniValue& result)
 {
-    UniValue result_0(UniValue::VOBJ);
     if(success && ArePackageTransactionsAccepted(pkg_results)) {
+        UniValue result_0(UniValue::VOBJ);
         for (const auto& r : pkg_results) {
             result_0.pushKV("allowed", true);
             result.pushKV(r.first.GetHex(), result_0);
@@ -1189,6 +1189,7 @@ static void encodePackageResult(bool success, const PackageValidationState& pkg_
         result.pushKV("reject-reason", strprintf("%i: %s", state.GetRejectCode(), state.GetRejectReason()));
     } else {
         for (const auto& r : pkg_results) {
+            UniValue result_0(UniValue::VOBJ);
             if(r.second.IsInvalid() || r.second.IsError()) {
                 result_0.pushKV("allowed", false);
                 result_0.pushKV("reject-reason", strprintf("%i: %s", r.second.GetRejectCode(), r.second.GetRejectReason()));
