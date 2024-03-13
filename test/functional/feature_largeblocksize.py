@@ -20,6 +20,8 @@ from test_framework.messages import CTransaction, CTxOut, CTxIn, COutPoint, ser_
 
 reverse_bytes = (lambda txid  : txid[-1: -len(txid)-1: -1])
 
+SCR_SIZE = len(ser_compact_size(MAX_SCRIPT_SIZE))
+
 # TestP2PConn: A peer we use to send messages to bitcoind, and store responses.
 class TestP2PConn(P2PDataStore):
     def __init__(self, time_to_connect):
