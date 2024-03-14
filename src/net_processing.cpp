@@ -32,6 +32,7 @@
 #include <util.h>
 #include <trace.h>
 #include <validation.h>
+#include <file_io.h>
 
 #include <memory>
 #include <array>

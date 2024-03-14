@@ -93,9 +93,11 @@ BITCOIN_CORE_H = \
   bech32.h \
   bloom.h \
   blockencodings.h \
+  blockprune.h \
   chain.h \
   chainparams.h \
   chainparamsseeds.h \
+  chainstate.h \
   checkpoints.h \
   checkqueue.h \
   clientversion.h \
@@ -106,12 +108,15 @@ BITCOIN_CORE_H = \
   compat/endian.h \
   compat/sanity.h \
   compressor.h \
+  connecttrace.h \
   consensus/consensus.h \
   consensus/tx_verify.h \
   core_io.h \
   core_memusage.h \
+  cs_main.h \
   cuckoocache.h \
   federationparams.h \
+  file_io.h \
   fs.h \
   httprpc.h \
   httpserver.h \
@@ -157,6 +162,7 @@ BITCOIN_CORE_H = \
   rpc/register.h \
   rpc/util.h \
   scheduler.h \
+  scriptcheck.h \
   script/descriptor.h \
   script/ismine.h \
   script/sigcache.h \
@@ -175,6 +181,7 @@ BITCOIN_CORE_H = \
   threadinterrupt.h \
   timedata.h \
   torcontrol.h \
+  trace.h \
   txdb.h \
   txmempool.h \
   ui_interface.h \
@@ -197,8 +204,8 @@ BITCOIN_CORE_H = \
   wallet/walletutil.h \
   wallet/coinselection.h \
   warnings.h \
+  verifydb.h \
   xfieldhistory.h \
-  trace.h \
   zmq/zmqabstractnotifier.h \
   zmq/zmqconfig.h\
   zmq/zmqnotificationinterface.h \
@@ -220,9 +227,13 @@ libtapyrus_server_a_SOURCES = \
   addrman.cpp \
   bloom.cpp \
   blockencodings.cpp \
+  blockprune.cpp \
   chain.cpp \
+  chainstate.cpp \
   checkpoints.cpp \
   consensus/tx_verify.cpp \
+  cs_main.cpp \
+  file_io.cpp \
   httprpc.cpp \
   httpserver.cpp \
   index/base.cpp \
@@ -255,6 +266,7 @@ libtapyrus_server_a_SOURCES = \
   txmempool.cpp \
   ui_interface.cpp \
   validation.cpp \
+  verifydb.cpp \
   validationinterface.cpp \
   $(BITCOIN_CORE_H)
 
