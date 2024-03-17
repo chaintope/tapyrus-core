@@ -8,6 +8,7 @@ if ENABLE_MAN
 SUBDIRS += doc/man
 endif
 .PHONY: deploy FORCE
+.INTERMEDIATE: $(COVERAGE_INFO)
 
 export PYTHONPATH
 
@@ -132,10 +133,8 @@ $(APP_DIST_DIR)/Applications:
 	@rm -f $@
 	@cd $(@D); $(LN_S) /Applications $(@F)
 
-$(APP_DIST_EXTRAS): $(APP_DIST_DIR)/$(OSX_APP)/Contents/MacOS/Tapyrus-Qt
-
 $(OSX_DMG): deploydir
-	$(XORRISOFS) -D -l -V "$(OSX_VOLNAME)" -no-pad -r -dir-mode 0755 -o $@ dist
+	$(XORRISOFS) -D -l -V "$(OSX_VOLNAME)" -no-pad -r -dir-mode 0755 -o $@ $(APP_DIST_DIR)
 
 dpi%.$(OSX_BACKGROUND_IMAGE): contrib/macdeploy/$(OSX_BACKGROUND_SVG)
 	sed 's/PACKAGE_NAME/$(PACKAGE_NAME)/' < "$<" | $(RSVG_CONVERT) -f png -d $* -p $* | $(IMAGEMAGICK_CONVERT) - $@
@@ -150,12 +149,13 @@ $(APP_DIST_DIR)/.DS_Store: $(OSX_DSSTORE_GEN)
 $(APP_DIST_DIR)/$(OSX_APP)/Contents/MacOS/Tapyrus-Qt: $(OSX_APP_BUILT) $(OSX_PACKAGING)
 	INSTALLNAMETOOL=$(INSTALLNAMETOOL)  OTOOL=$(OTOOL) STRIP=$(STRIP) $(PYTHON) $(OSX_DEPLOY_SCRIPT) $(OSX_APP) -translations-dir=$(QT_TRANSLATION_DIR) -add-qt-tr $(OSX_QT_TRANSLATIONS) -verbose 2
 
-deploydir: $(APP_DIST_EXTRAS)
+deploydir: $(APP_DIST_DIR)/$(OSX_APP)/Contents/MacOS/Tapyrus-Qt 
 endif
 
 if TARGET_DARWIN
 deploy: $(OSX_DMG)
 endif
+
 if TARGET_WINDOWS
 deploy: $(BITCOIN_WIN_INSTALLER)
 endif
@@ -298,8 +298,6 @@ EXTRA_DIST += \
 
 CLEANFILES = $(OSX_DMG) $(BITCOIN_WIN_INSTALLER)
 
-.INTERMEDIATE: $(COVERAGE_INFO)
-
 DISTCHECK_CONFIGURE_FLAGS = --enable-man
 
 doc/doxygen/.stamp: doc/Doxyfile FORCE
@@ -320,4 +318,5 @@ clean-docs:
 clean-local: clean-docs
 	rm -rf coverage_percent.txt ttest_tapyrus.coverage/ total.coverage/ test/tmp/ cache/ $(OSX_APP)
 	rm -rf test/functional/__pycache__ test/functional/test_framework/__pycache__ test/cache
+	rm -rf osx_volname dist/
 
