@@ -9,7 +9,7 @@ set(CMAKE_CXX_COMPILER clang++)
 # set(CMAKE_CXX_EXTENSIONS OFF)
 
 # On OSX we use various stuff from Apple's SDK.
-set(OSX_SDK_PATH "${CMAKE_CURRENT_SOURCE_DIR}/depends/SDKs/MacOSX10.11.sdk")
+set(OSX_SDK_PATH "${CMAKE_CURRENT_SOURCE_DIR}/depends/SDKs/MacOSX10.14.sdk")
 
 # target environment on the build host system
 #   set 1st to dir with the cross compiler's C/C++ headers/libs
