@@ -32,7 +32,7 @@ class BIP68Test(BitcoinTestFramework):
         self.nodes[0].generate(11, self.signblockprivkey_wif)
 
         self.log.info("Running test sequence-lock-confirmed-inputs")
-        #self.test_sequence_lock_confirmed_inputs()
+        self.test_sequence_lock_confirmed_inputs()
 
         self.log.info("Running test sequence-lock-unconfirmed-inputs")
         self.test_sequence_lock_unconfirmed_inputs()
