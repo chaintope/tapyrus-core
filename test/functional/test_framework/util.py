@@ -534,7 +534,7 @@ def gen_return_txouts():
     # Some pre-processing to create a bunch of OP_RETURN txouts to insert into transactions we create
     # So we have big transactions (and therefore can't fit very many into each block)
     # create one script_pubkey
-    script_pubkey = "754d0200"  # OP_DROP OP_PUSH2 512 bytes
+    script_pubkey = "6a4d0200"  # OP_RETURN OP_PUSH2 512 bytes
     for i in range(512):
         script_pubkey = script_pubkey + "01"
     # concatenate 128 txouts of above script_pubkey which we'll insert before the txout for change
@@ -558,7 +558,7 @@ def create_lots_of_big_transactions(node, txouts, utxos, num, fee):
         t = utxos.pop()
         inputs = [{"txid": t["txid"], "vout": t["vout"]}]
         outputs = {}
-        change = t['amount'] - fee - 10
+        change = t['amount'] - fee
         outputs[addr] = tapyrus_round(change)
         rawtx = node.createrawtransaction(inputs, outputs)
         newtx = rawtx[0:92]
