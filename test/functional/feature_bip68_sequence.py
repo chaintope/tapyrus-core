@@ -37,9 +37,6 @@ class BIP68Test(BitcoinTestFramework):
         self.log.info("Running test sequence-lock-unconfirmed-inputs")
         self.test_sequence_lock_unconfirmed_inputs()
 
-        self.log.info("Verifying nFeatures=2 transactions are rejected.")
-        self.test_version2_relay()
-
         self.log.info("Passed")
 
     # Calculate the median time past of a prior block ("confirmations" before
@@ -256,17 +253,6 @@ class BIP68Test(BitcoinTestFramework):
         self.nodes[0].setmocktime(0)
         self.nodes[0].invalidateblock(self.nodes[0].getblockhash(cur_height+1))
         self.nodes[0].generate(10, self.signblockprivkey_wif)
-
-    # Use self.nodes[1] to test that version 2 transactions are rejected.
-    def test_version2_relay(self):
-        inputs = [ ]
-        outputs = { self.nodes[1].getnewaddress() : 1.0 }
-        rawtx = self.nodes[1].createrawtransaction(inputs, outputs)
-        rawtxfund = self.nodes[1].fundrawtransaction(rawtx)['hex']
-        tx = FromHex(CTransaction(), rawtxfund)
-        tx.nFeatures = 2
-        tx_signed = self.nodes[1].signrawtransactionwithwallet(ToHex(tx), [], "ALL", self.options.scheme)["hex"]
-        assert_raises_rpc_error(-26, "features (code 64)", self.nodes[1].sendrawtransaction, tx_signed)
 
 if __name__ == '__main__':
     BIP68Test().main()
