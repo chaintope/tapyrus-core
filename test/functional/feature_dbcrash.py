@@ -61,7 +61,7 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
         self.node2_args = ["-dbcrashratio=24", "-dbcache=16"] + self.base_args
 
         # Node3 is a normal node with default args, except will mine full blocks
-        self.node3_args = ["-blockmaxweight=4000000"]
+        self.node3_args = ["-blockmaxsize=1000000"]
         self.extra_args = [self.node0_args, self.node1_args, self.node2_args, self.node3_args]
 
     def setup_network(self):
@@ -277,7 +277,7 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
         # Warn if any of the nodes escaped restart.
         for i in range(3):
             if self.restart_counts[i] == 0:
-                self.log.warn("Node %d never crashed during utxo flush!", i)
+                self.log.warning("Node %d never crashed during utxo flush!", i)
 
 if __name__ == "__main__":
     ChainstateWriteCrashTest().main()

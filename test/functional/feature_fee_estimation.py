@@ -72,7 +72,7 @@ def small_txpuzzle_randfee(from_node, conflist, unconflist, amount, min_fee, fee
 
     return (ToHex(tx), fee)
 
-def split_inputs(from_node, txins, txouts, initial_split=False):
+def split_inputs(from_node, txins, txouts, scheme, initial_split=False):
     """Generate a lot of inputs so we can generate a ton of transactions.
 
     This function takes an input from txins, and creates and sends a transaction
@@ -92,7 +92,7 @@ def split_inputs(from_node, txins, txouts, initial_split=False):
     # If this is the initial split we actually need to sign the transaction
     # Otherwise we just need to insert the proper ScriptSig
     if (initial_split):
-        completetx = from_node.signrawtransactionwithwallet(ToHex(tx), [], "ALL", self.options.scheme)["hex"]
+        completetx = from_node.signrawtransactionwithwallet(ToHex(tx), [], "ALL", scheme)["hex"]
     else:
         tx.vin[0].scriptSig = SCRIPT_SIG[prevtxout["vout"]]
         completetx = ToHex(tx)
@@ -134,8 +134,8 @@ class EstimateFeeTest(BitcoinTestFramework):
         which we will use to generate our transactions.
         """
         self.add_nodes(3, extra_args=[["-maxorphantx=1000", "-whitelist=127.0.0.1"],
-                                      ["-blockmaxweight=68000", "-maxorphantx=1000"],
-                                      ["-blockmaxweight=32000", "-maxorphantx=1000"]])
+                                      ["-blockmaxsize=17000", "-maxorphantx=1000"],
+                                      ["-blockmaxsize=8000", "-maxorphantx=1000"]])
         # Use node0 to mine blocks for input splitting
         # Node1 mines small blocks but that are bigger than the expected transaction rate.
         # NOTE: the CreateNewBlock code starts counting block weight at 4,000 weight,
@@ -178,7 +178,7 @@ class EstimateFeeTest(BitcoinTestFramework):
         self.txouts = []
         self.txouts2 = []
         # Split a coinbase into two transaction puzzle outputs
-        split_inputs(self.nodes[0], self.nodes[0].listunspent(0), self.txouts, True)
+        split_inputs(self.nodes[0], self.nodes[0].listunspent(0), self.txouts, self.options.scheme, True)
 
         # Mine
         while (len(self.nodes[0].getrawmempool()) > 0):
@@ -190,12 +190,12 @@ class EstimateFeeTest(BitcoinTestFramework):
         while (reps < 5):
             # Double txouts to txouts2
             while (len(self.txouts) > 0):
-                split_inputs(self.nodes[0], self.txouts, self.txouts2)
+                split_inputs(self.nodes[0], self.txouts, self.txouts2, self.options.scheme)
             while (len(self.nodes[0].getrawmempool()) > 0):
                 self.nodes[0].generate(1, self.signblockprivkey_wif)
             # Double txouts2 to txouts
             while (len(self.txouts2) > 0):
-                split_inputs(self.nodes[0], self.txouts2, self.txouts)
+                split_inputs(self.nodes[0], self.txouts2, self.txouts, self.options.scheme)
             while (len(self.nodes[0].getrawmempool()) > 0):
                 self.nodes[0].generate(1, self.signblockprivkey_wif)
             reps += 1

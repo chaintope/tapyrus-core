@@ -8,10 +8,15 @@
 WARNING:
 This test uses 4GB of disk space.
 This test takes 30 mins or more (up to 2 hours)
+
+Tapyrus  update:
+This test was designed without compact blocks.  now all block announcements on tapyrus happen using compact blocks. So the steps in this test which are designed to trigger pruning are not causing the expected behaviour.  It is not possible to disable compact blocks with parameters.
 """
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, assert_greater_than, assert_raises_rpc_error, connect_nodes, mine_large_block, sync_blocks, wait_until, NetworkDirName
+from test_framework.util import assert_equal, assert_greater_than, assert_raises_rpc_error, connect_nodes, sync_blocks, wait_until, NetworkDirName, hex_str_to_bytes
+from test_framework.script import MAX_SCRIPT_SIZE, MAX_SCRIPT_ELEMENT_SIZE, CScript
+from test_framework.messages import CTransaction, CTxIn, COutPoint, CTxOut, ToHex, COIN
 
 import os
 
@@ -22,6 +27,35 @@ MIN_BLOCKS_TO_KEEP = 288
 # compatible with pruning based on key creation time.
 TIMESTAMP_WINDOW = 2 * 60 * 60
 
+def mine_large_block(node, utxos, signblockprivkey_wif):
+    send_txs_for_large_block(node, utxos)
+    return node.generate(1, signblockprivkey_wif)[0]
+
+def send_txs_for_large_block(node, utxos, size=1000000):
+    current_size = 0
+    i = 0
+    while size - current_size > MAX_SCRIPT_SIZE and i < len(utxos):
+        spend_addr = node.gettransaction(utxos[i]['txid'])['details'][0]['address']
+        scr = node.getaddressinfo(spend_addr)['scriptPubKey']
+        tx = create_tx_with_large_script(int(utxos[i]['txid'], 16), 0, CScript(hex_str_to_bytes(scr)))
+        tx_raw = ToHex(tx)
+        current_size = current_size + len(tx_raw)
+        tx_signed = node.signrawtransactionwithwallet(tx_raw)
+        status = node.sendrawtransaction(tx_signed['hex'], True)
+        i = i + 1
+
+def create_tx_with_large_script(prevtx, n, scriptPubKey):
+    tx = CTransaction()
+    tx.vin.append(CTxIn(COutPoint(prevtx, n), b"", 0xffffffff))
+    tx.vout.append(CTxOut(48*COIN, scriptPubKey))
+    current_size = 0
+    script_output = CScript([b''])
+    while  MAX_SCRIPT_SIZE - current_size  > MAX_SCRIPT_ELEMENT_SIZE:
+        script_output = script_output + CScript([b'\x6a', b'\x51' * (MAX_SCRIPT_ELEMENT_SIZE - 5) ])
+        current_size = current_size + MAX_SCRIPT_ELEMENT_SIZE
+    tx.vout.append(CTxOut(1*COIN, script_output))
+    tx.calc_sha256()
+    return tx
 
 def calc_usage(blockdir):
     return sum(os.path.getsize(blockdir+f) for f in os.listdir(blockdir) if os.path.isfile(os.path.join(blockdir, f))) / (1024. * 1024.)
@@ -38,11 +72,11 @@ class PruneTest(BitcoinTestFramework):
         # Create nodes 3 and 4 to test manual pruning (they will be re-started with manual pruning later)
         # Create nodes 5 to test wallet in prune mode, but do not connect
         self.extra_args = [self.full_node_default_args,
-                           self.full_node_default_args,
-                           ["-maxreceivebuffer=20000", "-prune=550"],
-                           ["-maxreceivebuffer=20000"],
-                           ["-maxreceivebuffer=20000"],
-                           ["-prune=550"]]
+                                    self.full_node_default_args,
+                                    ["-maxreceivebuffer=20000", "-prune=550"],
+                                    ["-maxreceivebuffer=20000"],
+                                    ["-maxreceivebuffer=20000"],
+                                    ["-prune=550"]]
 
     def setup_network(self):
         self.setup_nodes()
@@ -67,7 +101,7 @@ class PruneTest(BitcoinTestFramework):
         self.nodes[0].generate(150, self.signblockprivkey_wif)
         # Then mine enough full blocks to create more than 550MiB of data
         for i in range(645):
-            mine_large_block(self.nodes[0], self.utxo_cache_0)
+            mine_large_block(self.nodes[0], self.utxo_cache_0, self.signblockprivkey_wif)
 
         sync_blocks(self.nodes[0:5])
 
@@ -79,10 +113,10 @@ class PruneTest(BitcoinTestFramework):
         self.log.info("Mining 25 more blocks should cause the first block file to be pruned")
         # Pruning doesn't run until we're allocating another chunk, 20 full blocks past the height cutoff will ensure this
         for i in range(25):
-            mine_large_block(self.nodes[0], self.utxo_cache_0)
+            mine_large_block(self.nodes[0], self.utxo_cache_0, self.signblockprivkey_wif)
 
         # Wait for blk00000.dat to be pruned
-        wait_until(lambda: not os.path.isfile(os.path.join(self.prunedir, "blk00000.dat")), timeout=30)
+        wait_until(lambda: not os.path.isfile(os.path.join(self.prunedir, "blk00000.dat")), timeout=120)
 
         self.log.info("Success")
         usage = calc_usage(self.prunedir)
@@ -103,7 +137,7 @@ class PruneTest(BitcoinTestFramework):
             # Mine 24 blocks in node 1
             for i in range(24):
                 if j == 0:
-                    mine_large_block(self.nodes[1], self.utxo_cache_1)
+                    mine_large_block(self.nodes[1], self.utxo_cache_1, self.signblockprivkey_wif)
                 else:
                     # Add node1's wallet transactions back to the mempool, to
                     # avoid the mined blocks from being too small.
@@ -112,7 +146,7 @@ class PruneTest(BitcoinTestFramework):
 
             # Reorg back with 25 block chain from node 0
             for i in range(25):
-                mine_large_block(self.nodes[0], self.utxo_cache_0)
+                mine_large_block(self.nodes[0], self.utxo_cache_0, self.signblockprivkey_wif)
 
             # Create connections in the order so both nodes can see the reorg at the same time
             connect_nodes(self.nodes[1], 0)
@@ -127,7 +161,7 @@ class PruneTest(BitcoinTestFramework):
         # Reboot node 1 to clear its mempool (hopefully make the invalidate faster)
         # Lower the block max size so we don't keep mining all our big mempool transactions (from disconnected blocks)
         self.stop_node(1)
-        self.start_node(1, extra_args=["-maxreceivebuffer=20000","-blockmaxweight=20000", "-checkblocks=5"])
+        self.start_node(1, extra_args=["-maxreceivebuffer=20000","-blockmaxsize=5000", "-checkblocks=5"])
 
         height = self.nodes[1].getblockcount()
         self.log.info("Current block height: %d" % height)
@@ -150,7 +184,7 @@ class PruneTest(BitcoinTestFramework):
 
         # Reboot node1 to clear those giant tx's from mempool
         self.stop_node(1)
-        self.start_node(1, extra_args=["-maxreceivebuffer=20000","-blockmaxweight=20000", "-checkblocks=5"])
+        self.start_node(1, extra_args=["-maxreceivebuffer=20000","-blockmaxsize=5000", "-checkblocks=5"])
 
         self.log.info("Generating new longer chain of 300 more blocks")
         self.nodes[1].generate(300, self.signblockprivkey_wif)

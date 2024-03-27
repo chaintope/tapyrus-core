@@ -373,8 +373,8 @@ private:
     static bool NodeFullyConnected(const CNode* pnode);
 
     // Network usage totals
-    Mutex cs_totalBytesRecv;
-    Mutex cs_totalBytesSent;
+    RecursiveMutex cs_totalBytesRecv;
+    RecursiveMutex cs_totalBytesSent;
     uint64_t nTotalBytesRecv GUARDED_BY(cs_totalBytesRecv);
     uint64_t nTotalBytesSent GUARDED_BY(cs_totalBytesSent);
 
@@ -399,9 +399,9 @@ private:
     bool fAddressesInitialized;
     CAddrMan addrman;
     std::deque<std::string> vOneShots;
-    Mutex cs_vOneShots;
+    RecursiveMutex cs_vOneShots;
     std::vector<std::string> vAddedNodes GUARDED_BY(cs_vAddedNodes);
-    Mutex cs_vAddedNodes;
+    RecursiveMutex cs_vAddedNodes;
     std::vector<CNode*> vNodes;
     std::list<CNode*> vNodesDisconnected;
     mutable RecursiveMutex cs_vNodes;
