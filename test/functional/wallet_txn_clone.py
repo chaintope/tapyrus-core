@@ -87,14 +87,14 @@ class TxnMallTest(BitcoinTestFramework):
         tx1 = self.nodes[0].gettransaction(txid1)
         tx2 = self.nodes[0].gettransaction(txid2)
 
-        # Node0's balance should be starting balance, plus block reward of  50TPC + fee for another
-        # matured block, minus tx1 and tx2 amounts, and minus transaction fees:
+        # Node0's balance should be as follows:
+        # mine_block  : starting balance + 50TPC (tx1  and tx2 amounts and  fees are a dded back to the wallet)
+        # no  mine_block : starting balance, minus tx1 and tx2 amounts, and minus transaction fees:
         expected = starting_balance + node0_tx1["fee"] + node0_tx2["fee"]
         coinbase = {}
         if self.options.mine_block:
-            block = self.nodes[0].getblock(self.nodes[0].getbestblockhash())
-            coinbase = self.nodes[0].gettransaction(block['tx'][0])
-            expected += coinbase['amount']
+            expected += 50
+            expected  -= ( tx1["amount"] + tx1["fee"] + tx2["amount"] + tx2["fee"])
         expected += (tx1["amount"] + tx1["fee"])
         expected += (tx2["amount"] + tx2["fee"])
         assert_equal(self.nodes[0].getbalance(), expected)
@@ -146,7 +146,7 @@ class TxnMallTest(BitcoinTestFramework):
         # Check node0's total balance; should be same as before the clone
         # less possible orphaned matured subsidy
         if (self.options.mine_block):
-            expected -= coinbase['amount']
+            expected -= 50
         assert_equal(self.nodes[0].getbalance(), expected)
         # node1 should have +60 from tx1["amount"] and tx2["amount"]
         assert_equal(self.nodes[1].getbalance(), starting_balance + 60)
