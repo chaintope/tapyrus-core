@@ -10,11 +10,8 @@ from test_framework.util import (
     assert_equal,
     connect_nodes,
     disconnect_nodes,
-    sync_blocks,
-    hex_str_to_bytes
+    sync_blocks
 )
-from test_framework.messages import CTransaction
-from io import BytesIO
 
 class TxnMallTest(BitcoinTestFramework):
     def set_test_params(self):
