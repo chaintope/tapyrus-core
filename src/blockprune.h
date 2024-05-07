@@ -3,8 +3,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_BLOCK_PRUNE_H
-#define BITCOIN_BLOCK_PRUNE_H
+#ifndef TAPYRUS_BLOCKPRUNE_H
+#define TAPYRUS_BLOCKPRUNE_H
 
 /** Minimum disk space required - used in CheckDiskSpace() */
 static const uint64_t nMinDiskSpace = 52428800;
@@ -45,4 +45,4 @@ void FindFilesToPruneManual(std::set<int>& setFilesToPrune, int nManualPruneHeig
  */
 void FindFilesToPrune(std::set<int>& setFilesToPrune, uint32_t nPruneAfterHeight);
 
-#endif // BITCOIN_BLOCK_PRUNE_H
+#endif // TAPYRUS_BLOCKPRUNE_H

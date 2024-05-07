@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_SCRIPT_CHECK_H
-#define BITCOIN_SCRIPT_CHECK_H
+#ifndef TAPYRUS_SCRIPTCHECK_H
+#define TAPYRUS_SCRIPTCHECK_H
 
 /**
  * Closure representing one script verification
@@ -35,4 +35,4 @@ public:
 /** Initializes the script-execution cache */
 void InitScriptExecutionCache();
 
-#endif // BITCOIN_SCRIPT_CHECK_H
+#endif // TAPYRUS_SCRIPTCHECK_H
