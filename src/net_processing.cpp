@@ -34,6 +34,7 @@
 #include <validation.h>
 #include <file_io.h>
 
+#include <deque>
 #include <memory>
 #include <array>
 

@@ -16,6 +16,7 @@
 #include <file_io.h>
 #include <blockprune.h>
 
+#include <deque>
 #include <boost/algorithm/string/replace.hpp>
 
 static int64_t nTimeCheck = 0;

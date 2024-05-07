@@ -8,6 +8,7 @@
 #include <blockprune.h>
 #include <validation.h>
 #include <file_io.h>
+#include <deque>
 
 static const uint64_t MEMPOOL_DUMP_VERSION = 1;
 
