@@ -194,6 +194,7 @@ add_library(server
         policy/rbf.cpp
         rest.cpp
         rpc/blockchain.cpp
+        rpc/mempool.cpp
         rpc/mining.cpp
         rpc/misc.cpp
         rpc/net.cpp

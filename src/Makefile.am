@@ -241,6 +241,7 @@ libtapyrus_server_a_SOURCES = \
   policy/rbf.cpp \
   rest.cpp \
   rpc/blockchain.cpp \
+  rpc/mempool.cpp \
   rpc/mining.cpp \
   rpc/misc.cpp \
   rpc/net.cpp \
