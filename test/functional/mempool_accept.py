@@ -46,76 +46,24 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
         self.genesisBlock = createTestGenesisBlock(self.coinbase_pubkey, self.coinbase_key, int(time.time() - 100))
 
     def set_test_params(self):
-        self.num_nodes = 2
+        self.num_nodes = 1
         self.extra_args = [[
             '-txindex',
             '-reindex',  # Need reindex for txindex
         ]] * self.num_nodes
 
-    def check_submit_mempool_result(self, node, result_expected, *args, **kwargs):
-        """Wrapper to check result of submitpackage rpc on node_0's mempool"""
-        result_test = node.submitpackage(*args, **kwargs)
-        assert_equal(result_expected, result_test)
-        assert_equal(node.getmempoolinfo()['size'], self.mempool_size)
-
-    def check_mempool_result(self, node, result_expected, *args, **kwargs):
+    def check_mempool_result(self, result_expected, *args, **kwargs):
         """Wrapper to check result of testmempoolaccept rpc on node_0's mempool"""
-        result_test = node.testmempoolaccept(*args, **kwargs)
+        result_test = self.nodes[0].testmempoolaccept(*args, **kwargs)
         assert_equal(result_expected, result_test)
-        assert_equal(node.getmempoolinfo()['size'], self.mempool_size)
-
-    def create_package(self,  node, size):
-        """create a package with size transactions"""
-        node.generate(1, self.signblockprivkey_wif)
-
-        package  = []
-        #first tx spends a coin in the blockchain
-        coin = [x for x in node.listunspent() if x['amount'] > 49.3][0]
-        prevtx_hex = node.getrawtransaction(coin['txid'])
-        prevtx = CTransaction()
-        prevtx.deserialize(BytesIO(hex_str_to_bytes(prevtx_hex)))
-        prevtxs = [{"txid": coin['txid'],
-                        "vout": coin['vout'],
-                        "scriptPubKey": bytes_to_hex_str(prevtx.vout[coin['vout']].scriptPubKey),
-                        "redeemScript": "",
-                        "amount": prevtx.vout[coin['vout']].nValue  /  COIN}]
-        raw_tx = node.createrawtransaction(
-            inputs=[{'txid': coin['txid'], 'vout': coin['vout']}],
-            outputs=[{node.getnewaddress(): 0.3}, {node.getnewaddress(): 49}]
-        )
-        signed_raw_tx = node.signrawtransactionwithwallet(raw_tx, prevtxs)['hex']
-        tx = CTransaction()
-        tx.deserialize(BytesIO(hex_str_to_bytes(signed_raw_tx)))
-        package.insert(0, tx)
-        prevtx  = tx
-        amt = 48.5
-        # other txs spend the output of the previous tx in the package.
-        for x in range(2, size+1):
-            coin = {'txid': tx.rehash(), 'vout':1}
-            prevtxs = [{"txid": coin['txid'],
-                                "vout": coin['vout'],
-                                "scriptPubKey": bytes_to_hex_str(prevtx.vout[coin['vout']].scriptPubKey),
-                                "redeemScript": "",
-                                "amount": prevtx.vout[coin['vout']].nValue  /  COIN}]
-            raw_tx = node.createrawtransaction(
-                inputs=[{'txid': coin['txid'], 'vout': coin['vout']}],
-                outputs=[{node.getnewaddress(): 0.3}, {node.getnewaddress(): amt}]
-            )
-            signed_raw_tx = node.signrawtransactionwithwallet(raw_tx, prevtxs)['hex']
-            amt = amt - 0.5
-            tx = CTransaction()
-            tx.deserialize(BytesIO(hex_str_to_bytes(signed_raw_tx)))
-            package.insert(x-1, tx)
-            prevtx  = tx
-        [x.rehash() for x in package]
-        return package
+        assert_equal(self.nodes[0].getmempoolinfo()['size'], self.mempool_size)
 
     def run_test(self):
         node = self.nodes[0]
 
         self.log.info('Start with empty mempool, and 100 blocks')
         self.mempool_size = 0
-        wait_until(lambda: node.getblockcount() == 100, timeout=300)
+        node.generate(100, self.signblockprivkey_wif)
         assert_equal(node.getmempoolinfo()['size'], self.mempool_size)
 
         self.log.info('Should not accept garbage to testmempoolaccept')
