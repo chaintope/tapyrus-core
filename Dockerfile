@@ -13,7 +13,7 @@ RUN ./autogen.sh && \
     make -j"$(($(nproc)+1))" && \
     make install
 
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 
 COPY --from=builder /tapyrus-core/dist/bin/* /usr/local/bin/
 
