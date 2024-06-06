@@ -157,6 +157,8 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "reissuetoken", 1, "value"},
     { "burntoken", 1, "value"},
     { "transfertoken", 1, "value"},
+    { "submitpackage", 0, "rawtxs" },
+    { "submitpackage", 1, "allowhighfees" },
 };
 
 class CRPCConvertTable
