@@ -14,12 +14,13 @@
 #include <stdint.h>
 
 #include <univalue.h>
+#include <logging.h>
 
 static void encodePackageResult(bool success, const PackageValidationState& pkg_results, CValidationState state, UniValue& result)
 {
-    UniValue result_0(UniValue::VOBJ);
     if(success && ArePackageTransactionsAccepted(pkg_results)) {
         for (const auto& r : pkg_results) {
+            UniValue result_0(UniValue::VOBJ);
             result_0.pushKV("allowed", true);
             result.pushKV(r.first.GetHex(), result_0);
         }
@@ -29,6 +30,7 @@ static void encodePackageResult(bool success, const PackageValidationState& pkg_
         result.pushKV("reject-reason", strprintf("%i: %s", state.GetRejectCode(), state.GetRejectReason()));
     } else {
         for (const auto& r : pkg_results) {
+            UniValue result_0(UniValue::VOBJ);
             if(r.second.IsInvalid() || r.second.IsError()) {
                 result_0.pushKV("allowed", false);
                 result_0.pushKV("reject-reason", strprintf("%i: %s", r.second.GetRejectCode(), r.second.GetRejectReason()));
@@ -67,17 +69,14 @@ static UniValue testmempoolaccept(const JSONRPCRequest& request)
             " }\n"
             "]\n"
             "\nExamples:\n"
-            "\nCreate a transaction\n"
-            + HelpExampleCli("createrawtransaction", "\"[{\\\"txid\\\" : \\\"mytxid\\\",\\\"vout\\\":0}]\" \"{\\\"myaddress\\\":0.01}\"") +
-            "Sign the transaction, and get back the hex\n"
-            + HelpExampleCli("signrawtransaction", "\"myhex\"") +
-            "\nTest acceptance of the transaction (signed hex)\n"
             + HelpExampleCli("testmempoolaccept", "\"signedhex\"") +
             "\nAs a json rpc call\n"
             + HelpExampleRpc("testmempoolaccept", "[\"signedhex\"]")
             // clang-format on
             );
     }
+    LogPrintf("testmempoolaccept");
+
 
     RPCTypeCheck(request.params, {UniValue::VARR, UniValue::VBOOL});
     const UniValue raw_transactions = request.params[0].get_array();
@@ -86,19 +85,14 @@ static UniValue testmempoolaccept(const JSONRPCRequest& request)
                             "Too many transactions in package." );
     }
 
-    Package package;
+    std::vector<CTransaction> transactions;
     for (const auto& rawtx : raw_transactions.getValues()) {
         CMutableTransaction mtx;
         if (!DecodeHexTx(mtx, rawtx.get_str())) {
             throw JSONRPCError(RPC_DESERIALIZATION_ERROR,
                                 "TX decode failed: " + rawtx.get_str() + " Make sure the tx has at least one input.");
         }
-        package.push_back(MakeTransactionRef(std::move(mtx)));
-    }
-
-    if(package.size() != raw_transactions.size()){
-            throw JSONRPCError(RPC_INVALID_PARAMETER,
-                    "Duplicate transaction found in package.");
+        transactions.push_back(std::move(mtx));
     }
 
     CAmount max_raw_tx_fee = ::maxTxFee;
@@ -106,13 +100,27 @@ static UniValue testmempoolaccept(const JSONRPCRequest& request)
         max_raw_tx_fee = 0;
     }
 
+    //make a package with only unknown transactions i.e. omit transactions which are already in the mempool
+    Package package;
     CValidationState state;
     PackageValidationState pkg_results;
+
+    FilterMempoolDuplicates(transactions, package, pkg_results);
+
+    LogPrintf("transactions size: %d package size: %d\n", transactions.size(), package.size());
+
+
     std::vector<CTxMemPoolEntry> submitPool;
     submitPool.reserve(package.size());
 
     bool success = false;
-    success = TestPackageAcceptance(package, state, pkg_results, &submitPool);
+    CTxMempoolAcceptanceOptions opt;
+    opt.context = ValidationContext::PACKAGE;
+    opt.flags = MempoolAcceptanceFlags::TEST_ONLY;
+    opt.submitPool = &submitPool;
+    opt.nAbsurdFee = max_raw_tx_fee;
+
+    success = TestPackageAcceptance(package, state, pkg_results, opt);
 
     UniValue result(UniValue::VOBJ);
 
@@ -135,11 +143,6 @@ static UniValue submitpackage(const JSONRPCRequest& request)
         "    \"allowed\"               (boolean) If submitting all transaction was successful \n"
         "   }\n"
         "\nExamples:\n"
-        "\nCreate a transaction\n"
-        + HelpExampleCli("createrawtransaction", "\"[{\\\"txid\\\" : \\\"mytxid\\\",\\\"vout\\\":0}]\" \"{\\\"myaddress\\\":0.01}\"") +
-        "Sign the transaction, and get back the hex\n"
-        + HelpExampleCli("signrawtransaction", "\"myhex\"") +
-        "\nSubmit the transaction as a package (signed hex)\n"
         + HelpExampleCli("submitpackage", "\"raw_tx1, raw_tx2\"") +
         "\nAs a json rpc call\n"
         + HelpExampleRpc("submitpackage", "[\"raw_tx1, raw_tx2\"]")
@@ -147,25 +150,22 @@ static UniValue submitpackage(const JSONRPCRequest& request)
 
     RPCTypeCheck(request.params, {UniValue::VARR, UniValue::VBOOL});
 
+    LogPrintf("submitpackage");
+
     const UniValue raw_transactions = request.params[0].get_array();
     if (raw_transactions.size() < 1 || raw_transactions.size() > MAX_PACKAGE_COUNT) {
         throw JSONRPCError(RPC_INVALID_PARAMETER,
                             "Too many transactions in package");
     }
 
-    Package package;
+    std::vector<CTransaction> transactions;
     for (const auto& rawtx : raw_transactions.getValues()) {
         CMutableTransaction mtx;
         if (!DecodeHexTx(mtx, rawtx.get_str())) {
             throw JSONRPCError(RPC_DESERIALIZATION_ERROR,
                                 "TX decode failed: " + rawtx.get_str() + " Make sure the tx has at least one input.");
         }
-        package.push_back(MakeTransactionRef(std::move(mtx)));
-    }
-
-    if(package.size() != raw_transactions.size()){
-            throw JSONRPCError(RPC_INVALID_PARAMETER,
-                    "Duplicate transaction found in package.");
+        transactions.push_back(std::move(mtx));
     }
 
     CAmount max_raw_tx_fee = ::maxTxFee;
@@ -173,12 +173,25 @@ static UniValue submitpackage(const JSONRPCRequest& request)
         max_raw_tx_fee = 0;
     }
 
+    //make a package with only unknown transactions i.e. omit transactions which are already in the mempool
+    Package package;
     CValidationState state;
     PackageValidationState pkg_results;
+
+    FilterMempoolDuplicates(transactions, package, pkg_results);
+
+    LogPrintf("transactions size: %d package size: %d\n", transactions.size(), package.size());
+
     std::vector<CTxMemPoolEntry> submitPool;
     submitPool.reserve(package.size());
 
-    bool success = TestPackageAcceptance(package, state, pkg_results, &submitPool);
+    CTxMempoolAcceptanceOptions opt;
+    opt.context = ValidationContext::PACKAGE;
+    opt.flags = MempoolAcceptanceFlags::TEST_ONLY;
+    opt.submitPool = &submitPool;
+    opt.nAbsurdFee = max_raw_tx_fee;
+
+    bool success = TestPackageAcceptance(package, state, pkg_results, opt);
 
     UniValue result(UniValue::VOBJ);
 

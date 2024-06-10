@@ -122,6 +122,7 @@ BASE_SCRIPTS = [
     'rpc_users.py',
     'rpc_whitelist.py',
     'feature_proxy.py',
+    'rpc_packages.py',
     'rpc_signrawtransaction.py',
     'wallet_groups.py',
     'wallet_groups.py --scheme SCHNORR',

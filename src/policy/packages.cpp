@@ -8,10 +8,13 @@
 #include <primitives/transaction.h>
 #include <txmempool.h>
 #include <validation.h>
+#include <validationinterface.h>
 #include <uint256.h>
 #include <numeric>
 
-bool  CheckPackage(const Package& txns, CValidationState& state)
+#include <logging.h>
+
+bool CheckPackage(const Package& txns, CValidationState& state)
 {
     const unsigned int package_count = txns.size();
 
@@ -58,11 +61,15 @@ bool  CheckPackage(const Package& txns, CValidationState& state)
                        [](const auto& input) { return input.prevout; });
     }
 
-    // Make sure that none of the package transactions are in the mempool already
-    for (const auto& tx : txns) {
-        if(mempool.exists(tx->GetHashMalFix()))
-            return state.Invalid(false, REJECT_PACKAGE_INVALID, "package-tx-in-mempool");
+    // Package must not contain any duplicate transactions, which is checked by txid.
+    later_txids.clear();
+    std::transform(txns.cbegin(), txns.cend(), std::inserter(later_txids, later_txids.end()),
+                   [](const auto& tx) { return tx->GetHashMalFix(); });
+
+    if (later_txids.size() != txns.size()) {
+        return state.Invalid(false, REJECT_PACKAGE_INVALID, "package-contains-duplicates");
     }
+
     return true;
 }
 
@@ -73,6 +80,68 @@ bool ArePackageTransactionsAccepted(const PackageValidationState& results)
         if(r.second.IsInvalid() || r.second.IsError() || r.second.missingInputs) {
             return false;
         }
+    }
+    return true;
+}
+
+void FilterMempoolDuplicates(const std::vector<CTransaction>& txns, Package& package, PackageValidationState& results)
+{
+    // Make sure that none of the package transactions are in the mempool already
+    for(const auto& tx : txns) {
+        if(mempool.exists(tx.GetHashMalFix())) {
+            CValidationState state;
+            state.Invalid(false, REJECT_DUPLICATE, "txn-already-in-mempool");
+            LogPrintf(" CheckMempoolDuplicates transaction %s\n", state.GetDebugMessage());
+            results.emplace(tx.GetHashMalFix(), state);
+        } else
+            package.emplace_back(MakeTransactionRef(tx));
+    }
+}
+
+
+bool TestPackageAcceptance(const Package& package,
+                                  CValidationState& state,
+                                  PackageValidationState& results,
+                                  CTxMempoolAcceptanceOptions& opt)
+{
+    bool all_valid = true;
+    bool test_accept_res = false;
+
+    if(!CheckPackage(package, state))
+        return false;
+
+    // testmempool acceptance first
+    for(auto &tx : package) {
+        {
+            opt.state = CValidationState();
+            LOCK(::cs_main);
+            test_accept_res = AcceptToMemoryPool(tx, opt);
+        }
+
+        opt.state.missingInputs = opt.missingInputs.size() > 0;
+        results.emplace(tx->GetHashMalFix(), opt.state);
+        all_valid &= test_accept_res;
+    }
+
+    return all_valid;
+}
+
+bool SubmitPackageToMempool(const std::vector<CTxMemPoolEntry>& validPool, CValidationState& state)
+{
+    for(auto &entry : validPool) {
+        auto &tx(entry.GetTx());
+        {
+            // Store transaction in mempool if validation succeeded
+            LOCK(::cs_main);
+            LOCK(mempool.cs);
+            mempool.addUnchecked(tx.GetHashMalFix(), entry, false);
+        }
+
+        if (!mempool.exists(tx.GetHashMalFix()))
+            return state.DoS(0, false, REJECT_PACKAGE_MEMPOOL, "mempool full");
+
+        //signlaing for gui, wallet etc
+        GetMainSignals().TransactionAddedToMempool(entry.GetSharedTx());
     }
     return true;
 }
