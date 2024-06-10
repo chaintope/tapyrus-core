@@ -757,56 +757,6 @@ static unsigned int GetBlockScriptFlags(const CBlockIndex* pindex) {
     return flags;
 }
 
-bool TestPackageAcceptance(const Package& package,
-                                  CValidationState& state,
-                                  PackageValidationState& results,
-                                  std::vector<CTxMemPoolEntry >* validPool)
-{
-    bool all_valid = true;
-    bool test_accept_res = false;
-    CTxMempoolAcceptanceOptions opt;
-    opt.context = ValidationContext::PACKAGE;
-    opt.flags = MempoolAcceptanceFlags::TEST_ONLY;
-    opt.submitPool = validPool;
-
-    if(!CheckPackage(package, state))
-        return false;
-
-    // testmempool acceptance first
-    for(auto &tx : package) {
-        {
-            opt.state = CValidationState();
-            LOCK(::cs_main);
-            test_accept_res = AcceptToMemoryPool(tx, opt);
-        }
-
-        opt.state.missingInputs = opt.missingInputs.size() > 0;
-        results.emplace(tx->GetHashMalFix(), opt.state);
-        all_valid &= test_accept_res;
-    }
-
-    return all_valid;
-}
-
-bool SubmitPackageToMempool(const std::vector<CTxMemPoolEntry>& validPool, CValidationState& state)
-{
-    for(auto &entry : validPool) {
-        auto &tx(entry.GetTx());
-        {
-            // Store transaction in mempool if validation succeeded
-            LOCK(::cs_main);
-            LOCK(mempool.cs);
-            mempool.addUnchecked(tx.GetHashMalFix(), entry, false);
-        }
-
-        if (!mempool.exists(tx.GetHashMalFix()))
-            return state.DoS(0, false, REJECT_PACKAGE_MEMPOOL, "mempool full");
-
-        //signlaing for gui, wallet etc
-        GetMainSignals().TransactionAddedToMempool(entry.GetSharedTx());
-    }
-    return true;
-}
 
 static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAcceptanceOptions& opt)
 {
@@ -851,7 +801,8 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
         return state.DoS(0, false, REJECT_NONSTANDARD, "non-final");
 
     // is it already in the memory pool?
-    if (pool.exists(hash)) {
+    // if this is a package do not return error, continue
+    if (pool.exists(hash) && opt.context == ValidationContext::PACKAGE) {
         return state.Invalid(false, REJECT_DUPLICATE, "txn-already-in-mempool");
     }
 

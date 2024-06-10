@@ -1,5 +1,5 @@
 // Copyright (c) 2021-2022 The Bitcoin Core developers
-// Copyright (c) 2023 Chaintope Inc.
+// Copyright (c) 2024 Chaintope Inc.
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -31,16 +31,18 @@ using Package = std::vector<CTransactionRef>;
 using PackageValidationState = std::map<const uint256, const CValidationState >;
 /** Context-free package policy checks:
  * 1. The number of transactions cannot exceed MAX_PACKAGE_COUNT.
- * 2. The total virtual size cannot exceed MAX_PACKAGE_SIZE.
+ * 2. The total size cannot exceed  MAX_PACKAGE_COUNT * 1000
  * 3. If any dependencies exist between transactions, parents must appear before children.
  * 4. Transactions cannot conflict, i.e., spend the same inputs.
  */
 bool CheckPackage(const Package& txns, CValidationState& state);
 
+void FilterMempoolDuplicates(const std::vector<CTransaction>& txns, Package& package, PackageValidationState& results);
+
 bool TestPackageAcceptance(const Package& package,
                                   CValidationState& state,
                                   PackageValidationState& results,
-                                  std::vector<CTxMemPoolEntry >* validPool=nullptr);
+                                  CTxMempoolAcceptanceOptions& opt);
 bool ArePackageTransactionsAccepted(const PackageValidationState& results);
 
 bool SubmitPackageToMempool(const std::vector<CTxMemPoolEntry >& validPool, CValidationState& state);

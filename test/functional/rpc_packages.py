@@ -14,6 +14,10 @@ from test_framework.messages import (
     COIN,
     CTransaction,
     MAX_BLOCK_BASE_SIZE,
+    CTxIn,
+    CTxOut,
+    COutPoint,
+    uint256_from_str,
 )
 from test_framework.script import (
     OP_0,
@@ -35,6 +39,8 @@ from test_framework.blocktools import createTestGenesisBlock
 from test_framework.mininode  import P2PDataStore
 
 class RPCPackageTest(BitcoinTestFramework):
+    MAX_PACKAGE_COUNT = 25
+
     def __init(self):
         self.signblockprivkey = CECKey()
         self.coinbase_key.set_secretbytes(bytes.fromhex("8d5366123cb560bb606379f90a0bfd4769eecc0557f1b362dcae9012b548b1e5"))
@@ -143,6 +149,26 @@ class RPCPackageTest(BitcoinTestFramework):
             rawtxs=raw_package,
         )
 
+        # Packages can't have a total size of more than MAX_PACKAGE_COUNT(25) * 1000
+        self.log.info('Test very large package')
+        package_too_large = []
+        node.generate(200, self.signblockprivkey_wif)
+        total_size = 0
+        while total_size <= self.MAX_PACKAGE_COUNT * 1000:
+            tx = CTransaction()
+            coins = [x for x in self.nodes[0].listunspent()]
+            tx.vin = [CTxIn(COutPoint(uint256_from_str(hex_str_to_bytes(coins[i]['txid'])), int(coins[i]['vout'])), b"", 0xffffffff) for i in range(0, 25)]
+            tx.vout = [CTxOut(100, b"")]
+            total_size += len(tx.serialize())
+            package_too_large.append(tx)
+        raw_package = [bytes_to_hex_str(x.serialize()) for x in package_too_large]
+
+        self.check_mempool_result(
+            result_expected={'allowed': False, 'reject-reason': '69: package-too-large'},
+            rawtxs=raw_package,
+            allowhighfees=True
+        )
+
         # package with unknown utxo is rejected
         package = self.create_package(2)
         package[1].vin[0].prevout.n = 6
@@ -153,6 +179,19 @@ class RPCPackageTest(BitcoinTestFramework):
             result_expected={ package[0].hashMalFix: {'allowed': True},
                                             package[1].hashMalFix: {'allowed': False, 'reject-reason': 'missing-inputs'}},
             rawtxs=raw_package,
+            allowhighfees=True
+        )
+
+        # package tx with high fee is rejected
+        package = self.create_package(2)
+        package[1].vin[0].prevout.n = 6
+        package[1].rehash()
+        raw_package = [bytes_to_hex_str(x.serialize()) for x in package]
+
+        self.check_mempool_result(
+            result_expected={ package[0].hashMalFix: {'allowed': False, 'reject-reason': '256: absurdly-high-fee'},
+                                            package[1].hashMalFix: {'allowed': False, 'reject-reason': 'missing-inputs'}},
+            rawtxs=raw_package
         )
 
         # package is accepted
@@ -165,6 +204,7 @@ class RPCPackageTest(BitcoinTestFramework):
                                             package[2].hashMalFix: {'allowed': True},
                                             package[3].hashMalFix: {'allowed': True}},
             rawtxs=raw_package,
+            allowhighfees=True
         )
 
 
@@ -175,6 +215,7 @@ class RPCPackageTest(BitcoinTestFramework):
         self.check_mempool_result(
             result_expected={ package[0].hashMalFix: {'allowed': True} },
             rawtxs=raw_package,
+            allowhighfees=True
         )
 
         self.log.info('Test colored coins in package')
@@ -191,7 +232,7 @@ class RPCPackageTest(BitcoinTestFramework):
         # issue
         issue_tx_1 = node.signrawtransactionwithwallet(node.createrawtransaction(
                 inputs=[{'txid': utxos[0]['txid'], 'vout': utxos[0]['vout']}],
-                outputs=[{addr: 10}, {node.getnewaddress() : 38}, { cp2pkh_address1 : 1000}],
+                outputs=[{addr: 10}, {node.getnewaddress() : 1}, { cp2pkh_address1 : 1000}],
             ), [], "ALL", self.options.scheme)['hex']
         i_tx_1 = CTransaction()
         i_tx_1.deserialize(BytesIO(hex_str_to_bytes(issue_tx_1)))
@@ -211,7 +252,7 @@ class RPCPackageTest(BitcoinTestFramework):
         # issue
         issue_tx_2 = node.signrawtransactionwithwallet(node.createrawtransaction(
                 inputs=[{'txid': utxos[1]['txid'], 'vout': utxos[1]['vout']}],
-                outputs=[{addr: 10}, {node.getnewaddress() : 38}, { cp2pkh_address2 : 100}],
+                outputs=[{addr: 10}, {node.getnewaddress() : 1}, { cp2pkh_address2 : 100}],
             ), [], "ALL", self.options.scheme)['hex']
         i_tx_2 = CTransaction()
         i_tx_2.deserialize(BytesIO(hex_str_to_bytes(issue_tx_2)))
@@ -231,7 +272,7 @@ class RPCPackageTest(BitcoinTestFramework):
         # issue
         issue_tx_3 = node.signrawtransactionwithwallet(node.createrawtransaction(
                 inputs=[{'txid': utxos[2]['txid'], 'vout': utxos[2]['vout']}],
-                outputs=[{addr: 10}, {node.getnewaddress() : 38}, { cp2pkh_address3 : 1}],
+                outputs=[{addr: 10}, {node.getnewaddress() : 1}, { cp2pkh_address3 : 1}],
             ), [], "ALL", self.options.scheme)['hex']
         i_tx_3 = CTransaction()
         i_tx_3.deserialize(BytesIO(hex_str_to_bytes(issue_tx_3)))
@@ -262,6 +303,7 @@ class RPCPackageTest(BitcoinTestFramework):
                                             txids[4]: {'allowed': True},
                                             txids[5]: {'allowed': True}},
             rawtxs=package,
+            allowhighfees=True
         )
 
 if __name__ == '__main__':
