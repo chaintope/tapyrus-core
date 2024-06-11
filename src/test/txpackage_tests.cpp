@@ -17,7 +17,6 @@
 #include <utilstrencodings.h>
 #include <util.h>
 #include <validation.h>
-#include <wallet/wallet.h>
 #include <boost/test/unit_test.hpp>
 
 struct PackageTestSetup: public TestChainSetup
@@ -28,15 +27,10 @@ struct PackageTestSetup: public TestChainSetup
         CPubKey coinbasePubKey = coinbaseKey.GetPubKey();
         CHash160().Write(coinbasePubKey.data(), coinbasePubKey.size()).Finalize(
                 coinbasePubKeyHash.data());
-
-        wallet = MakeUnique<CWallet>("mock", WalletDatabase::CreateMock());
-        bool firstRun;
-        wallet->LoadWallet(firstRun);
     }
 
     ~PackageTestSetup()
     {
-        wallet.reset();
     }
 
     void Sign(std::vector<unsigned char>& vchSig, CKey& signKey, const CScript& scriptPubKey, int inIndex, CMutableTransaction& outTx, int outIndex)
@@ -46,7 +40,6 @@ struct PackageTestSetup: public TestChainSetup
         vchSig.push_back((unsigned char)SIGHASH_ALL);
     }
 
-    std::unique_ptr<CWallet> wallet;
 };
 
 BOOST_AUTO_TEST_SUITE(txpackage_tests)
