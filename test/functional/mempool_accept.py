@@ -101,7 +101,7 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
         node.sendrawtransaction(hexstring=raw_tx_0)
         self.mempool_size = 1
         self.check_mempool_result(
-            result_expected={ 'allowed': False, 'reject-reason': '69: package-tx-in-mempool'},
+            result_expected={txid_0: {'allowed': False, 'reject-reason': '18: txn-already-in-mempool'}},
             rawtxs=[raw_tx_0],
         )
 
