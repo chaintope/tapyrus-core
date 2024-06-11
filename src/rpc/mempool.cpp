@@ -75,8 +75,6 @@ static UniValue testmempoolaccept(const JSONRPCRequest& request)
             // clang-format on
             );
     }
-    LogPrintf("testmempoolaccept");
-
 
     RPCTypeCheck(request.params, {UniValue::VARR, UniValue::VBOOL});
     const UniValue raw_transactions = request.params[0].get_array();
@@ -106,9 +104,6 @@ static UniValue testmempoolaccept(const JSONRPCRequest& request)
     PackageValidationState pkg_results;
 
     FilterMempoolDuplicates(transactions, package, pkg_results);
-
-    LogPrintf("transactions size: %d package size: %d\n", transactions.size(), package.size());
-
 
     std::vector<CTxMemPoolEntry> submitPool;
     submitPool.reserve(package.size());
@@ -150,8 +145,6 @@ static UniValue submitpackage(const JSONRPCRequest& request)
 
     RPCTypeCheck(request.params, {UniValue::VARR, UniValue::VBOOL});
 
-    LogPrintf("submitpackage");
-
     const UniValue raw_transactions = request.params[0].get_array();
     if (raw_transactions.size() < 1 || raw_transactions.size() > MAX_PACKAGE_COUNT) {
         throw JSONRPCError(RPC_INVALID_PARAMETER,
@@ -179,8 +172,6 @@ static UniValue submitpackage(const JSONRPCRequest& request)
     PackageValidationState pkg_results;
 
     FilterMempoolDuplicates(transactions, package, pkg_results);
-
-    LogPrintf("transactions size: %d package size: %d\n", transactions.size(), package.size());
 
     std::vector<CTxMemPoolEntry> submitPool;
     submitPool.reserve(package.size());

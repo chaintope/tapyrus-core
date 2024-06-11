@@ -95,6 +95,7 @@ CMutableTransaction CreateValidMempoolTransaction(CTxMemPool& mempool, COutPoint
     TestMemPoolEntryHelper entry;
     {
         LOCK(cs_main);
+        LOCK(mempool.cs);
         mempool.addUnchecked(tx.GetHashMalFix(), entry.FromTx(tx));
     }
     return tx;
