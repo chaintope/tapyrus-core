@@ -4,7 +4,7 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test debug logging."""
 
-import os
+import os, signal
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.test_node import ErrorMatch
@@ -22,6 +22,10 @@ class LoggingTest(BitcoinTestFramework):
         # test default log file name
         default_log_path = self.relative_log_path("debug.log")
         assert os.path.isfile(default_log_path)
+
+        # send SIGHUP to verify that it causes the logger to reopen the log file
+        self.nodes[0].process.send_signal(signal.SIGHUP)
+        self.nodes[0].getblockchaininfo()
 
         # test alternative log file name in datadir
         self.restart_node(0, ["-debuglogfile=foo.log"])
