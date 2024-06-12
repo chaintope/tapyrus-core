@@ -1418,3 +1418,27 @@ class msg_witness_blocktxn(msg_blocktxn):
         r = b""
         r += self.block_transactions.serialize(with_witness=True)
         return r
+
+class CSnapshotMetadata():
+    def __init__(self, networkid, base_blockhash, coins_count):
+        self.networkid = networkid
+        self.base_blockhash =  base_blockhash
+        self.coins_count = coins_count
+
+    def deserialize(self, f):
+        self.networkid = struct.unpack("<i", f.read(8))[0]
+        self.base_blockhash = deser_uint256_vector(f)
+        self.coins_count = struct.unpack("<i", f.read(8))[0]
+
+    def serialize(self):
+        r = b""
+        r += struct.pack("<i", self.networkid)
+        r += ser_uint256_vector(self.base_blockhash)
+        r +=  struct.pack("<i", self.coins_count)
+        return r
+
+    def __repr__(self):
+        return "CSnapshotMetadata(networkid=%i base_blockhash=%s coins_count=%i)" \
+            % (self.networkid, str([hex(x) for x in self.base_blockhash]),self.coins_count)
+
+
