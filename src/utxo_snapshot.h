@@ -6,7 +6,6 @@
 #ifndef BITCOIN_UTXO_SNAPSHOT_H
 #define BITCOIN_UTXO_SNAPSHOT_H
 
-#include <cs_main.h>
 #include <serialize.h>
 #include <sync.h>
 #include <uint256.h>

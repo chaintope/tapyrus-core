@@ -15,9 +15,11 @@ from test_framework.util import (
     sha256sum_file,
     get_datadir_path,
     NetworkDirName,
-    hex_str_to_bytes
+    hex_str_to_bytes,
+    TAPYRUS_NETWORK_PARAMS,
+    TAPYRUS_MODES
 )
-from test_framework.messages import CBlock
+from test_framework.messages import CSnapshotMetadata
 from io import BytesIO
 import os.path
 
@@ -43,11 +45,14 @@ class UtxoSnapshotTest(BitcoinTestFramework):
         generate_blocks(100, node, hex_str_to_bytes(self.signblockpubkey),  self.signblockprivkey)
         self.sync_all()
 
+        #create snapshot
         out = node.utxosnapshot(FILENAME)
         expected_path = os.path.join(get_datadir_path(self.options.tmpdir, 0), NetworkDirName(), FILENAME)
+        # recreating the same snapshot file causes error.
+        assert_raises_rpc_error(
+            -8, 'path already exists',  node.utxosnapshot, FILENAME)
 
-        assert os.path.exists(expected_path) and os.path.isfile(expected_path)
-
+        # verify stats
         assert_equal(out['coins_written'], 100)
         assert_equal(out['base_height'], 100)
         assert_equal(out['path'], str(expected_path))
@@ -55,17 +60,30 @@ class UtxoSnapshotTest(BitcoinTestFramework):
         assert_equal(out['nchaintx'], 101)
 
         #these hashes should be deterministic
+        assert_equal(out['txoutset_hash'], '1a3a974c72d75c933dfb6e6d11983813c593ae8387260a2f7fbaa0cb41894ac1')
         assert_equal(out['base_hash'], '2e51e8eb5b86c37f0e8e86e88cc311dac30197a746ce707e001703f6a53aa95d')
 
+        node.stop()
+
+        # verify snapshot file
+        assert os.path.exists(expected_path) and os.path.isfile(expected_path)
         assert_equal(
             sha256sum_file(str(expected_path)).hex(),
             'a4884b966b64239b8b24280b445d8310c996467ec1b1d1bd78a9ff767a9ae64a')
 
-        assert_equal(out['txoutset_hash'], '1a3a974c72d75c933dfb6e6d11983813c593ae8387260a2f7fbaa0cb41894ac1')
+        # verify snapshot metadata
+        snapshot = CSnapshotMetadata(out['base_hash'], out['coins_written'])
+        with open(expected_path, 'rb') as f:
+            data = f.read(68)
+            snapshot.deserialize(BytesIO(data))
 
-        # Specifying a path to an existing or invalid file will fail.
-        assert_raises_rpc_error(
-            -8, 'path already exists',  node.utxosnapshot, FILENAME)
+        assert_equal(snapshot.version, 1)
+        assert_equal(snapshot.networkid, TAPYRUS_MODES.DEV.value)
+        assert_equal(snapshot.network_mode, bytes(TAPYRUS_NETWORK_PARAMS[TAPYRUS_MODES.DEV][0], 'utf8'))
+        assert_equal(snapshot.base_blockhash, out['base_hash'])
+        assert_equal(snapshot.coins_count, out['coins_written'])
+
+        # Specifying an invalid file will fail.
         invalid_path =  os.path.join(get_datadir_path(self.options.tmpdir, 0), "invalid",  "path")
         assert_raises_rpc_error(
             -8, "Couldn't open file temp file for writing", node.utxosnapshot, invalid_path)
