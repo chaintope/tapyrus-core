@@ -2163,7 +2163,7 @@ CCoinsStats CreateUTXOSnapshot(
         tip = LookupBlockIndex(maybe_stats.hashBlock);
     }
 
-    LogPrint(BCLog::RPC, "writing UTXO snapshot at height %d (%s) to file %s (via %s)",
+    LogPrint(BCLog::RPC, "writing UTXO snapshot at height %d (%s) to file %s (via %s)\n",
         tip->nHeight, tip->GetBlockHash().ToString().c_str(),
         path, temppath);
 
