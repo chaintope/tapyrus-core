@@ -63,8 +63,6 @@ class UtxoSnapshotTest(BitcoinTestFramework):
         assert_equal(out['txoutset_hash'], '1a3a974c72d75c933dfb6e6d11983813c593ae8387260a2f7fbaa0cb41894ac1')
         assert_equal(out['base_hash'], '2e51e8eb5b86c37f0e8e86e88cc311dac30197a746ce707e001703f6a53aa95d')
 
-        node.stop()
-
         # verify snapshot file
         assert os.path.exists(expected_path) and os.path.isfile(expected_path)
         assert_equal(

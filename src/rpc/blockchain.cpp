@@ -2128,13 +2128,13 @@ static UniValue getcolor(const JSONRPCRequest& request)
     return colorId.toHexString();
 }
 
-CCoinsStats CreateUTXOSnapshot(
+static void CreateUTXOSnapshot(
     CAutoFile& afile,
     const fs::path& path,
-    const fs::path& temppath)
+    const fs::path& temppath,
+    CCoinsStats& maybe_stats)
 {
     std::unique_ptr<CCoinsViewCursor> pcursor;
-    CCoinsStats maybe_stats;
     const CBlockIndex* tip;
 
     {
@@ -2168,11 +2168,8 @@ CCoinsStats CreateUTXOSnapshot(
         path, temppath);
 
     SnapshotMetadata metadata{tip->GetBlockHash(), maybe_stats.nTransactionOutputs};
-    LogPrint(BCLog::RPC, "metadata ok\n");
 
     afile << metadata;
-
-    LogPrint(BCLog::RPC, "metadata written\n");
 
     COutPoint key;
     Coin coin;
@@ -2197,7 +2194,6 @@ CCoinsStats CreateUTXOSnapshot(
             ++written_coins_count;
         }
     };
-    LogPrint(BCLog::RPC, "writing coins...\n");
     while (pcursor->Valid()) {
         if (iter % 5000 == 0) ShutdownRequested();
         ++iter;
@@ -2208,7 +2204,6 @@ CCoinsStats CreateUTXOSnapshot(
                 coins.clear();
             }
             coins.emplace_back(key.n, coin);
-            LogPrint(BCLog::RPC, "writing coins...\n");
         }
         pcursor->Next();
     }
@@ -2217,10 +2212,6 @@ CCoinsStats CreateUTXOSnapshot(
         write_coins_to_file(afile, last_hash, coins, written_coins_count);
     }
 
-    afile.fclose();
-    LogPrint(BCLog::RPC, "done\n");
-
-    return maybe_stats;
 }
 
 /**
@@ -2264,10 +2255,10 @@ static UniValue utxosnapshot(const JSONRPCRequest& request)
             "Couldn't open file temp file for writing.");
     }
 
-    CCoinsStats maybe_stats = CreateUTXOSnapshot(afile, path, temppath);
+    CCoinsStats maybe_stats;
+    CreateUTXOSnapshot(afile, path, temppath, maybe_stats);
     fs::rename(temppath, path);
     const CBlockIndex* tip = LookupBlockIndex(maybe_stats.hashBlock);
-    LogPrint(BCLog::RPC, "CreateUTXOSnapshot done\n");
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("coins_written", maybe_stats.nTransactionOutputs);
