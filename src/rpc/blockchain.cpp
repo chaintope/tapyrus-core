@@ -2168,8 +2168,11 @@ CCoinsStats CreateUTXOSnapshot(
         path, temppath);
 
     SnapshotMetadata metadata{tip->GetBlockHash(), maybe_stats.nTransactionOutputs};
+    LogPrint(BCLog::RPC, "metadata ok\n");
 
     afile << metadata;
+
+    LogPrint(BCLog::RPC, "metadata written\n");
 
     COutPoint key;
     Coin coin;
@@ -2194,6 +2197,7 @@ CCoinsStats CreateUTXOSnapshot(
             ++written_coins_count;
         }
     };
+    LogPrint(BCLog::RPC, "writing coins...\n");
     while (pcursor->Valid()) {
         if (iter % 5000 == 0) ShutdownRequested();
         ++iter;
@@ -2204,6 +2208,7 @@ CCoinsStats CreateUTXOSnapshot(
                 coins.clear();
             }
             coins.emplace_back(key.n, coin);
+            LogPrint(BCLog::RPC, "writing coins...\n");
         }
         pcursor->Next();
     }
@@ -2213,6 +2218,7 @@ CCoinsStats CreateUTXOSnapshot(
     }
 
     afile.fclose();
+    LogPrint(BCLog::RPC, "done\n");
 
     return maybe_stats;
 }
@@ -2261,6 +2267,7 @@ static UniValue utxosnapshot(const JSONRPCRequest& request)
     CCoinsStats maybe_stats = CreateUTXOSnapshot(afile, path, temppath);
     fs::rename(temppath, path);
     const CBlockIndex* tip = LookupBlockIndex(maybe_stats.hashBlock);
+    LogPrint(BCLog::RPC, "CreateUTXOSnapshot done\n");
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("coins_written", maybe_stats.nTransactionOutputs);
