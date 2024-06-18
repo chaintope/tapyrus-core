@@ -12,7 +12,6 @@
 #include <uint256.h>
 #include <numeric>
 
-#include <logging.h>
 
 bool CheckPackage(const Package& txns, CValidationState& state)
 {
@@ -91,7 +90,6 @@ void FilterMempoolDuplicates(const std::vector<CTransaction>& txns, Package& pac
         if(mempool.exists(tx.GetHashMalFix())) {
             CValidationState state;
             state.Invalid(false, REJECT_DUPLICATE, "txn-already-in-mempool");
-            LogPrintf(" CheckMempoolDuplicates transaction %s\n", state.GetDebugMessage());
             results.emplace(tx.GetHashMalFix(), state);
         } else
             package.emplace_back(MakeTransactionRef(tx));
