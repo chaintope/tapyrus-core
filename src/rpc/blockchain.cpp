@@ -2132,10 +2132,11 @@ static void CreateUTXOSnapshot(
     CAutoFile& afile,
     const fs::path& path,
     const fs::path& temppath,
-    CCoinsStats& maybe_stats)
+    UniValue& result)
 {
     std::unique_ptr<CCoinsViewCursor> pcursor;
     const CBlockIndex* tip;
+    CCoinsStats maybe_stats;
 
     {
         // We need to lock cs_main to ensure that the coinsdb isn't written to
@@ -2212,6 +2213,12 @@ static void CreateUTXOSnapshot(
         write_coins_to_file(afile, last_hash, coins, written_coins_count);
     }
 
+    result.pushKV("base_hash", tip->GetBlockHash().ToString());
+    result.pushKV("base_height", tip->nHeight);
+    result.pushKV("nchaintx", tip->nChainTx);
+    result.pushKV("coins_written", maybe_stats.nTransactionOutputs);
+    result.pushKV("txoutset_hash", maybe_stats.hashSerialized.ToString());
+    return;
 }
 
 /**
@@ -2255,18 +2262,15 @@ static UniValue utxosnapshot(const JSONRPCRequest& request)
             "Couldn't open file temp file for writing.");
     }
 
-    CCoinsStats maybe_stats;
-    CreateUTXOSnapshot(afile, path, temppath, maybe_stats);
-    fs::rename(temppath, path);
-    const CBlockIndex* tip = LookupBlockIndex(maybe_stats.hashBlock);
-
     UniValue result(UniValue::VOBJ);
-    result.pushKV("coins_written", maybe_stats.nTransactionOutputs);
-    result.pushKV("base_hash", tip->GetBlockHash().ToString());
-    result.pushKV("base_height", tip->nHeight);
     result.pushKV("path", path.c_str());
-    result.pushKV("txoutset_hash", maybe_stats.hashSerialized.ToString());
-    result.pushKV("nchaintx", tip->nChainTx);
+
+    //snapshot in temp file
+    CreateUTXOSnapshot(afile, path, temppath, result);
+
+    //move snapshot to actual path
+    fs::rename(temppath, path);
+
     return result;
 }
 
