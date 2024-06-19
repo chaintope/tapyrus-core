@@ -206,6 +206,7 @@ template<typename Stream, int N> inline void Serialize(Stream& s, const char (&a
 template<typename Stream, int N> inline void Serialize(Stream& s, const unsigned char (&a)[N]) { s.write(CharCast(a), N); }
 template<typename Stream> inline void Serialize(Stream& s, const Span<const unsigned char>& span) { s.write(CharCast(span.data()), span.size()); }
 template<typename Stream> inline void Serialize(Stream& s, const Span<unsigned char>& span) { s.write(CharCast(span.data()), span.size()); }
+template<typename Stream, std::size_t N> void Serialize(Stream& s, const std::array<unsigned char, N>& a) { s.write(CharCast(a.data()), a.size()); }
 
 #ifndef CHAR_EQUALS_INT8
 template<typename Stream> inline void Unserialize(Stream& s, char& a    ) { a = ser_readdata8(s); } // TODO Get rid of bare char
@@ -223,6 +224,7 @@ template<typename Stream> inline void Unserialize(Stream& s, double& a  ) { a = 
 template<typename Stream, int N> inline void Unserialize(Stream& s, char (&a)[N]) { s.read(a, N); }
 template<typename Stream, int N> inline void Unserialize(Stream& s, unsigned char (&a)[N]) { s.read(CharCast(a), N); }
 template<typename Stream> inline void Unserialize(Stream& s, Span<unsigned char>& span) { s.read(CharCast(span.data()), span.size()); }
+template<typename Stream, std::size_t N> void Unserialize(Stream& s, const std::array<unsigned char, N>& a) { s.read(CharCast(a.data()), a.size());}
 
 template<typename Stream> inline void Serialize(Stream& s, bool a)    { char f=a; ser_writedata8(s, f); }
 template<typename Stream> inline void Unserialize(Stream& s, bool& a) { char f=ser_readdata8(s); a=f; }
