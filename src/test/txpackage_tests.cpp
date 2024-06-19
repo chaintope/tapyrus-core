@@ -273,6 +273,40 @@ BOOST_FIXTURE_TEST_CASE(package_validation_tests, PackageTestSetup)
         BOOST_CHECK_EQUAL(mempool.size(), initialPoolSize + 2);
     }
 
+    // Parent in mempool
+    {
+        ++index_cb;
+        std::vector<unsigned char> vchSig;
+
+        COutPoint spend_cb(m_coinbase_txns[index_cb]->GetHashMalFix(), 0);
+        auto mtx_parent = CreateValidMempoolTransaction(mempool, spend_cb, CAmount(49 * COIN), {CScript() << OP_TRUE << OP_EQUAL});
+        Sign(vchSig, coinbaseKey, m_coinbase_txns[index_cb]->vout[0].scriptPubKey, 0, mtx_parent, 0);
+        mtx_parent.vin[0].scriptSig = CScript() << vchSig;
+
+        COutPoint spend_parent(mtx_parent.GetHashMalFix(), 0);
+        auto mtx_child = CreateValidTransaction(spend_parent, CAmount(48 * COIN), child_locking_script);
+        mtx_child.vin[0].scriptSig = CScript() << OP_TRUE;
+
+        Package package_parent_child{MakeTransactionRef(mtx_parent), MakeTransactionRef(mtx_child)};
+        submitPool.clear();
+
+        auto result_parent_child = TestPackageAcceptance(package_parent_child, state, validationState, opt);
+
+        BOOST_CHECK(!result_parent_child);
+        BOOST_CHECK(find_in_submitpool(mtx_parent.GetHashMalFix()) == submitPool.end());
+        BOOST_CHECK(find_in_submitpool(mtx_child.GetHashMalFix()) != submitPool.end());
+
+        BOOST_CHECK_EQUAL(submitPool.size(), 1);
+        BOOST_CHECK_EQUAL(state.GetRejectCode(), 0);
+        BOOST_CHECK_EQUAL(state.GetRejectReason(), "");
+        BOOST_CHECK_EQUAL(validationState[mtx_parent.GetHashMalFix()].GetRejectCode(), REJECT_DUPLICATE);
+        BOOST_CHECK_EQUAL(validationState[mtx_parent.GetHashMalFix()].GetRejectReason(), "txn-already-in-mempool");
+        BOOST_CHECK_EQUAL(validationState[mtx_child.GetHashMalFix()].GetRejectCode(), 0);
+        BOOST_CHECK_EQUAL(validationState[mtx_child.GetHashMalFix()].GetRejectReason(), "");
+
+        // Check that mempool size hasn't changed.
+        BOOST_CHECK_EQUAL(mempool.size(), initialPoolSize + 3);
+    }
 }
 
 BOOST_FIXTURE_TEST_CASE(noncontextual_package_tests, PackageTestSetup)
