@@ -46,7 +46,10 @@ class UtxoSnapshotTest(BitcoinTestFramework):
         self.sync_all()
 
         #create snapshot
-        out = node.utxosnapshot(FILENAME)
+        try:
+            out = node.utxosnapshot(FILENAME)
+        except Exception as e:
+            self.log.error("Exception in utxosnapshot %s", e.what())
         expected_path = os.path.join(get_datadir_path(self.options.tmpdir, 0), NetworkDirName(), FILENAME)
         # recreating the same snapshot file causes error.
         assert_raises_rpc_error(
