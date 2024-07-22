@@ -110,7 +110,7 @@ class BIP65Test(BitcoinTestFramework):
         # rejected from the mempool for exactly that reason.
         # now CLTV is mandatory script flag.
         assert_equal(
-            [{'txid': spendtx.hashMalFix, 'allowed': False, 'reject-reason': '16: mandatory-script-verify-flag-failed (Negative locktime)'}],
+            { spendtx.hashMalFix : { 'allowed': False, 'reject-reason': '16: mandatory-script-verify-flag-failed (Negative locktime)'}},
             self.nodes[0].testmempoolaccept(rawtxs=[bytes_to_hex_str(spendtx.serialize())], allowhighfees=True)
         )
 
