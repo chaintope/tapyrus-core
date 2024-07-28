@@ -45,7 +45,9 @@ from .script import (
     OP_EQUALVERIFY,
     OP_CHECKSIG,
     OP_COLOR,
-    OP_EQUAL
+    OP_EQUAL,
+    MAX_SCRIPT_SIZE,
+    MAX_SCRIPT_ELEMENT_SIZE
 )
 from .util import assert_equal
 from io import BytesIO
@@ -195,6 +197,20 @@ def create_raw_transaction(node, txid, to_address, *, amount):
     signresult = node.signrawtransactionwithwallet(rawtx, [], "ALL", scheme)
     assert_equal(signresult["complete"], True)
     return signresult['hex']
+
+def create_tx_with_large_script(prevtx, n, scriptPubKey, amt1=1, amt2=0.1 ):
+    tx = CTransaction()
+    tx.vin.append(CTxIn(COutPoint(prevtx, n), b"", 0xffffffff))
+    tx.vout.append(CTxOut(int(amt1 * COIN), scriptPubKey))
+    #tx.vout.append(CTxOut(int(amt1 * COIN), scriptPubKey))
+    current_size = 0
+    script_output = CScript([b''])
+    while MAX_SCRIPT_SIZE - current_size  > MAX_SCRIPT_ELEMENT_SIZE:
+        script_output = script_output + CScript([b'\x6a', b'\x51' * (MAX_SCRIPT_ELEMENT_SIZE - 5) ])
+        current_size = current_size + MAX_SCRIPT_ELEMENT_SIZE + 1
+    tx.vout.append(CTxOut(int(amt2 * COIN), script_output))
+    tx.calc_sha256()
+    return tx
 
 def generate_blocks(n, node, coinbase_pubkey, signblockprivkey):
     coinbase_txs = []
