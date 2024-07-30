@@ -202,7 +202,6 @@ def create_tx_with_large_script(prevtx, n, scriptPubKey, amt1=1, amt2=0.1 ):
     tx = CTransaction()
     tx.vin.append(CTxIn(COutPoint(prevtx, n), b"", 0xffffffff))
     tx.vout.append(CTxOut(int(amt1 * COIN), scriptPubKey))
-    #tx.vout.append(CTxOut(int(amt1 * COIN), scriptPubKey))
     current_size = 0
     script_output = CScript([b''])
     while MAX_SCRIPT_SIZE - current_size  > MAX_SCRIPT_ELEMENT_SIZE:
