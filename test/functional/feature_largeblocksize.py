@@ -11,16 +11,13 @@ Nodes 1 and are stopped to avoid mempool synching. When mempool is synched block
 
 import time
 from timeit import default_timer as timer
-from test_framework.blocktools import create_block, create_coinbase
+from test_framework.blocktools import create_block, create_coinbase, create_tx_with_large_script
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, connect_nodes
+from test_framework.util import assert_equal, connect_nodes, hex_str_to_bytes
 from test_framework.mininode import P2PDataStore
-from test_framework.script import CScript, MAX_SCRIPT_SIZE, MAX_SCRIPT_ELEMENT_SIZE
-from test_framework.messages import CTransaction, CTxOut, CTxIn, COutPoint, ser_compact_size, COIN
 
 reverse_bytes = (lambda txid  : txid[-1: -len(txid)-1: -1])
 
-SCR_SIZE = len(ser_compact_size(MAX_SCRIPT_SIZE))
 
 # TestP2PConn: A peer we use to send messages to bitcoind, and store responses.
 class TestP2PConn(P2PDataStore):
@@ -92,26 +89,14 @@ class MaxBlockSizeInXFieldTest(BitcoinTestFramework):
     def send_txs_for_large_block(self, node, spend, size=1000000):
         current_size = 0
         tx_count = 0
+        spend_addr = node.getnewaddress()
+        scr = hex_str_to_bytes(node.getaddressinfo(spend_addr)['scriptPubKey'])
         while current_size < size:
-            tx = self.create_tx_with_large_script(spend, 0)
+            tx = create_tx_with_large_script(spend, 0, scr, 10, 25)
             current_size = current_size + len(tx.serialize())
             node.p2p.send_txs_and_test([tx], node, success=True)
             tx_count = tx_count + 1
         self.log.info("    Total tx count %d"%tx_count)
-
-    def create_tx_with_large_script(self, prevtx, n):
-        tx = CTransaction()
-        tx.vin.append(CTxIn(COutPoint(prevtx, n), b"", 0xffffffff))
-        tx.vout.append(CTxOut(25*COIN, CScript([b'\x51'])))
-        scr_size = (MAX_SCRIPT_SIZE - SCR_SIZE - 10)
-        current_size = 0
-        script_output = CScript([b''])
-        while current_size < scr_size:
-            script_output = script_output + CScript([b'\x6a', b'\x51' * (MAX_SCRIPT_ELEMENT_SIZE - 5) ])
-            current_size = current_size + MAX_SCRIPT_ELEMENT_SIZE + 1
-        tx.vout.append(CTxOut(15*COIN, script_output))
-        tx.calc_sha256()
-        return tx
 
 
 if __name__ == '__main__':
