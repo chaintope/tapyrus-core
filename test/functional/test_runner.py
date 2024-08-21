@@ -220,14 +220,14 @@ EXTENDED_SCRIPTS = [
     'rpc_invalidateblock.py',
     'feature_rbf.py',
     'feature_rbf.py --scheme SCHNORR',
+    'mempool_limit.py',
+    'mempool_limit.py  --scheme SCHNORR',
 ]
 
 DEBUG_MODE_SCRIPTS = [
     'feature_block.py',
     'feature_cltv.py',
     'feature_cltv.py  --scheme SCHNORR',
-    'mempool_limit.py',
-    'mempool_limit.py  --scheme SCHNORR',
     'p2p_compactblocks.py',
     'wallet_basic.py',
     'wallet_basic.py --scheme SCHNORR',

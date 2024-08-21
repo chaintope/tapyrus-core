@@ -129,7 +129,9 @@ static UniValue submitpackage(const JSONRPCRequest& request)
     if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
     throw std::runtime_error(
         "submitpackage \"[rawtx1, rawtx2]\" \n"
-        "\nSubmit a package of raw transactions (serialized, hex-encoded) to local node \n"
+        "\nSubmit a package of raw transactions (serialized, hex-encoded) to local node.\n"
+        "\nA package with onr or more invalid transactions is not submitted at all.\n"
+        "\nA valid package submission may fail or be evicted when the memory pool is full\n"
         "\nArguments:\n"
         "1. transaction_hex                        (array, required) An array of hex strings of raw transactions.\n"
         "2. allowhighfees                            (boolean, optional, default=false) Allow high fees\n"

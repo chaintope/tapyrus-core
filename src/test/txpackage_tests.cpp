@@ -309,6 +309,143 @@ BOOST_FIXTURE_TEST_CASE(package_validation_tests, PackageTestSetup)
     }
 }
 
+BOOST_FIXTURE_TEST_CASE(package_orphan_tx_tests, PackageTestSetup)
+{
+    PackageValidationState validationState;
+    CValidationState state, state2;
+    std::vector<CTxMemPoolEntry> submitPool;
+    auto find_in_submitPool = [&submitPool](uint256 hashMalFix){
+        for(auto iter = submitPool.begin(); iter != submitPool.end(); iter++)
+            if(iter->GetTx().GetHashMalFix() == hashMalFix)
+                return iter;
+        return submitPool.end();
+    };
+    CTxMempoolAcceptanceOptions opt;
+    opt.context = ValidationContext::PACKAGE;
+    opt.flags = MempoolAcceptanceFlags::TEST_ONLY;
+    opt.submitPool = &submitPool;
+
+    CKey spend_key;
+    spend_key.MakeNewKey(true);
+    CScript spend_script = GetScriptForDestination(spend_key.GetPubKey().GetID());
+
+    unsigned int initialPoolSize = mempool.size();
+    unsigned long index_cb = m_coinbase_txns.size();//init this index before refilling coinbase
+
+    refillCoinbase(50);
+
+    // Parent in orphan pool
+    {
+        ++index_cb;
+        std::vector<unsigned char> vchSig;
+
+        COutPoint spend_cb(m_coinbase_txns[index_cb]->GetHashMalFix(), 0);
+        auto mtx_parent = CreateValidTransaction(spend_cb, CAmount(49 * COIN), {CScript() << OP_TRUE << OP_EQUAL});
+        Sign(vchSig, coinbaseKey, m_coinbase_txns[index_cb]->vout[0].scriptPubKey, 0, mtx_parent, 0);
+        mtx_parent.vin[0].scriptSig = CScript() << vchSig;
+        auto tx_parent{MakeTransactionRef(mtx_parent)};
+
+        COutPoint spend_parent(mtx_parent.GetHashMalFix(), 0);
+        auto mtx_orphan = CreateValidTransaction(spend_parent, CAmount(48 * COIN), spend_script);
+        mtx_orphan.vin[0].scriptSig = CScript() << OP_TRUE;
+        auto tx_orphan{MakeTransactionRef(mtx_orphan)};
+
+        //This is the orphan tx as its parent is not known yet
+        {
+            CTxMempoolAcceptanceOptions opt;
+            BOOST_CHECK(!AcceptToMemoryPool(tx_orphan, opt));
+            BOOST_CHECK_EQUAL(opt.missingInputs.size(), 1);
+        }
+
+        COutPoint spend_child(mtx_orphan.GetHashMalFix(), 0);
+        auto mtx_gchild = CreateValidTransaction(spend_child, CAmount(47 * COIN), spend_script);
+        Sign(vchSig, spend_key, mtx_orphan.vout[0].scriptPubKey, 0, mtx_gchild, 0);
+        mtx_gchild.vin[0].scriptSig = CScript() << vchSig;
+        //mtx_gchild.vin[0].scriptSig = CScript() << OP_TRUE;
+        auto tx_gchild{MakeTransactionRef(mtx_gchild)};
+
+        // orphan is in the package as parent transaction
+        Package package_parent_child{tx_orphan, tx_gchild};
+        submitPool.clear();
+
+        bool success = TestPackageAcceptance(package_parent_child, state, validationState, opt);
+
+        BOOST_CHECK(success == false);
+
+        BOOST_CHECK_EQUAL(submitPool.size(), 0);
+        BOOST_CHECK_EQUAL(state.GetRejectCode(), 0);
+        BOOST_CHECK_EQUAL(state.GetRejectReason(), "");
+        BOOST_CHECK_EQUAL(validationState[mtx_orphan.GetHashMalFix()].GetRejectCode(), 0);
+        BOOST_CHECK_EQUAL(validationState[mtx_orphan.GetHashMalFix()].GetRejectReason(), "");
+        BOOST_CHECK(validationState[mtx_orphan.GetHashMalFix()].missingInputs);
+        BOOST_CHECK_EQUAL(validationState[mtx_gchild.GetHashMalFix()].GetRejectCode(), 0);
+        BOOST_CHECK_EQUAL(validationState[mtx_gchild.GetHashMalFix()].GetRejectReason(), "");
+        BOOST_CHECK(validationState[mtx_gchild.GetHashMalFix()].missingInputs);
+
+        // Check that mempool size hasn't changed.
+        BOOST_CHECK_EQUAL(mempool.size(), initialPoolSize);
+    }
+
+    // Child in orphan pool
+    {
+        ++index_cb;
+        std::vector<unsigned char> vchSig;
+
+        COutPoint spend_cb(m_coinbase_txns[index_cb]->GetHashMalFix(), 0);
+        auto mtx_parent = CreateValidTransaction(spend_cb, CAmount(49 * COIN), {CScript() << OP_TRUE << OP_EQUAL});
+        Sign(vchSig, coinbaseKey, m_coinbase_txns[index_cb]->vout[0].scriptPubKey, 0, mtx_parent, 0);
+        mtx_parent.vin[0].scriptSig = CScript() << vchSig;
+
+        //this tx has so many outputs as workaround for "tx-size-small" error when only one/two outputs are given
+        COutPoint spend_parent(mtx_parent.GetHashMalFix(), 0);
+        auto mtx_child = CreateValidTransaction(spend_parent, CAmount(40 * COIN), {CScript() << OP_TRUE << OP_EQUAL});
+        mtx_child.vout.push_back(CTxOut(CAmount(1 * COIN), {CScript() << OP_TRUE << OP_EQUAL}));
+        mtx_child.vout.push_back(CTxOut(CAmount(1 * COIN), {CScript() << OP_TRUE << OP_EQUAL}));
+        mtx_child.vout.push_back(CTxOut(CAmount(1 * COIN), {CScript() << OP_TRUE << OP_EQUAL}));
+        mtx_child.vout.push_back(CTxOut(CAmount(1 * COIN), {CScript() << OP_TRUE << OP_EQUAL}));
+        mtx_child.vin[0].scriptSig = CScript() << OP_TRUE;
+
+        COutPoint spend_child(mtx_child.GetHashMalFix(), 0);
+        auto mtx_orphan = CreateValidTransaction(spend_child, CAmount(39 * COIN), spend_script);
+        mtx_orphan.vin[0].scriptSig = CScript() << OP_TRUE;
+
+        //This is the orphan tx as its parent is not known yet
+        {
+            auto tx_orphan{MakeTransactionRef(mtx_orphan)};
+            CTxMempoolAcceptanceOptions opt;
+            BOOST_CHECK(!AcceptToMemoryPool(tx_orphan, opt));
+            BOOST_CHECK_EQUAL(opt.missingInputs.size(), 1);
+        }
+
+        // orphan is now in the package as child transaction.
+        // no error as the parent is now known from the package
+        Package package_parent_child{MakeTransactionRef(mtx_parent), MakeTransactionRef(mtx_child), MakeTransactionRef(mtx_orphan)};
+        submitPool.clear();
+
+        bool success = TestPackageAcceptance(package_parent_child, state, validationState, opt);
+
+        BOOST_CHECK(success == true);
+        BOOST_CHECK(find_in_submitPool(mtx_parent.GetHashMalFix()) != submitPool.end());
+        BOOST_CHECK(find_in_submitPool(mtx_child.GetHashMalFix()) != submitPool.end());
+        BOOST_CHECK(find_in_submitPool(mtx_orphan.GetHashMalFix()) != submitPool.end());
+
+        BOOST_CHECK_EQUAL(submitPool.size(), 3);
+        BOOST_CHECK_EQUAL(state.GetRejectCode(), 0);
+        BOOST_CHECK_EQUAL(state.GetRejectReason(), "");
+        BOOST_CHECK_EQUAL(validationState[mtx_parent.GetHashMalFix()].GetRejectCode(), 0);
+        BOOST_CHECK_EQUAL(validationState[mtx_parent.GetHashMalFix()].GetRejectReason(), "");
+        BOOST_CHECK(!validationState[mtx_parent.GetHashMalFix()].missingInputs);
+        BOOST_CHECK_EQUAL(validationState[mtx_child.GetHashMalFix()].GetRejectCode(), 0);
+        BOOST_CHECK_EQUAL(validationState[mtx_child.GetHashMalFix()].GetRejectReason(), "");
+        BOOST_CHECK(!validationState[mtx_child.GetHashMalFix()].missingInputs);
+        BOOST_CHECK_EQUAL(validationState[mtx_orphan.GetHashMalFix()].GetRejectCode(), 0);
+        BOOST_CHECK_EQUAL(validationState[mtx_orphan.GetHashMalFix()].GetRejectReason(), "");
+        BOOST_CHECK(!validationState[mtx_orphan.GetHashMalFix()].missingInputs);
+
+        // Check that mempool size hasn't changed.
+        BOOST_CHECK_EQUAL(mempool.size(), initialPoolSize);
+    }
+}
 BOOST_FIXTURE_TEST_CASE(noncontextual_package_tests, PackageTestSetup)
 {
     // The signatures won't be verified so we can just use a placeholder
@@ -462,6 +599,7 @@ BOOST_FIXTURE_TEST_CASE(package_submission_tests, PackageTestSetup)
 
     }
     submitPool.clear();
+    packageState.clear();
     auto result_unrelated = TestPackageAcceptance(package_unrelated, state, packageState, opt);
 
     // We don't expect m_tx_results for each transaction when basic sanity checks haven't passed.
@@ -487,7 +625,7 @@ BOOST_FIXTURE_TEST_CASE(package_submission_tests, PackageTestSetup)
     Package package_parent_child;
     Package package_3gen;
     COutPoint spend_cbase(m_coinbase_txns[index_cb]->GetHashMalFix(), 0);
-    CMutableTransaction mtx_parent = CreateValidTransaction(spend_cbase, CAmount(49 * COIN), parent_locking_script);
+    CMutableTransaction mtx_parent = CreateValidTransaction(spend_cbase, CAmount(49 * COIN), {CScript() << OP_TRUE << OP_EQUAL});
     Sign(vchSig, coinbaseKey, m_coinbase_txns[index_cb]->vout[0].scriptPubKey, 0, mtx_parent, 0);
     mtx_parent.vin[0].scriptSig = CScript() << vchSig;
     CTransactionRef tx_parent{MakeTransactionRef(mtx_parent)};
@@ -498,56 +636,81 @@ BOOST_FIXTURE_TEST_CASE(package_submission_tests, PackageTestSetup)
     child_key.MakeNewKey(true);
     CScript child_locking_script = GetScriptForDestination(child_key.GetPubKey().GetID());
     COutPoint spend_parent(tx_parent->GetHashMalFix(), 0);
-    CMutableTransaction mtx_child = CreateValidMempoolTransaction(mempool, spend_parent, CAmount(48 * COIN), child_locking_script);
-    Sign(vchSig, coinbaseKey, m_coinbase_txns[index_cb]->vout[0].scriptPubKey, 0, mtx_parent, 0);
-    mtx_parent.vin[0].scriptSig = CScript() << vchSig;
+    CMutableTransaction mtx_child = CreateValidTransaction(spend_parent, CAmount(45 * COIN), {CScript() << OP_TRUE << OP_EQUAL});
+    mtx_child.vin[0].scriptSig = CScript() << OP_TRUE;
+    mtx_child.vout.push_back(CTxOut(CAmount(1 * COIN), {CScript() << OP_TRUE << OP_EQUAL}));
+    mtx_child.vout.push_back(CTxOut(CAmount(1 * COIN), {CScript() << OP_TRUE << OP_EQUAL}));
+    mtx_child.vout.push_back(CTxOut(CAmount(1 * COIN), {CScript() << OP_TRUE << OP_EQUAL}));
     CTransactionRef tx_child{MakeTransactionRef(mtx_child)};
     package_parent_child.push_back(tx_child);
     package_3gen.push_back(tx_child);
 
     COutPoint spend_child(tx_child->GetHashMalFix(), 0);
-    CMutableTransaction mtx_grandchild = CreateValidMempoolTransaction(mempool, spend_child, CAmount(47 * COIN), CScript() << OP_TRUE << OP_EQUAL );
+    CMutableTransaction mtx_grandchild = CreateValidTransaction(spend_child, CAmount(41 * COIN), CScript() << OP_TRUE << OP_EQUAL );
     mtx_grandchild.vin[0].scriptSig = CScript() << OP_TRUE;
+    mtx_grandchild.vout.push_back(CTxOut(CAmount(1 * COIN), {CScript() << OP_TRUE << OP_EQUAL}));
+    mtx_grandchild.vout.push_back(CTxOut(CAmount(1 * COIN), {CScript() << OP_TRUE << OP_EQUAL}));
+    mtx_grandchild.vout.push_back(CTxOut(CAmount(1 * COIN), {CScript() << OP_TRUE << OP_EQUAL}));
     CTransactionRef tx_grandchild{MakeTransactionRef(mtx_grandchild)};
     package_3gen.push_back(tx_grandchild);
 
     // 3 Generations is allowed.
-    //transactions are invalid for reasons other than missing inputs
     {
         submitPool.clear();
         submitPool.reserve(package_3gen.size());
+        packageState.clear();
         auto result_3gen_submit = TestPackageAcceptance(package_3gen, state, packageState, opt);
-        BOOST_CHECK(!result_3gen_submit);
+        BOOST_CHECK(result_3gen_submit);
         BOOST_CHECK(state.IsValid());
         BOOST_CHECK_EQUAL(state.GetRejectCode(), 0);
         BOOST_CHECK_EQUAL(state.GetRejectReason(), "");
-        for(auto& s : packageState) {
-            if(s.first == mtx_grandchild.GetHashMalFix()) {
-                BOOST_CHECK_EQUAL(s.second.GetRejectCode(), REJECT_NONSTANDARD);
-                BOOST_CHECK_EQUAL(s.second.GetRejectReason(), "tx-size-small");
-            }
-        }
-        BOOST_CHECK_EQUAL(submitPool.size(), 1);
+        
+        BOOST_CHECK_EQUAL(packageState[tx_parent->GetHashMalFix()].GetRejectCode(), 0);
+        BOOST_CHECK_EQUAL(packageState[tx_parent->GetHashMalFix()].GetRejectReason(), "");
+        BOOST_CHECK_EQUAL(packageState[tx_child->GetHashMalFix()].GetRejectCode(), 0);
+        BOOST_CHECK_EQUAL(packageState[tx_child->GetHashMalFix()].GetRejectReason(), "");
+        BOOST_CHECK_EQUAL(packageState[tx_grandchild->GetHashMalFix()].GetRejectCode(), 0);
+        BOOST_CHECK_EQUAL(packageState[tx_grandchild->GetHashMalFix()].GetRejectReason(), "");
+        BOOST_CHECK_EQUAL(submitPool.size(), 3);
 
-        auto result_unrelated_submit = SubmitPackageToMempool(submitPool, stateSubmit);
+        auto result_submit = SubmitPackageToMempool(submitPool, stateSubmit);
 
-        BOOST_CHECK(result_unrelated_submit);
+        BOOST_CHECK(result_submit);
         BOOST_CHECK_EQUAL(stateSubmit.GetRejectCode(), 0);
         BOOST_CHECK_EQUAL(stateSubmit.GetRejectReason(), "");
         BOOST_CHECK_EQUAL(mempool.size(), expected_pool_size + 13);
     }
 
+    {
+        submitPool.clear();
+        packageState.clear();
+        const auto result_missing_parent = TestPackageAcceptance(package_parent_child, state, packageState, opt);
+        BOOST_CHECK(!result_missing_parent);
+        BOOST_CHECK(state.IsValid());
+        BOOST_CHECK_EQUAL(state.GetRejectCode(), 0);
+        BOOST_CHECK_EQUAL(state.GetRejectReason(), "");
+        BOOST_CHECK_EQUAL(packageState[tx_parent->GetHashMalFix()].GetRejectCode(), REJECT_DUPLICATE);
+        BOOST_CHECK_EQUAL(packageState[tx_parent->GetHashMalFix()].GetRejectReason(), "txn-already-in-mempool");
+        BOOST_CHECK_EQUAL(packageState[tx_child->GetHashMalFix()].GetRejectCode(), REJECT_DUPLICATE);
+        BOOST_CHECK_EQUAL(packageState[tx_child->GetHashMalFix()].GetRejectReason(), "txn-already-in-mempool");
+        BOOST_CHECK_EQUAL(submitPool.size(), 0);
+
+        auto result_submit = SubmitPackageToMempool(submitPool, stateSubmit);
+        BOOST_CHECK(result_submit);
+        BOOST_CHECK_EQUAL(stateSubmit.GetRejectCode(), 0);
+        BOOST_CHECK_EQUAL(stateSubmit.GetRejectReason(), "");
+        BOOST_CHECK_EQUAL(mempool.size(), expected_pool_size + 13);
+    }
     // Parent and child package with unknown inputs
     {
         ++index_cb;
-        CMutableTransaction mtx_parent_invalid = CreateValidTransaction(spend_cbase, CAmount(49 * COIN), parent_locking_script);
+        CMutableTransaction mtx_parent_invalid = CreateValidTransaction(spend_cbase, CAmount(49 * COIN), {CScript() << OP_TRUE << OP_EQUAL});
         mtx_parent_invalid.vin[0].prevout.hashMalFix = InsecureRand256();
-        Sign(vchSig, coinbaseKey, m_coinbase_txns[index_cb]->vout[0].scriptPubKey, 0, mtx_parent, 0);
-        mtx_parent.vin[0].scriptSig = CScript() << vchSig;
         CTransactionRef tx_parent_invalid{MakeTransactionRef(mtx_parent_invalid)};
         Package package_invalid_parent{tx_parent_invalid, tx_child};
         submitPool.clear();
         submitPool.reserve(package_invalid_parent.size());
+        packageState.clear();
         auto result_quit_early = TestPackageAcceptance(package_invalid_parent, state, packageState, opt);
         BOOST_CHECK(!result_quit_early);
         BOOST_CHECK(state.IsValid());
@@ -560,36 +723,51 @@ BOOST_FIXTURE_TEST_CASE(package_submission_tests, PackageTestSetup)
         BOOST_CHECK_EQUAL(packageState[tx_child->GetHashMalFix()].GetRejectReason(), "txn-already-in-mempool");
         BOOST_CHECK_EQUAL(submitPool.size(), 0);
 
-        auto result_unrelated_submit = SubmitPackageToMempool(submitPool, stateSubmit);
+        auto result_submit = SubmitPackageToMempool(submitPool, stateSubmit);
 
-        BOOST_CHECK(result_unrelated_submit);
+        BOOST_CHECK(result_submit);
         BOOST_CHECK_EQUAL(stateSubmit.GetRejectCode(), 0);
         BOOST_CHECK_EQUAL(stateSubmit.GetRejectReason(), "");
         BOOST_CHECK_EQUAL(mempool.size(), expected_pool_size + 13);
     }
 
     // high fee tx.
-    CMutableTransaction tx_child2{*tx_child};
-    tx_child2.vin.push_back(CTxIn(COutPoint(package_unrelated[0]->GetHashMalFix(), 0), CScript()));
-    Package package_missing_parent;
-    package_missing_parent.push_back(tx_parent);
-    package_missing_parent.push_back(MakeTransactionRef(tx_child2));
     {
+        opt.nAbsurdFee = 0.5 * COIN;
+
+        ++index_cb;
+        COutPoint spend_cbase(m_coinbase_txns[index_cb]->GetHashMalFix(), 0);
+        CMutableTransaction mtx_parent = CreateValidTransaction(spend_cbase, CAmount(49 * COIN), {CScript() << OP_TRUE << OP_EQUAL});
+        Sign(vchSig, coinbaseKey, m_coinbase_txns[index_cb]->vout[0].scriptPubKey, 0, mtx_parent, 0);
+        mtx_parent.vin[0].scriptSig = CScript() << vchSig;
+        CTransactionRef tx_parent{MakeTransactionRef(mtx_parent)};
+
+        COutPoint spend_parent(tx_parent->GetHashMalFix(), 0);
+        CMutableTransaction mtx_child2 = CreateValidTransaction(spend_parent, CAmount(5 * COIN), {CScript() << OP_TRUE << OP_EQUAL});
+        mtx_child2.vin[0].scriptSig = CScript() << OP_TRUE;
+        mtx_child2.vout.push_back(CTxOut(CAmount(1 * COIN), {CScript() << OP_TRUE << OP_EQUAL}));
+        CTransactionRef tx_child2{MakeTransactionRef(mtx_child2)};
+
+        Package package_high_fee{tx_parent, tx_child2};
         submitPool.clear();
-        submitPool.reserve(package_missing_parent.size());
-        const auto result_missing_parent = TestPackageAcceptance(package_missing_parent, state, packageState, opt);
+        packageState.clear();
+
+        const auto result_missing_parent = TestPackageAcceptance(package_high_fee, state, packageState, opt);
+
         BOOST_CHECK(!result_missing_parent);
         BOOST_CHECK(state.IsValid());
         BOOST_CHECK_EQUAL(state.GetRejectCode(), 0);
         BOOST_CHECK_EQUAL(state.GetRejectReason(), "");
-        BOOST_CHECK_EQUAL(packageState[tx_parent->GetHashMalFix()].GetRejectCode(), 0);
-        BOOST_CHECK_EQUAL(packageState[tx_parent->GetHashMalFix()].GetRejectReason(), "");
-        BOOST_CHECK_EQUAL(packageState[tx_child2.GetHashMalFix()].GetRejectCode(), REJECT_HIGHFEE);
-        BOOST_CHECK_EQUAL(packageState[tx_child2.GetHashMalFix()].GetRejectReason(), "absurdly-high-fee");
+        BOOST_CHECK_EQUAL(packageState[tx_parent->GetHashMalFix()].GetRejectCode(), REJECT_HIGHFEE);
+        BOOST_CHECK_EQUAL(packageState[tx_parent->GetHashMalFix()].GetRejectReason(), "absurdly-high-fee");
+        BOOST_CHECK_EQUAL(packageState[tx_parent->GetHashMalFix()].missingInputs, false);
+        BOOST_CHECK_EQUAL(packageState[tx_child2->GetHashMalFix()].GetRejectCode(), REJECT_NONSTANDARD);
+        BOOST_CHECK_EQUAL(packageState[tx_child2->GetHashMalFix()].GetRejectReason(), "tx-size-small");
         BOOST_CHECK_EQUAL(submitPool.size(), 0);
 
-        auto result_unrelated_submit = SubmitPackageToMempool(submitPool, stateSubmit);
-        BOOST_CHECK(result_unrelated_submit);
+        auto result_submit = SubmitPackageToMempool(submitPool, stateSubmit);
+
+        BOOST_CHECK(result_submit);
         BOOST_CHECK_EQUAL(stateSubmit.GetRejectCode(), 0);
         BOOST_CHECK_EQUAL(stateSubmit.GetRejectReason(), "");
         BOOST_CHECK_EQUAL(mempool.size(), expected_pool_size + 13);

@@ -305,6 +305,9 @@ void PruneBlockFilesManual(int nManualPruneHeight);
  * plTxnReplaced will be appended to with all transactions replaced from mempool **/
 bool AcceptToMemoryPool(const CTransactionRef &tx, CTxMempoolAcceptanceOptions &opt);
 
+/** remove old transactions from mempool based on age to keep it within size limits*/
+void LimitMempoolSize(CTxMemPool& pool, size_t limit, unsigned long age);
+
 /** Convert CValidationState to a human-readable message for logging */
 std::string FormatStateMessage(const CValidationState &state);
 

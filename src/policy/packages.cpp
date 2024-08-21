@@ -71,7 +71,14 @@ bool CheckPackage(const Package& txns, CValidationState& state)
 
     return true;
 }
-
+// remove package transaction from mempool if it was rejected due to a full mempool
+void RemovePackageFromMempool(const std::vector<CTxMemPoolEntry>& validPool)
+{
+    for(auto &entry : validPool) {
+        auto &tx(entry.GetTx());
+        mempool.removeRecursive(tx, MemPoolRemovalReason::SIZELIMIT);
+    }
+}
 
 bool ArePackageTransactionsAccepted(const PackageValidationState& results)
 {
@@ -126,7 +133,8 @@ bool TestPackageAcceptance(const Package& package,
 
 bool SubmitPackageToMempool(const std::vector<CTxMemPoolEntry>& validPool, CValidationState& state)
 {
-    for(auto &entry : validPool) {
+    for(auto &entry : validPool)
+    {
         auto &tx(entry.GetTx());
         {
             // Store transaction in mempool if validation succeeded
@@ -135,11 +143,17 @@ bool SubmitPackageToMempool(const std::vector<CTxMemPoolEntry>& validPool, CVali
             mempool.addUnchecked(tx.GetHashMalFix(), entry, false);
         }
 
-        if (!mempool.exists(tx.GetHashMalFix()))
-            return state.DoS(0, false, REJECT_PACKAGE_MEMPOOL, "mempool full");
-
         //signlaing for gui, wallet etc
         GetMainSignals().TransactionAddedToMempool(entry.GetSharedTx());
+
+        LimitMempoolSize(mempool, gArgs.GetArg("-maxmempool", DEFAULT_MAX_MEMPOOL_SIZE) * 1000000, gArgs.GetArg("-mempoolexpiry", DEFAULT_MEMPOOL_EXPIRY) * 60 * 60);
+
+        if (!mempool.exists(tx.GetHashMalFix()))
+        {
+            RemovePackageFromMempool(validPool);
+            return state.DoS(0, false, REJECT_PACKAGE_MEMPOOL, "mempool full");
+        }
     }
+
     return true;
 }
