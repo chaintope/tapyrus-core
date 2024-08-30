@@ -801,8 +801,7 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
         return state.DoS(0, false, REJECT_NONSTANDARD, "non-final");
 
     // is it already in the memory pool?
-    // if this is a package do not return error, continue
-    if (pool.exists(hash) && opt.context == ValidationContext::PACKAGE) {
+    if (pool.exists(hash)) {
         return state.Invalid(false, REJECT_DUPLICATE, "txn-already-in-mempool");
     }
 
@@ -1094,13 +1093,6 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
             return false;
         }
 
-        // if validation of the package tx was successful remember its mempoolentry
-        // if submission is needed this list is used otherwise it is unused
-        if(opt.context == ValidationContext::PACKAGE) {
-            opt.mempool_view->AddToPackagePool(ptx);
-            if(opt.submitPool)
-                opt.submitPool->push_back(std::move(entry));
-        }
 
         if (opt.flags == MempoolAcceptanceFlags::TEST_ONLY) {
             // Tx was accepted, but not added

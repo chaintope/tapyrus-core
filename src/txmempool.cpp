@@ -901,12 +901,6 @@ bool CTxMemPool::HasNoInputsOf(const CTransaction &tx) const
 CCoinsViewMemPool::CCoinsViewMemPool(CCoinsView* baseIn, const CTxMemPool& mempoolIn) : CCoinsViewBacked(baseIn), mempool(mempoolIn) { }
 
 bool CCoinsViewMemPool::GetCoin(const COutPoint &outpoint, Coin &coin) const {
-    // Check to see if the inputs are made available by another tx in the package.
-    // These Coins would not be available in the underlying CoinsView.
-    if (auto it = packagePool.find(outpoint); it != packagePool.end()) {
-        coin = it->second;
-        return true;
-    }
 
     // If an entry in the mempool exists, always return that one, as it's guaranteed to never
     // conflict with the underlying cache, and it cannot have pruned entries (as it contains full)
@@ -923,12 +917,6 @@ bool CCoinsViewMemPool::GetCoin(const COutPoint &outpoint, Coin &coin) const {
     return base->GetCoin(outpoint, coin);
 }
 
-void CCoinsViewMemPool::AddToPackagePool(const CTransactionRef& tx)
-{
-    for (unsigned int n = 0; n < tx->vout.size(); ++n) {
-        packagePool.emplace(COutPoint(tx->GetHashMalFix(), n), Coin(tx->vout[n], MEMPOOL_HEIGHT, false));
-    }
-}
 
 size_t CTxMemPool::DynamicMemoryUsage() const {
     LOCK(cs);

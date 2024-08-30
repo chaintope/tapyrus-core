@@ -39,12 +39,10 @@ bool CheckPackage(const Package& txns, CValidationState& state);
 
 void FilterMempoolDuplicates(const std::vector<CTransaction>& txns, Package& package, PackageValidationState& results);
 
-bool TestPackageAcceptance(const Package& package,
+bool SubmitPackageToMempool(const Package& package,
                                   CValidationState& state,
                                   PackageValidationState& results,
                                   CTxMempoolAcceptanceOptions& opt);
 bool ArePackageTransactionsAccepted(const PackageValidationState& results);
-
-bool SubmitPackageToMempool(const std::vector<CTxMemPoolEntry >& validPool, CValidationState& state);
 
 #endif // TAPYRUS_POLICY_PACKAGES_H

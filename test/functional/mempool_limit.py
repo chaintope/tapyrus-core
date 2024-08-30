@@ -19,9 +19,7 @@ from test_framework.address import key_to_p2pkh
 MAX_SCRIPT_SIZE = 10000
 MAX_BIP125_RBF_SEQUENCE = 0xfffffffd
 
-
 tx_size = lambda tx : len(ToHex(tx))//2 + 120 * len(tx.vin) + 50
-
 
 class MempoolLimitTest(BitcoinTestFramework):
     def set_test_params(self):
@@ -193,22 +191,28 @@ class MempoolLimitTest(BitcoinTestFramework):
         mempoolmin_feerate = node.getmempoolinfo()["mempoolminfee"]
         utxos = [utxo for utxo in node.listunspent()if utxo['amount'] >  mempoolmin_feerate * 100]
 
-        (package_hex, package_txids) = self.create_package(node, utxos, None, relayfee, size=5, large=True)
+        (package_hex, package_txids) = self.create_package(node, utxos, None, mempoolmin_feerate, size=5, large=True)
 
-        # Package should be submitted partially and then evicted.
+        # Package should be submitted partially
         mempool_txids = node.getrawmempool()
 
         res = self.submitpackage(node, package_hex)
 
-        # Failed due to ful mempool
-        assert_equal(res, {'allowed': False, 'reject-reason': '71: mempool full'})
+        # Failed midway due to full mempool
+        success = False
+        for x in [True for txid in package_txids if res[txid] == {'allowed': False, 'reject-reason': '66: mempool full'}]:
+            success = success | x
+        assert success
 
         # Maximum size must never be exceeded.
         assert_greater_than(node.getmempoolinfo()["maxmempool"], node.getmempoolinfo()["bytes"])
 
-        # package transactions must not be in mempool.
+        # some package transactions are in mempool.
         resulting_mempool_txids = node.getrawmempool()
-        assert_equal(mempool_txids, resulting_mempool_txids)
+        assert(mempool_txids != resulting_mempool_txids)
+        for txid in package_txids:
+            if res[txid]['allowed']:
+                assert(txid in resulting_mempool_txids)
 
     def test_mid_package_eviction(self, node):
         self.log.info("Check a package where each parent passes the current mempoolminfee but would cause eviction before package submission terminates")
@@ -237,7 +241,6 @@ class MempoolLimitTest(BitcoinTestFramework):
         signresult = node.signrawtransactionwithwallet(ToHex(tx))
         node.sendrawtransaction(signresult["hex"], True)
 
-
         utxos = [utxo for utxo in node.listunspent()if utxo['amount'] >  mempoolmin_feerate * 100]
         init_mempool_txids = node.getrawmempool()
 
@@ -253,7 +256,7 @@ class MempoolLimitTest(BitcoinTestFramework):
         assert_greater_than(node.getmempoolinfo()["maxmempool"], node.getmempoolinfo()["bytes"])
 
         # Evicted transaction and its descendants must not be in mempool.
-        self.log.info("Verify package eviction")
+        self.log.info("Verify eviction")
         resulting_mempool_txids = node.getrawmempool()
         actual_mempool_evicted_tx = [tx for tx in init_mempool_txids if tx not in resulting_mempool_txids]
         assert actual_mempool_evicted_tx not in resulting_mempool_txids
@@ -264,7 +267,6 @@ class MempoolLimitTest(BitcoinTestFramework):
         else:
             for txid in txids:
                 assert txid in resulting_mempool_txids
-
 
     def test_mid_package_replacement(self, node):
         self.log.info("Check a package where an early tx depends on a later-replaced mempool tx")
@@ -312,19 +314,17 @@ class MempoolLimitTest(BitcoinTestFramework):
         assert_equal(pkg_parent["complete"], True)
         self.log.debug("package pkg_parent: %s", txid)
 
-
         # Tx that replaces the parent of pkg_parent.
         inputs = [{"txid": double_spent_utxo["txid"], "vout": double_spent_utxo["vout"], "sequence":MAX_BIP125_RBF_SEQUENCE}]
         outputs = [{self.address: double_spent_utxo['amount']}]
         replacement_tx_hex = node.createrawtransaction(inputs, outputs)
         replacement_tx = CTransaction()
         replacement_tx.deserialize(BytesIO(hex_str_to_bytes(replacement_tx_hex)))
-        self.deduct_fee(replacement_tx, 20 * mempoolmin_feerate)
+        self.deduct_fee(replacement_tx, 100 * mempoolmin_feerate)
         txid = replacement_tx.rehash()
         replacement_tx_hex = node.signrawtransactionwithwallet(replacement_tx.serialize().hex(), [double_spent_utxo], "ALL", self.options.scheme)
         assert_equal(replacement_tx_hex["complete"], True)
         self.log.debug("package replacement_tx: %s", txid)
-
 
         # Create a child spending both
         script = hex_str_to_bytes(node.getaddressinfo(self.address)['scriptPubKey'])
@@ -346,9 +346,14 @@ class MempoolLimitTest(BitcoinTestFramework):
         self.log.info("submit package")
         res = self.submitpackage(node, package_hex)
 
+        # pkg_parent_tx is accepted first
         assert_equal(res[pkg_parent_tx.hashMalFix], {'allowed': True})
-        assert_equal(res[replacement_tx.hashMalFix], {'allowed': True})
-        assert_equal(res[child.hashMalFix], {'allowed': True})
+
+        # pkg_parent_tx and replaced_tx are replaced
+        assert_equal(res[replacement_tx.hashMalFix], {'allowed': True} )
+
+        # pkg_parent_tx is missing
+        assert_equal(res[child.hashMalFix], {'allowed': False, 'reject-reason': 'missing-inputs'} )
 
         # Maximum size must never be exceeded.
         assert_greater_than(node.getmempoolinfo()["maxmempool"], node.getmempoolinfo()["bytes"])
@@ -356,20 +361,13 @@ class MempoolLimitTest(BitcoinTestFramework):
         self.log.info("Verify package replacement")
         resulting_mempool_txids = node.getrawmempool()
 
-        # The replacement should not take place.
-        assert replaced_tx.hashMalFix in resulting_mempool_txids
+        # The replacement take place.
+        assert replaced_tx.hashMalFix not in resulting_mempool_txids
 
-        # package submission succeeds
+        # package submission is partial
         assert replacement_tx.hashMalFix in resulting_mempool_txids
-        assert pkg_parent_tx.hashMalFix in resulting_mempool_txids
-        assert child.hashMalFix in resulting_mempool_txids
-
-        # block creation fails
-        try:
-            block_hash = node.generate(1, self.signblockprivkey_wif)
-        except Exception as e:
-            self.log.error("Error generating block: %s", str(e))
-
+        assert pkg_parent_tx.hashMalFix not in resulting_mempool_txids
+        assert child.hashMalFix not in resulting_mempool_txids
 
     def test_mempool_eviction(self, node):
         relayfee = node.getnetworkinfo()['relayfee']
@@ -446,8 +444,6 @@ class MempoolLimitTest(BitcoinTestFramework):
         self.log.info("Phase 3 : Other Package Mempool test")
         self.test_package_full_mempool(self.nodes[2])
         self.test_mid_package_replacement(self.nodes[3])
-
-
 
     def submitpackage(self, node, package_hex):
         # Package should be submitted with enough logging.

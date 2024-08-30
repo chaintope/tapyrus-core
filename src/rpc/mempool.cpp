@@ -50,8 +50,11 @@ static UniValue testmempoolaccept(const JSONRPCRequest& request)
         throw std::runtime_error(
             // clang-format off
             "testmempoolaccept [\"rawtxs\"] ( allowhighfees )\n"
-            "\nReturns if raw transaction (serialized, hex-encoded) would be accepted by mempool.\n"
-            "\nThis checks if the transaction violates the consensus or policy rules.\n"
+            "\nSaves the raw transaction (serialized, hex-encoded) in mempool.\n"
+            "\nThis RPC does not guarantee the submission of all transactions in the package."
+            "\nTransactions are submitted to the mempool in the order in the package,\n"
+            "\nvalid transactions are successful and\n"
+            "\ninvalid transactions that violates the consensus or policy rules.\n"
             "\nSee sendrawtransaction call.\n"
             "\nArguments:\n"
             "1. [\"rawtxs\"]        (array, required) An array of hex strings of raw transactions.\n"
@@ -105,17 +108,12 @@ static UniValue testmempoolaccept(const JSONRPCRequest& request)
 
     FilterMempoolDuplicates(transactions, package, pkg_results);
 
-    std::vector<CTxMemPoolEntry> submitPool;
-    submitPool.reserve(package.size());
-
     bool success = false;
     CTxMempoolAcceptanceOptions opt;
     opt.context = ValidationContext::PACKAGE;
-    opt.flags = MempoolAcceptanceFlags::TEST_ONLY;
-    opt.submitPool = &submitPool;
     opt.nAbsurdFee = max_raw_tx_fee;
 
-    success = TestPackageAcceptance(package, state, pkg_results, opt);
+    success = SubmitPackageToMempool(package, state, pkg_results, opt);
 
     UniValue result(UniValue::VOBJ);
 
@@ -175,23 +173,14 @@ static UniValue submitpackage(const JSONRPCRequest& request)
 
     FilterMempoolDuplicates(transactions, package, pkg_results);
 
-    std::vector<CTxMemPoolEntry> submitPool;
-    submitPool.reserve(package.size());
-
     CTxMempoolAcceptanceOptions opt;
     opt.context = ValidationContext::PACKAGE;
-    opt.flags = MempoolAcceptanceFlags::TEST_ONLY;
-    opt.submitPool = &submitPool;
     opt.nAbsurdFee = max_raw_tx_fee;
 
-    bool success = TestPackageAcceptance(package, state, pkg_results, opt);
+    bool success = SubmitPackageToMempool(package, state, pkg_results, opt);
 
     UniValue result(UniValue::VOBJ);
 
-    if(success && ArePackageTransactionsAccepted(pkg_results))
-    {
-        success = SubmitPackageToMempool(submitPool, state);
-    }
     encodePackageResult(success, pkg_results, state, result);
 
     return result;
