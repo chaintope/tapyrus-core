@@ -32,6 +32,7 @@
 #include <util.h>
 #include <trace.h>
 #include <validation.h>
+#include  <utiltime.h>
 
 #include <memory>
 #include <array>
@@ -44,6 +45,10 @@
 static constexpr int64_t ORPHAN_TX_EXPIRE_TIME = 20 * 60;
 /** Minimum time between orphan transactions expire time checks in seconds */
 static constexpr int64_t ORPHAN_TX_EXPIRE_INTERVAL = 5 * 60;
+/** How long to cache transactions in mapRelay for normal relay */
+static constexpr std::chrono::seconds RELAY_TX_CACHE_TIME = std::chrono::minutes{15};
+/** How long a transaction has to be in the mempool before it can unconditionally be relayed (even when not in mapRelay). */
+static constexpr std::chrono::seconds UNCONDITIONAL_RELAY_DELAY = std::chrono::minutes{2};
 /** Headers download timeout expressed in microseconds
  *  Timeout = base + per_header * (expected number of headers) */
 static constexpr int64_t HEADERS_DOWNLOAD_TIMEOUT_BASE = 15 * 60 * 1000000; // 15 minutes
@@ -94,9 +99,18 @@ static const unsigned int AVG_ADDRESS_BROADCAST_INTERVAL = 30;
 /** Average delay between trickled inventory transmissions in seconds.
  *  Blocks and whitelisted receivers bypass this, outbound peers get half this delay. */
 static const unsigned int INVENTORY_BROADCAST_INTERVAL = 5;
-/** Maximum number of inventory items to send per transmission.
+/** Maximum rate of inventory items to send per second.
  *  Limits the impact of low-fee transaction floods. */
-static constexpr unsigned int INVENTORY_BROADCAST_MAX = 7 * INVENTORY_BROADCAST_INTERVAL;
+static constexpr unsigned int INVENTORY_BROADCAST_PER_SECOND = 7;
+/** Maximum number of inventory items to send per transmission. */
+static constexpr unsigned int INVENTORY_BROADCAST_MAX = INVENTORY_BROADCAST_PER_SECOND * INVENTORY_BROADCAST_INTERVAL;
+/** The number of most recently announced transactions a peer can request. */
+static constexpr unsigned int INVENTORY_MAX_RECENT_RELAY = 3500;
+/** Verify that INVENTORY_MAX_RECENT_RELAY is enough to cache everything typically
+ *  relayed before unconditional relay from the mempool kicks in. This is only a
+ *  lower bound, and it should be larger to account for higher inv rate to outbound
+ *  peers, and random variations in the broadcast mechanism. */
+static_assert(INVENTORY_MAX_RECENT_RELAY >= INVENTORY_BROADCAST_PER_SECOND * UNCONDITIONAL_RELAY_DELAY / std::chrono::seconds{1}, "INVENTORY_RELAY_MAX too low");
 /** Average delay between feefilter broadcasts in seconds. */
 static constexpr unsigned int AVG_FEEFILTER_BROADCAST_INTERVAL = 10 * 60;
 /** Maximum feefilter broadcast delay after significant change. */
@@ -251,6 +265,9 @@ struct CNodeState {
      */
     bool fSupportsDesiredCmpctVersion;
 
+    //! A rolling bloom filter of all announced tx CInvs to this peer.
+    CRollingBloomFilter vRecentlyAnnouncedInvs = CRollingBloomFilter{INVENTORY_MAX_RECENT_RELAY, 0.000001};
+
     /** State used to enforce CHAIN_SYNC_TIMEOUT
       * Only in effect for outbound, non-manual connections, with
       * m_protect == false
@@ -303,6 +320,7 @@ struct CNodeState {
         fSupportsDesiredCmpctVersion = false;
         m_chain_sync = { 0, nullptr, false, false };
         m_last_block_announcement = 0;
+        vRecentlyAnnouncedInvs.reset();
     }
 };
 
@@ -1267,6 +1285,35 @@ void static ProcessGetBlockData(CNode* pfrom, const CInv& inv, CConnman* connman
     }
 }
 
+//! Determine whether or not a peer can request a transaction, and return it (or nullptr if not found or not allowed).
+CTransactionRef static FindTxForGetData(const CNode* peer, const uint256& txid, const std::chrono::seconds mempool_req, const std::chrono::seconds now)
+{
+    auto txinfo = mempool.info(txid);
+    if (txinfo.tx) {
+        // If a TX could have been INVed in reply to a MEMPOOL request,
+        // or is older than UNCONDITIONAL_RELAY_DELAY, permit the request
+        // unconditionally.
+        if ((mempool_req.count() && txinfo.nTime <= mempool_req.count()) || txinfo.nTime <= (now - UNCONDITIONAL_RELAY_DELAY).count()) {
+            return std::move(txinfo.tx);
+        }
+    }
+
+    {
+        LOCK(cs_main);
+
+        // Otherwise, the transaction must have been announced recently.
+        if (State(peer->GetId())->vRecentlyAnnouncedInvs.contains(txid)) {
+            // If it was, it can be relayed from either the mempool...
+            if (txinfo.tx) return std::move(txinfo.tx);
+            // ... or the relay pool.
+            auto mi = mapRelay.find(txid);
+            if (mi != mapRelay.end()) return mi->second;
+        }
+    }
+
+    return {};
+}
+
 void static ProcessGetData(CNode* pfrom, CConnman* connman, const std::atomic<bool>& interruptMsgProc)
 {
     AssertLockNotHeld(cs_main);
@@ -1274,45 +1321,56 @@ void static ProcessGetData(CNode* pfrom, CConnman* connman, const std::atomic<bo
     std::deque<CInv>::iterator it = pfrom->vRecvGetData.begin();
     std::vector<CInv> vNotFound;
     const CNetMsgMaker msgMaker(pfrom->GetSendVersion());
-    {
-        LOCK(cs_main);
 
-        while (it != pfrom->vRecvGetData.end() && (it->type == MSG_TX || it->type == MSG_WITNESS_TX)) {
-            if (interruptMsgProc)
-                return;
-            // Don't bother if send buffer is too full to respond anyway
-            if (pfrom->fPauseSend)
-                break;
+    const std::chrono::seconds now = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch());
+    // Get last mempool request time
+    const std::chrono::seconds mempool_req = pfrom->fRelayTxes ? static_cast<std::chrono::seconds>(pfrom->timeLastMempoolReq.load())
+                                                                          : std::chrono::seconds::min();
+    // Process as many TX items from the front of the getdata queue as
+    // possible, since they're common and it's efficient to batch process
+    // them.
+    while (it != pfrom->vRecvGetData.end() && it->type == MSG_TX ) {
+        const CInv &inv = *it++;
 
-            const CInv &inv = *it;
-            it++;
+        if (interruptMsgProc)
+            return;
+        // The send buffer provides backpressure. If there's no space in
+        // the buffer, pause processing until the next call.
+        if (pfrom->fPauseSend)
+            break;
 
-            // Send stream from relay memory
-            bool push = false;
-            auto mi = mapRelay.find(inv.hash);
-            int nSendFlags = (inv.type == MSG_TX ? SERIALIZE_TRANSACTION_NO_WITNESS : 0);
-            if (mi != mapRelay.end()) {
-                connman->PushMessage(pfrom, msgMaker.Make(nSendFlags, NetMsgType::TX, *mi->second));
-                push = true;
-            } else if (pfrom->timeLastMempoolReq) {
-                auto txinfo = mempool.info(inv.hash);
-                // To protect privacy, do not answer getdata using the mempool when
-                // that TX couldn't have been INVed in reply to a MEMPOOL request.
-                if (txinfo.tx && txinfo.nTime <= pfrom->timeLastMempoolReq) {
-                    connman->PushMessage(pfrom, msgMaker.Make(nSendFlags, NetMsgType::TX, *txinfo.tx));
-                    push = true;
+        if (!pfrom->fRelayTxes) {
+            // Ignore GETDATA requests for transactions from blocks-only peers.
+            continue;
+        }
+
+        CTransactionRef tx = FindTxForGetData(pfrom, inv.hash, mempool_req, now);
+        int nSendFlags = (inv.type == MSG_TX ? SERIALIZE_TRANSACTION_NO_WITNESS : 0);
+
+        if (tx) {
+            connman->PushMessage(pfrom, msgMaker.Make(nSendFlags, NetMsgType::TX, *tx));
+            // As we're going to send tx, make sure its unconfirmed parents are made requestable.
+            for (const auto& txin : tx->vin) {
+                auto txinfo = mempool.info(txin.prevout.hashMalFix);
+                if (txinfo.tx && txinfo.nTime > (now - UNCONDITIONAL_RELAY_DELAY).count()) {
+                    // Relaying a transaction with a recent but unconfirmed parent.
+                    LOCK(pfrom->cs_inventory);
+                    if (!pfrom->filterInventoryKnown.contains(txin.prevout.hashMalFix)) {
+                        LOCK(cs_main);
+                        State(pfrom->GetId())->vRecentlyAnnouncedInvs.insert(txin.prevout.hashMalFix);
+                    }
                 }
             }
-            if (!push) {
-                vNotFound.push_back(inv);
-            }
+        } else  {
+            vNotFound.push_back(inv);
         }
-    } // release cs_main
+    }
 
+    // Only process one BLOCK item per call, since they're uncommon and can be
+    // expensive to process.
     if (it != pfrom->vRecvGetData.end() && !pfrom->fPauseSend) {
-        const CInv &inv = *it;
+        const CInv &inv = *it++;
         if (inv.type == MSG_BLOCK || inv.type == MSG_FILTERED_BLOCK || inv.type == MSG_CMPCT_BLOCK || inv.type == MSG_WITNESS_BLOCK) {
-            it++;
             ProcessGetBlockData(pfrom, inv, connman);
         }
     }
@@ -3508,6 +3566,7 @@ bool PeerLogicValidation::SendMessages(CNode* pto)
                         if (!pto->pfilter->IsRelevantAndUpdate(*txinfo.tx)) continue;
                     }
                     pto->filterInventoryKnown.insert(hash);
+                    // Responses to MEMPOOL requests bypass the vRecentlyAnnouncedInv filter.
                     vInv.push_back(inv);
                     if (vInv.size() == MAX_INV_SZ) {
                         connman->PushMessage(pto, msgMaker.Make(NetMsgType::INV, vInv));
@@ -3560,6 +3619,7 @@ bool PeerLogicValidation::SendMessages(CNode* pto)
                     }
                     if (pto->pfilter && !pto->pfilter->IsRelevantAndUpdate(*txinfo.tx)) continue;
                     // Send
+                    State(pto->GetId())->vRecentlyAnnouncedInvs.insert(hash);
                     vInv.push_back(CInv(MSG_TX, hash));
                     nRelayedTransactions++;
                     {

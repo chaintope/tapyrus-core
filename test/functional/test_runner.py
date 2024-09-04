@@ -180,6 +180,7 @@ BASE_SCRIPTS = [
     'feature_blocksdir.py',
     'feature_config_args.py',
     'rpc_help.py',
+    'p2p_getdata.py',
     'feature_help.py',
     'feature_help.py --usecli',
     'feature_coloredcoin.py'
