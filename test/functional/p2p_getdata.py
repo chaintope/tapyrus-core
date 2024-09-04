@@ -19,6 +19,7 @@ class P2PStoreBlock(P2PInterface):
         super().__init__(time_to_connect)
         self.blocks = defaultdict(int)
         self.txs = defaultdict(int)
+        self.notfound = []
 
     def on_block(self, message):
         message.block.calc_sha256()
@@ -27,6 +28,9 @@ class P2PStoreBlock(P2PInterface):
     def on_tx(self, message):
         message.tx.calc_sha256()
         self.txs[message.tx.malfixsha256] += 1
+
+    def on_notfound(self, message):
+        self.notfound.append(message.inv)
 
 class GetdataTest(BitcoinTestFramework):
     def set_test_params(self):
@@ -46,9 +50,11 @@ class GetdataTest(BitcoinTestFramework):
         # Check getdata does not give tx which was not inv to us
         txid = self.nodes[0].listunspent(10)[0]['txid']
         good_getdatatx = msg_getdata()
-        good_getdatatx.inv.append(CInv(t=1, h=int(txid, 16)))
+        inv = CInv(t=1, h=int(txid, 16))
+        good_getdatatx.inv.append(inv)
         p2p_block_store.send_and_ping(good_getdatatx)
         assert p2p_block_store.txs[txid] == 0
+        assert p2p_block_store.notfound[0][0].hash == inv.hash
 
         # Check getdata still works by fetching tip block
         best_block = int(self.nodes[0].getbestblockhash(), 16)

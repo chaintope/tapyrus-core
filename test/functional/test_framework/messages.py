@@ -1398,6 +1398,21 @@ class msg_blocktxn():
     def __repr__(self):
         return "msg_blocktxn(block_transactions=%s)" % (repr(self.block_transactions))
 
+class msg_notfound():
+    command = b'notfound'
+    def __init__(self, inv=None):
+        self.inv = inv if inv != None else []
+
+    def deserialize(self, f):
+        self.inv = deser_vector(f, CInv)
+
+    def serialize(self):
+        return ser_vector(self.inv)
+
+    def __repr__(self):
+        return "msg_notfound(inv=%s)" % (repr(self.inv))
+
+
 class msg_witness_blocktxn(msg_blocktxn):
     def serialize(self):
         r = b""
