@@ -92,6 +92,7 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
         tx = CTransaction()
         tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx_0)))
         txid_0 = tx.rehash()
+        self.mempool_size = 1
         self.check_mempool_result(
             result_expected={ txid_0: { 'allowed': True}},
             rawtxs=[raw_tx_0],
@@ -112,6 +113,7 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
         raw_tx_0 = node.signrawtransactionwithwallet(bytes_to_hex_str(tx.serialize()), [], "ALL", self.options.scheme)['hex']
         tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx_0)))
         txid_0 = tx.rehash()
+        self.mempool_size = 1
         self.check_mempool_result(
             result_expected={ txid_0 :{ 'allowed': True}},
             rawtxs=[raw_tx_0],
@@ -171,9 +173,11 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
             outputs=[{node.getnewaddress(): 0.005}],
         ), [], "ALL", self.options.scheme)['hex']
         tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx_reference)))
+        txid = tx.rehash()
+        self.mempool_size = 1
         # Reference tx should be valid on itself
         self.check_mempool_result(
-            result_expected={tx.rehash():{ 'allowed': True}},
+            result_expected={txid:{ 'allowed': True}},
             rawtxs=[bytes_to_hex_str(tx.serialize())],
         )
 
@@ -237,32 +241,38 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
             rawtxs=[bytes_to_hex_str(tx.serialize())],
         )
 
+        tx_new = node.signrawtransactionwithwallet(node.createrawtransaction(
+            inputs=[{'txid': txid, 'vout': 0}],
+            outputs=[{node.getnewaddress(): 0.001}],
+        ), [], "ALL", self.options.scheme)['hex']
+        tx.deserialize(BytesIO(hex_str_to_bytes(tx_new)))
+
         self.log.info('Some nonstandard transactions')
-        tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx_reference)))
+        tx.deserialize(BytesIO(hex_str_to_bytes(tx_new)))
         tx.nFeatures = 3  # A features currently non-standard
         self.check_mempool_result(
             result_expected={tx.rehash():{ 'allowed': False, 'reject-reason': '64: features'}},
             rawtxs=[node.signrawtransactionwithwallet(bytes_to_hex_str(tx.serialize()), [], "ALL", self.options.scheme)['hex']],
         )
-        tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx_reference)))
+        tx.deserialize(BytesIO(hex_str_to_bytes(tx_new)))
         tx.vout[0].scriptPubKey = CScript([OP_RESERVED])  # Some non-standard script
         self.check_mempool_result(
             result_expected={tx.rehash():{ 'allowed': False, 'reject-reason': '64: scriptpubkey'}},
             rawtxs=[bytes_to_hex_str(tx.serialize())],
         )
-        tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx_reference)))
+        tx.deserialize(BytesIO(hex_str_to_bytes(tx_new)))
         tx.vout[0].scriptPubKey = CScript([OP_0])  # Some custom script - scriptpubkey passes isStandard check but scriptsig+scriptpubkey fails.
         self.check_mempool_result(
             result_expected={tx.rehash():{ 'allowed': False, 'reject-reason': '16: mandatory-script-verify-flag-failed (Signature must be zero for failed CHECK(MULTI)SIG operation)'}},
             rawtxs=[bytes_to_hex_str(tx.serialize())],
         )
-        tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx_reference)))
+        tx.deserialize(BytesIO(hex_str_to_bytes(tx_new)))
         tx.vin[0].scriptSig = CScript([OP_HASH160])  # Some not-pushonly scriptSig
         self.check_mempool_result(
             result_expected={tx.rehash():{ 'allowed': False, 'reject-reason': '64: scriptsig-not-pushonly'}},
             rawtxs=[bytes_to_hex_str(tx.serialize())],
         )
-        tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx_reference)))
+        tx.deserialize(BytesIO(hex_str_to_bytes(tx_new)))
         output_p2sh_burn = CTxOut(nValue=540, scriptPubKey=CScript([OP_HASH160, hash160(b'burn'), OP_EQUAL]))
         num_scripts = 100000 // len(output_p2sh_burn.serialize())  # Use enough outputs to make the tx too large for our policy
         tx.vout = [output_p2sh_burn] * num_scripts
@@ -270,14 +280,14 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
             result_expected={tx.rehash():{ 'allowed': False, 'reject-reason': '64: tx-size'}},
             rawtxs=[bytes_to_hex_str(tx.serialize())],
         )
-        tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx_reference)))
+        tx.deserialize(BytesIO(hex_str_to_bytes(tx_new)))
         tx.vout[0] = output_p2sh_burn
         tx.vout[0].nValue -= 1  # Make output smaller, such that it is dust for our policy
         self.check_mempool_result(
             result_expected={tx.rehash():{ 'allowed': False, 'reject-reason': '64: dust'}},
             rawtxs=[bytes_to_hex_str(tx.serialize())],
         )
-        tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx_reference)))
+        tx.deserialize(BytesIO(hex_str_to_bytes(tx_new)))
         tx.vout[0].scriptPubKey = CScript([OP_RETURN, b'\xff'])
         tx.vout = [tx.vout[0]] * 2
         self.check_mempool_result(
@@ -286,7 +296,7 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
         )
 
         self.log.info('A timelocked transaction')
-        tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx_reference)))
+        tx.deserialize(BytesIO(hex_str_to_bytes(tx_new)))
         tx.vin[0].nSequence -= 1  # Should be non-max, so locktime is not ignored
         tx.nLockTime = node.getblockcount() + 1
         self.check_mempool_result(
@@ -295,7 +305,7 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
         )
 
         self.log.info('A transaction that is locked by BIP68 sequence logic')
-        tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx_reference)))
+        tx.deserialize(BytesIO(hex_str_to_bytes(tx_new)))
         tx.vin[0].nSequence = 2  # We could include it in the second block mined from now, but not the very next one
         # Can skip re-signing the tx because of early rejection
         self.check_mempool_result(
@@ -306,18 +316,19 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
 
         self.restart_node(0, ["-datacarriermultiple"])
         self.log.info('A transaction with multiple OP_RETURNs in multiple outputs')
-        tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx_reference)))
+        tx.deserialize(BytesIO(hex_str_to_bytes(tx_new)))
         tx.vout[0].scriptPubKey = CScript([OP_RETURN, b'\xff'])
         tx.vout = [tx.vout[0]] * 2
         signedtx = node.signrawtransactionwithwallet(bytes_to_hex_str(tx.serialize()))
         tx.deserialize(BytesIO(hex_str_to_bytes(signedtx['hex'])))
+        self.mempool_size = 2
         self.check_mempool_result(
             result_expected={tx.rehash():{'allowed': True}},
             rawtxs=[bytes_to_hex_str(tx.serialize())],
         )
 
         self.log.info('A transaction with multiple OP_RETURNs in one outputs')
-        tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx_reference)))
+        tx.deserialize(BytesIO(hex_str_to_bytes(tx_new)))
         tx.vout[0].scriptPubKey = CScript([OP_RETURN, b'\xff', OP_RETURN, b'\xff'])
         self.check_mempool_result(
             result_expected={tx.rehash():{ 'allowed': False, 'reject-reason': '64: scriptpubkey'}},

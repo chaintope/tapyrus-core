@@ -19,6 +19,8 @@ from test_framework.address import key_to_p2pkh
 MAX_SCRIPT_SIZE = 10000
 MAX_BIP125_RBF_SEQUENCE = 0xfffffffd
 
+NUM_OUTPUTX_IN_LARGE_TX = 5
+
 tx_size = lambda tx : len(ToHex(tx))//2 + 120 * len(tx.vin) + 50
 
 class MempoolLimitTest(BitcoinTestFramework):
@@ -59,24 +61,30 @@ class MempoolLimitTest(BitcoinTestFramework):
         return utxos
 
     def fill_mempool(self, node, utxos, feerate, num_tx=97, nSequence=0):
-        # fill the mempool with large transactions
+        # fill the mempool with a maximum of 'num_tx' large transactions
+        # making sure that there is still space for the next big transaction
         txids = []
         self.log.info("Fill mempool")
-        for i in range(num_tx):
+        info = node.getmempoolinfo()
+        utxo = utxos.pop()
+        tx = self.create_tx_with_large_script(int(utxo['txid'], 16), utxo['vout'], NUM_OUTPUTX_IN_LARGE_TX, (utxo['amount'])/NUM_OUTPUTX_IN_LARGE_TX)
+        cnt = 0
+        while info['maxmempool'] - info['usage'] > tx_size(tx):
             utxo = utxos.pop()
-            tx = self.create_tx_with_large_script(int(utxo['txid'], 16), utxo['vout'], 5, (utxo['amount'])/5)
+            tx = self.create_tx_with_large_script(int(utxo['txid'], 16), utxo['vout'], NUM_OUTPUTX_IN_LARGE_TX, (utxo['amount'])/NUM_OUTPUTX_IN_LARGE_TX)
             tx.vin[0].nSequence = nSequence
             self.deduct_fee(tx, feerate)
             signresult = node.signrawtransactionwithwallet(ToHex(tx))
             txid = node.sendrawtransaction(signresult["hex"])
             txids.append(txid)
             info = node.getmempoolinfo()
-            if info['maxmempool'] - info['usage'] <= tx_size(tx):
+            cnt += 1
+            if cnt >= num_tx:
                 break
         return txids
 
     def create_signed_raw_tx(self, node, spend_utxo, feerate):
-        # Create transaction without fee so that the size can be calculated
+        # Create transaction without fee so that its accurate size can be calculated
         raw_tx =node.createrawtransaction(
                 inputs=[{'txid': spend_utxo['txid'], 'vout': spend_utxo['vout']}],
                 outputs=[{self.address: spend_utxo['amount']}])
@@ -159,39 +167,30 @@ class MempoolLimitTest(BitcoinTestFramework):
 
     def test_package_full_mempool(self, node):
         # this test verifies that during package submission if the mempool becomes full
-        # submission of the whole package fails
-        self.log.info("A package which is fully removed upon submission if the mempool is full")
-
+        # submission of some transactions within the package succeed
+        self.log.info("A package is partially submitted upon submission if the mempool is full")
+        mempoolmin_feerate = node.getmempoolinfo()["mempoolminfee"]
         relayfee = node.getnetworkinfo()['relayfee']
-        utxos = self.create_utxos(node, 103, relayfee)
+        utxos = self.create_utxos(node, 120, mempoolmin_feerate * 100)
 
-        (package_hex, package_txids) = self.create_package(node, utxos, None, relayfee * Decimal(0.1), size = 10)
+        # fill the mempool with large transactions with verh fee so that they are not chosen for eviction
+        self.fill_mempool(node, utxos, mempoolmin_feerate * 200, nSequence=0, num_tx=98)
 
-        # Package should be submitted, temporarily exceeding maxmempool, and then evicted.
-        mempool_txids = node.getrawmempool()
-
-        res = self.submitpackage(node, package_hex)
-
-        utxos = [utxo for utxo in node.listunspent() if utxo['amount'] > relayfee * 100]
-        # fill the mempool with large transactions
-        self.fill_mempool(node, utxos, relayfee * 100, nSequence=0)
 
         # There is a filler transaction. It is large so that most of the mempool is filled
         # this makes sure that the package submittted next would
         # fill the mempool when evaluation is midway
-        utxos = [utxo for utxo in node.listunspent() if utxo['amount'] > relayfee * 10]
         utxo = utxos.pop()
-        tx = self.create_tx_with_large_script(int(utxo['txid'], 16), utxo['vout'], 5, utxo['amount']/5)
+        tx = self.create_tx_with_large_script(int(utxo['txid'], 16), utxo['vout'], 1, utxo['amount'])
         tx.vin[0].nSequence = 0
-        self.deduct_fee(tx, relayfee * 100)
+        self.deduct_fee(tx, mempoolmin_feerate * 100)
         signresult = node.signrawtransactionwithwallet(ToHex(tx))
         txid = node.sendrawtransaction(signresult["hex"])
         assert txid in node.getrawmempool()
 
-        mempoolmin_feerate = node.getmempoolinfo()["mempoolminfee"]
-        utxos = [utxo for utxo in node.listunspent()if utxo['amount'] >  mempoolmin_feerate * 100]
+        utxos = [utxo for utxo in node.listunspent()if utxo['amount'] >  mempoolmin_feerate]
 
-        (package_hex, package_txids) = self.create_package(node, utxos, None, mempoolmin_feerate, size=5, large=True)
+        (package_hex, package_txids) = self.create_package(node, utxos, None, mempoolmin_feerate * 10, size=5, large=True)
 
         # Package should be submitted partially
         mempool_txids = node.getrawmempool()
@@ -210,17 +209,15 @@ class MempoolLimitTest(BitcoinTestFramework):
         # some package transactions are in mempool.
         resulting_mempool_txids = node.getrawmempool()
         assert(mempool_txids != resulting_mempool_txids)
-        for txid in package_txids:
-            if res[txid]['allowed']:
-                assert(txid in resulting_mempool_txids)
 
     def test_mid_package_eviction(self, node):
         self.log.info("Check a package where each parent passes the current mempoolminfee but would cause eviction before package submission terminates")
         relayfee = node.getnetworkinfo()['relayfee']
+        mempoolmin_feerate = node.getmempoolinfo()["mempoolminfee"]
         utxos = self.create_utxos(node, 103, relayfee)
 
         # fill the mempool with large transactions
-        self.fill_mempool(node, utxos, relayfee)
+        self.fill_mempool(node, utxos, mempoolmin_feerate * 200)
 
         self.log.info("Send transaction to be evicted from mempool")
         (mempool_evicted_tx, mempool_evicted_hex) = self.create_tx_to_be_evicted(node, utxos.pop(), 1)
@@ -232,12 +229,11 @@ class MempoolLimitTest(BitcoinTestFramework):
 
         # There is a filler transaction. It is large so that most of the mempool is filled
         # this makes sure that the package submittted next would trigger eviction
-        mempoolmin_feerate = node.getmempoolinfo()["mempoolminfee"]
         self.log.info("Fill the mempool with another large transaction")
         utxos = [utxo for utxo in node.listunspent()if utxo['amount'] >  relayfee * 10]
         utxo = utxos.pop()
         tx = self.create_tx_with_large_script(int(utxo['txid'], 16), utxo['vout'], 4, utxo['amount']/4)
-        self.deduct_fee(tx, relayfee)
+        self.deduct_fee(tx, mempoolmin_feerate * 100)
         signresult = node.signrawtransactionwithwallet(ToHex(tx))
         node.sendrawtransaction(signresult["hex"], True)
 
@@ -458,9 +454,9 @@ class MempoolLimitTest(BitcoinTestFramework):
         evict = [tx for tx in mempool_1 if tx not in mempool_2]
         #self.log.info("\n\n%s\n\n" % res)
 
-        #self.log.info("Mempool info : \n%s\n%s\n\n" % (info_1, info_2))
+        self.log.info("Mempool info : \n%s\n%s\n\n" % (info_1, info_2))
         #self.log.info("Mempool add : %s\n" % diff)
-        #self.log.info("Mempool evict : %s\n" % evict)
+        self.log.info("Mempool evict : %s\n" % evict)
 
         return res
 

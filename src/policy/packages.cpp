@@ -11,6 +11,7 @@
 #include <validationinterface.h>
 #include <uint256.h>
 #include <numeric>
+#include <net_processing.h>
 
 
 bool CheckPackage(const Package& txns, CValidationState& state)
@@ -118,6 +119,9 @@ bool SubmitPackageToMempool(const Package& package,
 
         opt.state.missingInputs = opt.missingInputs.size() > 0;
         results.emplace(tx->GetHashMalFix(), opt.state);
+
+        CConnman& connman = *g_connman;
+        RelayTransaction(*tx, &connman);
 
     }
     return ArePackageTransactionsAccepted(results);

@@ -175,6 +175,7 @@ class RPCPackageTest(BitcoinTestFramework):
         package[1].rehash()
         raw_package = [bytes_to_hex_str(x.serialize()) for x in package]
 
+        self.mempool_size = 1
         self.check_mempool_result(
             result_expected={ package[0].hashMalFix: {'allowed': True},
                                             package[1].hashMalFix: {'allowed': False, 'reject-reason': 'missing-inputs'}},
@@ -188,6 +189,7 @@ class RPCPackageTest(BitcoinTestFramework):
         package[1].rehash()
         raw_package = [bytes_to_hex_str(x.serialize()) for x in package]
 
+        self.mempool_size = 0
         self.check_mempool_result(
             result_expected={ package[0].hashMalFix: {'allowed': False, 'reject-reason': '256: absurdly-high-fee'},
                                             package[1].hashMalFix: {'allowed': False, 'reject-reason': 'missing-inputs'}},
@@ -198,6 +200,7 @@ class RPCPackageTest(BitcoinTestFramework):
         package = self.create_package(4)
         raw_package = [bytes_to_hex_str(x.serialize()) for x in package]
 
+        self.mempool_size = 4
         self.check_mempool_result(
             result_expected={ package[0].hashMalFix: {'allowed': True},
                                             package[1].hashMalFix: {'allowed': True},
@@ -212,6 +215,7 @@ class RPCPackageTest(BitcoinTestFramework):
         package = self.create_package(1)
         raw_package = [bytes_to_hex_str(x.serialize()) for x in package]
 
+        self.mempool_size = 1
         self.check_mempool_result(
             result_expected={ package[0].hashMalFix: {'allowed': True} },
             rawtxs=raw_package,
@@ -295,6 +299,7 @@ class RPCPackageTest(BitcoinTestFramework):
             packagetx.rehash()
             txids.append(packagetx.hashMalFix)
 
+        self.mempool_size = len(txids)
         self.check_mempool_result(
             result_expected={ txids[0]: {'allowed': True},
                                             txids[1]: {'allowed': True},
