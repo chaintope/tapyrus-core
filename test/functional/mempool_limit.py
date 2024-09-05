@@ -190,7 +190,7 @@ class MempoolLimitTest(BitcoinTestFramework):
 
         utxos = [utxo for utxo in node.listunspent()if utxo['amount'] >  mempoolmin_feerate]
 
-        (package_hex, package_txids) = self.create_package(node, utxos, None, mempoolmin_feerate * 10, size=5, large=True)
+        (package_hex, package_txids) = self.create_package(node, utxos, None, mempoolmin_feerate * 10, size=20, large=True)
 
         # Package should be submitted partially
         mempool_txids = node.getrawmempool()
@@ -452,7 +452,7 @@ class MempoolLimitTest(BitcoinTestFramework):
         info_2 = node.getmempoolinfo()
         diff = [tx for tx in mempool_2 if tx not in mempool_1]
         evict = [tx for tx in mempool_1 if tx not in mempool_2]
-        #self.log.info("\n\n%s\n\n" % res)
+        self.log.info("\n\n%s\n\n" % res)
 
         self.log.info("Mempool info : \n%s\n%s\n\n" % (info_1, info_2))
         #self.log.info("Mempool add : %s\n" % diff)
