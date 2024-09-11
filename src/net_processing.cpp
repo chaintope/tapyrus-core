@@ -45,8 +45,6 @@
 static constexpr int64_t ORPHAN_TX_EXPIRE_TIME = 20 * 60;
 /** Minimum time between orphan transactions expire time checks in seconds */
 static constexpr int64_t ORPHAN_TX_EXPIRE_INTERVAL = 5 * 60;
-/** How long to cache transactions in mapRelay for normal relay */
-static constexpr std::chrono::seconds RELAY_TX_CACHE_TIME = std::chrono::minutes{15};
 /** How long a transaction has to be in the mempool before it can unconditionally be relayed (even when not in mapRelay). */
 static constexpr std::chrono::seconds UNCONDITIONAL_RELAY_DELAY = std::chrono::minutes{2};
 /** Headers download timeout expressed in microseconds
@@ -266,7 +264,7 @@ struct CNodeState {
     bool fSupportsDesiredCmpctVersion;
 
     //! A rolling bloom filter of all announced tx CInvs to this peer.
-    CRollingBloomFilter vRecentlyAnnouncedInvs = CRollingBloomFilter{INVENTORY_MAX_RECENT_RELAY, 0.000001};
+    CRollingBloomFilter m_recently_announced_invs = CRollingBloomFilter{INVENTORY_MAX_RECENT_RELAY, 0.000001};
 
     /** State used to enforce CHAIN_SYNC_TIMEOUT
       * Only in effect for outbound, non-manual connections, with
@@ -320,7 +318,7 @@ struct CNodeState {
         fSupportsDesiredCmpctVersion = false;
         m_chain_sync = { 0, nullptr, false, false };
         m_last_block_announcement = 0;
-        vRecentlyAnnouncedInvs.reset();
+        m_recently_announced_invs.reset();
     }
 };
 
@@ -1302,7 +1300,7 @@ CTransactionRef static FindTxForGetData(const CNode* peer, const uint256& txid, 
         LOCK(cs_main);
 
         // Otherwise, the transaction must have been announced recently.
-        if (State(peer->GetId())->vRecentlyAnnouncedInvs.contains(txid)) {
+        if (State(peer->GetId())->m_recently_announced_invs.contains(txid)) {
             // If it was, it can be relayed from either the mempool...
             if (txinfo.tx) return std::move(txinfo.tx);
             // ... or the relay pool.
@@ -1345,9 +1343,9 @@ void static ProcessGetData(CNode* pfrom, CConnman* connman, const std::atomic<bo
         }
 
         CTransactionRef tx = FindTxForGetData(pfrom, inv.hash, mempool_req, now);
-        int nSendFlags = (inv.type == MSG_TX ? SERIALIZE_TRANSACTION_NO_WITNESS : 0);
 
         if (tx) {
+            int nSendFlags = (inv.type == MSG_TX ? SERIALIZE_TRANSACTION_NO_WITNESS : 0);
             connman->PushMessage(pfrom, msgMaker.Make(nSendFlags, NetMsgType::TX, *tx));
             // As we're going to send tx, make sure its unconfirmed parents are made requestable.
             for (const auto& txin : tx->vin) {
@@ -1357,7 +1355,7 @@ void static ProcessGetData(CNode* pfrom, CConnman* connman, const std::atomic<bo
                     LOCK(pfrom->cs_inventory);
                     if (!pfrom->filterInventoryKnown.contains(txin.prevout.hashMalFix)) {
                         LOCK(cs_main);
-                        State(pfrom->GetId())->vRecentlyAnnouncedInvs.insert(txin.prevout.hashMalFix);
+                        State(pfrom->GetId())->m_recently_announced_invs.insert(txin.prevout.hashMalFix);
                     }
                 }
             }
@@ -3619,7 +3617,7 @@ bool PeerLogicValidation::SendMessages(CNode* pto)
                     }
                     if (pto->pfilter && !pto->pfilter->IsRelevantAndUpdate(*txinfo.tx)) continue;
                     // Send
-                    State(pto->GetId())->vRecentlyAnnouncedInvs.insert(hash);
+                    State(pto->GetId())->m_recently_announced_invs.insert(hash);
                     vInv.push_back(CInv(MSG_TX, hash));
                     nRelayedTransactions++;
                     {
