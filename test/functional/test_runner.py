@@ -180,6 +180,7 @@ BASE_SCRIPTS = [
     'feature_blocksdir.py',
     'feature_config_args.py',
     'rpc_help.py',
+    'p2p_getdata.py',
     'feature_help.py',
     'feature_help.py --usecli',
     'feature_coloredcoin.py'
@@ -448,7 +449,7 @@ def run_tests(test_list, src_dir, build_dir, tmpdir, jobs=1, enable_coverage=Fal
             logging.debug("\n%s%s%s passed, Duration: %s s" % (BOLD[1], test_result.name, BOLD[0], test_result.time))
         elif test_result.status == "Skipped":
             logging.debug("\n%s%s%s skipped" % (BOLD[1], test_result.name, BOLD[0]))
-        elif test_result.status == "Timeout":
+        elif test_result.status == "Timeout" and not retry :
             logging.debug("\n%s%s%s timeout" % (BOLD[1], test_result.name, BOLD[0]))
             retry_list.append(test_result.name)
         else:
