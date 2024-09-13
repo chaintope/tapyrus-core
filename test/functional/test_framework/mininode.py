@@ -349,16 +349,22 @@ class P2PInterface(P2PConnection):
         test_function = lambda: self.last_message.get("getdata")
         wait_until(test_function, timeout=timeout, lock=mininode_lock)
 
-    def wait_for_getheaders(self, timeout=60):
+    def wait_for_getheaders(self, block_hash=None, timeout=60):
         """Waits for a getheaders message.
 
         Receiving any getheaders message will satisfy the predicate. the last_message["getheaders"]
         value must be explicitly cleared before calling this method, or this will return
         immediately with success. TODO: change this method to take a hash value and only
         return true if the correct block header has been requested."""
-        test_function = lambda: self.last_message.get("getheaders")
-        wait_until(test_function, timeout=timeout, lock=mininode_lock)
+        def test_function():
+            last_getheaders = self.last_message.pop("getheaders", None)
+            if block_hash is None:
+                return last_getheaders
+            if last_getheaders is None:
+                return False
+            return block_hash == last_getheaders.locator.vHave[0]
 
+        wait_until(test_function, timeout=timeout, lock=mininode_lock)
     def wait_for_inv(self, expected_inv, timeout=60):
         """Waits for an INV message and checks that the first inv object in the message was as expected."""
         if len(expected_inv) > 1:

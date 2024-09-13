@@ -43,13 +43,7 @@ class HeadersSyncTest(BitcoinTestFramework):
 
         # Wait for peer1 to receive a getheaders
         # If no block hash is provided, checks whether any getheaders message has been received by the node."""
-        def test_function():
-            last_getheaders = peer1.last_message.pop("getheaders", None)
-            if last_getheaders is None:
-                return False
-            return best_block_hash == last_getheaders.locator.vHave[0]
-
-        wait_until(test_function, timeout=10)
+        peer1.wait_for_getheaders(block_hash=best_block_hash)
         # An empty reply will clear the outstanding getheaders request,
         # allowing additional getheaders requests to be sent to this peer in
         # the future.
@@ -74,7 +68,7 @@ class HeadersSyncTest(BitcoinTestFramework):
 
         self.log.info("Check that peer1 receives a getheaders in response")
         best_block_hash = int(self.nodes[0].getbestblockhash(), 16)
-        wait_until(test_function, timeout=10)
+        peer1.wait_for_getheaders(block_hash=best_block_hash)
         peer1.send_message(msg_headers()) # Send empty response, see above
 
         self.log.info("Check that peer2 and peer3 received a getheaders in response")
@@ -94,7 +88,7 @@ class HeadersSyncTest(BitcoinTestFramework):
 
         self.log.info("Check that peer1 receives a getheaders in response")
         best_block_hash = int(self.nodes[0].getbestblockhash(), 16)
-        wait_until(test_function, timeout=10)
+        peer1.wait_for_getheaders(block_hash=best_block_hash)
 
         self.log.info("Success!")
 
