@@ -163,6 +163,7 @@ BASE_SCRIPTS = [
     'wallet_coloredcoin.py --scheme SCHNORR',
     'wallet_coloredcoin.py --usecli',
     'wallet_coloredcoin.py --usecli --scheme SCHNORR',
+    'p2p_initial_headers_sync.py',
     'feature_dersig.py',
     'rpc_uptime.py',
     'wallet_resendwallettransactions.py',
