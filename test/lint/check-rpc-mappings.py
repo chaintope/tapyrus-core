@@ -13,6 +13,7 @@ import sys
 SOURCES = [
     "src/rpc/server.cpp",
     "src/rpc/blockchain.cpp",
+    "src/rpc/mempool.cpp",
     "src/rpc/mining.cpp",
     "src/rpc/misc.cpp",
     "src/rpc/net.cpp",

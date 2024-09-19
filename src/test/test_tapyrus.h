@@ -100,6 +100,10 @@ struct TestChainSetup : public TestingSetup {
     // scriptPubKey, and try to add it to the current chain.
     CBlock CreateAndProcessBlock(const std::vector<CMutableTransaction>& txns,
                                  const CScript& scriptPubKey);
+
+    //creates empty blocks and fills m_coinbase_txns with the new txids
+    void refillCoinbase(int count = 10);
+
     ~TestChainSetup(){}
 
     std::vector<CTransactionRef> m_coinbase_txns; // For convenience, coinbase transactions
