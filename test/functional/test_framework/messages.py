@@ -25,7 +25,7 @@ import struct
 import time
 
 from test_framework.siphash import siphash256
-from test_framework.util import hex_str_to_bytes, bytes_to_hex_str
+from test_framework.util import hex_str_to_bytes, bytes_to_hex_str, TAPYRUS_NETWORK_PARAMS, TAPYRUS_MODES
 from test_framework.key import CECKey
 from test_framework.schnorr import Schnorr
 
@@ -1418,3 +1418,41 @@ class msg_witness_blocktxn(msg_blocktxn):
         r = b""
         r += self.block_transactions.serialize(with_witness=True)
         return r
+
+class CSnapshotMetadata():
+    SNAPSHOT_MAGIC_BYTES = b'utxo\xff'
+
+    def __init__(self, base_blockhash, coins_count):
+        self.version = 1
+        self.supported_versions = [1]
+        self.networkid = TAPYRUS_MODES.DEV
+        self.base_blockhash =  base_blockhash
+        self.coins_count = coins_count
+
+    def deserialize(self, f):
+        magic_bytes = f.read(5)
+        if magic_bytes != self.SNAPSHOT_MAGIC_BYTES:
+            raise Exception("UTXO Snapshot corrupt %s", magic_bytes)
+        self.version = struct.unpack("<H", f.read(2))[0]
+        self.networkid = struct.unpack("<q", f.read(8))[0]
+        if self.networkid != TAPYRUS_MODES.DEV.value:
+            raise Exception("UTXO Snapshot is not from this network. It belongs to %d",  self.networkid)
+        self.network_mode = deser_string(f)
+        self.base_blockhash  = encode(f.read(32)[::-1], 'hex_codec').decode('ascii')
+        self.coins_count = struct.unpack("<q", f.read(8))[0]
+
+    def serialize(self):
+        r = b""
+        r += struct.pack(" ", self.SNAPSHOT_MAGIC_BYTES)
+        r += struct.pack("<i", self.version)
+        r += struct.pack("<i", self.networkid)
+        r += ser_string(TAPYRUS_NETWORK_PARAMS[self.networkid][0])
+        r += ser_uint256(self.base_blockhash)
+        r +=  struct.pack("<i", self.coins_count)
+        return r
+
+    def __repr__(self):
+        return "CSnapshotMetadata(version=%i networkid=%i mode=%s, base_blockhash=%s coins_count=%i)" \
+            % (self.version, self.networkid, TAPYRUS_NETWORK_PARAMS[self.networkid][0], str([hex(x) for x in self.base_blockhash]),self.coins_count)
+
+
