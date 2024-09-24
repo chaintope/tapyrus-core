@@ -62,7 +62,7 @@ using namespace std::chrono_literals;
          "take some time. You can inspect the `timeoffset` field of the `getpeerinfo` and `getnetworkinfo` "
          "RPC methods to get more info."
      ), std::chrono::duration_cast<std::chrono::minutes>(WARN_THRESHOLD).count())};
-     LogPrintf(msg.c_str());
+     LogPrintf("TimeOffsets::WarnIfOutOfSync %s\n", msg.c_str());
      SetMedianTimeOffsetWarning(msg);
      uiInterface.NotifyAlertChanged();
      return true;
