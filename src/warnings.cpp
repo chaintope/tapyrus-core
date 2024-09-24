@@ -12,6 +12,7 @@ Mutex cs_warnings;
 std::string strMiscWarning GUARDED_BY(cs_warnings);
 bool fLargeWorkForkFound GUARDED_BY(cs_warnings) = false;
 bool fLargeWorkInvalidChainFound GUARDED_BY(cs_warnings) = false;
+std::string g_timeoffset_warning GUARDED_BY(cs_warnings);
 
 void SetMiscWarning(const std::string& strWarning)
 {
@@ -35,6 +36,12 @@ void SetfLargeWorkInvalidChainFound(bool flag)
 {
     LOCK(cs_warnings);
     fLargeWorkInvalidChainFound = flag;
+}
+
+void SetMedianTimeOffsetWarning(const std::string&  strWarning)
+{
+    LOCK(cs_warnings);
+    g_timeoffset_warning = strWarning;
 }
 
 std::string GetWarnings(const std::string& strFor)
@@ -66,6 +73,12 @@ std::string GetWarnings(const std::string& strFor)
     {
         strStatusBar = "Warning: We do not appear to fully agree with our peers! You may need to upgrade, or other nodes may need to upgrade.";
         strGUI += (strGUI.empty() ? "" : uiAlertSeperator) + _("Warning: We do not appear to fully agree with our peers! You may need to upgrade, or other nodes may need to upgrade.");
+    }
+
+    if (!g_timeoffset_warning.empty())
+    {
+        strStatusBar = g_timeoffset_warning;
+        strGUI += (strGUI.empty() ? "" : uiAlertSeperator) + g_timeoffset_warning;
     }
 
     if (strFor == "gui")

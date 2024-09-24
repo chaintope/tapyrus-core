@@ -2721,7 +2721,6 @@ CNode::CNode(NodeId idIn, ServiceFlags nLocalServicesIn, int nMyStartingHeightIn
     nLastRecv = 0;
     nSendBytes = 0;
     nRecvBytes = 0;
-    nTimeOffset = 0;
     addrName = addrNameIn == "" ? addr.ToStringIPPort() : addrNameIn;
     nVersion = 0;
     strSubVer = "";

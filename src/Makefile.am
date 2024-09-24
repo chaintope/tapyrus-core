@@ -172,7 +172,7 @@ BITCOIN_CORE_H = \
   tapyrusmodes.h \
   threadsafety.h \
   threadinterrupt.h \
-  timedata.h \
+  timeoffsets.h \
   torcontrol.h \
   txdb.h \
   txmempool.h \
@@ -247,7 +247,7 @@ libtapyrus_server_a_SOURCES = \
   rpc/util.cpp \
   script/sigcache.cpp \
   shutdown.cpp \
-  timedata.cpp \
+  timeoffsets.cpp \
   torcontrol.cpp \
   txdb.cpp \
   txmempool.cpp \

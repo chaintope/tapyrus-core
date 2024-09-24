@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_NODE_TIMEOFFSETS_H
-#define BITCOIN_NODE_TIMEOFFSETS_H
+#ifndef TAPYRUS_TIMEOFFSETS_H
+#define TAPYRUS_TIMEOFFSETS_H
 
 #include <sync.h>
 
@@ -46,4 +46,4 @@ public:
  */
 static TimeOffsets outbound_time_offsets;
 
-#endif // BITCOIN_NODE_TIMEOFFSETS_H
+#endif // TAPYRUS_TIMEOFFSETS_H

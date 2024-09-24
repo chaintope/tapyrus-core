@@ -11,7 +11,6 @@
 #include <protocol.h>
 #include <random.h>
 #include <sync.h>
-#include <timedata.h>
 #include <util.h>
 
 #include <map>
@@ -19,6 +18,7 @@
 #include <stdint.h>
 #include <vector>
 
+class CAddrMan;
 /**
  * Extended statistics about a CAddress
  */
@@ -104,7 +104,6 @@ public:
 
     //! Determine whether the statistics about this entry are bad enough so that it can just be deleted
     bool IsTerrible(int64_t nNow = GetAdjustedTime()) const;
-
     //! Calculate the relative chance this entry should be given when selecting nodes to connect to
     double GetChance(int64_t nNow = GetAdjustedTime()) const;
 

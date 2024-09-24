@@ -9,44 +9,45 @@
 #endif
 
 #include <utiltime.h>
+#include <timeoffsets.h>
 
 #include <atomic>
 #include <ctime>
 #include <thread>
+#include <iomanip>
 #include <tinyformat.h>
 
-static std::atomic<int64_t> nMockTime(0); //!< For unit testing
-
-int64_t GetTime()
-{
-    int64_t mocktime = nMockTime.load(std::memory_order_relaxed);
-    if (mocktime) return mocktime;
-
-    time_t now = time(nullptr);
-    assert(now > 0);
-    return now;
-}
+static std::atomic<std::chrono::seconds> nMockTime{}; //!< For testing
 
 void SetMockTime(int64_t nMockTimeIn)
 {
-    nMockTime.store(nMockTimeIn, std::memory_order_relaxed);
+    nMockTime.store(std::chrono::seconds(nMockTimeIn), std::memory_order_relaxed);
 }
 
 int64_t GetMockTime()
 {
-    return nMockTime.load(std::memory_order_relaxed);
+    return nMockTime.load(std::memory_order_relaxed).count();
 }
 
-int64_t GetTimeMillis()
+static std::chrono::time_point<std::chrono::system_clock> GetSystemTime()
 {
-    int64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-    assert(now > 0);
+    const auto mocktime{nMockTime.load(std::memory_order_relaxed)};
+    const auto now = (mocktime.count() != 0) ?
+         std::chrono::time_point<std::chrono::system_clock>(mocktime) :
+         std::chrono::system_clock::now();
     return now;
 }
 
 int64_t GetTimeMicros()
 {
-    int64_t now = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+    int64_t now = std::chrono::duration_cast<std::chrono::microseconds>(GetSystemTime().time_since_epoch()).count();
+    assert(now > 0);
+    return now;
+}
+
+int64_t GetTimeMillis()
+{
+    int64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(GetSystemTime().time_since_epoch()).count();
     assert(now > 0);
     return now;
 }
@@ -56,40 +57,48 @@ int64_t GetSystemTimeInSeconds()
     return GetTimeMicros()/1000000;
 }
 
+int64_t GetTime()
+{
+    return GetSystemTimeInSeconds();
+}
+
+int64_t GetAdjustedTime()
+{
+    return GetSystemTimeInSeconds();
+}
+
+
 void MilliSleep(int64_t n)
 {
     std::this_thread::sleep_for(std::chrono::milliseconds(n));
 }
 
+// Convert time_point to time_t
+std::tm fromTimePoint(int64_t nTime) {
+    std::chrono::time_point<std::chrono::system_clock> tp =
+        std::chrono::system_clock::time_point(std::chrono::seconds(nTime));
+    std::time_t timeT = std::chrono::system_clock::to_time_t(tp);
+    std::tm tm = *std::gmtime(&timeT); // Get UTC time
+    return tm;
+}
+
 std::string FormatISO8601DateTime(int64_t nTime) {
-    struct tm ts;
-    time_t time_val = nTime;
-#ifdef HAVE_GMTIME_R
-    gmtime_r(&time_val, &ts);
-#else
-    gmtime_s(&ts, &time_val);
-#endif
-    return strprintf("%04i-%02i-%02iT%02i:%02i:%02iZ", ts.tm_year + 1900, ts.tm_mon + 1, ts.tm_mday, ts.tm_hour, ts.tm_min, ts.tm_sec);
+    std::tm tm = fromTimePoint(nTime);
+    std::ostringstream oss;
+    oss << std::put_time(&tm, "%Y-%m-%dT%H:%M:%SZ");
+    return oss.str();
 }
 
 std::string FormatISO8601Date(int64_t nTime) {
-    struct tm ts;
-    time_t time_val = nTime;
-#ifdef HAVE_GMTIME_R
-    gmtime_r(&time_val, &ts);
-#else
-    gmtime_s(&ts, &time_val);
-#endif
-    return strprintf("%04i-%02i-%02i", ts.tm_year + 1900, ts.tm_mon + 1, ts.tm_mday);
+    std::tm tm = fromTimePoint(nTime);
+    std::ostringstream oss;
+    oss << std::put_time(&tm, "%Y-%m-%d");
+    return oss.str();
 }
 
 std::string FormatISO8601Time(int64_t nTime) {
-    struct tm ts;
-    time_t time_val = nTime;
-#ifdef HAVE_GMTIME_R
-    gmtime_r(&time_val, &ts);
-#else
-    gmtime_s(&ts, &time_val);
-#endif
-    return strprintf("%02i:%02i:%02iZ", ts.tm_hour, ts.tm_min, ts.tm_sec);
+    std::tm tm = fromTimePoint(nTime);
+    std::ostringstream oss;
+    oss << std::put_time(&tm, "%H:%M:%SZ");
+    return oss.str();
 }

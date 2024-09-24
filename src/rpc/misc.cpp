@@ -16,7 +16,6 @@
 #include <rpc/blockchain.h>
 #include <rpc/server.h>
 #include <rpc/util.h>
-#include <timedata.h>
 #include <util.h>
 #include <utilstrencodings.h>
 #ifdef ENABLE_WALLET
