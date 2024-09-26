@@ -23,6 +23,7 @@
 #include <random.h>
 #include <reverse_iterator.h>
 #include <scheduler.h>
+#include <timeoffsets.h>
 #include <tinyformat.h>
 #include <txmempool.h>
 #include <ui_interface.h>
@@ -1863,9 +1864,13 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
                   pfrom->nStartingHeight, addrMe.ToString(), pfrom->GetId(),
                   remoteAddr);
 
-        int64_t nTimeOffset = nTime - GetTime();
-        pfrom->nTimeOffset = nTimeOffset;
-        AddTimeData(pfrom->addr, nTimeOffset);
+        pfrom->nTimeOffset = nTime - GetTime();
+        if(!pfrom->fInbound)
+        {
+            outbound_time_offsets.Add(std::chrono::seconds(pfrom->nTimeOffset));
+            outbound_time_offsets.WarnIfOutOfSync();
+        }
+
         // Feeler connections exist only to verify if address is prod.
         if (pfrom->fFeeler) {
             assert(pfrom->fInbound == false);

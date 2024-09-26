@@ -14,7 +14,6 @@
 #include <policy/fees.h>
 #include <reverse_iterator.h>
 #include <streams.h>
-#include <timedata.h>
 #include <trace.h>
 #include <util.h>
 #include <utilmoneystr.h>

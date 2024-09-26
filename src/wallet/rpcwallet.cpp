@@ -23,7 +23,6 @@
 #include <rpc/util.h>
 #include <script/sign.h>
 #include <shutdown.h>
-#include <timedata.h>
 #include <util.h>
 #include <utilmoneystr.h>
 #include <wallet/coincontrol.h>

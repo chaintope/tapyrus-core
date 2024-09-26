@@ -4,6 +4,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <addrman.h>
 #include <validation.h>
 
 #include <arith_uint256.h>
@@ -30,7 +31,6 @@
 #include <script/sigcache.h>
 #include <script/standard.h>
 #include <shutdown.h>
-#include <timedata.h>
 #include <tinyformat.h>
 #include <trace.h>
 #include <txdb.h>
@@ -658,7 +658,7 @@ bool CheckColorIdentifierValidity(const CTransaction& tx, CValidationState& stat
             ColorIdentifier cid = GetColorIdFromScript(coin.out.scriptPubKey);
             switch(cid.type)
             {
-                // when the coin is TPC this is a token issue tx. 
+                // when the coin is TPC this is a token issue tx.
                 // colorid is hash(coin's scriptpubkey) or prevout
                 case TokenTypes::NONE:
                     if(outColorId.type == TokenTypes::REISSUABLE)
@@ -667,7 +667,7 @@ bool CheckColorIdentifierValidity(const CTransaction& tx, CValidationState& stat
                         coinColorId = ColorIdentifier(txin.prevout, outColorId.type);
                     break;
 
-                // when the coin is REISSUABLE/NON_REISSUABLE/NFT this is a token transfer tx. 
+                // when the coin is REISSUABLE/NON_REISSUABLE/NFT this is a token transfer tx.
                 // colorid is same as the coin's colorid
                 case TokenTypes::REISSUABLE:
                 case TokenTypes::NON_REISSUABLE:
@@ -731,7 +731,7 @@ static bool VerifyTokenBalances(const CTransaction& tx,  CValidationState& state
         //output does not have a corresponding input.
         if(iter == inColoredCoinBalances.end())
         {
-            //if TPC input is sufficiently large this is a token issue. 
+            //if TPC input is sufficiently large this is a token issue.
             if(tpcin < 0 || tpcin - tpcout - minrelayFee< 0)
                 return state.Invalid(false, REJECT_INSUFFICIENTFEE, "bad-txns-token-insufficient");
         }
@@ -848,7 +848,7 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
         // Check for non-standard pay-to-script-hash in inputs
         if (!acceptnonstdtxn && !AreInputsStandard(tx, view))
             return state.Invalid(false, REJECT_NONSTANDARD, "bad-txns-nonstandard-inputs");
-        
+
         // Check for non-standard witness in P2WSH
         if (tx.HasWitness() && !IsWitnessStandard(tx, view))
             return state.DoS(0, false, REJECT_NONSTANDARD, "bad-witness-nonstandard", true);

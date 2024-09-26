@@ -18,7 +18,6 @@
 #include <script/standard.h>
 #include <support/allocators/secure.h>
 #include <sync.h>
-#include <timedata.h>
 #include <ui_interface.h>
 #include <uint256.h>
 #include <validation.h>

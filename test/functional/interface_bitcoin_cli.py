@@ -63,7 +63,6 @@ class TestBitcoinCli(BitcoinTestFramework):
         assert_equal(cli_get_info['walletversion'], wallet_info['walletversion'])
         assert_equal(cli_get_info['balance'], wallet_info['balance'])
         assert_equal(cli_get_info['blocks'], blockchain_info['blocks'])
-        assert_equal(cli_get_info['timeoffset'], network_info['timeoffset'])
         assert_equal(cli_get_info['connections'], network_info['connections'])
         assert_equal(cli_get_info['proxy'], network_info['networks'][0]['proxy'])
         assert_equal(cli_get_info['balance'], wallet_info['balance'])

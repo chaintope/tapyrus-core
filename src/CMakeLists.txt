@@ -203,7 +203,6 @@ add_library(server
         script/descriptor.cpp
         script/sigcache.cpp
         script/ismine.cpp
-        timedata.cpp
         torcontrol.cpp
         txdb.cpp
         txmempool.cpp

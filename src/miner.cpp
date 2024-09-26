@@ -20,7 +20,6 @@
 #include <policy/policy.h>
 #include <primitives/transaction.h>
 #include <script/standard.h>
-#include <timedata.h>
 #include <util.h>
 #include <utilmoneystr.h>
 #include <validationinterface.h>

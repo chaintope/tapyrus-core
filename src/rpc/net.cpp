@@ -14,7 +14,6 @@
 #include <policy/policy.h>
 #include <rpc/protocol.h>
 #include <sync.h>
-#include <timedata.h>
 #include <ui_interface.h>
 #include <util.h>
 #include <utilstrencodings.h>
@@ -143,7 +142,11 @@ static UniValue getpeerinfo(const JSONRPCRequest& request)
         obj.pushKV("bytessent", stats.nSendBytes);
         obj.pushKV("bytesrecv", stats.nRecvBytes);
         obj.pushKV("conntime", stats.nTimeConnected);
-        obj.pushKV("timeoffset", stats.nTimeOffset);
+        g_connman->ForNode(stats.nodeid,
+            [&obj](CNode *pnode) {
+                obj.pushKV("timeoffset", pnode->nTimeOffset);
+                return true;
+            });
         if (stats.dPingTime > 0.0)
             obj.pushKV("pingtime", stats.dPingTime);
         if (stats.dMinPing < static_cast<double>(std::numeric_limits<int64_t>::max())/1e6)
@@ -426,7 +429,6 @@ static UniValue getnetworkinfo(const JSONRPCRequest& request)
             "  \"protocolversion\": xxxxx,              (numeric) the protocol version\n"
             "  \"localservices\": \"xxxxxxxxxxxxxxxx\", (string) the services we offer to the network\n"
             "  \"localrelay\": true|false,              (bool) true if transaction relay is requested from peers\n"
-            "  \"timeoffset\": xxxxx,                   (numeric) the time offset\n"
             "  \"connections\": xxxxx,                  (numeric) the number of connections\n"
             "  \"networkactive\": true|false,           (bool) whether p2p networking is enabled\n"
             "  \"networks\": [                          (array) information per network\n"
@@ -464,7 +466,6 @@ static UniValue getnetworkinfo(const JSONRPCRequest& request)
     if(g_connman)
         obj.pushKV("localservices", strprintf("%016x", g_connman->GetLocalServices()));
     obj.pushKV("localrelay",     fRelayTxes);
-    obj.pushKV("timeoffset",    GetTimeOffset());
     if (g_connman) {
         obj.pushKV("networkactive", g_connman->GetNetworkActive());
         obj.pushKV("connections",   (int)g_connman->GetNodeCount(CConnman::CONNECTIONS_ALL));
