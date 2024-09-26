@@ -28,43 +28,50 @@ int64_t GetMockTime()
 {
     return nMockTime.load(std::memory_order_relaxed).count();
 }
-
-static std::chrono::time_point<std::chrono::system_clock> GetSystemTime()
+/* time from system_clock or mocktime
+ * */
+static std::chrono::time_point<std::chrono::system_clock> GetSystemTime(bool use_mocktime)
 {
     const auto mocktime{nMockTime.load(std::memory_order_relaxed)};
-    const auto now = (mocktime.count() != 0) ?
+    const auto now = (use_mocktime && mocktime.count() != 0) ?
          std::chrono::time_point<std::chrono::system_clock>(mocktime) :
          std::chrono::system_clock::now();
     return now;
 }
 
-int64_t GetTimeMicros()
+int64_t GetTimeMicros(bool use_mocktime)
 {
-    int64_t now = std::chrono::duration_cast<std::chrono::microseconds>(GetSystemTime().time_since_epoch()).count();
+    int64_t now = std::chrono::duration_cast<std::chrono::microseconds>(GetSystemTime(use_mocktime).time_since_epoch()).count();
     assert(now > 0);
     return now;
 }
 
-int64_t GetTimeMillis()
+int64_t GetTimeMillis(bool use_mocktime)
 {
-    int64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(GetSystemTime().time_since_epoch()).count();
+    int64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(GetSystemTime(use_mocktime).time_since_epoch()).count();
     assert(now > 0);
     return now;
 }
+// following functions are widely used in the code but exhibit different behaviours.
+// they are moved here and left unchanged for backward compatibility
+// they GetTime and GetAdjustedTime can be removed if GetSystemTimeInSeconds can take a parameter to enable mocking
 
+/* time from system_clock only
+ * */
 int64_t GetSystemTimeInSeconds()
 {
     return GetTimeMicros()/1000000;
 }
-
+/* time from system_clock or mocktime
+ * */
 int64_t GetTime()
 {
-    return GetSystemTimeInSeconds();
+    return GetTimeMicros(true)/1000000;
 }
 
 int64_t GetAdjustedTime()
 {
-    return GetSystemTimeInSeconds();
+    return GetTime();
 }
 
 

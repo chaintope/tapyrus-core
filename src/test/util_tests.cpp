@@ -789,8 +789,13 @@ BOOST_AUTO_TEST_CASE(util_time_GetTime)
     for (const auto& num_sleep : {0, 1}) {
         MilliSleep(num_sleep);
         BOOST_CHECK_EQUAL(111, GetTime());
-        BOOST_CHECK_EQUAL(111000, GetTimeMillis());
-        BOOST_CHECK_EQUAL(111000000, GetTimeMicros());
+        BOOST_CHECK_EQUAL(111, GetAdjustedTime());
+        BOOST_CHECK_EQUAL(111000, GetTimeMillis(true));
+        BOOST_CHECK_EQUAL(111000000, GetTimeMicros(true));
+
+        const auto ntime = GetSystemTimeInSeconds();
+        BOOST_CHECK_EQUAL(ntime, GetTimeMillis()/1000);
+        BOOST_CHECK_EQUAL(ntime, GetTimeMicros()/1000000);
     }
 
     SetMockTime(0);
