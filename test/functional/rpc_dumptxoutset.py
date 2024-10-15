@@ -3,7 +3,7 @@
 # Copyright (c) 2024 Chaintope Inc
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
-"""Test the generation of UTXO snapshots using `utxosnapshot`.
+"""Test the generation of UTXO snapshots using `dumptxoutset`.
 """
 
 from test_framework.test_framework import BitcoinTestFramework
@@ -23,10 +23,10 @@ from test_framework.messages import CSnapshotMetadata
 from io import BytesIO
 import os.path
 
-FILENAME = "utxosnapshot.dat"
+FILENAME = "dumptxoutset.dat"
 TIME_GENESIS_BLOCK = 1296688602
 
-class UtxoSnapshotTest(BitcoinTestFramework):
+class DumptxoutsetTest(BitcoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 1
@@ -36,7 +36,7 @@ class UtxoSnapshotTest(BitcoinTestFramework):
         self.genesisBlock = createTestGenesisBlock(self.signblockpubkey, self.signblockprivkey, nTime=TIME_GENESIS_BLOCK)
 
     def run_test(self):
-        """Test a trivial usage of the utxosnapshot RPC command.
+        """Test a trivial usage of the dumptxoutset RPC command.
         Make the sequence of blocks deterministic by using fixed pubkey, privkey and mocktime """
         node = self.nodes[0]
         node.add_p2p_connection(P2PInterface(node.time_to_connect))
@@ -47,13 +47,13 @@ class UtxoSnapshotTest(BitcoinTestFramework):
 
         #create snapshot
         try:
-            out = node.utxosnapshot(FILENAME)
+            out = node.dumptxoutset(FILENAME)
         except Exception as e:
-            self.log.error("Exception in utxosnapshot %s", e.what())
+            self.log.error("Exception in dumptxoutset %s", e)
         expected_path = os.path.join(get_datadir_path(self.options.tmpdir, 0), NetworkDirName(), FILENAME)
         # recreating the same snapshot file causes error.
         assert_raises_rpc_error(
-            -8, 'path already exists',  node.utxosnapshot, FILENAME)
+            -8, 'path already exists',  node.dumptxoutset, FILENAME)
 
         # verify stats
         assert_equal(out['coins_written'], 100)
@@ -87,8 +87,8 @@ class UtxoSnapshotTest(BitcoinTestFramework):
         # Specifying an invalid file will fail.
         invalid_path =  os.path.join(get_datadir_path(self.options.tmpdir, 0), "invalid",  "path")
         assert_raises_rpc_error(
-            -8, "Couldn't open file temp file for writing", node.utxosnapshot, invalid_path)
+            -8, "Couldn't open file temp file for writing", node.dumptxoutset, invalid_path)
 
 
 if __name__ == '__main__':
-    UtxoSnapshotTest().main()
+    DumptxoutsetTest().main()

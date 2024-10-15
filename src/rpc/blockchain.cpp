@@ -2226,11 +2226,11 @@ static void CreateUTXOSnapshot(
  *
  * @see SnapshotMetadata
  */
-static UniValue utxosnapshot(const JSONRPCRequest& request)
+static UniValue dumptxoutset(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() != 1)
         throw std::runtime_error(
-        "utxosnapshot \"path\""
+        "dumptxoutset \"path\""
         "Write the serialized UTXO set to disk."
         "\nArguments:\n"
             "1. path     -   Path to the output file. If relative, will be prefixed by datadir.\n"
@@ -2300,7 +2300,7 @@ static const CRPCCommand commands[] =
     { "blockchain",         "preciousblock",          &preciousblock,          {"blockhash"} },
     { "blockchain",         "scantxoutset",           &scantxoutset,           {"action", "scanobjects"} },
     { "blockchain",         "getcolor",                   &getcolor,               {"type","txid","index"} },
-    { "blockchain",         "utxosnapshot",           &utxosnapshot,               {"path"} },
+    { "blockchain",         "dumptxoutset",           &dumptxoutset,               {"path"} },
 
     /* Not shown in help */
     { "hidden",             "invalidateblock",        &invalidateblock,        {"blockhash"} },

@@ -185,7 +185,7 @@ BASE_SCRIPTS = [
     'feature_help.py',
     'feature_help.py --usecli',
     'feature_coloredcoin.py',
-    'rpc_utxosnapshot.py'
+    'rpc_dumptxoutset.py'
     # Don't append tests at the end to avoid merge conflicts
     # Put them in a random line within the section that fits their approximate run-time
 ]
