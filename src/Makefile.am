@@ -182,6 +182,7 @@ BITCOIN_CORE_H = \
   utilmemory.h \
   utilmoneystr.h \
   utiltime.h \
+  utxo_snapshot.h \
   validation.h \
   validationinterface.h \
   walletinitinterface.h \
@@ -252,6 +253,7 @@ libtapyrus_server_a_SOURCES = \
   txdb.cpp \
   txmempool.cpp \
   ui_interface.cpp \
+  utxo_snapshot.cpp \
   validation.cpp \
   validationinterface.cpp \
   $(BITCOIN_CORE_H)

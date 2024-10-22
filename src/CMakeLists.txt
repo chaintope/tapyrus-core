@@ -208,6 +208,7 @@ add_library(server
         txdb.cpp
         txmempool.cpp
         ui_interface.cpp
+        utxo_snapshot.cpp
         validation.cpp
         validationinterface.cpp
         key_io.cpp
