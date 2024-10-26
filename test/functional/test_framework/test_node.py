@@ -22,6 +22,7 @@ import urllib.parse
 from .authproxy import JSONRPCException
 from .util import (
     append_config,
+    assert_equal,
     delete_cookie_file,
     get_rpc_proxy,
     rpc_url,
@@ -311,6 +312,36 @@ class TestNode():
             p2p_conn.wait_for_verack()
 
         return p2p_conn
+
+    def assert_debug_log(self, expected_msgs, unexpected_msgs=None, timeout=2):
+        if unexpected_msgs is None:
+            unexpected_msgs = []
+        assert_equal(type(expected_msgs), list)
+        assert_equal(type(unexpected_msgs), list)
+
+        time_end = time.time() + timeout * self.timeout_factor
+        prev_size = self.debug_log_size(encoding="utf-8")  # Must use same encoding that is used to read() below
+
+        yield
+
+        while True:
+            found = True
+            with open(self.debug_log_path, encoding="utf-8", errors="replace") as dl:
+                dl.seek(prev_size)
+                log = dl.read()
+            print_log = " - " + "\n - ".join(log.splitlines())
+            for unexpected_msg in unexpected_msgs:
+                if re.search(re.escape(unexpected_msg), log, flags=re.MULTILINE):
+                    self._raise_assertion_error('Unexpected message "{}" partially matches log:\n\n{}\n\n'.format(unexpected_msg, print_log))
+            for expected_msg in expected_msgs:
+                if re.search(re.escape(expected_msg), log, flags=re.MULTILINE) is None:
+                    found = False
+            if found:
+                return
+            if time.time() >= time_end:
+                break
+            time.sleep(0.05)
+        self._raise_assertion_error('Expected messages "{}" does not partially match log:\n\n{}\n\n'.format(str(expected_msgs), print_log))
 
     @property
     def p2p(self):

@@ -23,7 +23,7 @@ import sys
 import threading
 
 from test_framework.messages import CBlockHeader, MIN_VERSION_SUPPORTED, msg_addr, msg_block, MSG_BLOCK, msg_blocktxn, msg_cmpctblock, msg_feefilter, msg_getaddr, msg_getblocks, msg_getblocktxn, msg_getdata, msg_getheaders, msg_headers, msg_inv, msg_mempool, msg_ping, msg_pong, msg_reject, msg_sendcmpct, msg_sendheaders, msg_tx, MSG_TX, MSG_TYPE_MASK, msg_verack, msg_version, NODE_NETWORK, NODE_WITNESS, sha256, ToHex, msg_notfound
-from test_framework.util import wait_until, NetworkDirName, MagicBytes
+from test_framework.util import wait_until, NetworkDirName, MagicBytes, MAX_NODES, PORT_MIN, p2p_port
 
 logger = logging.getLogger("TestFramework.mininode")
 
@@ -69,10 +69,20 @@ class P2PConnection(asyncio.Protocol):
         # The underlying transport of the connection.
         # Should only call methods on this from the NetworkThread, c.f. call_soon_threadsafe
         self._transport = None
+        self.reconnect = False  # set if reconnection needs to happen
 
     @property
     def is_connected(self):
         return self._transport is not None
+
+    def peer_connect_helper(self, dstaddr, dstport, net):
+        assert not self.is_connected
+        self.dstaddr = dstaddr
+        self.dstport = dstport
+        # The initial message to send after the connection was made:
+        self.on_connection_send_msg = None
+        self.recvbuf = b""
+        self.magic_bytes = MagicBytes(net)
 
     def peer_connect(self, dstaddr, dstport, net):
         assert not self.is_connected
@@ -88,6 +98,12 @@ class P2PConnection(asyncio.Protocol):
         conn_gen_unsafe = loop.create_connection(lambda: self, host=self.dstaddr, port=self.dstport)
         conn_gen = lambda: loop.call_soon_threadsafe(loop.create_task, conn_gen_unsafe)
         return conn_gen
+
+    def peer_accept_connection(self, connect_id, connect_cb=lambda: None, *, net):
+        self.peer_connect_helper('0', 0, net)
+
+        logger.debug('Listening for Tapyrus Node with id: {}'.format(connect_id))
+        return lambda: NetworkThread.listen(self, connect_cb, idx=connect_id)
 
     def peer_disconnect(self):
         # Connection could have already been closed by other end.
@@ -173,7 +189,7 @@ class P2PConnection(asyncio.Protocol):
         if not self.is_connected:
             raise IOError('Not connected')
         self._log_message("send", message)
-        tmsg = self._build_message(message)
+        tmsg = self.build_message(message)
 
         def maybe_write():
             if not self._transport:
@@ -186,9 +202,22 @@ class P2PConnection(asyncio.Protocol):
             self._transport.write(tmsg)
         NetworkThread.network_event_loop.call_soon_threadsafe(maybe_write)
 
+
+    def send_raw_message(self, raw_message_bytes):
+        if not self.is_connected:
+            raise IOError('Not connected')
+
+        def maybe_write():
+            if not self._transport:
+                return
+            if self._transport.is_closing():
+                return
+            self._transport.write(raw_message_bytes)
+        NetworkThread.network_event_loop.call_soon_threadsafe(maybe_write)
+
     # Class utility methods
 
-    def _build_message(self, message):
+    def build_message(self, message):
         """Build a serialized P2P message"""
         command = message.command
         data = message.serialize()
@@ -320,10 +349,18 @@ class P2PInterface(P2PConnection):
         self.nServices = message.nServices
 
     # Connection helper methods
+    def wait_for_connect(self, timeout=60):
+        test_function = lambda: self.is_connected
+        self.wait_until(test_function, timeout=timeout, check_connected=False)
 
     def wait_for_disconnect(self, timeout=60):
         test_function = lambda: not self.is_connected
         wait_until(test_function, timeout=timeout, lock=mininode_lock)
+
+    def wait_for_reconnect(self, timeout=60):
+        def test_function():
+            return self.is_connected and self.last_message.get('version')
+        self.wait_until(test_function, timeout=timeout, check_connected=False)
 
     # Message receiving helper methods
 
@@ -380,6 +417,10 @@ class P2PInterface(P2PConnection):
         wait_until(test_function, timeout=timeout, lock=mininode_lock)
 
     # Message sending helper functions
+    def send_version(self):
+        if self.on_connection_send_msg:
+            self.send_message(self.on_connection_send_msg)
+            self.on_connection_send_msg = None  # Never used again
 
     def send_and_ping(self, message):
         self.send_message(message)
@@ -409,6 +450,9 @@ class NetworkThread(threading.Thread):
         # There is only one event loop and no more than one thread must be created
         assert not self.network_event_loop
 
+        NetworkThread.listeners = {}
+        NetworkThread.protos = {}
+
         NetworkThread.network_event_loop = asyncio.new_event_loop()
 
     def run(self):
@@ -421,6 +465,55 @@ class NetworkThread(threading.Thread):
         wait_until(lambda: not self.network_event_loop.is_running(), timeout=timeout)
         self.network_event_loop.close()
         self.join(timeout)
+        NetworkThread.network_event_loop = None
+
+    @classmethod
+    def listen(cls, p2p, callback, port=None, addr=None, idx=1):
+        """ Ensure a listening server is running on the given port, and run the
+        protocol specified by `p2p` on the next connection to it. Once ready
+        for connections, call `callback`."""
+
+        if port is None:
+            assert 0 < idx <= MAX_NODES
+            port = p2p_port(MAX_NODES - idx)
+        if addr is None:
+            addr = '127.0.0.1'
+
+        def exception_handler(loop, context):
+            if not p2p.reconnect:
+                loop.default_exception_handler(context)
+
+        cls.network_event_loop.set_exception_handler(exception_handler)
+        coroutine = cls.create_listen_server(addr, port, callback, p2p)
+        cls.network_event_loop.call_soon_threadsafe(cls.network_event_loop.create_task, coroutine)
+
+    @classmethod
+    async def create_listen_server(cls, addr, port, callback, proto):
+        def peer_protocol():
+            """Returns a function that does the protocol handling for a new
+            connection. To allow different connections to have different
+            behaviors, the protocol function is first put in the cls.protos
+            dict. When the connection is made, the function removes the
+            protocol function from that dict, and returns it so the event loop
+            can start executing it."""
+            response = cls.protos.get((addr, port))
+            # remove protocol function from dict only when reconnection doesn't need to happen/already happened
+            if not proto.reconnect:
+                cls.protos[(addr, port)] = None
+            return response
+
+        if (addr, port) not in cls.listeners:
+            # When creating a listener on a given (addr, port) we only need to
+            # do it once. If we want different behaviors for different
+            # connections, we can accomplish this by providing different
+            # `proto` functions
+
+            listener = await cls.network_event_loop.create_server(peer_protocol, addr, port)
+            logger.debug("Listening server on %s:%d should be started" % (addr, port))
+            cls.listeners[(addr, port)] = listener
+
+        cls.protos[(addr, port)] = proto
+        callback(addr, port)
 
 
 class P2PDataStore(P2PInterface):

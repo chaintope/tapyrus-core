@@ -1967,7 +1967,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         // Store the new addresses
         std::vector<CAddress> vAddrOk;
         // Update/increment addr rate limiting bucket.
-        const auto current_time(GetTimeMicros());
+        const auto current_time(GetTimeMicros(true));
         if (m_addr_token_bucket < MAX_ADDR_PROCESSING_TOKEN_BUCKET) {
             // Don't increment bucket if it's already full
             const std::chrono::microseconds time_diff{std::max(current_time - m_addr_token_timestamp.count(), int64_t(0))};
@@ -1979,8 +1979,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         uint64_t num_proc = 0;
         uint64_t num_rate_limit = 0;
         Shuffle(vAddr.begin(), vAddr.end(), FastRandomContext());
-        for (CAddress& addr : vAddr)
-        {
+        for (CAddress& addr : vAddr) {
             if (interruptMsgProc)
                 return true;
 
@@ -1988,19 +1987,21 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
             if (m_addr_token_bucket < 1.0) {
                 ++num_rate_limit;
                 continue;
+            } else {
+                m_addr_token_bucket -= 1.0;
             }
             // We only bother storing full nodes, though this may include
-            // things which we would not make an outbound connection to, in
-            // part because we may make feeler connections to them.
+            // things which we would not make an outbound connection to,
             if (!MayHaveUsefulAddressDB(addr.nServices) && !HasAllDesirableServiceFlags(addr.nServices))
                 continue;
 
             if (addr.nTime <= 100000000 || addr.nTime > std::chrono::seconds(current_time).count() + 10 * 60)
-                addr.nTime = std::chrono::seconds(current_time).count() - 5 * 24 * 60 * 60;
+                addr.nTime = current_time - 5 * 24 * 60 * 60;
             pfrom->AddAddressKnown(addr);
             ++num_proc;
             bool fReachable = IsReachable(addr);
-            if (addr.nTime > std::chrono::seconds(current_time).count() -  10 * 60 && !pfrom->fGetAddr && vAddr.size() <= 10 && addr.IsRoutable())
+            const auto relay_time = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::microseconds(current_time)) -  std::chrono::seconds(10 * 60);
+            if (addr.nTime > relay_time.count() && !pfrom->fGetAddr && vAddr.size() <= 10 && addr.IsRoutable())
             {
                 // Relay to a limited number of other nodes
                 RelayAddress(addr, fReachable, connman);
@@ -2008,14 +2009,15 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
             // Do not store addresses outside our network
             if (fReachable)
                 vAddrOk.push_back(addr);
-            m_addr_processed += num_proc;
-            m_addr_rate_limited += num_rate_limit;
-            LogPrint(BCLog::NET, "Received addr: %u addresses (%u processed, %u rate-limited) from peer=%d\n",
-                     vAddr.size(),
-                     num_proc,
-                     num_rate_limit,
-                     pfrom->GetId());
         }
+        m_addr_processed += num_proc;
+        m_addr_rate_limited += num_rate_limit;
+        LogPrint(BCLog::NET, "Received addr: %u addresses (%u processed, %u rate-limited) from peer=%d\n",
+                 vAddr.size(),
+                 num_proc,
+                 num_rate_limit,
+                 pfrom->GetId());
+
         connman->AddNewAddresses(vAddrOk, pfrom->addr, 2 * 60 * 60);
         if (vAddr.size() < 1000)
             pfrom->fGetAddr = false;
