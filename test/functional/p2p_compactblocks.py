@@ -694,6 +694,19 @@ class CompactBlocksTest(BitcoinTestFramework):
         #block txn requested from 1 peer
         wait_until(lambda: len([peer for peer in peers if "getblocktxn" in peer.last_message]) == 1,  timeout=30, lock=mininode_lock)
 
+        msg = msg_getblocktxn()
+        msg.block_txn_request = BlockTransactionsRequest(block.sha256, [0])
+
+        #send block txn requested from all peers
+        with mininode_lock:
+            [peer.last_message.pop("blocktxn", None) for peer in peers]
+        [peer.send_and_ping(msg) for peer in peers]
+
+        #but block txn is accepted from 1 peer
+        with mininode_lock:
+            ignored = ["blocktxn" not in peer.last_message for peer in peers if peer != peers[0]]
+        assert(len(ignored) == 4)
+
     # Test that we don't get disconnected if we relay a compact block with valid header,
     # but invalid transactions.
     def test_invalid_tx_in_compactblock(self, node, test_node):
