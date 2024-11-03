@@ -1129,9 +1129,6 @@ void RPCConsole::updateNodeDetail(const CNodeCombinedStats *stats)
     // This check fails for example if the lock was busy and
     // nodeStateStats couldn't be fetched.
     if (stats->fNodeStateStatsAvailable) {
-        //time offset
-        ui->timeoffset->setText(GUIUtil::formatTimeOffset(std::chrono::duration_cast<std::chrono::seconds>(stats->nodeStateStats.time_offset)));
-
         // Ban score is init to 0
         ui->peerBanScore->setText(QString("%1").arg(stats->nodeStateStats.nMisbehavior));
 

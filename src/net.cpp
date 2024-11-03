@@ -702,7 +702,6 @@ void CNode::copyStats(CNodeStats &stats)
     X(nLastSend);
     X(nLastRecv);
     X(nTimeConnected);
-    X(nTimeOffset);
     stats.addrName = GetAddrName();
     X(nVersion);
     {
