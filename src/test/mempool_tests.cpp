@@ -758,4 +758,46 @@ BOOST_AUTO_TEST_CASE(MempoolAncestryTests)
     BOOST_CHECK_EQUAL(descendants, 6ULL);
 }
 
+BOOST_AUTO_TEST_CASE(comparator_tests)
+{
+    CTxMemPool pool;
+    LOCK(pool.cs);
+    //   ta
+    //    ^
+    //   tb
+    //  ^  ^
+    // tc  td
+    //
+    // not in mempool: te, tf
+    CTransactionRef ta, tb, tc, td, te, tf;
+    ta = make_tx(/*output_values=*/{COIN});
+    tb = make_tx(/*output_values=*/{COIN, COIN}, /*inputs=*/ {ta});
+    tc = make_tx(/*output_values=*/{COIN}, /*inputs=*/{tb}, /*input_indices=*/{0});
+    td = make_tx(/*output_values=*/{COIN}, /*inputs=*/{tb}, /*input_indices=*/{1});
+    te = make_tx(/*output_values=*/{COIN * 2});
+    tf = make_tx(/*output_values=*/{COIN * 3});
+    TestMemPoolEntryHelper entry;
+    pool.addUnchecked(ta->GetHashMalFix(), entry.Fee(10000LL).FromTx(ta));
+    pool.addUnchecked(tb->GetHashMalFix(), entry.Fee(10000LL).FromTx(tb));
+    pool.addUnchecked(tc->GetHashMalFix(), entry.Fee(10000LL).FromTx(tc));
+    pool.addUnchecked(td->GetHashMalFix(), entry.Fee(20000LL).FromTx(td));
+    BOOST_CHECK(pool.CompareDepthAndScore(ta->GetHashMalFix(), tb->GetHashMalFix()));
+    BOOST_CHECK(pool.CompareDepthAndScore(ta->GetHashMalFix(), tc->GetHashMalFix()));
+    BOOST_CHECK(pool.CompareDepthAndScore(ta->GetHashMalFix(), td->GetHashMalFix()));
+    BOOST_CHECK(pool.CompareDepthAndScore(tb->GetHashMalFix(), tc->GetHashMalFix()));
+    BOOST_CHECK(pool.CompareDepthAndScore(tb->GetHashMalFix(), td->GetHashMalFix()));
+    // Same ancestor count but td has higher feerate
+    BOOST_CHECK(pool.CompareDepthAndScore(td->GetHashMalFix(), tc->GetHashMalFix()));
+    // not-in-mempool is always considered first
+    BOOST_CHECK(!pool.CompareDepthAndScore(ta->GetHashMalFix(), te->GetHashMalFix()));
+    BOOST_CHECK(!pool.CompareDepthAndScore(tb->GetHashMalFix(), te->GetHashMalFix()));
+    BOOST_CHECK(!pool.CompareDepthAndScore(tc->GetHashMalFix(), te->GetHashMalFix()));
+    BOOST_CHECK(!pool.CompareDepthAndScore(td->GetHashMalFix(), te->GetHashMalFix()));
+    BOOST_CHECK(!pool.CompareDepthAndScore(te->GetHashMalFix(), te->GetHashMalFix()));
+    BOOST_CHECK(!pool.CompareDepthAndScore(tf->GetHashMalFix(), te->GetHashMalFix()));
+    BOOST_CHECK(pool.CompareDepthAndScore(tf->GetHashMalFix(), ta->GetHashMalFix()));
+    BOOST_CHECK(pool.CompareDepthAndScore(tf->GetHashMalFix(), tb->GetHashMalFix()));
+    BOOST_CHECK(pool.CompareDepthAndScore(tf->GetHashMalFix(), tc->GetHashMalFix()));
+    BOOST_CHECK(pool.CompareDepthAndScore(tf->GetHashMalFix(), td->GetHashMalFix()));
+}
 BOOST_AUTO_TEST_SUITE_END()
