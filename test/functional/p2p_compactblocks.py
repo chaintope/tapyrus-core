@@ -11,9 +11,10 @@ Tapyrus does not differentiate version1 and version 2 compact blocks. Witness tr
 """
 
 import random
+from logging import exception
 
 from test_framework.blocktools import create_block, create_coinbase
-from test_framework.messages import BlockTransactions, BlockTransactionsRequest, calculate_shortid, CBlock, CBlockHeader, CInv, COutPoint, CTransaction, CTxIn, CTxOut, FromHex, HeaderAndShortIDs, msg_block, msg_blocktxn, msg_cmpctblock, msg_getblocktxn, msg_getdata, msg_getheaders, msg_headers, msg_inv, msg_sendcmpct, msg_sendheaders, msg_tx, msg_witness_block, msg_witness_blocktxn, NODE_NETWORK, NODE_WITNESS, P2PHeaderAndShortIDs, PrefilledTransaction, ToHex
+from test_framework.messages import BlockTransactions, BlockTransactionsRequest, calculate_shortid, CBlock, CBlockHeader, CInv, COutPoint, CTransaction, CTxIn, CTxOut, FromHex, HeaderAndShortIDs, msg_block, msg_blocktxn, msg_cmpctblock, msg_getblocktxn, msg_getdata, msg_getheaders, msg_headers, msg_inv, msg_sendcmpct, msg_sendheaders, msg_tx, NODE_NETWORK, NODE_WITNESS, P2PHeaderAndShortIDs, PrefilledTransaction, ToHex
 from test_framework.mininode import mininode_lock, P2PInterface
 from test_framework.script import CScript, OP_TRUE, OP_DROP
 from test_framework.test_framework import BitcoinTestFramework
@@ -322,17 +323,12 @@ class CompactBlocksTest(BitcoinTestFramework):
         # Check that all prefilled_txn entries match what's in the block.
         for entry in header_and_shortids.prefilled_txn:
             entry.tx.calc_sha256()
-            # This checks the non-witness parts of the tx agree
+            # This checks the tx agree
             assert_equal(entry.tx.sha256, block.vtx[entry.index].sha256)
             assert_equal(entry.tx.malfixsha256, block.vtx[entry.index].malfixsha256)
 
             # And this checks the witness
-            wtxid = entry.tx.calc_sha256(True)
-            if version == 2:
-                assert_equal(wtxid, block.vtx[entry.index].calc_sha256(True))
-            else:
-                # Shouldn't have received a witness
-                assert(entry.tx.wit.is_null())
+            assert(entry.tx.wit.is_null())
 
         # Check that the cmpctblock message announced all the transactions.
         assert_equal(len(header_and_shortids.prefilled_txn) + len(header_and_shortids.shortids), len(block.vtx))
@@ -357,9 +353,6 @@ class CompactBlocksTest(BitcoinTestFramework):
     # Test that bitcoind requests compact blocks when we announce new blocks
     # via header or inv, and that responding to getblocktxn causes the block
     # to be successfully reconstructed.
-    # Post-segwit: upgraded nodes would only make this request of cb-version-2,
-    # NODE_WITNESS peers.  Unupgraded nodes would still make this request of
-    # any cb-version-1-supporting peer.
     def test_compactblock_requests(self, node, test_node, version):
         # Try announcing a block with an inv or header, expect a compactblock
         # request
@@ -423,8 +416,6 @@ class CompactBlocksTest(BitcoinTestFramework):
     # node needs, and that responding to them causes the block to be
     # reconstructed.
     def test_getblocktxn_requests(self, node, test_node, version):
-        with_witness = (version==2)
-
         def test_getblocktxn_response(compact_block, peer, expected_result):
             msg = msg_cmpctblock(compact_block.to_p2p())
             peer.send_and_ping(msg)
@@ -449,8 +440,6 @@ class CompactBlocksTest(BitcoinTestFramework):
         test_getblocktxn_response(comp_block, test_node, [1, 2, 3, 4, 5])
 
         msg_bt = msg_blocktxn()
-        if with_witness:
-            msg_bt = msg_witness_blocktxn() # serialize with witnesses
         msg_bt.block_transactions = BlockTransactions(block.sha256, block.vtx[1:])
         test_tip_after_message(node, test_node, msg_bt, block.sha256)
 
@@ -538,8 +527,6 @@ class CompactBlocksTest(BitcoinTestFramework):
         # verifying that the block isn't marked bad permanently. This is good
         # enough for now.
         msg = msg_blocktxn()
-        if version==2:
-            msg = msg_witness_blocktxn()
         msg.block_transactions = BlockTransactions(block.sha256, [block.vtx[5]] + block.vtx[7:])
         test_node.send_and_ping(msg)
 
@@ -553,10 +540,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         assert_equal(test_node.last_message["getdata"].inv[0].hash, block.sha256)
 
         # Deliver the block
-        if version==2:
-            test_node.send_and_ping(msg_witness_block(block))
-        else:
-            test_node.send_and_ping(msg_block(block))
+        test_node.send_and_ping(msg_block(block))
         assert_equal(int(node.getbestblockhash(), 16), block.sha256)
 
     def test_getblocktxn_handler(self, node, test_node, version):
@@ -585,12 +569,7 @@ class CompactBlocksTest(BitcoinTestFramework):
                     tx.calc_sha256()
                     assert_equal(tx.malfixsha256, block.vtx[index].malfixsha256)
                     assert_equal(tx.sha256, block.vtx[index].sha256)
-                    if version == 1:
-                        # Witnesses should have been stripped
-                        assert(tx.wit.is_null())
-                    else:
-                        # Check that the witness matches
-                        assert_equal(tx.calc_sha256(True), block.vtx[index].calc_sha256(True))
+                    assert(tx.wit.is_null())
                 test_node.last_message.pop("blocktxn", None)
             current_height -= 1
 
@@ -669,8 +648,6 @@ class CompactBlocksTest(BitcoinTestFramework):
 
         [l.clear_block_announcement() for l in listeners]
 
-        # ToHex() won't serialize with witness, but this block has no witnesses
-        # anyway. TODO: repeat this test with witness tx's to a segwit node.
         node.submitblock(ToHex(block))
 
         for l in listeners:
@@ -681,6 +658,49 @@ class CompactBlocksTest(BitcoinTestFramework):
                 assert "cmpctblock" in l.last_message
                 l.last_message["cmpctblock"].header_and_shortids.header.calc_sha256()
                 assert_equal(l.last_message["cmpctblock"].header_and_shortids.header.sha256, block.sha256)
+
+    def test_number_of_blocktxn_requests(self, node, test_node):
+        peers = []
+        for i in range(5):
+            peers.append(node.add_p2p_connection(TestP2PConn(node.time_to_connect)))
+
+        #request compact block from all peers
+        sendcmpct=msg_sendcmpct()
+        sendcmpct.version = 1
+        sendcmpct.announce = True
+        for peer in peers:
+            peer.send_and_ping(sendcmpct)
+
+        #create new block
+        utxo = self.utxos.pop(0)
+        block = self.build_block_with_transactions(node, utxo, 2)
+
+        #block announced from all peers
+        [peer.clear_block_announcement for peer in peers]
+
+        # Send back a compactblock message
+        comp_block = HeaderAndShortIDs()
+        comp_block.initialize_from_block(block)
+        msg = msg_cmpctblock(comp_block.to_p2p())
+
+        #compact block announced
+        peers[0].send_and_ping(msg)
+
+        #block txn requested from that peer
+        wait_until(lambda: "getblocktxn" in peers[0].last_message,  timeout=30, lock=mininode_lock)
+
+        msg = msg_blocktxn()
+        msg.block_transactions = BlockTransactions(block.sha256, block.vtx[1:])
+
+        for peer in peers[1:]:
+            #send block txn requested from all other peers
+            peer.send_and_ping(msg)
+            # Check that the tip didn't advance
+            assert(int(node.getbestblockhash(), 16) is not block.sha256)
+
+        peers[0].send_and_ping(msg)
+        # Check that the tip advances
+        assert_equal(int(node.getbestblockhash(), 16), block.sha256)
 
     # Test that we don't get disconnected if we relay a compact block with valid header,
     # but invalid transactions.
@@ -837,7 +857,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         self.log.info("Syncing nodes...")
         assert_equal(self.nodes[0].getbestblockhash(), self.nodes[1].getbestblockhash())
 
-        self.log.info("Testing getblocktxn handler (segwit node should return witnesses)...")
+        self.log.info("Testing getblocktxn handler ")
         self.test_getblocktxn_handler(self.nodes[1], self.old_node, 1)
 
         # Test that if we submitblock to node1, we'll get a compact block
@@ -856,6 +876,9 @@ class CompactBlocksTest(BitcoinTestFramework):
 
         self.log.info("Testing invalid index in cmpctblock message...")
         self.test_invalid_cmpctblock_message()
+
+        self.log.info("Testing blocktxn messages from multiple peers for the same block")
+        self.test_number_of_blocktxn_requests(self.nodes[0], self.test_node)
 
 
 if __name__ == '__main__':
