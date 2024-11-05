@@ -383,7 +383,7 @@ static bool MarkBlockAsReceived(const uint256& hash,  std::optional<NodeId> from
     }
     // We should not have requested too many of this block
     if(!(mapBlocksInFlight.count(hash) <= MAX_CMPCTBLOCKS_INFLIGHT_PER_BLOCK)) {
-        LogPrint(BCLog::NET, "More than %s requests for this block %s", MAX_CMPCTBLOCKS_INFLIGHT_PER_BLOCK, hash.ToString());
+        LogPrint(BCLog::NET, "More than %s requests for this block %s\n", MAX_CMPCTBLOCKS_INFLIGHT_PER_BLOCK, hash.ToString());
         return false;
     }
     while (rangeInFlight.first != rangeInFlight.second) {
@@ -2526,10 +2526,8 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         // We want to be a bit conservative just to be extra careful about DoS
         // possibilities in compact block processing...
         if (pindex->nHeight <= chainActive.Height() + 2) {
-            if ((!fAlreadyInFlight && nodestate->nBlocksInFlight < MAX_BLOCKS_IN_TRANSIT_PER_PEER) ||
-                 (fAlreadyInFlight
-                     && mapBlocksInFlight.count(pindex->GetBlockHash()) < MAX_CMPCTBLOCKS_INFLIGHT_PER_BLOCK
-                     && blockInFlightIt->second.first == pfrom->GetId())) {
+            if ( nodestate->nBlocksInFlight < MAX_BLOCKS_IN_TRANSIT_PER_PEER
+                 && mapBlocksInFlight.count(pindex->GetBlockHash()) < MAX_CMPCTBLOCKS_INFLIGHT_PER_BLOCK ) {
                 std::list<QueuedBlock>::iterator* queuedBlockIt = nullptr;
                 if (!MarkBlockAsInFlight(pfrom->GetId(), pindex->GetBlockHash(), pindex, &queuedBlockIt)) {
                     if (!(*queuedBlockIt)->partialBlock)

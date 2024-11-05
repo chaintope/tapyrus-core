@@ -659,7 +659,7 @@ class CompactBlocksTest(BitcoinTestFramework):
                 l.last_message["cmpctblock"].header_and_shortids.header.calc_sha256()
                 assert_equal(l.last_message["cmpctblock"].header_and_shortids.header.sha256, block.sha256)
 
-    def test_number_of_blocktxn_requests(self, node):
+    def test_number_of_blocktxn_requests(self, node, test_node):
         peers = []
         for i in range(5):
             peers.append(node.add_p2p_connection(TestP2PConn(node.time_to_connect)))
@@ -673,39 +673,34 @@ class CompactBlocksTest(BitcoinTestFramework):
 
         #create new block
         utxo = self.utxos.pop(0)
-        block = self.build_block_with_transactions(node, utxo, 5)
+        block = self.build_block_with_transactions(node, utxo, 2)
 
         #block announced from all peers
         [peer.clear_block_announcement for peer in peers]
-
-        [peer.send_header_for_blocks([block]) for peer in peers]
-
-        #block should be requested from only 1 peers
-        wait_until(lambda: len([peer for peer in peers if "getdata" in peer.last_message]) == 1,  timeout=30, lock=mininode_lock)
 
         # Send back a compactblock message
         comp_block = HeaderAndShortIDs()
         comp_block.initialize_from_block(block)
         msg = msg_cmpctblock(comp_block.to_p2p())
 
-        #compact block announced from all peers
-        [peer.send_and_ping(msg) for peer in peers]
+        #compact block announced
+        peers[0].send_and_ping(msg)
 
-        #block txn requested from 1 peer
-        wait_until(lambda: len([peer for peer in peers if "getblocktxn" in peer.last_message]) == 1,  timeout=30, lock=mininode_lock)
+        #block txn requested from that peer
+        wait_until(lambda: "getblocktxn" in peers[0].last_message,  timeout=30, lock=mininode_lock)
 
-        msg = msg_getblocktxn()
-        msg.block_txn_request = BlockTransactionsRequest(block.sha256, [0])
+        msg = msg_blocktxn()
+        msg.block_transactions = BlockTransactions(block.sha256, block.vtx[1:])
 
-        #send block txn requested from all peers
-        with mininode_lock:
-            [peer.last_message.pop("blocktxn", None) for peer in peers]
-        [peer.send_and_ping(msg) for peer in peers]
+        for peer in peers[1:]:
+            #send block txn requested from all other peers
+            peer.send_and_ping(msg)
+            # Check that the tip didn't advance
+            assert(int(node.getbestblockhash(), 16) is not block.sha256)
 
-        #but block txn is accepted from 1 peer
-        with mininode_lock:
-            ignored = ["blocktxn" not in peer.last_message for peer in peers if peer != peers[0]]
-        assert(len(ignored) == 4)
+        peers[0].send_and_ping(msg)
+        # Check that the tip advances
+        assert_equal(int(node.getbestblockhash(), 16), block.sha256)
 
     # Test that we don't get disconnected if we relay a compact block with valid header,
     # but invalid transactions.
@@ -882,7 +877,8 @@ class CompactBlocksTest(BitcoinTestFramework):
         self.log.info("Testing invalid index in cmpctblock message...")
         self.test_invalid_cmpctblock_message()
 
-        self.test_number_of_blocktxn_requests(self.nodes[0])
+        self.log.info("Testing blocktxn messages from multiple peers for the same block")
+        self.test_number_of_blocktxn_requests(self.nodes[0], self.test_node)
 
 
 if __name__ == '__main__':
