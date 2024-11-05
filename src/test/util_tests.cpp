@@ -782,6 +782,34 @@ BOOST_AUTO_TEST_CASE(gettime)
 {
     BOOST_CHECK((GetTime() & ~0xFFFFFFFFLL) == 0);
 }
+BOOST_AUTO_TEST_CASE(util_time_GetTime)
+{
+    SetMockTime(111);
+    // Check that mock time does not change after a sleep
+    for (const auto& num_sleep : {0, 1}) {
+        MilliSleep(num_sleep);
+        BOOST_CHECK_EQUAL(111, GetTime());
+        BOOST_CHECK_EQUAL(111, GetAdjustedTime());
+        BOOST_CHECK_EQUAL(111000, GetTimeMillis(true));
+        BOOST_CHECK_EQUAL(111000000, GetTimeMicros(true));
+
+        const auto ntime = GetSystemTimeInSeconds();
+        BOOST_CHECK_EQUAL(ntime, GetTimeMillis()/1000);
+        BOOST_CHECK_EQUAL(ntime, GetTimeMicros()/1000000);
+    }
+
+    SetMockTime(0);
+    // Check that steady time and system time changes after a sleep
+    const auto steady_ms_0 = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+    const auto steady_0 = std::chrono::steady_clock::now();
+    const auto ms_0 = GetTimeMillis();
+    const auto us_0 = GetTimeMicros();
+    MilliSleep(1);
+    BOOST_CHECK(steady_ms_0 < std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
+    BOOST_CHECK(steady_0 + std::chrono::milliseconds(1) <= std::chrono::steady_clock::now());
+    BOOST_CHECK(ms_0 < GetTimeMillis());
+    BOOST_CHECK(us_0 < GetTimeMicros());
+}
 
 BOOST_AUTO_TEST_CASE(test_IsDigit)
 {

@@ -21,6 +21,7 @@
 #include <sync.h>
 #include <uint256.h>
 #include <threadinterrupt.h>
+#include <timeoffsets.h>
 
 #include <atomic>
 #include <deque>
@@ -543,7 +544,6 @@ public:
     int64_t nLastSend;
     int64_t nLastRecv;
     int64_t nTimeConnected;
-    int64_t nTimeOffset;
     std::string addrName;
     int nVersion;
     std::string cleanSubVer;
@@ -738,6 +738,7 @@ public:
     int64_t nextSendTimeFeeFilter;
     std::set<uint256> orphan_work_set;
 
+
     CNode(NodeId id, ServiceFlags nLocalServicesIn, int nMyStartingHeightIn, SOCKET hSocketIn, const CAddress &addrIn, uint64_t nKeyedNetGroupIn, uint64_t nLocalHostNonceIn, const CAddress &addrBindIn, const std::string &addrNameIn = "", bool fInboundIn = false);
     ~CNode();
     CNode(const CNode&) = delete;
@@ -758,6 +759,7 @@ private:
     // Our address, as reported by the peer
     CService addrLocal;
     mutable Mutex cs_addrLocal;
+
 public:
 
     NodeId GetId() const {

@@ -702,7 +702,6 @@ void CNode::copyStats(CNodeStats &stats)
     X(nLastSend);
     X(nLastRecv);
     X(nTimeConnected);
-    X(nTimeOffset);
     stats.addrName = GetAddrName();
     X(nVersion);
     {
@@ -2721,7 +2720,6 @@ CNode::CNode(NodeId idIn, ServiceFlags nLocalServicesIn, int nMyStartingHeightIn
     nLastRecv = 0;
     nSendBytes = 0;
     nRecvBytes = 0;
-    nTimeOffset = 0;
     addrName = addrNameIn == "" ? addr.ToStringIPPort() : addrNameIn;
     nVersion = 0;
     strSubVer = "";

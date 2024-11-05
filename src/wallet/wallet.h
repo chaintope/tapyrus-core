@@ -704,7 +704,7 @@ private:
      * Abandoned state should probably be more carefully tracked via different
      * posInBlock signals or by checking mempool presence when necessary.
      */
-    bool AddToWalletIfInvolvingMe(const CTransactionRef& tx, const CBlockIndex* pIndex, int posInBlock, bool fUpdate) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    bool AddToWalletIfInvolvingMe(const CTransactionRef& tx, const CBlockIndex* pIndex, int posInBlock, bool fUpdate, bool rescanning_old_block = false) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
     /* Mark a transaction (and its in-wallet descendants) as conflicting with a particular block. */
     void MarkConflicted(const uint256& hashBlock, const uint256& hashTx);
@@ -716,7 +716,7 @@ private:
 
     /* Used by TransactionAddedToMemorypool/BlockConnected/Disconnected/ScanForWalletTransactions.
      * Should be called with pindexBlock and posInBlock if this is for a transaction that is included in a block. */
-    void SyncTransaction(const CTransactionRef& tx, const CBlockIndex *pindex = nullptr, int posInBlock = 0, bool update_tx = true) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    void SyncTransaction(const CTransactionRef& tx, const CBlockIndex *pindex = nullptr, int posInBlock = 0, bool update_tx = true, bool rescanning_old_block = false) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
     /* the HD chain data model (external chain counters) */
     CHDChain hdChain;
@@ -926,7 +926,7 @@ public:
     bool EncryptWallet(const SecureString& strWalletPassphrase);
 
     void GetKeyBirthTimes(std::map<CTxDestination, int64_t> &mapKeyBirth) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
-    unsigned int ComputeTimeSmart(const CWalletTx& wtx) const;
+    unsigned int ComputeTimeSmart(const CWalletTx& wtx, bool rescanning_old_block = false) const;
 
     /**
      * Increment the next transaction order id
@@ -938,7 +938,7 @@ public:
     bool GetLabelDestination(CTxDestination &dest, const std::string& label, bool bForceNew = false);
 
     void MarkDirty();
-    bool AddToWallet(const CWalletTx& wtxIn, bool fFlushOnClose=true);
+    bool AddToWallet(const CWalletTx& wtxIn, bool fFlushOnClose=true, bool rescanning_old_block = false);
     void LoadToWallet(const CWalletTx& wtxIn) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     void TransactionAddedToMempool(const CTransactionRef& tx) override;
     void BlockConnected(const std::shared_ptr<const CBlock>& pblock, const CBlockIndex *pindex, const std::vector<CTransactionRef>& vtxConflicted) override;

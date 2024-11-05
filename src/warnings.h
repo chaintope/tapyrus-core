@@ -13,6 +13,8 @@ void SetMiscWarning(const std::string& strWarning);
 void SetfLargeWorkForkFound(bool flag);
 bool GetfLargeWorkForkFound();
 void SetfLargeWorkInvalidChainFound(bool flag);
+/** Pass std::nullopt to disable the warning */
+void SetMedianTimeOffsetWarning(const std::string&  strWarning);
 /** Format a string that describes several potential problems detected by the core.
  * @param[in] strFor can have the following values:
  * - "statusbar": get the most important warning

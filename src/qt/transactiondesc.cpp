@@ -18,7 +18,6 @@
 #include <key_io.h>
 #include <validation.h>
 #include <script/script.h>
-#include <timedata.h>
 #include <util.h>
 #include <wallet/db.h>
 #include <wallet/wallet.h>
