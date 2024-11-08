@@ -181,6 +181,15 @@ namespace {
     std::deque<std::pair<int64_t, MapRelay::iterator>> vRelayExpiration GUARDED_BY(cs_main);
 
     std::atomic<int64_t> nTimeBestReceived(0); // Used only to inform the wallet of when we last received a block
+    /** Number of addrsses that can be processed from this peer. Start at 1 to
+     *  permit self-announcement. */
+    double m_addr_token_bucket{1.0};
+    /** When m_addr_token_bucket was last updated */
+    std::chrono::microseconds m_addr_token_timestamp{GetTimeMicros()};
+    /** Total number of addresses that were dropped due to rate limiting. */
+    std::atomic<uint64_t> m_addr_rate_limited{0};
+    /** Total number of addresses that were processed (excludes rate limited ones). */
+    std::atomic<uint64_t> m_addr_processed{0};
 
     struct IteratorComparator
     {
@@ -296,6 +305,7 @@ struct CNodeState {
 
     //! Time of last new block announcement
     int64_t m_last_block_announcement;
+
 
     CNodeState(CAddress addrIn, std::string addrNameIn) : address(addrIn), name(addrNameIn) {
         fCurrentlyConnected = false;
@@ -692,6 +702,8 @@ bool GetNodeStateStats(NodeId nodeid, CNodeStateStats &stats) {
         if (queue.pindex)
             stats.vHeightInFlight.push_back(queue.pindex->nHeight);
     }
+    stats.m_addr_processed = m_addr_processed.load();
+    stats.m_addr_rate_limited = m_addr_rate_limited.load();
     return true;
 }
 
@@ -1853,6 +1865,9 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
                 pfrom->fGetAddr = true;
             }
             connman->MarkAddressGood(pfrom->addr);
+            // When requesting a getaddr, accept an additional MAX_ADDR_TO_SEND addresses in response
+            // (bypassing the MAX_ADDR_PROCESSING_TOKEN_BUCKET limit).
+            m_addr_token_bucket += MAX_ADDR_TO_SEND;
         }
 
         std::string remoteAddr;
@@ -1940,9 +1955,9 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         vRecv >> vAddr;
 
         // Don't want addr from older versions unless seeding
-        if (connman->GetAddressCount() > 1000)
+        if (connman->GetAddressCount() > MAX_ADDR_TO_SEND)
             return true;
-        if (vAddr.size() > 1000)
+        if (vAddr.size() > MAX_ADDR_TO_SEND)
         {
             LOCK(cs_main);
             Misbehaving(pfrom->GetId(), 20, strprintf("message addr size() = %u", vAddr.size()));
@@ -1951,24 +1966,42 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
 
         // Store the new addresses
         std::vector<CAddress> vAddrOk;
-        int64_t nNow = GetAdjustedTime();
-        int64_t nSince = nNow - 10 * 60;
-        for (CAddress& addr : vAddr)
-        {
+        // Update/increment addr rate limiting bucket.
+        const auto current_time(GetTimeMicros(true));
+        if (m_addr_token_bucket < MAX_ADDR_PROCESSING_TOKEN_BUCKET) {
+            // Don't increment bucket if it's already full
+            const std::chrono::microseconds time_diff{std::max(current_time - m_addr_token_timestamp.count(), int64_t(0))};
+            const double increment =  std::chrono::duration_cast< std::chrono::duration<double, std::chrono::seconds::period>>(time_diff).count() * MAX_ADDR_RATE_PER_SECOND;
+            m_addr_token_bucket = std::min<double>(m_addr_token_bucket + increment, MAX_ADDR_PROCESSING_TOKEN_BUCKET);
+        }
+        m_addr_token_timestamp = std::chrono::microseconds(current_time);
+
+        uint64_t num_proc = 0;
+        uint64_t num_rate_limit = 0;
+        Shuffle(vAddr.begin(), vAddr.end(), FastRandomContext());
+        for (CAddress& addr : vAddr) {
             if (interruptMsgProc)
                 return true;
 
+            // Apply rate limiting to all peers
+            if (m_addr_token_bucket < 1.0) {
+                ++num_rate_limit;
+                continue;
+            } else {
+                m_addr_token_bucket -= 1.0;
+            }
             // We only bother storing full nodes, though this may include
-            // things which we would not make an outbound connection to, in
-            // part because we may make feeler connections to them.
+            // things which we would not make an outbound connection to,
             if (!MayHaveUsefulAddressDB(addr.nServices) && !HasAllDesirableServiceFlags(addr.nServices))
                 continue;
 
-            if (addr.nTime <= 100000000 || addr.nTime > nNow + 10 * 60)
-                addr.nTime = nNow - 5 * 24 * 60 * 60;
+            if (addr.nTime <= 100000000 || addr.nTime > std::chrono::seconds(current_time).count() + 10 * 60)
+                addr.nTime = current_time - 5 * 24 * 60 * 60;
             pfrom->AddAddressKnown(addr);
+            ++num_proc;
             bool fReachable = IsReachable(addr);
-            if (addr.nTime > nSince && !pfrom->fGetAddr && vAddr.size() <= 10 && addr.IsRoutable())
+            const auto relay_time = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::microseconds(current_time)) -  std::chrono::seconds(10 * 60);
+            if (addr.nTime > relay_time.count() && !pfrom->fGetAddr && vAddr.size() <= 10 && addr.IsRoutable())
             {
                 // Relay to a limited number of other nodes
                 RelayAddress(addr, fReachable, connman);
@@ -1977,6 +2010,14 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
             if (fReachable)
                 vAddrOk.push_back(addr);
         }
+        m_addr_processed += num_proc;
+        m_addr_rate_limited += num_rate_limit;
+        LogPrint(BCLog::NET, "Received addr: %u addresses (%u processed, %u rate-limited) from peer=%d\n",
+                 vAddr.size(),
+                 num_proc,
+                 num_rate_limit,
+                 pfrom->GetId());
+
         connman->AddNewAddresses(vAddrOk, pfrom->addr, 2 * 60 * 60);
         if (vAddr.size() < 1000)
             pfrom->fGetAddr = false;
@@ -3341,7 +3382,7 @@ bool PeerLogicValidation::SendMessages(CNode* pto)
                     pto->addrKnown.insert(addr.GetKey());
                     vAddr.push_back(addr);
                     // receiver rejects addr messages larger than 1000
-                    if (vAddr.size() >= 1000)
+                    if (vAddr.size() >= MAX_ADDR_TO_SEND)
                     {
                         connman->PushMessage(pto, msgMaker.Make(NetMsgType::ADDR, vAddr));
                         vAddr.clear();
