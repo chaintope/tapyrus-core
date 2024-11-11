@@ -15,6 +15,8 @@
 static const unsigned int DEFAULT_MAX_ORPHAN_TRANSACTIONS = 100;
 /** Default number of orphan+recently-replaced txn to keep around for block reconstruction */
 static const unsigned int DEFAULT_BLOCK_RECONSTRUCTION_EXTRA_TXN = 100;
+/** Maximum number of outstanding CMPCTBLOCK requests for the same block. */
+static const unsigned int MAX_CMPCTBLOCKS_INFLIGHT_PER_BLOCK = 3;
 
 class PeerLogicValidation final : public CValidationInterface, public NetEventsInterface {
 private:
