@@ -231,7 +231,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         if old_node is not None:
             # Verify that a peer using an older protocol version can receive
             # announcements from this node.
-            sendcmpct.version = preferred_version-1
+            sendcmpct.version = 1
             sendcmpct.announce = True
             old_node.send_and_ping(sendcmpct)
             # Header sync
@@ -795,7 +795,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         self.log.info("Running tests:")
 
         self.log.info("Testing SENDCMPCT p2p message... ")
-        self.test_sendcmpct(self.nodes[0], self.test_node, 1)
+        self.test_sendcmpct(self.nodes[0], self.test_node, 1, self.old_node)
         sync_blocks(self.nodes)
 
         self.log.info("Testing compactblock construction...")
@@ -840,39 +840,6 @@ class CompactBlocksTest(BitcoinTestFramework):
         self.log.info("Testing reconstructing compact blocks from all peers...")
         self.test_compactblock_reconstruction_multiple_peers(self.nodes[1], self.extra_node, self.old_node)
         sync_blocks(self.nodes)
-
-        self.log.info("Testing compactblock construction...")
-        self.test_compactblock_construction(self.nodes[1], self.old_node, 1)
-
-        sync_blocks(self.nodes)
-
-        self.log.info("Testing compactblock requests (unupgraded node)... ")
-        self.test_compactblock_requests(self.nodes[0], self.test_node, 1)
-
-        self.log.info("Testing getblocktxn requests (unupgraded node)...")
-        self.test_getblocktxn_requests(self.nodes[0], self.test_node, 1)
-
-        # Need to manually sync node0 and node1, because post-segwit activation,
-        # node1 will not download blocks from node0.
-        self.log.info("Syncing nodes...")
-        assert_equal(self.nodes[0].getbestblockhash(), self.nodes[1].getbestblockhash())
-
-        self.log.info("Testing getblocktxn handler ")
-        self.test_getblocktxn_handler(self.nodes[1], self.old_node, 1)
-
-        # Test that if we submitblock to node1, we'll get a compact block
-        # announcement to all peers.
-        # (Post-segwit activation, blocks won't propagate from node0 to node1
-        # automatically, so don't bother testing a block announced to node0.)
-        self.log.info("Testing end-to-end block relay...")
-        self.request_cb_announcements(self.test_node, self.nodes[0], 1)
-        self.request_cb_announcements(self.old_node, self.nodes[1], 1)
-        self.test_end_to_end_block_relay(self.nodes[1], [self.test_node, self.old_node])
-
-        self.log.info("Testing handling of invalid compact blocks...")
-        self.test_invalid_tx_in_compactblock(self.nodes[0], self.test_node)
-
-        self.test_invalid_tx_in_compactblock(self.nodes[1], self.old_node)
 
         self.log.info("Testing invalid index in cmpctblock message...")
         self.test_invalid_cmpctblock_message()
