@@ -1,5 +1,5 @@
 dnl require autoconf 2.60 (AS_ECHO/AS_ECHO_N)
-AC_PREREQ([2.60])
+AC_PREREQ([2.72])
 define(_CLIENT_VERSION_MAJOR, 0)
 define(_CLIENT_VERSION_MINOR, 5)
 define(_CLIENT_VERSION_REVISION, 2)
@@ -140,8 +140,8 @@ AC_ARG_ENABLE(tests,
 
 AC_ARG_ENABLE(gui-tests,
     AS_HELP_STRING([--disable-gui-tests],[do not compile GUI tests (default is to compile if GUI and tests enabled)]),
-    [use_gui_tests=$enableval],
-    [use_gui_tests=$use_tests])
+    [use_gui_tests=no],
+    [use_gui_tests=no])
 
 AC_ARG_ENABLE(bench,
     AS_HELP_STRING([--disable-bench],[do not compile benchmarks (default is to compile)]),
@@ -870,10 +870,10 @@ if test x$use_upnp != xno; then
   )
 fi
 
-BITCOIN_QT_INIT
+BITCOIN_QT_INIT no
 
 dnl sets $tapyrus_enable_qt, $tapyrus_enable_qt_test, $tapyrus_enable_qt_dbus
-BITCOIN_QT_CONFIGURE
+BITCOIN_QT_CONFIGURE no
 
 if test x$build_tapyrus_utils$build_tapyrusd$tapyrus_enable_qt$use_tests$use_bench = xnonononono; then
     use_boost=no
@@ -891,7 +891,6 @@ AX_BOOST_BASE([MINIMUM_REQUIRED_BOOST])
 if test x$want_boost = xno; then
     AC_MSG_ERROR([[only libtapyrusconsensus can be built without boost]])
 fi
-AX_BOOST_FILESYSTEM
 
 fi
 

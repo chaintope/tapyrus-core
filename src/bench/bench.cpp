@@ -10,11 +10,12 @@
 #include <algorithm>
 #include <regex>
 #include <numeric>
+#include <fstream>
 
 void writeTestGenesisBlockToFile(fs::path genesisPath)
 {
     genesisPath /= TAPYRUS_GENESIS_FILENAME;
-    fs::ofstream stream(genesisPath);
+    std::ofstream stream(genesisPath);
     stream << GENESIS_BLOCK;
     stream.close();
 }

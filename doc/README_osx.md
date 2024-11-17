@@ -32,7 +32,7 @@ To obtain it, register for a developer account, then download the [Xcode 7.3.1 d
 This file is several gigabytes in size, but only a single directory inside is
 needed:
 ```
-Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk
+Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.sdk
 ```
 
 Unfortunately, the usual linux tools (7zip, hpmount, loopback mount) are incapable of opening this file.
@@ -41,7 +41,7 @@ To create a tarball suitable for Gitian input, there are two options:
 Using macOS, you can mount the dmg, and then create it with:
 ```
   $ hdiutil attach Xcode_7.3.1.dmg
-  $ tar -C /Volumes/Xcode/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/ -czf MacOSX10.14.sdk.tar.gz MacOSX10.14.sdk
+  $ tar -C /Volumes/Xcode/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/ -czf MacOSX10.15.sdk.tar.gz MacOSX10.15.sdk
 ```
 
 Alternatively, you can use 7zip and SleuthKit to extract the files one by one.
@@ -53,7 +53,7 @@ you've confirmed the extraction succeeded.
 ```bash
 apt-get install p7zip-full sleuthkit
 contrib/macdeploy/extract-osx-sdk.sh
-rm -rf 5.hfs MacOSX10.14.sdk
+rm -rf 5.hfs MacOSX10.15.sdk
 ```
 
 The Gitian descriptors build 2 sets of files: Linux tools, then Apple binaries
