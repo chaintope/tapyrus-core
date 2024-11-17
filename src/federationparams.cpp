@@ -18,6 +18,7 @@
 #include <xfieldhistory.h>
 
 #include <assert.h>
+#include <fstream>
 
 void SetupFederationParamsOptions()
 {
@@ -35,7 +36,7 @@ std::string ReadGenesisBlock(fs::path genesisPath)
     genesisPath /= genesisFileName;
 
     LogPrintf("Reading Genesis Block from [%s]\n", genesisPath.string().c_str());
-    fs::ifstream stream(genesisPath);
+    std::ifstream stream(genesisPath);
     if (!stream.good())
         throw std::runtime_error(strprintf("ReadGenesisBlock: unable to read genesis file %s", genesisPath));
 

@@ -9,7 +9,7 @@ set(CMAKE_CXX_COMPILER clang++)
 # set(CMAKE_CXX_EXTENSIONS OFF)
 
 # On OSX we use various stuff from Apple's SDK.
-set(OSX_SDK_PATH "${CMAKE_CURRENT_SOURCE_DIR}/depends/SDKs/MacOSX10.11.sdk")
+set(OSX_SDK_PATH "${CMAKE_CURRENT_SOURCE_DIR}/depends/SDKs/MacOSX10.15.sdk")
 
 # target environment on the build host system
 #   set 1st to dir with the cross compiler's C/C++ headers/libs
@@ -28,7 +28,7 @@ set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 # Sysroot clang
 set(OSX_EXTRA_FLAGS
 	" -target ${TOOLCHAIN_PREFIX}"
-	" -mmacosx-version-min=10.8"
+	" -mmacosx-version-min=10.15"
 	" --sysroot ${OSX_SDK_PATH}"
 	" -mlinker-version=253.9"
 )

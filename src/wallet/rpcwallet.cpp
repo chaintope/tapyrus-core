@@ -2508,13 +2508,13 @@ static UniValue loadwallet(const JSONRPCRequest& request)
     std::string wallet_file = request.params[0].get_str();
     std::string error;
 
-    fs::path wallet_path = fs::absolute(wallet_file, GetWalletDir());
-    if (fs::symlink_status(wallet_path).type() == fs::file_not_found) {
+    fs::path wallet_path = fs::path(GetWalletDir() / fs::path(wallet_file));
+    if (fs::symlink_status(wallet_path).type() == fs::file_type::not_found) {
         throw JSONRPCError(RPC_WALLET_NOT_FOUND, "Wallet " + wallet_file + " not found.");
     } else if (fs::is_directory(wallet_path)) {
         // The given filename is a directory. Check that there's a wallet.dat file.
         fs::path wallet_dat_file = wallet_path / "wallet.dat";
-        if (fs::symlink_status(wallet_dat_file).type() == fs::file_not_found) {
+        if (fs::symlink_status(wallet_dat_file).type() == fs::file_type::not_found) {
             throw JSONRPCError(RPC_WALLET_NOT_FOUND, "Directory " + wallet_file + " does not contain a wallet.dat file.");
         }
     }
@@ -2524,7 +2524,7 @@ static UniValue loadwallet(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_WALLET_ERROR, "Wallet file verification failed: " + error);
     }
 
-    std::shared_ptr<CWallet> const wallet = CWallet::CreateWalletFromFile(wallet_file, fs::absolute(wallet_file, GetWalletDir()));
+    std::shared_ptr<CWallet> const wallet = CWallet::CreateWalletFromFile(wallet_file, fs::path(GetWalletDir() / fs::path(wallet_file)));
     if (!wallet) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Wallet loading failed.");
     }
@@ -2567,8 +2567,8 @@ static UniValue createwallet(const JSONRPCRequest& request)
         disable_privatekeys = request.params[1].get_bool();
     }
 
-    fs::path wallet_path = fs::absolute(wallet_name, GetWalletDir());
-    if (fs::symlink_status(wallet_path).type() != fs::file_not_found) {
+    fs::path wallet_path = fs::path(GetWalletDir() / fs::path(wallet_name));
+    if (fs::symlink_status(wallet_path).type() != fs::file_type::not_found) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Wallet " + wallet_name + " already exists.");
     }
 
@@ -2577,7 +2577,7 @@ static UniValue createwallet(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_WALLET_ERROR, "Wallet file verification failed: " + error);
     }
 
-    std::shared_ptr<CWallet> const wallet = CWallet::CreateWalletFromFile(wallet_name, fs::absolute(wallet_name, GetWalletDir()), (disable_privatekeys ? (uint64_t)WALLET_FLAG_DISABLE_PRIVATE_KEYS : 0));
+    std::shared_ptr<CWallet> const wallet = CWallet::CreateWalletFromFile(wallet_name, fs::path(GetWalletDir() / fs::path(wallet_name)), (disable_privatekeys ? (uint64_t)WALLET_FLAG_DISABLE_PRIVATE_KEYS : 0));
     if (!wallet) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Wallet creation failed.");
     }

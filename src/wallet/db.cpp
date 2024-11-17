@@ -56,7 +56,7 @@ RecursiveMutex cs_db;
 std::map<std::string, BerkeleyEnvironment> g_dbenvs GUARDED_BY(cs_db); //!< Map from directory name to open db environment.
 } // namespace
 
-BerkeleyEnvironment* GetWalletEnv(const fs::path& wallet_path, std::string& database_filename)
+BerkeleyEnvironment* GetWalletEnv(const fs::path& wallet_path, fs::path& database_filename)
 {
     fs::path env_directory;
     if (fs::is_regular_file(wallet_path)) {
@@ -131,7 +131,8 @@ bool BerkeleyEnvironment::Open(bool retry)
 
     fs::path pathIn = strPath;
     TryCreateDirectories(pathIn);
-    if (!LockDirectory(pathIn, ".walletlock")) {
+    if (LockDirectory(pathIn, ".walletlock") != LockResult::Success)
+    {
         LogPrintf("Cannot obtain a lock on wallet directory %s. Another instance of tapyrus may be using it.\n", strPath);
         return false;
     }
@@ -245,7 +246,7 @@ BerkeleyEnvironment::VerifyResult BerkeleyEnvironment::Verify(const std::string&
 
 bool BerkeleyBatch::Recover(const fs::path& file_path, void *callbackDataIn, bool (*recoverKVcallback)(void* callbackData, CDataStream ssKey, CDataStream ssValue), std::string& newFilename)
 {
-    std::string filename;
+    fs::path filename;
     BerkeleyEnvironment* env = GetWalletEnv(file_path, filename);
 
     // Recovery procedure:
@@ -314,7 +315,7 @@ bool BerkeleyBatch::Recover(const fs::path& file_path, void *callbackDataIn, boo
 
 bool BerkeleyBatch::VerifyEnvironment(const fs::path& file_path, std::string& errorStr)
 {
-    std::string walletFile;
+    fs::path walletFile;
     BerkeleyEnvironment* env = GetWalletEnv(file_path, walletFile);
     fs::path walletDir = env->Directory();
 
@@ -322,7 +323,7 @@ bool BerkeleyBatch::VerifyEnvironment(const fs::path& file_path, std::string& er
     LogPrintf("Using wallet %s\n", walletFile);
 
     // Wallet file must be a plain filename without a directory
-    if (walletFile != fs::basename(walletFile) + fs::extension(walletFile))
+    if (walletFile != walletFile.stem().string() + walletFile.extension().string())
     {
         errorStr = strprintf(_("Wallet %s resides outside wallet directory %s"), walletFile, walletDir.string());
         return false;
@@ -338,7 +339,7 @@ bool BerkeleyBatch::VerifyEnvironment(const fs::path& file_path, std::string& er
 
 bool BerkeleyBatch::VerifyDatabaseFile(const fs::path& file_path, std::string& warningStr, std::string& errorStr, BerkeleyEnvironment::recoverFunc_type recoverFunc)
 {
-    std::string walletFile;
+    fs::path walletFile;
     BerkeleyEnvironment* env = GetWalletEnv(file_path, walletFile);
     fs::path walletDir = env->Directory();
 
@@ -774,7 +775,7 @@ bool BerkeleyDatabase::Backup(const std::string& strDest)
                         return false;
                     }
 
-                    fs::copy_file(pathSrc, pathDest, fs::copy_option::overwrite_if_exists);
+                    fs::copy_file(pathSrc, pathDest, fs::copy_options::overwrite_existing);
                     LogPrintf("copied %s to %s\n", strFile, pathDest.string());
                     return true;
                 } catch (const fs::filesystem_error& e) {
