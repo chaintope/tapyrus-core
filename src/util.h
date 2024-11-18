@@ -84,14 +84,7 @@ enum class LockResult {
  ErrorLock,
 };
 // Define operator<< for LockResult
-std::ostream& operator<<(std::ostream& os, const LockResult& result) {
- switch (result) {
-  case LockResult::Success:    return os << "Success";
-  case LockResult::ErrorWrite: return os << "ErrorWrite";
-  case LockResult::ErrorLock:  return os << "ErrorLock";
-  default:                     return os << "Unknown";
- }
-}
+std::ostream& operator<<(std::ostream& os, const LockResult& result);
 
 LockResult LockDirectory(const fs::path& directory, const std::string lockfile_name, bool probe_only=false);
 

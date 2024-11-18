@@ -128,6 +128,15 @@ LockResult LockDirectory(const fs::path& directory, const std::string lockfile_n
     return LockResult::Success;;
 }
 
+std::ostream& operator<<(std::ostream& os, const LockResult& result) {
+    switch (result) {
+        case LockResult::Success:    return os << "Success";
+        case LockResult::ErrorWrite: return os << "ErrorWrite";
+        case LockResult::ErrorLock:  return os << "ErrorLock";
+        default:                     return os << "Unknown";
+    }
+}
+
 void ReleaseDirectoryLocks()
 {
     std::lock_guard<std::mutex> ulock(cs_dir_locks);
