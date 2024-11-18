@@ -1177,7 +1177,7 @@ BOOST_AUTO_TEST_CASE(test_LockDirectory)
     char ch;
     BOOST_CHECK_EQUAL(write(fd[1], &LockCommand, 1), 1);
     BOOST_CHECK_EQUAL(read(fd[1], &ch, 1), 1);
-    BOOST_CHECK_EQUAL((bool)ch, false);
+    BOOST_CHECK_EQUAL((bool)ch, ResUnlockSuccess);
 
     // Give up our lock
     ReleaseDirectoryLocks();
