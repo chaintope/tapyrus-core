@@ -444,7 +444,7 @@ static bool MarkBlockAsInFlight(NodeId nodeid, const uint256& hash, const CBlock
     auto itInFlight = mapBlocksInFlight.insert(std::make_pair(hash, std::make_pair(nodeid, it)));
     if (pit)
         *pit = &itInFlight->second.second;
-     return true;
+    return true;
 }
 
 /** Check whether the last unknown block a peer advertised is not yet known. */
