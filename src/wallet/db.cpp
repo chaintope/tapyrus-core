@@ -259,7 +259,7 @@ bool BerkeleyBatch::Recover(const fs::path& file_path, void *callbackDataIn, boo
     int64_t now = GetTime();
     newFilename = strprintf("%s.%d.bak", filename, now);
 
-    int result = env->dbenv->dbrename(nullptr, filename.c_str(), nullptr,
+    int result = env->dbenv->dbrename(nullptr, filename.string().c_str(), nullptr,
                                        newFilename.c_str(), DB_AUTO_COMMIT);
     if (result == 0)
         LogPrintf("Renamed %s to %s\n", filename, newFilename);
