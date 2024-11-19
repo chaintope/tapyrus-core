@@ -4413,7 +4413,7 @@ static UniValue issuetoken(const JSONRPCRequest& request)
             }
 
             //2. vout and its type
-            if(vout < 0 || vout >= it->second.tx->vout.size() || GetColorIdFromScript(it->second.tx->vout[vout].scriptPubKey).type != TokenTypes::NONE) {
+            if(vout >= it->second.tx->vout.size() || GetColorIdFromScript(it->second.tx->vout[vout].scriptPubKey).type != TokenTypes::NONE) {
                 std::string strError = strprintf("Invalid vout %d in tx: %s", request.params[3].get_int(), request.params[2].get_str());
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strError);
             }

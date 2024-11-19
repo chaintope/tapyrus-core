@@ -24,7 +24,7 @@ if [ -n "$XCODE_VERSION" ] && [ ! -d "depends/SDKs/${OSX_SDK_BASENAME}" ]; then
   tar -C "depends/SDKs" -xf "$OSX_SDK_PATH"
 fi
 
-f [[ $HOST = *-mingw32 ]]; then sudo update-alternatives --set $HOST-g++ $(which $HOST-g++-posix); fi
+if [[ $HOST = *-mingw32 ]]; then sudo update-alternatives --set $HOST-g++ $(which $HOST-g++-posix); fi
 if [ -z "$NO_DEPENDS" ]; then CONFIG_SHELL= make $MAKEJOBS -C depends HOST=$HOST $DEP_OPTS; fi
 
 # Script

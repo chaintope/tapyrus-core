@@ -4147,9 +4147,6 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(const std::string& name, 
     if (gArgs.GetBoolArg("-upgradewallet", false)) {
         LOCK(walletInstance->cs_wallet);
 
-        // Do not upgrade versions to any version between HD_SPLIT and FEATURE_PRE_SPLIT_KEYPOOL unless already supporting HD_SPLIT
-        int max_version = walletInstance->nWalletVersion;
-
         bool hd_upgrade = false;
         bool split_upgrade = false;
         if (walletInstance->CanSupportFeature(FEATURE_HD) && !walletInstance->IsHDEnabled()) {

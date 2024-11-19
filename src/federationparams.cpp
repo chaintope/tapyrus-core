@@ -13,7 +13,6 @@
 #include <consensus/merkle.h>
 #include <key_io.h>
 #include <tapyrusmodes.h>
-#include <chainparamsseeds.h>
 #include <validation.h>
 #include <xfieldhistory.h>
 
@@ -143,8 +142,6 @@ CFederationParams::CFederationParams(const uint32_t networkId, const std::string
         this->ReadGenesisBlock(genesisHex);
 
     vSeeds = gArgs.GetArgs("-addseeder");
-
-    vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_main, pnSeed6_main + ARRAYLEN(pnSeed6_main));
 }
 
 bool CFederationParams::ReadGenesisBlock(std::string genesisHex)

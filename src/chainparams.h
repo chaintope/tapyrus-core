@@ -72,6 +72,7 @@ public:
     const std::vector<unsigned char>& Base58Prefix(Base58Type type) const { return base58Prefixes[type]; }
     int GetRPCPort() const { return rpcPort; }
     int GetDefaultPort() const { return nDefaultPort; }
+    const std::vector<SeedSpec6>& FixedSeeds() const { return vFixedSeeds; }
 protected:
     //require signedblockpubkey argument only in tapyrusd
     CChainParams() {}
@@ -86,6 +87,7 @@ protected:
     CCheckpointData checkpointData;
     ChainTxData chainTxData;
     bool m_fallback_fee_enabled;
+    std::vector<SeedSpec6> vFixedSeeds;
 };
 
 /**
