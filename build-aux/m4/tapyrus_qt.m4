@@ -54,7 +54,7 @@ AC_DEFUN([BITCOIN_QT_INIT],[
   dnl enable qt support
   AC_ARG_WITH([gui],
     [AS_HELP_STRING([--with-gui@<:@=no|qt5|auto@:>@],
-    [build tapyrus_qt GUI (default=auto)])],
+    [build tapyrus_qt GUI (default=no)])],
     [
      tapyrus_qt_want_version=$withval
      if test "x$tapyrus_qt_want_version" = xyes; then
@@ -222,8 +222,8 @@ AC_DEFUN([BITCOIN_QT_CONFIGURE],[
   dnl enable qt support
   AC_MSG_CHECKING(whether to build ]AC_PACKAGE_NAME[ GUI)
   BITCOIN_QT_CHECK([
-    tapyrus_enable_qt=yes
-    tapyrus_enable_qt_test=yes
+    tapyrus_enable_qt=no
+    tapyrus_enable_qt_test=no
     if test "x$have_qt_test" = xno; then
       tapyrus_enable_qt_test=no
     fi

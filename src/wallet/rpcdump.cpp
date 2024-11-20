@@ -21,23 +21,27 @@
 #include <fstream>
 #include <stdint.h>
 
-#include <boost/algorithm/string.hpp>
-#include <boost/date_time/posix_time/posix_time.hpp>
-
+#include <chrono>
 #include <univalue.h>
 
 
 int64_t static DecodeDumpTime(const std::string &str) {
-    static const boost::posix_time::ptime epoch = boost::posix_time::from_time_t(0);
-    static const std::locale loc(std::locale::classic(),
-        new boost::posix_time::time_input_facet("%Y-%m-%dT%H:%M:%SZ"));
+    static const std::chrono::time_point<std::chrono::system_clock> epoch(std::chrono::seconds(0));
+
+    std::tm tm = {};
     std::istringstream iss(str);
-    iss.imbue(loc);
-    boost::posix_time::ptime ptime(boost::date_time::not_a_date_time);
-    iss >> ptime;
-    if (ptime.is_not_a_date_time())
+    iss >> std::get_time(&tm, "%Y-%m-%dT%H:%M:%SZ");  // Format for "2024-11-15T10:30:00Z"
+    if (iss.fail()) {
         return 0;
-    return (ptime - epoch).total_seconds();
+    }
+    // Convert std::tm to time_t (seconds since epoch)
+    std::time_t t = std::mktime(&tm);
+    if (t == -1) {
+        // If mktime fails, return 0
+        return 0;
+    }
+    std::chrono::time_point<std::chrono::system_clock> ptime = std::chrono::system_clock::from_time_t(t);
+    return std::chrono::duration_cast<std::chrono::seconds>(ptime - epoch).count();
 }
 
 std::string static EncodeDumpString(const std::string &str) {
@@ -561,7 +565,11 @@ UniValue importwallet(const JSONRPCRequest& request)
                 continue;
 
             std::vector<std::string> vstr;
-            boost::split(vstr, line, boost::is_any_of(" "));
+            std::istringstream stream(line);
+            std::string word;
+            while (stream >> word) {
+                vstr.push_back(word);
+            }
             if (vstr.size() < 2)
                 continue;
             CKey key = DecodeSecret(vstr[0]);
@@ -705,15 +713,15 @@ UniValue dumpwallet(const JSONRPCRequest& request)
 
     EnsureWalletIsUnlocked(pwallet);
 
-    boost::filesystem::path filepath = request.params[0].get_str();
-    filepath = boost::filesystem::absolute(filepath);
+    fs::path filepath = request.params[0].get_str();
+    filepath = fs::absolute(filepath);
 
     /* Prevent arbitrary files from being overwritten. There have been reports
      * that users have overwritten wallet files this way:
      * https://github.com/bitcoin/bitcoin/issues/9934
      * It may also avoid other security issues.
      */
-    if (boost::filesystem::exists(filepath)) {
+    if (fs::exists(filepath)) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, filepath.string() + " already exists. If you are sure this is what you want, move it out of the way first");
     }
 

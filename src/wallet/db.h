@@ -87,7 +87,7 @@ public:
 };
 
 /** Get BerkeleyEnvironment and database filename given a wallet path. */
-BerkeleyEnvironment* GetWalletEnv(const fs::path& wallet_path, std::string& database_filename);
+BerkeleyEnvironment* GetWalletEnv(const fs::path& wallet_path, fs::path& database_filename);
 
 /** An instance of this class represents one database.
  * For BerkeleyDB this is just a (env, strFile) tuple.
@@ -153,7 +153,7 @@ public:
 private:
     /** BerkeleyDB specific */
     BerkeleyEnvironment *env;
-    std::string strFile;
+    fs::path strFile;
 
     /** Return whether this database handle is a dummy for testing.
      * Only to be used at a low level, application should ideally not care

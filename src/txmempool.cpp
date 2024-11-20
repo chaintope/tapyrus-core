@@ -150,7 +150,7 @@ void CTxMemPool::UpdateTransactionsFromBlock(const std::vector<uint256> &vHashes
     }
 }
 
-bool CTxMemPool::CalculateMemPoolAncestors(const CTxMemPoolEntry &entry, setEntries &setAncestors, uint64_t limitAncestorCount, uint64_t limitAncestorSize, uint64_t limitDescendantCount, uint64_t limitDescendantSize, std::string &errString, bool fSearchForParents /* = true */) const
+bool CTxMemPool::CalculateMemPoolAncestors(const CTxMemPoolEntry &entry, setEntries &setAncestors, int64_t limitAncestorCount, int64_t limitAncestorSize, int64_t limitDescendantCount, int64_t limitDescendantSize, std::string &errString, bool fSearchForParents /* = true */) const
 {
     setEntries parentHashes;
     const CTransaction &tx = entry.GetTx();
@@ -163,7 +163,7 @@ bool CTxMemPool::CalculateMemPoolAncestors(const CTxMemPoolEntry &entry, setEntr
             txiter piter = mapTx.find(tx.vin[i].prevout.hashMalFix);
             if (piter != mapTx.end()) {
                 parentHashes.insert(piter);
-                if (parentHashes.size() + 1 > limitAncestorCount) {
+                if (parentHashes.size() + 1 > static_cast<uint64_t>(limitAncestorCount)) {
                     errString = strprintf("too many unconfirmed parents [limit: %u]", limitAncestorCount);
                     return false;
                 }
@@ -188,7 +188,7 @@ bool CTxMemPool::CalculateMemPoolAncestors(const CTxMemPoolEntry &entry, setEntr
         if (stageit->GetSizeWithDescendants() + entry.GetTxSize() > limitDescendantSize) {
             errString = strprintf("exceeds descendant size limit for tx %s [limit: %u]", stageit->GetTx().GetHashMalFix().ToString(), limitDescendantSize);
             return false;
-        } else if (stageit->GetCountWithDescendants() + 1 > limitDescendantCount) {
+        } else if (stageit->GetCountWithDescendants() + 1 > static_cast<uint64_t>(limitDescendantCount)) {
             errString = strprintf("too many descendants for tx %s [limit: %u]", stageit->GetTx().GetHashMalFix().ToString(), limitDescendantCount);
             return false;
         } else if (totalSizeWithAncestors > limitAncestorSize) {
@@ -202,7 +202,7 @@ bool CTxMemPool::CalculateMemPoolAncestors(const CTxMemPoolEntry &entry, setEntr
             if (setAncestors.count(phash) == 0) {
                 parentHashes.insert(phash);
             }
-            if (parentHashes.size() + setAncestors.size() + 1 > limitAncestorCount) {
+            if (parentHashes.size() + setAncestors.size() + 1 > static_cast<uint64_t>(limitAncestorCount)) {
                 errString = strprintf("too many unconfirmed ancestors [limit: %u]", limitAncestorCount);
                 return false;
             }
@@ -1111,6 +1111,7 @@ std::string RemovalReasonToString(const MemPoolRemovalReason& r) noexcept
         case MemPoolRemovalReason::BLOCK: return "block";
         case MemPoolRemovalReason::CONFLICT: return "conflict";
         case MemPoolRemovalReason::REPLACED: return "replaced";
-        case MemPoolRemovalReason::UNKNOWN: return "unknown";
+        case MemPoolRemovalReason::UNKNOWN:
+        default:return "unknown";
     }
 }

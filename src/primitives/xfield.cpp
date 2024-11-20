@@ -61,10 +61,12 @@ char GetXFieldDBKey(const XFieldData& xfieldValue) {
     }
 }
 
-const char* BadXFieldException::what() const noexcept
-{
-    if(unknown)
-        return strprintf("Upgrade node. Unknown xfield found in block. Node cannot sync to the blockchain with xfieldType=%s", std::to_string((uint8_t)type).c_str()).c_str();
-    else
-        return strprintf("Type and data mismatch in CXField. xfieldType=%s  xfieldValue=%s", std::to_string((uint8_t)type).c_str(), XFieldDataToString(xfieldValue).c_str()).c_str();
+void BadXFieldException::constructMessage(TAPYRUS_XFIELDTYPES type, XFieldData xfieldValue) {
+    std::ostringstream oss;
+    if (unknown) {
+        oss << "Upgrade node. Unknown xfield found in block. Node cannot sync to the blockchain with xfieldType=" << (uint8_t)type << std::endl;
+    } else {
+        oss << "Type and data mismatch in CXField. xfieldType=" << (uint8_t)type <<"  expected =" << (uint8_t)GetXFieldTypeFrom(xfieldValue) << std::endl;
+    }
+    message = oss.str();
 }

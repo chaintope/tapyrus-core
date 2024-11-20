@@ -1,6 +1,10 @@
-OSX_MIN_VERSION=10.14
-OSX_SDK_VERSION=10.14
-OSX_SDK=$(SDK_PATH)/MacOSX$(OSX_SDK_VERSION).sdk
+OSX_MIN_VERSION=13.0
+OSX_SDK_VERSION=14.0
+XCODE_VERSION=15.0
+XCODE_BUILD_ID=15A240d
+LLD_VERSION=711
+
+OSX_SDK=$(SDK_PATH)/Xcode-$(XCODE_VERSION)-$(XCODE_BUILD_ID)-extracted-SDK-with-libcxx-headers
 
 clang_prog=$(build_prefix)/bin/clang
 clangxx_prog=$(clang_prog)++
@@ -8,11 +12,18 @@ llvm_config_prog=$(build_prefix)/bin/llvm-config
 
 clang_resource_dir=$(build_prefix)/lib/clang/$(native_cctools_clang_version)
 
-darwin_CC=$(clang_prog) -target $(host)  -isysroot$(OSX_SDK)
-darwin_CXX=$(clangxx_prog) -target $(host) -isysroot$(OSX_SDK) -stdlib=libc++
+darwin_CC=$(clang_prog) -target $(host)  -isysroot$(OSX_SDK) -nostdlibinc -iwithsysroot/usr/include -iframeworkwithsysroot/System/Library/Frameworks
+darwin_CXX=$(clangxx_prog) -target $(host) -isysroot$(OSX_SDK) -nostdlibinc -iwithsysroot/usr/include/c++/v1  -iwithsysroot/usr/include -iframeworkwithsysroot/System/Library/Frameworks
 
 darwin_CFLAGS=-pipe -std=c11
 darwin_CXXFLAGS=-pipe -std=c++17
+darwin_LDFLAGS=-Wl,-platform_version,macos,$(OSX_MIN_VERSION),$(OSX_SDK_VERSION)
+
+ifneq ($(build_os),darwin)
+darwin_CFLAGS += -mlinker-version=$(LLD_VERSION)
+darwin_CXXFLAGS += -mlinker-version=$(LLD_VERSION)
+darwin_LDFLAGS += -Wl,-no_adhoc_codesign -fuse-ld=lld
+endif
 
 darwin_release_CFLAGS=-O2
 darwin_release_CXXFLAGS=$(darwin_release_CFLAGS)
