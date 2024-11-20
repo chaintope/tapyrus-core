@@ -12,8 +12,8 @@ llvm_config_prog=$(build_prefix)/bin/llvm-config
 
 clang_resource_dir=$(build_prefix)/lib/clang/$(native_cctools_clang_version)
 
-darwin_CC=$(clang_prog) -target $(host)  -isysroot$(OSX_SDK)
-darwin_CXX=$(clangxx_prog) -target $(host) -isysroot$(OSX_SDK)
+darwin_CC=$(clang_prog) -target $(host)  -isysroot$(OSX_SDK) -nostdlibinc -iwithsysroot/usr/include -iframeworkwithsysroot/System/Library/Frameworks
+darwin_CXX=$(clangxx_prog) -target $(host) -isysroot$(OSX_SDK) -nostdlibinc -iwithsysroot/usr/include/c++/v1  -iwithsysroot/usr/include -iframeworkwithsysroot/System/Library/Frameworks
 
 darwin_CFLAGS=-pipe -std=c11
 darwin_CXXFLAGS=-pipe -std=c++17
