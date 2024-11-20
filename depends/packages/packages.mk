@@ -1,4 +1,6 @@
-packages:=boost libevent zeromq
+packages:= libevent zeromq
+
+boost_packages = boost
 
 qt_packages = qrencode
 
