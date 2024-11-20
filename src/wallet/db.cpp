@@ -346,7 +346,7 @@ bool BerkeleyBatch::VerifyDatabaseFile(const fs::path& file_path, std::string& w
     if (fs::exists(walletDir / walletFile))
     {
         std::string backup_filename;
-        BerkeleyEnvironment::VerifyResult r = env->Verify(walletFile, recoverFunc, backup_filename);
+        BerkeleyEnvironment::VerifyResult r = env->Verify(walletFile.string(), recoverFunc, backup_filename);
         if (r == BerkeleyEnvironment::VerifyResult::RECOVER_OK)
         {
             warningStr = strprintf(_("Warning: Wallet file corrupt, data salvaged!"
@@ -575,7 +575,7 @@ bool BerkeleyBatch::Rewrite(BerkeleyDatabase& database, const char* pszSkip)
         return true;
     }
     BerkeleyEnvironment *env = database.env;
-    const std::string& strFile = database.strFile;
+    const std::string& strFile = database.strFile.string();
     while (true) {
         {
             LOCK(cs_db);
@@ -707,7 +707,7 @@ bool BerkeleyBatch::PeriodicFlush(BerkeleyDatabase& database)
     }
     bool ret = false;
     BerkeleyEnvironment *env = database.env;
-    const std::string& strFile = database.strFile;
+    const std::string& strFile = database.strFile.string();
     TRY_LOCK(cs_db, lockDb);
     if (lockDb)
     {
@@ -756,12 +756,12 @@ bool BerkeleyDatabase::Backup(const std::string& strDest)
     {
         {
             LOCK(cs_db);
-            if (!env->mapFileUseCount.count(strFile) || env->mapFileUseCount[strFile] == 0)
+            if (!env->mapFileUseCount.count(strFile.string()) || env->mapFileUseCount[strFile.string()] == 0)
             {
                 // Flush log data to the dat file
                 env->CloseDb(strFile);
                 env->CheckpointLSN(strFile);
-                env->mapFileUseCount.erase(strFile);
+                env->mapFileUseCount.erase(strFile.string());
 
                 // Copy wallet file
                 fs::path pathSrc = env->Directory() / strFile;
