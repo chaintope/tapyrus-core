@@ -856,7 +856,7 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
             return state.Invalid(false, REJECT_NONSTANDARD, "bad-txns-nonstandard-inputs");
 #endif
 
-        int32_t nSigOps = GetTransactionSigOps(tx, view, STANDARD_SCRIPT_VERIFY_FLAGS);
+        uint32_t nSigOps = GetTransactionSigOps(tx, view, STANDARD_SCRIPT_VERIFY_FLAGS);
 
         // nModifiedFees includes any fee deltas from PrioritiseTransaction
         CAmount nModifiedFees = nFees;
