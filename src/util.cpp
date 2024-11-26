@@ -12,6 +12,7 @@
 #include <utilstrencodings.h>
 
 #include <stdarg.h>
+#include <fstream>
 
 #if (defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__))
 #include <pthread.h>
@@ -95,33 +96,45 @@ static std::mutex cs_dir_locks;
  */
 static std::map<std::string, std::unique_ptr<boost::interprocess::file_lock>> dir_locks;
 
-bool LockDirectory(const fs::path& directory, const std::string lockfile_name, bool probe_only)
+LockResult LockDirectory(const fs::path& directory, const std::string lockfile_name, bool probe_only)
 {
     std::lock_guard<std::mutex> ulock(cs_dir_locks);
     fs::path pathLockFile = directory / lockfile_name;
 
     // If a lock for this directory already exists in the map, don't try to re-lock it
     if (dir_locks.count(pathLockFile.string())) {
-        return true;
+        return LockResult::Success;;
     }
 
     // Create empty lock file if it doesn't exist.
     FILE* file = fsbridge::fopen(pathLockFile, "a");
-    if (file) fclose(file);
-
+    if (file) {
+        fclose(file);
+    } else {
+        return LockResult::ErrorWrite;
+    }
     try {
         auto lock = MakeUnique<boost::interprocess::file_lock>(pathLockFile.string().c_str());
         if (!lock->try_lock()) {
-            return false;
+            return LockResult::ErrorLock;
         }
         if (!probe_only) {
             // Lock successful and we're not just probing, put it into the map
             dir_locks.emplace(pathLockFile.string(), std::move(lock));
         }
     } catch (const boost::interprocess::interprocess_exception& e) {
-        return error("Error while attempting to lock directory %s: %s", directory.string(), e.what());
+        return LockResult::ErrorLock;
     }
-    return true;
+    return LockResult::Success;;
+}
+
+std::ostream& operator<<(std::ostream& os, const LockResult& result) {
+    switch (result) {
+        case LockResult::Success:    return os << "Success";
+        case LockResult::ErrorWrite: return os << "ErrorWrite";
+        case LockResult::ErrorLock:  return os << "ErrorLock";
+        default:                     return os << "Unknown";
+    }
 }
 
 void ReleaseDirectoryLocks()
@@ -130,18 +143,6 @@ void ReleaseDirectoryLocks()
     dir_locks.clear();
 }
 
-bool DirIsWritable(const fs::path& directory)
-{
-    fs::path tmpFile = directory / fs::unique_path();
-
-    FILE* file = fsbridge::fopen(tmpFile, "a");
-    if (!file) return false;
-
-    fclose(file);
-    remove(tmpFile);
-
-    return true;
-}
 
 /**
  * Interpret a string argument as a boolean.
@@ -718,7 +719,7 @@ const fs::path &GetBlocksDir()
         return path;
 
     if (gArgs.IsArgSet("-blocksdir")) {
-        path = fs::system_complete(gArgs.GetArg("-blocksdir", ""));
+        path = fs::absolute(gArgs.GetArg("-blocksdir", ""));
         if (!fs::is_directory(path)) {
             path = "";
             return path;
@@ -747,7 +748,7 @@ const fs::path &GetDataDir(bool fNetSpecific)
         return path;
 
     if (gArgs.IsArgSet("-datadir")) {
-        path = fs::system_complete(gArgs.GetArg("-datadir", ""));
+        path = fs::absolute(gArgs.GetArg("-datadir", ""));
         if (!fs::is_directory(path)) {
             path = "";
             return path;
@@ -862,7 +863,7 @@ bool ArgsManager::ReadConfigFiles(std::string& error, bool ignore_invalid_keys)
     }
 
     const std::string confPath = GetArg("-conf", BITCOIN_CONF_FILENAME);
-    fs::ifstream stream(GetConfigFile(confPath));
+    std::ifstream stream(GetConfigFile(confPath).string());
 
     // ok to not have a config file
     if (stream.good()) {
@@ -891,7 +892,7 @@ bool ArgsManager::ReadConfigFiles(std::string& error, bool ignore_invalid_keys)
 
 
             for (const std::string& to_include : includeconf) {
-                fs::ifstream include_config(GetConfigFile(to_include));
+                std::ifstream include_config(GetConfigFile(to_include).string());
                 if (include_config.good()) {
                     if (!ReadConfigStream(include_config, error, ignore_invalid_keys)) {
                         return false;
@@ -1178,12 +1179,6 @@ void SetupEnvironment()
         setenv("LC_ALL", "C", 1);
     }
 #endif
-    // The path locale is lazy initialized and to avoid deinitialization errors
-    // in multithreading environments, it is set explicitly by the main thread.
-    // A dummy locale is used to extract the internal default locale, used by
-    // fs::path, which is then used to explicitly imbue the path.
-    std::locale loc = fs::path::imbue(std::locale::classic());
-    fs::path::imbue(loc);
 }
 
 bool SetupNetworking()
@@ -1220,9 +1215,12 @@ int64_t GetStartupTime()
     return nStartupTime;
 }
 
-fs::path AbsPathForConfigVal(const fs::path& path, bool net_specific)
+fs::path AbsPathForConfigVal(const fs::path& in_path, bool net_specific)
 {
-    return fs::absolute(path, GetDataDir(net_specific));
+    if (in_path.is_absolute()) {
+        return in_path;
+    }
+    return fs::absolute(( GetDataDir(net_specific) / in_path));
 }
 
 int ScheduleBatchPriority(void)

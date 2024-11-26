@@ -1135,14 +1135,17 @@ bool AppInitParameterInteraction()
 
 static bool LockDataDirectory(bool probeOnly)
 {
-    // Make sure only a single Bitcoin process is using the data directory.
+    // Make sure only a single Tapyrus process is using the data directory.
     fs::path datadir = GetDataDir();
-    if (!DirIsWritable(datadir)) {
-        return InitError(strprintf(_("Cannot write to data directory '%s'; check permissions."), datadir.string()));
-    }
-    if (!LockDirectory(datadir, ".lock", probeOnly)) {
-        return InitError(strprintf(_("Cannot obtain a lock on data directory %s. %s is probably already running."), datadir.string(), _(PACKAGE_NAME)));
-    }
+    switch(LockDirectory(datadir, ".lock", probeOnly))
+    {
+        case LockResult::ErrorWrite:
+            return InitError(strprintf(_("Cannot write to data directory '%s'; check permissions."), datadir.string()));
+        case LockResult::ErrorLock:
+            return InitError(strprintf(_("Cannot obtain a lock on data directory %s. %s is probably already running."), datadir.string(), CLIENT_NAME));
+        case LockResult::Success:
+            return true;
+    } // no default case, so the compiler can warn about missing cases
     return true;
 }
 

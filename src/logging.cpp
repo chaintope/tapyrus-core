@@ -37,7 +37,8 @@ bool BCLog::Logger::OpenDebugLog()
     assert(m_fileout == nullptr);
     assert(!m_file_path.empty());
 
-    m_fileout = fsbridge::fopen(m_file_path, "a");
+    char mode = fs::exists(m_file_path) && fs::is_regular_file(m_file_path) ? 'a' : 'w';
+    m_fileout = fsbridge::fopen(m_file_path, &mode);
     if (!m_fileout) {
         return false;
     }
@@ -245,7 +246,7 @@ void BCLog::Logger::ShrinkDebugFile()
     size_t log_size = 0;
     try {
         log_size = fs::file_size(m_file_path);
-    } catch (boost::filesystem::filesystem_error &) {}
+    } catch (fs::filesystem_error &) {}
 
     // If debug.log file is more than 10% bigger the RECENT_DEBUG_HISTORY_SIZE
     // trim it down by saving only the last RECENT_DEBUG_HISTORY_SIZE bytes
