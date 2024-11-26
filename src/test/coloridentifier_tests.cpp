@@ -138,7 +138,9 @@ BOOST_AUTO_TEST_CASE(coloridentifier_valid_serialize)
 
     //type unknown
     ColorIdentifier c4;
-    memcpy(&c4, "048282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508", 33);
+    std::vector<unsigned char> bytes = ParseHex("048282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508");
+    c4.type = UintToToken(bytes[0]);
+    memcpy(c4.payload, bytes.data() + 1, CSHA256::OUTPUT_SIZE);
     CDataStream ss4(SER_NETWORK, INIT_PROTO_VERSION);
     ss4 << c4;
     BOOST_CHECK_EQUAL(HexStr(ss4.begin(), ss4.end(), false), "00");
@@ -190,7 +192,9 @@ BOOST_AUTO_TEST_CASE(coloridentifier_compare)
 
     //type unknown
     ColorIdentifier c5;
-    memcpy(&c5, "048282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508", 33);
+    std::vector<unsigned char> bytes = ParseHex("048282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508");
+    c5.type = UintToToken(bytes[0]);
+    memcpy(c5.payload, bytes.data() + 1, CSHA256::OUTPUT_SIZE);
 
     BOOST_CHECK(!c5.operator==(c0));
     BOOST_CHECK(!c5.operator==(c1));
@@ -239,7 +243,9 @@ BOOST_AUTO_TEST_CASE(coloridentifier_map_compare)
 
     //type unknown
     ColorIdentifier c5;
-    memcpy(&c5, "048282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508", 33);
+    std::vector<unsigned char> bytes = ParseHex("048282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508");
+    c5.type = UintToToken(bytes[0]);
+    memcpy(c5.payload, bytes.data() + 1, CSHA256::OUTPUT_SIZE);
 
     BOOST_CHECK_EQUAL(c5 < c0, false);
     BOOST_CHECK_EQUAL(c5 < c1, true);
@@ -269,9 +275,11 @@ BOOST_AUTO_TEST_CASE(coloridentifier_string_conversion)
 
     //type unknown
     ColorIdentifier c4;
-    memcpy(&c4, "048282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508", 33);
+    std::vector<unsigned char> bytes = ParseHex("048282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508");
+    c4.type = UintToToken(bytes[0]);
+    memcpy(c4.payload, bytes.data() + 1, CSHA256::OUTPUT_SIZE);
 
-    BOOST_CHECK_EQUAL(c4.toHexString(), "00");
+    BOOST_CHECK_EQUAL(c4.toHexString(), "TPC");
 
 }
 BOOST_AUTO_TEST_SUITE_END()
