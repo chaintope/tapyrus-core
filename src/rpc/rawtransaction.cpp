@@ -1232,6 +1232,7 @@ static UniValue testmempoolaccept(const JSONRPCRequest& request)
 
     CTxMempoolAcceptanceOptions opt;
     opt.flags = MempoolAcceptanceFlags::TEST_ONLY;
+    opt.nAbsurdFee = max_raw_tx_fee;
     bool accept;
     {
         LOCK(cs_main);
@@ -1710,7 +1711,6 @@ UniValue converttopsbt(const JSONRPCRequest& request)
 
     // parse hex string from parameter
     CMutableTransaction tx;
-    bool permitsigdata = request.params[1].isNull() ? false : request.params[1].get_bool();
     if (!DecodeHexTx(tx, request.params[0].get_str())) {
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
     }

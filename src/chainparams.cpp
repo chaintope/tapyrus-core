@@ -5,6 +5,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chainparams.h>
+#include <chainparamsseeds.h>
 #include <tinyformat.h>
 #include <util.h>
 #include <assert.h>
@@ -47,6 +48,8 @@ public:
 
         /* disable fallback fee on mainnet */
         m_fallback_fee_enabled = false;
+        vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_main, pnSeed6_main + ARRAYLEN(pnSeed6_main));
+
     }
 };
 
@@ -76,6 +79,8 @@ public:
 
         /* enable fallback fee on dev */
         m_fallback_fee_enabled = true;
+        vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_test, pnSeed6_test + ARRAYLEN(pnSeed6_test));
+
     }
 };
 

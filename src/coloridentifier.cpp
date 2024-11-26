@@ -29,5 +29,5 @@ ColorIdentifier GetColorIdFromScript(const CScript& script)
 
 CKeyID CColorKeyID::getKeyID() const
 {
-    return std::move( CKeyID( uint160( std::vector<unsigned char>(this->begin(), this->end()))));
+    return CKeyID( uint160( std::vector<unsigned char>(this->begin(), this->end())));
 }

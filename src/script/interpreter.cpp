@@ -1188,7 +1188,7 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                 return set_error(serror, SCRIPT_ERR_STACK_SIZE);
         }
     }
-    catch (scriptnum_error err)
+    catch (scriptnum_error& err)
     {
         if(!std::strcmp(err.what(), "non-minimally encoded script number"))
             return set_error(serror, SCRIPT_ERR_MINIMALDATA);
