@@ -1,70 +1,79 @@
-Bitcoin version 0.5.0 is now available for download at:
-http://sourceforge.net/projects/bitcoin/files/Bitcoin/bitcoin-0.5.0/
-
-The major change for this release is a completely new graphical interface that uses the Qt user interface toolkit.
-
-This release include German, Spanish, Spanish-Castilian, Norwegian and Dutch translations. More translations are welcome; join the project at Transifex if you can help:
-https://www.transifex.net/projects/p/bitcoin/
+Tapyrus version 0.5.0 is now available for download at:
+  https://github.com/chaintope/tapyrus-core/releases/tag/v0.5.0
 
 Please report bugs using the issue tracker at github:
-https://github.com/bitcoin/bitcoin/issues
+  https://github.com/chaintope/tapyrus-core/issues
 
-For Ubuntu users, there is a new ppa maintained by Matt Corallo which you can add to your system so that it will automatically keep bitcoin up-to-date.  Just type "sudo apt-add-repository ppa:bitcoin/bitcoin" in your terminal, then install the bitcoin-qt package.
+Project source code is hosted at github; you can get
+source-only tarballs/zipballs directly from there:
+  https://github.com/chaintope/tapyrus-core/tarball/v0.5.0  # .tar.gz
 
-MAJOR BUG FIX  (CVE-2011-4447)
 
-The wallet encryption feature introduced in Bitcoin version 0.4.0 did not sufficiently secure the private keys. An attacker who
-managed to get a copy of your encrypted wallet.dat file might be able to recover some or all of the unencrypted keys and steal the
-associated coins.
+How to Upgrade
+==============
 
-If you have a previously encrypted wallet.dat, the first time you run bitcoin-qt or bitcoind the wallet will be rewritten, Bitcoin will
-shut down, and you will be prompted to restart it to run with the new, properly encrypted file.
+If you are running a node on older version(v0.3.0, v0.4.0, v0.4.1) testnet, shut it down. Wait until it has completelyshut down. Follow the instruction in [getting_started](doc/tapyrus/getting_started.md#how-to-start-a-node-on-tapyrus-testnet) to sart a new Tapyrus v0.5.0 node.
 
-If you had a previously encrypted wallet.dat that might have been copied or stolen (for example, you backed it up to a public
-location) you should send all of your bitcoins to yourself using a new bitcoin address and stop using any previously generated addresses.
+If you want to running a private tapyrus network, shut down all nodes. Follow the instruction in [getting_started](doc/tapyrus/getting_started.md#how-to-start-a-new-tapyrus-network) to sart a new Tapyrus v0.5.0 network. As v0.5.0 makes significant changes to consensus rules, when a running network is stopped all nodes should be upgraded before restarting the network again. Please note that tapyrus-signer network should also be upgraded to v0.5.0 following [tapyrus signer network setup](https://github.com/chaintope/tapyrus-signer/blob/master/doc/setup.md#how-to-set-up-new-tapyrus-signer-network)
 
-Wallets encrypted with this version of Bitcoin are written properly.
+Downgrading warning
+-------------------
 
-Technical note: the encrypted wallet's 'keypool' will be regenerated the first time you request a new bitcoin address; to be certain that the
-new private keys are properly backed up you should:
+Tapyrus blockchain created by older versions(v0.3.0, v0.4.0 and v0.4.1) is not compatible with v0.5.0 and vice-versa. The testnet is reset with the release of v0.5.0.
 
-1. Run Bitcoin and let it rewrite the wallet.dat file
+Compatibility
+==============
 
-2. Run it again, then ask it for a new bitcoin address.
-Bitcoin-Qt: Address Book, then New Address...
-bitcoind: run the 'walletpassphrase' RPC command to unlock the wallet,  then run the 'getnewaddress' RPC command.
+Tapyrus v0.5.0 is supported on three platforms : Linux, MacOS and Windows(WSL)
 
-3. If your encrypted wallet.dat may have been copied or stolen, send  all of your bitcoins to the new bitcoin address.
+0.5.0 change log
+------------------
 
-4. Shut down Bitcoin, then backup the wallet.dat file.
-IMPORTANT: be sure to request a new bitcoin address before backing up, so that the 'keypool' is regenerated and backed up.
+*Colored coin*
 
-"Security in depth" is always a good idea, so choosing a secure location for the backup and/or encrypting the backup before uploading it is recommended. And as in previous releases, if your machine is infected by malware there are several ways an attacker might steal your bitcoins.
+With version v0.5.0 Tapyrus blockchain supports tokens or colored coins. Tapyrus consensus, script and wallet layers have been enhanced to support the same. Apart from TPC, the default tapyrus coin, other tokens like NFTs, single issue tokens and reissuable tokens are now supported. Tokens may be issued, sent or received and burnt on Tapyrus blockchain. Complete specification of colored coins in Tapyrus can be found in [[Tapyrus colored coin](../../tapyrus/colored_coin.md)]
 
-Thanks to Alan Reiner (etotheipi) for finding and reporting this bug.
+*Script*
 
-MAJOR GUI CHANGES
+* OP_COLOR opcode has been added to identify and process token/colorid in a transaction script.
 
-"Splash" graphics at startup that show address/wallet/blockchain loading progress.
+*Colored coin wallet*
 
-"Synchronizing with network" progress bar to show block-chain download progress.
+Tapyrus core wallet now supports colored coins. Coin issue, transfer and burn can be performed using tapyrus core wallet. New RPCs have been added to support these operations.
 
-Icons at the bottom of the window that show how well connected you are to the network, with tooltips to display details.
+* getcolor
+* issuetoken
+* transfertoken
+* burntoken
+* reissuetoken
 
-Drag and drop support for bitcoin: URIs on web pages.
+*RPC overhaul*
 
-Export transactions as a .csv file.
+Tapyrus RPCs has been modified to remove old deprecated features and parameters. Account API support has been removed. Colored coin support has been added to other RPCs as follows.
 
-Many other GUI improvements, large and small.
+* getnewaddress - addresstype parameter has been removed and color parameter has been added.
+* getrawchangeaddress - address type parameter has been removed and color parameter has been added.
+* addmultisigaddress - address type parameter has been removed.
+* getreceivedbyaddress - minconf parameter has been removed.
+* getreceivedbylabel - minconf parameter has been removed.
+* getbalance - account parameter has been removed and color parameter has been added.
+* sendmany - account and minconf parameters have been removed and color parameter has been added.
+* listreceivedbyaddress - minconf parameter has been removed.
+* listreceivedbylabel - minconf parameter has been removed.
+* listtransactions - dummy parameter has been removed.
+* listunspent - account has been removed from the result.
+* fundrawtransaction - iswitness flag has been removed.
 
-RPC CHANGES
+*Removed RPCs*
 
-getmemorypool : new RPC command, provides everything needed to construct a block with a custom generation transaction and submit a solution
+* getaccountaddress
+* getaccount
+* getaddressesbyaccount
+* movecmd
+* sendfrom
+* addwitnessaddress
+* listaccounts
 
-listsinceblock : new RPC command, list transactions since given block
-
-signmessage/verifymessage : new RPC commands to sign a message with one of your private keys or verify that a message signed by the private key associated with a bitcoin address.
-
-GENERAL CHANGES
-
-Faster initial block download.
+*Internal codebase*
+* Removed witness code from debug mode builds.
+* Windows builds using WSL support is available.

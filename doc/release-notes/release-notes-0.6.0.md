@@ -1,138 +1,49 @@
-Bitcoin version 0.6.0 is now available for download at:
-http://sourceforge.net/projects/bitcoin/files/Bitcoin/bitcoin-0.6.0/test/
-
-This release includes more than 20 language localizations.
-More translations are welcome; join the
-project at Transifex to help:
-https://www.transifex.net/projects/p/bitcoin/
+Tapyrus version 0.6.0 is now available for download at:
+https://github.com/chaintope/tapyrus-core/releases/tag/v0.6.0
 
 Please report bugs using the issue tracker at github:
-https://github.com/bitcoin/bitcoin/issues
+https://github.com/chaintope/tapyrus-core/issues
 
-Project source code is hosted at github; we are no longer
-distributing .tar.gz files here, you can get them
-directly from github:
-https://github.com/bitcoin/bitcoin/tarball/v0.6.0  # .tar.gz
-https://github.com/bitcoin/bitcoin/zipball/v0.6.0  # .zip
-
-For Ubuntu users, there is a ppa maintained by Matt Corallo which
-you can add to your system so that it will automatically keep
-bitcoin up-to-date.  Just type
-sudo apt-add-repository ppa:bitcoin/bitcoin
-in your terminal, then install the bitcoin-qt package.
+Project source code is hosted at github; you can get
+source-only tarballs/zipballs directly from there:
+https://github.com/chaintope/tapyrus-core/tarball/v0.6.0
 
 
-KNOWN ISSUES
+How to Upgrade
+==============
 
-Shutting down while synchronizing with the network
-(downloading the blockchain) can take more than a minute,
-because database writes are queued to speed up download
-time.
+It is recommended to upgrade all older nodes to the latest release as it contains fixes to vulnerabilities. If you are running a node on tapyrus testnet follow the instruction in [getting_started](doc/tapyrus/getting_started.md#how-to-start-a-node-on-tapyrus-testnet) to sart a new Tapyrus v0.6.0 node.
 
+If you are running a private tapyrus network using versions v0.3.0, v0.4.0 or v0.4.1, v0.5.0, v0.5.1, v0.5.2 shut it down. Wait until it has completely shut down. Follow the instruction in [getting_started](doc/tapyrus/getting_started.md#how-to-start-a-new-tapyrus-network) to sart a new Tapyrus v0.6.0 network. 
 
-NEW FEATURES SINCE BITCOIN VERSION 0.5
+Downgrading warning
+-------------------
 
-Initial network synchronization should be much faster
-(one or two hours on a typical machine instead of ten or more
-hours).
+Tapyrus blockchain created by older versions(v0.3.0, v0.4.0 and v0.4.1) is not compatible with v0.6.0 and vice-versa.
 
-Backup Wallet menu option.
+Compatibility
+==============
 
-Bitcoin-Qt can display and save QR codes for sending
-and receiving addresses.
+Tapyrus v0.6.0 is supported on three platforms, Linux, MacOS and Windows(WSL) in two CPU architectures namely x86_x64 and arm64(aarch64)
 
-New context menu on addresses to copy/edit/delete them.
+0.6.0 change log
+------------------
 
-New Sign Message dialog that allows you to prove that you
-own a bitcoin address by creating a digital
-signature.
+*Dynamic Block size*
 
-New wallets created with this version will
-use 33-byte 'compressed' public keys instead of
-65-byte public keys, resulting in smaller
-transactions and less traffic on the bitcoin
-network. The shorter keys are already supported
-by the network but wallet.dat files containing
-short keys are not compatible with earlier
-versions of Bitcoin-Qt/bitcoind.
+This release allows the size of each block in a Tapyrus network to be increased from the default 1MB. This is done with the help of a new xfield type. When the block size is changed using the xfield in a federation block, the new block size becomes the maximum limit for block size for every block created thereafter. Note that in order to sign blocks with the new block size, the signer network needs to be upgraded too. 
 
-New command-line argument -blocknotify=<command>
-that will spawn a shell process to run <command> 
-when a new block is accepted.
+*General improvements*
 
-New command-line argument -splash=0 to disable
-Bitcoin-Qt's initial splash screen
+- Tracing of select tracepoints/events in a live tapyrus node is possible with this release. The list of all allowed tracepoints is listed [here](doc/tracing.md).
+- Improve stability of thread synchronization and mutexes used in tapyrus.
+- Fix vulnerabilities inherited from bitcoin core.
 
-validateaddress JSON-RPC api command output includes
-two new fields for addresses in the wallet:
-pubkey : hexadecimal public key
-iscompressed : true if pubkey is a short 33-byte key
+*RPC*
 
-New JSON-RPC api commands for dumping/importing
-private keys from the wallet (dumprivkey, importprivkey).
+- dumptxoutset rpc is added to create a dump of the utxo set on a tapyrus node.
 
-New JSON-RPC api command for getting information about
-blocks (getblock, getblockhash).
+*BUILD*
 
-New JSON-RPC api command (getmininginfo) for getting
-extra information related to mining. The getinfo
-JSON-RPC command no longer includes mining-related
-information (generate/genproclimit/hashespersec).
-
-
-
-NOTABLE CHANGES
-
-BIP30 implemented (security fix for an attack involving
-duplicate "coinbase transactions").
-
-The -nolisten, -noupnp and -nodnsseed command-line
-options were renamed to -listen, -upnp and -dnsseed,
-with a default value of 1. The old names are still
-supported for compatibility (so specifying -nolisten
-is automatically interpreted as -listen=0; every
-boolean argument can now be specified as either
--foo or -nofoo).
-
-The -noirc command-line options was renamed to
--irc, with a default value of 0. Run -irc=1 to
-get the old behavior.
-
-Three fill-up-available-memory denial-of-service
-attacks were fixed.
-
-
-NOT YET IMPLEMENTED FEATURES
-
-Support for clicking on bitcoin: URIs and
-opening/launching Bitcoin-Qt is available only on Linux,
-and only if you configure your desktop to launch
-Bitcoin-Qt. All platforms support dragging and dropping
-bitcoin: URIs onto the Bitcoin-Qt window to start
-payment.
-
-
-PRELIMINARY SUPPORT FOR MULTISIGNATURE TRANSACTIONS
-
-This release has preliminary support for multisignature
-transactions-- transactions that require authorization
-from more than one person or device before they
-will be accepted by the bitcoin network.
-
-Prior to this release, multisignature transactions
-were considered 'non-standard' and were ignored;
-with this release multisignature transactions are
-considered standard and will start to be relayed
-and accepted into blocks.
-
-It is expected that future releases of Bitcoin-Qt
-will support the creation of multisignature transactions,
-once enough of the network has upgraded so relaying
-and validating them is robust.
-
-For this release, creation and testing of multisignature
-transactions is limited to the bitcoin test network using
-the "addmultisigaddress" JSON-RPC api call.
-
-Short multisignature address support is included in this
-release, as specified in BIP 13 and BIP 16.
+- use newer version of all dependencies.
+- remove usage of system and thread boost libraries and use std c++17 libraries.
