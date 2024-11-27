@@ -185,13 +185,13 @@ bool CTxMemPool::CalculateMemPoolAncestors(const CTxMemPoolEntry &entry, setEntr
         parentHashes.erase(stageit);
         totalSizeWithAncestors += stageit->GetTxSize();
 
-        if (stageit->GetSizeWithDescendants() + entry.GetTxSize() > limitDescendantSize) {
+        if (static_cast<uint64_t>(stageit->GetSizeWithDescendants() + entry.GetTxSize()) > limitDescendantSize) {
             errString = strprintf("exceeds descendant size limit for tx %s [limit: %u]", stageit->GetTx().GetHashMalFix().ToString(), limitDescendantSize);
             return false;
         } else if (stageit->GetCountWithDescendants() + 1 > limitDescendantCount) {
             errString = strprintf("too many descendants for tx %s [limit: %u]", stageit->GetTx().GetHashMalFix().ToString(), limitDescendantCount);
             return false;
-        } else if (totalSizeWithAncestors > limitAncestorSize) {
+        } else if (static_cast<uint64_t>(totalSizeWithAncestors) > limitAncestorSize) {
             errString = strprintf("exceeds ancestor size limit [limit: %u]", limitAncestorSize);
             return false;
         }
