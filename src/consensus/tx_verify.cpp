@@ -136,7 +136,7 @@ unsigned int GetP2SHSigOpCount(const CTransaction& tx, const CCoinsViewCache& in
     return nSigOps;
 }
 
-int32_t GetTransactionSigOps(const CTransaction& tx, const CCoinsViewCache& inputs, int flags)
+uint32_t GetTransactionSigOps(const CTransaction& tx, const CCoinsViewCache& inputs, int flags)
 {
     int32_t nSigOps = GetLegacySigOpCount(tx);
 
