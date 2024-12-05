@@ -79,7 +79,7 @@ void RPCTypeCheckObj(const UniValue& o,
     bool fStrict)
 {
     for (const auto& t : typesExpected) {
-        const UniValue& v = find_value(o, t.first);
+        const UniValue& v = o.find_value(t.first);
         if (!fAllowNull && v.isNull())
             throw JSONRPCError(RPC_TYPE_ERROR, strprintf("Missing %s", t.first));
 
@@ -142,7 +142,7 @@ uint256 ParseHashV(const UniValue& v, std::string strName)
 }
 uint256 ParseHashO(const UniValue& o, std::string strKey)
 {
-    return ParseHashV(find_value(o, strKey), strKey);
+    return ParseHashV(o.find_value(strKey), strKey);
 }
 std::vector<unsigned char> ParseHexV(const UniValue& v, std::string strName)
 {
@@ -155,7 +155,7 @@ std::vector<unsigned char> ParseHexV(const UniValue& v, std::string strName)
 }
 std::vector<unsigned char> ParseHexO(const UniValue& o, std::string strKey)
 {
-    return ParseHexV(find_value(o, strKey), strKey);
+    return ParseHexV(o.find_value(strKey), strKey);
 }
 
 /**
@@ -369,10 +369,10 @@ void JSONRPCRequest::parse(const UniValue& valRequest)
     const UniValue& request = valRequest.get_obj();
 
     // Parse id now so errors from here on will have the id
-    id = find_value(request, "id");
+    id = request.find_value("id");
 
     // Parse method
-    UniValue valMethod = find_value(request, "method");
+    UniValue valMethod = request.find_value("method");
     if (valMethod.isNull())
         throw JSONRPCError(RPC_INVALID_REQUEST, "Missing method");
     if (!valMethod.isStr())
@@ -385,7 +385,7 @@ void JSONRPCRequest::parse(const UniValue& valRequest)
         LogPrint(BCLog::RPC, "ThreadRPCServer method=%s user=%s\n", SanitizeString(strMethod), this->authUser);
 
     // Parse params
-    UniValue valParams = find_value(request, "params");
+    UniValue valParams = request.find_value("params");
     if (valParams.isArray() || valParams.isObject())
         params = valParams;
     else if (valParams.isNull())

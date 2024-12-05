@@ -2237,12 +2237,12 @@ static UniValue lockunspent(const JSONRPCRequest& request)
                 {"vout", UniValueType(UniValue::VNUM)},
             });
 
-        const std::string& txid = find_value(o, "txid").get_str();
+        const std::string& txid = o.find_value("txid").get_str();
         if (!IsHex(txid)) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected hex txid");
         }
 
-        const int nOutput = find_value(o, "vout").get_int();
+        const int nOutput = o.find_value("vout").get_int();
         if (nOutput < 0) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, vout must be positive");
         }

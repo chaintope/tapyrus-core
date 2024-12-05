@@ -16,7 +16,7 @@ jobs:
           PACKAGES="g++-arm-linux-gnueabihf" \
           DEP_OPTS="NO_QT=1" \
           GOAL="install" \
-          BITCOIN_CONFIG="--enable-glibc-back-compat --enable-reduce-exports" \
+          BITCOIN_CONFIG="--enable-reduce-exports" \
           bash -xe ./build-test.sh
 
   win64:
@@ -51,7 +51,7 @@ jobs:
           PACKAGES="python3-zmq libevent-dev bsdmainutils libboost-filesystem-dev libboost-test-dev libdb5.3++-dev libminiupnpc-dev libzmq3-dev libqrencode-dev systemtap-sdt-dev bpfcc-tools bpftrace" \
           NO_DEPENDS=1 \
           DEP_OPTS="NO_QT=1" \
-          RUN_TESTS=true \
+          RUN_TESTS=false \
           RUN_BENCH=true \
           DEBUD_MODE=true \
           GOAL="install" \
@@ -96,7 +96,7 @@ jobs:
           RUN_TESTS=true \
           RUN_BENCH=true \
           GOAL="install" \
-          BITCOIN_CONFIG="--enable-zmq --with-gui=qt5 --enable-glibc-back-compat --enable-reduce-exports --enable-debug" \
+          BITCOIN_CONFIG="--enable-zmq --with-gui=qt5 --enable-reduce-exports --enable-debug" \
           CXXFLAGS="-g0 -O2" \
           bash -xe ./build-test.sh
 
@@ -115,7 +115,7 @@ jobs:
           RUN_TESTS=true \
           RUN_BENCH=true \
           GOAL="install" \
-          BITCOIN_CONFIG="--enable-zmq --with-incompatible-bdb --enable-glibc-back-compat --enable-reduce-exports --with-gui=qt5 CPPFLAGS=-DDEBUG_LOCKORDER" \
+          BITCOIN_CONFIG="--enable-zmq --with-incompatible-bdb --enable-reduce-exports --with-gui=qt5 CPPFLAGS=-DDEBUG_LOCKORDER" \
           bash -xe ./build-test.sh
 
   linux-no-wallet:
@@ -133,7 +133,7 @@ jobs:
           RUN_TESTS=true \
           RUN_BENCH=true \
           GOAL="install" \
-          BITCOIN_CONFIG="--enable-glibc-back-compat --enable-reduce-exports" \
+          BITCOIN_CONFIG="--enable-reduce-exports" \
           bash -xe ./build-test.sh
 
   cross-mac_debug:

@@ -78,7 +78,7 @@ static void JSONErrorReply(HTTPRequest* req, const UniValue& objError, const Uni
 {
     // Send error reply from json-rpc error object
     int nStatus = HTTP_INTERNAL_SERVER_ERROR;
-    int code = find_value(objError, "code").get_int();
+    int code = objError.find_value("code").get_int();
 
     if (code == RPC_INVALID_REQUEST)
         nStatus = HTTP_BAD_REQUEST;
@@ -220,7 +220,7 @@ static bool HTTPReq_JSONRPC(HTTPRequest* req, const std::string &)
                     } else {
                         const UniValue& request = valRequest[reqIdx].get_obj();
                         // Parse method
-                        std::string strMethod = find_value(request, "method").get_str();
+                        std::string strMethod = request.find_value("method").get_str();
                         if (!g_rpc_whitelist[jreq.authUser].count(strMethod)) {
                             LogPrintf("RPC User %s not allowed to call method %s\n", jreq.authUser, strMethod);
                             req->WriteReply(HTTP_FORBIDDEN);

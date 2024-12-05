@@ -66,8 +66,6 @@ add_subdirectory(univalue)
 # Various completely unrelated features shared by all executables.
 add_library(util
         clientversion.cpp
-        compat/glibc_sanity.cpp
-        compat/glibcxx_sanity.cpp
         compat/strnlen.cpp
         fs.cpp
         logging.cpp

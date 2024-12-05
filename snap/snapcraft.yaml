@@ -73,7 +73,6 @@ parts:
     configflags:
       - --disable-dependency-tracking
       - --enable-zmq
-      - --enable-glibc-back-compat
       - --enable-reduce-exports
       - --with-gui=no 
       - --with-incompatible-bdb

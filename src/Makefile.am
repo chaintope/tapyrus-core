@@ -104,7 +104,6 @@ BITCOIN_CORE_H = \
   compat/byteswap.h \
   compat/cpuid.h \
   compat/endian.h \
-  compat/sanity.h \
   compressor.h \
   consensus/consensus.h \
   consensus/tx_verify.h \
@@ -411,8 +410,6 @@ libtapyrus_util_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libtapyrus_util_a_SOURCES = \
   support/lockedpool.cpp \
   clientversion.cpp \
-  compat/glibc_sanity.cpp \
-  compat/glibcxx_sanity.cpp \
   compat/strnlen.cpp \
   fs.cpp \
   interfaces/handler.cpp \
@@ -428,11 +425,6 @@ libtapyrus_util_a_SOURCES = \
   utilstrencodings.cpp \
   utiltime.cpp \
   $(BITCOIN_CORE_H)
-
-if GLIBC_BACK_COMPAT
-libtapyrus_util_a_SOURCES += compat/glibc_compat.cpp
-AM_LDFLAGS += $(COMPAT_LDFLAGS)
-endif
 
 # cli: shared between tapyrus-cli and tapyrus-qt
 libtapyrus_cli_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
@@ -542,11 +534,6 @@ if BUILD_BITCOIN_LIBS
 include_HEADERS = script/tapyrusconsensus.h
 include_HEADERS += coloridentifier.h
 libtapyrusconsensus_la_SOURCES = $(crypto_libtapyrus_crypto_base_a_SOURCES) $(libtapyrus_consensus_a_SOURCES)
-
-if GLIBC_BACK_COMPAT
-  libtapyrusconsensus_la_SOURCES += compat/glibc_compat.cpp
-endif
-
 libtapyrusconsensus_la_LDFLAGS = $(AM_LDFLAGS) -no-undefined $(RELDFLAGS)
 libtapyrusconsensus_la_LIBADD = $(LIBSECP256K1) $(BOOST_SYSTEM_LIB)
 libtapyrusconsensus_la_CPPFLAGS = $(AM_CPPFLAGS) -I$(builddir)/obj -I$(srcdir)/secp256k1/include -DBUILD_BITCOIN_INTERNAL
@@ -600,10 +587,6 @@ clean-local:
 	$(AM_V_GEN) $(WINDRES) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(CPPFLAGS) -DWINDRES_PREPROC -i $< -o $@
 
 check-symbols: $(bin_PROGRAMS)
-if GLIBC_BACK_COMPAT
-	@echo "Checking glibc back compat..."
-	$(AM_V_at) READELF=$(READELF) CPPFILT=$(CPPFILT) $(top_srcdir)/contrib/devtools/symbol-check.py $(bin_PROGRAMS)
-endif
 
 check-security: $(bin_PROGRAMS)
 if HARDEN

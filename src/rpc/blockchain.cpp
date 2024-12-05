@@ -1964,10 +1964,10 @@ UniValue scantxoutset(const JSONRPCRequest& request)
             if (scanobject.isStr()) {
                 desc_str = scanobject.get_str();
             } else if (scanobject.isObject()) {
-                UniValue desc_uni = find_value(scanobject, "desc");
+                UniValue desc_uni = scanobject.find_value("desc");
                 if (desc_uni.isNull()) throw JSONRPCError(RPC_INVALID_PARAMETER, "Descriptor needs to be provided in scan object");
                 desc_str = desc_uni.get_str();
-                UniValue range_uni = find_value(scanobject, "range");
+                UniValue range_uni = scanobject.find_value("range");
                 if (!range_uni.isNull()) {
                     range = range_uni.get_int();
                     if (range < 0 || range > 1000000) throw JSONRPCError(RPC_INVALID_PARAMETER, "range out of range");

@@ -367,7 +367,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     if (!request.params[0].isNull())
     {
         const UniValue& oparam = request.params[0].get_obj();
-        const UniValue& modeval = find_value(oparam, "mode");
+        const UniValue& modeval = oparam.find_value("mode");
         if (modeval.isStr())
             strMode = modeval.get_str();
         else if (modeval.isNull())
@@ -376,11 +376,11 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
         }
         else
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid mode");
-        lpval = find_value(oparam, "longpollid");
+        lpval = oparam.find_value("longpollid");
 
         if (strMode == "proposal")
         {
-            const UniValue& dataval = find_value(oparam, "data");
+            const UniValue& dataval = oparam.find_value("data");
             if (!dataval.isStr())
                 throw JSONRPCError(RPC_TYPE_ERROR, "Missing data String key for proposal");
 
@@ -407,7 +407,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
             return BIP22ValidationResult(state);
         }
 
-        const UniValue& aClientRules = find_value(oparam, "rules");
+        const UniValue& aClientRules = oparam.find_value("rules");
         if (aClientRules.isArray()) {
             for (unsigned int i = 0; i < aClientRules.size(); ++i) {
                 const UniValue& v = aClientRules[i];
