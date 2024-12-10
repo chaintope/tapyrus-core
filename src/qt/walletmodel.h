@@ -172,15 +172,15 @@ public:
 
         bool isValid() const { return valid; }
 
-        // Copy operator and constructor transfer the context
-        UnlockContext(const UnlockContext& obj) { CopyFrom(obj); }
-        UnlockContext& operator=(const UnlockContext& rhs) { CopyFrom(rhs); return *this; }
+        // Disable unused copy/move constructors/assignments explicitly.
+        UnlockContext(const UnlockContext&) = delete;
+        UnlockContext(UnlockContext&&) = delete;
+        UnlockContext& operator=(const UnlockContext&) = delete;
+        UnlockContext& operator=(UnlockContext&&) = delete;
     private:
         WalletModel *wallet;
-        bool valid;
-        mutable bool relock; // mutable, as it can be set to false by copying
-
-        void CopyFrom(const UnlockContext& rhs);
+        const bool valid;
+        const bool relock;
     };
 
     UnlockContext requestUnlock();

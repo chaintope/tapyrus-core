@@ -409,6 +409,13 @@ void WalletModel::unsubscribeFromCoreSignals()
 // WalletModel::UnlockContext implementation
 WalletModel::UnlockContext WalletModel::requestUnlock()
 {
+    // Bugs in earlier versions may have resulted in wallets with private keys disabled to become "encrypted"
+    // (encryption keys are present, but not actually doing anything).
+    // To avoid issues with such wallets, check if the wallet has private keys disabled, and if so, return a context
+    // that indicates the wallet is not encrypted.
+    if (m_wallet->IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS)) {
+        return UnlockContext(this, /*valid=*/true, /*relock=*/false);
+    }
     bool was_locked = getEncryptionStatus() == Locked;
     if(was_locked)
     {
@@ -436,12 +443,6 @@ WalletModel::UnlockContext::~UnlockContext()
     }
 }
 
-void WalletModel::UnlockContext::CopyFrom(const UnlockContext& rhs)
-{
-    // Transfer context; old object no longer relocks wallet
-    *this = rhs;
-    rhs.relock = false;
-}
 
 void WalletModel::loadReceiveRequests(std::vector<std::string>& vReceiveRequests)
 {
