@@ -36,7 +36,6 @@ public:
     bool ReadGenesisBlock(std::string genesisHex);
     const CBlock& GenesisBlock() const { return genesis; }
     const std::string& getDataDir() const { return dataDir; }
-    const std::vector<SeedSpec6>& FixedSeeds() const { return vFixedSeeds; }
     /** Return the list of hostnames to look up for DNS seeds */
     const std::vector<std::string>& DNSSeeds() const { return vSeeds; }
 
@@ -50,7 +49,6 @@ private:
     std::string dataDir;
     CBlock genesis;
     std::vector<std::string> vSeeds;
-    std::vector<SeedSpec6> vFixedSeeds;
 };
 
 /**

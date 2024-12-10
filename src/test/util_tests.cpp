@@ -1082,13 +1082,19 @@ BOOST_AUTO_TEST_CASE(test_ParseFixedPoint)
 
 static void TestOtherThread(fs::path dirname, std::string lockname, bool *result)
 {
-    *result = LockDirectory(dirname, lockname);
+    *result = LockDirectory(dirname, lockname) == LockResult::Success;
 }
 
 #ifndef WIN32 // Cannot do this test on WIN32 due to lack of fork()
 static constexpr char LockCommand = 'L';
 static constexpr char UnlockCommand = 'U';
 static constexpr char ExitCommand = 'X';
+enum : char {
+    ResSuccess = 2, // Start with 2 to avoid accidental collision with common values 0 and 1
+    ResErrorWrite,
+    ResErrorLock,
+    ResUnlockSuccess,
+};
 
 static void TestOtherProcess(fs::path dirname, std::string lockname, int fd)
 {
@@ -1098,13 +1104,20 @@ static void TestOtherProcess(fs::path dirname, std::string lockname, int fd)
         assert(rv == 1);
         switch(ch) {
         case LockCommand:
-            ch = LockDirectory(dirname, lockname);
+            ch = [&] {
+                switch (LockDirectory(dirname, lockname)) {
+                    case LockResult::Success: return ResSuccess;
+                    case LockResult::ErrorWrite: return ResErrorWrite;
+                    case LockResult::ErrorLock: return ResErrorLock;
+                } // no default case, so the compiler can warn about missing cases
+                assert(false);
+        }();
             rv = write(fd, &ch, 1);
             assert(rv == 1);
             break;
         case UnlockCommand:
             ReleaseDirectoryLocks();
-            ch = true; // Always succeeds
+            ch = ResUnlockSuccess; // Always succeeds
             rv = write(fd, &ch, 1);
             assert(rv == 1);
             break;
@@ -1120,7 +1133,7 @@ static void TestOtherProcess(fs::path dirname, std::string lockname, int fd)
 
 BOOST_AUTO_TEST_CASE(test_LockDirectory)
 {
-    fs::path dirname = SetDataDir("test_LockDirectory") / fs::unique_path();
+    fs::path dirname = SetDataDir("test_LockDirectory") / "lock_dir";
     const std::string lockname = ".lock";
 #ifndef WIN32
     // Revert SIGCHLD to default, otherwise boost.test will catch and fail on
@@ -1141,18 +1154,18 @@ BOOST_AUTO_TEST_CASE(test_LockDirectory)
     BOOST_CHECK_EQUAL(close(fd[0]), 0); // Parent: close child end
 #endif
     // Lock on non-existent directory should fail
-    BOOST_CHECK_EQUAL(LockDirectory(dirname, lockname), false);
+    BOOST_CHECK_EQUAL(LockDirectory(dirname, lockname), LockResult::ErrorWrite);
 
     fs::create_directories(dirname);
 
     // Probing lock on new directory should succeed
-    BOOST_CHECK_EQUAL(LockDirectory(dirname, lockname, true), true);
+    BOOST_CHECK_EQUAL(LockDirectory(dirname, lockname, true), LockResult::Success);
 
     // Persistent lock on new directory should succeed
-    BOOST_CHECK_EQUAL(LockDirectory(dirname, lockname), true);
+    BOOST_CHECK_EQUAL(LockDirectory(dirname, lockname), LockResult::Success);
 
     // Another lock on the directory from the same thread should succeed
-    BOOST_CHECK_EQUAL(LockDirectory(dirname, lockname), true);
+    BOOST_CHECK_EQUAL(LockDirectory(dirname, lockname), LockResult::Success);
 
     // Another lock on the directory from a different thread within the same process should succeed
     bool threadresult;
@@ -1164,28 +1177,28 @@ BOOST_AUTO_TEST_CASE(test_LockDirectory)
     char ch;
     BOOST_CHECK_EQUAL(write(fd[1], &LockCommand, 1), 1);
     BOOST_CHECK_EQUAL(read(fd[1], &ch, 1), 1);
-    BOOST_CHECK_EQUAL((bool)ch, false);
+    BOOST_CHECK_EQUAL(ch, ResErrorLock);
 
     // Give up our lock
     ReleaseDirectoryLocks();
     // Probing lock from our side now should succeed, but not hold on to the lock.
-    BOOST_CHECK_EQUAL(LockDirectory(dirname, lockname, true), true);
+    BOOST_CHECK_EQUAL(LockDirectory(dirname, lockname, true), LockResult::Success);
 
     // Try to acquire the lock in the child process, this should be successful.
     BOOST_CHECK_EQUAL(write(fd[1], &LockCommand, 1), 1);
     BOOST_CHECK_EQUAL(read(fd[1], &ch, 1), 1);
-    BOOST_CHECK_EQUAL((bool)ch, true);
+    BOOST_CHECK_EQUAL(ch, ResSuccess);
 
     // When we try to probe the lock now, it should fail.
-    BOOST_CHECK_EQUAL(LockDirectory(dirname, lockname, true), false);
+    BOOST_CHECK_EQUAL(LockDirectory(dirname, lockname, true), LockResult::ErrorLock);
 
     // Unlock the lock in the child process
     BOOST_CHECK_EQUAL(write(fd[1], &UnlockCommand, 1), 1);
     BOOST_CHECK_EQUAL(read(fd[1], &ch, 1), 1);
-    BOOST_CHECK_EQUAL((bool)ch, true);
+    BOOST_CHECK_EQUAL(ch, ResUnlockSuccess);
 
     // When we try to probe the lock now, it should succeed.
-    BOOST_CHECK_EQUAL(LockDirectory(dirname, lockname, true), true);
+    BOOST_CHECK_EQUAL(LockDirectory(dirname, lockname, true), LockResult::Success);
 
     // Re-lock the lock in the child process, then wait for it to exit, check
     // successful return. After that, we check that exiting the process
@@ -1195,7 +1208,7 @@ BOOST_AUTO_TEST_CASE(test_LockDirectory)
     BOOST_CHECK_EQUAL(write(fd[1], &ExitCommand, 1), 1);
     BOOST_CHECK_EQUAL(waitpid(pid, &processstatus, 0), pid);
     BOOST_CHECK_EQUAL(processstatus, 0);
-    BOOST_CHECK_EQUAL(LockDirectory(dirname, lockname, true), true);
+    BOOST_CHECK_EQUAL(LockDirectory(dirname, lockname, true), LockResult::Success);
 
     // Restore SIGCHLD
     signal(SIGCHLD, old_handler);
@@ -1206,20 +1219,5 @@ BOOST_AUTO_TEST_CASE(test_LockDirectory)
     fs::remove_all(dirname);
 }
 
-BOOST_AUTO_TEST_CASE(test_DirIsWritable)
-{
-    // Should be able to write to the data dir.
-    fs::path tmpdirname = SetDataDir("test_DirIsWritable");
-    BOOST_CHECK_EQUAL(DirIsWritable(tmpdirname), true);
-
-    // Should not be able to write to a non-existent dir.
-    tmpdirname = tmpdirname / fs::unique_path();
-    BOOST_CHECK_EQUAL(DirIsWritable(tmpdirname), false);
-
-    fs::create_directory(tmpdirname);
-    // Should be able to write to it now.
-    BOOST_CHECK_EQUAL(DirIsWritable(tmpdirname), true);
-    fs::remove(tmpdirname);
-}
 
 BOOST_AUTO_TEST_SUITE_END()

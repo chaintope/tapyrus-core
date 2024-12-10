@@ -21,6 +21,7 @@
 #include <util.h>
 
 #include <thread>
+#include <fstream>
 
 constexpr unsigned int CPubKey::SCHNORR_SIGNATURE_SIZE;
 
@@ -235,7 +236,7 @@ void writeTestGenesisBlockToFile(fs::path genesisPath, std::string genesisFileNa
         genesisPath /= genesisFileName;
     else
         genesisPath /= TAPYRUS_GENESIS_FILENAME;
-    fs::ofstream stream(genesisPath);
+    std::ofstream stream(genesisPath.string());
     CKey privKey;
     privKey.Set(validAggPrivateKey, validAggPrivateKey + 32, true);
     CPubKey pubkey;

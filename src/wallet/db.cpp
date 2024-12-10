@@ -56,7 +56,7 @@ RecursiveMutex cs_db;
 std::map<std::string, BerkeleyEnvironment> g_dbenvs GUARDED_BY(cs_db); //!< Map from directory name to open db environment.
 } // namespace
 
-BerkeleyEnvironment* GetWalletEnv(const fs::path& wallet_path, std::string& database_filename)
+BerkeleyEnvironment* GetWalletEnv(const fs::path& wallet_path, fs::path& database_filename)
 {
     fs::path env_directory;
     if (fs::is_regular_file(wallet_path)) {
@@ -131,7 +131,8 @@ bool BerkeleyEnvironment::Open(bool retry)
 
     fs::path pathIn = strPath;
     TryCreateDirectories(pathIn);
-    if (!LockDirectory(pathIn, ".walletlock")) {
+    if (LockDirectory(pathIn, ".walletlock") != LockResult::Success)
+    {
         LogPrintf("Cannot obtain a lock on wallet directory %s. Another instance of tapyrus may be using it.\n", strPath);
         return false;
     }
@@ -245,7 +246,7 @@ BerkeleyEnvironment::VerifyResult BerkeleyEnvironment::Verify(const std::string&
 
 bool BerkeleyBatch::Recover(const fs::path& file_path, void *callbackDataIn, bool (*recoverKVcallback)(void* callbackData, CDataStream ssKey, CDataStream ssValue), std::string& newFilename)
 {
-    std::string filename;
+    fs::path filename;
     BerkeleyEnvironment* env = GetWalletEnv(file_path, filename);
 
     // Recovery procedure:
@@ -258,7 +259,7 @@ bool BerkeleyBatch::Recover(const fs::path& file_path, void *callbackDataIn, boo
     int64_t now = GetTime();
     newFilename = strprintf("%s.%d.bak", filename, now);
 
-    int result = env->dbenv->dbrename(nullptr, filename.c_str(), nullptr,
+    int result = env->dbenv->dbrename(nullptr, filename.string().c_str(), nullptr,
                                        newFilename.c_str(), DB_AUTO_COMMIT);
     if (result == 0)
         LogPrintf("Renamed %s to %s\n", filename, newFilename);
@@ -279,7 +280,7 @@ bool BerkeleyBatch::Recover(const fs::path& file_path, void *callbackDataIn, boo
 
     std::unique_ptr<Db> pdbCopy = MakeUnique<Db>(env->dbenv.get(), 0);
     int ret = pdbCopy->open(nullptr,               // Txn pointer
-                            filename.c_str(),   // Filename
+                            filename.string().c_str(),   // Filename
                             "main",             // Logical db name
                             DB_BTREE,           // Database type
                             DB_CREATE,          // Flags
@@ -314,7 +315,7 @@ bool BerkeleyBatch::Recover(const fs::path& file_path, void *callbackDataIn, boo
 
 bool BerkeleyBatch::VerifyEnvironment(const fs::path& file_path, std::string& errorStr)
 {
-    std::string walletFile;
+    fs::path walletFile;
     BerkeleyEnvironment* env = GetWalletEnv(file_path, walletFile);
     fs::path walletDir = env->Directory();
 
@@ -322,7 +323,7 @@ bool BerkeleyBatch::VerifyEnvironment(const fs::path& file_path, std::string& er
     LogPrintf("Using wallet %s\n", walletFile);
 
     // Wallet file must be a plain filename without a directory
-    if (walletFile != fs::basename(walletFile) + fs::extension(walletFile))
+    if (walletFile != walletFile.stem().string() + walletFile.extension().string())
     {
         errorStr = strprintf(_("Wallet %s resides outside wallet directory %s"), walletFile, walletDir.string());
         return false;
@@ -338,14 +339,14 @@ bool BerkeleyBatch::VerifyEnvironment(const fs::path& file_path, std::string& er
 
 bool BerkeleyBatch::VerifyDatabaseFile(const fs::path& file_path, std::string& warningStr, std::string& errorStr, BerkeleyEnvironment::recoverFunc_type recoverFunc)
 {
-    std::string walletFile;
+    fs::path walletFile;
     BerkeleyEnvironment* env = GetWalletEnv(file_path, walletFile);
     fs::path walletDir = env->Directory();
 
     if (fs::exists(walletDir / walletFile))
     {
         std::string backup_filename;
-        BerkeleyEnvironment::VerifyResult r = env->Verify(walletFile, recoverFunc, backup_filename);
+        BerkeleyEnvironment::VerifyResult r = env->Verify(walletFile.string(), recoverFunc, backup_filename);
         if (r == BerkeleyEnvironment::VerifyResult::RECOVER_OK)
         {
             warningStr = strprintf(_("Warning: Wallet file corrupt, data salvaged!"
@@ -447,7 +448,7 @@ BerkeleyBatch::BerkeleyBatch(BerkeleyDatabase& database, const char* pszMode, bo
     if (database.IsDummy()) {
         return;
     }
-    const std::string &strFilename = database.strFile;
+    const std::string &strFilename = database.strFile.string();
 
     bool fCreate = strchr(pszMode, 'c') != nullptr;
     unsigned int nFlags = DB_THREAD;
@@ -574,7 +575,7 @@ bool BerkeleyBatch::Rewrite(BerkeleyDatabase& database, const char* pszSkip)
         return true;
     }
     BerkeleyEnvironment *env = database.env;
-    const std::string& strFile = database.strFile;
+    const std::string& strFile = database.strFile.string();
     while (true) {
         {
             LOCK(cs_db);
@@ -706,7 +707,7 @@ bool BerkeleyBatch::PeriodicFlush(BerkeleyDatabase& database)
     }
     bool ret = false;
     BerkeleyEnvironment *env = database.env;
-    const std::string& strFile = database.strFile;
+    const std::string& strFile = database.strFile.string();
     TRY_LOCK(cs_db, lockDb);
     if (lockDb)
     {
@@ -755,12 +756,12 @@ bool BerkeleyDatabase::Backup(const std::string& strDest)
     {
         {
             LOCK(cs_db);
-            if (!env->mapFileUseCount.count(strFile) || env->mapFileUseCount[strFile] == 0)
+            if (!env->mapFileUseCount.count(strFile.string()) || env->mapFileUseCount[strFile.string()] == 0)
             {
                 // Flush log data to the dat file
-                env->CloseDb(strFile);
-                env->CheckpointLSN(strFile);
-                env->mapFileUseCount.erase(strFile);
+                env->CloseDb(strFile.string());
+                env->CheckpointLSN(strFile.string());
+                env->mapFileUseCount.erase(strFile.string());
 
                 // Copy wallet file
                 fs::path pathSrc = env->Directory() / strFile;
@@ -774,7 +775,7 @@ bool BerkeleyDatabase::Backup(const std::string& strDest)
                         return false;
                     }
 
-                    fs::copy_file(pathSrc, pathDest, fs::copy_option::overwrite_if_exists);
+                    fs::copy_file(pathSrc, pathDest, fs::copy_options::overwrite_existing);
                     LogPrintf("copied %s to %s\n", strFile, pathDest.string());
                     return true;
                 } catch (const fs::filesystem_error& e) {

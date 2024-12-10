@@ -61,28 +61,26 @@
 /**
  * Global state
  */
-namespace {
-    struct CBlockIndexWorkComparator
-    {
-        bool operator()(const CBlockIndex *pa, const CBlockIndex *pb) const {
-            // First sort by most total work, ...
-            if (pa->nHeight > pb->nHeight) return false;
-            if (pa->nHeight < pb->nHeight) return true;
+struct CBlockIndexWorkComparator
+{
+    bool operator()(const CBlockIndex *pa, const CBlockIndex *pb) const {
+        // First sort by most total work, ...
+        if (pa->nHeight > pb->nHeight) return false;
+        if (pa->nHeight < pb->nHeight) return true;
 
-            // ... then by earliest time received, ...
-            if (pa->nSequenceId < pb->nSequenceId) return false;
-            if (pa->nSequenceId > pb->nSequenceId) return true;
+        // ... then by earliest time received, ...
+        if (pa->nSequenceId < pb->nSequenceId) return false;
+        if (pa->nSequenceId > pb->nSequenceId) return true;
 
-            // Use pointer address as tie breaker (should only happen with blocks
-            // loaded from disk, as those all have id 0).
-            if (pa < pb) return false;
-            if (pa > pb) return true;
+        // Use pointer address as tie breaker (should only happen with blocks
+        // loaded from disk, as those all have id 0).
+        if (pa < pb) return false;
+        if (pa > pb) return true;
 
-            // Identical blocks.
-            return false;
-        }
-    };
-} // anon namespace
+        // Identical blocks.
+        return false;
+    }
+};
 
 enum DisconnectResult
 {
@@ -858,7 +856,7 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
             return state.Invalid(false, REJECT_NONSTANDARD, "bad-txns-nonstandard-inputs");
 #endif
 
-        int32_t nSigOps = GetTransactionSigOps(tx, view, STANDARD_SCRIPT_VERIFY_FLAGS);
+        uint32_t nSigOps = GetTransactionSigOps(tx, view, STANDARD_SCRIPT_VERIFY_FLAGS);
 
         // nModifiedFees includes any fee deltas from PrioritiseTransaction
         CAmount nModifiedFees = nFees;
@@ -1151,11 +1149,12 @@ bool AcceptToMemoryPool(const CTransactionRef &tx, CTxMempoolAcceptanceOptions& 
     bool res = AcceptToMemoryPoolWorker(tx, opt);
     if (!res) {
         for (const COutPoint& hashTx : opt.coins_to_uncache)
+        {
             pcoinsTip->Uncache(hashTx);
             TRACE2(mempool, rejected,
                 tx->GetHashMalFix().begin(),
-                opt.state.GetRejectReason().c_str()
-        );
+                opt.state.GetRejectReason().c_str());
+        }
     }
     // After we've (potentially) uncached entries, ensure our coins cache is still within its size limits
     CValidationState stateDummy;
@@ -2208,23 +2207,6 @@ void PruneAndFlush() {
     if (!FlushStateToDisk(state, FlushStateMode::NONE)) {
         LogPrintf("%s: failed to flush state (%s)\n", __func__, FormatStateMessage(state));
     }
-}
-
-static void DoWarning(const std::string& strWarning)
-{
-    static bool fWarned = false;
-    SetMiscWarning(strWarning);
-    if (!fWarned) {
-        AlertNotify(strWarning);
-        fWarned = true;
-    }
-}
-
-/** Private helper function that concatenates warning messages. */
-static void AppendWarning(std::string& res, const std::string& warn)
-{
-    if (!res.empty()) res += ", ";
-    res += warn;
 }
 
 /** Check warning conditions and do some notifications on new chain tip set. */
@@ -3595,7 +3577,7 @@ static void FindFilesToPrune(std::set<int>& setFilesToPrune, uint32_t nPruneAfte
     if (chainActive.Tip() == nullptr || nPruneTarget == 0) {
         return;
     }
-    if (chainActive.Tip()->nHeight <= nPruneAfterHeight) {
+    if (static_cast<uint64_t>(chainActive.Tip()->nHeight) <= nPruneAfterHeight) {
         return;
     }
 

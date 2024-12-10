@@ -186,7 +186,7 @@ public:
     bool push_back(std::pair<std::string,UniValue> pear) {
         return pushKV(pear.first, pear.second);
     }
-    friend const UniValue& find_value( const UniValue& obj, const std::string& name);
+    const UniValue& find_value(const std::string& name) const;
 };
 
 //
@@ -308,6 +308,5 @@ static inline bool json_isspace(int ch)
 
 extern const UniValue NullUniValue;
 
-const UniValue& find_value( const UniValue& obj, const std::string& name);
 
 #endif // __UNIVALUE_H__
