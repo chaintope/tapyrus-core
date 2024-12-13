@@ -36,7 +36,7 @@ UniValue CallRPC(std::string args)
         return result;
     }
     catch (const UniValue& objError) {
-        throw std::runtime_error(find_value(objError, "message").get_str());
+        throw std::runtime_error(objError.find_value("message").get_str());
     }
 }
 
@@ -64,9 +64,9 @@ BOOST_AUTO_TEST_CASE(rpc_rawparams)
     BOOST_CHECK_THROW(CallRPC("decoderawtransaction DEADBEEF"), std::runtime_error);
     std::string rawtx = "0100000001a15d57094aa7a21a28cb20b59aab8fc7d1149a3bdbcddba9c622e4f5f6a99ece010000006c493046022100f93bb0e7d8db7bd46e40132d1f8242026e045f03a0efe71bbb8e3f475e970d790221009337cd7f1f929f00cc6ff01f03729b069a7c21b59b1736ddfee5db5946c5da8c0121033b9b137ee87d5a812d6f506efdd37f0affa7ffc310711c06c7f3e097c9447c52ffffffff0100e1f505000000001976a9140389035a9225b3839e2bbf32d826a1e222031fd888ac00000000";
     BOOST_CHECK_NO_THROW(r = CallRPC(std::string("decoderawtransaction ")+rawtx));
-    BOOST_CHECK_EQUAL(find_value(r.get_obj(), "size").get_int(), 193);
-    BOOST_CHECK_EQUAL(find_value(r.get_obj(), "features").get_int(), 1);
-    BOOST_CHECK_EQUAL(find_value(r.get_obj(), "locktime").get_int(), 0);
+    BOOST_CHECK_EQUAL(r.get_obj().find_value("size").get_int(), 193);
+    BOOST_CHECK_EQUAL(r.get_obj().find_value("features").get_int(), 1);
+    BOOST_CHECK_EQUAL(r.get_obj().find_value("locktime").get_int(), 0);
     BOOST_CHECK_THROW(CallRPC(std::string("decoderawtransaction ")+rawtx+" extra"), std::runtime_error);
     BOOST_CHECK_NO_THROW(r = CallRPC(std::string("decoderawtransaction ")+rawtx));
     BOOST_CHECK_THROW(r = CallRPC(std::string("decoderawtransaction ")+rawtx+" extra"), std::runtime_error);
@@ -83,20 +83,20 @@ BOOST_AUTO_TEST_CASE(rpc_togglenetwork)
     UniValue r;
 
     r = CallRPC("getnetworkinfo");
-    bool netState = find_value(r.get_obj(), "networkactive").get_bool();
+    bool netState = r.get_obj().find_value("networkactive").get_bool();
     BOOST_CHECK_EQUAL(netState, true);
 
     BOOST_CHECK_NO_THROW(CallRPC("setnetworkactive false"));
     r = CallRPC("getnetworkinfo");
-    int numConnection = find_value(r.get_obj(), "connections").get_int();
+    int numConnection = r.get_obj().find_value("connections").get_int();
     BOOST_CHECK_EQUAL(numConnection, 0);
 
-    netState = find_value(r.get_obj(), "networkactive").get_bool();
+    netState = r.get_obj().find_value("networkactive").get_bool();
     BOOST_CHECK_EQUAL(netState, false);
 
     BOOST_CHECK_NO_THROW(CallRPC("setnetworkactive true"));
     r = CallRPC("getnetworkinfo");
-    netState = find_value(r.get_obj(), "networkactive").get_bool();
+    netState = r.get_obj().find_value("networkactive").get_bool();
     BOOST_CHECK_EQUAL(netState, true);
 }
 
@@ -114,14 +114,14 @@ BOOST_AUTO_TEST_CASE(rpc_rawsign)
     std::string privkey1 = "\"KzsXybp9jX64P5ekX1KUxRQ79Jht9uzW7LorgwE65i5rWACL6LQe\"";
     std::string privkey2 = "\"Kyhdf5LuKTRx4ge69ybABsiUAWjVRK4XGxAKk2FQLp2HjGMy87Z4\"";
     r = CallRPC(std::string("signrawtransactionwithkey ")+notsigned+" [] "+prevout);
-    BOOST_CHECK(find_value(r.get_obj(), "complete").get_bool() == false);
+    BOOST_CHECK(r.get_obj().find_value("complete").get_bool() == false);
     r = CallRPC(std::string("signrawtransactionwithkey ")+notsigned+" ["+privkey1+","+privkey2+"] "+prevout);
-    BOOST_CHECK(find_value(r.get_obj(), "complete").get_bool() == true);
+    BOOST_CHECK(r.get_obj().find_value("complete").get_bool() == true);
 
     r = CallRPC(std::string("signrawtransactionwithkey ")+notsigned+" [] "+prevout +" SINGLE SCHNORR");
-    BOOST_CHECK(find_value(r.get_obj(), "complete").get_bool() == false);
+    BOOST_CHECK(r.get_obj().find_value("complete").get_bool() == false);
     r = CallRPC(std::string("signrawtransactionwithkey ")+notsigned+" ["+privkey1+","+privkey2+"] "+prevout + " SINGLE SCHNORR");
-    BOOST_CHECK(find_value(r.get_obj(), "complete").get_bool() == true);
+    BOOST_CHECK(r.get_obj().find_value("complete").get_bool() == true);
 }
 
 BOOST_AUTO_TEST_CASE(rpc_createraw_op_return)
@@ -248,7 +248,7 @@ BOOST_AUTO_TEST_CASE(rpc_ban)
     BOOST_CHECK_NO_THROW(r = CallRPC(std::string("listbanned")));
     UniValue ar = r.get_array();
     UniValue o1 = ar[0].get_obj();
-    UniValue adr = find_value(o1, "address");
+    UniValue adr = o1.find_value("address");
     BOOST_CHECK_EQUAL(adr.get_str(), "127.0.0.0/32");
     BOOST_CHECK_NO_THROW(CallRPC(std::string("setban 127.0.0.0 remove")));
     BOOST_CHECK_NO_THROW(r = CallRPC(std::string("listbanned")));
@@ -259,8 +259,8 @@ BOOST_AUTO_TEST_CASE(rpc_ban)
     BOOST_CHECK_NO_THROW(r = CallRPC(std::string("listbanned")));
     ar = r.get_array();
     o1 = ar[0].get_obj();
-    adr = find_value(o1, "address");
-    UniValue banned_until = find_value(o1, "banned_until");
+    adr = o1.find_value("address");
+    UniValue banned_until = o1.find_value("banned_until");
     BOOST_CHECK_EQUAL(adr.get_str(), "127.0.0.0/24");
     BOOST_CHECK_EQUAL(banned_until.get_int64(), 9907731200); // absolute time check
 
@@ -270,8 +270,8 @@ BOOST_AUTO_TEST_CASE(rpc_ban)
     BOOST_CHECK_NO_THROW(r = CallRPC(std::string("listbanned")));
     ar = r.get_array();
     o1 = ar[0].get_obj();
-    adr = find_value(o1, "address");
-    banned_until = find_value(o1, "banned_until");
+    adr = o1.find_value("address");
+    banned_until = o1.find_value("banned_until");
     BOOST_CHECK_EQUAL(adr.get_str(), "127.0.0.0/24");
     int64_t now = GetTime();
     BOOST_CHECK(banned_until.get_int64() > now);
@@ -301,7 +301,7 @@ BOOST_AUTO_TEST_CASE(rpc_ban)
     BOOST_CHECK_NO_THROW(r = CallRPC(std::string("listbanned")));
     ar = r.get_array();
     o1 = ar[0].get_obj();
-    adr = find_value(o1, "address");
+    adr = o1.find_value("address");
     BOOST_CHECK_EQUAL(adr.get_str(), "fe80::202:b3ff:fe1e:8329/128");
 
     BOOST_CHECK_NO_THROW(CallRPC(std::string("clearbanned")));
@@ -309,7 +309,7 @@ BOOST_AUTO_TEST_CASE(rpc_ban)
     BOOST_CHECK_NO_THROW(r = CallRPC(std::string("listbanned")));
     ar = r.get_array();
     o1 = ar[0].get_obj();
-    adr = find_value(o1, "address");
+    adr = o1.find_value("address");
     BOOST_CHECK_EQUAL(adr.get_str(), "2001:db8::/30");
 
     BOOST_CHECK_NO_THROW(CallRPC(std::string("clearbanned")));
@@ -317,7 +317,7 @@ BOOST_AUTO_TEST_CASE(rpc_ban)
     BOOST_CHECK_NO_THROW(r = CallRPC(std::string("listbanned")));
     ar = r.get_array();
     o1 = ar[0].get_obj();
-    adr = find_value(o1, "address");
+    adr = o1.find_value("address");
     BOOST_CHECK_EQUAL(adr.get_str(), "2001:4d48:ac57:400:cacf:e9ff:fe1d:9c63/128");
 }
 

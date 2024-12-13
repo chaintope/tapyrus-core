@@ -2237,12 +2237,12 @@ static UniValue lockunspent(const JSONRPCRequest& request)
                 {"vout", UniValueType(UniValue::VNUM)},
             });
 
-        const std::string& txid = find_value(o, "txid").get_str();
+        const std::string& txid = o.find_value("txid").get_str();
         if (!IsHex(txid)) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected hex txid");
         }
 
-        const int nOutput = find_value(o, "vout").get_int();
+        const int nOutput = o.find_value("vout").get_int();
         if (nOutput < 0) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, vout must be positive");
         }
@@ -2508,7 +2508,8 @@ static UniValue loadwallet(const JSONRPCRequest& request)
     std::string wallet_file = request.params[0].get_str();
     std::string error;
 
-    fs::path wallet_path = fs::absolute(wallet_file, GetWalletDir());
+    fs::path wallet_path = fs::path(wallet_file).is_absolute() ? fs::path(wallet_file) : GetWalletDir() / fs::path(wallet_file);
+
     if (fs::symlink_status(wallet_path).type() == fs::file_not_found) {
         throw JSONRPCError(RPC_WALLET_NOT_FOUND, "Wallet " + wallet_file + " not found.");
     } else if (fs::is_directory(wallet_path)) {
@@ -2524,7 +2525,7 @@ static UniValue loadwallet(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_WALLET_ERROR, "Wallet file verification failed: " + error);
     }
 
-    std::shared_ptr<CWallet> const wallet = CWallet::CreateWalletFromFile(wallet_file, fs::absolute(wallet_file, GetWalletDir()));
+    std::shared_ptr<CWallet> const wallet = CWallet::CreateWalletFromFile(wallet_file, wallet_path);
     if (!wallet) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Wallet loading failed.");
     }
@@ -2567,7 +2568,8 @@ static UniValue createwallet(const JSONRPCRequest& request)
         disable_privatekeys = request.params[1].get_bool();
     }
 
-    fs::path wallet_path = fs::absolute(wallet_name, GetWalletDir());
+    fs::path wallet_path = fs::path(wallet_name).is_absolute() ? fs::path(wallet_name) : GetWalletDir() / fs::path(wallet_name);
+
     if (fs::symlink_status(wallet_path).type() != fs::file_not_found) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Wallet " + wallet_name + " already exists.");
     }
@@ -2577,7 +2579,7 @@ static UniValue createwallet(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_WALLET_ERROR, "Wallet file verification failed: " + error);
     }
 
-    std::shared_ptr<CWallet> const wallet = CWallet::CreateWalletFromFile(wallet_name, fs::absolute(wallet_name, GetWalletDir()), (disable_privatekeys ? (uint64_t)WALLET_FLAG_DISABLE_PRIVATE_KEYS : 0));
+    std::shared_ptr<CWallet> const wallet = CWallet::CreateWalletFromFile(wallet_name, wallet_path, (disable_privatekeys ? (uint64_t)WALLET_FLAG_DISABLE_PRIVATE_KEYS : 0));
     if (!wallet) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Wallet creation failed.");
     }
@@ -4413,7 +4415,7 @@ static UniValue issuetoken(const JSONRPCRequest& request)
             }
 
             //2. vout and its type
-            if(vout < 0 || vout >= it->second.tx->vout.size() || GetColorIdFromScript(it->second.tx->vout[vout].scriptPubKey).type != TokenTypes::NONE) {
+            if(vout >= it->second.tx->vout.size() || GetColorIdFromScript(it->second.tx->vout[vout].scriptPubKey).type != TokenTypes::NONE) {
                 std::string strError = strprintf("Invalid vout %d in tx: %s", request.params[3].get_int(), request.params[2].get_str());
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strError);
             }

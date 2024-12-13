@@ -233,7 +233,7 @@ public:
         }
         change_pos = mapChangePosInOut[ColorIdentifier()];
 
-        return std::move(pending);
+        return pending;
     }
     bool transactionCanBeAbandoned(const uint256& txid) override { return m_wallet.TransactionCanBeAbandoned(txid); }
     bool abandonTransaction(const uint256& txid) override

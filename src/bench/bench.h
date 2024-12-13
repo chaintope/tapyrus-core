@@ -5,6 +5,8 @@
 #ifndef BITCOIN_BENCH_BENCH_H
 #define BITCOIN_BENCH_BENCH_H
 
+#include <fs.h>
+
 #include <functional>
 #include <limits>
 #include <map>
@@ -130,7 +132,7 @@ private:
     int64_t m_width;
     int64_t m_height;
 };
-}
+} //namespace benchmark
 
 
 // BENCHMARK(foo, num_iters_for_one_second) expands to:  benchmark::BenchRunner bench_11foo("foo", num_iterations);
@@ -146,6 +148,6 @@ const std::string SIGN_BLOCK_PUBKEY("03af80b90d25145da28c583359beb47b21796b2fe1a
 
 const std::string SIGN_BLOCK_PRIVKEY("cUJN5RVzYWFoeY8rUztd47jzXCu1p57Ay8V7pqCzsBD3PEXN7Dd4");
 
-void writeTestGenesisBlockToFile(boost::filesystem::path genesisPath);
+void writeTestGenesisBlockToFile(fs::path genesisPath);
 
 #endif // BITCOIN_BENCH_BENCH_H

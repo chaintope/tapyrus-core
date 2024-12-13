@@ -625,7 +625,7 @@ static UniValue getblockhash(const JSONRPCRequest& request)
 
     LOCK(cs_main);
 
-    uint32_t nHeight = request.params[0].get_int();
+    int32_t nHeight = request.params[0].get_int();
     if (nHeight < 0 || nHeight > chainActive.Height())
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Block height out of range");
 
@@ -1964,10 +1964,10 @@ UniValue scantxoutset(const JSONRPCRequest& request)
             if (scanobject.isStr()) {
                 desc_str = scanobject.get_str();
             } else if (scanobject.isObject()) {
-                UniValue desc_uni = find_value(scanobject, "desc");
+                UniValue desc_uni = scanobject.find_value("desc");
                 if (desc_uni.isNull()) throw JSONRPCError(RPC_INVALID_PARAMETER, "Descriptor needs to be provided in scan object");
                 desc_str = desc_uni.get_str();
-                UniValue range_uni = find_value(scanobject, "range");
+                UniValue range_uni = scanobject.find_value("range");
                 if (!range_uni.isNull()) {
                     range = range_uni.get_int();
                     if (range < 0 || range > 1000000) throw JSONRPCError(RPC_INVALID_PARAMETER, "range out of range");
@@ -2113,11 +2113,11 @@ static UniValue getcolor(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid transaction id :") + request.params[1].get_str());
         }
 
-        uint8_t vout = request.params[2].get_int();
+        int8_t vout = request.params[2].get_int();
         COutPoint out(txid, vout);
 
         // check vout
-        if(vout < 0 || vout >= tx->vout.size() || GetColorIdFromScript(tx->vout[vout].scriptPubKey).type != TokenTypes::NONE) {
+        if(vout >= (int8_t)tx->vout.size() || GetColorIdFromScript(tx->vout[vout].scriptPubKey).type != TokenTypes::NONE) {
             std::string strError = strprintf("Invalid vout %d in tx: %s", request.params[2].get_int(), request.params[1].get_str());
             throw JSONRPCError(RPC_INVALID_PARAMETER, strError);
         }

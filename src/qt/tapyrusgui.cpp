@@ -57,6 +57,7 @@
 #include <QToolBar>
 #include <QUrlQuery>
 #include <QVBoxLayout>
+#include <QScreen>
 
 const std::string TapyrusGUI::DEFAULT_UIPLATFORM =
 #if defined(Q_OS_MAC)
@@ -76,7 +77,7 @@ TapyrusGUI::TapyrusGUI(interfaces::Node& node, const PlatformStyle *_platformSty
     QSettings settings;
     if (!restoreGeometry(settings.value("MainWindowGeometry").toByteArray())) {
         // Restore failed (perhaps missing setting), center the window
-        move(QApplication::desktop()->availableGeometry().center() - frameGeometry().center());
+        move(QApplication::primaryScreen()->availableGeometry().center() - frameGeometry().center());
     }
 
     QString windowTitle = tr(PACKAGE_NAME) + " - ";
@@ -1112,7 +1113,11 @@ void TapyrusGUI::updateProxyIcon()
     bool proxy_enabled = clientModel->getProxyInfo(ip_port);
 
     if (proxy_enabled) {
+        #if (QT_VERSION >= QT_VERSION_CHECK(5, 15, 0))
+        if(labelProxyIcon->pixmap(Qt::ReturnByValue).isNull()) {
+        #else
         if (labelProxyIcon->pixmap() == 0) {
+        #endif
             QString ip_port_q = QString::fromStdString(ip_port);
             labelProxyIcon->setPixmap(platformStyle->SingleColorIcon(":/icons/proxy").pixmap(STATUSBAR_ICONSIZE, STATUSBAR_ICONSIZE));
             labelProxyIcon->setToolTip(tr("Proxy is <b>enabled</b>: %1").arg(ip_port_q));
@@ -1248,7 +1253,7 @@ UnitDisplayStatusBarControl::UnitDisplayStatusBarControl(const PlatformStyle *pl
     const QFontMetrics fm(font());
     for (const TapyrusUnits::Unit unit : units)
     {
-        max_width = qMax(max_width, fm.width(TapyrusUnits::longName(unit)));
+        max_width = qMax(max_width, fm.horizontalAdvance(TapyrusUnits::longName(unit)));
     }
     setMinimumSize(max_width, 0);
     setAlignment(Qt::AlignRight | Qt::AlignVCenter);

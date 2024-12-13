@@ -534,12 +534,10 @@ static void SeedStartup(CSHA512& hasher, RNGState& rng) noexcept
     SeedSlow(hasher, rng);
 
     // Dynamic environment data (performance monitoring, ...)
-    auto old_size = hasher.Size();
     RandAddDynamicEnv(hasher);
 
     // Static environment data
     RandAddStaticEnv(hasher);
-    //LogPrint(BCLog::RAND, "Feeding %i bytes of environment data into RNG\n", hasher.Size() - old_size);
 
     // Strengthen for 100 ms
     SeedStrengthen(hasher, rng, 100000);

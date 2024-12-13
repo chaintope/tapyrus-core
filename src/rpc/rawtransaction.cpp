@@ -363,7 +363,7 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
 
         uint256 txid = ParseHashO(o, "txid");
 
-        const UniValue& vout_v = find_value(o, "vout");
+        const UniValue& vout_v = o.find_value("vout");
         if (!vout_v.isNum())
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, missing vout key");
         int nOutput = vout_v.get_int();
@@ -380,7 +380,7 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
         }
 
         // set the sequence number if passed in the parameters object
-        const UniValue& sequenceObj = find_value(o, "sequence");
+        const UniValue& sequenceObj = o.find_value("sequence");
         if (sequenceObj.isNum()) {
             int64_t seqNr64 = sequenceObj.get_int64();
             if (seqNr64 < 0 || seqNr64 > std::numeric_limits<uint32_t>::max()) {
@@ -616,7 +616,7 @@ static UniValue decodescript(const JSONRPCRequest& request)
     ScriptPubKeyToUniv(script, r, false);
 
     UniValue type;
-    type = find_value(r, "type");
+    type = r.find_value("type");
 
     if (type.isStr() && type.get_str() != "scripthash" && type.get_str() != "coloredscripthash") {
         // P2SH cannot be wrapped in a P2SH. If this script is already a P2SH,
@@ -778,7 +778,7 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival
 
             uint256 txid = ParseHashO(prevOut, "txid");
 
-            int nOut = find_value(prevOut, "vout").get_int();
+            int nOut = prevOut.find_value("vout").get_int();
             if (nOut < 0) {
                 throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "vout must be positive");
             }
@@ -799,7 +799,7 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival
                 newcoin.out.scriptPubKey = scriptPubKey;
                 newcoin.out.nValue = MAX_MONEY;
                 if (prevOut.exists("amount")) {
-                    newcoin.out.nValue = AmountFromValue(find_value(prevOut, "amount"));
+                    newcoin.out.nValue = AmountFromValue(prevOut.find_value("amount"));
                 }
                 newcoin.nHeight = 1;
                 view.AddCoin(out, std::move(newcoin), true);
@@ -812,7 +812,7 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival
                     {
                         {"redeemScript", UniValueType(UniValue::VSTR)},
                     });
-                UniValue v = find_value(prevOut, "redeemScript");
+                UniValue v = prevOut.find_value("redeemScript");
                 if (!v.isNull()) {
                     std::vector<unsigned char> rsData(ParseHexV(v, "redeemScript"));
                     CScript redeemScript(rsData.begin(), rsData.end());
@@ -1232,6 +1232,7 @@ static UniValue testmempoolaccept(const JSONRPCRequest& request)
 
     CTxMempoolAcceptanceOptions opt;
     opt.flags = MempoolAcceptanceFlags::TEST_ONLY;
+    opt.nAbsurdFee = max_raw_tx_fee;
     bool accept;
     {
         LOCK(cs_main);
@@ -1710,7 +1711,6 @@ UniValue converttopsbt(const JSONRPCRequest& request)
 
     // parse hex string from parameter
     CMutableTransaction tx;
-    bool permitsigdata = request.params[1].isNull() ? false : request.params[1].get_bool();
     if (!DecodeHexTx(tx, request.params[0].get_str())) {
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
     }

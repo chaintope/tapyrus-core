@@ -13,11 +13,11 @@
 #include <consensus/merkle.h>
 #include <key_io.h>
 #include <tapyrusmodes.h>
-#include <chainparamsseeds.h>
 #include <validation.h>
 #include <xfieldhistory.h>
 
 #include <assert.h>
+#include <fstream>
 
 void SetupFederationParamsOptions()
 {
@@ -35,7 +35,7 @@ std::string ReadGenesisBlock(fs::path genesisPath)
     genesisPath /= genesisFileName;
 
     LogPrintf("Reading Genesis Block from [%s]\n", genesisPath.string().c_str());
-    fs::ifstream stream(genesisPath);
+    std::ifstream stream(genesisPath.string());
     if (!stream.good())
         throw std::runtime_error(strprintf("ReadGenesisBlock: unable to read genesis file %s", genesisPath));
 
@@ -142,8 +142,6 @@ CFederationParams::CFederationParams(const uint32_t networkId, const std::string
         this->ReadGenesisBlock(genesisHex);
 
     vSeeds = gArgs.GetArgs("-addseeder");
-
-    vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_main, pnSeed6_main + ARRAYLEN(pnSeed6_main));
 }
 
 bool CFederationParams::ReadGenesisBlock(std::string genesisHex)

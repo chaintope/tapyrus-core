@@ -617,10 +617,11 @@ static void FindNextBlocksToDownload(NodeId nodeid, unsigned int count, std::vec
                 // We consider the chain that this peer is on invalid.
                 return;
             }
+            bool blockrequested(mapBlocksInFlight.count(pindex->GetBlockHash()) != 0);
             if (pindex->nStatus & BLOCK_HAVE_DATA || chainActive.Contains(pindex)) {
                 if (pindex->nChainTx)
                     state->pindexLastCommonBlock = pindex;
-            } else if (mapBlocksInFlight.count(pindex->GetBlockHash()) == 0) {
+            } else if (!blockrequested) {
                 // The block is not already downloaded, and not yet in flight.
                 if (pindex->nHeight > nWindowEnd) {
                     // We reached the end of the window.
@@ -634,7 +635,7 @@ static void FindNextBlocksToDownload(NodeId nodeid, unsigned int count, std::vec
                 if (vBlocks.size() == count) {
                     return;
                 }
-            } else if (waitingfor == -1) {
+            } else if (blockrequested && waitingfor == -1) {
                 // This is the first already-in-flight block.
                 auto iter = mapBlocksInFlight.equal_range(pindex->GetBlockHash());
                 waitingfor = iter.second->second.first;
@@ -3862,7 +3863,7 @@ bool PeerLogicValidation::SendMessages(CNode* pto)
                     pindex->nHeight, pto->GetId());
             }
             if (state.vBlocksInFlight.size() == 0 && staller != -1) {
-                if (State(staller)->nStallingSince == 0) {
+                if (State(staller) && State(staller)->nStallingSince == 0) {
                     State(staller)->nStallingSince = nNow;
                     LogPrint(BCLog::NET, "Stall started peer=%d\n", staller);
                 }
