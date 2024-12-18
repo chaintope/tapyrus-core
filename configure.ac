@@ -870,10 +870,10 @@ if test x$use_upnp != xno; then
   )
 fi
 
-BITCOIN_QT_INIT no
+BITCOIN_QT_INIT
 
 dnl sets $tapyrus_enable_qt, $tapyrus_enable_qt_test, $tapyrus_enable_qt_dbus
-BITCOIN_QT_CONFIGURE no
+BITCOIN_QT_CONFIGURE
 
 if test x$build_tapyrus_utils$build_tapyrusd$tapyrus_enable_qt$use_tests$use_bench = xnonononono; then
     use_boost=no
