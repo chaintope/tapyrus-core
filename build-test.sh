@@ -21,9 +21,10 @@ if [ -n "$XCODE_VERSION" ] && [ ! -d "depends/SDKs/${OSX_SDK_BASENAME}" ]; then
   OSX_SDK_FILENAME="${OSX_SDK_BASENAME}.tar.gz"
   OSX_SDK_PATH="depends/sdk-sources/${OSX_SDK_FILENAME}"
   if [ ! -f "$OSX_SDK_PATH" ]; then
-    RETRY curl --location --fail "${{env.CI_SDK_URL}}/${OSX_SDK_FILENAME}" -o "$OSX_SDK_PATH"
+    RETRY curl --location --fail "${SDK_URL}/${OSX_SDK_FILENAME}" -o "$OSX_SDK_PATH"
   fi
   tar -C "depends/SDKs" -xf "$OSX_SDK_PATH"
+fi
 if [[ $HOST = *-mingw32 ]]; then sudo update-alternatives --set $HOST-g++ $(which $HOST-g++-posix); fi
 if [ -z "$NO_DEPENDS" ]; then CONFIG_SHELL= make $MAKEJOBS -C depends HOST=$HOST $DEP_OPTS; fi
 
