@@ -900,7 +900,7 @@ fi
 if test x$use_boost = xyes; then
   dnl Check for Boost headers
   AX_BOOST_BASE([1.73.0],[],[AC_MSG_ERROR([Boost is not available!])])
-  if test "$want_boost" = "no"; then
+  if test "x$want_boost" = "xno"; then
     AC_MSG_ERROR([Boost is required])
   fi
 
@@ -914,7 +914,7 @@ if test x$use_boost = xyes; then
   AX_CHECK_PREPROC_FLAG([-DBOOST_NO_CXX98_FUNCTION_BASE], [BOOST_CPPFLAGS="$BOOST_CPPFLAGS -DBOOST_NO_CXX98_FUNCTION_BASE"], [], [$CXXFLAG_WERROR],
                         [AC_LANG_PROGRAM([[#include <boost/config.hpp>]])])
 
-  if test "$suppress_external_warnings" != "no"; then
+  if test "x$suppress_external_warnings" != "xno"; then
     BOOST_CPPFLAGS=SUPPRESS_WARNINGS($BOOST_CPPFLAGS)
   fi
 fi
