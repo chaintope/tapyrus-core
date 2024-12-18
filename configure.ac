@@ -837,6 +837,19 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <stdint.h>
  [ AC_MSG_RESULT(no)]
 )
 
+dnl SUPPRESSED_CPPFLAGS=SUPPRESS_WARNINGS([$SOME_CPPFLAGS])
+dnl Replace -I with -isystem in $SOME_CPPFLAGS to suppress warnings from
+dnl headers from its include directories and return the result.
+dnl See -isystem documentation:
+dnl https://gcc.gnu.org/onlinedocs/gcc/Directory-Options.html
+dnl https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-isystem-directory
+dnl Do not change "-I/usr/include" to "-isystem /usr/include" because that
+dnl is not necessary (/usr/include is already a system directory) and because
+dnl it would break GCC's #include_next.
+AC_DEFUN([SUPPRESS_WARNINGS],
+         [[$(echo $1 |${SED} -E -e 's/(^| )-I/\1-isystem /g' -e 's;-isystem /usr/include/*( |$);-I/usr/include\1;g')]])
+
+
 # Check for reduced exports
 if test x$use_reduce_exports = xyes; then
   AX_CHECK_COMPILE_FLAG([-fvisibility=hidden],[RE_CXXFLAGS="-fvisibility=hidden"],
