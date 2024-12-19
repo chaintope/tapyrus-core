@@ -215,7 +215,7 @@ $($(1)_preprocessed): | $($(1)_extracted)
 	{ cd $$(@D); $($(1)_preprocess_cmds); } $$($(1)_logging)
 	touch $$@
 $($(1)_configured): | $($(1)_dependencies) $($(1)_preprocessed)
-	echo Configuring $(1)...
+	echo Configuring $(1)... $($(1)_all_dependencies) $($(package)_cached)
 	rm -rf $(host_prefix); mkdir -p $(host_prefix)/lib; cd $(host_prefix); $(foreach package,$($(1)_all_dependencies), tar --no-same-owner -xf $($(package)_cached); )
 	mkdir -p $$($(1)_build_dir)
 	+{ cd $$($(1)_build_dir); export $($(1)_config_env); $($(1)_config_cmds); } $$($(1)_logging)
