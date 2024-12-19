@@ -1,6 +1,5 @@
-OSX_MIN_VERSION=10.14
-OSX_SDK_VERSION=10.14
-OSX_SDK=$(SDK_PATH)/MacOSX$(OSX_SDK_VERSION).sdk
+OSX_MIN_VERSION=11.0
+OSX_SDK_VERSION=15.0
 
 clang_prog=$(build_prefix)/bin/clang
 clangxx_prog=$(clang_prog)++
