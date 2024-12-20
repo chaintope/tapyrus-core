@@ -148,7 +148,7 @@ $(1)_stage_env+=PATH=$(build_prefix)/bin:$(PATH)
 # config.guess, which is what we set it too here. This also quells autoconf
 # warnings, "If you wanted to set the --build type, don't use --host.",
 # when using versions older than 2.70.
-$(1)_autoconf=./configure --build=$(BUILD) --host=$($($(1)_type)_host) --prefix=$($($(1)_type)_prefix) $$($(1)_config_opts) CC="$$($(1)_cc)" CC="$$($(1)_cc)" ||  (cat config.log)
+$(1)_autoconf=./configure --build=$(BUILD) --host=$($($(1)_type)_host) --prefix=$($($(1)_type)_prefix) $$($(1)_config_opts) CC="$$($(1)_cc)" CC="$$($(1)_cc)"
 $(info condifure was (1)_autoconf)
 ifneq ($($(1)_nm),)
 $(1)_autoconf += NM="$$($(1)_nm)"
@@ -213,7 +213,7 @@ $($(1)_preprocessed): | $($(1)_extracted)
 	{ cd $$(@D); $($(1)_preprocess_cmds); } $$($(1)_logging)
 	touch $$@
 $($(1)_configured): | $($(1)_dependencies) $($(1)_preprocessed)
-	echo Configuring $(1)... $($(1)_all_dependencies) $($(package)_cached) $(host_prefix)
+	echo Configuring $(1)...
 	rm -rf $(host_prefix); mkdir -p $(host_prefix)/lib; cd $(host_prefix); $(foreach package,$($(1)_all_dependencies), tar --no-same-owner -xf $($(package)_cached); )
 	mkdir -p $$($(1)_build_dir)
 	+{ cd $$($(1)_build_dir); export $($(1)_config_env); $($(1)_config_cmds); } $$($(1)_logging)
