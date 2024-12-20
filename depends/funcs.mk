@@ -149,7 +149,6 @@ $(1)_stage_env+=PATH=$(build_prefix)/bin:$(PATH)
 # warnings, "If you wanted to set the --build type, don't use --host.",
 # when using versions older than 2.70.
 $(1)_autoconf=./configure --build=$(BUILD) --host=$($($(1)_type)_host) --prefix=$($($(1)_type)_prefix) $$($(1)_config_opts) CC="$$($(1)_cc)" CC="$$($(1)_cc)"
-$(info condifure was (1)_autoconf)
 ifneq ($($(1)_nm),)
 $(1)_autoconf += NM="$$($(1)_nm)"
 endif
