@@ -1,43 +1,44 @@
-Bitcoin version 0.5.1 is now available for download at:
-http://sourceforge.net/projects/bitcoin/files/Bitcoin/bitcoin-0.5.1/
-
-This is a bugfix-only release.
-
-This release includes 13 translations, including 5 new translations:
-Italian, Hungarian, Ukranian, Portuguese (Brazilian) and Simplified Chinese.
-More translations are welcome; join the project at Transifex if you can help:
-https://www.transifex.net/projects/p/bitcoin/
+Tapyrus version 0.5.1 is now available for download at:
+  https://github.com/chaintope/tapyrus-core/releases/tag/v0.5.1
 
 Please report bugs using the issue tracker at github:
-https://github.com/bitcoin/bitcoin/issues
+  https://github.com/chaintope/tapyrus-core/issues
 
-Project source code is hosted at github; we are no longer
-distributing .tar.gz files here, you can get them
-directly from github:
-https://github.com/bitcoin/bitcoin/tarball/v0.5.1  # .tar.gz
-https://github.com/bitcoin/bitcoin/zipball/v0.5.1  # .zip
-
-For Ubuntu users, there is a new ppa maintained by Matt Corallo which
-you can add to your system so that it will automatically keep
-bitcoin up-to-date.  Just type
-sudo apt-add-repository ppa:bitcoin/bitcoin
-in your terminal, then install the bitcoin-qt package.
+Project source code is hosted at github; you can get
+source-only tarballs/zipballs directly from there:
+  https://github.com/chaintope/tapyrus-core/tarball/v0.5.1  # .tar.gz
 
 
-BUG FIXES
+How to Upgrade
+==============
 
-Re-enable SSL support for the JSON-RPC interface (it was unintentionally
-disabled for the 0.5.0 release binaries).
+If you are running a node on v0.5.0 testnet, it can interoperate with the new Tapyrus v0.5.1 testnet as it is. No upgrade is necessary. If you wish to upgrade one or more nodes, follow the instruction in [getting_started](doc/tapyrus/getting_started.md#how-to-start-a-node-on-tapyrus-testnet) to sart a new Tapyrus v0.5.1 node.
 
-The code that finds peers via "dns seeds" no longer stops bitcoin startup
-if one of the dns seed machines is down.
+If you are running a private tapyrus network using versions v0.3.0, v0.4.0 or v0.4.1, shut it down. Wait until it has completely shut down. Follow the instruction in [getting_started](doc/tapyrus/getting_started.md#how-to-start-a-new-tapyrus-network) to sart a new Tapyrus v0.5.1 network. Please note that tapyrus-signer network should also be upgraded following [tapyrus signer network setup](https://github.com/chaintope/tapyrus-signer/blob/master/doc/setup.md#how-to-set-up-new-tapyrus-signer-network)
 
-Tooltips on the transaction list view were rendering incorrectly (as black boxes
-or with a transparent background).
 
-Prevent a denial-of-service attack involving flooding a bitcoin node with
-orphan blocks.
+Downgrading warning
+-------------------
 
-The wallet passphrase dialog now warns you if the caps lock key was pressed.
+Tapyrus blockchain created by older versions(v0.3.0, v0.4.0 and v0.4.1) is not compatible with v0.5.1 and vice-versa. The testnet was reset with the release of v0.5.0 which is compatile with v0.5.1
 
-Improved searching in addresses and labels in bitcoin-qt.
+Compatibility
+==============
+
+Tapyrus v0.5.1 is supported on three platforms, Linux, MacOS and Windows(WSL) in two CPU architectures namely x86_x64 and arm64(aarch64)
+
+0.5.1 change log
+------------------
+
+*ARM64 container*
+
+With version v0.5.1 Tapyrus is supported on ARM64 hosts. Tapyrus containers are also a vailable for ARM64 architecture
+
+*secp256k1*
+
+secp256k1 library is moved to its own repository and added to tapyrus repository as a sub module to allow independent development.
+
+*RPC*
+
+* getrawtransaction - version is renamed to features.
+* decoderawtransaction - version is renamed to features..

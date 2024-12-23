@@ -1,138 +1,86 @@
-Bitcoin version 0.6.0 is now available for download at:
-http://sourceforge.net/projects/bitcoin/files/Bitcoin/bitcoin-0.6.0/test/
-
-This release includes more than 20 language localizations.
-More translations are welcome; join the
-project at Transifex to help:
-https://www.transifex.net/projects/p/bitcoin/
+Tapyrus version 0.6.0 is now available for download at:
+https://github.com/chaintope/tapyrus-core/releases/tag/v0.6.0
 
 Please report bugs using the issue tracker at github:
-https://github.com/bitcoin/bitcoin/issues
+https://github.com/chaintope/tapyrus-core/issues
 
-Project source code is hosted at github; we are no longer
-distributing .tar.gz files here, you can get them
-directly from github:
-https://github.com/bitcoin/bitcoin/tarball/v0.6.0  # .tar.gz
-https://github.com/bitcoin/bitcoin/zipball/v0.6.0  # .zip
-
-For Ubuntu users, there is a ppa maintained by Matt Corallo which
-you can add to your system so that it will automatically keep
-bitcoin up-to-date.  Just type
-sudo apt-add-repository ppa:bitcoin/bitcoin
-in your terminal, then install the bitcoin-qt package.
+Project source code is hosted at github; you can get
+source-only tarballs/zipballs directly from there:
+https://github.com/chaintope/tapyrus-core/tarball/v0.6.0
 
 
-KNOWN ISSUES
+How to Upgrade
+==============
 
-Shutting down while synchronizing with the network
-(downloading the blockchain) can take more than a minute,
-because database writes are queued to speed up download
-time.
+It is recommended to upgrade all older nodes to the latest release as it contains fixes to vulnerabilities. If you are running a node on 
+tapyrus testnet follow the instruction in [getting_started](doc/tapyrus/getting_started.md#how-to-start-a-node-on-tapyrus-testnet) to start a new Tapyrus v0.6.0 node.
 
+If you are running a private tapyrus network using older versions of tapyrus-core release, shut it down. Wait until it has completely shut down. 
+Follow the instruction in [getting_started](doc/tapyrus/getting_started.md#how-to-start-a-new-tapyrus-network) to sart a new Tapyrus v0.6.0 network. Tapyrus blockchain created by older versions, before v0.5.0 
+are not compatible with v0.6.0 because of the absence of xfield in the block header. But blockchain created by v0.5.0, v0.5.1 and v0.5.2 is compatible 
+with v0.6.0.
 
-NEW FEATURES SINCE BITCOIN VERSION 0.5
+Downgrading warning
+-------------------
 
-Initial network synchronization should be much faster
-(one or two hours on a typical machine instead of ten or more
-hours).
+If you upgrade to a node running v0.6.0 and need to switch back to an older version, the blockchain and chainstate on the node are backward compatible as 
+long as **no xfield change** was mode in the network.
 
-Backup Wallet menu option.
+Dynamic Block size
+-------------------
 
-Bitcoin-Qt can display and save QR codes for sending
-and receiving addresses.
+This release allows the size of each block in a Tapyrus network to be increased from the default 1MB. This is done with the help of a new xfield type.
+When the block size is changed using the xfield in a federation block, the new block size becomes the maximum limit for every block created thereafter. 
+A tapyrus node could create a block of upto the `MAX BLOCK SIZE` using the transactions in its mempool. Note that in order to sign blocks of the new 
+block size, the signer network needs to be upgraded too. The height and xfield value, in this case, _max block size_ are configured in the signer network. 
+This is essential to create the federation block. ALl xfields supported in Tapyrus are listed  [here ](doc/tapyrus/signedblocks.md).
 
-New context menu on addresses to copy/edit/delete them.
+_**Warning:**_ 
+- Ensure that all nodes in an older network are upgraded before attempting to change the block size limit. All older nodes reject blocks with
+are bigger than 1MB. So the network could split, older nodes could create a fork chain which would be lost
+when those nodes upgrade.
+- A block size change cannot be reversed in a Tapyrus network. If the old block size needs to be restored in a network for unforeseen reasons, another federation
+block with the old block size needs to be created. This needs to follow the signer network configuration as well.
 
-New Sign Message dialog that allows you to prove that you
-own a bitcoin address by creating a digital
-signature.
+Compatibility
+-------------
 
-New wallets created with this version will
-use 33-byte 'compressed' public keys instead of
-65-byte public keys, resulting in smaller
-transactions and less traffic on the bitcoin
-network. The shorter keys are already supported
-by the network but wallet.dat files containing
-short keys are not compatible with earlier
-versions of Bitcoin-Qt/bitcoind.
+Tapyrus v0.6.0 is supported on three platforms, Linux, MacOS and Windows(WSL) in two CPU architectures namely x86_x64 and arm64(aarch64)
 
-New command-line argument -blocknotify=<command>
-that will spawn a shell process to run <command> 
-when a new block is accepted.
+0.6.0 change log
+================
 
-New command-line argument -splash=0 to disable
-Bitcoin-Qt's initial splash screen
+*General improvements*
 
-validateaddress JSON-RPC api command output includes
-two new fields for addresses in the wallet:
-pubkey : hexadecimal public key
-iscompressed : true if pubkey is a short 33-byte key
-
-New JSON-RPC api commands for dumping/importing
-private keys from the wallet (dumprivkey, importprivkey).
-
-New JSON-RPC api command for getting information about
-blocks (getblock, getblockhash).
-
-New JSON-RPC api command (getmininginfo) for getting
-extra information related to mining. The getinfo
-JSON-RPC command no longer includes mining-related
-information (generate/genproclimit/hashespersec).
+- [PR280](https://github.com/chaintope/tapyrus-core/pull/280), [PR281](https://github.com/chaintope/tapyrus-core/pull/281), Tracing of select tracepoints/events in a live tapyrus node is possible with this release. The list of all allowed tracepoints is listed [here](doc/tracing.md).
+- [PR276](https://github.com/chaintope/tapyrus-core/pull/276) Improve stability of thread synchronization and mutexes used in tapyrus
+- [PR262](https://github.com/chaintope/tapyrus-core/pull/262) Check that uncompressed public keys are not accepted by tapyrus-genesis
+- [PR286](https://github.com/chaintope/tapyrus-core/pull/286) Block height is standardized across the code to 32 bit from 64 bit
+- [PR301]((https://github.com/chaintope/tapyrus-core/pull/301)) Upgrade CI to ubuntu22 and port ripemd160 implementation from bitcoin
 
 
+*Fix vulnerabilities inherited from bitcoin core:*
+- [PR312](https://github.com/chaintope/tapyrus-core/pull/312) Disclosure of CPU DoS due to malicious P2P message (≤ version 0.19.2)
+- [PR313](https://github.com/chaintope/tapyrus-core/pull/313) Disclosure of memory DoS due to malicious P2P message (≤ version 0.19.2)
+- [PR314](https://github.com/chaintope/tapyrus-core/pull/314) Disclosure of CPU DoS / stalling due to malicious P2P message (≤ version 0.17.2) 
+- [PR315](https://github.com/chaintope/tapyrus-core/pull/315) Disclosure of netsplit due to malicious P2P messages by first 200 peers (≤ version 0.20.1)
+- [PR317](https://github.com/chaintope/tapyrus-core/pull/317) Disclosure of remote crash due to addr message spam 
+- [PR318](https://github.com/chaintope/tapyrus-core/pull/318) Disclosure of hindered block propagation due to mutated blocks 
+- [PR319](https://github.com/chaintope/tapyrus-core/pull/319) Disclosure of DoS due to inv-to-send sets growing too large 
+- [PR318](https://github.com/chaintope/tapyrus-core/pull/318) Disclosure of CVE-2024-35202
+- [PR318](https://github.com/chaintope/tapyrus-core/pull/318) Disclosure of hindered block propagation due to stalling peers
 
-NOTABLE CHANGES
+*Bug fixes*
+- [PR275](https://github.com/chaintope/tapyrus-core/pull/275) Fix crash in reloadxfield/ reindex crash
 
-BIP30 implemented (security fix for an attack involving
-duplicate "coinbase transactions").
+*RPC*
 
-The -nolisten, -noupnp and -nodnsseed command-line
-options were renamed to -listen, -upnp and -dnsseed,
-with a default value of 1. The old names are still
-supported for compatibility (so specifying -nolisten
-is automatically interpreted as -listen=0; every
-boolean argument can now be specified as either
--foo or -nofoo).
+- [PR308](https://github.com/chaintope/tapyrus-core/pull/308) dumptxoutset rpc is added to create a dump of the utxo set on a tapyrus node
 
-The -noirc command-line options was renamed to
--irc, with a default value of 0. Run -irc=1 to
-get the old behavior.
+*BUILD*
 
-Three fill-up-available-memory denial-of-service
-attacks were fixed.
-
-
-NOT YET IMPLEMENTED FEATURES
-
-Support for clicking on bitcoin: URIs and
-opening/launching Bitcoin-Qt is available only on Linux,
-and only if you configure your desktop to launch
-Bitcoin-Qt. All platforms support dragging and dropping
-bitcoin: URIs onto the Bitcoin-Qt window to start
-payment.
-
-
-PRELIMINARY SUPPORT FOR MULTISIGNATURE TRANSACTIONS
-
-This release has preliminary support for multisignature
-transactions-- transactions that require authorization
-from more than one person or device before they
-will be accepted by the bitcoin network.
-
-Prior to this release, multisignature transactions
-were considered 'non-standard' and were ignored;
-with this release multisignature transactions are
-considered standard and will start to be relayed
-and accepted into blocks.
-
-It is expected that future releases of Bitcoin-Qt
-will support the creation of multisignature transactions,
-once enough of the network has upgraded so relaying
-and validating them is robust.
-
-For this release, creation and testing of multisignature
-transactions is limited to the bitcoin test network using
-the "addmultisigaddress" JSON-RPC api call.
-
-Short multisignature address support is included in this
-release, as specified in BIP 13 and BIP 16.
+- Use newer version of all dependencies as listed [here](doc/dependencies.md)
+  - [PR272](https://github.com/chaintope/tapyrus-core/pull/272) Upgrade leveldb to 1.23 release version
+  - [PR249](https://github.com/chaintope/tapyrus-core/pull/249) Remove unused dependencies from Tapyrus-core
+  - [PR250](https://github.com/chaintope/tapyrus-core/pull/250) upgrade boost to 1.81
+- [PR270](https://github.com/chaintope/tapyrus-core/pull/270), [PR269](https://github.com/chaintope/tapyrus-core/pull/269), [PR268](https://github.com/chaintope/tapyrus-core/pull/268) Remove usage of system and thread boost libraries and use std c++17 libraries
