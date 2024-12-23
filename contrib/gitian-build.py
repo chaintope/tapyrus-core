@@ -31,7 +31,7 @@ def setup():
     # if not os.path.isdir('bitcoin-detached-sigs'):
     #     subprocess.check_call(['git', 'clone', 'https://github.com/bitcoin-core/bitcoin-detached-sigs.git'])
     if not os.path.isdir('gitian-builder'):
-        subprocess.check_call(['git', 'clone', 'https://github.com/devrandom/gitian-builder.git'])
+        subprocess.check_call(['git', 'clone', 'https://github.com/Naviabheeman/gitian-builder.git'])
     if not os.path.isdir('tapyrus-core'):
         subprocess.check_call(['git', 'clone', 'https://github.com/chaintope/tapyrus-core.git'])
     os.chdir('gitian-builder')
