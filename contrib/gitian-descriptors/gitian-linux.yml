@@ -12,6 +12,7 @@ packages:
 - "gcc-7-aarch64-linux-gnu"
 - "binutils-aarch64-linux-gnu"
 - "g++-arm-linux-gnueabihf"
+- "g++-arm-linux-gnueabihf"
 - "g++-7-arm-linux-gnueabihf"
 - "gcc-7-arm-linux-gnueabihf"
 - "binutils-arm-linux-gnueabihf"
@@ -26,7 +27,7 @@ packages:
 - "faketime"
 - "bsdmainutils"
 - "ca-certificates"
-- "python"
+- "python3-zmq"
 remotes:
 - "url": "https://github.com/chaintope/tapyrus-core"
   "dir": "tapyrus-core"
