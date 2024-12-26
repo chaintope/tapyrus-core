@@ -31,18 +31,18 @@ def setup():
     # if not os.path.isdir('bitcoin-detached-sigs'):
     #     subprocess.check_call(['git', 'clone', 'https://github.com/bitcoin-core/bitcoin-detached-sigs.git'])
     if not os.path.isdir('gitian-builder'):
-        subprocess.check_call(['git', 'clone', 'https://github.com/devrandom/gitian-builder.git'])
+        subprocess.check_call(['git', 'clone', 'https://github.com/chaintope/gitian-builder.git'])
     if not os.path.isdir('tapyrus-core'):
         subprocess.check_call(['git', 'clone', 'https://github.com/chaintope/tapyrus-core.git'])
     os.chdir('gitian-builder')
-    make_image_prog = ['bin/make-base-vm', '--suite', 'bionic', '--arch', 'amd64']
+    make_image_prog = ['bin/make-base-vm', '--suite', 'jammy', '--arch', 'amd64']
     if args.docker:
         make_image_prog += ['--docker']
     elif not args.kvm:
         make_image_prog += ['--lxc']
     subprocess.check_call(make_image_prog)
     os.chdir(workdir)
-    if args.is_bionic and not args.kvm and not args.docker:
+    if args.is_jammy and not args.kvm and not args.docker:
         subprocess.check_call(['sudo', 'sed', '-i', 's/lxcbr0/br0/', '/etc/default/lxc-net'])
         print('Reboot is required')
         sys.exit(0)
@@ -176,7 +176,7 @@ def main():
     args = parser.parse_args()
     workdir = os.getcwd()
 
-    args.is_bionic = b'bionic' in subprocess.check_output(['lsb_release', '-cs'])
+    args.is_jammy = b'jammy' in subprocess.check_output(['lsb_release', '-cs'])
 
     if args.kvm and args.docker:
         raise Exception('Error: cannot have both kvm and docker')

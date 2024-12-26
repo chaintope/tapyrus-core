@@ -1,7 +1,7 @@
 ---
 name: "tapyrus-core-dmg-signer"
 suites:
-- "bionic"
+- "jammy"
 architectures:
 - "amd64"
 packages:

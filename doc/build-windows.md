@@ -5,7 +5,7 @@ Below are some notes on how to build Tapyrus Core for Windows.
 
 The options known to work for building Tapyrus Core on Windows are:
 
-* On Linux using the [Mingw-w64](https://mingw-w64.org/doku.php) cross compiler tool chain. Ubuntu Bionic 18.04 is required
+* On Linux using the [Mingw-w64](https://mingw-w64.org/doku.php) cross compiler tool chain. Ubuntu Jammy 22.04 is required
 and is the platform used to build the Tapyrus Core Windows release binaries.
 * On Windows using [Windows
 Subsystem for Linux (WSL)](https://msdn.microsoft.com/commandline/wsl/about) and the Mingw-w64 cross compiler tool chain.
