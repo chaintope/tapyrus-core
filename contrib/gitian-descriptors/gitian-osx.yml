@@ -28,6 +28,7 @@ packages:
 - "python3-setuptools"
 - "fonts-tuffy"
 - "xorriso"
+- "libtinfo5"
 remotes:
 - "url": "https://github.com/chaintope/tapyrus-core"
   "dir": "tapyrus-core"
