@@ -6,7 +6,6 @@ $(1)_objc=$$($$($(1)_type)_OBJC)
 $(1)_objcxx=$$($$($(1)_type)_OBJCXX)
 $(1)_ar=$$($$($(1)_type)_AR)
 $(1)_ranlib=$$($$($(1)_type)_RANLIB)
-$(1)_libtool=$$($$($(1)_type)_LIBTOOL)
 $(1)_nm=$$($$($(1)_type)_NM)
 $(1)_cflags=$$($$($(1)_type)_CFLAGS) \
             $$($$($(1)_type)_$$(release_type)_CFLAGS)
@@ -47,7 +46,7 @@ endef
 
 define int_get_build_id
 $(eval $(1)_dependencies += $($(1)_$(host_arch)_$(host_os)_dependencies) $($(1)_$(host_os)_dependencies))
-$(eval $(1)_all_dependencies:=$(call int_get_all_dependencies,$(1),$($($(1)_type)_native_toolchain) $($(1)_dependencies)))
+$(eval $(1)_all_dependencies:=$(call int_get_all_dependencies,$(1),$($(1)_dependencies)))
 $(foreach dep,$($(1)_all_dependencies),$(eval $(1)_build_id_deps+=$(dep)-$($(dep)_version)-$($(dep)_recipe_hash)))
 $(eval $(1)_build_id_long:=$(1)-$($(1)_version)-$($(1)_recipe_hash)-$(release_type) $($(1)_build_id_deps) $($($(1)_type)_id))
 $(eval $(1)_build_id:=$(shell echo -n "$($(1)_build_id_long)" | $(build_SHA256SUM) | cut -c-$(HASH_LENGTH)))
@@ -85,7 +84,7 @@ $(1)_download_path_fixed=$(subst :,\:,$$($(1)_download_path))
 #default commands
 # The default behavior for tar will try to set ownership when running as uid 0 and may not succeed, --no-same-owner disables this behavior
 $(1)_fetch_cmds ?= $(call fetch_file,$(1),$(subst \:,:,$$($(1)_download_path_fixed)),$$($(1)_download_file),$($(1)_file_name),$($(1)_sha256_hash))
-$(1)_extract_cmds ?= mkdir -p $$($(1)_extract_dir) && echo "$$($(1)_sha256_hash)  $$($(1)_source)" > $$($(1)_extract_dir)/.$$($(1)_file_name).hash &&  $(build_SHA256SUM) -c $$($(1)_extract_dir)/.$$($(1)_file_name).hash && tar --strip-components=1 -xf $$($(1)_source)
+$(1)_extract_cmds ?= mkdir -p $$($(1)_extract_dir) && echo "$$($(1)_sha256_hash)  $$($(1)_source)" > $$($(1)_extract_dir)/.$$($(1)_file_name).hash &&  $(build_SHA256SUM) -c $$($(1)_extract_dir)/.$$($(1)_file_name).hash && tar --no-same-owner --strip-components=1 -xf $$($(1)_source)
 $(1)_preprocess_cmds ?= true
 $(1)_build_cmds ?= true
 $(1)_config_cmds ?= true
@@ -213,7 +212,7 @@ $($(1)_preprocessed): | $($(1)_extracted)
 	touch $$@
 $($(1)_configured): | $($(1)_dependencies) $($(1)_preprocessed)
 	echo Configuring $(1)...
-	rm -rf $(host_prefix); mkdir -p $(host_prefix)/lib; cd $(host_prefix); $(foreach package,$($(1)_all_dependencies), tar -xf $($(package)_cached); )
+	rm -rf $(host_prefix); mkdir -p $(host_prefix)/lib; cd $(host_prefix); $(foreach package,$($(1)_all_dependencies), tar --no-same-owner -xf $($(package)_cached); )
 	mkdir -p $$($(1)_build_dir)
 	+{ cd $$($(1)_build_dir); export $($(1)_config_env); $($(1)_config_cmds); } $$($(1)_logging)
 	touch $$@
@@ -288,5 +287,3 @@ $(foreach package,$(all_packages),$(eval $(call int_config_attach_build_config,$
 #create build targets
 $(foreach package,$(all_packages),$(eval $(call int_add_cmds,$(package))))
 
-#special exception: if a toolchain package exists, all non-native packages depend on it
-$(foreach package,$(packages),$(eval $($(package)_extracted): |$($($(host_arch)_$(host_os)_native_toolchain)_cached) ))
