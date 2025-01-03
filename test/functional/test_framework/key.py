@@ -14,7 +14,7 @@ import ctypes.util
 import hashlib
 
 
-ssl = ctypes.cdll.LoadLibrary(ctypes.util.find_library ('pycrypt'))
+ssl = ctypes.cdll.LoadLibrary(ctypes.util.find_library ('ssl'))
 
 
 ssl.BN_new.restype = ctypes.c_void_p

@@ -459,7 +459,7 @@ tapyrusd_LDADD = \
   $(LIBMEMENV) \
   $(LIBSECP256K1)
 
-tapyrusd_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS)
+tapyrusd_LDADD += $(BDB_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS)
 
 # tapyrus-cli binary #
 tapyrus_cli_SOURCES = tapyrus-cli.cpp
@@ -481,7 +481,7 @@ tapyrus_cli_LDADD = \
   $(LIBBITCOIN_CONSENSUS)
   
 
-tapyrus_cli_LDADD += $(BOOST_LIBS) $(EVENT_LIBS)
+tapyrus_cli_LDADD += $(EVENT_LIBS)
 #
 
 # tapyrus-tx binary #
@@ -502,8 +502,6 @@ tapyrus_tx_LDADD = \
   $(LIBBITCOIN_CRYPTO) \
   $(LIBSECP256K1)
 
-tapyrus_tx_LDADD += $(BOOST_LIBS)
-#
 
 # tapyrus-genesis binary #
 tapyrus_genesis_SOURCES = tapyrus-genesis.cpp
@@ -526,7 +524,7 @@ tapyrus_genesis_LDADD = \
   $(LIBLEVELDB) \
   $(LIBMEMENV)
 
-tapyrus_genesis_LDADD += $(BOOST_LIBS) $(BDB_LIBS)
+tapyrus_genesis_LDADD += $(BDB_LIBS)
 #
 
 # tapyrusconsensus library #

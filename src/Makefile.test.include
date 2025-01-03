@@ -123,7 +123,7 @@ test_test_tapyrus_LDADD += $(LIBBITCOIN_WALLET)
 endif
 
 test_test_tapyrus_LDADD += $(LIBBITCOIN_SERVER) $(LIBBITCOIN_CLI) $(LIBBITCOIN_COMMON) $(LIBBITCOIN_UTIL) $(LIBBITCOIN_CONSENSUS) $(LIBBITCOIN_CRYPTO) $(LIBUNIVALUE) \
-  $(LIBLEVELDB) $(LIBLEVELDB_SSE42) $(LIBMEMENV) $(BOOST_LIBS) $(BOOST_UNIT_TEST_FRAMEWORK_LIB) $(LIBSECP256K1) $(EVENT_LIBS) $(EVENT_PTHREADS_LIBS)
+  $(LIBLEVELDB) $(LIBLEVELDB_SSE42) $(LIBMEMENV) $(LIBSECP256K1) $(EVENT_LIBS) $(EVENT_PTHREADS_LIBS)
 test_test_tapyrus_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 
 test_test_tapyrus_LDADD += $(BDB_LIBS) $(MINIUPNPC_LIBS)
@@ -152,7 +152,7 @@ test_test_tapyrus_fuzzy_LDADD = \
   $(LIBBITCOIN_CRYPTO_SHANI) \
   $(LIBSECP256K1)
 
-test_test_tapyrus_fuzzy_LDADD += $(BOOST_LIBS) $(CRYPTO_LIBS)
+test_test_tapyrus_fuzzy_LDADD += $(CRYPTO_LIBS)
 #
 
 nodist_test_test_tapyrus_SOURCES = $(GENERATED_TEST_FILES)
@@ -180,8 +180,19 @@ check-local: $(BITCOIN_TESTS:.cpp=.cpp.test)
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C univalue check
 
 %.cpp.test: %.cpp
-	@echo Running tests: `cat $< | grep -E "(BOOST_FIXTURE_TEST_SUITE\\(|BOOST_AUTO_TEST_SUITE\\()" | cut -d '(' -f 2 | cut -d ',' -f 1 | cut -d ')' -f 1` from $<
-	$(AM_V_at)$(TEST_BINARY) -l test_suite -t "`cat $< | grep -E "(BOOST_FIXTURE_TEST_SUITE\\(|BOOST_AUTO_TEST_SUITE\\()" | cut -d '(' -f 2 | cut -d ',' -f 1 | cut -d ')' -f 1`" > $<.log 2>&1 || (cat $<.log && false)
+	@echo Running tests: $$(\
+	  cat $< | \
+	  grep -E "(BOOST_FIXTURE_TEST_SUITE\\(|BOOST_AUTO_TEST_SUITE\\()" | \
+	  cut -d '(' -f 2 | cut -d ',' -f 1 | cut -d ')' -f 1\
+	) from $<
+	$(AM_V_at)export TEST_LOGFILE=$(abs_builddir)/$$(\
+	  echo $< | grep -E -o "(wallet/test/.*\.cpp|test/.*\.cpp)" | $(SED) -e s/\.cpp/.log/ \
+	) && \
+	$(TEST_BINARY) --catch_system_errors=no -l test_suite -t "$$(\
+	  cat $< | \
+	  grep -E "(BOOST_FIXTURE_TEST_SUITE\\(|BOOST_AUTO_TEST_SUITE\\()" | \
+	  cut -d '(' -f 2 | cut -d ',' -f 1 | cut -d ')' -f 1\
+	)" -- DEBUG_LOG_OUT > "$$TEST_LOGFILE" 2>&1 || (cat "$$TEST_LOGFILE" && false)
 
 %.json.h: %.json
 	@$(MKDIR_P) $(@D)

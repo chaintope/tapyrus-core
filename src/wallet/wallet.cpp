@@ -4029,11 +4029,11 @@ bool CWallet::Verify(std::string wallet_file, bool salvage_wallet, std::string& 
     LOCK(cs_wallets);
     fs::path wallet_path = fs::path(GetWalletDir() / fs::path(wallet_file));
     fs::file_type path_type = fs::symlink_status(wallet_path).type();
-    if (!(path_type == fs::file_not_found ||
-          path_type == fs::directory_file ||
-         (path_type == fs::symlink_file && fs::is_directory(wallet_path)) ||
-         (path_type == fs::regular_file && fs::path(wallet_file).filename() == wallet_file))) {
-        error_string = strprintf(
+    if (!(path_type == std::filesystem::file_type::not_found ||
+          path_type == std::filesystem::file_type::directory ||
+          (path_type == std::filesystem::file_type::symlink && std::filesystem::is_directory(wallet_path)) ||
+          (path_type == std::filesystem::file_type::regular && std::filesystem::path(wallet_file).filename() == wallet_file))) {
+              error_string = strprintf(
               "Invalid -wallet path '%s'. -wallet path should point to a directory where wallet.dat and "
               "database/log.?????????? files can be stored, a location where such a directory could be created, "
               "or (for backwards compatibility) the name of an existing data file in -walletdir (%s)",
