@@ -80,7 +80,9 @@ To get `MacOSX10.15.sdk.tar.gz`:
 4. `$ python3 apple-sdk-tools/extract_xcode.py -f Xcode_11.3.1.xip | cpio -d -i`
 5. After that, `Xcode.app` dir has been created, and the Xcode data has been extracted.
 6. Check sdk version via `$ls Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/`.
-7. `$ tar -C Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/ -czf MacOSX10.15.sdk.tar.gz MacOSX10.15.sdk`
+7. `$ rm Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.sdk`
+8. `$ mv Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.sdk`
+9. `$ tar -C Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/ -czf MacOSX10.15.sdk.tar.gz MacOSX10.15.sdk`
 
 ### Build binaries
 
