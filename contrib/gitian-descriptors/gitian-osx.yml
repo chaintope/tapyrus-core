@@ -36,7 +36,7 @@ files:
 - "MacOSX13.3.sdk.tar.gz"
 script: |
   WRAP_DIR=$HOME/wrapped
-  HOSTS="x86_64-apple-darwin19"
+  HOSTS="x86_64-apple-darwin22"
   CONFIGFLAGS="--enable-reduce-exports --disable-bench --disable-gui-tests
   XORRISOFS=${WRAP_DIR}/xorrisofs DMG=${WRAP_DIR}/dmg"
   FAKETIME_HOST_PROGS=""
