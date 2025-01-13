@@ -1616,26 +1616,26 @@ void CWalletTx::GetAmounts(std::list<COutputEntry>& listReceived,
     listSent.clear();
     strSentAccount = strFromAccount;
 
+    // Compute fee:
+    CAmount nDebit = GetDebit(filter, ColorIdentifier());
+    if (nDebit > 0) // debit>0 means we signed/sent this transaction
+    {
+        CAmount nValueOut = tx->GetValueOut(ColorIdentifier());
+        nFee = nDebit - nValueOut;
+    }
+
     // Sent/received.
     for (unsigned int i = 0; i < tx->vout.size(); ++i)
     {
         const CTxOut& txout = tx->vout[i];
         isminetype fIsMine = pwallet->IsMine(txout);
 
-        ColorIdentifier colorId(GetColorIdFromScript(txout.scriptPubKey));
-        // Compute fee:
-        CAmount nDebit = GetDebit(filter, colorId);
-        if (nDebit > 0 && colorId.type == TokenTypes::NONE) // debit>0 means we signed/sent this transaction
-        {
-            CAmount nValueOut = tx->GetValueOut(colorId);
-            nFee = nDebit - nValueOut;
-        }
-        
         // Only need to handle txouts if AT LEAST one of these is true:
         //   1) they debit from us (sent)
         //   2) the output is to us (received)
-        if (nDebit > 0)
-        {
+        ColorIdentifier colorId(GetColorIdFromScript(txout.scriptPubKey));
+        CAmount nDebit = GetDebit(filter, colorId);
+        if (nDebit > 0) {
             // Don't report 'change' txouts
             if (pwallet->IsChange(txout))
                 continue;
