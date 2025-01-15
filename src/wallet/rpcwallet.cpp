@@ -1347,6 +1347,7 @@ static void ListTransactions(CWallet* const pwallet, const CWalletTx& wtx, int n
     std::list<COutputEntry> listSent;
 
     wtx.GetAmounts(listReceived, listSent, nFee, strSentAccount, filter);
+    bool feeAdded = false;
 
     bool involvesWatchonly = wtx.IsFromMe(ISMINE_WATCH_ONLY);
 
@@ -1369,6 +1370,7 @@ static void ListTransactions(CWallet* const pwallet, const CWalletTx& wtx, int n
             }
             entry.pushKV("vout", s.vout);
             entry.pushKV("fee", ValueFromAmount(-nFee));
+            feeAdded = true;
             if (fLong)
                 WalletTxToJSON(wtx, entry);
             entry.pushKV("abandoned", wtx.isAbandoned());
@@ -1408,6 +1410,8 @@ static void ListTransactions(CWallet* const pwallet, const CWalletTx& wtx, int n
                 entry.pushKV("label", account);
             }
             entry.pushKV("vout", r.vout);
+            if(!feeAdded)
+                entry.pushKV("fee", ValueFromAmount(-nFee));
             if (fLong)
                 WalletTxToJSON(wtx, entry);
             ret.push_back(entry);
