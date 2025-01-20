@@ -327,7 +327,7 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         #get block reward
         blockData = self.nodes[0].getblock(new_block)
-        blockReward = self.nodes[0].gettransaction(blockData['tx'][0])['amount']
+        blockReward = self.nodes[0].gettransaction(blockData['tx'][0])['details'][0]['amount']
 
         assert_equal(self.nodes[0].getbalance(), bal+blockReward+Decimal('2.19000000')) #block reward + tx
 
@@ -381,7 +381,7 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         #get block reward
         blockData = self.nodes[0].getblock(new_block)
-        blockReward = self.nodes[0].gettransaction(blockData['tx'][0])['amount']
+        blockReward = self.nodes[0].gettransaction(blockData['tx'][0])['details'][0]['amount']
 
         assert_equal(self.nodes[0].getbalance(), bal+blockReward+Decimal('2.19000000')) #block reward + tx
 

@@ -46,7 +46,7 @@ class TxnMallTest(BitcoinTestFramework):
         node0_tx2 = self.nodes[0].gettransaction(node0_txid2)
 
         assert_equal(self.nodes[0].getbalance(),
-                     starting_balance + node0_tx1["fee"] + node0_tx2["fee"])
+                     starting_balance + node0_tx1['details'][0]["fee"] + node0_tx2['details'][0]["fee"])
 
         # Coins are sent to node1_address
         node1_address = self.nodes[1].getnewaddress()
@@ -93,14 +93,14 @@ class TxnMallTest(BitcoinTestFramework):
         # no  mine_block : balance_upto_heree, minus tx1 and tx2 amounts, and minus transaction fees
         # '+' and '-' used below depending on whether the utxo in the is credit or debit. 
         # fee and amount paid from the wallet are represented as negative balances
-        expected = starting_balance + node0_tx1["fee"] + node0_tx2["fee"]
-        expected += tx1["amount"] + tx1["fee"]
-        expected += tx2["amount"] + tx2["fee"]
+        expected = starting_balance + node0_tx1['details'][0]["fee"] + node0_tx2['details'][0]["fee"]
+        expected += tx1['details'][0]["amount"] + tx1['details'][0]["fee"]
+        expected += tx2['details'][0]["amount"] + tx2['details'][0]["fee"]
         if self.options.mine_block:
-            expected += 50 -  tx1["fee"] - tx2["fee"] -  node0_tx1["fee"] - node0_tx2["fee"]
+            expected += 50 -  tx1['details'][0]["fee"] - tx2['details'][0]["fee"] -  node0_tx1['details'][0]["fee"] - node0_tx2['details'][0]["fee"]
             block = self.nodes[0].getblock(self.nodes[0].getbestblockhash(), 1)
             coinbase = self.nodes[0].gettransaction(block['tx'][0])
-            assert_equal(coinbase['amount'], 50 -  node0_tx1["fee"] - node0_tx2["fee"] - tx1["fee"] - tx2["fee"])
+            assert_equal(coinbase['details'][0]['amount'], 50 -  node0_tx1['details'][0]["fee"] - node0_tx2['details'][0]["fee"] - tx1['details'][0]["fee"] - tx2['details'][0]["fee"])
         assert_equal(self.nodes[0].getbalance(), expected)
 
         if self.options.mine_block:
@@ -121,7 +121,7 @@ class TxnMallTest(BitcoinTestFramework):
 
         #get its block reward
         blockData = self.nodes[2].getblock(new_block)
-        blockReward = self.nodes[2].gettransaction(blockData['tx'][0])['amount']
+        blockReward = self.nodes[2].gettransaction(blockData['tx'][0])['details'][0]['amount']
 
         # Reconnect the split network, and sync chain:
         connect_nodes(self.nodes[1], 2)
@@ -131,7 +131,7 @@ class TxnMallTest(BitcoinTestFramework):
         sync_blocks(self.nodes)
 
         blockData = self.nodes[2].getblock(new_block)
-        blockReward += self.nodes[2].gettransaction(blockData['tx'][0])['amount']
+        blockReward += self.nodes[2].gettransaction(blockData['tx'][0])['details'][0]['amount']
 
         # Re-fetch transaction info:
         tx1 = self.nodes[0].gettransaction(txid1)
@@ -150,7 +150,7 @@ class TxnMallTest(BitcoinTestFramework):
         # Check node0's total balance; should be same as before the clone
         # less possible orphaned matured subsidy
         if (self.options.mine_block):
-            expected -= 50 -  tx1["fee"] - tx2["fee"] -  node0_tx1["fee"] - node0_tx2["fee"]
+            expected -= 50 -  tx1['details'][0]["fee"] - tx2['details'][0]["fee"] -  node0_tx1['details'][0]["fee"] - node0_tx2['details'][0]["fee"]
         assert_equal(self.nodes[0].getbalance(), expected)
         # node1 should have +60 from tx1["amount"] and tx2["amount"]
         assert_equal(self.nodes[1].getbalance(), starting_balance + 60)

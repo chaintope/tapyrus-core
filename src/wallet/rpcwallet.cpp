@@ -1347,6 +1347,7 @@ static void ListTransactions(CWallet* const pwallet, const CWalletTx& wtx, int n
     std::list<COutputEntry> listSent;
 
     wtx.GetAmounts(listReceived, listSent, nFee, strSentAccount, filter);
+    bool feeAdded = false;
 
     bool involvesWatchonly = wtx.IsFromMe(ISMINE_WATCH_ONLY);
 
@@ -1369,6 +1370,7 @@ static void ListTransactions(CWallet* const pwallet, const CWalletTx& wtx, int n
             }
             entry.pushKV("vout", s.vout);
             entry.pushKV("fee", ValueFromAmount(-nFee));
+            feeAdded = true;
             if (fLong)
                 WalletTxToJSON(wtx, entry);
             entry.pushKV("abandoned", wtx.isAbandoned());
@@ -1408,6 +1410,8 @@ static void ListTransactions(CWallet* const pwallet, const CWalletTx& wtx, int n
                 entry.pushKV("label", account);
             }
             entry.pushKV("vout", r.vout);
+            if(!feeAdded)
+                entry.pushKV("fee", ValueFromAmount(-nFee));
             if (fLong)
                 WalletTxToJSON(wtx, entry);
             ret.push_back(entry);
@@ -1705,9 +1709,6 @@ static UniValue gettransaction(const JSONRPCRequest& request)
             "2. \"include_watchonly\"     (bool, optional, default=false) Whether to include watch-only addresses in balance calculation and details[]\n"
             "\nResult:\n"
             "{\n"
-            "  \"amount\" : x.xxx,        (numeric) The transaction amount in " + CURRENCY_UNIT + "\n"
-            "  \"fee\": x.xxx,            (numeric) The amount of the fee in " + CURRENCY_UNIT + ". This is negative and only available for the \n"
-            "                              'send' category of transactions.\n"
             "  \"confirmations\" : n,     (numeric) The number of confirmations\n"
             "  \"blockhash\" : \"hash\",  (string) The block hash\n"
             "  \"blockindex\" : xx,       (numeric) The index of the transaction in the block that includes it\n"
@@ -1721,7 +1722,8 @@ static UniValue gettransaction(const JSONRPCRequest& request)
             "    {\n"
             "      \"address\" : \"address\",          (string) The tapyrus address involved in the transaction\n"
             "      \"category\" : \"send|receive\",    (string) The category, either 'send' or 'receive'\n"
-            "      \"amount\" : x.xxx,                 (numeric) The amount in " + CURRENCY_UNIT + "\n"
+            "      \"token\" : \"token\",              (string) color of the token involved. either "+ CURRENCY_UNIT +" or colorid\n"
+            "      \"amount\" : x.xxx,                 (numeric) The amount involved\n"
             "      \"label\" : \"label\",              (string) A comment for the address/transaction, if any\n"
             "      \"vout\" : n,                       (numeric) the vout value\n"
             "      \"fee\": x.xxx,                     (numeric) The amount of the fee in " + CURRENCY_UNIT + ". This is negative and only available for the \n"
@@ -1761,24 +1763,6 @@ static UniValue gettransaction(const JSONRPCRequest& request)
     }
     const CWalletTx& wtx = it->second;
 
-    std::set<ColorIdentifier> txColorIdSet{ColorIdentifier()};
-    for(auto iter = wtx.nCreditCached.begin(); iter != wtx.nCreditCached.end(); iter++)
-        txColorIdSet.insert(iter->first);
-    for(auto iter = wtx.nDebitCached.begin(); iter != wtx.nDebitCached.end(); iter++)
-        txColorIdSet.insert(iter->first);
-
-    for(auto &colorId:txColorIdSet)
-    {
-        CAmount nCredit = wtx.GetCredit(filter, colorId);
-        CAmount nDebit = wtx.GetDebit(filter, colorId);
-        CAmount nNet = nCredit - nDebit;
-        CAmount nFee = (wtx.IsFromMe(filter) ? wtx.tx->GetValueOut(colorId) - nDebit : 0);
-
-        entry.pushKV("token", colorId.toHexString());
-        entry.pushKV("amount", (colorId.type == TokenTypes::NONE) ? ValueFromAmount(nNet - nFee) : nNet);
-        entry.pushKV("fee", ValueFromAmount(nFee));
-        
-    }
     WalletTxToJSON(wtx, entry);
 
     UniValue details(UniValue::VARR);

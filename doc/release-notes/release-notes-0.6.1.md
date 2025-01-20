@@ -1,29 +1,29 @@
 Tapyrus version 0.6.0 is now available for download at:
-https://github.com/chaintope/tapyrus-core/releases/tag/v0.6.0
+https://github.com/chaintope/tapyrus-core/releases/tag/v0.6.1
 
 Please report bugs using the issue tracker at github:
 https://github.com/chaintope/tapyrus-core/issues
 
 Project source code is hosted at github; you can get
 source-only tarballs/zipballs directly from there:
-https://github.com/chaintope/tapyrus-core/tarball/v0.6.0
+https://github.com/chaintope/tapyrus-core/tarball/v0.6.1
 
 
 How to Upgrade
 ==============
 
 It is recommended to upgrade all older nodes to the latest release as it contains fixes to vulnerabilities. If you are running a node on 
-tapyrus testnet follow the instruction in [getting_started](doc/tapyrus/getting_started.md#how-to-start-a-node-on-tapyrus-testnet) to start a new Tapyrus v0.6.0 node.
+tapyrus testnet follow the instruction in [getting_started](doc/tapyrus/getting_started.md#how-to-start-a-node-on-tapyrus-testnet) to start a new Tapyrus v0.6.1 node.
 
 If you are running a private tapyrus network using older versions of tapyrus-core release, shut it down. Wait until it has completely shut down. 
 Follow the instruction in [getting_started](doc/tapyrus/getting_started.md#how-to-start-a-new-tapyrus-network) to sart a new Tapyrus v0.6.0 network. Tapyrus blockchain created by older versions, before v0.5.0 
-are not compatible with v0.6.0 because of the absence of xfield in the block header. But blockchain created by v0.5.0, v0.5.1 and v0.5.2 is compatible 
-with v0.6.0.
+are not compatible with v0.6.1 because of the absence of xfield in the block header. But blockchain created by v0.5.0, v0.5.1 and v0.5.2 is compatible 
+with v0.6.1.
 
 Downgrading warning
 -------------------
 
-If you upgrade to a node running v0.6.0 and need to switch back to an older version, the blockchain and chainstate on the node are backward compatible as 
+If you upgrade to a node running v0.6.1 and need to switch back to an older version, the blockchain and chainstate on the node are backward compatible as 
 long as **no xfield change** was mode in the network.
 
 Dynamic Block size
@@ -45,9 +45,9 @@ block with the old block size needs to be created. This needs to follow the sign
 Compatibility
 -------------
 
-Tapyrus v0.6.0 is supported on three platforms, Linux, MacOS and Windows(WSL) in two CPU architectures namely x86_x64 and arm64(aarch64)
+Tapyrus v0.6.1 is supported on Linux platform in two CPU architectures namely x86_x64 and arm64(aarch64)
 
-0.6.0 change log
+0.6.1 change log
 ================
 
 *General improvements*
@@ -72,6 +72,7 @@ Tapyrus v0.6.0 is supported on three platforms, Linux, MacOS and Windows(WSL) in
 
 *Bug fixes*
 - [PR275](https://github.com/chaintope/tapyrus-core/pull/275) Fix crash in reloadxfield/ reindex crash
+- [PR328](https://github.com/chaintope/tapyrus-core/pull/328) Fix fee output in get transaction rpc output
 
 *RPC*
 
