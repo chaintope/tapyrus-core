@@ -1,4 +1,4 @@
-Tapyrus version 0.6.0 is now available for download at:
+Tapyrus version 0.6.1 is now available for download at:
 https://github.com/chaintope/tapyrus-core/releases/tag/v0.6.1
 
 Please report bugs using the issue tracker at github:
@@ -16,7 +16,7 @@ It is recommended to upgrade all older nodes to the latest release as it contain
 tapyrus testnet follow the instruction in [getting_started](doc/tapyrus/getting_started.md#how-to-start-a-node-on-tapyrus-testnet) to start a new Tapyrus v0.6.1 node.
 
 If you are running a private tapyrus network using older versions of tapyrus-core release, shut it down. Wait until it has completely shut down. 
-Follow the instruction in [getting_started](doc/tapyrus/getting_started.md#how-to-start-a-new-tapyrus-network) to sart a new Tapyrus v0.6.0 network. Tapyrus blockchain created by older versions, before v0.5.0 
+Follow the instruction in [getting_started](doc/tapyrus/getting_started.md#how-to-start-a-new-tapyrus-network) to start a new Tapyrus v0.6.1 network. Tapyrus blockchain created by older versions, before v0.5.0 
 are not compatible with v0.6.1 because of the absence of xfield in the block header. But blockchain created by v0.5.0, v0.5.1 and v0.5.2 is compatible 
 with v0.6.1.
 
