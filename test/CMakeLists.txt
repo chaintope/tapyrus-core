@@ -18,9 +18,9 @@ if(NOT BUILD_TAPYRUS_ZMQ)
 	set(ENABLE_ZMQ_TRUE "#")
 endif()
 
-# Create build ini file
-configure_file(config.ini.in config.ini @ONLY)
-
+# Create build ini file in build and source dir
+configure_file(config.ini.in config.ini USE_SOURCE_PERMISSIONS @ONLY)
+configure_file(config.ini.in ${abs_top_srcdir}/test/config.ini USE_SOURCE_PERMISSIONS @ONLY)
 
 ###
 # Setup symlinks for testing

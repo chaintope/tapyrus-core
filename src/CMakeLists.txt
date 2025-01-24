@@ -1,21 +1,5 @@
 # Copyright (c) 2018 The Bitcoin developers
 
-cmake_minimum_required(VERSION 3.5)
-project(Tapyrus)
-
-set(CMAKE_CXX_STANDARD 11)
-
-# Default visibility is hidden on all targets.
-set(CMAKE_C_VISIBILITY_PRESET hidden)
-set(CMAKE_CXX_VISIBILITY_PRESET hidden)
-
-option(BUILD_TAPYRUS_WALLET "Activate the wallet functionality" ON)
-option(BUILD_TAPYRUS_ZMQ "Activate the ZeroMQ functionalities" ON)
-option(BUILD_TAPYRUS_SEEDER "Build tapyrus-seeder" ON)
-option(BUILD_TAPYRUS_CLI "Build tapyrus-cli" ON)
-option(BUILD_TAPYRUS_GENESIS "Build tapyrus-genesis" ON)
-option(BUILD_TAPYRUS_TX "Build tapyrus-tx" ON)
-option(ENABLE_QRCODE "Build QR support in wallet" OFF)
 
 # Ensure that WINDRES_PREPROC is enabled when using windres.
 if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
@@ -155,6 +139,7 @@ add_library(tapyrusconsensus
         hash.cpp
         primitives/block.cpp
         primitives/transaction.cpp
+        primitives/xfield.cpp
         pubkey.cpp
         script/tapyrusconsensus.cpp
         script/interpreter.cpp
@@ -223,15 +208,18 @@ add_library(server
 find_package(Event REQUIRED)
 find_package(UPNP REQUIRED)
 
-target_include_directories(server PRIVATE leveldb/helpers/memenv)
-
 target_link_libraries(server
         Event
         tapyrusconsensus
         leveldb
-        memenv
         ${UPNP_LIBRARY}
         )
+
+target_include_directories(common
+        PUBLIC
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/leveldb/include>
+)
+target_include_directories(server PUBLIC leveldb/helpers/memenv)
 
 # Test suite.
 add_subdirectory(test)
@@ -300,5 +288,3 @@ endif()
 if(BUILD_TAPYRUS_QT)
     add_subdirectory(qt)
 endif()
-
-message(STATUS "BUILD_TAPYRUS_QT=${BUILD_TAPYRUS_QT}")
