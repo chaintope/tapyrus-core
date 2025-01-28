@@ -13,10 +13,10 @@ How to Upgrade
 ==============
 
 It is recommended to upgrade all older nodes to the latest release as it contains fixes to vulnerabilities. If you are running a node on 
-tapyrus testnet follow the instruction in [getting_started](doc/tapyrus/getting_started.md#how-to-start-a-node-on-tapyrus-testnet) to start a new Tapyrus v0.6.1 node.
+tapyrus testnet follow the instruction in [getting_started](/doc/tapyrus/getting_started.md#how-to-start-a-node-on-tapyrus-testnet) to start a new Tapyrus v0.6.1 node.
 
 If you are running a private tapyrus network using older versions of tapyrus-core release, shut it down. Wait until it has completely shut down. 
-Follow the instruction in [getting_started](doc/tapyrus/getting_started.md#how-to-start-a-new-tapyrus-network) to start a new Tapyrus v0.6.1 network. Tapyrus blockchain created by older versions, before v0.5.0 
+Follow the instruction in [getting_started](/doc/tapyrus/getting_started.md#how-to-start-a-new-tapyrus-network) to start a new Tapyrus v0.6.1 network. Tapyrus blockchain created by older versions, before v0.5.0 
 are not compatible with v0.6.1 because of the absence of xfield in the block header. But blockchain created by v0.5.0, v0.5.1 and v0.5.2 is compatible 
 with v0.6.1.
 
@@ -33,7 +33,7 @@ This release allows the size of each block in a Tapyrus network to be increased 
 When the block size is changed using the xfield in a federation block, the new block size becomes the maximum limit for every block created thereafter. 
 A tapyrus node could create a block of upto the `MAX BLOCK SIZE` using the transactions in its mempool. Note that in order to sign blocks of the new 
 block size, the signer network needs to be upgraded too. The height and xfield value, in this case, _max block size_ are configured in the signer network. 
-This is essential to create the federation block. ALl xfields supported in Tapyrus are listed  [here ](doc/tapyrus/signedblocks.md).
+This is essential to create the federation block. ALl xfields supported in Tapyrus are listed [here ](/doc/tapyrus/signedblocks.md).
 
 _**Warning:**_ 
 - Ensure that all nodes in an older network are upgraded before attempting to change the block size limit. All older nodes reject blocks with
@@ -52,7 +52,8 @@ Tapyrus v0.6.1 is supported on Linux platform in two CPU architectures namely x8
 
 *General improvements*
 
-- [PR280](https://github.com/chaintope/tapyrus-core/pull/280), [PR281](https://github.com/chaintope/tapyrus-core/pull/281), Tracing of select tracepoints/events in a live tapyrus node is possible with this release. The list of all allowed tracepoints is listed [here](doc/tracing.md).
+- [PR280](https://github.com/chaintope/tapyrus-core/pull/280), [PR281](https://github.com/chaintope/tapyrus-core/pull/281), Tracing of select tracepoints/events in a live tapyrus node is possible with this release.
+  The list of all allowed tracepoints is listed [here](/doc/tracing.md).
 - [PR276](https://github.com/chaintope/tapyrus-core/pull/276) Improve stability of thread synchronization and mutexes used in tapyrus
 - [PR262](https://github.com/chaintope/tapyrus-core/pull/262) Check that uncompressed public keys are not accepted by tapyrus-genesis
 - [PR286](https://github.com/chaintope/tapyrus-core/pull/286) Block height is standardized across the code to 32 bit from 64 bit
@@ -80,7 +81,7 @@ Tapyrus v0.6.1 is supported on Linux platform in two CPU architectures namely x8
 
 *BUILD*
 
-- Use newer version of all dependencies as listed [here](doc/dependencies.md)
+- Use newer version of all dependencies as listed [here](/doc/dependencies.md)
   - [PR272](https://github.com/chaintope/tapyrus-core/pull/272) Upgrade leveldb to 1.23 release version
   - [PR249](https://github.com/chaintope/tapyrus-core/pull/249) Remove unused dependencies from Tapyrus-core
   - [PR250](https://github.com/chaintope/tapyrus-core/pull/250) upgrade boost to 1.81
