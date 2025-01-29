@@ -50,7 +50,6 @@ add_subdirectory(univalue)
 # Various completely unrelated features shared by all executables.
 add_library(util
         clientversion.cpp
-        compat/strnlen.cpp
         fs.cpp
         logging.cpp
         random.cpp
@@ -86,7 +85,7 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
 endif()
 
 # Boost packages
-set(BOOST_PACKAGES_REQUIRED filesystem program_options)
+set(BOOST_PACKAGES_REQUIRED filesystem)
 
 function(prepend var prefix)
     set(listVar "")
@@ -130,7 +129,7 @@ add_library(common
         xfieldhistory.cpp
         )
 
-target_link_libraries(common util secp256k1)
+target_link_libraries(common util secp256k1 tapyrusconsensus)
 
 # libtapyrusconsensus
 add_library(tapyrusconsensus
@@ -217,15 +216,19 @@ target_link_libraries(server
 
 target_include_directories(common
         PUBLIC
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/leveldb/include>
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/leveldb/include>
 )
 target_include_directories(server PUBLIC leveldb/helpers/memenv)
 
 # Test suite.
-add_subdirectory(test)
+if(BUILD_TEST)
+    add_subdirectory(test)
+endif()
 
 # Benchmark suite.
-add_subdirectory(bench)
+if(BUILD_BENCH)
+    add_subdirectory(bench)
+endif()
 
 # Wallet
 if(BUILD_TAPYRUS_WALLET)

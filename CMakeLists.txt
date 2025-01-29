@@ -36,7 +36,7 @@ project(Tapyrus
         VERSION ${CLIENT_VERSION_MAJOR}.${CLIENT_VERSION_MINOR}.${CLIENT_VERSION_BUILD}
         DESCRIPTION "Tapyrus client software"
         HOMEPAGE_URL "https://www.chaintope.com"
-        LANGUAGES NONE
+        LANGUAGES C CXX
 )
 
 set(CLIENT_VERSION_STRING ${PROJECT_VERSION})
@@ -57,10 +57,17 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND NOT CMAKE_HOST_APPLE)
     # So disable this tool check in further enable_language() commands.
     set(CMAKE_PLATFORM_HAS_INSTALLNAME FALSE)
 endif()
-enable_language(CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+# C standard can be overridden when this is used as a sub-project.
+if(NOT CMAKE_C_STANDARD)
+    # This project can use C11, but will gracefully decay down to C89.
+    set(CMAKE_C_STANDARD 11)
+    set(CMAKE_C_STANDARD_REQUIRED OFF)
+    set(CMAKE_C_EXTENSIONS OFF)
+endif(NOT CMAKE_C_STANDARD)
 
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/module)
 
@@ -81,6 +88,8 @@ option(BUILD_TAPYRUS_QT "Build tapyrus-qt" OFF)
 option(ENABLE_QRCODE "Build QR support in wallet" OFF)
 option(BUILD_TAPYRUS_WALLET "Activate the wallet functionality" ON)
 option(BUILD_TAPYRUS_ZMQ "Activate the ZeroMQ functionalities" ON)
+option(BUILD_TEST "Build tapyrus unit test" ON)
+option(BUILD_BENCH "Build benchmark" ON)
 
 # Add path for custom modules
 set(CMAKE_MODULE_PATH
@@ -131,7 +140,7 @@ message("  wallet support ...................... ${BUILD_TAPYRUS_WALLET}")
 message("  ZeroMQ .............................. ${BUILD_TAPYRUS_ZMQ}")
 message("  USDT tracing ........................ ${WITH_USDT}")
 message("Tests:")
-message("  test_tapyrus ........................ ${BUILD_TESTS}")
+message("  test_tapyrus ........................ ${BUILD_TEST}")
 message("  test_tapyrus-qt ..................... ${BUILD_GUI_TESTS}")
 message("  bench_tapyrus ....................... ${BUILD_BENCH}")
 message("")
@@ -142,6 +151,7 @@ else()
 endif()
 message("Cross compiling ....................... ${cross_status}")
 message("C++ compiler .......................... ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}, ${CMAKE_CXX_COMPILER}")
+message("C compiler .......................... ${CMAKE_C_COMPILER_ID} ${CMAKE_C_COMPILER_VERSION}, ${CMAKE_C_COMPILER}")
 include(FlagsSummary)
 flags_summary()
 message("Attempt to harden executables ......... ${ENABLE_HARDENING}")

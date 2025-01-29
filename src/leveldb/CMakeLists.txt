@@ -10,46 +10,46 @@ include(CheckCXXSymbolExists)
 check_cxx_symbol_exists(F_FULLFSYNC "fcntl.h" HAVE_FULLFSYNC)
 
 add_library(leveldb STATIC EXCLUDE_FROM_ALL
-        ${PROJECT_SOURCE_DIR}/leveldb/db/builder.cc
-        ${PROJECT_SOURCE_DIR}/leveldb/db/c.cc
-        ${PROJECT_SOURCE_DIR}/leveldb/db/db_impl.cc
-        ${PROJECT_SOURCE_DIR}/leveldb/db/db_iter.cc
-        ${PROJECT_SOURCE_DIR}/leveldb/db/dbformat.cc
-        ${PROJECT_SOURCE_DIR}/leveldb/db/dumpfile.cc
-        ${PROJECT_SOURCE_DIR}/leveldb/db/filename.cc
-        ${PROJECT_SOURCE_DIR}/leveldb/db/log_reader.cc
-        ${PROJECT_SOURCE_DIR}/leveldb/db/log_writer.cc
-        ${PROJECT_SOURCE_DIR}/leveldb/db/memtable.cc
-        ${PROJECT_SOURCE_DIR}/leveldb/db/repair.cc
-        ${PROJECT_SOURCE_DIR}/leveldb/db/table_cache.cc
-        ${PROJECT_SOURCE_DIR}/leveldb/db/version_edit.cc
-        ${PROJECT_SOURCE_DIR}/leveldb/db/version_set.cc
-        ${PROJECT_SOURCE_DIR}/leveldb/db/write_batch.cc
-        ${PROJECT_SOURCE_DIR}/leveldb/table/block.cc
-        ${PROJECT_SOURCE_DIR}/leveldb/table/block_builder.cc
-        ${PROJECT_SOURCE_DIR}/leveldb/table/filter_block.cc
-        ${PROJECT_SOURCE_DIR}/leveldb/table/format.cc
-        ${PROJECT_SOURCE_DIR}/leveldb/table/iterator.cc
-        ${PROJECT_SOURCE_DIR}/leveldb/table/merger.cc
-        ${PROJECT_SOURCE_DIR}/leveldb/table/table.cc
-        ${PROJECT_SOURCE_DIR}/leveldb/table/table_builder.cc
-        ${PROJECT_SOURCE_DIR}/leveldb/table/two_level_iterator.cc
-        ${PROJECT_SOURCE_DIR}/leveldb/util/arena.cc
-        ${PROJECT_SOURCE_DIR}/leveldb/util/bloom.cc
-        ${PROJECT_SOURCE_DIR}/leveldb/util/cache.cc
-        ${PROJECT_SOURCE_DIR}/leveldb/util/coding.cc
-        ${PROJECT_SOURCE_DIR}/leveldb/util/comparator.cc
-        ${PROJECT_SOURCE_DIR}/leveldb/util/crc32c.cc
-        ${PROJECT_SOURCE_DIR}/leveldb/util/env.cc
-        $<$<NOT:$<BOOL:${WIN32}>>:${PROJECT_SOURCE_DIR}/leveldb/util/env_posix.cc>
-        $<$<BOOL:${WIN32}>:${PROJECT_SOURCE_DIR}/leveldb/util/env_windows.cc>
-        ${PROJECT_SOURCE_DIR}/leveldb/util/filter_policy.cc
-        ${PROJECT_SOURCE_DIR}/leveldb/util/hash.cc
-        ${PROJECT_SOURCE_DIR}/leveldb/util/histogram.cc
-        ${PROJECT_SOURCE_DIR}/leveldb/util/logging.cc
-        ${PROJECT_SOURCE_DIR}/leveldb/util/options.cc
-        ${PROJECT_SOURCE_DIR}/leveldb/util/status.cc
-        ${PROJECT_SOURCE_DIR}/leveldb/helpers/memenv/memenv.cc
+        ${PROJECT_SOURCE_DIR}/src/leveldb/db/builder.cc
+        ${PROJECT_SOURCE_DIR}/src/leveldb/db/c.cc
+        ${PROJECT_SOURCE_DIR}/src/leveldb/db/db_impl.cc
+        ${PROJECT_SOURCE_DIR}/src/leveldb/db/db_iter.cc
+        ${PROJECT_SOURCE_DIR}/src/leveldb/db/dbformat.cc
+        ${PROJECT_SOURCE_DIR}/src/leveldb/db/dumpfile.cc
+        ${PROJECT_SOURCE_DIR}/src/leveldb/db/filename.cc
+        ${PROJECT_SOURCE_DIR}/src/leveldb/db/log_reader.cc
+        ${PROJECT_SOURCE_DIR}/src/leveldb/db/log_writer.cc
+        ${PROJECT_SOURCE_DIR}/src/leveldb/db/memtable.cc
+        ${PROJECT_SOURCE_DIR}/src/leveldb/db/repair.cc
+        ${PROJECT_SOURCE_DIR}/src/leveldb/db/table_cache.cc
+        ${PROJECT_SOURCE_DIR}/src/leveldb/db/version_edit.cc
+        ${PROJECT_SOURCE_DIR}/src/leveldb/db/version_set.cc
+        ${PROJECT_SOURCE_DIR}/src/leveldb/db/write_batch.cc
+        ${PROJECT_SOURCE_DIR}/src/leveldb/table/block.cc
+        ${PROJECT_SOURCE_DIR}/src/leveldb/table/block_builder.cc
+        ${PROJECT_SOURCE_DIR}/src/leveldb/table/filter_block.cc
+        ${PROJECT_SOURCE_DIR}/src/leveldb/table/format.cc
+        ${PROJECT_SOURCE_DIR}/src/leveldb/table/iterator.cc
+        ${PROJECT_SOURCE_DIR}/src/leveldb/table/merger.cc
+        ${PROJECT_SOURCE_DIR}/src/leveldb/table/table.cc
+        ${PROJECT_SOURCE_DIR}/src/leveldb/table/table_builder.cc
+        ${PROJECT_SOURCE_DIR}/src/leveldb/table/two_level_iterator.cc
+        ${PROJECT_SOURCE_DIR}/src/leveldb/util/arena.cc
+        ${PROJECT_SOURCE_DIR}/src/leveldb/util/bloom.cc
+        ${PROJECT_SOURCE_DIR}/src/leveldb/util/cache.cc
+        ${PROJECT_SOURCE_DIR}/src/leveldb/util/coding.cc
+        ${PROJECT_SOURCE_DIR}/src/leveldb/util/comparator.cc
+        ${PROJECT_SOURCE_DIR}/src/leveldb/util/crc32c.cc
+        ${PROJECT_SOURCE_DIR}/src/leveldb/util/env.cc
+        $<$<NOT:$<BOOL:${WIN32}>>:${PROJECT_SOURCE_DIR}/src/leveldb/util/env_posix.cc>
+        $<$<BOOL:${WIN32}>:${PROJECT_SOURCE_DIR}/src/leveldb/util/env_windows.cc>
+        ${PROJECT_SOURCE_DIR}/src/leveldb/util/filter_policy.cc
+        ${PROJECT_SOURCE_DIR}/src/leveldb/util/hash.cc
+        ${PROJECT_SOURCE_DIR}/src/leveldb/util/histogram.cc
+        ${PROJECT_SOURCE_DIR}/src/leveldb/util/logging.cc
+        ${PROJECT_SOURCE_DIR}/src/leveldb/util/options.cc
+        ${PROJECT_SOURCE_DIR}/src/leveldb/util/status.cc
+        ${PROJECT_SOURCE_DIR}/src/leveldb/helpers/memenv/memenv.cc
 )
 
 target_compile_definitions(leveldb
@@ -73,9 +73,9 @@ endif()
 
 target_include_directories(leveldb
         PRIVATE
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/leveldb>
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/leveldb>
         PUBLIC
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/leveldb/include>
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/leveldb/include>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
