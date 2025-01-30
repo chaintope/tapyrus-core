@@ -14,7 +14,6 @@
 #include <qt/transactionfilterproxy.h>
 #include <qt/transactiontablemodel.h>
 #include <qt/walletmodel.h>
-
 #include <QAbstractItemDelegate>
 #include <QPainter>
 
@@ -119,8 +118,6 @@ OverviewPage::OverviewPage(const PlatformStyle *platformStyle, QWidget *parent) 
 {
     ui->setupUi(this);
 
-    m_balances.balances[ColorIdentifier()] = -1;
-
     // use a SingleColorIcon for the "out of sync warning" icon
     QIcon icon = platformStyle->SingleColorIcon(":/icons/warning");
     icon.addPixmap(icon.pixmap(QSize(64,64), QIcon::Normal), QIcon::Disabled); // also set the disabled icon because we are using a disabled QPushButton to work around missing HiDPI support of QLabel (https://bugreports.qt.io/browse/QTBUG-42503)
@@ -139,6 +136,9 @@ OverviewPage::OverviewPage(const PlatformStyle *platformStyle, QWidget *parent) 
     showOutOfSyncWarning(true);
     connect(ui->labelWalletStatus, SIGNAL(clicked()), this, SLOT(handleOutOfSyncWarningClicks()));
     connect(ui->labelTransactionsStatus, SIGNAL(clicked()), this, SLOT(handleOutOfSyncWarningClicks()));
+    connect(ui->nextButton, SIGNAL(clicked()), this, SLOT(next()));
+    connect(ui->prevButton, SIGNAL(clicked()), this, SLOT(prev()));
+
 }
 
 void OverviewPage::handleTransactionClicked(const QModelIndex &index)
@@ -157,22 +157,44 @@ OverviewPage::~OverviewPage()
     delete ui;
 }
 
-void OverviewPage::setBalance(const interfaces::WalletBalances& balances)
+void OverviewPage::updateBalances()
 {
     int unit = walletModel->getOptionsModel()->getDisplayUnit();
-    m_balances = balances;
+    CAmount balance = m_balances.getBalance();
+    CAmount unconfirmed_balance = m_balances.getUnconfirmedBalance();
+    CAmount watch_only_balance = m_balances.getWatchOnlyBalance();
+    CAmount unconfirmed_watch_only_balance = m_balances.getUnconfirmedWatchOnlyBalance();
 
-    CAmount balance = balances.getBalance();
-    CAmount unconfirmed_balance = balances.getUnconfirmedBalance();
-    CAmount watch_only_balance = balances.getWatchOnlyBalance();
-    CAmount unconfirmed_watch_only_balance = balances.getUnconfirmedWatchOnlyBalance();
+    if(m_balances.isToken())
+        unit = TapyrusUnits::TOKEN;
 
+    ui->labelTokenName->setText(QString(m_balances.getTokenName().c_str()));
     ui->labelBalance->setText(TapyrusUnits::formatWithUnit(unit, balance, false, TapyrusUnits::separatorAlways));
-    ui->labelUnconfirmed->setText(TapyrusUnits::formatWithUnit(unit, balance, false, TapyrusUnits::separatorAlways));
+    ui->labelUnconfirmed->setText(TapyrusUnits::formatWithUnit(unit, unconfirmed_balance, false, TapyrusUnits::separatorAlways));
     ui->labelTotal->setText(TapyrusUnits::formatWithUnit(unit, balance + unconfirmed_balance, false, TapyrusUnits::separatorAlways));
     ui->labelWatchAvailable->setText(TapyrusUnits::formatWithUnit(unit, watch_only_balance, false, TapyrusUnits::separatorAlways));
     ui->labelWatchPending->setText(TapyrusUnits::formatWithUnit(unit, unconfirmed_watch_only_balance, false, TapyrusUnits::separatorAlways));
     ui->labelWatchTotal->setText(TapyrusUnits::formatWithUnit(unit, watch_only_balance + unconfirmed_watch_only_balance, false, TapyrusUnits::separatorAlways));
+}
+
+void OverviewPage::prev()
+{
+    m_balances.prev();
+    updateBalances();
+}
+
+void OverviewPage::next()
+{
+    m_balances.next();
+    updateBalances();
+}
+
+void OverviewPage::setBalance(const interfaces::WalletBalances& balances)
+{
+    m_balances = balances;
+    m_balances.refreshTokens();
+
+    updateBalances();
 }
 
 // show/hide watch-only labels
@@ -236,6 +258,7 @@ void OverviewPage::updateDisplayUnit()
     {
         if (m_balances.getBalance() != -1) {
             setBalance(m_balances);
+            m_balances.refreshTokens();
         }
 
         // Update txdelegate->unit with the current unit
