@@ -13,9 +13,9 @@ find_library(UPNP_LIBRARY NAMES miniupnpc libminiupnpc-dev)
 message(STATUS "UPNP lib: " ${UPNP_LIBRARY})
 
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(UPNP DEFAULT_MSG UPNP_LIBRARY)
+find_package_handle_standard_args(UPNP DEFAULT_MSG UPNP_INCLUDE_DIR UPNP_LIBRARY)
 
-mark_as_advanced(UPNP_LIBRARY)
+mark_as_advanced(UPNP_INCLUDE_DIR UPNP_LIBRARY)
 
-set(ZeroMQ_LIBRARIES ${UPNP_LIBRARY})
-set(ZeroMQ_INCLUDE_DIRS ${UPNP_INCLUDE_DIR})
+set(UPNP_LIBRARIES ${UPNP_LIBRARY})
+set(UPNP_INCLUDE_DIRS ${UPNP_INCLUDE_DIR})

@@ -7,7 +7,6 @@
 
 #include <compat/byteswap.h>
 
-#include <bit>
 #include <cstdint>
 
 inline bool is_little_endian() {

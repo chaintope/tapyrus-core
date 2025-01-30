@@ -5,7 +5,7 @@ project(tapyrus-test)
 # Process json files.
 file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/data")
 
-find_program(PYTHON python3)
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
 function(gen_json_header NAME)
 	set(HEADERS "")
 	foreach(f ${ARGN})
