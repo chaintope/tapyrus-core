@@ -10,20 +10,6 @@ include(CheckCXXSourceCompiles)
 # Package informations
 set(PACKAGE_NAME "Tapyrus Core")
 
-# Version
-set(CLIENT_VERSION_MAJOR 0)
-set(CLIENT_VERSION_MINOR 6)
-set(CLIENT_VERSION_REVISION 1)
-set(CLIENT_VERSION_BUILD 0)
-
-option(CLIENT_VERSION_IS_RELEASE "Build a release version" ON)
-
-# Copyright
-set(COPYRIGHT_YEAR 2019)
-set(COPYRIGHT_HOLDERS "The %s developers")
-set(COPYRIGHT_HOLDERS_SUBSTITUTION Bitcoin)
-string(REPLACE "%s" ${COPYRIGHT_HOLDERS_SUBSTITUTION} COPYRIGHT_HOLDERS_FINAL ${COPYRIGHT_HOLDERS})
-
 # Endianness
 check_include_files("endian.h" HAVE_ENDIAN_H)
 check_include_files("sys/endian.h" HAVE_SYS_ENDIAN_H)
