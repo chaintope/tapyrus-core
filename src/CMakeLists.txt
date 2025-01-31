@@ -205,14 +205,19 @@ add_library(server
 
 # This require libevent
 find_package(Event REQUIRED)
-find_package(UPNP REQUIRED)
+find_package(UPNP OPTIONAL_COMPONENTS)
 
 target_link_libraries(server
         Event
         tapyrusconsensus
         leveldb
-        ${UPNP_LIBRARY}
         )
+
+if(UPNP_FOUND)
+    target_link_libraries(server
+            ${UPNP_LIBRARY}
+    )
+endif()
 
 target_include_directories(common
         PUBLIC
