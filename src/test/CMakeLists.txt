@@ -14,7 +14,7 @@ function(gen_json_header NAME)
 		# Get the proper name for the test variable.
 		get_filename_component(TEST_NAME ${f} NAME_WE)
 		add_custom_command(OUTPUT ${h}
-			COMMAND ${PYTHON}
+			COMMAND ${Python3_EXECUTABLE}
 			ARGS
 				"${CMAKE_CURRENT_SOURCE_DIR}/data/generate_header.py"
 				"${TEST_NAME}"
