@@ -410,7 +410,6 @@ libtapyrus_util_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libtapyrus_util_a_SOURCES = \
   support/lockedpool.cpp \
   clientversion.cpp \
-  compat/strnlen.cpp \
   fs.cpp \
   interfaces/handler.cpp \
   interfaces/node.cpp \

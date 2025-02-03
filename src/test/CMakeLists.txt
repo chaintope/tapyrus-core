@@ -5,7 +5,7 @@ project(tapyrus-test)
 # Process json files.
 file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/data")
 
-find_program(PYTHON python)
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
 function(gen_json_header NAME)
 	set(HEADERS "")
 	foreach(f ${ARGN})
@@ -14,7 +14,7 @@ function(gen_json_header NAME)
 		# Get the proper name for the test variable.
 		get_filename_component(TEST_NAME ${f} NAME_WE)
 		add_custom_command(OUTPUT ${h}
-			COMMAND ${PYTHON}
+			COMMAND ${Python3_EXECUTABLE}
 			ARGS
 				"${CMAKE_CURRENT_SOURCE_DIR}/data/generate_header.py"
 				"${TEST_NAME}"
@@ -104,7 +104,6 @@ add_test_to_suite(tapyrus test_tapyrus
 		test_tapyrus_fuzzy.cpp
 		test_tapyrus_main.cpp
 		test_keys_helper.cpp
-		timedata_tests.cpp
 		torcontrol_tests.cpp
 		transaction_tests.cpp
 		txdb_tests.cpp
@@ -126,7 +125,7 @@ target_include_directories(test_tapyrus
 		${CMAKE_CURRENT_BINARY_DIR}
 )
 
-find_package(Boost 1.58 REQUIRED unit_test_framework)
+find_package(Boost 1.81 REQUIRED unit_test_framework)
 
 target_link_libraries(test_tapyrus Boost::unit_test_framework rpcclient server)
 

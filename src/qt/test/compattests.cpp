@@ -19,7 +19,7 @@ void CompatTests::bswapTests()
 	uint16_t e1 = 0x3412;
 	uint32_t e2 = 0xbc9a7856;
 	uint64_t e3 = 0xbc9a78563412f0de;
-	QVERIFY(bswap_16(u1) == e1);
-	QVERIFY(bswap_32(u2) == e2);
-	QVERIFY(bswap_64(u3) == e3);
+	QVERIFY(internal_bswap_16(u1) == e1);
+	QVERIFY(internal_bswap_32(u2) == e2);
+	QVERIFY(internal_bswap_64(u3) == e3);
 }

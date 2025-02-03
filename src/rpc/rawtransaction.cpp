@@ -1423,7 +1423,7 @@ UniValue decodepsbt(const JSONRPCRequest& request)
                 keypath.pushKV("pubkey", HexStr(entry.first));
 
                 uint32_t fingerprint = entry.second.at(0);
-                keypath.pushKV("master_fingerprint", strprintf("%08x", bswap_32(fingerprint)));
+                keypath.pushKV("master_fingerprint", strprintf("%08x", internal_bswap_32(fingerprint)));
 
                 entry.second.erase(entry.second.begin());
                 keypath.pushKV("path", WriteHDKeypath(entry.second));
@@ -1474,7 +1474,7 @@ UniValue decodepsbt(const JSONRPCRequest& request)
                 keypath.pushKV("pubkey", HexStr(entry.first));
 
                 uint32_t fingerprint = entry.second.at(0);
-                keypath.pushKV("master_fingerprint", strprintf("%08x", bswap_32(fingerprint)));
+                keypath.pushKV("master_fingerprint", strprintf("%08x", internal_bswap_32(fingerprint)));
 
                 entry.second.erase(entry.second.begin());
                 keypath.pushKV("path", WriteHDKeypath(entry.second));
