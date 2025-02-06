@@ -139,6 +139,7 @@ BITCOIN_CORE_H = \
   outputtype.h \
   policy/feerate.h \
   policy/fees.h \
+  policy/packages.h \
   policy/policy.h \
   policy/rbf.h \
   protocol.h \
@@ -148,6 +149,7 @@ BITCOIN_CORE_H = \
   reverselock.h \
   rpc/blockchain.h \
   rpc/client.h \
+  rpc/mempool.h \
   rpc/mining.h \
   rpc/protocol.h \
   rpc/server.h \
@@ -236,9 +238,11 @@ libtapyrus_server_a_SOURCES = \
   outputtype.cpp \
   policy/fees.cpp \
   policy/policy.cpp \
+  policy/packages.cpp \
   policy/rbf.cpp \
   rest.cpp \
   rpc/blockchain.cpp \
+  rpc/mempool.cpp \
   rpc/mining.cpp \
   rpc/misc.cpp \
   rpc/net.cpp \

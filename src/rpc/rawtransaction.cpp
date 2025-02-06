@@ -16,6 +16,7 @@
 #include <key_io.h>
 #include <merkleblock.h>
 #include <net.h>
+#include <policy/packages.h>
 #include <policy/policy.h>
 #include <policy/rbf.h>
 #include <primitives/transaction.h>
@@ -1174,6 +1175,34 @@ static UniValue sendrawtransaction(const JSONRPCRequest& request)
     return hashTx.GetHex();
 }
 
+static void encodePackageResult(bool success, const PackageValidationState& pkg_results, CValidationState& state, UniValue& result)
+{
+    if(success && ArePackageTransactionsAccepted(pkg_results)) {
+        UniValue result_0(UniValue::VOBJ);
+        for (const auto& r : pkg_results) {
+            result_0.pushKV("allowed", true);
+            result.pushKV(r.first.GetHex(), result_0);
+        }
+    }
+    else if(state.IsInvalid() || state.IsError()) {
+        result.pushKV("allowed", false);
+        result.pushKV("reject-reason", strprintf("%i: %s", state.GetRejectCode(), state.GetRejectReason()));
+    } else {
+        for (const auto& r : pkg_results) {
+            UniValue result_0(UniValue::VOBJ);
+            if(r.second.IsInvalid() || r.second.IsError()) {
+                result_0.pushKV("allowed", false);
+                result_0.pushKV("reject-reason", strprintf("%i: %s", r.second.GetRejectCode(), r.second.GetRejectReason()));
+            } else if (r.second.missingInputs && r.second.IsValid()) {
+                result_0.pushKV("allowed", false);
+                result_0.pushKV("reject-reason", "missing-inputs");
+            } else
+                result_0.pushKV("allowed", true);
+            result.pushKV(r.first.GetHex(), result_0);
+        }
+    }
+}
+
 static UniValue testmempoolaccept(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() < 1 || request.params.size() > 2) {
@@ -1184,16 +1213,18 @@ static UniValue testmempoolaccept(const JSONRPCRequest& request)
             "\nThis checks if the transaction violates the consensus or policy rules.\n"
             "\nSee sendrawtransaction call.\n"
             "\nArguments:\n"
-            "1. [\"rawtxs\"]       (array, required) An array of hex strings of raw transactions.\n"
-            "                                        Length must be one for now.\n"
+            "1. [\"rawtxs\"]        (array, required) An array of hex strings of raw transactions.\n"
             "2. allowhighfees    (boolean, optional, default=false) Allow high fees\n"
             "\nResult:\n"
-            "[                   (array) The result of the mempool acceptance test for each raw transaction in the input array.\n"
-            "                            Length is exactly one for now.\n"
-            " {\n"
-            "  \"txid\"           (string) The transaction id in hex\n"
-            "  \"allowed\"        (boolean) If the mempool allows this tx to be inserted\n"
+            "  \"allowed\"            (boolean) If the mempool allows this tx to be inserted\n"
             "  \"reject-reason\"  (string) Rejection string (only present when 'allowed' is false)\n"
+            "[                   (array) The result of the mempool acceptance test for each raw transaction in the input array. Length is equal to the number of input transactions."
+            " {\n"
+            "  \"<txid>:\"                  (string) The transaction id in hex\n"
+            "   {\n"
+            "    \"allowed\"               (boolean) If the mempool allows this tx to be inserted\n"
+            "    \"reject-reason\"     (string) Rejection string (only present when 'allowed' is false)\n"
+            "   }\n"
             " }\n"
             "]\n"
             "\nExamples:\n"
@@ -1210,26 +1241,33 @@ static UniValue testmempoolaccept(const JSONRPCRequest& request)
     }
 
     RPCTypeCheck(request.params, {UniValue::VARR, UniValue::VBOOL});
-    if (request.params[0].get_array().size() != 1) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Array must contain exactly one raw transaction for now");
+    const UniValue raw_transactions = request.params[0].get_array();
+    if (raw_transactions.size() < 1 || raw_transactions.size() > MAX_PACKAGE_COUNT) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER,
+                            "Too many transactions in package." );
     }
 
-    CMutableTransaction mtx;
-    if (!DecodeHexTx(mtx, request.params[0].get_array()[0].get_str())) {
-        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
+    Package package;
+    for (const auto& rawtx : raw_transactions.getValues()) {
+        CMutableTransaction mtx;
+        if (!DecodeHexTx(mtx, rawtx.get_str())) {
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR,
+                                "TX decode failed: " + rawtx.get_str() + " Make sure the tx has at least one input.");
+        }
+        package.push_back(MakeTransactionRef(std::move(mtx)));
     }
-    CTransactionRef tx(MakeTransactionRef(std::move(mtx)));
-    const uint256& tx_hash = tx->GetHashMalFix();
+
+    if(package.size() != raw_transactions.size()){
+            throw JSONRPCError(RPC_INVALID_PARAMETER,
+                    "Duplicate transaction found in package.");
+    }
 
     CAmount max_raw_tx_fee = ::maxTxFee;
     if (!request.params[1].isNull() && request.params[1].get_bool()) {
         max_raw_tx_fee = 0;
     }
 
-    UniValue result(UniValue::VARR);
-    UniValue result_0(UniValue::VOBJ);
-    result_0.pushKV("txid", tx_hash.GetHex());
-
+    /*
     CTxMempoolAcceptanceOptions opt;
     opt.flags = MempoolAcceptanceFlags::TEST_ONLY;
     opt.nAbsurdFee = max_raw_tx_fee;
@@ -1238,18 +1276,89 @@ static UniValue testmempoolaccept(const JSONRPCRequest& request)
         LOCK(cs_main);
         accept = AcceptToMemoryPool(std::move(tx), opt);
     }
-    result_0.pushKV("allowed", accept);
-    if (!accept) {
-        if (opt.state.IsInvalid()) {
-            result_0.pushKV("reject-reason", strprintf("%i: %s", opt.state.GetRejectCode(), opt.state.GetRejectReason()));
-        } else if (opt.missingInputs.size()) {
-            result_0.pushKV("reject-reason", "missing-inputs");
-        } else {
-            result_0.pushKV("reject-reason", opt.state.GetRejectReason());
-        }
+    */
+    CValidationState state;
+    PackageValidationState pkg_results;
+    std::vector<CTxMemPoolEntry> submitPool;
+    submitPool.reserve(package.size());
+
+    bool success = false;
+    success = TestPackageAcceptance(package, state, pkg_results, &submitPool);
+
+    UniValue result(UniValue::VOBJ);
+
+    encodePackageResult(success, pkg_results, state, result);
+
+    return result;
+}
+
+static UniValue submitpackage(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
+    throw std::runtime_error(
+        "submitpackage \"[rawtx1, rawtx2]\" \n"
+        "\nSubmit a package of raw transactions (serialized, hex-encoded) to local node \n"
+        "\nArguments:\n"
+        "1. transaction_hex                        (array, required) An array of hex strings of raw transactions.\n"
+        "2. allowhighfees                            (boolean, optional, default=false) Allow high fees\n"
+        "\nResult:\n"
+        "   {\n"
+        "    \"allowed\"               (boolean) If submitting all transaction was successful \n"
+        "   }\n"
+        "\nExamples:\n"
+        "\nCreate a transaction\n"
+        + HelpExampleCli("createrawtransaction", "\"[{\\\"txid\\\" : \\\"mytxid\\\",\\\"vout\\\":0}]\" \"{\\\"myaddress\\\":0.01}\"") +
+        "Sign the transaction, and get back the hex\n"
+        + HelpExampleCli("signrawtransaction", "\"myhex\"") +
+        "\nSubmit the transaction as a package (signed hex)\n"
+        + HelpExampleCli("submitpackage", "\"raw_tx1, raw_tx2\"") +
+        "\nAs a json rpc call\n"
+        + HelpExampleRpc("submitpackage", "[\"raw_tx1, raw_tx2\"]")
+    );
+
+    RPCTypeCheck(request.params, {UniValue::VARR, UniValue::VBOOL});
+
+    const UniValue raw_transactions = request.params[0].get_array();
+    if (raw_transactions.size() < 1 || raw_transactions.size() > MAX_PACKAGE_COUNT) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER,
+                            "Too many transactions in package");
     }
 
-    result.push_back(std::move(result_0));
+    Package package;
+    for (const auto& rawtx : raw_transactions.getValues()) {
+        CMutableTransaction mtx;
+        if (!DecodeHexTx(mtx, rawtx.get_str())) {
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR,
+                                "TX decode failed: " + rawtx.get_str() + " Make sure the tx has at least one input.");
+        }
+        package.push_back(MakeTransactionRef(std::move(mtx)));
+    }
+
+    if(package.size() != raw_transactions.size()){
+            throw JSONRPCError(RPC_INVALID_PARAMETER,
+                    "Duplicate transaction found in package.");
+    }
+
+    CAmount max_raw_tx_fee = ::maxTxFee;
+    if (!request.params[1].isNull() && request.params[1].get_bool()) {
+        max_raw_tx_fee = 0;
+    }
+
+    CValidationState state;
+    PackageValidationState pkg_results;
+    std::vector<CTxMemPoolEntry> submitPool;
+    submitPool.reserve(package.size());
+
+    bool success = TestPackageAcceptance(package, state, pkg_results, &submitPool);
+
+    UniValue result(UniValue::VOBJ);
+
+    if(success && ArePackageTransactionsAccepted(pkg_results))
+    {
+        success = SubmitPackageToMempool(submitPool, state);
+    }
+    encodePackageResult(success, pkg_results, state, result);
+
     return result;
 }
 
@@ -1751,7 +1860,6 @@ static const CRPCCommand commands[] =
     { "rawtransactions",    "combinerawtransaction",        &combinerawtransaction,     {"txs"} },
     { "rawtransactions",    "signrawtransaction",           &signrawtransaction,        {"hexstring","prevtxs","privkeys","sighashtype"} }, /* uses wallet if enabled */
     { "rawtransactions",    "signrawtransactionwithkey",    &signrawtransactionwithkey, {"hexstring","privkeys","prevtxs","sighashtype"} },
-    { "rawtransactions",    "testmempoolaccept",            &testmempoolaccept,         {"rawtxs","allowhighfees"} },
     { "rawtransactions",    "decodepsbt",                   &decodepsbt,                {"psbt"} },
     { "rawtransactions",    "combinepsbt",                  &combinepsbt,               {"txs"} },
     { "rawtransactions",    "finalizepsbt",                 &finalizepsbt,              {"psbt", "extract"} },
