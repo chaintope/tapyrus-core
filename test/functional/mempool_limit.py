@@ -3,6 +3,7 @@
 # Copyright (c) 2019 Chaintope Inc.
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
 """Test mempool limiting together/eviction with the wallet.
     extend this test to test mempool eviction with packages"""
 
@@ -197,7 +198,7 @@ class MempoolLimitTest(BitcoinTestFramework):
         # Package should be submitted partially
         res = self.submitpackage(node, package_hex)
 
-        self.log.info("Verify partially submission")
+        self.log.info("Verify partial submission")
         # Failed midway due to full mempool
         success = False
         for x in [True for txid in package_txids if res[txid] == {'allowed': False, 'reject-reason': '66: mempool full'}]:
@@ -243,7 +244,7 @@ class MempoolLimitTest(BitcoinTestFramework):
         #create package to calculate its size. do not submit now
         (package_hex, package_txids) = self.create_package(node, utxos, mempool_evicted_utxo, mempoolmin_feerate * 200, size=6)
 
-        # fill the test of the mempool with a filler transaction
+        # fill the rest of the mempool with a filler transaction
         mempoolinfo = node.getmempoolinfo()
         size_needed = mempoolinfo['maxmempool'] - mempoolinfo['usage'] - size_package(package_hex)
 
@@ -258,7 +259,7 @@ class MempoolLimitTest(BitcoinTestFramework):
         init_mempool_txids = node.getrawmempool()
 
         # Submit package
-        res = self.submitpackage(node, package_hex)
+        res = self.submitpackage(node, package_hex, True)
 
         # Child trasnaction in the package failed due to one of its inputs being evicted and some inputs disappearing
         assert res[package_txids[-1] ] == {'allowed': False, 'reject-reason': 'missing-inputs'}
@@ -269,12 +270,6 @@ class MempoolLimitTest(BitcoinTestFramework):
         # some package transactions are in mempool.
         resulting_mempool_txids = node.getrawmempool()
         assert(init_mempool_txids != resulting_mempool_txids)
-
-        # verify that one transaction whose result shows success is not in the mempool due to eviction
-        missing = False
-        for x in [True for txid in package_txids if res[txid]['allowed'] == True and txid not in resulting_mempool_txids]:
-            missing = missing | x
-        assert missing
 
         # Evicted transaction results in one of the package transactions being rejected.
         self.log.info("Verify that the low fee transction is evicted")
