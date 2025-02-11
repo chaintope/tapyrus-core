@@ -838,14 +838,8 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
 
         //verify token balances:
        if(!VerifyTokenBalances(tx, opt.state, inColoredCoinBalances, ::minRelayTxFee.GetFee(nSize) )) {
-            return false;
-        }
-
-        // if validation of the package tx was successful remember its mempoolentry
-        // if submission is needed this list is used otherwise it is unused
-        if(opt.context == ValidationContext::PACKAGE) {
-            opt.mempool_view->AddToPackagePool(ptx);
-        }
+           return false;
+       }
 
         if (opt.flags == MempoolAcceptanceFlags::TEST_ONLY) {
             // Tx was accepted, but not added
