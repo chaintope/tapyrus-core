@@ -34,7 +34,9 @@
 #include <trace.h>
 #include <validation.h>
 #include  <utiltime.h>
+#include <file_io.h>
 
+#include <deque>
 #include <memory>
 #include <array>
 
@@ -1128,7 +1130,7 @@ bool static AlreadyHave(const CInv& inv) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
     return true;
 }
 
-static void RelayTransaction(const CTransaction& tx, CConnman* connman)
+void RelayTransaction(const CTransaction& tx, CConnman* connman)
 {
     CInv inv(MSG_TX, tx.GetHashMalFix());
     connman->ForEachNode([&inv](CNode* pnode)
@@ -2360,6 +2362,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         mapAlreadyAskedFor.erase(inv.hash);
 
         CTxMempoolAcceptanceOptions opt;
+        CValidationState& state = opt.state;
         if (!AlreadyHave(inv) &&
             AcceptToMemoryPool(ptx, opt)) {
             mempool.check(pcoinsTip.get());

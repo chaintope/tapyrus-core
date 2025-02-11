@@ -155,9 +155,13 @@ add_library(server
         addrdb.cpp
         bloom.cpp
         blockencodings.cpp
+        blockprune.cpp
         chain.cpp
+        chainstate.cpp
         checkpoints.cpp
         consensus/tx_verify.cpp
+        cs_main.cpp
+        file_io.cpp
         httprpc.cpp
         httpserver.cpp
         init.cpp
@@ -172,9 +176,11 @@ add_library(server
         policy/fees.cpp
         policy/feerate.cpp
         policy/policy.cpp
+        policy/packages.cpp
         policy/rbf.cpp
         rest.cpp
         rpc/blockchain.cpp
+        rpc/mempool.cpp
         rpc/mining.cpp
         rpc/misc.cpp
         rpc/net.cpp
@@ -193,6 +199,7 @@ add_library(server
         utxo_snapshot.cpp
         validation.cpp
         validationinterface.cpp
+        verifydb.cpp
         key_io.cpp
         shutdown.cpp
         outputtype.cpp

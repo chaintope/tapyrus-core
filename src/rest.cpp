@@ -18,6 +18,7 @@
 #include <txmempool.h>
 #include <utilstrencodings.h>
 #include <version.h>
+#include <file_io.h>
 
 #include <boost/algorithm/string.hpp>
 
