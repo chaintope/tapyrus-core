@@ -93,6 +93,20 @@ public:
     unsigned int GetRejectCode() const { return chRejectCode; }
     std::string GetRejectReason() const { return strRejectReason; }
     std::string GetDebugMessage() const { return strDebugMessage; }
+    std::string Describe() const {
+        std::stringstream ss;
+        if(nDoS)
+            ss  << "nDoS: " << nDoS ;
+        if(chRejectCode)
+            ss << "reject-reason:" << chRejectCode << " :  "  << strRejectReason << "; " ;
+        if(!strDebugMessage.empty())
+            ss << strDebugMessage << " ";
+        if(corruptionPossible)
+            ss << "corruption possible";
+        if(missingInputs)
+            ss << "missing inputs";
+        return ss.str();
+    }
 };
 
 #endif // BITCOIN_CONSENSUS_VALIDATION_H

@@ -841,7 +841,6 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
             return false;
         }
 
-
         if (opt.flags == MempoolAcceptanceFlags::TEST_ONLY) {
             // Tx was accepted, but not added
             return true;
