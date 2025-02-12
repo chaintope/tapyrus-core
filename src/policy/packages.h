@@ -43,6 +43,7 @@ bool SubmitPackageToMempool(const Package& package,
                                   CValidationState& state,
                                   PackageValidationState& results,
                                   CTxMempoolAcceptanceOptions& opt);
+
 bool ArePackageTransactionsAccepted(const PackageValidationState& results);
 
 #endif // TAPYRUS_POLICY_PACKAGES_H

@@ -102,9 +102,6 @@ bool SubmitPackageToMempool(const Package& package,
                                   PackageValidationState& results,
                                   CTxMempoolAcceptanceOptions& opt)
 {
-    bool all_valid = true;
-    bool test_accept_res = false;
-
     if(!CheckPackage(package, state))
         return false;
 
@@ -114,7 +111,7 @@ bool SubmitPackageToMempool(const Package& package,
         {
             opt.state = CValidationState();
             LOCK(::cs_main);
-            test_accept_res = AcceptToMemoryPool(tx, opt);
+            AcceptToMemoryPool(tx, opt);
         }
 
         opt.state.missingInputs = opt.missingInputs.size() > 0;

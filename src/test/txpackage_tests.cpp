@@ -239,7 +239,7 @@ BOOST_FIXTURE_TEST_CASE(package_validation_tests, PackageTestSetup)
         COutPoint spend_parent(mtx_parent.GetHashMalFix(), 0);
         auto mtx_child = CreateValidTransaction(spend_parent, CAmount(44 * COIN), child_locking_script);
         mtx_child.vin[0].scriptSig = CScript() << OP_TRUE;
-        for(auto x : {0,1,2,3})
+        for (int x = 0; x < 4; ++x)
             mtx_child.vout.push_back(CTxOut(CAmount(1 * COIN), {CScript() << OP_TRUE << OP_EQUAL}));
 
         Package package_parent_child{MakeTransactionRef(mtx_parent), MakeTransactionRef(mtx_child)};
@@ -532,7 +532,6 @@ BOOST_FIXTURE_TEST_CASE(package_submission_tests, PackageTestSetup)
     parent_key.MakeNewKey(true);
     CScript parent_locking_script = GetScriptForDestination(parent_key.GetPubKey().GetID());
 
-    unsigned int expected_pool_size = mempool.size();
     unsigned long index_cb = m_coinbase_txns.size(); //init this index before refilling coinbase
 
     refillCoinbase(50);
