@@ -85,6 +85,7 @@ struct CNodeStateStats {
 /** Get statistics from node state */
 bool GetNodeStateStats(NodeId nodeid, CNodeStateStats &stats);
 
+/** Relay a transaction to all our peers*/
 void RelayTransaction(const CTransaction& tx, CConnman* connman);
 
 #endif // BITCOIN_NET_PROCESSING_H

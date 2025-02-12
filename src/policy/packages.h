@@ -37,13 +37,38 @@ using PackageValidationState = std::map<const uint256, const CValidationState >;
  */
 bool CheckPackage(const Package& txns, CValidationState& state);
 
+/**
+ * FilterMempoolDuplicates creates a package from the given list of transactions
+ * after filetring those that already exist in the mempool.
+ *
+ * @param txns A list of transactions to check for duplicates.
+ * @param package The package of transactions after filtering.
+ * @param results The package validation state where results are recorded.
+ */
 void FilterMempoolDuplicates(const std::vector<CTransaction>& txns, Package& package, PackageValidationState& results);
 
+/**
+ * SubmitPackageToMempool is used to submit the package to mempool after validation checks.
+ * It gives granular results with the state of each transaction in the package and
+ * the state of the package as a whole.
+ *
+ * @param package The package of transactions to be submitted.
+ * @param state A reference to the validation state that tracks the package validation results.
+ * @param results A reference to the package validation state that records the validation outcome of each transaction.
+ * @param opt Options that control how the mempool accepts transactions.
+ * @return True if the package is successfully accepted into the mempool, false otherwise.
+ */
 bool SubmitPackageToMempool(const Package& package,
                                   CValidationState& state,
                                   PackageValidationState& results,
                                   CTxMempoolAcceptanceOptions& opt);
 
+/**
+ * ArePackageTransactionsAccepted checks the result of a package submit attempt and
+ * tells whether all the transactions in the package were accepted.
+ * @param results The validation state of the package(this is the output from submitpackage or testpackage acceptance).
+ * @return True if accepted, false otherwise.
+ */
 bool ArePackageTransactionsAccepted(const PackageValidationState& results);
 
 #endif // TAPYRUS_POLICY_PACKAGES_H
