@@ -516,12 +516,14 @@ void CTxMemPool::removeForReorg(const CCoinsViewCache *pcoins, unsigned int nMem
 {
     // Remove transactions spending a coinbase which are now immature and no-longer-final transactions
     LOCK(cs);
+    CCoinsViewCache& coins_tip = *pcoinsTip;
+    CCoinsViewMemPool viewMemPool(&coins_tip, mempool);
     setEntries txToRemove;
     for (indexed_transaction_set::const_iterator it = mapTx.begin(); it != mapTx.end(); it++) {
         const CTransaction& tx = it->GetTx();
         LockPoints lp = it->GetLockPoints();
         bool validLP =  TestLockPointValidity(&lp);
-        if (!CheckFinalTx(tx, flags) || !CheckSequenceLocks(tx, flags, &lp, validLP)) {
+        if (!CheckFinalTx(tx, flags) || !CheckSequenceLocks(tx, flags, viewMemPool, &lp, validLP)) {
             // Note if CheckSequenceLocks fails the LockPoints may still be invalid
             // So it's critical that we remove the tx and not depend on the LockPoints.
             txToRemove.insert(it);
@@ -1115,3 +1117,4 @@ std::string RemovalReasonToString(const MemPoolRemovalReason& r) noexcept
         default:return "unknown";
     }
 }
+CTxMempoolAcceptanceOptions:: CTxMempoolAcceptanceOptions():context(ValidationContext::TRANSACTION), flags(MempoolAcceptanceFlags::NONE), nAbsurdFee(0), nAcceptTime(0), mempool_view(new CCoinsViewMemPool(pcoinsTip.get(), mempool)){}

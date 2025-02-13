@@ -203,6 +203,14 @@ TestChainSetup::CreateAndProcessBlock(const std::vector<CMutableTransaction>& tx
     return result;
 }
 
+void TestChainSetup::refillCoinbase(int count) {
+    CScript scriptPubKey = CScript() <<  ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG;
+    std::vector<CMutableTransaction> noTxns;
+    for (int i = 0; i < count; i++)
+    {
+        CBlock b = CreateAndProcessBlock(noTxns, scriptPubKey);
+    }
+}
 
 CTxMemPoolEntry TestMemPoolEntryHelper::FromTx(const CMutableTransaction &tx) {
     return FromTx(MakeTransactionRef(tx));
