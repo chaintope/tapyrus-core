@@ -239,7 +239,7 @@ BOOST_FIXTURE_TEST_CASE(package_validation_tests, PackageTestSetup)
         COutPoint spend_parent(mtx_parent.GetHashMalFix(), 0);
         auto mtx_child = CreateValidTransaction(spend_parent, CAmount(44 * COIN), child_locking_script);
         mtx_child.vin[0].scriptSig = CScript() << OP_TRUE;
-        for (int x = 0; x < 4; ++x)
+        for(int x = 0; x < 4; ++x)
             mtx_child.vout.push_back(CTxOut(CAmount(1 * COIN), {CScript() << OP_TRUE << OP_EQUAL}));
 
         Package package_parent_child{MakeTransactionRef(mtx_parent), MakeTransactionRef(mtx_child)};
@@ -272,7 +272,7 @@ BOOST_FIXTURE_TEST_CASE(package_validation_tests, PackageTestSetup)
         COutPoint spend_parent(mtx_parent.GetHashMalFix(), 0);
         auto mtx_child = CreateValidTransaction(spend_parent, CAmount(44 * COIN), child_locking_script);
         mtx_child.vin[0].scriptSig = CScript() << OP_TRUE;
-        for(auto x : {0,1,2,3})
+        for(int x = 0; x < 4; ++x)
             mtx_child.vout.push_back(CTxOut(CAmount(1 * COIN), {CScript() << OP_TRUE << OP_EQUAL}));
 
         Package package_parent_child{MakeTransactionRef(mtx_parent), MakeTransactionRef(mtx_child)};
@@ -373,7 +373,7 @@ BOOST_FIXTURE_TEST_CASE(package_orphan_tx_tests, PackageTestSetup)
         //this tx has so many outputs as workaround for "tx-size-small" error when only one/two outputs are given
         COutPoint spend_parent(mtx_parent.GetHashMalFix(), 0);
         auto mtx_child = CreateValidTransaction(spend_parent, CAmount(44 * COIN), {CScript() << OP_TRUE << OP_EQUAL});
-        for(auto x : {0,1,2,3})
+        for(int x = 0; x < 4; ++x)
             mtx_child.vout.push_back(CTxOut(CAmount(1 * COIN), {CScript() << OP_TRUE << OP_EQUAL}));
         mtx_child.vin[0].scriptSig = CScript() << OP_TRUE;
 
@@ -585,7 +585,7 @@ BOOST_FIXTURE_TEST_CASE(package_submission_tests, PackageTestSetup)
     COutPoint spend_parent(tx_parent->GetHashMalFix(), 0);
     CMutableTransaction mtx_child = CreateValidTransaction(spend_parent, CAmount(44 * COIN), {CScript() << OP_TRUE << OP_EQUAL});
     mtx_child.vin[0].scriptSig = CScript() << OP_TRUE;
-    for(auto x : {0,1,2,3})
+    for(int x = 0; x < 4; ++x)
         mtx_child.vout.push_back(CTxOut(CAmount(1 * COIN), {CScript() << OP_TRUE << OP_EQUAL}));
     CTransactionRef tx_child{MakeTransactionRef(mtx_child)};
     package_parent_child.push_back(tx_child);
@@ -594,7 +594,7 @@ BOOST_FIXTURE_TEST_CASE(package_submission_tests, PackageTestSetup)
     COutPoint spend_child(tx_child->GetHashMalFix(), 0);
     CMutableTransaction mtx_grandchild = CreateValidTransaction(spend_child, CAmount(39 * COIN), CScript() << OP_TRUE << OP_EQUAL );
     mtx_grandchild.vin[0].scriptSig = CScript() << OP_TRUE;
-    for(auto x : {0,1,2,3})
+    for(int x = 0; x < 4; ++x)
         mtx_grandchild.vout.push_back(CTxOut(CAmount(1 * COIN), {CScript() << OP_TRUE << OP_EQUAL}));
     CTransactionRef tx_grandchild{MakeTransactionRef(mtx_grandchild)};
     package_3gen.push_back(tx_grandchild);
