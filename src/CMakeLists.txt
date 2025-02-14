@@ -172,9 +172,11 @@ add_library(server
         policy/fees.cpp
         policy/feerate.cpp
         policy/policy.cpp
+        policy/packages.cpp
         policy/rbf.cpp
         rest.cpp
         rpc/blockchain.cpp
+        rpc/mempool.cpp
         rpc/mining.cpp
         rpc/misc.cpp
         rpc/net.cpp

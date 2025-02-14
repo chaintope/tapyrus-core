@@ -18,6 +18,7 @@
 #include <index/txindex.h>
 #include <key_io.h>
 #include <policy/feerate.h>
+#include <policy/packages.h>
 #include <policy/policy.h>
 #include <primitives/transaction.h>
 #include <primitives/xfield.h>
