@@ -76,7 +76,7 @@ class MultiWalletTest(BitcoinTestFramework):
             assert_equal(os.path.isfile(wallet_file(wallet_name)), True)
 
         # should not initialize if wallet path can't be created
-        exp_stderr = "boost::filesystem::create"
+        exp_stderr = "filesystem error: cannot create directories"
         self.nodes[0].assert_start_raises_init_error(['-wallet=wallet.dat/bad'], exp_stderr, match=ErrorMatch.PARTIAL_REGEX)
 
         self.nodes[0].assert_start_raises_init_error(['-walletdir=wallets'], 'Error: Specified -walletdir "wallets" does not exist')
@@ -134,8 +134,8 @@ class MultiWalletTest(BitcoinTestFramework):
         competing_wallet_dir = os.path.join(self.options.tmpdir, 'competing_walletdir')
         os.mkdir(competing_wallet_dir)
         self.restart_node(0, ['-walletdir=' + competing_wallet_dir])
-        exp_stderr = "Error: Error initializing wallet database environment \"\S+competing_walletdir\"!"
-        self.nodes[1].assert_start_raises_init_error(['-walletdir=' + competing_wallet_dir], exp_stderr, match=ErrorMatch.PARTIAL_REGEX)
+        exp_stderr = "Error: Error initializing wallet database environment .*/competing_walletdir/.*"
+        self.nodes[1].assert_start_raises_init_error(['-walletdir=' + competing_wallet_dir], exp_stderr, match=ErrorMatch.FULL_REGEX)
 
         self.restart_node(0, extra_args)
 

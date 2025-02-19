@@ -20,7 +20,7 @@ define $(package)_preprocess_cmds
 endef
 
 define $(package)_config_cmds
-  ../dist/$($(package)_autoconf)
+  ../dist/$($(package)_autoconf)|| cat config.log
 endef
 
 define $(package)_build_cmds

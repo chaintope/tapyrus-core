@@ -23,7 +23,7 @@ endef
 define $(package)_config_cmds
   ./autogen.sh && \
   cp -f $(BASEDIR)/config.guess $(BASEDIR)/config.sub config && \
-  $($(package)_autoconf)
+  $($(package)_autoconf) || cat config.log
 endef
 
 define $(package)_build_cmds

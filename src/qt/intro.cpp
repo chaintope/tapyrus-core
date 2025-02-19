@@ -72,7 +72,7 @@ FreespaceChecker::FreespaceChecker(Intro *_intro)
 void FreespaceChecker::check()
 {
     QString dataDirStr = intro->getPathToCheck();
-    fs::path dataDir = GUIUtil::qstringToBoostPath(dataDirStr);
+    fs::path dataDir = GUIUtil::qstringToPath(dataDirStr);
     uint64_t freeBytesAvailable = 0;
     int replyStatus = ST_OK;
     QString replyMessage = tr("A new data directory will be created.");
@@ -185,7 +185,7 @@ void Intro::setDataDirectory(const QString &dataDir)
 
 QString Intro::getDefaultDataDirectory()
 {
-    return GUIUtil::boostPathToQString(GetDefaultDataDir());
+    return GUIUtil::pathToQString(GetDefaultDataDir());
 }
 
 bool Intro::pickDataDirectory(interfaces::Node& node)
@@ -200,7 +200,7 @@ bool Intro::pickDataDirectory(interfaces::Node& node)
     /* 2) Allow QSettings to override default dir */
     dataDir = settings.value("strDataDir", dataDir).toString();
 
-    if(!fs::exists(GUIUtil::qstringToBoostPath(dataDir)) || gArgs.GetBoolArg("-choosedatadir", DEFAULT_CHOOSE_DATADIR) || settings.value("fReset", false).toBool() || gArgs.GetBoolArg("-resetguisettings", false))
+    if(!fs::exists(GUIUtil::qstringToPath(dataDir)) || gArgs.GetBoolArg("-choosedatadir", DEFAULT_CHOOSE_DATADIR) || settings.value("fReset", false).toBool() || gArgs.GetBoolArg("-resetguisettings", false))
     {
         /* If current default data directory does not exist, let the user choose one */
         Intro intro;
@@ -216,9 +216,9 @@ bool Intro::pickDataDirectory(interfaces::Node& node)
             }
             dataDir = intro.getDataDirectory();
             try {
-                if (TryCreateDirectories(GUIUtil::qstringToBoostPath(dataDir))) {
+                if (TryCreateDirectories(GUIUtil::qstringToPath(dataDir))) {
                     // If a new data directory has been created, make wallets subdirectory too
-                    TryCreateDirectories(GUIUtil::qstringToBoostPath(dataDir) / "wallets");
+                    TryCreateDirectories(GUIUtil::qstringToPath(dataDir) / "wallets");
                 }
                 break;
             } catch (const fs::filesystem_error&) {
@@ -236,7 +236,7 @@ bool Intro::pickDataDirectory(interfaces::Node& node)
      * (to be consistent with tapyrusd behavior)
      */
     if(dataDir != getDefaultDataDirectory()) {
-        node.softSetArg("-datadir", GUIUtil::qstringToBoostPath(dataDir).string()); // use OS locale for path setting
+        node.softSetArg("-datadir", GUIUtil::qstringToPath(dataDir).string()); // use OS locale for path setting
     }
     return true;
 }

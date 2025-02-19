@@ -171,8 +171,8 @@ static void CopySettings(QSettings& dst, const QSettings& src)
 /** Back up a QSettings to an ini-formatted file. */
 static void BackupSettings(const fs::path& filename, const QSettings& src)
 {
-    qInfo() << "Backing up GUI settings to" << GUIUtil::boostPathToQString(filename);
-    QSettings dst(GUIUtil::boostPathToQString(filename), QSettings::IniFormat);
+    qInfo() << "Backing up GUI settings to" << GUIUtil::pathToQString(filename);
+    QSettings dst(GUIUtil::pathToQString(filename), QSettings::IniFormat);
     dst.clear();
     CopySettings(dst, src);
 }
