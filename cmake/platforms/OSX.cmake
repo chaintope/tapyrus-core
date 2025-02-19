@@ -30,7 +30,7 @@ set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 # Sysroot clang
 set(OSX_EXTRA_FLAGS
 	" -target ${TOOLCHAIN_PREFIX}"
-	" -mmacosx-version-min=11"
+	" -mmacosx-version-min=10.15"
 	" --sysroot ${OSX_SDK_PATH}"
 	" -mlinker-version=711"
 )

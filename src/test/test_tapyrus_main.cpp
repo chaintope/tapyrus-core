@@ -5,6 +5,7 @@
 
 #define BOOST_TEST_MODULE Tapyrus Test Suite
 
+#include <boost/test/included/unit_test.hpp>
 #include <net.h>
 
 #include <memory>
