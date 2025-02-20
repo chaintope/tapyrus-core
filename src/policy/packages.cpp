@@ -102,13 +102,7 @@ bool SubmitPackageToMempool(const Package& package,
                                   PackageValidationState& results,
                                   CTxMempoolAcceptanceOptions& opt)
 {
-<<<<<<< HEAD
-=======
-    bool all_valid = true;
-    bool test_accept_res = false;
-
->>>>>>> ce01ed4f08 (this PR is a refactoring of validation.cpp. it does not change any behaviour. No new tests are added.)
-    if(!CheckPackage(package, state))
+   if(!CheckPackage(package, state))
         return false;
 
     // testmempool acceptance first
