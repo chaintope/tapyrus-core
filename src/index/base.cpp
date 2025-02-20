@@ -9,6 +9,7 @@
 #include <ui_interface.h>
 #include <util.h>
 #include <validation.h>
+#include <file_io.h>
 #include <warnings.h>
 
 constexpr char DB_BEST_BLOCK = 'B';

@@ -49,6 +49,9 @@
 #include <stdio.h>
 #include <tapyrusmodes.h>
 #include <xfieldhistory.h>
+#include <blockprune.h>
+#include <verifydb.h>
+#include <file_io.h>
 
 #ifndef WIN32
 #include <signal.h>

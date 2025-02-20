@@ -14,7 +14,6 @@
 #include <amount.h>
 #include <coins.h>
 #include <fs.h>
-#include <protocol.h> // For CMessageHeader::MessageStartChars
 #include <policy/feerate.h>
 #include <script/script_error.h>
 #include <sync.h>
@@ -22,15 +21,13 @@
 #include <chain.h>
 #include <xfieldhistory.h>
 #include <txmempool.h>
+#include <chainstate.h>
 
-#include <algorithm>
-#include <exception>
 #include <map>
 #include <memory>
 #include <set>
 #include <stdint.h>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include <atomic>
@@ -50,6 +47,9 @@ struct XFieldChange;
 
 struct PrecomputedTransactionData;
 struct LockPoints;
+
+#define MICRO 0.000001
+#define MILLI 0.001
 
 /** Default for -whitelistrelay. */
 static const bool DEFAULT_WHITELISTRELAY = true;
@@ -141,17 +141,11 @@ static const bool DEFAULT_PEERBLOOMFILTERS = true;
 /** Default for -stopatheight */
 static const int DEFAULT_STOPATHEIGHT = 0;
 
-struct BlockHasher
-{
-    size_t operator()(const uint256& hash) const { return hash.GetCheapHash(); }
-};
-
 extern CScript COINBASE_FLAGS;
 extern RecursiveMutex cs_main;
 extern CBlockPolicyEstimator feeEstimator;
 extern CTxMemPool mempool;
 extern std::atomic_bool g_is_mempool_loaded;
-typedef std::unordered_map<uint256, CBlockIndex*, BlockHasher> BlockMap;
 extern BlockMap& mapBlockIndex;
 extern uint64_t nLastBlockTx;
 extern uint64_t nLastBlockSize;
@@ -179,8 +173,25 @@ extern uint256 hashAssumeValid;
 /** Best header we've seen so far (used for getheaders queries' starting points). */
 extern CBlockIndex *pindexBestHeader;
 
-/** Minimum disk space required - used in CheckDiskSpace() */
-static const uint64_t nMinDiskSpace = 52428800;
+extern std::vector<CBlockFileInfo> vinfoBlockFile;
+extern std::set<CBlockIndex*> setDirtyBlockIndex;
+extern int nLastBlockFile;
+extern std::multimap<CBlockIndex*, CBlockIndex*>& mapBlocksUnlinked;
+extern std::set<int> setDirtyFileInfo;
+extern bool fCheckForPruning;
+/** The currently-connected chain of blocks (protected by cs_main). */
+extern CChain& chainActive;
+
+/** Global variable that points to the coins database (protected by cs_main) */
+extern std::unique_ptr<CCoinsViewDB> pcoinsdbview;
+
+/** Global variable that points to the active CCoinsView (protected by cs_main) */
+extern std::unique_ptr<CCoinsViewCache> pcoinsTip;
+
+/** Global variable that points to the active block tree (protected by cs_main) */
+extern std::unique_ptr<CBlockTreeDB> pblocktree;
+
+extern CBlockIndex *&pindexBestInvalid;
 
 /** Pruning-related variables and constants */
 /** True if any block files have ever been pruned. */
@@ -246,14 +257,10 @@ bool ProcessNewBlock(const std::shared_ptr<const CBlock> pblock, bool fForceProc
  */
 bool ProcessNewBlockHeaders(const std::vector<CBlockHeader>& block, CValidationState& state, const CBlockIndex** ppindex = nullptr, CBlockHeader* first_invalid = nullptr) LOCKS_EXCLUDED(cs_main);
 
-/** Check whether enough disk space is available for an incoming block */
-bool CheckDiskSpace(uint64_t nAdditionalBytes = 0, bool blocks_dir = false);
 /** Open a block file (blk?????.dat) */
 FILE* OpenBlockFile(const CDiskBlockPos &pos, bool fReadOnly = false);
 /** Translation to a filesystem path */
 fs::path GetBlockPosFilename(const CDiskBlockPos &pos, const char *prefix);
-/** Import blocks from an external file */
-bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp = nullptr, CXFieldHistoryMap* pxfieldHistory = nullptr);
 /** Ensures we have a genesis block in the block tree, possibly writing one to disk. */
 bool LoadGenesisBlock();
 /** Load the block tree and coins database from disk,
@@ -281,19 +288,6 @@ CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensus);
 /** Guess verification progress (as a fraction between 0.0=genesis and 1.0=current tip). */
 double GuessVerificationProgress(const ChainTxData& data, const CBlockIndex* pindex);
 
-/** Calculate the amount of disk space the block & undo files currently use */
-uint64_t CalculateCurrentUsage();
-
-/**
- *  Mark one block file as pruned.
- */
-void PruneOneBlockFile(const int fileNumber);
-
-/**
- *  Actually unlink the specified files
- */
-void UnlinkPrunedFiles(const std::set<int>& setFilesToPrune);
-
 /** Flush all state, indexes and buffers to disk. */
 void FlushStateToDisk();
 /** Prune block files and flush state to disk. */
@@ -313,6 +307,8 @@ std::string FormatStateMessage(const CValidationState &state);
 
 /** Apply the effects of this transaction on the UTXO set represented by view */
 void UpdateCoins(const CTransaction& tx, CCoinsViewCache& inputs, int nHeight);
+
+void UpdateCoins(const CTransaction& tx, CCoinsViewCache& inputs, CTxUndo &txundo, int nHeight);
 
 /** Transaction validation functions */
 
@@ -344,43 +340,45 @@ bool TestLockPointValidity(const LockPoints* lp);
 bool CheckSequenceLocks(const CTransaction &tx, int flags,  CCoinsViewMemPool& viewMemPool, LockPoints* lp = nullptr, bool useExistingLockPoints = false);
 
 /**
- * Closure representing one script verification
- * Note that this stores references to the spending transaction
+ * Check whether all inputs of this transaction are valid (no double spends, scripts & sigs, amounts)
+ * This does not modify the UTXO set.
+ *
+ * If pvChecks is not nullptr, script checks are pushed onto it instead of being performed inline. Any
+ * script checks which are not necessary (eg due to script execution cache hits) are, obviously,
+ * not pushed onto pvChecks/run.
+ *
+ * Setting cacheSigStore/cacheFullScriptStore to false will remove elements from the corresponding cache
+ * which are matched. This is useful for checking blocks where we will likely never need the cache
+ * entry again.
+ *
+ * Non-static (and re-declared) in src/test/txvalidationcache_tests.cpp
  */
-class CScriptCheck
-{
-private:
-    CTxOut m_tx_out;
-    const CTransaction *ptxTo;
-    unsigned int nIn;
-    unsigned int nFlags;
-    bool cacheStore;
-    ScriptError error;
-    PrecomputedTransactionData *txdata;
-    ColorIdentifier colorid;
+bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheSigStore, bool cacheFullScriptStore, PrecomputedTransactionData& txdata, TxColoredCoinBalancesMap& inColoredCoinBalances, std::vector<CScriptCheck> *pvChecks = nullptr);
 
-public:
-    CScriptCheck(): ptxTo(nullptr), nIn(0), nFlags(0), cacheStore(false), error(SCRIPT_ERR_UNKNOWN_ERROR), colorid(ColorIdentifier()) {}
-    CScriptCheck(const CTxOut& outIn, const CTransaction& txToIn, unsigned int nInIn, unsigned int nFlagsIn, bool cacheIn, PrecomputedTransactionData* txdataIn, ColorIdentifier coloridIn = ColorIdentifier()) :
-        m_tx_out(outIn), ptxTo(&txToIn), nIn(nInIn), nFlags(nFlagsIn), cacheStore(cacheIn), error(SCRIPT_ERR_UNKNOWN_ERROR), txdata(txdataIn), colorid(coloridIn) { }
-
-    bool operator()();
-
-    ScriptError GetScriptError() const { return error; }
-    const ColorIdentifier& GetColorIdentifier() const { return colorid; }
-};
-
-/** Initializes the script-execution cache */
-void InitScriptExecutionCache();
-
-
-/** Functions for disk access for blocks */
-bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, int height);
-bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex);
-bool ReadRawBlockFromDisk(std::vector<uint8_t>& block, const CDiskBlockPos& pos, const CMessageHeader::MessageStartChars& message_start);
-bool ReadRawBlockFromDisk(std::vector<uint8_t>& block, const CBlockIndex* pindex, const CMessageHeader::MessageStartChars& message_start);
 
 /** Functions for validating blocks and updating the block tree */
+
+/** Context-dependent validity checks.
+ *  By "context", we mean only the previous block headers, but not the UTXO
+ *  set; UTXO-related validity checks are done in ConnectBlock().
+ *  NOTE: This function is not currently invoked by ConnectBlock(), so we
+ *  should consider upgrade issues if we change which consensus rules are
+ *  enforced in this function (eg by adding a new consensus rule). See comment
+ *  in ConnectBlock().
+ *  Note that -reindex-chainstate skips the validation that happens here!
+ */
+bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& state, const CBlockIndex* pindexPrev, int64_t nAdjustedTime) EXCLUSIVE_LOCKS_REQUIRED(::cs_main);
+
+/** NOTE: This function is not currently invoked by ConnectBlock(), so we
+ *  should consider upgrade issues if we change which consensus rules are
+ *  enforced in this function (eg by adding a new consensus rule). See comment
+ *  in ConnectBlock().
+ *  Note that -reindex-chainstate skips the validation that happens here!
+ */
+bool ContextualCheckBlock(const CBlock& block, CValidationState& state, const CBlockIndex* pindexPrev);
+
+/** Context-independent header validity checks */
+bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, CXFieldHistoryMap* pxfieldHistory = nullptr, int nHeight = -1, bool fCheckPOW = true);
 
 /** Context-independent validity checks */
 bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW = true, bool fCheckMerkleRoot = true, CXFieldHistoryMap* pxfieldHistory = nullptr);
@@ -391,13 +389,6 @@ bool TestBlockValidity(CValidationState& state, const CBlock& block, CBlockIndex
 /** When there are blocks in the active chain with missing data, rewind the chainstate and remove them from the block index */
 bool RewindBlockIndex();
 
-/** RAII wrapper for VerifyDB: Verify consistency of the block and coin databases */
-class CVerifyDB {
-public:
-    CVerifyDB();
-    ~CVerifyDB();
-    bool VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth);
-};
 
 /** Replay blocks that aren't fully applied to the database. */
 bool ReplayBlocks(CCoinsView* view);
@@ -425,18 +416,6 @@ bool InvalidateBlock(CValidationState& state, CBlockIndex* pindex) EXCLUSIVE_LOC
 /** Remove invalidity status from a block and its descendants. */
 void ResetBlockFailureFlags(CBlockIndex* pindex) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
-/** The currently-connected chain of blocks (protected by cs_main). */
-extern CChain& chainActive;
-
-/** Global variable that points to the coins database (protected by cs_main) */
-extern std::unique_ptr<CCoinsViewDB> pcoinsdbview;
-
-/** Global variable that points to the active CCoinsView (protected by cs_main) */
-extern std::unique_ptr<CCoinsViewCache> pcoinsTip;
-
-/** Global variable that points to the active block tree (protected by cs_main) */
-extern std::unique_ptr<CBlockTreeDB> pblocktree;
-
 /**
  * Return the spend height, which is one more than the inputs.GetBestBlock().
  * While checking, GetBestBlock() refers to the parent block. (protected by cs_main)
@@ -455,11 +434,7 @@ static const unsigned int REJECT_HIGHFEE = 0x100;
 /** Get block file info entry for one block file */
 CBlockFileInfo* GetBlockFileInfo(size_t n);
 
-/** Dump the mempool to disk. */
-bool DumpMempool();
-
-/** Load the mempool from disk. */
-bool LoadMempool();
+unsigned int GetBlockScriptFlags(const CBlockIndex* pindex);
 
 //! Check whether the block associated with this index entry is pruned or not.
 inline bool IsBlockPruned(const CBlockIndex* pblockindex)
@@ -468,5 +443,12 @@ inline bool IsBlockPruned(const CBlockIndex* pblockindex)
 }
 
 bool isBlockHeightInCoinbase(const CBlock& block);
+
+
+/** Abort with a message */
+bool AbortNode(const std::string& strMessage, const std::string& userMessage="");
+bool AbortNode(CValidationState& state, const std::string& strMessage, const std::string& userMessage="");
+/** remove old transactions from mempool based on age to keep it within size limits*/
+void LimitMempoolSize(CTxMemPool& pool, size_t limit, unsigned long age);
 
 #endif // BITCOIN_VALIDATION_H

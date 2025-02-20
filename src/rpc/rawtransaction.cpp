@@ -29,6 +29,8 @@
 #include <txmempool.h>
 #include <uint256.h>
 #include <utilstrencodings.h>
+#include <file_io.h>
+
 #ifdef ENABLE_WALLET
 #include <wallet/rpcwallet.h>
 #endif

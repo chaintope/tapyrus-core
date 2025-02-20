@@ -34,7 +34,9 @@
 #include <trace.h>
 #include <validation.h>
 #include  <utiltime.h>
+#include <file_io.h>
 
+#include <deque>
 #include <memory>
 #include <array>
 
@@ -2360,6 +2362,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         mapAlreadyAskedFor.erase(inv.hash);
 
         CTxMempoolAcceptanceOptions opt;
+        CValidationState& state = opt.state;
         if (!AlreadyHave(inv) &&
             AcceptToMemoryPool(ptx, opt)) {
             mempool.check(pcoinsTip.get());

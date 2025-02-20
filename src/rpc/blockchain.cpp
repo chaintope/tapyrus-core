@@ -5,6 +5,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <rpc/blockchain.h>
+#include <cs_main.h>
 
 #include <amount.h>
 #include <base58.h>
@@ -14,6 +15,7 @@
 #include <coins.h>
 #include <consensus/validation.h>
 #include <validation.h>
+#include <blockprune.h>
 #include <core_io.h>
 #include <index/txindex.h>
 #include <key_io.h>
@@ -36,6 +38,8 @@
 #include <validationinterface.h>
 #include <warnings.h>
 #include <xfieldhistory.h>
+#include <verifydb.h>
+#include <file_io.h>
 
 #include <assert.h>
 #include <stdint.h>

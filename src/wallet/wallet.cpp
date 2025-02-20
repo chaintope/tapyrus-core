@@ -30,6 +30,7 @@
 #include <wallet/fees.h>
 #include <wallet/walletutil.h>
 #include <trace.h>
+#include <file_io.h>
 
 #include <algorithm>
 #include <assert.h>
