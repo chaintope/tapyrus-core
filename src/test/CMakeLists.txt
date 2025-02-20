@@ -108,6 +108,7 @@ add_test_to_suite(tapyrus test_tapyrus
 		transaction_tests.cpp
 		txdb_tests.cpp
 		txindex_tests.cpp
+		txpackage_tests.cpp
 		txvalidation_tests.cpp
 		txvalidationcache_tests.cpp
 		uint256_tests.cpp

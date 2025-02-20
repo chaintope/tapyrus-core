@@ -15,6 +15,10 @@ from test_framework.blocktools import create_block, create_coinbase, create_tx_w
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, connect_nodes, hex_str_to_bytes
 from test_framework.mininode import P2PDataStore
+from test_framework.script import MAX_SCRIPT_SIZE
+from test_framework.messages import ser_compact_size
+
+SCR_SIZE = len(ser_compact_size(MAX_SCRIPT_SIZE))
 
 reverse_bytes = (lambda txid  : txid[-1: -len(txid)-1: -1])
 

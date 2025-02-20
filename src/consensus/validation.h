@@ -7,6 +7,7 @@
 #define BITCOIN_CONSENSUS_VALIDATION_H
 
 #include <string>
+#include <sstream>
 #include <version.h>
 #include <consensus/consensus.h>
 #include <primitives/transaction.h>
@@ -22,6 +23,9 @@ static const unsigned char REJECT_NONSTANDARD = 0x40;
 static const unsigned char REJECT_INSUFFICIENTFEE = 0x42;
 static const unsigned char REJECT_CHECKPOINT = 0x43;
 static const unsigned char REJECT_COLORID = 0x44;
+static const unsigned char REJECT_PACKAGE_INVALID = 0x45; // The package itself is invalid (e.g. too many transactions).
+static const unsigned char REJECT_PACKAGE_TX = 0x46; // At least one tx is invalid.
+static const unsigned char REJECT_PACKAGE_MEMPOOL = 0x47; // Mempool logic error
 
 /** Capture information about block/transaction validation */
 class CValidationState {
@@ -37,7 +41,8 @@ private:
     bool corruptionPossible;
     std::string strDebugMessage;
 public:
-    CValidationState() : mode(MODE_VALID), nDoS(0), chRejectCode(0), corruptionPossible(false) {}
+    bool missingInputs;
+    CValidationState() : mode(MODE_VALID), nDoS(0), chRejectCode(0), corruptionPossible(false),missingInputs(false){}
     bool DoS(int level, bool ret = false,
              unsigned int chRejectCodeIn=0, const std::string &strRejectReasonIn="",
              bool corruptionIn=false,
