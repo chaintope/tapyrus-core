@@ -70,7 +70,7 @@ class PruneTest(BitcoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 6
-        self.rpc_timewait = 900
+        self.rpc_timewait = 300
 
         # Create nodes 0 and 1 to mine.
         # Create node 2 to test pruning.
