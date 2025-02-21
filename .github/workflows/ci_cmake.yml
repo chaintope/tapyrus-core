@@ -70,7 +70,6 @@ jobs:
           --coverage \
           --failfast \
           --quiet \
-          --timeout=600 \
           --testlist="$(ls test/functional/test_*.py | sed -n "${START_TEST},${END_TEST}p")"
           echo "---------------- DONE ---------------------"
 
@@ -184,7 +183,6 @@ jobs:
           --coverage \
           --failfast \
           --quiet \
-          --timeout=600 \
           --testlist="$(ls test/functional/test_*.py | sed -n "${START_TEST},${END_TEST}p")"
           echo "---------------- DONE ---------------------"
 
