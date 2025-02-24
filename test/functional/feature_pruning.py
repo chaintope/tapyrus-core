@@ -10,7 +10,7 @@ This test uses 4GB of disk space.
 This test takes 90 mins or more (up to 4 hours)
 
 """
-
+from test_framework.mininode import TAPYRUSD_PROC_TIMEOUT
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, assert_greater_than, assert_raises_rpc_error, connect_nodes, sync_blocks, wait_until, NetworkDirName, hex_str_to_bytes
 from test_framework.script import MAX_SCRIPT_SIZE, CScript
@@ -70,7 +70,6 @@ class PruneTest(BitcoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 6
-        self.rpc_timewait = 900
 
         # Create nodes 0 and 1 to mine.
         # Create node 2 to test pruning.
@@ -130,7 +129,7 @@ class PruneTest(BitcoinTestFramework):
             mine_large_block(self.nodes[0], self.signblockprivkey_wif)
 
         # Wait for blk00000.dat to be pruned
-        wait_until(lambda: not os.path.isfile(os.path.join(self.prunedir, "blk00000.dat")), timeout=120)
+        wait_until(lambda: not os.path.isfile(os.path.join(self.prunedir, "blk00000.dat")), timeout=TAPYRUSD_PROC_TIMEOUT)
 
         self.log.info("Success")
         usage = calc_usage(self.prunedir)
@@ -206,7 +205,7 @@ class PruneTest(BitcoinTestFramework):
         self.log.info("Reconnect nodes")
         connect_nodes(self.nodes[0], 1)
         connect_nodes(self.nodes[2], 1)
-        sync_blocks(self.nodes[0:3], timeout=120)
+        sync_blocks(self.nodes[0:3])
 
         self.log.info("Verify height on node 2: %d" % self.nodes[2].getblockcount())
         self.log.info("Usage possibly still high bc of stale blocks in block files: %d" % calc_usage(self.prunedir))
@@ -221,7 +220,7 @@ class PruneTest(BitcoinTestFramework):
             # This can be slow, so do this in multiple RPC calls to avoid
             # RPC timeouts.
             self.nodes[0].generate(10, self.signblockprivkey_wif) #node 0 has many large tx's in its mempool from the disconnects
-        sync_blocks(self.nodes[0:3], timeout=300)
+        sync_blocks(self.nodes[0:3])
 
         usage = calc_usage(self.prunedir)
         self.log.info("Usage should be below target: %d" % usage)

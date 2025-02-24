@@ -87,7 +87,7 @@ class NodeNetworkLimitedTest(BitcoinTestFramework):
         # because node 2 is in IBD and node 0 is a NODE_NETWORK_LIMITED peer, sync must not be possible
         connect_nodes_bi(self.nodes, 0, 2)
         try:
-            sync_blocks([self.nodes[0], self.nodes[2]], timeout=5)
+            sync_blocks([self.nodes[0], self.nodes[2]])
         except:
             pass
         # node2 must remain at heigh 0
