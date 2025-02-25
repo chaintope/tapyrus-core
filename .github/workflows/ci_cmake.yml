@@ -58,7 +58,7 @@ jobs:
           cmake --build build --target check-tapyrus-util -j $(nproc)
           echo "----------------  Start functional test ---------------- "
           cd ${{ github.workspace }}
-          ${{ github.workspace }}/test/functional/test_runner.py -j $(( $(nproc) )) --combinedlogslen=99999999 --coverage --failfast --quiet 
+          ${{ github.workspace }}/test/functional/test_runner.py -j $(( $(nproc) )) --combinedlogslen=99999999 --coverage --failfast  
           echo "---------------- DONE ---------------------"
 
       - name: Debug Core Dump (if exists)
@@ -159,7 +159,7 @@ jobs:
           cmake --build build --target check-tapyrus-util -j "$CPU_COUNT"
           echo "----------------  Start functional test ---------------- "
           cd ${{ github.workspace }}
-          ${{ github.workspace }}/test/functional/test_runner.py -j $(( $CPU_COUNT )) --combinedlogslen=99999999 --coverage --failfast --quiet 
+          ${{ github.workspace }}/test/functional/test_runner.py -j $(( $CPU_COUNT )) --combinedlogslen=99999999 --coverage --failfast
           echo "---------------- DONE ---------------------"
 
       - name: Debug Core Dump (if exists)
