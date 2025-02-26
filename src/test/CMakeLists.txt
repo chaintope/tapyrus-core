@@ -1,6 +1,6 @@
 # Copyright (c) 2018 The Bitcoin developers
 
-project(tapyrus-test)
+project(test-tapyrus)
 
 # Process json files.
 file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/data")
@@ -155,3 +155,5 @@ if(BUILD_TAPYRUS_WALLET)
 			../wallet/test/test_tapyrus_wallet.cpp
 	)
 endif()
+
+add_all_test_targets()

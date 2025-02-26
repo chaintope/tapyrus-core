@@ -53,7 +53,7 @@ from test_framework.blocktools import create_block, create_coinbase
 from test_framework.messages import CTransaction, CTxIn, CTxOut, COutPoint, msg_tx, COIN, sha256, msg_block
 from test_framework.key import CECKey
 from test_framework.schnorr import Schnorr
-from test_framework.mininode import P2PDataStore, mininode_lock
+from test_framework.mininode import P2PDataStore, mininode_lock, TAPYRUSD_MIN_TIMEOUT
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, hex_str_to_bytes, bytes_to_hex_str, count_bytes
 from test_framework.script import CScript, OP_COLOR, hash160, OP_DUP, OP_HASH160, OP_EQUALVERIFY, OP_CHECKSIG, SignatureHash, SIGHASH_ALL, OP_EQUAL
@@ -116,7 +116,7 @@ class ColoredCoinTest(BitcoinTestFramework):
         node = self.nodes[0]  # convenience reference to the node
         self.address = node.getnewaddress()
         node.add_p2p_connection(P2PDataStore(node.time_to_connect))
-        node.p2p.wait_for_getheaders(timeout=5)
+        node.p2p.wait_for_getheaders(timeout=TAPYRUSD_MIN_TIMEOUT)
         self.address = self.nodes[0].getnewaddress()
 
         self.log.info("Test starting...")
