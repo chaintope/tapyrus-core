@@ -13,12 +13,10 @@ env:
   CI_FAILFAST_TEST_LEAVE_DANGLING: 1  # GHA does not care about dangling processes and setting this variable avoids killing the CI script itself on error
 
 jobs:
-  linux:
-    name: 'test linux'
+  linux-x86-64:
+    name: 'test linux-x86-64'
     runs-on: ubuntu-24.04
-    strategy:
-      matrix:
-        arch: [ x86_64, arm64 ]
+    arch: x86_64
     env:
       BASE_ROOT_DIR: ${{ github.workspace }}
       CCACHE_DIR: ${{ github.workspace }}/ccache
@@ -58,7 +56,7 @@ jobs:
           cmake --build build --target check-tapyrus-util -j $(nproc)
           echo "----------------  Start functional test ---------------- "
           cd ${{ github.workspace }}
-          ${{ github.workspace }}/test/functional/test_runner.py -j $(( $(nproc) )) --combinedlogslen=99999999 --coverage --failfast  
+          ${{ github.workspace }}/test/functional/test_runner.py -j 1 --combinedlogslen=99999999 --coverage --failfast  
           echo "---------------- DONE ---------------------"
 
       - name: Debug Core Dump (if exists)
@@ -89,12 +87,85 @@ jobs:
           path: ${{ github.workspace }}/core_dumps/
           retention-days: 7
 
-  macos-native:
-    name: 'test macos'
+  linux-arm64:
+    name: 'test linux arm64'
+    runs-on: ubuntu-24.04
+    arch: arm64
+    depends-on: linux-x86-64
+    env:
+      BASE_ROOT_DIR: ${{ github.workspace }}
+      CCACHE_DIR: ${{ github.workspace }}/ccache
+      BASE_BUILD_DIR: ${{ github.workspace }}/build
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          submodules: recursive
+
+      - name: Setup
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang ccache build-essential cmake pkgconf python3-zmq libevent-dev bsdmainutils libboost-filesystem-dev libboost-test-dev libdb5.3++-dev libminiupnpc-dev libzmq3-dev libqrencode-dev systemtap-sdt-dev bpfcc-tools bpftrace
+
+      - name: Enable core dumps
+        run: |
+          CORE_DUMP_DIR="${{ github.workspace }}/core_dumps"
+          mkdir -p "$CORE_DUMP_DIR"
+          chmod 777 "$CORE_DUMP_DIR"
+          sudo sysctl -w kernel.core_pattern="$CORE_DUMP_DIR/core.%e.%p"
+          echo "Core dumps will be stored in: $CORE_DUMP_DIR"
+          ulimit -c unlimited
+
+      - name: Compile and run tests
+        run: |
+          CC=clang CXX=clang++ cmake -B build -DWERROR=ON -DWITH_ZMQ=ON -DBUILD_GUI=ON -DBUILD_BENCH=ON -DBUILD_FUZZ_BINARY=ON -DWITH_BDB=ON -DWITH_USDT=ON -DCMAKE_CXX_FLAGS='-Wno-error=unused-member-function'
+          cmake --build build -j $(nproc)
+          export CTEST_OUTPUT_ON_FAILURE=ON
+          echo "---------------- Build unit test ---------------- "
+          cmake --build build --target test_tapyrus -j $(nproc)
+          echo "---------------- Start unit test ---------------- "
+          cd $BASE_BUILD_DIR/src/test
+          ctest --output-on-failure -j 1 --timeout 300
+          echo "----------------  Start util test ---------------- "
+          cd ${{ github.workspace }}
+          cmake --build build --target check-tapyrus-util -j $(nproc)
+          echo "----------------  Start functional test ---------------- "
+          cd ${{ github.workspace }}
+          ${{ github.workspace }}/test/functional/test_runner.py -j 1 --combinedlogslen=99999999 --coverage --failfast  
+          echo "---------------- DONE ---------------------"
+
+      - name: Debug Core Dump (if exists)
+        if: failure()
+        run: |
+          COREFILE=$(coredumpctl list --no-pager --output json | jq -r '.[0].filename')
+          if [ -f "$COREFILE" ]; then
+            echo "Found core dump: $COREFILE"
+            if command -v coredumpctl &> /dev/null; then
+              BINARY=$(coredumpctl info --no-pager | grep "Executable" | awk '{print $2}')
+            else
+              BINARY=$(file "$COREFILE" | awk -F"'" '{print $2}')
+            fi
+            if [ -x "$BINARY" ]; then
+              echo "Detected crashed binary: $BINARY"
+            else
+              echo "Could not detect crashed binary, using tapyrusd as default"
+              BINARY="./tapyrusd"
+            fi
+            gdb -batch -ex "bt" -ex "quit" "$BINARY" "$COREFILE"
+          fi
+
+      - name: Upload Core Dumps
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: core-dumps-${{ matrix.arch }}
+          path: ${{ github.workspace }}/core_dumps/
+          retention-days: 7
+
+  macos-native-x86-64:
+    name: 'test macos x86-64'
     runs-on: macos-14
-    strategy:
-      matrix:
-        arch: [ x86_64, arm64 ]
+    arch: x86_64
     env:
       BASE_ROOT_DIR: ${{ github.workspace }}
       CCACHE_DIR: ${{ github.workspace }}/ccache
@@ -159,7 +230,110 @@ jobs:
           cmake --build build --target check-tapyrus-util -j "$CPU_COUNT"
           echo "----------------  Start functional test ---------------- "
           cd ${{ github.workspace }}
-          ${{ github.workspace }}/test/functional/test_runner.py -j $(( $CPU_COUNT )) --combinedlogslen=99999999 --coverage --failfast
+          ${{ github.workspace }}/test/functional/test_runner.py -j 1 --combinedlogslen=99999999 --coverage --failfast
+          echo "---------------- DONE ---------------------"
+
+      - name: Debug Core Dump (if exists)
+        if: failure()
+        run: |
+          COREFILE=$(ls -t ${{ github.workspace }}/core_dumps/core.* 2>/dev/null | head -n 1)
+          if [ -f "$COREFILE" ]; then
+            echo "Found core dump: $COREFILE"
+            BINARY=$(file "$COREFILE" | awk -F"'" '{print $2}')
+            if [ -x "$BINARY" ]; then
+              echo "Detected crashed binary: $BINARY"
+            else
+              echo "Could not detect crashed binary, using tapyrusd as default"
+              BINARY="./tapyrusd"
+            fi
+            lldb -c "$COREFILE" -o "bt" -o "quit" -- "$BINARY"
+          fi
+
+      - name: Upload Core Dumps
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: core-dumps-${{ matrix.arch }}
+          path: ${{ github.workspace }}/core_dumps/
+          retention-days: 7
+
+      - name: Save Ccache cache
+        uses: actions/cache/save@v4
+        if: steps.ccache-cache.outputs.cache-hit != 'true'
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: macos-${{ matrix.arch }}-ccache-${{ github.run_id }}
+
+  macos-native-arm64:
+    name: 'test macos arm64'
+    runs-on: macos-14
+    arch: arm64
+    depends-on: macos-native-x86-64
+    env:
+      BASE_ROOT_DIR: ${{ github.workspace }}
+      CCACHE_DIR: ${{ github.workspace }}/ccache
+      BASE_BUILD_DIR: ${{ github.workspace }}/build
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Clang version
+        run: |
+          if [ -d "/Applications/Xcode_15.0.app" ]; then
+            sudo xcode-select --switch /Applications/Xcode_15.0.app
+          else
+            echo "Xcode 15.0 not found, skipping xcode-select"
+          fi
+          clang --version
+
+      - name: Setup Homebrew packages
+        env:
+          HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
+        run: |
+          brew install --quiet python@3 || brew link --overwrite python@3
+          brew install --quiet coreutils ninja pkgconf gnu-getopt ccache boost libevent zeromq qt@5 qrencode berkeley-db4
+
+      - name: Fix Homebrew Path for arm64
+        if: matrix.arch == 'arm64'
+        run: echo 'export PATH="/opt/homebrew/bin:$PATH"' >> $HOME/.bashrc
+
+      - name: Restore Ccache cache
+        id: ccache-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: macos-${{ matrix.arch }}-ccache-${{ github.run_id }}
+          restore-keys: macos-${{ matrix.arch }}-ccache-
+
+      - name: Enable core dumps
+        run: |
+          CORE_DUMP_DIR="${{ github.workspace }}/core_dumps"
+          mkdir -p "$CORE_DUMP_DIR"
+          chmod 777 "$CORE_DUMP_DIR"
+          sudo sysctl -w kern.corefile="$CORE_DUMP_DIR/core.%N"
+          echo "Core dumps will be stored in: $CORE_DUMP_DIR"
+          ulimit -c unlimited
+
+      - name: Compile and run tests
+        run: |
+          CPU_COUNT=$(sysctl -n hw.ncpu)
+          BITCOIN_CONFIG_ALL="$BITCOIN_CONFIG_ALL -DCMAKE_INSTALL_PREFIX=$BASE_OUTDIR"
+          cmake -S "$BASE_ROOT_DIR" -B "$BASE_BUILD_DIR" ${BITCOIN_CONFIG_ALL} ${BITCOIN_CONFIG}
+          cmake --build build --parallel -j "$CPU_COUNT" --target all
+          export LD_LIBRARY_PATH="${DEPENDS_DIR}/${HOST}/lib"
+          export CTEST_OUTPUT_ON_FAILURE=ON
+          echo "---------------- Build unit test ---------------- "
+          cmake --build build --target test_tapyrus -j "$CPU_COUNT"
+          echo "---------------- Start unit test ---------------- "
+          cd $BASE_BUILD_DIR/src/test
+          ctest --output-on-failure -j 1 --timeout 300
+          echo "----------------  Start util test ---------------- "
+          cd ${{ github.workspace }}
+          cmake --build build --target check-tapyrus-util -j "$CPU_COUNT"
+          echo "----------------  Start functional test ---------------- "
+          cd ${{ github.workspace }}
+          ${{ github.workspace }}/test/functional/test_runner.py -j 1 --combinedlogslen=99999999 --coverage --failfast
           echo "---------------- DONE ---------------------"
 
       - name: Debug Core Dump (if exists)
