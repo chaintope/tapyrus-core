@@ -16,7 +16,6 @@ jobs:
   linux-x86-64:
     name: 'test linux-x86-64'
     runs-on: ubuntu-24.04
-    arch: x86_64
     env:
       BASE_ROOT_DIR: ${{ github.workspace }}
       CCACHE_DIR: ${{ github.workspace }}/ccache
@@ -90,7 +89,6 @@ jobs:
   linux-arm64:
     name: 'test linux arm64'
     runs-on: ubuntu-24.04
-    arch: arm64
     depends-on: linux-x86-64
     env:
       BASE_ROOT_DIR: ${{ github.workspace }}
@@ -165,7 +163,6 @@ jobs:
   macos-native-x86-64:
     name: 'test macos x86-64'
     runs-on: macos-14
-    arch: x86_64
     env:
       BASE_ROOT_DIR: ${{ github.workspace }}
       CCACHE_DIR: ${{ github.workspace }}/ccache
@@ -267,7 +264,6 @@ jobs:
   macos-native-arm64:
     name: 'test macos arm64'
     runs-on: macos-14
-    arch: arm64
     depends-on: macos-native-x86-64
     env:
       BASE_ROOT_DIR: ${{ github.workspace }}
