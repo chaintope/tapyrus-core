@@ -199,11 +199,11 @@ define $(package)_extract_cmds
   echo "$($(package)_qttools_sha256_hash)  $($(package)_source_dir)/$($(package)_qttools_file_name)" >> $($(package)_extract_dir)/.$($(package)_file_name).hash && \
   $(build_SHA256SUM) -c $($(package)_extract_dir)/.$($(package)_file_name).hash && \
   mkdir qtbase && \
-  $(build_TAR) -xf $($(package)_source) -C qtbase && \
+  $(build_TAR) -x -f $($(package)_source) -C qtbase --strip-components=1 && \
   mkdir qttranslations && \
-  $(build_TAR) -xf $($(package)_source_dir)/$($(package)_qttranslations_file_name) -C qttranslations && \
+  $(build_TAR) -x -f $($(package)_source_dir)/$($(package)_qttranslations_file_name) -C qttranslations --strip-components=1 && \
   mkdir qttools && \
-  $(build_TAR) -xf $($(package)_source_dir)/$($(package)_qttools_file_name) -C qttools
+  $(build_TAR) -x -f $($(package)_source_dir)/$($(package)_qttools_file_name) -C qttools --strip-components=1
 endef
 
 # Preprocessing steps work as follows:
@@ -220,6 +220,7 @@ endef
 # 5. In clang.conf, swap out clang & clang++, for our compiler + flags. See #17466.
 define $(package)_preprocess_cmds
   cp $($(package)_patch_dir)/qt.pro qt.pro && \
+  mkdir -p qttools/src && \
   cp $($(package)_patch_dir)/qttools_src.pro qttools/src/src.pro && \
   patch -p1 -i $($(package)_patch_dir)/dont_hardcode_pwd.patch && \
   patch -p1 -i $($(package)_patch_dir)/no-xlib.patch && \
