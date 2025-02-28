@@ -29,10 +29,10 @@ logger = logging.getLogger("TestFramework.mininode")
 
 # all timeout
 TOTAL_TEST_DURATION = 60 * 60 #one test can't run more than 60 min
-TAPYRUSD_PROC_TIMEOUT = 600 # time to wait for tapyrusd to start
-TAPYRUSD_MESSAGE_TIMEOUT = 120 # time to wait for a response from tapyrusd
+TAPYRUSD_PROC_TIMEOUT = 60 # time to wait for tapyrusd to start
+TAPYRUSD_MESSAGE_TIMEOUT = 20 # time to wait for a response from tapyrusd
 TAPYRUSD_MIN_TIMEOUT = 5 # a minimumtime to wait
-TAPYRUSD_SYNC_TIMEOUT = 1200 # time for multiple nodes to sync
+TAPYRUSD_SYNC_TIMEOUT = 360 # time for multiple nodes to sync
 
 MESSAGEMAP = {
     b"addr": msg_addr,
