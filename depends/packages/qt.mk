@@ -22,9 +22,12 @@ $(package)_patches += clang_18_libpng.patch
 $(package)_patches += utc_from_string_no_optimize.patch
 $(package)_patches += windows_lto.patch
 $(package)_patches += darwin_no_libm.patch
+<<<<<<< HEAD
 $(package)_patches += fix_activity_logging.patch
 $(package)_patches += fix_os_log_deprecated.patch
 $(package)_patches += fix_font_linking.patch
+=======
+>>>>>>> 92362a13a3 (upgrade qt)
 
 $(package)_qttranslations_file_name=qttranslations-$($(package)_suffix)
 $(package)_qttranslations_sha256_hash=415dbbb82a75dfc9a7be969e743bee54c0e6867be37bce4cf8f03da39f20112a
@@ -90,7 +93,11 @@ $(package)_config_opts += -qt-libpng
 $(package)_config_opts += -qt-pcre
 $(package)_config_opts += -qt-harfbuzz
 $(package)_config_opts += -qt-zlib
+<<<<<<< HEAD
 $(package)_config_opts += -optimize-size
+=======
+$(package)_config_opts += -static
+>>>>>>> 92362a13a3 (upgrade qt)
 $(package)_config_opts += -v
 $(package)_config_opts += -no-feature-bearermanagement
 $(package)_config_opts += -no-feature-colordialog
@@ -151,11 +158,18 @@ $(package)_config_opts_aarch64_darwin += -device-option QMAKE_APPLE_DEVICE_ARCHS
 $(package)_config_opts_x86_64_darwin += -device-option QMAKE_APPLE_DEVICE_ARCHS=x86_64
 endif
 
-$(package)_config_opts_linux = -no-xcb-xlib
+$(package)_config_opts_linux = -xcb
+$(package)_config_opts_linux += -no-xcb-xlib
 $(package)_config_opts_linux += -no-feature-xlib
+<<<<<<< HEAD
 $(package)_config_opts_linux += -no-opengl
 $(package)_config_opts_linux += -system-freetype
 $(package)_config_opts_linux += -fontconfig
+=======
+$(package)_config_opts_linux += -system-freetype
+$(package)_config_opts_linux += -fontconfig
+$(package)_config_opts_linux += -no-opengl
+>>>>>>> 92362a13a3 (upgrade qt)
 $(package)_config_opts_linux += -no-feature-vulkan
 $(package)_config_opts_linux += -dbus-runtime
 ifneq ($(LTO),)
@@ -202,11 +216,19 @@ define $(package)_extract_cmds
   echo "$($(package)_qttools_sha256_hash)  $($(package)_source_dir)/$($(package)_qttools_file_name)" >> $($(package)_extract_dir)/.$($(package)_file_name).hash && \
   $(build_SHA256SUM) -c $($(package)_extract_dir)/.$($(package)_file_name).hash && \
   mkdir qtbase && \
+<<<<<<< HEAD
   $(build_TAR) -x -f $($(package)_source) -C qtbase --strip-components=1 && \
   mkdir qttranslations && \
   $(build_TAR) -x -f $($(package)_source_dir)/$($(package)_qttranslations_file_name) -C qttranslations --strip-components=1 && \
   mkdir qttools && \
   $(build_TAR) -x -f $($(package)_source_dir)/$($(package)_qttools_file_name) -C qttools --strip-components=1
+=======
+  $(build_TAR) -xf $($(package)_source) -C qtbase && \
+  mkdir qttranslations && \
+  $(build_TAR) -xf $($(package)_source_dir)/$($(package)_qttranslations_file_name) -C qttranslations && \
+  mkdir qttools && \
+  $(build_TAR) -xf $($(package)_source_dir)/$($(package)_qttools_file_name) -C qttools
+>>>>>>> 92362a13a3 (upgrade qt)
 endef
 
 # Preprocessing steps work as follows:
@@ -261,7 +283,11 @@ endef
 
 define $(package)_config_cmds
   cd qtbase && \
+<<<<<<< HEAD
   ./configure  -top-level $($(package)_config_opts)
+=======
+  ./configure -top-level $($(package)_config_opts)
+>>>>>>> 92362a13a3 (upgrade qt)
 endef
 
 define $(package)_build_cmds
@@ -276,8 +302,13 @@ define $(package)_stage_cmds
 endef
 
 define $(package)_postprocess_cmds
+<<<<<<< HEAD
   rm -rf doc/ native/lib/  && \
   rm -f lib/lib*.la lib/Qt5*.la && \
   cd lib/pkgconfig && \
   find . -type f -not -name 'Qt5*.pc' -delete || true
+=======
+  rm -rf doc/ native/lib/ lib/pkgconfig/ && \
+  rm -f lib/lib*.la lib/Qt5*.la
+>>>>>>> 92362a13a3 (upgrade qt)
 endef
