@@ -2,12 +2,24 @@ name: CI
 
 on:
   workflow_run:
-    workflows: [ci_cmake]
+    workflows: ["CMake Build & Test"]
     types:
       - completed
+    branches:
+      - '**'
+  pull_request:
+    types: [opened, synchronize, reopened]
 
 
 jobs:
+  should_run:
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      github.event_name == 'pull_request'
+    steps:
+      - run: echo "Workflow should run"
+
   arm:
     name: "ARM"
     runs-on: ubuntu-22.04

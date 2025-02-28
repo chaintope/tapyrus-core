@@ -2,94 +2,34 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-name: CI_CMAKE
-on: [push]
+name: CMake Build & Test
+on:
+  push:
+    branches:
+      - '**'
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  CI_FAILFAST_TEST_LEAVE_DANGLING: 1  # GHA does not care about dangling processes and setting this variable avoids killing the CI script itself on error
+  CI_FAILFAST_TEST_LEAVE_DANGLING: 1
+  CTEST_OUTPUT_ON_FAILURE: ON
+  CMAKE_BUILD_PARALLEL_LEVEL: 4
 
 jobs:
-  linux-x86-64:
-    name: 'test linux-x86-64'
-    runs-on: ubuntu-24.04
-    env:
-      BASE_ROOT_DIR: ${{ github.workspace }}
-      CCACHE_DIR: ${{ github.workspace }}/ccache
-      BASE_BUILD_DIR: ${{ github.workspace }}/build
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          submodules: recursive
-
-      - name: Setup
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y clang ccache build-essential cmake pkgconf python3-zmq libevent-dev bsdmainutils libboost-filesystem-dev libboost-test-dev libdb5.3++-dev libminiupnpc-dev libzmq3-dev libqrencode-dev systemtap-sdt-dev bpfcc-tools bpftrace
-
-      - name: Enable core dumps
-        run: |
-          CORE_DUMP_DIR="${{ github.workspace }}/core_dumps"
-          mkdir -p "$CORE_DUMP_DIR"
-          chmod 777 "$CORE_DUMP_DIR"
-          sudo sysctl -w kernel.core_pattern="$CORE_DUMP_DIR/core.%e.%p"
-          echo "Core dumps will be stored in: $CORE_DUMP_DIR"
-          ulimit -c unlimited
-
-      - name: Compile and run tests
-        run: |
-          CC=clang CXX=clang++ cmake -B build -DWERROR=ON -DWITH_ZMQ=ON -DBUILD_GUI=ON -DBUILD_BENCH=ON -DBUILD_FUZZ_BINARY=ON -DWITH_BDB=ON -DWITH_USDT=ON -DCMAKE_CXX_FLAGS='-Wno-error=unused-member-function'
-          cmake --build build -j $(nproc)
-          export CTEST_OUTPUT_ON_FAILURE=ON
-          echo "---------------- Build unit test ---------------- "
-          cmake --build build --target test_tapyrus -j $(nproc)
-          echo "---------------- Start unit test ---------------- "
-          cd $BASE_BUILD_DIR/src/test
-          ctest --output-on-failure -j 1 --timeout 300
-          echo "----------------  Start util test ---------------- "
-          cd ${{ github.workspace }}
-          cmake --build build --target check-tapyrus-util -j $(nproc)
-          echo "----------------  Start functional test ---------------- "
-          cd ${{ github.workspace }}
-          ${{ github.workspace }}/test/functional/test_runner.py -j 1 --combinedlogslen=99999999 --coverage --failfast  
-          echo "---------------- DONE ---------------------"
-
-      - name: Debug Core Dump (if exists)
-        if: failure()
-        run: |
-          COREFILE=$(coredumpctl list --no-pager --output json | jq -r '.[0].filename')
-          if [ -f "$COREFILE" ]; then
-            echo "Found core dump: $COREFILE"
-            if command -v coredumpctl &> /dev/null; then
-              BINARY=$(coredumpctl info --no-pager | grep "Executable" | awk '{print $2}')
-            else
-              BINARY=$(file "$COREFILE" | awk -F"'" '{print $2}')
-            fi
-            if [ -x "$BINARY" ]; then
-              echo "Detected crashed binary: $BINARY"
-            else
-              echo "Could not detect crashed binary, using tapyrusd as default"
-              BINARY="./tapyrusd"
-            fi
-            gdb -batch -ex "bt" -ex "quit" "$BINARY" "$COREFILE"
-          fi
-
-      - name: Upload Core Dumps
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: core-dumps-${{ matrix.arch }}
-          path: ${{ github.workspace }}/core_dumps/
-          retention-days: 7
-
-  linux-arm64:
-    name: 'test linux arm64'
-    runs-on: ubuntu-24.04
-    needs: linux-x86-64
+  linux:
+    strategy:
+      matrix:
+        config:
+          - name: 'Linux x86_64'
+            os: ubuntu-24.04
+            arch: x86_64
+          - name: 'Linux ARM64'
+            os: ubuntu-24.04
+            arch: arm64
+    name: ${{ matrix.config.name }}
+    runs-on: ${{ matrix.config.os }}
     env:
       BASE_ROOT_DIR: ${{ github.workspace }}
       CCACHE_DIR: ${{ github.workspace }}/ccache
