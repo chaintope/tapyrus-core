@@ -61,11 +61,11 @@ void PruneOneBlockFile(const int fileNumber)
 
 void UnlinkPrunedFiles(const std::set<int>& setFilesToPrune)
 {
-    for (std::set<int>::iterator it = setFilesToPrune.begin(); it != setFilesToPrune.end(); ++it) {
-        CDiskBlockPos pos(*it, 0);
+    for (const auto& fileNum : setFilesToPrune) {
+        CDiskBlockPos pos(fileNum, 0);
         fs::remove(GetBlockPosFilename(pos, "blk"));
         fs::remove(GetBlockPosFilename(pos, "rev"));
-        LogPrintf("Prune: %s deleted blk/rev (%05u)\n", __func__, *it);
+        LogPrintf("Prune: %s deleted blk/rev (%05u)\n", __func__, pos.nPos);
     }
 }
 
@@ -78,7 +78,7 @@ void FindFilesToPruneManual(std::set<int>& setFilesToPrune, int nManualPruneHeig
         return;
 
     // last block to prune is the lesser of (user-specified height, MIN_BLOCKS_TO_KEEP from the tip)
-    unsigned int nLastBlockWeCanPrune = std::min((unsigned)nManualPruneHeight, chainActive.Tip()->nHeight - MIN_BLOCKS_TO_KEEP);
+    unsigned int nLastBlockWeCanPrune = std::min(static_cast<unsigned int>(nManualPruneHeight), static_cast<unsigned int>(chainActive.Tip()->nHeight) - MIN_BLOCKS_TO_KEEP);
     int count=0;
     for (int fileNumber = 0; fileNumber < nLastBlockFile; fileNumber++) {
         if (vinfoBlockFile[fileNumber].nSize == 0 || vinfoBlockFile[fileNumber].nHeightLast > nLastBlockWeCanPrune)
@@ -105,7 +105,7 @@ void FindFilesToPrune(std::set<int>& setFilesToPrune, uint32_t nPruneAfterHeight
     if (chainActive.Tip() == nullptr || nPruneTarget == 0) {
         return;
     }
-    if (chainActive.Tip()->nHeight <= nPruneAfterHeight) {
+    if (static_cast<uint32_t>(chainActive.Tip()->nHeight) <= nPruneAfterHeight) {
         return;
     }
 

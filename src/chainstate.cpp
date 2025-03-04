@@ -607,9 +607,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
         }
 
-        // Get the script flags for this block
-        unsigned int flags = GetBlockScriptFlags(pindex);
-
         // GetTransactionSigOps counts 3 types of sigops:
         // * legacy (always)
         // * p2sh (when P2SH enabled in flags and excludes coinbase)

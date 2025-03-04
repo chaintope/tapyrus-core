@@ -29,8 +29,6 @@ static const char DB_FLAG = 'F';
 static const char DB_REINDEX_FLAG = 'R';
 static const char DB_LAST_BLOCK = 'l';
 
-static const char DB_XFIELD_AGGPUBKEY = '1';
-
 namespace {
 
 struct CoinEntry {
@@ -333,7 +331,7 @@ public:
     void Unserialize(Stream &s) {
         unsigned int nCode = 0;
         // version
-        unsigned int nVersionDummy;
+        unsigned int nVersionDummy{0};
         ::Unserialize(s, VARINT(nVersionDummy));
         // header code
         ::Unserialize(s, VARINT(nCode));

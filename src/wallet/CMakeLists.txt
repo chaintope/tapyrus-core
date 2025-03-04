@@ -27,6 +27,6 @@ add_library(wallet
 	../script/ismine.cpp
 )
 
-target_link_libraries(wallet util univalue Event ${BDBXX_LIBRARY})
+target_link_libraries(wallet util univalue Event ${BerkeleyDB_LIBRARY})
 
-target_include_directories(wallet PUBLIC ${BDBXX_INCLUDE_DIR})
+target_include_directories(wallet PUBLIC ${BerkeleyDB_INCLUDE_DIR})
