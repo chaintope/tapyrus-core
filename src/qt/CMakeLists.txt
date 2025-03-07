@@ -185,12 +185,30 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 	)
 endif()
 
+# Add Qt's third-party library dependencies for static builds
+if(QT_STATIC_BUILD)
+    # Find the static libraries from Qt build
+    find_library(QT_PNG_LIBRARY NAMES qtlibpng libqtlibpng PATHS ${QT5_PREFIX}/lib NO_DEFAULT_PATH)
+    find_library(QT_HARFBUZZ_LIBRARY NAMES qtharfbuzz libqtharfbuzz PATHS ${QT5_PREFIX}/lib NO_DEFAULT_PATH)
+    find_library(QT_PCRE_LIBRARY NAMES qtpcre2 libqtpcre2 PATHS ${QT5_PREFIX}/lib NO_DEFAULT_PATH)
+    find_library(QT_FREETYPE_LIBRARY NAMES qtfreetype libqtfreetype PATHS ${QT5_PREFIX}/lib NO_DEFAULT_PATH)
+
+    target_link_libraries(tapyrus-qt-base
+        PRIVATE
+            ${QT_PNG_LIBRARY}
+            ${QT_HARFBUZZ_LIBRARY}
+            ${QT_PCRE_LIBRARY}
+            ${QT_FREETYPE_LIBRARY}
+    )
+endif()
+
+# Existing target link libraries
 target_link_libraries(tapyrus-qt-base
-	server
-	rpcclient
-	Qt5::Widgets
-	Qt5::Network
-	Qt5::DBus
+    server
+    rpcclient
+    Qt5::Widgets
+    Qt5::Network
+    Qt5::DBus
 )
 
 

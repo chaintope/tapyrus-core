@@ -67,20 +67,19 @@ case $host in
       lt_cv_prog_compiler_pic_CXX="-DPIC"
   ;;
   *darwin*)
-        dnl Because it prints a verbose warning, lld fails the following check
-        dnl for "-Wl,-single_module" from libtool.m4:
-        dnl   # If there is a non-empty error log, and "single_module"
-        dnl   # appears in it, assume the flag caused a linker warning
-        dnl "-single_module" works fine on ld64 and lld, so just bypass the test.
-        dnl Failure to set this to "yes" causes libtool to use a very broken
-        dnl link-line for shared libs.
+    dnl Because it prints a verbose warning, lld fails the following check
+    dnl for "-Wl,-single_module" from libtool.m4:
+    dnl   # If there is a non-empty error log, and "single_module"
+    dnl   # appears in it, assume the flag caused a linker warning
+    dnl "-single_module" works fine on ld64 and lld, so just bypass the test.
+    dnl Failure to set this to "yes" causes libtool to use a very broken
+    dnl link-line for shared libs.
     lt_cv_apple_cc_single_mod="yes"
-    ;;
+  ;;
 esac
+
 dnl Require C++17 compiler (no GNU extensions)
 AX_CXX_COMPILE_STDCXX([17], [noext], [mandatory], [nodefault])
-dnl Check if -latomic is required for <std::atomic>
-CHECK_ATOMIC
 
 dnl Unless the user specified OBJCXX, force it to be the same as CXX. This ensures
 dnl that we get the same -std flags for both.
@@ -107,13 +106,9 @@ AC_PATH_PROG([GIT], [git])
 AC_PATH_PROG(CCACHE,ccache)
 AC_PATH_PROG(XGETTEXT,xgettext)
 AC_PATH_PROG(HEXDUMP,hexdump)
-AC_PATH_TOOL(READELF, readelf)
-AC_PATH_TOOL(CPPFILT, c++filt)
+AC_PATH_TOOL(OBJDUMP, objdump)
 AC_PATH_TOOL(OBJCOPY, objcopy)
 AC_PATH_PROG(DOXYGEN, doxygen)
-if test -z "$DOXYGEN"; then
-   AC_MSG_WARN([Doxygen not found])
-fi
 AM_CONDITIONAL([HAVE_DOXYGEN], [test -n "$DOXYGEN"])
 
 AC_ARG_VAR(PYTHONPATH, Augments the default search path for python module files)
@@ -505,7 +500,6 @@ case $host in
          fi
        fi
 
-       AC_PATH_PROGS([RSVG_CONVERT], [rsvg-convert rsvg],rsvg-convert)
        AC_CHECK_PROG([BREW],brew, brew)
        if test x$BREW = xbrew; then
          dnl These Homebrew packages may be keg-only, meaning that they won't be found
@@ -531,11 +525,8 @@ case $host in
            BUILD_OS=darwin
            ;;
          *)
-           AC_PATH_TOOL([INSTALLNAMETOOL], [install_name_tool], install_name_tool)
-           AC_PATH_TOOL([OTOOL], [otool], otool)
-           AC_PATH_PROGS([RSVG_CONVERT], [rsvg-convert rsvg],rsvg-convert)
-           AC_PATH_PROGS([IMAGEMAGICK_CONVERT], [convert],convert)
-           AC_PATH_PROGS([TIFFCP], [tiffcp],tiffcp)
+           AC_PATH_TOOL([DSYMUTIL], [dsymutil], [dsymutil])
+           AC_PATH_PROG([ZIP], [zip], [zip])
 
            dnl libtool will try to strip the static lib, which is a problem for
            dnl cross-builds because strip attempts to call a hard-coded ld,

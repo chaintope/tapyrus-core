@@ -1,0 +1,14 @@
+diff --git a/qtbase/src/plugins/platforms/minimal/minimal.pro b/qtbase/src/plugins/platforms/minimal/minimal.pro
+--- a/qtbase/src/plugins/platforms/minimal/minimal.pro
++++ b/qtbase/src/plugins/platforms/minimal/minimal.pro
+@@ -15,3 +15,10 @@
+ OTHER_FILES += minimal.json
++
++darwin {
++    LIBS += -framework CoreText
++    LIBS += -framework CoreGraphics
++    INCLUDEPATH += $$PWD/../../../platformsupport/fontdatabases
++    LIBS += $$PWD/../../../../lib/libQt5FontDatabaseSupport.a
++}
+
+ qtConfig(freetype): QMAKE_USE_PRIVATE += freetype
