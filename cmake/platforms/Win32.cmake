@@ -1,7 +1,11 @@
 # Copyright (c) 2017 The Bitcoin developers
 
 set(CMAKE_SYSTEM_NAME Windows)
-set(TOOLCHAIN_PREFIX i686-w64-mingw32)
+if(HOST_ARCH STREQUAL "i686")
+    set(TOOLCHAIN_PREFIX "i686-w64-mingw32")
+else()
+    error("Unsupported host arch: ${HOST_ARCH}")
+endif()
 
 # cross compilers to use for C and C++
 set(CMAKE_C_COMPILER ${TOOLCHAIN_PREFIX}-gcc)

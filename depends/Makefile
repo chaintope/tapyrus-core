@@ -153,8 +153,7 @@ $(host_prefix)/share/config.site : config.site.in $(host_prefix)/.stamp_$(final_
             -e 's|@RANLIB@|$(host_RANLIB)|' \
             -e 's|@NM@|$(host_NM)|' \
             -e 's|@STRIP@|$(host_STRIP)|' \
-            -e 's|@OTOOL@|$(host_OTOOL)|' \
-            -e 's|@INSTALL_NAME_TOOL@|$(host_INSTALL_NAME_TOOL)|' \
+            -e 's|@OBJDUMP@|$(host_OBJDUMP)|' \
             -e 's|@DSYMUTIL@|$(host_DSYMUTIL)|' \
             -e 's|@build_os@|$(build_os)|' \
             -e 's|@host_os@|$(host_os)|' \
@@ -171,6 +170,49 @@ $(host_prefix)/share/config.site : config.site.in $(host_prefix)/.stamp_$(final_
             $< > $@
 	touch $@
 
+
+ifeq ($(host),$(build))
+  crosscompiling=FALSE
+else
+  crosscompiling=TRUE
+endif
+
+
+$(host_prefix)/toolchain.cmake : toolchain.cmake.in $(host_prefix)/.stamp_$(final_build_id)
+	@mkdir -p $(@D)
+	sed -e 's|@depends_crosscompiling@|$(crosscompiling)|' \
+            -e 's|@host_system_name@|$($(host_os)_cmake_system_name)|' \
+            -e 's|@host_system_version@|$($(host_os)_cmake_system_version)|' \
+            -e 's|@host_arch@|$(host_arch)|' \
+            -e 's|@CC@|$(host_CC)|' \
+            -e 's|@CXX@|$(host_CXX)|' \
+            -e 's|@OSX_SDK@|$(OSX_SDK)|' \
+            -e 's|@AR@|$(host_AR)|' \
+            -e 's|@RANLIB@|$(host_RANLIB)|' \
+            -e 's|@STRIP@|$(host_STRIP)|' \
+            -e 's|@OBJCOPY@|$(host_OBJCOPY)|' \
+            -e 's|@OBJDUMP@|$(host_OBJDUMP)|' \
+            -e 's|@depends_prefix@|$(host_prefix)|' \
+            -e 's|@CFLAGS@|$(strip $(host_CFLAGS))|' \
+            -e 's|@CFLAGS_RELEASE@|$(strip $(host_release_CFLAGS))|' \
+            -e 's|@CFLAGS_DEBUG@|$(strip $(host_debug_CFLAGS))|' \
+            -e 's|@CXXFLAGS@|$(strip $(host_CXXFLAGS))|' \
+            -e 's|@CXXFLAGS_RELEASE@|$(strip $(host_release_CXXFLAGS))|' \
+            -e 's|@CXXFLAGS_DEBUG@|$(strip $(host_debug_CXXFLAGS))|' \
+            -e 's|@CPPFLAGS@|$(strip $(host_CPPFLAGS))|' \
+            -e 's|@CPPFLAGS_RELEASE@|$(strip $(host_release_CPPFLAGS))|' \
+            -e 's|@CPPFLAGS_DEBUG@|$(strip $(host_debug_CPPFLAGS))|' \
+            -e 's|@LDFLAGS@|$(strip $(host_LDFLAGS))|' \
+            -e 's|@LDFLAGS_RELEASE@|$(strip $(host_release_LDFLAGS))|' \
+            -e 's|@LDFLAGS_DEBUG@|$(strip $(host_debug_LDFLAGS))|' \
+            -e 's|@qt_packages@|$(qt_packages_)|' \
+            -e 's|@qrencode_packages@|$(qrencode_packages_)|' \
+            -e 's|@zmq_packages@|$(zmq_packages_)|' \
+            -e 's|@bdb_packages@|$(bdb_packages_)|' \
+            -e 's|@upnp_packages@|$(upnp_packages_)|' \
+            -e 's|@usdt_packages@|$(usdt_packages_)|' \
+            $< > $@
+	touch $@
 
 define check_or_remove_cached
   mkdir -p $(BASE_CACHE)/$(host)/$(package) && cd $(BASE_CACHE)/$(host)/$(package); \
@@ -207,7 +249,7 @@ install: check-packages $(host_prefix)/share/config.site
 download-one: check-sources $(all_sources)
 
 download-osx:
-	@$(MAKE) -s HOST=x86_64-apple-darwin14 download-one
+	@$(MAKE) -s HOST=x86_64-apple-darwin23 download-one
 download-linux:
 	@$(MAKE) -s HOST=x86_64-unknown-linux-gnu download-one
 download-win:

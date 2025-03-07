@@ -125,6 +125,7 @@ add_custom_target(check)
 add_subdirectory(src)
 add_subdirectory(test)
 
+add_macos_deploy_target()
 
 message("\n")
 message("Configure summary")
