@@ -32,6 +32,7 @@ OSX_ZIP = $(OSX_VOLNAME).zip
 OSX_DEPLOY_SCRIPT=$(top_srcdir)/contrib/macdeploy/macdeployqtplus
 OSX_INSTALLER_ICONS=$(top_srcdir)/src/qt/res/icons/tapyrus.icns
 OSX_QT_TRANSLATIONS = da,de,es,hu,ru,uk,zh_CN,zh_TW
+OSX_PLIST=$(top_builddir)/share/qt/Info.plist #not installed
 
 DIST_DOCS = $(wildcard doc/*.md) $(wildcard doc/release-notes/*.md)
 DIST_CONTRIB = $(top_srcdir)/contrib/tapyrus-cli.bash-completion \
@@ -102,25 +103,29 @@ $(OSX_APP)/Contents/Resources/Base.lproj/InfoPlist.strings:
 	echo '{	CFBundleDisplayName = "$(PACKAGE_NAME)"; CFBundleName = "$(PACKAGE_NAME)"; }' > $@
 
 OSX_APP_BUILT=$(OSX_APP)/Contents/PkgInfo $(OSX_APP)/Contents/Resources/empty.lproj \
-  $(OSX_APP)/Contents/Resources/tapyrus.icns $(OSX_APP)/Contents/Info.plist \
-  $(OSX_APP)/Contents/MacOS/Tapyrus-Qt $(OSX_APP)/Contents/Resources/Base.lproj/InfoPlist.strings
+	$(OSX_APP)/Contents/Resources/tapyrus.icns $(OSX_APP)/Contents/Info.plist \
+	$(OSX_APP)/Contents/MacOS/Tapyrus-Qt $(OSX_APP)/Contents/Resources/Base.lproj/InfoPlist.strings
 
 if BUILD_DARWIN
 $(OSX_ZIP): $(OSX_APP_BUILT) $(OSX_PACKAGING)
-    $(PYTHON) $(OSX_DEPLOY_SCRIPT) $(OSX_APP) $(OSX_VOLNAME) -translations-dir=$(QT_TRANSLATION_DIR) -zip
+	$(PYTHON) $(OSX_DEPLOY_SCRIPT) $(OSX_APP) $(OSX_VOLNAME) -translations-dir=$(QT_TRANSLATION_DIR) -zip
 
 deploydir: $(OSX_ZIP)
+
 else !BUILD_DARWIN
+
 APP_DIST_DIR=$(top_builddir)/dist
 
 $(OSX_ZIP): deploydir
-    if [ -n "$(SOURCE_DATE_EPOCH)" ]; then find $(APP_DIST_DIR) -exec touch -d @$(SOURCE_DATE_EPOCH) {} +; fi
-    cd $(APP_DIST_DIR) && find . | sort | $(ZIP) -X@ $@
+	if [ -n "$(SOURCE_DATE_EPOCH)" ]; then find $(APP_DIST_DIR) -exec touch -d @$(SOURCE_DATE_EPOCH) {} +; fi
+	cd $(APP_DIST_DIR) && find . | sort | $(ZIP) -X@ $@
 
 $(APP_DIST_DIR)/$(OSX_APP)/Contents/MacOS/Tapyrus-Qt: $(OSX_APP_BUILT) $(OSX_PACKAGING)
-    $(OBJDUMP) $(PYTHON) $(OSX_DEPLOY_SCRIPT) $(OSX_APP) $(OSX_VOLNAME) -translations-dir=$(QT_TRANSLATION_DIR)
+	$(OBJDUMP) $(PYTHON) $(OSX_DEPLOY_SCRIPT) $(OSX_APP) $(OSX_VOLNAME) -translations-dir=$(QT_TRANSLATION_DIR)
 
 deploydir: $(APP_DIST_DIR)/$(OSX_APP)/Contents/MacOS/Tapyrus-Qt
+	$(MKDIR_P) $(APP_DIST_DIR)
+	cp -r $(OSX_APP) $(APP_DIST_DIR)/
 endif !BUILD_DARWIN
 
 deploy: $(OSX_ZIP)
