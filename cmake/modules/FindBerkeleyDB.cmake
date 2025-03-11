@@ -3,22 +3,10 @@
 # BerkeleyDB_INCLUDE_DIR - the Berkeley DB include directory
 # BerkeleyDB_LIBRARY - Library needed to use Berkeley DB
 
-include(BrewHelper)
 set(_BerkeleyDB_homebrew_prefix)
 if(CMAKE_HOST_APPLE)
-	find_program(HOMEBREW_EXECUTABLE brew)
-	if(HOMEBREW_EXECUTABLE)
-		# The Homebrew package manager installs the berkeley-db* packages as
-		# "keg-only", which means they are not symlinked into the default prefix.
-		# To find such a package, the find_path() and find_library() commands
-		# need additional path hints that are computed by Homebrew itself.
-		execute_process(
-				COMMAND ${HOMEBREW_EXECUTABLE} --prefix berkeley-db@4
-				OUTPUT_VARIABLE _BerkeleyDB_homebrew_prefix
-				ERROR_QUIET
-				OUTPUT_STRIP_TRAILING_WHITESPACE
-		)
-	endif()
+	include(BrewHelper)
+	find_brew_prefix(_BerkeleyDB_homebrew_prefix berkeley-db@4)
 endif()
 
 find_path(BerkeleyDB_INCLUDE_DIR

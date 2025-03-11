@@ -2,8 +2,10 @@
 
 project(tapyrus_qt-locale)
 
-include(BrewHelper)
-find_brew_prefix(QT5_PREFIX qt5)
+if(CMAKE_HOST_APPLE)
+	include(BrewHelper)
+	find_brew_prefix(QT5_PREFIX qt5)
+endif()
 
 find_package(Qt5LinguistTools HINTS "${QT5_PREFIX}")
 
