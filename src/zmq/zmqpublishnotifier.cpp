@@ -10,6 +10,7 @@
 #include <validation.h>
 #include <util.h>
 #include <rpc/server.h>
+#include <file_io.h>
 
 static std::multimap<std::string, CZMQAbstractPublishNotifier*> mapPublishNotifiers;
 

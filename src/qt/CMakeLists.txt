@@ -5,8 +5,11 @@ project(tapyrus-qt)
 # This ensure that AUTOMOC doesn't run on generated files.
 cmake_policy(SET CMP0071 NEW)
 
-include(BrewHelper)
-find_brew_prefix(QT5_PREFIX qt5)
+set(QT5_PREFIX)
+if(CMAKE_HOST_APPLE)
+	include(BrewHelper)
+	find_brew_prefix(QT5_PREFIX qt5)
+endif()
 
 set(QT_REQUIRED_COMPONENTS Core Widgets Network DBus Test)
 find_package(Qt5 COMPONENTS ${QT_REQUIRED_COMPONENTS} REQUIRED HINTS "${QT5_PREFIX}")

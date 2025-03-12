@@ -34,7 +34,9 @@
 #include <trace.h>
 #include <validation.h>
 #include  <utiltime.h>
+#include <file_io.h>
 
+#include <deque>
 #include <memory>
 #include <array>
 

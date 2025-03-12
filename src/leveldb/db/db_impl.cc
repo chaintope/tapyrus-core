@@ -8,6 +8,7 @@
 #include <atomic>
 #include <cstdint>
 #include <cstdio>
+#include <deque>
 #include <set>
 #include <string>
 #include <vector>
