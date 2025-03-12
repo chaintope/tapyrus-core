@@ -222,8 +222,8 @@ AC_DEFUN([BITCOIN_QT_CONFIGURE],[
   dnl enable qt support
   AC_MSG_CHECKING(whether to build ]AC_PACKAGE_NAME[ GUI)
   BITCOIN_QT_CHECK([
-    tapyrus_enable_qt=yes
-    tapyrus_enable_qt_test=yes
+     tapyrus_enable_qt=yes
+     tapyrus_enable_qt_test=yes
     if test "x$have_qt_test" = xno; then
       tapyrus_enable_qt_test=no
     fi
