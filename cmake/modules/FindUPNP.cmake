@@ -2,6 +2,7 @@
 # UPNP_FOUND - system has ZeroMQ lib
 # UPNP_INCLUDE_DIR - the ZeroMQ include directory
 # UPNP_LIBRARY - Libraries needed to use ZeroMQ
+
 set(BREW_HINT_UPNP)
 if(CMAKE_HOST_APPLE)
     include(BrewHelper)
