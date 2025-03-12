@@ -97,6 +97,10 @@ endfunction(prepend)
 
 prepend(BOOST_LIBRARIES "Boost::" ${BOOST_PACKAGES_REQUIRED})
 
+# this can be removed after boost::filesystem is changed to std::filesystem
+# CMake Warning (dev) at src/CMakeLists.txt:100 (find_package):
+#  Policy CMP0167 is not set: The FindBoost module is removed.
+cmake_policy(SET CMP0167 OLD)
 find_package(Boost 1.81 REQUIRED ${BOOST_PACKAGES_REQUIRED})
 target_link_libraries(util univalue crypto ${BOOST_LIBRARIES})
 
