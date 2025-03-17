@@ -496,8 +496,8 @@ case $host in
        BUILD_OS=darwin
        AX_CHECK_LINK_FLAG([-Wl,-headerpad_max_install_names], [LDFLAGS="$LDFLAGS -Wl,-headerpad_max_install_names"], [], [$LDFLAG_WERROR])
 
-       AC_CHECK_PROG([BREW],brew, brew)
-       if test x$BREW = xbrew; then
+       AC_CHECK_PROG([BREW], [brew], [brew])
+       if test "$BREW" = "brew"; then
          dnl These Homebrew packages may be keg-only, meaning that they won't be found
          dnl in expected paths because they may conflict with system files. Ask
          dnl Homebrew where each one is located, then adjust paths accordingly.
