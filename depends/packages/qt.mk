@@ -276,6 +276,8 @@ define $(package)_stage_cmds
 endef
 
 define $(package)_postprocess_cmds
-  rm -rf doc/ native/lib/ lib/pkgconfig/ && \
-  rm -f lib/lib*.la lib/Qt5*.la
+  rm -rf doc/ native/lib/  && \
+  rm -f lib/lib*.la lib/Qt5*.la && \
+  cd lib/pkgconfig && \
+  find . -type f -not -name 'Qt5*.pc' -delete || true
 endef

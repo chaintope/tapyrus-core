@@ -10,6 +10,10 @@ if [ -n "$DPKG_ADD_ARCH" ]; then sudo dpkg --add-architecture "$DPKG_ADD_ARCH" ;
 RETRY sudo apt-get update
 RETRY sudo apt-get install --no-install-recommends --no-upgrade -qq $PACKAGES $BUILD_PACKAGES linux-headers-generic
 
+if [ -n "$STRIP" ]; then
+    export STRIP
+fi
+
 # Before Script
 echo \> \$HOME/.tapyrus  # Make sure default datadir does not exist and is never read by creating a dummy file
 mkdir -p depends/SDKs depends/sdk-sources
@@ -31,7 +35,7 @@ if [ -z "$NO_DEPENDS" ]; then CONFIG_SHELL= make $MAKEJOBS -C depends HOST=$HOST
 # Script
 export COMMIT_LOG=`git log --format=fuller -1`
 OUTDIR=$BASE_OUTDIR/$GITHUB_SHA/$HOST
-BITCOIN_CONFIG_ALL="--disable-dependency-tracking --prefix=${GITHUB_WORKSPACE}/depends/$HOST --bindir=$OUTDIR/bin --libdir=$OUTDIR/lib"
+BITCOIN_CONFIG_ALL="--disable-dependency-tracking --prefix=${GITHUB_WORKSPACE}/depends/$HOST --bindir=$OUTDIR/bin --libdir=$OUTDIR/lib --with-qt-incdir=${GITHUB_WORKSPACE}/depends/$HOST/include --with-qt-libdir=${GITHUB_WORKSPACE}/depends/$HOST/lib"
 if [ -z "$NO_DEPENDS" ]; then ccache --max-size=$CCACHE_SIZE; fi
 test -n "$CONFIG_SHELL" && bash -c "$CONFIG_SHELL" -c "./autogen.sh" || ./autogen.sh
 mkdir build && cd build
