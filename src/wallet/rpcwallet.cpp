@@ -18,6 +18,7 @@
 #include <policy/policy.h>
 #include <policy/rbf.h>
 #include <rpc/mining.h>
+#include <rpc/protocol.h>
 #include <rpc/rawtransaction.h>
 #include <rpc/server.h>
 #include <rpc/util.h>
