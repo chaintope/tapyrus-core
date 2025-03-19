@@ -18,6 +18,7 @@
 #include <policy/policy.h>
 #include <policy/rbf.h>
 #include <rpc/mining.h>
+#include <rpc/protocol.h>
 #include <rpc/rawtransaction.h>
 #include <rpc/server.h>
 #include <rpc/util.h>
@@ -2495,12 +2496,12 @@ static UniValue loadwallet(const JSONRPCRequest& request)
 
     fs::path wallet_path = fs::path(wallet_file).is_absolute() ? fs::path(wallet_file) : GetWalletDir() / fs::path(wallet_file);
 
-    if (fs::symlink_status(wallet_path).type() == fs::file_not_found) {
+    if (fs::symlink_status(wallet_path).type() == std::filesystem::file_type::not_found) {
         throw JSONRPCError(RPC_WALLET_NOT_FOUND, "Wallet " + wallet_file + " not found.");
     } else if (fs::is_directory(wallet_path)) {
         // The given filename is a directory. Check that there's a wallet.dat file.
         fs::path wallet_dat_file = wallet_path / "wallet.dat";
-        if (fs::symlink_status(wallet_dat_file).type() == fs::file_not_found) {
+        if (fs::symlink_status(wallet_dat_file).type() == std::filesystem::file_type::not_found) {
             throw JSONRPCError(RPC_WALLET_NOT_FOUND, "Directory " + wallet_file + " does not contain a wallet.dat file.");
         }
     }
@@ -2555,7 +2556,7 @@ static UniValue createwallet(const JSONRPCRequest& request)
 
     fs::path wallet_path = fs::path(wallet_name).is_absolute() ? fs::path(wallet_name) : GetWalletDir() / fs::path(wallet_name);
 
-    if (fs::symlink_status(wallet_path).type() != fs::file_not_found) {
+    if (fs::symlink_status(wallet_path).type() != std::filesystem::file_type::not_found) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Wallet " + wallet_name + " already exists.");
     }
 

@@ -174,7 +174,7 @@ QString ClientModel::formatClientStartupTime() const
 
 QString ClientModel::dataDir() const
 {
-    return GUIUtil::boostPathToQString(GetDataDir());
+    return GUIUtil::pathToQString(GetDataDir());
 }
 
 void ClientModel::updateBanlist()
