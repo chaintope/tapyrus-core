@@ -5,7 +5,7 @@ $(package)_file_name=xcb-proto-$($(package)_version).tar.xz
 $(package)_sha256_hash=f04add9a972ac334ea11d9d7eb4fc7f8883835da3e4859c9afa971efdf57fcc3
 
 define $(package)_config_cmds
-  $($(package)_autoconf)|| cat config.log
+  $($(package)_autoconf)
 endef
 
 define $(package)_build_cmds
