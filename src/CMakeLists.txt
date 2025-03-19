@@ -85,27 +85,22 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
 endif()
 
 # Boost packages
-set(BOOST_PACKAGES_REQUIRED filesystem)
-
-function(prepend var prefix)
-    set(listVar "")
-    foreach(f ${ARGN})
-        list(APPEND listVar "${prefix}${f}")
-    endforeach(f)
-    set(${var} "${listVar}" PARENT_SCOPE)
-endfunction(prepend)
-
-prepend(BOOST_LIBRARIES "Boost::" ${BOOST_PACKAGES_REQUIRED})
-
-# this can be removed after boost::filesystem is changed to std::filesystem
-# CMake Warning (dev) at src/CMakeLists.txt:100 (find_package):
-#  Policy CMP0167 is not set: The FindBoost module is removed.
 cmake_policy(SET CMP0167 OLD)
-find_package(Boost 1.81 REQUIRED ${BOOST_PACKAGES_REQUIRED})
-target_link_libraries(util univalue crypto ${BOOST_LIBRARIES})
+find_package(Boost 1.81 REQUIRED )
 
-# Make sure boost uses std::atomic (it doesn't before 1.63)
-target_compile_definitions(util PUBLIC BOOST_SP_USE_STD_ATOMIC BOOST_AC_USE_STD_ATOMIC)
+# Prevent use of std::unary_function, which was removed in C++17,
+# and will generate warnings with newer compilers for Boost
+# older than 1.80.
+# See: https://github.com/boostorg/config/pull/430.
+set(CMAKE_REQUIRED_DEFINITIONS -DBOOST_NO_CXX98_FUNCTION_BASE)
+set(CMAKE_REQUIRED_INCLUDES ${Boost_INCLUDE_DIR})
+include(CMakePushCheckState)
+set_target_properties(Boost::headers PROPERTIES IMPORTED_GLOBAL TRUE)
+target_compile_definitions(Boost::headers INTERFACE
+        # We don't use multi_index serialization.
+        BOOST_MULTI_INDEX_DISABLE_SERIALIZATION
+)
+target_link_libraries(util univalue crypto ${BOOST_LIBRARIES})
 
 # More completely unrelated features shared by all executables.
 # Because nothing says this is different from util than "common"
