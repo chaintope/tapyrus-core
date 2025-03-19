@@ -27,6 +27,13 @@ from test_framework.util import wait_until, NetworkDirName, MagicBytes, MAX_NODE
 
 logger = logging.getLogger("TestFramework.mininode")
 
+# all timeout
+TOTAL_TEST_DURATION = 60 * 60 #one test can't run more than 60 min
+TAPYRUSD_PROC_TIMEOUT = 60 # time to wait for tapyrusd to start
+TAPYRUSD_MESSAGE_TIMEOUT = 20 # time to wait for a response from tapyrusd
+TAPYRUSD_MIN_TIMEOUT = 5 # a minimumtime to wait
+TAPYRUSD_SYNC_TIMEOUT = 360 # time for multiple nodes to sync
+
 MESSAGEMAP = {
     b"addr": msg_addr,
     b"block": msg_block,
@@ -268,7 +275,7 @@ class P2PInterface(P2PConnection):
 
         # timeout needs to be long enough to wait for the network and wallet to sync.
         # 5 is just a random number, there is no reason behind it.
-        self.timeout = time_to_connect * 5
+        self.timeout = 60
 
     def peer_connect(self, *args, services=NODE_NETWORK, send_version=True, **kwargs):
         create_conn = super().peer_connect(*args, **kwargs)

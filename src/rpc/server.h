@@ -7,13 +7,12 @@
 #define BITCOIN_RPC_SERVER_H
 
 #include <amount.h>
-#include <rpc/protocol.h>
 #include <uint256.h>
 
 #include <list>
 #include <map>
-#include <stdint.h>
 #include <string>
+#include <functional>
 
 #include <univalue.h>
 #include <primitives/transaction.h>

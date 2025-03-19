@@ -17,9 +17,9 @@
 #include <merkleblock.h>
 #include <net.h>
 #include <policy/packages.h>
-#include <policy/policy.h>
 #include <policy/rbf.h>
 #include <primitives/transaction.h>
+#include <rpc/protocol.h>
 #include <rpc/rawtransaction.h>
 #include <rpc/server.h>
 #include <script/script.h>

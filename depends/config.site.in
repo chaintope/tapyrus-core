@@ -40,9 +40,9 @@ fi
  if test -z "$enable_usdt" && test -n "@no_usdt@"; then
    enable_usdt=no
  fi
+
 if test x@host_os@ = xdarwin; then
   BREW=no
-  PORT=no
 fi
 
 
@@ -53,9 +53,7 @@ PKG_CONFIG="`which pkg-config` --static"
 # otherwise. That means they must be unexported at the end of configure.ac to
 # avoid ruining the cache. Sigh.
 export PKG_CONFIG_PATH=$depends_prefix/share/pkgconfig:$depends_prefix/lib/pkgconfig
-if test -z "@allow_host_packages@"; then
-  export PKGCONFIG_LIBDIR=
-fi
+export PKGCONFIG_LIBDIR="${depends_prefix}/lib/pkgconfig"
 
 CPPFLAGS="-I$depends_prefix/include/ $CPPFLAGS"
 LDFLAGS="-L$depends_prefix/lib $LDFLAGS"
@@ -78,6 +76,23 @@ fi
 if test -n "@NM@"; then
   NM=@NM@
   ac_cv_path_ac_pt_NM=${NM}
+fi
+
+if test -n "@STRIP@"; then
+  STRIP="@STRIP@"
+  ac_cv_path_ac_pt_STRIP="${STRIP}"
+fi
+
+if test "@host_os@" = darwin; then
+  if test -n "@OBJDUMP@"; then
+    OBJDUMP="@OBJDUMP@"
+    ac_cv_path_OBJDUMP="${OBJDUMP}"
+  fi
+
+  if test -n "@DSYMUTIL@"; then
+    DSYMUTIL="@DSYMUTIL@"
+    ac_cv_path_DSYMUTIL="${DSYMUTIL}"
+  fi
 fi
 
 if test -n "@debug@"; then

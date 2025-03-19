@@ -10,18 +10,32 @@ if [ -n "$DPKG_ADD_ARCH" ]; then sudo dpkg --add-architecture "$DPKG_ADD_ARCH" ;
 RETRY sudo apt-get update
 RETRY sudo apt-get install --no-install-recommends --no-upgrade -qq $PACKAGES $BUILD_PACKAGES linux-headers-generic
 
+if [ -n "$STRIP" ]; then
+    export STRIP
+fi
+
 # Before Script
 echo \> \$HOME/.tapyrus  # Make sure default datadir does not exist and is never read by creating a dummy file
 mkdir -p depends/SDKs depends/sdk-sources
-if [ -n "$OSX_SDK" -a ! -f depends/sdk-sources/MacOSX${OSX_SDK}.sdk.tar.gz ]; then curl --location --fail $SDK_URL/MacOSX${OSX_SDK}.sdk.tar.gz -o depends/sdk-sources/MacOSX${OSX_SDK}.sdk.tar.gz; fi
-if [ -n "$OSX_SDK" -a -f depends/sdk-sources/MacOSX${OSX_SDK}.sdk.tar.gz ]; then tar -C depends/SDKs -xf depends/sdk-sources/MacOSX${OSX_SDK}.sdk.tar.gz; fi
+export XCODE_VERSION=15.0
+export XCODE_BUILD_ID=15A240d
+OSX_SDK_BASENAME="Xcode-${XCODE_VERSION}-${XCODE_BUILD_ID}-extracted-SDK-with-libcxx-headers"
+
+if [ -n "$XCODE_VERSION" ] && [ ! -d "depends/SDKs/${OSX_SDK_BASENAME}" ]; then
+  OSX_SDK_FILENAME="${OSX_SDK_BASENAME}.tar.gz"
+  OSX_SDK_PATH="depends/sdk-sources/${OSX_SDK_FILENAME}"
+  if [ ! -f "$OSX_SDK_PATH" ]; then
+    RETRY curl --location --fail "${SDK_URL}/${OSX_SDK_FILENAME}" -o "$OSX_SDK_PATH"
+  fi
+  tar -C "depends/SDKs" -xf "$OSX_SDK_PATH"
+fi
 if [[ $HOST = *-mingw32 ]]; then sudo update-alternatives --set $HOST-g++ $(which $HOST-g++-posix); fi
 if [ -z "$NO_DEPENDS" ]; then CONFIG_SHELL= make $MAKEJOBS -C depends HOST=$HOST $DEP_OPTS; fi
 
 # Script
 export COMMIT_LOG=`git log --format=fuller -1`
 OUTDIR=$BASE_OUTDIR/$GITHUB_SHA/$HOST
-BITCOIN_CONFIG_ALL="--disable-dependency-tracking --prefix=${GITHUB_WORKSPACE}/depends/$HOST --bindir=$OUTDIR/bin --libdir=$OUTDIR/lib"
+BITCOIN_CONFIG_ALL="--disable-dependency-tracking --prefix=${GITHUB_WORKSPACE}/depends/$HOST --bindir=$OUTDIR/bin --libdir=$OUTDIR/lib --with-qt-incdir=${GITHUB_WORKSPACE}/depends/$HOST/include --with-qt-libdir=${GITHUB_WORKSPACE}/depends/$HOST/lib"
 if [ -z "$NO_DEPENDS" ]; then ccache --max-size=$CCACHE_SIZE; fi
 test -n "$CONFIG_SHELL" && bash -c "$CONFIG_SHELL" -c "./autogen.sh" || ./autogen.sh
 mkdir build && cd build

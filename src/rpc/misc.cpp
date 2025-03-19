@@ -5,15 +5,13 @@
 
 #include <chain.h>
 #include <clientversion.h>
-#include <core_io.h>
-#include <crypto/ripemd160.h>
 #include <key_io.h>
 #include <validation.h>
 #include <httpserver.h>
 #include <net.h>
 #include <netbase.h>
 #include <outputtype.h>
-#include <rpc/blockchain.h>
+#include <rpc/protocol.h>
 #include <rpc/server.h>
 #include <rpc/util.h>
 #include <util.h>

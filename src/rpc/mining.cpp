@@ -18,6 +18,7 @@
 #include <policy/fees.h>
 #include <rpc/blockchain.h>
 #include <rpc/mining.h>
+#include <rpc/protocol.h>
 #include <rpc/server.h>
 #include <shutdown.h>
 #include <txmempool.h>

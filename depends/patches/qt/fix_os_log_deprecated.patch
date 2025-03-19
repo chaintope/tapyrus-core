@@ -1,0 +1,18 @@
+diff --git a/qtbase/src/corelib/kernel/qcore_mac.mm b/qtbase/src/corelib/kernel/qcore_mac.mm
+--- a/qtbase/src/corelib/kernel/qcore_mac.mm
++++ b/qtbase/src/corelib/kernel/qcore_mac.mm
+@@ -136,6 +136,13 @@
+     // We use the 'public' format specifier to prevent the logging
+     // system from redacting our log message.
+-    os_log_with_type(log, logType, "%{public}s", qPrintable(message));
++    switch (logType) {
++        case OS_LOG_TYPE_DEBUG:
++            os_log_debug(log, "%{public}s", qPrintable(message));
++            break;
++        default:
++            os_log_error(log, "%{public}s", qPrintable(message));
++            break;
++    }
+ 
+     return willMirrorToStderr();
+ }

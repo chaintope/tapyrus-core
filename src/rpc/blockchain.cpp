@@ -24,6 +24,7 @@
 #include <policy/policy.h>
 #include <primitives/transaction.h>
 #include <primitives/xfield.h>
+#include <rpc//protocol.h>
 #include <rpc/server.h>
 #include <script/descriptor.h>
 #include <shutdown.h>

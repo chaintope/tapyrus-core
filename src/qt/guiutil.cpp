@@ -52,18 +52,17 @@
 #include <QFont>
 #include <QKeyEvent>
 #include <QLineEdit>
+#include <QString>
 #include <QSettings>
 #include <QTextDocument> // for Qt::mightBeRichText
 #include <QThread>
 #include <QUrlQuery>
 #include <QMouseEvent>
 
-
+#include <fstream>
 #if QT_VERSION >= 0x50200
 #include <QFontDatabase>
 #endif
-
-static fs::detail::utf8_codecvt_facet utf8;
 
 namespace GUIUtil {
 
@@ -396,7 +395,7 @@ void openDebugLogfile()
 
     /* Open debug.log with the associated application */
     if (fs::exists(pathDebug))
-        QDesktopServices::openUrl(QUrl::fromLocalFile(boostPathToQString(pathDebug)));
+        QDesktopServices::openUrl(QUrl::fromLocalFile(pathToQString(pathDebug)));
 }
 
 bool openBitcoinConf()
@@ -404,7 +403,7 @@ bool openBitcoinConf()
     fs::path pathConfig = GetConfigFile(gArgs.GetArg("-conf", BITCOIN_CONF_FILENAME));
 
     /* Create the file */
-    fs::ofstream configFile(pathConfig, std::ios_base::app);
+    std::ofstream configFile(pathConfig, std::ios_base::app);
 
     if (!configFile.good())
         return false;
@@ -412,7 +411,7 @@ bool openBitcoinConf()
     configFile.close();
 
     /* Open tapyrus.conf with the associated application */
-    return QDesktopServices::openUrl(QUrl::fromLocalFile(boostPathToQString(pathConfig)));
+    return QDesktopServices::openUrl(QUrl::fromLocalFile(pathToQString(pathConfig)));
 }
 
 ToolTipToRichTextFilter::ToolTipToRichTextFilter(int _size_threshold, QObject *parent) :
@@ -661,7 +660,7 @@ fs::path static GetAutostartFilePath()
 
 bool GetStartOnSystemStartup()
 {
-    fs::ifstream optionFile(GetAutostartFilePath());
+    std::ifstream optionFile(GetAutostartFilePath());
     if (!optionFile.good())
         return false;
     // Scan through file for "Hidden=true":
@@ -692,7 +691,7 @@ bool SetStartOnSystemStartup(bool fAutoStart)
 
         fs::create_directories(GetAutostartDir());
 
-        fs::ofstream optionFile(GetAutostartFilePath(), std::ios_base::out|std::ios_base::trunc);
+        std::ofstream optionFile(GetAutostartFilePath(), std::ios_base::out|std::ios_base::trunc);
         if (!optionFile.good())
             return false;
 
@@ -811,14 +810,14 @@ void setClipboard(const QString& str)
     QApplication::clipboard()->setText(str, QClipboard::Selection);
 }
 
-fs::path qstringToBoostPath(const QString &path)
+fs::path qstringToPath(const QString &path)
 {
-    return fs::path(path.toStdString(), utf8);
+    return fs::u8path(path.toStdString());
 }
 
-QString boostPathToQString(const fs::path &path)
+QString pathToQString(const fs::path &path)
 {
-    return QString::fromStdString(path.string(utf8));
+    return QString::fromStdString(path.u8string());
 }
 
 QString formatDurationStr(int secs)
@@ -881,7 +880,19 @@ QString formatServicesStr(quint64 mask)
 
 QString formatPingTime(double dPingTime)
 {
-    return (dPingTime == std::numeric_limits<int64_t>::max()/1e6 || dPingTime == 0) ? QObject::tr("N/A") : QString(QObject::tr("%1 ms")).arg(QString::number((int)(dPingTime * 1000), 10));
+    using namespace std::chrono;
+
+    constexpr double maxPingTime = duration_cast<duration<double>>(microseconds::max()).count() / 1e6;
+
+    if (dPingTime == 0 || dPingTime >= maxPingTime)
+    {
+        return QObject::tr("N/A");
+    }
+    else
+    {
+        auto milliseconds = static_cast<int>(dPingTime * 1000);
+        return QString(QObject::tr("%1 ms")).arg(QString::number(milliseconds, 10));
+    }
 }
 
 QString formatTimeOffset(int64_t nTimeOffset)

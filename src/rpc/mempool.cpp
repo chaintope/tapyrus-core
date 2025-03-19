@@ -6,8 +6,8 @@
 #include <consensus/validation.h>
 #include <policy/packages.h>
 #include <rpc/mempool.h>
+#include <rpc/protocol.h>
 #include <rpc/server.h>
-#include <rpc/client.h>
 #include <txmempool.h>
 #include <utilstrencodings.h>
 
