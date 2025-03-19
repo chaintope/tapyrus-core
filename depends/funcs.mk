@@ -84,7 +84,7 @@ $(1)_download_path_fixed=$(subst :,\:,$$($(1)_download_path))
 #default commands
 # The default behavior for tar will try to set ownership when running as uid 0 and may not succeed, --no-same-owner disables this behavior
 $(1)_fetch_cmds ?= $(call fetch_file,$(1),$(subst \:,:,$$($(1)_download_path_fixed)),$$($(1)_download_file),$($(1)_file_name),$($(1)_sha256_hash))
-$(1)_extract_cmds ?= mkdir -p $$($(1)_extract_dir) && echo "$$($(1)_sha256_hash)  $$($(1)_source)" > $$($(1)_extract_dir)/.$$($(1)_file_name).hash &&  $(build_SHA256SUM) -c $$($(1)_extract_dir)/.$$($(1)_file_name).hash && tar --no-same-owner --strip-components=1 -xf $$($(1)_source)
+$(1)_extract_cmds ?= mkdir -p $$($(1)_extract_dir) && echo "$$($(1)_sha256_hash)  $$($(1)_source)" > $$($(1)_extract_dir)/.$$($(1)_file_name).hash &&  $(build_SHA256SUM) -c $$($(1)_extract_dir)/.$$($(1)_file_name).hash && tar --no-same-owner --strip-components=1 -x -f $$($(1)_source)
 $(1)_preprocess_cmds ?= true
 $(1)_build_cmds ?= true
 $(1)_config_cmds ?= true
@@ -212,7 +212,7 @@ $($(1)_preprocessed): | $($(1)_extracted)
 	touch $$@
 $($(1)_configured): | $($(1)_dependencies) $($(1)_preprocessed)
 	echo Configuring $(1)...
-	rm -rf $(host_prefix); mkdir -p $(host_prefix)/lib; cd $(host_prefix); $(foreach package,$($(1)_all_dependencies), tar --no-same-owner -xf $($(package)_cached); )
+	rm -rf $(host_prefix); mkdir -p $(host_prefix)/lib; cd $(host_prefix); $(foreach package,$($(1)_all_dependencies), tar --no-same-owner -x -f $($(package)_cached); )
 	mkdir -p $$($(1)_build_dir)
 	+{ cd $$($(1)_build_dir); export $($(1)_config_env); $($(1)_config_cmds); } $$($(1)_logging)
 	touch $$@
@@ -235,7 +235,7 @@ $($(1)_cached): | $($(1)_dependencies) $($(1)_postprocessed)
 	echo Caching $(1)...
 	cd $$($(1)_staging_dir)/$(host_prefix); \
 	  find . ! -name '.stamp_postprocessed' -print0 | TZ=UTC xargs -0r touch -h -m -t 200001011200; \
-	  find . ! -name '.stamp_postprocessed' | LC_ALL=C sort | tar --numeric-owner --no-recursion -czf $$($(1)_staging_dir)/$$(@F) -T -
+	  find . ! -name '.stamp_postprocessed' | LC_ALL=C sort | tar --numeric-owner --no-recursion -c -z -f $$($(1)_staging_dir)/$$(@F) -T -
 	mkdir -p $$(@D)
 	rm -rf $$(@D) && mkdir -p $$(@D)
 	mv $$($(1)_staging_dir)/$$(@F) $$(@)
