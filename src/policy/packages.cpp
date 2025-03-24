@@ -102,7 +102,7 @@ bool SubmitPackageToMempool(const Package& package,
                                   PackageValidationState& results,
                                   CTxMempoolAcceptanceOptions& opt)
 {
-   if(!CheckPackage(package, state))
+    if(!CheckPackage(package, state))
         return false;
 
     // testmempool acceptance first
