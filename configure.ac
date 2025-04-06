@@ -557,12 +557,7 @@ case $host in
            dnl cross-builds because strip attempts to call a hard-coded ld,
            dnl which may not exist in the path. Stripping the .a is not
            dnl necessary, so just disable it.
-           dnl old_striplib=
-           RANLIB=llvm-ranlib
-           STRIP=llvm-strip
-           if test ! -x "$(which $STRIP)"; then
-             AC_MSG_ERROR([$STRIP not found. Please ensure llvm tools are properly installed.])
-           fi
+           old_striplib=
            ;;
        esac
      fi

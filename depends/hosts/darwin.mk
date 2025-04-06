@@ -14,18 +14,21 @@ OSX_SDK=$(SDK_PATH)/Xcode-$(XCODE_VERSION)-$(XCODE_BUILD_ID)-extracted-SDK-with-
 # distro releases.
 #
 # Source: https://lists.gnu.org/archive/html/bug-make/2017-11/msg00017.html
+default_clang := $(shell which clang)
+default_clangxx := $(shell which clang++)
+
 ifneq ($(build_os),darwin)
-clang_prog := $(shell which clang)
-clangxx_prog :=$(shell which clang++)
-darwin_AR=llvm-ar
-darwin_DSYMUTIL=dsymutil
-darwin_NM=llvm-nm
-darwin_OBJDUMP=llvm-objdump
-darwin_RANLIB=llvm-ranlib
-darwin_STRIP=llvm-strip
+clang_prog := $(if $(default_clang),$(default_clang),clang)
+clangxx_prog := $(if $(default_clangxx),$(default_clangxx),clang++)
+darwin_AR=$(if $(AR),$(AR),llvm-ar)
+darwin_DSYMUTIL=$(if $(DSYMUTIL),$(DSYMUTIL),dsymutil)
+darwin_NM=$(if $(NM),$(NM),llvm-nm)
+darwin_OBJDUMP=$(if $(OBJDUMP),$(OBJDUMP),llvm-objdump)
+darwin_RANLIB=$(if $(RANLIB),$(RANLIB),llvm-ranlib)
+darwin_STRIP=$(if $(STRIP),$(STRIP),llvm-strip)
 else
-clang_prog := $(shell which clang)
-clangxx_prog := $(shell which clang++)
+clang_prog := $(default_clang)
+clangxx_prog := $(default_clang++)
 darwin_AR:=$(shell which llvm-ar)
 darwin_DSYMUTIL:=$(shell which dsymutil)
 darwin_NM:=$(shell which llvm-nm)
