@@ -15,7 +15,7 @@ Run the following as root to install the base dependencies for building:
 pkg_add git gmake libevent libtool boost
 pkg_add autoconf # (select highest version, e.g. 2.69)
 pkg_add automake # (select highest version, e.g. 1.15)
-pkg_add python # (select highest version, e.g. 3.6)
+pkg_add python3 # (select highest version, e.g. 3.6)
 
 git clone https://github.com/bitcoin/bitcoin.git
 ```

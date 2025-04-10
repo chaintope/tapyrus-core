@@ -8,6 +8,14 @@ make deploy
 
 When complete, it will have produced `Tapyrus-Core.zip`.
 
+## Build Dependencies
+
+For cross-compiling from Linux, you'll need the following packages:
+
+```bash
+sudo apt-get install -y cmake python3-dev python3-setuptools clang lld llvm llvm-dev zip
+```
+
 ## SDK Extraction
 
 ### Step 1: Obtaining `Xcode.app`

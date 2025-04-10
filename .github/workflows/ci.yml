@@ -159,7 +159,7 @@ jobs:
       - run: |
           source ./default-env.sh
           HOST=x86_64-apple-darwin \
-          PACKAGES="cmake python3-dev python3-setuptools clang lld llvm llvm-dev g++ zip" \
+          PACKAGES="cmake python3-dev python3-setuptools clang lld llvm llvm-dev zip" \
           DEP_OPTS="LOG=1" \
           OSX_SDK=10.15 \
           GOAL="all deploy" \
@@ -177,7 +177,7 @@ jobs:
       - run: |
           source ./default-env.sh
           HOST=x86_64-apple-darwin \
-          PACKAGES="cmake python3-dev python3-setuptools clang lld llvm llvm-dev g++ zip" \
+          PACKAGES="cmake python3-dev python3-setuptools clang lld llvm llvm-dev zip" \
           DEP_OPTS="LOG=1" \
           OSX_SDK=10.15 \
           GOAL="all deploy" \
