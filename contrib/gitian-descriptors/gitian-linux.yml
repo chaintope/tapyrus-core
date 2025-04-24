@@ -25,8 +25,8 @@ packages:
 - "faketime"
 - "bsdmainutils"
 - "ca-certificates"
+- "python3"
 - "python3-zmq"
-- "bison"
 remotes:
 - "url": "https://github.com/chaintope/tapyrus-core"
   "dir": "tapyrus-core"

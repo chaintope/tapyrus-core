@@ -41,11 +41,11 @@ Install the required dependencies: Ubuntu & Debian
 
 #### Common
 
-    apt install automake bison cmake curl libtool make patch pkg-config python3 xz-utils
+    apt install automake cmake curl libtool make patch pkg-config python3 xz-utils
 
 #### For macOS cross compilation
 
-    apt install clang lld llvm g++ zip
+    apt install clang lld llvm llvm-dev zip
 
 Clang 18 or later is required. You must also obtain the macOS SDK before
 proceeding with a cross-compile. Under the depends directory, create a
@@ -60,7 +60,7 @@ For linux (including i386, ARM) cross compilation:
 
 Common linux dependencies:
 
-    sudo apt-get install make automake cmake curl g++-multilib libtool binutils bsdmainutils pkg-config python3 patch bison
+    sudo apt-get install make automake cmake curl g++-multilib libtool binutils bsdmainutils pkg-config python3 patch
 
 For linux ARM cross compilation:
 

@@ -5,8 +5,8 @@ dnl file COPYING or http://www.opensource.org/licenses/mit-license.php.
 dnl Helper for cases where a qt dependency is not met.
 dnl Output: If qt version is auto, set tapyrus_enable_qt to false. Else, exit.
 AC_DEFUN([BITCOIN_QT_FAIL],[
-  if test "x$tapyrus_qt_want_version" = xauto && test "x$tapyrus_qt_force" != xyes; then
-    if test "x$tapyrus_enable_qt" != xno; then
+  if test x$tapyrus_qt_want_version = xauto && test x$tapyrus_qt_force != xyes; then
+    if test x$tapyrus_enable_qt != xno; then
       AC_MSG_WARN([$1; tapyrus_qt frontend will not be built])
     fi
     tapyrus_enable_qt=no
@@ -17,7 +17,7 @@ AC_DEFUN([BITCOIN_QT_FAIL],[
 ])
 
 AC_DEFUN([BITCOIN_QT_CHECK],[
-  if test "x$tapyrus_enable_qt" != xno && test "x$tapyrus_qt_want_version" != xno; then
+  if test x$tapyrus_enable_qt != xno && test x$tapyrus_qt_want_version != xno; then
     true
     $1
   else
@@ -36,9 +36,9 @@ dnl Output: $1 is set to the path of $2 if found. $2 are searched in order.
 AC_DEFUN([BITCOIN_QT_PATH_PROGS],[
   BITCOIN_QT_CHECK([
     if test "x$3" != x; then
-      AC_PATH_PROGS($1,$2,,$3)
+      AC_PATH_PROGS([$1], [$2], [], [$3])
     else
-      AC_PATH_PROGS($1,$2)
+      AC_PATH_PROGS([$1], [$2])
     fi
     if test "x$$1" = x && test "x$4" != xyes; then
       BITCOIN_QT_FAIL([$1 not found])
@@ -91,7 +91,21 @@ dnl Outputs: See _BITCOIN_QT_FIND_LIBS_*
 dnl Outputs: Sets variables for all qt-related tools.
 dnl Outputs: tapyrus_enable_qt, tapyrus_enable_qt_dbus, tapyrus_enable_qt_test
 AC_DEFUN([BITCOIN_QT_CONFIGURE],[
-  BITCOIN_QT_CHECK([_BITCOIN_QT_FIND_LIBS])
+  qt_version=">= $1"
+  qt_lib_prefix="Qt5"
+    if test x$qt_include_path = x; then
+      qt_include_path="${prefix}/include"
+    fi
+    if test x$qt_lib_path = x; then
+      qt_lib_path="${prefix}/lib"
+    fi
+
+    BITCOIN_QT_CHECK([
+      PKG_CONFIG_PATH="${qt_lib_path}/pkgconfig:$PKG_CONFIG_PATH"
+      PKG_CONFIG_PATH="${prefix}/lib/pkgconfig:$PKG_CONFIG_PATH"
+      export PKG_CONFIG_PATH
+      _BITCOIN_QT_FIND_LIBS
+    ])
 
   dnl This is ugly and complicated. Yuck. Works as follows:
   dnl For Qt5, we can check a header to find out whether Qt is build
@@ -108,38 +122,40 @@ AC_DEFUN([BITCOIN_QT_CONFIGURE],[
   CXXFLAGS="$PIC_FLAGS $CXXFLAGS"
   _BITCOIN_QT_IS_STATIC
   if test "x$tapyrus_cv_static_qt" = xyes; then
-    _BITCOIN_QT_FIND_STATIC_PLUGINS
-    AC_DEFINE(QT_STATICPLUGIN, 1, [Define this symbol if qt plugins are static])
-    AC_CACHE_CHECK(for Qt < 5.4, tapyrus_cv_need_acc_widget,[
-      AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-          #include <QtCore/qconfig.h>
-          #ifndef QT_VERSION
-          #  include <QtCore/qglobal.h>
-          #endif
-        ]],
-        [[
-          #if QT_VERSION >= 0x050400
-          choke
-          #endif
-        ]])],
-      [tapyrus_cv_need_acc_widget=yes],
-      [tapyrus_cv_need_acc_widget=no])
-    ])
-    if test "x$tapyrus_cv_need_acc_widget" = xyes; then
-      _BITCOIN_QT_CHECK_STATIC_PLUGINS([Q_IMPORT_PLUGIN(AccessibleFactory)], [-lqtaccessiblewidgets])
+    _BITCOIN_QT_CHECK_STATIC_LIBS
+
+    if test "$qt_plugin_path" != ""; then
+      if test -d "$qt_plugin_path/platforms"; then
+        QT_LIBS="$QT_LIBS -L$qt_plugin_path/platforms"
+      fi
+      if test -d "$qt_plugin_path/styles"; then
+        QT_LIBS="$QT_LIBS -L$qt_plugin_path/styles"
+      fi
+      if test -d "$qt_plugin_path/accessible"; then
+        QT_LIBS="$QT_LIBS -L$qt_plugin_path/accessible"
+      fi
     fi
-    _BITCOIN_QT_CHECK_STATIC_PLUGINS([Q_IMPORT_PLUGIN(QMinimalIntegrationPlugin)],[-lqminimal])
-    AC_DEFINE(QT_QPA_PLATFORM_MINIMAL, 1, [Define this symbol if the minimal qt platform exists])
-    if test "x$TARGET_OS" = xwindows; then
-      _BITCOIN_QT_CHECK_STATIC_PLUGINS([Q_IMPORT_PLUGIN(QWindowsIntegrationPlugin)],[-lqwindows])
-      AC_DEFINE(QT_QPA_PLATFORM_WINDOWS, 1, [Define this symbol if the qt platform is windows])
-    elif test "x$TARGET_OS" = xlinux; then
-      _BITCOIN_QT_CHECK_STATIC_PLUGINS([Q_IMPORT_PLUGIN(QXcbIntegrationPlugin)],[-lqxcb -lxcb-static])
-      AC_DEFINE(QT_QPA_PLATFORM_XCB, 1, [Define this symbol if the qt platform is xcb])
-    elif test "x$TARGET_OS" = xdarwin; then
-      AX_CHECK_LINK_FLAG([[-framework IOKit]],[QT_LIBS="$QT_LIBS -framework IOKit"],[AC_MSG_ERROR(could not iokit framework)])
-      _BITCOIN_QT_CHECK_STATIC_PLUGINS([Q_IMPORT_PLUGIN(QCocoaIntegrationPlugin)],[-lqcocoa])
-      AC_DEFINE(QT_QPA_PLATFORM_COCOA, 1, [Define this symbol if the qt platform is cocoa])
+
+    _BITCOIN_QT_CHECK_STATIC_PLUGIN([QMinimalIntegrationPlugin], [-lqminimal])
+    AC_DEFINE([QT_QPA_PLATFORM_MINIMAL], [1], [Define this symbol if the minimal qt platform exists])
+    if test "$TARGET_OS" = "windows"; then
+      dnl Linking against wtsapi32 is required. See #17749 and
+      dnl https://bugreports.qt.io/browse/QTBUG-27097.
+      AX_CHECK_LINK_FLAG([-lwtsapi32], [QT_LIBS="$QT_LIBS -lwtsapi32"], [AC_MSG_ERROR([could not link against -lwtsapi32])])
+      _BITCOIN_QT_CHECK_STATIC_PLUGIN([QWindowsIntegrationPlugin], [-lqwindows])
+      _BITCOIN_QT_CHECK_STATIC_PLUGIN([QWindowsVistaStylePlugin], [-lqwindowsvistastyle])
+      AC_DEFINE([QT_QPA_PLATFORM_WINDOWS], [1], [Define this symbol if the qt platform is windows])
+    elif test "$TARGET_OS" = "linux"; then
+      _BITCOIN_QT_CHECK_STATIC_PLUGIN([QXcbIntegrationPlugin], [-lqxcb])
+      AC_DEFINE([QT_QPA_PLATFORM_XCB], [1], [Define this symbol if the qt platform is xcb])
+    elif test "$TARGET_OS" = "darwin"; then
+      AX_CHECK_LINK_FLAG([-framework Carbon], [QT_LIBS="$QT_LIBS -framework Carbon"], [AC_MSG_ERROR(could not link against Carbon framework)])
+      AX_CHECK_LINK_FLAG([-framework IOSurface], [QT_LIBS="$QT_LIBS -framework IOSurface"], [AC_MSG_ERROR(could not link against IOSurface framework)])
+      AX_CHECK_LINK_FLAG([-framework Metal], [QT_LIBS="$QT_LIBS -framework Metal"], [AC_MSG_ERROR(could not link against Metal framework)])
+      AX_CHECK_LINK_FLAG([-framework QuartzCore], [QT_LIBS="$QT_LIBS -framework QuartzCore"], [AC_MSG_ERROR(could not link against QuartzCore framework)])
+      _BITCOIN_QT_CHECK_STATIC_PLUGIN([QCocoaIntegrationPlugin], [-lqcocoa])
+      _BITCOIN_QT_CHECK_STATIC_PLUGIN([QMacStylePlugin], [-lqmacstyle])
+      AC_DEFINE([QT_QPA_PLATFORM_COCOA], [1], [Define this symbol if the qt platform is cocoa])
     fi
   fi
   CPPFLAGS=$TEMP_CPPFLAGS
@@ -147,7 +163,7 @@ AC_DEFUN([BITCOIN_QT_CONFIGURE],[
   ])
 
   if test "x$qt_bin_path" = x; then
-    qt_bin_path="`$PKG_CONFIG --variable=host_bins Qt5Core 2>/dev/null`"
+    qt_bin_path="`$PKG_CONFIG --variable=host_bins ${qt_lib_prefix}Core 2>/dev/null`"
   fi
 
   if test "x$use_hardening" != xno; then
@@ -202,6 +218,7 @@ AC_DEFUN([BITCOIN_QT_CONFIGURE],[
   BITCOIN_QT_PATH_PROGS([RCC], [rcc-qt5 rcc5 rcc], $qt_bin_path)
   BITCOIN_QT_PATH_PROGS([LRELEASE], [lrelease-qt5 lrelease5 lrelease], $qt_bin_path)
   BITCOIN_QT_PATH_PROGS([LUPDATE], [lupdate-qt5 lupdate5 lupdate],$qt_bin_path, yes)
+  BITCOIN_QT_PATH_PROGS([LCONVERT], [lconvert-qt5 lconvert5 lconvert], $qt_bin_path, yes)
 
   MOC_DEFS='-DHAVE_CONFIG_H -I$(srcdir)'
   case $host in
@@ -224,32 +241,37 @@ AC_DEFUN([BITCOIN_QT_CONFIGURE],[
   BITCOIN_QT_CHECK([
      tapyrus_enable_qt=yes
      tapyrus_enable_qt_test=yes
-    if test "x$have_qt_test" = xno; then
+    if test x$have_qt_test = xno; then
       tapyrus_enable_qt_test=no
     fi
     tapyrus_enable_qt_dbus=no
-    if test "x$use_dbus" != xno && test "x$have_qt_dbus" = xyes; then
+    if test x$use_dbus != xno && test x$have_qt_dbus = xyes; then
       tapyrus_enable_qt_dbus=yes
     fi
-    if test "x$use_dbus" = xyes && test "x$have_qt_dbus" = xno; then
+    if test x$use_dbus = xyes && test x$have_qt_dbus = xno; then
       AC_MSG_ERROR([libQtDBus not found. Install libQtDBus or remove --with-qtdbus.])
     fi
-    if test "x$LUPDATE" = x; then
+    if test x$LUPDATE = x; then
       AC_MSG_WARN([lupdate is required to update qt translations])
+    fi
+    if test x$LCONVERT = x; then
+      AC_MSG_WARN([lconvert tool is required to update Qt translations.])
     fi
   ],[
     tapyrus_enable_qt=no
   ])
-  AC_MSG_RESULT([$tapyrus_enable_qt (Qt5)])
+  if test tapyrus_enable_qt = "yes"; then
+    AC_MSG_RESULT([tapyrus_enable_qt ($qt_lib_prefix)])
+  else
+    AC_MSG_RESULT([tapyrus_enable_qt])
+  fi
 
   AC_SUBST(QT_PIE_FLAGS)
   AC_SUBST(QT_INCLUDES)
   AC_SUBST(QT_LIBS)
   AC_SUBST(QT_LDFLAGS)
   AC_SUBST(QT_DBUS_INCLUDES)
-  AC_SUBST(QT_DBUS_LIBS)
   AC_SUBST(QT_TEST_INCLUDES)
-  AC_SUBST(QT_TEST_LIBS)
   AC_SUBST(QT_SELECT, qt5)
   AC_SUBST(MOC_DEFS)
 ])
@@ -280,9 +302,6 @@ AC_DEFUN([_BITCOIN_QT_IS_STATIC],[
       [tapyrus_cv_static_qt=yes],
       [tapyrus_cv_static_qt=no])
     ])
-  if test "x$tapyrus_cv_static_qt" = xyes; then
-    AC_DEFINE(QT_STATICPLUGIN, 1, [Define this symbol for static Qt plugins])
-  fi
 ])
 
 dnl Internal. Check if the link-requirements for static plugins are met.
@@ -290,87 +309,78 @@ dnl Requires: INCLUDES and LIBS must be populated as necessary.
 dnl Inputs: $1: A series of Q_IMPORT_PLUGIN().
 dnl Inputs: $2: The libraries that resolve $1.
 dnl Output: QT_LIBS is prepended or configure exits.
-AC_DEFUN([_BITCOIN_QT_CHECK_STATIC_PLUGINS],[
-  AC_MSG_CHECKING(for static Qt plugins: $2)
+AC_DEFUN([_BITCOIN_QT_CHECK_STATIC_PLUGIN], [
+  AC_MSG_CHECKING([for $1 ($2)])
   CHECK_STATIC_PLUGINS_TEMP_LIBS="$LIBS"
   LIBS="$2${qt_lib_suffix} $QT_LIBS $LIBS"
   AC_LINK_IFELSE([AC_LANG_PROGRAM([[
-    #define QT_STATICPLUGIN
-    #include <QtPlugin>
-    $1]],
-    [[return 0;]])],
-    [AC_MSG_RESULT(yes); QT_LIBS="$2${qt_lib_suffix} $QT_LIBS"],
-    [AC_MSG_RESULT(no); BITCOIN_QT_FAIL(Could not resolve: $2)])
+      #include <QtPlugin>
+      Q_IMPORT_PLUGIN($1)
+    ]])],
+    [AC_MSG_RESULT([yes]); QT_LIBS="$2${qt_lib_suffix} $QT_LIBS"],
+    [AC_MSG_RESULT([no]); BITCOIN_QT_FAIL([$1 not found.])])
   LIBS="$CHECK_STATIC_PLUGINS_TEMP_LIBS"
 ])
 
-dnl Internal. Find paths necessary for linking qt static plugins
-dnl Inputs: qt_plugin_path. optional.
-dnl Outputs: QT_LIBS is appended
-AC_DEFUN([_BITCOIN_QT_FIND_STATIC_PLUGINS],[
-    if test "x$qt_plugin_path" != x; then
-      QT_LIBS="$QT_LIBS -L$qt_plugin_path/platforms"
-      if test -d "$qt_plugin_path/accessible"; then
-        QT_LIBS="$QT_LIBS -L$qt_plugin_path/accessible"
-      fi
-     m4_ifdef([PKG_CHECK_MODULES],[
-       if test x$tapyrus_cv_qt58 = xno; then
-         PKG_CHECK_MODULES([QTPLATFORM], [Qt5PlatformSupport], [QT_LIBS="$QTPLATFORM_LIBS $QT_LIBS"])
-       else
-         PKG_CHECK_MODULES([QTFONTDATABASE], [Qt5FontDatabaseSupport${qt_lib_suffix}], [QT_LIBS="-lQt5FontDatabaseSupport${qt_lib_suffix} $QT_LIBS"])
-         PKG_CHECK_MODULES([QTEVENTDISPATCHER], [Qt5EventDispatcherSupport${qt_lib_suffix}], [QT_LIBS="-lQt5EventDispatcherSupport${qt_lib_suffix} $QT_LIBS"])
-         PKG_CHECK_MODULES([QTTHEME], [Qt5ThemeSupport], [QT_LIBS="-lQt5ThemeSupport $QT_LIBS"])
-         PKG_CHECK_MODULES([QTDEVICEDISCOVERY], [Qt5DeviceDiscoverySupport${qt_lib_suffix}], [QT_LIBS="-lQt5DeviceDiscoverySupport${qt_lib_suffix} $QT_LIBS"])
-         PKG_CHECK_MODULES([QTACCESSIBILITY], [Qt5AccessibilitySupport${qt_lib_suffix}], [QT_LIBS="-lQt5AccessibilitySupport${qt_lib_suffix} $QT_LIBS"])
-         PKG_CHECK_MODULES([QTFB], [Qt5FbSupport${qt_lib_suffix}], [QT_LIBS="-lQt5FbSupport $QT_LIBS"])
-                fi
-       if test "x$TARGET_OS" = xlinux; then
-         PKG_CHECK_MODULES([QTXCBQPA], [Qt5XcbQpa], [QT_LIBS="$QTXCBQPA_LIBS $QT_LIBS"])
-       elif test "x$TARGET_OS" = xdarwin; then
-         PKG_CHECK_MODULES([QTCLIPBOARD],[Qt5ClipboardSupport${qt_lib_suffix}], [QT_LIBS="-lQt5ClipboardSupport${qt_lib_suffix} $QT_LIBS"])
-         PKG_CHECK_MODULES([QTGRAPHICS], [Qt5GraphicsSupport${qt_lib_suffix}], [QT_LIBS="-lQt5GraphicsSupport${qt_lib_suffix} $QT_LIBS"])
-         PKG_CHECK_MODULES([QTCGL], [Qt5CglSupport${qt_lib_suffix}], [QT_LIBS="-lQt5CglSupport${qt_lib_suffix} $QT_LIBS"])
-       fi
-     ])
-   fi
+
+dnl Internal. Check Qt static libs with PKG_CHECK_MODULES.
+dnl
+dnl _BITCOIN_QT_CHECK_STATIC_LIBS
+dnl -----------------------------
+dnl
+dnl Outputs: QT_LIBS is prepended.
+AC_DEFUN([_BITCOIN_QT_CHECK_STATIC_LIBS], [
+  PKG_CHECK_MODULES([QT_ACCESSIBILITY], [${qt_lib_prefix}AccessibilitySupport${qt_lib_suffix}], [QT_LIBS="$QT_ACCESSIBILITY_LIBS $QT_LIBS"])
+  PKG_CHECK_MODULES([QT_DEVICEDISCOVERY], [${qt_lib_prefix}DeviceDiscoverySupport${qt_lib_suffix}], [QT_LIBS="$QT_DEVICEDISCOVERY_LIBS $QT_LIBS"])
+  PKG_CHECK_MODULES([QT_EDID], [${qt_lib_prefix}EdidSupport${qt_lib_suffix}], [QT_LIBS="$QT_EDID_LIBS $QT_LIBS"])
+  PKG_CHECK_MODULES([QT_EVENTDISPATCHER], [${qt_lib_prefix}EventDispatcherSupport${qt_lib_suffix}], [QT_LIBS="$QT_EVENTDISPATCHER_LIBS $QT_LIBS"])
+  PKG_CHECK_MODULES([QT_FB], [${qt_lib_prefix}FbSupport${qt_lib_suffix}], [QT_LIBS="$QT_FB_LIBS $QT_LIBS"])
+  PKG_CHECK_MODULES([QT_FONTDATABASE], [${qt_lib_prefix}FontDatabaseSupport${qt_lib_suffix}], [QT_LIBS="$QT_FONTDATABASE_LIBS $QT_LIBS"])
+  PKG_CHECK_MODULES([QT_THEME], [${qt_lib_prefix}ThemeSupport${qt_lib_suffix}], [QT_LIBS="$QT_THEME_LIBS $QT_LIBS"])
+  if test "$TARGET_OS" = "linux"; then
+    PKG_CHECK_MODULES([QT_INPUT], [${qt_lib_prefix}InputSupport], [QT_LIBS="$QT_INPUT_LIBS $QT_LIBS"])
+    PKG_CHECK_MODULES([QT_SERVICE], [${qt_lib_prefix}ServiceSupport], [QT_LIBS="$QT_SERVICE_LIBS $QT_LIBS"])
+    PKG_CHECK_MODULES([QT_XCBQPA], [${qt_lib_prefix}XcbQpa], [QT_LIBS="$QT_XCBQPA_LIBS $QT_LIBS"])
+    PKG_CHECK_MODULES([QT_XKBCOMMON], [${qt_lib_prefix}XkbCommonSupport], [QT_LIBS="$QT_XKBCOMMON_LIBS $QT_LIBS"])
+  elif test "$TARGET_OS" = "darwin"; then
+    PKG_CHECK_MODULES([QT_CLIPBOARD], [${qt_lib_prefix}ClipboardSupport${qt_lib_suffix}], [QT_LIBS="$QT_CLIPBOARD_LIBS $QT_LIBS"])
+    PKG_CHECK_MODULES([QT_GRAPHICS], [${qt_lib_prefix}GraphicsSupport${qt_lib_suffix}], [QT_LIBS="$QT_GRAPHICS_LIBS $QT_LIBS"])
+    PKG_CHECK_MODULES([QT_SERVICE], [${qt_lib_prefix}ServiceSupport${qt_lib_suffix}], [QT_LIBS="$QT_SERVICE_LIBS $QT_LIBS"])
+  elif test "$TARGET_OS" = "windows"; then
+    PKG_CHECK_MODULES([QT_WINDOWSUIAUTOMATION], [${qt_lib_prefix}WindowsUIAutomationSupport${qt_lib_suffix}], [QT_LIBS="$QT_WINDOWSUIAUTOMATION_LIBS $QT_LIBS"])
+  fi
 ])
 
 dnl Internal. Find Qt libraries using pkg-config.
-dnl Inputs: tapyrus_qt_want_version (from --with-gui=). The version to check
-dnl         first.
-dnl Inputs: $1: If tapyrus_qt_want_version is "auto", check for this version
-dnl         first.
+dnl
+dnl _BITCOIN_QT_FIND_LIBS
+dnl ---------------------
+dnl
 dnl Outputs: All necessary QT_* variables are set.
 dnl Outputs: have_qt_test and have_qt_dbus are set (if applicable) to yes|no.
 AC_DEFUN([_BITCOIN_QT_FIND_LIBS],[
-  m4_ifdef([PKG_CHECK_MODULES],[
-    qt_lib_prefix=Qt5
-    qt5_modules="Qt5Core Qt5Gui Qt5Network Qt5Widgets"
-    BITCOIN_QT_CHECK([
-      PKG_CHECK_MODULES([QT_CORE], [${qt_lib_prefix}Core${qt_lib_suffix} $qt_version], [],
-                        [BITCOIN_QT_FAIL([${qt_lib_prefix}Core${qt_lib_suffix} $qt_version not found])])
-    ])
-    BITCOIN_QT_CHECK([
-      PKG_CHECK_MODULES([QT_GUI], [${qt_lib_prefix}Gui${qt_lib_suffix} $qt_version], [],
-                        [BITCOIN_QT_FAIL([${qt_lib_prefix}Gui${qt_lib_suffix} $qt_version not found])])
-    ])
-    BITCOIN_QT_CHECK([
-      PKG_CHECK_MODULES([QT_WIDGETS], [${qt_lib_prefix}Widgets${qt_lib_suffix} $qt_version], [],
-                        [BITCOIN_QT_FAIL([${qt_lib_prefix}Widgets${qt_lib_suffix} $qt_version not found])])
-    ])
-    BITCOIN_QT_CHECK([
-      PKG_CHECK_MODULES([QT_NETWORK], [${qt_lib_prefix}Network${qt_lib_suffix} $qt_version], [],
-                        [BITCOIN_QT_FAIL([${qt_lib_prefix}Network${qt_lib_suffix} $qt_version not found])])
-    ])
-    QT_INCLUDES="$QT_CORE_CFLAGS $QT_GUI_CFLAGS $QT_WIDGETS_CFLAGS $QT_NETWORK_CFLAGS"
-    QT_LIBS="$QT_CORE_LIBS $QT_GUI_LIBS $QT_WIDGETS_LIBS $QT_NETWORK_LIBS"
-
-    BITCOIN_QT_CHECK([
-      PKG_CHECK_MODULES([QT_TEST], [${qt_lib_prefix}Test${qt_lib_suffix}], [QT_TEST_INCLUDES="$QT_TEST_CFLAGS"; have_qt_test=yes], [have_qt_test=no])
-      if test "x$use_dbus" != xno; then
-        PKG_CHECK_MODULES([QT_DBUS], [${qt_lib_prefix}DBus], [QT_DBUS_INCLUDES="$QT_DBUS_CFLAGS"; have_qt_dbus=yes], [have_qt_dbus=no])
-      fi
-    ])
+  BITCOIN_QT_CHECK([
+    PKG_CHECK_MODULES([QT_CORE], [${qt_lib_prefix}Core${qt_lib_suffix} $qt_version], [QT_INCLUDES="$QT_CORE_CFLAGS $QT_INCLUDES" QT_LIBS="$QT_CORE_LIBS $QT_LIBS"],
+                       [${qt_lib_prefix}Core${qt_lib_suffix} $qt_version not found ])
   ])
-  true; dnl
+  BITCOIN_QT_CHECK([
+    PKG_CHECK_MODULES([QT_GUI], [${qt_lib_prefix}Gui${qt_lib_suffix} $qt_version], [QT_INCLUDES="$QT_GUI_CFLAGS $QT_INCLUDES" QT_LIBS="$QT_GUI_LIBS $QT_LIBS"],
+                      [${qt_lib_prefix}Gui${qt_lib_suffix} $qt_version not found ])
+  ])
+  BITCOIN_QT_CHECK([
+    PKG_CHECK_MODULES([QT_WIDGETS], [${qt_lib_prefix}Widgets${qt_lib_suffix} $qt_version], [QT_INCLUDES="$QT_WIDGETS_CFLAGS $QT_INCLUDES" QT_LIBS="$QT_WIDGETS_LIBS $QT_LIBS"],
+                      [${qt_lib_prefix}Widgets${qt_lib_suffix} $qt_version not found ])
+  ])
+  BITCOIN_QT_CHECK([
+    PKG_CHECK_MODULES([QT_NETWORK], [${qt_lib_prefix}Network${qt_lib_suffix} $qt_version], [QT_INCLUDES="$QT_NETWORK_CFLAGS $QT_INCLUDES" QT_LIBS="$QT_NETWORK_LIBS $QT_LIBS"],
+                      [${qt_lib_prefix}Network${qt_lib_suffix} $qt_version not found ])
+  ])
+
+  BITCOIN_QT_CHECK([
+    PKG_CHECK_MODULES([QT_TEST], [${qt_lib_prefix}Test${qt_lib_suffix} $qt_version], [QT_TEST_INCLUDES="$QT_TEST_CFLAGS"; have_qt_test=yes], [have_qt_test=no])
+    if test x$use_dbus != xno; then
+      PKG_CHECK_MODULES([QT_DBUS], [${qt_lib_prefix}DBus $qt_version], [QT_DBUS_INCLUDES="$QT_DBUS_CFLAGS"; have_qt_dbus=yes], [have_qt_dbus=no])
+    fi
+  ])
 ])
+

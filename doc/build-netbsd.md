@@ -20,7 +20,7 @@ git
 gmake
 libevent
 libtool
-python27
+python3
 ```
 
 Download the source code:

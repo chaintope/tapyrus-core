@@ -1,5 +1,5 @@
 OSX_MIN_VERSION=11.0
-OSX_SDK_VERSION=15.0
+OSX_SDK_VERSION=14.0
 
 XCODE_VERSION=15.0
 XCODE_BUILD_ID=15A240d
@@ -14,15 +14,28 @@ OSX_SDK=$(SDK_PATH)/Xcode-$(XCODE_VERSION)-$(XCODE_BUILD_ID)-extracted-SDK-with-
 # distro releases.
 #
 # Source: https://lists.gnu.org/archive/html/bug-make/2017-11/msg00017.html
-clang_prog=$(shell $(SHELL) $(.SHELLFLAGS) "command -v clang")
-clangxx_prog=$(shell $(SHELL) $(.SHELLFLAGS) "command -v clang++")
+default_clang := $(shell which clang)
+default_clangxx := $(shell which clang++)
 
-darwin_AR=$(shell $(SHELL) $(.SHELLFLAGS) "command -v llvm-ar")
-darwin_DSYMUTIL=$(shell $(SHELL) $(.SHELLFLAGS) "command -v dsymutil")
-darwin_NM=$(shell $(SHELL) $(.SHELLFLAGS) "command -v llvm-nm")
-darwin_OBJDUMP=$(shell $(SHELL) $(.SHELLFLAGS) "command -v llvm-objdump")
-darwin_RANLIB=$(shell $(SHELL) $(.SHELLFLAGS) "command -v llvm-ranlib")
-darwin_STRIP=$(shell $(SHELL) $(.SHELLFLAGS) "command -v llvm-strip")
+ifneq ($(build_os),darwin)
+clang_prog := $(if $(default_clang),$(default_clang),clang)
+clangxx_prog := $(if $(default_clangxx),$(default_clangxx),clang++)
+darwin_AR=$(if $(AR),$(AR),llvm-ar)
+darwin_DSYMUTIL=$(if $(DSYMUTIL),$(DSYMUTIL),dsymutil)
+darwin_NM=$(if $(NM),$(NM),llvm-nm)
+darwin_OBJDUMP=$(if $(OBJDUMP),$(OBJDUMP),llvm-objdump)
+darwin_RANLIB=$(if $(RANLIB),$(RANLIB),llvm-ranlib)
+darwin_STRIP=$(if $(STRIP),$(STRIP),llvm-strip)
+else
+clang_prog := $(default_clang)
+clangxx_prog := $(default_clang++)
+darwin_AR:=$(shell which llvm-ar)
+darwin_DSYMUTIL:=$(shell which dsymutil)
+darwin_NM:=$(shell which llvm-nm)
+darwin_OBJDUMP:=$(shell which llvm-objdump)
+darwin_RANLIB:=$(shell which llvm-ranlib)
+darwin_STRIP:=$(shell which llvm-strip)
+endif
 
 # Flag explanations:
 #
@@ -52,11 +65,11 @@ darwin_STRIP=$(shell $(SHELL) $(.SHELLFLAGS) "command -v llvm-strip")
 #         non-determinism issues with the Identifier field.
 
 darwin_CC=$(clang_prog) --target=$(host) \
-              -isysroot$(OSX_SDK) --stdlib=libc++ \
+              -isysroot $(OSX_SDK) --stdlib=libc++ \
               -iwithsysroot/usr/include -iframeworkwithsysroot/System/Library/Frameworks
 
 darwin_CXX=$(clangxx_prog) --target=$(host) \
-               -isysroot$(OSX_SDK) --stdlib=libc++ \
+               -isysroot $(OSX_SDK) --stdlib=libc++ \
                -iwithsysroot/usr/include/c++/v1 \
                -iwithsysroot/usr/include -iframeworkwithsysroot/System/Library/Frameworks
 
@@ -75,3 +88,9 @@ darwin_release_CXXFLAGS=$(darwin_release_CFLAGS)
 
 darwin_debug_CFLAGS=-O1 -g
 darwin_debug_CXXFLAGS=$(darwin_debug_CFLAGS)
+
+darwin_cmake_system_name=Darwin
+# Darwin version, which corresponds to OSX_MIN_VERSION.
+# See https://en.wikipedia.org/wiki/Darwin_(operating_system)
+darwin_cmake_system_version=20.1
+

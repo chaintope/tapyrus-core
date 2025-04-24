@@ -1,7 +1,11 @@
 # Copyright (c) 2017 The Bitcoin developers
 
 set(CMAKE_SYSTEM_NAME Windows)
-set(TOOLCHAIN_PREFIX x86_64-w64-mingw32)
+if(HOST_ARCH STREQUAL "arm64")
+set(TOOLCHAIN_PREFIX "aarch64-w64-mingw32")
+else()
+set(TOOLCHAIN_PREFIX "x86_64-w64-mingw32")
+endif()
 
 # cross compilers to use for C and C++
 set(CMAKE_C_COMPILER ${TOOLCHAIN_PREFIX}-gcc)

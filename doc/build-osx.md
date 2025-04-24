@@ -27,9 +27,9 @@ To build tapyrus-qt GUI install the following along with the above
 
     brew install qt5 qrencode
 
-If you want to build the disk image with `make deploy` (.dmg / optional), you need RSVG
+If you want to build the disk image with `make deploy` (zip) by cross-compiling on a linux builder, you will need the following additional dependencies:
 
-    brew install librsvg
+    brew install clang lld llvm-dev zip
 
 See [dependencies.md](dependencies.md) for a complete overview.
 

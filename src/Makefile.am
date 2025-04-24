@@ -627,3 +627,26 @@ include Makefile.qttest.include
 endif
 
 include Makefile.univalue.include
+
+# Add a special case for Darwin in the install-libLTLIBRARIES target
+install-libLTLIBRARIES: $(lib_LTLIBRARIES)
+    @$(NORMAL_INSTALL)
+    @list='$(lib_LTLIBRARIES)'; test -n "$(libdir)" || list=; \
+    list2=; for p in $$list; do \
+      if test -f $$p; then \
+        list2="$$list2 $$p"; \
+      else :; fi; \
+    done; \
+    test -z "$$list2" || { \
+      echo " $(MKDIR_P) '$(DESTDIR)$(libdir)'"; \
+      $(MKDIR_P) "$(DESTDIR)$(libdir)" || exit 1; \
+      for p in $$list2; do \
+        if test "$$p" = "libtapyrusconsensus.la" && test "$(host_os)" = "darwin*"; then \
+          echo "Installing libtapyrusconsensus.la without stripping on Darwin"; \
+          $(LIBTOOL) $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=install $(INSTALL) $$p '$(DESTDIR)$(libdir)'; \
+        else \
+          echo " $(LIBTOOL) $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=install $(INSTALL) $(INSTALL_STRIP_FLAG) $$p '$(DESTDIR)$(libdir)'"; \
+          $(LIBTOOL) $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=install $(INSTALL) $(INSTALL_STRIP_FLAG) $$p '$(DESTDIR)$(libdir)'; \
+        fi; \
+      done; \
+    }
