@@ -7,6 +7,7 @@
 Tests correspond to code in rpc/net.cpp.
 """
 
+from test_framework.mininode import TAPYRUSD_MIN_TIMEOUT
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
     assert_equal,
@@ -70,7 +71,7 @@ class NetTest(BitcoinTestFramework):
         self.nodes[0].setnetworkactive(False)
         assert_equal(self.nodes[0].getnetworkinfo()['networkactive'], False)
         # Wait a bit for all sockets to close
-        wait_until(lambda: self.nodes[0].getnetworkinfo()['connections'] == 0, timeout=3)
+        wait_until(lambda: self.nodes[0].getnetworkinfo()['connections'] == 0, timeout=TAPYRUSD_MIN_TIMEOUT)
 
         self.nodes[0].setnetworkactive(True)
         connect_nodes_bi(self.nodes, 0, 1)

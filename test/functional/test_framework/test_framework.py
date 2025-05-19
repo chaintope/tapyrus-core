@@ -20,7 +20,7 @@ from subprocess import TimeoutExpired
 from .authproxy import JSONRPCException
 from . import coverage
 from .test_node import TestNode
-from .mininode import NetworkThread
+from .mininode import NetworkThread, TAPYRUSD_MIN_TIMEOUT, TAPYRUSD_PROC_TIMEOUT, TAPYRUSD_SYNC_TIMEOUT
 from .blocktools import createTestGenesisBlock
 from .util import (
     MAX_NODES,
@@ -94,7 +94,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         self.nodes = []
         self.network_thread = None
         self.mocktime = 0
-        self.rpc_timewait = 180  # Wait for up to 60 seconds for the RPC server to respond
+        self.rpc_timewait = TAPYRUSD_PROC_TIMEOUT  # Wait for up to x min for the RPC server to respond
         self.supports_cli = False
         self.bind_to_localhost_only = True
         self.signblockpubkey = "025700236c2890233592fcef262f4520d22af9160e3d9705855140eb2aa06c35d3"
