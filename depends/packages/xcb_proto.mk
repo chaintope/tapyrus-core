@@ -9,6 +9,10 @@ define $(package)_preprocess_cmds
   find . -name "*.py" -type f -exec sed -i 's/imp.find_module/imp.FileFinder.find_spec/g' {} \;
 endef
 
+define $(package)_config_cmds
+  $($(package)_autoconf)
+endef
+
 define $(package)_build_cmds
   $(MAKE)
 endef
