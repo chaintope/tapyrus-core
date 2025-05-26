@@ -28,6 +28,8 @@ host:=$(BUILD)
 ifneq ($(HOST),)
 host:=$(HOST)
 endif
+HOST ?= $(BUILD)
+canonical_host:=$(shell ./config.sub $(HOST))
 
 ifneq ($(DEBUG),)
 release_type=debug
@@ -38,7 +40,6 @@ endif
 base_build_dir=$(WORK_PATH)/build
 base_staging_dir=$(WORK_PATH)/staging
 base_download_dir=$(WORK_PATH)/download
-canonical_host:=$(shell ./config.sub $(HOST))
 build:=$(shell ./config.sub $(BUILD))
 
 build_arch =$(firstword $(subst -, ,$(build)))
@@ -170,6 +171,17 @@ $(host_prefix)/share/config.site : config.site.in $(host_prefix)/.stamp_$(final_
 	touch $@
 
 
+final_build_id_long+=$(shell $(build_SHA256SUM) toolchain.cmake.in)
+final_build_id+=$(shell echo -n "$(final_build_id_long)" | $(build_SHA256SUM) | cut -c-$(HASH_LENGTH))
+$(host_prefix)/.stamp_$(final_build_id): $(native_packages) $(packages)
+	rm -rf $(@D)
+	mkdir -p $(@D)
+	echo copying packages: $^
+	echo to: $(@D)
+	cd $(@D); $(foreach package,$^, $(build_TAR) xf $($(package)_cached); )
+	echo To build Tapyrus Core with these packages, pass \'--toolchain $(@D)/toolchain.cmake\' to the first CMake invocation.
+	touch $@
+
 ifeq ($(host),$(build))
   crosscompiling=FALSE
 else
@@ -234,16 +246,19 @@ check-sources:
 
 $(host_prefix)/share/config.site: check-packages
 
+$(host_prefix)/toolchain.cmake: check-packages
+
 check-packages: check-sources
 
 clean-all: clean
 	@rm -rf $(SOURCES_PATH) x86_64* i686* mips* arm* aarch64* riscv32* riscv64*
 
 clean:
-	@rm -rf $(WORK_PATH) $(BASE_CACHE) $(BUILD)
+	@rm -rf $(WORK_PATH) $(BASE_CACHE) $(BUILD) *.log
 
 install: check-packages $(host_prefix)/share/config.site
 
+install_cmake: check-packages $(host_prefix)/toolchain.cmake
 
 download-one: check-sources $(all_sources)
 
@@ -257,6 +272,6 @@ download: download-osx download-linux download-win
 
 $(foreach package,$(all_packages),$(eval $(call ext_add_stages,$(package))))
 
-.PHONY: install cached clean clean-all download-one download-osx download-linux download-win download check-packages check-sources
+.PHONY: install install_cmake cached clean clean-all download-one download-osx download-linux download-win download check-packages check-sources
 .PHONY: FORCE
 $(V).SILENT:

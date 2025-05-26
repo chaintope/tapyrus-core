@@ -88,6 +88,7 @@ $(1)_extract_cmds ?= mkdir -p $$($(1)_extract_dir) && echo "$$($(1)_sha256_hash)
 $(1)_preprocess_cmds ?= true
 $(1)_build_cmds ?= true
 $(1)_config_cmds ?= true
+$(1)_cmake_config_cmds ?= true
 $(1)_stage_cmds ?= true
 $(1)_set_vars ?=
 
@@ -142,12 +143,23 @@ $(1)_config_env+=PATH=$(build_prefix)/bin:$(PATH)
 $(1)_build_env+=PATH=$(build_prefix)/bin:$(PATH)
 $(1)_stage_env+=PATH=$(build_prefix)/bin:$(PATH)
 
+$(1)_cmake_opts+=$$($(1)_cmake_opts_$(release_type))
+$(1)_cmake_opts+=$$($(1)_cmake_opts_$(host_arch)) $$($(1)_cmake_opts_$(host_arch)_$(release_type))
+$(1)_cmake_opts+=$$($(1)_cmake_opts_$(host_os)) $$($(1)_cmake_opts_$(host_os)_$(release_type))
+$(1)_cmake_opts+=$$($(1)_cmake_opts_$(host_arch)_$(host_os)) $$($(1)_cmake_opts_$(host_arch)_$(host_os)_$(release_type))
+
+$(1)_cmake_env+=$$($(1)_cmake_env_$(release_type))
+$(1)_cmake_env+=$($(1)_cmake_env_$(host_arch)) $($(1)_cmake_env_$(host_arch)_$(release_type))
+$(1)_cmake_env+=$($(1)_cmake_env_$(host_os)) $($(1)_cmake_env_$(host_os)_$(release_type))
+$(1)_cmake_env+=$($(1)_cmake_env_$(host_arch)_$(host_os)) $($(1)_cmake_env_$(host_arch)_$(host_os)_$(release_type))
+
+
 # Setting a --build type that differs from --host will explicitly enable
 # cross-compilation mode. Note that --build defaults to the output of
 # config.guess, which is what we set it too here. This also quells autoconf
 # warnings, "If you wanted to set the --build type, don't use --host.",
 # when using versions older than 2.70.
-$(1)_autoconf=./configure --build=$(BUILD) --host=$($($(1)_type)_host) --prefix=$($($(1)_type)_prefix) $$($(1)_config_opts) CC="$$($(1)_cc)" CXX="$$($(1)_cxx)"
+$(1)_autoconf=./configure --build=$(BUILD) --host=$($($(1)_type)_host) --prefix=$($($(1)_type)_prefix) --with-pic $$($(1)_config_opts) CC="$$($(1)_cc)" CXX="$$($(1)_cxx)"
 ifneq ($($(1)_nm),)
 $(1)_autoconf += NM="$$($(1)_nm)"
 endif
@@ -170,17 +182,29 @@ ifneq ($($(1)_ldflags),)
 $(1)_autoconf += LDFLAGS="$$($(1)_ldflags)"
 endif
 
+# We hardcode the library install path to "lib" to match the PKG_CONFIG_PATH
+# setting in depends/toolchain.cmake.in, which also hardcodes "lib".
+# Without this setting, CMake by default would use the OS library
+# directory, which might be "lib64" or something else, not "lib", on multiarch systems.
 $(1)_cmake=env CC="$$($(1)_cc)" \
                CFLAGS="$$($(1)_cppflags) $$($(1)_cflags)" \
                CXX="$$($(1)_cxx)" \
                CXXFLAGS="$$($(1)_cppflags) $$($(1)_cxxflags)" \
                LDFLAGS="$$($(1)_ldflags)" \
-             cmake -DCMAKE_INSTALL_PREFIX:PATH="$$($($(1)_type)_prefix)" $$($(1)_cmake_opts)
+               cmake -G "Unix Makefiles" \
+               -DCMAKE_INSTALL_PREFIX:PATH="$$($($(1)_type)_prefix)" \
+               -DCMAKE_AR=`which $$($(1)_ar)` \
+               -DCMAKE_NM=`which $$($(1)_nm)` \
+               -DCMAKE_RANLIB=`which $$($(1)_ranlib)` \
+               -DCMAKE_INSTALL_LIBDIR=lib/ \
+               -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+               -DCMAKE_VERBOSE_MAKEFILE:BOOL=$(V) \
+               $$($(1)_cmake_opts)
 ifeq ($($(1)_type),build)
 $(1)_cmake += -DCMAKE_INSTALL_RPATH:PATH="$$($($(1)_type)_prefix)/lib"
 else
 ifneq ($(host),$(build))
-$(1)_cmake += -DCMAKE_SYSTEM_NAME=$($(host_os)_cmake_system)
+$(1)_cmake += -DCMAKE_SYSTEM_NAME=$($(host_os)_cmake_system_name)
 $(1)_cmake += -DCMAKE_C_COMPILER_TARGET=$(host)
 $(1)_cmake += -DCMAKE_CXX_COMPILER_TARGET=$(host)
 endif
@@ -215,6 +239,10 @@ $($(1)_configured): | $($(1)_dependencies) $($(1)_preprocessed)
 	rm -rf $(host_prefix); mkdir -p $(host_prefix)/lib; cd $(host_prefix); $(foreach package,$($(1)_all_dependencies), tar --no-same-owner -x -f $($(package)_cached); )
 	mkdir -p $$($(1)_build_dir)
 	+{ cd $$($(1)_build_dir); export $($(1)_config_env); $($(1)_config_cmds); } $$($(1)_logging)
+ifneq ($(strip $($(1)_cmake_config_cmds)),true)
+	echo Configuring $(1) using cmake...
+	+{ cd $$($(1)_build_dir); export $($(1)_cmake_env); $($(1)_cmake_config_cmds); } $$($(1)_logging)
+endif
 	touch $$@
 $($(1)_built): | $($(1)_configured)
 	echo Building $(1)...
