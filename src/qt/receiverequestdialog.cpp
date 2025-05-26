@@ -17,9 +17,7 @@
 #include <QMouseEvent>
 #include <QPixmap>
 
-#if defined(HAVE_CONFIG_H)
-#include <config/bitcoin-config.h> /* for USE_QRCODE */
-#endif
+#include <tapyrus-config.h>
 
 #ifdef USE_QRCODE
 #include <qrencode.h>
