@@ -56,7 +56,11 @@ BOOST_AUTO_TEST_CASE(getlocator_test)
         vBlocksMain[i].phashBlock = &vHashMain[i];
         vBlocksMain[i].BuildSkip();
         BOOST_CHECK_EQUAL((int)UintToArith256(vBlocksMain[i].GetBlockHash()).GetLow64(), vBlocksMain[i].nHeight);
-        BOOST_CHECK(vBlocksMain[i].pprev == nullptr || vBlocksMain[i].nHeight == vBlocksMain[i].pprev->nHeight + 1);
+        if (vBlocksMain[i].pprev == nullptr) {
+            BOOST_CHECK(true);
+        } else {
+            BOOST_CHECK_EQUAL(vBlocksMain[i].nHeight, vBlocksMain[i].pprev->nHeight + 1);
+        }
     }
 
     // Build a branch that splits off at block 49999, 50000 blocks long.
@@ -69,7 +73,11 @@ BOOST_AUTO_TEST_CASE(getlocator_test)
         vBlocksSide[i].phashBlock = &vHashSide[i];
         vBlocksSide[i].BuildSkip();
         BOOST_CHECK_EQUAL((int)UintToArith256(vBlocksSide[i].GetBlockHash()).GetLow64(), vBlocksSide[i].nHeight);
-        BOOST_CHECK(vBlocksSide[i].pprev == nullptr || vBlocksSide[i].nHeight == vBlocksSide[i].pprev->nHeight + 1);
+        if (vBlocksSide[i].pprev == nullptr) {
+            BOOST_CHECK(true);
+        } else {
+            BOOST_CHECK_EQUAL(vBlocksSide[i].nHeight, vBlocksSide[i].pprev->nHeight + 1);
+        }
     }
 
     // Build a CChain for the prod branch.
@@ -139,7 +147,11 @@ BOOST_AUTO_TEST_CASE(findearliestatleast_test)
         int64_t test_time = vBlocksMain[r].nTime;
         CBlockIndex *ret = chain.FindEarliestAtLeast(test_time);
         BOOST_CHECK(ret->nTimeMax >= test_time);
-        BOOST_CHECK((ret->pprev==nullptr) || ret->pprev->nTimeMax < test_time);
+        if (ret->pprev == nullptr) {
+            BOOST_CHECK(true);
+        } else {
+            BOOST_CHECK(ret->pprev->nTimeMax < test_time);
+        }
         BOOST_CHECK(vBlocksMain[r].GetAncestor(ret->nHeight) == ret);
     }
 }

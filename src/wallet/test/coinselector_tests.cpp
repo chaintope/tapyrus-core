@@ -577,8 +577,11 @@ BOOST_AUTO_TEST_CASE(SelectCoins_test)
         CoinSet out_set;
         CAmount out_value = 0;
         bool bnb_used = false;
-        BOOST_CHECK(testWallet.SelectCoinsMinConf(target, filter_standard, GroupCoins(vCoins), out_set, out_value, coin_selection_params_bnb, bnb_used) ||
-                    testWallet.SelectCoinsMinConf(target, filter_standard, GroupCoins(vCoins), out_set, out_value, coin_selection_params_knapsack, bnb_used));
+        bool result = testWallet.SelectCoinsMinConf(target, filter_standard, GroupCoins(vCoins), out_set, out_value, coin_selection_params_bnb, bnb_used);
+        if (!result) {
+            result = testWallet.SelectCoinsMinConf(target, filter_standard, GroupCoins(vCoins), out_set, out_value, coin_selection_params_knapsack, bnb_used);
+        }
+        BOOST_CHECK(result);
         BOOST_CHECK_GE(out_value, target);
     }
 }

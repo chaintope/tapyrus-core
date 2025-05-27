@@ -215,7 +215,7 @@ BOOST_AUTO_TEST_CASE( unaryOperators ) // !    ~    -
 // Check if doing _A_ _OP_ _B_ results in the same as applying _OP_ onto each
 // element of Aarray and Barray, and then converting the result into an arith_uint256.
 #define CHECKBITWISEOPERATOR(_A_,_B_,_OP_)                              \
-    for (unsigned int i = 0; i < 32; ++i) { TmpArray[i] = _A_##Array[i] _OP_ _B_##Array[i]; } \
+for (unsigned int i = 0; i < 32; ++i) { TmpArray[i] = uint8_t(_A_##Array[i] _OP_ _B_##Array[i]); } \
     BOOST_CHECK(arith_uint256V(std::vector<unsigned char>(TmpArray,TmpArray+32)) == (_A_##L _OP_ _B_##L));
 
 #define CHECKASSIGNMENTOPERATOR(_A_,_B_,_OP_)                           \
@@ -270,11 +270,17 @@ BOOST_AUTO_TEST_CASE( comparison ) // <= >= < >
     arith_uint256 TmpL;
     for (unsigned int i = 0; i < 256; ++i) {
         TmpL= OneL<< i;
-        BOOST_CHECK( TmpL >= ZeroL && TmpL > ZeroL && ZeroL < TmpL && ZeroL <= TmpL);
-        BOOST_CHECK( TmpL >= 0 && TmpL > 0 && 0 < TmpL && 0 <= TmpL);
+        bool verify_and_1 = TmpL >= ZeroL && TmpL > ZeroL && ZeroL < TmpL && ZeroL <= TmpL;
+        BOOST_CHECK(verify_and_1 == true);
+        bool verify_and_2 = TmpL >= 0 && TmpL > 0 && 0 < TmpL && 0 <= TmpL;
+        BOOST_CHECK(verify_and_2 == true);
         TmpL |= R1L;
-        BOOST_CHECK( TmpL >= R1L ); BOOST_CHECK( (TmpL == R1L) != (TmpL > R1L)); BOOST_CHECK( (TmpL == R1L) || !( TmpL <= R1L));
-        BOOST_CHECK( R1L <= TmpL ); BOOST_CHECK( (R1L == TmpL) != (R1L < TmpL)); BOOST_CHECK( (TmpL == R1L) || !( R1L >= TmpL));
+        BOOST_CHECK( TmpL >= R1L ); BOOST_CHECK( (TmpL == R1L) != (TmpL > R1L));
+        bool verify_or_1 = (TmpL == R1L) || !( TmpL <= R1L);
+        BOOST_CHECK(verify_or_1 == true);
+        BOOST_CHECK( R1L <= TmpL ); BOOST_CHECK( (R1L == TmpL) != (R1L < TmpL));
+        bool verify_or_2 = (TmpL == R1L) || !( R1L >= TmpL);
+        BOOST_CHECK(verify_or_2 == true);
         BOOST_CHECK(! (TmpL < R1L)); BOOST_CHECK(! (R1L > TmpL));
     }
 }

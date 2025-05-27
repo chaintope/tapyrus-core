@@ -138,7 +138,10 @@ BOOST_AUTO_TEST_CASE(BlockPolicyEstimates)
     }
 
     for (int i = 1; i < 10;i++) {
-        BOOST_CHECK(feeEst.estimateFee(i) == CFeeRate(0) || feeEst.estimateFee(i).GetFeePerK() > origFeeEst[i-1] - deltaFee);
+        bool res1 = feeEst.estimateFee(i) == CFeeRate(0);
+        bool res2 = feeEst.estimateFee(i).GetFeePerK() > origFeeEst[i-1] - deltaFee;
+        bool res3 = res1 || res2;
+        BOOST_CHECK(res3);
     }
 
     // Mine all those transactions
@@ -155,7 +158,10 @@ BOOST_AUTO_TEST_CASE(BlockPolicyEstimates)
     block.clear();
     BOOST_CHECK(feeEst.estimateFee(1) == CFeeRate(0));
     for (int i = 2; i < 10;i++) {
-        BOOST_CHECK(feeEst.estimateFee(i) == CFeeRate(0) || feeEst.estimateFee(i).GetFeePerK() > origFeeEst[i-1] - deltaFee);
+        bool res1 = feeEst.estimateFee(i) == CFeeRate(0);
+        bool res2 = feeEst.estimateFee(i).GetFeePerK() > origFeeEst[i-1] - deltaFee;
+        bool res3 = res1 || res2;
+        BOOST_CHECK(res3);
     }
 
     // Mine 400 more blocks where everything is mined every block

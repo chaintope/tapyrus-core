@@ -198,9 +198,17 @@ check-local: $(BITCOIN_TESTS:.cpp=.cpp.test)
 %.json.h: %.json
 	@$(MKDIR_P) $(@D)
 	@{ \
-	 echo "namespace json_tests{" && \
-	 echo "static unsigned const char $(*F)[] = {" && \
-	 $(HEXDUMP) -v -e '8/1 "0x%02x, "' -e '"\n"' $< | $(SED) -e 's/0x  ,//g' && \
-	 echo "};};"; \
+	echo "#include <string_view>" && \
+    echo "" && \
+	echo "namespace json_tests {" && \
+	echo "inline constexpr char detail_$(*F)_bytes[] {" && \
+	$(HEXDUMP) -v -e '8/1 "0x%02x, "' -e '"\n"' $< | $(SED) -e 's/0x  ,//g' && \
+	echo "};" && \
+    echo "" && \
+	echo "inline constexpr std::string_view $(*F){" && \
+	echo "detail_$(*F)_bytes," && \
+	echo "sizeof(detail_$(*F)_bytes)" && \
+	echo "};" && \
+	echo "}"; \
 	} > "$@.new" && mv -f "$@.new" "$@"
 	@echo "Generated $@"
