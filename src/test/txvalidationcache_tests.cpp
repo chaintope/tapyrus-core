@@ -63,7 +63,8 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_block_doublespend, TestChainSetup)
             if(count == 0)
             {
                 BOOST_CHECK(coinbaseKey.Sign_ECDSA(hash, vchSig));
-                BOOST_CHECK(vchSig.size() <= 72 && vchSig.size() > 65);
+                BOOST_CHECK(vchSig.size() <= 72);
+                BOOST_CHECK(vchSig.size() > 65);
             }
             else
             {
@@ -202,7 +203,8 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
             if(count == 0)
             {
                 BOOST_CHECK(coinbaseKey.Sign_ECDSA(hash, vchSig));
-                BOOST_CHECK(vchSig.size() <= 72 && vchSig.size() > 65);
+                BOOST_CHECK(vchSig.size() <= 72);
+                BOOST_CHECK(vchSig.size() > 65);
             }
             else
             {
@@ -234,7 +236,8 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
                 if(count == 0)
                 {
                     BOOST_CHECK(coinbaseKey.Sign_ECDSA(hash, vchSig));
-                    BOOST_CHECK(vchSig.size() <= 72 && vchSig.size() > 65);
+                    BOOST_CHECK(vchSig.size() <= 72);
+                    BOOST_CHECK(vchSig.size() > 65);
                 }
                 else
                 {
@@ -314,7 +317,8 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
             if(count == 0)
             {
                 BOOST_CHECK(coinbaseKey.Sign_ECDSA(hash, vchSig));
-                BOOST_CHECK(vchSig.size() <= 72 && vchSig.size() > 65);
+                BOOST_CHECK(vchSig.size() <= 72);
+                BOOST_CHECK(vchSig.size() > 65);
             }
             else
             {
@@ -355,7 +359,8 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
             if(count == 0)
             {
                 BOOST_CHECK(coinbaseKey.Sign_ECDSA(hash, vchSig));
-                BOOST_CHECK(vchSig.size() <= 72 && vchSig.size() > 65);
+                BOOST_CHECK(vchSig.size() <= 72);
+                BOOST_CHECK(vchSig.size() > 65);
             }
             else
             {

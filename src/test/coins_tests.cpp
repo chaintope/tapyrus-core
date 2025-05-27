@@ -19,9 +19,6 @@
 
 int ApplyTxInUndo(Coin&& undo, CCoinsViewCache& view, const COutPoint& out);
 void UpdateCoins(const CTransaction& tx, CCoinsViewCache& inputs, CTxUndo &txundo, int nHeight);
-
-namespace
-{
 //! equality test
 bool operator==(const Coin &a, const Coin &b) {
     // Empty Coin objects are always equal.
@@ -30,6 +27,8 @@ bool operator==(const Coin &a, const Coin &b) {
            a.nHeight == b.nHeight &&
            a.out == b.out;
 }
+
+namespace {
 
 class CCoinsViewTest : public CCoinsView
 {
@@ -152,7 +151,9 @@ BOOST_AUTO_TEST_CASE(coins_cache_simulation_test)
             bool result_havecoin = test_havecoin_before ? stack.back()->HaveCoin(COutPoint(txid, 0)) : false;
             const Coin& entry = (InsecureRandRange(500) == 0) ? AccessByTxid(*stack.back(), txid) : stack.back()->AccessCoin(COutPoint(txid, 0));
             BOOST_CHECK(coin == entry);
-            BOOST_CHECK(!test_havecoin_before || result_havecoin == !entry.IsSpent());
+            if (test_havecoin_before) {
+                BOOST_CHECK(result_havecoin == !entry.IsSpent());
+            }
 
             if (test_havecoin_after) {
                 bool ret = stack.back()->HaveCoin(COutPoint(txid, 0));
@@ -482,16 +483,20 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization)
     CDataStream ss0(ParseHex("97f23c835800816115944e077fe7c803cfa57f29b36bf87c1d35"), SER_DISK, CLIENT_VERSION);
     Coin cc1;
     ss0 >> cc1;
-    BOOST_CHECK_EQUAL(cc1.fCoinBase, false);
-    BOOST_CHECK_EQUAL(cc1.nHeight, 203998U);
+    bool isCoinBase = cc1.fCoinBase;
+    BOOST_CHECK(isCoinBase == false);
+    unsigned int height = cc1.nHeight;
+    BOOST_CHECK(height == 203998U);
     BOOST_CHECK_EQUAL(cc1.out.nValue, CAmount{60000000000});
     BOOST_CHECK_EQUAL(HexStr(cc1.out.scriptPubKey), HexStr(GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))))));
 
     // Good example - ColorID = 01
     CDataStream ss1(ParseHex("97f23c835800816115944e077fe7c803cfa57f29b36bf87c1d35"), SER_DISK, CLIENT_VERSION);
     ss1 >> cc1;
-    BOOST_CHECK_EQUAL(cc1.fCoinBase, false);
-    BOOST_CHECK_EQUAL(cc1.nHeight, 203998U);
+    isCoinBase = cc1.fCoinBase;
+    BOOST_CHECK(isCoinBase == false);
+    height = cc1.nHeight;
+    BOOST_CHECK(height == 203998U);
     BOOST_CHECK_EQUAL(cc1.out.nValue, CAmount{60000000000});
     BOOST_CHECK_EQUAL(HexStr(cc1.out.scriptPubKey), HexStr(GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))))));
 
@@ -499,8 +504,10 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization)
     CDataStream ss2(ParseHex("8ddf77bbd123008c988f1a4a4de2161e0f50aac7f17e7f9555caa4"), SER_DISK, CLIENT_VERSION);
     Coin cc2;
     ss2 >> cc2;
-    BOOST_CHECK_EQUAL(cc2.fCoinBase, true);
-    BOOST_CHECK_EQUAL(cc2.nHeight, 120891U);
+    isCoinBase = cc2.fCoinBase;
+    BOOST_CHECK(isCoinBase == true);
+    height = cc2.nHeight;
+    BOOST_CHECK(height == 120891U);
     BOOST_CHECK_EQUAL(cc2.out.nValue, 110397);
     BOOST_CHECK_EQUAL(HexStr(cc2.out.scriptPubKey), HexStr(GetScriptForDestination(CKeyID(uint160(ParseHex("8c988f1a4a4de2161e0f50aac7f17e7f9555caa4"))))));
 
@@ -508,8 +515,10 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization)
     CDataStream ss3(ParseHex("000006c2"), SER_DISK, CLIENT_VERSION);
     Coin cc3;
     ss3 >> cc3;
-    BOOST_CHECK_EQUAL(cc3.fCoinBase, false);
-    BOOST_CHECK_EQUAL(cc3.nHeight, 0U);
+    isCoinBase = cc3.fCoinBase;
+    BOOST_CHECK(isCoinBase == false);
+    height = cc3.nHeight;
+    BOOST_CHECK(height == 0U);
     BOOST_CHECK_EQUAL(cc3.out.nValue, 0);
     BOOST_CHECK_EQUAL(cc3.out.scriptPubKey.size(), 0U);
 

@@ -61,15 +61,25 @@ BOOST_AUTO_TEST_CASE(util_ParseHex)
 
     // Spaces between bytes must be supported
     result = ParseHex("12 34 56 78");
-    BOOST_CHECK(result.size() == 4 && result[0] == 0x12 && result[1] == 0x34 && result[2] == 0x56 && result[3] == 0x78);
+    BOOST_CHECK(result.size() == 4);
+    BOOST_CHECK(result[0] == 0x12);
+    BOOST_CHECK(result[1] == 0x34);
+    BOOST_CHECK(result[2] == 0x56);
+    BOOST_CHECK(result[3] == 0x78);
 
     // Leading space must be supported (used in BerkeleyEnvironment::Salvage)
     result = ParseHex(" 89 34 56 78");
-    BOOST_CHECK(result.size() == 4 && result[0] == 0x89 && result[1] == 0x34 && result[2] == 0x56 && result[3] == 0x78);
+    BOOST_CHECK(result.size() == 4);
+    BOOST_CHECK(result[0] == 0x89);
+    BOOST_CHECK(result[1] == 0x34);
+    BOOST_CHECK(result[2] == 0x56);
+    BOOST_CHECK(result[3] == 0x78);
 
     // Stop parsing at invalid value
     result = ParseHex("1234 invalid 1234");
-    BOOST_CHECK(result.size() == 2 && result[0] == 0x12 && result[1] == 0x34);
+    BOOST_CHECK(result.size() == 2);
+    BOOST_CHECK(result[0] == 0x12);
+    BOOST_CHECK(result[1] == 0x34);
 }
 
 BOOST_AUTO_TEST_CASE(util_HexStr)
@@ -212,20 +222,29 @@ BOOST_AUTO_TEST_CASE(util_ParseParameters)
     std::string error;
     testArgs.SetupArgs(4, avail_args);
     testArgs.ParseParameters(0, (char**)argv_test, error);
-    BOOST_CHECK(testArgs.GetOverrideArgs().empty() && testArgs.GetConfigArgs().empty());
+    BOOST_CHECK(testArgs.GetOverrideArgs().empty());
+    BOOST_CHECK(testArgs.GetConfigArgs().empty());
 
     testArgs.ParseParameters(1, (char**)argv_test, error);
-    BOOST_CHECK(testArgs.GetOverrideArgs().empty() && testArgs.GetConfigArgs().empty());
+    BOOST_CHECK(testArgs.GetOverrideArgs().empty());
+    BOOST_CHECK(testArgs.GetConfigArgs().empty());
 
     testArgs.ParseParameters(7, (char**)argv_test, error);
     // expectation: -ignored is ignored (program name argument),
     // -a, -b and -ccc end up in map, -d ignored because it is after
     // a non-option argument (non-GNU option parsing)
-    BOOST_CHECK(testArgs.GetOverrideArgs().size() == 3 && testArgs.GetConfigArgs().empty());
-    BOOST_CHECK(testArgs.IsArgSet("-a") && testArgs.IsArgSet("-b") && testArgs.IsArgSet("-ccc")
-                && !testArgs.IsArgSet("f") && !testArgs.IsArgSet("-d"));
-    BOOST_CHECK(testArgs.GetOverrideArgs().count("-a") && testArgs.GetOverrideArgs().count("-b") && testArgs.GetOverrideArgs().count("-ccc")
-                && !testArgs.GetOverrideArgs().count("f") && !testArgs.GetOverrideArgs().count("-d"));
+    BOOST_CHECK(testArgs.GetOverrideArgs().size() == 3);
+    BOOST_CHECK(testArgs.GetConfigArgs().empty());
+    BOOST_CHECK(testArgs.IsArgSet("-a"));
+    BOOST_CHECK(testArgs.IsArgSet("-b"));
+    BOOST_CHECK(testArgs.IsArgSet("-ccc"));
+    BOOST_CHECK(!testArgs.IsArgSet("f"));
+    BOOST_CHECK(!testArgs.IsArgSet("-d"));
+    BOOST_CHECK(testArgs.GetOverrideArgs().count("-a"));
+    BOOST_CHECK(testArgs.GetOverrideArgs().count("-b"));
+    BOOST_CHECK(testArgs.GetOverrideArgs().count("-ccc"));
+    BOOST_CHECK(!testArgs.GetOverrideArgs().count("f"));
+    BOOST_CHECK(!testArgs.GetOverrideArgs().count("-d"));
 
     BOOST_CHECK(testArgs.GetOverrideArgs()["-a"].size() == 1);
     BOOST_CHECK(testArgs.GetOverrideArgs()["-a"].front() == "");
@@ -246,12 +265,17 @@ BOOST_AUTO_TEST_CASE(util_GetBoolArg)
     testArgs.ParseParameters(7, (char**)argv_test, error);
 
     // Each letter should be set.
-    for (char opt : "abcdef")
-        BOOST_CHECK(testArgs.IsArgSet({'-', opt}) || !opt);
+    for (char opt : "abcdef") {
+        if (opt) {
+            BOOST_CHECK(testArgs.IsArgSet({'-', opt}));
+        } else {
+            BOOST_CHECK(true);
+        }
+    }
 
     // Nothing else should be in the map
-    BOOST_CHECK(testArgs.GetOverrideArgs().size() == 6 &&
-                testArgs.GetConfigArgs().empty());
+    BOOST_CHECK(testArgs.GetOverrideArgs().size() == 6);
+    BOOST_CHECK(testArgs.GetConfigArgs().empty());
 
     // The -no prefix should get stripped on the way in.
     BOOST_CHECK(!testArgs.IsArgSet("-nob"));
@@ -317,8 +341,8 @@ BOOST_AUTO_TEST_CASE(util_GetBoolArgEdgeCases)
     // Command line overrides, but doesn't erase old setting
     BOOST_CHECK(!testArgs.IsArgNegated("-bar"));
     BOOST_CHECK(testArgs.GetArg("-bar", "xxx") == "");
-    BOOST_CHECK(testArgs.GetArgs("-bar").size() == 1
-                && testArgs.GetArgs("-bar").front() == "");
+    BOOST_CHECK(testArgs.GetArgs("-bar").size() == 1);
+    BOOST_CHECK(testArgs.GetArgs("-bar").front() == "");
 }
 
 BOOST_AUTO_TEST_CASE(util_ReadConfigStream)
@@ -356,75 +380,57 @@ BOOST_AUTO_TEST_CASE(util_ReadConfigStream)
     BOOST_CHECK(test_args.GetOverrideArgs().empty());
     BOOST_CHECK(test_args.GetConfigArgs().size() == 13);
 
-    BOOST_CHECK(test_args.GetConfigArgs().count("-a")
-                && test_args.GetConfigArgs().count("-b")
-                && test_args.GetConfigArgs().count("-ccc")
-                && test_args.GetConfigArgs().count("-d")
-                && test_args.GetConfigArgs().count("-fff")
-                && test_args.GetConfigArgs().count("-ggg")
-                && test_args.GetConfigArgs().count("-h")
-                && test_args.GetConfigArgs().count("-i")
-               );
-    BOOST_CHECK(test_args.GetConfigArgs().count("-sec1.ccc")
-                && test_args.GetConfigArgs().count("-sec1.h")
-                && test_args.GetConfigArgs().count("-sec2.ccc")
-                && test_args.GetConfigArgs().count("-sec2.iii")
-               );
+    BOOST_CHECK(test_args.GetConfigArgs().count("-a"));
+    BOOST_CHECK(test_args.GetConfigArgs().count("-b"));
+    BOOST_CHECK(test_args.GetConfigArgs().count("-ccc"));
+    BOOST_CHECK(test_args.GetConfigArgs().count("-d"));
+    BOOST_CHECK(test_args.GetConfigArgs().count("-fff"));
+    BOOST_CHECK(test_args.GetConfigArgs().count("-ggg"));
+    BOOST_CHECK(test_args.GetConfigArgs().count("-h"));
+    BOOST_CHECK(test_args.GetConfigArgs().count("-i"));
+    BOOST_CHECK(!test_args.GetConfigArgs().count("-zzz"));
+    BOOST_CHECK(!test_args.GetConfigArgs().count("-iii"));
 
-    BOOST_CHECK(test_args.IsArgSet("-a")
-                && test_args.IsArgSet("-b")
-                && test_args.IsArgSet("-ccc")
-                && test_args.IsArgSet("-d")
-                && test_args.IsArgSet("-fff")
-                && test_args.IsArgSet("-ggg")
-                && test_args.IsArgSet("-h")
-                && test_args.IsArgSet("-i")
-                && !test_args.IsArgSet("-zzz")
-                && !test_args.IsArgSet("-iii")
-               );
-
-    BOOST_CHECK(test_args.GetArg("-a", "xxx") == ""
-                && test_args.GetArg("-b", "xxx") == "1"
-                && test_args.GetArg("-ccc", "xxx") == "argument"
-                && test_args.GetArg("-d", "xxx") == "e"
-                && test_args.GetArg("-fff", "xxx") == "0"
-                && test_args.GetArg("-ggg", "xxx") == "1"
-                && test_args.GetArg("-h", "xxx") == "0"
-                && test_args.GetArg("-i", "xxx") == "1"
-                && test_args.GetArg("-zzz", "xxx") == "xxx"
-                && test_args.GetArg("-iii", "xxx") == "xxx"
-               );
+    BOOST_CHECK(test_args.GetArg("-a", "xxx") == "");
+    BOOST_CHECK(test_args.GetArg("-b", "xxx") == "1");
+    BOOST_CHECK(test_args.GetArg("-ccc", "xxx") == "argument");
+    BOOST_CHECK(test_args.GetArg("-d", "xxx") == "e");
+    BOOST_CHECK(test_args.GetArg("-fff", "xxx") == "0");
+    BOOST_CHECK(test_args.GetArg("-ggg", "xxx") == "1");
+    BOOST_CHECK(test_args.GetArg("-h", "xxx") == "0");
+    BOOST_CHECK(test_args.GetArg("-i", "xxx") == "1");
+    BOOST_CHECK(test_args.GetArg("-zzz", "xxx") == "xxx");
+    BOOST_CHECK(test_args.GetArg("-iii", "xxx") == "xxx");
 
     for (bool def : {false, true}) {
-        BOOST_CHECK(test_args.GetBoolArg("-a", def)
-                     && test_args.GetBoolArg("-b", def)
-                     && !test_args.GetBoolArg("-ccc", def)
-                     && !test_args.GetBoolArg("-d", def)
-                     && !test_args.GetBoolArg("-fff", def)
-                     && test_args.GetBoolArg("-ggg", def)
-                     && !test_args.GetBoolArg("-h", def)
-                     && test_args.GetBoolArg("-i", def)
-                     && test_args.GetBoolArg("-zzz", def) == def
-                     && test_args.GetBoolArg("-iii", def) == def
-                   );
+        BOOST_CHECK(test_args.GetBoolArg("-a", def));
+        BOOST_CHECK(test_args.GetBoolArg("-b", def));
+        BOOST_CHECK(!test_args.GetBoolArg("-ccc", def));
+        BOOST_CHECK(!test_args.GetBoolArg("-d", def));
+        BOOST_CHECK(!test_args.GetBoolArg("-fff", def));
+        BOOST_CHECK(test_args.GetBoolArg("-ggg", def));
+        BOOST_CHECK(!test_args.GetBoolArg("-h", def));
+        BOOST_CHECK(test_args.GetBoolArg("-i", def));
+        BOOST_CHECK(test_args.GetBoolArg("-zzz", def) == def);
+        BOOST_CHECK(test_args.GetBoolArg("-iii", def) == def);
     }
 
-    BOOST_CHECK(test_args.GetArgs("-a").size() == 1
-                && test_args.GetArgs("-a").front() == "");
-    BOOST_CHECK(test_args.GetArgs("-b").size() == 1
-                && test_args.GetArgs("-b").front() == "1");
-    BOOST_CHECK(test_args.GetArgs("-ccc").size() == 2
-                && test_args.GetArgs("-ccc").front() == "argument"
-                && test_args.GetArgs("-ccc").back() == "multiple");
+    BOOST_CHECK(test_args.GetArgs("-a").size() == 1);
+    BOOST_CHECK(test_args.GetArgs("-a").front() == "");
+    BOOST_CHECK(test_args.GetArgs("-b").size() == 1);
+    BOOST_CHECK(test_args.GetArgs("-b").front() == "1");
+    BOOST_CHECK(test_args.GetArgs("-ccc").size() == 2);
+    BOOST_CHECK( test_args.GetArgs("-ccc").front() == "argument");
+    BOOST_CHECK(test_args.GetArgs("-ccc").back() == "multiple");
     BOOST_CHECK(test_args.GetArgs("-fff").size() == 0);
     BOOST_CHECK(test_args.GetArgs("-nofff").size() == 0);
-    BOOST_CHECK(test_args.GetArgs("-ggg").size() == 1
-                && test_args.GetArgs("-ggg").front() == "1");
+    BOOST_CHECK(test_args.GetArgs("-ggg").size() == 1);
+    BOOST_CHECK(test_args.GetArgs("-ggg").front() == "1");
     BOOST_CHECK(test_args.GetArgs("-noggg").size() == 0);
     BOOST_CHECK(test_args.GetArgs("-h").size() == 0);
     BOOST_CHECK(test_args.GetArgs("-noh").size() == 0);
-    BOOST_CHECK(test_args.GetArgs("-i").size() == 1
-                && test_args.GetArgs("-i").front() == "1");
+    BOOST_CHECK(test_args.GetArgs("-i").size() == 1);
+    BOOST_CHECK( test_args.GetArgs("-i").front() == "1");
     BOOST_CHECK(test_args.GetArgs("-noi").size() == 0);
     BOOST_CHECK(test_args.GetArgs("-zzz").size() == 0);
 
@@ -442,13 +448,12 @@ BOOST_AUTO_TEST_CASE(util_ReadConfigStream)
     test_args.SelectConfigNetwork("sec1");
 
     // same as original
-    BOOST_CHECK(test_args.GetArg("-a", "xxx") == ""
-                && test_args.GetArg("-b", "xxx") == "1"
-                && test_args.GetArg("-fff", "xxx") == "0"
-                && test_args.GetArg("-ggg", "xxx") == "1"
-                && test_args.GetArg("-zzz", "xxx") == "xxx"
-                && test_args.GetArg("-iii", "xxx") == "xxx"
-               );
+    BOOST_CHECK(test_args.GetArg("-a", "xxx") == "");
+    BOOST_CHECK(test_args.GetArg("-b", "xxx") == "1");
+    BOOST_CHECK(test_args.GetArg("-fff", "xxx") == "0");
+    BOOST_CHECK(test_args.GetArg("-ggg", "xxx") == "1");
+    BOOST_CHECK(test_args.GetArg("-zzz", "xxx") == "xxx");
+    BOOST_CHECK(test_args.GetArg("-iii", "xxx") == "xxx");
     // d is overridden
     BOOST_CHECK(test_args.GetArg("-d", "xxx") == "eee");
     // section-specific setting
@@ -463,14 +468,13 @@ BOOST_AUTO_TEST_CASE(util_ReadConfigStream)
     test_args.SelectConfigNetwork("sec2");
 
     // same as original
-    BOOST_CHECK(test_args.GetArg("-a", "xxx") == ""
-                && test_args.GetArg("-b", "xxx") == "1"
-                && test_args.GetArg("-d", "xxx") == "e"
-                && test_args.GetArg("-fff", "xxx") == "0"
-                && test_args.GetArg("-ggg", "xxx") == "1"
-                && test_args.GetArg("-zzz", "xxx") == "xxx"
-                && test_args.GetArg("-h", "xxx") == "0"
-               );
+    BOOST_CHECK(test_args.GetArg("-a", "xxx") == "");
+    BOOST_CHECK(test_args.GetArg("-b", "xxx") == "1");
+    BOOST_CHECK(test_args.GetArg("-d", "xxx") == "e");
+    BOOST_CHECK(test_args.GetArg("-fff", "xxx") == "0");
+    BOOST_CHECK(test_args.GetArg("-ggg", "xxx") == "1");
+    BOOST_CHECK(test_args.GetArg("-zzz", "xxx") == "xxx");
+    BOOST_CHECK(test_args.GetArg("-h", "xxx") == "0");
     // section-specific setting
     BOOST_CHECK(test_args.GetArg("-iii", "xxx") == "2");
     // section takes priority for multiple values
@@ -831,12 +835,19 @@ BOOST_AUTO_TEST_CASE(test_ParseInt32)
     int32_t n;
     // Valid values
     BOOST_CHECK(ParseInt32("1234", nullptr));
-    BOOST_CHECK(ParseInt32("0", &n) && n == 0);
-    BOOST_CHECK(ParseInt32("1234", &n) && n == 1234);
-    BOOST_CHECK(ParseInt32("01234", &n) && n == 1234); // no octal
-    BOOST_CHECK(ParseInt32("2147483647", &n) && n == 2147483647);
-    BOOST_CHECK(ParseInt32("-2147483648", &n) && n == (-2147483647 - 1)); // (-2147483647 - 1) equals INT_MIN
-    BOOST_CHECK(ParseInt32("-1234", &n) && n == -1234);
+    BOOST_CHECK(ParseInt32("0", &n));
+    BOOST_CHECK(n == 0);
+    BOOST_CHECK(ParseInt32("1234", &n));
+    BOOST_CHECK(n == 1234);
+    BOOST_CHECK(ParseInt32("01234", &n)); // no octal
+    BOOST_CHECK(n == 1234);
+    BOOST_CHECK(ParseInt32("2147483647", &n));
+    BOOST_CHECK(n == 2147483647);
+    BOOST_CHECK(ParseInt32("-2147483648", &n));
+    BOOST_CHECK(n == (-2147483647 - 1)); // (-2147483647 - 1) equals INT_MIN
+    BOOST_CHECK(ParseInt32("-1234", &n));
+    BOOST_CHECK(n == -1234);
+
     // Invalid values
     BOOST_CHECK(!ParseInt32("", &n));
     BOOST_CHECK(!ParseInt32(" 1", &n)); // no padding inside
@@ -859,15 +870,18 @@ BOOST_AUTO_TEST_CASE(test_ParseInt64)
 {
     int64_t n;
     // Valid values
-    BOOST_CHECK(ParseInt64("1234", nullptr));
-    BOOST_CHECK(ParseInt64("0", &n) && n == 0LL);
-    BOOST_CHECK(ParseInt64("1234", &n) && n == 1234LL);
-    BOOST_CHECK(ParseInt64("01234", &n) && n == 1234LL); // no octal
-    BOOST_CHECK(ParseInt64("2147483647", &n) && n == 2147483647LL);
-    BOOST_CHECK(ParseInt64("-2147483648", &n) && n == -2147483648LL);
-    BOOST_CHECK(ParseInt64("9223372036854775807", &n) && n == (int64_t)9223372036854775807);
-    BOOST_CHECK(ParseInt64("-9223372036854775808", &n) && n == (int64_t)-9223372036854775807-1);
-    BOOST_CHECK(ParseInt64("-1234", &n) && n == -1234LL);
+    BOOST_CHECK(ParseInt64("0", &n));
+    BOOST_CHECK(n == 0LL);
+    BOOST_CHECK(ParseInt64("1234", &n));
+    BOOST_CHECK(n == 1234LL);
+    BOOST_CHECK(ParseInt64("01234", &n));
+    BOOST_CHECK(n == 1234LL); // no octal
+    BOOST_CHECK(ParseInt64("2147483647", &n));
+    BOOST_CHECK(n == 2147483647LL);
+    BOOST_CHECK(ParseInt64("-2147483648", &n));
+    BOOST_CHECK(n == -2147483648LL);
+    BOOST_CHECK(ParseInt64("-1234", &n));
+    BOOST_CHECK(n == -1234LL);
     // Invalid values
     BOOST_CHECK(!ParseInt64("", &n));
     BOOST_CHECK(!ParseInt64(" 1", &n)); // no padding inside
@@ -890,12 +904,18 @@ BOOST_AUTO_TEST_CASE(test_ParseUInt32)
     uint32_t n;
     // Valid values
     BOOST_CHECK(ParseUInt32("1234", nullptr));
-    BOOST_CHECK(ParseUInt32("0", &n) && n == 0);
-    BOOST_CHECK(ParseUInt32("1234", &n) && n == 1234);
-    BOOST_CHECK(ParseUInt32("01234", &n) && n == 1234); // no octal
-    BOOST_CHECK(ParseUInt32("2147483647", &n) && n == 2147483647);
-    BOOST_CHECK(ParseUInt32("2147483648", &n) && n == (uint32_t)2147483648);
-    BOOST_CHECK(ParseUInt32("4294967295", &n) && n == (uint32_t)4294967295);
+    BOOST_CHECK(ParseUInt32("0", &n));
+    BOOST_CHECK( n == 0);
+    BOOST_CHECK(ParseUInt32("1234", &n));
+    BOOST_CHECK( n == 1234);
+    BOOST_CHECK(ParseUInt32("01234", &n));
+    BOOST_CHECK( n == 1234); // no octal
+    BOOST_CHECK(ParseUInt32("2147483647", &n));
+    BOOST_CHECK( n == 2147483647);
+    BOOST_CHECK(ParseUInt32("2147483648", &n));
+    BOOST_CHECK( n == (uint32_t)2147483648);
+    BOOST_CHECK(ParseUInt32("4294967295", &n));
+    BOOST_CHECK( n == (uint32_t)4294967295);
     // Invalid values
     BOOST_CHECK(!ParseUInt32("", &n));
     BOOST_CHECK(!ParseUInt32(" 1", &n)); // no padding inside
@@ -921,13 +941,20 @@ BOOST_AUTO_TEST_CASE(test_ParseUInt64)
     uint64_t n;
     // Valid values
     BOOST_CHECK(ParseUInt64("1234", nullptr));
-    BOOST_CHECK(ParseUInt64("0", &n) && n == 0LL);
-    BOOST_CHECK(ParseUInt64("1234", &n) && n == 1234LL);
-    BOOST_CHECK(ParseUInt64("01234", &n) && n == 1234LL); // no octal
-    BOOST_CHECK(ParseUInt64("2147483647", &n) && n == 2147483647LL);
-    BOOST_CHECK(ParseUInt64("9223372036854775807", &n) && n == 9223372036854775807ULL);
-    BOOST_CHECK(ParseUInt64("9223372036854775808", &n) && n == 9223372036854775808ULL);
-    BOOST_CHECK(ParseUInt64("18446744073709551615", &n) && n == 18446744073709551615ULL);
+    BOOST_CHECK(ParseUInt64("0", &n));
+    BOOST_CHECK( n == 0LL);
+    BOOST_CHECK(ParseUInt64("1234", &n));
+    BOOST_CHECK( n == 1234LL);
+    BOOST_CHECK(ParseUInt64("01234", &n));
+    BOOST_CHECK(n == 1234LL);
+    BOOST_CHECK(ParseUInt64("2147483647", &n));
+    BOOST_CHECK( n == 2147483647LL);
+    BOOST_CHECK(ParseUInt64("9223372036854775807", &n));
+    BOOST_CHECK( n == 9223372036854775807ULL);
+    BOOST_CHECK(ParseUInt64("9223372036854775808", &n));
+    BOOST_CHECK( n == 9223372036854775808ULL);
+    BOOST_CHECK(ParseUInt64("18446744073709551615", &n));
+    BOOST_CHECK( n == 18446744073709551615ULL);
     // Invalid values
     BOOST_CHECK(!ParseUInt64("", &n));
     BOOST_CHECK(!ParseUInt64(" 1", &n)); // no padding inside
@@ -953,14 +980,22 @@ BOOST_AUTO_TEST_CASE(test_ParseDouble)
     double n;
     // Valid values
     BOOST_CHECK(ParseDouble("1234", nullptr));
-    BOOST_CHECK(ParseDouble("0", &n) && n == 0.0);
-    BOOST_CHECK(ParseDouble("1234", &n) && n == 1234.0);
-    BOOST_CHECK(ParseDouble("01234", &n) && n == 1234.0); // no octal
-    BOOST_CHECK(ParseDouble("2147483647", &n) && n == 2147483647.0);
-    BOOST_CHECK(ParseDouble("-2147483648", &n) && n == -2147483648.0);
-    BOOST_CHECK(ParseDouble("-1234", &n) && n == -1234.0);
-    BOOST_CHECK(ParseDouble("1e6", &n) && n == 1e6);
-    BOOST_CHECK(ParseDouble("-1e6", &n) && n == -1e6);
+    BOOST_CHECK(ParseDouble("0", &n));
+    BOOST_CHECK( n == 0.0);
+    BOOST_CHECK(ParseDouble("1234", &n));
+    BOOST_CHECK( n == 1234.0);
+    BOOST_CHECK(ParseDouble("01234", &n));
+    BOOST_CHECK( n == 1234.0); // no octal
+    BOOST_CHECK(ParseDouble("2147483647", &n));
+    BOOST_CHECK( n == 2147483647.0);
+    BOOST_CHECK(ParseDouble("-2147483648", &n));
+    BOOST_CHECK( n == -2147483648.0);
+    BOOST_CHECK(ParseDouble("-1234", &n));
+    BOOST_CHECK( n == -1234.0);
+    BOOST_CHECK(ParseDouble("1e6", &n));
+    BOOST_CHECK( n == 1e6);
+    BOOST_CHECK(ParseDouble("-1e6", &n));
+    BOOST_CHECK( n == -1e6);
     // Invalid values
     BOOST_CHECK(!ParseDouble("", &n));
     BOOST_CHECK(!ParseDouble(" 1", &n)); // no padding inside

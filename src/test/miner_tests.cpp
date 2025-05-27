@@ -114,8 +114,8 @@ static void CreateBlocks(const CChainParams &chainparams,
     fCheckpointsEnabled = false;
 
     // Simple block creation, nothing special yet:
-    BOOST_CHECK(pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey));
-
+    pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey);
+    BOOST_CHECK(pblocktemplate != nullptr);
     // We can't make transactions until we have inputs
     // Therefore, load 100 blocks :)
     for (unsigned int i = 0; i < sizeof(blockinfo)/sizeof(*blockinfo); ++i)
@@ -160,8 +160,8 @@ static void CreateBlocks(const CChainParams &chainparams,
 
     // Just to make sure we can still make simple blocks
     BOOST_CHECK_EQUAL(pblocktemplate->block.GetHeight(), chainActive.Height());
-    BOOST_CHECK(pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey));
-
+    pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey);
+    BOOST_CHECK(pblocktemplate != nullptr);
     XFieldAggPubKey aggpubkeyChange;
     CXFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
     CPubKey aggpubkey(aggpubkeyChange.getPubKey());
@@ -344,7 +344,8 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
         mempool.addUnchecked(hash, entry.Fee(LOWFEE).Time(GetTime()).SpendsCoinbase(spendsCoinbase).SigOpsCost(80).FromTx(tx));
         tx.vin[0].prevout.hashMalFix = hash;
     }
-    BOOST_CHECK(pblocktemplate = AssemblerForTest(Params()).CreateNewBlock(scriptPubKey));
+    pblocktemplate = AssemblerForTest(Params()).CreateNewBlock(scriptPubKey);
+    BOOST_CHECK(pblocktemplate != nullptr);
     BOOST_CHECK_EQUAL(pblocktemplate->block.GetHeight(), chainActive.Height()+1);
     mempool.clear();
 
@@ -365,7 +366,8 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
         mempool.addUnchecked(hash, entry.Fee(LOWFEE).Time(GetTime()).SpendsCoinbase(spendsCoinbase).FromTx(tx));
         tx.vin[0].prevout.hashMalFix = hash;
     }
-    BOOST_CHECK(pblocktemplate = AssemblerForTest(Params()).CreateNewBlock(scriptPubKey));
+    pblocktemplate = AssemblerForTest(Params()).CreateNewBlock(scriptPubKey);
+    BOOST_CHECK(pblocktemplate != nullptr);
     BOOST_CHECK_EQUAL(pblocktemplate->block.GetHeight(), chainActive.Height()+1);
     mempool.clear();
 
@@ -389,7 +391,8 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     tx.vout[0].nValue = tx.vout[0].nValue+BLOCKSUBSIDY-HIGHERFEE; //First txn output + fresh coinbase - new txn fee
     hash = tx.GetHashMalFix();
     mempool.addUnchecked(hash, entry.Fee(HIGHERFEE).Time(GetTime()).SpendsCoinbase(true).FromTx(tx));
-    BOOST_CHECK(pblocktemplate = AssemblerForTest(Params()).CreateNewBlock(scriptPubKey));
+    pblocktemplate = AssemblerForTest(Params()).CreateNewBlock(scriptPubKey);
+    BOOST_CHECK(pblocktemplate != nullptr);
     BOOST_CHECK_EQUAL(pblocktemplate->block.GetHeight(), chainActive.Height()+1);
     mempool.clear();
 
@@ -433,7 +436,8 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
         next->BuildSkip();
         chainActive.SetTip(next);
     }
-    BOOST_CHECK(pblocktemplate = AssemblerForTest(Params()).CreateNewBlock(scriptPubKey));
+    pblocktemplate = AssemblerForTest(Params()).CreateNewBlock(scriptPubKey);
+    BOOST_CHECK(pblocktemplate != nullptr);
     BOOST_CHECK_EQUAL(pblocktemplate->block.GetHeight(), chainActive.Height()+1);
 
     // Extend to a 210000-long block chain.
@@ -447,7 +451,8 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
         next->BuildSkip();
         chainActive.SetTip(next);
     }
-    BOOST_CHECK(pblocktemplate = AssemblerForTest(Params()).CreateNewBlock(scriptPubKey));
+    pblocktemplate = AssemblerForTest(Params()).CreateNewBlock(scriptPubKey);
+    BOOST_CHECK(pblocktemplate != nullptr);
     BOOST_CHECK_EQUAL(pblocktemplate->block.GetHeight(), chainActive.Height()+1);
 
     // invalid p2sh txn in mempool, template creation fails
@@ -568,7 +573,8 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     chainActive.Tip()->nHeight++;
     SetMockTime(chainActive.Tip()->GetMedianTimePast() + 1);
 
-    BOOST_CHECK(pblocktemplate = AssemblerForTest(Params()).CreateNewBlock(scriptPubKey));
+    pblocktemplate = AssemblerForTest(Params()).CreateNewBlock(scriptPubKey);
+    BOOST_CHECK(pblocktemplate != nullptr);
     BOOST_CHECK_EQUAL(pblocktemplate->block.GetHeight(), chainActive.Height()+2); //+2 because of height increment above
     BOOST_CHECK_EQUAL(pblocktemplate->block.vtx.size(), 5U);
 
@@ -621,8 +627,8 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_required_age_in_secs)
         mempool.addUnchecked(hashPastTimeTx,
                              entry.Fee(1000).Time(GetTime() - 60).SpendsCoinbase(true).FromTx(tx));
     }
-
-    BOOST_CHECK(pblocktemplate = AssemblerForTest(Params()).CreateNewBlock(scriptPubKey, 60));
+    pblocktemplate = AssemblerForTest(Params()).CreateNewBlock(scriptPubKey, 60);
+    BOOST_CHECK(pblocktemplate != nullptr);
     BOOST_CHECK(pblocktemplate->block.vtx.size() == 2); // index 0 is coinbase tx.
     BOOST_CHECK(pblocktemplate->block.vtx[1]->GetHashMalFix() == hashPastTimeTx);
 }

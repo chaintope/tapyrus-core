@@ -1638,7 +1638,7 @@ BOOST_AUTO_TEST_CASE(script_build)
                         .Push(keys.pubkey1C)
                         .PushRedeem());
     {
-        UniValue json_tests = read_json(std::string(json_tests::script_tests, json_tests::script_tests + sizeof(json_tests::script_tests)));
+        UniValue json_tests = read_json(std::string(json_tests::script_tests));
 
         for (unsigned int idx = 0; idx < json_tests.size(); idx++) {
             const UniValue& tv = json_tests[idx];
@@ -1675,7 +1675,7 @@ BOOST_AUTO_TEST_CASE(script_json_test)
     // scripts.
     // If a witness is given, then the last value in the array should be the
     // amount (nValue) to use in the crediting tx
-    UniValue tests = read_json(std::string(json_tests::script_tests, json_tests::script_tests + sizeof(json_tests::script_tests)));
+    UniValue tests = read_json(std::string(json_tests::script_tests));
 
     for (unsigned int idx = 0; idx < tests.size(); idx++) {
         UniValue test = tests[idx];
@@ -2038,7 +2038,10 @@ BOOST_AUTO_TEST_CASE(script_combineSigs)
     SignSignature(keystore, txFrom, txTo, 0, SIGHASH_ALL);
     scriptSig = DataFromTransaction(txTo, 0, txFrom.vout[0]);
     combined = CombineSignatures(txFrom.vout[0], txTo, scriptSigCopy, scriptSig);
-    BOOST_CHECK(combined.scriptSig == scriptSigCopy.scriptSig || combined.scriptSig == scriptSig.scriptSig);
+    bool copy = combined.scriptSig == scriptSigCopy.scriptSig;
+    bool sig = combined.scriptSig == scriptSig.scriptSig;
+    bool res = copy || sig;
+    BOOST_CHECK(res);
 
     // P2SH, single-signature case:
     CScript pkSingle;
@@ -2055,7 +2058,10 @@ BOOST_AUTO_TEST_CASE(script_combineSigs)
     SignSignature(keystore, txFrom, txTo, 0, SIGHASH_ALL);
     scriptSig = DataFromTransaction(txTo, 0, txFrom.vout[0]);
     combined = CombineSignatures(txFrom.vout[0], txTo, scriptSigCopy, scriptSig);
-    BOOST_CHECK(combined.scriptSig == scriptSigCopy.scriptSig || combined.scriptSig == scriptSig.scriptSig);
+    copy = combined.scriptSig == scriptSigCopy.scriptSig;
+    sig = combined.scriptSig == scriptSig.scriptSig;
+    res = copy || sig;
+    BOOST_TEST(res);
 
     // Hardest case:  Multisig 2-of-3
     scriptPubKey = GetScriptForMultisig(2, pubkeys);

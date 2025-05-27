@@ -74,7 +74,9 @@ BOOST_AUTO_TEST_CASE(stdrandom_test)
         std::vector<int> test{1,2,3,4,5,6,7,8,9,10};
         std::shuffle(test.begin(), test.end(), ctx);
         for (int j = 1; j <= 10; ++j) {
-            BOOST_CHECK(std::find(test.begin(), test.end(), j) != test.end());
+            auto found = std::find(test.begin(), test.end(), j);
+            bool res = found != test.end();
+            BOOST_CHECK(res);
         }
     }
 

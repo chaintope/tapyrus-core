@@ -91,10 +91,14 @@ BOOST_AUTO_TEST_CASE( basics ) // constructors, equality, inequality
     BOOST_CHECK(OneS.ToString() != ArrayToString(ZeroArray,20));
 
     // == and !=
-    BOOST_CHECK(R1L != R2L && R1S != R2S);
-    BOOST_CHECK(ZeroL != OneL && ZeroS != OneS);
-    BOOST_CHECK(OneL != ZeroL && OneS != ZeroS);
-    BOOST_CHECK(MaxL != ZeroL && MaxS != ZeroS);
+    BOOST_CHECK(R1L != R2L);
+    BOOST_CHECK(R1S != R2S);
+    BOOST_CHECK(ZeroL != OneL);
+    BOOST_CHECK(ZeroS != OneS);
+    BOOST_CHECK(OneL != ZeroL);
+    BOOST_CHECK(OneS != ZeroS);
+    BOOST_CHECK(MaxL != ZeroL);
+    BOOST_CHECK(MaxS != ZeroS);
 
     // String Constructor and Copy Constructor
     BOOST_CHECK(uint256S("0x"+R1L.ToString()) == R1L);

@@ -300,7 +300,8 @@ public:
         CreateAndProcessBlock({CMutableTransaction(blocktx)}, GetScriptForRawPubKey(coinbaseKey.GetPubKey()));
         LOCK(wallet->cs_wallet);
         auto it = wallet->mapWallet.find(tx->GetHashMalFix());
-        BOOST_CHECK(it != wallet->mapWallet.end());
+        bool res = it != wallet->mapWallet.end();
+        BOOST_CHECK(res);
         it->second.SetMerkleBranch(chainActive.Tip(), 1);
         return it->second;
     }

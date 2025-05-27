@@ -71,8 +71,10 @@ BOOST_AUTO_TEST_CASE(manythreads)
     }
     nTasks = microTasks.getQueueInfo(first, last);
     BOOST_CHECK(nTasks == 100);
-    BOOST_CHECK(first < last);
-    BOOST_CHECK(last > now);
+    bool res = first < last;
+    BOOST_CHECK(res);
+    res = last > now;
+    BOOST_CHECK(res);
 
     // As soon as these are created they will start running and servicing the queue
     std::vector<std::thread> microThreads;

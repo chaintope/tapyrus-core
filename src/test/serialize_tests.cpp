@@ -3,14 +3,13 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <boost/test/unit_test.hpp>
 #include <serialize.h>
 #include <streams.h>
 #include <hash.h>
 #include <test/test_tapyrus.h>
 
 #include <stdint.h>
-
-#include <boost/test/unit_test.hpp>
 
 BOOST_FIXTURE_TEST_SUITE(serialize_tests, BasicTestingSetup)
 
@@ -40,13 +39,19 @@ public:
         READWRITE(txval);
     }
 
-    bool operator==(const CSerializeMethodsTestSingle& rhs)
+    bool operator==(const CSerializeMethodsTestSingle& rhs) const
     {
         return  intval == rhs.intval && \
                 boolval == rhs.boolval && \
                 stringval == rhs.stringval && \
                 strcmp(charstrval, rhs.charstrval) == 0 && \
                 *txval == *rhs.txval;
+    }
+    friend std::ostream& operator<<(std::ostream& os, const CSerializeMethodsTestSingle& obj) {
+        CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+        obj.Serialize(ss);
+        os << "CSerializeMethodsTestSingle(" << obj.intval << ", " << obj.boolval << ", " << obj.stringval << ", " << obj.charstrval << ")";
+        return os;
     }
 };
 
@@ -60,7 +65,13 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(intval, boolval, stringval, charstrval, txval);
     }
+    bool operator==(const CSerializeMethodsTestSingle& rhs) const {
+        return static_cast<const CSerializeMethodsTestSingle&>(*this) == rhs;
+    }
 };
+inline bool operator==(const CSerializeMethodsTestSingle& lhs, const CSerializeMethodsTestMany& rhs) {
+    return rhs == lhs;
+}
 
 BOOST_AUTO_TEST_CASE(sizes)
 {
