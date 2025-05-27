@@ -140,6 +140,18 @@
    don't. */
 #undef HAVE_DECL_STRNLEN
 
+/* Define to 1 if you have the declaration of '__builtin_clz', and to 0 if you
+   don't. */
+#undef HAVE_DECL___BUILTIN_CLZ
+
+/* Define to 1 if you have the declaration of '__builtin_clzl', and to 0 if
+   you don't. */
+#undef HAVE_DECL___BUILTIN_CLZL
+
+/* Define to 1 if you have the declaration of '__builtin_clzll', and to 0 if
+   you don't. */
+#undef HAVE_DECL___BUILTIN_CLZLL
+
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #undef HAVE_DLFCN_H
 
