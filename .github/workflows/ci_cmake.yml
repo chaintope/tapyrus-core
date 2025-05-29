@@ -20,7 +20,7 @@ name: CMake Build & Test
       with_qt:
         description: Build with Qt GUI
         type: boolean
-        default: true
+        default: false
         required: false
 
 concurrency:
@@ -32,7 +32,7 @@ env:
   CTEST_OUTPUT_ON_FAILURE: 'ON'
   CMAKE_BUILD_PARALLEL_LEVEL: 4
   USE_DEPENDS: ${{ github.event.inputs.use_depends || false }}
-  WITH_QT: ${{ github.event.inputs.with_qt || true }}
+  WITH_QT: ${{ github.event.inputs.with_qt || false }}
 
 jobs:
   build-and-test:

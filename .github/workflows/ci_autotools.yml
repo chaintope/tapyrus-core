@@ -57,7 +57,6 @@ env:
   WITH_WALLET: ${{ github.event.inputs.with_wallet || true }}
   WITH_USDT: ${{ github.event.inputs.with_usdt || false }}
   WITH_ZMQ: ${{ github.event.inputs.with_zmq || true }}
-  WITH_INCOMPATIBLE_BDB: ${{ github.event.inputs.with_incompatible_bdb || false }}
   WITH_QTDBUS: ${{ github.event.inputs.with_qtdbus || true }}
   ENABLE_REDUCE_EXPORTS: ${{ github.event.inputs.enable_reduce_exports || true }}
 
@@ -202,9 +201,6 @@ jobs:
           if [ "${{ env.WITH_ZMQ }}" == "true" ]; then
             CONFIG_OPTS="$CONFIG_OPTS --enable-zmq"
           fi
-          if [ "${{ env.WITH_INCOMPATIBLE_BDB }}" == "true" ]; then
-            CONFIG_OPTS="$CONFIG_OPTS --with-incompatible-bdb"
-          fi
           if [ "${{ env.WITH_QTDBUS }}" == "false" ]; then
             CONFIG_OPTS="$CONFIG_OPTS --with-qtdbus=no"
           fi
@@ -214,10 +210,10 @@ jobs:
           
           if [ "${{ matrix.config.platform }}" == "macos" ]; then
             CPU_COUNT=$(sysctl -n hw.ncpu)
-            ./configure ${BITCOIN_CONFIG} ${BITCOIN_CONFIG_ALL} ${CONFIG_OPTS}
+            ./configure ${BITCOIN_CONFIG} ${BITCOIN_CONFIG_ALL} ${CONFIG_OPTS} --with-incompatible-bdb
             make -j "$CPU_COUNT"
           else
-            ./configure ${BITCOIN_CONFIG} ${BITCOIN_CONFIG_ALL} ${CONFIG_OPTS}
+            ./configure ${BITCOIN_CONFIG} ${BITCOIN_CONFIG_ALL} ${CONFIG_OPTS} --with-incompatible-bdb
             make -j $(nproc)
           fi
           
