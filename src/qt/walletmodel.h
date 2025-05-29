@@ -139,6 +139,10 @@ public:
     // Check address for validity
     bool validateAddress(const QString &address);
 
+    //check if the address is a token
+    bool isColoredAddress(const QString &address);
+    ColorIdentifier getColorFromAddress(const QString &address);
+
     // Return status record for SendCoins, contains error id + information
     struct SendCoinsReturn
     {
