@@ -170,7 +170,7 @@ jobs:
             cmake --build build --parallel -j "$CPU_COUNT" --target all
             export LD_LIBRARY_PATH="${DEPENDS_DIR}/${HOST}/lib"
           else
-            cmake -B build -DWERROR=ON -DWITH_ZMQ=ON -DBUILD_GUI=ON -DBUILD_BENCH=ON -DBUILD_FUZZ_BINARY=ON -DWITH_BDB=ON -DWITH_USDT=ON -DCMAKE_CXX_FLAGS='-Wno-error=unused-member-function' -DCMAKE_INSTALL_PREFIX=$DEPENDS_DIR/$HOST
+            cmake -B build -DWERROR=ON -DWITH_ZMQ=ON -DBUILD_GUI=ON -DBUILD_BENCH=ON -DWITH_BDB=ON -DENABLE_TRACING=ON -DCMAKE_CXX_FLAGS='-Wno-error=unused-member-function' -DCMAKE_INSTALL_PREFIX=$DEPENDS_DIR/$HOST
             cmake --build build -j $(nproc)
           fi
 
