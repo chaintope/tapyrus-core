@@ -329,27 +329,6 @@ if(BUILD_GUI)
 endif()
 
 
-if(BUILD_UTIL_CHAINSTATE)
-  add_executable(tapyrus-chainstate
-    tapyrus-chainstate.cpp
-  )
-  # TODO: The `SKIP_BUILD_RPATH` property setting can be deleted
-  #       in the future after reordering Guix script commands to
-  #       perform binary checks after the installation step.
-  # Relevant discussions:
-  # - https://github.com/hebasto/tapyrus/pull/236#issuecomment-2183120953
-  # - https://github.com/tapyrus/tapyrus/pull/30312#issuecomment-2191235833
-  set_target_properties(tapyrus-chainstate PROPERTIES
-    SKIP_BUILD_RPATH OFF
-  )
-  target_link_libraries(tapyrus-chainstate
-    PRIVATE
-      core_interface
-      tapyruskernel
-  )
-endif()
-
-
 if(BUILD_BENCH)
   add_subdirectory(bench)
 endif()
