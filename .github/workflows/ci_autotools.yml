@@ -116,9 +116,6 @@ jobs:
           if [ "${{ env.WITH_QT }}" == "true" ]; then
             if [ "${{ matrix.config.arch }}" == "arm64" ]; then
               sudo apt-get install -y qtbase5-dev qttools5-dev-tools
-            else
-              sudo apt-get install -y qt5-default
-            fi
           fi
 
       - name: Setup macOS Dependencies
