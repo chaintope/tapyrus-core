@@ -175,8 +175,6 @@ if(BUILD_GUI)
 endif()
 
 option(BUILD_BENCH "Build bench_tapyrus executable." OFF)
-option(BUILD_FUZZ_BINARY "Build fuzz binary." OFF)
-option(BUILD_FOR_FUZZING "Build for fuzzing. Enabling this will disable all other targets and override BUILD_FUZZ_BINARY." OFF)
 
 option(INSTALL_MAN "Install man pages." ON)
 
@@ -206,26 +204,6 @@ target_link_libraries(core_interface INTERFACE
   $<$<CONFIG:Debug>:core_interface_debug>
 )
 
-if(BUILD_FOR_FUZZING)
-  message(WARNING "BUILD_FOR_FUZZING=ON will disable all other targets and force BUILD_FUZZ_BINARY=ON.")
-  set(BUILD_DAEMON OFF)
-  set(BUILD_GENESIS OFF)
-  set(BUILD_CLI OFF)
-  set(BUILD_TX OFF)
-  set(BUILD_UTIL OFF)
-  set(BUILD_WALLET_TOOL OFF)
-  set(BUILD_GUI OFF)
-  set(ENABLE_EXTERNAL_SIGNER OFF)
-  set(WITH_ZMQ OFF)
-  set(BUILD_TESTS OFF)
-  set(BUILD_GUI_TESTS OFF)
-  set(BUILD_BENCH OFF)
-  set(BUILD_FUZZ_BINARY ON)
-
-  target_compile_definitions(core_interface INTERFACE
-    FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
-  )
-endif()
 
 include(TryAppendCXXFlags)
 include(TryAppendLinkerFlag)
@@ -374,24 +352,11 @@ if(SANITIZERS)
 endif()
 target_link_options(sanitize_interface INTERFACE ${SANITIZER_LDFLAGS})
 
-if(BUILD_FUZZ_BINARY)
-  target_link_libraries(core_interface INTERFACE ${FUZZ_LIBS})
-  include(CheckSourceCompilesWithFlags)
-  check_cxx_source_compiles_with_flags("
-      #include <cstdint>
-      #include <cstddef>
-      extern \"C\" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) { return 0; }
-      // No main() function.
-    " FUZZ_BINARY_LINKS_WITHOUT_MAIN_FUNCTION
-    LDFLAGS ${SANITIZER_LDFLAGS}
-    LINK_LIBRARIES ${FUZZ_LIBS}
-  )
-endif()
 
 include(AddBoostIfNeeded)
 add_boost_if_needed()
 
-if(BUILD_DAEMON OR BUILD_GUI OR BUILD_CLI OR BUILD_TESTS OR BUILD_BENCH OR BUILD_FUZZ_BINARY)
+if(BUILD_DAEMON OR BUILD_GUI OR BUILD_CLI OR BUILD_TESTS OR BUILD_BENCH)
   find_package(Libevent 2.1.8 MODULE REQUIRED)
 endif()
 
@@ -641,7 +606,6 @@ message("Tests:")
 message("  test_tapyrus ........................ ${BUILD_TESTS}")
 message("  test_tapyrus-qt ..................... ${BUILD_GUI_TESTS}")
 message("  bench_tapyrus ....................... ${BUILD_BENCH}")
-message("  fuzz binary ......................... ${BUILD_FUZZ_BINARY}")
 message("")
 if(CMAKE_CROSSCOMPILING)
   set(cross_status "TRUE, for ${CMAKE_SYSTEM_NAME}, ${CMAKE_SYSTEM_PROCESSOR}")
