@@ -1,24 +1,47 @@
-# Copyright (c) 2023-present The Bitcoin Core developers
-# Distributed under the MIT software license, see the accompanying
-# file COPYING or http://www.opensource.org/licenses/mit-license.php.
-
-name: CMake Build & Test
-'on':
-  push:
-    branches:
-      - '**'
+name: GNU Autotools Build & Test
+on:
   pull_request:
     branches:
       - '**'
   workflow_dispatch:
     inputs:
       use_depends:
-        description: Build and use depends directory
+        description: 'Build and use depends directory'
         type: boolean
         default: false
         required: false
       with_qt:
-        description: Build with Qt GUI
+        description: 'Build with Qt GUI'
+        type: boolean
+        default: true
+        required: false
+      with_wallet:
+        description: 'Build with wallet support'
+        type: boolean
+        default: true
+        required: false
+      with_usdt:
+        description: 'Build with USDT support'
+        type: boolean
+        default: false
+        required: false
+      with_zmq:
+        description: 'Build with ZMQ support'
+        type: boolean
+        default: true
+        required: false
+      with_incompatible_bdb:
+        description: 'Build with incompatible Berkeley DB'
+        type: boolean
+        default: false
+        required: false
+      with_qtdbus:
+        description: 'Build with Qt DBus support'
+        type: boolean
+        default: true
+        required: false
+      enable_reduce_exports:
+        description: 'Enable reduce exports'
         type: boolean
         default: true
         required: false
@@ -29,32 +52,36 @@ concurrency:
 
 env:
   CI_FAILFAST_TEST_LEAVE_DANGLING: 1
-  CTEST_OUTPUT_ON_FAILURE: 'ON'
-  CMAKE_BUILD_PARALLEL_LEVEL: 4
   USE_DEPENDS: ${{ github.event.inputs.use_depends || false }}
   WITH_QT: ${{ github.event.inputs.with_qt || true }}
+  WITH_WALLET: ${{ github.event.inputs.with_wallet || true }}
+  WITH_USDT: ${{ github.event.inputs.with_usdt || false }}
+  WITH_ZMQ: ${{ github.event.inputs.with_zmq || true }}
+  WITH_INCOMPATIBLE_BDB: ${{ github.event.inputs.with_incompatible_bdb || false }}
+  WITH_QTDBUS: ${{ github.event.inputs.with_qtdbus || true }}
+  ENABLE_REDUCE_EXPORTS: ${{ github.event.inputs.enable_reduce_exports || true }}
 
 jobs:
   build-and-test:
     strategy:
       matrix:
         config:
-          - name: Linux x86_64
+          - name: 'Linux x86_64'
             os: ubuntu-24.04
             arch: x86_64
             compiler: clang
             platform: linux
-          - name: Linux ARM64
+          - name: 'Linux ARM64'
             os: ubuntu-24.04
             arch: arm64
             compiler: clang
             platform: linux
-          - name: macOS x86_64
+          - name: 'macOS x86_64'
             os: macos-14
             arch: x86_64
             compiler: clang
             platform: macos
-          - name: macOS ARM64
+          - name: 'macOS ARM64'
             os: macos-14
             arch: arm64
             compiler: clang
@@ -64,7 +91,6 @@ jobs:
     env:
       BASE_ROOT_DIR: ${{ github.workspace }}
       CCACHE_DIR: ${{ github.workspace }}/ccache
-      BASE_BUILD_DIR: ${{ github.workspace }}/build
       CC: ${{ matrix.config.compiler }}
       CXX: ${{ matrix.config.compiler }}++
 
@@ -79,18 +105,20 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: ${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ env.USE_DEPENDS
-            }}-${{ env.WITH_QT }}-ccache-${{ github.run_id }}
-          restore-keys: ${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{
-            env.USE_DEPENDS }}-${{ env.WITH_QT }}-ccache-
+          key: autotools-${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ env.USE_DEPENDS }}-${{ env.WITH_QT }}-${{ env.WITH_WALLET }}-${{ env.WITH_USDT }}-ccache-${{ github.run_id }}
+          restore-keys: autotools-${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ env.USE_DEPENDS }}-${{ env.WITH_QT }}-${{ env.WITH_WALLET }}-${{ env.WITH_USDT }}-ccache-
 
       - name: Setup Linux Dependencies
         if: matrix.config.platform == 'linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang ccache build-essential cmake pkgconf python3-zmq libevent-dev bsdmainutils libboost-filesystem-dev libboost-test-dev libdb5.3++-dev libminiupnpc-dev libzmq3-dev libqrencode-dev systemtap-sdt-dev bpfcc-tools bpftrace
+          sudo apt-get install -y clang ccache build-essential autoconf automake libtool pkg-config python3-zmq libevent-dev bsdmainutils libboost-filesystem-dev libboost-test-dev libdb5.3++-dev libminiupnpc-dev libzmq3-dev libqrencode-dev systemtap-sdt-dev bpfcc-tools bpftrace
           if [ "${{ env.WITH_QT }}" == "true" ]; then
-            sudo apt-get install -y qtbase5-dev qttools5-dev-tools
+            if [ "${{ matrix.config.arch }}" == "arm64" ]; then
+              sudo apt-get install -y qtbase5-dev qttools5-dev-tools
+            else
+              sudo apt-get install -y qt5-default
+            fi
           fi
 
       - name: Setup macOS Dependencies
@@ -105,7 +133,7 @@ jobs:
           fi
           clang --version
           brew install --quiet python@3 || brew link --overwrite python@3
-          brew install --quiet coreutils ninja pkgconf gnu-getopt ccache boost libevent zeromq qrencode berkeley-db4
+          brew install --quiet coreutils ninja pkgconf gnu-getopt ccache boost libevent zeromq qrencode berkeley-db4 autoconf automake libtool
           if [ "${{ env.WITH_QT }}" == "true" ]; then
             brew install --quiet qt@5
           fi
@@ -161,30 +189,45 @@ jobs:
           echo "Core dumps will be stored in: $CORE_DUMP_DIR"
           ulimit -c unlimited
 
-      - name: Compile and run tests
+      - name: Build and run tests
         run: |
+          ./autogen.sh
+          
+          # Build configuration
+          CONFIG_OPTS=""
+          if [ "${{ env.WITH_WALLET }}" == "false" ]; then
+            CONFIG_OPTS="$CONFIG_OPTS --disable-wallet"
+          fi
+          if [ "${{ env.WITH_USDT }}" == "true" ]; then
+            CONFIG_OPTS="$CONFIG_OPTS --enable-usdt"
+          fi
+          if [ "${{ env.WITH_ZMQ }}" == "true" ]; then
+            CONFIG_OPTS="$CONFIG_OPTS --enable-zmq"
+          fi
+          if [ "${{ env.WITH_INCOMPATIBLE_BDB }}" == "true" ]; then
+            CONFIG_OPTS="$CONFIG_OPTS --with-incompatible-bdb"
+          fi
+          if [ "${{ env.WITH_QTDBUS }}" == "false" ]; then
+            CONFIG_OPTS="$CONFIG_OPTS --with-qtdbus=no"
+          fi
+          if [ "${{ env.ENABLE_REDUCE_EXPORTS }}" == "true" ]; then
+            CONFIG_OPTS="$CONFIG_OPTS --enable-reduce-exports"
+          fi
+          
           if [ "${{ matrix.config.platform }}" == "macos" ]; then
             CPU_COUNT=$(sysctl -n hw.ncpu)
-            BITCOIN_CONFIG_ALL="$BITCOIN_CONFIG_ALL -DCMAKE_INSTALL_PREFIX=$DEPENDS_DIR/$HOST"
-            cmake -S "$BASE_ROOT_DIR" -B "$BASE_BUILD_DIR" ${BITCOIN_CONFIG_ALL} ${BITCOIN_CONFIG} -DCMAKE_INSTALL_PREFIX=$DEPENDS_DIR/$HOST
-            cmake --build build --parallel -j "$CPU_COUNT" --target all
-            export LD_LIBRARY_PATH="${DEPENDS_DIR}/${HOST}/lib"
+            ./configure ${BITCOIN_CONFIG} ${BITCOIN_CONFIG_ALL} ${CONFIG_OPTS}
+            make -j "$CPU_COUNT"
           else
-            cmake -B build -DWERROR=ON -DWITH_ZMQ=ON -DBUILD_GUI=ON -DBUILD_BENCH=ON -DBUILD_FUZZ_BINARY=ON -DWITH_BDB=ON -DWITH_USDT=ON -DCMAKE_CXX_FLAGS='-Wno-error=unused-member-function' -DCMAKE_INSTALL_PREFIX=$DEPENDS_DIR/$HOST
-            cmake --build build -j $(nproc)
+            ./configure ${BITCOIN_CONFIG} ${BITCOIN_CONFIG_ALL} ${CONFIG_OPTS}
+            make -j $(nproc)
           fi
-
-          export CTEST_OUTPUT_ON_FAILURE=ON
-          echo "---------------- Build unit test ---------------- "
-          cmake --build build --target test_tapyrus -j $(if [ "${{ matrix.config.platform }}" == "macos" ]; then echo "$CPU_COUNT"; else echo "$(nproc)"; fi)
+          
           echo "---------------- Start unit test ---------------- "
-          cd $BASE_BUILD_DIR/src/test
-          ctest --output-on-failure -j 1 --timeout 300 --output-log test_results.log
+          make check
           echo "----------------  Start util test ---------------- "
-          cd ${{ github.workspace }}
-          cmake --build build --target check-tapyrus-util -j $(if [ "${{ matrix.config.platform }}" == "macos" ]; then echo "$CPU_COUNT"; else echo "$(nproc)"; fi)
+          make check-tapyrus-util
           echo "----------------  Start functional test ---------------- "
-          cd ${{ github.workspace }}
           ${{ github.workspace }}/test/functional/test_runner.py -j 1 --combinedlogslen=99999999 --coverage --failfast
           echo "---------------- DONE ---------------------"
 
@@ -193,8 +236,7 @@ jobs:
         if: steps.ccache-cache.outputs.cache-hit != 'true'
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: ${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ env.USE_DEPENDS
-            }}-${{ env.WITH_QT }}-ccache-${{ github.run_id }}
+          key: autotools-${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ env.USE_DEPENDS }}-${{ env.WITH_QT }}-${{ env.WITH_WALLET }}-${{ env.WITH_USDT }}-ccache-${{ github.run_id }}
 
       - name: Upload test results
         if: always()
@@ -202,7 +244,7 @@ jobs:
         with:
           name: test-results-${{ matrix.config.name }}
           path: |
-            ${{ github.workspace }}/build/src/test/test_results.log
+            ${{ github.workspace }}/test-suite.log
             ${{ github.workspace }}/test/functional/test_framework/test_framework.log
           retention-days: 7
 
@@ -249,42 +291,40 @@ jobs:
           path: ${{ github.workspace }}/core_dumps/
           retention-days: 7
 
-  # Cross-compilation jobs
-  # cross-compile-windows:
-  #   runs-on: ubuntu-24.04
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - name: Install dependencies
-  #       run: |
-  #         sudo apt-get update
-  #         sudo apt-get install -y python3 nsis g++-mingw-w64-x86-64 wine
-  #     - name: Build for Windows
-  #       env:
-  #         HOST: x86_64-w64-mingw32
-  #         DEP_OPTS: NO_QT=1
-  #         BITCOIN_CONFIG: --enable-reduce-exports
-  #       run: |
-  #         make -j $(nproc) -C depends HOST=$HOST $DEP_OPTS
-  #         ./autogen.sh
-  #         CONFIG_SITE=$PWD/depends/$HOST/share/config.site ./configure --prefix=/ --disable-ccache --disable-maintainer-mode --disable-dependency-tracking --enable-glibc-back-compat --enable-reduce-exports --disable-bench --disable-gui-tests --disable-fuzz-binary --with-gui=no
-  #         make -j $(nproc)
-  #         make deploy
-
-  # cross-compile-macos:
-  #   runs-on: ubuntu-24.04
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - name: Install dependencies
-  #       run: |
-  #         sudo apt-get update
-  #         sudo apt-get install -y cmake python3-dev clang g++-mingw-w64-x86-64
-  #     - name: Build for macOS
-  #       env:
-  #         HOST: x86_64-apple-darwin19
-  #         OSX_SDK: /opt/osx-sdk
-  #         CMAKE_OPTS: -DCMAKE_BUILD_TYPE=Release -DENABLE_WALLET=ON -DWITH_GUI=OFF
-  #       run: |
-  #         make -j $(nproc) -C depends HOST=$HOST
-  #         ./autogen.sh
-  #         CONFIG_SITE=$PWD/depends/$HOST/share/config.site ./configure --prefix=/ --disable-ccache --disable-maintainer-mode --disable-dependency-tracking --enable-glibc-back-compat --enable-reduce-exports --disable-bench --disable-gui-tests --disable-fuzz-binary --with-gui=no
-  #         make -j $(nproc)
+    # Cross-compilation jobs
+    # cross-compile-windows:
+    #   runs-on: ubuntu-24.04
+    #   steps:
+    #     - uses: actions/checkout@v4
+    #     - name: Install dependencies
+    #       run: |
+    #         sudo apt-get update
+    #         sudo apt-get install -y python3 nsis g++-mingw-w64-x86-64 wine
+    #     - name: Build for Windows
+    #       env:
+    #         HOST: x86_64-w64-mingw32
+    #         DEP_OPTS: NO_QT=1
+    #         BITCOIN_CONFIG: --enable-reduce-exports
+    #       run: |
+    #         make -j $(nproc) -C depends HOST=$HOST $DEP_OPTS
+    #         ./autogen.sh
+    #         CONFIG_SITE=$PWD/depends/$HOST/share/config.site ./configure --prefix=/ --disable-ccache --disable-maintainer-mode --disable-dependency-tracking --enable-glibc-back-compat --enable-reduce-exports --disable-bench --disable-gui-tests --disable-fuzz-binary --with-gui=no
+    #         make -j $(nproc)
+    #
+    # cross-compile-macos:
+    #   runs-on: ubuntu-24.04
+    #   steps:
+    #     - uses: actions/checkout@v4
+    #     - name: Install dependencies
+    #       run: |
+    #         sudo apt-get update
+    #         sudo apt-get install -y python3-dev clang g++-mingw-w64-x86-64
+    #     - name: Build for macOS
+    #       env:
+    #         HOST: x86_64-apple-darwin19
+    #         OSX_SDK: /opt/osx-sdk
+    #       run: |
+    #         make -j $(nproc) -C depends HOST=$HOST
+    #         ./autogen.sh
+    #         CONFIG_SITE=$PWD/depends/$HOST/share/config.site ./configure --prefix=/ --disable-ccache --disable-maintainer-mode --disable-dependency-tracking --enable-glibc-back-compat --enable-reduce-exports --disable-bench --disable-gui-tests --disable-fuzz-binary --with-gui=no
+    #         make -j $(nproc) 
