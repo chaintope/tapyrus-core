@@ -137,7 +137,7 @@ target_include_directories(test_tapyrus
 
 find_package(Boost 1.81 REQUIRED unit_test_framework)
 
-target_link_libraries(test_tapyrus Boost::unit_test_framework rpcclient server)
+target_link_libraries(test_tapyrus Boost::unit_test_framework tapyrus_wallet tapyrus_cli tapyrus_server)
 
 # We need to detect if the BOOST_TEST_DYN_LINK flag is required.
 set(CMAKE_REQUIRED_LIBRARIES Boost::unit_test_framework)
