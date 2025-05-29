@@ -1139,7 +1139,7 @@ static bool LockDataDirectory(bool probeOnly)
         case LockResult::ErrorWrite:
             return InitError(strprintf(_("Cannot write to data directory '%s'; check permissions."), datadir.string()));
         case LockResult::ErrorLock:
-            return InitError(strprintf(_("Cannot obtain a lock on data directory %s. %s is probably already running."), datadir.string(), CLIENT_NAME));
+            return InitError(strprintf(_("Cannot obtain a lock on data directory %s. %s is probably already running."), datadir.string(), PACKAGE_NAME));
         case LockResult::Success:
             return true;
     } // no default case, so the compiler can warn about missing cases
@@ -1286,7 +1286,7 @@ bool AppInitMain()
             return InitError(strprintf(_("User Agent comment (%s) contains unsafe characters."), cmt));
         uacomments.push_back(cmt);
     }
-    strSubVersion = FormatSubVersion(CLIENT_NAME, CLIENT_VERSION, uacomments);
+    strSubVersion = FormatSubVersion(PACKAGE_NAME, CLIENT_VERSION, uacomments);
     if (strSubVersion.size() > MAX_SUBVERSION_LENGTH) {
         return InitError(strprintf(_("Total length of network version string (%i) exceeds maximum length (%i). Reduce the number or size of uacomments."),
             strSubVersion.size(), MAX_SUBVERSION_LENGTH));
