@@ -30,11 +30,10 @@ from .util import (
     p2p_port,
     TAPYRUS_MODES
 )
+from .mininode import TAPYRUSD_PROC_TIMEOUT
 
 # For Python 3.4 compatibility
 JSONDecodeError = getattr(json, "JSONDecodeError", ValueError)
-
-BITCOIND_PROC_WAIT_TIMEOUT = 60
 
 class FailedToStartError(Exception):
     """Raised when a node fails to start correctly."""
@@ -234,7 +233,7 @@ class TestNode():
         self.log.debug("Node stopped")
         return True
 
-    def wait_until_stopped(self, timeout=BITCOIND_PROC_WAIT_TIMEOUT):
+    def wait_until_stopped(self, timeout=TAPYRUSD_PROC_TIMEOUT):
         i = 0
         while i < 2:
             try:
