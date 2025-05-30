@@ -144,4 +144,4 @@ set(ENABLE_ZMQ ${BUILD_TAPYRUS_ZMQ})
  endif()
  
 # Generate the config
-configure_file(bitcoin-config.h.cmake.in bitcoin-config.h ESCAPE_QUOTES)
+configure_file(tapyrus-config.h.cmake.in tapyrus-config.h ESCAPE_QUOTES)

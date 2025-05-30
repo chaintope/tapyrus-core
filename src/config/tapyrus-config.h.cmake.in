@@ -1,7 +1,7 @@
 // Copyright (c) 2017 The Bitcoin developers
 
-#ifndef BITCOIN_CONFIG_BITCOIN_CONFIG_H
-#define BITCOIN_CONFIG_BITCOIN_CONFIG_H
+#ifndef TAPYRUS_CONFIG_H
+#define TAPYRUS_CONFIG_H
 
 #define PACKAGE_NAME "${PACKAGE_NAME}"
 
@@ -61,4 +61,4 @@
 #cmakedefine ENABLE_ZMQ 1
 #cmakedefine ENABLE_QRCODE 0
 
-#endif // BITCOIN_BITCOIN_CONFIG_H
+#endif // TAPYRUS_CONFIG_H

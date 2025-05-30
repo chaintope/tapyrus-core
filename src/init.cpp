@@ -4,9 +4,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#if defined(HAVE_CONFIG_H)
-#include <config/bitcoin-config.h>
-#endif
+#include <tapyrus-config.h>
 
 #include <init.h>
 
@@ -533,7 +531,7 @@ std::string LicenseInfo()
     const std::string URL_WEBSITE = "<https://www.chaintope.com/en/chaintope-blockchain-protocol>";
 
     return CopyrightHolders(strprintf(_("Copyright (C) %i-%i"), 2009, COPYRIGHT_YEAR) + " ") + "\n" +
-           "Copyright (C) 2021 Chaintope Inc.\n"
+           "Copyright (C) 2025 Chaintope Inc.\n"
            "\n" +
            strprintf(_("Please contribute if you find %s useful. "
                        "Visit %s for further information about the software."),
