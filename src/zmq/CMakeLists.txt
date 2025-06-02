@@ -7,7 +7,6 @@ add_library(tapyrus_zmq STATIC EXCLUDE_FROM_ALL
   zmqnotificationinterface.cpp
   zmqpublishnotifier.cpp
   zmqrpc.cpp
-  zmqutil.cpp
 )
 target_compile_definitions(tapyrus_zmq
   INTERFACE

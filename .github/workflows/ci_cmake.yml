@@ -22,6 +22,11 @@ name: CMake Build & Test
         type: boolean
         default: false
         required: false
+      with_usdt:
+        description: Build with USDT support
+        type: boolean
+        default: false
+        required: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -33,6 +38,7 @@ env:
   CMAKE_BUILD_PARALLEL_LEVEL: 4
   USE_DEPENDS: ${{ github.event.inputs.use_depends || false }}
   WITH_QT: ${{ github.event.inputs.with_qt || false }}
+  WITH_USDT: ${{ github.event.inputs.with_usdt || false }}
 
 jobs:
   build-and-test:
@@ -81,9 +87,9 @@ jobs:
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ env.USE_DEPENDS
-            }}-${{ env.WITH_QT }}-ccache-${{ github.run_id }}
+            }}-${{ env.WITH_QT }}-${{ env.WITH_USDT }}-ccache-${{ github.run_id }}
           restore-keys: ${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{
-            env.USE_DEPENDS }}-${{ env.WITH_QT }}-ccache-
+            env.USE_DEPENDS }}-${{ env.WITH_QT }}-${{ env.WITH_USDT }}-ccache-
 
       - name: Setup Linux Dependencies
         if: matrix.config.platform == 'linux'
@@ -177,7 +183,7 @@ jobs:
             "-DBUILD_GUI=${{ env.WITH_QT }}"
             "-DBUILD_BENCH=ON"
             "-DWITH_BDB=ON"
-            "-DENABLE_TRACING=ON"
+            "-DENABLE_TRACING=${{ env.WITH_USDT }}"
             "-DCMAKE_BUILD_TYPE=Debug"
             "-DCMAKE_INSTALL_PREFIX=$DEPENDS_DIR/$HOST"
           )
@@ -222,7 +228,7 @@ jobs:
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ env.USE_DEPENDS
-            }}-${{ env.WITH_QT }}-ccache-${{ github.run_id }}
+            }}-${{ env.WITH_QT }}-${{ env.WITH_USDT }}-ccache-${{ github.run_id }}
 
       - name: Upload test results
         if: always()

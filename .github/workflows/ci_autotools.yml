@@ -112,7 +112,10 @@ jobs:
         if: matrix.config.platform == 'linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang ccache build-essential autoconf automake libtool pkg-config python3-zmq libevent-dev bsdmainutils libboost-filesystem-dev libboost-test-dev libdb5.3++-dev libminiupnpc-dev libzmq3-dev libqrencode-dev systemtap-sdt-dev bpfcc-tools bpftrace
+          sudo apt-get install -y clang ccache build-essential autoconf automake libtool pkg-config python3-zmq libevent-dev bsdmainutils libboost-filesystem-dev libboost-test-dev libdb5.3++-dev libminiupnpc-dev libzmq3-dev libqrencode-dev
+          if [ "${{ env.WITH_USDT }}" == "true" ]; then
+            sudo apt-get install -y systemtap-sdt-dev bpfcc-tools bpftrace
+          fi
           if [ "${{ env.WITH_QT }}" == "true" ]; then
             if [ "${{ matrix.config.arch }}" == "arm64" ]; then
               sudo apt-get install -y qtbase5-dev qttools5-dev-tools
