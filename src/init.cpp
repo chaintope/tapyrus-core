@@ -530,8 +530,11 @@ std::string LicenseInfo()
     const std::string URL_SOURCE_CODE = "<https://github.com/chaintope/tapyrus-core>";
     const std::string URL_WEBSITE = "<https://www.chaintope.com/en/chaintope-blockchain-protocol>";
 
-    return CopyrightHolders(strprintf(_("Copyright (C) %i-%i"), 2009, COPYRIGHT_YEAR) + " ") + "\n" +
-           "Copyright (C) 2025 Chaintope Inc.\n"
+    std::string strCopyrightHolderBitcoin = CopyrightHolders(strprintf(_("Copyright (C) %i-%i"), 2009, COPYRIGHT_YEAR) + " ");
+    std::string strCopyrightHolderChaintope = strprintf("Copyright (C) %i-%i %s", 2019, COPYRIGHT_YEAR_CHAINTOPE, COPYRIGHT_HOLDER_CHAINTOPE);
+
+    return strCopyrightHolderBitcoin + "\n" +
+           strCopyrightHolderChaintope + "\n" +
            "\n" +
            strprintf(_("Please contribute if you find %s useful. "
                        "Visit %s for further information about the software."),
