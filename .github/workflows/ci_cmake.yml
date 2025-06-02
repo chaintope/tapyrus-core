@@ -37,6 +37,7 @@ env:
 jobs:
   build-and-test:
     strategy:
+      fail-fast: false
       matrix:
         config:
           - name: Linux x86_64
@@ -165,27 +166,54 @@ jobs:
         run: |
           if [ "${{ matrix.config.platform }}" == "macos" ]; then
             CPU_COUNT=$(sysctl -n hw.ncpu)
-            BITCOIN_CONFIG_ALL="$BITCOIN_CONFIG_ALL -DCMAKE_INSTALL_PREFIX=$DEPENDS_DIR/$HOST"
-            cmake -S "$BASE_ROOT_DIR" -B "$BASE_BUILD_DIR" ${BITCOIN_CONFIG_ALL} ${BITCOIN_CONFIG} -DCMAKE_INSTALL_PREFIX=$DEPENDS_DIR/$HOST
-            cmake --build build --parallel -j "$CPU_COUNT" --target all
-            export LD_LIBRARY_PATH="${DEPENDS_DIR}/${HOST}/lib"
           else
-            cmake -B build -DWERROR=ON -DWITH_ZMQ=ON -DBUILD_GUI=ON -DBUILD_BENCH=ON -DWITH_BDB=ON -DENABLE_TRACING=ON -DCMAKE_CXX_FLAGS='-Wno-error=unused-member-function' -DCMAKE_INSTALL_PREFIX=$DEPENDS_DIR/$HOST
-            cmake --build build -j $(nproc)
+            CPU_COUNT=$(nproc)
           fi
 
+          # Common CMake configuration options
+          CMAKE_OPTS=(
+            "-DWERROR=ON"
+            "-DWITH_ZMQ=ON"
+            "-DBUILD_GUI=${{ env.WITH_QT }}"
+            "-DBUILD_BENCH=ON"
+            "-DWITH_BDB=ON"
+            "-DENABLE_TRACING=ON"
+            "-DCMAKE_BUILD_TYPE=Debug"
+            "-DCMAKE_INSTALL_PREFIX=$DEPENDS_DIR/$HOST"
+          )
+
+          # Add platform-specific options
+          if [ "${{ matrix.config.platform }}" == "macos" ]; then
+            CMAKE_OPTS+=("-DCMAKE_CXX_FLAGS=-Wno-error=unused-member-function")
+          fi
+
+          # Configure and build
+          cmake -S "$BASE_ROOT_DIR" -B "$BASE_BUILD_DIR" "${CMAKE_OPTS[@]}"
+          cmake --build "$BASE_BUILD_DIR" --parallel -j "$CPU_COUNT" --target all
+
+          # Set library path for depends builds
+          if [ "${{ env.USE_DEPENDS }}" == "true" ]; then
+            export LD_LIBRARY_PATH="${DEPENDS_DIR}/${HOST}/lib"
+          fi
+
+          # Run tests
           export CTEST_OUTPUT_ON_FAILURE=ON
+          
           echo "---------------- Build unit test ---------------- "
-          cmake --build build --target test_tapyrus -j $(if [ "${{ matrix.config.platform }}" == "macos" ]; then echo "$CPU_COUNT"; else echo "$(nproc)"; fi)
+          cmake --build "$BASE_BUILD_DIR" --target test_tapyrus -j "$CPU_COUNT"
+          
           echo "---------------- Start unit test ---------------- "
-          cd $BASE_BUILD_DIR/src/test
+          cd "$BASE_BUILD_DIR/src/test"
           ctest --output-on-failure -j 1 --timeout 300 --output-log test_results.log
-          echo "----------------  Start util test ---------------- "
-          cd ${{ github.workspace }}
-          cmake --build build --target check-tapyrus-util -j $(if [ "${{ matrix.config.platform }}" == "macos" ]; then echo "$CPU_COUNT"; else echo "$(nproc)"; fi)
-          echo "----------------  Start functional test ---------------- "
-          cd ${{ github.workspace }}
-          ${{ github.workspace }}/test/functional/test_runner.py -j 1 --combinedlogslen=99999999 --coverage --failfast
+          
+          echo "---------------- Start util test ---------------- "
+          cd "$BASE_ROOT_DIR"
+          cmake --build "$BASE_BUILD_DIR" --target check-tapyrus-util -j "$CPU_COUNT"
+          
+          echo "---------------- Start functional test ---------------- "
+          cd "$BASE_ROOT_DIR"
+          python3 test/functional/test_runner.py -j 1 --combinedlogslen=99999999 --coverage --failfast
+          
           echo "---------------- DONE ---------------------"
 
       - name: Save Ccache cache

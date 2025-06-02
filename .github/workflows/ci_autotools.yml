@@ -63,6 +63,7 @@ env:
 jobs:
   build-and-test:
     strategy:
+      fail-fast: false
       matrix:
         config:
           - name: 'Linux x86_64'
