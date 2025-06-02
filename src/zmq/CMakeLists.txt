@@ -18,3 +18,4 @@ target_link_libraries(tapyrus_zmq
     univalue
     zeromq
 )
+target_include_directories(tapyrus_zmq PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
