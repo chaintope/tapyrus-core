@@ -21,7 +21,13 @@ add_subdirectory(univalue)
 # Set secp256k1 source directory before including it
 set(SECP256K1_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/secp256k1)
 add_subdirectory(secp256k1)
-include_directories(${CMAKE_CURRENT_BINARY_DIR}/secp256k1/src)
+include_directories(
+  ${SECP256K1_SOURCE_DIR}/src
+  ${SECP256K1_SOURCE_DIR}
+  ${SECP256K1_SOURCE_DIR}/include
+  ${CMAKE_CURRENT_BINARY_DIR}/src/secp256k1/src
+  ${CMAKE_CURRENT_BINARY_DIR}/src/secp256k1
+)
 
 
 # Set top-level target output locations.
