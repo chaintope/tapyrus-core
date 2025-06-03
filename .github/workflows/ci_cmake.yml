@@ -186,7 +186,7 @@ jobs:
             "-DBUILD_BENCH=ON"
             "-DWITH_BDB=ON"
             "-DENABLE_TRACING=${{ env.WITH_USDT }}"
-            "-DCMAKE_BUILD_TYPE=Debug"
+            "-DCMAKE_BUILD_TYPE=RelWithDebInfo"
             "-DCMAKE_INSTALL_PREFIX=$DEPENDS_DIR/$HOST"
           )
 
