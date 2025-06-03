@@ -18,6 +18,8 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 add_subdirectory(leveldb)
 add_subdirectory(univalue)
 
+# Set secp256k1 source directory before including it
+set(SECP256K1_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/secp256k1)
 add_subdirectory(secp256k1)
 
 

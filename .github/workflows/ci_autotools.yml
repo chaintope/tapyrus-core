@@ -251,7 +251,7 @@ jobs:
           echo "---------------- Start unit test ---------------- "
           make check
           echo "---------------- Start util test ---------------- "
-          python3 test/util/tapyrus-util-test.py
+          python3 ${{ github.workspace }}/test/util/tapyrus-util-test.py
           echo "---------------- Start functional test ---------------- "
           ${{ github.workspace }}/test/functional/test_runner.py -j 1 --combinedlogslen=99999999 --coverage --failfast
           echo "---------------- DONE ---------------------"
