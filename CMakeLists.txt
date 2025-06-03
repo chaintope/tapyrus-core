@@ -47,6 +47,8 @@ endif()
 # Copyright
 set(COPYRIGHT_YEAR 2019)
 set(COPYRIGHT_HOLDERS_FINAL "The Bitcoin Core developers")
+set(COPYRIGHT_YEAR_CHAINTOPE 2025)
+set(COPYRIGHT_HOLDER_CHAINTOPE "Chaintope Inc.")
 set(CLIENT_BUGREPORT "https://github.com/chaintope/tapyrus-core/issues")
 
 #=============================

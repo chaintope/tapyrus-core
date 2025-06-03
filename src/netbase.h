@@ -5,9 +5,7 @@
 #ifndef BITCOIN_NETBASE_H
 #define BITCOIN_NETBASE_H
 
-#if defined(HAVE_CONFIG_H)
-#include <config/bitcoin-config.h>
-#endif
+#include <tapyrus-config.h>
 
 #include <compat.h>
 #include <netaddress.h>
