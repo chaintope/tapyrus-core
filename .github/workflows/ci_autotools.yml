@@ -56,7 +56,7 @@ env:
   WITH_QT: ${{ github.event.inputs.with_qt || true }}
   WITH_WALLET: ${{ github.event.inputs.with_wallet || true }}
   WITH_USDT: ${{ github.event.inputs.with_usdt || false }}
-  WITH_ZMQ: ${{ github.event.inputs.with_zmq || true }}
+  ENABLE_ZMQ: ${{ github.event.inputs.with_zmq || true }}
   WITH_QTDBUS: ${{ github.event.inputs.with_qtdbus || true }}
   ENABLE_REDUCE_EXPORTS: ${{ github.event.inputs.enable_reduce_exports || true }}
 
@@ -203,7 +203,7 @@ jobs:
           if [ "${{ env.WITH_USDT }}" == "true" ]; then
             CONFIG_OPTS="$CONFIG_OPTS --enable-usdt"
           fi
-          if [ "${{ env.WITH_ZMQ }}" == "true" ]; then
+          if [ "${{ env.ENABLE_ZMQ }}" == "true" ]; then
             CONFIG_OPTS="$CONFIG_OPTS --enable-zmq"
           fi
           if [ "${{ env.WITH_QTDBUS }}" == "false" ]; then

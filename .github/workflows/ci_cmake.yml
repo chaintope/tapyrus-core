@@ -187,7 +187,7 @@ jobs:
           # Common CMake configuration options
           CMAKE_OPTS=(
             "-DWERROR=ON"
-            "-DWITH_ZMQ=ON"
+            "-DENABLE_ZMQ=ON"
             "-DBUILD_GUI=${{ env.WITH_QT }}"
             "-DBUILD_BENCH=ON"
             "-DWITH_BDB=ON"

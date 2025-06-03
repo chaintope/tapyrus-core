@@ -74,7 +74,7 @@ target_link_libraries(tapyrus_consensus
     Boost::headers
 )
 
-if(WITH_ZMQ)
+if(ENABLE_ZMQ)
   add_subdirectory(zmq)
 endif()
 
