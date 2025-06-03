@@ -40,7 +40,7 @@ env:
   WITH_QT: ${{ github.event.inputs.with_qt || false }}
   WITH_USDT: ${{ github.event.inputs.with_usdt || false }}
   LC_ALL: C.UTF-8
-  BOOST_TEST_RANDOM: 1$RANDOM
+  BOOST_TEST_RANDOM: 1
 
 jobs:
   build-and-test:
@@ -76,6 +76,8 @@ jobs:
       BASE_BUILD_DIR: ${{ github.workspace }}/build
       CC: ${{ matrix.config.compiler }}
       CXX: ${{ matrix.config.compiler }}++
+      LC_ALL: C.UTF-8
+      BOOST_TEST_RANDOM: 1
 
     steps:
       - uses: actions/checkout@v4

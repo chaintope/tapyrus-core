@@ -60,7 +60,7 @@ env:
   WITH_QTDBUS: ${{ github.event.inputs.with_qtdbus || true }}
   ENABLE_REDUCE_EXPORTS: ${{ github.event.inputs.enable_reduce_exports || true }}
   LC_ALL: C.UTF-8
-  BOOST_TEST_RANDOM: 1$RANDOM
+  BOOST_TEST_RANDOM: 1
 
 jobs:
   build-and-test:
@@ -95,6 +95,7 @@ jobs:
       CCACHE_DIR: ${{ github.workspace }}/ccache
       CC: ${{ matrix.config.compiler }}
       CXX: ${{ matrix.config.compiler }}++
+      LC_ALL: C.UTF-8
 
     steps:
       - uses: actions/checkout@v4
