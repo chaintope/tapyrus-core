@@ -85,7 +85,7 @@ jobs:
       - run: |
           source ./default-env.sh
           HOST=x86_64-unknown-linux-gnu \
-          PACKAGES="python3-zmq  bsdmainutils bpfcc-tools bpftrace" \
+          PACKAGES="python3-zmq  bsdmainutils bpfcc-tools bpftrace libboost-test-dev" \
           DEP_OPTS="V=1" \
           RUN_TESTS=true \
           RUN_BENCH=true \
@@ -104,7 +104,7 @@ jobs:
       - run: |
           source ./default-env.sh
           HOST=x86_64-unknown-linux-gnu \
-          PACKAGES="python3-zmq qtbase5-dev qttools5-dev-tools qttools5-dev" \
+          PACKAGES="python3-zmq qtbase5-dev qttools5-dev-tools qttools5-dev libboost-test-dev" \
           DEP_OPTS="NO_QT=1 V=1" \
           RUN_TESTS=true \
           RUN_BENCH=true \
