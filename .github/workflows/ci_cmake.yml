@@ -214,6 +214,8 @@ jobs:
 
           # Configure and build
           cmake -S "$BASE_ROOT_DIR" -B "$BASE_BUILD_DIR" "${CMAKE_OPTS[@]}"
+          # Set CMake policy CMP0144 to handle package root variables properly
+          cmake -DCMAKE_POLICY_DEFAULT_CMP0144=NEW "$BASE_BUILD_DIR"
           cmake --build "$BASE_BUILD_DIR" --parallel -j "$CPU_COUNT" --target all
 
           # Set library path for depends builds
