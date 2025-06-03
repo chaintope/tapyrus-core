@@ -21,14 +21,6 @@ add_subdirectory(univalue)
 # Set secp256k1 source directory before including it
 set(SECP256K1_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/secp256k1)
 add_subdirectory(secp256k1)
-include_directories(
-  ${SECP256K1_SOURCE_DIR}/src
-  ${SECP256K1_SOURCE_DIR}
-  ${SECP256K1_SOURCE_DIR}/include
-  ${CMAKE_CURRENT_BINARY_DIR}/src/secp256k1/src
-  ${CMAKE_CURRENT_BINARY_DIR}/src/secp256k1
-)
-
 
 # Set top-level target output locations.
 if(NOT CMAKE_RUNTIME_OUTPUT_DIRECTORY)
@@ -58,7 +50,6 @@ add_dependencies(tapyrus_clientversion generate_build_info)
 
 add_subdirectory(crypto)
 
-
 add_library(tapyrus_consensus STATIC EXCLUDE_FROM_ALL
   arith_uint256.cpp
   consensus/merkle.cpp
@@ -75,6 +66,15 @@ add_library(tapyrus_consensus STATIC EXCLUDE_FROM_ALL
   uint256.cpp
   utilstrencodings.cpp
 )
+
+# Add secp256k1 include directories
+target_include_directories(tapyrus_consensus
+  PRIVATE
+    ${SECP256K1_SOURCE_DIR}/src
+    ${SECP256K1_SOURCE_DIR}
+    ${SECP256K1_SOURCE_DIR}/include
+)
+
 target_link_libraries(tapyrus_consensus
   PRIVATE
     core_interface
@@ -150,6 +150,15 @@ add_library(tapyrus_common STATIC EXCLUDE_FROM_ALL
   script/standard.cpp
   xfieldhistory.cpp
 )
+
+# Add secp256k1 include directories
+target_include_directories(tapyrus_common
+  PRIVATE
+    ${SECP256K1_SOURCE_DIR}/src
+    ${SECP256K1_SOURCE_DIR}
+    ${SECP256K1_SOURCE_DIR}/include
+)
+
 target_link_libraries(tapyrus_common
   PRIVATE
     core_interface
