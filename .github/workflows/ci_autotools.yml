@@ -231,12 +231,14 @@ jobs:
                 export BOOST_LIBRARYDIR="/opt/homebrew/opt/boost/lib"
                 export CPPFLAGS="-I/opt/homebrew/opt/boost/include"
                 export LDFLAGS="-L/opt/homebrew/opt/boost/lib"
+                export PKG_CONFIG_PATH="/opt/homebrew/opt/boost/lib/pkgconfig:$PKG_CONFIG_PATH"
               else
                 export BOOST_ROOT="/usr/local/opt/boost"
                 export BOOST_INCLUDEDIR="/usr/local/opt/boost/include"
                 export BOOST_LIBRARYDIR="/usr/local/opt/boost/lib"
                 export CPPFLAGS="-I/usr/local/opt/boost/include"
                 export LDFLAGS="-L/usr/local/opt/boost/lib"
+                export PKG_CONFIG_PATH="/usr/local/opt/boost/lib/pkgconfig:$PKG_CONFIG_PATH"
               fi
             fi
             ./configure ${BITCOIN_CONFIG} ${BITCOIN_CONFIG_ALL} ${CONFIG_OPTS} --with-incompatible-bdb
