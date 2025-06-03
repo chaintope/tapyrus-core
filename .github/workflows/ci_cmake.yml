@@ -116,16 +116,10 @@ jobs:
           if [ "${{ env.WITH_QT }}" == "true" ]; then
             brew install --quiet qt@5
           fi
-          if [ "${{ matrix.config.arch }}" == "arm64" ]; then
-            echo 'export PATH="/opt/homebrew/bin:$PATH"' >> $HOME/.bashrc
-            echo 'export BOOST_ROOT="/opt/homebrew/opt/boost"' >> $HOME/.bashrc
-            echo 'export BOOST_INCLUDEDIR="/opt/homebrew/opt/boost/include"' >> $HOME/.bashrc
-            echo 'export BOOST_LIBRARYDIR="/opt/homebrew/opt/boost/lib"' >> $HOME/.bashrc
-          else
-            echo 'export BOOST_ROOT="/usr/local/opt/boost"' >> $HOME/.bashrc
-            echo 'export BOOST_INCLUDEDIR="/usr/local/opt/boost/include"' >> $HOME/.bashrc
-            echo 'export BOOST_LIBRARYDIR="/usr/local/opt/boost/lib"' >> $HOME/.bashrc
-          fi
+          echo 'export PATH="/opt/homebrew/bin:$PATH"' >> $HOME/.bashrc
+          echo 'export BOOST_ROOT="/opt/homebrew/opt/boost"' >> $HOME/.bashrc
+          echo 'export BOOST_INCLUDEDIR="/opt/homebrew/opt/boost/include"' >> $HOME/.bashrc
+          echo 'export BOOST_LIBRARYDIR="/opt/homebrew/opt/boost/lib"' >> $HOME/.bashrc
           source $HOME/.bashrc
 
       - name: Build Depends
@@ -197,26 +191,24 @@ jobs:
           )
 
           # Add platform-specific options
-          if [ "${{ matrix.config.platform }}" == "macos" ]; then
-            CMAKE_OPTS+=("-DCMAKE_CXX_FLAGS=-Wno-error=unused-member-function")
-            if [ "${{ env.USE_DEPENDS }}" == "true" ]; then
-              # Use Boost from depends directory
-              CMAKE_OPTS+=("-DBOOST_ROOT=$DEPENDS_DIR/$HOST")
-              CMAKE_OPTS+=("-DBOOST_INCLUDEDIR=$DEPENDS_DIR/$HOST/include")
-              CMAKE_OPTS+=("-DBOOST_LIBRARYDIR=$DEPENDS_DIR/$HOST/lib")
+          CMAKE_OPTS+=("-DCMAKE_CXX_FLAGS=-Wno-error=unused-member-function")
+          if [ "${{ env.USE_DEPENDS }}" == "true" ]; then
+            # Use Boost from depends directory
+            CMAKE_OPTS+=("-DBOOST_ROOT=$DEPENDS_DIR/$HOST")
+            CMAKE_OPTS+=("-DBOOST_INCLUDEDIR=$DEPENDS_DIR/$HOST/include")
+            CMAKE_OPTS+=("-DBOOST_LIBRARYDIR=$DEPENDS_DIR/$HOST/lib")
+          else
+            # Use system Boost
+            if [ "${{ matrix.config.platform }}" == "macos" ]; then
+              CMAKE_OPTS+=("-DBOOST_ROOT=/opt/homebrew/opt/boost")
+              CMAKE_OPTS+=("-DBOOST_INCLUDEDIR=/opt/homebrew/opt/boost/include")
+              CMAKE_OPTS+=("-DBOOST_LIBRARYDIR=/opt/homebrew/opt/boost/lib")
+              CMAKE_OPTS+=("-DCMAKE_PREFIX_PATH=/opt/homebrew/opt/boost")
             else
-              # Use system Boost
-              if [ "${{ matrix.config.arch }}" == "arm64" ]; then
-                CMAKE_OPTS+=("-DBOOST_ROOT=/opt/homebrew/opt/boost")
-                CMAKE_OPTS+=("-DBOOST_INCLUDEDIR=/opt/homebrew/opt/boost/include")
-                CMAKE_OPTS+=("-DBOOST_LIBRARYDIR=/opt/homebrew/opt/boost/lib")
-                CMAKE_OPTS+=("-DCMAKE_PREFIX_PATH=/opt/homebrew/opt/boost")
-              else
-                CMAKE_OPTS+=("-DBOOST_ROOT=/usr/local/opt/boost")
-                CMAKE_OPTS+=("-DBOOST_INCLUDEDIR=/usr/local/opt/boost/include")
-                CMAKE_OPTS+=("-DBOOST_LIBRARYDIR=/usr/local/opt/boost/lib")
-                CMAKE_OPTS+=("-DCMAKE_PREFIX_PATH=/usr/local/opt/boost")
-              fi
+              CMAKE_OPTS+=("-DBOOST_ROOT=/usr/local/opt/boost")
+              CMAKE_OPTS+=("-DBOOST_INCLUDEDIR=/usr/local/opt/boost/include")
+              CMAKE_OPTS+=("-DBOOST_LIBRARYDIR=/usr/local/opt/boost/lib")
+              CMAKE_OPTS+=("-DCMAKE_PREFIX_PATH=/usr/local/opt/boost")
             fi
           fi
 
