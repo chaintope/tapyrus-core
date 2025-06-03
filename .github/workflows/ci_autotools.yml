@@ -59,6 +59,8 @@ env:
   ENABLE_ZMQ: ${{ github.event.inputs.with_zmq || true }}
   WITH_QTDBUS: ${{ github.event.inputs.with_qtdbus || true }}
   ENABLE_REDUCE_EXPORTS: ${{ github.event.inputs.enable_reduce_exports || true }}
+  LC_ALL: C.UTF-8
+  BOOST_TEST_RANDOM: 1$RANDOM
 
 jobs:
   build-and-test:
@@ -253,7 +255,7 @@ jobs:
           echo "---------------- Start util test ---------------- "
           python3 ${{ github.workspace }}/test/util/tapyrus-util-test.py
           echo "---------------- Start functional test ---------------- "
-          ${{ github.workspace }}/test/functional/test_runner.py -j 1 --combinedlogslen=99999999 --coverage --failfast
+          python3 test/functional/test_runner.py -j 1 --combinedlogslen=4000 --coverage --failfast --quiet --extended
           echo "---------------- DONE ---------------------"
 
       - name: Save Ccache cache
