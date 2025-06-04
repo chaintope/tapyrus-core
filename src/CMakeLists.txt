@@ -67,14 +67,6 @@ add_library(tapyrus_consensus STATIC EXCLUDE_FROM_ALL
   utilstrencodings.cpp
 )
 
-# Add secp256k1 include directories
-target_include_directories(tapyrus_consensus
-  PRIVATE
-    ${SECP256K1_SOURCE_DIR}/src
-    ${SECP256K1_SOURCE_DIR}
-    ${SECP256K1_SOURCE_DIR}/include
-)
-
 target_link_libraries(tapyrus_consensus
   PRIVATE
     core_interface
@@ -149,14 +141,6 @@ add_library(tapyrus_common STATIC EXCLUDE_FROM_ALL
   script/sign.cpp
   script/standard.cpp
   xfieldhistory.cpp
-)
-
-# Add secp256k1 include directories
-target_include_directories(tapyrus_common
-  PRIVATE
-    ${SECP256K1_SOURCE_DIR}/src
-    ${SECP256K1_SOURCE_DIR}
-    ${SECP256K1_SOURCE_DIR}/include
 )
 
 target_link_libraries(tapyrus_common
