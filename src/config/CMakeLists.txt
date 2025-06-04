@@ -71,7 +71,7 @@ function(check_builtin_exist SYMBOL VARIABLE)
 		if(NOT CMAKE_REQUIRED_QUIET)
 			message(STATUS "Looking for ${SYMBOL} - found")
 		endif()
-		set(${VARIABLE} 1 CACHE INTERNAL "Have symbol ${SYMBOL}" PARENT_SCOPE)
+		set(${VARIABLE} 1 CACHE INTERNAL "Have symbol ${SYMBOL}" FORCE)
 		file(APPEND ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeOutput.log
 			"Determining if the ${SYMBOL} "
 			"exist passed with the following output:\n"
@@ -81,7 +81,7 @@ function(check_builtin_exist SYMBOL VARIABLE)
 		if(NOT CMAKE_REQUIRED_QUIET)
 			message(STATUS "Looking for ${SYMBOL} - not found")
 		endif()
-		set(${VARIABLE} 0 CACHE INTERNAL "Have symbol ${SYMBOL}" PARENT_SCOPE)
+		set(${VARIABLE} 0 CACHE INTERNAL "Have symbol ${SYMBOL}" FORCE)
 		file(APPEND ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeError.log
 			"Determining if the ${SYMBOL} "
 			"exist failed with the following output:\n"
