@@ -17,5 +17,6 @@ target_link_libraries(tapyrus_zmq
     core_interface
     univalue
     zeromq
+    Boost::headers
 )
 target_include_directories(tapyrus_zmq PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
