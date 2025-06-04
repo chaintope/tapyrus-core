@@ -9,7 +9,7 @@ add_library(tapyrus_zmq STATIC EXCLUDE_FROM_ALL
   zmqrpc.cpp
 )
 target_compile_definitions(tapyrus_zmq
-  INTERFACE
+  PUBLIC
     ENABLE_ZMQ=1
 )
 target_link_libraries(tapyrus_zmq

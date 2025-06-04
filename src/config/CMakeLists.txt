@@ -81,7 +81,7 @@ function(check_builtin_exist SYMBOL VARIABLE)
 		if(NOT CMAKE_REQUIRED_QUIET)
 			message(STATUS "Looking for ${SYMBOL} - not found")
 		endif()
-		set(${VARIABLE} "" CACHE INTERNAL "Have symbol ${SYMBOL}" PARENT_SCOPE)
+		set(${VARIABLE} 0 CACHE INTERNAL "Have symbol ${SYMBOL}" PARENT_SCOPE)
 		file(APPEND ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeError.log
 			"Determining if the ${SYMBOL} "
 			"exist failed with the following output:\n"
@@ -134,4 +134,13 @@ check_cxx_source_compiles("
  endif()
  
 # Generate the config
-configure_file(tapyrus-config.h.cmake.in tapyrus-config.h ESCAPE_QUOTES)
+configure_file(
+	${CMAKE_CURRENT_SOURCE_DIR}/tapyrus-config.h.cmake.in
+	${CMAKE_CURRENT_BINARY_DIR}/tapyrus-config.h
+)
+
+if(ENABLE_ZMQ)
+	set(ENABLE_ZMQ 1)
+else()
+	set(ENABLE_ZMQ 0)
+endif()
