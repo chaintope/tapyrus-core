@@ -135,7 +135,7 @@ option(REDUCE_EXPORTS "Attempt to reduce exported symbols in the resulting execu
 option(WERROR "Treat compiler warnings as errors." OFF)
 option(WITH_CCACHE "Attempt to use ccache for compiling." ON)
 
-option(ENABLE_ZMQ "Enable ZMQ notifications." OFF)
+option(ENABLE_ZMQ "Enable ZMQ notifications." ON)
 if(ENABLE_ZMQ)
   find_package(ZeroMQ 4.0.0 MODULE REQUIRED)
 endif()

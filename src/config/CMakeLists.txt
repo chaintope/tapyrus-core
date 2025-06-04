@@ -7,9 +7,6 @@ include(CheckIncludeFiles)
 include(CheckSymbolExists)
 include(CheckCXXSourceCompiles)
 
-# Package informations
-set(PACKAGE_NAME "Tapyrus Core")
-
 # Endianness
 check_include_files("endian.h" HAVE_ENDIAN_H)
 check_include_files("sys/endian.h" HAVE_SYS_ENDIAN_H)
@@ -128,13 +125,6 @@ check_cxx_source_compiles("
 		return 0;
 	}
 " HAVE_SYSCTL_ARND)
-
-
-# Activate wallet
-set(ENABLE_WALLET ${BUILD_TAPYRUS_WALLET})
-
-# Activate ZeroMQ
-set(ENABLE_ZMQ ${BUILD_TAPYRUS_ZMQ})
 
 # Try to find libqrencode
  # Only used in the wallet GUI
