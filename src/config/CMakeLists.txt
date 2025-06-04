@@ -87,12 +87,8 @@ check_cxx_source_compiles("
  	find_package(QREncode REQUIRED)
  	set(USE_QRCODE 1 CACHE INTERNAL "QR code is enabled")
  endif()
- 
-# Generate the config
-configure_file(
-	${CMAKE_CURRENT_SOURCE_DIR}/tapyrus-config.h.cmake.in
-	${CMAKE_CURRENT_BINARY_DIR}/tapyrus-config.h
-)
+
+configure_file(${PROJECT_SOURCE_DIR}/cmake/tapyrus-build-config.h.in tapyrus-config.h USE_SOURCE_PERMISSIONS @ONLY)
 
 if(ENABLE_ZMQ)
 	set(ENABLE_ZMQ 1)

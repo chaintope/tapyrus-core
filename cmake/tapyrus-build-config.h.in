@@ -32,6 +32,12 @@
 /* Copyright year */
 #define COPYRIGHT_YEAR @COPYRIGHT_YEAR@
 
+/* Chaintope copyright year */
+#define COPYRIGHT_YEAR_CHAINTOPE @COPYRIGHT_YEAR_CHAINTOPE@
+
+/* Chaintope copyright holder */
+#define COPYRIGHT_HOLDER_CHAINTOPE "@COPYRIGHT_HOLDER_CHAINTOPE@"
+
 /* Define this symbol to build code that uses ARMv8 SHA-NI intrinsics */
 #cmakedefine ENABLE_ARM_SHANI 1
 
