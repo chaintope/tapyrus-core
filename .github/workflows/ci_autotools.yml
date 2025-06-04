@@ -115,7 +115,7 @@ jobs:
         if: matrix.config.platform == 'linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang ccache build-essential autoconf automake libtool pkg-config python3-zmq libevent-dev bsdmainutils libboost-filesystem-dev libboost-test-dev libdb5.3++-dev libminiupnpc-dev libzmq3-dev libqrencode-dev
+          sudo apt-get install -y clang ccache build-essential autoconf automake libtool pkg-config python3-zmq libevent-dev bsdmainutils libboost-filesystem-dev libboost-test-dev libdb5.3++-dev libminiupnpc-dev libzmq3-dev libqrencode-dev pyzmq
           if [ "${{ env.WITH_USDT }}" == "true" ]; then
             sudo apt-get install -y systemtap-sdt-dev bpfcc-tools bpftrace
           fi
@@ -137,7 +137,7 @@ jobs:
           fi
           clang --version
           brew install --quiet python@3 || brew link --overwrite python@3
-          brew install --quiet coreutils ninja pkgconf gnu-getopt ccache boost libevent zeromq qrencode berkeley-db4 autoconf automake libtool
+          brew install --quiet coreutils ninja pkgconf gnu-getopt ccache boost libevent zeromq qrencode berkeley-db4 autoconf automake libtool pyzmq
           if [ "${{ env.WITH_QT }}" == "true" ]; then
             brew install --quiet qt@5
           fi
@@ -145,7 +145,6 @@ jobs:
             echo 'export PATH="/opt/homebrew/bin:$PATH"' >> $HOME/.bashrc
           fi
           source $HOME/.bashrc
-          pip3 install pyzmq
 
       - name: Build Depends
         if: env.USE_DEPENDS == 'true'
