@@ -145,6 +145,7 @@ jobs:
             echo 'export PATH="/opt/homebrew/bin:$PATH"' >> $HOME/.bashrc
           fi
           source $HOME/.bashrc
+          pip3 install pyzmq
 
       - name: Build Depends
         if: env.USE_DEPENDS == 'true'

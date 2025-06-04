@@ -125,6 +125,7 @@ jobs:
           echo 'export BOOST_INCLUDEDIR="/opt/homebrew/opt/boost/include"' >> $HOME/.bashrc
           echo 'export BOOST_LIBRARYDIR="/opt/homebrew/opt/boost/lib"' >> $HOME/.bashrc
           source $HOME/.bashrc
+          pip3 install pyzmq
 
       - name: Build Depends
         if: env.USE_DEPENDS == 'true'
