@@ -18,10 +18,6 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 add_subdirectory(leveldb)
 add_subdirectory(univalue)
 
-# Set secp256k1 source directory before including it
-set(SECP256K1_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/secp256k1)
-add_subdirectory(secp256k1)
-
 # Set top-level target output locations.
 if(NOT CMAKE_RUNTIME_OUTPUT_DIRECTORY)
   set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
