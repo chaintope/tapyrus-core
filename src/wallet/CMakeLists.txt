@@ -3,6 +3,7 @@
 # file COPYING or https://opensource.org/license/mit/.
 
 # Add Berkeley DB dependency.
+include(FindBerkeleyDB)
 find_package(BerkeleyDB REQUIRED)
 
 add_library(tapyrus_wallet
@@ -26,6 +27,8 @@ target_link_libraries(tapyrus_wallet
   PRIVATE
     core_interface
     tapyrus_common
+    tapyrus_util
+    tapyrus_server
     univalue
     ${BerkeleyDB_LIBRARY}
     Boost::headers
@@ -33,5 +36,5 @@ target_link_libraries(tapyrus_wallet
     zeromq
     $<TARGET_NAME_IF_EXISTS:USDT::headers>
 )
-
+message(STATUS "BerkeleyDB_INCLUDE_DIR: ${BerkeleyDB_INCLUDE_DIR}")
 target_include_directories(tapyrus_wallet PUBLIC ${BerkeleyDB_INCLUDE_DIR})

@@ -105,6 +105,7 @@ target_include_directories(tapyrus_util
         # To access the config.
         ${CMAKE_CURRENT_BINARY_DIR}
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/univalue/include>
+        ${BerkeleyDB_INCLUDE_DIR}
 )
 
 # Home for common functionality shared by different executables and libraries.
