@@ -2650,10 +2650,6 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
             nSubtractFeeFromAmount++;
     }
 
-    for ([[maybe_unused]]const auto& entity:mapValue)
-    {
-        TRACE2(coin_selection, coins_requested, entity.second, entity.first.toHexString().c_str());
-    }
 
     if (vecSend.empty())
     {
