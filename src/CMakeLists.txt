@@ -235,6 +235,15 @@ target_include_directories(tapyrus_server
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/leveldb/helpers/memenv>
         ${BerkeleyDB_INCLUDE_DIR}
 )
+
+# Conditionally include ZMQ include directory if it exists
+if(ZMQ_INCLUDE_DIR)
+    target_include_directories(tapyrus_server
+        PRIVATE
+            ${ZMQ_INCLUDE_DIR}
+    )
+endif()
+
 # tapyrus Core tapyrusd.
 if(BUILD_DAEMON)
   add_executable(tapyrusd
