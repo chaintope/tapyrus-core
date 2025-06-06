@@ -188,6 +188,9 @@ jobs:
             CPU_COUNT=$(nproc)
           fi
 
+          # Create dummy .tapyrus file to prevent default datadir from being used
+          echo ">" $HOME/.tapyrus
+
           # Common CMake configuration options
           CMAKE_OPTS=(
             "-DENABLE_ZMQ=ON"

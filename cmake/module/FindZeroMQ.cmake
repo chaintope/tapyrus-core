@@ -15,6 +15,16 @@ This is a wrapper around find_package()/pkg_check_modules() commands that:
 #]=======================================================================]
 
 include(FindPackageHandleStandardArgs)
+
+# Add Homebrew paths for macOS
+if(APPLE)
+  list(APPEND CMAKE_PREFIX_PATH "/opt/homebrew")
+  list(APPEND CMAKE_PREFIX_PATH "/opt/homebrew/opt/zeromq")
+  set(ZEROMQ_ROOT "/opt/homebrew/opt/zeromq")
+  set(ZEROMQ_INCLUDE_DIR "${ZEROMQ_ROOT}/include")
+  set(ZEROMQ_LIBRARY "${ZEROMQ_ROOT}/lib/libzmq.dylib")
+endif()
+
 find_package(ZeroMQ ${ZeroMQ_FIND_VERSION} NO_MODULE QUIET)
 if(ZeroMQ_FOUND)
   find_package_handle_standard_args(ZeroMQ
@@ -37,5 +47,16 @@ else()
     REQUIRED_VARS libzmq_LIBRARY_DIRS
     VERSION_VAR libzmq_VERSION
   )
-  add_library(zeromq ALIAS PkgConfig::libzmq)
+  if(TARGET PkgConfig::libzmq)
+    add_library(zeromq ALIAS PkgConfig::libzmq)
+  else()
+    # Create an imported target for ZeroMQ if pkg-config didn't create one
+    if(APPLE AND EXISTS "${ZEROMQ_LIBRARY}")
+      add_library(zeromq SHARED IMPORTED)
+      set_target_properties(zeromq PROPERTIES
+        IMPORTED_LOCATION "${ZEROMQ_LIBRARY}"
+        INTERFACE_INCLUDE_DIRECTORIES "${ZEROMQ_INCLUDE_DIR}"
+      )
+    endif()
+  endif()
 endif()

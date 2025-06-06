@@ -78,6 +78,8 @@ endif()
 add_library(tapyrus_util STATIC EXCLUDE_FROM_ALL
         clientversion.cpp
         fs.cpp
+        interfaces/handler.cpp
+        interfaces/node.cpp
         logging.cpp
         random.cpp
         randomenv.cpp
@@ -86,7 +88,6 @@ add_library(tapyrus_util STATIC EXCLUDE_FROM_ALL
         support/lockedpool.cpp
         sync.cpp
         threadinterrupt.cpp
-        uint256.cpp
         util.cpp
         utilmoneystr.cpp
         utilstrencodings.cpp
@@ -111,31 +112,25 @@ target_include_directories(tapyrus_util
 add_library(tapyrus_common STATIC EXCLUDE_FROM_ALL
   base58.cpp
   bech32.cpp
-  chain.cpp
   chainparams.cpp
-  federationparams.cpp
   coins.cpp
-  bloom.cpp
-  init.cpp
   compressor.cpp
   core_read.cpp
   core_write.cpp
-  chainparams.cpp
+  federationparams.cpp
   key.cpp
   keystore.cpp
   key_io.cpp
-  merkleblock.cpp
   netaddress.cpp
   netbase.cpp
-  outputtype.cpp
   policy/feerate.cpp
-  policy/policy.cpp
   protocol.cpp
-  rpc/util.cpp
   scheduler.cpp
   script/descriptor.cpp
+  script/ismine.cpp
   script/sign.cpp
   script/standard.cpp
+  warnings.cpp
   xfieldhistory.cpp
 )
 
@@ -168,6 +163,7 @@ endif()
 add_library(tapyrus_server STATIC EXCLUDE_FROM_ALL
   addrdb.cpp
   addrman.cpp
+  bloom.cpp
   blockencodings.cpp
   blockprune.cpp
   chain.cpp
@@ -182,21 +178,14 @@ add_library(tapyrus_server STATIC EXCLUDE_FROM_ALL
   index/base.cpp
   index/txindex.cpp
   init.cpp
+  merkleblock.cpp
+  miner.cpp
   net.cpp
   net_processing.cpp
-  merkleblock.cpp
-  chainstate.cpp
-  coins.cpp
-  miner.cpp
-  timeoffsets.cpp
-  primitives/transaction.cpp
-  utxo_snapshot.cpp
-  warnings.cpp
   noui.cpp
   outputtype.cpp
   policy/policy.cpp
   policy/fees.cpp
-  policy/feerate.cpp
   policy/packages.cpp
   policy/rbf.cpp
   rest.cpp
@@ -207,14 +196,15 @@ add_library(tapyrus_server STATIC EXCLUDE_FROM_ALL
   rpc/net.cpp
   rpc/rawtransaction.cpp
   rpc/server.cpp
+  rpc/util.cpp
   script/sigcache.cpp
-  script/descriptor.cpp
-  script/ismine.cpp
   shutdown.cpp
+  timeoffsets.cpp
   torcontrol.cpp
   txdb.cpp
   txmempool.cpp
   ui_interface.cpp
+  utxo_snapshot.cpp
   validation.cpp
   validationinterface.cpp
   verifydb.cpp

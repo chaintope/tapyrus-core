@@ -200,6 +200,9 @@ jobs:
           echo "Core dumps will be stored in: $CORE_DUMP_DIR"
           ulimit -c unlimited
 
+      - name: Create dummy .tapyrus file
+        run: echo ">" $HOME/.tapyrus
+
       - name: Build and run tests
         run: |
           ./autogen.sh

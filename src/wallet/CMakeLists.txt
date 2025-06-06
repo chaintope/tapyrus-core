@@ -25,12 +25,12 @@ add_library(tapyrus_wallet
 target_link_libraries(tapyrus_wallet
   PRIVATE
     core_interface
-    tapyrus_util
     tapyrus_common
-    tapyrus_server
     univalue
     ${BerkeleyDB_LIBRARY}
     Boost::headers
+    Boost::system
+    zeromq
     $<TARGET_NAME_IF_EXISTS:USDT::headers>
 )
 

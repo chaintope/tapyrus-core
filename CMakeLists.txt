@@ -140,7 +140,7 @@ option(WITH_CCACHE "Attempt to use ccache for compiling." ON)
 
 option(ENABLE_ZMQ "Enable ZMQ notifications." ON)
 if(ENABLE_ZMQ)
-  find_package(ZeroMQ 4.0.0 MODULE REQUIRED)
+  include(FindZeroMQ)
 endif()
 
 option(ENABLE_TRACING "Enable tracepoints for Userspace, Statically Defined Tracing." OFF)
@@ -355,9 +355,7 @@ if(SANITIZERS)
 endif()
 target_link_options(sanitize_interface INTERFACE ${SANITIZER_LDFLAGS})
 
-
-include(AddBoostIfNeeded)
-add_boost_if_needed()
+find_package(Boost 1.81 REQUIRED system)
 
 if(BUILD_DAEMON OR BUILD_GUI OR BUILD_CLI OR BUILD_TESTS OR BUILD_BENCH)
   find_package(Libevent 2.1.8 MODULE REQUIRED)
