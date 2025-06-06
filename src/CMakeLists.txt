@@ -209,9 +209,6 @@ add_library(tapyrus_server STATIC EXCLUDE_FROM_ALL
   validation.cpp
   validationinterface.cpp
   verifydb.cpp
-  zmq/zmqrpc.cpp
-  $<$<TARGET_EXISTS:tapyrus_wallet>:wallet/init.cpp>
-  $<$<NOT:$<TARGET_EXISTS:tapyrus_wallet>>:dummywallet.cpp>
 )
 target_link_libraries(tapyrus_server
   PRIVATE

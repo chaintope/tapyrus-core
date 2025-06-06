@@ -20,8 +20,6 @@ add_library(tapyrus_wallet
         wallet.cpp
         walletdb.cpp
         walletutil.cpp
-        ../outputtype.cpp
-        ../script/ismine.cpp
 )
 target_link_libraries(tapyrus_wallet
   PRIVATE
@@ -33,7 +31,6 @@ target_link_libraries(tapyrus_wallet
     ${BerkeleyDB_LIBRARY}
     Boost::headers
     Boost::system
-    zeromq
     $<TARGET_NAME_IF_EXISTS:USDT::headers>
 )
 message(STATUS "BerkeleyDB_INCLUDE_DIR: ${BerkeleyDB_INCLUDE_DIR}")
