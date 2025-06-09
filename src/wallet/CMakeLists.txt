@@ -6,7 +6,7 @@
 include(FindBerkeleyDB)
 find_package(BerkeleyDB REQUIRED)
 
-add_library(tapyrus_wallet
+add_library(tapyrus_wallet STATIC
         coincontrol.cpp
         coinselection.cpp
         crypter.cpp

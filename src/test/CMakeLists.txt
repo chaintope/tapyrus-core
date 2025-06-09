@@ -38,12 +38,11 @@ gen_json_header(JSON_HEADERS
         data/tx_invalid.json
         data/tx_valid.json
 )
+if(BUILD_TESTS)
+    enable_testing()
+endif()
 
-include(TestSuite)
-create_test_suite(tapyrus)
-add_dependencies(check check-tapyrus)
-
-add_test_to_suite(tapyrus test_tapyrus
+add_executable(test_tapyrus
         addrman_tests.cpp
         allocator_tests.cpp
         amount_tests.cpp
@@ -116,10 +115,9 @@ add_test_to_suite(tapyrus test_tapyrus
         validation_block_tests.cpp
         xfieldhistory_tests.cpp
         xfield_tests.cpp
-    # Tests generated from JSON
-    ${JSON_HEADERS}
+        # Tests generated from JSON
+        ${JSON_HEADERS}
 )
-
 
 target_include_directories(test_tapyrus
     PRIVATE
@@ -174,3 +172,16 @@ if(BUILD_TAPYRUS_WALLET)
             ../wallet/test/test_tapyrus_wallet.cpp
     )
 endif()
+
+# Add test with specific test suite
+add_test(NAME test_tapyrus
+    COMMAND test_tapyrus --catch_system_error=no
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+)
+
+# Set RPATH for the test executable
+set_target_properties(test_tapyrus PROPERTIES
+    INSTALL_RPATH "@executable_path/../lib;${CMAKE_BINARY_DIR}/lib"
+    BUILD_WITH_INSTALL_RPATH TRUE
+    SKIP_BUILD_RPATH FALSE
+)
