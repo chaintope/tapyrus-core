@@ -241,6 +241,13 @@ if(ZMQ_INCLUDE_DIR)
     )
 endif()
 
+if(ENABLE_WALLET)
+  target_link_libraries(tapyrus_server
+    PRIVATE
+    tapyrus_wallet
+)
+endif()
+
 # tapyrus Core tapyrusd.
 if(BUILD_DAEMON)
   add_executable(tapyrusd
