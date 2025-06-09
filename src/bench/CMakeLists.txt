@@ -33,6 +33,11 @@ target_link_libraries(bench_tapyrus
   tapyrus_server
   Boost::headers
 )
+target_include_directories(bench_tapyrus
+  PRIVATE
+    ${BerkeleyDB_INCLUDE_DIR}
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/leveldb
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/leveldb/include)
 
 if(ENABLE_WALLET)
   target_sources(bench_tapyrus
