@@ -130,6 +130,7 @@ target_include_directories(test_tapyrus
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../secp256k1/include>
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../univalue/include>
         ${BerkeleyDB_INCLUDE_DIR}
+        ${EVENT_INCLUDE_DIRS}
     PUBLIC
         # To access the generated json headers.
         ${CMAKE_CURRENT_BINARY_DIR}
@@ -143,7 +144,9 @@ target_link_libraries(test_tapyrus
         tapyrus_wallet
         tapyrus_cli
         tapyrus_server
-        $<TARGET_NAME_IF_EXISTS:libevent::libevent>
+        $<TARGET_NAME_IF_EXISTS:libevent::core>
+        $<TARGET_NAME_IF_EXISTS:libevent::extra>
+        $<TARGET_NAME_IF_EXISTS:libevent::pthreads>
 )
 
 # We need to detect if the BOOST_TEST_DYN_LINK flag is required.

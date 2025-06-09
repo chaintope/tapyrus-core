@@ -32,10 +32,14 @@ target_link_libraries(bench_tapyrus
   test_util
   tapyrus_server
   Boost::headers
+  $<TARGET_NAME_IF_EXISTS:libevent::core>
+  $<TARGET_NAME_IF_EXISTS:libevent::extra>
+  $<TARGET_NAME_IF_EXISTS:libevent::pthreads>
 )
 target_include_directories(bench_tapyrus
   PRIVATE
     ${BerkeleyDB_INCLUDE_DIR}
+    ${EVENT_INCLUDE_DIRS}
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/leveldb
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/leveldb/include)
 
