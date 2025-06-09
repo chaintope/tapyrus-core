@@ -14,6 +14,6 @@ endmacro(create_test_suite)
 
 function(add_test_to_suite SUITE NAME)
 	add_executable(${NAME} ${ARGN})
-	add_test(${NAME} ${NAME})
+	add_test(NAME ${NAME} COMMAND ${NAME} WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 	add_dependencies("check-${SUITE}" ${NAME})
 endfunction(add_test_to_suite)
