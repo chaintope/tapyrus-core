@@ -25,6 +25,7 @@ if(APPLE)
   set(ZEROMQ_LIBRARY "${ZEROMQ_ROOT}/lib/libzmq.dylib")
 endif()
 
+# Try to find ZeroMQ through various methods
 find_package(ZeroMQ ${ZeroMQ_FIND_VERSION} NO_MODULE QUIET)
 if(ZeroMQ_FOUND)
   find_package_handle_standard_args(ZeroMQ
@@ -43,10 +44,6 @@ else()
     IMPORTED_TARGET
     libzmq>=${ZeroMQ_FIND_VERSION}
   )
-  find_package_handle_standard_args(ZeroMQ
-    REQUIRED_VARS libzmq_LIBRARY_DIRS
-    VERSION_VAR libzmq_VERSION
-  )
   if(TARGET PkgConfig::libzmq)
     add_library(zeromq ALIAS PkgConfig::libzmq)
   else()
@@ -57,6 +54,21 @@ else()
         IMPORTED_LOCATION "${ZEROMQ_LIBRARY}"
         INTERFACE_INCLUDE_DIRECTORIES "${ZEROMQ_INCLUDE_DIR}"
       )
+    else()
+      # On Linux, try to find the system library
+      find_library(ZEROMQ_LIBRARY NAMES zmq)
+      find_path(ZEROMQ_INCLUDE_DIR NAMES zmq.h)
+      if(ZEROMQ_LIBRARY AND ZEROMQ_INCLUDE_DIR)
+        add_library(zeromq UNKNOWN IMPORTED)
+        set_target_properties(zeromq PROPERTIES
+          IMPORTED_LOCATION "${ZEROMQ_LIBRARY}"
+          INTERFACE_INCLUDE_DIRECTORIES "${ZEROMQ_INCLUDE_DIR}"
+        )
+      endif()
     endif()
   endif()
+  find_package_handle_standard_args(ZeroMQ
+    REQUIRED_VARS libzmq_LIBRARY_DIRS
+    VERSION_VAR libzmq_VERSION
+  )
 endif()

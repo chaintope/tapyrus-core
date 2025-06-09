@@ -40,8 +40,8 @@ target_include_directories(bench_tapyrus
   PRIVATE
     ${BerkeleyDB_INCLUDE_DIR}
     ${EVENT_INCLUDE_DIRS}
-    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/leveldb>
-    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/leveldb/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../leveldb>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../leveldb/include>
 )
 
 if(ENABLE_WALLET)
