@@ -40,8 +40,9 @@ target_include_directories(bench_tapyrus
   PRIVATE
     ${BerkeleyDB_INCLUDE_DIR}
     ${EVENT_INCLUDE_DIRS}
-    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/leveldb
-    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/leveldb/include)
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/leveldb>
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/leveldb/include>
+)
 
 if(ENABLE_WALLET)
   target_sources(bench_tapyrus
