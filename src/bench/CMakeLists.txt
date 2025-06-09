@@ -29,7 +29,6 @@ target_raw_data_sources(bench_tapyrus NAMESPACE benchmark::data
 
 target_link_libraries(bench_tapyrus
   core_interface
-  test_util
   tapyrus_server
   Boost::headers
   $<TARGET_NAME_IF_EXISTS:libevent::core>
