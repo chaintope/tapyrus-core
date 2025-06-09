@@ -50,6 +50,14 @@ make_link(
 	${CMAKE_CURRENT_BINARY_DIR}/util/tapyrus-util-test.py
 )
 
+if(NOT TARGET check-all)
+	add_custom_target(check-all)
+endif()
+
+if(NOT TARGET check)
+	add_custom_target(check)
+endif()
+
 add_custom_target(check-functional
 	COMMAND
 		./functional/test_runner.py

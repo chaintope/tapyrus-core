@@ -5,7 +5,7 @@
 #ifndef BITCOIN_ZMQ_ZMQCONFIG_H
 #define BITCOIN_ZMQ_ZMQCONFIG_H
 
-#include <config/tapyrus-config.h>
+#include <tapyrus-config.h>
 
 #include <stdarg.h>
 #include <string>
