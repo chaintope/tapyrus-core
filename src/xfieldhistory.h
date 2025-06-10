@@ -179,6 +179,8 @@ public:
         return xfieldHistory;
     }
 
+    static void Reset();
+
     void ToUniValue(TAPYRUS_XFIELDTYPES type, UniValue* xfieldChanges);
 };
 
