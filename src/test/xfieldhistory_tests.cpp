@@ -21,6 +21,7 @@
 
 struct XFieldHistorySetup : public TestingSetup {
     XFieldHistorySetup() : TestingSetup(TAPYRUS_MODES::DEV) {
+        CXFieldHistory::Reset();
         CXFieldHistory history;
         history.Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY, XFieldChange(XFieldAggPubKey(CPubKey(ParseHex(ValidPubKeyStrings[10]))), 20, uint256()));
         history.Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY, XFieldChange(XFieldAggPubKey(CPubKey(ParseHex(ValidPubKeyStrings[11]))), 40, uint256()));

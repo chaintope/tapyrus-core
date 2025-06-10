@@ -54,6 +54,17 @@ const XFieldChange& CXFieldHistoryMap::Get(TAPYRUS_XFIELDTYPES type, uint256 blo
     return listofXfieldChanges.back();
 }
 
+void CXFieldHistory::Reset() {
+    xfieldHistory.clear();
+    // Re-initialize with genesis block entries directly
+    xfieldHistory.emplace(TAPYRUS_XFIELDTYPES::AGGPUBKEY, XFieldChangeListWrapper(XFieldAggPubKey::BLOCKTREE_DB_KEY));
+    xfieldHistory.emplace(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, XFieldChangeListWrapper(XFieldMaxBlockSize::BLOCKTREE_DB_KEY));
+
+    // Manually add the genesis changes to the *global* xfieldHistory
+    xfieldHistory.find(TAPYRUS_XFIELDTYPES::AGGPUBKEY)->second.push_back(XFieldChange(FederationParams().GenesisBlock().xfield.xfieldValue, 0, FederationParams().GenesisBlock().GetHash()));
+    xfieldHistory.find(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE)->second.push_back(XFieldChange(MAX_BLOCK_SIZE, 0, FederationParams().GenesisBlock().GetHash()));
+}
+
 void CXFieldHistory::ToUniValue(TAPYRUS_XFIELDTYPES type, UniValue* xFieldChangeUnival) {
     *xFieldChangeUnival = UniValue(UniValue::VARR);
     XFieldChangeListWrapper& xFieldChangeList = this->operator[](type);
