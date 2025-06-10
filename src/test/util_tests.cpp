@@ -1115,7 +1115,7 @@ BOOST_AUTO_TEST_CASE(test_ParseFixedPoint)
     BOOST_CHECK(!ParseFixedPoint("1.", 8, &amount));
 }
 
-static void TestOtherThread(fs::path dirname, std::string lockname, bool *result)
+static void TestOtherThread(fs::path dirname, fs::path lockname, bool *result)
 {
     *result = LockDirectory(dirname, lockname) == LockResult::Success;
 }
@@ -1131,36 +1131,48 @@ enum : char {
     ResUnlockSuccess,
 };
 
-static void TestOtherProcess(fs::path dirname, std::string lockname, int fd)
+[[noreturn]] static void TestOtherProcess(fs::path dirname, fs::path lockname, int fd)
 {
     char ch;
     while (true) {
         int rv = read(fd, &ch, 1); // Wait for command
-        assert(rv == 1);
+        if (rv != 1) {
+            fprintf(stderr, "Child process: Failed to read command, rv = %d\n", rv);
+            exit(1); // Exit with error
+        }
         switch(ch) {
         case LockCommand:
-            ch = [&] {
-                switch (LockDirectory(dirname, lockname)) {
+            ch = [&] { // Lambda to capture LockDirectory result
+                LockResult lock_result = LockDirectory(dirname, lockname);
+                switch (lock_result) {
                     case LockResult::Success: return ResSuccess;
                     case LockResult::ErrorWrite: return ResErrorWrite;
                     case LockResult::ErrorLock: return ResErrorLock;
-                } // no default case, so the compiler can warn about missing cases
-                assert(false);
-        }();
+                } // No default case, so the compiler can warn about missing cases
+                fprintf(stderr, "Child process: Unexpected LockDirectory result: %d\n", (int)lock_result);
+                exit(2); // Exit with error for unexpected LockResult
+            }();
             rv = write(fd, &ch, 1);
-            assert(rv == 1);
+            if (rv != 1) {
+                fprintf(stderr, "Child process: Failed to write lock result, rv = %d\n", rv);
+                exit(3); // Exit with error
+            }
             break;
         case UnlockCommand:
             ReleaseDirectoryLocks();
             ch = ResUnlockSuccess; // Always succeeds
             rv = write(fd, &ch, 1);
-            assert(rv == 1);
+            if (rv != 1) {
+                fprintf(stderr, "Child process: Failed to write unlock result, rv = %d\n", rv);
+                exit(4); // Exit with error
+            }
             break;
         case ExitCommand:
             close(fd);
             exit(0);
         default:
-            assert(0);
+            fprintf(stderr, "Child process: Unknown command received: %d\n", (int)ch);
+            exit(5); // Exit with error for unknown command
         }
     }
 }
@@ -1168,8 +1180,8 @@ static void TestOtherProcess(fs::path dirname, std::string lockname, int fd)
 
 BOOST_AUTO_TEST_CASE(test_LockDirectory)
 {
-    fs::path dirname = SetDataDir("test_LockDirectory") / "lock_dir";
-    const std::string lockname = ".lock";
+    fs::path dirname = GetDataDir() / "lock_dir";
+    const fs::path lockname = ".lock";
 #ifndef WIN32
     // Revert SIGCHLD to default, otherwise boost.test will catch and fail on
     // it: there is BOOST_TEST_IGNORE_SIGCHLD but that only works when defined
@@ -1204,7 +1216,7 @@ BOOST_AUTO_TEST_CASE(test_LockDirectory)
 
     // Another lock on the directory from a different thread within the same process should succeed
     bool threadresult;
-    std::thread thr(TestOtherThread, dirname, lockname, &threadresult);
+    std::thread thr([&] { threadresult = LockDirectory(dirname, lockname) == LockResult::Success; });
     thr.join();
     BOOST_CHECK_EQUAL(threadresult, true);
 #ifndef WIN32
