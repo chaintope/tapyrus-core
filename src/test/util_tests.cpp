@@ -1117,7 +1117,7 @@ BOOST_AUTO_TEST_CASE(test_ParseFixedPoint)
 
 static void TestOtherThread(fs::path dirname, fs::path lockname, bool *result)
 {
-    *result = LockDirectory(dirname, lockname.string()) == LockResult::Success;
+    *result = LockDirectory(dirname, lockname) == LockResult::Success;
 }
 
 #ifndef WIN32 // Cannot do this test on WIN32 due to lack of fork()
@@ -1136,43 +1136,31 @@ enum : char {
     char ch;
     while (true) {
         int rv = read(fd, &ch, 1); // Wait for command
-        if (rv != 1) {
-            fprintf(stderr, "Child process: Failed to read command, rv = %d\n", rv);
-            exit(1); // Exit with error
-        }
-        switch(ch) {
+        assert(rv == 1);
+        switch (ch) {
         case LockCommand:
-            ch = [&] { // Lambda to capture LockDirectory result
-                LockResult lock_result = LockDirectory(dirname, lockname);
-                switch (lock_result) {
-                    case LockResult::Success: return ResSuccess;
-                    case LockResult::ErrorWrite: return ResErrorWrite;
-                    case LockResult::ErrorLock: return ResErrorLock;
-                } // No default case, so the compiler can warn about missing cases
-                fprintf(stderr, "Child process: Unexpected LockDirectory result: %d\n", (int)lock_result);
-                exit(2); // Exit with error for unexpected LockResult
+            ch = [&] {
+                switch (LockDirectory(dirname, lockname)) {
+                case LockResult::Success: return ResSuccess;
+                case LockResult::ErrorWrite: return ResErrorWrite;
+                case LockResult::ErrorLock: return ResErrorLock;
+                } // no default case, so the compiler can warn about missing cases
+                assert(false);
             }();
             rv = write(fd, &ch, 1);
-            if (rv != 1) {
-                fprintf(stderr, "Child process: Failed to write lock result, rv = %d\n", rv);
-                exit(3); // Exit with error
-            }
+            assert(rv == 1);
             break;
         case UnlockCommand:
             ReleaseDirectoryLocks();
             ch = ResUnlockSuccess; // Always succeeds
             rv = write(fd, &ch, 1);
-            if (rv != 1) {
-                fprintf(stderr, "Child process: Failed to write unlock result, rv = %d\n", rv);
-                exit(4); // Exit with error
-            }
+            assert(rv == 1);
             break;
         case ExitCommand:
             close(fd);
             exit(0);
         default:
-            fprintf(stderr, "Child process: Unknown command received: %d\n", (int)ch);
-            exit(5); // Exit with error for unknown command
+            assert(0);
         }
     }
 }
@@ -1201,22 +1189,22 @@ BOOST_AUTO_TEST_CASE(test_LockDirectory)
     BOOST_CHECK_EQUAL(close(fd[0]), 0); // Parent: close child end
 #endif
     // Lock on non-existent directory should fail
-    BOOST_CHECK_EQUAL(LockDirectory(dirname, lockname.string()), LockResult::ErrorWrite);
+    BOOST_CHECK_EQUAL(LockDirectory(dirname, lockname), LockResult::ErrorWrite);
 
     fs::create_directories(dirname);
 
     // Probing lock on new directory should succeed
-    BOOST_CHECK_EQUAL(LockDirectory(dirname, lockname.string(), true), LockResult::Success);
+    BOOST_CHECK_EQUAL(LockDirectory(dirname, lockname, true), LockResult::Success);
 
     // Persistent lock on new directory should succeed
-    BOOST_CHECK_EQUAL(LockDirectory(dirname, lockname.string()), LockResult::Success);
+    BOOST_CHECK_EQUAL(LockDirectory(dirname, lockname), LockResult::Success);
 
     // Another lock on the directory from the same thread should succeed
-    BOOST_CHECK_EQUAL(LockDirectory(dirname, lockname.string()), LockResult::Success);
+    BOOST_CHECK_EQUAL(LockDirectory(dirname, lockname), LockResult::Success);
 
     // Another lock on the directory from a different thread within the same process should succeed
     bool threadresult;
-    std::thread thr([&] { threadresult = LockDirectory(dirname, lockname.string()) == LockResult::Success; });
+    std::thread thr([&] { threadresult = LockDirectory(dirname, lockname) == LockResult::Success; });
     thr.join();
     BOOST_CHECK_EQUAL(threadresult, true);
 #ifndef WIN32
@@ -1229,7 +1217,7 @@ BOOST_AUTO_TEST_CASE(test_LockDirectory)
     // Give up our lock
     ReleaseDirectoryLocks();
     // Probing lock from our side now should succeed, but not hold on to the lock.
-    BOOST_CHECK_EQUAL(LockDirectory(dirname, lockname.string(), true), LockResult::Success);
+    BOOST_CHECK_EQUAL(LockDirectory(dirname, lockname, true), LockResult::Success);
 
     // Try to acquire the lock in the child process, this should be successful.
     BOOST_CHECK_EQUAL(write(fd[1], &LockCommand, 1), 1);
@@ -1237,7 +1225,7 @@ BOOST_AUTO_TEST_CASE(test_LockDirectory)
     BOOST_CHECK_EQUAL(ch, ResSuccess);
 
     // When we try to probe the lock now, it should fail.
-    BOOST_CHECK_EQUAL(LockDirectory(dirname, lockname.string(), true), LockResult::ErrorLock);
+    BOOST_CHECK_EQUAL(LockDirectory(dirname, lockname, true), LockResult::ErrorLock);
 
     // Unlock the lock in the child process
     BOOST_CHECK_EQUAL(write(fd[1], &UnlockCommand, 1), 1);
@@ -1245,7 +1233,7 @@ BOOST_AUTO_TEST_CASE(test_LockDirectory)
     BOOST_CHECK_EQUAL(ch, ResUnlockSuccess);
 
     // When we try to probe the lock now, it should succeed.
-    BOOST_CHECK_EQUAL(LockDirectory(dirname, lockname.string(), true), LockResult::Success);
+    BOOST_CHECK_EQUAL(LockDirectory(dirname, lockname, true), LockResult::Success);
 
     // Re-lock the lock in the child process, then wait for it to exit, check
     // successful return. After that, we check that exiting the process
@@ -1255,7 +1243,7 @@ BOOST_AUTO_TEST_CASE(test_LockDirectory)
     BOOST_CHECK_EQUAL(write(fd[1], &ExitCommand, 1), 1);
     BOOST_CHECK_EQUAL(waitpid(pid, &processstatus, 0), pid);
     BOOST_CHECK_EQUAL(processstatus, 0);
-    BOOST_CHECK_EQUAL(LockDirectory(dirname, lockname.string(), true), LockResult::Success);
+    BOOST_CHECK_EQUAL(LockDirectory(dirname, lockname, true), LockResult::Success);
 
     // Restore SIGCHLD
     signal(SIGCHLD, old_handler);
