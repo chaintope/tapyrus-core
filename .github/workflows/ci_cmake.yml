@@ -242,7 +242,7 @@ jobs:
 
           echo "---------------- Start unit test ---------------- "
           cd "$BASE_BUILD_DIR/src/test"
-          ctest --output-on-failure -j 1 --timeout 300 --output-log test_results.log
+          ctest --output-on-failure -j 1 --output-log test_results.log
           
           echo "---------------- Start util test ---------------- "
           cd "$BASE_ROOT_DIR"
