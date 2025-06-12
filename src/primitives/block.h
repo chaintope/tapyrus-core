@@ -85,7 +85,7 @@ public:
     static constexpr int32_t TAPYRUS_BLOCK_FEATURES = 1;
     std::vector<unsigned char> proof{CPubKey::SCHNORR_SIGNATURE_SIZE};
 
-    CBlockHeader():CBlockHeaderWithoutProof(), proof() { SetNull(); }
+    CBlockHeader():CBlockHeaderWithoutProof(), proof() { }
 
     CBlockHeader(CBlockHeader&& copy) = default;
     CBlockHeader(const CBlockHeader& copy) = default;
@@ -98,12 +98,6 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action) {
         CBlockHeaderWithoutProof::SerializationOp(s, ser_action);
         READWRITE(proof);
-    }
-
-    void SetNull()
-    {
-        CBlockHeaderWithoutProof::SetNull();
-        proof.clear();
     }
 
     uint256 GetHash() const;
