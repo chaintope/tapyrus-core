@@ -239,13 +239,10 @@ jobs:
 
           # Run tests
           export CTEST_OUTPUT_ON_FAILURE=ON
-          
-          echo "---------------- Build unit test ---------------- "
-          cmake --build "$BASE_BUILD_DIR" --target test_tapyrus -j "$CPU_COUNT"
-          
+
           echo "---------------- Start unit test ---------------- "
           cd "$BASE_BUILD_DIR/src/test"
-          ctest --output-on-failure -j 1 --timeout 300 --output-log test_results.log  -- -report_level=short -log_level=all
+          ctest --output-on-failure -j 1 --timeout 300 --output-log test_results.log
           
           echo "---------------- Start util test ---------------- "
           cd "$BASE_ROOT_DIR"
@@ -316,43 +313,3 @@ jobs:
           name: core-dumps-${{ matrix.config.name }}
           path: ${{ github.workspace }}/core_dumps/
           retention-days: 7
-
-  # Cross-compilation jobs
-  # cross-compile-windows:
-  #   runs-on: ubuntu-24.04
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - name: Install dependencies
-  #       run: |
-  #         sudo apt-get update
-  #         sudo apt-get install -y python3 nsis g++-mingw-w64-x86-64 wine
-  #     - name: Build for Windows
-  #       env:
-  #         HOST: x86_64-w64-mingw32
-  #         DEP_OPTS: NO_QT=1
-  #         BITCOIN_CONFIG: --enable-reduce-exports
-  #       run: |
-  #         make -j $(nproc) -C depends HOST=$HOST $DEP_OPTS
-  #         ./autogen.sh
-  #         CONFIG_SITE=$PWD/depends/$HOST/share/config.site ./configure --prefix=/ --disable-ccache --disable-maintainer-mode --disable-dependency-tracking --enable-glibc-back-compat --enable-reduce-exports --disable-bench --disable-gui-tests --disable-fuzz-binary --with-gui=no
-  #         make -j $(nproc)
-  #         make deploy
-
-  # cross-compile-macos:
-  #   runs-on: ubuntu-24.04
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - name: Install dependencies
-  #       run: |
-  #         sudo apt-get update
-  #         sudo apt-get install -y cmake python3-dev clang g++-mingw-w64-x86-64
-  #     - name: Build for macOS
-  #       env:
-  #         HOST: x86_64-apple-darwin19
-  #         OSX_SDK: /opt/osx-sdk
-  #         CMAKE_OPTS: -DCMAKE_BUILD_TYPE=Release -DENABLE_WALLET=ON -DWITH_GUI=OFF
-  #       run: |
-  #         make -j $(nproc) -C depends HOST=$HOST
-  #         ./autogen.sh
-  #         CONFIG_SITE=$PWD/depends/$HOST/share/config.site ./configure --prefix=/ --disable-ccache --disable-maintainer-mode --disable-dependency-tracking --enable-glibc-back-compat --enable-reduce-exports --disable-bench --disable-gui-tests --disable-fuzz-binary --with-gui=no
-  #         make -j $(nproc)
