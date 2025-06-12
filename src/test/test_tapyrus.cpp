@@ -160,7 +160,7 @@ TestChainSetup::TestChainSetup() : TestingSetup(TAPYRUS_MODES::DEV)
     for (int i = 0; i < 5; i++)
     {
         std::vector<CMutableTransaction> noTxns;
-        CBlock b = CreateAndProcessBlock(noTxns, scriptPubKey);
+        const CBlock& b = CreateAndProcessBlock(noTxns, scriptPubKey);
         assert(b.proof.size() == CPubKey::SCHNORR_SIGNATURE_SIZE);
         m_coinbase_txns.push_back(b.vtx[0]);
     }
@@ -199,7 +199,7 @@ TestChainSetup::CreateAndProcessBlock(const std::vector<CMutableTransaction>& tx
     if(block.GetHeight() > 5)
         m_coinbase_txns.push_back(block.vtx[0]);
 
-    CBlock result = block;
+    CBlock& result = block;
     return result;
 }
 
