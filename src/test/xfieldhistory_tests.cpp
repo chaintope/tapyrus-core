@@ -20,13 +20,25 @@
  */
 
 struct XFieldHistorySetup : public TestingSetup {
+    std::mutex xfieldHistoryTestMutex;
+
     XFieldHistorySetup() : TestingSetup(TAPYRUS_MODES::DEV) {
-        CXFieldHistory::Reset();
         CXFieldHistory history;
+        {
+            LOCK(xfieldHistoryTestMutex);
+
+            auto& historyMap = history.getXFieldHistoryMap();
+            for (auto& entry : historyMap) {
+                entry.second.xfieldChanges.clear();
+            }
+        }
+
+        history.Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY, XFieldChange(XFieldAggPubKey(CPubKey(std::begin(validAggPubKey), std::begin(validAggPubKey)+CPubKey::COMPRESSED_PUBLIC_KEY_SIZE)), 0, FederationParams().GenesisBlock().GetHash()));
         history.Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY, XFieldChange(XFieldAggPubKey(CPubKey(ParseHex(ValidPubKeyStrings[10]))), 20, uint256()));
         history.Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY, XFieldChange(XFieldAggPubKey(CPubKey(ParseHex(ValidPubKeyStrings[11]))), 40, uint256()));
         history.Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY, XFieldChange(XFieldAggPubKey(CPubKey(ParseHex(ValidPubKeyStrings[12]))), 60, uint256()));
 
+        history.Add(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, XFieldChange(MAX_BLOCK_SIZE, 0, FederationParams().GenesisBlock().GetHash()));   
         history.Add(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, XFieldChange(4000000, 30, uint256()));
         history.Add(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, XFieldChange(8000000, 50, uint256()));
         history.Add(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, XFieldChange(16000000, 70, uint256()));

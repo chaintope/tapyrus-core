@@ -130,6 +130,7 @@ class CXFieldHistoryMap{
 
 protected:
     static XFieldHistoryMapType xfieldHistory;
+    static std::mutex xfieldHistoryMutex; // Mutex for thread-safe access
     inline CXFieldHistoryMap(bool temp):isTemp(temp) { }
 
 public:
@@ -178,8 +179,6 @@ public:
     XFieldHistoryMapType& getXFieldHistoryMap() const override {
         return xfieldHistory;
     }
-
-    static void Reset();
 
     void ToUniValue(TAPYRUS_XFIELDTYPES type, UniValue* xfieldChanges);
 };
