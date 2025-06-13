@@ -242,11 +242,10 @@ jobs:
 
           echo "---------------- Start unit test ---------------- "
           cd "$BASE_BUILD_DIR/bin"
-          ./test_tapyrus --log_level=all --report_level=short --build_info --catch_system_errors
+          ./test_tapyrus --log_level=test_suite --report_level=short --build_info --catch_system_errors
           
           echo "---------------- Start util test ---------------- "
-          cd "$BASE_ROOT_DIR"
-          cmake --build "$BASE_BUILD_DIR" --target check-tapyrus-util -j "$CPU_COUNT"
+          python3 test/util/tapyrus-util-test.py
           
           echo "---------------- Start functional test ---------------- "
           python3 test/functional/test_runner.py -j 1 --combinedlogslen=4000 --coverage --failfast --quiet --extended
