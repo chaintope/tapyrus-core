@@ -160,7 +160,7 @@ TestChainSetup::TestChainSetup() : TestingSetup(TAPYRUS_MODES::DEV)
     for (int i = 0; i < 5; i++)
     {
         std::vector<CMutableTransaction> noTxns;
-        const CBlock& b = CreateAndProcessBlock(noTxns, scriptPubKey);
+        const CBlock b{std::move(CreateAndProcessBlock(noTxns, scriptPubKey))};
         assert(b.proof.size() == CPubKey::SCHNORR_SIGNATURE_SIZE);
         m_coinbase_txns.push_back(b.vtx[0]);
     }
@@ -192,15 +192,16 @@ TestChainSetup::CreateAndProcessBlock(const std::vector<CMutableTransaction>& tx
     CPubKey aggpubkey(aggpubkeyChange.getPubKey());
     std::vector<unsigned char> blockProof;
     createSignedBlockProof(pblocktemplate->block, blockProof);
+    assert(blockProof.size() == CPubKey::SCHNORR_SIGNATURE_SIZE);
     block.AbsorbBlockProof(blockProof, aggpubkey);
+    assert(block.proof.size() == CPubKey::SCHNORR_SIGNATURE_SIZE);
 
     std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(block);
     ProcessNewBlock(shared_pblock, true, nullptr);
     if(block.GetHeight() > 5)
         m_coinbase_txns.push_back(block.vtx[0]);
 
-    CBlock& result = block;
-    return result;
+    return block;
 }
 
 void TestChainSetup::refillCoinbase(int count) {
