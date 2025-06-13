@@ -69,10 +69,12 @@ bool CBlockHeader::AbsorbBlockProof(const std::vector<unsigned char>& blockproof
         return false;
 
     //clear old proof
-    proof.clear();
+    this->proof.clear();
 
     //add signatures to block
-    proof = std::move(blockproof);
+    this->proof = std::move(blockproof);
+    if(this->proof.size() != CPubKey::SCHNORR_SIGNATURE_SIZE)
+        return false;
     return true;
 
 }
