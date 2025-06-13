@@ -73,7 +73,7 @@ bool CBlockHeader::AbsorbBlockProof(const std::vector<unsigned char>& blockproof
 
     //add signatures to block
     this->proof = std::move(blockproof);
-    if(this->proof != CPubKey::SCHNORR_SIGNATURE_SIZE)
+    if(this->proof.size() != CPubKey::SCHNORR_SIGNATURE_SIZE)
         return false;
     return true;
 
