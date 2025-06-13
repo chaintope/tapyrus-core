@@ -242,7 +242,7 @@ jobs:
 
           echo "---------------- Start unit test ---------------- "
           cd "$BASE_BUILD_DIR/src/test"
-          ./test_tapyrus --log_level=all --report_level=short --build_info --catch_system_errors
+          $BASE_BUILD_DIR/src/test/test_tapyrus --log_level=all --report_level=short --build_info --catch_system_errors
           
           echo "---------------- Start util test ---------------- "
           cd "$BASE_ROOT_DIR"
