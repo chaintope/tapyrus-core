@@ -261,7 +261,6 @@ struct CXField {
                 break;
         }
         if(GetXFieldTypeFrom(xfieldValue) != xfieldType) {
-            cout << "BadXFieldException xfieldType: " << (int)xfieldType << ", xfieldValue: " << XFieldDataToString(xfieldValue) << std::endl;
             throw BadXFieldException(xfieldType, xfieldValue);
         }
     }
