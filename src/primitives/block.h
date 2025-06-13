@@ -85,7 +85,7 @@ public:
     static constexpr int32_t TAPYRUS_BLOCK_FEATURES = 1;
     std::vector<unsigned char> proof{CPubKey::SCHNORR_SIGNATURE_SIZE};
 
-    CBlockHeader():CBlockHeaderWithoutProof(){ }
+    CBlockHeader():CBlockHeaderWithoutProof(), proof(){ }
 
     CBlockHeader(CBlockHeader&& copy) = default;
     CBlockHeader(const CBlockHeader& copy) = default;
