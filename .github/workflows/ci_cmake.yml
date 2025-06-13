@@ -241,8 +241,8 @@ jobs:
           export CTEST_OUTPUT_ON_FAILURE=ON
 
           echo "---------------- Start unit test ---------------- "
-          cd "$BASE_BUILD_DIR/src/test"
-          $BASE_BUILD_DIR/src/test/test_tapyrus --log_level=all --report_level=short --build_info --catch_system_errors
+          cd "$BASE_BUILD_DIR/bin"
+          ./test_tapyrus --log_level=all --report_level=short --build_info --catch_system_errors
           
           echo "---------------- Start util test ---------------- "
           cd "$BASE_ROOT_DIR"
