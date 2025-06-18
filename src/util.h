@@ -84,7 +84,7 @@ enum class LockResult {
 // Define operator<< for LockResult
 std::ostream& operator<<(std::ostream& os, const LockResult& result);
 
-LockResult LockDirectory(const fs::path& directory, const std::string lockfile_name, bool probe_only=false);
+LockResult LockDirectory(const fs::path& directory, const fs::path& lockfile_name, bool probe_only=false);
 
 /** Release all directory locks. This is used for unit testing only, at runtime
  * the global destructor will take care of the locks.
