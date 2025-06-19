@@ -103,7 +103,7 @@ LockResult LockDirectory(const fs::path& directory, const fs::path& lockfile_nam
 
     // If a lock for this directory already exists in the map, don't try to re-lock it
     if (dir_locks.count(pathLockFile.string())) {
-        return LockResult::Success;;
+        return LockResult::Success;
     }
 
     // Create empty lock file if it doesn't exist.
@@ -122,7 +122,7 @@ LockResult LockDirectory(const fs::path& directory, const fs::path& lockfile_nam
         dir_locks.emplace(pathLockFile.string(), std::move(lock));
     }
 
-    return LockResult::Success;;
+    return LockResult::Success;
 }
 
 std::ostream& operator<<(std::ostream& os, const LockResult& result) {
