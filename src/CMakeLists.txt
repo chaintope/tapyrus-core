@@ -1,56 +1,85 @@
-# Copyright (c) 2018 The Bitcoin developers
+# Copyright (c) 2023-present The tapyrus Core developers
+# Distributed under the MIT software license, see the accompanying
+# file COPYING or https://opensource.org/license/mit/.
 
+include(AddWindowsResources)
 
-# Ensure that WINDRES_PREPROC is enabled when using windres.
-if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-    list(APPEND CMAKE_RC_FLAGS "-DWINDRES_PREPROC")
-endif()
+configure_file(${PROJECT_SOURCE_DIR}/cmake/tapyrus-build-config.h.in tapyrus-config.h USE_SOURCE_PERMISSIONS @ONLY)
+include_directories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 
-# Enable warning
-include(AddCompilerFlags)
-
-add_c_compiler_flag(-Wnested-externs -Wstrict-prototypes)
-add_compiler_flag(
-        -Wall
-        -Wextra
-        -Wformat
-        -Wvla
-        -Wformat-security
-        -Wcast-align
-        -Wunused-parameter
-        -Wmissing-braces
-        # FIXME: Activating this flag cause cmake to fail on leveldb.
-        # -Wthread-safety-analysis
-        -Wshadow
-)
-
-option(EXTRA_WARNINGS "Enable extra warnings" OFF)
-if(EXTRA_WARNINGS)
-    add_cxx_compiler_flag(-Wsuggest-override)
-else()
-    add_compiler_flag(-Wno-unused-parameter)
-endif()
-
-
-# libtool style configure
-add_subdirectory(config)
-
-# libraries
-add_subdirectory(crypto)
+#=============================
+# Subprojects
+#=============================
+# Subprojects include subdirectories that do or could have tests
+# and/or benchmark binaries, such as all subtrees and univalue.
+# These need to be included before CMAKE_*_OUTPUT_DIRECTORY variables
+# are set, so output locations of subproject tests and libraries are
+# not overridden.
 add_subdirectory(leveldb)
-add_subdirectory(secp256k1)
 add_subdirectory(univalue)
 
-# Because the Bitcoin ABc source code is disorganised, we
-# end up with a bunch of libraries without any aparent
-# cohesive structure. This is inherited from Bitcoin Core
-# and reflecting this.
-# TODO: Improve the structure once cmake is rocking.
+# Set top-level target output locations.
+if(NOT CMAKE_RUNTIME_OUTPUT_DIRECTORY)
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
+endif()
+if(NOT CMAKE_LIBRARY_OUTPUT_DIRECTORY)
+  set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
+endif()
+if(NOT CMAKE_ARCHIVE_OUTPUT_DIRECTORY)
+  set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
+endif()
 
-# Various completely unrelated features shared by all executables.
-add_library(util
+add_custom_target(generate_build_info
+  BYPRODUCTS ${PROJECT_BINARY_DIR}/src/tapyrus-build-info.h
+  COMMAND ${CMAKE_COMMAND} -DENABLE_INFO_HEADER_PATH=${PROJECT_BINARY_DIR}/src/tapyrus-build-info.h -DSOURCE_DIR=${PROJECT_SOURCE_DIR} -P ${PROJECT_SOURCE_DIR}/cmake/script/GenerateBuildInfo.cmake
+  COMMENT "Generating tapyrus-build-info.h"
+  VERBATIM
+)
+add_library(tapyrus_clientversion STATIC EXCLUDE_FROM_ALL
+  clientversion.cpp
+)
+target_link_libraries(tapyrus_clientversion
+  PRIVATE
+    core_interface
+)
+add_dependencies(tapyrus_clientversion generate_build_info)
+
+add_subdirectory(crypto)
+
+add_library(tapyrus_consensus STATIC EXCLUDE_FROM_ALL
+  arith_uint256.cpp
+  consensus/merkle.cpp
+  coloridentifier.cpp
+  hash.cpp
+  primitives/block.cpp
+  primitives/transaction.cpp
+  primitives/xfield.cpp
+  pubkey.cpp
+  script/tapyrusconsensus.cpp
+  script/interpreter.cpp
+  script/script.cpp
+  script/script_error.cpp
+  uint256.cpp
+  utilstrencodings.cpp
+)
+
+target_link_libraries(tapyrus_consensus
+  PRIVATE
+    core_interface
+    tapyrus_crypto
+    secp256k1
+    Boost::headers
+)
+
+if(ENABLE_ZMQ)
+  add_subdirectory(zmq)
+endif()
+
+add_library(tapyrus_util STATIC EXCLUDE_FROM_ALL
         clientversion.cpp
         fs.cpp
+        interfaces/handler.cpp
+        interfaces/node.cpp
         logging.cpp
         random.cpp
         randomenv.cpp
@@ -59,247 +88,241 @@ add_library(util
         support/lockedpool.cpp
         sync.cpp
         threadinterrupt.cpp
-        uint256.cpp
         util.cpp
         utilmoneystr.cpp
         utilstrencodings.cpp
         utiltime.cpp
-        )
-
-target_compile_definitions(util PUBLIC HAVE_CONFIG_H)
-target_include_directories(util
+)
+target_link_libraries(tapyrus_util
+        PRIVATE
+        univalue
+        Boost::headers
+)
+target_compile_definitions(tapyrus_util PUBLIC HAVE_CONFIG_H)
+target_include_directories(tapyrus_util
         PUBLIC
         .
         # To access the config.
         ${CMAKE_CURRENT_BINARY_DIR}
-        )
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/univalue/include>
+        ${BerkeleyDB_INCLUDE_DIR}
+)
 
-# Target specific configs
-if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-    find_package(SHLWAPI REQUIRED)
-    target_link_libraries(util ${SHLWAPI_LIBRARY})
-    target_include_directories(util PUBLIC ${SHLWAPI_INCLUDE_DIR})
+# Home for common functionality shared by different executables and libraries.
+# Similar to `tapyrus_util` library, but higher-level.
+add_library(tapyrus_common STATIC EXCLUDE_FROM_ALL
+  base58.cpp
+  bech32.cpp
+  chainparams.cpp
+  coins.cpp
+  compressor.cpp
+  core_read.cpp
+  core_write.cpp
+  federationparams.cpp
+  key.cpp
+  keystore.cpp
+  key_io.cpp
+  netaddress.cpp
+  netbase.cpp
+  policy/feerate.cpp
+  protocol.cpp
+  scheduler.cpp
+  script/descriptor.cpp
+  script/ismine.cpp
+  script/sign.cpp
+  script/standard.cpp
+  warnings.cpp
+  xfieldhistory.cpp
+)
 
-    find_library(WS2_32_LIBRARY NAMES ws2_32)
-    target_link_libraries(util ${WS2_32_LIBRARY})
+target_link_libraries(tapyrus_common
+  PRIVATE
+    core_interface
+    tapyrus_consensus
+    tapyrus_util
+    univalue
+    secp256k1
+    Boost::headers
+    $<TARGET_NAME_IF_EXISTS:USDT::headers>
+    $<$<PLATFORM_ID:Windows>:ws2_32>
+)
+target_include_directories(tapyrus_common
+        PRIVATE
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/leveldb>
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/leveldb/include>
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/univalue/include>
+)
+
+include(InstallBinaryComponent)
+
+if(ENABLE_WALLET)
+  add_subdirectory(wallet)
 endif()
 
-# Boost packages
-set(BOOST_PACKAGES_REQUIRED filesystem)
 
-function(prepend var prefix)
-    set(listVar "")
-    foreach(f ${ARGN})
-        list(APPEND listVar "${prefix}${f}")
-    endforeach(f)
-    set(${var} "${listVar}" PARENT_SCOPE)
-endfunction(prepend)
+# P2P and RPC server functionality used by `tapyrusd` and `tapyrus-qt` executables.
+add_library(tapyrus_server STATIC EXCLUDE_FROM_ALL
+  addrdb.cpp
+  addrman.cpp
+  bloom.cpp
+  blockencodings.cpp
+  blockprune.cpp
+  chain.cpp
+  chainstate.cpp
+  checkpoints.cpp
+  consensus/tx_verify.cpp
+  cs_main.cpp
+  dbwrapper.cpp
+  file_io.cpp
+  httprpc.cpp
+  httpserver.cpp
+  index/base.cpp
+  index/txindex.cpp
+  init.cpp
+  merkleblock.cpp
+  miner.cpp
+  net.cpp
+  net_processing.cpp
+  noui.cpp
+  outputtype.cpp
+  policy/policy.cpp
+  policy/fees.cpp
+  policy/packages.cpp
+  policy/rbf.cpp
+  rest.cpp
+  rpc/blockchain.cpp
+  rpc/mempool.cpp
+  rpc/mining.cpp
+  rpc/misc.cpp
+  rpc/net.cpp
+  rpc/rawtransaction.cpp
+  rpc/server.cpp
+  rpc/util.cpp
+  script/sigcache.cpp
+  shutdown.cpp
+  timeoffsets.cpp
+  torcontrol.cpp
+  txdb.cpp
+  txmempool.cpp
+  ui_interface.cpp
+  utxo_snapshot.cpp
+  validation.cpp
+  validationinterface.cpp
+  verifydb.cpp
+)
+target_link_libraries(tapyrus_server
+  PRIVATE
+    core_interface
+    tapyrus_common
+    tapyrus_util
+    $<TARGET_NAME_IF_EXISTS:tapyrus_zmq>
+    leveldb
+    univalue
+    Boost::headers
+    $<TARGET_NAME_IF_EXISTS:libevent::core>
+    $<TARGET_NAME_IF_EXISTS:libevent::extra>
+    $<TARGET_NAME_IF_EXISTS:libevent::pthreads>
+    $<TARGET_NAME_IF_EXISTS:USDT::headers>
+)
 
-prepend(BOOST_LIBRARIES "Boost::" ${BOOST_PACKAGES_REQUIRED})
+target_include_directories(tapyrus_server
+        PRIVATE
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/leveldb
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/leveldb/include>
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/leveldb/helpers/memenv>
+        ${BerkeleyDB_INCLUDE_DIR}
+)
 
-find_package(Boost 1.81 REQUIRED ${BOOST_PACKAGES_REQUIRED})
-target_link_libraries(util univalue crypto ${BOOST_LIBRARIES})
-
-# Make sure boost uses std::atomic (it doesn't before 1.63)
-target_compile_definitions(util PUBLIC BOOST_SP_USE_STD_ATOMIC BOOST_AC_USE_STD_ATOMIC)
-
-# More completely unrelated features shared by all executables.
-# Because nothing says this is different from util than "common"
-add_library(common
-        base58.cpp
-        chainparams.cpp
-        coins.cpp
-        compressor.cpp
-        core_read.cpp
-        core_write.cpp
-        federationparams.cpp
-        key.cpp
-        keystore.cpp
-        netaddress.cpp
-        netbase.cpp
-        protocol.cpp
-        scheduler.cpp
-        script/sign.cpp
-        script/standard.cpp
-        warnings.cpp
-        key_io.cpp
-        bench/bech32.cpp
-        bech32.cpp
-        coloridentifier.cpp
-        xfieldhistory.cpp
-        )
-
-target_link_libraries(common util secp256k1 tapyrusconsensus)
-
-# libtapyrusconsensus
-add_library(tapyrusconsensus
-        arith_uint256.cpp
-        consensus/merkle.cpp
-        hash.cpp
-        primitives/block.cpp
-        primitives/transaction.cpp
-        primitives/xfield.cpp
-        pubkey.cpp
-        script/tapyrusconsensus.cpp
-        script/interpreter.cpp
-        script/script.cpp
-        script/script_error.cpp
-        uint256.cpp
-        utilstrencodings.cpp
-        )
-target_link_libraries(tapyrusconsensus common)
-
-# Tapyrus server facilities
-add_library(server
-        addrman.cpp
-        addrdb.cpp
-        bloom.cpp
-        blockencodings.cpp
-        blockprune.cpp
-        chain.cpp
-        chainstate.cpp
-        checkpoints.cpp
-        consensus/tx_verify.cpp
-        cs_main.cpp
-        file_io.cpp
-        httprpc.cpp
-        httpserver.cpp
-        init.cpp
-        interfaces/handler.cpp
-        interfaces/node.cpp
-        dbwrapper.cpp
-        merkleblock.cpp
-        miner.cpp
-        net.cpp
-        net_processing.cpp
-        noui.cpp
-        policy/fees.cpp
-        policy/feerate.cpp
-        policy/policy.cpp
-        policy/packages.cpp
-        policy/rbf.cpp
-        rest.cpp
-        rpc/blockchain.cpp
-        rpc/mempool.cpp
-        rpc/mining.cpp
-        rpc/misc.cpp
-        rpc/net.cpp
-        rpc/rawtransaction.cpp
-        rpc/server.cpp
-        rpc/util.cpp
-#        script/scriptcache.cpp
-        script/descriptor.cpp
-        script/sigcache.cpp
-        script/ismine.cpp
-        timeoffsets.cpp
-        torcontrol.cpp
-        txdb.cpp
-        txmempool.cpp
-        ui_interface.cpp
-        utxo_snapshot.cpp
-        validation.cpp
-        validationinterface.cpp
-        verifydb.cpp
-        key_io.cpp
-        shutdown.cpp
-        outputtype.cpp
-        zmq/zmqrpc.cpp
-        bench/bech32.cpp
-        bech32.cpp
-        index/txindex.cpp
-        index/base.cpp
-        )
-
-# This require libevent
-find_package(Event REQUIRED)
-find_package(UPNP OPTIONAL_COMPONENTS)
-
-target_link_libraries(server
-        Event
-        tapyrusconsensus
-        leveldb
-        )
-
-if(UPNP_FOUND)
-    target_link_libraries(server
-            ${UPNP_LIBRARY}
+# Conditionally include ZMQ include directory if it exists
+if(ZMQ_INCLUDE_DIR)
+    target_include_directories(tapyrus_server
+        PRIVATE
+            ${ZMQ_INCLUDE_DIR}
     )
 endif()
 
-target_include_directories(common
-        PUBLIC
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/leveldb/include>
+
+# tapyrus Core tapyrusd.
+if(BUILD_DAEMON)
+  add_executable(tapyrusd
+    tapyrusd.cpp
+  )
+  add_windows_resources(tapyrusd tapyrusd-res.rc)
+  target_link_libraries(tapyrusd
+    Boost::headers
+    $<TARGET_NAME_IF_EXISTS:tapyrus_wallet>
+  )
+  install_binary_component(tapyrusd HAS_MANPAGE)
+
+  target_include_directories(tapyrusd
+          PUBLIC
+          ${PROJECT_SOURCE_DIR}/src/univalue/include
+  )
+endif()
+
+
+add_library(tapyrus_cli STATIC EXCLUDE_FROM_ALL
+  rpc/client.cpp
 )
-target_include_directories(server PUBLIC leveldb/helpers/memenv)
+target_link_libraries(tapyrus_cli
+  PUBLIC
+    core_interface
+    univalue
+    tapyrus_consensus
+    Boost::headers
+)
 
-# Test suite.
-if(BUILD_TEST)
-    add_subdirectory(test)
+
+# tapyrus Core RPC client
+if(BUILD_CLI)
+  add_executable(tapyrus-cli tapyrus-cli.cpp)
+  add_windows_resources(tapyrus-cli tapyrus-cli-res.rc)
+  target_link_libraries(tapyrus-cli
+    core_interface
+    tapyrus_cli
+    tapyrus_util
+    tapyrus_common
+    libevent::core
+    libevent::extra
+    Boost::headers
+  )
+  install_binary_component(tapyrus-cli HAS_MANPAGE)
 endif()
 
-# Benchmark suite.
-if(BUILD_BENCH)
-    add_subdirectory(bench)
+
+if(BUILD_UTILS)
+  add_executable(tapyrus-tx tapyrus-tx.cpp)
+  add_windows_resources(tapyrus-tx tapyrus-tx-res.rc)
+  target_link_libraries(tapyrus-tx
+    core_interface
+    tapyrus_common
+    tapyrus_util
+    univalue
+    Boost::headers
+  )
+  install_binary_component(tapyrus-tx HAS_MANPAGE)
 endif()
 
-# Wallet
-if(BUILD_TAPYRUS_WALLET)
-    add_subdirectory(wallet)
-    target_link_libraries(server wallet)
+if(BUILD_GENESIS)
+  add_executable(tapyrus-genesis tapyrus-genesis.cpp)
+  add_windows_resources(tapyrus-genesis tapyrus-genesis-res.rc)
+  target_link_libraries(tapyrus-genesis
+          core_interface
+          tapyrus_server
+          Boost::headers
+  )
+  install_binary_component(tapyrus-genesis HAS_MANPAGE)
 endif()
 
-# ZeroMQ
-if(BUILD_TAPYRUS_ZMQ)
-    add_subdirectory(zmq)
-    target_link_libraries(server zmq)
+if(BUILD_GUI)
+  add_subdirectory(qt)
 endif()
 
-# RPC client support
-add_library(rpcclient rpc/client.cpp)
-target_link_libraries(rpcclient univalue util)
 
-# tapyrus-cli
-if(BUILD_TAPYRUS_CLI)
-    add_executable(tapyrus-cli tapyrus-cli.cpp)
-    if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-        target_sources(tapyrus-cli PRIVATE tapyrus-cli-res.rc)
-    endif()
-
-    target_link_libraries(tapyrus-cli tapyrusconsensus common rpcclient Event)
+if(ENABLE_BENCH)
+  add_subdirectory(bench)
 endif()
 
-# tapyrus-tx
-if(BUILD_TAPYRUS_TX)
-    add_executable(tapyrus-tx tapyrus-tx.cpp)
-    if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-        target_sources(tapyrus-tx PRIVATE tapyrus-tx-res.rc)
-    endif()
-
-    target_link_libraries(tapyrus-tx tapyrusconsensus)
-endif()
-
-# tapyrus-genesis
-if(BUILD_TAPYRUS_GENESIS)
-    add_executable(tapyrus-genesis tapyrus-genesis.cpp)
-    if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-        target_sources(tapyrus-genesis PRIVATE tapyrus-genesis-res.rc)
-    endif()
-
-    target_link_libraries(tapyrus-genesis
-            common
-            tapyrusconsensus
-            server
-            )
-endif()
-
-# tapyrusd
-add_executable(tapyrusd tapyrusd.cpp)
-target_link_libraries(tapyrusd server)
-if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-    target_sources(tapyrusd PRIVATE tapyrus-res.rc)
-endif()
-
-# Tapyrus-qt
-if(BUILD_TAPYRUS_QT)
-    add_subdirectory(qt)
+if(ENABLE_TESTS)
+  add_subdirectory(test)
 endif()

@@ -1,32 +1,37 @@
-# Copyright (c) 2017 The Bitcoin developers
-
-project(wallet)
+# Copyright (c) 2023-present The Bitcoin Core developers
+# Distributed under the MIT software license, see the accompanying
+# file COPYING or https://opensource.org/license/mit/.
 
 # Add Berkeley DB dependency.
+include(FindBerkeleyDB)
 find_package(BerkeleyDB REQUIRED)
 
-# Add event dependency. This is only required for evhttp_uridecode
-# in rpcwallet.cpp so it may be worth considering using an alternative.
-find_package(Event REQUIRED)
-
-add_library(wallet
-	coincontrol.cpp
-	coinselection.cpp
-	crypter.cpp
-	db.cpp
-	feebumper.cpp
-	fees.cpp
-	init.cpp
-	../interfaces/wallet.cpp
-	rpcdump.cpp
-	rpcwallet.cpp
-	wallet.cpp
-	walletdb.cpp
-	walletutil.cpp
-	../outputtype.cpp
-	../script/ismine.cpp
+add_library(tapyrus_wallet STATIC
+        coincontrol.cpp
+        coinselection.cpp
+        crypter.cpp
+        db.cpp
+        feebumper.cpp
+        fees.cpp
+        init.cpp
+        ../interfaces/wallet.cpp
+        rpcdump.cpp
+        rpcwallet.cpp
+        wallet.cpp
+        walletdb.cpp
+        walletutil.cpp
 )
-
-target_link_libraries(wallet util univalue Event ${BerkeleyDB_LIBRARY})
-
-target_include_directories(wallet PUBLIC ${BerkeleyDB_INCLUDE_DIR})
+target_link_libraries(tapyrus_wallet
+  PRIVATE
+    core_interface
+    tapyrus_common
+    tapyrus_util
+    tapyrus_server
+    univalue
+    ${BerkeleyDB_LIBRARY}
+    Boost::headers
+    Boost::system
+    $<TARGET_NAME_IF_EXISTS:USDT::headers>
+)
+message(STATUS "BerkeleyDB_INCLUDE_DIR: ${BerkeleyDB_INCLUDE_DIR}")
+target_include_directories(tapyrus_wallet PUBLIC ${BerkeleyDB_INCLUDE_DIR})

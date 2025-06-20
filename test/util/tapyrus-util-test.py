@@ -80,7 +80,15 @@ def bctest(testDir, testObj, buildenv):
     are not as expected. Error is caught by bctester() and reported.
     """
     # Get the exec names and arguments
-    execprog = os.path.join(buildenv["BUILDDIR"], "src", testObj["exec"] + buildenv["EXEEXT"])
+    if os.path.exists(os.path.join(buildenv["BUILDDIR"], "CMakeCache.txt")):
+        # CMake environment
+        execprog = os.path.join(buildenv["BUILDDIR"], "bin", testObj["exec"] + buildenv["EXEEXT"])
+    elif os.path.exists(os.path.join(buildenv["BUILDDIR"], "Makefile")):
+        # Autotools environment
+        execprog = os.path.join(buildenv["BUILDDIR"], "src", testObj["exec"] + buildenv["EXEEXT"])
+    else:
+        raise RuntimeError("Unknown build environment: neither CMake nor Autotools detected")
+
     execargs = testObj['args']
     execrun = [execprog] + execargs
 

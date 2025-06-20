@@ -301,7 +301,7 @@ def main():
 
     enable_wallet = config["components"].getboolean("ENABLE_WALLET")
     enable_utils = config["components"].getboolean("ENABLE_UTILS")
-    enable_bitcoind = config["components"].getboolean("ENABLE_BITCOIND")
+    enable_tapyrusd = config["components"].getboolean("BUILD_DAEMON")
     enable_usdt = config["components"].getboolean("ENABLE_USDT")
 
     if config["environment"]["EXEEXT"] == ".exe" and not args.force:
@@ -310,7 +310,7 @@ def main():
         print("Tests currently disabled on Windows by default. Use --force option to enable")
         sys.exit(0)
 
-    if not (enable_wallet and enable_utils and enable_bitcoind):
+    if not (enable_wallet and enable_utils and enable_tapyrusd):
         print("No functional tests to run. Wallet, utils, and bitcoind must all be enabled")
         print("Rerun `configure` with -enable-wallet, -with-utils and -with-daemon and rerun make")
         sys.exit(0)
@@ -320,7 +320,7 @@ def main():
     if tests:
         # Individual tests have been specified. Run specified tests that exist
         # in the ALL_SCRIPTS list. Accept the name with or without .py extension.
-        tests = [re.sub("\.py$", "", test) + ".py" for test in tests]
+        tests = [re.sub(r"\.py$", "", test) + ".py" for test in tests]
         for test in tests:
             if test in ALL_SCRIPTS:
                 test_list.append(test)
@@ -341,7 +341,7 @@ def main():
 
     # Remove the test cases that the user has explicitly asked to exclude.
     if args.exclude:
-        exclude_tests = [re.sub("\.py$", "", test) + ".py" for test in args.exclude.split(',')]
+        exclude_tests = [re.sub(r"\.py$", "", test) + ".py" for test in args.exclude.split(',')]
         for exclude_test in exclude_tests:
             if exclude_test in test_list:
                 test_list.remove(exclude_test)

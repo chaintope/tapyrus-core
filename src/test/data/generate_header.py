@@ -10,12 +10,18 @@ def main(test_name, input_file):
     with open(input_file, "rb") as f:
         contents = f.read()
 
-    print("namespace json_tests{")
-    print("   static unsigned const char {}[] = {{".format(test_name))
+    print("#include <string_view>")
+    print("")
+    print("namespace json_tests {")
+    print("inline constexpr char detail_{}_bytes[] {{".format(test_name))
     print(", ".join(map(lambda x: "0x{:02x}".format(x if sys.version_info.major >= 3 else ord(x)), contents)))
-    print(" };")
     print("};")
-
+    print("")
+    print("inline constexpr std::string_view {}{{".format(test_name))
+    print("    detail_{}_bytes,".format(test_name))
+    print("    sizeof(detail_{}_bytes)".format(test_name))
+    print("};")
+    print("}")
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:

@@ -17,7 +17,7 @@
 #include <sync.h>     // for WAIT_LOCK
 #include <utiltime.h> // for GetTime()
 
-#include <stdlib.h>
+#include <unistd.h>
 #include <chrono>
 #include <thread>
 
