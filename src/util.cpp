@@ -94,16 +94,16 @@ static std::mutex cs_dir_locks;
  * cleans them up and thus automatically unlocks them, or ReleaseDirectoryLocks
  * is called.
  */
-static std::map<std::string, std::unique_ptr<boost::interprocess::file_lock>> dir_locks;
+static std::map<std::string, std::unique_ptr<fsbridge::FileLock>> dir_locks GUARDED_BY(cs_dir_locks);
 
-LockResult LockDirectory(const fs::path& directory, const std::string lockfile_name, bool probe_only)
+LockResult LockDirectory(const fs::path& directory, const fs::path& lockfile_name, bool probe_only)
 {
-    std::lock_guard<std::mutex> ulock(cs_dir_locks);
+    LOCK(cs_dir_locks);
     fs::path pathLockFile = directory / lockfile_name;
 
     // If a lock for this directory already exists in the map, don't try to re-lock it
     if (dir_locks.count(pathLockFile.string())) {
-        return LockResult::Success;;
+        return LockResult::Success;
     }
 
     // Create empty lock file if it doesn't exist.
@@ -113,19 +113,16 @@ LockResult LockDirectory(const fs::path& directory, const std::string lockfile_n
     } else {
         return LockResult::ErrorWrite;
     }
-    try {
-        auto lock = MakeUnique<boost::interprocess::file_lock>(pathLockFile.string().c_str());
-        if (!lock->try_lock()) {
-            return LockResult::ErrorLock;
-        }
-        if (!probe_only) {
-            // Lock successful and we're not just probing, put it into the map
-            dir_locks.emplace(pathLockFile.string(), std::move(lock));
-        }
-    } catch (const boost::interprocess::interprocess_exception& e) {
+    auto lock = std::make_unique<fsbridge::FileLock>(pathLockFile.string().c_str());
+    if (!lock->TryLock()) {
         return LockResult::ErrorLock;
     }
-    return LockResult::Success;;
+    if (!probe_only) {
+        // Lock successful and we're not just probing, put it into the map
+        dir_locks.emplace(pathLockFile.string(), std::move(lock));
+    }
+
+    return LockResult::Success;
 }
 
 std::ostream& operator<<(std::ostream& os, const LockResult& result) {
@@ -139,7 +136,7 @@ std::ostream& operator<<(std::ostream& os, const LockResult& result) {
 
 void ReleaseDirectoryLocks()
 {
-    std::lock_guard<std::mutex> ulock(cs_dir_locks);
+    LOCK(cs_dir_locks);
     dir_locks.clear();
 }
 

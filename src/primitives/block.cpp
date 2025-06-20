@@ -73,6 +73,7 @@ bool CBlockHeader::AbsorbBlockProof(const std::vector<unsigned char>& blockproof
 
     //add signatures to block
     proof = std::move(blockproof);
+
     return true;
 
 }

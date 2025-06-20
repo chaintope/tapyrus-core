@@ -342,6 +342,8 @@ BOOST_AUTO_TEST_CASE(test_Get)
 BOOST_AUTO_TEST_CASE(test_IsStandard)
 {
     LOCK(cs_main);
+    // Explicitly set dustRelayFee for this test, in case it's being reset elsewhere.
+    dustRelayFee = CFeeRate(DUST_RELAY_TX_FEE);
     CBasicKeyStore keystore;
     CCoinsView coinsDummy;
     CCoinsViewCache coins(&coinsDummy);

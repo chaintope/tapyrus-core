@@ -21,6 +21,17 @@
 
 #include <test/test_keys_helper.h>
 
+/* CXFieldHistoryWithReset class is created to allow reset function in test_tapyrus
+ * this functionality is necessary in xfield history tests to reset the xfield history map to the genesis block state.
+ */
+class CXFieldHistoryWithReset : public CXFieldHistory {
+    const CBlock& genesis;
+public:
+    CXFieldHistoryWithReset(const CBlock& block) : CXFieldHistory(block), genesis(block) {}
+    void Reset();
+    virtual ~CXFieldHistoryWithReset() {}
+};
+
 extern uint256 insecure_rand_seed;
 extern FastRandomContext insecure_rand_ctx;
 
@@ -63,6 +74,8 @@ struct BasicTestingSetup {
     fs::path GetDataDir();
 private:
     const fs::path m_path_root;
+protected:
+    CXFieldHistoryWithReset* pxFieldHistory;
 };
 
 /** Testing setup that configures a complete environment.
