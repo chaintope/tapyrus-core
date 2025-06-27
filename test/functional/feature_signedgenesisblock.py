@@ -83,7 +83,7 @@ class SignedGenesisBlockTest(BitcoinTestFramework):
         initialize_datadir(self.options.tmpdir, 0)
 
         self.log.info("Test with no genesis file")
-        self.nodes[0].assert_start_raises_init_error([], 'ReadGenesisBlock: unable to read genesis file', match=ErrorMatch.PARTIAL_REGEX)
+        self.nodes[0].assert_start_raises_init_error([], r'ReadGenesisBlock: unable to read genesis file', match=ErrorMatch.PARTIAL_REGEX)
 
         self.log.info("Phase 1: Tests using genesis block")
         self.log.info("Test correct genesis file")
@@ -101,7 +101,7 @@ class SignedGenesisBlockTest(BitcoinTestFramework):
         genesis = createIncorectGenesisBlock(genesis_coinbase, self.signblockprivkey, self.signblockpubkey)
 
         writeIncorrectGenesisBlockToFile(self.nodes[0].datadir, genesis)
-        self.nodes[0].assert_start_raises_init_error([], 'ReadGenesisBlock: invalid genesis block', match=ErrorMatch.PARTIAL_REGEX)
+        self.nodes[0].assert_start_raises_init_error([], r'ReadGenesisBlock: invalid genesis block', match=ErrorMatch.PARTIAL_REGEX)
 
         self.log.info("Test incorrect genesis block - Incorrect height")
         genesis_coinbase_height = createGenesisCoinbase(self.signblockpubkey)
@@ -109,7 +109,7 @@ class SignedGenesisBlockTest(BitcoinTestFramework):
         genesis = createIncorectGenesisBlock(genesis_coinbase_height, self.signblockprivkey, self.signblockpubkey)
 
         writeIncorrectGenesisBlockToFile(self.nodes[0].datadir, genesis)
-        self.nodes[0].assert_start_raises_init_error([], 'ReadGenesisBlock: invalid height in genesis block', match=ErrorMatch.PARTIAL_REGEX)
+        self.nodes[0].assert_start_raises_init_error([], r'ReadGenesisBlock: invalid height in genesis block', match=ErrorMatch.PARTIAL_REGEX)
 
         self.log.info("Test incorrect genesis block - Multiple transactions")
         genesis_coinbase = createGenesisCoinbase(self.signblockpubkey)
@@ -120,21 +120,21 @@ class SignedGenesisBlockTest(BitcoinTestFramework):
         genesis.solve(self.signblockprivkey)
 
         writeIncorrectGenesisBlockToFile(self.nodes[0].datadir, genesis)
-        self.nodes[0].assert_start_raises_init_error([], 'ReadGenesisBlock: invalid genesis block', match=ErrorMatch.PARTIAL_REGEX)
+        self.nodes[0].assert_start_raises_init_error([], r'ReadGenesisBlock: invalid genesis block', match=ErrorMatch.PARTIAL_REGEX)
 
         self.log.info("Test incorrect genesis block - No proof")
         genesis = createIncorectGenesisBlock(genesis_coinbase, self.signblockprivkey, self.signblockpubkey)
         genesis.proof.clear()
 
         writeIncorrectGenesisBlockToFile(self.nodes[0].datadir, genesis)
-        self.nodes[0].assert_start_raises_init_error([], 'ReadGenesisBlock: invalid genesis block', match=ErrorMatch.PARTIAL_REGEX)
+        self.nodes[0].assert_start_raises_init_error([], r'ReadGenesisBlock: invalid genesis block', match=ErrorMatch.PARTIAL_REGEX)
 
         self.log.info("Test incorrect genesis block - Insufficient Proof")
         genesis = createIncorectGenesisBlock(genesis_coinbase, self.signblockprivkey, self.signblockpubkey)
         genesis.proof = genesis.proof[:-1]
 
         writeIncorrectGenesisBlockToFile(self.nodes[0].datadir, genesis)
-        self.nodes[0].assert_start_raises_init_error([], 'ReadGenesisBlock: invalid genesis block', match=ErrorMatch.PARTIAL_REGEX)
+        self.nodes[0].assert_start_raises_init_error([], r'ReadGenesisBlock: invalid genesis block', match=ErrorMatch.PARTIAL_REGEX)
 
         self.log.info("Test incorrect genesis block - Incorrect xfieldType")
         genesis_coinbase = createGenesisCoinbase(self.signblockpubkey)
@@ -149,7 +149,7 @@ class SignedGenesisBlockTest(BitcoinTestFramework):
         genesis.solve(self.signblockprivkey)
 
         writeIncorrectGenesisBlockToFile(self.nodes[0].datadir, genesis)
-        self.nodes[0].assert_start_raises_init_error([], 'ReadGenesisBlock: invalid xfieldType in genesis block', match=ErrorMatch.PARTIAL_REGEX)
+        self.nodes[0].assert_start_raises_init_error([], r'ReadGenesisBlock: invalid xfieldType in genesis block', match=ErrorMatch.PARTIAL_REGEX)
 
         self.log.info("Test incorrect genesis block - Incorrect xfield")
         genesis_coinbase = createGenesisCoinbase(self.signblockpubkey)
@@ -164,7 +164,7 @@ class SignedGenesisBlockTest(BitcoinTestFramework):
         genesis.solve(self.signblockprivkey)
 
         writeIncorrectGenesisBlockToFile(self.nodes[0].datadir, genesis)
-        self.nodes[0].assert_start_raises_init_error([], 'Aggregate Public Key for Signed Block is invalid', match=ErrorMatch.PARTIAL_REGEX)
+        self.nodes[0].assert_start_raises_init_error([], r'Aggregate Public Key for Signed Block is invalid', match=ErrorMatch.PARTIAL_REGEX)
 
         self.log.info("Test incorrect genesis block - No hashMerkleRoot")
         genesis_coinbase = createGenesisCoinbase(self.signblockpubkey)
@@ -178,7 +178,7 @@ class SignedGenesisBlockTest(BitcoinTestFramework):
         genesis.solve(self.signblockprivkey)
 
         writeIncorrectGenesisBlockToFile(self.nodes[0].datadir, genesis)
-        self.nodes[0].assert_start_raises_init_error([], 'ReadGenesisBlock: invalid MerkleRoot in genesis block', match=ErrorMatch.PARTIAL_REGEX)
+        self.nodes[0].assert_start_raises_init_error([], r'ReadGenesisBlock: invalid MerkleRoot in genesis block', match=ErrorMatch.PARTIAL_REGEX)
 
         self.log.info("Test incorrect genesis block - No hashImMerkleRoot")
         genesis_coinbase = createGenesisCoinbase(self.signblockpubkey)
@@ -193,14 +193,14 @@ class SignedGenesisBlockTest(BitcoinTestFramework):
         genesis.solve(self.signblockprivkey)
 
         writeIncorrectGenesisBlockToFile(self.nodes[0].datadir, genesis)
-        self.nodes[0].assert_start_raises_init_error([], 'ReadGenesisBlock: invalid MerkleRoot in genesis block', match=ErrorMatch.PARTIAL_REGEX)
+        self.nodes[0].assert_start_raises_init_error([], r'ReadGenesisBlock: invalid MerkleRoot in genesis block', match=ErrorMatch.PARTIAL_REGEX)
 
         self.log.info("Phase 2: Tests using genesis.dat file")
         self.log.info("Test new genesis file")
         self.genesisBlock = None
         self.writeGenesisBlockToFile(self.nodes[0].datadir, nTime=int(time.time()))
         #different genesis file
-        self.nodes[0].assert_start_raises_init_error([], 'Error: Incorrect or no genesis block found.', match=ErrorMatch.PARTIAL_REGEX)
+        self.nodes[0].assert_start_raises_init_error([], r'Error: Incorrect or no genesis block found.', match=ErrorMatch.PARTIAL_REGEX)
 
         datadir = self.nodes[0].datadir
         genesisFile = os.path.join(datadir, "genesis.dat")
@@ -209,7 +209,7 @@ class SignedGenesisBlockTest(BitcoinTestFramework):
         self.writeGenesisBlockToFile(self.nodes[0].datadir)
         with open(genesisFile, 'a', encoding='utf8') as f:
             f.write("abcd")
-        self.nodes[0].assert_start_raises_init_error([], 'ReadGenesisBlock: invalid genesis file', match=ErrorMatch.PARTIAL_REGEX)
+        self.nodes[0].assert_start_raises_init_error([], r'ReadGenesisBlock: invalid genesis file', match=ErrorMatch.PARTIAL_REGEX)
         os.remove(genesisFile)
 
         self.log.info("Test incorrect genesis file - append many bytes")
@@ -217,7 +217,7 @@ class SignedGenesisBlockTest(BitcoinTestFramework):
         with open(genesisFile, 'a', encoding='utf8') as f:
             s = "".join([str(i) for i in range(0,16) for j in range(0, 100)])
             f.write(s)
-        self.nodes[0].assert_start_raises_init_error([], 'ReadGenesisBlock: invalid genesis file', match=ErrorMatch.PARTIAL_REGEX)
+        self.nodes[0].assert_start_raises_init_error([], r'ReadGenesisBlock: invalid genesis file', match=ErrorMatch.PARTIAL_REGEX)
         os.remove(genesisFile)
 
         self.log.info("Test incorrect genesis file - replace 2 bytes")
@@ -228,7 +228,7 @@ class SignedGenesisBlockTest(BitcoinTestFramework):
             content = content[:500] + "0000" + content[504:]
             assert(len(content) == clen)
             f.write(content)
-        self.nodes[0].assert_start_raises_init_error([], 'ReadGenesisBlock: invalid genesis file', match=ErrorMatch.PARTIAL_REGEX)
+        self.nodes[0].assert_start_raises_init_error([], r'ReadGenesisBlock: invalid genesis file', match=ErrorMatch.PARTIAL_REGEX)
         os.remove(genesisFile)
 
         self.log.info("Test incorrect genesis file - insert 2 bytes")
@@ -240,7 +240,7 @@ class SignedGenesisBlockTest(BitcoinTestFramework):
             content = content[:550] + "1111" + content[550:]
             assert(len(content) == clen + 4)
             f.write(content)
-        self.nodes[0].assert_start_raises_init_error([], 'ReadGenesisBlock: invalid genesis file', match=ErrorMatch.PARTIAL_REGEX)
+        self.nodes[0].assert_start_raises_init_error([], r'ReadGenesisBlock: invalid genesis file', match=ErrorMatch.PARTIAL_REGEX)
         os.remove(genesisFile)
 
         self.log.info("Test incorrect genesis file - remove 2 bytes")
@@ -252,14 +252,14 @@ class SignedGenesisBlockTest(BitcoinTestFramework):
             content = content[:100] + content[104:]
             assert(len(content) == clen - 4)
             f.write(content)
-        self.nodes[0].assert_start_raises_init_error([], 'ReadGenesisBlock: invalid genesis file', match=ErrorMatch.PARTIAL_REGEX)
+        self.nodes[0].assert_start_raises_init_error([], r'ReadGenesisBlock: invalid genesis file', match=ErrorMatch.PARTIAL_REGEX)
         os.remove(genesisFile)
 
         self.log.info("Test incorrect genesis file - truncate file")
         self.writeGenesisBlockToFile(self.nodes[0].datadir)
         with open(genesisFile, 'r+', encoding='utf8') as f:
             f.truncate(500)
-        self.nodes[0].assert_start_raises_init_error([], 'CDataStream::read().*end of data', match=ErrorMatch.PARTIAL_REGEX)
+        self.nodes[0].assert_start_raises_init_error([], r'CDataStream::read().*end of data', match=ErrorMatch.PARTIAL_REGEX)
 
         self.log.info("Phase 3: Edit genesis file after sarting the blockchain")
         self.stop_node(0)
@@ -290,7 +290,7 @@ class SignedGenesisBlockTest(BitcoinTestFramework):
         self.log.info("Starting node again")
         self.genesisBlock = None
         self.writeGenesisBlockToFile(self.nodes[0].datadir)
-        self.nodes[0].assert_start_raises_init_error([], 'Error: Incorrect or no genesis block found.', match=ErrorMatch.PARTIAL_REGEX)
+        self.nodes[0].assert_start_raises_init_error([], r'Error: Incorrect or no genesis block found.', match=ErrorMatch.PARTIAL_REGEX)
 
         self.log.info("Recovering original blockchain")
         shutil.rmtree(self.nodes[0].datadir)

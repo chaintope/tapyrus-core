@@ -10,11 +10,9 @@
 
 #include <memory>
 
-#include <boost/test/unit_test.hpp>
-
 std::unique_ptr<CConnman> g_connman;
 
-[[noreturn]] void Shutdown(void* parg)
+[[noreturn]] void Shutdown()
 {
   std::exit(EXIT_SUCCESS);
 }

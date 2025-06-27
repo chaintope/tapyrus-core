@@ -7,9 +7,6 @@ include(CheckIncludeFiles)
 include(CheckSymbolExists)
 include(CheckCXXSourceCompiles)
 
-# Package informations
-set(PACKAGE_NAME "Tapyrus Core")
-
 # Endianness
 check_include_files("endian.h" HAVE_ENDIAN_H)
 check_include_files("sys/endian.h" HAVE_SYS_ENDIAN_H)
@@ -48,55 +45,10 @@ check_include_files("sys/select.h" HAVE_SYS_SELECT_H)
 check_include_files("sys/prctl.h" HAVE_SYS_PRCTL_H)
 
 # Bitmanip intrinsics
-function(check_builtin_exist SYMBOL VARIABLE)
-	set(
-		SOURCE_FILE
-		"${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/CheckBuiltinExists.c"
-	)
-	set(
-		CMAKE_CONFIGURABLE_FILE_CONTENT
-		"int main(int argc, char** argv) { (void)argv; return ${SYMBOL}(argc); }\n"
-	)
-	configure_file(
-		"${CMAKE_ROOT}/Modules/CMakeConfigurableFile.in"
-		"${SOURCE_FILE}"
-		@ONLY
-	)
-	if(NOT CMAKE_REQUIRED_QUIET)
-		message(STATUS "Looking for ${SYMBOL}")
-	endif()
-	try_compile(${VARIABLE}
-		${CMAKE_BINARY_DIR}
-		${SOURCE_FILE}
-		OUTPUT_VARIABLE OUTPUT
-	)
-	if(${VARIABLE})
-		if(NOT CMAKE_REQUIRED_QUIET)
-			message(STATUS "Looking for ${SYMBOL} - found")
-		endif()
-		set(${VARIABLE} 1 CACHE INTERNAL "Have symbol ${SYMBOL}" PARENT_SCOPE)
-		file(APPEND ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeOutput.log
-			"Determining if the ${SYMBOL} "
-			"exist passed with the following output:\n"
-			"${OUTPUT}\nFile ${SOURCEFILE}:\n"
-			"${CMAKE_CONFIGURABLE_FILE_CONTENT}\n")
-	else()
-		if(NOT CMAKE_REQUIRED_QUIET)
-			message(STATUS "Looking for ${SYMBOL} - not found")
-		endif()
-		set(${VARIABLE} "" CACHE INTERNAL "Have symbol ${SYMBOL}" PARENT_SCOPE)
-		file(APPEND ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeError.log
-			"Determining if the ${SYMBOL} "
-			"exist failed with the following output:\n"
-			"${OUTPUT}\nFile ${SOURCEFILE}:\n"
-			"${CMAKE_CONFIGURABLE_FILE_CONTENT}\n")
-	endif()
-endfunction()
-
-check_builtin_exist(__builtin_clz HAVE_DECL___BUILTIN_CLZ)
-check_builtin_exist(__builtin_clzl HAVE_DECL___BUILTIN_CLZL)
-check_builtin_exist(__builtin_clzll HAVE_DECL___BUILTIN_CLZLL)
-check_builtin_exist(__builtin_popcount HAVE_DECL___BUILTIN_POPCOUNT)
+check_symbol_exists(__builtin_clz "" HAVE_DECL___BUILTIN_CLZ)
+check_symbol_exists(__builtin_clzl "" HAVE_DECL___BUILTIN_CLZL)
+check_symbol_exists(__builtin_clzll "" HAVE_DECL___BUILTIN_CLZLL)
+check_symbol_exists(__builtin_popcount "" HAVE_DECL___BUILTIN_POPCOUNT)
 
 # Memory management capabilities
 check_symbol_exists(M_ARENA_MAX "malloc.h" HAVE_MALLOPT_ARENA_MAX)
@@ -129,19 +81,17 @@ check_cxx_source_compiles("
 	}
 " HAVE_SYSCTL_ARND)
 
-
-# Activate wallet
-set(ENABLE_WALLET ${BUILD_TAPYRUS_WALLET})
-
-# Activate ZeroMQ
-set(ENABLE_ZMQ ${BUILD_TAPYRUS_ZMQ})
-
 # Try to find libqrencode
  # Only used in the wallet GUI
- if(ENABLE_QRCODE AND BUILD_BITCOIN_WALLET AND BUILD_BITCOIN_QT)
+ if(ENABLE_QRCODE AND ENABLE_WALLET AND ENABLE_QT)
  	find_package(QREncode REQUIRED)
  	set(USE_QRCODE 1 CACHE INTERNAL "QR code is enabled")
  endif()
- 
-# Generate the config
-configure_file(tapyrus-config.h.cmake.in tapyrus-config.h ESCAPE_QUOTES)
+
+configure_file(${PROJECT_SOURCE_DIR}/cmake/tapyrus-build-config.h.in tapyrus-config.h USE_SOURCE_PERMISSIONS @ONLY)
+
+if(ENABLE_ZMQ)
+	set(ENABLE_ZMQ 1)
+else()
+	set(ENABLE_ZMQ 0)
+endif()

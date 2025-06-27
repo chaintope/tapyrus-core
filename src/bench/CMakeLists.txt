@@ -1,30 +1,58 @@
-# Copyright (c) 2018 The Bitcoin developers
+# Copyright (c) 2023-present The Bitcoin Core developers
+# Distributed under the MIT software license, see the accompanying
+# file COPYING or https://opensource.org/license/mit/.
 
-project(tapyrus-bench)
-
-include_directories(.)
-
-add_executable(tapyrus-bench
-	EXCLUDE_FROM_ALL
-	base58.cpp
-	bench.cpp
-	bench_tapyrus.cpp
-	ccoins_caching.cpp
-#	checkblock.cpp TODO Fix including bench/data/*.raw files
-	checkqueue.cpp
-	crypto_hash.cpp
-	examples.cpp
-	lockedpool.cpp
-	mempool_eviction.cpp
-	prevector.cpp
-	rollingbloom.cpp
+add_executable(bench_tapyrus
+  bench_tapyrus.cpp
+  bench.cpp
+# Benchmarks:
+  base58.cpp
+  bech32.cpp
+  block_assemble.cpp
+  ccoins_caching.cpp
+  checkblock.cpp
+  checkqueue.cpp
+  crypto_hash.cpp
+  examples.cpp
+  lockedpool.cpp
+  mempool_eviction.cpp
+  merkle_root.cpp
+  prevector.cpp
+  rollingbloom.cpp
+  verify_script.cpp
 )
 
-target_link_libraries(tapyrus-bench common tapyrusconsensus server)
-
-add_custom_target(bench-tapyrus
-	COMMAND
-		./tapyrus-bench
-	DEPENDS
-	tapyrus-bench
+include(TargetDataSources)
+target_raw_data_sources(bench_tapyrus NAMESPACE benchmark::data
+  data/block413567.raw
 )
+
+target_link_libraries(bench_tapyrus
+  core_interface
+  tapyrus_server
+  Boost::headers
+  $<TARGET_NAME_IF_EXISTS:libevent::core>
+  $<TARGET_NAME_IF_EXISTS:libevent::extra>
+  $<TARGET_NAME_IF_EXISTS:libevent::pthreads>
+)
+target_include_directories(bench_tapyrus
+  PRIVATE
+    ${BerkeleyDB_INCLUDE_DIR}
+    ${EVENT_INCLUDE_DIRS}
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../leveldb>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../leveldb/include>
+)
+
+if(ENABLE_WALLET)
+  target_sources(bench_tapyrus
+    PRIVATE
+      coin_selection.cpp
+  )
+  target_link_libraries(bench_tapyrus tapyrus_wallet)
+endif()
+
+add_test(NAME bench_sanity_check_high_priority
+  COMMAND bench_tapyrus -sanity-check -priority-level=high
+)
+
+install_binary_component(bench_tapyrus)

@@ -76,11 +76,11 @@ noinst_PROGRAMS =
 TESTS =
 BENCHMARKS =
 
-if BUILD_BITCOIND
+if BUILD_DAEMON
   bin_PROGRAMS += tapyrusd
 endif
 
-if BUILD_BITCOIN_UTILS
+if BUILD_UTILS
   bin_PROGRAMS += tapyrus-cli tapyrus-tx tapyrus-genesis
 endif
 

@@ -6,8 +6,10 @@
 #include <xfieldhistory.h>
 #include <txdb.h>
 #include <univalue.h>
+#include <sync.h>
 
 XFieldHistoryMapType CXFieldHistoryMap::xfieldHistory;
+std::mutex CXFieldHistoryMap::xfieldHistoryMutex;
 
 bool CXFieldHistoryMap::IsNew(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange) const
 {
@@ -20,6 +22,7 @@ bool CXFieldHistoryMap::IsNew(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFie
 }
 
 void CXFieldHistoryMap::Add(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange) {
+    LOCK(xfieldHistoryMutex);
     if(!IsNew(type, xFieldChange))
         return;
 

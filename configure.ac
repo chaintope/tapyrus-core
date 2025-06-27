@@ -1019,11 +1019,11 @@ fi
 AM_CONDITIONAL([ENABLE_ZMQ], [test x$use_zmq = xyes])
 
 AC_MSG_CHECKING([whether to build tapyrusd])
-AM_CONDITIONAL([BUILD_BITCOIND], [test x$build_tapyrusd = xyes])
+AM_CONDITIONAL([BUILD_DAEMON], [test x$build_tapyrusd = xyes])
 AC_MSG_RESULT($build_tapyrusd)
 
 AC_MSG_CHECKING([whether to build utils (tapyrus-cli tapyrus-tx tapyrus-genesis)])
-AM_CONDITIONAL([BUILD_BITCOIN_UTILS], [test x$build_tapyrus_utils = xyes])
+AM_CONDITIONAL([BUILD_UTILS], [test x$build_tapyrus_utils = xyes])
 AC_MSG_RESULT($build_tapyrus_utils)
 
 AC_MSG_CHECKING([whether to build libraries])
