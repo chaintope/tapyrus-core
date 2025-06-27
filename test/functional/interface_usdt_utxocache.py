@@ -16,6 +16,7 @@ except ImportError:
 from test_framework.messages import COIN, CTransaction
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, hex_str_to_bytes
+from test_framework.timeout_config import TAPYRUSD_SYNC_TIMEOUT
 
 utxocache_changes_program = """
 #include <uapi/linux/ptrace.h>
@@ -207,7 +208,7 @@ class UTXOCacheTracepointTest(BitcoinTestFramework):
             [invalid_tx.serialize().hex()])[0]
         assert_equal(result["allowed"], False)
 
-        bpf.perf_buffer_poll(timeout=100)
+        bpf.perf_buffer_poll(timeout=TAPYRUSD_SYNC_TIMEOUT)
         bpf.cleanup()
 
         self.log.info(
@@ -324,7 +325,7 @@ class UTXOCacheTracepointTest(BitcoinTestFramework):
         assert_equal(EXPECTED_HANDLE_SPENT_SUCCESS,
                      len(expected_utxocache_spents))
 
-        bpf.perf_buffer_poll(timeout=200)
+        bpf.perf_buffer_poll(timeout=TAPYRUSD_SYNC_TIMEOUT)
         bpf.cleanup()
 
         self.log.info(
@@ -378,7 +379,7 @@ class UTXOCacheTracepointTest(BitcoinTestFramework):
         expected_flushes.extend([flush_for_shutdown, flush_for_shutdown])
         self.stop_node(0)
 
-        bpf.perf_buffer_poll(timeout=200)
+        bpf.perf_buffer_poll(timeout=TAPYRUSD_SYNC_TIMEOUT)
 
         self.log.info("check that we don't expect additional flushes")
         assert_equal(0, len(expected_flushes))
@@ -398,7 +399,7 @@ class UTXOCacheTracepointTest(BitcoinTestFramework):
         self.log.info(f"prune blockchain to trigger a flush for pruning")
         self.nodes[0].pruneblockchain(315)
 
-        bpf.perf_buffer_poll(timeout=500)
+        bpf.perf_buffer_poll(timeout=TAPYRUSD_SYNC_TIMEOUT)
         bpf.cleanup()
 
         self.log.info(

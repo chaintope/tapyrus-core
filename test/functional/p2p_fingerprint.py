@@ -18,14 +18,14 @@ from test_framework.mininode import (
     msg_headers,
     msg_block,
     msg_getdata,
-    msg_getheaders,
-    TAPYRUSD_IMMEDIATE_TIMEOUT
+    msg_getheaders
 )
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
     assert_equal,
     wait_until,
 )
+from test_framework.timeout_config import TAPYRUSD_IMMEDIATE_TIMEOUT
 
 class P2PFingerprintTest(BitcoinTestFramework):
     def set_test_params(self):

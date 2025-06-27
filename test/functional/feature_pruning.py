@@ -10,7 +10,7 @@ This test uses 4GB of disk space.
 This test takes 90 mins or more (up to 4 hours)
 
 """
-from test_framework.timeout_config import TAPYRUSD_PROC_TIMEOUT
+from test_framework.timeout_config import TAPYRUSD_PROC_TIMEOUT, TAPYRUSD_SYNC_TIMEOUT
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, assert_greater_than, assert_raises_rpc_error, connect_nodes, sync_blocks, wait_until, NetworkDirName, hex_str_to_bytes
 from test_framework.script import MAX_SCRIPT_SIZE, CScript
@@ -265,7 +265,7 @@ class PruneTest(BitcoinTestFramework):
 
         self.log.info("Verify node 2 reorged back to the main chain, some blocks of which it had to redownload")
         # Wait for Node 2 to reorg to proper height
-        wait_until(lambda: self.nodes[2].getblockcount() >= goalbestheight, timeout=900)
+        wait_until(lambda: self.nodes[2].getblockcount() >= goalbestheight, timeout=TAPYRUSD_SYNC_TIMEOUT)
         assert(self.nodes[2].getbestblockhash() == goalbesthash)
         # Verify we can now have the data for a block previously pruned
         assert(self.nodes[2].getblock(self.forkhash)["height"] == self.forkheight)

@@ -9,6 +9,7 @@ from decimal import Decimal
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import get_rpc_proxy, random_transaction
+from test_framework.timeout_config import TAPYRUSD_SYNC_TIMEOUT
 
 import threading
 
@@ -20,7 +21,7 @@ class LongpollThread(threading.Thread):
         self.longpollid = templat['longpollid']
         # create a new connection to the node, we can't use the same
         # connection from two threads
-        self.node = get_rpc_proxy(node.url, 1, timeout=600, coveragedir=node.coverage_dir)
+        self.node = get_rpc_proxy(node.url, 1, timeout=TAPYRUSD_SYNC_TIMEOUT, coveragedir=node.coverage_dir)
 
     def run(self):
         self.node.getblocktemplate({'longpollid':self.longpollid})

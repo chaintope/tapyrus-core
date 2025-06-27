@@ -30,7 +30,7 @@ from .util import (
     p2p_port,
     TAPYRUS_MODES
 )
-from .timeout_config import TAPYRUSD_PROC_TIMEOUT
+from .timeout_config import TAPYRUSD_PROC_TIMEOUT, TAPYRUSD_IMMEDIATE_TIMEOUT
 
 # For Python 3.4 compatibility
 JSONDecodeError = getattr(json, "JSONDecodeError", ValueError)
@@ -312,7 +312,7 @@ class TestNode():
 
         return p2p_conn
 
-    def assert_debug_log(self, expected_msgs, unexpected_msgs=None, timeout=2):
+    def assert_debug_log(self, expected_msgs, unexpected_msgs=None, timeout=TAPYRUSD_IMMEDIATE_TIMEOUT):
         if unexpected_msgs is None:
             unexpected_msgs = []
         assert_equal(type(expected_msgs), list)

@@ -65,7 +65,7 @@ from test_framework.blocktools import create_block, create_coinbase, create_tx_w
 from test_framework.key import CECKey
 from test_framework.schnorr import Schnorr
 from test_framework.mininode import P2PDataStore
-from test_framework.timeout_config import TAPYRUSD_REORG_TIMEOUT
+from test_framework.timeout_config import TAPYRUSD_REORG_TIMEOUT, TAPYRUSD_MIN_TIMEOUT
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, bytes_to_hex_str, assert_raises_rpc_error, NetworkDirName, hex_str_to_bytes, connect_nodes
 from test_framework.script import CScript, OP_TRUE, OP_DROP, OP_1
@@ -121,7 +121,7 @@ class FederationManagementTest(BitcoinTestFramework):
         syn_node = self.nodes[1]  # convenience reference to the node
         self.address = node.getnewaddress()
         node.add_p2p_connection(P2PDataStore(node.time_to_connect))
-        node.p2p.wait_for_getheaders(timeout=5)
+        node.p2p.wait_for_getheaders(timeout=TAPYRUSD_MIN_TIMEOUT)
         self.stop_node(2)
         self.stop_node(3)
 

@@ -21,7 +21,7 @@ from enum import Enum
 
 from . import coverage
 from .authproxy import AuthServiceProxy, JSONRPCException
-from .timeout_config import TAPYRUSD_SYNC_TIMEOUT
+from .timeout_config import TAPYRUSD_SYNC_TIMEOUT, TAPYRUSD_MESSAGE_TIMEOUT, TAPYRUSD_MIN_TIMEOUT
 
 logger = logging.getLogger("TestFramework.utils")
 
@@ -224,7 +224,7 @@ def tapyrus_round(amount):
 
 def wait_until(predicate, *, attempts=float('inf'), timeout=float('inf'), lock=None):
     if attempts == float('inf') and timeout == float('inf'):
-        timeout = 60
+        timeout = TAPYRUSD_MESSAGE_TIMEOUT
     attempt = 0
     time_end = time.time() + timeout
 
@@ -392,7 +392,7 @@ def disconnect_nodes(from_connection, node_num):
                 raise
 
     # wait to disconnect
-    wait_until(lambda: [peer['id'] for peer in from_connection.getpeerinfo() if "testnode%d" % node_num in peer['subver']] == [], timeout=5)
+    wait_until(lambda: [peer['id'] for peer in from_connection.getpeerinfo() if "testnode%d" % node_num in peer['subver']] == [], timeout=TAPYRUSD_MIN_TIMEOUT)
 
 def connect_nodes(from_connection, node_num):
     ip_port = "127.0.0.1:" + str(p2p_port(node_num))
