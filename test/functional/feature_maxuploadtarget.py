@@ -17,6 +17,7 @@ import time
 from test_framework.blocktools import createTestGenesisBlock
 from test_framework.messages import CInv, msg_getdata, ToHex
 from test_framework.mininode import P2PInterface
+from test_framework.timeout_config import TAPYRUSD_REORG_TIMEOUT
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, hex_str_to_bytes, connect_nodes_bi
 from test_framework.script import CScript, MAX_SCRIPT_ELEMENT_SIZE, MAX_SCRIPT_SIZE
@@ -179,7 +180,7 @@ class MaxUploadTest(BitcoinTestFramework):
         self.log.info("Peer 0 able to download old block")
 
         self.log.info("Peer 2 with -whitelist=127.0.0.1")
-        self.restart_node(2, ["-whitelist=127.0.0.1", "-reindex", "-maxuploadtarget=1"])
+        self.restart_node(2, ["-whitelist=127.0.0.1", "-reindex", "-maxuploadtarget=1"], timeout=TAPYRUSD_REORG_TIMEOUT)
         p2p_conns[2]  = self.nodes[2].add_p2p_connection(TestP2PConn(self.nodes[2].time_to_connect))
 
         #retrieve 20 blocks which should be enough to break the 1MB limit

@@ -15,6 +15,7 @@ from test_framework.blocktools import create_block, create_coinbase, create_tx_w
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, connect_nodes, hex_str_to_bytes
 from test_framework.mininode import P2PDataStore
+from test_framework.timeout_config import TAPYRUSD_MIN_TIMEOUT
 from test_framework.script import MAX_SCRIPT_SIZE
 from test_framework.messages import ser_compact_size
 
@@ -52,7 +53,7 @@ class MaxBlockSizeInXFieldTest(BitcoinTestFramework):
         self.nodes[0].generate(10, self.signblockprivkey_wif)
 
         self.nodes[0].add_p2p_connection(TestP2PConn(self.nodes[0].time_to_connect))
-        self.nodes[0].p2p.wait_for_getheaders(timeout=5)
+        self.nodes[0].p2p.wait_for_getheaders(timeout=TAPYRUSD_MIN_TIMEOUT)
 
         for (i,size) in enumerate(range(1,7)):
             self.block_time += 1

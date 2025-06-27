@@ -41,6 +41,7 @@ from test_framework.messages import (
     msg_headers
 )
 from test_framework.mininode import P2PInterface
+from test_framework.timeout_config import TAPYRUSD_MESSAGE_TIMEOUT, TAPYRUSD_MIN_TIMEOUT
 from test_framework.script import (CScript, OP_TRUE)
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal
@@ -59,7 +60,7 @@ class AssumeValidTest(BitcoinTestFramework):
         self.genesisBlock =  createTestGenesisBlock(self.signblockpubkey, self.signblockprivkey, self.genesistime)
 
         # Need a bit of extra time when running with the thread sanitizer
-        self.rpc_timeout = 120
+        self.rpc_timeout = TAPYRUSD_MESSAGE_TIMEOUT
 
     def setup_network(self):
         self.add_nodes(3)
@@ -82,7 +83,7 @@ class AssumeValidTest(BitcoinTestFramework):
     def assert_blockchain_height(self, node, height):
         """Wait until the blockchain is no longer advancing and verify it's reached the expected height."""
         last_height = node.getblock(node.getbestblockhash())['height']
-        timeout = 10
+        timeout = TAPYRUSD_MIN_TIMEOUT
         while True:
             time.sleep(0.25)
             current_height = node.getblock(node.getbestblockhash())['height']

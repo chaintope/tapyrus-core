@@ -65,6 +65,7 @@ from test_framework.blocktools import create_block, create_coinbase, create_tx_w
 from test_framework.key import CECKey
 from test_framework.schnorr import Schnorr
 from test_framework.mininode import P2PDataStore
+from test_framework.timeout_config import TAPYRUSD_REORG_TIMEOUT
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, bytes_to_hex_str, assert_raises_rpc_error, NetworkDirName, hex_str_to_bytes, connect_nodes
 from test_framework.script import CScript, OP_TRUE, OP_DROP, OP_1
@@ -479,7 +480,7 @@ class FederationManagementTest(BitcoinTestFramework):
 
         self.stop_node(0)
         self.log.info("Restarting node0 with '-reindex'")
-        self.start_node(0, extra_args=["-reindex"])
+        self.start_node(0, extra_args=["-reindex"], timeout=TAPYRUSD_REORG_TIMEOUT)
         connect_nodes(self.nodes[0], 1)
         self.connectNodeAndCheck(2, expectedAggPubKeys)
 
