@@ -145,12 +145,19 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
 
         config = configparser.ConfigParser()
         config.read_file(open(self.options.configfile))
-        self.options.bitcoind = os.getenv("TAPYRUSD", default=config["environment"]["BUILDDIR"] + '/src/tapyrusd' + config["environment"]["EXEEXT"])
-        self.options.bitcoincli = os.getenv("TAPYRUSCLI", default=config["environment"]["BUILDDIR"] + '/src/tapyrus-cli' + config["environment"]["EXEEXT"])
+        bin_path_cmake = os.path.join(config["environment"]["BUILDDIR"] + "/bin/")
+        bin_path_autotools = os.path.join(config["environment"]["BUILDDIR"] + "/src/")
+
+        if os.path.exists(os.path.join(bin_path_cmake, 'tapyrusd' + config["environment"]["EXEEXT"])):
+            default_bin_path = bin_path_cmake
+        else:
+            default_bin_path = bin_path_autotools
+        self.options.bitcoind = os.getenv("TAPYRUSD", default=os.path.join(default_bin_path + 'tapyrusd' + config["environment"]["EXEEXT"]))
+        self.options.bitcoincli = os.getenv("TAPYRUSCLI", default=os.path.join(default_bin_path + 'tapyrus-cli' + config["environment"]["EXEEXT"]))
 
         os.environ['PATH'] = os.pathsep.join([
-            os.path.join(config['environment']['BUILDDIR'], 'src'),
-            os.path.join(config['environment']['BUILDDIR'], 'src', 'qt'),
+            default_bin_path,
+            os.path.join(default_bin_path, 'qt'),
             os.environ['PATH']
         ])
         # Set up temp directory and start logging

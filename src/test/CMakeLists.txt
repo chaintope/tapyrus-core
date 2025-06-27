@@ -118,9 +118,12 @@ add_executable(test_tapyrus
         # Tests generated from JSON
         ${JSON_HEADERS}
 )
+cmake_policy(SET CMP0167 NEW)
+find_package(Boost REQUIRED)
 
 target_include_directories(test_tapyrus
     PRIVATE
+        ${Boost_INCLUDE_DIRS}
         ${CMAKE_INSTALL_PREFIX}/include
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../leveldb
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../leveldb/include>
@@ -134,11 +137,8 @@ target_include_directories(test_tapyrus
         ${CMAKE_CURRENT_BINARY_DIR}
 )
 
-find_package(Boost 1.81 REQUIRED unit_test_framework)
-
 target_link_libraries(test_tapyrus
     PRIVATE
-        Boost::unit_test_framework
         tapyrus_wallet
         tapyrus_cli
         tapyrus_server
@@ -148,7 +148,6 @@ target_link_libraries(test_tapyrus
 )
 
 # We need to detect if the BOOST_TEST_DYN_LINK flag is required.
-set(CMAKE_REQUIRED_LIBRARIES Boost::unit_test_framework)
 check_cxx_source_compiles("
     #define BOOST_TEST_DYN_LINK
     #define BOOST_TEST_MAIN

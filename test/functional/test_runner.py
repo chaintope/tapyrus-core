@@ -300,7 +300,7 @@ def main():
     logging.debug("Temporary test directory at %s" % tmpdir)
 
     enable_wallet = config["components"].getboolean("ENABLE_WALLET")
-    enable_utils = config["components"].getboolean("ENABLE_UTILS")
+    enable_utils = config["components"].getboolean("BUILD_UTILS")
     enable_tapyrusd = config["components"].getboolean("BUILD_DAEMON")
     enable_usdt = config["components"].getboolean("ENABLE_USDT")
 
@@ -311,8 +311,11 @@ def main():
         sys.exit(0)
 
     if not (enable_wallet and enable_utils and enable_tapyrusd):
-        print("No functional tests to run. Wallet, utils, and bitcoind must all be enabled")
-        print("Rerun `configure` with -enable-wallet, -with-utils and -with-daemon and rerun make")
+        print("No functional tests to run. Wallet, utils, and tapyrusd must all be enabled")
+        print("Rerun")
+        print("`configure` with -enable-wallet, -with-utils and -with-daemon and rerun make")
+        print("or")
+        print("`cmake' -DENABLE_WALLET=true -DBUILD_UTILS=true -DBUILD_DAEMON=true and rerun make")
         sys.exit(0)
 
     # Build list of tests

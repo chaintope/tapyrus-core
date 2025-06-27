@@ -216,6 +216,7 @@ target_link_libraries(tapyrus_server
     tapyrus_common
     tapyrus_util
     $<TARGET_NAME_IF_EXISTS:tapyrus_zmq>
+    $<TARGET_NAME_IF_EXISTS:tapyrus_wallet>
     leveldb
     univalue
     Boost::headers
@@ -248,7 +249,7 @@ if(BUILD_DAEMON)
     tapyrusd.cpp
   )
   add_windows_resources(tapyrusd tapyrusd-res.rc)
-  target_link_libraries(tapyrusd
+  target_link_libraries(tapyrusd PRIVATE
     Boost::headers
     $<TARGET_NAME_IF_EXISTS:tapyrus_wallet>
   )
