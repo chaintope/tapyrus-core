@@ -24,11 +24,8 @@ add_library(tapyrus_wallet STATIC
 target_link_libraries(tapyrus_wallet
   PRIVATE
     core_interface
-<<<<<<< HEAD
-=======
     tapyrus_common
     tapyrus_util
->>>>>>> 9bc7d17b8c (port cmake from bitcoin to tapyrus; make build settings uniform across both builds. fix include path of tapyrus-config, test data herder format etc)
     tapyrus_server
     univalue
     ${BerkeleyDB_LIBRARY}
