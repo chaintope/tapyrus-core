@@ -21,6 +21,7 @@ from enum import Enum
 
 from . import coverage
 from .authproxy import AuthServiceProxy, JSONRPCException
+from .timeout_config import TAPYRUSD_SYNC_TIMEOUT
 
 logger = logging.getLogger("TestFramework.utils")
 
@@ -404,7 +405,7 @@ def connect_nodes_bi(nodes, a, b):
     connect_nodes(nodes[a], b)
     connect_nodes(nodes[b], a)
 
-def sync_blocks(rpc_connections, *, wait=1, timeout=60):
+def sync_blocks(rpc_connections, *, wait=1, timeout=TAPYRUSD_SYNC_TIMEOUT):
     """
     Wait until everybody has the same tip.
 
@@ -420,7 +421,7 @@ def sync_blocks(rpc_connections, *, wait=1, timeout=60):
         time.sleep(wait)
     raise TimeoutError("Block sync timed out:{}".format("".join("\n  {!r}".format(b) for b in best_hash)))
 
-def sync_mempools(rpc_connections, *, wait=1, timeout=60, flush_scheduler=True):
+def sync_mempools(rpc_connections, *, wait=1, timeout=TAPYRUSD_SYNC_TIMEOUT, flush_scheduler=True):
     """
     Wait until everybody has the same transactions in their memory
     pools

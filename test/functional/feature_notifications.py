@@ -8,6 +8,7 @@ import os
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, wait_until, connect_nodes_bi
+from test_framework.timeout_config import TAPYRUSD_P2P_TIMEOUT
 
 class NotificationsTest(BitcoinTestFramework):
     def set_test_params(self):
@@ -33,7 +34,7 @@ class NotificationsTest(BitcoinTestFramework):
         blocks = self.nodes[1].generate(block_count, self.signblockprivkey_wif)
 
         # wait at most 10 seconds for expected file size before reading the content
-        wait_until(lambda: os.path.isfile(self.block_filename) and os.stat(self.block_filename).st_size >= (block_count * 65), timeout=10)
+        wait_until(lambda: os.path.isfile(self.block_filename) and os.stat(self.block_filename).st_size >= (block_count * 65), timeout=TAPYRUSD_P2P_TIMEOUT)
 
         # file content should equal the generated blocks hashes
         with open(self.block_filename, 'r', encoding="utf-8") as f:
@@ -41,7 +42,7 @@ class NotificationsTest(BitcoinTestFramework):
 
         self.log.info("test -walletnotify")
         # wait at most 10 seconds for expected file size before reading the content
-        wait_until(lambda: os.path.isfile(self.tx_filename) and os.stat(self.tx_filename).st_size >= (block_count * 65), timeout=10)
+        wait_until(lambda: os.path.isfile(self.tx_filename) and os.stat(self.tx_filename).st_size >= (block_count * 65), timeout=TAPYRUSD_P2P_TIMEOUT)
 
         # file content should equal the generated transaction hashes
         txids_rpc = list(map(lambda t: t['txid'], self.nodes[1].listtransactions(block_count)))
@@ -54,7 +55,7 @@ class NotificationsTest(BitcoinTestFramework):
         self.restart_node(1)
         connect_nodes_bi(self.nodes, 0, 1)
 
-        wait_until(lambda: os.path.isfile(self.tx_filename) and os.stat(self.tx_filename).st_size >= (block_count * 65), timeout=10)
+        wait_until(lambda: os.path.isfile(self.tx_filename) and os.stat(self.tx_filename).st_size >= (block_count * 65), timeout=TAPYRUSD_P2P_TIMEOUT)
 
         # file content should equal the generated transaction hashes
         txids_rpc = list(map(lambda t: t['txid'], self.nodes[1].listtransactions(block_count)))

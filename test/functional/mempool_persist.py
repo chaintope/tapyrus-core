@@ -42,6 +42,7 @@ import time
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error, wait_until, NetworkDirName
+from test_framework.timeout_config import TAPYRUSD_IMMEDIATE_TIMEOUT
 
 class MempoolPersistTest(BitcoinTestFramework):
     def set_test_params(self):
@@ -74,8 +75,8 @@ class MempoolPersistTest(BitcoinTestFramework):
         self.start_node(0)
         self.start_node(2)
         # Give bitcoind a second to reload the mempool
-        wait_until(lambda: len(self.nodes[0].getrawmempool()) == 5, timeout=1)
-        wait_until(lambda: len(self.nodes[2].getrawmempool()) == 5, timeout=1)
+        wait_until(lambda: len(self.nodes[0].getrawmempool()) == 5, timeout=TAPYRUSD_IMMEDIATE_TIMEOUT)
+        wait_until(lambda: len(self.nodes[2].getrawmempool()) == 5, timeout=TAPYRUSD_IMMEDIATE_TIMEOUT)
         # The others have loaded their mempool. If node_1 loaded anything, we'd probably notice by now:
         assert_equal(len(self.nodes[1].getrawmempool()), 0)
 

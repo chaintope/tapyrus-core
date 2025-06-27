@@ -25,6 +25,7 @@ from test_framework.messages import (
     ser_compact_size
 )
 from test_framework.mininode import P2PDataStore
+from test_framework.timeout_config import TAPYRUSD_SYNC_TIMEOUT, TAPYRUSD_MESSAGE_TIMEOUT
 from test_framework.script import (
     CScript,
     MAX_SCRIPT_ELEMENT_SIZE,
@@ -1234,7 +1235,7 @@ class FullBlockTest(BitcoinTestFramework):
             self.save_spendable_output()
             spend = self.get_spendable_output()
 
-        self.sync_blocks(blocks, True, timeout=180)
+        self.sync_blocks(blocks, True)
         chain1_tip = i
 
         # now create alt chain of same length
@@ -1246,14 +1247,14 @@ class FullBlockTest(BitcoinTestFramework):
 
         # extend alt chain to trigger re-org
         block = self.next_block("alt" + str(chain1_tip + 1))
-        self.sync_blocks([block], True, timeout=180)
+        self.sync_blocks([block], True)
 
         # ... and re-org back to the first chain
         self.move_tip(chain1_tip)
         block = self.next_block(chain1_tip + 1)
         self.sync_blocks([block], False, request_block=False)
         block = self.next_block(chain1_tip + 2)
-        self.sync_blocks([block], True, timeout=180)
+        self.sync_blocks([block], True)
 
     # Helper methods
     ################
@@ -1359,7 +1360,7 @@ class FullBlockTest(BitcoinTestFramework):
         # an INV for the next block and receive two getheaders - one for the
         # IBD and one for the INV. We'd respond to both and could get
         # unexpectedly disconnected if the DoS score for that error is 50.
-        self.nodes[0].p2p.wait_for_getheaders(timeout=5)
+        self.nodes[0].p2p.wait_for_getheaders(timeout=TAPYRUSD_MESSAGE_TIMEOUT)
 
     def reconnect_p2p(self):
         """Tear down and bootstrap the P2P connection to the node.
@@ -1369,7 +1370,7 @@ class FullBlockTest(BitcoinTestFramework):
         self.nodes[0].disconnect_p2ps()
         self.bootstrap_p2p()
 
-    def sync_blocks(self, blocks, success=True, reject_code=None, reject_reason=None, request_block=True, reconnect=False, timeout=60, f=False):
+    def sync_blocks(self, blocks, success=True, reject_code=None, reject_reason=None, request_block=True, reconnect=False, timeout=TAPYRUSD_SYNC_TIMEOUT, f=False):
         """Sends blocks to test node. Syncs and verifies that tip has advanced to most recent block.
 
         Call with success = False if the tip shouldn't advance to the most recent block."""
