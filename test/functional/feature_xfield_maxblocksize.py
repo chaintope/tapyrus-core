@@ -26,7 +26,7 @@ from test_framework.blocktools import create_block, create_coinbase, createTestG
 from test_framework.key import CECKey
 from test_framework.schnorr import Schnorr
 from test_framework.mininode import P2PDataStore
-from test_framework.timeout_config import TAPYRUSD_MIN_TIMEOUT, TAPYRUSD_PROC_TIMEOUT
+from test_framework.timeout_config import TAPYRUSD_MIN_TIMEOUT, TAPYRUSD_PROC_TIMEOUT, TAPYRUSD_REORG_TIMEOUT
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, bytes_to_hex_str, hex_str_to_bytes, NetworkDirName, connect_nodes, assert_raises_rpc_error
 from test_framework.script import CScript, OP_CHECKSIG, OP_TRUE, SignatureHash, SIGHASH_ALL, MAX_SCRIPT_SIZE

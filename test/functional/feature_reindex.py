@@ -12,7 +12,6 @@
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import wait_until
-from test_framework.timeout_config import TAPYRUSD_REORG_TIMEOUT
 
 class ReindexTest(BitcoinTestFramework):
 
@@ -25,7 +24,7 @@ class ReindexTest(BitcoinTestFramework):
         blockcount = self.nodes[0].getblockcount()
         self.stop_nodes()
         extra_args = [["-reindex-chainstate" if justchainstate else "-reindex"]]
-        self.start_nodes(extra_args, timeout=TAPYRUSD_REORG_TIMEOUT)
+        self.start_nodes(extra_args)
         wait_until(lambda: self.nodes[0].getblockcount() == blockcount)
         self.log.info("Success")
 

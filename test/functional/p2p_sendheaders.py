@@ -100,9 +100,7 @@ from test_framework.mininode import (
     msg_getheaders,
     msg_headers,
     msg_inv,
-    msg_sendheaders,
-    TAPYRUSD_SYNC_TIMEOUT,
-    TAPYRUSD_MESSAGE_TIMEOUT
+    msg_sendheaders
 )
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
@@ -110,6 +108,7 @@ from test_framework.util import (
     sync_blocks,
     wait_until,
 )
+from test_framework.timeout_config import TAPYRUSD_SYNC_TIMEOUT, TAPYRUSD_MESSAGE_TIMEOUT
 from time import sleep
 
 DIRECT_FETCH_RESPONSE_TIME = 0.05
