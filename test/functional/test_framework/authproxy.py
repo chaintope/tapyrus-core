@@ -41,7 +41,7 @@ import logging
 import socket
 import time
 import urllib.parse
-import timeout_config import TAPYRUSD_P2P_TIMEOUT
+from timeout_config import TAPYRUSD_P2P_TIMEOUT
 
 USER_AGENT = "AuthServiceProxy/0.1"
 
