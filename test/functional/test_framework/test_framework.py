@@ -21,6 +21,7 @@ from .authproxy import JSONRPCException
 from . import coverage
 from .test_node import TestNode
 from .mininode import NetworkThread
+from .timeout_config import TAPYRUSD_MIN_TIMEOUT, TAPYRUSD_PROC_TIMEOUT, TAPYRUSD_SYNC_TIMEOUT
 from .blocktools import createTestGenesisBlock
 from .util import (
     MAX_NODES,
@@ -94,7 +95,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         self.nodes = []
         self.network_thread = None
         self.mocktime = 0
-        self.rpc_timewait = 180  # Wait for up to 60 seconds for the RPC server to respond
+        self.rpc_timewait = TAPYRUSD_PROC_TIMEOUT  # Wait for up to x min for the RPC server to respond
         self.supports_cli = False
         self.bind_to_localhost_only = True
         self.signblockpubkey = "025700236c2890233592fcef262f4520d22af9160e3d9705855140eb2aa06c35d3"
@@ -145,12 +146,19 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
 
         config = configparser.ConfigParser()
         config.read_file(open(self.options.configfile))
-        self.options.bitcoind = os.getenv("TAPYRUSD", default=config["environment"]["BUILDDIR"] + '/src/tapyrusd' + config["environment"]["EXEEXT"])
-        self.options.bitcoincli = os.getenv("TAPYRUSCLI", default=config["environment"]["BUILDDIR"] + '/src/tapyrus-cli' + config["environment"]["EXEEXT"])
+        bin_path_cmake = os.path.join(config["environment"]["BUILDDIR"] + "/bin/")
+        bin_path_autotools = os.path.join(config["environment"]["BUILDDIR"] + "/src/")
+
+        if os.path.exists(os.path.join(bin_path_cmake, 'tapyrusd' + config["environment"]["EXEEXT"])):
+            default_bin_path = bin_path_cmake
+        else:
+            default_bin_path = bin_path_autotools
+        self.options.bitcoind = os.getenv("TAPYRUSD", default=os.path.join(default_bin_path + 'tapyrusd' + config["environment"]["EXEEXT"]))
+        self.options.bitcoincli = os.getenv("TAPYRUSCLI", default=os.path.join(default_bin_path + 'tapyrus-cli' + config["environment"]["EXEEXT"]))
 
         os.environ['PATH'] = os.pathsep.join([
-            os.path.join(config['environment']['BUILDDIR'], 'src'),
-            os.path.join(config['environment']['BUILDDIR'], 'src', 'qt'),
+            default_bin_path,
+            os.path.join(default_bin_path, 'qt'),
             os.environ['PATH']
         ])
         # Set up temp directory and start logging
@@ -297,6 +305,10 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         """Start a bitcoind"""
 
         node = self.nodes[i]
+
+        # Remove timeout from kwargs if present (it's for RPC wait, not subprocess)
+        timeout = kwargs.pop('timeout', None)
+        node.rpc_timeout=timeout
 
         node.start(*args, **kwargs)
         elapsed = node.wait_for_rpc_connection()

@@ -770,7 +770,7 @@ bool BerkeleyDatabase::Backup(const std::string& strDest)
                     pathDest /= strFile;
 
                 try {
-                    if (fs::equivalent(pathSrc, pathDest)) {
+                    if (fs::exists(pathDest) && fs::equivalent(pathSrc, pathDest)) {
                         LogPrintf("cannot backup to wallet source file %s\n", pathDest.string());
                         return false;
                     }

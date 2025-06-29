@@ -24,8 +24,10 @@ import threading
 
 from test_framework.messages import CBlockHeader, MIN_VERSION_SUPPORTED, msg_addr, msg_block, MSG_BLOCK, msg_blocktxn, msg_cmpctblock, msg_feefilter, msg_getaddr, msg_getblocks, msg_getblocktxn, msg_getdata, msg_getheaders, msg_headers, msg_inv, msg_mempool, msg_ping, msg_pong, msg_reject, msg_sendcmpct, msg_sendheaders, msg_tx, MSG_TX, MSG_TYPE_MASK, msg_verack, msg_version, NODE_NETWORK, NODE_WITNESS, sha256, ToHex, msg_notfound
 from test_framework.util import wait_until, NetworkDirName, MagicBytes, MAX_NODES, PORT_MIN, p2p_port
+from test_framework.timeout_config import TAPYRUSD_MESSAGE_TIMEOUT, TAPYRUSD_P2P_TIMEOUT, TAPYRUSD_MIN_TIMEOUT, set_time_to_connect, update_all_timeouts
 
 logger = logging.getLogger("TestFramework.mininode")
+
 
 MESSAGEMAP = {
     b"addr": msg_addr,
@@ -267,8 +269,16 @@ class P2PInterface(P2PConnection):
         self.nServices = 0
 
         # timeout needs to be long enough to wait for the network and wallet to sync.
-        # 5 is just a random number, there is no reason behind it.
-        self.timeout = time_to_connect * 5
+        self.timeout = TAPYRUSD_MESSAGE_TIMEOUT
+        
+        # Convert time_to_connect to seconds if it's a timedelta
+        if hasattr(time_to_connect, 'total_seconds'):
+            time_to_connect_seconds = time_to_connect.total_seconds()
+        else:
+            time_to_connect_seconds = time_to_connect
+            
+        set_time_to_connect(time_to_connect_seconds)
+        update_all_timeouts()
 
     def peer_connect(self, *args, services=NODE_NETWORK, send_version=True, **kwargs):
         create_conn = super().peer_connect(*args, **kwargs)
@@ -349,26 +359,26 @@ class P2PInterface(P2PConnection):
         self.nServices = message.nServices
 
     # Connection helper methods
-    def wait_for_connect(self, timeout=60):
+    def wait_for_connect(self, timeout=TAPYRUSD_P2P_TIMEOUT):
         test_function = lambda: self.is_connected
         self.wait_until(test_function, timeout=timeout, check_connected=False)
 
-    def wait_for_disconnect(self, timeout=60):
+    def wait_for_disconnect(self, timeout=TAPYRUSD_P2P_TIMEOUT):
         test_function = lambda: not self.is_connected
         wait_until(test_function, timeout=timeout, lock=mininode_lock)
 
-    def wait_for_reconnect(self, timeout=60):
+    def wait_for_reconnect(self, timeout=TAPYRUSD_P2P_TIMEOUT):
         def test_function():
             return self.is_connected and self.last_message.get('version')
         self.wait_until(test_function, timeout=timeout, check_connected=False)
 
     # Message receiving helper methods
 
-    def wait_for_block(self, blockhash, timeout=60):
+    def wait_for_block(self, blockhash, timeout=TAPYRUSD_P2P_TIMEOUT):
         test_function = lambda: self.last_message.get("block") and self.last_message["block"].block.rehash() == blockhash
         wait_until(test_function, timeout=timeout, lock=mininode_lock)
 
-    def wait_for_header(self, blockhash, timeout=60):
+    def wait_for_header(self, blockhash, timeout=TAPYRUSD_P2P_TIMEOUT):
         def test_function():
             last_headers = self.last_message.get('headers')
             if not last_headers:
@@ -377,7 +387,7 @@ class P2PInterface(P2PConnection):
 
         wait_until(test_function, timeout=timeout, lock=mininode_lock)
 
-    def wait_for_getdata(self, timeout=60):
+    def wait_for_getdata(self, timeout=TAPYRUSD_P2P_TIMEOUT):
         """Waits for a getdata message.
 
         Receiving any getdata message will satisfy the predicate. the last_message["getdata"]
@@ -387,7 +397,7 @@ class P2PInterface(P2PConnection):
         test_function = lambda: self.last_message.get("getdata")
         wait_until(test_function, timeout=timeout, lock=mininode_lock)
 
-    def wait_for_getheaders(self, block_hash=None, timeout=60):
+    def wait_for_getheaders(self, block_hash=None, timeout=TAPYRUSD_P2P_TIMEOUT):
         """Waits for a getheaders message.
 
         Receiving any getheaders message will satisfy the predicate. the last_message["getheaders"]
@@ -403,7 +413,7 @@ class P2PInterface(P2PConnection):
             return block_hash == last_getheaders.locator.vHave[0]
 
         wait_until(test_function, timeout=timeout, lock=mininode_lock)
-    def wait_for_inv(self, expected_inv, timeout=60):
+    def wait_for_inv(self, expected_inv, timeout=TAPYRUSD_P2P_TIMEOUT):
         """Waits for an INV message and checks that the first inv object in the message was as expected."""
         if len(expected_inv) > 1:
             raise NotImplementedError("wait_for_inv() will only verify the first inv object")
@@ -412,7 +422,7 @@ class P2PInterface(P2PConnection):
                                 self.last_message["inv"].inv[0].hash == expected_inv[0].hash
         wait_until(test_function, timeout=timeout, lock=mininode_lock)
 
-    def wait_for_verack(self, timeout=60):
+    def wait_for_verack(self, timeout=TAPYRUSD_P2P_TIMEOUT):
         test_function = lambda: self.message_count["verack"]
         wait_until(test_function, timeout=timeout, lock=mininode_lock)
 
@@ -427,7 +437,7 @@ class P2PInterface(P2PConnection):
         self.sync_with_ping()
 
     # Sync up with the node
-    def sync_with_ping(self, timeout=60):
+    def sync_with_ping(self, timeout=TAPYRUSD_P2P_TIMEOUT):
         self.send_message(msg_ping(nonce=self.ping_counter))
         test_function = lambda: self.last_message.get("pong") and self.last_message["pong"].nonce == self.ping_counter
         wait_until(test_function, timeout=timeout, lock=mininode_lock)
@@ -459,7 +469,7 @@ class NetworkThread(threading.Thread):
         """Start the network thread."""
         self.network_event_loop.run_forever()
 
-    def close(self, timeout=10):
+    def close(self, timeout=TAPYRUSD_MIN_TIMEOUT * 2):
         """Close the connections and network event loop."""
         self.network_event_loop.call_soon_threadsafe(self.network_event_loop.stop)
         wait_until(lambda: not self.network_event_loop.is_running(), timeout=timeout)
@@ -580,7 +590,7 @@ class P2PDataStore(P2PInterface):
         self.reject_code_received = message.code
         self.reject_reason_received = message.reason
 
-    def send_blocks_and_test(self, blocks, rpc, success=True, request_block=True, reject_code=None, reject_reason=None, timeout=60):
+    def send_blocks_and_test(self, blocks, rpc, success=True, request_block=True, reject_code=None, reject_reason=None, timeout=TAPYRUSD_MESSAGE_TIMEOUT):
         """Send blocks to test node and test whether the tip advances.
 
          - add all blocks to our block_store

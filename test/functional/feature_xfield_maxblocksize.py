@@ -26,6 +26,7 @@ from test_framework.blocktools import create_block, create_coinbase, createTestG
 from test_framework.key import CECKey
 from test_framework.schnorr import Schnorr
 from test_framework.mininode import P2PDataStore
+from test_framework.timeout_config import TAPYRUSD_MIN_TIMEOUT, TAPYRUSD_PROC_TIMEOUT, TAPYRUSD_REORG_TIMEOUT
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, bytes_to_hex_str, hex_str_to_bytes, NetworkDirName, connect_nodes, assert_raises_rpc_error
 from test_framework.script import CScript, OP_CHECKSIG, OP_TRUE, SignatureHash, SIGHASH_ALL, MAX_SCRIPT_SIZE
@@ -99,7 +100,7 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
     def reconnect_p2p(self, node):
         node.disconnect_p2ps()
         node.add_p2p_connection(TestP2PConn(self.nodes[0].time_to_connect))
-        node.p2p.wait_for_getheaders(timeout=5)
+        node.p2p.wait_for_getheaders(timeout=TAPYRUSD_MIN_TIMEOUT)
 
     def run_test(self):
         node = self.nodes[0]
@@ -450,7 +451,7 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
 
         self.stop_node(0)
         self.log.info("Restarting node0 with '-reindex'")
-        self.start_node(0, extra_args=["-reindex"])
+        self.start_node(0, extra_args=["-reindex"], timeout=TAPYRUSD_REORG_TIMEOUT)
         connect_nodes(self.nodes[0], 1)
         self.reconnect_p2p(node)
         self.connectNodeAndCheck(2, expectedAggPubKeys, expectedblockheights)
@@ -493,7 +494,7 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         self.block_time += 1
         blocknew = self.new_block(48, spend=self.unspent[21])
         blocknew.solve(self.aggprivkey[1])
-        node.p2p.send_blocks_and_test([blocknew], node, success=True, request_block=False, timeout=300)
+        node.p2p.send_blocks_and_test([blocknew], node, success=True, request_block=False, timeout=TAPYRUSD_PROC_TIMEOUT)
         self.tip = blocknew.hash
         assert_equal(self.tip, node.getbestblockhash())
 
@@ -525,7 +526,7 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
 
         self.stop_node(0)
         self.log.info("Restarting node0 with '-reindex'")
-        self.start_node(0, extra_args=["-reindex"])
+        self.start_node(0, extra_args=["-reindex"], timeout=TAPYRUSD_REORG_TIMEOUT)
         connect_nodes(self.nodes[0], 1)
         self.reconnect_p2p(node)
         self.connectNodeAndCheck(2, expectedAggPubKeys, expectedblockheights)
@@ -550,7 +551,7 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
 
         self.log.info("Restarting node0 with '-reindex-chainstate'")
         self.stop_node(0)
-        self.start_node(0, extra_args=["-reindex-chainstate"])
+        self.start_node(0, extra_args=["-reindex-chainstate"], timeout=TAPYRUSD_REORG_TIMEOUT)
         self.reconnect_p2p(node)
         time.sleep(30)
         self.sync_all([self.nodes[0:2]])
@@ -578,7 +579,7 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
 
         #self.log.info("Starting node2 with '-reloadxfield'")
-        self.start_node(2, ["-reloadxfield"])
+        self.start_node(2, ["-reloadxfield"], timeout=TAPYRUSD_REORG_TIMEOUT)
         connect_nodes(self.nodes[2], 0)
         connect_nodes(self.nodes[2], 1)
         #reindex takes time. wait before checking blockchain info

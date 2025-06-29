@@ -14,6 +14,14 @@ endmacro(create_test_suite)
 
 function(add_test_to_suite SUITE NAME)
 	add_executable(${NAME} ${ARGN})
-	add_test(${NAME} ${NAME})
+
+	# Set RPATH for the test executable
+	set_target_properties(${NAME} PROPERTIES
+		INSTALL_RPATH "${CMAKE_BINARY_DIR}/lib"
+		BUILD_WITH_INSTALL_RPATH TRUE
+		SKIP_BUILD_RPATH FALSE
+	)
+
+	add_test(NAME ${NAME} COMMAND ${NAME} WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 	add_dependencies("check-${SUITE}" ${NAME})
 endfunction(add_test_to_suite)

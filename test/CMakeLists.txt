@@ -7,14 +7,15 @@ if(CMAKE_SYSTEM_NAME MATCHES "Windows")
 	set(EXEEXT ".exe")
 endif()
 
-if(NOT BUILD_TAPYRUS_WALLET)
+if(NOT ENABLE_WALLET)
 	set(ENABLE_WALLET_TRUE "#")
 endif()
 
-if(NOT BUILD_TAPYRUS_TX OR NOT BUILD_TAPYRUS_TX)
-	set(BUILD_TAPYRUS_UTILS_TRUE "#")
+if(NOT BUILD_UTILS)
+	set(BUILD_UTILS_TRUE "#")
 endif()
-if(NOT BUILD_TAPYRUS_ZMQ)
+
+if(NOT ENABLE_ZMQ)
 	set(ENABLE_ZMQ_TRUE "#")
 endif()
 
@@ -50,6 +51,14 @@ make_link(
 	${CMAKE_CURRENT_BINARY_DIR}/util/tapyrus-util-test.py
 )
 
+if(NOT TARGET check-all)
+	add_custom_target(check-all)
+endif()
+
+if(NOT TARGET check)
+	add_custom_target(check)
+endif()
+
 add_custom_target(check-functional
 	COMMAND
 		./functional/test_runner.py
@@ -62,7 +71,7 @@ add_custom_target(check-functional
 
 add_dependencies(check-all check-functional)
 
-if(BUILD_TAPYRUS_TX)
+if(BUILD_UTILS)
 	add_custom_target(check-tapyrus-util
 		COMMAND
 			${CMAKE_COMMAND} -E echo "Running test/util/tapyrus-util-test.py..."
