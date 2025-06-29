@@ -306,6 +306,10 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
 
         node = self.nodes[i]
 
+        # Remove timeout from kwargs if present (it's for RPC wait, not subprocess)
+        timeout = kwargs.pop('timeout', None)
+        node.rpc_timeout=timeout
+
         node.start(*args, **kwargs)
         elapsed = node.wait_for_rpc_connection()
         self.log.debug("Time taken %s" % elapsed)
