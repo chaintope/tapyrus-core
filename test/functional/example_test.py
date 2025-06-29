@@ -21,8 +21,7 @@ from test_framework.mininode import (
     P2PInterface,
     mininode_lock,
     msg_block,
-    msg_getdata,
-    TAPYRUSD_SYNC_TIMEOUT
+    msg_getdata
 )
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
@@ -30,6 +29,7 @@ from test_framework.util import (
     connect_nodes,
     wait_until,
 )
+from test_framework.timeout_config import TAPYRUSD_SYNC_TIMEOUT
 
 # P2PInterface is a class containing callbacks to be executed when a P2P
 # message is received from the node-under-test. Subclass P2PInterface and
