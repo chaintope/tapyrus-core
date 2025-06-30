@@ -1,8 +1,5 @@
 name: GNU Autotools Build & Test
 on:
-  pull_request:
-    branches:
-      - '**'
   workflow_dispatch:
     inputs:
       use_depends:
