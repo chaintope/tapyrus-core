@@ -579,7 +579,7 @@ class SendHeadersTest(BitcoinTestFramework):
         test_node.sync_with_ping(timeout=TAPYRUSD_SYNC_TIMEOUT)
 
         #wait for the federation block to sync
-        wait_until(lambda: self.nodes[0].getbestblockhash() == tip, timeout=TAPYRUSD_SYNC_TIMEOUT)
+        self.sync_all()
 
         #repeat sequence  in 4a
         tip = self.mine_blocks(1)
