@@ -29,12 +29,19 @@ target_raw_data_sources(bench_tapyrus NAMESPACE benchmark::data
 
 target_link_libraries(bench_tapyrus
   core_interface
-  tapyrus_server
+  tapyrus_consensus
+  $<TARGET_NAME_IF_EXISTS:tapyrus_zmq>
   Boost::headers
   $<TARGET_NAME_IF_EXISTS:libevent::core>
   $<TARGET_NAME_IF_EXISTS:libevent::extra>
   $<TARGET_NAME_IF_EXISTS:libevent::pthreads>
 )
+
+# Add ZeroMQ and libsodium dependencies explicitly for macOS
+if(APPLE)
+  target_link_libraries(bench_tapyrus /opt/homebrew/lib/libzmq.dylib)
+  target_link_libraries(bench_tapyrus /opt/homebrew/lib/libsodium.dylib)
+endif()
 target_include_directories(bench_tapyrus
   PRIVATE
     ${BerkeleyDB_INCLUDE_DIR}

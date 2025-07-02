@@ -64,7 +64,9 @@ int main(int argc, char** argv)
     // Set the datadir after parsing the bench options
     const fs::path bench_datadir{SetDataDir()};
 
+    ECCVerifyHandle globalVerifyHandle;
     SHA256AutoDetect();
+    RandomInit();
     ECC_Start();
     SetupEnvironment();
     writeTestGenesisBlockToFile(GetDataDir(false));
