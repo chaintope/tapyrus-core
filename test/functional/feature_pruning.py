@@ -375,7 +375,7 @@ class PruneTest(BitcoinTestFramework):
         self.log.info("Syncing node 5 to test wallet")
         connect_nodes(self.nodes[0], 5)
         nds = [self.nodes[0], self.nodes[5]]
-        sync_blocks(nds, wait=5, timeout=300)
+        sync_blocks(nds, wait=5, timeout=TAPYRUSD_SYNC_TIMEOUT)
         self.stop_node(5) #stop and start to trigger rescan
         self.start_node(5, extra_args=["-prune=550"])
         self.log.info("Success")

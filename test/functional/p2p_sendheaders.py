@@ -109,7 +109,6 @@ from test_framework.util import (
     wait_until,
 )
 from test_framework.timeout_config import TAPYRUSD_SYNC_TIMEOUT, TAPYRUSD_MESSAGE_TIMEOUT
-from time import sleep
 
 DIRECT_FETCH_RESPONSE_TIME = 0.05
 
@@ -580,8 +579,7 @@ class SendHeadersTest(BitcoinTestFramework):
         test_node.sync_with_ping(timeout=TAPYRUSD_SYNC_TIMEOUT)
 
         #wait for the federation block to sync
-        while self.nodes[0].getbestblockhash() != tip:
-            sleep(1)
+        wait_until(lambda: self.nodes[0].getbestblockhash() == tip, timeout=TAPYRUSD_SYNC_TIMEOUT)
 
         #repeat sequence  in 4a
         tip = self.mine_blocks(1)

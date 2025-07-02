@@ -180,7 +180,7 @@ class MaxUploadTest(BitcoinTestFramework):
         self.log.info("Peer 0 able to download old block")
 
         self.log.info("Peer 2 with -whitelist=127.0.0.1")
-        self.restart_node(2, ["-whitelist=127.0.0.1", "-reindex", "-maxuploadtarget=1"], timeout=TAPYRUSD_REORG_TIMEOUT)
+        self.restart_node(2, ["-whitelist=127.0.0.1", "-reindex", "-maxuploadtarget=1"])
         p2p_conns[2]  = self.nodes[2].add_p2p_connection(TestP2PConn(self.nodes[2].time_to_connect))
 
         #retrieve 20 blocks which should be enough to break the 1MB limit

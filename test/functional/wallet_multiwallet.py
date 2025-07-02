@@ -76,7 +76,7 @@ class MultiWalletTest(BitcoinTestFramework):
             assert_equal(os.path.isfile(wallet_file(wallet_name)), True)
 
         # should not initialize if wallet path can't be created
-        exp_stderr = r"filesystem error: cannot create directories"
+        exp_stderr = r"filesystem error" #error string varies in clang and gcc (std::filesystem)
         self.nodes[0].assert_start_raises_init_error(['-wallet=wallet.dat/bad'], exp_stderr, match=ErrorMatch.PARTIAL_REGEX)
 
         self.nodes[0].assert_start_raises_init_error(['-walletdir=wallets'], 'Error: Specified -walletdir "wallets" does not exist')
@@ -131,10 +131,10 @@ class MultiWalletTest(BitcoinTestFramework):
         w5_info = w5.getwalletinfo()
         assert_equal(w5_info['balance']['TPC'], 50)
 
-        competing_wallet_dir = os.path.join(self.options.tmpdir, 'competing_walletdir')
+        competing_wallet_dir = os.path.join(self.options.tmpdir, 'competing_wallet_dir')
         os.mkdir(competing_wallet_dir)
         self.restart_node(0, ['-walletdir=' + competing_wallet_dir])
-        exp_stderr = r"Error: Error initializing wallet database environment \"\S+competing_walletdir\"!"
+        exp_stderr = r"Error: Error initializing wallet database environment \""+competing_wallet_dir+"/\"!"
         self.nodes[1].assert_start_raises_init_error(['-walletdir=' + competing_wallet_dir], exp_stderr, match=ErrorMatch.PARTIAL_REGEX)
 
         self.restart_node(0, extra_args)
@@ -273,7 +273,7 @@ class MultiWalletTest(BitcoinTestFramework):
         w2 = node.get_wallet_rpc(wallet_names[1])
         w2.walletpassphrase('test', 1)
         w2.unloadwallet()
-        time.sleep(1.1)
+        time.sleep(5)
         assert 'w2' not in self.nodes[0].listwallets()
 
         # Successfully unload all wallets

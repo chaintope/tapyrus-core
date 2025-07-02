@@ -108,7 +108,7 @@ class P2PLeakTest(BitcoinTestFramework):
         self.nodes[0].generate(1, self.signblockprivkey_wif)
 
         #Give the node enough time to possibly leak out a message
-        time.sleep(5)
+        time.sleep(TAPYRUSD_MIN_TIMEOUT)
 
         #This node should have been banned
         assert not no_version_bannode.is_connected

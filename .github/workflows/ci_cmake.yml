@@ -282,7 +282,7 @@ jobs:
           else
             echo "Functional tests failed"
             exit 1
-          #fi
+          fi
           
           echo "---------------- DONE ---------------------"
 
