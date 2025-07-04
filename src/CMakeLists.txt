@@ -7,6 +7,9 @@ include(AddWindowsResources)
 configure_file(${PROJECT_SOURCE_DIR}/cmake/tapyrus-build-config.h.in tapyrus-config.h USE_SOURCE_PERMISSIONS @ONLY)
 include_directories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 
+include(AddBoostIfNeeded)
+add_boost_if_needed()
+
 #=============================
 # Subprojects
 #=============================

@@ -83,7 +83,7 @@ function(add_macos_deploy_target)
     file(CONFIGURE OUTPUT ${macos_app}/Contents/Resources/empty.lproj CONTENT "")
     configure_file(${PROJECT_SOURCE_DIR}/src/qt/res/icons/bitcoin.icns ${macos_app}/Contents/Resources/bitcoin.icns NO_SOURCE_PERMISSIONS COPYONLY)
     file(CONFIGURE OUTPUT ${macos_app}/Contents/Resources/Base.lproj/InfoPlist.strings
-      CONTENT "{ CFBundleDisplayName = \"@CLIENT_NAME@\"; CFBundleName = \"@CLIENT_NAME@\"; }"
+      CONTENT "{ CFBundleDisplayName = \"@PACKAGE_NAME@\"; CFBundleName = \"@PACKAGE_NAME@\"; }"
     )
 
     add_custom_command(
@@ -95,7 +95,7 @@ function(add_macos_deploy_target)
       VERBATIM
     )
 
-    string(REPLACE " " "-" osx_volname ${CLIENT_NAME})
+    string(REPLACE " " "-" osx_volname ${PACKAGE_NAME})
     if(CMAKE_HOST_APPLE)
       add_custom_command(
         OUTPUT ${PROJECT_BINARY_DIR}/${osx_volname}.zip

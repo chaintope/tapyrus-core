@@ -118,10 +118,6 @@ add_executable(test_tapyrus
         # Tests generated from JSON
         ${JSON_HEADERS}
 )
-if(POLICY CMP0167)
-    cmake_policy(SET CMP0167 OLD)
-endif()
-find_package(Boost REQUIRED)
 
 target_include_directories(test_tapyrus
     PRIVATE

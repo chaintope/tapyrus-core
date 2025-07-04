@@ -17,7 +17,6 @@
 #include <sync.h>     // for WAIT_LOCK
 #include <utiltime.h> // for GetTime()
 
-#include <unistd.h>
 #include <chrono>
 #include <thread>
 
@@ -34,10 +33,10 @@
 #include <sys/syscall.h>
 #include <linux/random.h>
 #endif
-#if defined(HAVE_GETENTROPY) || (defined(HAVE_GETENTROPY_RAND) && defined(MAC_OSX))
+#if defined(HAVE_GETENTROPY) || defined(HAVE_GETENTROPY_RAND)
 #include <unistd.h>
 #endif
-#if defined(HAVE_GETENTROPY_RAND) && defined(MAC_OSX)
+#if defined(HAVE_GETENTROPY_RAND) && defined(__APPLE__)
 #include <sys/random.h>
 #endif
 #ifdef HAVE_SYSCTL_ARND
@@ -315,7 +314,7 @@ void GetOSRand(unsigned char *ent32)
     if (getentropy(ent32, NUM_OS_RANDOM_BYTES) != 0) {
         RandFailure();
     }
-#elif defined(HAVE_GETENTROPY_RAND) && defined(MAC_OSX)
+#elif defined(HAVE_GETENTROPY_RAND) && defined(__APPLE__)
     // We need a fallback for OSX < 10.12
     if (&getentropy != nullptr) {
         if (getentropy(ent32, NUM_OS_RANDOM_BYTES) != 0) {

@@ -27,7 +27,7 @@
 #define COPYRIGHT_HOLDERS_FINAL "@COPYRIGHT_HOLDERS_FINAL@"
 
 /* Replacement for %s in copyright holders string */
-#define COPYRIGHT_HOLDERS_SUBSTITUTION "@CLIENT_NAME@"
+#define COPYRIGHT_HOLDERS_SUBSTITUTION "@PACKAGE_NAME@"
 
 /* Copyright year */
 #define COPYRIGHT_YEAR @COPYRIGHT_YEAR@
@@ -131,9 +131,6 @@
 
 /* Define to the address where bug reports for this package should be sent. */
 #define CLIENT_BUGREPORT "@CLIENT_BUGREPORT@"
-
-/* Define to the full name of this package. */
-#define CLIENT_NAME "@CLIENT_NAME@"
 
 /* Define to the full name of this package. */
 #define PACKAGE_NAME "@PACKAGE_NAME@"

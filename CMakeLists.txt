@@ -23,7 +23,6 @@ endif()
 #=============================
 # Project / Package metadata
 #=============================
-set(CLIENT_NAME "Tapyrus Core")
 set(PACKAGE_NAME "Tapyrus Core")
 set(CLIENT_VERSION_MAJOR 0)
 set(CLIENT_VERSION_MINOR 6)
@@ -352,7 +351,6 @@ if(SANITIZERS)
 endif()
 target_link_options(sanitize_interface INTERFACE ${SANITIZER_LDFLAGS})
 
-find_package(Boost 1.81 REQUIRED system)
 
 if(BUILD_DAEMON OR BUILD_GUI OR BUILD_CLI OR ENABLE_TESTS OR ENABLE_BENCH)
   find_package(Libevent 2.1.8 MODULE REQUIRED)
