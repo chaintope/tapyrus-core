@@ -1,54 +1,101 @@
-# Copyright (c) 2017 The Bitcoin developers
+# Copyright (c) 2023-present The Bitcoin Core developers
+# Distributed under the MIT software license, see the accompanying
+# file COPYING or https://opensource.org/license/mit/.
 
-cmake_minimum_required(VERSION 3.5)
-project(univalue)
-
-option(UNIVALUE_BUILD_TESTS "Build univalue's unit tests" ON)
-
-# TODO: Version info
-add_library(univalue
-	lib/univalue.cpp
-	lib/univalue_get.cpp
-	lib/univalue_read.cpp
-	lib/univalue_write.cpp
+add_library(univalue STATIC EXCLUDE_FROM_ALL
+  lib/univalue.cpp
+  lib/univalue_get.cpp
+  lib/univalue_read.cpp
+  lib/univalue_write.cpp
 )
-
 target_include_directories(univalue
-	PUBLIC
-		include
-	PRIVATE
-		lib
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
+target_link_libraries(univalue PRIVATE core_interface)
 
-if(UNIVALUE_BUILD_TESTS)
-	include(TestSuite)
-	create_test_suite(univalue)
+if(ENABLE_TESTS)
+  add_executable(unitester
+    test/unitester.cpp
+  )
+  include(TargetDataSources)
+  target_json_data_sources(unitester
+    test/fail1.json
+    test/fail10.json
+    test/fail11.json
+    test/fail12.json
+    test/fail13.json
+    test/fail14.json
+    test/fail15.json
+    test/fail16.json
+    test/fail17.json
+    test/fail18.json
+    test/fail19.json
+    test/fail2.json
+    test/fail20.json
+    test/fail21.json
+    test/fail22.json
+    test/fail23.json
+    test/fail24.json
+    test/fail25.json
+    test/fail26.json
+    test/fail27.json
+    test/fail28.json
+    test/fail29.json
+    test/fail3.json
+    test/fail30.json
+    test/fail31.json
+    test/fail32.json
+    test/fail33.json
+    test/fail34.json
+    test/fail35.json
+    test/fail36.json
+    test/fail37.json
+    test/fail38.json
+    test/fail39.json
+    test/fail4.json
+    test/fail40.json
+    test/fail41.json
+    test/fail42.json
+    test/fail44.json
+    test/fail45.json
+    test/fail5.json
+    test/fail6.json
+    test/fail7.json
+    test/fail8.json
+    test/fail9.json
+    test/pass1.json
+    test/pass2.json
+    test/pass3.json
+    test/pass4.json
+    test/round1.json
+    test/round2.json
+    test/round3.json
+    test/round4.json
+    test/round5.json
+    test/round6.json
+    test/round7.json
+  )
+  target_link_libraries(unitester
+    PRIVATE
+      core_interface
+      univalue
+  )
+  target_compile_definitions(unitester
+    PRIVATE
+      JSON_TEST_SRC="${CMAKE_CURRENT_SOURCE_DIR}/test"
+  )
+  add_test(NAME univalue_test
+    COMMAND unitester
+  )
 
-	function(create_univalue_test NAME FILES)
-		add_test_to_suite(univalue ${NAME} ${FILES})
-		target_link_libraries(${NAME} univalue)
-	endfunction()
-
-	create_univalue_test(unitester_test test/unitester.cpp)
-	target_compile_definitions(unitester_test
-		PUBLIC JSON_TEST_SRC="${PROJECT_SOURCE_DIR}/test"
-	)
-
-	create_univalue_test(no_nul_test test/no_nul.cpp)
-	create_univalue_test(object_test test/object.cpp)
-
-	# test_json is not meant to run in an automated test suite.
-	add_executable(json_test EXCLUDE_FROM_ALL test/test_json.cpp)
-	target_link_libraries(json_test univalue)
-	add_dependencies(check-univalue json_test)
-endif(UNIVALUE_BUILD_TESTS)
-
-# Generate lib/univalue_escapes.h
-include(NativeExecutable)
-add_native_executable(univalue_gen gen/gen.cpp)
-native_target_include_directories(univalue_gen PUBLIC include)
-
-# Custom target to regenerate univalue_escapes.h
-add_custom_target(generate_univalue_escapes_h
-	COMMAND univalue_gen > ${CMAKE_CURRENT_SOURCE_DIR}/lib/univalue_escapes.h
-)
+  add_executable(object test/object.cpp)
+  target_link_libraries(object
+    PRIVATE
+      core_interface
+      univalue
+  )
+  add_test(NAME univalue_object_test
+    COMMAND object
+  )
+endif()

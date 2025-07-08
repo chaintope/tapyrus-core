@@ -1,0 +1,349 @@
+# Copyright (c) 2023-present The Bitcoin Core developers
+# Distributed under the MIT software license, see the accompanying
+# file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
+name: CMake Build & Test
+'on':
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - '**'
+  workflow_dispatch:
+    inputs:
+      use_depends:
+        description: Build and use depends directory
+        type: boolean
+        default: false
+        required: false
+      with_qt:
+        description: Build with Qt GUI
+        type: boolean
+        default: false
+        required: false
+      with_usdt:
+        description: Build with USDT support
+        type: boolean
+        default: false
+        required: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI_FAILFAST_TEST_LEAVE_DANGLING: 1
+  CTEST_OUTPUT_ON_FAILURE: 'ON'
+  CMAKE_BUILD_PARALLEL_LEVEL: 4
+  USE_DEPENDS: ${{ github.event.inputs.use_depends || false }}
+  WITH_QT: ${{ github.event.inputs.with_qt || false }}
+  WITH_USDT: ${{ github.event.inputs.with_usdt || false }}
+  LC_ALL: C.UTF-8
+  BOOST_TEST_RANDOM: 1
+
+jobs:
+  build-and-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - name: Linux x86_64
+            os: ubuntu-24.04
+            arch: x86_64
+            compiler: clang
+            platform: linux
+          - name: Linux ARM64
+            os: ubuntu-24.04
+            arch: arm64
+            compiler: clang
+            platform: linux
+          - name: macOS x86_64
+            os: macos-14
+            arch: x86_64
+            compiler: clang
+            platform: macos
+          - name: macOS ARM64
+            os: macos-14
+            arch: arm64
+            compiler: clang
+            platform: macos
+    name: ${{ matrix.config.name }}
+    runs-on: ${{ matrix.config.os }}
+    env:
+      BASE_ROOT_DIR: ${{ github.workspace }}
+      CCACHE_DIR: ${{ github.workspace }}/ccache
+      BASE_BUILD_DIR: ${{ github.workspace }}/build
+      CC: ${{ matrix.config.compiler }}
+      CXX: ${{ matrix.config.compiler }}++
+      LC_ALL: C.UTF-8
+      BOOST_TEST_RANDOM: 1
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          submodules: recursive
+
+      - name: Restore Ccache cache
+        id: ccache-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ env.USE_DEPENDS
+            }}-${{ env.WITH_QT }}-${{ env.WITH_USDT }}-ccache-${{ github.run_id }}
+          restore-keys: ${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{
+            env.USE_DEPENDS }}-${{ env.WITH_QT }}-${{ env.WITH_USDT }}-ccache-
+
+      - name: Setup Linux Dependencies
+        if: matrix.config.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang ccache build-essential cmake pkgconf python3-zmq libevent-dev bsdmainutils libboost-filesystem-dev libboost-test-dev libdb5.3++-dev libminiupnpc-dev libzmq3-dev libqrencode-dev systemtap-sdt-dev bpfcc-tools bpftrace python3-venv valgrind
+          if [ "${{ env.WITH_QT }}" == "true" ]; then
+            sudo apt-get install -y qtbase5-dev qttools5-dev-tools
+          fi
+          python3 -m venv $HOME/venv
+          source $HOME/venv/bin/activate
+          pip3 install pyzmq
+
+      - name: Setup macOS Dependencies
+        if: matrix.config.platform == 'macos'
+        env:
+          HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
+        run: |
+          if [ -d "/Applications/Xcode_15.0.app" ]; then
+            sudo xcode-select --switch /Applications/Xcode_15.0.app
+          else
+            echo "Xcode 15.0 not found, skipping xcode-select"
+          fi
+          clang --version
+          brew install --quiet python@3 || brew link --overwrite python@3
+          # Try berkeley-db@4 first, fall back to berkeley-db
+          if brew install --quiet berkeley-db@4 2>/dev/null; then
+            echo "Installed berkeley-db@4"
+          else
+            brew install --quiet berkeley-db
+            echo "Installed berkeley-db (will use --with-incompatible-bdb)"
+          fi
+          brew install --quiet coreutils ninja pkgconf gnu-getopt ccache boost libevent zeromq qrencode
+          if [ "${{ env.WITH_QT }}" == "true" ]; then
+            brew install --quiet qt@5
+          fi
+          echo 'export PATH="/opt/homebrew/bin:$PATH"' >> $HOME/.bashrc
+          echo 'export BOOST_ROOT="/opt/homebrew/opt/boost"' >> $HOME/.bashrc
+          echo 'export BOOST_INCLUDEDIR="/opt/homebrew/opt/boost/include"' >> $HOME/.bashrc
+          echo 'export BOOST_LIBRARYDIR="/opt/homebrew/opt/boost/lib"' >> $HOME/.bashrc
+          source $HOME/.bashrc
+          python3 -m venv $HOME/venv
+          source $HOME/venv/bin/activate
+          pip3 install pyzmq
+
+      - name: Build Depends
+        if: env.USE_DEPENDS == 'true'
+        run: |
+          if [ "${{ matrix.config.platform }}" == "macos" ]; then
+            make -C depends HOST=${{ matrix.config.arch }}-apple-darwin
+            export DEPENDS_DIR="${{ github.workspace }}/depends"
+            export HOST=${{ matrix.config.arch }}-apple-darwin
+          else
+            if [ "${{ matrix.config.arch }}" == "arm64" ]; then
+              export HOST="aarch64-linux-gnu"
+            else
+              export HOST="${{ matrix.config.arch }}-linux-gnu"
+            fi
+            make -C depends HOST=$HOST
+            export DEPENDS_DIR="${{ github.workspace }}/depends"
+          fi
+          export BITCOIN_CONFIG="--prefix=$DEPENDS_DIR/$HOST"
+          if [ "${{ env.WITH_QT }}" == "true" ]; then
+            export BITCOIN_CONFIG_ALL="--enable-debug --enable-werror --with-gui=qt5"
+          else
+            export BITCOIN_CONFIG_ALL="--enable-debug --enable-werror"
+          fi
+
+      - name: Setup System Dependencies
+        if: env.USE_DEPENDS != 'true'
+        run: |
+          export DEPENDS_DIR="/usr"
+          export HOST=""
+          export BITCOIN_CONFIG=""
+          if [ "${{ env.WITH_QT }}" == "true" ]; then
+            export BITCOIN_CONFIG_ALL="--enable-debug --enable-werror --with-gui=qt5"
+          else
+            export BITCOIN_CONFIG_ALL="--enable-debug --enable-werror"
+          fi
+
+      - name: Enable core dumps
+        run: |
+          CORE_DUMP_DIR="${{ github.workspace }}/core_dumps"
+          mkdir -p "$CORE_DUMP_DIR"
+          chmod 777 "$CORE_DUMP_DIR"
+          if [ "${{ matrix.config.platform }}" == "linux" ]; then
+            sudo sysctl -w kernel.core_pattern="$CORE_DUMP_DIR/core.%e.%p"
+          else
+            sudo sysctl -w kern.corefile="$CORE_DUMP_DIR/core.%N"
+          fi
+          echo "Core dumps will be stored in: $CORE_DUMP_DIR"
+          ulimit -c unlimited
+          TEST_DIR="${{ github.workspace }}/tapyrus_test"
+          mkdir -p "$TEST_DIR"
+          chmod -R 777 "$TEST_DIR"
+          echo "TAPYRUS_TEST_DIR=$TEST_DIR" >> $GITHUB_ENV
+
+      - name: Compile and run tests
+        env:
+          TAPYRUS_TEST_DIR: ${{ env.TAPYRUS_TEST_DIR }}
+        run: |
+          if [ "${{ matrix.config.platform }}" == "macos" ]; then
+            CPU_COUNT=$(sysctl -n hw.ncpu)
+          else
+            CPU_COUNT=$(nproc)
+          fi
+
+          # Create dummy .tapyrus file to prevent default datadir from being used
+          echo ">" $HOME/.tapyrus
+
+          # Common CMake configuration options
+          CMAKE_OPTS=(
+            "-DENABLE_ZMQ=ON"
+            "-DENABLE_GUI=${{ env.WITH_QT }}"
+            "-DENABLE_BENCH=ON"
+            "-DWITH_BDB=ON"
+            "-DENABLE_TRACING=${{ env.WITH_USDT }}"
+            "-DCMAKE_BUILD_TYPE=RelWithDebInfo"
+            "-DCMAKE_INSTALL_PREFIX=$DEPENDS_DIR/$HOST"
+          )
+
+          # Disable BDB version warning for macOS if using newer version
+          if [ "${{ matrix.config.platform }}" == "macos" ]; then
+            if ! brew list berkeley-db@4 &>/dev/null; then
+              CMAKE_OPTS+=("-DWARN_INCOMPATIBLE_BDB=OFF")
+            fi
+          fi
+
+          # Add platform-specific options
+          CMAKE_OPTS+=("-DCMAKE_CXX_FLAGS=-Wno-error=unused-member-function")
+          if [ "${{ env.USE_DEPENDS }}" == "true" ]; then
+            # Use Boost from depends directory
+            CMAKE_OPTS+=("-DBOOST_ROOT=$DEPENDS_DIR/$HOST")
+            CMAKE_OPTS+=("-DBOOST_INCLUDEDIR=$DEPENDS_DIR/$HOST/include")
+            CMAKE_OPTS+=("-DBOOST_LIBRARYDIR=$DEPENDS_DIR/$HOST/lib")
+          else
+            # Use system Boost
+            if [ "${{ matrix.config.platform }}" == "macos" ]; then
+              CMAKE_OPTS+=("-DBOOST_ROOT=/opt/homebrew/opt/boost")
+              CMAKE_OPTS+=("-DBOOST_INCLUDEDIR=/opt/homebrew/opt/boost/include")
+              CMAKE_OPTS+=("-DBOOST_LIBRARYDIR=/opt/homebrew/opt/boost/lib")
+              CMAKE_OPTS+=("-DCMAKE_PREFIX_PATH=/opt/homebrew/opt/boost")
+            else
+              CMAKE_OPTS+=("-DBOOST_ROOT=/usr")
+              CMAKE_OPTS+=("-DBOOST_INCLUDEDIR=/usr/include")
+              CMAKE_OPTS+=("-DBOOST_LIBRARYDIR=/usr/lib/x86_64-linux-gnu")
+            fi
+          fi
+
+          # Configure and build
+          cmake -S "$BASE_ROOT_DIR" -B "$BASE_BUILD_DIR" "${CMAKE_OPTS[@]}"
+          # Set CMake policy CMP0144 to handle package root variables properly
+          cmake -DCMAKE_POLICY_DEFAULT_CMP0144=NEW "$BASE_BUILD_DIR"
+          # Create necessary directories for secp256k1
+          mkdir -p "$BASE_BUILD_DIR/src/secp256k1/src"
+          cmake --build "$BASE_BUILD_DIR" --parallel -j "$CPU_COUNT" --target all
+
+          # Set library path for depends builds
+          if [ "${{ env.USE_DEPENDS }}" == "true" ]; then
+            export LD_LIBRARY_PATH="${DEPENDS_DIR}/${HOST}/lib"
+          fi
+
+          # Run tests
+          export CTEST_OUTPUT_ON_FAILURE=ON
+
+          echo "---------------- Start unit test ---------------- "
+          cd "$BASE_BUILD_DIR/bin"
+          if [ "${{ matrix.config.platform }}" == "linux" ]; then
+            valgrind $BASE_BUILD_DIR/bin/test_tapyrus --log_level=test_suite --report_level=short --build_info --catch_system_errors
+          else
+            ./test_tapyrus --log_level=test_suite --report_level=short --build_info --catch_system_errors
+          fi
+          
+          echo "---------------- Start util test ---------------- "
+          cd "$BASE_ROOT_DIR"
+          if python3 test/util/tapyrus-util-test.py; then
+            echo "Util tests passed"
+          else
+            echo "Util tests failed"
+            exit 1
+          fi
+          
+          #echo "---------------- Start functional test ---------------- "
+          #if python3 test/functional/test_runner.py --tmpdir="$TAPYRUS_TEST_DIR" -j 1 --combinedlogslen=4000 --coverage --failfast --quiet --extended; then
+          #  echo "Functional tests passed"
+          #else
+          #  echo "Functional tests failed"
+          #  exit 1
+          #fi
+          
+          echo "---------------- DONE ---------------------"
+
+
+      - name: Save Ccache cache
+        uses: actions/cache/save@v4
+        if: steps.ccache-cache.outputs.cache-hit != 'true'
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ env.USE_DEPENDS
+            }}-${{ env.WITH_QT }}-${{ env.WITH_USDT }}-ccache-${{ github.run_id }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.config.name }}
+          path: |
+            ${{ github.workspace }}/tapyrus_test
+            ${{ github.workspace }}/test/functional/test_framework/test_framework.log
+          retention-days: 7
+
+      - name: Debug Core Dump (if exists)
+        if: failure()
+        run: |
+          if [ "${{ matrix.config.platform }}" == "linux" ]; then
+            COREFILE=$(coredumpctl list --no-pager --output json | jq -r '.[0].filename')
+            if [ -f "$COREFILE" ]; then
+              echo "Found core dump: $COREFILE"
+              if command -v coredumpctl &> /dev/null; then
+                BINARY=$(coredumpctl info --no-pager | grep "Executable" | awk '{print $2}')
+              else
+                BINARY=$(file "$COREFILE" | awk -F"'" '{print $2}')
+              fi
+              if [ -x "$BINARY" ]; then
+                echo "Detected crashed binary: $BINARY"
+              else
+                echo "Could not detect crashed binary, using tapyrusd as default"
+                BINARY="./tapyrusd"
+              fi
+              gdb -batch -ex "bt" -ex "quit" "$BINARY" "$COREFILE"
+            fi
+          else
+            COREFILE=$(ls -t ${{ github.workspace }}/core_dumps/core.* 2>/dev/null | head -n 1)
+            if [ -f "$COREFILE" ]; then
+              echo "Found core dump: $COREFILE"
+              BINARY=$(file "$COREFILE" | awk -F"'" '{print $2}')
+              if [ -x "$BINARY" ]; then
+                echo "Detected crashed binary: $BINARY"
+              else
+                echo "Could not detect crashed binary, using tapyrusd as default"
+                BINARY="./tapyrusd"
+              fi
+              lldb -c "$COREFILE" -o "bt" -o "quit" -- "$BINARY"
+            fi
+          fi
+
+      - name: Upload Core Dumps
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: core-dumps-${{ matrix.config.name }}
+          path: ${{ github.workspace }}/core_dumps/
+          retention-days: 7

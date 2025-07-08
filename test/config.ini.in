@@ -13,8 +13,11 @@ RPCAUTH=@abs_top_srcdir@/share/rpcauth/rpcauth.py
 
 [components]
 # Which components are enabled. These are commented out by `configure` if they were disabled when running config.
+@BUILD_DAEMON_TRUE@BUILD_DAEMON=true
+@BUILD_GUI_TRUE@BUILD_GUI=true
+@BUILD_CLI_TRUE@BUILD_CLI=true
+@BUILD_UTILS_TRUE@BUILD_UTILS=true
+@BUILD_GENESIS_TRUE@BUILD_GENESIS=true
 @ENABLE_WALLET_TRUE@ENABLE_WALLET=true
-@BUILD_BITCOIN_UTILS_TRUE@ENABLE_UTILS=true
-@BUILD_BITCOIND_TRUE@ENABLE_BITCOIND=true
 @ENABLE_ZMQ_TRUE@ENABLE_ZMQ=true
 @ENABLE_USDT_TRACEPOINTS_TRUE@ENABLE_USDT_TRACEPOINTS=true

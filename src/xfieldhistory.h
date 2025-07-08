@@ -130,6 +130,7 @@ class CXFieldHistoryMap{
 
 protected:
     static XFieldHistoryMapType xfieldHistory;
+    static std::mutex xfieldHistoryMutex; // Mutex for thread-safe access
     inline CXFieldHistoryMap(bool temp):isTemp(temp) { }
 
 public:
@@ -171,8 +172,8 @@ public:
         xfieldHistory.emplace(TAPYRUS_XFIELDTYPES::AGGPUBKEY, XFieldChangeListWrapper(XFieldAggPubKey::BLOCKTREE_DB_KEY));
         xfieldHistory.emplace(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, XFieldChangeListWrapper(XFieldMaxBlockSize::BLOCKTREE_DB_KEY));
 
-        this->Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY, XFieldChange(genesis.xfield.xfieldValue, 0, genesis.GetHash()));
-        this->Add(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, XFieldChange(MAX_BLOCK_SIZE, 0, genesis.GetHash()));
+        Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY, XFieldChange(genesis.xfield.xfieldValue, 0, genesis.GetHash()));
+        Add(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, XFieldChange(MAX_BLOCK_SIZE, 0, genesis.GetHash()));
     }
 
     XFieldHistoryMapType& getXFieldHistoryMap() const override {

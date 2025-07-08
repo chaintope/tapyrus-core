@@ -260,8 +260,9 @@ struct CXField {
             case TAPYRUS_XFIELDTYPES::NONE:
                 break;
         }
-        if(GetXFieldTypeFrom(xfieldValue) != xfieldType)
+        if(GetXFieldTypeFrom(xfieldValue) != xfieldType) {
             throw BadXFieldException(xfieldType, xfieldValue);
+        }
     }
 
     inline void clear() {
