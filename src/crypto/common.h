@@ -77,25 +77,38 @@ void static inline WriteBE64(unsigned char* ptr, uint64_t x)
     memcpy(ptr, (char*)&v, 8);
 }
 
-/** Return the smallest number n such that (x >> n) == 0 (or 64 if the highest bit in x is set. */
-uint64_t static inline CountBits(uint64_t x)
-{
-#if HAVE_DECL___BUILTIN_CLZL
-    if (sizeof(unsigned long) >= sizeof(uint64_t)) {
-        return x ? 8 * sizeof(unsigned long) - __builtin_clzl(x) : 0;
+/** Compute the smallest power of two that is larger than val. */
+template<typename I>
+static inline int CountBits(I val, int max = 64) {
+#if defined(__cpp_lib_int_pow2) && __cpp_lib_int_pow2 >= 202002L
+    // c++20 impl
+    (void)max;
+    return std::bit_width(val);
+#elif defined(_MSC_VER)
+    (void)max;
+    unsigned long index;
+    unsigned char ret;
+    if (std::numeric_limits<I>::digits <= 32) {
+        ret = _BitScanReverse(&index, val);
+    } else {
+        ret = _BitScanReverse64(&index, val);
     }
+    if (!ret) return 0;
+    return index + 1;
+#elif defined(HAVE_CLZ)
+    (void)max;
+    if (val == 0) return 0;
+    if (std::numeric_limits<unsigned>::digits >= std::numeric_limits<I>::digits) {
+        return std::numeric_limits<unsigned>::digits - __builtin_clz(val);
+    } else if (std::numeric_limits<unsigned long>::digits >= std::numeric_limits<I>::digits) {
+        return std::numeric_limits<unsigned long>::digits - __builtin_clzl(val);
+    } else {
+        return std::numeric_limits<unsigned long long>::digits - __builtin_clzll(val);
+    }
+#else
+    while (max && (val >> (max - 1) == 0)) --max;
+    return max;
 #endif
-#if HAVE_DECL___BUILTIN_CLZLL
-    if (sizeof(unsigned long long) >= sizeof(uint64_t)) {
-        return x ? 8 * sizeof(unsigned long long) - __builtin_clzll(x) : 0;
-    }
-#endif
-    int ret = 0;
-    while (x) {
-        x >>= 1;
-        ++ret;
-    }
-    return ret;
 }
 
 #endif // BITCOIN_CRYPTO_COMMON_H
