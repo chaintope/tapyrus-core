@@ -162,17 +162,15 @@ public:
     }
 
     /** Generate a random integer in the range [0..range). */
-    int64_t randrange(int64_t range) noexcept
-    {
-        static_assert(std::numeric_limits<int64_t>::max() <= std::numeric_limits<uint64_t>::max());
-        assert(range > 0);
-        uint64_t maxval = range - 1U;
-        int bits = maxval == 0 ? 0 : 64 - __builtin_clzll(maxval);
-        while (true) {
-            uint64_t ret = randbits(bits);
-            if (ret <= maxval) return ret;
-        }
-    }
+    uint64_t randrange(uint64_t range) noexcept
+     {
+         --range;
+         int bits = CountBits(range);
+         while (true) {
+             uint64_t ret = randbits(bits);
+             if (ret <= range) return ret;
+         }
+     }
 
     /** Generate random bytes. */
     std::vector<unsigned char> randbytes(size_t len);
