@@ -90,6 +90,7 @@ private:
 
 public:
     explicit CTxOutCompressor(CTxOut &txoutIn) : txout(txoutIn) { }
+    explicit CTxOutCompressor(const CTxOut &txoutIn) : txout(const_cast<CTxOut&>(txoutIn)) { }
 
     ADD_SERIALIZE_METHODS;
 

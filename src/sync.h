@@ -91,7 +91,7 @@ void DeleteLock(void* cs);
 void inline EnterCritical(const char* pszName, const char* pszFile, int nLine, void* cs, bool fTry = false) {}
 void inline LeaveCritical() {}
 void inline CheckLastCritical(void* cs, std::string& lockname, const char* guardname, const char* file, int line) {}
-void inline AssertLockHeldInternal(const char* pszName, const char* pszFile, int nLine, void* cs) ASSERT_EXCLUSIVE_LOCK(cs) {}
+void inline AssertLockHeldInternal(const char* pszName, const char* pszFile, int nLine, void* cs) {}
 void inline AssertLockNotHeldInternal(const char* pszName, const char* pszFile, int nLine, void* cs) {}
 void inline DeleteLock(void* cs) {}
 #endif

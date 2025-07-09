@@ -1335,7 +1335,6 @@ static void MaybePushAddress(UniValue & entry, const CTxDestination &dest)
  *
  * @param  pwallet    The wallet.
  * @param  wtx        The wallet transaction.
- * @param  strAccount The account, if any, or "*" for all.
  * @param  nMinDepth  The minimum confirmation depth.
  * @param  fLong      Whether to include the JSON version of the transaction.
  * @param  ret        The UniValue into which the result is stored.

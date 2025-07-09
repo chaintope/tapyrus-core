@@ -173,8 +173,11 @@ bool CFederationParams::ReadGenesisBlock(std::string genesisHex)
                 throw std::runtime_error(strprintf("Uncompressed public key format are not acceptable: %s", HexStr(*pubkey)));
             }
         }
+        break;
         case TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE:
+        BOOST_FALLTHROUGH;
         case TAPYRUS_XFIELDTYPES::NONE:
+        BOOST_FALLTHROUGH;
         default:
             throw std::runtime_error("ReadGenesisBlock: invalid xfieldType in genesis block");
     }
