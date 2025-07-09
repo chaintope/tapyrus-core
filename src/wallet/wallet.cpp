@@ -2803,7 +2803,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 }
 
                 // Choose coins to use
-                bool bnb_used;
+                bool bnb_used = false;
                 if (pick_new_inputs) {
                     mapValueIn.clear();
                     mapCoins.clear();

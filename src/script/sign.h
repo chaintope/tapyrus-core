@@ -40,8 +40,8 @@ private:
 
 public:
     PublicOnlySigningProvider(const SigningProvider* provider) : m_provider(provider) {}
-    bool GetCScript(const CScriptID &scriptid, CScript& script) const;
-    bool GetPubKey(const CKeyID &address, CPubKey& pubkey) const;
+    bool GetCScript(const CScriptID &scriptid, CScript& script) const override;
+    bool GetPubKey(const CKeyID &address, CPubKey& pubkey) const override;
 };
 
 struct FlatSigningProvider final : public SigningProvider

@@ -29,6 +29,8 @@ import tempfile
 import re
 import logging
 
+from test_framework.timeout_config import TOTAL_TEST_DURATION
+
 # Formatting. Default colors to empty strings.
 BOLD, BLUE, RED, GREY, YELLOW = ("", ""), ("", ""), ("", ""), ("", ""), ("", "")
 try:
@@ -58,8 +60,6 @@ TEST_EXIT_PASSED = 0
 TEST_EXIT_SKIPPED = 77
 TEST_EXIT_TIMEOUT = 124
 
-# 20 minutes represented in seconds
-TRAVIS_TIMEOUT_DURATION = 20 * 60
 
 BASE_SCRIPTS = [
     # Scripts that are run by the travis build process.
@@ -561,7 +561,7 @@ class TestHandler:
             time.sleep(.5)
             for job in self.jobs:
                 (name, start_time, proc, testdir, log_out, log_err) = job
-                if int(time.time() - start_time) > TRAVIS_TIMEOUT_DURATION:
+                if int(time.time() - start_time) > TOTAL_TEST_DURATION:
                     # In travis, timeout individual tests (to stop tests hanging and not providing useful output).
                     proc.send_signal(signal.SIGINT)
                 if proc.poll() is not None:

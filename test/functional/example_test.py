@@ -21,7 +21,7 @@ from test_framework.mininode import (
     P2PInterface,
     mininode_lock,
     msg_block,
-    msg_getdata,
+    msg_getdata
 )
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
@@ -29,6 +29,7 @@ from test_framework.util import (
     connect_nodes,
     wait_until,
 )
+from test_framework.timeout_config import TAPYRUSD_SYNC_TIMEOUT
 
 # P2PInterface is a class containing callbacks to be executed when a P2P
 # message is received from the node-under-test. Subclass P2PInterface and
@@ -195,7 +196,7 @@ class ExampleTest(BitcoinTestFramework):
 
         # wait_until() will loop until a predicate condition is met. Use it to test properties of the
         # P2PInterface objects.
-        wait_until(lambda: sorted(blocks) == sorted(list(self.nodes[2].p2p.block_receive_map.keys())), timeout=5, lock=mininode_lock)
+        wait_until(lambda: sorted(blocks) == sorted(list(self.nodes[2].p2p.block_receive_map.keys())), timeout=TAPYRUSD_SYNC_TIMEOUT, lock=mininode_lock)
 
         self.log.info("Check that each block was received only once")
         # The network thread uses a global lock on data access to the P2PConnection objects when sending and receiving

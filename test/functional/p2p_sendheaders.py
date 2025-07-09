@@ -100,7 +100,7 @@ from test_framework.mininode import (
     msg_getheaders,
     msg_headers,
     msg_inv,
-    msg_sendheaders,
+    msg_sendheaders
 )
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
@@ -108,7 +108,7 @@ from test_framework.util import (
     sync_blocks,
     wait_until,
 )
-from time import sleep
+from test_framework.timeout_config import TAPYRUSD_SYNC_TIMEOUT, TAPYRUSD_MESSAGE_TIMEOUT
 
 DIRECT_FETCH_RESPONSE_TIME = 0.05
 
@@ -148,14 +148,14 @@ class BaseNode(P2PInterface):
         getblocks_message.locator.vHave = locator
         self.send_message(getblocks_message)
 
-    def wait_for_getdata(self, hash_list, timeout=60):
+    def wait_for_getdata(self, hash_list, timeout=TAPYRUSD_MESSAGE_TIMEOUT):
         if hash_list == []:
             return
 
         test_function = lambda: "getdata" in self.last_message and [x.hash for x in self.last_message["getdata"].inv] == hash_list
         wait_until(test_function, timeout=timeout, lock=mininode_lock)
 
-    def wait_for_block_announcement(self, block_hash, timeout=60):
+    def wait_for_block_announcement(self, block_hash, timeout=TAPYRUSD_MESSAGE_TIMEOUT):
         test_function = lambda: self.last_blockhash_announced == block_hash
         wait_until(test_function, timeout=timeout, lock=mininode_lock)
 
@@ -184,7 +184,7 @@ class BaseNode(P2PInterface):
         """Test whether the last headers announcements received are right.
            Headers may be announced across more than one message."""
         test_function = lambda: (len(self.recent_headers_announced) >= len(headers))
-        wait_until(test_function, timeout=60, lock=mininode_lock)
+        wait_until(test_function, timeout=TAPYRUSD_MESSAGE_TIMEOUT, lock=mininode_lock)
         with mininode_lock:
             assert_equal(self.recent_headers_announced, headers)
             self.block_announced = False
@@ -196,7 +196,7 @@ class BaseNode(P2PInterface):
         inv should be a list of block hashes."""
 
         test_function = lambda: self.block_announced
-        wait_until(test_function, timeout=60, lock=mininode_lock)
+        wait_until(test_function, timeout=TAPYRUSD_MESSAGE_TIMEOUT, lock=mininode_lock)
 
         with mininode_lock:
             compare_inv = []
@@ -343,7 +343,7 @@ class SendHeadersTest(BitcoinTestFramework):
                 test_node.wait_for_getdata([new_block.sha256])
                 test_node.send_message(msg_block(new_block))
                 test_node.sync_with_ping()  # make sure this block is processed
-                wait_until(lambda: inv_node.block_announced, timeout=60, lock=mininode_lock)
+                wait_until(lambda: inv_node.block_announced, timeout=TAPYRUSD_MESSAGE_TIMEOUT, lock=mininode_lock)
                 inv_node.clear_block_announcements()
                 test_node.clear_block_announcements()
 
@@ -573,14 +573,13 @@ class SendHeadersTest(BitcoinTestFramework):
 
         # Setup the p2p connections again
         inv_node = self.nodes[0].add_p2p_connection(BaseNode(self.nodes[0].time_to_connect))
-        inv_node.sync_with_ping(timeout=100)
+        inv_node.sync_with_ping(timeout=TAPYRUSD_SYNC_TIMEOUT)
 
         test_node = self.nodes[0].add_p2p_connection(BaseNode(self.nodes[0].time_to_connect))
-        test_node.sync_with_ping(timeout=100)
+        test_node.sync_with_ping(timeout=TAPYRUSD_SYNC_TIMEOUT)
 
         #wait for the federation block to sync
-        while self.nodes[0].getbestblockhash() != tip:
-            sleep(1)
+        self.sync_all()
 
         #repeat sequence  in 4a
         tip = self.mine_blocks(1)

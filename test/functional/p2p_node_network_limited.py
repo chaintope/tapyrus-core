@@ -13,6 +13,7 @@ from test_framework.messages import CInv, msg_getdata, msg_verack, NODE_BLOOM, N
 from test_framework.mininode import P2PInterface, mininode_lock
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, disconnect_nodes, connect_nodes_bi, sync_blocks, wait_until
+from test_framework.timeout_config import TAPYRUSD_MIN_TIMEOUT
 
 class P2PIgnoreInv(P2PInterface):
     firstAddrnServices = 0
@@ -21,7 +22,7 @@ class P2PIgnoreInv(P2PInterface):
         pass
     def on_addr(self, message):
         self.firstAddrnServices = message.addrs[0].nServices
-    def wait_for_addr(self, timeout=5):
+    def wait_for_addr(self, timeout=TAPYRUSD_MIN_TIMEOUT):
         test_function = lambda: self.last_message.get("addr")
         wait_until(test_function, timeout=timeout, lock=mininode_lock)
     def send_getdata_for_block(self, blockhash):
@@ -65,7 +66,7 @@ class NodeNetworkLimitedTest(BitcoinTestFramework):
 
         self.log.info("Make sure we can max retrieve block at tip-288.")
         node.send_getdata_for_block(blocks[1])  # last block in valid range
-        node.wait_for_block(int(blocks[1], 16), timeout=3)
+        node.wait_for_block(int(blocks[1], 16), timeout=TAPYRUSD_MIN_TIMEOUT)
 
         self.log.info("Requesting block at height 2 (tip-289) must fail (ignored).")
         node.send_getdata_for_block(blocks[0])  # first block outside of the 288+2 limit
@@ -87,7 +88,7 @@ class NodeNetworkLimitedTest(BitcoinTestFramework):
         # because node 2 is in IBD and node 0 is a NODE_NETWORK_LIMITED peer, sync must not be possible
         connect_nodes_bi(self.nodes, 0, 2)
         try:
-            sync_blocks([self.nodes[0], self.nodes[2]], timeout=5)
+            sync_blocks([self.nodes[0], self.nodes[2]])
         except:
             pass
         # node2 must remain at heigh 0

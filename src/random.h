@@ -163,14 +163,14 @@ public:
 
     /** Generate a random integer in the range [0..range). */
     uint64_t randrange(uint64_t range) noexcept
-    {
-        --range;
-        int bits = CountBits(range);
-        while (true) {
-            uint64_t ret = randbits(bits);
-            if (ret <= range) return ret;
-        }
-    }
+     {
+         --range;
+         int bits = CountBits(range);
+         while (true) {
+             uint64_t ret = randbits(bits);
+             if (ret <= range) return ret;
+         }
+     }
 
     /** Generate random bytes. */
     std::vector<unsigned char> randbytes(size_t len);

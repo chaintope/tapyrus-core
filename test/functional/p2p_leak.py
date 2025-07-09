@@ -17,6 +17,7 @@ from test_framework.messages import msg_getaddr, msg_ping, msg_verack
 from test_framework.mininode import mininode_lock, P2PInterface
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import wait_until
+from test_framework.timeout_config import TAPYRUSD_MIN_TIMEOUT
 
 banscore = 10
 
@@ -99,15 +100,15 @@ class P2PLeakTest(BitcoinTestFramework):
         no_version_idlenode = self.nodes[0].add_p2p_connection(CNodeNoVersionIdle(self.nodes[0].time_to_connect), send_version=False, wait_for_verack=False)
         no_verack_idlenode = self.nodes[0].add_p2p_connection(CNodeNoVerackIdle(self.nodes[0].time_to_connect))
 
-        wait_until(lambda: no_version_bannode.ever_connected, timeout=10, lock=mininode_lock)
-        wait_until(lambda: no_version_idlenode.ever_connected, timeout=10, lock=mininode_lock)
-        wait_until(lambda: no_verack_idlenode.version_received, timeout=10, lock=mininode_lock)
+        wait_until(lambda: no_version_bannode.ever_connected, timeout=TAPYRUSD_MIN_TIMEOUT, lock=mininode_lock)
+        wait_until(lambda: no_version_idlenode.ever_connected, timeout=TAPYRUSD_MIN_TIMEOUT, lock=mininode_lock)
+        wait_until(lambda: no_verack_idlenode.version_received, timeout=TAPYRUSD_MIN_TIMEOUT, lock=mininode_lock)
 
         # Mine a block and make sure that it's not sent to the connected nodes
         self.nodes[0].generate(1, self.signblockprivkey_wif)
 
         #Give the node enough time to possibly leak out a message
-        time.sleep(5)
+        time.sleep(TAPYRUSD_MIN_TIMEOUT)
 
         #This node should have been banned
         assert not no_version_bannode.is_connected

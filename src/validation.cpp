@@ -318,7 +318,7 @@ static bool CheckInputsFromMempoolAndCache(ValidationContext context, const CTra
     return CheckInputs(tx, state, view, true, flags, cacheSigStore, true, txdata, inColoredCoinBalances);
 }
 
-static bool CheckConflictsInMempool(const CTransaction& tx, std::set<uint256>& setConflicts, CValidationState& state)
+static bool CheckConflictsInMempool(const CTransaction& tx, std::set<uint256>& setConflicts, CValidationState& state) NO_THREAD_SAFETY_ANALYSIS
 {
     for (const CTxIn &txin : tx.vin)
     {

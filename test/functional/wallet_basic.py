@@ -7,6 +7,7 @@
 from decimal import Decimal
 import time, math
 
+from test_framework.timeout_config import TAPYRUSD_MIN_TIMEOUT
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
     assert_array_result,
@@ -470,7 +471,7 @@ class WalletTest(BitcoinTestFramework):
         self.start_node(0, extra_args=["-walletrejectlongchains", "-limitancestorcount=" + str(2 * chainlimit)])
 
         # wait for loadmempool
-        timeout = 10
+        timeout = TAPYRUSD_MIN_TIMEOUT
         while (timeout > 0 and len(self.nodes[0].getrawmempool()) < chainlimit * 4):
             time.sleep(0.5)
             timeout -= 0.5

@@ -24,6 +24,8 @@ add_library(tapyrus_wallet STATIC
 target_link_libraries(tapyrus_wallet
   PRIVATE
     core_interface
+    tapyrus_common
+    tapyrus_util
     tapyrus_server
     univalue
     ${BerkeleyDB_LIBRARY}
