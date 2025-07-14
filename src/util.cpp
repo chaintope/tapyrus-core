@@ -94,11 +94,11 @@ static std::mutex cs_dir_locks;
  * cleans them up and thus automatically unlocks them, or ReleaseDirectoryLocks
  * is called.
  */
-static std::map<std::string, std::unique_ptr<fsbridge::FileLock>> dir_locks GUARDED_BY(cs_dir_locks);
+static std::map<std::string, std::unique_ptr<fsbridge::FileLock>> dir_locks;
 
 LockResult LockDirectory(const fs::path& directory, const fs::path& lockfile_name, bool probe_only)
 {
-    LOCK(cs_dir_locks);
+    std::lock_guard<std::mutex> ulock(cs_dir_locks);
     fs::path pathLockFile = directory / lockfile_name;
 
     // If a lock for this directory already exists in the map, don't try to re-lock it
@@ -136,7 +136,7 @@ std::ostream& operator<<(std::ostream& os, const LockResult& result) {
 
 void ReleaseDirectoryLocks()
 {
-    LOCK(cs_dir_locks);
+    std::lock_guard<std::mutex> ulock(cs_dir_locks);
     dir_locks.clear();
 }
 
@@ -1195,16 +1195,6 @@ int GetNumCores()
     return std::thread::hardware_concurrency();
 }
 
-std::string CopyrightHolders(const std::string& strPrefix)
-{
-    std::string strCopyrightHolders = strPrefix + strprintf(_(COPYRIGHT_HOLDERS), _(COPYRIGHT_HOLDERS_SUBSTITUTION));
-
-    // Check for untranslated substitution to make sure Bitcoin Core copyright is not removed by accident
-    if (strprintf(COPYRIGHT_HOLDERS, COPYRIGHT_HOLDERS_SUBSTITUTION).find("Bitcoin Core") == std::string::npos) {
-        strCopyrightHolders += "\n" + strPrefix + "The Bitcoin Core developers";
-    }
-    return strCopyrightHolders;
-}
 
 // Obtain the application startup time (used for uptime calculation)
 int64_t GetStartupTime()

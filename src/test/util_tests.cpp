@@ -1115,7 +1115,7 @@ BOOST_AUTO_TEST_CASE(test_ParseFixedPoint)
     BOOST_CHECK(!ParseFixedPoint("1.", 8, &amount));
 }
 
-static void TestOtherThread(fs::path dirname, fs::path lockname, bool *result)
+[[maybe_unused]] static void TestOtherThread(fs::path dirname, fs::path lockname, bool *result)
 {
     *result = LockDirectory(dirname, lockname) == LockResult::Success;
 }

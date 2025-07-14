@@ -12,7 +12,7 @@ static void RollingBloom(benchmark::State& state)
     CRollingBloomFilter filter(120000, 0.000001);
     std::vector<unsigned char> data(32);
     uint32_t count = 0;
-    uint64_t match = 0;
+    [[maybe_unused]]uint64_t match = 0;
     while (state.KeepRunning()) {
         count++;
         data[0] = count;

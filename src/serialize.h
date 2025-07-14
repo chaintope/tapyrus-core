@@ -410,7 +410,8 @@ I ReadVarInt(Stream& is)
     }
 }
 
-#define VARINT(obj, ...) WrapVarInt<__VA_ARGS__>(REF(obj))
+#define VARINT(obj) WrapVarInt(REF(obj))
+#define VARINT_MODE(obj, mode) WrapVarInt<mode>(REF(obj))
 #define COMPACTSIZE(obj) CCompactSize(REF(obj))
 #define LIMITED_STRING(obj,n) LimitedString< n >(REF(obj))
 
@@ -515,6 +516,9 @@ public:
 };
 
 template<VarIntMode Mode=VarIntMode::DEFAULT, typename I>
+CVarInt<Mode, I> WrapVarInt(I& n) { return CVarInt<Mode, I>{n}; }
+
+template<VarIntMode Mode, VarIntMode DefaultMode, typename I>
 CVarInt<Mode, I> WrapVarInt(I& n) { return CVarInt<Mode, I>{n}; }
 
 template<typename I>

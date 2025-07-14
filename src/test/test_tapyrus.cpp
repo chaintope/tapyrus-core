@@ -172,7 +172,7 @@ TestChainSetup::TestChainSetup() : TestingSetup(TAPYRUS_MODES::DEV)
     for (int i = 0; i < 5; i++)
     {
         std::vector<CMutableTransaction> noTxns;
-        const CBlock b{std::move(CreateAndProcessBlock(noTxns, scriptPubKey))};
+        const CBlock b{CreateAndProcessBlock(noTxns, scriptPubKey)};
         assert(b.proof.size() == CPubKey::SCHNORR_SIGNATURE_SIZE);
         m_coinbase_txns.push_back(b.vtx[0]);
     }

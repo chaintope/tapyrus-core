@@ -8,8 +8,10 @@
  * IPv4 as well as onion addresses are wrapped inside an IPv6 address accordingly.
  */
 static SeedSpec6 pnSeed6_main[] = {
+    {{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}, 0}
 };
 
 static SeedSpec6 pnSeed6_test[] = {
+    {{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}, 0}
 };
 #endif // BITCOIN_CHAINPARAMSSEEDS_H
