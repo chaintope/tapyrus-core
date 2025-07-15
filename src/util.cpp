@@ -75,6 +75,7 @@
 #include <boost/interprocess/sync/file_lock.hpp>
 
 #include <thread>
+#include <sync.h>
 
 // Application startup time (used for uptime calculation)
 const int64_t nStartupTime = GetTime();
@@ -94,11 +95,11 @@ static std::mutex cs_dir_locks;
  * cleans them up and thus automatically unlocks them, or ReleaseDirectoryLocks
  * is called.
  */
-static std::map<std::string, std::unique_ptr<fsbridge::FileLock>> dir_locks;
+static std::map<std::string, std::unique_ptr<fsbridge::FileLock>> dir_locks GUARDED_BY(cs_dir_locks);
 
 LockResult LockDirectory(const fs::path& directory, const fs::path& lockfile_name, bool probe_only)
 {
-    std::lock_guard<std::mutex> ulock(cs_dir_locks);
+    LOCK(cs_dir_locks);
     fs::path pathLockFile = directory / lockfile_name;
 
     // If a lock for this directory already exists in the map, don't try to re-lock it
@@ -136,7 +137,7 @@ std::ostream& operator<<(std::ostream& os, const LockResult& result) {
 
 void ReleaseDirectoryLocks()
 {
-    std::lock_guard<std::mutex> ulock(cs_dir_locks);
+    LOCK(cs_dir_locks);
     dir_locks.clear();
 }
 

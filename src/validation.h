@@ -445,7 +445,5 @@ bool isBlockHeightInCoinbase(const CBlock& block);
 /** Abort with a message */
 bool AbortNode(const std::string& strMessage, const std::string& userMessage="");
 bool AbortNode(CValidationState& state, const std::string& strMessage, const std::string& userMessage="");
-/** remove old transactions from mempool based on age to keep it within size limits*/
-void LimitMempoolSize(CTxMemPool& pool, size_t limit, unsigned long age);
 
 #endif // BITCOIN_VALIDATION_H
