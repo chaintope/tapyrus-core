@@ -410,6 +410,11 @@ else()
   try_append_cxx_flags("-Wunused-parameter" TARGET warn_interface SKIP_LINK
     IF_CHECK_PASSED "-Wno-unused-parameter"
   )
+
+  # Suppress deprecated declarations warnings from third-party libraries (e.g., Boost)
+  try_append_cxx_flags("-Wdeprecated-declarations" TARGET warn_interface SKIP_LINK
+    IF_CHECK_PASSED "-Wno-deprecated-declarations"
+  )
 endif()
 
 configure_file(cmake/script/Coverage.cmake Coverage.cmake USE_SOURCE_PERMISSIONS COPYONLY)
