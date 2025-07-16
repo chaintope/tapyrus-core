@@ -276,23 +276,23 @@ BOOST_AUTO_TEST_CASE( operator_with_self )
     arith_uint256 v = UintToArith256(uint256S("02"));
     v *= v;
     BOOST_CHECK(v == UintToArith256(uint256S("04")));
-#ifdef(__APPLE__)
+#ifdef __APPLE__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wself-assign-overloaded"
 #endif
     v /= v;
-#ifdef(__APPLE__)
+#ifdef __APPLE__
 #pragma clang diagnostic pop
 #endif
     BOOST_CHECK(v == UintToArith256(uint256S("01")));
     v += v;
     BOOST_CHECK(v == UintToArith256(uint256S("02")));
-#ifdef(__APPLE__)
+#ifdef __APPLE__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wself-assign-overloaded"
 #endif
     v -= v;
-#ifdef(__APPLE__)
+#ifdef __APPLE__
 #pragma clang diagnostic pop
 #endif
     BOOST_CHECK(v == UintToArith256(uint256S("0")));
