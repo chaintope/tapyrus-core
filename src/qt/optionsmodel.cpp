@@ -252,7 +252,7 @@ QVariant OptionsModel::data(const QModelIndex & index, int role) const
         case MinimizeToTray:
             return fMinimizeToTray;
         case MapPortUPnP:
-#ifdef USE_UPNP
+#if USE_UPNP
             return settings.value("fUseUPnP");
 #else
             return false;

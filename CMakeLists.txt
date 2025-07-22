@@ -314,6 +314,18 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
   endif()
 endif()
 
+# Default macro definitions to avoid -Wundef warnings
+# These are set to 0 by default and overridden by specific feature detection
+if(NOT ENABLE_ZMQ)
+  target_compile_definitions(core_interface INTERFACE ENABLE_ZMQ=0)
+endif()
+
+# Always define these since they might not be set elsewhere
+target_compile_definitions(core_interface INTERFACE
+  HAVE_DECL_DAEMON=0
+  USE_UPNP=0
+)
+
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 target_link_libraries(core_interface INTERFACE

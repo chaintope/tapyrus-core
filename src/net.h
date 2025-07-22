@@ -68,7 +68,7 @@ static const int MAX_ADDNODE_CONNECTIONS = 8;
 /** -listen default */
 static const bool DEFAULT_LISTEN = true;
 /** -upnp default */
-#ifdef USE_UPNP
+#if USE_UPNP
 static const bool DEFAULT_UPNP = USE_UPNP;
 #else
 static const bool DEFAULT_UPNP = false;
