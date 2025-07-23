@@ -100,6 +100,7 @@ static void WalletTxToJSON(const CWalletTx& wtx, UniValue& entry)
         entry.pushKV("generated", true);
     if (confirms > 0)
     {
+        AssertLockHeld(cs_main);
         entry.pushKV("blockhash", wtx.hashBlock.GetHex());
         entry.pushKV("blockindex", wtx.nIndex);
         entry.pushKV("blocktime", LookupBlockIndex(wtx.hashBlock)->GetBlockTime());

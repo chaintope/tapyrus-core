@@ -16,6 +16,7 @@ namespace Checkpoints {
 
     CBlockIndex* GetLastCheckpoint(const CCheckpointData& data)
     {
+        AssertLockHeld(cs_main);
         const MapCheckpoints& checkpoints = data.mapCheckpoints;
 
         for (const MapCheckpoints::value_type& i : reverse_iterate(checkpoints))
