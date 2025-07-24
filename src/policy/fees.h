@@ -23,7 +23,7 @@ class CTxMemPoolEntry;
 class CTxMemPool;
 class TxConfirmStats;
 
-/** \class CBlockPolicyEstimator
+/** class CBlockPolicyEstimator
  * The BlockPolicyEstimator is used for estimating the feerate needed
  * for a transaction to be included in a block within a certain number of
  * blocks.

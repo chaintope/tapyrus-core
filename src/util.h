@@ -351,8 +351,6 @@ void RenameThread(const std::string& name);
  */
 void TraceThread(std::string name,  std::function<void()> func);
 
-std::string CopyrightHolders(const std::string& strPrefix);
-
 /**
  * On platforms that support it, tell the kernel the calling thread is
  * CPU-intensive and non-interactive. See SCHED_BATCH in sched(7) for details.

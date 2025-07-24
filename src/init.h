@@ -67,4 +67,6 @@ void SetupServerArgs();
 /** Returns licensing information (for -version) */
 std::string LicenseInfo();
 
+/** Returns combined ciopyright message with Bitcoin and Tapyrus */
+std::string CopyrightInfo();
 #endif // BITCOIN_INIT_H

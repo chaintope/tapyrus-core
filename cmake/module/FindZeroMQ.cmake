@@ -67,8 +67,14 @@ else()
       endif()
     endif()
   endif()
+  if(TARGET zeromq)
+    set(ZeroMQ_FOUND TRUE)
+  else()
+    set(ZeroMQ_FOUND FALSE)
+  endif()
+
   find_package_handle_standard_args(ZeroMQ
-    REQUIRED_VARS libzmq_LIBRARY_DIRS
+    REQUIRED_VARS ZeroMQ_FOUND
     VERSION_VAR libzmq_VERSION
   )
 endif()

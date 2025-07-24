@@ -249,7 +249,6 @@ bool ProcessNewBlock(const std::shared_ptr<const CBlock> pblock, bool fForceProc
  *
  * @param[in]  block The block headers themselves
  * @param[out] state This may be set to an Error state if any error occurred processing them
- * @param[in]  chainparams The params for the chain we want to connect to
  * @param[out] ppindex If set, the pointer will be set to point to the last new block index object for the given headers
  * @param[out] first_invalid First header that fails validation, if one exists
  */
@@ -391,7 +390,7 @@ bool RewindBlockIndex();
 /** Replay blocks that aren't fully applied to the database. */
 bool ReplayBlocks(CCoinsView* view);
 
-inline CBlockIndex* LookupBlockIndex(const uint256& hash)
+inline CBlockIndex* LookupBlockIndex(const uint256& hash) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
 {
     AssertLockHeld(cs_main);
     BlockMap::const_iterator it = mapBlockIndex.find(hash);
@@ -446,7 +445,5 @@ bool isBlockHeightInCoinbase(const CBlock& block);
 /** Abort with a message */
 bool AbortNode(const std::string& strMessage, const std::string& userMessage="");
 bool AbortNode(CValidationState& state, const std::string& strMessage, const std::string& userMessage="");
-/** remove old transactions from mempool based on age to keep it within size limits*/
-void LimitMempoolSize(CTxMemPool& pool, size_t limit, unsigned long age);
 
 #endif // BITCOIN_VALIDATION_H

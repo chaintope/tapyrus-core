@@ -370,8 +370,8 @@ bool FlushStateToDisk(CValidationState &state, FlushStateMode mode, int nManualP
 
     try {
     {
-        const size_t coins_count = pcoinsTip->GetCacheSize();
-        const size_t coins_mem_usage = pcoinsTip->DynamicMemoryUsage();
+        [[maybe_unused]]const size_t coins_count = pcoinsTip->GetCacheSize();
+        [[maybe_unused]]const size_t coins_mem_usage = pcoinsTip->DynamicMemoryUsage();
 
         bool fFlushForPrune = false;
         bool fDoFullFlush = false;

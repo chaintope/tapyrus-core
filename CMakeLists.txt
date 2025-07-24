@@ -137,6 +137,10 @@ option(WITH_CCACHE "Attempt to use ccache for compiling." ON)
 option(ENABLE_ZMQ "Enable ZMQ notifications." ON)
 if(ENABLE_ZMQ)
   include(FindZeroMQ)
+  if(NOT TARGET zeromq)
+    message(WARNING "libzmq version 4.x or greater not found, disabling ZMQ")
+    set(ENABLE_ZMQ OFF)
+  endif()
 endif()
 
 option(ENABLE_TRACING "Enable tracepoints for Userspace, Statically Defined Tracing." OFF)
@@ -310,6 +314,18 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
   endif()
 endif()
 
+# Default macro definitions to avoid -Wundef warnings
+# These are set to 0 by default and overridden by specific feature detection
+if(NOT ENABLE_ZMQ)
+  target_compile_definitions(core_interface INTERFACE ENABLE_ZMQ=0)
+endif()
+
+# Always define these since they might not be set elsewhere
+target_compile_definitions(core_interface INTERFACE
+  HAVE_DECL_DAEMON=0
+  USE_UPNP=0
+)
+
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 target_link_libraries(core_interface INTERFACE
@@ -393,18 +409,23 @@ else()
   try_append_cxx_flags("-Wlogical-op" TARGET warn_interface SKIP_LINK)
   try_append_cxx_flags("-Woverloaded-virtual" TARGET warn_interface SKIP_LINK)
   try_append_cxx_flags("-Wsuggest-override" TARGET warn_interface SKIP_LINK)
-  #try_append_cxx_flags("-Wimplicit-fallthrough" TARGET warn_interface SKIP_LINK)
+  try_append_cxx_flags("-Wimplicit-fallthrough" TARGET warn_interface SKIP_LINK)
   try_append_cxx_flags("-Wunreachable-code" TARGET warn_interface SKIP_LINK)
   try_append_cxx_flags("-Wdocumentation" TARGET warn_interface SKIP_LINK)
   try_append_cxx_flags("-Wself-assign" TARGET warn_interface SKIP_LINK)
   try_append_cxx_flags("-Wbidi-chars=any" TARGET warn_interface SKIP_LINK)
-  #try_append_cxx_flags("-Wundef" TARGET warn_interface SKIP_LINK)
+  try_append_cxx_flags("-Wundef" TARGET warn_interface SKIP_LINK)
 
   # Some compilers (gcc) ignore unknown -Wno-* options, but warn about all
   # unknown options if any other warning is produced. Test the -Wfoo case, and
   # set the -Wno-foo case if it works.
   try_append_cxx_flags("-Wunused-parameter" TARGET warn_interface SKIP_LINK
     IF_CHECK_PASSED "-Wno-unused-parameter"
+  )
+
+  # Suppress deprecated declarations warnings from third-party libraries (e.g., Boost)
+  try_append_cxx_flags("-Wdeprecated-declarations" TARGET warn_interface SKIP_LINK
+    IF_CHECK_PASSED "-Wno-deprecated-declarations"
   )
 endif()
 

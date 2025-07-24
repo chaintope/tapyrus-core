@@ -29,7 +29,7 @@
 #include <fcntl.h>
 #endif
 
-#ifdef USE_UPNP
+#if USE_UPNP
 #include <miniupnpc/miniupnpc.h>
 #include <miniupnpc/miniwget.h>
 #include <miniupnpc/upnpcommands.h>
@@ -1474,7 +1474,7 @@ void CConnman::WakeMessageHandler()
 
 
 
-#ifdef USE_UPNP
+#if USE_UPNP
 static CThreadInterrupt g_upnp_interrupt;
 static std::thread g_upnp_thread;
 static void ThreadMapPort()

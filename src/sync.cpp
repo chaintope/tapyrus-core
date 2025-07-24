@@ -153,24 +153,32 @@ std::string LocksHeld()
     return result;
 }
 
-void AssertLockHeldInternal(const char* pszName, const char* pszFile, int nLine, void* cs)
+template <typename MutexType>
+void AssertLockHeldInternal(const char* pszName, const char* pszFile, int nLine, MutexType* cs)
 {
     for (const std::pair<void*, CLockLocation>& i : g_lockstack)
-        if (i.first == cs)
+        if (i.first == (void*)cs)
             return;
     fprintf(stderr, "Assertion failed: lock %s not held in %s:%i; locks held:\n%s", pszName, pszFile, nLine, LocksHeld().c_str());
     abort();
 }
 
-void AssertLockNotHeldInternal(const char* pszName, const char* pszFile, int nLine, void* cs)
+template <typename MutexType>
+void AssertLockNotHeldInternal(const char* pszName, const char* pszFile, int nLine, MutexType* cs)
 {
     for (const std::pair<void*, CLockLocation>& i : g_lockstack) {
-        if (i.first == cs) {
+        if (i.first == (void*)cs) {
             fprintf(stderr, "Assertion failed: lock %s held in %s:%i; locks held:\n%s", pszName, pszFile, nLine, LocksHeld().c_str());
             abort();
         }
     }
 }
+
+// Explicit instantiations for the types we use
+template void AssertLockHeldInternal<RecursiveMutex>(const char*, const char*, int, RecursiveMutex*);
+template void AssertLockHeldInternal<Mutex>(const char*, const char*, int, Mutex*);
+template void AssertLockNotHeldInternal<RecursiveMutex>(const char*, const char*, int, RecursiveMutex*);
+template void AssertLockNotHeldInternal<Mutex>(const char*, const char*, int, Mutex*);
 
 void DeleteLock(void* cs)
 {

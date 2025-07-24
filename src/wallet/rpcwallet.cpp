@@ -100,6 +100,7 @@ static void WalletTxToJSON(const CWalletTx& wtx, UniValue& entry)
         entry.pushKV("generated", true);
     if (confirms > 0)
     {
+        AssertLockHeld(cs_main);
         entry.pushKV("blockhash", wtx.hashBlock.GetHex());
         entry.pushKV("blockindex", wtx.nIndex);
         entry.pushKV("blocktime", LookupBlockIndex(wtx.hashBlock)->GetBlockTime());
@@ -1335,7 +1336,6 @@ static void MaybePushAddress(UniValue & entry, const CTxDestination &dest)
  *
  * @param  pwallet    The wallet.
  * @param  wtx        The wallet transaction.
- * @param  strAccount The account, if any, or "*" for all.
  * @param  nMinDepth  The minimum confirmation depth.
  * @param  fLong      Whether to include the JSON version of the transaction.
  * @param  ret        The UniValue into which the result is stored.
@@ -4319,7 +4319,7 @@ static UniValue IssueToken(CWallet* const pwallet, CAmount tokenValue, CCoinCont
     return result;
 }
 
-static UniValue issuetoken(const JSONRPCRequest& request)
+UniValue issuetoken(const JSONRPCRequest& request)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
     CWallet* const pwallet = wallet.get();
@@ -4418,7 +4418,7 @@ static UniValue issuetoken(const JSONRPCRequest& request)
     }
 }
 
-static UniValue reissuetoken(const JSONRPCRequest& request)
+UniValue reissuetoken(const JSONRPCRequest& request)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
     CWallet* const pwallet = wallet.get();
@@ -4471,7 +4471,7 @@ static UniValue reissuetoken(const JSONRPCRequest& request)
     return IssueReissuableToken(pwallet, HexStr(script.begin(), script.end()), tokenValue, coin_control);
 }
 
-static UniValue transfertoken(const JSONRPCRequest& request)
+UniValue transfertoken(const JSONRPCRequest& request)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
     CWallet* const pwallet = wallet.get();
@@ -4534,7 +4534,7 @@ static CTransactionRef BurnToken(CWallet * const pwallet, const ColorIdentifier&
     return tx;
 }
 
-static UniValue burntoken(const JSONRPCRequest& request)
+UniValue burntoken(const JSONRPCRequest& request)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
     CWallet* const pwallet = wallet.get();
@@ -4592,11 +4592,6 @@ extern UniValue importwallet(const JSONRPCRequest& request);
 extern UniValue importprunedfunds(const JSONRPCRequest& request);
 extern UniValue removeprunedfunds(const JSONRPCRequest& request);
 extern UniValue importmulti(const JSONRPCRequest& request);
-extern UniValue rescanblockchain(const JSONRPCRequest& request);
-extern UniValue issuetoken(const JSONRPCRequest& request);
-extern UniValue reissuetoken(const JSONRPCRequest& request);
-extern UniValue transfertoken(const JSONRPCRequest& request);
-extern UniValue burntoken(const JSONRPCRequest& request);
 
 static const CRPCCommand commands[] =
 { //  category              name                                actor (function)                argNames

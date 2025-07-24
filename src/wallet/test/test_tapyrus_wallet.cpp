@@ -17,8 +17,8 @@
 
 /**
      * Import Coin to the wallet from coinbase output
-     * @param amount
-     * @return
+     * @param amount CAmount
+     * @return bool
      */
 bool TestWalletSetup::ImportCoin(const CAmount amount) {
     CPubKey pubkey;

@@ -2803,7 +2803,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 }
 
                 // Choose coins to use
-                bool bnb_used;
+                bool bnb_used = false;
                 if (pick_new_inputs) {
                     mapValueIn.clear();
                     mapCoins.clear();
@@ -3833,6 +3833,7 @@ void CWallet::ListLockedCoins(std::vector<COutPoint>& vOutpts) const
 
 void CWallet::GetKeyBirthTimes(std::map<CTxDestination, int64_t> &mapKeyBirth) const {
     AssertLockHeld(cs_wallet); // mapKeyMetadata
+    AssertLockHeld(cs_main);
     mapKeyBirth.clear();
 
     // get birth times for keys with metadata
@@ -3907,6 +3908,7 @@ unsigned int CWallet::ComputeTimeSmart(const CWalletTx& wtx, bool rescanning_old
 {
     unsigned int nTimeSmart = wtx.nTimeReceived;
     if (!wtx.hashUnset()) {
+        AssertLockHeld(cs_main);
         if (const CBlockIndex* pindex = LookupBlockIndex(wtx.hashBlock)) {
             if(rescanning_old_block)
                 return pindex->nTimeMax;

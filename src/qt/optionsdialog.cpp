@@ -47,7 +47,7 @@ OptionsDialog::OptionsDialog(QWidget *parent, bool enableWallet) :
     connect(ui->prune, SIGNAL(toggled(bool)), ui->pruneSize, SLOT(setEnabled(bool)));
 
     /* Network elements init */
-#ifndef USE_UPNP
+#if !USE_UPNP
     ui->mapPortUpnp->setEnabled(false);
 #endif
 
