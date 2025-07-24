@@ -57,6 +57,7 @@ from test_framework.messages import CBlockHeader, CInv, msg_block, msg_headers, 
 from test_framework.mininode import mininode_lock, P2PInterface
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error, connect_nodes, sync_blocks
+from test_framework.timeout_config import TAPYRUSD_MIN_TIMEOUT
 
 
 class AcceptBlockTest(BitcoinTestFramework):
@@ -283,7 +284,7 @@ class AcceptBlockTest(BitcoinTestFramework):
         try:
             # Only wait a short while so the test doesn't take forever if we do get
             # disconnected
-            test_node.sync_with_ping(timeout=1)
+            test_node.sync_with_ping(timeout=TAPYRUSD_MIN_TIMEOUT)
         except TimeoutError:
             test_node.wait_for_disconnect()
 

@@ -30,11 +30,10 @@ from .util import (
     p2p_port,
     TAPYRUS_MODES
 )
+from .timeout_config import TAPYRUSD_PROC_TIMEOUT, TAPYRUSD_IMMEDIATE_TIMEOUT
 
 # For Python 3.4 compatibility
 JSONDecodeError = getattr(json, "JSONDecodeError", ValueError)
-
-BITCOIND_PROC_WAIT_TIMEOUT = 60
 
 class FailedToStartError(Exception):
     """Raised when a node fails to start correctly."""
@@ -201,6 +200,9 @@ class TestNode():
             self.stop()
         except http.client.CannotSendRequest:
             self.log.exception("Unable to stop node.")
+        except subprocess.CalledProcessError as e:
+            # If stop command fails (e.g., node already stopping), just log it
+            self.log.debug("Stop command failed, node may already be stopping: %s", e)
 
         # Check that stderr is as expected
         self.stderr.seek(0)
@@ -234,13 +236,16 @@ class TestNode():
         self.log.debug("Node stopped")
         return True
 
-    def wait_until_stopped(self, timeout=BITCOIND_PROC_WAIT_TIMEOUT):
+    def wait_until_stopped(self, timeout=TAPYRUSD_PROC_TIMEOUT):
         i = 0
         while i < 2:
             try:
                 i = i + 1
                 wait_until(self.is_node_stopped, timeout=timeout)
-            except TimeoutError as e:
+                break  # Exit loop if node stops successfully
+            except TimeoutError:
+                # Add a delay before retry to allow node more time to shutdown
+                time.sleep(1)
                 pass
 
 
@@ -313,7 +318,7 @@ class TestNode():
 
         return p2p_conn
 
-    def assert_debug_log(self, expected_msgs, unexpected_msgs=None, timeout=2):
+    def assert_debug_log(self, expected_msgs, unexpected_msgs=None, timeout=TAPYRUSD_IMMEDIATE_TIMEOUT):
         if unexpected_msgs is None:
             unexpected_msgs = []
         assert_equal(type(expected_msgs), list)

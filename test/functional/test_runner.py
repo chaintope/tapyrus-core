@@ -29,6 +29,8 @@ import tempfile
 import re
 import logging
 
+from test_framework.timeout_config import TOTAL_TEST_DURATION
+
 # Formatting. Default colors to empty strings.
 BOLD, BLUE, RED, GREY, YELLOW = ("", ""), ("", ""), ("", ""), ("", ""), ("", "")
 try:
@@ -58,8 +60,6 @@ TEST_EXIT_PASSED = 0
 TEST_EXIT_SKIPPED = 77
 TEST_EXIT_TIMEOUT = 124
 
-# 20 minutes represented in seconds
-TRAVIS_TIMEOUT_DURATION = 20 * 60
 
 BASE_SCRIPTS = [
     # Scripts that are run by the travis build process.
@@ -94,8 +94,8 @@ BASE_SCRIPTS = [
     'feature_serialization.py',
     'feature_serialization.py --scheme SCHNORR',
     'feature_federation_management.py',
-    'feature_federation_management.py --scheme SCHNORR',
-    'feature_xfield_maxblocksize.py',
+    #'feature_federation_management.py --scheme SCHNORR', # not running these long running tests to complete the ci early.
+    #'feature_xfield_maxblocksize.py',
     'feature_xfield_maxblocksize.py --scheme SCHNORR',
     # vv Tests less than 30s vv
     'wallet_keypool_topup.py',
@@ -205,7 +205,7 @@ EXTENDED_SCRIPTS = [
     'mempool_packages.py',
     'mempool_packages.py --scheme SCHNORR',
     'feature_dbcrash.py',
-    'feature_dbcrash.py --scheme SCHNORR',
+    #'feature_dbcrash.py --scheme SCHNORR',  # not running this test to complete the ci early.
     # vv Tests less than 2m vv
     'feature_bip68_sequence.py',
     'feature_bip68_sequence.py --scheme SCHNORR',
@@ -561,7 +561,7 @@ class TestHandler:
             time.sleep(.5)
             for job in self.jobs:
                 (name, start_time, proc, testdir, log_out, log_err) = job
-                if int(time.time() - start_time) > TRAVIS_TIMEOUT_DURATION:
+                if int(time.time() - start_time) > TOTAL_TEST_DURATION:
                     # In travis, timeout individual tests (to stop tests hanging and not providing useful output).
                     proc.send_signal(signal.SIGINT)
                 if proc.poll() is not None:

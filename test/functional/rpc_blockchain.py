@@ -42,6 +42,7 @@ from test_framework.messages import (
 )
 from test_framework.mininode import (
     P2PInterface,
+    TAPYRUSD_MIN_TIMEOUT
 )
 
 
@@ -226,7 +227,7 @@ class BlockchainTest(BitcoinTestFramework):
         self.nodes[0].generate(6, self.signblockprivkey_wif)
         assert_equal(self.nodes[0].getblockcount(), 106)
         self.log.debug('Node should not stop at this height')
-        assert_raises(subprocess.TimeoutExpired, lambda: self.nodes[0].process.wait(timeout=3))
+        assert_raises(subprocess.TimeoutExpired, lambda: self.nodes[0].process.wait(timeout=TAPYRUSD_MIN_TIMEOUT))
         try:
             self.nodes[0].generate(1, self.signblockprivkey_wif)
         except (ConnectionError, http.client.BadStatusLine):
@@ -265,7 +266,7 @@ class BlockchainTest(BitcoinTestFramework):
 
         node.invalidateblock(b22f.hash)
 
-        def assert_waitforheight(height, timeout=2):
+        def assert_waitforheight(height, timeout=TAPYRUSD_MIN_TIMEOUT):
             assert_equal(
                 node.waitforblockheight(height, timeout)['height'],
                 current_height)

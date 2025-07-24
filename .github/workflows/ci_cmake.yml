@@ -277,12 +277,12 @@ jobs:
           fi
           
           #echo "---------------- Start functional test ---------------- "
-          #if python3 test/functional/test_runner.py --tmpdir="$TAPYRUS_TEST_DIR" -j 1 --combinedlogslen=4000 --coverage --failfast --quiet --extended; then
-          #  echo "Functional tests passed"
-          #else
-          #  echo "Functional tests failed"
-          #  exit 1
-          #fi
+          if python3 test/functional/test_runner.py --tmpdir="$TAPYRUS_TEST_DIR" -j 1 --combinedlogslen=4000 --coverage --failfast --quiet --extended; then
+            echo "Functional tests passed"
+          else
+            echo "Functional tests failed"
+            exit 1
+          fi
           
           echo "---------------- DONE ---------------------"
 

@@ -41,8 +41,8 @@ import logging
 import socket
 import time
 import urllib.parse
+from test_framework.timeout_config import TAPYRUSD_P2P_TIMEOUT
 
-HTTP_TIMEOUT = 30
 USER_AGENT = "AuthServiceProxy/0.1"
 
 log = logging.getLogger("BitcoinRPC")
@@ -66,7 +66,7 @@ class AuthServiceProxy():
     __id_count = 0
 
     # ensure_ascii: escape unicode as \uXXXX, passed to json.dumps
-    def __init__(self, service_url, service_name=None, timeout=HTTP_TIMEOUT, connection=None, ensure_ascii=True):
+    def __init__(self, service_url, service_name=None, timeout=TAPYRUSD_P2P_TIMEOUT, connection=None, ensure_ascii=True):
         self.__service_url = service_url
         self._service_name = service_name
         self.ensure_ascii = ensure_ascii  # can be toggled on the fly by tests
