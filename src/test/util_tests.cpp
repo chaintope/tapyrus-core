@@ -1131,14 +1131,20 @@ enum : char {
     ResUnlockSuccess,
 };
 
-[[noreturn]] static void TestOtherProcess(fs::path dirname, fs::path lockname, int fd)
+/*
+ * Use _exit in the child process instead of exit to avoid destructors.
+ * All memory allocated is done by parent process and released by parent process.
+ * When destructors and invoked by child process, it causes double memory release,
+ * invalid pointers and non 0 exit code. Unit test failed because of this.
+ */
+static void TestOtherProcess(fs::path dirname, fs::path lockname, int fd)
 {
     char ch;
     while (true) {
         int rv = read(fd, &ch, 1); // Wait for command
         if (rv != 1) {
             fprintf(stderr, "Child process: Failed to read command, rv = %d\n", rv);
-            exit(1); // Exit with error
+            _exit(1);
         }
         switch(ch) {
         case LockCommand:
@@ -1150,12 +1156,12 @@ enum : char {
                     case LockResult::ErrorLock: return ResErrorLock;
                 } // No default case, so the compiler can warn about missing cases
                 fprintf(stderr, "Child process: Unexpected LockDirectory result: %d\n", (int)lock_result);
-                exit(2); // Exit with error for unexpected LockResult
+                _exit(2);
             }();
             rv = write(fd, &ch, 1);
             if (rv != 1) {
                 fprintf(stderr, "Child process: Failed to write lock result, rv = %d\n", rv);
-                exit(3); // Exit with error
+                _exit(3);
             }
             break;
         case UnlockCommand:
@@ -1164,21 +1170,20 @@ enum : char {
             rv = write(fd, &ch, 1);
             if (rv != 1) {
                 fprintf(stderr, "Child process: Failed to write unlock result, rv = %d\n", rv);
-                exit(4); // Exit with error
+                _exit(4);
             }
             break;
         case ExitCommand:
             close(fd);
-            exit(0);
+            _exit(0);
         default:
             fprintf(stderr, "Child process: Unknown command received: %d\n", (int)ch);
-            exit(5); // Exit with error for unknown command
+            _exit(5);
         }
     }
 }
 #endif
 
-/* temporarily disabling test as it fails in cmake CI
 BOOST_AUTO_TEST_CASE(test_LockDirectory)
 {
     fs::path dirname = GetDataDir() / "lock_dir";
@@ -1193,8 +1198,6 @@ BOOST_AUTO_TEST_CASE(test_LockDirectory)
     if (!pid) {
         BOOST_CHECK_EQUAL(close(fd[1]), 0); // Child: close parent end
         TestOtherProcess(dirname, lockname, fd[0]);
-        //avoid seg fault in child process
-        ECC_Stop();
     }
     BOOST_CHECK_EQUAL(close(fd[0]), 0); // Parent: close child end
 
@@ -1219,8 +1222,8 @@ BOOST_AUTO_TEST_CASE(test_LockDirectory)
     BOOST_CHECK_EQUAL(LockDirectory(dirname, lockname), LockResult::Success);
 
     // Another lock on the directory from a different thread within the same process should succeed
-    bool threadresult;
-    std::thread thr([&] { threadresult = LockDirectory(dirname, lockname) == LockResult::Success; });
+    LockResult threadresult;
+    std::thread thr([&] { threadresult = LockDirectory(dirname, lockname); });
     thr.join();
     BOOST_CHECK_EQUAL(threadresult, LockResult::Success);
 #ifndef WIN32
@@ -1256,9 +1259,11 @@ BOOST_AUTO_TEST_CASE(test_LockDirectory)
     // has released the lock as we would expect by probing it.
     int processstatus;
     BOOST_CHECK_EQUAL(write(fd[1], &LockCommand, 1), 1);
+    BOOST_CHECK_EQUAL(read(fd[1], &ch, 1), 1);
+    BOOST_CHECK_EQUAL(ch, ResSuccess);
     BOOST_CHECK_EQUAL(write(fd[1], &ExitCommand, 1), 1);
     BOOST_CHECK_EQUAL(waitpid(pid, &processstatus, 0), pid);
-    BOOST_CHECK_EQUAL(processstatus, 0);
+    BOOST_CHECK_EQUAL(WEXITSTATUS(processstatus), 0);
     BOOST_CHECK_EQUAL(LockDirectory(dirname, lockname, true), LockResult::Success);
 
     BOOST_CHECK_EQUAL(close(fd[1]), 0); // Close our side of the socketpair
@@ -1267,6 +1272,5 @@ BOOST_AUTO_TEST_CASE(test_LockDirectory)
     ReleaseDirectoryLocks();
     fs::remove_all(dirname);
 }
-*/
 
 BOOST_AUTO_TEST_SUITE_END()
