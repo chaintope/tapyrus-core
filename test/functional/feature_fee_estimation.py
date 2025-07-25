@@ -47,28 +47,49 @@ def small_txpuzzle_randfee(from_node, conflist, unconflist, amount, min_fee, fee
     rand_fee = float(fee_increment) * (1.1892 ** random.randint(0, 28))
     # Total fee ranges from min_fee to min_fee + 127*fee_increment
     fee = min_fee - fee_increment + tapyrus_round(rand_fee)
+    
+    # Dust threshold: 182 * dustRelayFee / 1000 = 182 * 3000 / 1000 = 0.00000546 TPC
+    dust_threshold = Decimal("0.00000546")
+    
     tx = CTransaction()
     total_in = Decimal("0.00000000")
-    while total_in <= (amount + fee) and len(conflist) > 0:
+    # Ensure we have enough input to avoid dust outputs
+    min_total_needed = amount + fee + dust_threshold
+    
+    while total_in <= min_total_needed and len(conflist) > 0:
         t = conflist.pop(0)
         total_in += t["amount"]
         tx.vin.append(CTxIn(COutPoint(int(t["txid"], 16), t["vout"]), b""))
-    if total_in <= amount + fee:
-        while total_in <= (amount + fee) and len(unconflist) > 0:
+    if total_in <= min_total_needed:
+        while total_in <= min_total_needed and len(unconflist) > 0:
             t = unconflist.pop(0)
             total_in += t["amount"]
             tx.vin.append(CTxIn(COutPoint(int(t["txid"], 16), t["vout"]), b""))
-        if total_in <= amount + fee:
-            raise RuntimeError("Insufficient funds: need %d, have %d" % (amount + fee, total_in))
-    tx.vout.append(CTxOut(int((total_in - amount - fee) * COIN), P2SH_1))
-    tx.vout.append(CTxOut(int(amount * COIN), P2SH_2))
+        if total_in <= min_total_needed:
+            raise RuntimeError("Insufficient funds: need %d, have %d" % (min_total_needed, total_in))
+    
+    change_amount = total_in - amount - fee
+    
+    # If change would be dust, add it to the fee instead
+    if change_amount < dust_threshold:
+        fee += change_amount
+        tx.vout.append(CTxOut(int(amount * COIN), P2SH_2))
+    else:
+        tx.vout.append(CTxOut(int(change_amount * COIN), P2SH_1))
+        tx.vout.append(CTxOut(int(amount * COIN), P2SH_2))
+    
     # These transactions don't need to be signed, but we still have to insert
     # the ScriptSig that will satisfy the ScriptPubKey.
     for inp in tx.vin:
         inp.scriptSig = SCRIPT_SIG[inp.prevout.n]
     txid = from_node.sendrawtransaction(ToHex(tx), True)
-    unconflist.append({"txid": txid, "vout": 0, "token": "TPC", "amount": total_in - amount - fee})
-    unconflist.append({"txid": txid, "vout": 1, "token": "TPC", "amount": amount})
+    
+    # Add outputs to unconfirmed list
+    if change_amount >= dust_threshold:
+        unconflist.append({"txid": txid, "vout": 0, "token": "TPC", "amount": change_amount})
+        unconflist.append({"txid": txid, "vout": 1, "token": "TPC", "amount": amount})
+    else:
+        unconflist.append({"txid": txid, "vout": 0, "token": "TPC", "amount": amount})
 
     return (ToHex(tx), fee)
 
@@ -84,8 +105,30 @@ def split_inputs(from_node, txins, txouts, scheme, initial_split=False):
     tx = CTransaction()
     tx.vin.append(CTxIn(COutPoint(int(prevtxout["txid"], 16), prevtxout["vout"]), b""))
 
+    # Dust threshold: 182 * dustRelayFee / 1000 = 182 * 3000 / 1000  = 0.00000546 TPC
+    dust_threshold = Decimal("0.00000546")
+    fee = Decimal("0.00001000")
+    
     half_change = tapyrus_round(prevtxout["amount"] / 2)
-    rem_change = prevtxout["amount"] - half_change - Decimal("0.00001000")
+    rem_change = prevtxout["amount"] - half_change - fee
+    
+    # Ensure neither output is dust
+    if half_change < dust_threshold or rem_change < dust_threshold:
+        # If we would create dust, just create one output with almost all the value
+        single_output = prevtxout["amount"] - fee
+        if single_output >= dust_threshold:
+            tx.vout.append(CTxOut(int(single_output * COIN), P2SH_1))
+            # If this is the initial split we actually need to sign the transaction
+            # Otherwise we just need to insert the proper ScriptSig
+            if (initial_split):
+                completetx = from_node.signrawtransactionwithwallet(ToHex(tx), [], "ALL", scheme)["hex"]
+            else:
+                tx.vin[0].scriptSig = SCRIPT_SIG[prevtxout["vout"]]
+                completetx = ToHex(tx)
+            txid = from_node.sendrawtransaction(completetx, True)
+            txouts.append({"txid": txid, "vout": 0, "token": "TPC", "amount": single_output})
+        return
+    
     tx.vout.append(CTxOut(int(half_change * COIN), P2SH_1))
     tx.vout.append(CTxOut(int(rem_change * COIN), P2SH_2))
 
