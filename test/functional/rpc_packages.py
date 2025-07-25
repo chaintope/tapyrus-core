@@ -73,7 +73,10 @@ class RPCPackageTest(BitcoinTestFramework):
 
         package  = []
         #first tx spends a coin in the blockchain
-        coin = [x for x in self.nodes[0].listunspent() if x['amount'] > 49.3][0]
+        # Sort UTXOs deterministically to avoid race conditions
+        available_coins = [x for x in self.nodes[0].listunspent() if x['amount'] > 49.3]
+        available_coins.sort(key=lambda x: (x['txid'], x['vout']))
+        coin = available_coins[0]
         prevtx_hex=self.nodes[0].getrawtransaction(coin['txid'])
         prevtx = CTransaction()
         prevtx.deserialize(BytesIO(hex_str_to_bytes(prevtx_hex)))
@@ -157,6 +160,8 @@ class RPCPackageTest(BitcoinTestFramework):
         while total_size <= self.MAX_PACKAGE_COUNT * 1000:
             tx = CTransaction()
             coins = [x for x in self.nodes[0].listunspent()]
+            # Sort UTXOs deterministically to avoid race conditions
+            coins.sort(key=lambda x: (x['txid'], x['vout']))
             tx.vin = [CTxIn(COutPoint(uint256_from_str(hex_str_to_bytes(coins[i]['txid'])), int(coins[i]['vout'])), b"", 0xffffffff) for i in range(0, 25)]
             tx.vout = [CTxOut(100, b"")]
             total_size += len(tx.serialize())
@@ -227,6 +232,15 @@ class RPCPackageTest(BitcoinTestFramework):
         node.generate(6, self.signblockprivkey_wif)
 
         utxos = node.listunspent()
+        # Filter UTXOs to ensure they have sufficient amounts for the transactions (need at least 11+ TPC each)
+        # Sort by amount descending first to get the largest UTXOs, then by txid/vout for determinism
+        sufficient_utxos = [x for x in utxos if x['amount'] >= 12.0]  # 12 to ensure enough for fees
+        sufficient_utxos.sort(key=lambda x: (-x['amount'], x['txid'], x['vout']))
+        
+        if len(sufficient_utxos) < 3:
+            raise Exception(f"Need at least 3 UTXOs with >= 12 TPC, but only found {len(sufficient_utxos)}")
+        
+        utxos = sufficient_utxos
         addr = key_to_p2pkh(self.signblockpubkey)
     
         # Reissuable
