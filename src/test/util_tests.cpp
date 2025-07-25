@@ -1137,7 +1137,7 @@ enum : char {
  * When destructors and invoked by child process, it causes double memory release,
  * invalid pointers and non 0 exit code. Unit test failed because of this.
  */
-static void TestOtherProcess(fs::path dirname, fs::path lockname, int fd)
+[[noreturn]] static void TestOtherProcess(fs::path dirname, fs::path lockname, int fd)
 {
     char ch;
     while (true) {
