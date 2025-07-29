@@ -67,7 +67,7 @@ from test_framework.schnorr import Schnorr
 from test_framework.mininode import P2PDataStore
 from test_framework.timeout_config import TAPYRUSD_REORG_TIMEOUT, TAPYRUSD_MIN_TIMEOUT, TAPYRUSD_SYNC_TIMEOUT
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, bytes_to_hex_str, assert_raises_rpc_error, NetworkDirName, hex_str_to_bytes, connect_nodes
+from test_framework.util import assert_equal, bytes_to_hex_str, assert_raises_rpc_error, NetworkDirName, hex_str_to_bytes, connect_nodes, wait_for_node_ready
 from test_framework.script import CScript, OP_TRUE, OP_DROP, OP_1
 from test_framework.messages import CTransaction
 
@@ -482,7 +482,7 @@ class FederationManagementTest(BitcoinTestFramework):
         self.log.info("Restarting node0 with '-reindex'")
         self.start_node(0, extra_args=["-reindex"], timeout=TAPYRUSD_REORG_TIMEOUT)
         # Wait for reindex to complete before proceeding
-        self.wait_for_node_ready(0, expected_blocks=37, timeout=TAPYRUSD_SYNC_TIMEOUT)
+        wait_for_node_ready(self.nodes, 0, expected_blocks=37, timeout=TAPYRUSD_SYNC_TIMEOUT)
         connect_nodes(self.nodes[0], 1)
         self.connectNodeAndCheck(2, expectedAggPubKeys)
 
@@ -538,12 +538,12 @@ class FederationManagementTest(BitcoinTestFramework):
         self.start_node(0, extra_args)
 
         #reindex takes time. wait before checking blockchain info
-        self.wait_for_node_ready(0, expected_blocks=42, timeout=TAPYRUSD_SYNC_TIMEOUT)
+        wait_for_node_ready(self.nodes, 0, expected_blocks=42, timeout=TAPYRUSD_SYNC_TIMEOUT)
         blockchaininfo = self.nodes[0].getblockchaininfo()
         assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
 
         self.start_node(1, ["-loadblock=%s" % os.path.join(self.nodes[1].datadir, 'blk00000.dat')])
-        self.wait_for_node_ready(1, expected_blocks=42, timeout=TAPYRUSD_SYNC_TIMEOUT)
+        wait_for_node_ready(self.nodes, 1, expected_blocks=42, timeout=TAPYRUSD_SYNC_TIMEOUT)
         blockchaininfo = self.nodes[1].getblockchaininfo()
         assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
 
@@ -552,7 +552,7 @@ class FederationManagementTest(BitcoinTestFramework):
         connect_nodes(self.nodes[2], 0)
         connect_nodes(self.nodes[2], 1)
         #reindex takes time. wait before checking blockchain info
-        self.wait_for_node_ready(2, expected_blocks=42, timeout=TAPYRUSD_SYNC_TIMEOUT)
+        wait_for_node_ready(self.nodes, 2, expected_blocks=42, timeout=TAPYRUSD_SYNC_TIMEOUT)
         blockchaininfo = self.nodes[2].getblockchaininfo()
         assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
 
@@ -561,7 +561,7 @@ class FederationManagementTest(BitcoinTestFramework):
         connect_nodes(self.nodes[1], 3)
         connect_nodes(self.nodes[2], 3)
         #initial block download and synch takes time. wait before checking blockchain info
-        self.wait_for_node_ready(3, expected_blocks=42, timeout=TAPYRUSD_SYNC_TIMEOUT)
+        wait_for_node_ready(self.nodes, 3, expected_blocks=42, timeout=TAPYRUSD_SYNC_TIMEOUT)
         # Allow extra time for sync after complex federation block operations
         self.sync_all([self.nodes[0:4]])
         self.stop_node(3)
@@ -654,7 +654,7 @@ class FederationManagementTest(BitcoinTestFramework):
 
         self.start_node(3, ["-reloadxfield", "-loadblock=%s" % os.path.join(self.nodes[3].datadir, 'blk00000.dat')])
         #reindex takes time. wait before checking blockchain info
-        self.wait_for_node_ready(3, expected_blocks=56, timeout=TAPYRUSD_SYNC_TIMEOUT)
+        wait_for_node_ready(self.nodes, 3, expected_blocks=56, timeout=TAPYRUSD_SYNC_TIMEOUT)
         connect_nodes(self.nodes[3], 0)
 
         self.log.info("Verifying getblockchaininfo")
@@ -670,7 +670,7 @@ class FederationManagementTest(BitcoinTestFramework):
         ]
         # Ensure all nodes are fully synced before final verification
         for i in range(len(self.nodes)):
-            self.wait_for_node_ready(i, expected_blocks=56, timeout=TAPYRUSD_SYNC_TIMEOUT)
+            wait_for_node_ready(self.nodes, i, expected_blocks=56, timeout=TAPYRUSD_SYNC_TIMEOUT)
         for n in self.nodes:
             blockchaininfo = n.getblockchaininfo()
             assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
@@ -685,40 +685,6 @@ class FederationManagementTest(BitcoinTestFramework):
         assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
         self.stop_node(n)
 
-    def wait_for_node_ready(self, node_index, expected_blocks=None, timeout=TAPYRUSD_REORG_TIMEOUT):
-        """Wait for node to be ready after reindex/restart operations"""
-        stop_time = time.time() + timeout
-        last_info = None
-        
-        while time.time() <= stop_time:
-            try:
-                node = self.nodes[node_index]
-                info = node.getblockchaininfo()
-                last_info = info  # Store for error reporting
-                
-                if expected_blocks is not None:
-                    if info['blocks'] >= expected_blocks:
-                        return
-                elif info['blocks'] > 0 and not info.get('initialblockdownload', False):
-                    return
-            except:
-                if last_info is not None:
-                    current_blocks = last_info.get('blocks', 0)
-                    current_headers = last_info.get('headers', 0)
-                    is_downloading = last_info.get('initialblockdownload', True)
-                    error_msg = f"Node {node_index} did not become ready within {timeout} seconds. Current blocks: {current_blocks}, headers: {current_headers}"
-                    if expected_blocks is not None:
-                        error_msg += f", expected: {expected_blocks}"
-                        if current_headers > expected_blocks:
-                            error_msg += f" (headers ahead of expected blocks)"
-                    error_msg += f", still downloading: {is_downloading}"
-                else:
-                    error_msg = f"Node {node_index} did not become ready within {timeout} seconds (node unreachable)"
-
-                timeout_error = TimeoutError(error_msg)
-                timeout_error.strerror = error_msg
-                raise timeout_error
-            time.sleep(TAPYRUSD_MIN_TIMEOUT)
 
 
 if __name__ == '__main__':
