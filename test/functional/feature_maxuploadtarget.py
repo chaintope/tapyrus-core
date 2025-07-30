@@ -17,6 +17,7 @@ import time
 from test_framework.blocktools import createTestGenesisBlock
 from test_framework.messages import CInv, msg_getdata, ToHex
 from test_framework.mininode import P2PInterface
+from test_framework.timeout_config import TAPYRUSD_REORG_TIMEOUT
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, hex_str_to_bytes, connect_nodes_bi
 from test_framework.script import CScript, MAX_SCRIPT_ELEMENT_SIZE, MAX_SCRIPT_SIZE

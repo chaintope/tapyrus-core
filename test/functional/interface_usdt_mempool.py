@@ -14,6 +14,7 @@ from test_framework.messages import COIN
 from test_framework.mininode import P2PDataStore
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal
+from test_framework.timeout_config import TAPYRUSD_SYNC_TIMEOUT
 
 MEMPOOL_TRACEPOINTS_PROGRAM = """
 # include <uapi/linux/ptrace.h>
@@ -157,7 +158,7 @@ class MempoolTracepointTest(BitcoinTestFramework):
         vsize = tx["tx"].get_vsize()
 
         self.log.info("Polling buffer...")
-        bpf.perf_buffer_poll(timeout=200)
+        bpf.perf_buffer_poll(timeout=TAPYRUSD_SYNC_TIMEOUT)
 
         self.log.info("Cleaning up mempool...")
         node.generate(1, self.signblockprivkey_wif)
@@ -210,7 +211,7 @@ class MempoolTracepointTest(BitcoinTestFramework):
         tx = node.sendtoaddress(node.getnewaddress(), 1)
 
         self.log.info("Polling buffer...")
-        bpf.perf_buffer_poll(timeout=200)
+        bpf.perf_buffer_poll(timeout=TAPYRUSD_SYNC_TIMEOUT)
 
         bpf.cleanup()
 
@@ -263,7 +264,7 @@ class MempoolTracepointTest(BitcoinTestFramework):
         replacement_vsize = replacement_tx["tx"].get_vsize()
 
         self.log.info("Polling buffer...")
-        bpf.perf_buffer_poll(timeout=200)
+        bpf.perf_buffer_poll(timeout=TAPYRUSD_SYNC_TIMEOUT)
 
         bpf.cleanup()
 
@@ -304,7 +305,7 @@ class MempoolTracepointTest(BitcoinTestFramework):
         reason = "min relay fee not met"
 
         self.log.info("Polling buffer...")
-        bpf.perf_buffer_poll(timeout=200)
+        bpf.perf_buffer_poll(timeout=TAPYRUSD_SYNC_TIMEOUT)
 
         bpf.cleanup()
 

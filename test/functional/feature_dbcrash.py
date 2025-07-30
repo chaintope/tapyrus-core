@@ -35,6 +35,7 @@ import time
 from test_framework.messages import COIN, COutPoint, CTransaction, CTxIn, CTxOut, ToHex
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, create_confirmed_utxos, hex_str_to_bytes
+from test_framework.timeout_config import TAPYRUSD_P2P_TIMEOUT, TAPYRUSD_PROC_TIMEOUT
 
 HTTP_DISCONNECT_ERRORS = [http.client.CannotSendRequest]
 try:
@@ -46,8 +47,6 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 4
         self.setup_clean_chain = False
-        # Need a bit of extra time for the nodes to start up for this test
-        self.rpc_timewait = 90
 
         # Set -maxmempool=0 to turn off mempool memory sharing with dbcache
         # Set -rpcservertimeout=900 to reduce socket disconnects in this
@@ -76,7 +75,7 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
         after 60 seconds. Returns the utxo hash of the given node."""
 
         time_start = time.time()
-        while time.time() - time_start < 120:
+        while time.time() - time_start < TAPYRUSD_PROC_TIMEOUT:
             try:
                 # Any of these RPC calls could throw due to node crash
                 self.start_node(node_index)
@@ -87,7 +86,7 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
                 # An exception here should mean the node is about to crash.
                 # If bitcoind exits, then try again.  wait_for_node_exit()
                 # should raise an exception if bitcoind doesn't exit.
-                self.wait_for_node_exit(node_index, timeout=10)
+                self.wait_for_node_exit(node_index, timeout=TAPYRUSD_P2P_TIMEOUT)
             self.crashed_on_restart += 1
             time.sleep(1)
 
@@ -119,7 +118,7 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
             return False
         except OSError as e:
             self.log.debug("node %d submitblock raised OSError exception: errno=%s", node_index, e.errno)
-            if e.errno in [errno.EPIPE, errno.ECONNREFUSED, errno.ECONNRESET]:
+            if e.errno in [errno.EPIPE, errno.ECONNREFUSED, errno.ECONNRESET, errno.EINVAL]:
                 # The node has likely crashed
                 return False
             else:
@@ -150,7 +149,7 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
                 if not self.submit_block_catch_error(i, block):
                     # TODO: more carefully check that the crash is due to -dbcrashratio
                     # (change the exit code perhaps, and check that here?)
-                    self.wait_for_node_exit(i, timeout=30)
+                    self.wait_for_node_exit(i, timeout=TAPYRUSD_P2P_TIMEOUT)
                     self.log.debug("Restarting node %d after block hash %s", i, block_hash)
                     nodei_utxo_hash = self.restart_node(i, block_hash)
                     assert nodei_utxo_hash is not None

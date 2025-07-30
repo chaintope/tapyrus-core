@@ -22,6 +22,7 @@ from test_framework.util import (
     assert_equal,
     wait_until
 )
+from test_framework.timeout_config import TAPYRUSD_MIN_TIMEOUT
 
 
 class InvalidTxRequestTest(BitcoinTestFramework):
@@ -152,7 +153,7 @@ class InvalidTxRequestTest(BitcoinTestFramework):
         # tx_orphan_no_fee, because it has too low fee (p2ps[0] is not disconnected for relaying that tx)
         # tx_orphan_invaid, because it has negative fee (p2ps[1] is disconnected for relaying that tx)
 
-        wait_until(lambda: 1 == len(node.getpeerinfo()), timeout=12)  # p2ps[1] is no longer connected
+        wait_until(lambda: 1 == len(node.getpeerinfo()), timeout=TAPYRUSD_MIN_TIMEOUT)  # p2ps[1] is no longer connected
         assert_equal(expected_mempool, set(node.getrawmempool()))
 
         # verify that enablebip61 is not accepted by tapyrusd anymore

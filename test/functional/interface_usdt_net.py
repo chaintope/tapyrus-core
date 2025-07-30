@@ -14,6 +14,7 @@ from test_framework.messages import msg_version
 from test_framework.mininode import P2PInterface
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal
+from test_framework.timeout_config import TAPYRUSD_SYNC_TIMEOUT
 
 # Tor v3 addresses are 62 chars + 6 chars for the port (':12345').
 MAX_PEER_ADDR_LENGTH = 68
@@ -145,7 +146,7 @@ class NetTracepointTest(BitcoinTestFramework):
         self.log.info("connect a P2P test node to our tapyrusd node")
         test_node = P2PInterface()
         self.nodes[0].add_p2p_connection(test_node)
-        bpf.perf_buffer_poll(timeout=200)
+        bpf.perf_buffer_poll(timeout=TAPYRUSD_SYNC_TIMEOUT)
 
         self.log.info(
             "check that we got both an inbound and outbound version message")

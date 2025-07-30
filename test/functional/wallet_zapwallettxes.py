@@ -15,6 +15,7 @@
   transactions are still available, but that the unconfirmed transaction has
   been zapped.
 """
+from test_framework.timeout_config import TAPYRUSD_MIN_TIMEOUT
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
     assert_equal,
@@ -57,7 +58,7 @@ class ZapWalletTXesTest (BitcoinTestFramework):
         self.stop_node(0)
         self.start_node(0, ["-persistmempool=1", "-zapwallettxes=2"])
 
-        wait_until(lambda: self.nodes[0].getmempoolinfo()['size'] == 1, timeout=3)
+        wait_until(lambda: self.nodes[0].getmempoolinfo()['size'] == 1, timeout=TAPYRUSD_MIN_TIMEOUT)
         self.nodes[0].syncwithvalidationinterfacequeue()  # Flush mempool to wallet
 
         assert_equal(self.nodes[0].gettransaction(txid1)['txid'], txid1)

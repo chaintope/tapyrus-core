@@ -7,6 +7,7 @@
 Tests correspond to code in rpc/net.cpp.
 """
 
+from test_framework.timeout_config import TAPYRUSD_MIN_TIMEOUT
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
     assert_equal,
@@ -55,8 +56,8 @@ class NetTest(BitcoinTestFramework):
         # the bytes sent/received should change
         # note ping and pong are 32 bytes each
         self.nodes[0].ping()
-        wait_until(lambda: (self.nodes[0].getnettotals()['totalbytessent'] >= net_totals_after['totalbytessent'] + 32 * 2), timeout=1)
-        wait_until(lambda: (self.nodes[0].getnettotals()['totalbytesrecv'] >= net_totals_after['totalbytesrecv'] + 32 * 2), timeout=1)
+        wait_until(lambda: (self.nodes[0].getnettotals()['totalbytessent'] >= net_totals_after['totalbytessent'] + 32 * 2), timeout=TAPYRUSD_MIN_TIMEOUT)
+        wait_until(lambda: (self.nodes[0].getnettotals()['totalbytesrecv'] >= net_totals_after['totalbytesrecv'] + 32 * 2), timeout=TAPYRUSD_MIN_TIMEOUT)
 
         peer_info_after_ping = self.nodes[0].getpeerinfo()
         for before, after in zip(peer_info, peer_info_after_ping):
@@ -70,7 +71,7 @@ class NetTest(BitcoinTestFramework):
         self.nodes[0].setnetworkactive(False)
         assert_equal(self.nodes[0].getnetworkinfo()['networkactive'], False)
         # Wait a bit for all sockets to close
-        wait_until(lambda: self.nodes[0].getnetworkinfo()['connections'] == 0, timeout=3)
+        wait_until(lambda: self.nodes[0].getnetworkinfo()['connections'] == 0, timeout=TAPYRUSD_MIN_TIMEOUT)
 
         self.nodes[0].setnetworkactive(True)
         connect_nodes_bi(self.nodes, 0, 1)

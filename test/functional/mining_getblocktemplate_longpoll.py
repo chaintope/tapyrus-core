@@ -9,6 +9,8 @@ from decimal import Decimal
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import get_rpc_proxy, random_transaction
+from test_framework.timeout_config import TAPYRUSD_SYNC_TIMEOUT
+from test_framework.util import wait_until
 
 import threading
 
@@ -20,7 +22,7 @@ class LongpollThread(threading.Thread):
         self.longpollid = templat['longpollid']
         # create a new connection to the node, we can't use the same
         # connection from two threads
-        self.node = get_rpc_proxy(node.url, 1, timeout=600, coveragedir=node.coverage_dir)
+        self.node = get_rpc_proxy(node.url, 1, timeout=TAPYRUSD_SYNC_TIMEOUT, coveragedir=node.coverage_dir)
 
     def run(self):
         self.node.getblocktemplate({'longpollid':self.longpollid})
@@ -42,20 +44,20 @@ class GetBlockTemplateLPTest(BitcoinTestFramework):
         thr = LongpollThread(self.nodes[0])
         thr.start()
         # check that thread still lives
-        thr.join(5)  # wait 5 seconds or until thread exits
+        wait_until(lambda: thr.is_alive(), timeout=5)  # wait up to 5 seconds for thread to start
         assert(thr.is_alive())
 
         # Test 2: test that longpoll will terminate if another node generates a block
         self.nodes[1].generate(1, self.signblockprivkey_wif)  # generate a block on another node
         # check that thread will exit now that new transaction entered mempool
-        thr.join(5)  # wait 5 seconds or until thread exits
+        wait_until(lambda: not thr.is_alive(), timeout=5)  # wait up to 5 seconds for thread to exit
         assert(not thr.is_alive())
 
         # Test 3: test that longpoll will terminate if we generate a block ourselves
         thr = LongpollThread(self.nodes[0])
         thr.start()
         self.nodes[0].generate(1, self.signblockprivkey_wif)  # generate a block on another node
-        thr.join(5)  # wait 5 seconds or until thread exits
+        wait_until(lambda: not thr.is_alive(), timeout=5)  # wait up to 5 seconds for thread to exit
         assert(not thr.is_alive())
 
         # Test 4: test that introducing a new transaction into the mempool will terminate the longpoll
@@ -66,7 +68,7 @@ class GetBlockTemplateLPTest(BitcoinTestFramework):
         # min_relay_fee is fee per 1000 bytes, which should be more than enough.
         (txid, txhex, fee) = random_transaction(self.nodes, Decimal("1.1"), min_relay_fee, Decimal("0.001"), 20)
         # after one minute, every 10 seconds the mempool is probed, so in 80 seconds it should have returned
-        thr.join(60 + 20)
+        wait_until(lambda: not thr.is_alive(), timeout=60 + 20)  # wait up to 80 seconds for thread to exit
         assert(not thr.is_alive())
 
 if __name__ == '__main__':
