@@ -6,7 +6,7 @@
 #include <tapyrus-config.h>
 
 #include <qt/sendcoinsdialog.h>
-#include <qt/forms/ui_sendcoinsdialog.h>
+#include <qt/ui_sendcoinsdialog.h>
 
 #include <qt/addresstablemodel.h>
 #include <qt/tapyrusunits.h>
@@ -700,7 +700,7 @@ void SendCoinsDialog::updateSmartFeeLabel()
         ui->fallbackFeeWarningLabel->setVisible(true);
         int lightness = ui->fallbackFeeWarningLabel->palette().color(QPalette::WindowText).lightness();
         QColor warning_colour(255 - (lightness / 5), 176 - (lightness / 3), 48 - (lightness / 14));
-        ui->fallbackFeeWarningLabel->setStyleSheet("QLabel { color: " + warning_colour.name() + "; }");
+        ui->fallbackFeeWarningLabel->setStyleSheet(QString("QLabel { color: " + warning_colour.name() + "; }"));
         ui->fallbackFeeWarningLabel->setIndent(QFontMetrics(ui->fallbackFeeWarningLabel->font()).horizontalAdvance("x"));
     }
     else
@@ -919,7 +919,7 @@ void SendConfirmationDialog::updateYesButton()
     if(secDelay > 0)
     {
         yesButton->setEnabled(false);
-        yesButton->setText(tr("Yes") + " (" + QString::number(secDelay) + ")");
+        yesButton->setText(QString(tr("Yes") + " (" + QString::number(secDelay) + ")"));
     }
     else
     {

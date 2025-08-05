@@ -62,7 +62,7 @@ public:
     */
     void setClientModel(ClientModel *clientModel);
 
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
     /** Set the wallet model.
         The wallet model represents a bitcoin wallet, and offers access to the list of transactions, address book and sending
         functionality.
@@ -74,12 +74,12 @@ public:
     bool enableWallet = false;
 
 protected:
-    void changeEvent(QEvent *e);
-    void closeEvent(QCloseEvent *event);
-    void showEvent(QShowEvent *event);
-    void dragEnterEvent(QDragEnterEvent *event);
-    void dropEvent(QDropEvent *event);
-    bool eventFilter(QObject *object, QEvent *event);
+    void changeEvent(QEvent *e) override;
+    void closeEvent(QCloseEvent *event) override;
+    void showEvent(QShowEvent *event) override;
+    void dragEnterEvent(QDragEnterEvent *event) override;
+    void dropEvent(QDropEvent *event) override;
+    bool eventFilter(QObject *object, QEvent *event) override;
 
 private:
     interfaces::Node& m_node;
@@ -185,7 +185,7 @@ public Q_SLOTS:
     */
     void message(const QString &title, const QString &message, unsigned int style, bool *ret = nullptr);
 
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
     bool setCurrentWallet(const QString& name);
     bool setCurrentWalletBySelectorIndex(int index);
     /** Set the UI status indicators based on the currently selected wallet.
@@ -200,7 +200,7 @@ private:
     void setEncryptionStatus(int status);
 
     /** Set the hd-enabled status as shown in the UI.
-     @param[in] status            current hd enabled status
+     @param[in] hdEnabled            current hd enabled status
      @see WalletModel::EncryptionStatus
      */
     void setHDStatus(int hdEnabled);
@@ -217,7 +217,7 @@ private:
     void updateProxyIcon();
 
 private Q_SLOTS:
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
     /** Switch to overview (home) page */
     void gotoOverviewPage();
     /** Switch to history (transactions) page */
@@ -281,7 +281,7 @@ public:
 
 protected:
     /** So that it responds to left-button clicks */
-    void mousePressEvent(QMouseEvent *event);
+    void mousePressEvent(QMouseEvent *event) override;
 
 private:
     OptionsModel *optionsModel;
