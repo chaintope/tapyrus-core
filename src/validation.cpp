@@ -858,11 +858,11 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
             TRACE7(mempool, replaced,
                 it->GetTx().GetHashMalFix().begin(),
                 it->GetTxSize(),
-                nModifiedFees,
+                it->GetModifiedFee(),
                 it->GetTime(),
                 hash.begin(),
                 tx.GetTotalSize(),
-                nConflictingFees
+                nModifiedFees
             );
             opt.txnReplaced.push_back(it->GetSharedTx());
         }
