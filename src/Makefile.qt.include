@@ -370,8 +370,8 @@ qt_libtapyrusqt_a_SOURCES = $(BITCOIN_QT_CPP) $(BITCOIN_QT_H) $(QT_FORMS_UI) \
 nodist_qt_libtapyrusqt_a_SOURCES = $(QT_MOC_CPP) $(QT_MOC) \
   $(QT_QRC_CPP) $(QT_QRC_LOCALE_CPP)
 
-# forms/foo.h -> qt/ui_foo.h (generate UI headers in qt/ directory)
-QT_FORMS_H=$(addprefix qt/ui_, $(notdir $(QT_FORMS_UI:.ui=.h)))
+# forms/foo.h -> qt/forms/ui_foo.h (generate UI headers in qt/forms/ directory)
+QT_FORMS_H=$(addprefix qt/forms/ui_, $(notdir $(QT_FORMS_UI:.ui=.h)))
 
 # Most files will depend on the forms and moc files as includes. Generate them
 # before anything else.
@@ -439,7 +439,7 @@ tapyrus_qt_clean: FORCE
 
 tapyrus_qt : qt/tapyrus-qt$(EXEEXT)
 
-ui_%.h: %.ui
+qt/forms/ui_%.h: qt/forms/%.ui
 	@test -f $(UIC)
 	@$(MKDIR_P) $(@D)
 	$(AM_V_GEN) QT_SELECT=$(QT_SELECT) $(UIC) -o $@ $< || (echo "Error creating $@"; false)
