@@ -361,7 +361,6 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         blocknew.solve(self.aggprivkey[1])
         node.p2p.send_blocks_and_test([blocknew], node, success=True)
         self.tip = blocknew.hash
-        invalid_tip = blocknew.hash
         assert_equal(self.tip, node.getbestblockhash())
 
         #call invalidate block rpc on B36 -- success - B37 is removed from the blockchain. tip is B35
@@ -377,7 +376,6 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         blocknew.solve(self.aggprivkey[1])
         node.p2p.send_blocks_and_test([blocknew], node, success=True)
         self.tip = blocknew.hash
-        new_valid_tip = blocknew.hash
         assert_equal(self.tip, node.getbestblockhash())
 
         #B37 -- Re Create a new block B37 -- success
@@ -388,7 +386,6 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         blocknew.solve(self.aggprivkey[1])
         node.p2p.send_blocks_and_test([blocknew], node, success=True)
         self.tip = blocknew.hash
-        reorg_failure = blocknew.hash
         assert_equal(self.tip, node.getbestblockhash())
 
         #B -- - Create block with 1 invalid transaction and new maxblocksize - sign with aggpubkey2 -- failure and new maxblocksize is not added to the list
@@ -464,8 +461,6 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         assert_equal(len(chaintips), 1)
         self.unspent = self.unspent + generate_blocks(3, node, self.coinbase_pubkey, self.aggprivkey[1])
         tip_before_reorg = node.getbestblockhash()
-        # Wait for any pending operations to complete
-        wait_for_node_ready(self.nodes, 0, 47)
         self.sync_all([self.nodes[0:2]])
 
         self.log.info("Simulate Blockchain Reorg  - After the last block size change")
@@ -500,6 +495,7 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         blocknew = self.new_block(48, spend=self.unspent[21])
         blocknew.solve(self.aggprivkey[1])
         node.p2p.send_blocks_and_test([blocknew], node, success=True, request_block=False, timeout=TAPYRUSD_REORG_TIMEOUT)
+        wait_for_node_ready(self.nodes, 0, 47, timeout=TAPYRUSD_SYNC_TIMEOUT)
         self.tip = blocknew.hash
         assert_equal(self.tip, node.getbestblockhash())
 

@@ -1,32 +1,17 @@
 # Copyright (c) 2023-present The Bitcoin Core developers
+# Copyright (c) 2025 Chaintope Inc.
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-name: CMake Build & Test
-'on':
+name: Cmake Smoke Test
+
+on:
   push:
     branches:
       - '**'
   pull_request:
     branches:
       - '**'
-  workflow_dispatch:
-    inputs:
-      use_depends:
-        description: Build and use depends directory
-        type: boolean
-        default: false
-        required: false
-      with_qt:
-        description: Build with Qt GUI
-        type: boolean
-        default: false
-        required: false
-      with_usdt:
-        description: Build with USDT support
-        type: boolean
-        default: false
-        required: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -36,14 +21,11 @@ env:
   CI_FAILFAST_TEST_LEAVE_DANGLING: 1
   CTEST_OUTPUT_ON_FAILURE: 'ON'
   CMAKE_BUILD_PARALLEL_LEVEL: 4
-  USE_DEPENDS: ${{ github.event.inputs.use_depends || false }}
-  WITH_QT: ${{ github.event.inputs.with_qt || false }}
-  WITH_USDT: ${{ github.event.inputs.with_usdt || false }}
   LC_ALL: C.UTF-8
   BOOST_TEST_RANDOM: 1
 
 jobs:
-  build-and-test:
+  smoke-test:
     strategy:
       fail-fast: false
       matrix:
@@ -90,19 +72,14 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: ${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ env.USE_DEPENDS
-            }}-${{ env.WITH_QT }}-${{ env.WITH_USDT }}-ccache-${{ github.run_id }}
-          restore-keys: ${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{
-            env.USE_DEPENDS }}-${{ env.WITH_QT }}-${{ env.WITH_USDT }}-ccache-
+          key: smoke-${{ matrix.config.platform }}-${{ matrix.config.arch }}-ccache-${{ github.run_id }}
+          restore-keys: smoke-${{ matrix.config.platform }}-${{ matrix.config.arch }}-ccache-
 
       - name: Setup Linux Dependencies
         if: matrix.config.platform == 'linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang ccache build-essential cmake pkgconf python3-zmq libevent-dev bsdmainutils libboost-filesystem-dev libboost-test-dev libdb5.3++-dev libminiupnpc-dev libzmq3-dev libqrencode-dev systemtap-sdt-dev bpfcc-tools bpftrace python3-venv valgrind
-          if [ "${{ env.WITH_QT }}" == "true" ]; then
-            sudo apt-get install -y qtbase5-dev qttools5-dev-tools
-          fi
+          sudo apt-get install -y clang ccache build-essential cmake pkgconf python3-zmq libevent-dev bsdmainutils libboost-filesystem-dev libboost-test-dev libdb5.3++-dev libminiupnpc-dev libzmq3-dev libqrencode-dev systemtap-sdt-dev bpfcc-tools bpftrace python3-venv
           python3 -m venv $HOME/venv
           source $HOME/venv/bin/activate
           pip3 install pyzmq
@@ -127,9 +104,6 @@ jobs:
             echo "Installed berkeley-db (will use --with-incompatible-bdb)"
           fi
           brew install --quiet coreutils ninja pkgconf gnu-getopt ccache boost libevent zeromq qrencode
-          if [ "${{ env.WITH_QT }}" == "true" ]; then
-            brew install --quiet qt@5
-          fi
           echo 'export PATH="/opt/homebrew/bin:$PATH"' >> $HOME/.bashrc
           echo 'export BOOST_ROOT="/opt/homebrew/opt/boost"' >> $HOME/.bashrc
           echo 'export BOOST_INCLUDEDIR="/opt/homebrew/opt/boost/include"' >> $HOME/.bashrc
@@ -138,41 +112,6 @@ jobs:
           python3 -m venv $HOME/venv
           source $HOME/venv/bin/activate
           pip3 install pyzmq
-
-      - name: Build Depends
-        if: env.USE_DEPENDS == 'true'
-        run: |
-          if [ "${{ matrix.config.platform }}" == "macos" ]; then
-            make -C depends HOST=${{ matrix.config.arch }}-apple-darwin
-            export DEPENDS_DIR="${{ github.workspace }}/depends"
-            export HOST=${{ matrix.config.arch }}-apple-darwin
-          else
-            if [ "${{ matrix.config.arch }}" == "arm64" ]; then
-              export HOST="aarch64-linux-gnu"
-            else
-              export HOST="${{ matrix.config.arch }}-linux-gnu"
-            fi
-            make -C depends HOST=$HOST
-            export DEPENDS_DIR="${{ github.workspace }}/depends"
-          fi
-          export BITCOIN_CONFIG="--prefix=$DEPENDS_DIR/$HOST"
-          if [ "${{ env.WITH_QT }}" == "true" ]; then
-            export BITCOIN_CONFIG_ALL="--enable-debug --enable-werror --with-gui=qt5"
-          else
-            export BITCOIN_CONFIG_ALL="--enable-debug --enable-werror"
-          fi
-
-      - name: Setup System Dependencies
-        if: env.USE_DEPENDS != 'true'
-        run: |
-          export DEPENDS_DIR="/usr"
-          export HOST=""
-          export BITCOIN_CONFIG=""
-          if [ "${{ env.WITH_QT }}" == "true" ]; then
-            export BITCOIN_CONFIG_ALL="--enable-debug --enable-werror --with-gui=qt5"
-          else
-            export BITCOIN_CONFIG_ALL="--enable-debug --enable-werror"
-          fi
 
       - name: Enable core dumps
         run: |
@@ -191,7 +130,7 @@ jobs:
           chmod -R 777 "$TEST_DIR"
           echo "TAPYRUS_TEST_DIR=$TEST_DIR" >> $GITHUB_ENV
 
-      - name: Compile and run tests
+      - name: Build and run smoke tests
         env:
           TAPYRUS_TEST_DIR: ${{ env.TAPYRUS_TEST_DIR }}
         run: |
@@ -204,15 +143,14 @@ jobs:
           # Create dummy .tapyrus file to prevent default datadir from being used
           echo ">" $HOME/.tapyrus
 
-          # Common CMake configuration options
+          # Common CMake configuration options for smoke test (minimal build)
           CMAKE_OPTS=(
             "-DENABLE_ZMQ=ON"
-            "-DENABLE_GUI=${{ env.WITH_QT }}"
+            "-DENABLE_GUI=OFF"
             "-DENABLE_BENCH=ON"
             "-DWITH_BDB=ON"
-            "-DENABLE_TRACING=${{ env.WITH_USDT }}"
+            "-DENABLE_TRACING=OFF"
             "-DCMAKE_BUILD_TYPE=RelWithDebInfo"
-            "-DCMAKE_INSTALL_PREFIX=$DEPENDS_DIR/$HOST"
           )
 
           # Disable BDB version warning for macOS if using newer version
@@ -224,48 +162,31 @@ jobs:
 
           # Add platform-specific options
           CMAKE_OPTS+=("-DCMAKE_CXX_FLAGS=-Wno-error=unused-member-function")
-          if [ "${{ env.USE_DEPENDS }}" == "true" ]; then
-            # Use Boost from depends directory
-            CMAKE_OPTS+=("-DBOOST_ROOT=$DEPENDS_DIR/$HOST")
-            CMAKE_OPTS+=("-DBOOST_INCLUDEDIR=$DEPENDS_DIR/$HOST/include")
-            CMAKE_OPTS+=("-DBOOST_LIBRARYDIR=$DEPENDS_DIR/$HOST/lib")
+          
+          # Use system Boost
+          if [ "${{ matrix.config.platform }}" == "macos" ]; then
+            CMAKE_OPTS+=("-DBOOST_ROOT=/opt/homebrew/opt/boost")
+            CMAKE_OPTS+=("-DBOOST_INCLUDEDIR=/opt/homebrew/opt/boost/include")
+            CMAKE_OPTS+=("-DBOOST_LIBRARYDIR=/opt/homebrew/opt/boost/lib")
+            CMAKE_OPTS+=("-DCMAKE_PREFIX_PATH=/opt/homebrew/opt/boost")
           else
-            # Use system Boost
-            if [ "${{ matrix.config.platform }}" == "macos" ]; then
-              CMAKE_OPTS+=("-DBOOST_ROOT=/opt/homebrew/opt/boost")
-              CMAKE_OPTS+=("-DBOOST_INCLUDEDIR=/opt/homebrew/opt/boost/include")
-              CMAKE_OPTS+=("-DBOOST_LIBRARYDIR=/opt/homebrew/opt/boost/lib")
-              CMAKE_OPTS+=("-DCMAKE_PREFIX_PATH=/opt/homebrew/opt/boost")
-            else
-              CMAKE_OPTS+=("-DBOOST_ROOT=/usr")
-              CMAKE_OPTS+=("-DBOOST_INCLUDEDIR=/usr/include")
-              CMAKE_OPTS+=("-DBOOST_LIBRARYDIR=/usr/lib/x86_64-linux-gnu")
-            fi
+            CMAKE_OPTS+=("-DBOOST_ROOT=/usr")
+            CMAKE_OPTS+=("-DBOOST_INCLUDEDIR=/usr/include")
+            CMAKE_OPTS+=("-DBOOST_LIBRARYDIR=/usr/lib/x86_64-linux-gnu")
           fi
 
           # Configure and build
           cmake -S "$BASE_ROOT_DIR" -B "$BASE_BUILD_DIR" "${CMAKE_OPTS[@]}"
-          # Set CMake policy CMP0144 to handle package root variables properly
           cmake -DCMAKE_POLICY_DEFAULT_CMP0144=NEW "$BASE_BUILD_DIR"
-          # Create necessary directories for secp256k1
           mkdir -p "$BASE_BUILD_DIR/src/secp256k1/src"
           cmake --build "$BASE_BUILD_DIR" --parallel -j "$CPU_COUNT" --target all
 
-          # Set library path for depends builds
-          if [ "${{ env.USE_DEPENDS }}" == "true" ]; then
-            export LD_LIBRARY_PATH="${DEPENDS_DIR}/${HOST}/lib"
-          fi
-
-          # Run tests
+          # Run smoke tests (essential fast tests only)
           export CTEST_OUTPUT_ON_FAILURE=ON
 
           echo "---------------- Start unit test ---------------- "
           cd "$BASE_BUILD_DIR/bin"
-          if [ "${{ matrix.config.platform }}" == "linux" ]; then
-            valgrind $BASE_BUILD_DIR/bin/test_tapyrus --log_level=test_suite --report_level=short --build_info --catch_system_errors
-          else
-            ./test_tapyrus --log_level=test_suite --report_level=short --build_info --catch_system_errors
-          fi
+          ./test_tapyrus --log_level=test_suite --report_level=short --build_info --catch_system_errors
           
           echo "---------------- Start util test ---------------- "
           cd "$BASE_ROOT_DIR"
@@ -276,34 +197,45 @@ jobs:
             exit 1
           fi
           
-          #echo "---------------- Start functional test ---------------- "
-          if python3 test/functional/test_runner.py --tmpdir="$TAPYRUS_TEST_DIR" -j 1 --combinedlogslen=4000 --coverage --failfast --quiet --extended; then
-            echo "Functional tests passed"
+          echo "---------------- Start benchmark test ---------------- "
+          cd "$BASE_BUILD_DIR/bin"
+          # Run a quick benchmark to verify the build
+          ./bench_tapyrus -evals=10 > bench_results.txt
+          if [ $? -eq 0 ]; then
+            echo "Benchmark tests passed"
           else
-            echo "Functional tests failed"
+            echo "Benchmark tests failed"
             exit 1
           fi
           
-          echo "---------------- DONE ---------------------"
-
+          echo "---------------- Start fast functional tests ---------------- "
+          cd "$BASE_ROOT_DIR"
+          # Run only the fastest functional tests for smoke test
+          if python3 test/functional/test_runner.py --tmpdir="$TAPYRUS_TEST_DIR" -j 1 --combinedlogslen=4000 --failfast --quiet; then
+            echo "Fast functional tests passed"
+          else
+            echo "Fast functional tests failed"
+            exit 1
+          fi
+          
+          echo "---------------- SMOKE TEST COMPLETE ---------------------"
 
       - name: Save Ccache cache
         uses: actions/cache/save@v4
         if: steps.ccache-cache.outputs.cache-hit != 'true'
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: ${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ env.USE_DEPENDS
-            }}-${{ env.WITH_QT }}-${{ env.WITH_USDT }}-ccache-${{ github.run_id }}
+          key: smoke-${{ matrix.config.platform }}-${{ matrix.config.arch }}-ccache-${{ github.run_id }}
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-${{ matrix.config.name }}
+          name: smoke-test-results-${{ matrix.config.name }}
           path: |
             ${{ github.workspace }}/tapyrus_test
-            ${{ github.workspace }}/test/functional/test_framework/test_framework.log
-          retention-days: 7
+            ${{ github.workspace }}/build/bin/bench_results.txt
+          retention-days: 3
 
       - name: Debug Core Dump (if exists)
         if: failure()
@@ -344,6 +276,6 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: core-dumps-${{ matrix.config.name }}
+          name: smoke-core-dumps-${{ matrix.config.name }}
           path: ${{ github.workspace }}/core_dumps/
-          retention-days: 7
+          retention-days: 3

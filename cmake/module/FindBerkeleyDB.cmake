@@ -9,11 +9,22 @@ if(CMAKE_HOST_APPLE)
   find_brew_prefix(_BerkeleyDB_homebrew_prefix berkeley-db@4)
 endif()
 
-find_path(BerkeleyDB_INCLUDE_DIR
-        NAMES db_cxx.h
-        HINTS ${_BerkeleyDB_homebrew_prefix}/include
-        PATH_SUFFIXES 4.8 48 db4.8 4 db4 5.3 db5.3 5 db5
-)
+# If BerkeleyDB_ROOT is set, prioritize it; otherwise fall back to system paths
+if(BerkeleyDB_ROOT)
+  find_path(BerkeleyDB_INCLUDE_DIR
+          NAMES db_cxx.h
+          HINTS ${BerkeleyDB_ROOT}/include
+          PATHS ${BerkeleyDB_ROOT}/include
+          PATH_SUFFIXES 4.8 48 db4.8 4 db4 5.3 db5.3 5 db5
+          NO_DEFAULT_PATH
+  )
+else()
+  find_path(BerkeleyDB_INCLUDE_DIR
+          NAMES db_cxx.h
+          HINTS ${_BerkeleyDB_homebrew_prefix}/include
+          PATH_SUFFIXES 4.8 48 db4.8 4 db4 5.3 db5.3 5 db5
+  )
+endif()
 mark_as_advanced(BerkeleyDB_INCLUDE_DIR)
 unset(_BerkeleyDB_homebrew_prefix)
 
@@ -28,20 +39,40 @@ if(NOT BerkeleyDB_LIBRARY)
 
   get_filename_component(_BerkeleyDB_lib_hint "${BerkeleyDB_INCLUDE_DIR}" DIRECTORY)
 
-  find_library(BerkeleyDB_LIBRARY_RELEASE
-          NAMES db_cxx-4.8 db4_cxx db48 db_cxx-5.3 db_cxx-5 db_cxx libdb48
-          NAMES_PER_DIR
-          HINTS ${_BerkeleyDB_lib_hint}
-          PATH_SUFFIXES lib
-  )
-  mark_as_advanced(BerkeleyDB_LIBRARY_RELEASE)
+  if(BerkeleyDB_ROOT)
+    find_library(BerkeleyDB_LIBRARY_RELEASE
+            NAMES db_cxx-4.8 db4_cxx db48 db_cxx-5.3 db_cxx-5 db_cxx libdb48
+            NAMES_PER_DIR
+            HINTS ${BerkeleyDB_ROOT}/lib
+            PATHS ${BerkeleyDB_ROOT}/lib
+            PATH_SUFFIXES lib
+            NO_DEFAULT_PATH
+    )
 
-  find_library(BerkeleyDB_LIBRARY_DEBUG
-          NAMES db_cxx-4.8 db4_cxx db48 db_cxx-5.3 db_cxx-5 db_cxx libdb48
-          NAMES_PER_DIR
-          HINTS ${_BerkeleyDB_lib_hint}
-          PATH_SUFFIXES debug/lib
-  )
+    find_library(BerkeleyDB_LIBRARY_DEBUG
+            NAMES db_cxx-4.8 db4_cxx db48 db_cxx-5.3 db_cxx-5 db_cxx libdb48
+            NAMES_PER_DIR
+            HINTS ${BerkeleyDB_ROOT}/lib
+            PATHS ${BerkeleyDB_ROOT}/lib
+            PATH_SUFFIXES debug/lib lib
+            NO_DEFAULT_PATH
+    )
+  else()
+    find_library(BerkeleyDB_LIBRARY_RELEASE
+            NAMES db_cxx-4.8 db4_cxx db48 db_cxx-5.3 db_cxx-5 db_cxx libdb48
+            NAMES_PER_DIR
+            HINTS ${_BerkeleyDB_lib_hint}
+            PATH_SUFFIXES lib
+    )
+
+    find_library(BerkeleyDB_LIBRARY_DEBUG
+            NAMES db_cxx-4.8 db4_cxx db48 db_cxx-5.3 db_cxx-5 db_cxx libdb48
+            NAMES_PER_DIR
+            HINTS ${_BerkeleyDB_lib_hint}
+            PATH_SUFFIXES debug/lib
+    )
+  endif()
+  mark_as_advanced(BerkeleyDB_LIBRARY_RELEASE)
   mark_as_advanced(BerkeleyDB_LIBRARY_DEBUG)
 
   unset(_BerkeleyDB_lib_hint)

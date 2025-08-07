@@ -59,6 +59,10 @@ set(CMAKE_C_STANDARD_REQUIRED OFF)
 set(CMAKE_C_EXTENSIONS OFF)
 
 # Build secp256k1 as a C-only project
+# Disable static precomputation for cross-compilation to avoid IMPORTED target issues
+if(CMAKE_CROSSCOMPILING)
+  set(SECP256K1_ECMULT_STATIC_PRECOMPUTATION OFF CACHE BOOL "Disable static precomputation for cross-compilation" FORCE)
+endif()
 add_subdirectory(src/secp256k1)
 
 # Then enable C++ for the rest of the project
@@ -114,7 +118,7 @@ option(BUILD_UTILS "Build tapyrus-tx executable." ${ENABLE_TESTS})
 option(ENABLE_WALLET "Build wallet functionality in tapyrusd, gui and tests." ON)
 option(WITH_BDB "Enable Berkeley DB (BDB) wallet support." ON)
 cmake_dependent_option(WARN_INCOMPATIBLE_BDB "Warn when using a Berkeley DB (BDB) version other than 4.8." ON "WITH_BDB" OFF)
-if(WITH_BDB)
+if(ENABLE_WALLET AND WITH_BDB)
   find_package(BerkeleyDB 4.8 MODULE REQUIRED)
   set(USE_BDB ON)
   if(NOT BerkeleyDB_VERSION VERSION_EQUAL 4.8)
@@ -214,11 +218,12 @@ include(TryAppendLinkerFlag)
 # Redefine/adjust per-configuration flags.
 target_compile_definitions(core_interface_debug INTERFACE
   DEBUG
-  DEBUG_LOCKORDER
   DEBUG_LOCKCONTENTION
   RPC_DOC_CHECK
   ABORT_ON_FAILED_ASSUME
 )
+
+target_compile_definitions(core_interface_debug INTERFACE DEBUG_LOCKORDER)
 
 if(WIN32)
   #[=[
@@ -326,6 +331,13 @@ target_compile_definitions(core_interface INTERFACE
   USE_UPNP=0
 )
 
+# Ensure ENABLE_WALLET is always defined as 0 or 1
+if(ENABLE_WALLET)
+  target_compile_definitions(core_interface INTERFACE ENABLE_WALLET=1)
+else()
+  target_compile_definitions(core_interface INTERFACE ENABLE_WALLET=0)
+endif()
+
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 target_link_libraries(core_interface INTERFACE
@@ -426,6 +438,11 @@ else()
   # Suppress deprecated declarations warnings from third-party libraries (e.g., Boost)
   try_append_cxx_flags("-Wdeprecated-declarations" TARGET warn_interface SKIP_LINK
     IF_CHECK_PASSED "-Wno-deprecated-declarations"
+  )
+
+  # Suppress gnu-zero-variadic-macro-arguments warnings from USDT tracing macros
+  try_append_cxx_flags("-Wgnu-zero-variadic-macro-arguments" TARGET warn_interface SKIP_LINK
+    IF_CHECK_PASSED "-Wno-gnu-zero-variadic-macro-arguments"
   )
 endif()
 

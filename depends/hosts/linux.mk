@@ -30,6 +30,14 @@ x86_64_linux_CC=$(default_host_CC) -m64
 x86_64_linux_CXX=$(default_host_CXX) -m64
 endif
 
+# ARM64 (AArch64) cross-compilation
+aarch64_linux_CC=aarch64-linux-gnu-gcc
+aarch64_linux_CXX=aarch64-linux-gnu-g++
+aarch64_linux_AR=aarch64-linux-gnu-ar
+aarch64_linux_RANLIB=aarch64-linux-gnu-ranlib
+aarch64_linux_NM=aarch64-linux-gnu-nm
+aarch64_linux_STRIP=aarch64-linux-gnu-strip
+
 linux_cmake_system_name=Linux
 # Refer to doc/dependencies.md for the minimum required kernel.
 linux_cmake_system_version=3.17.0
