@@ -12,13 +12,13 @@ on:
   workflow_dispatch:
     inputs:
       test_branch:
-        description: 'Branch to test (default: master)'
+        description: 'Branch to test (default: current branch or master)'
         type: string
-        default: master
+        default: ''
         required: false
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-daily
   cancel-in-progress: true
 
 env:
@@ -190,7 +190,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.test_branch || github.ref }}
+          # Use manual input if provided, otherwise use current branch (for PRs) or master (for scheduled runs)
+          ref: ${{ github.event.inputs.test_branch || github.ref || 'master' }}
           submodules: recursive
 
       - name: Restore Ccache cache
