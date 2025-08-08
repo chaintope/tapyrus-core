@@ -30,7 +30,7 @@
 #include <warnings.h>
 
 #include <tapyrus-config.h>
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
 #include <wallet/fees.h>
 #include <wallet/wallet.h>
 #define CHECK_WALLET(x) x
@@ -218,7 +218,7 @@ class NodeImpl : public Node
     }
     std::vector<std::unique_ptr<Wallet>> getWallets() override
     {
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
         std::vector<std::unique_ptr<Wallet>> wallets;
         for (const std::shared_ptr<CWallet>& wallet : GetWallets()) {
             wallets.emplace_back(MakeWallet(wallet));

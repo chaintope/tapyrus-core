@@ -26,7 +26,71 @@ function(add_boost_if_needed)
     cmake_policy(SET CMP0167 OLD)
   endif()
   set(Boost_NO_BOOST_CMAKE ON)
-  find_package(Boost 1.73.0 REQUIRED system)
+
+  # Set policy for BOOST_ROOT variable handling
+  if(POLICY CMP0144)
+    cmake_policy(SET CMP0144 NEW)
+  endif()
+
+  # For depends builds, ensure we look for static libraries
+  if(DEFINED ENV{BOOST_ROOT} OR DEFINED BOOST_ROOT)
+    set(Boost_USE_STATIC_LIBS ON)
+    set(Boost_USE_MULTITHREADED ON)
+    set(Boost_USE_STATIC_RUNTIME OFF)
+    # Set additional paths that depends might use
+    if(DEFINED BOOST_ROOT)
+      # Only set BOOST_LIBRARYDIR and BOOST_INCLUDEDIR if not already explicitly set
+      if(NOT DEFINED BOOST_LIBRARYDIR)
+        set(BOOST_LIBRARYDIR "${BOOST_ROOT}/lib")
+      endif()
+      if(NOT DEFINED BOOST_INCLUDEDIR)
+        set(BOOST_INCLUDEDIR "${BOOST_ROOT}/include")
+      endif()
+
+      # Only validate BOOST_ROOT if it wasn't explicitly set via command line
+      # (i.e., only validate environment-set BOOST_ROOT)
+      if(DEFINED ENV{BOOST_ROOT} AND NOT DEFINED CACHE{BOOST_ROOT})
+        # Check if BOOST_ROOT actually contains Boost libraries
+        file(GLOB BOOST_HEADERS "${BOOST_INCLUDEDIR}/boost/config.hpp")
+        if(NOT BOOST_HEADERS)
+          message(STATUS "BOOST_ROOT set but no Boost headers found, unsetting BOOST_ROOT to search system paths")
+          unset(BOOST_ROOT)
+          unset(BOOST_LIBRARYDIR)
+          unset(BOOST_INCLUDEDIR)
+          unset(ENV{BOOST_ROOT})
+          # Also unset Boost_USE_STATIC_LIBS to allow system dynamic libraries
+          unset(Boost_USE_STATIC_LIBS)
+        endif()
+      endif()
+    endif()
+  endif()
+
+  # Since we only use Boost headers, find Boost without requiring specific components
+  message(STATUS "Finding Boost headers (header-only usage)...")
+
+  # Debug: Show what variables are set before calling find_package
+  if(DEFINED BOOST_ROOT)
+    message(STATUS "BOOST_ROOT is set to: ${BOOST_ROOT}")
+  endif()
+  if(DEFINED BOOST_INCLUDEDIR)
+    message(STATUS "BOOST_INCLUDEDIR is set to: ${BOOST_INCLUDEDIR}")
+  endif()
+  if(DEFINED BOOST_LIBRARYDIR)
+    message(STATUS "BOOST_LIBRARYDIR is set to: ${BOOST_LIBRARYDIR}")
+  endif()
+  if(DEFINED ENV{BOOST_ROOT})
+    message(STATUS "Environment BOOST_ROOT is set to: $ENV{BOOST_ROOT}")
+  endif()
+
+  # If BOOST_INCLUDEDIR is set and contains boost headers, set Boost_INCLUDE_DIR as well
+  # This helps CMake's FindBoost module when it's having trouble with BOOST_ROOT
+  if(DEFINED BOOST_INCLUDEDIR AND EXISTS "${BOOST_INCLUDEDIR}/boost/config.hpp")
+    set(Boost_INCLUDE_DIR "${BOOST_INCLUDEDIR}")
+    message(STATUS "Setting Boost_INCLUDE_DIR to: ${Boost_INCLUDE_DIR}")
+  endif()
+
+  find_package(Boost 1.73.0 REQUIRED)
+  
   mark_as_advanced(Boost_INCLUDE_DIR)
   set_target_properties(Boost::headers PROPERTIES IMPORTED_GLOBAL TRUE)
   target_compile_definitions(Boost::headers INTERFACE

@@ -19,7 +19,7 @@
 #include <qt/rpcconsole.h>
 #include <qt/utilitydialog.h>
 
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
 #include <qt/walletframe.h>
 #include <qt/walletmodel.h>
 #include <qt/walletview.h>
@@ -81,7 +81,7 @@ TapyrusGUI::TapyrusGUI(interfaces::Node& node, const PlatformStyle *_platformSty
     }
 
     QString windowTitle = tr(PACKAGE_NAME) + " - ";
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
     enableWallet = WalletModel::isWalletEnabled();
 #endif // ENABLE_WALLET
     if(enableWallet)
@@ -101,7 +101,7 @@ TapyrusGUI::TapyrusGUI(interfaces::Node& node, const PlatformStyle *_platformSty
 
     rpcConsole = new RPCConsole(node, _platformStyle, 0);
     helpMessageDialog = new HelpMessageDialog(node, this, false);
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
     if(enableWallet)
     {
         /** Create wallet frame and make it the central widget */
@@ -198,7 +198,7 @@ TapyrusGUI::TapyrusGUI(interfaces::Node& node, const PlatformStyle *_platformSty
     connect(connectionsControl, SIGNAL(clicked(QPoint)), this, SLOT(toggleNetworkActive()));
 
     modalOverlay = new ModalOverlay(this->centralWidget());
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
     if(enableWallet) {
         connect(walletFrame, SIGNAL(requestedSyncWarningInfo()), this, SLOT(showModalOverlay()));
         connect(labelBlocksIcon, SIGNAL(clicked(QPoint)), this, SLOT(showModalOverlay()));
@@ -264,7 +264,7 @@ void TapyrusGUI::createActions()
     historyAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_4));
     tabGroup->addAction(historyAction);
 
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
     // These showNormalIfMinimized are needed because Send Coins and Receive Coins
     // can be triggered from the tray menu, and need to show the GUI to be useful.
     connect(overviewAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
@@ -338,7 +338,7 @@ void TapyrusGUI::createActions()
     // prevents an open debug window from becoming stuck/unusable on client shutdown
     connect(quitAction, SIGNAL(triggered()), rpcConsole, SLOT(hide()));
 
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
     if(walletFrame)
     {
         connect(encryptWalletAction, SIGNAL(triggered(bool)), walletFrame, SLOT(encryptWallet(bool)));
@@ -416,7 +416,7 @@ void TapyrusGUI::createToolBars()
         toolbar->addAction(historyAction);
         overviewAction->setChecked(true);
 
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
         QWidget *spacer = new QWidget();
         spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
         toolbar->addWidget(spacer);
@@ -465,7 +465,7 @@ void TapyrusGUI::setClientModel(ClientModel *_clientModel)
 
         updateProxyIcon();
 
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
         if(walletFrame)
         {
             walletFrame->setClientModel(_clientModel);
@@ -492,7 +492,7 @@ void TapyrusGUI::setClientModel(ClientModel *_clientModel)
         }
         // Propagate cleared model to child objects
         rpcConsole->setClientModel(nullptr);
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
         if (walletFrame)
         {
             walletFrame->setClientModel(nullptr);
@@ -502,7 +502,7 @@ void TapyrusGUI::setClientModel(ClientModel *_clientModel)
     }
 }
 
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
 bool TapyrusGUI::addWallet(WalletModel *walletModel)
 {
     if(!walletFrame)
@@ -673,7 +673,7 @@ void TapyrusGUI::showHelpMessageClicked()
     helpMessageDialog->show();
 }
 
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
 void TapyrusGUI::openClicked()
 {
     OpenURIDialog dlg(this);
@@ -734,14 +734,14 @@ void TapyrusGUI::updateNetworkState()
     QString tooltip;
 
     if (m_node.getNetworkActive()) {
-        tooltip = tr("%n active connection(s) to Tapyrus network", "", count) + QString(".<br>") + tr("Click to disable network activity.");
+        tooltip = QString(tr("%n active connection(s) to Tapyrus network", "", count) + QString(".<br>") + tr("Click to disable network activity."));
     } else {
-        tooltip = tr("Network activity disabled.") + QString("<br>") + tr("Click to enable network activity again.");
+        tooltip = QString(tr("Network activity disabled.") + QString("<br>") + tr("Click to enable network activity again."));
         icon = ":/icons/network_disabled";
     }
 
     // Don't word-wrap this (fixed-width) tooltip
-    tooltip = QString("<nobr>") + tooltip + QString("</nobr>");
+    tooltip = QString(QString("<nobr>") + tooltip + QString("</nobr>"));
     connectionsControl->setToolTip(tooltip);
 
     connectionsControl->setPixmap(platformStyle->SingleColorIcon(icon).pixmap(STATUSBAR_ICONSIZE,STATUSBAR_ICONSIZE));
@@ -820,10 +820,10 @@ void TapyrusGUI::setNumBlocks(int count, const QDateTime& blockDate, double nVer
     // Set icon state: spinning if catching up, tick otherwise
     if(secs < 90*60)
     {
-        tooltip = tr("Up to date") + QString(".<br>") + tooltip;
+        tooltip = QString(tr("Up to date") + QString(".<br>") + tooltip);
         labelBlocksIcon->setPixmap(platformStyle->SingleColorIcon(":/icons/synced").pixmap(STATUSBAR_ICONSIZE, STATUSBAR_ICONSIZE));
 
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
         if(walletFrame)
         {
             walletFrame->showOutOfSyncWarning(false);
@@ -844,7 +844,7 @@ void TapyrusGUI::setNumBlocks(int count, const QDateTime& blockDate, double nVer
         progressBar->setValue(nVerificationProgress * 1000000000.0 + 0.5);
         progressBar->setVisible(true);
 
-        tooltip = tr("Catching up...") + QString("<br>") + tooltip;
+        tooltip = QString(tr("Catching up...") + QString("<br>") + tooltip);
         if(count != prevBlocks)
         {
             labelBlocksIcon->setPixmap(platformStyle->SingleColorIcon(QString(
@@ -854,7 +854,7 @@ void TapyrusGUI::setNumBlocks(int count, const QDateTime& blockDate, double nVer
         }
         prevBlocks = count;
 
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
         if(walletFrame)
         {
             walletFrame->showOutOfSyncWarning(true);
@@ -869,7 +869,7 @@ void TapyrusGUI::setNumBlocks(int count, const QDateTime& blockDate, double nVer
     }
 
     // Don't word-wrap this (fixed-width) tooltip
-    tooltip = QString("<nobr>") + tooltip + QString("</nobr>");
+    tooltip = QString(QString("<nobr>") + tooltip + QString("</nobr>"));
 
     labelBlocksIcon->setToolTip(tooltip);
     progressBarLabel->setToolTip(tooltip);
@@ -991,7 +991,7 @@ void TapyrusGUI::showEvent(QShowEvent *event)
     optionsAction->setEnabled(true);
 }
 
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
 void TapyrusGUI::incomingTransaction(const QString& date, int unit, const CAmount& amount, const QString& type, const QString& address, const QString& label, const QString& walletName)
 {
     // On new transaction, make an info balloon
@@ -1041,7 +1041,7 @@ bool TapyrusGUI::eventFilter(QObject *object, QEvent *event)
     return QMainWindow::eventFilter(object, event);
 }
 
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
 bool TapyrusGUI::handlePaymentRequest(const SendCoinsRecipient& recipient)
 {
     // URI has to be valid

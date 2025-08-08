@@ -21,7 +21,7 @@
 #include <qt/utilitydialog.h>
 #include <qt/winshutdownmonitor.h>
 
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
 #include <qt/paymentserver.h>
 #include <qt/walletmodel.h>
 #endif
@@ -179,7 +179,7 @@ public:
     explicit TapyrusApplication(interfaces::Node& node, int &argc, char **argv);
     ~TapyrusApplication();
 
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
     /// Create payment server
     void createPaymentServer();
 #endif
@@ -227,7 +227,7 @@ private:
     ClientModel *clientModel;
     TapyrusGUI *window;
     QTimer *pollShutdownTimer;
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
     PaymentServer* paymentServer;
     std::vector<WalletModel*> m_wallet_models;
     std::unique_ptr<interfaces::Handler> m_handler_load_wallet;
@@ -289,7 +289,7 @@ TapyrusApplication::TapyrusApplication(interfaces::Node& node, int &argc, char *
     clientModel(0),
     window(0),
     pollShutdownTimer(0),
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
     paymentServer(0),
     m_wallet_models(),
 #endif
@@ -324,7 +324,7 @@ TapyrusApplication::~TapyrusApplication()
 
     delete window;
     window = 0;
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
     delete paymentServer;
     paymentServer = 0;
 #endif
@@ -334,7 +334,7 @@ TapyrusApplication::~TapyrusApplication()
     platformStyle = 0;
 }
 
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
 void TapyrusApplication::createPaymentServer()
 {
     paymentServer = new PaymentServer(this);
@@ -415,7 +415,7 @@ void TapyrusApplication::requestShutdown()
     window->setClientModel(0);
     pollShutdownTimer->stop();
 
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
     window->removeAllWallets();
     for (WalletModel *walletModel : m_wallet_models) {
         delete walletModel;
@@ -433,7 +433,7 @@ void TapyrusApplication::requestShutdown()
 
 void TapyrusApplication::addWallet(WalletModel* walletModel)
 {
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
     window->addWallet(walletModel);
 
     if (m_wallet_models.empty()) {
@@ -447,7 +447,7 @@ void TapyrusApplication::addWallet(WalletModel* walletModel)
 
 void TapyrusApplication::removeWallet()
 {
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
     WalletModel* walletModel = static_cast<WalletModel*>(sender());
     m_wallet_models.erase(std::find(m_wallet_models.begin(), m_wallet_models.end(), walletModel));
     window->removeWallet(walletModel);
@@ -464,14 +464,14 @@ void TapyrusApplication::initializeResult(bool success)
     {
         // Log this only after AppInitMain finishes, as then logging setup is guaranteed complete
         qWarning() << "Platform customization:" << platformStyle->getName();
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
         paymentServer->setOptionsModel(optionsModel);
 #endif
 
         clientModel = new ClientModel(m_node, optionsModel);
         window->setClientModel(clientModel);
 
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
         m_handler_load_wallet = m_node.handleLoadWallet([this](std::unique_ptr<interfaces::Wallet> wallet) {
             WalletModel* wallet_model = new WalletModel(std::move(wallet), m_node, platformStyle, optionsModel, nullptr);
             // Fix wallet model thread affinity.
@@ -495,7 +495,7 @@ void TapyrusApplication::initializeResult(bool success)
         }
         Q_EMIT splashFinished(window);
 
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
         // Now that initialization/startup is done, process any command-line
         // tapyrus: URIs or payment requests:
         connect(paymentServer, SIGNAL(receivedPaymentRequest(SendCoinsRecipient)),
@@ -568,7 +568,7 @@ int main(int argc, char *argv[])
     //   IMPORTANT if it is no longer a typedef use the normal variant above
     qRegisterMetaType< CAmount >("CAmount");
     qRegisterMetaType< std::function<void(void)> >("std::function<void(void)>");
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
     qRegisterMetaType<WalletModel*>("WalletModel*");
 #endif
 
@@ -647,7 +647,7 @@ int main(int argc, char *argv[])
     // Re-initialize translations after changing application name (language in network-specific settings can be different)
     initTranslations(qtTranslatorBase, qtTranslator, translatorBase, translator);
 
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
     // Start up the payment server early, too, so impatient users that click on
     // bitcoin: links repeatedly have their payment requests routed to this process:
     app.createPaymentServer();

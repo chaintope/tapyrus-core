@@ -28,7 +28,6 @@ target_link_libraries(tapyrus_wallet
     univalue
     ${BerkeleyDB_LIBRARY}
     Boost::headers
-    Boost::system
     $<TARGET_NAME_IF_EXISTS:USDT::headers>
 )
 message(STATUS "BerkeleyDB_INCLUDE_DIR: ${BerkeleyDB_INCLUDE_DIR}")

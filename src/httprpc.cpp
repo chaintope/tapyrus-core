@@ -296,7 +296,7 @@ bool StartHTTPRPC()
         return false;
 
     RegisterHTTPHandler("/", true, HTTPReq_JSONRPC);
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
     // ifdef can be removed once we switch to better endpoint support and API versioning
     RegisterHTTPHandler("/wallet/", false, HTTPReq_JSONRPC);
 #endif
@@ -315,7 +315,7 @@ void StopHTTPRPC()
 {
     LogPrint(BCLog::RPC, "Stopping HTTP RPC server\n");
     UnregisterHTTPHandler("/", true);
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
     UnregisterHTTPHandler("/wallet/", false);
 #endif
     if (httpRPCTimerInterface) {

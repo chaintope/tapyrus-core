@@ -20,7 +20,7 @@
 
 #include <univalue.h>
 
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
 #include <db_cxx.h>
 #include <wallet/wallet.h>
 #endif
@@ -117,8 +117,8 @@ class QtRPCTimerInterface: public RPCTimerInterface
 {
 public:
     ~QtRPCTimerInterface() {}
-    const char *Name() { return "Qt"; }
-    RPCTimerBase* NewTimer(std::function<void(void)>& func, int64_t millis)
+    const char *Name() override { return "Qt"; }
+    RPCTimerBase* NewTimer(std::function<void(void)>& func, int64_t millis) override
     {
         return new QtRPCTimerBase(func, millis);
     }
@@ -141,7 +141,7 @@ public:
  *   - Within single quotes, no escaping is possible and no special interpretation takes place
  *
  * @param[in]    node    optional node to execute command on
- * @param[out]   result      stringified Result from the executed command(chain)
+ * @param[out]   strResult      stringified Result from the executed command(chain)
  * @param[in]    strCommand  Command line to split
  * @param[in]    fExecute    set true if you want the command to be executed
  * @param[out]   pstrFilteredOut  Command line, filtered to remove any sensitive data
@@ -266,6 +266,7 @@ bool RPCConsole::RPCParseCommandLine(interfaces::Node* node, std::string &strRes
                 if (breakParsing)
                     break;
             }
+            [[fallthrough]];
             case STATE_ARGUMENT: // In or after argument
             case STATE_EATING_SPACES_IN_ARG:
             case STATE_EATING_SPACES_IN_BRACKETS:
@@ -304,7 +305,7 @@ bool RPCConsole::RPCParseCommandLine(interfaces::Node* node, std::string &strRes
                             UniValue params = RPCConvertValues(stack.back()[0], std::vector<std::string>(stack.back().begin() + 1, stack.back().end()));
                             std::string method = stack.back()[0];
                             std::string uri;
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
                             if (walletID) {
                                 QByteArray encodedName = QUrl::toPercentEncoding(QString::fromStdString(*walletID));
                                 uri = "/wallet/"+std::string(encodedName.constData(), encodedName.length());
@@ -378,6 +379,7 @@ bool RPCConsole::RPCParseCommandLine(interfaces::Node* node, std::string &strRes
                 strResult = lastResult.get_str();
             else
                 strResult = lastResult.write(2);
+            [[fallthrough]];
         case STATE_ARGUMENT:
         case STATE_EATING_SPACES:
             return true;
@@ -481,7 +483,7 @@ RPCConsole::RPCConsole(interfaces::Node& node, const PlatformStyle *_platformSty
     ui->WalletSelectorLabel->setVisible(false);
 
     // set library version labels
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
     ui->berkeleyDBVersion->setText(DbEnv::version(0, 0, 0));
 #else
     ui->label_berkeleyDBVersion->hide();
@@ -690,7 +692,7 @@ void RPCConsole::setClientModel(ClientModel *model)
     }
 }
 
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
 void RPCConsole::addWallet(WalletModel * const walletModel)
 {
     const QString name = walletModel->getWalletName();
@@ -906,7 +908,7 @@ void RPCConsole::on_lineEdit_returnPressed()
         cmdBeforeBrowsing = QString();
 
         QString walletID;
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
         const int wallet_index = ui->WalletSelector->currentIndex();
         if (wallet_index > 0) {
             walletID = (QString)ui->WalletSelector->itemData(wallet_index).value<QString>();
