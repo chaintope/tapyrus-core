@@ -16,7 +16,7 @@
 #include <key_io.h>
 #include <ui_interface.h>
 #include <util.h>
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
 #include <wallet/wallet.h>
 #endif
 
@@ -43,8 +43,6 @@
 #include <QStringList>
 #include <QTextDocument>
 #include <QUrlQuery>
-
-const int BITCOIN_IPC_CONNECT_TIMEOUT = 1000; // milliseconds
 
 const QString BITCOIN_IPC_PREFIX("tapyrus:");
 //

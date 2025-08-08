@@ -109,7 +109,7 @@ void OptionsModel::Init(bool resetSettings)
         settings.setValue("strDataDir", Intro::getDefaultDataDirectory());
 
     // Wallet
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
     if (!settings.contains("bSpendZeroConfChange"))
         settings.setValue("bSpendZeroConfChange", true);
     if (!m_node.softSetBoolArg("-spendzeroconfchange", settings.value("bSpendZeroConfChange").toBool()))
@@ -229,7 +229,7 @@ static ProxySetting GetProxySetting(QSettings &settings, const QString &name)
 
 static void SetProxySetting(QSettings &settings, const QString &name, const ProxySetting &ip_port)
 {
-    settings.setValue(name, ip_port.ip + ":" + ip_port.port);
+    settings.setValue(name, QString(ip_port.ip + ":" + ip_port.port));
 }
 
 static const QString GetDefaultProxyAddress()
@@ -276,7 +276,7 @@ QVariant OptionsModel::data(const QModelIndex & index, int role) const
         case ProxyPortTor:
             return GetProxySetting(settings, "addrSeparateProxyTor").port;
 
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
         case SpendZeroConfChange:
             return settings.value("bSpendZeroConfChange");
 #endif
@@ -387,7 +387,7 @@ bool OptionsModel::setData(const QModelIndex & index, const QVariant & value, in
         }
         break;
 
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
         case SpendZeroConfChange:
             if (settings.value("bSpendZeroConfChange") != value) {
                 settings.setValue("bSpendZeroConfChange", value);
