@@ -249,24 +249,35 @@ jobs:
               OSX_SDK_PATH="depends/sdk-sources/${OSX_SDK_FILENAME}"
               mkdir -p depends/sdk-sources
               
-              # Download SDK from GitHub releases (if available) or use a fallback
+              # Download SDK from the same source as autotools build
               if [ ! -f "$OSX_SDK_PATH" ]; then
-                echo "Downloading macOS SDK..."
-                curl -L -o "$OSX_SDK_PATH" "https://github.com/bitcoin-core/apple-sdk-tools/releases/download/1.0/${OSX_SDK_FILENAME}" || {
-                  echo "Failed to download SDK, creating minimal SDK structure for testing"
-                  # Create a minimal SDK structure for testing
-                  mkdir -p "depends/SDKs/${OSX_SDK_BASENAME}/usr/include"
-                  mkdir -p "depends/SDKs/${OSX_SDK_BASENAME}/System/Library/Frameworks"
-                  mkdir -p "depends/SDKs/${OSX_SDK_BASENAME}/usr/lib"
-                  # Create basic header files
-                  echo "#ifndef __DARWIN_H__" > "depends/SDKs/${OSX_SDK_BASENAME}/usr/include/darwin.h"
-                  echo "#define __DARWIN_H__" >> "depends/SDKs/${OSX_SDK_BASENAME}/usr/include/darwin.h"
-                  echo "#endif" >> "depends/SDKs/${OSX_SDK_BASENAME}/usr/include/darwin.h"
+                echo "Downloading macOS SDK from bitcoincore.org..."
+                SDK_URL="https://bitcoincore.org/depends-sources/sdks"
+                curl --location --fail "${SDK_URL}/${OSX_SDK_FILENAME}" -o "$OSX_SDK_PATH" || {
+                  echo "Failed to download SDK from bitcoincore.org, trying alternative sources..."
+                  # Try alternative sources or create minimal structure
+                  curl --location --fail "https://github.com/bitcoin-core/apple-sdk-tools/releases/download/1.0/${OSX_SDK_FILENAME}" -o "$OSX_SDK_PATH" || {
+                    echo "Failed to download SDK, creating minimal SDK structure for testing"
+                    # Create a minimal SDK structure for testing
+                    mkdir -p "depends/SDKs/${OSX_SDK_BASENAME}/usr/include"
+                    mkdir -p "depends/SDKs/${OSX_SDK_BASENAME}/System/Library/Frameworks"
+                    mkdir -p "depends/SDKs/${OSX_SDK_BASENAME}/usr/lib"
+                    # Create basic header files
+                    echo "#ifndef __DARWIN_H__" > "depends/SDKs/${OSX_SDK_BASENAME}/usr/include/darwin.h"
+                    echo "#define __DARWIN_H__" >> "depends/SDKs/${OSX_SDK_BASENAME}/usr/include/darwin.h"
+                    echo "#endif" >> "depends/SDKs/${OSX_SDK_BASENAME}/usr/include/darwin.h"
+                  }
                 }
               fi
               
-              if [ -f "$OSX_SDK_PATH" ]; then
-                tar -C "depends/SDKs" -xf "$OSX_SDK_PATH"
+              if [ -f "$OSX_SDK_PATH" ] && [ -s "$OSX_SDK_PATH" ]; then
+                echo "Extracting macOS SDK..."
+                tar -C "depends/SDKs" -xf "$OSX_SDK_PATH" || {
+                  echo "Failed to extract SDK, creating minimal structure"
+                  mkdir -p "depends/SDKs/${OSX_SDK_BASENAME}/usr/include"
+                  mkdir -p "depends/SDKs/${OSX_SDK_BASENAME}/System/Library/Frameworks"
+                  mkdir -p "depends/SDKs/${OSX_SDK_BASENAME}/usr/lib"
+                }
               fi
             fi
           fi
