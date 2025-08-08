@@ -6,7 +6,7 @@
 #include <tapyrus-config.h>
 
 #include <qt/sendcoinsdialog.h>
-#include <qt/ui_sendcoinsdialog.h>
+#include <qt/forms/ui_sendcoinsdialog.h>
 
 #include <qt/addresstablemodel.h>
 #include <qt/tapyrusunits.h>
