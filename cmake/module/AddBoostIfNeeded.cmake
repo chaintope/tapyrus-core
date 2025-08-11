@@ -83,7 +83,7 @@ function(add_boost_if_needed)
   endif()
 
   find_package(Boost 1.73.0 REQUIRED)
- 
+
   # For core binaries only, we only need headers
   # If BOOST_INCLUDEDIR is set and contains boost headers, set Boost_INCLUDE_DIR as well
   # This helps CMake's FindBoost module when it's having trouble with BOOST_ROOT

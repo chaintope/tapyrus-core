@@ -180,7 +180,10 @@ jobs:
             enable_gui: true
             enable_usdt: false
             enable_wallet: true
+<<<<<<< HEAD
 
+=======
+>>>>>>> 65189445d7 (enable macos cross compilation in cmake)
     name: ${{ matrix.config.name }}
     runs-on: ${{ matrix.config.os }}
     timeout-minutes: 300  # 5 hours timeout for daily tests
