@@ -115,11 +115,7 @@ add_library(tapyrusqt STATIC EXCLUDE_FROM_ALL
   $<$<PLATFORM_ID:Windows>:winshutdownmonitor.h>
   tapyrus.qrc
   ${CMAKE_CURRENT_BINARY_DIR}/tapyrus_locale.qrc
-<<<<<<< HEAD
   ${CMAKE_CURRENT_BINARY_DIR}/forms/ui_sendcoinsdialog.h
-=======
-  ${sendcoinsdialog_ui_h}
->>>>>>> a81f5ccf13 (cmake changes to support gcc, no wallet mode compilation, qt builds etc)
 )
 target_compile_definitions(tapyrusqt
   PUBLIC
@@ -136,10 +132,7 @@ target_include_directories(tapyrusqt
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/univalue/include>
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/crypto>
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/consensus>
-<<<<<<< HEAD
     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/forms>
-=======
->>>>>>> a81f5ccf13 (cmake changes to support gcc, no wallet mode compilation, qt builds etc)
     ${BerkeleyDB_INCLUDE_DIR}
 )
 if(ZMQ_INCLUDE_DIR)
@@ -166,10 +159,14 @@ target_link_libraries(tapyrusqt
 )
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 # Set SKIP_AUTOUIC on files that include ui_interface.h to prevent AutoUIC confusion
 =======
 # Set SKIP_AUTOUIC on files that include ui_interface.h to prevent AutoUIC confusion 
 >>>>>>> a81f5ccf13 (cmake changes to support gcc, no wallet mode compilation, qt builds etc)
+=======
+# Set SKIP_AUTOUIC on files that include ui_interface.h to prevent AutoUIC confusion
+>>>>>>> af55ebd894 (fix cmake qt build errors by moving some files from Pr344 here)
 set_property(SOURCE
   clientmodel.cpp
   splashscreen.cpp
