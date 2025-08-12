@@ -34,7 +34,7 @@ define $(package)_preprocess_cmds
 endef
 
 define $(package)_config_cmds
-  $($(package)_config_env) ./configure $($(package)_config_opts)
+  $($(package)_autoconf)
 endef
 
 define $(package)_build_cmds

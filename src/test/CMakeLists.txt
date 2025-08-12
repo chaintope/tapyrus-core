@@ -123,13 +123,14 @@ target_include_directories(test_tapyrus
     PRIVATE
         ${Boost_INCLUDE_DIRS}
         ${CMAKE_INSTALL_PREFIX}/include
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../leveldb
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../leveldb>
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../leveldb/include>
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../leveldb/helpers/memenv>
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../secp256k1/include>
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../univalue/include>
         ${BerkeleyDB_INCLUDE_DIR}
         ${EVENT_INCLUDE_DIRS}
+        ${ZMQ_INCLUDE_DIR}
     PUBLIC
         # To access the generated json headers.
         ${CMAKE_CURRENT_BINARY_DIR}
@@ -137,12 +138,22 @@ target_include_directories(test_tapyrus
 
 target_link_libraries(test_tapyrus
     PRIVATE
-        tapyrus_wallet
+        $<TARGET_NAME_IF_EXISTS:tapyrus_wallet>
         tapyrus_cli
         tapyrus_server
-        $<TARGET_NAME_IF_EXISTS:libevent::core>
+        tapyrus_common
+        tapyrus_util
+        tapyrus_consensus
+        $<TARGET_NAME_IF_EXISTS:tapyrus_zmq>
+        leveldb
+        univalue
+        secp256k1
+        tapyrus_crypto
+        Boost::headers
         $<TARGET_NAME_IF_EXISTS:libevent::extra>
+        $<TARGET_NAME_IF_EXISTS:libevent::core>
         $<TARGET_NAME_IF_EXISTS:libevent::pthreads>
+        $<TARGET_NAME_IF_EXISTS:USDT::headers>
 )
 
 # We need to detect if the BOOST_TEST_DYN_LINK flag is required.

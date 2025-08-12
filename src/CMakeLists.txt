@@ -98,8 +98,10 @@ add_library(tapyrus_util STATIC EXCLUDE_FROM_ALL
 )
 target_link_libraries(tapyrus_util
         PRIVATE
+        core_interface
         univalue
         Boost::headers
+        $<TARGET_NAME_IF_EXISTS:tapyrus_wallet>
 )
 target_compile_definitions(tapyrus_util PUBLIC HAVE_CONFIG_H)
 target_include_directories(tapyrus_util
@@ -214,6 +216,8 @@ add_library(tapyrus_server STATIC EXCLUDE_FROM_ALL
   verifydb.cpp
 )
 target_link_libraries(tapyrus_server
+  PUBLIC
+    Boost::headers
   PRIVATE
     core_interface
     tapyrus_common
@@ -222,9 +226,8 @@ target_link_libraries(tapyrus_server
     $<TARGET_NAME_IF_EXISTS:tapyrus_wallet>
     leveldb
     univalue
-    Boost::headers
-    $<TARGET_NAME_IF_EXISTS:libevent::core>
     $<TARGET_NAME_IF_EXISTS:libevent::extra>
+    $<TARGET_NAME_IF_EXISTS:libevent::core>
     $<TARGET_NAME_IF_EXISTS:libevent::pthreads>
     $<TARGET_NAME_IF_EXISTS:USDT::headers>
 )
@@ -253,6 +256,11 @@ if(BUILD_DAEMON)
   )
   add_windows_resources(tapyrusd tapyrusd-res.rc)
   target_link_libraries(tapyrusd PRIVATE
+    core_interface
+    tapyrus_server
+    tapyrus_util
+    tapyrus_common
+    univalue
     Boost::headers
     $<TARGET_NAME_IF_EXISTS:tapyrus_wallet>
   )
@@ -286,8 +294,8 @@ if(BUILD_CLI)
     tapyrus_cli
     tapyrus_util
     tapyrus_common
-    libevent::core
     libevent::extra
+    libevent::core
     Boost::headers
   )
   install_binary_component(tapyrus-cli HAS_MANPAGE)
@@ -301,6 +309,7 @@ if(BUILD_UTILS)
     core_interface
     tapyrus_common
     tapyrus_util
+    tapyrus_server
     univalue
     Boost::headers
   )
@@ -313,6 +322,9 @@ if(BUILD_GENESIS)
   target_link_libraries(tapyrus-genesis
           core_interface
           tapyrus_server
+          tapyrus_util
+          tapyrus_common
+          univalue
           Boost::headers
   )
   install_binary_component(tapyrus-genesis HAS_MANPAGE)

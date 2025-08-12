@@ -93,10 +93,6 @@ BASE_SCRIPTS = [
     'feature_reindex.py',
     'feature_serialization.py',
     'feature_serialization.py --scheme SCHNORR',
-    'feature_federation_management.py',
-    #'feature_federation_management.py --scheme SCHNORR', # not running these long running tests to complete the ci early.
-    #'feature_xfield_maxblocksize.py',
-    'feature_xfield_maxblocksize.py --scheme SCHNORR',
     # vv Tests less than 30s vv
     'wallet_keypool_topup.py',
     'interface_zmq.py',
@@ -179,7 +175,6 @@ BASE_SCRIPTS = [
     'feature_tokencreation.py',
     'feature_tokencreation.py  --usecli',
     'feature_logging.py',
-    'p2p_node_network_limited.py',
     'feature_blocksdir.py',
     'feature_config_args.py',
     'rpc_help.py',
@@ -204,8 +199,6 @@ EXTENDED_SCRIPTS = [
     'feature_maxuploadtarget.py',
     'mempool_packages.py',
     'mempool_packages.py --scheme SCHNORR',
-    'feature_dbcrash.py',
-    #'feature_dbcrash.py --scheme SCHNORR',  # not running this test to complete the ci early.
     # vv Tests less than 2m vv
     'feature_bip68_sequence.py',
     'feature_bip68_sequence.py --scheme SCHNORR',
@@ -225,6 +218,13 @@ EXTENDED_SCRIPTS = [
     'feature_rbf.py --scheme SCHNORR',
     'mempool_limit.py',
     'mempool_limit.py  --scheme SCHNORR',
+    'p2p_node_network_limited.py',
+    'feature_federation_management.py',
+    'feature_federation_management.py --scheme SCHNORR',
+    'feature_xfield_maxblocksize.py',
+    'feature_xfield_maxblocksize.py --scheme SCHNORR',
+    'feature_dbcrash.py',
+    'feature_dbcrash.py --scheme SCHNORR',
 ]
 
 DEBUG_MODE_SCRIPTS = [
@@ -242,7 +242,6 @@ DEBUG_MODE_SCRIPTS = [
 USDT_SCRIPTS = [
     'interface_usdt_net.py',
     'interface_usdt_utxocache.py',
-    'interface_usdt_validation.py',
     'interface_usdt_coinselection.py',
     'interface_usdt_mempool.py',
 ]

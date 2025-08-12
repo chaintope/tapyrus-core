@@ -31,7 +31,7 @@
 #include <utilstrencodings.h>
 #include <file_io.h>
 
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
 #include <wallet/rpcwallet.h>
 #endif
 
@@ -980,7 +980,7 @@ static UniValue signrawtransactionwithkey(const JSONRPCRequest& request)
 
 UniValue signrawtransaction(const JSONRPCRequest& request)
 {
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
     CWallet* const pwallet = wallet.get();
 #endif
@@ -993,7 +993,7 @@ UniValue signrawtransaction(const JSONRPCRequest& request)
             "this transaction depends on but may not yet be in the block chain.\n"
             "The third optional argument (may be null) is an array of base58-encoded private\n"
             "keys that, if given, will be the only keys used to sign the transaction.\n"
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
             + HelpRequiringPassphrase(pwallet) + "\n"
 #endif
             "\nArguments:\n"
@@ -1069,7 +1069,7 @@ UniValue signrawtransaction(const JSONRPCRequest& request)
         new_request.params.push_back(request.params[4]);
         return signrawtransactionwithkey(new_request);
     } else {
-#ifdef ENABLE_WALLET
+#if ENABLE_WALLET
         // Otherwise sign with the wallet which does not take a privkeys parameter
         new_request.params.push_back(request.params[0]);
         new_request.params.push_back(request.params[1]);

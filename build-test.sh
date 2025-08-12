@@ -21,6 +21,14 @@ export XCODE_VERSION=15.0
 export XCODE_BUILD_ID=15A240d
 OSX_SDK_BASENAME="Xcode-${XCODE_VERSION}-${XCODE_BUILD_ID}-extracted-SDK-with-libcxx-headers"
 
+# Fix HOST for macOS cross-compilation - append Darwin version if not present
+if [[ $HOST = *-apple-darwin ]] && [[ $HOST != *-apple-darwin[0-9]* ]]; then
+  # Darwin 23 corresponds to macOS 14 (Sonoma), Darwin 22 to macOS 13 (Ventura), etc.
+  # Use Darwin 23 as default for modern macOS cross-compilation
+  HOST="${HOST}23"
+  echo "Updated HOST to: $HOST for proper cross-compilation"
+fi
+
 if [ -n "$XCODE_VERSION" ] && [ ! -d "depends/SDKs/${OSX_SDK_BASENAME}" ]; then
   OSX_SDK_FILENAME="${OSX_SDK_BASENAME}.tar.gz"
   OSX_SDK_PATH="depends/sdk-sources/${OSX_SDK_FILENAME}"
