@@ -91,7 +91,7 @@ function(add_boost_if_needed)
     set(Boost_INCLUDE_DIR "${BOOST_INCLUDEDIR}")
     message(STATUS "Setting Boost_INCLUDE_DIR to: ${Boost_INCLUDE_DIR}")
   endif()
- 
+
   mark_as_advanced(Boost_INCLUDE_DIR)
   set_target_properties(Boost::headers PROPERTIES IMPORTED_GLOBAL TRUE)
   target_compile_definitions(Boost::headers INTERFACE

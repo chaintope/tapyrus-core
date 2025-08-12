@@ -180,6 +180,7 @@ jobs:
             enable_gui: true
             enable_usdt: false
             enable_wallet: true
+
     name: ${{ matrix.config.name }}
     runs-on: ${{ matrix.config.os }}
     timeout-minutes: 300  # 5 hours timeout for daily tests
@@ -279,7 +280,6 @@ jobs:
                 }
               fi
             fi
-          fi
 
           python3 -m venv $HOME/venv
           source $HOME/venv/bin/activate
@@ -520,7 +520,7 @@ jobs:
             fi
           elif [ "${{ matrix.config.platform }}" == "linux" ] && [ "${{ matrix.config.target_platform }}" == "macos" ]; then
             # Cross-compilation: Linux -> macOS
-            DARWIN_VERSION="20"  # Use Darwin 20 for macOS 11.0 compatibility
+            DARWIN_VERSION="20"  # Darwin 20 for macOS 11.0
             if [ "${{ matrix.config.target_arch }}" == "arm64" ]; then
               export HOST="aarch64-apple-darwin${DARWIN_VERSION}"
             else
