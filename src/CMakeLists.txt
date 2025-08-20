@@ -98,8 +98,10 @@ add_library(tapyrus_util STATIC EXCLUDE_FROM_ALL
 )
 target_link_libraries(tapyrus_util
         PRIVATE
+        core_interface
         univalue
         Boost::headers
+        $<TARGET_NAME_IF_EXISTS:tapyrus_wallet>
 )
 target_compile_definitions(tapyrus_util PUBLIC HAVE_CONFIG_H)
 target_include_directories(tapyrus_util
