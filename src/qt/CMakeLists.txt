@@ -49,13 +49,15 @@ qt5_add_translation(qm_files ${ts_files})
 
 configure_file(tapyrus_locale.qrc tapyrus_locale.qrc USE_SOURCE_PERMISSIONS COPYONLY)
 
+# Manually generate UI header for sendcoinsdialog since it uses SKIP_AUTOUIC
+qt5_wrap_ui(sendcoinsdialog_ui_h forms/sendcoinsdialog.ui)
+
 # The tapyrusqt sources have to include headers in
 # order to parse them to collect translatable strings.
 add_library(tapyrusqt STATIC EXCLUDE_FROM_ALL
   bantablemodel.cpp
   bantablemodel.h
   tapyrus.cpp
-  tapyrus.h
   tapyrusaddressvalidator.cpp
   tapyrusaddressvalidator.h
   tapyrusamountfield.cpp
@@ -70,16 +72,12 @@ add_library(tapyrusqt STATIC EXCLUDE_FROM_ALL
   csvmodelwriter.h
   guiutil.cpp
   guiutil.h
-  initexecutor.cpp
-  initexecutor.h
   intro.cpp
   intro.h
   $<$<PLATFORM_ID:Darwin>:macdockiconhandler.h>
   $<$<PLATFORM_ID:Darwin>:macdockiconhandler.mm>
   $<$<PLATFORM_ID:Darwin>:macnotificationhandler.h>
   $<$<PLATFORM_ID:Darwin>:macnotificationhandler.mm>
-  $<$<PLATFORM_ID:Darwin>:macos_appnap.h>
-  $<$<PLATFORM_ID:Darwin>:macos_appnap.mm>
   modaloverlay.cpp
   modaloverlay.h
   networkstyle.cpp
@@ -92,8 +90,6 @@ add_library(tapyrusqt STATIC EXCLUDE_FROM_ALL
   optionsmodel.h
   peertablemodel.cpp
   peertablemodel.h
-  peertablesortproxy.cpp
-  peertablesortproxy.h
   platformstyle.cpp
   platformstyle.h
   qvalidatedlineedit.cpp
@@ -112,6 +108,7 @@ add_library(tapyrusqt STATIC EXCLUDE_FROM_ALL
   $<$<PLATFORM_ID:Windows>:winshutdownmonitor.h>
   tapyrus.qrc
   ${CMAKE_CURRENT_BINARY_DIR}/tapyrus_locale.qrc
+  ${sendcoinsdialog_ui_h}
 )
 target_compile_definitions(tapyrusqt
   PUBLIC
@@ -121,7 +118,21 @@ target_compile_definitions(tapyrusqt
 target_include_directories(tapyrusqt
   PUBLIC
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/leveldb
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/leveldb/include>
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/leveldb/helpers/memenv>
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/univalue/include>
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/crypto>
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/consensus>
+    ${BerkeleyDB_INCLUDE_DIR}
 )
+if(ZMQ_INCLUDE_DIR)
+    target_include_directories(tapyrus_server
+        PRIVATE
+            ${ZMQ_INCLUDE_DIR}
+    )
+endif()
 set_property(SOURCE macnotificationhandler.mm
   # Ignore warnings "'NSUserNotificationCenter' is deprecated: first deprecated in macOS 11.0".
   APPEND PROPERTY COMPILE_OPTIONS -Wno-deprecated-declarations
@@ -139,6 +150,20 @@ target_link_libraries(tapyrusqt
     $<$<CXX_COMPILER_ID:MSVC>:shlwapi>
 )
 
+# Set SKIP_AUTOUIC on files that include ui_interface.h to prevent AutoUIC confusion
+set_property(SOURCE
+  clientmodel.cpp
+  splashscreen.cpp
+  paymentserver.cpp
+  transactionview.cpp
+  tapyrus.cpp
+  tapyrusgui.cpp
+  walletmodel.cpp
+  walletview.cpp
+  sendcoinsdialog.cpp
+  PROPERTY SKIP_AUTOUIC ON
+)
+
 if(ENABLE_WALLET)
   target_sources(tapyrusqt
     PRIVATE
@@ -152,8 +177,6 @@ if(ENABLE_WALLET)
       coincontroldialog.h
       coincontroltreewidget.cpp
       coincontroltreewidget.h
-      createwalletdialog.cpp
-      createwalletdialog.h
       editaddressdialog.cpp
       editaddressdialog.h
       openuridialog.cpp
@@ -162,10 +185,6 @@ if(ENABLE_WALLET)
       overviewpage.h
       paymentserver.cpp
       paymentserver.h
-      psbtoperationsdialog.cpp
-      psbtoperationsdialog.h
-      qrimagewidget.cpp
-      qrimagewidget.h
       receivecoinsdialog.cpp
       receivecoinsdialog.h
       receiverequestdialog.cpp
@@ -184,16 +203,12 @@ if(ENABLE_WALLET)
       transactiondescdialog.h
       transactionfilterproxy.cpp
       transactionfilterproxy.h
-      transactionoverviewwidget.cpp
-      transactionoverviewwidget.h
       transactionrecord.cpp
       transactionrecord.h
       transactiontablemodel.cpp
       transactiontablemodel.h
       transactionview.cpp
       transactionview.h
-      walletcontroller.cpp
-      walletcontroller.h
       walletframe.cpp
       walletframe.h
       walletmodel.cpp
@@ -223,7 +238,7 @@ if(qt_lib_type STREQUAL "STATIC_LIBRARY")
 endif()
 
 add_executable(tapyrus-qt
-  ../init/tapyrus-qt.cpp
+  tapyrus.cpp
 )
 add_windows_resources(tapyrus-qt res/tapyrus-qt-res.rc)
 
@@ -293,7 +308,7 @@ elseif(NOT SED_EXECUTABLE)
     COMMAND ${CMAKE_COMMAND} -E echo "Error: GNU sed not found"
   )
 else()
-  set(translatable_sources_directories src src/qt src/util)
+  set(translatable_sources_directories src src/qt)
   if(ENABLE_WALLET)
     list(APPEND translatable_sources_directories src/wallet)
   endif()

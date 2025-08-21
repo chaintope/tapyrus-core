@@ -697,7 +697,7 @@ void CoinControlDialog::updateView()
         // amount
         if (treeMode)
         {
-            itemWalletAddress->setText(COLUMN_CHECKBOX, "(" + QString::number(nChildren) + ")");
+            itemWalletAddress->setText(COLUMN_CHECKBOX, QString("(" + QString::number(nChildren) + ")"));
             itemWalletAddress->setText(COLUMN_AMOUNT, TapyrusUnits::format(nDisplayUnit, nSum));
             itemWalletAddress->setData(COLUMN_AMOUNT, Qt::UserRole, QVariant((qlonglong)nSum));
         }
