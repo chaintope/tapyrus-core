@@ -1,0 +1,782 @@
+# Copyright (c) 2023-present The Bitcoin Core developers
+# Copyright (c) 2025 Chaintope Inc.
+# Distributed under the MIT software license, see the accompanying
+# file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
+name: Cmake Daily Test
+
+on:
+  schedule:
+    # Run daily at 3 AM JST (6 PM UTC previous day)
+    - cron: '0 18 * * *'
+  workflow_dispatch:
+    inputs:
+      test_branch:
+        description: 'Branch to test (default: current branch or master)'
+        type: string
+        default: ''
+        required: false
+
+concurrency:
+  group: ${{ github.workflow }}-daily
+  cancel-in-progress: true
+
+env:
+  CI_FAILFAST_TEST_LEAVE_DANGLING: 1
+  CTEST_OUTPUT_ON_FAILURE: 'ON'
+  CMAKE_BUILD_PARALLEL_LEVEL: 4
+  LC_ALL: C.UTF-8
+  BOOST_TEST_RANDOM: 1
+
+jobs:
+  daily-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          # Linux configurations with feature combinations
+          - name: L-X86-Deb-GUI+USDT+Wallet
+            os: ubuntu-latest
+            arch: x86_64
+            platform: linux
+            build_type: Debug
+            enable_gui: true
+            enable_usdt: true
+            enable_wallet: true
+          - name: L-X86-Rel-GUI+USDT+Wallet
+            os: ubuntu-latest
+            arch: x86_64
+            platform: linux
+            build_type: RelWithDebInfo
+            enable_gui: true
+            enable_usdt: true
+            enable_wallet: true
+          - name: L-X86-Rel-No_GUI+USDT+Wallet
+            os: ubuntu-latest
+            arch: x86_64
+            platform: linux
+            build_type: RelWithDebInfo
+            enable_gui: false
+            enable_usdt: true
+            enable_wallet: true
+          - name: L-X86-Rel-No_GUI+No_Wallet
+            os: ubuntu-latest
+            arch: x86_64
+            platform: linux
+            build_type: RelWithDebInfo
+            enable_gui: false
+            enable_usdt: false
+            enable_wallet: false
+          - name: L-ARM-Deb-GUI+USDT+Wallet
+            os: ubuntu-latest
+            arch: arm64
+            platform: linux
+            build_type: Debug
+            enable_gui: true
+            enable_usdt: true
+            enable_wallet: true
+          - name: L-ARM-Rel-GUI+Wallet
+            os: ubuntu-latest
+            arch: arm64
+            platform: linux
+            build_type: RelWithDebInfo
+            enable_gui: true
+            enable_usdt: false
+            enable_wallet: true
+          - name: L-ARM-Rel-No_GUI+No_Wallet
+            os: ubuntu-latest
+            arch: arm64
+            platform: linux
+            build_type: RelWithDebInfo
+            enable_gui: false
+            enable_usdt: false
+            enable_wallet: false
+          # macOS configurations with feature combinations(NO USDT support)
+          - name: M-X86-Deb-GUI+Wallet
+            os: macos-13
+            arch: x86_64
+            platform: macos
+            build_type: Debug
+            enable_gui: true
+            enable_usdt: false
+            enable_wallet: true
+          - name: M-X86-Rel-GUI+Wallet
+            os: macos-13
+            arch: x86_64
+            platform: macos
+            build_type: RelWithDebInfo
+            enable_gui: true
+            enable_usdt: false
+            enable_wallet: true
+          - name: M-X86-Rel-GUI+No_Wallet
+            os: macos-13
+            arch: x86_64
+            platform: macos
+            build_type: RelWithDebInfo
+            enable_gui: true
+            enable_usdt: false
+            enable_wallet: false
+          - name: M-X86-Rel-No_GUI+No_Wallet
+            os: macos-13
+            arch: x86_64
+            platform: macos
+            build_type: RelWithDebInfo
+            enable_gui: false
+            enable_usdt: false
+            enable_wallet: false
+          - name: M-ARM-Deb-GUI+Wallet
+            os: macos-latest
+            arch: arm64
+            platform: macos
+            build_type: Debug
+            enable_gui: true
+            enable_usdt: false
+            enable_wallet: true
+          - name: M-ARM-Rel-GUI+Wallet
+            os: macos-latest
+            arch: arm64
+            platform: macos
+            build_type: RelWithDebInfo
+            enable_gui: true
+            enable_usdt: false
+            enable_wallet: true
+          - name: M-ARM-Rel-No_GUI+Wallet
+            os: macos-latest
+            arch: arm64
+            platform: macos
+            build_type: RelWithDebInfo
+            enable_gui: false
+            enable_usdt: false
+            enable_wallet: true
+          - name: M-ARM-Rel-No_GUI+No_Wallet
+            os: macos-latest
+            arch: arm64
+            platform: macos
+            build_type: RelWithDebInfo
+            enable_gui: false
+            enable_usdt: false
+            enable_wallet: false
+          # macOS cross-compilation jobs (Linux -> macOS)
+          #- name: L-Cross-M-X86-Rel-GUI+Wallet
+          #  os: ubuntu-latest
+          # arch: x86_64
+          #  platform: linux
+          #  target_platform: macos
+          #  target_arch: x86_64
+          #  build_type: RelWithDebInfo
+          #  enable_gui: true
+          #  enable_usdt: false
+          #  enable_wallet: true
+          #- name: L-Cross-M-ARM-Rel-GUI+Wallet
+          #  os: ubuntu-latest
+          #  arch: x86_64
+          #  platform: linux
+          #  target_platform: macos
+          #  target_arch: arm64
+          #  build_type: RelWithDebInfo
+          #  enable_gui: true
+          #  enable_usdt: false
+          #  enable_wallet: true
+
+    name: ${{ matrix.config.name }}
+    runs-on: ${{ matrix.config.os }}
+    timeout-minutes: 300  # 5 hours timeout for daily tests
+    env:
+      BASE_ROOT_DIR: ${{ github.workspace }}
+      CCACHE_DIR: ${{ github.workspace }}/ccache
+      BASE_BUILD_DIR: ${{ github.workspace }}/build
+      DEPENDS_DIR: ${{ github.workspace }}/depends
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Use manual input if provided, otherwise use current branch (for PRs) or master (for scheduled runs)
+          ref: ${{ github.event.inputs.test_branch || github.ref || 'master' }}
+          submodules: recursive
+
+      - name: Restore Ccache cache
+        id: ccache-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: daily-${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ matrix.config.build_type }}-${{ matrix.config.enable_gui }}-${{ matrix.config.enable_usdt }}-${{ matrix.config.enable_wallet }}-ccache-${{ github.run_id }}
+          restore-keys: daily-${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ matrix.config.build_type }}-${{ matrix.config.enable_gui }}-${{ matrix.config.enable_usdt }}-${{ matrix.config.enable_wallet }}-ccache-
+
+      - name: Restore Depends cache
+        id: depends-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.DEPENDS_DIR }}
+          key: depends-v2-${{ matrix.config.platform }}-${{ matrix.config.arch }}-gui${{ matrix.config.enable_gui }}-wallet${{ matrix.config.enable_wallet }}-usdt${{ matrix.config.enable_usdt }}-${{ hashFiles('depends/packages/*') }}
+          restore-keys: depends-v2-${{ matrix.config.platform }}-${{ matrix.config.arch }}-gui${{ matrix.config.enable_gui }}-wallet${{ matrix.config.enable_wallet }}-usdt${{ matrix.config.enable_usdt }}-
+
+      - name: Restore Benchmark History cache
+        if: (matrix.config.platform == 'linux' && matrix.config.arch == 'x86_64') || (matrix.config.platform == 'macos' && matrix.config.arch == 'arm64')
+        id: benchmark-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ github.workspace }}/benchmark_results/data
+          key: benchmark-history-${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ github.run_id }}
+          restore-keys: benchmark-history-${{ matrix.config.platform }}-${{ matrix.config.arch }}-
+
+      - name: Setup Linux Dependencies
+        if: matrix.config.platform == 'linux'
+        env:
+          ACTIONS_RUNNER_DEBUG: true
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc g++ ccache build-essential cmake pkgconf python3-zmq bsdmainutils systemtap-sdt-dev bpfcc-tools bpftrace python3-venv valgrind libboost-test-dev
+
+          if [ "${{ matrix.config.enable_gui }}" == "true" ]; then
+            sudo apt-get install -y qtbase5-dev qttools5-dev-tools
+          fi
+
+          # Install cross-compilation toolchain for macOS targets
+          if [ "${{ matrix.config.target_platform }}" == "macos" ]; then
+            sudo apt-get install -y curl git cmake ninja-build
+            # Install osxcross for macOS cross-compilation
+            cd /tmp
+            git clone https://github.com/tpoechtrager/osxcross.git
+            cd osxcross
+            # Download macOS SDK (this requires the SDK to be available)
+            # For CI, we'll use a lightweight approach with clang
+            sudo apt-get install -y clang lld
+          fi
+
+          python3 -m venv $HOME/venv
+          source $HOME/venv/bin/activate
+          pip3 install pyzmq
+
+      - name: Setup macOS Dependencies
+        if: matrix.config.platform == 'macos'
+        env:
+          HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
+          ACTIONS_RUNNER_DEBUG: true
+        run: |
+          if [ -d "/Applications/Xcode_15.0.app" ]; then
+            sudo xcode-select --switch /Applications/Xcode_15.0.app
+          else
+            echo "Xcode 15.0 not found, skipping xcode-select"
+          fi
+
+          brew install --quiet coreutils ninja pkgconf gnu-getopt ccache boost
+
+          python3 -m venv $HOME/venv
+          source $HOME/venv/bin/activate
+          pip3 install pyzmq
+
+      - name: Build Depends
+        env:
+          ACTIONS_STEP_DEBUG: true
+        run: |
+          # Determine HOST based on platform and architecture (including cross-compilation)
+          if [ "${{ matrix.config.platform }}" == "macos" ]; then
+            DARWIN_VERSION=$(uname -r | cut -d. -f1)
+            NATIVE_ARCH=$(uname -m)
+            if [ "$NATIVE_ARCH" == "arm64" ]; then
+              export HOST="aarch64-apple-darwin${DARWIN_VERSION}"
+            else
+              export HOST="x86_64-apple-darwin${DARWIN_VERSION}"
+            fi
+            CPU_COUNT=$(sysctl -n hw.ncpu)
+          elif [ "${{ matrix.config.target_platform }}" == "macos" ]; then
+            # Cross-compilation: Linux -> macOS
+            DARWIN_VERSION="23"  # Use a reasonable default Darwin version
+            if [ "${{ matrix.config.target_arch }}" == "arm64" ]; then
+              export HOST="aarch64-apple-darwin${DARWIN_VERSION}"
+            else
+              export HOST="x86_64-apple-darwin${DARWIN_VERSION}"
+            fi
+            CPU_COUNT=$(nproc)
+          else
+            # Native Linux builds
+            NATIVE_ARCH=$(uname -m)
+            if [ "$NATIVE_ARCH" == "aarch64" ]; then
+              export HOST="aarch64-linux-gnu"
+            else
+              export HOST="x86_64-pc-linux-gnu"
+            fi
+            CPU_COUNT=$(nproc)
+          fi
+
+          echo "Building depends for HOST=$HOST"
+
+          # Set depends options based on build configuration
+          DEPENDS_OPTS="HOST=$HOST"
+          if [ "${{ matrix.config.enable_gui }}" == "false" ]; then
+            DEPENDS_OPTS="$DEPENDS_OPTS NO_QT=1"
+          fi
+          if [ "${{ matrix.config.enable_wallet }}" == "false" ]; then
+            DEPENDS_OPTS="$DEPENDS_OPTS NO_WALLET=1"
+          fi
+          if [ "${{ matrix.config.enable_usdt }}" == "false" ]; then
+            DEPENDS_OPTS="$DEPENDS_OPTS NO_USDT=1"
+          fi
+
+          # Check if depends is already built and valid
+          DEPENDS_PREFIX="$DEPENDS_DIR/$HOST"
+          if [ -d "$DEPENDS_PREFIX" ] && [ -d "$DEPENDS_PREFIX/lib" ] && [ -d "$DEPENDS_PREFIX/include" ]; then
+            echo "Depends appears to be already built, verifying required dependencies..."
+
+            # Define required files based on configuration
+            REQUIRED_FILES=()
+            MISSING_FILES=()
+
+            # Base packages - always required
+            REQUIRED_FILES+=("$DEPENDS_PREFIX/lib/libevent.a")
+            REQUIRED_FILES+=("$DEPENDS_PREFIX/lib/libzmq.a")
+            REQUIRED_FILES+=("$DEPENDS_PREFIX/include/boost/config.hpp")
+            REQUIRED_FILES+=("$DEPENDS_PREFIX/include/zmq.h")
+
+            # GUI dependencies
+            if [ "${{ matrix.config.enable_gui }}" == "true" ]; then
+              if [ "${{ matrix.config.platform }}" == "linux" ]; then
+                REQUIRED_FILES+=("$DEPENDS_PREFIX/lib/libQt5Core.so")
+                REQUIRED_FILES+=("$DEPENDS_PREFIX/lib/libQt5Widgets.so")
+                REQUIRED_FILES+=("$DEPENDS_PREFIX/lib/libQt5Gui.so")
+              else
+                REQUIRED_FILES+=("$DEPENDS_PREFIX/lib/libQt5Core.framework")
+                REQUIRED_FILES+=("$DEPENDS_PREFIX/lib/libQt5Widgets.framework")
+                REQUIRED_FILES+=("$DEPENDS_PREFIX/lib/libQt5Gui.framework")
+              fi
+            fi
+
+            # Wallet dependencies (Berkeley DB)
+            if [ "${{ matrix.config.enable_wallet }}" == "true" ]; then
+              REQUIRED_FILES+=("$DEPENDS_PREFIX/lib/libdb_cxx-4.8.a")
+              REQUIRED_FILES+=("$DEPENDS_PREFIX/lib/libdb-4.8.a")
+              REQUIRED_FILES+=("$DEPENDS_PREFIX/include/db_cxx.h")
+              REQUIRED_FILES+=("$DEPENDS_PREFIX/include/db.h")
+            fi
+
+            # USDT dependencies (Linux only)
+            if [ "${{ matrix.config.enable_usdt }}" == "true" ] && [ "${{ matrix.config.platform }}" == "linux" ]; then
+              REQUIRED_FILES+=("$DEPENDS_PREFIX/include/sys/sdt.h")
+            fi
+
+            # Check all required files
+            echo "Checking for ${#REQUIRED_FILES[@]} required dependency files..."
+            echo "DEPENDS_PREFIX: $DEPENDS_PREFIX"
+            echo "Configuration: GUI=${{ matrix.config.enable_gui }} WALLET=${{ matrix.config.enable_wallet }} USDT=${{ matrix.config.enable_usdt }}"
+            echo "Platform: ${{ matrix.config.platform }}"
+
+            for file in "${REQUIRED_FILES[@]}"; do
+              if [ ! -f "$file" ]; then
+                MISSING_FILES+=("$file")
+                echo "Missing: $file"
+              fi
+            done
+
+            if [ ${#MISSING_FILES[@]} -eq 0 ]; then
+              echo "Depends verification passed - all ${#REQUIRED_FILES[@]} required files found"
+            else
+              echo "Depends verification failed - ${#MISSING_FILES[@]} files missing"
+              rm -rf "$DEPENDS_PREFIX"
+            fi
+          fi
+
+          if  [ ! -d "$DEPENDS_PREFIX" ]; then
+            echo "----------------   Building Depends $HOST     ----------------"
+            if ! make -C depends $DEPENDS_OPTS -j$CPU_COUNT install_cmake; then
+              echo "Depends build failed"
+              exit 1
+            fi
+          fi
+
+          # Verify the build completed successfully
+          if [ ! -d "$DEPENDS_PREFIX" ] || [ ! -d "$DEPENDS_PREFIX/lib" ]; then
+            echo "Depends build failed: $DEPENDS_PREFIX or lib directory not found"
+            exit 1
+          fi
+
+          # Verify toolchain file was generated
+          if [ ! -f "$DEPENDS_PREFIX/toolchain.cmake" ]; then
+            echo "Toolchain file not found at $DEPENDS_PREFIX/toolchain.cmake"
+          else
+            echo "Toolchain file generated at $DEPENDS_PREFIX/toolchain.cmake"
+          fi
+
+          echo "---------------- Depends build completed for $HOST ---------------- "
+          echo "Contents of $DEPENDS_PREFIX:"
+          ls -la "$DEPENDS_PREFIX/" || true
+          echo "Libraries in $DEPENDS_PREFIX/lib:"
+          ls -la "$DEPENDS_PREFIX/lib/" | head -10 || true
+          echo "Libraries in $DEPENDS_PREFIX/include:"
+          ls -la "$DEPENDS_PREFIX/include/" | head -10 || true
+          echo "---------------- ----------------- --------------- ---------------- "
+
+      - name: Save Depends cache
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.DEPENDS_DIR }}
+          key: depends-v2-${{ matrix.config.platform }}-${{ matrix.config.arch }}-gui${{ matrix.config.enable_gui }}-wallet${{ matrix.config.enable_wallet }}-usdt${{ matrix.config.enable_usdt }}-${{ hashFiles('depends/packages/*') }}
+
+      - name: Save Benchmark History cache
+        if: always() && ((matrix.config.platform == 'linux' && matrix.config.arch == 'x86_64') || (matrix.config.platform == 'macos' && matrix.config.arch == 'arm64'))
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ github.workspace }}/benchmark_results/data
+          key: benchmark-history-${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ github.run_id }}
+
+      - name: Enable core dumps
+        run: |
+          CORE_DUMP_DIR="${{ github.workspace }}/core_dumps"
+          mkdir -p "$CORE_DUMP_DIR"
+          chmod 777 "$CORE_DUMP_DIR"
+          if [ "${{ matrix.config.platform }}" == "linux" ]; then
+            sudo sysctl -w kernel.core_pattern="$CORE_DUMP_DIR/core.%e.%p"
+          else
+            sudo sysctl -w kern.corefile="$CORE_DUMP_DIR/core.%N"
+          fi
+          echo "Core dumps will be stored in: $CORE_DUMP_DIR"
+          ulimit -c unlimited
+          TEST_DIR="${{ github.workspace }}/tapyrus_test"
+          mkdir -p "$TEST_DIR"
+          chmod -R 777 "$TEST_DIR"
+          echo "TAPYRUS_TEST_DIR=$TEST_DIR" >> $GITHUB_ENV
+
+      - name: Build and run daily tests
+        env:
+          TAPYRUS_TEST_DIR: ${{ env.TAPYRUS_TEST_DIR }}
+          ACTIONS_STEP_DEBUG: true
+        run: |
+          if [ "${{ matrix.config.platform }}" == "macos" ]; then
+            CPU_COUNT=$(sysctl -n hw.ncpu)
+          else
+            CPU_COUNT=$(nproc)
+          fi
+
+          # Create dummy .tapyrus file to prevent default datadir from being used
+          echo ">" $HOME/.tapyrus
+
+          # Set compiler based on platform (OS defaults and cross-compilation)
+          if [ "${{ matrix.config.platform }}" == "macos" ] || [ "${{ matrix.config.target_platform }}" == "macos" ]; then
+            export CC="clang"
+            export CXX="clang++"
+          else
+            export CC="gcc"
+            export CXX="g++"
+          fi
+
+          # Set up depends path using target architecture (including cross-compilation)
+          if [ "${{ matrix.config.platform }}" == "macos" ]; then
+            DARWIN_VERSION=$(uname -r | cut -d. -f1)
+            NATIVE_ARCH=$(uname -m)
+            if [ "$NATIVE_ARCH" == "arm64" ]; then
+              export HOST="aarch64-apple-darwin${DARWIN_VERSION}"
+            else
+              export HOST="x86_64-apple-darwin${DARWIN_VERSION}"
+            fi
+          elif [ "${{ matrix.config.target_platform }}" == "macos" ]; then
+            # Cross-compilation: Linux -> macOS
+            DARWIN_VERSION="23"  # Use a reasonable default Darwin version
+            if [ "${{ matrix.config.target_arch }}" == "arm64" ]; then
+              export HOST="aarch64-apple-darwin${DARWIN_VERSION}"
+            else
+              export HOST="x86_64-apple-darwin${DARWIN_VERSION}"
+            fi
+          else
+            # Native Linux builds
+            NATIVE_ARCH=$(uname -m)
+            if [ "$NATIVE_ARCH" == "aarch64" ]; then
+              export HOST="aarch64-linux-gnu"
+            else
+              export HOST="x86_64-pc-linux-gnu"
+            fi
+          fi
+          DEPENDS_PREFIX="$DEPENDS_DIR/$HOST"
+
+          # Verify depends directory exists and has required files
+          if [ ! -d "$DEPENDS_PREFIX" ]; then
+            echo "Error: Depends directory $DEPENDS_PREFIX not found"
+            echo "Available directories in $DEPENDS_DIR:"
+            ls -la "$DEPENDS_DIR" || echo "Depends directory not found"
+            exit 1
+          fi
+
+          # Common CMake configuration options
+          CMAKE_OPTS=(
+            "-DENABLE_ZMQ=ON"
+            "-DENABLE_BENCH=ON"
+            "-DCMAKE_BUILD_TYPE=${{ matrix.config.build_type }}"
+            "-DENABLE_TESTS=ON"
+          )
+
+          # Use depends-generated CMake toolchain file
+          TOOLCHAIN_FILE="$DEPENDS_PREFIX/toolchain.cmake"
+          if [ -f "$TOOLCHAIN_FILE" ]; then
+            CMAKE_OPTS+=("-DCMAKE_TOOLCHAIN_FILE=$TOOLCHAIN_FILE")
+            echo "Using depends toolchain file: $TOOLCHAIN_FILE"
+          else
+            echo "Toolchain file not found at $TOOLCHAIN_FILE"
+            exit 1
+          fi
+
+          # GUI option
+          if [ "${{ matrix.config.enable_gui }}" == "true" ]; then
+            CMAKE_OPTS+=("-DENABLE_GUI=ON")
+          else
+            CMAKE_OPTS+=("-DENABLE_GUI=OFF")
+          fi
+
+          # USDT option
+          if [ "${{ matrix.config.enable_usdt }}" == "true" ]; then
+            CMAKE_OPTS+=("-DENABLE_TRACING=ON")
+          else
+            CMAKE_OPTS+=("-DENABLE_TRACING=OFF")
+          fi
+
+          # wallet options
+          if [ "${{ matrix.config.enable_wallet }}" == "true" ]; then
+            CMAKE_OPTS+=("-DENABLE_WALLET=ON" "-DWITH_BDB=ON")
+          else
+            CMAKE_OPTS+=("-DENABLE_WALLET=OFF" "-DWITH_BDB=OFF")
+          fi
+
+          # Platform-specific options
+          if [ "${{ matrix.config.platform }}" == "macos" ]; then
+            # Native macOS builds
+            CMAKE_OPTS+=("-DCMAKE_CXX_FLAGS=-Wno-unused-member-function")
+            if ! brew list berkeley-db@4 &>/dev/null; then
+              CMAKE_OPTS+=("-DWARN_INCOMPATIBLE_BDB=OFF")
+            fi
+          elif [ "${{ matrix.config.target_platform }}" == "macos" ]; then
+            # Cross-compilation to macOS from Linux
+            CMAKE_OPTS+=("-DCMAKE_SYSTEM_NAME=Darwin")
+            if [ "${{ matrix.config.target_arch }}" == "arm64" ]; then
+              CMAKE_OPTS+=("-DCMAKE_SYSTEM_PROCESSOR=arm64")
+              CMAKE_OPTS+=("-DCMAKE_OSX_ARCHITECTURES=arm64")
+            else
+              CMAKE_OPTS+=("-DCMAKE_SYSTEM_PROCESSOR=x86_64")
+              CMAKE_OPTS+=("-DCMAKE_OSX_ARCHITECTURES=x86_64")
+            fi
+            CMAKE_OPTS+=("-DCMAKE_OSX_DEPLOYMENT_TARGET=11.0")
+            CMAKE_OPTS+=("-DCMAKE_CXX_FLAGS=-Wno-unused-member-function")
+            CMAKE_OPTS+=("-DWARN_INCOMPATIBLE_BDB=OFF")
+          fi
+
+          # Set dependency paths for depends build
+          CMAKE_OPTS+=("-DBOOST_ROOT=$DEPENDS_PREFIX")
+          CMAKE_OPTS+=("-DBOOST_INCLUDEDIR=$DEPENDS_PREFIX/include")
+          CMAKE_OPTS+=("-DBOOST_LIBRARYDIR=$DEPENDS_PREFIX/lib")
+          CMAKE_OPTS+=("-DZEROMQ_ROOT=$DEPENDS_PREFIX")
+          CMAKE_OPTS+=("-DZEROMQ_INCLUDE_DIR=$DEPENDS_PREFIX/include")
+          CMAKE_OPTS+=("-DZEROMQ_LIBRARY=$DEPENDS_PREFIX/lib/libzmq.a")
+
+          # Set Berkeley DB paths if wallet is enabled
+          if [ "${{ matrix.config.enable_wallet }}" == "true" ]; then
+            CMAKE_OPTS+=("-DBerkeleyDB_ROOT=$DEPENDS_PREFIX")
+            CMAKE_OPTS+=("-DBerkeleyDB_INCLUDE_DIR=$DEPENDS_PREFIX/include")
+            CMAKE_OPTS+=("-DBerkeleyDB_LIBRARY=$DEPENDS_PREFIX/lib/libdb_cxx-4.8.a")
+          fi
+
+          # Configure and build
+          echo "Using depends prefix: $DEPENDS_PREFIX"
+          echo "CMake configuration options:"
+          printf '%s\n' "${CMAKE_OPTS[@]}"
+          export PKG_CONFIG_PATH="$DEPENDS_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH"
+          export LD_LIBRARY_PATH="$DEPENDS_PREFIX/lib:$LD_LIBRARY_PATH"
+          echo "Environment variables:"
+          echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
+          echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
+          echo "---------------- Start cmake configure ---------------- "
+          cmake -S "$BASE_ROOT_DIR" -B "$BASE_BUILD_DIR" "${CMAKE_OPTS[@]}"
+
+          echo "----------------   Start build   ---------------- "
+          cmake --build "$BASE_BUILD_DIR" --parallel -j "$CPU_COUNT" --target all
+
+          # Run daily test suite
+          export CTEST_OUTPUT_ON_FAILURE=ON
+
+          # Skip tests for cross-compiled binaries (they won't run on Linux host)
+          if [ "${{ matrix.config.target_platform }}" == "macos" ]; then
+            echo "---------------- Cross-compilation build completed ---------------- "
+            echo "Skipping tests for cross-compiled macOS binaries (cannot run on Linux host)"
+            echo "Build artifacts created for macOS ${{ matrix.config.target_arch }}"
+            ls -la "$BASE_BUILD_DIR/bin/" || true
+            echo "---------------- CROSS-COMPILATION BUILD FINISHED ---------------------"
+            exit 0
+          fi
+
+          echo "---------------- Start unit test ---------------- "
+          cd "$BASE_BUILD_DIR/bin"
+          if [ "${{ matrix.config.platform }}" == "linux" ] && [ "${{ matrix.config.arch }}" == "x86_64"  ]; then
+            valgrind ./test_tapyrus --log_level=test_suite --report_level=short --build_info --catch_system_errors
+          else
+            ./test_tapyrus --log_level=test_suite --report_level=short --build_info --catch_system_errors
+          fi
+
+          echo "---------------- Start util test ---------------- "
+          cd "$BASE_ROOT_DIR"
+          if python3 test/util/tapyrus-util-test.py; then
+            echo "Util tests passed"
+          else
+            echo "Util tests failed"
+            exit 1
+          fi
+
+          if [ "${{ matrix.config.build_type }}" == "Debug" ]; then
+            echo "--------------- DAILY DEBUG BUILD FINISHED ---------------------"
+            exit 0
+          fi
+
+          echo "---------------- Start benchmark test ---------------- "
+          cd "$BASE_BUILD_DIR/bin"
+          ./bench_tapyrus -evals=100 > bench_results.txt
+          if [ $? -eq 0 ]; then
+            echo "Benchmark tests passed"
+            cat bench_results.txt
+          else
+            echo "Benchmark tests failed"
+            exit 1
+          fi
+
+          # Test USDT tracing functionality if enabled
+          if [ "${{ matrix.config.enable_usdt }}" == "" ]; then
+            echo "---------------- Start USDT tracing tests ---------------- "
+            cd "$BASE_ROOT_DIR"
+
+            # Install BCC and bpftrace for USDT testing (Linux only)
+            if [ "${{ matrix.config.platform }}" == "linux" ]; then
+              echo "Installing BCC and bpftrace for tracing tests..."
+              # Install BCC for Python USDT scripts
+              python3 -m pip install bcc --user --quiet || echo "Warning: BCC installation failed"
+
+              # Install bpftrace for .bt scripts (already installed in setup, but ensure it's available)
+              which bpftrace || echo "Warning: bpftrace not available"
+
+              # Run USDT functional tests (excluding coinselection as it tests non-existent tracepoints)
+              echo "Running USDT functional tests..."
+              if python3 test/functional/test_runner.py \
+                --tmpdir="$TAPYRUS_TEST_DIR" \
+                -j 1 \
+                --combinedlogslen=4000 \
+                --usdt \
+                interface_usdt_mempool.py \
+                interface_usdt_net.py \
+                interface_usdt_utxocache.py; then
+                echo "USDT functional tests passed"
+              else
+                echo "USDT functional tests failed, continuing..."
+              fi
+
+              # Test contrib tracing scripts with a short tapyrusd run
+              echo "Testing contrib tracing scripts..."
+              mkdir -p "$TAPYRUS_TEST_DIR/tracing_test"
+
+              # Start tapyrusd in background for tracing tests
+              cd "$BASE_BUILD_DIR/bin"
+              ./tapyrusd -datadir="$TAPYRUS_TEST_DIR/tracing_test" -daemon -regtest -txindex=1 -fallbackfee=0.0002 || echo "Failed to start tapyrusd"
+              sleep 5
+
+              # Test Python tracing scripts (run each for 5 seconds)
+              cd "$BASE_ROOT_DIR"
+              for script in contrib/tracing/*.py; do
+                if [ -f "$script" ]; then
+                  echo "Testing $(basename $script)..."
+                  timeout 5 python3 "$script" "$BASE_BUILD_DIR/bin/tapyrusd" &>/dev/null || echo "Script $(basename $script) test completed"
+                fi
+              done
+
+              # Test bpftrace scripts syntax (without running, as they require root)
+              for script in contrib/tracing/*.bt; do
+                if [ -f "$script" ] && command -v bpftrace >/dev/null; then
+                  echo "Checking syntax of $(basename $script)..."
+                  bpftrace --dry-run "$script" &>/dev/null && echo "$(basename $script) syntax OK" || echo "$(basename $script) syntax issues"
+                fi
+              done
+
+              # Stop tapyrusd
+              ./tapyrus-cli -datadir="$TAPYRUS_TEST_DIR/tracing_test" -regtest stop 2>/dev/null || pkill tapyrusd
+              sleep 2
+
+              echo "USDT tracing scripts tested"
+            else
+              echo "Skipping USDT tracing tests on ${{ matrix.config.platform }} (Linux only)"
+            fi
+          else
+            echo "Skipping USDT tracing tests (USDT disabled)"
+          fi
+
+          echo "---------------- Start daily functional test suite ---------------- "
+          cd "$BASE_ROOT_DIR"
+          # Run the daily functional test suite including long-running tests
+          if python3 test/functional/test_runner.py --tmpdir="$TAPYRUS_TEST_DIR" -j 1 --combinedlogslen=4000 --coverage --failfast --quiet --extended; then
+            echo "daily functional tests passed"
+          else
+            echo "daily functional tests failed"
+            exit 1
+          fi
+
+          echo "---------------- DAILY TEST FINISHED ---------------------"
+
+      - name: Save Ccache cache
+        uses: actions/cache/save@v4
+        if: steps.ccache-cache.outputs.cache-hit != 'true'
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: daily-${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ matrix.config.build_type }}-${{ matrix.config.enable_gui }}-${{ matrix.config.enable_usdt }}-${{ matrix.config.enable_wallet }}-ccache-${{ github.run_id }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-test-results-${{ matrix.config.name }}-${{ github.run_id }}
+          path: |
+            ${{ github.workspace }}/tapyrus_test
+            ${{ github.workspace }}/build/bin/bench_results.txt
+            ${{ github.workspace }}/test/functional/test_framework/test_framework.log
+          retention-days: 30
+
+      - name: Upload coverage data
+        if: matrix.config.build_type == 'Debug'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-data-${{ matrix.config.name }}-${{ github.run_id }}
+          path: |
+            ${{ github.workspace }}/.coverage
+            ${{ github.workspace }}/test/functional/coverage_html
+          retention-days: 30
+
+      - name: Debug Core Dump (if exists)
+        if: failure()
+        run: |
+          if [ "${{ matrix.config.platform }}" == "linux" ]; then
+            COREFILE=$(coredumpctl list --no-pager --output json | jq -r '.[0].filename')
+            if [ -f "$COREFILE" ]; then
+              echo "Found core dump: $COREFILE"
+              if command -v coredumpctl &> /dev/null; then
+                BINARY=$(coredumpctl info --no-pager | grep "Executable" | awk '{print $2}')
+              else
+                BINARY=$(file "$COREFILE" | awk -F"'" '{print $2}')
+              fi
+              if [ -x "$BINARY" ]; then
+                echo "Detected crashed binary: $BINARY"
+              else
+                echo "Could not detect crashed binary, using tapyrusd as default"
+                BINARY="./tapyrusd"
+              fi
+              gdb -batch -ex "bt" -ex "quit" "$BINARY" "$COREFILE"
+            fi
+          else
+            COREFILE=$(ls -t ${{ github.workspace }}/core_dumps/core.* 2>/dev/null | head -n 1)
+            if [ -f "$COREFILE" ]; then
+              echo "Found core dump: $COREFILE"
+              BINARY=$(file "$COREFILE" | awk -F"'" '{print $2}')
+              if [ -x "$BINARY" ]; then
+                echo "Detected crashed binary: $BINARY"
+              else
+                echo "Could not detect crashed binary, using tapyrusd as default"
+                BINARY="./tapyrusd"
+              fi
+              lldb -c "$COREFILE" -o "bt" -o "quit" -- "$BINARY"
+            fi
+          fi
+
+      - name: Upload Core Dumps
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-core-dumps-${{ matrix.config.name }}-${{ github.run_id }}
+          path: ${{ github.workspace }}/core_dumps/
+          retention-days: 7

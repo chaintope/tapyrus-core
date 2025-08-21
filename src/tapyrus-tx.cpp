@@ -12,6 +12,7 @@
 #include <key_io.h>
 #include <keystore.h>
 #include <policy/policy.h>
+#include <policy/feerate.h>
 #include <policy/rbf.h>
 #include <primitives/transaction.h>
 #include <script/script.h>
@@ -30,7 +31,6 @@ static bool fCreateBlank;
 static std::map<std::string,UniValue> registers;
 static const int CONTINUE_EXECUTION=-1;
 
-const std::string CURRENCY_UNIT = "TPC";
 
 static void SetupBitcoinTxArgs()
 {

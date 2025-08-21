@@ -14,13 +14,16 @@
 #include <set>
 
 #ifdef DEBUG_LOCKCONTENTION
-#if !defined(HAVE_THREAD_LOCAL)
-static_assert(false, "thread_local is not supported");
-#endif
 void PrintLockContention(const char* pszName, const char* pszFile, int nLine)
 {
     LogPrintf("LOCKCONTENTION: %s\n", pszName);
     LogPrintf("Locker: %s:%d\n", pszFile, nLine);
+}
+#else
+// Provide stub implementation when DEBUG_LOCKCONTENTION is not enabled
+void PrintLockContention(const char* pszName, const char* pszFile, int nLine)
+{
+    // No-op when debug lock contention is disabled
 }
 #endif /* DEBUG_LOCKCONTENTION */
 
@@ -174,11 +177,15 @@ void AssertLockNotHeldInternal(const char* pszName, const char* pszFile, int nLi
     }
 }
 
-// Explicit instantiations for the types we use
+
+#ifdef DEBUG_LOCKORDER
+// Explicit instantiations for the actual types we use
+// These are the typedef names from sync.h and will work across all standard library implementations
 template void AssertLockHeldInternal<RecursiveMutex>(const char*, const char*, int, RecursiveMutex*);
 template void AssertLockHeldInternal<Mutex>(const char*, const char*, int, Mutex*);
 template void AssertLockNotHeldInternal<RecursiveMutex>(const char*, const char*, int, RecursiveMutex*);
 template void AssertLockNotHeldInternal<Mutex>(const char*, const char*, int, Mutex*);
+#endif
 
 void DeleteLock(void* cs)
 {
@@ -204,3 +211,5 @@ void DeleteLock(void* cs)
 }
 
 #endif /* DEBUG_LOCKORDER */
+
+

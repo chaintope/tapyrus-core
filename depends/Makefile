@@ -1,5 +1,9 @@
 .NOTPARALLEL :
 
+# Fix perl locale warnings during tar extraction and other commands
+export LC_ALL=C
+export LANG=C
+
 # Pattern rule to print variables, e.g. make print-top_srcdir
 print-%: FORCE
 	@echo '$*'='$($*)'
@@ -111,9 +115,10 @@ $(host_arch)_$(host_os)_native_toolchain?=$($(host_os)_native_toolchain)
 
 include funcs.mk
 
-final_build_id_long+=$(shell $(build_SHA256SUM) config.site.in)
-final_build_id+=$(shell echo -n "$(final_build_id_long)" | $(build_SHA256SUM) | cut -c-$(HASH_LENGTH))
-$(host_prefix)/.stamp_$(final_build_id): $(native_packages) $(packages)
+# Build ID for autotools config.site
+autotools_build_id_long=$(shell $(build_SHA256SUM) config.site.in)
+autotools_build_id=$(shell echo -n "$(autotools_build_id_long)" | $(build_SHA256SUM) | cut -c-$(HASH_LENGTH))
+$(host_prefix)/.stamp_autotools_$(autotools_build_id): $(native_packages) $(packages)
 	rm -rf $(@D)
 	mkdir -p $(@D)
 	echo copying packages: $^
@@ -145,7 +150,7 @@ $(host_prefix)/.stamp_$(final_build_id): $(native_packages) $(packages)
 # Minor note: it is also okay to refer to tools by their absolute path even if
 # we expect them to be available in $PATH at all times, more specificity does
 # not hurt.
-$(host_prefix)/share/config.site : config.site.in $(host_prefix)/.stamp_$(final_build_id)
+$(host_prefix)/share/config.site : config.site.in $(host_prefix)/.stamp_autotools_$(autotools_build_id)
 	@mkdir -p $(@D)
 	sed -e 's|@HOST@|$(host)|' \
             -e 's|@CC@|$(host_CC)|' \
@@ -171,9 +176,10 @@ $(host_prefix)/share/config.site : config.site.in $(host_prefix)/.stamp_$(final_
 	touch $@
 
 
-final_build_id_long+=$(shell $(build_SHA256SUM) toolchain.cmake.in)
-final_build_id+=$(shell echo -n "$(final_build_id_long)" | $(build_SHA256SUM) | cut -c-$(HASH_LENGTH))
-$(host_prefix)/.stamp_$(final_build_id): $(native_packages) $(packages)
+# Build ID for CMake toolchain
+cmake_build_id_long=$(shell $(build_SHA256SUM) toolchain.cmake.in)
+cmake_build_id=$(shell echo -n "$(cmake_build_id_long)" | $(build_SHA256SUM) | cut -c-$(HASH_LENGTH))
+$(host_prefix)/.stamp_cmake_$(cmake_build_id): $(native_packages) $(packages)
 	rm -rf $(@D)
 	mkdir -p $(@D)
 	echo copying packages: $^
@@ -189,7 +195,7 @@ else
 endif
 
 
-$(host_prefix)/toolchain.cmake : toolchain.cmake.in $(host_prefix)/.stamp_$(final_build_id)
+$(host_prefix)/toolchain.cmake : toolchain.cmake.in $(host_prefix)/.stamp_cmake_$(cmake_build_id)
 	@mkdir -p $(@D)
 	sed -e 's|@depends_crosscompiling@|$(crosscompiling)|' \
             -e 's|@host_system_name@|$($(host_os)_cmake_system_name)|' \
@@ -219,6 +225,7 @@ $(host_prefix)/toolchain.cmake : toolchain.cmake.in $(host_prefix)/.stamp_$(fina
             -e 's|@qt_packages@|$(qt_packages_)|' \
             -e 's|@qrencode_packages@|$(qrencode_packages_)|' \
             -e 's|@zmq_packages@|$(zmq_packages_)|' \
+            -e 's|@wallet_packages@|$(wallet_packages_)|' \
             -e 's|@bdb_packages@|$(bdb_packages_)|' \
             -e 's|@upnp_packages@|$(upnp_packages_)|' \
             -e 's|@usdt_packages@|$(usdt_packages_)|' \
