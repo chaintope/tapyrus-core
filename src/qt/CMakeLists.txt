@@ -50,7 +50,14 @@ qt5_add_translation(qm_files ${ts_files})
 configure_file(tapyrus_locale.qrc tapyrus_locale.qrc USE_SOURCE_PERMISSIONS COPYONLY)
 
 # Manually generate UI header for sendcoinsdialog since it uses SKIP_AUTOUIC
-qt5_wrap_ui(sendcoinsdialog_ui_h forms/sendcoinsdialog.ui)
+# Generate it in forms/ subdirectory to match autotools and other UI headers
+add_custom_command(
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/forms/ui_sendcoinsdialog.h
+  COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/forms
+  COMMAND Qt5::uic -o ${CMAKE_CURRENT_BINARY_DIR}/forms/ui_sendcoinsdialog.h ${CMAKE_CURRENT_SOURCE_DIR}/forms/sendcoinsdialog.ui
+  DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/forms/sendcoinsdialog.ui
+  COMMENT "Generating forms/ui_sendcoinsdialog.h"
+)
 
 # The tapyrusqt sources have to include headers in
 # order to parse them to collect translatable strings.
@@ -108,7 +115,7 @@ add_library(tapyrusqt STATIC EXCLUDE_FROM_ALL
   $<$<PLATFORM_ID:Windows>:winshutdownmonitor.h>
   tapyrus.qrc
   ${CMAKE_CURRENT_BINARY_DIR}/tapyrus_locale.qrc
-  ${sendcoinsdialog_ui_h}
+  ${CMAKE_CURRENT_BINARY_DIR}/forms/ui_sendcoinsdialog.h
 )
 target_compile_definitions(tapyrusqt
   PUBLIC
@@ -125,6 +132,7 @@ target_include_directories(tapyrusqt
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/univalue/include>
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/crypto>
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/consensus>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/forms>
     ${BerkeleyDB_INCLUDE_DIR}
 )
 if(ZMQ_INCLUDE_DIR)
