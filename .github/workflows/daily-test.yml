@@ -554,7 +554,7 @@ jobs:
           # Set test and benchmark options based on build type
           if [ "${{ matrix.config.target_platform }}" != "" ] && [ "${{ matrix.config.target_platform }}" != "${{ matrix.config.platform }}" ]; then
             # Cross-compilation: disable tests and benchmarks
-            CMAKE_OPTS+=("-DENABLE_TESTS=OFF" "-DENABLE_BENCH=OFF")
+            CMAKE_OPTS+=("-DENABLE_TESTS=OFF" "-DENABLE_BENCH=OFF" "-DBUILD_UTILS=ON")
           else
             # Native builds: enable tests and benchmarks
             CMAKE_OPTS+=("-DENABLE_TESTS=ON" "-DENABLE_BENCH=ON")
