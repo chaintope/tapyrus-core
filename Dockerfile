@@ -1,19 +1,36 @@
-FROM --platform=$TARGETPLATFORM tapyrus/builder:v0.6.0 as builder
+FROM tapyrus/builder:cmake as builder
 ARG TARGETARCH
 
-ENV LC_ALL C.UTF-8
-ENV TAPYRUS_CONFIG "--disable-tests --disable-bench --disable-dependency-tracking  --bindir=/tapyrus-core/dist/bin  --libdir=/tapyrus-core/dist/lib --enable-zmq --enable-reduce-exports --with-incompatible-bdb --with-gui=no CPPFLAGS=-DDEBUG_LOCKORDER"
+ENV LC_ALL=C.UTF-8
+
+RUN apt-get update && \
+    apt-get install --no-install-recommends --no-upgrade -qq \
+        build-essential cmake pkgconf python3-venv ccache && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /tapyrus-core
 COPY . .
+COPY --from=tapyrus/builder:cmake /tapyrus-core/aarch64-unknown-linux-gnu /tapyrus-core/depends/aarch64-unknown-linux-gnu
 
-RUN ./autogen.sh && \
-    if [ "$TARGETARCH" = "arm64" ]; then BUILD_HOST="aarch64-linux-gnu"; else BUILD_HOST="x86_64-pc-linux-gnu"; fi && \
-    ./configure --prefix=/tapyrus-core/depends/$BUILD_HOST --enable-cxx --disable-shared --disable-replication --with-pic --with-incompatible-bdb $TAPYRUS_CONFIG && \
-    make -j"$(($(nproc)+1))" && \
-    make install
+RUN if [ "$TARGETARCH" = "arm64" ]; then BUILD_HOST="aarch64-unknown-linux-gnu"; else BUILD_HOST="x86_64-unknown-linux-gnu"; fi && \
+    DEPENDS_PREFIX="/tapyrus-core/depends/$BUILD_HOST" && \
+    TOOLCHAIN_FILE="$DEPENDS_PREFIX/toolchain.cmake" && \
+    cmake -S . -B build \
+        -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+        -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN_FILE" \
+        -DCMAKE_MODULE_PATH="/tapyrus-core/cmake" \
+        -DENABLE_ZMQ=ON \
+        -DENABLE_GUI=OFF \
+        -DENABLE_TRACING=OFF \
+        -DENABLE_WALLET=ON \
+        -DWITH_BDB=ON \
+        -DENABLE_BENCH=OFF \
+        -DCMAKE_INSTALL_PREFIX=/tapyrus-core/dist && \
+    cmake --build build --parallel -j"$(($(nproc)+1))" --target all && \
+    cmake --install build
 
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 COPY --from=builder /tapyrus-core/dist/bin/* /usr/local/bin/
 
