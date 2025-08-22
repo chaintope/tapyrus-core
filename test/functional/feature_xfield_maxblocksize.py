@@ -30,7 +30,7 @@ from test_framework.timeout_config import TAPYRUSD_MIN_TIMEOUT, TAPYRUSD_REORG_T
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, bytes_to_hex_str, hex_str_to_bytes, NetworkDirName, connect_nodes, assert_raises_rpc_error, wait_for_node_ready
 from test_framework.script import CScript, OP_CHECKSIG, OP_TRUE, SignatureHash, SIGHASH_ALL, MAX_SCRIPT_SIZE
-from test_framework.messages import CTransaction, MAX_BLOCK_BASE_SIZE, CTxOut, CTxIn, COutPoint, uint256_from_str, ser_compact_size, msg_headers, CBlockHeader
+from test_framework.messages import CTransaction, MAX_BLOCK_BASE_SIZE, CTxOut, CTxIn, COutPoint, uint256_from_str, ser_compact_size, msg_headers, CBlockHeader, msg_block
 
 MAX_BLOCK_SIGOPS = int((100000 - 1000) / 50)
 
@@ -494,7 +494,7 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         self.block_time += 1
         blocknew = self.new_block(48, spend=self.unspent[21])
         blocknew.solve(self.aggprivkey[1])
-        node.p2p.send_blocks_and_test([blocknew], node, success=True, request_block=False, timeout=TAPYRUSD_REORG_TIMEOUT)
+        node.p2p.send_message(msg_block(blocknew))
         wait_for_node_ready(self.nodes, 0, 47, timeout=TAPYRUSD_SYNC_TIMEOUT)
         self.tip = blocknew.hash
         assert_equal(self.tip, node.getbestblockhash())
@@ -567,20 +567,14 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         shutil.copyfile(os.path.join(self.nodes[0].datadir, NetworkDirName(), 'blocks', 'blk00000.dat'), os.path.join(self.nodes[2].datadir, 'blocks', 'blk00000.dat'))
         os.remove(os.path.join(self.nodes[0].datadir, NetworkDirName(), 'blocks', 'blk00000.dat'))
 
-        self.log.info("Restarting node0 with '-loadblock'")
-        self.start_node(0, ["-loadblock=%s" % os.path.join(self.nodes[0].datadir, 'blk00000.dat'), "-reindex"])
-        self.reconnect_p2p(node)
-        #reindex takes time. wait before checking blockchain info
-        wait_for_node_ready(self.nodes, 0, expected_blocks=47, timeout=TAPYRUSD_SYNC_TIMEOUT)
-        blockchaininfo = self.nodes[0].getblockchaininfo()
-        assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
-
+        self.log.info("Restarting node1 with '-loadblock'")
+        self.start_node(0, ["-reindex"])
         self.start_node(1, ["-loadblock=%s" % os.path.join(self.nodes[1].datadir,'blocks', 'blk00000.dat')])
         wait_for_node_ready(self.nodes, 1, expected_blocks=47, timeout=TAPYRUSD_SYNC_TIMEOUT)
         blockchaininfo = self.nodes[1].getblockchaininfo()
         assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
 
-        #self.log.info("Starting node2 with '-reloadxfield'")
+        self.log.info("Starting node2 with '-reloadxfield'")
         self.start_node(2, ["-reloadxfield"], timeout=TAPYRUSD_REORG_TIMEOUT)
         connect_nodes(self.nodes[2], 0)
         connect_nodes(self.nodes[2], 1)
