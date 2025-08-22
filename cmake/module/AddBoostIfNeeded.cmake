@@ -82,6 +82,9 @@ function(add_boost_if_needed)
     message(STATUS "Environment BOOST_ROOT is set to: $ENV{BOOST_ROOT}")
   endif()
 
+  find_package(Boost 1.73.0 REQUIRED)
+
+  # For core binaries only, we only need headers
   # If BOOST_INCLUDEDIR is set and contains boost headers, set Boost_INCLUDE_DIR as well
   # This helps CMake's FindBoost module when it's having trouble with BOOST_ROOT
   if(DEFINED BOOST_INCLUDEDIR AND EXISTS "${BOOST_INCLUDEDIR}/boost/config.hpp")
@@ -89,8 +92,6 @@ function(add_boost_if_needed)
     message(STATUS "Setting Boost_INCLUDE_DIR to: ${Boost_INCLUDE_DIR}")
   endif()
 
-  find_package(Boost 1.73.0 REQUIRED)
-  
   mark_as_advanced(Boost_INCLUDE_DIR)
   set_target_properties(Boost::headers PROPERTIES IMPORTED_GLOBAL TRUE)
   target_compile_definitions(Boost::headers INTERFACE

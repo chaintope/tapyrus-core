@@ -253,7 +253,11 @@ $($(1)_staged): | $($(1)_built)
 	echo Staging $(1)...
 	mkdir -p $($(1)_staging_dir)/$(host_prefix)
 	+{ cd $($(1)_build_dir); export $($(1)_stage_env); $($(1)_stage_cmds); } $$($(1)_logging)
-	rm -rf $($(1)_extract_dir)
+	@if [ -d "$($(1)_extract_dir)" ]; then \
+		if [ "$($(1)_extract_dir)" != "." ] && [ "$($(1)_extract_dir)" != ".." ]; then \
+			rm -rf $($(1)_extract_dir); \
+		fi; \
+	fi
 	touch $$@
 $($(1)_postprocessed): | $($(1)_staged)
 	echo Postprocessing $(1)...
@@ -265,9 +269,18 @@ $($(1)_cached): | $($(1)_dependencies) $($(1)_postprocessed)
 	  find . ! -name '.stamp_postprocessed' -print0 | TZ=UTC xargs -0r touch -h -m -t 200001011200; \
 	  find . ! -name '.stamp_postprocessed' | LC_ALL=C sort | tar --numeric-owner --no-recursion -c -z -f $$($(1)_staging_dir)/$$(@F) -T -
 	mkdir -p $$(@D)
-	rm -rf $$(@D) && mkdir -p $$(@D)
+	@if [ -d "$$(@D)" ]; then \
+		if [ "$$(@D)" != "." ] && [ "$$(@D)" != ".." ]; then \
+			rm -rf $$(@D); \
+		fi; \
+	fi
+	mkdir -p $$(@D)
 	mv $$($(1)_staging_dir)/$$(@F) $$(@)
-	rm -rf $($(1)_staging_dir)
+	@if [ -d "$($(1)_staging_dir)" ]; then \
+		if [ "$($(1)_staging_dir)" != "." ] && [ "$($(1)_staging_dir)" != ".." ]; then \
+			rm -rf $($(1)_staging_dir); \
+		fi; \
+	fi
 	if test -f $($(1)_build_log); then mv $($(1)_build_log) $$(@D); fi
 $($(1)_cached_checksum): $($(1)_cached)
 	cd $$(@D); $(build_SHA256SUM) $$(<F) > $$(@)
