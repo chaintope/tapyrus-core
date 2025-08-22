@@ -1,19 +1,50 @@
-FROM --platform=$TARGETPLATFORM tapyrus/builder:v0.6.0 as builder
+FROM tapyrus/builder:v0.7.0 AS builder
 ARG TARGETARCH
 
-ENV LC_ALL C.UTF-8
-ENV TAPYRUS_CONFIG "--disable-tests --disable-bench --disable-dependency-tracking  --bindir=/tapyrus-core/dist/bin  --libdir=/tapyrus-core/dist/lib --enable-zmq --enable-reduce-exports --with-incompatible-bdb --with-gui=no CPPFLAGS=-DDEBUG_LOCKORDER"
+ENV LC_ALL=C.UTF-8
+
+
+RUN apt-get update && \
+    apt-get install --no-install-recommends --no-upgrade -qq \
+        build-essential libtool autotools-dev automake cmake pkgconf curl git \
+        ca-certificates ccache bsdmainutils python3 python3-venv bison && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /tapyrus-core
+
+# Set BUILD_HOST based on target architecture and export for subsequent commands
+RUN if [ "$TARGETARCH" = "arm64" ]; then BUILD_HOST="aarch64-unknown-linux-gnu"; else BUILD_HOST="x86_64-pc-linux-gnu"; fi && \
+    echo "export BUILD_HOST=$BUILD_HOST" >> /etc/environment && \
+    echo "export BUILD_HOST=$BUILD_HOST" >> /root/.bashrc && \
+    mkdir -p "/tmp/depends-built" && \
+    cp -r "/tapyrus-core/$BUILD_HOST" "/tmp/depends-built/$BUILD_HOST"
+
 COPY . .
 
-RUN ./autogen.sh && \
-    if [ "$TARGETARCH" = "arm64" ]; then BUILD_HOST="aarch64-linux-gnu"; else BUILD_HOST="x86_64-pc-linux-gnu"; fi && \
-    ./configure --prefix=/tapyrus-core/depends/$BUILD_HOST --enable-cxx --disable-shared --disable-replication --with-pic --with-incompatible-bdb $TAPYRUS_CONFIG && \
-    make -j"$(($(nproc)+1))" && \
-    make install
+# Restore the built dependencies after copying source and build
+RUN . /etc/environment && \
+    mkdir -p "/tapyrus-core/depends" && \
+    cp -r "/tmp/depends-built/$BUILD_HOST" "/tapyrus-core/depends/$BUILD_HOST" && \
+    rm -rf /tmp/depends-built && \
+    DEPENDS_PREFIX="/tapyrus-core/depends/$BUILD_HOST" && \
+    TOOLCHAIN_FILE="$DEPENDS_PREFIX/toolchain.cmake" && \
+    export PKG_CONFIG_PATH="$DEPENDS_PREFIX/lib/pkgconfig:$DEPENDS_PREFIX/share/pkgconfig" && \
+    cmake -S . -B build \
+        -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+        -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN_FILE" \
+        -DCMAKE_MODULE_PATH="/tapyrus-core/cmake/module" \
+        -DENABLE_ZMQ=ON \
+        -DBUILD_GUI=OFF \
+        -DENABLE_TRACING=OFF \
+        -DENABLE_WALLET=ON \
+        -DWITH_BDB=ON \
+        -DENABLE_BENCH=OFF \
+        -DCMAKE_INSTALL_PREFIX=/tapyrus-core/dist && \
+    cmake --build build --parallel -j"$(($(nproc)+1))" --target all && \
+    cmake --install build
 
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 COPY --from=builder /tapyrus-core/dist/bin/* /usr/local/bin/
 
