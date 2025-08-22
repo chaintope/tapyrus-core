@@ -119,7 +119,7 @@ include funcs.mk
 autotools_build_id_long=$(shell $(build_SHA256SUM) config.site.in)
 autotools_build_id=$(shell echo -n "$(autotools_build_id_long)" | $(build_SHA256SUM) | cut -c-$(HASH_LENGTH))
 $(host_prefix)/.stamp_autotools_$(autotools_build_id): $(native_packages) $(packages)
-	rm -rf $(@D)
+	@if [ -d "$(@D)" ] && [ "$(@D)" != "." ] && [ "$(@D)" != ".." ]; then rm -rf $(@D); fi
 	mkdir -p $(@D)
 	echo copying packages: $^
 	echo to: $(@D)
@@ -180,7 +180,7 @@ $(host_prefix)/share/config.site : config.site.in $(host_prefix)/.stamp_autotool
 cmake_build_id_long=$(shell $(build_SHA256SUM) toolchain.cmake.in)
 cmake_build_id=$(shell echo -n "$(cmake_build_id_long)" | $(build_SHA256SUM) | cut -c-$(HASH_LENGTH))
 $(host_prefix)/.stamp_cmake_$(cmake_build_id): $(native_packages) $(packages)
-	rm -rf $(@D)
+	@if [ -d "$(@D)" ] && [ "$(@D)" != "." ] && [ "$(@D)" != ".." ]; then rm -rf $(@D); fi
 	mkdir -p $(@D)
 	echo copying packages: $^
 	echo to: $(@D)
@@ -261,7 +261,8 @@ clean-all: clean
 	@rm -rf $(SOURCES_PATH) x86_64* i686* mips* arm* aarch64* riscv32* riscv64*
 
 clean:
-	@rm -rf $(WORK_PATH) $(BASE_CACHE) $(BUILD) *.log
+	@rm -rf $(WORK_PATH) $(BASE_CACHE) *.log
+	@if [ -d "$(BUILD)" ] && [ "$(BUILD)" != "." ] && [ "$(BUILD)" != ".." ]; then rm -rf $(BUILD); fi
 
 install: check-packages $(host_prefix)/share/config.site
 
