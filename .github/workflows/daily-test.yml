@@ -229,10 +229,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gcc g++ ccache build-essential cmake pkgconf python3-zmq bsdmainutils systemtap-sdt-dev bpfcc-tools bpftrace python3-venv valgrind libboost-test-dev
 
-          if [ "${{ matrix.config.enable_gui }}" == "true" ]; then
-            sudo apt-get install -y qtbase5-dev qttools5-dev-tools
-          fi
-
           # Install cross-compilation toolchain for macOS targets
           if [ "${{ matrix.config.target_platform }}" == "macos" ]; then
             sudo apt-get install -y curl git cmake ninja-build clang lld llvm llvm-dev
@@ -279,7 +275,6 @@ jobs:
                 }
               fi
             fi
-          fi
 
           python3 -m venv $HOME/venv
           source $HOME/venv/bin/activate
@@ -520,7 +515,7 @@ jobs:
             fi
           elif [ "${{ matrix.config.platform }}" == "linux" ] && [ "${{ matrix.config.target_platform }}" == "macos" ]; then
             # Cross-compilation: Linux -> macOS
-            DARWIN_VERSION="20"  # Use Darwin 20 for macOS 11.0 compatibility
+            DARWIN_VERSION="20"  # Darwin 20 for macOS 11.0
             if [ "${{ matrix.config.target_arch }}" == "arm64" ]; then
               export HOST="aarch64-apple-darwin${DARWIN_VERSION}"
             else
