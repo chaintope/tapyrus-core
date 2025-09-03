@@ -19,11 +19,11 @@ function(setup_split_debug_script)
 endfunction()
 
 function(add_maintenance_targets)
-  if(NOT PYTHON_COMMAND)
+  if(NOT TARGET Python3::Interpreter)
     return()
   endif()
 
-  foreach(target IN ITEMS tapyrusd tapyrus-qt tapyrus-cli tapyrus-tx tapyrus-util tapyrus-wallet test_bitcoin bench_bitcoin)
+  foreach(target IN ITEMS tapyrusd tapyrus-qt tapyrus-cli tapyrus-tx tapyrus-genesis tapyrus-util tapyrus-wallet test_bitcoin bench_bitcoin)
     if(TARGET ${target})
       list(APPEND executables $<TARGET_FILE:${target}>)
     endif()
@@ -31,13 +31,13 @@ function(add_maintenance_targets)
 
   add_custom_target(check-symbols
     COMMAND ${CMAKE_COMMAND} -E echo "Running symbol and dynamic library checks..."
-    COMMAND ${PYTHON_COMMAND} ${PROJECT_SOURCE_DIR}/contrib/devtools/symbol-check.py ${executables}
+    COMMAND Python3::Interpreter ${PROJECT_SOURCE_DIR}/contrib/devtools/symbol-check.py ${executables}
     VERBATIM
   )
 
   add_custom_target(check-security
     COMMAND ${CMAKE_COMMAND} -E echo "Checking binary security..."
-    COMMAND ${PYTHON_COMMAND} ${PROJECT_SOURCE_DIR}/contrib/devtools/security-check.py ${executables}
+    COMMAND Python3::Interpreter ${PROJECT_SOURCE_DIR}/contrib/devtools/security-check.py ${executables}
     VERBATIM
   )
 endfunction()

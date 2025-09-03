@@ -115,9 +115,8 @@ $(host_arch)_$(host_os)_native_toolchain?=$($(host_os)_native_toolchain)
 
 include funcs.mk
 
-# Build ID for autotools config.site
-autotools_build_id_long=$(shell $(build_SHA256SUM) config.site.in)
-autotools_build_id=$(shell echo -n "$(autotools_build_id_long)" | $(build_SHA256SUM) | cut -c-$(HASH_LENGTH))
+autotools_build_id_long+=$(shell $(build_SHA256SUM) config.site.in)
+autotools_build_id+=$(shell echo -n "$(autotools_build_id_long)" | $(build_SHA256SUM) | cut -c-$(HASH_LENGTH))
 $(host_prefix)/.stamp_autotools_$(autotools_build_id): $(native_packages) $(packages)
 	@if [ -d "$(@D)" ] && [ "$(@D)" != "." ] && [ "$(@D)" != ".." ]; then rm -rf $(@D); fi
 	mkdir -p $(@D)
