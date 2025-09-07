@@ -16,6 +16,7 @@
 #include <vector>
 #include <mutex>
 #include <condition_variable>
+#include <chrono>
 
 #include <unordered_set>
 #include <memory>
@@ -221,18 +222,39 @@ BOOST_AUTO_TEST_CASE(test_CheckQueue_Catches_Failure)
     auto fail_queue = new Failing_Queue{QUEUE_BATCH_SIZE, SCRIPT_CHECK_THREADS};
 
     for (size_t i = 0; i < 1001; ++i) {
-        CCheckQueueControl<FailingCheck> control(fail_queue);
-        size_t remaining = i;
-        while (remaining) {
-            size_t r = InsecureRandRange(10);
+        std::atomic<bool> test_completed{false};
+        std::atomic<bool> test_success{false};
 
-            std::vector<FailingCheck> vChecks;
-            vChecks.reserve(r);
-            for (size_t k = 0; k < r && remaining; k++, remaining--)
-                vChecks.emplace_back(remaining == 1);
-            control.Add(std::move(vChecks));
+        std::thread test_thread([&]() {
+            CCheckQueueControl<FailingCheck> control(fail_queue);
+            size_t remaining = i;
+            while (remaining) {
+                size_t r = InsecureRandRange(10);
+                std::vector<FailingCheck> vChecks;
+                vChecks.reserve(r);
+                for (size_t k = 0; k < r && remaining; k++, remaining--)
+                    vChecks.emplace_back(remaining == 1);
+                control.Add(std::move(vChecks));
+            }
+            bool success = control.Wait();
+            test_success.store(success);
+            test_completed.store(true);
+        });
+
+        // Wait for test completion with timeout
+        auto start_time = std::chrono::steady_clock::now();
+        while (!test_completed.load() &&
+               std::chrono::steady_clock::now() - start_time < std::chrono::seconds(10)) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
-        bool success = control.Wait();
+
+        if (test_thread.joinable()) {
+            test_thread.join();
+        }
+
+        BOOST_REQUIRE(test_completed.load());
+
+        bool success = test_success.load();
         if (i > 0) {
             BOOST_REQUIRE(!success);
         } else if (i == 0) {
