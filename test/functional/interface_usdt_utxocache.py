@@ -15,7 +15,7 @@ except ImportError:
     print
 from test_framework.messages import COIN, CTransaction
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, hex_str_to_bytes
+from test_framework.util import assert_equal, hex_str_to_bytes, TAPYRUS_MODES
 from test_framework.timeout_config import TAPYRUSD_SYNC_TIMEOUT
 
 utxocache_changes_program = """
@@ -141,6 +141,7 @@ class UTXOCacheTracepointTest(BitcoinTestFramework):
         self.setup_clean_chain = False
         self.num_nodes = 1
         self.extra_args = [["-txindex"]]
+        self.mode = TAPYRUS_MODES.PROD
 
 
     def run_test(self):

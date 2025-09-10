@@ -13,7 +13,7 @@ from bcc import BPF, USDT  # type: ignore[import]
 from test_framework.messages import COIN
 from test_framework.mininode import P2PDataStore
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal
+from test_framework.util import assert_equal, TAPYRUS_MODES
 from test_framework.timeout_config import TAPYRUSD_SYNC_TIMEOUT
 
 MEMPOOL_TRACEPOINTS_PROGRAM = """
@@ -120,6 +120,7 @@ class MempoolTracepointTest(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
+        self.mode = TAPYRUS_MODES.PROD
 
     def skip_test_if_missing_module(self):
         self.skip_if_platform_not_linux()
