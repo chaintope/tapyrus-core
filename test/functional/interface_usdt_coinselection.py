@@ -17,6 +17,7 @@ from test_framework.util import (
     assert_equal,
     assert_greater_than,
     assert_raises_rpc_error,
+    TAPYRUS_MODES,
 )
 
 coinselection_tracepoints_program = """
@@ -103,6 +104,7 @@ class CoinSelectionTracepointTest(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
+        self.mode = TAPYRUS_MODES.PROD
 
     def skip_test_if_missing_module(self):
         self.skip_if_platform_not_linux()
