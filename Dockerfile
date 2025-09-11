@@ -3,14 +3,6 @@ ARG TARGETARCH
 
 ENV LC_ALL=C.UTF-8
 
-
-RUN apt-get update && \
-    apt-get install --no-install-recommends --no-upgrade -qq \
-        build-essential libtool autotools-dev automake cmake pkgconf curl git \
-        ca-certificates ccache bsdmainutils python3 python3-venv bison && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
 WORKDIR /tapyrus-core
 
 # Set BUILD_HOST based on target architecture and export for subsequent commands
@@ -61,5 +53,3 @@ VOLUME ["$DATA_DIR"]
 
 ENTRYPOINT ["entrypoint.sh"]
 CMD ["tapyrusd -datadir=${DATA_DIR} -conf=${CONF_DIR}/tapyrus.conf"]
-
-#run this container with --privileged option to use bpf trace scripts
