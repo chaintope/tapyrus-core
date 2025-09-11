@@ -275,6 +275,7 @@ jobs:
                 }
               fi
             fi
+          fi
 
           python3 -m venv $HOME/venv
           source $HOME/venv/bin/activate

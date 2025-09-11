@@ -301,7 +301,6 @@ mkdir -p "$DISTSRC"
     # shellcheck disable=SC2086
     cmake -S . -B build \
         -DCMAKE_TOOLCHAIN_FILE="${BASEPREFIX}/${HOST}/toolchain.cmake" \
-        -DCMAKE_INSTALL_PREFIX=/ \
         -DCMAKE_MODULE_PATH="${PWD}/cmake" \
         -DCMAKE_MAKE_PROGRAM="$(command -v make)" \
         ${CMAKE_FLAGS} \
@@ -337,13 +336,11 @@ mkdir -p "$DISTSRC"
 
     case "$HOST" in
         *darwin*)
-            cmake --build build --target osx_volname ${V:+--verbose}
             cmake --build build --target deploydir ${V:+--verbose}
             mkdir -p "unsigned-app-${HOST}"
             cp  --target-directory="unsigned-app-${HOST}" \
-                osx_volname \
                 contrib/macdeploy/detached-sig-create.sh
-            mv --target-directory="unsigned-app-${HOST}" dist
+            mv --target-directory="unsigned-app-${HOST}" build/dist
             (
                 cd "unsigned-app-${HOST}"
                 find . -print0 \
@@ -378,8 +375,8 @@ mkdir -p "$DISTSRC"
                 # Split binaries and libraries from their debug symbols
                 {
                     find "${DISTNAME}/bin" -type f -executable -print0
-                    find "${DISTNAME}/lib" -type f -print0
-                } | xargs -0 -P"$JOBS" -I{} "${DISTSRC}/contrib/devtools/split-debug.sh" {} {} {}.dbg
+                    find "${DISTNAME}/lib" -type f -print0 2>/dev/null || true
+                } | xargs -0 -P"$JOBS" -I{} "${DISTSRC}/build/split-debug.sh" {} {} {}.dbg
                 ;;
         esac
 
