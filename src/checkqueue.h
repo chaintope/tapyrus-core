@@ -80,7 +80,7 @@ private:
                     nTodo -= nNow;
                     if (nTodo == 0 && !fMaster)
                         // We processed the last element; inform the master it can exit and return the result
-                        condMaster.notify_one();
+                        condMaster.notify_all();
                 } else {
                     // first iteration
                     nTotal++;
@@ -182,6 +182,7 @@ public:
     {
         m_request_stop = true;
         condWorker.notify_all();
+        condMaster.notify_all();  // Also notify master thread
         for (std::thread& t : m_worker_threads) {
             t.join();
         }
