@@ -32,6 +32,9 @@ from test_framework.util import assert_equal, bytes_to_hex_str, hex_str_to_bytes
 from test_framework.script import CScript, OP_CHECKSIG, OP_TRUE, SignatureHash, SIGHASH_ALL, MAX_SCRIPT_SIZE
 from test_framework.messages import CTransaction, MAX_BLOCK_BASE_SIZE, CTxOut, CTxIn, COutPoint, uint256_from_str, ser_compact_size, msg_headers, CBlockHeader, msg_block
 
+TAPYRUSD_SYNC_TIMEOUT = 1000
+TAPYRUSD_REORG_TIMEOUT = 1000
+
 MAX_BLOCK_SIGOPS = int((100000 - 1000) / 50)
 
 reverse_bytes = (lambda txid  : txid[-1: -len(txid)-1: -1])
