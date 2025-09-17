@@ -96,6 +96,9 @@ for precious_dirs_file in "${found_precious_dirs_files[@]}"; do
     done < "$precious_dirs_file"
 done
 
+# Always preserve the guix patches directory
+exclude_flags+=( --exclude="contrib/guix/patches" )
+
 git clean -xdff "${exclude_flags[@]}"
 
 # Clean Guix build directories if requested
