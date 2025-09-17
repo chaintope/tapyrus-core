@@ -11,7 +11,7 @@ TAPYRUSD=${TAPYRUSD:-$BINDIR/tapyrusd}
 TAPYRUSCLI=${TAPYRUSCLI:-$BINDIR/tapyrus-cli}
 TAPYRUSTX=${TAPYRUSTX:-$BINDIR/tapyrus-tx}
 TAPYRUSGENESIS=${TAPYRUSGENESIS:-$BINDIR/tapyrus-genesis}
-TAPYRUSQT=${TAPYRUSGENESIS:-$BINDIR/tapyrus-qt}
+TAPYRUSQT=${TAPYRUSQT:-$BINDIR/tapyrus-qt}
 
 [ ! -x $TAPYRUSD ] && echo "$TAPYRUSD not found or not executable." && exit 1
 
