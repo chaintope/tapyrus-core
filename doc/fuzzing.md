@@ -23,12 +23,11 @@ Instrumentation
 To build Bitcoin Core using AFL instrumentation (this assumes that the
 `AFLPATH` was set as above):
 ```
-./configure --disable-ccache --disable-shared --enable-tests CC=${AFLPATH}/afl-gcc CXX=${AFLPATH}/afl-g++
+cmake -S . -B build -DCMAKE_C_COMPILER=${AFLPATH}/afl-gcc -DCMAKE_CXX_COMPILER=${AFLPATH}/afl-g++ -DENABLE_TESTS=ON
 export AFL_HARDEN=1
-cd src/
-make test/test_bitcoin_fuzzy
+cmake --build build --target test_bitcoin_fuzzy
 ```
-We disable ccache because we don't want to pollute the ccache with instrumented
+We disable ccache in the CMake build because we don't want to pollute the ccache with instrumented
 objects, and similarly don't want to use non-instrumented cached objects linked
 in.
 

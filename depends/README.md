@@ -12,15 +12,14 @@ For example:
 
     make HOST=x86_64-w64-mingw32 -j4
 
-**Tapyrus Core's `configure` script by default will ignore the depends output.** In
-order for it to pick up libraries, tools, and settings from the depends build,
-you must set the `CONFIG_SITE` environment variable to point to a `config.site` settings file.
-In the above example, a file named `depends/x86_64-w64-mingw32/share/config.site` will be
-created. To use it during compilation:
+**Tapyrus Core's CMake build system will automatically use the depends output.** The
+depends build generates a CMake toolchain file that contains all the necessary
+compiler settings, library paths, and dependencies. In the above example, a file
+named `depends/x86_64-w64-mingw32/toolchain.cmake` will be created. To use it during
+compilation:
 
-    CONFIG_SITE=$PWD/depends/x86_64-w64-mingw32/share/config.site ./configure
-
-    ./configure --prefix=`pwd`/depends/x86_64-w64-mingw32
+    cmake -S . -B build --toolchain depends/x86_64-w64-mingw32/toolchain.cmake
+    cmake --build build
 
 Common `host-platform-triplets` for cross compilation are:
 
@@ -89,15 +88,20 @@ The following can be set when running make: make FOO=bar
     BASE_CACHE: built packages will be placed here
     SDK_PATH: Path where sdk's can be found (used by macOS)
     FALLBACK_DOWNLOAD_PATH: If a source file can't be fetched, try here before giving up
-    NO_QT: Don't download/build/cache qt and its dependencies
-    NO_WALLET: Don't download/build/cache libs needed to enable the wallet
-    NO_UPNP: Don't download/build/cache packages needed for enabling upnp
     DEBUG: disable some optimizations and enable more runtime checking
     HOST_ID_SALT: Optional salt to use when generating host package ids
     BUILD_ID_SALT: Optional salt to use when generating build package ids
 
+Package Toggle Options:
+The following options can be set to 1 to disable specific packages:
+
+    NO_QT=1: Don't build Qt GUI dependencies (qrencode, qt)
+    NO_WALLET=1: Don't build wallet dependencies (Berkeley DB)
+    NO_UPNP=1: Don't build UPnP dependencies (miniupnpc)
+    NO_USDT=1: Don't build USDT tracing dependencies (systemtap on Linux)
+
 If some packages are not built, for example `make NO_WALLET=1`, the appropriate
-options will be passed to bitcoin's configure. In this case, `--disable-wallet`.
+options will be configured in the generated CMake toolchain file. In this case, `ENABLE_WALLET=OFF`.
 
 Additional targets:
 
