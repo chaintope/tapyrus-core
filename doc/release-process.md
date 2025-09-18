@@ -7,8 +7,7 @@ Before every release candidate:
 
 Before every minor and major release:
 
-* Update version in `configure.ac` (don't forget to set `CLIENT_VERSION_IS_RELEASE` to `true`)
-* Update version in `src/config/CMakeLists.txt` 
+* Update version in `CMakeLists.txt` (don't forget to set `CLIENT_VERSION_IS_RELEASE` to `true`)
 * Write release notes (see below)
 
 Before every major release:

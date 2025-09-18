@@ -59,7 +59,7 @@ First, install the general dependencies:
 
     sudo apt update
     sudo apt upgrade
-    sudo apt install build-essential libtool autotools-dev automake pkg-config bsdmainutils curl git
+    sudo apt install build-essential cmake pkg-config bsdmainutils curl git
 
 A host toolchain (`build-essential`) is necessary because some dependency
 packages (such as `protobuf`) need to build host utilities that are used in the
@@ -80,7 +80,7 @@ Ubuntu 20.04 <sup>[1](#footnote1)</sup>:
 Once the toolchain is installed the build steps are common:
 
 Note that for WSL the Tapyrus Core source path MUST be somewhere in the default mount file system, for
-example /usr/src/Tapyrus, AND not under /mnt/d/. If this is not the case the dependency autoconf scripts will fail.
+example /usr/src/Tapyrus, AND not under /mnt/d/. If this is not the case the dependency scripts will fail.
 This means you cannot use a directory that located directly on the host Windows file system to perform the build.
 
 Acquire the source in the usual way:
@@ -93,9 +93,8 @@ Once the source code is ready the build steps are below.
     cd depends
     make HOST=x86_64-w64-mingw32
     cd ..
-    ./autogen.sh # not required when building from tarball
-    CONFIG_SITE=$PWD/depends/x86_64-w64-mingw32/share/config.site ./configure --prefix=/
-    make
+    cmake -S . -B build --toolchain depends/x86_64-w64-mingw32/toolchain.cmake
+    cmake --build build
 
 ## Building for 32-bit Windows
 
@@ -108,7 +107,7 @@ For Ubuntu Bionic 18.04 and Windows Subsystem for Linux <sup>[1](#footnote1)</su
     sudo update-alternatives --config i686-w64-mingw32-g++  # Set the default mingw32 g++ compiler option to posix.
 
 Note that for WSL the Tapyrus Core source path MUST be somewhere in the default mount file system, for
-example /usr/src/Tapyrus, AND not under /mnt/d/. If this is not the case the dependency autoconf scripts will fail.
+example /usr/src/Tapyrus, AND not under /mnt/d/. If this is not the case the dependency scripts will fail.
 This means you cannot use a directory that located directly on the host Windows file system to perform the build.
 
 Acquire the source in the usual way:
@@ -121,9 +120,8 @@ Then build using:
     cd depends
     make HOST=i686-w64-mingw32
     cd ..
-    ./autogen.sh # not required when building from tarball
-    CONFIG_SITE=$PWD/depends/i686-w64-mingw32/share/config.site ./configure --prefix=/
-    make
+    cmake -S . -B build --toolchain depends/i686-w64-mingw32/toolchain.cmake
+    cmake --build build
 
 ## Depends system
 
@@ -137,7 +135,33 @@ executables to a directory on the windows drive in the same directory structure
 as they appear in the release `.zip` archive. This can be done in the following
 way. This will install to `c:\workspace\tapyrus-core`, for example:
 
-    make install DESTDIR=/mnt/c/workspace/tapyrus-core
+    cmake --install build --prefix /mnt/c/workspace/tapyrus-core
+
+Additional CMake Options for Windows
+------------------------------------
+
+To build without GUI:
+```bash
+cmake -S . -B build --toolchain depends/x86_64-w64-mingw32/toolchain.cmake -DBUILD_GUI=OFF
+cmake --build build
+```
+
+To build without wallet:
+```bash
+cmake -S . -B build --toolchain depends/x86_64-w64-mingw32/toolchain.cmake -DENABLE_WALLET=OFF
+cmake --build build
+```
+
+To create Windows installer (requires NSIS):
+```bash
+cmake --build build --target deploy
+```
+
+For debugging builds:
+```bash
+cmake -S . -B build --toolchain depends/x86_64-w64-mingw32/toolchain.cmake -DCMAKE_BUILD_TYPE=Debug
+cmake --build build
+```
 
 Footnotes
 ---------

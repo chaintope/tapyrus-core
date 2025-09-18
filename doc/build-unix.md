@@ -1,27 +1,33 @@
 UNIX BUILD NOTES
 ====================
-Some notes on how to build Tapyrus Core in Unix.
+Some notes on how to build Tapyrus Core in Unix using CMake.
 
 (For BSD specific instructions, see `build-*bsd.md` in this directory.)
 
 Note
 ---------------------
-Always use absolute paths to configure and compile Tapyrus Core and the dependencies,
-for example, when specifying the path of the dependency:
-
-	../dist/configure --enable-cxx --disable-shared --with-pic --prefix=$BDB_PREFIX
-
-Here BDB_PREFIX must be an absolute path - it is defined using $(pwd) which ensures
-the usage of the absolute path.
+Tapyrus Core uses CMake as its build system. Always use absolute paths when specifying
+dependency locations. The depends system automatically handles most dependencies.
 
 To Build
 ---------------------
 
 ```bash
-./autogen.sh
-./configure --without-gui
+# Build dependencies first (recommended)
+cd depends
 make
-make install # optional
+cd ..
+
+# Configure and build with CMake
+cmake -S . -B build
+cmake --build build
+cmake --install build  # optional
+```
+
+Alternative build without depends:
+```bash
+cmake -S . -B build
+cmake --build build
 ```
 
 
@@ -34,20 +40,40 @@ Memory Requirements
 --------------------
 
 C++ compilers are memory-hungry. It is recommended to have at least 1.5 GB of
-memory available when compiling Tapyrus Core. On systems with less, gcc can be
-tuned to conserve memory with additional CXXFLAGS:
+memory available when compiling Tapyrus Core. On systems with less, you can:
 
+Limit parallel jobs:
+```bash
+cmake --build build --parallel 1
+```
 
-    ./configure CXXFLAGS="--param ggc-min-expand=1 --param ggc-min-heapsize=32768"
+Use clang (often less resource hungry) instead of gcc:
+```bash
+cmake -S . -B build -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+```
 
-Alternatively, or in addition, debugging information can be skipped for compilation. The default compile flags are
-`-g -O2`, and can be changed with:
+Build in Release mode to reduce memory usage:
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+```
 
-    ./configure CXXFLAGS="-O2"
+CMake Build Options
+-------------------
 
-Finally, clang (often less resource hungry) can be used instead of gcc, which is used by default:
+Tapyrus Core's CMake build system supports many configuration options. For a comprehensive list of all available options, including path settings and advanced configuration, see [build-cmake.md](build-cmake.md).
 
-    ./configure CXX=clang++ CC=clang
+Common examples:
+```bash
+# Basic build
+cmake -S . -B build
+cmake --build build
+
+# Disable GUI and wallet
+cmake -S . -B build -DBUILD_GUI=OFF -DENABLE_WALLET=OFF
+
+# Cross-compilation with depends
+cmake -S . -B build --toolchain depends/x86_64-linux-gnu/toolchain.cmake
+```
 
 ## Linux Distribution Specific Instructions
 
@@ -57,7 +83,7 @@ Finally, clang (often less resource hungry) can be used instead of gcc, which is
 
 Build requirements:
 
-    sudo apt-get install build-essential libtool autotools-dev automake pkg-config bsdmainutils python3
+    sudo apt-get install build-essential cmake pkg-config python3
 
 Now, you can either build from self-compiled [depends](/depends/README.md) or install the required dependencies:
 
@@ -76,7 +102,7 @@ You can add the repository and install using the following commands:
 Ubuntu and Debian have their own libdb-dev and libdb++-dev packages, but these will install
 BerkeleyDB 5.1 or later, which break binary wallet compatibility with the distributed executables which
 are based on BerkeleyDB 4.8. If you do not care about wallet compatibility,
-pass `--with-incompatible-bdb` to configure.
+use `-DWITH_INCOMPATIBLE_BDB=ON` when configuring CMake.
 
 See the section "Disable-wallet mode" to build Tapyrus Core without wallet.
 
@@ -96,7 +122,7 @@ GUI dependencies:
 
 If you want to build tapyrus-qt, make sure that the required packages for Qt development
 are installed. Qt 5 is necessary to build the GUI.
-To build without GUI pass `--without-gui`.
+To build without GUI use `-DBUILD_GUI=OFF`.
 
 To build with Qt 5 you need the following:
 
@@ -106,7 +132,7 @@ libqrencode (optional) can be installed with:
 
     sudo apt-get install libqrencode-dev
 
-Once these are installed, they will be found by configure and a tapyrus-qt executable will be
+Once these are installed, they will be found by CMake and a tapyrus-qt executable will be
 built by default.
 
 ### Fedora
@@ -115,7 +141,7 @@ built by default.
 
 Build requirements:
 
-    sudo dnf install gcc-c++ libtool make autoconf automake python3
+    sudo dnf install gcc-c++ make cmake python3
 
 Optional:
 
@@ -131,7 +157,7 @@ User-Space, Statically Defined Tracing (USDT) dependencies:
 
 GUI dependencies:
 
-If you want to build tapyrus-qt, make sure that the required packages for Qt development are installed. Qt 5 is necessary to build the GUI. To build without GUI pass --without-gui.
+If you want to build tapyrus-qt, make sure that the required packages for Qt development are installed. Qt 5 is necessary to build the GUI. To build without GUI use `-DBUILD_GUI=OFF`.
 
 To build with Qt 5 you need the following:
 
@@ -145,7 +171,7 @@ libqrencode (optional) can be installed with:
 
     sudo dnf install qrencode-devel
 
-Once these are installed, they will be found by configure and a tapyrus-qt executable will be built by default.
+Once these are installed, they will be found by CMake and a tapyrus-qt executable will be built by default.
 
 
 Notes
@@ -159,11 +185,11 @@ miniupnpc
 
 [miniupnpc](http://miniupnp.free.fr/) may be used for UPnP port mapping.  It can be downloaded from [here](
 http://miniupnp.tuxfamily.org/files/).  UPnP support is compiled in and
-turned off by default.  See the configure options for upnp behavior desired:
+turned off by default.  See the CMake options for upnp behavior desired:
 
-	--without-miniupnpc      No UPnP support miniupnp not required
-	--disable-upnp-default   (the default) UPnP support turned off by default at runtime
-	--enable-upnp-default    UPnP support turned on by default at runtime
+	-DWITH_MINIUPNPC=OFF         No UPnP support, miniupnp not required
+	-DENABLE_UPNP_DEFAULT=OFF    (the default) UPnP support turned off by default at runtime
+	-DENABLE_UPNP_DEFAULT=ON     UPnP support turned on by default at runtime
 
 
 Berkeley DB
@@ -193,12 +219,12 @@ Security
 --------
 To help make your Tapyrus Core installation more secure by making certain attacks impossible to
 exploit even if a vulnerability is found, binaries are hardened by default.
-This can be disabled with:
+This can be controlled with:
 
 Hardening Flags:
 
-	./configure --enable-hardening
-	./configure --disable-hardening
+	cmake -S . -B build -DENABLE_HARDENING=ON   # default
+	cmake -S . -B build -DENABLE_HARDENING=OFF  # disable hardening
 
 
 Hardening enables the following features:
@@ -243,35 +269,35 @@ Disable-wallet mode
 When the intention is to run only a P2P node without a wallet, Tapyrus Core may be compiled in
 disable-wallet mode with:
 
-    ./configure --disable-wallet
+    cmake -S . -B build -DENABLE_WALLET=OFF
 
 In this case there is no dependency on Berkeley DB 4.8.
 
 Mining is also possible in disable-wallet mode, but only using the `getblocktemplate` RPC
 call not `getwork`.
 
-Additional Configure Flags
---------------------------
-A list of additional configure flags can be displayed with:
+Additional CMake Options
+------------------------
+A list of additional CMake options can be displayed with:
 
-    ./configure --help
+    cmake -S . -B build -LH
 
 
 Setup and Build Example: Arch Linux
 -----------------------------------
 This example lists the steps necessary to setup and build a command line only, non-wallet distribution of the latest changes on Arch Linux:
 
-    pacman --sync --needed autoconf automake boost gcc git libevent libtool make pkgconf python3
+    pacman --sync --needed boost cmake gcc git libevent make pkgconf python3
     git clone https://github.com/chaintope/tapyrus-core.git
     cd tapyrus-core/
-    ./autogen.sh
-    ./configure --with_gui=no
-    make check
+    cmake -S . -B build -DBUILD_GUI=OFF -DENABLE_WALLET=OFF
+    cmake --build build
+    ctest --test-dir build
 
 Note:
-Enabling wallet support requires either compiling against a Berkeley DB newer than 4.8 (package `db`) using `--with-incompatible-bdb`,
+Enabling wallet support requires either compiling against a Berkeley DB newer than 4.8 (package `db`) using `-DWITH_INCOMPATIBLE_BDB=ON`,
 or building and depending on a local version of Berkeley DB 4.8. The readily available Arch Linux packages are currently built using
-`--with-incompatible-bdb` according to the [PKGBUILD](https://projects.archlinux.org/svntogit/community.git/tree/tapyrus/trunk/PKGBUILD).
+`-DWITH_INCOMPATIBLE_BDB=ON` according to the [PKGBUILD](https://projects.archlinux.org/svntogit/community.git/tree/tapyrus/trunk/PKGBUILD).
 As mentioned above, when maintaining portability of the wallet between the standard Tapyrus Core distributions and independently built
 node software is desired, Berkeley DB 4.8 must be used.
 
