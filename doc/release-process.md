@@ -12,30 +12,28 @@ Before every minor and major release:
 
 Before every major release:
 
-* Update version of `contrib/gitian-descriptors/*.yml`: usually one'd want to do this on master after branching off the release - but be sure to at least do it before a new major release
 * Branch new branch like `v0.5` from `master` for future minor releases (minor releases like `v0.5.1` will be released from the version branch)
 * Update `source-branch` in `snap/snapcraft.yml` to match the version branch (commit it directly to the version branch)
 * Tag the version branch
 
-### First time / New builders
+### Reproducible Builds with Guix
 
-If you're using the automated script (found in [contrib/gitian-build.py](/contrib/gitian-build.py)), then at this point you should run it with the "--setup" command. Otherwise ignore this.
+Tapyrus Core uses [GNU Guix](https://guix.gnu.org) for reproducible builds. Guix provides a deterministic build environment that ensures the same binaries can be built independently by different parties.
 
-Check out the source code in the following directory hierarchy.
+First time setup:
 
-    cd /path/to/your/toplevel/build
-    git clone https://github.com/chaintope/tapyrus-gitian.sigs.git
-    git clone https://github.com/devrandom/gitian-builder.git
+1. Install Guix following the [installation instructions](https://guix.gnu.org/manual/en/html_node/Binary-Installation.html)
+2. Clone the Tapyrus Core repository:
+
     git clone https://github.com/chaintope/tapyrus-core.git --recursive
+    cd tapyrus-core
 
-### Bitcoin maintainers/release engineers, suggestion for writing release notes
+### Release Notes Guidelines
 
 Write release notes. git shortlog helps a lot, for example:
 
     git shortlog --no-merges v(current version, e.g. 0.7.2)..v(new version, e.g. 0.8.0)
 
-(or ping @wumpus on IRC, he has specific tooling to generate the list of merged pulls
-and sort them into categories based on labels)
 
 Generate list of authors:
 
@@ -45,48 +43,34 @@ Tag version (or release candidate) in git
 
     git tag -s v(new version, e.g. 0.8.0)
 
-### Initial Gitian Setup
+### Building Releases with Guix
 
-You can use automated script (found in [contrib/gitian-build.py](/contrib/gitian-build.py)).
+Tapyrus Core uses CMake and Guix for building reproducible releases. The Guix build system ensures deterministic builds across different environments.
 
-    $ cp tapyrus-core/contrib/gitian-build.py .
-    $ ./gitian-build.py -d --setup
+#### Prerequisites for macOS builds
 
-`-d` is an option to use Docker for build.
+For macOS cross-compilation, you need to extract the macOS SDK. See [contrib/macdeploy/README.md](../contrib/macdeploy/README.md#sdk-extraction) for detailed instructions.
 
-In order to sign gitian builds on your host machine, which has your PGP key, fork the gitian.sigs repository and clone it on your host machine:
+Place the extracted SDK in `depends/SDKs/`:
 
-    $ export NAME=satoshi
-    $ git clone git@github.com:$NAME/tapyrus-gitian.sigs.git
-    $ git remote add $NAME git@github.com:$NAME/tapyrus-gitian.sigs.git
+    mkdir -p depends/SDKs
+    cp path/to/extracted-SDK-file depends/SDKs/
 
-Where `satoshi` is your GitHub name.
+#### Build Release Binaries
 
-#### macOS code setup
+To build binaries for all supported platforms:
 
-In order to builds for macOS, you need to download the free SDK and extract a file. The steps are described:
+    # Build for Linux
+    ./contrib/guix/guix-build
 
-    $ mkdir -p gitian-builder/inputs
-    $ cp 'path/to/extracted-SDK-file' gitian-builder/inputs
+    # Build for specific architecture
+    env HOSTS="x86_64-linux-gnu aarch64-linux-gnu x86_64-apple-darwin20 aarch64-apple-darwin20" ./contrib/guix/guix-build
 
-In this version, needs `MacOSX10.15.sdk.tar.gz` as `extracted-SDK-file`.
+Supported host triplets:
+- `x86_64-linux-gnu` - Linux x86_64
+- `aarch64-linux-gnu` - Linux ARM64
+- `x86_64-apple-darwin20` - macOS x86_64
+- `aarch64-apple-darwin20` - macOS ARM64
+- `x86_64-w64-mingw32` - Windows x86_64
 
-To get `MacOSX10.15.sdk.tar.gz`:
-
-1. Download `Xcode 11.3.1.xip` from [Apple download page](https://developer.apple.com/download/more/).
-2. `$ sudo apt-get install cpio`
-3. `$ git clone https://github.com/bitcoin-core/apple-sdk-tools.git`
-4. `$ python3 apple-sdk-tools/extract_xcode.py -f Xcode_11.3.1.xip | cpio -d -i`
-5. After that, `Xcode.app` dir has been created, and the Xcode data has been extracted.
-6. Check sdk version via `$ls Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/`.
-7. `$ tar -C Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/ -czf MacOSX10.15.sdk.tar.gz MacOSX10.15.sdk`
-
-### Build binaries
-
-To build the most recent tag:
-
-    $ export NAME=satoshi
-    $ export VERSION=0.4.1
-    $ ./gitian-build.py --detach-sign --no-commit -d -b $NAME $VERSION
-
-You can specify build os using `-o` option. `lws` means each os, `l = linux` and `w = windows`, `m = macOS`.
+The built binaries will be placed in `guix-build-$(git rev-parse --short=12 HEAD)/output/`.
