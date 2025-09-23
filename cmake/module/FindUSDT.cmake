@@ -74,5 +74,5 @@ if(USDT_FOUND AND NOT TARGET USDT::headers)
   set_target_properties(USDT::headers PROPERTIES
     INTERFACE_INCLUDE_DIRECTORIES "${USDT_INCLUDE_DIR}"
   )
-  set(ENABLE_TRACING TRUE)
+  set(ENABLE_TRACING ON)
 endif()

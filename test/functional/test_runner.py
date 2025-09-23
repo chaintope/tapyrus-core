@@ -301,7 +301,7 @@ def main():
     enable_wallet = config["components"].getboolean("ENABLE_WALLET")
     enable_utils = config["components"].getboolean("BUILD_UTILS")
     enable_tapyrusd = config["components"].getboolean("BUILD_DAEMON")
-    enable_usdt = config["components"].getboolean("ENABLE_USDT")
+    enable_usdt = config["components"].getboolean("ENABLE_TRACING")
 
     if config["environment"]["EXEEXT"] == ".exe" and not args.force:
         # https://github.com/bitcoin/bitcoin/commit/d52802551752140cf41f0d9a225a43e84404d3e9

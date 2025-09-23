@@ -19,6 +19,10 @@ if(NOT ENABLE_ZMQ)
 	set(ENABLE_ZMQ_TRUE "#")
 endif()
 
+if(NOT ENABLE_TRACING)
+	set(ENABLE_TRACING_TRUE "#")
+endif()
+
 # Create build ini file in build and source dir
 configure_file(config.ini.in config.ini USE_SOURCE_PERMISSIONS @ONLY)
 configure_file(config.ini.in ${abs_top_srcdir}/test/config.ini USE_SOURCE_PERMISSIONS @ONLY)
