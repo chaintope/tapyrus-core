@@ -97,7 +97,12 @@ private:
                         return fRet;
                     }
                     nIdle++;
-                    cond.wait(lock); // wait
+                    // Use condition variable with predicate to avoid spurious wakeups and race conditions
+                    if (fMaster) {
+                        cond.wait(lock, [this]{ return !queue.empty() || m_request_stop || nTodo == 0; });
+                    } else {
+                        cond.wait(lock, [this]{ return !queue.empty() || m_request_stop; });
+                    }
                     nIdle--;
                 }
                 if (m_request_stop) {
@@ -108,10 +113,15 @@ private:
                 //   all workers finish approximately simultaneously.
                 // * Try to account for idle jobs which will instantly start helping.
                 // * Don't do batches smaller than 1 (duh), or larger than nBatchSize.
-                nNow = std::max(1U, std::min(nBatchSize, (unsigned int)queue.size() / (nTotal + nIdle + 1)));
-                auto start_it = queue.end() - nNow;
-                vChecks.assign(std::make_move_iterator(start_it), std::make_move_iterator(queue.end()));
-                queue.erase(start_it, queue.end());
+                nNow = std::min(nBatchSize, (unsigned int)queue.size() / (nTotal + nIdle + 1));
+                if (nNow == 0 && !queue.empty()) {
+                    nNow = 1;  // Take at least 1 item if queue is not empty
+                }
+                if (nNow > 0) {
+                    auto start_it = queue.end() - nNow;
+                    vChecks.assign(std::make_move_iterator(start_it), std::make_move_iterator(queue.end()));
+                    queue.erase(start_it, queue.end());
+                }
                 // Check whether we need to do work at all
                 fOk = fAllOk;
             }
@@ -121,6 +131,12 @@ private:
                     fOk = check();
             vChecks.clear();
         } while (true);
+    }
+
+    /** Worker thread function - calls Loop in worker mode. */
+    void WorkerLoop()
+    {
+        Loop(false);
     }
 
 public:
@@ -140,7 +156,7 @@ public:
         for (int n = 0; n < worker_threads_num; ++n) {
             m_worker_threads.emplace_back([this, n]() {
                 RenameThread(strprintf("scriptch.%i", n));
-                Loop(false /* worker thread */);
+                WorkerLoop();
         });
         }
     }
@@ -180,7 +196,10 @@ public:
     //! Stop all of the worker threads.
     ~CCheckQueue()
     {
-        m_request_stop = true;
+        {
+            WaitableLock lock(mutex);
+            m_request_stop = true;
+        }
         condWorker.notify_all();
         for (std::thread& t : m_worker_threads) {
             t.join();
