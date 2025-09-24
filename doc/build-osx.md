@@ -16,20 +16,20 @@ To install the Homebrew package manager, see: https://brew.sh
 Dependencies
 ----------------------
 
-To build tapuris-core without GUI install only these dependenciies
+To build tapyrus-core without GUI install only these dependencies:
 
-    brew install automake berkeley-db4 libtool boost miniupnpc pkg-config python libevent zeromq
+    brew install cmake berkeley-db4 boost miniupnpc pkg-config python libevent zeromq
 
 GUI Dependencies
 ---------------------
 
-To build tapyrus-qt GUI install the following along with the above
+To build tapyrus-qt GUI install the following along with the above:
 
     brew install qt5 qrencode
 
-If you want to build the disk image with `make deploy` (zip) by cross-compiling on a linux builder, you will need the following additional dependencies:
+If you want to build the disk image with `cmake --build build --target deploy`, you will need the following additional dependencies:
 
-    brew install clang lld llvm-dev zip
+    brew install zip
 
 See [dependencies.md](dependencies.md) for a complete overview.
 
@@ -59,33 +59,66 @@ Build Tapyrus Core
 
     Configure and build the headless Tapyrus Core binaries.
 
-        ./autogen.sh
-        ./configure --without-gui
-        make
+        cmake -S . -B build -DBUILD_GUI=OFF
+        cmake --build build
 
 3.  It is recommended to build and run the unit tests:
 
-        make check
+        ctest --test-dir build
 
 4.  You can also create a .dmg that contains the .app bundle (optional):
 
-        make deploy
+        cmake --build build --target deploy
 
 Build Output
 ------------
 
 The following are built by Tapyrus Core:
 
-    ./src/tapyrusd # Starts the tapyrus daemon.
-    ./src/tapyrus-cli --help # Outputs a list of command-line options.
-    ./src/tapyrus-cli help # Outputs a list of RPC commands when the daemon is running.
-    ./src/tapyrus-genesis # Tool to create a tapyrus genesis block.
-    ./src/tapyrus-tx # Tool to create a tapyrus transaction.
+    ./build/bin/tapyrusd # Starts the tapyrus daemon.
+    ./build/bin/tapyrus-cli --help # Outputs a list of command-line options.
+    ./build/bin/tapyrus-cli help # Outputs a list of RPC commands when the daemon is running.
+    ./build/bin/tapyrus-genesis # Tool to create a tapyrus genesis block.
+    ./build/bin/tapyrus-tx # Tool to create a tapyrus transaction.
 
 Refer to [FAQ](https://github.com/chaintope/tapyrus-core/new/master/doc/tapyrus#faq) section of getting started documentation for instructions on how to run tapyrus
+
+Common CMake Options for macOS
+------------------------------
+
+To build with GUI (Qt):
+```bash
+cmake -S . -B build
+cmake --build build
+```
+
+To build without wallet:
+```bash
+cmake -S . -B build -DENABLE_WALLET=OFF
+cmake --build build
+```
+
+To use system Berkeley DB (not recommended):
+```bash
+cmake -S . -B build -DWITH_INCOMPATIBLE_BDB=ON
+cmake --build build
+```
+
+To build for different architectures:
+```bash
+# For Intel x86_64
+cmake -S . -B build -DCMAKE_OSX_ARCHITECTURES=x86_64
+
+# For Apple Silicon aarch64
+cmake -S . -B build -DCMAKE_OSX_ARCHITECTURES=aarch64
+
+# Universal binary (both architectures)
+cmake -S . -B build -DCMAKE_OSX_ARCHITECTURES="x86_64;aarch64"
+```
 
 Notes
 -----
 
-* Tested on OS X 10.15 Yosemite through macOS 10.15.1 Catalina on 64-bit Intel processors only.
+* Tested on macOS 10.15 Catalina and newer on both Intel and Apple Silicon processors.
+* For M1/M2 Macs, native aarch64 builds are recommended for best performance.
 

@@ -38,6 +38,28 @@ Tapyrus consists of the following software:
 
 See [Getting Started document](/doc/tapyrus/getting_started.md) for how to install and run tapyrus.
 
+Building Tapyrus Core
+---------------------
+
+Tapyrus Core uses CMake as its build system. For detailed build instructions, see:
+
+* [Unix Build Guide](doc/build-unix.md)
+* [macOS Build Guide](doc/build-osx.md) 
+* [Windows Build Guide](doc/build-windows.md)
+
+Quick start for Unix/Linux:
+```bash
+# Build dependencies (recommended)
+cd depends && make && cd ..
+
+# Configure and build
+cmake -S . -B build
+cmake --build build
+
+# Run tests
+ctest --test-dir build
+```
+
 Run as a Docker container?
 ---------------------------
 

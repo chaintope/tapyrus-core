@@ -143,13 +143,13 @@ Perform basic ELF security checks on a series of executables.
 symbol-check.py
 ===============
 
-A script to check that the (Linux) executables produced by gitian only contain
+A script to check that the (Linux) executables produced by Guix builds only contain
 allowed gcc, glibc and libstdc++ version symbols. This makes sure they are
 still compatible with the minimum supported Linux distribution versions.
 
-Example usage after a gitian build:
+Example usage after a Guix build:
 
-    find ../gitian-builder/build -type f -executable | xargs python contrib/devtools/symbol-check.py 
+    find guix-build-*/output/*/bin -type f -executable | xargs python contrib/devtools/symbol-check.py
 
 If only supported symbols are used the return value will be 0 and the output will be empty.
 

@@ -44,10 +44,10 @@ operation.
 ## Enabling
 
 By default, the ZeroMQ feature is automatically compiled in if the
-necessary prerequisites are found.  To disable, use --disable-zmq
-during the *configure* step of building bitcoind:
+necessary prerequisites are found. To disable, use -DENABLE_ZMQ=OFF
+when configuring the CMake build:
 
-    $ ./configure --disable-zmq (other options)
+    $ cmake -S . -B build -DENABLE_ZMQ=OFF
 
 To actually enable operation, one must set the appropriate options on
 the command line or in the configuration file.
