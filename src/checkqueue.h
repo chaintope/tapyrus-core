@@ -201,7 +201,6 @@ public:
             m_request_stop = true;
         }
         condWorker.notify_all();
-        //condMaster.notify_all();  // Also notify master thread
         for (std::thread& t : m_worker_threads) {
             t.join();
         }
