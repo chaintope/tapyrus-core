@@ -13,18 +13,13 @@ from bcc import BPF, USDT  # type: ignore[import]
 from test_framework.messages import COIN
 from test_framework.mininode import P2PDataStore
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal
+from test_framework.util import assert_equal, TAPYRUS_MODES
 from test_framework.timeout_config import TAPYRUSD_SYNC_TIMEOUT
 
-MEMPOOL_TRACEPOINTS_PROGRAM = """
+MEMPOOL_ADDED_PROGRAM = """
 # include <uapi/linux/ptrace.h>
 
-// The longest rejection reason is 118 chars and is generated in case of SCRIPT_ERR_EVAL_FALSE by
-// strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(check.GetScriptError()))
-#define MAX_REJECT_REASON_LENGTH        118
-// The longest string returned by RemovalReasonToString() is 'sizelimit'
-#define MAX_REMOVAL_REASON_LENGTH       9
-#define HASH_LENGTH                     32
+#define HASH_LENGTH 32
 
 struct added_event
 {
@@ -33,37 +28,7 @@ struct added_event
   s64   fee;
 };
 
-struct removed_event
-{
-  u8    hash[HASH_LENGTH];
-  char  reason[MAX_REMOVAL_REASON_LENGTH];
-  s32   vsize;
-  s64   fee;
-  u64   entry_time;
-};
-
-struct rejected_event
-{
-  u8    hash[HASH_LENGTH];
-  char  reason[MAX_REJECT_REASON_LENGTH];
-};
-
-struct replaced_event
-{
-  u8    replaced_hash[HASH_LENGTH];
-  s32   replaced_vsize;
-  s64   replaced_fee;
-  u64   replaced_entry_time;
-  u8    replacement_hash[HASH_LENGTH];
-  s32   replacement_vsize;
-  s64   replacement_fee;
-};
-
-// BPF perf buffer to push the data to user space.
 BPF_PERF_OUTPUT(added_events);
-BPF_PERF_OUTPUT(removed_events);
-BPF_PERF_OUTPUT(rejected_events);
-BPF_PERF_OUTPUT(replaced_events);
 
 int trace_added(struct pt_regs *ctx) {
   struct added_event added = {};
@@ -75,6 +40,24 @@ int trace_added(struct pt_regs *ctx) {
   added_events.perf_submit(ctx, &added, sizeof(added));
   return 0;
 }
+"""
+
+MEMPOOL_REMOVED_PROGRAM = """
+# include <uapi/linux/ptrace.h>
+
+#define MAX_REMOVAL_REASON_LENGTH 9
+#define HASH_LENGTH 32
+
+struct removed_event
+{
+  u8    hash[HASH_LENGTH];
+  char  reason[MAX_REMOVAL_REASON_LENGTH];
+  s32   vsize;
+  s64   fee;
+  u64   entry_time;
+};
+
+BPF_PERF_OUTPUT(removed_events);
 
 int trace_removed(struct pt_regs *ctx) {
   struct removed_event removed = {};
@@ -88,6 +71,21 @@ int trace_removed(struct pt_regs *ctx) {
   removed_events.perf_submit(ctx, &removed, sizeof(removed));
   return 0;
 }
+"""
+
+MEMPOOL_REJECTED_PROGRAM = """
+# include <uapi/linux/ptrace.h>
+
+#define MAX_REJECT_REASON_LENGTH 118
+#define HASH_LENGTH 32
+
+struct rejected_event
+{
+  u8    hash[HASH_LENGTH];
+  char  reason[MAX_REJECT_REASON_LENGTH];
+};
+
+BPF_PERF_OUTPUT(rejected_events);
 
 int trace_rejected(struct pt_regs *ctx) {
   struct rejected_event rejected = {};
@@ -98,6 +96,25 @@ int trace_rejected(struct pt_regs *ctx) {
   rejected_events.perf_submit(ctx, &rejected, sizeof(rejected));
   return 0;
 }
+"""
+
+MEMPOOL_REPLACED_PROGRAM = """
+# include <uapi/linux/ptrace.h>
+
+#define HASH_LENGTH 32
+
+struct replaced_event
+{
+  u8    replaced_hash[HASH_LENGTH];
+  s32   replaced_vsize;
+  s64   replaced_fee;
+  u64   replaced_entry_time;
+  u8    replacement_hash[HASH_LENGTH];
+  s32   replacement_vsize;
+  s64   replacement_fee;
+};
+
+BPF_PERF_OUTPUT(replaced_events);
 
 int trace_replaced(struct pt_regs *ctx) {
   struct replaced_event replaced = {};
@@ -120,6 +137,7 @@ class MempoolTracepointTest(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
+        self.mode = TAPYRUS_MODES.PROD
 
     def skip_test_if_missing_module(self):
         self.skip_if_platform_not_linux()
@@ -137,8 +155,8 @@ class MempoolTracepointTest(BitcoinTestFramework):
         self.log.info("Hooking into mempool:added tracepoint...")
         node = self.nodes[0]
         ctx = USDT(pid=node.process.pid)
-        ctx.enable_probe(probe="added", fn_name="trace_added")
-        bpf = BPF(text=MEMPOOL_TRACEPOINTS_PROGRAM, usdt_contexts=[ctx], debug=0)
+        ctx.enable_probe(probe="mempool:added", fn_name="trace_added")
+        bpf = BPF(text=MEMPOOL_ADDED_PROGRAM, usdt_contexts=[ctx], debug=0)
 
         def handle_added_event(_, data, __):
             nonlocal handled_added_events
@@ -178,8 +196,8 @@ class MempoolTracepointTest(BitcoinTestFramework):
         self.log.info("Hooking into mempool:removed tracepoint...")
         node = self.nodes[0]
         ctx = USDT(pid=node.process.pid)
-        ctx.enable_probe(probe="removed", fn_name="trace_removed")
-        bpf = BPF(text=MEMPOOL_TRACEPOINTS_PROGRAM, usdt_contexts=[ctx], debug=0)
+        ctx.enable_probe(probe="mempool:removed", fn_name="trace_removed")
+        bpf = BPF(text=MEMPOOL_REMOVED_PROGRAM, usdt_contexts=[ctx], debug=0)
 
         def handle_removed_event(_, data, __):
             nonlocal handled_removed_events
@@ -228,8 +246,8 @@ class MempoolTracepointTest(BitcoinTestFramework):
         self.log.info("Hooking into mempool:replaced tracepoint...")
         node = self.nodes[0]
         ctx = USDT(pid=node.process.pid)
-        ctx.enable_probe(probe="replaced", fn_name="trace_replaced")
-        bpf = BPF(text=MEMPOOL_TRACEPOINTS_PROGRAM, usdt_contexts=[ctx], debug=0)
+        ctx.enable_probe(probe="mempool:replaced", fn_name="trace_replaced")
+        bpf = BPF(text=MEMPOOL_REPLACED_PROGRAM, usdt_contexts=[ctx], debug=0)
 
         def handle_replaced_event(_, data, __):
             nonlocal handled_replaced_events
@@ -284,8 +302,8 @@ class MempoolTracepointTest(BitcoinTestFramework):
 
         self.log.info("Hooking into mempool:rejected tracepoint...")
         ctx = USDT(pid=node.process.pid)
-        ctx.enable_probe(probe="rejected", fn_name="trace_rejected")
-        bpf = BPF(text=MEMPOOL_TRACEPOINTS_PROGRAM, usdt_contexts=[ctx], debug=0)
+        ctx.enable_probe(probe="mempool:rejected", fn_name="trace_rejected")
+        bpf = BPF(text=MEMPOOL_REJECTED_PROGRAM, usdt_contexts=[ctx], debug=0)
 
         def handle_rejected_event(_, data, __):
             nonlocal handled_rejected_events
