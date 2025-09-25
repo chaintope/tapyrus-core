@@ -1,5 +1,6 @@
 linux_CFLAGS=-pipe
 linux_CXXFLAGS=$(linux_CFLAGS)
+linux_LDFLAGS=-static-libgcc -static-libstdc++
 
 linux_release_CFLAGS=-O2
 linux_release_CXXFLAGS=$(linux_release_CFLAGS)

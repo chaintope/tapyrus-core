@@ -89,6 +89,21 @@ darwin_release_CXXFLAGS=$(darwin_release_CFLAGS)
 darwin_debug_CFLAGS=-O1 -g
 darwin_debug_CXXFLAGS=$(darwin_debug_CFLAGS)
 
+# Architecture-specific compiler definitions (following linux.mk pattern)
+x86_64_darwin_CC=$(darwin_CC)
+x86_64_darwin_CXX=$(darwin_CXX)
+x86_64_darwin_AR=$(darwin_AR)
+x86_64_darwin_RANLIB=$(darwin_RANLIB)
+x86_64_darwin_NM=$(darwin_NM)
+x86_64_darwin_STRIP=$(darwin_STRIP)
+
+aarch64_darwin_CC=$(darwin_CC)
+aarch64_darwin_CXX=$(darwin_CXX)
+aarch64_darwin_AR=$(darwin_AR)
+aarch64_darwin_RANLIB=$(darwin_RANLIB)
+aarch64_darwin_NM=$(darwin_NM)
+aarch64_darwin_STRIP=$(darwin_STRIP)
+
 darwin_cmake_system_name=Darwin
 # Darwin version, which corresponds to OSX_MIN_VERSION.
 # See https://en.wikipedia.org/wiki/Darwin_(operating_system)
