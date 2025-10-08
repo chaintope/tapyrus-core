@@ -81,6 +81,10 @@ set(CMAKE_OBJDUMP "@OBJDUMP@")
 # affected by a potentially random environment.
 set(CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH OFF)
 
+# Prefer toolchain-specified paths over package config files
+# This ensures our manually set library paths take precedence
+set(CMAKE_FIND_PACKAGE_PREFER_CONFIG OFF)
+
 set(CMAKE_FIND_ROOT_PATH "${CMAKE_CURRENT_LIST_DIR}")
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
@@ -131,6 +135,12 @@ if(NOT DEFINED ENABLE_ZMQ AND NOT DEFINED CACHE{ENABLE_ZMQ})
   endif()
 endif()
 
+<<<<<<< HEAD
+=======
+# Force use of static Libevent libraries from depends
+set(Libevent_DIR "${CMAKE_CURRENT_LIST_DIR}/lib/cmake/libevent" CACHE PATH "")
+
+>>>>>>> 84ad483f03 (Change config name of aarch64-apple-dawrin to arm64-apple-darwin; use cmake to build zeromq and libevent in depends; use python 3 interpreter instead of python_executable)
 # Force use of static BerkeleyDB library from depends
 set(BerkeleyDB_ROOT "${CMAKE_CURRENT_LIST_DIR}" CACHE PATH "")
 
