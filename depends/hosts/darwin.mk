@@ -64,11 +64,11 @@ endif
 #         Disable adhoc codesigning (for now) when using LLVM tooling, to avoid
 #         non-determinism issues with the Identifier field.
 
-darwin_CC=$(clang_prog) --target=$(host) \
+darwin_CC=$(clang_prog) --target=$(host_arch)-apple-darwin \
               -isysroot $(OSX_SDK) --stdlib=libc++ \
               -iwithsysroot/usr/include -iframeworkwithsysroot/System/Library/Frameworks
 
-darwin_CXX=$(clangxx_prog) --target=$(host) \
+darwin_CXX=$(clangxx_prog) --target=$(host_arch)-apple-darwin \
                -isysroot $(OSX_SDK) --stdlib=libc++ \
                -iwithsysroot/usr/include/c++/v1 \
                -iwithsysroot/usr/include -iframeworkwithsysroot/System/Library/Frameworks
@@ -88,6 +88,21 @@ darwin_release_CXXFLAGS=$(darwin_release_CFLAGS)
 
 darwin_debug_CFLAGS=-O1 -g
 darwin_debug_CXXFLAGS=$(darwin_debug_CFLAGS)
+
+# Architecture-specific compiler definitions (following linux.mk pattern)
+x86_64_darwin_CC=$(darwin_CC)
+x86_64_darwin_CXX=$(darwin_CXX)
+x86_64_darwin_AR=$(darwin_AR)
+x86_64_darwin_RANLIB=$(darwin_RANLIB)
+x86_64_darwin_NM=$(darwin_NM)
+x86_64_darwin_STRIP=$(darwin_STRIP)
+
+arm64_darwin_CC=$(darwin_CC)
+arm64_darwin_CXX=$(darwin_CXX)
+arm64_darwin_AR=$(darwin_AR)
+arm64_darwin_RANLIB=$(darwin_RANLIB)
+arm64_darwin_NM=$(darwin_NM)
+arm64_darwin_STRIP=$(darwin_STRIP)
 
 darwin_cmake_system_name=Darwin
 # Darwin version, which corresponds to OSX_MIN_VERSION.

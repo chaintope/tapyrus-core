@@ -229,10 +229,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gcc g++ ccache build-essential cmake pkgconf python3-zmq bsdmainutils systemtap-sdt-dev bpfcc-tools bpftrace python3-venv valgrind libboost-test-dev
 
-          if [ "${{ matrix.config.enable_gui }}" == "true" ]; then
-            sudo apt-get install -y qtbase5-dev qttools5-dev-tools
-          fi
-
           # Install cross-compilation toolchain for macOS targets
           if [ "${{ matrix.config.target_platform }}" == "macos" ]; then
             sudo apt-get install -y curl git cmake ninja-build clang lld llvm llvm-dev
@@ -309,21 +305,20 @@ jobs:
         run: |
           # Determine HOST based on platform and architecture (including cross-compilation)
           if [ "${{ matrix.config.platform }}" == "macos" ]; then
-            DARWIN_VERSION=$(uname -r | cut -d. -f1)
             NATIVE_ARCH=$(uname -m)
             if [ "$NATIVE_ARCH" == "arm64" ]; then
-              export HOST="aarch64-apple-darwin${DARWIN_VERSION}"
+              export HOST="arm64-apple-darwin"
             else
-              export HOST="x86_64-apple-darwin${DARWIN_VERSION}"
+              export HOST="x86_64-apple-darwin"
             fi
             CPU_COUNT=$(sysctl -n hw.ncpu)
           elif [ "${{ matrix.config.target_platform }}" == "macos" ]; then
             # Cross-compilation: Linux -> macOS
             DARWIN_VERSION="20"  # Darwin 20 for macOS 11.0
             if [ "${{ matrix.config.target_arch }}" == "arm64" ]; then
-              export HOST="aarch64-apple-darwin${DARWIN_VERSION}"
+              export HOST="arm64-apple-darwin"
             else
-              export HOST="x86_64-apple-darwin${DARWIN_VERSION}"
+              export HOST="x86_64-apple-darwin"
             fi
             CPU_COUNT=$(nproc)
           else
@@ -511,20 +506,19 @@ jobs:
 
           # Set up depends path using target architecture (including cross-compilation)
           if [ "${{ matrix.config.platform }}" == "macos" ]; then
-            DARWIN_VERSION=$(uname -r | cut -d. -f1)
             NATIVE_ARCH=$(uname -m)
             if [ "$NATIVE_ARCH" == "arm64" ]; then
-              export HOST="aarch64-apple-darwin${DARWIN_VERSION}"
+              export HOST="arm64-apple-darwin"
             else
-              export HOST="x86_64-apple-darwin${DARWIN_VERSION}"
+              export HOST="x86_64-apple-darwin"
             fi
           elif [ "${{ matrix.config.platform }}" == "linux" ] && [ "${{ matrix.config.target_platform }}" == "macos" ]; then
             # Cross-compilation: Linux -> macOS
-            DARWIN_VERSION="20"  # Use Darwin 20 for macOS 11.0 compatibility
+            DARWIN_VERSION="20"  # Darwin 20 for macOS 11.0
             if [ "${{ matrix.config.target_arch }}" == "arm64" ]; then
-              export HOST="aarch64-apple-darwin${DARWIN_VERSION}"
+              export HOST="arm64-apple-darwin"
             else
-              export HOST="x86_64-apple-darwin${DARWIN_VERSION}"
+              export HOST="x86_64-apple-darwin"
             fi
           else
             # Native Linux builds
@@ -549,6 +543,7 @@ jobs:
           CMAKE_OPTS=(
             "-DENABLE_ZMQ=ON"
             "-DCMAKE_BUILD_TYPE=${{ matrix.config.build_type }}"
+            -DCMAKE_PREFIX_PATH="$DEPENDS_DIR/$HOST"
           )
 
           # Set test and benchmark options based on build type
