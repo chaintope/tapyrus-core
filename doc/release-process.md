@@ -64,13 +64,13 @@ To build binaries for all supported platforms:
     ./contrib/guix/guix-build
 
     # Build for specific architecture
-    env HOSTS="x86_64-linux-gnu aarch64-linux-gnu x86_64-apple-darwin20 aarch64-apple-darwin20" ./contrib/guix/guix-build
+    env HOSTS="x86_64-linux-gnu aarch64-linux-gnu x86_64-apple-darwin arm64-apple-darwin" ./contrib/guix/guix-build
 
 Supported host triplets:
 - `x86_64-linux-gnu` - Linux x86_64
 - `aarch64-linux-gnu` - Linux ARM64
-- `x86_64-apple-darwin20` - macOS x86_64
-- `aarch64-apple-darwin20` - macOS ARM64
+- `x86_64-apple-darwin` - macOS x86_64
+- `arm64-apple-darwin` - macOS ARM64
 - `x86_64-w64-mingw32` - Windows x86_64
 
 The built binaries will be placed in `guix-build-$(git rev-parse --short=12 HEAD)/output/`.

@@ -207,8 +207,8 @@ The [depends system](../depends/README.md) automatically generates CMake toolcha
 # Build dependencies first. Supported hosts are 
 #  x86_64-linux-gnu 
 #  aarch64-linux-gnu 
-#  x86_64-apple-darwin20 
-#  x86_64-apple-darwin20
+#  x86_64-apple-darwin
+#  x86_64-apple-darwin
 make -C depends HOST=x86_64-linux-gnu
 
 # Use generated toolchain

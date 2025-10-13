@@ -2,8 +2,6 @@ UNIX BUILD NOTES
 ====================
 Some notes on how to build Tapyrus Core in Unix using CMake.
 
-(For BSD specific instructions, see `build-*bsd.md` in this directory.)
-
 Note
 ---------------------
 Tapyrus Core uses CMake as its build system. Always use absolute paths when specifying
