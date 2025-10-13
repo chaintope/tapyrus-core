@@ -1271,6 +1271,7 @@ case $cpu-$vendor in
 			| arc64 \
 			| arceb \
 			| arm \
+			| arm64 \
 			| arm64e \
 			| arm64ec \
 			| arm[lb]e \
