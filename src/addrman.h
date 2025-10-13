@@ -20,6 +20,15 @@
 
 class CAddrMan;
 /**
+
+
+ * User-defined type for the internally used nIds
+ * This used to be int, making it feasible for attackers to cause an overflow,
+ * see https://bitcoincore.org/en/2024/07/31/disclose-addrman-int-overflow/
+ */
+using nid_type = int64_t;
+
+/**
  * Extended statistics about a CAddress
  */
 class CAddrInfo : public CAddress
@@ -192,36 +201,36 @@ protected:
     //! critical section to protect the inner data structures
     mutable RecursiveMutex cs;
 
-private:
     //! last used nId
-    int nIdCount;
+    nid_type nIdCount;
 
+private:
     //! table with information about all nIds
-    std::map<int, CAddrInfo> mapInfo;
+    std::map<nid_type, CAddrInfo> mapInfo;
 
     //! find an nId based on its network address
-    std::map<CNetAddr, int> mapAddr;
+    std::map<CNetAddr, nid_type> mapAddr;
 
     //! randomly-ordered vector of all nIds
-    std::vector<int> vRandom;
+    std::vector<nid_type> vRandom;
 
     // number of "tried" entries
     int nTried;
 
     //! list of "tried" buckets
-    int vvTried[ADDRMAN_TRIED_BUCKET_COUNT][ADDRMAN_BUCKET_SIZE];
+    nid_type vvTried[ADDRMAN_TRIED_BUCKET_COUNT][ADDRMAN_BUCKET_SIZE];
 
     //! number of (unique) "new" entries
     int nNew;
 
     //! list of "new" buckets
-    int vvNew[ADDRMAN_NEW_BUCKET_COUNT][ADDRMAN_BUCKET_SIZE];
+    nid_type vvNew[ADDRMAN_NEW_BUCKET_COUNT][ADDRMAN_BUCKET_SIZE];
 
     //! last time Good was called (memory only)
     int64_t nLastGood;
 
     //! Holds addrs inserted into tried table that collide with existing entries. Test-before-evict discipline used to resolve these collisions.
-    std::set<int> m_tried_collisions;
+    std::set<nid_type> m_tried_collisions;
 
 protected:
     //! secret key to randomize bucket select with
@@ -231,20 +240,20 @@ protected:
     FastRandomContext insecure_rand;
 
     //! Find an entry.
-    CAddrInfo* Find(const CNetAddr& addr, int *pnId = nullptr) EXCLUSIVE_LOCKS_REQUIRED(cs);
+    CAddrInfo* Find(const CNetAddr& addr, nid_type *pnId = nullptr) EXCLUSIVE_LOCKS_REQUIRED(cs);
 
     //! find an entry, creating it if necessary.
     //! nTime and nServices of the found node are updated, if necessary.
-    CAddrInfo* Create(const CAddress &addr, const CNetAddr &addrSource, int *pnId = nullptr) EXCLUSIVE_LOCKS_REQUIRED(cs);
+    CAddrInfo* Create(const CAddress &addr, const CNetAddr &addrSource, nid_type *pnId = nullptr) EXCLUSIVE_LOCKS_REQUIRED(cs);
 
     //! Swap two elements in vRandom.
     void SwapRandom(unsigned int nRandomPos1, unsigned int nRandomPos2) EXCLUSIVE_LOCKS_REQUIRED(cs);
 
     //! Move an entry from the "new" table(s) to the "tried" table
-    void MakeTried(CAddrInfo& info, int nId) EXCLUSIVE_LOCKS_REQUIRED(cs);
+    void MakeTried(CAddrInfo& info, nid_type nId) EXCLUSIVE_LOCKS_REQUIRED(cs);
 
     //! Delete an entry. It must not be in tried, and have refcount 0.
-    void Delete(int nId) EXCLUSIVE_LOCKS_REQUIRED(cs);
+    void Delete(nid_type nId) EXCLUSIVE_LOCKS_REQUIRED(cs);
 
     //! Clear a position in a "new" table. This is the only place where entries are actually deleted.
     void ClearNew(int nUBucket, int nUBucketPos) EXCLUSIVE_LOCKS_REQUIRED(cs);
@@ -329,7 +338,7 @@ public:
         int nUBuckets = ADDRMAN_NEW_BUCKET_COUNT ^ (1 << 30);
         s << nUBuckets;
         std::map<int, int> mapUnkIds;
-        int nIds = 0;
+        nid_type nIds = 0;
         for (const auto& entry : mapInfo) {
             mapUnkIds[entry.first] = nIds;
             const CAddrInfo &info = entry.second;
@@ -453,9 +462,9 @@ public:
 
         // Prune new entries with refcount 0 (as a result of collisions).
         int nLostUnk = 0;
-        for (std::map<int, CAddrInfo>::const_iterator it = mapInfo.begin(); it != mapInfo.end(); ) {
+        for (std::map<nid_type, CAddrInfo>::const_iterator it = mapInfo.begin(); it != mapInfo.end(); ) {
             if (it->second.fInTried == false && it->second.nRefCount == 0) {
-                std::map<int, CAddrInfo>::const_iterator itCopy = it++;
+                std::map<nid_type, CAddrInfo>::const_iterator itCopy = it++;
                 Delete(itCopy->first);
                 nLostUnk++;
             } else {
@@ -472,7 +481,7 @@ public:
     void Clear() EXCLUSIVE_LOCKS_REQUIRED(!cs)
     {
         LOCK(cs);
-        std::vector<int>().swap(vRandom);
+        std::vector<nid_type>().swap(vRandom);
         nKey = GetRandHash();
         for (size_t bucket = 0; bucket < ADDRMAN_NEW_BUCKET_COUNT; bucket++) {
             for (size_t entry = 0; entry < ADDRMAN_BUCKET_SIZE; entry++) {
