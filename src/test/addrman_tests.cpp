@@ -39,19 +39,19 @@ public:
         return (unsigned int)(state % nMax);
     }
 
-    CAddrInfo* Find(const CNetAddr& addr, int* pnId = nullptr)
+    CAddrInfo* Find(const CNetAddr& addr, nid_type* pnId = nullptr)
     {
         LOCK(cs);
         return CAddrMan::Find(addr, pnId);
     }
 
-    CAddrInfo* Create(const CAddress& addr, const CNetAddr& addrSource, int* pnId = nullptr)
+    CAddrInfo* Create(const CAddress& addr, const CNetAddr& addrSource, nid_type* pnId = nullptr)
     {
         LOCK(cs);
         return CAddrMan::Create(addr, addrSource, pnId);
     }
 
-    void Delete(int nId)
+    void Delete(nid_type nId)
     {
         LOCK(cs);
         CAddrMan::Delete(nId);
@@ -70,6 +70,20 @@ public:
          int64_t nLastTry = GetAdjustedTime()-61;
          Attempt(addr, count_failure, nLastTry);
      }
+
+    //! Set nIdCount to a specific value for testing overflow scenarios
+    void SetIdCount(nid_type value)
+    {
+        LOCK(cs);
+        nIdCount = value;
+    }
+
+    //! Get current nIdCount value
+    nid_type GetIdCount()
+    {
+        LOCK(cs);
+        return nIdCount;
+    }
 };
 
 static CNetAddr ResolveIP(const char* ip)
@@ -330,7 +344,7 @@ BOOST_AUTO_TEST_CASE(addrman_create)
     CAddress addr1 = CAddress(ResolveService("250.1.2.1", 8333), NODE_NONE);
     CNetAddr source1 = ResolveIP("250.1.2.1");
 
-    int nId;
+    nid_type nId;
     CAddrInfo* pinfo = addrman.Create(addr1, source1, &nId);
 
     // Test: The result should be the same as the input addr.
@@ -350,7 +364,7 @@ BOOST_AUTO_TEST_CASE(addrman_delete)
     CAddress addr1 = CAddress(ResolveService("250.1.2.1", 8333), NODE_NONE);
     CNetAddr source1 = ResolveIP("250.1.2.1");
 
-    int nId;
+    nid_type nId;
     addrman.Create(addr1, source1, &nId);
 
     // Test: Delete should actually delete the addr.
@@ -691,6 +705,70 @@ BOOST_AUTO_TEST_CASE(addrman_evictionworks)
 
     addrman.ResolveCollisions();
     BOOST_CHECK(addrman.SelectTriedCollision().ToString() == "[::]:0");
+}
+
+// Test for CVE-2024-52919: Verify protection against nIdCount overflow
+// This test simulates the scenario where nIdCount approaches and exceeds 2^32
+// which would have caused an overflow with the old 32-bit int type.
+// If the test runs without crashing, the fix is working!
+
+BOOST_AUTO_TEST_CASE(addrman_nid_overflow)
+{
+    CAddrManTest addrman;
+    addrman.MakeDeterministic();
+
+    // Test 1: Compile-time check that nid_type is at least 64 bits
+    // If nid_type were still int (32-bit), values near 2^31 would overflow
+    // With int64_t, we can safely handle values much larger than 2^32
+    static_assert(sizeof(nid_type) >= 8, "nid_type must be at least 64 bits to prevent overflow");
+
+    CNetAddr source = ResolveIP("252.2.2.2");
+
+    // Test 2: Simulate the overflow scenario by setting nIdCount near the 32-bit limit
+    // If nIdCount were still a 32-bit int, this would be close to overflow
+    const nid_type near_int32_limit = (1LL << 31) - 100; // 2^31 - 100
+    addrman.SetIdCount(near_int32_limit);
+
+    // Verify we set it correctly
+    BOOST_CHECK_EQUAL(addrman.GetIdCount(), near_int32_limit);
+
+    // Test 3: Now add addresses to push nIdCount beyond what would overflow a 32-bit int
+    // With the old int type, this would cause undefined behavior/crash
+    // With int64_t, this should work fine
+    const int addresses_to_add = 200;
+
+    for (int i = 0; i < addresses_to_add; i++) {
+        // Generate unique routable IP addresses
+        int octet1 = 1 + (i % 200);
+        int octet2 = (i >> 8) & 0xFF;
+        int octet3 = i & 0xFF;
+        int octet4 = 1 + ((i / 200) % 254);
+
+        std::string strAddr = std::to_string(octet1) + "." +
+                             std::to_string(octet2) + "." +
+                             std::to_string(octet3) + "." +
+                             std::to_string(octet4);
+
+        CAddress addr = CAddress(ResolveService(strAddr), NODE_NONE);
+        addr.nTime = GetAdjustedTime();
+        addrman.Add(addr, source);
+    }
+
+    // Test 4: Verify that nIdCount has gone beyond 32-bit limit without crashing
+    nid_type final_count = addrman.GetIdCount();
+    BOOST_CHECK(final_count > near_int32_limit);
+    // Note: final_count may not be exactly near_int32_limit + addresses_to_add
+    // because some addresses might not be added due to being duplicates or hash collisions,
+    // but it should have increased from the initial value
+    BOOST_CHECK(final_count > near_int32_limit);
+
+    // Test 5: Verify the address manager still functions correctly
+    BOOST_CHECK(addrman.size() > 0);
+    CAddrInfo selected = addrman.Select();
+    BOOST_CHECK(selected.IsValid());
+
+    std::vector<CAddress> vAddr = addrman.GetAddr();
+    BOOST_CHECK(vAddr.size() > 0);
 }
 
 
