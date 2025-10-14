@@ -589,7 +589,6 @@ jobs:
           # Platform-specific options
           if [ "${{ matrix.config.platform }}" == "macos" ]; then
             # Native macOS builds
-            CMAKE_OPTS+=("-DCMAKE_CXX_FLAGS=-Wno-unused-member-function")
             if ! brew list berkeley-db@4 &>/dev/null; then
               CMAKE_OPTS+=("-DWARN_INCOMPATIBLE_BDB=OFF")
             fi
@@ -604,7 +603,6 @@ jobs:
               CMAKE_OPTS+=("-DCMAKE_OSX_ARCHITECTURES=x86_64")
             fi
             CMAKE_OPTS+=("-DCMAKE_OSX_DEPLOYMENT_TARGET=11.0")
-            CMAKE_OPTS+=("-DCMAKE_CXX_FLAGS=-Wno-unused-member-function")
             CMAKE_OPTS+=("-DWARN_INCOMPATIBLE_BDB=OFF")
           fi
 
