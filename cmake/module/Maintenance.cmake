@@ -19,11 +19,11 @@ function(setup_split_debug_script)
 endfunction()
 
 function(add_maintenance_targets)
-  if(NOT PYTHON_COMMAND)
+  if(NOT TARGET Python3::Interpreter)
     return()
   endif()
 
-  foreach(target IN ITEMS tapyrusd tapyrus-qt tapyrus-cli tapyrus-tx tapyrus-util tapyrus-wallet test_bitcoin bench_bitcoin)
+  foreach(target IN ITEMS tapyrusd tapyrus-qt tapyrus-cli tapyrus-tx tapyrus-genesis tapyrus-util tapyrus-wallet test_bitcoin bench_bitcoin)
     if(TARGET ${target})
       list(APPEND executables $<TARGET_FILE:${target}>)
     endif()
@@ -31,13 +31,13 @@ function(add_maintenance_targets)
 
   add_custom_target(check-symbols
     COMMAND ${CMAKE_COMMAND} -E echo "Running symbol and dynamic library checks..."
-    COMMAND ${PYTHON_COMMAND} ${PROJECT_SOURCE_DIR}/contrib/devtools/symbol-check.py ${executables}
+    COMMAND Python3::Interpreter ${PROJECT_SOURCE_DIR}/contrib/devtools/symbol-check.py ${executables}
     VERBATIM
   )
 
   add_custom_target(check-security
     COMMAND ${CMAKE_COMMAND} -E echo "Checking binary security..."
-    COMMAND ${PYTHON_COMMAND} ${PROJECT_SOURCE_DIR}/contrib/devtools/security-check.py ${executables}
+    COMMAND Python3::Interpreter ${PROJECT_SOURCE_DIR}/contrib/devtools/security-check.py ${executables}
     VERBATIM
   )
 endfunction()
@@ -88,10 +88,9 @@ function(add_macos_deploy_target)
 
     add_custom_command(
       OUTPUT ${PROJECT_BINARY_DIR}/${macos_app}/Contents/MacOS/Tapyrus-Qt
-      COMMAND ${CMAKE_COMMAND} --install ${PROJECT_BINARY_DIR} --config $<CONFIG> --component tapyrus-qt --prefix ${macos_app}/Contents/MacOS --strip
-      COMMAND ${CMAKE_COMMAND} -E rename ${macos_app}/Contents/MacOS/bin/$<TARGET_FILE_NAME:tapyrus-qt> ${macos_app}/Contents/MacOS/tapyrus-Qt
-      COMMAND ${CMAKE_COMMAND} -E rm -rf ${macos_app}/Contents/MacOS/bin
-      COMMAND ${CMAKE_COMMAND} -E rm -rf ${macos_app}/Contents/MacOS/share
+      COMMAND ${CMAKE_COMMAND} --install ${PROJECT_BINARY_DIR} --config $<CONFIG> --component tapyrus-qt --prefix ${macos_app}/Contents/MacOS/temp
+      COMMAND ${CMAKE_COMMAND} -E copy ${macos_app}/Contents/MacOS/temp/bin/$<TARGET_FILE_NAME:tapyrus-qt> ${macos_app}/Contents/MacOS/Tapyrus-Qt
+      COMMAND ${CMAKE_COMMAND} -E rm -rf ${macos_app}/Contents/MacOS/temp
       VERBATIM
     )
 
@@ -99,7 +98,7 @@ function(add_macos_deploy_target)
     if(CMAKE_HOST_APPLE)
       add_custom_command(
         OUTPUT ${PROJECT_BINARY_DIR}/${osx_volname}.zip
-        COMMAND ${PYTHON_COMMAND} ${PROJECT_SOURCE_DIR}/contrib/macdeploy/macdeployqtplus ${macos_app} ${osx_volname} -translations-dir=${QT_TRANSLATIONS_DIR} -zip
+        COMMAND Python3::Interpreter ${PROJECT_SOURCE_DIR}/contrib/macdeploy/macdeployqtplus ${macos_app} ${osx_volname} -translations-dir=${QT_TRANSLATIONS_DIR} -zip
         DEPENDS ${PROJECT_BINARY_DIR}/${macos_app}/Contents/MacOS/Tapyrus-Qt
         VERBATIM
       )
@@ -112,7 +111,7 @@ function(add_macos_deploy_target)
     else()
       add_custom_command(
         OUTPUT ${PROJECT_BINARY_DIR}/dist/${macos_app}/Contents/MacOS/Tapyrus-Qt
-        COMMAND OBJDUMP=${CMAKE_OBJDUMP} ${PYTHON_COMMAND} ${PROJECT_SOURCE_DIR}/contrib/macdeploy/macdeployqtplus ${macos_app} ${osx_volname} -translations-dir=${QT_TRANSLATIONS_DIR}
+        COMMAND ${CMAKE_COMMAND} -E env OBJDUMP=${CMAKE_OBJDUMP} $<TARGET_FILE:Python3::Interpreter> ${PROJECT_SOURCE_DIR}/contrib/macdeploy/macdeployqtplus ${macos_app} ${osx_volname} -translations-dir=${QT_TRANSLATIONS_DIR}
         DEPENDS ${PROJECT_BINARY_DIR}/${macos_app}/Contents/MacOS/Tapyrus-Qt
         VERBATIM
       )

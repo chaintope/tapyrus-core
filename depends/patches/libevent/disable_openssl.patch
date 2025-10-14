@@ -1,0 +1,48 @@
+Disable OpenSSL in all locations for depends builds
+
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -840,7 +840,7 @@ if(EVENT__HAVE_EVENT_PORTS)
+     list(APPEND SRC_CORE evport.c)
+ endif()
+
+-if (NOT EVENT__DISABLE_OPENSSL)
++if (FALSE)
+     find_package(OpenSSL REQUIRED)
+
+     set(EVENT__HAVE_OPENSSL 1)
+@@ -952,7 +952,7 @@ add_event_library(event_extra
+     INNER_LIBRARIES event_core
+     SOURCES ${SRC_EXTRA})
+
+-if (NOT EVENT__DISABLE_OPENSSL)
++if (FALSE)
+     add_event_library(event_openssl
+         INNER_LIBRARIES event_core
+         OUTER_INCLUDES ${OPENSSL_INCLUDE_DIR}
+@@ -1022,7 +1022,7 @@ if (NOT EVENT__DISABLE_SAMPLES)
+         add_sample_prog(OFF ${SAMPLE} sample/${SAMPLE}.c)
+     endforeach()
+
+-    if (NOT EVENT__DISABLE_OPENSSL)
++    if (FALSE)
+         add_sample_prog(ON https-client
+                         sample/https-client.c
+                         sample/openssl_hostname_validation.c
+@@ -1138,7 +1138,7 @@ if (NOT EVENT__DISABLE_TESTS)
+                 list(APPEND SRC_REGRESS test/regress_zlib.c)
+             endif()
+
+-            if (NOT EVENT__DISABLE_OPENSSL)
++            if (FALSE)
+                 list(APPEND SRC_REGRESS test/regress_ssl.c)
+             endif()
+
+@@ -1151,7 +1151,7 @@ if (NOT EVENT__DISABLE_TESTS)
+                                   event_core
+                                   event_extra)
+-            if (NOT EVENT__DISABLE_OPENSSL)
++            if (FALSE)
+                 target_link_libraries(regress event_openssl)
+             endif()
+             if (CMAKE_USE_PTHREADS_INIT)
