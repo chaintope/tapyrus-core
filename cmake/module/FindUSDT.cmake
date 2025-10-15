@@ -34,8 +34,16 @@ if(APPLE)
   endif()
 else()
   # On Linux, look for systemtap headers
+  # Try to find sys/sdt.h in standard and architecture-specific locations
   find_path(USDT_INCLUDE_DIR
     NAMES sys/sdt.h
+    PATHS
+      /usr/include
+      /usr/local/include
+      /usr/include/${CMAKE_LIBRARY_ARCHITECTURE}
+      /usr/include/x86_64-linux-gnu
+      /usr/include/aarch64-linux-gnu
+      /usr/include/arm-linux-gnueabihf
   )
   mark_as_advanced(USDT_INCLUDE_DIR)
 
@@ -74,5 +82,5 @@ if(USDT_FOUND AND NOT TARGET USDT::headers)
   set_target_properties(USDT::headers PROPERTIES
     INTERFACE_INCLUDE_DIRECTORIES "${USDT_INCLUDE_DIR}"
   )
-  set(ENABLE_TRACING TRUE)
+  set(ENABLE_TRACING ON)
 endif()

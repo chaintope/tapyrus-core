@@ -102,7 +102,7 @@ usdt:./src/tapyrusd:validation:block_connected /arg1 >= $1 && (arg1 <= $2 || $2 
   blocks where the time it took to connect the block is above the
   <logging threshold in ms>.
 */
-usdt:./src/tapyrusd:validation:block_connected / (uint64) arg5 / 1000> $3 /
+usdt:./src/tapyrusd:validation:block_connected / (uint64) arg5 / 1000 > $3 /
 {
   $hash = arg0;
   $height = (int32) arg1;
