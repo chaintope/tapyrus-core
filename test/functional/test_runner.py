@@ -338,8 +338,9 @@ def main():
     if args.debugscripts:
         test_list += DEBUG_MODE_SCRIPTS
 
-    if enable_usdt:
-        test_list += USDT_SCRIPTS
+    # USDT scripts are not enabled in the CI now
+    #if enable_usdt:
+    #    test_list += USDT_SCRIPTS
 
     # Remove the test cases that the user has explicitly asked to exclude.
     if args.exclude:
