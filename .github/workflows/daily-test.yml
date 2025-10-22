@@ -680,6 +680,16 @@ jobs:
             exit 0
           fi
 
+          echo "---------------- Start daily functional test suite ---------------- "
+          cd "$BASE_ROOT_DIR"
+          # Run the daily functional test suite including long-running tests
+          if python3 test/functional/test_runner.py --tmpdir="$TAPYRUS_TEST_DIR" -j 1 --combinedlogslen=4000 --coverage --failfast --quiet --extended; then
+            echo "daily functional tests passed"
+          else
+            echo "daily functional tests failed"
+            exit 1
+          fi
+
           echo "---------------- Start benchmark test ---------------- "
           cd "$BASE_BUILD_DIR/bin"
           ./bench_tapyrus -evals=100 > bench_results.txt
@@ -757,16 +767,6 @@ jobs:
           # else
           #   echo "Skipping USDT tracing tests (USDT disabled)"
           # fi
-
-          echo "---------------- Start daily functional test suite ---------------- "
-          cd "$BASE_ROOT_DIR"
-          # Run the daily functional test suite including long-running tests
-          if python3 test/functional/test_runner.py --tmpdir="$TAPYRUS_TEST_DIR" -j 1 --combinedlogslen=4000 --coverage --failfast --quiet --extended; then
-            echo "daily functional tests passed"
-          else
-            echo "daily functional tests failed"
-            exit 1
-          fi
 
           echo "---------------- DAILY TEST FINISHED ---------------------"
 
