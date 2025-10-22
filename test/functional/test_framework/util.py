@@ -21,7 +21,7 @@ from enum import Enum
 
 from . import coverage
 from .authproxy import AuthServiceProxy, JSONRPCException
-from .timeout_config import TAPYRUSD_SYNC_TIMEOUT, TAPYRUSD_MESSAGE_TIMEOUT, TAPYRUSD_MIN_TIMEOUT, TAPYRUSD_REORG_TIMEOUT
+from .timeout_config import TAPYRUSD_SYNC_TIMEOUT, TAPYRUSD_PROC_TIMEOUT, TAPYRUSD_MIN_TIMEOUT, TAPYRUSD_REORG_TIMEOUT
 
 logger = logging.getLogger("TestFramework.utils")
 
@@ -224,7 +224,7 @@ def tapyrus_round(amount):
 
 def wait_until(predicate, *, attempts=float('inf'), timeout=float('inf'), lock=None):
     if attempts == float('inf') and timeout == float('inf'):
-        timeout = TAPYRUSD_MESSAGE_TIMEOUT
+        timeout = TAPYRUSD_SYNC_TIMEOUT
     attempt = 0
     time_end = time.time() + timeout
 
@@ -247,41 +247,6 @@ def wait_until(predicate, *, attempts=float('inf'), timeout=float('inf'), lock=N
     elif time.time() >= time_end:
         raise TimeoutError("Predicate {} not true after {} seconds".format(predicate_source, timeout))
     raise RuntimeError('Unreachable')
-
-def wait_for_node_ready(nodes, node_index, expected_blocks=None, timeout=TAPYRUSD_REORG_TIMEOUT):
-    """Wait for node to be ready after reindex/restart operations"""
-    stop_time = time.time() + timeout
-    last_info = None
-
-    while time.time() <= stop_time:
-        try:
-            node = nodes[node_index]
-            info = node.getblockchaininfo()
-            last_info = info  # Store for error reporting
-
-            if expected_blocks is not None:
-                if info['blocks'] >= expected_blocks:
-                    return
-            elif info['blocks'] > 0 and not info.get('initialblockdownload', False):
-                return
-        except:
-            if last_info is not None:
-                current_blocks = last_info.get('blocks', 0)
-                current_headers = last_info.get('headers', 0)
-                is_downloading = last_info.get('initialblockdownload', True)
-                error_msg = f"Node {node_index} did not become ready within {timeout} seconds. Current blocks: {current_blocks}, headers: {current_headers}"
-                if expected_blocks is not None:
-                    error_msg += f", expected: {expected_blocks}"
-                    if current_headers > expected_blocks:
-                        error_msg += f" (headers ahead of expected blocks)"
-                error_msg += f", still downloading: {is_downloading}"
-            else:
-                error_msg = f"Node {node_index} did not become ready within {timeout} seconds (node unreachable)"
-
-            timeout_error = TimeoutError(error_msg)
-            timeout_error.strerror = error_msg
-            raise timeout_error
-        time.sleep(TAPYRUSD_MIN_TIMEOUT)
 
 def sha256sum_file(filename):
     h = hashlib.sha256()

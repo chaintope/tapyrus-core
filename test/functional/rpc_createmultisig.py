@@ -44,6 +44,9 @@ class RpcCreateMultiSigTest(BitcoinTestFramework):
         bal2 = node2.getbalance()
 
         height = node0.getblockchaininfo()["blocks"]
+        total = bal0+bal1+bal2
+        expected = 9*50
+        self.log.debug(f"Balance check: height={height}, bal0={bal0}, bal1={bal1}, bal2={bal2}, total={total}, expected={expected}")
         assert height == 9 # initial 1 + 8 blocks mined
         assert bal0+bal1+bal2 == 9*50
 

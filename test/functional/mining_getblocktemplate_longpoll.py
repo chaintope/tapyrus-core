@@ -8,7 +8,7 @@
 from decimal import Decimal
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import get_rpc_proxy, random_transaction
+from test_framework.util import get_rpc_proxy, random_transaction, connect_nodes
 from test_framework.timeout_config import TAPYRUSD_SYNC_TIMEOUT
 from test_framework.util import wait_until
 
@@ -33,7 +33,12 @@ class GetBlockTemplateLPTest(BitcoinTestFramework):
 
     def run_test(self):
         self.log.info("Warning: this test will take about 70 seconds in the best case. Be patient.")
+        # Connect the nodes so they can sync blocks
+        connect_nodes(self.nodes[0], 1)
+
         self.nodes[0].generate(10, self.signblockprivkey_wif)
+        self.sync_all()
+
         templat = self.nodes[0].getblocktemplate()
         longpollid = templat['longpollid']
         # longpollid should not change between successive invocations if nothing else happens
@@ -49,7 +54,8 @@ class GetBlockTemplateLPTest(BitcoinTestFramework):
 
         # Test 2: test that longpoll will terminate if another node generates a block
         self.nodes[1].generate(1, self.signblockprivkey_wif)  # generate a block on another node
-        # check that thread will exit now that new transaction entered mempool
+        self.sync_all()  # sync the block to node 0 so longpoll can terminate
+        # check that thread will exit now that new block synced to node 0
         wait_until(lambda: not thr.is_alive(), timeout=5)  # wait up to 5 seconds for thread to exit
         assert(not thr.is_alive())
 
