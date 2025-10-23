@@ -546,11 +546,18 @@ class FederationManagementTest(BitcoinTestFramework):
         blockchaininfo = self.nodes[1].getblockchaininfo()
         assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
 
-        self.log.info("Starting node2 with '-reloadxfield'")
-        self.start_node(2, ["-reloadxfield"])
+        self.stop_node(0)
+        self.log.info("Re-starting node0 with '-reloadxfield'")
+        self.start_node(0, ["-reloadxfield"])
+        connect_nodes(self.nodes[0], 1)
+        wait_until(lambda: self.nodes[0].getblockcount() >= 42, timeout=TAPYRUSD_REORG_TIMEOUT)
+        blockchaininfo = self.nodes[0].getblockchaininfo()
+        assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
+
+        self.log.info("Starting node2 with '-loadblock'")
+        self.start_node(2, ["-loadblock=%s" % os.path.join(self.nodes[2].datadir,'blocks', 'blk00000.dat')])
         connect_nodes(self.nodes[2], 0)
         connect_nodes(self.nodes[2], 1)
-        #reindex takes time. wait before checking blockchain info
         wait_until(lambda: self.nodes[2].getblockcount() >= 42, timeout=TAPYRUSD_REORG_TIMEOUT)
         blockchaininfo = self.nodes[2].getblockchaininfo()
         assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
@@ -652,10 +659,20 @@ class FederationManagementTest(BitcoinTestFramework):
         self.sync_all([self.nodes[0:3]])
 
         self.log.info("Adding a new node to the network'")
-        self.start_node(3, ["-reloadxfield", "-loadblock=%s" % os.path.join(self.nodes[3].datadir, 'blk00000.dat')])
+        self.start_node(3)
         connect_nodes(self.nodes[3], 0)
         connect_nodes(self.nodes[3], 1)
-        #reindex takes time. wait before checking blockchain info
+        # Monitor peer connections and reconnect if dropped during sync
+        wait_until(lambda: (
+            len(self.nodes[3].getpeerinfo()) < 2 and
+            (connect_nodes(self.nodes[3], 0), connect_nodes(self.nodes[3], 1))[0] is None
+        ) or (
+            self.nodes[3].getblockcount() >= 51 and
+            self.nodes[3].getbestblockhash() == self.nodes[1].getbestblockhash()
+        ), timeout=TAPYRUSD_REORG_TIMEOUT)
+        self.stop_node(3)
+
+        self.start_node(3, ["-reloadxfield", "-loadblock=%s" % os.path.join(self.nodes[3].datadir, 'blk00000.dat')])
         wait_until(lambda: self.nodes[3].getblockcount() >= 56, timeout=TAPYRUSD_REORG_TIMEOUT)
 
         self.log.info("Verifying getblockchaininfo")

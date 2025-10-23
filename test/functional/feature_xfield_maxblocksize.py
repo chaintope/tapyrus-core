@@ -581,17 +581,27 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         blockchaininfo = self.nodes[0].getblockchaininfo()
         assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
 
-        self.log.info("Restarting nodes 1 with '-loadblock'")
+        self.log.info("Starting nodes 1 and 2 with '-loadblock'")
         self.start_node(1, ["-loadblock=%s" % os.path.join(self.nodes[1].datadir,'blocks', 'blk00000.dat')], timeout=TAPYRUSD_REORG_TIMEOUT)
         self.reconnect_p2p(self.nodes[1])
         wait_until(lambda: self.nodes[1].getblockcount() >= 51, timeout=TAPYRUSD_REORG_TIMEOUT)
         blockchaininfo = self.nodes[1].getblockchaininfo()
         assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
 
-        self.log.info("Starting node2 with '-reloadxfield'")
-        self.start_node(2, ["-reloadxfield"], timeout=TAPYRUSD_REORG_TIMEOUT)
+        self.start_node(2, ["-loadblock=%s" % os.path.join(self.nodes[2].datadir,'blocks', 'blk00000.dat')], timeout=TAPYRUSD_REORG_TIMEOUT)
         self.reconnect_p2p(self.nodes[2])
+        connect_nodes(self.nodes[1], 2)
+        wait_until(lambda: self.nodes[2].getblockcount() >= 51, timeout=TAPYRUSD_REORG_TIMEOUT)
         blockchaininfo = self.nodes[2].getblockchaininfo()
+        assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
+
+        self.stop_node(0)
+        self.log.info("Starting node0 with '-reloadxfield'")
+        self.start_node(0, ["-reloadxfield"], timeout=TAPYRUSD_REORG_TIMEOUT)
+        connect_nodes(self.nodes[0], 1)
+        self.reconnect_p2p(self.nodes[0])
+        wait_until(lambda: self.nodes[0].getblockcount() >= 51, timeout=TAPYRUSD_REORG_TIMEOUT)
+        blockchaininfo = self.nodes[0].getblockchaininfo()
         assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
 
         #finally add the new node to the newtork and check if it can synch
