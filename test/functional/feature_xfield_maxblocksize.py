@@ -599,8 +599,16 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         self.start_node(3)
         connect_nodes(self.nodes[1], 3)
         connect_nodes(self.nodes[2], 3)
-        wait_until(lambda: self.nodes[3].getblockcount() >= 51, timeout=TAPYRUSD_REORG_TIMEOUT)
-        # Allow extra time for sync after all nodes join network with large blocks
+
+        # Monitor peer connections and reconnect if dropped during sync
+        wait_until(lambda: (
+            len(self.nodes[3].getpeerinfo()) < 2 and
+            (connect_nodes(self.nodes[1], 3), connect_nodes(self.nodes[2], 3))[0] is None
+        ) or (
+            self.nodes[3].getblockcount() >= 51 and
+            self.nodes[3].getbestblockhash() == self.nodes[1].getbestblockhash()
+        ), timeout=TAPYRUSD_REORG_TIMEOUT)
+
         self.log.info("Starting sync_all")
         self.sync_all([self.nodes[0:4]])
         self.log.info("Check all nodes has same state")

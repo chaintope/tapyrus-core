@@ -672,7 +672,7 @@ class WalletColoredCoinTest(BitcoinTestFramework):
 
         # Ensure all transactions are synced before checking confirmation counts
         import time
-        time.sleep(0.5)  # Brief pause to ensure mempool is fully synced
+        time.sleep(1)  # Brief pause to ensure mempool is fully synced
         self.sync_all([self.nodes[0:3]])
 
         #checking different combinations of min and max confirmations

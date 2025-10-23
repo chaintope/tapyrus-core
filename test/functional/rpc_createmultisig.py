@@ -34,6 +34,7 @@ class RpcCreateMultiSigTest(BitcoinTestFramework):
                 self.get_keys()
                 self.do_multisig()
 
+        self.sync_all()
         self.checkbalances()
 
     def checkbalances(self):
