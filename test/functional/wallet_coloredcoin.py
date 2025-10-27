@@ -23,6 +23,7 @@
     """
 from codecs import encode
 import math
+import time
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
@@ -671,7 +672,6 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         assert_equal(token_unspent, 6)  #unconfirmed token is not counted because of min confirmations
 
         # Ensure all transactions are synced before checking confirmation counts
-        import time
         time.sleep(1)  # Brief pause to ensure mempool is fully synced
         self.sync_all([self.nodes[0:3]])
 

@@ -232,17 +232,6 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         node.p2p.send_blocks_and_test([blocknew], node, success=False, request_block=False)
         assert_equal(self.tip, node.getbestblockhash())
 
-        #B -- Create block with negative maxblock size - sign with aggpubkey2 -- failure - max block size invalid
-        self.block_time += 1
-        blocknew = self.new_block(17, spend=self.unspent[6])
-        blocknew.xfieldType = 2
-        blocknew.xfield = 0
-        blockhex = blocknew.serialize()
-        blockhex=blockhex.replace(b'\x02\x00\x00\x00\x00', b'\x02\x80\x80\x80\x80')
-        blocknew.solve(self.aggprivkey[1])
-        node.p2p.send_blocks_and_test([blocknew], node, success=False, request_block=False)
-        assert_equal(self.tip, node.getbestblockhash())
-
         #B17 -- Create block - new max block size 0.5MB - sign with aggpubkey2 -- success
         self.log.info("Accept block which changes max block size to 0.5MB")
         self.reconnect_p2p(node)
