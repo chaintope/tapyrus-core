@@ -216,9 +216,9 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         else:
             for node in self.nodes:
                 node.cleanup_on_exit = False
-            self.log.info("Note: bitcoinds were not stopped and may still be running")
+            self.log.info("Note: tapyrusd(s) were not stopped and may still be running")
 
-        if not self.options.nocleanup and not self.options.noshutdown and success != TestStatus.FAILED:
+        if not self.options.nocleanup and not self.options.noshutdown and success != TestStatus.FAILED and success != TestStatus.TIMEOUT:
             self.log.info("Cleaning up {} on exit".format(self.options.tmpdir))
             cleanup_tree_on_exit = True
         else:
@@ -235,12 +235,17 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             self.log.info("Test timeout")
             exit_code = TEST_EXIT_TIMEOUT
         else:
-            self.log.error("Test failed. Test logging available at %s/test_framework.log", self.options.tmpdir)
-            self.log.error("Hint: Call {} '{}' to consolidate all logs".format(os.path.normpath(os.path.dirname(os.path.realpath(__file__)) + "/../combine_logs.py"), self.options.tmpdir))
+            self.log.error("Test failed")
             exit_code = TEST_EXIT_FAILED
-        logging.shutdown()
+        
         if cleanup_tree_on_exit:
+            logging.shutdown()
             shutil.rmtree(self.options.tmpdir)
+        else:
+            self.log.error("Test logging available at %s/test_framework.log", self.options.tmpdir)
+            self.log.error("Hint: Call {} '{}' to consolidate all logs".format(os.path.normpath(os.path.dirname(os.path.realpath(__file__)) + "/../combine_logs.py"), self.options.tmpdir))
+            logging.shutdown()
+
         sys.exit(exit_code)
 
     # Methods to override in subclass test scripts.

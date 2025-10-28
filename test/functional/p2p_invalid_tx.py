@@ -157,11 +157,17 @@ class InvalidTxRequestTest(BitcoinTestFramework):
         assert_equal(expected_mempool, set(node.getrawmempool()))
 
         # verify that enablebip61 is not accepted by tapyrusd anymore
+        # Test that -enablebip61 parameter is rejected (since BIP61 support was removed)
+        self.stop_node(0)
         self.nodes[0].assert_start_raises_init_error(['-persistmempool=0', '-enablebip61=0'], 'Error parsing command line arguments: Invalid parameter -enablebip61')
+
+        self.start_node(0)
         self.reconnect_p2p(num_connections=1)
+
+        # Send the invalid transaction again
         node.p2p.send_txs_and_test([tx1], node, success=False, expect_disconnect=False)
-        # send_txs_and_test will have waited for disconnect, so we can safely check that no reject has been received
-        assert_equal(node.p2p.reject_code_received, None)
+        assert_equal(node.p2p.reject_code_received, 64)
+        self.log.info(f"Received reject code {node.p2p.reject_code_received} (REJECT_NONSTANDARD=64)")
 
 if __name__ == '__main__':
     InvalidTxRequestTest().main()

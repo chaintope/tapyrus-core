@@ -420,6 +420,9 @@ class MempoolLimitTest(BitcoinTestFramework):
         signresult = node.signrawtransactionwithwallet(ToHex(tx))
         node.sendrawtransaction(signresult["hex"], True)
 
+        # Wait for mempool eviction to process
+        time.sleep(0.1)
+
         self.log.info('The tx should be evicted by now')
         assert(txid not in node.getrawmempool())
         txdata = node.gettransaction(txid)

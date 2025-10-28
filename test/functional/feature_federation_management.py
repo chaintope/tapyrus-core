@@ -61,14 +61,13 @@ import shutil, os
 import time
 
 from io import BytesIO
-from test_framework.blocktools import create_block, create_coinbase, create_tx_with_script,  createTestGenesisBlock, create_transaction, create_colored_transaction
+from test_framework.blocktools import create_block, create_coinbase,  createTestGenesisBlock, create_transaction, create_colored_transaction
 from test_framework.key import CECKey
 from test_framework.schnorr import Schnorr
 from test_framework.mininode import P2PDataStore
-from test_framework.timeout_config import TAPYRUSD_REORG_TIMEOUT, TAPYRUSD_MIN_TIMEOUT, TAPYRUSD_SYNC_TIMEOUT
+from test_framework.timeout_config import TAPYRUSD_REORG_TIMEOUT, TAPYRUSD_MIN_TIMEOUT
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, bytes_to_hex_str, assert_raises_rpc_error, NetworkDirName, hex_str_to_bytes, connect_nodes, wait_for_node_ready
-from test_framework.script import CScript, OP_TRUE, OP_DROP, OP_1
+from test_framework.util import assert_equal, bytes_to_hex_str, assert_raises_rpc_error, NetworkDirName, hex_str_to_bytes, connect_nodes, wait_until
 from test_framework.messages import CTransaction
 
 class FederationManagementTest(BitcoinTestFramework):
@@ -482,7 +481,7 @@ class FederationManagementTest(BitcoinTestFramework):
         self.log.info("Restarting node0 with '-reindex'")
         self.start_node(0, extra_args=["-reindex"], timeout=TAPYRUSD_REORG_TIMEOUT)
         # Wait for reindex to complete before proceeding
-        wait_for_node_ready(self.nodes, 0, expected_blocks=37, timeout=TAPYRUSD_SYNC_TIMEOUT)
+        wait_until(lambda: self.nodes[0].getblockcount() >= 37, timeout=TAPYRUSD_REORG_TIMEOUT)
         connect_nodes(self.nodes[0], 1)
         self.connectNodeAndCheck(2, expectedAggPubKeys)
 
@@ -538,21 +537,28 @@ class FederationManagementTest(BitcoinTestFramework):
         self.start_node(0, extra_args)
 
         #reindex takes time. wait before checking blockchain info
-        wait_for_node_ready(self.nodes, 0, expected_blocks=42, timeout=TAPYRUSD_SYNC_TIMEOUT)
+        wait_until(lambda: self.nodes[0].getblockcount() >= 42, timeout=TAPYRUSD_REORG_TIMEOUT)
         blockchaininfo = self.nodes[0].getblockchaininfo()
         assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
 
         self.start_node(1, ["-loadblock=%s" % os.path.join(self.nodes[1].datadir, 'blk00000.dat')])
-        wait_for_node_ready(self.nodes, 1, expected_blocks=42, timeout=TAPYRUSD_SYNC_TIMEOUT)
+        wait_until(lambda: self.nodes[1].getblockcount() >= 42, timeout=TAPYRUSD_REORG_TIMEOUT)
         blockchaininfo = self.nodes[1].getblockchaininfo()
         assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
 
-        self.log.info("Starting node2 with '-reloadxfield'")
-        self.start_node(2, ["-reloadxfield"])
+        self.stop_node(0)
+        self.log.info("Re-starting node0 with '-reloadxfield'")
+        self.start_node(0, ["-reloadxfield"])
+        connect_nodes(self.nodes[0], 1)
+        wait_until(lambda: self.nodes[0].getblockcount() >= 42, timeout=TAPYRUSD_REORG_TIMEOUT)
+        blockchaininfo = self.nodes[0].getblockchaininfo()
+        assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
+
+        self.log.info("Starting node2 with '-loadblock'")
+        self.start_node(2, ["-loadblock=%s" % os.path.join(self.nodes[2].datadir,'blocks', 'blk00000.dat')])
         connect_nodes(self.nodes[2], 0)
         connect_nodes(self.nodes[2], 1)
-        #reindex takes time. wait before checking blockchain info
-        wait_for_node_ready(self.nodes, 2, expected_blocks=42, timeout=TAPYRUSD_SYNC_TIMEOUT)
+        wait_until(lambda: self.nodes[2].getblockcount() >= 42, timeout=TAPYRUSD_REORG_TIMEOUT)
         blockchaininfo = self.nodes[2].getblockchaininfo()
         assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
 
@@ -561,7 +567,7 @@ class FederationManagementTest(BitcoinTestFramework):
         connect_nodes(self.nodes[1], 3)
         connect_nodes(self.nodes[2], 3)
         #initial block download and synch takes time. wait before checking blockchain info
-        wait_for_node_ready(self.nodes, 3, expected_blocks=42, timeout=TAPYRUSD_SYNC_TIMEOUT)
+        wait_until(lambda: self.nodes[3].getblockcount() >= 42, timeout=TAPYRUSD_REORG_TIMEOUT)
         # Allow extra time for sync after complex federation block operations
         self.sync_all([self.nodes[0:4]])
         self.stop_node(3)
@@ -652,10 +658,22 @@ class FederationManagementTest(BitcoinTestFramework):
         best_block = self.nodes[1].getblock(self.tip)
         self.sync_all([self.nodes[0:3]])
 
-        self.start_node(3, ["-reloadxfield", "-loadblock=%s" % os.path.join(self.nodes[3].datadir, 'blk00000.dat')])
-        #reindex takes time. wait before checking blockchain info
-        wait_for_node_ready(self.nodes, 3, expected_blocks=56, timeout=TAPYRUSD_SYNC_TIMEOUT)
+        self.log.info("Adding a new node to the network'")
+        self.start_node(3)
         connect_nodes(self.nodes[3], 0)
+        connect_nodes(self.nodes[3], 1)
+        # Monitor peer connections and reconnect if dropped during sync
+        wait_until(lambda: (
+            len(self.nodes[3].getpeerinfo()) < 2 and
+            (connect_nodes(self.nodes[3], 0), connect_nodes(self.nodes[3], 1))[0] is None
+        ) or (
+            self.nodes[3].getblockcount() >= 51 and
+            self.nodes[3].getbestblockhash() == self.nodes[1].getbestblockhash()
+        ), timeout=TAPYRUSD_REORG_TIMEOUT)
+        self.stop_node(3)
+
+        self.start_node(3, ["-reloadxfield", "-loadblock=%s" % os.path.join(self.nodes[3].datadir, 'blk00000.dat')])
+        wait_until(lambda: self.nodes[3].getblockcount() >= 56, timeout=TAPYRUSD_REORG_TIMEOUT)
 
         self.log.info("Verifying getblockchaininfo")
         expectedAggPubKeys = [
@@ -670,7 +688,7 @@ class FederationManagementTest(BitcoinTestFramework):
         ]
         # Ensure all nodes are fully synced before final verification
         for i in range(len(self.nodes)):
-            wait_for_node_ready(self.nodes, i, expected_blocks=56, timeout=TAPYRUSD_SYNC_TIMEOUT)
+            wait_until(lambda: self.nodes[i].getblockcount() >= 56, timeout=TAPYRUSD_REORG_TIMEOUT)
         for n in self.nodes:
             blockchaininfo = n.getblockchaininfo()
             assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)

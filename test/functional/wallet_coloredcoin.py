@@ -23,6 +23,7 @@
     """
 from codecs import encode
 import math
+import time
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
@@ -670,6 +671,10 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         token_unspent = len(self.nodes[0].listunspent(6,9999999,[],False,{"only_token": True}))
         assert_equal(token_unspent, 6)  #unconfirmed token is not counted because of min confirmations
 
+        # Ensure all transactions are synced before checking confirmation counts
+        time.sleep(1)  # Brief pause to ensure mempool is fully synced
+        self.sync_all([self.nodes[0:3]])
+
         #checking different combinations of min and max confirmations
         res = [7, 8, 6, 6, 1, 2, 1, 2]
         for i, options in enumerate( [[0,30,[],False], [0,30,[],True], \
@@ -678,6 +683,9 @@ class WalletColoredCoinTest(BitcoinTestFramework):
                         [0,0,[],False],  [0,0,[],True] ]):
 
             token_unspent = self.nodes[0].listunspent(options[0],options[1],options[2],options[3],{"only_token": True})
+            self.log.info(f"Options {options}: found {len(token_unspent)} tokens, expected {res[i]}")
+            if len(token_unspent) != res[i]:
+                self.log.info(f"Token unspents: {token_unspent}")
             assert_equal(len(token_unspent), res[i])
 
     def run_test(self):
