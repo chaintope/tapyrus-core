@@ -147,7 +147,7 @@ $(package)_config_opts_darwin += -device-option XCODE_VERSION=$(XCODE_VERSION)
 endif
 
 ifneq ($(build_arch),$(host_arch))
-$(package)_config_opts_aarch64_darwin += -device-option QMAKE_APPLE_DEVICE_ARCHS=arm64
+$(package)_config_opts_arm64_darwin += -device-option QMAKE_APPLE_DEVICE_ARCHS=arm64
 $(package)_config_opts_x86_64_darwin += -device-option QMAKE_APPLE_DEVICE_ARCHS=x86_64
 endif
 
@@ -202,11 +202,11 @@ define $(package)_extract_cmds
   echo "$($(package)_qttools_sha256_hash)  $($(package)_source_dir)/$($(package)_qttools_file_name)" >> $($(package)_extract_dir)/.$($(package)_file_name).hash && \
   $(build_SHA256SUM) -c $($(package)_extract_dir)/.$($(package)_file_name).hash && \
   mkdir qtbase && \
-  $(build_TAR) -x -f $($(package)_source) -C qtbase --strip-components=1 && \
+  $(build_TAR) -x -f $($(package)_source) -C qtbase --strip-components=1 --no-same-owner && \
   mkdir qttranslations && \
-  $(build_TAR) -x -f $($(package)_source_dir)/$($(package)_qttranslations_file_name) -C qttranslations --strip-components=1 && \
+  $(build_TAR) -x -f $($(package)_source_dir)/$($(package)_qttranslations_file_name) -C qttranslations --strip-components=1 --no-same-owner && \
   mkdir qttools && \
-  $(build_TAR) -x -f $($(package)_source_dir)/$($(package)_qttools_file_name) -C qttools --strip-components=1
+  $(build_TAR) -x -f $($(package)_source_dir)/$($(package)_qttools_file_name) -C qttools --strip-components=1 --no-same-owner
 endef
 
 # Preprocessing steps work as follows:

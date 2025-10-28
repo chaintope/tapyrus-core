@@ -30,8 +30,11 @@ if(APPLE AND NOT CMAKE_TOOLCHAIN_FILE AND NOT ZEROMQ_ROOT)
   set(ZEROMQ_LIBRARY "${ZEROMQ_ROOT}/lib/libzmq.dylib")
 endif()
 
-# Try to find ZeroMQ through various methods
-find_package(ZeroMQ ${ZeroMQ_FIND_VERSION} NO_MODULE QUIET)
+# Try to find ZeroMQ through CMake config first (preferred method)
+# Skip config search if using toolchain (CMAKE_TOOLCHAIN_FILE indicates depends build)
+if(NOT CMAKE_TOOLCHAIN_FILE)
+  find_package(ZeroMQ ${ZeroMQ_FIND_VERSION} NO_MODULE QUIET)
+endif()
 if(ZeroMQ_FOUND)
   find_package_handle_standard_args(ZeroMQ
     REQUIRED_VARS ZeroMQ_DIR
@@ -44,48 +47,36 @@ if(ZeroMQ_FOUND)
   endif()
   mark_as_advanced(ZeroMQ_DIR)
 else()
-  find_package(PkgConfig REQUIRED)
-  pkg_check_modules(libzmq QUIET
-    IMPORTED_TARGET
-    libzmq>=${ZeroMQ_FIND_VERSION}
-  )
-  if(TARGET PkgConfig::libzmq)
-    add_library(zeromq ALIAS PkgConfig::libzmq)
-  else()
-    # Create an imported target for ZeroMQ if pkg-config didn't create one
-    # First, try to use explicitly set ZEROMQ_ROOT if available
-    if(ZEROMQ_ROOT)
-      # For depends builds, prioritize the explicitly set paths
-      if(NOT ZEROMQ_INCLUDE_DIR)
-        set(ZEROMQ_INCLUDE_DIR "${ZEROMQ_ROOT}/include")
-      endif()
-      if(NOT ZEROMQ_LIBRARY)
-        # Look for static library first (preferred for depends), then dynamic
-        find_library(ZEROMQ_LIBRARY
-          NAMES zmq libzmq
-          HINTS "${ZEROMQ_ROOT}/lib"
-          PATHS "${ZEROMQ_ROOT}/lib"
-          NO_DEFAULT_PATH
-        )
-      endif()
-    elseif(APPLE AND EXISTS "${ZEROMQ_LIBRARY}")
-      # Fallback for macOS homebrew when ZEROMQ_ROOT not explicitly set
-    else()
-      # System library search
-      find_library(ZEROMQ_LIBRARY NAMES zmq)
-      find_path(ZEROMQ_INCLUDE_DIR NAMES zmq.h)
+  # Fallback to manual search for system installations
+  if(ZEROMQ_ROOT)
+    # For depends builds, use explicitly set paths
+    if(NOT ZEROMQ_INCLUDE_DIR)
+      set(ZEROMQ_INCLUDE_DIR "${ZEROMQ_ROOT}/include")
     endif()
-
-    # Create the imported target if we found the library and headers
-    if(ZEROMQ_LIBRARY AND ZEROMQ_INCLUDE_DIR AND EXISTS "${ZEROMQ_LIBRARY}" AND EXISTS "${ZEROMQ_INCLUDE_DIR}/zmq.h")
-      add_library(zeromq UNKNOWN IMPORTED)
-      set_target_properties(zeromq PROPERTIES
-        IMPORTED_LOCATION "${ZEROMQ_LIBRARY}"
-        INTERFACE_INCLUDE_DIRECTORIES "${ZEROMQ_INCLUDE_DIR}"
+    if(NOT ZEROMQ_LIBRARY)
+      # Look for static library first (preferred for depends), then dynamic
+      find_library(ZEROMQ_LIBRARY
+        NAMES zmq libzmq
+        HINTS "${ZEROMQ_ROOT}/lib"
+        PATHS "${ZEROMQ_ROOT}/lib"
+        NO_DEFAULT_PATH
       )
     endif()
+  elseif(APPLE AND EXISTS "${ZEROMQ_LIBRARY}")
+    # Fallback for macOS homebrew when ZEROMQ_ROOT not explicitly set
+  else()
+    # System library search
+    find_library(ZEROMQ_LIBRARY NAMES zmq)
+    find_path(ZEROMQ_INCLUDE_DIR NAMES zmq.h)
   endif()
-  if(TARGET zeromq)
+
+  # Create the imported target if we found the library and headers
+  if(ZEROMQ_LIBRARY AND ZEROMQ_INCLUDE_DIR AND EXISTS "${ZEROMQ_LIBRARY}" AND EXISTS "${ZEROMQ_INCLUDE_DIR}/zmq.h")
+    add_library(zeromq UNKNOWN IMPORTED)
+    set_target_properties(zeromq PROPERTIES
+      IMPORTED_LOCATION "${ZEROMQ_LIBRARY}"
+      INTERFACE_INCLUDE_DIRECTORIES "${ZEROMQ_INCLUDE_DIR}"
+    )
     set(ZeroMQ_FOUND TRUE)
   else()
     set(ZeroMQ_FOUND FALSE)
@@ -93,6 +84,5 @@ else()
 
   find_package_handle_standard_args(ZeroMQ
     REQUIRED_VARS ZeroMQ_FOUND
-    VERSION_VAR libzmq_VERSION
   )
 endif()

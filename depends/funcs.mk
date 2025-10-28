@@ -186,10 +186,10 @@ endif
 # setting in depends/toolchain.cmake.in, which also hardcodes "lib".
 # Without this setting, CMake by default would use the OS library
 # directory, which might be "lib64" or something else, not "lib", on multiarch systems.
-$(1)_cmake=env CC="$$($(1)_cc)" \
-               CFLAGS="$$($(1)_cppflags) $$($(1)_cflags)" \
-               CXX="$$($(1)_cxx)" \
-               CXXFLAGS="$$($(1)_cppflags) $$($(1)_cxxflags)" \
+$(1)_cmake=env CC="$$(word 1,$$($(1)_cc))" \
+               CFLAGS="$$(wordlist 2,999,$$($(1)_cc)) $$($(1)_cppflags) $$($(1)_cflags)" \
+               CXX="$$(word 1,$$($(1)_cxx))" \
+               CXXFLAGS="$$(wordlist 2,999,$$($(1)_cxx)) $$($(1)_cppflags) $$($(1)_cxxflags)" \
                LDFLAGS="$$($(1)_ldflags)" \
                cmake -G "Unix Makefiles" \
                -DCMAKE_INSTALL_PREFIX:PATH="$$($($(1)_type)_prefix)" \
