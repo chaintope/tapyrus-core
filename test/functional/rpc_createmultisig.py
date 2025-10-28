@@ -49,7 +49,7 @@ class RpcCreateMultiSigTest(BitcoinTestFramework):
         expected = 9*50
         self.log.debug(f"Balance check: height={height}, bal0={bal0}, bal1={bal1}, bal2={bal2}, total={total}, expected={expected}")
         assert height == 9 # initial 1 + 8 blocks mined
-        assert bal0+bal1+bal2 == 9*50
+        assert bal0+bal1+bal2 == expected
 
         # bal0 is initial 50 + total_block_rewards - self.moved - fee paid (total_block_rewards - 400)
         assert bal0 == 450 - self.moved
