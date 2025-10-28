@@ -2652,7 +2652,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
 
     for ([[maybe_unused]]const auto& entity:mapValue)
     {
-        TRACE2(coin_selection, coins_requested, entity.second, entity.first.toHexString().c_str());
+        TRACE3(coin_selection, coins_requested, GetName().c_str(), entity.first.toHexString().c_str(), entity.second);
     }
 
     if (vecSend.empty())
@@ -2836,7 +2836,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                                 return false;
                             }
                         }
-                        TRACE5(coin_selection, selected_coins, colorId.toHexString().c_str(), targetValue, mapValueIn[colorId], mapCoins[colorId].size(), bnb_used ? "BNB" : "knapsack");
+                        TRACE5(coin_selection, selected_coins, bnb_used ? "BNB" : "knapsack", colorId.toHexString().c_str(), targetValue, mapCoins[colorId].size(), mapValueIn[colorId]);
                     }
                 } else {
                     bnb_used = false;
@@ -2862,7 +2862,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                         // add colored coin change at the end
                         mapChangePosInOut[colorId] = txNew.vout.size();
                         txNew.vout.push_back(newTxOut);
-                        TRACE2(coin_selection, change_info, nChange, colorId.toHexString().c_str());
+                        TRACE3(coin_selection, change_info, colorId.toHexString().c_str(), mapChangePosInOut[colorId], nChange);
                     }
                     else
                         mapChangePosInOut[colorId] = -1;
@@ -2877,7 +2877,6 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 const CAmount nChange = mapValueIn[colorId] - targetValue;
                 if (nChange > 0)
                 {
-                    TRACE2(coin_selection, change_info, &nChange, colorId.toHexString().c_str());
                     // Fill a vout to ourself
                     CTxOut newTxOut(nChange, scriptChange);
 
@@ -2898,6 +2897,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                             //add change output to the end
                             mapChangePosInOut[colorId] = txNew.vout.size();
                             txNew.vout.push_back(newTxOut);
+                            TRACE3(coin_selection, change_info, colorId.toHexString().c_str(), mapChangePosInOut[colorId], nChange);
                         }
                         else
                         {
@@ -2908,6 +2908,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                             }
                             std::vector<CTxOut>::iterator position = txNew.vout.begin()+mapChangePosInOut[colorId];
                             txNew.vout.insert(position, newTxOut);
+                            TRACE3(coin_selection, change_info, colorId.toHexString().c_str(), mapChangePosInOut[colorId], nChange);
 
                             //colored coin change outputs may be incorrect after this insert. fix them
                             for(auto& i : mapChangePosInOut)
@@ -2980,7 +2981,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                         change_position->nValue += extraFeePaid;
                         nFeeRet -= extraFeePaid;
                     }
-                    TRACE2(coin_selection, fee_info, nFeeRet, nFeeNeeded);
+                    TRACE2(coin_selection, fee_info, nFeeNeeded, nFeeRet);
                     break; // Done, enough fee included.
                 }
                 else if (!pick_new_inputs) {
@@ -3000,7 +3001,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     if (change_position->nValue >= MIN_FINAL_CHANGE + additionalFeeNeeded) {
                         change_position->nValue -= additionalFeeNeeded;
                         nFeeRet += additionalFeeNeeded;
-                        TRACE2(coin_selection, fee_info, nFeeRet, nFeeNeeded);
+                        TRACE2(coin_selection, fee_info, nFeeNeeded, nFeeRet);
                         break; // Done, able to increase fee from change
                     }
                 }

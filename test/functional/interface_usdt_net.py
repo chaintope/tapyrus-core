@@ -13,7 +13,7 @@ from bcc import BPF, USDT
 from test_framework.messages import msg_version
 from test_framework.mininode import P2PInterface
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal
+from test_framework.util import assert_equal, TAPYRUS_MODES
 from test_framework.timeout_config import TAPYRUSD_SYNC_TIMEOUT
 
 # Tor v3 addresses are 62 chars + 6 chars for the port (':12345').
@@ -80,6 +80,8 @@ int trace_outbound_message(struct pt_regs *ctx) {
 class NetTracepointTest(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
+        self.setup_clean_chain = True
+        self.mode = TAPYRUS_MODES.PROD
 
     def run_test(self):
         # Tests the net:inbound_message and net:outbound_message tracepoints
@@ -101,9 +103,9 @@ class NetTracepointTest(BitcoinTestFramework):
         self.log.info(
             "hook into the net:inbound_message and net:outbound_message tracepoints")
         ctx = USDT(pid=self.nodes[0].process.pid)
-        ctx.enable_probe(probe="inbound_message",
+        ctx.enable_probe(probe="net:inbound_message",
                          fn_name="trace_inbound_message")
-        ctx.enable_probe(probe="outbound_message",
+        ctx.enable_probe(probe="net:outbound_message",
                          fn_name="trace_outbound_message")
         bpf = BPF(text=net_tracepoints_program, usdt_contexts=[ctx], debug=1)
 
