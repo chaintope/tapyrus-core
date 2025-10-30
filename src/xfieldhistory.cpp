@@ -93,6 +93,14 @@ uint32_t GetCurrentMaxBlockSize() {
     return xfieldMaxBlockSize.data;
 };
 
-uint32_t GetMaxBlockSigops() { return uint32_t(GetCurrentMaxBlockSize() / 50); };
+uint32_t GetMaxBlockSigops() {
+    XFieldMaxBlockSize xfieldMaxBlockSize;
+    CXFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, xfieldMaxBlockSize);
+    return xfieldMaxBlockSize.GetMaxBlockSigops();
+};
 
-uint32_t GetMaxStandardTxSigops() { return uint32_t(GetMaxBlockSigops() / 5); };
+uint32_t GetMaxStandardTxSigops() {
+    XFieldMaxBlockSize xfieldMaxBlockSize;
+    CXFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, xfieldMaxBlockSize);
+    return xfieldMaxBlockSize.GetMaxStandardTxSigops();
+};
