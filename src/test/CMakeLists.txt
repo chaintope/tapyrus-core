@@ -68,6 +68,7 @@ add_executable(test_tapyrus
         dbwrapper_tests.cpp
         denialofservice_tests.cpp
         descriptor_tests.cpp
+        file_io_tests.cpp
         getarg_tests.cpp
         hash_tests.cpp
         key_io_tests.cpp
