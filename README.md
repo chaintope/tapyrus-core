@@ -1,4 +1,4 @@
-Tapyrus Core [![Build Status](https://github.com/chaintope/tapyrus-core/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/chaintope/tapyrus-core/actions/workflows/ci.yml)
+Tapyrus Core [![Build Status](https://github.com/chaintope/tapyrus-core/actions/workflows/daily-test.yml/badge.svg?branch=master)](https://github.com/chaintope/tapyrus-core/actions/workflows/daily-test.yml)
 =====================================
 
 ![tapyrus](doc/images/tapyrus-logo.png)

@@ -83,11 +83,8 @@ def bctest(testDir, testObj, buildenv):
     if os.path.exists(os.path.join(buildenv["BUILDDIR"], "CMakeCache.txt")):
         # CMake environment
         execprog = os.path.join(buildenv["BUILDDIR"], "bin", testObj["exec"] + buildenv["EXEEXT"])
-    elif os.path.exists(os.path.join(buildenv["BUILDDIR"], "Makefile")):
-        # Autotools environment
-        execprog = os.path.join(buildenv["BUILDDIR"], "src", testObj["exec"] + buildenv["EXEEXT"])
     else:
-        raise RuntimeError("Unknown build environment: neither CMake nor Autotools detected")
+        raise RuntimeError("Unknown build environment: no CMake detected")
 
     execargs = testObj['args']
     execrun = [execprog] + execargs

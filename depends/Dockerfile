@@ -5,7 +5,7 @@ ENV LC_ALL=C.UTF-8
 
 RUN apt-get update && \
     apt-get install --no-install-recommends --no-upgrade -qq \
-        build-essential libtool autotools-dev automake cmake pkgconf curl git \
+        build-essential libtool cmake pkgconf curl git \
         ca-certificates ccache bsdmainutils python3 python3-venv bison && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
