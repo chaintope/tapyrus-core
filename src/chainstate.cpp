@@ -9,7 +9,6 @@
 #include <policy/packages.h>
 #include <reverse_iterator.h>
 #include <shutdown.h>
-//#include <timedata.h>
 #include <trace.h>
 #include <ui_interface.h>
 #include <warnings.h>

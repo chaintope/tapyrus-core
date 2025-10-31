@@ -1268,13 +1268,19 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
     // Note that witness malleability is checked in ContextualCheckBlock, so no
     // checks that use witness data may be performed here.
 
-    // Size limits
+    // Size limits - use Get(height) to get the correct limit for this specific block height
+    // This is important during reindex when processing blocks with different max block sizes
     XFieldMaxBlockSize maxBlockSizeChange;
-    CXFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, maxBlockSizeChange);
+    if(pxfieldHistory) {
+        maxBlockSizeChange = std::get<XFieldMaxBlockSize>(pxfieldHistory->Get(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, height).xfieldValue);
+    } else {
+        maxBlockSizeChange = std::get<XFieldMaxBlockSize>(CXFieldHistory().Get(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, height).xfieldValue);
+    }
 
-    uint32_t currentBlockSize = maxBlockSizeChange.data;
-    if (block.vtx.empty() || block.vtx.size() > currentBlockSize || ::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS) > currentBlockSize)
+    uint32_t serializedSize = ::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
+    if (block.vtx.empty() || block.vtx.size() > maxBlockSizeChange.data || serializedSize > maxBlockSizeChange.data) {
         return state.DoS(100, false, REJECT_INVALID, "bad-blk-length", false, "size limits failed");
+    }
 
     // Check that the header is valid (particularly PoW).  This is mostly
     // redundant with the call in AcceptBlockHeader.
@@ -1298,7 +1304,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
     {
         nSigOps += GetLegacySigOpCount(*tx);
     }
-    if (nSigOps > GetMaxBlockSigops())
+    if (nSigOps > maxBlockSizeChange.GetMaxBlockSigops())
         return state.DoS(100, false, REJECT_INVALID, "bad-blk-sigops", false, strprintf("out-of-bounds SigOpCount [%d]", nSigOps));
 
     if (fCheckPOW && fCheckMerkleRoot)
