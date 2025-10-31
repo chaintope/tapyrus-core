@@ -1473,6 +1473,8 @@ bool AppInitMain()
                     strLoadError = _("Error initializing block database");
                     break;
                 } else {
+                    // Initialize xfieldHistory here as it is not initialized
+                    // when genesis block is loaded from the file during reindex
                     CXFieldHistory history(FederationParams().GenesisBlock());
                 }
 

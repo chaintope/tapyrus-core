@@ -206,7 +206,7 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
 
     if (dbp != nullptr) {
         // Reindexing - use large 32MB buffer to handle any block size
-        bufferSize = 32 * 1000000;  // 32MB
+        bufferSize = REINDEX_BUFFER_SIZE;
     } else {
         // Normal operation - use buffer based on current max block size
         bufferSize = maxBlockSize;
