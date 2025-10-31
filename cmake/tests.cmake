@@ -2,14 +2,14 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or https://opensource.org/license/mit/.
 
-if(TARGET tapyrus-util AND TARGET tapyrus-tx AND PYTHON_COMMAND)
+if(TARGET tapyrus-util AND TARGET tapyrus-tx AND TARGET Python3::Interpreter)
   add_test(NAME util_test_runner
-    COMMAND ${CMAKE_COMMAND} -E env BITCOINUTIL=$<TARGET_FILE:tapyrus-util> BITCOINTX=$<TARGET_FILE:tapyrus-tx> ${PYTHON_COMMAND} ${PROJECT_BINARY_DIR}/test/util/test_runner.py
+    COMMAND ${CMAKE_COMMAND} -E env BITCOINUTIL=$<TARGET_FILE:tapyrus-util> BITCOINTX=$<TARGET_FILE:tapyrus-tx> Python3::Interpreter ${PROJECT_BINARY_DIR}/test/util/test_runner.py
   )
 endif()
 
-if(PYTHON_COMMAND)
+if(TARGET Python3::Interpreter)
   add_test(NAME util_rpcauth_test
-    COMMAND ${PYTHON_COMMAND} ${PROJECT_BINARY_DIR}/test/util/rpcauth-test.py
+    COMMAND Python3::Interpreter ${PROJECT_BINARY_DIR}/test/util/rpcauth-test.py
   )
 endif()

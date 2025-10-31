@@ -115,17 +115,6 @@ $(host_arch)_$(host_os)_native_toolchain?=$($(host_os)_native_toolchain)
 
 include funcs.mk
 
-# Build ID for autotools config.site
-autotools_build_id_long=$(shell $(build_SHA256SUM) config.site.in)
-autotools_build_id=$(shell echo -n "$(autotools_build_id_long)" | $(build_SHA256SUM) | cut -c-$(HASH_LENGTH))
-$(host_prefix)/.stamp_autotools_$(autotools_build_id): $(native_packages) $(packages)
-	@if [ -d "$(@D)" ] && [ "$(@D)" != "." ] && [ "$(@D)" != ".." ]; then rm -rf $(@D); fi
-	mkdir -p $(@D)
-	echo copying packages: $^
-	echo to: $(@D)
-	cd $(@D); $(foreach package,$^, tar xf $($(package)_cached); )
-	touch $@
-
 # $PATH is not preserved between ./configure and make by convention. Its
 # modification and overriding at ./configure time is (as I understand it)
 # supposed to be captured by the AC_{PROG_{,OBJ}CXX,PATH_{PROG,TOOL}} macros,
@@ -150,31 +139,6 @@ $(host_prefix)/.stamp_autotools_$(autotools_build_id): $(native_packages) $(pack
 # Minor note: it is also okay to refer to tools by their absolute path even if
 # we expect them to be available in $PATH at all times, more specificity does
 # not hurt.
-$(host_prefix)/share/config.site : config.site.in $(host_prefix)/.stamp_autotools_$(autotools_build_id)
-	@mkdir -p $(@D)
-	sed -e 's|@HOST@|$(host)|' \
-            -e 's|@CC@|$(host_CC)|' \
-            -e 's|@CXX@|$(host_CXX)|' \
-            -e 's|@AR@|$(host_AR)|' \
-            -e 's|@RANLIB@|$(host_RANLIB)|' \
-            -e 's|@NM@|$(host_NM)|' \
-            -e 's|@STRIP@|$(host_STRIP)|' \
-            -e 's|@OBJDUMP@|$(host_OBJDUMP)|' \
-            -e 's|@DSYMUTIL@|$(host_DSYMUTIL)|' \
-            -e 's|@build_os@|$(build_os)|' \
-            -e 's|@host_os@|$(host_os)|' \
-            -e 's|@CFLAGS@|$(strip $(host_CFLAGS) $(host_$(release_type)_CFLAGS))|' \
-            -e 's|@CXXFLAGS@|$(strip $(host_CXXFLAGS) $(host_$(release_type)_CXXFLAGS))|' \
-            -e 's|@CPPFLAGS@|$(strip $(host_CPPFLAGS) $(host_$(release_type)_CPPFLAGS))|' \
-            -e 's|@LDFLAGS@|$(strip $(host_LDFLAGS) $(host_$(release_type)_LDFLAGS))|' \
-            -e 's|@no_qt@|$(NO_QT)|' \
-            -e 's|@no_wallet@|$(NO_WALLET)|' \
-            -e 's|@no_upnp@|$(NO_UPNP)|' \
-            -e 's|@no_usdt@|$(NO_USDT)|' \
-            -e 's|@debug@|$(DEBUG)|' \
-            $< > $@
-	touch $@
-
 
 # Build ID for CMake toolchain
 cmake_build_id_long=$(shell $(build_SHA256SUM) toolchain.cmake.in)
@@ -264,7 +228,7 @@ clean:
 	@rm -rf $(WORK_PATH) $(BASE_CACHE) *.log
 	@if [ -d "$(BUILD)" ] && [ "$(BUILD)" != "." ] && [ "$(BUILD)" != ".." ]; then rm -rf $(BUILD); fi
 
-install: check-packages $(host_prefix)/share/config.site
+install: check-packages $(host_prefix)/toolchain.cmake
 
 install_cmake: check-packages $(host_prefix)/toolchain.cmake
 
