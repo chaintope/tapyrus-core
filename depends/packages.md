@@ -135,12 +135,9 @@ the user. Other variables may be defined as needed.
     $(1)_build_dir: path where configure/build/stage commands will be run
     $(1)_patch_dir: path where the package's patches (if any) are found
 
-Notes on build commands:
 
-For packages built with autotools, $($(package)_autoconf) can be used in the
-configure step to (usually) correctly configure automatically. Any
-$($(package)_config_opts) will be appended.
-
-Most autotools projects can be properly staged using:
+Most projects can be properly staged using:
 
     $(MAKE) DESTDIR=$($(package)_staging_dir) install
+    or
+    $(MAKE) DESTDIR=$($(package)_staging_dir) install_cmake

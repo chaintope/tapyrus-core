@@ -248,7 +248,7 @@ jobs:
               OSX_SDK_PATH="depends/sdk-sources/${OSX_SDK_FILENAME}"
               mkdir -p depends/sdk-sources
               
-              # Download SDK from the same source as autotools build
+              # Download SDK
               if [ ! -f "$OSX_SDK_PATH" ]; then
                 echo "Downloading macOS SDK from bitcoincore.org..."
                 SDK_URL="https://bitcoincore.org/depends-sources/sdks"
