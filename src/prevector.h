@@ -5,14 +5,15 @@
 #ifndef BITCOIN_PREVECTOR_H
 #define BITCOIN_PREVECTOR_H
 
-#include <assert.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
-
+#include <cassert>
 #include <cstddef>
+#include <cstdint>
+#include <cstdlib>
+#include <cstring>
 #include <iterator>
 #include <algorithm>
+#include <type_traits>
+#include <utility>
 
 #include <compat.h>
 
@@ -36,7 +37,11 @@
  */
 template<unsigned int N, typename T, typename Size = uint32_t, typename Diff = int32_t>
 class prevector {
+    static_assert(std::is_trivially_copyable<T>::value, "prevector only supports trivially copyable types");
+
 public:
+    static constexpr unsigned int STATIC_SIZE = N;
+
     typedef Size size_type;
     typedef Diff difference_type;
     typedef T value_type;
@@ -52,7 +57,8 @@ public:
         typedef T value_type;
         typedef T* pointer;
         typedef T& reference;
-        typedef std::random_access_iterator_tag iterator_category;
+        typedef T element_type;
+        typedef std::contiguous_iterator_tag iterator_category;
         iterator(T* ptr_) : ptr(ptr_) {}
         T& operator*() const { return *ptr; }
         T* operator->() const { return ptr; }
@@ -103,7 +109,8 @@ public:
         typedef const T value_type;
         typedef const T* pointer;
         typedef const T& reference;
-        typedef std::random_access_iterator_tag iterator_category;
+        typedef const T element_type;
+        typedef std::contiguous_iterator_tag iterator_category;
         const_iterator(const T* ptr_) : ptr(ptr_) {}
         const_iterator(iterator x) : ptr(&(*x)) {}
         const T& operator*() const { return *ptr; }
@@ -151,8 +158,8 @@ private:
     union direct_or_indirect {
         char direct[sizeof(T) * N];
         struct {
-            size_type capacity;
             char* indirect;
+            size_type capacity;
         } indirect_contents;
     };
 #pragma pack(pop)
@@ -265,8 +272,10 @@ public:
         fill(item_ptr(0), other.begin(),  other.end());
     }
 
-    prevector(prevector<N, T, Size, Diff>&& other) : _size(0) {
-        swap(other);
+    prevector(prevector<N, T, Size, Diff>&& other) noexcept
+        : _union(std::move(other._union)), _size(other._size)
+    {
+        other._size = 0;
     }
 
     prevector& operator=(const prevector<N, T, Size, Diff>& other) {
@@ -277,8 +286,13 @@ public:
         return *this;
     }
 
-    prevector& operator=(prevector<N, T, Size, Diff>&& other) {
-        swap(other);
+    prevector& operator=(prevector<N, T, Size, Diff>&& other) noexcept {
+        if (!is_direct()) {
+            free(_union.indirect_contents.indirect);
+        }
+        _union = std::move(other._union);
+        _size = other._size;
+        other._size = 0;
         return *this;
     }
 
@@ -345,6 +359,21 @@ public:
 
     void clear() {
         resize(0);
+    }
+
+    inline void resize_uninitialized(size_type new_size) {
+        // resize_uninitialized changes the size of the prevector but does not initialize it.
+        // If size < new_size, the added elements must be initialized explicitly.
+        if (capacity() < new_size) {
+            change_capacity(new_size);
+            _size += new_size - size();
+            return;
+        }
+        if (new_size < size()) {
+            erase(item_ptr(new_size), end());
+        } else {
+            _size += new_size - size();
+        }
     }
 
     iterator insert(iterator pos, const T& value) {
@@ -438,7 +467,7 @@ public:
         return *item_ptr(size() - 1);
     }
 
-    void swap(prevector<N, T, Size, Diff>& other) {
+    void swap(prevector<N, T, Size, Diff>& other) noexcept {
         std::swap(_union, other._union);
         std::swap(_size, other._size);
     }
