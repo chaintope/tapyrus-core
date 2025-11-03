@@ -812,12 +812,24 @@ void setClipboard(const QString& str)
 
 fs::path qstringToPath(const QString &path)
 {
+#if __cplusplus >= 202002L
+    // In C++20, u8path is deprecated, use path constructor with u8string
+    auto str = path.toStdString();
+    return fs::path(std::u8string(str.begin(), str.end()));
+#else
     return fs::u8path(path.toStdString());
+#endif
 }
 
 QString pathToQString(const fs::path &path)
 {
+#if __cplusplus >= 202002L
+    // In C++20, u8string() returns std::u8string, need to convert to std::string
+    auto u8str = path.u8string();
+    return QString::fromStdString(std::string(u8str.begin(), u8str.end()));
+#else
     return QString::fromStdString(path.u8string());
+#endif
 }
 
 QString formatDurationStr(int secs)
