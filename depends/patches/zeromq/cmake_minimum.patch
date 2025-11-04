@@ -16,3 +16,21 @@ Set a more sane cmake_minimum_required.
  include(CheckIncludeFiles)
  include(CheckCCompilerFlag)
  include(CheckCXXCompilerFlag)
+--- a/tests/CMakeLists.txt
++++ b/tests/CMakeLists.txt
+@@ -1,5 +1,5 @@
+ # CMake build script for ZeroMQ tests
+-cmake_minimum_required(VERSION "2.8.1")
++cmake_minimum_required(VERSION 3.16)
+
+ # On Windows: solution file will be called tests.sln
+ project(tests)
+--- a/unittests/CMakeLists.txt
++++ b/unittests/CMakeLists.txt
+@@ -1,5 +1,5 @@
+ # CMake build script for ZeroMQ unit tests
+-cmake_minimum_required(VERSION "2.8.1")
++cmake_minimum_required(VERSION 3.16)
+
+ set(unittests
+     unittest_ypipe

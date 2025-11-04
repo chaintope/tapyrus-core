@@ -245,6 +245,10 @@ if(qt_lib_type STREQUAL "STATIC_LIBRARY")
   )
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+  target_compile_definitions(tapyrusqt PRIVATE Q_OS_MAC)
+endif()
+
 add_executable(tapyrus-qt
   tapyrus.cpp
 )
@@ -324,7 +328,7 @@ else()
   get_translatable_sources(qt_translatable_sources src/qt)
   file(GLOB ui_files ${CMAKE_CURRENT_SOURCE_DIR}/forms/*.ui)
   add_custom_target(translate
-    COMMAND ${CMAKE_COMMAND} -E env XGETTEXT=${XGETTEXT_EXECUTABLE} COPYRIGHT_HOLDERS=${COPYRIGHT_HOLDERS} ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/share/qt/extract_strings_qt.py ${translatable_sources}
+    COMMAND ${CMAKE_COMMAND} -E env XGETTEXT=${XGETTEXT_EXECUTABLE} COPYRIGHT_HOLDERS=${COPYRIGHT_HOLDERS} Python3::Interpreter ${PROJECT_SOURCE_DIR}/share/qt/extract_strings_qt.py ${translatable_sources}
     COMMAND Qt5::lupdate -no-obsolete -I ${PROJECT_SOURCE_DIR}/src -locations relative ${CMAKE_CURRENT_SOURCE_DIR}/tapyrusstrings.cpp ${ui_files} ${qt_translatable_sources} -ts ${CMAKE_CURRENT_SOURCE_DIR}/locale/tapyrus_en.ts
     COMMAND Qt5::lconvert -drop-translations -o ${CMAKE_CURRENT_SOURCE_DIR}/locale/tapyrus_en.xlf -i ${CMAKE_CURRENT_SOURCE_DIR}/locale/tapyrus_en.ts
     COMMAND ${SED_EXECUTABLE} -i.old -e "s|source-language=\"en\" target-language=\"en\"|source-language=\"en\"|" -e "/<target xml:space=\"preserve\"><\\/target>/d" ${CMAKE_CURRENT_SOURCE_DIR}/locale/tapyrus_en.xlf

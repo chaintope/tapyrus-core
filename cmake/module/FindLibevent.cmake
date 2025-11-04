@@ -45,38 +45,47 @@ if(NOT WIN32)
   list(APPEND _libevent_components pthreads)
 endif()
 
+# Try CMake config first
 find_package(Libevent ${Libevent_FIND_VERSION} QUIET
+  COMPONENTS ${_libevent_components}
   NO_MODULE
 )
 
 include(FindPackageHandleStandardArgs)
 if(Libevent_FOUND)
-  find_package(Libevent ${Libevent_FIND_VERSION} QUIET
-    REQUIRED COMPONENTS ${_libevent_components}
-    NO_MODULE
-  )
   find_package_handle_standard_args(Libevent
     REQUIRED_VARS Libevent_DIR
     VERSION_VAR Libevent_VERSION
   )
   check_evhttp_connection_get_peer(libevent::extra)
 else()
-  find_package(PkgConfig REQUIRED)
+  # Manual search for system libraries
   foreach(component IN LISTS _libevent_components)
-    pkg_check_modules(libevent_${component}
-      REQUIRED QUIET
-      IMPORTED_TARGET GLOBAL
-      libevent_${component}>=${Libevent_FIND_VERSION}
+    find_library(Libevent_${component}_LIBRARY
+      NAMES event_${component}
     )
-    if(TARGET PkgConfig::libevent_${component} AND NOT TARGET libevent::${component})
-      add_library(libevent::${component} ALIAS PkgConfig::libevent_${component})
+    find_path(Libevent_INCLUDE_DIR
+      NAMES event2/event.h
+    )
+
+    if(Libevent_${component}_LIBRARY AND Libevent_INCLUDE_DIR)
+      if(NOT TARGET libevent::${component})
+        add_library(libevent::${component} UNKNOWN IMPORTED)
+        set_target_properties(libevent::${component} PROPERTIES
+          IMPORTED_LOCATION "${Libevent_${component}_LIBRARY}"
+          INTERFACE_INCLUDE_DIRECTORIES "${Libevent_INCLUDE_DIR}"
+        )
+      endif()
     endif()
   endforeach()
+
   find_package_handle_standard_args(Libevent
-    REQUIRED_VARS libevent_core_LIBRARY_DIRS
-    VERSION_VAR libevent_core_VERSION
+    REQUIRED_VARS Libevent_core_LIBRARY Libevent_INCLUDE_DIR
   )
-  check_evhttp_connection_get_peer(PkgConfig::libevent_extra)
+
+  if(Libevent_FOUND)
+    check_evhttp_connection_get_peer(libevent::extra)
+  endif()
 endif()
 
 unset(_libevent_components)
