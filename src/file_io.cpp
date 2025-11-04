@@ -201,10 +201,21 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
     static std::multimap<uint256, CDiskBlockPos> mapBlocksUnknownParent;
     int64_t nStart = GetTimeMillis();
 
+    uint32_t maxBlockSize = GetCurrentMaxBlockSize();
+    uint32_t bufferSize;
+
+    if (dbp != nullptr) {
+        // Reindexing - use large 32MB buffer to handle any block size
+        bufferSize = REINDEX_BUFFER_SIZE;
+    } else {
+        // Normal operation - use buffer based on current max block size
+        bufferSize = maxBlockSize;
+    }
+
     int nLoaded = 0;
     try {
         // This takes over fileIn and calls fclose() on it in the CBufferedFile destructor
-        CBufferedFile blkdat(fileIn, 2*GetCurrentMaxBlockSize(), GetCurrentMaxBlockSize()+8, SER_DISK, CLIENT_VERSION);
+        CBufferedFile blkdat(fileIn, 2*bufferSize, bufferSize+8, SER_DISK, CLIENT_VERSION);
         uint64_t nRewind = blkdat.GetPos();
         while (!blkdat.eof()) {
             blkdat.SetPos(nRewind);
@@ -221,8 +232,25 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
                     continue;
                 // read size
                 blkdat >> nSize;
-                if (nSize < 80 || nSize > GetCurrentMaxBlockSize())
+                // Size validation
+                if (nSize < 80) {
                     continue;
+                }
+                // During normal operation, validate against maxBlockSize
+                // During reindex (dbp != nullptr), skip size validation as it happens in CheckBlock
+                if (dbp == nullptr) {
+                    // Normal operation - validate against current maxBlockSize
+                    if (nSize > maxBlockSize) {
+                        continue;
+                    }
+                } else {
+                    // Reindexing - only check against buffer capacity
+                    if (nSize > bufferSize) {
+                        LogPrint(BCLog::REINDEX, "%s: Skipping block with size %u (exceeds buffer %u)\n", __func__, nSize, bufferSize);
+                        continue;
+                    }
+                    LogPrint(BCLog::REINDEX, "%s: size %u (reindex mode)\n", __func__, nSize);
+                }
             } catch (const std::exception&) {
                 // no valid block header found; don't complain
                 break;
@@ -349,7 +377,9 @@ CDiskBlockPos SaveBlockToDisk(const CBlock& block, int nHeight, const CDiskBlock
     if (position_known) {
         blockPos = *dbp;
     } else {
-        // When writing to a new file position, account for the serialization header
+        // when known, blockPos.nPos points at the offset of the block data in the blk file. that already accounts for
+        // the serialization header present in the file (the 4 magic message start bytes + the 4 length bytes = 8 bytes = BLOCK_SERIALIZATION_HEADER_SIZE).
+        // we add BLOCK_SERIALIZATION_HEADER_SIZE only for new blocks since they will have the serialization header added when written to disk.
         nBlockSize += static_cast<unsigned int>(BLOCK_SERIALIZATION_HEADER_SIZE);
     }
     if (!FindBlockPos(blockPos, nBlockSize, nHeight, block.GetBlockTime(), position_known)) {

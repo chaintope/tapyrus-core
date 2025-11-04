@@ -441,7 +441,6 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         self.stop_node(0)
         self.log.info("Restarting node0 with '-reindex'")
         self.start_node(0, extra_args=["-reindex"], timeout=TAPYRUSD_REORG_TIMEOUT)
-        connect_nodes(self.nodes[0], 1)
         self.reconnect_p2p(node)
         wait_until(lambda: self.nodes[0].getblockcount() >= 44, timeout=TAPYRUSD_REORG_TIMEOUT)
         blockchaininfo = node.getblockchaininfo()
@@ -451,9 +450,12 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
 
         #B45 - B47 -- Generate 3 blocks - no change in aggpubkey or block size -- chain becomes longer
         chaintips = node.getchaintips()
-        assert_equal(len(chaintips), 1)
+        tipHeights = [x["height"] for x in chaintips]
+        checkChainTips = lambda: all(h in tipHeights for h in {44, 37})
+        assert checkChainTips(), f"Expected heights 44 and 37 in chain tips, got {tipHeights}"
         self.unspent = self.unspent + generate_blocks(3, node, self.coinbase_pubkey, self.aggprivkey[1])
         tip_before_reorg = node.getbestblockhash()
+        connect_nodes(self.nodes[0],1)
         self.sync_all([self.nodes[0:2]])
 
         self.log.info("Simulate Blockchain Reorg  - After the last block size change")
@@ -522,7 +524,6 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         self.stop_node(0)
         self.log.info("Restarting node0 with '-reindex'")
         self.start_node(0, extra_args=["-reindex"], timeout=TAPYRUSD_REORG_TIMEOUT)
-        connect_nodes(self.nodes[0], 1)
         self.reconnect_p2p(node)
         self.connectNodeAndCheck(2, expectedAggPubKeys, expectedblockheights)
 
@@ -533,11 +534,14 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         node.p2p.send_blocks_and_test([blocknew], node, success=True, request_block=True)
         self.tip = blocknew.hash
         assert_equal(self.tip, node.getbestblockhash())
+        connect_nodes(self.nodes[0],1)
         self.sync_all([self.nodes[0:2]])
         assert_equal(self.tip, syn_node.getbestblockhash())
 
         chaintips = node.getchaintips()
-        assert_equal(len(chaintips), 1)
+        tipHeights = [x["height"] for x in chaintips]
+        checkChainTips = lambda: all(h in tipHeights for h in {51, 37, 47})
+        assert checkChainTips(), f"Expected heights 51, 37 and 47 in chain tips, got {tipHeights}"
 
         self.log.info("Verifying getblockchaininfo")
         blockchaininfo = node.getblockchaininfo()
@@ -547,9 +551,9 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         self.log.info("Restarting node0 with '-reindex'")
         self.stop_node(0)
         self.start_node(0, extra_args=["-reindex"], timeout=TAPYRUSD_REORG_TIMEOUT)
-        connect_nodes(self.nodes[0], 1)
         self.reconnect_p2p(node)
         wait_until(lambda: self.nodes[0].getblockcount() >= 51, timeout=TAPYRUSD_REORG_TIMEOUT)
+        connect_nodes(self.nodes[0],1)
         self.sync_all([self.nodes[0:2]])
         self.stop_node(0)
         self.stop_node(1)
@@ -579,7 +583,6 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
 
         self.start_node(2, ["-loadblock=%s" % os.path.join(self.nodes[2].datadir,'blocks', 'blk00000.dat')], timeout=TAPYRUSD_REORG_TIMEOUT)
         self.reconnect_p2p(self.nodes[2])
-        connect_nodes(self.nodes[1], 2)
         wait_until(lambda: self.nodes[2].getblockcount() >= 51, timeout=TAPYRUSD_REORG_TIMEOUT)
         blockchaininfo = self.nodes[2].getblockchaininfo()
         assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
@@ -587,7 +590,6 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         self.stop_node(0)
         self.log.info("Starting node0 with '-reloadxfield'")
         self.start_node(0, ["-reloadxfield"], timeout=TAPYRUSD_REORG_TIMEOUT)
-        connect_nodes(self.nodes[0], 1)
         self.reconnect_p2p(self.nodes[0])
         wait_until(lambda: self.nodes[0].getblockcount() >= 51, timeout=TAPYRUSD_REORG_TIMEOUT)
         blockchaininfo = self.nodes[0].getblockchaininfo()

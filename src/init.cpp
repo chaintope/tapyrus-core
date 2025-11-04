@@ -1472,6 +1472,10 @@ bool AppInitMain()
                 if (!fReindex && !LoadGenesisBlock()) {
                     strLoadError = _("Error initializing block database");
                     break;
+                } else {
+                    // Initialize xfieldHistory here as it is not initialized
+                    // when genesis block is loaded from the file during reindex
+                    CXFieldHistory history(FederationParams().GenesisBlock());
                 }
 
                 // At this point we're either in reindex or we've loaded a useful

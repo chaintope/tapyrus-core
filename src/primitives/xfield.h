@@ -117,6 +117,10 @@ public:
     }
 
     inline std::string ToString() const;
+    inline uint32_t GetMaxBlockSigops() { return uint32_t(data / 50); };
+
+    inline uint32_t GetMaxStandardTxSigops() { return uint32_t(GetMaxBlockSigops() / 5); };
+
 };
 
 /*

@@ -5,6 +5,7 @@
 #ifndef BITCOIN_FILE_IO_H
 #define BITCOIN_FILE_IO_H
 
+constexpr size_t REINDEX_BUFFER_SIZE = 32 * 1000000;  //  use large 32MB buffer to handle any block size
 enum class FlushStateMode {
     NONE,
     IF_NEEDED,
