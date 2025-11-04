@@ -301,7 +301,7 @@ def main():
     enable_wallet = config["components"].getboolean("ENABLE_WALLET")
     enable_utils = config["components"].getboolean("BUILD_UTILS")
     enable_tapyrusd = config["components"].getboolean("BUILD_DAEMON")
-    enable_usdt = config["components"].getboolean("ENABLE_USDT")
+    enable_usdt = config["components"].getboolean("ENABLE_TRACING")
 
     if config["environment"]["EXEEXT"] == ".exe" and not args.force:
         # https://github.com/bitcoin/bitcoin/commit/d52802551752140cf41f0d9a225a43e84404d3e9
@@ -338,8 +338,9 @@ def main():
     if args.debugscripts:
         test_list += DEBUG_MODE_SCRIPTS
 
-    if enable_usdt:
-        test_list += USDT_SCRIPTS
+    # USDT scripts are not enabled in the CI now
+    #if enable_usdt:
+    #    test_list += USDT_SCRIPTS
 
     # Remove the test cases that the user has explicitly asked to exclude.
     if args.exclude:

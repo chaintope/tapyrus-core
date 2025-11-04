@@ -15,10 +15,77 @@ except ImportError:
     print
 from test_framework.messages import COIN, CTransaction
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, hex_str_to_bytes
+from test_framework.util import assert_equal, hex_str_to_bytes, TAPYRUS_MODES
 from test_framework.timeout_config import TAPYRUSD_SYNC_TIMEOUT
 
-utxocache_changes_program = """
+utxocache_add_program = """
+#include <uapi/linux/ptrace.h>
+
+typedef signed long long i64;
+
+struct utxocache_change
+{
+    char        txid[64];
+    u32         index;
+    char        token[66];
+    u32         height;
+    i64         value;
+    bool        is_coinbase;
+};
+
+BPF_PERF_OUTPUT(utxocache_add);
+int trace_utxocache_add(struct pt_regs *ctx) {
+    struct utxocache_change add = {};
+    bpf_usdt_readarg_p(1, ctx, &add.txid, 64);
+    bpf_usdt_readarg(2, ctx, &add.index);
+    bpf_usdt_readarg_p(3, ctx, &add.token, 66);
+    bpf_usdt_readarg(4, ctx, &add.height);
+    bpf_usdt_readarg(5, ctx, &add.value);
+    bpf_usdt_readarg(6, ctx, &add.is_coinbase);
+    utxocache_add.perf_submit(ctx, &add, sizeof(add));
+    return 0;
+}
+"""
+
+utxocache_spent_program = """
+#include <uapi/linux/ptrace.h>
+
+typedef signed long long i64;
+
+struct utxocache_change
+{
+    char        txid[64];
+    u32         index;
+    char        token[66];
+    u32         height;
+    i64         value;
+    bool        is_coinbase;
+};
+
+BPF_PERF_OUTPUT(utxocache_spent);
+int trace_utxocache_spent(struct pt_regs *ctx) {
+    struct utxocache_change spent = {};
+    bpf_usdt_readarg_p(1, ctx, &spent.txid, 64);
+    bpf_usdt_readarg(2, ctx, &spent.index);
+    bpf_usdt_readarg_p(3, ctx, &spent.token, 66);
+    bpf_usdt_readarg(4, ctx, &spent.height);
+    bpf_usdt_readarg(5, ctx, &spent.value);
+    bpf_usdt_readarg(6, ctx, &spent.is_coinbase);
+    utxocache_spent.perf_submit(ctx, &spent, sizeof(spent));
+    return 0;
+}
+"""
+
+utxocache_uncache_program = """
+#include <uapi/linux/ptrace.h>
+
+int trace_utxocache_uncache(struct pt_regs *ctx) {
+    // Minimal probe - just attach, don't read arguments
+    return 0;
+}
+"""
+
+utxocache_add_spent_program = """
 #include <uapi/linux/ptrace.h>
 
 typedef signed long long i64;
@@ -56,19 +123,6 @@ int trace_utxocache_spent(struct pt_regs *ctx) {
     bpf_usdt_readarg(5, ctx, &spent.value);
     bpf_usdt_readarg(6, ctx, &spent.is_coinbase);
     utxocache_spent.perf_submit(ctx, &spent, sizeof(spent));
-    return 0;
-}
-
-BPF_PERF_OUTPUT(utxocache_uncache);
-int trace_utxocache_uncache(struct pt_regs *ctx) {
-    struct utxocache_change uncache = {};
-    bpf_usdt_readarg_p(1, ctx, &uncache.txid, 64);
-    bpf_usdt_readarg(2, ctx, &uncache.index);
-    bpf_usdt_readarg_p(3, ctx, &uncache.token, 66);
-    bpf_usdt_readarg(4, ctx, &uncache.height);
-    bpf_usdt_readarg(5, ctx, &uncache.value);
-    bpf_usdt_readarg(6, ctx, &uncache.is_coinbase);
-    utxocache_uncache.perf_submit(ctx, &uncache, sizeof(uncache));
     return 0;
 }
 """
@@ -141,6 +195,7 @@ class UTXOCacheTracepointTest(BitcoinTestFramework):
         self.setup_clean_chain = False
         self.num_nodes = 1
         self.extra_args = [["-txindex"]]
+        self.mode = TAPYRUS_MODES.PROD
 
 
     def run_test(self):
@@ -176,10 +231,10 @@ class UTXOCacheTracepointTest(BitcoinTestFramework):
         invalid_tx.vin[0].prevout.hash = int(block_1_coinbase_txid, 16)
 
         self.log.info("hooking into the uncache tracepoint")
-        ctx = USDT(pid = self.nodes[0].process.pid)
-        ctx.enable_probe(probe="utxocache_uncache",
+        ctx = USDT(pid=self.nodes[0].process.pid)
+        ctx.enable_probe(probe="utxocache:utxocache_uncache",
                          fn_name="trace_utxocache_uncache")
-        bpf = BPF(text=utxocache_changes_program, usdt_contexts=[ctx], debug=0)
+        bpf = BPF(text=utxocache_uncache_program, usdt_contexts=[ctx], debug=0)
 
         # The handle_* function is a ctypes callback function called from C. When
         # we assert in the handle_* function, the AssertError doesn't propagate
@@ -242,10 +297,10 @@ class UTXOCacheTracepointTest(BitcoinTestFramework):
         self.log.info(
             "hook into the utxocache:utxocache_add and utxocache:utxocache_spent tracepoints")
         ctx = USDT(pid = self.nodes[0].process.pid)
-        ctx.enable_probe(probe="utxocache_add", fn_name="trace_utxocache_add")
-        ctx.enable_probe(probe="utxocache_spent",
+        ctx.enable_probe(probe="utxocache:utxocache_add", fn_name="trace_utxocache_add")
+        ctx.enable_probe(probe="utxocache:utxocache_spent",
                          fn_name="trace_utxocache_spent")
-        bpf = BPF(text=utxocache_changes_program, usdt_contexts=[ctx], debug=0)
+        bpf = BPF(text=utxocache_add_spent_program, usdt_contexts=[ctx], debug=0)
 
         # The handle_* function is a ctypes callback function called from C. When
         # we assert in the handle_* function, the AssertError doesn't propagate
@@ -342,7 +397,7 @@ class UTXOCacheTracepointTest(BitcoinTestFramework):
         self.log.info("test the utxocache_flush tracepoint API")
         self.log.info("hook into the utxocache_flush tracepoint")
         ctx = USDT(pid = self.nodes[0].process.pid)
-        ctx.enable_probe(probe="utxocache_flush",
+        ctx.enable_probe(probe="utxocache:utxocache_flush",
                          fn_name="trace_utxocache_flush")
         bpf = BPF(text=utxocache_flushes_program, usdt_contexts=[ctx], debug=0)
 

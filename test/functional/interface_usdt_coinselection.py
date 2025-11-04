@@ -17,32 +17,35 @@ from test_framework.util import (
     assert_equal,
     assert_greater_than,
     assert_raises_rpc_error,
+    TAPYRUS_MODES,
 )
 
 coinselection_tracepoints_program = """
 #include <uapi/linux/ptrace.h>
 
-#define WALLET_NAME_LENGTH 16
+#define COLOR_ID_LENGTH 64
 #define ALGO_NAME_LENGTH 16
 
 struct event_data
 {
     u8 type;
-    char wallet_name[WALLET_NAME_LENGTH];
+    char color_id[COLOR_ID_LENGTH];
 
-    // selected coins event
-    char algo[ALGO_NAME_LENGTH];
-    s64 target;
-    s64 waste;
+    // selected coins event (type 1)
+    s64 target_value;
     s64 selected_value;
+    s64 num_coins;
+    char algo[ALGO_NAME_LENGTH];
 
-    // create tx event
-    bool success;
-    s64 fee;
-    s32 change_pos;
+    // coins requested event (type 2)
+    s64 amount;
 
-    // aps create tx event
-    bool use_aps;
+    // change info event (type 3)
+    s64 change_amount;
+
+    // fee info event (type 4)
+    s64 fee_ret;
+    s64 fee_needed;
 };
 
 BPF_QUEUE(coin_selection_events, struct event_data, 1024);
@@ -51,45 +54,41 @@ int trace_selected_coins(struct pt_regs *ctx) {
     struct event_data data;
     __builtin_memset(&data, 0, sizeof(data));
     data.type = 1;
-    bpf_usdt_readarg_p(1, ctx, &data.wallet_name, WALLET_NAME_LENGTH);
-    bpf_usdt_readarg_p(2, ctx, &data.algo, ALGO_NAME_LENGTH);
-    bpf_usdt_readarg(3, ctx, &data.target);
-    bpf_usdt_readarg(4, ctx, &data.waste);
-    bpf_usdt_readarg(5, ctx, &data.selected_value);
+    bpf_usdt_readarg_p(1, ctx, &data.color_id, COLOR_ID_LENGTH);
+    bpf_usdt_readarg(2, ctx, &data.target_value);
+    bpf_usdt_readarg(3, ctx, &data.selected_value);
+    bpf_usdt_readarg(4, ctx, &data.num_coins);
+    bpf_usdt_readarg_p(5, ctx, &data.algo, ALGO_NAME_LENGTH);
     coin_selection_events.push(&data, 0);
     return 0;
 }
 
-int trace_normal_create_tx(struct pt_regs *ctx) {
+int trace_coins_requested(struct pt_regs *ctx) {
     struct event_data data;
     __builtin_memset(&data, 0, sizeof(data));
     data.type = 2;
-    bpf_usdt_readarg_p(1, ctx, &data.wallet_name, WALLET_NAME_LENGTH);
-    bpf_usdt_readarg(2, ctx, &data.success);
-    bpf_usdt_readarg(3, ctx, &data.fee);
-    bpf_usdt_readarg(4, ctx, &data.change_pos);
+    bpf_usdt_readarg(1, ctx, &data.amount);
+    bpf_usdt_readarg_p(2, ctx, &data.color_id, COLOR_ID_LENGTH);
     coin_selection_events.push(&data, 0);
     return 0;
 }
 
-int trace_attempt_aps(struct pt_regs *ctx) {
+int trace_change_info(struct pt_regs *ctx) {
     struct event_data data;
     __builtin_memset(&data, 0, sizeof(data));
     data.type = 3;
-    bpf_usdt_readarg_p(1, ctx, &data.wallet_name, WALLET_NAME_LENGTH);
+    bpf_usdt_readarg(1, ctx, &data.change_amount);
+    bpf_usdt_readarg_p(2, ctx, &data.color_id, COLOR_ID_LENGTH);
     coin_selection_events.push(&data, 0);
     return 0;
 }
 
-int trace_aps_create_tx(struct pt_regs *ctx) {
+int trace_fee_info(struct pt_regs *ctx) {
     struct event_data data;
     __builtin_memset(&data, 0, sizeof(data));
     data.type = 4;
-    bpf_usdt_readarg_p(1, ctx, &data.wallet_name, WALLET_NAME_LENGTH);
-    bpf_usdt_readarg(2, ctx, &data.use_aps);
-    bpf_usdt_readarg(3, ctx, &data.success);
-    bpf_usdt_readarg(4, ctx, &data.fee);
-    bpf_usdt_readarg(5, ctx, &data.change_pos);
+    bpf_usdt_readarg(1, ctx, &data.fee_ret);
+    bpf_usdt_readarg(2, ctx, &data.fee_needed);
     coin_selection_events.push(&data, 0);
     return 0;
 }
@@ -98,11 +97,12 @@ int trace_aps_create_tx(struct pt_regs *ctx) {
 
 class CoinSelectionTracepointTest(BitcoinTestFramework):
     def add_options(self, parser):
-        self.add_wallet_options(parser)
+        pass
 
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
+        self.mode = TAPYRUS_MODES.PROD
 
     def skip_test_if_missing_module(self):
         self.skip_if_platform_not_linux()
@@ -163,9 +163,9 @@ class CoinSelectionTracepointTest(BitcoinTestFramework):
         self.log.info("hook into the coin_selection tracepoints")
         ctx = USDT(pid=self.nodes[0].process.pid)
         ctx.enable_probe(probe="coin_selection:selected_coins", fn_name="trace_selected_coins")
-        ctx.enable_probe(probe="coin_selection:normal_create_tx_internal", fn_name="trace_normal_create_tx")
-        ctx.enable_probe(probe="coin_selection:attempting_aps_create_tx", fn_name="trace_attempt_aps")
-        ctx.enable_probe(probe="coin_selection:aps_create_tx_internal", fn_name="trace_aps_create_tx")
+        ctx.enable_probe(probe="coin_selection:coins_requested", fn_name="trace_coins_requested")
+        ctx.enable_probe(probe="coin_selection:change_info", fn_name="trace_change_info")
+        ctx.enable_probe(probe="coin_selection:fee_info", fn_name="trace_fee_info")
         self.bpf = BPF(text=coinselection_tracepoints_program, usdt_contexts=[ctx], debug=0)
 
         self.log.info("Prepare wallets")

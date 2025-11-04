@@ -137,11 +137,12 @@ Arguments passed:
 Is called when a coin is added to a UTXO cache. This can be a temporary UTXO cache too.
 
 Arguments passed:
-1. Transaction ID (hash) as `pointer to unsigned chars` (i.e. 64 bytes hex string in little-endian)
+1. Transaction ID (hash) as `pointer to C-style string` (64 bytes)
 2. Output index as `uint32`
-3. Block height the coin was added to the UTXO-set as  `uint32`
-4. Value of the coin as `int64`
-5. If the coin is a coinbase as `bool`
+3. Token name as `pointer to C-style string`(66 bytes)
+4. Block height the coin was added to the UTXO-set as  `uint32`
+5. Value of the coin as `int64`
+6. If the coin is a coinbase as `bool`
 
 #### Tracepoint `utxocache:utxocache_spent`
 
