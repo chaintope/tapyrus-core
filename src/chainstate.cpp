@@ -7,7 +7,6 @@
 #include <consensus/tx_verify.h>
 #include <index/txindex.h>
 #include <policy/packages.h>
-#include <reverse_iterator.h>
 #include <shutdown.h>
 #include <trace.h>
 #include <ui_interface.h>
@@ -17,6 +16,7 @@
 
 #include <deque>
 #include <boost/algorithm/string/replace.hpp>
+#include <ranges>
 
 static int64_t nTimeCheck = 0;
 static int64_t nTimeForks = 0;
@@ -933,7 +933,7 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, CBlockIndex* pi
         nHeight = nTargetHeight;
 
         // Connect new blocks.
-        for (CBlockIndex *pindexConnect : reverse_iterate(vpindexToConnect)) {
+        for (CBlockIndex *pindexConnect : std::views::reverse(vpindexToConnect)) {
             if (!ConnectTip(state, pindexConnect, pindexConnect == pindexMostWork ? pblock : std::shared_ptr<const CBlock>(), connectTrace, disconnectpool)) {
                 if (state.IsInvalid()) {
                     // The block violates a consensus rule.

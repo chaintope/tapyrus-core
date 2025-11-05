@@ -83,7 +83,7 @@ static inline int CountBits(I val, int max = 64) {
 #if defined(__cpp_lib_int_pow2) && __cpp_lib_int_pow2 >= 202002L
     // c++20 impl
     (void)max;
-    return std::bit_width(val);
+    return std::bit_width(static_cast<std::make_unsigned_t<I>>(val));
 #elif defined(_MSC_VER)
     (void)max;
     unsigned long index;
