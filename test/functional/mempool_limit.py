@@ -143,12 +143,11 @@ class MempoolLimitTest(BitcoinTestFramework):
         package_txids.append(child.hashMalFix)
         return (package_hex, package_txids)
 
-    def create_tx_to_be_evicted(self, node, unspent, feerate=None):
+    def create_tx_to_be_evicted(self, node, unspent):
         # Mempool transaction which is evicted due to being at the "bottom" of the mempool when the
         # mempool overflows and evicts by descendant score.
 
-        if feerate is None:
-            feerate = node.getmempoolinfo()["mempoolminfee"] * Decimal('1.01')
+        feerate = node.getmempoolinfo()["mempoolminfee"] * Decimal('1.01')
 
         # Create transaction without fee first to calculate accurate size
         inputs = [{"txid": unspent["txid"], "vout": unspent["vout"]}]
@@ -306,10 +305,6 @@ class MempoolLimitTest(BitcoinTestFramework):
         self.log.info("Verify that the low fee transction is evicted")
         resulting_mempool_txids = node.getrawmempool()
         actual_mempool_evicted_txs = [tx for tx in init_mempool_txids if tx not in resulting_mempool_txids]
-
-        # Log detailed information for debugging
-        #self.log.info(f"Expected evicted tx: {mempool_evicted_tx.hashMalFix}")
-        #self.log.info(f"Actually evicted txs: {actual_mempool_evicted_txs}")
 
         # The low fee transaction should be among the evicted transactions
         assert mempool_evicted_tx.hashMalFix in actual_mempool_evicted_txs, \
