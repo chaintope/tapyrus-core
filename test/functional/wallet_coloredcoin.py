@@ -660,6 +660,7 @@ class WalletColoredCoinTest(BitcoinTestFramework):
 
         # send a new token to node 0 to create unsafe token
         self.nodes[1].generate(2, self.signblockprivkey_wif)
+        self.sync_all([self.nodes[0:3]])
         tpc_utxo = findTPC(self.nodes[1].listunspent())
         pubkeyhash = hash160(hex_str_to_bytes(self.nodes[1].getaddressinfo(tpc_utxo['address'])['pubkey']))
         scr2 =  CScript([OP_DUP, OP_HASH160, pubkeyhash, OP_EQUALVERIFY, OP_CHECKSIG ])
@@ -670,10 +671,6 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         self.sync_all([self.nodes[0:3]])
         token_unspent = len(self.nodes[0].listunspent(6,9999999,[],False,{"only_token": True}))
         assert_equal(token_unspent, 6)  #unconfirmed token is not counted because of min confirmations
-
-        # Ensure all transactions are synced before checking confirmation counts
-        time.sleep(1)  # Brief pause to ensure mempool is fully synced
-        self.sync_all([self.nodes[0:3]])
 
         #checking different combinations of min and max confirmations
         res = [7, 8, 6, 6, 1, 2, 1, 2]

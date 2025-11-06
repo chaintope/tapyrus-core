@@ -37,10 +37,10 @@ Building
 The following are developer notes on how to build Tapyrus Core on your native platform. They are not complete guides, but include notes on the necessary libraries, compile flags, etc.
 
 - [Dependencies](dependencies.md)
+- [CMake Build Options](build-cmake.md)
 - [macOS Build Notes](build-osx.md)
 - [Unix Build Notes](build-unix.md)
 - [Windows Build Notes](build-windows.md)
-- [Gitian Building Guide](gitian-building.md)
 
 Development
 ---------------------
@@ -52,7 +52,6 @@ The Bitcoin repo's [root README](/README.md) contains relevant information on th
 - [Source Code Documentation (External Link)](https://dev.visucore.com/bitcoin/doxygen/)
 - [Translation Process](translation_process.md)
 - [Translation Strings Policy](translation_strings_policy.md)
-- [Travis CI](travis-ci.md)
 - [Unauthenticated REST Interface](REST-interface.md)
 - [Shared Libraries](shared-libraries.md)
 - [BIPS](bips.md)

@@ -5,11 +5,10 @@ These are the dependencies currently used by Tapyrus Core. You can find instruct
 
 |Dependency | Minimum required |
 |----|----|
-|Autoconf|2.60|
-|Automake|1.13|
+|CMake|3.16|
 |Clang|6.0.1|
 |GCC|9.4.0|
-|Python (scripts, tests)|3.4|
+|Python (scripts, tests)|3.10|
 
 | Dependency | Version used                                                                                               | Minimum required | CVEs | Shared | [Bundled Qt library](https://doc.qt.io/qt-5/configure-options.html) |
 | --- |------------------------------------------------------------------------------------------------------------| --- | --- | --- | --- |

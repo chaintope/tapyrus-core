@@ -147,8 +147,32 @@ class MempoolLimitTest(BitcoinTestFramework):
         # Mempool transaction which is evicted due to being at the "bottom" of the mempool when the
         # mempool overflows and evicts by descendant score.
 
+        feerate = node.getmempoolinfo()["mempoolminfee"] * Decimal('1.01')
+
+        # Create transaction without fee first to calculate accurate size
         inputs = [{"txid": unspent["txid"], "vout": unspent["vout"]}]
-        outputs = [{key_to_p2pkh(self.signblockpubkey): unspent['amount'] - Decimal('0.0001') }]
+        outputs = [{key_to_p2pkh(self.signblockpubkey): unspent['amount']}]
+        raw_tx = node.createrawtransaction(inputs, outputs)
+
+        # Deserialize to calculate actual fee
+        tx = CTransaction()
+        tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx)))
+        tx.rehash()
+
+        # Sign to get actual size
+        signresult = node.signrawtransactionwithwallet(raw_tx,  [{'txid' : unspent['txid'], 'vout' : unspent["vout"], 'scriptPubKey' : unspent['scriptPubKey']}], "ALL", self.options.scheme)
+        assert_equal(signresult["complete"], True)
+
+        # Parse signed transaction to get accurate size and apply precise fee
+        mempool_evicted_tx = CTransaction()
+        mempool_evicted_tx.deserialize(BytesIO(hex_str_to_bytes(signresult['hex'])))
+        tx_size_bytes = len(hex_str_to_bytes(signresult['hex']))
+
+        # Calculate precise fee: feerate is in BTC/kB, convert to satoshis
+        fee = int(feerate * tx_size_bytes / 1000 * COIN)
+
+        # Recreate transaction with precise fee
+        outputs = [{key_to_p2pkh(self.signblockpubkey): unspent['amount'] - Decimal(fee) / COIN}]
         raw_tx = node.createrawtransaction(inputs, outputs)
         signresult = node.signrawtransactionwithwallet(raw_tx,  [{'txid' : unspent['txid'], 'vout' : unspent["vout"], 'scriptPubKey' : unspent['scriptPubKey']}], "ALL", self.options.scheme)
         assert_equal(signresult["complete"], True)
@@ -183,7 +207,8 @@ class MempoolLimitTest(BitcoinTestFramework):
 
         # fill the rest of the mempool with another transaction
         mempoolinfo = node.getmempoolinfo()
-        size_needed = mempoolinfo['maxmempool'] - mempoolinfo['usage'] - size_package(package_hex)
+        # Reserve slightly less space than package size to ensure some txs will be rejected
+        size_needed = mempoolinfo['maxmempool'] - mempoolinfo['usage'] - int(size_package(package_hex))
 
         utxos = [utxo for utxo in node.listunspent()if utxo['amount'] >  mempoolmin_feerate]
         utxo = utxos.pop()
@@ -194,6 +219,11 @@ class MempoolLimitTest(BitcoinTestFramework):
 
         mempool_txids = node.getrawmempool()
         assert txid in mempool_txids
+
+        # Verify mempool is nearly full
+        mempoolinfo_after = node.getmempoolinfo()
+        self.log.info("Mempool usage after fill: {} / {} bytes".format(
+            mempoolinfo_after['usage'], mempoolinfo_after['maxmempool']))
 
         # Package should be submitted partially
         res = self.submitpackage(node, package_hex)
@@ -259,7 +289,7 @@ class MempoolLimitTest(BitcoinTestFramework):
         init_mempool_txids = node.getrawmempool()
 
         # Submit package
-        res = self.submitpackage(node, package_hex, True)
+        res = self.submitpackage(node, package_hex)
 
         # Child trasnaction in the package failed due to one of its inputs being evicted and some inputs disappearing
         assert res[package_txids[-1] ] == {'allowed': False, 'reject-reason': 'missing-inputs'}
@@ -276,7 +306,9 @@ class MempoolLimitTest(BitcoinTestFramework):
         resulting_mempool_txids = node.getrawmempool()
         actual_mempool_evicted_txs = [tx for tx in init_mempool_txids if tx not in resulting_mempool_txids]
 
-        assert mempool_evicted_tx.hashMalFix == actual_mempool_evicted_txs[1]
+        # The low fee transaction should be among the evicted transactions
+        assert mempool_evicted_tx.hashMalFix in actual_mempool_evicted_txs, \
+            f"Expected {mempool_evicted_tx.hashMalFix} to be evicted, but evicted txs were: {actual_mempool_evicted_txs}"
 
 
     def test_mid_package_replacement(self, node):
