@@ -81,7 +81,12 @@ function(test_append_atomic_library target)
   ")
 
   include(CheckCXXSourceCompiles)
-  check_cxx_source_compiles("${check_atomic_source}" STD_ATOMIC_LINKS_WITHOUT_LIBATOMIC)
+  # Darwin/macOS always supports std::atomic without additional libraries
+  if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    set(STD_ATOMIC_LINKS_WITHOUT_LIBATOMIC TRUE)
+  else()
+    check_cxx_source_compiles("${check_atomic_source}" STD_ATOMIC_LINKS_WITHOUT_LIBATOMIC)
+  endif()
   if(NOT STD_ATOMIC_LINKS_WITHOUT_LIBATOMIC)
     include(CheckSourceCompilesWithFlags)
     check_cxx_source_compiles_with_flags("${check_atomic_source}" STD_ATOMIC_NEEDS_LINK_TO_LIBATOMIC

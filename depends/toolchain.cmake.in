@@ -96,6 +96,10 @@ set(CMAKE_OBJDUMP "@OBJDUMP@")
 # affected by a potentially random environment.
 set(CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH OFF)
 
+# Prefer toolchain-specified paths over package config files
+# This ensures our manually set library paths take precedence
+set(CMAKE_FIND_PACKAGE_PREFER_CONFIG OFF)
+
 set(CMAKE_FIND_ROOT_PATH "${CMAKE_CURRENT_LIST_DIR}")
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
