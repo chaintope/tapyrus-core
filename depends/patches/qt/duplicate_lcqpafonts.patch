@@ -65,17 +65,38 @@ Upstream commit:
 +++ b/qtbase/src/platformsupport/themes/genericunix/qgenericunixthemes.cpp
 @@ -40,6 +40,7 @@
  #include "qgenericunixthemes_p.h"
- 
+
  #include "qpa/qplatformtheme_p.h"
 +#include "qpa/qplatformfontdatabase.h"
- 
+
  #include <QtGui/QPalette>
  #include <QtGui/QFont>
 @@ -76,7 +77,6 @@
  QT_BEGIN_NAMESPACE
- 
+
  Q_DECLARE_LOGGING_CATEGORY(qLcTray)
 -Q_LOGGING_CATEGORY(lcQpaFonts, "qt.qpa.fonts")
- 
+
  ResourceHelper::ResourceHelper()
  {
+
+--- a/qtbase/src/platformsupport/fontdatabases/mac/qfontengine_coretext.mm
++++ b/qtbase/src/platformsupport/fontdatabases/mac/qfontengine_coretext.mm
+@@ -52,8 +52,6 @@
+
+ QT_BEGIN_NAMESPACE
+
+-Q_LOGGING_CATEGORY(lcQpaFonts, "qt.qpa.fonts")
+-
+ static float SYNTHETIC_ITALIC_SKEW = std::tan(14.f * std::acos(0.f) / 90.f);
+
+
+--- a/qtbase/src/platformsupport/fontdatabases/mac/qfontengine_coretext_p.h
++++ b/qtbase/src/platformsupport/fontdatabases/mac/qfontengine_coretext_p.h
+@@ -57,8 +57,6 @@
+
+ QT_BEGIN_NAMESPACE
+
+-Q_DECLARE_LOGGING_CATEGORY(lcQpaFonts)
+-
+ class QCoreTextFontEngine : public QFontEngine
