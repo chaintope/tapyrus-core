@@ -54,8 +54,8 @@ if(ENABLE_WALLET)
   target_link_libraries(bench_tapyrus tapyrus_wallet)
 endif()
 
-add_test(NAME bench_sanity_check_high_priority
-  COMMAND bench_tapyrus -sanity-check -priority-level=high
+add_test(NAME bench_sanity_check
+  COMMAND bench_tapyrus -sanity-check
 )
 
 install_binary_component(bench_tapyrus)
