@@ -90,6 +90,7 @@ $(package)_config_opts += -qt-libpng
 $(package)_config_opts += -qt-pcre
 $(package)_config_opts += -qt-harfbuzz
 $(package)_config_opts += -qt-zlib
+$(package)_config_opts += -static
 $(package)_config_opts += -optimize-size
 $(package)_config_opts += -v
 $(package)_config_opts += -no-feature-bearermanagement
@@ -158,6 +159,7 @@ $(package)_config_opts_linux += -system-freetype
 $(package)_config_opts_linux += -fontconfig
 $(package)_config_opts_linux += -no-feature-vulkan
 $(package)_config_opts_linux += -dbus-runtime
+$(package)_config_opts_linux += -pkg-config
 ifneq ($(LTO),)
 $(package)_config_opts_linux += -ltcg
 endif

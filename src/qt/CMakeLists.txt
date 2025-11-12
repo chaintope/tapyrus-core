@@ -243,6 +243,11 @@ if(qt_lib_type STREQUAL "STATIC_LIBRARY")
   qt5_import_plugins(tapyrusqt
       EXCLUDE_BY_TYPE bearer iconengines imageformats platforms styles
   )
+
+  # For static Qt on Linux, manually link platform libraries
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_link_libraries(tapyrusqt PRIVATE ${CMAKE_FIND_ROOT_PATH}/lib/libexpat.a)
+  endif()
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")

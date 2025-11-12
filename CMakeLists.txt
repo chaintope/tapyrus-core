@@ -63,6 +63,8 @@ set(CMAKE_C_EXTENSIONS OFF)
 if(CMAKE_CROSSCOMPILING)
   set(SECP256K1_ECMULT_STATIC_PRECOMPUTATION OFF CACHE BOOL "Disable static precomputation for cross-compilation" FORCE)
 endif()
+# Enable position independent code for secp256k1 (required for linking into executables)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 add_subdirectory(src/secp256k1)
 
 # Then enable C++ for the rest of the project
