@@ -411,7 +411,7 @@ EOF
         #
         #   --keep-failed     keep build tree of failed builds
         #
-        #     When builds of the Guix environment itself (not Bitcoin Core)
+        #     When builds of the Guix environment itself (not Tapyrus Core)
         #     fail, it is useful for the build tree to be kept for debugging
         #     purposes.
         #
