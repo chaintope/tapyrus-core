@@ -224,12 +224,6 @@ endfunction()
 # Register all individual Boost test suites
 add_all_test_targets()
 
-# Also add a single test that runs all tests together (for convenience)
-add_test(NAME test_tapyrus_all
-    COMMAND test_tapyrus --catch_system_error=no
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-)
-
 # Set RPATH for the test executable
 set_target_properties(test_tapyrus PROPERTIES
     INSTALL_RPATH "@executable_path/../lib;${CMAKE_BINARY_DIR}/lib"

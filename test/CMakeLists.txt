@@ -71,12 +71,6 @@ add_custom_target(check-functional
 
 add_dependencies(check-all check-functional)
 
-# Add functional tests as a ctest
-add_test(NAME functional_tests
-	COMMAND ${CMAKE_CURRENT_BINARY_DIR}/functional/test_runner.py
-	WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-)
-
 if(BUILD_UTILS)
 	add_custom_target(check-tapyrus-util
 		COMMAND
@@ -92,7 +86,7 @@ if(BUILD_UTILS)
 
 	# Add util tests as a ctest
 	add_test(NAME tapyrus_util_test
-		COMMAND ${CMAKE_CURRENT_BINARY_DIR}/util/tapyrus-util-test.py
+		COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/util/tapyrus-util-test.py
 		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 	)
 endif()
