@@ -10,6 +10,6 @@ endif()
 
 if(TARGET Python3::Interpreter)
   add_test(NAME util_rpcauth_test
-    COMMAND Python3::Interpreter ${PROJECT_BINARY_DIR}/test/util/rpcauth-test.py
+    COMMAND Python3::Interpreter ${PROJECT_SOURCE_DIR}/test/util/rpcauth-test.py
   )
 endif()
