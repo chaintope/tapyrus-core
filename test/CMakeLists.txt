@@ -83,4 +83,10 @@ if(BUILD_UTILS)
 	)
 
 	add_dependencies(check check-tapyrus-util)
+
+	# Add util tests as a ctest
+	add_test(NAME tapyrus_util_test
+		COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/util/tapyrus-util-test.py
+		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+	)
 endif()
