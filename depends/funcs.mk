@@ -205,8 +205,8 @@ $(1)_cmake += -DCMAKE_INSTALL_RPATH:PATH="$$($($(1)_type)_prefix)/lib"
 else
 ifneq ($(host),$(build))
 $(1)_cmake += -DCMAKE_SYSTEM_NAME=$($(host_os)_cmake_system_name)
-$(1)_cmake += -DCMAKE_C_COMPILER_TARGET=$(host)
-$(1)_cmake += -DCMAKE_CXX_COMPILER_TARGET=$(host)
+$(1)_cmake += -DCMAKE_C_COMPILER=$$($(1)_cc)
+$(1)_cmake += -DCMAKE_CXX_COMPILER=$$($(1)_cxx)
 endif
 endif
 endef

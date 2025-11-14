@@ -77,6 +77,12 @@ else()
       IMPORTED_LOCATION "${ZEROMQ_LIBRARY}"
       INTERFACE_INCLUDE_DIRECTORIES "${ZEROMQ_INCLUDE_DIR}"
     )
+    # Add Windows system libraries required by ZMQ
+    if(WIN32 OR MINGW)
+      set_property(TARGET zeromq APPEND PROPERTY
+        INTERFACE_LINK_LIBRARIES "ws2_32;iphlpapi"
+      )
+    endif()
     set(ZeroMQ_FOUND TRUE)
   else()
     set(ZeroMQ_FOUND FALSE)

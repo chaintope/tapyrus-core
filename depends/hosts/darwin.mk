@@ -5,7 +5,13 @@ XCODE_VERSION=15.0
 XCODE_BUILD_ID=15A240d
 LLD_VERSION=711
 
+# For native macOS builds, use the system SDK
+# For cross-compilation, use the custom extracted SDK
+ifeq ($(build_os),darwin)
+OSX_SDK:=$(shell xcrun --show-sdk-path)
+else
 OSX_SDK=$(SDK_PATH)/Xcode-$(XCODE_VERSION)-$(XCODE_BUILD_ID)-extracted-SDK-with-libcxx-headers
+endif
 
 # We can't just use $(shell command -v clang) because GNU Make handles builtins
 # in a special way and doesn't know that `command` is a POSIX-standard builtin
@@ -73,8 +79,8 @@ darwin_CXX=$(clangxx_prog) --target=$(host) \
                -iwithsysroot/usr/include/c++/v1 \
                -iwithsysroot/usr/include -iframeworkwithsysroot/System/Library/Frameworks
 
-darwin_CFLAGS=-pipe -std=c11 -mmacos-version-min=$(OSX_MIN_VERSION) --target=$(host) -isysroot $(OSX_SDK)
-darwin_CXXFLAGS=-pipe -std=c++17 -mmacos-version-min=$(OSX_MIN_VERSION) --target=$(host) -isysroot $(OSX_SDK)
+darwin_CFLAGS=-pipe -std=c11 -mmacos-version-min=$(OSX_MIN_VERSION)
+darwin_CXXFLAGS=-pipe -std=c++17 -mmacos-version-min=$(OSX_MIN_VERSION)
 darwin_LDFLAGS=-Wl,-platform_version,macos,$(OSX_MIN_VERSION),$(OSX_SDK_VERSION)
 
 ifneq ($(build_os),darwin)
