@@ -65,6 +65,8 @@ if(CMAKE_CROSSCOMPILING)
 endif()
 # Enable position independent code for secp256k1 (required for linking into executables)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+# Disable secp256k1 tests (we only need the library)
+set(SECP256K1_BUILD_TESTS OFF CACHE BOOL "Build secp256k1 tests" FORCE)
 add_subdirectory(src/secp256k1)
 
 # Then enable C++ for the rest of the project
