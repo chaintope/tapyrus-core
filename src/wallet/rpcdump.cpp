@@ -27,8 +27,6 @@
 
 
 int64_t static DecodeDumpTime(const std::string &str) {
-    static const std::chrono::time_point<std::chrono::system_clock> epoch(std::chrono::seconds(0));
-
     // Manually parse the input string "2024-11-15T10:30:00Z"
     std::tm tm = {};
     if (str.size() != 20 || str[10] != 'T' || str[19] != 'Z') {
@@ -45,13 +43,18 @@ int64_t static DecodeDumpTime(const std::string &str) {
         return 0; // Parsing failed
     }
     // Convert std::tm to time_t (seconds since epoch)
-    std::time_t t = std::mktime(&tm);
+    // Use timegm since the input is UTC (indicated by 'Z')
+    #ifdef WIN32
+    std::time_t t = _mkgmtime(&tm);
+    #else
+    std::time_t t = timegm(&tm);
+    #endif
     if (t == -1) {
-        // If mktime fails, return 0
+        // If timegm fails, return 0
         return 0;
     }
-    std::chrono::time_point<std::chrono::system_clock> ptime = std::chrono::system_clock::from_time_t(t);
-    return std::chrono::duration_cast<std::chrono::seconds>(ptime - epoch).count();
+
+    return static_cast<int64_t>(t);
 }
 
 std::string static EncodeDumpString(const std::string &str) {
