@@ -1647,6 +1647,11 @@ double GuessVerificationProgress(const ChainTxData& data, const CBlockIndex *pin
     if (pindex == nullptr)
         return 0.0;
 
+    // If nChainTx is 0, the block hasn't been fully validated/connected yet.
+    // Return 0 to indicate no progress can be determined.
+    if (pindex->nChainTx == 0)
+        return 0.0;
+
     int64_t nNow = time(nullptr);
 
     double fTxTotal;
