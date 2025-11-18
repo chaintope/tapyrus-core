@@ -75,6 +75,16 @@ constexpr bool IsDigit(char c)
 }
 
 /**
+ * Tests if the given character is a whitespace character (locale-independent).
+ * @param[in] c     character to test
+ * @return          true if the argument is a whitespace character; otherwise false.
+ */
+constexpr bool IsSpace(char c)
+{
+    return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\v' || c == '\f';
+}
+
+/**
  * Convert string to signed 32-bit integer with strict parse error feedback.
  * @returns true if the entire string could be parsed as valid integer,
  *   false if not the entire string could be parsed or when overflow or underflow occurred.
