@@ -8,8 +8,8 @@
 #include <xfieldhistory.h>
 #include <txdb.h>
 #include <univalue.h>
-#include "test_tapyrus.h"
-#include "test_keys_helper.h"
+#include <test_tapyrus.h>
+#include <test_keys_helper.h>
 
 /* 
  * As XFieldHistory is a global, the order of execution of test in this file seems to affect the results.
