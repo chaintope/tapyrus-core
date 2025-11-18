@@ -23,6 +23,7 @@
 
 #include <boost/algorithm/string.hpp>
 
+#include <charconv>
 #include <univalue.h>
 
 static const size_t MAX_GETUTXOS_OUTPOINTS = 15; //allow a max of 15 outpoints to be queried at once
@@ -137,8 +138,10 @@ static bool rest_headers(HTTPRequest* req,
     if (path.size() != 2)
         return RESTERR(req, HTTP_BAD_REQUEST, "No header count specified. Use /rest/headers/<count>/<hash>.<ext>.");
 
-    long count = strtol(path[0].c_str(), nullptr, 10);
-    if (count < 1 || count > 2000)
+    // Use std::from_chars for locale-independent conversion
+    long count = 0;
+    auto result = std::from_chars(path[0].data(), path[0].data() + path[0].size(), count);
+    if (result.ec != std::errc() || count < 1 || count > 2000)
         return RESTERR(req, HTTP_BAD_REQUEST, "Header count out of range: " + path[0]);
 
     std::string hashStr = path[1];

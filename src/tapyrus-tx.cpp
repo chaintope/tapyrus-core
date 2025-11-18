@@ -24,6 +24,7 @@
 
 #include <memory>
 #include <stdio.h>
+#include <charconv>
 
 #include <boost/algorithm/string.hpp>
 
@@ -253,8 +254,11 @@ static void MutateTxAddInput(CMutableTransaction& tx, const std::string& strInpu
 
     // extract the optional sequence number
     uint32_t nSequenceIn=std::numeric_limits<unsigned int>::max();
-    if (vStrInputParts.size() > 2)
-        nSequenceIn = std::stoul(vStrInputParts[2]);
+    if (vStrInputParts.size() > 2) {
+        // Use std::from_chars for locale-independent conversion
+        const auto& str = vStrInputParts[2];
+        std::from_chars(str.data(), str.data() + str.size(), nSequenceIn);
+    }
 
     // append to transaction input list
     CTxIn txin(txid, vout, CScript(), nSequenceIn);
@@ -334,11 +338,13 @@ static void MutateTxAddOutMultiSig(CMutableTransaction& tx, const std::string& s
     // Extract and validate VALUE
     CAmount value = ExtractAndValidateValue(vStrInputParts[0]);
 
-    // Extract REQUIRED
-    uint32_t required = stoul(vStrInputParts[1]);
+    // Extract REQUIRED - use std::from_chars for locale-independent conversion
+    uint32_t required = 0;
+    std::from_chars(vStrInputParts[1].data(), vStrInputParts[1].data() + vStrInputParts[1].size(), required);
 
-    // Extract NUMKEYS
-    uint32_t numkeys = stoul(vStrInputParts[2]);
+    // Extract NUMKEYS - use std::from_chars for locale-independent conversion
+    uint32_t numkeys = 0;
+    std::from_chars(vStrInputParts[2].data(), vStrInputParts[2].data() + vStrInputParts[2].size(), numkeys);
 
     // Validate there are the correct number of pubkeys
     if (vStrInputParts.size() < numkeys + 3)
@@ -745,7 +751,12 @@ static std::string readStdin()
     if (ferror(stdin))
         throw std::runtime_error("error reading stdin");
 
-    boost::algorithm::trim_right(ret);
+    // Locale-independent trim_right
+    while (!ret.empty() && (ret.back() == ' ' || ret.back() == '\t' ||
+                            ret.back() == '\n' || ret.back() == '\r' ||
+                            ret.back() == '\v' || ret.back() == '\f')) {
+        ret.pop_back();
+    }
 
     return ret;
 }

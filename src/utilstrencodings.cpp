@@ -7,6 +7,7 @@
 
 #include <tinyformat.h>
 
+#include <charconv>
 #include <cstdlib>
 #include <cstring>
 #include <errno.h>
@@ -85,7 +86,7 @@ std::vector<unsigned char> ParseHex(const char* psz)
     std::vector<unsigned char> vch;
     while (true)
     {
-        while (isspace(*psz))
+        while (IsSpace(*psz))
             psz++;
         signed char c = HexDigit(*psz++);
         if (c == (signed char)-1)
@@ -266,7 +267,7 @@ static bool ParsePrechecks(const std::string& str)
 {
     if (str.empty()) // No empty string allowed
         return false;
-    if (str.size() >= 1 && (isspace(str[0]) || isspace(str[str.size()-1]))) // No padding allowed
+    if (str.size() >= 1 && (IsSpace(str[0]) || IsSpace(str[str.size()-1]))) // No padding allowed
         return false;
     if (str.size() != strlen(str.c_str())) // No embedded NUL characters allowed
         return false;
@@ -277,64 +278,48 @@ bool ParseInt32(const std::string& str, int32_t *out)
 {
     if (!ParsePrechecks(str))
         return false;
-    char *endp = nullptr;
-    errno = 0; // strtol will not set errno if valid
-    long int n = strtol(str.c_str(), &endp, 10);
-    if(out) *out = (int32_t)n;
-    // Note that strtol returns a *long int*, so even if strtol doesn't report an over/underflow
-    // we still have to check that the returned value is within the range of an *int32_t*. On 64-bit
-    // platforms the size of these types may be different.
-    return endp && *endp == 0 && !errno &&
-        n >= std::numeric_limits<int32_t>::min() &&
-        n <= std::numeric_limits<int32_t>::max();
+    int32_t n = 0;
+    const char* data = str.data();
+    auto result = std::from_chars(data, data + str.size(), n);
+    if (out) *out = n;
+    return result.ec == std::errc() && result.ptr == data + str.size();
 }
 
 bool ParseInt64(const std::string& str, int64_t *out)
 {
     if (!ParsePrechecks(str))
         return false;
-    char *endp = nullptr;
-    errno = 0; // strtoll will not set errno if valid
-    long long int n = strtoll(str.c_str(), &endp, 10);
-    if(out) *out = (int64_t)n;
-    // Note that strtoll returns a *long long int*, so even if strtol doesn't report an over/underflow
-    // we still have to check that the returned value is within the range of an *int64_t*.
-    return endp && *endp == 0 && !errno &&
-        n >= std::numeric_limits<int64_t>::min() &&
-        n <= std::numeric_limits<int64_t>::max();
+    int64_t n = 0;
+    const char* data = str.data();
+    auto result = std::from_chars(data, data + str.size(), n);
+    if (out) *out = n;
+    return result.ec == std::errc() && result.ptr == data + str.size();
 }
 
 bool ParseUInt32(const std::string& str, uint32_t *out)
 {
     if (!ParsePrechecks(str))
         return false;
-    if (str.size() >= 1 && str[0] == '-') // Reject negative values, unfortunately strtoul accepts these by default if they fit in the range
+    if (str.size() >= 1 && str[0] == '-') // Reject negative values
         return false;
-    char *endp = nullptr;
-    errno = 0; // strtoul will not set errno if valid
-    unsigned long int n = strtoul(str.c_str(), &endp, 10);
-    if(out) *out = (uint32_t)n;
-    // Note that strtoul returns a *unsigned long int*, so even if it doesn't report an over/underflow
-    // we still have to check that the returned value is within the range of an *uint32_t*. On 64-bit
-    // platforms the size of these types may be different.
-    return endp && *endp == 0 && !errno &&
-        n <= std::numeric_limits<uint32_t>::max();
+    uint32_t n = 0;
+    const char* data = str.data();
+    auto result = std::from_chars(data, data + str.size(), n);
+    if (out) *out = n;
+    return result.ec == std::errc() && result.ptr == data + str.size();
 }
 
 bool ParseUInt64(const std::string& str, uint64_t *out)
 {
     if (!ParsePrechecks(str))
         return false;
-    if (str.size() >= 1 && str[0] == '-') // Reject negative values, unfortunately strtoull accepts these by default if they fit in the range
+    if (str.size() >= 1 && str[0] == '-') // Reject negative values
         return false;
-    char *endp = nullptr;
-    errno = 0; // strtoull will not set errno if valid
-    unsigned long long int n = strtoull(str.c_str(), &endp, 10);
-    if(out) *out = (uint64_t)n;
-    // Note that strtoull returns a *unsigned long long int*, so even if it doesn't report an over/underflow
-    // we still have to check that the returned value is within the range of an *uint64_t*.
-    return endp && *endp == 0 && !errno &&
-        n <= std::numeric_limits<uint64_t>::max();
+    uint64_t n = 0;
+    const char* data = str.data();
+    auto result = std::from_chars(data, data + str.size(), n);
+    if (out) *out = n;
+    return result.ec == std::errc() && result.ptr == data + str.size();
 }
 
 
@@ -405,25 +390,26 @@ std::string itostr(int n)
 
 int64_t atoi64(const char* psz)
 {
-#ifdef _MSC_VER
-    return _atoi64(psz);
-#else
-    return strtoll(psz, nullptr, 10);
-#endif
+    int64_t n = 0;
+    size_t len = strlen(psz);
+    std::from_chars(psz, psz + len, n);
+    return n;
 }
 
 int64_t atoi64(const std::string& str)
 {
-#ifdef _MSC_VER
-    return _atoi64(str.c_str());
-#else
-    return strtoll(str.c_str(), nullptr, 10);
-#endif
+    int64_t n = 0;
+    const char* data = str.data();
+    std::from_chars(data, data + str.size(), n);
+    return n;
 }
 
 int atoi(const std::string& str)
 {
-    return atoi(str.c_str());
+    int n = 0;
+    const char* data = str.data();
+    std::from_chars(data, data + str.size(), n);
+    return n;
 }
 
 /** Upper bound for mantissa.
