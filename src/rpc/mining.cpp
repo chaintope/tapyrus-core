@@ -30,6 +30,7 @@
 
 #include <memory>
 #include <chrono>
+#include <charconv>
 
 #include <stdint.h>
 #include <policy/policy.h>
@@ -172,7 +173,14 @@ UniValue getnewblock(const JSONRPCRequest& request)
 
         //using lambda to avoid temp variables
         xfield.xfieldType = [xfieldParam](int splitAt, TAPYRUS_XFIELDTYPES max) -> TAPYRUS_XFIELDTYPES
-            { int x = splitAt > 0 ? atoi(xfieldParam.substr(0,splitAt)) : 0;
+            {
+            int x = 0;
+            if (splitAt > 0) {
+                // Use std::from_chars for locale-independent conversion
+                const char* start = xfieldParam.data();
+                const char* end = start + splitAt;
+                std::from_chars(start, end, x);
+            }
             return x > 0 && x <= int(max) ? TAPYRUS_XFIELDTYPES(x) : TAPYRUS_XFIELDTYPES::NONE;
             } (xfieldParam.find(':'), TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE );
 
