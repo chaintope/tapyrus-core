@@ -60,6 +60,7 @@
 #include <boost/algorithm/string/split.hpp>
 #include <boost/interprocess/sync/file_lock.hpp>
 
+#include <charconv>
 #include <thread>
 
 #if ENABLE_ZMQ
@@ -628,7 +629,10 @@ static void CleanupBlockRevFiles()
     // start removing block files.
     int nContigCounter = 0;
     for (const std::pair<const std::string, fs::path>& item : mapBlockFiles) {
-        if (atoi(item.first) == nContigCounter) {
+        // Use std::from_chars for locale-independent conversion
+        int fileIndex = 0;
+        std::from_chars(item.first.data(), item.first.data() + item.first.size(), fileIndex);
+        if (fileIndex == nContigCounter) {
             nContigCounter++;
             continue;
         }

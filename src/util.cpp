@@ -12,6 +12,7 @@
 #include <utilstrencodings.h>
 
 #include <stdarg.h>
+#include <charconv>
 #include <fstream>
 
 #if (defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__))
@@ -163,7 +164,10 @@ static bool InterpretBool(const std::string& strValue)
 {
     if (strValue.empty())
         return true;
-    return (atoi(strValue) != 0);
+    // Use std::from_chars for locale-independent conversion
+    int val = 0;
+    std::from_chars(strValue.data(), strValue.data() + strValue.size(), val);
+    return (val != 0);
 }
 
 /** Internal helper functions for ArgsManager */
@@ -374,7 +378,9 @@ bool ArgsManager::ParseParameters(int argc, const char* const argv[], std::strin
             key.erase(is_index);
         }
 #ifdef WIN32
-        std::transform(key.begin(), key.end(), key.begin(), ::tolower);
+        // Convert to lowercase without locale dependency
+        std::transform(key.begin(), key.end(), key.begin(),
+                      [](unsigned char c) { return (c >= 'A' && c <= 'Z') ? c + 32 : c; });
         if (key[0] == '/')
             key[0] = '-';
 #endif
@@ -949,7 +955,9 @@ void CreatePidFile(const fs::path &path, pid_t pid)
     FILE* file = fsbridge::fopen(path, "w");
     if (file)
     {
-        fprintf(file, "%d\n", pid);
+        // Use C++ stream for locale-independent output
+        std::string pid_str = std::to_string(pid) + "\n";
+        fwrite(pid_str.data(), 1, pid_str.size(), file);
         fclose(file);
     }
 }

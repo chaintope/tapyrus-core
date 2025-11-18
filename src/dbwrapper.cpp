@@ -13,6 +13,7 @@
 #include <memenv.h>
 #include <stdint.h>
 #include <algorithm>
+#include <charconv>
 
 class CBitcoinLevelDBLogger : public leveldb::Logger {
 public:
@@ -203,7 +204,10 @@ size_t CDBWrapper::DynamicMemoryUsage() const {
         LogPrint(BCLog::LEVELDB, "Failed to get approximate-memory-usage property\n");
         return 0;
     }
-    return stoul(memory);
+    // Use std::from_chars for locale-independent conversion
+    size_t result = 0;
+    std::from_chars(memory.data(), memory.data() + memory.size(), result);
+    return result;
 }
 
 // Prefixed with null character to avoid collisions with other keys
