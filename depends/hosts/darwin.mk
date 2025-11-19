@@ -80,11 +80,11 @@ darwin_LDFLAGS=-Wl,-platform_version,macos,$(OSX_MIN_VERSION),$(OSX_SDK_VERSION)
 else
 # Cross-compilation build - full flags with target specification
 darwin_CC=$(clang_prog) --target=$(host) \
-              -isysroot $(OSX_SDK) --stdlib=libc++ \
+              -isysroot$(OSX_SDK) -nostdlibinc \
               -iwithsysroot/usr/include -iframeworkwithsysroot/System/Library/Frameworks
 
 darwin_CXX=$(clangxx_prog) --target=$(host) \
-               -isysroot $(OSX_SDK) --stdlib=libc++ \
+               -isysroot$(OSX_SDK) -nostdlibinc \
                -iwithsysroot/usr/include/c++/v1 \
                -iwithsysroot/usr/include -iframeworkwithsysroot/System/Library/Frameworks
 
