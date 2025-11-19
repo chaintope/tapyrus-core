@@ -8,8 +8,8 @@
 #include <xfieldhistory.h>
 #include <txdb.h>
 #include <univalue.h>
-#include "test_tapyrus.h"
-#include "test_keys_helper.h"
+#include <test/test_tapyrus.h>
+#include <test/test_keys_helper.h>
 
 /* 
  * xfield_tests  - serialize and deserialize xfieldchange anf CXField

@@ -12,7 +12,7 @@
 #include <atomic>
 #include <ctime>
 #include <thread>
-#include <iomanip>
+#include <sstream>
 #include <tinyformat.h>
 
 static std::atomic<std::chrono::seconds> nMockTime{}; //!< For testing
@@ -89,21 +89,22 @@ std::tm fromTimePoint(int64_t nTime) {
 
 std::string FormatISO8601DateTime(int64_t nTime) {
     std::tm tm = fromTimePoint(nTime);
-    std::ostringstream oss;
-    oss << std::put_time(&tm, "%Y-%m-%dT%H:%M:%SZ");
-    return oss.str();
+    // Manual formatting to avoid locale-dependent std::put_time
+    return strprintf("%04d-%02d-%02dT%02d:%02d:%02dZ",
+                     tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+                     tm.tm_hour, tm.tm_min, tm.tm_sec);
 }
 
 std::string FormatISO8601Date(int64_t nTime) {
     std::tm tm = fromTimePoint(nTime);
-    std::ostringstream oss;
-    oss << std::put_time(&tm, "%Y-%m-%d");
-    return oss.str();
+    // Manual formatting to avoid locale-dependent std::put_time
+    return strprintf("%04d-%02d-%02d",
+                     tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday);
 }
 
 std::string FormatISO8601Time(int64_t nTime) {
     std::tm tm = fromTimePoint(nTime);
-    std::ostringstream oss;
-    oss << std::put_time(&tm, "%H:%M:%SZ");
-    return oss.str();
+    // Manual formatting to avoid locale-dependent std::put_time
+    return strprintf("%02d:%02d:%02dZ",
+                     tm.tm_hour, tm.tm_min, tm.tm_sec);
 }
