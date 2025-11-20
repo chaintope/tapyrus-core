@@ -42,7 +42,10 @@ $(package)_config_opts_release += -silent
 $(package)_config_opts_debug = -debug
 $(package)_config_opts_debug += -optimized-tools
 $(package)_config_opts += -bindir $(build_prefix)/bin
-$(package)_config_opts += -c++std $(CXX_STANDARD)
+# Qt 5.15 only supports up to C++17
+# Filter out -std= from cxxflags since Qt's -c++std option will control the standard
+$(package)_cxxflags:=$(filter-out -std=%,$(host_CXXFLAGS))
+$(package)_config_opts += -c++std c++17
 $(package)_config_opts += -confirm-license
 $(package)_config_opts += -hostprefix $(build_prefix)
 $(package)_config_opts += -no-compile-examples
