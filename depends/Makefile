@@ -17,6 +17,8 @@ NO_WALLET ?=
 NO_UPNP ?=
 NO_USDT ?=
 FALLBACK_DOWNLOAD_PATH ?= https://s3-ap-northeast-1.amazonaws.com/repo.tapyrus.chaintope.com
+C_STANDARD ?= c11
+CXX_STANDARD ?= c++20
 
 BUILD = $(shell ./config.guess)
 HOST ?= $(BUILD)
@@ -85,6 +87,8 @@ build_id_string:=$(BUILD_ID_SALT)
 build_id_string+=$(shell $(build_CC) --version 2>/dev/null)
 build_id_string+=$(shell $(build_AR) --version 2>/dev/null)
 build_id_string+=$(shell $(build_CXX) --version 2>/dev/null)
+build_id_string+=$(C_STANDARD)
+build_id_string+=$(CXX_STANDARD)
 build_id_string+=$(shell $(build_RANLIB) --version 2>/dev/null)
 build_id_string+=$(shell $(build_STRIP) --version 2>/dev/null)
 
@@ -92,6 +96,8 @@ $(host_arch)_$(host_os)_id_string:=$(HOST_ID_SALT)
 $(host_arch)_$(host_os)_id_string+=$(shell $(host_CC) --version 2>/dev/null)
 $(host_arch)_$(host_os)_id_string+=$(shell $(host_AR) --version 2>/dev/null)
 $(host_arch)_$(host_os)_id_string+=$(shell $(host_CXX) --version 2>/dev/null)
+$(host_arch)_$(host_os)_id_string+=$(C_STANDARD)
+$(host_arch)_$(host_os)_id_string+=$(CXX_STANDARD)
 $(host_arch)_$(host_os)_id_string+=$(shell $(host_RANLIB) --version 2>/dev/null)
 $(host_arch)_$(host_os)_id_string+=$(shell $(host_STRIP) --version 2>/dev/null)
 
