@@ -112,8 +112,7 @@ desirable for building Tapyrus Core release binaries."
 
 (define (gcc-mingw-patches gcc)
   (package-with-extra-patches gcc
-    (search-our-patches "gcc-remap-guix-store.patch"
-                        "vmov-alignment.patch")))
+    (search-our-patches "gcc-remap-guix-store.patch")))
 
 (define (make-mingw-pthreads-cross-toolchain target)
   "Create a cross-compilation toolchain package for TARGET"
@@ -126,7 +125,7 @@ desirable for building Tapyrus Core release binaries."
     ;; Define a meta-package that propagates the resulting XBINUTILS, XLIBC, and
     ;; XGCC
     (package
-      (name (string-append target "-posix-toolchain"))
+      (name (string-append target "-toolchain"))
       (version (package-version pthreads-xgcc))
       (source #f)
       (build-system trivial-build-system)
