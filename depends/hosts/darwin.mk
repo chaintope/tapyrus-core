@@ -74,22 +74,23 @@ ifeq ($(build_os),darwin)
 # Native macOS build - simpler flags
 darwin_CC=$(clang_prog) -mmacosx-version-min=$(OSX_MIN_VERSION) -isysroot $(OSX_SDK)
 darwin_CXX=$(clangxx_prog) -mmacosx-version-min=$(OSX_MIN_VERSION) -stdlib=libc++ -isysroot $(OSX_SDK)
-darwin_CFLAGS=-pipe -std=c11
-darwin_CXXFLAGS=-pipe -std=c++17
+darwin_CFLAGS=-pipe -std=$(C_STANDARD)
+darwin_CXXFLAGS=-pipe -std=$(CXX_STANDARD)
 darwin_LDFLAGS=-Wl,-platform_version,macos,$(OSX_MIN_VERSION),$(OSX_SDK_VERSION)
 else
-# Cross-compilation build - full flags with target specification
-darwin_CC=$(clang_prog) --target=$(host) \
-              -isysroot $(OSX_SDK) --stdlib=libc++ \
+# Cross-compilation build - keep CC/CXX simple, put all flags in CFLAGS/CXXFLAGS
+darwin_CC=$(clang_prog)
+darwin_CXX=$(clangxx_prog)
+
+darwin_CFLAGS=-pipe -std=$(C_STANDARD) -mmacos-version-min=$(OSX_MIN_VERSION) --target=$(host) \
+              -isysroot $(OSX_SDK) \
               -iwithsysroot/usr/include -iframeworkwithsysroot/System/Library/Frameworks
 
-darwin_CXX=$(clangxx_prog) --target=$(host) \
-               -isysroot $(OSX_SDK) --stdlib=libc++ \
-               -iwithsysroot/usr/include/c++/v1 \
-               -iwithsysroot/usr/include -iframeworkwithsysroot/System/Library/Frameworks
+darwin_CXXFLAGS=-pipe -std=$(CXX_STANDARD) -mmacos-version-min=$(OSX_MIN_VERSION) --target=$(host) \
+                -isysroot $(OSX_SDK) --stdlib=libc++ \
+                -iwithsysroot/usr/include/c++/v1 \
+                -iwithsysroot/usr/include -iframeworkwithsysroot/System/Library/Frameworks
 
-darwin_CFLAGS=-pipe -std=c11 -mmacos-version-min=$(OSX_MIN_VERSION) --target=$(host) -isysroot $(OSX_SDK)
-darwin_CXXFLAGS=-pipe -std=c++17 -mmacos-version-min=$(OSX_MIN_VERSION) --target=$(host) -isysroot $(OSX_SDK)
 darwin_LDFLAGS=-Wl,-platform_version,macos,$(OSX_MIN_VERSION),$(OSX_SDK_VERSION)
 endif
 
