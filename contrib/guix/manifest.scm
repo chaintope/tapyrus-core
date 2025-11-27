@@ -494,9 +494,9 @@ inspecting signatures in Mach-O binaries.")
         pkg-config
         bison
         cmake-minimal
-        ;; Native GCC 10 toolchain
-        gcc-toolchain-10
-        (list gcc-toolchain-10 "static")
+        ;; Native GCC 11 toolchain
+        gcc-toolchain-11
+        (list gcc-toolchain-11 "static")
         ;; Scripting
         python-minimal ;; (3.10)
         perl
