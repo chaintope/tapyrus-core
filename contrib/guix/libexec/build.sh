@@ -323,7 +323,8 @@ mkdir -p "$DISTSRC"
     case "$HOST" in
         *mingw*)
             cmake --build build --target deploy ${V:+--verbose}
-            # Note: Windows installer path may need adjustment for CMake
+            # Copy the Windows installer to the output directory
+            find build -name "*-win64-setup.exe" -exec cp {} "${OUTDIR}/${DISTNAME}-win64-setup-unsigned.exe" \;
             ;;
     esac
 
@@ -359,7 +360,11 @@ mkdir -p "$DISTSRC"
 
         case "$HOST" in
             *mingw*)
-                mv --target-directory="$DISTNAME"/lib/ "$DISTNAME"/bin/*.dll
+                # Only move DLLs if they exist (they may not exist with static linking)
+                if ls "$DISTNAME"/bin/*.dll 1> /dev/null 2>&1; then
+                    mkdir -p "$DISTNAME"/lib
+                    mv --target-directory="$DISTNAME"/lib/ "$DISTNAME"/bin/*.dll
+                fi
                 ;;
         esac
 
@@ -378,6 +383,17 @@ mkdir -p "$DISTSRC"
                     find "${DISTNAME}/bin" -type f -executable -print0
                     find "${DISTNAME}/lib" -type f -print0 2>/dev/null || true
                 } | xargs -0 -P"$JOBS" -I{} "${DISTSRC}/build/split-debug.sh" {} {} {}.dbg
+
+                # Move debug files to a separate directory structure
+                mkdir -p "${DISTNAME}-debug"
+                find "${DISTNAME}" -name "*.dbg" -type f | while read -r dbgfile; do
+                    # Get relative path from DISTNAME
+                    relpath="${dbgfile#${DISTNAME}/}"
+                    # Create directory structure in debug folder
+                    mkdir -p "${DISTNAME}-debug/$(dirname "$relpath")"
+                    # Move the debug file
+                    mv "$dbgfile" "${DISTNAME}-debug/$relpath"
+                done
                 ;;
         esac
 
@@ -399,30 +415,38 @@ mkdir -p "$DISTSRC"
         # for release
         case "$HOST" in
             *mingw*)
-                find "${DISTNAME}" -not -name "*.dbg" -print0 \
+                # Create main distribution archive (without debug symbols)
+                find "${DISTNAME}" -print0 \
                     | xargs -0r touch --no-dereference --date="@${SOURCE_DATE_EPOCH}"
-                find "${DISTNAME}" -not -name "*.dbg" \
+                find "${DISTNAME}" \
                     | sort \
                     | zip -X@ "${OUTDIR}/${DISTNAME}-${HOST//x86_64-w64-mingw32/win64}.zip" \
                     || ( rm -f "${OUTDIR}/${DISTNAME}-${HOST//x86_64-w64-mingw32/win64}.zip" && exit 1 )
-                find "${DISTNAME}" -name "*.dbg" -print0 \
-                    | xargs -0r touch --no-dereference --date="@${SOURCE_DATE_EPOCH}"
-                find "${DISTNAME}" -name "*.dbg" \
-                    | sort \
-                    | zip -X@ "${OUTDIR}/${DISTNAME}-${HOST//x86_64-w64-mingw32/win64}-debug.zip" \
-                    || ( rm -f "${OUTDIR}/${DISTNAME}-${HOST//x86_64-w64-mingw32/win64}-debug.zip" && exit 1 )
+                # Create debug symbols archive
+                if [ -d "${DISTNAME}-debug" ]; then
+                    find "${DISTNAME}-debug" -print0 \
+                        | xargs -0r touch --no-dereference --date="@${SOURCE_DATE_EPOCH}"
+                    find "${DISTNAME}-debug" \
+                        | sort \
+                        | zip -X@ "${OUTDIR}/${DISTNAME}-${HOST//x86_64-w64-mingw32/win64}-debug.zip" \
+                        || ( rm -f "${OUTDIR}/${DISTNAME}-${HOST//x86_64-w64-mingw32/win64}-debug.zip" && exit 1 )
+                fi
                 ;;
             *linux*)
-                find "${DISTNAME}" -not -name "*.dbg" -print0 \
+                # Create main distribution archive (without debug symbols)
+                find "${DISTNAME}" -print0 \
                     | sort --zero-terminated \
                     | tar --create --no-recursion --mode='u+rw,go+r-w,a+X' --null --files-from=- \
                     | gzip -9n > "${OUTDIR}/${DISTNAME}-${HOST}.tar.gz" \
                     || ( rm -f "${OUTDIR}/${DISTNAME}-${HOST}.tar.gz" && exit 1 )
-                find "${DISTNAME}" -name "*.dbg" -print0 \
-                    | sort --zero-terminated \
-                    | tar --create --no-recursion --mode='u+rw,go+r-w,a+X' --null --files-from=- \
-                    | gzip -9n > "${OUTDIR}/${DISTNAME}-${HOST}-debug.tar.gz" \
-                    || ( rm -f "${OUTDIR}/${DISTNAME}-${HOST}-debug.tar.gz" && exit 1 )
+                # Create debug symbols archive
+                if [ -d "${DISTNAME}-debug" ]; then
+                    find "${DISTNAME}-debug" -print0 \
+                        | sort --zero-terminated \
+                        | tar --create --no-recursion --mode='u+rw,go+r-w,a+X' --null --files-from=- \
+                        | gzip -9n > "${OUTDIR}/${DISTNAME}-${HOST}-debug.tar.gz" \
+                        || ( rm -f "${OUTDIR}/${DISTNAME}-${HOST}-debug.tar.gz" && exit 1 )
+                fi
                 ;;
             *darwin*)
                 find "${DISTNAME}" -print0 \

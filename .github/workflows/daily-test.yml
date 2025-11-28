@@ -180,6 +180,16 @@ jobs:
             enable_gui: true
             enable_usdt: false
             enable_wallet: true
+          - name: L-Cross-W-X86-Rel-GUI+Wallet
+            os: ubuntu-latest
+            arch: x86_64
+            platform: linux
+            target_platform: windows
+            target_arch: x86_64
+            build_type: RelWithDebInfo
+            enable_gui: true
+            enable_usdt: false
+            enable_wallet: true
     name: ${{ matrix.config.name }}
     runs-on: ${{ matrix.config.os }}
     timeout-minutes: 300  # 5 hours timeout for daily tests
@@ -277,6 +287,13 @@ jobs:
             fi
           fi
 
+          # Install cross-compilation toolchain for Windows targets
+          if [ "${{ matrix.config.target_platform }}" == "windows" ]; then
+            sudo apt-get install -y g++-mingw-w64-x86-64 mingw-w64-x86-64-dev binutils-mingw-w64-x86-64 wine64 nsis
+            sudo update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++-posix
+            sudo update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix
+          fi
+
           python3 -m venv $HOME/venv
           source $HOME/venv/bin/activate
           pip3 install pyzmq
@@ -320,6 +337,10 @@ jobs:
             else
               export HOST="x86_64-apple-darwin"
             fi
+            CPU_COUNT=$(nproc)
+          elif [ "${{ matrix.config.target_platform }}" == "windows" ]; then
+            # Cross-compilation: Linux -> Windows
+            export HOST="x86_64-w64-mingw32"
             CPU_COUNT=$(nproc)
           else
             # Native Linux builds
@@ -465,6 +486,7 @@ jobs:
           key: benchmark-history-${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ github.run_id }}
 
       - name: Enable core dumps
+        if: matrix.config.target_platform != 'windows'
         run: |
           CORE_DUMP_DIR="${{ github.workspace }}/core_dumps"
           mkdir -p "$CORE_DUMP_DIR"
@@ -520,6 +542,9 @@ jobs:
             else
               export HOST="x86_64-apple-darwin"
             fi
+          elif [ "${{ matrix.config.platform }}" == "linux" ] && [ "${{ matrix.config.target_platform }}" == "windows" ]; then
+            # Cross-compilation: Linux -> Windows
+            export HOST="x86_64-w64-mingw32"
           else
             # Native Linux builds
             NATIVE_ARCH=$(uname -m)
@@ -652,7 +677,11 @@ jobs:
           if [ "${{ matrix.config.target_platform }}" != "" ] && [ "${{ matrix.config.target_platform }}" != "${{ matrix.config.platform }}" ]; then
             echo "---------------- Cross-compilation build completed ---------------- "
             echo "Skipping tests for cross-compiled macOS binaries (cannot run on Linux host)"
-            echo "Build artifacts created for macOS ${{ matrix.config.target_arch }}"
+            if [ "${{ matrix.config.target_platform }}" == "windows" ]; then
+              echo "Build artifacts created for Windows ${{ matrix.config.target_arch }}"
+            else
+              echo "Build artifacts created for macOS ${{ matrix.config.target_arch }}"
+            fi
             ls -la "$BASE_BUILD_DIR/bin/" || true
             echo "---------------- CROSS-COMPILATION BUILD FINISHED ---------------------"
             exit 0
@@ -798,8 +827,18 @@ jobs:
             ${{ github.workspace }}/test/functional/coverage_html
           retention-days: 30
 
+      - name: Upload Windows binaries
+        if: matrix.config.target_platform == 'windows' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tapyrus-windows-${{ matrix.config.target_arch }}-binaries-${{ github.run_id }}
+          path: |
+            ${{ github.workspace }}/build/bin/*.exe
+            ${{ github.workspace }}/build/bin/*.dll
+          retention-days: 30
+
       - name: Debug Core Dump (if exists)
-        if: failure()
+        if: failure() && matrix.config.target_platform != 'windows'
         run: |
           if [ "${{ matrix.config.platform }}" == "linux" ]; then
             COREFILE=$(coredumpctl list --no-pager --output json | jq -r '.[0].filename')
@@ -834,7 +873,7 @@ jobs:
           fi
 
       - name: Upload Core Dumps
-        if: failure()
+        if: failure() && matrix.config.target_platform != 'windows'
         uses: actions/upload-artifact@v4
         with:
           name: daily-core-dumps-${{ matrix.config.name }}-${{ github.run_id }}

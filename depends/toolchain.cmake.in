@@ -91,6 +91,14 @@ set(CMAKE_RANLIB "@RANLIB@")
 set(CMAKE_STRIP "@STRIP@")
 set(CMAKE_OBJCOPY "@OBJCOPY@")
 set(CMAKE_OBJDUMP "@OBJDUMP@")
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+  # Set windres for Windows resource compilation
+  # Try prefixed version first, then fallback to unprefixed
+  find_program(CMAKE_RC_COMPILER
+    NAMES @host_toolchain@windres windres
+    REQUIRED
+  )
+endif()
 
 # Using our own built dependencies should not be
 # affected by a potentially random environment.

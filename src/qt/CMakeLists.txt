@@ -124,15 +124,15 @@ target_compile_definitions(tapyrusqt
 )
 target_include_directories(tapyrusqt
   PUBLIC
-    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
-    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/leveldb
-    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/leveldb/include>
-    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/leveldb/helpers/memenv>
-    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/univalue/include>
-    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/crypto>
-    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/consensus>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/forms>
+    ${PROJECT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_BINARY_DIR}
+    ${PROJECT_SOURCE_DIR}/src/leveldb
+    ${PROJECT_SOURCE_DIR}/src/leveldb/include
+    ${PROJECT_SOURCE_DIR}/src/leveldb/helpers/memenv
+    ${PROJECT_SOURCE_DIR}/src/univalue/include
+    ${PROJECT_SOURCE_DIR}/src/crypto
+    ${PROJECT_SOURCE_DIR}/src/consensus
+    ${CMAKE_CURRENT_BINARY_DIR}/forms
     ${BerkeleyDB_INCLUDE_DIR}
 )
 if(ZMQ_INCLUDE_DIR)

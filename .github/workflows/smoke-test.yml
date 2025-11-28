@@ -50,6 +50,12 @@ jobs:
             arch: arm64
             compiler: clang
             platform: macos
+          - name: Windows x86_64 (cross)
+            os: ubuntu-24.04
+            arch: x86_64
+            compiler: x86_64-w64-mingw32-g++
+            platform: windows
+            host: x86_64-w64-mingw32
     name: ${{ matrix.config.name }}
     runs-on: ${{ matrix.config.os }}
     env:
@@ -113,7 +119,20 @@ jobs:
           source $HOME/venv/bin/activate
           pip3 install pyzmq
 
+      - name: Setup Windows Cross-Compilation Dependencies
+        if: matrix.config.platform == 'windows'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++-mingw-w64-x86-64 mingw-w64-x86-64-dev binutils-mingw-w64-x86-64 wine64 ccache build-essential cmake pkgconf python3-zmq nsis
+          sudo update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++-posix
+          sudo update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix
+          # Build dependencies from depends system
+          cd depends
+          make HOST=x86_64-w64-mingw32 -j$(nproc)
+          cd ..
+
       - name: Enable core dumps
+        if: matrix.config.platform != 'windows'
         run: |
           CORE_DUMP_DIR="${{ github.workspace }}/core_dumps"
           mkdir -p "$CORE_DUMP_DIR"
@@ -153,26 +172,41 @@ jobs:
             "-DCMAKE_BUILD_TYPE=RelWithDebInfo"
           )
 
-          # Disable BDB version warning for macOS if using newer version
-          if [ "${{ matrix.config.platform }}" == "macos" ]; then
-            if ! brew list berkeley-db@4 &>/dev/null; then
-              CMAKE_OPTS+=("-DWARN_INCOMPATIBLE_BDB=OFF")
-            fi
-          fi
-
-          # Add platform-specific options
-          CMAKE_OPTS+=("-DCMAKE_CXX_FLAGS=-Wno-error=unused-member-function")
-          
-          # Use system Boost
-          if [ "${{ matrix.config.platform }}" == "macos" ]; then
-            CMAKE_OPTS+=("-DBOOST_ROOT=/opt/homebrew/opt/boost")
-            CMAKE_OPTS+=("-DBOOST_INCLUDEDIR=/opt/homebrew/opt/boost/include")
-            CMAKE_OPTS+=("-DBOOST_LIBRARYDIR=/opt/homebrew/opt/boost/lib")
-            CMAKE_OPTS+=("-DCMAKE_PREFIX_PATH=/opt/homebrew/opt/boost")
+          # Platform-specific configuration
+          if [ "${{ matrix.config.platform }}" == "windows" ]; then
+            # Windows cross-compilation
+            echo "Configuring for Windows cross-compilation..."
+            CMAKE_OPTS+=("-DCMAKE_TOOLCHAIN_FILE=$BASE_ROOT_DIR/depends/x86_64-w64-mingw32/toolchain.cmake")
+            CMAKE_OPTS+=("-DCMAKE_PREFIX_PATH=$BASE_ROOT_DIR/depends/x86_64-w64-mingw32")
+            CMAKE_OPTS+=("-DWITH_BDB=ON")
+            CMAKE_OPTS+=("-DENABLE_TESTS=OFF")  # Skip tests for cross-compilation
+            CMAKE_OPTS+=("-DBUILD_FOR_WINDOWS=ON")
           else
-            CMAKE_OPTS+=("-DBOOST_ROOT=/usr")
-            CMAKE_OPTS+=("-DBOOST_INCLUDEDIR=/usr/include")
-            CMAKE_OPTS+=("-DBOOST_LIBRARYDIR=/usr/lib/x86_64-linux-gnu")
+            # Native builds (Linux/macOS)
+            CMAKE_OPTS+=("-DENABLE_TESTS=ON")
+            CMAKE_OPTS+=("-DWITH_BDB=ON")
+
+            # Disable BDB version warning for macOS if using newer version
+            if [ "${{ matrix.config.platform }}" == "macos" ]; then
+              if ! brew list berkeley-db@4 &>/dev/null; then
+                CMAKE_OPTS+=("-DWARN_INCOMPATIBLE_BDB=OFF")
+              fi
+            fi
+
+            # Add platform-specific options
+            CMAKE_OPTS+=("-DCMAKE_CXX_FLAGS=-Wno-error=unused-member-function")
+
+            # Use system Boost
+            if [ "${{ matrix.config.platform }}" == "macos" ]; then
+              CMAKE_OPTS+=("-DBOOST_ROOT=/opt/homebrew/opt/boost")
+              CMAKE_OPTS+=("-DBOOST_INCLUDEDIR=/opt/homebrew/opt/boost/include")
+              CMAKE_OPTS+=("-DBOOST_LIBRARYDIR=/opt/homebrew/opt/boost/lib")
+              CMAKE_OPTS+=("-DCMAKE_PREFIX_PATH=/opt/homebrew/opt/boost")
+            else
+              CMAKE_OPTS+=("-DBOOST_ROOT=/usr")
+              CMAKE_OPTS+=("-DBOOST_INCLUDEDIR=/usr/include")
+              CMAKE_OPTS+=("-DBOOST_LIBRARYDIR=/usr/lib/x86_64-linux-gnu")
+            fi
           fi
 
           # Configure and build
@@ -182,33 +216,38 @@ jobs:
           cmake --build "$BASE_BUILD_DIR" --parallel -j "$CPU_COUNT" --target all
 
           # Run smoke tests (essential fast tests only)
-          echo "---------------- Start CTest Suite ---------------- "
-          cd "$BASE_BUILD_DIR"
+          # Skip tests for Windows cross-compilation since binaries can't run on Linux host
+          if [ "${{ matrix.config.platform }}" != "windows" ]; then
+            echo "---------------- Start CTest Suite ---------------- "
+            cd "$BASE_BUILD_DIR"
 
-          # Run all unit tests and util tests via ctest
-          # This includes:
-          # - All individual Boost unit test suites (addrman_tests, allocator_tests, etc.)
-          # - Wallet tests (accounting_tests, wallet_tests, etc.)
-          # - util_rpcauth_test
-          # - tapyrus_util_test
-          # - univalue tests
-          if ctest --output-on-failure --parallel "$CPU_COUNT"; then
-            echo "CTest suite passed"
+            # Run all unit tests and util tests via ctest
+            # This includes:
+            # - All individual Boost unit test suites (addrman_tests, allocator_tests, etc.)
+            # - Wallet tests (accounting_tests, wallet_tests, etc.)
+            # - util_rpcauth_test
+            # - tapyrus_util_test
+            # - univalue tests
+            if ctest --output-on-failure --parallel "$CPU_COUNT"; then
+              echo "CTest suite passed"
+            else
+              echo "CTest suite failed"
+              exit 1
+            fi
+
+            echo "---------------- Start fast functional tests ---------------- "
+            cd "$BASE_ROOT_DIR"
+            # Run only the fastest functional tests for smoke test
+            if python3 test/functional/test_runner.py --tmpdir="$TAPYRUS_TEST_DIR" -j 1 --combinedlogslen=4000 --failfast --quiet; then
+              echo "Fast functional tests passed"
+            else
+              echo "Fast functional tests failed"
+              exit 1
+            fi
           else
-            echo "CTest suite failed"
-            exit 1
+            echo "Skipping tests for Windows cross-compilation build"
           fi
-          
-          echo "---------------- Start fast functional tests ---------------- "
-          cd "$BASE_ROOT_DIR"
-          # Run only the fastest functional tests for smoke test
-          if python3 test/functional/test_runner.py --tmpdir="$TAPYRUS_TEST_DIR" -j 1 --combinedlogslen=4000 --failfast --quiet; then
-            echo "Fast functional tests passed"
-          else
-            echo "Fast functional tests failed"
-            exit 1
-          fi
-          
+
           echo "---------------- SMOKE TEST COMPLETE ---------------------"
 
       - name: Save Ccache cache
@@ -218,8 +257,18 @@ jobs:
           path: ${{ env.CCACHE_DIR }}
           key: smoke-${{ matrix.config.platform }}-${{ matrix.config.arch }}-ccache-${{ github.run_id }}
 
+      - name: Upload Windows binaries
+        if: matrix.config.platform == 'windows' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tapyrus-windows-${{ matrix.config.arch }}-binaries
+          path: |
+            ${{ github.workspace }}/build/bin/*.exe
+            ${{ github.workspace }}/build/bin/*.dll
+          retention-days: 7
+
       - name: Upload test results
-        if: always()
+        if: matrix.config.platform != 'windows' && always()
         uses: actions/upload-artifact@v4
         with:
           name: smoke-test-results-${{ matrix.config.name }}
@@ -229,7 +278,7 @@ jobs:
           retention-days: 3
 
       - name: Debug Core Dump (if exists)
-        if: failure()
+        if: failure() && matrix.config.platform != 'windows'
         run: |
           if [ "${{ matrix.config.platform }}" == "linux" ]; then
             COREFILE=$(coredumpctl list --no-pager --output json | jq -r '.[0].filename')
@@ -264,7 +313,7 @@ jobs:
           fi
 
       - name: Upload Core Dumps
-        if: failure()
+        if: failure() && matrix.config.platform != 'windows'
         uses: actions/upload-artifact@v4
         with:
           name: smoke-core-dumps-${{ matrix.config.name }}

@@ -19,4 +19,14 @@ target_link_libraries(tapyrus_zmq
     zeromq
     Boost::headers
 )
+
+# Add Windows system libraries required by ZeroMQ
+if(WIN32 OR MINGW)
+  target_link_libraries(tapyrus_zmq
+    PRIVATE
+      ws2_32
+      iphlpapi
+  )
+endif()
+
 target_include_directories(tapyrus_zmq PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
