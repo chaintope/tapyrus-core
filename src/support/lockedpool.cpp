@@ -7,6 +7,9 @@
 
 #include <tapyrus-config.h>
 
+#include <algorithm>
+#include <stdexcept>
+
 #ifdef WIN32
 #ifdef _WIN32_WINNT
 #undef _WIN32_WINNT
@@ -21,11 +24,8 @@
 #include <sys/mman.h> // for mmap
 #include <sys/resource.h> // for getrlimit
 #include <limits.h> // for PAGESIZE
-#include <stdexcept>
 #include <unistd.h> // for sysconf
 #endif
-
-#include <algorithm>
 
 LockedPoolManager* LockedPoolManager::_instance = nullptr;
 std::once_flag LockedPoolManager::init_flag;
