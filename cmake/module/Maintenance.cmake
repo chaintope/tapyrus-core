@@ -43,7 +43,7 @@ function(add_maintenance_targets)
 endfunction()
 
 function(add_windows_deploy_target)
-  if(MINGW AND TARGET tapyrus-qt AND TARGET tapyrusd AND TARGET tapyrus-cli AND TARGET tapyrus-tx AND TARGET tapyrus-wallet AND TARGET tapyrus-util AND TARGET test_bitcoin)
+  if(MINGW AND TARGET tapyrus-qt AND TARGET tapyrusd AND TARGET tapyrus-cli  AND TARGET tapyrus-tx  AND TARGET tapyrus-genesis)
     find_program(MAKENSIS_EXECUTABLE makensis)
     if(NOT MAKENSIS_EXECUTABLE)
       add_custom_target(deploy
@@ -63,9 +63,7 @@ function(add_windows_deploy_target)
       COMMAND ${CMAKE_STRIP} $<TARGET_FILE:tapyrusd> -o ${PROJECT_BINARY_DIR}/release/$<TARGET_FILE_NAME:tapyrusd>
       COMMAND ${CMAKE_STRIP} $<TARGET_FILE:tapyrus-cli> -o ${PROJECT_BINARY_DIR}/release/$<TARGET_FILE_NAME:tapyrus-cli>
       COMMAND ${CMAKE_STRIP} $<TARGET_FILE:tapyrus-tx> -o ${PROJECT_BINARY_DIR}/release/$<TARGET_FILE_NAME:tapyrus-tx>
-      COMMAND ${CMAKE_STRIP} $<TARGET_FILE:tapyrus-wallet> -o ${PROJECT_BINARY_DIR}/release/$<TARGET_FILE_NAME:tapyrus-wallet>
-      COMMAND ${CMAKE_STRIP} $<TARGET_FILE:tapyrus-util> -o ${PROJECT_BINARY_DIR}/release/$<TARGET_FILE_NAME:tapyrus-util>
-      COMMAND ${CMAKE_STRIP} $<TARGET_FILE:test_bitcoin> -o ${PROJECT_BINARY_DIR}/release/$<TARGET_FILE_NAME:test_bitcoin>
+      COMMAND ${CMAKE_STRIP} $<TARGET_FILE:tapyrus-genesis> -o ${PROJECT_BINARY_DIR}/release/$<TARGET_FILE_NAME:tapyrus-genesis>
       COMMAND ${MAKENSIS_EXECUTABLE} -V2 ${PROJECT_BINARY_DIR}/tapyrus-win64-setup.nsi
       VERBATIM
     )

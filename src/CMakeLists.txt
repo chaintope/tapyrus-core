@@ -254,7 +254,7 @@ if(BUILD_DAEMON)
   add_executable(tapyrusd
     tapyrusd.cpp
   )
-  add_windows_resources(tapyrusd tapyrusd-res.rc)
+  add_windows_resources(tapyrusd tapyrus-res.rc)
   target_link_libraries(tapyrusd PRIVATE
     core_interface
     tapyrus_server

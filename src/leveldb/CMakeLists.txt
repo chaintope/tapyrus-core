@@ -73,9 +73,9 @@ endif()
 
 target_include_directories(leveldb
         PRIVATE
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/leveldb>
+        ${PROJECT_SOURCE_DIR}/src/leveldb
         PUBLIC
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/leveldb/include>
+        ${PROJECT_SOURCE_DIR}/src/leveldb/include
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
