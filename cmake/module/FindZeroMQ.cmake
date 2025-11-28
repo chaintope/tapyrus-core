@@ -77,6 +77,19 @@ else()
       IMPORTED_LOCATION "${ZEROMQ_LIBRARY}"
       INTERFACE_INCLUDE_DIRECTORIES "${ZEROMQ_INCLUDE_DIR}"
     )
+    # Add Windows system libraries required by ZMQ
+    if(WIN32 OR MINGW)
+      set_property(TARGET zeromq APPEND PROPERTY
+        INTERFACE_LINK_LIBRARIES "ws2_32;iphlpapi"
+      )
+      # For static ZMQ builds on Windows, define ZMQ_STATIC to avoid DLL import symbols
+      # Depends builds always use static libraries, so set this when ZEROMQ_ROOT is set
+      if(ZEROMQ_ROOT OR ZEROMQ_LIBRARY MATCHES "\\.(a|lib)$")
+        set_property(TARGET zeromq APPEND PROPERTY
+          INTERFACE_COMPILE_DEFINITIONS "ZMQ_STATIC"
+        )
+      endif()
+    endif()
     set(ZeroMQ_FOUND TRUE)
   else()
     set(ZeroMQ_FOUND FALSE)

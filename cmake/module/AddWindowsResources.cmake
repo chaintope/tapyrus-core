@@ -10,5 +10,12 @@ macro(add_windows_resources target rc_file)
     set_property(SOURCE ${rc_file}
       APPEND PROPERTY COMPILE_DEFINITIONS WINDRES_PREPROC
     )
+    # Disable automatic include directory propagation for .rc files
+    # because windres cannot handle CMake generator expressions.
+    # The .rc files use relative paths for their includes anyway.
+    set_source_files_properties(${rc_file} PROPERTIES
+      INCLUDE_DIRECTORIES ""
+      COMPILE_OPTIONS ""
+    )
   endif()
 endmacro()
