@@ -10,9 +10,14 @@ testing.
 """
 
 import os
+import time
+import logging
+from .authproxy import JSONRPCException
 
 
 REFERENCE_FILENAME = 'rpc_interface.txt'
+# Interval for logging IBD wait messages (in seconds)
+IBD_LOG_INTERVAL = 300  # 5 minutes
 
 
 class AuthServiceProxyWrapper():
@@ -40,7 +45,100 @@ class AuthServiceProxyWrapper():
         return AuthServiceProxyWrapper(return_val, self.coverage_logfile)
 
     def generate(self, nblocks=0, signblockprivkey=""):
-        return getattr(self.auth_service_proxy_instance, "generate")(nblocks, signblockprivkey)
+        """Generate blocks, automatically waiting for IBD to complete if needed."""
+        start_time = None
+        last_log_time = None
+        logger = logging.getLogger("TestFramework")
+
+        while True:
+            try:
+                return getattr(self.auth_service_proxy_instance, "generate")(nblocks, signblockprivkey)
+            except JSONRPCException as e:
+                # RPC_CLIENT_IN_INITIAL_DOWNLOAD = -10
+                if e.error['code'] == -10:
+                    current_time = time.time()
+
+                    # Initialize timing on first IBD encounter
+                    if start_time is None:
+                        start_time = current_time
+                        last_log_time = current_time
+                        logger.info("Waiting for initial block download to complete before generating blocks...")
+
+                    # Log progress every 5 minutes
+                    elif current_time - last_log_time >= IBD_LOG_INTERVAL:
+                        elapsed = int(current_time - start_time)
+                        logger.info(f"Still waiting for IBD to complete... ({elapsed}s elapsed)")
+                        last_log_time = current_time
+
+                    # Wait for IBD to complete
+                    time.sleep(0.5)
+                    continue
+                # Re-raise other errors
+                raise
+
+    def generatetoaddress(self, nblocks=0, address="", signblockprivkey=""):
+        """Generate blocks to address, automatically waiting for IBD to complete if needed."""
+        start_time = None
+        last_log_time = None
+        logger = logging.getLogger("TestFramework")
+
+        while True:
+            try:
+                return getattr(self.auth_service_proxy_instance, "generatetoaddress")(nblocks, address, signblockprivkey)
+            except JSONRPCException as e:
+                # RPC_CLIENT_IN_INITIAL_DOWNLOAD = -10
+                if e.error['code'] == -10:
+                    current_time = time.time()
+
+                    # Initialize timing on first IBD encounter
+                    if start_time is None:
+                        start_time = current_time
+                        last_log_time = current_time
+                        logger.info("Waiting for initial block download to complete before generating blocks to address...")
+
+                    # Log progress every 5 minutes
+                    elif current_time - last_log_time >= IBD_LOG_INTERVAL:
+                        elapsed = int(current_time - start_time)
+                        logger.info(f"Still waiting for IBD to complete... ({elapsed}s elapsed)")
+                        last_log_time = current_time
+
+                    # Wait for IBD to complete
+                    time.sleep(0.5)
+                    continue
+                # Re-raise other errors
+                raise
+
+    def getnewblock(self, *args, **kwargs):
+        """Get new block, automatically waiting for IBD to complete if needed."""
+        start_time = None
+        last_log_time = None
+        logger = logging.getLogger("TestFramework")
+
+        while True:
+            try:
+                return getattr(self.auth_service_proxy_instance, "getnewblock")(*args, **kwargs)
+            except JSONRPCException as e:
+                # RPC_CLIENT_IN_INITIAL_DOWNLOAD = -10
+                if e.error['code'] == -10:
+                    current_time = time.time()
+
+                    # Initialize timing on first IBD encounter
+                    if start_time is None:
+                        start_time = current_time
+                        last_log_time = current_time
+                        logger.info("Waiting for initial block download to complete before getting new block...")
+
+                    # Log progress every 5 minutes
+                    elif current_time - last_log_time >= IBD_LOG_INTERVAL:
+                        elapsed = int(current_time - start_time)
+                        logger.info(f"Still waiting for IBD to complete... ({elapsed}s elapsed)")
+                        last_log_time = current_time
+
+                    # Wait for IBD to complete
+                    time.sleep(0.5)
+                    continue
+                # Re-raise other errors
+                raise
 
 
     def __call__(self, *args, **kwargs):

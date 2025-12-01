@@ -114,6 +114,10 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
 
     int nGenerate = request.params[0].get_int();
 
+    if (IsInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Tapyrus is in initial sync and waiting for blocks...");
+    }
+
     CTxDestination destination = DecodeDestination(request.params[1].get_str());
     if (!IsValidDestination(destination)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: Invalid address");
@@ -153,6 +157,10 @@ UniValue getnewblock(const JSONRPCRequest& request)
                 + HelpExampleCli("getnewblock", "")
                 + HelpExampleCli("getnewblock", "\"mt8EZJFAhhhxv57NFYfXPecDoAbWWqnRqX\" 10 \"1:03831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafc\"")
         );
+
+    if (IsInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Tapyrus is in initial sync and waiting for blocks...");
+    }
 
     CTxDestination destination = DecodeDestination(request.params[0].get_str());
     if (!IsValidDestination(destination)) {
