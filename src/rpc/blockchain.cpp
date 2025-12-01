@@ -1103,6 +1103,8 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
             "  \"mediantime\": xxxxxx,         (numeric) median time for the current best block\n"
             "  \"verificationprogress\": xxxx, (numeric) estimate of verification progress [0..1]\n"
             "  \"initialblockdownload\": xxxx, (bool) (debug information) estimate of whether this node is in Initial Block Download mode.\n"
+            "  \"reindexing\": xxxx,           (bool) if the node is reindexing the blockchain\n"
+            "  \"importing\": xxxx,            (bool) if the node is importing blocks\n"
             "  \"size_on_disk\": xxxxxx,       (numeric) the estimated size of the block and undo files on disk\n"
             "  \"pruned\": xx,                 (boolean) if the blocks are subject to pruning\n"
             "  \"pruneheight\": xxxxxx,        (numeric) lowest-height complete block stored (only present if pruning is enabled)\n"
@@ -1128,6 +1130,8 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     obj.pushKV("mediantime",            (int64_t)chainActive.Tip()->GetMedianTimePast());
     obj.pushKV("verificationprogress",  GuessVerificationProgress(Params().TxData(), chainActive.Tip()));
     obj.pushKV("initialblockdownload",  IsInitialBlockDownload());
+    obj.pushKV("reindexing",            fReindex.load());
+    obj.pushKV("importing",             fImporting.load());
     obj.pushKV("size_on_disk",          CalculateCurrentUsage());
     obj.pushKV("pruned",                fPruneMode);
     if (fPruneMode) {
