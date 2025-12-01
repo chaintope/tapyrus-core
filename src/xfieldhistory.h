@@ -7,6 +7,7 @@
 
 #include <policy/policy.h>
 #include <federationparams.h>
+#include <sync.h>
 /* 
  * struct to store xfieldValue, block hash and height for every xfield update in the blockchain.
  */
@@ -139,11 +140,13 @@ public:
 
     template <typename T>
     void GetLatest(TAPYRUS_XFIELDTYPES type, T & xfieldval) const {
+        LOCK(xfieldHistoryMutex);
         auto& listofXfieldChanges = (isTemp ? this->getXFieldHistoryMap() : xfieldHistory).find(type)->second;
         xfieldval = std::get<T>(listofXfieldChanges.rbegin()->xfieldValue);
     }
 
     virtual XFieldChangeListWrapper& operator[](TAPYRUS_XFIELDTYPES type) const {
+        LOCK(xfieldHistoryMutex);
         return xfieldHistory.find(type)->second;
     }
 

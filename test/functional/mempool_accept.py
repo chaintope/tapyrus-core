@@ -49,7 +49,6 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
         self.num_nodes = 1
         self.extra_args = [[
             '-txindex',
-            '-reindex',  # Need reindex for txindex
         ]] * self.num_nodes
 
     def check_mempool_result(self, result_expected, *args, **kwargs):

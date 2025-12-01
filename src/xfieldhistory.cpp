@@ -30,11 +30,11 @@ void CXFieldHistoryMap::Add(TAPYRUS_XFIELDTYPES type, const XFieldChange& xField
 }
 
 const XFieldChange& CXFieldHistoryMap::Get(TAPYRUS_XFIELDTYPES type, uint32_t height) {
-
+    LOCK(xfieldHistoryMutex);
     auto& listofXfieldChanges = (isTemp ? this->getXFieldHistoryMap() : xfieldHistory).find(type)->second;
 
     if(height == 0 || listofXfieldChanges.size() == 1)
-        return listofXfieldChanges[0]; 
+        return listofXfieldChanges[0];
 
     if(height > listofXfieldChanges.back().height)
         return listofXfieldChanges.back();
@@ -47,7 +47,7 @@ const XFieldChange& CXFieldHistoryMap::Get(TAPYRUS_XFIELDTYPES type, uint32_t he
 }
 
 const XFieldChange& CXFieldHistoryMap::Get(TAPYRUS_XFIELDTYPES type, uint256 blockHash) {
-
+    LOCK(xfieldHistoryMutex);
     auto& listofXfieldChanges = (isTemp ? this->getXFieldHistoryMap() : xfieldHistory).find(type)->second;
     //TODO: return the corrext xfield applicable to any block by checking the index.
     for(unsigned int i = 0; i < listofXfieldChanges.size(); i++) {
@@ -71,6 +71,7 @@ void CXFieldHistory::ToUniValue(TAPYRUS_XFIELDTYPES type, UniValue* xFieldChange
 
 int32_t CXFieldHistoryMap::GetReorgHeight()
 {
+    LOCK(xfieldHistoryMutex);
     std::vector<uint32_t> changeHeights;
     for(auto x : XFIELDTYPES_INIT_LIST)
     {
