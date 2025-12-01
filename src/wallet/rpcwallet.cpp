@@ -3304,6 +3304,10 @@ UniValue generate(const JSONRPCRequest& request)
 
     int num_generate = request.params[0].get_int();
 
+    if (IsInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Tapyrus is in initial sync and waiting for blocks...");
+    }
+
     CKey cPrivKey = DecodeSecret(request.params[1].get_str());
     if(!cPrivKey.IsValid())
         throw JSONRPCError(RPC_WALLET_INVALID_PRIVATE_KEY, "No private key given or invalid private key.");
