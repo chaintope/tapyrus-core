@@ -10,14 +10,10 @@ testing.
 """
 
 import os
-import time
-import logging
 from .authproxy import JSONRPCException
 
 
 REFERENCE_FILENAME = 'rpc_interface.txt'
-# Interval for logging IBD wait messages (in seconds)
-IBD_LOG_INTERVAL = 300  # 5 minutes
 
 
 class AuthServiceProxyWrapper():
@@ -44,101 +40,54 @@ class AuthServiceProxyWrapper():
             return return_val
         return AuthServiceProxyWrapper(return_val, self.coverage_logfile)
 
-    def generate(self, nblocks=0, signblockprivkey=""):
-        """Generate blocks, automatically waiting for IBD to complete if needed."""
-        start_time = None
-        last_log_time = None
-        logger = logging.getLogger("TestFramework")
+    def _check_reindex_or_importing(self):
+        """
+        Check if the node is reindexing, importing blocks, or actively syncing from peers.
+        If so, raise an error to prevent block generation attempts.
+        """
+        try:
+            # Check reindex/import status
+            info = getattr(self.auth_service_proxy_instance, "getblockchaininfo")()
+            if info.get('reindexing', False):
+                raise JSONRPCException({
+                    'code': -10,
+                    'message': 'Cannot generate blocks during reindex'
+                })
+            if info.get('importing', False):
+                raise JSONRPCException({
+                    'code': -10,
+                    'message': 'Cannot generate blocks during import'
+                })
 
-        while True:
+            # Check if actively downloading blocks from peers
             try:
-                return getattr(self.auth_service_proxy_instance, "generate")(nblocks, signblockprivkey)
-            except JSONRPCException as e:
-                # RPC_CLIENT_IN_INITIAL_DOWNLOAD = -10
-                if e.error['code'] == -10:
-                    current_time = time.time()
+                peers = getattr(self.auth_service_proxy_instance, "getpeerinfo")()
+                for peer in peers:
+                    inflight = peer.get('inflight', [])
+                    if inflight:  # Non-empty list means actively downloading blocks
+                        raise JSONRPCException({
+                            'code': -10,
+                            'message': f'Cannot generate blocks while syncing from peers (inflight blocks: {inflight})'
+                        })
+            except (KeyError, AttributeError):
+                # If getpeerinfo doesn't exist or doesn't have inflight field, continue
+                pass
 
-                    # Initialize timing on first IBD encounter
-                    if start_time is None:
-                        start_time = current_time
-                        last_log_time = current_time
-                        logger.info("Waiting for initial block download to complete before generating blocks...")
+        except (KeyError, AttributeError):
+            # If getblockchaininfo doesn't exist or doesn't have these fields, continue
+            pass
 
-                    # Log progress every 5 minutes
-                    elif current_time - last_log_time >= IBD_LOG_INTERVAL:
-                        elapsed = int(current_time - start_time)
-                        logger.info(f"Still waiting for IBD to complete... ({elapsed}s elapsed)")
-                        last_log_time = current_time
-
-                    # Wait for IBD to complete
-                    time.sleep(0.5)
-                    continue
-                # Re-raise other errors
-                raise
+    def generate(self, nblocks=0, signblockprivkey=""):
+        self._check_reindex_or_importing()
+        return getattr(self.auth_service_proxy_instance, "generate")(nblocks, signblockprivkey)
 
     def generatetoaddress(self, nblocks=0, address="", signblockprivkey=""):
-        """Generate blocks to address, automatically waiting for IBD to complete if needed."""
-        start_time = None
-        last_log_time = None
-        logger = logging.getLogger("TestFramework")
-
-        while True:
-            try:
-                return getattr(self.auth_service_proxy_instance, "generatetoaddress")(nblocks, address, signblockprivkey)
-            except JSONRPCException as e:
-                # RPC_CLIENT_IN_INITIAL_DOWNLOAD = -10
-                if e.error['code'] == -10:
-                    current_time = time.time()
-
-                    # Initialize timing on first IBD encounter
-                    if start_time is None:
-                        start_time = current_time
-                        last_log_time = current_time
-                        logger.info("Waiting for initial block download to complete before generating blocks to address...")
-
-                    # Log progress every 5 minutes
-                    elif current_time - last_log_time >= IBD_LOG_INTERVAL:
-                        elapsed = int(current_time - start_time)
-                        logger.info(f"Still waiting for IBD to complete... ({elapsed}s elapsed)")
-                        last_log_time = current_time
-
-                    # Wait for IBD to complete
-                    time.sleep(0.5)
-                    continue
-                # Re-raise other errors
-                raise
+        self._check_reindex_or_importing()
+        return getattr(self.auth_service_proxy_instance, "generatetoaddress")(nblocks, address, signblockprivkey)
 
     def getnewblock(self, *args, **kwargs):
-        """Get new block, automatically waiting for IBD to complete if needed."""
-        start_time = None
-        last_log_time = None
-        logger = logging.getLogger("TestFramework")
-
-        while True:
-            try:
-                return getattr(self.auth_service_proxy_instance, "getnewblock")(*args, **kwargs)
-            except JSONRPCException as e:
-                # RPC_CLIENT_IN_INITIAL_DOWNLOAD = -10
-                if e.error['code'] == -10:
-                    current_time = time.time()
-
-                    # Initialize timing on first IBD encounter
-                    if start_time is None:
-                        start_time = current_time
-                        last_log_time = current_time
-                        logger.info("Waiting for initial block download to complete before getting new block...")
-
-                    # Log progress every 5 minutes
-                    elif current_time - last_log_time >= IBD_LOG_INTERVAL:
-                        elapsed = int(current_time - start_time)
-                        logger.info(f"Still waiting for IBD to complete... ({elapsed}s elapsed)")
-                        last_log_time = current_time
-
-                    # Wait for IBD to complete
-                    time.sleep(0.5)
-                    continue
-                # Re-raise other errors
-                raise
+        self._check_reindex_or_importing()
+        return getattr(self.auth_service_proxy_instance, "getnewblock")(*args, **kwargs)
 
 
     def __call__(self, *args, **kwargs):
