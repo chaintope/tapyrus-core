@@ -1,4 +1,4 @@
-# Copyright (c) 2023-present The Bitcoin Core developers
+ # Copyright (c) 2023-present The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or https://opensource.org/license/mit/.
 
@@ -11,19 +11,19 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
   string(APPEND CMAKE_OBJCXX_COMPILE_OBJECT " ${APPEND_CPPFLAGS} ${APPEND_CXXFLAGS}")
 endif()
 
-get_target_property(qt_lib_type Qt5::Core TYPE)
+get_target_property(qt_lib_type Qt6::Core TYPE)
 
 function(import_plugins target)
   if(qt_lib_type STREQUAL "STATIC_LIBRARY")
-    set(plugins Qt5::QMinimalIntegrationPlugin)
+    set(plugins Qt6::QMinimalIntegrationPlugin)
     if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-      list(APPEND plugins Qt5::QXcbIntegrationPlugin)
+      list(APPEND plugins Qt6::QXcbIntegrationPlugin)
     elseif(WIN32)
-      list(APPEND plugins Qt5::QWindowsIntegrationPlugin Qt5::QWindowsVistaStylePlugin)
+      list(APPEND plugins Qt6::QWindowsIntegrationPlugin Qt6::QWindowsVistaStylePlugin)
     elseif(APPLE)
-      list(APPEND plugins Qt5::QCocoaIntegrationPlugin Qt5::QMacStylePlugin)
+      list(APPEND plugins Qt6::QCocoaIntegrationPlugin Qt6::QMacStylePlugin)
     endif()
-    qt5_import_plugins(${target}
+    qt_import_plugins(${target}
       INCLUDE ${plugins}
       EXCLUDE_BY_TYPE imageformats iconengines
     )
@@ -32,7 +32,7 @@ endfunction()
 
 # For Qt-specific commands and variables, please consult:
 #  - https://cmake.org/cmake/help/latest/manual/cmake-qt.7.html
-#  - https://doc.qt.io/qt-5/cmake-manual.html
+#  - https://doc.qt.io/qt-6/cmake-manual.html
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOMOC_MOC_OPTIONS "-p${CMAKE_CURRENT_SOURCE_DIR}")
@@ -45,7 +45,7 @@ set(CMAKE_AUTOUIC_SEARCH_PATHS forms)
 # to https://github.com/bitcoin-core/bitcoin-maintainer-tools/blob/main/update-translations.py
 file(GLOB ts_files RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} locale/*.ts)
 set_source_files_properties(${ts_files} PROPERTIES OUTPUT_LOCATION ${CMAKE_CURRENT_BINARY_DIR}/locale)
-qt5_add_translation(qm_files ${ts_files})
+qt_add_translation(qm_files ${ts_files})
 
 configure_file(tapyrus_locale.qrc tapyrus_locale.qrc USE_SOURCE_PERMISSIONS COPYONLY)
 
@@ -54,7 +54,7 @@ configure_file(tapyrus_locale.qrc tapyrus_locale.qrc USE_SOURCE_PERMISSIONS COPY
 add_custom_command(
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/forms/ui_sendcoinsdialog.h
   COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/forms
-  COMMAND Qt5::uic -o ${CMAKE_CURRENT_BINARY_DIR}/forms/ui_sendcoinsdialog.h ${CMAKE_CURRENT_SOURCE_DIR}/forms/sendcoinsdialog.ui
+  COMMAND Qt6::uic -o ${CMAKE_CURRENT_BINARY_DIR}/forms/ui_sendcoinsdialog.h ${CMAKE_CURRENT_SOURCE_DIR}/forms/sendcoinsdialog.ui
   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/forms/sendcoinsdialog.ui
   COMMENT "Generating forms/ui_sendcoinsdialog.h"
 )
@@ -147,7 +147,7 @@ set_property(SOURCE macnotificationhandler.mm
 )
 target_link_libraries(tapyrusqt
   PUBLIC
-    Qt5::Widgets
+    Qt6::Widgets
   PRIVATE
     core_interface
     tapyrus_cli
@@ -229,18 +229,18 @@ if(ENABLE_WALLET)
   target_link_libraries(tapyrusqt
     PRIVATE
       tapyrus_wallet
-      Qt5::Network
+      Qt6::Network
   )
 endif()
 
 if(WITH_DBUS)
-  target_link_libraries(tapyrusqt PRIVATE Qt5::DBus)
+  target_link_libraries(tapyrusqt PRIVATE Qt6::DBus)
 endif()
 
 if(qt_lib_type STREQUAL "STATIC_LIBRARY")
   # We want to define static plugins to link ourselves, thus preventing
   # automatic linking against a "sane" set of default static plugins.
-  qt5_import_plugins(tapyrusqt
+  qt_import_plugins(tapyrusqt
       EXCLUDE_BY_TYPE bearer iconengines imageformats platforms styles
   )
 
@@ -334,8 +334,8 @@ else()
   file(GLOB ui_files ${CMAKE_CURRENT_SOURCE_DIR}/forms/*.ui)
   add_custom_target(translate
     COMMAND ${CMAKE_COMMAND} -E env XGETTEXT=${XGETTEXT_EXECUTABLE} COPYRIGHT_HOLDERS=${COPYRIGHT_HOLDERS} Python3::Interpreter ${PROJECT_SOURCE_DIR}/share/qt/extract_strings_qt.py ${translatable_sources}
-    COMMAND Qt5::lupdate -no-obsolete -I ${PROJECT_SOURCE_DIR}/src -locations relative ${CMAKE_CURRENT_SOURCE_DIR}/tapyrusstrings.cpp ${ui_files} ${qt_translatable_sources} -ts ${CMAKE_CURRENT_SOURCE_DIR}/locale/tapyrus_en.ts
-    COMMAND Qt5::lconvert -drop-translations -o ${CMAKE_CURRENT_SOURCE_DIR}/locale/tapyrus_en.xlf -i ${CMAKE_CURRENT_SOURCE_DIR}/locale/tapyrus_en.ts
+    COMMAND Qt6::lupdate -no-obsolete -I ${PROJECT_SOURCE_DIR}/src -locations relative ${CMAKE_CURRENT_SOURCE_DIR}/tapyrusstrings.cpp ${ui_files} ${qt_translatable_sources} -ts ${CMAKE_CURRENT_SOURCE_DIR}/locale/tapyrus_en.ts
+    COMMAND Qt6::lconvert -drop-translations -o ${CMAKE_CURRENT_SOURCE_DIR}/locale/tapyrus_en.xlf -i ${CMAKE_CURRENT_SOURCE_DIR}/locale/tapyrus_en.ts
     COMMAND ${SED_EXECUTABLE} -i.old -e "s|source-language=\"en\" target-language=\"en\"|source-language=\"en\"|" -e "/<target xml:space=\"preserve\"><\\/target>/d" ${CMAKE_CURRENT_SOURCE_DIR}/locale/tapyrus_en.xlf
     COMMAND ${CMAKE_COMMAND} -E rm ${CMAKE_CURRENT_SOURCE_DIR}/locale/tapyrus_en.xlf.old
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/src

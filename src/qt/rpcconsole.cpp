@@ -28,7 +28,7 @@
 #include <wallet/wallet.h>
 #endif
 
-#include <QDesktopWidget>
+#include <QScreen>
 #include <QKeyEvent>
 #include <QMenu>
 #include <QMessageBox>
@@ -537,7 +537,7 @@ bool RPCConsole::eventFilter(QObject* obj, QEvent *event)
         case Qt::Key_PageDown:
             if(obj == ui->lineEdit)
             {
-                QApplication::postEvent(ui->messagesWidget, new QKeyEvent(*keyevt));
+                QApplication::postEvent(ui->messagesWidget, keyevt->clone());
                 return true;
             }
             break;
@@ -545,7 +545,7 @@ bool RPCConsole::eventFilter(QObject* obj, QEvent *event)
         case Qt::Key_Enter:
             // forward these events to lineEdit
             if(obj == autoCompleter->popup()) {
-                QApplication::postEvent(ui->lineEdit, new QKeyEvent(*keyevt));
+                QApplication::postEvent(ui->lineEdit, keyevt->clone());
                 return true;
             }
             break;
@@ -558,7 +558,7 @@ bool RPCConsole::eventFilter(QObject* obj, QEvent *event)
                   ((mod & Qt::ShiftModifier) && key == Qt::Key_Insert)))
             {
                 ui->lineEdit->setFocus();
-                QApplication::postEvent(ui->lineEdit, new QKeyEvent(*keyevt));
+                QApplication::postEvent(ui->lineEdit, keyevt->clone());
                 return true;
             }
         }
@@ -576,7 +576,7 @@ void RPCConsole::setClientModel(ClientModel *model)
         connect(model, SIGNAL(numConnectionsChanged(int)), this, SLOT(setNumConnections(int)));
 
         interfaces::Node& node = clientModel->node();
-        setNumBlocks(node.getNumBlocks(), QDateTime::fromTime_t(node.getLastBlockTime()), node.getVerificationProgress(), false);
+        setNumBlocks(node.getNumBlocks(), QDateTime::fromSecsSinceEpoch(node.getLastBlockTime()), node.getVerificationProgress(), false);
         connect(model, SIGNAL(numBlocksChanged(int,QDateTime,double,bool)), this, SLOT(setNumBlocks(int,QDateTime,double,bool)));
 
         updateNetworkState();

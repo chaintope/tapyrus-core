@@ -18,7 +18,6 @@
 
 #include <QApplication>
 #include <QCloseEvent>
-#include <QDesktopWidget>
 #include <QPainter>
 #include <QRadialGradient>
 #include <QScreen>

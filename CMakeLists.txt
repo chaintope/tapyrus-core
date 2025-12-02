@@ -179,7 +179,7 @@ if(BUILD_GUI)
   if(ENABLE_GUI_TESTS)
     list(APPEND qt_components Test)
   endif()
-  find_package(Qt 5.11.3 MODULE REQUIRED
+  find_package(Qt 6.0 MODULE REQUIRED
     COMPONENTS ${qt_components}
   )
   unset(qt_components)

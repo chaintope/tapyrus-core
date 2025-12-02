@@ -46,7 +46,7 @@
 #include <QClipboard>
 #include <QDateTime>
 #include <QDesktopServices>
-#include <QDesktopWidget>
+#include <QScreen>
 #include <QDoubleValidator>
 #include <QFileDialog>
 #include <QFont>
@@ -58,6 +58,8 @@
 #include <QThread>
 #include <QUrlQuery>
 #include <QMouseEvent>
+#include <QRegularExpression>
+#include <QStandardPaths>
 
 #include <fstream>
 #if QT_VERSION >= 0x50200
@@ -73,7 +75,7 @@ QString dateTimeStr(const QDateTime &date)
 
 QString dateTimeStr(qint64 nTime)
 {
-    return dateTimeStr(QDateTime::fromTime_t((qint32)nTime));
+    return dateTimeStr(QDateTime::fromSecsSinceEpoch((qint32)nTime));
 }
 
 QDateTime StartOfDay(const QDate& date)
@@ -302,11 +304,12 @@ QString getSaveFileName(QWidget *parent, const QString &caption, const QString &
     QString result = QDir::toNativeSeparators(QFileDialog::getSaveFileName(parent, caption, myDir, filter, &selectedFilter));
 
     /* Extract first suffix from filter pattern "Description (*.foo)" or "Description (*.foo *.bar ...) */
-    QRegExp filter_re(".* \\(\\*\\.(.*)[ \\)]");
+    QRegularExpression filter_re(".* \\(\\*\\.(.*)[ \\)]");
     QString selectedSuffix;
-    if(filter_re.exactMatch(selectedFilter))
+    QRegularExpressionMatch match = filter_re.match(selectedFilter);
+    if(match.hasMatch())
     {
-        selectedSuffix = filter_re.cap(1);
+        selectedSuffix = match.captured(1);
     }
 
     /* Add suffix if needed */
@@ -350,11 +353,12 @@ QString getOpenFileName(QWidget *parent, const QString &caption, const QString &
     if(selectedSuffixOut)
     {
         /* Extract first suffix from filter pattern "Description (*.foo)" or "Description (*.foo *.bar ...) */
-        QRegExp filter_re(".* \\(\\*\\.(.*)[ \\)]");
+        QRegularExpression filter_re(".* \\(\\*\\.(.*)[ \\)]");
         QString selectedSuffix;
-        if(filter_re.exactMatch(selectedFilter))
+        QRegularExpressionMatch match = filter_re.match(selectedFilter);
+        if(match.hasMatch())
         {
-            selectedSuffix = filter_re.cap(1);
+            selectedSuffix = match.captured(1);
         }
         *selectedSuffixOut = selectedSuffix;
     }
