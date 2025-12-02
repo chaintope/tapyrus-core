@@ -24,6 +24,7 @@
 #include <rpc/util.h>
 #include <script/sign.h>
 #include <shutdown.h>
+#include <tapyrusmodes.h>
 #include <util.h>
 #include <utilmoneystr.h>
 #include <wallet/coincontrol.h>
@@ -3303,6 +3304,11 @@ UniValue generate(const JSONRPCRequest& request)
     }
 
     int num_generate = request.params[0].get_int();
+
+    // Skip IBD check in DEV mode
+    if (gArgs.GetChainMode() != TAPYRUS_OP_MODE::DEV && IsInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Tapyrus is in initial sync and waiting for blocks...");
+    }
 
     CKey cPrivKey = DecodeSecret(request.params[1].get_str());
     if(!cPrivKey.IsValid())
