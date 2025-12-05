@@ -20,10 +20,8 @@ class TransactionView;
 class WalletModel;
 class AddressBookPage;
 
-QT_BEGIN_NAMESPACE
 class QModelIndex;
 class QProgressDialog;
-QT_END_NAMESPACE
 
 /*
   WalletView class. This class represents the view to a single wallet.
