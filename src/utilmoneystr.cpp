@@ -21,7 +21,7 @@ std::string FormatMoney(const CAmount& n)
     // Right-trim excess zeros before the decimal point:
     int nTrim = 0;
     // Locale-independent digit check
-    for (int i = str.size()-1; (str[i] == '0' && str[i-2] >= '0' && str[i-2] <= '9'); --i)
+    for (int i = str.size()-1; (str[i] == '0' && IsDigit(str[i-2])); --i)
         ++nTrim;
     if (nTrim)
         str.erase(str.size()-nTrim, nTrim);

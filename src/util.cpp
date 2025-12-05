@@ -379,8 +379,7 @@ bool ArgsManager::ParseParameters(int argc, const char* const argv[], std::strin
         }
 #ifdef WIN32
         // Convert to lowercase without locale dependency
-        std::transform(key.begin(), key.end(), key.begin(),
-                      [](unsigned char c) { return (c >= 'A' && c <= 'Z') ? c + 32 : c; });
+        std::transform(key.begin(), key.end(), key.begin(), ToLower);
         if (key[0] == '/')
             key[0] = '-';
 #endif

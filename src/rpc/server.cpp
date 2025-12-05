@@ -206,8 +206,7 @@ std::string CRPCTable::help(const std::string& strCommand, const JSONRPCRequest&
                     category = pcmd->category;
                     std::string firstLetter = category.substr(0,1);
                     // Locale-independent uppercase conversion
-                    std::transform(firstLetter.begin(), firstLetter.end(), firstLetter.begin(),
-                                  [](unsigned char c) { return (c >= 'a' && c <= 'z') ? c - 32 : c; });
+                    std::transform(firstLetter.begin(), firstLetter.end(), firstLetter.begin(), ToUpper);
                     strRet += "== " + firstLetter + category.substr(1) + " ==\n";
                 }
             }
