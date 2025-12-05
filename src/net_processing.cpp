@@ -430,8 +430,13 @@ static bool MarkBlockAsInFlight(NodeId nodeid, const uint256& hash, const CBlock
     CNodeState *state = State(nodeid);
     assert(state != nullptr);
 
-    if(mapBlocksInFlight.count(hash) >= MAX_CMPCTBLOCKS_INFLIGHT_PER_BLOCK)
+    if(mapBlocksInFlight.count(hash) >= MAX_CMPCTBLOCKS_INFLIGHT_PER_BLOCK) {
+        auto iter = mapBlocksInFlight.find(hash);
+        if (pit) {
+            *pit = &iter->second.second;
+        }
         return false;
+    }
 
     // Short-circuit most stuff in case it is from the same node
     for (auto range = mapBlocksInFlight.equal_range(hash); range.first != range.second; range.first++) {
