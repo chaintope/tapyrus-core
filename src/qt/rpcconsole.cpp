@@ -17,6 +17,7 @@
 #include <rpc/server.h>
 #include <rpc/client.h>
 #include <util.h>
+#include <utilstrencodings.h>
 
 #include <univalue.h>
 
@@ -228,7 +229,7 @@ bool RPCConsole::RPCParseCommandLine(interfaces::Node* node, std::string &strRes
                                 {
                                     // Check all characters are digits (locale-independent)
                                     for(char argch: curarg)
-                                        if (argch < '0' || argch > '9')
+                                        if (!IsDigit(argch))
                                             throw std::runtime_error("Invalid result query");
                                     // Use std::from_chars for locale-independent conversion
                                     int index = 0;

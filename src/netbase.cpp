@@ -36,8 +36,7 @@ static std::atomic<bool> interruptSocks5Recv(false);
 
 enum Network ParseNetwork(std::string net) {
     // Locale-independent lowercase conversion
-    std::transform(net.begin(), net.end(), net.begin(),
-                  [](unsigned char c) { return (c >= 'A' && c <= 'Z') ? c + 32 : c; });
+    std::transform(net.begin(), net.end(), net.begin(), ToLower);
     if (net == "ipv4") return NET_IPV4;
     if (net == "ipv6") return NET_IPV6;
     if (net == "onion") return NET_ONION;

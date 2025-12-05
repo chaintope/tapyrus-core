@@ -85,6 +85,26 @@ constexpr bool IsSpace(char c)
 }
 
 /**
+ * Converts a character to lowercase (locale-independent).
+ * @param[in] c     character to convert
+ * @return          lowercase version of the character if it's uppercase; otherwise unchanged.
+ */
+constexpr unsigned char ToLower(unsigned char c)
+{
+    return (c >= 'A' && c <= 'Z') ? c + 32 : c;
+}
+
+/**
+ * Converts a character to uppercase (locale-independent).
+ * @param[in] c     character to convert
+ * @return          uppercase version of the character if it's lowercase; otherwise unchanged.
+ */
+constexpr unsigned char ToUpper(unsigned char c)
+{
+    return (c >= 'a' && c <= 'z') ? c - 32 : c;
+}
+
+/**
  * Convert string to signed 32-bit integer with strict parse error feedback.
  * @returns true if the entire string could be parsed as valid integer,
  *   false if not the entire string could be parsed or when overflow or underflow occurred.
