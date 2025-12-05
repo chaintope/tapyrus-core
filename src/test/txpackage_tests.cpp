@@ -12,7 +12,6 @@
 #include <serialize.h>
 #include <streams.h>
 #include <random.h>
-#include <script/script.h>
 #include <test/test_tapyrus.h>
 #include <utilstrencodings.h>
 #include <util.h>
