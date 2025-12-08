@@ -206,8 +206,11 @@ size_t CDBWrapper::DynamicMemoryUsage() const {
     }
     // Use std::from_chars for locale-independent conversion
     size_t result = 0;
-    std::from_chars(memory.data(), memory.data() + memory.size(), result);
-    return result;
+    auto ret = std::from_chars(memory.data(), memory.data() + memory.size(), result);
+    if (ret.ec == std::errc() && ret.ptr == memory.data() + memory.size())
+        return result;
+    else
+        return 4 * 1024 * 1024;  //nMinDbCache = 4;
 }
 
 // Prefixed with null character to avoid collisions with other keys
