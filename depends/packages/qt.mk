@@ -1,9 +1,9 @@
 package=qt
-$(package)_version=5.15.16
-$(package)_download_path=https://download.qt.io/official_releases/qt/5.15/$($(package)_version)/submodules
-$(package)_suffix=everywhere-opensource-src-$($(package)_version).tar.xz
+$(package)_version=6.7.2
+$(package)_download_path=https://download.qt.io/official_releases/qt/6.7/$($(package)_version)/submodules
+$(package)_suffix=everywhere-src-$($(package)_version).tar.xz
 $(package)_file_name=qtbase-$($(package)_suffix)
-$(package)_sha256_hash=b04815058c18058b6ba837206756a2c87d1391f07a0dcb0dd314f970fd041592
+$(package)_sha256_hash=87d86219effa5f58a12e944b11d7aca0dd341dd85e2b49cdd3ad7dfb3e6c22d2
 $(package)_linux_dependencies=freetype fontconfig libxcb libxkbcommon
 $(package)_qt_libs=corelib network widgets gui plugins testlib
 $(package)_linguist_tools = lrelease lupdate lconvert
@@ -27,10 +27,10 @@ $(package)_patches += fix_os_log_deprecated.patch
 $(package)_patches += fix_font_linking.patch
 
 $(package)_qttranslations_file_name=qttranslations-$($(package)_suffix)
-$(package)_qttranslations_sha256_hash=415dbbb82a75dfc9a7be969e743bee54c0e6867be37bce4cf8f03da39f20112a
+$(package)_qttranslations_sha256_hash=c91f73f3f31a8c28b60f8e8c4ffb01d55c17e6d25a6fdfe7fcfb7ef6df8c26da
 
 $(package)_qttools_file_name=qttools-$($(package)_suffix)
-$(package)_qttools_sha256_hash=1cab11887faca54af59f4995ee435c9ad98d194e9e6889c846692c8b6815fc1c
+$(package)_qttools_sha256_hash=b9ca6a6d3e5f92a33b97b996bc83f69ebb2bfd40fbbaef6b6e9e0202022d7b4b
 
 $(package)_extra_sources  = $($(package)_qttranslations_file_name)
 $(package)_extra_sources += $($(package)_qttools_file_name)
@@ -42,10 +42,10 @@ $(package)_config_opts_release += -silent
 $(package)_config_opts_debug = -debug
 $(package)_config_opts_debug += -optimized-tools
 $(package)_config_opts += -bindir $(build_prefix)/bin
-# Qt 5.15 only supports up to C++17
+# Qt 6.7 supports C++17 and C++20
 # Filter out -std= from cxxflags since Qt's -c++std option will control the standard
 $(package)_cxxflags:=$(filter-out -std=%,$(host_CXXFLAGS))
-$(package)_config_opts += -c++std c++17
+$(package)_config_opts += -c++std c++20
 $(package)_config_opts += -confirm-license
 $(package)_config_opts += -hostprefix $(build_prefix)
 $(package)_config_opts += -no-compile-examples
@@ -68,7 +68,6 @@ $(package)_config_opts += -no-mtdev
 $(package)_config_opts += -no-openssl
 $(package)_config_opts += -no-openvg
 $(package)_config_opts += -no-pkg-config
-$(package)_config_opts += -no-reduce-relocations
 $(package)_config_opts += -no-schannel
 $(package)_config_opts += -no-sctp
 $(package)_config_opts += -no-securetransport
