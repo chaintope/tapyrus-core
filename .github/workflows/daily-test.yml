@@ -366,13 +366,13 @@ jobs:
             # GUI dependencies
             if [ "${{ matrix.config.enable_gui }}" == "true" ]; then
               if [ "${{ matrix.config.platform }}" == "linux" ]; then
-                REQUIRED_FILES+=("$DEPENDS_PREFIX/lib/libQt5Core.so")
-                REQUIRED_FILES+=("$DEPENDS_PREFIX/lib/libQt5Widgets.so")
-                REQUIRED_FILES+=("$DEPENDS_PREFIX/lib/libQt5Gui.so")
+                REQUIRED_FILES+=("$DEPENDS_PREFIX/lib/libQt6Core.so")
+                REQUIRED_FILES+=("$DEPENDS_PREFIX/lib/libQt6Widgets.so")
+                REQUIRED_FILES+=("$DEPENDS_PREFIX/lib/libQt6Gui.so")
               else
-                REQUIRED_FILES+=("$DEPENDS_PREFIX/lib/libQt5Core.framework")
-                REQUIRED_FILES+=("$DEPENDS_PREFIX/lib/libQt5Widgets.framework")
-                REQUIRED_FILES+=("$DEPENDS_PREFIX/lib/libQt5Gui.framework")
+                REQUIRED_FILES+=("$DEPENDS_PREFIX/lib/libQt6Core.framework")
+                REQUIRED_FILES+=("$DEPENDS_PREFIX/lib/libQt6Widgets.framework")
+                REQUIRED_FILES+=("$DEPENDS_PREFIX/lib/libQt6Gui.framework")
               fi
             fi
 
