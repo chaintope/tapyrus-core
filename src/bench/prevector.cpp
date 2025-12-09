@@ -89,6 +89,32 @@ static void PrevectorDeserialize(benchmark::State& state)
     }
 }
 
+template <typename T>
+static void PrevectorFillVectorDirect(benchmark::State& state)
+{
+    while (state.KeepRunning()) {
+        std::vector<prevector<28, T>> vec;
+        vec.reserve(260);
+        for (size_t i = 0; i < 260; ++i) {
+            vec.emplace_back();
+        }
+    }
+}
+
+
+template <typename T>
+static void PrevectorFillVectorIndirect(benchmark::State& state)
+{
+    while (state.KeepRunning()) {
+        std::vector<prevector<28, T>> vec;
+        vec.reserve(260);
+        for (size_t i = 0; i < 260; ++i) {
+            // force allocation
+            vec.emplace_back(29, T{});
+        }
+    }
+}
+
 #define PREVECTOR_TEST(name, nontrivops, trivops)                       \
     static void Prevector ## name ## Nontrivial(benchmark::State& state) { \
         Prevector ## name<nontrivial_t>(state);                         \
@@ -103,3 +129,5 @@ PREVECTOR_TEST(Clear, 28300, 88600)
 PREVECTOR_TEST(Destructor, 28800, 88900)
 PREVECTOR_TEST(Resize, 28900, 90300)
 PREVECTOR_TEST(Deserialize, 6800, 52000)
+PREVECTOR_TEST(FillVectorDirect, 28300, 88600)
+PREVECTOR_TEST(FillVectorIndirect, 28500, 89800)
