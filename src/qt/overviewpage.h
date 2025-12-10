@@ -20,9 +20,7 @@ namespace Ui {
     class OverviewPage;
 }
 
-QT_BEGIN_NAMESPACE
 class QModelIndex;
-QT_END_NAMESPACE
 
 /** Overview ("home") page widget */
 class OverviewPage : public QWidget

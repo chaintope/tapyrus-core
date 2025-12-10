@@ -10,13 +10,11 @@
 #include <QIcon>
 #include <QObject>
 
-QT_BEGIN_NAMESPACE
 class QSystemTrayIcon;
 
 #ifdef USE_DBUS
 class QDBusInterface;
 #endif
-QT_END_NAMESPACE
 
 /** Cross-platform desktop notification client. */
 class Notificator: public QObject

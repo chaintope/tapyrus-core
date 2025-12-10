@@ -13,9 +13,6 @@ namespace interfaces {
 class Node;
 }
 
-QT_BEGIN_NAMESPACE
-QT_END_NAMESPACE
-
 extern const char *DEFAULT_GUI_PROXY_HOST;
 static constexpr unsigned short DEFAULT_GUI_PROXY_PORT = 9050;
 

@@ -22,9 +22,7 @@ class Handler;
 class Node;
 }
 
-QT_BEGIN_NAMESPACE
 class QTimer;
-QT_END_NAMESPACE
 
 enum class BlockSource {
     NONE,

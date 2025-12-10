@@ -20,9 +20,7 @@ namespace interfaces {
 class Node;
 }
 
-QT_BEGIN_NAMESPACE
 class QTimer;
-QT_END_NAMESPACE
 
 struct CNodeCombinedStats {
     CNodeStats nodeStats;
