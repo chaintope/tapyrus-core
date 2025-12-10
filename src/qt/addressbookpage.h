@@ -15,11 +15,9 @@ namespace Ui {
     class AddressBookPage;
 }
 
-QT_BEGIN_NAMESPACE
 class QItemSelection;
 class QMenu;
 class QModelIndex;
-QT_END_NAMESPACE
 
 /** Widget that shows a list of sending or receiving addresses.
   */

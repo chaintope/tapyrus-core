@@ -41,7 +41,6 @@
 
 class OptionsModel;
 
-QT_BEGIN_NAMESPACE
 class QApplication;
 class QByteArray;
 class QLocalServer;
@@ -49,7 +48,6 @@ class QNetworkAccessManager;
 class QNetworkReply;
 class QSslError;
 class QUrl;
-QT_END_NAMESPACE
 
 class PaymentServer : public QObject
 {

@@ -8,11 +8,9 @@
 #include <QMainWindow>
 #include <QObject>
 
-QT_BEGIN_NAMESPACE
 class QIcon;
 class QMenu;
 class QWidget;
-QT_END_NAMESPACE
 
 /** Macintosh-specific dock icon handler.
  */

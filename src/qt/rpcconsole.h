@@ -27,10 +27,8 @@ namespace Ui {
     class RPCConsole;
 }
 
-QT_BEGIN_NAMESPACE
 class QMenu;
 class QItemSelection;
-QT_END_NAMESPACE
 
 /** Local Bitcoin RPC console. */
 class RPCConsole: public QWidget
