@@ -255,6 +255,9 @@ ifeq ($(host),$(build))
 endif
 
 define $(package)_config_cmds
+  export QT_MAC_SDK_NO_VERSION_CHECK=1 && \
+  export PKG_CONFIG_LIBDIR=$(host_prefix)/lib/pkgconfig && \
+  export PKG_CONFIG_PATH=$(host_prefix)/share/pkgconfig && \
   cd qtbase && \
   ./configure -top-level $($(package)_config_opts) -- $($(package)_cmake_opts)
 endef
