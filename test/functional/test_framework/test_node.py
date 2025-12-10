@@ -172,7 +172,7 @@ class TestNode():
                 self.time_to_connect = datetime.now() - start_time
                 return self.time_to_connect
             except IOError as e:
-                if e.errno != errno.ECONNREFUSED:  # Port not yet open?
+                if e.errno not in (errno.ECONNREFUSED, errno.ECONNRESET):  # Port not yet open or connection reset?
                     raise  # unknown IO error
             except JSONRPCException as e:  # Initialization phase
                 if e.error['code'] != -28:  # RPC in warmup?
@@ -264,7 +264,7 @@ class TestNode():
                 self.wait_for_rpc_connection()
                 self.stop_node()
                 self.wait_until_stopped()
-            except FailedToStartError as e:
+            except (FailedToStartError, JSONRPCException) as e:
                 self.log.debug('tapyrusd failed to start: %s', e)
                 self.running = False
                 self.process = None

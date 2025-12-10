@@ -91,11 +91,23 @@ class NetTest(BitcoinTestFramework):
         assert_raises_rpc_error(-24, "Node has not been added", self.nodes[0].getaddednodeinfo, '1.1.1.1')
 
     def _test_getpeerinfo(self):
+        # Wait for peer connections to stabilize after network reconnect
+        wait_until(lambda: len(self.nodes[0].getpeerinfo()) == 2 and len(self.nodes[1].getpeerinfo()) == 2, timeout=TAPYRUSD_MIN_TIMEOUT)
+
         peer_info = [x.getpeerinfo() for x in self.nodes]
         # check both sides of bidirectional connection between nodes
         # the address bound to on one side will be the source address for the other node
-        assert_equal(peer_info[0][0]['addrbind'], peer_info[1][0]['addr'])
-        assert_equal(peer_info[1][0]['addrbind'], peer_info[0][0]['addr'])
+        # Search for matching peer pairs (there may be multiple connections due to network cycling)
+        found_match = False
+        for peer0 in peer_info[0]:
+            for peer1 in peer_info[1]:
+                if peer0['addrbind'] == peer1['addr'] and peer1['addrbind'] == peer0['addr']:
+                    found_match = True
+                    break
+            if found_match:
+                break
+
+        assert found_match, "Could not find matching bidirectional peer connection"
 
 if __name__ == '__main__':
     NetTest().main()
