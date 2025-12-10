@@ -61,8 +61,10 @@ class NetTest(BitcoinTestFramework):
 
         peer_info_after_ping = self.nodes[0].getpeerinfo()
         for before, after in zip(peer_info, peer_info_after_ping):
-            assert_greater_than_or_equal(after['bytesrecv_per_msg']['pong'], before['bytesrecv_per_msg']['pong'] + 32)
-            assert_greater_than_or_equal(after['bytessent_per_msg']['ping'], before['bytessent_per_msg']['ping'] + 32)
+            before_pong = before['bytesrecv_per_msg'].get('pong', 0)
+            before_ping = before['bytessent_per_msg'].get('ping', 0)
+            assert_greater_than_or_equal(after['bytesrecv_per_msg']['pong'], before_pong + 32)
+            assert_greater_than_or_equal(after['bytessent_per_msg']['ping'], before_ping + 32)
 
     def _test_getnetworkinginfo(self):
         assert_equal(self.nodes[0].getnetworkinfo()['networkactive'], True)
