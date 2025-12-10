@@ -1,195 +1,164 @@
 package=qt
-$(package)_version=6.7.2
-$(package)_download_path=https://download.qt.io/official_releases/qt/6.7/$($(package)_version)/submodules
+$(package)_version=6.10.1
+$(package)_download_path=https://download.qt.io/official_releases/qt/6.10/$($(package)_version)/submodules
 $(package)_suffix=everywhere-src-$($(package)_version).tar.xz
 $(package)_file_name=qtbase-$($(package)_suffix)
-$(package)_sha256_hash=87d86219effa5f58a12e944b11d7aca0dd341dd85e2b49cdd3ad7dfb3e6c22d2
+$(package)_sha256_hash=5a6226f7e23db51fdc3223121eba53f3f5447cf0cc4d6cb82a3a2df7a65d265d
 $(package)_linux_dependencies=freetype fontconfig libxcb libxkbcommon
 $(package)_qt_libs=corelib network widgets gui plugins testlib
 $(package)_linguist_tools = lrelease lupdate lconvert
-$(package)_patches = qt.pro
-$(package)_patches += qttools_src.pro
-$(package)_patches += mac-qmake.conf
-$(package)_patches += no-xlib.patch
-$(package)_patches += dont_hardcode_pwd.patch
-$(package)_patches += qtbase-moc-ignore-gcc-macro.patch
+$(package)_patches = qtbase-moc-ignore-gcc-macro.patch
 $(package)_patches += no_warnings_for_symbols.patch
 $(package)_patches += rcc_hardcode_timestamp.patch
-$(package)_patches += duplicate_lcqpafonts.patch
 $(package)_patches += guix_cross_lib_path.patch
 $(package)_patches += memory_resource.patch
 $(package)_patches += clang_18_libpng.patch
-$(package)_patches += utc_from_string_no_optimize.patch
 $(package)_patches += windows_lto.patch
-$(package)_patches += darwin_no_libm.patch
 $(package)_patches += fix_activity_logging.patch
 $(package)_patches += fix_os_log_deprecated.patch
-$(package)_patches += fix_font_linking.patch
 
 $(package)_qttranslations_file_name=qttranslations-$($(package)_suffix)
-$(package)_qttranslations_sha256_hash=c91f73f3f31a8c28b60f8e8c4ffb01d55c17e6d25a6fdfe7fcfb7ef6df8c26da
+$(package)_qttranslations_sha256_hash=8e49a2df88a12c376a479ae7bd272a91cf57ebb4e7c0cf7341b3565df99d2314
 
 $(package)_qttools_file_name=qttools-$($(package)_suffix)
-$(package)_qttools_sha256_hash=b9ca6a6d3e5f92a33b97b996bc83f69ebb2bfd40fbbaef6b6e9e0202022d7b4b
+$(package)_qttools_sha256_hash=8148408380ffea03101a26305c812b612ea30dbc07121e58707601522404d49b
 
 $(package)_extra_sources  = $($(package)_qttranslations_file_name)
 $(package)_extra_sources += $($(package)_qttools_file_name)
 
 define $(package)_set_vars
 $(package)_config_env = QT_MAC_SDK_NO_VERSION_CHECK=1
-$(package)_config_opts_release = -release
-$(package)_config_opts_release += -silent
-$(package)_config_opts_debug = -debug
-$(package)_config_opts_debug += -optimized-tools
-$(package)_config_opts += -bindir $(build_prefix)/bin
-# Qt 6.7 supports C++17 and C++20
-# Filter out -std= from cxxflags since Qt's -c++std option will control the standard
+$(package)_cmake_opts_release = -release
+$(package)_cmake_opts_release += -silent
+$(package)_cmake_opts_debug = -debug
+$(package)_cmake_opts_debug += -optimized-tools
+$(package)_cmake_opts += -bindir $(build_prefix)/bin
+# Qt 6 uses C++20 as minimum standard
+# Filter out -std= from cxxflags since Qt's CMake will control the standard
 $(package)_cxxflags:=$(filter-out -std=%,$(host_CXXFLAGS))
-$(package)_config_opts += -c++std c++20
-$(package)_config_opts += -confirm-license
-$(package)_config_opts += -hostprefix $(build_prefix)
-$(package)_config_opts += -no-compile-examples
-$(package)_config_opts += -no-cups
-$(package)_config_opts += -no-egl
-$(package)_config_opts += -no-eglfs
-$(package)_config_opts += -no-evdev
-$(package)_config_opts += -no-gif
-$(package)_config_opts += -no-glib
-$(package)_config_opts += -no-icu
-$(package)_config_opts += -no-ico
-$(package)_config_opts += -no-iconv
-$(package)_config_opts += -no-kms
-$(package)_config_opts += -no-linuxfb
-$(package)_config_opts += -no-libjpeg
-$(package)_config_opts += -no-libproxy
-$(package)_config_opts += -no-libudev
-$(package)_config_opts += -no-mimetype-database
-$(package)_config_opts += -no-mtdev
-$(package)_config_opts += -no-openssl
-$(package)_config_opts += -no-openvg
-$(package)_config_opts += -no-pkg-config
-$(package)_config_opts += -no-schannel
-$(package)_config_opts += -no-sctp
-$(package)_config_opts += -no-securetransport
-$(package)_config_opts += -no-sql-db2
-$(package)_config_opts += -no-sql-ibase
-$(package)_config_opts += -no-sql-oci
-$(package)_config_opts += -no-sql-tds
-$(package)_config_opts += -no-sql-mysql
-$(package)_config_opts += -no-sql-odbc
-$(package)_config_opts += -no-sql-psql
-$(package)_config_opts += -no-sql-sqlite
-$(package)_config_opts += -no-sql-sqlite2
-$(package)_config_opts += -no-system-proxies
-$(package)_config_opts += -no-use-gold-linker
-$(package)_config_opts += -no-zstd
-$(package)_config_opts += -nomake examples
-$(package)_config_opts += -nomake tests
-$(package)_config_opts += -nomake tools
-$(package)_config_opts += -opensource
-$(package)_config_opts += -prefix $(host_prefix)
-$(package)_config_opts += -qt-libpng
-$(package)_config_opts += -qt-pcre
-$(package)_config_opts += -qt-harfbuzz
-$(package)_config_opts += -qt-zlib
-$(package)_config_opts += -static
-$(package)_config_opts += -optimize-size
-$(package)_config_opts += -v
-$(package)_config_opts += -no-feature-bearermanagement
-$(package)_config_opts += -no-feature-colordialog
-$(package)_config_opts += -no-feature-commandlineparser
-$(package)_config_opts += -no-feature-concurrent
-$(package)_config_opts += -no-feature-dial
-$(package)_config_opts += -no-feature-fontcombobox
-$(package)_config_opts += -no-feature-ftp
-$(package)_config_opts += -no-feature-http
-$(package)_config_opts += -no-feature-image_heuristic_mask
-$(package)_config_opts += -no-feature-keysequenceedit
-$(package)_config_opts += -no-feature-lcdnumber
-$(package)_config_opts += -no-feature-networkdiskcache
-$(package)_config_opts += -no-feature-networkproxy
-$(package)_config_opts += -no-feature-pdf
-$(package)_config_opts += -no-feature-printdialog
-$(package)_config_opts += -no-feature-printer
-$(package)_config_opts += -no-feature-printpreviewdialog
-$(package)_config_opts += -no-feature-printpreviewwidget
-$(package)_config_opts += -no-feature-sessionmanager
-$(package)_config_opts += -no-feature-socks5
-$(package)_config_opts += -no-feature-sql
-$(package)_config_opts += -no-feature-sqlmodel
-$(package)_config_opts += -no-feature-statemachine
-$(package)_config_opts += -no-feature-syntaxhighlighter
-$(package)_config_opts += -no-feature-textbrowser
-$(package)_config_opts += -no-feature-textmarkdownwriter
-$(package)_config_opts += -no-feature-textodfwriter
-$(package)_config_opts += -no-feature-topleveldomain
-$(package)_config_opts += -no-feature-udpsocket
-$(package)_config_opts += -no-feature-undocommand
-$(package)_config_opts += -no-feature-undogroup
-$(package)_config_opts += -no-feature-undostack
-$(package)_config_opts += -no-feature-undoview
-$(package)_config_opts += -no-feature-vnc
-$(package)_config_opts += -no-feature-wizard
-$(package)_config_opts += -no-feature-xml
+$(package)_cmake_opts += -c++std c++20
+$(package)_cmake_opts += -confirm-license
+$(package)_cmake_opts += -- -DQT_HOST_PATH=$(build_prefix)
+$(package)_cmake_opts += -no-compile-examples
+$(package)_cmake_opts += -no-cups
+$(package)_cmake_opts += -no-egl
+$(package)_cmake_opts += -no-eglfs
+$(package)_cmake_opts += -no-evdev
+$(package)_cmake_opts += -no-gif
+$(package)_cmake_opts += -no-glib
+$(package)_cmake_opts += -no-icu
+$(package)_cmake_opts += -no-ico
+$(package)_cmake_opts += -no-iconv
+$(package)_cmake_opts += -no-kms
+$(package)_cmake_opts += -no-linuxfb
+$(package)_cmake_opts += -no-libjpeg
+$(package)_cmake_opts += -no-libproxy
+$(package)_cmake_opts += -no-libudev
+$(package)_cmake_opts += -no-mimetype-database
+$(package)_cmake_opts += -no-mtdev
+$(package)_cmake_opts += -no-openssl
+$(package)_cmake_opts += -no-openvg
+$(package)_cmake_opts += -no-schannel
+$(package)_cmake_opts += -no-sctp
+$(package)_cmake_opts += -no-securetransport
+$(package)_cmake_opts += -no-sql-db2
+$(package)_cmake_opts += -no-sql-ibase
+$(package)_cmake_opts += -no-sql-oci
+$(package)_cmake_opts += -no-sql-tds
+$(package)_cmake_opts += -no-sql-mysql
+$(package)_cmake_opts += -no-sql-odbc
+$(package)_cmake_opts += -no-sql-psql
+$(package)_cmake_opts += -no-sql-sqlite
+$(package)_cmake_opts += -no-sql-sqlite2
+$(package)_cmake_opts += -no-system-proxies
+$(package)_cmake_opts += -no-use-gold-linker
+$(package)_cmake_opts += -no-zstd
+$(package)_cmake_opts += -nomake examples
+$(package)_cmake_opts += -nomake tests
+$(package)_cmake_opts += -nomake tools
+$(package)_cmake_opts += -opensource
+$(package)_cmake_opts += -prefix $(host_prefix)
+$(package)_cmake_opts += -qt-libpng
+$(package)_cmake_opts += -qt-pcre
+$(package)_cmake_opts += -qt-harfbuzz
+$(package)_cmake_opts += -qt-zlib
+$(package)_cmake_opts += -static
+$(package)_cmake_opts += -optimize-size
+$(package)_cmake_opts += -v
+$(package)_cmake_opts += -no-feature-bearermanagement
+$(package)_cmake_opts += -no-feature-colordialog
+$(package)_cmake_opts += -no-feature-commandlineparser
+$(package)_cmake_opts += -no-feature-concurrent
+$(package)_cmake_opts += -no-feature-dial
+$(package)_cmake_opts += -no-feature-fontcombobox
+$(package)_cmake_opts += -no-feature-ftp
+$(package)_cmake_opts += -no-feature-http
+$(package)_cmake_opts += -no-feature-image_heuristic_mask
+$(package)_cmake_opts += -no-feature-keysequenceedit
+$(package)_cmake_opts += -no-feature-lcdnumber
+$(package)_cmake_opts += -no-feature-networkdiskcache
+$(package)_cmake_opts += -no-feature-networkproxy
+$(package)_cmake_opts += -no-feature-pdf
+$(package)_cmake_opts += -no-feature-printdialog
+$(package)_cmake_opts += -no-feature-printer
+$(package)_cmake_opts += -no-feature-printpreviewdialog
+$(package)_cmake_opts += -no-feature-printpreviewwidget
+$(package)_cmake_opts += -no-feature-sessionmanager
+$(package)_cmake_opts += -no-feature-socks5
+$(package)_cmake_opts += -no-feature-sql
+$(package)_cmake_opts += -no-feature-sqlmodel
+$(package)_cmake_opts += -no-feature-statemachine
+$(package)_cmake_opts += -no-feature-syntaxhighlighter
+$(package)_cmake_opts += -no-feature-textbrowser
+$(package)_cmake_opts += -no-feature-textmarkdownwriter
+$(package)_cmake_opts += -no-feature-textodfwriter
+$(package)_cmake_opts += -no-feature-topleveldomain
+$(package)_cmake_opts += -no-feature-udpsocket
+$(package)_cmake_opts += -no-feature-undocommand
+$(package)_cmake_opts += -no-feature-undogroup
+$(package)_cmake_opts += -no-feature-undostack
+$(package)_cmake_opts += -no-feature-undoview
+$(package)_cmake_opts += -no-feature-vnc
+$(package)_cmake_opts += -no-feature-wizard
+$(package)_cmake_opts += -no-feature-xml
 
-$(package)_config_opts_darwin = -no-dbus
-$(package)_config_opts_darwin += -no-opengl
-$(package)_config_opts_darwin += -pch
-$(package)_config_opts_darwin += -no-feature-corewlan
-$(package)_config_opts_darwin += -no-freetype
-$(package)_config_opts_darwin += -no-fontconfig
-$(package)_config_opts_darwin += QMAKE_MACOSX_DEPLOYMENT_TARGET=$(OSX_MIN_VERSION)
+$(package)_cmake_opts_darwin = -no-dbus
+$(package)_cmake_opts_darwin += -no-opengl
+$(package)_cmake_opts_darwin += -no-feature-corewlan
+$(package)_cmake_opts_darwin += -no-freetype
+$(package)_cmake_opts_darwin += -no-fontconfig
+$(package)_cmake_opts_darwin += -- -DCMAKE_OSX_DEPLOYMENT_TARGET=$(OSX_MIN_VERSION)
 
 ifneq ($(build_os),darwin)
-$(package)_config_opts_darwin += -xplatform macx-clang-linux
-$(package)_config_opts_darwin += -device-option MAC_SDK_PATH=$(OSX_SDK)
-$(package)_config_opts_darwin += -device-option MAC_SDK_VERSION=$(OSX_SDK_VERSION)
-$(package)_config_opts_darwin += -device-option CROSS_COMPILE="llvm-"
-$(package)_config_opts_darwin += -device-option MAC_TARGET=$(host)
-$(package)_config_opts_darwin += -device-option XCODE_VERSION=$(XCODE_VERSION)
+$(package)_cmake_opts_darwin += -- -DCMAKE_SYSTEM_NAME=Darwin
+$(package)_cmake_opts_darwin += -DCMAKE_OSX_SYSROOT=$(OSX_SDK)
 endif
 
 ifneq ($(build_arch),$(host_arch))
-$(package)_config_opts_arm64_darwin += -device-option QMAKE_APPLE_DEVICE_ARCHS=arm64
-$(package)_config_opts_x86_64_darwin += -device-option QMAKE_APPLE_DEVICE_ARCHS=x86_64
+$(package)_cmake_opts_arm64_darwin += -- -DCMAKE_OSX_ARCHITECTURES=arm64
+$(package)_cmake_opts_x86_64_darwin += -- -DCMAKE_OSX_ARCHITECTURES=x86_64
 endif
 
-$(package)_config_opts_linux = -no-xcb-xlib
-$(package)_config_opts_linux += -no-feature-xlib
-$(package)_config_opts_linux += -no-opengl
-$(package)_config_opts_linux += -system-freetype
-$(package)_config_opts_linux += -fontconfig
-$(package)_config_opts_linux += -no-feature-vulkan
-$(package)_config_opts_linux += -dbus-runtime
-$(package)_config_opts_linux += -pkg-config
+$(package)_cmake_opts_linux = -xcb
+$(package)_cmake_opts_linux += -no-xcb-xlib
+$(package)_cmake_opts_linux += -no-feature-xlib
+$(package)_cmake_opts_linux += -no-opengl
+$(package)_cmake_opts_linux += -system-freetype
+$(package)_cmake_opts_linux += -fontconfig
+$(package)_cmake_opts_linux += -no-feature-vulkan
+$(package)_cmake_opts_linux += -dbus-runtime
 ifneq ($(LTO),)
-$(package)_config_opts_linux += -ltcg
+$(package)_cmake_opts_linux += -- -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON
 endif
 
-ifneq (,$(findstring clang,$($(package)_cxx)))
-  ifneq (,$(findstring -stdlib=libc++,$($(package)_cxx)))
-    $(package)_config_opts_linux += -platform linux-clang-libc++ -xplatform linux-clang-libc++
-  else
-    $(package)_config_opts_linux += -platform linux-clang -xplatform linux-clang
-  endif
-else
-  $(package)_config_opts_linux += -platform linux-g++ -xplatform bitcoin-linux-g++
-endif
-
-$(package)_config_opts_mingw32 = -no-opengl
-$(package)_config_opts_mingw32 += -no-dbus
-$(package)_config_opts_mingw32 += -no-freetype
-$(package)_config_opts_mingw32 += -xplatform win32-g++
-$(package)_config_opts_mingw32 += "QMAKE_CFLAGS = '$($(package)_cflags) $($(package)_cppflags)'"
-$(package)_config_opts_mingw32 += "QMAKE_CXX = '$($(package)_cxx)'"
-$(package)_config_opts_mingw32 += "QMAKE_CXXFLAGS = '$($(package)_cxxflags) $($(package)_cppflags)'"
-$(package)_config_opts_mingw32 += "QMAKE_LINK = '$($(package)_cxx)'"
-$(package)_config_opts_mingw32 += "QMAKE_LFLAGS = '$($(package)_ldflags)'"
-$(package)_config_opts_mingw32 += "QMAKE_LIB = '$($(package)_ar) rc'"
-$(package)_config_opts_mingw32 += -device-option CROSS_COMPILE="$(host)-"
-$(package)_config_opts_mingw32 += -pch
+$(package)_cmake_opts_mingw32 = -no-opengl
+$(package)_cmake_opts_mingw32 += -no-dbus
+$(package)_cmake_opts_mingw32 += -no-freetype
+$(package)_cmake_opts_mingw32 += -- -DCMAKE_SYSTEM_NAME=Windows
+$(package)_cmake_opts_mingw32 += -DCMAKE_C_COMPILER=$($(package)_cc)
+$(package)_cmake_opts_mingw32 += -DCMAKE_CXX_COMPILER=$($(package)_cxx)
 ifneq ($(LTO),)
-$(package)_config_opts_mingw32 += -ltcg
+$(package)_cmake_opts_mingw32 += -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON
 endif
 endef
 
@@ -213,75 +182,37 @@ define $(package)_extract_cmds
   $(build_TAR) -x -f $($(package)_source_dir)/$($(package)_qttools_file_name) -C qttools --strip-components=1 --no-same-owner
 endef
 
-# Preprocessing steps work as follows:
-#
-# 1. Apply our patches to the extracted source. See each patch for more info.
-#
-# 2. Create a macOS-Clang-Linux mkspec using our mac-qmake.conf.
-#
-# 3. After making a copy of the mkspec for the linux-arm-gnueabi host, named
-#    bitcoin-linux-g++, replace tool names with $($($(package)_type)_TOOL).
-#
-# 4. Put our C, CXX and LD FLAGS into gcc-base.conf. Only used for non-host builds.
-#
-# 5. In clang.conf, swap out clang & clang++, for our compiler + flags. See #17466.
+# Qt 6 uses CMake. Apply only the patches that are still relevant.
 define $(package)_preprocess_cmds
-  cp $($(package)_patch_dir)/qt.pro qt.pro && \
-  mkdir -p qttools/src && \
-  cp $($(package)_patch_dir)/qttools_src.pro qttools/src/src.pro && \
-  patch -p1 -i $($(package)_patch_dir)/dont_hardcode_pwd.patch && \
-  patch -p1 -i $($(package)_patch_dir)/no-xlib.patch && \
   patch -p1 -i $($(package)_patch_dir)/qtbase-moc-ignore-gcc-macro.patch && \
   patch -p1 -i $($(package)_patch_dir)/memory_resource.patch && \
   patch -p1 -i $($(package)_patch_dir)/no_warnings_for_symbols.patch && \
   patch -p1 -i $($(package)_patch_dir)/clang_18_libpng.patch && \
   patch -p1 -i $($(package)_patch_dir)/rcc_hardcode_timestamp.patch && \
-  patch -p1 -i $($(package)_patch_dir)/duplicate_lcqpafonts.patch && \
-  patch -p1 -i $($(package)_patch_dir)/utc_from_string_no_optimize.patch && \
   patch -p1 -i $($(package)_patch_dir)/guix_cross_lib_path.patch && \
   patch -p1 -i $($(package)_patch_dir)/windows_lto.patch && \
-  patch -p1 -i $($(package)_patch_dir)/darwin_no_libm.patch && \
   patch -p1 -i $($(package)_patch_dir)/fix_activity_logging.patch && \
-  patch -p1 -i $($(package)_patch_dir)/fix_os_log_deprecated.patch && \
-  patch -p1 -i $($(package)_patch_dir)/fix_font_linking.patch && \
-  mkdir -p qtbase/mkspecs/macx-clang-linux &&\
-  cp -f qtbase/mkspecs/macx-clang/Info.plist.lib qtbase/mkspecs/macx-clang-linux/ && \
-  cp -f qtbase/mkspecs/macx-clang/Info.plist.app qtbase/mkspecs/macx-clang-linux/ && \
-  cp -f qtbase/mkspecs/macx-clang/qplatformdefs.h qtbase/mkspecs/macx-clang-linux/ &&\
-  cp -f $($(package)_patch_dir)/mac-qmake.conf qtbase/mkspecs/macx-clang-linux/qmake.conf && \
-  cp -r qtbase/mkspecs/linux-arm-gnueabi-g++ qtbase/mkspecs/bitcoin-linux-g++ && \
-  sed -i.old "s|arm-linux-gnueabi-gcc|$($($(package)_type)_CC)|" qtbase/mkspecs/bitcoin-linux-g++/qmake.conf && \
-  sed -i.old "s|arm-linux-gnueabi-g++|$($($(package)_type)_CXX)|" qtbase/mkspecs/bitcoin-linux-g++/qmake.conf && \
-  sed -i.old "s|arm-linux-gnueabi-ar|$($($(package)_type)_AR)|" qtbase/mkspecs/bitcoin-linux-g++/qmake.conf && \
-  sed -i.old "s|arm-linux-gnueabi-objcopy|$($($(package)_type)_OBJCOPY)|" qtbase/mkspecs/bitcoin-linux-g++/qmake.conf && \
-  sed -i.old "s|arm-linux-gnueabi-nm|$($($(package)_type)_NM)|" qtbase/mkspecs/bitcoin-linux-g++/qmake.conf && \
-  sed -i.old "s|arm-linux-gnueabi-strip|$($($(package)_type)_STRIP)|" qtbase/mkspecs/bitcoin-linux-g++/qmake.conf && \
-  echo "!host_build: QMAKE_CFLAGS     += $($(package)_cflags) $($(package)_cppflags)" >> qtbase/mkspecs/common/gcc-base.conf && \
-  echo "!host_build: QMAKE_CXXFLAGS   += $($(package)_cxxflags) $($(package)_cppflags)" >> qtbase/mkspecs/common/gcc-base.conf && \
-  echo "!host_build: QMAKE_LFLAGS     += $($(package)_ldflags)" >> qtbase/mkspecs/common/gcc-base.conf && \
-  sed -i.old "s|QMAKE_CC                = \$$$$\$$$${CROSS_COMPILE}clang|QMAKE_CC                = $($(package)_cc)|" qtbase/mkspecs/common/clang.conf && \
-  sed -i.old "s|QMAKE_CXX               = \$$$$\$$$${CROSS_COMPILE}clang++|QMAKE_CXX               = $($(package)_cxx)|" qtbase/mkspecs/common/clang.conf
+  patch -p1 -i $($(package)_patch_dir)/fix_os_log_deprecated.patch
 endef
 
 define $(package)_config_cmds
+  export QT_MAC_SDK_NO_VERSION_CHECK=1 && \
+  export PKG_CONFIG_LIBDIR=$(host_prefix)/lib/pkgconfig && \
+  export PKG_CONFIG_PATH=$(host_prefix)/share/pkgconfig && \
   cd qtbase && \
-  ./configure  -top-level $($(package)_config_opts)
+  ./configure -top-level $($(package)_cmake_opts)
 endef
 
 define $(package)_build_cmds
   $(MAKE)
 endef
 
-# TODO: Investigate whether specific targets can be used here to minimize the amount of files/components installed.
 define $(package)_stage_cmds
-  $(MAKE) -C qtbase INSTALL_ROOT=$($(package)_staging_dir) install && \
-  $(MAKE) -C qttools INSTALL_ROOT=$($(package)_staging_dir) install && \
-  $(MAKE) -C qttranslations INSTALL_ROOT=$($(package)_staging_dir) install_subtargets
+  $(MAKE) INSTALL_ROOT=$($(package)_staging_dir) install
 endef
 
 define $(package)_postprocess_cmds
-  rm -rf doc/ native/lib/  && \
-  rm -f lib/lib*.la lib/Qt5*.la && \
-  cd lib/pkgconfig && \
-  find . -type f -not -name 'Qt5*.pc' -delete || true
+  rm -rf doc/ native/lib/ && \
+  rm -f lib/lib*.la && \
+  rm -f lib/cmake/Qt6/qt.toolchain.cmake
 endef
