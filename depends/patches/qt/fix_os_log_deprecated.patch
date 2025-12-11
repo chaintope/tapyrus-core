@@ -1,7 +1,8 @@
 diff --git a/qtbase/src/corelib/kernel/qcore_mac.mm b/qtbase/src/corelib/kernel/qcore_mac.mm
 --- a/qtbase/src/corelib/kernel/qcore_mac.mm
 +++ b/qtbase/src/corelib/kernel/qcore_mac.mm
-@@ -136,6 +136,13 @@
+@@ -154,7 +154,14 @@ bool AppleUnifiedLogger::messageHandler(QtMsgType msgType, const QMessageLogCon
+     // unified logging's custom format specifiers such as %{BOOL}d.
      // We use the 'public' format specifier to prevent the logging
      // system from redacting our log message.
 -    os_log_with_type(log, logType, "%{public}s", qPrintable(message));
@@ -13,6 +14,6 @@ diff --git a/qtbase/src/corelib/kernel/qcore_mac.mm b/qtbase/src/corelib/kernel/
 +            os_log_error(log, "%{public}s", qPrintable(message));
 +            break;
 +    }
- 
-     return willMirrorToStderr();
+
+     return preventsStderrLogging();
  }
