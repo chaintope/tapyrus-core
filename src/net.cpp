@@ -365,7 +365,9 @@ static CAddress GetBindAddress(SOCKET sock)
         if (!getsockname(sock, (struct sockaddr*)&sockaddr_bind, &sockaddr_bind_len)) {
             addr_bind.SetSockAddr((const struct sockaddr*)&sockaddr_bind);
         } else {
-            LogPrint(BCLog::NET, "Warning: getsockname failed\n");
+            int err = WSAGetLastError();
+            LogPrint(BCLog::NET, "Warning: getsockname failed (errno: %d, %s)\n",
+                     err, NetworkErrorString(err));
         }
     }
     return addr_bind;
@@ -692,6 +694,25 @@ void CNode::copyStats(CNodeStats &stats)
     stats.nodeid = this->GetId();
     X(nServices);
     X(addr);
+
+    // Lazy initialization: retry getsockname if addrBind is still invalid
+    // This handles cases where getsockname fails during initial connection on slow hardware
+    if (!addrBind.IsValid()) {
+        LOCK(cs_hSocket);
+        if (hSocket != INVALID_SOCKET) {
+            struct sockaddr_storage sockaddr_bind;
+            socklen_t sockaddr_bind_len = sizeof(sockaddr_bind);
+            if (!getsockname(hSocket, (struct sockaddr*)&sockaddr_bind, &sockaddr_bind_len)) {
+                ((CService&)addrBind).SetSockAddr((const struct sockaddr*)&sockaddr_bind);
+                LogPrint(BCLog::NET, "Successfully retrieved bind address on retry for peer %d: %s\n",
+                         GetId(), addrBind.ToString());
+            } else {
+                LogPrint(BCLog::NET, "getsockname still failing for peer %d (errno: %d)\n",
+                         GetId(), WSAGetLastError());
+            }
+        }
+    }
+
     X(addrBind);
     {
         LOCK(cs_filter);
