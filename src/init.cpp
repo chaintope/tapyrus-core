@@ -631,7 +631,12 @@ static void CleanupBlockRevFiles()
     for (const std::pair<const std::string, fs::path>& item : mapBlockFiles) {
         // Use std::from_chars for locale-independent conversion
         int fileIndex = 0;
-        std::from_chars(item.first.data(), item.first.data() + item.first.size(), fileIndex);
+        auto result = std::from_chars(item.first.data(), item.first.data() + item.first.size(), fileIndex);
+        // Skip files with invalid indices (parsing failed or didn't consume entire string)
+        if (result.ec != std::errc{} || result.ptr != item.first.data() + item.first.size()) {
+            remove(item.second);
+            continue;
+        }
         if (fileIndex == nContigCounter) {
             nContigCounter++;
             continue;

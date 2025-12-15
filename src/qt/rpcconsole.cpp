@@ -233,7 +233,9 @@ bool RPCConsole::RPCParseCommandLine(interfaces::Node* node, std::string &strRes
                                             throw std::runtime_error("Invalid result query");
                                     // Use std::from_chars for locale-independent conversion
                                     int index = 0;
-                                    std::from_chars(curarg.data(), curarg.data() + curarg.size(), index);
+                                    auto index_result = std::from_chars(curarg.data(), curarg.data() + curarg.size(), index);
+                                    if (index_result.ec != std::errc{} || index_result.ptr != curarg.data() + curarg.size())
+                                        throw std::runtime_error("Invalid result query");
                                     subelement = lastResult[index];
                                 }
                                 else if (lastResult.isObject())

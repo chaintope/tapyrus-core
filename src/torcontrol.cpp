@@ -147,7 +147,11 @@ void TorControlConnection::readcb(struct bufferevent *bev, void *ctx)
             continue;
         // <status>(-|+| )<data><CRLF>
         // Use std::from_chars for locale-independent conversion
-        std::from_chars(s.data(), s.data() + 3, self->message.code);
+        auto code_result = std::from_chars(s.data(), s.data() + 3, self->message.code);
+        if (code_result.ec != std::errc{}) {
+            LogPrint(BCLog::TOR, "tor: Error parsing reply code\n");
+            continue;
+        }
         self->message.lines.push_back(s.substr(4));
         char ch = s[3]; // '-','+' or ' '
         if (ch == ' ') {
@@ -335,7 +339,12 @@ std::map<std::string,std::string> ParseTorReplyMapping(const std::string &s)
                         }
                         // Use std::from_chars for locale-independent octal conversion
                         int octal_val = 0;
-                        std::from_chars(value.data() + i, value.data() + i + j, octal_val, 8);
+                        auto octal_result = std::from_chars(value.data() + i, value.data() + i + j, octal_val, 8);
+                        if (octal_result.ec != std::errc{}) {
+                            // On error, keep the original escape sequence
+                            escaped_value.push_back('\\');
+                            continue;
+                        }
                         escaped_value.push_back(octal_val);
                         // Account for automatic incrementing at loop end
                         i += j - 1;

@@ -141,7 +141,7 @@ static bool rest_headers(HTTPRequest* req,
     // Use std::from_chars for locale-independent conversion
     long count = 0;
     auto result = std::from_chars(path[0].data(), path[0].data() + path[0].size(), count);
-    if (result.ec != std::errc() || count < 1 || count > 2000)
+    if (result.ec != std::errc() || result.ptr != path[0].data() + path[0].size() || count < 1 || count > 2000)
         return RESTERR(req, HTTP_BAD_REQUEST, "Header count out of range: " + path[0]);
 
     std::string hashStr = path[1];

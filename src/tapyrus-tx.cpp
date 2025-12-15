@@ -257,7 +257,9 @@ static void MutateTxAddInput(CMutableTransaction& tx, const std::string& strInpu
     if (vStrInputParts.size() > 2) {
         // Use std::from_chars for locale-independent conversion
         const auto& str = vStrInputParts[2];
-        std::from_chars(str.data(), str.data() + str.size(), nSequenceIn);
+        auto seq_result = std::from_chars(str.data(), str.data() + str.size(), nSequenceIn);
+        if (seq_result.ec != std::errc{} || seq_result.ptr != str.data() + str.size())
+            throw std::runtime_error("invalid TX input sequence '" + str + "'");
     }
 
     // append to transaction input list
@@ -340,11 +342,15 @@ static void MutateTxAddOutMultiSig(CMutableTransaction& tx, const std::string& s
 
     // Extract REQUIRED - use std::from_chars for locale-independent conversion
     uint32_t required = 0;
-    std::from_chars(vStrInputParts[1].data(), vStrInputParts[1].data() + vStrInputParts[1].size(), required);
+    auto required_result = std::from_chars(vStrInputParts[1].data(), vStrInputParts[1].data() + vStrInputParts[1].size(), required);
+    if (required_result.ec != std::errc{})
+        throw std::runtime_error("invalid required signatures count '" + vStrInputParts[1] + "'");
 
     // Extract NUMKEYS - use std::from_chars for locale-independent conversion
     uint32_t numkeys = 0;
-    std::from_chars(vStrInputParts[2].data(), vStrInputParts[2].data() + vStrInputParts[2].size(), numkeys);
+    auto numkeys_result = std::from_chars(vStrInputParts[2].data(), vStrInputParts[2].data() + vStrInputParts[2].size(), numkeys);
+    if (numkeys_result.ec != std::errc{})
+        throw std::runtime_error("invalid number of keys '" + vStrInputParts[2] + "'");
 
     // Validate there are the correct number of pubkeys
     if (vStrInputParts.size() < numkeys + 3)
