@@ -209,8 +209,11 @@ size_t CDBWrapper::DynamicMemoryUsage() const {
     auto ret = std::from_chars(memory.data(), memory.data() + memory.size(), result);
     if (ret.ec == std::errc() && ret.ptr == memory.data() + memory.size())
         return result;
-    else
+    else{
+        LogPrint(BCLog::LEVELDB, "Failed to parse memory usage value: %s, using default\n", memory);
         return 4 * 1024 * 1024;  //nMinDbCache = 4;
+    }
+        
 }
 
 // Prefixed with null character to avoid collisions with other keys
