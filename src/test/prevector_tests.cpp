@@ -6,13 +6,13 @@
 #include <vector>
 #include <prevector.h>
 
-#include <reverse_iterator.h>
 #include <serialize.h>
 #include <streams.h>
 
 #include <test/test_tapyrus.h>
 
 #include <boost/test/unit_test.hpp>
+#include <ranges>
 
 BOOST_FIXTURE_TEST_SUITE(prevector_tests, TestingSetup)
 
@@ -58,13 +58,13 @@ class prevector_tester {
         for (const T& v : pre_vector) {
              local_check(v == real_vector[pos++]);
         }
-        for (const T& v : reverse_iterate(pre_vector)) {
+        for (const T& v : std::views::reverse(pre_vector)) {
              local_check(v == real_vector[--pos]);
         }
         for (const T& v : const_pre_vector) {
              local_check(v == real_vector[pos++]);
         }
-        for (const T& v : reverse_iterate(const_pre_vector)) {
+        for (const T& v : std::views::reverse(const_pre_vector)) {
              local_check(v == real_vector[--pos]);
         }
         CDataStream ss1(SER_DISK, 0);

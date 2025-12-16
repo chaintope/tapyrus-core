@@ -21,7 +21,6 @@
 #include <primitives/block.h>
 #include <primitives/transaction.h>
 #include <random.h>
-#include <reverse_iterator.h>
 #include <scheduler.h>
 #include <timeoffsets.h>
 #include <tinyformat.h>
@@ -39,6 +38,7 @@
 #include <deque>
 #include <memory>
 #include <array>
+#include <ranges>
 
 #if defined(NDEBUG)
 # error "Tapyrus cannot be compiled without assertions."
@@ -1037,7 +1037,7 @@ void PeerLogicValidation::UpdatedBlockTip(const CBlockIndex *pindexNew, const CB
         // Relay inventory, but don't relay old inventory during initial block download.
         connman->ForEachNode([nNewHeight, &vHashes](CNode* pnode) {
             if (nNewHeight > (pnode->nStartingHeight != -1 ? pnode->nStartingHeight - 2000 : 0)) {
-                for (const uint256& hash : reverse_iterate(vHashes)) {
+                for (const uint256& hash : std::views::reverse(vHashes)) {
                     pnode->PushBlockHash(hash);
                 }
             }
@@ -1603,7 +1603,7 @@ bool static ProcessHeadersMessage(CNode *pfrom, CConnman *connman, const std::ve
             } else {
                 std::vector<CInv> vGetData;
                 // Download as much as possible, from earliest to latest.
-                for (const CBlockIndex *pindex : reverse_iterate(vToFetch)) {
+                for (const CBlockIndex *pindex : std::views::reverse(vToFetch)) {
                     if (nodestate->vBlocksInFlight.size() >= MAX_BLOCKS_IN_TRANSIT_PER_PEER) {
                         // Can't download any more from this peer
                         break;
