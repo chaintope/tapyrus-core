@@ -196,14 +196,22 @@ TapyrusGUI::TapyrusGUI(interfaces::Node& node, const PlatformStyle *_platformSty
     // Subscribe to notifications from core
     subscribeToCoreSignals();
 
-    connect(connectionsControl, SIGNAL(clicked(QPoint)), this, SLOT(toggleNetworkActive()));
+    // ClickableLabel clicked signal
+    if (auto label = qobject_cast<GUIUtil::ClickableLabel *>(connectionsControl)) {
+        connect(label, &GUIUtil::ClickableLabel::clicked, this, &TapyrusGUI::toggleNetworkActive);
+    }
 
     modalOverlay = new ModalOverlay(this->centralWidget());
 #if ENABLE_WALLET
     if(enableWallet) {
         connect(walletFrame, &WalletFrame::requestedSyncWarningInfo, this, &TapyrusGUI::showModalOverlay);
-        connect(labelBlocksIcon, SIGNAL(clicked(QPoint)), this, SLOT(showModalOverlay()));
-        connect(progressBar, SIGNAL(clicked(QPoint)), this, SLOT(showModalOverlay()));
+        // ClickableLabel and ClickableProgressBar clicked signals
+        if (auto label = qobject_cast<GUIUtil::ClickableLabel *>(labelBlocksIcon)) {
+            connect(label, &GUIUtil::ClickableLabel::clicked, this, &TapyrusGUI::showModalOverlay);
+        }
+        if (auto prog = qobject_cast<GUIUtil::ClickableProgressBar *>(progressBar)) {
+            connect(prog, &GUIUtil::ClickableProgressBar::clicked, this, &TapyrusGUI::showModalOverlay);
+        }
     }
 #endif
 }
@@ -271,9 +279,9 @@ void TapyrusGUI::createActions()
     connect(overviewAction, &QAction::triggered, this, &TapyrusGUI::showNormalIfMinimized);
     connect(overviewAction, &QAction::triggered, this, &TapyrusGUI::gotoOverviewPage);
     connect(sendCoinsAction, &QAction::triggered, this, &TapyrusGUI::showNormalIfMinimized);
-    connect(sendCoinsAction, SIGNAL(triggered()), this, SLOT(gotoSendCoinsPage()));
+    connect(sendCoinsAction, &QAction::triggered, this, [this](){ gotoSendCoinsPage(); });
     connect(sendCoinsMenuAction, &QAction::triggered, this, &TapyrusGUI::showNormalIfMinimized);
-    connect(sendCoinsMenuAction, SIGNAL(triggered()), this, SLOT(gotoSendCoinsPage()));
+    connect(sendCoinsMenuAction, &QAction::triggered, this, [this](){ gotoSendCoinsPage(); });
     connect(receiveCoinsAction, &QAction::triggered, this, &TapyrusGUI::showNormalIfMinimized);
     connect(receiveCoinsAction, &QAction::triggered, this, &TapyrusGUI::gotoReceiveCoinsPage);
     connect(receiveCoinsMenuAction, &QAction::triggered, this, &TapyrusGUI::showNormalIfMinimized);
@@ -342,19 +350,21 @@ void TapyrusGUI::createActions()
 #if ENABLE_WALLET
     if(walletFrame)
     {
-        connect(encryptWalletAction, SIGNAL(triggered(bool)), walletFrame, SLOT(encryptWallet(bool)));
-        connect(backupWalletAction, SIGNAL(triggered()), walletFrame, SLOT(backupWallet()));
-        connect(changePassphraseAction, SIGNAL(triggered()), walletFrame, SLOT(changePassphrase()));
-        connect(signMessageAction, SIGNAL(triggered()), this, SLOT(gotoSignMessageTab()));
-        connect(verifyMessageAction, SIGNAL(triggered()), this, SLOT(gotoVerifyMessageTab()));
-        connect(usedSendingAddressesAction, SIGNAL(triggered()), walletFrame, SLOT(usedSendingAddresses()));
-        connect(usedReceivingAddressesAction, SIGNAL(triggered()), walletFrame, SLOT(usedReceivingAddresses()));
-        connect(openAction, SIGNAL(triggered()), this, SLOT(openClicked()));
+        connect(encryptWalletAction, &QAction::triggered, walletFrame, &WalletFrame::encryptWallet);
+        connect(backupWalletAction, &QAction::triggered, walletFrame, &WalletFrame::backupWallet);
+        connect(changePassphraseAction, &QAction::triggered, walletFrame, &WalletFrame::changePassphrase);
+        connect(signMessageAction, &QAction::triggered, this, [this](){ gotoSignMessageTab(); });
+        connect(verifyMessageAction, &QAction::triggered, this, [this](){ gotoVerifyMessageTab(); });
+        connect(usedSendingAddressesAction, &QAction::triggered, walletFrame, &WalletFrame::usedSendingAddresses);
+        connect(usedReceivingAddressesAction, &QAction::triggered, walletFrame, &WalletFrame::usedReceivingAddresses);
+        connect(openAction, &QAction::triggered, this, &TapyrusGUI::openClicked);
     }
 #endif // ENABLE_WALLET
 
-    new QShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_C), this, SLOT(showDebugWindowActivateConsole()));
-    new QShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_D), this, SLOT(showDebugWindow()));
+    QShortcut *shortcut1 = new QShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_C), this);
+    connect(shortcut1, &QShortcut::activated, this, &TapyrusGUI::showDebugWindowActivateConsole);
+    QShortcut *shortcut2 = new QShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_D), this);
+    connect(shortcut2, &QShortcut::activated, this, &TapyrusGUI::showDebugWindow);
 }
 
 void TapyrusGUI::createMenuBar()
@@ -457,7 +467,9 @@ void TapyrusGUI::setClientModel(ClientModel *_clientModel)
         connect(_clientModel, &ClientModel::numBlocksChanged, this, &TapyrusGUI::setNumBlocks);
 
         // Receive and report messages from client model
-        connect(_clientModel, SIGNAL(message(QString,QString,unsigned int)), this, SLOT(message(QString,QString,unsigned int)));
+        connect(_clientModel, &ClientModel::message, this, [this](const QString &title, const QString &msg, unsigned int style){
+            message(title, msg, style);
+        });
 
         // Show progress dialog
         connect(_clientModel, &ClientModel::showProgress, this, &TapyrusGUI::showProgress);
