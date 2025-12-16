@@ -56,8 +56,10 @@ add_executable(test_tapyrus
         blockencodings_tests.cpp
         bloom_tests.cpp
         bswap_tests.cpp
+        chain_tests.cpp
         chainparams_tests.cpp
         federationparams_tests.cpp
+        chainstate_tests.cpp
         checkdatasig_tests.cpp
         checkqueue_tests.cpp
         coins_tests.cpp
