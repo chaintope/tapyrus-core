@@ -6,11 +6,10 @@
 
 #include <chain.h>
 #include <chainparams.h>
-#include <reverse_iterator.h>
 #include <validation.h>
 
 #include <stdint.h>
-
+#include <ranges>
 
 namespace Checkpoints {
 
@@ -19,7 +18,7 @@ namespace Checkpoints {
         AssertLockHeld(cs_main);
         const MapCheckpoints& checkpoints = data.mapCheckpoints;
 
-        for (const MapCheckpoints::value_type& i : reverse_iterate(checkpoints))
+        for (const MapCheckpoints::value_type& i : std::views::reverse(checkpoints))
         {
             const uint256& hash = i.second;
             CBlockIndex* pindex = LookupBlockIndex(hash);
