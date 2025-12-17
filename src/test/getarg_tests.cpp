@@ -17,8 +17,9 @@ BOOST_FIXTURE_TEST_SUITE(getarg_tests, BasicTestingSetup)
 static void ResetArgs(const std::string& strArg)
 {
     std::vector<std::string> vecArg;
-    if (strArg.size())
-      boost::split(vecArg, strArg, boost::is_space(), boost::token_compress_on);
+    if (strArg.size()) {
+      boost::split(vecArg, strArg, IsSpace, boost::token_compress_on);
+    }
 
     // Insert dummy executable name:
     vecArg.insert(vecArg.begin(), "testtapyrus");

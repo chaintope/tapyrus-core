@@ -29,10 +29,8 @@
 #include <util.h>
 #include <utilmoneystr.h>
 #include <utilstrencodings.h>
-#include <util.h>
 #include <trace.h>
-#include <validation.h>
-#include  <utiltime.h>
+#include <utiltime.h>
 #include <file_io.h>
 
 #include <deque>

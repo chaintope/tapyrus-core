@@ -29,11 +29,11 @@ void base_blob<BITS>::SetHex(const char* psz)
     memset(data, 0, sizeof(data));
 
     // skip leading spaces
-    while (isspace(*psz))
+    while (IsSpace(*psz))
         psz++;
 
     // skip 0x
-    if (psz[0] == '0' && tolower(psz[1]) == 'x')
+    if (psz[0] == '0' && (psz[1] == 'x' || psz[1] == 'X'))
         psz += 2;
 
     // hex string to uint

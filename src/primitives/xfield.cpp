@@ -18,7 +18,8 @@ inline std::string XFieldMaxBlockSize::ToString() const {
 template <typename T>
 bool GetXFieldValueFrom(XFieldData& xfieldValue, T& value) {
     value = std::get<T>(xfieldValue);
-    return std::atoi(value.BLOCKTREE_DB_KEY) == GetXFieldTypeFrom(xfieldValue);
+    // Convert character digit to integer without locale dependency
+    return (value.BLOCKTREE_DB_KEY - '0') == static_cast<int>(GetXFieldTypeFrom(xfieldValue));
 }
 
 std::string CXField::ToString() const {

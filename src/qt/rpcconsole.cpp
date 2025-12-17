@@ -17,8 +17,11 @@
 #include <rpc/server.h>
 #include <rpc/client.h>
 #include <util.h>
+#include <utilstrencodings.h>
 
 #include <univalue.h>
+
+#include <charconv>
 
 #if ENABLE_WALLET
 #include <db_cxx.h>
@@ -224,10 +227,16 @@ bool RPCConsole::RPCParseCommandLine(interfaces::Node* node, std::string &strRes
                                 UniValue subelement;
                                 if (lastResult.isArray())
                                 {
+                                    // Check all characters are digits (locale-independent)
                                     for(char argch: curarg)
-                                        if (!std::isdigit(argch))
+                                        if (!IsDigit(argch))
                                             throw std::runtime_error("Invalid result query");
-                                    subelement = lastResult[atoi(curarg.c_str())];
+                                    // Use std::from_chars for locale-independent conversion
+                                    int index = 0;
+                                    auto index_result = std::from_chars(curarg.data(), curarg.data() + curarg.size(), index);
+                                    if (index_result.ec != std::errc{} || index_result.ptr != curarg.data() + curarg.size())
+                                        throw std::runtime_error("Invalid result query");
+                                    subelement = lastResult[index];
                                 }
                                 else if (lastResult.isObject())
                                     subelement = lastResult.find_value(curarg);

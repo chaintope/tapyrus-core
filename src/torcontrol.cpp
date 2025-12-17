@@ -13,6 +13,7 @@
 #include <vector>
 #include <deque>
 #include <set>
+#include <charconv>
 #include <stdlib.h>
 
 #include <boost/signals2/signal.hpp>
@@ -145,7 +146,12 @@ void TorControlConnection::readcb(struct bufferevent *bev, void *ctx)
         if (s.size() < 4) // Short line
             continue;
         // <status>(-|+| )<data><CRLF>
-        self->message.code = atoi(s.substr(0,3));
+        // Use std::from_chars for locale-independent conversion
+        auto code_result = std::from_chars(s.data(), s.data() + 3, self->message.code);
+        if (code_result.ec != std::errc{}) {
+            LogPrint(BCLog::TOR, "tor: Error parsing reply code\n");
+            continue;
+        }
         self->message.lines.push_back(s.substr(4));
         char ch = s[3]; // '-','+' or ' '
         if (ch == ' ') {
@@ -331,7 +337,15 @@ std::map<std::string,std::string> ParseTorReplyMapping(const std::string &s)
                         if (j == 3 && value[i] > '3') {
                             j--;
                         }
-                        escaped_value.push_back(strtol(value.substr(i, j).c_str(), nullptr, 8));
+                        // Use std::from_chars for locale-independent octal conversion
+                        int octal_val = 0;
+                        auto octal_result = std::from_chars(value.data() + i, value.data() + i + j, octal_val, 8);
+                        if (octal_result.ec != std::errc{}) {
+                            // On error, keep the original escape sequence
+                            escaped_value.push_back('\\');
+                            continue;
+                        }
+                        escaped_value.push_back(octal_val);
                         // Account for automatic incrementing at loop end
                         i += j - 1;
                     } else {

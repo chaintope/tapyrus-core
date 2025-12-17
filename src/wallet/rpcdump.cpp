@@ -22,6 +22,7 @@
 #include <fstream>
 #include <stdint.h>
 
+#include <charconv>
 #include <chrono>
 #include <univalue.h>
 
@@ -32,16 +33,30 @@ int64_t static DecodeDumpTime(const std::string &str) {
     if (str.size() != 20 || str[10] != 'T' || str[19] != 'Z') {
         return 0; // Invalid format
     }
-    try {
-        tm.tm_year = std::stoi(str.substr(0, 4)) - 1900;
-        tm.tm_mon  = std::stoi(str.substr(5, 2)) - 1;
-        tm.tm_mday = std::stoi(str.substr(8, 2));
-        tm.tm_hour = std::stoi(str.substr(11, 2));
-        tm.tm_min  = std::stoi(str.substr(14, 2));
-        tm.tm_sec  = std::stoi(str.substr(17, 2));
-    } catch (const std::exception &) {
+
+    // Use std::from_chars for locale-independent parsing
+    const char* data = str.data();
+    int year, month, day, hour, minute, second;
+
+    auto result1 = std::from_chars(data + 0, data + 4, year);
+    auto result2 = std::from_chars(data + 5, data + 7, month);
+    auto result3 = std::from_chars(data + 8, data + 10, day);
+    auto result4 = std::from_chars(data + 11, data + 13, hour);
+    auto result5 = std::from_chars(data + 14, data + 16, minute);
+    auto result6 = std::from_chars(data + 17, data + 19, second);
+
+    if (result1.ec != std::errc() || result2.ec != std::errc() ||
+        result3.ec != std::errc() || result4.ec != std::errc() ||
+        result5.ec != std::errc() || result6.ec != std::errc()) {
         return 0; // Parsing failed
     }
+
+    tm.tm_year = year - 1900;
+    tm.tm_mon = month - 1;
+    tm.tm_mday = day;
+    tm.tm_hour = hour;
+    tm.tm_min = minute;
+    tm.tm_sec = second;
     // Convert std::tm to time_t (seconds since epoch)
     // Use timegm since the input is UTC (indicated by 'Z')
     #ifdef WIN32
