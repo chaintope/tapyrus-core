@@ -1,5 +1,7 @@
 #!/bin/bash -eu
 
+export LC_ALL=C
+
 if [ ! -e ${CONF_DIR}/tapyrus.conf ]; then
   cat << EOS > ${CONF_DIR}/tapyrus.conf
 rpcuser=rpcuser

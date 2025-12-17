@@ -70,7 +70,7 @@ def get_filenames_to_examine():
 ################################################################################
 
 
-COPYRIGHT_WITH_C = 'Copyright \(c\)'
+COPYRIGHT_WITH_C = r'Copyright \(c\)'
 COPYRIGHT_WITHOUT_C = 'Copyright'
 ANY_COPYRIGHT_STYLE = '(%s|%s)' % (COPYRIGHT_WITH_C, COPYRIGHT_WITHOUT_C)
 
@@ -93,20 +93,20 @@ EXPECTED_HOLDER_NAMES = [
     "Bitcoin Core Developers\n",
     "the Bitcoin Core developers\n",
     "The Bitcoin developers\n",
-    "The LevelDB Authors\. All rights reserved\.\n",
-    "BitPay Inc\.\n",
-    "BitPay, Inc\.\n",
-    "University of Illinois at Urbana-Champaign\.\n",
+    "The LevelDB Authors. All rights reserved.\n",
+    "BitPay Inc.\n",
+    "BitPay, Inc.\n",
+    "University of Illinois at Urbana-Champaign.\n",
     "MarcoFalke\n",
     "Pieter Wuille\n",
-    "Pieter Wuille +\*\n",
-    "Pieter Wuille, Gregory Maxwell +\*\n",
-    "Pieter Wuille, Andrew Poelstra +\*\n",
-    "Andrew Poelstra +\*\n",
+    r"Pieter Wuille +\*\n",
+    r"Pieter Wuille, Gregory Maxwell +\*\n",
+    r"Pieter Wuille, Andrew Poelstra +\*\n",
+    r"Andrew Poelstra +\*\n",
     "Wladimir J. van der Laan\n",
     "Jeff Garzik\n",
-    "Diederik Huys, Pieter Wuille +\*\n",
-    "Thomas Daede, Cory Fields +\*\n",
+    r"Diederik Huys, Pieter Wuille +\*\n",
+    r"Thomas Daede, Cory Fields +\*\n",
     "Jan-Klaas Kollhof\n",
     "Sam Rushing\n",
     "ArtForz -- public domain half-a-node\n",
@@ -355,7 +355,7 @@ def write_file_lines(filename, file_lines):
 # get Bitcoin Core
 ################################################################################
 
-COPYRIGHT = 'Copyright \(c\)'
+COPYRIGHT = r'Copyright \(c\)'
 YEAR = "20[0-9][0-9]"
 YEAR_RANGE = '(%s)(-%s)?' % (YEAR, YEAR)
 THE_BITCOIN_CORE_DEVELOPERS = 'The Bitcoin Core developers'
