@@ -17,4 +17,10 @@ if [[ ${OUTPUT} != "" ]]; then
     echo "${OUTPUT}"
     EXIT_CODE=1
 fi
+
+if [ ${EXIT_CODE} -eq 0 ]; then
+  echo "✓ lint-python-utf8-encoding: PASSED"
+else
+  echo "✗ lint-python-utf8-encoding: FAILED"
+fi
 exit ${EXIT_CODE}

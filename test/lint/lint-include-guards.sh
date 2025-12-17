@@ -28,4 +28,10 @@ do
         EXIT_CODE=1
     fi
 done
+
+if [ ${EXIT_CODE} -eq 0 ]; then
+  echo "✓ lint-include-guards: PASSED"
+else
+  echo "✗ lint-include-guards: FAILED"
+fi
 exit ${EXIT_CODE}

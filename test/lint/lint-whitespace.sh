@@ -110,4 +110,9 @@ if showcodediff | perl -nle '$MATCH++ if m{^\+.*\t}; END{exit 1 unless $MATCH>0}
   RET=1
 fi
 
+if [ $RET -eq 0 ]; then
+  echo "✓ lint-whitespace: PASSED"
+else
+  echo "✗ lint-whitespace: FAILED"
+fi
 exit $RET

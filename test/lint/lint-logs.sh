@@ -22,5 +22,9 @@ if [[ ${UNTERMINATED_LOGS} != "" ]]; then
     echo "All calls to LogPrintf() and LogPrint() should be terminated with \\n"
     echo
     echo "${UNTERMINATED_LOGS}"
+    echo "✗ lint-logs: FAILED"
     exit 1
 fi
+
+echo "✓ lint-logs: PASSED"
+exit 0

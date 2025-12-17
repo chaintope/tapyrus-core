@@ -32,4 +32,9 @@ if [[ ${TEST_SUITE_NAME_COLLISSIONS} != "" ]]; then
     EXIT_CODE=1
 fi
 
+if [ ${EXIT_CODE} -eq 0 ]; then
+  echo "✓ lint-tests: PASSED"
+else
+  echo "✗ lint-tests: FAILED"
+fi
 exit ${EXIT_CODE}

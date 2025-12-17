@@ -10,4 +10,10 @@ for PYTHON_FILE in $(git ls-files -- "*.py"); do
         EXIT_CODE=1
     fi
 done
+
+if [ ${EXIT_CODE} -eq 0 ]; then
+  echo "✓ lint-python-shebang: PASSED"
+else
+  echo "✗ lint-python-shebang: FAILED"
+fi
 exit ${EXIT_CODE}

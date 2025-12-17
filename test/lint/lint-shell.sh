@@ -8,13 +8,19 @@
 
 export LC_ALL=C
 
-# The shellcheck binary segfault/coredumps in Travis with LC_ALL=C
-# It does not do so in Ubuntu 14.04, 16.04, 18.04 in versions 0.3.3, 0.3.7, 0.4.6
-# respectively. So export LC_ALL=C is set as required by lint-shell-locale.sh
-# but unset here in case of running in Travis.
-if [ "$TRAVIS" = "true" ]; then
-  unset LC_ALL
+# Check if shellcheck is installed
+if ! command -v shellcheck > /dev/null 2>&1; then
+    echo "Shellcheck not installed. Skipping shell script checks."
+    echo "To install shellcheck:"
+    echo "  macOS: brew install shellcheck"
+    echo "  Ubuntu/Debian: apt-get install shellcheck"
+    echo "  Or visit: https://www.shellcheck.net/"
+    echo ""
+    echo "✓ lint-shell: SKIPPED (shellcheck not installed)"
+    exit 0
 fi
+
+EXIT_CODE=0
 
 # Disabled warnings:
 # SC2001: See if you can use ${variable//search/replace} instead.
@@ -33,5 +39,15 @@ fi
 # SC2166: Prefer [ p ] && [ q ] as [ p -a q ] is not well defined.
 # SC2166: Prefer [ p ] || [ q ] as [ p -o q ] is not well defined.
 # SC2181: Check exit code directly with e.g. 'if mycmd;', not indirectly with $?.
-shellcheck -e SC2001,SC2004,SC2005,SC2006,SC2016,SC2028,SC2046,SC2048,SC2066,SC2086,SC2116,SC2148,SC2162,SC2166,SC2181 \
-    $(git ls-files -- "*.sh" | grep -vE 'src/(secp256k1|univalue)/')
+
+if ! shellcheck -e SC2001,SC2004,SC2005,SC2006,SC2016,SC2028,SC2046,SC2048,SC2066,SC2086,SC2116,SC2148,SC2162,SC2166,SC2181 \
+    $(git ls-files -- "*.sh" | grep -vE 'src/(secp256k1|univalue)/'); then
+    EXIT_CODE=1
+fi
+
+if [ ${EXIT_CODE} -eq 0 ]; then
+  echo "✓ lint-shell: PASSED"
+else
+  echo "✗ lint-shell: FAILED"
+fi
+exit ${EXIT_CODE}

@@ -198,4 +198,10 @@ if [[ ${EXIT_CODE} != 0 ]]; then
     echo "Advice not applicable in this specific case? Add an exception"
     echo "by updating the ignore list in $0"
 fi
+
+if [ ${EXIT_CODE} -eq 0 ]; then
+  echo "✓ lint-locale-dependence: PASSED"
+else
+  echo "✗ lint-locale-dependence: FAILED"
+fi
 exit ${EXIT_CODE}

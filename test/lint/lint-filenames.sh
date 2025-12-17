@@ -21,4 +21,10 @@ if [[ ${OUTPUT} != "" ]]; then
     echo "${OUTPUT}"
     EXIT_CODE=1
 fi
+
+if [ ${EXIT_CODE} -eq 0 ]; then
+  echo "✓ lint-filenames: PASSED"
+else
+  echo "✗ lint-filenames: FAILED"
+fi
 exit ${EXIT_CODE}

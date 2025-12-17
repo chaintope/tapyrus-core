@@ -33,9 +33,19 @@ if ! python3 -m doctest test/lint/lint-format-strings.py; then
 fi
 for S in "${FUNCTION_NAMES_AND_NUMBER_OF_LEADING_ARGUMENTS[@]}"; do
     IFS="," read -r FUNCTION_NAME SKIP_ARGUMENTS <<< "${S}"
-    mapfile -t MATCHING_FILES < <(git grep --full-name -l "${FUNCTION_NAME}" -- "*.c" "*.cpp" "*.h" | sort | grep -vE "^src/(leveldb|secp256k1|tinyformat|univalue)")
+    # Use bash 3.2 compatible method instead of mapfile (bash 4.0+)
+    MATCHING_FILES=()
+    while IFS= read -r file; do
+        MATCHING_FILES+=("$file")
+    done < <(git grep --full-name -l "${FUNCTION_NAME}" -- "*.c" "*.cpp" "*.h" | sort | grep -vE "^src/(leveldb|secp256k1|tinyformat|univalue)")
     if ! test/lint/lint-format-strings.py --skip-arguments "${SKIP_ARGUMENTS}" "${FUNCTION_NAME}" "${MATCHING_FILES[@]}"; then
         EXIT_CODE=1
     fi
 done
+
+if [ ${EXIT_CODE} -eq 0 ]; then
+  echo "✓ lint-format-strings: PASSED"
+else
+  echo "✗ lint-format-strings: FAILED"
+fi
 exit ${EXIT_CODE}
