@@ -39,6 +39,7 @@
 
 #include <math.h>
 #include <chrono>
+#include <thread>
 
 // Dump addresses to peers.dat and banlist.dat every 15 minutes (900s)
 #define DUMP_ADDRESSES_INTERVAL 900
@@ -355,18 +356,47 @@ bool CConnman::CheckIncomingNonce(uint64_t nonce)
     return true;
 }
 
-/** Get the bind address for a socket as CAddress */
+/** Get the bind address for a socket as CAddress
+ *
+ * This may fail if called immediately after socket creation, particularly on
+ * fast hardware where the race between TCP handshake completion and this call
+ * is more likely. The caller should be prepared to retry later if needed.
+ *
+ * @param sock The socket descriptor
+ * @return CAddress containing the local bind address, or invalid CAddress on failure
+ */
 static CAddress GetBindAddress(SOCKET sock)
 {
     CAddress addr_bind;
     struct sockaddr_storage sockaddr_bind;
     socklen_t sockaddr_bind_len = sizeof(sockaddr_bind);
-    if (sock != INVALID_SOCKET) {
+
+    for (int i = 0; i < 3; ++i) {
         if (!getsockname(sock, (struct sockaddr*)&sockaddr_bind, &sockaddr_bind_len)) {
             addr_bind.SetSockAddr((const struct sockaddr*)&sockaddr_bind);
-        } else {
-            LogPrint(BCLog::NET, "Warning: getsockname failed\n");
+            if (i > 0) {
+                LogPrint(BCLog::NET, "getsockname succeeded on retry %d\n", i);
+            }
+            return addr_bind;
         }
+
+        int err = WSAGetLastError();
+
+        // Check if this is a transient error worth retrying
+        bool is_transient = false;
+#ifdef WIN32
+        is_transient = (err == WSAENOTCONN || err == WSAEINVAL);
+#else
+        is_transient = (err == ENOTCONN || err == EINVAL || err == EAGAIN);
+#endif
+
+        // On the last attempt or for non-transient errors, log and give up
+        if (i == 2 || !is_transient) {
+            LogPrint(BCLog::NET, "Warning: getsockname failed after %d attempt(s) (errno: %d, %s)\n",
+                        i + 1, err, NetworkErrorString(err));
+            break;
+        }
+        std::this_thread::sleep_for(std::chrono::microseconds(100));
     }
     return addr_bind;
 }

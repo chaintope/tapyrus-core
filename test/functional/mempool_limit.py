@@ -187,10 +187,10 @@ class MempoolLimitTest(BitcoinTestFramework):
 
     def test_package_full_mempool(self, node):
         # this test verifies that during package submission if the mempool becomes full
-        # and the fee of the later tx is not large enough to cause replacement
-        # submission of some transactions within the package succeeds
+        # and the fee of the later tx is not large enough to cause replacement,
+        # some transactions are rejected with "mempool full"
 
-        self.log.info("A package is partially submitted if its fee cannot trigger transaction replacement in mempool")
+        self.log.info("A package is rejected with 'mempool full' when fees are insufficient to trigger replacement")
         relayfee = node.getnetworkinfo()['relayfee']
         mempoolmin_feerate = node.getmempoolinfo()["mempoolminfee"]
         assert_equal(relayfee, Decimal('0.00001000'))
@@ -198,21 +198,28 @@ class MempoolLimitTest(BitcoinTestFramework):
         node.generate(120, self.signblockprivkey_wif)
         utxos = [utxo for utxo in node.listunspent()if utxo['amount'] >  mempoolmin_feerate * 100]
 
-        # fill the mempool with large transactions with very high fee so that they are not chosen for eviction
-        self.fill_mempool(node, utxos, mempoolmin_feerate * 200, nSequence=0)
+        # Fill mempool with high-fee transactions (50x mempoolminfee) so they won't be evicted
+        # These fees are much higher than what the package will offer (25:1 ratio)
+        # Using 50x instead of higher values to avoid absurdly-high-fee errors on large txs
+        high_feerate = mempoolmin_feerate * 50
+        self.fill_mempool(node, utxos, high_feerate, nSequence=0)
 
-        #create package to calculate its size. do not submit now
+        # Create package with low fees (just 2x mempoolminfee)
+        # This is too low to replace the high-fee transactions already in mempool
+        package_feerate = mempoolmin_feerate * 2
         utxos = [utxo for utxo in node.listunspent()if utxo['amount'] >  mempoolmin_feerate]
-        (package_hex, package_txids) = self.create_package(node, utxos, None, mempoolmin_feerate, size=10)
+        (package_hex, package_txids) = self.create_package(node, utxos, None, package_feerate, size=10)
 
-        # fill the rest of the mempool with another transaction
+        # Fill the rest of the mempool with another high-fee transaction
+        # This ensures there's not enough space for the entire package
         mempoolinfo = node.getmempoolinfo()
-        # Reserve slightly less space than package size to ensure some txs will be rejected
-        size_needed = mempoolinfo['maxmempool'] - mempoolinfo['usage'] - int(size_package(package_hex))
+        # Reserve slightly less space than package size to ensure some package txs will be rejected
+        size_needed = mempoolinfo['maxmempool'] - mempoolinfo['usage'] - int(size_package(package_hex) * 0.5)
 
         utxos = [utxo for utxo in node.listunspent()if utxo['amount'] >  mempoolmin_feerate]
         utxo = utxos.pop()
-        tx = self.create_tx_with_large_script(utxo, mempoolmin_feerate * 100, size_needed)
+        # Use same high feerate as mempool filler transactions
+        tx = self.create_tx_with_large_script(utxo, high_feerate, size_needed)
         tx.vin[0].nSequence = 0
         signresult = node.signrawtransactionwithwallet(ToHex(tx))
         txid = node.sendrawtransaction(signresult["hex"])
@@ -228,22 +235,52 @@ class MempoolLimitTest(BitcoinTestFramework):
         # Package should be submitted partially
         res = self.submitpackage(node, package_hex)
 
-        self.log.info("Verify partial submission")
-        # Failed midway due to full mempool
-        success = False
-        for x in [True for txid in package_txids if res[txid] == {'allowed': False, 'reject-reason': '66: mempool full'}]:
-            success = success | x
-        assert success
+        self.log.info("Verify package rejection due to insufficient fees")
+        # Since package has low fees (2x) and mempool is filled with high fees (50x),
+        # package transactions should be rejected because:
+        # 1. They can't evict higher-fee transactions (insufficient fee - 25:1 ratio)
+        # 2. There's not enough space without eviction (mempool full)
+
+        # Count transactions explicitly rejected with "mempool full"
+        mempool_full_rejections = [txid for txid in package_txids
+                                   if res[txid] == {'allowed': False, 'reject-reason': '66: mempool full'}]
+
+        # Some package transactions should be accepted (those that fit in available space)
+        # but later ones should be rejected with "mempool full"
+        accepted_count = sum(1 for txid in package_txids if res[txid]['allowed'])
+        rejected_count = sum(1 for txid in package_txids if not res[txid]['allowed'])
+
+        self.log.info(f"Package submission result: {accepted_count} accepted, {rejected_count} rejected")
+        self.log.info(f"Mempool full rejections: {len(mempool_full_rejections)}")
+
+        # At least one transaction must be rejected with "mempool full"
+        # (because we reserved less space than needed for full package)
+        assert len(mempool_full_rejections) > 0, \
+            f"Expected at least one 'mempool full' rejection, but got: {res}"
+
+        # Package should be partially accepted (not fully rejected, not fully accepted)
+        assert accepted_count > 0, \
+            f"Expected some transactions to be accepted, but none were: {res}"
+        assert rejected_count > 0, \
+            f"Expected some transactions to be rejected, but all were accepted: {res}"
 
         # Maximum size must never be exceeded.
         assert_greater_than(node.getmempoolinfo()["maxmempool"], node.getmempoolinfo()["bytes"])
 
-        # some package transactions are in mempool.
+        # Verify accepted package transactions are in mempool
         resulting_mempool_txids = node.getrawmempool()
-        assert(mempool_txids != resulting_mempool_txids)
         for txid in package_txids:
             if res[txid]['allowed']:
-                assert txid in resulting_mempool_txids
+                assert txid in resulting_mempool_txids, \
+                    f"Accepted transaction {txid} not found in mempool"
+
+        # Verify high-fee transactions were NOT evicted by low-fee package
+        # (confirms our fee setup is working correctly)
+        high_fee_txs_remain = sum(1 for txid in mempool_txids if txid in resulting_mempool_txids)
+        self.log.info(f"High-fee transactions remaining: {high_fee_txs_remain}/{len(mempool_txids)}")
+        # Most high-fee transactions should still be in mempool
+        assert high_fee_txs_remain >= len(mempool_txids) * 0.9, \
+            "High-fee transactions were evicted by low-fee package, fee setup is incorrect"
 
     def test_mid_package_eviction(self, node):
         # this test verifies that during package submission if the mempool becomes full

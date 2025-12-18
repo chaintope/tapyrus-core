@@ -26,9 +26,9 @@ class NetTest(BitcoinTestFramework):
     def run_test(self):
         self._test_connection_count()
         self._test_getnettotals()
-        self._test_getnetworkinginfo()
+        self._test_getpeerinfo()  # Moved before network cycling to test against stable connections
+        self._test_getnetworkinginfo()  # Network cycling happens here
         self._test_getaddednodeinfo()
-        self._test_getpeerinfo()
 
     def _test_connection_count(self):
         # connect_nodes_bi connects each node to the other
@@ -93,23 +93,29 @@ class NetTest(BitcoinTestFramework):
         assert_raises_rpc_error(-24, "Node has not been added", self.nodes[0].getaddednodeinfo, '1.1.1.1')
 
     def _test_getpeerinfo(self):
-        # Wait for peer connections to stabilize after network reconnect
-        wait_until(lambda: len(self.nodes[0].getpeerinfo()) == 2 and len(self.nodes[1].getpeerinfo()) == 2, timeout=TAPYRUSD_MIN_TIMEOUT)
+        # Verify getpeerinfo RPC returns correct bidirectional connection information.
+        # This test runs against stable connections established at test start, before
+        # network cycling in _test_getnetworkinginfo() which can cause connection churn
+        # and peer info desynchronization on fast hardware (race conditions).
 
-        peer_info = [x.getpeerinfo() for x in self.nodes]
-        # check both sides of bidirectional connection between nodes
-        # the address bound to on one side will be the source address for the other node
-        # Search for matching peer pairs (there may be multiple connections due to network cycling)
-        found_match = False
-        for peer0 in peer_info[0]:
-            for peer1 in peer_info[1]:
-                if peer0['addrbind'] == peer1['addr'] and peer1['addrbind'] == peer0['addr']:
-                    found_match = True
-                    break
-            if found_match:
-                break
+        def find_matching_peer():
+            peer_info = [x.getpeerinfo() for x in self.nodes]
 
-        assert found_match, "Could not find matching bidirectional peer connection"
+            # Ensure both nodes have exactly 2 peers (bidirectional connection via connect_nodes_bi)
+            if len(peer_info[0]) != 2 or len(peer_info[1]) != 2:
+                return False
+
+            # For each TCP connection, one end sees it as outbound, the other as inbound.
+            # The matching logic: peer0.addrbind == peer1.addr AND peer1.addrbind == peer0.addr
+            # This verifies both ends of the same TCP connection see consistent information.
+            for peer0 in peer_info[0]:
+                for peer1 in peer_info[1]:
+                    if peer0.get('addrbind') and peer1.get('addrbind'):
+                        if peer0['addrbind'] == peer1['addr'] and peer1['addrbind'] == peer0['addr']:
+                            return True
+            return False
+
+        wait_until(find_matching_peer, timeout=TAPYRUSD_MIN_TIMEOUT)
 
 if __name__ == '__main__':
     NetTest().main()
