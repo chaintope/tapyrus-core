@@ -36,7 +36,7 @@ class HTTPBasicsTest(BitcoinTestFramework):
 
         self.user = ''.join(SystemRandom().choice(string.ascii_letters + string.digits) for _ in range(10))
         config = configparser.ConfigParser()
-        config.read_file(open(self.options.configfile))
+        config.read_file(open(self.options.configfile, encoding='utf-8'))
         gen_rpcauth = config['environment']['RPCAUTH']
         p = subprocess.Popen([sys.executable, gen_rpcauth, self.user], stdout=subprocess.PIPE, universal_newlines=True)
         lines = p.stdout.read().splitlines()

@@ -52,8 +52,11 @@ for f in "${SCRIPTDIR}"/lint-*.sh; do
 done
 
 # Run the python syntax checking script
+SCRIPT_NAME="lint-python-syntax.py"
+TOTAL_SCRIPTS=$((TOTAL_SCRIPTS + 1))
+
 set +e
-"${SCRIPTDIR}"/lint-python-syntax.py
+"${SCRIPTDIR}"/"$SCRIPT_NAME"
 SCRIPT_EXIT_CODE=$?
 set -e
 

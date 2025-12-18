@@ -145,7 +145,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         self.options.cachedir = os.path.abspath(self.options.cachedir)
 
         config = configparser.ConfigParser()
-        config.read_file(open(self.options.configfile))
+        config.read_file(open(self.options.configfile, encoding='utf-8'))
 
         default_bin_path = os.path.join(config["environment"]["BUILDDIR"], "bin")
         self.options.bitcoind = os.getenv("TAPYRUSD", default=os.path.join(default_bin_path, 'tapyrusd' + config["environment"]["EXEEXT"]))
@@ -546,6 +546,6 @@ def skip_if_no_bitcoind_zmq(test_instance):
 def is_zmq_enabled(test_instance):
     """Checks whether zmq is enabled or not."""
     config = configparser.ConfigParser()
-    config.read_file(open(test_instance.options.configfile))
+    config.read_file(open(test_instance.options.configfile, encoding='utf-8'))
 
     return config["components"].getboolean("ENABLE_ZMQ")

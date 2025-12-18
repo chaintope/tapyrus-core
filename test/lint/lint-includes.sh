@@ -37,10 +37,7 @@ for CPP_FILE in $(filter_suffix cpp); do
     fi
 done
 
-EXPECTED_INCLUDE_CPP=(
-    "src/test/validation_block_tests.cpp"
-    "src/wallet/test/wallet_tests.cpp"
-)
+EXPECTED_INCLUDE_CPP=()
 
 INCLUDED_CPP_FILES=$(git grep -E "^#include [<\"][^>\"]+\.cpp[>\"]" -- "*.cpp" "*.h")
 
@@ -70,7 +67,6 @@ fi
 
 EXPECTED_BOOST_INCLUDES=(
     boost/algorithm/string.hpp
-    boost/algorithm/string/case_conv.hpp
     boost/algorithm/string/classification.hpp
     boost/algorithm/string/replace.hpp
     boost/algorithm/string/split.hpp
@@ -107,7 +103,7 @@ for BOOST_INCLUDE in $(git grep '^#include <boost/' -- "*.cpp" "*.h" | cut -f2 -
 done
 
 for EXPECTED_BOOST_INCLUDE in "${EXPECTED_BOOST_INCLUDES[@]}"; do
-    if ! git grep -q r"^#include <${EXPECTED_BOOST_INCLUDE}>" -- "*.cpp" "*.h"; then
+    if ! git grep -q "^#include <${EXPECTED_BOOST_INCLUDE}>" -- "*.cpp" "*.h"; then
         echo "Good job! The Boost dependency \"${EXPECTED_BOOST_INCLUDE}\" is no longer used."
         echo "Please remove it from EXPECTED_BOOST_INCLUDES in $0"
         echo "to make sure this dependency is not accidentally reintroduced."
@@ -116,7 +112,7 @@ for EXPECTED_BOOST_INCLUDE in "${EXPECTED_BOOST_INCLUDES[@]}"; do
     fi
 done
 
-QUOTE_SYNTAX_INCLUDES=$(git grep r'^#include "' -- "*.cpp" "*.h" | grep -Ev "${IGNORE_REGEXP}")
+QUOTE_SYNTAX_INCLUDES=$(git grep '^#include "' -- "*.cpp" "*.h" | grep -Ev "${IGNORE_REGEXP}")
 if [[ ${QUOTE_SYNTAX_INCLUDES} != "" ]]; then
     echo "Please use bracket syntax includes (\"#include <foo.h>\") instead of quote syntax includes:"
     echo "${QUOTE_SYNTAX_INCLUDES}"
