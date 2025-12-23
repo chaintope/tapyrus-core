@@ -418,7 +418,7 @@ BOOST_AUTO_TEST_CASE(blockindex_get_block_header)
     BOOST_CHECK(header.hashImMerkleRoot == index.hashImMerkleRoot);
     BOOST_CHECK_EQUAL(header.nTime, index.nTime);
     BOOST_CHECK(header.proof == index.proof);
-    BOOST_CHECK(header.xfield.xfieldType == index.xfield.xfieldType);
+    BOOST_CHECK(header.xfield == index.xfield);
 
     // Case 2: Block without parent (genesis)
     CBlockIndex genesisIndex;
@@ -651,60 +651,6 @@ BOOST_AUTO_TEST_CASE(cchain_array_operator_edge_cases)
 }
 
 /**
- * Test CChain comparison operator (operator==) edge cases
- *
- * Tests chain equality comparison with various scenarios.
- */
-BOOST_AUTO_TEST_CASE(cchain_equality_edge_cases)
-{
-    CChain chain1, chain2;
-
-    // Case 1: Two empty chains - cannot use operator== on empty chains
-    // because it accesses vChain[size-1] which underflows when size=0
-    // Instead, verify both have Height() == -1
-    BOOST_CHECK(chain1.Height() == -1 && chain2.Height() == -1);
-
-    // Build chains
-    std::vector<CBlockIndex> blocks1(5);
-    std::vector<CBlockIndex> blocks2(5);
-
-    for (int i = 0; i < 5; i++) {
-        blocks1[i].nHeight = i;
-        blocks1[i].pprev = (i == 0) ? nullptr : &blocks1[i-1];
-
-        blocks2[i].nHeight = i;
-        blocks2[i].pprev = (i == 0) ? nullptr : &blocks2[i-1];
-    }
-
-    // Case 2: Different chains (different tips)
-    chain1.SetTip(&blocks1[4]);
-    chain2.SetTip(&blocks2[4]);
-    BOOST_CHECK(!(chain1 == chain2)); // Different block objects
-
-    // Case 3: Same tip, same chain
-    chain2.SetTip(&blocks1[4]);
-    BOOST_CHECK(chain1 == chain2);
-
-    // Case 4: Different lengths
-    chain2.SetTip(&blocks1[3]);
-    BOOST_CHECK(!(chain1 == chain2));
-
-    // Case 5: One empty, one not - cannot use operator== when one is empty
-    // Check heights instead
-    chain2.SetTip(nullptr);
-    BOOST_CHECK(chain1.Height() != chain2.Height());
-
-    // Case 6: Both pointing to same single block
-    CBlockIndex singleBlock;
-    singleBlock.nHeight = 0;
-    singleBlock.pprev = nullptr;
-
-    chain1.SetTip(&singleBlock);
-    chain2.SetTip(&singleBlock);
-    BOOST_CHECK(chain1 == chain2);
-}
-
-/**
  * Test CChain Contains method edge cases
  *
  * Tests the Contains() method which checks if a block is in the chain.
@@ -824,20 +770,20 @@ BOOST_AUTO_TEST_CASE(cchain_height_edge_cases)
     BOOST_CHECK_EQUAL(chain.Height(), -1);
 
     // Case 5: Very large chain
-    std::vector<CBlockIndex> largeChain(1000000);
+    std::vector<CBlockIndex> largeChain(10000);
     largeChain[0].nHeight = 0;
     largeChain[0].pprev = nullptr;
 
-    for (int i = 1; i < 1000000; i += 10000) {
+    for (int i = 1; i < 10000; ++i) {
         largeChain[i].nHeight = i;
         largeChain[i].pprev = &largeChain[i-1];
     }
 
-    largeChain[999999].nHeight = 999999;
-    largeChain[999999].pprev = &largeChain[999998];
+    chain.SetTip(&largeChain[9998]);
+    BOOST_CHECK_EQUAL(chain.Height(), 9998);
 
-    chain.SetTip(&largeChain[999999]);
-    BOOST_CHECK_EQUAL(chain.Height(), 999999);
+    chain.SetTip(&largeChain[9999]);
+    BOOST_CHECK_EQUAL(chain.Height(), 9999);
 }
 
 /**

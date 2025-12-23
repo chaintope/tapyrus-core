@@ -24,6 +24,7 @@
 #include <coins.h>
 #include <primitives/block.h>
 #include <primitives/transaction.h>
+#include <file_io.h>
 
 #include <boost/test/unit_test.hpp>
 
@@ -127,8 +128,7 @@ BOOST_AUTO_TEST_CASE(block_hasher_edge_cases)
 
     // While hash collisions are possible, they should be rare
     if (hash256a != hash256b) {
-        // Just verify the hasher runs; collision probability is low but non-zero
-        BOOST_CHECK(hashValueA1 != hashValueB || hashValueA1 == hashValueB);
+        BOOST_CHECK_MESSAGE(hashValueA1 != hashValueB, strprintf("Collision occured. %s and %s produced %s", hash256a, hash256b, hashValueA1));
     }
 
     // Case 4: Max value hash
@@ -166,51 +166,6 @@ BOOST_AUTO_TEST_CASE(disconnect_result_edge_cases)
     BOOST_CHECK(result != DISCONNECT_OK);
     BOOST_CHECK(result != DISCONNECT_UNCLEAN);
     BOOST_CHECK(result == DISCONNECT_FAILED);
-}
-
-/**
- * Test block sequence ID assignment edge cases
- *
- * Block sequence IDs are used to order blocks. Test edge cases including:
- * - ID counter behavior
- * - Blocks loaded from disk (should have id = 0)
- * - Thread-safe access to the counter
- */
-BOOST_AUTO_TEST_CASE(block_sequence_id_edge_cases)
-{
-    // Note: We cannot directly access private members, but we can test
-    // the observable behavior through the public API
-
-    // Create a test block index
-    CBlockIndex testIndex;
-    testIndex.nHeight = 1;
-    testIndex.nSequenceId = 0; // Simulate disk-loaded block
-
-    // Verify initial state
-    BOOST_CHECK(testIndex.nSequenceId == 0);
-
-    // Test that blocks loaded from disk have id = 0 (per comment in chainstate.h)
-    CBlockIndex diskLoadedBlock;
-    diskLoadedBlock.nSequenceId = 0;
-    BOOST_CHECK(diskLoadedBlock.nSequenceId == 0);
-
-    // Test negative sequence IDs (used in PreciousBlock)
-    CBlockIndex negativeSeqBlock;
-    negativeSeqBlock.nSequenceId = -1;
-    BOOST_CHECK(negativeSeqBlock.nSequenceId < 0);
-
-    // Test boundary: minimum int32_t
-    CBlockIndex minSeqBlock;
-    minSeqBlock.nSequenceId = std::numeric_limits<int32_t>::min();
-    BOOST_CHECK(minSeqBlock.nSequenceId == std::numeric_limits<int32_t>::min());
-
-    // Verify decrement doesn't underflow past min (PreciousBlock has protection)
-    int32_t testSeq = std::numeric_limits<int32_t>::min();
-    if (testSeq > std::numeric_limits<int32_t>::min()) {
-        testSeq--;
-    }
-    // After the check, testSeq should still be min (protection worked)
-    BOOST_CHECK(testSeq == std::numeric_limits<int32_t>::min());
 }
 
 /**
@@ -597,6 +552,112 @@ BOOST_AUTO_TEST_CASE(block_status_flags_edge_cases)
     combinedBlock.nStatus &= ~BLOCK_HAVE_DATA; // Clear HAVE_DATA flag
     BOOST_CHECK(!(combinedBlock.nStatus & BLOCK_HAVE_DATA));
     BOOST_CHECK(combinedBlock.nStatus & BLOCK_HAVE_UNDO); // Others unchanged
+}
+
+/**
+ * Test block sequence ID assignment and persistence
+ *
+ * Tests that sequence IDs behave correctly:
+ * - Block headers start with sequence ID 0 (via AddToBlockIndex)
+ * - Full blocks get non-zero sequence IDs (via ReceivedBlockTransactions)
+ * - Sequence IDs persist correctly across disk operations
+ * - Different blocks get incrementing sequence IDs
+ */
+BOOST_AUTO_TEST_CASE(block_sequence_id_edge_cases)
+{
+    CScript scriptPubKey = CScript() << ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG;
+
+    // Case 1: Test header-only block (sequence ID should be 0)
+    CBlock headerOnlyBlock = getBlock();
+    CBlockHeader header = headerOnlyBlock.GetBlockHeader();
+
+    CBlockIndex* pindexHeader = nullptr;
+    {
+        LOCK(cs_main);
+        CValidationState state;
+        // AcceptBlockHeader adds just the header to mapBlockIndex with sequence ID 0
+        bool accepted = g_chainstate.AcceptBlockHeader(header, state, &pindexHeader);
+
+        if (accepted && pindexHeader) {
+            // Verify that header-only blocks have sequence ID 0
+            // This is set in AddToBlockIndex (chainstate.cpp:1203)
+            BOOST_CHECK(pindexHeader->nSequenceId == 0);
+        }
+    }
+
+    // Case 2: Create a fully processed block (non-zero sequence ID)
+    std::vector<CMutableTransaction> noTxns;
+    CBlock block1 = CreateAndProcessBlock(noTxns, scriptPubKey);
+
+    // Get the CBlockIndex for this block
+    uint256 hash1 = block1.GetHash();
+    CBlockIndex* pindex1 = nullptr;
+    {
+        LOCK(cs_main);
+        auto it = g_chainstate.mapBlockIndex.find(hash1);
+        BOOST_REQUIRE(it != g_chainstate.mapBlockIndex.end());
+        pindex1 = it->second;
+    }
+
+    // Check that the sequence ID is non-zero
+    int32_t originalSeqId1 = pindex1->nSequenceId;
+    BOOST_CHECK(originalSeqId1 > 0);
+
+    // Write the block to disk
+    CDiskBlockPos diskPos1 = SaveBlockToDisk(block1, block1.GetHeight(), nullptr);
+    BOOST_CHECK(diskPos1.IsNull() == false);
+
+    // Read the block back from disk
+    CBlock blockFromDisk1;
+    BOOST_REQUIRE(ReadBlockFromDisk(blockFromDisk1, diskPos1, block1.GetHeight()));
+
+    // Verify the block content is the same
+    BOOST_CHECK(blockFromDisk1.GetHash() == hash1);
+
+    // The CBlockIndex should maintain its sequence ID after disk I/O
+    BOOST_CHECK(pindex1->nSequenceId == originalSeqId1);
+
+    // Case 3: Create a second different block (should get higher sequence ID)
+    CBlock block2 = CreateAndProcessBlock(noTxns, scriptPubKey);
+    uint256 hash2 = block2.GetHash();
+    BOOST_CHECK(hash2 != hash1); // Ensure blocks are different
+
+    CBlockIndex* pindex2 = nullptr;
+    {
+        LOCK(cs_main);
+        auto it = g_chainstate.mapBlockIndex.find(hash2);
+        BOOST_REQUIRE(it != g_chainstate.mapBlockIndex.end());
+        pindex2 = it->second;
+    }
+
+    // Check that block2 has a higher sequence ID than block1
+    int32_t originalSeqId2 = pindex2->nSequenceId;
+    BOOST_CHECK(originalSeqId2 > originalSeqId1);
+
+    // Write block2 to disk
+    CDiskBlockPos diskPos2 = SaveBlockToDisk(block2, block2.GetHeight(), nullptr);
+    BOOST_CHECK(diskPos2.IsNull() == false);
+
+    // Read block2 back from disk
+    CBlock blockFromDisk2;
+    BOOST_REQUIRE(ReadBlockFromDisk(blockFromDisk2, diskPos2, block2.GetHeight()));
+
+    // Verify the block content is the same
+    BOOST_CHECK(blockFromDisk2.GetHash() == hash2);
+
+    // The CBlockIndex should maintain its sequence ID
+    BOOST_CHECK(pindex2->nSequenceId == originalSeqId2);
+
+    // Case 4: Verify sequence ID ordering relationships
+    BOOST_CHECK(pindex1->nSequenceId > 0);
+    BOOST_CHECK(pindex2->nSequenceId > 0);
+    BOOST_CHECK(pindex2->nSequenceId > pindex1->nSequenceId);
+
+    // If we had a header-only block, its sequence ID (0) would be less than processed blocks
+    if (pindexHeader) {
+        BOOST_CHECK(pindexHeader->nSequenceId == 0);
+        BOOST_CHECK(pindexHeader->nSequenceId < pindex1->nSequenceId);
+    }
 }
 
 BOOST_AUTO_TEST_SUITE_END()
