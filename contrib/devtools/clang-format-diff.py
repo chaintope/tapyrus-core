@@ -119,7 +119,7 @@ def main():
       if not re.match('^%s$' % args.iregex, filename, re.IGNORECASE):
         continue
 
-    match = re.search('^@@.*+(d+)(,(d+))?', line)
+    match = re.search(r'^@@.*\+(\d+)(?:,(\d+))?', line)
     if match:
       start_line = int(match.group(1))
       line_count = 1

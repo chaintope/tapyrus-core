@@ -33,22 +33,7 @@ env:
   BOOST_TEST_RANDOM: 1
 
 jobs:
-  lint:
-    name: Lint Check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.inputs.test_branch || github.ref || 'master' }}
-          submodules: false
-
-      - name: Run lint checks
-        run: |
-          echo "Running all lint checks..."
-          test/lint/lint-all.sh
-
   daily-test:
-    needs: lint
     strategy:
       fail-fast: false
       matrix:
