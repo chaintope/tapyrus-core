@@ -1,33 +1,24 @@
 diff --git a/qtbase/src/corelib/kernel/qcore_mac_p.h b/qtbase/src/corelib/kernel/qcore_mac_p.h
 --- a/qtbase/src/corelib/kernel/qcore_mac_p.h
 +++ b/qtbase/src/corelib/kernel/qcore_mac_p.h
-@@ -242,7 +242,7 @@ class Q_CORE_EXPORT QAppleLogActivity
- {
- public:
-     QAppleLogActivity() : activity(nullptr) {}
--    QAppleLogActivity(os_activity_t activity) : activity(activity) {}
-+    QAppleLogActivity(os_activity_t activity) : activity(reinterpret_cast<void*>(activity)) {}
-     ~QAppleLogActivity() { if (activity) leave(); }
- 
-     QAppleLogActivity(const QAppleLogActivity &) = delete;
-@@ -263,14 +263,12 @@
- 
-     QAppleLogActivity&& enter()
+@@ -302,15 +302,11 @@ public:
+
+     QAppleLogActivity &&enter()
      {
 -        if (activity)
 -            os_activity_scope_enter(static_cast<os_activity_t>(*this), &state);
          return std::move(*this);
      }
- 
-     void leave() {
+
+     void leave()
+     {
 -        if (activity)
 -            os_activity_scope_leave(&state);
-+        // Intentionally left empty - we don't support activity scoping
-+        // in cross compilation environment
      }
- 
+
      operator os_activity_t()
-@@ -286,6 +286,4 @@
+@@ -328,9 +324,7 @@ private:
+ };
 
  #define QT_APPLE_LOG_ACTIVITY_CREATE(condition, description, parent) []() { \
 -        if (!(condition)) \
@@ -35,7 +26,12 @@ diff --git a/qtbase/src/corelib/kernel/qcore_mac_p.h b/qtbase/src/corelib/kernel
 -        return QAppleLogActivity(os_activity_create(description, parent, OS_ACTIVITY_FLAG_DEFAULT)); \
 +        return QAppleLogActivity(); \
      }()
-@@ -303,3 +303,5 @@ #define QT_APPLE_LOG_ACTIVITY_WITH_PARENT(...) QT_OVERLOADED_MACRO(QT_APPLE_LOG_ACTIVITY_WITH_PARENT, __VA_ARGS__)
+
+ #define QT_APPLE_LOG_ACTIVITY_WITH_PARENT3(condition, description, parent) QT_APPLE_LOG_ACTIVITY_CREATE(condition, description, parent)
+@@ -340,7 +334,9 @@ private:
+
+ #define QT_OVERLOADED_MACRO(MACRO, ...) _QT_OVERLOADED_MACRO(MACRO, __VA_ARGS__)(__VA_ARGS__)
+ #define QT_APPLE_LOG_ACTIVITY_WITH_PARENT(...) QT_OVERLOADED_MACRO(QT_APPLE_LOG_ACTIVITY_WITH_PARENT, __VA_ARGS__)
 
 -QT_MAC_WEAK_IMPORT(_os_activity_current);
 +#ifndef OS_ACTIVITY_CURRENT
@@ -43,4 +39,4 @@ diff --git a/qtbase/src/corelib/kernel/qcore_mac_p.h b/qtbase/src/corelib/kernel
 +#endif
  #define QT_APPLE_LOG_ACTIVITY2(condition, description) QT_APPLE_LOG_ACTIVITY_CREATE(condition, description, OS_ACTIVITY_CURRENT)
 
-
+ #else // !defined(QT_BOOTSTRAPPED) && !__has_feature(objc_arc)
