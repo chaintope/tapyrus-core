@@ -1,26 +1,19 @@
 package=qt
 $(package)_version=6.10.1
 $(package)_download_path=https://download.qt.io/official_releases/qt/6.10/$($(package)_version)/submodules
+# Export version and download path for qttools and qttranslations
+qt_version:=$($(package)_version)
+qt_download_path:=$($(package)_download_path)
 $(package)_suffix=everywhere-src-$($(package)_version).tar.xz
 $(package)_file_name=qtbase-$($(package)_suffix)
 $(package)_sha256_hash=5a6226f7e23db51fdc3223121eba53f3f5447cf0cc4d6cb82a3a2df7a65d265d
 $(package)_linux_dependencies=freetype fontconfig libxcb libxkbcommon
 $(package)_qt_libs=corelib network widgets gui plugins testlib
-$(package)_linguist_tools = lrelease lupdate lconvert
 $(package)_patches = qtbase-moc-ignore-gcc-macro.patch
 $(package)_patches += no_warnings_for_symbols.patch
 $(package)_patches += rcc_hardcode_timestamp.patch
 $(package)_patches += guix_cross_lib_path.patch
 $(package)_patches += skip_xcode_version_check.patch
-
-$(package)_qttranslations_file_name=qttranslations-$($(package)_suffix)
-$(package)_qttranslations_sha256_hash=8e49a2df88a12c376a479ae7bd272a91cf57ebb4e7c0cf7341b3565df99d2314
-
-$(package)_qttools_file_name=qttools-$($(package)_suffix)
-$(package)_qttools_sha256_hash=8148408380ffea03101a26305c812b612ea30dbc07121e58707601522404d49b
-
-$(package)_extra_sources  = $($(package)_qttranslations_file_name)
-$(package)_extra_sources += $($(package)_qttools_file_name)
 
 define $(package)_set_vars
 # Qt 6 uses C++20 as minimum standard
@@ -141,23 +134,15 @@ $(package)_cmake_opts_mingw32 += -DCMAKE_CXX_COMPILER=$($(package)_cxx)
 endef
 
 define $(package)_fetch_cmds
-$(call fetch_file,$(package),$($(package)_download_path),$($(package)_download_file),$($(package)_file_name),$($(package)_sha256_hash)) && \
-$(call fetch_file,$(package),$($(package)_download_path),$($(package)_qttranslations_file_name),$($(package)_qttranslations_file_name),$($(package)_qttranslations_sha256_hash)) && \
-$(call fetch_file,$(package),$($(package)_download_path),$($(package)_qttools_file_name),$($(package)_qttools_file_name),$($(package)_qttools_sha256_hash))
+$(call fetch_file,$(package),$($(package)_download_path),$($(package)_download_file),$($(package)_file_name),$($(package)_sha256_hash))
 endef
 
 define $(package)_extract_cmds
   mkdir -p $($(package)_extract_dir) && \
   echo "$($(package)_sha256_hash)  $($(package)_source)" > $($(package)_extract_dir)/.$($(package)_file_name).hash && \
-  echo "$($(package)_qttranslations_sha256_hash)  $($(package)_source_dir)/$($(package)_qttranslations_file_name)" >> $($(package)_extract_dir)/.$($(package)_file_name).hash && \
-  echo "$($(package)_qttools_sha256_hash)  $($(package)_source_dir)/$($(package)_qttools_file_name)" >> $($(package)_extract_dir)/.$($(package)_file_name).hash && \
   $(build_SHA256SUM) -c $($(package)_extract_dir)/.$($(package)_file_name).hash && \
   mkdir qtbase && \
-  $(build_TAR) -x -f $($(package)_source) -C qtbase --strip-components=1 --no-same-owner && \
-  mkdir qttranslations && \
-  $(build_TAR) -x -f $($(package)_source_dir)/$($(package)_qttranslations_file_name) -C qttranslations --strip-components=1 --no-same-owner && \
-  mkdir qttools && \
-  $(build_TAR) -x -f $($(package)_source_dir)/$($(package)_qttools_file_name) -C qttools --strip-components=1 --no-same-owner
+  $(build_TAR) -x -f $($(package)_source) -C qtbase --strip-components=1 --no-same-owner
 endef
 
 # Qt 6 uses CMake. Apply only the patches that are still relevant.
