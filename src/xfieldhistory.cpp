@@ -36,6 +36,18 @@ void CXFieldHistoryMap::Add(TAPYRUS_XFIELDTYPES type, const XFieldChange& xField
     listofXfieldChanges.push_back(xFieldChange);
 }
 
+size_t CXFieldHistoryMap::GetListSize(TAPYRUS_XFIELDTYPES type) const {
+    std::shared_lock<std::shared_mutex> lock(xfieldHistoryMutex);
+    auto& listofXfieldChanges = (isTemp ? this->getXFieldHistoryMap() : xfieldHistory).find(type)->second;
+    return listofXfieldChanges.size();
+}
+
+XFieldChangeList CXFieldHistoryMap::GetListCopy(TAPYRUS_XFIELDTYPES type) const {
+    std::shared_lock<std::shared_mutex> lock(xfieldHistoryMutex);
+    auto& listofXfieldChanges = (isTemp ? this->getXFieldHistoryMap() : xfieldHistory).find(type)->second;
+    return listofXfieldChanges.xfieldChanges;
+}
+
 XFieldChange CXFieldHistoryMap::Get(TAPYRUS_XFIELDTYPES type, uint32_t height) {
     std::shared_lock<std::shared_mutex> lock(xfieldHistoryMutex);
     auto& listofXfieldChanges = (isTemp ? this->getXFieldHistoryMap() : xfieldHistory).find(type)->second;
@@ -66,7 +78,7 @@ XFieldChange CXFieldHistoryMap::Get(TAPYRUS_XFIELDTYPES type, uint256 blockHash)
 
 void CXFieldHistory::ToUniValue(TAPYRUS_XFIELDTYPES type, UniValue* xFieldChangeUnival) {
     *xFieldChangeUnival = UniValue(UniValue::VARR);
-    XFieldChangeListWrapper& xFieldChangeList = this->operator[](type);
+    XFieldChangeList xFieldChangeList = this->GetListCopy(type);
     for (const auto& xFieldChange : xFieldChangeList)
     {
         UniValue xFieldChangeObj(UniValue::VOBJ);

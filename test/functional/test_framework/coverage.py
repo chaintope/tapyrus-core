@@ -40,55 +40,9 @@ class AuthServiceProxyWrapper():
             return return_val
         return AuthServiceProxyWrapper(return_val, self.coverage_logfile)
 
-    def _check_reindex_or_importing(self):
-        """
-        Check if the node is reindexing, importing blocks, or actively syncing from peers.
-        If so, raise an error to prevent block generation attempts.
-        """
-        try:
-            # Check reindex/import status
-            info = getattr(self.auth_service_proxy_instance, "getblockchaininfo")()
-            if info.get('reindexing', False):
-                raise JSONRPCException({
-                    'code': -10,
-                    'message': 'Cannot generate blocks during reindex'
-                })
-            if info.get('importing', False):
-                raise JSONRPCException({
-                    'code': -10,
-                    'message': 'Cannot generate blocks during import'
-                })
-
-            # Check if actively downloading blocks from peers
-            try:
-                peers = getattr(self.auth_service_proxy_instance, "getpeerinfo")()
-                for peer in peers:
-                    inflight = peer.get('inflight', [])
-                    if inflight:  # Non-empty list means actively downloading blocks
-                        raise JSONRPCException({
-                            'code': -10,
-                            'message': f'Cannot generate blocks while syncing from peers (inflight blocks: {inflight})'
-                        })
-            except (KeyError, AttributeError):
-                # If getpeerinfo doesn't exist or doesn't have inflight field, continue
-                pass
-
-        except (KeyError, AttributeError):
-            # If getblockchaininfo doesn't exist or doesn't have these fields, continue
-            pass
 
     def generate(self, nblocks=0, signblockprivkey=""):
-        self._check_reindex_or_importing()
         return getattr(self.auth_service_proxy_instance, "generate")(nblocks, signblockprivkey)
-
-    def generatetoaddress(self, nblocks=0, address="", signblockprivkey=""):
-        self._check_reindex_or_importing()
-        return getattr(self.auth_service_proxy_instance, "generatetoaddress")(nblocks, address, signblockprivkey)
-
-    def getnewblock(self, *args, **kwargs):
-        self._check_reindex_or_importing()
-        return getattr(self.auth_service_proxy_instance, "getnewblock")(*args, **kwargs)
-
 
     def __call__(self, *args, **kwargs):
         """
