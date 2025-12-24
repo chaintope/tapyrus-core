@@ -21,6 +21,7 @@
 #include <rpc/protocol.h>
 #include <rpc/server.h>
 #include <shutdown.h>
+#include <tapyrusmodes.h>
 #include <txmempool.h>
 #include <util.h>
 #include <utilstrencodings.h>
@@ -114,6 +115,11 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
 
     int nGenerate = request.params[0].get_int();
 
+    // Skip IBD check in DEV mode
+    if (gArgs.GetChainMode() != TAPYRUS_OP_MODE::DEV && IsInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Tapyrus is in initial sync and waiting for blocks...");
+    }
+
     CTxDestination destination = DecodeDestination(request.params[1].get_str());
     if (!IsValidDestination(destination)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: Invalid address");
@@ -153,6 +159,11 @@ UniValue getnewblock(const JSONRPCRequest& request)
                 + HelpExampleCli("getnewblock", "")
                 + HelpExampleCli("getnewblock", "\"mt8EZJFAhhhxv57NFYfXPecDoAbWWqnRqX\" 10 \"1:03831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafc\"")
         );
+
+    // Skip IBD check in DEV mode
+    if (gArgs.GetChainMode() != TAPYRUS_OP_MODE::DEV && IsInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Tapyrus is in initial sync and waiting for blocks...");
+    }
 
     CTxDestination destination = DecodeDestination(request.params[0].get_str());
     if (!IsValidDestination(destination)) {
