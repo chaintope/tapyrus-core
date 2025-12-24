@@ -37,24 +37,39 @@ for CPP_FILE in $(filter_suffix cpp); do
     fi
 done
 
+EXPECTED_INCLUDE_CPP=()
+
 INCLUDED_CPP_FILES=$(git grep -E "^#include [<\"][^>\"]+\.cpp[>\"]" -- "*.cpp" "*.h")
-if [[ ${INCLUDED_CPP_FILES} != "" ]]; then
-    echo "The following files #include .cpp files:"
-    echo "${INCLUDED_CPP_FILES}"
-    echo
-    EXIT_CODE=1
+
+if [[ -n ${INCLUDED_CPP_FILES} ]]; then
+    
+    for CPP_INCLUDE in "${INCLUDED_CPP_FILES[@]}"; do
+        IS_EXPECTED_INCLUDE=0
+        for EXP_CPP_INCLUDE in "${EXPECTED_INCLUDE_CPP[@]}"; do
+            if [[ "${CPP_INCLUDE}" == "${EXP_CPP_INCLUDE}" ]]; then
+                IS_EXPECTED_INCLUDE=1
+                break
+            fi
+        done
+        
+        if [[ ${IS_EXPECTED_INCLUDE} == 0 ]]; then
+            EXIT_CODE=1
+            echo "Unexpected .cpp include found: ${CPP_INCLUDE}"
+        fi
+    done
+    
+    if [[ ${EXIT_CODE} == 1 ]]; then
+        echo "The following files unexpectedly #include .cpp files:"
+        echo "${INCLUDED_CPP_FILES}"
+        exit 1
+    fi
 fi
 
 EXPECTED_BOOST_INCLUDES=(
     boost/algorithm/string.hpp
-    boost/algorithm/string/case_conv.hpp
     boost/algorithm/string/classification.hpp
     boost/algorithm/string/replace.hpp
     boost/algorithm/string/split.hpp
-    boost/date_time/posix_time/posix_time.hpp
-    boost/filesystem.hpp
-    boost/filesystem/detail/utf8_codecvt_facet.hpp
-    boost/filesystem/fstream.hpp
     boost/interprocess/sync/file_lock.hpp
     boost/multi_index/hashed_index.hpp
     boost/multi_index/ordered_index.hpp
@@ -67,6 +82,7 @@ EXPECTED_BOOST_INCLUDES=(
     boost/signals2/connection.hpp
     boost/signals2/last_value.hpp
     boost/signals2/signal.hpp
+    boost/test/included/unit_test.hpp
     boost/test/unit_test.hpp
 )
 
@@ -104,4 +120,9 @@ if [[ ${QUOTE_SYNTAX_INCLUDES} != "" ]]; then
     EXIT_CODE=1
 fi
 
+if [ ${EXIT_CODE} -eq 0 ]; then
+  echo "✓ lint-includes: PASSED"
+else
+  echo "✗ lint-includes: FAILED"
+fi
 exit ${EXIT_CODE}

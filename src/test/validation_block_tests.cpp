@@ -12,7 +12,6 @@
 #include <random.h>
 #include <test/test_tapyrus.h>
 #include <validation.h>
-#include <validation.cpp>
 #include <validationinterface.h>
 #include <xfieldhistory.h>
 

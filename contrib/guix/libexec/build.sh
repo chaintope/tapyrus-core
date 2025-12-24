@@ -388,7 +388,7 @@ mkdir -p "$DISTSRC"
                 mkdir -p "${DISTNAME}-debug"
                 find "${DISTNAME}" -name "*.dbg" -type f | while read -r dbgfile; do
                     # Get relative path from DISTNAME
-                    relpath="${dbgfile#${DISTNAME}/}"
+                    relpath="${dbgfile#"${DISTNAME}"/}"
                     # Create directory structure in debug folder
                     mkdir -p "${DISTNAME}-debug/$(dirname "$relpath")"
                     # Move the debug file

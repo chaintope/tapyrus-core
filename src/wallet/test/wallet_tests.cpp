@@ -17,7 +17,6 @@
 #include <test/test_tapyrus.h>
 #include <validation.h>
 #include <blockprune.h>
-#include <rpc/blockchain.cpp>
 #include <wallet/coincontrol.h>
 #include <wallet/test/wallet_test_fixture.h>
 #include <utilstrencodings.h>

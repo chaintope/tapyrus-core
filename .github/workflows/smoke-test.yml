@@ -25,7 +25,23 @@ env:
   BOOST_TEST_RANDOM: 1
 
 jobs:
+  lint:
+    name: Lint Check
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          submodules: false
+
+      - name: Run lint checks
+        run: |
+          pip3 install codespell==2.4.1 lief==0.16.6 mypy==1.18.2 ruff==0.13.2 vulture==2.14
+          echo "Running all lint checks..."
+          test/lint/lint-all.sh
+
   smoke-test:
+    needs: lint
     strategy:
       fail-fast: false
       matrix:
