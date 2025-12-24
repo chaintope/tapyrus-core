@@ -146,10 +146,9 @@ public:
         xfieldval = std::get<T>(listofXfieldChanges.rbegin()->xfieldValue);
     }
 
-    virtual XFieldChangeListWrapper& operator[](TAPYRUS_XFIELDTYPES type) const {
-        std::shared_lock<std::shared_mutex> lock(xfieldHistoryMutex);
-        return xfieldHistory.find(type)->second;
-    }
+    // Thread-safe methods to access xfield history data
+    virtual size_t GetListSize(TAPYRUS_XFIELDTYPES type) const;
+    virtual XFieldChangeList GetListCopy(TAPYRUS_XFIELDTYPES type) const;
 
     virtual bool IsNew(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange) const;
     virtual void Add(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange);
@@ -218,10 +217,6 @@ public:
         return *xfieldHistoryTemp;
     }
 
-    XFieldChangeListWrapper& operator[](TAPYRUS_XFIELDTYPES type) const override {
-        return xfieldHistoryTemp->find(type)->second;
-    }
-
 };
 
 class IsXFieldLastInHistoryVisitor
@@ -234,7 +229,8 @@ public:
     bool operator()(const T &xField) const {
         assert(history);
         TAPYRUS_XFIELDTYPES X = GetXFieldTypeFrom(xField);
-        return std::get<T>((*history)[X].rbegin()->xfieldValue).operator==(T(xField));
+        XFieldChangeList list = history->GetListCopy(X);
+        return std::get<T>(list.back().xfieldValue).operator==(T(xField));
     }
 
 };

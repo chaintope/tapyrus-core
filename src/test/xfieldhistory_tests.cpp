@@ -53,12 +53,12 @@ BOOST_AUTO_TEST_CASE(xfieldhistory_size_and_temp)
 
     //verify that tempHistory is initialized correctly
     BOOST_CHECK_EQUAL(tempHistory.getXFieldHistoryMap().size(), 2);
-    BOOST_CHECK_EQUAL(tempHistory[TAPYRUS_XFIELDTYPES::AGGPUBKEY].size(), 4);
-    BOOST_CHECK_EQUAL(tempHistory[TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE].size(), 4);
+    BOOST_CHECK_EQUAL(tempHistory.GetListSize(TAPYRUS_XFIELDTYPES::AGGPUBKEY), 4);
+    BOOST_CHECK_EQUAL(tempHistory.GetListSize(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE), 4);
 
     BOOST_CHECK_EQUAL(tempHistory.getXFieldHistoryMap().size(), history1.getXFieldHistoryMap().size());
-    BOOST_CHECK_EQUAL(tempHistory[TAPYRUS_XFIELDTYPES::AGGPUBKEY].size(), history1[TAPYRUS_XFIELDTYPES::AGGPUBKEY].size());
-    BOOST_CHECK_EQUAL(tempHistory[TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE].size(), history1[TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE].size());
+    BOOST_CHECK_EQUAL(tempHistory.GetListSize(TAPYRUS_XFIELDTYPES::AGGPUBKEY), history1.GetListSize(TAPYRUS_XFIELDTYPES::AGGPUBKEY));
+    BOOST_CHECK_EQUAL(tempHistory.GetListSize(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE), history1.GetListSize(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE));
 
     //verify access to different elements in the map and xfield change list
     BOOST_CHECK_EQUAL(tempHistory.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 0).height, history1.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 0).height);
@@ -79,15 +79,15 @@ BOOST_AUTO_TEST_CASE(xfieldhistory_size_and_temp)
 
     //verify that the new history2 object uses the same map as history1
     BOOST_CHECK(&history1.getXFieldHistoryMap() == &history2.getXFieldHistoryMap());
-    BOOST_CHECK_EQUAL(history1[TAPYRUS_XFIELDTYPES::AGGPUBKEY].size(), history2[TAPYRUS_XFIELDTYPES::AGGPUBKEY].size());
-    BOOST_CHECK_EQUAL(history1[TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE].size(), history2[TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE].size());
+    BOOST_CHECK_EQUAL(history1.GetListSize(TAPYRUS_XFIELDTYPES::AGGPUBKEY), history2.GetListSize(TAPYRUS_XFIELDTYPES::AGGPUBKEY));
+    BOOST_CHECK_EQUAL(history1.GetListSize(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE), history2.GetListSize(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE));
 
     //verify that the tempHistory object is not affected by changes to history1(hisrory2)
     CTempXFieldHistory tempHistory1;
     history2.Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY, XFieldChange(XFieldAggPubKey(CPubKey(ParseHex(ValidPubKeyStrings[15]))), 80, uint256()));
     history2.Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY, XFieldChange(XFieldAggPubKey(CPubKey(ParseHex(ValidPubKeyStrings[0]))), 90, uint256()));
 
-    BOOST_CHECK(tempHistory1[TAPYRUS_XFIELDTYPES::AGGPUBKEY].size() != history2[TAPYRUS_XFIELDTYPES::AGGPUBKEY].size());
+    BOOST_CHECK(tempHistory1.GetListSize(TAPYRUS_XFIELDTYPES::AGGPUBKEY) != history2.GetListSize(TAPYRUS_XFIELDTYPES::AGGPUBKEY));
     BOOST_CHECK(tempHistory1.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 91).height != history1.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 91).height);
 
     //verify that changes in tempHistory1 object are not reflected in history1(hisrory2)
@@ -99,12 +99,12 @@ BOOST_AUTO_TEST_CASE(xfieldhistory_size_and_temp)
 
     //verify that tempHistory is not affected
     BOOST_CHECK_EQUAL(tempHistory.getXFieldHistoryMap().size(), 2);
-    BOOST_CHECK_EQUAL(tempHistory[TAPYRUS_XFIELDTYPES::AGGPUBKEY].size(), 4);
-    BOOST_CHECK_EQUAL(tempHistory[TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE].size(), 4);
+    BOOST_CHECK_EQUAL(tempHistory.GetListSize(TAPYRUS_XFIELDTYPES::AGGPUBKEY), 4);
+    BOOST_CHECK_EQUAL(tempHistory.GetListSize(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE), 4);
 
     //xfield change serialize
     CDataStream stream(SER_NETWORK, PROTOCOL_VERSION);
-    stream << history1[TAPYRUS_XFIELDTYPES::AGGPUBKEY][0];
+    stream << history1.GetListCopy(TAPYRUS_XFIELDTYPES::AGGPUBKEY).at(0);
 
     BOOST_CHECK_EQUAL(HexStr(stream.begin(), stream.end()), std::string("21025700236c2890233592fcef262f4520d22af9160e3d9705855140eb2aa06c35d300000000" + HexStr(FederationParams().GenesisBlock().GetHash())));
 
@@ -119,7 +119,7 @@ BOOST_AUTO_TEST_CASE(xfieldhistory_size_and_temp)
     BOOST_CHECK_EQUAL(HexStr(stream.begin(), stream.end()), std::string("0821025700236c2890233592fcef262f4520d22af9160e3d9705855140eb2aa06c35d300000000" + HexStr(FederationParams().GenesisBlock().GetHash()) + "2103831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafc1400000000000000000000000000000000000000000000000000000000000000000000002102bf2027c8455800c7626542219e6208b5fe787483689f1391d6d443ec85673ecf2800000000000000000000000000000000000000000000000000000000000000000000002103b44f1cfcf46aba8bc98e2fd39f137cc43d98ab7792e4848b09c06198b042ca8b3c00000000000000000000000000000000000000000000000000000000000000000000002102b9a609d6bec0fdc9ba690986013cf7bbd13c54ffc25e6cf30916b4732c4a952a4600000000000000000000000000000000000000000000000000000000000000000000002102e78cafe033b22bda5d7d1c8e82ee932930bf12e08489bc19769cbec765568be95000000000000000000000000000000000000000000000000000000000000000000000002102473757a955a23f75379820f3071abf5b3343b78eb54e52373d06259ffa6c550b5000000000000000000000000000000000000000000000000000000000000000000000002103af80b90d25145da28c583359beb47b21796b2fe1a23c1511e443e7a64dfdb27d5a0000000000000000000000000000000000000000000000000000000000000000000000"));
 
     stream.clear();
-    stream << history1[TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE][0];
+    stream << history1.GetListCopy(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE).at(0);
     BOOST_CHECK_EQUAL(HexStr(stream.begin(), stream.end()),
     std::string("40420f0000000000" + HexStr(FederationParams().GenesisBlock().GetHash())));
 
