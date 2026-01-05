@@ -12,22 +12,11 @@
 XFieldHistoryMapType CXFieldHistoryMap::xfieldHistory;
 std::shared_mutex CXFieldHistoryMap::xfieldHistoryMutex;
 
-// Internal helper without lock - caller must hold lock
-bool CXFieldHistoryMap::IsNew(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange) const
-{
-    std::shared_lock<std::shared_mutex> lock(xfieldHistoryMutex);
-    auto& listofXfieldChanges = (isTemp ? this->getXFieldHistoryMap() : xfieldHistory).find(type)->second;
-
-    for(const auto& xfieldItem : listofXfieldChanges)
-        if( xfieldItem == xFieldChange )
-            return false;
-    return true;
-}
 
 void CXFieldHistoryMap::Add(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange) {
     std::unique_lock<std::shared_mutex> lock(xfieldHistoryMutex);
 
-    // Check if new without calling IsNew to avoid nested locking
+    // Check if new
     auto& listofXfieldChanges = (isTemp ? this->getXFieldHistoryMap() : xfieldHistory).find(type)->second;
     for(const auto& xfieldItem : listofXfieldChanges)
         if( xfieldItem == xFieldChange )

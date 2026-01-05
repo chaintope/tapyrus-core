@@ -150,7 +150,6 @@ public:
     virtual size_t GetListSize(TAPYRUS_XFIELDTYPES type) const;
     virtual XFieldChangeList GetListCopy(TAPYRUS_XFIELDTYPES type) const;
 
-    virtual bool IsNew(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange) const;
     virtual void Add(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange);
     //void Remove(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange);
 
