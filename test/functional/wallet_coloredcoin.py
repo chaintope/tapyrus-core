@@ -30,6 +30,8 @@ from test_framework.util import (
     assert_array_result,
     assert_equal,
     connect_nodes_bi,
+    connect_nodes,
+    disconnect_nodes,
     hex_str_to_bytes,
     bytes_to_hex_str,
     assert_raises_rpc_error
@@ -654,18 +656,27 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         pubkeyhash = hash160(hex_str_to_bytes(self.nodes[0].getaddressinfo(tpc_utxo['address'])['pubkey']))
         scr1 =  CScript([OP_DUP, OP_HASH160, pubkeyhash, OP_EQUALVERIFY, OP_CHECKSIG ])
 
+        # Disconnect nodes 0 and 1 to prevent transaction propagation before generate()
+        disconnect_nodes(self.nodes[0], 1)
+        disconnect_nodes(self.nodes[1], 0)
+
         res1 = self.nodes[0].issuetoken(1, 100, bytes_to_hex_str(scr1))
         token_unspent = len(self.nodes[0].listunspent(6,9999999,[],False,{"only_token": True}))
         assert_equal(token_unspent, 6) #unconfirmed token is not counted because of min confirmations
 
         # send a new token to node 0 to create unsafe token
         self.nodes[1].generate(2, self.signblockprivkey_wif)
+
         self.sync_all([self.nodes[0:3]])
         tpc_utxo = findTPC(self.nodes[1].listunspent())
         pubkeyhash = hash160(hex_str_to_bytes(self.nodes[1].getaddressinfo(tpc_utxo['address'])['pubkey']))
         scr2 =  CScript([OP_DUP, OP_HASH160, pubkeyhash, OP_EQUALVERIFY, OP_CHECKSIG ])
 
         res2 = self.nodes[1].issuetoken(1, 100, bytes_to_hex_str(scr2))
+
+        # Reconnect nodes 0 and 1 after issuing token on node 1
+        connect_nodes(self.nodes[0], 1)
+        connect_nodes(self.nodes[1], 0)
         node0_caddress = self.nodes[0].getnewaddress("", res2['color'])
         self.nodes[1].sendtoaddress(node0_caddress, 50)
         self.sync_all([self.nodes[0:3]])
