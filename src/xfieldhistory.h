@@ -7,7 +7,9 @@
 
 #include <policy/policy.h>
 #include <federationparams.h>
-/* 
+#include <sync.h>
+#include <shared_mutex>
+/*
  * struct to store xfieldValue, block hash and height for every xfield update in the blockchain.
  */
 
@@ -130,7 +132,7 @@ class CXFieldHistoryMap{
 
 protected:
     static XFieldHistoryMapType xfieldHistory;
-    static std::mutex xfieldHistoryMutex; // Mutex for thread-safe access
+    static std::shared_mutex xfieldHistoryMutex; 
     inline CXFieldHistoryMap(bool temp):isTemp(temp) { }
 
 public:
@@ -139,20 +141,20 @@ public:
 
     template <typename T>
     void GetLatest(TAPYRUS_XFIELDTYPES type, T & xfieldval) const {
+        std::shared_lock<std::shared_mutex> lock(xfieldHistoryMutex);
         auto& listofXfieldChanges = (isTemp ? this->getXFieldHistoryMap() : xfieldHistory).find(type)->second;
         xfieldval = std::get<T>(listofXfieldChanges.rbegin()->xfieldValue);
     }
 
-    virtual XFieldChangeListWrapper& operator[](TAPYRUS_XFIELDTYPES type) const {
-        return xfieldHistory.find(type)->second;
-    }
+    // Thread-safe methods to access xfield history data
+    virtual size_t GetListSize(TAPYRUS_XFIELDTYPES type) const;
+    virtual XFieldChangeList GetListCopy(TAPYRUS_XFIELDTYPES type) const;
 
-    virtual bool IsNew(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange) const;
     virtual void Add(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange);
     //void Remove(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange);
 
-    virtual const XFieldChange& Get(TAPYRUS_XFIELDTYPES type, uint32_t height);
-    virtual const XFieldChange& Get(TAPYRUS_XFIELDTYPES type, uint256 blockHash);
+    virtual XFieldChange Get(TAPYRUS_XFIELDTYPES type, uint32_t height);
+    virtual XFieldChange Get(TAPYRUS_XFIELDTYPES type, uint256 blockHash);
     int32_t GetReorgHeight();
 };
 
@@ -214,10 +216,6 @@ public:
         return *xfieldHistoryTemp;
     }
 
-    XFieldChangeListWrapper& operator[](TAPYRUS_XFIELDTYPES type) const override {
-        return xfieldHistoryTemp->find(type)->second;
-    }
-
 };
 
 class IsXFieldLastInHistoryVisitor
@@ -230,7 +228,8 @@ public:
     bool operator()(const T &xField) const {
         assert(history);
         TAPYRUS_XFIELDTYPES X = GetXFieldTypeFrom(xField);
-        return std::get<T>((*history)[X].rbegin()->xfieldValue).operator==(T(xField));
+        XFieldChangeList list = history->GetListCopy(X);
+        return std::get<T>(list.back().xfieldValue).operator==(T(xField));
     }
 
 };
