@@ -203,6 +203,7 @@ public:
     //constructor to initialize the temp map
     inline explicit CTempXFieldHistory():CXFieldHistoryMap(true){
         xfieldHistoryTemp = new XFieldHistoryMapType;
+        std::shared_lock<std::shared_mutex> lock(xfieldHistoryMutex);
         for(const auto& item : xfieldHistory)
             xfieldHistoryTemp->insert(item);
     }

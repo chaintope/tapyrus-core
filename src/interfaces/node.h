@@ -137,6 +137,12 @@ public:
     //! Is initial block download.
     virtual bool isInitialBlockDownload() = 0;
 
+    //! Get reindex.
+    virtual bool getReindex() = 0;
+
+    //! Get importing.
+    virtual bool getImporting() = 0;
+
     //! Set network active.
     virtual void setNetworkActive(bool active) = 0;
 
