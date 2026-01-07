@@ -204,9 +204,10 @@ class MempoolLimitTest(BitcoinTestFramework):
         high_feerate = mempoolmin_feerate * 50
         self.fill_mempool(node, utxos, high_feerate, nSequence=0)
 
-        # Create package with low fees (just 2x mempoolminfee)
-        # This is too low to replace the high-fee transactions already in mempool
-        package_feerate = mempoolmin_feerate * 2
+        # Create package with low fees (just 6x mempoolminfee)
+        # This is high enough to pass mempool min fee after eviction (~4.25x)
+        # but too low to replace the high-fee transactions already in mempool (50x)
+        package_feerate = mempoolmin_feerate * 6
         utxos = [utxo for utxo in node.listunspent()if utxo['amount'] >  mempoolmin_feerate]
         (package_hex, package_txids) = self.create_package(node, utxos, None, package_feerate, size=10)
 
@@ -236,9 +237,9 @@ class MempoolLimitTest(BitcoinTestFramework):
         res = self.submitpackage(node, package_hex)
 
         self.log.info("Verify package rejection due to insufficient fees")
-        # Since package has low fees (2x) and mempool is filled with high fees (50x),
+        # Since package has low fees (6x) and mempool is filled with high fees (50x),
         # package transactions should be rejected because:
-        # 1. They can't evict higher-fee transactions (insufficient fee - 25:1 ratio)
+        # 1. They can't evict higher-fee transactions (insufficient fee - 8.3:1 ratio)
         # 2. There's not enough space without eviction (mempool full)
 
         # Count transactions explicitly rejected with "mempool full"
