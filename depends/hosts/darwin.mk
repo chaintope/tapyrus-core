@@ -95,9 +95,9 @@ darwin_LDFLAGS=-Wl,-platform_version,macos,$(OSX_MIN_VERSION),$(OSX_SDK_VERSION)
 endif
 
 ifneq ($(build_os),darwin)
-darwin_CFLAGS += -mlinker-version=$(LLD_VERSION)
-darwin_CXXFLAGS += -mlinker-version=$(LLD_VERSION)
-darwin_LDFLAGS += -Wl,-no_adhoc_codesign -fuse-ld=lld
+darwin_CFLAGS += -mlinker-version=$(LLD_VERSION) --rtlib=compiler-rt
+darwin_CXXFLAGS += -mlinker-version=$(LLD_VERSION) --rtlib=compiler-rt
+darwin_LDFLAGS += -Wl,-no_adhoc_codesign -fuse-ld=lld --rtlib=compiler-rt
 endif
 
 darwin_release_CFLAGS=-O2
