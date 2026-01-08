@@ -7,15 +7,22 @@ $(package)_sha256_hash=$(qt_details_qtbase_sha256_hash)
 ifneq ($(host),$(build))
 $(package)_dependencies := native_$(package)
 endif
+<<<<<<< HEAD
 $(package)_linux_dependencies := freetype fontconfig libxkbcommon
+=======
+$(package)_linux_dependencies := freetype fontconfig libxcb libxkbcommon
+>>>>>>> 770380af99 (Refactor Qt6 build system: Adopt Bitcoin Core's superbuild architecture)
 $(package)_patches_path := $(qt_details_patches_path)
 $(package)_patches := qtbase-moc-ignore-gcc-macro.patch
 $(package)_patches += no_warnings_for_symbols.patch
 $(package)_patches += rcc_hardcode_timestamp.patch
 $(package)_patches += guix_cross_lib_path.patch
 $(package)_patches += skip_xcode_version_check.patch
+<<<<<<< HEAD
 $(package)_patches += qttools_skip_dependencies.patch
 $(package)_patches += fix_qnetconmonitor_cross_compile.patch
+=======
+>>>>>>> 770380af99 (Refactor Qt6 build system: Adopt Bitcoin Core's superbuild architecture)
 
 $(package)_qttranslations_file_name=$(qt_details_qttranslations_file_name)
 $(package)_qttranslations_sha256_hash=$(qt_details_qttranslations_sha256_hash)
@@ -116,18 +123,26 @@ $(package)_config_opts += -no-feature-qmake
 $(package)_config_opts += -no-feature-windeployqt
 
 ifeq ($(host),$(build))
+<<<<<<< HEAD
 # Qt Tools module.
+=======
+# Qt Tools module - only for native builds
+>>>>>>> 770380af99 (Refactor Qt6 build system: Adopt Bitcoin Core's superbuild architecture)
 $(package)_config_opts += -feature-linguist
 $(package)_config_opts += -no-feature-assistant
 $(package)_config_opts += -no-feature-clang
 $(package)_config_opts += -no-feature-designer
 $(package)_config_opts += -no-feature-pixeltool
+<<<<<<< HEAD
 $(package)_config_opts += -no-feature-qdoc
+=======
+>>>>>>> 770380af99 (Refactor Qt6 build system: Adopt Bitcoin Core's superbuild architecture)
 $(package)_config_opts += -no-feature-qtattributionsscanner
 $(package)_config_opts += -no-feature-qtdiag
 $(package)_config_opts += -no-feature-qtplugininfo
 endif
 
+<<<<<<< HEAD
 $(package)_config_opts_darwin := -no-dbus
 $(package)_config_opts_darwin += -no-feature-printsupport
 $(package)_config_opts_darwin += -no-freetype
@@ -143,6 +158,24 @@ $(package)_config_opts_linux += -system-freetype
 $(package)_config_opts_mingw32 := -no-dbus
 $(package)_config_opts_mingw32 += -no-freetype
 $(package)_config_opts_mingw32 += -no-pkg-config
+=======
+$(package)_config_opts_darwin = -no-dbus
+$(package)_config_opts_darwin += -no-freetype
+$(package)_config_opts_darwin += -no-fontconfig
+
+$(package)_config_opts_linux = -no-xcb
+$(package)_config_opts_linux += -no-xcb-xlib
+$(package)_config_opts_linux += -no-feature-xlib
+$(package)_config_opts_linux += -no-opengl
+$(package)_config_opts_linux += -system-freetype
+$(package)_config_opts_linux += -fontconfig
+$(package)_config_opts_linux += -no-feature-vulkan
+$(package)_config_opts_linux += -dbus-runtime
+
+$(package)_config_opts_mingw32 = -no-opengl
+$(package)_config_opts_mingw32 += -no-dbus
+$(package)_config_opts_mingw32 += -no-freetype
+>>>>>>> 770380af99 (Refactor Qt6 build system: Adopt Bitcoin Core's superbuild architecture)
 
 # CMake build options
 $(package)_config_env := CC="$$($(package)_cc)"
@@ -247,23 +280,28 @@ define $(package)_preprocess_cmds
   patch -p1 -i $($(package)_patch_dir)/no_warnings_for_symbols.patch && \
   patch -p1 -i $($(package)_patch_dir)/rcc_hardcode_timestamp.patch && \
   patch -p1 -i $($(package)_patch_dir)/guix_cross_lib_path.patch && \
+<<<<<<< HEAD
   patch -p1 -i $($(package)_patch_dir)/skip_xcode_version_check.patch && \
   patch -p1 -i $($(package)_patch_dir)/fix_qnetconmonitor_cross_compile.patch
+=======
+  patch -p1 -i $($(package)_patch_dir)/skip_xcode_version_check.patch
+>>>>>>> 770380af99 (Refactor Qt6 build system: Adopt Bitcoin Core's superbuild architecture)
 endef
 ifeq ($(host),$(build))
   $(package)_preprocess_cmds += && patch -p1 -i $($(package)_patch_dir)/qttools_skip_dependencies.patch
 endif
 
 define $(package)_config_cmds
-  export QT_MAC_SDK_NO_VERSION_CHECK=1 && \
-  export PKG_CONFIG_LIBDIR=$(host_prefix)/lib/pkgconfig && \
-  export PKG_CONFIG_PATH=$(host_prefix)/share/pkgconfig && \
   cd qtbase && \
   ./configure -top-level $($(package)_config_opts) -- $($(package)_cmake_opts)
 endef
 
 define $(package)_build_cmds
+<<<<<<< HEAD
   cmake --build . --parallel
+=======
+  cmake --build . -- $$(filter -j%,$$(MAKEFLAGS))
+>>>>>>> 770380af99 (Refactor Qt6 build system: Adopt Bitcoin Core's superbuild architecture)
 endef
 
 define $(package)_stage_cmds
