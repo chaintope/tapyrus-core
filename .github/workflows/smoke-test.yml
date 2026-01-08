@@ -123,13 +123,9 @@ jobs:
         if: matrix.config.platform == 'windows'
         run: |
           sudo apt-get update
-          sudo apt-get install -y g++-mingw-w64-x86-64 mingw-w64-x86-64-dev binutils-mingw-w64-x86-64 wine64 ccache build-essential cmake pkgconf python3-zmq nsis
+          sudo apt-get install -y g++-mingw-w64-x86-64 mingw-w64-x86-64-dev binutils-mingw-w64-x86-64 libz-mingw-w64-dev wine64 ccache build-essential cmake pkgconf python3-zmq nsis
           sudo update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++-posix
           sudo update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix
-          # Build dependencies from depends system
-          cd depends
-          make HOST=x86_64-w64-mingw32 -j$(nproc)
-          cd ..
 
       - name: Enable core dumps
         if: matrix.config.platform != 'windows'
@@ -165,7 +161,7 @@ jobs:
           # Common CMake configuration options for smoke test (minimal build)
           CMAKE_OPTS=(
             "-DENABLE_ZMQ=ON"
-            "-DENABLE_GUI=OFF"
+            "-DBUILD_GUI=OFF"
             "-DENABLE_BENCH=ON"
             "-DWITH_BDB=ON"
             "-DENABLE_TRACING=OFF"
@@ -174,10 +170,17 @@ jobs:
 
           # Platform-specific configuration
           if [ "${{ matrix.config.platform }}" == "windows" ]; then
-            # Windows cross-compilation
+            # Windows cross-compilation using system packages
             echo "Configuring for Windows cross-compilation..."
-            CMAKE_OPTS+=("-DCMAKE_TOOLCHAIN_FILE=$BASE_ROOT_DIR/depends/x86_64-w64-mingw32/toolchain.cmake")
-            CMAKE_OPTS+=("-DCMAKE_PREFIX_PATH=$BASE_ROOT_DIR/depends/x86_64-w64-mingw32")
+            CMAKE_OPTS+=("-DCMAKE_SYSTEM_NAME=Windows")
+            CMAKE_OPTS+=("-DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc")
+            CMAKE_OPTS+=("-DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++")
+            CMAKE_OPTS+=("-DCMAKE_RC_COMPILER=x86_64-w64-mingw32-windres")
+            CMAKE_OPTS+=("-DCMAKE_FIND_ROOT_PATH=/usr/x86_64-w64-mingw32")
+            CMAKE_OPTS+=("-DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER")
+            CMAKE_OPTS+=("-DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY")
+            CMAKE_OPTS+=("-DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY")
+            CMAKE_OPTS+=("-DBOOST_ROOT=/usr")
             CMAKE_OPTS+=("-DWITH_BDB=ON")
             CMAKE_OPTS+=("-DENABLE_TESTS=OFF")  # Skip tests for cross-compilation
             CMAKE_OPTS+=("-DBUILD_FOR_WINDOWS=ON")

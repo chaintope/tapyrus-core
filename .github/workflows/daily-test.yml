@@ -561,9 +561,9 @@ jobs:
 
           # GUI option
           if [ "${{ matrix.config.enable_gui }}" == "true" ]; then
-            CMAKE_OPTS+=("-DENABLE_GUI=ON")
+            CMAKE_OPTS+=("-DBUILD_GUI=ON")
           else
-            CMAKE_OPTS+=("-DENABLE_GUI=OFF")
+            CMAKE_OPTS+=("-DBUILD_GUI=OFF")
           fi
 
           # USDT option

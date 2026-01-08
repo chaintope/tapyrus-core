@@ -5,9 +5,9 @@ the SOURCE_DATE_EPOCH variable set, e.g., for Guix builds.
 
 Updated for Qt 6.10.1 - lastModified now takes QTimeZone::UTC parameter
 
---- old/qtbase/src/tools/rcc/rcc.cpp
-+++ new/qtbase/src/tools/rcc/rcc.cpp
-@@ -203,14 +203,7 @@ void RCCFileInfo::writeDataInfo(RCCResourceLibrary &lib)
+--- a/qtbase/src/tools/rcc/rcc.cpp
++++ b/qtbase/src/tools/rcc/rcc.cpp
+@@ -201,14 +201,7 @@ void RCCFileInfo::writeDataInfo(RCCResourceLibrary &lib)
 
      if (lib.formatVersion() >= 2) {
          // last modified time stamp
