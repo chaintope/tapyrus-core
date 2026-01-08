@@ -242,38 +242,21 @@ define $(package)_extract_cmds
 endef
 endif
 
-<<<<<<< HEAD
-=======
-# Qt 6 uses CMake. Apply only the patches that are still relevant.
->>>>>>> 16d4b26153 ( upgrade Qt to 6.10 Summary of All Qt 6.10.1 Modernization Changes:)
 define $(package)_preprocess_cmds
   patch -p1 -i $($(package)_patch_dir)/qtbase-moc-ignore-gcc-macro.patch && \
   patch -p1 -i $($(package)_patch_dir)/no_warnings_for_symbols.patch && \
   patch -p1 -i $($(package)_patch_dir)/rcc_hardcode_timestamp.patch && \
   patch -p1 -i $($(package)_patch_dir)/guix_cross_lib_path.patch && \
-<<<<<<< HEAD
   patch -p1 -i $($(package)_patch_dir)/skip_xcode_version_check.patch && \
   patch -p1 -i $($(package)_patch_dir)/fix_qnetconmonitor_cross_compile.patch
-=======
-  patch -p1 -i $($(package)_patch_dir)/windows_lto.patch && \
-  patch -p1 -i $($(package)_patch_dir)/fix_activity_logging.patch && \
-  patch -p1 -i $($(package)_patch_dir)/fix_os_log_deprecated.patch
->>>>>>> 16d4b26153 ( upgrade Qt to 6.10 Summary of All Qt 6.10.1 Modernization Changes:)
 endef
 ifeq ($(host),$(build))
   $(package)_preprocess_cmds += && patch -p1 -i $($(package)_patch_dir)/qttools_skip_dependencies.patch
 endif
 
 define $(package)_config_cmds
-  export QT_MAC_SDK_NO_VERSION_CHECK=1 && \
-  export PKG_CONFIG_LIBDIR=$(host_prefix)/lib/pkgconfig && \
-  export PKG_CONFIG_PATH=$(host_prefix)/share/pkgconfig && \
   cd qtbase && \
-<<<<<<< HEAD
   ./configure -top-level $($(package)_config_opts) -- $($(package)_cmake_opts)
-=======
-  ./configure -top-level $($(package)_cmake_opts)
->>>>>>> 16d4b26153 ( upgrade Qt to 6.10 Summary of All Qt 6.10.1 Modernization Changes:)
 endef
 
 define $(package)_build_cmds
@@ -281,19 +264,9 @@ define $(package)_build_cmds
 endef
 
 define $(package)_stage_cmds
-<<<<<<< HEAD
   cmake --install . --prefix $($(package)_staging_prefix_dir) --strip
 endef
 
 define $(package)_postprocess_cmds
   rm -rf doc/
-=======
-  $(MAKE) INSTALL_ROOT=$($(package)_staging_dir) install
-endef
-
-define $(package)_postprocess_cmds
-  rm -rf doc/ native/lib/ && \
-  rm -f lib/lib*.la && \
-  rm -f lib/cmake/Qt6/qt.toolchain.cmake
->>>>>>> 16d4b26153 ( upgrade Qt to 6.10 Summary of All Qt 6.10.1 Modernization Changes:)
 endef
