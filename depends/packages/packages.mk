@@ -1,6 +1,7 @@
 packages:=boost libevent zeromq
 
 qt_packages = qrencode
+qt_native_packages = native_qt
 
 qt_linux_packages:=qt expat libxcb xcb_proto libXau xproto freetype fontconfig libxcb libxkbcommon
 

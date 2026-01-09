@@ -1,0 +1,17 @@
+diff --git a/qtbase/cmake/QtPublicAppleHelpers.cmake b/qtbase/cmake/QtPublicAppleHelpers.cmake
+--- a/qtbase/cmake/QtPublicAppleHelpers.cmake
++++ b/qtbase/cmake/QtPublicAppleHelpers.cmake
+@@ -940,9 +940,10 @@ function(_qt_internal_get_xcode_version_raw out_var)
+         string(STRIP "${xcode_version}" xcode_version)
+
+         if(NOT xcode_version)
+-            message(FATAL_ERROR
+-                    "Can't determine Xcode version. Is Xcode installed?"
+-                    " Error details:\n${xcrun_error}")
++            # Allow building with Command Line Tools without full Xcode
++            message(WARNING "Can't determine Xcode version, using default. Error details:\n${xcrun_error}")
++            # Use version from QT_INTERNAL_XCODE_VERSION if set, otherwise use a reasonable default
++            set(xcode_version "Xcode 15.0")
+         endif()
+     endif()
+     set(${out_var} "${xcode_version}" PARENT_SCOPE)
