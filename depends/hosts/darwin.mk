@@ -95,9 +95,12 @@ darwin_LDFLAGS=-Wl,-platform_version,macos,$(OSX_MIN_VERSION),$(OSX_SDK_VERSION)
 endif
 
 ifneq ($(build_os),darwin)
-darwin_CFLAGS += -mlinker-version=$(LLD_VERSION) --rtlib=compiler-rt
-darwin_CXXFLAGS += -mlinker-version=$(LLD_VERSION) --rtlib=compiler-rt
-darwin_LDFLAGS += -Wl,-no_adhoc_codesign -fuse-ld=lld --rtlib=compiler-rt
+# Get clang resource directory for compiler-rt
+clang_resource_dir:=$(shell $(clang_prog) --print-resource-dir)
+darwin_CFLAGS += -mlinker-version=$(LLD_VERSION)
+darwin_CXXFLAGS += -mlinker-version=$(LLD_VERSION)
+darwin_LDFLAGS += -Wl,-no_adhoc_codesign -fuse-ld=lld
+darwin_LDFLAGS += -L$(clang_resource_dir)/lib/darwin -lclang_rt.osx
 endif
 
 darwin_release_CFLAGS=-O2
