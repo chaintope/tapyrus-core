@@ -127,9 +127,9 @@ jobs:
           sudo update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++-posix
           sudo update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix
 
-          # Build only BerkeleyDB from depends for Windows wallet support
+          # Build minimal depends for Windows wallet support (BDB + required deps)
           cd depends
-          make HOST=x86_64-w64-mingw32 NO_QT=1 NO_WALLET=0 -j$(nproc) bdb
+          make HOST=x86_64-w64-mingw32 NO_QT=1 NO_USDT=1 -j$(nproc)
           echo "BDB_PREFIX=${{ github.workspace }}/depends/x86_64-w64-mingw32" >> $GITHUB_ENV
 
       - name: Enable core dumps
@@ -175,23 +175,12 @@ jobs:
 
           # Platform-specific configuration
           if [ "${{ matrix.config.platform }}" == "windows" ]; then
-            # Windows cross-compilation using system packages + depends BDB
-            echo "Configuring for Windows cross-compilation..."
-            BDB_PREFIX="${{ github.workspace }}/depends/x86_64-w64-mingw32"
-            CMAKE_OPTS+=("-DCMAKE_SYSTEM_NAME=Windows")
-            CMAKE_OPTS+=("-DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc")
-            CMAKE_OPTS+=("-DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++")
-            CMAKE_OPTS+=("-DCMAKE_RC_COMPILER=x86_64-w64-mingw32-windres")
-            CMAKE_OPTS+=("-DCMAKE_FIND_ROOT_PATH=/usr/x86_64-w64-mingw32;${BDB_PREFIX}")
-            CMAKE_OPTS+=("-DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER")
-            CMAKE_OPTS+=("-DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY")
-            CMAKE_OPTS+=("-DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY")
-            CMAKE_OPTS+=("-DBOOST_ROOT=/usr")
-            CMAKE_OPTS+=("-DBerkeleyDB_ROOT=${BDB_PREFIX}")
-            CMAKE_OPTS+=("-DBerkeleyDB_INCLUDE_DIR=${BDB_PREFIX}/include")
-            CMAKE_OPTS+=("-DBerkeleyDB_LIBRARY=${BDB_PREFIX}/lib/libdb_cxx-4.8.a")
+            # Windows cross-compilation using depends toolchain
+            echo "Configuring for Windows cross-compilation with depends toolchain..."
+            DEPENDS_PREFIX="${{ github.workspace }}/depends/x86_64-w64-mingw32"
+            CMAKE_OPTS+=("-DCMAKE_TOOLCHAIN_FILE=${DEPENDS_PREFIX}/toolchain.cmake")
+            CMAKE_OPTS+=("-DCMAKE_PREFIX_PATH=${DEPENDS_PREFIX}")
             CMAKE_OPTS+=("-DENABLE_TESTS=OFF")  # Skip tests for cross-compilation
-            CMAKE_OPTS+=("-DBUILD_FOR_WINDOWS=ON")
           else
             # Native builds (Linux/macOS)
             CMAKE_OPTS+=("-DENABLE_TESTS=ON")
