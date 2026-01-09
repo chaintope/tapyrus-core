@@ -30,7 +30,6 @@ set(CLIENT_VERSION_REVISION 1)
 set(CLIENT_VERSION_BUILD 0)
 set(CLIENT_VERSION_RC 0)
 set(CLIENT_VERSION_IS_RELEASE "false")
-set(COPYRIGHT_YEAR "2025")
 
 # During the enabling of the CXX and CXXOBJ languages, we modify
 # CMake's compiler/linker invocation strings by appending the content
@@ -83,7 +82,7 @@ endif()
 # Copyright
 set(COPYRIGHT_YEAR 2019)
 set(COPYRIGHT_HOLDERS_FINAL "The Bitcoin Core developers")
-set(COPYRIGHT_YEAR_CHAINTOPE 2025)
+set(COPYRIGHT_YEAR_CHAINTOPE 2026)
 set(COPYRIGHT_HOLDER_CHAINTOPE "Chaintope Inc.")
 set(CLIENT_BUGREPORT "https://github.com/chaintope/tapyrus-core/issues")
 

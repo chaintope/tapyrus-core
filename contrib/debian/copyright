@@ -5,6 +5,10 @@ Upstream-Contact: Satoshi Nakamoto <satoshin@gmx.com>
 Source: https://github.com/bitcoin/bitcoin
 
 Files: *
+Copyright: 2018-2026, Chaintope Inc.
+License: Expat
+
+Files: *
 Copyright: 2009-2018, Bitcoin Core Developers
 License: Expat
 Comment: The Bitcoin Core Developers encompasses the current developers listed on bitcoin.org,
