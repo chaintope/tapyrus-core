@@ -92,7 +92,6 @@ $(package)_config_opts += -no-feature-libresolv
 $(package)_config_opts += -no-feature-networkdiskcache
 $(package)_config_opts += -no-feature-networkproxy
 $(package)_config_opts += -no-feature-networklistmanager
-$(package)_config_opts += -no-feature-networkinformation
 $(package)_config_opts += -no-feature-printsupport
 $(package)_config_opts += -no-feature-sessionmanager
 $(package)_config_opts += -no-feature-socks5
@@ -130,6 +129,7 @@ endif
 $(package)_config_opts_darwin = -no-dbus
 $(package)_config_opts_darwin += -no-freetype
 $(package)_config_opts_darwin += -no-fontconfig
+$(package)_config_opts_darwin += -no-feature-networkinformation
 
 $(package)_config_opts_linux = -no-xcb
 $(package)_config_opts_linux += -no-xcb-xlib
