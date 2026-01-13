@@ -187,8 +187,8 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ env.DEPENDS_DIR }}
-          key: depends-v4-${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ hashFiles('depends/packages/*') }}
-          restore-keys: depends-v4-${{ matrix.config.platform }}-${{ matrix.config.arch }}-
+          key: depends-v5-qt6-${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ hashFiles('depends/packages/*') }}
+          restore-keys: depends-v5-qt6-${{ matrix.config.platform }}-${{ matrix.config.arch }}-
 
       - name: Restore Benchmark History cache
         if: (matrix.config.platform == 'linux' && matrix.config.arch == 'x86_64') || (matrix.config.platform == 'macos' && matrix.config.arch == 'arm64')
@@ -435,11 +435,11 @@ jobs:
           echo "---------------- ----------------- --------------- ---------------- "
 
       - name: Save Depends cache
-        if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/qt6-upgrade'
         uses: actions/cache/save@v4
         with:
           path: ${{ env.DEPENDS_DIR }}
-          key: depends-v4-${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ hashFiles('depends/packages/*') }}
+          key: depends-v5-qt6-${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ hashFiles('depends/packages/*') }}
 
       - name: Save Benchmark History cache
         if: always() && ((matrix.config.platform == 'linux' && matrix.config.arch == 'x86_64') || (matrix.config.platform == 'macos' && matrix.config.arch == 'arm64'))
