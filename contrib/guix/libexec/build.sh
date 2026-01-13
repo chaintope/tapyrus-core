@@ -71,11 +71,20 @@ unset CPLUS_INCLUDE_PATH
 unset OBJC_INCLUDE_PATH
 unset OBJCPLUS_INCLUDE_PATH
 
-export LIBRARY_PATH="${NATIVE_GCC}/lib:${NATIVE_GCC_STATIC}/lib"
-export C_INCLUDE_PATH="${NATIVE_GCC}/include"
-export CPLUS_INCLUDE_PATH="${NATIVE_GCC}/include/c++:${NATIVE_GCC}/include"
-export OBJC_INCLUDE_PATH="${NATIVE_GCC}/include"
-export OBJCPLUS_INCLUDE_PATH="${NATIVE_GCC}/include/c++:${NATIVE_GCC}/include"
+# Set native toolchain with include paths baked into the compiler command.
+# This avoids using C_INCLUDE_PATH/CPLUS_INCLUDE_PATH environment variables
+# which would pollute the cross-compiler (especially clang for darwin).
+build_CC="${NATIVE_GCC}/bin/gcc -isystem ${NATIVE_GCC}/include"
+build_CXX="${NATIVE_GCC}/bin/g++ -isystem ${NATIVE_GCC}/include/c++ -isystem ${NATIVE_GCC}/include"
+
+case "$HOST" in
+    *darwin*) export LIBRARY_PATH="${NATIVE_GCC}/lib" ;;
+    *mingw*) export LIBRARY_PATH="${NATIVE_GCC}/lib" ;;
+    *)
+        NATIVE_GCC_STATIC="$(store_path gcc-toolchain static)"
+        export LIBRARY_PATH="${NATIVE_GCC}/lib:${NATIVE_GCC_STATIC}/lib"
+        ;;
+esac
 
 # Set environment variables to point the CROSS toolchain to the right
 # includes/libs for $HOST
@@ -184,8 +193,17 @@ make -C depends install_cmake --jobs="$JOBS" HOST="$HOST" \
                                    ${V:+V=1} \
                                    ${SOURCES_PATH+SOURCES_PATH="$SOURCES_PATH"} \
                                    ${BASE_CACHE+BASE_CACHE="$BASE_CACHE"} \
-                                   ${SDK_PATH+SDK_PATH="$SDK_PATH"}
+                                   ${SDK_PATH+SDK_PATH="$SDK_PATH"} \
+                                   ${build_CC+build_CC="$build_CC"} \
+                                   ${build_CXX+build_CXX="$build_CXX"}
 
+case "$HOST" in
+    *darwin*)
+        # Unset LIBRARY_PATH now that depends (including native_qt) are built.
+        # It would interfere with clang linking for the main build.
+        unset LIBRARY_PATH
+        ;;
+esac
 
 ###########################
 # Source Tarball Building #
@@ -300,9 +318,10 @@ mkdir -p "$DISTSRC"
     # Configure with CMake using depends toolchain
     # shellcheck disable=SC2086
     cmake -S . -B build \
+        -GNinja \
         -DCMAKE_TOOLCHAIN_FILE="${BASEPREFIX}/${HOST}/toolchain.cmake" \
         -DCMAKE_MODULE_PATH="${PWD}/cmake" \
-        -DCMAKE_MAKE_PROGRAM="$(command -v make)" \
+        -DCMAKE_MAKE_PROGRAM="$(command -v ninja)" \
         -DCMAKE_PREFIX_PATH="${BASEPREFIX}/${HOST}" \
         ${CMAKE_FLAGS} \
         ${HOST_CFLAGS:+"-DCMAKE_C_FLAGS=${HOST_CFLAGS}"} \

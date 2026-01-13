@@ -84,12 +84,14 @@ darwin_CXX=$(clangxx_prog)
 
 darwin_CFLAGS=-pipe -std=$(C_STANDARD) -mmacos-version-min=$(OSX_MIN_VERSION) --target=$(host) \
               -isysroot $(OSX_SDK) \
-              -iwithsysroot/usr/include -iframeworkwithsysroot/System/Library/Frameworks
+              -isystem $(OSX_SDK)/usr/include \
+              -iframeworkwithsysroot/System/Library/Frameworks
 
 darwin_CXXFLAGS=-pipe -std=$(CXX_STANDARD) -mmacos-version-min=$(OSX_MIN_VERSION) --target=$(host) \
                 -isysroot $(OSX_SDK) --stdlib=libc++ \
-                -iwithsysroot/usr/include/c++/v1 \
-                -iwithsysroot/usr/include -iframeworkwithsysroot/System/Library/Frameworks
+                -isystem $(OSX_SDK)/usr/include/c++/v1 \
+                -isystem $(OSX_SDK)/usr/include \
+                -iframeworkwithsysroot/System/Library/Frameworks
 
 darwin_LDFLAGS=-Wl,-platform_version,macos,$(OSX_MIN_VERSION),$(OSX_SDK_VERSION)
 endif
@@ -97,7 +99,7 @@ endif
 ifneq ($(build_os),darwin)
 darwin_CFLAGS += -mlinker-version=$(LLD_VERSION)
 darwin_CXXFLAGS += -mlinker-version=$(LLD_VERSION)
-darwin_LDFLAGS += -Wl,-no_adhoc_codesign -fuse-ld=lld
+darwin_LDFLAGS += -Wl,-no_adhoc_codesign -fuse-ld=lld --rtlib=compiler-rt
 endif
 
 darwin_release_CFLAGS=-O2

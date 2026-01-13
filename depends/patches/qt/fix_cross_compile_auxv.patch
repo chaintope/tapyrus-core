@@ -1,0 +1,13 @@
+diff --git a/qtbase/src/corelib/kernel/qcoreapplication.cpp b/qtbase/src/corelib/kernel/qcoreapplication.cpp
+--- a/qtbase/src/corelib/kernel/qcoreapplication.cpp
++++ b/qtbase/src/corelib/kernel/qcoreapplication.cpp
+@@ -88,7 +88,8 @@
+ #  include "qcore_unix_p.h"
+ #endif
+
+-#if __has_include(<sys/auxv.h>)     // Linux and FreeBSD
++// auxv.h is Linux/FreeBSD only, exclude for Darwin cross-compilation
++#if !defined(Q_OS_DARWIN) && __has_include(<sys/auxv.h>)
+ #  include <sys/auxv.h>
+ #endif
+

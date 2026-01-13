@@ -1,0 +1,18 @@
+diff --git a/qtbase/src/corelib/global/qsystemdetection.h b/qtbase/src/corelib/global/qsystemdetection.h
+--- a/qtbase/src/corelib/global/qsystemdetection.h
++++ b/qtbase/src/corelib/global/qsystemdetection.h
+@@ -175,6 +175,14 @@
+ #endif
+
+ #ifdef Q_OS_DARWIN
++// When cross-compiling for Darwin, the compiler might not define the
++// __ENVIRONMENT_OS_VERSION_MIN_REQUIRED__ macro that AvailabilityInternal.h
++// uses to set __MAC_OS_X_VERSION_MIN_REQUIRED. Define it if missing.
++// 140000 = macOS 14.0
++#  ifndef __ENVIRONMENT_OS_VERSION_MIN_REQUIRED__
++#    define __ENVIRONMENT_OS_VERSION_MIN_REQUIRED__ 140000
++#  endif
++
+ #  include <Availability.h>
+ #  include <AvailabilityMacros.h>
+

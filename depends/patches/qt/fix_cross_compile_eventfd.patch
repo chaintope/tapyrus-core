@@ -1,0 +1,13 @@
+diff --git a/qtbase/src/corelib/kernel/qeventdispatcher_unix.cpp b/qtbase/src/corelib/kernel/qeventdispatcher_unix.cpp
+--- a/qtbase/src/corelib/kernel/qeventdispatcher_unix.cpp
++++ b/qtbase/src/corelib/kernel/qeventdispatcher_unix.cpp
+@@ -20,7 +20,8 @@
+ #include <stdio.h>
+ #include <stdlib.h>
+
+-#if __has_include(<sys/eventfd.h>)
++// eventfd is Linux-only, exclude for Darwin cross-compilation
++#if !defined(Q_OS_DARWIN) && __has_include(<sys/eventfd.h>)
+ #  include <sys/eventfd.h>
+ static constexpr bool UsingEventfd = true;
+ #else

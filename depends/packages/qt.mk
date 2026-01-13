@@ -16,6 +16,12 @@ $(package)_patches += guix_cross_lib_path.patch
 $(package)_patches += skip_xcode_version_check.patch
 $(package)_patches += qttools_skip_dependencies.patch
 $(package)_patches += fix_qnetconmonitor_cross_compile.patch
+$(package)_patches += fix_activity_logging.patch
+$(package)_patches += fix_os_log_deprecated.patch
+$(package)_patches += fix_cross_compile_auxv.patch
+$(package)_patches += fix_macos_version_min.patch
+$(package)_patches += fix_cross_compile_eventfd.patch
+$(package)_patches += fix_simd_math_cross_compile.patch
 
 $(package)_qttranslations_file_name=$(qt_details_qttranslations_file_name)
 $(package)_qttranslations_sha256_hash=$(qt_details_qttranslations_sha256_hash)
@@ -143,6 +149,11 @@ $(package)_config_opts_linux += -system-freetype
 $(package)_config_opts_mingw32 := -no-dbus
 $(package)_config_opts_mingw32 += -no-freetype
 $(package)_config_opts_mingw32 += -no-pkg-config
+# Disable hardening features that trigger GCC 11 ICE in SEH unwinding
+# on large functions (e.g. pcre2_compile.c in i386_pe_seh_unwind_emit)
+$(package)_config_opts_mingw32 += -no-feature-intelcet
+$(package)_config_opts_mingw32 += -no-feature-stack_clash_protection
+$(package)_config_opts_mingw32 += -no-feature-stack_protector
 
 # CMake build options
 $(package)_config_env := CC="$$($(package)_cc)"
@@ -253,6 +264,17 @@ endef
 ifeq ($(host),$(build))
   $(package)_preprocess_cmds += && patch -p1 -i $($(package)_patch_dir)/qttools_skip_dependencies.patch
 endif
+# Apply SDK compatibility patches only for darwin cross-compilation (extracted SDK)
+ifeq ($(host_os),darwin)
+ifneq ($(host),$(build))
+  $(package)_preprocess_cmds += && patch -p1 -i $($(package)_patch_dir)/fix_activity_logging.patch
+  $(package)_preprocess_cmds += && patch -p1 -i $($(package)_patch_dir)/fix_os_log_deprecated.patch
+  $(package)_preprocess_cmds += && patch -p1 -i $($(package)_patch_dir)/fix_cross_compile_auxv.patch
+  $(package)_preprocess_cmds += && patch -p1 -i $($(package)_patch_dir)/fix_macos_version_min.patch
+  $(package)_preprocess_cmds += && patch -p1 -i $($(package)_patch_dir)/fix_cross_compile_eventfd.patch
+  $(package)_preprocess_cmds += && patch -p1 -i $($(package)_patch_dir)/fix_simd_math_cross_compile.patch
+endif
+endif
 
 define $(package)_config_cmds
   cd qtbase && \
@@ -260,7 +282,7 @@ define $(package)_config_cmds
 endef
 
 define $(package)_build_cmds
-  cmake --build . --parallel
+  cmake --build . --parallel 2
 endef
 
 define $(package)_stage_cmds

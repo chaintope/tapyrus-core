@@ -205,7 +205,7 @@ jobs:
           ACTIONS_RUNNER_DEBUG: true
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc g++ ccache build-essential cmake pkgconf python3-zmq bsdmainutils systemtap-sdt-dev bpfcc-tools bpftrace python3-venv valgrind libboost-test-dev
+          sudo apt-get install -y gcc g++ ccache build-essential cmake ninja-build pkgconf python3-zmq bsdmainutils systemtap-sdt-dev bpfcc-tools bpftrace python3-venv valgrind libboost-test-dev
 
           # Install cross-compilation toolchain for macOS targets
           if [ "${{ matrix.config.target_platform }}" == "macos" ]; then
@@ -633,7 +633,7 @@ jobs:
           echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
           echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
           echo "---------------- Start cmake configure ---------------- "
-          cmake -S "$BASE_ROOT_DIR" -B "$BASE_BUILD_DIR" "${CMAKE_OPTS[@]}"
+          cmake -S "$BASE_ROOT_DIR" -B "$BASE_BUILD_DIR" -GNinja "${CMAKE_OPTS[@]}"
 
           echo "----------------   Start build   ---------------- "
 

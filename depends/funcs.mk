@@ -182,6 +182,12 @@ endif
 ifneq ($($(1)_ldflags),)
 $(1)_autoconf += LDFLAGS="$$($(1)_ldflags)"
 endif
+ifneq ($($(1)_cc),)
+$(1)_autoconf += CPP="$$($(1)_cc) -E $$($(1)_cppflags) $$($(1)_cflags)"
+endif
+ifneq ($($(1)_cxx),)
+$(1)_autoconf += CXXCPP="$$($(1)_cxx) -E $$($(1)_cppflags) $$($(1)_cxxflags)"
+endif
 
 # We hardcode the library install path to "lib" to match the PKG_CONFIG_PATH
 # setting in depends/toolchain.cmake.in, which also hardcodes "lib".

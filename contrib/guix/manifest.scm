@@ -4,6 +4,7 @@
              (gnu packages bison)
              ((gnu packages certs) #:select (nss-certs))
              ((gnu packages cmake) #:select (cmake-minimal))
+             ((gnu packages ninja) #:select (ninja))
              (gnu packages commencement)
              (gnu packages compression)
              (gnu packages cross-base)
@@ -183,6 +184,7 @@ and abstract ELF, PE and MachO formats.")
                (base32
                 "1j47vwq4caxfv0xw68kw5yh00qcpbd56d7rq6c483ma3y7s96yyz"))))
     (build-system cmake-build-system)
+    (arguments '(#:tests? #f))          ;tests fail after 2025 (expired certs)
     (inputs (list openssl))
     (home-page "https://github.com/mtrojnar/osslsigncode")
     (synopsis "Authenticode signing and timestamping tool")
@@ -493,6 +495,7 @@ inspecting signatures in Mach-O binaries.")
         pkg-config
         bison
         cmake-minimal
+        ninja
         ;; Native GCC 11 toolchain
         gcc-toolchain-11
         (list gcc-toolchain-11 "static")
