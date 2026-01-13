@@ -72,12 +72,13 @@ $(package)_config_opts += -no-feature-macdeployqt
 $(package)_config_opts += -no-feature-windeployqt
 $(package)_config_opts += -no-feature-qmake
 
-# Qt Tools module
+# Qt Tools module.
 $(package)_config_opts += -feature-linguist
 $(package)_config_opts += -no-feature-assistant
 $(package)_config_opts += -no-feature-clang
 $(package)_config_opts += -no-feature-designer
 $(package)_config_opts += -no-feature-pixeltool
+$(package)_config_opts += -no-feature-qdoc
 $(package)_config_opts += -no-feature-qtattributionsscanner
 $(package)_config_opts += -no-feature-qtdiag
 $(package)_config_opts += -no-feature-qtplugininfo

@@ -1,0 +1,49 @@
+QtTools: Skip unnecessary dependencies for Qt 6.10.1
+
+1. Skip LLVM/libclang detection.
+2. Build only required linguist tools (lconvert, lrelease, lupdate).
+3. Skip qdbusviewer GUI tool.
+
+diff --git a/qttools/configure.cmake b/qttools/configure.cmake
+--- a/qttools/configure.cmake
++++ b/qttools/configure.cmake
+@@ -6,7 +6,7 @@ include(${CMAKE_CURRENT_LIST_DIR}/src/qdoc/cmake/QDocConfiguration.cmake)
+
+ #### Tests
+
+-qt_find_package(WrapLibClang 8 PROVIDED_TARGETS WrapLibClang::WrapLibClang)
++#qt_find_package(WrapLibClang 8 PROVIDED_TARGETS WrapLibClang::WrapLibClang)
+
+ if(TARGET WrapLibClang::WrapLibClang)
+     set(TEST_libclang "ON" CACHE BOOL "Required libclang version found." FORCE)
+diff --git a/qttools/src/linguist/CMakeLists.txt b/qttools/src/linguist/CMakeLists.txt
+--- a/qttools/src/linguist/CMakeLists.txt
++++ b/qttools/src/linguist/CMakeLists.txt
+@@ -8,17 +8,9 @@ qt_exclude_tool_directories_from_default_target(
+ if(NOT QT_FEATURE_linguist)
+     return()
+ endif()
+ add_subdirectory(lconvert)
+-add_subdirectory(lprodump)
+ add_subdirectory(lrelease)
+-add_subdirectory(lrelease-pro)
+ add_subdirectory(lupdate)
+-add_subdirectory(lupdate-pro)
+-if(QT_FEATURE_process AND QT_FEATURE_pushbutton AND QT_FEATURE_toolbutton
+-    AND QT_FEATURE_png AND QT_FEATURE_mdiarea AND QT_FEATURE_syntaxhighlighter
+-    AND TARGET Qt::Widgets AND TARGET Qt::Quick)
+-    add_subdirectory(linguist)
+-endif()
+
+ # Create a fake module that would emulate the Qt5::LinguistTools CMake Config package
+ qt_internal_add_module(Linguist
+diff --git a/qttools/src/qdbus/CMakeLists.txt b/qttools/src/qdbus/CMakeLists.txt
+--- a/qttools/src/qdbus/CMakeLists.txt
++++ b/qttools/src/qdbus/CMakeLists.txt
+@@ -7,6 +7,3 @@ endif()
+ if(QT_FEATURE_dom)
+     add_subdirectory(qdbus)
+ endif()
+-if(QT_FEATURE_dialogbuttonbox AND QT_FEATURE_inputdialog AND QT_FEATURE_menu AND QT_FEATURE_messagebox AND TARGET Qt::Widgets)
+-    add_subdirectory(qdbusviewer)
+-endif()
