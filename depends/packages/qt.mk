@@ -129,7 +129,6 @@ endif
 $(package)_config_opts_darwin = -no-dbus
 $(package)_config_opts_darwin += -no-freetype
 $(package)_config_opts_darwin += -no-fontconfig
-$(package)_config_opts_darwin += -no-feature-networkinformation
 
 $(package)_config_opts_linux = -no-xcb
 $(package)_config_opts_linux += -no-xcb-xlib
