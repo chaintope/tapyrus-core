@@ -7,22 +7,15 @@ $(package)_sha256_hash=$(qt_details_qtbase_sha256_hash)
 ifneq ($(host),$(build))
 $(package)_dependencies := native_$(package)
 endif
-<<<<<<< HEAD
 $(package)_linux_dependencies := freetype fontconfig libxkbcommon
-=======
-$(package)_linux_dependencies := freetype fontconfig libxcb libxkbcommon
->>>>>>> 770380af99 (Refactor Qt6 build system: Adopt Bitcoin Core's superbuild architecture)
 $(package)_patches_path := $(qt_details_patches_path)
 $(package)_patches := qtbase-moc-ignore-gcc-macro.patch
 $(package)_patches += no_warnings_for_symbols.patch
 $(package)_patches += rcc_hardcode_timestamp.patch
 $(package)_patches += guix_cross_lib_path.patch
 $(package)_patches += skip_xcode_version_check.patch
-<<<<<<< HEAD
 $(package)_patches += qttools_skip_dependencies.patch
 $(package)_patches += fix_qnetconmonitor_cross_compile.patch
-=======
->>>>>>> 770380af99 (Refactor Qt6 build system: Adopt Bitcoin Core's superbuild architecture)
 
 $(package)_qttranslations_file_name=$(qt_details_qttranslations_file_name)
 $(package)_qttranslations_sha256_hash=$(qt_details_qttranslations_sha256_hash)
@@ -101,7 +94,6 @@ $(package)_config_opts += -no-feature-libresolv
 $(package)_config_opts += -no-feature-networkdiskcache
 $(package)_config_opts += -no-feature-networkproxy
 $(package)_config_opts += -no-feature-networklistmanager
-$(package)_config_opts += -no-feature-networkinformation
 $(package)_config_opts += -no-feature-printsupport
 $(package)_config_opts += -no-feature-sessionmanager
 $(package)_config_opts += -no-feature-socks5
