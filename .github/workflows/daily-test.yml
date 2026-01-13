@@ -363,17 +363,11 @@ jobs:
             REQUIRED_FILES+=("$DEPENDS_PREFIX/include/boost/config.hpp")
             REQUIRED_FILES+=("$DEPENDS_PREFIX/include/zmq.h")
 
-            # GUI dependencies
+            # GUI dependencies - Qt6 is built statically on all platforms in depends
             if [ "${{ matrix.config.enable_gui }}" == "true" ]; then
-              if [ "${{ matrix.config.platform }}" == "linux" ]; then
-                REQUIRED_FILES+=("$DEPENDS_PREFIX/lib/libQt6Core.so")
-                REQUIRED_FILES+=("$DEPENDS_PREFIX/lib/libQt6Widgets.so")
-                REQUIRED_FILES+=("$DEPENDS_PREFIX/lib/libQt6Gui.so")
-              else
-                REQUIRED_FILES+=("$DEPENDS_PREFIX/lib/libQt6Core.framework")
-                REQUIRED_FILES+=("$DEPENDS_PREFIX/lib/libQt6Widgets.framework")
-                REQUIRED_FILES+=("$DEPENDS_PREFIX/lib/libQt6Gui.framework")
-              fi
+              # Check for CMake config files instead of libraries (more reliable for static builds)
+              REQUIRED_FILES+=("$DEPENDS_PREFIX/lib/cmake/Qt6/Qt6Config.cmake")
+              REQUIRED_FILES+=("$DEPENDS_PREFIX/lib/cmake/Qt6Core/Qt6CoreConfig.cmake")
             fi
 
             # Wallet dependencies (Berkeley DB)
@@ -541,9 +535,17 @@ jobs:
           )
 
           # Set Qt6_DIR explicitly if GUI is enabled to help CMake find Qt6
-          if [ "${{ matrix.config.enable_gui }}" == "true" ] && [ -d "$DEPENDS_PREFIX/lib/cmake/Qt6" ]; then
-            export Qt6_DIR="$DEPENDS_PREFIX/lib/cmake/Qt6"
-            echo "Set Qt6_DIR=$Qt6_DIR"
+          if [ "${{ matrix.config.enable_gui }}" == "true" ]; then
+            QT6_CMAKE_DIR="$DEPENDS_PREFIX/lib/cmake/Qt6"
+            if [ -d "$QT6_CMAKE_DIR" ]; then
+              export Qt6_DIR="$QT6_CMAKE_DIR"
+              CMAKE_OPTS+=("-DQt6_DIR=$QT6_CMAKE_DIR")
+              echo "Set Qt6_DIR=$QT6_CMAKE_DIR"
+            else
+              echo "Warning: Qt6 CMake directory not found at $QT6_CMAKE_DIR"
+              echo "Contents of $DEPENDS_PREFIX/lib/cmake:"
+              ls -la "$DEPENDS_PREFIX/lib/cmake/" 2>/dev/null || echo "cmake directory not found"
+            fi
           fi
 
           # Set test and benchmark options based on build type
