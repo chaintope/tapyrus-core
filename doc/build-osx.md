@@ -25,7 +25,7 @@ GUI Dependencies
 
 To build tapyrus-qt GUI install the following along with the above:
 
-    brew install qt5 qrencode
+    brew install qt6 qrencode
 
 If you want to build the disk image with `cmake --build build --target deploy`, you will need the following additional dependencies:
 

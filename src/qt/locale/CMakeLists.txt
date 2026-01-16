@@ -4,12 +4,12 @@ project(tapyrus_qt-locale)
 
 if(CMAKE_HOST_APPLE)
 	include(BrewHelper)
-	find_brew_prefix(QT5_PREFIX qt5)
+	find_brew_prefix(QT6_PREFIX qt6)
 endif()
 
-find_package(Qt5LinguistTools HINTS "${QT5_PREFIX}")
+find_package(Qt6LinguistTools HINTS "${QT6_PREFIX}")
 
-qt5_add_translation(BITCOIN_QM_FILES
+qt_add_translation(BITCOIN_QM_FILES
 	bitcoin_af.ts
 	bitcoin_af_ZA.ts
 	bitcoin_ar.ts

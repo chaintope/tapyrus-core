@@ -299,7 +299,7 @@ jobs:
             CPU_COUNT=$(sysctl -n hw.ncpu)
           elif [ "${{ matrix.config.target_platform }}" == "macos" ]; then
             # Cross-compilation: Linux -> macOS
-            DARWIN_VERSION="20"  # Darwin 20 for macOS 11.0
+            DARWIN_VERSION="23"  # macOS 14.0
             if [ "${{ matrix.config.target_arch }}" == "arm64" ]; then
               export HOST="arm64-apple-darwin"
             else
@@ -327,7 +327,7 @@ jobs:
           if [ "${{ matrix.config.target_platform }}" == "macos" ]; then
             export SDK_PATH="${{ github.workspace }}/depends/SDKs"
             export OSX_SDK="$SDK_PATH/Xcode-15.0-15A240d-extracted-SDK-with-libcxx-headers"
-            export OSX_MIN_VERSION="11.0"
+            export OSX_MIN_VERSION="14.0"
             export OSX_SDK_VERSION="14.0"
             echo "Using macOS SDK: $OSX_SDK"
             
@@ -435,7 +435,7 @@ jobs:
           echo "---------------- ----------------- --------------- ---------------- "
 
       - name: Save Depends cache
-        if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/qt6-upgrade'
+        if: github.ref == 'refs/heads/master'
         uses: actions/cache/save@v4
         with:
           path: ${{ env.DEPENDS_DIR }}
@@ -499,7 +499,7 @@ jobs:
             fi
           elif [ "${{ matrix.config.platform }}" == "linux" ] && [ "${{ matrix.config.target_platform }}" == "macos" ]; then
             # Cross-compilation: Linux -> macOS
-            DARWIN_VERSION="20"  # Darwin 20 for macOS 11.0
+            DARWIN_VERSION="23"  # macOS 14.0
             if [ "${{ matrix.config.target_arch }}" == "arm64" ]; then
               export HOST="arm64-apple-darwin"
             else
