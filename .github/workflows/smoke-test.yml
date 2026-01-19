@@ -139,13 +139,14 @@ jobs:
         if: matrix.config.platform == 'windows'
         run: |
           sudo apt-get update
-          sudo apt-get install -y g++-mingw-w64-x86-64 mingw-w64-x86-64-dev binutils-mingw-w64-x86-64 wine64 ccache build-essential cmake pkgconf python3-zmq nsis
+          sudo apt-get install -y g++-mingw-w64-x86-64 mingw-w64-x86-64-dev binutils-mingw-w64-x86-64 libz-mingw-w64-dev wine64 ccache build-essential cmake pkgconf python3-zmq nsis
           sudo update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++-posix
           sudo update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix
-          # Build dependencies from depends system
+
+          # Build minimal depends for Windows wallet support (BDB + required deps)
           cd depends
-          make HOST=x86_64-w64-mingw32 -j$(nproc)
-          cd ..
+          make HOST=x86_64-w64-mingw32 NO_QT=1 NO_USDT=1 -j$(nproc)
+          echo "BDB_PREFIX=${{ github.workspace }}/depends/x86_64-w64-mingw32" >> $GITHUB_ENV
 
       - name: Enable core dumps
         if: matrix.config.platform != 'windows'
@@ -181,7 +182,7 @@ jobs:
           # Common CMake configuration options for smoke test (minimal build)
           CMAKE_OPTS=(
             "-DENABLE_ZMQ=ON"
-            "-DENABLE_GUI=OFF"
+            "-DBUILD_GUI=OFF"
             "-DENABLE_BENCH=ON"
             "-DWITH_BDB=ON"
             "-DENABLE_TRACING=OFF"
@@ -190,17 +191,15 @@ jobs:
 
           # Platform-specific configuration
           if [ "${{ matrix.config.platform }}" == "windows" ]; then
-            # Windows cross-compilation
-            echo "Configuring for Windows cross-compilation..."
-            CMAKE_OPTS+=("-DCMAKE_TOOLCHAIN_FILE=$BASE_ROOT_DIR/depends/x86_64-w64-mingw32/toolchain.cmake")
-            CMAKE_OPTS+=("-DCMAKE_PREFIX_PATH=$BASE_ROOT_DIR/depends/x86_64-w64-mingw32")
-            CMAKE_OPTS+=("-DWITH_BDB=ON")
+            # Windows cross-compilation using depends toolchain
+            echo "Configuring for Windows cross-compilation with depends toolchain..."
+            DEPENDS_PREFIX="${{ github.workspace }}/depends/x86_64-w64-mingw32"
+            CMAKE_OPTS+=("-DCMAKE_TOOLCHAIN_FILE=${DEPENDS_PREFIX}/toolchain.cmake")
+            CMAKE_OPTS+=("-DCMAKE_PREFIX_PATH=${DEPENDS_PREFIX}")
             CMAKE_OPTS+=("-DENABLE_TESTS=OFF")  # Skip tests for cross-compilation
-            CMAKE_OPTS+=("-DBUILD_FOR_WINDOWS=ON")
           else
             # Native builds (Linux/macOS)
             CMAKE_OPTS+=("-DENABLE_TESTS=ON")
-            CMAKE_OPTS+=("-DWITH_BDB=ON")
 
             # Disable BDB version warning for macOS if using newer version
             if [ "${{ matrix.config.platform }}" == "macos" ]; then

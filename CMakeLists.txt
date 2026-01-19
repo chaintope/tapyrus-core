@@ -165,7 +165,7 @@ endif()
 
 cmake_dependent_option(WITH_DBUS "Enable DBus support." ON "CMAKE_SYSTEM_NAME STREQUAL \"Linux\" AND ENABLE_GUI" OFF)
 
-cmake_dependent_option(ENABLE_GUI_TESTS "Build test_tapyrus-qt executable." ON "BUILd_GUI;ENABLE_TESTS" OFF)
+cmake_dependent_option(ENABLE_GUI_TESTS "Build test_tapyrus-qt executable." ON "BUILD_GUI;ENABLE_TESTS" OFF)
 if(BUILD_GUI)
   set(qt_components Core Gui Widgets LinguistTools)
   if(ENABLE_WALLET)
@@ -178,7 +178,7 @@ if(BUILD_GUI)
   if(ENABLE_GUI_TESTS)
     list(APPEND qt_components Test)
   endif()
-  find_package(Qt 5.11.3 MODULE REQUIRED
+  find_package(Qt 6.0 MODULE REQUIRED
     COMPONENTS ${qt_components}
   )
   unset(qt_components)

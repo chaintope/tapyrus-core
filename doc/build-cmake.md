@@ -121,7 +121,7 @@ Options to specify custom library and include paths:
 ### Qt (for GUI builds)
 | Option | Description |
 |--------|-------------|
-| `Qt5_DIR` | Directory containing Qt5Config.cmake |
+| `Qt6_DIR` | Directory containing Qt6Config.cmake |
 | `QT_QMAKE_EXECUTABLE` | Path to qmake executable |
 
 ### Other Libraries

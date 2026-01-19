@@ -15,9 +15,7 @@ class SendCoinsRecipient;
 class WalletModel;
 class WalletView;
 
-QT_BEGIN_NAMESPACE
 class QStackedWidget;
-QT_END_NAMESPACE
 
 /**
  * A container for embedding all wallet-related

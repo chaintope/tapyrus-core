@@ -36,12 +36,10 @@ class Handler;
 class Node;
 }
 
-QT_BEGIN_NAMESPACE
 class QAction;
 class QComboBox;
 class QProgressBar;
 class QProgressDialog;
-QT_END_NAMESPACE
 
 /**
   Tapyrus GUI main class. This class represents the main window of the Tapyrus UI. It communicates with both the client and

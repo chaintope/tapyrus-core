@@ -125,6 +125,11 @@ endif()
 
 # Set configuration options for the main build system.
 set(qt_packages @qt_packages@)
+# Set Qt6_DIR to help find_package(Qt6) locate the Qt6 installation
+# Only set if Qt was built (qt_packages is not empty)
+if(NOT "${qt_packages}" STREQUAL "")
+  set(Qt6_DIR "${CMAKE_CURRENT_LIST_DIR}/lib/cmake/Qt6" CACHE PATH "Qt6 installation directory")
+endif()
 # Only set default if not already specified by user/CI or command line
 if(NOT DEFINED BUILD_GUI AND NOT DEFINED CACHE{BUILD_GUI})
   if("${qt_packages}" STREQUAL "")

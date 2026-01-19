@@ -46,8 +46,8 @@ protected:
 
         auto address = model->index(row, AddressTableModel::Address, parent);
 
-        if (filterRegExp().indexIn(model->data(address).toString()) < 0 &&
-            filterRegExp().indexIn(model->data(label).toString()) < 0) {
+        if (!filterRegularExpression().match(model->data(address).toString()).hasMatch() &&
+            !filterRegularExpression().match(model->data(label).toString()).hasMatch()) {
             return false;
         }
 

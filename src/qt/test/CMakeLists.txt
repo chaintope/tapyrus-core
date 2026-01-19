@@ -18,7 +18,7 @@ add_test_to_suite(tapyrus-qt test-tapyrus-qt
 	../../test/test_tapyrus.cpp
 )
 
-target_link_libraries(test-tapyrus-qt tapyrus-qt-base Qt5::Test)
+target_link_libraries(test-tapyrus-qt tapyrus-qt-base Qt6::Test)
 
 # Wallet
 if(ENABLE_WALLET)

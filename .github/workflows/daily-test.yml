@@ -187,8 +187,8 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ env.DEPENDS_DIR }}
-          key: depends-v4-${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ hashFiles('depends/packages/*') }}
-          restore-keys: depends-v4-${{ matrix.config.platform }}-${{ matrix.config.arch }}-
+          key: depends-v6-qt6-${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ hashFiles('depends/packages/*') }}
+          restore-keys: depends-v6-qt6-${{ matrix.config.platform }}-${{ matrix.config.arch }}-
 
       - name: Restore Benchmark History cache
         if: (matrix.config.platform == 'linux' && matrix.config.arch == 'x86_64') || (matrix.config.platform == 'macos' && matrix.config.arch == 'arm64')
@@ -299,7 +299,7 @@ jobs:
             CPU_COUNT=$(sysctl -n hw.ncpu)
           elif [ "${{ matrix.config.target_platform }}" == "macos" ]; then
             # Cross-compilation: Linux -> macOS
-            DARWIN_VERSION="20"  # Darwin 20 for macOS 11.0
+            DARWIN_VERSION="23"  # macOS 14.0
             if [ "${{ matrix.config.target_arch }}" == "arm64" ]; then
               export HOST="arm64-apple-darwin"
             else
@@ -327,7 +327,7 @@ jobs:
           if [ "${{ matrix.config.target_platform }}" == "macos" ]; then
             export SDK_PATH="${{ github.workspace }}/depends/SDKs"
             export OSX_SDK="$SDK_PATH/Xcode-15.0-15A240d-extracted-SDK-with-libcxx-headers"
-            export OSX_MIN_VERSION="11.0"
+            export OSX_MIN_VERSION="14.0"
             export OSX_SDK_VERSION="14.0"
             echo "Using macOS SDK: $OSX_SDK"
             
@@ -363,17 +363,11 @@ jobs:
             REQUIRED_FILES+=("$DEPENDS_PREFIX/include/boost/config.hpp")
             REQUIRED_FILES+=("$DEPENDS_PREFIX/include/zmq.h")
 
-            # GUI dependencies
+            # GUI dependencies - Qt6 is built statically on all platforms in depends
             if [ "${{ matrix.config.enable_gui }}" == "true" ]; then
-              if [ "${{ matrix.config.platform }}" == "linux" ]; then
-                REQUIRED_FILES+=("$DEPENDS_PREFIX/lib/libQt5Core.so")
-                REQUIRED_FILES+=("$DEPENDS_PREFIX/lib/libQt5Widgets.so")
-                REQUIRED_FILES+=("$DEPENDS_PREFIX/lib/libQt5Gui.so")
-              else
-                REQUIRED_FILES+=("$DEPENDS_PREFIX/lib/libQt5Core.framework")
-                REQUIRED_FILES+=("$DEPENDS_PREFIX/lib/libQt5Widgets.framework")
-                REQUIRED_FILES+=("$DEPENDS_PREFIX/lib/libQt5Gui.framework")
-              fi
+              # Check for CMake config files instead of libraries (more reliable for static builds)
+              REQUIRED_FILES+=("$DEPENDS_PREFIX/lib/cmake/Qt6/Qt6Config.cmake")
+              REQUIRED_FILES+=("$DEPENDS_PREFIX/lib/cmake/Qt6Core/Qt6CoreConfig.cmake")
             fi
 
             # Wallet dependencies (Berkeley DB)
@@ -441,11 +435,11 @@ jobs:
           echo "---------------- ----------------- --------------- ---------------- "
 
       - name: Save Depends cache
-        if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/master'
         uses: actions/cache/save@v4
         with:
           path: ${{ env.DEPENDS_DIR }}
-          key: depends-v4-${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ hashFiles('depends/packages/*') }}
+          key: depends-v6-qt6-${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ hashFiles('depends/packages/*') }}
 
       - name: Save Benchmark History cache
         if: always() && ((matrix.config.platform == 'linux' && matrix.config.arch == 'x86_64') || (matrix.config.platform == 'macos' && matrix.config.arch == 'arm64'))
@@ -505,7 +499,7 @@ jobs:
             fi
           elif [ "${{ matrix.config.platform }}" == "linux" ] && [ "${{ matrix.config.target_platform }}" == "macos" ]; then
             # Cross-compilation: Linux -> macOS
-            DARWIN_VERSION="20"  # Darwin 20 for macOS 11.0
+            DARWIN_VERSION="23"  # macOS 14.0
             if [ "${{ matrix.config.target_arch }}" == "arm64" ]; then
               export HOST="arm64-apple-darwin"
             else
@@ -537,8 +531,22 @@ jobs:
           CMAKE_OPTS=(
             "-DENABLE_ZMQ=ON"
             "-DCMAKE_BUILD_TYPE=${{ matrix.config.build_type }}"
-            -DCMAKE_PREFIX_PATH="$DEPENDS_DIR/$HOST"
+            -DCMAKE_PREFIX_PATH="$DEPENDS_PREFIX"
           )
+
+          # Set Qt6_DIR explicitly if GUI is enabled to help CMake find Qt6
+          if [ "${{ matrix.config.enable_gui }}" == "true" ]; then
+            QT6_CMAKE_DIR="$DEPENDS_PREFIX/lib/cmake/Qt6"
+            if [ -d "$QT6_CMAKE_DIR" ]; then
+              export Qt6_DIR="$QT6_CMAKE_DIR"
+              CMAKE_OPTS+=("-DQt6_DIR=$QT6_CMAKE_DIR")
+              echo "Set Qt6_DIR=$QT6_CMAKE_DIR"
+            else
+              echo "Warning: Qt6 CMake directory not found at $QT6_CMAKE_DIR"
+              echo "Contents of $DEPENDS_PREFIX/lib/cmake:"
+              ls -la "$DEPENDS_PREFIX/lib/cmake/" 2>/dev/null || echo "cmake directory not found"
+            fi
+          fi
 
           # Set test and benchmark options based on build type
           if [ "${{ matrix.config.target_platform }}" != "" ] && [ "${{ matrix.config.target_platform }}" != "${{ matrix.config.platform }}" ]; then
@@ -561,9 +569,9 @@ jobs:
 
           # GUI option
           if [ "${{ matrix.config.enable_gui }}" == "true" ]; then
-            CMAKE_OPTS+=("-DENABLE_GUI=ON")
+            CMAKE_OPTS+=("-DBUILD_GUI=ON")
           else
-            CMAKE_OPTS+=("-DENABLE_GUI=OFF")
+            CMAKE_OPTS+=("-DBUILD_GUI=OFF")
           fi
 
           # USDT option
