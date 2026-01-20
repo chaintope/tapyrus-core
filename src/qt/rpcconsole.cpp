@@ -38,7 +38,6 @@
 #include <QTime>
 #include <QTimer>
 #include <QStringList>
-#include <QScreen>
 
 // TODO: add a scrollback limit, as there is currently none
 // TODO: make it possible to filter out categories (esp debug messages when implemented)

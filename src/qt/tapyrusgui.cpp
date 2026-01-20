@@ -58,7 +58,6 @@
 #include <QToolBar>
 #include <QUrlQuery>
 #include <QVBoxLayout>
-#include <QScreen>
 
 const std::string TapyrusGUI::DEFAULT_UIPLATFORM =
 #if defined(Q_OS_MAC)
