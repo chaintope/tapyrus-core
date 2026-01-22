@@ -119,12 +119,12 @@ User-Space, Statically Defined Tracing (USDT) dependencies:
 GUI dependencies:
 
 If you want to build tapyrus-qt, make sure that the required packages for Qt development
-are installed. Qt 5 is necessary to build the GUI.
+are installed. Qt6 is necessary to build the GUI.
 To build without GUI use `-DBUILD_GUI=OFF`.
 
-To build with Qt 5 you need the following:
+To build with Qt6 you need the following:
 
-    sudo apt-get install libqt5gui5 libqt5core5a libqt5dbus5 qttools5-dev qttools5-dev-tools
+    sudo apt-get install qt6-base-dev qt6-tools-dev qt6-tools-dev-tools qt6-l10n-tools
 
 libqrencode (optional) can be installed with:
 
@@ -155,15 +155,15 @@ User-Space, Statically Defined Tracing (USDT) dependencies:
 
 GUI dependencies:
 
-If you want to build tapyrus-qt, make sure that the required packages for Qt development are installed. Qt 5 is necessary to build the GUI. To build without GUI use `-DBUILD_GUI=OFF`.
+If you want to build tapyrus-qt, make sure that the required packages for Qt development are installed. Qt 6 is necessary to build the GUI. To build without GUI use `-DBUILD_GUI=OFF`.
 
-To build with Qt 5 you need the following:
+To build with Qt 6 you need the following:
 
-    sudo dnf install qt5-qttools-devel qt5-qtbase-devel
+    sudo dnf install qt6-qtbase-devel qt6-qttools-devel
 
 Additionally, to support Wayland protocol for modern desktop environments:
 
-    sudo dnf install qt5-qtwayland
+    sudo dnf install qt6-qtwayland
 
 libqrencode (optional) can be installed with:
 

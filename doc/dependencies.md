@@ -10,7 +10,7 @@ These are the dependencies currently used by Tapyrus Core. You can find instruct
 |GCC|9.4.0|
 |Python (scripts, tests)|3.10|
 
-| Dependency | Version used                                                                                               | Minimum required | CVEs | Shared | [Bundled Qt library](https://doc.qt.io/qt-5/configure-options.html) |
+| Dependency | Version used                                                                                               | Minimum required | CVEs | Shared | [Bundled Qt library](https://doc.qt.io/qt-6/configure-options.html) |
 | --- |------------------------------------------------------------------------------------------------------------| --- | --- | --- | --- |
 | Berkeley DB | [4.8.30](http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html) | 4.8.x | No |  |  |
 | Boost | [1.81.0](https://www.boost.org/users/download/)                                                            | 1.55.0 | No |  |  |
@@ -21,7 +21,7 @@ These are the dependencies currently used by Tapyrus Core. You can find instruct
 | libXau | [1.0.9](https://xorg.freedesktop.org/releases/individual/lib/)                                             |  | No |  |  |
 | MiniUPnPc | [2.0.2](https://miniupnp.tuxfamily.org/files/)                                                             |  | No |  |  |
 | qrencode | [4.1.1](https://fukuchi.org/works/qrencode)                                                                |  | No |  |  |
-| Qt | [5.15.16](https://download.qt.io/official_releases/qt/5.15/5.15.6/submodules)                              | 5.15 | No |  |  |
+| Qt | [6.10.1](https://download.qt.io/official_releases/qt/6.10/)                                                |  | No |  |  |
 | systemtap | [4.7](https://sourceware.org/systemtap/)                                                                   |  |  |  | Linux only |
 | XCB | [1.14](https://xcb.freedesktop.org/dist)                                                                   |  |  |  | Linux only |
 | xkbcommon | [0.8.4](https://xkbcommon.org/download/)                                                                   |  |  |  | Linux only |
