@@ -16,7 +16,6 @@ class PlatformStyle;
 class TransactionFilterProxy;
 class WalletModel;
 
-QT_BEGIN_NAMESPACE
 class QComboBox;
 class QDateTimeEdit;
 class QFrame;
@@ -25,7 +24,6 @@ class QMenu;
 class QModelIndex;
 class QSignalMapper;
 class QTableView;
-QT_END_NAMESPACE
 
 /** Widget showing the transaction list for a wallet, including a filter row.
     Using the filter row, the user can view or export a subset of the transactions.

@@ -8,9 +8,7 @@
 #include <QList>
 #include <QObject>
 
-QT_BEGIN_NAMESPACE
 class QAbstractItemModel;
-QT_END_NAMESPACE
 
 /** Export a Qt table model to a CSV file. This is useful for analyzing or post-processing the data in
     a spreadsheet.

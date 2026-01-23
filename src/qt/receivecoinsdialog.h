@@ -22,9 +22,7 @@ namespace Ui {
     class ReceiveCoinsDialog;
 }
 
-QT_BEGIN_NAMESPACE
 class QModelIndex;
-QT_END_NAMESPACE
 
 /** Dialog for requesting payment of tpc */
 class ReceiveCoinsDialog : public QDialog

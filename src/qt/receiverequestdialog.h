@@ -16,9 +16,7 @@ namespace Ui {
     class ReceiveRequestDialog;
 }
 
-QT_BEGIN_NAMESPACE
 class QMenu;
-QT_END_NAMESPACE
 
 /* Label widget for QR code. This image can be dragged, dropped, copied and saved
  * to disk.

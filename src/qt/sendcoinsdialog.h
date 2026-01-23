@@ -21,9 +21,7 @@ namespace Ui {
     class SendCoinsDialog;
 }
 
-QT_BEGIN_NAMESPACE
 class QUrl;
-QT_END_NAMESPACE
 
 /** Dialog for sending tpc */
 class SendCoinsDialog : public QDialog

@@ -26,14 +26,12 @@ namespace interfaces
     class Node;
 }
 
-QT_BEGIN_NAMESPACE
 class QAbstractItemView;
 class QDateTime;
 class QFont;
 class QLineEdit;
 class QUrl;
 class QWidget;
-QT_END_NAMESPACE
 
 /** Utility functions used by the Bitcoin Qt UI.
  */

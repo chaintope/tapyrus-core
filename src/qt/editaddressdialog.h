@@ -13,9 +13,7 @@ namespace Ui {
     class EditAddressDialog;
 }
 
-QT_BEGIN_NAMESPACE
 class QDataWidgetMapper;
-QT_END_NAMESPACE
 
 /** Dialog for editing an address and associated information.
  */

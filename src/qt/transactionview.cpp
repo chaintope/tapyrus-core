@@ -175,29 +175,32 @@ TransactionView::TransactionView(const PlatformStyle *platformStyle, QWidget *pa
     mapperThirdPartyTxUrls = new QSignalMapper(this);
 
     // Connect actions
-    connect(mapperThirdPartyTxUrls, SIGNAL(mapped(QString)), this, SLOT(openThirdPartyTxUrl(QString)));
+    // Note: Qt 6 QSignalMapper no longer provides mapped() signals.
+    // Third party URL connections are made directly in contextualMenu() using lambdas
 
-    connect(dateWidget, SIGNAL(activated(int)), this, SLOT(chooseDate(int)));
-    connect(typeWidget, SIGNAL(activated(int)), this, SLOT(chooseType(int)));
-    connect(watchOnlyWidget, SIGNAL(activated(int)), this, SLOT(chooseWatchonly(int)));
-    connect(amountWidget, SIGNAL(textChanged(QString)), amount_typing_delay, SLOT(start()));
-    connect(amount_typing_delay, SIGNAL(timeout()), this, SLOT(changedAmount()));
-    connect(search_widget, SIGNAL(textChanged(QString)), prefix_typing_delay, SLOT(start()));
-    connect(prefix_typing_delay, SIGNAL(timeout()), this, SLOT(changedSearch()));
+    connect(dateWidget, QOverload<int>::of(&QComboBox::activated), this, &TransactionView::chooseDate);
+    connect(typeWidget, QOverload<int>::of(&QComboBox::activated), this, &TransactionView::chooseType);
+    connect(watchOnlyWidget, QOverload<int>::of(&QComboBox::activated), this, &TransactionView::chooseWatchonly);
+    // Delay timer for amount changes
+    connect(amountWidget, &QLineEdit::textChanged, amount_typing_delay, [amount_typing_delay](){ amount_typing_delay->start(); });
+    connect(amount_typing_delay, &QTimer::timeout, this, &TransactionView::changedAmount);
+    // Delay timer for search changes
+    connect(search_widget, &QLineEdit::textChanged, prefix_typing_delay, [prefix_typing_delay](){ prefix_typing_delay->start(); });
+    connect(prefix_typing_delay, &QTimer::timeout, this, &TransactionView::changedSearch);
 
-    connect(view, SIGNAL(doubleClicked(QModelIndex)), this, SIGNAL(doubleClicked(QModelIndex)));
-    connect(view, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(contextualMenu(QPoint)));
+    connect(view, &QTableView::doubleClicked, this, &TransactionView::doubleClicked);
+    connect(view, &QTableView::customContextMenuRequested, this, &TransactionView::contextualMenu);
 
-    connect(bumpFeeAction, SIGNAL(triggered()), this, SLOT(bumpFee()));
-    connect(abandonAction, SIGNAL(triggered()), this, SLOT(abandonTx()));
-    connect(copyAddressAction, SIGNAL(triggered()), this, SLOT(copyAddress()));
-    connect(copyLabelAction, SIGNAL(triggered()), this, SLOT(copyLabel()));
-    connect(copyAmountAction, SIGNAL(triggered()), this, SLOT(copyAmount()));
-    connect(copyTxIDAction, SIGNAL(triggered()), this, SLOT(copyTxID()));
-    connect(copyTxHexAction, SIGNAL(triggered()), this, SLOT(copyTxHex()));
-    connect(copyTxPlainText, SIGNAL(triggered()), this, SLOT(copyTxPlainText()));
-    connect(editLabelAction, SIGNAL(triggered()), this, SLOT(editLabel()));
-    connect(showDetailsAction, SIGNAL(triggered()), this, SLOT(showDetails()));
+    connect(bumpFeeAction, &QAction::triggered, this, &TransactionView::bumpFee);
+    connect(abandonAction, &QAction::triggered, this, &TransactionView::abandonTx);
+    connect(copyAddressAction, &QAction::triggered, this, &TransactionView::copyAddress);
+    connect(copyLabelAction, &QAction::triggered, this, &TransactionView::copyLabel);
+    connect(copyAmountAction, &QAction::triggered, this, &TransactionView::copyAmount);
+    connect(copyTxIDAction, &QAction::triggered, this, &TransactionView::copyTxID);
+    connect(copyTxHexAction, &QAction::triggered, this, &TransactionView::copyTxHex);
+    connect(copyTxPlainText, &QAction::triggered, this, &TransactionView::copyTxPlainText);
+    connect(editLabelAction, &QAction::triggered, this, &TransactionView::editLabel);
+    connect(showDetailsAction, &QAction::triggered, this, &TransactionView::showDetails);
 }
 
 void TransactionView::setModel(WalletModel *_model)
@@ -243,7 +246,7 @@ void TransactionView::setModel(WalletModel *_model)
                     if (i == 0)
                         contextMenu->addSeparator();
                     contextMenu->addAction(thirdPartyTxUrlAction);
-                    connect(thirdPartyTxUrlAction, SIGNAL(triggered()), mapperThirdPartyTxUrls, SLOT(map()));
+                    connect(thirdPartyTxUrlAction, &QAction::triggered, this, [this, thirdPartyTxUrlAction](){ mapperThirdPartyTxUrls->map(thirdPartyTxUrlAction); });
                     mapperThirdPartyTxUrls->setMapping(thirdPartyTxUrlAction, listUrls[i].trimmed());
                 }
             }
@@ -253,7 +256,7 @@ void TransactionView::setModel(WalletModel *_model)
         updateWatchOnlyColumn(_model->wallet().haveWatchOnly());
 
         // Watch-only signal
-        connect(_model, SIGNAL(notifyWatchonlyChanged(bool)), this, SLOT(updateWatchOnlyColumn(bool)));
+        connect(_model, &WalletModel::notifyWatchonlyChanged, this, &TransactionView::updateWatchOnlyColumn);
     }
 }
 
@@ -562,8 +565,8 @@ QWidget *TransactionView::createDateRangeWidget()
     dateRangeWidget->setVisible(false);
 
     // Notify on change
-    connect(dateFrom, SIGNAL(dateChanged(QDate)), this, SLOT(dateRangeChanged()));
-    connect(dateTo, SIGNAL(dateChanged(QDate)), this, SLOT(dateRangeChanged()));
+    connect(dateFrom, &QDateEdit::dateChanged, this, &TransactionView::dateRangeChanged);
+    connect(dateTo, &QDateEdit::dateChanged, this, &TransactionView::dateRangeChanged);
 
     return dateRangeWidget;
 }
