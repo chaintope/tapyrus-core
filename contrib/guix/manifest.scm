@@ -94,7 +94,7 @@ chain for " target " development."))
       (home-page (package-home-page xgcc))
       (license (package-license xgcc)))))
 
-(define base-gcc gcc-11)
+(define base-gcc gcc-12)
 (define base-linux-kernel-headers linux-libre-headers-6.1)
 
 (define* (make-tapyrus-cross-toolchain target
@@ -495,9 +495,9 @@ inspecting signatures in Mach-O binaries.")
         bison
         cmake-minimal
         ninja
-        ;; Native GCC 11 toolchain
-        gcc-toolchain-11
-        (list gcc-toolchain-11 "static")
+        ;; Native GCC 12 toolchain
+        gcc-toolchain-12
+        (list gcc-toolchain-12 "static")
         ;; Scripting
         python-minimal ;; (3.10)
         perl
@@ -517,5 +517,11 @@ inspecting signatures in Mach-O binaries.")
           ((string-contains target "-linux-")
            (list (make-tapyrus-cross-toolchain target) cmake-minimal))
           ((string-contains target "darwin")
-           (list clang-toolchain-15 lld binutils cmake-minimal python-signapple zip))
+           (list (specification->package "clang-toolchain@19")
+                 (specification->package "lld@19")
+                 (make-lld-wrapper (specification->package "lld@19") #:lld-as-ld? #t)
+                 binutils
+                 cmake-minimal
+                 python-signapple
+                 zip))
           (else '())))))

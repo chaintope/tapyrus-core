@@ -1,9 +1,9 @@
-OSX_MIN_VERSION=14.0
-OSX_SDK_VERSION=14.0
+OSX_MIN_VERSION=15.0
+OSX_SDK_VERSION=26.2
 
-XCODE_VERSION=15.0
-XCODE_BUILD_ID=15A240d
-LLD_VERSION=711
+XCODE_VERSION=26.2
+XCODE_BUILD_ID=17C52
+LLD_VERSION=1230
 
 # For native macOS builds, use the system SDK
 # For cross-compilation, use the custom extracted SDK
@@ -26,6 +26,8 @@ default_clangxx := $(shell which clang++)
 ifneq ($(build_os),darwin)
 clang_prog := $(if $(default_clang),$(default_clang),clang)
 clangxx_prog := $(if $(default_clangxx),$(default_clangxx),clang++)
+# Get clang's resource directory for builtin headers (stddef.h, stdint.h, etc.)
+clang_resource_dir := $(shell $(clang_prog) --print-resource-dir)
 darwin_AR=$(if $(AR),$(AR),llvm-ar)
 darwin_DSYMUTIL=$(if $(DSYMUTIL),$(DSYMUTIL),dsymutil)
 darwin_NM=$(if $(NM),$(NM),llvm-nm)
@@ -34,7 +36,7 @@ darwin_RANLIB=$(if $(RANLIB),$(RANLIB),llvm-ranlib)
 darwin_STRIP=$(if $(STRIP),$(STRIP),llvm-strip)
 else
 clang_prog := $(default_clang)
-clangxx_prog := $(default_clang++)
+clangxx_prog := $(default_clangxx)
 darwin_AR:=$(shell which llvm-ar)
 darwin_DSYMUTIL:=$(shell which dsymutil)
 darwin_NM:=$(shell which llvm-nm)
@@ -78,21 +80,26 @@ darwin_CFLAGS=-pipe -std=$(C_STANDARD)
 darwin_CXXFLAGS=-pipe -std=$(CXX_STANDARD)
 darwin_LDFLAGS=-Wl,-platform_version,macos,$(OSX_MIN_VERSION),$(OSX_SDK_VERSION)
 else
-# Cross-compilation build - keep CC/CXX simple, put all flags in CFLAGS/CXXFLAGS
-darwin_CC=$(clang_prog)
-darwin_CXX=$(clangxx_prog)
+# Cross-compilation build:
+# -nostdlibinc removes default system includes but preserves clang's resource dir
+# However, -iwithsysroot adds SDK paths that get searched BEFORE the resource dir
+# Include order matters differently for C vs C++:
+#   C:   clang resource dir → SDK C headers → frameworks
+#   C++: libc++ headers → clang resource dir → SDK C headers → frameworks
+# libc++ has its own <stddef.h> wrapper that must be found before clang's builtin
+darwin_CC=$(clang_prog) --target=$(host) \
+              -isysroot$(OSX_SDK) -nostdlibinc \
+              -isystem $(clang_resource_dir)/include \
+              -iwithsysroot/usr/include -iframeworkwithsysroot/System/Library/Frameworks
 
-darwin_CFLAGS=-pipe -std=$(C_STANDARD) -mmacos-version-min=$(OSX_MIN_VERSION) --target=$(host) \
-              -isysroot $(OSX_SDK) \
-              -isystem $(OSX_SDK)/usr/include \
-              -iframeworkwithsysroot/System/Library/Frameworks
+darwin_CXX=$(clangxx_prog) --target=$(host) \
+               -isysroot$(OSX_SDK) -nostdlibinc \
+               -iwithsysroot/usr/include/c++/v1 \
+               -isystem $(clang_resource_dir)/include \
+               -iwithsysroot/usr/include -iframeworkwithsysroot/System/Library/Frameworks
 
-darwin_CXXFLAGS=-pipe -std=$(CXX_STANDARD) -mmacos-version-min=$(OSX_MIN_VERSION) --target=$(host) \
-                -isysroot $(OSX_SDK) --stdlib=libc++ \
-                -isystem $(OSX_SDK)/usr/include/c++/v1 \
-                -isystem $(OSX_SDK)/usr/include \
-                -iframeworkwithsysroot/System/Library/Frameworks
-
+darwin_CFLAGS=-mmacos-version-min=$(OSX_MIN_VERSION)
+darwin_CXXFLAGS=-mmacos-version-min=$(OSX_MIN_VERSION)
 darwin_LDFLAGS=-Wl,-platform_version,macos,$(OSX_MIN_VERSION),$(OSX_SDK_VERSION)
 endif
 
@@ -111,5 +118,5 @@ darwin_debug_CXXFLAGS=$(darwin_debug_CFLAGS)
 darwin_cmake_system_name=Darwin
 # Darwin version, which corresponds to OSX_MIN_VERSION.
 # See https://en.wikipedia.org/wiki/Darwin_(operating_system)
-darwin_cmake_system_version=20.1
+darwin_cmake_system_version=25.1
 
