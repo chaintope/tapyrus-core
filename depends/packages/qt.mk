@@ -16,12 +16,6 @@ $(package)_patches += guix_cross_lib_path.patch
 $(package)_patches += skip_xcode_version_check.patch
 $(package)_patches += qttools_skip_dependencies.patch
 $(package)_patches += fix_qnetconmonitor_cross_compile.patch
-$(package)_patches += fix_activity_logging.patch
-$(package)_patches += fix_os_log_deprecated.patch
-$(package)_patches += fix_cross_compile_auxv.patch
-$(package)_patches += fix_macos_version_min.patch
-$(package)_patches += fix_cross_compile_eventfd.patch
-$(package)_patches += fix_simd_math_cross_compile.patch
 
 $(package)_qttranslations_file_name=$(qt_details_qttranslations_file_name)
 $(package)_qttranslations_sha256_hash=$(qt_details_qttranslations_sha256_hash)
