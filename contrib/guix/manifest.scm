@@ -4,6 +4,7 @@
              (gnu packages bison)
              ((gnu packages certs) #:select (nss-certs))
              ((gnu packages cmake) #:select (cmake-minimal))
+             ((gnu packages ninja) #:select (ninja))
              (gnu packages commencement)
              (gnu packages compression)
              (gnu packages cross-base)
@@ -93,7 +94,7 @@ chain for " target " development."))
       (home-page (package-home-page xgcc))
       (license (package-license xgcc)))))
 
-(define base-gcc gcc-11)
+(define base-gcc gcc-12)
 (define base-linux-kernel-headers linux-libre-headers-6.1)
 
 (define* (make-tapyrus-cross-toolchain target
@@ -173,7 +174,7 @@ and abstract ELF, PE and MachO formats.")
 (define osslsigncode
   (package
     (name "osslsigncode")
-    (version "2.5")
+    (version "2.11")
     (source (origin
               (method git-fetch)
               (uri (git-reference
@@ -181,9 +182,9 @@ and abstract ELF, PE and MachO formats.")
                     (commit version)))
               (sha256
                (base32
-                "1j47vwq4caxfv0xw68kw5yh00qcpbd56d7rq6c483ma3y7s96yyz"))))
+                "17vzkrv4qzjrjinjlgk8fbimkzd5b5akkpangkpn8cdficxgibxr"))))
     (build-system cmake-build-system)
-    (inputs (list openssl))
+    (inputs (list openssl zlib))
     (home-page "https://github.com/mtrojnar/osslsigncode")
     (synopsis "Authenticode signing and timestamping tool")
     (description "osslsigncode is a small tool that implements part of the
@@ -493,9 +494,10 @@ inspecting signatures in Mach-O binaries.")
         pkg-config
         bison
         cmake-minimal
-        ;; Native GCC 11 toolchain
-        gcc-toolchain-11
-        (list gcc-toolchain-11 "static")
+        ninja
+        ;; Native GCC 12 toolchain
+        gcc-toolchain-12
+        (list gcc-toolchain-12 "static")
         ;; Scripting
         python-minimal ;; (3.10)
         perl
@@ -515,5 +517,11 @@ inspecting signatures in Mach-O binaries.")
           ((string-contains target "-linux-")
            (list (make-tapyrus-cross-toolchain target) cmake-minimal))
           ((string-contains target "darwin")
-           (list clang-toolchain-15 lld binutils cmake-minimal python-signapple zip))
+           (list (specification->package "clang-toolchain@19")
+                 (specification->package "lld@19")
+                 (make-lld-wrapper (specification->package "lld@19") #:lld-as-ld? #t)
+                 binutils
+                 cmake-minimal
+                 python-signapple
+                 zip))
           (else '())))))

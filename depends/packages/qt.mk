@@ -143,6 +143,11 @@ $(package)_config_opts_linux += -system-freetype
 $(package)_config_opts_mingw32 := -no-dbus
 $(package)_config_opts_mingw32 += -no-freetype
 $(package)_config_opts_mingw32 += -no-pkg-config
+# Disable hardening features that trigger GCC 11 ICE in SEH unwinding
+# on large functions (e.g. pcre2_compile.c in i386_pe_seh_unwind_emit)
+$(package)_config_opts_mingw32 += -no-feature-intelcet
+$(package)_config_opts_mingw32 += -no-feature-stack_clash_protection
+$(package)_config_opts_mingw32 += -no-feature-stack_protector
 
 # CMake build options
 $(package)_config_env := CC="$$($(package)_cc)"
@@ -153,6 +158,8 @@ $(package)_config_env_darwin += OBJCXX="$$($(package)_cxx)"
 $(package)_cmake_opts := -DCMAKE_PREFIX_PATH=$(host_prefix)
 $(package)_cmake_opts += -DQT_FEATURE_cxx20=ON
 $(package)_cmake_opts += -DQT_ENABLE_CXX_EXTENSIONS=OFF
+# Disable PCH to work around GCC 11/12 ICE bugs with C++20 template instantiation
+$(package)_cmake_opts += -DCMAKE_DISABLE_PRECOMPILE_HEADERS=ON
 ifneq ($(V),)
 $(package)_cmake_opts += --log-level=STATUS
 endif
@@ -253,6 +260,13 @@ endef
 ifeq ($(host),$(build))
   $(package)_preprocess_cmds += && patch -p1 -i $($(package)_patch_dir)/qttools_skip_dependencies.patch
 endif
+# Fix CGDisplayCreateImageForRect obsoleted in macOS 15.0
+# Comment out the call and return empty pixmap (screen grab will fail gracefully)
+ifeq ($(host_os),darwin)
+ifneq ($(host),$(build))
+  $(package)_preprocess_cmds += && sed -i 's/CGDisplayCreateImageForRect(displayId, grabRect.toCGRect())/nullptr \/* CGDisplayCreateImageForRect obsoleted in macOS 15 *\//' qtbase/src/plugins/platforms/cocoa/qcocoascreen.mm
+endif
+endif
 
 define $(package)_config_cmds
   cd qtbase && \
@@ -260,7 +274,7 @@ define $(package)_config_cmds
 endef
 
 define $(package)_build_cmds
-  cmake --build . --parallel
+  cmake --build . -- $(filter -j%,$(MAKEFLAGS))
 endef
 
 define $(package)_stage_cmds
