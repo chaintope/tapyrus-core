@@ -250,10 +250,6 @@ if(qt_lib_type STREQUAL "STATIC_LIBRARY")
   endif()
 endif()
 
-if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-  target_compile_definitions(tapyrusqt PRIVATE Q_OS_MAC)
-endif()
-
 add_executable(tapyrus-qt)
 add_windows_resources(tapyrus-qt res/tapyrus-qt-res.rc)
 

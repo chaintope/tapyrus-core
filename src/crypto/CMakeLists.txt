@@ -35,15 +35,17 @@ if(HAVE_AVX2)
     COMPILE_OPTIONS ${AVX2_CXXFLAGS}
   )
 endif()
-#
-#if(HAVE_SSE41 AND HAVE_X86_SHANI)
-#  target_compile_definitions(tapyrus_crypto PRIVATE ENABLE_SSE41 ENABLE_X86_SHANI)
-#  target_sources(tapyrus_crypto PRIVATE sha256_x86_shani.cpp)
-#  set_property(SOURCE sha256_x86_shani.cpp PROPERTY
-#    COMPILE_OPTIONS ${X86_SHANI_CXXFLAGS}
-#  )
-#endif()
 
+if(HAVE_X86_SHANI)
+  target_compile_definitions(tapyrus_crypto PRIVATE ENABLE_SHANI)
+  target_sources(tapyrus_crypto PRIVATE sha256_shani.cpp)
+  set_property(SOURCE sha256_shani.cpp PROPERTY
+    COMPILE_OPTIONS ${X86_SHANI_CXXFLAGS}
+  )
+endif()
+
+# ARM SHA-NI: no source file (sha256_arm_shani.cpp) exists yet.
+# Uncomment when ARM SHA-NI support is ported.
 #if(HAVE_ARM_SHANI)
 #  target_compile_definitions(tapyrus_crypto PRIVATE ENABLE_ARM_SHANI)
 #  target_sources(tapyrus_crypto PRIVATE sha256_arm_shani.cpp)
