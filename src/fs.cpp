@@ -11,7 +11,7 @@
 #include <sys/utsname.h>
 #include <unistd.h>
 #else
-#include <codecvt>
+#include <filesystem>
 #include <limits>
 #include <windows.h>
 #include <tinyformat.h>
@@ -29,8 +29,7 @@ FILE *fopen(const fs::path& p, const char *mode)
 #ifndef WIN32
     return ::fopen(p.c_str(), mode);
 #else
-    std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>,wchar_t> utf8_cvt;
-    return ::_wfopen(p.wstring().c_str(), utf8_cvt.from_bytes(mode).c_str());
+    return ::_wfopen(p.wstring().c_str(), std::filesystem::path(mode).wstring().c_str());
 #endif
 }
 
@@ -113,7 +112,7 @@ std::string Win32ErrorString(int err)
                        nullptr, err, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
                        buf, ARRAYSIZE(buf), nullptr))
     {
-        return strprintf("%s (%d)", std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>,wchar_t>().to_bytes(buf), err);
+        return strprintf("%s (%d)", std::filesystem::path(buf).string(), err);
     }
     else
     {
