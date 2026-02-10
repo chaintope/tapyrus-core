@@ -211,9 +211,10 @@ jobs:
           if [ "${{ matrix.config.target_platform }}" == "macos" ]; then
             sudo apt-get install -y curl git cmake ninja-build clang lld llvm llvm-dev
             # Set up macOS SDK for cross-compilation
+            # Read SDK variables from depends/hosts/darwin.mk
             mkdir -p depends/SDKs
-            export XCODE_VERSION=15.0
-            export XCODE_BUILD_ID=15A240d
+            export XCODE_VERSION=$(grep '^XCODE_VERSION=' depends/hosts/darwin.mk | cut -d= -f2)
+            export XCODE_BUILD_ID=$(grep '^XCODE_BUILD_ID=' depends/hosts/darwin.mk | cut -d= -f2)
             OSX_SDK_BASENAME="Xcode-${XCODE_VERSION}-${XCODE_BUILD_ID}-extracted-SDK-with-libcxx-headers"
             
             # Download and extract macOS SDK if not present
@@ -299,7 +300,6 @@ jobs:
             CPU_COUNT=$(sysctl -n hw.ncpu)
           elif [ "${{ matrix.config.target_platform }}" == "macos" ]; then
             # Cross-compilation: Linux -> macOS
-            DARWIN_VERSION="23"  # macOS 14.0
             if [ "${{ matrix.config.target_arch }}" == "arm64" ]; then
               export HOST="arm64-apple-darwin"
             else
@@ -326,9 +326,11 @@ jobs:
           # Set up environment for cross-compilation
           if [ "${{ matrix.config.target_platform }}" == "macos" ]; then
             export SDK_PATH="${{ github.workspace }}/depends/SDKs"
-            export OSX_SDK="$SDK_PATH/Xcode-15.0-15A240d-extracted-SDK-with-libcxx-headers"
-            export OSX_MIN_VERSION="14.0"
-            export OSX_SDK_VERSION="14.0"
+            export XCODE_VERSION=$(grep '^XCODE_VERSION=' depends/hosts/darwin.mk | cut -d= -f2)
+            export XCODE_BUILD_ID=$(grep '^XCODE_BUILD_ID=' depends/hosts/darwin.mk | cut -d= -f2)
+            export OSX_SDK="$SDK_PATH/Xcode-${XCODE_VERSION}-${XCODE_BUILD_ID}-extracted-SDK-with-libcxx-headers"
+            export OSX_MIN_VERSION=$(grep '^OSX_MIN_VERSION=' depends/hosts/darwin.mk | cut -d= -f2)
+            export OSX_SDK_VERSION=$(grep '^OSX_SDK_VERSION=' depends/hosts/darwin.mk | cut -d= -f2)
             echo "Using macOS SDK: $OSX_SDK"
             
             # Test the cross-compilation toolchain
@@ -499,7 +501,6 @@ jobs:
             fi
           elif [ "${{ matrix.config.platform }}" == "linux" ] && [ "${{ matrix.config.target_platform }}" == "macos" ]; then
             # Cross-compilation: Linux -> macOS
-            DARWIN_VERSION="23"  # macOS 14.0
             if [ "${{ matrix.config.target_arch }}" == "arm64" ]; then
               export HOST="arm64-apple-darwin"
             else
@@ -604,7 +605,8 @@ jobs:
               CMAKE_OPTS+=("-DCMAKE_SYSTEM_PROCESSOR=x86_64")
               CMAKE_OPTS+=("-DCMAKE_OSX_ARCHITECTURES=x86_64")
             fi
-            CMAKE_OPTS+=("-DCMAKE_OSX_DEPLOYMENT_TARGET=11.0")
+            OSX_MIN_VERSION=$(grep '^OSX_MIN_VERSION=' depends/hosts/darwin.mk | cut -d= -f2)
+            CMAKE_OPTS+=("-DCMAKE_OSX_DEPLOYMENT_TARGET=$OSX_MIN_VERSION")
             CMAKE_OPTS+=("-DWARN_INCOMPATIBLE_BDB=OFF")
           fi
 
