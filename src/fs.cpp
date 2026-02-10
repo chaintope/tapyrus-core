@@ -11,7 +11,6 @@
 #include <sys/utsname.h>
 #include <unistd.h>
 #else
-#include <filesystem>
 #include <limits>
 #include <windows.h>
 #include <tinyformat.h>
@@ -22,6 +21,30 @@
 #include <string>
 #include <sstream>
 
+#ifdef WIN32
+/** Convert UTF-8 std::string to UTF-16 std::wstring using Windows API. */
+static std::wstring Utf8ToWide(const std::string& utf8)
+{
+    if (utf8.empty()) return {};
+    int len = MultiByteToWideChar(CP_UTF8, 0, utf8.data(), (int)utf8.size(), nullptr, 0);
+    if (len <= 0) return {};
+    std::wstring result(len, L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, utf8.data(), (int)utf8.size(), &result[0], len);
+    return result;
+}
+
+/** Convert UTF-16 std::wstring to UTF-8 std::string using Windows API. */
+static std::string WideToUtf8(const std::wstring& wide)
+{
+    if (wide.empty()) return {};
+    int len = WideCharToMultiByte(CP_UTF8, 0, wide.data(), (int)wide.size(), nullptr, 0, nullptr, nullptr);
+    if (len <= 0) return {};
+    std::string result(len, '\0');
+    WideCharToMultiByte(CP_UTF8, 0, wide.data(), (int)wide.size(), &result[0], len, nullptr, nullptr);
+    return result;
+}
+#endif
+
 namespace fsbridge {
 
 FILE *fopen(const fs::path& p, const char *mode)
@@ -29,7 +52,8 @@ FILE *fopen(const fs::path& p, const char *mode)
 #ifndef WIN32
     return ::fopen(p.c_str(), mode);
 #else
-    return ::_wfopen(p.wstring().c_str(), std::filesystem::path(mode).wstring().c_str());
+    std::wstring wmode = Utf8ToWide(mode);
+    return ::_wfopen(p.wstring().c_str(), wmode.c_str());
 #endif
 }
 
@@ -112,7 +136,7 @@ std::string Win32ErrorString(int err)
                        nullptr, err, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
                        buf, ARRAYSIZE(buf), nullptr))
     {
-        return strprintf("%s (%d)", std::filesystem::path(buf).string(), err);
+        return strprintf("%s (%d)", WideToUtf8(buf), err);
     }
     else
     {
