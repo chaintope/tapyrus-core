@@ -27,13 +27,11 @@
 #ifndef WIN32
 #include <fcntl.h>
 #include <sys/time.h>
+#include <unistd.h>
 #endif
 
 #if defined(HAVE_GETRANDOM) || defined(HAVE_GETENTROPY_RAND)
 #include <sys/random.h>
-#endif
-#if defined(HAVE_GETENTROPY)
-#include <unistd.h>
 #endif
 #ifdef HAVE_SYSCTL_ARND
 #include <utilstrencodings.h> // for ARRAYLEN
