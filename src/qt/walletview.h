@@ -113,8 +113,10 @@ public Q_SLOTS:
     void requestedSyncWarningInfo();
 
 Q_SIGNALS:
-    /** Signal that we want to show the main window */
-    void showNormalIfMinimized();
+    /** Notify that user clicked a transaction in the overview page */
+    void transactionClicked();
+    /** Notify that user sent coins */
+    void coinsSent();
     /**  Fired when a message should be reported to the user */
     void message(const QString &title, const QString &message, unsigned int style);
     /** Encryption status of wallet changed */
