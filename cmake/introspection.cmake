@@ -17,6 +17,7 @@ check_cxx_symbol_exists(fdatasync "unistd.h" HAVE_FDATASYNC)
 check_cxx_symbol_exists(fork "unistd.h" HAVE_DECL_FORK)
 check_cxx_symbol_exists(pipe2 "unistd.h" HAVE_DECL_PIPE2)
 check_cxx_symbol_exists(setsid "unistd.h" HAVE_DECL_SETSID)
+check_cxx_symbol_exists(daemon "unistd.h" HAVE_DECL_DAEMON)
 
 check_include_file_cxx(sys/types.h HAVE_SYS_TYPES_H)
 check_include_file_cxx(ifaddrs.h HAVE_IFADDRS_H)
@@ -102,62 +103,63 @@ check_cxx_source_compiles("
   " HAVE_SOCKADDR_UN
 )
 
-# Check for different ways of gathering OS randomness:
-# - Linux getrandom()
-check_cxx_source_compiles("
-  #include <sys/random.h>
+# Check for different ways of gathering OS randomness.
+# Each check is guarded to the platform(s) where it applies.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  # Linux getrandom() function (glibc >= 2.25)
+  check_cxx_source_compiles("
+    #include <sys/random.h>
 
-  int main()
-  {
-    getrandom(nullptr, 32, 0);
-  }
-  " HAVE_GETRANDOM
-)
+    int main()
+    {
+      getrandom(nullptr, 32, 0);
+    }
+    " HAVE_GETRANDOM
+  )
+endif()
 
-# - BSD getentropy()
-check_cxx_source_compiles("
-  #include <sys/random.h>
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+  # macOS getentropy() via sys/random.h (macOS >= 10.12)
+  check_cxx_source_compiles("
+    #include <sys/random.h>
 
-  int main()
-  {
-    getentropy(nullptr, 32);
-  }
-  " HAVE_GETENTROPY_RAND
-)
+    int main()
+    {
+      getentropy(nullptr, 32);
+    }
+    " HAVE_GETENTROPY_RAND
+  )
+endif()
 
+if(NOT WIN32 AND NOT CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+  # OpenBSD getentropy() via unistd.h
+  check_cxx_symbol_exists(getentropy "unistd.h" HAVE_GETENTROPY)
 
-# - BSD sysctl()
-check_cxx_source_compiles("
-  #include <sys/types.h>
-  #include <sys/sysctl.h>
+  # BSD sysctl()
+  check_cxx_source_compiles("
+    #include <sys/types.h>
+    #include <sys/sysctl.h>
 
-  #ifdef __linux__
-  #error Don't use sysctl on Linux, it's deprecated even when it works
-  #endif
+    int main()
+    {
+      sysctl(nullptr, 2, nullptr, nullptr, nullptr, 0);
+    }
+    " HAVE_SYSCTL
+  )
 
-  int main()
-  {
-    sysctl(nullptr, 2, nullptr, nullptr, nullptr, 0);
-  }
-  " HAVE_SYSCTL
-)
+  # BSD sysctl(KERN_ARND)
+  check_cxx_source_compiles("
+    #include <sys/types.h>
+    #include <sys/sysctl.h>
 
-# - BSD sysctl(KERN_ARND)
-check_cxx_source_compiles("
-  #include <sys/types.h>
-  #include <sys/sysctl.h>
-
-  #ifdef __linux__
-  #error Don't use sysctl on Linux, it's deprecated even when it works
-  #endif
-
-  int main()
-  {
-    static int name[2] = {CTL_KERN, KERN_ARND};
-    sysctl(name, 2, nullptr, nullptr, nullptr, 0);
-  }
-  " HAVE_SYSCTL_ARND
-)
+    int main()
+    {
+      static int name[2] = {CTL_KERN, KERN_ARND};
+      sysctl(name, 2, nullptr, nullptr, nullptr, 0);
+    }
+    " HAVE_SYSCTL_ARND
+  )
+endif()
 
 if(NOT MSVC)
   include(CheckSourceCompilesWithFlags)

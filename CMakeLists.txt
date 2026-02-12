@@ -311,7 +311,6 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_SIZEOF_VOID_P EQUAL 4)
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-  target_compile_definitions(core_interface INTERFACE OBJC_OLD_DISPATCH_PROTOTYPES=0)
   # These flags are specific to ld64, and may cause issues with other linkers.
   # For example: GNU ld will interpret -dead_strip as -de and then try and use
   # "ad_strip" as the symbol for the entry point.
@@ -320,25 +319,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
   if(CMAKE_HOST_APPLE)
     try_append_linker_flag("-Wl,-headerpad_max_install_names" TARGET core_interface)
   endif()
-endif()
-
-# Default macro definitions to avoid -Wundef warnings
-# These are set to 0 by default and overridden by specific feature detection
-if(NOT ENABLE_ZMQ)
-  target_compile_definitions(core_interface INTERFACE ENABLE_ZMQ=0)
-endif()
-
-# Always define these since they might not be set elsewhere
-target_compile_definitions(core_interface INTERFACE
-  HAVE_DECL_DAEMON=0
-  USE_UPNP=0
-)
-
-# Ensure ENABLE_WALLET is always defined as 0 or 1
-if(ENABLE_WALLET)
-  target_compile_definitions(core_interface INTERFACE ENABLE_WALLET=1)
-else()
-  target_compile_definitions(core_interface INTERFACE ENABLE_WALLET=0)
 endif()
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
@@ -403,7 +383,6 @@ if(MSVC)
   try_append_cxx_flags("/wd4805" TARGET warn_interface SKIP_LINK)
   target_compile_definitions(warn_interface INTERFACE
     _CRT_SECURE_NO_WARNINGS
-    _SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING
   )
 else()
   try_append_cxx_flags("-Wall" TARGET warn_interface SKIP_LINK)

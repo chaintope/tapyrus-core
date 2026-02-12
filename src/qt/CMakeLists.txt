@@ -250,7 +250,10 @@ if(qt_lib_type STREQUAL "STATIC_LIBRARY")
   endif()
 endif()
 
-if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+# When cross-compiling for macOS, MOC runs on the host (Linux) and doesn't
+# see __APPLE__, so Q_OS_MAC is not auto-detected. Define it explicitly so
+# MOC-generated code matches the #ifndef Q_OS_MAC guards in headers.
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND NOT CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
   target_compile_definitions(tapyrusqt PRIVATE Q_OS_MAC)
 endif()
 

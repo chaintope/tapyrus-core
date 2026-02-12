@@ -8,10 +8,6 @@ add_library(tapyrus_zmq STATIC EXCLUDE_FROM_ALL
   zmqpublishnotifier.cpp
   zmqrpc.cpp
 )
-target_compile_definitions(tapyrus_zmq
-  PUBLIC
-    ENABLE_ZMQ=1
-)
 target_link_libraries(tapyrus_zmq
   PRIVATE
     core_interface

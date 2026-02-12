@@ -55,22 +55,21 @@
 #cmakedefine ENABLE_TRACING 1
 
 /* Define to 1 to enable wallet functions. */
-#cmakedefine ENABLE_WALLET 1
+#cmakedefine01 ENABLE_WALLET
+
+/* Define to 1 to enable ZMQ functions. */
+#cmakedefine01 ENABLE_ZMQ
 
 /* Define this symbol to build code that uses x86 SHA-NI intrinsics */
 #cmakedefine ENABLE_X86_SHANI 1
 
+/* Define to 1 if you have the declaration of `daemon', and to 0 if you
+   don't. */
+#cmakedefine01 HAVE_DECL_DAEMON
+
 /* Define to 1 if you have the declaration of `fork', and to 0 if you don't.
    */
 #cmakedefine01 HAVE_DECL_FORK
-
-/* Define to 1 if you have the declaration of `freeifaddrs', and to 0 if you
-   don't. */
-#cmakedefine01 HAVE_DECL_FREEIFADDRS
-
-/* Define to 1 if you have the declaration of `getifaddrs', and to 0 if you
-   don't. */
-#cmakedefine01 HAVE_DECL_GETIFADDRS
 
 /* Define to 1 if you have the declaration of `pipe2', and to 0 if you don't.
    */
@@ -82,6 +81,9 @@
 
 /* Define to 1 if fdatasync is available. */
 #cmakedefine HAVE_FDATASYNC 1
+
+/* Define this symbol if the BSD getentropy system call is available */
+#cmakedefine HAVE_GETENTROPY 1
 
 /* Define this symbol if the BSD getentropy system call is available with
    sys/random.h */
@@ -152,5 +154,8 @@
 
 /* Define if QR support should be compiled in */
 #cmakedefine USE_QRCODE 1
+
+/* Define if UPnP support should be compiled in */
+#cmakedefine01 USE_UPNP
 
 #endif //TAPYRUS_CONFIG_H
