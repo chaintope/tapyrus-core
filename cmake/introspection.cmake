@@ -17,7 +17,7 @@ check_cxx_symbol_exists(fdatasync "unistd.h" HAVE_FDATASYNC)
 check_cxx_symbol_exists(fork "unistd.h" HAVE_DECL_FORK)
 check_cxx_symbol_exists(pipe2 "unistd.h" HAVE_DECL_PIPE2)
 check_cxx_symbol_exists(setsid "unistd.h" HAVE_DECL_SETSID)
-check_cxx_symbol_exists(daemon "unistd.h" HAVE_DECL_DAEMON)
+check_cxx_symbol_exists(daemon "unistd.h;stdlib.h" HAVE_DECL_DAEMON)
 
 check_include_file_cxx(sys/types.h HAVE_SYS_TYPES_H)
 check_include_file_cxx(ifaddrs.h HAVE_IFADDRS_H)
