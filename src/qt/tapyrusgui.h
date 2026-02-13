@@ -208,14 +208,7 @@ public Q_SLOTS:
 
     /** Show incoming transaction notification for new transactions. */
     void incomingTransaction(const QString& date, int unit, const CAmount& amount, const QString& type, const QString& address, const QString& label, const QString& walletName);
-#endif // ENABLE_WALLET
 
-private:
-    /** Set the proxy-enabled icon as shown in the UI. */
-    void updateProxyIcon();
-
-private Q_SLOTS:
-#if ENABLE_WALLET
     /** Switch to overview (home) page */
     void gotoOverviewPage();
     /** Switch to history (transactions) page */
@@ -229,7 +222,14 @@ private Q_SLOTS:
     void gotoSignMessageTab(QString addr = "");
     /** Show Sign/Verify Message dialog and switch to verify message tab */
     void gotoVerifyMessageTab(QString addr = "");
+#endif // ENABLE_WALLET
 
+private:
+    /** Set the proxy-enabled icon as shown in the UI. */
+    void updateProxyIcon();
+
+private Q_SLOTS:
+#if ENABLE_WALLET
     /** Show open dialog */
     void openClicked();
 #endif // ENABLE_WALLET

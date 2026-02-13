@@ -76,9 +76,6 @@ WalletView::WalletView(const PlatformStyle *_platformStyle, QWidget *parent):
     // Highlight transaction after send
     connect(sendCoinsPage, &SendCoinsDialog::coinsSent, transactionView, qOverload<const uint256&>(&TransactionView::focusTransaction));
 
-    // Double-clicking on a transaction on the transaction history page shows details
-    connect(transactionView, &TransactionView::doubleClicked, transactionView, [this](){ transactionView->showDetails(); });
-
     // Clicking on "Export" allows to export the transaction list
     connect(exportButton, &QPushButton::clicked, transactionView, &TransactionView::exportClicked);
 
