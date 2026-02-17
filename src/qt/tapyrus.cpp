@@ -42,6 +42,7 @@
 
 #include <QApplication>
 #include <QDebug>
+#include <QEvent>
 #include <QLibraryInfo>
 #include <QLocale>
 #include <QMessageBox>
@@ -205,6 +206,9 @@ public:
 
     /// Setup platform style
     void setupPlatformStyle();
+
+    /// Catch Qt quit event and route through requestShutdown
+    bool event(QEvent* e) override;
 
 public Q_SLOTS:
     void initializeResult(bool success);
@@ -404,6 +408,10 @@ void TapyrusApplication::requestInitialize()
 
 void TapyrusApplication::requestShutdown()
 {
+    // Prevent multiple shutdown requests
+    if (m_node.shutdownRequested())
+        return;
+
     // Show a simple window indicating shutdown status
     // Do this first as some of the steps may take some time below,
     // for example the RPC console may still be executing a command.
@@ -412,6 +420,15 @@ void TapyrusApplication::requestShutdown()
     qDebug() << __func__ << ": Requesting shutdown";
     startThread();
     window->hide();
+
+    // Must disconnect node signals otherwise current thread can deadlock since
+    // no event loop is running.
+    window->unsubscribeFromCoreSignals();
+
+    // Request node shutdown, which can interrupt long operations, like
+    // rescanning a wallet.
+    m_node.startShutdown();
+
     window->setClientModel(0);
     pollShutdownTimer->stop();
 
@@ -424,8 +441,6 @@ void TapyrusApplication::requestShutdown()
 #endif
     delete clientModel;
     clientModel = 0;
-
-    m_node.startShutdown();
 
     // Request shutdown from core thread
     Q_EMIT requestedShutdown();
@@ -508,13 +523,23 @@ void TapyrusApplication::initializeResult(bool success)
         pollShutdownTimer->start(200);
     } else {
         Q_EMIT splashFinished(window); // Make sure splash screen doesn't stick around during shutdown
-        quit(); // Exit first main loop invocation
+        requestShutdown();
     }
 }
 
 void TapyrusApplication::shutdownResult()
 {
-    quit(); // Exit second main loop invocation after shutdown finished
+    exit(0); // Exit main loop after shutdown finished
+}
+
+bool TapyrusApplication::event(QEvent* e)
+{
+    if (e->type() == QEvent::Quit) {
+        requestShutdown();
+        return true;
+    }
+
+    return QApplication::event(e);
 }
 
 void TapyrusApplication::handleRunawayException(const QString &message)
@@ -684,8 +709,6 @@ int main(int argc, char *argv[])
 #if defined(Q_OS_WIN)
             WinShutdownMonitor::registerShutdownBlockReason(QObject::tr("%1 didn't yet exit safely...").arg(QObject::tr(PACKAGE_NAME)), (HWND)app.getMainWinId());
 #endif
-            app.exec();
-            app.requestShutdown();
             app.exec();
             rv = app.getReturnValue();
         } else {

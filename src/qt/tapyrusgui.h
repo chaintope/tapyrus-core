@@ -71,6 +71,9 @@ public:
 #endif // ENABLE_WALLET
     bool enableWallet = false;
 
+    /** Disconnect core signals from GUI client */
+    void unsubscribeFromCoreSignals();
+
 protected:
     void changeEvent(QEvent *e) override;
     void closeEvent(QCloseEvent *event) override;
@@ -154,8 +157,6 @@ private:
 
     /** Connect core signals to GUI client */
     void subscribeToCoreSignals();
-    /** Disconnect core signals from GUI client */
-    void unsubscribeFromCoreSignals();
 
     /** Update UI with latest network info from model. */
     void updateNetworkState();
