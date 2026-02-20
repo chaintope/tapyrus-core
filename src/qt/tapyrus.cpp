@@ -276,7 +276,6 @@ void TapyrusCore::shutdown()
     {
         qDebug() << __func__ << ": Running Shutdown in thread";
         m_node.appShutdown();
-        qDebug() << __func__ << ": Shutdown finished";
         Q_EMIT shutdownResult();
     } catch (const std::exception& e) {
         handleRunawayException(&e);
@@ -318,11 +317,21 @@ void TapyrusApplication::setupPlatformStyle()
 
 TapyrusApplication::~TapyrusApplication()
 {
+    // Close the shutdown window immediately so it doesn't stay frozen
+    // while we wait for the core thread. The window would otherwise
+    // remain visible (and unresponsive) until the destructor fully
+    // completes, because it is owned by this unique_ptr member.
+    shutdownWindow.reset();
+
     if(coreThread)
     {
         qDebug() << __func__ << ": Stopping thread";
         Q_EMIT stopThread();
-        coreThread->wait();
+        if (!coreThread->wait(5000)) {
+            qDebug() << __func__ << ": Core thread did not stop within 5s, forcing terminate";
+            coreThread->terminate();
+            coreThread->wait();
+        }
         qDebug() << __func__ << ": Stopped thread";
     }
 
@@ -529,12 +538,25 @@ void TapyrusApplication::initializeResult(bool success)
 
 void TapyrusApplication::shutdownResult()
 {
-    exit(0); // Exit main loop after shutdown finished
+    // Use QCoreApplication::exit(0) instead of quit() here.
+    // In Qt6, quit() posts a QEvent::Quit instead of directly exiting
+    // the loop. That event is intercepted by event() below, which calls
+    // requestShutdown() and returns true (consuming the event), so the
+    // base-class handler that actually calls exit() is never reached and
+    // exec() never returns.  Calling exit(0) directly bypasses the event
+    // and exits the loop immediately.
+    QCoreApplication::exit(0);
 }
 
 bool TapyrusApplication::event(QEvent* e)
 {
     if (e->type() == QEvent::Quit) {
+        if (m_node.shutdownRequested()) {
+            // Shutdown already complete (e.g. Qt6 quit() re-posted
+            // QEvent::Quit). Let the base class handle it so exit() is
+            // actually called and exec() returns.
+            return QApplication::event(e);
+        }
         requestShutdown();
         return true;
     }

@@ -194,6 +194,13 @@ $(package)_cmake_opts += -DCMAKE_DISABLE_FIND_PACKAGE_WrapSystemDoubleConversion
 $(package)_cmake_opts += -DCMAKE_DISABLE_FIND_PACKAGE_WrapSystemMd4c=TRUE
 $(package)_cmake_opts += -DCMAKE_DISABLE_FIND_PACKAGE_WrapZSTD=TRUE
 endif
+ifeq ($(host_os),linux)
+# Pre-seed the xcb_syslibs compile test result. Qt force-checks the xcb feature
+# condition (due to -xcb) before src/gui/configure.cmake has registered and run
+# the test, leaving TEST_xcb_syslibs="" at check time. Pre-seeding TRUE lets Qt
+# skip re-running the test and proceed to evaluate QT_FEATURE_xkbcommon_x11.
+$(package)_cmake_opts += -DTEST_xcb_syslibs=TRUE
+endif
 ifeq ($(host_os),darwin)
 $(package)_cmake_opts += -DCMAKE_INSTALL_NAME_TOOL=true
 $(package)_cmake_opts += -DCMAKE_FRAMEWORK_PATH=$(OSX_SDK)/System/Library/Frameworks

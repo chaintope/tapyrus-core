@@ -37,5 +37,6 @@ define $(package)_stage_cmds
 endef
 
 define $(package)_postprocess_cmds
-  rm -rf share lib/*.la
+  rm -rf share lib/*.la && \
+  sed -i '/^Libs:/s/-lxcb/-lxcb -lXau/' lib/pkgconfig/xcb.pc
 endef
