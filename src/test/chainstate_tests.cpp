@@ -179,8 +179,8 @@ BOOST_AUTO_TEST_CASE(chainstate_initialization_edge_cases)
     // Access global chainstate
     CChainState& chainstate = g_chainstate;
 
-    // Verify mapBlockIndex is accessible
-    BOOST_CHECK(chainstate.mapBlockIndex.size() >= 0);
+    // Verify mapBlockIndex is accessible and has entries (genesis + chain blocks loaded by fixture)
+    BOOST_CHECK(!chainstate.mapBlockIndex.empty());
 
     // Verify chainActive is accessible
     BOOST_CHECK(chainstate.chainActive.Height() >= 0);
@@ -188,8 +188,8 @@ BOOST_AUTO_TEST_CASE(chainstate_initialization_edge_cases)
     // Verify pindexBestInvalid starts as nullptr
     BOOST_CHECK(chainstate.pindexBestInvalid == nullptr);
 
-    // Test mapBlocksUnlinked (multimap)
-    BOOST_CHECK(chainstate.mapBlocksUnlinked.size() >= 0);
+    // Test mapBlocksUnlinked (multimap) - should be empty in a clean chain
+    BOOST_CHECK(chainstate.mapBlocksUnlinked.empty());
 
     // Verify scriptcheckqueue is initialized
     // Note: scriptcheckqueue is a unique_ptr, so we check if it's set up

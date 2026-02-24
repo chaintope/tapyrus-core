@@ -7,7 +7,7 @@ $(package)_sha256_hash=$(qt_details_qtbase_sha256_hash)
 ifneq ($(host),$(build))
 $(package)_dependencies := native_$(package)
 endif
-$(package)_linux_dependencies := freetype fontconfig libxkbcommon
+$(package)_linux_dependencies := freetype fontconfig libxcb libxkbcommon libxcb_util libxcb_util_cursor libxcb_util_render libxcb_util_keysyms libxcb_util_image libxcb_util_wm
 $(package)_patches_path := $(qt_details_patches_path)
 $(package)_patches := qtbase-moc-ignore-gcc-macro.patch
 $(package)_patches += no_warnings_for_symbols.patch
@@ -136,8 +136,9 @@ $(package)_config_opts_darwin += -no-pkg-config
 $(package)_config_opts_linux := -dbus-runtime
 $(package)_config_opts_linux += -fontconfig
 $(package)_config_opts_linux += -no-feature-xlib
-$(package)_config_opts_linux += -no-xcb
 $(package)_config_opts_linux += -no-xcb-xlib
+$(package)_config_opts_linux += -pkg-config
+$(package)_config_opts_linux += -xcb
 $(package)_config_opts_linux += -system-freetype
 
 $(package)_config_opts_mingw32 := -no-dbus
@@ -192,6 +193,13 @@ $(package)_cmake_opts += -DCMAKE_DISABLE_FIND_PACKAGE_Libb2=TRUE
 $(package)_cmake_opts += -DCMAKE_DISABLE_FIND_PACKAGE_WrapSystemDoubleConversion=TRUE
 $(package)_cmake_opts += -DCMAKE_DISABLE_FIND_PACKAGE_WrapSystemMd4c=TRUE
 $(package)_cmake_opts += -DCMAKE_DISABLE_FIND_PACKAGE_WrapZSTD=TRUE
+endif
+ifeq ($(host_os),linux)
+# Pre-seed the xcb_syslibs compile test result. Qt force-checks the xcb feature
+# condition (due to -xcb) before src/gui/configure.cmake has registered and run
+# the test, leaving TEST_xcb_syslibs="" at check time. Pre-seeding TRUE lets Qt
+# skip re-running the test and proceed to evaluate QT_FEATURE_xkbcommon_x11.
+$(package)_cmake_opts += -DTEST_xcb_syslibs=TRUE
 endif
 ifeq ($(host_os),darwin)
 $(package)_cmake_opts += -DCMAKE_INSTALL_NAME_TOOL=true

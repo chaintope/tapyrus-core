@@ -71,6 +71,9 @@ public:
 #endif // ENABLE_WALLET
     bool enableWallet = false;
 
+    /** Disconnect core signals from GUI client */
+    void unsubscribeFromCoreSignals();
+
 protected:
     void changeEvent(QEvent *e) override;
     void closeEvent(QCloseEvent *event) override;
@@ -154,8 +157,6 @@ private:
 
     /** Connect core signals to GUI client */
     void subscribeToCoreSignals();
-    /** Disconnect core signals from GUI client */
-    void unsubscribeFromCoreSignals();
 
     /** Update UI with latest network info from model. */
     void updateNetworkState();
@@ -208,14 +209,7 @@ public Q_SLOTS:
 
     /** Show incoming transaction notification for new transactions. */
     void incomingTransaction(const QString& date, int unit, const CAmount& amount, const QString& type, const QString& address, const QString& label, const QString& walletName);
-#endif // ENABLE_WALLET
 
-private:
-    /** Set the proxy-enabled icon as shown in the UI. */
-    void updateProxyIcon();
-
-private Q_SLOTS:
-#if ENABLE_WALLET
     /** Switch to overview (home) page */
     void gotoOverviewPage();
     /** Switch to history (transactions) page */
@@ -229,7 +223,14 @@ private Q_SLOTS:
     void gotoSignMessageTab(QString addr = "");
     /** Show Sign/Verify Message dialog and switch to verify message tab */
     void gotoVerifyMessageTab(QString addr = "");
+#endif // ENABLE_WALLET
 
+private:
+    /** Set the proxy-enabled icon as shown in the UI. */
+    void updateProxyIcon();
+
+private Q_SLOTS:
+#if ENABLE_WALLET
     /** Show open dialog */
     void openClicked();
 #endif // ENABLE_WALLET
@@ -249,8 +250,9 @@ private Q_SLOTS:
 #endif
 
     /** Show window if hidden, unminimize when minimized, rise when obscured or show if hidden and fToggleHidden is true */
-    void showNormalIfMinimized(bool fToggleHidden = false);
-    /** Simply calls showNormalIfMinimized(true) for use in SLOT() macro */
+    void showNormalIfMinimized() { showNormalIfMinimized(false); }
+    void showNormalIfMinimized(bool fToggleHidden);
+    /** Simply calls showNormalIfMinimized(true) */
     void toggleHidden();
 
     /** called by a timer to check if ShutdownRequested() has been set **/

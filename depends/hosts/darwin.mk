@@ -26,8 +26,6 @@ default_clangxx := $(shell which clang++)
 ifneq ($(build_os),darwin)
 clang_prog := $(if $(default_clang),$(default_clang),clang)
 clangxx_prog := $(if $(default_clangxx),$(default_clangxx),clang++)
-# Get clang's resource directory for builtin headers (stddef.h, stdint.h, etc.)
-clang_resource_dir := $(shell $(clang_prog) --print-resource-dir)
 darwin_AR=$(if $(AR),$(AR),llvm-ar)
 darwin_DSYMUTIL=$(if $(DSYMUTIL),$(DSYMUTIL),dsymutil)
 darwin_NM=$(if $(NM),$(NM),llvm-nm)
@@ -71,6 +69,16 @@ endif
 #
 #         Disable adhoc codesigning (for now) when using LLVM tooling, to avoid
 #         non-determinism issues with the Identifier field.
+#
+#     -Xclang -fno-cxx-modules
+#
+#         Disable C++ modules. We don't use these, and modules cause definition
+#         issues in the SDK, where __has_feature(modules) is used to define
+#         USE_CLANG_TYPES, which is in turn used as an include guard. When
+#         modules are implicitly enabled for Darwin targets, USE_CLANG_TYPES=1
+#         causes i386/_types.h to set _SIZE_T via a module import, which then
+#         prevents sys/_types/_size_t.h from defining ::size_t in the global
+#         namespace, resulting in "unknown type name 'size_t'" errors.
 
 ifeq ($(build_os),darwin)
 # Native macOS build - simpler flags
@@ -82,24 +90,17 @@ darwin_LDFLAGS=-Wl,-platform_version,macos,$(OSX_MIN_VERSION),$(OSX_SDK_VERSION)
 else
 # Cross-compilation build:
 # -nostdlibinc removes default system includes but preserves clang's resource dir
-# However, -iwithsysroot adds SDK paths that get searched BEFORE the resource dir
-# Include order matters differently for C vs C++:
-#   C:   clang resource dir → SDK C headers → frameworks
-#   C++: libc++ headers → clang resource dir → SDK C headers → frameworks
-# libc++ has its own <stddef.h> wrapper that must be found before clang's builtin
 darwin_CC=$(clang_prog) --target=$(host) \
               -isysroot$(OSX_SDK) -nostdlibinc \
-              -isystem $(clang_resource_dir)/include \
               -iwithsysroot/usr/include -iframeworkwithsysroot/System/Library/Frameworks
 
 darwin_CXX=$(clangxx_prog) --target=$(host) \
                -isysroot$(OSX_SDK) -nostdlibinc \
                -iwithsysroot/usr/include/c++/v1 \
-               -isystem $(clang_resource_dir)/include \
                -iwithsysroot/usr/include -iframeworkwithsysroot/System/Library/Frameworks
 
 darwin_CFLAGS=-mmacos-version-min=$(OSX_MIN_VERSION)
-darwin_CXXFLAGS=-mmacos-version-min=$(OSX_MIN_VERSION)
+darwin_CXXFLAGS=-mmacos-version-min=$(OSX_MIN_VERSION) -Xclang -fno-cxx-modules
 darwin_LDFLAGS=-Wl,-platform_version,macos,$(OSX_MIN_VERSION),$(OSX_SDK_VERSION)
 endif
 

@@ -4,6 +4,7 @@
              (gnu packages bison)
              ((gnu packages certs) #:select (nss-certs))
              ((gnu packages cmake) #:select (cmake-minimal))
+             ((gnu packages build-tools) #:select (meson))
              ((gnu packages ninja) #:select (ninja))
              (gnu packages commencement)
              (gnu packages compression)
@@ -494,6 +495,7 @@ inspecting signatures in Mach-O binaries.")
         pkg-config
         bison
         cmake-minimal
+        meson
         ninja
         ;; Native GCC 12 toolchain
         gcc-toolchain-12

@@ -275,17 +275,17 @@ void TapyrusGUI::createActions()
 #if ENABLE_WALLET
     // These showNormalIfMinimized are needed because Send Coins and Receive Coins
     // can be triggered from the tray menu, and need to show the GUI to be useful.
-    connect(overviewAction, &QAction::triggered, this, &TapyrusGUI::showNormalIfMinimized);
+    connect(overviewAction, &QAction::triggered, this, [this](){ showNormalIfMinimized(); });
     connect(overviewAction, &QAction::triggered, this, &TapyrusGUI::gotoOverviewPage);
-    connect(sendCoinsAction, &QAction::triggered, this, &TapyrusGUI::showNormalIfMinimized);
+    connect(sendCoinsAction, &QAction::triggered, this, [this](){ showNormalIfMinimized(); });
     connect(sendCoinsAction, &QAction::triggered, this, [this](){ gotoSendCoinsPage(); });
-    connect(sendCoinsMenuAction, &QAction::triggered, this, &TapyrusGUI::showNormalIfMinimized);
+    connect(sendCoinsMenuAction, &QAction::triggered, this, [this](){ showNormalIfMinimized(); });
     connect(sendCoinsMenuAction, &QAction::triggered, this, [this](){ gotoSendCoinsPage(); });
-    connect(receiveCoinsAction, &QAction::triggered, this, &TapyrusGUI::showNormalIfMinimized);
+    connect(receiveCoinsAction, &QAction::triggered, this, [this](){ showNormalIfMinimized(); });
     connect(receiveCoinsAction, &QAction::triggered, this, &TapyrusGUI::gotoReceiveCoinsPage);
-    connect(receiveCoinsMenuAction, &QAction::triggered, this, &TapyrusGUI::showNormalIfMinimized);
+    connect(receiveCoinsMenuAction, &QAction::triggered, this, [this](){ showNormalIfMinimized(); });
     connect(receiveCoinsMenuAction, &QAction::triggered, this, &TapyrusGUI::gotoReceiveCoinsPage);
-    connect(historyAction, &QAction::triggered, this, &TapyrusGUI::showNormalIfMinimized);
+    connect(historyAction, &QAction::triggered, this, [this](){ showNormalIfMinimized(); });
     connect(historyAction, &QAction::triggered, this, &TapyrusGUI::gotoHistoryPage);
 #endif // ENABLE_WALLET
 

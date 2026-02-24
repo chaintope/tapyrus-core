@@ -189,6 +189,7 @@ TransactionView::TransactionView(const PlatformStyle *platformStyle, QWidget *pa
     connect(prefix_typing_delay, &QTimer::timeout, this, &TransactionView::changedSearch);
 
     connect(view, &QTableView::doubleClicked, this, &TransactionView::doubleClicked);
+    connect(this, &TransactionView::doubleClicked, this, &TransactionView::showDetails);
     connect(view, &QTableView::customContextMenuRequested, this, &TransactionView::contextualMenu);
 
     connect(bumpFeeAction, &QAction::triggered, this, &TransactionView::bumpFee);

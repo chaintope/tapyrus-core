@@ -223,36 +223,25 @@ jobs:
               OSX_SDK_PATH="depends/sdk-sources/${OSX_SDK_FILENAME}"
               mkdir -p depends/sdk-sources
               
-              # Download SDK
+              # Download SDK: try bitcoincore.org first, fall back to Tapyrus S3
               if [ ! -f "$OSX_SDK_PATH" ]; then
-                echo "Downloading macOS SDK from bitcoincore.org..."
                 SDK_URL="https://bitcoincore.org/depends-sources/sdks"
+                FALLBACK_URL="https://s3.ap-northeast-1.amazonaws.com/repo.tapyrus.chaintope.com"
+                echo "Downloading macOS SDK from bitcoincore.org..."
                 curl --location --fail "${SDK_URL}/${OSX_SDK_FILENAME}" -o "$OSX_SDK_PATH" || {
-                  echo "Failed to download SDK from bitcoincore.org, trying alternative sources..."
-                  # Try alternative sources or create minimal structure
-                  curl --location --fail "https://github.com/bitcoin-core/apple-sdk-tools/releases/download/1.0/${OSX_SDK_FILENAME}" -o "$OSX_SDK_PATH" || {
-                    echo "Failed to download SDK, creating minimal SDK structure for testing"
-                    # Create a minimal SDK structure for testing
-                    mkdir -p "depends/SDKs/${OSX_SDK_BASENAME}/usr/include"
-                    mkdir -p "depends/SDKs/${OSX_SDK_BASENAME}/System/Library/Frameworks"
-                    mkdir -p "depends/SDKs/${OSX_SDK_BASENAME}/usr/lib"
-                    # Create basic header files
-                    echo "#ifndef __DARWIN_H__" > "depends/SDKs/${OSX_SDK_BASENAME}/usr/include/darwin.h"
-                    echo "#define __DARWIN_H__" >> "depends/SDKs/${OSX_SDK_BASENAME}/usr/include/darwin.h"
-                    echo "#endif" >> "depends/SDKs/${OSX_SDK_BASENAME}/usr/include/darwin.h"
+                  echo "Failed to download SDK from bitcoincore.org, trying Tapyrus S3..."
+                  curl --location --fail "${FALLBACK_URL}/${OSX_SDK_FILENAME}" -o "$OSX_SDK_PATH" || {
+                    echo "Failed to download SDK from all sources"
+                    exit 1
                   }
                 }
               fi
-              
-              if [ -f "$OSX_SDK_PATH" ] && [ -s "$OSX_SDK_PATH" ]; then
-                echo "Extracting macOS SDK..."
-                tar -C "depends/SDKs" -xf "$OSX_SDK_PATH" || {
-                  echo "Failed to extract SDK, creating minimal structure"
-                  mkdir -p "depends/SDKs/${OSX_SDK_BASENAME}/usr/include"
-                  mkdir -p "depends/SDKs/${OSX_SDK_BASENAME}/System/Library/Frameworks"
-                  mkdir -p "depends/SDKs/${OSX_SDK_BASENAME}/usr/lib"
-                }
-              fi
+
+              echo "Extracting macOS SDK..."
+              tar -C "depends/SDKs" -xf "$OSX_SDK_PATH" || {
+                echo "Failed to extract SDK"
+                exit 1
+              }
             fi
           fi
 
