@@ -51,8 +51,10 @@ This release is an upgrade of all tapyrus dependencies and tools along with some
 - [PR362](https://github.com/chaintope/tapyrus-core/pull/362) Support Windows Cmake x86_64 build
 - [PR366](https://github.com/chaintope/tapyrus-core/pull/366) Port GUIX build system from Bitcoin
 - [PR333](https://github.com/chaintope/tapyrus-core/pull/333) Support MacOS cross compilation with Qt5 upgrade to 5.15.16 and zeromq upgrade
-- [PR368](https://github.com/chaintope/tapyrus-core/pull/368), [PR381](https://github.com/chaintope/tapyrus-core/pull/381) Upgrade tapyrus-qt from Qt5 to Qt6
+- [PR368](https://github.com/chaintope/tapyrus-core/pull/368), [PR381](https://github.com/chaintope/tapyrus-core/pull/381), [PR382](https://github.com/chaintope/tapyrus-core/pull/382) Upgrade tapyrus-qt from Qt5 to Qt6 with ninja build
 - [PR359](https://github.com/chaintope/tapyrus-core/pull/359) Port prevector class from bitcoin core
+- [PR385](https://github.com/chaintope/tapyrus-core/pull/385) Remove unused cmake variables, config file header declarations and compile definitions
+- [PR386](https://github.com/chaintope/tapyrus-core/pull/386) Fix GUI issues seen in MacOs and Windows tapyrus-qt test
 
 *Fix vulnerabilities inherited from bitcoin core:*
 
