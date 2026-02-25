@@ -187,7 +187,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ env.DEPENDS_DIR }}
-          key: depends-v6-qt6-${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ hashFiles('depends/packages/*') }}
+          key: depends-v6-qt6-${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ hashFiles('depends/packages/*', 'depends/hosts/*.mk', 'depends/builders/*.mk', 'depends/funcs.mk', 'depends/toolchain.cmake.in', 'depends/patches/**') }}
           restore-keys: depends-v6-qt6-${{ matrix.config.platform }}-${{ matrix.config.arch }}-
 
       - name: Restore Benchmark History cache
@@ -205,7 +205,7 @@ jobs:
           ACTIONS_RUNNER_DEBUG: true
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc g++ ccache build-essential cmake ninja-build pkgconf python3-zmq bsdmainutils systemtap-sdt-dev bpfcc-tools bpftrace python3-venv valgrind libboost-test-dev
+          sudo apt-get install -y gcc g++ ccache build-essential cmake ninja-build meson pkgconf python3-zmq bsdmainutils systemtap-sdt-dev bpfcc-tools bpftrace python3-venv valgrind libboost-test-dev
 
           # Install cross-compilation toolchain for macOS targets
           if [ "${{ matrix.config.target_platform }}" == "macos" ]; then
@@ -430,7 +430,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: ${{ env.DEPENDS_DIR }}
-          key: depends-v6-qt6-${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ hashFiles('depends/packages/*') }}
+          key: depends-v6-qt6-${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ hashFiles('depends/packages/*', 'depends/hosts/*.mk', 'depends/builders/*.mk', 'depends/funcs.mk', 'depends/toolchain.cmake.in', 'depends/patches/**') }}
 
       - name: Save Benchmark History cache
         if: always() && ((matrix.config.platform == 'linux' && matrix.config.arch == 'x86_64') || (matrix.config.platform == 'macos' && matrix.config.arch == 'arm64'))
