@@ -75,6 +75,15 @@ host_prefix=$($(host_arch)_$(host_os)_prefix)
 build_prefix=$(host_prefix)/native
 build_host=$(build)
 
+# Cross-compilation detection using arch+os only, without Darwin version suffix.
+# config.guess returns e.g. arm64-apple-darwin24.5.0 while HOST is arm64-apple-darwin,
+# so a direct $(host) vs $(build) comparison incorrectly treats native macOS as cross.
+ifeq ($(host_arch)-$(host_os),$(build_arch)-$(build_os))
+  is_native_build=TRUE
+else
+  is_native_build=FALSE
+endif
+
 all: install
 
 include hosts/$(host_os).mk
@@ -158,7 +167,7 @@ $(host_prefix)/.stamp_cmake_$(cmake_build_id): $(native_packages) $(packages)
 	echo To build Tapyrus Core with these packages, pass \'--toolchain $(@D)/toolchain.cmake\' to the first CMake invocation.
 	touch $@
 
-ifeq ($(host),$(build))
+ifeq ($(is_native_build),TRUE)
   crosscompiling=FALSE
 else
   crosscompiling=TRUE

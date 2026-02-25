@@ -4,7 +4,7 @@ $(package)_version=$(qt_details_version)
 $(package)_download_path=$(qt_details_download_path)
 $(package)_file_name=$(qt_details_qtbase_file_name)
 $(package)_sha256_hash=$(qt_details_qtbase_sha256_hash)
-ifneq ($(host),$(build))
+ifneq ($(is_native_build),TRUE)
 $(package)_dependencies := native_$(package)
 endif
 $(package)_linux_dependencies := freetype fontconfig libxcb libxkbcommon libxcb_util libxcb_util_cursor libxcb_util_render libxcb_util_keysyms libxcb_util_image libxcb_util_wm
@@ -74,7 +74,7 @@ $(package)_config_opts += -nomake tests
 $(package)_config_opts += -prefix $(host_prefix)
 $(package)_config_opts += -qt-doubleconversion
 $(package)_config_opts += -qt-harfbuzz
-ifneq ($(host),$(build))
+ifneq ($(is_native_build),TRUE)
 $(package)_config_opts += -qt-host-path $(build_prefix)
 endif
 $(package)_config_opts += -qt-libpng
@@ -115,7 +115,7 @@ $(package)_config_opts += -no-feature-macdeployqt
 $(package)_config_opts += -no-feature-qmake
 $(package)_config_opts += -no-feature-windeployqt
 
-ifeq ($(host),$(build))
+ifeq ($(is_native_build),TRUE)
 # Qt Tools module.
 $(package)_config_opts += -feature-linguist
 $(package)_config_opts += -no-feature-assistant
@@ -184,7 +184,7 @@ $(package)_cmake_opts += -DCMAKE_EXE_LINKER_FLAGS="$$($$($(package)_type)_LDFLAG
 $(package)_cmake_opts += -DCMAKE_EXE_LINKER_FLAGS_RELEASE="$$($$($(package)_type)_release_LDFLAGS)"
 $(package)_cmake_opts += -DCMAKE_EXE_LINKER_FLAGS_DEBUG="$$($$($(package)_type)_debug_LDFLAGS)"
 
-ifneq ($(host),$(build))
+ifneq ($(is_native_build),TRUE)
 $(package)_cmake_opts += -DCMAKE_SYSTEM_NAME=$($(host_os)_cmake_system_name)
 $(package)_cmake_opts += -DCMAKE_SYSTEM_VERSION=$($(host_os)_cmake_system_version)
 $(package)_cmake_opts += -DCMAKE_SYSTEM_PROCESSOR=$(host_arch)
@@ -219,7 +219,7 @@ $(call fetch_file,$(package),$($(package)_top_cmake_download_path),$($(package)_
 $(call fetch_file,$(package),$($(package)_top_cmake_download_path),$($(package)_top_cmake_qttoplevelhelpers_download_file),$($(package)_top_cmake_qttoplevelhelpers_file_name)-$($(package)_version),$($(package)_top_cmake_qttoplevelhelpers_sha256_hash))
 endef
 
-ifeq ($(host),$(build))
+ifeq ($(is_native_build),TRUE)
 define $(package)_extract_cmds
   mkdir -p $($(package)_extract_dir) && \
   echo "$($(package)_sha256_hash)  $($(package)_source)" > $($(package)_extract_dir)/.$($(package)_file_name).hash && \
@@ -265,13 +265,14 @@ define $(package)_preprocess_cmds
   patch -p1 -i $($(package)_patch_dir)/skip_xcode_version_check.patch && \
   patch -p1 -i $($(package)_patch_dir)/fix_qnetconmonitor_cross_compile.patch
 endef
-ifeq ($(host),$(build))
+ifeq ($(is_native_build),TRUE)
   $(package)_preprocess_cmds += && patch -p1 -i $($(package)_patch_dir)/qttools_skip_dependencies.patch
 endif
 # Fix CGDisplayCreateImageForRect obsoleted in macOS 15.0
 # Comment out the call and return empty pixmap (screen grab will fail gracefully)
+# Only needed for cross-compilation (native macOS builds use BSD sed which requires -i '')
 ifeq ($(host_os),darwin)
-ifneq ($(host),$(build))
+ifneq ($(is_native_build),TRUE)
   $(package)_preprocess_cmds += && sed -i 's/CGDisplayCreateImageForRect(displayId, grabRect.toCGRect())/nullptr \/* CGDisplayCreateImageForRect obsoleted in macOS 15 *\//' qtbase/src/plugins/platforms/cocoa/qcocoascreen.mm
 endif
 endif
