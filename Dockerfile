@@ -10,7 +10,7 @@ RUN if [ "$TARGETARCH" = "arm64" ]; then BUILD_HOST="aarch64-unknown-linux-gnu";
     echo "export BUILD_HOST=$BUILD_HOST" >> /etc/environment && \
     echo "export BUILD_HOST=$BUILD_HOST" >> /root/.bashrc && \
     mkdir -p "/tmp/depends-built" && \
-    cp -r "/tapyrus-core/$BUILD_HOST" "/tmp/depends-built/$BUILD_HOST"
+    cp -r "/tapyrus-core/depends/$BUILD_HOST" "/tmp/depends-built/$BUILD_HOST"
 
 COPY . .
 
