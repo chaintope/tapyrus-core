@@ -5,27 +5,21 @@ on:
     tags:
       - v*
 
+  env:
+  DOCKER_IMAGE: tapyrus/tapyrusd
+
 jobs:
-  multi:
+  prepare:
     if: ${{ github.repository == 'chaintope/tapyrus-core' }}
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.prep.outputs.version }}
+      tags: ${{ steps.prep.outputs.tags }}
+      created: ${{ steps.prep.outputs.created }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          submodules: recursive
-      - name: Repo metadata
-        id: repo
-        uses: actions/github-script@v3
-        with:
-          script: |
-            const repo = await github.repos.get(context.repo)
-            return repo.data
-
       - name: Prepare
         id: prep
         run: |
-          DOCKER_IMAGE=tapyrus/tapyrusd
           VERSION=noop
           if [[ $GITHUB_REF == refs/tags/* ]]; then
             VERSION=${GITHUB_REF#refs/tags/}
@@ -35,70 +29,133 @@ jobs:
               VERSION=edge
             fi
           fi
-          TAGS="${DOCKER_IMAGE}:${VERSION}"
-          if [[ $VERSION =~ ^v[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
-            MINOR=${VERSION%.*}
-            MAJOR=${MINOR%.*}
-            TAGS="$TAGS,${DOCKER_IMAGE}:${MINOR},${DOCKER_IMAGE}:${MAJOR},${DOCKER_IMAGE}:latest"
-          elif [ "${{ github.event_name }}" = "push" ]; then
-            TAGS="$TAGS,${DOCKER_IMAGE}:sha-${GITHUB_SHA::8}"
-          fi
-          echo ::set-output name=version::${VERSION}
-          echo ::set-output name=tags::${TAGS}
-          echo ::set-output name=created::$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "created=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
+  build-amd64:
+    needs: prepare
+    if: ${{ github.repository == 'chaintope/tapyrus-core' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Set up Docker Buildx
-        id: buildx
-        uses: docker/setup-buildx-action@v1
-
-      - name: Cache Docker layers
-        uses: actions/cache@v4
-        with:
-          path: /tmp/.buildx-cache
-          key: ${{ github.ref }}-${{ github.sha }}
-          restore-keys: |
-            ${{ github.ref }}-${{ github.sha }}
-            ${{ github.ref }}
-            refs/head/master
+        uses: docker/setup-buildx-action@v3
 
       - name: Login to DockerHub
-        uses: docker/login-action@v1
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push
-        id: docker_build
-        uses: docker/build-push-action@v2
+      - name: Build and push (amd64)
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
-          builder: ${{ steps.buildx.outputs.name }}
-          platforms: linux/amd64,linux/arm64/v8
+          platforms: linux/amd64
           push: true
-          tags: ${{ steps.prep.outputs.tags }}
+          tags: ${{ env.DOCKER_IMAGE }}:${{ needs.prepare.outputs.version }}-amd64
           labels: |
-            org.opencontainers.image.title=${{ fromJson(steps.repo.outputs.result).name }}
-            org.opencontainers.image.description=${{ fromJson(steps.repo.outputs.result).description }}
-            org.opencontainers.image.url=${{ fromJson(steps.repo.outputs.result).html_url }}
-            org.opencontainers.image.source=${{ fromJson(steps.repo.outputs.result).clone_url }}
-            org.opencontainers.image.version=${{ steps.prep.outputs.version }}
-            org.opencontainers.image.created=${{ steps.prep.outputs.created }}
+            org.opencontainers.image.title=tapyrus-core
+            org.opencontainers.image.description=Tapyrus Core
+            org.opencontainers.image.url=https://github.com/chaintope/tapyrus-core
+            org.opencontainers.image.source=https://github.com/chaintope/tapyrus-core.git
+            org.opencontainers.image.version=${{ needs.prepare.outputs.version }}
+            org.opencontainers.image.created=${{ needs.prepare.outputs.created }}
             org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.licenses=${{ fromJson(steps.repo.outputs.result).license.spdx_id }}
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache-new
+            org.opencontainers.image.licenses=MIT
+          cache-from: type=gha,scope=amd64
+          cache-to: type=gha,mode=max,scope=amd64
 
-      - name: Move cache
+  build-arm64:
+    needs: prepare
+    if: ${{ github.repository == 'chaintope/tapyrus-core' }}
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push (arm64)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/arm64
+          push: true
+          tags: ${{ env.DOCKER_IMAGE }}:${{ needs.prepare.outputs.version }}-arm64
+          labels: |
+            org.opencontainers.image.title=tapyrus-core
+            org.opencontainers.image.description=Tapyrus Core
+            org.opencontainers.image.url=https://github.com/chaintope/tapyrus-core
+            org.opencontainers.image.source=https://github.com/chaintope/tapyrus-core.git
+            org.opencontainers.image.version=${{ needs.prepare.outputs.version }}
+            org.opencontainers.image.created=${{ needs.prepare.outputs.created }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.licenses=MIT
+          cache-from: type=gha,scope=arm64
+          cache-to: type=gha,mode=max,scope=arm64
+
+  merge-manifests:
+    needs: [prepare, build-amd64, build-arm64]
+    if: ${{ github.repository == 'chaintope/tapyrus-core' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Create and push manifest
         run: |
-          rm -rf /tmp/.buildx-cache
-          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+          VERSION=${{ needs.prepare.outputs.version }}
+          docker buildx imagetools create -t ${DOCKER_IMAGE}:${VERSION} \
+            ${DOCKER_IMAGE}:${VERSION}-amd64 \
+            ${DOCKER_IMAGE}:${VERSION}-arm64
+
+          # Add additional tags for release versions (e.g., v0.7.0 -> v0.7, v0, latest)
+          if [[ $VERSION =~ ^v[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+            MINOR=${VERSION%.*}
+            MAJOR=${MINOR%.*}
+            docker buildx imagetools create -t ${DOCKER_IMAGE}:${MINOR} \
+              ${DOCKER_IMAGE}:${VERSION}-amd64 \
+              ${DOCKER_IMAGE}:${VERSION}-arm64
+            docker buildx imagetools create -t ${DOCKER_IMAGE}:${MAJOR} \
+              ${DOCKER_IMAGE}:${VERSION}-amd64 \
+              ${DOCKER_IMAGE}:${VERSION}-arm64
+            docker buildx imagetools create -t ${DOCKER_IMAGE}:latest \
+              ${DOCKER_IMAGE}:${VERSION}-amd64 \
+              ${DOCKER_IMAGE}:${VERSION}-arm64
+          fi
+
+  update-description:
+    needs: merge-manifests
+    if: ${{ github.repository == 'chaintope/tapyrus-core' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Update repo description
-        uses: peter-evans/dockerhub-description@v2
+        uses: peter-evans/dockerhub-description@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
