@@ -67,6 +67,7 @@ To build binaries for all supported platforms:
     env HOSTS="x86_64-linux-gnu aarch64-linux-gnu x86_64-apple-darwin arm64-apple-darwin" ./contrib/guix/guix-build
 
 Supported host triplets:
+
 - `x86_64-linux-gnu` - Linux x86_64
 - `aarch64-linux-gnu` - Linux ARM64
 - `x86_64-apple-darwin` - macOS x86_64
@@ -74,3 +75,9 @@ Supported host triplets:
 - `x86_64-w64-mingw32` - Windows x86_64
 
 The built binaries will be placed in `guix-build-$(git rev-parse --short=12 HEAD)/output/`.
+
+#### Updating containers in docker hub
+
+After every release or upgrade to tapyrus dependencies in depends directory, `tapyrus/tapyrusd` and `tapyrus/builder` containers need to be updated in docker hub. This can be done running the CI jobs configured for the same:
+ - [Push Tapyrus Builder Image](https://github.com/chaintope/tapyrus-core/actions/workflows/push_tapyrus-builder_image.yml)
+ - [Push Docker Image](https://github.com/chaintope/tapyrus-core/actions/workflows/push_docker_image.yml)

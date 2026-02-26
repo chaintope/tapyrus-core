@@ -34,12 +34,20 @@ endif()
 
 add_custom_target(generate_build_info
   BYPRODUCTS ${PROJECT_BINARY_DIR}/src/tapyrus-build-info.h
-  COMMAND ${CMAKE_COMMAND} -DENABLE_INFO_HEADER_PATH=${PROJECT_BINARY_DIR}/src/tapyrus-build-info.h -DSOURCE_DIR=${PROJECT_SOURCE_DIR} -P ${PROJECT_SOURCE_DIR}/cmake/script/GenerateBuildInfo.cmake
+  COMMAND ${CMAKE_COMMAND} -DBUILD_INFO_HEADER_PATH=${PROJECT_BINARY_DIR}/src/tapyrus-build-info.h -DSOURCE_DIR=${PROJECT_SOURCE_DIR} -P ${PROJECT_SOURCE_DIR}/cmake/script/GenerateBuildInfo.cmake
   COMMENT "Generating tapyrus-build-info.h"
   VERBATIM
 )
 add_library(tapyrus_clientversion STATIC EXCLUDE_FROM_ALL
   clientversion.cpp
+)
+target_compile_definitions(tapyrus_clientversion
+  PRIVATE
+    HAVE_BUILD_INFO
+)
+target_include_directories(tapyrus_clientversion
+  PRIVATE
+    ${PROJECT_BINARY_DIR}/src
 )
 target_link_libraries(tapyrus_clientversion
   PRIVATE
@@ -79,7 +87,6 @@ if(ENABLE_ZMQ)
 endif()
 
 add_library(tapyrus_util STATIC EXCLUDE_FROM_ALL
-        clientversion.cpp
         fs.cpp
         interfaces/handler.cpp
         interfaces/node.cpp
@@ -97,6 +104,8 @@ add_library(tapyrus_util STATIC EXCLUDE_FROM_ALL
         utiltime.cpp
 )
 target_link_libraries(tapyrus_util
+        PUBLIC
+        tapyrus_clientversion
         PRIVATE
         core_interface
         univalue
