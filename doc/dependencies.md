@@ -5,9 +5,9 @@ These are the dependencies currently used by Tapyrus Core. You can find instruct
 
 |Dependency | Minimum required |
 |----|----|
-|CMake|3.16|
-|Clang|6.0.1|
-|GCC|9.4.0|
+|CMake|3.28|
+|Clang|18.1.3|
+|GCC|13.2.0|
 |Python (scripts, tests)|3.10|
 
 | Dependency | Version used                                                                                               | Minimum required | CVEs | Shared | [Bundled Qt library](https://doc.qt.io/qt-6/configure-options.html) |
@@ -19,13 +19,18 @@ These are the dependencies currently used by Tapyrus Core. You can find instruct
 | FreeType | [2.11.0](http://download.savannah.gnu.org/releases/freetype)                                               |  | No |  |  |
 | libevent | [2.1.12-stable](https://github.com/libevent/libevent/releases)                                             | 2.0.22 | No |  |  |
 | libXau | [1.0.9](https://xorg.freedesktop.org/releases/individual/lib/)                                             |  | No |  |  |
-| MiniUPnPc | [2.0.2](https://miniupnp.tuxfamily.org/files/)                                                             |  | No |  |  |
+| MiniUPnPc | [2.3.3](https://miniupnp.tuxfamily.org/files/)                                                             |  | No |  |  |
 | qrencode | [4.1.1](https://fukuchi.org/works/qrencode)                                                                |  | No |  |  |
 | Qt | [6.10.1](https://download.qt.io/official_releases/qt/6.10/)                                                |  | No |  |  |
 | systemtap | [4.7](https://sourceware.org/systemtap/)                                                                   |  |  |  | Linux only |
-| XCB | [1.14](https://xcb.freedesktop.org/dist)                                                                   |  |  |  | Linux only |
-| xkbcommon | [0.8.4](https://xkbcommon.org/download/)                                                                   |  |  |  | Linux only |
-| xcb_proto | [1.14.1](https://xorg.freedesktop.org/archive/individual/proto)                                            |  |  |  |  |
+| libxcb | [1.17](https://xcb.freedesktop.org/dist)                                                                   |  |  |  | Linux only |
+| libxcb_util_cursor | [0.1.6](https://xcb.freedesktop.org/dist)                                                                   |  |  |  | Linux only |
+| libxcb_util_image | [0.4.1](https://xcb.freedesktop.org/dist)                                                                   |  |  |  | Linux only |
+| libxcb_util_keysyms | [0.4.1](https://xcb.freedesktop.org/dist)                                                                   |  |  |  | Linux only |
+| libxcb_util_render | [0.3.10](https://xcb.freedesktop.org/dist)                                                                   |  |  |  | Linux only |
+| libxcb_util_wm | [0.4.2](https://xcb.freedesktop.org/dist)                                                                   |  |  |  | Linux only |
+| libxcb_util | [0.4.1](https://xcb.freedesktop.org/dist)                                                                   |  |  |  | Linux only |
+| xkbcommon | [1.7.0](https://xkbcommon.org/download/)                                                                   |  |  |  | Linux only |
+| xcb_proto | [1.17.0](https://xorg.freedesktop.org/archive/individual/proto)                                            |  |  |  |  |
 | xproto | [7.0.31](https://xorg.freedesktop.org/releases/individual/proto)                                           |  |  |  | |
 | ZeroMQ | [4.3.5](https://github.com/zeromq/libzmq/releases/download/v4.3.4)                                         |  | No |  |  |
-|
