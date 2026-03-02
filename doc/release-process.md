@@ -13,7 +13,6 @@ Before every minor and major release:
 Before every major release:
 
 * Branch new branch like `v0.5` from `master` for future minor releases (minor releases like `v0.5.1` will be released from the version branch)
-* Update `source-branch` in `snap/snapcraft.yml` to match the version branch (commit it directly to the version branch)
 * Tag the version branch
 
 ### Reproducible Builds with Guix
