@@ -1,3 +1,8 @@
+# Strip Darwin version suffix from build triplet so native-build detection works.
+# config.guess returns e.g. arm64-apple-darwin24.5.0 while HOST is arm64-apple-darwin,
+# so strip the trailing version to make the $(host) == $(build) comparison succeed.
+build:=$(shell echo "$(build)" | sed 's/\(.*-apple-darwin\)[0-9.]*$$/\1/')
+
 build_darwin_CC:=$(shell xcrun -f clang) -isysroot$(shell xcrun --show-sdk-path)
 build_darwin_CXX:=$(shell xcrun -f clang++) -isysroot$(shell xcrun --show-sdk-path)
 build_darwin_AR:=$(shell xcrun -f ar)
