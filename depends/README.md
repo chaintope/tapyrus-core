@@ -40,7 +40,7 @@ Install the required dependencies: Ubuntu & Debian
 
 #### Common
 
-    apt install automake cmake curl libtool make patch pkg-config python3 xz-utils
+    apt install automake cmake curl libtool make patch pkg-config python3 xz-utils meson
 
 #### For macOS cross compilation
 
