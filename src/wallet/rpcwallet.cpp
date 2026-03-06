@@ -4196,7 +4196,6 @@ UniValue IssueReissuableToken(CWallet* const pwallet, const std::string& script,
         for (const CTxDestination &dest : vDest)
             if(!IsValidDestination(dest))
                 throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid Tapyrus script:") + script);
-        pwallet->SetAddressBook(vDest[0], "", "receive");
 
         // Create and send the transaction
         CReserveKey reservekey(pwallet);
@@ -4239,8 +4238,7 @@ UniValue IssueReissuableToken(CWallet* const pwallet, const std::string& script,
         CColorScriptID colorscriptid(CScriptID(redeemScript), coin_control.m_colorId);
         colorDest = CColorScriptID(colorscriptid, coin_control.m_colorId);
 
-        //setting the lable as colorid
-        pwallet->SetAddressBook(colorDest, "", "send");
+        pwallet->SetAddressBook(colorDest, "", "receive");
 
         CScript scriptpubkey = GetScriptForDestination(colorDest);
 
