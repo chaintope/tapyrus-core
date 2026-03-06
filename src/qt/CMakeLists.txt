@@ -49,14 +49,21 @@ qt_add_translation(qm_files ${ts_files})
 
 configure_file(tapyrus_locale.qrc tapyrus_locale.qrc USE_SOURCE_PERMISSIONS COPYONLY)
 
-# Manually generate UI header for sendcoinsdialog since it uses SKIP_AUTOUIC
-# Generate it in forms/ subdirectory to match autotools and other UI headers
+# Manually generate UI headers for files that use SKIP_AUTOUIC
 add_custom_command(
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/forms/ui_sendcoinsdialog.h
   COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/forms
   COMMAND Qt6::uic -o ${CMAKE_CURRENT_BINARY_DIR}/forms/ui_sendcoinsdialog.h ${CMAKE_CURRENT_SOURCE_DIR}/forms/sendcoinsdialog.ui
   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/forms/sendcoinsdialog.ui
   COMMENT "Generating forms/ui_sendcoinsdialog.h"
+)
+
+add_custom_command(
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/forms/ui_issuetoken.h
+  COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/forms
+  COMMAND Qt6::uic -o ${CMAKE_CURRENT_BINARY_DIR}/forms/ui_issuetoken.h ${CMAKE_CURRENT_SOURCE_DIR}/forms/issuetoken.ui
+  DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/forms/issuetoken.ui
+  COMMENT "Generating forms/ui_issuetoken.h"
 )
 
 # The tapyrusqt sources have to include headers in
@@ -116,6 +123,7 @@ add_library(tapyrusqt STATIC EXCLUDE_FROM_ALL
   tapyrus.qrc
   ${CMAKE_CURRENT_BINARY_DIR}/tapyrus_locale.qrc
   ${CMAKE_CURRENT_BINARY_DIR}/forms/ui_sendcoinsdialog.h
+  ${CMAKE_CURRENT_BINARY_DIR}/forms/ui_issuetoken.h
 )
 target_compile_definitions(tapyrusqt
   PUBLIC
@@ -166,6 +174,7 @@ set_property(SOURCE
   transactionview.cpp
   tapyrus.cpp
   tapyrusgui.cpp
+  issuetoken.cpp
   walletmodel.cpp
   walletview.cpp
   sendcoinsdialog.cpp
@@ -187,6 +196,8 @@ if(ENABLE_WALLET)
       coincontroltreewidget.h
       editaddressdialog.cpp
       editaddressdialog.h
+      issuetoken.cpp
+      issuetoken.h
       openuridialog.cpp
       openuridialog.h
       overviewpage.cpp

@@ -1131,6 +1131,90 @@
     </message>
 </context>
 <context>
+    <name>IssueTokenDialog</name>
+    <message>
+        <location filename="../issuetoken.cpp" line="+194"/>
+        <location line="+9"/>
+        <location line="+15"/>
+        <location line="+22"/>
+        <location line="+21"/>
+        <location line="+4"/>
+        <source>Issue Token</source>
+        <translation>Issue Token</translation>
+    </message>
+    <message>
+        <location line="-61"/>
+        <location filename="../issuetoken.cpp" line="+138"/>
+        <source>Invalid amount. Please enter a positive integer.</source>
+        <translation>Invalid amount. Please enter a positive integer.</translation>
+    </message>
+    <message>
+        <location filename="../issuetoken.cpp" line="-137"/>
+        <source>NFT amount must be 1.</source>
+        <translation>NFT amount must be 1.</translation>
+    </message>
+    <message>
+        <location line="+15"/>
+        <source>No token selected for reissue.</source>
+        <translation>No token selected for reissue.</translation>
+    </message>
+    <message>
+        <location line="+21"/>
+        <source>Tokens reissued successfully.
+Color: %1</source>
+        <translation>Tokens reissued successfully.
+Color: %1</translation>
+    </message>
+    <message>
+        <location line="+21"/>
+        <source>Token issued successfully.
+Color: %1</source>
+        <translation>Token issued successfully.
+Color: %1</translation>
+    </message>
+    <message>
+        <location filename="../issuetoken.cpp" line="+70"/>
+        <location line="+8"/>
+        <location line="+13"/>
+        <location line="+16"/>
+        <location line="+3"/>
+        <source>Burn Token</source>
+        <translation>Burn Token</translation>
+    </message>
+    <message>
+        <location line="-29"/>
+        <source>No token selected.</source>
+        <translation>No token selected.</translation>
+    </message>
+    <message>
+        <location line="+13"/>
+        <source>Amount exceeds wallet balance (%1).</source>
+        <translation>Amount exceeds wallet balance (%1).</translation>
+    </message>
+    <message>
+        <location line="+16"/>
+        <source>Tokens burned successfully.
+Color: %1</source>
+        <translation>Tokens burned successfully.
+Color: %1</translation>
+    </message>
+    <message>
+        <location filename="../issuetoken.cpp" line="+19"/>
+        <source>Amount to burn (max %1)</source>
+        <translation>Amount to burn (max %1)</translation>
+    </message>
+    <message>
+        <location filename="../issuetoken.cpp" line="+1"/>
+        <source>Copy Color ID</source>
+        <translation>Copy Color ID</translation>
+    </message>
+    <message>
+        <location filename="../issuetoken.cpp" line="+1"/>
+        <source>Copy Address</source>
+        <translation>Copy Address</translation>
+    </message>
+</context>
+<context>
     <name>ModalOverlay</name>
     <message>
         <location filename="../forms/modaloverlay.ui" line="+14"/>
@@ -4008,6 +4092,11 @@ Note:  Since the fee is calculated on a per-byte basis, a fee of &quot;100 tapyr
         <location line="+6"/>
         <source>Could not commit transaction</source>
         <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../walletmodel.cpp" line="+317"/>
+        <source>No unspent TPC outputs available. Please ensure your wallet has a TPC balance to fund the token issuance.</source>
+        <translation>No unspent TPC outputs available. Please ensure your wallet has a TPC balance to fund the token issuance.</translation>
     </message>
 </context>
 <context>
