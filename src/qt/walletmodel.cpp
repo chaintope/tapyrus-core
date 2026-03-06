@@ -14,6 +14,7 @@
 #include <qt/sendcoinsdialog.h>
 #include <qt/transactiontablemodel.h>
 
+#include <coloridentifier.h>
 #include <interfaces/handler.h>
 #include <interfaces/node.h>
 #include <key_io.h>
@@ -259,6 +260,72 @@ WalletModel::SendCoinsReturn WalletModel::sendCoins(WalletModelTransaction &tran
     checkBalanceChanged(m_wallet->getBalances()); // update balance immediately, otherwise there could be a short noticeable delay until pollBalanceChanged hits
 
     return SendCoinsReturn(OK);
+}
+
+WalletModel::IssueTokenResult WalletModel::issueToken(int tokenType, CAmount tokenValue,
+                                                      const QString& existingColorId)
+{
+    IssueTokenResult result;
+
+    interfaces::TokenIssuanceResult r;
+    if (!existingColorId.isEmpty()) {
+        r = m_wallet->reissueToken(existingColorId.toStdString(), tokenValue);
+    } else if (tokenType == 1) {
+        r = m_wallet->issueNewReissuableToken(tokenValue);
+    } else {
+        r = m_wallet->issueNewToken(tokenType, tokenValue);
+    }
+
+    if (r.ok) {
+        result.status = IssueTokenResult::OK;
+        result.color = QString::fromStdString(r.color);
+        for (const auto& txid : r.txids)
+            result.txids << QString::fromStdString(txid);
+        result.address = QString::fromStdString(r.address);
+        result.scriptPubKey = QString::fromStdString(r.scriptPubKey);
+    } else {
+        result.status = IssueTokenResult::RpcError;
+        result.error = QString::fromStdString(r.error);
+    }
+
+    return result;
+}
+
+WalletModel::BurnTokenResult WalletModel::burnToken(const QString& colorId, CAmount amount)
+{
+    BurnTokenResult result;
+
+    interfaces::TokenIssuanceResult r = m_wallet->burnToken(colorId.toStdString(), amount);
+
+    if (r.ok) {
+        result.status = BurnTokenResult::OK;
+        result.txid = r.txids.empty() ? QString() : QString::fromStdString(r.txids[0]);
+    } else {
+        result.status = BurnTokenResult::RpcError;
+        result.error = QString::fromStdString(r.error);
+    }
+
+    return result;
+}
+
+QMap<QString, CAmount> WalletModel::getTokenBalances() const
+{
+    QMap<QString, CAmount> result;
+    interfaces::WalletBalances balances = m_wallet->getBalances();
+    for (const auto& entry : balances.balances) {
+        const ColorIdentifier& colorId = entry.first;
+        if (colorId.type != TokenTypes::NONE)
+            result.insert(QString::fromStdString(colorId.toHexString()), entry.second);
+    }
+    return result;
+}
+
+bool WalletModel::setTokenLabel(const QString& address, const QString& label)
+{
+    CTxDestination dest = DecodeDestination(address.toStdString());
+    if (!IsValidDestination(dest))
+        return false;
+    return m_wallet->setAddressBook(dest, label.toStdString(), "");
 }
 
 OptionsModel *WalletModel::getOptionsModel()

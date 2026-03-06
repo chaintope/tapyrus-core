@@ -5,10 +5,14 @@
 #ifndef BITCOIN_WALLET_RPCWALLET_H
 #define BITCOIN_WALLET_RPCWALLET_H
 
+#include <amount.h>
+#include <coloridentifier.h>
+#include <primitives/transaction.h>
 #include <string>
 
 class CRPCTable;
 class CWallet;
+class CCoinControl;
 class JSONRPCRequest;
 class UniValue;
 struct PartiallySignedTransaction;
@@ -31,4 +35,10 @@ bool EnsureWalletIsAvailable(CWallet *, bool avoidException);
 UniValue getaddressinfo(const JSONRPCRequest& request);
 UniValue signrawtransactionwithwallet(const JSONRPCRequest& request);
 bool FillPSBT(const CWallet* pwallet, PartiallySignedTransaction& psbtx, const CTransaction* txConst, int sighash_type = 1, bool sign = true, bool bip32derivs = false);
+
+// Token operation helpers — also called from interfaces/wallet.cpp (GUI layer).
+UniValue IssueReissuableToken(CWallet* const pwallet, const std::string& script, CAmount tokenValue, CCoinControl& coin_control);
+UniValue IssueToken(CWallet* const pwallet, CAmount tokenValue, CCoinControl& coin_control);
+CTransactionRef BurnToken(CWallet* const pwallet, const ColorIdentifier& colorId, CAmount nValue);
+
 #endif //BITCOIN_WALLET_RPCWALLET_H
