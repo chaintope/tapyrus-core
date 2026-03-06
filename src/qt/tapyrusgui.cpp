@@ -272,6 +272,13 @@ void TapyrusGUI::createActions()
     historyAction->setShortcut(QKeySequence(Qt::ALT | Qt::Key_4));
     tabGroup->addAction(historyAction);
 
+    issueTokenAction = new QAction(platformStyle->SingleColorIcon(":/icons/add"), tr("&Tokens"), this);
+    issueTokenAction->setStatusTip(tr("Issue and burn colored coin tokens"));
+    issueTokenAction->setToolTip(issueTokenAction->statusTip());
+    issueTokenAction->setCheckable(true);
+    issueTokenAction->setShortcut(QKeySequence(Qt::ALT | Qt::Key_5));
+    tabGroup->addAction(issueTokenAction);
+
 #if ENABLE_WALLET
     // These showNormalIfMinimized are needed because Send Coins and Receive Coins
     // can be triggered from the tray menu, and need to show the GUI to be useful.
@@ -287,6 +294,8 @@ void TapyrusGUI::createActions()
     connect(receiveCoinsMenuAction, &QAction::triggered, this, &TapyrusGUI::gotoReceiveCoinsPage);
     connect(historyAction, &QAction::triggered, this, [this](){ showNormalIfMinimized(); });
     connect(historyAction, &QAction::triggered, this, &TapyrusGUI::gotoHistoryPage);
+    connect(issueTokenAction, &QAction::triggered, this, [this](){ showNormalIfMinimized(); });
+    connect(issueTokenAction, &QAction::triggered, this, &TapyrusGUI::gotoIssueTokenPage);
 #endif // ENABLE_WALLET
 
     quitAction = new QAction(platformStyle->TextColorIcon(":/icons/quit"), tr("E&xit"), this);
@@ -424,6 +433,7 @@ void TapyrusGUI::createToolBars()
         toolbar->addAction(sendCoinsAction);
         toolbar->addAction(receiveCoinsAction);
         toolbar->addAction(historyAction);
+        toolbar->addAction(issueTokenAction);
         overviewAction->setChecked(true);
 
 #if ENABLE_WALLET
@@ -577,6 +587,7 @@ void TapyrusGUI::setWalletActionsEnabled(bool enabled)
     receiveCoinsAction->setEnabled(enabled);
     receiveCoinsMenuAction->setEnabled(enabled);
     historyAction->setEnabled(enabled);
+    issueTokenAction->setEnabled(enabled);
     encryptWalletAction->setEnabled(enabled);
     backupWalletAction->setEnabled(enabled);
     changePassphraseAction->setEnabled(enabled);
@@ -716,6 +727,12 @@ void TapyrusGUI::gotoSendCoinsPage(QString addr)
 {
     sendCoinsAction->setChecked(true);
     if (walletFrame) walletFrame->gotoSendCoinsPage(addr);
+}
+
+void TapyrusGUI::gotoIssueTokenPage()
+{
+    issueTokenAction->setChecked(true);
+    if (walletFrame) walletFrame->gotoIssueTokenPage();
 }
 
 void TapyrusGUI::gotoSignMessageTab(QString addr)

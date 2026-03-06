@@ -153,6 +153,40 @@ public:
     // Send coins to a list of recipients
     SendCoinsReturn sendCoins(WalletModelTransaction &transaction);
 
+    // Result of issueToken()
+    struct IssueTokenResult {
+        enum Status { OK, InvalidParams, RpcError } status;
+        QString color;        // hex ColorIdentifier on success
+        QStringList txids;    // txid(s) on success
+        QString error;        // error message on failure
+        QString scriptPubKey; // REISSUABLE: the P2PKH script used (store for reissuing)
+        QString address;      // REISSUABLE (new only): the address used (for setlabel)
+    };
+
+    // Issue or reissue a colored coin token.
+    // tokenType: 1=REISSUABLE, 2=NON_REISSUABLE, 3=NFT
+    // existingColorId: when non-empty, calls reissuetoken(colorId, value) instead of issuetoken.
+    IssueTokenResult issueToken(int tokenType, CAmount tokenValue,
+                                const QString& existingColorId = QString());
+
+    // Result of burnToken()
+    struct BurnTokenResult {
+        enum Status { OK, InvalidParams, RpcError } status;
+        QString txid;
+        QString error;
+    };
+
+    // Burn colored coin tokens via the burntoken RPC.
+    BurnTokenResult burnToken(const QString& colorId, CAmount amount);
+
+    // Return current token balances: colorId hex → balance.
+    // Tokens with zero balance are not included (they are persisted by the dialog).
+    QMap<QString, CAmount> getTokenBalances() const;
+
+    // Set a label for a wallet address (REISSUABLE tokens only).
+    // Returns false if the address is invalid or the wallet call fails.
+    bool setTokenLabel(const QString& address, const QString& label);
+
     // Wallet encryption
     bool setWalletEncrypted(bool encrypted, const SecureString &passphrase);
     // Passphrase only needed when unlocking
