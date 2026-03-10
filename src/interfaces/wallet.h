@@ -47,8 +47,6 @@ struct TokenIssuanceResult {
     bool ok = false;
     std::string color;                  //! hex color ID on success
     std::vector<std::string> txids;     //! txid(s) on success
-    std::string address;                //! REISSUABLE new: address used (for setlabel)
-    std::string scriptPubKey;           //! REISSUABLE new: P2PKH script (for reissuing)
     std::string error;                  //! error message on failure
 };
 
