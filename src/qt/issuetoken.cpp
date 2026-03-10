@@ -3,10 +3,9 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <qt/issuetoken.h>
+#include <qt/guiconstants.h>
 #include <qt/walletmodel.h>
 #include <qt/platformstyle.h>
-
-#include <amount.h>
 
 #include <QApplication>
 #include <QClipboard>
@@ -16,7 +15,6 @@
 #include <QIcon>
 #include <QMap>
 #include <QMenu>
-#include <QSettings>
 #include <QString>
 #include <QTableWidgetItem>
 #include <QTimer>
@@ -25,20 +23,20 @@
 #include <ui_issuetoken.h>
 
 // ── Numeric-sorting table item ────────────────────────────────────────────────
+// Handles both plain "N" and bracketed "[N]" (unconfirmed) formats.
 class NumericItem : public QTableWidgetItem {
 public:
     explicit NumericItem(const QString &text) : QTableWidgetItem(text) {}
     bool operator<(const QTableWidgetItem &o) const override {
-        return text().toLongLong() < o.text().toLongLong();
+        return numericValue(text()) < numericValue(o.text());
+    }
+private:
+    static qlonglong numericValue(const QString &s) {
+        if (s.startsWith('[') && s.endsWith(']'))
+            return s.mid(1, s.length() - 2).toLongLong();
+        return s.toLongLong();
     }
 };
-
-// ── QSettings key helpers ────────────────────────────────────────────────────
-// Keys live under group "IssuedTokens/<walletName>/<colorId>/"
-static QString settingsGroup(const QString &walletName)
-{
-    return "IssuedTokens/" + walletName;
-}
 
 // ── Constructor / destructor ─────────────────────────────────────────────────
 
@@ -99,10 +97,10 @@ void IssueTokenDialog::setModel(WalletModel *_model)
 {
     model = _model;
     if (model) {
-        loadPersistedTokens();
-        refreshBurnCombo();
-        // Refresh balances (and burn combo) whenever the wallet reports a balance change
+        refreshTokenTable();
         connect(model, &WalletModel::balanceChanged,
+                this,  &IssueTokenDialog::refreshTokenTable);
+        connect(model, &WalletModel::tokenAddressBookChanged,
                 this,  &IssueTokenDialog::refreshTokenTable);
     }
 }
@@ -121,14 +119,8 @@ void IssueTokenDialog::refreshTokenTable()
     if (!model)
         return;
 
-    // Fetch current live balances
-    QMap<QString, CAmount> balances = model->getTokenBalances();
-
-    // Update in-memory records
-    for (IssuedTokenRecord &rec : m_tokens) {
-        auto it = balances.find(rec.colorId);
-        rec.balance = (it != balances.end()) ? it.value() : 0;
-    }
+    // Rebuild m_tokens from the wallet address book (shared with RPC layer)
+    m_tokens = model->getIssuedTokens();
 
     // Remember the currently selected colorId so we can restore it after the rebuild
     QString selectedColorId;
@@ -235,39 +227,14 @@ void IssueTokenDialog::on_issueButton_clicked()
     WalletModel::IssueTokenResult result = model->issueToken(tokenType, tokenValue, existingColorId);
 
     if (result.status == WalletModel::IssueTokenResult::OK) {
-        if (isReissue) {
-            // Update balance on the existing record only
-            for (IssuedTokenRecord &rec : m_tokens) {
-                if (rec.colorId == result.color) {
-                    rec.balance += tokenValue;
-                    break;
-                }
-            }
-            refreshTokenTable();
-            highlightTokenRow(result.color);
-            Q_EMIT message(tr("Issue Token"),
-                           tr("Tokens reissued successfully.\nColor: %1").arg(result.color),
-                           CClientUIInterface::MSG_INFORMATION);
-            return;
-        }
-
-        // Build and persist new record
-        IssuedTokenRecord rec;
-        rec.colorId      = result.color;
-        rec.label        = "";
-        rec.tokenType    = tokenTypeName(tokenType);
-        rec.balance      = tokenValue;
-        rec.scriptPubKey = result.scriptPubKey;
-        rec.address      = result.address;
-
-        m_tokens.append(rec);
-        saveToken(rec);
-
+        // Address book was updated by the wallet during issuance/reissuance;
+        // refresh the table from the wallet directly.
         refreshTokenTable();
         highlightTokenRow(result.color);
 
-        Q_EMIT message(tr("Issue Token"),
-                       tr("Token issued successfully.\nColor: %1").arg(result.color),
+        const QString msgKey = isReissue ? tr("Tokens reissued successfully.\nColor: %1")
+                                         : tr("Token issued successfully.\nColor: %1");
+        Q_EMIT message(tr("Issue Token"), msgKey.arg(result.color),
                        CClientUIInterface::MSG_INFORMATION);
     } else {
         Q_EMIT message(tr("Issue Token"), result.error, CClientUIInterface::MSG_ERROR);
@@ -276,29 +243,26 @@ void IssueTokenDialog::on_issueButton_clicked()
 
 void IssueTokenDialog::onLabelChanged(QTableWidgetItem *item)
 {
-    if (!item || item->column() != ColLabel)
+    if (!item || item->column() != ColLabel || !model)
         return;
 
-    int row = item->row();
-    if (row < 0 || row >= m_tokens.size())
+    // Resolve colorId from the same row (robust against sort reordering)
+    QTableWidgetItem *colorCell = ui->tokenTable->item(item->row(), ColColor);
+    if (!colorCell)
         return;
+    const QString colorId = colorCell->text();
 
-    QString newLabel = item->text();
-    m_tokens[row].label = newLabel;
+    const QString newLabel = item->text();
 
-    if (!model)
-        return;
-
-    // Store label in the wallet's address book for REISSUABLE tokens that have an address
-    if (!m_tokens[row].address.isEmpty())
-        model->setTokenLabel(m_tokens[row].address, newLabel);
-
-    // Always persist to QSettings as the canonical source for the token list
-    QSettings settings;
-    QString grp = settingsGroup(model->getWalletName());
-    settings.beginGroup(grp + "/" + m_tokens[row].colorId);
-    settings.setValue("label", newLabel);
-    settings.endGroup();
+    // Update in-memory cache and persist to the wallet address book
+    for (WalletModel::IssuedTokenRecord &rec : m_tokens) {
+        if (rec.colorId == colorId) {
+            rec.label = newLabel;
+            if (!rec.address.isEmpty())
+                model->setTokenLabel(rec.address, newLabel);
+            break;
+        }
+    }
 }
 
 void IssueTokenDialog::onIssueModeChanged()
@@ -315,7 +279,7 @@ void IssueTokenDialog::refreshReissueCombo()
     const QString current = ui->reissueCombo->currentData().toString();
     ui->reissueCombo->clear();
 
-    for (const IssuedTokenRecord &rec : m_tokens) {
+    for (const WalletModel::IssuedTokenRecord &rec : m_tokens) {
         if (rec.tokenType != "REISSUABLE")
             continue;
         ui->reissueCombo->addItem(QIcon(":/icons/token_reissuable"), rec.colorId, rec.colorId);
@@ -353,7 +317,7 @@ void IssueTokenDialog::on_burnButton_clicked()
 
     // Find balance
     CAmount balance = 0;
-    for (const IssuedTokenRecord &rec : m_tokens) {
+    for (const WalletModel::IssuedTokenRecord &rec : m_tokens) {
         if (rec.colorId == colorId) { balance = rec.balance; break; }
     }
 
@@ -395,7 +359,7 @@ void IssueTokenDialog::onBurnColorChanged(int index)
     // Find the record to get balance and type
     CAmount balance = 0;
     bool isNft = false;
-    for (const IssuedTokenRecord &rec : m_tokens) {
+    for (const WalletModel::IssuedTokenRecord &rec : m_tokens) {
         if (rec.colorId == colorId) {
             balance = rec.balance;
             isNft = (rec.tokenType == "NFT");
@@ -429,7 +393,7 @@ void IssueTokenDialog::onTokenTableContextMenu(const QPoint &pos)
 
     // Find matching record to get the address
     QString address;
-    for (const IssuedTokenRecord &rec : m_tokens) {
+    for (const WalletModel::IssuedTokenRecord &rec : m_tokens) {
         if (rec.colorId == colorId) { address = rec.address; break; }
     }
 
@@ -458,7 +422,7 @@ void IssueTokenDialog::refreshBurnCombo()
         {"NFT",            ":/icons/token_nft"},
     };
 
-    for (const IssuedTokenRecord &rec : m_tokens) {
+    for (const WalletModel::IssuedTokenRecord &rec : m_tokens) {
         if (rec.balance <= 0)
             continue;
 
@@ -480,65 +444,30 @@ void IssueTokenDialog::refreshBurnCombo()
 
 // ── Private helpers ───────────────────────────────────────────────────────────
 
-void IssueTokenDialog::loadPersistedTokens()
+
+
+void IssueTokenDialog::addTokenToTable(const WalletModel::IssuedTokenRecord &rec, int row)
 {
-    if (!model)
-        return;
+    const bool unconfirmed = (rec.balance == 0 && rec.unconfirmedBalance > 0);
+    const QBrush greyBrush(COLOR_UNCONFIRMED);
 
-    m_tokens.clear();
+    static const QMap<QString, QString> typeIconPaths = {
+        {"REISSUABLE",     ":/icons/token_reissuable"},
+        {"NON_REISSUABLE", ":/icons/token_nonreissuable"},
+        {"NFT",            ":/icons/token_nft"},
+    };
 
-    QSettings settings;
-    QString grp = settingsGroup(model->getWalletName());
-    settings.beginGroup(grp);
-    const QStringList colorIds = settings.childGroups();
-    settings.endGroup();
-
-    for (const QString &colorId : colorIds) {
-        settings.beginGroup(grp + "/" + colorId);
-        IssuedTokenRecord rec;
-        rec.colorId      = colorId;
-        rec.label        = settings.value("label",        QString()).toString();
-        rec.tokenType    = settings.value("type",         "REISSUABLE").toString();
-        rec.scriptPubKey = settings.value("scriptPubKey", QString()).toString();
-        rec.address      = settings.value("address",      QString()).toString();
-        rec.balance      = 0; // will be refreshed below
-        settings.endGroup();
-
-        m_tokens.append(rec);
-    }
-
-    // Merge live balances
-    refreshTokenTable();
-}
-
-void IssueTokenDialog::saveToken(const IssuedTokenRecord &rec)
-{
-    if (!model)
-        return;
-
-    QSettings settings;
-    QString grp = settingsGroup(model->getWalletName());
-    settings.beginGroup(grp + "/" + rec.colorId);
-    settings.setValue("label", rec.label);
-    settings.setValue("type",  rec.tokenType);
-    if (!rec.scriptPubKey.isEmpty())
-        settings.setValue("scriptPubKey", rec.scriptPubKey);
-    if (!rec.address.isEmpty())
-        settings.setValue("address", rec.address);
-    settings.endGroup();
-}
-
-void IssueTokenDialog::addTokenToTable(const IssuedTokenRecord &rec, int row)
-{
     // Col 0 – Type with icon (non-editable)
     {
-        static const QMap<QString, QString> typeIcons = {
-            {"REISSUABLE",     ":/icons/token_reissuable"},
-            {"NON_REISSUABLE", ":/icons/token_nonreissuable"},
-            {"NFT",            ":/icons/token_nft"},
-        };
-        auto *it = new QTableWidgetItem(QIcon(typeIcons.value(rec.tokenType)), rec.tokenType);
+        QIcon icon(typeIconPaths.value(rec.tokenType));
+        if (unconfirmed) {
+            // Render icon in disabled (greyed) mode using Qt's built-in palette mapping
+            QPixmap px = icon.pixmap(16, 16, QIcon::Disabled);
+            icon = QIcon(px);
+        }
+        auto *it = new QTableWidgetItem(icon, rec.tokenType);
         it->setFlags(it->flags() & ~Qt::ItemIsEditable);
+        if (unconfirmed) it->setForeground(greyBrush);
         ui->tokenTable->setItem(row, ColType, it);
     }
     // Col 1 – Full colorId (non-editable, monospace font)
@@ -550,19 +479,26 @@ void IssueTokenDialog::addTokenToTable(const IssuedTokenRecord &rec, int row)
         mono.setStyleHint(QFont::TypeWriter);
         it->setFont(mono);
         it->setToolTip(rec.colorId);
+        if (unconfirmed) it->setForeground(greyBrush);
         ui->tokenTable->setItem(row, ColColor, it);
     }
     // Col 2 – Label (editable)
     {
         auto *it = new QTableWidgetItem(rec.label);
         it->setFlags(it->flags() | Qt::ItemIsEditable);
+        if (unconfirmed) it->setForeground(greyBrush);
         ui->tokenTable->setItem(row, ColLabel, it);
     }
     // Col 3 – Balance (non-editable, numeric sort)
+    // Unconfirmed amounts shown as "[N]" (same convention as the transaction list)
     {
-        auto *it = new NumericItem(QString::number(rec.balance));
+        QString balText = unconfirmed
+            ? QStringLiteral("[%1]").arg(rec.unconfirmedBalance)
+            : QString::number(rec.balance);
+        auto *it = new NumericItem(balText);
         it->setFlags(it->flags() & ~Qt::ItemIsEditable);
         it->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        if (unconfirmed) it->setForeground(greyBrush);
         ui->tokenTable->setItem(row, ColBalance, it);
     }
 }

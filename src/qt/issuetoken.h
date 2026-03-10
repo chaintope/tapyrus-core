@@ -5,13 +5,11 @@
 #ifndef TAPYRUS_QT_ISSUETOKEN_H
 #define TAPYRUS_QT_ISSUETOKEN_H
 
-#include <amount.h>
+#include <qt/walletmodel.h>
 
-#include <QString>
 #include <QWidget>
 
 class PlatformStyle;
-class WalletModel;
 
 namespace Ui {
     class IssueTokenDialog;
@@ -20,25 +18,15 @@ namespace Ui {
 class QPoint;
 class QTableWidgetItem;
 
-/** Persistent record for a token issued by this wallet. */
-struct IssuedTokenRecord {
-    QString colorId;       // hex ColorIdentifier (primary key)
-    QString label;         // user-editable label
-    QString tokenType;     // "REISSUABLE" / "NON_REISSUABLE" / "NFT"
-    CAmount balance = 0;   // refreshed from wallet; may be 0 after transfer
-    QString scriptPubKey;  // REISSUABLE only: original P2PKH script (for reissuing)
-    QString address;       // REISSUABLE only: address for setlabel RPC
-};
-
 /**
  * Page for issuing and burning colored coin tokens.
  *
  * Layout:
  *   QTabWidget
- *     Tab 0 – Issue Token  (fully implemented)
- *     Tab 1 – Burn Token   (UI scaffold; wire up burnToken() to implement)
- *   QGroupBox "Issued Tokens"
- *     QTableWidget  columns: Color+Copy | Label | Type | Balance
+ *     Tab 0 – Issue Token
+ *     Tab 1 – Burn Token
+ *   QGroupBox "Tokens"
+ *     QTableWidget  columns: Type | Color ID | Label | Balance
  */
 class IssueTokenDialog : public QWidget
 {
@@ -56,7 +44,7 @@ public:
 
 public Q_SLOTS:
     void clear();
-    void refreshTokenTable();   // re-read balances from wallet
+    void refreshTokenTable();   // re-read tokens and balances from wallet
 
 Q_SIGNALS:
     void message(const QString &title, const QString &message, unsigned int style);
@@ -76,16 +64,15 @@ private:
     WalletModel *model;
     const PlatformStyle *platformStyle;
 
-    QList<IssuedTokenRecord> m_tokens;
+    // In-memory cache rebuilt from the wallet address book on each refresh.
+    QList<WalletModel::IssuedTokenRecord> m_tokens;
 
-    void loadPersistedTokens();
-    void saveToken(const IssuedTokenRecord &rec);
-    void addTokenToTable(const IssuedTokenRecord &rec, int row);
+    void addTokenToTable(const WalletModel::IssuedTokenRecord &rec, int row);
     void refreshBurnCombo();
     void refreshReissueCombo();
     void highlightTokenRow(const QString &colorId);
 
-    int  currentTokenType() const;            // 1/2/3
+    int     currentTokenType() const;   // 1/2/3
     QString tokenTypeName(int type) const;
 };
 

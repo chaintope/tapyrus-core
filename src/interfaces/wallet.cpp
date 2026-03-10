@@ -390,8 +390,6 @@ public:
 
             result.ok = true;
             result.color = rv["color"].get_str();
-            result.address = rv["address"].get_str();
-            result.scriptPubKey = scriptHex;
             for (const UniValue& t : rv["txids"].getValues())
                 result.txids.push_back(t.get_str());
         } catch (const UniValue& e) {
@@ -409,7 +407,7 @@ public:
             std::vector<COutput> vecOutputs;
             {
                 LOCK2(::cs_main, m_wallet.cs_wallet);
-                m_wallet.AvailableCoins(vecOutputs, true, nullptr, 0, MAX_MONEY, MAX_MONEY, 0, 1, 9999999, false);
+                m_wallet.AvailableCoins(vecOutputs, true, nullptr, 0, MAX_MONEY, MAX_MONEY, 0, 0, 9999999, false);
             }
 
             COutPoint tpcUtxo;
@@ -437,7 +435,6 @@ public:
 
             result.ok = true;
             result.color = rv["color"].get_str();
-            result.address = rv["address"].get_str();
             result.txids.push_back(rv["txid"].get_str());
         } catch (const UniValue& e) {
             result.error = e["message"].get_str();

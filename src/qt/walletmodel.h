@@ -20,6 +20,7 @@
 #include <map>
 #include <vector>
 
+#include <QList>
 #include <QObject>
 
 enum class OutputType;
@@ -159,8 +160,6 @@ public:
         QString color;        // hex ColorIdentifier on success
         QStringList txids;    // txid(s) on success
         QString error;        // error message on failure
-        QString scriptPubKey; // REISSUABLE: the P2PKH script used (store for reissuing)
-        QString address;      // REISSUABLE (new only): the address used (for setlabel)
     };
 
     // Issue or reissue a colored coin token.
@@ -180,12 +179,26 @@ public:
     BurnTokenResult burnToken(const QString& colorId, CAmount amount);
 
     // Return current token balances: colorId hex → balance.
-    // Tokens with zero balance are not included (they are persisted by the dialog).
     QMap<QString, CAmount> getTokenBalances() const;
 
-    // Set a label for a wallet address (REISSUABLE tokens only).
+    // Set a label for a wallet address.
     // Returns false if the address is invalid or the wallet call fails.
     bool setTokenLabel(const QString& address, const QString& label);
+
+    // Persistent record for a token held by this wallet.
+    // Derived from the wallet address book — no separate local storage.
+    struct IssuedTokenRecord {
+        QString colorId;              // hex ColorIdentifier (primary key)
+        QString label;                // user-editable label (stored in wallet address book)
+        QString tokenType;            // "REISSUABLE" / "NON_REISSUABLE" / "NFT"
+        CAmount balance = 0;          // confirmed balance
+        CAmount unconfirmedBalance = 0; // unconfirmed (mempool) balance
+        QString address;              // CColorScriptID encoded address
+    };
+
+    // Return all colored-coin addresses owned by this wallet as IssuedTokenRecord list.
+    // Reads from the wallet address book — shared with the RPC layer.
+    QList<IssuedTokenRecord> getIssuedTokens() const;
 
     // Wallet encryption
     bool setWalletEncrypted(bool encrypted, const SecureString &passphrase);
@@ -266,6 +279,9 @@ private:
 Q_SIGNALS:
     // Signal that balance in wallet changed
     void balanceChanged(const interfaces::WalletBalances& balances);
+
+    // Signal that a colored-coin address book entry was added or updated
+    void tokenAddressBookChanged();
 
     // Encryption status of wallet changed
     void encryptionStatusChanged();
