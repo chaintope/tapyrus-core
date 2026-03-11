@@ -325,7 +325,7 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
                                     head.ToString());
                             LOCK(cs_main);
                             CValidationState dummy;
-                            if (g_chainstate.AcceptBlock(pblockrecursive, dummy, nullptr, true, &it->second, nullptr))
+                            if (g_chainstate.AcceptBlock(pblockrecursive, dummy, nullptr, true, &it->second, nullptr, pxfieldHistory))
                             {
                                 nLoaded++;
                                 queue.push_back(pblockrecursive->GetHash());
