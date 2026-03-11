@@ -34,7 +34,8 @@ from test_framework.util import (
     disconnect_nodes,
     hex_str_to_bytes,
     bytes_to_hex_str,
-    assert_raises_rpc_error
+    assert_raises_rpc_error,
+    sync_blocks
 )
 from test_framework.messages import sha256
 from test_framework.script import CScript, hash160, OP_DUP, OP_HASH160, OP_EQUALVERIFY, OP_CHECKSIG
@@ -719,15 +720,18 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         self.log.info("Testing issuance with unconfirmed change and duplicate-entry guard")
 
         # Start node 3 and join the existing network so it learns the chain.
+        # Use sync_blocks only: node 3 starts with an empty mempool and will
+        # not receive the existing unconfirmed txs from nodes 0-2, so a full
+        # sync_all would time out on mempool sync.
         self.start_node(3)
         connect_nodes_bi(self.nodes, 0, 3)
-        self.sync_all([self.nodes[0:4]])
+        sync_blocks(self.nodes[0:4])
 
         # Mine exactly 1 block on node 3.  This gives it ONE confirmed coinbase
         # UTXO (50 TPC).  Once the first issuance spends it, the wallet holds
         # only unconfirmed change — the scenario that exposed fixes 1 & 2.
         self.nodes[3].generate(1, self.signblockprivkey_wif)
-        self.sync_all([self.nodes[0:4]])
+        sync_blocks(self.nodes[0:4])
 
         # Build the P2PKH script that will define the REISSUABLE color.
         tpc_utxo = findTPC(self.nodes[3].listunspent(1))
