@@ -768,7 +768,7 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         assert unconf_tpc is not None, "Expected at least one unconfirmed TPC UTXO after issuance"
 
         res4 = self.nodes[3].issuetoken(2, 75, unconf_tpc['txid'], unconf_tpc['vout'])
-        assert_equal(len(res4['txids']), 1)  # NON_REISSUABLE produces a single tx
+        assert 'txid' in res4  # NON_REISSUABLE returns a single 'txid' string, not a 'txids' list
 
         # Mine one block to confirm everything, then verify final balances.
         # Earlier, because of duplicate address book entries, color1's balance would
