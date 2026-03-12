@@ -21,6 +21,16 @@ bool TransactionRecord::showTransaction()
     return true;
 }
 
+static std::string tokenTypeName(TokenTypes type)
+{
+    switch (type) {
+        case TokenTypes::REISSUABLE:     return "REISSUABLE";
+        case TokenTypes::NON_REISSUABLE: return "NON_REISSUABLE";
+        case TokenTypes::NFT:            return "NFT";
+        default:                         return "";
+    }
+}
+
 /*
  * Decompose CWallet transaction to model transaction records.
  */
@@ -35,6 +45,29 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
     uint256 hash = wtx.tx->GetHashMalFix();
     std::map<std::string, std::string> mapValue = wtx.value_map;
 
+    // Compute input/output mine status upfront — used by both TPC and token sections
+    bool involvesWatchAddress = false;
+    isminetype fAllFromMe = ISMINE_SPENDABLE;
+    for (isminetype mine : wtx.txin_is_mine) {
+        if (mine & ISMINE_WATCH_ONLY) involvesWatchAddress = true;
+        if (fAllFromMe > mine) fAllFromMe = mine;
+    }
+    isminetype fAllToMe = ISMINE_SPENDABLE;
+    for (isminetype mine : wtx.txout_is_mine) {
+        if (mine & ISMINE_WATCH_ONLY) involvesWatchAddress = true;
+        if (fAllToMe > mine) fAllToMe = mine;
+    }
+
+    // Does this tx involve any token credits or debits?
+    bool hasTokenCredits = false;
+    bool hasTokenDebits  = false;
+    for (const auto& e : wtx.credits) if (e.first.type != TokenTypes::NONE) { hasTokenCredits = true; break; }
+    for (const auto& e : wtx.debits)  if (e.first.type != TokenTypes::NONE) { hasTokenDebits  = true; break; }
+
+    // Does any output carry a colored script?
+    bool hasColoredOutputs = false;
+    for (const auto& cid : wtx.txout_color_id) if (!cid.empty()) { hasColoredOutputs = true; break; }
+
     if (nNet > 0 || wtx.is_coinbase)
     {
         //
@@ -44,6 +77,9 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
         {
             const CTxOut& txout = wtx.tx->vout[i];
             isminetype mine = wtx.txout_is_mine[i];
+            // Skip token outputs here; they are handled in the token section below
+            if (!wtx.txout_color_id[i].empty())
+                continue;
             if(mine)
             {
                 TransactionRecord sub(hash, nTime);
@@ -74,39 +110,36 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
     }
     else
     {
-        bool involvesWatchAddress = false;
-        isminetype fAllFromMe = ISMINE_SPENDABLE;
-        for (isminetype mine : wtx.txin_is_mine)
-        {
-            if(mine & ISMINE_WATCH_ONLY) involvesWatchAddress = true;
-            if(fAllFromMe > mine) fAllFromMe = mine;
-        }
-
-        isminetype fAllToMe = ISMINE_SPENDABLE;
-        for (isminetype mine : wtx.txout_is_mine)
-        {
-            if(mine & ISMINE_WATCH_ONLY) involvesWatchAddress = true;
-            if(fAllToMe > mine) fAllToMe = mine;
-        }
-
         if (fAllFromMe && fAllToMe)
         {
-            // Payment to self
+            // Classify self-payment: anchor tx, token fee, or regular payment to self
+            TransactionRecord::Type selfType;
+            if (hasColoredOutputs && !hasTokenCredits && !hasTokenDebits)
+                selfType = TransactionRecord::TokenAnchor;  // tx1: creates colored UTXO
+            else if (hasTokenCredits || hasTokenDebits)
+                selfType = TransactionRecord::TokenFee;     // tx2: anchor consumed by issuance
+            else
+                selfType = TransactionRecord::SendToSelf;
+
             CAmount nChange = wtx.getChange();
-            parts.append(TransactionRecord(hash, nTime, TransactionRecord::SendToSelf, "",
+            parts.append(TransactionRecord(hash, nTime, selfType, "",
                             -(nDebit - nChange), nCredit - nChange));
-            parts.last().involvesWatchAddress = involvesWatchAddress;   // maybe pass to TransactionRecord as constructor argument
+            parts.last().involvesWatchAddress = involvesWatchAddress;
         }
         else if (fAllFromMe)
         {
             //
-            // Debit
+            // Debit (TPC outputs only; token outputs handled below)
             //
             CAmount nTxFee = nDebit - wtx.tx->GetValueOut(ColorIdentifier());
 
             for (unsigned int nOut = 0; nOut < wtx.tx->vout.size(); nOut++)
             {
                 const CTxOut& txout = wtx.tx->vout[nOut];
+                // Skip token outputs; they are handled in the token section below
+                if (!wtx.txout_color_id[nOut].empty())
+                    continue;
+
                 TransactionRecord sub(hash, nTime);
                 sub.idx = nOut;
                 sub.involvesWatchAddress = involvesWatchAddress;
@@ -151,6 +184,87 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
             parts.append(TransactionRecord(hash, nTime, TransactionRecord::Other, "", nNet, 0));
             parts.last().involvesWatchAddress = involvesWatchAddress;
         }
+    }
+
+    // --- Token records ---
+    // Emit one record per distinct colored coin type involved in this transaction.
+    // Token amounts come from the credits/debits maps; txout.nValue is always 0 for colored outputs.
+    std::set<std::string> processedColors;
+
+    auto appendTokenRecord = [&](const ColorIdentifier& colorId, CAmount creditAmt, CAmount debitAmt) {
+        std::string colorHex = colorId.toHexString();
+        if (!processedColors.insert(colorHex).second)
+            return; // already emitted a record for this color
+
+        CAmount netAmt = creditAmt - debitAmt;
+
+        // Find the best output index and address for this color
+        std::string addr;
+        int outIdx = -1;
+        bool involvesWatch = false;
+
+        for (unsigned int i = 0; i < wtx.txout_color_id.size(); i++) {
+            if (wtx.txout_color_id[i] != colorHex)
+                continue;
+            bool isMine = wtx.txout_is_mine[i] != ISMINE_NO;
+            if (netAmt > 0 && !isMine) continue; // for receives, prefer mine outputs
+            if (netAmt < 0 &&  isMine) continue; // for sends, prefer non-mine outputs
+            outIdx = i;
+            if (!std::get_if<CNoDestination>(&wtx.txout_address[i]))
+                addr = EncodeDestination(wtx.txout_address[i]);
+            involvesWatch = wtx.txout_is_mine[i] & ISMINE_WATCH_ONLY;
+            break;
+        }
+        // Fallback: if no preferred output found, take any output with this color
+        if (outIdx < 0) {
+            for (unsigned int i = 0; i < wtx.txout_color_id.size(); i++) {
+                if (wtx.txout_color_id[i] != colorHex) continue;
+                outIdx = i;
+                if (!std::get_if<CNoDestination>(&wtx.txout_address[i]))
+                    addr = EncodeDestination(wtx.txout_address[i]);
+                break;
+            }
+        }
+
+        TransactionRecord sub(hash, nTime);
+        sub.idx = outIdx >= 0 ? outIdx : 0;
+        sub.colorId = colorHex;
+        sub.tokenType = tokenTypeName(colorId.type);
+        sub.tokenAmount = netAmt;
+        sub.involvesWatchAddress = involvesWatch;
+        sub.address = addr;
+
+        if (netAmt > 0) {
+            // Distinguish fresh/reissuance (all TPC inputs mine, I'm the issuer)
+            // from a transfer receive (sender's inputs, not mine)
+            if (fAllFromMe)
+                sub.type = TransactionRecord::TokenIssued;
+            else
+                sub.type = addr.empty() ? TransactionRecord::RecvFromOther : TransactionRecord::RecvWithAddress;
+        } else if (netAmt < 0) {
+            // Burn: no colored output with this color exists in the tx (tokens destroyed)
+            // Send: colored output exists (going to recipient)
+            bool hasColoredOutputForColor = false;
+            for (const auto& cid : wtx.txout_color_id)
+                if (cid == colorHex) { hasColoredOutputForColor = true; break; }
+            if (!hasColoredOutputForColor)
+                sub.type = TransactionRecord::TokenBurned;
+            else
+                sub.type = addr.empty() ? TransactionRecord::SendToOther : TransactionRecord::SendToAddress;
+        } else {
+            sub.type = TransactionRecord::SendToSelf;
+        }
+
+        parts.append(sub);
+    };
+
+    for (const auto& entry : wtx.credits) {
+        if (entry.first.type == TokenTypes::NONE) continue;
+        appendTokenRecord(entry.first, entry.second, wtx.getDebit(entry.first));
+    }
+    for (const auto& entry : wtx.debits) {
+        if (entry.first.type == TokenTypes::NONE) continue;
+        appendTokenRecord(entry.first, wtx.getCredit(entry.first), entry.second);
     }
 
     return parts;
