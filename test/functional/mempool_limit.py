@@ -204,9 +204,24 @@ class MempoolLimitTest(BitcoinTestFramework):
         high_feerate = mempoolmin_feerate * 50
         self.fill_mempool(node, utxos, high_feerate, nSequence=0)
 
+        # Add one low-fee transaction (2x mempoolminfee) to anchor mempoolminfee at a low level.
+        # If the final space-filling step accidentally triggers an eviction, this is the cheapest
+        # transaction in the pool and will be the one evicted.  After its eviction mempoolminfee
+        # rises to at most ~3x (2x + incrementalRelayFee ~1x), which is still well below the
+        # package feerate (6x).  This prevents the flaky failure where a 50x tx gets evicted and
+        # raises mempoolminfee to ~50x, causing the package to be rejected with
+        # "mempool min fee not met" instead of "mempool full".
+        low_feerate = mempoolmin_feerate * 2
+        utxos = [utxo for utxo in node.listunspent() if utxo['amount'] > mempoolmin_feerate]
+        low_fee_utxo = utxos.pop()
+        (_, low_fee_hex) = self.create_signed_raw_tx(node, low_fee_utxo, low_feerate)
+        low_fee_txid = node.sendrawtransaction(low_fee_hex)
+        assert low_fee_txid in node.getrawmempool()
+        self.log.info(f"Added low-fee anchor transaction at {low_feerate} BTC/kB")
+
         # Create package with low fees (just 6x mempoolminfee)
-        # This is high enough to pass mempool min fee after eviction (~4.25x)
-        # but too low to replace the high-fee transactions already in mempool (50x)
+        # This is high enough to pass mempoolminfee even if the low-fee anchor tx is evicted
+        # (~3x after eviction), but too low to replace the high-fee transactions (50x).
         package_feerate = mempoolmin_feerate * 6
         utxos = [utxo for utxo in node.listunspent()if utxo['amount'] >  mempoolmin_feerate]
         (package_hex, package_txids) = self.create_package(node, utxos, None, package_feerate, size=10)
