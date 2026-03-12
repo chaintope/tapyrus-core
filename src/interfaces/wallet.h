@@ -427,6 +427,7 @@ struct WalletTx
     std::vector<isminetype> txout_is_mine;
     std::vector<CTxDestination> txout_address;
     std::vector<isminetype> txout_address_is_mine;
+    std::vector<std::string> txout_color_id; // hex color ID per output, empty string for TPC outputs
     TxColoredCoinBalancesMap credits;
     TxColoredCoinBalancesMap debits;
     TxColoredCoinBalancesMap changes;

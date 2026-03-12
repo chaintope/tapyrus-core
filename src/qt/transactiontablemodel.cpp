@@ -351,6 +351,14 @@ QString TransactionTableModel::formatTxType(const TransactionRecord *wtx) const
         return tr("Payment to yourself");
     case TransactionRecord::Generated:
         return tr("Mined");
+    case TransactionRecord::TokenIssued:
+        return tr("Token Issued");
+    case TransactionRecord::TokenBurned:
+        return tr("Token Burned");
+    case TransactionRecord::TokenFee:
+        return tr("Token Fee");
+    case TransactionRecord::TokenAnchor:
+        return tr("Token Anchor");
     default:
         return QString();
     }
@@ -368,6 +376,13 @@ QVariant TransactionTableModel::txAddressDecoration(const TransactionRecord *wtx
     case TransactionRecord::SendToAddress:
     case TransactionRecord::SendToOther:
         return QIcon(":/icons/tx_output");
+    case TransactionRecord::TokenIssued:
+        return QIcon(":/icons/tx_input");   // receive direction
+    case TransactionRecord::TokenBurned:
+        return QIcon(":/icons/tx_output");  // send/destroy direction
+    case TransactionRecord::TokenFee:
+    case TransactionRecord::TokenAnchor:
+        return QIcon(":/icons/tx_inout");   // internal/self
     default:
         return QIcon(":/icons/tx_inout");
     }
@@ -391,6 +406,13 @@ QString TransactionTableModel::formatTxToAddress(const TransactionRecord *wtx, b
         return lookupAddress(wtx->address, tooltip) + watchAddress;
     case TransactionRecord::SendToOther:
         return QString::fromStdString(wtx->address) + watchAddress;
+    case TransactionRecord::TokenIssued:
+    case TransactionRecord::TokenBurned:
+        return lookupAddress(wtx->address, tooltip) + watchAddress;
+    case TransactionRecord::TokenFee:
+        return tr("(token fee)") + watchAddress;
+    case TransactionRecord::TokenAnchor:
+        return tr("(token anchor)") + watchAddress;
     case TransactionRecord::SendToSelf:
     default:
         return tr("(n/a)") + watchAddress;
@@ -420,7 +442,13 @@ QVariant TransactionTableModel::addressColor(const TransactionRecord *wtx) const
 
 QString TransactionTableModel::formatTxAmount(const TransactionRecord *wtx, bool showUnconfirmed, TapyrusUnits::SeparatorStyle separators) const
 {
-    QString str = TapyrusUnits::format(walletModel->getOptionsModel()->getDisplayUnit(), wtx->credit + wtx->debit, false, separators);
+    QString str;
+    if (!wtx->colorId.empty()) {
+        // Token record: format as integer token amount
+        str = TapyrusUnits::format(TapyrusUnits::TOKEN, wtx->tokenAmount, false, separators);
+    } else {
+        str = TapyrusUnits::format(walletModel->getOptionsModel()->getDisplayUnit(), wtx->credit + wtx->debit, false, separators);
+    }
     if(showUnconfirmed)
     {
         if(!wtx->status.countsForBalance)
@@ -478,6 +506,8 @@ QString TransactionTableModel::formatTooltip(const TransactionRecord *rec) const
     {
         tooltip += QString(" ") + formatTxToAddress(rec, true);
     }
+    if (!rec->colorId.empty())
+        tooltip += QString("\nToken: ") + QString::fromStdString(rec->colorId);
     return tooltip;
 }
 
@@ -533,7 +563,8 @@ QVariant TransactionTableModel::data(const QModelIndex &index, int role) const
         case ToAddress:
             return formatTxToAddress(rec, true);
         case Amount:
-            return qint64(rec->credit + rec->debit);
+            // Token records sort by token amount; TPC records sort by TPC net
+            return rec->colorId.empty() ? qint64(rec->credit + rec->debit) : qint64(rec->tokenAmount);
         }
         break;
     case Qt::ToolTipRole:
@@ -546,14 +577,15 @@ QVariant TransactionTableModel::data(const QModelIndex &index, int role) const
         {
             return COLOR_TX_STATUS_DANGER;
         }
-        // Non-confirmed (but not immature) as transactions are grey
+        // Outgoing transactions (sends) are always red, confirmed or not
+        if(index.column() == Amount) {
+            qint64 net = rec->colorId.empty() ? (rec->credit + rec->debit) : rec->tokenAmount;
+            if (net < 0) return COLOR_NEGATIVE;
+        }
+        // Non-confirmed (but not immature) receives are grey
         if(!rec->status.countsForBalance)
         {
             return COLOR_UNCONFIRMED;
-        }
-        if(index.column() == Amount && (rec->credit+rec->debit) < 0)
-        {
-            return COLOR_NEGATIVE;
         }
         if(index.column() == ToAddress)
         {
@@ -615,6 +647,14 @@ QVariant TransactionTableModel::data(const QModelIndex &index, int role) const
         return formatTxAmount(rec, false, TapyrusUnits::separatorNever);
     case StatusRole:
         return rec->status.status;
+    case TokenAmountRole:
+        return qint64(rec->tokenAmount);
+    case ColorIdRole:
+        return QString::fromStdString(rec->colorId);
+    case TokenTypeRole:
+        return QString::fromStdString(rec->tokenType);
+    case IsTokenRole:
+        return !rec->colorId.empty();
     }
     return QVariant();
 }

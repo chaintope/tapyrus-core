@@ -215,18 +215,16 @@ bool IsValidDestinationString(const std::string& str)
 
 bool IsColoredDestination(const std::string& str, ColorIdentifier* colorId)
 {
-   CTxDestination dest = DecodeDestination(str, Params());
-    if(dest.which() == 3)
-    {
-        if(colorId)
-            *colorId = boost::get<CColorKeyID>(dest).color;
+    CTxDestination dest = DecodeDestination(str, Params());
+    if (const CColorKeyID* p = std::get_if<CColorKeyID>(&dest)) {
+        if (colorId)
+            *colorId = p->color;
         return true;
     }
-    else if(dest.which() == 4)
-    {
-        if(colorId)
-            *colorId = boost::get<CColorScriptID>(dest).color;
+    if (const CColorScriptID* p = std::get_if<CColorScriptID>(&dest)) {
+        if (colorId)
+            *colorId = p->color;
         return true;
     }
-   return false;
+    return false;
 }
