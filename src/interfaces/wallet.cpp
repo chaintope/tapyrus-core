@@ -75,12 +75,15 @@ WalletTx MakeWalletTx(CWallet& wallet, const CWalletTx& wtx)
     result.txout_is_mine.reserve(wtx.tx->vout.size());
     result.txout_address.reserve(wtx.tx->vout.size());
     result.txout_address_is_mine.reserve(wtx.tx->vout.size());
+    result.txout_color_id.reserve(wtx.tx->vout.size());
     for (const auto& txout : wtx.tx->vout) {
         result.txout_is_mine.emplace_back(wallet.IsMine(txout));
         result.txout_address.emplace_back();
         result.txout_address_is_mine.emplace_back(ExtractDestination(txout.scriptPubKey, result.txout_address.back()) ?
                                                       IsMine(wallet, result.txout_address.back()) :
                                                       ISMINE_NO);
+        ColorIdentifier cid = GetColorIdFromScript(txout.scriptPubKey);
+        result.txout_color_id.emplace_back(cid.type != TokenTypes::NONE ? cid.toHexString() : std::string());
     }
     result.credits = wallet.GetCredit(*wtx.tx, ISMINE_ALL);
     result.debits = wallet.GetDebit(*wtx.tx, ISMINE_ALL);
