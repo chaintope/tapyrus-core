@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chainstate.h>
+#include <chainparams.h>
 
 #include <consensus/tx_verify.h>
 #include <index/txindex.h>
@@ -18,6 +19,10 @@
 #include <boost/algorithm/string/replace.hpp>
 #include <ranges>
 
+// Defined in validation.cpp; declared here to avoid pulling in validation.h
+// (which includes chainstate.h, creating an indirect self-inclusion).
+void RefreshChainTxDataFromTip(const CBlockIndex* pindexNew);
+
 static int64_t nTimeCheck = 0;
 static int64_t nTimeForks = 0;
 static int64_t nTimeVerify = 0;
@@ -28,6 +33,7 @@ static int64_t nTimeTotal = 0;
 static int64_t nBlocksTotal = 0;
 
 static int64_t nTimeReadFromDisk = 0;
+
 static int64_t nTimeConnectTotal = 0;
 static int64_t nTimeFlush = 0;
 static int64_t nTimeChainState = 0;
@@ -385,6 +391,8 @@ void static UpdateTip(const CBlockIndex *pindexNew)
         g_best_block = pindexNew->GetBlockHash();
         g_best_block_cv.notify_all();
     }
+
+    RefreshChainTxDataFromTip(pindexNew);
 
     LogPrintf("%s: new best=%s height=%d version=0x%08x tx=%lu date='%s' progress=%f cache=%.1fMiB(%utxo)", __func__, /* Continued */
       pindexNew->GetBlockHash().ToString(), pindexNew->nHeight, pindexNew->nFeatures,

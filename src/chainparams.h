@@ -69,6 +69,7 @@ public:
     bool IsFallbackFeeEnabled() const { return m_fallback_fee_enabled; }
     const CCheckpointData& Checkpoints() const { return checkpointData; }
     const ChainTxData& TxData() const { return chainTxData; }
+    void SetChainTxData(const ChainTxData& data) { chainTxData = data; }
     const std::vector<unsigned char>& Base58Prefix(Base58Type type) const { return base58Prefixes[type]; }
     int GetRPCPort() const { return rpcPort; }
     int GetDefaultPort() const { return nDefaultPort; }
@@ -108,5 +109,7 @@ const CChainParams &Params();
  */
 void SelectParams(const TAPYRUS_OP_MODE mode);
 
+/** Update ChainTxData for IBD progress estimation after genesis block is loaded. */
+void UpdateChainTxData(const ChainTxData& data);
 
 #endif // BITCOIN_CHAINPARAMS_H

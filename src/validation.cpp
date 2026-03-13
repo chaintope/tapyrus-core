@@ -104,6 +104,58 @@ std::set<CBlockIndex*> setDirtyBlockIndex;
 /** Dirty block file entries. */
 std::set<int> setDirtyFileInfo;
 
+// Minimum number of blocks in the sampling window for ChainTxData refresh.
+static constexpr int64_t MIN_CHAIN_TX_WINDOW = 100;
+
+/**
+ * Refresh ChainTxData with the observed tx rate from recently connected blocks.
+ * Called from UpdateTip every windowSize blocks.
+ *
+ * Window size is 1% of chain height (minimum 100 blocks), so the rate estimate
+ * becomes more stable as the chain grows. Triggered by height modulo so no
+ * extra state is needed; rate is computed via pprev walk over the window.
+ *
+ * nTxCount is estimated using pindexBestHeader (the furthest header known from
+ * peers) so that during IBD, progress = nChainTx / nTxCount tracks
+ * height / bestHeaderHeight rather than extrapolating years of empty time.
+ */
+void RefreshChainTxDataFromTip(const CBlockIndex* pindexNew)
+{
+    if (!pindexNew || pindexNew->nHeight == 0)
+        return;
+
+    const int64_t windowSize = std::max(MIN_CHAIN_TX_WINDOW,
+        static_cast<int64_t>(pindexNew->nHeight) / 100);
+
+    if (pindexNew->nHeight % windowSize != 0)
+        return;
+
+    const CBlockIndex* pWindow = pindexNew;
+    for (int64_t i = 0; i < windowSize && pWindow->pprev; i++)
+        pWindow = pWindow->pprev;
+
+    const int64_t dt = pindexNew->GetBlockTime() - pWindow->GetBlockTime();
+    if (dt <= 0)
+        return;
+
+    const double rate = static_cast<double>(
+        static_cast<int64_t>(pindexNew->nChainTx) - static_cast<int64_t>(pWindow->nChainTx)) / dt;
+
+    const int64_t bestHeight =
+        (pindexBestHeader && pindexBestHeader->nHeight > pindexNew->nHeight)
+        ? static_cast<int64_t>(pindexBestHeader->nHeight)
+        : static_cast<int64_t>(pindexNew->nHeight);
+
+    const double txPerBlock = static_cast<double>(pindexNew->nChainTx) /
+        pindexNew->nHeight;
+
+    const int64_t nTxCount = std::max(
+        static_cast<int64_t>(pindexNew->nChainTx),
+        static_cast<int64_t>(txPerBlock * bestHeight));
+
+    UpdateChainTxData({time(nullptr), nTxCount, rate});
+}
+
 CBlockIndex* FindForkInGlobalIndex(const CChain& chain, const CBlockLocator& locator)
 {
     AssertLockHeld(cs_main);

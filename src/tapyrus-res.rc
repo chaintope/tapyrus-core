@@ -21,6 +21,7 @@ BEGIN
             VALUE "FileVersion",        VER_FILEVERSION_STR
             VALUE "InternalName",       "tapyrusd"
             VALUE "LegalCopyright",     COPYRIGHT_STR
+            VALUE "LegalCopyright2",    COPYRIGHT_CHAINTOPE_STR
             VALUE "LegalTrademarks1",   "Distributed under the MIT software license, see the accompanying file COPYING or http://www.opensource.org/licenses/mit-license.php."
             VALUE "OriginalFilename",   "tapyrusd.exe"
             VALUE "ProductName",        "tapyrusd"

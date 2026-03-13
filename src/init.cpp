@@ -1239,6 +1239,19 @@ bool AppInitMain()
     }
     LogPrintf("Genesis Block [%s] of Tapyrus network [%s] Loaded successfully\n", FederationParams().GenesisBlock().GetHash().ToString(), FederationParams().NetworkIDString());
 
+    // Initialise ChainTxData from the genesis block timestamp so that
+    // GuessVerificationProgress produces meaningful values during IBD.
+    // nTime is wall-clock time (so nNow - nTime ≈ 0 and fTxTotal ≈ nTxCount),
+    // and nTxCount is the expected total transactions from genesis to now.
+    if (!FederationParams().GenesisBlock().vtx.empty()) {
+        const int64_t genesisTime = FederationParams().GenesisBlock().nTime;
+        const double dTxRate = 1.0 / Params().GetConsensus().nExpectedBlockTime;
+        const int64_t nNow = time(nullptr);
+        const int64_t nTxCount = std::max(int64_t(1),
+            static_cast<int64_t>((nNow - genesisTime) * dTxRate));
+        UpdateChainTxData({nNow, nTxCount, dTxRate});
+    }
+
     InitSignatureCache();
     InitScriptExecutionCache();
 
