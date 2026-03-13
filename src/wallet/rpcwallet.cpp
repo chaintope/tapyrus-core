@@ -4177,7 +4177,7 @@ static ColorIdentifier getColorIdFromRequest(const JSONRPCRequest& request, bool
 // Construct two transctions:
 // first transaction to create a utxo with the given scriptpubkey.
 // second transaction to issue token using tx1's output
-static UniValue IssueReissuableToken(CWallet* const pwallet, const std::string& script, CAmount tokenValue, CCoinControl& coin_control)
+UniValue IssueReissuableToken(CWallet* const pwallet, const std::string& script, CAmount tokenValue, CCoinControl& coin_control)
 {
     LOCK2(cs_main, pwallet->cs_wallet);
 
@@ -4196,7 +4196,6 @@ static UniValue IssueReissuableToken(CWallet* const pwallet, const std::string& 
         for (const CTxDestination &dest : vDest)
             if(!IsValidDestination(dest))
                 throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid Tapyrus script:") + script);
-        pwallet->SetAddressBook(vDest[0], "", "receive");
 
         // Create and send the transaction
         CReserveKey reservekey(pwallet);
@@ -4205,7 +4204,10 @@ static UniValue IssueReissuableToken(CWallet* const pwallet, const std::string& 
         std::vector<CRecipient> vecSend;
         CWallet::ChangePosInOut mapChangePosRet;
         mapChangePosRet[ColorIdentifier()] = -1;
-        CRecipient recipient = {scriptPubKey, DEFAULT_FALLBACK_FEE, false};
+        // Use the wallet's configured fallback fee per KB as the anchor amount.
+        // This ensures the output is well above dust and propagates across the network.
+        CAmount minSpendableAmount = pwallet->m_fallback_fee.GetFeePerK();
+        CRecipient recipient = {scriptPubKey, minSpendableAmount, false};
         vecSend.push_back(recipient);
 
         if (!pwallet->CreateTransaction(vecSend, tx1, reservekey, nFeeRequired, mapChangePosRet, strError, coin_control))
@@ -4221,25 +4223,38 @@ static UniValue IssueReissuableToken(CWallet* const pwallet, const std::string& 
     }
 
     CTransactionRef tx2;
+    CTxDestination colorDest;
     //creating tx2
     {
         if (!pwallet->IsLocked()) {
             pwallet->TopUpKeyPool();
         }
 
-        // Generate a new key that is added to wallet
-        CPubKey newKey;
-        if (!pwallet->GetKeyFromPool(newKey)) {
-            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+        // Reuse an existing CColorScriptID for this color if one is already in the
+        // address book (happens on reissue). This prevents duplicate table entries.
+        bool foundExisting = false;
+        for (const auto& entry : pwallet->mapAddressBook) {
+            const CColorScriptID* existing = std::get_if<CColorScriptID>(&entry.first);
+            if (existing && existing->color == coin_control.m_colorId) {
+                colorDest = *existing;
+                foundExisting = true;
+                break;
+            }
         }
 
-        CKeyID key_id = newKey.GetID();
-        CScript redeemScript = GetScriptForDestination(key_id);
-        CColorScriptID colorscriptid(CScriptID(redeemScript), coin_control.m_colorId);
-        CTxDestination colorDest = CColorScriptID(colorscriptid, coin_control.m_colorId);
+        if (!foundExisting) {
+            // Generate a new key that is added to wallet
+            CPubKey newKey;
+            if (!pwallet->GetKeyFromPool(newKey)) {
+                pwallet->AbandonTransaction(tx1->GetHashMalFix());
+                throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+            }
 
-        //setting the lable as colorid
-        pwallet->SetAddressBook(colorDest, "", "send");
+            CKeyID key_id = newKey.GetID();
+            CScript redeemScript = GetScriptForDestination(key_id);
+            CColorScriptID colorscriptid(CScriptID(redeemScript), coin_control.m_colorId);
+            colorDest = CColorScriptID(colorscriptid, coin_control.m_colorId);
+        }
 
         CScript scriptpubkey = GetScriptForDestination(colorDest);
 
@@ -4255,17 +4270,25 @@ static UniValue IssueReissuableToken(CWallet* const pwallet, const std::string& 
         COutPoint out(tx1->GetHashMalFix(), 0);
         coin_control.m_colorTxType = ColoredTxType::ISSUE;
         coin_control.Select(out);
+        // included other TPC UTXOs to pay fees.
+        coin_control.fAllowOtherInputs = true;
 
         if (!pwallet->CreateTransaction(vecSend, tx2, reservekey, nFeeRequired, mapChangePosRet, strError, coin_control))
         {
+            pwallet->AbandonTransaction(tx1->GetHashMalFix());
             throw JSONRPCError(RPC_WALLET_ERROR, strError);
         }
         CValidationState state;
         mapValue_t mapValue;
         if (!pwallet->CommitTransaction(tx2, std::move(mapValue), {} /* orderForm */, reservekey, g_connman.get(), state)) {
+            pwallet->AbandonTransaction(tx1->GetHashMalFix());
             strError = strprintf("Error: The transaction was rejected! Reason given: %s", FormatStateMessage(state));
             throw JSONRPCError(RPC_WALLET_ERROR, strError);
         }
+
+        // Register the address book entry only after both transactions commit successfully.
+        if (!foundExisting)
+            pwallet->SetAddressBook(colorDest, coin_control.m_colorId.toHexString(), "receive");
     }
 
     UniValue result(UniValue::VOBJ);
@@ -4277,7 +4300,7 @@ static UniValue IssueReissuableToken(CWallet* const pwallet, const std::string& 
     return result;
 }
 
-static UniValue IssueToken(CWallet* const pwallet, CAmount tokenValue, CCoinControl& coin_control)
+UniValue IssueToken(CWallet* const pwallet, CAmount tokenValue, CCoinControl& coin_control)
 {
     LOCK2(cs_main, pwallet->cs_wallet);
 
@@ -4297,6 +4320,7 @@ static UniValue IssueToken(CWallet* const pwallet, CAmount tokenValue, CCoinCont
     CTxDestination colorDest = CColorScriptID(colorscriptid, coin_control.m_colorId);
 
     CScript scriptpubkey = GetScriptForDestination(colorDest);
+    pwallet->SetAddressBook(colorDest, coin_control.m_colorId.toHexString(), "receive");
 
     // Create and send the transaction
     CReserveKey reservekey(pwallet);
@@ -4350,8 +4374,8 @@ UniValue issuetoken(const JSONRPCRequest& request)
             "4. \"index\"            (numeric, optional) Index in the above transaction id used for issuing token\n"
             "\nResult:\n"
             "{\n"
-            "  \"color\"               (string) The color or token.\n"
-            "  \"txid\":               (string) The transaction id in case of NON-REISSUABLE and NFC tokens.\n"
+            "  \"color\"               (string) The color identifier of the token.\n"
+            "  \"txid\":               (string) The transaction id in case of NON-REISSUABLE and NFT tokens.\n"
             "   or\n"
             "  \"txids:\"              (json array of string) The transaction ids of the two transactions created in case of REISSUABLE token\n"
             "    [\n"
@@ -4443,7 +4467,7 @@ UniValue reissuetoken(const JSONRPCRequest& request)
             "2. \"value\"              (numeric, required) The number of tokens to issue. eg 10\n"
             "\nResult:\n"
             "{\n"
-            "  \"color\"               (string) The color or token.\n"
+            "  \"color\"               (string) The color identifier of the token.\n"
             "  \"txids:\"              (json array of string) The transaction ids of the two transactions created to issue the token\n"
             "    [\n"
             "      \"txid1\"           (string) transaction to create spendable UTXO\n"
@@ -4503,7 +4527,7 @@ UniValue transfertoken(const JSONRPCRequest& request)
     return sendtoaddress(request);
 }
 
-static CTransactionRef BurnToken(CWallet * const pwallet, const ColorIdentifier& colorId, CAmount nValue)
+CTransactionRef BurnToken(CWallet * const pwallet, const ColorIdentifier& colorId, CAmount nValue)
 {
     //this is to make create transaction recognize this as colored transaction
     CScript scriptPubKey = CScript() << colorId.toVector() << OP_COLOR << OP_TRUE;

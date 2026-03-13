@@ -20,6 +20,7 @@
 #include <map>
 #include <vector>
 
+#include <QList>
 #include <QObject>
 
 enum class OutputType;
@@ -135,6 +136,10 @@ public:
     // Check address for validity
     bool validateAddress(const QString &address);
 
+    //check if the address is a token
+    bool isColoredAddress(const QString &address);
+    ColorIdentifier getColorFromAddress(const QString &address);
+
     // Return status record for SendCoins, contains error id + information
     struct SendCoinsReturn
     {
@@ -152,6 +157,52 @@ public:
 
     // Send coins to a list of recipients
     SendCoinsReturn sendCoins(WalletModelTransaction &transaction);
+
+    // Result of issueToken()
+    struct IssueTokenResult {
+        enum Status { OK, InvalidParams, RpcError } status;
+        QString color;        // hex ColorIdentifier on success
+        QStringList txids;    // txid(s) on success
+        QString error;        // error message on failure
+    };
+
+    // Issue or reissue a colored coin token.
+    // tokenType: 1=REISSUABLE, 2=NON_REISSUABLE, 3=NFT
+    // existingColorId: when non-empty, calls reissuetoken(colorId, value) instead of issuetoken.
+    IssueTokenResult issueToken(int tokenType, CAmount tokenValue,
+                                const QString& existingColorId = QString());
+
+    // Result of burnToken()
+    struct BurnTokenResult {
+        enum Status { OK, InvalidParams, RpcError } status;
+        QString txid;
+        QString error;
+    };
+
+    // Burn colored coin tokens via the burntoken RPC.
+    BurnTokenResult burnToken(const QString& colorId, CAmount amount);
+
+    // Return current token balances: colorId hex → balance.
+    QMap<QString, CAmount> getTokenBalances() const;
+
+    // Set a label for a wallet address.
+    // Returns false if the address is invalid or the wallet call fails.
+    bool setTokenLabel(const QString& address, const QString& label);
+
+    // Persistent record for a token held by this wallet.
+    // Derived from the wallet address book — no separate local storage.
+    struct IssuedTokenRecord {
+        QString colorId;              // hex ColorIdentifier (primary key)
+        QString label;                // user-editable label (stored in wallet address book)
+        QString tokenType;            // "REISSUABLE" / "NON_REISSUABLE" / "NFT"
+        CAmount balance = 0;          // confirmed balance
+        CAmount unconfirmedBalance = 0; // unconfirmed (mempool) balance
+        QString address;              // CColorScriptID encoded address
+    };
+
+    // Return all colored-coin addresses owned by this wallet as IssuedTokenRecord list.
+    // Reads from the wallet address book — shared with the RPC layer.
+    QList<IssuedTokenRecord> getIssuedTokens() const;
 
     // Wallet encryption
     bool setWalletEncrypted(bool encrypted, const SecureString &passphrase);
@@ -232,6 +283,9 @@ private:
 Q_SIGNALS:
     // Signal that balance in wallet changed
     void balanceChanged(const interfaces::WalletBalances& balances);
+
+    // Signal that a colored-coin address book entry was added or updated
+    void tokenAddressBookChanged();
 
     // Encryption status of wallet changed
     void encryptionStatusChanged();

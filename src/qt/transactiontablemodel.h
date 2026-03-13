@@ -74,6 +74,14 @@ public:
         StatusRole,
         /** Unprocessed icon */
         RawDecorationRole,
+        /** Net token amount (0 for TPC transactions) */
+        TokenAmountRole,
+        /** Color ID hex string (empty for TPC transactions) */
+        ColorIdRole,
+        /** Token type string: "REISSUABLE", "NON_REISSUABLE", "NFT", or "" for TPC */
+        TokenTypeRole,
+        /** True if this record is a token (not TPC) transaction */
+        IsTokenRole,
     };
 
     int rowCount(const QModelIndex &parent) const override;

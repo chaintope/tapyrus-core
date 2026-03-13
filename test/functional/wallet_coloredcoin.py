@@ -34,7 +34,8 @@ from test_framework.util import (
     disconnect_nodes,
     hex_str_to_bytes,
     bytes_to_hex_str,
-    assert_raises_rpc_error
+    assert_raises_rpc_error,
+    sync_blocks
 )
 from test_framework.messages import sha256
 from test_framework.script import CScript, hash160, OP_DUP, OP_HASH160, OP_EQUALVERIFY, OP_CHECKSIG
@@ -696,6 +697,89 @@ class WalletColoredCoinTest(BitcoinTestFramework):
                 self.log.info(f"Token unspents: {token_unspent}")
             assert_equal(len(token_unspent), res[i])
 
+    def test_issuance_with_unconfirmed_change(self):
+        """
+        Regression tests for three related fixes in token issuance:
+
+        1. Dynamic fallback-fee anchor fix (was hardcoded DEFAULT_FALLBACK_FEE constant):
+           tx1 anchor value is now read from pwallet->m_fallback_fee.GetFeePerK()
+           so it respects the node's -fallbackfee setting and is always above dust.
+
+        2. fAllowOtherInputs=true fix:
+           tx2 in IssueReissuableToken can pull in additional TPC UTXOs
+           (including unconfirmed change from tx1) to cover fees.
+           Before the fix, only the anchor was visible to coin
+           selection → "Insufficient funds".
+
+        3. Duplicate address book entry fix:
+           Multiple reissues of the same REISSUABLE color previously created a
+           new CColorScriptID address book entry per call.  The total balance
+           appeared multiplied in the GUI.  After the fix only one entry exists
+           per color, and the balance is the correct sum.
+        """
+        self.log.info("Testing issuance with unconfirmed change and duplicate-entry guard")
+
+        # Start node 3 and join the existing network so it learns the chain.
+        # Use sync_blocks only: node 3 starts with an empty mempool and will
+        # not receive the existing unconfirmed txs from nodes 0-2, so a full
+        # sync_all would time out on mempool sync.
+        self.start_node(3)
+        connect_nodes_bi(self.nodes, 0, 3)
+        sync_blocks(self.nodes[0:4])
+
+        # Mine exactly 1 block on node 3.  This gives it ONE confirmed coinbase
+        # UTXO (50 TPC).  Once the first issuance spends it, the wallet holds
+        # only unconfirmed change — the scenario that exposed fixes 1 & 2.
+        self.nodes[3].generate(1, self.signblockprivkey_wif)
+        sync_blocks(self.nodes[0:4])
+
+        # Build the P2PKH script that will define the REISSUABLE color.
+        tpc_utxo = findTPC(self.nodes[3].listunspent(1))
+        pubkeyhash = hash160(
+            hex_str_to_bytes(self.nodes[3].getaddressinfo(tpc_utxo['address'])['pubkey']))
+        scr = CScript([OP_DUP, OP_HASH160, pubkeyhash, OP_EQUALVERIFY, OP_CHECKSIG])
+        scr_hex = bytes_to_hex_str(scr)
+
+        # issue then reissue without mining a block between ---
+        # The issuetoken call consumes the only confirmed UTXO; after it the
+        # wallet has only unconfirmed change from tx2.
+        res1 = self.nodes[3].issuetoken(1, 100, scr_hex)
+        assert_equal(len(res1['txids']), 2)
+        color1 = res1['color']
+
+        # reissuetoken must use that unconfirmed change.
+        res2 = self.nodes[3].reissuetoken(color1, 50)
+        assert_equal(res2['color'], color1)
+        assert_equal(len(res2['txids']), 2)
+
+        # A third reissue (still no confirmed UTXOs) must also succeed.
+        res3 = self.nodes[3].reissuetoken(color1, 25)
+        assert_equal(res3['color'], color1)
+        assert_equal(len(res3['txids']), 2)
+
+        # NON_REISSUABLE using an unconfirmed TPC UTXO ---
+        # listunspent(0) includes mempool UTXOs (minconf=0).
+        # The RPC accepts an explicit unconfirmed UTXO as the color-defining
+        all_utxos = self.nodes[3].listunspent(0)
+        unconf_tpc = next(
+            (u for u in all_utxos
+             if u.get('confirmations', 1) == 0 and u['token'] == 'TPC' and u['spendable']),
+            None)
+        assert unconf_tpc is not None, "Expected at least one unconfirmed TPC UTXO after issuance"
+
+        res4 = self.nodes[3].issuetoken(2, 75, unconf_tpc['txid'], unconf_tpc['vout'])
+        assert_equal(len(res4['txids']), 1)  # NON_REISSUABLE produces a single tx
+
+        # Mine one block to confirm everything, then verify final balances.
+        # Earlier, because of duplicate address book entries, color1's balance would
+        # appear as a multiple of the true sum instead of 100+50+25 = 175.
+        self.nodes[3].generate(1, self.signblockprivkey_wif)
+        self.sync_all([self.nodes[0:4]])
+
+        walletinfo = self.nodes[3].getwalletinfo()
+        assert_equal(walletinfo['balance'][color1], 175)   # 100 + 50 + 25
+        assert_equal(walletinfo['balance'][res4['color']], 75)
+
     def run_test(self):
         # Check that there's no UTXO on any of the nodes
         assert_equal(len(self.nodes[0].listunspent()), 0)
@@ -732,6 +816,7 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         self.test_issuetoken()
         if not self.options.usecli:
             self.test_only_token_filter()
+        self.test_issuance_with_unconfirmed_change()
 
 
 reverse_bytes = (lambda txid  : txid[-1: -len(txid)-1: -1])
