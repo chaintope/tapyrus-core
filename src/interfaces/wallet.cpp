@@ -6,6 +6,12 @@
 #include <interfaces/wallet.h>
 
 #include <amount.h>
+#include <coloridentifier.h>
+#include <key_io.h>
+#include <univalue.h>
+#include <utilstrencodings.h>
+#include <wallet/coincontrol.h>
+#include <wallet/rpcwallet.h>
 #include <chain.h>
 #include <consensus/validation.h>
 #include <interfaces/handler.h>
@@ -362,6 +368,144 @@ public:
     CAmount getAvailableBalance(const CCoinControl& coin_control) override
     {
         return m_wallet.GetAvailableBalance(&coin_control)[ColorIdentifier()];
+    }
+    TokenIssuanceResult issueNewReissuableToken(CAmount value) override
+    {
+        TokenIssuanceResult result;
+        try {
+            // Get a new key from the pool to derive the scriptPubKey that defines the color.
+            CPubKey pubKey;
+            if (!m_wallet.GetKeyFromPool(pubKey, false)) {
+                result.error = "Keypool ran out, please call keypoolrefill first";
+                return result;
+            }
+            CKeyID keyId = pubKey.GetID();
+            CScript script = GetScriptForDestination(keyId);
+            std::string scriptHex = HexStr(script.begin(), script.end());
+
+            CCoinControl coin_control;
+            coin_control.m_colorId = ColorIdentifier(script);
+
+            UniValue rv = IssueReissuableToken(&m_wallet, scriptHex, value, coin_control);
+
+            result.ok = true;
+            result.color = rv["color"].get_str();
+            for (const UniValue& t : rv["txids"].getValues())
+                result.txids.push_back(t.get_str());
+        } catch (const UniValue& e) {
+            result.error = e["message"].get_str();
+        } catch (const std::exception& e) {
+            result.error = e.what();
+        }
+        return result;
+    }
+    TokenIssuanceResult issueNewToken(int tokenType, CAmount value) override
+    {
+        TokenIssuanceResult result;
+        try {
+            // Find the first available TPC (non-colored) UTXO.
+            std::vector<COutput> vecOutputs;
+            {
+                LOCK2(::cs_main, m_wallet.cs_wallet);
+                m_wallet.AvailableCoins(vecOutputs, true, nullptr, 0, MAX_MONEY, MAX_MONEY, 0, 0, 9999999, false);
+            }
+
+            COutPoint tpcUtxo;
+            bool found = false;
+            for (const COutput& out : vecOutputs) {
+                const CScript& spk = out.tx->tx->vout[out.i].scriptPubKey;
+                if (GetColorIdFromScript(spk).type == TokenTypes::NONE) {
+                    tpcUtxo = COutPoint(out.tx->GetHash(), out.i);
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                result.error = "No unspent TPC outputs available. Please ensure your wallet has a TPC balance to fund the token issuance.";
+                return result;
+            }
+
+            TokenTypes tokenTypeEnum = (tokenType == 3) ? TokenTypes::NFT : TokenTypes::NON_REISSUABLE;
+            CCoinControl coin_control;
+            coin_control.m_colorId = ColorIdentifier(tpcUtxo, tokenTypeEnum);
+            coin_control.m_colorTxType = ColoredTxType::ISSUE;
+            coin_control.Select(tpcUtxo);
+
+            UniValue rv = IssueToken(&m_wallet, value, coin_control);
+
+            result.ok = true;
+            result.color = rv["color"].get_str();
+            result.txids.push_back(rv["txid"].get_str());
+        } catch (const UniValue& e) {
+            result.error = e["message"].get_str();
+        } catch (const std::exception& e) {
+            result.error = e.what();
+        }
+        return result;
+    }
+    TokenIssuanceResult reissueToken(const std::string& colorIdHex, CAmount value) override
+    {
+        TokenIssuanceResult result;
+        try {
+            const std::vector<unsigned char> vColorId(ParseHex(colorIdHex));
+            ColorIdentifier colorId(vColorId);
+
+            if (colorId.type != TokenTypes::REISSUABLE) {
+                result.error = "Token type not supported for reissue";
+                return result;
+            }
+
+            CScript script;
+            {
+                LOCK2(::cs_main, m_wallet.cs_wallet);
+                if (!m_wallet.GetCScriptForColor(colorId, script, true)) {
+                    result.error = "Script for color " + colorIdHex + " not found in wallet";
+                    return result;
+                }
+            }
+
+            CCoinControl coin_control;
+            coin_control.m_colorId = colorId;
+
+            UniValue rv = IssueReissuableToken(&m_wallet, HexStr(script.begin(), script.end()), value, coin_control);
+
+            result.ok = true;
+            result.color = rv["color"].get_str();
+            for (const UniValue& t : rv["txids"].getValues())
+                result.txids.push_back(t.get_str());
+        } catch (const UniValue& e) {
+            result.error = e["message"].get_str();
+        } catch (const std::exception& e) {
+            result.error = e.what();
+        }
+        return result;
+    }
+    TokenIssuanceResult burnToken(const std::string& colorIdHex, CAmount value) override
+    {
+        TokenIssuanceResult result;
+        try {
+            const std::vector<unsigned char> vColorId(ParseHex(colorIdHex));
+            ColorIdentifier colorId(vColorId);
+
+            {
+                LOCK2(::cs_main, m_wallet.cs_wallet);
+                CAmount curBalance = m_wallet.GetBalance()[colorId];
+                if (curBalance == 0 || curBalance < value) {
+                    result.error = "Insufficient token balance in wallet";
+                    return result;
+                }
+            }
+
+            CTransactionRef tx = BurnToken(&m_wallet, colorId, value);
+
+            result.ok = true;
+            result.txids.push_back(tx->GetHashMalFix().GetHex());
+        } catch (const UniValue& e) {
+            result.error = e["message"].get_str();
+        } catch (const std::exception& e) {
+            result.error = e.what();
+        }
+        return result;
     }
     isminetype txinIsMine(const CTxIn& txin) override
     {

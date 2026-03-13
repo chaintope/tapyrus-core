@@ -1,0 +1,596 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>IssueTokenDialog</class>
+ <widget class="QWidget" name="IssueTokenDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>740</width>
+    <height>580</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Token Operations</string>
+  </property>
+  <layout class="QVBoxLayout" name="outerLayout">
+   <property name="spacing">
+    <number>8</number>
+   </property>
+   <property name="leftMargin">
+    <number>8</number>
+   </property>
+   <property name="topMargin">
+    <number>8</number>
+   </property>
+   <property name="rightMargin">
+    <number>8</number>
+   </property>
+   <property name="bottomMargin">
+    <number>8</number>
+   </property>
+
+   <!-- ============================================================
+        Operation tabs: Issue Token / Burn Token
+        ============================================================ -->
+   <item>
+    <widget class="QTabWidget" name="tabWidget">
+     <property name="currentIndex">
+      <number>0</number>
+     </property>
+
+     <!-- ==================== Issue Token tab ==================== -->
+     <widget class="QWidget" name="tabIssue">
+      <attribute name="title">
+       <string>&amp;Issue Token</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="issueTabLayout">
+       <property name="spacing">
+        <number>8</number>
+       </property>
+       <property name="leftMargin">
+        <number>8</number>
+       </property>
+       <property name="topMargin">
+        <number>8</number>
+       </property>
+       <property name="rightMargin">
+        <number>8</number>
+       </property>
+       <property name="bottomMargin">
+        <number>8</number>
+       </property>
+
+       <item>
+        <widget class="QFrame" name="frameIssue">
+         <property name="frameShape">
+          <enum>QFrame::StyledPanel</enum>
+         </property>
+         <property name="frameShadow">
+          <enum>QFrame::Raised</enum>
+         </property>
+         <layout class="QVBoxLayout" name="issueFrameLayout">
+          <property name="spacing">
+           <number>10</number>
+          </property>
+
+          <!-- Section header -->
+          <item>
+           <layout class="QHBoxLayout" name="issueTitleRow">
+            <item>
+             <widget class="QLabel" name="labelIssueTitle">
+              <property name="font">
+               <font>
+                <weight>75</weight>
+                <bold>true</bold>
+               </font>
+              </property>
+              <property name="text">
+               <string>Issue Token</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="issueTitleSpacer">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>40</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+           </layout>
+          </item>
+
+          <!-- Token Type row -->
+          <item>
+           <layout class="QHBoxLayout" name="typeRow">
+            <item>
+             <widget class="QLabel" name="labelTokenType">
+              <property name="text">
+               <string>Token Type:</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QRadioButton" name="radioReissuable">
+              <property name="text">
+               <string>&amp;REISSUABLE</string>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QRadioButton" name="radioNonReissuable">
+              <property name="text">
+               <string>&amp;NON_REISSUABLE</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QRadioButton" name="radioNft">
+              <property name="text">
+               <string>N&amp;FT</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="typeSpacer">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>40</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+           </layout>
+          </item>
+
+          <!-- Issue Mode: New / Reissue + token combo on one line (visible only for REISSUABLE) -->
+          <item>
+           <widget class="QWidget" name="issueModeWidget">
+            <property name="visible">
+             <bool>false</bool>
+            </property>
+            <layout class="QHBoxLayout" name="issueModeRow">
+             <property name="leftMargin">
+              <number>0</number>
+             </property>
+             <property name="topMargin">
+              <number>0</number>
+             </property>
+             <property name="rightMargin">
+              <number>0</number>
+             </property>
+             <property name="bottomMargin">
+              <number>0</number>
+             </property>
+             <item>
+              <widget class="QRadioButton" name="radioNew">
+               <property name="text">
+                <string>&amp;New</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QRadioButton" name="radioReissue">
+               <property name="text">
+                <string>&amp;Reissue</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QComboBox" name="reissueCombo">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>1</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="issueModeSpacer">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>20</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+            </layout>
+           </widget>
+          </item>
+
+          <!-- Amount field -->
+          <item>
+           <layout class="QFormLayout" name="amountFormLayout">
+            <item row="0" column="0">
+             <widget class="QLabel" name="labelAmount">
+              <property name="text">
+               <string>&amp;Amount:</string>
+              </property>
+              <property name="buddy">
+               <cstring>amountEdit</cstring>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QValidatedLineEdit" name="amountEdit">
+              <property name="placeholderText">
+               <string>Number of tokens to issue (fixed at 1 for NFT)</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+
+          <!-- Issue / Clear buttons -->
+          <item>
+           <layout class="QHBoxLayout" name="issueButtonRow">
+            <item>
+             <widget class="QPushButton" name="clearButton">
+              <property name="text">
+               <string>C&amp;lear</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="issueButton">
+              <property name="minimumSize">
+               <size>
+                <width>150</width>
+                <height>0</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>&amp;Issue Token</string>
+              </property>
+              <property name="icon">
+               <iconset resource="../tapyrus.qrc">
+                <normaloff>:/icons/send</normaloff>:/icons/send</iconset>
+              </property>
+              <property name="autoDefault">
+               <bool>false</bool>
+              </property>
+              <property name="default">
+               <bool>false</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="issueHSpacer">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>40</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+           </layout>
+          </item>
+
+         </layout>
+        </widget>
+       </item>
+
+       <!-- vertical spacer to push frame to top -->
+       <item>
+        <spacer name="issueVSpacer">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>10</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+
+      </layout>
+     </widget>
+
+     <!-- ==================== Burn Token tab ==================== -->
+     <widget class="QWidget" name="tabBurn">
+      <attribute name="title">
+       <string>&amp;Burn Token</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="burnTabLayout">
+       <property name="spacing">
+        <number>8</number>
+       </property>
+       <property name="leftMargin">
+        <number>8</number>
+       </property>
+       <property name="topMargin">
+        <number>8</number>
+       </property>
+       <property name="rightMargin">
+        <number>8</number>
+       </property>
+       <property name="bottomMargin">
+        <number>8</number>
+       </property>
+
+       <item>
+        <widget class="QFrame" name="frameBurn">
+         <property name="frameShape">
+          <enum>QFrame::StyledPanel</enum>
+         </property>
+         <property name="frameShadow">
+          <enum>QFrame::Raised</enum>
+         </property>
+         <layout class="QVBoxLayout" name="burnFrameLayout">
+          <property name="spacing">
+           <number>10</number>
+          </property>
+
+          <!-- Section header -->
+          <item>
+           <layout class="QHBoxLayout" name="burnTitleRow">
+            <item>
+             <widget class="QLabel" name="labelBurnTitle">
+              <property name="font">
+               <font>
+                <weight>75</weight>
+                <bold>true</bold>
+               </font>
+              </property>
+              <property name="text">
+               <string>Burn Token</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="burnTitleSpacer">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>40</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+           </layout>
+          </item>
+
+          <item>
+           <layout class="QFormLayout" name="burnFormLayout">
+            <item row="0" column="0">
+             <widget class="QLabel" name="labelBurnColor">
+              <property name="text">
+               <string>&amp;Token:</string>
+              </property>
+              <property name="buddy">
+               <cstring>burnColorCombo</cstring>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QComboBox" name="burnColorCombo">
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QLabel" name="labelBurnAmount">
+              <property name="text">
+               <string>&amp;Amount:</string>
+              </property>
+              <property name="buddy">
+               <cstring>burnAmountEdit</cstring>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="QLineEdit" name="burnAmountEdit">
+              <property name="placeholderText">
+               <string>Number of tokens to burn</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+
+          <item>
+           <layout class="QHBoxLayout" name="burnButtonRow">
+            <item>
+             <widget class="QPushButton" name="burnButton">
+              <property name="minimumSize">
+               <size>
+                <width>150</width>
+                <height>0</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>&amp;Burn Token</string>
+              </property>
+              <property name="icon">
+               <iconset resource="../tapyrus.qrc">
+                <normaloff>:/icons/send</normaloff>:/icons/send</iconset>
+              </property>
+              <property name="autoDefault">
+               <bool>false</bool>
+              </property>
+              <property name="default">
+               <bool>false</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="burnHSpacer">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>40</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+           </layout>
+          </item>
+
+         </layout>
+        </widget>
+       </item>
+
+       <item>
+        <spacer name="burnVSpacer">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+
+      </layout>
+     </widget>
+
+    </widget>
+   </item>
+
+   <!-- ============================================================
+        Issued Tokens table (shared, below the tabs)
+        ============================================================ -->
+   <item>
+    <widget class="QFrame" name="frameTokenTable">
+     <property name="frameShape">
+      <enum>QFrame::StyledPanel</enum>
+     </property>
+     <property name="frameShadow">
+      <enum>QFrame::Raised</enum>
+     </property>
+     <layout class="QVBoxLayout" name="tableFrameLayout">
+      <property name="spacing">
+       <number>6</number>
+      </property>
+
+      <!-- Section header -->
+      <item>
+       <layout class="QHBoxLayout" name="tableTitleRow">
+        <item>
+         <widget class="QLabel" name="labelIssuedTokens">
+          <property name="font">
+           <font>
+            <weight>75</weight>
+            <bold>true</bold>
+           </font>
+          </property>
+          <property name="text">
+           <string>Tokens</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="tableTitleSpacer">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+
+      <item>
+       <widget class="QTableWidget" name="tokenTable">
+        <property name="contextMenuPolicy">
+         <enum>Qt::CustomContextMenu</enum>
+        </property>
+        <property name="selectionMode">
+         <enum>QAbstractItemView::SingleSelection</enum>
+        </property>
+        <property name="selectionBehavior">
+         <enum>QAbstractItemView::SelectRows</enum>
+        </property>
+        <property name="editTriggers">
+         <set>QAbstractItemView::DoubleClicked|QAbstractItemView::EditKeyPressed</set>
+        </property>
+        <property name="alternatingRowColors">
+         <bool>true</bool>
+        </property>
+        <property name="showGrid">
+         <bool>false</bool>
+        </property>
+        <property name="sortingEnabled">
+         <bool>true</bool>
+        </property>
+        <column>
+         <property name="text">
+          <string>Type</string>
+         </property>
+        </column>
+        <column>
+         <property name="text">
+          <string>Color ID</string>
+         </property>
+        </column>
+        <column>
+         <property name="text">
+          <string>Label</string>
+         </property>
+        </column>
+        <column>
+         <property name="text">
+          <string>Balance</string>
+         </property>
+        </column>
+       </widget>
+      </item>
+
+     </layout>
+    </widget>
+   </item>
+
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>QValidatedLineEdit</class>
+   <extends>QLineEdit</extends>
+   <header>qt/qvalidatedlineedit.h</header>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+</ui>
