@@ -609,7 +609,7 @@ BOOST_AUTO_TEST_CASE(block_sequence_id_edge_cases)
 
     // Read the block back from disk
     CBlock blockFromDisk1;
-    BOOST_REQUIRE(ReadBlockFromDisk(blockFromDisk1, diskPos1, block1.GetHeight()));
+    BOOST_REQUIRE(ReadBlockFromDisk(blockFromDisk1, diskPos1));
 
     // Verify the block content is the same
     BOOST_CHECK(blockFromDisk1.GetHash() == hash1);
@@ -640,7 +640,7 @@ BOOST_AUTO_TEST_CASE(block_sequence_id_edge_cases)
 
     // Read block2 back from disk
     CBlock blockFromDisk2;
-    BOOST_REQUIRE(ReadBlockFromDisk(blockFromDisk2, diskPos2, block2.GetHeight()));
+    BOOST_REQUIRE(ReadBlockFromDisk(blockFromDisk2, diskPos2));
 
     // Verify the block content is the same
     BOOST_CHECK(blockFromDisk2.GetHash() == hash2);

@@ -36,7 +36,7 @@ bool FlushStateToDisk(CValidationState &state, FlushStateMode mode, int nManualP
 void  FlushBlockFile(bool fFinalize = false);
 
 /** Functions for disk access for blocks */
-bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, int height);
+bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, CXFieldHistoryMap* pxfieldHistory = nullptr);
 bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex);
 bool ReadRawBlockFromDisk(std::vector<uint8_t>& block, const CDiskBlockPos& pos, const CMessageHeader::MessageStartChars& message_start);
 bool ReadRawBlockFromDisk(std::vector<uint8_t>& block, const CBlockIndex* pindex, const CMessageHeader::MessageStartChars& message_start);

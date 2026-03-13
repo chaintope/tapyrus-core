@@ -314,12 +314,7 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
                     while (range.first != range.second) {
                         std::multimap<uint256, CDiskBlockPos>::iterator it = range.first;
                         std::shared_ptr<CBlock> pblockrecursive = std::make_shared<CBlock>();
-
-                        BlockMap::iterator miSelf = mapBlockIndex.find(hash);
-                        CBlockIndex *pindex = nullptr;
-                        pindex = miSelf->second;
-
-                        if (ReadBlockFromDisk(*pblockrecursive, it->second, pindex->nHeight))
+                        if (ReadBlockFromDisk(*pblockrecursive, it->second, pxfieldHistory))
                         {
                             LogPrint(BCLog::REINDEX, "%s: Processing out of order child %s of %s\n", __func__, pblockrecursive->GetHash().ToString(),
                                     head.ToString());
@@ -573,7 +568,7 @@ bool ReadRawBlockFromDisk(std::vector<uint8_t>& block, const CDiskBlockPos& pos,
 }
 
 
-bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, int nHeight)
+bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, CXFieldHistoryMap* pxfieldHistory)
 {
     block.SetNull();
 
@@ -591,7 +586,8 @@ bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, int nHeight)
     }
 
     CValidationState state;
-    if(!CheckBlockHeader(block.GetBlockHeader(), state, nullptr, nHeight, true))
+    int nHeight = block.GetHeight();
+    if(!CheckBlockHeader(block.GetBlockHeader(), state, pxfieldHistory, nHeight, true))
         return error("%s: ReadBlockFromDisk: %s nHeight = %d", __func__, FormatStateMessage(state), nHeight);
 
     return true;
@@ -600,14 +596,12 @@ bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, int nHeight)
 bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex)
 {
     CDiskBlockPos blockPos;
-    uint32_t height = 0;
     {
         LOCK(cs_main);
         blockPos = pindex->GetBlockPos();
-        height = pindex->nHeight;
     }
 
-    if (!ReadBlockFromDisk(block, blockPos, height))
+    if (!ReadBlockFromDisk(block, blockPos))
         return false;
     if (block.GetHash() != pindex->GetBlockHash())
         return error("ReadBlockFromDisk(CBlock&, CBlockIndex*): GetHash() doesn't match index for %s at %s",

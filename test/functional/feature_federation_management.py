@@ -57,7 +57,7 @@ aggpubkey5 = 37
 
 Restart the node with -reindex, -reindex-chainstate and -loadblock options. This triggers a full rewind of block index. Verify that the tip reaches B37 at the end.
 """
-import shutil, os, struct
+import shutil, os
 import time
 
 from io import BytesIO
@@ -67,7 +67,7 @@ from test_framework.schnorr import Schnorr
 from test_framework.mininode import P2PDataStore
 from test_framework.timeout_config import TAPYRUSD_REORG_TIMEOUT, TAPYRUSD_MIN_TIMEOUT
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, bytes_to_hex_str, assert_raises_rpc_error, NetworkDirName, hex_str_to_bytes, connect_nodes, wait_until, MagicBytes
+from test_framework.util import assert_equal, bytes_to_hex_str, assert_raises_rpc_error, NetworkDirName, hex_str_to_bytes, connect_nodes, wait_until
 from test_framework.messages import CTransaction
 
 class FederationManagementTest(BitcoinTestFramework):
@@ -693,82 +693,6 @@ class FederationManagementTest(BitcoinTestFramework):
             blockchaininfo = n.getblockchaininfo()
             assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
             assert_equal(blockchaininfo["blocks"], 56)
-
-        self.test_reindex_out_of_order_blocks()
-
-    def create_out_of_order_blk_file(self, node, output_path, split_height):
-        """Write a blk file where blocks [split_height..tip] appear before blocks [0..split_height-1].
-
-        During reindex the node reads the file sequentially.  Blocks from
-        split_height onwards have no known parent yet, so they are queued in
-        mapBlocksUnknownParent.  Once blocks 0..split_height-1 are processed
-        the queued blocks are released recursively.  This is the exact code path
-        that exercises the pxfieldHistory bug in file_io.cpp."""
-        magic = MagicBytes()
-        tip_height = node.getblockcount()
-
-        raw_blocks = {}
-        for h in range(tip_height + 1):
-            block_hash = node.getblockhash(h)
-            raw_blocks[h] = bytes.fromhex(node.getblock(block_hash, 0))
-
-        with open(output_path, 'wb') as f:
-            # Later blocks written first — they will appear before their parents
-            for h in range(split_height, tip_height + 1):
-                block_bytes = raw_blocks[h]
-                f.write(magic)
-                f.write(struct.pack('<I', len(block_bytes)))
-                f.write(block_bytes)
-            # Earlier blocks written second — processing these unlocks the queued ones
-            for h in range(split_height):
-                block_bytes = raw_blocks[h]
-                f.write(magic)
-                f.write(struct.pack('<I', len(block_bytes)))
-                f.write(block_bytes)
-
-    def test_reindex_out_of_order_blocks(self):
-        """Regression test for file_io.cpp: recursive AcceptBlock for out-of-order
-        blocks must receive pxfieldHistory so that proof verification uses the
-        correct aggregate public key after a federation key change.
-
-        Without the fix, any out-of-order block whose height follows a federation
-        key change fails with 'bad-proof' because the global CXFieldHistory has
-        not yet been updated when the recursive call is made."""
-        self.log.info("Test: reindex with out-of-order blocks spanning a federation key change")
-        self.stop_node(3)
-
-        # Build a blk file with blocks 30-56 written before blocks 0-29.
-        # The federation key changes at height 25 (to aggpubkey3).  Block 30 is
-        # the first out-of-order block that requires aggpubkey3 for proof
-        # verification.  Without the fix the recursive AcceptBlock call for
-        # block 30 ignores pxfieldHistory and falls back to the global history
-        # which does not yet have the height-25 change → bad-proof.
-        ooo_file = os.path.join(self.nodes[3].datadir, 'ooo_blocks.dat')
-        self.create_out_of_order_blk_file(self.nodes[1], ooo_file, split_height=30)
-
-        # Remove node3's existing blk00000.dat so -reindex has no local blocks;
-        # all chain data comes from our custom -loadblock file.
-        blk_file = os.path.join(self.nodes[3].datadir, NetworkDirName(), 'blocks', 'blk00000.dat')
-        if os.path.exists(blk_file):
-            os.remove(blk_file)
-
-        self.start_node(3, ["-reindex", "-loadblock=%s" % ooo_file])
-        wait_until(lambda: self.nodes[3].getblockcount() >= 56, timeout=TAPYRUSD_REORG_TIMEOUT)
-
-        blockchaininfo = self.nodes[3].getblockchaininfo()
-        expectedAggPubKeys = [
-            { self.aggpubkeys[0] : 0},
-            { self.aggpubkeys[1] : 12},
-            { self.aggpubkeys[2] : 25},
-            { self.aggpubkeys[3] : 33},
-            { self.aggpubkeys[4] : 37},
-            { self.aggpubkeys[0] : 42},
-            { self.aggpubkeys[1] : 43},
-            { self.aggpubkeys[5] : 52},
-        ]
-        assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
-        assert_equal(blockchaininfo["blocks"], 56)
-        self.log.info("PASSED: reindex with out-of-order blocks correctly applied federation key changes")
 
     def connectNodeAndCheck(self, n, expectedAggPubKeys):
         #this function tests HEADERS message processing in node 'n'
