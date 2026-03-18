@@ -80,11 +80,12 @@ void SendCoinsEntry::on_payTo_textChanged(const QString &address)
     updateLabel(address);
     if(model && model->isColoredAddress(address))
     {
-        //unit is TOKEN
         ui->payAmount->setDisplayUnit(TapyrusUnits::TOKEN);
         ui->payAmount_is->setDisplayUnit(TapyrusUnits::TOKEN);
         ui->payAmount_s->setDisplayUnit(TapyrusUnits::TOKEN);
         ui->labelTokenName->setText(model->getColorFromAddress(address).toHexString().c_str());
+        ui->labelToken->setVisible(true);
+        ui->labelTokenName->setVisible(true);
         ui->checkboxSubtractFeeFromAmount->setEnabled(false);
         ui->checkboxSubtractFeeFromAmount->setCheckState(Qt::Unchecked);
     }
@@ -92,6 +93,8 @@ void SendCoinsEntry::on_payTo_textChanged(const QString &address)
     {
         updateDisplayUnit();
         ui->labelTokenName->clear();
+        ui->labelToken->setVisible(false);
+        ui->labelTokenName->setVisible(false);
         ui->checkboxSubtractFeeFromAmount->setEnabled(true);
         ui->checkboxSubtractFeeFromAmount->setCheckState(Qt::Unchecked);
     }
@@ -113,6 +116,8 @@ void SendCoinsEntry::clear()
     ui->payTo->clear();
     ui->addAsLabel->clear();
     ui->labelTokenName->clear();
+    ui->labelToken->setVisible(false);
+    ui->labelTokenName->setVisible(false);
     ui->payAmount->clear();
     ui->checkboxSubtractFeeFromAmount->setCheckState(Qt::Unchecked);
     ui->messageTextLabel->clear();
@@ -172,8 +177,9 @@ bool SendCoinsEntry::validate(interfaces::Node& node)
         retval = false;
     }
 
-    // Reject dust outputs:
-    if (retval && GUIUtil::isDust(node, ui->payTo->text(), ui->payAmount->value())) {
+    // Reject dust outputs (not applicable to token sends — token outputs have nValue=0):
+    if (retval && !model->isColoredAddress(ui->payTo->text()) &&
+        GUIUtil::isDust(node, ui->payTo->text(), ui->payAmount->value())) {
         ui->payAmount->setValid(false);
         retval = false;
     }
@@ -272,6 +278,8 @@ bool SendCoinsEntry::updateLabel(const QString &address)
 
 CAmount SendCoinsEntry::getAvailableBalance(CCoinControl& coin_control)
 {
+    if (!model)
+        return 0;
     const QString address = ui->payTo->text();
     ColorIdentifier colorId = model->getColorFromAddress(address);
     return model->wallet().getAvailableBalance(coin_control, colorId);
