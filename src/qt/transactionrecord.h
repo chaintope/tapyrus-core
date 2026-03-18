@@ -80,20 +80,26 @@ public:
         SendToOther,
         RecvWithAddress,
         RecvFromOther,
-        SendToSelf
+        SendToSelf,
+        // Token-specific types
+        TokenIssued,    // Tokens minted/issued (fresh or reissuance) to this wallet
+        TokenBurned,    // Tokens destroyed (no colored output recipient)
+        TokenFee,       // TPC cost consumed by the issuance/burn tx (anchor spent)
+        TokenAnchor,    // Anchor tx that creates the colored UTXO prerequisite for issuance
     };
 
     /** Number of confirmation recommended for accepting a transaction */
     static const int RecommendedNumConfirmations = 1;
 
     TransactionRecord():
-            hash(), time(0), type(Other), address(""), debit(0), credit(0), idx(0)
+            hash(), time(0), type(Other), address(""), debit(0), credit(0),
+            tokenAmount(0), colorId(""), tokenType(""), idx(0)
     {
     }
 
     TransactionRecord(uint256 _hash, qint64 _time):
             hash(_hash), time(_time), type(Other), address(""), debit(0),
-            credit(0), idx(0)
+            credit(0), tokenAmount(0), colorId(""), tokenType(""), idx(0)
     {
     }
 
@@ -101,7 +107,7 @@ public:
                 Type _type, const std::string &_address,
                 const CAmount& _debit, const CAmount& _credit):
             hash(_hash), time(_time), type(_type), address(_address), debit(_debit), credit(_credit),
-            idx(0)
+            tokenAmount(0), colorId(""), tokenType(""), idx(0)
     {
     }
 
@@ -118,6 +124,10 @@ public:
     std::string address;
     CAmount debit;
     CAmount credit;
+    // Token fields (empty/zero for TPC transactions)
+    CAmount tokenAmount;     // net token amount (credit - debit); 0 for TPC
+    std::string colorId;     // hex color ID; empty for TPC
+    std::string tokenType;   // "REISSUABLE", "NON_REISSUABLE", "NFT", or "" for TPC
     /**@}*/
 
     /** Subtransaction index, for sort key */

@@ -42,6 +42,14 @@ struct WalletTxStatus;
 using WalletOrderForm = std::vector<std::pair<std::string, std::string>>;
 using WalletValueMap = std::map<std::string, std::string>;
 
+//! Result of a token issuance, reissuance, or burn operation.
+struct TokenIssuanceResult {
+    bool ok = false;
+    std::string color;                  //! hex color ID on success
+    std::vector<std::string> txids;     //! txid(s) on success
+    std::string error;                  //! error message on failure
+};
+
 //! Interface for accessing a wallet.
 class Wallet
 {
@@ -192,10 +200,23 @@ public:
     virtual bool tryGetBalances(WalletBalances& balances, int& num_blocks) = 0;
 
     //! Get balance.
-    virtual CAmount getBalance() = 0;
+    virtual CAmount getBalance(ColorIdentifier colorId = ColorIdentifier()) = 0;
 
     //! Get available balance.
-    virtual CAmount getAvailableBalance(const CCoinControl& coin_control) = 0;
+    virtual CAmount getAvailableBalance(const CCoinControl& coin_control, ColorIdentifier colorId = ColorIdentifier()) = 0;
+
+    //! Issue a new REISSUABLE token; generates address and script internally.
+    virtual TokenIssuanceResult issueNewReissuableToken(CAmount value) = 0;
+
+    //! Issue a new NON_REISSUABLE (tokenType=2) or NFT (tokenType=3) token;
+    //! selects a TPC UTXO from the wallet internally.
+    virtual TokenIssuanceResult issueNewToken(int tokenType, CAmount value) = 0;
+
+    //! Reissue an existing REISSUABLE token identified by its hex color ID.
+    virtual TokenIssuanceResult reissueToken(const std::string& colorIdHex, CAmount value) = 0;
+
+    //! Burn tokens; ok=true on success with txids[0] = burn txid.
+    virtual TokenIssuanceResult burnToken(const std::string& colorIdHex, CAmount value) = 0;
 
     //! Return whether transaction input belongs to wallet.
     virtual isminetype txinIsMine(const CTxIn& txin) = 0;
@@ -311,32 +332,35 @@ struct WalletBalances
     bool have_watch_only;
     TxColoredCoinBalancesMap watch_only_balances;
     TxColoredCoinBalancesMap unconfirmed_watch_only_balances;
+    std::set<ColorIdentifier> tokens;
+    std::set<ColorIdentifier>::iterator tokenIndex;
 
     WalletBalances(){
         have_watch_only = false;
+        tokenIndex = tokens.begin();
     }
 
-    CAmount getBalance(const ColorIdentifier& colorId = ColorIdentifier()) const
+    CAmount getBalance() const
     {
-        auto it = balances.find(colorId);
+        auto it = balances.find(*tokenIndex);
         return it != balances.end() ? it->second : 0;
     }
 
-    CAmount getUnconfirmedBalance(const ColorIdentifier& colorId = ColorIdentifier()) const
+    CAmount getUnconfirmedBalance() const
     {
-        auto it = unconfirmed_balances.find(colorId);
+        auto it = unconfirmed_balances.find(*tokenIndex);
         return it != unconfirmed_balances.end() ? it->second : 0;
     }
 
-    CAmount getWatchOnlyBalance(const ColorIdentifier& colorId = ColorIdentifier()) const
+    CAmount getWatchOnlyBalance() const
     {
-        auto it = watch_only_balances.find(colorId);
+        auto it = watch_only_balances.find(*tokenIndex);
         return it != watch_only_balances.end() ? it->second : 0;
     }
 
-    CAmount getUnconfirmedWatchOnlyBalance(const ColorIdentifier& colorId = ColorIdentifier()) const
+    CAmount getUnconfirmedWatchOnlyBalance() const
     {
-        auto it = unconfirmed_watch_only_balances.find(colorId);
+        auto it = unconfirmed_watch_only_balances.find(*tokenIndex);
         return it != unconfirmed_watch_only_balances.end() ? it->second : 0;
     }
 
@@ -345,6 +369,53 @@ struct WalletBalances
         return balances != prev.balances || unconfirmed_balances != prev.unconfirmed_balances ||
                watch_only_balances != prev.watch_only_balances ||
                unconfirmed_watch_only_balances != prev.unconfirmed_watch_only_balances;
+    }
+
+    //collect all tokens in the wallet from all the balance lists
+    void refreshTokens() {
+        tokens.clear();
+
+        for(auto pair:balances)
+            tokens.insert(pair.first);
+        for(auto pair:unconfirmed_balances)
+            tokens.insert(pair.first);
+        for(auto pair:watch_only_balances)
+            tokens.insert(pair.first);
+        for(auto pair:unconfirmed_watch_only_balances)
+            tokens.insert(pair.first);
+
+        tokenIndex = tokens.begin();
+    }
+
+    void prev()
+    {
+        if(tokenIndex != tokens.begin())
+            tokenIndex--;
+        else
+        {
+            tokenIndex = tokens.end();
+            tokenIndex--;
+        }
+    }
+
+    void next()
+    {
+        if(tokenIndex != tokens.end())
+        {
+            tokenIndex++;
+            if(tokenIndex == tokens.end())
+                tokenIndex = tokens.begin();
+        }
+    }
+
+    bool isToken()
+    {
+        return (*tokenIndex).type != TokenTypes::NONE;
+    }
+
+    std::string getTokenName()
+    {
+        return (*tokenIndex).toHexString();
     }
 };
 
@@ -356,6 +427,7 @@ struct WalletTx
     std::vector<isminetype> txout_is_mine;
     std::vector<CTxDestination> txout_address;
     std::vector<isminetype> txout_address_is_mine;
+    std::vector<std::string> txout_color_id; // hex color ID per output, empty string for TPC outputs
     TxColoredCoinBalancesMap credits;
     TxColoredCoinBalancesMap debits;
     TxColoredCoinBalancesMap changes;

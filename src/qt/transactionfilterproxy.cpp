@@ -36,6 +36,8 @@ bool TransactionFilterProxy::filterAcceptsRow(int sourceRow, const QModelIndex &
         return false;
 
     int type = index.data(TransactionTableModel::TypeRole).toInt();
+    if (type == TransactionRecord::TokenAnchor)
+        return false;
     if (!(TYPE(type) & typeFilter))
         return false;
 
