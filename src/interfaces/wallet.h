@@ -42,6 +42,14 @@ struct WalletTxStatus;
 using WalletOrderForm = std::vector<std::pair<std::string, std::string>>;
 using WalletValueMap = std::map<std::string, std::string>;
 
+//! Result of a token issuance, reissuance, or burn operation.
+struct TokenIssuanceResult {
+    bool ok = false;
+    std::string color;                  //! hex color ID on success
+    std::vector<std::string> txids;     //! txid(s) on success
+    std::string error;                  //! error message on failure
+};
+
 //! Interface for accessing a wallet.
 class Wallet
 {
@@ -196,6 +204,19 @@ public:
 
     //! Get available balance.
     virtual CAmount getAvailableBalance(const CCoinControl& coin_control) = 0;
+
+    //! Issue a new REISSUABLE token; generates address and script internally.
+    virtual TokenIssuanceResult issueNewReissuableToken(CAmount value) = 0;
+
+    //! Issue a new NON_REISSUABLE (tokenType=2) or NFT (tokenType=3) token;
+    //! selects a TPC UTXO from the wallet internally.
+    virtual TokenIssuanceResult issueNewToken(int tokenType, CAmount value) = 0;
+
+    //! Reissue an existing REISSUABLE token identified by its hex color ID.
+    virtual TokenIssuanceResult reissueToken(const std::string& colorIdHex, CAmount value) = 0;
+
+    //! Burn tokens; ok=true on success with txids[0] = burn txid.
+    virtual TokenIssuanceResult burnToken(const std::string& colorIdHex, CAmount value) = 0;
 
     //! Return whether transaction input belongs to wallet.
     virtual isminetype txinIsMine(const CTxIn& txin) = 0;
