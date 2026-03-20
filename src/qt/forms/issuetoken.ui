@@ -222,25 +222,53 @@
            </widget>
           </item>
 
-          <!-- Amount field -->
+          <!-- Label and Amount fields -->
           <item>
-           <layout class="QFormLayout" name="amountFormLayout">
-            <item row="0" column="0">
-             <widget class="QLabel" name="labelAmount">
-              <property name="text">
-               <string>&amp;Amount:</string>
-              </property>
-              <property name="buddy">
-               <cstring>amountEdit</cstring>
-              </property>
-             </widget>
+           <layout class="QVBoxLayout" name="issueFieldsLayout">
+            <property name="spacing">
+             <number>10</number>
+            </property>
+            <item>
+             <layout class="QHBoxLayout" name="issueLabelRow">
+              <item>
+               <widget class="QLabel" name="labelIssueLabel">
+                <property name="text">
+                 <string>&amp;Label:</string>
+                </property>
+                <property name="buddy">
+                 <cstring>issueLabelEdit</cstring>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLineEdit" name="issueLabelEdit">
+                <property name="placeholderText">
+                 <string>Optional label for this token</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
             </item>
-            <item row="0" column="1">
-             <widget class="QValidatedLineEdit" name="amountEdit">
-              <property name="placeholderText">
-               <string>Number of tokens to issue (fixed at 1 for NFT)</string>
-              </property>
-             </widget>
+            <item>
+             <layout class="QHBoxLayout" name="issueAmountRow">
+              <item>
+               <widget class="QLabel" name="labelAmount">
+                <property name="text">
+                 <string>&amp;Amount:</string>
+                </property>
+                <property name="buddy">
+                 <cstring>amountEdit</cstring>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QValidatedLineEdit" name="amountEdit">
+                <property name="placeholderText">
+                 <string>Number of tokens to issue (fixed at 1 for NFT)</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
             </item>
            </layout>
           </item>
@@ -384,37 +412,72 @@
           </item>
 
           <item>
-           <layout class="QFormLayout" name="burnFormLayout">
-            <item row="0" column="0">
-             <widget class="QLabel" name="labelBurnColor">
-              <property name="text">
-               <string>&amp;Token:</string>
-              </property>
-              <property name="buddy">
-               <cstring>burnColorCombo</cstring>
-              </property>
-             </widget>
+           <layout class="QVBoxLayout" name="burnFieldsLayout">
+            <property name="spacing">
+             <number>10</number>
+            </property>
+            <item>
+             <layout class="QHBoxLayout" name="burnTokenRow" stretch="0,1">
+              <item>
+               <widget class="QLabel" name="labelBurnColor">
+                <property name="text">
+                 <string>&amp;Token:</string>
+                </property>
+                <property name="buddy">
+                 <cstring>burnColorCombo</cstring>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QComboBox" name="burnColorCombo">
+               </widget>
+              </item>
+             </layout>
             </item>
-            <item row="0" column="1">
-             <widget class="QComboBox" name="burnColorCombo">
-             </widget>
+            <item>
+             <layout class="QHBoxLayout" name="burnLabelRow">
+              <item>
+               <widget class="QLabel" name="labelBurnLabel">
+                <property name="text">
+                 <string>&amp;Label:</string>
+                </property>
+                <property name="buddy">
+                 <cstring>burnLabelEdit</cstring>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLineEdit" name="burnLabelEdit">
+                <property name="readOnly">
+                 <bool>true</bool>
+                </property>
+                <property name="placeholderText">
+                 <string>Token label</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
             </item>
-            <item row="1" column="0">
-             <widget class="QLabel" name="labelBurnAmount">
-              <property name="text">
-               <string>&amp;Amount:</string>
-              </property>
-              <property name="buddy">
-               <cstring>burnAmountEdit</cstring>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="1">
-             <widget class="QLineEdit" name="burnAmountEdit">
-              <property name="placeholderText">
-               <string>Number of tokens to burn</string>
-              </property>
-             </widget>
+            <item>
+             <layout class="QHBoxLayout" name="burnAmountRow">
+              <item>
+               <widget class="QLabel" name="labelBurnAmount">
+                <property name="text">
+                 <string>&amp;Amount:</string>
+                </property>
+                <property name="buddy">
+                 <cstring>burnAmountEdit</cstring>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QValidatedLineEdit" name="burnAmountEdit">
+                <property name="placeholderText">
+                 <string>Number of tokens to burn</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
             </item>
            </layout>
           </item>

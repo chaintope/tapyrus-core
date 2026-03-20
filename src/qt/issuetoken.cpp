@@ -109,6 +109,7 @@ void IssueTokenDialog::clear()
 {
     ui->amountEdit->clear();
     ui->amountEdit->setEnabled(true);
+    ui->issueLabelEdit->clear();
     ui->radioReissuable->setChecked(true);
 }
 
@@ -230,7 +231,24 @@ void IssueTokenDialog::on_issueButton_clicked()
         // Address book was updated by the wallet during issuance/reissuance;
         // refresh the table from the wallet directly.
         refreshTokenTable();
+
+        // Save label (if provided) to the colored address in the address book.
+        // This applies equally to new issuance and reissue — both produce a
+        // UTXO at the token's colored address.
+        const QString label = ui->issueLabelEdit->text().trimmed();
+        if (!label.isEmpty()) {
+            for (const WalletModel::IssuedTokenRecord &rec : m_tokens) {
+                if (rec.colorId == result.color && !rec.address.isEmpty()) {
+                    model->setTokenLabel(rec.address, label);
+                    break;
+                }
+            }
+            // Refresh again so the table shows the saved label
+            refreshTokenTable();
+        }
+
         highlightTokenRow(result.color);
+        ui->issueLabelEdit->clear();
 
         const QString msgKey = isReissue ? tr("Tokens reissued successfully.\nColor: %1")
                                          : tr("Token issued successfully.\nColor: %1");
@@ -356,16 +374,20 @@ void IssueTokenDialog::onBurnColorChanged(int index)
     // Highlight the corresponding row in the tokens table so the user can see the balance
     highlightTokenRow(colorId);
 
-    // Find the record to get balance and type
+    // Find the record to get balance, type, and label
     CAmount balance = 0;
     bool isNft = false;
+    QString tokenLabel;
     for (const WalletModel::IssuedTokenRecord &rec : m_tokens) {
         if (rec.colorId == colorId) {
             balance = rec.balance;
             isNft = (rec.tokenType == "NFT");
+            tokenLabel = rec.label;
             break;
         }
     }
+
+    ui->burnLabelEdit->setText(tokenLabel);
 
     // NFT amount is always 1 — lock the field
     if (isNft) {
