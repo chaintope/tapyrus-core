@@ -18,7 +18,7 @@
 
 #include <coloridentifier.h>
 #include <key_io.h>
-#include <util/strencodings.h>
+#include <utilstrencodings.h>
 
 #include <QAction>
 #include <QCursor>
@@ -77,11 +77,10 @@ void ReceiveCoinsDialog::refreshTokenCombo()
     ui->reqToken->blockSignals(true);
     int prevIndex = ui->reqToken->currentIndex();
     QString prevColorId;
-    if (prevIndex > 0 && prevIndex - 1 < m_tokenRecords.size())
-        prevColorId = m_tokenRecords[prevIndex - 1].colorId;
+    if (prevIndex >= 0 && prevIndex < m_tokenRecords.size())
+        prevColorId = m_tokenRecords[prevIndex].colorId;
 
     ui->reqToken->clear();
-    ui->reqToken->addItem(tr("TPC (native)"), QString());
 
     static const QMap<QString, QString> typeIcons = {
         {"REISSUABLE",     ":/icons/token_reissuable"},
@@ -115,6 +114,7 @@ void ReceiveCoinsDialog::setModel(WalletModel *_model)
         _model->getRecentRequestsTableModel()->sort(RecentRequestsTableModel::Date, Qt::DescendingOrder);
         connect(_model->getOptionsModel(), &OptionsModel::displayUnitChanged, this, &ReceiveCoinsDialog::updateDisplayUnit);
         connect(_model, &WalletModel::tokenAddressBookChanged, this, &ReceiveCoinsDialog::refreshTokenCombo);
+        connect(ui->radioToken, &QRadioButton::toggled, this, &ReceiveCoinsDialog::on_radioToken_toggled);
         connect(ui->reqToken, QOverload<int>::of(&QComboBox::currentIndexChanged),
                 this, &ReceiveCoinsDialog::on_reqToken_currentIndexChanged);
         refreshTokenCombo();
@@ -130,6 +130,7 @@ void ReceiveCoinsDialog::setModel(WalletModel *_model)
         tableView->setSelectionMode(QAbstractItemView::ContiguousSelection);
         tableView->setColumnWidth(RecentRequestsTableModel::Date, DATE_COLUMN_WIDTH);
         tableView->setColumnWidth(RecentRequestsTableModel::Label, LABEL_COLUMN_WIDTH);
+        tableView->setColumnWidth(RecentRequestsTableModel::Token, TOKEN_COLUMN_WIDTH);
         tableView->setColumnWidth(RecentRequestsTableModel::Amount, AMOUNT_MINIMUM_COLUMN_WIDTH);
 
         connect(tableView->selectionModel(),
@@ -151,10 +152,17 @@ ReceiveCoinsDialog::~ReceiveCoinsDialog()
 
 void ReceiveCoinsDialog::clear()
 {
+    ui->radioTPC->setChecked(true);
     ui->reqToken->setCurrentIndex(0);
+    ui->reqToken->setEnabled(false);
+    ui->reqAmount->setTokenMode(false);
+    ui->reqAmount->setEnabled(true);
     ui->reqAmount->clear();
     ui->reqLabel->setText("");
     ui->reqMessage->setText("");
+    if (model)
+        ui->receiveButton->setEnabled(!model->privateKeysDisabled());
+    ui->receiveButton->setToolTip(QString());
     updateDisplayUnit();
 }
 
@@ -168,24 +176,47 @@ void ReceiveCoinsDialog::accept()
     clear();
 }
 
+void ReceiveCoinsDialog::on_radioToken_toggled(bool checked)
+{
+    ui->reqToken->setEnabled(checked);
+    ui->reqAmount->setTokenMode(checked);
+    if (!checked) {
+        ui->reqToken->setCurrentIndex(0);
+        ui->reqAmount->setEnabled(true);
+        ui->receiveButton->setEnabled(!model->privateKeysDisabled());
+        ui->receiveButton->setToolTip(QString());
+    } else {
+        on_reqToken_currentIndexChanged(ui->reqToken->currentIndex());
+    }
+}
+
 void ReceiveCoinsDialog::on_reqToken_currentIndexChanged(int index)
 {
-    if (!model || !model->getOptionsModel()) return;
-    if (index > 0)
-        ui->reqAmount->setDisplayUnit(TapyrusUnits::TOKEN);
-    else
-        ui->reqAmount->setDisplayUnit(model->getOptionsModel()->getDisplayUnit());
+    if (!ui->radioToken->isChecked() || index < 0 || index >= m_tokenRecords.size())
+        return;
+
+    const WalletModel::IssuedTokenRecord& rec = m_tokenRecords[index];
+    if (rec.tokenType == "NFT") {
+        // NFT: fixed amount of 1, no more requests if already holding 1
+        ui->reqAmount->setValue(1);
+        ui->reqAmount->setEnabled(false);
+        bool alreadyOwned = (rec.balance + rec.unconfirmedBalance) >= 1;
+        bool canRequest = !alreadyOwned && !model->privateKeysDisabled();
+        ui->receiveButton->setEnabled(canRequest);
+        ui->receiveButton->setToolTip(alreadyOwned
+            ? tr("This NFT token is already in your wallet. Only one can exist in the network.")
+            : QString());
+    } else {
+        ui->reqAmount->setEnabled(true);
+        ui->receiveButton->setEnabled(!model->privateKeysDisabled());
+        ui->receiveButton->setToolTip(QString());
+    }
 }
 
 void ReceiveCoinsDialog::updateDisplayUnit()
 {
     if(model && model->getOptionsModel())
-    {
-        if (ui->reqToken->currentIndex() > 0)
-            ui->reqAmount->setDisplayUnit(TapyrusUnits::TOKEN);
-        else
-            ui->reqAmount->setDisplayUnit(model->getOptionsModel()->getDisplayUnit());
-    }
+        ui->reqAmount->setDisplayUnit(model->getOptionsModel()->getDisplayUnit());
 }
 
 void ReceiveCoinsDialog::on_receiveButton_clicked()
@@ -197,9 +228,9 @@ void ReceiveCoinsDialog::on_receiveButton_clicked()
     QString label = ui->reqLabel->text();
     int tokenIndex = ui->reqToken->currentIndex();
 
-    if (tokenIndex > 0 && tokenIndex - 1 < m_tokenRecords.size()) {
+    if (ui->radioToken->isChecked() && tokenIndex >= 0 && tokenIndex < m_tokenRecords.size()) {
         // Generate a colored receiving address
-        const WalletModel::IssuedTokenRecord& rec = m_tokenRecords[tokenIndex - 1];
+        const WalletModel::IssuedTokenRecord& rec = m_tokenRecords[tokenIndex];
         const std::vector<unsigned char> vColorId(ParseHex(rec.colorId.toStdString()));
         ColorIdentifier colorId(vColorId.data(), vColorId.data() + vColorId.size());
 
@@ -220,6 +251,10 @@ void ReceiveCoinsDialog::on_receiveButton_clicked()
 
     SendCoinsRecipient info(address, label,
         ui->reqAmount->value(), ui->reqMessage->text());
+    if (ui->radioToken->isChecked() && tokenIndex >= 0 && tokenIndex < m_tokenRecords.size()) {
+        const std::vector<unsigned char> vColorId(ParseHex(m_tokenRecords[tokenIndex].colorId.toStdString()));
+        info.colorid = ColorIdentifier(vColorId.data(), vColorId.data() + vColorId.size());
+    }
     ReceiveRequestDialog *dialog = new ReceiveRequestDialog(this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->setModel(model);

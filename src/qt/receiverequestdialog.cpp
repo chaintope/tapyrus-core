@@ -136,10 +136,10 @@ void ReceiveRequestDialog::update()
     html += "<b>"+tr("URI")+"</b>: ";
     html += "<a href=\""+uri+"\">" + GUIUtil::HtmlEscape(uri) + "</a><br>";
     html += "<b>"+tr("Address")+"</b>: " + GUIUtil::HtmlEscape(info.address) + "<br>";
-    if (!info.colorid.type == TokenTypes::NONE)
+    if (info.colorid.type != TokenTypes::NONE)
         html += "<b>"+tr("Token")+"</b>: " + GUIUtil::HtmlEscape(QString::fromStdString(info.colorid.toHexString())) + "<br>";
     if(info.amount) {
-        if (!info.colorid.type == TokenTypes::NONE)
+        if (info.colorid.type != TokenTypes::NONE)
             html += "<b>"+tr("Amount")+"</b>: " + TapyrusUnits::formatHtmlWithUnit(TapyrusUnits::TOKEN, info.amount) + "<br>";
         else
             html += "<b>"+tr("Amount")+"</b>: " + TapyrusUnits::formatHtmlWithUnit(model->getOptionsModel()->getDisplayUnit(), info.amount) + "<br>";

@@ -228,7 +228,29 @@ void BitcoinAmountField::clear()
 void BitcoinAmountField::setEnabled(bool fEnabled)
 {
     amount->setEnabled(fEnabled);
+    unit->setEnabled(fEnabled && !m_tokenMode);
+}
+
+void BitcoinAmountField::setUnitEnabled(bool fEnabled)
+{
     unit->setEnabled(fEnabled);
+}
+
+void BitcoinAmountField::setTokenMode(bool isToken)
+{
+    m_tokenMode = isToken;
+    if (isToken) {
+        // Set spinbox to TOKEN unit (factor=1, no conversion) without touching the combobox
+        amount->setDisplayUnit(TapyrusUnits::TOKEN);
+        amount->setSingleStep(1); // step by 1 token per click
+    } else {
+        // Restore the unit currently shown in the combobox
+        int idx = unit->currentIndex();
+        int currentUnit = unit->itemData(idx, TapyrusUnits::UnitRole).toInt();
+        amount->setDisplayUnit(currentUnit);
+        amount->setSingleStep(100000); // restore default TPC step (0.001 TPC)
+    }
+    unit->setEnabled(!isToken);
 }
 
 bool BitcoinAmountField::validate()
