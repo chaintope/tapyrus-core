@@ -9,6 +9,7 @@
 #include <qt/optionsmodel.h>
 
 #include <clientversion.h>
+#include <coloridentifier.h>
 #include <streams.h>
 
 
@@ -78,13 +79,16 @@ QVariant RecentRequestsTableModel::data(const QModelIndex &index, int role) cons
             {
                 return rec->recipient.message;
             }
-        case Amount:
+        case Amount: {
+            bool isToken = rec->recipient.colorid.type != TokenTypes::NONE;
+            int unit = isToken ? TapyrusUnits::TOKEN : walletModel->getOptionsModel()->getDisplayUnit();
             if (rec->recipient.amount == 0 && role == Qt::DisplayRole)
                 return tr("(no amount requested)");
             else if (role == Qt::EditRole)
-                return TapyrusUnits::format(walletModel->getOptionsModel()->getDisplayUnit(), rec->recipient.amount, false, TapyrusUnits::separatorNever);
+                return TapyrusUnits::format(unit, rec->recipient.amount, false, TapyrusUnits::separatorNever);
             else
-                return TapyrusUnits::format(walletModel->getOptionsModel()->getDisplayUnit(), rec->recipient.amount);
+                return TapyrusUnits::format(unit, rec->recipient.amount);
+        }
         }
     }
     else if (role == Qt::TextAlignmentRole)

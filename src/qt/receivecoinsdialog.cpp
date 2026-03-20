@@ -16,6 +16,10 @@
 #include <qt/recentrequeststablemodel.h>
 #include <qt/walletmodel.h>
 
+#include <coloridentifier.h>
+#include <key_io.h>
+#include <util/strencodings.h>
+
 #include <QAction>
 #include <QCursor>
 #include <QMessageBox>
@@ -66,6 +70,42 @@ ReceiveCoinsDialog::ReceiveCoinsDialog(const PlatformStyle *_platformStyle, QWid
     connect(ui->clearButton, &QPushButton::clicked, this, &ReceiveCoinsDialog::clear);
 }
 
+void ReceiveCoinsDialog::refreshTokenCombo()
+{
+    if (!model) return;
+
+    ui->reqToken->blockSignals(true);
+    int prevIndex = ui->reqToken->currentIndex();
+    QString prevColorId;
+    if (prevIndex > 0 && prevIndex - 1 < m_tokenRecords.size())
+        prevColorId = m_tokenRecords[prevIndex - 1].colorId;
+
+    ui->reqToken->clear();
+    ui->reqToken->addItem(tr("TPC (native)"), QString());
+
+    static const QMap<QString, QString> typeIcons = {
+        {"REISSUABLE",     ":/icons/token_reissuable"},
+        {"NON_REISSUABLE", ":/icons/token_nonreissuable"},
+        {"NFT",            ":/icons/token_nft"},
+    };
+
+    m_tokenRecords = model->getIssuedTokens();
+    for (const WalletModel::IssuedTokenRecord& rec : m_tokenRecords) {
+        QIcon icon(typeIcons.value(rec.tokenType));
+        ui->reqToken->addItem(icon, rec.colorId, rec.colorId);
+    }
+
+    ui->reqToken->blockSignals(false);
+
+    // Restore previous selection if possible
+    int restoreIndex = 0;
+    if (!prevColorId.isEmpty()) {
+        int found = ui->reqToken->findData(prevColorId);
+        if (found >= 0) restoreIndex = found;
+    }
+    ui->reqToken->setCurrentIndex(restoreIndex);
+}
+
 void ReceiveCoinsDialog::setModel(WalletModel *_model)
 {
     this->model = _model;
@@ -74,6 +114,10 @@ void ReceiveCoinsDialog::setModel(WalletModel *_model)
     {
         _model->getRecentRequestsTableModel()->sort(RecentRequestsTableModel::Date, Qt::DescendingOrder);
         connect(_model->getOptionsModel(), &OptionsModel::displayUnitChanged, this, &ReceiveCoinsDialog::updateDisplayUnit);
+        connect(_model, &WalletModel::tokenAddressBookChanged, this, &ReceiveCoinsDialog::refreshTokenCombo);
+        connect(ui->reqToken, QOverload<int>::of(&QComboBox::currentIndexChanged),
+                this, &ReceiveCoinsDialog::on_reqToken_currentIndexChanged);
+        refreshTokenCombo();
         updateDisplayUnit();
 
         QTableView* tableView = ui->recentRequestsView;
@@ -107,6 +151,7 @@ ReceiveCoinsDialog::~ReceiveCoinsDialog()
 
 void ReceiveCoinsDialog::clear()
 {
+    ui->reqToken->setCurrentIndex(0);
     ui->reqAmount->clear();
     ui->reqLabel->setText("");
     ui->reqMessage->setText("");
@@ -123,11 +168,23 @@ void ReceiveCoinsDialog::accept()
     clear();
 }
 
+void ReceiveCoinsDialog::on_reqToken_currentIndexChanged(int index)
+{
+    if (!model || !model->getOptionsModel()) return;
+    if (index > 0)
+        ui->reqAmount->setDisplayUnit(TapyrusUnits::TOKEN);
+    else
+        ui->reqAmount->setDisplayUnit(model->getOptionsModel()->getDisplayUnit());
+}
+
 void ReceiveCoinsDialog::updateDisplayUnit()
 {
     if(model && model->getOptionsModel())
     {
-        ui->reqAmount->setDisplayUnit(model->getOptionsModel()->getDisplayUnit());
+        if (ui->reqToken->currentIndex() > 0)
+            ui->reqAmount->setDisplayUnit(TapyrusUnits::TOKEN);
+        else
+            ui->reqAmount->setDisplayUnit(model->getOptionsModel()->getDisplayUnit());
     }
 }
 
@@ -138,10 +195,29 @@ void ReceiveCoinsDialog::on_receiveButton_clicked()
 
     QString address;
     QString label = ui->reqLabel->text();
-    /* Generate new receiving address */
-    OutputType address_type = model->wallet().getDefaultAddressType();
+    int tokenIndex = ui->reqToken->currentIndex();
 
-    address = model->getAddressTableModel()->addRow(AddressTableModel::Receive, label, "", address_type);
+    if (tokenIndex > 0 && tokenIndex - 1 < m_tokenRecords.size()) {
+        // Generate a colored receiving address
+        const WalletModel::IssuedTokenRecord& rec = m_tokenRecords[tokenIndex - 1];
+        const std::vector<unsigned char> vColorId(ParseHex(rec.colorId.toStdString()));
+        ColorIdentifier colorId(vColorId.data(), vColorId.data() + vColorId.size());
+
+        CPubKey newKey;
+        if (!model->wallet().getKeyFromPool(false /* internal */, newKey)) {
+            WalletModel::UnlockContext ctx(model->requestUnlock());
+            if (!ctx.isValid()) return;
+            if (!model->wallet().getKeyFromPool(false, newKey)) return;
+        }
+        CColorKeyID colorKeyId(newKey.GetID(), colorId);
+        address = QString::fromStdString(EncodeDestination(colorKeyId));
+        model->wallet().setAddressBook(colorKeyId, label.toStdString(), "receive");
+    } else {
+        // Generate a standard TPC receiving address
+        OutputType address_type = model->wallet().getDefaultAddressType();
+        address = model->getAddressTableModel()->addRow(AddressTableModel::Receive, label, "", address_type);
+    }
+
     SendCoinsRecipient info(address, label,
         ui->reqAmount->value(), ui->reqMessage->text());
     ReceiveRequestDialog *dialog = new ReceiveRequestDialog(this);
