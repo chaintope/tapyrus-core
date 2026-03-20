@@ -2288,8 +2288,13 @@ void CWallet::AvailableCoins(std::vector<COutput> &vCoins, bool fOnlySafe, const
 
             if(coinControl && coinControl->m_colorTxType == ColoredTxType::ISSUE
                            && coinControl->m_colorId.type == TokenTypes::REISSUABLE
-                           && colorId.type == TokenTypes::NONE)
+                           && colorId.type == TokenTypes::NONE
+                           && !coinControl->fAllowOtherInputs)
             {
+                // For REISSUABLE token issuance (tx1), only include TPC UTXOs whose
+                // script defines this token's color (the anchor UTXO). When
+                // fAllowOtherInputs is true (tx2), all TPC UTXOs are visible so
+                // coin selection can cover fees even if the anchor alone is insufficient.
                 if(coinControl->m_colorId == ColorIdentifier(pcoin->tx->vout[i].scriptPubKey) )
                     vCoins.push_back(COutput(pcoin, i, nDepth, spendable, solvable, safeTx, (coinControl && coinControl->fAllowWatchOnly)));
             }
