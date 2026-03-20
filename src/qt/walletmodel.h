@@ -48,7 +48,7 @@ class QTimer;
 class SendCoinsRecipient
 {
 public:
-    explicit SendCoinsRecipient() : amount(0), fSubtractFeeFromAmount(false), nVersion(SendCoinsRecipient::CURRENT_VERSION), colorid() { }
+    explicit SendCoinsRecipient() : colorid(), amount(0), fSubtractFeeFromAmount(false), nVersion(SendCoinsRecipient::CURRENT_VERSION) { }
     //only decleration is here
     explicit SendCoinsRecipient(const QString &addr, const QString &_label, const CAmount& _amount, const QString &_message);
 
@@ -70,7 +70,7 @@ public:
 
     bool fSubtractFeeFromAmount; // memory only
 
-    static const int CURRENT_VERSION = 1;
+    static const int CURRENT_VERSION = 2;
     int nVersion;
 
     ADD_SERIALIZE_METHODS;
@@ -84,10 +84,11 @@ public:
         READWRITE(this->nVersion);
         READWRITE(sAddress);
         READWRITE(sLabel);
-        READWRITE(colorid);
         READWRITE(amount);
         READWRITE(sMessage);
         READWRITE(sPaymentRequest);
+        if (this->nVersion >= 2)
+            READWRITE(colorid);
 
         if (ser_action.ForRead())
         {
