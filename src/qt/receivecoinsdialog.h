@@ -15,6 +15,7 @@
 #include <QList>
 #include <QMenu>
 #include <QPoint>
+#include <QRadioButton>
 #include <QVariant>
 
 class PlatformStyle;
@@ -35,7 +36,8 @@ public:
     enum ColumnWidths {
         DATE_COLUMN_WIDTH = 130,
         LABEL_COLUMN_WIDTH = 120,
-        AMOUNT_MINIMUM_COLUMN_WIDTH = 180,
+        TOKEN_COLUMN_WIDTH = 130,
+        AMOUNT_MINIMUM_COLUMN_WIDTH = 160,
         MINIMUM_COLUMN_WIDTH = 130
     };
 
@@ -72,6 +74,7 @@ private Q_SLOTS:
     void on_recentRequestsView_doubleClicked(const QModelIndex &index);
     void recentRequestsView_selectionChanged(const QItemSelection &selected, const QItemSelection &deselected);
     void updateDisplayUnit();
+    void on_radioToken_toggled(bool checked);
     void on_reqToken_currentIndexChanged(int index);
     void showMenu(const QPoint &point);
     void copyURI();

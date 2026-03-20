@@ -77,7 +77,7 @@
         <item row="3" column="0">
          <widget class="QLabel" name="labelToken">
           <property name="text">
-           <string>&amp;Token:</string>
+           <string>What?</string>
           </property>
           <property name="alignment">
            <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
@@ -88,17 +88,66 @@
          </widget>
         </item>
         <item row="3" column="2">
-         <widget class="QComboBox" name="reqToken">
-          <property name="toolTip">
-           <string>Select TPC or a token type to generate a receiving address for</string>
+         <layout class="QHBoxLayout" name="tokenSelectionLayout">
+          <property name="leftMargin">
+           <number>0</number>
           </property>
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
+          <property name="topMargin">
+           <number>0</number>
           </property>
-         </widget>
+          <property name="rightMargin">
+           <number>0</number>
+          </property>
+          <property name="bottomMargin">
+           <number>0</number>
+          </property>
+          <item>
+           <widget class="QRadioButton" name="radioTPC">
+            <property name="text">
+             <string>TPC</string>
+            </property>
+            <property name="checked">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QRadioButton" name="radioToken">
+            <property name="text">
+             <string>Token</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QComboBox" name="reqToken">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="toolTip">
+             <string>Select a token to generate a colored receiving address for</string>
+            </property>
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+              <horstretch>1</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <spacer name="tokenSelectionSpacer">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>20</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+         </layout>
         </item>
         <item row="4" column="0">
          <widget class="QLabel" name="label_2">

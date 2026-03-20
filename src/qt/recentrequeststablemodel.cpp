@@ -25,7 +25,7 @@ RecentRequestsTableModel::RecentRequestsTableModel(WalletModel *parent) :
         addNewRequest(request);
 
     /* These columns must match the indices in the ColumnIndex enumeration */
-    columns << tr("Date") << tr("Label") << tr("Message") << getAmountTitle();
+    columns << tr("Date") << tr("Label") << tr("Message") << tr("Token") << tr("Requested");
 
     connect(walletModel->getOptionsModel(), &OptionsModel::displayUnitChanged, this, &RecentRequestsTableModel::updateDisplayUnit);
 }
@@ -79,21 +79,27 @@ QVariant RecentRequestsTableModel::data(const QModelIndex &index, int role) cons
             {
                 return rec->recipient.message;
             }
+        case Token: {
+            if (rec->recipient.colorid.type == TokenTypes::NONE)
+                return QVariant();
+            return QString::fromStdString(rec->recipient.colorid.toHexString());
+        }
         case Amount: {
             bool isToken = rec->recipient.colorid.type != TokenTypes::NONE;
-            int unit = isToken ? TapyrusUnits::TOKEN : walletModel->getOptionsModel()->getDisplayUnit();
             if (rec->recipient.amount == 0 && role == Qt::DisplayRole)
                 return tr("(no amount requested)");
-            else if (role == Qt::EditRole)
+            if (isToken)
+                return QString::number(rec->recipient.amount);
+            int unit = walletModel->getOptionsModel()->getDisplayUnit();
+            if (role == Qt::EditRole)
                 return TapyrusUnits::format(unit, rec->recipient.amount, false, TapyrusUnits::separatorNever);
-            else
-                return TapyrusUnits::format(unit, rec->recipient.amount);
+            return TapyrusUnits::format(unit, rec->recipient.amount);
         }
         }
     }
     else if (role == Qt::TextAlignmentRole)
     {
-        if (index.column() == Amount)
+        if (index.column() == Amount || index.column() == Token)
             return (int)(Qt::AlignRight|Qt::AlignVCenter);
     }
     return QVariant();
@@ -119,14 +125,14 @@ QVariant RecentRequestsTableModel::headerData(int section, Qt::Orientation orien
 /** Updates the column title to "Amount (DisplayUnit)" and emits headerDataChanged() signal for table headers to react. */
 void RecentRequestsTableModel::updateAmountColumnTitle()
 {
-    columns[Amount] = getAmountTitle();
-    Q_EMIT headerDataChanged(Qt::Horizontal,Amount,Amount);
+    // Amount column title stays fixed; signal so the view re-reads header data
+    Q_EMIT headerDataChanged(Qt::Horizontal, Amount, Amount);
 }
 
-/** Gets title for amount column including current display unit if optionsModel reference available. */
+/** Gets title for amount column. */
 QString RecentRequestsTableModel::getAmountTitle()
 {
-    return (this->walletModel->getOptionsModel() != nullptr) ? QString(tr("Requested") + " ("+TapyrusUnits::shortName(this->walletModel->getOptionsModel()->getDisplayUnit()) + ")") : QString("");
+    return tr("Requested");
 }
 
 QModelIndex RecentRequestsTableModel::index(int row, int column, const QModelIndex &parent) const
@@ -232,6 +238,8 @@ bool RecentRequestEntryLessThan::operator()(RecentRequestEntry &left, RecentRequ
         return pLeft->recipient.label < pRight->recipient.label;
     case RecentRequestsTableModel::Message:
         return pLeft->recipient.message < pRight->recipient.message;
+    case RecentRequestsTableModel::Token:
+        return pLeft->recipient.colorid.toHexString() < pRight->recipient.colorid.toHexString();
     case RecentRequestsTableModel::Amount:
         return pLeft->recipient.amount < pRight->recipient.amount;
     default:

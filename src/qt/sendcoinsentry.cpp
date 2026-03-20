@@ -14,6 +14,8 @@
 #include <qt/platformstyle.h>
 #include <qt/tapyrusunits.h>
 
+#include <coloridentifier.h>
+
 #include <QApplication>
 #include <QClipboard>
 
@@ -80,19 +82,32 @@ void SendCoinsEntry::on_payTo_textChanged(const QString &address)
     updateLabel(address);
     if(model && model->isColoredAddress(address))
     {
-        ui->payAmount->setDisplayUnit(TapyrusUnits::TOKEN);
-        ui->payAmount_is->setDisplayUnit(TapyrusUnits::TOKEN);
-        ui->payAmount_s->setDisplayUnit(TapyrusUnits::TOKEN);
-        ui->labelTokenName->setText(model->getColorFromAddress(address).toHexString().c_str());
+        ColorIdentifier colorId = model->getColorFromAddress(address);
+        ui->payAmount->setTokenMode(true);
+        ui->payAmount_is->setTokenMode(true);
+        ui->payAmount_s->setTokenMode(true);
+        ui->labelTokenName->setText(colorId.toHexString().c_str());
+        ui->tokenRowSpacer->setVisible(true);
         ui->labelToken->setVisible(true);
         ui->labelTokenName->setVisible(true);
         ui->checkboxSubtractFeeFromAmount->setEnabled(false);
         ui->checkboxSubtractFeeFromAmount->setCheckState(Qt::Unchecked);
+        if (colorId.type == TokenTypes::NFT) {
+            ui->payAmount->setValue(1);
+            ui->payAmount->setEnabled(false);
+        } else {
+            ui->payAmount->setEnabled(true);
+        }
     }
     else
     {
+        ui->payAmount->setTokenMode(false);
+        ui->payAmount->setEnabled(true);
+        ui->payAmount_is->setTokenMode(false);
+        ui->payAmount_s->setTokenMode(false);
         updateDisplayUnit();
         ui->labelTokenName->clear();
+        ui->tokenRowSpacer->setVisible(false);
         ui->labelToken->setVisible(false);
         ui->labelTokenName->setVisible(false);
         ui->checkboxSubtractFeeFromAmount->setEnabled(true);
@@ -116,8 +131,11 @@ void SendCoinsEntry::clear()
     ui->payTo->clear();
     ui->addAsLabel->clear();
     ui->labelTokenName->clear();
+    ui->tokenRowSpacer->setVisible(false);
     ui->labelToken->setVisible(false);
     ui->labelTokenName->setVisible(false);
+    ui->payAmount->setTokenMode(false);
+    ui->payAmount->setEnabled(true);
     ui->payAmount->clear();
     ui->checkboxSubtractFeeFromAmount->setCheckState(Qt::Unchecked);
     ui->messageTextLabel->clear();
@@ -195,6 +213,8 @@ SendCoinsRecipient SendCoinsEntry::getValue()
     recipient.amount = ui->payAmount->value();
     recipient.message = ui->messageTextLabel->text();
     recipient.fSubtractFeeFromAmount = (ui->checkboxSubtractFeeFromAmount->checkState() == Qt::Checked);
+    if (model)
+        recipient.colorid = model->getColorFromAddress(recipient.address);
 
     return recipient;
 }
