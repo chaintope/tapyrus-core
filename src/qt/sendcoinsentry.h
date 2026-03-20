@@ -32,6 +32,7 @@ public:
     void setModel(WalletModel *model);
     bool validate(interfaces::Node& node);
     SendCoinsRecipient getValue();
+    CAmount getAvailableBalance(CCoinControl& coin_control);
 
     /** Return whether the entry is still empty and unedited */
     bool isClear();

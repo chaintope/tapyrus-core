@@ -21,7 +21,6 @@ QList<TapyrusUnits::Unit> TapyrusUnits::availableUnits()
     unitlist.append(mTPC);
     unitlist.append(uTPC);
     unitlist.append(TAP);
-    unitlist.append(TOKEN);
     return unitlist;
 }
 

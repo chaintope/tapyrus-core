@@ -176,7 +176,21 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
         return DuplicateAddress;
     }
 
-    CAmount nBalance = m_wallet->getAvailableBalance(coinControl);
+    // Determine if this is a colored coin send and set up coin control accordingly
+    ColorIdentifier colorId;
+    for (const SendCoinsRecipient &rcp : recipients) {
+        if (rcp.colorid.type != TokenTypes::NONE) {
+            colorId = rcp.colorid;
+            break;
+        }
+    }
+    CCoinControl localCoinControl = coinControl;
+    if (colorId.type != TokenTypes::NONE) {
+        localCoinControl.m_colorTxType = ColoredTxType::TRANSFER;
+        localCoinControl.m_colorId = colorId;
+    }
+
+    CAmount nBalance = m_wallet->getAvailableBalance(localCoinControl, colorId);
 
     if(total > nBalance)
     {
@@ -189,7 +203,7 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
         std::string strFailReason;
 
         auto& newTx = transaction.getWtx();
-        newTx = m_wallet->createTransaction(vecSend, coinControl, true /* sign */, nChangePosRet, nFeeRequired, strFailReason);
+        newTx = m_wallet->createTransaction(vecSend, localCoinControl, true /* sign */, nChangePosRet, nFeeRequired, strFailReason);
         transaction.setTransactionFee(nFeeRequired);
         if (fSubtractFeeFromAmount && newTx)
             transaction.reassignAmounts(nChangePosRet);
@@ -653,3 +667,10 @@ bool WalletModel::isMultiwallet()
 {
     return m_node.getWallets().size() > 1;
 }
+
+//Constructor definition moved here to initialize colorid
+SendCoinsRecipient::SendCoinsRecipient(const QString &addr, const QString &_label, const CAmount& _amount, const QString &_message):
+    address(addr), label(_label), amount(_amount), message(_message), fSubtractFeeFromAmount(false), nVersion(SendCoinsRecipient::CURRENT_VERSION)
+    {
+        IsColoredDestination(address.toStdString(), &colorid);
+    }
