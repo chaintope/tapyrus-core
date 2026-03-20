@@ -6,11 +6,13 @@
 #define BITCOIN_QT_RECEIVECOINSDIALOG_H
 
 #include <qt/guiutil.h>
+#include <qt/walletmodel.h>
 
 #include <QDialog>
 #include <QHeaderView>
 #include <QItemSelection>
 #include <QKeyEvent>
+#include <QList>
 #include <QMenu>
 #include <QPoint>
 #include <QVariant>
@@ -56,10 +58,12 @@ private:
     WalletModel *model;
     QMenu *contextMenu;
     const PlatformStyle *platformStyle;
+    QList<WalletModel::IssuedTokenRecord> m_tokenRecords;
 
     QModelIndex selectedRow();
     void copyColumnToClipboard(int column);
     void resizeEvent(QResizeEvent *event) override;
+    void refreshTokenCombo();
 
 private Q_SLOTS:
     void on_receiveButton_clicked();
@@ -68,6 +72,7 @@ private Q_SLOTS:
     void on_recentRequestsView_doubleClicked(const QModelIndex &index);
     void recentRequestsView_selectionChanged(const QItemSelection &selected, const QItemSelection &deselected);
     void updateDisplayUnit();
+    void on_reqToken_currentIndexChanged(int index);
     void showMenu(const QPoint &point);
     void copyURI();
     void copyLabel();
