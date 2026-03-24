@@ -9,7 +9,6 @@
 #include <validation.h>
 
 #include <stdint.h>
-#include <ranges>
 
 namespace Checkpoints {
 
@@ -18,8 +17,8 @@ namespace Checkpoints {
         AssertLockHeld(cs_main);
         const MapCheckpoints& checkpoints = data.mapCheckpoints;
 
-        for (const MapCheckpoints::value_type& i : std::views::reverse(checkpoints))
-        {
+        for (auto it = checkpoints.rbegin(); it != checkpoints.rend(); ++it) {
+            const MapCheckpoints::value_type& i = *it;
             const uint256& hash = i.second;
             CBlockIndex* pindex = LookupBlockIndex(hash);
             if (pindex) {
