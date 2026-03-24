@@ -17,7 +17,7 @@
 
 #include <deque>
 #include <boost/algorithm/string/replace.hpp>
-#include <ranges>
+
 
 // Defined in validation.cpp; declared here to avoid pulling in validation.h
 // (which includes chainstate.h, creating an indirect self-inclusion).
@@ -941,7 +941,8 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, CBlockIndex* pi
         nHeight = nTargetHeight;
 
         // Connect new blocks.
-        for (CBlockIndex *pindexConnect : std::views::reverse(vpindexToConnect)) {
+        for (auto it = vpindexToConnect.rbegin(); it != vpindexToConnect.rend(); ++it) {
+            CBlockIndex *pindexConnect = *it;
             if (!ConnectTip(state, pindexConnect, pindexConnect == pindexMostWork ? pblock : std::shared_ptr<const CBlock>(), connectTrace, disconnectpool)) {
                 if (state.IsInvalid()) {
                     // The block violates a consensus rule.

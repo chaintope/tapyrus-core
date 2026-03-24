@@ -12,7 +12,6 @@
 #include <test/test_tapyrus.h>
 
 #include <boost/test/unit_test.hpp>
-#include <ranges>
 
 BOOST_FIXTURE_TEST_SUITE(prevector_tests, TestingSetup)
 
@@ -58,13 +57,15 @@ class prevector_tester {
         for (const T& v : pre_vector) {
              local_check(v == real_vector[pos++]);
         }
-        for (const T& v : std::views::reverse(pre_vector)) {
+        for (auto it = std::make_reverse_iterator(pre_vector.end()); it != std::make_reverse_iterator(pre_vector.begin()); ++it) {
+             const T& v = *it;
              local_check(v == real_vector[--pos]);
         }
         for (const T& v : const_pre_vector) {
              local_check(v == real_vector[pos++]);
         }
-        for (const T& v : std::views::reverse(const_pre_vector)) {
+        for (auto it = std::make_reverse_iterator(const_pre_vector.end()); it != std::make_reverse_iterator(const_pre_vector.begin()); ++it) {
+             const T& v = *it;
              local_check(v == real_vector[--pos]);
         }
         CDataStream ss1(SER_DISK, 0);

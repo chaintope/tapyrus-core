@@ -36,7 +36,6 @@
 #include <deque>
 #include <memory>
 #include <array>
-#include <ranges>
 
 #if defined(NDEBUG)
 # error "Tapyrus cannot be compiled without assertions."
@@ -1035,7 +1034,8 @@ void PeerLogicValidation::UpdatedBlockTip(const CBlockIndex *pindexNew, const CB
         // Relay inventory, but don't relay old inventory during initial block download.
         connman->ForEachNode([nNewHeight, &vHashes](CNode* pnode) {
             if (nNewHeight > (pnode->nStartingHeight != -1 ? pnode->nStartingHeight - 2000 : 0)) {
-                for (const uint256& hash : std::views::reverse(vHashes)) {
+                for (auto it = vHashes.rbegin(); it != vHashes.rend(); ++it) {
+                    const uint256& hash = *it;
                     pnode->PushBlockHash(hash);
                 }
             }
@@ -1601,7 +1601,8 @@ bool static ProcessHeadersMessage(CNode *pfrom, CConnman *connman, const std::ve
             } else {
                 std::vector<CInv> vGetData;
                 // Download as much as possible, from earliest to latest.
-                for (const CBlockIndex *pindex : std::views::reverse(vToFetch)) {
+                for (auto it = vToFetch.rbegin(); it != vToFetch.rend(); ++it) {
+                    const CBlockIndex *pindex = *it;
                     if (nodestate->vBlocksInFlight.size() >= MAX_BLOCKS_IN_TRANSIT_PER_PEER) {
                         // Can't download any more from this peer
                         break;
