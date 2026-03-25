@@ -54,7 +54,7 @@ class TxnMallTest(BitcoinTestFramework):
 
         # First: use raw transaction API to send 1240 TPC to node1_address,
         # but don't broadcast:
-        doublespend_fee = Decimal('-.02')
+        doublespend_fee = -self.nodes[0].getnetworkinfo()['relayfee']
         rawtx_input_0 = {}
         rawtx_input_0["txid"] = fund_foo_txid
         rawtx_input_0["vout"] = find_output(self.nodes[0], fund_foo_txid, 1219)

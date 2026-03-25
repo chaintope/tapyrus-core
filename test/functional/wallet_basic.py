@@ -198,8 +198,9 @@ class WalletTest(BitcoinTestFramework):
 
         # Send 10 TPC normal
         address = self.nodes[0].getnewaddress("test")
-        fee_per_byte = Decimal('0.001') / 1000
-        self.nodes[2].settxfee(fee_per_byte * 1000)
+        relay_fee = self.nodes[2].getnetworkinfo()['relayfee']
+        fee_per_byte = relay_fee / 1000
+        self.nodes[2].settxfee(relay_fee)
         txid = self.nodes[2].sendtoaddress(address, 10, "", "", False)
         # generate block on another node so that balance is not distorted by block reward
         self.sync_all([self.nodes[0:3]])

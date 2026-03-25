@@ -186,7 +186,13 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
             assert_equal(nodei_utxo_hash, node3_utxo_hash)
 
     def generate_small_transactions(self, node, count, utxo_list):
-        FEE = 1000  # TODO: replace this with node relay fee based calculation
+        # Derive fee and dust threshold from the node's current relay fee rate.
+        relay_fee_tpc_per_kb = node.getnetworkinfo()['relayfee']
+        relay_fee_sat_per_byte = max(1, int(relay_fee_tpc_per_kb * COIN / 1000))
+        FEE = relay_fee_sat_per_byte * 1000  # flat fee: 1 kB equivalent
+        # Dust limit for a P2PKH output: 3 * fee_rate * (34-byte output + 148-byte spend cost)
+        dust_threshold = 3 * relay_fee_sat_per_byte * (34 + 148)
+
         num_transactions = 0
         random.shuffle(utxo_list)
         while len(utxo_list) >= 2 and num_transactions < count:
@@ -198,8 +204,8 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
                 input_amount += int(utxo['amount'] * COIN)
             output_amount = (input_amount - FEE) // 3
 
-            if output_amount <= 0:
-                # Sanity check -- if we chose inputs that are too small, skip
+            if output_amount < dust_threshold:
+                # Skip if outputs would be below dust threshold or non-positive
                 continue
 
             for i in range(3):

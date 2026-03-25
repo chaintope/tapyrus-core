@@ -72,7 +72,7 @@ class GetBlockTemplateLPTest(BitcoinTestFramework):
         # generate a random transaction and submit it
         min_relay_fee = self.nodes[0].getnetworkinfo()["relayfee"]
         # min_relay_fee is fee per 1000 bytes, which should be more than enough.
-        (txid, txhex, fee) = random_transaction(self.nodes, Decimal("1.1"), min_relay_fee, Decimal("0.001"), 20)
+        (txid, txhex, fee) = random_transaction(self.nodes, Decimal("1.1"), min_relay_fee, min_relay_fee * 100, 20)
         # after one minute, every 10 seconds the mempool is probed, so in 80 seconds it should have returned
         wait_until(lambda: not thr.is_alive(), timeout=60 + 20)  # wait up to 80 seconds for thread to exit
         assert(not thr.is_alive())

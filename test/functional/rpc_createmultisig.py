@@ -6,7 +6,6 @@
 """Test transaction signing using the signrawtransaction* RPCs."""
 
 from test_framework.test_framework import BitcoinTestFramework
-import decimal
 
 class RpcCreateMultiSigTest(BitcoinTestFramework):
     def set_test_params(self):
@@ -83,7 +82,7 @@ class RpcCreateMultiSigTest(BitcoinTestFramework):
 
         node0.generate(1, self.signblockprivkey_wif)
 
-        outval = value - decimal.Decimal("0.00001000")
+        outval = value - node0.getnetworkinfo()['relayfee']
         rawtx = node2.createrawtransaction([{"txid": txid, "vout": vout}], [{self.final: outval}])
 
         rawtx2 = node2.signrawtransactionwithkey(rawtx, self.priv[0:self.nsigs-1], prevtxs, "ALL", self.options.scheme)
