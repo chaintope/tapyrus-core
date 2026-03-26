@@ -1418,9 +1418,9 @@ static void ListTransactions(CWallet* const pwallet, const CWalletTx& wtx, int n
             if (fLong)
                 WalletTxToJSON(wtx, entry);
             ret.push_back(entry);
-
         }
     }
+
 }
 
 

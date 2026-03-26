@@ -12,6 +12,9 @@
 #include <qt/guiutil.h>
 #include <qt/optionsmodel.h>
 #include <qt/platformstyle.h>
+#include <qt/tapyrusunits.h>
+
+#include <coloridentifier.h>
 
 #include <QApplication>
 #include <QClipboard>
@@ -77,6 +80,26 @@ void SendCoinsEntry::on_addressBookButton_clicked()
 void SendCoinsEntry::on_payTo_textChanged(const QString &address)
 {
     updateLabel(address);
+    ColorIdentifier colorId = model ? model->getColorFromAddress(address) : ColorIdentifier();
+    bool isColored = colorId.type != TokenTypes::NONE;
+
+    ui->payAmount->setTokenMode(isColored);
+    ui->payAmount_is->setTokenMode(isColored);
+    ui->payAmount_s->setTokenMode(isColored);
+    ui->labelTokenName->setText(isColored ? QString::fromStdString(colorId.toHexString()) : QString());
+    ui->tokenRowSpacer->setVisible(isColored);
+    ui->labelToken->setVisible(isColored);
+    ui->labelTokenName->setVisible(isColored);
+    ui->checkboxSubtractFeeFromAmount->setEnabled(!isColored);
+    ui->checkboxSubtractFeeFromAmount->setCheckState(Qt::Unchecked);
+    if (isColored && colorId.type == TokenTypes::NFT) {
+        ui->payAmount->setValue(1);
+        ui->payAmount->setEnabled(false);
+    } else {
+        ui->payAmount->setEnabled(true);
+        if (!isColored)
+            updateDisplayUnit();
+    }
 }
 
 void SendCoinsEntry::setModel(WalletModel *_model)
@@ -94,6 +117,12 @@ void SendCoinsEntry::clear()
     // clear UI elements for normal payment
     ui->payTo->clear();
     ui->addAsLabel->clear();
+    ui->labelTokenName->clear();
+    ui->tokenRowSpacer->setVisible(false);
+    ui->labelToken->setVisible(false);
+    ui->labelTokenName->setVisible(false);
+    ui->payAmount->setTokenMode(false);
+    ui->payAmount->setEnabled(true);
     ui->payAmount->clear();
     ui->checkboxSubtractFeeFromAmount->setCheckState(Qt::Unchecked);
     ui->messageTextLabel->clear();
@@ -153,8 +182,9 @@ bool SendCoinsEntry::validate(interfaces::Node& node)
         retval = false;
     }
 
-    // Reject dust outputs:
-    if (retval && GUIUtil::isDust(node, ui->payTo->text(), ui->payAmount->value())) {
+    // Reject dust outputs (not applicable to token sends — token outputs have nValue=0):
+    if (retval && model->getColorFromAddress(ui->payTo->text()).type == TokenTypes::NONE &&
+        GUIUtil::isDust(node, ui->payTo->text(), ui->payAmount->value())) {
         ui->payAmount->setValid(false);
         retval = false;
     }
@@ -170,6 +200,8 @@ SendCoinsRecipient SendCoinsEntry::getValue()
     recipient.amount = ui->payAmount->value();
     recipient.message = ui->messageTextLabel->text();
     recipient.fSubtractFeeFromAmount = (ui->checkboxSubtractFeeFromAmount->checkState() == Qt::Checked);
+    if (model)
+        recipient.colorid = model->getColorFromAddress(recipient.address);
 
     return recipient;
 }
@@ -249,4 +281,13 @@ bool SendCoinsEntry::updateLabel(const QString &address)
     }
 
     return false;
+}
+
+CAmount SendCoinsEntry::getAvailableBalance(CCoinControl& coin_control)
+{
+    if (!model)
+        return 0;
+    const QString address = ui->payTo->text();
+    ColorIdentifier colorId = model->getColorFromAddress(address);
+    return model->wallet().getAvailableBalance(coin_control, colorId);
 }
