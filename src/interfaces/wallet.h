@@ -204,6 +204,7 @@ public:
 
     //! Get available balance.
     virtual CAmount getAvailableBalance(const CCoinControl& coin_control) = 0;
+    virtual CAmount getAvailableBalance(const CCoinControl& coin_control, const ColorIdentifier& colorId) = 0;
 
     //! Issue a new REISSUABLE token; generates address and script internally.
     virtual TokenIssuanceResult issueNewReissuableToken(CAmount value) = 0;

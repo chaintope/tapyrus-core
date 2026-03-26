@@ -369,6 +369,10 @@ public:
     {
         return m_wallet.GetAvailableBalance(&coin_control)[ColorIdentifier()];
     }
+    CAmount getAvailableBalance(const CCoinControl& coin_control, const ColorIdentifier& colorId) override
+    {
+        return m_wallet.GetAvailableBalance(&coin_control)[colorId];
+    }
     TokenIssuanceResult issueNewReissuableToken(CAmount value) override
     {
         TokenIssuanceResult result;
