@@ -17,6 +17,7 @@
 #include <qt/platformstyle.h>
 #include <qt/sendcoinsentry.h>
 
+#include <coloridentifier.h>
 #include <chainparams.h>
 #include <interfaces/node.h>
 #include <key_io.h>
@@ -613,8 +614,8 @@ void SendCoinsDialog::useAvailableBalance(SendCoinsEntry* entry)
         coin_control = *CoinControlDialog::coinControl();
     }
 
-    // get available amount to send from the entry
-    CAmount amount = entry->getAvailableBalance(coin_control);
+    // Calculate available amount to send (TPC balance by default).
+    CAmount amount = model->wallet().getAvailableBalance(coin_control, ColorIdentifier());
     for (int i = 0; i < ui->entries->count(); ++i) {
         SendCoinsEntry* e = qobject_cast<SendCoinsEntry*>(ui->entries->itemAt(i)->widget());
         if (e && !e->isHidden() && e != entry) {

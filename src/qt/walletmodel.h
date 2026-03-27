@@ -138,8 +138,9 @@ public:
 
     // Check address for validity
     bool validateAddress(const QString &address);
-
-    // Return the ColorIdentifier encoded in a colored address, or ColorIdentifier() (NONE) for TPC.
+    //! Check if the address is a colored (token) address.
+    bool isColoredAddress(const QString &address);
+    //! Return the ColorIdentifier encoded in a colored address, or ColorIdentifier() (NONE) for TPC.
     ColorIdentifier getColorFromAddress(const QString &address) const;
 
     // Return status record for SendCoins, contains error id + information
@@ -200,6 +201,11 @@ public:
         CAmount balance = 0;          // confirmed balance
         CAmount unconfirmedBalance = 0; // unconfirmed (mempool) balance
         QString address;              // CColorScriptID encoded address
+
+        bool operator==(const IssuedTokenRecord& o) const {
+            return colorId == o.colorId && tokenType == o.tokenType &&
+                   balance == o.balance && unconfirmedBalance == o.unconfirmedBalance;
+        }
     };
 
     // Return all colored-coin addresses owned by this wallet as IssuedTokenRecord list.
@@ -273,6 +279,7 @@ private:
 
     // Cache some values to be able to detect changes
     interfaces::WalletBalances m_cached_balances;
+    QList<IssuedTokenRecord> m_cached_tokens;
     EncryptionStatus cachedEncryptionStatus;
     int cachedNumBlocks;
 
@@ -281,13 +288,14 @@ private:
     void subscribeToCoreSignals();
     void unsubscribeFromCoreSignals();
     void checkBalanceChanged(const interfaces::WalletBalances& new_balances);
+    void checkTokenListChanged();
 
 Q_SIGNALS:
     // Signal that balance in wallet changed
     void balanceChanged(const interfaces::WalletBalances& balances);
 
-    // Signal that a colored-coin address book entry was added or updated
-    void tokenAddressBookChanged();
+    // Signal that the colored-coin token list changed (new token, balance change, or token fully spent)
+    void tokenListChanged(const QList<WalletModel::IssuedTokenRecord>& tokens);
 
     // Encryption status of wallet changed
     void encryptionStatusChanged();

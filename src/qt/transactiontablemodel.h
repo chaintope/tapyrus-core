@@ -37,7 +37,8 @@ public:
         Date = 2,
         Type = 3,
         ToAddress = 4,
-        Amount = 5
+        ColorId = 5,
+        Amount = 6
     };
 
     /** Roles to get specific information from a transaction row.
@@ -74,6 +75,14 @@ public:
         StatusRole,
         /** Unprocessed icon */
         RawDecorationRole,
+        /** Net token amount (0 for TPC transactions) */
+        TokenAmountRole,
+        /** Color ID hex string (empty for TPC transactions) */
+        ColorIdRole,
+        /** Token type string: "REISSUABLE", "NON_REISSUABLE", "NFT", or "" for TPC */
+        TokenTypeRole,
+        /** True if this record is a token (not TPC) transaction */
+        IsTokenRole,
     };
 
     int rowCount(const QModelIndex &parent) const override;

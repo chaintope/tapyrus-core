@@ -113,7 +113,7 @@ void ReceiveCoinsDialog::setModel(WalletModel *_model)
     {
         _model->getRecentRequestsTableModel()->sort(RecentRequestsTableModel::Date, Qt::DescendingOrder);
         connect(_model->getOptionsModel(), &OptionsModel::displayUnitChanged, this, &ReceiveCoinsDialog::updateDisplayUnit);
-        connect(_model, &WalletModel::tokenAddressBookChanged, this, &ReceiveCoinsDialog::refreshTokenCombo);
+        connect(_model, &WalletModel::tokenListChanged, this, &ReceiveCoinsDialog::refreshTokenCombo);
         connect(ui->radioToken, &QRadioButton::toggled, this, &ReceiveCoinsDialog::on_radioToken_toggled);
         connect(ui->reqToken, QOverload<int>::of(&QComboBox::currentIndexChanged),
                 this, &ReceiveCoinsDialog::on_reqToken_currentIndexChanged);
