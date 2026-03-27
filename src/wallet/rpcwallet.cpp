@@ -1418,9 +1418,10 @@ static void ListTransactions(CWallet* const pwallet, const CWalletTx& wtx, int n
             if (fLong)
                 WalletTxToJSON(wtx, entry);
             ret.push_back(entry);
-
         }
     }
+
+
 }
 
 
@@ -4293,6 +4294,7 @@ UniValue IssueReissuableToken(CWallet* const pwallet, const std::string& script,
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("color", coin_control.m_colorId.toHexString());
+    result.pushKV("address", EncodeDestination(colorDest));
     UniValue txidlist(UniValue::VARR);
     txidlist.push_back(tx1->GetHashMalFix().GetHex());
     txidlist.push_back(tx2->GetHashMalFix().GetHex());
@@ -4345,6 +4347,7 @@ UniValue IssueToken(CWallet* const pwallet, CAmount tokenValue, CCoinControl& co
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("color", coin_control.m_colorId.toHexString());
+    result.pushKV("address", EncodeDestination(colorDest));
     result.pushKV("txid", tx->GetHashMalFix().GetHex());
     return result;
 }
