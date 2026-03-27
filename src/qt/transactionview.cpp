@@ -153,6 +153,7 @@ TransactionView::TransactionView(const PlatformStyle *platformStyle, QWidget *pa
     bumpFeeAction = new QAction(tr("Increase transaction fee"), this);
     bumpFeeAction->setObjectName("bumpFeeAction");
     QAction *copyAddressAction = new QAction(tr("Copy address"), this);
+    QAction *copyColorIdAction = new QAction(tr("Copy color ID"), this);
     QAction *copyLabelAction = new QAction(tr("Copy label"), this);
     QAction *copyAmountAction = new QAction(tr("Copy amount"), this);
     QAction *copyTxIDAction = new QAction(tr("Copy transaction ID"), this);
@@ -164,6 +165,7 @@ TransactionView::TransactionView(const PlatformStyle *platformStyle, QWidget *pa
     contextMenu = new QMenu(this);
     contextMenu->setObjectName("contextMenu");
     contextMenu->addAction(copyAddressAction);
+    contextMenu->addAction(copyColorIdAction);
     contextMenu->addAction(copyLabelAction);
     contextMenu->addAction(copyAmountAction);
     contextMenu->addAction(copyTxIDAction);
@@ -198,6 +200,7 @@ TransactionView::TransactionView(const PlatformStyle *platformStyle, QWidget *pa
     connect(bumpFeeAction, &QAction::triggered, this, &TransactionView::bumpFee);
     connect(abandonAction, &QAction::triggered, this, &TransactionView::abandonTx);
     connect(copyAddressAction, &QAction::triggered, this, &TransactionView::copyAddress);
+    connect(copyColorIdAction, &QAction::triggered, this, &TransactionView::copyColorId);
     connect(copyLabelAction, &QAction::triggered, this, &TransactionView::copyLabel);
     connect(copyAmountAction, &QAction::triggered, this, &TransactionView::copyAmount);
     connect(copyTxIDAction, &QAction::triggered, this, &TransactionView::copyTxID);
@@ -444,6 +447,11 @@ void TransactionView::bumpFee()
 void TransactionView::copyAddress()
 {
     GUIUtil::copyEntryData(transactionView, 0, TransactionTableModel::AddressRole);
+}
+
+void TransactionView::copyColorId()
+{
+    GUIUtil::copyEntryData(transactionView, 0, TransactionTableModel::ColorIdRole);
 }
 
 void TransactionView::copyLabel()
