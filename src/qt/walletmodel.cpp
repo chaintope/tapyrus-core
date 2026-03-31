@@ -23,6 +23,7 @@
 #include <wallet/coincontrol.h>
 #include <wallet/wallet.h>
 
+#include <set>
 #include <stdint.h>
 
 #include <QDebug>
@@ -87,6 +88,7 @@ void WalletModel::pollBalanceChanged()
         cachedNumBlocks = m_node.getNumBlocks();
 
         checkBalanceChanged(new_balances);
+        checkTokenListChanged();
         if(transactionTableModel)
             transactionTableModel->updateConfirmations();
     }
@@ -97,6 +99,15 @@ void WalletModel::checkBalanceChanged(const interfaces::WalletBalances& new_bala
     if(new_balances.balanceChanged(m_cached_balances)) {
         m_cached_balances = new_balances;
         Q_EMIT balanceChanged(new_balances);
+    }
+}
+
+void WalletModel::checkTokenListChanged()
+{
+    QList<IssuedTokenRecord> newList = getIssuedTokens();
+    if (newList != m_cached_tokens) {
+        m_cached_tokens = newList;
+        Q_EMIT tokenListChanged(m_cached_tokens);
     }
 }
 
@@ -112,11 +123,6 @@ void WalletModel::updateAddressBook(const QString &address, const QString &label
     if(addressTableModel)
         addressTableModel->updateEntry(address, label, isMine, purpose, status);
 
-    if (isMine && purpose == "receive") {
-        CTxDestination dest = DecodeDestination(address.toStdString());
-        if (std::get_if<CColorScriptID>(&dest) || std::get_if<CColorKeyID>(&dest) )
-            Q_EMIT tokenAddressBookChanged();
-    }
 }
 
 void WalletModel::updateWatchOnlyFlag(bool fHaveWatchonly)
@@ -128,6 +134,18 @@ void WalletModel::updateWatchOnlyFlag(bool fHaveWatchonly)
 bool WalletModel::validateAddress(const QString &address)
 {
     return IsValidDestinationString(address.toStdString());
+}
+
+bool WalletModel::isColoredAddress(const QString &address)
+{
+    return IsColoredDestination(address.toStdString(), nullptr);
+}
+
+ColorIdentifier WalletModel::getColorFromAddress(const QString &address) const
+{
+    ColorIdentifier colorId;
+    IsColoredDestination(address.toStdString(), &colorId);
+    return colorId;
 }
 
 WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransaction &transaction, const CCoinControl& coinControl)
@@ -329,37 +347,30 @@ WalletModel::BurnTokenResult WalletModel::burnToken(const QString& colorId, CAmo
 QList<WalletModel::IssuedTokenRecord> WalletModel::getIssuedTokens() const
 {
     QList<IssuedTokenRecord> result;
-    QSet<QString> seenColorIds;  // guard against duplicate address book entries for the same color
     interfaces::WalletBalances wb = m_wallet->getBalances();
 
-    for (const auto& wa : m_wallet->getAddresses()) {
-        if (wa.is_mine == ISMINE_NO || wa.purpose != "receive")
-            continue;
+    // Collect all distinct color IDs present in confirmed or unconfirmed balances
+    std::set<ColorIdentifier, ColorIdentifierCompare> colors;
+    for (const auto& entry : wb.balances)
+        if (entry.first.type != TokenTypes::NONE)
+            colors.insert(entry.first);
+    for (const auto& entry : wb.unconfirmed_balances)
+        if (entry.first.type != TokenTypes::NONE)
+            colors.insert(entry.first);
 
-        const CColorScriptID* cid = std::get_if<CColorScriptID>(&wa.dest);
-        if (!cid)
-            continue;
-
+    for (const ColorIdentifier& color : colors) {
         IssuedTokenRecord rec;
-        rec.colorId = QString::fromStdString(cid->color.toHexString());
-
-        if (seenColorIds.contains(rec.colorId))
-            continue;
-        seenColorIds.insert(rec.colorId);
-
-        rec.label   = QString::fromStdString(wa.name);
-        switch (cid->color.type) {
+        rec.colorId = QString::fromStdString(color.toHexString());
+        switch (color.type) {
             case TokenTypes::REISSUABLE:     rec.tokenType = "REISSUABLE";     break;
             case TokenTypes::NON_REISSUABLE: rec.tokenType = "NON_REISSUABLE"; break;
             case TokenTypes::NFT:            rec.tokenType = "NFT";            break;
             default: continue;
         }
-        rec.address = QString::fromStdString(EncodeDestination(wa.dest));
-
-        auto conf_it = wb.balances.find(cid->color);
+        auto conf_it = wb.balances.find(color);
         rec.balance = (conf_it != wb.balances.end()) ? conf_it->second : 0;
 
-        auto unconf_it = wb.unconfirmed_balances.find(cid->color);
+        auto unconf_it = wb.unconfirmed_balances.find(color);
         rec.unconfirmedBalance = (unconf_it != wb.unconfirmed_balances.end()) ? unconf_it->second : 0;
 
         result.append(rec);
@@ -395,14 +406,6 @@ OptionsModel *WalletModel::getOptionsModel()
 AddressTableModel *WalletModel::getAddressTableModel()
 {
     return addressTableModel;
-}
-
-ColorIdentifier WalletModel::getColorFromAddress(const QString &address) const
-{
-    CTxDestination dest = DecodeDestination(address.toStdString());
-    if (const CColorScriptID* p = std::get_if<CColorScriptID>(&dest)) return p->color;
-    if (const CColorKeyID*   p = std::get_if<CColorKeyID>(&dest))   return p->color;
-    return ColorIdentifier();
 }
 
 TransactionTableModel *WalletModel::getTransactionTableModel()
@@ -676,11 +679,9 @@ bool WalletModel::isMultiwallet()
     return m_node.getWallets().size() > 1;
 }
 
-//Constructor definition moved here to initialize colorid
+// Constructor definition moved here to initialize colorid from address
 SendCoinsRecipient::SendCoinsRecipient(const QString &addr, const QString &_label, const CAmount& _amount, const QString &_message):
     address(addr), label(_label), amount(_amount), message(_message), fSubtractFeeFromAmount(false), nVersion(SendCoinsRecipient::CURRENT_VERSION)
-    {
-        CTxDestination dest = DecodeDestination(address.toStdString());
-        if (const CColorScriptID* p = std::get_if<CColorScriptID>(&dest)) colorid = p->color;
-        else if (const CColorKeyID* p = std::get_if<CColorKeyID>(&dest)) colorid = p->color;
-    }
+{
+    IsColoredDestination(address.toStdString(), &colorid);
+}

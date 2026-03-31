@@ -7,6 +7,7 @@
 #define BITCOIN_KEY_IO_H
 
 #include <chainparams.h>
+#include <coloridentifier.h>
 #include <key.h>
 #include <pubkey.h>
 #include <script/standard.h>
@@ -25,5 +26,6 @@ std::string EncodeDestination(const CTxDestination& dest);
 CTxDestination DecodeDestination(const std::string& str);
 bool IsValidDestinationString(const std::string& str);
 bool IsValidDestinationString(const std::string& str, const CChainParams& params);
+bool IsColoredDestination(const std::string& str, ColorIdentifier* colorId = nullptr);
 
 #endif // BITCOIN_KEY_IO_H
