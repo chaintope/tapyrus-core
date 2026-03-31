@@ -84,8 +84,6 @@ public:
         // Token-specific types
         TokenIssue,     // Tokens minted/issued (fresh or reissuance) to this wallet
         TokenBurn,      // Tokens destroyed (no colored output recipient)
-        TokenTransfer,  // Tokens transferred (sent to others, received from others, or self-transfer)
-        TPCFee,         // Network fee paid in TPC for a token transaction
     };
 
     /** Number of confirmation recommended for accepting a transaction */
