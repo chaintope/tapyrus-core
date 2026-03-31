@@ -188,24 +188,6 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
         }
     }
 
-    // For token transactions funded by this wallet, show each TPC change output
-    // as a SendToSelf row so the user can see the TPC balance returned.
-    if (hasTokenInvolvement && fAllFromMe != ISMINE_NO) {
-        for (unsigned int nOut = 0; nOut < wtx.tx->vout.size(); nOut++) {
-            if (!wtx.txout_color_id[nOut].empty()) continue; // token outputs handled separately
-            if (!wtx.txout_is_mine[nOut]) continue;          // only mine TPC outputs
-            const CTxOut& txout = wtx.tx->vout[nOut];
-            TransactionRecord sub(hash, nTime);
-            sub.idx = nOut;
-            sub.involvesWatchAddress = involvesWatchAddress;
-            sub.credit = txout.nValue;
-            sub.type = TransactionRecord::SendToSelf;
-            if (!std::get_if<CNoDestination>(&wtx.txout_address[nOut]))
-                sub.address = EncodeDestination(wtx.txout_address[nOut]);
-            parts.append(sub);
-        }
-    }
-
     // --- Token records ---
     // Compute token credit/debit directly from the transaction's outputs and inputs,
     // similar to how TPC amounts are derived from txout.nValue / prev-out nValue.
@@ -272,8 +254,8 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
         // self) OR has a genuine recipient address.  The burn script
         // (OP_COLOR + OP_TRUE) has CNoDestination and is not mine, so it is
         // intentionally excluded — otherwise a burn would be misclassified as
-        // a TokenTransfer.  Outgoing transfers to another wallet still have a
-        // real destination address, so they are correctly kept as transfers.
+        // a send.  Outgoing transfers to another wallet still have a real
+        // destination address, so they are correctly classified as sends.
         bool hasColoredOutputForColor = false;
         for (unsigned int i = 0; i < wtx.txout_color_id.size(); i++) {
             if (wtx.txout_color_id[i] != colorHex) continue;
@@ -283,57 +265,70 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
         }
 
         bool isIssue = (netAmt > 0 && fAllFromMe);
-        bool isBurn  = (netAmt < 0 && !hasColoredOutputForColor);
+        bool isBurn  = (debitAmt > 0 && !hasColoredOutputForColor);
 
-        // For transfers with both credit and debit: show two entries so the
-        // user can differentiate the send side (negative) from the receive
-        // side (positive) by address.
-        if (!isIssue && !isBurn && creditAmt > 0 && debitAmt > 0) {
-            auto [creditIdx, creditAddr, creditWatch] = findColoredOutput(colorHex, /*preferMine=*/true);
-            auto [debitIdx,  debitAddr,  debitWatch]  = findColoredOutput(colorHex, /*preferMine=*/false, creditIdx);
+        TransactionRecord sub(hash, nTime);
+        sub.colorId   = colorHex;
+        sub.tokenType = tokenTypeName(colorId.type);
+        sub.involvesWatchAddress = involvesWatchAddress;
 
-            TransactionRecord credit(hash, nTime);
-            credit.idx    = creditIdx >= 0 ? creditIdx : 0;
-            credit.colorId    = colorHex;
-            credit.tokenType  = tokenTypeName(colorId.type);
-            credit.tokenAmount = creditAmt;
-            credit.involvesWatchAddress = creditWatch;
-            credit.address = creditAddr;
-            credit.type   = TransactionRecord::TokenTransfer;
-            parts.append(credit);
-
-            TransactionRecord debit(hash, nTime);
-            debit.idx    = debitIdx >= 0 ? debitIdx : credit.idx;
-            debit.colorId    = colorHex;
-            debit.tokenType  = tokenTypeName(colorId.type);
-            debit.tokenAmount = -(debitAmt - creditAmt);
-            debit.involvesWatchAddress = debitWatch;
-            debit.address = debitAddr;
-            debit.type   = TransactionRecord::TokenTransfer;
-            parts.append(debit);
+        if (isIssue) {
+            // Tokens received as issuance or reissuance
+            auto [outIdx, addr, involvesWatch] = findColoredOutput(colorHex, /*preferMine=*/true);
+            sub.idx = outIdx >= 0 ? outIdx : 0;
+            sub.address = addr;
+            sub.involvesWatchAddress = involvesWatch;
+            sub.tokenAmount = netAmt;
+            sub.type = TransactionRecord::TokenIssue;
+            parts.append(sub);
             return;
         }
 
-        // Single record for issuance, burn, or pure send/receive
-        auto [outIdx, addr, involvesWatch] = findColoredOutput(colorHex, netAmt >= 0);
-
-        TransactionRecord sub(hash, nTime);
-        sub.idx = outIdx >= 0 ? outIdx : 0;
-        sub.colorId = colorHex;
-        sub.tokenType = tokenTypeName(colorId.type);
-        sub.tokenAmount = netAmt;
-        sub.involvesWatchAddress = involvesWatch;
-        sub.address = addr;
-
-        if (isIssue) {
-            sub.type = TransactionRecord::TokenIssue;
-        } else if (isBurn) {
+        if (isBurn) {
+            // Tokens destroyed — no colored output recipient
+            auto [outIdx, addr, involvesWatch] = findColoredOutput(colorHex, /*preferMine=*/false);
+            sub.idx = outIdx >= 0 ? outIdx : 0;
+            sub.address = addr;
+            sub.involvesWatchAddress = involvesWatch;
+            sub.tokenAmount = netAmt; // negative
             sub.type = TransactionRecord::TokenBurn;
-        } else {
-            sub.type = TransactionRecord::TokenTransfer;
+            parts.append(sub);
+            return;
         }
 
-        parts.append(sub);
+        // --- Token transfer (not issuance, not burn) ---
+        // Use TPC-style types based on who sent/received.
+        if (debitAmt > 0 && creditAmt > 0 && netAmt == 0) {
+            // Self-transfer: tokens moved between own addresses (address rotation or
+            // payment to own known address).  Subtract change so we show the
+            // intentional payment amount, mirroring the TPC SendToSelf logic.
+            auto [outIdx, addr, involvesWatch] = findColoredOutput(colorHex, /*preferMine=*/true);
+            sub.idx = outIdx >= 0 ? outIdx : 0;
+            sub.address = addr;
+            sub.involvesWatchAddress = involvesWatch;
+            CAmount tokenChange = wtx.getChange(colorId);
+            sub.tokenAmount = creditAmt - tokenChange;
+            sub.type = TransactionRecord::SendToSelf;
+            parts.append(sub);
+        } else if (debitAmt > 0) {
+            // Wallet sent tokens (net outflow); show the recipient output
+            auto [outIdx, addr, involvesWatch] = findColoredOutput(colorHex, /*preferMine=*/false);
+            sub.idx = outIdx >= 0 ? outIdx : 0;
+            sub.address = addr;
+            sub.involvesWatchAddress = involvesWatch;
+            sub.tokenAmount = netAmt; // negative
+            sub.type = addr.empty() ? TransactionRecord::SendToOther : TransactionRecord::SendToAddress;
+            parts.append(sub);
+        } else {
+            // Pure receive: wallet received tokens from an external sender
+            auto [outIdx, addr, involvesWatch] = findColoredOutput(colorHex, /*preferMine=*/true);
+            sub.idx = outIdx >= 0 ? outIdx : 0;
+            sub.address = addr;
+            sub.involvesWatchAddress = involvesWatch;
+            sub.tokenAmount = creditAmt;
+            sub.type = addr.empty() ? TransactionRecord::RecvFromOther : TransactionRecord::RecvWithAddress;
+            parts.append(sub);
+        }
     };
 
     for (const std::string& colorHex : allColorHexes) {
@@ -353,17 +348,6 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
     // Stamp fee on every record so the tooltip can display it
     for (TransactionRecord& sub : parts)
         sub.tpcFee = tpcFeeAmt;
-
-    // For token transactions funded by this wallet, emit an explicit fee row
-    if (hasTokenInvolvement && tpcFeeAmt > 0) {
-        TransactionRecord feeRec(hash, nTime);
-        feeRec.idx = (int)wtx.tx->vout.size(); // sort after all outputs
-        feeRec.debit = -tpcFeeAmt;
-        feeRec.tpcFee = tpcFeeAmt;
-        feeRec.involvesWatchAddress = involvesWatchAddress;
-        feeRec.type = TransactionRecord::TPCFee;
-        parts.append(feeRec);
-    }
 
     return parts;
 }
