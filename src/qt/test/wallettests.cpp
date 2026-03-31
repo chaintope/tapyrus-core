@@ -454,7 +454,7 @@ void TestGUI_coloredCoin()
 
         // Balance unchanged after self-transfer.
         checkOverviewBalance(cid, 150);
-        checkLatestTx(TransactionRecord::TokenTransfer, cid);
+        checkLatestTx(TransactionRecord::SendToAddress, cid);
 
         // Burn 50 tokens.
         auto br = walletModel.burnToken(cid, 50);
@@ -486,7 +486,7 @@ void TestGUI_coloredCoin()
         mineAndUpdate();
 
         checkOverviewBalance(cid, 200);
-        checkLatestTx(TransactionRecord::TokenTransfer, cid);
+        checkLatestTx(TransactionRecord::SendToAddress, cid);
 
         // Burn all 200 — token should disappear from both views.
         auto br = walletModel.burnToken(cid, 200);
@@ -521,7 +521,7 @@ void TestGUI_coloredCoin()
         mineAndUpdate();
 
         checkOverviewBalance(cid, 1);
-        checkLatestTx(TransactionRecord::TokenTransfer, cid);
+        checkLatestTx(TransactionRecord::SendToAddress, cid);
 
         // Burn the NFT — token disappears.
         auto br = walletModel.burnToken(cid, 1);
