@@ -188,6 +188,24 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
         }
     }
 
+    // For token transactions funded by this wallet, show each TPC change output
+    // as a SendToSelf row so the user can see the TPC balance returned.
+    if (hasTokenInvolvement && fAllFromMe != ISMINE_NO) {
+        for (unsigned int nOut = 0; nOut < wtx.tx->vout.size(); nOut++) {
+            if (!wtx.txout_color_id[nOut].empty()) continue; // token outputs handled separately
+            if (!wtx.txout_is_mine[nOut]) continue;          // only mine TPC outputs
+            const CTxOut& txout = wtx.tx->vout[nOut];
+            TransactionRecord sub(hash, nTime);
+            sub.idx = nOut;
+            sub.involvesWatchAddress = involvesWatchAddress;
+            sub.credit = txout.nValue;
+            sub.type = TransactionRecord::SendToSelf;
+            if (!std::get_if<CNoDestination>(&wtx.txout_address[nOut]))
+                sub.address = EncodeDestination(wtx.txout_address[nOut]);
+            parts.append(sub);
+        }
+    }
+
     // --- Token records ---
     // Compute token credit/debit directly from the transaction's outputs and inputs,
     // similar to how TPC amounts are derived from txout.nValue / prev-out nValue.
@@ -288,7 +306,7 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
             debit.idx    = debitIdx >= 0 ? debitIdx : credit.idx;
             debit.colorId    = colorHex;
             debit.tokenType  = tokenTypeName(colorId.type);
-            debit.tokenAmount = -debitAmt;
+            debit.tokenAmount = -(debitAmt - creditAmt);
             debit.involvesWatchAddress = debitWatch;
             debit.address = debitAddr;
             debit.type   = TransactionRecord::TokenTransfer;
@@ -335,6 +353,17 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
     // Stamp fee on every record so the tooltip can display it
     for (TransactionRecord& sub : parts)
         sub.tpcFee = tpcFeeAmt;
+
+    // For token transactions funded by this wallet, emit an explicit fee row
+    if (hasTokenInvolvement && tpcFeeAmt > 0) {
+        TransactionRecord feeRec(hash, nTime);
+        feeRec.idx = (int)wtx.tx->vout.size(); // sort after all outputs
+        feeRec.debit = -tpcFeeAmt;
+        feeRec.tpcFee = tpcFeeAmt;
+        feeRec.involvesWatchAddress = involvesWatchAddress;
+        feeRec.type = TransactionRecord::TPCFee;
+        parts.append(feeRec);
+    }
 
     return parts;
 }

@@ -358,6 +358,8 @@ QString TransactionTableModel::formatTxType(const TransactionRecord *wtx) const
         return tr("Token Burn");
     case TransactionRecord::TokenTransfer:
         return tr("Token Transfer");
+    case TransactionRecord::TPCFee:
+        return tr("Network Fee");
     default:
         return QString();
     }
@@ -381,6 +383,8 @@ QVariant TransactionTableModel::txAddressDecoration(const TransactionRecord *wtx
         return QIcon(":/icons/tx_output");  // send/destroy direction
     case TransactionRecord::TokenTransfer:
         return QIcon(":/icons/tx_inout");   // bidirectional transfer
+    case TransactionRecord::TPCFee:
+        return QIcon(":/icons/tx_output");  // outgoing (fee paid)
     default:
         return QIcon(":/icons/tx_inout");
     }
@@ -408,6 +412,8 @@ QString TransactionTableModel::formatTxToAddress(const TransactionRecord *wtx, b
     case TransactionRecord::TokenBurn:
     case TransactionRecord::TokenTransfer:
         return lookupAddress(wtx->address, tooltip) + watchAddress;
+    case TransactionRecord::TPCFee:
+        return tr("(network fee)") + watchAddress;
     case TransactionRecord::SendToSelf:
         // Change outputs have an address set; the collapsed self-payment does not
         if (!wtx->address.empty())
@@ -507,7 +513,7 @@ QString TransactionTableModel::formatTooltip(const TransactionRecord *rec) const
     }
     if (!rec->colorId.empty())
         tooltip += QString("\nToken: ") + QString::fromStdString(rec->colorId);
-    if (rec->tpcFee > 0)
+    if (rec->tpcFee > 0 && rec->type != TransactionRecord::TPCFee)
         tooltip += QString("\nFee: ") + TapyrusUnits::formatWithUnit(
             walletModel->getOptionsModel()->getDisplayUnit(), rec->tpcFee);
     return tooltip;
