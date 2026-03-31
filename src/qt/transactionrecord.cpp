@@ -299,17 +299,30 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
         // --- Token transfer (not issuance, not burn) ---
         // Use TPC-style types based on who sent/received.
         if (debitAmt > 0 && creditAmt > 0 && netAmt == 0) {
-            // Self-transfer: tokens moved between own addresses (address rotation or
-            // payment to own known address).  Subtract change so we show the
-            // intentional payment amount, mirroring the TPC SendToSelf logic.
-            auto [outIdx, addr, involvesWatch] = findColoredOutput(colorHex, /*preferMine=*/true);
-            sub.idx = outIdx >= 0 ? outIdx : 0;
-            sub.address = addr;
-            sub.involvesWatchAddress = involvesWatch;
+            // Tokens moved within the wallet (netAmt == 0).  Subtract change to
+            // find the intentional payment amount.
             CAmount tokenChange = wtx.getChange(colorId);
-            sub.tokenAmount = creditAmt - tokenChange;
-            sub.type = TransactionRecord::SendToSelf;
-            parts.append(sub);
+            CAmount intentionalAmt = creditAmt - tokenChange;
+            if (intentionalAmt > 0) {
+                // There is an explicit recipient output going to a receive address
+                // (even if it is also owned by this wallet) — classify as a send.
+                auto [outIdx, addr, involvesWatch] = findColoredOutput(colorHex, /*preferMine=*/true);
+                sub.idx = outIdx >= 0 ? outIdx : 0;
+                sub.address = addr;
+                sub.involvesWatchAddress = involvesWatch;
+                sub.tokenAmount = intentionalAmt;
+                sub.type = addr.empty() ? TransactionRecord::SendToOther : TransactionRecord::SendToAddress;
+                parts.append(sub);
+            } else {
+                // All token outputs are change — pure internal consolidation.
+                auto [outIdx, addr, involvesWatch] = findColoredOutput(colorHex, /*preferMine=*/true);
+                sub.idx = outIdx >= 0 ? outIdx : 0;
+                sub.address = addr;
+                sub.involvesWatchAddress = involvesWatch;
+                sub.tokenAmount = 0;
+                sub.type = TransactionRecord::SendToSelf;
+                parts.append(sub);
+            }
         } else if (debitAmt > 0) {
             // Wallet sent tokens (net outflow); show the recipient output
             auto [outIdx, addr, involvesWatch] = findColoredOutput(colorHex, /*preferMine=*/false);
