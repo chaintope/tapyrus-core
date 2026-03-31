@@ -91,6 +91,7 @@ private Q_SLOTS:
     void dateRangeChanged();
     void showDetails();
     void copyAddress();
+    void copyColorId();
     void editLabel();
     void copyLabel();
     void copyAmount();
