@@ -44,7 +44,7 @@ public:
 
 public Q_SLOTS:
     void clear();
-    void refreshTokenTable();   // re-read tokens and balances from wallet
+    void refreshTokenTable(const QList<WalletModel::IssuedTokenRecord>& tokens);
 
 Q_SIGNALS:
     void message(const QString &title, const QString &message, unsigned int style);

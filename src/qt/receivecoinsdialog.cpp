@@ -16,6 +16,10 @@
 #include <qt/recentrequeststablemodel.h>
 #include <qt/walletmodel.h>
 
+#include <coloridentifier.h>
+#include <key_io.h>
+#include <utilstrencodings.h>
+
 #include <QAction>
 #include <QCursor>
 #include <QMessageBox>
@@ -48,6 +52,7 @@ ReceiveCoinsDialog::ReceiveCoinsDialog(const PlatformStyle *_platformStyle, QWid
     QAction *copyLabelAction = new QAction(tr("Copy label"), this);
     QAction *copyMessageAction = new QAction(tr("Copy message"), this);
     QAction *copyAmountAction = new QAction(tr("Copy amount"), this);
+    QAction *copyColorIdAction = new QAction(tr("Copy color ID"), this);
 
     // context menu
     contextMenu = new QMenu(this);
@@ -55,6 +60,7 @@ ReceiveCoinsDialog::ReceiveCoinsDialog(const PlatformStyle *_platformStyle, QWid
     contextMenu->addAction(copyLabelAction);
     contextMenu->addAction(copyMessageAction);
     contextMenu->addAction(copyAmountAction);
+    contextMenu->addAction(copyColorIdAction);
 
     // context menu signals
     connect(ui->recentRequestsView, &QAbstractItemView::customContextMenuRequested, this, &ReceiveCoinsDialog::showMenu);
@@ -62,8 +68,44 @@ ReceiveCoinsDialog::ReceiveCoinsDialog(const PlatformStyle *_platformStyle, QWid
     connect(copyLabelAction, &QAction::triggered, this, &ReceiveCoinsDialog::copyLabel);
     connect(copyMessageAction, &QAction::triggered, this, &ReceiveCoinsDialog::copyMessage);
     connect(copyAmountAction, &QAction::triggered, this, &ReceiveCoinsDialog::copyAmount);
+    connect(copyColorIdAction, &QAction::triggered, this, &ReceiveCoinsDialog::copyColorId);
 
     connect(ui->clearButton, &QPushButton::clicked, this, &ReceiveCoinsDialog::clear);
+}
+
+void ReceiveCoinsDialog::refreshTokenCombo()
+{
+    if (!model) return;
+
+    ui->reqToken->blockSignals(true);
+    int prevIndex = ui->reqToken->currentIndex();
+    QString prevColorId;
+    if (prevIndex >= 0 && prevIndex < m_tokenRecords.size())
+        prevColorId = m_tokenRecords[prevIndex].colorId;
+
+    ui->reqToken->clear();
+
+    static const QMap<QString, QString> typeIcons = {
+        {"REISSUABLE",     ":/icons/token_reissuable"},
+        {"NON_REISSUABLE", ":/icons/token_nonreissuable"},
+        {"NFT",            ":/icons/token_nft"},
+    };
+
+    m_tokenRecords = model->getIssuedTokens();
+    for (const WalletModel::IssuedTokenRecord& rec : m_tokenRecords) {
+        QIcon icon(typeIcons.value(rec.tokenType));
+        ui->reqToken->addItem(icon, rec.colorId, rec.colorId);
+    }
+
+    ui->reqToken->blockSignals(false);
+
+    // Restore previous selection if possible
+    int restoreIndex = 0;
+    if (!prevColorId.isEmpty()) {
+        int found = ui->reqToken->findData(prevColorId);
+        if (found >= 0) restoreIndex = found;
+    }
+    ui->reqToken->setCurrentIndex(restoreIndex);
 }
 
 void ReceiveCoinsDialog::setModel(WalletModel *_model)
@@ -74,6 +116,11 @@ void ReceiveCoinsDialog::setModel(WalletModel *_model)
     {
         _model->getRecentRequestsTableModel()->sort(RecentRequestsTableModel::Date, Qt::DescendingOrder);
         connect(_model->getOptionsModel(), &OptionsModel::displayUnitChanged, this, &ReceiveCoinsDialog::updateDisplayUnit);
+        connect(_model, &WalletModel::tokenListChanged, this, &ReceiveCoinsDialog::refreshTokenCombo);
+        connect(ui->radioToken, &QRadioButton::toggled, this, &ReceiveCoinsDialog::on_radioToken_toggled);
+        connect(ui->reqToken, QOverload<int>::of(&QComboBox::currentIndexChanged),
+                this, &ReceiveCoinsDialog::on_reqToken_currentIndexChanged);
+        refreshTokenCombo();
         updateDisplayUnit();
 
         QTableView* tableView = ui->recentRequestsView;
@@ -86,6 +133,7 @@ void ReceiveCoinsDialog::setModel(WalletModel *_model)
         tableView->setSelectionMode(QAbstractItemView::ContiguousSelection);
         tableView->setColumnWidth(RecentRequestsTableModel::Date, DATE_COLUMN_WIDTH);
         tableView->setColumnWidth(RecentRequestsTableModel::Label, LABEL_COLUMN_WIDTH);
+        tableView->setColumnWidth(RecentRequestsTableModel::Token, TOKEN_COLUMN_WIDTH);
         tableView->setColumnWidth(RecentRequestsTableModel::Amount, AMOUNT_MINIMUM_COLUMN_WIDTH);
 
         connect(tableView->selectionModel(),
@@ -107,9 +155,17 @@ ReceiveCoinsDialog::~ReceiveCoinsDialog()
 
 void ReceiveCoinsDialog::clear()
 {
+    ui->radioTPC->setChecked(true);
+    ui->reqToken->setCurrentIndex(0);
+    ui->reqToken->setEnabled(false);
+    ui->reqAmount->setTokenMode(false);
+    ui->reqAmount->setEnabled(true);
     ui->reqAmount->clear();
     ui->reqLabel->setText("");
     ui->reqMessage->setText("");
+    if (model)
+        ui->receiveButton->setEnabled(!model->privateKeysDisabled());
+    ui->receiveButton->setToolTip(QString());
     updateDisplayUnit();
 }
 
@@ -123,12 +179,47 @@ void ReceiveCoinsDialog::accept()
     clear();
 }
 
+void ReceiveCoinsDialog::on_radioToken_toggled(bool checked)
+{
+    ui->reqToken->setEnabled(checked);
+    ui->reqAmount->setTokenMode(checked);
+    if (!checked) {
+        ui->reqToken->setCurrentIndex(0);
+        ui->reqAmount->setEnabled(true);
+        ui->receiveButton->setEnabled(!model->privateKeysDisabled());
+        ui->receiveButton->setToolTip(QString());
+    } else {
+        on_reqToken_currentIndexChanged(ui->reqToken->currentIndex());
+    }
+}
+
+void ReceiveCoinsDialog::on_reqToken_currentIndexChanged(int index)
+{
+    if (!ui->radioToken->isChecked() || index < 0 || index >= m_tokenRecords.size())
+        return;
+
+    const WalletModel::IssuedTokenRecord& rec = m_tokenRecords[index];
+    if (rec.tokenType == "NFT") {
+        // NFT: fixed amount of 1, no more requests if already holding 1
+        ui->reqAmount->setValue(1);
+        ui->reqAmount->setEnabled(false);
+        bool alreadyOwned = (rec.balance + rec.unconfirmedBalance) >= 1;
+        bool canRequest = !alreadyOwned && !model->privateKeysDisabled();
+        ui->receiveButton->setEnabled(canRequest);
+        ui->receiveButton->setToolTip(alreadyOwned
+            ? tr("This NFT token is already in your wallet. Only one can exist in the network.")
+            : QString());
+    } else {
+        ui->reqAmount->setEnabled(true);
+        ui->receiveButton->setEnabled(!model->privateKeysDisabled());
+        ui->receiveButton->setToolTip(QString());
+    }
+}
+
 void ReceiveCoinsDialog::updateDisplayUnit()
 {
     if(model && model->getOptionsModel())
-    {
         ui->reqAmount->setDisplayUnit(model->getOptionsModel()->getDisplayUnit());
-    }
 }
 
 void ReceiveCoinsDialog::on_receiveButton_clicked()
@@ -138,12 +229,35 @@ void ReceiveCoinsDialog::on_receiveButton_clicked()
 
     QString address;
     QString label = ui->reqLabel->text();
-    /* Generate new receiving address */
-    OutputType address_type = model->wallet().getDefaultAddressType();
+    int tokenIndex = ui->reqToken->currentIndex();
 
-    address = model->getAddressTableModel()->addRow(AddressTableModel::Receive, label, "", address_type);
+    if (ui->radioToken->isChecked() && tokenIndex >= 0 && tokenIndex < m_tokenRecords.size()) {
+        // Generate a colored receiving address
+        const WalletModel::IssuedTokenRecord& rec = m_tokenRecords[tokenIndex];
+        const std::vector<unsigned char> vColorId(ParseHex(rec.colorId.toStdString()));
+        ColorIdentifier colorId(vColorId.data(), vColorId.data() + vColorId.size());
+
+        CPubKey newKey;
+        if (!model->wallet().getKeyFromPool(false /* internal */, newKey)) {
+            WalletModel::UnlockContext ctx(model->requestUnlock());
+            if (!ctx.isValid()) return;
+            if (!model->wallet().getKeyFromPool(false, newKey)) return;
+        }
+        CColorKeyID colorKeyId(newKey.GetID(), colorId);
+        address = QString::fromStdString(EncodeDestination(colorKeyId));
+        model->wallet().setAddressBook(colorKeyId, label.toStdString(), "receive");
+    } else {
+        // Generate a standard TPC receiving address
+        OutputType address_type = model->wallet().getDefaultAddressType();
+        address = model->getAddressTableModel()->addRow(AddressTableModel::Receive, label, "", address_type);
+    }
+
     SendCoinsRecipient info(address, label,
         ui->reqAmount->value(), ui->reqMessage->text());
+    if (ui->radioToken->isChecked() && tokenIndex >= 0 && tokenIndex < m_tokenRecords.size()) {
+        const std::vector<unsigned char> vColorId(ParseHex(m_tokenRecords[tokenIndex].colorId.toStdString()));
+        info.colorid = ColorIdentifier(vColorId.data(), vColorId.data() + vColorId.size());
+    }
     ReceiveRequestDialog *dialog = new ReceiveRequestDialog(this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->setModel(model);
@@ -280,4 +394,10 @@ void ReceiveCoinsDialog::copyMessage()
 void ReceiveCoinsDialog::copyAmount()
 {
     copyColumnToClipboard(RecentRequestsTableModel::Amount);
+}
+
+// context menu action: copy color ID
+void ReceiveCoinsDialog::copyColorId()
+{
+    copyColumnToClipboard(RecentRequestsTableModel::Token);
 }
