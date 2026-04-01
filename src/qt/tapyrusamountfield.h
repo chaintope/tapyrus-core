@@ -49,6 +49,13 @@ public:
     /** Enable/Disable. */
     void setEnabled(bool fEnabled);
 
+    /** Enable/Disable only the unit selector. */
+    void setUnitEnabled(bool fEnabled);
+
+    /** Switch between token mode (raw integer, no conversion) and normal TPC mode.
+     *  In token mode the unit combobox is disabled and the spinbox uses TOKEN factor (1). */
+    void setTokenMode(bool isToken);
+
     /** Qt messes up the tab chain by default in some cases (issue https://bugreports.qt-project.org/browse/QTBUG-10907),
         in these cases we have to set it up manually.
     */
@@ -64,6 +71,7 @@ protected:
 private:
     AmountSpinBox *amount;
     QValueComboBox *unit;
+    bool m_tokenMode = false;
 
 private Q_SLOTS:
     void unitChanged(int idx);

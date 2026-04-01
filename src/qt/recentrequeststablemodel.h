@@ -65,7 +65,8 @@ public:
         Date = 0,
         Label = 1,
         Message = 2,
-        Amount = 3,
+        Token = 3,
+        Amount = 4,
         NUMBER_OF_COLUMNS
     };
 

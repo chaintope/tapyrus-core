@@ -6,6 +6,7 @@
 #define BITCOIN_QT_OVERVIEWPAGE_H
 
 #include <interfaces/wallet.h>
+#include <qt/walletmodel.h>
 
 #include <QWidget>
 #include <memory>
@@ -47,12 +48,17 @@ private:
     ClientModel *clientModel;
     WalletModel *walletModel;
     interfaces::WalletBalances m_balances;
+    QList<WalletModel::IssuedTokenRecord> m_tokenRecords;
 
     TxViewDelegate *txdelegate;
     std::unique_ptr<TransactionFilterProxy> filter;
 
 private Q_SLOTS:
     void updateDisplayUnit();
+    void updateTpcBalances();
+    void refreshTokenList();
+    void onTokenSelectionChanged(int index);
+    void updateTokenBalance(int index);
     void handleTransactionClicked(const QModelIndex &index);
     void updateAlerts(const QString &warnings);
     void updateWatchOnlyLabels(bool showWatchOnly);

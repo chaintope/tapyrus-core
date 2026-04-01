@@ -97,10 +97,8 @@ void IssueTokenDialog::setModel(WalletModel *_model)
 {
     model = _model;
     if (model) {
-        refreshTokenTable();
-        connect(model, &WalletModel::balanceChanged,
-                this,  &IssueTokenDialog::refreshTokenTable);
-        connect(model, &WalletModel::tokenAddressBookChanged,
+        refreshTokenTable(model->getIssuedTokens());
+        connect(model, &WalletModel::tokenListChanged,
                 this,  &IssueTokenDialog::refreshTokenTable);
     }
 }
@@ -115,13 +113,12 @@ void IssueTokenDialog::clear()
 
 // ── Public slots ─────────────────────────────────────────────────────────────
 
-void IssueTokenDialog::refreshTokenTable()
+void IssueTokenDialog::refreshTokenTable(const QList<WalletModel::IssuedTokenRecord>& tokens)
 {
     if (!model)
         return;
 
-    // Rebuild m_tokens from the wallet address book (shared with RPC layer)
-    m_tokens = model->getIssuedTokens();
+    m_tokens = tokens;
 
     // Remember the currently selected colorId so we can restore it after the rebuild
     QString selectedColorId;
@@ -228,9 +225,7 @@ void IssueTokenDialog::on_issueButton_clicked()
     WalletModel::IssueTokenResult result = model->issueToken(tokenType, tokenValue, existingColorId);
 
     if (result.status == WalletModel::IssueTokenResult::OK) {
-        // Address book was updated by the wallet during issuance/reissuance;
-        // refresh the table from the wallet directly.
-        refreshTokenTable();
+        refreshTokenTable(model->getIssuedTokens());
 
         // Save label (if provided) to the colored address in the address book.
         // This applies equally to new issuance and reissue — both produce a
@@ -244,7 +239,7 @@ void IssueTokenDialog::on_issueButton_clicked()
                 }
             }
             // Refresh again so the table shows the saved label
-            refreshTokenTable();
+            refreshTokenTable(model->getIssuedTokens());
         }
 
         highlightTokenRow(result.color);
@@ -354,7 +349,7 @@ void IssueTokenDialog::on_burnButton_clicked()
 
     if (result.status == WalletModel::BurnTokenResult::OK) {
         ui->burnAmountEdit->clear();
-        refreshTokenTable(); // update balances
+        refreshTokenTable(model->getIssuedTokens());
         highlightTokenRow(colorId);
         Q_EMIT message(tr("Burn Token"),
                        tr("Tokens burned successfully.\nColor: %1").arg(colorId),

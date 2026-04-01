@@ -212,3 +212,19 @@ bool IsValidDestinationString(const std::string& str)
 {
     return IsValidDestinationString(str, Params());
 }
+
+bool IsColoredDestination(const std::string& str, ColorIdentifier* colorId)
+{
+    CTxDestination dest = DecodeDestination(str, Params());
+    if (const CColorKeyID* p = std::get_if<CColorKeyID>(&dest)) {
+        if (colorId)
+            *colorId = p->color;
+        return true;
+    }
+    if (const CColorScriptID* p = std::get_if<CColorScriptID>(&dest)) {
+        if (colorId)
+            *colorId = p->color;
+        return true;
+    }
+    return false;
+}

@@ -170,15 +170,28 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
                 strHTML += "<b>" + tr("From") + ":</b> " + tr("watch-only") + "<br>";
 
             //
-            // Debit
+            // Debit (TPC outputs only; token outputs handled in the token section below)
             //
             auto mine = wtx.txout_is_mine.begin();
-            for (const CTxOut& txout : wtx.tx->vout)
+            for (unsigned int i = 0; i < wtx.tx->vout.size(); i++)
             {
-                // Ignore change
-                isminetype toSelf = *(mine++);
-                if ((toSelf == ISMINE_SPENDABLE) && (fAllFromMe == ISMINE_SPENDABLE))
+                const CTxOut& txout = wtx.tx->vout[i];
+                isminetype toSelf = wtx.txout_is_mine[i];
+
+                // Skip colored outputs — shown in the token section below
+                if (!wtx.txout_color_id[i].empty())
+                {
+                    ++mine;
                     continue;
+                }
+
+                // Ignore TPC change
+                if ((toSelf == ISMINE_SPENDABLE) && (fAllFromMe == ISMINE_SPENDABLE))
+                {
+                    ++mine;
+                    continue;
+                }
+                ++mine;
 
                 if (!wtx.value_map.count("to") || wtx.value_map["to"].empty())
                 {
@@ -213,10 +226,6 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
                 strHTML += "<b>" + tr("Total debit") + ":</b> " + TapyrusUnits::formatHtmlWithUnit(unit, -nValue) + "<br>";
                 strHTML += "<b>" + tr("Total credit") + ":</b> " + TapyrusUnits::formatHtmlWithUnit(unit, nValue) + "<br>";
             }
-
-            CAmount nTxFee = nDebit - wtx.tx->GetValueOut(ColorIdentifier());
-            if (nTxFee > 0)
-                strHTML += "<b>" + tr("Transaction fee") + ":</b> " + TapyrusUnits::formatHtmlWithUnit(unit, -nTxFee) + "<br>";
         }
         else
         {
@@ -230,15 +239,65 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
                 }
             }
             mine = wtx.txout_is_mine.begin();
-            for (const CTxOut& txout : wtx.tx->vout) {
+            for (unsigned int i = 0; i < wtx.tx->vout.size(); i++) {
                 if (*(mine++)) {
-                    strHTML += "<b>" + tr("Credit") + ":</b> " + TapyrusUnits::formatHtmlWithUnit(unit, wallet.getCredit(txout, ISMINE_ALL)) + "<br>";
+                    // Skip colored outputs — shown in token section
+                    if (!wtx.txout_color_id[i].empty()) continue;
+                    strHTML += "<b>" + tr("Credit") + ":</b> " + TapyrusUnits::formatHtmlWithUnit(unit, wallet.getCredit(wtx.tx->vout[i], ISMINE_ALL)) + "<br>";
                 }
             }
         }
     }
 
     strHTML += "<b>" + tr("Net amount") + ":</b> " + TapyrusUnits::formatHtmlWithUnit(unit, nNet, true) + "<br>";
+
+    //
+    // Token section: one block per color ID showing credit and debit
+    //
+    {
+        std::map<std::string, CAmount> tokenCredit, tokenDebit;
+        for (unsigned int i = 0; i < wtx.tx->vout.size(); i++) {
+            if (wtx.txout_color_id[i].empty()) continue;
+            if (wtx.txout_is_mine[i] != ISMINE_NO)
+                tokenCredit[wtx.txout_color_id[i]] += wtx.tx->vout[i].nValue;
+        }
+        for (unsigned int i = 0; i < wtx.txin_color_id.size(); i++) {
+            if (wtx.txin_color_id[i].empty()) continue;
+            tokenDebit[wtx.txin_color_id[i]] += wtx.txin_amount[i];
+        }
+
+        std::set<std::string> allColorHexes;
+        for (const auto& e : tokenCredit) allColorHexes.insert(e.first);
+        for (const auto& e : tokenDebit)  allColorHexes.insert(e.first);
+
+        if (!allColorHexes.empty()) {
+            for (const std::string& colorHex : allColorHexes) {
+                CAmount cAmt = tokenCredit.count(colorHex) ? tokenCredit.at(colorHex) : 0;
+                CAmount dAmt = tokenDebit.count(colorHex)  ? tokenDebit.at(colorHex)  : 0;
+                strHTML += "<hr>";
+                strHTML += "<b>" + tr("Token") + ":</b> " + GUIUtil::HtmlEscape(colorHex) + "<br>";
+                strHTML += "<b>" + tr("Total debit") + ":</b> " +
+                    TapyrusUnits::format(TapyrusUnits::TOKEN, -dAmt, true, TapyrusUnits::separatorAlways) + "<br>";
+                strHTML += "<b>" + tr("Total credit") + ":</b> " +
+                    TapyrusUnits::format(TapyrusUnits::TOKEN, cAmt, true, TapyrusUnits::separatorAlways) + "<br>";
+            }
+            strHTML += "<hr>";
+        }
+    }
+
+    //
+    // TPC fee (shown after token section)
+    //
+    {
+        isminetype fAllFromMe2 = ISMINE_SPENDABLE;
+        for (isminetype mine : wtx.txin_is_mine)
+            if (fAllFromMe2 > mine) fAllFromMe2 = mine;
+        if (fAllFromMe2) {
+            CAmount nTxFee = nDebit - wtx.tx->GetValueOut(ColorIdentifier());
+            if (nTxFee > 0)
+                strHTML += "<b>" + tr("Transaction fee") + ":</b> " + TapyrusUnits::formatHtmlWithUnit(unit, -nTxFee) + "<br>";
+        }
+    }
 
     //
     // Message
