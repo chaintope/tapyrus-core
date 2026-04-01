@@ -665,8 +665,8 @@ jobs:
 
           echo "---------------- Start Qt GUI test ---------------- "
           if [ "${{ matrix.config.enable_gui }}" == "true" ] && [ "${{ matrix.config.enable_wallet }}" == "true" ]; then
-            # Qt GUI tests require an offscreen platform on headless CI agents
-            export QT_QPA_PLATFORM=offscreen
+            # Qt GUI tests require a headless platform on CI agents; use minimal (statically linked)
+            export QT_QPA_PLATFORM=minimal
             # Run via CTest so the test name and WORKING_DIRECTORY are handled correctly
             if ctest --test-dir "$BASE_BUILD_DIR" -R "^test-tapyrus-qt$" --output-on-failure; then
               echo "Qt GUI tests passed"

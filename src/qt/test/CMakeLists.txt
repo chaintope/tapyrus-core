@@ -42,6 +42,7 @@ target_include_directories(test-tapyrus-qt
 )
 
 target_link_libraries(test-tapyrus-qt tapyrusqt Qt6::Test)
+import_plugins(test-tapyrus-qt)
 
 # Wallet
 if(ENABLE_WALLET)
