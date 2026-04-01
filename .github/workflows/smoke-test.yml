@@ -23,6 +23,7 @@ env:
   CMAKE_BUILD_PARALLEL_LEVEL: 4
   LC_ALL: C.UTF-8
   BOOST_TEST_RANDOM: 1
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
   lint:
@@ -268,6 +269,7 @@ jobs:
       - name: Save Ccache cache
         uses: actions/cache/save@v4
         if: steps.ccache-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
         with:
           path: ${{ env.CCACHE_DIR }}
           key: smoke-${{ matrix.config.platform }}-${{ matrix.config.arch }}-ccache-${{ github.run_id }}
@@ -291,6 +293,7 @@ jobs:
             ${{ github.workspace }}/tapyrus_test
             ${{ github.workspace }}/build/bin/bench_results.txt
           retention-days: 3
+          if-no-files-found: ignore
 
       - name: Debug Core Dump (if exists)
         if: failure() && matrix.config.platform != 'windows'
