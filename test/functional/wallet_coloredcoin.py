@@ -306,15 +306,13 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         self.sync_all([self.nodes[0:3]])
 
         assert_array_result(self.nodes[0].listtransactions(),
-                            {"txid": txid1},
-                            {"category": "send",
-                            "token" : self.colorids[1],
+                            {"txid": txid1, "category": "send"},
+                            {"token" : self.colorids[1],
                             "amount": -10,
                             "confirmations": 0})
         assert_array_result(self.nodes[1].listtransactions(),
-                            {"txid": txid1},
-                            {"category": "receive",
-                            "token" : self.colorids[1],
+                            {"txid": txid1, "category": "receive"},
+                            {"token" : self.colorids[1],
                             "amount": 10,
                             "confirmations": 0})
 
@@ -322,15 +320,13 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         self.sync_all([self.nodes[0:3]])
 
         assert_array_result(self.nodes[0].listtransactions(),
-                            {"txid": txid2},
-                            {"category": "send",
-                            "token" : self.colorids[1],
+                            {"txid": txid2, "category": "send"},
+                            {"token" : self.colorids[1],
                             "amount": -10,
                             "confirmations": 0})
         assert_array_result(self.nodes[1].listtransactions(),
-                            {"txid": txid2},
-                            {"category": "receive",
-                            "token" : self.colorids[1],
+                            {"txid": txid2, "category": "receive"},
+                            {"token" : self.colorids[1],
                             "amount": 10,
                             "confirmations": 0})
 
@@ -338,15 +334,13 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         self.sync_all([self.nodes[0:3]])
 
         assert_array_result(self.nodes[0].listtransactions(),
-                            {"txid": txid3},
-                            {"category": "send",
-                            "token" : self.colorids[2],
+                            {"txid": txid3, "category": "send"},
+                            {"token" : self.colorids[2],
                             "amount": -10,
                             "confirmations": 0})
         assert_array_result(self.nodes[1].listtransactions(),
-                            {"txid": txid3},
-                            {"category": "receive",
-                            "token" : self.colorids[2],
+                            {"txid": txid3, "category": "receive"},
+                            {"token" : self.colorids[2],
                             "amount": 10,
                             "confirmations": 0})
 
@@ -356,15 +350,13 @@ class WalletColoredCoinTest(BitcoinTestFramework):
             self.sync_all([self.nodes[0:3]])
 
             assert_array_result(self.nodes[0].listtransactions(),
-                                {"txid": txid4},
-                                {"category": "send",
-                                "token" : self.colorids[3],
+                                {"txid": txid4, "category": "send"},
+                                {"token" : self.colorids[3],
                                 "amount": -1,
                                 "confirmations": 0})
             assert_array_result(self.nodes[1].listtransactions(),
-                                {"txid": txid4},
-                                {"category": "receive",
-                                "token" : self.colorids[3],
+                                {"txid": txid4, "category": "receive"},
+                                {"token" : self.colorids[3],
                                 "amount": 1,
                                 "confirmations": 0})
 
@@ -372,15 +364,13 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         self.sync_all([self.nodes[0:3]])
 
         assert_array_result(self.nodes[0].listtransactions(),
-                            {"txid": txid5},
-                            {"category": "send",
-                            "token" : self.colorids[4],
+                            {"txid": txid5, "category": "send"},
+                            {"token" : self.colorids[4],
                             "amount": -10,
                             "confirmations": 0})
         assert_array_result(self.nodes[1].listtransactions(),
-                            {"txid": txid5},
-                            {"category": "receive",
-                            "token" : self.colorids[4],
+                            {"txid": txid5, "category": "receive"},
+                            {"token" : self.colorids[4],
                             "amount": 10,
                             "confirmations": 0})
 
@@ -390,15 +380,13 @@ class WalletColoredCoinTest(BitcoinTestFramework):
             self.sync_all([self.nodes[0:3]])
 
             assert_array_result(self.nodes[0].listtransactions(),
-                                {"txid": txid6},
-                                {"category": "send",
-                                "token" : self.colorids[5],
+                                {"txid": txid6, "category": "send"},
+                                {"token" : self.colorids[5],
                                 "amount": -1,
                                 "confirmations": 0})
             assert_array_result(self.nodes[1].listtransactions(),
-                                {"txid": txid6},
-                                {"category": "receive",
-                                "token" : self.colorids[5],
+                                {"txid": txid6, "category": "receive"},
+                                {"token" : self.colorids[5],
                                 "amount": 1,
                                 "confirmations": 0})
         #mine a block, confirmations should change:
@@ -414,7 +402,7 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         assert_array_result(unspent, {"txid": txid5, "token" : self.colorids[4]},
                             {"amount": self.balance_expected[0][self.stage][5], "confirmations": 1})
 
-        txlist = self.nodes[0].listtransactions()
+        txlist = self.nodes[0].listtransactions(count=50)
         assert_array_result(txlist,{"txid": txid1},{"confirmations": 1})
         assert_array_result(txlist,{"txid": txid2},{"confirmations": 1})
         assert_array_result(txlist,{"txid": txid3},{"confirmations": 1})

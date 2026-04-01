@@ -1469,6 +1469,7 @@ static void ListTransactions(CWallet* const pwallet, const CWalletTx& wtx, int n
                 feeEntry.pushKV("category", "fee");
                 feeEntry.pushKV("token", ColorIdentifier().toHexString()); // always TPC
                 feeEntry.pushKV("amount", ValueFromAmount(-nFee));
+                if (fLong) WalletTxToJSON(wtx, feeEntry);
                 ret.push_back(feeEntry);
             }
         }
