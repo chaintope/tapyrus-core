@@ -114,7 +114,7 @@ void WalletModel::updateAddressBook(const QString &address, const QString &label
 
     if (isMine && purpose == "receive") {
         CTxDestination dest = DecodeDestination(address.toStdString());
-        if (std::get_if<CColorScriptID>(&dest))
+        if (std::get_if<CColorScriptID>(&dest) || std::get_if<CColorKeyID>(&dest) )
             Q_EMIT tokenAddressBookChanged();
     }
 }
@@ -176,7 +176,21 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
         return DuplicateAddress;
     }
 
-    CAmount nBalance = m_wallet->getAvailableBalance(coinControl);
+    // Determine if this is a colored coin send and set up coin control accordingly
+    ColorIdentifier colorId;
+    for (const SendCoinsRecipient &rcp : recipients) {
+        if (rcp.colorid.type != TokenTypes::NONE) {
+            colorId = rcp.colorid;
+            break;
+        }
+    }
+    CCoinControl localCoinControl = coinControl;
+    if (colorId.type != TokenTypes::NONE) {
+        localCoinControl.m_colorTxType = ColoredTxType::TRANSFER;
+        localCoinControl.m_colorId = colorId;
+    }
+
+    CAmount nBalance = m_wallet->getAvailableBalance(localCoinControl, colorId);
 
     if(total > nBalance)
     {
@@ -189,7 +203,7 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
         std::string strFailReason;
 
         auto& newTx = transaction.getWtx();
-        newTx = m_wallet->createTransaction(vecSend, coinControl, true /* sign */, nChangePosRet, nFeeRequired, strFailReason);
+        newTx = m_wallet->createTransaction(vecSend, localCoinControl, true /* sign */, nChangePosRet, nFeeRequired, strFailReason);
         transaction.setTransactionFee(nFeeRequired);
         if (fSubtractFeeFromAmount && newTx)
             transaction.reassignAmounts(nChangePosRet);
@@ -381,6 +395,14 @@ OptionsModel *WalletModel::getOptionsModel()
 AddressTableModel *WalletModel::getAddressTableModel()
 {
     return addressTableModel;
+}
+
+ColorIdentifier WalletModel::getColorFromAddress(const QString &address) const
+{
+    CTxDestination dest = DecodeDestination(address.toStdString());
+    if (const CColorScriptID* p = std::get_if<CColorScriptID>(&dest)) return p->color;
+    if (const CColorKeyID*   p = std::get_if<CColorKeyID>(&dest))   return p->color;
+    return ColorIdentifier();
 }
 
 TransactionTableModel *WalletModel::getTransactionTableModel()
@@ -653,3 +675,12 @@ bool WalletModel::isMultiwallet()
 {
     return m_node.getWallets().size() > 1;
 }
+
+//Constructor definition moved here to initialize colorid
+SendCoinsRecipient::SendCoinsRecipient(const QString &addr, const QString &_label, const CAmount& _amount, const QString &_message):
+    address(addr), label(_label), amount(_amount), message(_message), fSubtractFeeFromAmount(false), nVersion(SendCoinsRecipient::CURRENT_VERSION)
+    {
+        CTxDestination dest = DecodeDestination(address.toStdString());
+        if (const CColorScriptID* p = std::get_if<CColorScriptID>(&dest)) colorid = p->color;
+        else if (const CColorKeyID* p = std::get_if<CColorKeyID>(&dest)) colorid = p->color;
+    }
