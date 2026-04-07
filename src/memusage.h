@@ -5,6 +5,8 @@
 #ifndef BITCOIN_MEMUSAGE_H
 #define BITCOIN_MEMUSAGE_H
 
+#include <support/allocators/pool.h>
+
 #include <indirectmap.h>
 
 #include <stdlib.h>
@@ -163,6 +165,23 @@ template<typename X, typename Y, typename Z>
 static inline size_t DynamicUsage(const std::unordered_map<X, Y, Z>& m)
 {
     return MallocUsage(sizeof(unordered_node<std::pair<const X, Y> >)) * m.size() + MallocUsage(sizeof(void*) * m.bucket_count());
+}
+
+template <typename Key, typename T, typename Hash, typename Pred,
+          std::size_t MAX_BLOCK_SIZE_BYTES, std::size_t ALIGN_BYTES>
+static inline size_t DynamicUsage(const std::unordered_map<Key, T, Hash, Pred,
+                                                           PoolAllocator<std::pair<const Key, T>,
+                                                                         MAX_BLOCK_SIZE_BYTES,
+                                                                         ALIGN_BYTES>>& m)
+{
+    auto* pool_resource = m.get_allocator().resource();
+
+    // The allocated chunks are stored in a std::list. Size per node should
+    // therefore be 3 pointers: next, previous, and a pointer to the chunk.
+    size_t estimated_list_node_size = MallocUsage(sizeof(void*) * 3);
+    size_t usage_resource = estimated_list_node_size * pool_resource->NumAllocatedChunks();
+    size_t usage_chunks = MallocUsage(pool_resource->ChunkSizeBytes()) * pool_resource->NumAllocatedChunks();
+    return usage_resource + usage_chunks + MallocUsage(sizeof(void*) * m.bucket_count());
 }
 
 }
