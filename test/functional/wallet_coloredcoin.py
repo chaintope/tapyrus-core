@@ -389,6 +389,16 @@ class WalletColoredCoinTest(BitcoinTestFramework):
                                 {"token" : self.colorids[5],
                                 "amount": 1,
                                 "confirmations": 0})
+        # Verify that multiple entries exist for the same txid after sending a token
+        txlist = self.nodes[0].listtransactions(count=50)
+        entries = [e for e in txlist if e['txid'] == txid1]
+        assert len(entries) >= 2, "Token tx should have multiple entries (send + fee)"
+
+        # Verify the existence of a fee entry with a negative amount
+        fee_entries = [e for e in txlist if e['txid'] == txid1 and e['category'] == 'fee']
+        assert len(fee_entries) >= 1, "Expected a fee entry for txid1"
+        assert fee_entries[0]['amount'] < 0, "Fee amount should be negative"
+
         #mine a block, confirmations should change:
         self.nodes[2].generate(1, self.signblockprivkey_wif)
         self.sync_all([self.nodes[0:3]])
