@@ -389,6 +389,7 @@ struct WalletBalances
 
     void prev()
     {
+        if (tokens.empty()) return;
         if(tokenIndex != tokens.begin())
             tokenIndex--;
         else
@@ -400,6 +401,7 @@ struct WalletBalances
 
     void next()
     {
+        if (tokens.empty()) return;
         if(tokenIndex != tokens.end())
         {
             tokenIndex++;
@@ -410,11 +412,13 @@ struct WalletBalances
 
     bool isToken()
     {
+        if (tokens.empty()) return false;
         return (*tokenIndex).type != TokenTypes::NONE;
     }
 
     std::string getTokenName()
     {
+        if (tokens.empty()) return "";
         return (*tokenIndex).toHexString();
     }
 };
