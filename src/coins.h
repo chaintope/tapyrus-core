@@ -226,6 +226,7 @@ protected:
      * declared as "const".
      */
     mutable uint256 hashBlock;
+<<<<<<< HEAD
     // Note: declaration order is load-bearing. m_cache_coins_memory_resource
     // must precede cacheCoins because cacheCoins's allocator stores a pointer
     // to it, which is dereferenced from cacheCoins's destructor (and from
@@ -234,6 +235,9 @@ protected:
     // cacheCoins (and the underlying memory resource) must only be accessed
     // while cs_main is held. PoolResource is not thread-safe — concurrent
     // access from multiple threads is undefined behavior.
+=======
+    mutable CCoinsMapMemoryResource m_cache_coins_memory_resource{};
+>>>>>>> 596893f92a (Port Bitcoin Core PR#25325: Pool-based memory resource for CCoinsMap)
     mutable CCoinsMap cacheCoins;
 
     /* Cached dynamic memory usage for the inner Coin objects. */

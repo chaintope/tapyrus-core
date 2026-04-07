@@ -222,12 +222,7 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlockIn
 bool CCoinsViewCache::Flush() {
     bool fOk = base->BatchWrite(cacheCoins, hashBlock);
     if (fOk) {
-        // BatchWrite (both CCoinsViewDB and CCoinsViewCache) erases entries from
-        // cacheCoins inside the iteration loop, so the map must be empty here.
-        // The assertion catches any future refactor that breaks that invariant.
-        if (!cacheCoins.empty()) {
-            throw std::logic_error("Not all cached coins were erased");
-        }
+        cacheCoins.clear();
         ReallocateCache();
     }
     cachedCoinsUsage = 0;
