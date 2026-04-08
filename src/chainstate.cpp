@@ -4,6 +4,7 @@
 
 #include <chainstate.h>
 #include <chainparams.h>
+#include <util.h>
 
 #include <consensus/tx_verify.h>
 #include <index/txindex.h>
@@ -22,6 +23,7 @@
 // Defined in validation.cpp; declared here to avoid pulling in validation.h
 // (which includes chainstate.h, creating an indirect self-inclusion).
 void RefreshChainTxDataFromTip(const CBlockIndex* pindexNew);
+extern std::atomic_bool fReindex;
 
 static int64_t nTimeCheck = 0;
 static int64_t nTimeForks = 0;
@@ -1661,19 +1663,24 @@ bool CChainState::LoadGenesisBlock()
     if (mapBlockIndex.count(FederationParams().GenesisBlock().GetHash()))
         return true;
 
-    try {
-        CBlock &block = const_cast<CBlock&>(FederationParams().GenesisBlock());
-        CDiskBlockPos blockPos = SaveBlockToDisk(block, 0, nullptr);
-        if (blockPos.IsNull())
-            return error("%s: writing genesis block to disk failed", __func__);
-        CBlockIndex *pindex = AddToBlockIndex(block);
-        ReceivedBlockTransactions(block, pindex, blockPos);
-    } catch (const std::runtime_error& e) {
-        return error("%s: failed to write genesis block: %s", __func__, e.what());
+    if (!(fReindex && fs::exists(GetBlocksDir() / strprintf("blk%05u.dat", 0)))) {
+        // Not reindexing with existing block files: write genesis to disk.
+        // During reindex, genesis will be read from blk00000.dat by
+        // LoadExternalBlockFile, so skip the write to avoid truncating it.
+        try {
+            CBlock &block = const_cast<CBlock&>(FederationParams().GenesisBlock());
+            CDiskBlockPos blockPos = SaveBlockToDisk(block, 0, nullptr);
+            if (blockPos.IsNull())
+                return error("%s: writing genesis block to disk failed", __func__);
+            CBlockIndex *pindex = AddToBlockIndex(block);
+            ReceivedBlockTransactions(block, pindex, blockPos);
+        } catch (const std::runtime_error& e) {
+            return error("%s: failed to write genesis block: %s", __func__, e.what());
+        }
     }
 
-     //initialize xfield history
-     CXFieldHistory history(FederationParams().GenesisBlock());
+    //initialize xfield history
+    CXFieldHistory history(FederationParams().GenesisBlock());
 
     return true;
 }
