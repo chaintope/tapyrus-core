@@ -52,6 +52,7 @@ ReceiveCoinsDialog::ReceiveCoinsDialog(const PlatformStyle *_platformStyle, QWid
     QAction *copyLabelAction = new QAction(tr("Copy label"), this);
     QAction *copyMessageAction = new QAction(tr("Copy message"), this);
     QAction *copyAmountAction = new QAction(tr("Copy amount"), this);
+    QAction *copyColorIdAction = new QAction(tr("Copy color ID"), this);
 
     // context menu
     contextMenu = new QMenu(this);
@@ -59,6 +60,7 @@ ReceiveCoinsDialog::ReceiveCoinsDialog(const PlatformStyle *_platformStyle, QWid
     contextMenu->addAction(copyLabelAction);
     contextMenu->addAction(copyMessageAction);
     contextMenu->addAction(copyAmountAction);
+    contextMenu->addAction(copyColorIdAction);
 
     // context menu signals
     connect(ui->recentRequestsView, &QAbstractItemView::customContextMenuRequested, this, &ReceiveCoinsDialog::showMenu);
@@ -66,6 +68,7 @@ ReceiveCoinsDialog::ReceiveCoinsDialog(const PlatformStyle *_platformStyle, QWid
     connect(copyLabelAction, &QAction::triggered, this, &ReceiveCoinsDialog::copyLabel);
     connect(copyMessageAction, &QAction::triggered, this, &ReceiveCoinsDialog::copyMessage);
     connect(copyAmountAction, &QAction::triggered, this, &ReceiveCoinsDialog::copyAmount);
+    connect(copyColorIdAction, &QAction::triggered, this, &ReceiveCoinsDialog::copyColorId);
 
     connect(ui->clearButton, &QPushButton::clicked, this, &ReceiveCoinsDialog::clear);
 }
@@ -113,7 +116,7 @@ void ReceiveCoinsDialog::setModel(WalletModel *_model)
     {
         _model->getRecentRequestsTableModel()->sort(RecentRequestsTableModel::Date, Qt::DescendingOrder);
         connect(_model->getOptionsModel(), &OptionsModel::displayUnitChanged, this, &ReceiveCoinsDialog::updateDisplayUnit);
-        connect(_model, &WalletModel::tokenAddressBookChanged, this, &ReceiveCoinsDialog::refreshTokenCombo);
+        connect(_model, &WalletModel::tokenListChanged, this, &ReceiveCoinsDialog::refreshTokenCombo);
         connect(ui->radioToken, &QRadioButton::toggled, this, &ReceiveCoinsDialog::on_radioToken_toggled);
         connect(ui->reqToken, QOverload<int>::of(&QComboBox::currentIndexChanged),
                 this, &ReceiveCoinsDialog::on_reqToken_currentIndexChanged);
@@ -391,4 +394,10 @@ void ReceiveCoinsDialog::copyMessage()
 void ReceiveCoinsDialog::copyAmount()
 {
     copyColumnToClipboard(RecentRequestsTableModel::Amount);
+}
+
+// context menu action: copy color ID
+void ReceiveCoinsDialog::copyColorId()
+{
+    copyColumnToClipboard(RecentRequestsTableModel::Token);
 }

@@ -200,12 +200,7 @@ bool TapyrusUnits::parse(int unit, const QString &value, CAmount *val_out)
 
 QString TapyrusUnits::getAmountColumnTitle(int unit)
 {
-    QString amountTitle = QObject::tr("Amount");
-    if (TapyrusUnits::valid(unit))
-    {
-        amountTitle += " ("+TapyrusUnits::shortName(unit) + ")";
-    }
-    return amountTitle;
+    return QObject::tr("Amount");
 }
 
 int TapyrusUnits::rowCount(const QModelIndex &parent) const

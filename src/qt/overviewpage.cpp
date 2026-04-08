@@ -14,7 +14,6 @@
 #include <qt/transactionfilterproxy.h>
 #include <qt/transactiontablemodel.h>
 #include <qt/walletmodel.h>
-
 #include <QAbstractItemDelegate>
 #include <QPainter>
 
@@ -31,7 +30,6 @@ public:
         QAbstractItemDelegate(parent), unit(TapyrusUnits::TPC),
         platformStyle(_platformStyle)
     {
-
     }
 
     inline void paint(QPainter *painter, const QStyleOptionViewItem &option,
@@ -52,8 +50,8 @@ public:
 
         QDateTime date = index.data(TransactionTableModel::DateRole).toDateTime();
         QString address = index.data(Qt::DisplayRole).toString();
-        qint64 amount = index.data(TransactionTableModel::AmountRole).toLongLong();
         bool confirmed = index.data(TransactionTableModel::ConfirmedRole).toBool();
+        bool isToken = index.data(TransactionTableModel::IsTokenRole).toBool();
         QVariant value = index.data(Qt::ForegroundRole);
         QColor foreground = option.palette.color(QPalette::Text);
         if(value.canConvert<QBrush>())
@@ -73,7 +71,17 @@ public:
             iconWatchonly.paint(painter, watchonlyRect);
         }
 
-        if(amount < 0)
+        QString amountText;
+        qint64 netAmount;
+        if (isToken) {
+            netAmount = index.data(TransactionTableModel::TokenAmountRole).toLongLong();
+            amountText = TapyrusUnits::format(TapyrusUnits::TOKEN, netAmount, true, TapyrusUnits::separatorAlways);
+        } else {
+            netAmount = index.data(TransactionTableModel::AmountRole).toLongLong();
+            amountText = TapyrusUnits::formatWithUnit(unit, netAmount, true, TapyrusUnits::separatorAlways);
+        }
+
+        if(netAmount < 0)
         {
             foreground = COLOR_NEGATIVE;
         }
@@ -86,7 +94,6 @@ public:
             foreground = option.palette.color(QPalette::Text);
         }
         painter->setPen(foreground);
-        QString amountText = TapyrusUnits::formatWithUnit(unit, amount, true, TapyrusUnits::separatorAlways);
         if(!confirmed)
         {
             amountText = QString("[") + amountText + QString("]");
@@ -119,11 +126,9 @@ OverviewPage::OverviewPage(const PlatformStyle *platformStyle, QWidget *parent) 
 {
     ui->setupUi(this);
 
-    m_balances.balances[ColorIdentifier()] = -1;
-
     // use a SingleColorIcon for the "out of sync warning" icon
     QIcon icon = platformStyle->SingleColorIcon(":/icons/warning");
-    icon.addPixmap(icon.pixmap(QSize(64,64), QIcon::Normal), QIcon::Disabled); // also set the disabled icon because we are using a disabled QPushButton to work around missing HiDPI support of QLabel (https://bugreports.qt.io/browse/QTBUG-42503)
+    icon.addPixmap(icon.pixmap(QSize(64,64), QIcon::Normal), QIcon::Disabled);
     ui->labelTransactionsStatus->setIcon(icon);
     ui->labelWalletStatus->setIcon(icon);
 
@@ -134,6 +139,12 @@ OverviewPage::OverviewPage(const PlatformStyle *platformStyle, QWidget *parent) 
     ui->listTransactions->setAttribute(Qt::WA_MacShowFocusRect, false);
 
     connect(ui->listTransactions, &QAbstractItemView::clicked, this, &OverviewPage::handleTransactionClicked);
+
+    // Token box: hidden until a wallet with tokens is loaded
+    ui->frameToken->setVisible(false);
+
+    connect(ui->comboToken, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &OverviewPage::onTokenSelectionChanged);
 
     // start with displaying the "out of sync" warnings
     showOutOfSyncWarning(true);
@@ -157,33 +168,132 @@ OverviewPage::~OverviewPage()
     delete ui;
 }
 
-void OverviewPage::setBalance(const interfaces::WalletBalances& balances)
+void OverviewPage::updateTpcBalances()
 {
-    int unit = walletModel->getOptionsModel()->getDisplayUnit();
-    m_balances = balances;
+    if (!walletModel || !walletModel->getOptionsModel())
+        return;
 
-    CAmount balance = balances.getBalance();
-    CAmount unconfirmed_balance = balances.getUnconfirmedBalance();
-    CAmount watch_only_balance = balances.getWatchOnlyBalance();
-    CAmount unconfirmed_watch_only_balance = balances.getUnconfirmedWatchOnlyBalance();
+    int unit = walletModel->getOptionsModel()->getDisplayUnit();
+    ColorIdentifier tpc; // default-constructed = NONE = TPC
+
+    auto conf_it = m_balances.balances.find(tpc);
+    CAmount balance = (conf_it != m_balances.balances.end()) ? conf_it->second : 0;
+
+    auto unconf_it = m_balances.unconfirmed_balances.find(tpc);
+    CAmount unconfirmed = (unconf_it != m_balances.unconfirmed_balances.end()) ? unconf_it->second : 0;
+
+    auto wo_it = m_balances.watch_only_balances.find(tpc);
+    CAmount watchOnly = (wo_it != m_balances.watch_only_balances.end()) ? wo_it->second : 0;
+
+    auto wou_it = m_balances.unconfirmed_watch_only_balances.find(tpc);
+    CAmount watchOnlyUnconf = (wou_it != m_balances.unconfirmed_watch_only_balances.end()) ? wou_it->second : 0;
 
     ui->labelBalance->setText(TapyrusUnits::formatWithUnit(unit, balance, false, TapyrusUnits::separatorAlways));
-    ui->labelUnconfirmed->setText(TapyrusUnits::formatWithUnit(unit, balance, false, TapyrusUnits::separatorAlways));
-    ui->labelTotal->setText(TapyrusUnits::formatWithUnit(unit, balance + unconfirmed_balance, false, TapyrusUnits::separatorAlways));
-    ui->labelWatchAvailable->setText(TapyrusUnits::formatWithUnit(unit, watch_only_balance, false, TapyrusUnits::separatorAlways));
-    ui->labelWatchPending->setText(TapyrusUnits::formatWithUnit(unit, unconfirmed_watch_only_balance, false, TapyrusUnits::separatorAlways));
-    ui->labelWatchTotal->setText(TapyrusUnits::formatWithUnit(unit, watch_only_balance + unconfirmed_watch_only_balance, false, TapyrusUnits::separatorAlways));
+    ui->labelUnconfirmed->setText(TapyrusUnits::formatWithUnit(unit, unconfirmed, false, TapyrusUnits::separatorAlways));
+    ui->labelTotal->setText(TapyrusUnits::formatWithUnit(unit, balance + unconfirmed, false, TapyrusUnits::separatorAlways));
+    ui->labelWatchAvailable->setText(TapyrusUnits::formatWithUnit(unit, watchOnly, false, TapyrusUnits::separatorAlways));
+    ui->labelWatchPending->setText(TapyrusUnits::formatWithUnit(unit, watchOnlyUnconf, false, TapyrusUnits::separatorAlways));
+    ui->labelWatchTotal->setText(TapyrusUnits::formatWithUnit(unit, watchOnly + watchOnlyUnconf, false, TapyrusUnits::separatorAlways));
+}
+
+void OverviewPage::refreshTokenList()
+{
+    if (!walletModel)
+        return;
+
+    // Remember the currently selected colorId so we can restore it after repopulating
+    QString selectedColorId;
+    int cur = ui->comboToken->currentIndex();
+    if (cur >= 0 && cur < m_tokenRecords.size())
+        selectedColorId = m_tokenRecords[cur].colorId;
+
+    // Fetch all issued tokens and keep only those with a non-zero total balance
+    m_tokenRecords.clear();
+    for (const WalletModel::IssuedTokenRecord& rec : walletModel->getIssuedTokens()) {
+        if (rec.balance + rec.unconfirmedBalance != 0)
+            m_tokenRecords.append(rec);
+    }
+
+    // Block signals while repopulating to avoid spurious onTokenSelectionChanged calls
+    ui->comboToken->blockSignals(true);
+    ui->comboToken->clear();
+
+    static const QMap<QString, QString> typeIcons = {
+        {"REISSUABLE",     ":/icons/token_reissuable"},
+        {"NON_REISSUABLE", ":/icons/token_nonreissuable"},
+        {"NFT",            ":/icons/token_nft"},
+    };
+
+    for (const WalletModel::IssuedTokenRecord& rec : m_tokenRecords) {
+        QIcon icon(typeIcons.value(rec.tokenType));
+        ui->comboToken->addItem(icon, rec.colorId, rec.colorId);
+        int idx = ui->comboToken->count() - 1;
+        ui->comboToken->setItemData(idx, rec.colorId, Qt::ToolTipRole);
+    }
+
+    ui->comboToken->blockSignals(false);
+
+    // Restore previous selection by colorId (stored as item data), else default to first item
+    int restoreIndex = 0;
+    if (!selectedColorId.isEmpty()) {
+        int found = ui->comboToken->findData(selectedColorId);
+        if (found >= 0)
+            restoreIndex = found;
+    }
+
+    bool hasTokens = ui->comboToken->count() > 0;
+    ui->frameToken->setVisible(hasTokens);
+
+    if (hasTokens) {
+        ui->comboToken->setCurrentIndex(restoreIndex);
+        updateTokenBalance(restoreIndex);
+    }
+}
+
+void OverviewPage::onTokenSelectionChanged(int index)
+{
+    updateTokenBalance(index);
+}
+
+void OverviewPage::updateTokenBalance(int index)
+{
+    if (index < 0 || index >= m_tokenRecords.size()) {
+        ui->labelTokenBalance->setText("0");
+        ui->labelTokenUnconfirmed->setText("0");
+        ui->labelTokenTotal->setText("0");
+        return;
+    }
+
+    const WalletModel::IssuedTokenRecord& rec = m_tokenRecords[index];
+
+    // Balance values
+    ui->labelTokenBalance->setText(TapyrusUnits::format(TapyrusUnits::TOKEN, rec.balance, false, TapyrusUnits::separatorAlways));
+    ui->labelTokenUnconfirmed->setText(TapyrusUnits::format(TapyrusUnits::TOKEN, rec.unconfirmedBalance, false, TapyrusUnits::separatorAlways));
+    ui->labelTokenTotal->setText(TapyrusUnits::format(TapyrusUnits::TOKEN, rec.balance + rec.unconfirmedBalance, false, TapyrusUnits::separatorAlways));
+
+    // Tooltips: append colorId to existing tooltip text
+    QString colorTip = QString("\nColor ID: %1").arg(rec.colorId);
+    ui->labelTokenBalance->setToolTip(tr("Confirmed token balance for the selected token") + colorTip);
+    ui->labelTokenUnconfirmed->setToolTip(tr("Unconfirmed token balance for the selected token") + colorTip);
+    ui->labelTokenTotal->setToolTip(tr("Total token balance (confirmed + unconfirmed)") + colorTip);
+}
+
+void OverviewPage::setBalance(const interfaces::WalletBalances& balances)
+{
+    m_balances = balances;
+    updateTpcBalances();
+    refreshTokenList();
 }
 
 // show/hide watch-only labels
 void OverviewPage::updateWatchOnlyLabels(bool showWatchOnly)
 {
-    ui->labelSpendable->setVisible(showWatchOnly);      // show spendable label (only when watch-only is active)
-    ui->labelWatchonly->setVisible(showWatchOnly);      // show watch-only label
-    ui->lineWatchBalance->setVisible(showWatchOnly);    // show watch-only balance separator line
-    ui->labelWatchAvailable->setVisible(showWatchOnly); // show watch-only available balance
-    ui->labelWatchPending->setVisible(showWatchOnly);   // show watch-only pending balance
-    ui->labelWatchTotal->setVisible(showWatchOnly);     // show watch-only total balance
+    ui->labelSpendable->setVisible(showWatchOnly);
+    ui->labelWatchonly->setVisible(showWatchOnly);
+    ui->lineWatchBalance->setVisible(showWatchOnly);
+    ui->labelWatchAvailable->setVisible(showWatchOnly);
+    ui->labelWatchPending->setVisible(showWatchOnly);
+    ui->labelWatchTotal->setVisible(showWatchOnly);
 }
 
 void OverviewPage::setClientModel(ClientModel *model)
@@ -191,7 +301,6 @@ void OverviewPage::setClientModel(ClientModel *model)
     this->clientModel = model;
     if(model)
     {
-        // Show warning if this is a prerelease version
         connect(model, &ClientModel::alertsChanged, this, &OverviewPage::updateAlerts);
         updateAlerts(model->getStatusBarWarnings());
     }
@@ -219,6 +328,7 @@ void OverviewPage::setWalletModel(WalletModel *model)
         interfaces::WalletBalances balances = wallet.getBalances();
         setBalance(balances);
         connect(model, &WalletModel::balanceChanged, this, &OverviewPage::setBalance);
+        connect(model, &WalletModel::tokenListChanged, this, [this](const QList<WalletModel::IssuedTokenRecord>&){ refreshTokenList(); });
 
         connect(model->getOptionsModel(), &OptionsModel::displayUnitChanged, this, &OverviewPage::updateDisplayUnit);
 
@@ -226,7 +336,6 @@ void OverviewPage::setWalletModel(WalletModel *model)
         connect(model, &WalletModel::notifyWatchonlyChanged, this, &OverviewPage::updateWatchOnlyLabels);
     }
 
-    // update the display unit, to not use the default ("TPC")
     updateDisplayUnit();
 }
 
@@ -234,13 +343,8 @@ void OverviewPage::updateDisplayUnit()
 {
     if(walletModel && walletModel->getOptionsModel())
     {
-        if (m_balances.getBalance() != -1) {
-            setBalance(m_balances);
-        }
-
-        // Update txdelegate->unit with the current unit
+        updateTpcBalances();
         txdelegate->unit = walletModel->getOptionsModel()->getDisplayUnit();
-
         ui->listTransactions->update();
     }
 }

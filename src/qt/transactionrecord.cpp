@@ -21,6 +21,16 @@ bool TransactionRecord::showTransaction()
     return true;
 }
 
+static std::string tokenTypeName(TokenTypes type)
+{
+    switch (type) {
+        case TokenTypes::REISSUABLE:     return "REISSUABLE";
+        case TokenTypes::NON_REISSUABLE: return "NON_REISSUABLE";
+        case TokenTypes::NFT:            return "NFT";
+        default:                         return "";
+    }
+}
+
 /*
  * Decompose CWallet transaction to model transaction records.
  */
@@ -35,6 +45,33 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
     uint256 hash = wtx.tx->GetHashMalFix();
     std::map<std::string, std::string> mapValue = wtx.value_map;
 
+    // Compute input/output mine status upfront — used by both TPC and token sections
+    bool involvesWatchAddress = false;
+    isminetype fAllFromMe = ISMINE_SPENDABLE;
+    for (isminetype mine : wtx.txin_is_mine) {
+        if (mine & ISMINE_WATCH_ONLY) involvesWatchAddress = true;
+        if (fAllFromMe > mine) fAllFromMe = mine;
+    }
+    isminetype fAllToMe = ISMINE_SPENDABLE;
+    for (isminetype mine : wtx.txout_is_mine) {
+        if (mine & ISMINE_WATCH_ONLY) involvesWatchAddress = true;
+        if (fAllToMe > mine) fAllToMe = mine;
+    }
+
+
+    // Does any output carry a colored script?
+    bool hasColoredOutputs = false;
+    for (const auto& cid : wtx.txout_color_id) if (!cid.empty()) { hasColoredOutputs = true; break; }
+
+    // Does any input spend a colored UTXO?
+    bool hasColoredInputs = false;
+    for (unsigned int i = 0; i < wtx.txin_color_id.size(); i++)
+        if (!wtx.txin_color_id[i].empty()) { hasColoredInputs = true; break; }
+
+    // If any tokens are involved, suppress standalone TPC records —
+    // the token record(s) will carry the full picture (tpcFee in tooltip).
+    bool hasTokenInvolvement = hasColoredOutputs || hasColoredInputs;
+
     if (nNet > 0 || wtx.is_coinbase)
     {
         //
@@ -44,6 +81,9 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
         {
             const CTxOut& txout = wtx.tx->vout[i];
             isminetype mine = wtx.txout_is_mine[i];
+            // Skip token outputs here; they are handled in the token section below
+            if (!wtx.txout_color_id[i].empty())
+                continue;
             if(mine)
             {
                 TransactionRecord sub(hash, nTime);
@@ -74,47 +114,40 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
     }
     else
     {
-        bool involvesWatchAddress = false;
-        isminetype fAllFromMe = ISMINE_SPENDABLE;
-        for (isminetype mine : wtx.txin_is_mine)
-        {
-            if(mine & ISMINE_WATCH_ONLY) involvesWatchAddress = true;
-            if(fAllFromMe > mine) fAllFromMe = mine;
-        }
-
-        isminetype fAllToMe = ISMINE_SPENDABLE;
-        for (isminetype mine : wtx.txout_is_mine)
-        {
-            if(mine & ISMINE_WATCH_ONLY) involvesWatchAddress = true;
-            if(fAllToMe > mine) fAllToMe = mine;
-        }
-
         if (fAllFromMe && fAllToMe)
         {
-            // Payment to self
-            CAmount nChange = wtx.getChange();
-            parts.append(TransactionRecord(hash, nTime, TransactionRecord::SendToSelf, "",
-                            -(nDebit - nChange), nCredit - nChange));
-            parts.last().involvesWatchAddress = involvesWatchAddress;   // maybe pass to TransactionRecord as constructor argument
+            // Only emit a TPC self-payment record if no tokens are involved.
+            // Token transactions (issuance, burn) emit their own token record.
+            if (!hasTokenInvolvement)
+            {
+                CAmount nChange = wtx.getChange();
+                parts.append(TransactionRecord(hash, nTime, TransactionRecord::SendToSelf, "",
+                                -(nDebit - nChange), nCredit - nChange));
+                parts.last().involvesWatchAddress = involvesWatchAddress;
+            }
         }
         else if (fAllFromMe)
         {
             //
-            // Debit
+            // Debit (TPC outputs only; token outputs handled below)
             //
             CAmount nTxFee = nDebit - wtx.tx->GetValueOut(ColorIdentifier());
 
             for (unsigned int nOut = 0; nOut < wtx.tx->vout.size(); nOut++)
             {
                 const CTxOut& txout = wtx.tx->vout[nOut];
+                // Skip token outputs; they are handled in the token section below
+                if (!wtx.txout_color_id[nOut].empty())
+                    continue;
+
                 TransactionRecord sub(hash, nTime);
                 sub.idx = nOut;
                 sub.involvesWatchAddress = involvesWatchAddress;
 
                 if(wtx.txout_is_mine[nOut])
                 {
-                    // Ignore parts sent to self, as this is usually the change
-                    // from a transaction sent back to our own address.
+                    // Change output going back to our own address — skip it.
+                    // It does not represent a meaningful send in the transaction list.
                     continue;
                 }
 
@@ -145,13 +178,189 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
         }
         else
         {
-            //
-            // Mixed debit transaction, can't break down payees
-            //
-            parts.append(TransactionRecord(hash, nTime, TransactionRecord::Other, "", nNet, 0));
-            parts.last().involvesWatchAddress = involvesWatchAddress;
+            // Mixed debit transaction, can't break down payees.
+            // Skip if tokens are involved — the token section will emit the record.
+            if (!hasTokenInvolvement)
+            {
+                parts.append(TransactionRecord(hash, nTime, TransactionRecord::Other, "", nNet, 0));
+                parts.last().involvesWatchAddress = involvesWatchAddress;
+            }
         }
     }
+
+    // --- Token records ---
+    // Compute token credit/debit directly from the transaction's outputs and inputs,
+    // similar to how TPC amounts are derived from txout.nValue / prev-out nValue.
+    std::map<std::string, CAmount> tokenCredit, tokenDebit;
+    for (unsigned int i = 0; i < wtx.tx->vout.size(); i++) {
+        if (wtx.txout_color_id[i].empty()) continue;
+        if (wtx.txout_is_mine[i] != ISMINE_NO)
+            tokenCredit[wtx.txout_color_id[i]] += wtx.tx->vout[i].nValue;
+    }
+    for (unsigned int i = 0; i < wtx.txin_color_id.size(); i++) {
+        if (wtx.txin_color_id[i].empty()) continue;
+        tokenDebit[wtx.txin_color_id[i]] += wtx.txin_amount[i];
+    }
+
+    // Collect all distinct color hex strings involved (credit or debit)
+    std::set<std::string> allColorHexes;
+    for (const auto& e : tokenCredit) allColorHexes.insert(e.first);
+    for (const auto& e : tokenDebit)  allColorHexes.insert(e.first);
+
+    std::set<std::string> processedColors;
+
+    // Helper: find the best output index/address for a color with a mine-preference flag.
+    auto findColoredOutput = [&](const std::string& colorHex, bool preferMine, int skipIdx = -1)
+        -> std::tuple<int, std::string, bool>
+    {
+        int outIdx = -1;
+        std::string addr;
+        bool involvesWatch = false;
+        for (unsigned int i = 0; i < wtx.txout_color_id.size(); i++) {
+            if (wtx.txout_color_id[i] != colorHex) continue;
+            if ((int)i == skipIdx) continue;
+            bool isMine = wtx.txout_is_mine[i] != ISMINE_NO;
+            if (preferMine && !isMine) continue;
+            if (!preferMine && isMine) continue;
+            outIdx = i;
+            if (!std::get_if<CNoDestination>(&wtx.txout_address[i]))
+                addr = EncodeDestination(wtx.txout_address[i]);
+            involvesWatch = wtx.txout_is_mine[i] & ISMINE_WATCH_ONLY;
+            break;
+        }
+        // Fallback: take any remaining output with this color
+        if (outIdx < 0) {
+            for (unsigned int i = 0; i < wtx.txout_color_id.size(); i++) {
+                if (wtx.txout_color_id[i] != colorHex) continue;
+                if ((int)i == skipIdx) continue;
+                outIdx = i;
+                if (!std::get_if<CNoDestination>(&wtx.txout_address[i]))
+                    addr = EncodeDestination(wtx.txout_address[i]);
+                involvesWatch = wtx.txout_is_mine[i] & ISMINE_WATCH_ONLY;
+                break;
+            }
+        }
+        return {outIdx, addr, involvesWatch};
+    };
+
+    auto appendTokenRecord = [&](const ColorIdentifier& colorId, CAmount creditAmt, CAmount debitAmt) {
+        std::string colorHex = colorId.toHexString();
+        if (!processedColors.insert(colorHex).second)
+            return; // already emitted a record for this color
+
+        CAmount netAmt = creditAmt - debitAmt;
+
+        // A "real" colored output is one that is wallet-owned (change back to
+        // self) OR has a genuine recipient address.  The burn script
+        // (OP_COLOR + OP_TRUE) has CNoDestination and is not mine, so it is
+        // intentionally excluded — otherwise a burn would be misclassified as
+        // a send.  Outgoing transfers to another wallet still have a real
+        // destination address, so they are correctly classified as sends.
+        bool hasColoredOutputForColor = false;
+        for (unsigned int i = 0; i < wtx.txout_color_id.size(); i++) {
+            if (wtx.txout_color_id[i] != colorHex) continue;
+            bool isMine  = wtx.txout_is_mine[i] != ISMINE_NO;
+            bool hasAddr = !std::get_if<CNoDestination>(&wtx.txout_address[i]);
+            if (isMine || hasAddr) { hasColoredOutputForColor = true; break; }
+        }
+
+        bool isIssue = (netAmt > 0 && fAllFromMe);
+        bool isBurn  = (debitAmt > 0 && !hasColoredOutputForColor);
+
+        TransactionRecord sub(hash, nTime);
+        sub.colorId   = colorHex;
+        sub.tokenType = tokenTypeName(colorId.type);
+        sub.involvesWatchAddress = involvesWatchAddress;
+
+        if (isIssue) {
+            // Tokens received as issuance or reissuance
+            auto [outIdx, addr, involvesWatch] = findColoredOutput(colorHex, /*preferMine=*/true);
+            sub.idx = outIdx >= 0 ? outIdx : 0;
+            sub.address = addr;
+            sub.involvesWatchAddress = involvesWatch;
+            sub.tokenAmount = netAmt;
+            sub.type = TransactionRecord::TokenIssue;
+            parts.append(sub);
+            return;
+        }
+
+        if (isBurn) {
+            // Tokens destroyed — no colored output recipient
+            auto [outIdx, addr, involvesWatch] = findColoredOutput(colorHex, /*preferMine=*/false);
+            sub.idx = outIdx >= 0 ? outIdx : 0;
+            sub.address = addr;
+            sub.involvesWatchAddress = involvesWatch;
+            sub.tokenAmount = netAmt; // negative
+            sub.type = TransactionRecord::TokenBurn;
+            parts.append(sub);
+            return;
+        }
+
+        // --- Token transfer (not issuance, not burn) ---
+        // Use TPC-style types based on who sent/received.
+        if (debitAmt > 0 && creditAmt > 0 && netAmt == 0) {
+            // Tokens moved within the wallet (netAmt == 0).  Subtract change to
+            // find the intentional payment amount.
+            CAmount tokenChange = wtx.getChange(colorId);
+            CAmount intentionalAmt = creditAmt - tokenChange;
+            if (intentionalAmt > 0) {
+                // There is an explicit recipient output going to a receive address
+                // (even if it is also owned by this wallet) — classify as a send.
+                auto [outIdx, addr, involvesWatch] = findColoredOutput(colorHex, /*preferMine=*/true);
+                sub.idx = outIdx >= 0 ? outIdx : 0;
+                sub.address = addr;
+                sub.involvesWatchAddress = involvesWatch;
+                sub.tokenAmount = intentionalAmt;
+                sub.type = addr.empty() ? TransactionRecord::SendToOther : TransactionRecord::SendToAddress;
+                parts.append(sub);
+            } else {
+                // All token outputs are change — pure internal consolidation.
+                auto [outIdx, addr, involvesWatch] = findColoredOutput(colorHex, /*preferMine=*/true);
+                sub.idx = outIdx >= 0 ? outIdx : 0;
+                sub.address = addr;
+                sub.involvesWatchAddress = involvesWatch;
+                sub.tokenAmount = 0;
+                sub.type = TransactionRecord::SendToSelf;
+                parts.append(sub);
+            }
+        } else if (debitAmt > 0) {
+            // Wallet sent tokens (net outflow); show the recipient output
+            auto [outIdx, addr, involvesWatch] = findColoredOutput(colorHex, /*preferMine=*/false);
+            sub.idx = outIdx >= 0 ? outIdx : 0;
+            sub.address = addr;
+            sub.involvesWatchAddress = involvesWatch;
+            sub.tokenAmount = netAmt; // negative
+            sub.type = addr.empty() ? TransactionRecord::SendToOther : TransactionRecord::SendToAddress;
+            parts.append(sub);
+        } else {
+            // Pure receive: wallet received tokens from an external sender
+            auto [outIdx, addr, involvesWatch] = findColoredOutput(colorHex, /*preferMine=*/true);
+            sub.idx = outIdx >= 0 ? outIdx : 0;
+            sub.address = addr;
+            sub.involvesWatchAddress = involvesWatch;
+            sub.tokenAmount = creditAmt;
+            sub.type = addr.empty() ? TransactionRecord::RecvFromOther : TransactionRecord::RecvWithAddress;
+            parts.append(sub);
+        }
+    };
+
+    for (const std::string& colorHex : allColorHexes) {
+        const std::vector<unsigned char> vColor = ParseHex(colorHex);
+        ColorIdentifier colorId(vColor);
+        CAmount cAmt = tokenCredit.count(colorHex) ? tokenCredit[colorHex] : 0;
+        CAmount dAmt = tokenDebit.count(colorHex)  ? tokenDebit[colorHex]  : 0;
+        appendTokenRecord(colorId, cAmt, dAmt);
+    }
+
+    // Compute fee: only meaningful when wallet funded all inputs
+    CAmount tpcFeeAmt = 0;
+    if (fAllFromMe != ISMINE_NO)
+        tpcFeeAmt = nDebit - wtx.tx->GetValueOut(ColorIdentifier());
+    if (tpcFeeAmt < 0) tpcFeeAmt = 0; // guard against rounding / mixed-input edge cases
+
+    // Stamp fee on every record so the tooltip can display it
+    for (TransactionRecord& sub : parts)
+        sub.tpcFee = tpcFeeAmt;
 
     return parts;
 }

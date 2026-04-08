@@ -6,6 +6,7 @@
 
 #include <amount.h>
 #include <chain.h>
+#include <coloridentifier.h>
 #include <consensus/validation.h>
 #include <core_io.h>
 #include <httpserver.h>
@@ -1350,9 +1351,17 @@ static void ListTransactions(CWallet* const pwallet, const CWalletTx& wtx, int n
     std::list<COutputEntry> listSent;
 
     wtx.GetAmounts(listReceived, listSent, nFee, strSentAccount, filter);
-    bool feeAdded = false;
 
     bool involvesWatchonly = wtx.IsFromMe(ISMINE_WATCH_ONLY);
+
+    // Detect token involvement: any output carries a colored script
+    bool hasTokenInvolvement = false;
+    for (const CTxOut& txout : wtx.tx->vout) {
+        if (GetColorIdFromScript(txout.scriptPubKey).type != TokenTypes::NONE) {
+            hasTokenInvolvement = true;
+            break;
+        }
+    }
 
     // Sent
     if ((!listSent.empty() || nFee != 0))
@@ -1372,8 +1381,10 @@ static void ListTransactions(CWallet* const pwallet, const CWalletTx& wtx, int n
                 entry.pushKV("label", pwallet->mapAddressBook[s.destination].name);
             }
             entry.pushKV("vout", s.vout);
-            entry.pushKV("fee", ValueFromAmount(-nFee));
-            feeAdded = true;
+            if (!hasTokenInvolvement) {
+                // For non-token transactions, attach fee to the send entry as before
+                entry.pushKV("fee", ValueFromAmount(-nFee));
+            }
             if (fLong)
                 WalletTxToJSON(wtx, entry);
             entry.pushKV("abandoned", wtx.isAbandoned());
@@ -1413,7 +1424,7 @@ static void ListTransactions(CWallet* const pwallet, const CWalletTx& wtx, int n
                 entry.pushKV("label", account);
             }
             entry.pushKV("vout", r.vout);
-            if(!feeAdded)
+            if (!hasTokenInvolvement && listSent.empty())
                 entry.pushKV("fee", ValueFromAmount(-nFee));
             if (fLong)
                 WalletTxToJSON(wtx, entry);
@@ -1421,6 +1432,48 @@ static void ListTransactions(CWallet* const pwallet, const CWalletTx& wtx, int n
         }
     }
 
+    // For token transactions funded by this wallet: add change outputs and an explicit
+    // fee entry to match the GUI transaction table display (SendToSelf + TPCFee rows).
+    if (hasTokenInvolvement) {
+        bool walletFunded = wtx.GetDebit(filter, ColorIdentifier()) > 0;
+        if (walletFunded) {
+            // Show change outputs (TPC and token) that GetAmounts hides via IsChange().
+            // These correspond to the SendToSelf rows in the GUI transaction table.
+            if (wtx.GetDepthInMainChain() >= nMinDepth) {
+                for (unsigned int i = 0; i < wtx.tx->vout.size(); ++i) {
+                    const CTxOut& txout = wtx.tx->vout[i];
+                    isminetype fIsMine = pwallet->IsMine(txout);
+                    if (!(fIsMine & filter)) continue;
+                    if (!pwallet->IsChange(txout)) continue; // non-change already in listReceived
+
+                    CTxDestination address;
+                    ExtractDestination(txout.scriptPubKey, address);
+
+                    UniValue entry(UniValue::VOBJ);
+                    if (involvesWatchonly || (fIsMine & ISMINE_WATCH_ONLY))
+                        entry.pushKV("involvesWatchonly", true);
+                    MaybePushAddress(entry, address);
+                    entry.pushKV("category", "receive");
+                    addTokenKV(address, txout.nValue, entry);
+                    if (pwallet->mapAddressBook.count(address))
+                        entry.pushKV("label", pwallet->mapAddressBook[address].name);
+                    entry.pushKV("vout", (int)i);
+                    if (fLong) WalletTxToJSON(wtx, entry);
+                    ret.push_back(entry);
+                }
+            }
+
+            // Explicit fee entry — corresponds to the TPCFee row in the GUI.
+            if (nFee > 0) {
+                UniValue feeEntry(UniValue::VOBJ);
+                feeEntry.pushKV("category", "fee");
+                feeEntry.pushKV("token", ColorIdentifier().toHexString()); // always TPC
+                feeEntry.pushKV("amount", ValueFromAmount(-nFee));
+                if (fLong) WalletTxToJSON(wtx, feeEntry);
+                ret.push_back(feeEntry);
+            }
+        }
+    }
 }
 
 
@@ -4293,6 +4346,7 @@ UniValue IssueReissuableToken(CWallet* const pwallet, const std::string& script,
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("color", coin_control.m_colorId.toHexString());
+    result.pushKV("address", EncodeDestination(colorDest));
     UniValue txidlist(UniValue::VARR);
     txidlist.push_back(tx1->GetHashMalFix().GetHex());
     txidlist.push_back(tx2->GetHashMalFix().GetHex());
@@ -4345,6 +4399,7 @@ UniValue IssueToken(CWallet* const pwallet, CAmount tokenValue, CCoinControl& co
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("color", coin_control.m_colorId.toHexString());
+    result.pushKV("address", EncodeDestination(colorDest));
     result.pushKV("txid", tx->GetHashMalFix().GetHex());
     return result;
 }
