@@ -667,6 +667,22 @@ jobs:
             ./test_tapyrus --log_level=test_suite --report_level=short --build_info --catch_system_errors
           fi
 
+          echo "---------------- Start Qt GUI test ---------------- "
+          if [ "${{ matrix.config.enable_gui }}" == "true" ] && [ "${{ matrix.config.enable_wallet }}" == "true" ]; then
+            # Qt GUI tests require a headless platform on CI agents; use minimal (statically linked)
+            export QT_QPA_PLATFORM=minimal
+            # Run via CTest so the test name and WORKING_DIRECTORY are handled correctly
+            if ctest --test-dir "$BASE_BUILD_DIR" -R "^test-tapyrus-qt$" --output-on-failure; then
+              echo "Qt GUI tests passed"
+            else
+              echo "Qt GUI tests failed"
+              exit 1
+            fi
+            unset QT_QPA_PLATFORM
+          else
+            echo "Skipping Qt GUI tests (GUI or wallet not enabled)"
+          fi
+
           echo "---------------- Start util test ---------------- "
           cd "$BASE_ROOT_DIR"
           if python3 test/util/tapyrus-util-test.py; then
