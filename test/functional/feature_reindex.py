@@ -22,14 +22,25 @@ across multiple reindex operations and that block files are not corrupted:
 - Record block file sizes.
 - Reindex again (-reindex). Verify block count, aggregatePubkeys, and block file sizes are intact.
 - Generate 3 more blocks to confirm no block file corruption.
+
+With --longchain option:
+- Mine enough large (~1MB) blocks to push blk00000.dat beyond the 16MB BLOCKFILE_CHUNK_SIZE.
+- Reindex and verify that block file sizes are unchanged.
+- This directly catches the truncation bug where LoadGenesisBlock() calls
+  ftruncate(blk00000.dat, 16MB) during reindex, destroying data beyond 16MB.
 """
 import os
 import time
 
-from test_framework.blocktools import create_block, create_coinbase, createTestGenesisBlock
+from test_framework.blocktools import create_block, create_coinbase, createTestGenesisBlock, create_tx_with_large_script
 from test_framework.timeout_config import TAPYRUSD_REORG_TIMEOUT
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, bytes_to_hex_str, wait_until, NetworkDirName
+from test_framework.script import CScript
+from test_framework.messages import ToHex
+
+
+BLOCKFILE_CHUNK_SIZE = 16 * 1024 * 1024  # 16MB
 
 
 class ReindexTest(BitcoinTestFramework):
@@ -54,6 +65,11 @@ class ReindexTest(BitcoinTestFramework):
         ]
         self.genesisBlock = createTestGenesisBlock(self.aggpubkeys[0], self.aggprivkey[0], int(time.time() - 100))
 
+    def add_options(self, parser):
+        parser.add_argument("--longchain", dest="longchain", default=False, action="store_true",
+                            help="Mine large blocks until blk00000.dat exceeds 16MB, then reindex "
+                                 "to verify no truncation. Slow: requires ~20 large blocks and a full reindex.")
+
     def reindex(self, justchainstate=False):
         self.nodes[0].generate(3, self.signblockprivkey_wif)
         blockcount = self.nodes[0].getblockcount()
@@ -76,11 +92,11 @@ class ReindexTest(BitcoinTestFramework):
     def get_block_file_sizes(self, node):
         """Return a dict of {filename: size} for all blk*.dat files in the node's blocks dir."""
         blocks_dir = os.path.join(node.datadir, NetworkDirName(), "blocks")
-        sizes = {}
-        for fname in os.listdir(blocks_dir):
-            if fname.startswith("blk") and fname.endswith(".dat"):
-                sizes[fname] = os.path.getsize(os.path.join(blocks_dir, fname))
-        return sizes
+        return {
+            f: os.path.getsize(os.path.join(blocks_dir, f))
+            for f in os.listdir(blocks_dir)
+            if f.startswith("blk") and f.endswith(".dat")
+        }
 
     def reindex_and_verify_xfield(self, expected_aggpubkeys, expected_blockcount, sizes_before):
         """Restart with -reindex, then verify block count, xfield history, and block file sizes."""
@@ -92,6 +108,57 @@ class ReindexTest(BitcoinTestFramework):
         assert_equal(blockchaininfo["aggregatePubkeys"], expected_aggpubkeys)
         sizes_after = self.get_block_file_sizes(self.nodes[0])
         assert_equal(sizes_before, sizes_after)
+
+    def mine_large_block(self, node):
+        """Mine one ~1MB block by spending available UTXOs with large scripts."""
+        unspent = node.listunspent()
+        utxos = [x for x in unspent if x['amount'] >= 0.05]
+        spend_addr = node.getnewaddress()
+        scr = CScript(bytes.fromhex(node.getaddressinfo(spend_addr)['scriptPubKey']))
+        current_size = 0
+        for utxo in utxos:
+            if current_size >= 1000000:
+                break
+            amt = utxo['amount'] / 3
+            tx = create_tx_with_large_script(int(utxo['txid'], 16), 0, scr, amt, 0.01)
+            tx_raw = ToHex(tx)
+            current_size += len(tx_raw)
+            signed = node.signrawtransactionwithwallet(tx_raw)
+            node.sendrawtransaction(signed['hex'], True)
+        return node.generate(1, self.aggprivkey_wif[0])[0]
+
+    def test_longchain_reindex(self):
+        """Mine large blocks until blk00000.dat exceeds 16MB, then verify reindex preserves sizes."""
+        node = self.nodes[0]
+
+        # Mine initial blocks to accumulate UTXOs for large block construction.
+        # In Tapyrus, coinbase outputs are spendable after one confirmation.
+        self.log.info("Mining initial blocks to accumulate UTXOs")
+        node.generate(200, self.aggprivkey_wif[0])
+
+        # Mine large (~1MB) blocks until blk00000.dat exceeds BLOCKFILE_CHUNK_SIZE (16MB)
+        self.log.info("Mining large blocks until blk00000.dat exceeds 16MB")
+        blk0_path = os.path.join(node.datadir, NetworkDirName(), "blocks", "blk00000.dat")
+        while os.path.getsize(blk0_path) <= BLOCKFILE_CHUNK_SIZE:
+            self.mine_large_block(node)
+
+        blk0_size = os.path.getsize(blk0_path)
+        self.log.info(f"blk00000.dat is now {blk0_size // (1024*1024)}MB — exceeds 16MB chunk size")
+
+        blockcount = node.getblockcount()
+        sizes_before = self.get_block_file_sizes(node)
+        self.log.info(f"Block file sizes before reindex (MB): { {k: v//(1024*1024) for k, v in sizes_before.items()} }")
+
+        # Reindex and verify file sizes are unchanged
+        self.stop_nodes()
+        self.start_nodes([["-reindex"]])
+        wait_until(lambda: self.nodes[0].getblockcount() >= blockcount, timeout=TAPYRUSD_REORG_TIMEOUT)
+        assert_equal(self.nodes[0].getblockcount(), blockcount)
+
+        sizes_after = self.get_block_file_sizes(self.nodes[0])
+        self.log.info(f"Block file sizes after reindex (MB): { {k: v//(1024*1024) for k, v in sizes_after.items()} }")
+        assert_equal(sizes_before, sizes_after)
+        self.log.info("Success: block file sizes unchanged after reindex")
 
     def run_test(self):
         self.log.info("Test basic reindex and reindex-chainstate")
@@ -158,6 +225,10 @@ class ReindexTest(BitcoinTestFramework):
         node.generate(3, self.aggprivkey_wif[2])
         assert_equal(node.getblockcount(), 26)
         self.log.info("Success")
+
+        if self.options.longchain:
+            self.log.info("Running long chain reindex test (--longchain)")
+            self.test_longchain_reindex()
 
 
 if __name__ == '__main__':
