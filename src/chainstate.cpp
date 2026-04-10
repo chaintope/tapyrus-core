@@ -1662,25 +1662,33 @@ bool CChainState::LoadGenesisBlock()
     if (mapBlockIndex.count(FederationParams().GenesisBlock().GetHash()))
         return true;
 
-    if (!(fReindex && fs::exists(GetBlocksDir() / strprintf("blk%05u.dat", 0)))) {
-        // Not reindexing with existing block files: write genesis to disk.
-        // During reindex, genesis will be read from blk00000.dat by
-        // LoadExternalBlockFile, so skip the write to avoid truncating it.
-        try {
-            CBlock &block = const_cast<CBlock&>(FederationParams().GenesisBlock());
-            CDiskBlockPos blockPos = SaveBlockToDisk(block, 0, nullptr);
-            if (blockPos.IsNull())
-                return error("%s: writing genesis block to disk failed", __func__);
-            CBlockIndex *pindex = AddToBlockIndex(block);
-            ReceivedBlockTransactions(block, pindex, blockPos);
-        } catch (const std::runtime_error& e) {
-            return error("%s: failed to write genesis block: %s", __func__, e.what());
+    try {
+        CBlock &block = const_cast<CBlock&>(FederationParams().GenesisBlock());
+        CDiskBlockPos blockPos;
+
+        if (fReindex && fs::exists(GetBlocksDir() / strprintf("blk%05u.dat", 0))) {
+            // During reindex with existing block files, pass the known genesis
+            // disk position so SaveBlockToDisk uses fKnown=true.
+            // This skips AllocateFileRange (which on macOS uses ftruncate and
+            // would shrink blk00000.dat to 16MB) and skips WriteBlockToDisk
+            // (genesis is already on disk). Block index and xfield history are
+            // still initialized correctly below.
+            CDiskBlockPos genesisKnownPos(0, BLOCK_SERIALIZATION_HEADER_SIZE);
+            blockPos = SaveBlockToDisk(block, 0, &genesisKnownPos);
+        } else {
+            blockPos = SaveBlockToDisk(block, 0, nullptr);
         }
+
+        if (blockPos.IsNull())
+            return error("%s: writing genesis block to disk failed", __func__);
+        CBlockIndex *pindex = AddToBlockIndex(block);
+        ReceivedBlockTransactions(block, pindex, blockPos);
+
+        //initialize xfield history
+        CXFieldHistory history(FederationParams().GenesisBlock());
+    } catch (const std::runtime_error& e) {
+        return error("%s: failed to write genesis block: %s", __func__, e.what());
     }
-
-    //initialize xfield history
-    CXFieldHistory history(FederationParams().GenesisBlock());
-
     return true;
 }
 
