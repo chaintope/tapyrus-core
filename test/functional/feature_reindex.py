@@ -25,7 +25,7 @@ across multiple reindex operations and that block files are not corrupted:
 
 With --longchain option:
 - Mine enough large (~1MB) blocks to push blk00000.dat beyond the 16MB BLOCKFILE_CHUNK_SIZE.
-- Reindex and verify that block file sizes are unchanged.
+- Restart with -reindex and -reloadxfield in sequence and verify block file sizes are unchanged.
 - This directly catches the truncation bug where LoadGenesisBlock() calls
   ftruncate(blk00000.dat, 16MB) during reindex, destroying data beyond 16MB.
 """
@@ -109,56 +109,75 @@ class ReindexTest(BitcoinTestFramework):
         sizes_after = self.get_block_file_sizes(self.nodes[0])
         assert_equal(sizes_before, sizes_after)
 
-    def mine_large_block(self, node):
+    def mine_large_block(self, node, signing_privkey_wif):
         """Mine one ~1MB block by spending available UTXOs with large scripts."""
         unspent = node.listunspent()
         utxos = [x for x in unspent if x['amount'] >= 0.05]
         spend_addr = node.getnewaddress()
         scr = CScript(bytes.fromhex(node.getaddressinfo(spend_addr)['scriptPubKey']))
         current_size = 0
+        tx_count = 0
         for utxo in utxos:
             if current_size >= 1000000:
                 break
             amt = utxo['amount'] / 3
-            tx = create_tx_with_large_script(int(utxo['txid'], 16), 0, scr, amt, 0.01)
+            tx = create_tx_with_large_script(int(utxo['txid'], 16), utxo['vout'], scr, amt, 0.01)
             tx_raw = ToHex(tx)
-            current_size += len(tx_raw)
             signed = node.signrawtransactionwithwallet(tx_raw)
+            if not signed['complete']:
+                continue
             node.sendrawtransaction(signed['hex'], True)
-        return node.generate(1, self.aggprivkey_wif[0])[0]
+            current_size += len(tx_raw)
+            tx_count += 1
+        self.log.info(f"  queued {tx_count} large txs (~{current_size // 1024}KB hex) for next block")
+        return node.generate(1, signing_privkey_wif)[0]
+
+    def restart_and_verify_sizes(self, flag, blockcount, sizes_before):
+        """Restart node with the given flag and verify block count and file sizes are unchanged."""
+        self.stop_nodes()
+        self.start_nodes([[flag]])
+        wait_until(lambda: self.nodes[0].getblockcount() >= blockcount, timeout=TAPYRUSD_REORG_TIMEOUT)
+        assert_equal(self.nodes[0].getblockcount(), blockcount)
+        sizes_after = self.get_block_file_sizes(self.nodes[0])
+        self.log.info(f"Block file sizes after {flag} (MB): { {k: v//(1024*1024) for k, v in sizes_after.items()} }")
+        assert_equal(sizes_before, sizes_after)
+        self.log.info(f"Success: block file sizes unchanged after {flag}")
 
     def test_longchain_reindex(self):
-        """Mine large blocks until blk00000.dat exceeds 16MB, then verify reindex preserves sizes."""
+        """Mine large blocks until blk00000.dat exceeds 16MB, then verify that
+        -reindex and -reloadxfield both preserve block file sizes.
+        (-reindex-chainstate does not rescan block files and is not affected.)"""
         node = self.nodes[0]
+
+        # The longchain test runs after the xfield test which ends with aggpubkeys[2] active.
+        signing_privkey_wif = self.aggprivkey_wif[2]
 
         # Mine initial blocks to accumulate UTXOs for large block construction.
         # In Tapyrus, coinbase outputs are spendable after one confirmation.
         self.log.info("Mining initial blocks to accumulate UTXOs")
-        node.generate(200, self.aggprivkey_wif[0])
+        node.generate(200, signing_privkey_wif)
 
         # Mine large (~1MB) blocks until blk00000.dat exceeds BLOCKFILE_CHUNK_SIZE (16MB)
         self.log.info("Mining large blocks until blk00000.dat exceeds 16MB")
         blk0_path = os.path.join(node.datadir, NetworkDirName(), "blocks", "blk00000.dat")
         while os.path.getsize(blk0_path) <= BLOCKFILE_CHUNK_SIZE:
-            self.mine_large_block(node)
+            self.mine_large_block(node, signing_privkey_wif)
+            blk0_size = os.path.getsize(blk0_path)
+            self.log.info(f"  blk00000.dat size: {blk0_size // (1024*1024)}MB ({blk0_size} bytes), target: {BLOCKFILE_CHUNK_SIZE} bytes")
 
         blk0_size = os.path.getsize(blk0_path)
         self.log.info(f"blk00000.dat is now {blk0_size // (1024*1024)}MB — exceeds 16MB chunk size")
 
         blockcount = node.getblockcount()
         sizes_before = self.get_block_file_sizes(node)
-        self.log.info(f"Block file sizes before reindex (MB): { {k: v//(1024*1024) for k, v in sizes_before.items()} }")
+        self.log.info(f"Block file sizes before restart (MB): { {k: v//(1024*1024) for k, v in sizes_before.items()} }")
 
-        # Reindex and verify file sizes are unchanged
-        self.stop_nodes()
-        self.start_nodes([["-reindex"]])
-        wait_until(lambda: self.nodes[0].getblockcount() >= blockcount, timeout=TAPYRUSD_REORG_TIMEOUT)
-        assert_equal(self.nodes[0].getblockcount(), blockcount)
+        # Verify both affected flags preserve block file sizes.
+        self.log.info("Testing -reindex does not truncate block files")
+        self.restart_and_verify_sizes("-reindex", blockcount, sizes_before)
 
-        sizes_after = self.get_block_file_sizes(self.nodes[0])
-        self.log.info(f"Block file sizes after reindex (MB): { {k: v//(1024*1024) for k, v in sizes_after.items()} }")
-        assert_equal(sizes_before, sizes_after)
-        self.log.info("Success: block file sizes unchanged after reindex")
+        self.log.info("Testing -reloadxfield does not truncate block files")
+        self.restart_and_verify_sizes("-reloadxfield", blockcount, sizes_before)
 
     def run_test(self):
         self.log.info("Test basic reindex and reindex-chainstate")
