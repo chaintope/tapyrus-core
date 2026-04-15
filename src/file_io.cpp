@@ -441,7 +441,10 @@ bool FlushStateToDisk(CValidationState &state, FlushStateMode mode, int nManualP
         // It's been very long since we flushed the cache. Do this infrequently, to optimize cache usage.
         bool fPeriodicFlush = mode == FlushStateMode::PERIODIC && nNow > nLastFlush + (int64_t)DATABASE_FLUSH_INTERVAL * 1000000;
         // Combine all conditions that result in a full cache flush.
-        fDoFullFlush = (mode == FlushStateMode::ALWAYS) || fCacheLarge || fCacheCritical || fPeriodicFlush || fFlushForPrune;
+        // Note: fFlushForPrune is intentionally excluded here. Prune flushes use
+        // Sync() to keep the cache warm, avoiding the cost of clearing and reloading
+        // the UTXO cache after every prune. See CCoinsViewCache::Sync().
+        fDoFullFlush = (mode == FlushStateMode::ALWAYS) || fCacheLarge || fCacheCritical || fPeriodicFlush;
         // Write blocks and block index to disk.
         if (fDoFullFlush || fPeriodicWrite) {
             // Depend on nMinDiskSpace to ensure we can write block index
@@ -473,7 +476,7 @@ bool FlushStateToDisk(CValidationState &state, FlushStateMode mode, int nManualP
             nLastWrite = nNow;
         }
         // Flush best chain related state. This can only be done if the blocks / block index write was also done.
-        if (fDoFullFlush && !pcoinsTip->GetBestBlock().IsNull()) {
+        if ((fDoFullFlush || fFlushForPrune) && !pcoinsTip->GetBestBlock().IsNull()) {
             // Typical Coin structures on disk are around 48 bytes in size.
             // Pushing a new one to the database can cause it to be written
             // twice (once in the log, and once in the tables). This is already
@@ -481,11 +484,12 @@ bool FlushStateToDisk(CValidationState &state, FlushStateMode mode, int nManualP
             // overwrite one. Still, use a conservative safety factor of 2.
             if (!CheckDiskSpace(48 * 2 * 2 * pcoinsTip->GetCacheSize()))
                 return state.Error("out of disk space");
-            // Flush the chainstate (which may refer to block index entries).
-            if (!pcoinsTip->Flush())
+            // For a full flush, wipe the entire cache; for a prune flush, use Sync()
+            // to write dirty entries while keeping the cache warm for faster block connection.
+            if (fDoFullFlush ? !pcoinsTip->Flush() : !pcoinsTip->Sync())
                 return AbortNode(state, "Failed to write to coin database");
             nLastFlush = nNow;
-            full_flush_completed = true;
+            full_flush_completed = fDoFullFlush;
             TRACE5(utxocache, utxocache_flush,
                 (int64_t)(GetTimeMicros() - nNow), // in microseconds (µs)
                 (uint32_t)mode,
