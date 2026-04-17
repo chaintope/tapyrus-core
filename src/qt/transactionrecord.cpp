@@ -309,7 +309,7 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
                 sub.idx = outIdx >= 0 ? outIdx : 0;
                 sub.address = addr;
                 sub.involvesWatchAddress = involvesWatch;
-                sub.tokenAmount = intentionalAmt;
+                sub.tokenAmount = -intentionalAmt;
                 sub.type = addr.empty() ? TransactionRecord::SendToOther : TransactionRecord::SendToAddress;
                 parts.append(sub);
             } else {
