@@ -29,6 +29,11 @@ class TestBitcoinCli(BitcoinTestFramework):
         self.log.info("Compare responses from getblockchaininfo RPC and `bitcoin-cli getblockchaininfo`")
         cli_response = self.nodes[0].cli.getblockchaininfo()
         rpc_response = self.nodes[0].getblockchaininfo()
+        # verificationprogress uses time(nullptr) at integer-second resolution; two
+        # consecutive calls can straddle a second boundary and return different values.
+        # It is tested implicitly via the -getinfo comparison below.
+        cli_response.pop('verificationprogress', None)
+        rpc_response.pop('verificationprogress', None)
         assert_equal(cli_response, rpc_response)
 
         user, password = get_auth_cookie(self.nodes[0].datadir, self.nodes[0].networkid)
