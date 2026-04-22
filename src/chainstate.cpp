@@ -608,6 +608,13 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     blockundo.vtxundo.reserve(block.vtx.size() - 1);
     std::vector<PrecomputedTransactionData> txdata;
     txdata.reserve(block.vtx.size()); // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
+
+    // Accumulate new NON_REISSUABLE/NFT issuances across the whole block.
+    // Applied to g_issued_colorids and persisted to LevelDB only after
+    // control.Wait() succeeds, so a late script-check failure cannot leave
+    // the global set or the DB in a dirty state.
+    std::set<ColorIdentifier> allNewIssuances;
+
     for (unsigned int i = 0; i < block.vtx.size(); i++)
     {
         const CTransaction &tx = *(block.vtx[i]);
@@ -668,19 +675,11 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         }
 
         //verify token balances (coinbase has no real inputs so balance check does not apply)
-        // When not in fJustCheck mode, also collect new issuances in the same pass.
         if (!tx.IsCoinBase()) {
             std::set<ColorIdentifier> newIssuances;
             if (!VerifyTokenBalances(tx, state, view, txfee, !fJustCheck ? &newIssuances : nullptr))
                 return false;
-            for (const auto& colorId : newIssuances) {
-                {
-                    LOCK(cs_issued_colorids);
-                    g_issued_colorids.insert(colorId);
-                }
-                if (!pblocktree->WriteIssuedColorId(colorId))
-                    return error("ConnectBlock(): WriteIssuedColorId failed");
-            }
+            allNewIssuances.insert(newIssuances.begin(), newIssuances.end());
         }
 
         CTxUndo undoDummy;
@@ -703,6 +702,20 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         return state.DoS(100, error("%s: CheckQueue failed", __func__), REJECT_INVALID, "block-validation-failed");
     int64_t nTime4 = GetTimeMicros(); nTimeVerify += nTime4 - nTime2;
     LogPrint(BCLog::BENCH, "    - Verify %u txins: %.2fms (%.3fms/txin) [%.2fs (%.2fms/blk)]\n", nInputs - 1, MILLI * (nTime4 - nTime2), nInputs <= 1 ? 0 : MILLI * (nTime4 - nTime2) / (nInputs-1), nTimeVerify * MICRO, nTimeVerify * MILLI / nBlocksTotal);
+
+    // All script checks passed. Now it is safe to commit new issuances to the
+    // global set and to LevelDB — no further failure can occur that would
+    // require rolling these back within this call.
+    if (!fJustCheck) {
+        for (const auto& colorId : allNewIssuances) {
+            {
+                LOCK(cs_issued_colorids);
+                g_issued_colorids.insert(colorId);
+            }
+            if (!pblocktree->WriteIssuedColorId(colorId))
+                return error("ConnectBlock(): WriteIssuedColorId failed");
+        }
+    }
 
     if (fJustCheck)
         return true;
