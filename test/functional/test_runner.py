@@ -174,6 +174,7 @@ BASE_SCRIPTS = [
     'feature_includeconf.py',
     'feature_tokencreation.py',
     'feature_tokencreation.py  --usecli',
+    'feature_colored_coin_vuln.py',
     'feature_logging.py',
     'feature_blocksdir.py',
     'feature_config_args.py',

@@ -22,6 +22,7 @@
 #include <policy/rbf.h>
 #include <primitives/block.h>
 #include <primitives/transaction.h>
+#include <script/script.h>
 #include <script/sigcache.h>
 #include <shutdown.h>
 #include <tinyformat.h>
@@ -54,6 +55,8 @@ CBlockIndex *pindexBestHeader = nullptr;
 Mutex g_best_block_mutex;
 CConditionVariable g_best_block_cv;
 uint256 g_best_block;
+Mutex cs_issued_colorids;
+std::set<ColorIdentifier> g_issued_colorids;
 int nScriptCheckThreads = 0;
 std::atomic_bool fImporting(false);
 std::atomic_bool fReindex(false);
@@ -365,8 +368,7 @@ static bool CheckInputsFromMempoolAndCache(ValidationContext context, const CTra
         }
     }
 
-    TxColoredCoinBalancesMap inColoredCoinBalances;
-    return CheckInputs(tx, state, view, true, flags, cacheSigStore, true, txdata, inColoredCoinBalances);
+    return CheckInputs(tx, state, view, true, flags, cacheSigStore, true, txdata);
 }
 
 static bool CheckConflictsInMempool(const CTransaction& tx, std::set<uint256>& setConflicts, CValidationState& state)
@@ -439,45 +441,73 @@ static bool DoAllInputsExist(const CTransaction& tx, CValidationState& state, CT
 
 bool CheckColorIdentifierValidity(const CTransaction& tx, CValidationState& state, CCoinsViewCache &inputs)
 {
-    // when this transaction issues or transfers tokens,
-    // verify that the color id is valid.
-    for(auto& txout:tx.vout)
+    // Track NFT colorId output count across the whole tx (must be exactly 1).
+    std::map<ColorIdentifier, unsigned int> nftOutputCount;
+
+    for(const auto& txout : tx.vout)
     {
         if(!txout.scriptPubKey.IsColoredScript())
             continue;
 
-        //identify the scriptPubkey type and get colorid from the script
         ColorIdentifier outColorId(GetColorIdFromScript(txout.scriptPubKey));
 
-        //if the token type is none, OP_COLOR should not be used in the script.
-        if (outColorId.type == TokenTypes::NONE)
-            return false;
+        // GetColorIdFromScript() returned NONE for an OP_COLOR script.
+        // Two cases: (a) the script is structurally CP2PKH/CP2SH but carries an
+        // invalid colorId type byte — rejected as "invalid-colorid" with no DoS,
+        // (b) the script is not CP2PKH/CP2SH at all — rejected with DoS 100.
+        // Note: IsColoredPayToPubkeyHash and IsColoredPayToScriptHash both
+        // validate the type byte, so we check structure directly here.
+        if (outColorId.type == TokenTypes::NONE) {
+            const CScript& s = txout.scriptPubKey;
+            // Structural CP2PKH: 0x21 <33B colorId> OP_COLOR OP_DUP OP_HASH160 <20B hash> OP_EQUALVERIFY OP_CHECKSIG
+            bool isCP2PKHForm = (s.size() == 60 && s[0] == 0x21 && s[34] == OP_COLOR &&
+                                 s[35] == OP_DUP && s[36] == OP_HASH160 && s[37] == 20 &&
+                                 s[58] == OP_EQUALVERIFY && s[59] == OP_CHECKSIG);
+            // Structural CP2SH: 0x21 <33B colorId> OP_COLOR OP_HASH160 <20B hash> OP_EQUAL
+            bool isCP2SHForm  = (s.size() == 58 && s[0] == 0x21 && s[34] == OP_COLOR &&
+                                 s[35] == OP_HASH160 && s[36] == 0x14 && s[57] == OP_EQUAL);
+            // Structural burn: 0x21 <33B colorId> OP_COLOR OP_TRUE
+            bool isBurnForm   = (s.size() == 36 && s[0] == 0x21 && s[34] == OP_COLOR &&
+                                 s[35] == OP_TRUE);
+            if (!isCP2PKHForm && !isCP2SHForm && !isBurnForm)
+                return state.DoS(100, false, REJECT_INVALID, "bad-txns-nonstandard-opcolor");
+            return false; // recognized form but invalid colorId bytes → "invalid-colorid"
+        }
 
-        //as IsDust is not checked for tokens aviod 0 values in outputs
+        // Zero or negative token values are not allowed.
         if(txout.nValue <= 0)
             return false;
 
+        if(outColorId.type == TokenTypes::NFT)
+            nftOutputCount[outColorId]++;
+
         bool matchFound = false;
-        for(auto txin:tx.vin)
+        bool isIssuance = false;
+
+        for(auto txin : tx.vin)
         {
-            //match the input coin to the token's colorid
             const Coin& coin = inputs.AccessCoin(txin.prevout);
             ColorIdentifier coinColorId;
-
             ColorIdentifier cid = GetColorIdFromScript(coin.out.scriptPubKey);
+
+            // If the input UTXO's script has OP_COLOR but its colorId is NONE,
+            // it was created before the CP2PKH/CP2SH-only restriction or is
+            // otherwise non-standard.  Reject any attempt to spend such UTXOs.
+            if (cid.type == TokenTypes::NONE && coin.out.scriptPubKey.IsColoredScript())
+                return state.DoS(100, false, REJECT_INVALID, "bad-txns-nonstandard-opcolor");
+
             switch(cid.type)
             {
-                // when the coin is TPC this is a token issue tx.
-                // colorid is hash(coin's scriptpubkey) or prevout
                 case TokenTypes::NONE:
+                    // TPC input — this is a token issuance.
                     if(outColorId.type == TokenTypes::REISSUABLE)
                         coinColorId = ColorIdentifier(coin.out.scriptPubKey);
-                    else
-                        coinColorId = ColorIdentifier(txin.prevout, outColorId.type);
+                    else {
+                        COutPoint prevout = txin.prevout;
+                        coinColorId = ColorIdentifier(prevout, outColorId.type);
+                    }
                     break;
 
-                // when the coin is REISSUABLE/NON_REISSUABLE/NFT this is a token transfer tx.
-                // colorid is same as the coin's colorid
                 case TokenTypes::REISSUABLE:
                 case TokenTypes::NON_REISSUABLE:
                 case TokenTypes::NFT:
@@ -491,22 +521,56 @@ bool CheckColorIdentifierValidity(const CTransaction& tx, CValidationState& stat
             if(coinColorId == outColorId && !coin.IsSpent())
             {
                 matchFound = true;
-
-                //NFT's value is always 1
-                if(outColorId.type == TokenTypes::NFT && txout.nValue != 1)
-                    return false;
-
-                //exit inner loop
+                isIssuance = (cid.type == TokenTypes::NONE);
                 break;
             }
         }
+
         if(!matchFound) return false;
+
+        // NFT value must always be exactly 1.
+        if(outColorId.type == TokenTypes::NFT && txout.nValue != 1)
+            return false;
+
+        // Global uniqueness: a NON_REISSUABLE or NFT colorId must never have been issued before.
+        // (Multiple outputs with the same NON_REISSUABLE colorId in one tx are allowed —
+        //  they split the initial supply. Re-issuance in a future block is impossible because
+        //  the defining UTXO is consumed and its colorId = Hash(prevout) is globally unique.)
+        if(isIssuance && (outColorId.type == TokenTypes::NON_REISSUABLE || outColorId.type == TokenTypes::NFT))
+        {
+            LOCK(cs_issued_colorids);
+            if(g_issued_colorids.count(outColorId))
+                return state.DoS(100, false, REJECT_INVALID, "bad-txns-colorid-already-issued");
+        }
+    }
+
+    // NFT: exactly one output per colorId across the entire transaction.
+    for(const auto& entry : nftOutputCount)
+    {
+        if(entry.second != 1)
+            return state.DoS(100, false, REJECT_INVALID, "bad-txns-nft-output-count");
     }
     return true;
 }
 
-static bool VerifyTokenBalances(const CTransaction& tx,  CValidationState& state, TxColoredCoinBalancesMap& inColoredCoinBalances, CAmount minrelayFee)
+bool VerifyTokenBalances(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, CAmount minrelayFee, std::set<ColorIdentifier>* newIssuances)
 {
+    // Build input balance map from the UTXO view.
+    // Simultaneously collect TPC input outpoints for issuance detection.
+    TxColoredCoinBalancesMap inColoredCoinBalances;
+    std::vector<COutPoint> tpcInputOutpoints;
+    for (const auto& txin : tx.vin) {
+        const Coin& coin = inputs.AccessCoin(txin.prevout);
+        ColorIdentifier cid = GetColorIdFromScript(coin.out.scriptPubKey);
+        auto it = inColoredCoinBalances.find(cid);
+        if (it == inColoredCoinBalances.end())
+            inColoredCoinBalances.emplace(cid, coin.out.nValue);
+        else
+            it->second += coin.out.nValue;
+        if (newIssuances && cid.type == TokenTypes::NONE)
+            tpcInputOutpoints.push_back(txin.prevout);
+    }
+
     //for every output eliminate a matching input.
     //verify that all outputs are matched
     TxColoredCoinBalancesMap outColoredCoinBalances;
@@ -555,6 +619,23 @@ static bool VerifyTokenBalances(const CTransaction& tx,  CValidationState& state
             iter->second -=  out.second;
         }
     }
+
+    // Detect issuances: a NON_REISSUABLE or NFT output whose colorId was
+    // derived from one of the TPC inputs in this transaction.
+    if (newIssuances) {
+        for (const auto& tx_out : tx.vout) {
+            ColorIdentifier outColorId(GetColorIdFromScript(tx_out.scriptPubKey));
+            if (outColorId.type != TokenTypes::NON_REISSUABLE && outColorId.type != TokenTypes::NFT)
+                continue;
+            for (const auto& prevout : tpcInputOutpoints) {
+                if (ColorIdentifier(prevout, outColorId.type) == outColorId) {
+                    newIssuances->insert(outColorId);
+                    break;
+                }
+            }
+        }
+    }
+
     return true;
 }
 
@@ -630,8 +711,11 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
             return false;
 
         //if there are colored coins in the output verify their colorids
-        if(!CheckColorIdentifierValidity(tx, state, view))
-            return state.DoS(0, false, REJECT_COLORID, "invalid-colorid");
+        if(!CheckColorIdentifierValidity(tx, state, view)) {
+            if (state.IsValid())
+                state.DoS(0, false, REJECT_COLORID, "invalid-colorid");
+            return false;
+        }
 
         // Bring the best block into scope
         view.GetBestBlock();
@@ -862,8 +946,7 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
         // Check against previous transactions
         // This is done last to help prevent CPU exhaustion denial-of-service attacks.
         PrecomputedTransactionData txdata(tx);
-        TxColoredCoinBalancesMap inColoredCoinBalances;
-        if (!CheckInputs(tx, state, view, true, STANDARD_SCRIPT_VERIFY_FLAGS, true, false, txdata, inColoredCoinBalances)) {
+        if (!CheckInputs(tx, state, view, true, STANDARD_SCRIPT_VERIFY_FLAGS, true, false, txdata)) {
             return false; // state filled in by CheckInputs
         }
 
@@ -887,10 +970,8 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
                     __func__, hash.ToString(), FormatStateMessage(state));
         }
 
-        //verify token balances:
-       if(!VerifyTokenBalances(tx, opt.state, inColoredCoinBalances, ::minRelayTxFee.GetFee(nSize) )) {
+        if (!VerifyTokenBalances(tx, opt.state, view, ::minRelayTxFee.GetFee(nSize)))
             return false;
-        }
 
 
         if (opt.flags == MempoolAcceptanceFlags::TEST_ONLY) {
@@ -1092,7 +1173,7 @@ void InitScriptExecutionCache() {
             (nElems*sizeof(uint256)) >>20, (nMaxCacheSize*2)>>20, nElems);
 }
 
-bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheSigStore, bool cacheFullScriptStore, PrecomputedTransactionData& txdata, TxColoredCoinBalancesMap& inColoredCoinBalances, std::vector<CScriptCheck> *pvChecks)
+bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheSigStore, bool cacheFullScriptStore, PrecomputedTransactionData& txdata, std::vector<CScriptCheck> *pvChecks)
 {
     if (!tx.IsCoinBase())
     {
@@ -1160,13 +1241,6 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                     // super-majority signaling has occurred.
                     return state.DoS(100,false, REJECT_INVALID, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(check.GetScriptError())));
                 }
-                ColorIdentifier colorId(check.GetColorIdentifier());
-                //collect token balances from verified input.
-                auto iter = inColoredCoinBalances.find(colorId);
-                if(iter == inColoredCoinBalances.end())
-                    inColoredCoinBalances.emplace(colorId, coin.out.nValue);
-                else
-                    iter->second += coin.out.nValue;
             }
 
             if (cacheFullScriptStore && !pvChecks) {
