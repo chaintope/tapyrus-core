@@ -10,13 +10,14 @@
 #include <amount.h>
 #include <pubkey.h>
 #include <utilstrencodings.h>
+#include <primitives/transaction.h>
 
 extern const std::string CURRENCY_UNIT;
 
 // Size of color identifier data in bytes
 static const unsigned int COLOR_IDENTIFIER_SIZE = 33;
 
-enum class TokenTypes
+enum class TokenTypes : uint8_t
 {
     NONE = 0x00, //TPC
     REISSUABLE = 0xc1,
@@ -56,7 +57,7 @@ struct ColorIdentifier
 
     ColorIdentifier():type(TokenTypes::NONE), payload{} { }
 
-    ColorIdentifier(COutPoint &utxoIn, TokenTypes typeIn):type(typeIn), payload{} {
+    ColorIdentifier(const COutPoint &utxoIn, TokenTypes typeIn):type(typeIn), payload{} {
         CDataStream s(SER_NETWORK, INIT_PROTO_VERSION);
         s << utxoIn;
         CSHA256().Write((unsigned char *)s.data(), s.size()).Finalize(payload);
