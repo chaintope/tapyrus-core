@@ -844,6 +844,8 @@ BOOST_FIXTURE_TEST_CASE(wallet_tx_getdebit_and_getcredit_with_watch_only, TestCh
     BOOST_CHECK_EQUAL(wallet.GetBalance()[defaultColorId], 250 * COIN);
     BOOST_CHECK_EQUAL(wallet.GetBalance()[colorId], 0);
 
+    // Custom colored scripts are no longer recognized as colored (CP2PKH/CP2SH only).
+    // GetColorIdFromScript returns NONE for these, so the wallet treats their value as TPC.
     auto colored_custom_script = CScript() << colorId.toVector() << OP_COLOR << OP_9 << OP_ADD << OP_11 << OP_EQUAL;
     auto uncolored_custom_script = CScript() << OP_9 << OP_ADD << OP_11 << OP_EQUAL;
 
@@ -872,8 +874,11 @@ BOOST_FIXTURE_TEST_CASE(wallet_tx_getdebit_and_getcredit_with_watch_only, TestCh
     BOOST_CHECK_EQUAL(wtx.GetDebit(ISMINE_WATCH_ONLY, defaultColorId), 0);
     BOOST_CHECK_EQUAL(wtx.GetDebit(ISMINE_WATCH_ONLY, colorId), 0);
     BOOST_CHECK_EQUAL(wtx.GetCredit(ISMINE_SPENDABLE, defaultColorId), 0);
+    // colored_custom_script is not CP2PKH/CP2SH, so GetColorIdFromScript returns NONE.
+    // The wallet skips it entirely: its value (100 CENT) is counted in no balance.
+    // Only the uncolored_custom_script output (50 COIN TPC) contributes to defaultColorId credit.
     BOOST_CHECK_EQUAL(wtx.GetCredit(ISMINE_WATCH_ONLY, defaultColorId), 50 * COIN);
-    BOOST_CHECK_EQUAL(wtx.GetCredit(ISMINE_WATCH_ONLY, colorId), 100 * CENT);
+    BOOST_CHECK_EQUAL(wtx.GetCredit(ISMINE_WATCH_ONLY, colorId), 0);
 
     // Create a tx that has two debits, 50 TPC and 100 cent colored coin.
     CMutableTransaction tx2;
@@ -892,10 +897,12 @@ BOOST_FIXTURE_TEST_CASE(wallet_tx_getdebit_and_getcredit_with_watch_only, TestCh
     CWalletTx wtx2(pwallet, MakeTransactionRef(tx2));
     wallet.AddToWallet(wtx2);
 
+    // tx.vout[0] (colored_custom_script) is non-standard — skipped in debit/credit.
+    // tx.vout[1] (uncolored_custom_script, 50 COIN TPC) is counted normally.
     BOOST_CHECK_EQUAL(wtx2.GetDebit(ISMINE_WATCH_ONLY, defaultColorId), 50 * COIN);
-    BOOST_CHECK_EQUAL(wtx2.GetDebit(ISMINE_WATCH_ONLY, colorId), 100 * CENT);
+    BOOST_CHECK_EQUAL(wtx2.GetDebit(ISMINE_WATCH_ONLY, colorId), 0);
     BOOST_CHECK_EQUAL(wtx2.GetCredit(ISMINE_WATCH_ONLY, defaultColorId), 50 * COIN);
-    BOOST_CHECK_EQUAL(wtx2.GetCredit(ISMINE_WATCH_ONLY, colorId), 100 * CENT);
+    BOOST_CHECK_EQUAL(wtx2.GetCredit(ISMINE_WATCH_ONLY, colorId), 0);
 }
 
 BOOST_FIXTURE_TEST_CASE(wallet_tx_getchange, TestChainSetup)

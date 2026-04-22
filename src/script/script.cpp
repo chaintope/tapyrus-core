@@ -242,6 +242,44 @@ bool CScript::IsColoredPayToScriptHash() const
     return false;
 }
 
+bool CScript::IsColoredPayToPubkeyHash(std::vector<unsigned char>& pubkeyhash, std::vector<unsigned char>& colorid) const
+{
+    //<COLOR identifier> OP_COLOR OP_DUP OP_HASH160 <H(pubkey)> OP_EQUALVERIFY OP_CHECKSIG
+    // <COLOR identifier> : TYPE = 1 byte and 32 byte PAYLOAD
+    if (this->size() == 60 &&
+         (*this)[0] == 0x21 &&
+         (*this)[34] == OP_COLOR &&
+         (*this)[35] == OP_DUP &&
+         (*this)[36] == OP_HASH160 &&
+         (*this)[37] == 20 &&
+         (*this)[58] == OP_EQUALVERIFY &&
+         (*this)[59] == OP_CHECKSIG &&
+
+         ((*this)[1] == TokenToUint(TokenTypes::REISSUABLE) ||
+          (*this)[1] == TokenToUint(TokenTypes::NON_REISSUABLE) ||
+          (*this)[1] == TokenToUint(TokenTypes::NFT)))
+    {
+        pubkeyhash = std::vector<unsigned char>(this->begin() + 38, this->begin() + 58);
+        colorid = std::vector<unsigned char>(this->begin() + 1, this->begin() + 34);
+        return true;
+    }
+    return false;
+}
+
+bool CScript::IsColoredBurnScript() const
+{
+    // <COLOR identifier> OP_COLOR OP_TRUE
+    // <COLOR identifier> : TYPE = 1 byte and 32 byte PAYLOAD
+    if (this->size() == 36)
+        return ((*this)[0] == 0x21 &&
+                (*this)[34] == OP_COLOR &&
+                (*this)[35] == OP_TRUE &&
+                ((*this)[1] == TokenToUint(TokenTypes::REISSUABLE) ||
+                 (*this)[1] == TokenToUint(TokenTypes::NON_REISSUABLE) ||
+                 (*this)[1] == TokenToUint(TokenTypes::NFT)));
+    return false;
+}
+
 bool CScript::IsPayToWitnessScriptHash() const
 {
     // Extra-fast test for pay-to-witness-script-hash CScripts:
@@ -368,57 +406,3 @@ bool GetScriptOp(CScriptBase::const_iterator& pc, CScriptBase::const_iterator en
     return true;
 }
 
-
-bool MatchColoredPayToPubkeyHash(const CScript& script, std::vector<unsigned char>& pubkeyhash, std::vector<unsigned char>& colorid)
-{
-    //<COLOR identifier> OP_COLOR OP_DUP OP_HASH160 <H(pubkey)> OP_EQUALVERIFY OP_CHECKSIG
-    // <COLOR identifier> : TYPE = 1 byte and 32 byte PAYLOAD
-    if (script.size() == 60 &&
-         script[0] == 0x21 &&
-         script[34] == OP_COLOR &&
-         script[35] == OP_DUP &&
-         script[36] == OP_HASH160 &&
-         script[37] == 20 &&
-         script[58] == OP_EQUALVERIFY &&
-         script[59] == OP_CHECKSIG &&
-
-         (script[1] == TokenToUint(TokenTypes::REISSUABLE) ||
-          script[1] == TokenToUint(TokenTypes::NON_REISSUABLE) ||
-          script[1] == TokenToUint(TokenTypes::NFT)))
-    {
-        pubkeyhash = std::vector<unsigned char>(script.begin() + 38, script.begin() + 58);
-        colorid = std::vector<unsigned char>(script.begin() + 1, script.begin() + 34);
-        return true;
-    }
-    return false;
-}
-
-bool MatchCustomColoredScript(const CScript& script, std::vector<unsigned char>& colorid)
-{
-    //search for colorid in the script
-    // pattern: 0x21<33 byte>OP_COLOR
-    CScript::const_iterator iterColorId1 = std::find(script.begin(), script.end(), 0x21);
-    CScript::const_iterator iterOpColor = script.begin();
-    opcodetype opcode;
-    while (iterOpColor < script.end())
-    {
-        if (!script.GetOp(iterOpColor, opcode))
-            return false;
-        if (opcode == OP_COLOR)
-            break;
-    }
-
-    if(iterOpColor == script.end())
-        return false;
-
-    if(iterColorId1 != script.end() && std::distance(iterColorId1 + 1, iterOpColor - 1) == COLOR_IDENTIFIER_SIZE &&
-      (*(iterColorId1 + 1) == TokenToUint(TokenTypes::REISSUABLE) ||
-       *(iterColorId1 + 1) == TokenToUint(TokenTypes::NON_REISSUABLE) ||
-       *(iterColorId1 + 1) == TokenToUint(TokenTypes::NFT)))
-    {
-        colorid.assign(iterColorId1 + 1, iterColorId1 + 34);
-        return true;
-    }
-    
-    return false;
-}
