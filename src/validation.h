@@ -16,6 +16,7 @@
 #include <script/script_error.h>
 #include <sync.h>
 #include <chainparams.h>
+#include <coloridentifier.h>
 #include <chain.h>
 #include <xfieldhistory.h>
 #include <txmempool.h>
@@ -151,6 +152,11 @@ extern const std::string strMessageMagic;
 extern Mutex g_best_block_mutex;
 extern CConditionVariable g_best_block_cv;
 extern uint256 g_best_block;
+/** Guards g_issued_colorids. */
+extern Mutex cs_issued_colorids;
+/** Set of all NON_REISSUABLE and NFT colorIds ever issued on this chain.
+ *  Populated from LevelDB at startup; updated on ConnectBlock/DisconnectBlock. */
+extern std::set<ColorIdentifier> g_issued_colorids;
 extern std::atomic_bool fImporting;
 extern std::atomic_bool fReindex;
 extern int nScriptCheckThreads;
@@ -350,7 +356,7 @@ bool CheckSequenceLocks(const CTransaction &tx, int flags,  CCoinsViewMemPool& v
  *
  * Non-static (and re-declared) in src/test/txvalidationcache_tests.cpp
  */
-bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheSigStore, bool cacheFullScriptStore, PrecomputedTransactionData& txdata, TxColoredCoinBalancesMap& inColoredCoinBalances, std::vector<CScriptCheck> *pvChecks = nullptr);
+bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheSigStore, bool cacheFullScriptStore, PrecomputedTransactionData& txdata, std::vector<CScriptCheck> *pvChecks = nullptr);
 
 
 /** Functions for validating blocks and updating the block tree */
@@ -386,6 +392,11 @@ bool TestBlockValidity(CValidationState& state, const CBlock& block, CBlockIndex
 /** When there are blocks in the active chain with missing data, rewind the chainstate and remove them from the block index */
 bool RewindBlockIndex();
 
+/** Verify coloured coin type related consensus rules */
+bool CheckColorIdentifierValidity(const CTransaction& tx, CValidationState& state, CCoinsViewCache &inputs);
+
+/** Check token input and output amounts within a trasnaction */
+bool VerifyTokenBalances(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, CAmount minrelayFee, std::set<ColorIdentifier>* newIssuances = nullptr);
 
 /** Replay blocks that aren't fully applied to the database. */
 bool ReplayBlocks(CCoinsView* view);

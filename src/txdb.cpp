@@ -28,6 +28,7 @@ static const char DB_HEAD_BLOCKS = 'H';
 static const char DB_FLAG = 'F';
 static const char DB_REINDEX_FLAG = 'R';
 static const char DB_LAST_BLOCK = 'l';
+static const char DB_ISSUED_COLORID = 'I';
 
 namespace {
 
@@ -429,4 +430,28 @@ bool CCoinsViewDB::Upgrade() {
     uiInterface.ShowProgress("", 100, false);
     LogPrintf("[%s].\n", ShutdownRequested() ? "CANCELLED" : "DONE");
     return !ShutdownRequested();
+}
+
+bool CBlockTreeDB::WriteIssuedColorId(const ColorIdentifier& colorId)
+{
+    return Write(std::make_pair(DB_ISSUED_COLORID, colorId.toVector()), true);
+}
+
+bool CBlockTreeDB::EraseIssuedColorId(const ColorIdentifier& colorId)
+{
+    return Erase(std::make_pair(DB_ISSUED_COLORID, colorId.toVector()));
+}
+
+bool CBlockTreeDB::LoadIssuedColorIds(std::set<ColorIdentifier>& colorIds)
+{
+    std::unique_ptr<CDBIterator> pcursor(NewIterator());
+    pcursor->Seek(std::make_pair(DB_ISSUED_COLORID, std::vector<unsigned char>{}));
+    while (pcursor->Valid()) {
+        std::pair<char, std::vector<unsigned char>> key;
+        if (!pcursor->GetKey(key) || key.first != DB_ISSUED_COLORID)
+            break;
+        colorIds.insert(ColorIdentifier(key.second));
+        pcursor->Next();
+    }
+    return true;
 }

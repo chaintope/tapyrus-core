@@ -1554,6 +1554,17 @@ bool AppInitMain()
                         xFieldHistory.Add(x, XFieldDB);
                 }
 
+                // Step 7b: Load issued NON_REISSUABLE/NFT colorId set from db
+                {
+                    std::set<ColorIdentifier> issuedColorIds;
+                    if (!pblocktree->LoadIssuedColorIds(issuedColorIds)) {
+                        strLoadError = _("Failed to load issued colorId set from block database");
+                        break;
+                    }
+                    LOCK(cs_issued_colorids);
+                    g_issued_colorids = std::move(issuedColorIds);
+                }
+
                 if (!is_coinsview_empty) {
                     uiInterface.InitMessage(_("Verifying blocks..."));
                     if (fHavePruned && gArgs.GetArg("-checkblocks", DEFAULT_CHECKBLOCKS) > MIN_BLOCKS_TO_KEEP) {
