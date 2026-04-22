@@ -1607,36 +1607,6 @@ BOOST_AUTO_TEST_CASE(script_build)
         "CHECKSIG SCHNORR without Hashtype byte", SCRIPT_VERIFY_NONE)
                         .PushDataSig(keys.key1, SignatureScheme::SCHNORR, {})
                         .ScriptError(SCRIPT_ERR_SIG_DER));
-    tests.push_back(TestBuilder(CScript() << ColorIdentifier(CScript() << ToByteVector(keys.pubkey0C) << OP_CHECKSIG).toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(keys.pubkey1C.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG,
-        "CP2PKH ECDSA", 0)
-                        .PushSig(keys.key1, SignatureScheme::ECDSA)
-                        .Push(keys.pubkey1C));
-    tests.push_back(TestBuilder(CScript() << ColorIdentifier(CScript() << ToByteVector(keys.pubkey0C) << OP_CHECKSIG).toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(keys.pubkey1C.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG,
-        "CP2PKH SCHNORR", 0)
-                        .PushSig(keys.key1, SignatureScheme::SCHNORR)
-                        .Push(keys.pubkey1C));
-    tests.push_back(TestBuilder(CScript() << ColorIdentifier(CScript() << ToByteVector(keys.pubkey0C) << OP_CHECKSIG).toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(keys.pubkey1C.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG,
-        "P2SH(CP2PKH) ECDSA is invalid", SCRIPT_VERIFY_NONE, true, WitnessMode::NONE, 0, 0,true)
-                        .PushSig(keys.key0, SignatureScheme::ECDSA)
-                        .Push(keys.pubkey0)
-                        .PushRedeem()
-                        .ScriptError(SCRIPT_ERR_OP_COLOR_UNEXPECTED));
-    tests.push_back(TestBuilder(CScript() << ColorIdentifier(CScript() << ToByteVector(keys.pubkey0C) << OP_CHECKSIG).toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(keys.pubkey1C.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG,
-        "P2SH(CP2PKH) SCHNORR is invalid", SCRIPT_VERIFY_NONE, true, WitnessMode::NONE, 0, 0,true)
-                        .PushSig(keys.key0, SignatureScheme::SCHNORR)
-                        .Push(keys.pubkey0)
-                        .PushRedeem()
-                        .ScriptError(SCRIPT_ERR_OP_COLOR_UNEXPECTED));
-    tests.push_back(TestBuilder(CScript() << ColorIdentifier(CScript() << ToByteVector(keys.pubkey0C) << OP_CHECKSIG).toVector() << OP_COLOR << OP_HASH160 << ToByteVector(CScriptID(CScript() << OP_DUP << OP_HASH160 << ToByteVector(keys.pubkey1C.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG)) << OP_EQUAL,
-        "CP2SH(P2PKH) ECDSA", SCRIPT_VERIFY_NONE, true)
-                        .PushSig(keys.key1, SignatureScheme::ECDSA)
-                        .Push(keys.pubkey1C)
-                        .PushRedeem());
-    tests.push_back(TestBuilder(CScript() << ColorIdentifier(CScript() << ToByteVector(keys.pubkey0C) << OP_CHECKSIG).toVector() << OP_COLOR << OP_HASH160 << ToByteVector(CScriptID(CScript() << OP_DUP << OP_HASH160 << ToByteVector(keys.pubkey1C.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG)) << OP_EQUAL,
-        "CP2SH(P2PKH) SCHNORR", SCRIPT_VERIFY_NONE, true)
-                        .PushSig(keys.key1, SignatureScheme::SCHNORR)
-                        .Push(keys.pubkey1C)
-                        .PushRedeem());
     {
         UniValue json_tests = read_json(std::string(json_tests::script_tests));
 
@@ -2342,6 +2312,814 @@ BOOST_AUTO_TEST_CASE(script_can_append_self)
     BOOST_CHECK(s == d);
 }
 
+// -----------------------------------------------------------------------
+// Colored coin script execution tests
+//
+// These tests exercise VerifyScript directly for CP2PKH and CP2SH scripts
+// across all three token types (REISSUABLE, NON_REISSUABLE, NFT) and for
+// the three token operations (issuance output, transfer, burn).
+//
+// At the script-execution level issuance/transfer/burn all spend a CP2PKH
+// output — the distinction is at the transaction level.  What we verify
+// here is that:
+//   - valid signatures are accepted for every token type and sig scheme
+//   - bad signatures and bad pubkeys are rejected with the right error
+//   - OP_COLOR error conditions (invalid colorId, multiple OP_COLOR,
+//     OP_COLOR inside a branch) are all caught
+// -----------------------------------------------------------------------
+BOOST_AUTO_TEST_CASE(colored_coin_script_execution)
+{
+    const KeyData keys;
+
+    // REISSUABLE colorId — derived from a P2PK script
+    ColorIdentifier reissuableCid(CScript() << ToByteVector(keys.pubkey0C) << OP_CHECKSIG);
+
+    // NON_REISSUABLE and NFT colorIds — derived from a fixed COutPoint
+    COutPoint outpoint(uint256S("3ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a"), 0);
+    ColorIdentifier nonReissuableCid(outpoint, TokenTypes::NON_REISSUABLE);
+    ColorIdentifier nftCid(outpoint, TokenTypes::NFT);
+
+    // Standard CP2PKH scriptPubKey for a given colorId
+    auto cp2pkh = [&](const ColorIdentifier& cid) {
+        return CScript() << cid.toVector() << OP_COLOR
+                         << OP_DUP << OP_HASH160 << ToByteVector(keys.pubkey1C.GetID())
+                         << OP_EQUALVERIFY << OP_CHECKSIG;
+    };
+    // Inner P2PKH script used as the CP2SH redeem script
+    CScript cp2sh_inner = CScript() << OP_DUP << OP_HASH160
+                                    << ToByteVector(keys.pubkey1C.GetID())
+                                    << OP_EQUALVERIFY << OP_CHECKSIG;
+
+    std::vector<TestBuilder> tests;
+
+    // -- REISSUABLE --
+    // issuance output: script of the newly created colored UTXO
+    tests.push_back(TestBuilder(cp2pkh(reissuableCid),
+        "CP2PKH REISSUABLE issuance output ECDSA", 0)
+                        .PushSig(keys.key1, SignatureScheme::ECDSA)
+                        .Push(keys.pubkey1C));
+    tests.push_back(TestBuilder(cp2pkh(reissuableCid),
+        "CP2PKH REISSUABLE issuance output SCHNORR", 0)
+                        .PushSig(keys.key1, SignatureScheme::SCHNORR)
+                        .Push(keys.pubkey1C));
+    // transfer: spending the colored UTXO to move it to a new address
+    tests.push_back(TestBuilder(cp2pkh(reissuableCid),
+        "CP2PKH REISSUABLE transfer ECDSA", 0)
+                        .PushSig(keys.key1, SignatureScheme::ECDSA)
+                        .Push(keys.pubkey1C));
+    tests.push_back(TestBuilder(cp2pkh(reissuableCid),
+        "CP2PKH REISSUABLE transfer SCHNORR", 0)
+                        .PushSig(keys.key1, SignatureScheme::SCHNORR)
+                        .Push(keys.pubkey1C));
+    // burn: spending the colored UTXO with no colored output in the spending tx
+    tests.push_back(TestBuilder(cp2pkh(reissuableCid),
+        "CP2PKH REISSUABLE burn ECDSA", 0)
+                        .PushSig(keys.key1, SignatureScheme::ECDSA)
+                        .Push(keys.pubkey1C));
+    tests.push_back(TestBuilder(cp2pkh(reissuableCid),
+        "CP2PKH REISSUABLE burn SCHNORR", 0)
+                        .PushSig(keys.key1, SignatureScheme::SCHNORR)
+                        .Push(keys.pubkey1C));
+    tests.push_back(TestBuilder(cp2pkh(reissuableCid),
+        "CP2PKH REISSUABLE bad sig", 0)
+                        .PushSig(keys.key1, SignatureScheme::ECDSA)
+                        .DamagePush(10)
+                        .Push(keys.pubkey1C)
+                        .ScriptError(SCRIPT_ERR_EVAL_FALSE));
+    tests.push_back(TestBuilder(cp2pkh(reissuableCid),
+        "CP2PKH REISSUABLE bad pubkey", 0)
+                        .PushSig(keys.key1, SignatureScheme::ECDSA)
+                        .Push(keys.pubkey1C)
+                        .DamagePush(5)
+                        .ScriptError(SCRIPT_ERR_EQUALVERIFY));
+
+    // -- NON_REISSUABLE --
+    tests.push_back(TestBuilder(cp2pkh(nonReissuableCid),
+        "CP2PKH NON_REISSUABLE issuance output ECDSA", 0)
+                        .PushSig(keys.key1, SignatureScheme::ECDSA)
+                        .Push(keys.pubkey1C));
+    tests.push_back(TestBuilder(cp2pkh(nonReissuableCid),
+        "CP2PKH NON_REISSUABLE issuance output SCHNORR", 0)
+                        .PushSig(keys.key1, SignatureScheme::SCHNORR)
+                        .Push(keys.pubkey1C));
+    tests.push_back(TestBuilder(cp2pkh(nonReissuableCid),
+        "CP2PKH NON_REISSUABLE transfer ECDSA", 0)
+                        .PushSig(keys.key1, SignatureScheme::ECDSA)
+                        .Push(keys.pubkey1C));
+    tests.push_back(TestBuilder(cp2pkh(nonReissuableCid),
+        "CP2PKH NON_REISSUABLE transfer SCHNORR", 0)
+                        .PushSig(keys.key1, SignatureScheme::SCHNORR)
+                        .Push(keys.pubkey1C));
+    tests.push_back(TestBuilder(cp2pkh(nonReissuableCid),
+        "CP2PKH NON_REISSUABLE burn ECDSA", 0)
+                        .PushSig(keys.key1, SignatureScheme::ECDSA)
+                        .Push(keys.pubkey1C));
+    tests.push_back(TestBuilder(cp2pkh(nonReissuableCid),
+        "CP2PKH NON_REISSUABLE burn SCHNORR", 0)
+                        .PushSig(keys.key1, SignatureScheme::SCHNORR)
+                        .Push(keys.pubkey1C));
+    tests.push_back(TestBuilder(cp2pkh(nonReissuableCid),
+        "CP2PKH NON_REISSUABLE bad sig", 0)
+                        .PushSig(keys.key1, SignatureScheme::ECDSA)
+                        .DamagePush(10)
+                        .Push(keys.pubkey1C)
+                        .ScriptError(SCRIPT_ERR_EVAL_FALSE));
+    tests.push_back(TestBuilder(cp2pkh(nonReissuableCid),
+        "CP2PKH NON_REISSUABLE bad pubkey", 0)
+                        .PushSig(keys.key1, SignatureScheme::ECDSA)
+                        .Push(keys.pubkey1C)
+                        .DamagePush(5)
+                        .ScriptError(SCRIPT_ERR_EQUALVERIFY));
+
+    // -- NFT --
+    tests.push_back(TestBuilder(cp2pkh(nftCid),
+        "CP2PKH NFT issuance output ECDSA", 0)
+                        .PushSig(keys.key1, SignatureScheme::ECDSA)
+                        .Push(keys.pubkey1C));
+    tests.push_back(TestBuilder(cp2pkh(nftCid),
+        "CP2PKH NFT issuance output SCHNORR", 0)
+                        .PushSig(keys.key1, SignatureScheme::SCHNORR)
+                        .Push(keys.pubkey1C));
+    tests.push_back(TestBuilder(cp2pkh(nftCid),
+        "CP2PKH NFT transfer ECDSA", 0)
+                        .PushSig(keys.key1, SignatureScheme::ECDSA)
+                        .Push(keys.pubkey1C));
+    tests.push_back(TestBuilder(cp2pkh(nftCid),
+        "CP2PKH NFT transfer SCHNORR", 0)
+                        .PushSig(keys.key1, SignatureScheme::SCHNORR)
+                        .Push(keys.pubkey1C));
+    tests.push_back(TestBuilder(cp2pkh(nftCid),
+        "CP2PKH NFT burn ECDSA", 0)
+                        .PushSig(keys.key1, SignatureScheme::ECDSA)
+                        .Push(keys.pubkey1C));
+    tests.push_back(TestBuilder(cp2pkh(nftCid),
+        "CP2PKH NFT burn SCHNORR", 0)
+                        .PushSig(keys.key1, SignatureScheme::SCHNORR)
+                        .Push(keys.pubkey1C));
+    tests.push_back(TestBuilder(cp2pkh(nftCid),
+        "CP2PKH NFT bad sig", 0)
+                        .PushSig(keys.key1, SignatureScheme::ECDSA)
+                        .DamagePush(10)
+                        .Push(keys.pubkey1C)
+                        .ScriptError(SCRIPT_ERR_EVAL_FALSE));
+    tests.push_back(TestBuilder(cp2pkh(nftCid),
+        "CP2PKH NFT bad pubkey", 0)
+                        .PushSig(keys.key1, SignatureScheme::ECDSA)
+                        .Push(keys.pubkey1C)
+                        .DamagePush(5)
+                        .ScriptError(SCRIPT_ERR_EQUALVERIFY));
+
+    // -- CP2SH(P2PKH) for each token type --
+    tests.push_back(TestBuilder(CScript() << reissuableCid.toVector() << OP_COLOR
+                                          << OP_HASH160 << ToByteVector(CScriptID(cp2sh_inner)) << OP_EQUAL,
+        "CP2SH(P2PKH) REISSUABLE ECDSA", SCRIPT_VERIFY_NONE, true)
+                        .PushSig(keys.key1, SignatureScheme::ECDSA)
+                        .Push(keys.pubkey1C)
+                        .PushRedeem());
+    tests.push_back(TestBuilder(CScript() << nonReissuableCid.toVector() << OP_COLOR
+                                          << OP_HASH160 << ToByteVector(CScriptID(cp2sh_inner)) << OP_EQUAL,
+        "CP2SH(P2PKH) NON_REISSUABLE ECDSA", SCRIPT_VERIFY_NONE, true)
+                        .PushSig(keys.key1, SignatureScheme::ECDSA)
+                        .Push(keys.pubkey1C)
+                        .PushRedeem());
+    tests.push_back(TestBuilder(CScript() << nftCid.toVector() << OP_COLOR
+                                          << OP_HASH160 << ToByteVector(CScriptID(cp2sh_inner)) << OP_EQUAL,
+        "CP2SH(P2PKH) NFT ECDSA", SCRIPT_VERIFY_NONE, true)
+                        .PushSig(keys.key1, SignatureScheme::ECDSA)
+                        .Push(keys.pubkey1C)
+                        .PushRedeem());
+
+    // -- OP_COLOR error conditions --
+
+    // Invalid colorId: type byte 0x00 (NONE) is not a valid token type in a script
+    {
+        std::vector<unsigned char> invalidCid(33, 0x00);
+        tests.push_back(TestBuilder(CScript() << invalidCid << OP_COLOR
+                                              << OP_DUP << OP_HASH160 << ToByteVector(keys.pubkey1C.GetID())
+                                              << OP_EQUALVERIFY << OP_CHECKSIG,
+            "CP2PKH invalid colorId (type NONE)", 0)
+                            .PushSig(keys.key1, SignatureScheme::ECDSA)
+                            .Push(keys.pubkey1C)
+                            .ScriptError(SCRIPT_ERR_OP_COLORID_INVALID));
+    }
+
+    // Multiple OP_COLOR: second OP_COLOR fires SCRIPT_ERR_OP_COLORMULTIPLE
+    tests.push_back(TestBuilder(CScript() << reissuableCid.toVector() << OP_COLOR
+                                          << nftCid.toVector() << OP_COLOR
+                                          << OP_DUP << OP_HASH160 << ToByteVector(keys.pubkey1C.GetID())
+                                          << OP_EQUALVERIFY << OP_CHECKSIG,
+        "CP2PKH multiple OP_COLOR", 0)
+                        .PushSig(keys.key1, SignatureScheme::ECDSA)
+                        .Push(keys.pubkey1C)
+                        .ScriptError(SCRIPT_ERR_OP_COLORMULTIPLE));
+
+    // OP_COLOR inside an IF branch: OP_1 guarantees the branch is always entered
+    tests.push_back(TestBuilder(CScript() << OP_1 << OP_IF
+                                          << reissuableCid.toVector() << OP_COLOR
+                                          << OP_DUP << OP_HASH160 << ToByteVector(keys.pubkey1C.GetID())
+                                          << OP_EQUALVERIFY << OP_CHECKSIG
+                                          << OP_ENDIF,
+        "CP2PKH OP_COLOR in IF branch", 0)
+                        .PushSig(keys.key1, SignatureScheme::ECDSA)
+                        .Push(keys.pubkey1C)
+                        .ScriptError(SCRIPT_ERR_OP_COLORINBRANCH));
+
+    for (TestBuilder& test : tests) {
+        test.Test();
+    }
+}
+
+BOOST_AUTO_TEST_CASE(colored_coin_standard_scripts)
+{
+    const KeyData keys;
+
+    // REISSUABLE colorId derived from pubkey0C P2PK script
+    ColorIdentifier cid(CScript() << ToByteVector(keys.pubkey0C) << OP_CHECKSIG);
+
+    // CP2PKH scriptPubKey: <colorId> OP_COLOR OP_DUP OP_HASH160 <hash> OP_EQUALVERIFY OP_CHECKSIG
+    CScript cp2pkh;
+    cp2pkh << cid.toVector() << OP_COLOR
+           << OP_DUP << OP_HASH160 << ToByteVector(keys.pubkey1C.GetID())
+           << OP_EQUALVERIFY << OP_CHECKSIG;
+
+    // CP2SH inner script: P2PKH for pubkey1C
+    CScript innerP2PKH;
+    innerP2PKH << OP_DUP << OP_HASH160 << ToByteVector(keys.pubkey1C.GetID())
+               << OP_EQUALVERIFY << OP_CHECKSIG;
+
+    // CP2SH scriptPubKey: <colorId> OP_COLOR OP_HASH160 <scriptHash> OP_EQUAL
+    CScript cp2sh;
+    cp2sh << cid.toVector() << OP_COLOR
+          << OP_HASH160 << ToByteVector(CScriptID(innerP2PKH)) << OP_EQUAL;
+
+    std::vector<TestBuilder> tests;
+
+    // CP2PKH — valid ECDSA spend
+    tests.push_back(TestBuilder(cp2pkh, "CP2PKH ECDSA", 0)
+                        .PushSig(keys.key1, SignatureScheme::ECDSA)
+                        .Push(keys.pubkey1C));
+
+    // CP2PKH — valid SCHNORR spend
+    tests.push_back(TestBuilder(cp2pkh, "CP2PKH SCHNORR", 0)
+                        .PushSig(keys.key1, SignatureScheme::SCHNORR)
+                        .Push(keys.pubkey1C));
+
+    // P2SH(CP2PKH) — OP_COLOR inside a P2SH redeem script is forbidden
+    tests.push_back(TestBuilder(cp2pkh,
+        "P2SH(CP2PKH) ECDSA is invalid", SCRIPT_VERIFY_NONE,
+        /*P2SH=*/true, WitnessMode::NONE, 0, 0, /*ignoreColor=*/true)
+                        .PushSig(keys.key0, SignatureScheme::ECDSA)
+                        .Push(keys.pubkey0)
+                        .PushRedeem()
+                        .ScriptError(SCRIPT_ERR_OP_COLOR_UNEXPECTED));
+
+    tests.push_back(TestBuilder(cp2pkh,
+        "P2SH(CP2PKH) SCHNORR is invalid", SCRIPT_VERIFY_NONE,
+        /*P2SH=*/true, WitnessMode::NONE, 0, 0, /*ignoreColor=*/true)
+                        .PushSig(keys.key0, SignatureScheme::SCHNORR)
+                        .Push(keys.pubkey0)
+                        .PushRedeem()
+                        .ScriptError(SCRIPT_ERR_OP_COLOR_UNEXPECTED));
+
+    // CP2SH(P2PKH) — colored P2SH where the outer script has OP_COLOR and the
+    // redeem script is a plain P2PKH; valid ECDSA and SCHNORR spends
+    tests.push_back(TestBuilder(cp2sh, "CP2SH(P2PKH) ECDSA", SCRIPT_VERIFY_NONE, /*P2SH=*/true)
+                        .PushSig(keys.key1, SignatureScheme::ECDSA)
+                        .Push(keys.pubkey1C)
+                        .PushRedeem());
+
+    tests.push_back(TestBuilder(cp2sh, "CP2SH(P2PKH) SCHNORR", SCRIPT_VERIFY_NONE, /*P2SH=*/true)
+                        .PushSig(keys.key1, SignatureScheme::SCHNORR)
+                        .Push(keys.pubkey1C)
+                        .PushRedeem());
+
+    for (TestBuilder& test : tests) {
+        test.Test();
+    }
+}
+
+BOOST_AUTO_TEST_CASE(colored_coin_arithmetic_scripts)
+{
+    const KeyData keys;
+
+    // Use REISSUABLE colorId for all arithmetic script tests
+    ColorIdentifier cid(CScript() << ToByteVector(keys.pubkey0C) << OP_CHECKSIG);
+
+    // Helper: wrap an arithmetic scriptPubKey fragment with <colorId> OP_COLOR
+    auto colored = [&](CScript inner) {
+        CScript s;
+        s << cid.toVector() << OP_COLOR;
+        s += inner;
+        return s;
+    };
+
+    std::vector<TestBuilder> tests;
+
+    // OP_ADD: scriptSig pushes 6; scriptPubKey has OP_9 OP_ADD 15 OP_NUMEQUAL
+    // Stack after scriptSig: [6]
+    // After OP_9: [6, 9]
+    // After OP_ADD: [15]
+    // After 15: [15, 15]
+    // After OP_NUMEQUAL: [1] — pass
+    tests.push_back(TestBuilder(colored(CScript() << OP_9 << OP_ADD << 15 << OP_NUMEQUAL),
+        "Colored OP_ADD valid (6+9=15)", 0)
+                        .Num(6));
+    tests.push_back(TestBuilder(colored(CScript() << OP_9 << OP_ADD << 15 << OP_NUMEQUAL),
+        "Colored OP_ADD invalid (7+9=16 != 15)", 0)
+                        .Num(7)
+                        .ScriptError(SCRIPT_ERR_EVAL_FALSE));
+
+    // OP_SUB: scriptSig pushes 10 then 7; scriptPubKey has OP_SUB 3 OP_NUMEQUAL
+    // Stack after scriptSig: [10, 7]
+    // After OP_SUB: [3]  (10 - 7)
+    // After 3: [3, 3]
+    // After OP_NUMEQUAL: [1] — pass
+    tests.push_back(TestBuilder(colored(CScript() << OP_SUB << 3 << OP_NUMEQUAL),
+        "Colored OP_SUB valid (10-7=3)", 0)
+                        .Num(10).Num(7));
+    tests.push_back(TestBuilder(colored(CScript() << OP_SUB << 3 << OP_NUMEQUAL),
+        "Colored OP_SUB invalid (10-8=2 != 3)", 0)
+                        .Num(10).Num(8)
+                        .ScriptError(SCRIPT_ERR_EVAL_FALSE));
+
+    // OP_WITHIN: scriptSig pushes 7; scriptPubKey has 5 10 OP_WITHIN
+    // Stack after scriptSig: [7]
+    // After 5: [7, 5]
+    // After 10: [7, 5, 10]
+    // After OP_WITHIN: [1]  (5 <= 7 < 10) — pass
+    tests.push_back(TestBuilder(colored(CScript() << 5 << 10 << OP_WITHIN),
+        "Colored OP_WITHIN valid (5<=7<10)", 0)
+                        .Num(7));
+    tests.push_back(TestBuilder(colored(CScript() << 5 << 10 << OP_WITHIN),
+        "Colored OP_WITHIN invalid (4 < 5)", 0)
+                        .Num(4)
+                        .ScriptError(SCRIPT_ERR_EVAL_FALSE));
+
+    // OP_MIN: scriptSig pushes 3 and 7; scriptPubKey has OP_MIN 3 OP_NUMEQUAL
+    // Stack after scriptSig: [3, 7]
+    // After OP_MIN: [3]
+    // After 3: [3, 3]
+    // After OP_NUMEQUAL: [1] — pass
+    tests.push_back(TestBuilder(colored(CScript() << OP_MIN << 3 << OP_NUMEQUAL),
+        "Colored OP_MIN valid (min(3,7)=3)", 0)
+                        .Num(3).Num(7));
+    tests.push_back(TestBuilder(colored(CScript() << OP_MIN << 3 << OP_NUMEQUAL),
+        "Colored OP_MIN invalid (min(5,7)=5 != 3)", 0)
+                        .Num(5).Num(7)
+                        .ScriptError(SCRIPT_ERR_EVAL_FALSE));
+
+    // OP_MAX: scriptSig pushes 3 and 7; scriptPubKey has OP_MAX 7 OP_NUMEQUAL
+    // Stack after scriptSig: [3, 7]
+    // After OP_MAX: [7]
+    // After 7: [7, 7]
+    // After OP_NUMEQUAL: [1] — pass
+    tests.push_back(TestBuilder(colored(CScript() << OP_MAX << 7 << OP_NUMEQUAL),
+        "Colored OP_MAX valid (max(3,7)=7)", 0)
+                        .Num(3).Num(7));
+    tests.push_back(TestBuilder(colored(CScript() << OP_MAX << 7 << OP_NUMEQUAL),
+        "Colored OP_MAX invalid (max(3,6)=6 != 7)", 0)
+                        .Num(3).Num(6)
+                        .ScriptError(SCRIPT_ERR_EVAL_FALSE));
+
+    // OP_ABS: scriptSig pushes -5; scriptPubKey has OP_ABS 5 OP_NUMEQUAL
+    // Stack after scriptSig: [-5]
+    // After OP_ABS: [5]
+    // After 5: [5, 5]
+    // After OP_NUMEQUAL: [1] — pass
+    tests.push_back(TestBuilder(colored(CScript() << OP_ABS << 5 << OP_NUMEQUAL),
+        "Colored OP_ABS valid (|-5|=5)", 0)
+                        .Num(-5));
+    tests.push_back(TestBuilder(colored(CScript() << OP_ABS << 5 << OP_NUMEQUAL),
+        "Colored OP_ABS invalid (|-3|=3 != 5)", 0)
+                        .Num(-3)
+                        .ScriptError(SCRIPT_ERR_EVAL_FALSE));
+
+    // OP_NEGATE: scriptSig pushes -5; scriptPubKey has OP_NEGATE 5 OP_NUMEQUAL
+    // Stack after scriptSig: [-5]
+    // After OP_NEGATE: [5]
+    // After 5: [5, 5]
+    // After OP_NUMEQUAL: [1] — pass
+    tests.push_back(TestBuilder(colored(CScript() << OP_NEGATE << 5 << OP_NUMEQUAL),
+        "Colored OP_NEGATE valid (-(-5)=5)", 0)
+                        .Num(-5));
+    tests.push_back(TestBuilder(colored(CScript() << OP_NEGATE << 5 << OP_NUMEQUAL),
+        "Colored OP_NEGATE invalid (-(-3)=3 != 5)", 0)
+                        .Num(-3)
+                        .ScriptError(SCRIPT_ERR_EVAL_FALSE));
+
+    // OP_HASH160 preimage: scriptSig pushes preimage; scriptPubKey checks HASH160
+    // preimage = {0x61, 0x62, 0x63} = "abc"
+    {
+        std::vector<unsigned char> preimage = {'a', 'b', 'c'};
+        uint160 h = Hash160(preimage);
+        tests.push_back(TestBuilder(colored(CScript() << OP_HASH160 << ToByteVector(h) << OP_EQUAL),
+            "Colored OP_HASH160 preimage valid", 0)
+                            .Add(CScript() << preimage));
+        std::vector<unsigned char> wrongPreimage = {'x', 'y', 'z'};
+        tests.push_back(TestBuilder(colored(CScript() << OP_HASH160 << ToByteVector(h) << OP_EQUAL),
+            "Colored OP_HASH160 wrong preimage", 0)
+                            .Add(CScript() << wrongPreimage)
+                            .ScriptError(SCRIPT_ERR_EVAL_FALSE));
+    }
+
+    // OP_SIZE: scriptSig pushes a 4-byte blob; scriptPubKey checks size==4 then drops blob
+    // Stack after scriptSig: [{4-byte blob}]
+    // After OP_SIZE: [{4-byte blob}, 4]
+    // After 4: [{4-byte blob}, 4, 4]
+    // After OP_EQUALVERIFY: [{4-byte blob}]
+    // After OP_DROP: []
+    // After OP_1: [1] — pass
+    {
+        std::vector<unsigned char> blob4 = {'a', 'b', 'c', 'd'};
+        std::vector<unsigned char> blob2 = {'a', 'b'};
+        tests.push_back(TestBuilder(colored(CScript() << OP_SIZE << 4 << OP_EQUALVERIFY << OP_DROP << OP_1),
+            "Colored OP_SIZE valid (4-byte blob)", 0)
+                            .Add(CScript() << blob4));
+        tests.push_back(TestBuilder(colored(CScript() << OP_SIZE << 4 << OP_EQUALVERIFY << OP_DROP << OP_1),
+            "Colored OP_SIZE invalid (2-byte blob, size mismatch)", 0)
+                            .Add(CScript() << blob2)
+                            .ScriptError(SCRIPT_ERR_EQUALVERIFY));
+    }
+
+    for (TestBuilder& test : tests) {
+        test.Test();
+    }
+}
+
+BOOST_AUTO_TEST_CASE(colored_coin_opcolor_validity)
+{
+    const KeyData keys;
+
+    // Valid colorIds — non-zero payload
+    ColorIdentifier reissuableCid(CScript() << ToByteVector(keys.pubkey0C) << OP_CHECKSIG);
+    COutPoint outpoint(uint256S("3ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a"), 0);
+    ColorIdentifier nonReissuableCid(outpoint, TokenTypes::NON_REISSUABLE);
+    ColorIdentifier nftCid(outpoint, TokenTypes::NFT);
+
+    // Invalid 33-byte colorId: type byte 0xc4 (unsupported by Tapyrus)
+    std::vector<unsigned char> invalidC4Cid(33);
+    invalidC4Cid[0] = 0xc4;
+    for (int i = 1; i < 33; i++) invalidC4Cid[i] = static_cast<unsigned char>(i); // non-zero payload
+
+    // Helper to concatenate <colorId> OP_COLOR in front of a suffix script
+    auto colored = [](const ColorIdentifier& cid, CScript suffix) {
+        CScript s;
+        s << cid.toVector() << OP_COLOR;
+        s += suffix;
+        return s;
+    };
+
+    std::vector<TestBuilder> tests;
+
+    // ==========================================================
+    // 1. OP_WITHIN + OP_COLOR: check that a pushed value falls in the
+    //    valid colorId type-byte range [0xc1, 0xc4).
+    //    ScriptPubKey: <cid> OP_COLOR 0xc1 0xc4 OP_WITHIN
+    //    ScriptSig:    Num(x)
+    //    Execution after OP_COLOR: [x]. After 0xc1=193, 0xc4=196: [x,193,196].
+    //    OP_WITHIN → [1] if 193 <= x < 196, else [0].
+    // ==========================================================
+    // Valid: x = 0xc1 (193, REISSUABLE type byte) — in range
+    tests.push_back(TestBuilder(colored(reissuableCid, CScript() << 193 << 196 << OP_WITHIN),
+        "OP_WITHIN + OP_COLOR: type byte in range (x=0xc1)", 0)
+                        .Num(193));
+    // Valid: x = 0xc2 (194, NON_REISSUABLE) — in range
+    tests.push_back(TestBuilder(colored(reissuableCid, CScript() << 193 << 196 << OP_WITHIN),
+        "OP_WITHIN + OP_COLOR: type byte in range (x=0xc2)", 0)
+                        .Num(194));
+    // Valid: x = 0xc3 (195, NFT) — in range
+    tests.push_back(TestBuilder(colored(reissuableCid, CScript() << 193 << 196 << OP_WITHIN),
+        "OP_WITHIN + OP_COLOR: type byte in range (x=0xc3)", 0)
+                        .Num(195));
+    // Invalid: x = 0xc4 (196, unsupported) — out of range → EVAL_FALSE
+    tests.push_back(TestBuilder(colored(reissuableCid, CScript() << 193 << 196 << OP_WITHIN),
+        "OP_WITHIN + OP_COLOR: type byte out of range (x=0xc4)", 0)
+                        .Num(196)
+                        .ScriptError(SCRIPT_ERR_EVAL_FALSE));
+    // Invalid: x = 0 — out of range → EVAL_FALSE
+    tests.push_back(TestBuilder(colored(reissuableCid, CScript() << 193 << 196 << OP_WITHIN),
+        "OP_WITHIN + OP_COLOR: type byte out of range (x=0)", 0)
+                        .Num(0)
+                        .ScriptError(SCRIPT_ERR_EVAL_FALSE));
+
+    // ==========================================================
+    // 2. OP_SWAP double-swap mischief: valid colorId comes from scriptSig.
+    //
+    //    ScriptSig:   <validCid>
+    //    ScriptPubKey: <invalidC4> OP_SWAP OP_COLOR OP_1 OP_SWAP OP_COLOR OP_1
+    //
+    //    Execution:
+    //      scriptSig pushes:      [validCid]
+    //      <invalidC4>:           [validCid, invalidC4]   (c4 = TOS)
+    //      OP_SWAP (1st):         [invalidC4, validCid]   (validCid = TOS)
+    //        → valid colorId is now at TOS as intended
+    //      OP_COLOR:              color set with validCid → [invalidC4]
+    //      OP_1:                  [invalidC4, 1]           (dummy for 2nd swap)
+    //      OP_SWAP (2nd):         [1, invalidC4]           (c4 = TOS)
+    //        → attacker tries to issue token with invalid c4 colorId
+    //      OP_COLOR:              color already set → SCRIPT_ERR_OP_COLORMULTIPLE
+    //
+    //    The mischief fails because OP_COLOR can only be set once per script
+    //    execution; the COLORMULTIPLE check fires before c4 validity is tested.
+    // ==========================================================
+    {
+        CScript doubleSwapMischief;
+        doubleSwapMischief << invalidC4Cid   // push c4 into scriptPubKey
+                           << OP_SWAP        // 1st swap: bring valid cid from scriptSig to TOS
+                           << OP_COLOR       // set color with valid cid
+                           << OP_1           // push dummy so 2nd swap has two items
+                           << OP_SWAP        // 2nd swap: bring c4 to TOS
+                           << OP_COLOR       // attempt: COLORMULTIPLE (color already set)
+                           << OP_1;
+        tests.push_back(TestBuilder(doubleSwapMischief,
+            "OP_SWAP x2: valid cid from scriptSig sets color, c4 swapped to TOS for 2nd OP_COLOR → COLORMULTIPLE", 0)
+                            .Add(CScript() << reissuableCid.toVector())
+                            .ScriptError(SCRIPT_ERR_OP_COLORMULTIPLE));
+
+        // Contrast — single swap: scriptSig provides valid colorId; scriptPubKey swaps
+        // c4 out of the way so valid cid is TOS for OP_COLOR, c4 dropped afterwards.
+        //   scriptSig:    [validCid]
+        //   <invalidC4>:  [validCid, invalidC4]
+        //   OP_SWAP:      [invalidC4, validCid]   validCid = TOS
+        //   OP_COLOR:     color set → [invalidC4]
+        //   OP_DROP:      []
+        //   OP_1:         [1] ✓
+        CScript swapValid;
+        swapValid << invalidC4Cid << OP_SWAP << OP_COLOR << OP_DROP << OP_1;
+        tests.push_back(TestBuilder(swapValid,
+            "OP_SWAP single: valid cid from scriptSig swapped to TOS, c4 dropped → success", 0)
+                            .Add(CScript() << reissuableCid.toVector()));
+    }
+
+    // ==========================================================
+    // 2b. OP_SWAP double-swap: both colorIds valid but different types.
+    //
+    //    ScriptSig:    <nftCid(c3)>       (valid NFT colorId — supplied by spender)
+    //    ScriptPubKey: <reissuableCid(c1)> OP_SWAP OP_COLOR OP_1 OP_SWAP OP_COLOR OP_1
+    //
+    //    GetColorIdFromScript → NONE: not CP2PKH, not CP2SH.
+    //    Any IsColoredScript() true that doesn't match CP2PKH or CP2SH is rejected
+    //    at transaction validation with "bad-txns-nonstandard-opcolor".
+    //
+    //    Runtime execution:
+    //      scriptSig pushes:        [nftCid]
+    //      <reissuableCid>:         [nftCid, reissuableCid]   (c1 = TOS)
+    //      OP_SWAP (1st):           [reissuableCid, nftCid]   (nftCid = TOS)
+    //        → spender's NFT colorId is brought to TOS for OP_COLOR
+    //      OP_COLOR:                color set with nftCid → [reissuableCid]
+    //      OP_1:                    [reissuableCid, 1]
+    //      OP_SWAP (2nd):           [1, reissuableCid]         (c1 = TOS)
+    //      OP_COLOR:                color already set → SCRIPT_ERR_OP_COLORMULTIPLE
+    //
+    //    The COLORMULTIPLE check fires before the c1 colorId is ever evaluated.
+    //    More importantly, CheckColorIdentifierValidity rejects any output locked
+    //    by this scriptPubKey with "bad-txns-mischievous-opcolor" — so this UTXO
+    //    can never be created on-chain in the first place.
+    // ==========================================================
+    {
+        CScript doubleSwapValidCids;
+        doubleSwapValidCids << reissuableCid.toVector()  // c1 in scriptPubKey (decoy)
+                            << OP_SWAP                   // 1st swap: bring c3 from scriptSig to TOS
+                            << OP_COLOR                  // sets NFT color from scriptSig
+                            << OP_1
+                            << OP_SWAP                   // 2nd swap: bring c1 to TOS
+                            << OP_COLOR                  // attempt: COLORMULTIPLE
+                            << OP_1;
+        tests.push_back(TestBuilder(doubleSwapValidCids,
+            "OP_SWAP x2: c3(NFT) from scriptSig sets color; c1(REISSUABLE) in scriptPubKey is decoy → COLORMULTIPLE", 0)
+                            .Add(CScript() << nftCid.toVector())
+                            .ScriptError(SCRIPT_ERR_OP_COLORMULTIPLE));
+
+        // Contrast — single swap, both valid colorIds:
+        //   scriptSig provides c3(NFT); scriptPubKey embeds c1(REISSUABLE) as decoy.
+        //   OP_SWAP brings c3 to TOS for OP_COLOR; c1 is then dropped.
+        //
+        //   scriptSig pushes:        [nftCid]
+        //   <reissuableCid>:         [nftCid, reissuableCid]   (c1 = TOS)
+        //   OP_SWAP:                 [reissuableCid, nftCid]   (nftCid = TOS)
+        //   OP_COLOR:                color set with nftCid(c3) → [reissuableCid]
+        //   OP_DROP:                 []
+        //   OP_1:                    [1] → success
+        //
+        //   GetColorIdFromScript=NONE (not CP2PKH/CP2SH). The script passes raw
+        //   execution but CheckColorIdentifierValidity rejects any output locked by
+        //   this script with "bad-txns-nonstandard-opcolor".
+        CScript swapValidCids;
+        swapValidCids << reissuableCid.toVector() << OP_SWAP << OP_COLOR << OP_DROP << OP_1;
+        tests.push_back(TestBuilder(swapValidCids,
+            "OP_SWAP single: c3(NFT) from scriptSig swapped to TOS, c1(REISSUABLE) decoy dropped → success", 0)
+                            .Add(CScript() << nftCid.toVector()));
+    }
+
+    // ==========================================================
+    // 3. OP_ROT + OP_COLOR:
+    //    OP_ROT rotates [a, b, c] → [b, c, a] (a becomes TOS).
+    //
+    //    Valid: colorId is at the bottom; OP_ROT brings it to TOS for OP_COLOR.
+    //    Mischievous: invalid c4 colorId at bottom; OP_ROT brings it to TOS.
+    // ==========================================================
+    {
+        // Valid: <validCid> OP_1 OP_2 OP_ROT OP_COLOR OP_DROP OP_DROP OP_1
+        // Stack: [validCid, 1, 2]
+        // OP_ROT → [1, 2, validCid]  validCid=TOS
+        // OP_COLOR: valid → [1, 2]
+        // OP_DROP OP_DROP → []   OP_1 → [1] ✓
+        CScript rotValid;
+        rotValid << reissuableCid.toVector() << OP_1 << OP_2
+                 << OP_ROT << OP_COLOR << OP_DROP << OP_DROP << OP_1;
+        tests.push_back(TestBuilder(rotValid,
+            "OP_ROT + OP_COLOR valid: colorId rotated from bottom to TOS", 0));
+
+        // Mischievous: <invalidC4> <validCid> OP_1 OP_ROT OP_COLOR
+        // Stack: [invalidC4, validCid, 1]
+        // OP_ROT → [validCid, 1, invalidC4]  invalidC4=TOS
+        // OP_COLOR: type=0xc4 → SCRIPT_ERR_OP_COLORID_INVALID
+        CScript rotAttack;
+        rotAttack << invalidC4Cid << reissuableCid.toVector() << OP_1
+                  << OP_ROT << OP_COLOR << OP_1;
+        tests.push_back(TestBuilder(rotAttack,
+            "OP_ROT attack: invalid c4 colorId rotated to TOS for OP_COLOR", 0)
+                            .ScriptError(SCRIPT_ERR_OP_COLORID_INVALID));
+
+        // Variant: replace invalid c4 with valid c3(NFT). Both colorIds are embedded
+        // in scriptPubKey; OP_ROT brings nftCid to TOS for OP_COLOR.
+        //
+        //   Stack: [nftCid, reissuableCid, 1]
+        //   OP_ROT → [reissuableCid, 1, nftCid]   nftCid = TOS
+        //   OP_COLOR: valid NFT → [reissuableCid, 1]
+        //   OP_1:    [reissuableCid, 1, 1] → success
+        //
+        //   GetColorIdFromScript → NONE (not CP2PKH, not CP2SH).
+        //   Transaction validation rejects any output with this script:
+        //   "bad-txns-nonstandard-opcolor".
+        CScript rotValidC3;
+        rotValidC3 << nftCid.toVector() << reissuableCid.toVector() << OP_1
+                   << OP_ROT << OP_COLOR << OP_1;
+        tests.push_back(TestBuilder(rotValidC3,
+            "OP_ROT: c3(NFT) at bottom, rotated to TOS for OP_COLOR; c1 decoy left on stack → success", 0));
+    }
+
+    // ==========================================================
+    // 4. OP_TOALTSTACK + OP_COLOR: mischievous "thin air" token issuance.
+    //
+    //    a) Move valid colorId to altstack → OP_COLOR on empty main stack
+    //       → SCRIPT_ERR_INVALID_STACK_OPERATION (stack underflow).
+    //    b) OP_FROMALTSTACK on empty altstack before OP_COLOR
+    //       → SCRIPT_ERR_INVALID_ALTSTACK_OPERATION.
+    //    c) ScriptSig pushes invalid c4 colorId; script uses OP_TOALTSTACK /
+    //       OP_FROMALTSTACK round-trip → OP_COLOR still sees invalid type
+    //       → SCRIPT_ERR_OP_COLORID_INVALID.
+    //    d) Valid round-trip: scriptSig pushes valid colorId through altstack,
+    //       then OP_COLOR succeeds.
+    // ==========================================================
+    {
+        // (a) Valid colorId moved to altstack; OP_COLOR on empty main stack
+        CScript toAltThenColor;
+        toAltThenColor << reissuableCid.toVector() << OP_TOALTSTACK << OP_COLOR << OP_1;
+        tests.push_back(TestBuilder(toAltThenColor,
+            "OP_TOALTSTACK attack: colorId hidden in altstack; OP_COLOR on empty main stack", 0)
+                            .ScriptError(SCRIPT_ERR_INVALID_STACK_OPERATION));
+
+        // (b) OP_FROMALTSTACK on empty altstack
+        CScript fromEmptyAlt;
+        fromEmptyAlt << OP_FROMALTSTACK << OP_COLOR << OP_1;
+        tests.push_back(TestBuilder(fromEmptyAlt,
+            "OP_FROMALTSTACK on empty altstack before OP_COLOR", 0)
+                            .ScriptError(SCRIPT_ERR_INVALID_ALTSTACK_OPERATION));
+
+        // (c) ScriptSig pushes invalid c4 colorId; altstack round-trip does not fix type
+        CScript altRoundTripInvalid;
+        altRoundTripInvalid << OP_TOALTSTACK << OP_FROMALTSTACK << OP_COLOR << OP_1;
+        tests.push_back(TestBuilder(altRoundTripInvalid,
+            "OP_TOALTSTACK round-trip with invalid c4 colorId from scriptSig", 0)
+                            .Add(CScript() << invalidC4Cid)
+                            .ScriptError(SCRIPT_ERR_OP_COLORID_INVALID));
+
+        // (d) Valid: scriptSig pushes valid colorId; round-trip through altstack succeeds
+        CScript altRoundTripValid;
+        altRoundTripValid << OP_TOALTSTACK << OP_FROMALTSTACK << OP_COLOR << OP_1;
+        tests.push_back(TestBuilder(altRoundTripValid,
+            "OP_TOALTSTACK round-trip with valid colorId from scriptSig", 0)
+                            .Add(CScript() << reissuableCid.toVector()));
+
+        // (e) NFT-decoy pattern: both c1(REISSUABLE) and c3(NFT) in scriptPubKey.
+        //     c3 is stashed in altstack before OP_COLOR; c1 is consumed by OP_COLOR;
+        //     c3 is retrieved as the final truthy TOS value.
+        //
+        //     ScriptPubKey: <c1> <c3> OP_TOALTSTACK OP_COLOR OP_FROMALTSTACK
+        //     ScriptSig:    (empty)
+        //
+        //     Execution:
+        //       push c1          → main: [c1],      alt: []
+        //       push c3          → main: [c1, c3],  alt: []
+        //       OP_TOALTSTACK    → main: [c1],       alt: [c3]
+        //       OP_COLOR         → color=c1(REISSUABLE), main: [], alt: [c3]
+        //       OP_FROMALTSTACK  → main: [c3],       alt: []
+        //       TOS = c3 (0xc3… → truthy) → success
+        //
+        //     Color at runtime: c1 (REISSUABLE). NFT checks never apply.
+        //     c3(NFT) colorId is embedded but only serves as the truthy final value.
+        //
+        //     GetColorIdFromScript → NONE (not CP2PKH, not CP2SH).
+        //     CheckColorIdentifierValidity rejects any output locked by this script
+        //     with "bad-txns-nonstandard-opcolor".
+        CScript altDecoyNFT;
+        altDecoyNFT << reissuableCid.toVector() << nftCid.toVector()
+                    << OP_TOALTSTACK << OP_COLOR << OP_FROMALTSTACK;
+        tests.push_back(TestBuilder(altDecoyNFT,
+            "OP_TOALTSTACK NFT-decoy: c3 stashed in altstack, c1 consumed by OP_COLOR, c3 returned as truthy TOS → success", 0));
+    }
+
+    // ==========================================================
+    // 5. OP_DROP + OP_COLOR: drop the colorId then try OP_COLOR.
+    //
+    //    a) Valid colorId dropped → OP_COLOR on empty stack
+    //       → SCRIPT_ERR_INVALID_STACK_OPERATION.
+    //    b) Valid colorId dropped; invalid c4 data inserted; OP_COLOR sees c4
+    //       → SCRIPT_ERR_OP_COLORID_INVALID.
+    //    c) ScriptSig pushes something, script drops it and inserts invalid c4
+    //       → SCRIPT_ERR_OP_COLORID_INVALID.
+    // ==========================================================
+    {
+        // (a) <validCid> OP_DROP OP_COLOR OP_1 — already tested as InvalidColoredCustomScript5
+        //     in coloredScripts, but repeated here for completeness with the new check.
+        CScript dropThenColor;
+        dropThenColor << reissuableCid.toVector() << OP_DROP << OP_COLOR << OP_1;
+        tests.push_back(TestBuilder(dropThenColor,
+            "OP_DROP + OP_COLOR: valid colorId dropped, OP_COLOR on empty stack", 0)
+                            .ScriptError(SCRIPT_ERR_INVALID_STACK_OPERATION));
+
+        // (b) <validCid> OP_DROP <invalidC4> OP_COLOR OP_1
+        //     Drops valid colorId; inserts unsupported c4 bytes → OP_COLOR rejects type.
+        CScript dropAndSubstitute;
+        dropAndSubstitute << reissuableCid.toVector() << OP_DROP
+                          << invalidC4Cid << OP_COLOR << OP_1;
+        tests.push_back(TestBuilder(dropAndSubstitute,
+            "OP_DROP + OP_COLOR: valid colorId dropped, c4 data substituted → invalid type", 0)
+                            .ScriptError(SCRIPT_ERR_OP_COLORID_INVALID));
+
+        // (c) ScriptSig pushes a dummy value; script drops it and inserts c4 data.
+        //     This simulates an attempt to bypass colorId checks using arbitrary data.
+        CScript dropScriptSigAndSubstitute;
+        dropScriptSigAndSubstitute << OP_DROP << invalidC4Cid << OP_COLOR << OP_1;
+        tests.push_back(TestBuilder(dropScriptSigAndSubstitute,
+            "OP_DROP + OP_COLOR: scriptSig value dropped, c4 data inserted → invalid type", 0)
+                            .Num(42)
+                            .ScriptError(SCRIPT_ERR_OP_COLORID_INVALID));
+
+        // (d) NFT-decoy with OP_DROP: <c3(NFT)> <c1(REISSUABLE)> OP_COLOR OP_DROP OP_1
+        //     c3 is pushed as a decoy below c1; OP_COLOR uses c1; c3 is then dropped.
+        //
+        //     Execution:
+        //       push c3          → [c3]
+        //       push c1          → [c3, c1]
+        //       OP_COLOR         → color=c1(REISSUABLE), pops c1 → [c3]
+        //       OP_DROP          → []
+        //       OP_1             → [1] → success
+        //
+        //     GetColorIdFromScript → NONE (not CP2PKH, not CP2SH).
+        //     CheckColorIdentifierValidity rejects with "bad-txns-nonstandard-opcolor".
+        //     Script execution (tested here) still succeeds; rejection is at the
+        //     transaction validation layer, not the interpreter.
+        CScript dropDecoyNFT;
+        dropDecoyNFT << nftCid.toVector() << reissuableCid.toVector()
+                     << OP_COLOR << OP_DROP << OP_1;
+        tests.push_back(TestBuilder(dropDecoyNFT,
+            "OP_DROP NFT-decoy: c3 pushed below c1, OP_COLOR uses c1, c3 dropped → success (color=c1)", 0));
+
+        // (e) Same-type decoy: two NON_REISSUABLE (c2) colorIds in scriptPubKey.
+        //     One is a real c2 (payload = outpoint A); the other is a decoy c2
+        //     (payload = outpoint B, not a valid issuance input for this tx).
+        //
+        //     ScriptPubKey: <decoy_c2> <real_c2> OP_COLOR OP_DROP OP_1
+        //
+        //     Execution:
+        //       push decoy_c2   → [decoy_c2]
+        //       push real_c2    → [decoy_c2, real_c2]
+        //       OP_COLOR        → color=real_c2(NON_REISSUABLE) → [decoy_c2]
+        //       OP_DROP         → []
+        //       OP_1            → [1] → success
+        //
+        //     The decoy_c2 does NOT grant thin-air NON_REISSUABLE issuance:
+        //     CheckColorIdentifierValidity requires a matching TPC input for each
+        //     colored output, so decoy_c2 outputs would be rejected independently.
+        //
+        //     GetColorIdFromScript → NONE (not CP2PKH, not CP2SH).
+        //     Transaction validation rejects the output with "bad-txns-nonstandard-opcolor".
+        //     Script execution (here) still succeeds.
+        COutPoint decoyOutpoint(uint256S("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"), 1);
+        ColorIdentifier decoyNonReissuableCid(decoyOutpoint, TokenTypes::NON_REISSUABLE);
+        CScript dropDecoySameType;
+        dropDecoySameType << decoyNonReissuableCid.toVector() << nonReissuableCid.toVector()
+                          << OP_COLOR << OP_DROP << OP_1;
+        tests.push_back(TestBuilder(dropDecoySameType,
+            "OP_DROP same-type decoy: two c2(NON_REISSUABLE) colorIds, OP_COLOR uses real_c2, decoy dropped → success", 0));
+    }
+
+    for (TestBuilder& test : tests) {
+        test.Test();
+    }
+}
 
 #if defined(HAVE_CONSENSUS_LIB)
 
@@ -2493,7 +3271,7 @@ BOOST_AUTO_TEST_CASE(coloredScripts)
     CScript CP2PKHScriptPubKey = CScript() << ParseHex("c11863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262") << OP_COLOR << OP_DUP << OP_HASH160 << ParseHex("1018853670f9f3b0582c5b9ee8ce93764ac32b93") << OP_EQUALVERIFY << OP_CHECKSIG;
 
     //check CP2PKHScriptPubKey match ColoredPayToPubkeyHash not match ColoredPayToScriptHash
-    BOOST_CHECK(MatchColoredPayToPubkeyHash(CP2PKHScriptPubKey, data, colorId));
+    BOOST_CHECK(CP2PKHScriptPubKey.IsColoredPayToPubkeyHash(data, colorId));
     BOOST_CHECK(!CP2PKHScriptPubKey.IsColoredPayToScriptHash());
     BOOST_CHECK(GetColorIdFromScript(CP2PKHScriptPubKey).type == TokenTypes::REISSUABLE);
     
@@ -2502,13 +3280,13 @@ BOOST_AUTO_TEST_CASE(coloredScripts)
     CScript CP2SHScriptPubKey = CScript() << ParseHex("c11863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262") << OP_COLOR << OP_HASH160 << ParseHex("da8a647bba351bbae4cee0089d373c97ec240580") << OP_EQUAL;
 
     //check CP2SHScriptPubKey match ColoredPayToScriptHash not match ColoredPayToPubkeyHash
-    BOOST_CHECK(!MatchColoredPayToPubkeyHash(CP2SHScriptPubKey, data, colorId));
+    BOOST_CHECK(!CP2SHScriptPubKey.IsColoredPayToPubkeyHash(data, colorId));
     BOOST_CHECK(CP2SHScriptPubKey.IsColoredPayToScriptHash());
     BOOST_CHECK(GetColorIdFromScript(CP2SHScriptPubKey).type == TokenTypes::REISSUABLE);
 
     //check ScriptPubKey will not match ColoredPayToScriptHash and ColoredPayToPubkeyHash will return token type none
     CScript ScriptPubKey = CScript() << OP_HASH160 << ParseHex("f194d154e64f22611bc67e906e5f8fd72e6afcf1") << OP_EQUAL;
-    BOOST_CHECK(!MatchColoredPayToPubkeyHash(ScriptPubKey, data, colorId));
+    BOOST_CHECK(!ScriptPubKey.IsColoredPayToPubkeyHash(data, colorId));
     BOOST_CHECK(!ScriptPubKey.IsColoredPayToScriptHash());
     BOOST_CHECK(GetColorIdFromScript(ScriptPubKey).type == TokenTypes::NONE);
 
@@ -2516,32 +3294,261 @@ BOOST_AUTO_TEST_CASE(coloredScripts)
     // <COLOR identifier> OP_COLOR OP_HASH160 <H(redeem script)> OP_EQUAL
     // TokenType NON_REISSUABLE
     CScript ColoredPayToScriptHash2 = CScript() << ParseHex("c11863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262") << OP_COLOR << OP_DUP << OP_HASH160 << ParseHex("da8a647bba351bbae4cee0089d373c97ec240580") << OP_EQUALVERIFY << OP_CHECKSIG;
-    BOOST_CHECK(MatchColoredPayToPubkeyHash(ColoredPayToScriptHash2, data, colorId));
+    BOOST_CHECK(ColoredPayToScriptHash2.IsColoredPayToPubkeyHash(data, colorId));
     BOOST_CHECK(!ColoredPayToScriptHash2.IsColoredPayToScriptHash());
     BOOST_CHECK(GetColorIdFromScript(ColoredPayToScriptHash2).type == TokenTypes::REISSUABLE);
 
-    // Custom script:
+    // Custom script (not CP2PKH, not CP2SH): GetColorIdFromScript returns NONE.
     CScript ColoredCustomScript = CScript() << ParseHex("c11863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262") << OP_COLOR << OP_9 << OP_ADD << OP_11 << OP_EQUAL;
-    BOOST_CHECK(MatchCustomColoredScript(ColoredPayToScriptHash2, colorId));
     BOOST_CHECK(!ColoredCustomScript.IsColoredPayToScriptHash());
     BOOST_CHECK(ColoredCustomScript.IsColoredScript());
-    BOOST_CHECK(GetColorIdFromScript(ColoredCustomScript).type == TokenTypes::REISSUABLE);
+    BOOST_CHECK(GetColorIdFromScript(ColoredCustomScript).type == TokenTypes::NONE);
 
-    // In a case of 32 bytes colored identifier
-    CScript InvalidColoredCustomScript1 = CScript() << ParseHex("c11863143c14c5166804bd19203356da136c985678cd4d27a1b8c63296049032") << OP_COLOR << OP_9 << OP_ADD << OP_11 << OP_EQUAL;
-    BOOST_CHECK(!MatchCustomColoredScript(InvalidColoredCustomScript1, colorId));
-    // In a case of 34 bytes of colored identifier
-    CScript InvalidColoredCustomScript2 = CScript() << ParseHex("c11863143c14c5166804bd19203356da136c985678cd4d27a1b8c632960490326200") << OP_COLOR << OP_9 << OP_ADD << OP_11 << OP_EQUAL;
-    BOOST_CHECK(!MatchCustomColoredScript(InvalidColoredCustomScript2, colorId));
-    // In a case of OP_COLOR is putted at before colord identifier
-    CScript InvalidColoredCustomScript3 = CScript() << OP_COLOR << ParseHex("c11863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262") << OP_9 << OP_ADD << OP_11 << OP_EQUAL;
-    BOOST_CHECK(!MatchCustomColoredScript(InvalidColoredCustomScript3, colorId));
-    // In a case of there is not OP_COLOR
-    CScript InvalidColoredCustomScript4 = CScript() << ParseHex("c11863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262") << OP_9 << OP_ADD << OP_11 << OP_EQUAL;
-    BOOST_CHECK(!MatchCustomColoredScript(InvalidColoredCustomScript4, colorId));
-    // In a case of the script that drops colored identifier before evaluating OP_COLOR
-    CScript InvalidColoredCustomScript5 = CScript() << ParseHex("c11863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262") << OP_DROP << OP_COLOR << OP_9 << OP_ADD << OP_11 << OP_EQUAL;
-    BOOST_CHECK(!MatchCustomColoredScript(InvalidColoredCustomScript5, colorId));
+    // -- All-zero payload colorIds (type byte only, payload = 32 zero bytes) --
+    // Verify IsColoredScript() == true and GetColorIdFromScript() returns the correct type
+    // for CP2PKH and CP2SH; custom colored scripts return NONE.
+
+    auto zeroColorIdVec = [](uint8_t typeByte) {
+        std::vector<unsigned char> v(COLOR_IDENTIFIER_SIZE, 0x00);
+        v[0] = typeByte;
+        return v;
+    };
+
+    const std::vector<unsigned char> cidBytesR  = zeroColorIdVec(TokenToUint(TokenTypes::REISSUABLE));
+    const std::vector<unsigned char> cidBytesNR = zeroColorIdVec(TokenToUint(TokenTypes::NON_REISSUABLE));
+    const std::vector<unsigned char> cidBytesNFT= zeroColorIdVec(TokenToUint(TokenTypes::NFT));
+
+    const std::vector<unsigned char> pubkeyhash20(20, 0x00);
+    const std::vector<unsigned char> scripthash20(20, 0x00);
+
+    auto makeCP2PKH = [&](const std::vector<unsigned char>& cidBytes) {
+        return CScript() << cidBytes << OP_COLOR << OP_DUP << OP_HASH160 << pubkeyhash20 << OP_EQUALVERIFY << OP_CHECKSIG;
+    };
+    auto makeCP2SH = [&](const std::vector<unsigned char>& cidBytes) {
+        return CScript() << cidBytes << OP_COLOR << OP_HASH160 << scripthash20 << OP_EQUAL;
+    };
+    auto makeCustom = [&](const std::vector<unsigned char>& cidBytes) {
+        return CScript() << cidBytes << OP_COLOR << OP_9 << OP_ADD << OP_11 << OP_EQUAL;
+    };
+
+    for (const auto& [cidBytes, expectedType] : std::vector<std::pair<std::vector<unsigned char>, TokenTypes>>{
+        {cidBytesR,   TokenTypes::REISSUABLE},
+        {cidBytesNR,  TokenTypes::NON_REISSUABLE},
+        {cidBytesNFT, TokenTypes::NFT},
+    }) {
+        CScript cp2pkh  = makeCP2PKH(cidBytes);
+        CScript cp2sh   = makeCP2SH(cidBytes);
+        CScript custom  = makeCustom(cidBytes);
+
+        BOOST_CHECK(cp2pkh.IsColoredScript());
+        BOOST_CHECK(cp2sh.IsColoredScript());
+        BOOST_CHECK(custom.IsColoredScript());
+
+        // CP2PKH and CP2SH resolve to the correct token type.
+        BOOST_CHECK(GetColorIdFromScript(cp2pkh).type  == expectedType);
+        BOOST_CHECK(GetColorIdFromScript(cp2sh).type   == expectedType);
+        BOOST_CHECK(GetColorIdFromScript(cp2pkh).toVector()  == cidBytes);
+        BOOST_CHECK(GetColorIdFromScript(cp2sh).toVector()   == cidBytes);
+
+        // Custom colored scripts are not permitted → NONE.
+        BOOST_CHECK(GetColorIdFromScript(custom).type  == TokenTypes::NONE);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(colored_coin_combined_scripts)
+{
+    const KeyData keys;
+
+    // REISSUABLE colorId for all tests
+    ColorIdentifier reissuableCid(CScript() << ToByteVector(keys.pubkey0C) << OP_CHECKSIG);
+
+    // NON_REISSUABLE and NFT colorIds from a fixed outpoint
+    COutPoint outpoint(uint256S("3ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a"), 0);
+    ColorIdentifier nonReissuableCid(outpoint, TokenTypes::NON_REISSUABLE);
+    ColorIdentifier nftCid(outpoint, TokenTypes::NFT);
+
+    // Helper: wrap a scriptPubKey suffix with <colorId> OP_COLOR
+    auto colored = [](const ColorIdentifier& cid, CScript suffix) {
+        CScript s;
+        s << cid.toVector() << OP_COLOR;
+        s += suffix;
+        return s;
+    };
+
+    std::vector<TestBuilder> tests;
+
+    // =========================================================
+    // OP_CHECKDATASIG + OP_COLOR
+    // Script: <colorId> OP_COLOR <pubkey> OP_CHECKDATASIG
+    // Stack expected by OP_CHECKDATASIG: [sig, message, pubkey]
+    // ScriptSig pushes: sig (deepest), message (TOS before scriptPubKey)
+    // After colorId OP_COLOR, scriptPubKey pushes pubkey → [sig, message, pubkey]
+    // =========================================================
+    {
+        std::vector<uint8_t> msg = {};  // empty message
+
+        auto cdsScript = [&](const ColorIdentifier& cid) {
+            return colored(cid, CScript() << ToByteVector(keys.pubkey1C) << OP_CHECKDATASIG);
+        };
+
+        // REISSUABLE ECDSA — valid
+        tests.push_back(TestBuilder(cdsScript(reissuableCid),
+            "Colored OP_CHECKDATASIG REISSUABLE ECDSA", 0)
+                            .PushDataSig(keys.key1, SignatureScheme::ECDSA, msg)
+                            .Add(CScript() << msg));
+        // REISSUABLE SCHNORR — valid
+        tests.push_back(TestBuilder(cdsScript(reissuableCid),
+            "Colored OP_CHECKDATASIG REISSUABLE SCHNORR", 0)
+                            .PushDataSig(keys.key1, SignatureScheme::SCHNORR, msg)
+                            .Add(CScript() << msg));
+        // NON_REISSUABLE ECDSA — valid
+        tests.push_back(TestBuilder(cdsScript(nonReissuableCid),
+            "Colored OP_CHECKDATASIG NON_REISSUABLE ECDSA", 0)
+                            .PushDataSig(keys.key1, SignatureScheme::ECDSA, msg)
+                            .Add(CScript() << msg));
+        // NFT ECDSA — valid
+        tests.push_back(TestBuilder(cdsScript(nftCid),
+            "Colored OP_CHECKDATASIG NFT ECDSA", 0)
+                            .PushDataSig(keys.key1, SignatureScheme::ECDSA, msg)
+                            .Add(CScript() << msg));
+        // Wrong key — sig fails, EVAL_FALSE
+        tests.push_back(TestBuilder(cdsScript(reissuableCid),
+            "Colored OP_CHECKDATASIG wrong key", 0)
+                            .PushDataSig(keys.key2, SignatureScheme::ECDSA, msg)
+                            .Add(CScript() << msg)
+                            .ScriptError(SCRIPT_ERR_EVAL_FALSE));
+    }
+
+    // =========================================================
+    // OP_CHECKMULTISIG + OP_COLOR
+    // Script: <colorId> OP_COLOR OP_1 <pubkey1> <pubkey2> OP_2 OP_CHECKMULTISIG
+    // 1-of-2 multisig; ScriptSig: OP_0 (dummy) <sig>
+    // =========================================================
+    {
+        auto multisigScript = [&](const ColorIdentifier& cid) {
+            return colored(cid, CScript() << OP_1
+                                          << ToByteVector(keys.pubkey1C)
+                                          << ToByteVector(keys.pubkey2C)
+                                          << OP_2 << OP_CHECKMULTISIG);
+        };
+
+        // REISSUABLE, sig from key1 — valid
+        tests.push_back(TestBuilder(multisigScript(reissuableCid),
+            "Colored OP_CHECKMULTISIG REISSUABLE sig key1", 0)
+                            .Num(0)
+                            .PushSig(keys.key1, SignatureScheme::ECDSA));
+        // REISSUABLE, sig from key2 — valid (key2 is second pubkey)
+        tests.push_back(TestBuilder(multisigScript(reissuableCid),
+            "Colored OP_CHECKMULTISIG REISSUABLE sig key2", 0)
+                            .Num(0)
+                            .PushSig(keys.key2, SignatureScheme::ECDSA));
+        // NON_REISSUABLE, sig from key1 — valid
+        tests.push_back(TestBuilder(multisigScript(nonReissuableCid),
+            "Colored OP_CHECKMULTISIG NON_REISSUABLE sig key1", 0)
+                            .Num(0)
+                            .PushSig(keys.key1, SignatureScheme::ECDSA));
+        // NFT, sig from key1 — valid
+        tests.push_back(TestBuilder(multisigScript(nftCid),
+            "Colored OP_CHECKMULTISIG NFT sig key1", 0)
+                            .Num(0)
+                            .PushSig(keys.key1, SignatureScheme::ECDSA));
+        // REISSUABLE Schnorr, sig from key1 — valid
+        tests.push_back(TestBuilder(multisigScript(reissuableCid),
+            "Colored OP_CHECKMULTISIG REISSUABLE SCHNORR sig key1", 0)
+                            .Num(0)
+                            .PushSig(keys.key1, SignatureScheme::SCHNORR));
+        // Wrong key (key0 not in script) — EVAL_FALSE
+        tests.push_back(TestBuilder(multisigScript(reissuableCid),
+            "Colored OP_CHECKMULTISIG wrong key", 0)
+                            .Num(0)
+                            .PushSig(keys.key0, SignatureScheme::ECDSA)
+                            .ScriptError(SCRIPT_ERR_EVAL_FALSE));
+    }
+
+    // =========================================================
+    // OP_IF + OP_COLOR — conditional colored scripts
+    // Script: <colorId> OP_COLOR OP_IF <pubkey1C> OP_CHECKSIG OP_ELSE <pubkey2C> OP_CHECKSIG OP_ENDIF
+    // OP_COLOR is at top level (before OP_IF), which is valid.
+    // Branch A (condition=1): unlocked by sig from key1
+    // Branch B (condition=0): unlocked by sig from key2
+    // These represent conditional issue, transfer, or burn — same script, different spenders.
+    // =========================================================
+    {
+        auto ifScript = [&](const ColorIdentifier& cid) {
+            return colored(cid, CScript() << OP_IF
+                                          << ToByteVector(keys.pubkey1C) << OP_CHECKSIG
+                                          << OP_ELSE
+                                          << ToByteVector(keys.pubkey2C) << OP_CHECKSIG
+                                          << OP_ENDIF);
+        };
+
+        // REISSUABLE branch A (condition=1, key1) — valid
+        tests.push_back(TestBuilder(ifScript(reissuableCid),
+            "Colored OP_IF REISSUABLE branch A (key1, condition=1) ECDSA", 0)
+                            .PushSig(keys.key1, SignatureScheme::ECDSA)
+                            .Num(1));
+        tests.push_back(TestBuilder(ifScript(reissuableCid),
+            "Colored OP_IF REISSUABLE branch A (key1, condition=1) SCHNORR", 0)
+                            .PushSig(keys.key1, SignatureScheme::SCHNORR)
+                            .Num(1));
+        // REISSUABLE branch B (condition=0, key2) — valid
+        tests.push_back(TestBuilder(ifScript(reissuableCid),
+            "Colored OP_IF REISSUABLE branch B (key2, condition=0) ECDSA", 0)
+                            .PushSig(keys.key2, SignatureScheme::ECDSA)
+                            .Num(0));
+        tests.push_back(TestBuilder(ifScript(reissuableCid),
+            "Colored OP_IF REISSUABLE branch B (key2, condition=0) SCHNORR", 0)
+                            .PushSig(keys.key2, SignatureScheme::SCHNORR)
+                            .Num(0));
+
+        // NON_REISSUABLE branch A (condition=1, key1) — valid
+        tests.push_back(TestBuilder(ifScript(nonReissuableCid),
+            "Colored OP_IF NON_REISSUABLE branch A ECDSA", 0)
+                            .PushSig(keys.key1, SignatureScheme::ECDSA)
+                            .Num(1));
+        // NON_REISSUABLE branch B (condition=0, key2) — valid
+        tests.push_back(TestBuilder(ifScript(nonReissuableCid),
+            "Colored OP_IF NON_REISSUABLE branch B ECDSA", 0)
+                            .PushSig(keys.key2, SignatureScheme::ECDSA)
+                            .Num(0));
+
+        // NFT branch A (condition=1, key1) — valid
+        tests.push_back(TestBuilder(ifScript(nftCid),
+            "Colored OP_IF NFT branch A ECDSA", 0)
+                            .PushSig(keys.key1, SignatureScheme::ECDSA)
+                            .Num(1));
+        // NFT branch B (condition=0, key2) — valid
+        tests.push_back(TestBuilder(ifScript(nftCid),
+            "Colored OP_IF NFT branch B ECDSA", 0)
+                            .PushSig(keys.key2, SignatureScheme::ECDSA)
+                            .Num(0));
+
+        // Wrong key for branch A (key2 used but branch A expects key1) — EVAL_FALSE
+        tests.push_back(TestBuilder(ifScript(reissuableCid),
+            "Colored OP_IF REISSUABLE branch A wrong key", 0)
+                            .PushSig(keys.key2, SignatureScheme::ECDSA)
+                            .Num(1)
+                            .ScriptError(SCRIPT_ERR_EVAL_FALSE));
+        // Wrong key for branch B (key1 used but branch B expects key2) — EVAL_FALSE
+        tests.push_back(TestBuilder(ifScript(reissuableCid),
+            "Colored OP_IF REISSUABLE branch B wrong key", 0)
+                            .PushSig(keys.key1, SignatureScheme::ECDSA)
+                            .Num(0)
+                            .ScriptError(SCRIPT_ERR_EVAL_FALSE));
+
+        // OP_COLOR inside IF branch — SCRIPT_ERR_OP_COLORINBRANCH (invalid placement)
+        tests.push_back(TestBuilder(CScript() << OP_1 << OP_IF
+                                              << reissuableCid.toVector() << OP_COLOR
+                                              << ToByteVector(keys.pubkey1C) << OP_CHECKSIG
+                                              << OP_ENDIF,
+            "OP_COLOR inside OP_IF branch (invalid)", 0)
+                            .PushSig(keys.key1, SignatureScheme::ECDSA)
+                            .ScriptError(SCRIPT_ERR_OP_COLORINBRANCH));
+    }
+
+    for (TestBuilder& test : tests) {
+        test.Test();
+    }
 }
 
 #endif

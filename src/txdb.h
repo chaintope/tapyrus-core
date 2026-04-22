@@ -8,6 +8,7 @@
 #define BITCOIN_TXDB_H
 
 #include <coins.h>
+#include <coloridentifier.h>
 #include <dbwrapper.h>
 #include <chain.h>
 #include <primitives/block.h>
@@ -15,6 +16,7 @@
 
 #include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -140,6 +142,10 @@ public:
     bool ReadXField(const char key, XFieldChangeListWrapper& xFieldList);
     bool WriteXField(const XFieldChange & xFieldChange);
     bool RewriteXField(std::vector<XFieldChange> & xFieldChanges);
+
+    bool WriteIssuedColorId(const ColorIdentifier& colorId);
+    bool EraseIssuedColorId(const ColorIdentifier& colorId);
+    bool LoadIssuedColorIds(std::set<ColorIdentifier>& colorIds);
 };
 
 #endif // BITCOIN_TXDB_H

@@ -1,10 +1,14 @@
+#!/usr/bin/env python3
+# Copyright (c) 2019 Chaintope Inc.
+# Distributed under the MIT software license, see the accompanying
+# file COPYING or http://www.opensource.org/licenses/mit-license.php.
 '''
 Test all token type - REISSUABLE, NON-REISSUABLE, NFT
 
-Setup:
-coinbaseTx: 1 - 10
+Setup
+coinbaseTx 1 - 10
 
-Create TXs:
+Create TXs
 TxSuccess1 - coinbaseTx1 - issue 100 REISSUABLE  + 30     (UTXO-1,2)
 TxSuccess2 - (UTXO-2)    - issue 100 NON-REISSUABLE       (UTXO-3)
 TxSuccess3 - coinbaseTx2 - issue 1 NFT                    (UTXO-4)
@@ -56,7 +60,7 @@ from test_framework.schnorr import Schnorr
 from test_framework.mininode import P2PDataStore, mininode_lock
 from test_framework.timeout_config import TAPYRUSD_MIN_TIMEOUT
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, hex_str_to_bytes, bytes_to_hex_str, count_bytes
+from test_framework.util import assert_equal, hex_str_to_bytes, bytes_to_hex_str
 from test_framework.script import CScript, OP_COLOR, hash160, OP_DUP, OP_HASH160, OP_EQUALVERIFY, OP_CHECKSIG, SignatureHash, SIGHASH_ALL, OP_EQUAL
 
 def colorIdReissuable(script):
@@ -76,18 +80,31 @@ def CP2SH_script(colorId, redeemScr):
     redeemScrhash = hash160(hex_str_to_bytes(redeemScr))
     return CScript([colorId, OP_COLOR, OP_HASH160, redeemScrhash, OP_EQUAL])
 
-def test_transaction_acceptance(node, tx, accepted, reason=None):
-    """Send a transaction to the node and check that it's accepted to the mempool"""
+def test_transaction_acceptance(node, tx, accepted, reason=None, expect_disconnect=False):
+    """Send a transaction to the node and check that it's accepted to the mempool.
+
+    If expect_disconnect is True the node is expected to ban the peer (DoS) after
+    rejecting the transaction.  The connection is re-established automatically so
+    subsequent calls keep working.
+    """
     with mininode_lock:
         node.p2p.last_message = {}
     tx_message = msg_tx(tx)
     node.p2p.send_message(tx_message)
-    node.p2p.sync_with_ping()
+    if expect_disconnect:
+        node.p2p.wait_for_disconnect()
+    else:
+        node.p2p.sync_with_ping()
     assert_equal(tx.hashMalFix in node.getrawmempool(), accepted)
     if (reason is not None and not accepted):
         # Check the rejection reason as well.
         with mininode_lock:
             assert_equal(node.p2p.last_message["reject"].reason, reason)
+    if expect_disconnect:
+        # Reconnect so subsequent test_transaction_acceptance calls keep working.
+        node.p2ps.clear()
+        node.add_p2p_connection(P2PDataStore(node.time_to_connect))
+        node.p2p.wait_for_getheaders(timeout=TAPYRUSD_MIN_TIMEOUT)
 
 class ColoredCoinTest(BitcoinTestFramework):
     def set_test_params(self):
@@ -272,7 +289,9 @@ class ColoredCoinTest(BitcoinTestFramework):
         TxFailure5.vin[3].scriptSig = CScript([signature])
         TxFailure5.rehash()
 
-        test_transaction_acceptance(node, TxFailure5, accepted=False, reason=b"bad-txns-token-balance")
+        # Splitting an NFT into two outputs triggers bad-txns-nft-output-count (DoS 100),
+        # which causes the node to disconnect the peer.
+        test_transaction_acceptance(node, TxFailure5, accepted=False, reason=b"bad-txns-nft-output-count", expect_disconnect=True)
 
         #txSuccess5 - (UTXO-6)    - split REISSUABLE(75)           (UTXO-10,11)
         #           - (UTXO-7)    - split NON-REISSUABLE(40)       (UTXO-12)

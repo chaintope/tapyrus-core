@@ -23,6 +23,8 @@
 // Defined in validation.cpp; declared here to avoid pulling in validation.h
 // (which includes chainstate.h, creating an indirect self-inclusion).
 void RefreshChainTxDataFromTip(const CBlockIndex* pindexNew);
+extern Mutex cs_issued_colorids;
+extern std::set<ColorIdentifier> g_issued_colorids;
 extern std::atomic_bool fReindex;
 
 static int64_t nTimeCheck = 0;
@@ -288,6 +290,29 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
                 error("DisconnectBlock(): transaction and undo data inconsistent");
                 return DISCONNECT_FAILED;
             }
+
+            // Remove any NON_REISSUABLE/NFT colorIds first issued in this tx.
+            // vprevout holds the original coins (before they were spent), so we
+            // can detect which inputs were TPC and reconstruct the colorId.
+            for (const auto& txout : tx.vout) {
+                ColorIdentifier outColorId(GetColorIdFromScript(txout.scriptPubKey));
+                if (outColorId.type != TokenTypes::NON_REISSUABLE && outColorId.type != TokenTypes::NFT)
+                    continue;
+                for (unsigned int j = 0; j < tx.vin.size(); j++) {
+                    if (GetColorIdFromScript(txundo.vprevout[j].out.scriptPubKey).type != TokenTypes::NONE)
+                        continue;
+                    COutPoint prevout = tx.vin[j].prevout;
+                    if (ColorIdentifier(prevout, outColorId.type) == outColorId) {
+                        {
+                            LOCK(cs_issued_colorids);
+                            g_issued_colorids.erase(outColorId);
+                        }
+                        pblocktree->EraseIssuedColorId(outColorId);
+                        break;
+                    }
+                }
+            }
+
             for (unsigned int j = tx.vin.size(); j-- > 0;) {
                 const COutPoint &out = tx.vin[j].prevout;
                 int res = ApplyTxInUndo(std::move(txundo.vprevout[j]), view, out);
@@ -586,13 +611,12 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     for (unsigned int i = 0; i < block.vtx.size(); i++)
     {
         const CTransaction &tx = *(block.vtx[i]);
-        TxColoredCoinBalancesMap inColoredCoinBalances;
+        CAmount txfee = 0;
 
         nInputs += tx.vin.size();
 
         if (!tx.IsCoinBase())
         {
-            CAmount txfee = 0;
             if (!Consensus::CheckTxInputs(tx, state, view, pindex->nHeight, txfee)) {
                 return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, tx.GetHashMalFix().ToString(), FormatStateMessage(state));
             }
@@ -630,10 +654,33 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         {
             std::vector<CScriptCheck> vChecks;
             bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
-            if (!CheckInputs(tx, state, view, fScriptChecks, SCRIPT_VERIFY_NONE, fCacheResults, fCacheResults, txdata[i], inColoredCoinBalances, nScriptCheckThreads ? &vChecks : nullptr))
+            if (!CheckInputs(tx, state, view, fScriptChecks, SCRIPT_VERIFY_NONE, fCacheResults, fCacheResults, txdata[i], nScriptCheckThreads ? &vChecks : nullptr))
                 return error("ConnectBlock(): CheckInputs on %s failed with %s",
                     tx.GetHashMalFix().ToString(), FormatStateMessage(state));
             control.Add(std::move(vChecks));
+        }
+
+        //if there are colored coins in the output verify their colorids
+        if(!CheckColorIdentifierValidity(tx, state, view)) {
+            if (state.IsValid())
+                state.DoS(0, false, REJECT_COLORID, "invalid-colorid");
+            return false;
+        }
+
+        //verify token balances (coinbase has no real inputs so balance check does not apply)
+        // When not in fJustCheck mode, also collect new issuances in the same pass.
+        if (!tx.IsCoinBase()) {
+            std::set<ColorIdentifier> newIssuances;
+            if (!VerifyTokenBalances(tx, state, view, txfee, !fJustCheck ? &newIssuances : nullptr))
+                return false;
+            for (const auto& colorId : newIssuances) {
+                {
+                    LOCK(cs_issued_colorids);
+                    g_issued_colorids.insert(colorId);
+                }
+                if (!pblocktree->WriteIssuedColorId(colorId))
+                    return error("ConnectBlock(): WriteIssuedColorId failed");
+            }
         }
 
         CTxUndo undoDummy;

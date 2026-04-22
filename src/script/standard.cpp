@@ -202,7 +202,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::v
     }
 
     std::vector<unsigned char> colorId;
-    if (MatchColoredPayToPubkeyHash(scriptPubKey, data, colorId)) {
+    if (scriptPubKey.IsColoredPayToPubkeyHash(data, colorId)) {
         typeRet = TX_COLOR_PUBKEYHASH;
         vSolutionsRet.push_back(std::move(data));
         vSolutionsRet.push_back(std::move(colorId));
