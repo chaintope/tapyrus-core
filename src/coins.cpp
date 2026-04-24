@@ -221,10 +221,12 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlockIn
 
 bool CCoinsViewCache::Flush() {
     bool fOk = base->BatchWrite(cacheCoins, hashBlock);
-    if (fOk) {
-        cacheCoins.clear();
-        ReallocateCache();
-    }
+    // BatchWrite (both CCoinsViewDB and CCoinsViewCache) erases entries from
+    // cacheCoins unconditionally during iteration, so the map is always empty
+    // clear() here is defensive; ReallocateCache() returns the pool backing memory.
+    // All three are safe to call on failure and success.
+    cacheCoins.clear();
+    ReallocateCache();
     cachedCoinsUsage = 0;
     return fOk;
 }
