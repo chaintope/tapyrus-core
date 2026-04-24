@@ -374,15 +374,20 @@ void TestGUI_coloredCoin()
     // the expected type and colorId.  txModel is the unsorted underlying model
     // (row order is by tx hash), so we scan all rows rather than assuming
     // the "latest" operation lands at a particular row index.
-    auto checkLatestTx = [&](int expectedType, const QString& cid) {
+    auto checkLatestTx = [&](int expectedType, const QString& cid,
+                              CAmount expectedAmount = INT64_MIN) {
         QVERIFY(txModel->rowCount({}) > 0);
         for (int row = 0; row < txModel->rowCount({}); ++row) {
             QModelIndex i = txModel->index(row, 0);
-            if (txModel->data(i, TransactionTableModel::ColorIdRole).toString() == cid &&
-                txModel->data(i, TransactionTableModel::TypeRole).toInt() == expectedType) {
-                QVERIFY(txModel->data(i, TransactionTableModel::IsTokenRole).toBool());
-                return;
-            }
+            if (txModel->data(i, TransactionTableModel::ColorIdRole).toString() != cid)
+                continue;
+            if (txModel->data(i, TransactionTableModel::TypeRole).toInt() != expectedType)
+                continue;
+            if (expectedAmount != INT64_MIN &&
+                txModel->data(i, TransactionTableModel::TokenAmountRole).toLongLong() != (qlonglong)expectedAmount)
+                continue;
+            QVERIFY(txModel->data(i, TransactionTableModel::IsTokenRole).toBool());
+            return;
         }
         QFAIL(qPrintable(
             QString("No record of type %1 found for colorId %2").arg(expectedType).arg(cid)));
@@ -421,7 +426,7 @@ void TestGUI_coloredCoin()
         QCOMPARE(ret.status, WalletModel::OK);
     };
 
-    // ── REISSUABLE token (type 1) ────────────────────────────────────────
+    // ── REISSUABLE token (type c1) ───────────────────────────────────────
 
     {
         // Issue 100 REISSUABLE tokens.
@@ -435,7 +440,7 @@ void TestGUI_coloredCoin()
         // Overview: balance 100.
         checkOverviewBalance(cid, 100);
         // Transaction list: most recent entry is a TokenIssue for this colorId.
-        checkLatestTx(TransactionRecord::TokenIssue, cid);
+        checkLatestTx(TransactionRecord::TokenIssue, cid, 100);
 
         // Reissue 50 more tokens of the same color.
         auto rr = walletModel.issueToken(1, 50, cid);
@@ -444,7 +449,7 @@ void TestGUI_coloredCoin()
 
         checkTokenTableRow(cid, "REISSUABLE", 150);
         checkOverviewBalance(cid, 150);
-        checkLatestTx(TransactionRecord::TokenIssue, cid);
+        checkLatestTx(TransactionRecord::TokenIssue, cid, 50);
 
         // Send 30 tokens to the wallet's own colored address (self-transfer).
         const QString addr = getColoredAddress(cid);
@@ -454,7 +459,7 @@ void TestGUI_coloredCoin()
 
         // Balance unchanged after self-transfer.
         checkOverviewBalance(cid, 150);
-        checkLatestTx(TransactionRecord::SendToAddress, cid);
+        checkLatestTx(TransactionRecord::SendToAddress, cid, -30);
 
         // Burn 50 tokens.
         auto br = walletModel.burnToken(cid, 50);
@@ -463,10 +468,10 @@ void TestGUI_coloredCoin()
 
         checkTokenTableRow(cid, "REISSUABLE", 100);
         checkOverviewBalance(cid, 100);
-        checkLatestTx(TransactionRecord::TokenBurn, cid);
+        checkLatestTx(TransactionRecord::TokenBurn, cid, -50);
     }
 
-    // ── NON_REISSUABLE token (type 2) ───────────────────────────────────
+    // ── NON_REISSUABLE token (type c2) ──────────────────────────────────
 
     {
         // Issue 200 NON_REISSUABLE tokens.
@@ -477,7 +482,7 @@ void TestGUI_coloredCoin()
 
         checkTokenTableRow(cid, "NON_REISSUABLE", 200);
         checkOverviewBalance(cid, 200);
-        checkLatestTx(TransactionRecord::TokenIssue, cid);
+        checkLatestTx(TransactionRecord::TokenIssue, cid, 200);
 
         // Send 50 to self.
         const QString addr = getColoredAddress(cid);
@@ -486,14 +491,14 @@ void TestGUI_coloredCoin()
         mineAndUpdate();
 
         checkOverviewBalance(cid, 200);
-        checkLatestTx(TransactionRecord::SendToAddress, cid);
+        checkLatestTx(TransactionRecord::SendToAddress, cid, -50);
 
         // Burn all 200 — token should disappear from both views.
         auto br = walletModel.burnToken(cid, 200);
         QCOMPARE(br.status, WalletModel::BurnTokenResult::OK);
         mineAndUpdate();
 
-        checkLatestTx(TransactionRecord::TokenBurn, cid);
+        checkLatestTx(TransactionRecord::TokenBurn, cid, -200);
         // Zero-balance token removed from OverviewPage combo and token table.
         QComboBox* combo = overviewPage.findChild<QComboBox*>("comboToken");
         QCOMPARE(combo->findData(cid), -1);
@@ -501,7 +506,7 @@ void TestGUI_coloredCoin()
             QVERIFY(tokenTable->item(row, IssueTokenDialog::ColColor)->text() != cid);
     }
 
-    // ── NFT token (type 3) ──────────────────────────────────────────────
+    // ── NFT token (type c3) ─────────────────────────────────────────────
 
     {
         // Issue one NFT.
@@ -512,7 +517,7 @@ void TestGUI_coloredCoin()
 
         checkTokenTableRow(cid, "NFT", 1);
         checkOverviewBalance(cid, 1);
-        checkLatestTx(TransactionRecord::TokenIssue, cid);
+        checkLatestTx(TransactionRecord::TokenIssue, cid, 1);
 
         // Transfer the NFT to self.
         const QString addr = getColoredAddress(cid);
@@ -521,18 +526,72 @@ void TestGUI_coloredCoin()
         mineAndUpdate();
 
         checkOverviewBalance(cid, 1);
-        checkLatestTx(TransactionRecord::SendToAddress, cid);
+        checkLatestTx(TransactionRecord::SendToAddress, cid, -1);
 
         // Burn the NFT — token disappears.
         auto br = walletModel.burnToken(cid, 1);
         QCOMPARE(br.status, WalletModel::BurnTokenResult::OK);
         mineAndUpdate();
 
-        checkLatestTx(TransactionRecord::TokenBurn, cid);
+        checkLatestTx(TransactionRecord::TokenBurn, cid, -1);
         QComboBox* combo = overviewPage.findChild<QComboBox*>("comboToken");
         QCOMPARE(combo->findData(cid), -1);
         for (int row = 0; row < tokenTable->rowCount(); ++row)
             QVERIFY(tokenTable->item(row, IssueTokenDialog::ColColor)->text() != cid);
+    }
+
+    // ── External-recipient transfer ──────────────────────────────────────
+    // For each token type, verify the sender's record when tokens go to an
+    // address NOT owned by this wallet.  Expected: SendToAddress with a
+    // negative tokenAmount equal to the transferred quantity.
+
+    // Helper: build a colored address for a fresh external key.
+    auto makeExtAddr = [&](const QString& cid) -> QString {
+        CKey extKey;
+        extKey.MakeNewKey(true);
+        const std::vector<unsigned char> vColor = ParseHex(cid.toStdString());
+        ColorIdentifier colorId(vColor.data(), vColor.data() + vColor.size());
+        CColorKeyID colorKeyID(uint160(extKey.GetPubKey().GetID()), colorId);
+        return QString::fromStdString(EncodeDestination(colorKeyID));
+    };
+
+    // REISSUABLE (type c1) — send 20 of 50.
+    {
+        auto r = walletModel.issueToken(1, 50);
+        QCOMPARE(r.status, WalletModel::IssueTokenResult::OK);
+        const QString cid = r.color;
+        mineAndUpdate();
+        checkLatestTx(TransactionRecord::TokenIssue, cid, 50);
+
+        sendTokens(cid, makeExtAddr(cid), 20);
+        mineAndUpdate();
+        checkLatestTx(TransactionRecord::SendToAddress, cid, -20);
+    }
+
+    // NON_REISSUABLE (type c2) — send 30 of 100.
+    {
+        auto r = walletModel.issueToken(2, 100);
+        QCOMPARE(r.status, WalletModel::IssueTokenResult::OK);
+        const QString cid = r.color;
+        mineAndUpdate();
+        checkLatestTx(TransactionRecord::TokenIssue, cid, 100);
+
+        sendTokens(cid, makeExtAddr(cid), 30);
+        mineAndUpdate();
+        checkLatestTx(TransactionRecord::SendToAddress, cid, -30);
+    }
+
+    // NFT (type c3) — transfer the single token to an external address.
+    {
+        auto r = walletModel.issueToken(3, 1);
+        QCOMPARE(r.status, WalletModel::IssueTokenResult::OK);
+        const QString cid = r.color;
+        mineAndUpdate();
+        checkLatestTx(TransactionRecord::TokenIssue, cid, 1);
+
+        sendTokens(cid, makeExtAddr(cid), 1);
+        mineAndUpdate();
+        checkLatestTx(TransactionRecord::SendToAddress, cid, -1);
     }
 
     // ── Receive: payment URL and requested-payments table ───────────────

@@ -205,10 +205,6 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
     std::set<std::string> allColorHexes;
     for (const auto& e : tokenCredit) allColorHexes.insert(e.first);
     for (const auto& e : tokenDebit)  allColorHexes.insert(e.first);
-    for (unsigned int i = 0; i < wtx.tx->vout.size(); i++) {
-        if (!wtx.txout_color_id[i].empty())
-            allColorHexes.insert(wtx.txout_color_id[i]);
-    }
 
     std::set<std::string> processedColors;
 
@@ -263,7 +259,7 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
         }
 
         bool isBurn  = (debitAmt > colorOutputTotal);
-        bool isIssue = (netAmt > 0 && fAllFromMe && !isBurn);
+        bool isIssue = (debitAmt == 0 && colorOutputTotal > 0 && fAllFromMe);
 
         TransactionRecord sub(hash, nTime);
         sub.colorId   = colorHex;
