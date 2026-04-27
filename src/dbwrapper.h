@@ -171,6 +171,10 @@ public:
         return piter->value().size();
     }
 
+    bool GetError() {
+        return !piter->status().ok();
+    }
+
 };
 
 class CDBWrapper

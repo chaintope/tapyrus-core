@@ -266,19 +266,6 @@ bool CScript::IsColoredPayToPubkeyHash(std::vector<unsigned char>& pubkeyhash, s
     return false;
 }
 
-bool CScript::IsColoredBurnScript() const
-{
-    // <COLOR identifier> OP_COLOR OP_TRUE
-    // <COLOR identifier> : TYPE = 1 byte and 32 byte PAYLOAD
-    if (this->size() == 36)
-        return ((*this)[0] == 0x21 &&
-                (*this)[34] == OP_COLOR &&
-                (*this)[35] == OP_TRUE &&
-                ((*this)[1] == TokenToUint(TokenTypes::REISSUABLE) ||
-                 (*this)[1] == TokenToUint(TokenTypes::NON_REISSUABLE) ||
-                 (*this)[1] == TokenToUint(TokenTypes::NFT)));
-    return false;
-}
 
 bool CScript::IsPayToWitnessScriptHash() const
 {
