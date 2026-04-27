@@ -22,7 +22,6 @@ static const unsigned char REJECT_NONSTANDARD = 0x40;
 // static const unsigned char REJECT_DUST = 0x41; // part of BIP 61
 static const unsigned char REJECT_INSUFFICIENTFEE = 0x42;
 static const unsigned char REJECT_CHECKPOINT = 0x43;
-static const unsigned char REJECT_COLORID = 0x44;
 static const unsigned char REJECT_PACKAGE_INVALID = 0x45; // The package itself is invalid (e.g. too many transactions).
 static const unsigned char REJECT_PACKAGE_TX = 0x46; // At least one tx is invalid.
 static const unsigned char REJECT_PACKAGE_MEMPOOL = 0x47; // Mempool logic error
