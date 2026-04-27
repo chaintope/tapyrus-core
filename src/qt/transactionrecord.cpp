@@ -194,8 +194,7 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
     std::map<std::string, CAmount> tokenCredit, tokenDebit;
     for (unsigned int i = 0; i < wtx.tx->vout.size(); i++) {
         if (wtx.txout_color_id[i].empty()) continue;
-        if (wtx.txout_is_mine[i] != ISMINE_NO)
-            tokenCredit[wtx.txout_color_id[i]] += wtx.tx->vout[i].nValue;
+        tokenCredit[wtx.txout_color_id[i]] += wtx.tx->vout[i].nValue;
     }
     for (unsigned int i = 0; i < wtx.txin_color_id.size(); i++) {
         if (wtx.txin_color_id[i].empty()) continue;
@@ -250,22 +249,17 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
 
         CAmount netAmt = creditAmt - debitAmt;
 
-        // A "real" colored output is one that is wallet-owned (change back to
-        // self) OR has a genuine recipient address.  The burn script
-        // (OP_COLOR + OP_TRUE) has CNoDestination and is not mine, so it is
-        // intentionally excluded — otherwise a burn would be misclassified as
-        // a send.  Outgoing transfers to another wallet still have a real
-        // destination address, so they are correctly classified as sends.
-        bool hasColoredOutputForColor = false;
-        for (unsigned int i = 0; i < wtx.txout_color_id.size(); i++) {
-            if (wtx.txout_color_id[i] != colorHex) continue;
-            bool isMine  = wtx.txout_is_mine[i] != ISMINE_NO;
-            bool hasAddr = !std::get_if<CNoDestination>(&wtx.txout_address[i]);
-            if (isMine || hasAddr) { hasColoredOutputForColor = true; break; }
+        // Sum ALL colored outputs for this color. a burn is
+        // detected purely by the imbalance: total colored input > total colored
+        // output.  This mirrors the "token burn detected" check in SignTransaction
+        CAmount colorOutputTotal = 0;
+        for (unsigned int i = 0; i < wtx.tx->vout.size(); i++) {
+            if (wtx.txout_color_id[i] == colorHex)
+                colorOutputTotal += wtx.tx->vout[i].nValue;
         }
 
-        bool isIssue = (netAmt > 0 && fAllFromMe);
-        bool isBurn  = (debitAmt > 0 && !hasColoredOutputForColor);
+        bool isBurn  = (debitAmt > colorOutputTotal);
+        bool isIssue = (debitAmt == 0 && colorOutputTotal > 0 && fAllFromMe);
 
         TransactionRecord sub(hash, nTime);
         sub.colorId   = colorHex;
@@ -285,12 +279,13 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
         }
 
         if (isBurn) {
-            // Tokens destroyed — no colored output recipient
-            auto [outIdx, addr, involvesWatch] = findColoredOutput(colorHex, /*preferMine=*/false);
+            // Tokens destroyed: colored inputs exceed colored outputs.
+            // Use preferMine=true to show the change output address (if any).
+            auto [outIdx, addr, involvesWatch] = findColoredOutput(colorHex, /*preferMine=*/true);
             sub.idx = outIdx >= 0 ? outIdx : 0;
             sub.address = addr;
             sub.involvesWatchAddress = involvesWatch;
-            sub.tokenAmount = netAmt; // negative
+            sub.tokenAmount = -(debitAmt - colorOutputTotal); // negative = tokens destroyed
             sub.type = TransactionRecord::TokenBurn;
             parts.append(sub);
             return;
@@ -310,7 +305,7 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
                 sub.idx = outIdx >= 0 ? outIdx : 0;
                 sub.address = addr;
                 sub.involvesWatchAddress = involvesWatch;
-                sub.tokenAmount = intentionalAmt;
+                sub.tokenAmount = -intentionalAmt;
                 sub.type = addr.empty() ? TransactionRecord::SendToOther : TransactionRecord::SendToAddress;
                 parts.append(sub);
             } else {

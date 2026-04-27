@@ -71,6 +71,7 @@ add_custom_command(
 add_library(tapyrusqt STATIC EXCLUDE_FROM_ALL
   bantablemodel.cpp
   bantablemodel.h
+  callback.h
   tapyrus.cpp
   tapyrusaddressvalidator.cpp
   tapyrusaddressvalidator.h
@@ -284,7 +285,7 @@ if(WIN32)
 endif()
 
 
-if(BUILD_GUI_TESTS)
+if(ENABLE_GUI_TESTS)
   add_subdirectory(test)
 endif()
 

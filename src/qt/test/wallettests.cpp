@@ -38,6 +38,16 @@
 #include <QListView>
 #include <QDialogButtonBox>
 #include <QTemporaryFile>
+#include <QComboBox>
+#include <QLabel>
+#include <QRadioButton>
+#include <QTableView>
+#include <QTableWidget>
+#include <coloridentifier.h>
+#include <qt/issuetoken.h>
+#include <qt/transactionrecord.h>
+#include <qt/walletmodeltransaction.h>
+#include <wallet/coincontrol.h>
 
 namespace
 {
@@ -244,6 +254,410 @@ void TestGUI()
     QCOMPARE(requestTableModel->rowCount({}), currentRowCount-1);
 }
 
+void TestGUI_coloredCoin()
+{
+    // Set up wallet and chain. TestChainSetup creates 100 initial blocks;
+    // we add 5 more so the test coinbaseKey's outputs are mature.
+    TestChainSetup test;
+    for (int i = 0; i < 5; ++i)
+        test.CreateAndProcessBlock({}, GetScriptForRawPubKey(test.coinbaseKey.GetPubKey()));
+
+    std::shared_ptr<CWallet> wallet =
+        std::make_shared<CWallet>("mock", WalletDatabase::CreateMock());
+    bool firstRun;
+    wallet->LoadWallet(firstRun);
+    {
+        LOCK(wallet->cs_wallet);
+        wallet->SetAddressBook(
+            GetDestinationForKey(test.coinbaseKey.GetPubKey(), wallet->m_default_address_type),
+            "", "receive");
+        wallet->AddKeyPubKey(test.coinbaseKey, test.coinbaseKey.GetPubKey());
+    }
+    {
+        LOCK(cs_main);
+        WalletRescanReserver reserver(wallet.get());
+        reserver.reserve();
+        wallet->ScanForWalletTransactions(chainActive.Genesis(), nullptr, reserver, true);
+    }
+    wallet->SetBroadcastTransactions(true);
+
+    // ── Create WalletModel and all GUI widgets ──────────────────────────
+    std::unique_ptr<const PlatformStyle> platformStyle(PlatformStyle::instantiate("other"));
+    auto node = interfaces::MakeNode();
+    OptionsModel optionsModel(*node);
+    AddWallet(wallet);
+    WalletModel walletModel(std::move(node->getWallets().back()), *node,
+                            platformStyle.get(), &optionsModel);
+    RemoveWallet(wallet);
+
+    OverviewPage       overviewPage(platformStyle.get());
+    IssueTokenDialog   issueTokenDialog(platformStyle.get());
+    TransactionView    transactionView(platformStyle.get());
+    ReceiveCoinsDialog receiveCoinsDialog(platformStyle.get());
+
+    overviewPage.setWalletModel(&walletModel);
+    issueTokenDialog.setModel(&walletModel);
+    transactionView.setModel(&walletModel);
+    receiveCoinsDialog.setModel(&walletModel);
+
+    TransactionTableModel*    txModel  = walletModel.getTransactionTableModel();
+    RecentRequestsTableModel* reqModel = walletModel.getRecentRequestsTableModel();
+
+    QTableWidget* tokenTable = issueTokenDialog.findChild<QTableWidget*>("tokenTable");
+    QVERIFY(tokenTable != nullptr);
+
+    // ── Helpers ─────────────────────────────────────────────────────────
+
+    // Mine one block (including all pending mempool transactions), rescan,
+    // and force WalletModel to propagate the update to all connected pages.
+    // Including mempool txns is essential: CreateAndProcessBlock({}) would
+    // otherwise mine an empty block, leaving all token transactions unconfirmed
+    // with identical block_height=INT_MAX.  Equal heights collapse the sort
+    // order to output-index, making checkLatestTx non-deterministic.
+    auto mineAndUpdate = [&]() {
+        std::vector<CMutableTransaction> mempoolTxns;
+        {
+            LOCK(mempool.cs);
+            for (const CTxMemPoolEntry& e : mempool.mapTx)
+                mempoolTxns.emplace_back(*e.GetSharedTx());
+        }
+        test.CreateAndProcessBlock(mempoolTxns, GetScriptForRawPubKey(test.coinbaseKey.GetPubKey()));
+        {
+            LOCK(cs_main);
+            WalletRescanReserver reserver(wallet.get());
+            reserver.reserve();
+            wallet->ScanForWalletTransactions(chainActive.Genesis(), nullptr, reserver, true);
+        }
+        // pollBalanceChanged checks block-count change, calls checkBalanceChanged()
+        // (→ balanceChanged → OverviewPage::setBalance → refreshTokenList) and
+        // checkTokenListChanged() (→ tokenListChanged → IssueTokenDialog::refreshTokenTable
+        // and ReceiveCoinsDialog::refreshTokenCombo).
+        QMetaObject::invokeMethod(&walletModel, "pollBalanceChanged");
+        QApplication::processEvents();
+    };
+
+    // Assert OverviewPage shows the expected confirmed balance for the given colorId.
+    auto checkOverviewBalance = [&](const QString& cid, CAmount expected) {
+        QComboBox* combo = overviewPage.findChild<QComboBox*>("comboToken");
+        QVERIFY(combo != nullptr);
+        int idx = combo->findData(cid);
+        QVERIFY2(idx >= 0, qPrintable("Token not in comboToken: " + cid));
+        combo->setCurrentIndex(idx);
+        QLabel* lbl = overviewPage.findChild<QLabel*>("labelTokenBalance");
+        QVERIFY(lbl != nullptr);
+        QCOMPARE(lbl->text(),
+                 TapyrusUnits::format(TapyrusUnits::TOKEN, expected, false,
+                                      TapyrusUnits::separatorAlways));
+    };
+
+    // Assert the IssueTokenDialog token table has a row matching the given colorId,
+    // token type string and confirmed balance.
+    auto checkTokenTableRow = [&](const QString& cid,
+                                  const QString& expectedType,
+                                  CAmount         expectedBalance) {
+        bool found = false;
+        for (int row = 0; row < tokenTable->rowCount(); ++row) {
+            if (tokenTable->item(row, IssueTokenDialog::ColColor)->text() == cid) {
+                QCOMPARE(tokenTable->item(row, IssueTokenDialog::ColType)->text(),
+                         expectedType);
+                QCOMPARE(tokenTable->item(row, IssueTokenDialog::ColBalance)->text(),
+                         QString::number(expectedBalance));
+                found = true;
+                break;
+            }
+        }
+        QVERIFY2(found,
+                 qPrintable("Token not found in tokenTable: " + cid));
+    };
+
+    // Assert the TransactionTableModel contains at least one token record with
+    // the expected type and colorId.  txModel is the unsorted underlying model
+    // (row order is by tx hash), so we scan all rows rather than assuming
+    // the "latest" operation lands at a particular row index.
+    auto checkLatestTx = [&](int expectedType, const QString& cid,
+                              CAmount expectedAmount = INT64_MIN) {
+        QVERIFY(txModel->rowCount({}) > 0);
+        for (int row = 0; row < txModel->rowCount({}); ++row) {
+            QModelIndex i = txModel->index(row, 0);
+            if (txModel->data(i, TransactionTableModel::ColorIdRole).toString() != cid)
+                continue;
+            if (txModel->data(i, TransactionTableModel::TypeRole).toInt() != expectedType)
+                continue;
+            if (expectedAmount != INT64_MIN &&
+                txModel->data(i, TransactionTableModel::TokenAmountRole).toLongLong() != (qlonglong)expectedAmount)
+                continue;
+            QVERIFY(txModel->data(i, TransactionTableModel::IsTokenRole).toBool());
+            return;
+        }
+        QFAIL(qPrintable(
+            QString("No record of type %1 found for colorId %2").arg(expectedType).arg(cid)));
+    };
+
+    // Parse a hex colorId string into a ColorIdentifier value.
+    auto parseColorId = [](const QString& hex) {
+        std::vector<unsigned char> v = ParseHex(hex.toStdString());
+        return ColorIdentifier(v.data(), v.data() + v.size());
+    };
+
+    // Look up the encoded colored address for the given colorId from the wallet
+    // address book (populated by IssueToken / IssueReissuableToken at issue time).
+    auto getColoredAddress = [&](const QString& cid) -> QString {
+        for (const auto& wa : walletModel.wallet().getAddresses()) {
+            if (wa.name == cid.toStdString() && wa.purpose == "receive")
+                return QString::fromStdString(EncodeDestination(wa.dest));
+        }
+        return {};
+    };
+
+    // Build a SendCoinsRecipient for a token transfer and call prepareTransaction
+    // + sendCoins.  We send to the wallet's own colored address (self-transfer) so
+    // the confirmed balance is unchanged after mining.
+    auto sendTokens = [&](const QString& cid, const QString& toAddress, CAmount amount) {
+        SendCoinsRecipient rcp;
+        rcp.address  = toAddress;
+        rcp.colorid  = parseColorId(cid);
+        rcp.amount   = amount;
+        rcp.fSubtractFeeFromAmount = false;
+        WalletModelTransaction txn(QList<SendCoinsRecipient>() << rcp);
+        CCoinControl ctrl;
+        WalletModel::SendCoinsReturn ret = walletModel.prepareTransaction(txn, ctrl);
+        QCOMPARE(ret.status, WalletModel::OK);
+        ret = walletModel.sendCoins(txn);
+        QCOMPARE(ret.status, WalletModel::OK);
+    };
+
+    // ── REISSUABLE token (type c1) ───────────────────────────────────────
+
+    {
+        // Issue 100 REISSUABLE tokens.
+        auto r = walletModel.issueToken(1, 100);
+        QCOMPARE(r.status, WalletModel::IssueTokenResult::OK);
+        const QString cid = r.color;
+        mineAndUpdate();
+
+        // Tokens page: one REISSUABLE row with balance 100.
+        checkTokenTableRow(cid, "REISSUABLE", 100);
+        // Overview: balance 100.
+        checkOverviewBalance(cid, 100);
+        // Transaction list: most recent entry is a TokenIssue for this colorId.
+        checkLatestTx(TransactionRecord::TokenIssue, cid, 100);
+
+        // Reissue 50 more tokens of the same color.
+        auto rr = walletModel.issueToken(1, 50, cid);
+        QCOMPARE(rr.status, WalletModel::IssueTokenResult::OK);
+        mineAndUpdate();
+
+        checkTokenTableRow(cid, "REISSUABLE", 150);
+        checkOverviewBalance(cid, 150);
+        checkLatestTx(TransactionRecord::TokenIssue, cid, 50);
+
+        // Send 30 tokens to the wallet's own colored address (self-transfer).
+        const QString addr = getColoredAddress(cid);
+        QVERIFY(!addr.isEmpty());
+        sendTokens(cid, addr, 30);
+        mineAndUpdate();
+
+        // Balance unchanged after self-transfer.
+        checkOverviewBalance(cid, 150);
+        checkLatestTx(TransactionRecord::SendToAddress, cid, -30);
+
+        // Burn 50 tokens.
+        auto br = walletModel.burnToken(cid, 50);
+        QCOMPARE(br.status, WalletModel::BurnTokenResult::OK);
+        mineAndUpdate();
+
+        checkTokenTableRow(cid, "REISSUABLE", 100);
+        checkOverviewBalance(cid, 100);
+        checkLatestTx(TransactionRecord::TokenBurn, cid, -50);
+    }
+
+    // ── NON_REISSUABLE token (type c2) ──────────────────────────────────
+
+    {
+        // Issue 200 NON_REISSUABLE tokens.
+        auto r = walletModel.issueToken(2, 200);
+        QCOMPARE(r.status, WalletModel::IssueTokenResult::OK);
+        const QString cid = r.color;
+        mineAndUpdate();
+
+        checkTokenTableRow(cid, "NON_REISSUABLE", 200);
+        checkOverviewBalance(cid, 200);
+        checkLatestTx(TransactionRecord::TokenIssue, cid, 200);
+
+        // Send 50 to self.
+        const QString addr = getColoredAddress(cid);
+        QVERIFY(!addr.isEmpty());
+        sendTokens(cid, addr, 50);
+        mineAndUpdate();
+
+        checkOverviewBalance(cid, 200);
+        checkLatestTx(TransactionRecord::SendToAddress, cid, -50);
+
+        // Burn all 200 — token should disappear from both views.
+        auto br = walletModel.burnToken(cid, 200);
+        QCOMPARE(br.status, WalletModel::BurnTokenResult::OK);
+        mineAndUpdate();
+
+        checkLatestTx(TransactionRecord::TokenBurn, cid, -200);
+        // Zero-balance token removed from OverviewPage combo and token table.
+        QComboBox* combo = overviewPage.findChild<QComboBox*>("comboToken");
+        QCOMPARE(combo->findData(cid), -1);
+        for (int row = 0; row < tokenTable->rowCount(); ++row)
+            QVERIFY(tokenTable->item(row, IssueTokenDialog::ColColor)->text() != cid);
+    }
+
+    // ── NFT token (type c3) ─────────────────────────────────────────────
+
+    {
+        // Issue one NFT.
+        auto r = walletModel.issueToken(3, 1);
+        QCOMPARE(r.status, WalletModel::IssueTokenResult::OK);
+        const QString cid = r.color;
+        mineAndUpdate();
+
+        checkTokenTableRow(cid, "NFT", 1);
+        checkOverviewBalance(cid, 1);
+        checkLatestTx(TransactionRecord::TokenIssue, cid, 1);
+
+        // Transfer the NFT to self.
+        const QString addr = getColoredAddress(cid);
+        QVERIFY(!addr.isEmpty());
+        sendTokens(cid, addr, 1);
+        mineAndUpdate();
+
+        checkOverviewBalance(cid, 1);
+        checkLatestTx(TransactionRecord::SendToAddress, cid, -1);
+
+        // Burn the NFT — token disappears.
+        auto br = walletModel.burnToken(cid, 1);
+        QCOMPARE(br.status, WalletModel::BurnTokenResult::OK);
+        mineAndUpdate();
+
+        checkLatestTx(TransactionRecord::TokenBurn, cid, -1);
+        QComboBox* combo = overviewPage.findChild<QComboBox*>("comboToken");
+        QCOMPARE(combo->findData(cid), -1);
+        for (int row = 0; row < tokenTable->rowCount(); ++row)
+            QVERIFY(tokenTable->item(row, IssueTokenDialog::ColColor)->text() != cid);
+    }
+
+    // ── External-recipient transfer ──────────────────────────────────────
+    // For each token type, verify the sender's record when tokens go to an
+    // address NOT owned by this wallet.  Expected: SendToAddress with a
+    // negative tokenAmount equal to the transferred quantity.
+
+    // Helper: build a colored address for a fresh external key.
+    auto makeExtAddr = [&](const QString& cid) -> QString {
+        CKey extKey;
+        extKey.MakeNewKey(true);
+        const std::vector<unsigned char> vColor = ParseHex(cid.toStdString());
+        ColorIdentifier colorId(vColor.data(), vColor.data() + vColor.size());
+        CColorKeyID colorKeyID(uint160(extKey.GetPubKey().GetID()), colorId);
+        return QString::fromStdString(EncodeDestination(colorKeyID));
+    };
+
+    // REISSUABLE (type c1) — send 20 of 50.
+    {
+        auto r = walletModel.issueToken(1, 50);
+        QCOMPARE(r.status, WalletModel::IssueTokenResult::OK);
+        const QString cid = r.color;
+        mineAndUpdate();
+        checkLatestTx(TransactionRecord::TokenIssue, cid, 50);
+
+        sendTokens(cid, makeExtAddr(cid), 20);
+        mineAndUpdate();
+        checkLatestTx(TransactionRecord::SendToAddress, cid, -20);
+    }
+
+    // NON_REISSUABLE (type c2) — send 30 of 100.
+    {
+        auto r = walletModel.issueToken(2, 100);
+        QCOMPARE(r.status, WalletModel::IssueTokenResult::OK);
+        const QString cid = r.color;
+        mineAndUpdate();
+        checkLatestTx(TransactionRecord::TokenIssue, cid, 100);
+
+        sendTokens(cid, makeExtAddr(cid), 30);
+        mineAndUpdate();
+        checkLatestTx(TransactionRecord::SendToAddress, cid, -30);
+    }
+
+    // NFT (type c3) — transfer the single token to an external address.
+    {
+        auto r = walletModel.issueToken(3, 1);
+        QCOMPARE(r.status, WalletModel::IssueTokenResult::OK);
+        const QString cid = r.color;
+        mineAndUpdate();
+        checkLatestTx(TransactionRecord::TokenIssue, cid, 1);
+
+        sendTokens(cid, makeExtAddr(cid), 1);
+        mineAndUpdate();
+        checkLatestTx(TransactionRecord::SendToAddress, cid, -1);
+    }
+
+    // ── Receive: payment URL and requested-payments table ───────────────
+    // The REISSUABLE token (balance 100) survives all of the above operations.
+
+    {
+        QComboBox* comboTok = overviewPage.findChild<QComboBox*>("comboToken");
+        QVERIFY(comboTok != nullptr && comboTok->count() > 0);
+        // Pick the first token still in the combo (REISSUABLE, balance 100).
+        const QString cid = comboTok->itemData(0).toString();
+
+        QLineEdit*          labelInput  = receiveCoinsDialog.findChild<QLineEdit*>("reqLabel");
+        QRadioButton*       radioToken  = receiveCoinsDialog.findChild<QRadioButton*>("radioToken");
+        QComboBox*          reqToken    = receiveCoinsDialog.findChild<QComboBox*>("reqToken");
+        BitcoinAmountField* amtInput    = receiveCoinsDialog.findChild<BitcoinAmountField*>("reqAmount");
+        QLineEdit*          msgInput    = receiveCoinsDialog.findChild<QLineEdit*>("reqMessage");
+        QVERIFY(labelInput && radioToken && reqToken && amtInput && msgInput);
+
+        labelInput->setText("TOKEN_LABEL");
+
+        // Switch to token mode and select the token.
+        radioToken->setChecked(true);
+        int idx = reqToken->findData(cid);
+        QVERIFY(idx >= 0);
+        reqToken->setCurrentIndex(idx);
+
+        amtInput->setValue(10);
+        msgInput->setText("TOKEN_MSG");
+
+        int beforeRows = reqModel->rowCount({});
+        receiveCoinsDialog.findChild<QPushButton*>("receiveButton")->click();
+
+        // Verify the ReceiveRequestDialog payment text.
+        for (QWidget* w : QApplication::topLevelWidgets()) {
+            if (!w->inherits("ReceiveRequestDialog")) continue;
+            QTextEdit* out = w->findChild<QTextEdit*>("outUri");
+            QStringList lines = out->toPlainText().split('\n');
+            QCOMPARE(lines.at(0), QString("Payment information"));
+            QVERIFY(lines.at(1).contains("URI: tapyrus:"));
+            QVERIFY(lines.at(2).contains("Address:"));
+            QCOMPARE(lines.at(3), QString("Token: ") + cid);
+            QCOMPARE(lines.at(4), QString("Amount: 10 token"));
+            QCOMPARE(lines.at(5), QString("Label: TOKEN_LABEL"));
+            QCOMPARE(lines.at(6), QString("Message: TOKEN_MSG"));
+        }
+
+        // Entry added to requested-payments table.
+        QCOMPARE(reqModel->rowCount({}), beforeRows + 1);
+
+        // Clear button resets all inputs and disables the token combo.
+        receiveCoinsDialog.findChild<QPushButton*>("clearButton")->click();
+        QCOMPARE(labelInput->text(), QString(""));
+        QCOMPARE(amtInput->value(), CAmount(0));
+        QCOMPARE(msgInput->text(), QString(""));
+        QVERIFY(!reqToken->isEnabled());
+
+        // Remove the last entry.
+        int afterRows = reqModel->rowCount({});
+        QTableView* tbl =
+            receiveCoinsDialog.findChild<QTableView*>("recentRequestsView");
+        tbl->selectRow(afterRows - 1);
+        receiveCoinsDialog.findChild<QPushButton*>("removeRequestButton")->click();
+        QCOMPARE(reqModel->rowCount({}), afterRows - 1);
+    }
+}
+
 } // namespace
 
 class SendCoinsRecipient;
@@ -326,4 +740,5 @@ void WalletTests::walletTests()
 {
     paymentServerTest();
     TestGUI();
+    TestGUI_coloredCoin();
 }
