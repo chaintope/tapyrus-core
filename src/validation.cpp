@@ -466,17 +466,14 @@ bool CheckColorIdentifierValidity(const CTransaction& tx, CValidationState& stat
             // Structural CP2SH: 0x21 <33B colorId> OP_COLOR OP_HASH160 <20B hash> OP_EQUAL
             bool isCP2SHForm  = (s.size() == 58 && s[0] == 0x21 && s[34] == OP_COLOR &&
                                  s[35] == OP_HASH160 && s[36] == 0x14 && s[57] == OP_EQUAL);
-            // Structural burn: 0x21 <33B colorId> OP_COLOR OP_TRUE
-            bool isBurnForm   = (s.size() == 36 && s[0] == 0x21 && s[34] == OP_COLOR &&
-                                 s[35] == OP_TRUE);
-            if (!isCP2PKHForm && !isCP2SHForm && !isBurnForm)
+            if (!isCP2PKHForm && !isCP2SHForm)
                 return state.DoS(100, false, REJECT_INVALID, "bad-txns-nonstandard-opcolor");
-            return false; // recognized form but invalid colorId bytes → "invalid-colorid"
+            return state.DoS(100, false, REJECT_INVALID, "bad-txns-invalid-colorid");
         }
 
         // Zero or negative token values are not allowed.
         if(txout.nValue <= 0)
-            return false;
+            return state.DoS(100, false, REJECT_INVALID, "bad-txns-token-value");
 
         if(outColorId.type == TokenTypes::NFT)
             nftOutputCount[outColorId]++;
@@ -526,11 +523,12 @@ bool CheckColorIdentifierValidity(const CTransaction& tx, CValidationState& stat
             }
         }
 
-        if(!matchFound) return false;
+        if(!matchFound)
+            return state.DoS(100, false, REJECT_INVALID, "bad-txns-token-noinput");
 
         // NFT value must always be exactly 1.
         if(outColorId.type == TokenTypes::NFT && txout.nValue != 1)
-            return false;
+            return state.DoS(100, false, REJECT_INVALID, "bad-txns-nft-amount");
 
         // Global uniqueness: a NON_REISSUABLE or NFT colorId must never have been issued before.
         // (Multiple outputs with the same NON_REISSUABLE colorId in one tx are allowed —
@@ -711,11 +709,8 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
             return false;
 
         //if there are colored coins in the output verify their colorids
-        if(!CheckColorIdentifierValidity(tx, state, view)) {
-            if (state.IsValid())
-                state.DoS(0, false, REJECT_COLORID, "invalid-colorid");
+        if(!CheckColorIdentifierValidity(tx, state, view))
             return false;
-        }
 
         // Bring the best block into scope
         view.GetBestBlock();

@@ -21,13 +21,7 @@ ColorIdentifier GetColorIdFromScript(const CScript& script)
         return ColorIdentifier(colorId);
     }
 
-    if(script.IsColoredBurnScript())
-    {
-        colorId.assign(script.begin()+1, script.begin()+34);
-        return ColorIdentifier(colorId);
-    }
-
-    // Only CP2PKH, CP2SH, and burn scripts are allowed. Any other script with OP_COLOR
+    // Only CP2PKH and CP2SH are allowed. Any other script with OP_COLOR
     // (custom scripts, decoys, stack-manipulation variants) returns NONE and
     // is rejected at transaction validation with "bad-txns-nonstandard-opcolor".
     return ColorIdentifier();

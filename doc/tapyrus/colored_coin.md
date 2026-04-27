@@ -21,21 +21,15 @@ The script will fail if there are no elements left in the stack, or if the COLOR
 If the COLOR identifier matches to the rule, the coin of the UTXO represents the amount of the coin for the COLOR identifier.
 Script which does not include `OP_COLOR` represents to the amount of the default token TPC (tapyrus).
 
-In a transaction, the total amount of tokens in the input color identifier and the total amount of tokens in the output color identifier shall be the same.
-That is, it maintains the balance of each token in the transaction. Please note that Signer does not receive any tokens (except default token) as a fee for block generation at this stage.
+In a transaction, the total amount of tokens in the outputs for a given color identifier must not exceed the total amount of tokens in the inputs for that same color identifier. Any surplus — inputs that exceed outputs for a color — is permanently destroyed. Please note that Signer does not receive any tokens (except default token) as a fee for block generation at this stage.
 
 For outputs whose scriptPubKey contains `OP_COLOR`, the `nValue` field carries the quantity of the named token as a raw integer, not satoshis. For outputs whose scriptPubKey does not contain `OP_COLOR`, `nValue` carries TPC in satoshis. Token `nValue` is not counted toward TPC transaction fees. Accordingly, every token transaction is required to include at least one TPC-denominated input to cover the fee; a transaction that contains only colored inputs is rejected with `bad-txns-token-without-fee`.
 
 If you use `OP_COLOR` in Script, the following restrictions are applied.
 
-* Only one `OP_COLOR` can be included in a script.
-* A `OP_COLOR` cannot be written in a control opcode such as `OP_IF`, `OP_CHECKLOCKTIMEVERIFY`, `OP_CHECKSEQUENCEVERIFY` etc.
-
-Because of the above counts and constraints, the scriptPubkey of the custom token of each output always contains `OP_COLOR`.
-Therefore, it is not possible to include `OP_COLOR` in the redeem script of P2SH. 
-When such a script is configured, the The stack of the script interpreter contains multiple `OP_COLOR`, 
-which always leads to an error and loss of coins when using P2SH.
-But operators like `OP_CHECKLOCKTIMEVERIFY` and `OP_CHECKSEQUENCEVERIFY` may be present in the P2SH redeem script without `OP_COLOR`.
+* Only one `OP_COLOR` is allowed in a scriptPubKey.
+* The scriptPubKey of a colored output must match exactly one of the templates listed below (CP2PKH / CP2SH). Other opcodes (`OP_IF`, `OP_CHECKLOCKTIMEVERIFY`, `OP_CHECKSEQUENCEVERIFY`, `OP_SWAP`, `OP_DROP`, etc.) are not permitted in the scriptPubKey of a colored output.
+* These opcodes may freely appear inside a CP2SH redeem script, which is evaluated only at spend time and does not contain `OP_COLOR`.
 
 As a result, we support the following types of scriptPubkey that coloring the existing P2PKH and P2SH.
 
@@ -43,9 +37,6 @@ As a result, we support the following types of scriptPubkey that coloring the ex
 `<COLOR identifier> OP_COLOR OP_DUP OP_HASH160 <H(pubkey)> OP_EQUALVERIFY OP_CHECKSIG`
 * `CP2SH`(Colored P2SH)：  
 `<COLOR identifier> OP_COLOR OP_HASH160 <H(redeem script)> OP_EQUAL`
-* `Burn`:
-`<COLOR identifier> OP_COLOR OP_TRUE`
-A burn output has no spendable destination. Tokens assigned to this output are permanently destroyed.
 
 **A concensus change is being mandated from 0.7.2.**:   Tapyrus Core now allows only the above two scripts to use `OP_COLOR`. Custom `OP_COLOR` scripts are **not** allowed in order to prevent vulnerabilities arising due to mischeviously constructed scripts that could bypass consensus rules.
 

@@ -668,11 +668,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         }
 
         //if there are colored coins in the output verify their colorids
-        if(!CheckColorIdentifierValidity(tx, state, view)) {
-            if (state.IsValid())
-                state.DoS(0, false, REJECT_COLORID, "invalid-colorid");
+        if(!CheckColorIdentifierValidity(tx, state, view))
             return false;
-        }
 
         //verify token balances (coinbase has no real inputs so balance check does not apply)
         if (!tx.IsCoinBase()) {

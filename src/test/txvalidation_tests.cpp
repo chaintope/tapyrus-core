@@ -262,7 +262,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_reissuable_token, TestChainSetup)
     Sign(vchSig, coinbaseKey, m_coinbase_txns[3]->vout[0].scriptPubKey, coinbaseIn2, 1, tokenTransferTx, 0);
     tokenTransferTx.vin[1].scriptSig = CScript() << vchSig;
 
-    testTx(this, MakeTransactionRef(tokenTransferTx), false, "invalid-colorid");
+    testTx(this, MakeTransactionRef(tokenTransferTx), false, "bad-txns-token-value");
 
     //tokenTransferTx - 3. add extra tokens into 50 + 60 tokens - token balance error
     tokenTransferTx.vout[0].nValue = 50 * CENT;
@@ -502,7 +502,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_nonreissuable_token, TestChainSetup)
     Sign(vchSig, coinbaseKey, m_coinbase_txns[3]->vout[0].scriptPubKey, coinbaseIn2, 1, tokenTransferTx, 0);
     tokenTransferTx.vin[1].scriptSig = CScript() << vchSig;
 
-    testTx(this, MakeTransactionRef(tokenTransferTx), false, "invalid-colorid");
+    testTx(this, MakeTransactionRef(tokenTransferTx), false, "bad-txns-token-value");
 
     //tokenTransferTx - 3. add extra tokens into 50 + 60 tokens - token balance error
     tokenTransferTx.vout[0].nValue = 50 * CENT;
@@ -539,7 +539,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_nonreissuable_token, TestChainSetup)
     Sign(vchSig, key0, coinbaseSpendTx.vout[0].scriptPubKey, coinbaseSpendTx, 0, tokenIssueTx, 0);
     tokenIssueTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey0;
 
-    testTx(this, MakeTransactionRef(tokenIssueTx), false, "invalid-colorid");
+    testTx(this, MakeTransactionRef(tokenIssueTx), false, "bad-txns-token-noinput");
 
     CMutableTransaction tokenAggregateTx;
     //tokenAggregateTx - 1. no fee
@@ -693,7 +693,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_nft_token, TestChainSetup)
     Sign(vchSig, key0, coinbaseSpendTx.vout[0].scriptPubKey, coinbaseSpendTx, 0, tokenIssueTx, 0);
     tokenIssueTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey0;
 
-    testTx(this, MakeTransactionRef(tokenIssueTx), false, "invalid-colorid");
+    testTx(this, MakeTransactionRef(tokenIssueTx), false, "bad-txns-nft-amount");
 
     tokenIssueTx.vout[0].nValue = 1;
     tokenIssueTx.vout[0].scriptPubKey = scriptPubKey;
@@ -748,10 +748,10 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_nft_token, TestChainSetup)
     tokenTransferTx.vin[1].scriptSig = CScript() << vchSig;
 
     dustRelayFee = CFeeRate(1);
-    testTx(this, MakeTransactionRef(tokenTransferTx), false, "invalid-colorid");
+    testTx(this, MakeTransactionRef(tokenTransferTx), false, "bad-txns-token-value");
 
     dustRelayFee = CFeeRate(0);
-    testTx(this, MakeTransactionRef(tokenTransferTx), false, "invalid-colorid");
+    testTx(this, MakeTransactionRef(tokenTransferTx), false, "bad-txns-token-value");
 
     tokenTransferTx.vout.resize(1);
     tokenTransferTx.vout[0].nValue = 1;
@@ -1162,7 +1162,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_cltv_colored_coin, TestChainSetup)
 }
 
 /*
- * Test the burn script (<colorId> OP_COLOR OP_TRUE) as an explicit burn destination.
+ * Test token balance enforcement with an explicit partial-burn destination.
  *
  * Txs:
  *   refillCoinbase(1) - mine block 6 → coinbase[5] (fresh, unspent)
@@ -1203,13 +1203,14 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_burn_script, TestChainSetup)
 
     // Derive REISSUABLE colorId from the P2PKH locking script of coinbaseSpendTx output
     ColorIdentifier colorId(coinbaseSpendTx.vout[0].scriptPubKey);
-    CScript cp2pkhKey0  = CScript() << colorId.toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash0) << OP_EQUALVERIFY << OP_CHECKSIG;
-    CScript cp2pkhKey1  = CScript() << colorId.toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash1) << OP_EQUALVERIFY << OP_CHECKSIG;
-    CScript cp2pkhKey2  = CScript() << colorId.toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash2) << OP_EQUALVERIFY << OP_CHECKSIG;
-    CScript burnScript  = CScript() << colorId.toVector() << OP_COLOR << OP_TRUE;
-
-    BOOST_CHECK(burnScript.IsColoredBurnScript());
-    BOOST_CHECK(GetColorIdFromScript(burnScript) == colorId);
+    CScript cp2pkhKey0 = CScript() << colorId.toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash0) << OP_EQUALVERIFY << OP_CHECKSIG;
+    CScript cp2pkhKey1 = CScript() << colorId.toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash1) << OP_EQUALVERIFY << OP_CHECKSIG;
+    CScript cp2pkhKey2 = CScript() << colorId.toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash2) << OP_EQUALVERIFY << OP_CHECKSIG;
+    // burnScript: tokens transferred here are intentionally left unspent in this test (partial burn).
+    // The explicit colored-script burn destination (<colorId> OP_COLOR OP_TRUE) was removed
+    // because OP_TRUE is anyone-can-spend.  Burning is achieved by omitting the colored output.
+    // Here we use a standard CP2PKH colored script as the "burnt" destination.
+    CScript burnScript = cp2pkhKey0;
 
     // tokenIssueTx: coinbaseSpendTx → 100 tokens (CP2PKH key0)
     CMutableTransaction tokenIssueTx;
