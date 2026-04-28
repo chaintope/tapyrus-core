@@ -2638,7 +2638,12 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
     unsigned int nSubtractFeeFromAmount = 0;
     for (const auto& recipient : vecSend)
     {
+        // Derive the colorId from the recipient script.  The one exception is
+        // the BURN recipient placeholder script, which GetColorIdFromScript()
+        // cannot parse. In that case fall back to coin_control.m_colorId
         ColorIdentifier colorId = GetColorIdFromScript(recipient.scriptPubKey);
+        if (colorId.type == TokenTypes::NONE && coin_control.m_colorTxType == ColoredTxType::BURN)
+            colorId = coin_control.m_colorId;
         if (mapValue[colorId] < 0 || recipient.nAmount < 0)
         {
             strFailReason = _("Transaction amounts must not be negative");
