@@ -79,6 +79,7 @@ add_executable(test_tapyrus
         main_tests.cpp
         mempool_tests.cpp
         merkle_tests.cpp
+        pool_tests.cpp
         merkleblock_tests.cpp
         miner_tests.cpp
         multisig_tests.cpp
@@ -116,6 +117,7 @@ add_executable(test_tapyrus
         uint256_tests.cpp
         util_tests.cpp
         validation_block_tests.cpp
+        validation_flush_tests.cpp
         xfieldhistory_tests.cpp
         xfield_tests.cpp
         # Tests generated from JSON

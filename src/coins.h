@@ -226,7 +226,14 @@ protected:
      * declared as "const".
      */
     mutable uint256 hashBlock;
+    // Note: declaration order is load-bearing. m_cache_coins_memory_resource
+    // must precede cacheCoins because cacheCoins's allocator stores a pointer
+    // to it, which is dereferenced from cacheCoins's destructor (and from
+    // every allocate/deallocate). Reordering these is undefined behavior.
     mutable CCoinsMapMemoryResource m_cache_coins_memory_resource{};
+    // cacheCoins (and the underlying memory resource) must only be accessed
+    // while cs_main is held. PoolResource is not thread-safe — concurrent
+    // access from multiple threads is undefined behavior.
     mutable CCoinsMap cacheCoins;
 
     /* Cached dynamic memory usage for the inner Coin objects. */
