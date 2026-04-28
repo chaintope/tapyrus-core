@@ -453,5 +453,5 @@ bool CBlockTreeDB::LoadIssuedColorIds(std::set<ColorIdentifier>& colorIds)
         colorIds.insert(ColorIdentifier(key.second));
         pcursor->Next();
     }
-    return !pcursor->GetError();
+    return !pcursor->HasError();
 }

@@ -543,7 +543,6 @@ public:
     bool IsColoredScript() const;
     bool IsColoredPayToScriptHash() const;
     bool IsColoredPayToPubkeyHash(std::vector<unsigned char>& pubkeyhash, std::vector<unsigned char>& colorid) const;
-    bool IsColoredBurnScript() const;
 
     /** Called by IsStandardTx and P2SH/BIP62 VerifyScript (which makes it consensus-critical). */
     bool IsPushOnly(const_iterator pc) const;

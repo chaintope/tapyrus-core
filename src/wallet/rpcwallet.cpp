@@ -4585,7 +4585,7 @@ UniValue transfertoken(const JSONRPCRequest& request)
 CTransactionRef BurnToken(CWallet * const pwallet, const ColorIdentifier& colorId, CAmount nValue)
 {
     //this is to make create transaction recognize this as colored transaction
-    CScript scriptPubKey = CScript() << colorId.toVector() << OP_COLOR << OP_FALSE;
+    CScript scriptPubKey = CScript() << colorId.toVector() << OP_COLOR << OP_TRUE;
     mapValue_t mapValue;
     mapValue["comment"] = colorId.toHexString();
 
