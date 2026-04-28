@@ -221,19 +221,31 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlockIn
 
 bool CCoinsViewCache::Flush() {
     bool fOk = base->BatchWrite(cacheCoins, hashBlock);
-    // BatchWrite (both CCoinsViewDB and CCoinsViewCache) erases entries from
-    // cacheCoins unconditionally during iteration, so the map is always empty
-    // clear() here is defensive; ReallocateCache() returns the pool backing memory.
-    // All three are safe to call on failure and success.
-    cacheCoins.clear();
-    ReallocateCache();
+    if (fOk) {
+        // BatchWrite (both CCoinsViewDB and CCoinsViewCache) erases entries from
+        // cacheCoins inside the iteration loop, so the map must be empty here.
+        // The assertion catches any future refactor that breaks that invariant.
+        if (!cacheCoins.empty()) {
+            throw std::logic_error("Not all cached coins were erased");
+        }
+        ReallocateCache();
+    }
     cachedCoinsUsage = 0;
     return fOk;
 }
 
 void CCoinsViewCache::ReallocateCache()
 {
-    // Cache should be empty when we're calling this.
+    // After Flush(), the pool resource still holds all chunks that were used
+    // during this flush cycle. We want to return that memory to the OS so the
+    // next flush cycle starts clean. We can't simply reset the resource because
+    // cacheCoins's allocator holds a pointer to it — so we tear down both objects
+    // and reconstruct them in place. The member addresses are preserved, so any
+    // references held elsewhere (there should be none, but defensively) remain
+    // valid.
+    //
+    // Order matters: cacheCoins must be destroyed before the resource it
+    // allocates from, and reconstructed after the new resource is in place.
     assert(cacheCoins.size() == 0);
     cacheCoins.~CCoinsMap();
     m_cache_coins_memory_resource.~CCoinsMapMemoryResource();
