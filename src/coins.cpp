@@ -33,7 +33,9 @@ size_t CCoinsViewBacked::EstimateSize() const { return base->EstimateSize(); }
 
 SaltedOutpointHasher::SaltedOutpointHasher() : k0(GetRand(std::numeric_limits<uint64_t>::max())), k1(GetRand(std::numeric_limits<uint64_t>::max())) {}
 
-CCoinsViewCache::CCoinsViewCache(CCoinsView *baseIn) : CCoinsViewBacked(baseIn), cachedCoinsUsage(0) {}
+CCoinsViewCache::CCoinsViewCache(CCoinsView *baseIn) : CCoinsViewBacked(baseIn),
+    cacheCoins(0, SaltedOutpointHasher{}, CCoinsMap::key_equal{}, &m_cache_coins_memory_resource),
+    cachedCoinsUsage(0) {}
 
 size_t CCoinsViewCache::DynamicMemoryUsage() const {
     return memusage::DynamicUsage(cacheCoins) + cachedCoinsUsage;
@@ -219,9 +221,36 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlockIn
 
 bool CCoinsViewCache::Flush() {
     bool fOk = base->BatchWrite(cacheCoins, hashBlock);
-    cacheCoins.clear();
+    if (fOk) {
+        // BatchWrite (both CCoinsViewDB and CCoinsViewCache) erases entries from
+        // cacheCoins inside the iteration loop, so the map must be empty here.
+        // The assertion catches any future refactor that breaks that invariant.
+        if (!cacheCoins.empty()) {
+            throw std::logic_error("Not all cached coins were erased");
+        }
+        ReallocateCache();
+    }
     cachedCoinsUsage = 0;
     return fOk;
+}
+
+void CCoinsViewCache::ReallocateCache()
+{
+    // After Flush(), the pool resource still holds all chunks that were used
+    // during this flush cycle. We want to return that memory to the OS so the
+    // next flush cycle starts clean. We can't simply reset the resource because
+    // cacheCoins's allocator holds a pointer to it — so we tear down both objects
+    // and reconstruct them in place. The member addresses are preserved, so any
+    // references held elsewhere (there should be none, but defensively) remain
+    // valid.
+    //
+    // Order matters: cacheCoins must be destroyed before the resource it
+    // allocates from, and reconstructed after the new resource is in place.
+    assert(cacheCoins.size() == 0);
+    cacheCoins.~CCoinsMap();
+    m_cache_coins_memory_resource.~CCoinsMapMemoryResource();
+    ::new (&m_cache_coins_memory_resource) CCoinsMapMemoryResource{};
+    ::new (&cacheCoins) CCoinsMap{0, SaltedOutpointHasher{}, CCoinsMap::key_equal{}, &m_cache_coins_memory_resource};
 }
 
 void CCoinsViewCache::Uncache(const COutPoint& hash)
