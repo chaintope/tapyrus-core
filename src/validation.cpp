@@ -459,6 +459,16 @@ bool CheckColorIdentifierValidity(const CTransaction& tx, CValidationState& stat
         // validate the type byte, so we check structure directly here.
         if (outColorId.type == TokenTypes::NONE) {
             const CScript& s = txout.scriptPubKey;
+            // Burn script: 0x21 <33B colorId> OP_COLOR <1B opcode> — the
+            // 36-byte placeholder used by BurnToken (terminal opcode not
+            // compared since it may vary).  Balance is enforced by
+            // VerifyTokenBalances; skip structural validation here.
+            bool isBurnForm = (s.size() == 36 && s[0] == 0x21 && s[34] == OP_COLOR &&
+                               (s[1] == TokenToUint(TokenTypes::REISSUABLE) ||
+                                s[1] == TokenToUint(TokenTypes::NON_REISSUABLE) ||
+                                s[1] == TokenToUint(TokenTypes::NFT)));
+            if (isBurnForm)
+                continue;
             // Structural CP2PKH: 0x21 <33B colorId> OP_COLOR OP_DUP OP_HASH160 <20B hash> OP_EQUALVERIFY OP_CHECKSIG
             bool isCP2PKHForm = (s.size() == 60 && s[0] == 0x21 && s[34] == OP_COLOR &&
                                  s[35] == OP_DUP && s[36] == OP_HASH160 && s[37] == 20 &&
@@ -574,6 +584,16 @@ bool VerifyTokenBalances(const CTransaction& tx, CValidationState& state, const 
     TxColoredCoinBalancesMap outColoredCoinBalances;
     for (const auto& tx_out : tx.vout) {
         ColorIdentifier outColorId(GetColorIdFromScript(tx_out.scriptPubKey));
+        // Burn script (0x21 <33B colorId> OP_COLOR <opcode>, 36 bytes) returns
+        // NONE from GetColorIdFromScript.  Extract the real colorId so the
+        // burned amount is accounted against the correct colored coin balance.
+        if (outColorId.type == TokenTypes::NONE && tx_out.scriptPubKey.IsColoredScript()) {
+            const CScript& s = tx_out.scriptPubKey;
+            if (s.size() == 36 && s[0] == 0x21 && s[34] == OP_COLOR) {
+                std::vector<unsigned char> colorIdBytes(s.begin() + 1, s.begin() + 34);
+                outColorId = ColorIdentifier(colorIdBytes);
+            }
+        }
 
         //collect token balances from all outputs.
         auto iter = outColoredCoinBalances.find(outColorId);

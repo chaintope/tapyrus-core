@@ -171,7 +171,7 @@ public:
         return piter->value().size();
     }
 
-    bool GetError() {
+    bool HasError() {
         return !piter->status().ok();
     }
 
