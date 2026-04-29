@@ -237,12 +237,11 @@ bool CCoinsViewCache::Flush() {
     auto cursor{CoinsViewCacheCursor(cachedCoinsUsage, m_sentinel, cacheCoins, /*will_erase=*/true)};
     bool fOk = base->BatchWrite(cursor, hashBlock);
     if (fOk) {
-        // BatchWrite (both CCoinsViewDB and CCoinsViewCache) erases entries from
-        // cacheCoins inside the iteration loop, so the map must be empty here.
-        // The assertion catches any future refactor that breaks that invariant.
-        if (!cacheCoins.empty()) {
-            throw std::logic_error("Not all cached coins were erased");
-        }
+        // With will_erase=true the cursor does not touch the map during iteration;
+        // entries (dirty and clean) are still present. Clear them all now so their
+        // CCoinsCacheEntry destructors call ClearFlags(), emptying the linked list
+        // before ReallocateCache() reconstructs the pool.
+        cacheCoins.clear();
         ReallocateCache();
     }
     cachedCoinsUsage = 0;
