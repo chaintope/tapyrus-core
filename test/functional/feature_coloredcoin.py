@@ -896,6 +896,95 @@ class ColoredCoinTest(BitcoinTestFramework):
             self.assert_block_rejected_p2p(make_block(2), method='compact')
             self.assert_block_rejected_loadblock(make_block(3))
 
+    # ------------------------------------------------------------------ reindex tests
+
+    def test_reindex_chainstate_colorid_set(self):
+        """
+        -reindex-chainstate preserves pblocktree but wipes the chainstate.
+        Before the fix, LoadIssuedColorIds pre-populated g_issued_colorids
+        with stale DB_ISSUED_COLORID entries, causing bad-txns-colorid-already-issued
+        when the issuance block was re-connected.
+        After the fix, ClearIssuedColorIds() wipes those entries first so
+        re-connection succeeds and g_issued_colorids is rebuilt correctly.
+        """
+        self.log.info("Test: -reindex-chainstate rebuilds g_issued_colorids correctly")
+        node = self.nodes[0]
+
+        nr_result  = self.issue_token(NON_REISSUABLE)
+        nft_result = self.issue_token(NFT)
+        node.generate(1, self.signblockprivkey_wif)
+        expected_height = node.getblockcount()
+
+        self.stop_nodes()
+        self.start_node(0, extra_args=['-reindex-chainstate'])
+        wait_until(lambda: self.nodes[0].getblockcount() == expected_height, timeout=120)
+        self.log.info("  -reindex-chainstate complete, height=%d" % expected_height)
+
+        self.peer = self.nodes[0].add_p2p_connection(P2PInterface(self.nodes[0].time_to_connect))
+
+        # Both colored UTXOs must survive the chainstate rebuild.
+        utxos = node.listunspent()
+        assert any(u['token'] == nr_result['color']  for u in utxos), \
+            "NON_REISSUABLE UTXO missing after -reindex-chainstate"
+        assert any(u['token'] == nft_result['color'] for u in utxos), \
+            "NFT UTXO missing after -reindex-chainstate"
+
+        # g_issued_colorids must be correctly populated: new issuances must work ...
+        new_nr = self.issue_token(NON_REISSUABLE)
+        node.generate(1, self.signblockprivkey_wif)
+        assert any(u['token'] == new_nr['color'] for u in node.listunspent()), \
+            "NON_REISSUABLE issuance failed after -reindex-chainstate"
+
+        # ... and a re-issuance attempt using the original colorId but a different
+        # TPC input must be rejected (bad-txns-token-noinput because the source
+        # UTXO is spent, so no vin in the new tx matches the colorId derivation).
+        nr_cid_bytes = hex_str_to_bytes(nr_result['color'])
+        tpc_utxo     = self.get_spendable_utxo()
+        pubkey_hash  = self.get_pubkey_hash()
+        raw    = self.make_colored_issuance_tx(100, tpc_utxo, nr_cid_bytes, pubkey_hash)
+        signed = sign_and_get_hex(node, raw)
+        self.assert_tx_rejected_mempool(signed, "bad-txns-token-noinput")
+
+    def test_reindex_colorid_set(self):
+        """
+        -reindex wipes pblocktree entirely, so stale DB_ISSUED_COLORID entries
+        never arise and g_issued_colorids is always rebuilt from scratch.
+        This test guards against regressions in that path.
+        """
+        self.log.info("Test: -reindex rebuilds g_issued_colorids correctly")
+        node = self.nodes[0]
+
+        nr_result  = self.issue_token(NON_REISSUABLE)
+        nft_result = self.issue_token(NFT)
+        node.generate(1, self.signblockprivkey_wif)
+        expected_height = node.getblockcount()
+
+        self.stop_nodes()
+        self.start_node(0, extra_args=['-reindex'])
+        wait_until(lambda: self.nodes[0].getblockcount() == expected_height, timeout=120)
+        self.log.info("  -reindex complete, height=%d" % expected_height)
+
+        self.peer = self.nodes[0].add_p2p_connection(P2PInterface(self.nodes[0].time_to_connect))
+
+        utxos = node.listunspent()
+        assert any(u['token'] == nr_result['color']  for u in utxos), \
+            "NON_REISSUABLE UTXO missing after -reindex"
+        assert any(u['token'] == nft_result['color'] for u in utxos), \
+            "NFT UTXO missing after -reindex"
+
+        new_nft = self.issue_token(NFT)
+        node.generate(1, self.signblockprivkey_wif)
+        assert any(u['token'] == new_nft['color'] for u in node.listunspent()), \
+            "NFT issuance failed after -reindex"
+
+        # Re-issuance of the original NFT colorId from a different input must fail.
+        nft_cid_bytes = hex_str_to_bytes(nft_result['color'])
+        tpc_utxo      = self.get_spendable_utxo()
+        pubkey_hash   = self.get_pubkey_hash()
+        raw    = self.make_colored_issuance_tx(1, tpc_utxo, nft_cid_bytes, pubkey_hash)
+        signed = sign_and_get_hex(node, raw)
+        self.assert_tx_rejected_mempool(signed, "bad-txns-token-noinput")
+
     # ------------------------------------------------------------------ main test runner
 
     def run_test(self):
@@ -1284,6 +1373,11 @@ class ColoredCoinTest(BitcoinTestFramework):
         self.test_multi_op_two_transfers_one_burn()
         self.test_multi_op_one_transfer_two_burns()
         self.test_multi_op_three_burns()
+
+        # Reindex regression tests: verify g_issued_colorids is correctly
+        # cleared and rebuilt after -reindex-chainstate and -reindex.
+        self.test_reindex_chainstate_colorid_set()
+        self.test_reindex_colorid_set()
 
 if __name__ == '__main__':
     ColoredCoinTest().main()

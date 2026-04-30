@@ -1554,15 +1554,28 @@ bool AppInitMain()
                         xFieldHistory.Add(x, XFieldDB);
                 }
 
-                // Step 7b: Load issued NON_REISSUABLE/NFT colorId set from db
+                // Step 7b: Load issued NON_REISSUABLE/NFT colorId set from db.
+                // With -reindex-chainstate the coins DB is wiped but pblocktree is
+                // preserved, so stale DB_ISSUED_COLORID entries would cause every
+                // legitimate issuance to be rejected as already-issued when blocks
+                // are re-connected.  Clear both stores before the load in that case.
                 {
-                    std::set<ColorIdentifier> issuedColorIds;
-                    if (!pblocktree->LoadIssuedColorIds(issuedColorIds)) {
-                        strLoadError = _("Failed to load issued colorId set from block database");
-                        break;
+                    if (fReindexChainState) {
+                        if (!pblocktree->ClearIssuedColorIds()) {
+                            strLoadError = _("Failed to clear issued colorId set from block database");
+                            break;
+                        }
+                        LOCK(cs_issued_colorids);
+                        g_issued_colorids.clear();
+                    } else {
+                        std::set<ColorIdentifier> issuedColorIds;
+                        if (!pblocktree->LoadIssuedColorIds(issuedColorIds)) {
+                            strLoadError = _("Failed to load issued colorId set from block database");
+                            break;
+                        }
+                        LOCK(cs_issued_colorids);
+                        g_issued_colorids = std::move(issuedColorIds);
                     }
-                    LOCK(cs_issued_colorids);
-                    g_issued_colorids = std::move(issuedColorIds);
                 }
 
                 if (!is_coinsview_empty) {

@@ -144,7 +144,9 @@ public:
     bool RewriteXField(std::vector<XFieldChange> & xFieldChanges);
 
     bool WriteIssuedColorId(const ColorIdentifier& colorId);
+    bool WriteIssuedColorIdBatch(const std::set<ColorIdentifier>& colorIds);
     bool EraseIssuedColorId(const ColorIdentifier& colorId);
+    bool ClearIssuedColorIds();
     bool LoadIssuedColorIds(std::set<ColorIdentifier>& colorIds);
 };
 

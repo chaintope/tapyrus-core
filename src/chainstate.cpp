@@ -303,11 +303,14 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
                         continue;
                     COutPoint prevout = tx.vin[j].prevout;
                     if (ColorIdentifier(prevout, outColorId.type) == outColorId) {
+                        // Erase from disk before memory: if the disk erase fails
+                        // both stores remain consistent (entry still present in both).
+                        if (!pblocktree->EraseIssuedColorId(outColorId))
+                            return DISCONNECT_FAILED;
                         {
                             LOCK(cs_issued_colorids);
                             g_issued_colorids.erase(outColorId);
                         }
-                        pblocktree->EraseIssuedColorId(outColorId);
                         break;
                     }
                 }
@@ -703,15 +706,13 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     // All script checks passed. Now it is safe to commit new issuances to the
     // global set and to LevelDB — no further failure can occur that would
     // require rolling these back within this call.
+    // Write the entire batch atomically first; only update the in-memory set
+    // after the disk commit succeeds so the two stores never diverge.
     if (!fJustCheck) {
-        for (const auto& colorId : allNewIssuances) {
-            {
-                LOCK(cs_issued_colorids);
-                g_issued_colorids.insert(colorId);
-            }
-            if (!pblocktree->WriteIssuedColorId(colorId))
-                return error("ConnectBlock(): WriteIssuedColorId failed");
-        }
+        if (!pblocktree->WriteIssuedColorIdBatch(allNewIssuances))
+            return error("ConnectBlock(): WriteIssuedColorId failed");
+        LOCK(cs_issued_colorids);
+        g_issued_colorids.insert(allNewIssuances.begin(), allNewIssuances.end());
     }
 
     if (fJustCheck)
