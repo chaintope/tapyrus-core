@@ -542,6 +542,7 @@ public:
 
     bool IsColoredScript() const;
     bool IsColoredPayToScriptHash() const;
+    bool IsColoredPayToPubkeyHash(std::vector<unsigned char>& pubkeyhash, std::vector<unsigned char>& colorid) const;
 
     /** Called by IsStandardTx and P2SH/BIP62 VerifyScript (which makes it consensus-critical). */
     bool IsPushOnly(const_iterator pc) const;
@@ -594,8 +595,5 @@ public:
 };
 
 
-bool MatchColoredPayToPubkeyHash(const CScript& script, std::vector<unsigned char>& pubkeyhash, std::vector<unsigned char>& colorid);
-
-bool MatchCustomColoredScript(const CScript& script, std::vector<unsigned char>& colorid);
 
 #endif // BITCOIN_SCRIPT_SCRIPT_H

@@ -1300,6 +1300,8 @@ CAmount CWallet::GetDebit(const CTxIn &txin, const isminefilter& filter, ColorId
         if (txin.prevout.n < prev.tx->vout.size())
         {
             colorId = GetColorIdFromScript(prev.tx->vout[txin.prevout.n].scriptPubKey);
+            if (colorId.type == TokenTypes::NONE && prev.tx->vout[txin.prevout.n].scriptPubKey.IsColoredScript())
+                return 0; // non-standard colored script — not counted in any balance
             return (IsMine(prev.tx->vout[txin.prevout.n]) & filter ? prev.tx->vout[txin.prevout.n].nValue : 0 );
         }
     }
@@ -1422,6 +1424,8 @@ TxColoredCoinBalancesMap CWallet::GetCredit(const CTransaction& tx, const ismine
     for (const CTxOut& txout : tx.vout)
     {
         ColorIdentifier colorId(GetColorIdFromScript(txout.scriptPubKey));
+        if (colorId.type == TokenTypes::NONE && txout.scriptPubKey.IsColoredScript())
+            continue; // non-standard colored script — not counted in any balance
         nCredit[colorId] += GetCredit(txout, filter);
         if (!MoneyRange(nCredit[colorId]))
             throw std::runtime_error(std::string(__func__) + ": value out of range");
@@ -1435,6 +1439,8 @@ TxColoredCoinBalancesMap CWallet::GetChange(const CTransaction& tx) const
     for (const CTxOut& txout : tx.vout)
     {
         ColorIdentifier colorId(GetColorIdFromScript(txout.scriptPubKey));
+        if (colorId.type == TokenTypes::NONE && txout.scriptPubKey.IsColoredScript())
+            continue; // non-standard colored script — not counted in any balance
         nChange[colorId] += GetChange(txout);
         if (!MoneyRange(nChange[colorId]))
             throw std::runtime_error(std::string(__func__) + ": value out of range");
@@ -1947,6 +1953,8 @@ TxColoredCoinBalancesMap CWalletTx::GetAvailableCredit(bool fUseCache, const ism
         {
             const CTxOut &txout = tx->vout[i];
             ColorIdentifier colorId(GetColorIdFromScript(tx->vout[i].scriptPubKey));
+            if (colorId.type == TokenTypes::NONE && txout.scriptPubKey.IsColoredScript())
+                continue; // non-standard colored script — not counted in any balance
             nCredit[colorId] += pwallet->GetCredit(txout, filter);
             if (!MoneyRange(nCredit[colorId]))
                 throw std::runtime_error(std::string(__func__) + " : value out of range");
@@ -2630,7 +2638,12 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
     unsigned int nSubtractFeeFromAmount = 0;
     for (const auto& recipient : vecSend)
     {
+        // Derive the colorId from the recipient script.  The one exception is
+        // the BURN recipient placeholder script, which GetColorIdFromScript()
+        // cannot parse. In that case fall back to coin_control.m_colorId
         ColorIdentifier colorId = GetColorIdFromScript(recipient.scriptPubKey);
+        if (colorId.type == TokenTypes::NONE && coin_control.m_colorTxType == ColoredTxType::BURN)
+            colorId = coin_control.m_colorId;
         if (mapValue[colorId] < 0 || recipient.nAmount < 0)
         {
             strFailReason = _("Transaction amounts must not be negative");

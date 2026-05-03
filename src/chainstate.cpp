@@ -23,6 +23,8 @@
 // Defined in validation.cpp; declared here to avoid pulling in validation.h
 // (which includes chainstate.h, creating an indirect self-inclusion).
 void RefreshChainTxDataFromTip(const CBlockIndex* pindexNew);
+extern Mutex cs_issued_colorids;
+extern std::set<ColorIdentifier> g_issued_colorids;
 extern std::atomic_bool fReindex;
 
 static int64_t nTimeCheck = 0;
@@ -288,6 +290,32 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
                 error("DisconnectBlock(): transaction and undo data inconsistent");
                 return DISCONNECT_FAILED;
             }
+
+            // Remove any NON_REISSUABLE/NFT colorIds first issued in this tx.
+            // vprevout holds the original coins (before they were spent), so we
+            // can detect which inputs were TPC and reconstruct the colorId.
+            for (const auto& txout : tx.vout) {
+                ColorIdentifier outColorId(GetColorIdFromScript(txout.scriptPubKey));
+                if (outColorId.type != TokenTypes::NON_REISSUABLE && outColorId.type != TokenTypes::NFT)
+                    continue;
+                for (unsigned int j = 0; j < tx.vin.size(); j++) {
+                    if (GetColorIdFromScript(txundo.vprevout[j].out.scriptPubKey).type != TokenTypes::NONE)
+                        continue;
+                    COutPoint prevout = tx.vin[j].prevout;
+                    if (ColorIdentifier(prevout, outColorId.type) == outColorId) {
+                        // Erase from disk before memory: if the disk erase fails
+                        // both stores remain consistent (entry still present in both).
+                        if (!pblocktree->EraseIssuedColorId(outColorId))
+                            return DISCONNECT_FAILED;
+                        {
+                            LOCK(cs_issued_colorids);
+                            g_issued_colorids.erase(outColorId);
+                        }
+                        break;
+                    }
+                }
+            }
+
             for (unsigned int j = tx.vin.size(); j-- > 0;) {
                 const COutPoint &out = tx.vin[j].prevout;
                 int res = ApplyTxInUndo(std::move(txundo.vprevout[j]), view, out);
@@ -583,16 +611,22 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     blockundo.vtxundo.reserve(block.vtx.size() - 1);
     std::vector<PrecomputedTransactionData> txdata;
     txdata.reserve(block.vtx.size()); // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
+
+    // Accumulate new NON_REISSUABLE/NFT issuances across the whole block.
+    // Applied to g_issued_colorids and persisted to LevelDB only after
+    // control.Wait() succeeds, so a late script-check failure cannot leave
+    // the global set or the DB in a dirty state.
+    std::set<ColorIdentifier> allNewIssuances;
+
     for (unsigned int i = 0; i < block.vtx.size(); i++)
     {
         const CTransaction &tx = *(block.vtx[i]);
-        TxColoredCoinBalancesMap inColoredCoinBalances;
+        CAmount txfee = 0;
 
         nInputs += tx.vin.size();
 
         if (!tx.IsCoinBase())
         {
-            CAmount txfee = 0;
             if (!Consensus::CheckTxInputs(tx, state, view, pindex->nHeight, txfee)) {
                 return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, tx.GetHashMalFix().ToString(), FormatStateMessage(state));
             }
@@ -630,10 +664,22 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         {
             std::vector<CScriptCheck> vChecks;
             bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
-            if (!CheckInputs(tx, state, view, fScriptChecks, SCRIPT_VERIFY_NONE, fCacheResults, fCacheResults, txdata[i], inColoredCoinBalances, nScriptCheckThreads ? &vChecks : nullptr))
+            if (!CheckInputs(tx, state, view, fScriptChecks, SCRIPT_VERIFY_NONE, fCacheResults, fCacheResults, txdata[i], nScriptCheckThreads ? &vChecks : nullptr))
                 return error("ConnectBlock(): CheckInputs on %s failed with %s",
                     tx.GetHashMalFix().ToString(), FormatStateMessage(state));
             control.Add(std::move(vChecks));
+        }
+
+        //if there are colored coins in the output verify their colorids
+        if(!CheckColorIdentifierValidity(tx, state, view))
+            return false;
+
+        //verify token balances (coinbase has no real inputs so balance check does not apply)
+        if (!tx.IsCoinBase()) {
+            std::set<ColorIdentifier> newIssuances;
+            if (!VerifyTokenBalances(tx, state, view, txfee, !fJustCheck ? &newIssuances : nullptr))
+                return false;
+            allNewIssuances.insert(newIssuances.begin(), newIssuances.end());
         }
 
         CTxUndo undoDummy;
@@ -656,6 +702,18 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         return state.DoS(100, error("%s: CheckQueue failed", __func__), REJECT_INVALID, "block-validation-failed");
     int64_t nTime4 = GetTimeMicros(); nTimeVerify += nTime4 - nTime2;
     LogPrint(BCLog::BENCH, "    - Verify %u txins: %.2fms (%.3fms/txin) [%.2fs (%.2fms/blk)]\n", nInputs - 1, MILLI * (nTime4 - nTime2), nInputs <= 1 ? 0 : MILLI * (nTime4 - nTime2) / (nInputs-1), nTimeVerify * MICRO, nTimeVerify * MILLI / nBlocksTotal);
+
+    // All script checks passed. Now it is safe to commit new issuances to the
+    // global set and to LevelDB — no further failure can occur that would
+    // require rolling these back within this call.
+    // Write the entire batch atomically first; only update the in-memory set
+    // after the disk commit succeeds so the two stores never diverge.
+    if (!fJustCheck) {
+        if (!pblocktree->WriteIssuedColorIdBatch(allNewIssuances))
+            return error("ConnectBlock(): WriteIssuedColorId failed");
+        LOCK(cs_issued_colorids);
+        g_issued_colorids.insert(allNewIssuances.begin(), allNewIssuances.end());
+    }
 
     if (fJustCheck)
         return true;

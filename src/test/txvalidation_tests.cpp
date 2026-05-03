@@ -12,6 +12,7 @@
 #include <script/interpreter.h>
 #include <test/test_tapyrus.h>
 #include <policy/policy.h>
+#include <coloridentifier.h>
 
 #include <boost/test/unit_test.hpp>
 
@@ -144,6 +145,8 @@ BOOST_FIXTURE_TEST_CASE(tx_invalid_token_issue, TestChainSetup)
 
     testTx(this, MakeTransactionRef(coinbaseSpendTx), true);
 
+    // ColorIdentifier() serializes to 1 byte (NONE type, no payload), producing a
+    // 28-byte script that is not structurally CP2PKH or CP2SH — non-standard.
     CScript scriptPubKey = CScript() << ColorIdentifier().toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash) << OP_EQUALVERIFY << OP_CHECKSIG;
     CMutableTransaction tokenIssueTx;
 
@@ -159,7 +162,7 @@ BOOST_FIXTURE_TEST_CASE(tx_invalid_token_issue, TestChainSetup)
     std::vector<unsigned char> vchPubKey0(pubkey0.begin(), pubkey0.end());
     tokenIssueTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey;
 
-    testTx(this, MakeTransactionRef(tokenIssueTx), false, "invalid-colorid");
+    testTx(this, MakeTransactionRef(tokenIssueTx), false, "bad-txns-nonstandard-opcolor");
 
     //test colorid in coinbase utxo
     //"CreateNewBlock: TestBlockValidity failed: bad-cb-issuetoken, coinbase cannot issue tokens"
@@ -259,7 +262,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_reissuable_token, TestChainSetup)
     Sign(vchSig, coinbaseKey, m_coinbase_txns[3]->vout[0].scriptPubKey, coinbaseIn2, 1, tokenTransferTx, 0);
     tokenTransferTx.vin[1].scriptSig = CScript() << vchSig;
 
-    testTx(this, MakeTransactionRef(tokenTransferTx), false, "invalid-colorid");
+    testTx(this, MakeTransactionRef(tokenTransferTx), false, "bad-txns-token-value");
 
     //tokenTransferTx - 3. add extra tokens into 50 + 60 tokens - token balance error
     tokenTransferTx.vout[0].nValue = 50 * CENT;
@@ -499,7 +502,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_nonreissuable_token, TestChainSetup)
     Sign(vchSig, coinbaseKey, m_coinbase_txns[3]->vout[0].scriptPubKey, coinbaseIn2, 1, tokenTransferTx, 0);
     tokenTransferTx.vin[1].scriptSig = CScript() << vchSig;
 
-    testTx(this, MakeTransactionRef(tokenTransferTx), false, "invalid-colorid");
+    testTx(this, MakeTransactionRef(tokenTransferTx), false, "bad-txns-token-value");
 
     //tokenTransferTx - 3. add extra tokens into 50 + 60 tokens - token balance error
     tokenTransferTx.vout[0].nValue = 50 * CENT;
@@ -536,7 +539,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_nonreissuable_token, TestChainSetup)
     Sign(vchSig, key0, coinbaseSpendTx.vout[0].scriptPubKey, coinbaseSpendTx, 0, tokenIssueTx, 0);
     tokenIssueTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey0;
 
-    testTx(this, MakeTransactionRef(tokenIssueTx), false, "invalid-colorid");
+    testTx(this, MakeTransactionRef(tokenIssueTx), false, "bad-txns-token-noinput");
 
     CMutableTransaction tokenAggregateTx;
     //tokenAggregateTx - 1. no fee
@@ -690,7 +693,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_nft_token, TestChainSetup)
     Sign(vchSig, key0, coinbaseSpendTx.vout[0].scriptPubKey, coinbaseSpendTx, 0, tokenIssueTx, 0);
     tokenIssueTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey0;
 
-    testTx(this, MakeTransactionRef(tokenIssueTx), false, "invalid-colorid");
+    testTx(this, MakeTransactionRef(tokenIssueTx), false, "bad-txns-nft-amount");
 
     tokenIssueTx.vout[0].nValue = 1;
     tokenIssueTx.vout[0].scriptPubKey = scriptPubKey;
@@ -732,7 +735,9 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_nft_token, TestChainSetup)
     Sign(vchSig, coinbaseKey, m_coinbase_txns[3]->vout[0].scriptPubKey, coinbaseIn2, 1, tokenTransferTx, 0);
     tokenTransferTx.vin[1].scriptSig = CScript() << vchSig;
 
-    testTx(this, MakeTransactionRef(tokenTransferTx), false, "bad-txns-token-balance");
+    // 2 NFT outputs with the same colorId: the per-colorId NFT output count check fires
+    // first (bad-txns-nft-output-count) before the token balance check would be reached.
+    testTx(this, MakeTransactionRef(tokenTransferTx), false, "bad-txns-nft-output-count");
 
     tokenTransferTx.vout[0].nValue = 1;
     tokenTransferTx.vout[1].nValue = 0;
@@ -743,10 +748,10 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_nft_token, TestChainSetup)
     tokenTransferTx.vin[1].scriptSig = CScript() << vchSig;
 
     dustRelayFee = CFeeRate(1);
-    testTx(this, MakeTransactionRef(tokenTransferTx), false, "invalid-colorid");
+    testTx(this, MakeTransactionRef(tokenTransferTx), false, "bad-txns-token-value");
 
     dustRelayFee = CFeeRate(0);
-    testTx(this, MakeTransactionRef(tokenTransferTx), false, "invalid-colorid");
+    testTx(this, MakeTransactionRef(tokenTransferTx), false, "bad-txns-token-value");
 
     tokenTransferTx.vout.resize(1);
     tokenTransferTx.vout[0].nValue = 1;
@@ -802,6 +807,477 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_nft_token, TestChainSetup)
 
     //missing inputs is set
     testTx(this, MakeTransactionRef(spendBurntTx), false, "");
+}
+
+/*
+ * Test the single-swap colored script scenario from colored_coin_opcolor_validity:
+ *
+ *   scriptSig:   <validCid>
+ *   scriptPubKey: <invalidC4> OP_SWAP OP_COLOR OP_DROP OP_1
+ *
+ * Execution: OP_SWAP brings validCid from scriptSig to TOS → OP_COLOR sets
+ * color with validCid → OP_DROP removes c4 → OP_1 → success.
+ *
+ * The test checks which colorId is "seen by the outpoint":
+ *   - GetColorIdFromScript(swapScript) → NONE (static pattern match fails)
+ *   - VerifyTokenBalances treats the UTXO as uncolored (TPC)
+ *   - OP_COLOR fires at runtime with validCid, but that does not change the
+ *     static bookkeeping — the outpoint remains NONE from the validator's view.
+ */
+BOOST_FIXTURE_TEST_CASE(tx_mempool_swap_color_script, TestChainSetup)
+{
+    initKeys();
+
+    // Valid REISSUABLE colorId derived from pubkey0's P2PK script
+    ColorIdentifier validCid(CScript() << ToByteVector(pubkey0) << OP_CHECKSIG);
+
+    // Invalid c4 colorId (unsupported type byte 0xc4, non-zero payload)
+    std::vector<unsigned char> invalidC4Cid(33);
+    invalidC4Cid[0] = 0xc4;
+    for (int i = 1; i < 33; i++) invalidC4Cid[i] = static_cast<unsigned char>(i);
+
+    // Swap-based locking script:
+    //   scriptSig must push <validCid>.
+    //   [validCid, invalidC4] → OP_SWAP → [invalidC4, validCid] (validCid=TOS)
+    //   OP_COLOR → color set with validCid → [invalidC4]
+    //   OP_DROP → [] → OP_1 → [1] ✓
+    CScript swapColorScript;
+    swapColorScript << invalidC4Cid << OP_SWAP << OP_COLOR << OP_DROP << OP_1;
+
+    // Step 1: Verify static analysis of the non-standard OP_COLOR script.
+    //   IsColoredScript: OP_COLOR is present anywhere → true.
+    //   GetColorIdFromScript: not CP2PKH, not CP2SH → NONE.
+    BOOST_CHECK(swapColorScript.IsColoredScript());
+    BOOST_CHECK(GetColorIdFromScript(swapColorScript).type == TokenTypes::NONE);
+
+    // Step 2: Attempt to create a UTXO locked by this script.
+    //   CheckColorIdentifierValidity: IsColoredScript()=true but not CP2PKH/CP2SH
+    //   → "bad-txns-nonstandard-opcolor" — custom colored scripts are not permitted.
+    CMutableTransaction fundTx;
+    fundTx.nFeatures = 1;
+    fundTx.vin.resize(1);
+    fundTx.vout.resize(1);
+    fundTx.vin[0].prevout.hashMalFix = m_coinbase_txns[2]->GetHashMalFix();
+    fundTx.vin[0].prevout.n = 0;
+    fundTx.vout[0].nValue = 100 * CENT;
+    fundTx.vout[0].scriptPubKey = swapColorScript;
+
+    std::vector<unsigned char> vchSig;
+    CMutableTransaction coinbaseIn(*m_coinbase_txns[2]);
+    Sign(vchSig, coinbaseKey, m_coinbase_txns[2]->vout[0].scriptPubKey, coinbaseIn, 0, fundTx, 0);
+    fundTx.vin[0].scriptSig = CScript() << vchSig;
+    testTx(this, MakeTransactionRef(fundTx), false, "bad-txns-nonstandard-opcolor");
+}
+
+/*
+ * tx_mempool_altstack_color_script
+ *
+ * Script: <nftCid(c3)> OP_TOALTSTACK <reissuableCid(c1)> OP_COLOR OP_FROMALTSTACK
+ *
+ * Execution (no scriptSig needed):
+ *   push nftCid   → main: [nftCid],              alt: []
+ *   OP_TOALTSTACK → main: [],                    alt: [nftCid]
+ *   push c1       → main: [reissuableCid],        alt: [nftCid]
+ *   OP_COLOR      → color set with c1(REISSUABLE) main: [],    alt: [nftCid]
+ *   OP_FROMALTSTACK→main: [nftCid],              alt: []
+ *   TOS = nftCid (33-byte, non-zero → truthy) → success
+ *
+ * Rejection reason: OP_COLOR is restricted to CP2PKH and CP2SH.  This script
+ * uses altstack manipulation and does not match either standard form.
+ * GetColorIdFromScript returns NONE → "bad-txns-nonstandard-opcolor".
+ */
+BOOST_FIXTURE_TEST_CASE(tx_mempool_altstack_color_script, TestChainSetup)
+{
+    initKeys();
+
+    // c1 (REISSUABLE) colorId — derived from pubkey0's P2PK script
+    ColorIdentifier reissuableCid(CScript() << ToByteVector(pubkey0) << OP_CHECKSIG);
+
+    // c3 (NFT) colorId — derived from coinbase[3]'s outpoint
+    COutPoint nftOutpoint(m_coinbase_txns[3]->GetHashMalFix(), 0);
+    ColorIdentifier nftCid(nftOutpoint, TokenTypes::NFT);
+
+    // Script: c3 → altstack; c1 set as color; c3 ← altstack (truthy TOS)
+    CScript altStackColorScript;
+    altStackColorScript << nftCid.toVector() << OP_TOALTSTACK
+                        << reissuableCid.toVector() << OP_COLOR << OP_FROMALTSTACK;
+
+    // Step 1: Static analysis.
+    //   IsColoredScript: OP_COLOR is present → true.
+    //   GetColorIdFromScript: not CP2PKH, not CP2SH → NONE.
+    BOOST_CHECK(altStackColorScript.IsColoredScript());
+    BOOST_CHECK(GetColorIdFromScript(altStackColorScript).type == TokenTypes::NONE);
+
+    // Step 2: Attempt to fund a UTXO with this script as scriptPubKey.
+    //   CheckColorIdentifierValidity: IsColoredScript()=true but not CP2PKH/CP2SH
+    //   → DoS(100, "bad-txns-nonstandard-opcolor").
+    CMutableTransaction fundTx;
+    fundTx.nFeatures = 1;
+    fundTx.vin.resize(1);
+    fundTx.vout.resize(1);
+    fundTx.vin[0].prevout.hashMalFix = m_coinbase_txns[4]->GetHashMalFix();
+    fundTx.vin[0].prevout.n = 0;
+    fundTx.vout[0].nValue = 100 * CENT;
+    fundTx.vout[0].scriptPubKey = altStackColorScript;
+
+    std::vector<unsigned char> vchSig;
+    CMutableTransaction coinbaseIn(*m_coinbase_txns[4]);
+    Sign(vchSig, coinbaseKey, m_coinbase_txns[4]->vout[0].scriptPubKey, coinbaseIn, 0, fundTx, 0);
+    fundTx.vin[0].scriptSig = CScript() << vchSig;
+    testTx(this, MakeTransactionRef(fundTx), false, "bad-txns-nonstandard-opcolor");
+}
+
+/*
+ * tx_mempool_drop_decoy_nft_script
+ *
+ * Script: <nftCid(c3)> <reissuableCid(c1)> OP_COLOR OP_DROP OP_1
+ *
+ * Execution (no scriptSig):
+ *   push nftCid(c3)     → stack: [nftCid]
+ *   push reissuableCid  → stack: [nftCid, reissuableCid]
+ *   OP_COLOR            → color = c1(REISSUABLE), stack: [nftCid]
+ *   OP_DROP             → stack: []
+ *   OP_1                → stack: [1] → success (truthy TOS)
+ *
+ * Rejection: not CP2PKH, not CP2SH → "bad-txns-nonstandard-opcolor".
+ */
+BOOST_FIXTURE_TEST_CASE(tx_mempool_drop_decoy_nft_script, TestChainSetup)
+{
+    initKeys();
+
+    // c1 (REISSUABLE) — derived from pubkey0's P2PK script
+    ColorIdentifier reissuableCid(CScript() << ToByteVector(pubkey0) << OP_CHECKSIG);
+
+    // c3 (NFT) — derived from a fixed outpoint (not actually spent here)
+    COutPoint nftOutpoint(uint256S("3ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a"), 0);
+    ColorIdentifier nftCid(nftOutpoint, TokenTypes::NFT);
+
+    // Script: c3 decoy pushed first, c1 color consumed by OP_COLOR, c3 dropped, OP_1 for truthy
+    CScript dropDecoyNFT;
+    dropDecoyNFT << nftCid.toVector() << reissuableCid.toVector() << OP_COLOR << OP_DROP << OP_1;
+
+    // Step 1: Static analysis.
+    //   IsColoredScript: OP_COLOR present → true.
+    //   GetColorIdFromScript: not CP2PKH, not CP2SH → NONE.
+    BOOST_CHECK(dropDecoyNFT.IsColoredScript());
+    BOOST_CHECK(GetColorIdFromScript(dropDecoyNFT).type == TokenTypes::NONE);
+
+    // Step 2: Attempt to create a UTXO locked by the decoy script.
+    //   Rejected: CheckColorIdentifierValidity: IsColoredScript()=true but not CP2PKH/CP2SH
+    //   → DoS(100, "bad-txns-nonstandard-opcolor").
+    CMutableTransaction fundTx;
+    fundTx.nFeatures = 1;
+    fundTx.vin.resize(1);
+    fundTx.vout.resize(1);
+    fundTx.vin[0].prevout.hashMalFix = m_coinbase_txns[0]->GetHashMalFix();
+    fundTx.vin[0].prevout.n = 0;
+    fundTx.vout[0].nValue = 100 * CENT;
+    fundTx.vout[0].scriptPubKey = dropDecoyNFT;
+
+    std::vector<unsigned char> vchSig;
+    CMutableTransaction coinbaseIn(*m_coinbase_txns[0]);
+    Sign(vchSig, coinbaseKey, m_coinbase_txns[0]->vout[0].scriptPubKey, coinbaseIn, 0, fundTx, 0);
+    fundTx.vin[0].scriptSig = CScript() << vchSig;
+    testTx(this, MakeTransactionRef(fundTx), false, "bad-txns-nonstandard-opcolor");
+}
+
+/*
+ * tx_mempool_rot_decoy_script
+ *
+ * Script: <nftCid(c3)> <reissuableCid(c1)> OP_1 OP_ROT OP_COLOR OP_1
+ *
+ * Execution (no scriptSig):
+ *   push nftCid     → stack: [nftCid]
+ *   push reissuable → stack: [nftCid, reissuableCid]
+ *   OP_1            → stack: [nftCid, reissuableCid, 1]
+ *   OP_ROT          → stack: [reissuableCid, 1, nftCid]   (nftCid at TOS)
+ *   OP_COLOR        → color = c3(NFT), stack: [reissuableCid, 1]
+ *   OP_1            → stack: [reissuableCid, 1, 1] → success (truthy TOS)
+ *
+ * Rejection: not CP2PKH, not CP2SH → "bad-txns-nonstandard-opcolor".
+ */
+BOOST_FIXTURE_TEST_CASE(tx_mempool_rot_decoy_script, TestChainSetup)
+{
+    initKeys();
+
+    // c1 (REISSUABLE) — derived from pubkey0's P2PK script
+    ColorIdentifier reissuableCid(CScript() << ToByteVector(pubkey0) << OP_CHECKSIG);
+
+    // c3 (NFT) — derived from a fixed outpoint
+    COutPoint nftOutpoint(uint256S("3ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a"), 0);
+    ColorIdentifier nftCid(nftOutpoint, TokenTypes::NFT);
+
+    // Script: c3 pushed, c1 pushed, OP_1, OP_ROT brings c3 to TOS for OP_COLOR
+    CScript rotDecoy;
+    rotDecoy << nftCid.toVector() << reissuableCid.toVector() << OP_1 << OP_ROT << OP_COLOR << OP_1;
+
+    // Step 1: Static analysis.
+    //   IsColoredScript: OP_COLOR present → true.
+    //   GetColorIdFromScript: not CP2PKH, not CP2SH → NONE.
+    BOOST_CHECK(rotDecoy.IsColoredScript());
+    BOOST_CHECK(GetColorIdFromScript(rotDecoy).type == TokenTypes::NONE);
+
+    // Step 2: Attempt to create a UTXO locked by the decoy script.
+    //   Rejected: not CP2PKH/CP2SH → DoS(100, "bad-txns-nonstandard-opcolor").
+    CMutableTransaction fundTx;
+    fundTx.nFeatures = 1;
+    fundTx.vin.resize(1);
+    fundTx.vout.resize(1);
+    fundTx.vin[0].prevout.hashMalFix = m_coinbase_txns[1]->GetHashMalFix();
+    fundTx.vin[0].prevout.n = 0;
+    fundTx.vout[0].nValue = 100 * CENT;
+    fundTx.vout[0].scriptPubKey = rotDecoy;
+
+    std::vector<unsigned char> vchSig;
+    CMutableTransaction coinbaseIn(*m_coinbase_txns[1]);
+    Sign(vchSig, coinbaseKey, m_coinbase_txns[1]->vout[0].scriptPubKey, coinbaseIn, 0, fundTx, 0);
+    fundTx.vin[0].scriptSig = CScript() << vchSig;
+    testTx(this, MakeTransactionRef(fundTx), false, "bad-txns-nonstandard-opcolor");
+}
+
+/*
+ * tx_mempool_drop_decoy_same_type_script
+ *
+ * Script: <decoy_c2(NON_REISSUABLE)> <real_c2(NON_REISSUABLE)> OP_COLOR OP_DROP OP_1
+ *
+ * Both colorIds have the same token type (c2/NON_REISSUABLE) but different outpoints.
+ * The decoy c2 is pushed first and remains on the stack; the real c2 is consumed by
+ * OP_COLOR; OP_DROP removes the decoy; OP_1 leaves a truthy value.
+ *
+ * Rejection: not CP2PKH, not CP2SH → "bad-txns-nonstandard-opcolor".
+ */
+BOOST_FIXTURE_TEST_CASE(tx_mempool_drop_decoy_same_type_script, TestChainSetup)
+{
+    initKeys();
+
+    // real c2 (NON_REISSUABLE) — derived from a fixed outpoint
+    COutPoint realOutpoint(uint256S("3ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a"), 0);
+    ColorIdentifier realNonReissuableCid(realOutpoint, TokenTypes::NON_REISSUABLE);
+
+    // decoy c2 (NON_REISSUABLE) — different outpoint, same token type
+    COutPoint decoyOutpoint(uint256S("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"), 1);
+    ColorIdentifier decoyNonReissuableCid(decoyOutpoint, TokenTypes::NON_REISSUABLE);
+
+    // Script: decoy_c2 pushed first, real_c2 consumed by OP_COLOR, decoy_c2 dropped, OP_1 for truthy
+    CScript dropDecoySameType;
+    dropDecoySameType << decoyNonReissuableCid.toVector() << realNonReissuableCid.toVector()
+                      << OP_COLOR << OP_DROP << OP_1;
+
+    // Step 1: Static analysis.
+    //   IsColoredScript: OP_COLOR present → true.
+    //   GetColorIdFromScript: not CP2PKH, not CP2SH → NONE.
+    BOOST_CHECK(dropDecoySameType.IsColoredScript());
+    BOOST_CHECK(GetColorIdFromScript(dropDecoySameType).type == TokenTypes::NONE);
+
+    // Step 2: Attempt to create a UTXO locked by the same-type decoy script.
+    //   Rejected: not CP2PKH/CP2SH → DoS(100, "bad-txns-nonstandard-opcolor").
+    CMutableTransaction fundTx;
+    fundTx.nFeatures = 1;
+    fundTx.vin.resize(1);
+    fundTx.vout.resize(1);
+    fundTx.vin[0].prevout.hashMalFix = m_coinbase_txns[2]->GetHashMalFix();
+    fundTx.vin[0].prevout.n = 0;
+    fundTx.vout[0].nValue = 100 * CENT;
+    fundTx.vout[0].scriptPubKey = dropDecoySameType;
+
+    std::vector<unsigned char> vchSig;
+    CMutableTransaction coinbaseIn(*m_coinbase_txns[2]);
+    Sign(vchSig, coinbaseKey, m_coinbase_txns[2]->vout[0].scriptPubKey, coinbaseIn, 0, fundTx, 0);
+    fundTx.vin[0].scriptSig = CScript() << vchSig;
+    testTx(this, MakeTransactionRef(fundTx), false, "bad-txns-nonstandard-opcolor");
+}
+
+/*
+ * tx_mempool_cltv_colored_coin
+ *
+ * Part 1 — REJECTED: direct CLTV in a colored script.
+ * Script: <colorId> OP_COLOR <locktime> OP_CLTV OP_DROP OP_DUP OP_HASH160 ... OP_CHECKSIG
+ * Not CP2PKH or CP2SH → GetColorIdFromScript → NONE → "bad-txns-nonstandard-opcolor".
+ *
+ * Part 2 — ACCEPTED: CP2SH approach.
+ * Redeem script: <locktime> OP_CLTV OP_DROP OP_DUP OP_HASH160 <pubkeyHash0> OP_EQUALVERIFY OP_CHECKSIG
+ * Output script: <colorId> OP_COLOR OP_HASH160 <Hash160(redeemScript)> OP_EQUAL
+ * This is a standard CP2SH colored output → GetColorIdFromScript returns colorId → accepted.
+ */
+BOOST_FIXTURE_TEST_CASE(tx_mempool_cltv_colored_coin, TestChainSetup)
+{
+    initKeys();
+
+    CScript coinbasePk = CScript() << ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG;
+    ColorIdentifier reissuableCid(coinbasePk);
+    const int64_t locktime = 3;
+
+    CScript cltvColorScript;
+    cltvColorScript << reissuableCid.toVector() << OP_COLOR
+                    << locktime << OP_CHECKLOCKTIMEVERIFY << OP_DROP
+                    << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash0)
+                    << OP_EQUALVERIFY << OP_CHECKSIG;
+
+    // Script has OP_COLOR but is not CP2PKH or CP2SH → NONE.
+    BOOST_CHECK(cltvColorScript.IsColoredScript());
+    BOOST_CHECK(GetColorIdFromScript(cltvColorScript).type == TokenTypes::NONE);
+
+    // Attempt to create a UTXO with this script → rejected.
+    CMutableTransaction fundTx;
+    fundTx.nFeatures = 1;
+    fundTx.vin.resize(1);
+    fundTx.vout.resize(1);
+    fundTx.vin[0].prevout.hashMalFix = m_coinbase_txns[0]->GetHashMalFix();
+    fundTx.vin[0].prevout.n = 0;
+    fundTx.vout[0].nValue = 100 * CENT;
+    fundTx.vout[0].scriptPubKey = cltvColorScript;
+
+    std::vector<unsigned char> vchSig;
+    CMutableTransaction coinbaseIn0(*m_coinbase_txns[0]);
+    Sign(vchSig, coinbaseKey, coinbasePk, coinbaseIn0, 0, fundTx, 0);
+    fundTx.vin[0].scriptSig = CScript() << vchSig;
+    testTx(this, MakeTransactionRef(fundTx), false, "bad-txns-nonstandard-opcolor");
+
+    // Part 2: CP2SH colored output with CLTV inside the redeem script → accepted.
+    CScript redeemScript;
+    redeemScript << locktime << OP_CHECKLOCKTIMEVERIFY << OP_DROP
+                 << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash0)
+                 << OP_EQUALVERIFY << OP_CHECKSIG;
+
+    CScriptID redeemScriptId(redeemScript);
+    CScript cp2shColorScript = CScript() << reissuableCid.toVector() << OP_COLOR
+                                         << OP_HASH160 << ToByteVector(redeemScriptId) << OP_EQUAL;
+
+    BOOST_CHECK(cp2shColorScript.IsColoredPayToScriptHash());
+    BOOST_CHECK(GetColorIdFromScript(cp2shColorScript) == reissuableCid);
+
+    CMutableTransaction cp2shFundTx;
+    cp2shFundTx.nFeatures = 1;
+    cp2shFundTx.vin.resize(1);
+    cp2shFundTx.vout.resize(1);
+    cp2shFundTx.vin[0].prevout.hashMalFix = m_coinbase_txns[1]->GetHashMalFix();
+    cp2shFundTx.vin[0].prevout.n = 0;
+    cp2shFundTx.vout[0].nValue = 100 * CENT;
+    cp2shFundTx.vout[0].scriptPubKey = cp2shColorScript;
+
+    CMutableTransaction coinbaseIn1(*m_coinbase_txns[1]);
+    Sign(vchSig, coinbaseKey, coinbasePk, coinbaseIn1, 0, cp2shFundTx, 0);
+    cp2shFundTx.vin[0].scriptSig = CScript() << vchSig;
+    testTx(this, MakeTransactionRef(cp2shFundTx), true);
+}
+
+/*
+ * Test token balance enforcement with an explicit partial-burn destination.
+ *
+ * Txs:
+ *   refillCoinbase(1) - mine block 6 → coinbase[5] (fresh, unspent)
+ *   coinbaseSpendTx   - spend coinbase[5] → P2PKH (key0), 49 COIN out / 1 COIN fee
+ *   tokenIssueTx      - coinbaseSpendTx → 100 REISSUABLE tokens (CP2PKH key0)
+ *                       (mines block 7 → coinbase[6])
+ *   tokenBurnTx       - 1. token balance mismatch (40 + 70 > 100) — rejected
+ *                     - 2. success: 30 tokens → burn script, 70 tokens → CP2PKH key1
+ *                       (mines block 8 → coinbase[7])
+ *   spendChangeTx     - spend 70-token change from tokenBurnTx → CP2PKH key2
+ */
+BOOST_FIXTURE_TEST_CASE(tx_mempool_burn_script, TestChainSetup)
+{
+    initKeys();
+    refillCoinbase(1); // mine block 6 → m_coinbase_txns[5]
+
+    std::vector<unsigned char> vchPubKey0(pubkey0.begin(), pubkey0.end());
+    std::vector<unsigned char> vchPubKey1(pubkey1.begin(), pubkey1.end());
+    std::vector<unsigned char> vchPubKey2(pubkey2.begin(), pubkey2.end());
+
+    CScript tpcP2PKH0 = CScript() << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash0) << OP_EQUALVERIFY << OP_CHECKSIG;
+
+    // coinbaseSpendTx: coinbase[5] → 49 COIN P2PKH key0 (1 COIN fee)
+    CMutableTransaction coinbaseSpendTx;
+    coinbaseSpendTx.nFeatures = 1;
+    coinbaseSpendTx.vin.resize(1);
+    coinbaseSpendTx.vout.resize(1);
+    coinbaseSpendTx.vin[0].prevout.hashMalFix = m_coinbase_txns[5]->GetHashMalFix();
+    coinbaseSpendTx.vin[0].prevout.n = 0;
+    coinbaseSpendTx.vout[0].nValue = 49 * COIN;
+    coinbaseSpendTx.vout[0].scriptPubKey = tpcP2PKH0;
+
+    std::vector<unsigned char> vchSig;
+    CMutableTransaction coinbaseIn5(*m_coinbase_txns[5]);
+    Sign(vchSig, coinbaseKey, m_coinbase_txns[5]->vout[0].scriptPubKey, coinbaseIn5, 0, coinbaseSpendTx, 0);
+    coinbaseSpendTx.vin[0].scriptSig = CScript() << vchSig;
+    testTx(this, MakeTransactionRef(coinbaseSpendTx), true); // mines block 7 → coinbase[6]
+
+    // Derive REISSUABLE colorId from the P2PKH locking script of coinbaseSpendTx output
+    ColorIdentifier colorId(coinbaseSpendTx.vout[0].scriptPubKey);
+    CScript cp2pkhKey0 = CScript() << colorId.toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash0) << OP_EQUALVERIFY << OP_CHECKSIG;
+    CScript cp2pkhKey1 = CScript() << colorId.toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash1) << OP_EQUALVERIFY << OP_CHECKSIG;
+    CScript cp2pkhKey2 = CScript() << colorId.toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash2) << OP_EQUALVERIFY << OP_CHECKSIG;
+    // burnScript: tokens transferred here are intentionally left unspent in this test (partial burn).
+    // The explicit colored-script burn destination (<colorId> OP_COLOR OP_TRUE) was removed
+    // because OP_TRUE is anyone-can-spend.  Burning is achieved by omitting the colored output.
+    // Here we use a standard CP2PKH colored script as the "burnt" destination.
+    CScript burnScript = cp2pkhKey0;
+
+    // tokenIssueTx: coinbaseSpendTx → 100 tokens (CP2PKH key0)
+    CMutableTransaction tokenIssueTx;
+    tokenIssueTx.nFeatures = 1;
+    tokenIssueTx.vin.resize(1);
+    tokenIssueTx.vout.resize(1);
+    tokenIssueTx.vin[0].prevout.hashMalFix = coinbaseSpendTx.GetHashMalFix();
+    tokenIssueTx.vin[0].prevout.n = 0;
+    tokenIssueTx.vout[0].nValue = 100 * CENT;
+    tokenIssueTx.vout[0].scriptPubKey = cp2pkhKey0;
+
+    Sign(vchSig, key0, coinbaseSpendTx.vout[0].scriptPubKey, coinbaseSpendTx, 0, tokenIssueTx, 0);
+    tokenIssueTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey0;
+    testTx(this, MakeTransactionRef(tokenIssueTx), true); // mines block 8 → coinbase[7]
+
+    // tokenBurnTx - 1. token balance mismatch: 40 + 70 > 100 input tokens → rejected
+    CMutableTransaction tokenBurnTx;
+    tokenBurnTx.nFeatures = 1;
+    tokenBurnTx.vin.resize(2);
+    tokenBurnTx.vout.resize(3);
+    tokenBurnTx.vin[0].prevout.hashMalFix = tokenIssueTx.GetHashMalFix();
+    tokenBurnTx.vin[0].prevout.n = 0;
+    tokenBurnTx.vin[1].prevout.hashMalFix = m_coinbase_txns[6]->GetHashMalFix();
+    tokenBurnTx.vin[1].prevout.n = 0;
+    tokenBurnTx.vout[0].nValue = 40 * CENT;    // burn script — intentionally too many
+    tokenBurnTx.vout[0].scriptPubKey = burnScript;
+    tokenBurnTx.vout[1].nValue = 70 * CENT;    // change — CP2PKH key1
+    tokenBurnTx.vout[1].scriptPubKey = cp2pkhKey1;
+    tokenBurnTx.vout[2].nValue = 49 * COIN;    // TPC change
+    tokenBurnTx.vout[2].scriptPubKey = tpcP2PKH0;
+
+    Sign(vchSig, key0, tokenIssueTx.vout[0].scriptPubKey, tokenIssueTx, 0, tokenBurnTx, 0);
+    tokenBurnTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey0;
+    CMutableTransaction coinbaseIn6(*m_coinbase_txns[6]);
+    Sign(vchSig, coinbaseKey, m_coinbase_txns[6]->vout[0].scriptPubKey, coinbaseIn6, 1, tokenBurnTx, 0);
+    tokenBurnTx.vin[1].scriptSig = CScript() << vchSig;
+    testTx(this, MakeTransactionRef(tokenBurnTx), false, "bad-txns-token-balance");
+
+    // tokenBurnTx - 2. success: 30 to burn script + 70 change = 100 input tokens
+    tokenBurnTx.vout[0].nValue = 30 * CENT;
+
+    Sign(vchSig, key0, tokenIssueTx.vout[0].scriptPubKey, tokenIssueTx, 0, tokenBurnTx, 0);
+    tokenBurnTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey0;
+    Sign(vchSig, coinbaseKey, m_coinbase_txns[6]->vout[0].scriptPubKey, coinbaseIn6, 1, tokenBurnTx, 0);
+    tokenBurnTx.vin[1].scriptSig = CScript() << vchSig;
+    testTx(this, MakeTransactionRef(tokenBurnTx), true); // mines block 9 → coinbase[8]
+
+    // spendChangeTx: spend 70-token CP2PKH change (key1) from tokenBurnTx → CP2PKH key2
+    CMutableTransaction spendChangeTx;
+    spendChangeTx.nFeatures = 1;
+    spendChangeTx.vin.resize(2);
+    spendChangeTx.vout.resize(2);
+    spendChangeTx.vin[0].prevout.hashMalFix = tokenBurnTx.GetHashMalFix();
+    spendChangeTx.vin[0].prevout.n = 1;
+    spendChangeTx.vin[1].prevout.hashMalFix = m_coinbase_txns[7]->GetHashMalFix();
+    spendChangeTx.vin[1].prevout.n = 0;
+    spendChangeTx.vout[0].nValue = 70 * CENT;
+    spendChangeTx.vout[0].scriptPubKey = cp2pkhKey2;
+    spendChangeTx.vout[1].nValue = 49 * COIN;
+    spendChangeTx.vout[1].scriptPubKey = tpcP2PKH0;
+
+    Sign(vchSig, key1, tokenBurnTx.vout[1].scriptPubKey, tokenBurnTx, 0, spendChangeTx, 0);
+    spendChangeTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey1;
+    CMutableTransaction coinbaseIn7(*m_coinbase_txns[7]);
+    Sign(vchSig, coinbaseKey, m_coinbase_txns[7]->vout[0].scriptPubKey, coinbaseIn7, 1, spendChangeTx, 0);
+    spendChangeTx.vin[1].scriptSig = CScript() << vchSig;
+    testTx(this, MakeTransactionRef(spendChangeTx), true);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

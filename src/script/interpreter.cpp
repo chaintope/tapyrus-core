@@ -1172,6 +1172,13 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                     //COLOR identifier consists of one byte of TYPE and 32 of PAYLOAD.
                     if(stacktop(-1).size() == 33 && (colorId->type == TokenTypes::REISSUABLE || colorId->type == TokenTypes::NON_REISSUABLE || colorId->type == TokenTypes::NFT))
                     {
+                        // Payload must not be all zeros — a legitimate colorId is
+                        // SHA256 of a real COutPoint or scriptPubKey, which cannot
+                        // produce the all-zero hash in practice.
+                        static const uint8_t zero32[CSHA256::OUTPUT_SIZE] = {};
+                        if (memcmp(colorId->payload, zero32, CSHA256::OUTPUT_SIZE) == 0)
+                            return set_error(serror, SCRIPT_ERR_OP_COLORID_INVALID);
+
                         popstack(stack);
                     }
                     else

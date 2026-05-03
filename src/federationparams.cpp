@@ -56,11 +56,14 @@ CBlock createGenesisBlock(const CPubKey& aggregatePubkey, const CKey& privateKey
     txNew.vin[0].prevout.n = 0;
     txNew.vin[0].scriptSig = CScript();
     txNew.vout[0].nValue = 50 * COIN;
-    //if payToaddress is invalid, pay to agg pubkey
-    if(payToaddress.empty() || !IsValidDestination(DecodeDestination(payToaddress)))
+    if (payToaddress.empty()) {
         txNew.vout[0].scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(aggregatePubkey.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
-    else
-        txNew.vout[0].scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(payToaddress) << OP_EQUALVERIFY << OP_CHECKSIG;
+    } else {
+        CTxDestination dest = DecodeDestination(payToaddress);
+        if (!IsValidDestination(dest))
+            throw std::runtime_error(strprintf("createGenesisBlock: invalid -address: %s", payToaddress));
+        txNew.vout[0].scriptPubKey = GetScriptForDestination(dest);
+    }
 
     //Genesis block header
     CBlock genesis;

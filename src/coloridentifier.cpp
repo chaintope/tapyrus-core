@@ -12,7 +12,7 @@ ColorIdentifier GetColorIdFromScript(const CScript& script)
         return ColorIdentifier();
 
     std::vector<unsigned char> pubkeyhash, colorId;
-    if( MatchColoredPayToPubkeyHash(script, pubkeyhash, colorId))
+    if(script.IsColoredPayToPubkeyHash(pubkeyhash, colorId))
         return ColorIdentifier(colorId);
 
     if(script.IsColoredPayToScriptHash())
@@ -21,9 +21,9 @@ ColorIdentifier GetColorIdFromScript(const CScript& script)
         return ColorIdentifier(colorId);
     }
 
-    if(MatchCustomColoredScript(script, colorId))
-        return ColorIdentifier(colorId);
-
+    // Only CP2PKH and CP2SH are allowed. Any other script with OP_COLOR
+    // (custom scripts, decoys, stack-manipulation variants) returns NONE and
+    // is rejected at transaction validation with "bad-txns-nonstandard-opcolor".
     return ColorIdentifier();
 }
 
