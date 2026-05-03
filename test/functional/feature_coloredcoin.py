@@ -103,7 +103,7 @@ from test_framework.util import (
     MagicBytes, wait_until,
 )
 from test_framework.script import (
-    CScript, OP_COLOR, hash160,
+    CScript, OP_COLOR, OP_1, hash160,
     OP_DUP, OP_HASH160, OP_EQUALVERIFY, OP_CHECKSIG,
     SignatureHash, SIGHASH_ALL, OP_EQUAL,
 )
@@ -896,6 +896,168 @@ class ColoredCoinTest(BitcoinTestFramework):
             self.assert_block_rejected_p2p(make_block(2), method='compact')
             self.assert_block_rejected_loadblock(make_block(3))
 
+    # ------------------------------------------------------------------ M2 legacy OP_COLOR test
+
+    def test_legacy_opcolor_input_rejected(self):
+        """ Legacy custom-OP_COLOR UTXO cannot be spent into TPC outputs.
+
+        A UTXO whose scriptPubKey contains OP_COLOR but does not match the strict
+        CP2PKH/CP2SH template maps to colorId NONE via GetColorIdFromScript.
+        Before the fix, VerifyTokenBalances added its nValue to the TPC balance
+        bucket, letting the spender fabricate output.  The fix rejects
+        any input where IsColoredScript() && colorId == NONE with
+        bad-txns-nonstandard-opcolor, regardless of whether the spending tx has
+        colored outputs.
+
+        We simulate a legacy UTXO by crafting a burn-form output:
+            <33-byte colorId> OP_COLOR OP_1   (36 bytes)
+
+        This passes the isBurnForm check in CheckColorIdentifierValidity (so it
+        is accepted as a block output) but is spendable — the script interpreter
+        pops the colorId via OP_COLOR, then OP_1 leaves a truthy stack.
+        The creation block is submitted via submitblock to bypass IsStandardTx.
+        """
+        self.log.info("Test that legacy custom-OP_COLOR input rejected")
+        node = self.nodes[0]
+        pubkey_hash = self.get_pubkey_hash()
+
+        # Issue a NON_REISSUABLE token so we have a valid colorId.
+        nr_result = self.issue_token(NON_REISSUABLE, 100)
+        node.generate(1, self.signblockprivkey_wif)
+        nr_utxo  = self.find_colored_utxo(nr_result['color'])
+        cid      = hex_str_to_bytes(nr_result['color'])
+        tpc_utxo = self.get_spendable_utxo()
+        fee      = Decimal('0.001')
+
+        # Burn-form script: <33B colorId> OP_COLOR OP_1 = 36 bytes.
+        # isBurnForm check in CheckColorIdentifierValidity uses `continue` so
+        # this output is allowed in a block.  OP_1 makes the UTXO anyone-can-spend.
+        burn_form_script = CScript([cid, OP_COLOR, OP_1])
+        assert len(burn_form_script) == 36
+
+        # Build the split tx:
+        #   vin 0: 100 NON_REISSUABLE tokens  (wallet-signed)
+        #   vin 1: TPC for fee               (wallet-signed)
+        #   vout 0: 50 tokens — standard CP2PKH
+        #   vout 1: 50 tokens — burn-form with OP_1 terminal (the legacy UTXO)
+        #   vout 2: TPC change
+        split_tx = CTransaction()
+        split_tx.vin.append(CTxIn(COutPoint(int(nr_utxo['txid'], 16), nr_utxo['vout']), b'', 0xffffffff))
+        split_tx.vin.append(CTxIn(COutPoint(int(tpc_utxo['txid'], 16), tpc_utxo['vout']), b'', 0xffffffff))
+
+        vout0 = CTxOut()
+        vout0.nValue = 50
+        vout0.scriptPubKey = colored_p2pkh_script(cid, pubkey_hash)
+        split_tx.vout.append(vout0)
+
+        vout1 = CTxOut()
+        vout1.nValue = 50
+        vout1.scriptPubKey = burn_form_script
+        split_tx.vout.append(vout1)
+
+        vout2 = CTxOut()
+        vout2.nValue = int((tpc_utxo['amount'] - fee) * 10**8)
+        vout2.scriptPubKey = p2pkh_script(pubkey_hash)
+        split_tx.vout.append(vout2)
+
+        signed_split = node.signrawtransactionwithwallet(ToHex(split_tx))
+        assert signed_split['complete'], "split tx signing failed: %s" % signed_split.get('errors')
+
+        # submitblock bypasses IsStandardTx (burn-form output is non-standard).
+        split_block = self.wrap_tx_in_block(signed_split['hex'])
+        result = node.submitblock(bytes_to_hex_str(split_block.serialize()))
+        assert result is None, "burn-form creation block was rejected: %s" % result
+        self.log.info("  Burn-form UTXO created at vout 1")
+
+        # Locate the burn-form UTXO (vout 1 of the split tx).
+        split_tx_obj = FromHex(CTransaction(), signed_split['hex'])
+        split_tx_obj.rehash()
+        legacy_txid = split_tx_obj.hashMalFix
+
+        # Build the spending tx:
+        #   vin 0: burn-form UTXO — empty scriptSig (anyone-can-spend via OP_1)
+        #   vin 1: fresh TPC UTXO for fee
+        #   vout 0: TPC P2PKH
+        # Without the fix, the 50 token units in vin 0 would inflate the TPC
+        # input balance.  With the fix, VerifyTokenBalances rejects immediately.
+        tpc_utxo2 = self.get_spendable_utxo()
+        spend_tx = CTransaction()
+        spend_tx.vin.append(CTxIn(COutPoint(int(legacy_txid, 16), 1), b'', 0xffffffff))
+        spend_tx.vin.append(CTxIn(COutPoint(int(tpc_utxo2['txid'], 16), tpc_utxo2['vout']), b'', 0xffffffff))
+
+        vout = CTxOut()
+        vout.nValue = int((tpc_utxo2['amount'] - fee) * 10**8)
+        vout.scriptPubKey = p2pkh_script(pubkey_hash)
+        spend_tx.vout.append(vout)
+
+        # Sign the TPC input; burn-form input stays with empty scriptSig.
+        signed_spend = node.signrawtransactionwithwallet(ToHex(spend_tx))
+
+        spend_block = self.wrap_tx_in_block(signed_spend['hex'])
+        result = node.submitblock(bytes_to_hex_str(spend_block.serialize()))
+        assert result is not None and "bad-txns-nonstandard-opcolor" in result, \
+            "Expected bad-txns-nonstandard-opcolor, got: %s" % result
+        self.log.info("  Confirmed: TPC-only spend of legacy input rejected")
+
+        # ---- Scenario 1: issue a new token deriving its colorId from the
+        # legacy UTXO outpoint.  CheckColorIdentifierValidity sees the legacy
+        # input in the inner-loop check and rejects immediately. ----
+        prevout_bytes = serialize_outpoint(legacy_txid, 1)
+        issue_cid   = color_id(NON_REISSUABLE, prevout_bytes)
+        tpc_utxo3   = self.get_spendable_utxo()
+
+        issue_tx = CTransaction()
+        issue_tx.vin.append(CTxIn(COutPoint(int(legacy_txid, 16), 1), b'', 0xffffffff))
+        issue_tx.vin.append(CTxIn(COutPoint(int(tpc_utxo3['txid'], 16), tpc_utxo3['vout']), b'', 0xffffffff))
+        issue_out = CTxOut()
+        issue_out.nValue = 100
+        issue_out.scriptPubKey = colored_p2pkh_script(issue_cid, pubkey_hash)
+        issue_tx.vout.append(issue_out)
+        issue_tx.vout.append(CTxOut(int((tpc_utxo3['amount'] - fee) * 10**8), p2pkh_script(pubkey_hash)))
+
+        signed_issue = node.signrawtransactionwithwallet(ToHex(issue_tx))
+        result = node.submitblock(bytes_to_hex_str(self.wrap_tx_in_block(signed_issue['hex']).serialize()))
+        assert result is not None and "bad-txns-nonstandard-opcolor" in result, \
+            "Issue from legacy UTXO: expected bad-txns-nonstandard-opcolor, got: %s" % result
+        self.log.info("  Confirmed: issue from legacy OP_COLOR input rejected")
+
+        # ---- Scenario 2: transfer regular tokens while also spending the
+        # legacy UTXO.  VerifyTokenBalances hits the legacy input and rejects. ----
+        tpc_utxo4 = self.get_spendable_utxo()
+
+        transfer_tx = CTransaction()
+        transfer_tx.vin.append(CTxIn(COutPoint(int(legacy_txid, 16), 0), b'', 0xffffffff))  # standard colored
+        transfer_tx.vin.append(CTxIn(COutPoint(int(legacy_txid, 16), 1), b'', 0xffffffff))  # legacy
+        transfer_tx.vin.append(CTxIn(COutPoint(int(tpc_utxo4['txid'], 16), tpc_utxo4['vout']), b'', 0xffffffff))
+        transfer_out = CTxOut()
+        transfer_out.nValue = 50
+        transfer_out.scriptPubKey = colored_p2pkh_script(cid, pubkey_hash)
+        transfer_tx.vout.append(transfer_out)
+        transfer_tx.vout.append(CTxOut(int((tpc_utxo4['amount'] - fee) * 10**8), p2pkh_script(pubkey_hash)))
+
+        signed_transfer = node.signrawtransactionwithwallet(ToHex(transfer_tx))
+        result = node.submitblock(bytes_to_hex_str(self.wrap_tx_in_block(signed_transfer['hex']).serialize()))
+        assert result is not None and "bad-txns-nonstandard-opcolor" in result, \
+            "Transfer with legacy UTXO: expected bad-txns-nonstandard-opcolor, got: %s" % result
+        self.log.info("  Confirmed: transfer with legacy OP_COLOR input rejected")
+
+        # ---- Scenario 3: burn tokens (no colored outputs) while also spending
+        # the legacy UTXO.  CheckColorIdentifierValidity returns immediately (no
+        # colored outputs), so VerifyTokenBalances catches the legacy input. ----
+        tpc_utxo5 = self.get_spendable_utxo()
+
+        burn_tx = CTransaction()
+        burn_tx.vin.append(CTxIn(COutPoint(int(legacy_txid, 16), 0), b'', 0xffffffff))  # standard colored (burned by omission)
+        burn_tx.vin.append(CTxIn(COutPoint(int(legacy_txid, 16), 1), b'', 0xffffffff))  # legacy
+        burn_tx.vin.append(CTxIn(COutPoint(int(tpc_utxo5['txid'], 16), tpc_utxo5['vout']), b'', 0xffffffff))
+        burn_tx.vout.append(CTxOut(int((tpc_utxo5['amount'] - fee) * 10**8), p2pkh_script(pubkey_hash)))
+
+        signed_burn = node.signrawtransactionwithwallet(ToHex(burn_tx))
+        result = node.submitblock(bytes_to_hex_str(self.wrap_tx_in_block(signed_burn['hex']).serialize()))
+        assert result is not None and "bad-txns-nonstandard-opcolor" in result, \
+            "Burn with legacy UTXO: expected bad-txns-nonstandard-opcolor, got: %s" % result
+        self.log.info("  Confirmed: burn with legacy OP_COLOR input rejected")
+
     # ------------------------------------------------------------------ reindex tests
 
     def test_reindex_chainstate_colorid_set(self):
@@ -1373,6 +1535,9 @@ class ColoredCoinTest(BitcoinTestFramework):
         self.test_multi_op_two_transfers_one_burn()
         self.test_multi_op_one_transfer_two_burns()
         self.test_multi_op_three_burns()
+
+        # Legacy custom-OP_COLOR input must be rejected
+        self.test_legacy_opcolor_input_rejected()
 
         # Reindex regression tests: verify g_issued_colorids is correctly
         # cleared and rebuilt after -reindex-chainstate and -reindex.
