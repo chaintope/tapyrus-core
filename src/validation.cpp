@@ -570,6 +570,13 @@ bool VerifyTokenBalances(const CTransaction& tx, CValidationState& state, const 
     for (const auto& txin : tx.vin) {
         const Coin& coin = inputs.AccessCoin(txin.prevout);
         ColorIdentifier cid = GetColorIdFromScript(coin.out.scriptPubKey);
+        // A legacy custom-OP_COLOR UTXO (created before the CP2PKH/CP2SH-only
+        // restriction) maps to colorId NONE under current rules.  Its nValue is a
+        // raw token amount; adding it to the TPC balance bucket would let the
+        // spender claim more TPC than they own.  Reject regardless of whether the
+        // spending tx has any colored outputs
+        if (cid.type == TokenTypes::NONE && coin.out.scriptPubKey.IsColoredScript())
+            return state.DoS(100, false, REJECT_INVALID, "bad-txns-nonstandard-opcolor");
         auto it = inColoredCoinBalances.find(cid);
         if (it == inColoredCoinBalances.end())
             inColoredCoinBalances.emplace(cid, coin.out.nValue);
