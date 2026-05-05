@@ -2638,12 +2638,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
     unsigned int nSubtractFeeFromAmount = 0;
     for (const auto& recipient : vecSend)
     {
-        // Derive the colorId from the recipient script.  The one exception is
-        // the BURN recipient placeholder script, which GetColorIdFromScript()
-        // cannot parse. In that case fall back to coin_control.m_colorId
         ColorIdentifier colorId = GetColorIdFromScript(recipient.scriptPubKey);
-        if (colorId.type == TokenTypes::NONE && coin_control.m_colorTxType == ColoredTxType::BURN)
-            colorId = coin_control.m_colorId;
         if (mapValue[colorId] < 0 || recipient.nAmount < 0)
         {
             strFailReason = _("Transaction amounts must not be negative");
@@ -2663,12 +2658,20 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
             nSubtractFeeFromAmount++;
     }
 
+    // For BURN transactions vecSend is empty; inject the token amount directly so
+    // SelectCoins knows how many colored coins to gather.  No colored output is
+    // added — the input/output difference is the burned amount (per spec).
+    if (coin_control.m_colorTxType == ColoredTxType::BURN &&
+        coin_control.m_colorId.type != TokenTypes::NONE) {
+        mapValue[coin_control.m_colorId] = coin_control.m_burnAmount;
+    }
+
     for ([[maybe_unused]]const auto& entity:mapValue)
     {
         TRACE2(coin_selection, coins_requested, entity.second, entity.first.toHexString().c_str());
     }
 
-    if (vecSend.empty())
+    if (vecSend.empty() && coin_control.m_colorTxType != ColoredTxType::BURN)
     {
         strFailReason = _("Transaction must have at least one recipient");
         return false;
@@ -2808,11 +2811,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                             strFailReason = _("Transaction amount too small");
                         return false;
                     }
-                    //if this is a token burn transaction the amount in the transaction is meant to be dropped. so no output is added. for other transaction types the output is added
-                    if(coin_control.m_colorTxType != ColoredTxType::BURN ||
-                        (coin_control.m_colorTxType == ColoredTxType::BURN &&
-                        !recipient.scriptPubKey.IsColoredScript()))
-                            txNew.vout.push_back(txout);
+                    txNew.vout.push_back(txout);
                 }
 
                 // Choose coins to use
