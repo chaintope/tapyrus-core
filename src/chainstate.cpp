@@ -188,13 +188,14 @@ bool UndoReadFromDisk(CBlockUndo& blockundo, const CBlockIndex *pindex)
     }
 
     // Open history file to read
-    CAutoFile filein(OpenUndoFile(pos, /*fReadOnly=*/true), SER_DISK, CLIENT_VERSION);
-    if (filein.IsNull())
+    CAutoFile file(OpenUndoFile(pos, /*fReadOnly=*/true), SER_DISK, CLIENT_VERSION);
+    if (file.IsNull())
         return error("OpenUndoFile failed for %s while reading block undo", pos.ToString());
+    BufferedReader<CAutoFile> filein(file);
 
     try {
         // Read block
-        CHashVerifier<CAutoFile> verifier(&filein); // Use CHashVerifier as reserializing may lose data, c.f. commit d342424301013ec47dc146a4beb49d5c9319d80a
+        CHashVerifier<BufferedReader<CAutoFile>> verifier(&filein); // Use CHashVerifier as reserializing may lose data, c.f. commit d342424301013ec47dc146a4beb49d5c9319d80a
         verifier << pindex->pprev->GetBlockHash();
         verifier >> blockundo;
 
@@ -359,21 +360,17 @@ static bool FindUndoPos(CValidationState &state, int nFile, CDiskBlockPos &pos, 
 bool UndoWriteToDisk(const CBlockUndo& blockundo, CDiskBlockPos& pos, const uint256& hashBlock, const CMessageHeader::MessageStartChars& messageStart)
 {
     // Open history file to append
-    CAutoFile fileout(OpenUndoFile(pos, /*fReadOnly=*/false), SER_DISK, CLIENT_VERSION);
-    if (fileout.IsNull())
+    CAutoFile file(OpenUndoFile(pos, /*fReadOnly=*/false), SER_DISK, CLIENT_VERSION);
+    if (file.IsNull())
         return error("OpenUndoFile failed for %s while writing block undo", pos.ToString());
 
-    // Write index header
-    unsigned int nSize = GetSerializeSize(fileout, blockundo);
-    fileout << messageStart << nSize;
-
-    // Write undo data
-    long fileOutPos = ftell(fileout.Get());
-    if (fileOutPos < 0)
-        return error("ftell failed for %s while writing block undo", pos.ToString());
-    pos.nPos = (unsigned int)fileOutPos;
+    // Write index header (unbuffered: header must be on disk before we record pos.nPos)
+    unsigned int nSize = GetSerializeSize(file, blockundo);
+    file << messageStart << nSize;
+    pos.nPos += STORAGE_HEADER_BYTES;
 
     {
+        BufferedWriter<CAutoFile> fileout(file);
         // Calculate checksum and write undo data + checksum
         CHashWriter hasher(SER_GETHASH, PROTOCOL_VERSION);
         hasher << hashBlock << blockundo;

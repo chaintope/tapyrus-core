@@ -346,20 +346,19 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
 static bool WriteBlockToDisk(const CBlock& block, CDiskBlockPos& pos, const CMessageHeader::MessageStartChars& messageStart)
 {
     // Open history file to append
-    CAutoFile fileout(OpenBlockFile(pos, /*fReadOnly=*/false), SER_DISK, CLIENT_VERSION);
-    if (fileout.IsNull())
+    CAutoFile file(OpenBlockFile(pos, /*fReadOnly=*/false), SER_DISK, CLIENT_VERSION);
+    if (file.IsNull())
         return error("OpenBlockFile failed for %s while writing block", pos.ToString());
 
-    // Write index header
-    unsigned int nSize = GetSerializeSize(fileout, block);
-    fileout << messageStart << nSize;
+    // Write index header (unbuffered: header must be on disk before we record pos.nPos)
+    unsigned int nSize = GetSerializeSize(file, block);
+    file << messageStart << nSize;
+    pos.nPos += STORAGE_HEADER_BYTES;
 
-    // Write block
-    long fileOutPos = ftell(fileout.Get());
-    if (fileOutPos < 0)
-        return error("ftell failed for %s while writing block", pos.ToString());
-    pos.nPos = (unsigned int)fileOutPos;
-    fileout << block;
+    {
+        BufferedWriter<CAutoFile> fileout(file);
+        fileout << block;
+    }
 
     return true;
 }
@@ -581,16 +580,17 @@ bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, CXFieldHistoryMa
 {
     block.SetNull();
 
-    // Open history file to read
-    CAutoFile filein(OpenBlockFile(pos, /*fReadOnly=*/true), SER_DISK, CLIENT_VERSION);
-    if (filein.IsNull())
-        return error("OpenBlockFile failed for %s while reading block", pos.ToString());
-
-    // Read block
-    try {
-        filein >> block;
+    // Read raw block bytes (handles header + checksum internally)
+    std::vector<uint8_t> block_data;
+    if (!ReadRawBlockFromDisk(block_data, pos)) {
+        return false;
     }
-    catch (const std::exception& e) {
+
+    // Deserialize from memory buffer
+    try {
+        SpanReader spanreader(SER_DISK, CLIENT_VERSION, block_data);
+        spanreader >> block;
+    } catch (const std::exception& e) {
         return error("Deserialize or I/O error - %s at %s while reading block", e.what(), pos.ToString());
     }
 
