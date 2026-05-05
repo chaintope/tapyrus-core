@@ -43,9 +43,11 @@ public:
     bool m_avoid_partial_spends;
     //! Fee estimation mode to control arguments to estimateSmartFee
     FeeEstimateMode m_fee_mode;
-    //! Colored transaction type to identify token issue and token burn trasnactions for special processing
+    //! Colored transaction type to identify token issue and token burn transactions for special processing
     ColoredTxType m_colorTxType;
     ColorIdentifier m_colorId;
+    //! For BURN type: the number of tokens to consume (no colored output is created)
+    CAmount m_burnAmount;
 
     CCoinControl()
     {
