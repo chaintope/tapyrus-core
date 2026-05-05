@@ -580,9 +580,9 @@ bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, CXFieldHistoryMa
 {
     block.SetNull();
 
-    // Read raw block bytes (handles header + checksum internally)
+    // Read raw block bytes (handles header validation internally)
     std::vector<uint8_t> block_data;
-    if (!ReadRawBlockFromDisk(block_data, pos)) {
+    if (!ReadRawBlockFromDisk(block_data, pos, FederationParams().MessageStart())) {
         return false;
     }
 
