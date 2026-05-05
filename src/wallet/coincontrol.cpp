@@ -22,5 +22,6 @@ void CCoinControl::SetNull()
     m_fee_mode = FeeEstimateMode::UNSET;
     m_colorTxType = ColoredTxType::NONE;
     m_colorId = ColorIdentifier();
+    m_burnAmount = 0;
 }
 
