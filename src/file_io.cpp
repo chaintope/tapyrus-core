@@ -373,9 +373,9 @@ CDiskBlockPos SaveBlockToDisk(const CBlock& block, int nHeight, const CDiskBlock
         blockPos = *dbp;
     } else {
         // when known, blockPos.nPos points at the offset of the block data in the blk file. that already accounts for
-        // the serialization header present in the file (the 4 magic message start bytes + the 4 length bytes = 8 bytes = BLOCK_SERIALIZATION_HEADER_SIZE).
-        // we add BLOCK_SERIALIZATION_HEADER_SIZE only for new blocks since they will have the serialization header added when written to disk.
-        nBlockSize += static_cast<unsigned int>(BLOCK_SERIALIZATION_HEADER_SIZE);
+        // the serialization header present in the file (the 4 magic message start bytes + the 4 length bytes = 8 bytes = STORAGE_HEADER_BYTES).
+        // we add STORAGE_HEADER_BYTES only for new blocks since they will have the serialization header added when written to disk.
+        nBlockSize += static_cast<unsigned int>(STORAGE_HEADER_BYTES);
     }
     if (!FindBlockPos(blockPos, nBlockSize, nHeight, block.GetBlockTime(), position_known)) {
         error("FindBlockPos failed for %s while saving block", blockPos.ToString());
@@ -539,9 +539,12 @@ void  FlushBlockFile(bool fFinalize)
 
 bool ReadRawBlockFromDisk(std::vector<uint8_t>& block, const CDiskBlockPos& pos, const CMessageHeader::MessageStartChars& message_start)
 {
-    CDiskBlockPos hpos = pos;
-    hpos.nPos -= 8; // Seek back 8 bytes for meta header
-    CAutoFile filein(OpenBlockFile(hpos, /*fReadOnly=*/true), SER_DISK, CLIENT_VERSION);
+    if (pos.nPos < STORAGE_HEADER_BYTES) {
+        // If nPos is less than STORAGE_HEADER_BYTES, we can't read the header that precedes the block data.
+        // This would cause an unsigned integer underflow when trying to position the file cursor.
+        return error("Failed for %s while reading raw block storage header", pos.ToString());
+    }
+    CAutoFile filein(OpenBlockFile(CDiskBlockPos(pos.nFile, pos.nPos - STORAGE_HEADER_BYTES), /*fReadOnly=*/true), SER_DISK, CLIENT_VERSION);
     if (filein.IsNull()) {
         return error("OpenBlockFile failed for %s while reading raw block", pos.ToString());
     }

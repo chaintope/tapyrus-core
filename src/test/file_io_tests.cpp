@@ -32,14 +32,14 @@ BOOST_AUTO_TEST_CASE(file_io_find_block_pos)
     // When a genesis block is added normally, it should be written at offset 8
     // (after the 8-byte serialization header)
     CDiskBlockPos pos1 = SaveBlockToDisk(genesisBlock, 0, nullptr);
-    BOOST_CHECK_EQUAL(pos1.nPos, BLOCK_SERIALIZATION_HEADER_SIZE);
+    BOOST_CHECK_EQUAL(pos1.nPos, STORAGE_HEADER_BYTES);
 
     // Scenario 2: Simulate what happens during reindex
     // During reindex, blocks are found at known positions in the blk file.
     // The genesis block is found at offset 8 (after its serialization header).
-    CDiskBlockPos knownPos(0, BLOCK_SERIALIZATION_HEADER_SIZE);
+    CDiskBlockPos knownPos(0, STORAGE_HEADER_BYTES);
     CDiskBlockPos pos2 = SaveBlockToDisk(genesisBlock, 0, &knownPos);
-    BOOST_CHECK_EQUAL(pos2.nPos, BLOCK_SERIALIZATION_HEADER_SIZE);
+    BOOST_CHECK_EQUAL(pos2.nPos, STORAGE_HEADER_BYTES);
 
     // Scenario 3: After reindex, when a new block is processed
     // This is the critical test that verifies the fix.
@@ -48,9 +48,9 @@ BOOST_AUTO_TEST_CASE(file_io_find_block_pos)
     // + size of genesis block
     // + 8 bytes (serialization header for the new block)
     CDiskBlockPos pos3 = SaveBlockToDisk(genesisBlock, 1, nullptr);
-    unsigned int expectedPos = BLOCK_SERIALIZATION_HEADER_SIZE +
+    unsigned int expectedPos = STORAGE_HEADER_BYTES +
                                ::GetSerializeSize(genesisBlock, SER_DISK, CLIENT_VERSION) +
-                               BLOCK_SERIALIZATION_HEADER_SIZE;
+                               STORAGE_HEADER_BYTES;
     BOOST_CHECK_EQUAL(pos3.nPos, expectedPos);
 
     // This assertion ensures that the bug described in issue #21379 does not recur:

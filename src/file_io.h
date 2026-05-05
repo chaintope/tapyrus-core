@@ -48,7 +48,7 @@ FILE* OpenUndoFile(const CDiskBlockPos &pos, bool fReadOnly = false);
 /** Store block on disk. If dbp is non-nullptr, the file is known to already reside on disk */
 CDiskBlockPos SaveBlockToDisk(const CBlock& block, int nHeight, const CDiskBlockPos* dbp);
 
-/** Size of header written by WriteBlockToDisk (network magic + block size) */
-static constexpr size_t BLOCK_SERIALIZATION_HEADER_SIZE = CMessageHeader::MESSAGE_START_SIZE + sizeof(unsigned int);
+/** Size of header written before serialized block/undo data on disk (4 magic bytes + 4 length bytes) */
+static constexpr uint32_t STORAGE_HEADER_BYTES{CMessageHeader::MESSAGE_START_SIZE + sizeof(unsigned int)};
 
 #endif // BITCOIN_FILE_IO_H
