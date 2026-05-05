@@ -4505,8 +4505,6 @@ UniValue transfertoken(const JSONRPCRequest& request)
 
 static CTransactionRef BurnToken(CWallet * const pwallet, const ColorIdentifier& colorId, CAmount nValue)
 {
-    //this is to make create transaction recognize this as colored transaction
-    CScript scriptPubKey = CScript() << colorId.toVector() << OP_COLOR << OP_TRUE;
     mapValue_t mapValue;
     mapValue["comment"] = colorId.toHexString();
 
@@ -4514,19 +4512,19 @@ static CTransactionRef BurnToken(CWallet * const pwallet, const ColorIdentifier&
         pwallet->TopUpKeyPool();
     }
 
-    // Create and send the transaction
+    // Burn = colored inputs, no colored output.  vecSend is intentionally empty;
+    // m_burnAmount tells CreateTransaction how many tokens to select as inputs.
     CReserveKey reservekey(pwallet);
     CAmount nFeeRequired;
     std::string strError;
     std::vector<CRecipient> vecSend;
     CWallet::ChangePosInOut mapChangePosRet;
     mapChangePosRet[ColorIdentifier()] = -1;
-    CRecipient recipient = {scriptPubKey, nValue, false};
-    vecSend.push_back(recipient);
     CTransactionRef tx;
     CCoinControl coin_control;
     coin_control.m_colorTxType = ColoredTxType::BURN;
     coin_control.m_colorId = colorId;
+    coin_control.m_burnAmount = nValue;
 
     if (!pwallet->CreateTransaction(vecSend, tx, reservekey, nFeeRequired, mapChangePosRet, strError, coin_control)) {
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
