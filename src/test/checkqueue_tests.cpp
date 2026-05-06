@@ -12,6 +12,7 @@
 #include <boost/test/unit_test.hpp>
 
 #include <atomic>
+#include <optional>
 #include <thread>
 #include <vector>
 #include <mutex>
@@ -29,27 +30,27 @@ static const unsigned int QUEUE_BATCH_SIZE = 128;
 static const int SCRIPT_CHECK_THREADS = 3;
 
 struct FakeCheck {
-    bool operator()()
+    std::optional<bool> operator()()
     {
-        return true;
+        return std::nullopt;
     }
 };
 
 struct FakeCheckCheckCompletion {
     static std::atomic<size_t> n_calls;
-    bool operator()()
+    std::optional<bool> operator()()
     {
         n_calls.fetch_add(1, std::memory_order_relaxed);
-        return true;
+        return std::nullopt;
     }
 };
 
 struct FailingCheck {
     bool fails;
     FailingCheck(bool _fails) : fails(_fails){};
-    bool operator()()
+    std::optional<bool> operator()()
     {
-        return !fails;
+        return fails ? std::optional<bool>{false} : std::nullopt;
     }
 };
 
@@ -58,11 +59,11 @@ struct UniqueCheck {
     static std::unordered_multiset<size_t> results;
     size_t check_id;
     UniqueCheck(size_t check_id_in) : check_id(check_id_in){};
-    bool operator()()
+    std::optional<bool> operator()()
     {
         std::lock_guard<std::mutex> l(m);
         results.insert(check_id);
-        return true;
+        return std::nullopt;
     }
 };
 
@@ -70,9 +71,9 @@ struct UniqueCheck {
 struct MemoryCheck {
     static std::atomic<size_t> fake_allocated_memory;
     bool b {false};
-    bool operator()()
+    std::optional<bool> operator()()
     {
-        return true;
+        return std::nullopt;
     }
     MemoryCheck(const MemoryCheck& x)
     {
@@ -101,9 +102,9 @@ struct FrozenCleanupCheck {
     // Freezing can't be the default initialized behavior given how the queue
     // swaps in default initialized Checks.
     bool should_freeze {true};
-    bool operator()() const
+    std::optional<bool> operator()() const
     {
-        return true;
+        return std::nullopt;
     }
     FrozenCleanupCheck() = default;
     ~FrozenCleanupCheck()
@@ -173,7 +174,7 @@ static void Correct_Queue_range(std::vector<size_t> range)
             total -= vChecks.size();
             control.Add(std::move(vChecks));
         }
-        BOOST_REQUIRE(control.Wait());
+        BOOST_REQUIRE(!control.Complete().has_value());
         BOOST_REQUIRE_EQUAL(FakeCheckCheckCompletion::n_calls, i);
     }
     delete small_queue;
@@ -232,11 +233,11 @@ BOOST_AUTO_TEST_CASE(test_CheckQueue_Catches_Failure)
                 vChecks.emplace_back(remaining == 1);
             control.Add(std::move(vChecks));
         }
-        bool success = control.Wait();
+        auto result = control.Complete();
         if (i > 0) {
-            BOOST_REQUIRE(!success);
+            BOOST_REQUIRE(result.has_value());
         } else if (i == 0) {
-            BOOST_REQUIRE(success);
+            BOOST_REQUIRE(!result.has_value());
         }
     }
     delete fail_queue;
@@ -256,8 +257,8 @@ BOOST_AUTO_TEST_CASE(test_CheckQueue_Recovers_From_Failure)
                 vChecks[99] = end_fails;
                 control.Add(std::move(vChecks));
             }
-            bool r =control.Wait();
-            BOOST_REQUIRE(r != end_fails);
+            auto r = control.Complete();
+            BOOST_REQUIRE(r.has_value() == end_fails);
         }
     }
     delete fail_queue;
@@ -342,7 +343,7 @@ BOOST_AUTO_TEST_CASE(test_CheckQueue_FrozenCleanup)
         // would get called twice).
         vChecks[0].should_freeze = true;
         control.Add(std::move(vChecks));
-        control.Wait();
+        control.Complete();
     });
     {
         std::unique_lock<std::mutex> l(FrozenCleanupCheck::m);

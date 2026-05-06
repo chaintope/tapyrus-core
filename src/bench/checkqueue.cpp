@@ -7,6 +7,7 @@
 #include <validation.h>
 #include <checkqueue.h>
 #include <prevector.h>
+#include <optional>
 #include <vector>
 #include <random.h>
 
@@ -29,9 +30,9 @@ static void CCheckQueueSpeedPrevectorJob(benchmark::State& state)
         explicit PrevectorJob(FastRandomContext& insecure_rand){
             p.resize(insecure_rand.randrange(PREVECTOR_SIZE*2));
         }
-        bool operator()()
+        std::optional<bool> operator()()
         {
-            return true;
+            return std::nullopt;
         }
         void swap(PrevectorJob& x){p.swap(x.p);};
     };
@@ -50,7 +51,7 @@ static void CCheckQueueSpeedPrevectorJob(benchmark::State& state)
         }
         // control waits for completion by RAII, but
         // it is done explicitly here for clarity
-        control.Wait();
+        control.Complete();
     }
 }
 BENCHMARK(CCheckQueueSpeedPrevectorJob, 1400);

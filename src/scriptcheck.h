@@ -5,6 +5,9 @@
 #ifndef TAPYRUS_SCRIPTCHECK_H
 #define TAPYRUS_SCRIPTCHECK_H
 
+#include <optional>
+#include <script/script_error.h>
+
 /**
  * Closure representing one script verification
  * Note that this stores references to the spending transaction
@@ -26,7 +29,8 @@ public:
     CScriptCheck(const CTxOut& outIn, const CTransaction& txToIn, unsigned int nInIn, unsigned int nFlagsIn, bool cacheIn, PrecomputedTransactionData* txdataIn, ColorIdentifier coloridIn = ColorIdentifier()) :
         m_tx_out(outIn), ptxTo(&txToIn), nIn(nInIn), nFlags(nFlagsIn), cacheStore(cacheIn), error(SCRIPT_ERR_UNKNOWN_ERROR), txdata(txdataIn), colorid(coloridIn) { }
 
-    bool operator()();
+    // Returns nullopt on success, or the ScriptError on failure.
+    std::optional<ScriptError> operator()();
 
     ScriptError GetScriptError() const { return error; }
     const ColorIdentifier& GetColorIdentifier() const { return colorid; }

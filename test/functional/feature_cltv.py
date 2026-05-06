@@ -23,7 +23,6 @@ CLTV_HEIGHT = 1351
 # Reject codes that we might receive in this test
 REJECT_INVALID = 16
 REJECT_OBSOLETE = 17
-REJECT_NONSTANDARD = 64
 SCHEME = None
 
 def cltv_invalidate(tx):
@@ -87,13 +86,11 @@ class BIP65Test(BitcoinTestFramework):
 
         wait_until(lambda: "reject" in self.nodes[0].p2p.last_message.keys(), lock=mininode_lock)
         with mininode_lock:
-            assert self.nodes[0].p2p.last_message["reject"].code in [REJECT_INVALID, REJECT_NONSTANDARD]
+            # Parallel script validation always produces REJECT_INVALID with
+            # 'block-validation-failed'; the specific script error is in the debug log.
+            assert_equal(self.nodes[0].p2p.last_message["reject"].code, REJECT_INVALID)
             assert_equal(self.nodes[0].p2p.last_message["reject"].data, block.sha256)
-            if self.nodes[0].p2p.last_message["reject"].code == REJECT_INVALID:
-                # Generic rejection when a block is invalid
-                assert_equal(self.nodes[0].p2p.last_message["reject"].reason, b'block-validation-failed')
-            else:
-                assert b'Negative locktime' in self.nodes[0].p2p.last_message["reject"].reason
+            assert_equal(self.nodes[0].p2p.last_message["reject"].reason, b'block-validation-failed')
 
         self.log.info("Test that blocks must now be at least version 4")
         #tip = block.sha256
@@ -127,13 +124,9 @@ class BIP65Test(BitcoinTestFramework):
 
         wait_until(lambda: "reject" in self.nodes[0].p2p.last_message.keys(), lock=mininode_lock)
         with mininode_lock:
-            assert self.nodes[0].p2p.last_message["reject"].code in [REJECT_INVALID, REJECT_NONSTANDARD]
+            assert_equal(self.nodes[0].p2p.last_message["reject"].code, REJECT_INVALID)
             assert_equal(self.nodes[0].p2p.last_message["reject"].data, block.sha256)
-            if self.nodes[0].p2p.last_message["reject"].code == REJECT_INVALID:
-                # Generic rejection when a block is invalid
-                assert_equal(self.nodes[0].p2p.last_message["reject"].reason, b'block-validation-failed')
-            else:
-                assert b'Negative locktime' in self.nodes[0].p2p.last_message["reject"].reason
+            assert_equal(self.nodes[0].p2p.last_message["reject"].reason, b'block-validation-failed')
 
         self.log.info("Test that a version 4 block with a valid-according-to-CLTV transaction is accepted")
         spendtx = cltv_validate(self.nodes[0], spendtx, CLTV_HEIGHT - 1)
