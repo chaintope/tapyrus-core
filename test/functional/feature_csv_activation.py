@@ -261,7 +261,7 @@ class BIP68_112_113Test(BitcoinTestFramework):
 
         self.sync_blocks([self.create_test_block(success_txs)], success=False, reject_code=16, reject_reason=b'bad-txns-nonfinal')
 
-        self.sync_blocks([self.create_test_block([bip112tx_special_v1])], success=False, reject_code=16, reject_reason=b'block-validation-failed')
+        self.sync_blocks([self.create_test_block([bip112tx_special_v1])], success=False, reject_code=16, reject_reason=b'script-verification-failed')
 
         # add BIP 112 with seq=10 txs
         bip112txs = []

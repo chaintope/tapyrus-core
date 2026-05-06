@@ -86,11 +86,9 @@ class BIP65Test(BitcoinTestFramework):
 
         wait_until(lambda: "reject" in self.nodes[0].p2p.last_message.keys(), lock=mininode_lock)
         with mininode_lock:
-            # Parallel script validation always produces REJECT_INVALID with
-            # 'block-validation-failed'; the specific script error is in the debug log.
             assert_equal(self.nodes[0].p2p.last_message["reject"].code, REJECT_INVALID)
             assert_equal(self.nodes[0].p2p.last_message["reject"].data, block.sha256)
-            assert_equal(self.nodes[0].p2p.last_message["reject"].reason, b'block-validation-failed')
+            assert_equal(self.nodes[0].p2p.last_message["reject"].reason, b'script-verification-failed')
 
         self.log.info("Test that blocks must now be at least version 4")
         #tip = block.sha256
@@ -108,7 +106,7 @@ class BIP65Test(BitcoinTestFramework):
         # now CLTV is mandatory script flag.
         mempool_size = self.nodes[0].getmempoolinfo()['size']
         assert_equal(
-            { spendtx.hashMalFix : { 'allowed': False, 'reject-reason': '16: mandatory-script-verify-flag-failed (Negative locktime)'}},
+            { spendtx.hashMalFix : { 'allowed': False, 'reject-reason': '16: Negative locktime'}},
             self.nodes[0].testmempoolaccept(rawtxs=[bytes_to_hex_str(spendtx.serialize())], allowhighfees=True)
         )
         assert_equal(self.nodes[0].getmempoolinfo()['size'], mempool_size)
@@ -126,7 +124,7 @@ class BIP65Test(BitcoinTestFramework):
         with mininode_lock:
             assert_equal(self.nodes[0].p2p.last_message["reject"].code, REJECT_INVALID)
             assert_equal(self.nodes[0].p2p.last_message["reject"].data, block.sha256)
-            assert_equal(self.nodes[0].p2p.last_message["reject"].reason, b'block-validation-failed')
+            assert_equal(self.nodes[0].p2p.last_message["reject"].reason, b'script-verification-failed')
 
         self.log.info("Test that a version 4 block with a valid-according-to-CLTV transaction is accepted")
         spendtx = cltv_validate(self.nodes[0], spendtx, CLTV_HEIGHT - 1)
