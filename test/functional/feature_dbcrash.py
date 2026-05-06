@@ -41,6 +41,10 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, create_confirmed_utxos, hex_str_to_bytes
 from test_framework.timeout_config import TAPYRUSD_P2P_TIMEOUT, TAPYRUSD_PROC_TIMEOUT
 
+# Intentionally tiny — overrides the default 32 MiB (bitcoin/bitcoin#31645) to
+# force frequent small write batches, maximising crash opportunities in this test.
+CRASH_TEST_BATCH_SIZE = 200000
+
 HTTP_DISCONNECT_ERRORS = [http.client.CannotSendRequest]
 try:
     HTTP_DISCONNECT_ERRORS.append(http.client.RemoteDisconnected)
@@ -55,9 +59,7 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
         # Set -maxmempool=0 to turn off mempool memory sharing with dbcache
         # Set -rpcservertimeout=900 to reduce socket disconnects in this
         # long-running test
-        # Set -dbbatchsize=100000 (smaller than default) so each recovery
-        # writes more CDBBatch flushes, increasing crash-on-restart probability.
-        self.base_args = ["-limitdescendantsize=0", "-maxmempool=0", "-rpcservertimeout=900", "-dbbatchsize=100000"]
+        self.base_args = ["-limitdescendantsize=0", "-maxmempool=0", "-rpcservertimeout=900", f"-dbbatchsize={CRASH_TEST_BATCH_SIZE}"]
 
         # Set different crash ratios and cache sizes.  Note that not all of
         # -dbcache goes to pcoinsTip.

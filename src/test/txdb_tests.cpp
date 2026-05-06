@@ -118,4 +118,11 @@ BOOST_AUTO_TEST_CASE(txdb_aggpubkey_serialize_tests)
     BOOST_CHECK_EQUAL(HexStr(stream2.begin(), stream2.end()).size(), len + 6);
 }
 
+BOOST_AUTO_TEST_CASE(txdb_default_batch_size)
+{
+    // Port of bitcoin/bitcoin#31645: default raised from 16 MiB to 32 MiB to
+    // reduce per-write LevelDB overhead during UTXO flushes in IBD.
+    BOOST_CHECK_EQUAL(nDefaultDbBatchSize, int64_t{32} << 20);
+}
+
 BOOST_AUTO_TEST_SUITE_END()
