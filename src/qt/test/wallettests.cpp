@@ -328,12 +328,10 @@ void TestGUI_coloredCoin()
             reserver.reserve();
             wallet->ScanForWalletTransactions(chainActive.Genesis(), nullptr, reserver, true);
         }
-        // pollBalanceChanged checks block-count change, calls checkBalanceChanged()
-        // (→ balanceChanged → OverviewPage::setBalance → refreshTokenList) and
-        // checkTokenListChanged() (→ tokenListChanged → IssueTokenDialog::refreshTokenTable
-        // and ReceiveCoinsDialog::refreshTokenCombo).
-        QMetaObject::invokeMethod(&walletModel, "pollBalanceChanged");
+        // Drain all queued events from ScanForWalletTransactions first
+        // Then fire pollBalanceChanged so UI widgets read a fully-settled model
         QApplication::processEvents();
+        QMetaObject::invokeMethod(&walletModel, "pollBalanceChanged");
     };
 
     // Assert OverviewPage shows the expected confirmed balance for the given colorId.
