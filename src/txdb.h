@@ -142,6 +142,7 @@ public:
     bool ReadXField(const char key, XFieldChangeListWrapper& xFieldList);
     bool WriteXField(const XFieldChange & xFieldChange);
     bool RewriteXField(std::vector<XFieldChange> & xFieldChanges);
+    bool EraseXField(const XFieldChange & xFieldChange);
 
     bool WriteIssuedColorId(const ColorIdentifier& colorId);
     bool WriteIssuedColorIdBatch(const std::set<ColorIdentifier>& colorIds);

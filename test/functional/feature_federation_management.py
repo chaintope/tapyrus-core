@@ -694,6 +694,126 @@ class FederationManagementTest(BitcoinTestFramework):
             assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
             assert_equal(blockchaininfo["blocks"], 56)
 
+        self.log.info("Scenario: DisconnectTip of rotation block then re-rotate on new chain")
+        # Isolate node[0] to avoid sync complications during the reorg
+        self.stop_node(1)
+        self.stop_node(2)
+        self.stop_node(3)
+
+        tip56 = self.tip  # B56, height=56, active key=aggpubkeys[5]
+
+        # B57_rot: rotation to aggpubkeys[6], signed by the current active key aggprivkey[5]
+        block_time += 10
+        b57_rot = create_block(int(tip56, 16), create_coinbase(57), block_time, self.aggpubkeys[6])
+        b57_rot.solve(self.aggprivkey[5])
+        node.submitblock(bytes_to_hex_str(b57_rot.serialize()))
+        assert_equal(node.getbestblockhash(), b57_rot.hash)
+
+        # XFieldChange height = nHeight+1 = 58
+        expectedWithKey6At58 = [
+            { self.aggpubkeys[0] : 0},
+            { self.aggpubkeys[1] : 12},
+            { self.aggpubkeys[2] : 25},
+            { self.aggpubkeys[3] : 33},
+            { self.aggpubkeys[4] : 37},
+            { self.aggpubkeys[0] : 42},
+            { self.aggpubkeys[1] : 43},
+            { self.aggpubkeys[5] : 52},
+            { self.aggpubkeys[6] : 58},
+        ]
+        assert_equal(node.getblockchaininfo()["aggregatePubkeys"], expectedWithKey6At58)
+
+        # Build a longer fork from B56 (no rotation) to trigger a reorg that disconnects B57_rot
+        block_time += 1
+        b57_fork = create_block(int(tip56, 16), create_coinbase(57), block_time)
+        b57_fork.solve(self.aggprivkey[5])
+        node.submitblock(bytes_to_hex_str(b57_fork.serialize()))
+        assert_equal(node.getbestblockhash(), b57_rot.hash)  # equal height — no reorg yet
+
+        block_time += 1
+        b58_fork = create_block(int(b57_fork.hash, 16), create_coinbase(58), block_time)
+        b58_fork.solve(self.aggprivkey[5])
+        node.submitblock(bytes_to_hex_str(b58_fork.serialize()))
+        # Fork is now deeper (height 58 > 57): reorg; B57_rot disconnected, aggpubkeys[6] removed
+        assert_equal(node.getbestblockhash(), b58_fork.hash)
+        self.tip = b58_fork.hash
+
+        expectedAfterReorg = [
+            { self.aggpubkeys[0] : 0},
+            { self.aggpubkeys[1] : 12},
+            { self.aggpubkeys[2] : 25},
+            { self.aggpubkeys[3] : 33},
+            { self.aggpubkeys[4] : 37},
+            { self.aggpubkeys[0] : 42},
+            { self.aggpubkeys[1] : 43},
+            { self.aggpubkeys[5] : 52},
+        ]
+        assert_equal(node.getblockchaininfo()["aggregatePubkeys"], expectedAfterReorg)
+
+        # Re-rotate to aggpubkeys[6] on the new chain — different block, different height
+        block_time += 1
+        b59_rot = create_block(int(self.tip, 16), create_coinbase(59), block_time, self.aggpubkeys[6])
+        b59_rot.solve(self.aggprivkey[5])
+        node.submitblock(bytes_to_hex_str(b59_rot.serialize()))
+        assert_equal(node.getbestblockhash(), b59_rot.hash)
+        self.tip = b59_rot.hash
+
+        # XFieldChange height = nHeight+1 = 60
+        expectedAfterRerotate = [
+            { self.aggpubkeys[0] : 0},
+            { self.aggpubkeys[1] : 12},
+            { self.aggpubkeys[2] : 25},
+            { self.aggpubkeys[3] : 33},
+            { self.aggpubkeys[4] : 37},
+            { self.aggpubkeys[0] : 42},
+            { self.aggpubkeys[1] : 43},
+            { self.aggpubkeys[5] : 52},
+            { self.aggpubkeys[6] : 60},
+        ]
+        assert_equal(node.getblockchaininfo()["aggregatePubkeys"], expectedAfterRerotate)
+
+        self.log.info("Scenario: reindex (-reloadxfield) with two rotation proposals at same height")
+        # Build an alternative rotation at the same height as b59_rot (same parent b58_fork),
+        # proposing a different key — this block will be stored on disk as an orphan fork.
+        block_time += 1
+        b59_alt = create_block(int(b58_fork.hash, 16), create_coinbase(59), block_time, self.aggpubkeys[0])
+        b59_alt.solve(self.aggprivkey[5])
+        node.submitblock(bytes_to_hex_str(b59_alt.serialize()))
+        # b59_rot is the active tip; b59_alt has equal chainwork and does not trigger a reorg
+        assert_equal(node.getbestblockhash(), b59_rot.hash)
+
+        # Restart with -reloadxfield: all blk*.dat files are replayed but only the active-chain
+        # rotation (b59_rot → aggpubkeys[6] at height 60) must survive in the persisted history;
+        # the orphan rotation in b59_alt must not appear.
+        self.stop_node(0)
+        self.start_node(0, ["-reloadxfield"])
+        wait_until(lambda: self.nodes[0].getblockcount() >= 59, timeout=TAPYRUSD_REORG_TIMEOUT)
+        assert_equal(self.nodes[0].getbestblockhash(), b59_rot.hash)
+        assert_equal(self.nodes[0].getblockchaininfo()["aggregatePubkeys"], expectedAfterRerotate)
+
+        self.log.info("Test: non-adjacent block with wrong coinbase height (CheckBlock height-bypass)")
+        # B11 (height 11) rotated the key to aggpubkeys[1]; XFieldChange stored at height 12.
+        # A fork block built on B11 therefore has structural height 12 and must be signed with
+        # aggpubkeys[1].  An attacker sets prevout.n = 0 and signs with the genesis key instead.
+        #
+        # BEFORE the fix:
+        #   isBlockHeightInCoinbase returns True for non-adjacent blocks — no height check.
+        #   CheckBlock used block.GetHeight() = 0 for the xfield lookup:
+        #     Get(AGGPUBKEY, 0) = aggpubkeys[0]  → genesis-key signature passed CheckBlock.
+        #   The block was only rejected by AcceptBlockHeader's secondary check
+        #   (nHeight=-1 → Get(AGGPUBKEY, UINT32_MAX) = latest key = aggpubkeys[6] ≠ aggpubkeys[0]).
+        #
+        # AFTER the fix:
+        #   CheckBlock derives height from pindexPrev->nHeight+1 = 12:
+        #     Get(AGGPUBKEY, 12) = aggpubkeys[1]  → genesis-key signature fails in CheckBlock.
+        #
+        # Both code paths ultimately reject the block ("invalid"); the fix ensures that
+        # CheckBlock itself is the first and correct barrier, not a bypassable pre-check.
+        exploit_block = create_block(int(self.blocks[11], 16), create_coinbase(0), block_time + 1)
+        exploit_block.solve(self.aggprivkey[0])  # genesis key: correct at h=0, wrong at structural h=12
+        assert_equal(self.nodes[0].submitblock(bytes_to_hex_str(exploit_block.serialize())), "invalid")
+        assert_equal(self.nodes[0].getbestblockhash(), b59_rot.hash)  # tip unchanged
+
     def connectNodeAndCheck(self, n, expectedAggPubKeys):
         #this function tests HEADERS message processing in node 'n'
         self.start_node(n)

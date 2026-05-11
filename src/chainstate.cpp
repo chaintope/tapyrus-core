@@ -806,7 +806,14 @@ bool CChainState::DisconnectTip(CValidationState& state, DisconnectedBlockTransa
 
     UpdateTip(pindexDelete->pprev);
 
-    //TODO: if xfield information change is being discarded during this reorg remove it from xFieldHistory here
+    if (pindexDelete->nHeight > 0
+        && std::find(XFIELDTYPES_INIT_LIST.begin(), XFIELDTYPES_INIT_LIST.end(), block.xfield.xfieldType) != XFIELDTYPES_INIT_LIST.end())
+    {
+        CXFieldHistory xfieldHistory;
+        XFieldChange removedChange(block.xfield.xfieldValue, pindexDelete->nHeight + 1, pindexDelete->GetBlockHash());
+        if (xfieldHistory.Remove(block.xfield.xfieldType, removedChange))
+            pblocktree->EraseXField(removedChange);
+    }
 
     // Let wallets know transactions went from 1-confirmed to
     // 0-confirmed or conflicted:
@@ -856,10 +863,10 @@ bool CChainState::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, co
         // make sure that the xfield from this block is added to xFieldHistory
         CXFieldHistory xfieldHistory;
         if(blockConnecting.xfield.IsValid()
-            && blockConnecting.GetHeight() > 0
+            && pindexNew->nHeight > 0
             && IsXFieldNew(blockConnecting.xfield, &xfieldHistory))
         {
-            XFieldChange newChange(blockConnecting.xfield.xfieldValue, blockConnecting.GetHeight() + 1, blockConnecting.GetHash());
+            XFieldChange newChange(blockConnecting.xfield.xfieldValue, pindexNew->nHeight + 1, blockConnecting.GetHash());
             xfieldHistory.Add(blockConnecting.xfield.xfieldType, newChange);
             pblocktree->WriteXField(newChange);
         }
@@ -1450,7 +1457,7 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
         if (fTooFarAhead) return true;        // Block height is too high
     }
 
-    if (!CheckBlock(block, state, false, true, pxfieldHistory) ||
+    if (!CheckBlock(block, state, false, true, pxfieldHistory, pindex->pprev ? pindex->pprev->nHeight + 1 : 0) ||
         !ContextualCheckBlock(block, state, pindex->pprev)) {
         if (state.IsInvalid() && !state.CorruptionPossible()) {
             pindex->nStatus |= BLOCK_FAILED_VALID;
