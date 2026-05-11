@@ -424,8 +424,9 @@ void static UpdateTip(const CBlockIndex *pindexNew)
 
     RefreshChainTxDataFromTip(pindexNew);
 
-    LogPrintf("%s: new best=%s height=%d version=0x%08x tx=%lu date='%s' progress=%f cache=%.1fMiB(%utxo)", __func__, /* Continued */
+    LogPrintf("%s: new best=%s height=%d version=0x%08x xfield=%s tx=%lu date='%s' progress=%f cache=%.1fMiB(%utxo)", __func__, /* Continued */
       pindexNew->GetBlockHash().ToString(), pindexNew->nHeight, pindexNew->nFeatures,
+      pindexNew->xfield.ToString(),
       (unsigned long)pindexNew->nChainTx, FormatISO8601DateTime(pindexNew->GetBlockTime()),
       GuessVerificationProgress(Params().TxData(), pindexNew), pcoinsTip->DynamicMemoryUsage() * (1.0 / (1<<20)), pcoinsTip->GetCacheSize());
     LogPrintf("\n");

@@ -599,16 +599,18 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         self.log.info("Add new node to the network")
         self.start_node(3)
         connect_nodes(self.nodes[1], 3)
-        connect_nodes(self.nodes[2], 3)
 
-        # Monitor peer connections and reconnect if dropped during sync
-        wait_until(lambda: (
-            len(self.nodes[3].getpeerinfo()) < 2 and
-            (connect_nodes(self.nodes[1], 3), connect_nodes(self.nodes[2], 3))[0] is None
-        ) or (
-            self.nodes[3].getblockcount() >= 51 and
-            self.nodes[3].getbestblockhash() == self.nodes[1].getbestblockhash()
-        ), timeout=TAPYRUSD_REORG_TIMEOUT)
+        # Only connect node3 to node1 to avoid parallel downloads causing xfield transition races.
+        # Reconnect if the connection drops during the long sync.
+        def node3_synced():
+            if len(self.nodes[3].getpeerinfo()) == 0:
+                connect_nodes(self.nodes[1], 3)
+            return (
+                self.nodes[3].getblockcount() >= 51 and
+                self.nodes[3].getbestblockhash() == self.nodes[1].getbestblockhash()
+            )
+
+        wait_until(node3_synced, timeout=TAPYRUSD_REORG_TIMEOUT)
 
         self.log.info("Starting sync_all")
         self.sync_all([self.nodes[0:4]])

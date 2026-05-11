@@ -65,26 +65,28 @@ class MempoolLimitTest(BitcoinTestFramework):
         return tx
 
     def fill_mempool(self, node, utxos, feerate, nSequence=0):
-        # fill the mempool with large transactions
-        # making sure that there is still space for the next transaction
+        # Fill the mempool while preserving ~TX_SIZE_TOFILL_MEMPOOL bytes of free
+        # space for callers (anchor txs, space-fillers, etc.).
+        # Each tx is sized to consume only (free - headroom) bytes so no tx ever
+        # overflows the pool and triggers a mempoolminfee spike.
+        # MEMPOOL_ENTRY_OVERHEAD covers DynamicMemoryUsage() bookkeeping beyond
+        # raw tx bytes: CTxMemPoolEntry struct + multi-index + mapNextTx + mapLinks.
+        MEMPOOL_ENTRY_OVERHEAD = 600
         txids = []
         self.log.info("Fill mempool")
         while True:
             info = node.getmempoolinfo()
+            free = info['maxmempool'] - info['usage']
+            size_needed = free - TX_SIZE_TOFILL_MEMPOOL - MEMPOOL_ENTRY_OVERHEAD
+            if size_needed <= 0:
+                break
+            size_needed = min(size_needed, TX_SIZE_TOFILL_MEMPOOL)
             utxo = utxos.pop()
-            size_needed = TX_SIZE_TOFILL_MEMPOOL
             tx = self.create_tx_with_large_script(utxo, feerate, size_needed)
             tx.vin[0].nSequence = nSequence
             signresult = node.signrawtransactionwithwallet(ToHex(tx))
             txid = node.sendrawtransaction(signresult["hex"], True)
             txids.append(txid)
-            info = node.getmempoolinfo()
-            if info['maxmempool'] - info['usage'] < tx_size(tx):
-                break
-            elif info['maxmempool'] - info['usage'] < TX_SIZE_TOFILL_MEMPOOL:
-                size_needed = info['maxmempool'] - info['usage']
-            else:
-                size_needed = TX_SIZE_TOFILL_MEMPOOL
         return txids
 
     def create_signed_raw_tx(self, node, spend_utxo, feerate):

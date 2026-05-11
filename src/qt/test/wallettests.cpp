@@ -30,6 +30,7 @@
 #include <QAbstractButton>
 #include <QAction>
 #include <QApplication>
+#include <QTest>
 #include <QCheckBox>
 #include <QPushButton>
 #include <QTimer>
@@ -181,6 +182,10 @@ void TestGUI()
     QCOMPARE(transactionTableModel->rowCount({}), 10);
     uint256 txid1 = SendCoins(*wallet.get(), sendCoinsDialog, CKeyID(), 5 * COIN, false /* rbf */);
     uint256 txid2 = SendCoins(*wallet.get(), sendCoinsDialog, CKeyID(), 10 * COIN, true /* rbf */);
+    // Each SendCoins commits a transaction that fires NotifyTransactionChanged via
+    // Qt::QueuedConnection.  The second call's modal event loop drains txid1's event
+    // but txid2's event is still queued when SendCoins returns.  qWait settles both.
+    QTest::qWait(50);
     QCOMPARE(transactionTableModel->rowCount({}), 12);
     QVERIFY(FindTx(*transactionTableModel, txid1).isValid());
     QVERIFY(FindTx(*transactionTableModel, txid2).isValid());
@@ -328,12 +333,12 @@ void TestGUI_coloredCoin()
             reserver.reserve();
             wallet->ScanForWalletTransactions(chainActive.Genesis(), nullptr, reserver, true);
         }
-        // pollBalanceChanged checks block-count change, calls checkBalanceChanged()
-        // (→ balanceChanged → OverviewPage::setBalance → refreshTokenList) and
-        // checkTokenListChanged() (→ tokenListChanged → IssueTokenDialog::refreshTokenTable
-        // and ReceiveCoinsDialog::refreshTokenCombo).
+        // qWait drains the event queue continuously for 50 ms, giving
+        // TransactionTableModel::updateTransaction events (queued from
+        // ScanForWalletTransactions via Qt::QueuedConnection) time to settle
+        // before the balance comparison in pollBalanceChanged runs.
+        QTest::qWait(50);
         QMetaObject::invokeMethod(&walletModel, "pollBalanceChanged");
-        QApplication::processEvents();
     };
 
     // Assert OverviewPage shows the expected confirmed balance for the given colorId.
