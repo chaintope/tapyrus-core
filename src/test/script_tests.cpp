@@ -345,6 +345,9 @@ public:
             {
                 const KeyData keys;
                 redeemscript = CScript() << OP_DUP << OP_HASH160 << ToByteVector(keys.pubkey1C.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
+                // Sign over the inner (redeem) script, matching how OP_CHECKSIG
+                // computes its scriptCode once the redeem script is actually executed.
+                script = redeemscript;
             }
             else
             {
@@ -2707,17 +2710,20 @@ BOOST_AUTO_TEST_CASE(colored_coin_arithmetic_scripts)
                         .Num(-3)
                         .ScriptError(SCRIPT_ERR_EVAL_FALSE));
 
-    // OP_HASH160 preimage: scriptSig pushes preimage; scriptPubKey checks HASH160
-    // preimage = {0x61, 0x62, 0x63} = "abc"
+    // OP_HASH256 preimage: scriptSig pushes preimage; scriptPubKey checks HASH256.
+    // OP_HASH160 is intentionally avoided here: <colorId> OP_COLOR OP_HASH160 <20B> OP_EQUAL
+    // is exactly 58 bytes and matches IsColoredPayToScriptHash(), so it would be treated as
+    // CP2SH and the preimage bytes would be executed as a redeem script.
+    // OP_HASH256 produces a 32-byte digest, making the script 70 bytes — outside the CP2SH pattern.
     {
         std::vector<unsigned char> preimage = {'a', 'b', 'c'};
-        uint160 h = Hash160(preimage);
-        tests.push_back(TestBuilder(colored(CScript() << OP_HASH160 << ToByteVector(h) << OP_EQUAL),
-            "Colored OP_HASH160 preimage valid", 0)
+        uint256 h = Hash(preimage.begin(), preimage.end());
+        tests.push_back(TestBuilder(colored(CScript() << OP_HASH256 << ToByteVector(h) << OP_EQUAL),
+            "Colored OP_HASH256 preimage valid", 0)
                             .Add(CScript() << preimage));
         std::vector<unsigned char> wrongPreimage = {'x', 'y', 'z'};
-        tests.push_back(TestBuilder(colored(CScript() << OP_HASH160 << ToByteVector(h) << OP_EQUAL),
-            "Colored OP_HASH160 wrong preimage", 0)
+        tests.push_back(TestBuilder(colored(CScript() << OP_HASH256 << ToByteVector(h) << OP_EQUAL),
+            "Colored OP_HASH256 wrong preimage", 0)
                             .Add(CScript() << wrongPreimage)
                             .ScriptError(SCRIPT_ERR_EVAL_FALSE));
     }
