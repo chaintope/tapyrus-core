@@ -247,7 +247,7 @@ int ApplyTxInUndo(Coin&& undo, CCoinsViewCache& view, const COutPoint& out)
 
 /** Undo the effects of this block (with given index) on the UTXO set represented by coins.
  *  When FAILED is returned, view is left in an indeterminate state. */
-DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view)
+DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view, bool fDryRun)
 {
     bool fClean = true;
 
@@ -303,13 +303,19 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
                         continue;
                     COutPoint prevout = tx.vin[j].prevout;
                     if (ColorIdentifier(prevout, outColorId.type) == outColorId) {
-                        // Erase from disk before memory: if the disk erase fails
-                        // both stores remain consistent (entry still present in both).
-                        if (!pcoinsdbview->EraseIssuedColorId(outColorId))
-                            return DISCONNECT_FAILED;
-                        {
-                            LOCK(cs_issued_colorids);
-                            g_issued_colorids.erase(outColorId);
+                        // Skip global state writes when called from VerifyDB's dry-run
+                        // sandbox (level 3): chainActive is not actually disconnected, so
+                        // mutating g_issued_colorids or the chainstate DB here would leave
+                        // both stores permanently inconsistent with the real chain tip.
+                        if (!fDryRun) {
+                            // Erase from disk before memory: if the disk erase fails
+                            // both stores remain consistent (entry still present in both).
+                            if (!pcoinsdbview->EraseIssuedColorId(outColorId))
+                                return DISCONNECT_FAILED;
+                            {
+                                LOCK(cs_issued_colorids);
+                                g_issued_colorids.erase(outColorId);
+                            }
                         }
                         break;
                     }
