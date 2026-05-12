@@ -2878,8 +2878,14 @@ static UniValue listunspent(const JSONRPCRequest& request)
                 entry.pushKV("label", i->second.name);
             }
 
-            if (scriptPubKey.IsPayToScriptHash() || scriptPubKey.IsColoredPayToScriptHash()) {
+            if (scriptPubKey.IsPayToScriptHash()) {
                 const CScriptID& hash = std::get<CScriptID>(address);
+                CScript redeemScript;
+                if (pwallet->GetCScript(hash, redeemScript)) {
+                    entry.pushKV("redeemScript", HexStr(redeemScript.begin(), redeemScript.end()));
+                }
+            } else if (scriptPubKey.IsColoredPayToScriptHash()) {
+                CScriptID hash(static_cast<const uint160&>(std::get<CColorScriptID>(address)));
                 CScript redeemScript;
                 if (pwallet->GetCScript(hash, redeemScript)) {
                     entry.pushKV("redeemScript", HexStr(redeemScript.begin(), redeemScript.end()));

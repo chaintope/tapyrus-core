@@ -1611,6 +1611,29 @@ BOOST_AUTO_TEST_CASE(script_build)
                         .DamagePush(10)
                         .Num(0)
                         .ScriptError(SCRIPT_ERR_PUBKEYTYPE));
+    // CP2SH(P2PKH): colored P2SH where the outer script carries OP_COLOR and
+    // the redeem script is a plain P2PKH.  Signatures are computed over the
+    // inner P2PKH redeem script (not the outer CP2SH scriptPubKey) because
+    // CP2SH now correctly enters the P2SH execution branch in VerifyScript.
+    {
+        ColorIdentifier cp2sh_cid(CScript() << ToByteVector(keys.pubkey0C) << OP_CHECKSIG);
+        CScript cp2sh_inner = CScript() << OP_DUP << OP_HASH160
+                                        << ToByteVector(keys.pubkey1C.GetID())
+                                        << OP_EQUALVERIFY << OP_CHECKSIG;
+        CScript cp2sh_spk = CScript() << cp2sh_cid.toVector() << OP_COLOR
+                                      << OP_HASH160 << ToByteVector(CScriptID(cp2sh_inner))
+                                      << OP_EQUAL;
+        tests.push_back(TestBuilder(cp2sh_spk, "CP2SH(P2PKH) ECDSA", SCRIPT_VERIFY_NONE,
+                                    /*P2SH=*/true, WitnessMode::NONE, 0, 0, false, cp2sh_inner)
+                            .PushSig(keys.key1, SignatureScheme::ECDSA)
+                            .Push(keys.pubkey1C)
+                            .PushRedeem());
+        tests.push_back(TestBuilder(cp2sh_spk, "CP2SH(P2PKH) SCHNORR", SCRIPT_VERIFY_NONE,
+                                    /*P2SH=*/true, WitnessMode::NONE, 0, 0, false, cp2sh_inner)
+                            .PushSig(keys.key1, SignatureScheme::SCHNORR)
+                            .Push(keys.pubkey1C)
+                            .PushRedeem());
+    }
     std::set<std::string> tests_set;
     tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey1C) << OP_CHECKDATASIG,
         "CHECKDATASIG ECDSA with Hashtype byte", SCRIPT_VERIFY_NONE)
