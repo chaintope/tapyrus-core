@@ -1363,15 +1363,21 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
             return true;
         }
 
-        if (!CheckBlockHeader(block, state, pxfieldHistory))
+        // Look up prev block index first so we can pass the correct height to
+        // CheckBlockHeader (which needs it for aggregate-pubkey history lookup).
+        CBlockIndex* pindexPrev = nullptr;
+        {
+            BlockMap::iterator mi = mapBlockIndex.find(block.hashPrevBlock);
+            if (mi != mapBlockIndex.end())
+                pindexPrev = (*mi).second;
+        }
+        int nBlockHeight = pindexPrev ? pindexPrev->nHeight + 1 : -1;
+
+        if (!CheckBlockHeader(block, state, pxfieldHistory, nBlockHeight))
             return error("%s: Consensus::CheckBlockHeader: %s, %s", __func__, hash.ToString(), FormatStateMessage(state));
 
-        // Get prev block index
-        CBlockIndex* pindexPrev = nullptr;
-        BlockMap::iterator mi = mapBlockIndex.find(block.hashPrevBlock);
-        if (mi == mapBlockIndex.end())
+        if (!pindexPrev)
             return state.DoS(10, error("%s: prev block not found", __func__), 0, "prev-blk-not-found");
-        pindexPrev = (*mi).second;
         if (pindexPrev->nStatus & BLOCK_FAILED_MASK)
             return state.DoS(100, error("%s: prev block invalid", __func__), REJECT_INVALID, "bad-prevblk");
         if (!ContextualCheckBlockHeader(block, state, pindexPrev, GetAdjustedTime()))
