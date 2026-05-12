@@ -136,7 +136,7 @@ public:
     bool AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CValidationState& state, CBlockIndex** ppindex, bool fRequested, const CDiskBlockPos* dbp, bool* fNewBlock, CXFieldHistoryMap* pxfieldHistory = nullptr) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     // Block (dis)connection on a given view:
-    DisconnectResult DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    DisconnectResult DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view, bool fDryRun = false) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
                     CCoinsViewCache& view, bool fJustCheck = false);
 
