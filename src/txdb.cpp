@@ -147,6 +147,33 @@ size_t CCoinsViewDB::EstimateSize() const
     return db.EstimateSize(DB_COIN, (char)(DB_COIN+1));
 }
 
+bool CCoinsViewDB::WriteIssuedColorIdBatch(const std::set<ColorIdentifier>& colorIds)
+{
+    CDBBatch batch(db);
+    for (const auto& colorId : colorIds)
+        batch.Write(std::make_pair(DB_ISSUED_COLORID, colorId.toVector()), true);
+    return db.WriteBatch(batch);
+}
+
+bool CCoinsViewDB::EraseIssuedColorId(const ColorIdentifier& colorId)
+{
+    return db.Erase(std::make_pair(DB_ISSUED_COLORID, colorId.toVector()));
+}
+
+bool CCoinsViewDB::LoadIssuedColorIds(std::set<ColorIdentifier>& colorIds)
+{
+    std::unique_ptr<CDBIterator> pcursor(db.NewIterator());
+    pcursor->Seek(std::make_pair(DB_ISSUED_COLORID, std::vector<unsigned char>{}));
+    while (pcursor->Valid()) {
+        std::pair<char, std::vector<unsigned char>> key;
+        if (!pcursor->GetKey(key) || key.first != DB_ISSUED_COLORID)
+            break;
+        colorIds.insert(ColorIdentifier(key.second));
+        pcursor->Next();
+    }
+    return !pcursor->HasError();
+}
+
 CBlockTreeDB::CBlockTreeDB(size_t nCacheSize, bool fMemory, bool fWipe) : CDBWrapper(gArgs.IsArgSet("-blocksdir") ? GetDataDir() / "blocks" / "index" : GetBlocksDir() / "index", nCacheSize, fMemory, fWipe) {
 }
 
@@ -445,51 +472,3 @@ bool CCoinsViewDB::Upgrade() {
     return !ShutdownRequested();
 }
 
-bool CBlockTreeDB::WriteIssuedColorId(const ColorIdentifier& colorId)
-{
-    return Write(std::make_pair(DB_ISSUED_COLORID, colorId.toVector()), true);
-}
-
-bool CBlockTreeDB::WriteIssuedColorIdBatch(const std::set<ColorIdentifier>& colorIds)
-{
-    CDBBatch batch(*this);
-    for (const auto& colorId : colorIds)
-        batch.Write(std::make_pair(DB_ISSUED_COLORID, colorId.toVector()), true);
-    return WriteBatch(batch);
-}
-
-bool CBlockTreeDB::EraseIssuedColorId(const ColorIdentifier& colorId)
-{
-    return Erase(std::make_pair(DB_ISSUED_COLORID, colorId.toVector()));
-}
-
-bool CBlockTreeDB::ClearIssuedColorIds()
-{
-    std::unique_ptr<CDBIterator> pcursor(NewIterator());
-    pcursor->Seek(std::make_pair(DB_ISSUED_COLORID, std::vector<unsigned char>{}));
-    CDBBatch batch(*this);
-    while (pcursor->Valid()) {
-        std::pair<char, std::vector<unsigned char>> key;
-        if (!pcursor->GetKey(key) || key.first != DB_ISSUED_COLORID)
-            break;
-        batch.Erase(key);
-        pcursor->Next();
-    }
-    if (pcursor->HasError())
-        return false;
-    return WriteBatch(batch);
-}
-
-bool CBlockTreeDB::LoadIssuedColorIds(std::set<ColorIdentifier>& colorIds)
-{
-    std::unique_ptr<CDBIterator> pcursor(NewIterator());
-    pcursor->Seek(std::make_pair(DB_ISSUED_COLORID, std::vector<unsigned char>{}));
-    while (pcursor->Valid()) {
-        std::pair<char, std::vector<unsigned char>> key;
-        if (!pcursor->GetKey(key) || key.first != DB_ISSUED_COLORID)
-            break;
-        colorIds.insert(ColorIdentifier(key.second));
-        pcursor->Next();
-    }
-    return !pcursor->HasError();
-}

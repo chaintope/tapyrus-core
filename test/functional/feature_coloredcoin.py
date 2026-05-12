@@ -900,12 +900,10 @@ class ColoredCoinTest(BitcoinTestFramework):
 
     def test_reindex_chainstate_colorid_set(self):
         """
-        -reindex-chainstate preserves pblocktree but wipes the chainstate.
-        Before the fix, LoadIssuedColorIds pre-populated g_issued_colorids
-        with stale DB_ISSUED_COLORID entries, causing bad-txns-colorid-already-issued
-        when the issuance block was re-connected.
-        After the fix, ClearIssuedColorIds() wipes those entries first so
-        re-connection succeeds and g_issued_colorids is rebuilt correctly.
+        -reindex-chainstate wipes the chainstate DB (chainstate/), which now also
+        holds the DB_ISSUED_COLORID entries.  LoadIssuedColorIds therefore returns
+        an empty set and g_issued_colorids is correctly rebuilt by ConnectBlock as
+        blocks are reconnected — no stale entries, no bad-txns-colorid-already-issued.
         """
         self.log.info("Test: -reindex-chainstate rebuilds g_issued_colorids correctly")
         node = self.nodes[0]
@@ -947,9 +945,9 @@ class ColoredCoinTest(BitcoinTestFramework):
 
     def test_reindex_colorid_set(self):
         """
-        -reindex wipes pblocktree entirely, so stale DB_ISSUED_COLORID entries
-        never arise and g_issued_colorids is always rebuilt from scratch.
-        This test guards against regressions in that path.
+        -reindex wipes both pblocktree and the chainstate DB, so DB_ISSUED_COLORID
+        entries are cleared automatically and g_issued_colorids is always rebuilt
+        from scratch by ConnectBlock.  This test guards against regressions in that path.
         """
         self.log.info("Test: -reindex rebuilds g_issued_colorids correctly")
         node = self.nodes[0]

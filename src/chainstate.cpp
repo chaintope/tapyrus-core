@@ -305,7 +305,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
                     if (ColorIdentifier(prevout, outColorId.type) == outColorId) {
                         // Erase from disk before memory: if the disk erase fails
                         // both stores remain consistent (entry still present in both).
-                        if (!pblocktree->EraseIssuedColorId(outColorId))
+                        if (!pcoinsdbview->EraseIssuedColorId(outColorId))
                             return DISCONNECT_FAILED;
                         {
                             LOCK(cs_issued_colorids);
@@ -713,8 +713,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     // Write the entire batch atomically first; only update the in-memory set
     // after the disk commit succeeds so the two stores never diverge.
     if (!fJustCheck) {
-        if (!pblocktree->WriteIssuedColorIdBatch(allNewIssuances))
-            return error("ConnectBlock(): WriteIssuedColorId failed");
+        if (!pcoinsdbview->WriteIssuedColorIdBatch(allNewIssuances))
+            return error("ConnectBlock(): WriteIssuedColorIdBatch failed");
         LOCK(cs_issued_colorids);
         g_issued_colorids.insert(allNewIssuances.begin(), allNewIssuances.end());
     }

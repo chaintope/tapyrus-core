@@ -100,6 +100,10 @@ public:
     //! Attempt to update from an older database format. Returns whether an error occurred.
     bool Upgrade();
     size_t EstimateSize() const override;
+
+    bool WriteIssuedColorIdBatch(const std::set<ColorIdentifier>& colorIds);
+    bool EraseIssuedColorId(const ColorIdentifier& colorId);
+    bool LoadIssuedColorIds(std::set<ColorIdentifier>& colorIds);
 };
 
 /** Specialization of CCoinsViewCursor to iterate over a CCoinsViewDB */
@@ -144,11 +148,6 @@ public:
     bool RewriteXField(std::vector<XFieldChange> & xFieldChanges);
     bool EraseXField(const XFieldChange & xFieldChange);
 
-    bool WriteIssuedColorId(const ColorIdentifier& colorId);
-    bool WriteIssuedColorIdBatch(const std::set<ColorIdentifier>& colorIds);
-    bool EraseIssuedColorId(const ColorIdentifier& colorId);
-    bool ClearIssuedColorIds();
-    bool LoadIssuedColorIds(std::set<ColorIdentifier>& colorIds);
 };
 
 #endif // BITCOIN_TXDB_H
