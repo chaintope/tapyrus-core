@@ -2878,7 +2878,7 @@ static UniValue listunspent(const JSONRPCRequest& request)
                 entry.pushKV("label", i->second.name);
             }
 
-            if (scriptPubKey.IsPayToScriptHash()) {
+            if (scriptPubKey.IsPayToScriptHash() || scriptPubKey.IsColoredPayToScriptHash()) {
                 const CScriptID& hash = std::get<CScriptID>(address);
                 CScript redeemScript;
                 if (pwallet->GetCScript(hash, redeemScript)) {
