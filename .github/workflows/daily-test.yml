@@ -693,6 +693,14 @@ jobs:
           fi
 
           if [ "${{ matrix.config.build_type }}" == "Debug" ]; then
+            echo "---------------- Start debug mode functional tests ----------------"
+            cd "$BASE_ROOT_DIR"
+            if python3 test/functional/test_runner.py --tmpdir="$TAPYRUS_TEST_DIR" -j 1 --combinedlogslen=4000 --failfast --quiet --debugscripts; then
+              echo "Debug mode functional tests passed"
+            else
+              echo "Debug mode functional tests failed"
+              exit 1
+            fi
             echo "--------------- DAILY DEBUG BUILD FINISHED ---------------------"
             exit 0
           fi
