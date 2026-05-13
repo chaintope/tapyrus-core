@@ -718,6 +718,11 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     }
 
     // Stage new issuances only after all other disk writes have succeeded.
+    // Placing this before WriteUndoDataForBlock would leave colorIds permanently
+    // in the chainstate DB if the undo write failed: ConnectBlock would return
+    // false without state.IsInvalid(), the block would not be marked
+    // BLOCK_FAILED_VALID, and the next ActivateBestChain retry would be rejected
+    // with bad-txns-colorid-already-issued, permanently poisoning that block.
     // CommitToBatch will write them to LevelDB atomically with DB_BEST_BLOCK
     // inside the next view.Flush() → BatchWrite call, preventing a crash
     // between the colorId write and the UTXO flush from permanently poisoning
