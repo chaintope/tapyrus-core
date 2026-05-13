@@ -1,0 +1,220 @@
+# Copyright (c) 2025 Chaintope Inc.
+# Distributed under the MIT software license, see the accompanying
+# file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
+name: Heavy Functional Tests
+
+# Runs tests that are too slow for the daily CI matrix (feature_pruning: 1.5–4 h, 4 GB).
+# Scheduled weekly; can also be triggered manually or after a successful daily build.
+on:
+  schedule:
+    # Sunday 5 AM JST (Saturday 8 PM UTC)
+    - cron: '0 20 * * 0'
+  workflow_dispatch:
+    inputs:
+      test_branch:
+        description: 'Branch to test (default: master)'
+        type: string
+        default: ''
+        required: false
+
+concurrency:
+  group: ${{ github.workflow }}-heavy
+  cancel-in-progress: true
+
+env:
+  CI_FAILFAST_TEST_LEAVE_DANGLING: 1
+  CTEST_OUTPUT_ON_FAILURE: 'ON'
+  CMAKE_BUILD_PARALLEL_LEVEL: 4
+  LC_ALL: C.UTF-8
+  BOOST_TEST_RANDOM: 1
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  heavy-tests:
+    name: Pruning + USDT tests (Linux x86_64 RelWithDebInfo)
+    runs-on: ubuntu-latest
+    # feature_pruning uses up to 4 GB disk and takes 1.5–4 hours; allow 8 hours total.
+    timeout-minutes: 480
+    env:
+      BASE_ROOT_DIR: ${{ github.workspace }}
+      CCACHE_DIR: ${{ github.workspace }}/ccache
+      BASE_BUILD_DIR: ${{ github.workspace }}/build
+      DEPENDS_DIR: ${{ github.workspace }}/depends
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.test_branch || github.ref || 'master' }}
+          submodules: recursive
+
+      # Share the ccache populated by the daily-test workflow for this exact config.
+      - name: Restore Ccache cache
+        id: ccache-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: daily-linux-x86_64-RelWithDebInfo-true-true-true-ccache-${{ github.run_id }}
+          restore-keys: daily-linux-x86_64-RelWithDebInfo-true-true-true-ccache-
+
+      - name: Restore Depends cache
+        id: depends-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.DEPENDS_DIR }}
+          key: depends-v6-qt6-linux-x86_64-${{ hashFiles('depends/packages/*', 'depends/hosts/*.mk', 'depends/builders/*.mk', 'depends/funcs.mk', 'depends/toolchain.cmake.in', 'depends/patches/**') }}
+          restore-keys: depends-v6-qt6-linux-x86_64-
+
+      - name: Setup Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc g++ ccache build-essential cmake ninja-build meson pkgconf \
+            python3-zmq bsdmainutils systemtap-sdt-dev bpfcc-tools bpftrace python3-venv \
+            libboost-test-dev
+          python3 -m venv $HOME/venv
+          source $HOME/venv/bin/activate
+          pip3 install pyzmq
+
+      - name: Build Depends
+        run: |
+          export HOST="x86_64-pc-linux-gnu"
+          DEPENDS_PREFIX="$DEPENDS_DIR/$HOST"
+
+          if [ -d "$DEPENDS_PREFIX" ] && [ -f "$DEPENDS_PREFIX/lib/libevent.a" ] && \
+             [ -f "$DEPENDS_PREFIX/lib/cmake/Qt6/Qt6Config.cmake" ] && \
+             [ -f "$DEPENDS_PREFIX/lib/libdb_cxx-4.8.a" ]; then
+            echo "Depends cache hit — skipping rebuild"
+          else
+            echo "Building depends for $HOST"
+            make -C depends HOST=$HOST -j$(nproc) install_cmake
+          fi
+
+          echo "DEPENDS_PREFIX=$DEPENDS_PREFIX" >> $GITHUB_ENV
+
+      - name: Enable core dumps and set test dir
+        run: |
+          CORE_DUMP_DIR="${{ github.workspace }}/core_dumps"
+          mkdir -p "$CORE_DUMP_DIR"
+          chmod 777 "$CORE_DUMP_DIR"
+          sudo sysctl -w kernel.core_pattern="$CORE_DUMP_DIR/core.%e.%p"
+          ulimit -c unlimited
+          TEST_DIR="${{ github.workspace }}/tapyrus_test"
+          mkdir -p "$TEST_DIR"
+          chmod -R 777 "$TEST_DIR"
+          echo "TAPYRUS_TEST_DIR=$TEST_DIR" >> $GITHUB_ENV
+
+      - name: Configure and build
+        run: |
+          HOST="x86_64-pc-linux-gnu"
+          DEPENDS_PREFIX="$DEPENDS_DIR/$HOST"
+          export CC="gcc"
+          export CXX="g++"
+          export PKG_CONFIG_PATH="$DEPENDS_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH"
+          export LD_LIBRARY_PATH="$DEPENDS_PREFIX/lib:$LD_LIBRARY_PATH"
+          echo ">" $HOME/.tapyrus
+
+          cmake -S "$BASE_ROOT_DIR" -B "$BASE_BUILD_DIR" -GNinja \
+            -DENABLE_ZMQ=ON \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DCMAKE_PREFIX_PATH="$DEPENDS_PREFIX" \
+            -DCMAKE_TOOLCHAIN_FILE="$DEPENDS_PREFIX/toolchain.cmake" \
+            -DQt6_DIR="$DEPENDS_PREFIX/lib/cmake/Qt6" \
+            -DBUILD_GUI=ON \
+            -DENABLE_TRACING=ON \
+            -DENABLE_WALLET=ON \
+            -DWITH_BDB=ON \
+            -DENABLE_TESTS=ON \
+            -DENABLE_BENCH=OFF \
+            -DBOOST_ROOT="$DEPENDS_PREFIX" \
+            -DBOOST_INCLUDEDIR="$DEPENDS_PREFIX/include" \
+            -DBOOST_LIBRARYDIR="$DEPENDS_PREFIX/lib" \
+            -DZEROMQ_ROOT="$DEPENDS_PREFIX" \
+            -DZEROMQ_INCLUDE_DIR="$DEPENDS_PREFIX/include" \
+            -DZEROMQ_LIBRARY="$DEPENDS_PREFIX/lib/libzmq.a" \
+            -DBerkeleyDB_ROOT="$DEPENDS_PREFIX" \
+            -DBerkeleyDB_INCLUDE_DIR="$DEPENDS_PREFIX/include" \
+            -DBerkeleyDB_LIBRARY="$DEPENDS_PREFIX/lib/libdb_cxx-4.8.a"
+
+          cmake --build "$BASE_BUILD_DIR" --parallel -j$(nproc) --target all
+
+      - name: Run feature_pruning test
+        run: |
+          source $HOME/venv/bin/activate
+          cd "$BASE_ROOT_DIR"
+          export PATH="$BASE_BUILD_DIR/bin:$PATH"
+          echo "Disk space before pruning test:"
+          df -h .
+          echo "---------------- Start feature_pruning test ----------------"
+          if python3 test/functional/test_runner.py \
+            --tmpdir="$TAPYRUS_TEST_DIR" \
+            -j 1 \
+            --combinedlogslen=4000 \
+            --failfast \
+            feature_pruning.py; then
+            echo "feature_pruning test passed"
+          else
+            echo "feature_pruning test FAILED"
+            exit 1
+          fi
+          echo "Disk space after pruning test:"
+          df -h .
+
+      # TODO: Uncomment this section once USDT tests are ready to run in CI.
+      # The scripts exist in test/functional/ and are listed in USDT_SCRIPTS in test_runner.py.
+      # They currently fail because the BPF scripts embedded in each test require kernel-level
+      # access (CAP_BPF / root) that is not available on standard GitHub Actions runners.
+      # A self-hosted runner with the right kernel capabilities is needed.
+      #
+      # - name: Run USDT tests
+      #   run: |
+      #     source $HOME/venv/bin/activate
+      #     cd "$BASE_ROOT_DIR"
+      #     export PATH="$BASE_BUILD_DIR/bin:$PATH"
+      #     echo "---------------- Start USDT functional tests ----------------"
+      #     if python3 test/functional/test_runner.py \
+      #       --tmpdir="$TAPYRUS_TEST_DIR" \
+      #       -j 1 \
+      #       --combinedlogslen=4000 \
+      #       --failfast \
+      #       interface_usdt_mempool.py \
+      #       interface_usdt_net.py \
+      #       interface_usdt_utxocache.py; then
+      #       echo "USDT tests passed"
+      #     else
+      #       echo "USDT tests FAILED"
+      #       exit 1
+      #     fi
+
+      - name: Save Ccache cache
+        if: github.ref == 'refs/heads/master'
+        uses: actions/cache/save@v4
+        continue-on-error: true
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: daily-linux-x86_64-RelWithDebInfo-true-true-true-ccache-${{ github.run_id }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: heavy-test-results-${{ github.run_id }}
+          path: ${{ github.workspace }}/tapyrus_test
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Debug core dump (on failure)
+        if: failure()
+        run: |
+          COREFILE=$(ls -t ${{ github.workspace }}/core_dumps/core.* 2>/dev/null | head -n 1)
+          if [ -f "$COREFILE" ]; then
+            echo "Found core dump: $COREFILE"
+            gdb -batch -ex "bt" -ex "quit" "$BASE_BUILD_DIR/bin/tapyrusd" "$COREFILE" || true
+          fi
+
+      - name: Upload core dumps (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: heavy-core-dumps-${{ github.run_id }}
+          path: ${{ github.workspace }}/core_dumps/
+          retention-days: 7
