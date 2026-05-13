@@ -713,18 +713,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     int64_t nTime4 = GetTimeMicros(); nTimeVerify += nTime4 - nTime2;
     LogPrint(BCLog::BENCH, "    - Verify %u txins: %.2fms (%.3fms/txin) [%.2fs (%.2fms/blk)]\n", nInputs - 1, MILLI * (nTime4 - nTime2), nInputs <= 1 ? 0 : MILLI * (nTime4 - nTime2) / (nInputs-1), nTimeVerify * MICRO, nTimeVerify * MILLI / nBlocksTotal);
 
-    // All script checks passed. Now it is safe to commit new issuances to the
-    // global set and to LevelDB — no further failure can occur that would
-    // require rolling these back within this call.
-    // Write the entire batch atomically first; only update the in-memory set
-    // after the disk commit succeeds so the two stores never diverge.
-    if (!fJustCheck) {
-        if (!pcoinsdbview->WriteIssuedColorIdBatch(allNewIssuances))
-            return error("ConnectBlock(): WriteIssuedColorIdBatch failed");
-        LOCK(cs_issued_colorids);
-        g_issued_colorids.insert(allNewIssuances.begin(), allNewIssuances.end());
-    }
-
     if (fJustCheck)
         return true;
 
@@ -734,6 +722,19 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     if (!pindex->IsValid(BLOCK_VALID_SCRIPTS)) {
         pindex->RaiseValidity(BLOCK_VALID_SCRIPTS);
         setDirtyBlockIndex.insert(pindex);
+    }
+
+    // Commit new issuances only after all other disk writes have succeeded.
+    // Placing this before WriteUndoDataForBlock would leave colorIds permanently
+    // in the chainstate DB if the undo write failed: ConnectBlock would return
+    // false without state.IsInvalid(), the block would not be marked
+    // BLOCK_FAILED_VALID, and the next ActivateBestChain retry would be rejected
+    // with bad-txns-colorid-already-issued, permanently poisoning that block.
+    if (!pcoinsdbview->WriteIssuedColorIdBatch(allNewIssuances))
+        return error("ConnectBlock(): WriteIssuedColorIdBatch failed");
+    {
+        LOCK(cs_issued_colorids);
+        g_issued_colorids.insert(allNewIssuances.begin(), allNewIssuances.end());
     }
 
     assert(pindex->phashBlock);

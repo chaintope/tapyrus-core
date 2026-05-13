@@ -586,9 +586,12 @@ bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, CXFieldHistoryMa
     }
 
     CValidationState state;
-    int nHeight = block.GetHeight();
-    if(!CheckBlockHeader(block.GetBlockHeader(), state, pxfieldHistory, nHeight, true))
-        return error("%s: ReadBlockFromDisk: %s nHeight = %d", __func__, FormatStateMessage(state), nHeight);
+    // Use -1 (→ UINT32_MAX) as the height sentinel so CheckBlockHeader selects
+    // the latest aggregate public key.  block.GetHeight() reads coinbase prevout.n
+    // which is attacker-controllable; passing it here would allow block data on
+    // disk to influence which signing key is used for verification (PR #411 footgun).
+    if(!CheckBlockHeader(block.GetBlockHeader(), state, pxfieldHistory, -1, true))
+        return error("%s: ReadBlockFromDisk: %s", __func__, FormatStateMessage(state));
 
     return true;
 }

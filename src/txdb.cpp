@@ -168,7 +168,12 @@ bool CCoinsViewDB::LoadIssuedColorIds(std::set<ColorIdentifier>& colorIds)
         std::pair<char, std::vector<unsigned char>> key;
         if (!pcursor->GetKey(key) || key.first != DB_ISSUED_COLORID)
             break;
-        colorIds.insert(ColorIdentifier(key.second));
+        ColorIdentifier cid(key.second);
+        if (cid.type == TokenTypes::NONE) {
+            pcursor->Next();
+            continue;
+        }
+        colorIds.insert(cid);
         pcursor->Next();
     }
     return !pcursor->HasError();
