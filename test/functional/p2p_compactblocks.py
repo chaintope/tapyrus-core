@@ -17,7 +17,12 @@ from test_framework.blocktools import create_block, create_coinbase
 from test_framework.messages import BlockTransactions, BlockTransactionsRequest, calculate_shortid, CBlock, CBlockHeader, CInv, COutPoint, CTransaction, CTxIn, CTxOut, FromHex, HeaderAndShortIDs, msg_block, msg_blocktxn, msg_cmpctblock, msg_getblocktxn, msg_getdata, msg_getheaders, msg_headers, msg_inv, msg_sendcmpct, msg_sendheaders, msg_tx, NODE_NETWORK, NODE_WITNESS, P2PHeaderAndShortIDs, PrefilledTransaction, ToHex
 from test_framework.mininode import mininode_lock, P2PInterface
 from test_framework.timeout_config import TAPYRUSD_P2P_TIMEOUT
-from test_framework.script import CScript, OP_TRUE, OP_DROP
+from test_framework.script import CScript, OP_TRUE, OP_HASH160, OP_EQUAL, hash160
+
+# Standard P2SH(OP_TRUE) — spendable without keys, accepted by mempool without -acceptnonstdtxn.
+_REDEEM_SCRIPT = CScript([OP_TRUE])
+P2SH_SCRIPT = CScript([OP_HASH160, hash160(_REDEEM_SCRIPT), OP_EQUAL])
+P2SH_SPEND_SCRIPT = CScript([bytes(_REDEEM_SCRIPT)])  # push redeemScript bytes
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, sync_blocks, wait_until
 
@@ -98,9 +103,8 @@ class TestP2PConn(P2PInterface):
 class CompactBlocksTest(BitcoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
-        # Node0 = pre-segwit, node1 = segwit-aware
         self.num_nodes = 2
-        self.extra_args = [["-acceptnonstdtxn=1"], ["-txindex", "-acceptnonstdtxn=1"]]
+        self.extra_args = [[], ["-txindex"]]
         self.utxos = []
 
     def build_block_on_tip(self, node):
@@ -126,7 +130,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         tx = CTransaction()
         tx.vin.append(CTxIn(COutPoint(block.vtx[0].malfixsha256, 0), b''))
         for i in range(10):
-            tx.vout.append(CTxOut(out_value, CScript([OP_TRUE])))
+            tx.vout.append(CTxOut(out_value, P2SH_SCRIPT))
         tx.rehash()
 
         block2 = self.build_block_on_tip(self.nodes[0])
@@ -402,8 +406,8 @@ class CompactBlocksTest(BitcoinTestFramework):
 
         for i in range(num_transactions):
             tx = CTransaction()
-            tx.vin.append(CTxIn(COutPoint(utxo[0], utxo[1]), b''))
-            tx.vout.append(CTxOut(utxo[2] - 1000, CScript([OP_TRUE, OP_DROP] * 15 + [OP_TRUE])))
+            tx.vin.append(CTxIn(COutPoint(utxo[0], utxo[1]), P2SH_SPEND_SCRIPT))
+            tx.vout.append(CTxOut(utxo[2] - 1000, P2SH_SCRIPT))
             tx.rehash()
             utxo = [tx.malfixsha256, 0, tx.vout[0].nValue]
             block.vtx.append(tx)
@@ -677,7 +681,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         block = self.build_block_with_transactions(node, utxo, 2)
 
         #block announced from all peers
-        [peer.clear_block_announcement for peer in peers]
+        [peer.clear_block_announcement() for peer in peers]
 
         # Send back a compactblock message
         comp_block = HeaderAndShortIDs()
@@ -697,7 +701,7 @@ class CompactBlocksTest(BitcoinTestFramework):
             #send block txn requested from all other peers
             peer.send_and_ping(msg)
             # Check that the tip didn't advance
-            assert(int(node.getbestblockhash(), 16) is not block.sha256)
+            assert int(node.getbestblockhash(), 16) != block.sha256
 
         peers[0].send_and_ping(msg)
         # Check that the tip advances
@@ -722,7 +726,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         test_node.send_and_ping(msg)
 
         # Check that the tip didn't advance
-        assert(int(node.getbestblockhash(), 16) is not block.sha256)
+        assert int(node.getbestblockhash(), 16) != block.sha256
         test_node.sync_with_ping()
 
     # Helper for enabling cb announcements

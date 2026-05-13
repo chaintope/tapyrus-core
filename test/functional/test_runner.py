@@ -68,6 +68,7 @@ BASE_SCRIPTS = [
     'wallet_backup.py',
     'feature_largeblocksize.py',
     # vv Tests less than 5m vv
+    'feature_block.py',
     'rpc_fundrawtransaction.py',
     'rpc_fundrawtransaction.py --scheme SCHNORR',
     # vv Tests less than 2m vv
@@ -87,6 +88,8 @@ BASE_SCRIPTS = [
     'wallet_abandonconflict.py --scheme SCHNORR',
     'feature_csv_activation.py',
     'feature_csv_activation.py --scheme SCHNORR',
+    'wallet_basic.py',
+    'wallet_basic.py --scheme SCHNORR',
     'rpc_rawtransaction.py',
     'rpc_rawtransaction.py --scheme SCHNORR',
     'wallet_address_types.py',
@@ -94,6 +97,9 @@ BASE_SCRIPTS = [
     'feature_serialization.py',
     'feature_serialization.py --scheme SCHNORR',
     # vv Tests less than 30s vv
+    'feature_cltv.py',
+    'feature_cltv.py --scheme SCHNORR',
+    'rpc_scantxoutset.py',
     'wallet_keypool_topup.py',
     'interface_zmq.py',
     'interface_bitcoin_cli.py',
@@ -204,6 +210,7 @@ EXTENDED_SCRIPTS = [
     # vv Tests less than 2m vv
     'feature_bip68_sequence.py',
     'feature_bip68_sequence.py --scheme SCHNORR',
+    'p2p_compactblocks.py',
     'mining_getblocktemplate_longpoll.py',
     'p2p_timeouts.py',
     # vv Tests less than 60s vv
@@ -229,14 +236,10 @@ EXTENDED_SCRIPTS = [
     'feature_dbcrash.py --scheme SCHNORR',
 ]
 
+# Scripts that require a debug build (-acceptnonstdtxn is only available in debug mode).
+# Run with --debugscripts flag.
 DEBUG_MODE_SCRIPTS = [
-    'feature_block.py',
-    'feature_cltv.py',
-    'feature_cltv.py  --scheme SCHNORR',
-    'p2p_compactblocks.py',
-    'wallet_basic.py',
-    'wallet_basic.py --scheme SCHNORR',
-    'rpc_scantxoutset.py'
+    'feature_nonstd_txn.py',
 ]
 
 # TODO: enable these scripts in CI.
