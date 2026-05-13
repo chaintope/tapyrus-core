@@ -189,9 +189,16 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
         # Derive fee and dust threshold from the node's current relay fee rate.
         relay_fee_tpc_per_kb = node.getnetworkinfo()['relayfee']
         relay_fee_sat_per_byte = max(1, int(relay_fee_tpc_per_kb * COIN / 1000))
-        FEE = relay_fee_sat_per_byte * 1000  # flat fee: 1 kB equivalent
+        # Actual size: 4 (ver) + 1 + 2*148 (inputs) + 1 + 3*34 (outputs) + 4 (locktime) = 408 bytes
+        TX_SIZE = 408
+        FEE = relay_fee_sat_per_byte * TX_SIZE
         # Dust limit for a P2PKH output: 3 * fee_rate * (34-byte output + 148-byte spend cost)
         dust_threshold = 3 * relay_fee_sat_per_byte * (34 + 148)
+
+        # Filter out UTXOs too small to produce non-dust outputs when combined 2→3.
+        # Two combined UTXOs must cover FEE and yield output_amount >= dust_threshold.
+        min_utxo = (3 * dust_threshold + FEE + 1) // 2
+        utxo_list[:] = [u for u in utxo_list if int(u['amount'] * COIN) >= min_utxo]
 
         num_transactions = 0
         random.shuffle(utxo_list)
@@ -262,7 +269,7 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
                 block_hashes.extend(self.nodes[3].generate(min(10, current_height + 1 - self.nodes[3].getblockcount()), self.signblockprivkey_wif))
             self.log.debug("Syncing %d new blocks...", len(block_hashes))
             self.sync_node3blocks(block_hashes)
-            utxo_list = self.nodes[3].listunspent()
+            utxo_list = [u for u in self.nodes[3].listunspent() if u['token'] == 'TPC']
             self.log.debug("Node3 utxo count: %d", len(utxo_list))
 
         # Check that the utxo hashes agree with node3
