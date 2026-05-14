@@ -585,12 +585,12 @@ bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, CXFieldHistoryMa
         return error("%s: Deserialize or I/O error - %s at %s", __func__, e.what(), pos.ToString());
     }
 
+    // Use nHeight from the trusted block index (pindex->nHeight) when available.
+    // When nHeight == -1 (caller has no index context), fall back to UINT32_MAX so
+    // Get() returns the latest aggregate key — the safe conservative choice.
+    // Never use block.GetHeight() (coinbase prevout.n): that field is attacker-controlled.
     CValidationState state;
-    // Use -1 (→ UINT32_MAX) as the height sentinel so CheckBlockHeader selects
-    // the latest aggregate public key.  block.GetHeight() reads coinbase prevout.n
-    // which is attacker-controllable; passing it here would allow block data on
-    // disk to influence which signing key is used for verification (PR #411 footgun).
-    if(!CheckBlockHeader(block.GetBlockHeader(), state, pxfieldHistory, -1, true))
+    if(!CheckBlockHeader(block.GetBlockHeader(), state, pxfieldHistory, nHeight, true))
         return error("%s: ReadBlockFromDisk: %s", __func__, FormatStateMessage(state));
 
     return true;
