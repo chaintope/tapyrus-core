@@ -3,17 +3,12 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <issuedcolorids.h>
-#include <txdb.h>
 
 static const char DB_ISSUED_COLORID = 'I';
 
-bool CIssuedColorIds::LoadFromDB(CCoinsViewDB& coinsdb)
+void CIssuedColorIds::SetConfirmed(std::set<ColorIdentifier> ids)
 {
-    std::set<ColorIdentifier> colorIds;
-    if (!coinsdb.LoadIssuedColorIds(colorIds))
-        return false;
-    m_confirmed = std::move(colorIds);
-    return true;
+    m_confirmed = std::move(ids);
 }
 
 bool CIssuedColorIds::IsIssued(const ColorIdentifier& id) const

@@ -1574,9 +1574,13 @@ bool AppInitMain()
                 // wiped by -reindex or -reindex-chainstate (both construct CCoinsViewDB with
                 // fWipe=true).  ConnectBlock then rebuilds both stores as blocks are reconnected.
                 // cs_main is already held by the outer LOCK.
-                if (!g_colorid_state->LoadFromDB(*pcoinsdbview)) {
-                    strLoadError = _("Failed to load issued colorId set from chainstate database");
-                    break;
+                {
+                    std::set<ColorIdentifier> colorIds;
+                    if (!pcoinsdbview->LoadIssuedColorIds(colorIds)) {
+                        strLoadError = _("Failed to load issued colorId set from chainstate database");
+                        break;
+                    }
+                    g_colorid_state->SetConfirmed(std::move(colorIds));
                 }
 
                 if (!is_coinsview_empty) {

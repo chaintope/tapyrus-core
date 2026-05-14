@@ -11,8 +11,6 @@
 
 #include <set>
 
-class CCoinsViewDB;
-
 /**
  * Single source of truth for NON_REISSUABLE and NFT colorIds issued on-chain.
  *
@@ -26,7 +24,7 @@ class CCoinsViewDB;
  *   1. Constructed empty and connected to pcoinsdbview before ReplayBlocks,
  *      so DisconnectBlock inside ReplayBlocks can stage erases that
  *      CommitToBatch writes atomically with the replay's UTXO flush.
- *   2. LoadFromDB() is called after ReplayBlocks to populate the confirmed set.
+ *   2. SetConfirmed() is called after ReplayBlocks to populate the confirmed set.
  *   3. Destroyed on shutdown after pcoinsdbview.
  */
 class CIssuedColorIds
@@ -34,8 +32,8 @@ class CIssuedColorIds
 public:
     CIssuedColorIds() = default;
 
-    /** Load confirmed set from the coinsdb.  Call after ReplayBlocks completes. */
-    bool LoadFromDB(CCoinsViewDB& coinsdb) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    /** Populate the confirmed set from ids loaded by the caller.  Call after ReplayBlocks. */
+    void SetConfirmed(std::set<ColorIdentifier> ids) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     /** True if colorId is confirmed on-chain.  All callers hold cs_main. */
     bool IsIssued(const ColorIdentifier& id) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
