@@ -694,6 +694,104 @@ class FederationManagementTest(BitcoinTestFramework):
             assert_equal(blockchaininfo["aggregatePubkeys"], expectedAggPubKeys)
             assert_equal(blockchaininfo["blocks"], 56)
 
+        self.log.info("Scenario: rotation block enforcement and re-rotate on new chain")
+        # Isolate node[0] to avoid sync complications
+        self.stop_node(1)
+        self.stop_node(2)
+        self.stop_node(3)
+
+        tip56 = self.tip  # B56, height=56, active key=aggpubkeys[5]
+
+        # B57_rot: rotation to aggpubkeys[6], signed by the current active key aggprivkey[5].
+        # XFieldChange stores (aggpubkeys[6], height_applicable=58) — the new key is first
+        # required for the block AT height 58.  B57_rot itself (at height 57) is still
+        # verified with Get(AGGPUBKEY, 57) = aggpubkeys[5].
+        block_time += 10
+        b57_rot = create_block(int(tip56, 16), create_coinbase(57), block_time, self.aggpubkeys[6])
+        b57_rot.solve(self.aggprivkey[5])
+        node.submitblock(bytes_to_hex_str(b57_rot.serialize()))
+        assert_equal(node.getbestblockhash(), b57_rot.hash)
+
+        expectedWithKey6At58 = [
+            { self.aggpubkeys[0] : 0},
+            { self.aggpubkeys[1] : 12},
+            { self.aggpubkeys[2] : 25},
+            { self.aggpubkeys[3] : 33},
+            { self.aggpubkeys[4] : 37},
+            { self.aggpubkeys[0] : 42},
+            { self.aggpubkeys[1] : 43},
+            { self.aggpubkeys[5] : 52},
+            { self.aggpubkeys[6] : 58},
+        ]
+        assert_equal(node.getblockchaininfo()["aggregatePubkeys"], expectedWithKey6At58)
+
+        # Once B57_rot is connected, Get(AGGPUBKEY, 58) = aggpubkeys[6].
+        # A fork block at height 57 (same parent B56) signed with the pre-rotation key
+        # aggprivkey[5] is rejected: the node's conservative proof check uses the latest
+        # applicable key (aggpubkeys[6]) and the old-key signature does not match.
+        block_time += 1
+        b57_fork = create_block(int(tip56, 16), create_coinbase(57), block_time)
+        b57_fork.solve(self.aggprivkey[5])
+        result = node.submitblock(bytes_to_hex_str(b57_fork.serialize()))
+        assert_equal(result, "invalid")
+        assert_equal(node.getbestblockhash(), b57_rot.hash)  # rotation block remains the tip
+
+        # Build the next block on B57_rot using the NEW key (aggprivkey[6]) as required by
+        # Get(AGGPUBKEY, 58) = aggpubkeys[6].
+        block_time += 1
+        b58 = create_block(int(b57_rot.hash, 16), create_coinbase(58), block_time)
+        b58.solve(self.aggprivkey[6])
+        node.submitblock(bytes_to_hex_str(b58.serialize()))
+        assert_equal(node.getbestblockhash(), b58.hash)
+        self.tip = b58.hash
+
+        assert_equal(node.getblockchaininfo()["aggregatePubkeys"], expectedWithKey6At58)
+
+        # Re-rotate from the current tip (b58, active key=aggpubkeys[6]).
+        # At h59 Get(AGGPUBKEY,59) = aggpubkeys[6], so b59_rot must be signed with aggprivkey[6].
+        # The new key (aggpubkeys[5]) differs from the current latest, so IsXFieldNew returns true
+        # and a new XFieldChange(aggpubkeys[5], height_applicable=60) is added to history.
+        block_time += 1
+        b59_rot = create_block(int(self.tip, 16), create_coinbase(59), block_time, self.aggpubkeys[5])
+        b59_rot.solve(self.aggprivkey[6])
+        node.submitblock(bytes_to_hex_str(b59_rot.serialize()))
+        assert_equal(node.getbestblockhash(), b59_rot.hash)
+        self.tip = b59_rot.hash
+
+        # Both the b57_rot entry (h58) and the b59_rot entry (h60) are preserved in history.
+        expectedAfterRerotate = [
+            { self.aggpubkeys[0] : 0},
+            { self.aggpubkeys[1] : 12},
+            { self.aggpubkeys[2] : 25},
+            { self.aggpubkeys[3] : 33},
+            { self.aggpubkeys[4] : 37},
+            { self.aggpubkeys[0] : 42},
+            { self.aggpubkeys[1] : 43},
+            { self.aggpubkeys[5] : 52},
+            { self.aggpubkeys[6] : 58},
+            { self.aggpubkeys[5] : 60},
+        ]
+        assert_equal(node.getblockchaininfo()["aggregatePubkeys"], expectedAfterRerotate)
+
+        self.log.info("Scenario: reindex (-reloadxfield) rebuilds xfield history from active chain only")
+        # Restart with -reloadxfield to rebuild the xfield DB from block headers in blk*.dat.
+        # Only active-chain rotation entries must appear in the rebuilt history.
+        self.stop_node(0)
+        self.start_node(0, ["-reloadxfield"])
+        wait_until(lambda: self.nodes[0].getblockcount() >= 59, timeout=TAPYRUSD_REORG_TIMEOUT)
+        assert_equal(self.nodes[0].getbestblockhash(), b59_rot.hash)
+        assert_equal(self.nodes[0].getblockchaininfo()["aggregatePubkeys"], expectedAfterRerotate)
+
+        self.log.info("Test: non-adjacent block with wrong coinbase height (CheckBlock height-bypass)")
+        # B11 (height 11) rotated the key to aggpubkeys[1]; XFieldChange stored at height 12.
+        # A fork block built on B11 therefore has structural height 12 and must be signed with
+        # aggpubkeys[1].  An attacker sets prevout.n = 0 and signs with the genesis key instead.
+        # From v0.7.2 CheckBlock itself is the first and correct barrier, not a bypassable pre-check.
+        exploit_block = create_block(int(self.blocks[11], 16), create_coinbase(0), block_time + 1)
+        exploit_block.solve(self.aggprivkey[0])  # genesis key: correct at h=0, wrong at structural h=12
+        assert_equal(self.nodes[0].submitblock(bytes_to_hex_str(exploit_block.serialize())), "invalid")
+        assert_equal(self.nodes[0].getbestblockhash(), b59_rot.hash)  # tip unchanged
+
     def connectNodeAndCheck(self, n, expectedAggPubKeys):
         #this function tests HEADERS message processing in node 'n'
         self.start_node(n)

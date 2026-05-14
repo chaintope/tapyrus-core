@@ -181,10 +181,10 @@ unsigned int CScript::GetSigOpCount(bool fAccurate) const
 
 unsigned int CScript::GetSigOpCount(const CScript& scriptSig) const
 {
-    if (!IsPayToScriptHash())
+    if (!IsPayToScriptHash() && !IsColoredPayToScriptHash())
         return GetSigOpCount(true);
 
-    // This is a pay-to-script-hash scriptPubKey;
+    // This is a pay-to-script-hash or colored-pay-to-script-hash scriptPubKey;
     // get the last item that the scriptSig
     // pushes onto the stack:
     const_iterator pc = scriptSig.begin();

@@ -182,6 +182,19 @@ bool CBlockTreeDB::WriteXField(const XFieldChange& xFieldChange) {
     return Write(key, helper.xfieldChanges);
 }
 
+bool CBlockTreeDB::EraseXField(const XFieldChange& xFieldChange) {
+    const char key = GetXFieldDBKey(xFieldChange.xfieldValue);
+    XFieldChangeListWrapper helper(key);
+    if (!Read(key, helper))
+        return true;
+    auto& list = helper.xfieldChanges;
+    auto it = std::find(list.begin(), list.end(), xFieldChange);
+    if (it == list.end())
+        return true;
+    list.erase(it);
+    return Write(key, list);
+}
+
 bool CBlockTreeDB::RewriteXField(std::vector<XFieldChange>& xFieldChanges) {
     const char key = GetXFieldDBKey(xFieldChanges.begin()->xfieldValue);
     XFieldChangeListWrapper helper(key);

@@ -186,14 +186,14 @@ bool ProduceSignature(const SigningProvider& provider, const BaseSignatureCreato
     bool P2SH = false;
     CScript subscript;
 
-    if (solved && whichType == TX_SCRIPTHASH)
+    if (solved && (whichType == TX_SCRIPTHASH || whichType == TX_COLOR_SCRIPTHASH))
     {
         // Solver returns the subscript that needs to be evaluated;
         // the final scriptSig is the signatures from that
         // and then the serialized subscript:
         subscript = CScript(result[0].begin(), result[0].end());
         sigdata.redeem_script = subscript;
-        solved = solved && SignStep(provider, creator, subscript, result, whichType, SigVersion::BASE, sigdata) && whichType != TX_SCRIPTHASH;
+        solved = solved && SignStep(provider, creator, subscript, result, whichType, SigVersion::BASE, sigdata) && whichType != TX_SCRIPTHASH && whichType != TX_COLOR_SCRIPTHASH;
         P2SH = true;
     }
     if (P2SH) {
