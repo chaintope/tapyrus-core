@@ -152,11 +152,9 @@ extern const std::string strMessageMagic;
 extern Mutex g_best_block_mutex;
 extern CConditionVariable g_best_block_cv;
 extern uint256 g_best_block;
-/** Guards g_issued_colorids. */
-extern Mutex cs_issued_colorids;
-/** Set of all NON_REISSUABLE and NFT colorIds ever issued on this chain.
- *  Populated from LevelDB at startup; updated on ConnectBlock/DisconnectBlock. */
-extern std::set<ColorIdentifier> g_issued_colorids;
+/** Tracks all NON_REISSUABLE/NFT colorIds ever issued on this chain; see issuedcolorids.h. */
+class CIssuedColorIds;
+extern std::unique_ptr<CIssuedColorIds> g_colorid_state;
 extern std::atomic_bool fImporting;
 extern std::atomic_bool fReindex;
 extern int nScriptCheckThreads;
@@ -393,7 +391,7 @@ bool TestBlockValidity(CValidationState& state, const CBlock& block, CBlockIndex
 bool RewindBlockIndex();
 
 /** Verify coloured coin type related consensus rules */
-bool CheckColorIdentifierValidity(const CTransaction& tx, CValidationState& state, CCoinsViewCache &inputs);
+bool CheckColorIdentifierValidity(const CTransaction& tx, CValidationState& state, CCoinsViewCache &inputs) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
 /** Check token input and output amounts within a trasnaction */
 bool VerifyTokenBalances(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, CAmount minrelayFee, std::set<ColorIdentifier>* newIssuances = nullptr);

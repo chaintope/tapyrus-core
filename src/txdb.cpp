@@ -6,6 +6,7 @@
 
 #include <txdb.h>
 
+#include <issuedcolorids.h>
 #include <chainparams.h>
 #include <hash.h>
 #include <random.h>
@@ -133,8 +134,11 @@ bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock) {
     }
 
     // In the last batch, mark the database as consistent with hashBlock again.
+    // ColorId changes are committed in this same batch so they are atomic with DB_BEST_BLOCK.
     batch.Erase(DB_HEAD_BLOCKS);
     batch.Write(DB_BEST_BLOCK, hashBlock);
+    if (m_colorid_state)
+        m_colorid_state->CommitToBatch(batch);
 
     LogPrint(BCLog::COINDB, "Writing final batch of %.2f MiB\n", batch.SizeEstimate() * (1.0 / 1048576.0));
     bool ret = db.WriteBatch(batch);
@@ -145,19 +149,6 @@ bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock) {
 size_t CCoinsViewDB::EstimateSize() const
 {
     return db.EstimateSize(DB_COIN, (char)(DB_COIN+1));
-}
-
-bool CCoinsViewDB::WriteIssuedColorIdBatch(const std::set<ColorIdentifier>& colorIds)
-{
-    CDBBatch batch(db);
-    for (const auto& colorId : colorIds)
-        batch.Write(std::make_pair(DB_ISSUED_COLORID, colorId.toVector()), true);
-    return db.WriteBatch(batch);
-}
-
-bool CCoinsViewDB::EraseIssuedColorId(const ColorIdentifier& colorId)
-{
-    return db.Erase(std::make_pair(DB_ISSUED_COLORID, colorId.toVector()));
 }
 
 bool CCoinsViewDB::LoadIssuedColorIds(std::set<ColorIdentifier>& colorIds)

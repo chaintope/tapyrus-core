@@ -5,6 +5,7 @@
 #include <chainstate.h>
 #include <chainparams.h>
 #include <util.h>
+#include <issuedcolorids.h>
 
 #include <consensus/tx_verify.h>
 #include <index/txindex.h>
@@ -23,8 +24,7 @@
 // Defined in validation.cpp; declared here to avoid pulling in validation.h
 // (which includes chainstate.h, creating an indirect self-inclusion).
 void RefreshChainTxDataFromTip(const CBlockIndex* pindexNew);
-extern Mutex cs_issued_colorids;
-extern std::set<ColorIdentifier> g_issued_colorids;
+extern std::unique_ptr<CIssuedColorIds> g_colorid_state;
 extern std::atomic_bool fReindex;
 
 static int64_t nTimeCheck = 0;
@@ -305,17 +305,10 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
                     if (ColorIdentifier(prevout, outColorId.type) == outColorId) {
                         // Skip global state writes when called from VerifyDB's dry-run
                         // sandbox (level 3): chainActive is not actually disconnected, so
-                        // mutating g_issued_colorids or the chainstate DB here would leave
-                        // both stores permanently inconsistent with the real chain tip.
+                        // mutating g_colorid_state here would leave it permanently
+                        // inconsistent with the real chain tip.
                         if (!fDryRun) {
-                            // Erase from disk before memory: if the disk erase fails
-                            // both stores remain consistent (entry still present in both).
-                            if (!pcoinsdbview->EraseIssuedColorId(outColorId))
-                                return DISCONNECT_FAILED;
-                            {
-                                LOCK(cs_issued_colorids);
-                                g_issued_colorids.erase(outColorId);
-                            }
+                            g_colorid_state->Erase(outColorId);
                         }
                         break;
                     }
@@ -623,9 +616,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     CCheckQueueControl<CScriptCheck> control(fScriptChecks && nScriptCheckThreads ? scriptcheckqueue.get() : nullptr);
     // Accumulate new NON_REISSUABLE/NFT issuances across the whole block.
-    // Applied to g_issued_colorids and persisted to LevelDB only after
-    // control.Wait() succeeds, so a late script-check failure cannot leave
-    // the global set or the DB in a dirty state.
+    // Staged into g_colorid_state and committed to LevelDB atomically with
+    // DB_BEST_BLOCK only after control.Wait() succeeds, so a late script-check
+    // failure cannot leave the global set or the DB in a dirty state.
     std::set<ColorIdentifier> allNewIssuances;
 
     for (unsigned int i = 0; i < block.vtx.size(); i++)
@@ -724,18 +717,12 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         setDirtyBlockIndex.insert(pindex);
     }
 
-    // Commit new issuances only after all other disk writes have succeeded.
-    // Placing this before WriteUndoDataForBlock would leave colorIds permanently
-    // in the chainstate DB if the undo write failed: ConnectBlock would return
-    // false without state.IsInvalid(), the block would not be marked
-    // BLOCK_FAILED_VALID, and the next ActivateBestChain retry would be rejected
-    // with bad-txns-colorid-already-issued, permanently poisoning that block.
-    if (!pcoinsdbview->WriteIssuedColorIdBatch(allNewIssuances))
-        return error("ConnectBlock(): WriteIssuedColorIdBatch failed");
-    {
-        LOCK(cs_issued_colorids);
-        g_issued_colorids.insert(allNewIssuances.begin(), allNewIssuances.end());
-    }
+    // Stage new issuances only after all other disk writes have succeeded.
+    // CommitToBatch will write them to LevelDB atomically with DB_BEST_BLOCK
+    // inside the next view.Flush() → BatchWrite call, preventing a crash
+    // between the colorId write and the UTXO flush from permanently poisoning
+    // the block with bad-txns-colorid-already-issued on restart.
+    g_colorid_state->Insert(allNewIssuances);
 
     assert(pindex->phashBlock);
     // add this block to the view's block chain

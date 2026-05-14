@@ -35,6 +35,7 @@
 #include <scheduler.h>
 #include <shutdown.h>
 #include <txdb.h>
+#include <issuedcolorids.h>
 #include <txmempool.h>
 #include <torcontrol.h>
 #include <ui_interface.h>
@@ -263,6 +264,7 @@ void Shutdown()
         pcoinsTip.reset();
         pcoinscatcher.reset();
         pcoinsdbview.reset();
+        g_colorid_state.reset();
         pblocktree.reset();
     }
     g_wallet_init_interface.Stop();
@@ -1514,6 +1516,12 @@ bool AppInitMain()
                 pcoinsdbview.reset(new CCoinsViewDB(nCoinDBCache, false, fReset || fReindexChainState));
                 pcoinscatcher.reset(new CCoinsViewErrorCatcher(pcoinsdbview.get()));
 
+                // Create the colorId state before ReplayBlocks so that DisconnectBlock
+                // inside the replay can stage erases that CommitToBatch writes atomically
+                // with the replay's UTXO flush.  cs_main is already held by the outer LOCK.
+                g_colorid_state.reset(new CIssuedColorIds());
+                pcoinsdbview->SetColorIdState(g_colorid_state.get());
+
                 // If necessary, upgrade from older database format.
                 // This is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate
                 if (!pcoinsdbview->Upgrade()) {
@@ -1565,14 +1573,10 @@ bool AppInitMain()
                 // The set lives in the same LevelDB as the UTXO state, so it is automatically
                 // wiped by -reindex or -reindex-chainstate (both construct CCoinsViewDB with
                 // fWipe=true).  ConnectBlock then rebuilds both stores as blocks are reconnected.
-                {
-                    std::set<ColorIdentifier> issuedColorIds;
-                    if (!pcoinsdbview->LoadIssuedColorIds(issuedColorIds)) {
-                        strLoadError = _("Failed to load issued colorId set from chainstate database");
-                        break;
-                    }
-                    LOCK(cs_issued_colorids);
-                    g_issued_colorids = std::move(issuedColorIds);
+                // cs_main is already held by the outer LOCK.
+                if (!g_colorid_state->LoadFromDB(*pcoinsdbview)) {
+                    strLoadError = _("Failed to load issued colorId set from chainstate database");
+                    break;
                 }
 
                 if (!is_coinsview_empty) {
