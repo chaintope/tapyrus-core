@@ -702,17 +702,24 @@ static void ThreadImport(std::vector<fs::path> vImportFiles, bool fReloadxfield)
         }
     }
 
-    if (fReloadxfield) {
-        XFieldChangeList aggPubKeyChanges = tempXFieldHistory.GetListCopy(TAPYRUS_XFIELDTYPES::AGGPUBKEY);
-        pblocktree->RewriteXField(aggPubKeyChanges);
-    }
-
     // scan for better chains in the block chain database, that are not yet connected in the active best chain
     CValidationState state;
     if (!ActivateBestChain(state)) {
         LogPrintf("Failed to connect best block (%s)\n", FormatStateMessage(state));
         StartShutdown();
         return;
+    }
+
+    if (fReloadxfield) {
+        // Rebuild the persisted xfield list from the active chain only.
+        // tempXFieldHistory was populated from all processed blocks including orphans;
+        // after ActivateBestChain the global CXFieldHistory only contains active-chain entries.
+        CXFieldHistory xfieldHistory;
+        for (const auto& type : XFIELDTYPES_INIT_LIST) {
+            XFieldChangeList changes = xfieldHistory.GetListCopy(type);
+            if (!changes.empty())
+                pblocktree->RewriteXField(changes);
+        }
     }
 
     if (gArgs.GetBoolArg("-stopafterblockimport", DEFAULT_STOPAFTERBLOCKIMPORT)) {

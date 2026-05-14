@@ -810,7 +810,7 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival
 
             // if redeemScript given and not using the local wallet (private keys
             // given), add redeemScript to the keystore so it can be signed:
-            if (is_temp_keystore && scriptPubKey.IsPayToScriptHash() ) {
+            if (is_temp_keystore && (scriptPubKey.IsPayToScriptHash() || scriptPubKey.IsColoredPayToScriptHash())) {
                 RPCTypeCheckObj(prevOut,
                     {
                         {"redeemScript", UniValueType(UniValue::VSTR)},

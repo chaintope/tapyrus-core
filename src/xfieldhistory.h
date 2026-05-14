@@ -151,7 +151,10 @@ public:
     virtual XFieldChangeList GetListCopy(TAPYRUS_XFIELDTYPES type) const;
 
     virtual void Add(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange);
-    //void Remove(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange);
+    // Remove the last entry for `type` if and only if its blockHash matches `xFieldChange`.
+    // Returns true when an entry was removed; false when the list has only the genesis entry
+    // or the last entry does not match (safe no-op in that case).
+    bool Remove(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange);
 
     virtual XFieldChange Get(TAPYRUS_XFIELDTYPES type, uint32_t height);
     virtual XFieldChange Get(TAPYRUS_XFIELDTYPES type, uint256 blockHash);
