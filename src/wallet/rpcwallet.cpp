@@ -3181,7 +3181,7 @@ UniValue signrawtransactionwithwallet(const JSONRPCRequest& request)
     }
 
     SignatureScheme sigScheme(SignatureScheme::ECDSA);
-    if(!request.params[4].isNull() && request.params[3].get_str() == "SCHNORR")
+    if(!request.params[3].isNull() && request.params[3].get_str() == "SCHNORR")
         sigScheme = SignatureScheme::SCHNORR;
 
     // Sign the transaction

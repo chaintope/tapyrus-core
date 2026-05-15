@@ -3,6 +3,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <coloridentifier.h>
 #include <consensus/validation.h>
 #include <wallet/coincontrol.h>
 #include <wallet/feebumper.h>
@@ -93,8 +94,13 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
 
     // figure out which output was change
     // if there was no change output or multiple change outputs, fail
+    // Colored outputs are skipped: their nValue is a token amount, not satoshis,
+    // so subtracting a TPC fee delta from them silently destroys tokens.
     int nOutput = -1;
     for (size_t i = 0; i < wtx.tx->vout.size(); ++i) {
+        if (GetColorIdFromScript(wtx.tx->vout[i].scriptPubKey).type != TokenTypes::NONE) {
+            continue;  // never adjust a colored output to cover a fee delta
+        }
         if (wallet->IsChange(wtx.tx->vout[i])) {
             if (nOutput != -1) {
                 errors.push_back("Transaction has multiple change outputs");
@@ -104,7 +110,7 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
         }
     }
     if (nOutput == -1) {
-        errors.push_back("Transaction does not have a change output");
+        errors.push_back("Cannot bump fee: transaction has no TPC change output to absorb the fee delta");
         return Result::WALLET_ERROR;
     }
 

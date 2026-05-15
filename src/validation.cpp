@@ -1329,13 +1329,16 @@ bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, CXFiel
     if(!proofSize)
         return state.Invalid(false, REJECT_INVALID, "bad-proof", "No Proof in block");
 
-    //Aggpubkey to verify blocks is read from temp xfieldhistory if it is given in the argument list. otherwise it is read from the global list according to the block height.
+    // Aggpubkey to verify blocks is read from the xfield history at the block's
+    // height, not at the chain tip. Both temp and non-temp paths now call Get(height) uniformly.
+    // nHeight < 0 means AcceptBlockHeader has no pindexPrev yet (block will be
+    // rejected for missing parent); treat as 0 so Get() returns the genesis key.
+    const uint32_t uHeight = (nHeight > 0) ? static_cast<uint32_t>(nHeight) : 0;
     XFieldAggPubKey aggregatePubkeyObj;
-    if(pxfieldHistory) {
-        pxfieldHistory->GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggregatePubkeyObj);
-    }
+    if(pxfieldHistory)
+        aggregatePubkeyObj = std::get<XFieldAggPubKey>(pxfieldHistory->Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, uHeight).xfieldValue);
     else
-        aggregatePubkeyObj = std::get<XFieldAggPubKey>(CXFieldHistory().Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, nHeight).xfieldValue);
+        aggregatePubkeyObj = std::get<XFieldAggPubKey>(CXFieldHistory().Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, uHeight).xfieldValue);
     CPubKey aggregatePubkey(aggregatePubkeyObj.getPubKey());
 
     const uint256 blockHash = block.GetHashForSign();
