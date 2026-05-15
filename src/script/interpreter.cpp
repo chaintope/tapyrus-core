@@ -6,6 +6,7 @@
 
 #include <script/interpreter.h>
 
+#include <federationparams.h>
 #include <crypto/ripemd160.h>
 #include <crypto/sha1.h>
 #include <crypto/sha256.h>
@@ -1646,7 +1647,12 @@ bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, const C
     }
 
     // Additional validation for spend-to-script-hash transactions:
-    if (scriptPubKey.IsPayToScriptHash())
+    // For colored P2SH outputs the redeem-script evaluation is gated by the CP2SH colored
+    // softfork.  Before activation only the OP_HASH160 equality check is enforced;
+    // after activation the redeem script must also evaluate to true.
+    if (scriptPubKey.IsPayToScriptHash() ||
+        (scriptPubKey.IsColoredPayToScriptHash() &&
+         FederationParams().SoftForkManager().IsEnforced(SCRIPT_VERIFY_CP2SH_COLORED, flags)))
     {
         // scriptSig must be literals-only or validation fails
         if (!scriptSig.IsPushOnly())
