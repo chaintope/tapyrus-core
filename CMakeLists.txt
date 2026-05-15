@@ -551,6 +551,15 @@ target_compile_definitions(core_interface INTERFACE ${DEPENDS_COMPILE_DEFINITION
 target_compile_definitions(core_interface_relwithdebinfo INTERFACE ${DEPENDS_COMPILE_DEFINITIONS_RELWITHDEBINFO})
 target_compile_definitions(core_interface_debug INTERFACE ${DEPENDS_COMPILE_DEFINITIONS_DEBUG})
 
+# CI-only: override the CP2SH colored softfork activation height so functional
+# tests can exercise the pre/post-activation transition without mining hundreds
+# of thousands of blocks.  Not set in GUIX/release builds.
+if(DEFINED CP2SH_ACTIVATION_TEST_HEIGHT)
+  target_compile_definitions(core_interface INTERFACE
+    CP2SH_ACTIVATION_TEST_HEIGHT=${CP2SH_ACTIVATION_TEST_HEIGHT}
+  )
+endif()
+
 # If the {CXX,LD}FLAGS environment variables are defined during building depends
 # and configuring this build system, their content might be duplicated.
 if(DEFINED ENV{CXXFLAGS})
