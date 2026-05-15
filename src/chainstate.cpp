@@ -863,7 +863,7 @@ bool CChainState::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, co
         CXFieldHistory xfieldHistory;
         if(blockConnecting.xfield.IsValid()
             && pindexNew->nHeight > 0
-            && IsXFieldNew(blockConnecting.xfield, &xfieldHistory))
+            && IsXFieldNew(blockConnecting.xfield, &xfieldHistory, static_cast<uint32_t>(pindexNew->nHeight - 1)))
         {
             XFieldChange newChange(blockConnecting.xfield.xfieldValue, pindexNew->nHeight + 1, blockConnecting.GetHash());
             xfieldHistory.Add(blockConnecting.xfield.xfieldType, newChange);
@@ -1407,7 +1407,7 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
     if(pxfieldHistory
         && block.xfield.IsValid()
         && pindex->nHeight > 0
-        && IsXFieldNew(block.xfield, pxfieldHistory))
+        && IsXFieldNew(block.xfield, pxfieldHistory, static_cast<uint32_t>(pindex->nHeight - 1)))
     {
         XFieldChange newChange(block.xfield.xfieldValue, pindex->nHeight + 1, block.GetHash());
         pxfieldHistory->Add(block.xfield.xfieldType, newChange);

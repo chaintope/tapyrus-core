@@ -224,20 +224,22 @@ public:
 class IsXFieldLastInHistoryVisitor
 {
     CXFieldHistoryMap* history;
+    uint32_t parentHeight;
 public:
-    IsXFieldLastInHistoryVisitor(CXFieldHistoryMap* historyIn):history(historyIn) {}
+    IsXFieldLastInHistoryVisitor(CXFieldHistoryMap* historyIn, uint32_t height)
+        : history(historyIn), parentHeight(height) {}
 
     template <typename T>
     bool operator()(const T &xField) const {
         assert(history);
         TAPYRUS_XFIELDTYPES X = GetXFieldTypeFrom(xField);
-        XFieldChangeList list = history->GetListCopy(X);
-        return std::get<T>(list.back().xfieldValue).operator==(T(xField));
+        XFieldChange entry = history->Get(X, parentHeight);
+        return std::get<T>(entry.xfieldValue) == T(xField);
     }
 
 };
 
-bool IsXFieldNew(const CXField& xfield, CXFieldHistoryMap* pxfieldHistory);
+bool IsXFieldNew(const CXField& xfield, CXFieldHistoryMap* pxfieldHistory, uint32_t parentHeight);
 
 /** 
  * The maximum block size according the current xfield history */
