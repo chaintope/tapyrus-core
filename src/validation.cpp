@@ -649,6 +649,14 @@ unsigned int GetBlockScriptFlags(const CBlockIndex* pindex) {
 
     unsigned int flags = SCRIPT_VERIFY_NONE;
 
+    // CP2SH colored softfork: enforce redeem-script evaluation for colored P2SH outputs.
+    // Activation is governed entirely by the softfork manager — each registered entry's
+    // HeightActivation predicate is the canonical IsActive check for that network.
+    // Unregistered networks (no manager entry) are active from genesis by default.
+    const auto& sfm = FederationParams().SoftForkManager();
+    if (sfm.IsActive(FederationParams().NetworkId(), SCRIPT_VERIFY_CP2SH_COLORED, pindex->nHeight))
+        flags |= SCRIPT_VERIFY_CP2SH_COLORED;
+
     return flags;
 }
 

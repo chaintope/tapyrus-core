@@ -182,6 +182,7 @@ BASE_SCRIPTS = [
     'feature_help.py',
     'feature_help.py --usecli',
     'feature_coloredcoin.py',
+    'feature_cp2sh_softfork.py',
     'rpc_dumptxoutset.py',
     'feature_reindex_outoforder_block.py'
     # Don't append tests at the end to avoid merge conflicts
