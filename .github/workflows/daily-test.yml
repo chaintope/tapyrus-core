@@ -549,6 +549,9 @@ jobs:
           else
             # Native builds: enable tests and benchmarks
             CMAKE_OPTS+=("-DENABLE_TESTS=ON" "-DENABLE_BENCH=ON")
+            # Inject the CP2SH softfork activation height for functional tests.
+            # Not included in cross-compiled (release) builds above.
+            CMAKE_OPTS+=("-DCP2SH_ACTIVATION_TEST_HEIGHT=120")
           fi
 
           # Use depends-generated CMake toolchain file
