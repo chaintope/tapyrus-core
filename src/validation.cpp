@@ -1356,7 +1356,7 @@ bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, CXFiel
     return true;
 }
 
-bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bool fCheckMerkleRoot, CXFieldHistoryMap* pxfieldHistory)
+bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bool fCheckMerkleRoot, CXFieldHistoryMap* pxfieldHistory, int nHeight)
 {
     // These are checks that are independent of context.
 
@@ -1396,7 +1396,14 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
     if(pindexPrev && !isBlockHeightInCoinbase(block) )
         return state.DoS(100, false, REJECT_INVALID, "bad-cb-invalid", false, "incorrect block height in coinbase");
 
-    uint32_t height = block.GetHeight();
+    // Use the structurally-derived height for xfield policy lookups.
+    // When nHeight == -1 (caller has no index context, e.g. the pre-lock belt-and-suspenders
+    // check in ProcessNewBlock), fall back to UINT32_MAX so Get() returns the latest entry —
+    // the same conservative behaviour as AcceptBlockHeader's secondary check.
+    // Never use block.GetHeight() (coinbase prevout.n) for lookups: that field is
+    // attacker-controlled and is only verified equal to the structural height for
+    // blocks adjacent to the tip (see isBlockHeightInCoinbase).
+    uint32_t height = (nHeight >= 0) ? static_cast<uint32_t>(nHeight) : UINT32_MAX;
     // All potential-corruption validation must be done before we do any
     // transaction validation, as otherwise we may mark the header as invalid
     // because we receive the wrong transactions for it.
@@ -1583,7 +1590,7 @@ bool TestBlockValidity(CValidationState& state, const CBlock& block, CBlockIndex
     // NOTE: CheckBlockHeader is called by CheckBlock
     if (!ContextualCheckBlockHeader(block, state, pindexPrev, GetAdjustedTime()))
         return error("%s: Consensus::ContextualCheckBlockHeader: %s", __func__, FormatStateMessage(state));
-    if (!CheckBlock(block, state, fCheckPOW, fCheckMerkleRoot))
+    if (!CheckBlock(block, state, fCheckPOW, fCheckMerkleRoot, nullptr, pindexPrev->nHeight + 1))
         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
     if (!ContextualCheckBlock(block, state, pindexPrev))
         return error("%s: Consensus::ContextualCheckBlock: %s", __func__, FormatStateMessage(state));

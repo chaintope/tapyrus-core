@@ -384,7 +384,7 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, const CB
 bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, CXFieldHistoryMap* pxfieldHistory = nullptr, int nHeight = -1, bool fCheckPOW = true);
 
 /** Context-independent validity checks */
-bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW = true, bool fCheckMerkleRoot = true, CXFieldHistoryMap* pxfieldHistory = nullptr);
+bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW = true, bool fCheckMerkleRoot = true, CXFieldHistoryMap* pxfieldHistory = nullptr, int nHeight = -1);
 
 /** Check a block is completely valid from start to finish (only works on top of our current best block) */
 bool TestBlockValidity(CValidationState& state, const CBlock& block, CBlockIndex* pindexPrev, bool fCheckPOW = true, bool fCheckMerkleRoot = true) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
