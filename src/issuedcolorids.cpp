@@ -32,6 +32,13 @@ void CIssuedColorIds::Erase(const ColorIdentifier& id)
     m_pending.erases.insert(id);
 }
 
+std::unique_ptr<CIssuedColorIds> CIssuedColorIds::Clone() const
+{
+    auto clone = std::make_unique<CIssuedColorIds>();
+    clone->m_confirmed = m_confirmed;
+    return clone;
+}
+
 void CIssuedColorIds::CommitToBatch(CDBBatch& batch)
 {
     for (const auto& id : m_pending.inserts)

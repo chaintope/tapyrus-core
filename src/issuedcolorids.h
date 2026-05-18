@@ -57,6 +57,9 @@ public:
      */
     void CommitToBatch(CDBBatch& batch) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
+    /** Return a copy with the same confirmed set but empty pending changes. */
+    std::unique_ptr<CIssuedColorIds> Clone() const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+
 private:
     std::set<ColorIdentifier> m_confirmed GUARDED_BY(cs_main);
 
