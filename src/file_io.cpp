@@ -568,7 +568,7 @@ bool ReadRawBlockFromDisk(std::vector<uint8_t>& block, const CDiskBlockPos& pos,
 }
 
 
-bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, CXFieldHistoryMap* pxfieldHistory)
+bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, CXFieldHistoryMap* pxfieldHistory, int nHeight)
 {
     block.SetNull();
 
@@ -585,10 +585,13 @@ bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, CXFieldHistoryMa
         return error("%s: Deserialize or I/O error - %s at %s", __func__, e.what(), pos.ToString());
     }
 
+    // Use nHeight from the trusted block index (pindex->nHeight) when available.
+    // When nHeight == -1 (caller has no index context), fall back to UINT32_MAX so
+    // Get() returns the latest aggregate key — the safe conservative choice.
+    // Never use block.GetHeight() (coinbase prevout.n): that field is attacker-controlled.
     CValidationState state;
-    int nHeight = block.GetHeight();
     if(!CheckBlockHeader(block.GetBlockHeader(), state, pxfieldHistory, nHeight, true))
-        return error("%s: ReadBlockFromDisk: %s nHeight = %d", __func__, FormatStateMessage(state), nHeight);
+        return error("%s: ReadBlockFromDisk: %s", __func__, FormatStateMessage(state));
 
     return true;
 }
@@ -601,7 +604,10 @@ bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex)
         blockPos = pindex->GetBlockPos();
     }
 
-    if (!ReadBlockFromDisk(block, blockPos))
+    // Pass pindex->nHeight so CheckBlockHeader uses the correct aggregate key for
+    // this block's height, not the latest one.  pindex->nHeight is from our trusted
+    // block index and is not attacker-controlled.
+    if (!ReadBlockFromDisk(block, blockPos, nullptr, pindex->nHeight))
         return false;
     if (block.GetHash() != pindex->GetBlockHash())
         return error("ReadBlockFromDisk(CBlock&, CBlockIndex*): GetHash() doesn't match index for %s at %s",

@@ -193,6 +193,7 @@ add_library(tapyrus_server STATIC EXCLUDE_FROM_ALL
   index/base.cpp
   index/txindex.cpp
   init.cpp
+  issuedcolorids.cpp
   merkleblock.cpp
   miner.cpp
   net.cpp

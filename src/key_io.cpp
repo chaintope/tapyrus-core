@@ -104,7 +104,7 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
         const std::vector<unsigned char>& c_script_prefix = params.Base58Prefix(CChainParams::C_SCRIPT_ADDRESS);
         if (data.size() == hash.size() + c_script_prefix.size() + COLOR_IDENTIFIER_SIZE
         && std::equal(c_script_prefix.begin(), c_script_prefix.end(), data.begin())) {
-            ColorIdentifier cid(&data[c_pubkey_prefix.size()],&data[c_pubkey_prefix.size() + COLOR_IDENTIFIER_SIZE]);
+            ColorIdentifier cid(&data[c_script_prefix.size()],&data[c_script_prefix.size() + COLOR_IDENTIFIER_SIZE]);
             if(cid.type != TokenTypes::NONE)
             {
                 std::copy(data.begin() + c_script_prefix.size() + COLOR_IDENTIFIER_SIZE, data.end(), hash.begin());

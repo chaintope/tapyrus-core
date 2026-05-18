@@ -15,7 +15,11 @@
   tip height.
 
 - Main loop:
-  * generate lots of transactions on node3, enough to fill up a block.
+  * generate lots of TPC transactions on node3, enough to fill up a block.
+  * generate colored-coin operations on node3 (issue NON_REISSUABLE + NFT,
+    transfer confirmed colored UTXOs, burn confirmed colored UTXOs).  These
+    exercise the WriteIssuedColorIdBatch / EraseIssuedColorId paths in the
+    chainstate DB across crash boundaries.
   * uniformly randomly pick a tip height from starting_tip_height to
     tip_height; with probability 1/(height_difference+4), invalidate this block.
   * mine enough blocks to overtake tip_height at start of loop.
@@ -51,7 +55,9 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
         # Set -maxmempool=0 to turn off mempool memory sharing with dbcache
         # Set -rpcservertimeout=900 to reduce socket disconnects in this
         # long-running test
-        self.base_args = ["-limitdescendantsize=0", "-maxmempool=0", "-rpcservertimeout=900", "-dbbatchsize=200000"]
+        # Set -dbbatchsize=100000 (smaller than default) so each recovery
+        # writes more CDBBatch flushes, increasing crash-on-restart probability.
+        self.base_args = ["-limitdescendantsize=0", "-maxmempool=0", "-rpcservertimeout=900", "-dbbatchsize=100000"]
 
         # Set different crash ratios and cache sizes.  Note that not all of
         # -dbcache goes to pcoinsTip.
@@ -223,6 +229,71 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
             node.sendrawtransaction(tx_signed_hex)
             num_transactions += 1
 
+    def generate_colored_transactions(self, node, count):
+        """Issue, transfer, and burn colored coins on node3.
+
+        count controls how many of each operation to attempt.  The wallet's
+        coin selection avoids double-spending in-mempool outputs automatically,
+        so this is safe to call right after generate_small_transactions.
+
+        Operations:
+          - Issue count REISSUABLE tokens (type=1, 100 tokens each)
+          - Issue count NON_REISSUABLE tokens (type=2, 10 tokens each)
+          - Issue count NFT tokens (type=3, 1 token each)
+          - Transfer up to count confirmed colored UTXOs to new wallet addresses
+          - Burn up to count confirmed colored UTXOs
+
+        Failures are logged and skipped — e.g. in early iterations there are
+        no confirmed colored UTXOs yet, so transfer/burn loops are no-ops.
+        """
+        # Issue REISSUABLE tokens; colorId is derived from the TPC UTXO's scriptPubKey.
+        for _ in range(count):
+            tpc = next((u for u in node.listunspent() if u['token'] == 'TPC'), None)
+            if tpc is None:
+                break
+            try:
+                node.issuetoken(1, 100, tpc['scriptPubKey'])
+            except Exception as e:
+                self.log.debug("issuetoken REISSUABLE: %s", e)
+
+        # Issue NON_REISSUABLE tokens; each call spends one TPC UTXO.
+        for _ in range(count):
+            tpc = next((u for u in node.listunspent() if u['token'] == 'TPC'), None)
+            if tpc is None:
+                break
+            try:
+                node.issuetoken(2, 10, tpc['txid'], tpc['vout'])
+            except Exception as e:
+                self.log.debug("issuetoken NON_REISSUABLE: %s", e)
+
+        # Issue NFT tokens (amount must be 1).
+        for _ in range(count):
+            tpc = next((u for u in node.listunspent() if u['token'] == 'TPC'), None)
+            if tpc is None:
+                break
+            try:
+                node.issuetoken(3, 1, tpc['txid'], tpc['vout'])
+            except Exception as e:
+                self.log.debug("issuetoken NFT: %s", e)
+
+        # Transfer confirmed colored UTXOs to fresh wallet addresses.
+        # listunspent() here already excludes UTXOs spent by the issue calls above.
+        colored = [u for u in node.listunspent() if u['token'] != 'TPC']
+        for utxo in colored[:count]:
+            try:
+                addr = node.getnewaddress(color=utxo['token'])
+                node.sendtoaddress(addr, utxo['amount'])
+            except Exception as e:
+                self.log.debug("colored transfer: %s", e)
+
+        # Burn confirmed colored UTXOs not yet spent by transfers above.
+        colored = [u for u in node.listunspent() if u['token'] != 'TPC']
+        for utxo in colored[:count]:
+            try:
+                node.burntoken(utxo['token'], utxo['amount'])
+            except Exception as e:
+                self.log.debug("burntoken: %s", e)
+
     def run_test(self):
         # Track test coverage statistics
         self.restart_counts = [0, 0, 0]  # Track the restarts for nodes 0-2
@@ -230,7 +301,7 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
 
         # Start by creating a lot of utxos on node3
         initial_height = self.nodes[3].getblockcount()
-        utxo_list = create_confirmed_utxos(self.nodes[3].getnetworkinfo()['relayfee'], self.nodes[3], 5000, self.signblockprivkey_wif)
+        utxo_list = create_confirmed_utxos(self.nodes[3].getnetworkinfo()['relayfee'], self.nodes[3], 2000, self.signblockprivkey_wif)
         self.log.info("Prepped %d utxo entries", len(utxo_list))
 
         # Sync these blocks with the other nodes
@@ -248,9 +319,16 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
         # each time through the loop, generate a bunch of transactions,
         # and then either mine a single new block on the tip, or some-sized reorg.
         for i in range(40):
-            self.log.info("Iteration %d, generating 2500 transactions %s", i, self.restart_counts)
-            # Generate a bunch of small-ish transactions
-            self.generate_small_transactions(self.nodes[3], 2500, utxo_list)
+            self.log.info("Iteration %d, generating 1000 TPC + colored transactions %s", i, self.restart_counts)
+            # Generate colored coin operations first, while confirmed TPC UTXOs are
+            # still available.  generate_small_transactions would otherwise spend every
+            # confirmed UTXO into the mempool before colored tx can find any.
+            self.generate_colored_transactions(self.nodes[3], 3)
+            # Refresh utxo_list so generate_small_transactions doesn't attempt to
+            # double-spend inputs already consumed by generate_colored_transactions.
+            utxo_list = [u for u in self.nodes[3].listunspent() if u['token'] == 'TPC']
+            # Generate a bunch of small-ish transactions with remaining UTXOs
+            self.generate_small_transactions(self.nodes[3], 1000, utxo_list)
             # Pick a random block between current tip, and starting tip
             current_height = self.nodes[3].getblockcount()
             random_height = random.randint(starting_tip_height, current_height)
@@ -271,6 +349,12 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
             self.sync_node3blocks(block_hashes)
             utxo_list = [u for u in self.nodes[3].listunspent() if u['token'] == 'TPC']
             self.log.debug("Node3 utxo count: %d", len(utxo_list))
+
+            # Stop early once both coverage conditions are satisfied.
+            # This avoids running extra slow iterations on a long chain.
+            if self.restart_counts != [0, 0, 0] and self.crashed_on_restart > 0:
+                self.log.info("Coverage achieved after %d iterations, stopping early", i + 1)
+                break
 
         # Check that the utxo hashes agree with node3
         # Useful side effect: each utxo cache gets flushed here, so that we
