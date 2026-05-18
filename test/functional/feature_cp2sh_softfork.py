@@ -17,9 +17,9 @@ evaluation for colored P2SH outputs:
     The redeemScript must also evaluate to true.  The same transaction is
     rejected; a spend with OP_1 (truthy) is accepted.
 
-The -cp2shcoloredactivationheight hidden argument overrides the per-network
-default so the test can exercise the transition without mining hundreds of
-thousands of blocks.
+Requires CP2SH_ACTIVATION_TEST_HEIGHT=120 to be defined at compile time
+(set by the CI build) so the activation boundary can be crossed without
+mining hundreds of thousands of blocks.
 """
 
 import struct
@@ -56,7 +56,6 @@ class CP2SHSoftforkTest(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
-        # No extra_args needed: CP2SH_ACTIVATION_TEST_HEIGHT=120 is compiled in by CI.
 
     # ------------------------------------------------------------------ helpers
 
@@ -104,24 +103,43 @@ class CP2SHSoftforkTest(BitcoinTestFramework):
         assert signed['complete'], "Signing failed: %s" % signed.get('errors')
         return FromHex(CTransaction(), signed['hex']), cid
 
-    def _spend_cp2sh(self, issue_tx, vout, redeem_bytes):
+    def _spend_cp2sh(self, issue_tx, vout, redeem_bytes, tpc_utxo):
         """
         Build a spending transaction for a CP2SH colored UTXO.
 
-        scriptSig = push(redeemScript bytes only):
+        Includes a TPC fee input (tpc_utxo) — VerifyTokenBalances requires
+        tpcin > 0 for any transaction that moves colored coins.
+
+        scriptSig for the colored input = push(redeemScript bytes only):
           pre-activation  — hash matches → accepted (no redeem-script eval)
           post-activation — hash matches then redeemScript is evaluated;
                             OP_0 (falsy) will cause rejection, OP_1 passes.
 
         The colored tokens are burned (OP_RETURN output with 0 value).
         """
+        node = self.nodes[0]
+        fee = 10_000
+        change = int(tpc_utxo['amount'] * COIN) - fee
+
         tx = CTransaction()
         tx.nFeatures = 1
+        # Input 0: the CP2SH colored coin (scriptSig = push(redeemScript))
         tx.vin.append(CTxIn(
             COutPoint(int(issue_tx.hashMalFix, 16), vout),
             CScript([redeem_bytes]),
         ))
+        # Input 1: TPC input to satisfy the fee requirement
+        tx.vin.append(CTxIn(COutPoint(int(tpc_utxo['txid'], 16), tpc_utxo['vout'])))
+        # Output 0: burn the colored tokens
         tx.vout.append(CTxOut(0, CScript([OP_RETURN])))
+        # Output 1: TPC change
+        tx.vout.append(CTxOut(change, CScript(hex_str_to_bytes(tpc_utxo['scriptPubKey']))))
+
+        # Let the wallet sign the TPC input; it will skip the colored input.
+        signed = node.signrawtransactionwithwallet(ToHex(tx))
+        tx = FromHex(CTransaction(), signed['hex'])
+        # Restore the colored input's scriptSig (wallet may have cleared it).
+        tx.vin[0].scriptSig = CScript([redeem_bytes])
         return tx
 
     # ------------------------------------------------------------------ test
@@ -155,7 +173,12 @@ class CP2SHSoftforkTest(BitcoinTestFramework):
         self._wrap_submit(issue_pre)                          # block 102
         issue_pre.rehash()
 
-        spend_pre = self._spend_cp2sh(issue_pre, 0, bad_redeem)
+        # Get a fresh TPC UTXO (change from issue_pre is now confirmed).
+        fee_utxo_pre = sorted(
+            [u for u in node.listunspent() if u.get('token') == 'TPC'],
+            key=lambda u: u['amount'], reverse=True,
+        )[0]
+        spend_pre = self._spend_cp2sh(issue_pre, 0, bad_redeem, fee_utxo_pre)
         self._wrap_submit(spend_pre)                          # block 103 — must succeed
         self.log.info("  ✓ accepted at block %d" % node.getblockcount())
 
@@ -181,14 +204,21 @@ class CP2SHSoftforkTest(BitcoinTestFramework):
         self.log.info("Issued bad/good CP2SH UTXOs at activation block %d" % ACTIVATION_HEIGHT)
 
         # ── post-activation: bad redeemScript rejected ───────────────────────
+        # Get fresh TPC UTXOs for the post-activation spends.
+        fee_utxos_post = sorted(
+            [u for u in node.listunspent() if u.get('token') == 'TPC'],
+            key=lambda u: u['amount'], reverse=True,
+        )
         self.log.info("Post-activation: spend with OP_0 redeemScript rejected")
-        spend_bad = self._spend_cp2sh(issue_bad, 0, bad_redeem)
-        self._wrap_submit(spend_bad, expect_reject="mandatory-script-verify-flag-failed")
+        spend_bad = self._spend_cp2sh(issue_bad, 0, bad_redeem, fee_utxos_post[0])
+        self._wrap_submit(spend_bad, expect_reject="block-validation-failed")
         self.log.info("  ✓ rejected (chain stays at block %d)" % node.getblockcount())
 
         # ── post-activation: valid redeemScript accepted ─────────────────────
+        # spend_bad's block was rejected so fee_utxos_post[0] is still unspent;
+        # use a different UTXO for spend_good to avoid any double-spend risk.
         self.log.info("Post-activation: spend with OP_1 redeemScript accepted")
-        spend_good = self._spend_cp2sh(issue_good, 0, good_redeem)
+        spend_good = self._spend_cp2sh(issue_good, 0, good_redeem, fee_utxos_post[1])
         self._wrap_submit(spend_good)                         # must succeed
         self.log.info("  ✓ accepted at block %d" % node.getblockcount())
 

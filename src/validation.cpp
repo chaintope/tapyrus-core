@@ -439,7 +439,7 @@ static bool DoAllInputsExist(const CTransaction& tx, CValidationState& state, CT
     return true;
 }
 
-bool CheckColorIdentifierValidity(const CTransaction& tx, CValidationState& state, CCoinsViewCache &inputs)
+bool CheckColorIdentifierValidity(const CTransaction& tx, CValidationState& state, CCoinsViewCache &inputs, int32_t blockHeight)
 {
     // Track NFT colorId output count across the whole tx (must be exactly 1).
     std::map<ColorIdentifier, unsigned int> nftOutputCount;
@@ -451,24 +451,12 @@ bool CheckColorIdentifierValidity(const CTransaction& tx, CValidationState& stat
 
         ColorIdentifier outColorId(GetColorIdFromScript(txout.scriptPubKey));
 
-        // GetColorIdFromScript() returned NONE for an OP_COLOR script.
-        // Two cases: (a) the script is structurally CP2PKH/CP2SH but carries an
-        // invalid colorId type byte — rejected as "invalid-colorid" with no DoS,
-        // (b) the script is not CP2PKH/CP2SH at all — rejected with DoS 100.
-        // Note: IsColoredPayToPubkeyHash and IsColoredPayToScriptHash both
-        // validate the type byte, so we check structure directly here.
+        // outColorId is NONE: IsColoredPayToPubkeyHash / IsColoredPayToScriptHash
+        // check both structure and type byte; reaching here means neither matched.
         if (outColorId.type == TokenTypes::NONE) {
-            const CScript& s = txout.scriptPubKey;
-            // Structural CP2PKH: 0x21 <33B colorId> OP_COLOR OP_DUP OP_HASH160 <20B hash> OP_EQUALVERIFY OP_CHECKSIG
-            bool isCP2PKHForm = (s.size() == 60 && s[0] == 0x21 && s[34] == OP_COLOR &&
-                                 s[35] == OP_DUP && s[36] == OP_HASH160 && s[37] == 20 &&
-                                 s[58] == OP_EQUALVERIFY && s[59] == OP_CHECKSIG);
-            // Structural CP2SH: 0x21 <33B colorId> OP_COLOR OP_HASH160 <20B hash> OP_EQUAL
-            bool isCP2SHForm  = (s.size() == 58 && s[0] == 0x21 && s[34] == OP_COLOR &&
-                                 s[35] == OP_HASH160 && s[36] == 0x14 && s[57] == OP_EQUAL);
-            if (!isCP2PKHForm && !isCP2SHForm)
+            if (GetSoftForkManager().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, blockHeight))
                 return state.DoS(100, false, REJECT_INVALID, "bad-txns-nonstandard-opcolor");
-            return state.DoS(100, false, REJECT_INVALID, "bad-txns-invalid-colorid");
+            continue;
         }
 
         // Zero or negative token values are not allowed.
@@ -487,11 +475,11 @@ bool CheckColorIdentifierValidity(const CTransaction& tx, CValidationState& stat
             ColorIdentifier coinColorId;
             ColorIdentifier cid = GetColorIdFromScript(coin.out.scriptPubKey);
 
-            // If the input UTXO's script has OP_COLOR but its colorId is NONE,
-            // it was created before the CP2PKH/CP2SH-only restriction or is
-            // otherwise non-standard.  Reject any attempt to spend such UTXOs.
-            if (cid.type == TokenTypes::NONE && coin.out.scriptPubKey.IsColoredScript())
-                return state.DoS(100, false, REJECT_INVALID, "bad-txns-nonstandard-opcolor");
+            if (cid.type == TokenTypes::NONE && coin.out.scriptPubKey.IsColoredScript()) {
+                if (GetSoftForkManager().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, blockHeight))
+                    return state.DoS(100, false, REJECT_INVALID, "bad-txns-nonstandard-opcolor");
+                continue;
+            }
 
             switch(cid.type)
             {
@@ -550,7 +538,7 @@ bool CheckColorIdentifierValidity(const CTransaction& tx, CValidationState& stat
     return true;
 }
 
-bool VerifyTokenBalances(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, CAmount minrelayFee, std::set<ColorIdentifier>* newIssuances)
+bool VerifyTokenBalances(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, CAmount minrelayFee, std::set<ColorIdentifier>* newIssuances, int32_t blockHeight)
 {
     // Build input balance map from the UTXO view.
     // Simultaneously collect TPC input outpoints for issuance detection.
@@ -559,12 +547,10 @@ bool VerifyTokenBalances(const CTransaction& tx, CValidationState& state, const 
     for (const auto& txin : tx.vin) {
         const Coin& coin = inputs.AccessCoin(txin.prevout);
         ColorIdentifier cid = GetColorIdFromScript(coin.out.scriptPubKey);
-        // A legacy custom-OP_COLOR UTXO (created before the CP2PKH/CP2SH-only
-        // restriction) maps to colorId NONE under current rules.  Its nValue is a
-        // raw token amount; adding it to the TPC balance bucket would let the
-        // spender claim more TPC than they own.  Reject regardless of whether the
-        // spending tx has any colored outputs
-        if (cid.type == TokenTypes::NONE && coin.out.scriptPubKey.IsColoredScript())
+        // A legacy non-standard OP_COLOR UTXO (colorId resolves to NONE) is rejected
+        // post-activation.  Pre-activation its nValue falls through to the TPC bucket.
+        if (cid.type == TokenTypes::NONE && coin.out.scriptPubKey.IsColoredScript() &&
+            GetSoftForkManager().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, blockHeight))
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-nonstandard-opcolor");
         auto it = inColoredCoinBalances.find(cid);
         if (it == inColoredCoinBalances.end())
@@ -648,12 +634,8 @@ unsigned int GetBlockScriptFlags(const CBlockIndex* pindex) {
 
     unsigned int flags = SCRIPT_VERIFY_NONE;
 
-    // CP2SH colored softfork: enforce redeem-script evaluation for colored P2SH outputs.
-    // Activation is governed entirely by the softfork manager — each registered entry's
-    // HeightActivation predicate is the canonical IsActive check for that network.
-    // Unregistered networks (no manager entry) are active from genesis by default.
-    const auto& sfm = FederationParams().SoftForkManager();
-    if (sfm.IsActive(FederationParams().NetworkId(), SCRIPT_VERIFY_CP2SH_COLORED, pindex->nHeight))
+    // Activation logic and network-id lookup are encapsulated in the softfork manager.
+    if (GetSoftForkManager().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, pindex->nHeight))
         flags |= SCRIPT_VERIFY_CP2SH_COLORED;
 
     return flags;
@@ -723,7 +705,7 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
             return false;
 
         //if there are colored coins in the output verify their colorids
-        if(!CheckColorIdentifierValidity(tx, state, view))
+        if(!CheckColorIdentifierValidity(tx, state, view, chainActive.Tip()->nHeight + 1))
             return false;
 
         // Bring the best block into scope
@@ -955,31 +937,25 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
         // Check against previous transactions
         // This is done last to help prevent CPU exhaustion denial-of-service attacks.
         PrecomputedTransactionData txdata(tx);
-        if (!CheckInputs(tx, state, view, true, STANDARD_SCRIPT_VERIFY_FLAGS, true, false, txdata)) {
+        // Include softfork-governed flags (e.g. SCRIPT_VERIFY_CP2SH_COLORED) so that
+        // mempool validation rejects transactions that would be invalid in the next block.
+        const unsigned int mempoolScriptFlags = STANDARD_SCRIPT_VERIFY_FLAGS |
+                                                GetBlockScriptFlags(chainActive.Tip());
+        if (!CheckInputs(tx, state, view, true, mempoolScriptFlags, true, false, txdata)) {
             return false; // state filled in by CheckInputs
         }
 
-        // Check again against the current block tip's script verification
-        // flags to cache our script execution flags. This is, of course,
-        // useless if the next block has different script flags from the
-        // previous one, but because the cache tracks script flags for us it
-        // will auto-invalidate and we'll just have a few blocks of extra
-        // misses on soft-fork activation.
-        //
-        // This is also useful in case of bugs in the standard flags that cause
-        // transactions to pass as valid when they're actually invalid. For
-        // instance the STRICTENC flag was incorrectly allowing certain
-        // CHECKSIG NOT scripts to pass, even though they were invalid.
-        //
-        // There is a similar check in CreateNewBlock() to prevent creating
-        // invalid blocks (using TestBlockValidity), however allowing such
-        // transactions into the mempool can be exploited as a DoS attack.
-        if (!CheckInputsFromMempoolAndCache(opt.context, tx, opt.state, view, pool, SCRIPT_VERIFY_NONE, true, txdata)) {
+        // Check again against the current block tip's script verification flags to
+        // cache our script execution results for the likely-next-block flags.
+        // If the tip's flags differ from mempoolScriptFlags (e.g. mid-softfork), the
+        // script cache auto-invalidates so we pay a few extra misses on activation.
+        const unsigned int tipScriptFlags = GetBlockScriptFlags(chainActive.Tip());
+        if (!CheckInputsFromMempoolAndCache(opt.context, tx, opt.state, view, pool, tipScriptFlags, true, txdata)) {
             return error("%s: BUG! PLEASE REPORT THIS! CheckInputs failed against latest-block but not STANDARD flags %s, %s",
                     __func__, hash.ToString(), FormatStateMessage(state));
         }
 
-        if (!VerifyTokenBalances(tx, opt.state, view, ::minRelayTxFee.GetFee(nSize)))
+        if (!VerifyTokenBalances(tx, opt.state, view, ::minRelayTxFee.GetFee(nSize), nullptr, chainActive.Tip()->nHeight + 1))
             return false;
 
 

@@ -154,6 +154,11 @@ const CSoftForkManager& GetSoftForkManager()
     return FederationParams().SoftForkManager();
 }
 
+bool CSoftForkManager::IsActive(unsigned int flag, int32_t blockHeight) const
+{
+    return IsActive(FederationParams().NetworkId(), flag, blockHeight);
+}
+
 CFederationParams::CFederationParams(const uint32_t networkId, const std::string dataDirName, const std::string genesisHex) : nNetworkId(networkId), strNetworkID(std::to_string(networkId)), dataDir(dataDirName) {
 
     /**

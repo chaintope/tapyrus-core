@@ -390,11 +390,13 @@ bool TestBlockValidity(CValidationState& state, const CBlock& block, CBlockIndex
 /** When there are blocks in the active chain with missing data, rewind the chainstate and remove them from the block index */
 bool RewindBlockIndex();
 
-/** Verify coloured coin type related consensus rules */
-bool CheckColorIdentifierValidity(const CTransaction& tx, CValidationState& state, CCoinsViewCache &inputs) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+/** Verify coloured coin type related consensus rules.
+ *  blockHeight is used to query the softfork manager; pass INT32_MAX to always enforce. */
+bool CheckColorIdentifierValidity(const CTransaction& tx, CValidationState& state, CCoinsViewCache &inputs, int32_t blockHeight = INT32_MAX);
 
-/** Check token input and output amounts within a trasnaction */
-bool VerifyTokenBalances(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, CAmount minrelayFee, std::set<ColorIdentifier>* newIssuances = nullptr);
+/** Check token input and output amounts within a transaction.
+ *  blockHeight is used to query the softfork manager; pass INT32_MAX to always enforce. */
+bool VerifyTokenBalances(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, CAmount minrelayFee, std::set<ColorIdentifier>* newIssuances = nullptr, int32_t blockHeight = INT32_MAX);
 
 /** Replay blocks that aren't fully applied to the database. */
 bool ReplayBlocks(CCoinsView* view);
