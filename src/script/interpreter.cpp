@@ -1646,8 +1646,13 @@ bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, const C
         stack.resize(1);
     }
 
-    // Additional validation for spend-to-script-hash transactions:
-    if (scriptPubKey.IsPayToScriptHash() || scriptPubKey.IsColoredPayToScriptHash())
+    // Additional validation for spend-to-script-hash transactions.
+    // For CP2SH colored outputs, redeem-script evaluation is gated on the
+    // SCRIPT_VERIFY_CP2SH_COLORED softfork flag.  Before the flag is set (pre-
+    // activation) only the OP_HASH160 equality check is enforced; after activation
+    // the redeemScript must also evaluate to true, just like plain P2SH.
+    if (scriptPubKey.IsPayToScriptHash() ||
+        (scriptPubKey.IsColoredPayToScriptHash() && GetSoftForkManager().IsEnabled(SCRIPT_VERIFY_CP2SH_COLORED, flags)))
     {
         // scriptSig must be literals-only or validation fails
         if (!scriptSig.IsPushOnly())

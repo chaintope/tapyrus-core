@@ -38,9 +38,6 @@ struct CSoftFork {
     CSoftFork(uint32_t netId, unsigned int flag, HeightActivation activation)
         : networkId(netId), scriptVerifyFlag(flag),
           activationHeight(activation.activationHeight), isActive(std::move(activation)) {}
-
-    /** True when the compiled script flags indicate this fork is enforced. */
-    bool IsEnforced(unsigned int scriptFlags) const { return (scriptFlags & scriptVerifyFlag) != 0; }
 };
 
 /**
@@ -96,22 +93,21 @@ public:
     }
 
     /**
-     * For use by the script interpreter: returns whether the softfork for
-     * the given flag is enforced given the compiled script flags passed to
-     * VerifyScript.
-     *
-     * When no entry is registered the flag is considered active from genesis
-     * and the check degenerates to (scriptFlags & flag).  For registered
-     * networks the result comes from the stored HeightActivation predicate
-     * via CSoftFork::IsEnforced, which checks the same bit — the bit having
-     * been set (or not) by GetBlockScriptFlags() earlier in the call chain.
+     * Convenience overload: queries the current network via FederationParams().
+     * Implemented in federationparams.cpp to avoid a circular include dependency.
      */
-    bool IsEnforced(unsigned int flag, unsigned int scriptFlags) const {
-        for (const auto& sf : m_softforks)
-            if (sf.scriptVerifyFlag & flag)
-                return sf.IsEnforced(scriptFlags);
-        return (scriptFlags & flag) != 0;  // no entry → defer to flag bit
+    bool IsActive(unsigned int flag, int32_t blockHeight) const;
+
+    /**
+     * Returns whether the softfork flag is reflected in the given pre-computed
+     * script-verify flags.  Used in the script interpreter, which sees only the
+     * flags bitmask (already produced by GetBlockScriptFlags / IsActive) and
+     * cannot query by block height.
+     */
+    bool IsEnabled(unsigned int flag, unsigned int scriptFlags) const {
+        return (scriptFlags & flag) != 0;
     }
+
 };
 
 /**

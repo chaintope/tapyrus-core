@@ -330,7 +330,7 @@ private:
 
 
 public:
-    TestBuilder(const CScript& script_, const std::string& comment_, int flags_, bool P2SH = false, WitnessMode wm = WitnessMode::NONE, int witnessversion = 0, CAmount nValue_ = 0, bool ignoreColor = false, CScript innerScript_ = CScript()) : script(script_), havePush(false), comment(comment_), flags(flags_), scriptError(SCRIPT_ERR_OK), nValue(nValue_)
+    TestBuilder(const CScript& script_, const std::string& comment_, int flags_, bool P2SH = false, WitnessMode wm = WitnessMode::NONE, int witnessversion = 0, CAmount nValue_ = 0, bool ignoreColor = false, const CScript& customRedeem = CScript()) : script(script_), havePush(false), comment(comment_), flags(flags_), scriptError(SCRIPT_ERR_OK), nValue(nValue_)
     {
         CScript scriptPubKey = script;
         if (wm == WitnessMode::PKH) {
@@ -347,8 +347,8 @@ public:
         if (P2SH) {
             if(!ignoreColor && scriptPubKey.IsColoredScript())
             {
-                if (!innerScript_.empty()) {
-                    redeemscript = innerScript_;
+                if (!customRedeem.empty()) {
+                    redeemscript = customRedeem;
                 } else {
                     const KeyData keys;
                     redeemscript = CScript() << OP_DUP << OP_HASH160 << ToByteVector(keys.pubkey1C.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
@@ -2669,13 +2669,13 @@ BOOST_AUTO_TEST_CASE(colored_coin_cp2sh_redeem_scripts)
 
         // Valid: tx.nLockTime == 500, input nSequence non-final
         tests.push_back(TestBuilder(cp2sh, "CP2SH(CLTV) valid spend at height 500",
-            SCRIPT_VERIFY_NONE, /*P2SH=*/true,
+            SCRIPT_VERIFY_CP2SH_COLORED, /*P2SH=*/true,
             WitnessMode::NONE, 0, 0, false, inner)
                 .LockTime(500).Sequence(0xfffffffe).PushRedeem());
 
         // Invalid: input is finalized — CLTV always fails when nSequence == SEQUENCE_FINAL
         tests.push_back(TestBuilder(cp2sh, "CP2SH(CLTV) fails when input is finalised",
-            SCRIPT_VERIFY_NONE, /*P2SH=*/true,
+            SCRIPT_VERIFY_CP2SH_COLORED, /*P2SH=*/true,
             WitnessMode::NONE, 0, 0, false, inner)
                 .LockTime(500)   // nSequence stays at default SEQUENCE_FINAL
                 .PushRedeem()
@@ -2683,7 +2683,7 @@ BOOST_AUTO_TEST_CASE(colored_coin_cp2sh_redeem_scripts)
 
         // Invalid: tx.nLockTime is below the required threshold
         tests.push_back(TestBuilder(cp2sh, "CP2SH(CLTV) fails when locktime too low",
-            SCRIPT_VERIFY_NONE, /*P2SH=*/true,
+            SCRIPT_VERIFY_CP2SH_COLORED, /*P2SH=*/true,
             WitnessMode::NONE, 0, 0, false, inner)
                 .LockTime(499).Sequence(0xfffffffe)
                 .PushRedeem()
@@ -2699,13 +2699,13 @@ BOOST_AUTO_TEST_CASE(colored_coin_cp2sh_redeem_scripts)
 
         // Valid: nSequence = 3 (block-relative, bit 31 clear, >= 3)
         tests.push_back(TestBuilder(cp2sh, "CP2SH(CSV) valid spend with sequence 3",
-            SCRIPT_VERIFY_NONE, /*P2SH=*/true,
+            SCRIPT_VERIFY_CP2SH_COLORED, /*P2SH=*/true,
             WitnessMode::NONE, 0, 0, false, inner)
                 .Sequence(3).PushRedeem());
 
         // Invalid: nSequence = 2 — below the required minimum
         tests.push_back(TestBuilder(cp2sh, "CP2SH(CSV) fails when sequence too low",
-            SCRIPT_VERIFY_NONE, /*P2SH=*/true,
+            SCRIPT_VERIFY_CP2SH_COLORED, /*P2SH=*/true,
             WitnessMode::NONE, 0, 0, false, inner)
                 .Sequence(2)
                 .PushRedeem()
@@ -2713,7 +2713,7 @@ BOOST_AUTO_TEST_CASE(colored_coin_cp2sh_redeem_scripts)
 
         // Invalid: SEQUENCE_DISABLE_FLAG set in tx nSequence — CheckSequence returns false
         tests.push_back(TestBuilder(cp2sh, "CP2SH(CSV) fails when disable flag set in nSequence",
-            SCRIPT_VERIFY_NONE, /*P2SH=*/true,
+            SCRIPT_VERIFY_CP2SH_COLORED, /*P2SH=*/true,
             WitnessMode::NONE, 0, 0, false, inner)
                 .Sequence(CTxIn::SEQUENCE_LOCKTIME_DISABLE_FLAG | 3)
                 .PushRedeem()
@@ -2730,7 +2730,7 @@ BOOST_AUTO_TEST_CASE(colored_coin_cp2sh_redeem_scripts)
         CScript cp2sh = makeCP2SH(inner);
 
         tests.push_back(TestBuilder(cp2sh, "CP2SH(OP_COLOR in redeem script) rejected",
-            SCRIPT_VERIFY_NONE, /*P2SH=*/true,
+            SCRIPT_VERIFY_CP2SH_COLORED, /*P2SH=*/true,
             WitnessMode::NONE, 0, 0, false, inner)
                 .PushRedeem()
                 .ScriptError(SCRIPT_ERR_OP_COLOR_UNEXPECTED));
@@ -2745,13 +2745,13 @@ BOOST_AUTO_TEST_CASE(colored_coin_cp2sh_redeem_scripts)
 
         // Valid: push 1 to take the true branch — leaves OP_1 on the stack
         tests.push_back(TestBuilder(cp2sh, "CP2SH(OP_IF true branch) valid",
-            SCRIPT_VERIFY_NONE, /*P2SH=*/true,
+            SCRIPT_VERIFY_CP2SH_COLORED, /*P2SH=*/true,
             WitnessMode::NONE, 0, 0, false, inner)
                 .Num(1).PushRedeem());
 
         // Invalid: push 0 to take the false branch — leaves OP_0, script returns false
         tests.push_back(TestBuilder(cp2sh, "CP2SH(OP_IF false branch) EVAL_FALSE",
-            SCRIPT_VERIFY_NONE, /*P2SH=*/true,
+            SCRIPT_VERIFY_CP2SH_COLORED, /*P2SH=*/true,
             WitnessMode::NONE, 0, 0, false, inner)
                 .Num(0).PushRedeem()
                 .ScriptError(SCRIPT_ERR_EVAL_FALSE));
