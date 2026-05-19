@@ -983,6 +983,13 @@ class ColoredCoinTest(BitcoinTestFramework):
         signed = sign_and_get_hex(node, raw)
         self.assert_tx_rejected_mempool(signed, "bad-txns-token-noinput")
 
+        # Regression: verifyDB level 4 reconnects each block to validate it.
+        # Before the sandbox fix, reconnecting a block with a NON_REISSUABLE/NFT
+        # issuance would fail with bad-txns-colorid-already-issued because the
+        # colorId was still in g_issued_colorids.
+        assert_equal(node.verifychain(4, 0), True)
+        self.log.info("  verifychain(4, 0) passed — sandbox fix confirmed")
+
     # ------------------------------------------------------------------ main test runner
 
     def run_test(self):
