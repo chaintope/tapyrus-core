@@ -12,6 +12,8 @@
 #include <dbwrapper.h>
 #include <chain.h>
 #include <primitives/block.h>
+#include <cs_main.h>
+#include <sync.h>
 #include <xfieldhistory.h>
 
 #include <map>
@@ -22,6 +24,7 @@
 #include <vector>
 
 class CBlockIndex;
+class CCoinsViewDB;
 class CCoinsViewDBCursor;
 class uint256;
 struct XFieldChange;
@@ -82,11 +85,15 @@ static const int64_t nMaxTxIndexCache = 1024;
 //! Max memory allocated to coin DB specific cache (MiB)
 static const int64_t nMaxCoinsDBCache = 8;
 
+/** Tracks NON_REISSUABLE and NFT colorIds issued on-chain; see issuedcolorids.h. */
+class CIssuedColorIds;
+
 /** CCoinsView backed by the coin database (chainstate/) */
 class CCoinsViewDB final : public CCoinsView
 {
 protected:
     CDBWrapper db;
+    CIssuedColorIds* m_colorid_state = nullptr;
 public:
     explicit CCoinsViewDB(size_t nCacheSize, bool fMemory = false, bool fWipe = false);
 
@@ -94,12 +101,17 @@ public:
     bool HaveCoin(const COutPoint &outpoint) const override;
     uint256 GetBestBlock() const override;
     std::vector<uint256> GetHeadBlocks() const override;
-    bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock) override;
+    bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock) override EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     CCoinsViewCursor *Cursor() const override;
 
     //! Attempt to update from an older database format. Returns whether an error occurred.
     bool Upgrade();
     size_t EstimateSize() const override;
+
+    /** Connect the issued-colorId state object.  Call before ReplayBlocks. */
+    void SetColorIdState(CIssuedColorIds* state) { m_colorid_state = state; }
+
+    bool LoadIssuedColorIds(std::set<ColorIdentifier>& colorIds);
 };
 
 /** Specialization of CCoinsViewCursor to iterate over a CCoinsViewDB */
@@ -144,11 +156,6 @@ public:
     bool RewriteXField(std::vector<XFieldChange> & xFieldChanges);
     bool EraseXField(const XFieldChange & xFieldChange);
 
-    bool WriteIssuedColorId(const ColorIdentifier& colorId);
-    bool WriteIssuedColorIdBatch(const std::set<ColorIdentifier>& colorIds);
-    bool EraseIssuedColorId(const ColorIdentifier& colorId);
-    bool ClearIssuedColorIds();
-    bool LoadIssuedColorIds(std::set<ColorIdentifier>& colorIds);
 };
 
 #endif // BITCOIN_TXDB_H

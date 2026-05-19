@@ -89,7 +89,9 @@ struct ColorIdentifier
     }
 
     bool operator<(const ColorIdentifier& colorId) const {
-        return memcmp(this, &colorId, COLOR_IDENTIFIER_SIZE) < 0;
+        if (type != colorId.type)
+            return static_cast<uint8_t>(type) < static_cast<uint8_t>(colorId.type);
+        return memcmp(payload, colorId.payload, sizeof(payload)) < 0;
     }
 
     ADD_SERIALIZE_METHODS;
@@ -133,7 +135,9 @@ struct ColorIdentifierCompare
 {
     bool operator()(const ColorIdentifier& c1, const ColorIdentifier& c2) const
     {
-        return memcmp(&c1, &c2, COLOR_IDENTIFIER_SIZE) < 0;
+        if (c1.type != c2.type)
+            return static_cast<uint8_t>(c1.type) < static_cast<uint8_t>(c2.type);
+        return memcmp(c1.payload, c2.payload, sizeof(c1.payload)) < 0;
     }
 };
 

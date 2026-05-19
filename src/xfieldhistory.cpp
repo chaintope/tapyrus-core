@@ -67,16 +67,6 @@ XFieldChange CXFieldHistoryMap::Get(TAPYRUS_XFIELDTYPES type, uint32_t height) {
     return listofXfieldChanges[0];
 }
 
-XFieldChange CXFieldHistoryMap::Get(TAPYRUS_XFIELDTYPES type, uint256 blockHash) {
-    std::shared_lock<std::shared_mutex> lock(xfieldHistoryMutex);
-    auto& listofXfieldChanges = (isTemp ? this->getXFieldHistoryMap() : xfieldHistory).find(type)->second;
-    //TODO: return the corrext xfield applicable to any block by checking the index.
-    for(unsigned int i = 0; i < listofXfieldChanges.size(); i++) {
-        if(blockHash == listofXfieldChanges.at(i).blockHash)
-            return listofXfieldChanges.at(i);
-    }
-    return listofXfieldChanges.back();
-}
 
 void CXFieldHistory::ToUniValue(TAPYRUS_XFIELDTYPES type, UniValue* xFieldChangeUnival) {
     *xFieldChangeUnival = UniValue(UniValue::VARR);

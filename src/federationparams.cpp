@@ -133,7 +133,7 @@ CFederationParams::CFederationParams(const uint32_t networkId, const std::string
      * testnet message start string is 0x75 0x9A 0x83 0x74. it is xor of mainnet header and testnet ascii codes.
      */
 
-    int magicBytes = 33550335 + nNetworkId;
+    uint32_t magicBytes = 33550335u + nNetworkId;
     CDataStream stream(SER_NETWORK, PROTOCOL_VERSION);
     stream << magicBytes;
     pchMessageStart[0] = stream[3];
@@ -174,6 +174,8 @@ bool CFederationParams::ReadGenesisBlock(std::string genesisHex)
 
             } else if((*pubkey)[0] == 0x04 || (*pubkey)[0] == 0x06 || (*pubkey)[0] == 0x07) {
                 throw std::runtime_error(strprintf("Uncompressed public key format are not acceptable: %s", HexStr(*pubkey)));
+            } else {
+                throw std::runtime_error(strprintf("Unknown public key prefix 0x%02x in genesis block: %s", (*pubkey)[0], HexStr(*pubkey)));
             }
         }
         break;

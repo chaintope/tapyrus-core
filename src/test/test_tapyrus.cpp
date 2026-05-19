@@ -9,6 +9,7 @@
 #include <consensus/merkle.h>
 #include <consensus/validation.h>
 #include <crypto/sha256.h>
+#include <issuedcolorids.h>
 #include <validation.h>
 #include <miner.h>
 #include <net_processing.h>
@@ -78,10 +79,12 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
     SelectFederationParams(TAPYRUS_OP_MODE::PROD);
     noui_connect();
     pxFieldHistory = new CXFieldHistoryWithReset(FederationParams().GenesisBlock());
+    g_colorid_state.reset(new CIssuedColorIds());
 }
 
 BasicTestingSetup::~BasicTestingSetup()
 {
+    g_colorid_state.reset();
     pxFieldHistory->Reset();
     delete pxFieldHistory;
     pxFieldHistory = nullptr;

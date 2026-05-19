@@ -5,6 +5,7 @@
 #include <chainstate.h>
 #include <chainparams.h>
 #include <util.h>
+#include <issuedcolorids.h>
 
 #include <consensus/tx_verify.h>
 #include <index/txindex.h>
@@ -23,8 +24,7 @@
 // Defined in validation.cpp; declared here to avoid pulling in validation.h
 // (which includes chainstate.h, creating an indirect self-inclusion).
 void RefreshChainTxDataFromTip(const CBlockIndex* pindexNew);
-extern Mutex cs_issued_colorids;
-extern std::set<ColorIdentifier> g_issued_colorids;
+extern std::unique_ptr<CIssuedColorIds> g_colorid_state;
 extern std::atomic_bool fReindex;
 
 static int64_t nTimeCheck = 0;
@@ -303,14 +303,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
                         continue;
                     COutPoint prevout = tx.vin[j].prevout;
                     if (ColorIdentifier(prevout, outColorId.type) == outColorId) {
-                        // Erase from disk before memory: if the disk erase fails
-                        // both stores remain consistent (entry still present in both).
-                        if (!pblocktree->EraseIssuedColorId(outColorId))
-                            return DISCONNECT_FAILED;
-                        {
-                            LOCK(cs_issued_colorids);
-                            g_issued_colorids.erase(outColorId);
-                        }
+                        g_colorid_state->Erase(outColorId);
                         break;
                     }
                 }
@@ -616,9 +609,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     CCheckQueueControl<CScriptCheck> control(fScriptChecks && nScriptCheckThreads ? scriptcheckqueue.get() : nullptr);
     // Accumulate new NON_REISSUABLE/NFT issuances across the whole block.
-    // Applied to g_issued_colorids and persisted to LevelDB only after
-    // control.Wait() succeeds, so a late script-check failure cannot leave
-    // the global set or the DB in a dirty state.
+    // Staged into g_colorid_state and committed to LevelDB atomically with
+    // DB_BEST_BLOCK only after control.Wait() succeeds, so a late script-check
+    // failure cannot leave the global set or the DB in a dirty state.
     std::set<ColorIdentifier> allNewIssuances;
 
     for (unsigned int i = 0; i < block.vtx.size(); i++)
@@ -706,18 +699,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     int64_t nTime4 = GetTimeMicros(); nTimeVerify += nTime4 - nTime2;
     LogPrint(BCLog::BENCH, "    - Verify %u txins: %.2fms (%.3fms/txin) [%.2fs (%.2fms/blk)]\n", nInputs - 1, MILLI * (nTime4 - nTime2), nInputs <= 1 ? 0 : MILLI * (nTime4 - nTime2) / (nInputs-1), nTimeVerify * MICRO, nTimeVerify * MILLI / nBlocksTotal);
 
-    // All script checks passed. Now it is safe to commit new issuances to the
-    // global set and to LevelDB — no further failure can occur that would
-    // require rolling these back within this call.
-    // Write the entire batch atomically first; only update the in-memory set
-    // after the disk commit succeeds so the two stores never diverge.
-    if (!fJustCheck) {
-        if (!pblocktree->WriteIssuedColorIdBatch(allNewIssuances))
-            return error("ConnectBlock(): WriteIssuedColorId failed");
-        LOCK(cs_issued_colorids);
-        g_issued_colorids.insert(allNewIssuances.begin(), allNewIssuances.end());
-    }
-
     if (fJustCheck)
         return true;
 
@@ -728,6 +709,13 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         pindex->RaiseValidity(BLOCK_VALID_SCRIPTS);
         setDirtyBlockIndex.insert(pindex);
     }
+
+    // Stage new issuances only after all other disk writes have succeeded.
+    // CommitToBatch will write them to LevelDB atomically with DB_BEST_BLOCK
+    // inside the next view.Flush() → BatchWrite call, preventing a crash
+    // between the colorId write and the UTXO flush from permanently poisoning
+    // the block with bad-txns-colorid-already-issued on restart.
+    g_colorid_state->Insert(allNewIssuances);
 
     assert(pindex->phashBlock);
     // add this block to the view's block chain
