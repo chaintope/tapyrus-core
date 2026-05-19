@@ -1331,9 +1331,12 @@ bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, CXFiel
 
     // Aggpubkey to verify blocks is read from the xfield history at the block's
     // height, not at the chain tip. Both temp and non-temp paths now call Get(height) uniformly.
-    // nHeight < 0 means AcceptBlockHeader has no pindexPrev yet (block will be
-    // rejected for missing parent); treat as 0 so Get() returns the genesis key.
-    const uint32_t uHeight = (nHeight > 0) ? static_cast<uint32_t>(nHeight) : 0;
+    // nHeight < 0 means the caller has no known block height (e.g. AcceptBlockHeader
+    // with no pindexPrev, or ReadBlockFromDisk on an orphan child during reindex).
+    // Use UINT32_MAX so Get() returns the latest rotation entry for those callers,
+    // avoiding spurious bad-proof failures against post-rotation headers.
+    // nHeight == 0 is the genesis block and must use height 0 (returns genesis key).
+    const uint32_t uHeight = (nHeight >= 0) ? static_cast<uint32_t>(nHeight) : UINT32_MAX;
     XFieldAggPubKey aggregatePubkeyObj;
     if(pxfieldHistory)
         aggregatePubkeyObj = std::get<XFieldAggPubKey>(pxfieldHistory->Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, uHeight).xfieldValue);

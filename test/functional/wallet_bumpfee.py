@@ -73,6 +73,7 @@ class BumpFeeTest(BitcoinTestFramework):
         test_rebumping_not_replaceable(rbf_node, dest_address)
         test_unconfirmed_not_spendable(rbf_node, rbf_node_address, self.signblockprivkey, self.signblockprivkey_wif)
         test_bumpfee_metadata(rbf_node, dest_address)
+        test_bumpfee_preserves_colored_token_balance(rbf_node, peer_node, self.signblockprivkey_wif)
         test_locked_wallet_fails(rbf_node, dest_address)
         self.log.info("Success")
 
@@ -241,6 +242,45 @@ def test_locked_wallet_fails(rbf_node, dest_address):
     rbf_node.walletlock()
     assert_raises_rpc_error(-13, "Please enter the wallet passphrase with walletpassphrase first.",
                           rbf_node.bumpfee, rbfid)
+
+
+def test_bumpfee_preserves_colored_token_balance(rbf_node, peer_node, signblockprivkey_wif):
+    """Regression for J2: bumpfee on a colored-token transfer must not silently
+    subtract the fee delta from a colored output."""
+    # Mine any leftover mempool txns from preceding tests.
+    rbf_node.generate(1, signblockprivkey_wif)
+    sync_mempools((rbf_node, peer_node))
+
+    # Issue 100 NON_REISSUABLE tokens using a wallet TPC UTXO as the colorId seed.
+    seed_utxo = next(u for u in rbf_node.listunspent() if u.get('token') == 'TPC')
+    issue_result = rbf_node.issuetoken(2, 100, seed_utxo['txid'], seed_utxo['vout'])
+    color = issue_result['color']
+
+    # Propagate issuance to peer_node first, then mine it.
+    sync_mempools((rbf_node, peer_node))
+    peer_node.generate(1, signblockprivkey_wif)
+    sync_mempools((rbf_node, peer_node))
+
+    balance_before = rbf_node.getwalletinfo()['balance'][color]
+    assert_equal(balance_before, 100)
+
+    # Transfer 60 tokens to self (walletrbf=1 -> BIP125 replaceable).
+    dest_addr = rbf_node.getnewaddress("", color)
+    transfer_txid = rbf_node.transfertoken(dest_addr, 60)
+    assert_equal(rbf_node.gettransaction(transfer_txid)['bip125-replaceable'], 'yes')
+
+    # Propagate transfer to peer_node before bumping fee.
+    sync_mempools((rbf_node, peer_node))
+
+    # Bump the fee — only the TPC change output may shrink; colored outputs must be untouched.
+    rbf_node.bumpfee(transfer_txid)
+
+    sync_mempools((rbf_node, peer_node))
+    peer_node.generate(1, signblockprivkey_wif)
+    sync_mempools((rbf_node, peer_node))
+
+    # Token balance must still be 100 (60 sent-to-self + 40 change).
+    assert_equal(rbf_node.getwalletinfo()['balance'][color], 100)
 
 
 def spend_one_input(node, dest_address):

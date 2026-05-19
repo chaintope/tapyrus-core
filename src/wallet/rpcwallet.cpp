@@ -382,7 +382,7 @@ static CTransactionRef SendMoney(CWallet * const pwallet, const CTxDestination &
     vecSend.push_back(recipient);
     CTransactionRef tx;
     if (!pwallet->CreateTransaction(vecSend, tx, reservekey, nFeeRequired, mapChangePosRet, strError, coin_control)) {
-        if (!fSubtractFeeFromAmount && nValue + nFeeRequired > curBalance)
+        if (!fSubtractFeeFromAmount && colorId.type == TokenTypes::NONE && nValue + nFeeRequired > curBalance)
             strError = strprintf("Error: This transaction requires a transaction fee of at least %s", FormatMoney(nFeeRequired));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
@@ -489,7 +489,7 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
 
     if (colorId.type != TokenTypes::NONE)
     {
-        coin_control.m_colorTxType = ColoredTxType::TRANSFER; 
+        coin_control.m_colorTxType = ColoredTxType::TRANSFER;
         coin_control.m_colorId = colorId;
     }
 
@@ -3284,7 +3284,6 @@ static UniValue bumpfee(const JSONRPCRequest& request)
             }
         }
     }
-
     // Make sure the results are valid at least up to the most recent block
     // the user could have gotten from another RPC command prior to now
     pwallet->BlockUntilSyncedToCurrentChain();
@@ -3292,6 +3291,32 @@ static UniValue bumpfee(const JSONRPCRequest& request)
     LOCK2(cs_main, pwallet->cs_wallet);
     EnsureWalletIsUnlocked(pwallet);
 
+    // For colored token transfers that have no TPC change output (e.g. when BnB
+    // covered the fee exactly), feebumper needs to add a fresh TPC input.
+    // Signal this with fAllowOtherInputs and supply a change destination so
+    // feebumper can route the surplus back to the wallet.
+    {
+        const CWalletTx* wtx = pwallet->GetWalletTx(hash);
+        if (wtx) {
+            bool hasColoredOutput = false;
+            bool hasTpcChange = false;
+            for (const auto& out : wtx->tx->vout) {
+                if (GetColorIdFromScript(out.scriptPubKey).type != TokenTypes::NONE)
+                    hasColoredOutput = true;
+                else if (pwallet->IsChange(out))
+                    hasTpcChange = true;
+            }
+            if (hasColoredOutput && !hasTpcChange) {
+                coin_control.fAllowOtherInputs = true;
+                CReserveKey reservekey(pwallet);
+                CPubKey pubkey;
+                if (reservekey.GetReservedKey(pubkey, true)) {
+                    coin_control.destChange = pubkey.GetID();
+                    reservekey.KeepKey();
+                }
+            }
+        }
+    }
 
     std::vector<std::string> errors;
     CAmount old_fee;

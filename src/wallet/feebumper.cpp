@@ -109,9 +109,35 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
             nOutput = i;
         }
     }
+    // For colored transfers the original tx may have no TPC change output (e.g. when
+    // BnB covered the fee exactly).  When fAllowOtherInputs is set the caller has
+    // pre-arranged a destChange address; find a fresh TPC UTXO to add as a new input.
+    COutPoint newInputOp;
+    CAmount   newInputValue = 0;
     if (nOutput == -1) {
-        errors.push_back("Cannot bump fee: transaction has no TPC change output to absorb the fee delta");
-        return Result::WALLET_ERROR;
+        if (!coin_control.fAllowOtherInputs || !IsValidDestination(coin_control.destChange)) {
+            errors.push_back("Cannot bump fee: transaction has no TPC change output to absorb the fee delta");
+            return Result::WALLET_ERROR;
+        }
+        std::vector<COutput> vAvailableCoins;
+        wallet->AvailableCoins(vAvailableCoins, true, nullptr);
+        for (const auto& out : vAvailableCoins) {
+            if (!out.fSpendable) continue;
+            const CTxOut& txout = out.tx->tx->vout[out.i];
+            if (GetColorIdFromScript(txout.scriptPubKey).type != TokenTypes::NONE) continue;
+            COutPoint op(out.tx->tx->GetHashMalFix(), out.i);
+            bool alreadyIn = false;
+            for (const auto& vin : wtx.tx->vin)
+                if (vin.prevout == op) { alreadyIn = true; break; }
+            if (alreadyIn) continue;
+            newInputOp   = op;
+            newInputValue = txout.nValue;
+            break;
+        }
+        if (newInputOp.IsNull()) {
+            errors.push_back("Cannot bump fee: no available TPC UTXO to add as new input");
+            return Result::WALLET_ERROR;
+        }
     }
 
     // Calculate the expected size of the new transaction.
@@ -189,23 +215,40 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
         return Result::WALLET_ERROR;
     }
 
-    // Now modify the output to increase the fee.
-    // If the output is not large enough to pay the fee, fail.
     CAmount nDelta = new_fee - old_fee;
     assert(nDelta > 0);
     mtx = CMutableTransaction{*wtx.tx};
-    CTxOut* poutput = &(mtx.vout[nOutput]);
-    if (poutput->nValue < nDelta) {
-        errors.push_back("Change output is too small to bump the fee");
-        return Result::WALLET_ERROR;
-    }
 
-    // If the output would become dust, discard it (converting the dust to fee)
-    poutput->nValue -= nDelta;
-    if (poutput->nValue <= GetDustThreshold(*poutput, GetDiscardRate(*wallet, ::feeEstimator))) {
-        wallet->WalletLogPrintf("Bumping fee and discarding dust output\n");
-        new_fee += poutput->nValue;
-        mtx.vout.erase(mtx.vout.begin() + nOutput);
+    if (nOutput != -1) {
+        // Reduce the existing TPC change output to cover the fee delta.
+        CTxOut* poutput = &(mtx.vout[nOutput]);
+        if (poutput->nValue < nDelta) {
+            errors.push_back("Change output is too small to bump the fee");
+            return Result::WALLET_ERROR;
+        }
+        poutput->nValue -= nDelta;
+        if (poutput->nValue <= GetDustThreshold(*poutput, GetDiscardRate(*wallet, ::feeEstimator))) {
+            wallet->WalletLogPrintf("Bumping fee and discarding dust output\n");
+            new_fee += poutput->nValue;
+            mtx.vout.erase(mtx.vout.begin() + nOutput);
+        }
+    } else {
+        // Add the new TPC input and create a change output for the surplus.
+        bool rbf = coin_control.m_signal_bip125_rbf.get_value_or(wallet->m_signal_rbf);
+        mtx.vin.push_back(CTxIn(newInputOp, CScript(), rbf ? MAX_BIP125_RBF_SEQUENCE : 0xfffffffe));
+        if (newInputValue < nDelta) {
+            errors.push_back("Cannot bump fee: new TPC input insufficient to cover fee delta");
+            return Result::WALLET_ERROR;
+        }
+        CAmount changeValue = newInputValue - nDelta;
+        CScript changeScript = GetScriptForDestination(coin_control.destChange);
+        CTxOut  changeOut(changeValue, changeScript);
+        if (changeValue > GetDustThreshold(changeOut, GetDiscardRate(*wallet, ::feeEstimator))) {
+            mtx.vout.push_back(changeOut);
+        } else {
+            wallet->WalletLogPrintf("Bumping fee: discarding dust change from new TPC input\n");
+            new_fee += changeValue;
+        }
     }
 
     // Mark new tx not replaceable, if requested.
@@ -214,7 +257,6 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
             if (input.nSequence < 0xfffffffe) input.nSequence = 0xfffffffe;
         }
     }
-
 
     return Result::OK;
 }
