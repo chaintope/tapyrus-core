@@ -7,6 +7,7 @@
 #include <addrman.h>
 #include <validation.h>
 #include <cs_main.h>
+#include <issuedcolorids.h>
 #include <checkpoints.h>
 #include <checkqueue.h>
 #include <consensus/merkle.h>
@@ -55,8 +56,7 @@ CBlockIndex *pindexBestHeader = nullptr;
 Mutex g_best_block_mutex;
 CConditionVariable g_best_block_cv;
 uint256 g_best_block;
-Mutex cs_issued_colorids;
-std::set<ColorIdentifier> g_issued_colorids;
+std::unique_ptr<CIssuedColorIds> g_colorid_state;
 int nScriptCheckThreads = 0;
 std::atomic_bool fImporting(false);
 std::atomic_bool fReindex(false);
@@ -536,8 +536,7 @@ bool CheckColorIdentifierValidity(const CTransaction& tx, CValidationState& stat
         //  the defining UTXO is consumed and its colorId = Hash(prevout) is globally unique.)
         if(isIssuance && (outColorId.type == TokenTypes::NON_REISSUABLE || outColorId.type == TokenTypes::NFT))
         {
-            LOCK(cs_issued_colorids);
-            if(g_issued_colorids.count(outColorId))
+            if(g_colorid_state && g_colorid_state->IsIssued(outColorId))
                 return state.DoS(100, false, REJECT_INVALID, "bad-txns-colorid-already-issued");
         }
     }

@@ -9,6 +9,7 @@
 #include <ui_interface.h>
 #include <file_io.h>
 #include <blockprune.h>
+#include <issuedcolorids.h>
 
 CVerifyDB::CVerifyDB()
 {
@@ -37,6 +38,21 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
     int nGoodTransactions = 0;
     CValidationState state;
     int reportDone = 0;
+
+    // Sandbox g_colorid_state for Level 3 + 4: DisconnectBlock (Level 3) and
+    // ConnectBlock (Level 4) must operate on a scratch copy so that the real
+    // confirmed set is never mutated during the read-only verification walk.
+    struct ColorIdSandbox {
+        std::unique_ptr<CIssuedColorIds> saved;
+        explicit ColorIdSandbox(bool active) {
+            if (active && g_colorid_state) {
+                saved = std::move(g_colorid_state);
+                g_colorid_state = saved->Clone();
+            }
+        }
+        ~ColorIdSandbox() { if (saved) g_colorid_state = std::move(saved); }
+    } colorIdSandbox(nCheckLevel >= 3);
+
     LogPrintf("[0%%]..."); /* Continued */
     for (pindex = chainActive.Tip(); pindex && pindex->pprev; pindex = pindex->pprev) {
         int percentageDone = std::max(1, std::min(99, (int)(((double)(chainActive.Height() - pindex->nHeight)) / (double)nCheckDepth * (nCheckLevel >= 4 ? 50 : 100))));

@@ -157,7 +157,6 @@ public:
     bool Remove(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange);
 
     virtual XFieldChange Get(TAPYRUS_XFIELDTYPES type, uint32_t height);
-    virtual XFieldChange Get(TAPYRUS_XFIELDTYPES type, uint256 blockHash);
     int32_t GetReorgHeight();
 };
 
