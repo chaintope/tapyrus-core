@@ -303,13 +303,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
                         continue;
                     COutPoint prevout = tx.vin[j].prevout;
                     if (ColorIdentifier(prevout, outColorId.type) == outColorId) {
-                        // Skip global state writes when called from VerifyDB's dry-run
-                        // sandbox (level 3): chainActive is not actually disconnected, so
-                        // mutating g_colorid_state here would leave it permanently
-                        // inconsistent with the real chain tip.
-                        if (!fDryRun) {
-                            g_colorid_state->Erase(outColorId);
-                        }
+                        g_colorid_state->Erase(outColorId);
                         break;
                     }
                 }
