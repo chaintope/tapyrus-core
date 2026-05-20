@@ -443,6 +443,7 @@ static const unsigned int REJECT_HIGHFEE = 0x100;
 CBlockFileInfo* GetBlockFileInfo(size_t n);
 
 unsigned int GetBlockScriptFlags(const CBlockIndex* pindex);
+unsigned int GetBlockScriptFlags(int32_t blockHeight);
 
 //! Check whether the block associated with this index entry is pruned or not.
 inline bool IsBlockPruned(const CBlockIndex* pblockindex)

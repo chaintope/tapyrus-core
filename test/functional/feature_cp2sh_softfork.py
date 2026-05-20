@@ -33,7 +33,7 @@ from test_framework.script import (
     hash160,
 )
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, bytes_to_hex_str, hex_str_to_bytes
+from test_framework.util import assert_equal, assert_raises_rpc_error, bytes_to_hex_str, hex_str_to_bytes
 
 # Activation height used throughout the test.  Low enough to reach quickly.
 ACTIVATION_HEIGHT = 120
@@ -182,11 +182,45 @@ class CP2SHSoftforkTest(BitcoinTestFramework):
         self._wrap_submit(spend_pre)                          # block 103 — must succeed
         self.log.info("  ✓ accepted at block %d" % node.getblockcount())
 
-        # ── advance to activation height - 1 ────────────────────────────────
-        blocks_needed = ACTIVATION_HEIGHT - 1 - node.getblockcount()
+        # ── advance to activation height - 2 ────────────────────────────────
+        # Stop one block early so we can confirm a boundary CP2SH UTXO at
+        # exactly ACTIVATION_HEIGHT - 1 and then test mempool admission there.
+        blocks_needed = ACTIVATION_HEIGHT - 2 - node.getblockcount()
         if blocks_needed > 0:
             node.generate(blocks_needed, self.signblockprivkey_wif)
+        assert_equal(node.getblockcount(), ACTIVATION_HEIGHT - 2)
+
+        # ── mempool boundary: tip == ACTIVATION_HEIGHT - 1 ──────────────────
+        # Confirm a CP2SH UTXO with bad redeemScript (OP_0) at block
+        # ACTIVATION_HEIGHT - 1, then attempt to spend it via sendrawtransaction
+        # while the tip is still at that height.
+        #
+        # With the fix (mempoolScriptFlags queried at tip+1 = ACTIVATION_HEIGHT),
+        # SCRIPT_VERIFY_CP2SH_COLORED is already active and the tx is rejected at
+        # mempool admission with mandatory-script-verify-flag-failed.
+        # Without the fix the tx would be admitted and only fail when the
+        # activation block tries to include it.
+        tpc_boundary = sorted(
+            [u for u in node.listunspent() if u.get('token') == 'TPC'],
+            key=lambda u: u['amount'], reverse=True,
+        )[0]
+        boundary_issue, _ = self._issue_cp2sh(tpc_boundary, bad_redeem)
+        self._wrap_submit(boundary_issue)                       # block ACTIVATION_HEIGHT - 1
         assert_equal(node.getblockcount(), ACTIVATION_HEIGHT - 1)
+        boundary_issue.rehash()
+
+        fee_boundary = sorted(
+            [u for u in node.listunspent() if u.get('token') == 'TPC'],
+            key=lambda u: u['amount'], reverse=True,
+        )[0]
+        boundary_spend = self._spend_cp2sh(boundary_issue, 0, bad_redeem, fee_boundary)
+
+        self.log.info("Boundary: mempool rejects bad redeemScript at tip == ACTIVATION_HEIGHT - 1")
+        assert_raises_rpc_error(
+            -26, "mandatory-script-verify-flag-failed",
+            node.sendrawtransaction, ToHex(boundary_spend),
+        )
+        self.log.info("  ✓ rejected at mempool admission (not deferred to block validation)")
 
         # ── issue post-activation UTXOs at the activation block ─────────────
         # Get fresh UTXOs (earlier ones may be spent or confirmed as change).

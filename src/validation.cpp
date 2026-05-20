@@ -629,16 +629,20 @@ bool VerifyTokenBalances(const CTransaction& tx, CValidationState& state, const 
     return true;
 }
 
-unsigned int GetBlockScriptFlags(const CBlockIndex* pindex) {
+unsigned int GetBlockScriptFlags(int32_t blockHeight) {
     AssertLockHeld(cs_main);
 
     unsigned int flags = SCRIPT_VERIFY_NONE;
 
     // Activation logic and network-id lookup are encapsulated in the softfork manager.
-    if (GetSoftForkManager().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, pindex->nHeight))
+    if (GetSoftForkManager().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, blockHeight))
         flags |= SCRIPT_VERIFY_CP2SH_COLORED;
 
     return flags;
+}
+
+unsigned int GetBlockScriptFlags(const CBlockIndex* pindex) {
+    return GetBlockScriptFlags(pindex->nHeight);
 }
 
 
@@ -937,19 +941,20 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
         // Check against previous transactions
         // This is done last to help prevent CPU exhaustion denial-of-service attacks.
         PrecomputedTransactionData txdata(tx);
-        // Include softfork-governed flags (e.g. SCRIPT_VERIFY_CP2SH_COLORED) so that
-        // mempool validation rejects transactions that would be invalid in the next block.
+        // Query flags for the *next* block (tip+1), not the tip, so that softfork
+        // activation at height H is enforced by the mempool at tip == H-1.
+        // Using tip height here would admit txs that are valid pre-activation but
+        // invalid post-activation, producing an invalid block at height H.
+        const int32_t nextBlockHeight = chainActive.Tip()->nHeight + 1;
         const unsigned int mempoolScriptFlags = STANDARD_SCRIPT_VERIFY_FLAGS |
-                                                GetBlockScriptFlags(chainActive.Tip());
+                                                GetBlockScriptFlags(nextBlockHeight);
         if (!CheckInputs(tx, state, view, true, mempoolScriptFlags, true, false, txdata)) {
             return false; // state filled in by CheckInputs
         }
 
-        // Check again against the current block tip's script verification flags to
-        // cache our script execution results for the likely-next-block flags.
-        // If the tip's flags differ from mempoolScriptFlags (e.g. mid-softfork), the
-        // script cache auto-invalidates so we pay a few extra misses on activation.
-        const unsigned int tipScriptFlags = GetBlockScriptFlags(chainActive.Tip());
+        // Cache script execution results using the same next-block flags so the
+        // cache entries are valid when ConnectBlock runs at height nextBlockHeight.
+        const unsigned int tipScriptFlags = GetBlockScriptFlags(nextBlockHeight);
         if (!CheckInputsFromMempoolAndCache(opt.context, tx, opt.state, view, pool, tipScriptFlags, true, txdata)) {
             return error("%s: BUG! PLEASE REPORT THIS! CheckInputs failed against latest-block but not STANDARD flags %s, %s",
                     __func__, hash.ToString(), FormatStateMessage(state));
