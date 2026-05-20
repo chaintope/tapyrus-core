@@ -253,7 +253,7 @@ def test_bumpfee_preserves_colored_token_balance(rbf_node, peer_node, signblockp
     sync_mempools((rbf_node, peer_node))
 
     # Issue 100 NON_REISSUABLE tokens using a wallet TPC UTXO as the colorId seed.
-    seed_utxo = next(u for u in rbf_node.listunspent() if u.get('token') == 'TPC')
+    seed_utxo = max((u for u in rbf_node.listunspent() if u.get('token') == 'TPC'), key=lambda u: u['amount'])
     issue_result = rbf_node.issuetoken(2, 100, seed_utxo['txid'], seed_utxo['vout'])
     color = issue_result['color']
 
@@ -291,7 +291,7 @@ def test_bumpfee_no_tpc_change(rbf_node, peer_node, signblockprivkey_wif):
     sync_mempools((rbf_node, peer_node))
 
     # Issue 100 tokens.
-    seed_utxo = next(u for u in rbf_node.listunspent() if u.get('token') == 'TPC')
+    seed_utxo = max((u for u in rbf_node.listunspent() if u.get('token') == 'TPC'), key=lambda u: u['amount'])
     issue_result = rbf_node.issuetoken(2, 100, seed_utxo['txid'], seed_utxo['vout'])
     color = issue_result['color']
     sync_mempools((rbf_node, peer_node))
