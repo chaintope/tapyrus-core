@@ -120,7 +120,7 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
             return Result::WALLET_ERROR;
         }
         std::vector<COutput> vAvailableCoins;
-        wallet->AvailableCoins(vAvailableCoins, true, nullptr);
+        wallet->AvailableCoins(vAvailableCoins, true, &coin_control);
         for (const auto& out : vAvailableCoins) {
             if (!out.fSpendable) continue;
             const CTxOut& txout = out.tx->tx->vout[out.i];
@@ -130,9 +130,11 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
             for (const auto& vin : wtx.tx->vin)
                 if (vin.prevout == op) { alreadyIn = true; break; }
             if (alreadyIn) continue;
-            newInputOp   = op;
-            newInputValue = txout.nValue;
-            break;
+            // Keep the largest TPC UTXO to maximise the chance of covering the fee delta.
+            if (txout.nValue > newInputValue) {
+                newInputOp    = op;
+                newInputValue = txout.nValue;
+            }
         }
         if (newInputOp.IsNull()) {
             errors.push_back("Cannot bump fee: no available TPC UTXO to add as new input");
@@ -140,9 +142,19 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
         }
     }
 
+    // Build the candidate transaction first so that CalculateMaximumSignedTxSize accounts for
+    // any new input and placeholder change output when there is no TPC change output.
+    bool rbf = coin_control.m_signal_bip125_rbf.get_value_or(wallet->m_signal_rbf);
+    mtx = CMutableTransaction{*wtx.tx};
+    if (nOutput == -1) {
+        mtx.vin.push_back(CTxIn(newInputOp, CScript(), rbf ? MAX_BIP125_RBF_SEQUENCE : 0xfffffffe));
+        // Placeholder change output with full input value; corrected after fee delta is computed.
+        mtx.vout.push_back(CTxOut(newInputValue, GetScriptForDestination(coin_control.destChange)));
+    }
+
     // Calculate the expected size of the new transaction.
     int64_t txSize = GetTransactionSize(*(wtx.tx));
-    const int64_t maxNewTxSize = CalculateMaximumSignedTxSize(*wtx.tx, wallet);
+    const int64_t maxNewTxSize = CalculateMaximumSignedTxSize(CTransaction(mtx), wallet);
     if (maxNewTxSize < 0) {
         errors.push_back("Transaction contains inputs that cannot be signed");
         return Result::INVALID_ADDRESS_OR_KEY;
@@ -217,7 +229,6 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
 
     CAmount nDelta = new_fee - old_fee;
     assert(nDelta > 0);
-    mtx = CMutableTransaction{*wtx.tx};
 
     if (nOutput != -1) {
         // Reduce the existing TPC change output to cover the fee delta.
@@ -233,26 +244,23 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
             mtx.vout.erase(mtx.vout.begin() + nOutput);
         }
     } else {
-        // Add the new TPC input and create a change output for the surplus.
-        bool rbf = coin_control.m_signal_bip125_rbf.get_value_or(wallet->m_signal_rbf);
-        mtx.vin.push_back(CTxIn(newInputOp, CScript(), rbf ? MAX_BIP125_RBF_SEQUENCE : 0xfffffffe));
+        // Correct the placeholder change output (last output) with the actual surplus.
         if (newInputValue < nDelta) {
             errors.push_back("Cannot bump fee: new TPC input insufficient to cover fee delta");
             return Result::WALLET_ERROR;
         }
         CAmount changeValue = newInputValue - nDelta;
-        CScript changeScript = GetScriptForDestination(coin_control.destChange);
-        CTxOut  changeOut(changeValue, changeScript);
-        if (changeValue > GetDustThreshold(changeOut, GetDiscardRate(*wallet, ::feeEstimator))) {
-            mtx.vout.push_back(changeOut);
-        } else {
+        CTxOut& changeOut = mtx.vout.back();
+        changeOut.nValue = changeValue;
+        if (changeValue <= GetDustThreshold(changeOut, GetDiscardRate(*wallet, ::feeEstimator))) {
             wallet->WalletLogPrintf("Bumping fee: discarding dust change from new TPC input\n");
             new_fee += changeValue;
+            mtx.vout.pop_back();
         }
     }
 
     // Mark new tx not replaceable, if requested.
-    if (!coin_control.m_signal_bip125_rbf.get_value_or(wallet->m_signal_rbf)) {
+    if (!rbf) {
         for (auto& input : mtx.vin) {
             if (input.nSequence < 0xfffffffe) input.nSequence = 0xfffffffe;
         }

@@ -74,6 +74,7 @@ class BumpFeeTest(BitcoinTestFramework):
         test_unconfirmed_not_spendable(rbf_node, rbf_node_address, self.signblockprivkey, self.signblockprivkey_wif)
         test_bumpfee_metadata(rbf_node, dest_address)
         test_bumpfee_preserves_colored_token_balance(rbf_node, peer_node, self.signblockprivkey_wif)
+        test_bumpfee_no_tpc_change(rbf_node, peer_node, self.signblockprivkey_wif)
         test_locked_wallet_fails(rbf_node, dest_address)
         self.log.info("Success")
 
@@ -280,6 +281,74 @@ def test_bumpfee_preserves_colored_token_balance(rbf_node, peer_node, signblockp
     sync_mempools((rbf_node, peer_node))
 
     # Token balance must still be 100 (60 sent-to-self + 40 change).
+    assert_equal(rbf_node.getwalletinfo()['balance'][color], 100)
+
+
+def test_bumpfee_no_tpc_change(rbf_node, peer_node, signblockprivkey_wif):
+    """Regression for H3: bumpfee on a colored transfer that has no TPC change output
+    must add a new TPC input via the fAllowOtherInputs fallback path."""
+    rbf_node.generate(1, signblockprivkey_wif)
+    sync_mempools((rbf_node, peer_node))
+
+    # Issue 100 tokens.
+    seed_utxo = next(u for u in rbf_node.listunspent() if u.get('token') == 'TPC')
+    issue_result = rbf_node.issuetoken(2, 100, seed_utxo['txid'], seed_utxo['vout'])
+    color = issue_result['color']
+    sync_mempools((rbf_node, peer_node))
+    peer_node.generate(1, signblockprivkey_wif)
+    sync_mempools((rbf_node, peer_node))
+
+    # Create a small TPC UTXO that will be consumed entirely as fee in the colored transfer.
+    small_tpc_addr = rbf_node.getnewaddress()
+    small_tpc_txid = rbf_node.sendtoaddress(small_tpc_addr, Decimal("0.00005"))
+    sync_mempools((rbf_node, peer_node))  # ensure peer_node sees the tx before mining
+    peer_node.generate(1, signblockprivkey_wif)
+    sync_mempools((rbf_node, peer_node))
+
+    # Locate the two UTXOs to spend.
+    token_utxo = next(u for u in rbf_node.listunspent() if u.get('token') == color)
+    # Use getrawtransaction to find the vout index for the small TPC output by address.
+    raw_small = rbf_node.getrawtransaction(small_tpc_txid, True)
+    small_tpc_vout_idx = next(
+        v['n'] for v in raw_small['vout']
+        if small_tpc_addr in v.get('scriptPubKey', {}).get('addresses', [])
+    )
+    small_tpc_utxo = {'txid': small_tpc_txid, 'vout': small_tpc_vout_idx}
+
+    # Build a colored transfer with no TPC change output: fee = entire small TPC input.
+    colored_addr = rbf_node.getnewaddress("", color)
+    rawtx = rbf_node.createrawtransaction(
+        inputs=[
+            {'txid': token_utxo['txid'], 'vout': token_utxo['vout'],
+             'sequence': BIP125_SEQUENCE_NUMBER},
+            {'txid': small_tpc_utxo['txid'], 'vout': small_tpc_utxo['vout'],
+             'sequence': BIP125_SEQUENCE_NUMBER},
+        ],
+        outputs=[{colored_addr: 100}],
+    )
+    signed = rbf_node.signrawtransactionwithwallet(rawtx, [], "ALL", SCHEME)
+    assert signed['complete'], "Failed to sign colored transfer with no TPC change"
+    orig_txid = rbf_node.sendrawtransaction(signed['hex'])
+    assert orig_txid in rbf_node.getrawmempool()
+
+    sync_mempools((rbf_node, peer_node))
+
+    # Capture original vin count before bumpfee replaces the tx in the mempool.
+    orig_decoded = rbf_node.getrawtransaction(orig_txid, True)
+    orig_vin_count = len(orig_decoded['vin'])
+
+    # bumpfee must succeed by adding a new TPC input (fAllowOtherInputs fallback).
+    bumped = rbf_node.bumpfee(orig_txid)
+    assert_equal(bumped['errors'], [])
+
+    bumped_decoded = rbf_node.getrawtransaction(bumped['txid'], True)
+    assert_greater_than(len(bumped_decoded['vin']), orig_vin_count)
+
+    # Mine and verify token balance is fully preserved.
+    sync_mempools((rbf_node, peer_node))
+    peer_node.generate(1, signblockprivkey_wif)
+    sync_mempools((rbf_node, peer_node))
+
     assert_equal(rbf_node.getwalletinfo()['balance'][color], 100)
 
 

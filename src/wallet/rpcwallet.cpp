@@ -3295,6 +3295,9 @@ static UniValue bumpfee(const JSONRPCRequest& request)
     // covered the fee exactly), feebumper needs to add a fresh TPC input.
     // Signal this with fAllowOtherInputs and supply a change destination so
     // feebumper can route the surplus back to the wallet.
+    // reservekey lives here so its RAII destructor returns the key to the pool
+    // on any feebumper failure path (KeepKey is deferred until success).
+    CReserveKey bumpfeeReserveKey(pwallet);
     {
         const CWalletTx* wtx = pwallet->GetWalletTx(hash);
         if (wtx) {
@@ -3308,11 +3311,10 @@ static UniValue bumpfee(const JSONRPCRequest& request)
             }
             if (hasColoredOutput && !hasTpcChange) {
                 coin_control.fAllowOtherInputs = true;
-                CReserveKey reservekey(pwallet);
                 CPubKey pubkey;
-                if (reservekey.GetReservedKey(pubkey, true)) {
+                if (bumpfeeReserveKey.GetReservedKey(pubkey, true)) {
                     coin_control.destChange = pubkey.GetID();
-                    reservekey.KeepKey();
+                    // KeepKey() is called only after feebumper succeeds below.
                 }
             }
         }
@@ -3342,6 +3344,9 @@ static UniValue bumpfee(const JSONRPCRequest& request)
                 break;
         }
     }
+
+    // Feebumper succeeded — commit the reserved change key to the keypool.
+    bumpfeeReserveKey.KeepKey();
 
     // sign bumped transaction
     if (!feebumper::SignTransaction(pwallet, mtx)) {
