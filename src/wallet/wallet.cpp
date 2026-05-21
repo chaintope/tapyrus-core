@@ -16,6 +16,7 @@
 #include <key.h>
 #include <key_io.h>
 #include <keystore.h>
+#include <softforkmanager.h>
 #include <validation.h>
 #include <net.h>
 #include <policy/fees.h>
@@ -2554,7 +2555,9 @@ bool CWallet::SignTransaction(CMutableTransaction &tx)
         const CScript& scriptPubKey = mi->second.tx->vout[input.prevout.n].scriptPubKey;
         const CAmount& amount = mi->second.tx->vout[input.prevout.n].nValue;
         SignatureData sigdata;
-        if (!ProduceSignature(*this, MutableTransactionSignatureCreator(&tx, nIn, amount, SIGHASH_ALL), scriptPubKey, sigdata)) {
+        unsigned int signVerifyFlags = STANDARD_SCRIPT_VERIFY_FLAGS;
+        { LOCK(cs_main); if (GetSoftForkManager().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, chainActive.Height() + 1)) signVerifyFlags |= SCRIPT_VERIFY_CP2SH_COLORED; }
+        if (!ProduceSignature(*this, MutableTransactionSignatureCreator(&tx, nIn, amount, SIGHASH_ALL), scriptPubKey, sigdata, signVerifyFlags)) {
             return false;
         }
         UpdateInput(input, sigdata);
@@ -3074,8 +3077,9 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
             {
                 const CScript& scriptPubKey = coin.txout.scriptPubKey;
                 SignatureData sigdata;
-
-                if (!ProduceSignature(*this, MutableTransactionSignatureCreator(&txNew, nIn, coin.txout.nValue, SIGHASH_ALL), scriptPubKey, sigdata))
+                unsigned int signVerifyFlags = STANDARD_SCRIPT_VERIFY_FLAGS;
+                { LOCK(cs_main); if (GetSoftForkManager().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, chainActive.Height() + 1)) signVerifyFlags |= SCRIPT_VERIFY_CP2SH_COLORED; }
+                if (!ProduceSignature(*this, MutableTransactionSignatureCreator(&txNew, nIn, coin.txout.nValue, SIGHASH_ALL), scriptPubKey, sigdata, signVerifyFlags))
                 {
                     strFailReason = _("Signing transaction failed");
                     return false;

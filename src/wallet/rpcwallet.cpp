@@ -4280,12 +4280,12 @@ UniValue IssueReissuableToken(CWallet* const pwallet, const std::string& script,
     if (!pwallet->IsLocked())
         pwallet->TopUpKeyPool();
 
-    // Reuse an existing CColorScriptID for this color if one is already in the
+    // Reuse an existing CColorKeyID for this color if one is already in the
     // address book (happens on reissue). This prevents duplicate table entries.
     CTxDestination colorDest;
     bool foundExisting = false;
     for (const auto& entry : pwallet->mapAddressBook) {
-        const CColorScriptID* existing = std::get_if<CColorScriptID>(&entry.first);
+        const CColorKeyID* existing = std::get_if<CColorKeyID>(&entry.first);
         if (existing && existing->color == coin_control.m_colorId) {
             colorDest = *existing;
             foundExisting = true;
@@ -4300,9 +4300,7 @@ UniValue IssueReissuableToken(CWallet* const pwallet, const std::string& script,
             throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
 
         CKeyID key_id = newKey.GetID();
-        CScript redeemScript = GetScriptForDestination(key_id);
-        CColorScriptID colorscriptid(CScriptID(redeemScript), coin_control.m_colorId);
-        colorDest = CColorScriptID(colorscriptid, coin_control.m_colorId);
+        colorDest = CColorKeyID(key_id, coin_control.m_colorId);
     }
 
     // Verify the wallet is still unlocked before committing any transaction.
@@ -4413,9 +4411,7 @@ UniValue IssueToken(CWallet* const pwallet, CAmount tokenValue, CCoinControl& co
     }
 
     CKeyID key_id = newKey.GetID();
-    CScript redeemScript = GetScriptForDestination(key_id);
-    CColorScriptID colorscriptid(CScriptID(redeemScript), coin_control.m_colorId);
-    CTxDestination colorDest = CColorScriptID(colorscriptid, coin_control.m_colorId);
+    CTxDestination colorDest = CColorKeyID(key_id, coin_control.m_colorId);
 
     CScript scriptpubkey = GetScriptForDestination(colorDest);
     pwallet->SetAddressBook(colorDest, coin_control.m_colorId.toHexString(), "receive");
