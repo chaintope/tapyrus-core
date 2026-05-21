@@ -235,5 +235,44 @@ BOOST_FIXTURE_TEST_CASE(test_creating_colored_transaction, TestWalletSetup)
     BOOST_CHECK_EQUAL(wallet->GetBalance()[cid], 1);
 }
 
+// Regression test:
+// IsColoredOutPointWith must guard against an out-of-range vout index without crashing.
+BOOST_FIXTURE_TEST_CASE(IsColoredOutPointWith_bounds_check, TestWalletSetup)
+{
+    ImportCoin(10 * COIN);
+    ColorIdentifier cid;
+    BOOST_REQUIRE(IssueNonReissunableColoredCoin(100 * CENT, cid));
+
+    // Locate the issuance tx in the wallet so we have a real hash and size.
+    uint256 issueTxHash;
+    uint32_t issueTxVoutSize = 0;
+    {
+        LOCK(wallet->cs_wallet);
+        for (const auto& entry : wallet->mapWallet) {
+            for (const auto& out : entry.second.tx->vout) {
+                if (GetColorIdFromScript(out.scriptPubKey) == cid) {
+                    issueTxHash     = entry.second.tx->GetHashMalFix();
+                    issueTxVoutSize = (uint32_t)entry.second.tx->vout.size();
+                    break;
+                }
+            }
+            if (!issueTxHash.IsNull()) break;
+        }
+    }
+    BOOST_REQUIRE(!issueTxHash.IsNull());
+
+    // Unknown txid: wallet lookup returns null → must return false, not crash.
+    COutPoint unknownTx(
+        uint256S("deadbeef00000000000000000000000000000000000000000000000000000000"), 0);
+    BOOST_CHECK(!wallet->IsColoredOutPointWith(unknownTx, cid));
+
+    // Valid txid, n == vout.size(): exactly at the boundary → must return false.
+    COutPoint atBoundary(issueTxHash, issueTxVoutSize);
+    BOOST_CHECK(!wallet->IsColoredOutPointWith(atBoundary, cid));
+
+    // Valid txid, n well beyond vout.size(): same guard covers larger offsets.
+    COutPoint pastBoundary(issueTxHash, issueTxVoutSize + 100);
+    BOOST_CHECK(!wallet->IsColoredOutPointWith(pastBoundary, cid));
+}
 
 BOOST_AUTO_TEST_SUITE_END()

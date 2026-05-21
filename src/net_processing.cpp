@@ -48,6 +48,8 @@ static constexpr int64_t ORPHAN_TX_EXPIRE_TIME = 20 * 60;
 static constexpr int64_t ORPHAN_TX_EXPIRE_INTERVAL = 5 * 60;
 /** How long a transaction has to be in the mempool before it can unconditionally be relayed (even when not in mapRelay). */
 static constexpr std::chrono::seconds UNCONDITIONAL_RELAY_DELAY = std::chrono::minutes{2};
+/** Maximum number of entries in mapRelay. Oldest entries are evicted when this is reached. */
+static constexpr size_t MAX_RELAY_MAP_SIZE = 50000;
 /** Headers download timeout expressed in microseconds
  *  Timeout = base + per_header * (expected number of headers) */
 static constexpr int64_t HEADERS_DOWNLOAD_TIMEOUT_BASE = 15 * 60 * 1000000; // 15 minutes
@@ -3765,6 +3767,12 @@ bool PeerLogicValidation::SendMessages(CNode* pto)
                         // Expire old relay messages
                         while (!vRelayExpiration.empty() && vRelayExpiration.front().first < nNow)
                         {
+                            mapRelay.erase(vRelayExpiration.front().second);
+                            vRelayExpiration.pop_front();
+                        }
+
+                        // Enforce size cap: evict oldest entries if at limit
+                        while (mapRelay.size() >= MAX_RELAY_MAP_SIZE && !vRelayExpiration.empty()) {
                             mapRelay.erase(vRelayExpiration.front().second);
                             vRelayExpiration.pop_front();
                         }
