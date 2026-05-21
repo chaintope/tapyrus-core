@@ -703,9 +703,6 @@ class FederationManagementTest(BitcoinTestFramework):
         tip56 = self.tip  # B56, height=56, active key=aggpubkeys[5]
 
         # B57_rot: rotation to aggpubkeys[6], signed by the current active key aggprivkey[5].
-        # XFieldChange stores (aggpubkeys[6], height_applicable=58) — the new key is first
-        # required for the block AT height 58.  B57_rot itself (at height 57) is still
-        # verified with Get(AGGPUBKEY, 57) = aggpubkeys[5].
         block_time += 10
         b57_rot = create_block(int(tip56, 16), create_coinbase(57), block_time, self.aggpubkeys[6])
         b57_rot.solve(self.aggprivkey[5])

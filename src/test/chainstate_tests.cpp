@@ -25,6 +25,8 @@
 #include <primitives/block.h>
 #include <primitives/transaction.h>
 #include <file_io.h>
+#include <xfieldhistory.h>
+#include <key.h>
 
 #include <boost/test/unit_test.hpp>
 
@@ -657,6 +659,59 @@ BOOST_AUTO_TEST_CASE(block_sequence_id_edge_cases)
     if (pindexHeader) {
         BOOST_CHECK(pindexHeader->nSequenceId == 0);
         BOOST_CHECK(pindexHeader->nSequenceId < pindex1->nSequenceId);
+    }
+}
+
+/**
+ * Regression test: 
+ * CheckBlockHeader(nHeight=-1) must look up the
+ * *latest* aggpubkey (UINT32_MAX semantics), not the genesis key (height-0).
+ * After a key rotation any header signed by the
+ * post-rotation key would fail with bad-proof instead of the expected
+ * prev-blk-not-found.
+ */
+BOOST_AUTO_TEST_CASE(check_block_header_orphan_uses_latest_aggpubkey)
+{
+    // Generate a fresh key to represent the post-rotation aggpubkey.
+    CKey rotatedKey;
+    rotatedKey.MakeNewKey(true);
+    CPubKey rotatedPubKey = rotatedKey.GetPubKey();
+
+    // CTempXFieldHistory copies the global history (genesis key only) then
+    // lets us append a rotation entry without touching the real history.
+    CTempXFieldHistory tempHistory;
+    tempHistory.Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY,
+                    XFieldChange(XFieldAggPubKey(rotatedPubKey), 5, uint256()));
+
+    // Build a block header with an unknown prev (simulates the orphan path in
+    // AcceptBlockHeader) and sign it with the post-rotation key.
+    CBlockHeader header;
+    header.nFeatures     = CBlock::TAPYRUS_BLOCK_FEATURES;
+    header.hashPrevBlock =
+        uint256S("deadbeef00000000000000000000000000000000000000000000000000000001");
+    header.nTime = GetTime();
+    header.xfield.clear();  // TAPYRUS_XFIELDTYPES::NONE — no xfield change in this header
+
+    std::vector<unsigned char> sig;
+    BOOST_REQUIRE(rotatedKey.Sign_Schnorr(header.GetHashForSign(), sig));
+    BOOST_REQUIRE(header.AbsorbBlockProof(sig, rotatedPubKey));
+
+    // CheckBlockHeader with nHeight=-1 must succeed: UINT32_MAX → latest entry
+    // → rotated key → valid Schnorr signature.
+    {
+        CValidationState state;
+        BOOST_CHECK(CheckBlockHeader(header, state, &tempHistory, -1));
+    }
+
+    // AcceptBlockHeader must reject for "prev-blk-not-found", not "bad-proof".
+    // This confirms the fix: the signature is accepted, then rejected for the
+    // unrelated missing-parent reason.
+    {
+        LOCK(cs_main);
+        CValidationState state;
+        CBlockIndex* pindex = nullptr;
+        g_chainstate.AcceptBlockHeader(header, state, &pindex, &tempHistory);
+        BOOST_CHECK_EQUAL(state.GetRejectReason(), "prev-blk-not-found");
     }
 }
 

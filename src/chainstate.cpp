@@ -247,7 +247,7 @@ int ApplyTxInUndo(Coin&& undo, CCoinsViewCache& view, const COutPoint& out)
 
 /** Undo the effects of this block (with given index) on the UTXO set represented by coins.
  *  When FAILED is returned, view is left in an indeterminate state. */
-DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view)
+DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view, bool fDryRun)
 {
     bool fClean = true;
 
@@ -712,6 +712,11 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     }
 
     // Stage new issuances only after all other disk writes have succeeded.
+    // Placing this before WriteUndoDataForBlock would leave colorIds permanently
+    // in the chainstate DB if the undo write failed: ConnectBlock would return
+    // false without state.IsInvalid(), the block would not be marked
+    // BLOCK_FAILED_VALID, and the next ActivateBestChain retry would be rejected
+    // with bad-txns-colorid-already-issued, permanently poisoning that block.
     // CommitToBatch will write them to LevelDB atomically with DB_BEST_BLOCK
     // inside the next view.Flush() → BatchWrite call, preventing a crash
     // between the colorId write and the UTXO flush from permanently poisoning
@@ -852,7 +857,7 @@ bool CChainState::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, co
         CXFieldHistory xfieldHistory;
         if(blockConnecting.xfield.IsValid()
             && pindexNew->nHeight > 0
-            && IsXFieldNew(blockConnecting.xfield, &xfieldHistory))
+            && IsXFieldNew(blockConnecting.xfield, &xfieldHistory, static_cast<uint32_t>(pindexNew->nHeight - 1)))
         {
             XFieldChange newChange(blockConnecting.xfield.xfieldValue, pindexNew->nHeight + 1, blockConnecting.GetHash());
             xfieldHistory.Add(blockConnecting.xfield.xfieldType, newChange);
@@ -1396,7 +1401,7 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
     if(pxfieldHistory
         && block.xfield.IsValid()
         && pindex->nHeight > 0
-        && IsXFieldNew(block.xfield, pxfieldHistory))
+        && IsXFieldNew(block.xfield, pxfieldHistory, static_cast<uint32_t>(pindex->nHeight - 1)))
     {
         XFieldChange newChange(block.xfield.xfieldValue, pindex->nHeight + 1, block.GetHash());
         pxfieldHistory->Add(block.xfield.xfieldType, newChange);

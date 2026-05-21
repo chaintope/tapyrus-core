@@ -503,16 +503,18 @@ class MempoolLimitTest(BitcoinTestFramework):
         txid = node.sendrawtransaction(txFS['hex'] ,True)
         assert(txid in node.getrawmempool())
 
-        # fill the mempool with large transactions
-        self.fill_mempool(node, utxos, relayfee)
+        # fill the mempool with large transactions at 2x relayfee so txid (at 1x)
+        # is the cheapest transaction and is evicted first when the pool overflows.
+        fill_feerate = relayfee * 2
+        self.fill_mempool(node, utxos, fill_feerate)
         assert(txid in node.getrawmempool())
 
         mempoolinfo = node.getmempoolinfo()
         size_needed = mempoolinfo['maxmempool'] - mempoolinfo['usage'] - tx_size(tx_o)
 
         # send one last transaction that will fill the rest of the mempool
-        utxo = [utxo for utxo in node.listunspent()if utxo['amount'] >  relayfee * 10000][0]
-        tx = self.create_tx_with_large_script(utxo, relayfee, size_needed)
+        utxo = [utxo for utxo in node.listunspent()if utxo['amount'] >  fill_feerate * 10000][0]
+        tx = self.create_tx_with_large_script(utxo, fill_feerate, size_needed)
         signresult = node.signrawtransactionwithwallet(ToHex(tx))
         node.sendrawtransaction(signresult["hex"], True)
 

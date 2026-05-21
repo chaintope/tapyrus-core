@@ -652,6 +652,18 @@ UniValue importwallet(const JSONRPCRequest& request)
                    pwallet->m_script_metadata[id].nCreateTime = birth_time;
                    nTimeBegin = std::min(nTimeBegin, birth_time);
                }
+            } else {
+               CTxDestination dest = DecodeDestination(vstr[0]);
+               if (std::holds_alternative<CColorKeyID>(dest) || std::holds_alternative<CColorScriptID>(dest)) {
+                   std::string strLabel;
+                   for (unsigned int nStr = 1; nStr < vstr.size(); nStr++) {
+                       if (vstr[nStr].front() == '#')
+                           break;
+                       if (vstr[nStr].substr(0, 6) == "label=")
+                           strLabel = DecodeDumpString(vstr[nStr].substr(6));
+                   }
+                   pwallet->SetAddressBook(dest, strLabel, "receive");
+               }
             }
         }
         file.close();
@@ -830,6 +842,13 @@ UniValue dumpwallet(const JSONRPCRequest& request)
         if(pwallet->GetCScript(scriptid, script)) {
             file << strprintf("%s %s script=1", HexStr(script.begin(), script.end()), create_time);
             file << strprintf(" # addr=%s\n", address);
+        }
+    }
+    for (const auto& entry : pwallet->mapAddressBook) {
+        if (std::holds_alternative<CColorKeyID>(entry.first) || std::holds_alternative<CColorScriptID>(entry.first)) {
+            file << strprintf("%s label=%s\n",
+                EncodeDestination(entry.first),
+                EncodeDumpString(entry.second.name));
         }
     }
     file << "\n";

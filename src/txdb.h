@@ -111,6 +111,7 @@ public:
     /** Connect the issued-colorId state object.  Call before ReplayBlocks. */
     void SetColorIdState(CIssuedColorIds* state) { m_colorid_state = state; }
 
+
     bool LoadIssuedColorIds(std::set<ColorIdentifier>& colorIds);
 };
 

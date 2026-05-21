@@ -91,9 +91,9 @@ int32_t CXFieldHistoryMap::GetReorgHeight()
     return *std::max_element(changeHeights.begin(), changeHeights.end());
 }
 
-bool IsXFieldNew(const CXField& xfield, CXFieldHistoryMap* pxfieldHistory)
+bool IsXFieldNew(const CXField& xfield, CXFieldHistoryMap* pxfieldHistory, uint32_t parentHeight)
 {
-    IsXFieldLastInHistoryVisitor checkVisitor(pxfieldHistory);
+    IsXFieldLastInHistoryVisitor checkVisitor(pxfieldHistory, parentHeight);
     return xfield.IsValid()
           && std::find(XFIELDTYPES_INIT_LIST.begin(), XFIELDTYPES_INIT_LIST.end(), xfield.xfieldType) != XFIELDTYPES_INIT_LIST.end()
           && !std::visit(checkVisitor, xfield.xfieldValue);
