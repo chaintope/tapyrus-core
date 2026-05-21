@@ -551,15 +551,12 @@ target_compile_definitions(core_interface INTERFACE ${DEPENDS_COMPILE_DEFINITION
 target_compile_definitions(core_interface_relwithdebinfo INTERFACE ${DEPENDS_COMPILE_DEFINITIONS_RELWITHDEBINFO})
 target_compile_definitions(core_interface_debug INTERFACE ${DEPENDS_COMPILE_DEFINITIONS_DEBUG})
 
-# Set the CP2SH colored softfork activation height for test builds so that
-# functional tests can exercise the pre/post-activation transition without
-# mining hundreds of thousands of blocks.  Defaults to 120 whenever tests are
-# enabled (native builds on all platforms).  Can be overridden via
-# -DCP2SH_ACTIVATION_TEST_HEIGHT=<n>.  Not set when ENABLE_TESTS is OFF (e.g.
-# cross-compiled release builds).
-if(ENABLE_TESTS AND NOT DEFINED CP2SH_ACTIVATION_TEST_HEIGHT)
-  set(CP2SH_ACTIVATION_TEST_HEIGHT 120)
-endif()
+# CI-only: override the CP2SH colored softfork activation height so functional
+# tests can exercise the pre/post-activation transition without mining hundreds
+# of thousands of blocks.  Must be passed explicitly (e.g. by CI via
+# -DCP2SH_ACTIVATION_TEST_HEIGHT=120).  Never set automatically — doing so
+# would activate the softfork at block 120 on all networks including testnet,
+# breaking IBD of any historical chain that has CP2SH colored outputs.
 if(DEFINED CP2SH_ACTIVATION_TEST_HEIGHT)
   target_compile_definitions(core_interface INTERFACE
     CP2SH_ACTIVATION_TEST_HEIGHT=${CP2SH_ACTIVATION_TEST_HEIGHT}
