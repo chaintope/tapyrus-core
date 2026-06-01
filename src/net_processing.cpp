@@ -1389,8 +1389,15 @@ void static ProcessGetData(CNode* pfrom, CConnman* connman, const std::atomic<bo
                 auto txinfo = mempool.info(txin.prevout.hashMalFix);
                 if (txinfo.tx && txinfo.nTime > (now - UNCONDITIONAL_RELAY_DELAY).count()) {
                     // Relaying a transaction with a recent but unconfirmed parent.
-                    LOCK(pfrom->cs_inventory);
-                    if (!pfrom->filterInventoryKnown.contains(txin.prevout.hashMalFix)) {
+                    // Check filterInventoryKnown under cs_inventory, then release it before
+                    // acquiring cs_main to avoid cs_inventory→cs_main / cs_main→cs_inventory
+                    // lock-order inversion with SendMessages (which takes cs_main then cs_inventory).
+                    bool needsAnnounce;
+                    {
+                        LOCK(pfrom->cs_inventory);
+                        needsAnnounce = !pfrom->filterInventoryKnown.contains(txin.prevout.hashMalFix);
+                    }
+                    if (needsAnnounce) {
                         LOCK(cs_main);
                         State(pfrom->GetId())->m_recently_announced_invs.insert(txin.prevout.hashMalFix);
                     }

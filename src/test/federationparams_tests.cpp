@@ -3,6 +3,8 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <federationparams.h>
+#include <softforkmanager.h>
+#include <script/interpreter.h>
 #include <script/sigcache.h>
 #include <test/test_tapyrus.h>
 #include <test/test_keys_helper.h>
@@ -159,6 +161,27 @@ BOOST_AUTO_TEST_CASE(create_genesis_block_one_publickey)
     const uint256 blockHash = baseChainParams->GenesisBlock().GetHashForSign();
 
     BOOST_CHECK(aggPubkey.Verify_Schnorr(blockHash, baseChainParams->GenesisBlock().proof));
+}
+
+// Standalone test — uses CSoftForkManager directly, no FederationParams setup required.
+BOOST_AUTO_TEST_CASE(softfork_manager_testnet_activation_heights)
+{
+    // Mirror the production registration for Chaintope testnet (networkId 1939510133).
+    CSoftForkManager sfm;
+    sfm.Register(CSoftFork(1939510133u, SCRIPT_VERIFY_CP2SH_COLORED,
+                           HeightActivation(TESTNET_CP2SH_ACTIVATION_HEIGHT)));
+
+    // One block before activation: not yet active.
+    BOOST_CHECK(!sfm.IsActive(1939510133u, SCRIPT_VERIFY_CP2SH_COLORED, TESTNET_CP2SH_ACTIVATION_HEIGHT - 1));
+    BOOST_CHECK_EQUAL(sfm.GetScriptFlags(1939510133u, TESTNET_CP2SH_ACTIVATION_HEIGHT - 1), 0u);
+
+    // At activation height: active.
+    BOOST_CHECK(sfm.IsActive(1939510133u, SCRIPT_VERIFY_CP2SH_COLORED, TESTNET_CP2SH_ACTIVATION_HEIGHT));
+    BOOST_CHECK_EQUAL(sfm.GetScriptFlags(1939510133u, TESTNET_CP2SH_ACTIVATION_HEIGHT),
+                      static_cast<unsigned>(SCRIPT_VERIFY_CP2SH_COLORED));
+
+    // Unregistered network: IsActive returns true (active from genesis by default).
+    BOOST_CHECK(sfm.IsActive(1u, SCRIPT_VERIFY_CP2SH_COLORED, 0));
 }
 
 BOOST_AUTO_TEST_SUITE_END()

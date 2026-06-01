@@ -112,6 +112,37 @@ void testTx(TestChainSetup* setup, const CTransactionRef tx, bool success, std::
     }
 }
 
+#ifdef CP2SH_ACTIVATION_TEST_HEIGHT
+// Verifies that a transaction is admitted to the mempool without mining it into
+// a block.  Used for pre-activation checks: the softfork is not yet active so
+// attack scripts pass CheckColorIdentifierValidity; the UTXO remains unspent so
+// the companion post-activation test can reuse it.
+static void checkMempoolAdmitted(const CTransactionRef& tx)
+{
+    CTxMempoolAcceptanceOptions opt;
+    opt.flags = MempoolAcceptanceFlags::BYPASSS_LIMITS;
+    { LOCK(cs_main); BOOST_CHECK(AcceptToMemoryPool(tx, opt)); }
+    BOOST_CHECK(opt.state.IsValid());
+}
+
+// Fixture that extends TestChainSetup by mining empty blocks until the chain
+// reaches CP2SH_ACTIVATION_TEST_HEIGHT, making SCRIPT_VERIFY_CP2SH_COLORED
+// active for all subsequent mempool and block validation calls.
+// The initial five coinbase UTXOs from TestChainSetup are unspent and mature
+// at activation height (100-block maturity rule is satisfied by height 120).
+struct TestChainSetupPostActivation : public TestChainSetup {
+    TestChainSetupPostActivation() : TestChainSetup() {
+        CScript scriptPubKey = CScript() << ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG;
+        int current;
+        { LOCK(cs_main); current = chainActive.Height(); }
+        for (int i = current; i < CP2SH_ACTIVATION_TEST_HEIGHT; i++) {
+            std::vector<CMutableTransaction> noTxns;
+            CreateAndProcessBlock(noTxns, scriptPubKey);
+        }
+    }
+};
+#endif
+
 void Sign(std::vector<unsigned char>& vchSig, CKey& signKey, const CScript& scriptPubKey, CMutableTransaction& inTx, int inIndex, CMutableTransaction& outTx, int outIndex)
 {
     uint256 hash = SignatureHash(scriptPubKey, outTx, inIndex, SIGHASH_ALL, outTx.vout[outIndex].nValue, SigVersion::BASE);
@@ -159,15 +190,63 @@ BOOST_FIXTURE_TEST_CASE(tx_invalid_token_issue, TestChainSetup)
     tokenIssueTx.vout[0].scriptPubKey = scriptPubKey;
 
     Sign(vchSig, key, coinbaseSpendTx.vout[0].scriptPubKey, coinbaseSpendTx, 0, tokenIssueTx, 0);
-    std::vector<unsigned char> vchPubKey0(pubkey0.begin(), pubkey0.end());
     tokenIssueTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey;
 
+#ifdef CP2SH_ACTIVATION_TEST_HEIGHT
+    // Pre-activation: softfork not active → attack script admitted to mempool.
+    checkMempoolAdmitted(MakeTransactionRef(tokenIssueTx));
+#else
     testTx(this, MakeTransactionRef(tokenIssueTx), false, "bad-txns-nonstandard-opcolor");
+#endif
 
     //test colorid in coinbase utxo
     //"CreateNewBlock: TestBlockValidity failed: bad-cb-issuetoken, coinbase cannot issue tokens"
     BOOST_CHECK_THROW(CreateAndProcessBlock({}, scriptPubKey), std::runtime_error);
 }
+
+#ifdef CP2SH_ACTIVATION_TEST_HEIGHT
+BOOST_FIXTURE_TEST_CASE(tx_invalid_token_issue_post_activation, TestChainSetupPostActivation)
+{
+    const unsigned char vchKey[32] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0};
+    CKey key;
+    key.Set(vchKey, vchKey + 32, true);
+    CPubKey pubkey = key.GetPubKey();
+    std::vector<unsigned char> pubkeyHash(20);
+    std::vector<unsigned char> vchPubKey(pubkey.begin(), pubkey.end());
+    CHash160().Write(pubkey.data(), pubkey.size()).Finalize(pubkeyHash.data());
+
+    CMutableTransaction coinbaseSpendTx;
+    coinbaseSpendTx.nFeatures = 1;
+    coinbaseSpendTx.vin.resize(1);
+    coinbaseSpendTx.vout.resize(1);
+    coinbaseSpendTx.vin[0].prevout.hashMalFix = m_coinbase_txns[3]->GetHashMalFix();
+    coinbaseSpendTx.vin[0].prevout.n = 0;
+    coinbaseSpendTx.vout[0].nValue = 100 * CENT;
+    coinbaseSpendTx.vout[0].scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash) << OP_EQUALVERIFY << OP_CHECKSIG;
+
+    std::vector<unsigned char> vchSig;
+    CMutableTransaction coinbaseIn(*m_coinbase_txns[3]);
+    Sign(vchSig, coinbaseKey, m_coinbase_txns[3]->vout[0].scriptPubKey, coinbaseIn, 0, coinbaseSpendTx, 0);
+    coinbaseSpendTx.vin[0].scriptSig = CScript() << vchSig;
+    testTx(this, MakeTransactionRef(coinbaseSpendTx), true);
+
+    CScript scriptPubKey = CScript() << ColorIdentifier().toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash) << OP_EQUALVERIFY << OP_CHECKSIG;
+    CMutableTransaction tokenIssueTx;
+    tokenIssueTx.nFeatures = 1;
+    tokenIssueTx.vin.resize(1);
+    tokenIssueTx.vout.resize(1);
+    tokenIssueTx.vin[0].prevout.hashMalFix = coinbaseSpendTx.GetHashMalFix();
+    tokenIssueTx.vin[0].prevout.n = 0;
+    tokenIssueTx.vout[0].nValue = 100 * CENT;
+    tokenIssueTx.vout[0].scriptPubKey = scriptPubKey;
+
+    Sign(vchSig, key, coinbaseSpendTx.vout[0].scriptPubKey, coinbaseSpendTx, 0, tokenIssueTx, 0);
+    tokenIssueTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey;
+
+    // Post-activation: softfork active → attack script rejected.
+    testTx(this, MakeTransactionRef(tokenIssueTx), false, "bad-txns-nonstandard-opcolor");
+}
+#endif
 
 /*
 Test token type REISSUABLE
@@ -866,8 +945,44 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_swap_color_script, TestChainSetup)
     CMutableTransaction coinbaseIn(*m_coinbase_txns[2]);
     Sign(vchSig, coinbaseKey, m_coinbase_txns[2]->vout[0].scriptPubKey, coinbaseIn, 0, fundTx, 0);
     fundTx.vin[0].scriptSig = CScript() << vchSig;
+#ifdef CP2SH_ACTIVATION_TEST_HEIGHT
+    // Pre-activation: softfork not active → swap-color attack script admitted.
+    checkMempoolAdmitted(MakeTransactionRef(fundTx));
+#else
+    testTx(this, MakeTransactionRef(fundTx), false, "bad-txns-nonstandard-opcolor");
+#endif
+}
+
+#ifdef CP2SH_ACTIVATION_TEST_HEIGHT
+BOOST_FIXTURE_TEST_CASE(tx_mempool_swap_color_script_post_activation, TestChainSetupPostActivation)
+{
+    initKeys();
+
+    ColorIdentifier validCid(CScript() << ToByteVector(pubkey0) << OP_CHECKSIG);
+    std::vector<unsigned char> invalidC4Cid(33);
+    invalidC4Cid[0] = 0xc4;
+    for (int i = 1; i < 33; i++) invalidC4Cid[i] = static_cast<unsigned char>(i);
+
+    CScript swapColorScript;
+    swapColorScript << invalidC4Cid << OP_SWAP << OP_COLOR << OP_DROP << OP_1;
+
+    CMutableTransaction fundTx;
+    fundTx.nFeatures = 1;
+    fundTx.vin.resize(1);
+    fundTx.vout.resize(1);
+    fundTx.vin[0].prevout.hashMalFix = m_coinbase_txns[2]->GetHashMalFix();
+    fundTx.vin[0].prevout.n = 0;
+    fundTx.vout[0].nValue = 100 * CENT;
+    fundTx.vout[0].scriptPubKey = swapColorScript;
+
+    std::vector<unsigned char> vchSig;
+    CMutableTransaction coinbaseIn(*m_coinbase_txns[2]);
+    Sign(vchSig, coinbaseKey, m_coinbase_txns[2]->vout[0].scriptPubKey, coinbaseIn, 0, fundTx, 0);
+    fundTx.vin[0].scriptSig = CScript() << vchSig;
+    // Post-activation: softfork active → swap-color attack script rejected.
     testTx(this, MakeTransactionRef(fundTx), false, "bad-txns-nonstandard-opcolor");
 }
+#endif
 
 /*
  * tx_mempool_altstack_color_script
@@ -924,8 +1039,44 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_altstack_color_script, TestChainSetup)
     CMutableTransaction coinbaseIn(*m_coinbase_txns[4]);
     Sign(vchSig, coinbaseKey, m_coinbase_txns[4]->vout[0].scriptPubKey, coinbaseIn, 0, fundTx, 0);
     fundTx.vin[0].scriptSig = CScript() << vchSig;
+#ifdef CP2SH_ACTIVATION_TEST_HEIGHT
+    // Pre-activation: softfork not active → altstack-color attack script admitted.
+    checkMempoolAdmitted(MakeTransactionRef(fundTx));
+#else
+    testTx(this, MakeTransactionRef(fundTx), false, "bad-txns-nonstandard-opcolor");
+#endif
+}
+
+#ifdef CP2SH_ACTIVATION_TEST_HEIGHT
+BOOST_FIXTURE_TEST_CASE(tx_mempool_altstack_color_script_post_activation, TestChainSetupPostActivation)
+{
+    initKeys();
+
+    ColorIdentifier reissuableCid(CScript() << ToByteVector(pubkey0) << OP_CHECKSIG);
+    COutPoint nftOutpoint(m_coinbase_txns[3]->GetHashMalFix(), 0);
+    ColorIdentifier nftCid(nftOutpoint, TokenTypes::NFT);
+
+    CScript altStackColorScript;
+    altStackColorScript << nftCid.toVector() << OP_TOALTSTACK
+                        << reissuableCid.toVector() << OP_COLOR << OP_FROMALTSTACK;
+
+    CMutableTransaction fundTx;
+    fundTx.nFeatures = 1;
+    fundTx.vin.resize(1);
+    fundTx.vout.resize(1);
+    fundTx.vin[0].prevout.hashMalFix = m_coinbase_txns[4]->GetHashMalFix();
+    fundTx.vin[0].prevout.n = 0;
+    fundTx.vout[0].nValue = 100 * CENT;
+    fundTx.vout[0].scriptPubKey = altStackColorScript;
+
+    std::vector<unsigned char> vchSig;
+    CMutableTransaction coinbaseIn(*m_coinbase_txns[4]);
+    Sign(vchSig, coinbaseKey, m_coinbase_txns[4]->vout[0].scriptPubKey, coinbaseIn, 0, fundTx, 0);
+    fundTx.vin[0].scriptSig = CScript() << vchSig;
+    // Post-activation: softfork active → altstack-color attack script rejected.
     testTx(this, MakeTransactionRef(fundTx), false, "bad-txns-nonstandard-opcolor");
 }
+#endif
 
 /*
  * tx_mempool_drop_decoy_nft_script
@@ -978,8 +1129,43 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_drop_decoy_nft_script, TestChainSetup)
     CMutableTransaction coinbaseIn(*m_coinbase_txns[0]);
     Sign(vchSig, coinbaseKey, m_coinbase_txns[0]->vout[0].scriptPubKey, coinbaseIn, 0, fundTx, 0);
     fundTx.vin[0].scriptSig = CScript() << vchSig;
+#ifdef CP2SH_ACTIVATION_TEST_HEIGHT
+    // Pre-activation: softfork not active → drop-decoy NFT attack script admitted.
+    checkMempoolAdmitted(MakeTransactionRef(fundTx));
+#else
+    testTx(this, MakeTransactionRef(fundTx), false, "bad-txns-nonstandard-opcolor");
+#endif
+}
+
+#ifdef CP2SH_ACTIVATION_TEST_HEIGHT
+BOOST_FIXTURE_TEST_CASE(tx_mempool_drop_decoy_nft_script_post_activation, TestChainSetupPostActivation)
+{
+    initKeys();
+
+    ColorIdentifier reissuableCid(CScript() << ToByteVector(pubkey0) << OP_CHECKSIG);
+    COutPoint nftOutpoint(uint256S("3ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a"), 0);
+    ColorIdentifier nftCid(nftOutpoint, TokenTypes::NFT);
+
+    CScript dropDecoyNFT;
+    dropDecoyNFT << nftCid.toVector() << reissuableCid.toVector() << OP_COLOR << OP_DROP << OP_1;
+
+    CMutableTransaction fundTx;
+    fundTx.nFeatures = 1;
+    fundTx.vin.resize(1);
+    fundTx.vout.resize(1);
+    fundTx.vin[0].prevout.hashMalFix = m_coinbase_txns[0]->GetHashMalFix();
+    fundTx.vin[0].prevout.n = 0;
+    fundTx.vout[0].nValue = 100 * CENT;
+    fundTx.vout[0].scriptPubKey = dropDecoyNFT;
+
+    std::vector<unsigned char> vchSig;
+    CMutableTransaction coinbaseIn(*m_coinbase_txns[0]);
+    Sign(vchSig, coinbaseKey, m_coinbase_txns[0]->vout[0].scriptPubKey, coinbaseIn, 0, fundTx, 0);
+    fundTx.vin[0].scriptSig = CScript() << vchSig;
+    // Post-activation: softfork active → drop-decoy NFT attack script rejected.
     testTx(this, MakeTransactionRef(fundTx), false, "bad-txns-nonstandard-opcolor");
 }
+#endif
 
 /*
  * tx_mempool_rot_decoy_script
@@ -1032,8 +1218,43 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_rot_decoy_script, TestChainSetup)
     CMutableTransaction coinbaseIn(*m_coinbase_txns[1]);
     Sign(vchSig, coinbaseKey, m_coinbase_txns[1]->vout[0].scriptPubKey, coinbaseIn, 0, fundTx, 0);
     fundTx.vin[0].scriptSig = CScript() << vchSig;
+#ifdef CP2SH_ACTIVATION_TEST_HEIGHT
+    // Pre-activation: softfork not active → ROT-decoy attack script admitted.
+    checkMempoolAdmitted(MakeTransactionRef(fundTx));
+#else
+    testTx(this, MakeTransactionRef(fundTx), false, "bad-txns-nonstandard-opcolor");
+#endif
+}
+
+#ifdef CP2SH_ACTIVATION_TEST_HEIGHT
+BOOST_FIXTURE_TEST_CASE(tx_mempool_rot_decoy_script_post_activation, TestChainSetupPostActivation)
+{
+    initKeys();
+
+    ColorIdentifier reissuableCid(CScript() << ToByteVector(pubkey0) << OP_CHECKSIG);
+    COutPoint nftOutpoint(uint256S("3ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a"), 0);
+    ColorIdentifier nftCid(nftOutpoint, TokenTypes::NFT);
+
+    CScript rotDecoy;
+    rotDecoy << nftCid.toVector() << reissuableCid.toVector() << OP_1 << OP_ROT << OP_COLOR << OP_1;
+
+    CMutableTransaction fundTx;
+    fundTx.nFeatures = 1;
+    fundTx.vin.resize(1);
+    fundTx.vout.resize(1);
+    fundTx.vin[0].prevout.hashMalFix = m_coinbase_txns[1]->GetHashMalFix();
+    fundTx.vin[0].prevout.n = 0;
+    fundTx.vout[0].nValue = 100 * CENT;
+    fundTx.vout[0].scriptPubKey = rotDecoy;
+
+    std::vector<unsigned char> vchSig;
+    CMutableTransaction coinbaseIn(*m_coinbase_txns[1]);
+    Sign(vchSig, coinbaseKey, m_coinbase_txns[1]->vout[0].scriptPubKey, coinbaseIn, 0, fundTx, 0);
+    fundTx.vin[0].scriptSig = CScript() << vchSig;
+    // Post-activation: softfork active → ROT-decoy attack script rejected.
     testTx(this, MakeTransactionRef(fundTx), false, "bad-txns-nonstandard-opcolor");
 }
+#endif
 
 /*
  * tx_mempool_drop_decoy_same_type_script
@@ -1084,8 +1305,45 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_drop_decoy_same_type_script, TestChainSetup)
     CMutableTransaction coinbaseIn(*m_coinbase_txns[2]);
     Sign(vchSig, coinbaseKey, m_coinbase_txns[2]->vout[0].scriptPubKey, coinbaseIn, 0, fundTx, 0);
     fundTx.vin[0].scriptSig = CScript() << vchSig;
+#ifdef CP2SH_ACTIVATION_TEST_HEIGHT
+    // Pre-activation: softfork not active → same-type decoy attack script admitted.
+    checkMempoolAdmitted(MakeTransactionRef(fundTx));
+#else
+    testTx(this, MakeTransactionRef(fundTx), false, "bad-txns-nonstandard-opcolor");
+#endif
+}
+
+#ifdef CP2SH_ACTIVATION_TEST_HEIGHT
+BOOST_FIXTURE_TEST_CASE(tx_mempool_drop_decoy_same_type_script_post_activation, TestChainSetupPostActivation)
+{
+    initKeys();
+
+    COutPoint realOutpoint(uint256S("3ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a"), 0);
+    ColorIdentifier realNonReissuableCid(realOutpoint, TokenTypes::NON_REISSUABLE);
+    COutPoint decoyOutpoint(uint256S("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"), 1);
+    ColorIdentifier decoyNonReissuableCid(decoyOutpoint, TokenTypes::NON_REISSUABLE);
+
+    CScript dropDecoySameType;
+    dropDecoySameType << decoyNonReissuableCid.toVector() << realNonReissuableCid.toVector()
+                      << OP_COLOR << OP_DROP << OP_1;
+
+    CMutableTransaction fundTx;
+    fundTx.nFeatures = 1;
+    fundTx.vin.resize(1);
+    fundTx.vout.resize(1);
+    fundTx.vin[0].prevout.hashMalFix = m_coinbase_txns[2]->GetHashMalFix();
+    fundTx.vin[0].prevout.n = 0;
+    fundTx.vout[0].nValue = 100 * CENT;
+    fundTx.vout[0].scriptPubKey = dropDecoySameType;
+
+    std::vector<unsigned char> vchSig;
+    CMutableTransaction coinbaseIn(*m_coinbase_txns[2]);
+    Sign(vchSig, coinbaseKey, m_coinbase_txns[2]->vout[0].scriptPubKey, coinbaseIn, 0, fundTx, 0);
+    fundTx.vin[0].scriptSig = CScript() << vchSig;
+    // Post-activation: softfork active → same-type decoy attack script rejected.
     testTx(this, MakeTransactionRef(fundTx), false, "bad-txns-nonstandard-opcolor");
 }
+#endif
 
 /*
  * tx_mempool_cltv_colored_coin
@@ -1131,7 +1389,12 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_cltv_colored_coin, TestChainSetup)
     CMutableTransaction coinbaseIn0(*m_coinbase_txns[0]);
     Sign(vchSig, coinbaseKey, coinbasePk, coinbaseIn0, 0, fundTx, 0);
     fundTx.vin[0].scriptSig = CScript() << vchSig;
+#ifdef CP2SH_ACTIVATION_TEST_HEIGHT
+    // Pre-activation: softfork not active → direct-CLTV colored attack script admitted.
+    checkMempoolAdmitted(MakeTransactionRef(fundTx));
+#else
     testTx(this, MakeTransactionRef(fundTx), false, "bad-txns-nonstandard-opcolor");
+#endif
 
     // Part 2: CP2SH colored output with CLTV inside the redeem script → accepted.
     CScript redeemScript;
@@ -1160,6 +1423,63 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_cltv_colored_coin, TestChainSetup)
     cp2shFundTx.vin[0].scriptSig = CScript() << vchSig;
     testTx(this, MakeTransactionRef(cp2shFundTx), true);
 }
+
+#ifdef CP2SH_ACTIVATION_TEST_HEIGHT
+BOOST_FIXTURE_TEST_CASE(tx_mempool_cltv_colored_coin_post_activation, TestChainSetupPostActivation)
+{
+    initKeys();
+
+    CScript coinbasePk = CScript() << ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG;
+    ColorIdentifier reissuableCid(coinbasePk);
+    const int64_t locktime = 3;
+
+    // Part 1: direct CLTV in colored script — rejected post-activation.
+    CScript cltvColorScript;
+    cltvColorScript << reissuableCid.toVector() << OP_COLOR
+                    << locktime << OP_CHECKLOCKTIMEVERIFY << OP_DROP
+                    << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash0)
+                    << OP_EQUALVERIFY << OP_CHECKSIG;
+
+    CMutableTransaction fundTx;
+    fundTx.nFeatures = 1;
+    fundTx.vin.resize(1);
+    fundTx.vout.resize(1);
+    fundTx.vin[0].prevout.hashMalFix = m_coinbase_txns[0]->GetHashMalFix();
+    fundTx.vin[0].prevout.n = 0;
+    fundTx.vout[0].nValue = 100 * CENT;
+    fundTx.vout[0].scriptPubKey = cltvColorScript;
+
+    std::vector<unsigned char> vchSig;
+    CMutableTransaction coinbaseIn0(*m_coinbase_txns[0]);
+    Sign(vchSig, coinbaseKey, coinbasePk, coinbaseIn0, 0, fundTx, 0);
+    fundTx.vin[0].scriptSig = CScript() << vchSig;
+    testTx(this, MakeTransactionRef(fundTx), false, "bad-txns-nonstandard-opcolor");
+
+    // Part 2: CP2SH colored output with CLTV in redeem script — accepted post-activation.
+    CScript redeemScript;
+    redeemScript << locktime << OP_CHECKLOCKTIMEVERIFY << OP_DROP
+                 << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash0)
+                 << OP_EQUALVERIFY << OP_CHECKSIG;
+
+    CScriptID redeemScriptId(redeemScript);
+    CScript cp2shColorScript = CScript() << reissuableCid.toVector() << OP_COLOR
+                                         << OP_HASH160 << ToByteVector(redeemScriptId) << OP_EQUAL;
+
+    CMutableTransaction cp2shFundTx;
+    cp2shFundTx.nFeatures = 1;
+    cp2shFundTx.vin.resize(1);
+    cp2shFundTx.vout.resize(1);
+    cp2shFundTx.vin[0].prevout.hashMalFix = m_coinbase_txns[1]->GetHashMalFix();
+    cp2shFundTx.vin[0].prevout.n = 0;
+    cp2shFundTx.vout[0].nValue = 100 * CENT;
+    cp2shFundTx.vout[0].scriptPubKey = cp2shColorScript;
+
+    CMutableTransaction coinbaseIn1(*m_coinbase_txns[1]);
+    Sign(vchSig, coinbaseKey, coinbasePk, coinbaseIn1, 0, cp2shFundTx, 0);
+    cp2shFundTx.vin[0].scriptSig = CScript() << vchSig;
+    testTx(this, MakeTransactionRef(cp2shFundTx), true);
+}
+#endif
 
 /*
  * Test token balance enforcement with an explicit partial-burn destination.

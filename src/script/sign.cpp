@@ -176,7 +176,7 @@ static CScript PushAll(const std::vector<valtype>& values)
     return result;
 }
 
-bool ProduceSignature(const SigningProvider& provider, const BaseSignatureCreator& creator, const CScript& fromPubKey, SignatureData& sigdata)
+bool ProduceSignature(const SigningProvider& provider, const BaseSignatureCreator& creator, const CScript& fromPubKey, SignatureData& sigdata, unsigned int scriptVerifyFlags)
 {
     if (sigdata.complete) return true;
 
@@ -186,24 +186,33 @@ bool ProduceSignature(const SigningProvider& provider, const BaseSignatureCreato
     bool P2SH = false;
     CScript subscript;
 
-    if (solved && (whichType == TX_SCRIPTHASH || whichType == TX_COLOR_SCRIPTHASH))
+    if (solved && whichType == TX_SCRIPTHASH)
     {
-        // Solver returns the subscript that needs to be evaluated;
-        // the final scriptSig is the signatures from that
-        // and then the serialized subscript:
+        // Plain P2SH: always evaluate the redeemScript.
         subscript = CScript(result[0].begin(), result[0].end());
         sigdata.redeem_script = subscript;
-        solved = solved && SignStep(provider, creator, subscript, result, whichType, SigVersion::BASE, sigdata) && whichType != TX_SCRIPTHASH && whichType != TX_COLOR_SCRIPTHASH;
+        solved = solved && SignStep(provider, creator, subscript, result, whichType, SigVersion::BASE, sigdata) && whichType != TX_SCRIPTHASH;
         P2SH = true;
+    }
+    else if (solved && whichType == TX_COLOR_SCRIPTHASH)
+    {
+        subscript = CScript(result[0].begin(), result[0].end());
+        sigdata.redeem_script = subscript;
+        if (scriptVerifyFlags & SCRIPT_VERIFY_CP2SH_COLORED) {
+            // Post-activation: redeemScript must evaluate to true
+            solved = solved && SignStep(provider, creator, subscript, result, whichType, SigVersion::BASE, sigdata) && whichType != TX_COLOR_SCRIPTHASH;
+            P2SH = true;  // will append serialized redeemScript after sig+pubkey
+        }
     }
     if (P2SH) {
         result.push_back(std::vector<unsigned char>(subscript.begin(), subscript.end()));
     }
     sigdata.scriptSig = PushAll(result);
 
-    // Test solution
+    // Test solution using the caller-supplied flags so that post-activation
+    // signings are verified with SCRIPT_VERIFY_CP2SH_COLORED included.
     ColorIdentifier colorId;
-    sigdata.complete = solved && VerifyScript(sigdata.scriptSig, fromPubKey, nullptr, STANDARD_SCRIPT_VERIFY_FLAGS, creator.Checker(), colorId, nullptr);
+    sigdata.complete = solved && VerifyScript(sigdata.scriptSig, fromPubKey, nullptr, scriptVerifyFlags, creator.Checker(), colorId, nullptr);
     return sigdata.complete;
 }
 
