@@ -199,10 +199,23 @@ class TestNode():
         try:
             self.stop()
         except http.client.CannotSendRequest:
-            self.log.exception("Unable to stop node.")
+            self.log.debug("Unable to stop node (CannotSendRequest — already stopping).")
+        except ConnectionRefusedError:
+            # encryptwallet and similar RPCs trigger an internal shutdown before
+            # returning, so by the time we send the stop RPC the HTTP server is
+            # already gone.  authproxy retries on RemoteDisconnected (a
+            # ConnectionResetError subclass) and gets ConnectionRefusedError.
+            # Treat this as "node already stopping" — wait_until_stopped handles the rest.
+            self.log.debug("Node already stopping or stopped (connection refused).")
         except subprocess.CalledProcessError as e:
-            # If stop command fails (e.g., node already stopping), just log it
             self.log.debug("Stop command failed, node may already be stopping: %s", e)
+        except JSONRPCException as e:
+            # -342 is "non-JSON HTTP response" — the 503 the HTTP server returns
+            # mid-shutdown.  Any other RPC error is unexpected and should propagate.
+            if e.error.get('code') == -342:
+                self.log.debug("Node already shutting down (HTTP 503): %s", e)
+            else:
+                raise
 
         # Check that stderr is as expected
         self.stderr.seek(0)
@@ -267,6 +280,15 @@ class TestNode():
             except (FailedToStartError, JSONRPCException) as e:
                 self.log.debug('tapyrusd failed to start: %s', e)
                 self.running = False
+                if self.process is not None:
+                    # The process may still be alive (e.g. slow start that timed out,
+                    # or RPC timeout on getblockcount). Kill it and wait so it releases
+                    # the data directory lock before the next start attempt.
+                    try:
+                        self.process.kill()
+                    except OSError:
+                        pass
+                    self.process.wait()
                 self.process = None
                 # Check stderr for expected message
                 if expected_msg is not None:
