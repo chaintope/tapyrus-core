@@ -29,7 +29,8 @@ from test_framework.messages import (
     COIN, COutPoint, CTransaction, CTxIn, CTxOut, FromHex, ToHex, sha256,
 )
 from test_framework.script import (
-    CScript, OP_0, OP_1, OP_COLOR, OP_EQUAL, OP_HASH160, OP_RETURN,
+    CScript, OP_0, OP_1, OP_CHECKSIG, OP_COLOR, OP_DUP, OP_EQUAL,
+    OP_EQUALVERIFY, OP_HASH160, OP_RETURN,
     hash160,
 )
 from test_framework.test_framework import BitcoinTestFramework
@@ -141,6 +142,72 @@ class CP2SHSoftforkTest(BitcoinTestFramework):
         # Restore the colored input's scriptSig (wallet may have cleared it).
         tx.vin[0].scriptSig = CScript([redeem_bytes])
         return tx
+
+    # ------------------------------------------------------------------ helpers (continued)
+
+    def _test_signrpc_cp2sh(self):
+        """
+        regression: signrawtransactionwithkey must produce a valid
+        CP2SH colored signature post-activation and the result must be accepted
+        by sendrawtransaction
+        """
+        node = self.nodes[0]
+        assert node.getblockcount() >= ACTIVATION_HEIGHT, "must run post-activation"
+
+        # Derive a key from the wallet; build a P2PKH redeemScript around it.
+        addr = node.getnewaddress()
+        pubkey = hex_str_to_bytes(node.getaddressinfo(addr)['pubkey'])
+        privkey = node.dumpprivkey(addr)
+        redeem_bytes = bytes(CScript([
+            OP_DUP, OP_HASH160, hash160(pubkey), OP_EQUALVERIFY, OP_CHECKSIG,
+        ]))
+
+        # Issue a CP2SH colored output using this redeemScript.
+        utxo = sorted(
+            [u for u in node.listunspent() if u.get('token') == 'TPC'],
+            key=lambda u: u['amount'], reverse=True,
+        )[0]
+        issue_tx, colorid = self._issue_cp2sh(utxo, redeem_bytes)
+        self._wrap_submit(issue_tx)
+        issue_tx.rehash()
+
+        # TPC fee input for the spend.
+        fee_utxo = sorted(
+            [u for u in node.listunspent() if u.get('token') == 'TPC'],
+            key=lambda u: u['amount'], reverse=True,
+        )[0]
+        fee_privkey = node.dumpprivkey(fee_utxo['address'])
+        fee = 10_000
+        change = int(fee_utxo['amount'] * COIN) - fee
+
+        # Build raw spend (burn the colored tokens, keep TPC change).
+        spend_tx = CTransaction()
+        spend_tx.nFeatures = 1
+        spend_tx.vin.append(CTxIn(COutPoint(int(issue_tx.hashMalFix, 16), 0)))
+        spend_tx.vin.append(CTxIn(COutPoint(int(fee_utxo['txid'], 16), fee_utxo['vout'])))
+        spend_tx.vout.append(CTxOut(0, CScript([OP_RETURN])))
+        spend_tx.vout.append(CTxOut(change, CScript(hex_str_to_bytes(fee_utxo['scriptPubKey']))))
+
+        cp2sh_spk = _cp2sh_colored_spk(colorid, redeem_bytes)
+        prevtxs = [{
+            'txid': issue_tx.hashMalFix,
+            'vout': 0,
+            'scriptPubKey': bytes_to_hex_str(bytes(cp2sh_spk)),
+            'redeemScript': bytes_to_hex_str(redeem_bytes),
+            'amount': 100 / COIN,
+        }]
+
+        # Sign both inputs with their respective private keys.
+        # signrawtransactionwithkey goes through the SignTransaction() helper
+        # in rawtransaction.cpp — exactly the path fixed for signrpc_cp2sh.
+        signed = node.signrawtransactionwithkey(ToHex(spend_tx), [privkey, fee_privkey], prevtxs)
+        assert signed['complete'], "signrpc_cp2sh regression: signing incomplete: %s" % signed.get('errors')
+
+        # The critical assertion: 'complete': true is not enough.
+        # The signed tx must actually be accepted by the network.
+        txid = node.sendrawtransaction(signed['hex'])
+        assert txid, "signrpc_cp2sh regression: sendrawtransaction rejected signed tx"
+        self.log.info("  ✓ signrpc_cp2sh: signrawtransactionwithkey produces valid CP2SH colored signature post-activation")
 
     # ------------------------------------------------------------------ test
 
@@ -255,6 +322,10 @@ class CP2SHSoftforkTest(BitcoinTestFramework):
         spend_good = self._spend_cp2sh(issue_good, 0, good_redeem, fee_utxos_post[1])
         self._wrap_submit(spend_good)                         # must succeed
         self.log.info("  ✓ accepted at block %d" % node.getblockcount())
+
+        # ── signrpc_cp2sh regression: RPC signing path is activation-aware ─────────────
+        self.log.info("signrpc_cp2sh regression: signrawtransactionwithkey is activation-aware")
+        self._test_signrpc_cp2sh()
 
 
 if __name__ == '__main__':

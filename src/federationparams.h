@@ -19,6 +19,11 @@
 
 const std::string TAPYRUS_GENESIS_FILENAME = "genesis.dat";
 
+// Activation height for SCRIPT_VERIFY_CP2SH_COLORED on Chaintope testnet
+// (networkId 1939510133). The last legacy CP2SH colored spend on testnet was
+// at block 693366
+static constexpr int TESTNET_CP2SH_ACTIVATION_HEIGHT = 693367;
+
 struct SeedSpec6 {
     uint8_t addr[16];
     uint16_t port;

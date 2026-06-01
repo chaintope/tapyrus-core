@@ -169,15 +169,15 @@ BOOST_AUTO_TEST_CASE(softfork_manager_testnet_activation_heights)
     // Mirror the production registration for Chaintope testnet (networkId 1939510133).
     CSoftForkManager sfm;
     sfm.Register(CSoftFork(1939510133u, SCRIPT_VERIFY_CP2SH_COLORED,
-                           HeightActivation(261594)));
+                           HeightActivation(TESTNET_CP2SH_ACTIVATION_HEIGHT)));
 
     // One block before activation: not yet active.
-    BOOST_CHECK(!sfm.IsActive(1939510133u, SCRIPT_VERIFY_CP2SH_COLORED, 261593));
-    BOOST_CHECK_EQUAL(sfm.GetScriptFlags(1939510133u, 261593), 0u);
+    BOOST_CHECK(!sfm.IsActive(1939510133u, SCRIPT_VERIFY_CP2SH_COLORED, TESTNET_CP2SH_ACTIVATION_HEIGHT - 1));
+    BOOST_CHECK_EQUAL(sfm.GetScriptFlags(1939510133u, TESTNET_CP2SH_ACTIVATION_HEIGHT - 1), 0u);
 
     // At activation height: active.
-    BOOST_CHECK(sfm.IsActive(1939510133u, SCRIPT_VERIFY_CP2SH_COLORED, 261594));
-    BOOST_CHECK_EQUAL(sfm.GetScriptFlags(1939510133u, 261594),
+    BOOST_CHECK(sfm.IsActive(1939510133u, SCRIPT_VERIFY_CP2SH_COLORED, TESTNET_CP2SH_ACTIVATION_HEIGHT));
+    BOOST_CHECK_EQUAL(sfm.GetScriptFlags(1939510133u, TESTNET_CP2SH_ACTIVATION_HEIGHT),
                       static_cast<unsigned>(SCRIPT_VERIFY_CP2SH_COLORED));
 
     // Unregistered network: IsActive returns true (active from genesis by default).

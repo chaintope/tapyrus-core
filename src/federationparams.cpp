@@ -124,8 +124,7 @@ std::unique_ptr<CFederationParams> CreateFederationParams(const TAPYRUS_OP_MODE 
     // blocks.  The override applies to whichever network the test node is running.
     //
     // Production builds register only the Chaintope testnet (1939510133) entry,
-    // deferring activation to block 693367 (last legacy CP2SH colored spend on
-    // testnet was at block 693366; all earlier CP2SH outputs predate this rule).
+    // deferring activation to TESTNET_CP2SH_ACTIVATION_HEIGHT
     // All other networks have no entry and therefore activate CP2SH at genesis
     // (CSoftForkManager::IsActive returns true when no entry is found).
 #ifdef CP2SH_ACTIVATION_TEST_HEIGHT
@@ -137,7 +136,7 @@ std::unique_ptr<CFederationParams> CreateFederationParams(const TAPYRUS_OP_MODE 
     if (networkId == 1939510133u) {
         params->RegisterSoftFork(CSoftFork(
             networkId, SCRIPT_VERIFY_CP2SH_COLORED,
-            HeightActivation(693367)
+            HeightActivation(TESTNET_CP2SH_ACTIVATION_HEIGHT)
         ));
     }
 #endif
