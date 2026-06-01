@@ -89,6 +89,11 @@ enum
     // Making OP_CODESEPARATOR and FindAndDelete fail any non-segwit scripts
     //
     SCRIPT_VERIFY_CONST_SCRIPTCODE = (1U << 16),
+
+    // Require colored coin outputs to use CP2SH (OP_COLOR <colorid> OP_HASH160 <hash> OP_EQUAL)
+    // rather than bare CP2PKH.  Activated per-network via CSoftForkManager.
+    //
+    SCRIPT_VERIFY_CP2SH_COLORED = (1U << 17),
 };
 /**
  * Mandatory script verification flags that all blocks must comply with for

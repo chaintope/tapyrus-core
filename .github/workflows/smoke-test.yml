@@ -199,7 +199,7 @@ jobs:
             CMAKE_OPTS+=("-DENABLE_TESTS=OFF")  # Skip tests for cross-compilation
           else
             # Native builds (Linux/macOS)
-            CMAKE_OPTS+=("-DENABLE_TESTS=ON")
+            CMAKE_OPTS+=("-DENABLE_TESTS=ON" "-DCP2SH_ACTIVATION_TEST_HEIGHT=120")
 
             # Disable BDB version warning for macOS if using newer version
             if [ "${{ matrix.config.platform }}" == "macos" ]; then

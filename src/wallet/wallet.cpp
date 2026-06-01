@@ -16,6 +16,7 @@
 #include <key.h>
 #include <key_io.h>
 #include <keystore.h>
+#include <softforkmanager.h>
 #include <validation.h>
 #include <net.h>
 #include <policy/fees.h>
@@ -2542,7 +2543,11 @@ bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAm
 
 bool CWallet::SignTransaction(CMutableTransaction &tx)
 {
+    AssertLockHeld(cs_main);
     AssertLockHeld(cs_wallet); // mapWallet
+
+    unsigned int signVerifyFlags = STANDARD_SCRIPT_VERIFY_FLAGS;
+    if (GetSoftForkManager().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, chainActive.Height() + 1)) signVerifyFlags |= SCRIPT_VERIFY_CP2SH_COLORED;
 
     // sign the new tx
     int nIn = 0;
@@ -2554,7 +2559,7 @@ bool CWallet::SignTransaction(CMutableTransaction &tx)
         const CScript& scriptPubKey = mi->second.tx->vout[input.prevout.n].scriptPubKey;
         const CAmount& amount = mi->second.tx->vout[input.prevout.n].nValue;
         SignatureData sigdata;
-        if (!ProduceSignature(*this, MutableTransactionSignatureCreator(&tx, nIn, amount, SIGHASH_ALL), scriptPubKey, sigdata)) {
+        if (!ProduceSignature(*this, MutableTransactionSignatureCreator(&tx, nIn, amount, SIGHASH_ALL), scriptPubKey, sigdata, signVerifyFlags)) {
             return false;
         }
         UpdateInput(input, sigdata);
@@ -3069,13 +3074,16 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
 
         if (sign)
         {
+            AssertLockHeld(cs_main);
+            unsigned int signVerifyFlags = STANDARD_SCRIPT_VERIFY_FLAGS;
+            if (GetSoftForkManager().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, chainActive.Height() + 1)) signVerifyFlags |= SCRIPT_VERIFY_CP2SH_COLORED;
+
             int nIn = 0;
             for (const auto& coin : selected_coins)
             {
                 const CScript& scriptPubKey = coin.txout.scriptPubKey;
                 SignatureData sigdata;
-
-                if (!ProduceSignature(*this, MutableTransactionSignatureCreator(&txNew, nIn, coin.txout.nValue, SIGHASH_ALL), scriptPubKey, sigdata))
+                if (!ProduceSignature(*this, MutableTransactionSignatureCreator(&txNew, nIn, coin.txout.nValue, SIGHASH_ALL), scriptPubKey, sigdata, signVerifyFlags))
                 {
                     strFailReason = _("Signing transaction failed");
                     return false;

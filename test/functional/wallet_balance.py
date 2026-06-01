@@ -77,16 +77,16 @@ class WalletTest(BitcoinTestFramework):
         self.nodes[1].generatetoaddress(1, RANDOM_COINBASE_ADDRESS, self.signblockprivkey_wif)
         self.sync_all()
 
-        assert_equal(self.nodes[0].getbalance(), Decimal('49.99995520'))
+        assert_equal(self.nodes[0].getbalance(), Decimal('49.99995480'))
         wallet_bal = self.nodes[0].getwalletinfo()['balance']
         assert_equal(wallet_bal[colorid1], 100)
-        assert_equal(self.nodes[1].getbalance(), Decimal('49.99995520'))
+        assert_equal(self.nodes[1].getbalance(), Decimal('49.99995480'))
         wallet_bal = self.nodes[1].getwalletinfo()['balance']
         assert_equal(wallet_bal[colorid2], 100)
 
         self.log.info("Test getbalance with different arguments")
-        assert_equal(self.nodes[0].getbalance(True), Decimal('49.99995520'))
-        assert_equal(self.nodes[1].getbalance(True), Decimal('49.99995520'))
+        assert_equal(self.nodes[0].getbalance(True), Decimal('49.99995480'))
+        assert_equal(self.nodes[1].getbalance(True), Decimal('49.99995480'))
 
         # Send 40 TPC from 0 to 1 and 60 BTC from 1 to 0.
         txs = create_transactions(self.nodes[0], 'TPC', self.nodes[1].getnewaddress(), 40, [Decimal('0.01')])
@@ -162,7 +162,7 @@ class WalletTest(BitcoinTestFramework):
         assert_equal(wallet_bal[colorid2], 100)
 
         # Send total balance away from node 1
-        txs = create_transactions(self.nodes[1], 'TPC', self.nodes[0].getnewaddress(), Decimal('29.94995520'), [Decimal('0.01')])
+        txs = create_transactions(self.nodes[1], 'TPC', self.nodes[0].getnewaddress(), Decimal('29.94995480'), [Decimal('0.01')])
         self.nodes[1].sendrawtransaction(txs[0]['hex'])
         self.nodes[1].generatetoaddress(2, RANDOM_COINBASE_ADDRESS, self.signblockprivkey_wif)
         self.sync_all()

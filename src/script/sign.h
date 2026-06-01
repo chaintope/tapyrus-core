@@ -612,8 +612,10 @@ struct PartiallySignedTransaction
     }
 };
 
-/** Produce a script signature using a generic signature creator. */
-bool ProduceSignature(const SigningProvider& provider, const BaseSignatureCreator& creator, const CScript& scriptPubKey, SignatureData& sigdata);
+/** Produce a script signature using a generic signature creator.
+ *  scriptVerifyFlags controls the self-verification at the end; callers that
+ *  sign real transactions should pass flags appropriate for the next block. */
+bool ProduceSignature(const SigningProvider& provider, const BaseSignatureCreator& creator, const CScript& scriptPubKey, SignatureData& sigdata, unsigned int scriptVerifyFlags = STANDARD_SCRIPT_VERIFY_FLAGS);
 
 /** Produce a script signature for a transaction. */
 bool SignSignature(const SigningProvider &provider, const CScript& fromPubKey, CMutableTransaction& txTo, unsigned int nIn, const CAmount& amount, int nHashType);

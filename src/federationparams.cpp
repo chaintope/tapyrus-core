@@ -15,6 +15,7 @@
 #include <tapyrusmodes.h>
 #include <validation.h>
 #include <xfieldhistory.h>
+#include <script/interpreter.h>
 
 #include <assert.h>
 #include <fstream>
@@ -114,12 +115,48 @@ std::unique_ptr<CFederationParams> CreateFederationParams(const TAPYRUS_OP_MODE 
     const std::string dataDirName(GetDataDirNameFromNetworkId(networkId));
     const std::string genesisHex(withGenesis ? ReadGenesisBlock() : "");
 
-    return MakeUnique<CFederationParams>(networkId, dataDirName, genesisHex);
+    auto params = MakeUnique<CFederationParams>(networkId, dataDirName, genesisHex);
+
+    // CP2SH colored softfork registration:
+    //
+    // CI test builds define CP2SH_ACTIVATION_TEST_HEIGHT so the functional test
+    // can cross the activation boundary without mining hundreds of thousands of
+    // blocks.  The override applies to whichever network the test node is running.
+    //
+    // Production builds register only the Chaintope testnet (1939510133) entry,
+    // deferring activation to TESTNET_CP2SH_ACTIVATION_HEIGHT
+    // All other networks have no entry and therefore activate CP2SH at genesis
+    // (CSoftForkManager::IsActive returns true when no entry is found).
+#ifdef CP2SH_ACTIVATION_TEST_HEIGHT
+    params->RegisterSoftFork(CSoftFork(
+        networkId, SCRIPT_VERIFY_CP2SH_COLORED,
+        HeightActivation(CP2SH_ACTIVATION_TEST_HEIGHT)
+    ));
+#else
+    if (networkId == 1939510133u) {
+        params->RegisterSoftFork(CSoftFork(
+            networkId, SCRIPT_VERIFY_CP2SH_COLORED,
+            HeightActivation(TESTNET_CP2SH_ACTIVATION_HEIGHT)
+        ));
+    }
+#endif
+
+    return params;
 }
 
 void SelectFederationParams(const TAPYRUS_OP_MODE mode, const bool withGenesis)
 {
     globalChainFederationParams = CreateFederationParams(mode, withGenesis);
+}
+
+const CSoftForkManager& GetSoftForkManager()
+{
+    return FederationParams().SoftForkManager();
+}
+
+bool CSoftForkManager::IsActive(unsigned int flag, int32_t blockHeight) const
+{
+    return IsActive(FederationParams().NetworkId(), flag, blockHeight);
 }
 
 CFederationParams::CFederationParams(const uint32_t networkId, const std::string dataDirName, const std::string genesisHex) : nNetworkId(networkId), strNetworkID(std::to_string(networkId)), dataDir(dataDirName) {

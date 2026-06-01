@@ -660,20 +660,20 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         {
             std::vector<CScriptCheck> vChecks;
             bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
-            if (!CheckInputs(tx, state, view, fScriptChecks, SCRIPT_VERIFY_NONE, fCacheResults, fCacheResults, txdata[i], nScriptCheckThreads ? &vChecks : nullptr))
+            if (!CheckInputs(tx, state, view, fScriptChecks, GetBlockScriptFlags(pindex), fCacheResults, fCacheResults, txdata[i], nScriptCheckThreads ? &vChecks : nullptr))
                 return error("ConnectBlock(): CheckInputs on %s failed with %s",
                     tx.GetHashMalFix().ToString(), FormatStateMessage(state));
             control.Add(std::move(vChecks));
         }
 
         //if there are colored coins in the output verify their colorids
-        if(!CheckColorIdentifierValidity(tx, state, view))
+        if(!CheckColorIdentifierValidity(tx, state, view, pindex->nHeight))
             return false;
 
         //verify token balances (coinbase has no real inputs so balance check does not apply)
         if (!tx.IsCoinBase()) {
             std::set<ColorIdentifier> newIssuances;
-            if (!VerifyTokenBalances(tx, state, view, txfee, !fJustCheck ? &newIssuances : nullptr))
+            if (!VerifyTokenBalances(tx, state, view, txfee, !fJustCheck ? &newIssuances : nullptr, pindex->nHeight))
                 return false;
             allNewIssuances.insert(newIssuances.begin(), newIssuances.end());
         }
