@@ -3345,9 +3345,6 @@ static UniValue bumpfee(const JSONRPCRequest& request)
         }
     }
 
-    // Feebumper succeeded — commit the reserved change key to the keypool.
-    bumpfeeReserveKey.KeepKey();
-
     // sign bumped transaction
     if (!feebumper::SignTransaction(pwallet, mtx)) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Can't sign transaction.");
@@ -3357,6 +3354,9 @@ static UniValue bumpfee(const JSONRPCRequest& request)
     if (feebumper::CommitTransaction(pwallet, hash, std::move(mtx), errors, txid) != feebumper::Result::OK) {
         throw JSONRPCError(RPC_WALLET_ERROR, errors[0]);
     }
+    // Retain the reserved change key only after full commit; any earlier failure
+    // path falls through to CReserveKey's destructor which calls ReturnKey().
+    bumpfeeReserveKey.KeepKey();
     UniValue result(UniValue::VOBJ);
     result.pushKV("txid", txid.GetHex());
     result.pushKV("origfee", ValueFromAmount(old_fee));
