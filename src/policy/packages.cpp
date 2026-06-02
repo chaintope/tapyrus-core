@@ -105,7 +105,6 @@ bool SubmitPackageToMempool(const Package& package,
     if(!CheckPackage(package, state))
         return false;
 
-    // testmempool acceptance first
     for(auto &tx : package)
     {
         {
@@ -116,12 +115,19 @@ bool SubmitPackageToMempool(const Package& package,
 
         opt.state.missingInputs = opt.missingInputs.size() > 0;
         results.emplace(tx->GetHashMalFix(), opt.state);
+    }
 
-        if (opt.flags != MempoolAcceptanceFlags::TEST_ONLY) {
-            CConnman& connman = *g_connman;
+    bool success = ArePackageTransactionsAccepted(results);
+
+    // Relay only after the entire package has been successfully admitted.
+    // Relaying per-tx inside the loop would gossip the admitted prefix of a
+    // partially-failed package, enabling free relay amplification attacks.
+    if (success && opt.flags != MempoolAcceptanceFlags::TEST_ONLY) {
+        CConnman& connman = *g_connman;
+        for (auto& tx : package) {
             RelayTransaction(*tx, &connman);
         }
-
     }
-    return ArePackageTransactionsAccepted(results);
+
+    return success;
 }
