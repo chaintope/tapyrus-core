@@ -627,10 +627,7 @@ static void MutateTxSign(CMutableTransaction& tx, const std::string& flagStr)
 
     bool fHashSingle = ((nHashType & ~SIGHASH_ANYONECANPAY) == SIGHASH_SINGLE);
 
-    // Always include CP2SH_COLORED: this tool produces canonical signatures that
-    // are valid on any post-activation network. Stage-2 CP2SH scriptSigs are also
-    // accepted pre-activation (the redeem-script bytes satisfy the P2SH check).
-    const unsigned int signVerifyFlags = STANDARD_SCRIPT_VERIFY_FLAGS | SCRIPT_VERIFY_CP2SH_COLORED;
+    const unsigned int signVerifyFlags = STANDARD_SCRIPT_VERIFY_FLAGS;
 
     // Sign what we can:
     for (unsigned int i = 0; i < mergedTx.vin.size(); i++) {
