@@ -544,7 +544,7 @@ jobs:
             CMAKE_OPTS+=("-DENABLE_TESTS=OFF" "-DENABLE_BENCH=OFF" "-DBUILD_UTILS=ON")
           else
             # Native builds: enable tests and benchmarks
-            CMAKE_OPTS+=("-DENABLE_TESTS=ON" "-DENABLE_BENCH=ON")
+            CMAKE_OPTS+=("-DENABLE_TESTS=ON" "-DENABLE_BENCH=ON" "-DCP2SH_ACTIVATION_TEST_HEIGHT=120")
           fi
 
           # Use depends-generated CMake toolchain file

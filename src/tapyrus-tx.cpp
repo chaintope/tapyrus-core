@@ -613,7 +613,7 @@ static void MutateTxSign(CMutableTransaction& tx, const std::string& flagStr)
 
             // if redeemScript given and private keys given,
             // add redeemScript to the tempKeystore so it can be signed:
-            if ((scriptPubKey.IsPayToScriptHash()) &&
+            if ((scriptPubKey.IsPayToScriptHash() || scriptPubKey.IsColoredPayToScriptHash()) &&
                 prevOut.exists("redeemScript")) {
                 UniValue v = prevOut["redeemScript"];
                 std::vector<unsigned char> rsData(ParseHexUV(v, "redeemScript"));
@@ -626,6 +626,11 @@ static void MutateTxSign(CMutableTransaction& tx, const std::string& flagStr)
     const CKeyStore& keystore = tempKeystore;
 
     bool fHashSingle = ((nHashType & ~SIGHASH_ANYONECANPAY) == SIGHASH_SINGLE);
+
+    // Always include CP2SH_COLORED: this tool produces canonical signatures that
+    // are valid on any post-activation network. Stage-2 CP2SH scriptSigs are also
+    // accepted pre-activation (the redeem-script bytes satisfy the P2SH check).
+    const unsigned int signVerifyFlags = STANDARD_SCRIPT_VERIFY_FLAGS | SCRIPT_VERIFY_CP2SH_COLORED;
 
     // Sign what we can:
     for (unsigned int i = 0; i < mergedTx.vin.size(); i++) {
@@ -640,7 +645,7 @@ static void MutateTxSign(CMutableTransaction& tx, const std::string& flagStr)
         SignatureData sigdata = DataFromTransaction(mergedTx, i, coin.out);
         // Only sign SIGHASH_SINGLE if there's a corresponding output:
         if (!fHashSingle || (i < mergedTx.vout.size()))
-            ProduceSignature(keystore, MutableTransactionSignatureCreator(&mergedTx, i, amount, nHashType, scheme), prevPubKey, sigdata);
+            ProduceSignature(keystore, MutableTransactionSignatureCreator(&mergedTx, i, amount, nHashType, scheme), prevPubKey, sigdata, signVerifyFlags);
 
         UpdateInput(txin, sigdata);
     }

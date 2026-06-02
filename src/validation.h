@@ -152,11 +152,9 @@ extern const std::string strMessageMagic;
 extern Mutex g_best_block_mutex;
 extern CConditionVariable g_best_block_cv;
 extern uint256 g_best_block;
-/** Guards g_issued_colorids. */
-extern Mutex cs_issued_colorids;
-/** Set of all NON_REISSUABLE and NFT colorIds ever issued on this chain.
- *  Populated from LevelDB at startup; updated on ConnectBlock/DisconnectBlock. */
-extern std::set<ColorIdentifier> g_issued_colorids;
+/** Tracks all NON_REISSUABLE/NFT colorIds ever issued on this chain; see issuedcolorids.h. */
+class CIssuedColorIds;
+extern std::unique_ptr<CIssuedColorIds> g_colorid_state;
 extern std::atomic_bool fImporting;
 extern std::atomic_bool fReindex;
 extern int nScriptCheckThreads;
@@ -384,7 +382,7 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, const CB
 bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, CXFieldHistoryMap* pxfieldHistory = nullptr, int nHeight = -1, bool fCheckPOW = true);
 
 /** Context-independent validity checks */
-bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW = true, bool fCheckMerkleRoot = true, CXFieldHistoryMap* pxfieldHistory = nullptr);
+bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW = true, bool fCheckMerkleRoot = true, CXFieldHistoryMap* pxfieldHistory = nullptr, int nHeight = -1);
 
 /** Check a block is completely valid from start to finish (only works on top of our current best block) */
 bool TestBlockValidity(CValidationState& state, const CBlock& block, CBlockIndex* pindexPrev, bool fCheckPOW = true, bool fCheckMerkleRoot = true) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
@@ -392,11 +390,13 @@ bool TestBlockValidity(CValidationState& state, const CBlock& block, CBlockIndex
 /** When there are blocks in the active chain with missing data, rewind the chainstate and remove them from the block index */
 bool RewindBlockIndex();
 
-/** Verify coloured coin type related consensus rules */
-bool CheckColorIdentifierValidity(const CTransaction& tx, CValidationState& state, CCoinsViewCache &inputs);
+/** Verify coloured coin type related consensus rules.
+ *  blockHeight is used to query the softfork manager; pass INT32_MAX to always enforce. */
+bool CheckColorIdentifierValidity(const CTransaction& tx, CValidationState& state, CCoinsViewCache &inputs, int32_t blockHeight = INT32_MAX);
 
-/** Check token input and output amounts within a trasnaction */
-bool VerifyTokenBalances(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, CAmount minrelayFee, std::set<ColorIdentifier>* newIssuances = nullptr);
+/** Check token input and output amounts within a transaction.
+ *  blockHeight is used to query the softfork manager; pass INT32_MAX to always enforce. */
+bool VerifyTokenBalances(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, CAmount minrelayFee, std::set<ColorIdentifier>* newIssuances = nullptr, int32_t blockHeight = INT32_MAX);
 
 /** Replay blocks that aren't fully applied to the database. */
 bool ReplayBlocks(CCoinsView* view);
@@ -443,6 +443,7 @@ static const unsigned int REJECT_HIGHFEE = 0x100;
 CBlockFileInfo* GetBlockFileInfo(size_t n);
 
 unsigned int GetBlockScriptFlags(const CBlockIndex* pindex);
+unsigned int GetBlockScriptFlags(int32_t blockHeight);
 
 //! Check whether the block associated with this index entry is pruned or not.
 inline bool IsBlockPruned(const CBlockIndex* pblockindex)

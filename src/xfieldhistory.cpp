@@ -13,6 +13,16 @@ XFieldHistoryMapType CXFieldHistoryMap::xfieldHistory;
 std::shared_mutex CXFieldHistoryMap::xfieldHistoryMutex;
 
 
+bool CXFieldHistoryMap::Remove(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange) {
+    std::unique_lock<std::shared_mutex> lock(xfieldHistoryMutex);
+    auto& list = (isTemp ? this->getXFieldHistoryMap() : xfieldHistory).find(type)->second;
+    if (list.size() > 1 && list.back() == xFieldChange) {
+        list.xfieldChanges.pop_back();
+        return true;
+    }
+    return false;
+}
+
 void CXFieldHistoryMap::Add(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange) {
     std::unique_lock<std::shared_mutex> lock(xfieldHistoryMutex);
 
@@ -47,23 +57,16 @@ XFieldChange CXFieldHistoryMap::Get(TAPYRUS_XFIELDTYPES type, uint32_t height) {
     if(height > listofXfieldChanges.back().height)
         return listofXfieldChanges.back();
 
-    for(unsigned int i = 0; i < listofXfieldChanges.size(); i++) {
-        if(height == listofXfieldChanges.at(i).height || (listofXfieldChanges.at(i).height < height && height < listofXfieldChanges.at(i+1).height))
+    // Scan from the end so that when multiple entries share the same height
+    // (e.g. an orphan entry followed by the active-chain entry after reorg),
+    // the most recently added (active-chain) entry is returned first.
+    for(int i = (int)listofXfieldChanges.size() - 1; i >= 0; i--) {
+        if(listofXfieldChanges.at(i).height <= height)
             return listofXfieldChanges.at(i);
     }
-    return listofXfieldChanges.back();
+    return listofXfieldChanges[0];
 }
 
-XFieldChange CXFieldHistoryMap::Get(TAPYRUS_XFIELDTYPES type, uint256 blockHash) {
-    std::shared_lock<std::shared_mutex> lock(xfieldHistoryMutex);
-    auto& listofXfieldChanges = (isTemp ? this->getXFieldHistoryMap() : xfieldHistory).find(type)->second;
-    //TODO: return the corrext xfield applicable to any block by checking the index.
-    for(unsigned int i = 0; i < listofXfieldChanges.size(); i++) {
-        if(blockHash == listofXfieldChanges.at(i).blockHash)
-            return listofXfieldChanges.at(i);
-    }
-    return listofXfieldChanges.back();
-}
 
 void CXFieldHistory::ToUniValue(TAPYRUS_XFIELDTYPES type, UniValue* xFieldChangeUnival) {
     *xFieldChangeUnival = UniValue(UniValue::VARR);
@@ -88,9 +91,9 @@ int32_t CXFieldHistoryMap::GetReorgHeight()
     return *std::max_element(changeHeights.begin(), changeHeights.end());
 }
 
-bool IsXFieldNew(const CXField& xfield, CXFieldHistoryMap* pxfieldHistory)
+bool IsXFieldNew(const CXField& xfield, CXFieldHistoryMap* pxfieldHistory, uint32_t parentHeight)
 {
-    IsXFieldLastInHistoryVisitor checkVisitor(pxfieldHistory);
+    IsXFieldLastInHistoryVisitor checkVisitor(pxfieldHistory, parentHeight);
     return xfield.IsValid()
           && std::find(XFIELDTYPES_INIT_LIST.begin(), XFIELDTYPES_INIT_LIST.end(), xfield.xfieldType) != XFIELDTYPES_INIT_LIST.end()
           && !std::visit(checkVisitor, xfield.xfieldValue);

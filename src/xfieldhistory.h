@@ -151,10 +151,12 @@ public:
     virtual XFieldChangeList GetListCopy(TAPYRUS_XFIELDTYPES type) const;
 
     virtual void Add(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange);
-    //void Remove(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange);
+    // Remove the last entry for `type` if and only if its blockHash matches `xFieldChange`.
+    // Returns true when an entry was removed; false when the list has only the genesis entry
+    // or the last entry does not match (safe no-op in that case).
+    bool Remove(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange);
 
     virtual XFieldChange Get(TAPYRUS_XFIELDTYPES type, uint32_t height);
-    virtual XFieldChange Get(TAPYRUS_XFIELDTYPES type, uint256 blockHash);
     int32_t GetReorgHeight();
 };
 
@@ -222,20 +224,22 @@ public:
 class IsXFieldLastInHistoryVisitor
 {
     CXFieldHistoryMap* history;
+    uint32_t parentHeight;
 public:
-    IsXFieldLastInHistoryVisitor(CXFieldHistoryMap* historyIn):history(historyIn) {}
+    IsXFieldLastInHistoryVisitor(CXFieldHistoryMap* historyIn, uint32_t height)
+        : history(historyIn), parentHeight(height) {}
 
     template <typename T>
     bool operator()(const T &xField) const {
         assert(history);
         TAPYRUS_XFIELDTYPES X = GetXFieldTypeFrom(xField);
-        XFieldChangeList list = history->GetListCopy(X);
-        return std::get<T>(list.back().xfieldValue).operator==(T(xField));
+        XFieldChange entry = history->Get(X, parentHeight);
+        return std::get<T>(entry.xfieldValue) == T(xField);
     }
 
 };
 
-bool IsXFieldNew(const CXField& xfield, CXFieldHistoryMap* pxfieldHistory);
+bool IsXFieldNew(const CXField& xfield, CXFieldHistoryMap* pxfieldHistory, uint32_t parentHeight);
 
 /** 
  * The maximum block size according the current xfield history */

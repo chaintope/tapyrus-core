@@ -381,7 +381,7 @@ static CTransactionRef SendMoney(CWallet * const pwallet, const CTxDestination &
     vecSend.push_back(recipient);
     CTransactionRef tx;
     if (!pwallet->CreateTransaction(vecSend, tx, reservekey, nFeeRequired, mapChangePosRet, strError, coin_control)) {
-        if (!fSubtractFeeFromAmount && nValue + nFeeRequired > curBalance)
+        if (!fSubtractFeeFromAmount && colorId.type == TokenTypes::NONE && nValue + nFeeRequired > curBalance)
             strError = strprintf("Error: This transaction requires a transaction fee of at least %s", FormatMoney(nFeeRequired));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
@@ -488,7 +488,7 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
 
     if (colorId.type != TokenTypes::NONE)
     {
-        coin_control.m_colorTxType = ColoredTxType::TRANSFER; 
+        coin_control.m_colorTxType = ColoredTxType::TRANSFER;
         coin_control.m_colorId = colorId;
     }
 
@@ -944,6 +944,9 @@ static UniValue sendmany(const JSONRPCRequest& request)
         if (!IsValidDestination(dest)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid Tapyrus address: ") + name_);
         }
+        if (GetColorIdFromScript(GetScriptForDestination(dest)).type != TokenTypes::NONE)
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY,
+                "sendmany does not support colored addresses; use transfertoken instead");
 
         if (destinations.count(dest)) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid parameter, duplicated address: ") + name_);
@@ -2831,6 +2834,12 @@ static UniValue listunspent(const JSONRPCRequest& request)
                 if (pwallet->GetCScript(hash, redeemScript)) {
                     entry.pushKV("redeemScript", HexStr(redeemScript.begin(), redeemScript.end()));
                 }
+            } else if (scriptPubKey.IsColoredPayToScriptHash()) {
+                CScriptID hash(static_cast<const uint160&>(std::get<CColorScriptID>(address)));
+                CScript redeemScript;
+                if (pwallet->GetCScript(hash, redeemScript)) {
+                    entry.pushKV("redeemScript", HexStr(redeemScript.begin(), redeemScript.end()));
+                }
             }
         }
 
@@ -3119,7 +3128,7 @@ UniValue signrawtransactionwithwallet(const JSONRPCRequest& request)
     }
 
     SignatureScheme sigScheme(SignatureScheme::ECDSA);
-    if(!request.params[4].isNull() && request.params[3].get_str() == "SCHNORR")
+    if(!request.params[3].isNull() && request.params[3].get_str() == "SCHNORR")
         sigScheme = SignatureScheme::SCHNORR;
 
     // Sign the transaction
@@ -3222,7 +3231,6 @@ static UniValue bumpfee(const JSONRPCRequest& request)
             }
         }
     }
-
     // Make sure the results are valid at least up to the most recent block
     // the user could have gotten from another RPC command prior to now
     pwallet->BlockUntilSyncedToCurrentChain();
@@ -3230,6 +3238,34 @@ static UniValue bumpfee(const JSONRPCRequest& request)
     LOCK2(cs_main, pwallet->cs_wallet);
     EnsureWalletIsUnlocked(pwallet);
 
+    // For colored token transfers that have no TPC change output (e.g. when BnB
+    // covered the fee exactly), feebumper needs to add a fresh TPC input.
+    // Signal this with fAllowOtherInputs and supply a change destination so
+    // feebumper can route the surplus back to the wallet.
+    // reservekey lives here so its RAII destructor returns the key to the pool
+    // on any feebumper failure path (KeepKey is deferred until success).
+    CReserveKey bumpfeeReserveKey(pwallet);
+    {
+        const CWalletTx* wtx = pwallet->GetWalletTx(hash);
+        if (wtx) {
+            bool hasColoredOutput = false;
+            bool hasTpcChange = false;
+            for (const auto& out : wtx->tx->vout) {
+                if (GetColorIdFromScript(out.scriptPubKey).type != TokenTypes::NONE)
+                    hasColoredOutput = true;
+                else if (pwallet->IsChange(out))
+                    hasTpcChange = true;
+            }
+            if (hasColoredOutput && !hasTpcChange) {
+                coin_control.fAllowOtherInputs = true;
+                CPubKey pubkey;
+                if (bumpfeeReserveKey.GetReservedKey(pubkey, true)) {
+                    coin_control.destChange = pubkey.GetID();
+                    // KeepKey() is called only after feebumper succeeds below.
+                }
+            }
+        }
+    }
 
     std::vector<std::string> errors;
     CAmount old_fee;
@@ -3255,6 +3291,9 @@ static UniValue bumpfee(const JSONRPCRequest& request)
                 break;
         }
     }
+
+    // Feebumper succeeded — commit the reserved change key to the keypool.
+    bumpfeeReserveKey.KeepKey();
 
     // sign bumped transaction
     if (!feebumper::SignTransaction(pwallet, mtx)) {
@@ -4181,6 +4220,40 @@ static UniValue IssueReissuableToken(CWallet* const pwallet, const std::string& 
 {
     LOCK2(cs_main, pwallet->cs_wallet);
 
+    // Pre-flight: resolve the tx2 output destination and top up the keypool
+    // before committing tx1 to the network.  Any failure here returns a clean
+    // error with no transaction broadcast.
+
+    if (!pwallet->IsLocked())
+        pwallet->TopUpKeyPool();
+
+    // Reuse an existing CColorKeyID for this color if one is already in the
+    // address book (happens on reissue). This prevents duplicate table entries.
+    CTxDestination colorDest;
+    bool foundExisting = false;
+    for (const auto& entry : pwallet->mapAddressBook) {
+        const CColorKeyID* existing = std::get_if<CColorKeyID>(&entry.first);
+        if (existing && existing->color == coin_control.m_colorId) {
+            colorDest = *existing;
+            foundExisting = true;
+            break;
+        }
+    }
+
+    if (!foundExisting) {
+        // Pre-allocate the key for tx2's colored output before tx1 is broadcast.
+        CPubKey newKey;
+        if (!pwallet->GetKeyFromPool(newKey))
+            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+
+        CKeyID key_id = newKey.GetID();
+        colorDest = CColorKeyID(key_id, coin_control.m_colorId);
+    }
+
+    // Verify the wallet is still unlocked before committing any transaction.
+    if (pwallet->IsLocked())
+        throw JSONRPCError(RPC_WALLET_UNLOCK_NEEDED, "Error: Please enter the wallet passphrase with walletpassphrase first.");
+
     CTransactionRef tx1;
     //creating tx1
     {
@@ -4223,24 +4296,6 @@ static UniValue IssueReissuableToken(CWallet* const pwallet, const std::string& 
     CTransactionRef tx2;
     //creating tx2
     {
-        if (!pwallet->IsLocked()) {
-            pwallet->TopUpKeyPool();
-        }
-
-        // Generate a new key that is added to wallet
-        CPubKey newKey;
-        if (!pwallet->GetKeyFromPool(newKey)) {
-            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
-        }
-
-        CKeyID key_id = newKey.GetID();
-        CScript redeemScript = GetScriptForDestination(key_id);
-        CColorScriptID colorscriptid(CScriptID(redeemScript), coin_control.m_colorId);
-        CTxDestination colorDest = CColorScriptID(colorscriptid, coin_control.m_colorId);
-
-        //setting the lable as colorid
-        pwallet->SetAddressBook(colorDest, "", "send");
-
         CScript scriptpubkey = GetScriptForDestination(colorDest);
 
         // Create and send the transaction
@@ -4268,6 +4323,10 @@ static UniValue IssueReissuableToken(CWallet* const pwallet, const std::string& 
         }
     }
 
+    // Register the address book entry only after both transactions commit successfully.
+    if (!foundExisting)
+        pwallet->SetAddressBook(colorDest, coin_control.m_colorId.toHexString(), "receive");
+
     UniValue result(UniValue::VOBJ);
     result.pushKV("color", coin_control.m_colorId.toHexString());
     UniValue txidlist(UniValue::VARR);
@@ -4292,9 +4351,7 @@ static UniValue IssueToken(CWallet* const pwallet, CAmount tokenValue, CCoinCont
     }
 
     CKeyID key_id = newKey.GetID();
-    CScript redeemScript = GetScriptForDestination(key_id);
-    CColorScriptID colorscriptid(CScriptID(redeemScript), coin_control.m_colorId);
-    CTxDestination colorDest = CColorScriptID(colorscriptid, coin_control.m_colorId);
+    CTxDestination colorDest = CColorKeyID(key_id, coin_control.m_colorId);
 
     CScript scriptpubkey = GetScriptForDestination(colorDest);
 
@@ -4383,17 +4440,21 @@ UniValue issuetoken(const JSONRPCRequest& request)
     // Make sure the results are valid at least up to the most recent block
     // the user could have gotten from another RPC command prior to now
     pwallet->BlockUntilSyncedToCurrentChain();
+    EnsureWalletIsUnlocked(pwallet);
 
     CCoinControl coin_control;
     coin_control.m_colorId = colorId;
 
-    // For reissuable tokens try to create a UTXO with the given scriptpubkey first and then issuing transaction using that utxo 
+    // For reissuable tokens try to create a UTXO with the given scriptpubkey first and then issuing transaction using that utxo
     if(coin_control.m_colorId.type == TokenTypes::REISSUABLE)
         return IssueReissuableToken(pwallet, request.params[2].getValStr(), tokenValue, coin_control);
     else
     {
         uint256 txid = uint256S(request.params[2].get_str());
-        uint8_t vout = request.params[3].get_int();
+        int n = request.params[3].get_int();
+        if (n < 0)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("vout %d out of range", n));
+        uint32_t vout = (uint32_t)n;
         COutPoint out(txid, vout);
 
         //Check if the UTXO belongs to us and is spendable
@@ -4465,6 +4526,9 @@ UniValue reissuetoken(const JSONRPCRequest& request)
     CAmount tokenValue = TokenAmountFromValue(request.params[1]);
     if (tokenValue <= 0)
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid token amount");
+
+    pwallet->BlockUntilSyncedToCurrentChain();
+    EnsureWalletIsUnlocked(pwallet);
 
     LOCK2(cs_main, pwallet->cs_wallet);
 
@@ -4564,6 +4628,8 @@ UniValue burntoken(const JSONRPCRequest& request)
     // Make sure the results are valid at least up to the most recent block
     // the user could have gotten from another RPC command prior to now
     pwallet->BlockUntilSyncedToCurrentChain();
+
+    EnsureWalletIsUnlocked(pwallet);
 
     LOCK2(cs_main, pwallet->cs_wallet);
     ColorIdentifier colorId;

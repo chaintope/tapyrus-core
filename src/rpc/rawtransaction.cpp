@@ -26,6 +26,7 @@
 #include <script/script_error.h>
 #include <script/sign.h>
 #include <script/standard.h>
+#include <softforkmanager.h>
 #include <txmempool.h>
 #include <uint256.h>
 #include <utilstrencodings.h>
@@ -717,6 +718,13 @@ static UniValue combinerawtransaction(const JSONRPCRequest& request)
         view.SetBackend(viewDummy); // switch back to avoid locking mempool for too long
     }
 
+    unsigned int signVerifyFlags = STANDARD_SCRIPT_VERIFY_FLAGS;
+    {
+        LOCK(cs_main);
+        if (GetSoftForkManager().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, chainActive.Height() + 1))
+            signVerifyFlags |= SCRIPT_VERIFY_CP2SH_COLORED;
+    }
+
     // Use CTransaction for the constant parts of the
     // transaction to avoid rehashing.
     const CTransaction txConst(mergedTx);
@@ -735,7 +743,7 @@ static UniValue combinerawtransaction(const JSONRPCRequest& request)
                 sigdata.MergeSignatureData(DataFromTransaction(txv, i, coin.out));
             }
         }
-        ProduceSignature(DUMMY_SIGNING_PROVIDER, MutableTransactionSignatureCreator(&mergedTx, i, coin.out.nValue, 1), coin.out.scriptPubKey, sigdata);
+        ProduceSignature(DUMMY_SIGNING_PROVIDER, MutableTransactionSignatureCreator(&mergedTx, i, coin.out.nValue, 1), coin.out.scriptPubKey, sigdata, signVerifyFlags);
 
         UpdateInput(txin, sigdata);
     }
@@ -810,7 +818,7 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival
 
             // if redeemScript given and not using the local wallet (private keys
             // given), add redeemScript to the keystore so it can be signed:
-            if (is_temp_keystore && scriptPubKey.IsPayToScriptHash() ) {
+            if (is_temp_keystore && (scriptPubKey.IsPayToScriptHash() || scriptPubKey.IsColoredPayToScriptHash())) {
                 RPCTypeCheckObj(prevOut,
                     {
                         {"redeemScript", UniValueType(UniValue::VSTR)},
@@ -828,6 +836,13 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival
     int nHashType = ParseSighashString(hashType);
 
     bool fHashSingle = ((nHashType & ~SIGHASH_ANYONECANPAY) == SIGHASH_SINGLE);
+
+    unsigned int signVerifyFlags = STANDARD_SCRIPT_VERIFY_FLAGS;
+    {
+        LOCK(cs_main);
+        if (GetSoftForkManager().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, chainActive.Height() + 1))
+            signVerifyFlags |= SCRIPT_VERIFY_CP2SH_COLORED;
+    }
 
     // Script verification errors
     UniValue vErrors(UniValue::VARR);
@@ -851,14 +866,14 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival
         SignatureData sigdata = DataFromTransaction(mtx, i, coin.out);
         // Only sign SIGHASH_SINGLE if there's a corresponding output:
         if (!fHashSingle || (i < mtx.vout.size())) {
-            ProduceSignature(*keystore, MutableTransactionSignatureCreator(&mtx, i, amount, nHashType, sigScheme), prevPubKey, sigdata);
+            ProduceSignature(*keystore, MutableTransactionSignatureCreator(&mtx, i, amount, nHashType, sigScheme), prevPubKey, sigdata, signVerifyFlags);
         }
 
         UpdateInput(txin, sigdata);
 
         ColorIdentifier tempColorId;
         ScriptError serror = SCRIPT_ERR_OK;
-        if (!VerifyScript(txin.scriptSig, prevPubKey, nullptr, STANDARD_SCRIPT_VERIFY_FLAGS, TransactionSignatureChecker(&txConst, i, amount), tempColorId, &serror)) {
+        if (!VerifyScript(txin.scriptSig, prevPubKey, nullptr, signVerifyFlags, TransactionSignatureChecker(&txConst, i, amount), tempColorId, &serror)) {
             if (serror == SCRIPT_ERR_INVALID_STACK_OPERATION) {
                 // Unable to sign input and verification failed (possible attempt to partially sign).
                 TxInErrorToJSON(txin, vErrors, "Unable to sign input, invalid stack size (possibly missing key)");

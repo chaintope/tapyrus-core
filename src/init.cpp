@@ -35,6 +35,7 @@
 #include <scheduler.h>
 #include <shutdown.h>
 #include <txdb.h>
+#include <issuedcolorids.h>
 #include <txmempool.h>
 #include <torcontrol.h>
 #include <ui_interface.h>
@@ -263,6 +264,7 @@ void Shutdown()
         pcoinsTip.reset();
         pcoinscatcher.reset();
         pcoinsdbview.reset();
+        g_colorid_state.reset();
         pblocktree.reset();
     }
     g_wallet_init_interface.Stop();
@@ -702,17 +704,24 @@ static void ThreadImport(std::vector<fs::path> vImportFiles, bool fReloadxfield)
         }
     }
 
-    if (fReloadxfield) {
-        XFieldChangeList aggPubKeyChanges = tempXFieldHistory.GetListCopy(TAPYRUS_XFIELDTYPES::AGGPUBKEY);
-        pblocktree->RewriteXField(aggPubKeyChanges);
-    }
-
     // scan for better chains in the block chain database, that are not yet connected in the active best chain
     CValidationState state;
     if (!ActivateBestChain(state)) {
         LogPrintf("Failed to connect best block (%s)\n", FormatStateMessage(state));
         StartShutdown();
         return;
+    }
+
+    if (fReloadxfield) {
+        // Rebuild the persisted xfield list from the active chain only.
+        // tempXFieldHistory was populated from all processed blocks including orphans;
+        // after ActivateBestChain the global CXFieldHistory only contains active-chain entries.
+        CXFieldHistory xfieldHistory;
+        for (const auto& type : XFIELDTYPES_INIT_LIST) {
+            XFieldChangeList changes = xfieldHistory.GetListCopy(type);
+            if (!changes.empty())
+                pblocktree->RewriteXField(changes);
+        }
     }
 
     if (gArgs.GetBoolArg("-stopafterblockimport", DEFAULT_STOPAFTERBLOCKIMPORT)) {
@@ -1507,6 +1516,12 @@ bool AppInitMain()
                 pcoinsdbview.reset(new CCoinsViewDB(nCoinDBCache, false, fReset || fReindexChainState));
                 pcoinscatcher.reset(new CCoinsViewErrorCatcher(pcoinsdbview.get()));
 
+                // Create the colorId state before ReplayBlocks so that DisconnectBlock
+                // inside the replay can stage erases that CommitToBatch writes atomically
+                // with the replay's UTXO flush.  cs_main is already held by the outer LOCK.
+                g_colorid_state.reset(new CIssuedColorIds());
+                pcoinsdbview->SetColorIdState(g_colorid_state.get());
+
                 // If necessary, upgrade from older database format.
                 // This is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate
                 if (!pcoinsdbview->Upgrade()) {
@@ -1554,28 +1569,18 @@ bool AppInitMain()
                         xFieldHistory.Add(x, XFieldDB);
                 }
 
-                // Step 7b: Load issued NON_REISSUABLE/NFT colorId set from db.
-                // With -reindex-chainstate the coins DB is wiped but pblocktree is
-                // preserved, so stale DB_ISSUED_COLORID entries would cause every
-                // legitimate issuance to be rejected as already-issued when blocks
-                // are re-connected.  Clear both stores before the load in that case.
+                // Step 7b: Load issued NON_REISSUABLE/NFT colorId set from the chainstate DB.
+                // The set lives in the same LevelDB as the UTXO state, so it is automatically
+                // wiped by -reindex or -reindex-chainstate (both construct CCoinsViewDB with
+                // fWipe=true).  ConnectBlock then rebuilds both stores as blocks are reconnected.
+                // cs_main is already held by the outer LOCK.
                 {
-                    if (fReindexChainState) {
-                        if (!pblocktree->ClearIssuedColorIds()) {
-                            strLoadError = _("Failed to clear issued colorId set from block database");
-                            break;
-                        }
-                        LOCK(cs_issued_colorids);
-                        g_issued_colorids.clear();
-                    } else {
-                        std::set<ColorIdentifier> issuedColorIds;
-                        if (!pblocktree->LoadIssuedColorIds(issuedColorIds)) {
-                            strLoadError = _("Failed to load issued colorId set from block database");
-                            break;
-                        }
-                        LOCK(cs_issued_colorids);
-                        g_issued_colorids = std::move(issuedColorIds);
+                    std::set<ColorIdentifier> colorIds;
+                    if (!pcoinsdbview->LoadIssuedColorIds(colorIds)) {
+                        strLoadError = _("Failed to load issued colorId set from chainstate database");
+                        break;
                     }
+                    g_colorid_state->SetConfirmed(std::move(colorIds));
                 }
 
                 if (!is_coinsview_empty) {

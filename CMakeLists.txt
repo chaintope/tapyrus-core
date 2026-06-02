@@ -27,7 +27,7 @@ set(PACKAGE_NAME "Tapyrus Core")
 set(CLIENT_VERSION_MAJOR 0)
 set(CLIENT_VERSION_MINOR 7)
 set(CLIENT_VERSION_REVISION 0)
-set(CLIENT_VERSION_BUILD 1)
+set(CLIENT_VERSION_BUILD 2)
 set(CLIENT_VERSION_RC 0)
 set(CLIENT_VERSION_IS_RELEASE "true")
 
@@ -550,6 +550,18 @@ endif()
 target_compile_definitions(core_interface INTERFACE ${DEPENDS_COMPILE_DEFINITIONS})
 target_compile_definitions(core_interface_relwithdebinfo INTERFACE ${DEPENDS_COMPILE_DEFINITIONS_RELWITHDEBINFO})
 target_compile_definitions(core_interface_debug INTERFACE ${DEPENDS_COMPILE_DEFINITIONS_DEBUG})
+
+# CI-only: override the CP2SH colored softfork activation height so functional
+# tests can exercise the pre/post-activation transition without mining hundreds
+# of thousands of blocks.  Must be passed explicitly (e.g. by CI via
+# -DCP2SH_ACTIVATION_TEST_HEIGHT=120).  Never set automatically — doing so
+# would activate the softfork at block 120 on all networks including testnet,
+# breaking IBD of any historical chain that has CP2SH colored outputs.
+if(DEFINED CP2SH_ACTIVATION_TEST_HEIGHT)
+  target_compile_definitions(core_interface INTERFACE
+    CP2SH_ACTIVATION_TEST_HEIGHT=${CP2SH_ACTIVATION_TEST_HEIGHT}
+  )
+endif()
 
 # If the {CXX,LD}FLAGS environment variables are defined during building depends
 # and configuring this build system, their content might be duplicated.

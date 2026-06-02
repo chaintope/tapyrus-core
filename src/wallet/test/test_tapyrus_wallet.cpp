@@ -136,7 +136,7 @@ bool TestWalletSetup::IssueNonReissunableColoredCoin(const CAmount amount, Color
     issueTx.vout[0].nValue = amount;
     issueTx.vout[0].scriptPubKey = GetScriptForDestination(colorkeyid);
     {
-        LOCK(wallet->cs_wallet);
+        LOCK2(cs_main, wallet->cs_wallet);
         if(!wallet->SignTransaction(issueTx)) {
             return false;
         }

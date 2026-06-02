@@ -652,6 +652,18 @@ UniValue importwallet(const JSONRPCRequest& request)
                    pwallet->m_script_metadata[id].nCreateTime = birth_time;
                    nTimeBegin = std::min(nTimeBegin, birth_time);
                }
+            } else {
+               CTxDestination dest = DecodeDestination(vstr[0]);
+               if (std::holds_alternative<CColorKeyID>(dest) || std::holds_alternative<CColorScriptID>(dest)) {
+                   std::string strLabel;
+                   for (unsigned int nStr = 1; nStr < vstr.size(); nStr++) {
+                       if (vstr[nStr].front() == '#')
+                           break;
+                       if (vstr[nStr].substr(0, 6) == "label=")
+                           strLabel = DecodeDumpString(vstr[nStr].substr(6));
+                   }
+                   pwallet->SetAddressBook(dest, strLabel, "receive");
+               }
             }
         }
         file.close();
@@ -832,6 +844,13 @@ UniValue dumpwallet(const JSONRPCRequest& request)
             file << strprintf(" # addr=%s\n", address);
         }
     }
+    for (const auto& entry : pwallet->mapAddressBook) {
+        if (std::holds_alternative<CColorKeyID>(entry.first) || std::holds_alternative<CColorScriptID>(entry.first)) {
+            file << strprintf("%s label=%s\n",
+                EncodeDestination(entry.first),
+                EncodeDumpString(entry.second.name));
+        }
+    }
     file << "\n";
     file << "# End of dump\n";
     file.close();
@@ -921,7 +940,7 @@ static UniValue ProcessImport(CWallet * const pwallet, const UniValue& data, con
             CScript redeemScript = CScript(vData.begin(), vData.end());
 
             // Invalid P2SH address
-            if (!script.IsPayToScriptHash()) {
+            if (!script.IsPayToScriptHash() && !script.IsColoredPayToScriptHash()) {
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid P2SH address / script");
             }
 

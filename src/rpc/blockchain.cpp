@@ -2119,12 +2119,15 @@ static UniValue getcolor(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid transaction id :") + request.params[1].get_str());
         }
 
-        int8_t vout = request.params[2].get_int();
+        int n = request.params[2].get_int();
+        if (n < 0 || (size_t)n >= tx->vout.size())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("vout %d out of range for tx %s", n, request.params[1].get_str()));
+        uint32_t vout = (uint32_t)n;
         COutPoint out(txid, vout);
 
         // check vout
-        if(vout >= (int8_t)tx->vout.size() || GetColorIdFromScript(tx->vout[vout].scriptPubKey).type != TokenTypes::NONE) {
-            std::string strError = strprintf("Invalid vout %d in tx: %s", request.params[2].get_int(), request.params[1].get_str());
+        if (GetColorIdFromScript(tx->vout[vout].scriptPubKey).type != TokenTypes::NONE) {
+            std::string strError = strprintf("Invalid vout %d in tx: %s", n, request.params[1].get_str());
             throw JSONRPCError(RPC_INVALID_PARAMETER, strError);
         }
 

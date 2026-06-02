@@ -165,7 +165,7 @@ CMutableTransaction BuildSpendingTransaction(const CScript& scriptSig, const CSc
     return txSpend;
 }
 
-void DoTest(const CScript& scriptPubKey, const CScript& scriptSig, const CScriptWitness& scriptWitness, int flags, const std::string& message, int scriptError, CAmount nValue = 0)
+void DoTest(const CScript& scriptPubKey, const CScript& scriptSig, const CScriptWitness& scriptWitness, int flags, const std::string& message, int scriptError, CAmount nValue = 0, uint32_t nLockTime = 0, uint32_t nSequence = CTxIn::SEQUENCE_FINAL)
 {
     bool expect = (scriptError == SCRIPT_ERR_OK);
     if (flags & SCRIPT_VERIFY_CLEANSTACK) {
@@ -175,6 +175,8 @@ void DoTest(const CScript& scriptPubKey, const CScript& scriptSig, const CScript
     ColorIdentifier colorId;
     const CTransaction txCredit{BuildCreditingTransaction(scriptPubKey, nValue)};
     CMutableTransaction tx = BuildSpendingTransaction(scriptSig, scriptWitness, txCredit);
+    tx.nLockTime = nLockTime;
+    tx.vin[0].nSequence = nSequence;
     CMutableTransaction tx2 = tx;
     BOOST_CHECK_MESSAGE(VerifyScript(scriptSig, scriptPubKey, &scriptWitness, flags, MutableTransactionSignatureChecker(&tx, 0, txCredit.vout[0].nValue), colorId, &err) == expect, message);
     BOOST_CHECK_MESSAGE(err == scriptError, std::string(FormatScriptError(err)) + " where " + std::string(FormatScriptError((ScriptError_t)scriptError)) + " expected: " + message);
@@ -308,6 +310,8 @@ private:
     int flags;
     int scriptError;
     CAmount nValue;
+    uint32_t m_nLockTime{0};
+    uint32_t m_nSequence{CTxIn::SEQUENCE_FINAL};
 
     void DoPush()
     {
@@ -326,7 +330,7 @@ private:
 
 
 public:
-    TestBuilder(const CScript& script_, const std::string& comment_, int flags_, bool P2SH = false, WitnessMode wm = WitnessMode::NONE, int witnessversion = 0, CAmount nValue_ = 0, bool ignoreColor = false) : script(script_), havePush(false), comment(comment_), flags(flags_), scriptError(SCRIPT_ERR_OK), nValue(nValue_)
+    TestBuilder(const CScript& script_, const std::string& comment_, int flags_, bool P2SH = false, WitnessMode wm = WitnessMode::NONE, int witnessversion = 0, CAmount nValue_ = 0, bool ignoreColor = false, const CScript& customRedeem = CScript()) : script(script_), havePush(false), comment(comment_), flags(flags_), scriptError(SCRIPT_ERR_OK), nValue(nValue_)
     {
         CScript scriptPubKey = script;
         if (wm == WitnessMode::PKH) {
@@ -343,8 +347,15 @@ public:
         if (P2SH) {
             if(!ignoreColor && scriptPubKey.IsColoredScript())
             {
-                const KeyData keys;
-                redeemscript = CScript() << OP_DUP << OP_HASH160 << ToByteVector(keys.pubkey1C.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
+                if (!customRedeem.empty()) {
+                    redeemscript = customRedeem;
+                } else {
+                    const KeyData keys;
+                    redeemscript = CScript() << OP_DUP << OP_HASH160 << ToByteVector(keys.pubkey1C.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
+                }
+                // Sign over the inner (redeem) script, matching how OP_CHECKSIG
+                // computes its scriptCode once the redeem script is actually executed.
+                script = redeemscript;
             }
             else
             {
@@ -354,6 +365,18 @@ public:
         }
         creditTx = MakeTransactionRef(BuildCreditingTransaction(scriptPubKey, nValue));
         spendTx = BuildSpendingTransaction(CScript(), CScriptWitness(), *creditTx);
+    }
+
+    TestBuilder& LockTime(uint32_t nLockTime)
+    {
+        m_nLockTime = nLockTime;
+        return *this;
+    }
+
+    TestBuilder& Sequence(uint32_t nSequence)
+    {
+        m_nSequence = nSequence;
+        return *this;
     }
 
     TestBuilder& ScriptError(ScriptError_t err)
@@ -507,7 +530,7 @@ public:
     {
         TestBuilder copy = *this; // Make a copy so we can rollback the push.
         DoPush();
-        DoTest(creditTx->vout[0].scriptPubKey, spendTx.vin[0].scriptSig, scriptWitness, flags, comment, scriptError, nValue);
+        DoTest(creditTx->vout[0].scriptPubKey, spendTx.vin[0].scriptSig, scriptWitness, flags, comment, scriptError, nValue, m_nLockTime, m_nSequence);
         *this = copy;
         return *this;
     }
@@ -1588,6 +1611,29 @@ BOOST_AUTO_TEST_CASE(script_build)
                         .DamagePush(10)
                         .Num(0)
                         .ScriptError(SCRIPT_ERR_PUBKEYTYPE));
+    // CP2SH(P2PKH): colored P2SH where the outer script carries OP_COLOR and
+    // the redeem script is a plain P2PKH.  Signatures are computed over the
+    // inner P2PKH redeem script (not the outer CP2SH scriptPubKey) because
+    // CP2SH now correctly enters the P2SH execution branch in VerifyScript.
+    {
+        ColorIdentifier cp2sh_cid(CScript() << ToByteVector(keys.pubkey0C) << OP_CHECKSIG);
+        CScript cp2sh_inner = CScript() << OP_DUP << OP_HASH160
+                                        << ToByteVector(keys.pubkey1C.GetID())
+                                        << OP_EQUALVERIFY << OP_CHECKSIG;
+        CScript cp2sh_spk = CScript() << cp2sh_cid.toVector() << OP_COLOR
+                                      << OP_HASH160 << ToByteVector(CScriptID(cp2sh_inner))
+                                      << OP_EQUAL;
+        tests.push_back(TestBuilder(cp2sh_spk, "CP2SH(P2PKH) ECDSA", SCRIPT_VERIFY_NONE,
+                                    /*P2SH=*/true, WitnessMode::NONE, 0, 0, false, cp2sh_inner)
+                            .PushSig(keys.key1, SignatureScheme::ECDSA)
+                            .Push(keys.pubkey1C)
+                            .PushRedeem());
+        tests.push_back(TestBuilder(cp2sh_spk, "CP2SH(P2PKH) SCHNORR", SCRIPT_VERIFY_NONE,
+                                    /*P2SH=*/true, WitnessMode::NONE, 0, 0, false, cp2sh_inner)
+                            .PushSig(keys.key1, SignatureScheme::SCHNORR)
+                            .Push(keys.pubkey1C)
+                            .PushRedeem());
+    }
     std::set<std::string> tests_set;
     tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey1C) << OP_CHECKDATASIG,
         "CHECKDATASIG ECDSA with Hashtype byte", SCRIPT_VERIFY_NONE)
@@ -2598,6 +2644,124 @@ BOOST_AUTO_TEST_CASE(colored_coin_standard_scripts)
     }
 }
 
+BOOST_AUTO_TEST_CASE(colored_coin_cp2sh_redeem_scripts)
+{
+    const KeyData keys;
+    ColorIdentifier cid(CScript() << ToByteVector(keys.pubkey0C) << OP_CHECKSIG);
+
+    // Build a CP2SH scriptPubKey locking to an arbitrary inner redeem script.
+    // <colorId(33B)> OP_COLOR OP_HASH160 <Hash160(inner)> OP_EQUAL  — exactly 58 bytes.
+    auto makeCP2SH = [&](const CScript& inner) {
+        CScript s;
+        s << cid.toVector() << OP_COLOR
+          << OP_HASH160 << ToByteVector(CScriptID(inner)) << OP_EQUAL;
+        return s;
+    };
+
+    std::vector<TestBuilder> tests;
+
+    // ---- CLTV inside CP2SH ----
+    // Inner script locks coins until block height 500.
+    {
+        CScript inner;
+        inner << 500 << OP_CHECKLOCKTIMEVERIFY << OP_DROP << OP_1;
+        CScript cp2sh = makeCP2SH(inner);
+
+        // Valid: tx.nLockTime == 500, input nSequence non-final
+        tests.push_back(TestBuilder(cp2sh, "CP2SH(CLTV) valid spend at height 500",
+            SCRIPT_VERIFY_CP2SH_COLORED, /*P2SH=*/true,
+            WitnessMode::NONE, 0, 0, false, inner)
+                .LockTime(500).Sequence(0xfffffffe).PushRedeem());
+
+        // Invalid: input is finalized — CLTV always fails when nSequence == SEQUENCE_FINAL
+        tests.push_back(TestBuilder(cp2sh, "CP2SH(CLTV) fails when input is finalised",
+            SCRIPT_VERIFY_CP2SH_COLORED, /*P2SH=*/true,
+            WitnessMode::NONE, 0, 0, false, inner)
+                .LockTime(500)   // nSequence stays at default SEQUENCE_FINAL
+                .PushRedeem()
+                .ScriptError(SCRIPT_ERR_UNSATISFIED_LOCKTIME));
+
+        // Invalid: tx.nLockTime is below the required threshold
+        tests.push_back(TestBuilder(cp2sh, "CP2SH(CLTV) fails when locktime too low",
+            SCRIPT_VERIFY_CP2SH_COLORED, /*P2SH=*/true,
+            WitnessMode::NONE, 0, 0, false, inner)
+                .LockTime(499).Sequence(0xfffffffe)
+                .PushRedeem()
+                .ScriptError(SCRIPT_ERR_UNSATISFIED_LOCKTIME));
+    }
+
+    // ---- CSV inside CP2SH ----
+    // Inner script requires at least 3 blocks of relative age.
+    {
+        CScript inner;
+        inner << 3 << OP_CHECKSEQUENCEVERIFY << OP_DROP << OP_1;
+        CScript cp2sh = makeCP2SH(inner);
+
+        // Valid: nSequence = 3 (block-relative, bit 31 clear, >= 3)
+        tests.push_back(TestBuilder(cp2sh, "CP2SH(CSV) valid spend with sequence 3",
+            SCRIPT_VERIFY_CP2SH_COLORED, /*P2SH=*/true,
+            WitnessMode::NONE, 0, 0, false, inner)
+                .Sequence(3).PushRedeem());
+
+        // Invalid: nSequence = 2 — below the required minimum
+        tests.push_back(TestBuilder(cp2sh, "CP2SH(CSV) fails when sequence too low",
+            SCRIPT_VERIFY_CP2SH_COLORED, /*P2SH=*/true,
+            WitnessMode::NONE, 0, 0, false, inner)
+                .Sequence(2)
+                .PushRedeem()
+                .ScriptError(SCRIPT_ERR_UNSATISFIED_LOCKTIME));
+
+        // Invalid: SEQUENCE_DISABLE_FLAG set in tx nSequence — CheckSequence returns false
+        tests.push_back(TestBuilder(cp2sh, "CP2SH(CSV) fails when disable flag set in nSequence",
+            SCRIPT_VERIFY_CP2SH_COLORED, /*P2SH=*/true,
+            WitnessMode::NONE, 0, 0, false, inner)
+                .Sequence(CTxIn::SEQUENCE_LOCKTIME_DISABLE_FLAG | 3)
+                .PushRedeem()
+                .ScriptError(SCRIPT_ERR_UNSATISFIED_LOCKTIME));
+    }
+
+    // ---- OP_COLOR inside CP2SH redeem script — must be rejected ----
+    // OP_COLOR is only legal at the top level of the scriptPubKey, never inside
+    // a redeem script (this is the property that makes CP2SH the approved
+    // escape hatch rather than a coloring primitive that can nest arbitrarily).
+    {
+        CScript inner;
+        inner << cid.toVector() << OP_COLOR << OP_1;
+        CScript cp2sh = makeCP2SH(inner);
+
+        tests.push_back(TestBuilder(cp2sh, "CP2SH(OP_COLOR in redeem script) rejected",
+            SCRIPT_VERIFY_CP2SH_COLORED, /*P2SH=*/true,
+            WitnessMode::NONE, 0, 0, false, inner)
+                .PushRedeem()
+                .ScriptError(SCRIPT_ERR_OP_COLOR_UNEXPECTED));
+    }
+
+    // ---- OP_IF branching inside CP2SH redeem script ----
+    // Inner: OP_IF OP_1 OP_ELSE OP_0 OP_ENDIF
+    {
+        CScript inner;
+        inner << OP_IF << OP_1 << OP_ELSE << OP_0 << OP_ENDIF;
+        CScript cp2sh = makeCP2SH(inner);
+
+        // Valid: push 1 to take the true branch — leaves OP_1 on the stack
+        tests.push_back(TestBuilder(cp2sh, "CP2SH(OP_IF true branch) valid",
+            SCRIPT_VERIFY_CP2SH_COLORED, /*P2SH=*/true,
+            WitnessMode::NONE, 0, 0, false, inner)
+                .Num(1).PushRedeem());
+
+        // Invalid: push 0 to take the false branch — leaves OP_0, script returns false
+        tests.push_back(TestBuilder(cp2sh, "CP2SH(OP_IF false branch) EVAL_FALSE",
+            SCRIPT_VERIFY_CP2SH_COLORED, /*P2SH=*/true,
+            WitnessMode::NONE, 0, 0, false, inner)
+                .Num(0).PushRedeem()
+                .ScriptError(SCRIPT_ERR_EVAL_FALSE));
+    }
+
+    for (TestBuilder& test : tests) {
+        test.Test();
+    }
+}
+
 BOOST_AUTO_TEST_CASE(colored_coin_arithmetic_scripts)
 {
     const KeyData keys;
@@ -2707,17 +2871,20 @@ BOOST_AUTO_TEST_CASE(colored_coin_arithmetic_scripts)
                         .Num(-3)
                         .ScriptError(SCRIPT_ERR_EVAL_FALSE));
 
-    // OP_HASH160 preimage: scriptSig pushes preimage; scriptPubKey checks HASH160
-    // preimage = {0x61, 0x62, 0x63} = "abc"
+    // OP_HASH256 preimage: scriptSig pushes preimage; scriptPubKey checks HASH256.
+    // OP_HASH160 is intentionally avoided here: <colorId> OP_COLOR OP_HASH160 <20B> OP_EQUAL
+    // is exactly 58 bytes and matches IsColoredPayToScriptHash(), so it would be treated as
+    // CP2SH and the preimage bytes would be executed as a redeem script.
+    // OP_HASH256 produces a 32-byte digest, making the script 70 bytes — outside the CP2SH pattern.
     {
         std::vector<unsigned char> preimage = {'a', 'b', 'c'};
-        uint160 h = Hash160(preimage);
-        tests.push_back(TestBuilder(colored(CScript() << OP_HASH160 << ToByteVector(h) << OP_EQUAL),
-            "Colored OP_HASH160 preimage valid", 0)
+        uint256 h = Hash(preimage.begin(), preimage.end());
+        tests.push_back(TestBuilder(colored(CScript() << OP_HASH256 << ToByteVector(h) << OP_EQUAL),
+            "Colored OP_HASH256 preimage valid", 0)
                             .Add(CScript() << preimage));
         std::vector<unsigned char> wrongPreimage = {'x', 'y', 'z'};
-        tests.push_back(TestBuilder(colored(CScript() << OP_HASH160 << ToByteVector(h) << OP_EQUAL),
-            "Colored OP_HASH160 wrong preimage", 0)
+        tests.push_back(TestBuilder(colored(CScript() << OP_HASH256 << ToByteVector(h) << OP_EQUAL),
+            "Colored OP_HASH256 wrong preimage", 0)
                             .Add(CScript() << wrongPreimage)
                             .ScriptError(SCRIPT_ERR_EVAL_FALSE));
     }

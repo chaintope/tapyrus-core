@@ -129,4 +129,63 @@ BOOST_AUTO_TEST_CASE(xfieldhistory_size_and_temp)
     BOOST_CHECK_EQUAL(HexStr(stream.begin(), stream.end()), std::string("0440420f0000000000" + HexStr(FederationParams().GenesisBlock().GetHash()) + "00093d001e000000000000000000000000000000000000000000000000000000000000000000000000127a003200000000000000000000000000000000000000000000000000000000000000000000000024f400460000000000000000000000000000000000000000000000000000000000000000000000"));
 }
 
+BOOST_AUTO_TEST_CASE(xfieldhistory_remove_and_reorg)
+{
+    // Fixture: genesis(key0@0) + key10@20 + key11@40 + key12@60 = 4 entries
+    BOOST_CHECK_EQUAL(pxFieldHistory->GetListSize(TAPYRUS_XFIELDTYPES::AGGPUBKEY), 4);
+
+    // ConnectTip: rotate to key[13] at height 80
+    const uint256 hashA = InsecureRand256();
+    const XFieldChange changeA(XFieldAggPubKey(CPubKey(ParseHex(ValidPubKeyStrings[13]))), 80, hashA);
+    pxFieldHistory->Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY, changeA);
+    BOOST_CHECK_EQUAL(pxFieldHistory->GetListSize(TAPYRUS_XFIELDTYPES::AGGPUBKEY), 5);
+    BOOST_CHECK_EQUAL(pxFieldHistory->Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 80).blockHash, hashA);
+
+    // DisconnectTip: Remove that rotation entry; reverts to previous entry at height 60
+    BOOST_CHECK(pxFieldHistory->Remove(TAPYRUS_XFIELDTYPES::AGGPUBKEY, changeA));
+    BOOST_CHECK_EQUAL(pxFieldHistory->GetListSize(TAPYRUS_XFIELDTYPES::AGGPUBKEY), 4);
+    BOOST_CHECK_EQUAL(pxFieldHistory->Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 80).height, 60);
+
+    // Removing a non-existent entry is a safe no-op
+    BOOST_CHECK(!pxFieldHistory->Remove(TAPYRUS_XFIELDTYPES::AGGPUBKEY, changeA));
+
+    // ConnectTip on new chain: different key at the same height
+    const uint256 hashB = InsecureRand256();
+    const XFieldChange changeB(XFieldAggPubKey(CPubKey(ParseHex(ValidPubKeyStrings[14]))), 80, hashB);
+    pxFieldHistory->Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY, changeB);
+    BOOST_CHECK_EQUAL(pxFieldHistory->GetListSize(TAPYRUS_XFIELDTYPES::AGGPUBKEY), 5);
+    BOOST_CHECK_EQUAL(pxFieldHistory->Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 80).blockHash, hashB);
+    // Earlier entries are unchanged
+    BOOST_CHECK_EQUAL(pxFieldHistory->Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 60).height, 60);
+    BOOST_CHECK_EQUAL(pxFieldHistory->Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 40).height, 40);
+}
+
+BOOST_AUTO_TEST_CASE(xfieldhistory_same_height_active_chain_wins)
+{
+    // Fixture: genesis(key0@0) + key10@20 + key11@40 + key12@60 = 4 entries
+    BOOST_CHECK_EQUAL(pxFieldHistory->GetListSize(TAPYRUS_XFIELDTYPES::AGGPUBKEY), 4);
+
+    // Orphan entry added FIRST (as would happen during reindex via LoadExternalBlockFile)
+    const uint256 hashOrphan = InsecureRand256();
+    const XFieldChange orphanChange(XFieldAggPubKey(CPubKey(ParseHex(ValidPubKeyStrings[13]))), 80, hashOrphan);
+    pxFieldHistory->Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY, orphanChange);
+
+    // Active-chain entry added SECOND (from ConnectTip after ActivateBestChain)
+    const uint256 hashActive = InsecureRand256();
+    const XFieldChange activeChange(XFieldAggPubKey(CPubKey(ParseHex(ValidPubKeyStrings[14]))), 80, hashActive);
+    pxFieldHistory->Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY, activeChange);
+    BOOST_CHECK_EQUAL(pxFieldHistory->GetListSize(TAPYRUS_XFIELDTYPES::AGGPUBKEY), 6);
+
+    // Get(height) scans from the back: the most recently added (active-chain) entry wins
+    BOOST_CHECK_EQUAL(pxFieldHistory->Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 80).blockHash, hashActive);
+    BOOST_CHECK_EQUAL(pxFieldHistory->Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 85).blockHash, hashActive);
+    // Height below both entries still resolves to the previous rotation at 60
+    BOOST_CHECK_EQUAL(pxFieldHistory->Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 79).height, 60);
+
+    // After removing the active entry, the orphan entry becomes the last
+    BOOST_CHECK(pxFieldHistory->Remove(TAPYRUS_XFIELDTYPES::AGGPUBKEY, activeChange));
+    BOOST_CHECK_EQUAL(pxFieldHistory->GetListSize(TAPYRUS_XFIELDTYPES::AGGPUBKEY), 5);
+    BOOST_CHECK_EQUAL(pxFieldHistory->Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 80).blockHash, hashOrphan);
+}
+
 BOOST_AUTO_TEST_SUITE_END()//xfieldhistory_tests

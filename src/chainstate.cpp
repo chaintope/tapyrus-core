@@ -5,6 +5,7 @@
 #include <chainstate.h>
 #include <chainparams.h>
 #include <util.h>
+#include <issuedcolorids.h>
 
 #include <consensus/tx_verify.h>
 #include <index/txindex.h>
@@ -23,8 +24,7 @@
 // Defined in validation.cpp; declared here to avoid pulling in validation.h
 // (which includes chainstate.h, creating an indirect self-inclusion).
 void RefreshChainTxDataFromTip(const CBlockIndex* pindexNew);
-extern Mutex cs_issued_colorids;
-extern std::set<ColorIdentifier> g_issued_colorids;
+extern std::unique_ptr<CIssuedColorIds> g_colorid_state;
 extern std::atomic_bool fReindex;
 
 static int64_t nTimeCheck = 0;
@@ -247,7 +247,7 @@ int ApplyTxInUndo(Coin&& undo, CCoinsViewCache& view, const COutPoint& out)
 
 /** Undo the effects of this block (with given index) on the UTXO set represented by coins.
  *  When FAILED is returned, view is left in an indeterminate state. */
-DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view)
+DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view, bool fDryRun)
 {
     bool fClean = true;
 
@@ -303,14 +303,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
                         continue;
                     COutPoint prevout = tx.vin[j].prevout;
                     if (ColorIdentifier(prevout, outColorId.type) == outColorId) {
-                        // Erase from disk before memory: if the disk erase fails
-                        // both stores remain consistent (entry still present in both).
-                        if (!pblocktree->EraseIssuedColorId(outColorId))
-                            return DISCONNECT_FAILED;
-                        {
-                            LOCK(cs_issued_colorids);
-                            g_issued_colorids.erase(outColorId);
-                        }
+                        g_colorid_state->Erase(outColorId);
                         break;
                     }
                 }
@@ -544,7 +537,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     // is enforced in ContextualCheckBlockHeader(); we wouldn't want to
     // re-enforce that rule here (at least until we make it impossible for
     // GetAdjustedTime() to go backward).
-    if (!CheckBlock(block, state, !fJustCheck, !fJustCheck)) {
+    if (!CheckBlock(block, state, !fJustCheck, !fJustCheck, nullptr, pindex->nHeight)) {
         if (state.CorruptionPossible()) {
             // We don't write down blocks to disk if they may have been
             // corrupted, so this should be impossible unless we're having hardware
@@ -616,9 +609,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     CCheckQueueControl<CScriptCheck> control(fScriptChecks && nScriptCheckThreads ? scriptcheckqueue.get() : nullptr);
     // Accumulate new NON_REISSUABLE/NFT issuances across the whole block.
-    // Applied to g_issued_colorids and persisted to LevelDB only after
-    // control.Wait() succeeds, so a late script-check failure cannot leave
-    // the global set or the DB in a dirty state.
+    // Staged into g_colorid_state and committed to LevelDB atomically with
+    // DB_BEST_BLOCK only after control.Wait() succeeds, so a late script-check
+    // failure cannot leave the global set or the DB in a dirty state.
     std::set<ColorIdentifier> allNewIssuances;
 
     for (unsigned int i = 0; i < block.vtx.size(); i++)
@@ -667,20 +660,20 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         {
             std::vector<CScriptCheck> vChecks;
             bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
-            if (!CheckInputs(tx, state, view, fScriptChecks, SCRIPT_VERIFY_NONE, fCacheResults, fCacheResults, txdata[i], nScriptCheckThreads ? &vChecks : nullptr))
+            if (!CheckInputs(tx, state, view, fScriptChecks, GetBlockScriptFlags(pindex), fCacheResults, fCacheResults, txdata[i], nScriptCheckThreads ? &vChecks : nullptr))
                 return error("ConnectBlock(): CheckInputs on %s failed with %s",
                     tx.GetHashMalFix().ToString(), FormatStateMessage(state));
             control.Add(std::move(vChecks));
         }
 
         //if there are colored coins in the output verify their colorids
-        if(!CheckColorIdentifierValidity(tx, state, view))
+        if(!CheckColorIdentifierValidity(tx, state, view, pindex->nHeight))
             return false;
 
         //verify token balances (coinbase has no real inputs so balance check does not apply)
         if (!tx.IsCoinBase()) {
             std::set<ColorIdentifier> newIssuances;
-            if (!VerifyTokenBalances(tx, state, view, txfee, !fJustCheck ? &newIssuances : nullptr))
+            if (!VerifyTokenBalances(tx, state, view, txfee, !fJustCheck ? &newIssuances : nullptr, pindex->nHeight))
                 return false;
             allNewIssuances.insert(newIssuances.begin(), newIssuances.end());
         }
@@ -706,18 +699,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     int64_t nTime4 = GetTimeMicros(); nTimeVerify += nTime4 - nTime2;
     LogPrint(BCLog::BENCH, "    - Verify %u txins: %.2fms (%.3fms/txin) [%.2fs (%.2fms/blk)]\n", nInputs - 1, MILLI * (nTime4 - nTime2), nInputs <= 1 ? 0 : MILLI * (nTime4 - nTime2) / (nInputs-1), nTimeVerify * MICRO, nTimeVerify * MILLI / nBlocksTotal);
 
-    // All script checks passed. Now it is safe to commit new issuances to the
-    // global set and to LevelDB — no further failure can occur that would
-    // require rolling these back within this call.
-    // Write the entire batch atomically first; only update the in-memory set
-    // after the disk commit succeeds so the two stores never diverge.
-    if (!fJustCheck) {
-        if (!pblocktree->WriteIssuedColorIdBatch(allNewIssuances))
-            return error("ConnectBlock(): WriteIssuedColorId failed");
-        LOCK(cs_issued_colorids);
-        g_issued_colorids.insert(allNewIssuances.begin(), allNewIssuances.end());
-    }
-
     if (fJustCheck)
         return true;
 
@@ -728,6 +709,18 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         pindex->RaiseValidity(BLOCK_VALID_SCRIPTS);
         setDirtyBlockIndex.insert(pindex);
     }
+
+    // Stage new issuances only after all other disk writes have succeeded.
+    // Placing this before WriteUndoDataForBlock would leave colorIds permanently
+    // in the chainstate DB if the undo write failed: ConnectBlock would return
+    // false without state.IsInvalid(), the block would not be marked
+    // BLOCK_FAILED_VALID, and the next ActivateBestChain retry would be rejected
+    // with bad-txns-colorid-already-issued, permanently poisoning that block.
+    // CommitToBatch will write them to LevelDB atomically with DB_BEST_BLOCK
+    // inside the next view.Flush() → BatchWrite call, preventing a crash
+    // between the colorId write and the UTXO flush from permanently poisoning
+    // the block with bad-txns-colorid-already-issued on restart.
+    g_colorid_state->Insert(allNewIssuances);
 
     assert(pindex->phashBlock);
     // add this block to the view's block chain
@@ -805,7 +798,14 @@ bool CChainState::DisconnectTip(CValidationState& state, DisconnectedBlockTransa
 
     UpdateTip(pindexDelete->pprev);
 
-    //TODO: if xfield information change is being discarded during this reorg remove it from xFieldHistory here
+    if (pindexDelete->nHeight > 0
+        && std::find(XFIELDTYPES_INIT_LIST.begin(), XFIELDTYPES_INIT_LIST.end(), block.xfield.xfieldType) != XFIELDTYPES_INIT_LIST.end())
+    {
+        CXFieldHistory xfieldHistory;
+        XFieldChange removedChange(block.xfield.xfieldValue, pindexDelete->nHeight + 1, pindexDelete->GetBlockHash());
+        if (xfieldHistory.Remove(block.xfield.xfieldType, removedChange))
+            pblocktree->EraseXField(removedChange);
+    }
 
     // Let wallets know transactions went from 1-confirmed to
     // 0-confirmed or conflicted:
@@ -855,10 +855,10 @@ bool CChainState::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, co
         // make sure that the xfield from this block is added to xFieldHistory
         CXFieldHistory xfieldHistory;
         if(blockConnecting.xfield.IsValid()
-            && blockConnecting.GetHeight() > 0
-            && IsXFieldNew(blockConnecting.xfield, &xfieldHistory))
+            && pindexNew->nHeight > 0
+            && IsXFieldNew(blockConnecting.xfield, &xfieldHistory, static_cast<uint32_t>(pindexNew->nHeight - 1)))
         {
-            XFieldChange newChange(blockConnecting.xfield.xfieldValue, blockConnecting.GetHeight() + 1, blockConnecting.GetHash());
+            XFieldChange newChange(blockConnecting.xfield.xfieldValue, pindexNew->nHeight + 1, blockConnecting.GetHash());
             xfieldHistory.Add(blockConnecting.xfield.xfieldType, newChange);
             pblocktree->WriteXField(newChange);
         }
@@ -1354,15 +1354,21 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
             return true;
         }
 
-        if (!CheckBlockHeader(block, state, pxfieldHistory))
+        // Look up prev block index first so we can pass the correct height to
+        // CheckBlockHeader (which needs it for aggregate-pubkey history lookup).
+        CBlockIndex* pindexPrev = nullptr;
+        {
+            BlockMap::iterator mi = mapBlockIndex.find(block.hashPrevBlock);
+            if (mi != mapBlockIndex.end())
+                pindexPrev = (*mi).second;
+        }
+        int nBlockHeight = pindexPrev ? pindexPrev->nHeight + 1 : -1;
+
+        if (!CheckBlockHeader(block, state, pxfieldHistory, nBlockHeight))
             return error("%s: Consensus::CheckBlockHeader: %s, %s", __func__, hash.ToString(), FormatStateMessage(state));
 
-        // Get prev block index
-        CBlockIndex* pindexPrev = nullptr;
-        BlockMap::iterator mi = mapBlockIndex.find(block.hashPrevBlock);
-        if (mi == mapBlockIndex.end())
+        if (!pindexPrev)
             return state.DoS(10, error("%s: prev block not found", __func__), 0, "prev-blk-not-found");
-        pindexPrev = (*mi).second;
         if (pindexPrev->nStatus & BLOCK_FAILED_MASK)
             return state.DoS(100, error("%s: prev block invalid", __func__), REJECT_INVALID, "bad-prevblk");
         if (!ContextualCheckBlockHeader(block, state, pindexPrev, GetAdjustedTime()))
@@ -1393,7 +1399,7 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
     if(pxfieldHistory
         && block.xfield.IsValid()
         && pindex->nHeight > 0
-        && IsXFieldNew(block.xfield, pxfieldHistory))
+        && IsXFieldNew(block.xfield, pxfieldHistory, static_cast<uint32_t>(pindex->nHeight - 1)))
     {
         XFieldChange newChange(block.xfield.xfieldValue, pindex->nHeight + 1, block.GetHash());
         pxfieldHistory->Add(block.xfield.xfieldType, newChange);
@@ -1448,7 +1454,7 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
         if (fTooFarAhead) return true;        // Block height is too high
     }
 
-    if (!CheckBlock(block, state, false, true, pxfieldHistory) ||
+    if (!CheckBlock(block, state, false, true, pxfieldHistory, pindex->pprev ? pindex->pprev->nHeight + 1 : 0) ||
         !ContextualCheckBlock(block, state, pindex->pprev)) {
         if (state.IsInvalid() && !state.CorruptionPossible()) {
             pindex->nStatus |= BLOCK_FAILED_VALID;

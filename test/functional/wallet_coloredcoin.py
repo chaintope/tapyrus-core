@@ -22,6 +22,7 @@
 
     """
 from codecs import encode
+import json
 import math
 import time
 
@@ -641,6 +642,16 @@ class WalletColoredCoinTest(BitcoinTestFramework):
             assert_raises_rpc_error(-8, "Invalid vout 10 in tx: "+ node2_utxos[1]['txid'], self.nodes[2].issuetoken, 2, 100, node2_utxos[1]['txid'], 10)
             assert_raises_rpc_error(-8, str("Invalid vout 0 in tx: %s" % res1['txids'][1]), self.nodes[2].issuetoken, 2, 100, res1['txids'][1], 0)
 
+    def test_sendmany_rejects_colored_address(self):
+        """sendmany must reject colored-coin destinations (use transfertoken instead)."""
+        self.log.info("Testing sendmany rejects colored addresses")
+        colored_addr = self.nodes[0].getnewaddress("", self.colorids[1])
+        # CLI mode uses str() on positional args, producing Python dict repr (single-quoted)
+        # which tapyrus-cli cannot parse as JSON.  Pass a JSON string in CLI mode instead.
+        amounts = json.dumps({colored_addr: 1}) if self.options.usecli else {colored_addr: 1}
+        assert_raises_rpc_error(-5, "sendmany does not support colored addresses; use transfertoken instead",
+                                self.nodes[0].sendmany, amounts)
+
     def test_only_token_filter(self):
 
         self.log.info("Testing only_token filter in listunspent")
@@ -724,6 +735,7 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         utxos = self.nodes[0].listunspent()
 
         self.test_getcolorRPC(utxos)
+        self.test_sendmany_rejects_colored_address()
         self.test_createrawtransaction(utxos)
         self.test_sendRPC('sendtoaddress')
         self.test_sendRPC('transfertoken')

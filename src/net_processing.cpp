@@ -48,6 +48,8 @@ static constexpr int64_t ORPHAN_TX_EXPIRE_TIME = 20 * 60;
 static constexpr int64_t ORPHAN_TX_EXPIRE_INTERVAL = 5 * 60;
 /** How long a transaction has to be in the mempool before it can unconditionally be relayed (even when not in mapRelay). */
 static constexpr std::chrono::seconds UNCONDITIONAL_RELAY_DELAY = std::chrono::minutes{2};
+/** Maximum number of entries in mapRelay. Oldest entries are evicted when this is reached. */
+static constexpr size_t MAX_RELAY_MAP_SIZE = 50000;
 /** Headers download timeout expressed in microseconds
  *  Timeout = base + per_header * (expected number of headers) */
 static constexpr int64_t HEADERS_DOWNLOAD_TIMEOUT_BASE = 15 * 60 * 1000000; // 15 minutes
@@ -1387,8 +1389,15 @@ void static ProcessGetData(CNode* pfrom, CConnman* connman, const std::atomic<bo
                 auto txinfo = mempool.info(txin.prevout.hashMalFix);
                 if (txinfo.tx && txinfo.nTime > (now - UNCONDITIONAL_RELAY_DELAY).count()) {
                     // Relaying a transaction with a recent but unconfirmed parent.
-                    LOCK(pfrom->cs_inventory);
-                    if (!pfrom->filterInventoryKnown.contains(txin.prevout.hashMalFix)) {
+                    // Check filterInventoryKnown under cs_inventory, then release it before
+                    // acquiring cs_main to avoid cs_inventory→cs_main / cs_main→cs_inventory
+                    // lock-order inversion with SendMessages (which takes cs_main then cs_inventory).
+                    bool needsAnnounce;
+                    {
+                        LOCK(pfrom->cs_inventory);
+                        needsAnnounce = !pfrom->filterInventoryKnown.contains(txin.prevout.hashMalFix);
+                    }
+                    if (needsAnnounce) {
                         LOCK(cs_main);
                         State(pfrom->GetId())->m_recently_announced_invs.insert(txin.prevout.hashMalFix);
                     }
@@ -2651,7 +2660,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
                     }
                 }
                 std::vector<CTransactionRef> dummy;
-                status = tempBlock.FillBlock(*pblock, dummy);
+                status = tempBlock.FillBlock(*pblock, dummy, pindex->nHeight);
                 if (status == READ_STATUS_OK) {
                     fBlockReconstructed = true;
                 }
@@ -2753,7 +2762,8 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
             }
 
             PartiallyDownloadedBlock& partialBlock = *range_flight.first->second.second->partialBlock;
-            ReadStatus status = partialBlock.FillBlock(*pblock, resp.txn);
+            const CBlockIndex* blkPindex = range_flight.first->second.second->pindex;
+            ReadStatus status = partialBlock.FillBlock(*pblock, resp.txn, blkPindex ? blkPindex->nHeight : -1);
             if (status == READ_STATUS_INVALID) {
                 MarkBlockAsReceived(resp.blockhash, pfrom->GetId()); // Reset in-flight state in case of whitelist
                 Misbehaving(pfrom->GetId(), 100, strprintf("Peer %d sent us invalid compact block/non-matching block transactions\n", pfrom->GetId()));
@@ -3764,6 +3774,12 @@ bool PeerLogicValidation::SendMessages(CNode* pto)
                         // Expire old relay messages
                         while (!vRelayExpiration.empty() && vRelayExpiration.front().first < nNow)
                         {
+                            mapRelay.erase(vRelayExpiration.front().second);
+                            vRelayExpiration.pop_front();
+                        }
+
+                        // Enforce size cap: evict oldest entries if at limit
+                        while (mapRelay.size() >= MAX_RELAY_MAP_SIZE && !vRelayExpiration.empty()) {
                             mapRelay.erase(vRelayExpiration.front().second);
                             vRelayExpiration.pop_front();
                         }

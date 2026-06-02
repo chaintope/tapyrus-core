@@ -6,6 +6,7 @@
 
 #include <txdb.h>
 
+#include <issuedcolorids.h>
 #include <chainparams.h>
 #include <hash.h>
 #include <random.h>
@@ -133,8 +134,11 @@ bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock) {
     }
 
     // In the last batch, mark the database as consistent with hashBlock again.
+    // ColorId changes are committed in this same batch so they are atomic with DB_BEST_BLOCK.
     batch.Erase(DB_HEAD_BLOCKS);
     batch.Write(DB_BEST_BLOCK, hashBlock);
+    if (m_colorid_state)
+        m_colorid_state->CommitToBatch(batch);
 
     LogPrint(BCLog::COINDB, "Writing final batch of %.2f MiB\n", batch.SizeEstimate() * (1.0 / 1048576.0));
     bool ret = db.WriteBatch(batch);
@@ -145,6 +149,25 @@ bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock) {
 size_t CCoinsViewDB::EstimateSize() const
 {
     return db.EstimateSize(DB_COIN, (char)(DB_COIN+1));
+}
+
+bool CCoinsViewDB::LoadIssuedColorIds(std::set<ColorIdentifier>& colorIds)
+{
+    std::unique_ptr<CDBIterator> pcursor(db.NewIterator());
+    pcursor->Seek(std::make_pair(DB_ISSUED_COLORID, std::vector<unsigned char>{}));
+    while (pcursor->Valid()) {
+        std::pair<char, std::vector<unsigned char>> key;
+        if (!pcursor->GetKey(key) || key.first != DB_ISSUED_COLORID)
+            break;
+        ColorIdentifier cid(key.second);
+        if (cid.type == TokenTypes::NONE) {
+            pcursor->Next();
+            continue;
+        }
+        colorIds.insert(cid);
+        pcursor->Next();
+    }
+    return !pcursor->HasError();
 }
 
 CBlockTreeDB::CBlockTreeDB(size_t nCacheSize, bool fMemory, bool fWipe) : CDBWrapper(gArgs.IsArgSet("-blocksdir") ? GetDataDir() / "blocks" / "index" : GetBlocksDir() / "index", nCacheSize, fMemory, fWipe) {
@@ -180,6 +203,19 @@ bool CBlockTreeDB::WriteXField(const XFieldChange& xFieldChange) {
     if(std::find(helper.xfieldChanges.begin(), helper.xfieldChanges.end(), xFieldChange) == helper.xfieldChanges.end())
         helper.xfieldChanges.push_back(xFieldChange);
     return Write(key, helper.xfieldChanges);
+}
+
+bool CBlockTreeDB::EraseXField(const XFieldChange& xFieldChange) {
+    const char key = GetXFieldDBKey(xFieldChange.xfieldValue);
+    XFieldChangeListWrapper helper(key);
+    if (!Read(key, helper))
+        return true;
+    auto& list = helper.xfieldChanges;
+    auto it = std::find(list.begin(), list.end(), xFieldChange);
+    if (it == list.end())
+        return true;
+    list.erase(it);
+    return Write(key, list);
 }
 
 bool CBlockTreeDB::RewriteXField(std::vector<XFieldChange>& xFieldChanges) {
@@ -432,51 +468,3 @@ bool CCoinsViewDB::Upgrade() {
     return !ShutdownRequested();
 }
 
-bool CBlockTreeDB::WriteIssuedColorId(const ColorIdentifier& colorId)
-{
-    return Write(std::make_pair(DB_ISSUED_COLORID, colorId.toVector()), true);
-}
-
-bool CBlockTreeDB::WriteIssuedColorIdBatch(const std::set<ColorIdentifier>& colorIds)
-{
-    CDBBatch batch(*this);
-    for (const auto& colorId : colorIds)
-        batch.Write(std::make_pair(DB_ISSUED_COLORID, colorId.toVector()), true);
-    return WriteBatch(batch);
-}
-
-bool CBlockTreeDB::EraseIssuedColorId(const ColorIdentifier& colorId)
-{
-    return Erase(std::make_pair(DB_ISSUED_COLORID, colorId.toVector()));
-}
-
-bool CBlockTreeDB::ClearIssuedColorIds()
-{
-    std::unique_ptr<CDBIterator> pcursor(NewIterator());
-    pcursor->Seek(std::make_pair(DB_ISSUED_COLORID, std::vector<unsigned char>{}));
-    CDBBatch batch(*this);
-    while (pcursor->Valid()) {
-        std::pair<char, std::vector<unsigned char>> key;
-        if (!pcursor->GetKey(key) || key.first != DB_ISSUED_COLORID)
-            break;
-        batch.Erase(key);
-        pcursor->Next();
-    }
-    if (pcursor->HasError())
-        return false;
-    return WriteBatch(batch);
-}
-
-bool CBlockTreeDB::LoadIssuedColorIds(std::set<ColorIdentifier>& colorIds)
-{
-    std::unique_ptr<CDBIterator> pcursor(NewIterator());
-    pcursor->Seek(std::make_pair(DB_ISSUED_COLORID, std::vector<unsigned char>{}));
-    while (pcursor->Valid()) {
-        std::pair<char, std::vector<unsigned char>> key;
-        if (!pcursor->GetKey(key) || key.first != DB_ISSUED_COLORID)
-            break;
-        colorIds.insert(ColorIdentifier(key.second));
-        pcursor->Next();
-    }
-    return !pcursor->HasError();
-}

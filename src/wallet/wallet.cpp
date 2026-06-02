@@ -16,6 +16,7 @@
 #include <key.h>
 #include <key_io.h>
 #include <keystore.h>
+#include <softforkmanager.h>
 #include <validation.h>
 #include <net.h>
 #include <policy/fees.h>
@@ -2485,14 +2486,13 @@ bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAm
         std::map<uint256, CWalletTx>::const_iterator it = mapWallet.find(outpoint.hashMalFix);
         if (it != mapWallet.end())
         {
-            if (!IsColoredOutPointWith(outpoint, colorId)) {
-                continue;
-            }
-
             const CWalletTx* pcoin = &it->second;
             // Clearly invalid input, fail
             if (pcoin->tx->vout.size() <= outpoint.n)
                 return false;
+            if (!IsColoredOutPointWith(outpoint, colorId)) {
+                continue;
+            }
             // Just to calculate the marginal byte size
             nValueFromPresetInputs += pcoin->tx->vout[outpoint.n].nValue;
             setPresetCoins.insert(CInputCoin(pcoin->tx, outpoint.n));
@@ -2543,7 +2543,11 @@ bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAm
 
 bool CWallet::SignTransaction(CMutableTransaction &tx)
 {
+    AssertLockHeld(cs_main);
     AssertLockHeld(cs_wallet); // mapWallet
+
+    unsigned int signVerifyFlags = STANDARD_SCRIPT_VERIFY_FLAGS;
+    if (GetSoftForkManager().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, chainActive.Height() + 1)) signVerifyFlags |= SCRIPT_VERIFY_CP2SH_COLORED;
 
     // sign the new tx
     int nIn = 0;
@@ -2555,7 +2559,7 @@ bool CWallet::SignTransaction(CMutableTransaction &tx)
         const CScript& scriptPubKey = mi->second.tx->vout[input.prevout.n].scriptPubKey;
         const CAmount& amount = mi->second.tx->vout[input.prevout.n].nValue;
         SignatureData sigdata;
-        if (!ProduceSignature(*this, MutableTransactionSignatureCreator(&tx, nIn, amount, SIGHASH_ALL), scriptPubKey, sigdata)) {
+        if (!ProduceSignature(*this, MutableTransactionSignatureCreator(&tx, nIn, amount, SIGHASH_ALL), scriptPubKey, sigdata, signVerifyFlags)) {
             return false;
         }
         UpdateInput(input, sigdata);
@@ -2603,10 +2607,16 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, ChangeP
         tx.vout.push_back(tx_new->vout[idx]);
     }
 
-    if (mapChangePosInOut[ColorIdentifier()] != -1) {
-        // We don't have the normal Create/Commit cycle, and don't want to risk
-        // reusing change, so just remove the key from the keypool here.
-        reservekey.KeepKey();
+    // scriptChange (derived from the reservekey address) is used for both TPC
+    // and colored change outputs.  Keep the key whenever any change was added,
+    // not just when TPC change was added; otherwise the key returns to the pool
+    // and a subsequent getnewaddress reuses the address that colored change
+    // UTXOs are already sitting on.
+    for (const auto& p : mapChangePosInOut) {
+        if (p.second != -1) {
+            reservekey.KeepKey();
+            break;
+        }
     }
 
     // Add new txins while keeping original txin scriptSig/order.
@@ -3064,13 +3074,16 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
 
         if (sign)
         {
+            AssertLockHeld(cs_main);
+            unsigned int signVerifyFlags = STANDARD_SCRIPT_VERIFY_FLAGS;
+            if (GetSoftForkManager().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, chainActive.Height() + 1)) signVerifyFlags |= SCRIPT_VERIFY_CP2SH_COLORED;
+
             int nIn = 0;
             for (const auto& coin : selected_coins)
             {
                 const CScript& scriptPubKey = coin.txout.scriptPubKey;
                 SignatureData sigdata;
-
-                if (!ProduceSignature(*this, MutableTransactionSignatureCreator(&txNew, nIn, coin.txout.nValue, SIGHASH_ALL), scriptPubKey, sigdata))
+                if (!ProduceSignature(*this, MutableTransactionSignatureCreator(&txNew, nIn, coin.txout.nValue, SIGHASH_ALL), scriptPubKey, sigdata, signVerifyFlags))
                 {
                     strFailReason = _("Signing transaction failed");
                     return false;
@@ -3735,6 +3748,7 @@ void CWallet::DeleteLabel(const std::string& label)
 bool CWallet::IsColoredOutPointWith(const COutPoint& outpoint, const ColorIdentifier& colorId) const
 {
     const CWalletTx* wtx = GetWalletTx(outpoint.hashMalFix);
+    if (!wtx || outpoint.n >= wtx->tx->vout.size()) return false;
     return GetColorIdFromScript(wtx->tx->vout[outpoint.n].scriptPubKey) == colorId;
 }
 
