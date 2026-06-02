@@ -204,9 +204,11 @@ class UTXOCacheTracepointTest(BitcoinTestFramework):
 
         self.log.info(
             "testmempoolaccept the invalid transaction to trigger an UTXO-cache uncache")
+        mempool_size = self.nodes[0].getmempoolinfo()['size']
         result = self.nodes[0].testmempoolaccept(
             [invalid_tx.serialize().hex()])[0]
         assert_equal(result["allowed"], False)
+        assert_equal(self.nodes[0].getmempoolinfo()['size'], mempool_size)
 
         bpf.perf_buffer_poll(timeout=TAPYRUSD_SYNC_TIMEOUT)
         bpf.cleanup()

@@ -50,13 +50,12 @@ static UniValue testmempoolaccept(const JSONRPCRequest& request)
         throw std::runtime_error(
             // clang-format off
             "testmempoolaccept [\"rawtxs\"] ( allowhighfees )\n"
-            "\nSaves the raw transaction (serialized, hex-encoded) in mempool.\n"
+            "\nTest whether raw transactions would be accepted by the mempool without submitting them.\n"
+            "\nThis is a dry-run: transactions are validated against mempool policy but never inserted\n"
+            "\nor relayed to peers. Use submitpackage or sendrawtransaction to actually submit.\n"
             "\nThis RPC does not guarantee the submission of all transactions in the package."
-            "\nTransactions are submitted to the mempool in the order in the package.\n"
-            "\nOnly valid transactions are successful. Other transactions that violates\n"
+            "\nOnly valid transactions are successful. Other transactions that violate\n"
             "\nthe consensus or policy rules are rejected.\n"
-            "\nA valid package submission may fail or be evicted when the memory pool is full\n"
-            "\nSee sendrawtransaction call.\n"
             "\nArguments:\n"
             "1. [\"rawtxs\"]        (array, required) An array of hex strings of raw transactions.\n"
             "2. allowhighfees    (boolean, optional, default=false) Allow high fees\n"
@@ -113,6 +112,7 @@ static UniValue testmempoolaccept(const JSONRPCRequest& request)
     CTxMempoolAcceptanceOptions opt;
     opt.context = ValidationContext::PACKAGE;
     opt.nAbsurdFee = max_raw_tx_fee;
+    opt.flags = MempoolAcceptanceFlags::TEST_ONLY;
 
     success = SubmitPackageToMempool(package, state, pkg_results, opt);
 
