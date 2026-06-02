@@ -390,10 +390,9 @@ static bool MarkBlockAsReceived(const uint256& hash,  std::optional<NodeId> from
         // Block was not requested from any peer
         return false;
     }
-    // We should not have requested too many of this block
     if(mapBlocksInFlight.count(hash) >= MAX_CMPCTBLOCKS_INFLIGHT_PER_BLOCK) {
         LogPrint(BCLog::NET, "More than %s requests for this block %s\n", MAX_CMPCTBLOCKS_INFLIGHT_PER_BLOCK, hash.ToString());
-        return false;
+        // Still erase from_peer's entry below — do not return early and leak it.
     }
     while (rangeInFlight.first != rangeInFlight.second) {
         auto itInFlight = rangeInFlight.first->second;
