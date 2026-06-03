@@ -199,11 +199,13 @@ class RPCPackageTest(BitcoinTestFramework):
             rawtxs=raw_package
         )
 
-        # package is accepted
+        # package is accepted — use submitpackage so each parent is in the mempool
+        # before the next child is validated (testmempoolaccept is TEST_ONLY and
+        # does not add to the mempool, so chained txs would fail with missing-inputs)
         package = self.create_package(4)
         raw_package = [bytes_to_hex_str(x.serialize()) for x in package]
 
-        self.check_mempool_result(
+        self.check_submit_mempool_result(
             result_expected={ package[0].hashMalFix: {'allowed': True},
                                             package[1].hashMalFix: {'allowed': True},
                                             package[2].hashMalFix: {'allowed': True},
@@ -309,7 +311,7 @@ class RPCPackageTest(BitcoinTestFramework):
             packagetx.rehash()
             txids.append(packagetx.hashMalFix)
 
-        self.check_mempool_result(
+        self.check_submit_mempool_result(
             result_expected={ txids[0]: {'allowed': True},
                                             txids[1]: {'allowed': True},
                                             txids[2]: {'allowed': True},
