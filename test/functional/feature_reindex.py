@@ -48,6 +48,9 @@ class ReindexTest(BitcoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 1
+        # -datacarriersize=10000 allows the large OP_RETURN outputs (≈10 KB) used by
+        # create_tx_with_large_script to pass mempool standardness checks.
+        self.extra_args = [["-datacarriersize=10000"]]
         self.aggpubkeys = [
             "025700236c2890233592fcef262f4520d22af9160e3d9705855140eb2aa06c35d3",
             "03831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafc",
@@ -74,7 +77,7 @@ class ReindexTest(BitcoinTestFramework):
         self.nodes[0].generate(3, self.signblockprivkey_wif)
         blockcount = self.nodes[0].getblockcount()
         self.stop_nodes()
-        extra_args = [["-reindex-chainstate" if justchainstate else "-reindex"]]
+        extra_args = [["-reindex-chainstate" if justchainstate else "-reindex", "-datacarriersize=10000"]]
         self.start_nodes(extra_args)
         wait_until(lambda: self.nodes[0].getblockcount() == blockcount)
         self.log.info("Success")
