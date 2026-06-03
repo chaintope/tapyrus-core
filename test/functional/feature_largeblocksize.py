@@ -41,6 +41,9 @@ class MaxBlockSizeInXFieldTest(BitcoinTestFramework):
         self.num_nodes = 3
         self.setup_clean_chain = True
         self.mocktime = int(time.time() - 50)
+        # -datacarriersize=10000 allows the large OP_RETURN outputs (≈10 KB) used by
+        # create_tx_with_large_script to pass mempool standardness checks.
+        self.extra_args = [["-datacarriersize=10000"]] * self.num_nodes
 
     def run_test(self):
 
