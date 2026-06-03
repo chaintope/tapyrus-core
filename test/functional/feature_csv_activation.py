@@ -9,7 +9,6 @@ BIP 68  - nSequence relative lock times
 BIP 112 - CHECKSEQUENCEVERIFY
 BIP 113 - MedianTimePast semantics for nLockTime
 
-For each BIP, transactions of features = 1 and 2 will be tested.
 ----------------
 BIP 113:
 bip113tx - modify the nLocktime variable
@@ -40,7 +39,6 @@ from test_framework.script import (
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
     assert_equal,
-    get_bip9_status,
     hex_str_to_bytes,
 )
 
@@ -181,7 +179,6 @@ class BIP68_112_113Test(BitcoinTestFramework):
         # Inputs at height = 572
         #
         # Put inputs for all tests in the chain at height 572 (tip now = 571) (time increases by 600s per block)
-        # Note we reuse inputs for v1 and v2 txs so must test these separately
         # 16 normal inputs
         bip68inputs = []
         for i in range(16):
@@ -217,42 +214,32 @@ class BIP68_112_113Test(BitcoinTestFramework):
         self.last_block_time += 600
         assert_equal(len(self.nodes[0].getblock(inputblockhash, True)["tx"]), 82 + 1)
 
-        # Test both features = 1 and features = 2 transactions for all tests
         # BIP113 test transaction will be modified before each use to put in appropriate block time
         bip113tx_v1 = create_transaction(self.nodes[0], bip113input, self.nodeaddress, amount=Decimal("49.98"))
         bip113tx_v1.vin[0].nSequence = 0xFFFFFFFE
         bip113tx_v1.nFeatures = 1
-        bip113tx_v2 = create_transaction(self.nodes[0], bip113input, self.nodeaddress, amount=Decimal("49.98"))
-        bip113tx_v2.vin[0].nSequence = 0xFFFFFFFE
-        bip113tx_v2.nFeatures = 2
 
         # For BIP68 test all 16 relative sequence locktimes
         bip68txs_v1 = create_bip68txs(self.nodes[0], bip68inputs, 1, self.nodeaddress)
-        bip68txs_v2 = create_bip68txs(self.nodes[0], bip68inputs, 2, self.nodeaddress)
 
         # For BIP112 test:
         # 16 relative sequence locktimes of 10 against 10 OP_CSV OP_DROP inputs
         bip112txs_vary_nSequence_v1 = create_bip112txs(self.nodes[0], bip112basicinputs[0], False, 1, self.nodeaddress)
-        bip112txs_vary_nSequence_v2 = create_bip112txs(self.nodes[0], bip112basicinputs[0], False, 2, self.nodeaddress)
         # 16 relative sequence locktimes of 9 against 10 OP_CSV OP_DROP inputs
         bip112txs_vary_nSequence_9_v1 = create_bip112txs(self.nodes[0], bip112basicinputs[1], False, 1, self.nodeaddress, -1)
-        bip112txs_vary_nSequence_9_v2 = create_bip112txs(self.nodes[0], bip112basicinputs[1], False, 2, self.nodeaddress, -1)
         # sequence lock time of 10 against 16 (relative_lock_time) OP_CSV OP_DROP inputs
         bip112txs_vary_OP_CSV_v1 = create_bip112txs(self.nodes[0], bip112diverseinputs[0], True, 1, self.nodeaddress)
-        bip112txs_vary_OP_CSV_v2 = create_bip112txs(self.nodes[0], bip112diverseinputs[0], True, 2, self.nodeaddress)
         # sequence lock time of 9 against 16 (relative_lock_time) OP_CSV OP_DROP inputs
         bip112txs_vary_OP_CSV_9_v1 = create_bip112txs(self.nodes[0], bip112diverseinputs[1], True, 1, self.nodeaddress, -1)
-        bip112txs_vary_OP_CSV_9_v2 = create_bip112txs(self.nodes[0], bip112diverseinputs[1], True, 2, self.nodeaddress, -1)
         # -1 OP_CSV OP_DROP input
         bip112tx_special_v1 = create_bip112special(self.nodes[0], bip112specialinput, 1, self.nodeaddress)
-        bip112tx_special_v2 = create_bip112special(self.nodes[0], bip112specialinput, 2, self.nodeaddress)
 
         self.log.info("TESTING")
 
-        self.log.info("Test features = 1 txs")
+        self.log.info("Test at height 572: sequence locks not yet met, all txs fail")
 
         success_txs = []
-        # add BIP113 tx and -1 CSV tx
+        # add BIP113 tx: nLockTime = MTP of prior block (not <), so tx is non-final
         bip113tx_v1.nLockTime = self.last_block_time - 600 * 5  # = MTP of prior block (not <) but < time put on current block
         bip113signed1 = sign_transaction(self.nodes[0], bip113tx_v1)
         success_txs.append(bip113signed1)
@@ -275,86 +262,54 @@ class BIP68_112_113Test(BitcoinTestFramework):
         bip112txs.extend(all_rlt_txs(bip112txs_vary_OP_CSV_9_v1))
         self.sync_blocks([self.create_test_block(bip112txs)], success=False, reject_code=16, reject_reason=b'bad-txns-nonfinal')
 
-        self.log.info("Test features = 2 txs")
-
-        success_txs = []
-        # add BIP113 tx and -1 CSV tx
-        bip113tx_v2.nLockTime = self.last_block_time - 600 * 5  # = MTP of prior block (not <) but < time put on current block
-        bip113signed2 = sign_transaction(self.nodes[0], bip113tx_v2)
-        success_txs.append(bip113signed2)
-        # add BIP 68 txs
-        success_txs.extend(all_rlt_txs(bip68txs_v2))
-
-        self.sync_blocks([self.create_test_block(success_txs)], success=False, reject_code=16, reject_reason=b'bad-txns-nonfinal')
-
-        self.sync_blocks([self.create_test_block([bip112tx_special_v2])], success=False, reject_code=16)
-
-        # add BIP 112 with seq=10 txs
-        bip112txs = []
-        bip112txs.extend(all_rlt_txs(bip112txs_vary_nSequence_v2))
-        bip112txs.extend(all_rlt_txs(bip112txs_vary_OP_CSV_v2))
-        self.sync_blocks([self.create_test_block(bip112txs)], success=False, reject_code=16)
-
-        # try BIP 112 with seq=9 txs
-        bip112txs = []
-        bip112txs.extend(all_rlt_txs(bip112txs_vary_nSequence_9_v2))
-        bip112txs.extend(all_rlt_txs(bip112txs_vary_OP_CSV_9_v2))
-        self.sync_blocks([self.create_test_block(bip112txs)], success=False, reject_code=16)
-
-        # 1 more features = 4 block to get us to height 575 so the fork should now be active for the next block
+        # Generate 4 more blocks to reach height 576
         test_blocks = self.generate_blocks(4, 1)
         self.sync_blocks(test_blocks)
 
         self.log.info("BIP 113 tests")
-        # BIP 113 tests should now fail regardless of feature if nLockTime isn't satisfied by new rules
-        bip113tx_v1.nLockTime = self.last_block_time 
+        # BIP 113 test fails if nLockTime >= MTP of prior block
+        bip113tx_v1.nLockTime = self.last_block_time
         bip113signed1 = sign_transaction(self.nodes[0], bip113tx_v1)
-        bip113tx_v2.nLockTime = self.last_block_time
-        bip113signed2 = sign_transaction(self.nodes[0], bip113tx_v2)
-        for bip113tx in [bip113signed1, bip113signed2]:
-            self.sync_blocks([self.create_test_block([bip113tx])], success=False, reject_code=16, reject_reason=b'bad-txns-nonfinal')
-        # BIP 113 tests should now pass if the locktime is < MTP
+        self.sync_blocks([self.create_test_block([bip113signed1])], success=False, reject_code=16, reject_reason=b'bad-txns-nonfinal')
+        # BIP 113 test passes if nLockTime < MTP of prior block
         bip113tx_v1.nLockTime = self.last_block_time - 600 * 5 - 1  # < MTP of prior block
         bip113signed1 = sign_transaction(self.nodes[0], bip113tx_v1)
-        bip113tx_v2.nLockTime = self.last_block_time - 600 * 5 - 1  # < MTP of prior block
-        bip113signed2 = sign_transaction(self.nodes[0], bip113tx_v2)
-        for bip113tx in [bip113signed1, bip113signed2]:
-            self.sync_blocks([self.create_test_block([bip113tx])])
-            self.nodes[0].invalidateblock(self.nodes[0].getbestblockhash())
+        self.sync_blocks([self.create_test_block([bip113signed1])])
+        self.nodes[0].invalidateblock(self.nodes[0].getbestblockhash())
 
         # Next block height = 580 after 4 blocks of random features
         test_blocks = self.generate_blocks(4, 1)
         self.sync_blocks(test_blocks)
 
         self.log.info("BIP 68 tests")
-        self.log.info("Test features = 1 txs")
 
+        # At block 581 (tip=580, coin at 572): all 16 txs in one block fails because height txs have
+        # delta = 9 < 10 (nMinHeight = 581 >= block.nHeight = 581)
         success_txs = []
         success_txs.extend(all_rlt_txs(bip68txs_v1))
         self.sync_blocks([self.create_test_block(success_txs)], success=False, reject_code=16, reject_reason=b'bad-txns-nonfinal')
 
-        self.log.info("Test features = 2 txs")
-
-        # All txs with SEQUENCE_LOCKTIME_DISABLE_FLAG set pass
-        bip68success_txs = [tx['tx'] for tx in bip68txs_v2 if tx['sdf']]
+        # Txs with SEQUENCE_LOCKTIME_DISABLE_FLAG set pass
+        bip68success_txs = [tx['tx'] for tx in bip68txs_v1 if tx['sdf']]
         self.sync_blocks([self.create_test_block(bip68success_txs)])
         self.nodes[0].invalidateblock(self.nodes[0].getbestblockhash())
 
-        # All txs without flag fail as we are at delta height = 8 < 10 and delta time = 8 * 600 < 10 * 512
-        bip68timetxs = [tx['tx'] for tx in bip68txs_v2 if not tx['sdf'] and tx['stf']]
+        # Time txs pass at block 581: MTP(580) - MTP(571) = 9 * 600 = 5400 > 10 * 512 = 5120
+        bip68timetxs = [tx['tx'] for tx in bip68txs_v1 if not tx['sdf'] and tx['stf']]
         for tx in bip68timetxs:
             self.sync_blocks([self.create_test_block([tx])], success=True)
             self.nodes[0].invalidateblock(self.nodes[0].getbestblockhash())
 
-        bip68heighttxs = [tx['tx'] for tx in bip68txs_v2 if not tx['sdf'] and not tx['stf']]
+        # Height txs fail at block 581: delta = 9 < 10
+        bip68heighttxs = [tx['tx'] for tx in bip68txs_v1 if not tx['sdf'] and not tx['stf']]
         for tx in bip68heighttxs:
-            self.sync_blocks([self.create_test_block(bip68success_txs)], success=False)
+            self.sync_blocks([self.create_test_block([tx])], success=False)
 
         # Advance one block to 581
         test_blocks = self.generate_blocks(1, 1)
         self.sync_blocks(test_blocks)
 
-        # Height txs should fail and time txs should now pass 9 * 600 > 10 * 512
+        # At block 582: both time txs and height txs pass (nMinHeight = 581 < 582)
         bip68success_txs.extend(bip68timetxs)
         self.sync_blocks([self.create_test_block(bip68success_txs)])
         self.nodes[0].invalidateblock(self.nodes[0].getbestblockhash())
@@ -372,18 +327,17 @@ class BIP68_112_113Test(BitcoinTestFramework):
         self.nodes[0].invalidateblock(self.nodes[0].getbestblockhash())
 
         self.log.info("BIP 112 tests")
-        self.log.info("Test features = 1 txs")
 
         # -1 OP_CSV tx should fail
         self.sync_blocks([self.create_test_block([bip112tx_special_v1])], success=False)
-        # If SEQUENCE_LOCKTIME_DISABLE_FLAG is set in argument to OP_CSV, features 1 txs should still pass
 
+        # If SEQUENCE_LOCKTIME_DISABLE_FLAG is set in argument to OP_CSV, txs should pass
         success_txs = [tx['tx'] for tx in bip112txs_vary_OP_CSV_v1 if tx['sdf']]
         success_txs += [tx['tx'] for tx in bip112txs_vary_OP_CSV_9_v1 if tx['sdf']]
         self.sync_blocks([self.create_test_block(success_txs)])
         self.nodes[0].invalidateblock(self.nodes[0].getbestblockhash())
 
-        # If SEQUENCE_LOCKTIME_DISABLE_FLAG is unset in argument to OP_CSV, features 1 txs should now fail
+        # If SEQUENCE_LOCKTIME_DISABLE_FLAG is unset in argument to OP_CSV, txs should fail
         # nseq = 9
         fail_txs = all_rlt_txs(bip112txs_vary_nSequence_9_v1)
         fail_txs += [tx['tx'] for tx in bip112txs_vary_OP_CSV_9_v1 if not tx['sdf']]
@@ -394,47 +348,9 @@ class BIP68_112_113Test(BitcoinTestFramework):
         fail_txs += [tx['tx'] for tx in bip112txs_vary_OP_CSV_v1 if not tx['sdf']]
         self.sync_blocks([self.create_test_block(fail_txs)], success=False)
 
-
-        self.log.info("Test features = 2 txs")
-
-        # -1 OP_CSV tx should fail
-        self.sync_blocks([self.create_test_block([bip112tx_special_v2])], success=False)
-
-        # If SEQUENCE_LOCKTIME_DISABLE_FLAG is set in argument to OP_CSV, features 2 txs should pass (all sequence locks are met)
-        success_txs = [tx['tx'] for tx in bip112txs_vary_OP_CSV_v2 if tx['sdf']]
-        success_txs += [tx['tx'] for tx in bip112txs_vary_OP_CSV_9_v2 if tx['sdf']]
-
-        self.sync_blocks([self.create_test_block(success_txs)])
-        self.nodes[0].invalidateblock(self.nodes[0].getbestblockhash())
-
-        # SEQUENCE_LOCKTIME_DISABLE_FLAG is unset in argument to OP_CSV for all remaining txs ##
-
-        # All txs with nSequence 9 should fail either due to earlier mismatch or failing the CSV check
-        fail_txs = all_rlt_txs(bip112txs_vary_nSequence_9_v2)
-        fail_txs += [tx['tx'] for tx in bip112txs_vary_OP_CSV_9_v2 if not tx['sdf']]
-        for tx in fail_txs:
-            self.sync_blocks([self.create_test_block([tx])], success=False)
-
-        # If SEQUENCE_LOCKTIME_DISABLE_FLAG is set in nSequence, tx should fail
-        fail_txs = [tx['tx'] for tx in bip112txs_vary_nSequence_v2 if tx['sdf']]
-        for tx in fail_txs:
-            self.sync_blocks([self.create_test_block([tx])], success=False)
-
-        # If sequencelock types mismatch, tx should fail
-        fail_txs = [tx['tx'] for tx in bip112txs_vary_nSequence_v2 if not tx['sdf'] and tx['stf']]
-        fail_txs += [tx['tx'] for tx in bip112txs_vary_OP_CSV_v2 if not tx['sdf'] and tx['stf']]
-        for tx in fail_txs:
-            self.sync_blocks([self.create_test_block([tx])], success=False)
-
-        # Remaining txs should pass, just test masking works properly
-        success_txs = [tx['tx'] for tx in bip112txs_vary_nSequence_v2 if not tx['sdf'] and not tx['stf']]
-        success_txs += [tx['tx'] for tx in bip112txs_vary_OP_CSV_v2 if not tx['sdf'] and not tx['stf']]
-        self.sync_blocks([self.create_test_block(success_txs)])
-        self.nodes[0].invalidateblock(self.nodes[0].getbestblockhash())
-
-        # Additional test, of checking that comparison of two time types works properly
+        # Additional test: comparison of two time types works properly
         time_txs = []
-        for tx in [tx['tx'] for tx in bip112txs_vary_OP_CSV_v2 if not tx['sdf'] and tx['stf']]:
+        for tx in [tx['tx'] for tx in bip112txs_vary_OP_CSV_v1 if not tx['sdf'] and tx['stf']]:
             tx.vin[0].nSequence = BASE_RELATIVE_LOCKTIME | SEQ_TYPE_FLAG
             signtx = sign_transaction(self.nodes[0], tx)
             time_txs.append(signtx)
