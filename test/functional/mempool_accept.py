@@ -174,6 +174,8 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
             result_expected={txid:{ 'allowed': True}},
             rawtxs=[bytes_to_hex_str(tx.serialize())],
         )
+        # Submit to mempool so txid:0 exists as a UTXO when tx_new is signed later
+        node.sendrawtransaction(hexstring=raw_tx_reference)
 
         self.log.info('A transaction with no outputs')
         tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx_reference)))
