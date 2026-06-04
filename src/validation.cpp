@@ -946,15 +946,17 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
         // Using tip height here would admit txs that are valid pre-activation but
         // invalid post-activation, producing an invalid block at height H.
         const int32_t nextBlockHeight = chainActive.Tip()->nHeight + 1;
-        const unsigned int mempoolScriptFlags = STANDARD_SCRIPT_VERIFY_FLAGS |
-                                                GetBlockScriptFlags(nextBlockHeight);
-        if (!CheckInputs(tx, state, view, true, mempoolScriptFlags, true, false, txdata)) {
+        const unsigned int tipScriptFlags = GetBlockScriptFlags(nextBlockHeight);
+        const unsigned int mempoolScriptFlags = STANDARD_SCRIPT_VERIFY_FLAGS | tipScriptFlags;
+        // Pass tipScriptFlags as mandatoryFlags so that softfork flags active at
+        // nextBlockHeight are treated as mandatory even when they also appear in
+        // STANDARD_SCRIPT_VERIFY_FLAGS (e.g. SCRIPT_VERIFY_CP2SH_COLORED).
+        if (!CheckInputs(tx, state, view, true, mempoolScriptFlags, true, false, txdata, nullptr, tipScriptFlags)) {
             return false; // state filled in by CheckInputs
         }
 
         // Cache script execution results using the same next-block flags so the
         // cache entries are valid when ConnectBlock runs at height nextBlockHeight.
-        const unsigned int tipScriptFlags = GetBlockScriptFlags(nextBlockHeight);
         if (!CheckInputsFromMempoolAndCache(opt.context, tx, opt.state, view, pool, tipScriptFlags, true, txdata)) {
             return error("%s: BUG! PLEASE REPORT THIS! CheckInputs failed against latest-block but not STANDARD flags %s, %s",
                     __func__, hash.ToString(), FormatStateMessage(state));
@@ -1163,7 +1165,7 @@ void InitScriptExecutionCache() {
             (nElems*sizeof(uint256)) >>20, (nMaxCacheSize*2)>>20, nElems);
 }
 
-bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheSigStore, bool cacheFullScriptStore, PrecomputedTransactionData& txdata, std::vector<CScriptCheck> *pvChecks)
+bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheSigStore, bool cacheFullScriptStore, PrecomputedTransactionData& txdata, std::vector<CScriptCheck> *pvChecks, unsigned int mandatoryFlags)
 {
     if (!tx.IsCoinBase())
     {
@@ -1211,14 +1213,20 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                 if (pvChecks) {
                     pvChecks->emplace_back(std::move(check));
                 } else if (!check()) {
-                    if (flags & STANDARD_NOT_MANDATORY_VERIFY_FLAGS) {
+                    // Flags that are in STANDARD but not in the mandatory block flags
+                    // for this height are truly non-mandatory (policy-only).
+                    // Flags present in mandatoryFlags are consensus-mandatory even if
+                    // they also appear in STANDARD_SCRIPT_VERIFY_FLAGS (e.g.
+                    // SCRIPT_VERIFY_CP2SH_COLORED after softfork activation).
+                    const unsigned int nonMandatory = STANDARD_NOT_MANDATORY_VERIFY_FLAGS & ~mandatoryFlags;
+                    if (flags & nonMandatory) {
                         // Check whether the failure was caused by a
                         // non-mandatory script verification check, such as
                         // push only script_sig if so, don't trigger DoS protection to
                         // avoid splitting the network between upgraded and
                         // non-upgraded nodes.
                         CScriptCheck check2(coin.out, tx, i,
-                                flags & ~STANDARD_NOT_MANDATORY_VERIFY_FLAGS, cacheSigStore, &txdata);
+                                flags & ~nonMandatory, cacheSigStore, &txdata);
                         if (check2())
                             return state.Invalid(false, REJECT_NONSTANDARD, strprintf("non-mandatory-script-verify-flag (%s)", ScriptErrorString(check.GetScriptError())));
                     }

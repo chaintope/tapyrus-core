@@ -130,6 +130,10 @@ unsigned int GetP2SHSigOpCount(const CTransaction& tx, const CCoinsViewCache& in
         const Coin& coin = inputs.AccessCoin(tx.vin[i].prevout);
         assert(!coin.IsSpent());
         const CTxOut &prevout = coin.out;
+        // CP2SH sigop counting is not gated by SCRIPT_VERIFY_CP2SH: mainnet activates
+        // CP2SH at genesis, testnet activation height 693367 is behind the current tip,
+        // and testnet sync confirmed no historical block exceeds the sigop limit.
+        // v0.7.1↔v0.7.2 split risk is testnet-only where the federation is trusted.
         if (prevout.scriptPubKey.IsPayToScriptHash() || prevout.scriptPubKey.IsColoredPayToScriptHash())
             nSigOps += prevout.scriptPubKey.GetSigOpCount(tx.vin[i].scriptSig);
     }

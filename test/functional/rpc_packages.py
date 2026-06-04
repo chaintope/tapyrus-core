@@ -56,15 +56,17 @@ class RPCPackageTest(BitcoinTestFramework):
 
     def check_submit_mempool_result(self, result_expected, *args, **kwargs):
         """Wrapper to check result of submitpackage rpc on node_0's mempool"""
+        mempool_size = self.nodes[0].getmempoolinfo()['size']
         result_test = self.nodes[0].submitpackage(*args, **kwargs)
         assert_equal(result_expected, result_test)
-        assert_equal(self.nodes[0].getmempoolinfo()['size'], self.mempool_size + len(kwargs['rawtxs']))
+        assert_equal(self.nodes[0].getmempoolinfo()['size'], mempool_size + len(kwargs['rawtxs']))
 
     def check_mempool_result(self, result_expected, *args, **kwargs):
         """Wrapper to check result of testmempoolaccept rpc on node_0's mempool"""
+        mempool_size = self.nodes[0].getmempoolinfo()['size']
         result_test = self.nodes[0].testmempoolaccept(*args, **kwargs)
         assert_equal(result_expected, result_test)
-        assert_equal(self.nodes[0].getmempoolinfo()['size'], self.mempool_size)
+        assert_equal(self.nodes[0].getmempoolinfo()['size'], mempool_size)
 
     def create_package(self,  size):
         """create a package with size transactions"""
@@ -119,9 +121,8 @@ class RPCPackageTest(BitcoinTestFramework):
         node = self.nodes[0]
 
         self.log.info('Start with empty mempool, and 10 blocks')
-        self.mempool_size = 0
         node.generate(10, self.signblockprivkey_wif)
-        assert_equal(node.getmempoolinfo()['size'], self.mempool_size)
+        assert_equal(node.getmempoolinfo()['size'], 0)
 
         self.log.info('Test package acceptance')
         # package with 26 transactions is rejected
@@ -179,7 +180,6 @@ class RPCPackageTest(BitcoinTestFramework):
         package[1].rehash()
         raw_package = [bytes_to_hex_str(x.serialize()) for x in package]
 
-        self.mempool_size = 1
         self.check_mempool_result(
             result_expected={ package[0].hashMalFix: {'allowed': True},
                                             package[1].hashMalFix: {'allowed': False, 'reject-reason': 'missing-inputs'}},
@@ -193,19 +193,19 @@ class RPCPackageTest(BitcoinTestFramework):
         package[1].rehash()
         raw_package = [bytes_to_hex_str(x.serialize()) for x in package]
 
-        self.mempool_size = 0
         self.check_mempool_result(
             result_expected={ package[0].hashMalFix: {'allowed': False, 'reject-reason': '256: absurdly-high-fee'},
                                             package[1].hashMalFix: {'allowed': False, 'reject-reason': 'missing-inputs'}},
             rawtxs=raw_package
         )
 
-        # package is accepted
+        # package is accepted — use submitpackage so each parent is in the mempool
+        # before the next child is validated (testmempoolaccept is TEST_ONLY and
+        # does not add to the mempool, so chained txs would fail with missing-inputs)
         package = self.create_package(4)
         raw_package = [bytes_to_hex_str(x.serialize()) for x in package]
 
-        self.mempool_size = 4
-        self.check_mempool_result(
+        self.check_submit_mempool_result(
             result_expected={ package[0].hashMalFix: {'allowed': True},
                                             package[1].hashMalFix: {'allowed': True},
                                             package[2].hashMalFix: {'allowed': True},
@@ -219,7 +219,6 @@ class RPCPackageTest(BitcoinTestFramework):
         package = self.create_package(1)
         raw_package = [bytes_to_hex_str(x.serialize()) for x in package]
 
-        self.mempool_size = 1
         self.check_mempool_result(
             result_expected={ package[0].hashMalFix: {'allowed': True} },
             rawtxs=raw_package,
@@ -312,8 +311,7 @@ class RPCPackageTest(BitcoinTestFramework):
             packagetx.rehash()
             txids.append(packagetx.hashMalFix)
 
-        self.mempool_size = len(txids)
-        self.check_mempool_result(
+        self.check_submit_mempool_result(
             result_expected={ txids[0]: {'allowed': True},
                                             txids[1]: {'allowed': True},
                                             txids[2]: {'allowed': True},

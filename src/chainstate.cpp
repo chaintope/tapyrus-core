@@ -880,6 +880,17 @@ bool CChainState::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, co
     // Remove conflicting transactions from the mempool.;
     mempool.removeForBlock(blockConnecting.vtx, pindexNew->nHeight);
     disconnectpool.removeForBlock(blockConnecting.vtx);
+
+    // If this block crossed a softfork activation boundary, evict mempool entries
+    // that no longer pass script checks under the new next-block flags.
+    {
+        const unsigned int newSoftforkFlags = GetSoftForkManager().ActivationFlagsChange(
+            FederationParams().NetworkId(), pindexNew->nHeight, pindexNew->nHeight + 1);
+        if (newSoftforkFlags) {
+            mempool.removeForScriptFlagChange(STANDARD_SCRIPT_VERIFY_FLAGS | newSoftforkFlags);
+        }
+    }
+
     // Update chainActive & related variables.
     chainActive.SetTip(pindexNew);
     UpdateTip(pindexNew);
@@ -1570,15 +1581,41 @@ bool CChainState::RollforwardBlock(const CBlockIndex* pindex, CCoinsViewCache& i
         return error("ReplayBlock(): ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
     }
 
+    std::set<ColorIdentifier> allNewIssuances;
+
     for (const CTransactionRef& tx : block.vtx) {
         if (!tx->IsCoinBase()) {
-            for (const CTxIn &txin : tx->vin) {
+            // Detect NON_REISSUABLE/NFT issuances before spending inputs, because
+            // SpendCoin removes coins from the view so we must look them up first.
+            std::vector<COutPoint> tpcInputOutpoints;
+            for (const auto& txin : tx->vin) {
+                const Coin& coin = inputs.AccessCoin(txin.prevout);
+                if (GetColorIdFromScript(coin.out.scriptPubKey).type == TokenTypes::NONE)
+                    tpcInputOutpoints.push_back(txin.prevout);
+            }
+            if (!tpcInputOutpoints.empty()) {
+                for (const auto& tx_out : tx->vout) {
+                    ColorIdentifier outColorId(GetColorIdFromScript(tx_out.scriptPubKey));
+                    if (outColorId.type != TokenTypes::NON_REISSUABLE && outColorId.type != TokenTypes::NFT)
+                        continue;
+                    for (const auto& prevout : tpcInputOutpoints) {
+                        if (ColorIdentifier(prevout, outColorId.type) == outColorId) {
+                            allNewIssuances.insert(outColorId);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            for (const CTxIn& txin : tx->vin) {
                 inputs.SpendCoin(txin.prevout);
             }
         }
         // Pass check = true as every addition may be an overwrite.
         AddCoins(inputs, *tx, pindex->nHeight, true);
     }
+
+    g_colorid_state->Insert(allNewIssuances);
     return true;
 }
 

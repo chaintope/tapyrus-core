@@ -718,12 +718,7 @@ static UniValue combinerawtransaction(const JSONRPCRequest& request)
         view.SetBackend(viewDummy); // switch back to avoid locking mempool for too long
     }
 
-    unsigned int signVerifyFlags = STANDARD_SCRIPT_VERIFY_FLAGS;
-    {
-        LOCK(cs_main);
-        if (GetSoftForkManager().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, chainActive.Height() + 1))
-            signVerifyFlags |= SCRIPT_VERIFY_CP2SH_COLORED;
-    }
+    const unsigned int signVerifyFlags = STANDARD_SCRIPT_VERIFY_FLAGS;
 
     // Use CTransaction for the constant parts of the
     // transaction to avoid rehashing.
@@ -837,12 +832,7 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival
 
     bool fHashSingle = ((nHashType & ~SIGHASH_ANYONECANPAY) == SIGHASH_SINGLE);
 
-    unsigned int signVerifyFlags = STANDARD_SCRIPT_VERIFY_FLAGS;
-    {
-        LOCK(cs_main);
-        if (GetSoftForkManager().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, chainActive.Height() + 1))
-            signVerifyFlags |= SCRIPT_VERIFY_CP2SH_COLORED;
-    }
+    const unsigned int signVerifyFlags = STANDARD_SCRIPT_VERIFY_FLAGS;
 
     // Script verification errors
     UniValue vErrors(UniValue::VARR);

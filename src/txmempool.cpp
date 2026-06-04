@@ -601,6 +601,33 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
     blockSinceLastRollingFeeBump = true;
 }
 
+void CTxMemPool::removeForScriptFlagChange(unsigned int newMempoolScriptFlags)
+{
+    AssertLockHeld(cs_main); // pcoinsTip access
+    LOCK(cs);
+    // Wrap CCoinsViewMemPool in a CCoinsViewCache so it satisfies CheckInputs's
+    // parameter type while still resolving intra-mempool dependencies.
+    CCoinsViewMemPool viewMemPool(pcoinsTip.get(), *this);
+    CCoinsViewCache view(&viewMemPool);
+
+    setEntries txToRemove;
+    for (indexed_transaction_set::const_iterator it = mapTx.begin(); it != mapTx.end(); ++it) {
+        const CTransaction& tx = it->GetTx();
+        if (tx.IsCoinBase())
+            continue;
+        CValidationState state;
+        PrecomputedTransactionData txdata(tx);
+        if (!CheckInputs(tx, state, view, true, newMempoolScriptFlags, false, false, txdata)) {
+            txToRemove.insert(it);
+        }
+    }
+    setEntries setAllRemoves;
+    for (txiter it : txToRemove) {
+        CalculateDescendants(it, setAllRemoves);
+    }
+    RemoveStaged(setAllRemoves, false, MemPoolRemovalReason::REORG);
+}
+
 void CTxMemPool::_clear()
 {
     mapLinks.clear();

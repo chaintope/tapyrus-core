@@ -183,15 +183,6 @@ namespace {
     std::deque<std::pair<int64_t, MapRelay::iterator>> vRelayExpiration GUARDED_BY(cs_main);
 
     std::atomic<int64_t> nTimeBestReceived(0); // Used only to inform the wallet of when we last received a block
-    /** Number of addrsses that can be processed from this peer. Start at 1 to
-     *  permit self-announcement. */
-    double m_addr_token_bucket{1.0};
-    /** When m_addr_token_bucket was last updated */
-    std::chrono::microseconds m_addr_token_timestamp{GetTimeMicros()};
-    /** Total number of addresses that were dropped due to rate limiting. */
-    std::atomic<uint64_t> m_addr_rate_limited{0};
-    /** Total number of addresses that were processed (excludes rate limited ones). */
-    std::atomic<uint64_t> m_addr_processed{0};
 
     struct IteratorComparator
     {
@@ -306,6 +297,15 @@ struct CNodeState {
     //! Time of last new block announcement
     int64_t m_last_block_announcement;
 
+    /** Number of addresses that can be processed from this peer. Start at 1 to
+     *  permit self-announcement. Guarded by cs_main. */
+    double m_addr_token_bucket{1.0};
+    /** When m_addr_token_bucket was last updated. Guarded by cs_main. */
+    std::chrono::microseconds m_addr_token_timestamp;
+    /** Total number of addresses dropped due to rate limiting. Guarded by cs_main. */
+    uint64_t m_addr_rate_limited{0};
+    /** Total number of addresses processed (excludes rate-limited ones). Guarded by cs_main. */
+    uint64_t m_addr_processed{0};
 
     CNodeState(CAddress addrIn, std::string addrNameIn) : address(addrIn), name(addrNameIn) {
         fCurrentlyConnected = false;
@@ -328,6 +328,10 @@ struct CNodeState {
         m_chain_sync = { 0, nullptr, false, false };
         m_last_block_announcement = 0;
         m_recently_announced_invs.reset();
+        m_addr_token_bucket = 1.0;
+        m_addr_token_timestamp = std::chrono::microseconds(GetTimeMicros());
+        m_addr_rate_limited = 0;
+        m_addr_processed = 0;
     }
 };
 
@@ -390,10 +394,9 @@ static bool MarkBlockAsReceived(const uint256& hash,  std::optional<NodeId> from
         // Block was not requested from any peer
         return false;
     }
-    // We should not have requested too many of this block
     if(mapBlocksInFlight.count(hash) >= MAX_CMPCTBLOCKS_INFLIGHT_PER_BLOCK) {
         LogPrint(BCLog::NET, "More than %s requests for this block %s\n", MAX_CMPCTBLOCKS_INFLIGHT_PER_BLOCK, hash.ToString());
-        return false;
+        // Still erase from_peer's entry below — do not return early and leak it.
     }
     while (rangeInFlight.first != rangeInFlight.second) {
         auto itInFlight = rangeInFlight.first->second;
@@ -733,8 +736,8 @@ bool GetNodeStateStats(NodeId nodeid, CNodeStateStats &stats) {
         if (queue.pindex)
             stats.vHeightInFlight.push_back(queue.pindex->nHeight);
     }
-    stats.m_addr_processed = m_addr_processed.load();
-    stats.m_addr_rate_limited = m_addr_rate_limited.load();
+    stats.m_addr_processed = state->m_addr_processed;
+    stats.m_addr_rate_limited = state->m_addr_rate_limited;
     return true;
 }
 
@@ -1899,7 +1902,10 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
             connman->MarkAddressGood(pfrom->addr);
             // When requesting a getaddr, accept an additional MAX_ADDR_TO_SEND addresses in response
             // (bypassing the MAX_ADDR_PROCESSING_TOKEN_BUCKET limit).
-            m_addr_token_bucket += MAX_ADDR_TO_SEND;
+            {
+                LOCK(cs_main);
+                State(pfrom->GetId())->m_addr_token_bucket += MAX_ADDR_TO_SEND;
+            }
         }
 
         std::string remoteAddr;
@@ -1995,15 +2001,21 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
 
         // Store the new addresses
         std::vector<CAddress> vAddrOk;
-        // Update/increment addr rate limiting bucket.
+        // Update per-peer token bucket under cs_main, then process addrs without holding it.
         const auto current_time(GetTimeMicros(true));
-        if (m_addr_token_bucket < MAX_ADDR_PROCESSING_TOKEN_BUCKET) {
-            // Don't increment bucket if it's already full
-            const std::chrono::microseconds time_diff{std::max(current_time - m_addr_token_timestamp.count(), int64_t(0))};
-            const double increment =  std::chrono::duration_cast< std::chrono::duration<double, std::chrono::seconds::period>>(time_diff).count() * MAX_ADDR_RATE_PER_SECOND;
-            m_addr_token_bucket = std::min<double>(m_addr_token_bucket + increment, MAX_ADDR_PROCESSING_TOKEN_BUCKET);
+        double addr_token_bucket;
+        {
+            LOCK(cs_main);
+            CNodeState* state = State(pfrom->GetId());
+            if (state->m_addr_token_bucket < MAX_ADDR_PROCESSING_TOKEN_BUCKET) {
+                // Don't increment bucket if it's already full
+                const std::chrono::microseconds time_diff{std::max(current_time - state->m_addr_token_timestamp.count(), int64_t(0))};
+                const double increment = std::chrono::duration_cast<std::chrono::duration<double, std::chrono::seconds::period>>(time_diff).count() * MAX_ADDR_RATE_PER_SECOND;
+                state->m_addr_token_bucket = std::min<double>(state->m_addr_token_bucket + increment, MAX_ADDR_PROCESSING_TOKEN_BUCKET);
+            }
+            state->m_addr_token_timestamp = std::chrono::microseconds(current_time);
+            addr_token_bucket = state->m_addr_token_bucket;
         }
-        m_addr_token_timestamp = std::chrono::microseconds(current_time);
 
         uint64_t num_proc = 0;
         uint64_t num_rate_limit = 0;
@@ -2013,11 +2025,11 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
                 return true;
 
             // Apply rate limiting to all peers
-            if (m_addr_token_bucket < 1.0) {
+            if (addr_token_bucket < 1.0) {
                 ++num_rate_limit;
                 continue;
             } else {
-                m_addr_token_bucket -= 1.0;
+                addr_token_bucket -= 1.0;
             }
             // We only bother storing full nodes, though this may include
             // things which we would not make an outbound connection to,
@@ -2039,8 +2051,15 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
             if (fReachable)
                 vAddrOk.push_back(addr);
         }
-        m_addr_processed += num_proc;
-        m_addr_rate_limited += num_rate_limit;
+        {
+            LOCK(cs_main);
+            CNodeState* state = State(pfrom->GetId());
+            if (state) {
+                state->m_addr_token_bucket = addr_token_bucket;
+                state->m_addr_processed += num_proc;
+                state->m_addr_rate_limited += num_rate_limit;
+            }
+        }
         LogPrint(BCLog::NET, "Received addr: %u addresses (%u processed, %u rate-limited) from peer=%d\n",
                  vAddr.size(),
                  num_proc,

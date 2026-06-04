@@ -108,6 +108,22 @@ public:
         return (scriptFlags & flag) != 0;
     }
 
+    /**
+     * Returns the new combined softfork script flags for networkId at newHeight
+     * if any fork activates between oldHeight and newHeight, otherwise 0.
+     *
+     * Designed to be called from ConnectTip to detect activation boundaries:
+     * pass oldHeight = pindexNew->nHeight (flags the mempool was checked against)
+     * and newHeight = pindexNew->nHeight + 1 (flags the next block requires).
+     * A non-zero return means the mempool should be re-evaluated against
+     * (STANDARD_SCRIPT_VERIFY_FLAGS | returnValue).
+     */
+    unsigned int ActivationFlagsChange(uint32_t networkId, int32_t oldHeight, int32_t newHeight) const {
+        const unsigned int before = GetScriptFlags(networkId, oldHeight);
+        const unsigned int after  = GetScriptFlags(networkId, newHeight);
+        return after & ~before;
+    }
+
 };
 
 /**

@@ -2546,8 +2546,7 @@ bool CWallet::SignTransaction(CMutableTransaction &tx)
     AssertLockHeld(cs_main);
     AssertLockHeld(cs_wallet); // mapWallet
 
-    unsigned int signVerifyFlags = STANDARD_SCRIPT_VERIFY_FLAGS;
-    if (GetSoftForkManager().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, chainActive.Height() + 1)) signVerifyFlags |= SCRIPT_VERIFY_CP2SH_COLORED;
+    const unsigned int signVerifyFlags = STANDARD_SCRIPT_VERIFY_FLAGS;
 
     // sign the new tx
     int nIn = 0;
@@ -3075,8 +3074,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
         if (sign)
         {
             AssertLockHeld(cs_main);
-            unsigned int signVerifyFlags = STANDARD_SCRIPT_VERIFY_FLAGS;
-            if (GetSoftForkManager().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, chainActive.Height() + 1)) signVerifyFlags |= SCRIPT_VERIFY_CP2SH_COLORED;
+            const unsigned int signVerifyFlags = STANDARD_SCRIPT_VERIFY_FLAGS;
 
             int nIn = 0;
             for (const auto& coin : selected_coins)
