@@ -603,7 +603,7 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
 
 void CTxMemPool::removeForScriptFlagChange(unsigned int newMempoolScriptFlags)
 {
-    // Caller must hold cs_main (for pcoinsTip access).
+    AssertLockHeld(cs_main); // pcoinsTip access
     LOCK(cs);
     // Wrap CCoinsViewMemPool in a CCoinsViewCache so it satisfies CheckInputs's
     // parameter type while still resolving intra-mempool dependencies.
