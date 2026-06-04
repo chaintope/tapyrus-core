@@ -121,7 +121,7 @@ public:
     unsigned int ActivationFlagsChange(uint32_t networkId, int32_t oldHeight, int32_t newHeight) const {
         const unsigned int before = GetScriptFlags(networkId, oldHeight);
         const unsigned int after  = GetScriptFlags(networkId, newHeight);
-        return (before != after) ? after : 0;
+        return after & ~before;
     }
 
 };
