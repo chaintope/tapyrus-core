@@ -3984,8 +3984,9 @@ bool FillPSBT(const CWallet* pwallet, PartiallySignedTransaction& psbtx, const C
         const auto it = pwallet->mapWallet.find(txhash);
         if (it != pwallet->mapWallet.end()) {
             const CWalletTx& wtx = it->second;
-            CTxOut utxo = wtx.tx->vout[txin.prevout.n];
-            // Update both UTXOs from the wallet.
+            if (txin.prevout.n >= wtx.tx->vout.size()) {
+                throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Input prevout index out of range");
+            }
             input.non_witness_utxo = wtx.tx;
         }
 

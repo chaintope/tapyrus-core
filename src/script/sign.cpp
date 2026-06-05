@@ -230,6 +230,7 @@ bool SignPSBTInput(const SigningProvider& provider, const CMutableTransaction& t
     if (input.non_witness_utxo) {
         // If we're taking our information from a non-witness UTXO, verify that it matches the prevout.
         if (input.non_witness_utxo->GetHashMalFix() != tx.vin[index].prevout.hashMalFix) return false;
+        if (tx.vin[index].prevout.n >= input.non_witness_utxo->vout.size()) return false;
 
         utxo = input.non_witness_utxo->vout[tx.vin[index].prevout.n];
     } else
