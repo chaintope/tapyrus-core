@@ -181,6 +181,11 @@ unsigned int CScript::GetSigOpCount(bool fAccurate) const
 
 unsigned int CScript::GetSigOpCount(const CScript& scriptSig) const
 {
+    // CP2SH sigop counting is intentionally applied without checking SCRIPT_VERIFY_CP2SH:
+    // mainnet activates CP2SH at genesis (block 0), testnet activation height 693367 is
+    // already behind the current tip, and testnet sync verified no historical CP2SH-shaped
+    // block violates this limit. All v0.7.2 nodes count identically; residual
+    // v0.7.1↔v0.7.2 split risk is testnet-only where the federation is trusted.
     if (!IsPayToScriptHash() && !IsColoredPayToScriptHash())
         return GetSigOpCount(true);
 

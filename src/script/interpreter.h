@@ -121,7 +121,8 @@ static constexpr unsigned int STANDARD_SCRIPT_VERIFY_FLAGS = SCRIPT_VERIFY_DISCO
                                                              SCRIPT_VERIFY_MINIMALIF |
                                                              SCRIPT_VERIFY_NULLFAIL |
                                                              SCRIPT_VERIFY_WITNESS_PUBKEYTYPE |
-                                                             SCRIPT_VERIFY_CONST_SCRIPTCODE;
+                                                             SCRIPT_VERIFY_CONST_SCRIPTCODE |
+                                                             SCRIPT_VERIFY_CP2SH_COLORED;
 
 /** For convenience, standard but not mandatory verify flags. */
 static constexpr unsigned int STANDARD_NOT_MANDATORY_VERIFY_FLAGS = (STANDARD_SCRIPT_VERIFY_FLAGS
