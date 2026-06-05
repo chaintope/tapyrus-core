@@ -548,10 +548,10 @@ public:
     void removeForReorg(const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight, int flags);
     void removeConflicts(const CTransaction &tx) EXCLUSIVE_LOCKS_REQUIRED(cs);
     void removeForBlock(const std::vector<CTransactionRef>& vtx, unsigned int nBlockHeight);
-    /** Evict mempool entries that fail script checks under newMempoolScriptFlags.
-     *  Called when crossing a softfork activation boundary so that stale
-     *  pre-activation entries cannot pollute block templates. Caller must hold cs_main. */
-    void removeForScriptFlagChange(unsigned int newMempoolScriptFlags);
+    /** Evict mempool entries that fail script checks or colored-coin consensus rules
+     *  under the flags/height active at the next block after a softfork activation.
+     *  Called when crossing a softfork activation boundary. Caller must hold cs_main. */
+    void removeForScriptFlagChange(unsigned int newMempoolScriptFlags, int32_t newBlockHeight);
 
     void clear();
     void _clear() EXCLUSIVE_LOCKS_REQUIRED(cs); //lock free

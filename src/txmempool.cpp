@@ -601,7 +601,7 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
     blockSinceLastRollingFeeBump = true;
 }
 
-void CTxMemPool::removeForScriptFlagChange(unsigned int newMempoolScriptFlags)
+void CTxMemPool::removeForScriptFlagChange(unsigned int newMempoolScriptFlags, int32_t newBlockHeight)
 {
     AssertLockHeld(cs_main); // pcoinsTip access
     LOCK(cs);
@@ -618,6 +618,20 @@ void CTxMemPool::removeForScriptFlagChange(unsigned int newMempoolScriptFlags)
         CValidationState state;
         PrecomputedTransactionData txdata(tx);
         if (!CheckInputs(tx, state, view, true, newMempoolScriptFlags, false, false, txdata)) {
+            txToRemove.insert(it);
+            continue;
+        }
+        // Also evict txs that violate colored-coin consensus rules now active at
+        // newBlockHeight (e.g. bad-txns-nonstandard-opcolor gated on SCRIPT_VERIFY_CP2SH_COLORED).
+        // CheckInputs alone does not cover these rules.
+        CValidationState colorState;
+        if (!CheckColorIdentifierValidity(tx, colorState, view, newBlockHeight)) {
+            txToRemove.insert(it);
+            continue;
+        }
+        CValidationState balanceState;
+        const CAmount minFee = ::minRelayTxFee.GetFee(it->GetTxSize());
+        if (!VerifyTokenBalances(tx, balanceState, view, minFee, nullptr, newBlockHeight)) {
             txToRemove.insert(it);
         }
     }

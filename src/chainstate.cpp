@@ -882,12 +882,12 @@ bool CChainState::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, co
     disconnectpool.removeForBlock(blockConnecting.vtx);
 
     // If this block crossed a softfork activation boundary, evict mempool entries
-    // that no longer pass script checks under the new next-block flags.
+    // that no longer pass script checks or colored-coin rules under the new next-block flags.
     {
         const unsigned int newSoftforkFlags = GetSoftForkManager().ActivationFlagsChange(
             FederationParams().NetworkId(), pindexNew->nHeight, pindexNew->nHeight + 1);
         if (newSoftforkFlags) {
-            mempool.removeForScriptFlagChange(STANDARD_SCRIPT_VERIFY_FLAGS | newSoftforkFlags);
+            mempool.removeForScriptFlagChange(STANDARD_SCRIPT_VERIFY_FLAGS | newSoftforkFlags, pindexNew->nHeight + 1);
         }
     }
 
