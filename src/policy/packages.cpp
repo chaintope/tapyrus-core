@@ -105,6 +105,18 @@ bool SubmitPackageToMempool(const Package& package,
     if(!CheckPackage(package, state))
         return false;
 
+    // For TEST_ONLY (testmempoolaccept dry-run), install a virtual-mempool view
+    // so each tx in a chained package can resolve its inputs against outputs of
+    // earlier package txs that passed validation but were not admitted.
+    // Replacing mempool_view with the subclass is safe: CTxMempoolAcceptanceOptions
+    // owns the pointer and its destructor deletes it; CCoinsView has a virtual dtor.
+    if (opt.flags == MempoolAcceptanceFlags::TEST_ONLY) {
+        delete opt.mempool_view;
+        opt.mempool_view = new CCoinsViewVirtualMemPool(pcoinsTip.get(), mempool);
+    }
+    CCoinsViewVirtualMemPool* virtualView =
+        dynamic_cast<CCoinsViewVirtualMemPool*>(opt.mempool_view);
+
     for(auto &tx : package)
     {
         {
@@ -115,6 +127,10 @@ bool SubmitPackageToMempool(const Package& package,
 
         opt.state.missingInputs = opt.missingInputs.size() > 0;
         results.emplace(tx->GetHashMalFix(), opt.state);
+
+        if (virtualView && opt.state.IsValid()) {
+            virtualView->AddVirtualTx(*tx);
+        }
     }
 
     bool success = ArePackageTransactionsAccepted(results);

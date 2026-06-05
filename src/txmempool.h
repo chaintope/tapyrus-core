@@ -720,6 +720,23 @@ public:
 };
 
 /**
+ * CCoinsViewVirtualMemPool extends CCoinsViewMemPool with an in-memory map of
+ * "virtual" coins — outputs of transactions that have been validated but not yet
+ * added to the real mempool.  Used by SubmitPackageToMempool in TEST_ONLY mode so
+ * that subsequent transactions in a chained package can resolve inputs against
+ * earlier package transactions without requiring actual mempool admission.
+ */
+class CCoinsViewVirtualMemPool : public CCoinsViewMemPool
+{
+    std::map<COutPoint, Coin> m_virtual_coins;
+
+public:
+    using CCoinsViewMemPool::CCoinsViewMemPool;
+    bool GetCoin(const COutPoint& outpoint, Coin& coin) const override;
+    void AddVirtualTx(const CTransaction& tx);
+};
+
+/**
  * DisconnectedBlockTransactions
 
  * During the reorg, it's desirable to re-add previously confirmed transactions

@@ -52,11 +52,17 @@ void FilterMempoolDuplicates(const std::vector<CTransaction>& txns, Package& pac
  * It gives granular results with the state of each transaction in the package and
  * the state of the package as a whole.
  *
+ * Admission is NOT atomic. Transactions are evaluated and admitted individually in
+ * package order. A false return value means at least one transaction was rejected, but
+ * earlier transactions in the package may already have been admitted. This is intentional:
+ * packages are a submission convenience, not an all-or-nothing commit. Callers must
+ * inspect per-transaction results to determine which transactions were admitted.
+ *
  * @param package The package of transactions to be submitted.
  * @param state A reference to the validation state that tracks the package validation results.
  * @param results A reference to the package validation state that records the validation outcome of each transaction.
  * @param opt Options that control how the mempool accepts transactions.
- * @return True if the package is successfully accepted into the mempool, false otherwise.
+ * @return True if all transactions in the package were successfully accepted, false otherwise.
  */
 bool SubmitPackageToMempool(const Package& package,
                                   CValidationState& state,

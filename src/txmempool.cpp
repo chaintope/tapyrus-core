@@ -956,6 +956,21 @@ bool CCoinsViewMemPool::GetCoin(const COutPoint &outpoint, Coin &coin) const {
     return base->GetCoin(outpoint, coin);
 }
 
+bool CCoinsViewVirtualMemPool::GetCoin(const COutPoint& outpoint, Coin& coin) const {
+    auto it = m_virtual_coins.find(outpoint);
+    if (it != m_virtual_coins.end()) {
+        coin = it->second;
+        return true;
+    }
+    return CCoinsViewMemPool::GetCoin(outpoint, coin);
+}
+
+void CCoinsViewVirtualMemPool::AddVirtualTx(const CTransaction& tx) {
+    for (uint32_t i = 0; i < tx.vout.size(); ++i) {
+        m_virtual_coins[COutPoint(tx.GetHashMalFix(), i)] = Coin(tx.vout[i], MEMPOOL_HEIGHT, false);
+    }
+}
+
 
 size_t CTxMemPool::DynamicMemoryUsage() const {
     LOCK(cs);
