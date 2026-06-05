@@ -321,14 +321,19 @@ BOOST_FIXTURE_TEST_CASE(testmempoolaccept_chained_package, PackageTestSetup)
     mtx1.vin[0].scriptSig = CScript() << vchSig;
 
     // tx2: spends tx1 (not in mempool — only resolvable via virtual overlay)
+    // Pad with 4 extra vouts to exceed the 82-byte minimum standard tx size.
     COutPoint spend_tx1(mtx1.GetHashMalFix(), 0);
-    auto mtx2 = CreateValidTransaction(spend_tx1, CAmount(48 * COIN), {CScript() << OP_TRUE << OP_EQUAL});
+    auto mtx2 = CreateValidTransaction(spend_tx1, CAmount(44 * COIN), {CScript() << OP_TRUE << OP_EQUAL});
     mtx2.vin[0].scriptSig = CScript() << OP_TRUE;
+    for (int i = 0; i < 4; ++i)
+        mtx2.vout.push_back(CTxOut(CAmount(1 * COIN), {CScript() << OP_TRUE << OP_EQUAL}));
 
-    // tx3: spends tx2
+    // tx3: spends tx2 output 0
     COutPoint spend_tx2(mtx2.GetHashMalFix(), 0);
-    auto mtx3 = CreateValidTransaction(spend_tx2, CAmount(47 * COIN), child_locking_script);
+    auto mtx3 = CreateValidTransaction(spend_tx2, CAmount(39 * COIN), child_locking_script);
     mtx3.vin[0].scriptSig = CScript() << OP_TRUE;
+    for (int i = 0; i < 4; ++i)
+        mtx3.vout.push_back(CTxOut(CAmount(1 * COIN), child_locking_script));
 
     Package package{MakeTransactionRef(mtx1), MakeTransactionRef(mtx2), MakeTransactionRef(mtx3)};
     auto result = SubmitPackageToMempool(package, state, validationState, opt);
