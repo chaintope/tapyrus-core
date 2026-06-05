@@ -10,6 +10,8 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import sync_blocks, assert_equal, assert_raises_rpc_error, find_output
 from test_framework.blocktools import create_colored_transaction
 
+from decimal import Decimal
+
 import json
 import os
 
@@ -81,7 +83,7 @@ class PSBTTest(BitcoinTestFramework):
         oob_vout = len(raw_utxo_tx['vout']) + 5
         bad_psbt = self.nodes[0].createpsbt(
             [{"txid": utxo['txid'], "vout": oob_vout}],
-            {self.nodes[0].getnewaddress(): utxo['amount'] - 0.01}
+            {self.nodes[0].getnewaddress(): utxo['amount'] - Decimal('0.01')}
         )
         assert_raises_rpc_error(-22, "Input prevout index out of range",
                                 self.nodes[0].walletprocesspsbt, bad_psbt)

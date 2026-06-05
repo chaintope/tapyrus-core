@@ -125,6 +125,9 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
             if (!out.fSpendable) continue;
             const CTxOut& txout = out.tx->tx->vout[out.i];
             if (GetColorIdFromScript(txout.scriptPubKey).type != TokenTypes::NONE) continue;
+            // Outputs of the tx being replaced would make the replacement unbroadcastable:
+            // once the original is evicted by RBF the replacement's input is missing.
+            if (out.tx->tx->GetHashMalFix() == wtx.tx->GetHashMalFix()) continue;
             COutPoint op(out.tx->tx->GetHashMalFix(), out.i);
             bool alreadyIn = false;
             for (const auto& vin : wtx.tx->vin)

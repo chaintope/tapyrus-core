@@ -661,9 +661,12 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         {
             std::vector<CScriptCheck> vChecks;
             bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
-            if (!CheckInputs(tx, state, view, fScriptChecks, GetBlockScriptFlags(pindex), fCacheResults, fCacheResults, txdata[i], nScriptCheckThreads ? &vChecks : nullptr))
-                return error("ConnectBlock(): CheckInputs on %s failed with %s",
-                    tx.GetHashMalFix().ToString(), FormatStateMessage(state));
+            if (!CheckInputs(tx, state, view, fScriptChecks, GetBlockScriptFlags(pindex), fCacheResults, fCacheResults, txdata[i], nScriptCheckThreads ? &vChecks : nullptr, GetBlockScriptFlags(pindex)))
+                // FormatStateMessage is evaluated before DoS() overwrites state, preserving
+                // the per-input detail in the log while enforcing DoS 100 at the block level.
+                return state.DoS(100, error("ConnectBlock(): CheckInputs on %s failed with %s",
+                    tx.GetHashMalFix().ToString(), FormatStateMessage(state)),
+                    REJECT_INVALID, "mandatory-script-verify-flag-failed");
             control.Add(std::move(vChecks));
         }
 
@@ -857,7 +860,7 @@ bool CChainState::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, co
         CXFieldHistory xfieldHistory;
         if(blockConnecting.xfield.IsValid()
             && pindexNew->nHeight > 0
-            && IsXFieldNew(blockConnecting.xfield, &xfieldHistory, static_cast<uint32_t>(pindexNew->nHeight - 1)))
+            && IsXFieldNew(blockConnecting.xfield, &xfieldHistory, static_cast<uint32_t>(pindexNew->nHeight)))
         {
             XFieldChange newChange(blockConnecting.xfield.xfieldValue, pindexNew->nHeight + 1, blockConnecting.GetHash());
             xfieldHistory.Add(blockConnecting.xfield.xfieldType, newChange);
@@ -1412,7 +1415,7 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
     if(pxfieldHistory
         && block.xfield.IsValid()
         && pindex->nHeight > 0
-        && IsXFieldNew(block.xfield, pxfieldHistory, static_cast<uint32_t>(pindex->nHeight - 1)))
+        && IsXFieldNew(block.xfield, pxfieldHistory, static_cast<uint32_t>(pindex->nHeight)))
     {
         XFieldChange newChange(block.xfield.xfieldValue, pindex->nHeight + 1, block.GetHash());
         pxfieldHistory->Add(block.xfield.xfieldType, newChange);

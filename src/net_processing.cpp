@@ -329,7 +329,7 @@ struct CNodeState {
         m_last_block_announcement = 0;
         m_recently_announced_invs.reset();
         m_addr_token_bucket = 1.0;
-        m_addr_token_timestamp = std::chrono::microseconds(GetTimeMicros());
+        m_addr_token_timestamp = std::chrono::microseconds(GetTimeMicros(true));
         m_addr_rate_limited = 0;
         m_addr_processed = 0;
     }
@@ -398,6 +398,7 @@ static bool MarkBlockAsReceived(const uint256& hash,  std::optional<NodeId> from
         LogPrint(BCLog::NET, "More than %s requests for this block %s\n", MAX_CMPCTBLOCKS_INFLIGHT_PER_BLOCK, hash.ToString());
         // Still erase from_peer's entry below — do not return early and leak it.
     }
+    bool found = false;
     while (rangeInFlight.first != rangeInFlight.second) {
         auto itInFlight = rangeInFlight.first->second;
         auto node_id = itInFlight.first;
@@ -421,9 +422,13 @@ static bool MarkBlockAsReceived(const uint256& hash,  std::optional<NodeId> from
         state->nStallingSince = 0;
 
         rangeInFlight.first = mapBlocksInFlight.erase(rangeInFlight.first);
-        return true;
+        found = true;
+        // When a specific peer is given, one entry is expected — return immediately.
+        // When nullopt, continue to erase all in-flight entries for this hash so
+        // no other peer's vBlocksInFlight entry is left dangling.
+        if (from_peer) return true;
     }
-    return false;
+    return found;
 }
 
 // returns false, still setting pit, if the block was already in flight from the same peer

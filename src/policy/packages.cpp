@@ -121,6 +121,7 @@ bool SubmitPackageToMempool(const Package& package,
     {
         {
             opt.state = CValidationState();
+            opt.coins_to_uncache.clear();
             LOCK(::cs_main);
             AcceptToMemoryPool(tx, opt);
         }
