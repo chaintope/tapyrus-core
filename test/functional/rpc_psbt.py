@@ -10,6 +10,8 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import sync_blocks, assert_equal, assert_raises_rpc_error, find_output
 from test_framework.blocktools import create_colored_transaction
 
+from decimal import Decimal
+
 import json
 import os
 
@@ -56,6 +58,35 @@ class PSBTTest(BitcoinTestFramework):
 
         self.nodes[0].generate(1, self.signblockprivkey_wif)
         self.sync_all()
+
+        # Test decodepsbt with colored coin inputs (exercises H-3 non_witness_utxo bounds-check path)
+        self.log.info('Test decodepsbt with colored coin inputs')
+        cc_psbt = self.nodes[0].walletcreatefundedpsbt(
+            [],
+            {self.nodes[2].getnewaddress("decdpsbt", colorId): 5,
+             self.nodes[0].getnewaddress("decdpsbt", colorId): 85}
+        )['psbt']
+        # walletprocesspsbt adds non_witness_utxo for each input (H-2 guard runs here)
+        cc_processed = self.nodes[0].walletprocesspsbt(cc_psbt)
+        assert_equal(cc_processed['complete'], True)
+        # decodepsbt sums non_witness_utxo outputs to compute fee (H-3 guard runs here)
+        cc_decoded = self.nodes[0].decodepsbt(cc_processed['psbt'])
+        for inp in cc_decoded['inputs']:
+            assert 'non_witness_utxo' in inp
+        assert 'fee' in cc_decoded
+        assert cc_decoded['fee'] > 0
+
+        # Test walletprocesspsbt rejects out-of-bounds prevout.n (H-2 guard)
+        self.log.info('Test walletprocesspsbt rejects out-of-bounds prevout.n')
+        utxo = self.nodes[0].listunspent()[0]
+        raw_utxo_tx = self.nodes[0].getrawtransaction(utxo['txid'], True)
+        oob_vout = len(raw_utxo_tx['vout']) + 5
+        bad_psbt = self.nodes[0].createpsbt(
+            [{"txid": utxo['txid'], "vout": oob_vout}],
+            {self.nodes[0].getnewaddress(): utxo['amount'] - Decimal('0.01')}
+        )
+        assert_raises_rpc_error(-22, "Input prevout index out of range",
+                                self.nodes[0].walletprocesspsbt, bad_psbt)
 
         # Create p2sh and p2pkh addresses
         pubkey0 = self.nodes[0].getaddressinfo(self.nodes[0].getnewaddress())['pubkey']

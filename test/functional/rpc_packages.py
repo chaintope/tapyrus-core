@@ -199,12 +199,23 @@ class RPCPackageTest(BitcoinTestFramework):
             rawtxs=raw_package
         )
 
-        # package is accepted — use submitpackage so each parent is in the mempool
-        # before the next child is validated (testmempoolaccept is TEST_ONLY and
-        # does not add to the mempool, so chained txs would fail with missing-inputs)
+        # testmempoolaccept on a chained package: tx1->tx2->tx3->tx4.
+        # CCoinsViewVirtualMemPool accumulates each accepted tx's outputs so
+        # subsequent txs in the chain can resolve their inputs without real
+        # mempool admission.  Mempool must be unchanged after the dry-run.
         package = self.create_package(4)
         raw_package = [bytes_to_hex_str(x.serialize()) for x in package]
 
+        self.check_mempool_result(
+            result_expected={ package[0].hashMalFix: {'allowed': True},
+                                            package[1].hashMalFix: {'allowed': True},
+                                            package[2].hashMalFix: {'allowed': True},
+                                            package[3].hashMalFix: {'allowed': True}},
+            rawtxs=raw_package,
+            allowhighfees=True
+        )
+
+        # submitpackage on the same chained package — all txs admitted for real
         self.check_submit_mempool_result(
             result_expected={ package[0].hashMalFix: {'allowed': True},
                                             package[1].hashMalFix: {'allowed': True},

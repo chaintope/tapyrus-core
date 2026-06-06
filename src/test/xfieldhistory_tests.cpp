@@ -188,4 +188,38 @@ BOOST_AUTO_TEST_CASE(xfieldhistory_same_height_active_chain_wins)
     BOOST_CHECK_EQUAL(pxFieldHistory->Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 80).blockHash, hashOrphan);
 }
 
+// IsXFieldNew uses Get(nHeight) — the block's own effective height — so that
+// a block immediately following a rotation is not misidentified as "new".
+BOOST_AUTO_TEST_CASE(is_xfield_new_consecutive_same_value)
+{
+    // Fixture: genesis(key0@0) + key10@20 + key11@40 + key12@60 = 4 entries.
+    // key12 was stored with effective height 60 (block at h=59 introduced it).
+
+    CXFieldHistory history;
+
+    // (1) A block at height 60 whose xfield equals key12 must NOT be treated as
+    //     new: Get(60) returns the key12 entry (60 <= 60), value matches.
+    CXField sameAsLatest;
+    sameAsLatest.xfieldType = TAPYRUS_XFIELDTYPES::AGGPUBKEY;
+    sameAsLatest.xfieldValue = XFieldAggPubKey(CPubKey(ParseHex(ValidPubKeyStrings[12])));
+    BOOST_CHECK(!IsXFieldNew(sameAsLatest, &history, 60));
+
+    // (2) A block at height 61 (the block right after the rotation) with the
+    //     same value must also NOT be treated as new.
+    BOOST_CHECK(!IsXFieldNew(sameAsLatest, &history, 61));
+
+    // (3) A block at height 61 that reverts to key11 (the pre-rotation value)
+    //     MUST be treated as new: it is a genuine rotation away from key12.
+    CXField revertToPrev;
+    revertToPrev.xfieldType = TAPYRUS_XFIELDTYPES::AGGPUBKEY;
+    revertToPrev.xfieldValue = XFieldAggPubKey(CPubKey(ParseHex(ValidPubKeyStrings[11])));
+    BOOST_CHECK(IsXFieldNew(revertToPrev, &history, 61));
+
+    // (4) A genuinely new key at any height is correctly identified as new.
+    CXField brandNew;
+    brandNew.xfieldType = TAPYRUS_XFIELDTYPES::AGGPUBKEY;
+    brandNew.xfieldValue = XFieldAggPubKey(CPubKey(ParseHex(ValidPubKeyStrings[13])));
+    BOOST_CHECK(IsXFieldNew(brandNew, &history, 65));
+}
+
 BOOST_AUTO_TEST_SUITE_END()//xfieldhistory_tests

@@ -292,6 +292,64 @@ BOOST_FIXTURE_TEST_CASE(package_validation_tests, PackageTestSetup)
     }
 }
 
+// Verify that testmempoolaccept (TEST_ONLY) correctly resolves inputs in a
+// chained package (tx1 → tx2 → tx3) using the virtual-mempool overlay, and
+// that the mempool is unchanged afterwards.
+BOOST_FIXTURE_TEST_CASE(testmempoolaccept_chained_package, PackageTestSetup)
+{
+    PackageValidationState validationState;
+    CValidationState state;
+    CTxMempoolAcceptanceOptions opt;
+    opt.context = ValidationContext::PACKAGE;
+    opt.flags = MempoolAcceptanceFlags::TEST_ONLY;
+
+    CKey child_key;
+    child_key.MakeNewKey(true);
+    CScript child_locking_script = GetScriptForDestination(child_key.GetPubKey().GetID());
+
+    unsigned int initialPoolSize = mempool.size();
+    unsigned long index_cb = m_coinbase_txns.size();
+    refillCoinbase(10);
+    ++index_cb;
+
+    std::vector<unsigned char> vchSig;
+
+    // tx1: spends a coinbase, output is OP_TRUE OP_EQUAL
+    COutPoint spend_cb(m_coinbase_txns[index_cb]->GetHashMalFix(), 0);
+    auto mtx1 = CreateValidTransaction(spend_cb, CAmount(49 * COIN), {CScript() << OP_TRUE << OP_EQUAL});
+    Sign(vchSig, coinbaseKey, m_coinbase_txns[index_cb]->vout[0].scriptPubKey, 0, mtx1, 0);
+    mtx1.vin[0].scriptSig = CScript() << vchSig;
+
+    // tx2: spends tx1 (not in mempool — only resolvable via virtual overlay)
+    // Pad with 4 extra vouts to exceed the 82-byte minimum standard tx size.
+    COutPoint spend_tx1(mtx1.GetHashMalFix(), 0);
+    auto mtx2 = CreateValidTransaction(spend_tx1, CAmount(44 * COIN), {CScript() << OP_TRUE << OP_EQUAL});
+    mtx2.vin[0].scriptSig = CScript() << OP_TRUE;
+    for (int i = 0; i < 4; ++i)
+        mtx2.vout.push_back(CTxOut(CAmount(1 * COIN), {CScript() << OP_TRUE << OP_EQUAL}));
+
+    // tx3: spends tx2 output 0
+    COutPoint spend_tx2(mtx2.GetHashMalFix(), 0);
+    auto mtx3 = CreateValidTransaction(spend_tx2, CAmount(39 * COIN), child_locking_script);
+    mtx3.vin[0].scriptSig = CScript() << OP_TRUE;
+    for (int i = 0; i < 4; ++i)
+        mtx3.vout.push_back(CTxOut(CAmount(1 * COIN), child_locking_script));
+
+    Package package{MakeTransactionRef(mtx1), MakeTransactionRef(mtx2), MakeTransactionRef(mtx3)};
+    auto result = SubmitPackageToMempool(package, state, validationState, opt);
+
+    BOOST_CHECK(result);
+    BOOST_CHECK_EQUAL(validationState[mtx1.GetHashMalFix()].GetRejectCode(), 0);
+    BOOST_CHECK_EQUAL(validationState[mtx1.GetHashMalFix()].GetRejectReason(), "");
+    BOOST_CHECK_EQUAL(validationState[mtx2.GetHashMalFix()].GetRejectCode(), 0);
+    BOOST_CHECK_EQUAL(validationState[mtx2.GetHashMalFix()].GetRejectReason(), "");
+    BOOST_CHECK_EQUAL(validationState[mtx3.GetHashMalFix()].GetRejectCode(), 0);
+    BOOST_CHECK_EQUAL(validationState[mtx3.GetHashMalFix()].GetRejectReason(), "");
+
+    // TEST_ONLY must leave the mempool unchanged
+    BOOST_CHECK_EQUAL(mempool.size(), initialPoolSize);
+}
+
 BOOST_FIXTURE_TEST_CASE(package_orphan_tx_tests, PackageTestSetup)
 {
     PackageValidationState validationState;

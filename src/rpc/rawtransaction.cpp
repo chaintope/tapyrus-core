@@ -1318,7 +1318,11 @@ UniValue decodepsbt(const JSONRPCRequest& request)
             UniValue non_wit(UniValue::VOBJ);
             TxToUniv(*input.non_witness_utxo, uint256(), non_wit, false);
             in.pushKV("non_witness_utxo", non_wit);
-            total_in += input.non_witness_utxo->vout[psbtx.tx->vin[i].prevout.n].nValue;
+            const uint32_t vout_idx = psbtx.tx->vin[i].prevout.n;
+            if (vout_idx >= input.non_witness_utxo->vout.size()) {
+                throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Input prevout index out of range");
+            }
+            total_in += input.non_witness_utxo->vout[vout_idx].nValue;
         } else {
             have_all_utxos = false;
         }

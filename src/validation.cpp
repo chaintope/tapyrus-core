@@ -1029,6 +1029,9 @@ bool AcceptToMemoryPool(const CTransactionRef &tx, CTxMempoolAcceptanceOptions& 
                 opt.state.GetRejectReason().c_str());
         }
     }
+    // Always clear after consuming so callers that reuse opt across multiple calls
+    // (e.g. SubmitPackageToMempool) never see stale entries from a previous iteration.
+    opt.coins_to_uncache.clear();
     // After we've (potentially) uncached entries, ensure our coins cache is still within its size limits
     CValidationState stateDummy;
     FlushStateToDisk(stateDummy, FlushStateMode::PERIODIC);

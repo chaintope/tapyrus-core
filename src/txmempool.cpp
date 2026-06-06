@@ -601,7 +601,7 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
     blockSinceLastRollingFeeBump = true;
 }
 
-void CTxMemPool::removeForScriptFlagChange(unsigned int newMempoolScriptFlags)
+void CTxMemPool::removeForScriptFlagChange(unsigned int newMempoolScriptFlags, int32_t newBlockHeight)
 {
     AssertLockHeld(cs_main); // pcoinsTip access
     LOCK(cs);
@@ -618,6 +618,20 @@ void CTxMemPool::removeForScriptFlagChange(unsigned int newMempoolScriptFlags)
         CValidationState state;
         PrecomputedTransactionData txdata(tx);
         if (!CheckInputs(tx, state, view, true, newMempoolScriptFlags, false, false, txdata)) {
+            txToRemove.insert(it);
+            continue;
+        }
+        // Also evict txs that violate colored-coin consensus rules now active at
+        // newBlockHeight (e.g. bad-txns-nonstandard-opcolor gated on SCRIPT_VERIFY_CP2SH_COLORED).
+        // CheckInputs alone does not cover these rules.
+        CValidationState colorState;
+        if (!CheckColorIdentifierValidity(tx, colorState, view, newBlockHeight)) {
+            txToRemove.insert(it);
+            continue;
+        }
+        CValidationState balanceState;
+        const CAmount minFee = ::minRelayTxFee.GetFee(it->GetTxSize());
+        if (!VerifyTokenBalances(tx, balanceState, view, minFee, nullptr, newBlockHeight)) {
             txToRemove.insert(it);
         }
     }
@@ -940,6 +954,21 @@ bool CCoinsViewMemPool::GetCoin(const COutPoint &outpoint, Coin &coin) const {
         }
     }
     return base->GetCoin(outpoint, coin);
+}
+
+bool CCoinsViewVirtualMemPool::GetCoin(const COutPoint& outpoint, Coin& coin) const {
+    auto it = m_virtual_coins.find(outpoint);
+    if (it != m_virtual_coins.end()) {
+        coin = it->second;
+        return true;
+    }
+    return CCoinsViewMemPool::GetCoin(outpoint, coin);
+}
+
+void CCoinsViewVirtualMemPool::AddVirtualTx(const CTransaction& tx) {
+    for (uint32_t i = 0; i < tx.vout.size(); ++i) {
+        m_virtual_coins[COutPoint(tx.GetHashMalFix(), i)] = Coin(tx.vout[i], MEMPOOL_HEIGHT, false);
+    }
 }
 
 
