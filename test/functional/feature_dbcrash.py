@@ -294,6 +294,49 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
             except Exception as e:
                 self.log.debug("burntoken: %s", e)
 
+    def generate_colorid_heavy_block(self, node, num_issuances_each):
+        """Issue num_issuances_each NON_REISSUABLE and NFT tokens in a single block.
+
+        With -dbbatchsize=100000 each issuance contributes ~2-3 dirty coin entries
+        (~150 bytes each) to pcoinsTip.  Issuing 150+150 tokens yields ~900 dirty
+        entries (~135 KB) which ensures BatchWrite's UTXO loop splits mid-way
+        before the final batch that writes m_colorid_state->CommitToBatch, covering
+        both crash-before and crash-after the colorId commit boundary.
+
+        Returns the hash of the single mined block containing all issuances.
+        """
+        self.log.info(
+            "Generating colorid-heavy block: %d NON_REISSUABLE + %d NFT",
+            num_issuances_each, num_issuances_each)
+
+        nr_count = 0
+        for _ in range(num_issuances_each):
+            tpc = next((u for u in node.listunspent() if u['token'] == 'TPC'), None)
+            if tpc is None:
+                self.log.warning("Ran out of TPC UTXOs at NON_REISSUABLE #%d", nr_count)
+                break
+            try:
+                node.issuetoken(2, 10, tpc['txid'], tpc['vout'])
+                nr_count += 1
+            except Exception as e:
+                self.log.debug("issuetoken NON_REISSUABLE failed: %s", e)
+
+        nft_count = 0
+        for _ in range(num_issuances_each):
+            tpc = next((u for u in node.listunspent() if u['token'] == 'TPC'), None)
+            if tpc is None:
+                self.log.warning("Ran out of TPC UTXOs at NFT #%d", nft_count)
+                break
+            try:
+                node.issuetoken(3, 1, tpc['txid'], tpc['vout'])
+                nft_count += 1
+            except Exception as e:
+                self.log.debug("issuetoken NFT failed: %s", e)
+
+        self.log.info("Mining %d NON_REISSUABLE + %d NFT into one block", nr_count, nft_count)
+        block_hashes = node.generate(1, self.signblockprivkey_wif)
+        return block_hashes[0]
+
     def run_test(self):
         # Track test coverage statistics
         self.restart_counts = [0, 0, 0]  # Track the restarts for nodes 0-2
@@ -374,6 +417,41 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
         for i in range(3):
             if self.restart_counts[i] == 0:
                 self.log.warning("Node %d never crashed during utxo flush!", i)
+
+        # --- Colorid-heavy single-block crash test ---
+        # Issue 150 NON_REISSUABLE + 150 NFT tokens into a single block.
+        # Each issuance spends one defining TPC UTXO and creates one colored
+        # output, contributing ~2-3 dirty coin entries (~150 bytes each) to
+        # pcoinsTip.  With -dbbatchsize=100000 this creates ~135 KB of dirty
+        # state so BatchWrite's UTXO loop flushes at least one partial batch
+        # (crash-before the colorId commit) before writing the final batch
+        # that calls m_colorid_state->CommitToBatch (crash-after).
+        # sync_node3blocks drives the block through all crash nodes;
+        # verify_utxo_hash confirms colorId state matches node3 after every
+        # crash+recovery cycle.
+        self.log.info("=== Colorid-heavy block crash test ===")
+        self.restart_counts = [0, 0, 0]
+        self.crashed_on_restart = 0
+
+        # Create fresh TPC UTXOs on node3 (one per planned issuance + buffer),
+        # then sync all preparation blocks to the crash nodes.
+        pre_heavy_height = self.nodes[3].getblockcount()
+        create_confirmed_utxos(self.nodes[3].getnetworkinfo()['relayfee'],
+                               self.nodes[3], 350, self.signblockprivkey_wif)
+        prep_hashes = [self.nodes[3].getblockhash(h)
+                       for h in range(pre_heavy_height + 1, self.nodes[3].getblockcount() + 1)]
+        self.log.debug("Syncing %d prep blocks for colorid-heavy test", len(prep_hashes))
+        self.sync_node3blocks(prep_hashes)
+
+        # Mine all 300 issuances into a single block and push it through the
+        # crash nodes.
+        colorid_block_hash = self.generate_colorid_heavy_block(self.nodes[3], 150)
+        self.log.info("Colorid-heavy block hash: %s", colorid_block_hash)
+        self.sync_node3blocks([colorid_block_hash])
+        self.verify_utxo_hash()
+        self.log.info(
+            "Colorid-heavy block result: restarts=%s crashed_on_restart=%d",
+            self.restart_counts, self.crashed_on_restart)
 
 if __name__ == "__main__":
     ChainstateWriteCrashTest().main()
