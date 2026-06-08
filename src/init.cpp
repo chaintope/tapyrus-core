@@ -1133,6 +1133,8 @@ bool AppInitParameterInteraction()
         int64_t nArg = gArgs.GetArg("-datacarriersize", (int64_t)nMaxDatacarrierBytes);
         if (nArg < 0)
             return InitError(_("-datacarriersize cannot be configured with a negative value."));
+        if (nArg > std::numeric_limits<unsigned int>::max())
+            return InitError(_("-datacarriersize must be less than 4294967296."));
         nMaxDatacarrierBytes = (unsigned int)nArg;
     }
     fAcceptMultipleDatacarrier = gArgs.GetBoolArg("-datacarriermultiple", DEFAULT_ACCEPT_MULTIPLE_DATACARRIER);

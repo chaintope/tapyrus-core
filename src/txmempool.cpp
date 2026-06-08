@@ -617,6 +617,11 @@ void CTxMemPool::removeForScriptFlagChange(unsigned int newMempoolScriptFlags, i
             continue;
         CValidationState state;
         PrecomputedTransactionData txdata(tx);
+        // For SCRIPT_VERIFY_CP2SH_COLORED this call is a no-op: the flag is
+        // already in STANDARD_SCRIPT_VERIFY_FLAGS, so every tx in the mempool
+        // was admitted under it and will pass here.  For any future softfork
+        // whose flag is NOT pre-added to STANDARD, this correctly evicts txs
+        // that would be invalid under the new consensus rules.
         if (!CheckInputs(tx, state, view, true, newMempoolScriptFlags, false, false, txdata)) {
             txToRemove.insert(it);
             continue;

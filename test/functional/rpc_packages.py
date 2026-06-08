@@ -333,5 +333,65 @@ class RPCPackageTest(BitcoinTestFramework):
             allowhighfees=True
         )
 
+        self.log.info('Test colorId collision via shared defining outpoint in package')
+        # Mine the pending colored txs so a fresh UTXO set is available.
+        node.generate(1, self.signblockprivkey_wif)
+
+        # Pick a confirmed TPC UTXO as the shared defining outpoint.
+        # NON_REISSUABLE colorId C = hash(txid:vout), so any two issuance txs
+        # that both name the same outpoint as their defining input derive
+        # identical colorIds — and double-spend that outpoint.
+        def_utxos = sorted(
+            [u for u in node.listunspent() if u['token'] == 'TPC' and u['amount'] >= 12.0],
+            key=lambda u: (u['txid'], u['vout'])
+        )
+        assert len(def_utxos) >= 1, "Need at least one TPC UTXO with amount >= 12"
+        defining_utxo = def_utxos[0]
+
+        colorid_c = node.getcolor(2, defining_utxo['txid'], defining_utxo['vout'])
+        cp2pkh_c = key_to_p2pkh(self.signblockpubkey, color=hex_str_to_bytes(colorid_c))
+
+        # tx_a: NON_REISSUABLE issuance spending defining_utxo
+        issue_hex_a = node.signrawtransactionwithwallet(
+            node.createrawtransaction(
+                inputs=[{'txid': defining_utxo['txid'], 'vout': defining_utxo['vout']}],
+                outputs=[{addr: 10}, {node.getnewaddress(): 1}, {cp2pkh_c: 100}],
+            ), [], "ALL", self.options.scheme)['hex']
+        i_tx_a = CTransaction()
+        i_tx_a.deserialize(BytesIO(hex_str_to_bytes(issue_hex_a)))
+        i_tx_a.rehash()
+
+        # tx_b: also spends defining_utxo, derives the same colorId C.
+        # A different TPC change amount makes it a distinct transaction (different
+        # tx content → different RFC-6979 signature → different txid), while the
+        # shared input is what the package conflict check catches.
+        issue_hex_b = node.signrawtransactionwithwallet(
+            node.createrawtransaction(
+                inputs=[{'txid': defining_utxo['txid'], 'vout': defining_utxo['vout']}],
+                outputs=[{addr: 9}, {node.getnewaddress(): 1}, {cp2pkh_c: 100}],
+            ), [], "ALL", self.options.scheme)['hex']
+        i_tx_b = CTransaction()
+        i_tx_b.deserialize(BytesIO(hex_str_to_bytes(issue_hex_b)))
+        i_tx_b.rehash()
+
+        assert i_tx_a.hashMalFix != i_tx_b.hashMalFix, "tx_a and tx_b must have distinct txids"
+
+        # testmempoolaccept: the package-level conflict check fires before
+        # CheckColorIdentifierValidity, returning conflict-in-package for both
+        # the duplicate-input violation and the implicit colorId collision.
+        self.check_mempool_result(
+            result_expected={'allowed': False, 'reject-reason': '69: conflict-in-package'},
+            rawtxs=[issue_hex_a, issue_hex_b],
+            allowhighfees=True,
+        )
+
+        # submitpackage returns the same package-level rejection and leaves the
+        # mempool unchanged (neither tx was admitted).
+        pre_size = node.getmempoolinfo()['size']
+        result = node.submitpackage(rawtxs=[issue_hex_a, issue_hex_b], allowhighfees=True)
+        assert_equal(result['allowed'], False)
+        assert_equal(result['reject-reason'], '69: conflict-in-package')
+        assert_equal(node.getmempoolinfo()['size'], pre_size)
+
 if __name__ == '__main__':
     RPCPackageTest().main()
