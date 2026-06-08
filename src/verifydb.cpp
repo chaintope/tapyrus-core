@@ -89,10 +89,12 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
         // check level 3: check for inconsistencies during memory-only disconnect of tip blocks
         if (nCheckLevel >= 3 && (coins.DynamicMemoryUsage() + pcoinsTip->DynamicMemoryUsage()) <= nCoinCacheUsage) {
             assert(coins.GetBestBlock() == pindex->GetBlockHash());
-            // fDryRun=true: this is a view-only sandbox — do not mutate g_issued_colorids
-            // or the chainstate DB.  chainActive stays at tip; level 4 reconnects via
-            // ConnectBlock which will restore state, but only when -checklevel=4 is set.
-            DisconnectResult res = g_chainstate.DisconnectBlock(block, pindex, coins, /*fDryRun=*/true);
+            // fDryRun=false: the ColorIdSandbox above already swapped in a clone of
+            // g_colorid_state, so DisconnectBlock erases from the clone, not from the
+            // live confirmed set.  Erasing into the clone is intentional: level 4
+            // reconnects via ConnectBlock starting from this sandbox state, which
+            // requires the colorIds to have been removed so ConnectBlock can re-add them.
+            DisconnectResult res = g_chainstate.DisconnectBlock(block, pindex, coins, /*fDryRun=*/false);
             if (res == DISCONNECT_FAILED) {
                 return error("VerifyDB(): *** irrecoverable inconsistency in block data at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
             }
