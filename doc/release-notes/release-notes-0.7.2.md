@@ -58,6 +58,8 @@ This release contains security fixes addressing vulnerabilities identified in a 
 - [PR411](https://github.com/chaintope/tapyrus-core/pull/411) - Fix CP2SH vulnerabilities identified in security audit: prevent attacker-controlled block height from influencing aggregate key selection
 - [PR412](https://github.com/chaintope/tapyrus-core/pull/412) - Fix security vulnerabilities identified in audit: introduce a global NFT and Non-reissuable token list for ensuging their uniqueness globally
 - [PR413](https://github.com/chaintope/tapyrus-core/pull/413) - Fix security vulnerabilities: harden feebumper to correctly account for fees when no TPC change output is present
+- [PR418](https://github.com/chaintope/tapyrus-core/pull/418) - Fix security vulnerabilities: testmempoolaccept changed to only test not submit package transactions,  MarkBlockAsReceived leaks mapBlocksInFlight, processing token bucket is a single shared global, not per-peer
+- [PR420](https://github.com/chaintope/tapyrus-core/pull/420) - Fix security vulnerabilities: Fix PSBT transactions - SignPSBTInput, FillPSBT and decodepsbt
 
 *Protocol improvements:*
 - [PR414](https://github.com/chaintope/tapyrus-core/pull/414) - Add CP2SH colored coin softfork manager and activation gating. The Chaintope testnet (networkId 1939510133) activates at block 693367.
