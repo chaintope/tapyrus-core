@@ -605,7 +605,8 @@ void GetCoinsMapEntry(const CCoinsMap& map, CAmount& value, char& flags)
 
 void WriteCoinsViewEntry(CCoinsView& view, CAmount value, char flags)
 {
-    CCoinsMap map;
+    CCoinsMapMemoryResource resource;
+    CCoinsMap map(0, SaltedOutpointHasher{}, CCoinsMap::key_equal{}, &resource);
     InsertCoinsMapEntry(map, value, flags);
     view.BatchWrite(map, {});
 }
