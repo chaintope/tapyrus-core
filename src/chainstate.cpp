@@ -303,7 +303,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
                         continue;
                     COutPoint prevout = tx.vin[j].prevout;
                     if (ColorIdentifier(prevout, outColorId.type) == outColorId) {
-                        g_colorid_state->Erase(outColorId);
+                        if (!fDryRun) g_colorid_state->Erase(outColorId);
                         break;
                     }
                 }
@@ -660,9 +660,24 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         {
             std::vector<CScriptCheck> vChecks;
             bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
-            if (!CheckInputs(tx, state, view, fScriptChecks, GetBlockScriptFlags(pindex), fCacheResults, fCacheResults, txdata[i], nScriptCheckThreads ? &vChecks : nullptr))
-                return error("ConnectBlock(): CheckInputs on %s failed with %s",
-                    tx.GetHashMalFix().ToString(), FormatStateMessage(state));
+            if (!CheckInputs(tx, state, view, fScriptChecks, GetBlockScriptFlags(pindex), fCacheResults, fCacheResults, txdata[i], nScriptCheckThreads ? &vChecks : nullptr, GetBlockScriptFlags(pindex)))
+                // FormatStateMessage is evaluated before DoS() overwrites state, preserving
+                // the per-input detail in the log while enforcing DoS 100 at the block level.
+                //
+                // DoS scoring asymmetry (informational, not a bug):
+                // - Multi-thread (nScriptCheckThreads > 0): script checks are deferred to
+                //   control.Wait(); CheckInputs returns false without entering the per-check
+                //   loop, so the inner DoS(100) in validation.cpp is never reached.  This
+                //   outer DoS(100) is the only one applied — nDoS ends at 100.
+                // - Single-thread (nScriptCheckThreads == 0): CheckInputs executes inline
+                //   and its inner DoS(100) fires first, then this outer DoS(100) adds a
+                //   further 100, landing at nDoS=200.  Both 100 and 200 trigger a peer ban,
+                //   so the behaviour difference is benign.  The inner DoS also serves the
+                //   mempool path (AcceptToMemoryPool) which has no outer scoring of its own,
+                //   which is why it cannot simply be removed.
+                return state.DoS(100, error("ConnectBlock(): CheckInputs on %s failed with %s",
+                    tx.GetHashMalFix().ToString(), FormatStateMessage(state)),
+                    REJECT_INVALID, "mandatory-script-verify-flag-failed");
             control.Add(std::move(vChecks));
         }
 
@@ -674,7 +689,11 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         if (!tx.IsCoinBase()) {
             std::set<ColorIdentifier> newIssuances;
             if (!VerifyTokenBalances(tx, state, view, txfee, !fJustCheck ? &newIssuances : nullptr, pindex->nHeight))
-                return false;
+                // FormatStateMessage is evaluated before DoS() overwrites state, preserving
+                // the per-tx detail in the log while enforcing DoS 100 at the block level.
+                return state.DoS(100, error("ConnectBlock(): VerifyTokenBalances on %s failed with %s",
+                    tx.GetHashMalFix().ToString(), FormatStateMessage(state)),
+                    REJECT_INVALID, "bad-txns-token-balance");
             allNewIssuances.insert(newIssuances.begin(), newIssuances.end());
         }
 
@@ -851,22 +870,28 @@ bool CChainState::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, co
             return error("ConnectTip(): ConnectBlock %s failed", pindexNew->GetBlockHash().ToString());
         }
 
-        // if the block was added successfully and it is a federation block,
-        // make sure that the xfield from this block is added to xFieldHistory
+        // Evaluate the xfield condition and build the change value before Flush.
+        // The actual writes (in-memory history + DB) are deferred until after
+        // view.Flush() so the UTXO commit lands first — matching the ordering
+        // used by DisconnectTip and giving a forward-recoverable crash window.
         CXFieldHistory xfieldHistory;
-        if(blockConnecting.xfield.IsValid()
+        bool hasNewXField = blockConnecting.xfield.IsValid()
             && pindexNew->nHeight > 0
-            && IsXFieldNew(blockConnecting.xfield, &xfieldHistory, static_cast<uint32_t>(pindexNew->nHeight - 1)))
-        {
-            XFieldChange newChange(blockConnecting.xfield.xfieldValue, pindexNew->nHeight + 1, blockConnecting.GetHash());
-            xfieldHistory.Add(blockConnecting.xfield.xfieldType, newChange);
-            pblocktree->WriteXField(newChange);
-        }
+            && IsXFieldNew(blockConnecting.xfield, &xfieldHistory, static_cast<uint32_t>(pindexNew->nHeight));
+        XFieldChange newChange;
+        if (hasNewXField)
+            newChange = XFieldChange(blockConnecting.xfield.xfieldValue, pindexNew->nHeight + 1, blockConnecting.GetHash());
 
         nTime3 = GetTimeMicros(); nTimeConnectTotal += nTime3 - nTime2;
         LogPrint(BCLog::BENCH, "  - Connect total: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime3 - nTime2) * MILLI, nTimeConnectTotal * MICRO, nTimeConnectTotal * MILLI / nBlocksTotal);
         bool flushed = view.Flush();
         assert(flushed);
+
+        // Write xfield after UTXO flush: matches DisconnectTip's ordering.
+        if (hasNewXField) {
+            xfieldHistory.Add(blockConnecting.xfield.xfieldType, newChange);
+            pblocktree->WriteXField(newChange);
+        }
     }
 
     int64_t nTime4 = GetTimeMicros(); nTimeFlush += nTime4 - nTime3;

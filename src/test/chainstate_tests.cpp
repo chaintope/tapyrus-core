@@ -27,6 +27,10 @@
 #include <file_io.h>
 #include <xfieldhistory.h>
 #include <key.h>
+#include <coloridentifier.h>
+#include <issuedcolorids.h>
+#include <script/interpreter.h>
+#include <hash.h>
 
 #include <boost/test/unit_test.hpp>
 
@@ -712,6 +716,222 @@ BOOST_AUTO_TEST_CASE(check_block_header_orphan_uses_latest_aggpubkey)
         CBlockIndex* pindex = nullptr;
         g_chainstate.AcceptBlockHeader(header, state, &pindex, &tempHistory);
         BOOST_CHECK_EQUAL(state.GetRejectReason(), "prev-blk-not-found");
+    }
+}
+
+/**
+ * Regression test: DisconnectBlock(fDryRun=true) must not erase from g_colorid_state.
+ *
+ * fDryRun was declared in the signature but never checked in the body, so
+ * g_colorid_state->Erase() ran unconditionally.  CVerifyDB calls DisconnectBlock
+ * with fDryRun=true during its level-3 walk; without the fix this corrupted the
+ * live colorId set whenever verifychain was run on a chain that contained
+ * NON_REISSUABLE or NFT issuances.
+ *
+ * The test bypasses the CVerifyDB sandbox so it fails without the one-line fix
+ * and passes after it.
+ */
+BOOST_AUTO_TEST_CASE(disconnect_block_dry_run_preserves_colorid_state)
+{
+    CScript payTo = CScript() << ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG;
+
+    // Key for a P2PKH intermediate output.
+    CKey key;
+    const unsigned char vchKeyBytes[32] = {
+        1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    };
+    key.Set(vchKeyBytes, vchKeyBytes + 32, true);
+    CPubKey pubkey = key.GetPubKey();
+    std::vector<unsigned char> vchPubKey(pubkey.begin(), pubkey.end());
+    std::vector<unsigned char> pubkeyHash(20);
+    CHash160().Write(pubkey.data(), pubkey.size()).Finalize(pubkeyHash.data());
+
+    // Block 6: spend coinbase[0] into a plain TPC P2PKH output.
+    CMutableTransaction spendTx;
+    spendTx.nFeatures = 1;
+    spendTx.vin.resize(1);
+    spendTx.vout.resize(1);
+    spendTx.vin[0].prevout.hashMalFix = m_coinbase_txns[0]->GetHashMalFix();
+    spendTx.vin[0].prevout.n = 0;
+    spendTx.vout[0].nValue = 100 * CENT;
+    spendTx.vout[0].scriptPubKey = CScript() << OP_DUP << OP_HASH160
+                                             << ToByteVector(pubkeyHash)
+                                             << OP_EQUALVERIFY << OP_CHECKSIG;
+    {
+        std::vector<unsigned char> vchSig;
+        uint256 sigHash = SignatureHash(
+            m_coinbase_txns[0]->vout[0].scriptPubKey, spendTx, 0, SIGHASH_ALL, 0, SigVersion::BASE);
+        coinbaseKey.Sign_Schnorr(sigHash, vchSig);
+        vchSig.push_back(SIGHASH_ALL);
+        spendTx.vin[0].scriptSig = CScript() << vchSig;
+    }
+    CreateAndProcessBlock({spendTx}, payTo);
+
+    // Block 7: issue a NON_REISSUABLE token from the P2PKH UTXO.
+    COutPoint utxo(spendTx.GetHashMalFix(), 0);
+    ColorIdentifier colorid(utxo, TokenTypes::NON_REISSUABLE);
+    CScript colorScript = CScript() << colorid.toVector() << OP_COLOR
+                                    << OP_DUP << OP_HASH160
+                                    << ToByteVector(pubkeyHash)
+                                    << OP_EQUALVERIFY << OP_CHECKSIG;
+
+    CMutableTransaction issueTx;
+    issueTx.nFeatures = 1;
+    issueTx.vin.resize(1);
+    issueTx.vout.resize(1);
+    issueTx.vin[0].prevout.hashMalFix = spendTx.GetHashMalFix();
+    issueTx.vin[0].prevout.n = 0;
+    issueTx.vout[0].nValue = 50 * CENT;
+    issueTx.vout[0].scriptPubKey = colorScript;
+    {
+        std::vector<unsigned char> vchSig;
+        uint256 sigHash = SignatureHash(
+            spendTx.vout[0].scriptPubKey, issueTx, 0, SIGHASH_ALL, 0, SigVersion::BASE);
+        key.Sign_Schnorr(sigHash, vchSig);
+        vchSig.push_back(SIGHASH_ALL);
+        issueTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey;
+    }
+    CBlock issueBlock = CreateAndProcessBlock({issueTx}, payTo);
+
+    // ConnectBlock must have recorded the colorId in g_colorid_state.
+    {
+        LOCK(cs_main);
+        BOOST_REQUIRE(g_colorid_state && g_colorid_state->IsIssued(colorid));
+    }
+
+    // Call DisconnectBlock(fDryRun=true) directly — no CVerifyDB sandbox in place.
+    // Before the fix, this called g_colorid_state->Erase(colorid) unconditionally.
+    {
+        LOCK(cs_main);
+        CBlockIndex* pindex = chainActive.Tip();
+        BOOST_REQUIRE(pindex->GetBlockHash() == issueBlock.GetHash());
+
+        CCoinsViewCache coins(pcoinsTip.get());
+        DisconnectResult res = g_chainstate.DisconnectBlock(
+            issueBlock, pindex, coins, /*fDryRun=*/true);
+        BOOST_CHECK(res != DISCONNECT_FAILED);
+    }
+
+    // g_colorid_state must be unchanged: the colorId survives the dry-run disconnect.
+    {
+        LOCK(cs_main);
+        BOOST_CHECK(g_colorid_state->IsIssued(colorid));
+    }
+}
+
+/**
+ * Regression test: duplicate NON_REISSUABLE issuance is rejected by
+ * CheckColorIdentifierValidity via g_colorid_state->IsIssued().
+ *
+ * Once colorId C is confirmed in g_colorid_state, any further issuance of C
+ * must be blocked even if the defining TPC outpoint appears unspent in the
+ * coins view (e.g. after a reorg that restores the UTXO while a
+ * DisconnectBlock bug — such as H-2 — leaves C in the confirmed set).
+ *
+ * Because getting two distinct outpoints to derive the same NON_REISSUABLE
+ * colorId requires a SHA-256 collision, we exercise the code path directly:
+ * the first issuance goes through the normal block pipeline (populating
+ * g_colorid_state), then we construct a synthetic CCoinsViewCache that
+ * presents the defining TPC outpoint as unspent again and call
+ * CheckColorIdentifierValidity on a re-issuance transaction.
+ */
+BOOST_AUTO_TEST_CASE(duplicate_nonreissuable_issuance_rejected)
+{
+    CScript payTo = CScript() << ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG;
+
+    CKey key;
+    const unsigned char vchKeyBytes[32] = {
+        2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    };
+    key.Set(vchKeyBytes, vchKeyBytes + 32, true);
+    CPubKey pubkey = key.GetPubKey();
+    std::vector<unsigned char> vchPubKey(pubkey.begin(), pubkey.end());
+    std::vector<unsigned char> pubkeyHash(20);
+    CHash160().Write(pubkey.data(), pubkey.size()).Finalize(pubkeyHash.data());
+
+    // Block 6: spend coinbase[1] into a plain TPC P2PKH output.
+    CMutableTransaction spendTx;
+    spendTx.nFeatures = 1;
+    spendTx.vin.resize(1);
+    spendTx.vout.resize(1);
+    spendTx.vin[0].prevout.hashMalFix = m_coinbase_txns[1]->GetHashMalFix();
+    spendTx.vin[0].prevout.n = 0;
+    spendTx.vout[0].nValue = 100 * CENT;
+    spendTx.vout[0].scriptPubKey = CScript() << OP_DUP << OP_HASH160
+                                             << ToByteVector(pubkeyHash)
+                                             << OP_EQUALVERIFY << OP_CHECKSIG;
+    {
+        std::vector<unsigned char> vchSig;
+        uint256 sigHash = SignatureHash(
+            m_coinbase_txns[1]->vout[0].scriptPubKey, spendTx, 0, SIGHASH_ALL, 0, SigVersion::BASE);
+        coinbaseKey.Sign_Schnorr(sigHash, vchSig);
+        vchSig.push_back(SIGHASH_ALL);
+        spendTx.vin[0].scriptSig = CScript() << vchSig;
+    }
+    CreateAndProcessBlock({spendTx}, payTo);
+
+    // Block 7: issue a NON_REISSUABLE token from the P2PKH UTXO.
+    COutPoint definingUtxo(spendTx.GetHashMalFix(), 0);
+    ColorIdentifier colorid(definingUtxo, TokenTypes::NON_REISSUABLE);
+    CScript colorScript = CScript() << colorid.toVector() << OP_COLOR
+                                    << OP_DUP << OP_HASH160
+                                    << ToByteVector(pubkeyHash)
+                                    << OP_EQUALVERIFY << OP_CHECKSIG;
+
+    CMutableTransaction issueTx;
+    issueTx.nFeatures = 1;
+    issueTx.vin.resize(1);
+    issueTx.vout.resize(1);
+    issueTx.vin[0].prevout = definingUtxo;
+    issueTx.vout[0].nValue = 50 * CENT;
+    issueTx.vout[0].scriptPubKey = colorScript;
+    {
+        std::vector<unsigned char> vchSig;
+        uint256 sigHash = SignatureHash(
+            spendTx.vout[0].scriptPubKey, issueTx, 0, SIGHASH_ALL, 0, SigVersion::BASE);
+        key.Sign_Schnorr(sigHash, vchSig);
+        vchSig.push_back(SIGHASH_ALL);
+        issueTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey;
+    }
+    CreateAndProcessBlock({issueTx}, payTo);
+
+    // colorId is now in the confirmed g_colorid_state; definingUtxo is spent.
+    {
+        LOCK(cs_main);
+        BOOST_REQUIRE(g_colorid_state && g_colorid_state->IsIssued(colorid));
+    }
+
+    // Build a synthetic CCoinsViewCache that presents definingUtxo as unspent,
+    // simulating a reorg that restored the UTXO while a DisconnectBlock bug
+    // (H-2) left the colorId in g_colorid_state.
+    // CheckColorIdentifierValidity must reject the re-issuance with
+    // "bad-txns-colorid-already-issued".
+    {
+        LOCK(cs_main);
+
+        CCoinsView dummy;
+        CCoinsViewCache syntheticView(&dummy);
+        Coin tpcCoin;
+        tpcCoin.out.nValue    = spendTx.vout[0].nValue;
+        tpcCoin.out.scriptPubKey = spendTx.vout[0].scriptPubKey;
+        tpcCoin.nHeight       = 6;
+        tpcCoin.fCoinBase     = false;
+        syntheticView.AddCoin(definingUtxo, std::move(tpcCoin), /*potential_overwrite=*/false);
+
+        CMutableTransaction reissueTx;
+        reissueTx.nFeatures = 1;
+        reissueTx.vin.resize(1);
+        reissueTx.vout.resize(1);
+        reissueTx.vin[0].prevout   = definingUtxo;
+        reissueTx.vout[0].nValue   = 50 * CENT;
+        reissueTx.vout[0].scriptPubKey = colorScript;
+
+        CValidationState state;
+        bool valid = CheckColorIdentifierValidity(
+            CTransaction(reissueTx), state, syntheticView, chainActive.Tip()->nHeight);
+
+        BOOST_CHECK(!valid);
+        BOOST_CHECK_EQUAL(state.GetRejectReason(), "bad-txns-colorid-already-issued");
     }
 }
 

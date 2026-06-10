@@ -167,6 +167,12 @@ void DeserializeHDKeypaths(Stream& s, const std::vector<unsigned char>& key, std
 
     // Read in key path
     uint64_t value_len = ReadCompactSize(s);
+    if (value_len < sizeof(uint32_t)) {
+        throw std::ios_base::failure("HD keypath must contain at least a 4-byte fingerprint");
+    }
+    if (value_len % sizeof(uint32_t) != 0) {
+        throw std::ios_base::failure("HD keypath length is not a multiple of 4");
+    }
     std::vector<uint32_t> keypath;
     for (unsigned int i = 0; i < value_len; i += sizeof(uint32_t)) {
         uint32_t index;
