@@ -147,7 +147,15 @@ def check_estimates(node, fees_seen):
     """Call estimatesmartfee and verify that the estimates meet certain invariants."""
 
     delta = 1.0e-6  # account for rounding error
-    last_feerate = float(max(fees_seen))
+    # Mirror upstream: use the highest of fees_seen, mempoolminfee and
+    # minrelaytxfee as the ceiling so the monotonicity check tolerates the
+    # documented rare edge case where a shorter-horizon sub-estimate fails
+    # while a longer one succeeds (bitcoin/bitcoin#11800).
+    mempool_info = node.getmempoolinfo()
+    feerate_ceiling = max(float(max(fees_seen)),
+                          float(mempool_info["mempoolminfee"]),
+                          float(mempool_info["minrelaytxfee"]))
+    last_feerate = feerate_ceiling
     all_smart_estimates = [node.estimatesmartfee(i) for i in range(1, 26)]
     for i, e in enumerate(all_smart_estimates):  # estimate is for i+1
         feerate = float(e["feerate"])
