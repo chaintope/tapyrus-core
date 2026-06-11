@@ -566,11 +566,9 @@ static UniValue decoderawtransaction(const JSONRPCRequest& request)
             + HelpExampleRpc("decoderawtransaction", "\"hexstring\"")
         );
 
-    LOCK(cs_main);
     RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VBOOL});
 
     CMutableTransaction mtx;
-
 
     if (!DecodeHexTx(mtx, request.params[0].get_str())) {
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
@@ -1483,7 +1481,11 @@ UniValue combinepsbt(const JSONRPCRequest& request)
         if (*it != merged_psbt) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "PSBTs do not refer to the same transactions.");
         }
-        merged_psbt.Merge(*it);
+        try {
+            merged_psbt.Merge(*it);
+        } catch (const std::invalid_argument& e) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Cannot combine PSBTs: %s", e.what()));
+        }
     }
     if (!merged_psbt.IsSane()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Merged PSBT is inconsistent");

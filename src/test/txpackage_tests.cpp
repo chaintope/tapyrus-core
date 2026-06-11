@@ -740,4 +740,47 @@ BOOST_FIXTURE_TEST_CASE(package_submission_tests, PackageTestSetup)
 
 }
 
+// Verify that a chained tx whose parent has missing-inputs does NOT get its
+// outputs added to the virtual overlay.  Before the fix, IsValid() returned
+// true even for missing-inputs rejections (DoAllInputsExist avoids calling
+// state.Invalid()), so the parent's outputs leaked into the overlay and the
+// child was spuriously reported as "allowed".
+BOOST_FIXTURE_TEST_CASE(testmempoolaccept_missing_inputs_no_overlay_leak, PackageTestSetup)
+{
+    PackageValidationState validationState;
+    CValidationState state;
+    CTxMempoolAcceptanceOptions opt;
+    opt.context = ValidationContext::PACKAGE;
+    opt.flags = MempoolAcceptanceFlags::TEST_ONLY;
+
+    // tx_orphan: spends a non-existent outpoint — will get missing-inputs.
+    COutPoint nonexistent(InsecureRand256(), 0);
+    CScript op_true_eq = CScript() << OP_TRUE << OP_EQUAL;
+    auto mtx_orphan = CreateValidTransaction(nonexistent, CAmount(49 * COIN), op_true_eq);
+
+    // tx_child: spends tx_orphan's output 0.
+    COutPoint spend_orphan(mtx_orphan.GetHashMalFix(), 0);
+    CScript op_true_eq2 = CScript() << OP_TRUE << OP_EQUAL;
+    auto mtx_child = CreateValidTransaction(spend_orphan, CAmount(44 * COIN), op_true_eq2);
+    mtx_child.vin[0].scriptSig = CScript() << OP_TRUE;
+    for (int i = 0; i < 4; ++i)
+        mtx_child.vout.push_back(CTxOut(CAmount(1 * COIN), op_true_eq2));
+
+    Package package{MakeTransactionRef(mtx_orphan), MakeTransactionRef(mtx_child)};
+    auto result = SubmitPackageToMempool(package, state, validationState, opt);
+
+    // The package must be rejected.
+    BOOST_CHECK(!result);
+
+    // tx_orphan: missing-inputs (state valid, but missingInputs flag set).
+    BOOST_CHECK(validationState[mtx_orphan.GetHashMalFix()].IsValid());
+    BOOST_CHECK(validationState[mtx_orphan.GetHashMalFix()].missingInputs);
+
+    // tx_child: must also get missing-inputs, NOT "allowed".
+    // Before the fix, tx_orphan's outputs leaked into the virtual overlay and
+    // tx_child would pass validation and be reported as allowed.
+    BOOST_CHECK(validationState[mtx_child.GetHashMalFix()].IsValid());
+    BOOST_CHECK(validationState[mtx_child.GetHashMalFix()].missingInputs);
+}
+
 BOOST_AUTO_TEST_SUITE_END()

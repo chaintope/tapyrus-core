@@ -643,7 +643,7 @@ static void FindNextBlocksToDownload(NodeId nodeid, unsigned int count, std::vec
             } else if (blockrequested && waitingfor == -1) {
                 // This is the first already-in-flight block.
                 auto iter = mapBlocksInFlight.equal_range(pindex->GetBlockHash());
-                waitingfor = iter.second->second.first;
+                waitingfor = iter.first->second.first;
             }
         }
     }
@@ -1993,9 +1993,6 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         std::vector<CAddress> vAddr;
         vRecv >> vAddr;
 
-        // Don't want addr from older versions unless seeding
-        if (connman->GetAddressCount() > MAX_ADDR_TO_SEND)
-            return true;
         if (vAddr.size() > MAX_ADDR_TO_SEND)
         {
             LOCK(cs_main);

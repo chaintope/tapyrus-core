@@ -170,7 +170,7 @@ class MempoolLimitTest(BitcoinTestFramework):
         mempool_evicted_tx.deserialize(BytesIO(hex_str_to_bytes(signresult['hex'])))
         tx_size_bytes = len(hex_str_to_bytes(signresult['hex']))
 
-        # Calculate precise fee: feerate is in BTC/kB, convert to satoshis
+        # Calculate precise fee: feerate is in TPC/kB, convert to tapyrus
         fee = int(feerate * tx_size_bytes / 1000 * COIN)
 
         # Recreate transaction with precise fee

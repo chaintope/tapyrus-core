@@ -68,13 +68,13 @@ struct ColorIdentifier
         CSHA256().Write(scriptVector.data(), scriptVector.size()).Finalize(payload);
     }
 
-    ColorIdentifier(const unsigned char* pbegin, const unsigned char* pend):type(UintToToken(*pbegin)) {
+    ColorIdentifier(const unsigned char* pbegin, const unsigned char* pend):type(UintToToken(*pbegin)), payload{} {
         CSerActionUnserialize ser_action;
         CDataStream s((const char*)pbegin, (const char*)pend, SER_NETWORK, INIT_PROTO_VERSION);
         SerializationOp(s, ser_action);
     }
 
-    ColorIdentifier(const std::vector<unsigned char>& in) {
+    ColorIdentifier(const std::vector<unsigned char>& in):type(TokenTypes::NONE), payload{} {
         CSerActionUnserialize ser_action;
         CDataStream s(in, SER_NETWORK, INIT_PROTO_VERSION);
         SerializationOp(s, ser_action);

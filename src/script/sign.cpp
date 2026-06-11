@@ -523,6 +523,13 @@ void PSBTInput::Merge(const PSBTInput& input)
 
     if (redeem_script.empty() && !input.redeem_script.empty()) redeem_script = input.redeem_script;
     if (final_script_sig.empty() && !input.final_script_sig.empty()) final_script_sig = input.final_script_sig;
+
+    // Both PSBTs have sighash_type set: they must agree. Silent discard would
+    // allow a combined PSBT to be signed with the wrong sighash type.
+    if (sighash_type > 0 && input.sighash_type > 0 && sighash_type != input.sighash_type) {
+        throw std::invalid_argument("PSBT sighash_type mismatch");
+    }
+    if (sighash_type == 0 && input.sighash_type > 0) sighash_type = input.sighash_type;
 }
 
 bool PSBTInput::IsSane() const

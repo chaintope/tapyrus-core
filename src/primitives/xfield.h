@@ -265,7 +265,17 @@ struct CXField {
                 xfieldValue = value; break;
             }
             case TAPYRUS_XFIELDTYPES::NONE:
+                // No payload bytes for NONE. Any bytes that a peer appended
+                // after the type byte are NOT consumed here — they will be
+                // read by the next field (proof). CheckBlockHeader catches
+                // this by requiring proof to be exactly SCHNORR_SIGNATURE_SIZE
+                // bytes before attempting verification.
                 break;
+            default:
+                // Unknown xfield type: the consistency check below will throw
+                // BadXFieldException, but an explicit default makes the intent
+                // clear and prevents silent fallthrough for future enum values.
+                throw BadXFieldException(xfieldType, xfieldValue);
         }
         if(GetXFieldTypeFrom(xfieldValue) != xfieldType) {
             throw BadXFieldException(xfieldType, xfieldValue);
