@@ -87,7 +87,10 @@ public:
     }
 
     inline bool IsValid() const {
-        return CPubKey(data.begin(), data.end()).IsFullyValid();
+        if (data.size() != CPubKey::COMPRESSED_PUBLIC_KEY_SIZE) return false;
+        if (data[0] != 0x02 && data[0] != 0x03) return false;
+        CPubKey k(data.begin(), data.end());
+        return k.IsFullyValid() && k.IsCompressed();
     }
 
     inline std::string ToString() const;

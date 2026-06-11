@@ -587,6 +587,9 @@ struct PartiallySignedTransaction
             if (input.non_witness_utxo && input.non_witness_utxo->GetHashMalFix() != tx->vin[i].prevout.hashMalFix) {
                 throw std::ios_base::failure("Non-witness UTXO does not match outpoint hash");
             }
+            if (input.non_witness_utxo && tx->vin[i].prevout.n >= input.non_witness_utxo->vout.size()) {
+                throw std::ios_base::failure("Non-witness UTXO vout index out of range");
+            }
             ++i;
         }
         // Make sure that the number of inputs matches the number of inputs in the transaction

@@ -460,8 +460,12 @@ void PartiallySignedTransaction::Merge(const PartiallySignedTransaction& psbt)
 
 bool PartiallySignedTransaction::IsSane() const
 {
-    for (PSBTInput input : inputs) {
-        if (!input.IsSane()) return false;
+    for (unsigned int i = 0; i < inputs.size(); ++i) {
+        if (!inputs[i].IsSane()) return false;
+        if (inputs[i].non_witness_utxo && tx && i < tx->vin.size() &&
+            tx->vin[i].prevout.n >= inputs[i].non_witness_utxo->vout.size()) {
+            return false;
+        }
     }
     return true;
 }

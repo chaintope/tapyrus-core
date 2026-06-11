@@ -119,5 +119,71 @@ BOOST_AUTO_TEST_CASE(CXField_unserialize)
 
 }
 
+// XFieldAggPubKey::IsValid() must accept only 33-byte compressed keys (0x02/0x03 prefix).
+// Uncompressed (0x04, 65 bytes) and hybrid (0x06/0x07, 65 bytes) encodings represent the
+// same secp256k1 points but must be rejected to prevent xfieldHistory serialization aliasing
+// and block-production halts caused by CPubKey::operator== being bytewise.
+BOOST_AUTO_TEST_CASE(XFieldAggPubKey_IsValid_compressed_only)
+{
+    // Valid: compressed 0x02 prefix
+    BOOST_CHECK(XFieldAggPubKey(ParseHex(ValidPubKeyStrings[1])).IsValid());  // 02ce7e...
+    // Valid: compressed 0x03 prefix
+    BOOST_CHECK(XFieldAggPubKey(ParseHex(ValidPubKeyStrings[0])).IsValid());  // 03af80...
+
+    // Invalid: uncompressed encoding (65 bytes, 0x04 prefix) — same EC point, different bytes
+    std::vector<unsigned char> uncompressed = ParseHex(UncompressedPubKeyString);
+    BOOST_CHECK_EQUAL(uncompressed.size(), 65U);
+    BOOST_CHECK(!XFieldAggPubKey(uncompressed).IsValid());
+
+    // Invalid: hybrid-even encoding (65 bytes, 0x06 prefix)
+    std::vector<unsigned char> hybridEven = uncompressed;
+    hybridEven[0] = 0x06;
+    BOOST_CHECK(!XFieldAggPubKey(hybridEven).IsValid());
+
+    // Invalid: hybrid-odd encoding (65 bytes, 0x07 prefix)
+    std::vector<unsigned char> hybridOdd = uncompressed;
+    hybridOdd[0] = 0x07;
+    BOOST_CHECK(!XFieldAggPubKey(hybridOdd).IsValid());
+
+    // Invalid: empty data
+    BOOST_CHECK(!XFieldAggPubKey().IsValid());
+
+    // Invalid: 32 bytes (one byte short — raw scalar, no prefix)
+    std::vector<unsigned char> key0 = ParseHex(ValidPubKeyStrings[0]);
+    std::vector<unsigned char> tooShort(key0.begin() + 1, key0.end());
+    BOOST_CHECK_EQUAL(tooShort.size(), 32U);
+    BOOST_CHECK(!XFieldAggPubKey(tooShort).IsValid());
+
+    // Invalid: 34 bytes (one byte too long)
+    std::vector<unsigned char> tooLong = key0;
+    tooLong.push_back(0x00);
+    BOOST_CHECK_EQUAL(tooLong.size(), 34U);
+    BOOST_CHECK(!XFieldAggPubKey(tooLong).IsValid());
+
+    // Invalid: 33 bytes but 0x04 prefix (not a legal 65-byte uncompressed form)
+    std::vector<unsigned char> badPrefix = ParseHex(ValidPubKeyStrings[0]);
+    badPrefix[0] = 0x04;
+    BOOST_CHECK(!XFieldAggPubKey(badPrefix).IsValid());
+
+    // Invalid: 33 bytes but 0x00 prefix
+    std::vector<unsigned char> zeroPrefix(33, 0x00);
+    BOOST_CHECK(!XFieldAggPubKey(zeroPrefix).IsValid());
+
+    // Invalid: 33 bytes with 0x02 prefix but payload is all-zeros (not on curve)
+    std::vector<unsigned char> badPoint(33, 0x00);
+    badPoint[0] = 0x02;
+    BOOST_CHECK(!XFieldAggPubKey(badPoint).IsValid());
+
+    // Full chain: CXField::IsValid() → XFieldValidityVisitor → XFieldAggPubKey::IsValid()
+    // Uncompressed key in a block's xfield must be rejected at CheckBlockHeader.
+    XFieldAggPubKey uncompressedXField{uncompressed};
+    CXField xfieldUncompressed{XFieldData(uncompressedXField)};
+    BOOST_CHECK(!xfieldUncompressed.IsValid());
+
+    XFieldAggPubKey compressedXField{ParseHex(ValidPubKeyStrings[0])};
+    CXField xfieldCompressed{XFieldData(compressedXField)};
+    BOOST_CHECK(xfieldCompressed.IsValid());
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 
