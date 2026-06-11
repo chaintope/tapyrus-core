@@ -84,8 +84,8 @@ class DumptxoutsetTest(BitcoinTestFramework):
         assert_equal(snapshot.base_blockhash, out['base_hash'])
         assert_equal(snapshot.coins_count, out['coins_written'])
 
-        # Specifying an invalid file will fail.
-        invalid_path =  os.path.join(get_datadir_path(self.options.tmpdir, 0), "invalid",  "path")
+        # Specifying a path whose parent directory does not exist will fail.
+        invalid_path = "nonexistent_dir/path"
         assert_raises_rpc_error(
             -8, "Couldn't open file temp file for writing", node.dumptxoutset, invalid_path)
 

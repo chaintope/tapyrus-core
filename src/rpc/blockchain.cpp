@@ -2263,6 +2263,20 @@ static UniValue dumptxoutset(const JSONRPCRequest& request)
         }
     }
     const fs::path path = GetDataDir() / path_name;
+    // Resolve symlinks in the parent directory and verify the result stays
+    // inside datadir — prevents traversal via a symlink that points elsewhere.
+    {
+        const fs::path parent = path.parent_path();
+        if (fs::exists(parent)) {
+            const fs::path canonical_parent = fs::canonical(parent);
+            const fs::path canonical_datadir = fs::canonical(GetDataDir());
+            const std::string cp = canonical_parent.string();
+            const std::string cd = canonical_datadir.string();
+            if (cp.substr(0, cd.size()) != cd) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Path resolves outside the data directory");
+            }
+        }
+    }
     // Write to a temporary path and then move into `path` on completion
     // to avoid confusion due to an interruption.
     const fs::path temppath = fs::path(path.string() + ".incomplete");
