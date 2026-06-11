@@ -267,6 +267,7 @@ struct PSBTInput
     template <typename Stream>
     inline void Unserialize(Stream& s) {
         // Read loop
+        bool has_sighash_type = false;
         while(!s.empty()) {
             // Read
             std::vector<unsigned char> key;
@@ -317,12 +318,13 @@ struct PSBTInput
                     break;
                 }
                 case PSBT_IN_SIGHASH:
-                    if (sighash_type > 0) {
+                    if (has_sighash_type) {
                         throw std::ios_base::failure("Duplicate Key, input sighash type already provided");
                     } else if (key.size() != 1) {
                         throw std::ios_base::failure("Sighash type key is more than one byte type");
                     }
                     UnserializeFromVector(s, sighash_type);
+                    has_sighash_type = true;
                     break;
                 case PSBT_IN_REDEEMSCRIPT:
                 {

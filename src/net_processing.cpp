@@ -399,11 +399,11 @@ static bool MarkBlockAsReceived(const uint256& hash,  std::optional<NodeId> from
         // Still erase from_peer's entry below — do not return early and leak it.
     }
     bool found = false;
-    while (rangeInFlight.first != rangeInFlight.second) {
-        auto itInFlight = rangeInFlight.first->second;
+    for (auto it = rangeInFlight.first; it != rangeInFlight.second; ) {
+        auto itInFlight = it->second;
         auto node_id = itInFlight.first;
         if (from_peer && *from_peer != node_id) {
-            rangeInFlight.first++;
+            ++it;
             continue;
         }
 
@@ -421,13 +421,12 @@ static bool MarkBlockAsReceived(const uint256& hash,  std::optional<NodeId> from
         }
         state->nStallingSince = 0;
 
-        rangeInFlight.first = mapBlocksInFlight.erase(rangeInFlight.first);
+        it = mapBlocksInFlight.erase(it);
         found = true;
-        // When a specific peer is given, one entry is expected — return immediately.
-        // When nullopt, continue to erase all in-flight entries for this hash so
-        // no other peer's vBlocksInFlight entry is left dangling.
-        if (from_peer) return true;
+        if (from_peer) return true;  // erase exactly one when targeted
+        // when from_peer is nullopt, continue the loop to drain all peers
     }
+    assert(!found || from_peer || mapBlocksInFlight.count(hash) == 0);
     return found;
 }
 
@@ -2633,6 +2632,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
                     } else {
                         // Give up for this peer and wait for other peer(s)
                         MarkBlockAsReceived(pindex->GetBlockHash(), pfrom->GetId());
+                        return true;
                     }
                 }
 

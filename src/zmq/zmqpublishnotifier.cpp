@@ -83,6 +83,7 @@ bool CZMQAbstractPublishNotifier::Initialize(void *pcontext)
         {
             zmqError("Failed to bind address");
             zmq_close(psocket);
+            psocket = nullptr;
             return false;
         }
 
@@ -103,7 +104,7 @@ bool CZMQAbstractPublishNotifier::Initialize(void *pcontext)
 
 void CZMQAbstractPublishNotifier::Shutdown()
 {
-    assert(psocket);
+    if (!psocket) return;  // Initialize never ran or already shut down
 
     int count = mapPublishNotifiers.count(address);
 

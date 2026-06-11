@@ -1472,6 +1472,10 @@ UniValue combinepsbt(const JSONRPCRequest& request)
         psbtxs.push_back(psbtx);
     }
 
+    if (psbtxs.empty()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Parameter 'txs' cannot be empty");
+    }
+
     PartiallySignedTransaction merged_psbt(psbtxs[0]); // Copy the first one
 
     // Merge
@@ -1649,8 +1653,9 @@ UniValue converttopsbt(const JSONRPCRequest& request)
     }
 
     // Remove all scriptSigs from inputs
+    bool permitsigdata = !request.params[1].isNull() && request.params[1].get_bool();
     for (CTxIn& input : tx.vin) {
-        if ((!input.scriptSig.empty()) && (request.params[1].isNull() || (!request.params[1].isNull() && request.params[1].get_bool()))) {
+        if (!input.scriptSig.empty() && !permitsigdata) {
             throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Inputs must not have scriptSigs");
         }
         input.scriptSig.clear();
