@@ -34,9 +34,11 @@ from test_framework.script import (
     OP_CHECKMULTISIGVERIFY,
     OP_CHECKSIG,
     OP_CHECKSIGVERIFY,
+    OP_DUP,
     OP_ELSE,
     OP_ENDIF,
     OP_EQUAL,
+    OP_EQUALVERIFY,
     OP_DROP,
     OP_FALSE,
     OP_HASH160,
@@ -53,10 +55,29 @@ from test_framework.util import assert_equal
 
 MAX_BLOCK_SIGOPS = 20000
 
-# Standard P2SH(OP_TRUE) — spendable without keys, accepted by mempool without -acceptnonstdtxn.
+# P2SH(OP_TRUE) kept for the custom b39/b40/b41 P2SH chain (zero sigops, no key needed).
 _P2SH_REDEEM_SCRIPT = CScript([OP_TRUE])
 P2SH_SCRIPT = CScript([OP_HASH160, hash160(_P2SH_REDEEM_SCRIPT), OP_EQUAL])
 P2SH_SPEND_SCRIPT = CScript([bytes(_P2SH_REDEEM_SCRIPT)])
+
+# Standard P2PKH — replaces bare OP_TRUE as the default output script.
+# Schnorr sigs are always 64 bytes, so padding-tx scriptSig size is deterministic:
+#   push(65-byte sig+hashtype) + push(33-byte compressed pubkey) = 66+34 = 100 bytes.
+# Padding-tx overhead constant = 69 (base, empty scriptSig) + 100 = 169.
+_P2PKH_SCHNORR = Schnorr()
+_P2PKH_SCHNORR.set_secretbytes(bytes.fromhex("12b004fff7f4b69ef8650e767f18f11ede158148b425660723b9f9a66e61f747"))
+_P2PKH_ECDSA = CECKey()
+_P2PKH_ECDSA.set_secretbytes(bytes.fromhex("12b004fff7f4b69ef8650e767f18f11ede158148b425660723b9f9a66e61f747"))
+_P2PKH_ECDSA.set_compressed(True)
+_P2PKH_PUBKEY = _P2PKH_SCHNORR.get_pubkey(compressed=True)  # 33-byte compressed
+P2PKH_SCRIPT = CScript([OP_DUP, OP_HASH160, hash160(_P2PKH_PUBKEY), OP_EQUALVERIFY, OP_CHECKSIG])
+
+
+def p2pkh_scriptsig(tx, input_index):
+    """Return a Schnorr P2PKH scriptSig for input_index (deterministic 100-byte size)."""
+    (sighash, _) = SignatureHash(P2PKH_SCRIPT, tx, input_index, SIGHASH_ALL)
+    sig = _P2PKH_SCHNORR.sign(sighash) + bytes([SIGHASH_ALL])
+    return CScript([sig, _P2PKH_PUBKEY])
 
 #  Use this class for tests that require behavior other than normal "mininode" behavior.
 #  For now, it is used to serialize a bloated varint (b64).
@@ -83,7 +104,7 @@ class CBrokenBlock(CBlock):
 class FullBlockTest(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
-        self.sig_scheme = 0
+
         self.setup_clean_chain = True
         self.extra_args = [[]]
         self.genesisBlock = createTestGenesisBlock(self.signblockpubkey, self.signblockprivkey, int(time.time() - 100))
@@ -96,6 +117,7 @@ class FullBlockTest(BitcoinTestFramework):
         self.block_heights = {}
         self.coinbase_key = CECKey()
         self.coinbase_key.set_secretbytes(bytes.fromhex("12b004fff7f4b69ef8650e767f18f11ede158148b425660723b9f9a66e61f747"))
+        self.coinbase_key.set_compressed(True)   # compressed key is P2PK-standard in mempool
         self.coinbase_pubkey = self.coinbase_key.get_pubkey()
         self.schnorr_key = Schnorr()
         self.schnorr_key.set_secretbytes(bytes.fromhex("12b004fff7f4b69ef8650e767f18f11ede158148b425660723b9f9a66e61f747"))
@@ -277,7 +299,7 @@ class FullBlockTest(BitcoinTestFramework):
         # invalidate the block to allow the rest of the test to proceed without change
         self.log.info("Reject a block spending an immature coinbase.")
         self.move_tip(15)
-        b20 = self.next_block(20, spend=out[7])
+        b20 = self.next_block(20, spend=out[7], value=1000)
         self.sync_blocks([b20], True)
         node.invalidateblock(b20.hash)
 
@@ -308,10 +330,11 @@ class FullBlockTest(BitcoinTestFramework):
         # proof is added here.
         b23.solve(self.signblockprivkey)
         tx = CTransaction()
-        script_length = MAX_BLOCK_BASE_SIZE - len(b23.serialize()) - 69
+        script_length = MAX_BLOCK_BASE_SIZE - len(b23.serialize()) - 169
         script_output = CScript([b'\x00' * script_length])
         tx.vout.append(CTxOut(0, script_output))
         tx.vin.append(CTxIn(COutPoint(b23.vtx[1].malfixsha256, 0)))
+        tx.vin[0].scriptSig = p2pkh_scriptsig(tx, 0)
         b23 = self.update_block(23, [tx])
         b23.solve(self.signblockprivkey)
         # Make sure the math above worked out to produce a max-sized block
@@ -323,7 +346,7 @@ class FullBlockTest(BitcoinTestFramework):
         self.move_tip(15)
         b24 = self.next_block(24, spend=out[6])
         b24.solve(self.signblockprivkey)
-        script_length = MAX_BLOCK_BASE_SIZE - len(b24.serialize()) - 69
+        script_length = MAX_BLOCK_BASE_SIZE - len(b24.serialize()) - 169
         script_output = CScript([b'\x00' * (script_length + 1)])
         tx.vout = [CTxOut(0, script_output)]
         b24 = self.update_block(24, [tx])
@@ -332,7 +355,7 @@ class FullBlockTest(BitcoinTestFramework):
         self.log.info("Reject a block of size MAX_BLOCK_BASE_SIZE + 1 (%d)", len(b24.serialize()))
         self.sync_blocks([b24], False, 16, b'bad-blk-length', reconnect=True)
 
-        b25 = self.next_block(25, spend=out[7])
+        b25 = self.next_block(25, spend=out[7], value=1000)
         self.sync_blocks([b25], False)
 
         # Create blocks with a coinbase input script size 0
@@ -364,8 +387,8 @@ class FullBlockTest(BitcoinTestFramework):
         b28 = self.update_block(28, [])
         self.sync_blocks([b28], False, 16, b'bad-cb-length', reconnect=True)
 
-        # Extend the b28 chain to make sure bitcoind isn't accepting b28
-        b29 = self.next_block(29, spend=out[7])
+        # Extend the b28 chain to make sure tapyrusd isn't accepting b28
+        b29 = self.next_block(29, spend=out[7], value=1000)
         self.sync_blocks([b29], False)
 
         # b30 has a max-sized coinbase scriptSig.
@@ -473,8 +496,8 @@ class FullBlockTest(BitcoinTestFramework):
         # Create a transaction that spends one tapyrus to the p2sh_script, the rest to P2SH_SCRIPT
         # This must be signed because it is spending a coinbase
         spend = out[11]
-        tx = self.create_tx(spend, 0, 1, p2sh_script)
-        tx.vout.append(CTxOut(spend.vout[0].nValue - 1, P2SH_SCRIPT))
+        tx = self.create_tx(spend, 0, 5000, p2sh_script)
+        tx.vout.append(CTxOut(spend.vout[0].nValue - 5000, P2SH_SCRIPT))
         self.sign_tx(tx, spend)
         tx.rehash()
         b39 = self.update_block(39, [tx])
@@ -485,9 +508,9 @@ class FullBlockTest(BitcoinTestFramework):
         tx_last = tx
         total_size = len(b39.serialize())
         while(total_size < MAX_BLOCK_BASE_SIZE):
-            tx_new = self.create_tx(tx_last, 1, 1, p2sh_script)
+            tx_new = self.create_tx(tx_last, 1, 5000, p2sh_script)
             tx_new.vin[0].scriptSig = P2SH_SPEND_SCRIPT  # spend P2SH_SCRIPT change output
-            tx_new.vout.append(CTxOut(tx_last.vout[1].nValue - 1, P2SH_SCRIPT))
+            tx_new.vout.append(CTxOut(tx_last.vout[1].nValue - 5000, P2SH_SCRIPT))
             tx_new.rehash()
             total_size += len(tx_new.serialize())
             if total_size >= MAX_BLOCK_BASE_SIZE:
@@ -509,7 +532,7 @@ class FullBlockTest(BitcoinTestFramework):
         #
         self.log.info("Reject a block with too many P2SH sigops")
         self.move_tip(39)
-        b40 = self.next_block(40, spend=out[12])
+        b40 = self.next_block(40, spend=out[12], script=P2SH_SCRIPT, value=1000)
         sigops = get_legacy_sigopcount_block(b40)
         numTxes = (MAX_BLOCK_SIGOPS - sigops) // b39_sigops_per_output
         assert_equal(numTxes <= b39_outputs, True)
@@ -518,7 +541,7 @@ class FullBlockTest(BitcoinTestFramework):
         new_txs = []
         for i in range(1, numTxes + 1):
             tx = CTransaction()
-            tx.vout.append(CTxOut(1, P2SH_SCRIPT))
+            tx.vout.append(CTxOut(1000, P2SH_SCRIPT))
             tx.vin.append(CTxIn(lastOutpoint, P2SH_SPEND_SCRIPT))  # spend P2SH(OP_TRUE) chain output
             # second input is corresponding P2SH output from b39
             tx.vin.append(CTxIn(COutPoint(b39.vtx[i].malfixsha256, 0), b''))
@@ -565,7 +588,7 @@ class FullBlockTest(BitcoinTestFramework):
         #                                                                  \-> b41 (12)
         #
         self.move_tip(39)
-        b42 = self.next_block(42, spend=out[12])
+        b42 = self.next_block(42, spend=out[12], script=P2SH_SCRIPT, value=1000)
         self.save_spendable_output()
 
         b43 = self.next_block(43, spend=out[13])
@@ -714,8 +737,10 @@ class FullBlockTest(BitcoinTestFramework):
         # b57 - a good block with 2 txs, don't submit until end
         self.move_tip(55)
         b57 = self.next_block(57)
-        tx = self.create_and_sign_transaction(out[16], 1)
-        tx1 = self.create_tx(tx, 0, 1)
+        tx = self.create_and_sign_transaction(out[16], 1000, P2SH_SCRIPT)
+        tx1 = self.create_tx(tx, 0, 1000, P2SH_SCRIPT)
+        tx1.vin[0].scriptSig = P2SH_SPEND_SCRIPT
+        tx1.rehash()
         b57 = self.update_block(57, [tx, tx1])
 
         # b56 - copy b57, add a duplicate tx
@@ -735,11 +760,19 @@ class FullBlockTest(BitcoinTestFramework):
         # b57p2 - a good block with 6 tx'es, don't submit until end
         self.move_tip(55)
         b57p2 = self.next_block("57p2")
-        tx = self.create_and_sign_transaction(out[16], 1)
-        tx1 = self.create_tx(tx, 0, 1)
-        tx2 = self.create_tx(tx1, 0, 1)
-        tx3 = self.create_tx(tx2, 0, 1)
-        tx4 = self.create_tx(tx3, 0, 1)
+        tx = self.create_and_sign_transaction(out[16], 1000, P2SH_SCRIPT)
+        tx1 = self.create_tx(tx, 0, 1000, P2SH_SCRIPT)
+        tx1.vin[0].scriptSig = P2SH_SPEND_SCRIPT
+        tx1.rehash()
+        tx2 = self.create_tx(tx1, 0, 1000, P2SH_SCRIPT)
+        tx2.vin[0].scriptSig = P2SH_SPEND_SCRIPT
+        tx2.rehash()
+        tx3 = self.create_tx(tx2, 0, 1000, P2SH_SCRIPT)
+        tx3.vin[0].scriptSig = P2SH_SPEND_SCRIPT
+        tx3.rehash()
+        tx4 = self.create_tx(tx3, 0, 1000, P2SH_SCRIPT)
+        tx4.vin[0].scriptSig = P2SH_SPEND_SCRIPT
+        tx4.rehash()
         b57p2 = self.update_block("57p2", [tx, tx1, tx2, tx3, tx4])
 
         # b56p2 - copy b57p2, duplicate two non-consecutive tx's
@@ -874,16 +907,17 @@ class FullBlockTest(BitcoinTestFramework):
         tx = CTransaction()
 
         # use canonical serialization to calculate size
-        script_length = MAX_BLOCK_BASE_SIZE - len(b64a.normal_serialize()) - 69
+        script_length = MAX_BLOCK_BASE_SIZE - len(b64a.normal_serialize()) - 169
         script_output = CScript([b'\x00' * script_length])
         tx.vout.append(CTxOut(0, script_output))
         tx.vin.append(CTxIn(COutPoint(b64a.vtx[1].malfixsha256, 0)))
+        tx.vin[0].scriptSig = p2pkh_scriptsig(tx, 0)
         b64a = self.update_block("64a", [tx])
         b64a.solve(self.signblockprivkey)
         assert_equal(len(b64a.serialize()), MAX_BLOCK_BASE_SIZE + 8)
         self.sync_blocks([b64a], success=False, reject_reason='non-canonical ReadCompactSize()')
 
-        # bitcoind doesn't disconnect us for sending a bloated block, but if we subsequently
+        # tapyrusd doesn't disconnect us for sending a bloated block, but if we subsequently
         # resend the header message, it won't send us the getdata message again. Just
         # disconnect and reconnect and then call sync_blocks.
         # TODO: improve this test to be less dependent on P2P DOS behaviour.
@@ -1107,32 +1141,32 @@ class FullBlockTest(BitcoinTestFramework):
         #
         #    The tx'es must be unsigned and pass the node's mempool policy.  It is unsigned for the
         #    rather obscure reason that the Python signature code does not distinguish between
-        #    Low-S and High-S values (whereas the bitcoin code has custom code which does so);
+        #    Low-S and High-S values (whereas the tapyrus code has custom code which does so);
         #    as a result of which, the odds are 50% that the python code will use the right
         #    value and the transaction will be accepted into the mempool. Until we modify the
         #    test framework to support low-S signing, we are out of luck.
         #
         #    To get around this issue, we construct transactions which are not signed and which
-        #    tx78/tx79 use P2SH(OP_TRUE) outputs so they can re-enter the mempool without
-        #    -acceptnonstdtxn after the reorg. No private key needed to spend P2SH(OP_TRUE).
+        #    tx78/tx79 use P2PKH outputs so they are standard and re-enter the mempool
+        #    after the reorg. sign_tx uses ECDSA (DER + low-S) for mempool compatibility.
         self.log.info("Test transaction resurrection during a re-org")
         self.move_tip(76)
         b77 = self.next_block(77)
-        tx77 = self.create_and_sign_transaction(out[24], 10 * COIN, P2SH_SCRIPT)
+        tx77 = self.create_and_sign_transaction(out[24], 10 * COIN)  # default P2PKH_SCRIPT
         b77 = self.update_block(77, [tx77])
         self.sync_blocks([b77], True)
         self.save_spendable_output()
 
         b78 = self.next_block(78)
-        tx78 = self.create_tx(tx77, 0, 9 * COIN, P2SH_SCRIPT)
-        tx78.vin[0].scriptSig = P2SH_SPEND_SCRIPT  # spend P2SH(OP_TRUE) output of tx77
+        tx78 = self.create_tx(tx77, 0, 9 * COIN)  # default P2PKH_SCRIPT
+        self.sign_tx(tx78, tx77)                   # sign P2PKH input (tx77.vout[0])
         tx78.rehash()
         b78 = self.update_block(78, [tx78])
         self.sync_blocks([b78], True)
 
         b79 = self.next_block(79)
-        tx79 = self.create_tx(tx78, 0, 8 * COIN, P2SH_SCRIPT)
-        tx79.vin[0].scriptSig = P2SH_SPEND_SCRIPT  # spend P2SH(OP_TRUE) output of tx78
+        tx79 = self.create_tx(tx78, 0, 8 * COIN)  # default P2PKH_SCRIPT
+        self.sign_tx(tx79, tx78)                   # sign P2PKH input (tx78.vout[0])
         tx79.rehash()
         b79 = self.update_block(79, [tx79])
         self.sync_blocks([b79], True)
@@ -1185,10 +1219,10 @@ class FullBlockTest(BitcoinTestFramework):
         self.log.info("Test re-orging blocks with OP_RETURN in them")
         b84 = self.next_block(84)
         tx1 = self.create_tx(out[29], 0, 0, CScript([OP_RETURN]))
-        tx1.vout.append(CTxOut(0, CScript([OP_TRUE])))
-        tx1.vout.append(CTxOut(0, CScript([OP_TRUE])))
-        tx1.vout.append(CTxOut(0, CScript([OP_TRUE])))
-        tx1.vout.append(CTxOut(0, CScript([OP_TRUE])))
+        tx1.vout.append(CTxOut(1, CScript([OP_TRUE])))
+        tx1.vout.append(CTxOut(1, CScript([OP_TRUE])))
+        tx1.vout.append(CTxOut(1, CScript([OP_TRUE])))
+        tx1.vout.append(CTxOut(1, CScript([OP_TRUE])))
         tx1.calc_sha256()
         self.sign_tx(tx1, out[29])
         tx1.rehash()
@@ -1236,10 +1270,11 @@ class FullBlockTest(BitcoinTestFramework):
             b = self.next_block(i, spend)
             b.solve(self.signblockprivkey)
             tx = CTransaction()
-            script_length = MAX_BLOCK_BASE_SIZE - len(b.serialize()) - 69
+            script_length = MAX_BLOCK_BASE_SIZE - len(b.serialize()) - 169
             script_output = CScript([b'\x00' * script_length])
             tx.vout.append(CTxOut(0, script_output))
             tx.vin.append(CTxIn(COutPoint(b.vtx[1].malfixsha256, 0)))
+            tx.vin[0].scriptSig = p2pkh_scriptsig(tx, 0)
             b = self.update_block(i, [tx])
             b.solve(self.signblockprivkey)
             blocks.append(b)
@@ -1269,23 +1304,29 @@ class FullBlockTest(BitcoinTestFramework):
 
         # Verify non-standard transactions: rejected by mempool, accepted in block via P2P
         #
-        # Mine a setup block to get a fresh coinbase, then create a tx with a bare OP_TRUE
-        # output (non-standard). Confirm mempool rejects it, but a P2P block accepts it.
+        # Mine a setup block to get a fresh coinbase, then create a tx with a zero-value
+        # dust output (non-standard by policy, valid at consensus). Confirm mempool rejects
+        # it, but a P2P block accepts it.
+        # Note: in Tapyrus, CScript([OP_TRUE]) is TX_CUSTOM (standard), so dust is used
+        # as the non-standard element since it passes consensus but fails mempool policy.
         self.log.info("Verify non-standard tx rejected by mempool, accepted in block via P2P")
         nonstd_setup = self.next_block("nonstd_setup")
         self.sync_blocks([nonstd_setup], True)
         fresh_coinbase = nonstd_setup.vtx[0]
 
-        # Build tx with non-standard bare OP_TRUE output
+        # Build tx with a dust output (0-value P2PKH) — non-standard by policy
         nonstd_tx = CTransaction()
         nonstd_tx.vin.append(CTxIn(COutPoint(fresh_coinbase.malfixsha256, 0)))
-        nonstd_tx.vout.append(CTxOut(fresh_coinbase.vout[0].nValue - 1000, CScript([OP_TRUE])))
+        nonstd_tx.vout.append(CTxOut(fresh_coinbase.vout[0].nValue - 1000, P2PKH_SCRIPT))
+        nonstd_tx.vout.append(CTxOut(0, P2PKH_SCRIPT))  # dust: 0 sat < dust threshold
         self.sign_tx(nonstd_tx, fresh_coinbase)
         nonstd_tx.rehash()
 
-        # Mempool rejects non-standard tx (bare OP_TRUE scriptPubKey)
+        # Mempool rejects non-standard tx (dust output)
         result = node.testmempoolaccept([nonstd_tx.serialize().hex()])
-        assert_equal(result[0]['allowed'], False)
+        tx_result = list(result.values())[0]
+        assert_equal(tx_result['allowed'], False)
+        assert 'dust' in tx_result['reject-reason']
 
         # Block accepts non-standard tx via P2P (bypasses mempool policy, valid at consensus level)
         nonstd_block = self.next_block("nonstd_block")
@@ -1305,38 +1346,42 @@ class FullBlockTest(BitcoinTestFramework):
     # this is a little handier to use than the version in blocktools.py
     def create_tx(self, spend_tx, n, value, script=None):
         if script is None:
-            script = P2SH_SCRIPT
+            script = P2PKH_SCRIPT
         return create_tx_with_script(spend_tx, n, amount=value, script_pub_key=script)
 
     # sign a transaction, using the key we know about
     # this signs input 0 in tx, which is assumed to be spending output n in spend_tx
     def sign_tx(self, tx, spend_tx):
         scriptPubKey = bytearray(spend_tx.vout[0].scriptPubKey)
+        if len(scriptPubKey) == 25 and scriptPubKey[0] == OP_DUP and scriptPubKey[1] == OP_HASH160:
+            # P2PKH: ECDSA (DER + low-S) so the tx passes SCRIPT_VERIFY_STRICTENC in mempool.
+            (sighash, err) = SignatureHash(spend_tx.vout[0].scriptPubKey, tx, 0, SIGHASH_ALL)
+            sig = _P2PKH_ECDSA.sign(sighash) + bytes([SIGHASH_ALL])
+            tx.vin[0].scriptSig = CScript([sig, _P2PKH_PUBKEY])
+            return
         if scriptPubKey[0] == OP_HASH160 and scriptPubKey[-1] == OP_EQUAL:  # P2SH(OP_TRUE)
             tx.vin[0].scriptSig = P2SH_SPEND_SCRIPT
             return
         if (scriptPubKey[0] == OP_TRUE):  # bare anyone-can-spend (non-standard, P2P blocks only)
             tx.vin[0].scriptSig = CScript()
             return
+        # P2PK (coinbase) — always ECDSA (DER + low-S) so the tx passes
+        # SCRIPT_VERIFY_STRICTENC in mempool when re-accepted from the disconnect pool.
+        # Schnorr is tested via the P2PKH branch above.
         (sighash, err) = SignatureHash(spend_tx.vout[0].scriptPubKey, tx, 0, SIGHASH_ALL)
-        if self.sig_scheme == 1:
-            tx.vin[0].scriptSig = CScript([self.coinbase_key.sign(sighash) + bytes(bytearray([SIGHASH_ALL]))])
-            self.sig_scheme = 0
-        else:
-            tx.vin[0].scriptSig = CScript([self.schnorr_key.sign(sighash) + bytes(bytearray([SIGHASH_ALL]))])
-            self.sig_scheme = 1
+        tx.vin[0].scriptSig = CScript([self.coinbase_key.sign(sighash) + bytes(bytearray([SIGHASH_ALL]))])
 
     def create_and_sign_transaction(self, spend_tx, value, script=None):
         if script is None:
-            script = P2SH_SCRIPT
+            script = P2PKH_SCRIPT
         tx = self.create_tx(spend_tx, 0, value, script)
         self.sign_tx(tx, spend_tx)
         tx.rehash()
         return tx
 
-    def next_block(self, number, spend=None, additional_coinbase_value=0, script=None, solve=True):
+    def next_block(self, number, spend=None, additional_coinbase_value=0, script=None, value=1, solve=True):
         if script is None:
-            script = P2SH_SCRIPT
+            script = P2PKH_SCRIPT
         if self.tip is None:
             base_block_hash = self.genesis_hash
             block_time = int(time.time()) + 1
@@ -1351,10 +1396,10 @@ class FullBlockTest(BitcoinTestFramework):
         if spend is None:
             block = create_block(base_block_hash, coinbase, block_time)
         else:
-            coinbase.vout[0].nValue += spend.vout[0].nValue - 1  # all but one tapyrus to fees
+            coinbase.vout[0].nValue += spend.vout[0].nValue - value
             coinbase.rehash()
             block = create_block(base_block_hash, coinbase, block_time)
-            tx = self.create_tx(spend, 0, 1, script)  # spend 1 tapyrus
+            tx = self.create_tx(spend, 0, value, script)
             self.sign_tx(tx, spend)
             self.add_transactions_to_block(block, [tx])
             block.hashMerkleRoot = block.calc_merkle_root()
