@@ -21,7 +21,9 @@ from test_framework.util import (
 )
 from test_framework.messages import CSnapshotMetadata
 from io import BytesIO
+import os
 import os.path
+import tempfile
 
 FILENAME = "dumptxoutset.dat"
 TIME_GENESIS_BLOCK = 1296688602
@@ -86,8 +88,25 @@ class DumptxoutsetTest(BitcoinTestFramework):
 
         # Specifying a path whose parent directory does not exist will fail.
         invalid_path = "nonexistent_dir/path"
-        assert_raises_rpc_error(
-            -8, "Couldn't open file temp file for writing", node.dumptxoutset, invalid_path)
+        assert_raises_rpc_error(-8, "Path must be relative", node.dumptxoutset, "/tmp/foo/snap")
+        assert_raises_rpc_error(-8, "Path must not contain '..'", node.dumptxoutset, "../snap")
+        assert_raises_rpc_error(-8, "Couldn't open file temp file for writing",
+            node.dumptxoutset, invalid_path)  # relative, write fails
+
+        # A symlink inside the data directory that escapes to an outside directory
+        # must be rejected even though the path itself looks relative and benign.
+        outside_dir = tempfile.mkdtemp()
+        network_datadir = os.path.join(get_datadir_path(self.options.tmpdir, 0), NetworkDirName())
+        symlink_path = os.path.join(network_datadir, "escape_symlink")
+        try:
+            os.symlink(outside_dir, symlink_path)
+            assert_raises_rpc_error(
+                -8, "Path resolves outside the data directory",
+                node.dumptxoutset, "escape_symlink/output.dat")
+        finally:
+            if os.path.islink(symlink_path):
+                os.remove(symlink_path)
+            os.rmdir(outside_dir)
 
 
 if __name__ == '__main__':
