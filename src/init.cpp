@@ -225,7 +225,7 @@ void Shutdown()
     g_connman.reset();
     g_txindex.reset();
 
-    if (g_is_mempool_loaded && gArgs.GetArg("-persistmempool", DEFAULT_PERSIST_MEMPOOL)) {
+    if (g_is_mempool_loaded && gArgs.GetBoolArg("-persistmempool", DEFAULT_PERSIST_MEMPOOL)) {
         DumpMempool();
     }
 
@@ -730,7 +730,7 @@ static void ThreadImport(std::vector<fs::path> vImportFiles, bool fReloadxfield)
         return;
     }
     } // End scope of CImportingNow
-    if (gArgs.GetArg("-persistmempool", DEFAULT_PERSIST_MEMPOOL)) {
+    if (gArgs.GetBoolArg("-persistmempool", DEFAULT_PERSIST_MEMPOOL)) {
         LoadMempool();
     }
     g_is_mempool_loaded = !ShutdownRequested();
@@ -1124,7 +1124,13 @@ bool AppInitParameterInteraction()
     if ((gArgs.GetChainMode() == TAPYRUS_OP_MODE::PROD) && acceptnonstdtxn)
         return InitError(strprintf("acceptnonstdtxn is not supported for %s chain", TAPYRUS_MODES::GetChainName(TAPYRUS_OP_MODE::PROD)));
 #endif
-    nBytesPerSigOp = gArgs.GetArg("-bytespersigop", nBytesPerSigOp);
+    {
+        int64_t bytesPerSigOp = gArgs.GetArg("-bytespersigop", (int64_t)nBytesPerSigOp);
+        if (bytesPerSigOp < 1 || bytesPerSigOp > (int64_t)std::numeric_limits<unsigned int>::max()) {
+            return InitError(strprintf("-bytespersigop value %d is out of range [1, %u]", bytesPerSigOp, std::numeric_limits<unsigned int>::max()));
+        }
+        nBytesPerSigOp = (unsigned int)bytesPerSigOp;
+    }
 
     if (!g_wallet_init_interface.ParameterInteraction()) return false;
 

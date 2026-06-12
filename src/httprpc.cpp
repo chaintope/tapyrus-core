@@ -74,6 +74,25 @@ static std::unique_ptr<HTTPRPCTimerInterface> httpRPCTimerInterface;
 static std::map<std::string, std::set<std::string>> g_rpc_whitelist;
 static bool g_rpc_whitelist_default = false;
 
+/* Per-IP failed-auth backoff. State for one peer address. */
+struct AuthFailState {
+    int64_t next_allowed_ms{0}; // earliest time (GetTimeMillis) a new attempt is accepted
+    int consecutive{0};         // consecutive failure count; reset on success
+};
+
+// Max number of IP entries kept in the backoff table.
+// When exceeded, expired entries are pruned; if still over, all are cleared.
+static constexpr size_t AUTH_FAIL_CACHE_MAX = 1024;
+
+static Mutex g_auth_fail_mutex;
+static std::map<std::string, AuthFailState> g_failed_auths GUARDED_BY(g_auth_fail_mutex);
+
+// Backoff for the n-th consecutive failure: 250ms, 500ms, 1s, … capped at 32s.
+static int64_t AuthBackoffMs(int n)
+{
+    return 250LL << std::min(n - 1, 7);
+}
+
 static void JSONErrorReply(HTTPRequest* req, const UniValue& objError, const UniValue& id)
 {
     // Send error reply from json-rpc error object
@@ -175,18 +194,47 @@ static bool HTTPReq_JSONRPC(HTTPRequest* req, const std::string &)
     }
 
     JSONRPCRequest jreq;
-    jreq.peerAddr = req->GetPeer().ToString();
+    CService peer = req->GetPeer();
+    jreq.peerAddr = peer.ToString();
     if (!RPCAuthorized(authHeader.second, jreq.authUser)) {
+        const std::string peerIP = peer.ToStringIP();
+        const int64_t now = GetTimeMillis();
+        LOCK(g_auth_fail_mutex);
+        // Keep the table bounded: first remove expired entries, then if still full
+        // evict the single entry whose backoff expires soonest (cheapest to lose).
+        // Never clear() the entire table — that would let an attacker with 1025 IPs
+        // reset all throttled peers simultaneously.
+        if (g_failed_auths.size() >= AUTH_FAIL_CACHE_MAX) {
+            for (auto it = g_failed_auths.begin(); it != g_failed_auths.end(); ) {
+                it = (it->second.next_allowed_ms <= now) ? g_failed_auths.erase(it) : ++it;
+            }
+            if (g_failed_auths.size() >= AUTH_FAIL_CACHE_MAX) {
+                auto victim = std::min_element(g_failed_auths.begin(), g_failed_auths.end(),
+                    [](const auto& a, const auto& b) {
+                        return a.second.next_allowed_ms < b.second.next_allowed_ms;
+                    });
+                g_failed_auths.erase(victim);
+            }
+        }
+        AuthFailState& state = g_failed_auths[peerIP];
+        if (now < state.next_allowed_ms) {
+            // Within backoff window: reject silently (suppress log spam)
+            req->WriteHeader("WWW-Authenticate", WWW_AUTH_HEADER_DATA);
+            req->WriteReply(HTTP_UNAUTHORIZED);
+            return false;
+        }
+        state.consecutive++;
+        state.next_allowed_ms = now + AuthBackoffMs(state.consecutive);
         LogPrintf("ThreadRPCServer incorrect password attempt from %s\n", jreq.peerAddr);
-
-        /* Deter brute-forcing
-           If this results in a DoS the user really
-           shouldn't have their RPC port exposed. */
-        MilliSleep(250);
-
         req->WriteHeader("WWW-Authenticate", WWW_AUTH_HEADER_DATA);
         req->WriteReply(HTTP_UNAUTHORIZED);
         return false;
+    }
+    // Successful auth: clear any backoff for this IP
+    {
+        const std::string peerIP = peer.ToStringIP();
+        LOCK(g_auth_fail_mutex);
+        g_failed_auths.erase(peerIP);
     }
 
     try {

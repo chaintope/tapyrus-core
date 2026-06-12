@@ -83,7 +83,7 @@ class CP2SHSoftforkTest(BitcoinTestFramework):
     def _issue_cp2sh(self, utxo, redeem_bytes):
         """
         Build and wallet-sign a NON_REISSUABLE issuance that creates a single
-        CP2SH colored output (100 satoshis / 100 tokens).
+        CP2SH colored output (100 TPC / 100 tokens).
 
         Returns (CTransaction, colorid_bytes).  The wallet signs only the TPC
         input; the colored output needs no signature at creation time.

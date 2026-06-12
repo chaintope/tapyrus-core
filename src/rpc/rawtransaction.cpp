@@ -566,11 +566,9 @@ static UniValue decoderawtransaction(const JSONRPCRequest& request)
             + HelpExampleRpc("decoderawtransaction", "\"hexstring\"")
         );
 
-    LOCK(cs_main);
     RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VBOOL});
 
     CMutableTransaction mtx;
-
 
     if (!DecodeHexTx(mtx, request.params[0].get_str())) {
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
@@ -1468,6 +1466,10 @@ UniValue combinepsbt(const JSONRPCRequest& request)
         psbtxs.push_back(psbtx);
     }
 
+    if (psbtxs.empty()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Parameter 'txs' cannot be empty");
+    }
+
     PartiallySignedTransaction merged_psbt(psbtxs[0]); // Copy the first one
 
     // Merge
@@ -1475,7 +1477,11 @@ UniValue combinepsbt(const JSONRPCRequest& request)
         if (*it != merged_psbt) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "PSBTs do not refer to the same transactions.");
         }
-        merged_psbt.Merge(*it);
+        try {
+            merged_psbt.Merge(*it);
+        } catch (const std::invalid_argument& e) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Cannot combine PSBTs: %s", e.what()));
+        }
     }
     if (!merged_psbt.IsSane()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Merged PSBT is inconsistent");
@@ -1645,8 +1651,9 @@ UniValue converttopsbt(const JSONRPCRequest& request)
     }
 
     // Remove all scriptSigs from inputs
+    bool permitsigdata = !request.params[1].isNull() && request.params[1].get_bool();
     for (CTxIn& input : tx.vin) {
-        if ((!input.scriptSig.empty()) && (request.params[1].isNull() || (!request.params[1].isNull() && request.params[1].get_bool()))) {
+        if (!input.scriptSig.empty() && !permitsigdata) {
             throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Inputs must not have scriptSigs");
         }
         input.scriptSig.clear();

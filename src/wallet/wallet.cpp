@@ -2271,7 +2271,11 @@ void CWallet::AvailableCoins(std::vector<COutput> &vCoins, bool fOnlySafe, const
 
         for (unsigned int i = 0; i < pcoin->tx->vout.size(); i++) {
             ColorIdentifier colorId = GetColorIdFromScript(pcoin->tx->vout[i].scriptPubKey);
-            if (pcoin->tx->vout[i].nValue < nMinimumAmount || pcoin->tx->vout[i].nValue > nMaximumAmount)
+            // minimumAmount/maximumAmount are in TPC. Token output nValue is a
+            // token count with no unit relationship to TPC, so applying this
+            // filter to colored outputs would silently misfilter them.
+            if (colorId.type == TokenTypes::NONE &&
+                    (pcoin->tx->vout[i].nValue < nMinimumAmount || pcoin->tx->vout[i].nValue > nMaximumAmount))
                 continue;
 
             if (coinControl && coinControl->HasSelected() && !coinControl->fAllowOtherInputs && !coinControl->IsSelected(COutPoint(entry.first, i)))

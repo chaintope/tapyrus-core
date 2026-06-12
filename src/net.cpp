@@ -554,7 +554,12 @@ void CConnman::Ban(const CSubNet& subNet, const BanReason &banReason, int64_t ba
         bantimeoffset = gArgs.GetArg("-bantime", DEFAULT_MISBEHAVING_BANTIME);
         sinceUnixEpoch = false;
     }
-    banEntry.nBanUntil = (sinceUnixEpoch ? 0 : GetTime() )+bantimeoffset;
+    const int64_t banBase = sinceUnixEpoch ? 0 : GetTime();
+    // Clamp to prevent signed int64 overflow, which would silently set a past expiry.
+    if (bantimeoffset > std::numeric_limits<int64_t>::max() - banBase) {
+        bantimeoffset = std::numeric_limits<int64_t>::max() - banBase;
+    }
+    banEntry.nBanUntil = banBase + bantimeoffset;
 
     {
         LOCK(cs_setBanned);

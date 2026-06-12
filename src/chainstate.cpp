@@ -624,7 +624,13 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         if (!tx.IsCoinBase())
         {
             if (!Consensus::CheckTxInputs(tx, state, view, pindex->nHeight, txfee)) {
-                return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, tx.GetHashMalFix().ToString(), FormatStateMessage(state));
+                // Capture the inner reject code and reason set by CheckTxInputs before
+                // state.DoS() overwrites them, so the specific reason is preserved.
+                unsigned int innerCode = state.GetRejectCode();
+                std::string innerReason = state.GetRejectReason();
+                return state.DoS(100, error("%s: Consensus::CheckTxInputs: %s, %s", __func__,
+                                            tx.GetHashMalFix().ToString(), FormatStateMessage(state)),
+                                 innerCode, innerReason);
             }
             nFees += txfee;
             if (!MoneyRange(nFees)) {

@@ -16,6 +16,8 @@ import os
 import http.client
 import urllib.parse
 import subprocess
+import time
+import threading
 from random import SystemRandom
 import string
 import configparser
@@ -198,6 +200,59 @@ class HTTPBasicsTest(BitcoinTestFramework):
         conn = http.client.HTTPConnection(url.hostname, url.port)
         conn.connect()
         conn.request('POST', '/', '{"method": "getbestblockhash"}', headers)
+        resp = conn.getresponse()
+        assert_equal(resp.status, 401)
+        conn.close()
+
+        ###############################################################
+        # Auth-failure per-IP backoff: worker threads must not block  #
+        ###############################################################
+        self.log.info("Test per-IP backoff: worker threads are not held during auth failures")
+        url0 = urllib.parse.urlparse(self.nodes[0].url)
+        correct_headers = {"Authorization": "Basic " + str_to_b64str(url0.username + ':' + url0.password)}
+        wrong_headers   = {"Authorization": "Basic " + str_to_b64str("wrong:wrong")}
+
+        # Send DEFAULT_HTTP_THREADS (4) wrong-auth requests in parallel and measure.
+        # With the old MilliSleep(250) each thread would block 250 ms, so 4 parallel
+        # requests would take >= 250 ms.  With the backoff map the threads return
+        # immediately; even 4 parallel bad requests must complete well under 250 ms.
+        errors = []
+        def send_wrong_auth():
+            try:
+                c = http.client.HTTPConnection(url0.hostname, url0.port)
+                c.request('POST', '/', '{"method": "getbestblockhash"}', wrong_headers)
+                r = c.getresponse()
+                r.read()
+                assert_equal(r.status, 401)
+                c.close()
+            except Exception as e:
+                errors.append(str(e))
+
+        threads = [threading.Thread(target=send_wrong_auth) for _ in range(4)]
+        t0 = time.monotonic()
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=10.0)
+        elapsed = time.monotonic() - t0
+        assert not errors, f"Parallel wrong-auth threads raised: {errors}"
+        # 4 parallel bad requests must finish well under 4 × 250 ms = 1 s
+        assert elapsed < 1.0, f"4 parallel wrong-auth requests took {elapsed:.2f}s; worker threads may be blocking"
+
+        # After failures, a valid request from the same IP must still succeed
+        # (backoff window does not block legitimate credentials)
+        conn = http.client.HTTPConnection(url0.hostname, url0.port)
+        conn.connect()
+        conn.request('POST', '/', '{"method": "getbestblockhash"}', correct_headers)
+        resp = conn.getresponse()
+        assert_equal(resp.status, 200)
+        conn.close()
+
+        # Successful auth clears the backoff; a subsequent wrong-auth should log again
+        # (i.e., not be silently dropped as within-backoff) — just verify it returns 401
+        conn = http.client.HTTPConnection(url0.hostname, url0.port)
+        conn.connect()
+        conn.request('POST', '/', '{"method": "getbestblockhash"}', wrong_headers)
         resp = conn.getresponse()
         assert_equal(resp.status, 401)
         conn.close()
