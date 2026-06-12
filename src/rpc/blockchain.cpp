@@ -2270,9 +2270,11 @@ static UniValue dumptxoutset(const JSONRPCRequest& request)
         if (fs::exists(parent)) {
             const fs::path canonical_parent = fs::canonical(parent);
             const fs::path canonical_datadir = fs::canonical(GetDataDir());
-            const std::string cp = canonical_parent.string();
-            const std::string cd = canonical_datadir.string();
-            if (cp.substr(0, cd.size()) != cd) {
+            // fs::relative returns ".." components when canonical_parent is outside
+            // canonical_datadir, so any result whose first component is ".." means
+            // the path escapes the data directory.
+            const fs::path rel = fs::relative(canonical_parent, canonical_datadir);
+            if (!rel.empty() && *rel.begin() == "..") {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Path resolves outside the data directory");
             }
         }
