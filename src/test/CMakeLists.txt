@@ -118,6 +118,7 @@ add_executable(test_tapyrus
         validation_block_tests.cpp
         xfieldhistory_tests.cpp
         xfield_tests.cpp
+        zmq_tests.cpp
         # Tests generated from JSON
         ${JSON_HEADERS}
 )

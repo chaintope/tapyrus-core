@@ -117,6 +117,8 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
     // check level 4: try reconnecting blocks
     if (nCheckLevel >= 4) {
         while (pindex != chainActive.Tip()) {
+            if (ShutdownRequested())
+                return true;
             uiInterface.ShowProgress(_("Verifying blocks..."), std::max(1, std::min(99, 100 - (int)(((double)(chainActive.Height() - pindex->nHeight)) / (double)nCheckDepth * 50))), false);
             pindex = chainActive.Next(pindex);
             CBlock block;

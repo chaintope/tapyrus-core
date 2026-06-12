@@ -179,6 +179,10 @@ void RPCNotifyBlockChange(bool ibd, const CBlockIndex * pindex)
     cond_blockchange.notify_all();
 }
 
+// Maximum wait for the wait* RPCs when caller passes timeout=0.
+// Prevents indefinite thread-pool exhaustion via concurrent wait calls.
+static constexpr int64_t MAX_WAIT_FOR_BLOCK_MS = 10 * 60 * 1000; // 10 minutes
+
 static UniValue waitfornewblock(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() > 1)
@@ -201,14 +205,12 @@ static UniValue waitfornewblock(const JSONRPCRequest& request)
     if (!request.params[0].isNull())
         timeout = request.params[0].get_int();
 
+    const int64_t effective_timeout = timeout > 0 ? timeout : MAX_WAIT_FOR_BLOCK_MS;
     CUpdatedBlock block;
     {
         std::unique_lock<std::mutex> lock(cs_blockchange);
         block = latestblock;
-        if(timeout)
-            cond_blockchange.wait_for(lock, std::chrono::milliseconds(timeout), [&block]{return latestblock.height != block.height || latestblock.hash != block.hash || !IsRPCRunning(); });
-        else
-            cond_blockchange.wait(lock, [&block]{return latestblock.height != block.height || latestblock.hash != block.hash || !IsRPCRunning(); });
+        cond_blockchange.wait_for(lock, std::chrono::milliseconds(effective_timeout), [&block]{return latestblock.height != block.height || latestblock.hash != block.hash || !IsRPCRunning(); });
         block = latestblock;
     }
     UniValue ret(UniValue::VOBJ);
@@ -243,13 +245,11 @@ static UniValue waitforblock(const JSONRPCRequest& request)
     if (!request.params[1].isNull())
         timeout = request.params[1].get_int();
 
+    const int64_t effective_timeout = timeout > 0 ? timeout : MAX_WAIT_FOR_BLOCK_MS;
     CUpdatedBlock block;
     {
         std::unique_lock<std::mutex> lock(cs_blockchange);
-        if(timeout)
-            cond_blockchange.wait_for(lock, std::chrono::milliseconds(timeout), [&hash]{return latestblock.hash == hash || !IsRPCRunning();});
-        else
-            cond_blockchange.wait(lock, [&hash]{return latestblock.hash == hash || !IsRPCRunning(); });
+        cond_blockchange.wait_for(lock, std::chrono::milliseconds(effective_timeout), [&hash]{return latestblock.hash == hash || !IsRPCRunning();});
         block = latestblock;
     }
 
@@ -286,13 +286,11 @@ static UniValue waitforblockheight(const JSONRPCRequest& request)
     if (!request.params[1].isNull())
         timeout = request.params[1].get_int();
 
+    const int64_t effective_timeout = timeout > 0 ? timeout : MAX_WAIT_FOR_BLOCK_MS;
     CUpdatedBlock block;
     {
         std::unique_lock<std::mutex> lock(cs_blockchange);
-        if(timeout)
-            cond_blockchange.wait_for(lock, std::chrono::milliseconds(timeout), [&height]{return latestblock.height >= height || !IsRPCRunning();});
-        else
-            cond_blockchange.wait(lock, [&height]{return latestblock.height >= height || !IsRPCRunning(); });
+        cond_blockchange.wait_for(lock, std::chrono::milliseconds(effective_timeout), [&height]{return latestblock.height >= height || !IsRPCRunning();});
         block = latestblock;
     }
     UniValue ret(UniValue::VOBJ);
@@ -2251,11 +2249,39 @@ static UniValue dumptxoutset(const JSONRPCRequest& request)
                 "txoutset_hash  - the hash of the UTXO set contents\n"
                 "nchaintx  - the number of transactions in the chain up to and including the base block\n");
 
-    std::string path_name = request.params[0].get_str();
-    const fs::path path = GetDataDir()/ path_name;
+    const std::string path_name = request.params[0].get_str();
+    // Reject absolute paths and any component that would traverse above datadir.
+    {
+        const fs::path rel(path_name);
+        if (rel.is_absolute()) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Path must be relative");
+        }
+        for (const auto& component : rel) {
+            if (component == "..") {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Path must not contain '..'");
+            }
+        }
+    }
+    const fs::path path = GetDataDir() / path_name;
+    // Resolve symlinks in the parent directory and verify the result stays
+    // inside datadir — prevents traversal via a symlink that points elsewhere.
+    {
+        const fs::path parent = path.parent_path();
+        if (fs::exists(parent)) {
+            const fs::path canonical_parent = fs::canonical(parent);
+            const fs::path canonical_datadir = fs::canonical(GetDataDir());
+            // fs::relative returns ".." components when canonical_parent is outside
+            // canonical_datadir, so any result whose first component is ".." means
+            // the path escapes the data directory.
+            const fs::path rel = fs::relative(canonical_parent, canonical_datadir);
+            if (!rel.empty() && *rel.begin() == "..") {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Path resolves outside the data directory");
+            }
+        }
+    }
     // Write to a temporary path and then move into `path` on completion
     // to avoid confusion due to an interruption.
-    const fs::path temppath = GetDataDir() / path_name.append(".incomplete");
+    const fs::path temppath = fs::path(path.string() + ".incomplete");
 
     if (fs::exists(path)) {
         throw JSONRPCError(

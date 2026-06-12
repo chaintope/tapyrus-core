@@ -460,8 +460,12 @@ void PartiallySignedTransaction::Merge(const PartiallySignedTransaction& psbt)
 
 bool PartiallySignedTransaction::IsSane() const
 {
-    for (PSBTInput input : inputs) {
-        if (!input.IsSane()) return false;
+    for (unsigned int i = 0; i < inputs.size(); ++i) {
+        if (!inputs[i].IsSane()) return false;
+        if (inputs[i].non_witness_utxo && tx && i < tx->vin.size() &&
+            tx->vin[i].prevout.n >= inputs[i].non_witness_utxo->vout.size()) {
+            return false;
+        }
     }
     return true;
 }
@@ -519,6 +523,13 @@ void PSBTInput::Merge(const PSBTInput& input)
 
     if (redeem_script.empty() && !input.redeem_script.empty()) redeem_script = input.redeem_script;
     if (final_script_sig.empty() && !input.final_script_sig.empty()) final_script_sig = input.final_script_sig;
+
+    // Both PSBTs have sighash_type set: they must agree. Silent discard would
+    // allow a combined PSBT to be signed with the wrong sighash type.
+    if (sighash_type > 0 && input.sighash_type > 0 && sighash_type != input.sighash_type) {
+        throw std::invalid_argument("PSBT sighash_type mismatch");
+    }
+    if (sighash_type == 0 && input.sighash_type > 0) sighash_type = input.sighash_type;
 }
 
 bool PSBTInput::IsSane() const

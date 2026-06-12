@@ -94,7 +94,7 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
 
     // figure out which output was change
     // if there was no change output or multiple change outputs, fail
-    // Colored outputs are skipped: their nValue is a token amount, not satoshis,
+    // Colored outputs are skipped: their nValue is a token amount, not tapyrus,
     // so subtracting a TPC fee delta from them silently destroys tokens.
     int nOutput = -1;
     for (size_t i = 0; i < wtx.tx->vout.size(); ++i) {
@@ -120,7 +120,10 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
             return Result::WALLET_ERROR;
         }
         std::vector<COutput> vAvailableCoins;
-        wallet->AvailableCoins(vAvailableCoins, true, &coin_control);
+        // Require at least 1 confirmation: adding a 0-conf input to a fee-bump
+        // creates an unconfirmed chain and defeats the purpose of RBF.
+        wallet->AvailableCoins(vAvailableCoins, true, &coin_control,
+                               1, MAX_MONEY, MAX_MONEY, 0, /*nMinDepth=*/1);
         for (const auto& out : vAvailableCoins) {
             if (!out.fSpendable) continue;
             const CTxOut& txout = out.tx->tx->vout[out.i];

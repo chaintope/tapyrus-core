@@ -585,7 +585,7 @@ bool VerifyTokenBalances(const CTransaction& tx, CValidationState& state, const 
             tpcout = iter->second;
 
     if(tpcin <= 0)
-        return state.Invalid(false, REJECT_INSUFFICIENTFEE, "bad-txns-token-without-fee");
+        return state.DoS(100, false, REJECT_INVALID, "bad-txns-token-without-fee");
 
     for(auto& out:outColoredCoinBalances)
     {
@@ -1323,11 +1323,15 @@ bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, CXFiel
     if(!fCheckPOW)
         return true;
 
-    //Check proof of Signed Blocks in a block header
-    const unsigned int proofSize = block.proof.size();
-
-    if(!proofSize)
-        return state.Invalid(false, REJECT_INVALID, "bad-proof", "No Proof in block");
+    // Schnorr proofs are always exactly 64 bytes. Reject early — before the
+    // expensive GetHashForSign() + Verify_Schnorr call — if the proof is the
+    // wrong size. A NONE xfield with trailing bytes appended by a peer causes
+    // those bytes to be consumed as proof data, so wrong-size proofs are the
+    // primary symptom of that malformation.
+    if (block.proof.size() != CPubKey::SCHNORR_SIGNATURE_SIZE)
+        return state.Invalid(false, REJECT_INVALID, "bad-proof-size",
+            strprintf("Proof must be %u bytes, got %u",
+                      CPubKey::SCHNORR_SIGNATURE_SIZE, block.proof.size()));
 
     // Aggpubkey to verify blocks is read from the xfield history at the block's
     // height, not at the chain tip. Both temp and non-temp paths now call Get(height) uniformly.

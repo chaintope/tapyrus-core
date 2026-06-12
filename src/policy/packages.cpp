@@ -129,7 +129,13 @@ bool SubmitPackageToMempool(const Package& package,
         opt.state.missingInputs = opt.missingInputs.size() > 0;
         results.emplace(tx->GetHashMalFix(), opt.state);
 
-        if (virtualView && opt.state.IsValid()) {
+        // Only add to the virtual overlay if the tx was TRULY accepted.
+        // IsValid() returns true even when missingInputs is set (DoAllInputsExist
+        // deliberately avoids calling state.Invalid() so callers can distinguish
+        // orphans from consensus failures).  Adding a missing-inputs tx to the
+        // overlay would let its outputs be found by downstream txs, causing them
+        // to spuriously pass TEST_ONLY validation.
+        if (virtualView && opt.state.IsValid() && !opt.state.missingInputs) {
             virtualView->AddVirtualTx(*tx);
         }
     }
@@ -139,7 +145,7 @@ bool SubmitPackageToMempool(const Package& package,
     // Relay only after the entire package has been successfully admitted.
     // Relaying per-tx inside the loop would gossip the admitted prefix of a
     // partially-failed package, enabling free relay amplification attacks.
-    if (success && opt.flags != MempoolAcceptanceFlags::TEST_ONLY) {
+    if (success && opt.flags != MempoolAcceptanceFlags::TEST_ONLY && g_connman) {
         CConnman& connman = *g_connman;
         for (auto& tx : package) {
             RelayTransaction(*tx, &connman);
