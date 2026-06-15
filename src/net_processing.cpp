@@ -1993,6 +1993,14 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         std::vector<CAddress> vAddr;
         vRecv >> vAddr;
 
+        // Skip address processing when the address book is already well-populated.
+        // We stop issuing GETADDR once the book exceeds 1000 entries (see VERACK handler
+        // above), so any ADDR arriving after that point is an unsolicited push we don't
+        // need.  The early return avoids the shuffle + token-bucket loop on up to 1000
+        // entries per message.
+        if (connman->GetAddressCount() > MAX_ADDR_TO_SEND)
+            return true;
+
         if (vAddr.size() > MAX_ADDR_TO_SEND)
         {
             LOCK(cs_main);
@@ -2679,6 +2687,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
                     } else {
                         // Give up for this peer and wait for other peer(s)
                         MarkBlockAsReceived(pindex->GetBlockHash(), pfrom->GetId());
+                        return true;
                     }
                 }
                 std::vector<CTransactionRef> dummy;
