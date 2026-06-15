@@ -103,6 +103,31 @@ class HTTPBasicsTest (BitcoinTestFramework):
         out1 = conn.getresponse()
         assert_equal(out1.status, http.client.BAD_REQUEST)
 
+        # ------------------------------------------------------------------
+        # Auth backoff: wrong credentials must return 401 and correct
+        # credentials must remain accepted after a run of failures.
+        # ------------------------------------------------------------------
+        url0 = urllib.parse.urlparse(self.nodes[0].url)
+        bad_headers = {"Authorization": "Basic " + str_to_b64str(url0.username + ":wrong_password")}
+        good_headers = {"Authorization": "Basic " + str_to_b64str(url0.username + ":" + url0.password)}
+        body = '{"method": "getbestblockhash"}'
+
+        for _ in range(5):
+            conn = http.client.HTTPConnection(url0.hostname, url0.port)
+            conn.connect()
+            conn.request('POST', '/', body, bad_headers)
+            resp = conn.getresponse()
+            assert_equal(resp.status, http.client.UNAUTHORIZED)
+            conn.close()
+
+        # Correct credentials must still be accepted after the failures
+        conn = http.client.HTTPConnection(url0.hostname, url0.port)
+        conn.connect()
+        conn.request('POST', '/', body, good_headers)
+        resp = conn.getresponse()
+        assert_equal(resp.status, http.client.OK)
+        conn.close()
+
 
 if __name__ == '__main__':
     HTTPBasicsTest ().main ()

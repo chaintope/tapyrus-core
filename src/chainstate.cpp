@@ -624,13 +624,13 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         if (!tx.IsCoinBase())
         {
             if (!Consensus::CheckTxInputs(tx, state, view, pindex->nHeight, txfee)) {
-                // Capture the inner reject code and reason set by CheckTxInputs before
-                // state.DoS() overwrites them, so the specific reason is preserved.
-                unsigned int innerCode = state.GetRejectCode();
-                std::string innerReason = state.GetRejectReason();
-                return state.DoS(100, error("%s: Consensus::CheckTxInputs: %s, %s", __func__,
-                                            tx.GetHashMalFix().ToString(), FormatStateMessage(state)),
-                                 innerCode, innerReason);
+                // Do not add to the DoS score already set by CheckTxInputs.
+                // "bad-txns-premature-spend-of-coinbase" deliberately uses DoS=0
+                // (via state.Invalid) so that a peer relaying a block during a
+                // reorg race is not banned.  Calling state.DoS(100,...) here
+                // would accumulate on top of that and cause an unjust instant ban.
+                return error("%s: Consensus::CheckTxInputs: %s, %s", __func__,
+                             tx.GetHashMalFix().ToString(), FormatStateMessage(state));
             }
             nFees += txfee;
             if (!MoneyRange(nFees)) {
