@@ -174,4 +174,53 @@ BOOST_AUTO_TEST_CASE(boolargno)
     BOOST_CHECK(gArgs.GetBoolArg("-foo", false));
 }
 
+// InterpretBool must accept common boolean word spellings in any case.
+// Previously std::from_chars silently returned 0 for non-numeric strings,
+// so -persistmempool=true (and similar) were silently treated as false.
+BOOST_AUTO_TEST_CASE(boolarg_word_spellings)
+{
+    SetupArgs({"-foo"});
+
+    // True spellings
+    for (const std::string& s : {"-foo=true", "-foo=True", "-foo=TRUE",
+                                  "-foo=yes",  "-foo=Yes",  "-foo=YES",
+                                  "-foo=on",   "-foo=On",   "-foo=ON"}) {
+        ResetArgs(s);
+        BOOST_CHECK_MESSAGE(gArgs.GetBoolArg("-foo", false), s + " should be true");
+        BOOST_CHECK_MESSAGE(gArgs.GetBoolArg("-foo", true),  s + " should be true");
+    }
+
+    // False spellings
+    for (const std::string& s : {"-foo=false", "-foo=False", "-foo=FALSE",
+                                  "-foo=no",    "-foo=No",    "-foo=NO",
+                                  "-foo=off",   "-foo=Off",   "-foo=OFF"}) {
+        ResetArgs(s);
+        BOOST_CHECK_MESSAGE(!gArgs.GetBoolArg("-foo", false), s + " should be false");
+        BOOST_CHECK_MESSAGE(!gArgs.GetBoolArg("-foo", true),  s + " should be false");
+    }
+
+    // Numeric values still work
+    ResetArgs("-foo=1");
+    BOOST_CHECK(gArgs.GetBoolArg("-foo", false));
+    ResetArgs("-foo=0");
+    BOOST_CHECK(!gArgs.GetBoolArg("-foo", false));
+    ResetArgs("-foo=42");
+    BOOST_CHECK(gArgs.GetBoolArg("-foo", false));
+
+    // Unrecognised value is treated as false (with a logged warning)
+    ResetArgs("-foo=banana");
+    BOOST_CHECK(!gArgs.GetBoolArg("-foo", false));
+    BOOST_CHECK(!gArgs.GetBoolArg("-foo", true));
+
+    // -nofoo=true negates correctly: InterpretBool("true")==true, then negated → false
+    SetupArgs({"-foo", "-bar"});
+    ResetArgs("-nofoo=true");
+    BOOST_CHECK(!gArgs.GetBoolArg("-foo", true));
+    BOOST_CHECK(!gArgs.GetBoolArg("-foo", false));
+
+    ResetArgs("-nofoo=false");
+    BOOST_CHECK(gArgs.GetBoolArg("-foo", false));
+    BOOST_CHECK(gArgs.GetBoolArg("-foo", true));
+}
+
 BOOST_AUTO_TEST_SUITE_END()
