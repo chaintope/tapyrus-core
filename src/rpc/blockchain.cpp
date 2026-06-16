@@ -214,7 +214,7 @@ static UniValue waitfornewblock(const JSONRPCRequest& request)
             cond_blockchange.wait(lock, [&block]{return latestblock.height != block.height || latestblock.hash != block.hash || !IsRPCRunning(); });
         } else {
             // Negative timeout clamps to 0: polls once and returns immediately (preserves pre-audit script behavior).
-            const int64_t ms = std::max(0LL, std::min((int64_t)timeout, MAX_WAIT_FOR_BLOCK_MS));
+            const int64_t ms = std::max((int64_t)0, std::min((int64_t)timeout, MAX_WAIT_FOR_BLOCK_MS));
             cond_blockchange.wait_for(lock, std::chrono::milliseconds(ms), [&block]{return latestblock.height != block.height || latestblock.hash != block.hash || !IsRPCRunning(); });
         }
         block = latestblock;
@@ -258,7 +258,7 @@ static UniValue waitforblock(const JSONRPCRequest& request)
             cond_blockchange.wait(lock, [&hash]{return latestblock.hash == hash || !IsRPCRunning(); });
         } else {
             // Negative timeout clamps to 0: polls once and returns immediately (preserves pre-audit script behavior).
-            const int64_t ms = std::max(0LL, std::min((int64_t)timeout, MAX_WAIT_FOR_BLOCK_MS));
+            const int64_t ms = std::max((int64_t)0, std::min((int64_t)timeout, MAX_WAIT_FOR_BLOCK_MS));
             cond_blockchange.wait_for(lock, std::chrono::milliseconds(ms), [&hash]{return latestblock.hash == hash || !IsRPCRunning();});
         }
         block = latestblock;
@@ -304,7 +304,7 @@ static UniValue waitforblockheight(const JSONRPCRequest& request)
             cond_blockchange.wait(lock, [&height]{return latestblock.height >= height || !IsRPCRunning(); });
         } else {
             // Negative timeout clamps to 0: polls once and returns immediately (preserves pre-audit script behavior).
-            const int64_t ms = std::max(0LL, std::min((int64_t)timeout, MAX_WAIT_FOR_BLOCK_MS));
+            const int64_t ms = std::max((int64_t)0, std::min((int64_t)timeout, MAX_WAIT_FOR_BLOCK_MS));
             cond_blockchange.wait_for(lock, std::chrono::milliseconds(ms), [&height]{return latestblock.height >= height || !IsRPCRunning();});
         }
         block = latestblock;
