@@ -172,7 +172,7 @@ static bool InterpretBool(const std::string& strValue)
     auto iequals = [](const std::string& s, std::string_view lower) {
         if (s.size() != lower.size()) return false;
         for (size_t i = 0; i < lower.size(); ++i)
-            if (tolower((unsigned char)s[i]) != (unsigned char)lower[i]) return false;
+            if (ToLower((unsigned char)s[i]) != (unsigned char)lower[i]) return false;
         return true;
     };
     if (iequals(strValue, "true")  || iequals(strValue, "yes") || iequals(strValue, "on"))  return true;
