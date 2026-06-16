@@ -270,10 +270,15 @@ ifeq ($(host),$(build))
 endif
 # Fix CGDisplayCreateImageForRect obsoleted in macOS 15.0
 # Comment out the call and return empty pixmap (screen grab will fail gracefully)
-# Only needed for cross-compilation (native macOS builds use BSD sed which requires -i '')
+# Cross-compilation only (native darwin builds already satisfy host==build and are excluded).
+# BSD sed (build machine is macOS) needs -i '' while GNU sed (Linux build machine) uses -i.
 ifeq ($(host_os),darwin)
 ifneq ($(host),$(build))
+ifeq ($(build_os),darwin)
+  $(package)_preprocess_cmds += && sed -i '' 's/CGDisplayCreateImageForRect(displayId, grabRect.toCGRect())/nullptr \/* CGDisplayCreateImageForRect obsoleted in macOS 15 *\//' qtbase/src/plugins/platforms/cocoa/qcocoascreen.mm
+else
   $(package)_preprocess_cmds += && sed -i 's/CGDisplayCreateImageForRect(displayId, grabRect.toCGRect())/nullptr \/* CGDisplayCreateImageForRect obsoleted in macOS 15 *\//' qtbase/src/plugins/platforms/cocoa/qcocoascreen.mm
+endif
 endif
 endif
 
