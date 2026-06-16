@@ -278,17 +278,22 @@ class BlockchainTest(BitcoinTestFramework):
         assert_waitforheight(current_height + 1)
 
         # ---------------------------------------------------------------
-        # Security: negative timeout must be rejected with -8
-        # (previously -1 was silently treated as a non-blocking sentinel)
+        # Negative timeout clamps to 0: a single non-blocking predicate
+        # check, returning immediately with current state instead of
+        # waiting (preserves pre-audit script semantics where -1 was used
+        # as a non-blocking poll sentinel).
         # ---------------------------------------------------------------
-        self.log.info("Test wait* RPCs reject negative timeouts")
+        self.log.info("Test wait* RPCs treat negative timeouts as immediate, non-blocking polls")
         for bad_timeout in (-1, -100, -2147483648):
-            assert_raises_rpc_error(-8, "timeout must be non-negative",
-                node.waitforblockheight, current_height + 1, bad_timeout)
-            assert_raises_rpc_error(-8, "timeout must be non-negative",
-                node.waitfornewblock, bad_timeout)
-            assert_raises_rpc_error(-8, "timeout must be non-negative",
-                node.waitforblock, current_hash, bad_timeout)
+            assert_equal(
+                node.waitforblockheight(current_height + 1, bad_timeout)['height'],
+                current_height)
+            assert_equal(
+                node.waitfornewblock(bad_timeout)['height'],
+                current_height)
+            assert_equal(
+                node.waitforblock(current_hash, bad_timeout)['height'],
+                current_height)
 
         # ---------------------------------------------------------------
         # Security: large positive timeout (INT_MAX ≈ 25 days) must be
