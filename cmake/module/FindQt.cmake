@@ -56,8 +56,12 @@ else()
 endif()
 
 include(FindPackageHandleStandardArgs)
+# Check Qt${Qt_FIND_VERSION_MAJOR}_FOUND (not just _DIR) so that a component
+# failure (e.g. Qt6::Core not created) properly propagates the error through
+# this MODULE wrapper rather than silently reporting "Found Qt" while Qt6_DIR
+# was cached from the toolchain.
 find_package_handle_standard_args(Qt
-  REQUIRED_VARS Qt${Qt_FIND_VERSION_MAJOR}_DIR
+  REQUIRED_VARS Qt${Qt_FIND_VERSION_MAJOR}_FOUND
   VERSION_VAR Qt${Qt_FIND_VERSION_MAJOR}_VERSION
 )
 

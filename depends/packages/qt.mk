@@ -283,6 +283,13 @@ endef
 define $(package)_stage_cmds
   cmake --install . --prefix $($(package)_staging_prefix_dir) --strip
 endef
+# For native builds (host == build) Qt does not install the host_tools cmake
+# component (Qt6CoreToolsConfig.cmake, Qt6LinguistToolsConfig.cmake, etc.) as
+# part of the default install.  Qt6CoreConfig.cmake requires Qt6CoreTools to
+# configure successfully, so we install that component explicitly.
+ifeq ($(host),$(build))
+  $(package)_stage_cmds += && cmake --install . --prefix $($(package)_staging_prefix_dir) --component host_tools
+endif
 
 define $(package)_postprocess_cmds
   rm -rf doc/

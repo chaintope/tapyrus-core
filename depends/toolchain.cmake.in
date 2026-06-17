@@ -115,6 +115,18 @@ set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
 set(QT_TRANSLATIONS_DIR "${CMAKE_CURRENT_LIST_DIR}/translations")
 
+# CMAKE_FIND_ROOT_PATH restricts cmake's own find_library/find_path/find_package
+# calls, but pkg_check_modules (used by Qt's cmake to locate XCB/XKB deps like
+# xkbcommon-x11) reads PKG_CONFIG_PATH from the environment and ignores
+# CMAKE_FIND_ROOT_PATH.  Prepend the depends prefix so .pc files are found.
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "Windows")
+  if(DEFINED ENV{PKG_CONFIG_PATH})
+    set(ENV{PKG_CONFIG_PATH} "${CMAKE_CURRENT_LIST_DIR}/lib/pkgconfig:$ENV{PKG_CONFIG_PATH}")
+  else()
+    set(ENV{PKG_CONFIG_PATH} "${CMAKE_CURRENT_LIST_DIR}/lib/pkgconfig")
+  endif()
+endif()
+
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND NOT CMAKE_HOST_APPLE)
   # The find_package(Qt ...) function internally uses find_library()
   # calls for all dependencies to ensure their availability.
@@ -129,6 +141,29 @@ set(qt_packages @qt_packages@)
 # Only set if Qt was built (qt_packages is not empty)
 if(NOT "${qt_packages}" STREQUAL "")
   set(Qt6_DIR "${CMAKE_CURRENT_LIST_DIR}/lib/cmake/Qt6" CACHE PATH "Qt6 installation directory")
+  # Qt6CoreConfig.cmake looks up Qt6CoreTools (moc, rcc, uic, lrelease …) via
+  # QT_HOST_PATH.  Without it Qt6CoreTools_DIR is unset and Qt6::Core fails to
+  # configure even on native (non-cross) builds.
+  #
+  # For cross-compilation QT_HOST_PATH points to the separate native-Qt prefix;
+  # for native builds it is the same prefix as the target libraries.
+  if(NOT DEFINED QT_HOST_PATH)
+    if(@depends_crosscompiling@)
+      # Cross-compilation: try the environment variable first (Guix sets it).
+      if(DEFINED ENV{QT_HOST_PATH})
+        set(QT_HOST_PATH "$ENV{QT_HOST_PATH}" CACHE PATH
+            "Native Qt host installation used for cross-compilation build tools")
+      endif()
+    else()
+      # Native build: tools live in the same prefix as the target libraries.
+      set(QT_HOST_PATH "${CMAKE_CURRENT_LIST_DIR}" CACHE PATH
+          "Qt host installation (same prefix as target for native builds)")
+    endif()
+  endif()
+  if(DEFINED QT_HOST_PATH AND NOT DEFINED QT_HOST_PATH_CMAKE_DIR)
+    set(QT_HOST_PATH_CMAKE_DIR "${QT_HOST_PATH}/lib/cmake" CACHE PATH
+        "lib/cmake directory of the Qt host installation")
+  endif()
 endif()
 # Only set default if not already specified by user/CI or command line
 if(NOT DEFINED BUILD_GUI AND NOT DEFINED CACHE{BUILD_GUI})
@@ -139,29 +174,30 @@ if(NOT DEFINED BUILD_GUI AND NOT DEFINED CACHE{BUILD_GUI})
   endif()
 endif()
 
-set(qrencode_packages @qrencode_packages@)
 # Only set default if not already specified by user/CI or command line
 if(NOT DEFINED WITH_QRENCODE AND NOT DEFINED CACHE{WITH_QRENCODE})
-  if("${qrencode_packages}" STREQUAL "")
+  if("${qt_packages}" STREQUAL "")
     set(WITH_QRENCODE OFF CACHE BOOL "")
   else()
     set(WITH_QRENCODE ON CACHE BOOL "")
   endif()
 endif()
 
-set(zmq_packages @zmq_packages@)
-# Only set default if not already specified by user/CI or command line
+# zeromq has no NO_ZMQ toggle in depends/packages/packages.mk — it is always
+# built, so set its defaults unconditionally (mirrors BerkeleyDB_ROOT below).
 if(NOT DEFINED ENABLE_ZMQ AND NOT DEFINED CACHE{ENABLE_ZMQ})
-  if("${zmq_packages}" STREQUAL "")
-    set(ENABLE_ZMQ OFF CACHE BOOL "")
-  else()
-    set(ENABLE_ZMQ ON CACHE BOOL "")
-    # Provide static library paths for manual search
-    set(ZEROMQ_ROOT "${CMAKE_CURRENT_LIST_DIR}" CACHE PATH "")
-    set(ZEROMQ_LIBRARY "${CMAKE_CURRENT_LIST_DIR}/lib/libzmq.a" CACHE FILEPATH "")
-    set(ZEROMQ_INCLUDE_DIR "${CMAKE_CURRENT_LIST_DIR}/include" CACHE PATH "")
-  endif()
+  set(ENABLE_ZMQ ON CACHE BOOL "")
 endif()
+# Provide static library paths for manual search
+set(ZEROMQ_ROOT "${CMAKE_CURRENT_LIST_DIR}" CACHE PATH "")
+set(ZEROMQ_LIBRARY "${CMAKE_CURRENT_LIST_DIR}/lib/libzmq.a" CACHE FILEPATH "")
+set(ZEROMQ_INCLUDE_DIR "${CMAKE_CURRENT_LIST_DIR}/include" CACHE PATH "")
+
+# boost has no NO_BOOST toggle in depends/packages/packages.mk — it is always
+# built, so set its defaults unconditionally.
+set(BOOST_ROOT "${CMAKE_CURRENT_LIST_DIR}" CACHE PATH "")
+set(BOOST_INCLUDEDIR "${CMAKE_CURRENT_LIST_DIR}/include" CACHE PATH "")
+set(BOOST_LIBRARYDIR "${CMAKE_CURRENT_LIST_DIR}/lib" CACHE PATH "")
 
 # Force use of static BerkeleyDB library from depends
 set(BerkeleyDB_ROOT "${CMAKE_CURRENT_LIST_DIR}" CACHE PATH "")
@@ -177,10 +213,9 @@ if(NOT DEFINED ENABLE_WALLET)
   endif()
 endif()
 
-set(bdb_packages @bdb_packages@)
 # Only set default if not already specified by user/CI or command line
 if(NOT DEFINED WITH_BDB AND NOT DEFINED CACHE{WITH_BDB})
-  if("${wallet_packages}" STREQUAL "" OR "${bdb_packages}" STREQUAL "")
+  if("${wallet_packages}" STREQUAL "")
     set(WITH_BDB OFF CACHE BOOL "")
   else()
     set(WITH_BDB ON CACHE BOOL "")
