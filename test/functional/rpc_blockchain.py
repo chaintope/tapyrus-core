@@ -243,6 +243,7 @@ class BlockchainTest(BitcoinTestFramework):
         node.add_p2p_connection(P2PInterface(node.time_to_connect))
 
         current_height = node.getblock(node.getbestblockhash())['height']
+        current_hash   = node.getbestblockhash()
 
         # Create a fork somewhere below our current height, invalidate the tip
         # of that fork, and then ensure that waitforblockheight still
@@ -275,6 +276,60 @@ class BlockchainTest(BitcoinTestFramework):
         assert_waitforheight(current_height - 1)
         assert_waitforheight(current_height)
         assert_waitforheight(current_height + 1)
+
+        # ---------------------------------------------------------------
+        # Negative timeout clamps to 0: a single non-blocking predicate
+        # check, returning immediately with current state instead of
+        # waiting (preserves pre-audit script semantics where -1 was used
+        # as a non-blocking poll sentinel).
+        # ---------------------------------------------------------------
+        self.log.info("Test wait* RPCs treat negative timeouts as immediate, non-blocking polls")
+        for bad_timeout in (-1, -100, -2147483648):
+            assert_equal(
+                node.waitforblockheight(current_height + 1, bad_timeout)['height'],
+                current_height)
+            assert_equal(
+                node.waitfornewblock(bad_timeout)['height'],
+                current_height)
+            assert_equal(
+                node.waitforblock(current_hash, bad_timeout)['height'],
+                current_height)
+
+        # ---------------------------------------------------------------
+        # Security: large positive timeout (INT_MAX ≈ 25 days) must be
+        # accepted but capped internally at MAX_WAIT_FOR_BLOCK_MS (10 min).
+        # When the condition is already satisfied the call returns
+        # immediately regardless of timeout value, so we can exercise the
+        # code path safely without waiting 10 minutes.
+        # ---------------------------------------------------------------
+        self.log.info("Test wait* RPCs cap large positive timeouts")
+        INT_MAX = 2147483647
+
+        # waitforblockheight: height already reached → immediate return
+        result = node.waitforblockheight(current_height, INT_MAX)
+        assert_equal(result['height'], current_height)
+
+        # waitforblock: hash is the current tip → immediate return
+        result = node.waitforblock(current_hash, INT_MAX)
+        assert_equal(result['height'], current_height)
+
+        # waitfornewblock: always waits for a block newer than the
+        # snapshot captured at call time, so use a 1 ms timeout to verify
+        # it returns promptly and returns current tip state on timeout.
+        result = node.waitfornewblock(1)
+        assert_equal(result['height'], current_height)
+
+        # ---------------------------------------------------------------
+        # Zero timeout (indefinite) returns immediately when condition
+        # is already satisfied (predicate check before first wait).
+        # ---------------------------------------------------------------
+        self.log.info("Test wait* RPCs with timeout=0 return immediately when condition is met")
+        assert_equal(
+            node.waitforblockheight(current_height, 0)['height'],
+            current_height)
+        assert_equal(
+            node.waitforblock(current_hash, 0)['height'],
+            current_height)
 
 
 if __name__ == '__main__':

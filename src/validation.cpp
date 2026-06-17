@@ -585,7 +585,7 @@ bool VerifyTokenBalances(const CTransaction& tx, CValidationState& state, const 
             tpcout = iter->second;
 
     if(tpcin <= 0)
-        return state.DoS(100, false, REJECT_INVALID, "bad-txns-token-without-fee");
+        return state.Invalid(false, REJECT_INSUFFICIENTFEE, "bad-txns-token-without-fee");
 
     for(auto& out:outColoredCoinBalances)
     {

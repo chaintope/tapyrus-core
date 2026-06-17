@@ -14,6 +14,7 @@
 #include <stdarg.h>
 #include <charconv>
 #include <fstream>
+#include <string_view>
 
 #if (defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__))
 #include <pthread.h>
@@ -164,10 +165,29 @@ static bool InterpretBool(const std::string& strValue)
 {
     if (strValue.empty())
         return true;
-    // Use std::from_chars for locale-independent conversion
+
+    // Case-insensitive match against common boolean words.
+    // Operators writing -arg=true / -arg=yes / -arg=on (or their negations)
+    // are a common and reasonable expectation.
+    auto iequals = [](const std::string& s, std::string_view lower) {
+        if (s.size() != lower.size()) return false;
+        for (size_t i = 0; i < lower.size(); ++i)
+            if (ToLower((unsigned char)s[i]) != (unsigned char)lower[i]) return false;
+        return true;
+    };
+    if (iequals(strValue, "true")  || iequals(strValue, "yes") || iequals(strValue, "on"))  return true;
+    if (iequals(strValue, "false") || iequals(strValue, "no")  || iequals(strValue, "off")) return false;
+
+    // Numeric fallback: "1" → true, "0" → false.
+    // Validate the full string was consumed so "1abc" is not silently treated as 1.
     int val = 0;
-    std::from_chars(strValue.data(), strValue.data() + strValue.size(), val);
-    return (val != 0);
+    auto [ptr, ec] = std::from_chars(strValue.data(), strValue.data() + strValue.size(), val);
+    if (ec == std::errc{} && ptr == strValue.data() + strValue.size())
+        return val != 0;
+
+    // Unrecognised value: warn so the operator notices the misconfiguration.
+    LogPrintf("Warning: unrecognized boolean value '%s'; treating as false.\n", strValue);
+    return false;
 }
 
 /** Internal helper functions for ArgsManager */
