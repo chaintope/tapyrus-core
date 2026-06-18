@@ -417,8 +417,9 @@ void static UpdateTip(const CBlockIndex *pindexNew)
 
     RefreshChainTxDataFromTip(pindexNew);
 
-    LogPrintf("%s: new best=%s height=%d version=0x%08x tx=%lu date='%s' progress=%f cache=%.1fMiB(%utxo)", __func__, /* Continued */
+    LogPrintf("%s: new best=%s height=%d version=0x%08x xfield=%s tx=%lu date='%s' progress=%f cache=%.1fMiB(%utxo)", __func__, /* Continued */
       pindexNew->GetBlockHash().ToString(), pindexNew->nHeight, pindexNew->nFeatures,
+      pindexNew->xfield.ToString(),
       (unsigned long)pindexNew->nChainTx, FormatISO8601DateTime(pindexNew->GetBlockTime()),
       GuessVerificationProgress(Params().TxData(), pindexNew), pcoinsTip->DynamicMemoryUsage() * (1.0 / (1<<20)), pcoinsTip->GetCacheSize());
     LogPrintf("\n");
@@ -917,7 +918,7 @@ bool CChainState::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, co
         const unsigned int newSoftforkFlags = GetSoftForkManager().ActivationFlagsChange(
             FederationParams().NetworkId(), pindexNew->nHeight, pindexNew->nHeight + 1);
         if (newSoftforkFlags) {
-            mempool.removeForScriptFlagChange(STANDARD_SCRIPT_VERIFY_FLAGS | newSoftforkFlags);
+            mempool.removeForScriptFlagChange(STANDARD_SCRIPT_VERIFY_FLAGS | newSoftforkFlags, pindexNew->nHeight + 1);
         }
     }
 
@@ -1441,7 +1442,7 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
     if(pxfieldHistory
         && block.xfield.IsValid()
         && pindex->nHeight > 0
-        && IsXFieldNew(block.xfield, pxfieldHistory, static_cast<uint32_t>(pindex->nHeight - 1)))
+        && IsXFieldNew(block.xfield, pxfieldHistory, static_cast<uint32_t>(pindex->nHeight)))
     {
         XFieldChange newChange(block.xfield.xfieldValue, pindex->nHeight + 1, block.GetHash());
         pxfieldHistory->Add(block.xfield.xfieldType, newChange);

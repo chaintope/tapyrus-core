@@ -551,7 +551,7 @@ public:
     /** Evict mempool entries that fail script checks under newMempoolScriptFlags.
      *  Called when crossing a softfork activation boundary so that stale
      *  pre-activation entries cannot pollute block templates. Caller must hold cs_main. */
-    void removeForScriptFlagChange(unsigned int newMempoolScriptFlags);
+    void removeForScriptFlagChange(unsigned int newMempoolScriptFlags, int32_t newBlockHeight);
 
     void clear();
     void _clear() EXCLUSIVE_LOCKS_REQUIRED(cs); //lock free

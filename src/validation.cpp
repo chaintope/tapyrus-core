@@ -585,7 +585,7 @@ bool VerifyTokenBalances(const CTransaction& tx, CValidationState& state, const 
             tpcout = iter->second;
 
     if(tpcin <= 0)
-        return state.DoS(100, false, REJECT_INVALID, "bad-txns-token-without-fee");
+        return state.Invalid(false, REJECT_INSUFFICIENTFEE, "bad-txns-token-without-fee");
 
     for(auto& out:outColoredCoinBalances)
     {
@@ -1029,6 +1029,9 @@ bool AcceptToMemoryPool(const CTransactionRef &tx, CTxMempoolAcceptanceOptions& 
                 opt.state.GetRejectReason().c_str());
         }
     }
+    // Always clear after consuming so callers that reuse opt across multiple calls
+    // (e.g. SubmitPackageToMempool) never see stale entries from a previous iteration.
+    opt.coins_to_uncache.clear();
     // After we've (potentially) uncached entries, ensure our coins cache is still within its size limits
     CValidationState stateDummy;
     FlushStateToDisk(stateDummy, FlushStateMode::PERIODIC);

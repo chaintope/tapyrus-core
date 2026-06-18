@@ -121,17 +121,12 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
     // check level 4: try reconnecting blocks
     if (nCheckLevel >= 4) {
         while (pindex != chainActive.Tip()) {
-<<<<<<< HEAD
-            if (ShutdownRequested())
-                return true;
-=======
             if (ShutdownRequested()) {
                 LogPrintf("[ABORTED].\n");
                 LogPrintf("VerifyDB(): interrupted by shutdown at height %d — level-4 reconnect incomplete\n",
                           pindex->nHeight);
                 return true;
             }
->>>>>>> d728fe2f23 (Fix HTTPAUTH backoff evicting the wrong peer, all low priority issues)
             uiInterface.ShowProgress(_("Verifying blocks..."), std::max(1, std::min(99, 100 - (int)(((double)(chainActive.Height() - pindex->nHeight)) / (double)nCheckDepth * 50))), false);
             pindex = chainActive.Next(pindex);
             CBlock block;

@@ -330,7 +330,7 @@ struct CNodeState {
         m_last_block_announcement = 0;
         m_recently_announced_invs.reset();
         m_addr_token_bucket = 1.0;
-        m_addr_token_timestamp = std::chrono::microseconds(GetTimeMicros());
+        m_addr_token_timestamp = std::chrono::microseconds(GetTimeMicros(true));
         m_addr_rate_limited = 0;
         m_addr_processed = 0;
     }
