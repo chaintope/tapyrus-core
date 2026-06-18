@@ -199,7 +199,7 @@ class TestNode():
         try:
             self.stop()
         except http.client.CannotSendRequest:
-            self.log.debug("Unable to stop node (CannotSendRequest — already stopping).")
+            self.log.info("Unable to stop node (CannotSendRequest — may indicate a non-stop-related issue).")
         except ConnectionRefusedError:
             # encryptwallet and similar RPCs trigger an internal shutdown before
             # returning, so by the time we send the stop RPC the HTTP server is

@@ -142,13 +142,22 @@ def normalise(name: str) -> str:
 
 
 def strip_comments(src: str) -> str:
-    """Remove block comments /* ... */ and line comments."""
+    """Remove block comments /* ... */ and line comments, and blank string literals."""
     # Block comments (non-greedy, allow newlines)
     src = re.sub(r'/\*.*?\*/', lambda m: '\n' * m.group().count('\n'), src, flags=re.DOTALL)
+    # String literals — replace contents with empty string so that a '}' inside
+    # a string does not corrupt the brace-depth counter in iter_function_bodies.
+    src = re.sub(r'"(?:[^"\\]|\\.)*"', '""', src)
     lines = []
     for line in src.splitlines():
         lines.append(RE_LINE_CMT.sub('', line))
     return '\n'.join(lines)
+
+
+# Matches a closing ')' as the last significant character before '{', optionally
+# followed only by C++ post-qualifiers.  Used by iter_function_bodies to
+# distinguish function/lambda/if bodies from namespace/class/struct blocks.
+RE_FN_SIGNATURE_END = re.compile(r'\)\s*(?:(?:const|noexcept|override|final)\s*)*$')
 
 
 # ---------------------------------------------------------------------------
@@ -156,30 +165,36 @@ def strip_comments(src: str) -> str:
 # ---------------------------------------------------------------------------
 def iter_function_bodies(src: str) -> List[Tuple[int, str]]:
     """
-    Yield (start_line, body_text) for each top-level function/method body.
-    Very simplified: finds '{' at depth 0 and returns content until matching '}'.
+    Yield (start_line, body_text) for each function or method body.
+
+    A brace block is treated as a function body when the text between the
+    previous '}' (or start of file) and the opening '{' ends with ')' or a
+    C++ post-qualifier such as const/noexcept/override/final.  Namespace,
+    class, struct, and enum blocks do not match this pattern and are therefore
+    recursed into without being yielded — eliminating the false lock-ordering
+    edges that arise from treating an entire namespace as one function body.
     """
     bodies = []
-    depth = 0
-    start = None
-    start_line = 1
-    i = 0
+    # Stack entries: (is_function_body, body_start_idx, body_start_line)
+    stack: List[Tuple[bool, int, int]] = []
+    seg_start = 0   # position right after the last '{' or '}'
     line_no = 1
-    while i < len(src):
-        ch = src[i]
+
+    for i, ch in enumerate(src):
         if ch == '\n':
             line_no += 1
-        if ch == '{':
-            if depth == 0:
-                start = i + 1
-                start_line = line_no
-            depth += 1
+        elif ch == '{':
+            preceding = src[seg_start:i]
+            is_fn = bool(RE_FN_SIGNATURE_END.search(preceding))
+            stack.append((is_fn, i + 1, line_no))
+            seg_start = i + 1
         elif ch == '}':
-            depth -= 1
-            if depth == 0 and start is not None:
-                bodies.append((start_line, src[start:i]))
-                start = None
-        i += 1
+            seg_start = i + 1
+            if stack:
+                is_fn, body_start, body_start_line = stack.pop()
+                if is_fn:
+                    bodies.append((body_start_line, src[body_start:i]))
+
     return bodies
 
 
@@ -233,8 +248,9 @@ def extract_orderings(filepath: str) -> List[Ordering]:
         # Walk the body tracking which LOCK()s are "open" at each depth.
         # When we see LOCK(b) while LOCK(a) is open at a shallower depth,
         # record a → b.
-        # TRY_LOCK acquisitions are NOT added to the held-set because they are
-        # non-blocking and therefore cannot participate in circular-wait deadlocks.
+        # TRY_LOCK is included: when it succeeds the mutex IS held, so the
+        # nesting a→b is a real ordering.  (Pass 2 already records TRY_LOCK
+        # edges; this makes Pass 3 consistent with that.)
         depth_locks: List[List[str]] = [[]]  # stack of per-depth mutex lists
         depth = 0
         i = 0
@@ -250,8 +266,8 @@ def extract_orderings(filepath: str) -> List[Ordering]:
                     depth_locks[depth] = []
                 depth = max(0, depth - 1)
             else:
-                # Check for blocking LOCK( at this position (TRY_LOCK excluded)
-                m = RE_LOCK.match(body, i)
+                # Check for LOCK( or TRY_LOCK( at this position
+                m = RE_LOCK.match(body, i) or RE_TRYLOCK.match(body, i)
                 if m:
                     b = normalise(m.group(1))
                     if b and b not in TRY_LOCK_ONLY_NAMES:
