@@ -30,7 +30,7 @@ jobs:
     name: Lint Check
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           submodules: false
@@ -85,14 +85,14 @@ jobs:
       BOOST_TEST_RANDOM: 1
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           submodules: recursive
 
       - name: Restore Ccache cache
         id: ccache-cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ${{ env.CCACHE_DIR }}
           key: smoke-${{ matrix.config.platform }}-${{ matrix.config.arch }}-ccache-${{ github.run_id }}
@@ -267,7 +267,7 @@ jobs:
           echo "---------------- SMOKE TEST COMPLETE ---------------------"
 
       - name: Save Ccache cache
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         if: steps.ccache-cache.outputs.cache-hit != 'true'
         continue-on-error: true
         with:
@@ -276,7 +276,7 @@ jobs:
 
       - name: Upload Windows binaries
         if: matrix.config.platform == 'windows' && always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: tapyrus-windows-${{ matrix.config.arch }}-binaries
           path: |
@@ -286,7 +286,7 @@ jobs:
 
       - name: Upload test results
         if: matrix.config.platform != 'windows' && always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: smoke-test-results-${{ matrix.config.name }}
           path: |
@@ -332,7 +332,7 @@ jobs:
 
       - name: Upload Core Dumps
         if: failure() && matrix.config.platform != 'windows'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: smoke-core-dumps-${{ matrix.config.name }}
           path: ${{ github.workspace }}/core_dumps/
