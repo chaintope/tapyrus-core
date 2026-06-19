@@ -800,9 +800,14 @@ BOOST_AUTO_TEST_CASE(util_time_GetTime)
         BOOST_CHECK_EQUAL(111000, GetTimeMillis(true));
         BOOST_CHECK_EQUAL(111000000, GetTimeMicros(true));
 
-        const auto ntime = GetSystemTimeInSeconds();
-        BOOST_CHECK_EQUAL(ntime, GetTimeMillis()/1000);
-        BOOST_CHECK_EQUAL(ntime, GetTimeMicros()/1000000);
+        const auto ntime    = GetSystemTimeInSeconds();
+        const auto ms_secs  = GetTimeMillis()/1000;
+        const auto us_secs  = GetTimeMicros()/1000000;
+        // Capture all three before asserting: a second boundary between calls
+        // would make truncated values differ by 1. Time only moves forward so
+        // later reads are at most 1 second ahead of ntime.
+        BOOST_CHECK(ms_secs >= ntime && ms_secs <= ntime + 1);
+        BOOST_CHECK(us_secs >= ntime && us_secs <= ntime + 1);
     }
 
     SetMockTime(0);

@@ -67,6 +67,22 @@ else
   PASSED_SCRIPTS+=("$SCRIPT_NAME")
 fi
 
+# Run the lock ordering lint check (Python script)
+SCRIPT_NAME="lint-lock-ordering.py"
+TOTAL_SCRIPTS=$((TOTAL_SCRIPTS + 1))
+
+set +e
+python3 "${SCRIPTDIR}"/"$SCRIPT_NAME"
+SCRIPT_EXIT_CODE=$?
+set -e
+
+if [ $SCRIPT_EXIT_CODE -ne 0 ]; then
+  FAILED_SCRIPTS+=("$SCRIPT_NAME")
+  EXIT_CODE=1
+else
+  PASSED_SCRIPTS+=("$SCRIPT_NAME")
+fi
+
 echo "========================================="
 echo "Lint Summary"
 echo "========================================="
