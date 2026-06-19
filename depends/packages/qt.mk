@@ -4,7 +4,9 @@ $(package)_version=$(qt_details_version)
 $(package)_download_path=$(qt_details_download_path)
 $(package)_file_name=$(qt_details_qtbase_file_name)
 $(package)_sha256_hash=$(qt_details_qtbase_sha256_hash)
+ifneq ($(host),$(build))
 $(package)_dependencies := native_$(package)
+endif
 $(package)_linux_dependencies := freetype fontconfig libxcb libxkbcommon libxcb_util libxcb_util_cursor libxcb_util_render libxcb_util_keysyms libxcb_util_image libxcb_util_wm
 $(package)_patches_path := $(qt_details_patches_path)
 $(package)_patches := qtbase-moc-ignore-gcc-macro.patch
@@ -14,9 +16,6 @@ $(package)_patches += guix_cross_lib_path.patch
 $(package)_patches += skip_xcode_version_check.patch
 $(package)_patches += qttools_skip_dependencies.patch
 $(package)_patches += fix_qnetconmonitor_cross_compile.patch
-ifeq ($(host_os),darwin)
-$(package)_patches += fix_cgdisplay_macos15.patch
-endif
 
 $(package)_qttranslations_file_name=$(qt_details_qttranslations_file_name)
 $(package)_qttranslations_sha256_hash=$(qt_details_qttranslations_sha256_hash)
@@ -75,7 +74,9 @@ $(package)_config_opts += -nomake tests
 $(package)_config_opts += -prefix $(host_prefix)
 $(package)_config_opts += -qt-doubleconversion
 $(package)_config_opts += -qt-harfbuzz
+ifneq ($(host),$(build))
 $(package)_config_opts += -qt-host-path $(build_prefix)
+endif
 $(package)_config_opts += -qt-libpng
 $(package)_config_opts += -qt-pcre
 $(package)_config_opts += -qt-zlib
@@ -267,8 +268,18 @@ endef
 ifeq ($(host),$(build))
   $(package)_preprocess_cmds += && patch -p1 -i $($(package)_patch_dir)/qttools_skip_dependencies.patch
 endif
+# Fix CGDisplayCreateImageForRect obsoleted in macOS 15.0
+# Comment out the call and return empty pixmap (screen grab will fail gracefully)
+# Cross-compilation only (native darwin builds already satisfy host==build and are excluded).
+# BSD sed (build machine is macOS) needs -i '' while GNU sed (Linux build machine) uses -i.
 ifeq ($(host_os),darwin)
-  $(package)_preprocess_cmds += && patch -p1 -i $($(package)_patch_dir)/fix_cgdisplay_macos15.patch
+ifneq ($(host),$(build))
+ifeq ($(build_os),darwin)
+  $(package)_preprocess_cmds += && sed -i '' 's/CGDisplayCreateImageForRect(displayId, grabRect.toCGRect())/nullptr \/* CGDisplayCreateImageForRect obsoleted in macOS 15 *\//' qtbase/src/plugins/platforms/cocoa/qcocoascreen.mm
+else
+  $(package)_preprocess_cmds += && sed -i 's/CGDisplayCreateImageForRect(displayId, grabRect.toCGRect())/nullptr \/* CGDisplayCreateImageForRect obsoleted in macOS 15 *\//' qtbase/src/plugins/platforms/cocoa/qcocoascreen.mm
+endif
+endif
 endif
 
 define $(package)_config_cmds
