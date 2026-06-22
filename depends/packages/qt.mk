@@ -75,7 +75,9 @@ $(package)_config_opts += -nomake tests
 $(package)_config_opts += -prefix $(host_prefix)
 $(package)_config_opts += -qt-doubleconversion
 $(package)_config_opts += -qt-harfbuzz
+ifneq ($(host),$(build))
 $(package)_config_opts += -qt-host-path $(build_prefix)
+endif
 $(package)_config_opts += -qt-libpng
 $(package)_config_opts += -qt-pcre
 $(package)_config_opts += -qt-zlib
