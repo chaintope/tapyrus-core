@@ -1,5 +1,13 @@
 .NOTPARALLEL :
 
+# Harden: disable implicit rules/variables that can silently shadow our own.
+MAKEFLAGS += --no-builtin-rules --no-builtin-variables
+
+# Prevent command-line overrides (e.g. CC=..., HOST=...) from leaking into
+# package sub-makes via MAKEOVERRIDES/MAKEFLAGS.  Only the verbosity flag is
+# intentionally propagated.
+MAKEOVERRIDES := $(filter V=%,$(MAKEOVERRIDES))
+
 # Fix perl locale warnings during tar extraction and other commands
 export LC_ALL=C
 export LANG=C
@@ -20,7 +28,7 @@ FALLBACK_DOWNLOAD_PATH ?= https://s3-ap-northeast-1.amazonaws.com/repo.tapyrus.c
 C_STANDARD ?= c11
 CXX_STANDARD ?= c++20
 
-BUILD = $(shell ./config.guess)
+BUILD = $(shell unset CC CXX && ./config.guess)
 HOST ?= $(BUILD)
 PATCHES_PATH = $(BASEDIR)/patches
 BASEDIR = $(CURDIR)

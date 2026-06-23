@@ -1,0 +1,11 @@
+--- a/qtbase/src/plugins/platforms/cocoa/qcocoascreen.mm
++++ b/qtbase/src/plugins/platforms/cocoa/qcocoascreen.mm
+@@ -608,7 +608,7 @@
+        identical visual results.
+     */
+     auto grabFromDisplay = [](CGDirectDisplayID displayId, const QRect &grabRect) -> QPixmap {
+-        QCFType<CGImageRef> image = CGDisplayCreateImageForRect(displayId, grabRect.toCGRect());
++        QCFType<CGImageRef> image = nullptr /* CGDisplayCreateImageForRect obsoleted in macOS 15 */;
+         const QCFType<CGColorSpaceRef> sRGBcolorSpace = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
+         if (CGImageGetColorSpace(image) != sRGBcolorSpace) {
+             qCDebug(lcQpaScreen) << "applying color correction for display" << displayId;

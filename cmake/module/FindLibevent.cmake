@@ -53,6 +53,13 @@ find_package(Libevent ${Libevent_FIND_VERSION} QUIET
 
 include(FindPackageHandleStandardArgs)
 if(Libevent_FOUND)
+  # Promote config-mode imported targets to GLOBAL so target_compile_definitions
+  # and check_cxx_source_compiles (try_compile) can access them in cmake >= 3.28.
+  foreach(_comp IN LISTS _libevent_components)
+    if(TARGET libevent::${_comp})
+      set_target_properties(libevent::${_comp} PROPERTIES IMPORTED_GLOBAL TRUE)
+    endif()
+  endforeach()
   find_package_handle_standard_args(Libevent
     REQUIRED_VARS Libevent_DIR
     VERSION_VAR Libevent_VERSION
@@ -70,7 +77,9 @@ else()
 
     if(Libevent_${component}_LIBRARY AND Libevent_INCLUDE_DIR)
       if(NOT TARGET libevent::${component})
-        add_library(libevent::${component} UNKNOWN IMPORTED)
+        # GLOBAL is required for target_compile_definitions on imported targets
+        # and for check_cxx_source_compiles compatibility with cmake >= 3.28.
+        add_library(libevent::${component} UNKNOWN IMPORTED GLOBAL)
         set_target_properties(libevent::${component} PROPERTIES
           IMPORTED_LOCATION "${Libevent_${component}_LIBRARY}"
           INTERFACE_INCLUDE_DIRECTORIES "${Libevent_INCLUDE_DIR}"
