@@ -4240,7 +4240,15 @@ static UniValue IssueReissuableToken(CWallet* const pwallet, const std::string& 
         }
     }
 
-    if (!foundExisting) {
+    if (foundExisting) {
+        // mapAddressBook can hold watch-only or externally-imported addresses.
+        // Verify the wallet actually holds the signing key before committing.
+        const CColorKeyID* ck = std::get_if<CColorKeyID>(&colorDest);
+        if (!ck || !pwallet->HaveKey(ck->getKeyID())) {
+            throw JSONRPCError(RPC_WALLET_ERROR,
+                "Cannot reuse colored address: wallet does not have the private key for the existing address");
+        }
+    } else {
         // Pre-allocate the key for tx2's colored output before tx1 is broadcast.
         CPubKey newKey;
         if (!pwallet->GetKeyFromPool(newKey))

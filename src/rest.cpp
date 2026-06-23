@@ -451,6 +451,12 @@ static bool rest_getutxos(HTTPRequest* req, const std::string& strURIPart)
 
     switch (rf) {
     case RetFormat::HEX: {
+        // Each binary byte is encoded as 2 hex characters; reject before ParseHex
+        const size_t maxHexBody = 2 * (sizeof(bool)
+            + GetSizeOfCompactSize(MAX_GETUTXOS_OUTPOINTS)
+            + MAX_GETUTXOS_OUTPOINTS * sizeof(COutPoint) + 16);
+        if (strRequestMutable.size() > maxHexBody)
+            return RESTERR(req, HTTP_BAD_REQUEST, "Request body too large");
         // convert hex to bin, continue then with bin part
         std::vector<unsigned char> strRequestV = ParseHex(strRequestMutable);
         strRequestMutable.assign(strRequestV.begin(), strRequestV.end());
@@ -461,6 +467,12 @@ static bool rest_getutxos(HTTPRequest* req, const std::string& strURIPart)
             //deserialize only if user sent a request
             if (strRequestMutable.size() > 0)
             {
+                const size_t maxBinBody = sizeof(bool)
+                    + GetSizeOfCompactSize(MAX_GETUTXOS_OUTPOINTS)
+                    + MAX_GETUTXOS_OUTPOINTS * sizeof(COutPoint) + 16;
+                if (strRequestMutable.size() > maxBinBody)
+                    return RESTERR(req, HTTP_BAD_REQUEST, "Request body too large");
+
                 if (fInputParsed) //don't allow sending input over URI and HTTP RAW DATA
                     return RESTERR(req, HTTP_BAD_REQUEST, "Combination of URI scheme inputs and raw post data is not allowed");
 
@@ -496,6 +508,10 @@ static bool rest_getutxos(HTTPRequest* req, const std::string& strURIPart)
     std::string bitmapStringRepresentation;
     std::vector<bool> hits;
     bitmap.resize((vOutPoints.size() + 7) / 8);
+    // Snapshot height and tip hash under the same cs_main lock used for coin lookup
+    // so the returned (height, tipHash, utxos) triple is internally consistent.
+    int chainHeight = 0;
+    uint256 chainTip;
     {
         auto process_utxos = [&vOutPoints, &outs, &hits](const CCoinsView& view, const CTxMemPool& mempool) {
             for (const COutPoint& vOutPoint : vOutPoints) {
@@ -512,9 +528,13 @@ static bool rest_getutxos(HTTPRequest* req, const std::string& strURIPart)
             CCoinsViewCache& viewChain = *pcoinsTip;
             CCoinsViewMemPool viewMempool(&viewChain, mempool);
             process_utxos(viewMempool, mempool);
+            chainHeight = chainActive.Height();
+            chainTip = chainActive.Tip()->GetBlockHash();
         } else {
             LOCK(cs_main);  // no need to lock mempool!
             process_utxos(*pcoinsTip, CTxMemPool());
+            chainHeight = chainActive.Height();
+            chainTip = chainActive.Tip()->GetBlockHash();
         }
 
         for (size_t i = 0; i < hits.size(); ++i) {
@@ -529,7 +549,7 @@ static bool rest_getutxos(HTTPRequest* req, const std::string& strURIPart)
         // serialize data
         // use exact same output as mentioned in Bip64
         CDataStream ssGetUTXOResponse(SER_NETWORK, PROTOCOL_VERSION);
-        ssGetUTXOResponse << chainActive.Height() << chainActive.Tip()->GetBlockHash() << bitmap << outs;
+        ssGetUTXOResponse << chainHeight << chainTip << bitmap << outs;
         std::string ssGetUTXOResponseString = ssGetUTXOResponse.str();
 
         req->WriteHeader("Content-Type", "application/octet-stream");
@@ -539,7 +559,7 @@ static bool rest_getutxos(HTTPRequest* req, const std::string& strURIPart)
 
     case RetFormat::HEX: {
         CDataStream ssGetUTXOResponse(SER_NETWORK, PROTOCOL_VERSION);
-        ssGetUTXOResponse << chainActive.Height() << chainActive.Tip()->GetBlockHash() << bitmap << outs;
+        ssGetUTXOResponse << chainHeight << chainTip << bitmap << outs;
         std::string strHex = HexStr(ssGetUTXOResponse.begin(), ssGetUTXOResponse.end()) + "\n";
 
         req->WriteHeader("Content-Type", "text/plain");
@@ -552,8 +572,8 @@ static bool rest_getutxos(HTTPRequest* req, const std::string& strURIPart)
 
         // pack in some essentials
         // use more or less the same output as mentioned in Bip64
-        objGetUTXOResponse.pushKV("chainHeight", chainActive.Height());
-        objGetUTXOResponse.pushKV("chaintipHash", chainActive.Tip()->GetBlockHash().GetHex());
+        objGetUTXOResponse.pushKV("chainHeight", chainHeight);
+        objGetUTXOResponse.pushKV("chaintipHash", chainTip.GetHex());
         objGetUTXOResponse.pushKV("bitmap", bitmapStringRepresentation);
 
         UniValue utxos(UniValue::VARR);

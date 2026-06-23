@@ -5,6 +5,7 @@
 #include <wallet/test/wallet_test_fixture.h>
 
 #include <rpc/server.h>
+#include <validationinterface.h>
 #include <wallet/db.h>
 
 WalletTestingSetup::WalletTestingSetup(const std::string& chainName):
@@ -19,5 +20,6 @@ WalletTestingSetup::WalletTestingSetup(const std::string& chainName):
 
 WalletTestingSetup::~WalletTestingSetup()
 {
+    SyncWithValidationInterfaceQueue();
     UnregisterValidationInterface(&m_wallet);
 }

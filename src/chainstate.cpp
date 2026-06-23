@@ -417,8 +417,9 @@ void static UpdateTip(const CBlockIndex *pindexNew)
 
     RefreshChainTxDataFromTip(pindexNew);
 
-    LogPrintf("%s: new best=%s height=%d version=0x%08x tx=%lu date='%s' progress=%f cache=%.1fMiB(%utxo)", __func__, /* Continued */
+    LogPrintf("%s: new best=%s height=%d version=0x%08x xfield=%s tx=%lu date='%s' progress=%f cache=%.1fMiB(%utxo)", __func__, /* Continued */
       pindexNew->GetBlockHash().ToString(), pindexNew->nHeight, pindexNew->nFeatures,
+      pindexNew->xfield.ToString(),
       (unsigned long)pindexNew->nChainTx, FormatISO8601DateTime(pindexNew->GetBlockTime()),
       GuessVerificationProgress(Params().TxData(), pindexNew), pcoinsTip->DynamicMemoryUsage() * (1.0 / (1<<20)), pcoinsTip->GetCacheSize());
     LogPrintf("\n");
@@ -624,7 +625,13 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         if (!tx.IsCoinBase())
         {
             if (!Consensus::CheckTxInputs(tx, state, view, pindex->nHeight, txfee)) {
-                return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, tx.GetHashMalFix().ToString(), FormatStateMessage(state));
+                // Do not add to the DoS score already set by CheckTxInputs.
+                // "bad-txns-premature-spend-of-coinbase" deliberately uses DoS=0
+                // (via state.Invalid) so that a peer relaying a block during a
+                // reorg race is not banned.  Calling state.DoS(100,...) here
+                // would accumulate on top of that and cause an unjust instant ban.
+                return error("%s: Consensus::CheckTxInputs: %s, %s", __func__,
+                             tx.GetHashMalFix().ToString(), FormatStateMessage(state));
             }
             nFees += txfee;
             if (!MoneyRange(nFees)) {
@@ -911,7 +918,7 @@ bool CChainState::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, co
         const unsigned int newSoftforkFlags = GetSoftForkManager().ActivationFlagsChange(
             FederationParams().NetworkId(), pindexNew->nHeight, pindexNew->nHeight + 1);
         if (newSoftforkFlags) {
-            mempool.removeForScriptFlagChange(STANDARD_SCRIPT_VERIFY_FLAGS | newSoftforkFlags);
+            mempool.removeForScriptFlagChange(STANDARD_SCRIPT_VERIFY_FLAGS | newSoftforkFlags, pindexNew->nHeight + 1);
         }
     }
 
@@ -1435,7 +1442,7 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
     if(pxfieldHistory
         && block.xfield.IsValid()
         && pindex->nHeight > 0
-        && IsXFieldNew(block.xfield, pxfieldHistory, static_cast<uint32_t>(pindex->nHeight - 1)))
+        && IsXFieldNew(block.xfield, pxfieldHistory, static_cast<uint32_t>(pindex->nHeight)))
     {
         XFieldChange newChange(block.xfield.xfieldValue, pindex->nHeight + 1, block.GetHash());
         pxfieldHistory->Add(block.xfield.xfieldType, newChange);

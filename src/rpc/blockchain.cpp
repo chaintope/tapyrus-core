@@ -179,6 +179,12 @@ void RPCNotifyBlockChange(bool ibd, const CBlockIndex * pindex)
     cond_blockchange.notify_all();
 }
 
+// Maximum milliseconds any wait* RPC will block a thread.  Callers may pass
+// a smaller positive timeout; larger values are silently capped.  Zero means
+// "wait indefinitely" (the documented default) and is NOT capped.
+static const int64_t MAX_WAIT_FOR_BLOCK_MS = 600000; // 10 minutes
+
+
 static UniValue waitfornewblock(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() > 1)
@@ -187,7 +193,7 @@ static UniValue waitfornewblock(const JSONRPCRequest& request)
             "\nWaits for a specific new block and returns useful info about it.\n"
             "\nReturns the current block on timeout or exit.\n"
             "\nArguments:\n"
-            "1. timeout (int, optional, default=0) Time in milliseconds to wait for a response. 0 indicates no timeout.\n"
+            "1. timeout (int, optional, default=0) Time in milliseconds to wait for a response. 0 indicates no timeout. Positive values are capped at 600000 (10 min). Negative values return immediately.\n"
             "\nResult:\n"
             "{                           (json object)\n"
             "  \"hash\" : {       (string) The blockhash\n"
@@ -205,10 +211,13 @@ static UniValue waitfornewblock(const JSONRPCRequest& request)
     {
         std::unique_lock<std::mutex> lock(cs_blockchange);
         block = latestblock;
-        if(timeout)
-            cond_blockchange.wait_for(lock, std::chrono::milliseconds(timeout), [&block]{return latestblock.height != block.height || latestblock.hash != block.hash || !IsRPCRunning(); });
-        else
+        if (timeout == 0) {
             cond_blockchange.wait(lock, [&block]{return latestblock.height != block.height || latestblock.hash != block.hash || !IsRPCRunning(); });
+        } else {
+            // Negative timeout clamps to 0: polls once and returns immediately (preserves pre-audit script behavior).
+            const int64_t ms = std::max((int64_t)0, std::min((int64_t)timeout, MAX_WAIT_FOR_BLOCK_MS));
+            cond_blockchange.wait_for(lock, std::chrono::milliseconds(ms), [&block]{return latestblock.height != block.height || latestblock.hash != block.hash || !IsRPCRunning(); });
+        }
         block = latestblock;
     }
     UniValue ret(UniValue::VOBJ);
@@ -226,7 +235,7 @@ static UniValue waitforblock(const JSONRPCRequest& request)
             "\nReturns the current block on timeout or exit.\n"
             "\nArguments:\n"
             "1. \"blockhash\" (required, string) Block hash to wait for.\n"
-            "2. timeout       (int, optional, default=0) Time in milliseconds to wait for a response. 0 indicates no timeout.\n"
+            "2. timeout       (int, optional, default=0) Time in milliseconds to wait for a response. 0 indicates no timeout. Positive values are capped at 600000 (10 min). Negative values return immediately.\n"
             "\nResult:\n"
             "{                           (json object)\n"
             "  \"hash\" : {       (string) The blockhash\n"
@@ -246,10 +255,13 @@ static UniValue waitforblock(const JSONRPCRequest& request)
     CUpdatedBlock block;
     {
         std::unique_lock<std::mutex> lock(cs_blockchange);
-        if(timeout)
-            cond_blockchange.wait_for(lock, std::chrono::milliseconds(timeout), [&hash]{return latestblock.hash == hash || !IsRPCRunning();});
-        else
+        if (timeout == 0) {
             cond_blockchange.wait(lock, [&hash]{return latestblock.hash == hash || !IsRPCRunning(); });
+        } else {
+            // Negative timeout clamps to 0: polls once and returns immediately (preserves pre-audit script behavior).
+            const int64_t ms = std::max((int64_t)0, std::min((int64_t)timeout, MAX_WAIT_FOR_BLOCK_MS));
+            cond_blockchange.wait_for(lock, std::chrono::milliseconds(ms), [&hash]{return latestblock.hash == hash || !IsRPCRunning();});
+        }
         block = latestblock;
     }
 
@@ -269,7 +281,7 @@ static UniValue waitforblockheight(const JSONRPCRequest& request)
             "\nReturns the current block on timeout or exit.\n"
             "\nArguments:\n"
             "1. height  (required, int) Block height to wait for (int)\n"
-            "2. timeout (int, optional, default=0) Time in milliseconds to wait for a response. 0 indicates no timeout.\n"
+            "2. timeout (int, optional, default=0) Time in milliseconds to wait for a response. 0 indicates no timeout. Positive values are capped at 600000 (10 min). Negative values return immediately.\n"
             "\nResult:\n"
             "{                           (json object)\n"
             "  \"hash\" : {       (string) The blockhash\n"
@@ -289,10 +301,13 @@ static UniValue waitforblockheight(const JSONRPCRequest& request)
     CUpdatedBlock block;
     {
         std::unique_lock<std::mutex> lock(cs_blockchange);
-        if(timeout)
-            cond_blockchange.wait_for(lock, std::chrono::milliseconds(timeout), [&height]{return latestblock.height >= height || !IsRPCRunning();});
-        else
+        if (timeout == 0) {
             cond_blockchange.wait(lock, [&height]{return latestblock.height >= height || !IsRPCRunning(); });
+        } else {
+            // Negative timeout clamps to 0: polls once and returns immediately (preserves pre-audit script behavior).
+            const int64_t ms = std::max((int64_t)0, std::min((int64_t)timeout, MAX_WAIT_FOR_BLOCK_MS));
+            cond_blockchange.wait_for(lock, std::chrono::milliseconds(ms), [&height]{return latestblock.height >= height || !IsRPCRunning();});
+        }
         block = latestblock;
     }
     UniValue ret(UniValue::VOBJ);
@@ -2251,11 +2266,40 @@ static UniValue dumptxoutset(const JSONRPCRequest& request)
                 "txoutset_hash  - the hash of the UTXO set contents\n"
                 "nchaintx  - the number of transactions in the chain up to and including the base block\n");
 
-    std::string path_name = request.params[0].get_str();
-    const fs::path path = GetDataDir()/ path_name;
+    const std::string path_name = request.params[0].get_str();
+    // Reject absolute paths and any component that would traverse above datadir.
+    {
+        const fs::path rel(path_name);
+        if (rel.is_absolute()) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Path must be relative");
+        }
+        for (const auto& component : rel) {
+            if (component == "..") {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Path must not contain '..'");
+            }
+        }
+    }
+    const fs::path path = GetDataDir() / path_name;
+    // Resolve symlinks in the parent directory and verify the result stays
+    // inside datadir — prevents traversal via a symlink that points elsewhere.
+    {
+        const fs::path parent = path.parent_path();
+        if (fs::exists(parent)) {
+            const fs::path canonical_parent = fs::canonical(parent);
+            const fs::path canonical_datadir = fs::canonical(GetDataDir());
+            // fs::relative returns ".." components when canonical_parent is outside
+            // canonical_datadir, or an empty path when the two roots differ (e.g.
+            // different drive letters on Windows).  Either case means the path
+            // escapes the data directory.
+            const fs::path rel = fs::relative(canonical_parent, canonical_datadir);
+            if (rel.empty() || *rel.begin() == "..") {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Path resolves outside the data directory");
+            }
+        }
+    }
     // Write to a temporary path and then move into `path` on completion
     // to avoid confusion due to an interruption.
-    const fs::path temppath = GetDataDir() / path_name.append(".incomplete");
+    const fs::path temppath = fs::path(path.string() + ".incomplete");
 
     if (fs::exists(path)) {
         throw JSONRPCError(

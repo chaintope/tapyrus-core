@@ -160,4 +160,73 @@ BOOST_AUTO_TEST_CASE(parse_hd_keypath)
     BOOST_CHECK(!ParseHDKeypath("m/4294967296", keypath)); // 4294967296 == 0xFFFFFFFF (uint32_t max) + 1
 }
 
+// Regression test for out-of-bounds access when non_witness_utxo->vout.size()
+// <= prevout.n. The Unserialize path must throw before any vout[] indexing.
+BOOST_AUTO_TEST_CASE(psbt_non_witness_utxo_vout_oob)
+{
+    // Build a prev_tx with exactly 1 output (valid index = 0 only)
+    CMutableTransaction mtx_prev;
+    mtx_prev.vout.emplace_back(CAmount(1000), CScript());
+    uint256 prevHashMalFix = mtx_prev.GetHashMalFix();
+
+    // ── Case A: prevout.n = 1 (OOB) ─────────────────────────────────────────
+    CMutableTransaction mtx_oob;
+    mtx_oob.vin.emplace_back(COutPoint(prevHashMalFix, 1));  // index 1, only 0 exists
+    mtx_oob.vout.emplace_back(CAmount(900), CScript());
+
+    PartiallySignedTransaction psbt_oob;
+    psbt_oob.tx = mtx_oob;
+    PSBTInput inp_oob;
+    inp_oob.non_witness_utxo = MakeTransactionRef(CTransaction(mtx_prev));
+    psbt_oob.inputs.push_back(inp_oob);
+    psbt_oob.outputs.emplace_back();
+
+    CDataStream ss_oob(SER_NETWORK, PROTOCOL_VERSION);
+    ss_oob << psbt_oob;
+
+    PartiallySignedTransaction psbt_oob2;
+    BOOST_CHECK_EXCEPTION(ss_oob >> psbt_oob2, std::ios_base::failure, [](const std::ios_base::failure& e) {
+        return std::string(e.what()).find("vout index out of range") != std::string::npos;
+    });
+
+    // ── Case B: prevout.n = 0xFFFFFFFF (max uint32 OOB) ─────────────────────
+    CMutableTransaction mtx_max;
+    mtx_max.vin.emplace_back(COutPoint(prevHashMalFix, 0xFFFFFFFF));
+    mtx_max.vout.emplace_back(CAmount(900), CScript());
+
+    PartiallySignedTransaction psbt_max;
+    psbt_max.tx = mtx_max;
+    PSBTInput inp_max;
+    inp_max.non_witness_utxo = MakeTransactionRef(CTransaction(mtx_prev));
+    psbt_max.inputs.push_back(inp_max);
+    psbt_max.outputs.emplace_back();
+
+    CDataStream ss_max(SER_NETWORK, PROTOCOL_VERSION);
+    ss_max << psbt_max;
+
+    PartiallySignedTransaction psbt_max2;
+    BOOST_CHECK_EXCEPTION(ss_max >> psbt_max2, std::ios_base::failure, [](const std::ios_base::failure& e) {
+        return std::string(e.what()).find("vout index out of range") != std::string::npos;
+    });
+
+    // ── Case C: prevout.n = 0 (in-range) must deserialize cleanly ───────────
+    CMutableTransaction mtx_ok;
+    mtx_ok.vin.emplace_back(COutPoint(prevHashMalFix, 0));  // valid
+    mtx_ok.vout.emplace_back(CAmount(900), CScript());
+
+    PartiallySignedTransaction psbt_ok;
+    psbt_ok.tx = mtx_ok;
+    PSBTInput inp_ok;
+    inp_ok.non_witness_utxo = MakeTransactionRef(CTransaction(mtx_prev));
+    psbt_ok.inputs.push_back(inp_ok);
+    psbt_ok.outputs.emplace_back();
+
+    CDataStream ss_ok(SER_NETWORK, PROTOCOL_VERSION);
+    ss_ok << psbt_ok;
+
+    PartiallySignedTransaction psbt_ok2;
+    BOOST_CHECK_NO_THROW(ss_ok >> psbt_ok2);
+    BOOST_CHECK(psbt_ok2.inputs[0].non_witness_utxo);
+}
+
 BOOST_AUTO_TEST_SUITE_END()

@@ -228,6 +228,15 @@ class RESTTest (BitcoinTestFramework):
         long_uri = '/'.join(['{}-{}'.format(txid, n_) for n_ in range(15)])
         self.test_rest_request("/getutxos/checkmempool/{}".format(long_uri), http_method='POST', status=200)
 
+        self.log.info("Test /getutxos binary/hex body size limits")
+        # maxBinBody = sizeof(bool) + CompactSize(15) + 15*sizeof(COutPoint) + 16 = 558
+        MAX_GETUTXOS_BODY = 1 + 1 + 15 * 36 + 16  # 558
+        oversized_bin = b'\x00' * (MAX_GETUTXOS_BODY + 1)
+        self.test_rest_request("/getutxos", http_method='POST', req_type=ReqType.BIN, body=oversized_bin, status=400, ret_type=RetType.OBJ)
+        # HEX path: each binary byte is 2 hex chars; > 2*558 = 1116 chars should be rejected
+        oversized_hex = '00' * (MAX_GETUTXOS_BODY + 1)
+        self.test_rest_request("/getutxos", http_method='POST', req_type=ReqType.HEX, body=oversized_hex, status=400, ret_type=RetType.OBJ)
+
         self.log.info("Test the /block and /headers URIs")
         bb_hash = self.nodes[0].getbestblockhash()
 

@@ -330,7 +330,7 @@ struct CNodeState {
         m_last_block_announcement = 0;
         m_recently_announced_invs.reset();
         m_addr_token_bucket = 1.0;
-        m_addr_token_timestamp = std::chrono::microseconds(GetTimeMicros());
+        m_addr_token_timestamp = std::chrono::microseconds(GetTimeMicros(true));
         m_addr_rate_limited = 0;
         m_addr_processed = 0;
     }
@@ -399,11 +399,12 @@ static bool MarkBlockAsReceived(const uint256& hash,  std::optional<NodeId> from
         LogPrint(BCLog::NET, "More than %s requests for this block %s\n", MAX_CMPCTBLOCKS_INFLIGHT_PER_BLOCK, hash.ToString());
         // Still erase from_peer's entry below — do not return early and leak it.
     }
-    while (rangeInFlight.first != rangeInFlight.second) {
-        auto itInFlight = rangeInFlight.first->second;
+    bool found = false;
+    for (auto it = rangeInFlight.first; it != rangeInFlight.second; ) {
+        auto itInFlight = it->second;
         auto node_id = itInFlight.first;
         if (from_peer && *from_peer != node_id) {
-            rangeInFlight.first++;
+            ++it;
             continue;
         }
 
@@ -421,10 +422,13 @@ static bool MarkBlockAsReceived(const uint256& hash,  std::optional<NodeId> from
         }
         state->nStallingSince = 0;
 
-        rangeInFlight.first = mapBlocksInFlight.erase(rangeInFlight.first);
-        return true;
+        it = mapBlocksInFlight.erase(it);
+        found = true;
+        if (from_peer) return true;  // erase exactly one when targeted
+        // when from_peer is nullopt, continue the loop to drain all peers
     }
-    return false;
+    assert(!found || from_peer || mapBlocksInFlight.count(hash) == 0);
+    return found;
 }
 
 // returns false, still setting pit, if the block was already in flight from the same peer
@@ -640,7 +644,7 @@ static void FindNextBlocksToDownload(NodeId nodeid, unsigned int count, std::vec
             } else if (blockrequested && waitingfor == -1) {
                 // This is the first already-in-flight block.
                 auto iter = mapBlocksInFlight.equal_range(pindex->GetBlockHash());
-                waitingfor = iter.second->second.first;
+                waitingfor = iter.first->second.first;
             }
         }
     }
@@ -1988,9 +1992,15 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         std::vector<CAddress> vAddr;
         vRecv >> vAddr;
 
-        // Don't want addr from older versions unless seeding
+        // Skip address processing when the address book is already well-populated.
+        // We stop issuing GETADDR once the book exceeds 1000 entries (see VERACK handler
+        // above), so any ADDR arriving after that point is an unsolicited push we don't
+        // need.  The early return avoids the shuffle + token-bucket loop on up to 1000
+        // entries per message.
         if (connman->GetAddressCount() > MAX_ADDR_TO_SEND)
             return true;
+
+
         if (vAddr.size() > MAX_ADDR_TO_SEND)
         {
             LOCK(cs_main);
@@ -2627,6 +2637,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
                     } else {
                         // Give up for this peer and wait for other peer(s)
                         MarkBlockAsReceived(pindex->GetBlockHash(), pfrom->GetId());
+                        return true;
                     }
                 }
 
@@ -2676,6 +2687,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
                     } else {
                         // Give up for this peer and wait for other peer(s)
                         MarkBlockAsReceived(pindex->GetBlockHash(), pfrom->GetId());
+                        return true;
                     }
                 }
                 std::vector<CTransactionRef> dummy;

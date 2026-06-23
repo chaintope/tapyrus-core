@@ -780,6 +780,55 @@ class CompactBlocksTest(BitcoinTestFramework):
         stalling_peer.send_and_ping(msg)
         assert_equal(int(node.getbestblockhash(), 16), block.sha256)
 
+    def test_cmpctblock_failed_not_first_in_flight(self, node, stalling_peer, attacker_peer):
+        """Regression: no UAF when a secondary peer sends a CMPCTBLOCK with duplicate short IDs.
+
+        net_processing.cpp:2633-2636 (the non-first_in_flight READ_STATUS_FAILED branch)
+        previously fell through to partialBlock.IsTxAvailable() after calling
+        MarkBlockAsReceived(), which destroys the QueuedBlock and its
+        unique_ptr<PartiallyDownloadedBlock>. The fix adds 'return true' to prevent
+        the fall-through.
+        """
+        utxo = self.utxos.pop(0)
+        block = self.build_block_with_transactions(node, utxo, 3)
+
+        # Peer 1 (stalling_peer) sends a valid CMPCTBLOCK. Because the transactions
+        # aren't in the mempool the node sends getblocktxn, leaving the block in-flight
+        # from peer 1 (first_in_flight=True for peer 1).
+        cmpct_block = HeaderAndShortIDs()
+        cmpct_block.initialize_from_block(block)
+        with mininode_lock:
+            stalling_peer.last_message.pop("getblocktxn", None)
+        stalling_peer.send_and_ping(msg_cmpctblock(cmpct_block.to_p2p()))
+        with mininode_lock:
+            assert "getblocktxn" in stalling_peer.last_message, \
+                "node should request missing txns from first peer"
+
+        # Peer 2 (attacker_peer) sends the same block with duplicate short IDs so that
+        # InitData() returns READ_STATUS_FAILED. For peer 2, first_in_flight=False
+        # because peer 1 already holds the in-flight slot.
+        # Before the fix, MarkBlockAsReceived() freed partialBlock then execution
+        # fell through to partialBlock.IsTxAvailable() — UAF.
+        p2p_cmpct = cmpct_block.to_p2p()
+        if len(p2p_cmpct.shortids) >= 2:
+            p2p_cmpct.shortids[1] = p2p_cmpct.shortids[0]   # duplicate → READ_STATUS_FAILED
+        else:
+            p2p_cmpct.shortids = p2p_cmpct.shortids * 2      # duplicate all
+        p2p_cmpct.shortids_length = len(p2p_cmpct.shortids)
+        with mininode_lock:
+            attacker_peer.last_message.pop("getblocktxn", None)
+        attacker_peer.send_and_ping(msg_cmpctblock(p2p_cmpct))
+
+        # With the fix the node returns early after MarkBlockAsReceived(): no getblocktxn
+        # is sent to attacker_peer and the node remains alive.
+        with mininode_lock:
+            assert "getblocktxn" not in attacker_peer.last_message, \
+                "node must not send getblocktxn after READ_STATUS_FAILED on non-first-in-flight peer"
+        assert_equal(int(node.getbestblockhash(), 16), block.hashPrevBlock)
+
+        # Restore utxo chain for later tests
+        self.utxos.append([block.vtx[-1].malfixsha256, 0, block.vtx[-1].vout[0].nValue])
+
     def run_test(self):
         # Setup the p2p connections
         self.test_node = self.nodes[0].add_p2p_connection(TestP2PConn(self.nodes[0].time_to_connect))
@@ -847,6 +896,10 @@ class CompactBlocksTest(BitcoinTestFramework):
 
         self.log.info("Testing blocktxn messages from multiple peers for the same block")
         self.test_number_of_blocktxn_requests(self.nodes[0], self.test_node)
+
+        self.log.info("Testing no UAF when secondary peer sends CMPCTBLOCK with duplicate short IDs...")
+        self.test_cmpctblock_failed_not_first_in_flight(self.nodes[1], self.extra_node, self.old_node)
+        sync_blocks(self.nodes)
 
 
 if __name__ == '__main__':

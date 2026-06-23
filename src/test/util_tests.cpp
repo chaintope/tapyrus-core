@@ -260,6 +260,9 @@ BOOST_AUTO_TEST_CASE(util_GetBoolArg)
     const char* avail_args[] = {"-a", "-b", "-c", "-d", "-e", "-f"};
     const char *argv_test[] = {
         "ignored", "-a", "-nob", "-c=0", "-d=1", "-e=false", "-f=true"};
+    // Note: "-e=false" and "-f=true" now correctly parse as false/true.
+    // Previously std::from_chars returned 0 for non-numeric strings, silently
+    // treating both as false.  That bug is fixed in InterpretBool.
     std::string error;
     testArgs.SetupArgs(6, avail_args);
     testArgs.ParseParameters(7, (char**)argv_test, error);
@@ -289,8 +292,8 @@ BOOST_AUTO_TEST_CASE(util_GetBoolArg)
     BOOST_CHECK(testArgs.GetBoolArg("-b", true) == false);
     BOOST_CHECK(testArgs.GetBoolArg("-c", true) == false);
     BOOST_CHECK(testArgs.GetBoolArg("-d", false) == true);
-    BOOST_CHECK(testArgs.GetBoolArg("-e", true) == false);
-    BOOST_CHECK(testArgs.GetBoolArg("-f", true) == false);
+    BOOST_CHECK(testArgs.GetBoolArg("-e", true) == false);   // "-e=false" → false
+    BOOST_CHECK(testArgs.GetBoolArg("-f", false) == true);   // "-f=true"  → true (was broken before)
 }
 
 BOOST_AUTO_TEST_CASE(util_GetBoolArgEdgeCases)

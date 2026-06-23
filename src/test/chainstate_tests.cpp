@@ -21,6 +21,7 @@
 #include <test/test_tapyrus.h>
 #include <validation.h>
 #include <consensus/validation.h>
+#include <consensus/tx_verify.h>
 #include <coins.h>
 #include <primitives/block.h>
 #include <primitives/transaction.h>
@@ -933,6 +934,140 @@ BOOST_AUTO_TEST_CASE(duplicate_nonreissuable_issuance_rejected)
         BOOST_CHECK(!valid);
         BOOST_CHECK_EQUAL(state.GetRejectReason(), "bad-txns-colorid-already-issued");
     }
+}
+
+/**
+ * Regression test: VerifyTokenBalances must not use DoS=100 for tpcin<=0.
+ *
+ * PR #423 (TXV-4) changed "bad-txns-token-without-fee" from state.Invalid()
+ * (DoS=0) to state.DoS(100).  VerifyTokenBalances is called from both the
+ * mempool path (AcceptToMemoryPoolWorker) and ConnectBlock.
+ *
+ * In the mempool path, DoS=100 causes an instant ban of any peer that relays a
+ * colored-coin transfer with no TPC input — a fee-policy violation, not a
+ * consensus crime.  ConnectBlock already applies DoS=100 via its own wrapper
+ * (chainstate.cpp lines 701-703), so the in-function bump adds no extra
+ * consensus protection.
+ *
+ * The fix reverts the call to state.Invalid(false, REJECT_INSUFFICIENTFEE, ...)
+ * so that mempool rejection preserves DoS=0 (no peer ban) while block-level
+ * enforcement remains unchanged.
+ */
+BOOST_AUTO_TEST_CASE(verifytoken_no_tpc_input_dos_score_is_zero)
+{
+    // Build a colored CP2PKH UTXO with no TPC inputs.
+    CKey key;
+    key.MakeNewKey(true);
+    CPubKey pubkey = key.GetPubKey();
+    std::vector<unsigned char> pubkeyHash(20);
+    CHash160().Write(pubkey.data(), pubkey.size()).Finalize(pubkeyHash.data());
+
+    // Arbitrary outpoint used only to derive the colorId (not validated here).
+    COutPoint definingOutpoint(InsecureRand256(), 0);
+    ColorIdentifier colorId(definingOutpoint, TokenTypes::REISSUABLE);
+
+    // CP2PKH colored script: <colorId> OP_COLOR OP_DUP OP_HASH160 <hash> OP_EQUALVERIFY OP_CHECKSIG
+    CScript coloredScript = CScript() << colorId.toVector() << OP_COLOR
+                                      << OP_DUP << OP_HASH160
+                                      << ToByteVector(pubkeyHash)
+                                      << OP_EQUALVERIFY << OP_CHECKSIG;
+
+    COutPoint coloredOutpoint(InsecureRand256(), 0);
+    CCoinsView dummy;
+    CCoinsViewCache view(&dummy);
+    {
+        Coin coin;
+        coin.out.scriptPubKey = coloredScript;
+        coin.out.nValue       = 100 * CENT;
+        coin.nHeight          = 5;
+        coin.fCoinBase        = false;
+        view.AddCoin(coloredOutpoint, std::move(coin), /*potential_overwrite=*/false);
+    }
+
+    // Tx: one colored coin input, one colored coin output — no TPC inputs.
+    CMutableTransaction tx;
+    tx.nFeatures = 1;
+    tx.vin.resize(1);
+    tx.vin[0].prevout = coloredOutpoint;
+    tx.vout.resize(1);
+    tx.vout[0].nValue       = 100 * CENT;
+    tx.vout[0].scriptPubKey = coloredScript;
+
+    CValidationState state;
+    CAmount minRelayFee = 1000;
+    bool ok = VerifyTokenBalances(CTransaction(tx), state, view, minRelayFee);
+
+    // Must be rejected …
+    BOOST_CHECK(!ok);
+    BOOST_CHECK(state.IsInvalid());
+    BOOST_CHECK_EQUAL(state.GetRejectReason(), "bad-txns-token-without-fee");
+
+    // … but with DoS=0 so that relaying peers are not banned.
+    int nDoS = -1;
+    state.IsInvalid(nDoS);
+    BOOST_CHECK_EQUAL(nDoS, 0);
+}
+
+/**
+ * Regression test: ConnectBlock must not escalate the DoS score set by CheckTxInputs.
+ *
+ * "bad-txns-premature-spend-of-coinbase" is set via state.Invalid() (DoS=0) so
+ * that a peer relaying a block during a reorg race is not banned.  A previous
+ * commit (CC-2/TXV-4) wrapped the CheckTxInputs call with state.DoS(100,...),
+ * which accumulated on top of that 0 and caused an unjust instant ban.
+ *
+ * The fix reverts ConnectBlock to plain error() which does not touch state.
+ * This test verifies the DoS score for a premature coinbase spend is exactly 0.
+ */
+BOOST_AUTO_TEST_CASE(connectblock_premature_coinbase_dos_score_is_zero)
+{
+    // Build a synthetic CCoinsViewCache containing one coinbase coin at height H.
+    const int coinbaseHeight = 10;
+
+    CMutableTransaction coinbaseTx;
+    coinbaseTx.nFeatures = 1;
+    coinbaseTx.vin.resize(1);
+    coinbaseTx.vin[0].prevout.SetNull();
+    coinbaseTx.vin[0].scriptSig = CScript() << coinbaseHeight << OP_0;
+    coinbaseTx.vout.resize(1);
+    coinbaseTx.vout[0].nValue = 50 * COIN;
+    coinbaseTx.vout[0].scriptPubKey = CScript() << OP_TRUE;
+
+    COutPoint coinbaseOutpoint(CTransaction(coinbaseTx).GetHashMalFix(), 0);
+
+    CCoinsView dummy;
+    CCoinsViewCache view(&dummy);
+    {
+        Coin coin;
+        coin.out   = coinbaseTx.vout[0];
+        coin.nHeight    = coinbaseHeight;
+        coin.fCoinBase  = true;
+        view.AddCoin(coinbaseOutpoint, std::move(coin), /*potential_overwrite=*/false);
+    }
+
+    // Create a transaction spending that coinbase in the same block (nSpendHeight == coinbaseHeight).
+    CMutableTransaction spendTx;
+    spendTx.nFeatures = 1;
+    spendTx.vin.resize(1);
+    spendTx.vin[0].prevout = coinbaseOutpoint;
+    spendTx.vout.resize(1);
+    spendTx.vout[0].nValue = 40 * COIN;
+    spendTx.vout[0].scriptPubKey = CScript() << OP_TRUE;
+
+    CValidationState state;
+    CAmount txfee = 0;
+    bool ok = Consensus::CheckTxInputs(
+        CTransaction(spendTx), state, view, coinbaseHeight, txfee);
+
+    // Must be rejected as a premature spend …
+    BOOST_CHECK(!ok);
+    BOOST_CHECK(state.IsInvalid());
+    BOOST_CHECK_EQUAL(state.GetRejectReason(), "bad-txns-premature-spend-of-coinbase");
+
+    // … but with DoS=0 so that relaying peers are not banned.
+    int nDoS = -1;
+    state.IsInvalid(nDoS);
+    BOOST_CHECK_EQUAL(nDoS, 0);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

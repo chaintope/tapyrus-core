@@ -168,7 +168,7 @@ jobs:
       DEPENDS_DIR: ${{ github.workspace }}/depends
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           # Use manual input if provided, otherwise use current branch (for PRs) or master (for scheduled runs)
           ref: ${{ github.event.inputs.test_branch || github.ref || 'master' }}
@@ -176,7 +176,7 @@ jobs:
 
       - name: Restore Ccache cache
         id: ccache-cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ${{ env.CCACHE_DIR }}
           key: daily-${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ matrix.config.build_type }}-${{ matrix.config.enable_gui }}-${{ matrix.config.enable_usdt }}-${{ matrix.config.enable_wallet }}-ccache-${{ github.run_id }}
@@ -184,7 +184,7 @@ jobs:
 
       - name: Restore Depends cache
         id: depends-cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ${{ env.DEPENDS_DIR }}
           key: depends-v6-qt6-${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ hashFiles('depends/packages/*', 'depends/hosts/*.mk', 'depends/builders/*.mk', 'depends/funcs.mk', 'depends/toolchain.cmake.in', 'depends/patches/**') }}
@@ -193,7 +193,7 @@ jobs:
       - name: Restore Benchmark History cache
         if: (matrix.config.platform == 'linux' && matrix.config.arch == 'x86_64') || (matrix.config.platform == 'macos' && matrix.config.arch == 'arm64')
         id: benchmark-cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ${{ github.workspace }}/benchmark_results/data
           key: benchmark-history-${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ github.run_id }}
@@ -427,14 +427,14 @@ jobs:
 
       - name: Save Depends cache
         if: github.ref == 'refs/heads/master'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: ${{ env.DEPENDS_DIR }}
           key: depends-v6-qt6-${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ hashFiles('depends/packages/*', 'depends/hosts/*.mk', 'depends/builders/*.mk', 'depends/funcs.mk', 'depends/toolchain.cmake.in', 'depends/patches/**') }}
 
       - name: Save Benchmark History cache
         if: always() && ((matrix.config.platform == 'linux' && matrix.config.arch == 'x86_64') || (matrix.config.platform == 'macos' && matrix.config.arch == 'arm64'))
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: ${{ github.workspace }}/benchmark_results/data
           key: benchmark-history-${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ github.run_id }}
@@ -768,7 +768,7 @@ jobs:
           echo "---------------- DAILY TEST FINISHED ---------------------"
 
       - name: Save Ccache cache
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         if: steps.ccache-cache.outputs.cache-hit != 'true' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
         with:
           path: ${{ env.CCACHE_DIR }}
@@ -776,7 +776,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: daily-test-results-${{ matrix.config.name }}-${{ github.run_id }}
           path: |
@@ -787,7 +787,7 @@ jobs:
 
       - name: Upload coverage data
         if: matrix.config.build_type == 'Debug'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: coverage-data-${{ matrix.config.name }}-${{ github.run_id }}
           path: |
@@ -797,7 +797,7 @@ jobs:
 
       - name: Upload Windows binaries
         if: matrix.config.target_platform == 'windows' && always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: tapyrus-windows-${{ matrix.config.target_arch }}-binaries-${{ github.run_id }}
           path: |
@@ -842,7 +842,7 @@ jobs:
 
       - name: Upload Core Dumps
         if: failure() && matrix.config.target_platform != 'windows'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: daily-core-dumps-${{ matrix.config.name }}-${{ github.run_id }}
           path: ${{ github.workspace }}/core_dumps/

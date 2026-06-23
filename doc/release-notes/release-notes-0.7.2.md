@@ -59,7 +59,10 @@ This release contains security fixes addressing vulnerabilities identified in a 
 - [PR412](https://github.com/chaintope/tapyrus-core/pull/412) - Fix security vulnerabilities identified in audit: introduce a global NFT and Non-reissuable token list for ensuging their uniqueness globally
 - [PR413](https://github.com/chaintope/tapyrus-core/pull/413) - Fix security vulnerabilities: harden feebumper to correctly account for fees when no TPC change output is present
 - [PR418](https://github.com/chaintope/tapyrus-core/pull/418) - Fix security vulnerabilities: testmempoolaccept changed to only test not submit package transactions,  MarkBlockAsReceived leaks mapBlocksInFlight, processing token bucket is a single shared global, not per-peer
-- [PR420](https://github.com/chaintope/tapyrus-core/pull/420) - Fix security vulnerabilities: Fix PSBT transactions - SignPSBTInput, FillPSBT and decodepsbt
+- [PR420] - Fix security vulnerabilities: PSBT non-witness-UTXO bounds check enforced at PSBT deserialization (covers finalizepsbt, walletprocesspsbt,
+  combinepsbt and other callers via DecodePSBT → IsSane)
+- [PR423](https://github.com/chaintope/tapyrus-core/pull/423) - Fix security vulnerabilities: Uncompressed aggregate-pubkey accepted in xfield rotation, MarkBlockAsReceived only erases one peer's entry, Failed-auth on worker thread saturates RPC pool etc
+- [PR425](https://github.com/chaintope/tapyrus-core/pull/425) - Fix security vulnerabilities: ten minute cap on RPC timeout only fires when timeout <= 0, mempool persistence is silently disabled when persistmemppool parameter is set etc
 
 *Protocol improvements:*
 - [PR414](https://github.com/chaintope/tapyrus-core/pull/414) - Add CP2SH colored coin softfork manager and activation gating. The Chaintope testnet (networkId 1939510133) activates at block 693367.
@@ -72,3 +75,4 @@ This release contains security fixes addressing vulnerabilities identified in a 
 - Fix `VerifyDB` level-3 sandbox: disconnect-tip was mutating global state. Add a `dryrun` flag to guard the erase operation.
 - Fix listunspent crash on CP2SH UTXOs.
 - Fix bumpfee RPC with colored coins accidentally burning the colored coins.
+- ConnectBlock DoS-score wrapper bans honest relayers on bad-txns-premature-spend-of-coinbase.

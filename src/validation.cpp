@@ -1029,6 +1029,9 @@ bool AcceptToMemoryPool(const CTransactionRef &tx, CTxMempoolAcceptanceOptions& 
                 opt.state.GetRejectReason().c_str());
         }
     }
+    // Always clear after consuming so callers that reuse opt across multiple calls
+    // (e.g. SubmitPackageToMempool) never see stale entries from a previous iteration.
+    opt.coins_to_uncache.clear();
     // After we've (potentially) uncached entries, ensure our coins cache is still within its size limits
     CValidationState stateDummy;
     FlushStateToDisk(stateDummy, FlushStateMode::PERIODIC);
@@ -1320,11 +1323,15 @@ bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, CXFiel
     if(!fCheckPOW)
         return true;
 
-    //Check proof of Signed Blocks in a block header
-    const unsigned int proofSize = block.proof.size();
-
-    if(!proofSize)
-        return state.Invalid(false, REJECT_INVALID, "bad-proof", "No Proof in block");
+    // Schnorr proofs are always exactly 64 bytes. Reject early — before the
+    // expensive GetHashForSign() + Verify_Schnorr call — if the proof is the
+    // wrong size. A NONE xfield with trailing bytes appended by a peer causes
+    // those bytes to be consumed as proof data, so wrong-size proofs are the
+    // primary symptom of that malformation.
+    if (block.proof.size() != CPubKey::SCHNORR_SIGNATURE_SIZE)
+        return state.Invalid(false, REJECT_INVALID, "bad-proof-size",
+            strprintf("Proof must be %u bytes, got %u",
+                      CPubKey::SCHNORR_SIGNATURE_SIZE, block.proof.size()));
 
     // Aggpubkey to verify blocks is read from the xfield history at the block's
     // height, not at the chain tip. Both temp and non-temp paths now call Get(height) uniformly.
