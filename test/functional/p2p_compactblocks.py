@@ -793,6 +793,14 @@ class CompactBlocksTest(BitcoinTestFramework):
         unique_ptr<PartiallyDownloadedBlock>. The fix adds 'return true' to prevent
         the fall-through.
         """
+        # Register stalling_peer as a compact-block peer so the node sets
+        # fSupportsDesiredCmpctVersion=true.  Without this the handler returns
+        # early and sends getdata (via SendMessages) instead of getblocktxn.
+        sendcmpct = msg_sendcmpct()
+        sendcmpct.version = 1
+        sendcmpct.announce = True
+        stalling_peer.send_and_ping(sendcmpct)
+
         utxo = self.utxos.pop(0)
         block = self.build_block_with_transactions(node, utxo, 3)
 
