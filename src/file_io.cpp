@@ -441,12 +441,13 @@ bool FlushStateToDisk(CValidationState &state, FlushStateMode mode, int nManualP
         // It's been very long since we flushed the cache. Do this infrequently, to optimize cache usage.
         bool fPeriodicFlush = mode == FlushStateMode::PERIODIC && nNow > nLastFlush + (int64_t)DATABASE_FLUSH_INTERVAL * 1000000;
         // Combine all conditions that result in a full cache flush.
-        // Note: fFlushForPrune is intentionally excluded here. Prune flushes use
-        // Sync() to keep the cache warm, avoiding the cost of clearing and reloading
-        // the UTXO cache after every prune. See CCoinsViewCache::Sync().
+        // fFlushForPrune is excluded from fDoFullFlush so that a prune flush uses
+        // Sync() (writes dirty entries, keeps the cache warm) rather than Flush()
+        // (wipes the cache entirely). fFlushForPrune is kept in the outer gate below
+        // so that UnlinkPrunedFiles() and the block-index write still run on prune.
         fDoFullFlush = (mode == FlushStateMode::ALWAYS) || fCacheLarge || fCacheCritical || fPeriodicFlush;
         // Write blocks and block index to disk.
-        if (fDoFullFlush || fPeriodicWrite) {
+        if (fDoFullFlush || fFlushForPrune || fPeriodicWrite) {
             // Depend on nMinDiskSpace to ensure we can write block index
             if (!CheckDiskSpace(0, true))
                 return state.Error("out of disk space");

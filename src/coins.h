@@ -149,6 +149,12 @@ public:
 
     CCoinsCacheEntry() noexcept = default;
     explicit CCoinsCacheEntry(Coin&& coin_) noexcept : coin(std::move(coin_)) {}
+
+    CCoinsCacheEntry(const CCoinsCacheEntry&) = delete;
+    CCoinsCacheEntry& operator=(const CCoinsCacheEntry&) = delete;
+    CCoinsCacheEntry(CCoinsCacheEntry&&) = delete;
+    CCoinsCacheEntry& operator=(CCoinsCacheEntry&&) = delete;
+
     ~CCoinsCacheEntry()
     {
         ClearFlags();
