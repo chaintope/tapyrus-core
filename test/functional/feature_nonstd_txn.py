@@ -26,7 +26,7 @@ from test_framework.messages import (
     CTxOut,
     ToHex,
 )
-from test_framework.script import CScript, OP_TRUE
+from test_framework.script import CScript, OP_CAT
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, bytes_to_hex_str, hex_str_to_bytes
 
@@ -81,13 +81,19 @@ class NonStdTxnTest(BitcoinTestFramework):
         assert txid in node1.getblock(blockhash)['tx']
 
     def _create_nonstd_tx_hex(self, node):
-        """Return a wallet-signed raw tx hex with a bare OP_TRUE output (non-standard)."""
+        """Return a wallet-signed raw tx hex with an OP_CAT output (non-standard).
+
+        OP_TRUE (OP_1) is TX_CUSTOM in Tapyrus and is accepted by the standard policy.
+        OP_CAT is a disabled opcode: CheckScriptSyntax rejects it, Solver returns
+        TX_NONSTANDARD, and IsStandardTx rejects the transaction with 'scriptpubkey'.
+        Creating (not spending) such an output is valid at the consensus level.
+        """
         utxo = node.listunspent()[0]
 
-        # Build tx: spend wallet UTXO → bare OP_TRUE output
+        # Build tx: spend wallet UTXO → bare OP_CAT output (non-standard)
         tx = CTransaction()
         tx.vin.append(CTxIn(COutPoint(int(utxo['txid'], 16), utxo['vout'])))
-        tx.vout.append(CTxOut(int(utxo['amount'] * COIN) - 1000, CScript([OP_TRUE])))
+        tx.vout.append(CTxOut(int(utxo['amount'] * COIN) - 1000, CScript([OP_CAT])))
 
         # Sign the input with the wallet (wallet owns the input; output script doesn't matter)
         signed = node.signrawtransactionwithwallet(ToHex(tx), [], 'ALL', self.options.scheme)
