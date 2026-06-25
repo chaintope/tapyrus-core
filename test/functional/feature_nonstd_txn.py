@@ -57,11 +57,11 @@ class NonStdTxnTest(BitcoinTestFramework):
 
         self.log.info("Standard node rejects non-standard tx from mempool")
         result = node0.testmempoolaccept([nonstd_hex0])
-        assert_equal(result[0]['allowed'], False)
+        assert_equal(list(result.values())[0]['allowed'], False)
 
         self.log.info("Non-standard node (-acceptnonstdtxn=1) accepts non-standard tx in mempool")
         result = node1.testmempoolaccept([nonstd_hex1])
-        assert_equal(result[0]['allowed'], True)
+        assert_equal(list(result.values())[0]['allowed'], True)
         txid = node1.sendrawtransaction(nonstd_hex1)
         assert txid in node1.getrawmempool()
 
