@@ -816,7 +816,15 @@ public:
     explicit BufferedWriter(S& stream, size_t buf_size = 1 << 16)
         : m_dst{stream}, m_buf(buf_size) {}
 
-    ~BufferedWriter() { flush(); }
+    // noexcept(false): flush() can throw (e.g. disk full via CAutoFile::write).
+    // m_buf_pos is cleared before write_buffer is called so that a throw inside
+    // flush() leaves m_buf_pos == 0; the destructor's flush() then becomes a
+    // no-op and the exception propagates cleanly without a second throw.
+    // If operator<< threw with data still buffered, the destructor may still
+    // re-enter flush() with m_buf_pos > 0 and produce a second throw during
+    // stack unwinding, which calls std::terminate. Prevent this by calling
+    // flush() explicitly before the BufferedWriter scope closes.
+    ~BufferedWriter() noexcept(false) { flush(); }
 
     int GetType() const { return m_dst.GetType(); }
     int GetVersion() const { return m_dst.GetVersion(); }
@@ -824,8 +832,9 @@ public:
     void flush()
     {
         if (m_buf_pos) {
-            m_dst.write_buffer(m_buf.data(), m_buf_pos);
+            size_t to_write = m_buf_pos;
             m_buf_pos = 0;
+            m_dst.write_buffer(m_buf.data(), to_write);
         }
     }
 

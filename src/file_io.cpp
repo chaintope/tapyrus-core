@@ -358,6 +358,7 @@ static bool WriteBlockToDisk(const CBlock& block, CDiskBlockPos& pos, const CMes
     {
         BufferedWriter<CAutoFile> fileout(file);
         fileout << block;
+        fileout.flush();
     }
 
     return true;

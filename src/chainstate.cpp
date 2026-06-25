@@ -375,6 +375,7 @@ bool UndoWriteToDisk(const CBlockUndo& blockundo, CDiskBlockPos& pos, const uint
         CHashWriter hasher(SER_GETHASH, PROTOCOL_VERSION);
         hasher << hashBlock << blockundo;
         fileout << blockundo << hasher.GetHash();
+        fileout.flush();
     }
 
     return true;
