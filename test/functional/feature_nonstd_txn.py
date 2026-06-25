@@ -55,20 +55,25 @@ class NonStdTxnTest(BitcoinTestFramework):
         nonstd_hex0 = self._create_nonstd_tx_hex(node0)
         nonstd_hex1 = self._create_nonstd_tx_hex(node1)
 
+        tx0 = CTransaction()
+        tx0.deserialize(BytesIO(hex_str_to_bytes(nonstd_hex0)))
+        tx0.rehash()
+
+        tx1 = CTransaction()
+        tx1.deserialize(BytesIO(hex_str_to_bytes(nonstd_hex1)))
+        tx1.rehash()
+
         self.log.info("Standard node rejects non-standard tx from mempool")
         result = node0.testmempoolaccept([nonstd_hex0])
-        assert_equal(list(result.values())[0]['allowed'], False)
+        assert_equal(result[tx0.hashMalFix]['allowed'], False)
 
         self.log.info("Non-standard node (-acceptnonstdtxn=1) accepts non-standard tx in mempool")
         result = node1.testmempoolaccept([nonstd_hex1])
-        assert_equal(list(result.values())[0]['allowed'], True)
+        assert_equal(result[tx1.hashMalFix]['allowed'], True)
         txid = node1.sendrawtransaction(nonstd_hex1)
         assert txid in node1.getrawmempool()
 
         self.log.info("Standard node accepts a block with non-standard tx via submitblock (consensus)")
-        tx0 = CTransaction()
-        tx0.deserialize(BytesIO(hex_str_to_bytes(nonstd_hex0)))
-        tx0.rehash()
         self._submit_block_with_tx(node0, tx0)
 
         self.log.info("Non-standard node mines a block; non-standard tx from mempool is included")
