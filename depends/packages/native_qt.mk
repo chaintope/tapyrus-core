@@ -8,6 +8,7 @@ $(package)_patches_path := $(qt_details_patches_path)
 $(package)_patches := qtbase-moc-ignore-gcc-macro.patch
 $(package)_patches += rcc_hardcode_timestamp.patch
 $(package)_patches += skip_xcode_version_check.patch
+$(package)_patches += fix_qyieldcpu_arm_acle.patch
 
 $(package)_qttranslations_file_name=$(qt_details_qttranslations_file_name)
 $(package)_qttranslations_sha256_hash=$(qt_details_qttranslations_sha256_hash)
@@ -129,7 +130,8 @@ endef
 define $(package)_preprocess_cmds
   patch -p1 -i $($(package)_patch_dir)/qtbase-moc-ignore-gcc-macro.patch && \
   patch -p1 -i $($(package)_patch_dir)/rcc_hardcode_timestamp.patch && \
-  patch -p1 -i $($(package)_patch_dir)/skip_xcode_version_check.patch
+  patch -p1 -i $($(package)_patch_dir)/skip_xcode_version_check.patch && \
+  patch -p1 -i $($(package)_patch_dir)/fix_qyieldcpu_arm_acle.patch
 endef
 
 define $(package)_config_cmds
