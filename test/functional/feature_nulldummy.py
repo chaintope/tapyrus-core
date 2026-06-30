@@ -22,7 +22,7 @@ from test_framework.util import assert_equal, assert_raises_rpc_error, bytes_to_
 
 import time
 
-NULLDUMMY_ERROR = "Dummy CHECKMULTISIG argument must be zero (code 16)"
+NULLDUMMY_ERROR = "mandatory-script-verify-flag-failed (Dummy CHECKMULTISIG argument must be zero) (code 16)"
 
 def trueDummy(tx):
     scriptSig = CScript(tx.vin[0].scriptSig)
