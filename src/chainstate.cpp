@@ -668,8 +668,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             std::vector<CScriptCheck> vChecks;
             bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
             if (!CheckInputs(tx, state, view, fScriptChecks, GetBlockScriptFlags(pindex), fCacheResults, fCacheResults, txdata[i], nScriptCheckThreads ? &vChecks : nullptr, GetBlockScriptFlags(pindex)))
-                // FormatStateMessage is evaluated before DoS() overwrites state, preserving
-                // the per-input detail in the log while enforcing DoS 100 at the block level.
+                // FormatStateMessage is evaluated before DoS() re-sets state, preserving
+                // the per-input detail in the log.  state.GetRejectReason() already holds
+                // the specific error string set by CheckInputs, so it is propagated as-is.
                 //
                 // DoS scoring asymmetry (informational, not a bug):
                 // - Multi-thread (nScriptCheckThreads > 0): script checks are deferred to
@@ -684,7 +685,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 //   which is why it cannot simply be removed.
                 return state.DoS(100, error("ConnectBlock(): CheckInputs on %s failed with %s",
                     tx.GetHashMalFix().ToString(), FormatStateMessage(state)),
-                    REJECT_INVALID, "mandatory-script-verify-flag-failed");
+                    REJECT_INVALID, state.GetRejectReason());
             control.Add(std::move(vChecks));
         }
 
@@ -721,9 +722,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                                REJECT_INVALID, "bad-cb-amount");
 
     if (auto scriptErr = control.Complete())
-        return state.DoS(100, error("%s: block %s input script failure: %s",
-            __func__, pindex->GetBlockHash().ToString(), ScriptErrorString(*scriptErr)),
-            REJECT_INVALID, "script-verification-failed");
+        return state.DoS(100, error("%s: parallel script check failed: %s", __func__, ScriptErrorString(*scriptErr)),
+            REJECT_INVALID, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(*scriptErr)));
     int64_t nTime4 = GetTimeMicros(); nTimeVerify += nTime4 - nTime2;
     LogPrint(BCLog::BENCH, "    - Verify %u txins: %.2fms (%.3fms/txin) [%.2fs (%.2fms/blk)]\n", nInputs - 1, MILLI * (nTime4 - nTime2), nInputs <= 1 ? 0 : MILLI * (nTime4 - nTime2) / (nInputs-1), nTimeVerify * MICRO, nTimeVerify * MILLI / nBlocksTotal);
 

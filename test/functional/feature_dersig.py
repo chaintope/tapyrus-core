@@ -75,7 +75,7 @@ class BIP66Test(BitcoinTestFramework):
         with mininode_lock:
             assert_equal(self.nodes[0].p2p.last_message["reject"].code, REJECT_INVALID)
             assert_equal(self.nodes[0].p2p.last_message["reject"].data, block.sha256)
-            assert_equal(self.nodes[0].p2p.last_message["reject"].reason, b'script-verification-failed')
+            assert_equal(self.nodes[0].p2p.last_message["reject"].reason, b'mandatory-script-verify-flag-failed (Non-canonical DER signature)')
 
         self.log.info("Test that blocks must now be at least version 3")
         #tip = block.sha256
@@ -111,7 +111,7 @@ class BIP66Test(BitcoinTestFramework):
         with mininode_lock:
             assert_equal(self.nodes[0].p2p.last_message["reject"].code, REJECT_INVALID)
             assert_equal(self.nodes[0].p2p.last_message["reject"].data, block.sha256)
-            assert_equal(self.nodes[0].p2p.last_message["reject"].reason, b'script-verification-failed')
+            assert_equal(self.nodes[0].p2p.last_message["reject"].reason, b'mandatory-script-verify-flag-failed (Non-canonical DER signature)')
 
         self.log.info("Test that a version 3 block with a DERSIG-compliant transaction is accepted")
         block.vtx[1] = create_transaction(self.nodes[0], self.coinbase_txids[1], self.nodeaddress, amount=1.0)

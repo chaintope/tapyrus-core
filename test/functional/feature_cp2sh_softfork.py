@@ -285,7 +285,7 @@ class CP2SHSoftforkTest(BitcoinTestFramework):
 
         self.log.info("Boundary: mempool rejects bad redeemScript at tip == ACTIVATION_HEIGHT - 1")
         assert_raises_rpc_error(
-            -26, "Script evaluated without error but finished with a false/empty top stack element",
+            -26, "mandatory-script-verify-flag-failed (Script evaluated without error but finished with a false/empty top stack element)",
             node.sendrawtransaction, ToHex(boundary_spend),
         )
         self.log.info("  ✓ rejected at mempool admission (not deferred to block validation)")
@@ -313,7 +313,7 @@ class CP2SHSoftforkTest(BitcoinTestFramework):
         )
         self.log.info("Post-activation: spend with OP_0 redeemScript rejected")
         spend_bad = self._spend_cp2sh(issue_bad, 0, bad_redeem, fee_utxos_post[0])
-        self._wrap_submit(spend_bad, expect_reject="script-verification-failed")
+        self._wrap_submit(spend_bad, expect_reject="mandatory-script-verify-flag-failed (Script evaluated without error but finished with a false/empty top stack element)")
         self.log.info("  ✓ rejected (chain stays at block %d)" % node.getblockcount())
 
         # ── post-activation: valid redeemScript accepted ─────────────────────

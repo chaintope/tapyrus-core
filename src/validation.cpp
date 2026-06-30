@@ -1147,9 +1147,10 @@ std::optional<ScriptError> CScriptCheck::operator()() {
     const CScript &scriptSig = ptxTo->vin[nIn].scriptSig;
     const CScriptWitness *witness = &ptxTo->vin[nIn].scriptWitness;
     ScriptError error{SCRIPT_ERR_UNKNOWN_ERROR};
-    if (VerifyScript(scriptSig, m_tx_out.scriptPubKey, witness, nFlags, CachingTransactionSignatureChecker(ptxTo, nIn, m_tx_out.nValue, cacheStore, *txdata), colorid, &error)) {
+    if (VerifyScript(scriptSig, m_tx_out.scriptPubKey, witness, nFlags,
+                     CachingTransactionSignatureChecker(ptxTo, nIn, m_tx_out.nValue, cacheStore, *txdata),
+                     colorid, &error))
         return std::nullopt;
-    }
     return error;
 }
 
@@ -1219,7 +1220,7 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                 CScriptCheck check(coin.out, tx, i, flags, cacheSigStore, &txdata);
                 if (pvChecks) {
                     pvChecks->emplace_back(std::move(check));
-                } else if (auto err = check()) {
+                } else if (const auto err = check()) {
                     // Flags that are in STANDARD but not in the mandatory block flags
                     // for this height are truly non-mandatory (policy-only).
                     // Flags present in mandatoryFlags are consensus-mandatory even if
@@ -1240,17 +1241,10 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                                 strprintf("non-mandatory-script-verify-flag (%s)", ScriptErrorString(*err)));
                         }
                     }
-                    // On the block-validation path flags == mandatoryFlags (both are
-                    // GetBlockScriptFlags). On the mempool path flags is a strict superset
-                    // (STANDARD_SCRIPT_VERIFY_FLAGS), so the two are always unequal.
-                    // This correctly identifies the block path even after softfork activation,
-                    // when GetBlockScriptFlags returns non-zero (e.g. SCRIPT_VERIFY_CP2SH_COLORED).
-                    const char* reject_reason = (flags == mandatoryFlags)
-                        ? "script-verification-failed"
-                        : ScriptErrorString(*err);
                     return state.DoS(100, error("%s: tx %s input %u flags=0x%08x script failure: %s",
                             __func__, tx.GetHashMalFix().ToString(), i, flags, ScriptErrorString(*err)),
-                        REJECT_INVALID, reject_reason);
+                        REJECT_INVALID,
+                        strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(*err)));
                 }
             }
 

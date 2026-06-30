@@ -5,12 +5,12 @@
 #ifndef BITCOIN_CHECKQUEUE_H
 #define BITCOIN_CHECKQUEUE_H
 
+#include <script/script_error.h>
 #include <sync.h>
 
 #include <algorithm>
 #include <optional>
 #include <vector>
-
 
 template <typename T, typename R>
 class CCheckQueueControl;
@@ -77,8 +77,8 @@ private:
         vChecks.reserve(nBatchSize);
         unsigned int nNow = 0;
         std::optional<R> local_result;
-        bool do_work;
         do {
+            bool do_work;
             {
                 WaitableLock lock(mutex);
                 // first do the clean-up of the previous loop run (allowing us to do it in the same critsect)

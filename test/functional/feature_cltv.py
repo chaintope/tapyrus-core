@@ -88,7 +88,7 @@ class BIP65Test(BitcoinTestFramework):
         with mininode_lock:
             assert_equal(self.nodes[0].p2p.last_message["reject"].code, REJECT_INVALID)
             assert_equal(self.nodes[0].p2p.last_message["reject"].data, block.sha256)
-            assert_equal(self.nodes[0].p2p.last_message["reject"].reason, b'script-verification-failed')
+            assert_equal(self.nodes[0].p2p.last_message["reject"].reason, b'mandatory-script-verify-flag-failed (Negative locktime)')
 
         self.log.info("Test that blocks must now be at least version 4")
         #tip = block.sha256
@@ -124,7 +124,7 @@ class BIP65Test(BitcoinTestFramework):
         with mininode_lock:
             assert_equal(self.nodes[0].p2p.last_message["reject"].code, REJECT_INVALID)
             assert_equal(self.nodes[0].p2p.last_message["reject"].data, block.sha256)
-            assert_equal(self.nodes[0].p2p.last_message["reject"].reason, b'script-verification-failed')
+            assert_equal(self.nodes[0].p2p.last_message["reject"].reason, b'mandatory-script-verify-flag-failed (Negative locktime)')
 
         self.log.info("Test that a version 4 block with a valid-according-to-CLTV transaction is accepted")
         spendtx = cltv_validate(self.nodes[0], spendtx, CLTV_HEIGHT - 1)
