@@ -1240,10 +1240,12 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                                 strprintf("non-mandatory-script-verify-flag (%s)", ScriptErrorString(*err)));
                         }
                     }
-                    // For block validation (flags == SCRIPT_VERIFY_NONE), use a generic reject
-                    // reason so the P2P message is consistent across all script error types.
-                    // For mempool (flags != 0), expose the specific error for RPC callers.
-                    const char* reject_reason = (flags == SCRIPT_VERIFY_NONE)
+                    // On the block-validation path flags == mandatoryFlags (both are
+                    // GetBlockScriptFlags). On the mempool path flags is a strict superset
+                    // (STANDARD_SCRIPT_VERIFY_FLAGS), so the two are always unequal.
+                    // This correctly identifies the block path even after softfork activation,
+                    // when GetBlockScriptFlags returns non-zero (e.g. SCRIPT_VERIFY_CP2SH_COLORED).
+                    const char* reject_reason = (flags == mandatoryFlags)
                         ? "script-verification-failed"
                         : ScriptErrorString(*err);
                     return state.DoS(100, error("%s: tx %s input %u flags=0x%08x script failure: %s",

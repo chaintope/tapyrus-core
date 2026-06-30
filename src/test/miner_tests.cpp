@@ -469,8 +469,8 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     tx.vout[0].nValue -= LOWFEE;
     hash = tx.GetHashMalFix();
     mempool.addUnchecked(hash, entry.Fee(LOWFEE).Time(GetTime()).SpendsCoinbase(false).FromTx(tx));
-    // Should throw block-validation-failed
-    BOOST_CHECK_EXCEPTION(AssemblerForTest(Params()).CreateNewBlock(scriptPubKey), std::runtime_error, HasReason("block-validation-failed"));
+    // Should throw script-verification-failed
+    BOOST_CHECK_EXCEPTION(AssemblerForTest(Params()).CreateNewBlock(scriptPubKey), std::runtime_error, HasReason("script-verification-failed"));
     BOOST_CHECK_EQUAL(pblocktemplate->block.GetHeight(), chainActive.Height()+1);
     mempool.clear();
 
