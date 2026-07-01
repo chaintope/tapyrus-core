@@ -259,7 +259,7 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
         tx.deserialize(BytesIO(hex_str_to_bytes(tx_new)))
         tx.vout[0].scriptPubKey = CScript([OP_0])  # Some custom script - scriptpubkey passes isStandard check but scriptsig+scriptpubkey fails.
         self.check_mempool_result(
-            result_expected={tx.rehash():{ 'allowed': False, 'reject-reason': '16: Signature must be zero for failed CHECK(MULTI)SIG operation'}},
+            result_expected={tx.rehash():{ 'allowed': False, 'reject-reason': '16: mandatory-script-verify-flag-failed (Signature must be zero for failed CHECK(MULTI)SIG operation)'}},
             rawtxs=[bytes_to_hex_str(tx.serialize())],
         )
         tx.deserialize(BytesIO(hex_str_to_bytes(tx_new)))
