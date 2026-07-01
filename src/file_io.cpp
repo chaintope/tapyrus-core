@@ -346,20 +346,20 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
 static bool WriteBlockToDisk(const CBlock& block, CDiskBlockPos& pos, const CMessageHeader::MessageStartChars& messageStart)
 {
     // Open history file to append
-    CAutoFile fileout(OpenBlockFile(pos), SER_DISK, CLIENT_VERSION);
-    if (fileout.IsNull())
-        return error("WriteBlockToDisk: OpenBlockFile failed");
+    CAutoFile file(OpenBlockFile(pos, /*fReadOnly=*/false), SER_DISK, CLIENT_VERSION);
+    if (file.IsNull())
+        return error("OpenBlockFile failed for %s while writing block", pos.ToString());
 
-    // Write index header
-    unsigned int nSize = GetSerializeSize(fileout, block);
-    fileout << messageStart << nSize;
+    // Write index header (unbuffered: header must be on disk before we record pos.nPos)
+    unsigned int nSize = GetSerializeSize(file, block);
+    file << messageStart << nSize;
+    pos.nPos += STORAGE_HEADER_BYTES;
 
-    // Write block
-    long fileOutPos = ftell(fileout.Get());
-    if (fileOutPos < 0)
-        return error("WriteBlockToDisk: ftell failed");
-    pos.nPos = (unsigned int)fileOutPos;
-    fileout << block;
+    {
+        BufferedWriter<CAutoFile> fileout(file);
+        fileout << block;
+        fileout.flush();
+    }
 
     return true;
 }
@@ -373,12 +373,12 @@ CDiskBlockPos SaveBlockToDisk(const CBlock& block, int nHeight, const CDiskBlock
         blockPos = *dbp;
     } else {
         // when known, blockPos.nPos points at the offset of the block data in the blk file. that already accounts for
-        // the serialization header present in the file (the 4 magic message start bytes + the 4 length bytes = 8 bytes = BLOCK_SERIALIZATION_HEADER_SIZE).
-        // we add BLOCK_SERIALIZATION_HEADER_SIZE only for new blocks since they will have the serialization header added when written to disk.
-        nBlockSize += static_cast<unsigned int>(BLOCK_SERIALIZATION_HEADER_SIZE);
+        // the serialization header present in the file (the 4 magic message start bytes + the 4 length bytes = 8 bytes = STORAGE_HEADER_BYTES).
+        // we add STORAGE_HEADER_BYTES only for new blocks since they will have the serialization header added when written to disk.
+        nBlockSize += static_cast<unsigned int>(STORAGE_HEADER_BYTES);
     }
     if (!FindBlockPos(blockPos, nBlockSize, nHeight, block.GetBlockTime(), position_known)) {
-        error("%s: FindBlockPos failed", __func__);
+        error("FindBlockPos failed for %s while saving block", blockPos.ToString());
         return CDiskBlockPos();
     }
     if (!position_known) {
@@ -539,11 +539,14 @@ void  FlushBlockFile(bool fFinalize)
 
 bool ReadRawBlockFromDisk(std::vector<uint8_t>& block, const CDiskBlockPos& pos, const CMessageHeader::MessageStartChars& message_start)
 {
-    CDiskBlockPos hpos = pos;
-    hpos.nPos -= 8; // Seek back 8 bytes for meta header
-    CAutoFile filein(OpenBlockFile(hpos, true), SER_DISK, CLIENT_VERSION);
+    if (pos.nPos < STORAGE_HEADER_BYTES) {
+        // If nPos is less than STORAGE_HEADER_BYTES, we can't read the header that precedes the block data.
+        // This would cause an unsigned integer underflow when trying to position the file cursor.
+        return error("Failed for %s while reading raw block storage header", pos.ToString());
+    }
+    CAutoFile filein(OpenBlockFile(CDiskBlockPos(pos.nFile, pos.nPos - STORAGE_HEADER_BYTES), /*fReadOnly=*/true), SER_DISK, CLIENT_VERSION);
     if (filein.IsNull()) {
-        return error("%s: OpenBlockFile failed for %s", __func__, pos.ToString());
+        return error("OpenBlockFile failed for %s while reading raw block", pos.ToString());
     }
 
     try {
@@ -553,20 +556,21 @@ bool ReadRawBlockFromDisk(std::vector<uint8_t>& block, const CDiskBlockPos& pos,
         filein >> blk_start >> blk_size;
 
         if (memcmp(blk_start, message_start, CMessageHeader::MESSAGE_START_SIZE)) {
-            return error("%s: Block magic mismatch for %s: %s versus expected %s", __func__, pos.ToString(),
-                    HexStr(blk_start, blk_start + CMessageHeader::MESSAGE_START_SIZE),
-                    HexStr(message_start, message_start + CMessageHeader::MESSAGE_START_SIZE));
+            return error("Block magic mismatch for %s: %s versus expected %s while reading raw block",
+                pos.ToString(),
+                HexStr(blk_start, blk_start + CMessageHeader::MESSAGE_START_SIZE),
+                HexStr(message_start, message_start + CMessageHeader::MESSAGE_START_SIZE));
         }
 
         if (blk_size > MAX_SIZE) {
-            return error("%s: Block data is larger than maximum deserialization size for %s: %s versus %s", __func__, pos.ToString(),
-                    blk_size, MAX_SIZE);
+            return error("Block data is larger than maximum deserialization size for %s: %s versus %s while reading raw block",
+                pos.ToString(), blk_size, MAX_SIZE);
         }
 
         block.resize(blk_size); // Zeroing of memory is intentional here
         filein.read((char*)block.data(), blk_size);
     } catch(const std::exception& e) {
-        return error("%s: Read from block file failed: %s for %s", __func__, e.what(), pos.ToString());
+        return error("Read from block file failed: %s for %s while reading raw block", e.what(), pos.ToString());
     }
 
     return true;
@@ -577,17 +581,18 @@ bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, CXFieldHistoryMa
 {
     block.SetNull();
 
-    // Open history file to read
-    CAutoFile filein(OpenBlockFile(pos, true), SER_DISK, CLIENT_VERSION);
-    if (filein.IsNull())
-        return error("ReadBlockFromDisk: OpenBlockFile failed for %s", pos.ToString());
-
-    // Read block
-    try {
-        filein >> block;
+    // Read raw block bytes (handles header validation internally)
+    std::vector<uint8_t> block_data;
+    if (!ReadRawBlockFromDisk(block_data, pos, FederationParams().MessageStart())) {
+        return false;
     }
-    catch (const std::exception& e) {
-        return error("%s: Deserialize or I/O error - %s at %s", __func__, e.what(), pos.ToString());
+
+    // Deserialize from memory buffer
+    try {
+        SpanReader spanreader(SER_DISK, CLIENT_VERSION, block_data);
+        spanreader >> block;
+    } catch (const std::exception& e) {
+        return error("Deserialize or I/O error - %s at %s while reading block", e.what(), pos.ToString());
     }
 
     // Use nHeight from the trusted block index (pindex->nHeight) when available.
@@ -596,7 +601,7 @@ bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, CXFieldHistoryMa
     // Never use block.GetHeight() (coinbase prevout.n): that field is attacker-controlled.
     CValidationState state;
     if(!CheckBlockHeader(block.GetBlockHeader(), state, pxfieldHistory, nHeight, true))
-        return error("%s: ReadBlockFromDisk: %s", __func__, FormatStateMessage(state));
+        return error("Errors in block header at %s while reading block: %s nHeight = %d", pos.ToString(), FormatStateMessage(state), nHeight);
 
     return true;
 }
@@ -615,7 +620,7 @@ bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex)
     if (!ReadBlockFromDisk(block, blockPos, nullptr, pindex->nHeight))
         return false;
     if (block.GetHash() != pindex->GetBlockHash())
-        return error("ReadBlockFromDisk(CBlock&, CBlockIndex*): GetHash() doesn't match index for %s at %s",
+        return error("GetHash() doesn't match index for %s at %s while reading block",
                 pindex->ToString(), pindex->GetBlockPos().ToString());
     return true;
 }

@@ -184,29 +184,30 @@ bool UndoReadFromDisk(CBlockUndo& blockundo, const CBlockIndex *pindex)
 {
     CDiskBlockPos pos = pindex->GetUndoPos();
     if (pos.IsNull()) {
-        return error("%s: no undo data available", __func__);
+        return error("no undo data available for %s", pos.ToString());
     }
 
     // Open history file to read
-    CAutoFile filein(OpenUndoFile(pos, true), SER_DISK, CLIENT_VERSION);
-    if (filein.IsNull())
-        return error("%s: OpenUndoFile failed", __func__);
+    CAutoFile file(OpenUndoFile(pos, /*fReadOnly=*/true), SER_DISK, CLIENT_VERSION);
+    if (file.IsNull())
+        return error("OpenUndoFile failed for %s while reading block undo", pos.ToString());
+    BufferedReader<CAutoFile> filein(file);
 
-    // Read block
-    uint256 hashChecksum;
-    CHashVerifier<CAutoFile> verifier(&filein); // We need a CHashVerifier as reserializing may lose data
     try {
+        // Read block
+        CHashVerifier<BufferedReader<CAutoFile>> verifier(&filein); // Use CHashVerifier as reserializing may lose data, c.f. commit d342424301013ec47dc146a4beb49d5c9319d80a
         verifier << pindex->pprev->GetBlockHash();
         verifier >> blockundo;
-        filein >> hashChecksum;
-    }
-    catch (const std::exception& e) {
-        return error("%s: Deserialize or I/O error - %s", __func__, e.what());
-    }
 
-    // Verify checksum
-    if (hashChecksum != verifier.GetHash())
-        return error("%s: Checksum mismatch", __func__);
+        uint256 hashChecksum;
+        filein >> hashChecksum;
+
+        // Verify checksum
+        if (hashChecksum != verifier.GetHash())
+            return error("Checksum mismatch at %s while reading block undo", pos.ToString());
+    } catch (const std::exception& e) {
+        return error("Deserialize or I/O error - %s at %s while reading block undo", e.what(), pos.ToString());
+    }
 
     return true;
 }
@@ -359,26 +360,23 @@ static bool FindUndoPos(CValidationState &state, int nFile, CDiskBlockPos &pos, 
 bool UndoWriteToDisk(const CBlockUndo& blockundo, CDiskBlockPos& pos, const uint256& hashBlock, const CMessageHeader::MessageStartChars& messageStart)
 {
     // Open history file to append
-    CAutoFile fileout(OpenUndoFile(pos), SER_DISK, CLIENT_VERSION);
-    if (fileout.IsNull())
-        return error("%s: OpenUndoFile failed", __func__);
+    CAutoFile file(OpenUndoFile(pos, /*fReadOnly=*/false), SER_DISK, CLIENT_VERSION);
+    if (file.IsNull())
+        return error("OpenUndoFile failed for %s while writing block undo", pos.ToString());
 
-    // Write index header
-    unsigned int nSize = GetSerializeSize(fileout, blockundo);
-    fileout << messageStart << nSize;
+    // Write index header (unbuffered: header must be on disk before we record pos.nPos)
+    unsigned int nSize = GetSerializeSize(file, blockundo);
+    file << messageStart << nSize;
+    pos.nPos += STORAGE_HEADER_BYTES;
 
-    // Write undo data
-    long fileOutPos = ftell(fileout.Get());
-    if (fileOutPos < 0)
-        return error("%s: ftell failed", __func__);
-    pos.nPos = (unsigned int)fileOutPos;
-    fileout << blockundo;
-
-    // calculate & write checksum
-    CHashWriter hasher(SER_GETHASH, PROTOCOL_VERSION);
-    hasher << hashBlock;
-    hasher << blockundo;
-    fileout << hasher.GetHash();
+    {
+        BufferedWriter<CAutoFile> fileout(file);
+        // Calculate checksum and write undo data + checksum
+        CHashWriter hasher(SER_GETHASH, PROTOCOL_VERSION);
+        hasher << hashBlock << blockundo;
+        fileout << blockundo << hasher.GetHash();
+        fileout.flush();
+    }
 
     return true;
 }
@@ -1810,7 +1808,7 @@ bool CChainState::LoadGenesisBlock()
             // would shrink blk00000.dat to 16MB) and skips WriteBlockToDisk
             // (genesis is already on disk). Block index and xfield history are
             // still initialized correctly below.
-            CDiskBlockPos genesisKnownPos(0, BLOCK_SERIALIZATION_HEADER_SIZE);
+            CDiskBlockPos genesisKnownPos(0, STORAGE_HEADER_BYTES);
             blockPos = SaveBlockToDisk(block, 0, &genesisKnownPos);
         } else {
             blockPos = SaveBlockToDisk(block, 0, nullptr);

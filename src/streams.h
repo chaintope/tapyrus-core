@@ -533,6 +533,20 @@ public:
             throw std::ios_base::failure("CAutoFile::write: write failed");
     }
 
+    /** Read up to nSize bytes, returning the actual count (non-throwing, for use by BufferedReader). */
+    size_t detail_fread(char* pch, size_t nSize)
+    {
+        if (!file)
+            throw std::ios_base::failure("CAutoFile::detail_fread: file handle is nullptr");
+        return fread(pch, 1, nSize, file);
+    }
+
+    /** Write nSize bytes; for use by BufferedWriter. */
+    void write_buffer(const char* pch, size_t nSize)
+    {
+        write(pch, nSize);
+    }
+
     template<typename T>
     CAutoFile& operator<<(const T& obj)
     {
@@ -702,6 +716,145 @@ public:
                 break;
             nReadPos++;
         }
+    }
+};
+
+/** Buffer type used by BufferedReader and BufferedWriter. */
+using DataBuffer = std::vector<char>;
+
+/**
+ * Minimal stream that deserializes from a byte vector.
+ * Stores nType and nVersion for Tapyrus serialization compatibility.
+ */
+class SpanReader
+{
+    const int nType;
+    const int nVersion;
+    const std::vector<uint8_t>& m_data;
+    size_t m_pos{0};
+
+public:
+    SpanReader(int nTypeIn, int nVersionIn, const std::vector<uint8_t>& data)
+        : nType(nTypeIn), nVersion(nVersionIn), m_data(data) {}
+
+    int GetType() const { return nType; }
+    int GetVersion() const { return nVersion; }
+
+    void read(char* pch, size_t nSize)
+    {
+        if (nSize > m_data.size() - m_pos)
+            throw std::ios_base::failure("SpanReader::read: end of data");
+        memcpy(pch, m_data.data() + m_pos, nSize);
+        m_pos += nSize;
+    }
+
+    template<typename T>
+    SpanReader& operator>>(T&& obj)
+    {
+        ::Unserialize(*this, obj);
+        return *this;
+    }
+};
+
+/**
+ * Wrapper that buffers reads from an underlying stream.
+ * Reduces the number of fread calls by reading ahead in larger batches.
+ * Requires the underlying stream to support read() and detail_fread().
+ */
+template <typename S>
+class BufferedReader
+{
+    S& m_src;
+    DataBuffer m_buf;
+    size_t m_buf_pos{0};
+    size_t m_buf_valid{0};
+
+public:
+    explicit BufferedReader(S& stream, size_t buf_size = 1 << 16)
+        : m_src{stream}, m_buf(buf_size) {}
+
+    int GetType() const { return m_src.GetType(); }
+    int GetVersion() const { return m_src.GetVersion(); }
+
+    void read(char* pch, size_t nSize)
+    {
+        if (const auto available = std::min(nSize, m_buf_valid - m_buf_pos)) {
+            memcpy(pch, m_buf.data() + m_buf_pos, available);
+            m_buf_pos += available;
+            pch += available;
+            nSize -= available;
+        }
+        if (nSize > 0) {
+            assert(m_buf_pos == m_buf_valid);
+            m_src.read(pch, nSize);
+            m_buf_pos = 0;
+            m_buf_valid = m_src.detail_fread(m_buf.data(), m_buf.size());
+        }
+    }
+
+    template<typename T>
+    BufferedReader& operator>>(T&& obj)
+    {
+        ::Unserialize(*this, obj);
+        return *this;
+    }
+};
+
+/**
+ * Wrapper that buffers writes to an underlying stream.
+ * Reduces the number of fwrite calls by collecting writes in a buffer.
+ * Requires the underlying stream to support write_buffer().
+ */
+template <typename S>
+class BufferedWriter
+{
+    S& m_dst;
+    DataBuffer m_buf;
+    size_t m_buf_pos{0};
+
+public:
+    explicit BufferedWriter(S& stream, size_t buf_size = 1 << 16)
+        : m_dst{stream}, m_buf(buf_size) {}
+
+    // noexcept(false): flush() can throw (e.g. disk full via CAutoFile::write).
+    // m_buf_pos is cleared before write_buffer is called so that a throw inside
+    // flush() leaves m_buf_pos == 0; the destructor's flush() then becomes a
+    // no-op and the exception propagates cleanly without a second throw.
+    // If operator<< threw with data still buffered, the destructor may still
+    // re-enter flush() with m_buf_pos > 0 and produce a second throw during
+    // stack unwinding, which calls std::terminate. Prevent this by calling
+    // flush() explicitly before the BufferedWriter scope closes.
+    ~BufferedWriter() noexcept(false) { flush(); }
+
+    int GetType() const { return m_dst.GetType(); }
+    int GetVersion() const { return m_dst.GetVersion(); }
+
+    void flush()
+    {
+        if (m_buf_pos) {
+            size_t to_write = m_buf_pos;
+            m_buf_pos = 0;
+            m_dst.write_buffer(m_buf.data(), to_write);
+        }
+    }
+
+    void write(const char* pch, size_t nSize)
+    {
+        while (nSize > 0) {
+            const size_t available = std::min(nSize, m_buf.size() - m_buf_pos);
+            memcpy(m_buf.data() + m_buf_pos, pch, available);
+            m_buf_pos += available;
+            if (m_buf_pos == m_buf.size()) flush();
+            pch += available;
+            nSize -= available;
+        }
+    }
+
+    template<typename T>
+    BufferedWriter& operator<<(const T& obj)
+    {
+        ::Serialize(*this, obj);
+        return *this;
     }
 };
 
