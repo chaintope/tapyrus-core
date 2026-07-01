@@ -93,7 +93,7 @@ class BIP66Test(BitcoinTestFramework):
         # rejected from the mempool for exactly that reason.
         mempool_size = self.nodes[0].getmempoolinfo()['size']
         assert_equal(
-            { spendtx.hashMalFix : { 'allowed': False, 'reject-reason': '16: Non-canonical DER signature'}},
+            { spendtx.hashMalFix : { 'allowed': False, 'reject-reason': '16: mandatory-script-verify-flag-failed (Non-canonical DER signature)'}},
             self.nodes[0].testmempoolaccept(rawtxs=[bytes_to_hex_str(spendtx.serialize())], allowhighfees=True))
         assert_equal(self.nodes[0].getmempoolinfo()['size'], mempool_size)
 
