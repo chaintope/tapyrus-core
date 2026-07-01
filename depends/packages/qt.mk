@@ -16,6 +16,7 @@ $(package)_patches += qttools_skip_dependencies.patch
 $(package)_patches += fix_qnetconmonitor_cross_compile.patch
 ifeq ($(host_os),darwin)
 $(package)_patches += fix_cgdisplay_macos15.patch
+$(package)_patches += fix_qyieldcpu_arm_acle.patch
 endif
 
 $(package)_qttranslations_file_name=$(qt_details_qttranslations_file_name)
@@ -271,6 +272,7 @@ ifeq ($(host),$(build))
 endif
 ifeq ($(host_os),darwin)
   $(package)_preprocess_cmds += && patch -p1 -i $($(package)_patch_dir)/fix_cgdisplay_macos15.patch
+  $(package)_preprocess_cmds += && patch -p1 -i $($(package)_patch_dir)/fix_qyieldcpu_arm_acle.patch
 endif
 
 define $(package)_config_cmds

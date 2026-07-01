@@ -1,0 +1,15 @@
+diff --git a/qtbase/src/corelib/thread/qyieldcpu.h b/qtbase/src/corelib/thread/qyieldcpu.h
+--- a/qtbase/src/corelib/thread/qyieldcpu.h
++++ b/qtbase/src/corelib/thread/qyieldcpu.h
+@@ -19,6 +19,10 @@
+ #  endif
+ void _mm_pause(void);       // the compiler recognizes as intrinsic
+ #endif
+
++#if __has_builtin(__yield) && __has_include(<arm_acle.h>)
++#include <arm_acle.h>
++#endif
++
+ QT_BEGIN_NAMESPACE
+
+ Q_ALWAYS_INLINE
