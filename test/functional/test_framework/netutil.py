@@ -117,7 +117,7 @@ def all_interfaces():
     # SIOCGIFCONF only returns IPv4 addresses; read IPv6 from /proc/net/if_inet6.
     # Format: hex_addr if_index prefix_len scope flags name
     try:
-        with open('/proc/net/if_inet6') as f:
+        with open('/proc/net/if_inet6', encoding='utf-8') as f:
             for line in f:
                 parts = line.split()
                 if len(parts) >= 6:
