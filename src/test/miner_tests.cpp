@@ -469,8 +469,8 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     tx.vout[0].nValue -= LOWFEE;
     hash = tx.GetHashMalFix();
     mempool.addUnchecked(hash, entry.Fee(LOWFEE).Time(GetTime()).SpendsCoinbase(false).FromTx(tx));
-    // Should throw block-validation-failed
-    BOOST_CHECK_EXCEPTION(AssemblerForTest(Params()).CreateNewBlock(scriptPubKey), std::runtime_error, HasReason("block-validation-failed"));
+    BOOST_CHECK_EXCEPTION(AssemblerForTest(Params()).CreateNewBlock(scriptPubKey), std::runtime_error,
+        HasReason("mandatory-script-verify-flag-failed (Script evaluated without error but finished with a false/empty top stack element)"));
     BOOST_CHECK_EQUAL(pblocktemplate->block.GetHeight(), chainActive.Height()+1);
     mempool.clear();
 

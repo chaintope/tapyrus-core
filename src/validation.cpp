@@ -1143,10 +1143,15 @@ void UpdateCoins(const CTransaction& tx, CCoinsViewCache& inputs, int nHeight)
     UpdateCoins(tx, inputs, txundo, nHeight);
 }
 
-bool CScriptCheck::operator()() {
+std::optional<ScriptError> CScriptCheck::operator()() {
     const CScript &scriptSig = ptxTo->vin[nIn].scriptSig;
     const CScriptWitness *witness = &ptxTo->vin[nIn].scriptWitness;
-    return VerifyScript(scriptSig, m_tx_out.scriptPubKey, witness, nFlags, CachingTransactionSignatureChecker(ptxTo, nIn, m_tx_out.nValue, cacheStore, *txdata), colorid, &error);
+    ScriptError error{SCRIPT_ERR_UNKNOWN_ERROR};
+    if (VerifyScript(scriptSig, m_tx_out.scriptPubKey, witness, nFlags,
+                     CachingTransactionSignatureChecker(ptxTo, nIn, m_tx_out.nValue, cacheStore, *txdata),
+                     colorid, &error))
+        return std::nullopt;
+    return error;
 }
 
 int GetSpendHeight(const CCoinsViewCache& inputs)
@@ -1215,7 +1220,7 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                 CScriptCheck check(coin.out, tx, i, flags, cacheSigStore, &txdata);
                 if (pvChecks) {
                     pvChecks->emplace_back(std::move(check));
-                } else if (!check()) {
+                } else if (const auto err = check()) {
                     // Flags that are in STANDARD but not in the mandatory block flags
                     // for this height are truly non-mandatory (policy-only).
                     // Flags present in mandatoryFlags are consensus-mandatory even if
@@ -1223,24 +1228,23 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                     // SCRIPT_VERIFY_CP2SH_COLORED after softfork activation).
                     const unsigned int nonMandatory = STANDARD_NOT_MANDATORY_VERIFY_FLAGS & ~mandatoryFlags;
                     if (flags & nonMandatory) {
-                        // Check whether the failure was caused by a
-                        // non-mandatory script verification check, such as
-                        // push only script_sig if so, don't trigger DoS protection to
-                        // avoid splitting the network between upgraded and
-                        // non-upgraded nodes.
+                        // Check whether the failure was caused by a non-mandatory script
+                        // verification flag. If check2 passes, the failure is non-mandatory
+                        // → mempool rejects as non-standard without DoS.
+                        // If check2 also fails, fall through to DoS.
                         CScriptCheck check2(coin.out, tx, i,
                                 flags & ~nonMandatory, cacheSigStore, &txdata);
-                        if (check2())
-                            return state.Invalid(false, REJECT_NONSTANDARD, strprintf("non-mandatory-script-verify-flag (%s)", ScriptErrorString(check.GetScriptError())));
+                        if (!check2().has_value()) {
+                            LogPrint(BCLog::MEMPOOLREJ, "%s: tx %s input %u flags=0x%08x non-mandatory script failure: %s\n",
+                                __func__, tx.GetHashMalFix().ToString(), i, flags, ScriptErrorString(*err));
+                            return state.Invalid(false, REJECT_NONSTANDARD,
+                                strprintf("non-mandatory-script-verify-flag (%s)", ScriptErrorString(*err)));
+                        }
                     }
-                    // Failures of other flags indicate a transaction that is
-                    // invalid in new blocks, e.g. an invalid P2SH. We DoS ban
-                    // such nodes as they are not following the protocol. That
-                    // said during an upgrade careful thought should be taken
-                    // as to the correct behavior - we may want to continue
-                    // peering with non-upgraded nodes even after soft-fork
-                    // super-majority signaling has occurred.
-                    return state.DoS(100,false, REJECT_INVALID, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(check.GetScriptError())));
+                    return state.DoS(100, error("%s: tx %s input %u flags=0x%08x script failure: %s",
+                            __func__, tx.GetHashMalFix().ToString(), i, flags, ScriptErrorString(*err)),
+                        REJECT_INVALID,
+                        strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(*err)));
                 }
             }
 

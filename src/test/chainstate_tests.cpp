@@ -510,8 +510,8 @@ BOOST_AUTO_TEST_CASE(scriptcheckqueue_edge_cases)
     // Queue construction succeeded - this is our verification for Case 1
 
     // Case 2: Test with empty queue
-    // Wait() should return true even with no checks added
-    BOOST_CHECK(queue.Wait());
+    // Complete() returns nullopt (no error) even with no checks added
+    BOOST_CHECK(!queue.Complete().has_value());
 
     // Case 3: Destructor will automatically stop and join worker threads
     // when queue goes out of scope

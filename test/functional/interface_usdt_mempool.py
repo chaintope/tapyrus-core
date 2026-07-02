@@ -19,8 +19,8 @@ from test_framework.timeout_config import TAPYRUSD_SYNC_TIMEOUT
 MEMPOOL_TRACEPOINTS_PROGRAM = """
 # include <uapi/linux/ptrace.h>
 
-// The longest rejection reason is 118 chars and is generated in case of SCRIPT_ERR_EVAL_FALSE by
-// strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(check.GetScriptError()))
+// Rejection reason is the bare ScriptErrorString() value; the longest is 59 chars.
+// Buffer is kept at 118 for safety margin.
 #define MAX_REJECT_REASON_LENGTH        118
 // The longest string returned by RemovalReasonToString() is 'sizelimit'
 #define MAX_REMOVAL_REASON_LENGTH       9

@@ -153,7 +153,7 @@ class SerializationTest(BitcoinTestFramework):
         with mininode_lock:
             assert_equal(self.nodes[0].p2p.last_message["reject"].code, REJECT_INVALID)
             assert_equal(self.nodes[0].p2p.last_message["reject"].data, block.sha256)
-            assert_equal(self.nodes[0].p2p.last_message["reject"].reason, b'block-validation-failed')
+            assert_equal(self.nodes[0].p2p.last_message["reject"].reason, b'mandatory-script-verify-flag-failed (Non-canonical DER signature)')
 
         self.log.info("Accept block with DER signature")
         #recreate block with DER sig transaction
@@ -237,7 +237,7 @@ class SerializationTest(BitcoinTestFramework):
         with mininode_lock:
             assert_equal(self.nodes[0].p2p.last_message["reject"].code, REJECT_INVALID)
             assert_equal(self.nodes[0].p2p.last_message["reject"].data, block.sha256)
-            assert_equal(self.nodes[0].p2p.last_message["reject"].reason, b'block-validation-failed')
+            assert_equal(self.nodes[0].p2p.last_message["reject"].reason, b'mandatory-script-verify-flag-failed (Non-canonical DER signature)')
 
         self.log.info("Accept block with DER signature")
         #recreate block with DER sig transaction
