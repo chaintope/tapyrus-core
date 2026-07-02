@@ -41,6 +41,13 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, create_confirmed_utxos, hex_str_to_bytes
 from test_framework.timeout_config import TAPYRUSD_P2P_TIMEOUT, TAPYRUSD_PROC_TIMEOUT
 
+# Intentionally tiny — overrides the default 32 MiB (bitcoin/bitcoin#31645) to
+# force frequent small write batches, maximising crash opportunities in this test.
+# Must stay below ~135 KB (the dirty-state size of the colorid-heavy sub-test)
+# so BatchWrite's UTXO loop flushes at least one partial batch before writing
+# the colorId commit boundary (see generate_colorid_heavy_block).
+CRASH_TEST_BATCH_SIZE = 50000
+
 HTTP_DISCONNECT_ERRORS = [http.client.CannotSendRequest]
 try:
     HTTP_DISCONNECT_ERRORS.append(http.client.RemoteDisconnected)
@@ -55,9 +62,7 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
         # Set -maxmempool=0 to turn off mempool memory sharing with dbcache
         # Set -rpcservertimeout=900 to reduce socket disconnects in this
         # long-running test
-        # Set -dbbatchsize=100000 (smaller than default) so each recovery
-        # writes more CDBBatch flushes, increasing crash-on-restart probability.
-        self.base_args = ["-limitdescendantsize=0", "-maxmempool=0", "-rpcservertimeout=900", "-dbbatchsize=100000"]
+        self.base_args = ["-limitdescendantsize=0", "-maxmempool=0", "-rpcservertimeout=900", f"-dbbatchsize={CRASH_TEST_BATCH_SIZE}"]
 
         # Set different crash ratios and cache sizes.  Note that not all of
         # -dbcache goes to pcoinsTip.
@@ -297,11 +302,12 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
     def generate_colorid_heavy_block(self, node, num_issuances_each):
         """Issue num_issuances_each NON_REISSUABLE and NFT tokens in a single block.
 
-        With -dbbatchsize=100000 each issuance contributes ~2-3 dirty coin entries
+        With -dbbatchsize=50000 each issuance contributes ~2-3 dirty coin entries
         (~150 bytes each) to pcoinsTip.  Issuing 150+150 tokens yields ~900 dirty
-        entries (~135 KB) which ensures BatchWrite's UTXO loop splits mid-way
-        before the final batch that writes m_colorid_state->CommitToBatch, covering
-        both crash-before and crash-after the colorId commit boundary.
+        entries (~135 KB) which comfortably exceeds the 50 KB batch size, ensuring
+        BatchWrite's UTXO loop flushes 2-3 partial batches mid-block before the
+        final batch that writes m_colorid_state->CommitToBatch, covering both
+        crash-before and crash-after the colorId commit boundary.
 
         Returns the hash of the single mined block containing all issuances.
         """
@@ -361,7 +367,7 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
         # Main test loop:
         # each time through the loop, generate a bunch of transactions,
         # and then either mine a single new block on the tip, or some-sized reorg.
-        for i in range(40):
+        for i in range(100):
             self.log.info("Iteration %d, generating 1000 TPC + colored transactions %s", i, self.restart_counts)
             # Generate colored coin operations first, while confirmed TPC UTXOs are
             # still available.  generate_small_transactions would otherwise spend every
@@ -393,9 +399,10 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
             utxo_list = [u for u in self.nodes[3].listunspent() if u['token'] == 'TPC']
             self.log.debug("Node3 utxo count: %d", len(utxo_list))
 
-            # Stop early once both coverage conditions are satisfied.
-            # This avoids running extra slow iterations on a long chain.
-            if self.restart_counts != [0, 0, 0] and self.crashed_on_restart > 0:
+            # Stop early once all three nodes have crashed at least once AND
+            # we have seen at least one crash-during-recovery, so every
+            # dbcrashratio tier's UTXO-flush path is confirmed exercised.
+            if all(c > 0 for c in self.restart_counts) and self.crashed_on_restart > 0:
                 self.log.info("Coverage achieved after %d iterations, stopping early", i + 1)
                 break
 
@@ -407,8 +414,9 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
         # Check the test coverage
         self.log.info("Restarted nodes: %s; crashes on restart: %d", self.restart_counts, self.crashed_on_restart)
 
-        # If no nodes were restarted, we didn't test anything.
-        assert self.restart_counts != [0, 0, 0]
+        # Every dbcrashratio tier must have flushed at least once under a crash.
+        assert all(c > 0 for c in self.restart_counts), \
+            f"Some nodes never crashed during UTXO flush: {self.restart_counts}"
 
         # Make sure we tested the case of crash-during-recovery.
         assert self.crashed_on_restart > 0
@@ -422,10 +430,10 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
         # Issue 150 NON_REISSUABLE + 150 NFT tokens into a single block.
         # Each issuance spends one defining TPC UTXO and creates one colored
         # output, contributing ~2-3 dirty coin entries (~150 bytes each) to
-        # pcoinsTip.  With -dbbatchsize=100000 this creates ~135 KB of dirty
-        # state so BatchWrite's UTXO loop flushes at least one partial batch
-        # (crash-before the colorId commit) before writing the final batch
-        # that calls m_colorid_state->CommitToBatch (crash-after).
+        # pcoinsTip.  With -dbbatchsize=50000 this creates ~135 KB of dirty
+        # state (135 KB >> 50 KB) so BatchWrite's UTXO loop flushes 2-3
+        # partial batches (crash-before the colorId commit) before writing
+        # the final batch that calls m_colorid_state->CommitToBatch (crash-after).
         # sync_node3blocks drives the block through all crash nodes;
         # verify_utxo_hash confirms colorId state matches node3 after every
         # crash+recovery cycle.
