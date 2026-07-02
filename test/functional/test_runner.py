@@ -68,6 +68,7 @@ BASE_SCRIPTS = [
     'wallet_backup.py',
     'feature_largeblocksize.py',
     # vv Tests less than 5m vv
+    'feature_block.py',
     'rpc_fundrawtransaction.py',
     'rpc_fundrawtransaction.py --scheme SCHNORR',
     # vv Tests less than 2m vv
@@ -87,6 +88,8 @@ BASE_SCRIPTS = [
     'wallet_abandonconflict.py --scheme SCHNORR',
     'feature_csv_activation.py',
     'feature_csv_activation.py --scheme SCHNORR',
+    'wallet_basic.py',
+    'wallet_basic.py --scheme SCHNORR',
     'rpc_rawtransaction.py',
     'rpc_rawtransaction.py --scheme SCHNORR',
     'wallet_address_types.py',
@@ -94,6 +97,9 @@ BASE_SCRIPTS = [
     'feature_serialization.py',
     'feature_serialization.py --scheme SCHNORR',
     # vv Tests less than 30s vv
+    'feature_cltv.py',
+    'feature_cltv.py --scheme SCHNORR',
+    'rpc_scantxoutset.py',
     'wallet_keypool_topup.py',
     'interface_zmq.py',
     'interface_bitcoin_cli.py',
@@ -190,8 +196,6 @@ BASE_SCRIPTS = [
 ]
 
 EXTENDED_SCRIPTS = [
-    # disabling as this script does not invoke the intended test path
-    #'feature_pruning.py',
     # These tests are not run by the travis build process.
     # Longest test should go first, to favor running tests in parallel
     # vv Tests less than 20m vv
@@ -204,6 +208,7 @@ EXTENDED_SCRIPTS = [
     # vv Tests less than 2m vv
     'feature_bip68_sequence.py',
     'feature_bip68_sequence.py --scheme SCHNORR',
+    'p2p_compactblocks.py',
     'mining_getblocktemplate_longpoll.py',
     'p2p_timeouts.py',
     # vv Tests less than 60s vv
@@ -229,14 +234,10 @@ EXTENDED_SCRIPTS = [
     'feature_dbcrash.py --scheme SCHNORR',
 ]
 
+# Scripts that require a debug build (-acceptnonstdtxn is only available in debug mode).
+# Run with --debugscripts flag.
 DEBUG_MODE_SCRIPTS = [
-    'feature_block.py',
-    'feature_cltv.py',
-    'feature_cltv.py  --scheme SCHNORR',
-    'p2p_compactblocks.py',
-    'wallet_basic.py',
-    'wallet_basic.py --scheme SCHNORR',
-    'rpc_scantxoutset.py'
+    'feature_nonstd_txn.py',
 ]
 
 # TODO: enable these scripts in CI.
@@ -246,6 +247,12 @@ USDT_SCRIPTS = [
     'interface_usdt_utxocache.py',
     'interface_usdt_coinselection.py',
     'interface_usdt_mempool.py',
+]
+
+# Tests that are too slow/resource-intensive for daily CI (90 min – 4 hours, 4 GB disk).
+# Run via the heavy-functional-tests.yml workflow (weekly).
+HEAVY_SCRIPTS = [
+    'feature_pruning.py',
 ]
 
 # Place EXTENDED_SCRIPTS first since it has the 3 longest running tests
@@ -652,7 +659,7 @@ def check_script_list(src_dir):
     not being run by pull-tester.py."""
     script_dir = src_dir + '/test/functional/'
     python_files = set([test_file for test_file in os.listdir(script_dir) if test_file.endswith(".py")])
-    missed_tests = list(python_files - set(map(lambda x: x.split()[0], ALL_SCRIPTS + NON_SCRIPTS + DEBUG_MODE_SCRIPTS)))
+    missed_tests = list(python_files - set(map(lambda x: x.split()[0], ALL_SCRIPTS + NON_SCRIPTS + DEBUG_MODE_SCRIPTS + HEAVY_SCRIPTS + USDT_SCRIPTS)))
     if len(missed_tests) != 0:
         print("%sWARNING!%s The following scripts are not being run: %s. Check the test lists in test_runner.py." % (BOLD[1], BOLD[0], str(missed_tests)))
         if os.getenv('TRAVIS') == 'true':
