@@ -1056,6 +1056,36 @@ BOOST_AUTO_TEST_CASE(test_FormatSubVersion)
     BOOST_CHECK_EQUAL(FormatSubVersion("Test", 99900, std::vector<std::string>()),std::string("/Test:0.9.99/"));
     BOOST_CHECK_EQUAL(FormatSubVersion("Test", 99900, comments),std::string("/Test:0.9.99(comment1)/"));
     BOOST_CHECK_EQUAL(FormatSubVersion("Test", 99900, comments2),std::string("/Test:0.9.99(comment1; Comment2; .,_?@-; )/"));
+    BOOST_CHECK_EQUAL(FormatSubVersion("Tapyrus Core", 70200, std::vector<std::string>()),std::string("/Tapyrus Core:0.7.2/"));
+}
+
+BOOST_AUTO_TEST_CASE(test_version_config_consistency)
+{
+    // Reconstruct the canonical version string from the individual macros defined
+    // in tapyrus-config.h (cmake_mac/src/tapyrus-config.h on macOS builds).
+    // If cmake_mac/src/tapyrus-config.h drifts after a version bump — e.g.
+    // CLIENT_VERSION_BUILD updated but CLIENT_VERSION_STRING left stale — this
+    // test catches it at unit-test time rather than at a release smoke-test.
+    const std::string version_from_macros =
+        std::to_string(CLIENT_VERSION_MAJOR) + "." +
+        std::to_string(CLIENT_VERSION_MINOR) + "." +
+        std::to_string(CLIENT_VERSION_BUILD);
+
+    BOOST_CHECK_EQUAL(version_from_macros, std::string(CLIENT_VERSION_STRING));
+
+    // The CLIENT_VERSION integer must encode the same three numbers in the
+    // 1 000 000 / 10 000 / 100 slots respectively.
+    BOOST_CHECK_EQUAL(CLIENT_VERSION / 1000000,       CLIENT_VERSION_MAJOR);
+    BOOST_CHECK_EQUAL((CLIENT_VERSION / 10000) % 100, CLIENT_VERSION_MINOR);
+    BOOST_CHECK_EQUAL((CLIENT_VERSION / 100)   % 100, CLIENT_VERSION_BUILD);
+
+    // The P2P/RPC subver string must embed CLIENT_VERSION_STRING exactly so
+    // application layers that parse it for capability detection see a consistent
+    // value.
+    const std::string expected_subver =
+        "/" + std::string(PACKAGE_NAME) + ":" + std::string(CLIENT_VERSION_STRING) + "/";
+    BOOST_CHECK_EQUAL(FormatSubVersion(PACKAGE_NAME, CLIENT_VERSION, std::vector<std::string>()),
+                      expected_subver);
 }
 
 BOOST_AUTO_TEST_CASE(test_ParseFixedPoint)
