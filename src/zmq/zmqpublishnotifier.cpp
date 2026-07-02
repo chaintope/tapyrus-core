@@ -78,7 +78,17 @@ bool CZMQAbstractPublishNotifier::Initialize(void *pcontext)
             return false;
         }
 
-        int rc = zmq_bind(psocket, address.c_str());
+        int ipv6 = 1;
+        int rc = zmq_setsockopt(psocket, ZMQ_IPV6, &ipv6, sizeof(ipv6));
+        if (rc != 0)
+        {
+            zmqError("Failed to set ZMQ_IPV6");
+            zmq_close(psocket);
+            psocket = nullptr;
+            return false;
+        }
+
+        rc = zmq_bind(psocket, address.c_str());
         if (rc!=0)
         {
             zmqError("Failed to bind address");

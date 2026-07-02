@@ -210,8 +210,11 @@ void AdvertiseLocal(CNode *pnode)
 // learn a new local address
 bool AddLocal(const CService& addr, int nScore)
 {
-    if (!addr.IsRoutable())
+    if (!addr.IsRoutable()) {
+        if (nScore >= LOCAL_MANUAL)
+            LogPrintf("AddLocal: ignoring non-routable address %s passed via -externalip\n", addr.ToString());
         return false;
+    }
 
     if (!fDiscover && nScore < LOCAL_MANUAL)
         return false;
@@ -1484,6 +1487,10 @@ static CThreadInterrupt g_upnp_interrupt;
 static std::thread g_upnp_thread;
 static void ThreadMapPort()
 {
+    if (!IsReachable(NET_IPV4)) {
+        LogPrintf("UPnP: skipping port mapping — UPnP IGD only discovers IPv4 external addresses and the node has no IPv4 reachability\n");
+        return;
+    }
     std::string port = strprintf("%u", GetListenPort());
     const char * multicastif = nullptr;
     const char * minissdpdpath = nullptr;
@@ -2265,8 +2272,12 @@ bool CConnman::InitBinds(const std::vector<CService>& binds, const std::vector<C
         struct in_addr inaddr_any;
         inaddr_any.s_addr = INADDR_ANY;
         struct in6_addr inaddr6_any = IN6ADDR_ANY_INIT;
+        // IPv6 wildcard bind uses BF_NONE intentionally: IPv6 availability is
+        // optional on the host, so failure is tolerable (BindListenPort still
+        // logs it).  IPv4 is assumed always present and uses BF_REPORT_ERROR
+        // so a failure produces a user-visible error dialog in addition to the log.
         fBound |= Bind(CService(inaddr6_any, GetListenPort()), BF_NONE);
-        fBound |= Bind(CService(inaddr_any, GetListenPort()), !fBound ? BF_REPORT_ERROR : BF_NONE);
+        fBound |= Bind(CService(inaddr_any, GetListenPort()), BF_REPORT_ERROR);
     }
     return fBound;
 }

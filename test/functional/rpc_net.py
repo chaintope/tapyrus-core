@@ -7,6 +7,7 @@
 Tests correspond to code in rpc/net.cpp.
 """
 
+from test_framework.netutil import test_ipv6_local
 from test_framework.timeout_config import TAPYRUSD_MIN_TIMEOUT
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
@@ -80,7 +81,7 @@ class NetTest(BitcoinTestFramework):
 
     def _test_getaddednodeinfo(self):
         assert_equal(self.nodes[0].getaddednodeinfo(), [])
-        # add a node (node2) to node0
+        # add a node (node2) to node0 via IPv4
         ip_port = "127.0.0.1:{}".format(p2p_port(2))
         self.nodes[0].addnode(ip_port, 'add')
         # check that the node has indeed been added
@@ -89,6 +90,16 @@ class NetTest(BitcoinTestFramework):
         assert_equal(added_nodes[0]['addednode'], ip_port)
         # check that a non-existent node returns an error
         assert_raises_rpc_error(-24, "Node has not been added", self.nodes[0].getaddednodeinfo, '1.1.1.1')
+        self.nodes[0].addnode(ip_port, 'remove')
+
+        # same addnode round-trip with an IPv6 address
+        if test_ipv6_local():
+            ipv6_port = "[::1]:{}".format(p2p_port(2))
+            self.nodes[0].addnode(ipv6_port, 'add')
+            added_nodes_v6 = self.nodes[0].getaddednodeinfo(ipv6_port)
+            assert_equal(len(added_nodes_v6), 1)
+            assert_equal(added_nodes_v6[0]['addednode'], ipv6_port)
+            self.nodes[0].addnode(ipv6_port, 'remove')
 
     def _test_getpeerinfo(self):
         peer_info = [x.getpeerinfo() for x in self.nodes]

@@ -7,6 +7,7 @@
 import struct
 
 from test_framework.messages import (CBlock)
+from test_framework.netutil import test_ipv6_local
 from test_framework.test_framework import (
     BitcoinTestFramework, skip_if_no_bitcoind_zmq, skip_if_no_py3_zmq)
 from test_framework.messages import CTransaction
@@ -15,6 +16,9 @@ from test_framework.util import (assert_equal,
                                  hash256,
                                 )
 from io import BytesIO
+
+# Port for the IPv6 ZMQ endpoint test; outside the standard ZMQ range (28332-28335).
+_ZMQ_IPV6_PORT = 28340
 
 class ZMQSubscriber:
     def __init__(self, socket, topic):
@@ -68,6 +72,10 @@ class ZMQTest (BitcoinTestFramework):
     def run_test(self):
         try:
             self._zmq_test()
+            if test_ipv6_local():
+                self._zmq_test_ipv6()
+            else:
+                self.log.warning("No IPv6 loopback — skipping ZMQ IPv6 endpoint test")
         finally:
             # Destroy the ZMQ context.
             self.log.debug("Destroying ZMQ context")
@@ -116,6 +124,32 @@ class ZMQTest (BitcoinTestFramework):
         tx.deserialize(BytesIO(hex))
         tx.calc_sha256()
         assert_equal(tx.hashMalFix, bytes_to_hex_str(txid))
+
+    def _zmq_test_ipv6(self):
+        """Verify that ZMQ_IPV6 setsockopt allows publishers to bind on [::1]."""
+        self.log.info("ZMQ IPv6: test publisher on tcp://[::1]:{}".format(_ZMQ_IPV6_PORT))
+        import zmq
+
+        ipv6_addr = "tcp://[::1]:{}".format(_ZMQ_IPV6_PORT)
+
+        # Connect the subscriber before restarting the node so it is ready
+        # when the publisher comes up.
+        socket6 = self.zmq_context.socket(zmq.SUB)
+        socket6.set(zmq.RCVTIMEO, 60000)
+        socket6.connect(ipv6_addr)
+        hashblock6 = ZMQSubscriber(socket6, b"hashblock")
+
+        try:
+            self.restart_node(0, extra_args=[
+                "-zmqpubhashblock={}".format(ipv6_addr),
+            ])
+            genhashes = self.nodes[0].generate(1, self.signblockprivkey_wif)
+            recv_hash = bytes_to_hex_str(hashblock6.receive())
+            assert_equal(recv_hash, genhashes[0])
+            self.log.info("  hashblock notification received on tcp://[::1]:{}".format(_ZMQ_IPV6_PORT))
+        finally:
+            socket6.close()
+
 
 if __name__ == '__main__':
     ZMQTest().main()

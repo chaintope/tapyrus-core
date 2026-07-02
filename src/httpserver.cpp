@@ -169,8 +169,11 @@ static bool InitHTTPAllowList()
     CNetAddr localv6;
     LookupHost("127.0.0.1", localv4, false);
     LookupHost("::1", localv6, false);
-    rpc_allow_subnets.push_back(CSubNet(localv4, 8));      // always allow IPv4 local subnet
-    rpc_allow_subnets.push_back(CSubNet(localv6));         // always allow IPv6 localhost
+    // RFC 5735 reserves 127.0.0.0/8 for IPv4 loopback; allow the full range.
+    // RFC 4291 §2.5.3 defines only ::1/128 as the IPv6 loopback — there is no
+    // equivalent loopback /8 in IPv6, so the asymmetry here is intentional.
+    rpc_allow_subnets.push_back(CSubNet(localv4, 8));      // always allow IPv4 local subnet (127.0.0.0/8)
+    rpc_allow_subnets.push_back(CSubNet(localv6));         // always allow IPv6 localhost (::1/128)
     for (const std::string& strAllow : gArgs.GetArgs("-rpcallowip")) {
         CSubNet subnet;
         LookupSubNet(strAllow.c_str(), subnet);
@@ -322,6 +325,9 @@ static bool HTTPBindAddresses(struct evhttp* http)
     // Bind addresses
     for (std::vector<std::pair<std::string, uint16_t> >::iterator i = endpoints.begin(); i != endpoints.end(); ++i) {
         LogPrint(BCLog::HTTP, "Binding RPC on address %s port %i\n", i->first, i->second);
+        // evhttp_bind_socket_with_handle resolves the host string via getaddrinfo
+        // internally. Bare IPv6 addresses (e.g. "::1", "::") without brackets are
+        // handled correctly by libevent ≥ 2.1.x (our minimum is 2.1.12).
         evhttp_bound_socket *bind_handle = evhttp_bind_socket_with_handle(http, i->first.empty() ? nullptr : i->first.c_str(), i->second);
         if (bind_handle) {
             boundSockets.push_back(bind_handle);

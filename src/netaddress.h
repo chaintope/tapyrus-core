@@ -65,7 +65,8 @@ class CNetAddr
         bool IsRFC4193() const; // IPv6 unique local (FC00::/7)
         bool IsRFC4380() const; // IPv6 Teredo tunnelling (2001::/32)
         bool IsRFC4843() const; // IPv6 ORCHID (2001:10::/28)
-        bool IsRFC4862() const; // IPv6 autoconfig (FE80::/64)
+        bool IsRFC4862() const; // IPv6 autoconfig (FE80::/64) — delegates to IsLinkLocal()
+        bool IsLinkLocal() const; // IPv6 link-local (FE80::/10 per RFC 4291 §2.5.6)
         bool IsRFC6052() const; // IPv6 well-known prefix (64:FF9B::/96)
         bool IsRFC6145() const; // IPv6 IPv4-translated address (::FFFF:0:0:0/96)
         bool IsTor() const;

@@ -5,6 +5,7 @@
 """Test node disconnect and ban behavior"""
 import time
 
+from test_framework.netutil import test_ipv6_local
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
     assert_equal,
@@ -75,6 +76,23 @@ class DisconnectBanTest(BitcoinTestFramework):
 
         # Clear ban lists
         self.nodes[1].clearbanned()
+
+        if test_ipv6_local():
+            self.log.info("setban IPv6: invalid prefix length (>128) rejected")
+            assert_raises_rpc_error(-30, "Error: Invalid IP/Subnet",
+                                    self.nodes[1].setban, "::1/129", "add")
+
+            self.log.info("setban IPv6: subnet ban and already-banned check")
+            self.nodes[1].setban("::/24", "add")
+            assert_equal(len(self.nodes[1].listbanned()), 1)
+            # ::1 falls within ::/24 so a second ban attempt must fail
+            assert_raises_rpc_error(-23, "IP/Subnet already banned",
+                                    self.nodes[1].setban, "::1", "add")
+
+            self.log.info("setban IPv6: unban subnet")
+            self.nodes[1].setban("::/24", "remove")
+            assert_equal(len(self.nodes[1].listbanned()), 0)
+
         connect_nodes_bi(self.nodes, 0, 1)
 
         self.log.info("Test disconnectnode RPCs")
