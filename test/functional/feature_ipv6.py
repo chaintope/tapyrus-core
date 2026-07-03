@@ -15,8 +15,10 @@ from test_framework.util import (
     wait_until,
 )
 
-# A globally routable IPv6 address for -externalip testing.  Must not be in
-# RFC 3849 (2001:db8::/32 — fails IsValid()), RFC 4193 (fc00::/7), link-local
+# A globally routable IPv6 address for -externalip testing.  Avoid RFC 3849
+# (2001:db8::/32) so this doesn't look like a copy-pasted example — that block
+# is topologically routable (IsValid()/IsRoutable() don't reject it, it's just
+# reserved for documentation). Also avoid RFC 4193 (fc00::/7), link-local
 # (fe80::/10), loopback (::1), or any other non-routable range.
 _ROUTABLE_IPV6 = "2603:3005::1"
 

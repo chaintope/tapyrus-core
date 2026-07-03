@@ -137,15 +137,38 @@ class ZMQTest (BitcoinTestFramework):
         socket6 = self.zmq_context.socket(zmq.SUB)
         socket6.set(zmq.RCVTIMEO, 60000)
         socket6.connect(ipv6_addr)
-        hashblock6 = ZMQSubscriber(socket6, b"hashblock")
+        socket6.setsockopt(zmq.SUBSCRIBE, b"hashblock")
 
         try:
             self.restart_node(0, extra_args=[
                 "-zmqpubhashblock={}".format(ipv6_addr),
             ])
-            genhashes = self.nodes[0].generate(1, self.signblockprivkey_wif)
-            recv_hash = bytes_to_hex_str(hashblock6.receive())
-            assert_equal(recv_hash, genhashes[0])
+            # ZMQ PUB/SUB has a "slow joiner" problem: messages published
+            # before this subscriber's TCP handshake and SUBSCRIBE filter
+            # have propagated to the publisher are silently dropped.
+            # restart_node only guarantees RPC is up, not that the ZMQ
+            # publisher has finished accepting this subscriber. Generating
+            # several blocks (as _zmq_test does for the IPv4 sockets, which
+            # are connected well before this point and don't hit this
+            # window) means that even if the first few notifications are
+            # lost, a later one reliably arrives once the subscription has
+            # settled. Unlike _zmq_test, we can't assert a strict 0..N-1
+            # sequence here - a dropped first message means the first
+            # notification we actually receive may carry a later sequence
+            # number - so match on the block hash instead and stop as soon
+            # as the last generated block's notification arrives.
+            num_blocks = 5
+            genhashes = self.nodes[0].generate(num_blocks, self.signblockprivkey_wif)
+
+            recv_hash = None
+            for _ in range(num_blocks):
+                topic, body, seq = socket6.recv_multipart()
+                assert_equal(topic, b"hashblock")
+                recv_hash = bytes_to_hex_str(body)
+                if recv_hash == genhashes[-1]:
+                    break
+
+            assert_equal(recv_hash, genhashes[-1])
             self.log.info("  hashblock notification received on tcp://[::1]:{}".format(_ZMQ_IPV6_PORT))
         finally:
             socket6.close()
