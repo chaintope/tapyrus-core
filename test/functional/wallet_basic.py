@@ -330,18 +330,22 @@ class WalletTest(BitcoinTestFramework):
         assert_equal(self.nodes[2].getbalance(), node_2_bal)
 
         # send a tx with value in a string (PR#6380 +)
+        # In Tapyrus, gettransaction returns amounts in details[], not top-level 'amount'
+        def sent_amount(tx_obj):
+            return sum(d['amount'] for d in tx_obj['details'] if d['category'] == 'send')
+
         txid = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), "2")
         tx_obj = self.nodes[0].gettransaction(txid)
-        assert_equal(tx_obj['amount'], Decimal('-2'))
+        assert_equal(sent_amount(tx_obj), Decimal('-2'))
 
         txid = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), "0.0001")
         tx_obj = self.nodes[0].gettransaction(txid)
-        assert_equal(tx_obj['amount'], Decimal('-0.0001'))
+        assert_equal(sent_amount(tx_obj), Decimal('-0.0001'))
 
         # check if JSON parser can handle scientific notation in strings
         txid = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), "1e-4")
         tx_obj = self.nodes[0].gettransaction(txid)
-        assert_equal(tx_obj['amount'], Decimal('-0.0001'))
+        assert_equal(sent_amount(tx_obj), Decimal('-0.0001'))
 
         # This will raise an exception because the amount type is wrong
         assert_raises_rpc_error(-3, "Invalid amount", self.nodes[0].sendtoaddress, self.nodes[2].getnewaddress(), "1f-4")

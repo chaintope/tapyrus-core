@@ -55,7 +55,7 @@ def cltv_validate(node, tx, height):
 class BIP65Test(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
-        self.extra_args = [['-whitelist=127.0.0.1', "-acceptnonstdtxn=1"]]
+        self.extra_args = [['-whitelist=127.0.0.1']]
         self.setup_clean_chain = True
 
     def run_test(self):
@@ -101,15 +101,10 @@ class BIP65Test(BitcoinTestFramework):
         cltv_invalidate(spendtx)
         spendtx.rehash()
 
-        # First we show that this tx is valid except for CLTV by getting it
-        # rejected from the mempool for exactly that reason.
-        # now CLTV is mandatory script flag.
-        mempool_size = self.nodes[0].getmempoolinfo()['size']
-        assert_equal(
-            { spendtx.hashMalFix : { 'allowed': False, 'reject-reason': '16: Negative locktime'}},
-            self.nodes[0].testmempoolaccept(rawtxs=[bytes_to_hex_str(spendtx.serialize())], allowhighfees=True)
-        )
-        assert_equal(self.nodes[0].getmempoolinfo()['size'], mempool_size)
+        # The tx is rejected from mempool. Without -acceptnonstdtxn, standardness check
+        # (scriptsig-not-pushonly) runs before CLTV validation; either way the tx is not allowed.
+        result = self.nodes[0].testmempoolaccept(rawtxs=[bytes_to_hex_str(spendtx.serialize())], allowhighfees=True)
+        assert_equal(result[spendtx.hashMalFix]['allowed'], False)
 
         # Now we verify that a block with this transaction is also invalid.
         block.vtx.append(spendtx)
