@@ -2,7 +2,7 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-name: Heavy Functional Tests
+name: Weekly Heavy Test
 
 # Runs tests that are too slow for the daily CI matrix (feature_pruning: 1.5–4 h, 4 GB).
 # Scheduled weekly; can also be triggered manually or after a successful daily build.
@@ -150,7 +150,8 @@ jobs:
             -j 1 \
             --combinedlogslen=4000 \
             --failfast \
-            feature_pruning.py; then
+            --test-timeout=18000 \
+            --heavy; then
             echo "feature_pruning test passed"
           else
             echo "feature_pruning test FAILED"
@@ -218,3 +219,102 @@ jobs:
           name: heavy-core-dumps-${{ github.run_id }}
           path: ${{ github.workspace }}/core_dumps/
           retention-days: 7
+
+  docker-testnet-sync:
+    name: Docker testnet sync (single node)
+    runs-on: ubuntu-latest
+    # A fresh node synced against master in ~30 minutes, so the first check
+    # waits 30 minutes, then polls every 10 minutes until sync completes, up
+    # to a 2 hour max budget - a generous 4x margin over the known baseline.
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.test_branch || github.ref || 'master' }}
+          submodules: recursive
+
+      - name: Build tapyrusd Docker image
+        run: docker build -t tapyrusd:weekly-testnet-sync .
+
+      - name: Start node connected to the public testnet
+        # Config/genesis block per doc/tapyrus/getting_started.md
+        # ("How to start a node on Tapyrus testnet?") and doc/docker_image.md.
+        # Testnet is network ID 1939510133, tapyrus "prod" mode (see
+        # doc/tapyrus/network_id_and_magic_bytes.md) - not a separate build mode.
+        run: |
+          cat << 'EOS' > tapyrus.conf
+          networkid=1939510133
+          txindex=1
+          server=1
+          rest=1
+          rpcuser=rpcuser
+          rpcpassword=rpcpassword
+          rpcbind=0.0.0.0
+          rpcallowip=127.0.0.1
+          addseeder=static-seed.tapyrus.dev.chaintope.com
+          EOS
+
+          docker run -d --name tapyrus_testnet_sync \
+            -v "$PWD/tapyrus.conf:/etc/tapyrus/tapyrus.conf" \
+            -e GENESIS_BLOCK_WITH_SIG='01000000000000000000000000000000000000000000000000000000000000000000000044cc181bd0e95c5b999a13d1fc0d193fa8223af97511ad2098217555a841b3518f18ec2536f0bb9d6d4834fcc712e9563840fe9f089db9e8fe890bffb82165849f52ba5e01210366262690cbdf648132ce0c088962c6361112582364ede120f3780ab73438fc4b402b1ed9996920f57a425f6f9797557c0e73d0c9fbafdebcaa796b136e0946ffa98d928f8130b6a572f83da39530b13784eeb7007465b673aa95091619e7ee208501010000000100000000000000000000000000000000000000000000000000000000000000000000000000ffffffff0100f2052a010000002776a92231415132437447336a686f37385372457a4b6533766636647863456b4a74356e7a4188ac00000000' \
+            tapyrusd:weekly-testnet-sync
+
+      - name: Wait for testnet sync to complete
+        run: |
+          cli() { docker exec tapyrus_testnet_sync tapyrus-cli -conf=/etc/tapyrus/tapyrus.conf "$@"; }
+          ibd_complete() { cli getblockchaininfo | grep -q '"initialblockdownload": false'; }
+
+          echo "Waiting 30 minutes for peer discovery and initial sync..."
+          sleep 1800
+          connections=$(cli getconnectioncount)
+          height_prev=$(cli getblockcount)
+          echo "After 30 min: height=$height_prev connections=$connections"
+
+          if [ "$connections" -lt 1 ]; then
+            echo "FAILED: node made no peer connections to the testnet"
+            exit 1
+          fi
+
+          if ibd_complete; then
+            echo "Node completed initial block download within 30 minutes."
+            exit 0
+          fi
+
+          # Poll every 10 minutes until sync completes, up to a 2 hour total
+          # budget (30 min + 9 * 10 min).
+          for checkpoint in $(seq 1 9); do
+            elapsed=$((30 + (checkpoint - 1) * 10))
+            echo "Checkpoint $checkpoint/9 (elapsed ${elapsed}m): waiting 10 minutes..."
+            sleep 600
+            height_now=$(cli getblockcount)
+            connections=$(cli getconnectioncount)
+            echo "Checkpoint $checkpoint: height=$height_now connections=$connections"
+
+            if [ "$connections" -lt 1 ]; then
+              echo "FAILED: lost all peer connections at checkpoint $checkpoint"
+              exit 1
+            fi
+
+            if ibd_complete; then
+              echo "Node completed initial block download."
+              exit 0
+            fi
+
+            if [ "$height_now" -le "$height_prev" ]; then
+              echo "FAILED: no sync progress since last checkpoint ($height_prev -> $height_now)"
+              exit 1
+            fi
+
+            height_prev=$height_now
+          done
+
+          echo "FAILED: sync did not complete within the 2 hour max time"
+          exit 1
+
+      - name: Dump node debug.log
+        if: always()
+        run: docker exec tapyrus_testnet_sync cat /var/lib/tapyrus/debug.log || true
+
+      - name: Stop and remove container
+        if: always()
+        run: docker rm -f tapyrus_testnet_sync || true

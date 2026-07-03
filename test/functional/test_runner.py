@@ -276,6 +276,7 @@ def main():
     parser.add_argument('--coverage', action='store_true', help='generate a basic coverage report for the RPC interface')
     parser.add_argument('--exclude', '-x', help='specify a comma-separated-list of scripts to exclude.')
     parser.add_argument('--extended', action='store_true', help='run the extended test suite in addition to the basic tests')
+    parser.add_argument('--heavy', action='store_true', help='run only the heavy/slow test suite (e.g. feature_pruning.py), meant for the weekly CI job')
     parser.add_argument('--force', '-f', action='store_true', help='run tests even on platforms where they are disabled by default (e.g. windows).')
     parser.add_argument('--help', '-h', '-?', action='store_true', help='print help text and exit')
     parser.add_argument('--jobs', '-j', type=int, default=4, help='how many test scripts to run in parallel. Default=4.')
@@ -283,6 +284,10 @@ def main():
     parser.add_argument('--quiet', '-q', action='store_true', help='only print results summary and failure logs')
     parser.add_argument('--tmpdirprefix', '-t', default=tempfile.gettempdir(), help="Root directory for datadirs")
     parser.add_argument('--failfast', action='store_true', help='stop execution after the first test failure')
+    parser.add_argument('--test-timeout', type=int, default=TOTAL_TEST_DURATION,
+                         help='maximum wall-clock duration in seconds for a single test before it is aborted with '
+                              'SIGINT (default: %(default)ss from TOTAL_TEST_DURATION in timeout_config.py). Heavy/slow '
+                              'tests like feature_pruning.py need a much larger value than the default.')
     parser.add_argument('--debugscripts', action='store_true', default = False, help='execute debug mode scripts')
     args, unknown_args = parser.parse_known_args()
 
@@ -337,6 +342,10 @@ def main():
                 test_list.append(test)
             else:
                 print("{}WARNING!{} Test '{}' not found in full test list.".format(BOLD[1], BOLD[0], test))
+    elif args.heavy:
+        # Run only the heavy/slow tests, kept out of ALL_SCRIPTS so they never
+        # run as part of the daily base/extended suites.
+        test_list += HEAVY_SCRIPTS
     elif args.extended:
         # Include extended tests
         test_list += ALL_SCRIPTS
@@ -386,6 +395,7 @@ def main():
         args=passon_args,
         combined_logs_len=args.combinedlogslen,
         failfast=args.failfast,
+        test_timeout=args.test_timeout,
     )
 
     if len(retry_list) == 0:
@@ -403,13 +413,14 @@ def main():
         args=passon_args,
         combined_logs_len=args.combinedlogslen,
         failfast=args.failfast,
+        test_timeout=args.test_timeout,
         retry = True
     )
 
     sys.exit(exit_code)
 
 
-def run_tests(test_list, src_dir, build_dir, tmpdir, jobs=1, enable_coverage=False, args=None, combined_logs_len=0, failfast=False, retry = False):
+def run_tests(test_list, src_dir, build_dir, tmpdir, jobs=1, enable_coverage=False, args=None, combined_logs_len=0, failfast=False, test_timeout=TOTAL_TEST_DURATION, retry = False):
     args = args or []
 
     # Warn if tapyrusd is already running (unix only)
@@ -449,7 +460,7 @@ def run_tests(test_list, src_dir, build_dir, tmpdir, jobs=1, enable_coverage=Fal
                 raise
 
     #Run Tests
-    job_queue = TestHandler(jobs, tests_dir, tmpdir, test_list, flags)
+    job_queue = TestHandler(jobs, tests_dir, tmpdir, test_list, flags, test_timeout=test_timeout)
     start_time = time.time()
     test_results = []
     retry_list = []
@@ -531,13 +542,14 @@ class TestHandler:
     Trigger the test scripts passed in via the list.
     """
 
-    def __init__(self, num_tests_parallel, tests_dir, tmpdir, test_list=None, flags=None):
+    def __init__(self, num_tests_parallel, tests_dir, tmpdir, test_list=None, flags=None, test_timeout=TOTAL_TEST_DURATION):
         assert(num_tests_parallel >= 1)
         self.num_jobs = num_tests_parallel
         self.tests_dir = tests_dir
         self.tmpdir = tmpdir
         self.test_list = test_list
         self.flags = flags
+        self.test_timeout = test_timeout
         self.num_running = 0
         self.jobs = []
 
@@ -569,7 +581,7 @@ class TestHandler:
             time.sleep(.5)
             for job in self.jobs:
                 (name, start_time, proc, testdir, log_out, log_err) = job
-                if int(time.time() - start_time) > TOTAL_TEST_DURATION:
+                if int(time.time() - start_time) > self.test_timeout:
                     # In travis, timeout individual tests (to stop tests hanging and not providing useful output).
                     proc.send_signal(signal.SIGINT)
                 if proc.poll() is not None:
