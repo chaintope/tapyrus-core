@@ -5,6 +5,12 @@
 include(AddWindowsResources)
 
 configure_file(${PROJECT_SOURCE_DIR}/cmake/tapyrus-build-config.h.in tapyrus-config.h USE_SOURCE_PERMISSIONS @ONLY)
+if(WIN32)
+  configure_windows_rc(tapyrusd         "tapyrusd (Tapyrus node with a JSON-RPC server)"              TAPYRUSD_RC_FILE)
+  configure_windows_rc(tapyrus-cli      "tapyrus-cli (JSON-RPC client for ${PACKAGE_NAME})"           TAPYRUS_CLI_RC_FILE)
+  configure_windows_rc(tapyrus-tx       "tapyrus-tx (CLI Tapyrus transaction editor utility)"         TAPYRUS_TX_RC_FILE)
+  configure_windows_rc(tapyrus-genesis  "tapyrus-genesis (CLI Tapyrus genesis block generate utility)" TAPYRUS_GENESIS_RC_FILE)
+endif()
 include_directories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 
 include(AddBoostIfNeeded)
@@ -264,7 +270,7 @@ if(BUILD_DAEMON)
   add_executable(tapyrusd
     tapyrusd.cpp
   )
-  add_windows_resources(tapyrusd tapyrus-res.rc)
+  add_windows_resources(tapyrusd "${TAPYRUSD_RC_FILE}")
   target_link_libraries(tapyrusd PRIVATE
     core_interface
     tapyrus_server
@@ -298,7 +304,7 @@ target_link_libraries(tapyrus_cli
 # tapyrus Core RPC client
 if(BUILD_CLI)
   add_executable(tapyrus-cli tapyrus-cli.cpp)
-  add_windows_resources(tapyrus-cli tapyrus-cli-res.rc)
+  add_windows_resources(tapyrus-cli "${TAPYRUS_CLI_RC_FILE}")
   target_link_libraries(tapyrus-cli
     core_interface
     tapyrus_cli
@@ -314,7 +320,7 @@ endif()
 
 if(BUILD_UTILS)
   add_executable(tapyrus-tx tapyrus-tx.cpp)
-  add_windows_resources(tapyrus-tx tapyrus-tx-res.rc)
+  add_windows_resources(tapyrus-tx "${TAPYRUS_TX_RC_FILE}")
   target_link_libraries(tapyrus-tx
     core_interface
     tapyrus_common
@@ -328,7 +334,7 @@ endif()
 
 if(BUILD_GENESIS)
   add_executable(tapyrus-genesis tapyrus-genesis.cpp)
-  add_windows_resources(tapyrus-genesis tapyrus-genesis-res.rc)
+  add_windows_resources(tapyrus-genesis "${TAPYRUS_GENESIS_RC_FILE}")
   target_link_libraries(tapyrus-genesis
           core_interface
           tapyrus_server

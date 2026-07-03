@@ -270,7 +270,12 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND NOT CMAKE_HOST_SYSTEM_NAME STREQUAL "
 endif()
 
 add_executable(tapyrus-qt)
-add_windows_resources(tapyrus-qt res/tapyrus-qt-res.rc)
+if(WIN32)
+  configure_windows_rc(tapyrus-qt "${PACKAGE_NAME} (GUI node for Tapyrus)" TAPYRUS_QT_RC_FILE
+                        PRODUCT_NAME "${PACKAGE_NAME}"
+                        ICON "${CMAKE_CURRENT_SOURCE_DIR}/res/icons/tapyrus.ico")
+endif()
+add_windows_resources(tapyrus-qt "${TAPYRUS_QT_RC_FILE}")
 
 target_link_libraries(tapyrus-qt
   core_interface

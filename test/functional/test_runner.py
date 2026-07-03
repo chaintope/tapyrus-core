@@ -164,6 +164,7 @@ BASE_SCRIPTS = [
     'p2p_initial_headers_sync.py',
     'feature_dersig.py',
     'rpc_uptime.py',
+    'rpc_getnetworkinfo.py',
     'wallet_resendwallettransactions.py',
     'wallet_fallbackfee.py',
     'rpc_getblockstats.py',

@@ -1062,8 +1062,8 @@ BOOST_AUTO_TEST_CASE(test_FormatSubVersion)
 BOOST_AUTO_TEST_CASE(test_version_config_consistency)
 {
     // Reconstruct the canonical version string from the individual macros defined
-    // in tapyrus-config.h (cmake_mac/src/tapyrus-config.h on macOS builds).
-    // If cmake_mac/src/tapyrus-config.h drifts after a version bump — e.g.
+    // in the generated tapyrus-config.h.
+    // If the generated tapyrus-config.h drifts after a version bump — e.g.
     // CLIENT_VERSION_BUILD updated but CLIENT_VERSION_STRING left stale — this
     // test catches it at unit-test time rather than at a release smoke-test.
     const std::string version_from_macros =
