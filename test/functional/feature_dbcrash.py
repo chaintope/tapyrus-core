@@ -48,6 +48,13 @@ from test_framework.timeout_config import TAPYRUSD_P2P_TIMEOUT, TAPYRUSD_PROC_TI
 # the colorId commit boundary (see generate_colorid_heavy_block).
 CRASH_TEST_BATCH_SIZE = 50000
 
+# restart_node() retries recovery in a loop until this budget is exhausted.
+# With the aggressive dbcrashratio tiers used here a node can crash again
+# mid-recovery, so this needs more headroom than the framework-wide
+# TAPYRUSD_PROC_TIMEOUT (which governs plain node startup in every other
+# test and shouldn't be loosened just for this test's crash simulation).
+DBCRASH_RESTART_TIMEOUT = 3 * TAPYRUSD_PROC_TIMEOUT
+
 HTTP_DISCONNECT_ERRORS = [http.client.CannotSendRequest]
 try:
     HTTP_DISCONNECT_ERRORS.append(http.client.RemoteDisconnected)
@@ -66,9 +73,13 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
 
         # Set different crash ratios and cache sizes.  Note that not all of
         # -dbcache goes to pcoinsTip.
-        self.node0_args = ["-dbcrashratio=8", "-dbcache=4"] + self.base_args
-        self.node1_args = ["-dbcrashratio=16", "-dbcache=8"] + self.base_args
-        self.node2_args = ["-dbcrashratio=24", "-dbcache=16"] + self.base_args
+        # Lowered from 8/16/24: the loosest tier (node2) took too many
+        # iterations to crash even once on slower CI runners (macOS,
+        # ARM64), running the test past the 1800s per-test timeout before
+        # the early-exit condition in run_test() could fire.
+        self.node0_args = ["-dbcrashratio=4", "-dbcache=4"] + self.base_args
+        self.node1_args = ["-dbcrashratio=8", "-dbcache=8"] + self.base_args
+        self.node2_args = ["-dbcrashratio=12", "-dbcache=16"] + self.base_args
 
         # Node3 is a normal node with default args, except will mine full blocks
         self.node3_args = ["-blockmaxsize=1000000"]
@@ -83,10 +94,10 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
         """Start up a given node id, wait for the tip to reach the given block hash, and calculate the utxo hash.
 
         Exceptions on startup should indicate node crash (due to -dbcrashratio), in which case we try again. Give up
-        after 60 seconds. Returns the utxo hash of the given node."""
+        after DBCRASH_RESTART_TIMEOUT seconds. Returns the utxo hash of the given node."""
 
         time_start = time.time()
-        while time.time() - time_start < TAPYRUSD_PROC_TIMEOUT:
+        while time.time() - time_start < DBCRASH_RESTART_TIMEOUT:
             try:
                 # Any of these RPC calls could throw due to node crash
                 self.start_node(node_index)
