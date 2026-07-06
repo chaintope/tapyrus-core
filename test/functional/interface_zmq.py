@@ -135,6 +135,7 @@ class ZMQTest (BitcoinTestFramework):
         # Connect the subscriber before restarting the node so it is ready
         # when the publisher comes up.
         socket6 = self.zmq_context.socket(zmq.SUB)
+        socket6.set(zmq.IPV6, 1)
         socket6.set(zmq.RCVTIMEO, 60000)
         socket6.connect(ipv6_addr)
         socket6.setsockopt(zmq.SUBSCRIBE, b"hashblock")
