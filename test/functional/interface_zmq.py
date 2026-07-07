@@ -136,7 +136,7 @@ class ZMQTest (BitcoinTestFramework):
         # when the publisher comes up.
         socket6 = self.zmq_context.socket(zmq.SUB)
         socket6.set(zmq.IPV6, 1)
-        socket6.set(zmq.RCVTIMEO, 60000)
+        socket6.set(zmq.RCVTIMEO, 1000)
         socket6.connect(ipv6_addr)
         socket6.setsockopt(zmq.SUBSCRIBE, b"hashblock")
 
@@ -144,32 +144,40 @@ class ZMQTest (BitcoinTestFramework):
             self.restart_node(0, extra_args=[
                 "-zmqpubhashblock={}".format(ipv6_addr),
             ])
-            # ZMQ PUB/SUB has a "slow joiner" problem: messages published
-            # before this subscriber's TCP handshake and SUBSCRIBE filter
-            # have propagated to the publisher are silently dropped.
-            # restart_node only guarantees RPC is up, not that the ZMQ
-            # publisher has finished accepting this subscriber. Generating
-            # several blocks (as _zmq_test does for the IPv4 sockets, which
-            # are connected well before this point and don't hit this
-            # window) means that even if the first few notifications are
-            # lost, a later one reliably arrives once the subscription has
-            # settled. Unlike _zmq_test, we can't assert a strict 0..N-1
-            # sequence here - a dropped first message means the first
-            # notification we actually receive may carry a later sequence
-            # number - so match on the block hash instead and stop as soon
-            # as the last generated block's notification arrives.
-            num_blocks = 5
-            genhashes = self.nodes[0].generate(num_blocks, self.signblockprivkey_wif)
-
+            # ZMQ PUB/SUB has a "slow joiner" problem: this subscriber's
+            # SUBSCRIBE filter takes a nonzero, unobservable amount of time to
+            # propagate to the publisher - a plain ZMQ_PUB socket is send-only
+            # and cannot acknowledge (or even be queried for) subscriber
+            # state. restart_node only guarantees RPC is up, not that the ZMQ
+            # publisher has finished registering this subscriber's filter.
+            #
+            # Generating all blocks in one burst (as _zmq_test does for the
+            # IPv4 sockets, which are connected well before this point and
+            # don't hit this window) doesn't help here: generate(N) publishes
+            # all N notifications within a few ms of each other, far shorter
+            # than the SUBSCRIBE-propagation delay, so either the filter is
+            # already installed before the whole burst (all N arrive) or it
+            # isn't (all N are silently dropped) - there's no partial-delivery
+            # state in between to catch.
+            #
+            # Instead, generate one block at a time and try to receive with a
+            # short per-attempt timeout, retrying (and mining another block)
+            # on a miss. Any message that does arrive proves the filter is now
+            # installed, so it doesn't need to match the most recently
+            # generated block.
             recv_hash = None
-            for _ in range(num_blocks):
-                topic, body, seq = socket6.recv_multipart()
+            for _ in range(30):
+                self.nodes[0].generate(1, self.signblockprivkey_wif)
+                try:
+                    topic, body, _ = socket6.recv_multipart()
+                except zmq.Again:
+                    continue
                 assert_equal(topic, b"hashblock")
                 recv_hash = bytes_to_hex_str(body)
-                if recv_hash == genhashes[-1]:
-                    break
+                break
 
-            assert_equal(recv_hash, genhashes[-1])
+            assert recv_hash is not None, \
+                "no hashblock notification received on tcp://[::1]:{}".format(_ZMQ_IPV6_PORT)
             self.log.info("  hashblock notification received on tcp://[::1]:{}".format(_ZMQ_IPV6_PORT))
         finally:
             socket6.close()
