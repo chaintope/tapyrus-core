@@ -624,6 +624,37 @@ jobs:
           # Run daily test suite
           export CTEST_OUTPUT_ON_FAILURE=ON
 
+          # --- Reporting: render a per-job table on the workflow run's Summary
+          # page (GITHUB_STEP_SUMMARY), so triaging a failure doesn't require
+          # opening log artifacts just to see which phase broke and how long
+          # each phase took. One call site per test phase below.
+          DAILY_SUMMARY_HEADER_WRITTEN=0
+          write_summary_header() {
+            if [ "$DAILY_SUMMARY_HEADER_WRITTEN" -eq 0 ]; then
+              {
+                echo "## Daily Test Summary — ${{ matrix.config.name }}"
+                echo ""
+                echo "| Category | Status | Duration |"
+                echo "|---|---|---|"
+              } >> "$GITHUB_STEP_SUMMARY"
+              DAILY_SUMMARY_HEADER_WRITTEN=1
+            fi
+          }
+          record_phase() {
+            # $1=category  $2=exit code (0=pass)  $3=start epoch seconds (from `date +%s`)
+            local category="$1" rc="$2" start="$3"
+            local dur=$(( $(date +%s) - start ))
+            local status
+            if [ "$rc" -eq 0 ]; then status="✅ Passed"; else status="❌ Failed"; fi
+            write_summary_header
+            echo "| $category | $status | $((dur / 60))m $((dur % 60))s |" >> "$GITHUB_STEP_SUMMARY"
+          }
+          record_skipped() {
+            # $1=category  $2=reason
+            write_summary_header
+            echo "| $1 | ⏭️ Skipped ($2) | - |" >> "$GITHUB_STEP_SUMMARY"
+          }
+
           # Skip tests for cross-compiled binaries (they won't run on Linux host)
           if [ "${{ matrix.config.target_platform }}" != "" ] && [ "${{ matrix.config.target_platform }}" != "${{ matrix.config.platform }}" ]; then
             echo "---------------- Cross-compilation build completed ---------------- "
@@ -634,63 +665,81 @@ jobs:
               echo "Build artifacts created for macOS ${{ matrix.config.target_arch }}"
             fi
             ls -la "$BASE_BUILD_DIR/bin/" || true
+            record_skipped "All Tests" "cross-compiled binaries"
             echo "---------------- CROSS-COMPILATION BUILD FINISHED ---------------------"
             exit 0
           fi
 
           echo "---------------- Start unit test ---------------- "
           cd "$BASE_BUILD_DIR/bin"
+          UNIT_START=$(date +%s)
           if [ "${{ matrix.config.platform }}" == "linux" ] && [ "${{ matrix.config.arch }}" == "x86_64"  ]; then
-            valgrind ./test_tapyrus --log_level=test_suite --report_level=short --build_info --catch_system_errors
+            if valgrind ./test_tapyrus --log_level=test_suite --report_level=short --build_info --catch_system_errors; then UNIT_RC=0; else UNIT_RC=$?; fi
           else
-            ./test_tapyrus --log_level=test_suite --report_level=short --build_info --catch_system_errors
+            if ./test_tapyrus --log_level=test_suite --report_level=short --build_info --catch_system_errors; then UNIT_RC=0; else UNIT_RC=$?; fi
           fi
+          record_phase "Unit Tests (ctest)" "$UNIT_RC" "$UNIT_START"
+          if [ "$UNIT_RC" -ne 0 ]; then exit 1; fi
 
           echo "---------------- Start Qt GUI test ---------------- "
           if [ "${{ matrix.config.enable_gui }}" == "true" ] && [ "${{ matrix.config.enable_wallet }}" == "true" ]; then
             # Qt GUI tests require a headless platform on CI agents; use minimal (statically linked)
             export QT_QPA_PLATFORM=minimal
+            GUI_START=$(date +%s)
             # Run via CTest so the test name and WORKING_DIRECTORY are handled correctly
             if ctest --test-dir "$BASE_BUILD_DIR" -R "^test-tapyrus-qt$" --output-on-failure; then
               echo "Qt GUI tests passed"
+              record_phase "Qt GUI Tests" 0 "$GUI_START"
             else
               echo "Qt GUI tests failed"
+              record_phase "Qt GUI Tests" 1 "$GUI_START"
               exit 1
             fi
             unset QT_QPA_PLATFORM
           else
             echo "Skipping Qt GUI tests (GUI or wallet not enabled)"
+            record_skipped "Qt GUI Tests" "GUI or wallet not enabled"
           fi
 
           echo "---------------- Start util test ---------------- "
           cd "$BASE_ROOT_DIR"
+          UTIL_START=$(date +%s)
           if python3 test/util/tapyrus-util-test.py; then
             echo "Util tests passed"
+            record_phase "Util Tests" 0 "$UTIL_START"
           else
             echo "Util tests failed"
+            record_phase "Util Tests" 1 "$UTIL_START"
             exit 1
           fi
 
           if [ "${{ matrix.config.build_type }}" == "Debug" ]; then
             echo "---------------- Start debug mode functional tests ----------------"
             cd "$BASE_ROOT_DIR"
+            DEBUG_FUNC_START=$(date +%s)
             if python3 test/functional/test_runner.py --tmpdir="$TAPYRUS_TEST_DIR" -j 1 --combinedlogslen=4000 --failfast --quiet --debugscripts; then
               echo "Debug mode functional tests passed"
+              record_phase "Functional Tests (debugscripts)" 0 "$DEBUG_FUNC_START"
             else
               echo "Debug mode functional tests failed"
+              record_phase "Functional Tests (debugscripts)" 1 "$DEBUG_FUNC_START"
               exit 1
             fi
+            record_skipped "Benchmark" "Debug build"
             echo "--------------- DAILY DEBUG BUILD FINISHED ---------------------"
             exit 0
           fi
 
           echo "---------------- Start daily functional test suite ---------------- "
           cd "$BASE_ROOT_DIR"
+          FUNC_START=$(date +%s)
           # Run the daily functional test suite including long-running tests
           if python3 test/functional/test_runner.py --tmpdir="$TAPYRUS_TEST_DIR" -j 1 --combinedlogslen=4000 --coverage --failfast --quiet --extended; then
             echo "daily functional tests passed"
+            record_phase "Functional Tests (--extended)" 0 "$FUNC_START"
           else
             echo "daily functional tests failed"
+            record_phase "Functional Tests (--extended)" 1 "$FUNC_START"
             exit 1
           fi
 
@@ -699,15 +748,18 @@ jobs:
           # need the extra time (and history-cache noise) of a benchmark too.
           if [ "${{ github.event_name }}" == "pull_request" ]; then
             echo "---------------- Skipping benchmark test (event: pull_request) ---------------- "
+            record_skipped "Benchmark" "pull_request event"
           else
             echo "---------------- Start benchmark test ---------------- "
             cd "$BASE_BUILD_DIR/bin"
-            ./bench_tapyrus -evals=100 > bench_results.txt
-            if [ $? -eq 0 ]; then
+            BENCH_START=$(date +%s)
+            if ./bench_tapyrus -evals=100 > bench_results.txt; then
               echo "Benchmark tests passed"
               cat bench_results.txt
+              record_phase "Benchmark" 0 "$BENCH_START"
             else
               echo "Benchmark tests failed"
+              record_phase "Benchmark" 1 "$BENCH_START"
               exit 1
             fi
           fi
