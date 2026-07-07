@@ -191,7 +191,8 @@ void DoTest(const CScript& scriptPubKey, const CScript& scriptSig, const CScript
         SCRIPT_VERIFY_MINIMALIF,
         SCRIPT_VERIFY_NULLFAIL,
         SCRIPT_VERIFY_WITNESS_PUBKEYTYPE,
-        SCRIPT_VERIFY_CONST_SCRIPTCODE};
+        SCRIPT_VERIFY_CONST_SCRIPTCODE,
+        SCRIPT_VERIFY_CP2SH_COLORED};
     // If we add many more flags, this loop can get too expensive, but we can
     // rewrite in the future to randomly pick a set of flags to evaluate.
     for (auto extra_flags: test_flags_list) {
@@ -1623,12 +1624,12 @@ BOOST_AUTO_TEST_CASE(script_build)
         CScript cp2sh_spk = CScript() << cp2sh_cid.toVector() << OP_COLOR
                                       << OP_HASH160 << ToByteVector(CScriptID(cp2sh_inner))
                                       << OP_EQUAL;
-        tests.push_back(TestBuilder(cp2sh_spk, "CP2SH(P2PKH) ECDSA", SCRIPT_VERIFY_NONE,
+        tests.push_back(TestBuilder(cp2sh_spk, "CP2SH(P2PKH) ECDSA, redeem script genuinely satisfied (passes with the flag on)", SCRIPT_VERIFY_CP2SH_COLORED,
                                     /*P2SH=*/true, WitnessMode::NONE, 0, 0, false, cp2sh_inner)
                             .PushSig(keys.key1, SignatureScheme::ECDSA)
                             .Push(keys.pubkey1C)
                             .PushRedeem());
-        tests.push_back(TestBuilder(cp2sh_spk, "CP2SH(P2PKH) SCHNORR", SCRIPT_VERIFY_NONE,
+        tests.push_back(TestBuilder(cp2sh_spk, "CP2SH(P2PKH) SCHNORR, redeem script genuinely satisfied (passes with the flag on)", SCRIPT_VERIFY_CP2SH_COLORED,
                                     /*P2SH=*/true, WitnessMode::NONE, 0, 0, false, cp2sh_inner)
                             .PushSig(keys.key1, SignatureScheme::SCHNORR)
                             .Push(keys.pubkey1C)
@@ -2629,12 +2630,12 @@ BOOST_AUTO_TEST_CASE(colored_coin_standard_scripts)
 
     // CP2SH(P2PKH) — colored P2SH where the outer script has OP_COLOR and the
     // redeem script is a plain P2PKH; valid ECDSA and SCHNORR spends
-    tests.push_back(TestBuilder(cp2sh, "CP2SH(P2PKH) ECDSA", SCRIPT_VERIFY_NONE, /*P2SH=*/true)
+    tests.push_back(TestBuilder(cp2sh, "CP2SH(P2PKH) ECDSA", SCRIPT_VERIFY_CP2SH_COLORED, /*P2SH=*/true)
                         .PushSig(keys.key1, SignatureScheme::ECDSA)
                         .Push(keys.pubkey1C)
                         .PushRedeem());
 
-    tests.push_back(TestBuilder(cp2sh, "CP2SH(P2PKH) SCHNORR", SCRIPT_VERIFY_NONE, /*P2SH=*/true)
+    tests.push_back(TestBuilder(cp2sh, "CP2SH(P2PKH) SCHNORR", SCRIPT_VERIFY_CP2SH_COLORED, /*P2SH=*/true)
                         .PushSig(keys.key1, SignatureScheme::SCHNORR)
                         .Push(keys.pubkey1C)
                         .PushRedeem());

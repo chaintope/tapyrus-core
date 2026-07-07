@@ -937,6 +937,164 @@ BOOST_AUTO_TEST_CASE(duplicate_nonreissuable_issuance_rejected)
 }
 
 /**
+ * Regression test: burning an NFT must not erase its colorId from
+ * g_colorid_state, so a later re-issuance attempt is still rejected.
+ *
+ * "Burn" means spending the sole live NFT UTXO to an uncolored output —
+ * VerifyTokenBalances allows colored input value with no matching colored
+ * output (the value is simply discarded). This does not touch
+ * g_colorid_state: CIssuedColorIds::Erase() is only ever called from
+ * DisconnectBlock (reorg), never from a normal spend/burn. So after a burn,
+ * total live supply of the colorId is zero, but g_colorid_state must still
+ * report it as issued forever.
+ *
+ * As in duplicate_nonreissuable_issuance_rejected, actually re-deriving the
+ * same colorId requires the exact defining TPC outpoint to look unspent
+ * again (a SHA-256 preimage collision in practice), so the re-issuance
+ * attempt is exercised directly against CheckColorIdentifierValidity with a
+ * synthetic CCoinsViewCache that presents the (long since spent) defining
+ * outpoint as unspent — simulating the same reorg-shaped bug the
+ * NON_REISSUABLE test guards against.
+ */
+BOOST_AUTO_TEST_CASE(duplicate_nft_issuance_after_burn_rejected)
+{
+    CScript payTo = CScript() << ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG;
+
+    CKey key;
+    const unsigned char vchKeyBytes[32] = {
+        3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    };
+    key.Set(vchKeyBytes, vchKeyBytes + 32, true);
+    CPubKey pubkey = key.GetPubKey();
+    std::vector<unsigned char> vchPubKey(pubkey.begin(), pubkey.end());
+    std::vector<unsigned char> pubkeyHash(20);
+    CHash160().Write(pubkey.data(), pubkey.size()).Finalize(pubkeyHash.data());
+
+    // Block 6: spend coinbase[1] into a plain TPC P2PKH output.
+    CMutableTransaction spendTx;
+    spendTx.nFeatures = 1;
+    spendTx.vin.resize(1);
+    spendTx.vout.resize(1);
+    spendTx.vin[0].prevout.hashMalFix = m_coinbase_txns[1]->GetHashMalFix();
+    spendTx.vin[0].prevout.n = 0;
+    spendTx.vout[0].nValue = 100 * CENT;
+    spendTx.vout[0].scriptPubKey = CScript() << OP_DUP << OP_HASH160
+                                             << ToByteVector(pubkeyHash)
+                                             << OP_EQUALVERIFY << OP_CHECKSIG;
+    {
+        std::vector<unsigned char> vchSig;
+        uint256 sigHash = SignatureHash(
+            m_coinbase_txns[1]->vout[0].scriptPubKey, spendTx, 0, SIGHASH_ALL, 0, SigVersion::BASE);
+        coinbaseKey.Sign_Schnorr(sigHash, vchSig);
+        vchSig.push_back(SIGHASH_ALL);
+        spendTx.vin[0].scriptSig = CScript() << vchSig;
+    }
+    CreateAndProcessBlock({spendTx}, payTo);
+
+    // Block 7: issue an NFT (nValue must be exactly 1) from the P2PKH UTXO.
+    COutPoint definingUtxo(spendTx.GetHashMalFix(), 0);
+    ColorIdentifier colorid(definingUtxo, TokenTypes::NFT);
+    CScript colorScript = CScript() << colorid.toVector() << OP_COLOR
+                                    << OP_DUP << OP_HASH160
+                                    << ToByteVector(pubkeyHash)
+                                    << OP_EQUALVERIFY << OP_CHECKSIG;
+
+    CMutableTransaction issueTx;
+    issueTx.nFeatures = 1;
+    issueTx.vin.resize(1);
+    issueTx.vout.resize(1);
+    issueTx.vin[0].prevout = definingUtxo;
+    issueTx.vout[0].nValue = 1;
+    issueTx.vout[0].scriptPubKey = colorScript;
+    {
+        std::vector<unsigned char> vchSig;
+        uint256 sigHash = SignatureHash(
+            spendTx.vout[0].scriptPubKey, issueTx, 0, SIGHASH_ALL, 0, SigVersion::BASE);
+        key.Sign_Schnorr(sigHash, vchSig);
+        vchSig.push_back(SIGHASH_ALL);
+        issueTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey;
+    }
+    CreateAndProcessBlock({issueTx}, payTo);
+
+    {
+        LOCK(cs_main);
+        BOOST_REQUIRE(g_colorid_state && g_colorid_state->IsIssued(colorid));
+    }
+
+    // Block 8: burn the NFT — spend issueTx:0 (the only live unit) plus a TPC
+    // coinbase input (for fee/tpcin>0) to a plain uncolored output. No output
+    // carries colorid, so its value is simply discarded (a genuine burn).
+    CMutableTransaction burnTx;
+    burnTx.nFeatures = 1;
+    burnTx.vin.resize(2);
+    burnTx.vout.resize(1);
+    burnTx.vin[0].prevout = COutPoint(issueTx.GetHashMalFix(), 0);
+    burnTx.vin[1].prevout.hashMalFix = m_coinbase_txns[2]->GetHashMalFix();
+    burnTx.vin[1].prevout.n = 0;
+    burnTx.vout[0].nValue = 1;
+    burnTx.vout[0].scriptPubKey = CScript() << OP_DUP << OP_HASH160
+                                            << ToByteVector(pubkeyHash)
+                                            << OP_EQUALVERIFY << OP_CHECKSIG;
+    {
+        std::vector<unsigned char> vchSig;
+        uint256 sigHash = SignatureHash(
+            issueTx.vout[0].scriptPubKey, burnTx, 0, SIGHASH_ALL, 0, SigVersion::BASE);
+        key.Sign_Schnorr(sigHash, vchSig);
+        vchSig.push_back(SIGHASH_ALL);
+        burnTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey;
+    }
+    {
+        std::vector<unsigned char> vchSig;
+        uint256 sigHash = SignatureHash(
+            m_coinbase_txns[2]->vout[0].scriptPubKey, burnTx, 1, SIGHASH_ALL, 0, SigVersion::BASE);
+        coinbaseKey.Sign_Schnorr(sigHash, vchSig);
+        vchSig.push_back(SIGHASH_ALL);
+        burnTx.vin[1].scriptSig = CScript() << vchSig;
+    }
+    CreateAndProcessBlock({burnTx}, payTo);
+
+    // The burn destroyed the only live unit of colorid, but g_colorid_state
+    // must still remember it was issued -- Erase() is reorg-only.
+    {
+        LOCK(cs_main);
+        BOOST_REQUIRE(g_colorid_state && g_colorid_state->IsIssued(colorid));
+    }
+
+    // Build a synthetic CCoinsViewCache that presents definingUtxo as unspent
+    // again, simulating a reorg that restored the UTXO while g_colorid_state
+    // retained the record. CheckColorIdentifierValidity must still reject the
+    // re-issuance with "bad-txns-colorid-already-issued", even though the
+    // colorId's supply is currently zero.
+    {
+        LOCK(cs_main);
+
+        CCoinsView dummy;
+        CCoinsViewCache syntheticView(&dummy);
+        Coin tpcCoin;
+        tpcCoin.out.nValue    = spendTx.vout[0].nValue;
+        tpcCoin.out.scriptPubKey = spendTx.vout[0].scriptPubKey;
+        tpcCoin.nHeight       = 6;
+        tpcCoin.fCoinBase     = false;
+        syntheticView.AddCoin(definingUtxo, std::move(tpcCoin), /*potential_overwrite=*/false);
+
+        CMutableTransaction reissueTx;
+        reissueTx.nFeatures = 1;
+        reissueTx.vin.resize(1);
+        reissueTx.vout.resize(1);
+        reissueTx.vin[0].prevout   = definingUtxo;
+        reissueTx.vout[0].nValue   = 1;
+        reissueTx.vout[0].scriptPubKey = colorScript;
+
+        CValidationState state;
+        bool valid = CheckColorIdentifierValidity(
+            CTransaction(reissueTx), state, syntheticView, chainActive.Tip()->nHeight);
+
+        BOOST_CHECK(!valid);
+        BOOST_CHECK_EQUAL(state.GetRejectReason(), "bad-txns-colorid-already-issued");
+    }
+}
+
+/**
  * Regression test: VerifyTokenBalances must not use DoS=100 for tpcin<=0.
  *
  * PR #423 (TXV-4) changed "bad-txns-token-without-fee" from state.Invalid()

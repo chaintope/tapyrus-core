@@ -1600,4 +1600,191 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_burn_script, TestChainSetup)
     testTx(this, MakeTransactionRef(spendChangeTx), true);
 }
 
+/*
+ * Risky-but-permitted combination: a "0-of-2" CHECKMULTISIG output is
+ * genuinely spendable by anyone with zero signatures -- not merely a script-
+ * level curiosity but a real, minable, mempool-accepted spend. Unlike the
+ * colored-coin combinations above, there is no consensus-layer check that
+ * catches this: it is accepted at every layer, exactly as classic Bitcoin
+ * multisig has always behaved.
+ */
+BOOST_FIXTURE_TEST_CASE(tx_mempool_risk_checkmultisig_zero_of_n, TestChainSetup)
+{
+    initKeys();
+
+    // Looks like it requires two keys; OP_0 as the "required signatures"
+    // count means it actually requires none.
+    CScript zeroOfTwoScript = CScript() << OP_0 << ToByteVector(pubkey1) << ToByteVector(pubkey2) << OP_2 << OP_CHECKMULTISIG;
+
+    CMutableTransaction fundTx;
+    fundTx.nFeatures = 1;
+    fundTx.vin.resize(1);
+    fundTx.vout.resize(1);
+    fundTx.vin[0].prevout.hashMalFix = m_coinbase_txns[0]->GetHashMalFix();
+    fundTx.vin[0].prevout.n = 0;
+    fundTx.vout[0].nValue = 49 * COIN;
+    fundTx.vout[0].scriptPubKey = zeroOfTwoScript;
+
+    std::vector<unsigned char> vchSig;
+    CMutableTransaction coinbaseIn(*m_coinbase_txns[0]);
+    Sign(vchSig, coinbaseKey, m_coinbase_txns[0]->vout[0].scriptPubKey, coinbaseIn, 0, fundTx, 0);
+    fundTx.vin[0].scriptSig = CScript() << vchSig;
+    testTx(this, MakeTransactionRef(fundTx), true); // mines the funding tx into a block
+
+    // Spend the "0-of-2" output with ZERO signatures -- just the mandatory
+    // dummy element. No knowledge of either private key is used anywhere.
+    CMutableTransaction spendTx;
+    spendTx.nFeatures = 1;
+    spendTx.vin.resize(1);
+    spendTx.vout.resize(1);
+    spendTx.vin[0].prevout.hashMalFix = fundTx.GetHashMalFix();
+    spendTx.vin[0].prevout.n = 0;
+    spendTx.vin[0].scriptSig = CScript() << OP_0;
+    spendTx.vout[0].nValue = 48 * COIN;
+    spendTx.vout[0].scriptPubKey = CScript() << ToByteVector(pubkey0) << OP_CHECKSIG;
+
+    testTx(this, MakeTransactionRef(spendTx), true); // accepted end-to-end: mempool AND mined into a block
+}
+
+/*
+ * Risky-but-permitted combination: OP_CHECKDATASIGVERIFY has no built-in
+ * binding to the spending transaction. The identical (signature, message)
+ * pair is replayed across two independently-funded UTXOs whose spending
+ * transactions differ in every other respect (amount, nLockTime, nSequence,
+ * destination) -- both are accepted end-to-end by the mempool and mined
+ * into blocks. This is deliberately NOT a double-spend of the same UTXO
+ * (which would obviously be rejected for an unrelated reason); it is two
+ * distinct, unrelated transactions satisfied by the same witness data.
+ */
+BOOST_FIXTURE_TEST_CASE(tx_mempool_risk_checkdatasig_replay, TestChainSetup)
+{
+    initKeys();
+
+    CScript dataSigScript = CScript() << ToByteVector(pubkey0) << OP_CHECKDATASIGVERIFY << OP_1;
+
+    auto fundOne = [&](int coinbaseIdx) {
+        CMutableTransaction fundTx;
+        fundTx.nFeatures = 1;
+        fundTx.vin.resize(1);
+        fundTx.vout.resize(1);
+        fundTx.vin[0].prevout.hashMalFix = m_coinbase_txns[coinbaseIdx]->GetHashMalFix();
+        fundTx.vin[0].prevout.n = 0;
+        fundTx.vout[0].nValue = 49 * COIN;
+        fundTx.vout[0].scriptPubKey = dataSigScript;
+        std::vector<unsigned char> vchSig;
+        CMutableTransaction coinbaseIn(*m_coinbase_txns[coinbaseIdx]);
+        Sign(vchSig, coinbaseKey, m_coinbase_txns[coinbaseIdx]->vout[0].scriptPubKey, coinbaseIn, 0, fundTx, 0);
+        fundTx.vin[0].scriptSig = CScript() << vchSig;
+        testTx(this, MakeTransactionRef(fundTx), true);
+        return fundTx;
+    };
+
+    CMutableTransaction fundA = fundOne(0);
+    CMutableTransaction fundB = fundOne(1);
+
+    // Sign ONE message ONCE.
+    std::vector<unsigned char> message = {'h', 'e', 'l', 'l', 'o'};
+    uint256 msgHash;
+    CSHA256().Write(message.data(), message.size()).Finalize(msgHash.begin());
+    std::vector<unsigned char> dataSig;
+    BOOST_REQUIRE(key0.Sign_ECDSA(msgHash, dataSig));
+    CScript identicalScriptSig = CScript() << dataSig << message;
+
+    CMutableTransaction spendA;
+    spendA.nFeatures = 1;
+    spendA.vin.resize(1);
+    spendA.vout.resize(1);
+    spendA.vin[0].prevout.hashMalFix = fundA.GetHashMalFix();
+    spendA.vin[0].prevout.n = 0;
+    spendA.vin[0].scriptSig = identicalScriptSig;
+    spendA.vout[0].nValue = 48 * COIN;
+    spendA.vout[0].scriptPubKey = CScript() << OP_TRUE;
+    testTx(this, MakeTransactionRef(spendA), true);
+
+    // A completely different transaction shape (different UTXO, amount, and
+    // destination) -- reusing the byte-for-byte identical scriptSig from
+    // spendA above. (nLockTime/nSequence are left at defaults: a large,
+    // not-yet-reached nLockTime would be rejected as a non-final transaction
+    // for reasons unrelated to CHECKDATASIG, which would muddy the point.)
+    CMutableTransaction spendB;
+    spendB.nFeatures = 1;
+    spendB.vin.resize(1);
+    spendB.vout.resize(1);
+    spendB.vin[0].prevout.hashMalFix = fundB.GetHashMalFix();
+    spendB.vin[0].prevout.n = 0;
+    spendB.vin[0].scriptSig = identicalScriptSig;
+    spendB.vout[0].nValue = 10 * COIN;
+    spendB.vout[0].scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash2) << OP_EQUALVERIFY << OP_CHECKSIG;
+
+    testTx(this, MakeTransactionRef(spendB), true); // the replayed witness is accepted end-to-end again
+}
+
+/*
+ * Risky-but-permitted combination: independent OP_CHECKSIG calls (not
+ * OP_CHECKMULTISIG) can freely mix ECDSA and Schnorr signatures. The same
+ * scriptPubKey shape is funded twice; one spend satisfies the IF branch
+ * with an ECDSA signature, the other satisfies the ELSE branch with a
+ * Schnorr signature -- both accepted end-to-end.
+ */
+BOOST_FIXTURE_TEST_CASE(tx_mempool_risk_mixed_signature_schemes, TestChainSetup)
+{
+    initKeys();
+
+    CScript branchScript = CScript() << OP_IF << ToByteVector(pubkey0) << OP_CHECKSIG
+                                      << OP_ELSE << ToByteVector(pubkey1) << OP_CHECKSIG << OP_ENDIF;
+
+    auto fundOne = [&](int coinbaseIdx) {
+        CMutableTransaction fundTx;
+        fundTx.nFeatures = 1;
+        fundTx.vin.resize(1);
+        fundTx.vout.resize(1);
+        fundTx.vin[0].prevout.hashMalFix = m_coinbase_txns[coinbaseIdx]->GetHashMalFix();
+        fundTx.vin[0].prevout.n = 0;
+        fundTx.vout[0].nValue = 49 * COIN;
+        fundTx.vout[0].scriptPubKey = branchScript;
+        std::vector<unsigned char> vchSig;
+        CMutableTransaction coinbaseIn(*m_coinbase_txns[coinbaseIdx]);
+        Sign(vchSig, coinbaseKey, m_coinbase_txns[coinbaseIdx]->vout[0].scriptPubKey, coinbaseIn, 0, fundTx, 0);
+        fundTx.vin[0].scriptSig = CScript() << vchSig;
+        testTx(this, MakeTransactionRef(fundTx), true);
+        return fundTx;
+    };
+
+    CMutableTransaction fundA = fundOne(2);
+    CMutableTransaction fundB = fundOne(3);
+
+    // Branch A: ECDSA signature for pubkey0 (condition pushed as OP_1/true).
+    CMutableTransaction spendA;
+    spendA.nFeatures = 1;
+    spendA.vin.resize(1);
+    spendA.vout.resize(1);
+    spendA.vin[0].prevout.hashMalFix = fundA.GetHashMalFix();
+    spendA.vin[0].prevout.n = 0;
+    spendA.vout[0].nValue = 48 * COIN;
+    spendA.vout[0].scriptPubKey = CScript() << OP_TRUE;
+    uint256 hashA = SignatureHash(branchScript, spendA, 0, SIGHASH_ALL, fundA.vout[0].nValue, SigVersion::BASE);
+    std::vector<unsigned char> sigA;
+    BOOST_REQUIRE(key0.Sign_ECDSA(hashA, sigA));
+    sigA.push_back((unsigned char)SIGHASH_ALL);
+    spendA.vin[0].scriptSig = CScript() << sigA << OP_1;
+    testTx(this, MakeTransactionRef(spendA), true);
+
+    // Branch B: the SAME scriptPubKey shape's other branch, satisfied with a
+    // Schnorr signature for pubkey1 (condition pushed as OP_0/false).
+    CMutableTransaction spendB;
+    spendB.nFeatures = 1;
+    spendB.vin.resize(1);
+    spendB.vout.resize(1);
+    spendB.vin[0].prevout.hashMalFix = fundB.GetHashMalFix();
+    spendB.vin[0].prevout.n = 0;
+    spendB.vout[0].nValue = 48 * COIN;
+    spendB.vout[0].scriptPubKey = CScript() << OP_TRUE;
+    uint256 hashB = SignatureHash(branchScript, spendB, 0, SIGHASH_ALL, fundB.vout[0].nValue, SigVersion::BASE);
+    std::vector<unsigned char> sigB;
+    BOOST_REQUIRE(key1.Sign_Schnorr(hashB, sigB));
+    sigB.push_back((unsigned char)SIGHASH_ALL);
+    spendB.vin[0].scriptSig = CScript() << sigB << OP_0;
+    testTx(this, MakeTransactionRef(spendB), true);
+}
+
 BOOST_AUTO_TEST_SUITE_END()
