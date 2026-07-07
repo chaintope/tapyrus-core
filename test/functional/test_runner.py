@@ -250,9 +250,13 @@ USDT_SCRIPTS = [
 ]
 
 # Tests that are too slow/resource-intensive for daily CI (90 min – 4 hours, 4 GB disk).
-# Run via the heavy-functional-tests.yml workflow (weekly).
+# Run via the weekly-heavy-tests.yml workflow (weekly). Tests added here are exercised
+# ONLY by that weekly workflow (--heavy below) — they never run in the daily base/extended
+# suites, so don't add a test here expecting daily coverage.
 HEAVY_SCRIPTS = [
     'feature_pruning.py',
+    'feature_dbcrash.py',
+    'feature_dbcrash.py --scheme SCHNORR',
 ]
 
 # Place EXTENDED_SCRIPTS first since it has the 3 longest running tests

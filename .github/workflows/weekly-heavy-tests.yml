@@ -4,7 +4,9 @@
 
 name: Weekly Heavy Test
 
-# Runs tests that are too slow for the daily CI matrix (feature_pruning: 1.5–4 h, 4 GB).
+# Runs tests that are too slow for the daily CI matrix (feature_pruning: 1.5–4 h, 4 GB;
+# feature_dbcrash: needs far more than the daily 1800s per-test budget for its
+# loosest dbcrashratio/dbcache tier to reliably crash at least once).
 # Scheduled weekly; can also be triggered manually or after a successful daily build.
 on:
   schedule:
@@ -32,10 +34,12 @@ env:
 
 jobs:
   heavy-tests:
-    name: Pruning + USDT tests (Linux x86_64 RelWithDebInfo)
+    name: Pruning + DB-crash + USDT tests (Linux x86_64 RelWithDebInfo)
     runs-on: ubuntu-latest
-    # feature_pruning uses up to 4 GB disk and takes 1.5–4 hours; allow 8 hours total.
-    timeout-minutes: 480
+    # feature_pruning uses up to 4 GB disk and takes 1.5–4 hours; feature_dbcrash
+    # runs alongside it in the same --heavy invocation and needs its own headroom
+    # to reach coverage on its loosest dbcrashratio/dbcache tier; allow 10 hours total.
+    timeout-minutes: 600
     env:
       BASE_ROOT_DIR: ${{ github.workspace }}
       CCACHE_DIR: ${{ github.workspace }}/ccache
@@ -137,14 +141,14 @@ jobs:
 
           cmake --build "$BASE_BUILD_DIR" --parallel -j$(nproc) --target all
 
-      - name: Run feature_pruning test
+      - name: Run heavy test suite (feature_pruning + feature_dbcrash)
         run: |
           source $HOME/venv/bin/activate
           cd "$BASE_ROOT_DIR"
           export PATH="$BASE_BUILD_DIR/bin:$PATH"
-          echo "Disk space before pruning test:"
+          echo "Disk space before heavy tests:"
           df -h .
-          echo "---------------- Start feature_pruning test ----------------"
+          echo "---------------- Start heavy test suite ----------------"
           if python3 test/functional/test_runner.py \
             --tmpdir="$TAPYRUS_TEST_DIR" \
             -j 1 \
@@ -152,12 +156,12 @@ jobs:
             --failfast \
             --test-timeout=18000 \
             --heavy; then
-            echo "feature_pruning test passed"
+            echo "heavy test suite passed"
           else
-            echo "feature_pruning test FAILED"
+            echo "heavy test suite FAILED"
             exit 1
           fi
-          echo "Disk space after pruning test:"
+          echo "Disk space after heavy tests:"
           df -h .
 
       # TODO: Uncomment this section once USDT tests are ready to run in CI.
@@ -241,6 +245,9 @@ jobs:
         # ("How to start a node on Tapyrus testnet?") and doc/docker_image.md.
         # Testnet is network ID 1939510133, tapyrus "prod" mode (see
         # doc/tapyrus/network_id_and_magic_bytes.md) - not a separate build mode.
+        # The genesis hex itself lives in contrib/docker/testnet-genesis-block-with-sig
+        # (single source of truth - must match the testnet example in
+        # doc/tapyrus/getting_started.md if that's ever regenerated).
         run: |
           cat << 'EOS' > tapyrus.conf
           networkid=1939510133
@@ -256,18 +263,31 @@ jobs:
 
           docker run -d --name tapyrus_testnet_sync \
             -v "$PWD/tapyrus.conf:/etc/tapyrus/tapyrus.conf" \
-            -e GENESIS_BLOCK_WITH_SIG='01000000000000000000000000000000000000000000000000000000000000000000000044cc181bd0e95c5b999a13d1fc0d193fa8223af97511ad2098217555a841b3518f18ec2536f0bb9d6d4834fcc712e9563840fe9f089db9e8fe890bffb82165849f52ba5e01210366262690cbdf648132ce0c088962c6361112582364ede120f3780ab73438fc4b402b1ed9996920f57a425f6f9797557c0e73d0c9fbafdebcaa796b136e0946ffa98d928f8130b6a572f83da39530b13784eeb7007465b673aa95091619e7ee208501010000000100000000000000000000000000000000000000000000000000000000000000000000000000ffffffff0100f2052a010000002776a92231415132437447336a686f37385372457a4b6533766636647863456b4a74356e7a4188ac00000000' \
+            -e GENESIS_BLOCK_WITH_SIG="$(cat contrib/docker/testnet-genesis-block-with-sig)" \
             tapyrusd:weekly-testnet-sync
+
+          sleep 30
+          if ! docker ps --format '{{.Names}}' | grep -q '^tapyrus_testnet_sync$'; then
+            docker logs tapyrus_testnet_sync
+            echo "FAILED: container exited within 30 seconds of startup"
+            exit 1
+          fi
 
       - name: Wait for testnet sync to complete
         run: |
           cli() { docker exec tapyrus_testnet_sync tapyrus-cli -conf=/etc/tapyrus/tapyrus.conf "$@"; }
-          ibd_complete() { cli getblockchaininfo | grep -q '"initialblockdownload": false'; }
+          # jq (preinstalled on ubuntu-latest) avoids coupling this health check to
+          # tapyrus-cli's pretty-printed JSON spacing (`"initialblockdownload": false`),
+          # which is a format assumption rather than a guaranteed API contract.
+          ibd_complete() { [ "$(cli getblockchaininfo | jq -r .initialblockdownload)" = "false" ]; }
 
           echo "Waiting 30 minutes for peer discovery and initial sync..."
           sleep 1800
-          connections=$(cli getconnectioncount)
-          height_prev=$(cli getblockcount)
+          # RPC calls return an empty string (not an error) if the container/tapyrusd
+          # isn't reachable yet; without the fallback, `[ "" -lt 1 ]` aborts the step
+          # with a bash "integer expression expected" error instead of FAILED: ...
+          connections=$(cli getconnectioncount 2>/dev/null || echo 0)
+          height_prev=$(cli getblockcount 2>/dev/null || echo 0)
           echo "After 30 min: height=$height_prev connections=$connections"
 
           if [ "$connections" -lt 1 ]; then
@@ -286,8 +306,8 @@ jobs:
             elapsed=$((30 + (checkpoint - 1) * 10))
             echo "Checkpoint $checkpoint/9 (elapsed ${elapsed}m): waiting 10 minutes..."
             sleep 600
-            height_now=$(cli getblockcount)
-            connections=$(cli getconnectioncount)
+            height_now=$(cli getblockcount 2>/dev/null || echo 0)
+            connections=$(cli getconnectioncount 2>/dev/null || echo 0)
             echo "Checkpoint $checkpoint: height=$height_now connections=$connections"
 
             if [ "$connections" -lt 1 ]; then

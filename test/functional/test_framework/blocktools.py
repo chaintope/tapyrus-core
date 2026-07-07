@@ -212,6 +212,9 @@ def create_tx_with_large_script(prevtx, n, scriptPubKey, amt1=1, amt2=0.1):
     # Note: chunks must be passed as one CScript([...]) call, not built up via repeated
     # `+=`, since CScript.__add__ re-coerces its (already pushdata-encoded) operand and
     # would wrap each chunk in a second, nested pushdata header.
+    # Assumes MAX_SCRIPT_ELEMENT_SIZE stays in [256, 65535], where a push is encoded as
+    # OP_PUSHDATA2 (1-byte opcode + 2-byte length). If it ever dropped below 256, pushes
+    # would use OP_PUSHDATA1 (1-byte length) instead and this overhead would be 2, not 3.
     chunk_overhead = 3  # OP_PUSHDATA2 opcode + 2-byte length
     num_chunks = (MAX_SCRIPT_SIZE - 1) // (MAX_SCRIPT_ELEMENT_SIZE + chunk_overhead)
     script_output = CScript([OP_RETURN] + [b'\x00' * MAX_SCRIPT_ELEMENT_SIZE] * num_chunks)
