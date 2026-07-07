@@ -225,8 +225,10 @@ EXTENDED_SCRIPTS = [
     'feature_federation_management.py --scheme SCHNORR',
     'feature_xfield_maxblocksize.py',
     'feature_xfield_maxblocksize.py --scheme SCHNORR',
-    'feature_dbcrash.py',
-    'feature_dbcrash.py --scheme SCHNORR',
+    # feature_dbcrash.py moved to the weekly heavy CI (WeeklyHeavyTestCI /
+    # weekly-heavy-tests.yml): its loosest dbcrashratio/dbcache tier needs far
+    # more wall-clock budget than the daily 1800s per-test timeout to reliably
+    # crash at least once.
 ]
 
 DEBUG_MODE_SCRIPTS = [
