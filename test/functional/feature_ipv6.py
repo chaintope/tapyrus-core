@@ -10,6 +10,7 @@ from test_framework.netutil import test_ipv6_local
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
     NetworkDirName,
+    assert_equal,
     assert_raises_rpc_error,
     p2p_port,
     wait_until,
@@ -30,6 +31,12 @@ class IPv6Test(BitcoinTestFramework):
         # Disable automatic bind=127.0.0.1 so nodes default-bind to :: and
         # 0.0.0.0, making them reachable on both [::1] and 127.0.0.1.
         self.bind_to_localhost_only = False
+
+    def setup_network(self):
+        # Do NOT auto-connect via 127.0.0.1 — each sub-test sets up its own
+        # IPv4/IPv6 topology, and _test_p2p_via_ipv6 in particular needs the
+        # only peer on node0 to be the one it establishes over [::1].
+        self.setup_nodes()
 
     def run_test(self):
         if not test_ipv6_local():
@@ -56,13 +63,34 @@ class IPv6Test(BitcoinTestFramework):
 
     def _test_p2p_via_ipv6(self):
         self.log.info("P2P: connect two nodes via [::1]")
-        self.nodes[0].addnode("[::1]:{}".format(p2p_port(1)), "onetry")
+        assert_equal(self.nodes[0].getpeerinfo(), [])
+        assert_equal(self.nodes[1].getpeerinfo(), [])
+
+        peer_addr = "[::1]:{}".format(p2p_port(1))
+        self.nodes[0].addnode(peer_addr, "onetry")
         wait_until(lambda: len(self.nodes[0].getpeerinfo()) > 0, timeout=15)
-        peer_addr = self.nodes[0].getpeerinfo()[0]["addr"]
-        assert "::" in peer_addr, \
-            "Expected IPv6 peer addr, got: {}".format(peer_addr)
+        wait_until(lambda: len(self.nodes[1].getpeerinfo()) > 0, timeout=15)
+
+        # node0 must see exactly one outbound, manually-added peer at the
+        # [::1] address it was told to connect to.
+        peers0 = self.nodes[0].getpeerinfo()
+        assert_equal(len(peers0), 1)
+        assert_equal(peers0[0]["addr"], peer_addr)
+        assert_equal(peers0[0]["inbound"], False)
+        assert_equal(peers0[0]["addnode"], True)
+
+        # node1 must see exactly one inbound peer, arriving over IPv6.
+        peers1 = self.nodes[1].getpeerinfo()
+        assert_equal(len(peers1), 1)
+        assert_equal(peers1[0]["inbound"], True)
+        assert "::" in peers1[0]["addr"], \
+            "Expected IPv6 peer addr on node1, got: {}".format(peers1[0]["addr"])
+
         self.nodes[0].generate(1, self.signblockprivkey_wif)
         wait_until(lambda: self.nodes[1].getblockcount() == 1, timeout=15)
+        # Confirm the block reached node1 via this specific IPv6 connection,
+        # not merely that node1's tip advanced by some other means.
+        wait_until(lambda: self.nodes[1].getpeerinfo()[0]["synced_blocks"] == 1, timeout=15)
         self.log.info("  block propagated over IPv6 P2P connection")
 
     def _test_addnode_ipv6(self):
