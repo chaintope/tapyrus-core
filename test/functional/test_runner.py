@@ -230,8 +230,6 @@ EXTENDED_SCRIPTS = [
     'feature_federation_management.py --scheme SCHNORR',
     'feature_xfield_maxblocksize.py',
     'feature_xfield_maxblocksize.py --scheme SCHNORR',
-    'feature_dbcrash.py',
-    'feature_dbcrash.py --scheme SCHNORR',
 ]
 
 # Scripts that require a debug build (-acceptnonstdtxn is only available in debug mode).
