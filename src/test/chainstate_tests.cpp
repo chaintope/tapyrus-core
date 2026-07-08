@@ -961,6 +961,8 @@ BOOST_AUTO_TEST_CASE(duplicate_nft_issuance_after_burn_rejected)
     CScript payTo = CScript() << ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG;
 
     CKey key;
+    // Arbitrary non-coinbase key; low byte 3 is not load-bearing, just chosen
+    // to avoid clashing with any of TestChainSetup's pre-defined keys.
     const unsigned char vchKeyBytes[32] = {
         3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
     };
@@ -970,7 +972,8 @@ BOOST_AUTO_TEST_CASE(duplicate_nft_issuance_after_burn_rejected)
     std::vector<unsigned char> pubkeyHash(20);
     CHash160().Write(pubkey.data(), pubkey.size()).Finalize(pubkeyHash.data());
 
-    // Block 6: spend coinbase[1] into a plain TPC P2PKH output.
+    // Block: spend coinbase[1] into a plain TPC P2PKH output that will define
+    // the NFT's color id below.
     CMutableTransaction spendTx;
     spendTx.nFeatures = 1;
     spendTx.vin.resize(1);
@@ -991,7 +994,7 @@ BOOST_AUTO_TEST_CASE(duplicate_nft_issuance_after_burn_rejected)
     }
     CreateAndProcessBlock({spendTx}, payTo);
 
-    // Block 7: issue an NFT (nValue must be exactly 1) from the P2PKH UTXO.
+    // Block: issue an NFT (nValue must be exactly 1) from the defining P2PKH UTXO.
     COutPoint definingUtxo(spendTx.GetHashMalFix(), 0);
     ColorIdentifier colorid(definingUtxo, TokenTypes::NFT);
     CScript colorScript = CScript() << colorid.toVector() << OP_COLOR
@@ -1021,7 +1024,7 @@ BOOST_AUTO_TEST_CASE(duplicate_nft_issuance_after_burn_rejected)
         BOOST_REQUIRE(g_colorid_state && g_colorid_state->IsIssued(colorid));
     }
 
-    // Block 8: burn the NFT — spend issueTx:0 (the only live unit) plus a TPC
+    // Block: burn the NFT — spend issueTx:0 (the only live unit) plus a TPC
     // coinbase input (for fee/tpcin>0) to a plain uncolored output. No output
     // carries colorid, so its value is simply discarded (a genuine burn).
     CMutableTransaction burnTx;

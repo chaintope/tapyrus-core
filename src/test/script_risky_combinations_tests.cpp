@@ -144,6 +144,11 @@ BOOST_AUTO_TEST_CASE(risk_checkmultisig_zero_of_n)
         ScriptError err;
         bool ok = Verify(scriptSig, scriptPubKey, spend, credit.vout[0].nValue, STANDARD_SCRIPT_VERIFY_FLAGS, &err);
         BOOST_CHECK(!ok);
+        // CHECKMULTISIG's mandatory extra "dummy" pop means it needs two
+        // stack items here (dummy + one real signature); scriptSig supplies
+        // only one, so this fails on stack underflow before signature
+        // verification is ever reached.
+        BOOST_CHECK_EQUAL(err, SCRIPT_ERR_INVALID_STACK_OPERATION);
     }
 }
 
@@ -153,6 +158,12 @@ BOOST_AUTO_TEST_CASE(risk_checkmultisig_zero_of_n)
 // the interpreter -- so we show the interpreter alone says OK, while the
 // standardness/consensus template matcher (IsColoredPayToPubkeyHash) would
 // have refused to recognize the script as colored at all.
+//
+// Using STANDARD_SCRIPT_VERIFY_FLAGS (which includes SCRIPT_VERIFY_CP2SH_COLORED)
+// is not significant here: that flag only gates redeem-script evaluation for
+// CP2SH-shaped scriptPubKeys (IsColoredPayToScriptHash()), and the SWAP/ALTSTACK
+// scripts below aren't P2SH-shaped at all -- they're plain scripts evaluated
+// directly by EvalScript, so the flag never engages.
 // ---------------------------------------------------------------------------
 BOOST_AUTO_TEST_CASE(risk_opcolor_stack_manipulation)
 {
