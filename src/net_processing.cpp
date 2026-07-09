@@ -1279,7 +1279,7 @@ void static ProcessGetBlockData(CNode* pfrom, const CInv& inv, CConnman* connman
                     // however we MUST always provide at least what the remote peer needs
                     typedef std::pair<unsigned int, uint256> PairType;
                     for (PairType& pair : merkleBlock.vMatchedTxn)
-                        connman->PushMessage(pfrom, msgMaker.Make(SERIALIZE_TRANSACTION_NO_WITNESS, NetMsgType::TX, *pblock->vtx[pair.first]));
+                        connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::TX, *pblock->vtx[pair.first]));
                 }
                 // else
                     // no response
@@ -1290,12 +1290,11 @@ void static ProcessGetBlockData(CNode* pfrom, const CInv& inv, CConnman* connman
                 // they won't have a useful mempool to match against a compact block,
                 // and we don't feel like constructing the object for them, so
                 // instead we respond with the full, non-compact block.
-                int nSendFlags = SERIALIZE_TRANSACTION_NO_WITNESS;
                 if (CanDirectFetch(consensusParams) && pindex->nHeight >= chainActive.Height() - MAX_CMPCTBLOCK_DEPTH) {
                     CBlockHeaderAndShortTxIDs cmpctblock(*pblock);
-                    connman->PushMessage(pfrom, msgMaker.Make(nSendFlags, NetMsgType::CMPCTBLOCK, cmpctblock));
+                    connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::CMPCTBLOCK, cmpctblock));
                 } else {
-                    connman->PushMessage(pfrom, msgMaker.Make(nSendFlags, NetMsgType::BLOCK, *pblock));
+                    connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::BLOCK, *pblock));
                 }
             }
         }
@@ -1376,8 +1375,7 @@ void static ProcessGetData(CNode* pfrom, CConnman* connman, const std::atomic<bo
         CTransactionRef tx = FindTxForGetData(pfrom, inv.hash, mempool_req, now);
 
         if (tx) {
-            int nSendFlags = (inv.type == MSG_TX ? SERIALIZE_TRANSACTION_NO_WITNESS : 0);
-            connman->PushMessage(pfrom, msgMaker.Make(nSendFlags, NetMsgType::TX, *tx));
+            connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::TX, *tx));
             // As we're going to send tx, make sure its unconfirmed parents are made requestable.
             for (const auto& txin : tx->vin) {
                 auto txinfo = mempool.info(txin.prevout.hashMalFix);
@@ -1437,8 +1435,7 @@ inline void static SendBlockTransactions(const CBlock& block, const BlockTransac
     }
     LOCK(cs_main);
     const CNetMsgMaker msgMaker(pfrom->GetSendVersion());
-    int nSendFlags = SERIALIZE_TRANSACTION_NO_WITNESS;
-    connman->PushMessage(pfrom, msgMaker.Make(nSendFlags, NetMsgType::BLOCKTXN, resp));
+    connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::BLOCKTXN, resp));
 }
 
 bool static ProcessHeadersMessage(CNode *pfrom, CConnman *connman, const std::vector<CBlockHeader>& headers, const CChainParams& chainparams, bool punish_duplicate_invalid)
@@ -1687,10 +1684,7 @@ void static ProcessOrphanTx(CConnman *connman, std::set<uint256>& orphan_work_se
             // Has inputs but not accepted to mempool
             // Probably non-standard or insufficient fee
             LogPrint(BCLog::MEMPOOL, "   removed orphan tx %s\n", orphanHash.ToString());
-            if (!orphanTx.HasWitness() && !opt.state.CorruptionPossible()) {
-                // Do not use rejection cache for witness transactions or
-                // witness-stripped transactions, as they can have been malleated.
-                // See https://github.com/bitcoin/bitcoin/issues/8279 for details.
+            if (!opt.state.CorruptionPossible()) {
                 assert(recentRejects);
                 recentRejects->insert(orphanHash);
             }
@@ -2435,17 +2429,12 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
                 recentRejects->insert(tx.GetHashMalFix());
             }
         } else {
-            if (!tx.HasWitness() && !opt.state.CorruptionPossible()) {
-                // Do not use rejection cache for witness transactions or
-                // witness-stripped transactions, as they can have been malleated.
-                // See https://github.com/bitcoin/bitcoin/issues/8279 for details.
+            if (!opt.state.CorruptionPossible()) {
                 assert(recentRejects);
                 recentRejects->insert(tx.GetHashMalFix());
                 if (RecursiveDynamicUsage(*ptx) < 100000) {
                     AddToCompactExtraTransactions(ptx);
                 }
-            } else if (tx.HasWitness() && RecursiveDynamicUsage(*ptx) < 100000) {
-                AddToCompactExtraTransactions(ptx);
             }
 
             if (pfrom->fWhitelisted && gArgs.GetBoolArg("-whitelistforcerelay", DEFAULT_WHITELISTFORCERELAY)) {
@@ -3608,14 +3597,12 @@ bool PeerLogicValidation::SendMessages(CNode* pto)
                     LogPrint(BCLog::NET, "%s sending header-and-ids %s to peer=%d\n", __func__,
                             vHeaders.front().GetHash().ToString(), pto->GetId());
 
-                    int nSendFlags = SERIALIZE_TRANSACTION_NO_WITNESS;
-
                     bool fGotBlockFromCache = false;
                     {
                         LOCK(cs_most_recent_block);
                         if (most_recent_block_hash == pBestIndex->GetBlockHash()) {
                             CBlockHeaderAndShortTxIDs cmpctblock(*most_recent_block);
-                            connman->PushMessage(pto, msgMaker.Make(nSendFlags, NetMsgType::CMPCTBLOCK, cmpctblock));
+                            connman->PushMessage(pto, msgMaker.Make(NetMsgType::CMPCTBLOCK, cmpctblock));
                             fGotBlockFromCache = true;
                         }
                     }
@@ -3624,7 +3611,7 @@ bool PeerLogicValidation::SendMessages(CNode* pto)
                         bool ret = ReadBlockFromDisk(block, pBestIndex);
                         assert(ret);
                         CBlockHeaderAndShortTxIDs cmpctblock(block);
-                        connman->PushMessage(pto, msgMaker.Make(nSendFlags, NetMsgType::CMPCTBLOCK, cmpctblock));
+                        connman->PushMessage(pto, msgMaker.Make(NetMsgType::CMPCTBLOCK, cmpctblock));
                     }
                     state.pindexBestHeaderSent = pBestIndex;
                 } else if (state.fPreferHeaders) {

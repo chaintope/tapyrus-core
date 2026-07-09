@@ -677,9 +677,8 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
         return state.DoS(0, false, REJECT_NONSTANDARD, reason);
 #endif
     // Do not work on transactions that are too small.
-    // A transaction with 1 segwit input and 1 P2WPHK output has non-witness size of 82 bytes.
     // Transactions smaller than this are not relayed to reduce unnecessary malloc overhead.
-    if (::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS) < MIN_STANDARD_TX_SIZE)
+    if (::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION) < MIN_STANDARD_TX_SIZE)
         return state.DoS(0, false, REJECT_NONSTANDARD, "tx-size-small");
 
     // Only accept nLockTime-using transactions that can be mined in the next
@@ -1189,7 +1188,7 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
             // We only use the first 19 bytes of nonce to avoid a second SHA
             // round - giving us 19 + 32 + 4 = 55 bytes (+ 8 + 1 = 64)
             static_assert(55 - sizeof(flags) - 32 >= 128/8, "Want at least 128 bits of nonce for script execution cache");
-            CSHA256().Write(scriptExecutionCacheNonce.begin(), 55 - sizeof(flags) - 32).Write(tx.GetWitnessHash().begin(), 32).Write((unsigned char*)&flags, sizeof(flags)).Finalize(hashCacheEntry.begin());
+            CSHA256().Write(scriptExecutionCacheNonce.begin(), 55 - sizeof(flags) - 32).Write(tx.GetHash().begin(), 32).Write((unsigned char*)&flags, sizeof(flags)).Finalize(hashCacheEntry.begin());
             AssertLockHeld(cs_main); //TODO: Remove this requirement by making CuckooCache not require external locks
             if (scriptExecutionCache.contains(hashCacheEntry, !cacheFullScriptStore)) {
                 return true;
@@ -1414,7 +1413,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
         maxBlockSizeChange = std::get<XFieldMaxBlockSize>(CXFieldHistory().Get(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, height).xfieldValue);
     }
 
-    uint32_t serializedSize = ::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
+    uint32_t serializedSize = ::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION);
     if (block.vtx.empty() || block.vtx.size() > maxBlockSizeChange.data || serializedSize > maxBlockSizeChange.data) {
         return state.DoS(100, false, REJECT_INVALID, "bad-blk-length", false, "size limits failed");
     }

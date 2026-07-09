@@ -13,7 +13,6 @@
 #include <serialize.h>
 #include <uint256.h>
 
-static const int SERIALIZE_TRANSACTION_NO_WITNESS = 0x40000000;
 //flag to generate transaction hash without scriptSig (hashMalFix)
 static const int SERIALIZE_TRANSACTION_MALFIX     = 0x20000000;
 
@@ -68,7 +67,6 @@ public:
     COutPoint prevout;
     CScript scriptSig;
     uint32_t nSequence;
-    CScriptWitness scriptWitness; //! Only serialized through CTransaction
 
     /* Setting nSequence to this value for every input in a transaction
      * disables nLockTime. */
@@ -240,13 +238,11 @@ public:
 private:
     /** Memory only. */
     const uint256 hash;
-    const uint256 m_witness_hash;
     /*Fix transaction malleability hash - created without scriptSig
      used in previous output in spending transaction */
     const uint256 hashMalFix;
 
     uint256 ComputeHash() const;
-    uint256 ComputeWitnessHash() const;
     uint256 ComputeHashMalFix() const;
 
 public:
@@ -272,7 +268,6 @@ public:
     }
 
     const uint256& GetHash() const { return hash; }
-    const uint256& GetWitnessHash() const { return m_witness_hash; };
     const uint256& GetHashMalFix() const { return hashMalFix; }
 
     // Return sum of txouts.
@@ -306,16 +301,6 @@ public:
     }
 
     std::string ToString() const;
-
-    bool HasWitness() const
-    {
-        for (size_t i = 0; i < vin.size(); i++) {
-            if (!vin[i].scriptWitness.IsNull()) {
-                return true;
-            }
-        }
-        return false;
-    }
 };
 
 /** A mutable version of CTransaction. */
@@ -350,16 +335,6 @@ struct CMutableTransaction
      */
     uint256 GetHash() const;
     uint256 GetHashMalFix() const;
-
-    bool HasWitness() const
-    {
-        for (size_t i = 0; i < vin.size(); i++) {
-            if (!vin[i].scriptWitness.IsNull()) {
-                return true;
-            }
-        }
-        return false;
-    }
 };
 
 typedef std::shared_ptr<const CTransaction> CTransactionRef;

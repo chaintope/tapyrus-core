@@ -564,7 +564,7 @@ void RPCRunLater(const std::string& name, std::function<void(void)> func, int64_
 
 int RPCSerializationFlags()
 {
-    return SERIALIZE_TRANSACTION_NO_WITNESS;
+    return 0;
 }
 
 CRPCTable tableRPC;

@@ -221,8 +221,7 @@ struct PSBTInput
         // If there is a non-witness utxo, then don't add the witness one.
         if (non_witness_utxo) {
             SerializeToVector(s, PSBT_IN_NON_WITNESS_UTXO);
-            OverrideStream<Stream> os(&s, s.GetType(), s.GetVersion() | SERIALIZE_TRANSACTION_NO_WITNESS);
-            SerializeToVector(os, non_witness_utxo);
+            SerializeToVector(s, non_witness_utxo);
         }
 
         if (final_script_sig.empty()) {
@@ -289,9 +288,7 @@ struct PSBTInput
                     } else if (key.size() != 1) {
                         throw std::ios_base::failure("Non-witness utxo key is more than one byte type");
                     }
-                    // Set the stream to unserialize with witness since this is always a valid network transaction
-                    OverrideStream<Stream> os(&s, s.GetType(), s.GetVersion() & ~SERIALIZE_TRANSACTION_NO_WITNESS);
-                    UnserializeFromVector(os, non_witness_utxo);
+                    UnserializeFromVector(s, non_witness_utxo);
                     break;
                 }
                 case PSBT_IN_PARTIAL_SIG:
@@ -493,8 +490,7 @@ struct PartiallySignedTransaction
         SerializeToVector(s, PSBT_GLOBAL_UNSIGNED_TX);
 
         // Write serialized tx to a stream
-        OverrideStream<Stream> os(&s, s.GetType(), s.GetVersion() | SERIALIZE_TRANSACTION_NO_WITNESS);
-        SerializeToVector(os, *tx);
+        SerializeToVector(s, *tx);
 
         // Write the unknown things
         for (auto& entry : unknown) {
@@ -548,9 +544,7 @@ struct PartiallySignedTransaction
                         throw std::ios_base::failure("Global unsigned tx key is more than one byte type");
                     }
                     CMutableTransaction mtx;
-                    // Set the stream to serialize with non-witness since this should always be non-witness
-                    OverrideStream<Stream> os(&s, s.GetType(), s.GetVersion() | SERIALIZE_TRANSACTION_NO_WITNESS);
-                    UnserializeFromVector(os, mtx);
+                    UnserializeFromVector(s, mtx);
                     tx = std::move(mtx);
                     // Make sure that all scriptSigs and scriptWitnesses are empty
                     for (const CTxIn& txin : tx->vin) {

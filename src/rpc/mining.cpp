@@ -554,7 +554,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
 
         entry.pushKV("data", EncodeHexTx(tx));
         entry.pushKV("txid", txHash.GetHex());
-        entry.pushKV("hash", tx.GetWitnessHash().GetHex());
+        entry.pushKV("hash", tx.GetHash().GetHex());
 
         UniValue deps(UniValue::VARR);
         for (const CTxIn &in : tx.vin)
