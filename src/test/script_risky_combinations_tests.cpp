@@ -79,7 +79,7 @@ bool Verify(const CScript& scriptSig, const CScript& scriptPubKey, const CMutabl
     PrecomputedTransactionData txdata(spend);
     ColorIdentifier localColorId;
     ColorIdentifier& colorId = colorIdOut ? *colorIdOut : localColorId;
-    return VerifyScript(scriptSig, scriptPubKey, &spend.vin[0].scriptWitness, flags,
+    return VerifyScript(scriptSig, scriptPubKey, flags,
                          TransactionSignatureChecker(&spend, 0, amount, txdata), colorId, err);
 }
 
