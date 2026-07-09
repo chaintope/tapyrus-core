@@ -47,6 +47,7 @@ from .script import (
     OP_COLOR,
     OP_EQUAL,
     MAX_SCRIPT_SIZE,
+    MAX_SCRIPT_ELEMENT_SIZE,
 )
 from .util import assert_equal
 from io import BytesIO
@@ -201,11 +202,23 @@ def create_tx_with_large_script(prevtx, n, scriptPubKey, amt1=1, amt2=0.1):
     tx = CTransaction()
     tx.vin.append(CTxIn(COutPoint(prevtx, n), b"", 0xffffffff))
     tx.vout.append(CTxOut(int(amt1 * COIN), scriptPubKey))
-    # OP_RETURN output carrying MAX_SCRIPT_SIZE-10 bytes of data makes the tx ~10 KB.
-    # OP_RETURN is a standard null-data script (no UTXO created) when nodes are started
-    # with -datacarriersize=MAX_SCRIPT_SIZE.  The old approach used a large push-only
-    # script which is non-standard and was rejected by mempool without -acceptnonstdtxn.
-    tx.vout.append(CTxOut(0, CScript([OP_RETURN, b'\x00' * (MAX_SCRIPT_SIZE - 10)])))
+    # Build an OP_RETURN output close to MAX_SCRIPT_SIZE, chunked into pushes of at most
+    # MAX_SCRIPT_ELEMENT_SIZE bytes each. CScript::HasValidOps() rejects any single push
+    # element bigger than MAX_SCRIPT_ELEMENT_SIZE at tx-decode time (independent of mempool
+    # standardness policy), so one giant OP_RETURN push is rejected with "TX decode failed"
+    # before it ever reaches the mempool. OP_RETURN followed by any number of pushes is
+    # still standard null-data (see the IsPushOnly check in standard.cpp) as long as the
+    # node allows the total size via -datacarriersize.
+    # Note: chunks must be passed as one CScript([...]) call, not built up via repeated
+    # `+=`, since CScript.__add__ re-coerces its (already pushdata-encoded) operand and
+    # would wrap each chunk in a second, nested pushdata header.
+    # Assumes MAX_SCRIPT_ELEMENT_SIZE stays in [256, 65535], where a push is encoded as
+    # OP_PUSHDATA2 (1-byte opcode + 2-byte length). If it ever dropped below 256, pushes
+    # would use OP_PUSHDATA1 (1-byte length) instead and this overhead would be 2, not 3.
+    chunk_overhead = 3  # OP_PUSHDATA2 opcode + 2-byte length
+    num_chunks = (MAX_SCRIPT_SIZE - 1) // (MAX_SCRIPT_ELEMENT_SIZE + chunk_overhead)
+    script_output = CScript([OP_RETURN] + [b'\x00' * MAX_SCRIPT_ELEMENT_SIZE] * num_chunks)
+    tx.vout.append(CTxOut(0, script_output))
     tx.calc_sha256()
     return tx
 
