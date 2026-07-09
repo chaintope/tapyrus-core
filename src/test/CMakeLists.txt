@@ -95,6 +95,7 @@ add_executable(test_tapyrus
         sanity_tests.cpp
         scheduler_tests.cpp
         script_p2sh_tests.cpp
+        script_risky_combinations_tests.cpp
         script_standard_tests.cpp
         script_tests.cpp
         scriptnum_tests.cpp

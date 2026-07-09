@@ -47,6 +47,7 @@ static std::map<std::string, unsigned int> mapFlagNames = {
     {std::string("DISCOURAGE_UPGRADABLE_WITNESS_PROGRAM"), (unsigned int)SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_WITNESS_PROGRAM},
     {std::string("WITNESS_PUBKEYTYPE"), (unsigned int)SCRIPT_VERIFY_WITNESS_PUBKEYTYPE},
     {std::string("CONST_SCRIPTCODE"), (unsigned int)SCRIPT_VERIFY_CONST_SCRIPTCODE},
+    {std::string("CP2SH_COLORED"), (unsigned int)SCRIPT_VERIFY_CP2SH_COLORED},
 };
 
 unsigned int ParseScriptFlags(std::string strFlags)
@@ -98,7 +99,6 @@ BOOST_AUTO_TEST_CASE(tx_valid)
     UniValue tests = read_json(std::string(json_tests::tx_valid));
 
     ScriptError err;
-    ColorIdentifier colorId;
     for (unsigned int idx = 0; idx < tests.size(); idx++) {
         UniValue test = tests[idx];
         std::string strTest = test.write();
@@ -163,6 +163,9 @@ BOOST_AUTO_TEST_CASE(tx_valid)
                 }
                 unsigned int verify_flags = ParseScriptFlags(test[2].get_str());
                 const CScriptWitness *witness = &tx.vin[i].scriptWitness;
+                // Fresh per input, matching CScriptCheck in production (scriptcheck.h) --
+                // OP_COLOR state must not leak across inputs or across test cases.
+                ColorIdentifier colorId;
                 BOOST_CHECK_MESSAGE(VerifyScript(tx.vin[i].scriptSig, mapprevOutScriptPubKeys[tx.vin[i].prevout],
                                                  witness, verify_flags, TransactionSignatureChecker(&tx, i, amount, txdata), colorId, &err),
                                     strTest);
@@ -186,7 +189,6 @@ BOOST_AUTO_TEST_CASE(tx_invalid)
     // Initialize to SCRIPT_ERR_OK. The tests expect err to be changed to a
     // value other than SCRIPT_ERR_OK.
     ScriptError err = SCRIPT_ERR_OK;
-    ColorIdentifier colorId;
     for (unsigned int idx = 0; idx < tests.size(); idx++) {
         UniValue test = tests[idx];
         std::string strTest = test.write();
@@ -250,6 +252,9 @@ BOOST_AUTO_TEST_CASE(tx_invalid)
                     amount = mapprevOutValues[tx.vin[i].prevout];
                 }
                 const CScriptWitness *witness = &tx.vin[i].scriptWitness;
+                // Fresh per input, matching CScriptCheck in production (scriptcheck.h) --
+                // OP_COLOR state must not leak across inputs or across test cases.
+                ColorIdentifier colorId;
                 fValid = VerifyScript(tx.vin[i].scriptSig, mapprevOutScriptPubKeys[tx.vin[i].prevout],
                                       witness, verify_flags, TransactionSignatureChecker(&tx, i, amount, txdata), colorId, &err);
             }

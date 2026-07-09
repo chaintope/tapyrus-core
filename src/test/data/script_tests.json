@@ -3089,16 +3089,35 @@
 [
     "0x47 0x3044022073df1d1a15d0e6fd8a14f0c1ba4409239c97d4fbc3cb113095c0929582d8447e0220271ec24bc865852e239693b20f0efbbe584d1b4cc4777948f18473ce30dc976a01 0x21 0x038282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508 0x19 0x76a9141018853670f9f3b0582c5b9ee8ce93764ac32b9388ac",
     "0x21 0xc11863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262 COLOR HASH160 0x14 0xda8a647bba351bbae4cee0089d373c97ec240580 EQUAL",
-    "",
+    "CP2SH_COLORED",
     "OK",
-    "CP2SH(P2PKH) ECDSA"
+    "CP2SH(P2PKH) ECDSA, redeem script genuinely satisfied (passes with the flag on)"
 ],
 [
     "0x41 0xbc4b27bef382c8159db61d673868137020c08e7cb25b9d9653c706a025b02eadba29657e2937fd58f1dcfdb582433cb63a06a15379de562fadba9877cc531d3101 0x21 0x038282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508 0x19 0x76a9141018853670f9f3b0582c5b9ee8ce93764ac32b9388ac",
     "0x21 0xc11863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262 COLOR HASH160 0x14 0xda8a647bba351bbae4cee0089d373c97ec240580 EQUAL",
+    "CP2SH_COLORED",
+    "OK",
+    "CP2SH(P2PKH) SCHNORR, redeem script genuinely satisfied (passes with the flag on)"
+],
+
+["The next two show what SCRIPT_VERIFY_CP2SH_COLORED actually changes: same"],
+["scriptSig/scriptPubKey (redeem script HASH160 matches; the sig inside it does"],
+["NOT correspond to the pubkey), flag off vs flag on."],
+
+[
+    "0x47 0x304402202539b3b68e870d525765d24cc08fadd7502ffd8735564eb545a9a3057f85469d02207611be2fde48142a19497f6c4cb4146c71bb4cd6bc567dbae30bb7ecd46bc73801 0x21 0x026292d4b98eecee53d2b78bea0883bbf85bcb4fcdd4479369bfc7c3ee3b46ea49 0x19 0x76a914aba705eb3d02be6c4563d3f6874a3e81004ec83988ac",
+    "0x21 0xc1c6a2c97c58b8e8264ebc66ffa99a1536ec324c21263722368a00b3dfb025abec COLOR HASH160 0x14 0x45601212e04228745b047c1fc4e8d78d83a762b1 EQUAL",
     "",
     "OK",
-    "CP2SH(P2PKH) SCHNORR"
+    "CP2SH(P2PKH), broken inner signature, flag OFF -- only the HASH160 preimage is checked, so this passes"
+],
+[
+    "0x47 0x304402202539b3b68e870d525765d24cc08fadd7502ffd8735564eb545a9a3057f85469d02207611be2fde48142a19497f6c4cb4146c71bb4cd6bc567dbae30bb7ecd46bc73801 0x21 0x026292d4b98eecee53d2b78bea0883bbf85bcb4fcdd4479369bfc7c3ee3b46ea49 0x19 0x76a914aba705eb3d02be6c4563d3f6874a3e81004ec83988ac",
+    "0x21 0xc1c6a2c97c58b8e8264ebc66ffa99a1536ec324c21263722368a00b3dfb025abec COLOR HASH160 0x14 0x45601212e04228745b047c1fc4e8d78d83a762b1 EQUAL",
+    "CP2SH_COLORED",
+    "EVAL_FALSE",
+    "CP2SH(P2PKH), same script, flag ON -- the redeem script is now actually evaluated and its CHECKSIG fails"
 ],
 ["The End"]
 ]
