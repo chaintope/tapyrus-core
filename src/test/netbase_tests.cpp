@@ -73,6 +73,29 @@ BOOST_AUTO_TEST_CASE(netbase_properties)
 
 }
 
+BOOST_AUTO_TEST_CASE(netbase_islinklocal_boundary)
+{
+    // IsLinkLocal() checks the full FE80::/10 range (RFC 4291 2.5.6). The old
+    // IsRFC4862() only checked the /64 prefix, so fe81::-febf:: slipped past
+    // as routable; these addresses are the regression window that fix closes.
+    BOOST_CHECK(ResolveIP("fe80::").IsLinkLocal());
+    BOOST_CHECK(ResolveIP("fe81::").IsLinkLocal());   // was silently routable before
+    BOOST_CHECK(ResolveIP("febf::").IsLinkLocal());   // top of /10
+    BOOST_CHECK(!ResolveIP("fec0::").IsLinkLocal());  // above /10 (formerly site-local)
+    BOOST_CHECK(!ResolveIP("fe7f::").IsLinkLocal());  // below /10, symmetric with fec0::
+    BOOST_CHECK(ResolveIP("fea0::").IsLinkLocal());   // interior point, not just an edge
+    BOOST_CHECK(ResolveIP("fe80::1").IsLinkLocal());  // realistic address, nonzero host bits
+    BOOST_CHECK(!ResolveIP("fe81::").IsRoutable());   // routability guard
+    BOOST_CHECK(!ResolveIP("fe80::1").IsRoutable());
+
+    // Adjacent ranges that share a similar prefix shape but must not be
+    // conflated with unicast link-local.
+    BOOST_CHECK(!ResolveIP("fc00::").IsLinkLocal());  // RFC 4193 ULA (fc00::/7)
+    BOOST_CHECK(!ResolveIP("ff02::1").IsLinkLocal()); // link-local-scope multicast (RFC 4291 2.7)
+                                                       // is a different mechanism from unicast
+                                                       // link-local (2.5.6), not the same range.
+}
+
 bool static TestSplitHost(std::string test, std::string host, int port)
 {
     std::string hostOut;

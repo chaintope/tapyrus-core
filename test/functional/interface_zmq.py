@@ -7,6 +7,7 @@
 import struct
 
 from test_framework.messages import (CBlock)
+from test_framework.netutil import test_ipv6_local
 from test_framework.test_framework import (
     BitcoinTestFramework, skip_if_no_bitcoind_zmq, skip_if_no_py3_zmq)
 from test_framework.messages import CTransaction
@@ -15,6 +16,9 @@ from test_framework.util import (assert_equal,
                                  hash256,
                                 )
 from io import BytesIO
+
+# Port for the IPv6 ZMQ endpoint test; outside the standard ZMQ range (28332-28335).
+_ZMQ_IPV6_PORT = 28340
 
 class ZMQSubscriber:
     def __init__(self, socket, topic):
@@ -68,6 +72,10 @@ class ZMQTest (BitcoinTestFramework):
     def run_test(self):
         try:
             self._zmq_test()
+            if test_ipv6_local():
+                self._zmq_test_ipv6()
+            else:
+                self.log.warning("No IPv6 loopback — skipping ZMQ IPv6 endpoint test")
         finally:
             # Destroy the ZMQ context.
             self.log.debug("Destroying ZMQ context")
@@ -116,6 +124,64 @@ class ZMQTest (BitcoinTestFramework):
         tx.deserialize(BytesIO(hex))
         tx.calc_sha256()
         assert_equal(tx.hashMalFix, bytes_to_hex_str(txid))
+
+    def _zmq_test_ipv6(self):
+        """Verify that ZMQ_IPV6 setsockopt allows publishers to bind on [::1]."""
+        self.log.info("ZMQ IPv6: test publisher on tcp://[::1]:{}".format(_ZMQ_IPV6_PORT))
+        import zmq
+
+        ipv6_addr = "tcp://[::1]:{}".format(_ZMQ_IPV6_PORT)
+
+        # Connect the subscriber before restarting the node so it is ready
+        # when the publisher comes up.
+        socket6 = self.zmq_context.socket(zmq.SUB)
+        socket6.set(zmq.IPV6, 1)
+        socket6.set(zmq.RCVTIMEO, 1000)
+        socket6.connect(ipv6_addr)
+        socket6.setsockopt(zmq.SUBSCRIBE, b"hashblock")
+
+        try:
+            self.restart_node(0, extra_args=[
+                "-zmqpubhashblock={}".format(ipv6_addr),
+            ])
+            # ZMQ PUB/SUB has a "slow joiner" problem: this subscriber's
+            # SUBSCRIBE filter takes a nonzero, unobservable amount of time to
+            # propagate to the publisher - a plain ZMQ_PUB socket is send-only
+            # and cannot acknowledge (or even be queried for) subscriber
+            # state. restart_node only guarantees RPC is up, not that the ZMQ
+            # publisher has finished registering this subscriber's filter.
+            #
+            # Generating all blocks in one burst (as _zmq_test does for the
+            # IPv4 sockets, which are connected well before this point and
+            # don't hit this window) doesn't help here: generate(N) publishes
+            # all N notifications within a few ms of each other, far shorter
+            # than the SUBSCRIBE-propagation delay, so either the filter is
+            # already installed before the whole burst (all N arrive) or it
+            # isn't (all N are silently dropped) - there's no partial-delivery
+            # state in between to catch.
+            #
+            # Instead, generate one block at a time and try to receive with a
+            # short per-attempt timeout, retrying (and mining another block)
+            # on a miss. Any message that does arrive proves the filter is now
+            # installed, so it doesn't need to match the most recently
+            # generated block.
+            recv_hash = None
+            for _ in range(30):
+                self.nodes[0].generate(1, self.signblockprivkey_wif)
+                try:
+                    topic, body, _ = socket6.recv_multipart()
+                except zmq.Again:
+                    continue
+                assert_equal(topic, b"hashblock")
+                recv_hash = bytes_to_hex_str(body)
+                break
+
+            assert recv_hash is not None, \
+                "no hashblock notification received on tcp://[::1]:{}".format(_ZMQ_IPV6_PORT)
+            self.log.info("  hashblock notification received on tcp://[::1]:{}".format(_ZMQ_IPV6_PORT))
+        finally:
+            socket6.close()
+
 
 if __name__ == '__main__':
     ZMQTest().main()

@@ -444,8 +444,10 @@ SOCKET CreateSocket(const CService &addrConnect)
     }
 
     SOCKET hSocket = socket(((struct sockaddr*)&sockaddr)->sa_family, SOCK_STREAM, IPPROTO_TCP);
-    if (hSocket == INVALID_SOCKET)
+    if (hSocket == INVALID_SOCKET) {
+        LogPrintf("socket() failed for %s: %s\n", addrConnect.ToString(), NetworkErrorString(WSAGetLastError()));
         return INVALID_SOCKET;
+    }
 
     if (!IsSelectableSocket(hSocket)) {
         CloseSocket(hSocket);
@@ -465,7 +467,7 @@ SOCKET CreateSocket(const CService &addrConnect)
     // Set to non-blocking
     if (!SetSocketNonBlocking(hSocket, true)) {
         CloseSocket(hSocket);
-        LogPrintf("ConnectSocketDirectly: Setting socket to non-blocking failed, error %s\n", NetworkErrorString(WSAGetLastError()));
+        LogPrintf("CreateSocket: Setting socket to non-blocking failed, error %s\n", NetworkErrorString(WSAGetLastError()));
     }
     return hSocket;
 }

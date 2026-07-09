@@ -402,6 +402,8 @@ public:
         }
 
         // Deserialize entries from the new table.
+        // All entries (IPv4 and IPv6) are always deserialized unconditionally; nVersion
+        // only controls whether on-disk bucket positions are trusted (v1) or recomputed (v0).
         for (int n = 0; n < nNew; n++) {
             CAddrInfo &info = mapInfo[n];
             s >> info;

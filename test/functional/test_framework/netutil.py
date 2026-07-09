@@ -88,7 +88,8 @@ def get_bind_addrs(pid):
 # from: http://code.activestate.com/recipes/439093/
 def all_interfaces():
     '''
-    Return all interfaces that are up
+    Return all IPv4 and IPv6 interfaces that are up as (name_bytes, addr_str) pairs.
+    IPv4 is discovered via SIOCGIFCONF; IPv6 via /proc/net/if_inet6 (Linux only).
     '''
     import fcntl  # Linux only, so only import when required
 
@@ -97,21 +98,35 @@ def all_interfaces():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     max_possible = 8 # initial value
     while True:
-        bytes = max_possible * struct_size
-        names = array.array('B', b'\0' * bytes)
+        bytes_needed = max_possible * struct_size
+        names = array.array('B', b'\0' * bytes_needed)
         outbytes = struct.unpack('iL', fcntl.ioctl(
             s.fileno(),
             0x8912,  # SIOCGIFCONF
-            struct.pack('iL', bytes, names.buffer_info()[0])
+            struct.pack('iL', bytes_needed, names.buffer_info()[0])
         ))[0]
-        if outbytes == bytes:
+        if outbytes == bytes_needed:
             max_possible *= 2
         else:
             break
     namestr = names.tobytes()
-    return [(namestr[i:i+16].split(b'\0', 1)[0],
-             socket.inet_ntoa(namestr[i+20:i+24]))
-            for i in range(0, outbytes, struct_size)]
+    result = [(namestr[i:i+16].split(b'\0', 1)[0],
+               socket.inet_ntoa(namestr[i+20:i+24]))
+              for i in range(0, outbytes, struct_size)]
+
+    # SIOCGIFCONF only returns IPv4 addresses; read IPv6 from /proc/net/if_inet6.
+    # Format: hex_addr if_index prefix_len scope flags name
+    try:
+        with open('/proc/net/if_inet6', encoding='utf-8') as f:
+            for line in f:
+                parts = line.split()
+                if len(parts) >= 6:
+                    addr = socket.inet_ntop(socket.AF_INET6, bytes.fromhex(parts[0]))
+                    result.append((parts[5].encode(), addr))
+    except OSError:
+        pass
+
+    return result
 
 def addr_to_hex(addr):
     '''

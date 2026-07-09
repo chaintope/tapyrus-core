@@ -143,10 +143,16 @@ bool CNetAddr::IsRFC4380() const
     return (GetByte(15) == 0x20 && GetByte(14) == 0x01 && GetByte(13) == 0 && GetByte(12) == 0);
 }
 
+bool CNetAddr::IsLinkLocal() const
+{
+    // fe80::/10 per RFC 4291 §2.5.6: first byte 0xFE, top 2 bits of second byte == 10 (0x80–0xBF).
+    // The old IsRFC4862() checked only the /64 prefix (8 bytes), missing fe81::–febf:: addresses.
+    return (ip[0] == 0xFE && (ip[1] & 0xC0) == 0x80);
+}
+
 bool CNetAddr::IsRFC4862() const
 {
-    static const unsigned char pchRFC4862[] = {0xFE,0x80,0,0,0,0,0,0};
-    return (memcmp(ip, pchRFC4862, sizeof(pchRFC4862)) == 0);
+    return IsLinkLocal();
 }
 
 bool CNetAddr::IsRFC4193() const
@@ -225,7 +231,7 @@ bool CNetAddr::IsValid() const
 
 bool CNetAddr::IsRoutable() const
 {
-    return IsValid() && !(IsRFC1918() || IsRFC2544() || IsRFC3927() || IsRFC4862() || IsRFC6598() || IsRFC5737() || (IsRFC4193() && !IsTor()) || IsRFC4843() || IsLocal() || IsInternal());
+    return IsValid() && !(IsRFC1918() || IsRFC2544() || IsRFC3927() || IsLinkLocal() || IsRFC6598() || IsRFC5737() || (IsRFC4193() && !IsTor()) || IsRFC4843() || IsLocal() || IsInternal());
 }
 
 bool CNetAddr::IsInternal() const
@@ -308,6 +314,10 @@ bool CNetAddr::GetIn6Addr(struct in6_addr* pipv6Addr) const
 
 // get canonical identifier of an address' group
 // no two connections will be attempted to addresses with the same group
+// IPv6 specifics: link-local (fe80::/10) is non-routable, so all link-local addresses
+// collapse into the single NET_UNROUTABLE group (zero-length prefix).  Routable global-
+// unicast IPv6 uses a /32 prefix as the group key — matching the typical RIR allocation
+// unit — so at most one outbound connection per /32 block is attempted.
 std::vector<unsigned char> CNetAddr::GetGroup() const
 {
     std::vector<unsigned char> vchRet;
