@@ -861,7 +861,7 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival
 
         ColorIdentifier tempColorId;
         ScriptError serror = SCRIPT_ERR_OK;
-        if (!VerifyScript(txin.scriptSig, prevPubKey, nullptr, signVerifyFlags, TransactionSignatureChecker(&txConst, i, amount), tempColorId, &serror)) {
+        if (!VerifyScript(txin.scriptSig, prevPubKey, signVerifyFlags, TransactionSignatureChecker(&txConst, i, amount), tempColorId, &serror)) {
             if (serror == SCRIPT_ERR_INVALID_STACK_OPERATION) {
                 // Unable to sign input and verification failed (possible attempt to partially sign).
                 TxInErrorToJSON(txin, vErrors, "Unable to sign input, invalid stack size (possibly missing key)");

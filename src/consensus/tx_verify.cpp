@@ -150,13 +150,6 @@ uint32_t GetTransactionSigOps(const CTransaction& tx, const CCoinsViewCache& inp
     //in Tapyrus we always verify P2SH
     nSigOps += GetP2SHSigOpCount(tx, inputs);
 
-    for (unsigned int i = 0; i < tx.vin.size(); i++)
-    {
-        const Coin& coin = inputs.AccessCoin(tx.vin[i].prevout);
-        assert(!coin.IsSpent());
-        const CTxOut &prevout = coin.out;
-        nSigOps += CountWitnessSigOps(tx.vin[i].scriptSig, prevout.scriptPubKey, &tx.vin[i].scriptWitness, flags);
-    }
     return nSigOps;
 }
 
