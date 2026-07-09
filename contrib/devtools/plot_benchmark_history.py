@@ -25,7 +25,7 @@ from collections import defaultdict
 
 def append_results(bench_output_path, history_csv_path, date, commit):
     rows = []
-    with open(bench_output_path, newline="") as f:
+    with open(bench_output_path, newline="", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line or line.startswith("#"):
@@ -40,14 +40,14 @@ def append_results(bench_output_path, history_csv_path, date, commit):
         print("No benchmark result rows parsed from {}".format(bench_output_path), file=sys.stderr)
         return
 
-    with open(history_csv_path, "a", newline="") as f:
+    with open(history_csv_path, "a", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerows(rows)
 
 
 def load_history(csv_path):
     series = defaultdict(list)
-    with open(csv_path, newline="") as f:
+    with open(csv_path, newline="", encoding="utf-8") as f:
         for row in csv.reader(f):
             if len(row) != 4:
                 continue
