@@ -1812,9 +1812,9 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
             return true;
         }
 
-        if((nServices & NODE_WITNESS))
+        if ((nServices & NODE_UNSUPPORTED_FEATURE))
         {
-            LogPrintf("connected to NODE_WITNESS %s, disconnecting\n", pfrom->addr.ToString());
+            LogPrintf("Warning: peer %s advertised an unsupported node service, disconnecting\n", pfrom->addr.ToString());
             pfrom->fDisconnect = true;
             return true;
         }
