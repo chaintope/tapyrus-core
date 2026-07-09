@@ -732,19 +732,9 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
             return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, tx.GetHashMalFix().ToString(), FormatStateMessage(state));
         }
 
-#ifdef DEBUG
-        // Check for non-standard pay-to-script-hash in inputs
-        if (!acceptnonstdtxn && !AreInputsStandard(tx, view))
-            return state.Invalid(false, REJECT_NONSTANDARD, "bad-txns-nonstandard-inputs");
-
-        // Check for non-standard witness in P2WSH
-        if (tx.HasWitness() && !IsWitnessStandard(tx, view))
-            return state.DoS(0, false, REJECT_NONSTANDARD, "bad-witness-nonstandard", true);
-#else
         // Check for non-standard pay-to-script-hash in inputs
         if (!AreInputsStandard(tx, view))
             return state.Invalid(false, REJECT_NONSTANDARD, "bad-txns-nonstandard-inputs");
-#endif
 
         uint32_t nSigOps = GetTransactionSigOps(tx, view, STANDARD_SCRIPT_VERIFY_FLAGS);
 
@@ -1511,13 +1501,6 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, const CB
     for (const auto& tx : block.vtx) {
         if (!IsFinalTx(*tx, nHeight, nLockTimeCutoff)) {
             return state.DoS(10, false, REJECT_INVALID, "bad-txns-nonfinal", false, "non-final transaction");
-        }
-    }
-
-    // No witness data is allowed in blocks that don't commit to witness data, as this would otherwise leave room for spam
-    for (const auto& tx : block.vtx) {
-        if (tx->HasWitness()) {
-            return state.DoS(100, false, REJECT_INVALID, "unexpected-witness", true, strprintf("%s : unexpected witness data found", __func__));
         }
     }
 

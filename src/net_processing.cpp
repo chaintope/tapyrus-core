@@ -1103,7 +1103,6 @@ bool static AlreadyHave(const CInv& inv) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
     switch (inv.type)
     {
     case MSG_TX:
-    case MSG_WITNESS_TX:
         {
             assert(recentRejects);
             if (chainActive.Tip()->GetBlockHash() != hashRecentRejectsChainTip)
@@ -1127,7 +1126,6 @@ bool static AlreadyHave(const CInv& inv) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
                    pcoinsTip->HaveCoinInCache(COutPoint(inv.hash, 1));
         }
     case MSG_BLOCK:
-    case MSG_WITNESS_BLOCK:
         return LookupBlockIndex(inv.hash) != nullptr;
     }
     // Don't know what it is, just say we already got one
@@ -1250,15 +1248,6 @@ void static ProcessGetBlockData(CNode* pfrom, const CInv& inv, CConnman* connman
         std::shared_ptr<const CBlock> pblock;
         if (a_recent_block && a_recent_block->GetHash() == pindex->GetBlockHash()) {
             pblock = a_recent_block;
-        } else if (inv.type == MSG_WITNESS_BLOCK) {
-            // Fast-path: in this case it is possible to serve the block directly from disk,
-            // as the network format matches the format on disk
-            std::vector<uint8_t> block_data;
-            if (!ReadRawBlockFromDisk(block_data, pindex, FederationParams().MessageStart())) {
-                assert(!"cannot load block from disk");
-            }
-            connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::BLOCK, MakeSpan(block_data)));
-            // Don't set pblock as we've sent the block
         } else {
             // Send block from disk
             std::shared_ptr<CBlock> pblockRead = std::make_shared<CBlock>();
@@ -1268,8 +1257,6 @@ void static ProcessGetBlockData(CNode* pfrom, const CInv& inv, CConnman* connman
         }
         if (pblock) {
             if (inv.type == MSG_BLOCK)
-                connman->PushMessage(pfrom, msgMaker.Make(SERIALIZE_TRANSACTION_NO_WITNESS, NetMsgType::BLOCK, *pblock));
-            else if (inv.type == MSG_WITNESS_BLOCK)
                 connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::BLOCK, *pblock));
             else if (inv.type == MSG_FILTERED_BLOCK)
             {
@@ -1419,7 +1406,7 @@ void static ProcessGetData(CNode* pfrom, CConnman* connman, const std::atomic<bo
     // expensive to process.
     if (it != pfrom->vRecvGetData.end() && !pfrom->fPauseSend) {
         const CInv &inv = *it++;
-        if (inv.type == MSG_BLOCK || inv.type == MSG_FILTERED_BLOCK || inv.type == MSG_CMPCT_BLOCK || inv.type == MSG_WITNESS_BLOCK) {
+        if (inv.type == MSG_BLOCK || inv.type == MSG_FILTERED_BLOCK || inv.type == MSG_CMPCT_BLOCK) {
             ProcessGetBlockData(pfrom, inv, connman);
         }
     }
