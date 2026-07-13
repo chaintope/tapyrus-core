@@ -7,6 +7,10 @@ name: Weekly Heavy Test
 # Runs tests that are too slow for the daily CI matrix (feature_pruning: 1.5–4 h, 4 GB;
 # feature_dbcrash: needs far more than the daily 1800s per-test budget for its
 # loosest dbcrashratio/dbcache tier to reliably crash at least once).
+# Each test runs in its own job (feature-pruning, feature-dbcrash) so a slow
+# run of one doesn't eat into the other's share of the 6h GitHub-hosted-runner
+# execution ceiling -- combining them previously caused a TIMEOUT-retry of
+# feature_pruning to blow through that ceiling mid-job.
 # Scheduled weekly; can also be triggered manually or after a successful daily build.
 on:
   schedule:
@@ -34,12 +38,21 @@ env:
 
 jobs:
   heavy-tests:
-    name: Pruning + DB-crash + USDT tests (Linux x86_64 RelWithDebInfo)
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - name: feature_pruning
+            test_args: 'feature_pruning.py'
+          - name: feature_dbcrash
+            test_args: 'feature_dbcrash.py "feature_dbcrash.py --scheme SCHNORR"'
+    name: ${{ matrix.config.name }} test (Linux x86_64 RelWithDebInfo)
     runs-on: ubuntu-latest
-    # feature_pruning uses up to 4 GB disk and takes 1.5–4 hours; feature_dbcrash
-    # runs alongside it in the same --heavy invocation and needs its own headroom
-    # to reach coverage on its loosest dbcrashratio/dbcache tier; allow 10 hours total.
-    timeout-minutes: 600
+    # No timeout-minutes set: GitHub-hosted runners hard-cap job execution at
+    # 6 hours regardless of any value configured here, so anything above that
+    # is dead configuration. Each test now runs in its own matrix job (not
+    # sharing a job, and without a TIMEOUT-retry from another test eating
+    # into the budget), comfortably fitting within that 6h ceiling.
     env:
       BASE_ROOT_DIR: ${{ github.workspace }}
       CCACHE_DIR: ${{ github.workspace }}/ccache
@@ -99,12 +112,9 @@ jobs:
         run: |
           CORE_DUMP_DIR="${{ github.workspace }}/core_dumps"
           mkdir -p "$CORE_DUMP_DIR"
-          chmod 777 "$CORE_DUMP_DIR"
           sudo sysctl -w kernel.core_pattern="$CORE_DUMP_DIR/core.%e.%p"
-          ulimit -c unlimited
           TEST_DIR="${{ github.workspace }}/tapyrus_test"
           mkdir -p "$TEST_DIR"
-          chmod -R 777 "$TEST_DIR"
           echo "TAPYRUS_TEST_DIR=$TEST_DIR" >> $GITHUB_ENV
 
       - name: Configure and build
@@ -141,27 +151,32 @@ jobs:
 
           cmake --build "$BASE_BUILD_DIR" --parallel -j$(nproc) --target all
 
-      - name: Run heavy test suite (feature_pruning + feature_dbcrash)
+      - name: Run ${{ matrix.config.name }} test
         run: |
           source $HOME/venv/bin/activate
           cd "$BASE_ROOT_DIR"
           export PATH="$BASE_BUILD_DIR/bin:$PATH"
-          echo "Disk space before heavy tests:"
+          # ulimit is per-process and does not carry over from the "Enable
+          # core dumps" step (each `run:` block is a separate shell) -- it
+          # must be set here, in the shell that actually execs the test
+          # binaries and their children (test_runner.py -> tapyrusd).
+          ulimit -c unlimited
+          echo "Disk space before test:"
           df -h .
-          echo "---------------- Start heavy test suite ----------------"
+          echo "---------------- Start ${{ matrix.config.name }} test ----------------"
           if python3 test/functional/test_runner.py \
             --tmpdir="$TAPYRUS_TEST_DIR" \
             -j 1 \
             --combinedlogslen=4000 \
             --failfast \
             --test-timeout=18000 \
-            --heavy; then
-            echo "heavy test suite passed"
+            ${{ matrix.config.test_args }}; then
+            echo "${{ matrix.config.name }} test passed"
           else
-            echo "heavy test suite FAILED"
+            echo "${{ matrix.config.name }} test FAILED"
             exit 1
           fi
-          echo "Disk space after heavy tests:"
+          echo "Disk space after test:"
           df -h .
 
       # TODO: Uncomment this section once USDT tests are ready to run in CI.
@@ -190,19 +205,62 @@ jobs:
       #       exit 1
       #     fi
 
+      - name: Print full combined logs (on failure)
+        if: failure()
+        run: |
+          # test_runner.py only ever prints the last 4000 lines of the
+          # combined per-node logs to the console, and only for a genuine
+          # "Failed" result -- a "Timeout" result (test_runner.py's other
+          # failure branch) prints nothing at all on its first attempt, only
+          # on a retry that then fails too. Bypass both limitations by
+          # combining the full, untruncated logs (test framework + every
+          # node's debug.log) directly and writing them to the job summary.
+          shopt -s nullglob
+          TESTDIRS=("$TAPYRUS_TEST_DIR"/test_runner_*/*/)
+          if [ ${#TESTDIRS[@]} -eq 0 ]; then
+            echo "No test directories found under $TAPYRUS_TEST_DIR"
+            exit 0
+          fi
+          echo "## Full Combined Logs — ${{ matrix.config.name }}" >> "$GITHUB_STEP_SUMMARY"
+          for testdir in "${TESTDIRS[@]}"; do
+            testdir="${testdir%/}"
+            echo "Combining logs for $testdir"
+            {
+              echo ""
+              echo "### $(basename "$testdir")"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            python3 "$BASE_ROOT_DIR/test/functional/combine_logs.py" "$testdir" >> "$GITHUB_STEP_SUMMARY" 2>&1
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          done
+
       - name: Save Ccache cache
         if: github.ref == 'refs/heads/master'
         uses: actions/cache/save@v4
         continue-on-error: true
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: daily-linux-x86_64-RelWithDebInfo-true-true-true-ccache-${{ github.run_id }}
+          key: daily-linux-x86_64-RelWithDebInfo-true-true-true-ccache-${{ github.run_id }}-${{ matrix.config.name }}
+
+      - name: Stop dangling test processes
+        if: always()
+        run: |
+          # CI_FAILFAST_TEST_LEAVE_DANGLING=1 intentionally skips node.stop()
+          # on a failed/timed-out test so datadirs/logs survive for
+          # inspection, but a still-running tapyrusd keeps rotating its
+          # wallet's BDB log files -- racing the artifact zip below and
+          # producing sporadic ENOENT errors during zip creation. The
+          # process itself isn't needed (there's no live-attach step after
+          # the job ends), only the on-disk data is, so kill it here to
+          # make the directory quiescent before archiving.
+          pkill -9 -f tapyrusd || true
+          sleep 2
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: heavy-test-results-${{ github.run_id }}
+          name: heavy-test-results-${{ matrix.config.name }}-${{ github.run_id }}
           path: ${{ github.workspace }}/tapyrus_test
           retention-days: 7
           if-no-files-found: ignore
@@ -220,7 +278,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: heavy-core-dumps-${{ github.run_id }}
+          name: heavy-core-dumps-${{ matrix.config.name }}-${{ github.run_id }}
           path: ${{ github.workspace }}/core_dumps/
           retention-days: 7
 
