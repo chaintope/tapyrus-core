@@ -253,16 +253,12 @@ struct CNodeState {
     //! Whether this peer wants invs or cmpctblocks (when possible) for block announcements.
     bool fPreferHeaderAndIDs;
     /**
-      * Whether this peer will send us cmpctblocks if we request them.
-      * This is not used to gate request logic, as we really only care about fSupportsDesiredCmpctVersion,
-      * but is used as a flag to "lock in" the version of compact blocks we send.
+      * Whether this peer has told us (via SENDCMPCT) that it will send us
+      * cmpctblocks/blocktxns using the compact block version we use. Tapyrus
+      * has only ever had one compact block version, so this is a single flag
+      * rather than a separate "supports our desired version" check.
       */
     bool fProvidesHeaderAndIDs;
-    /**
-     * If we've announced NODE_WITNESS to this peer: whether the peer sends witnesses in cmpctblocks/blocktxns,
-     * otherwise: whether this peer sends non-witnesses in cmpctblocks/blocktxns.
-     */
-    bool fSupportsDesiredCmpctVersion;
 
     //! A rolling bloom filter of all announced tx CInvs to this peer.
     CRollingBloomFilter m_recently_announced_invs = CRollingBloomFilter{INVENTORY_MAX_RECENT_RELAY, 0.000001};
@@ -324,7 +320,6 @@ struct CNodeState {
         fPreferHeaders = false;
         fPreferHeaderAndIDs = false;
         fProvidesHeaderAndIDs = false;
-        fSupportsDesiredCmpctVersion = false;
         m_chain_sync = { 0, nullptr, false, false };
         m_last_block_announcement = 0;
         m_recently_announced_invs.reset();
@@ -507,8 +502,8 @@ static void MaybeSetPeerAsAnnouncingHeaderAndIDs(NodeId nodeid, CConnman* connma
 {
     AssertLockHeld(cs_main);
     CNodeState* nodestate = State(nodeid);
-    if (!nodestate || !nodestate->fSupportsDesiredCmpctVersion) {
-        // Never ask from peers who can't provide witnesses.
+    if (!nodestate || !nodestate->fProvidesHeaderAndIDs) {
+        // Never ask from peers who don't support the compact block version we use.
         return;
     }
     if (nodestate->fProvidesHeaderAndIDs) {
@@ -987,7 +982,6 @@ void PeerLogicValidation::NewValidBlock(const CBlockIndex *pindex, const std::sh
         return;
     nHighestFastAnnounce = pindex->nHeight;
 
-    bool fWitnessEnabled = false;
     uint256 hashBlock(pblock->GetHash());
 
     {
@@ -997,7 +991,7 @@ void PeerLogicValidation::NewValidBlock(const CBlockIndex *pindex, const std::sh
         most_recent_compact_block = pcmpctblock;
     }
 
-    connman->ForEachNode([this, &pcmpctblock, pindex, &msgMaker, fWitnessEnabled, &hashBlock](CNode* pnode) {
+    connman->ForEachNode([this, &pcmpctblock, pindex, &msgMaker, &hashBlock](CNode* pnode) {
         AssertLockHeld(cs_main);
 
         // TODO: Avoid the repeated-serialization here
@@ -1007,7 +1001,7 @@ void PeerLogicValidation::NewValidBlock(const CBlockIndex *pindex, const std::sh
         CNodeState &state = *State(pnode->GetId());
         // If the peer has, or we announced to them the previous block already,
         // but we don't think they have this one, go ahead and announce it
-        if (state.fPreferHeaderAndIDs && !fWitnessEnabled &&
+        if (state.fPreferHeaderAndIDs &&
                 !PeerHasHeader(&state, pindex) && PeerHasHeader(&state, pindex->pprev)) {
 
             LogPrint(BCLog::NET, "%s sending header-and-ids %s to peer=%d\n", "PeerLogicValidation::NewValidBlock",
@@ -1617,7 +1611,7 @@ bool static ProcessHeadersMessage(CNode *pfrom, CConnman *connman, const std::ve
                             pindexLast->GetBlockHash().ToString(), pindexLast->nHeight);
                 }
                 if (vGetData.size() > 0) {
-                    if (nodestate->fSupportsDesiredCmpctVersion && vGetData.size() == 1 && mapBlocksInFlight.count(vGetData[0].hash) == 1 && pindexLast->pprev->IsValid(BLOCK_VALID_CHAIN)) {
+                    if (nodestate->fProvidesHeaderAndIDs && vGetData.size() == 1 && mapBlocksInFlight.count(vGetData[0].hash) == 1 && pindexLast->pprev->IsValid(BLOCK_VALID_CHAIN)) {
                         // In any case, we want to download using a compact block, not a regular one
                         vGetData[0] = CInv(MSG_CMPCT_BLOCK, vGetData[0].hash);
                     }
@@ -2076,10 +2070,8 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         vRecv >> fAnnounceUsingCMPCTBLOCK >> nCMPCTBLOCKVersion;
         if (nCMPCTBLOCKVersion == 1 ) {
             LOCK(cs_main);
-            // fProvidesHeaderAndIDs is used to "lock in" version of compact blocks we send
             State(pfrom->GetId())->fProvidesHeaderAndIDs = true;
             State(pfrom->GetId())->fPreferHeaderAndIDs = fAnnounceUsingCMPCTBLOCK;
-            State(pfrom->GetId())->fSupportsDesiredCmpctVersion = (nCMPCTBLOCKVersion == 1);
         }
     }
 
@@ -2574,9 +2566,9 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         if (!already_in_flight && !CanDirectFetch(chainparams.GetConsensus()))
             return true;
 
-        if (!nodestate->fSupportsDesiredCmpctVersion) {
-            // Don't bother trying to process compact blocks from v1 peers
-            // after segwit activates.
+        if (!nodestate->fProvidesHeaderAndIDs) {
+            // Don't bother trying to process compact blocks from peers who
+            // haven't negotiated the compact block version we use.
             return true;
         }
 
