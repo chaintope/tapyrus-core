@@ -1912,7 +1912,7 @@ UniValue scantxoutset(const JSONRPCRequest& request)
             "Examples of output descriptors are:\n"
             "    addr(<address>)                      Outputs whose scriptPubKey corresponds to the specified address (does not include P2PK)\n"
             "    raw(<hex script>)                    Outputs whose scriptPubKey equals the specified hex scripts\n"
-            "    combo(<pubkey>)                      P2PK, P2PKH, P2WPKH, and P2SH-P2WPKH outputs for the given pubkey\n"
+            "    combo(<pubkey>)                      P2PK and P2PKH outputs for the given pubkey\n"
             "    pkh(<pubkey>)                        P2PKH outputs for the given pubkey\n"
             "    sh(multi(<n>,<pubkey>,<pubkey>,...)) P2SH-multisig outputs for the given threshold and pubkeys\n"
             "\nIn the above, <pubkey> either refers to a fixed public key in hexadecimal notation, or to an xpub/xprv optionally followed by one\n"
