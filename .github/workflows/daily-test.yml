@@ -22,7 +22,7 @@ on:
       - '**'
 
 concurrency:
-  group: ${{ github.workflow }}-daily
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -57,6 +57,7 @@ jobs:
             enable_gui: true
             enable_usdt: true
             enable_wallet: true
+            collect_benchmark_history: true
           - name: L-X86-Rel-No_GUI+USDT+Wallet
             os: ubuntu-latest
             arch: x86_64
@@ -114,6 +115,7 @@ jobs:
             enable_gui: true
             enable_usdt: false
             enable_wallet: true
+            collect_benchmark_history: true
           - name: M-ARM-Rel-No_GUI+Wallet
             os: macos-latest
             arch: arm64
@@ -194,12 +196,13 @@ jobs:
 
       - name: Restore Benchmark History cache
         # Benchmarks only run on scheduled/manually-dispatched runs, not on
-        # every PR (see the gated benchmark step further down). Pinned to one
-        # canonical config name per platform (rather than platform+arch) --
-        # several matrix configs share the same platform+arch (e.g. linux
-        # x86_64 has 3 RelWithDebInfo flavors), and letting all of them write
-        # the same history file/cache key in parallel would race.
-        if: github.event_name != 'pull_request' && (matrix.config.name == 'L-X86-Rel-GUI+USDT+Wallet' || matrix.config.name == 'M-ARM-Rel-GUI+Wallet')
+        # every PR (see the gated benchmark step further down). Gated on the
+        # collect_benchmark_history matrix field (set on one canonical config
+        # per platform, rather than platform+arch) -- several matrix configs
+        # share the same platform+arch (e.g. linux x86_64 has 3 RelWithDebInfo
+        # flavors), and letting all of them write the same history file/cache
+        # key in parallel would race.
+        if: github.event_name != 'pull_request' && matrix.config.collect_benchmark_history == true
         id: benchmark-cache
         uses: actions/cache/restore@v5
         with:
@@ -319,6 +322,11 @@ jobs:
           fi
 
           echo "Building depends for HOST=$HOST"
+
+          # Persist HOST for later steps (e.g. "Build and run daily tests") so
+          # the platform/target_platform -> HOST triple resolution logic
+          # lives in exactly one place.
+          echo "HOST=$HOST" >> $GITHUB_ENV
 
           # Set up environment for cross-compilation
           if [ "${{ matrix.config.target_platform }}" == "macos" ]; then
@@ -442,7 +450,7 @@ jobs:
           key: depends-v6-qt6-${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ hashFiles('depends/packages/*', 'depends/hosts/*.mk', 'depends/builders/*.mk', 'depends/funcs.mk', 'depends/toolchain.cmake.in', 'depends/patches/**') }}
 
       - name: Save Benchmark History cache
-        if: always() && github.event_name != 'pull_request' && (matrix.config.name == 'L-X86-Rel-GUI+USDT+Wallet' || matrix.config.name == 'M-ARM-Rel-GUI+Wallet')
+        if: always() && github.event_name != 'pull_request' && matrix.config.collect_benchmark_history == true
         uses: actions/cache/save@v5
         continue-on-error: true
         with:
@@ -454,17 +462,14 @@ jobs:
         run: |
           CORE_DUMP_DIR="${{ github.workspace }}/core_dumps"
           mkdir -p "$CORE_DUMP_DIR"
-          chmod 777 "$CORE_DUMP_DIR"
           if [ "${{ matrix.config.platform }}" == "linux" ]; then
             sudo sysctl -w kernel.core_pattern="$CORE_DUMP_DIR/core.%e.%p"
           else
             sudo sysctl -w kern.corefile="$CORE_DUMP_DIR/core.%N"
           fi
           echo "Core dumps will be stored in: $CORE_DUMP_DIR"
-          ulimit -c unlimited
           TEST_DIR="${{ github.workspace }}/tapyrus_test"
           mkdir -p "$TEST_DIR"
-          chmod -R 777 "$TEST_DIR"
           echo "TAPYRUS_TEST_DIR=$TEST_DIR" >> $GITHUB_ENV
 
       - name: Build and run daily tests
@@ -472,6 +477,12 @@ jobs:
           TAPYRUS_TEST_DIR: ${{ env.TAPYRUS_TEST_DIR }}
           ACTIONS_STEP_DEBUG: true
         run: |
+          # ulimit is per-process and does not carry over from the "Enable
+          # core dumps" step (each `run:` block is a separate shell) -- it
+          # must be set here, in the shell that actually execs the test
+          # binaries and their children (ctest, test_runner.py -> tapyrusd).
+          ulimit -c unlimited
+
           if [ "${{ matrix.config.platform }}" == "macos" ]; then
             CPU_COUNT=$(sysctl -n hw.ncpu)
           else
@@ -490,33 +501,8 @@ jobs:
             export CXX="g++"
           fi
 
-          # Set up depends path using target architecture (including cross-compilation)
-          if [ "${{ matrix.config.platform }}" == "macos" ]; then
-            NATIVE_ARCH=$(uname -m)
-            if [ "$NATIVE_ARCH" == "arm64" ]; then
-              export HOST="arm64-apple-darwin"
-            else
-              export HOST="x86_64-apple-darwin"
-            fi
-          elif [ "${{ matrix.config.platform }}" == "linux" ] && [ "${{ matrix.config.target_platform }}" == "macos" ]; then
-            # Cross-compilation: Linux -> macOS
-            if [ "${{ matrix.config.target_arch }}" == "arm64" ]; then
-              export HOST="arm64-apple-darwin"
-            else
-              export HOST="x86_64-apple-darwin"
-            fi
-          elif [ "${{ matrix.config.platform }}" == "linux" ] && [ "${{ matrix.config.target_platform }}" == "windows" ]; then
-            # Cross-compilation: Linux -> Windows
-            export HOST="x86_64-w64-mingw32"
-          else
-            # Native Linux builds
-            NATIVE_ARCH=$(uname -m)
-            if [ "$NATIVE_ARCH" == "aarch64" ]; then
-              export HOST="aarch64-linux-gnu"
-            else
-              export HOST="x86_64-pc-linux-gnu"
-            fi
-          fi
+          # HOST (platform/target_platform -> triple) is resolved once in the
+          # "Build Depends" step and persisted via $GITHUB_ENV; reused here.
           DEPENDS_PREFIX="$DEPENDS_DIR/$HOST"
 
           # Verify depends directory exists and has required files
@@ -769,13 +755,14 @@ jobs:
 
             # Persist this run's per-benchmark medians into the cached history
             # file and render a trend chart (one line per benchmark, one point
-            # per day) into the job summary. Only for the two configs whose
-            # benchmark_results/data cache actually persists across runs (see
-            # the cache steps above) -- other configs would just regenerate
-            # history from scratch every run since it's never saved. Pinned to
-            # one canonical config name per platform to avoid multiple
-            # same-platform+arch matrix jobs racing on the same history file.
-            if [ "${{ matrix.config.name }}" == "L-X86-Rel-GUI+USDT+Wallet" ] || [ "${{ matrix.config.name }}" == "M-ARM-Rel-GUI+Wallet" ]; then
+            # per day) into the job summary. Only for configs with
+            # collect_benchmark_history set, whose benchmark_results/data
+            # cache actually persists across runs (see the cache steps above)
+            # -- other configs would just regenerate history from scratch
+            # every run since it's never saved. Set on one canonical config
+            # per platform to avoid multiple same-platform+arch matrix jobs
+            # racing on the same history file.
+            if [ "${{ matrix.config.collect_benchmark_history }}" = "true" ]; then
               echo "---------------- Updating benchmark history and chart ---------------- "
               HISTORY_DIR="${{ github.workspace }}/benchmark_results/data"
               mkdir -p "$HISTORY_DIR"
@@ -918,37 +905,54 @@ jobs:
       - name: Debug Core Dump (if exists)
         if: failure() && matrix.config.target_platform != 'windows'
         run: |
-          if [ "${{ matrix.config.platform }}" == "linux" ]; then
-            COREFILE=$(coredumpctl list --no-pager --output json | jq -r '.[0].filename')
-            if [ -f "$COREFILE" ]; then
-              echo "Found core dump: $COREFILE"
-              if command -v coredumpctl &> /dev/null; then
-                BINARY=$(coredumpctl info --no-pager | grep "Executable" | awk '{print $2}')
-              else
-                BINARY=$(file "$COREFILE" | awk -F"'" '{print $2}')
-              fi
-              if [ -x "$BINARY" ]; then
-                echo "Detected crashed binary: $BINARY"
-              else
-                echo "Could not detect crashed binary, using tapyrusd as default"
-                BINARY="./tapyrusd"
-              fi
-              gdb -batch -ex "bt" -ex "quit" "$BINARY" "$COREFILE"
-            fi
-          else
-            COREFILE=$(ls -t ${{ github.workspace }}/core_dumps/core.* 2>/dev/null | head -n 1)
-            if [ -f "$COREFILE" ]; then
-              echo "Found core dump: $COREFILE"
-              BINARY=$(file "$COREFILE" | awk -F"'" '{print $2}')
-              if [ -x "$BINARY" ]; then
-                echo "Detected crashed binary: $BINARY"
-              else
-                echo "Could not detect crashed binary, using tapyrusd as default"
-                BINARY="./tapyrusd"
-              fi
-              lldb -c "$COREFILE" -o "bt" -o "quit" -- "$BINARY"
-            fi
+          # Scan the directory configured via core_pattern/kern.corefile in
+          # "Enable core dumps" directly, on both platforms -- coredumpctl
+          # (systemd-coredump's own index) never sees these dumps, since
+          # core_pattern was pointed at a plain file path instead of the
+          # systemd-coredump pipe.
+          CORE_DUMP_DIR="${{ github.workspace }}/core_dumps"
+          shopt -s nullglob
+          COREFILES=("$CORE_DUMP_DIR"/core.*)
+          if [ ${#COREFILES[@]} -eq 0 ]; then
+            echo "No core dumps found in $CORE_DUMP_DIR"
+            exit 0
           fi
+
+          {
+            echo "## Core Dump Backtraces — ${{ matrix.config.name }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          for COREFILE in "${COREFILES[@]}"; do
+            echo "Found core dump: $COREFILE"
+
+            # `file` embeds the crashing binary's path, but it may be relative
+            # to wherever it was invoked from (e.g. "./test_tapyrus" run from
+            # $BASE_BUILD_DIR/bin) rather than this step's cwd ($GITHUB_WORKSPACE).
+            BINARY_RAW=$(file "$COREFILE" | awk -F"'" '{print $2}')
+            if [ -x "$BINARY_RAW" ]; then
+              BINARY="$BINARY_RAW"
+            elif [ -x "$BASE_BUILD_DIR/bin/$(basename "$BINARY_RAW" 2>/dev/null)" ]; then
+              BINARY="$BASE_BUILD_DIR/bin/$(basename "$BINARY_RAW")"
+            else
+              echo "Could not detect crashed binary, using tapyrusd as default"
+              BINARY="$BASE_BUILD_DIR/bin/tapyrusd"
+            fi
+            echo "Using binary: $BINARY"
+
+            {
+              echo ""
+              echo "### $(basename "$COREFILE") ($BINARY)"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+
+            if [ "${{ matrix.config.platform }}" == "linux" ]; then
+              gdb -batch -ex "bt full" -ex "quit" "$BINARY" "$COREFILE" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+            else
+              lldb -c "$COREFILE" -o "bt" -o "quit" -- "$BINARY" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+            fi
+
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          done
 
       - name: Upload Core Dumps
         if: failure() && matrix.config.target_platform != 'windows'
