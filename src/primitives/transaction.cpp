@@ -61,30 +61,22 @@ CMutableTransaction::CMutableTransaction(const CTransaction& tx) : vin(tx.vin), 
 
 uint256 CMutableTransaction::GetHash() const
 {
-    return SerializeHash(*this, SER_GETHASH, SERIALIZE_TRANSACTION_NO_WITNESS);
+    return SerializeHash(*this, SER_GETHASH, 0);
 }
 
 uint256 CMutableTransaction::GetHashMalFix() const
 {
-    return SerializeHash(*this, SER_GETHASH, SERIALIZE_TRANSACTION_MALFIX | SERIALIZE_TRANSACTION_NO_WITNESS);
+    return SerializeHash(*this, SER_GETHASH, SERIALIZE_TRANSACTION_MALFIX);
 }
 
 uint256 CTransaction::ComputeHash() const
 {
-    return SerializeHash(*this, SER_GETHASH, SERIALIZE_TRANSACTION_NO_WITNESS);
-}
-
-uint256 CTransaction::ComputeWitnessHash() const
-{
-    if (!HasWitness()) {
-        return hash;
-    }
     return SerializeHash(*this, SER_GETHASH, 0);
 }
 
 uint256 CTransaction::ComputeHashMalFix() const
 {
-    return SerializeHash(*this, SER_GETHASH, SERIALIZE_TRANSACTION_MALFIX | SERIALIZE_TRANSACTION_NO_WITNESS);
+    return SerializeHash(*this, SER_GETHASH, SERIALIZE_TRANSACTION_MALFIX);
 }
 
 /* For backward compatibility, the hash is initialized to 0. TODO: remove the need for this default constructor entirely. */
@@ -94,7 +86,6 @@ CTransaction::CTransaction() :
             nFeatures(CTransaction::CURRENT_FEATURES),
             nLockTime(0),
             hash{},
-            m_witness_hash{},
             hashMalFix{}
     {}
 
@@ -104,7 +95,6 @@ CTransaction::CTransaction(const CMutableTransaction& tx) :
             nFeatures(tx.nFeatures),
             nLockTime(tx.nLockTime),
             hash{ComputeHash()},
-            m_witness_hash{ComputeWitnessHash()},
             hashMalFix{ComputeHashMalFix()}
     {}
 CTransaction::CTransaction(CMutableTransaction&& tx) :
@@ -113,7 +103,6 @@ CTransaction::CTransaction(CMutableTransaction&& tx) :
             nFeatures(tx.nFeatures),
             nLockTime(tx.nLockTime),
             hash{ComputeHash()},
-            m_witness_hash{ComputeWitnessHash()},
             hashMalFix{ComputeHashMalFix()}
     {}
 
@@ -148,8 +137,6 @@ std::string CTransaction::ToString() const
         nLockTime);
     for (const auto& tx_in : vin)
         str += "    " + tx_in.ToString() + "\n";
-    for (const auto& tx_in : vin)
-        str += "    " + tx_in.scriptWitness.ToString() + "\n";
     for (const auto& tx_out : vout)
         str += "    " + tx_out.ToString() + "\n";
     return str;

@@ -25,7 +25,6 @@ Output descriptors currently support:
 - `sh(multi(2,022f01e5e15cca351daff3843fb70f3c2f0a1bdd05e5af888a67784ef3e10a2a01,03acd484e2f0c7f65309ad178a9f559abde09796974c57e714c35f110dfc27ccbe))` represents a P2SH *2-of-2* multisig.
 - `pk(xpub661MyMwAqRbcFtXgS5sYJABqqG9YLmC4Q1Rdap9gSE8NqtwybGhePY2gZ29ESFjqJoCu1Rupje8YtGqsefD265TMg7usUDFdp6W1EGMcet8)` refers to a single P2PK output, using the public key part from the specified xpub.
 - `pkh(xpub68Gmy5EdvgibQVfPdqkBBCHxA5htiqg55crXYuXoQRKfDBFA1WEjWgP6LHhwBZeNK1VTsfTFUHCdrfp1bgwQ9xv5ski8PX9rL2dZXvgGDnw/1'/2)` refers to a single P2PKH output, using child key *1'/2* of the specified xpub.
-- `wsh(multi(1,xpub661MyMwAqRbcFW31YEwpkMuc5THy2PSt5bDMsktWQcFF8syAmRUapSCGu8ED9W6oDMSgv6Zz8idoc4a6mr8BDzTJY47LJhkJ8UB7WEGuduB/1/0/*,xpub69H7F5d8KSRgmmdJg2KhpAK8SR3DjMwAdkxj3ZuxV27CprR9LgpeyGmXUbC6wb7ERfvrnKZjXoUmmDznezpbZb7ap6r1D3tgFxHmwMkQTPH/1/0/*))` refers to a chain of *1-of-2* P2WSH multisig outputs, using public keys taken from two HD chains with corresponding derivation paths.
 
 ## Reference
 
@@ -42,7 +41,6 @@ Descriptors consist of several types of expressions. The top level expression is
 
 `KEY` expressions:
 - Hex encoded public keys (66 characters starting with `02` or `03`, or 130 characters starting with `04`).
-  - Inside `wpkh` and `wsh`, only compressed public keys are permitted.
 - [WIF](https://en.bitcoin.it/wiki/Wallet_import_format) encoded private keys may be specified instead of the corresponding public key, with the same meaning.
 -`xpub` encoded extended public key or `xprv` encoded private key (as defined in [BIP 32](https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki)).
   - Followed by zero or more `/NUM` unhardened and `/NUM'` hardened BIP32 derivation steps.
@@ -53,7 +51,6 @@ Descriptors consist of several types of expressions. The top level expression is
 `ADDR` expressions are any type of supported address:
 - P2PKH addresses (base58, of the form `1...`). Note that P2PKH addresses in descriptors cannot be used for P2PK outputs (use the `pk` function instead).
 - P2SH addresses (base58, of the form `3...`, defined in [BIP 13](https://github.com/bitcoin/bips/blob/master/bip-0013.mediawiki)).
-- Segwit addresses (bech32, of the form `bc1...`, defined in [BIP 173](https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki)).
 
 ## Explanation
 
@@ -65,9 +62,9 @@ P2PK, P2PKH
 To describe these, we model these as functions. The functions `pk`
 (P2PK), `pkh` (P2PKH) take as input a public key in
 hexadecimal notation (which will be extended later), and return the
-corresponding *scriptPubKey*. The functions `sh` (P2SH)
-take as input a script, and return the script describing P2SH and P2WSH
-outputs with the input as embedded script. The names of the functions do
+corresponding *scriptPubKey*. The function `sh` (P2SH)
+takes as input a script, and returns the script describing a P2SH
+output with the input as embedded script. The names of the functions do
 not contain "p2" for brevity.
 
 ### Multisig

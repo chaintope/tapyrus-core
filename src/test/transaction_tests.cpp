@@ -43,9 +43,12 @@ static std::map<std::string, unsigned int> mapFlagNames = {
     {std::string("CLEANSTACK"), (unsigned int)SCRIPT_VERIFY_CLEANSTACK},
     {std::string("MINIMALIF"), (unsigned int)SCRIPT_VERIFY_MINIMALIF},
     {std::string("NULLFAIL"), (unsigned int)SCRIPT_VERIFY_NULLFAIL},
-    {std::string("WITNESS"), (unsigned int)SCRIPT_VERIFY_WITNESS},
-    {std::string("DISCOURAGE_UPGRADABLE_WITNESS_PROGRAM"), (unsigned int)SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_WITNESS_PROGRAM},
-    {std::string("WITNESS_PUBKEYTYPE"), (unsigned int)SCRIPT_VERIFY_WITNESS_PUBKEYTYPE},
+    // WITNESS-related flags no longer exist (Tapyrus never verifies witness data);
+    // kept as no-op (0) mappings so existing JSON test vectors that still name
+    // them in their "verifyFlags" column continue to parse.
+    {std::string("WITNESS"), 0},
+    {std::string("DISCOURAGE_UPGRADABLE_WITNESS_PROGRAM"), 0},
+    {std::string("WITNESS_PUBKEYTYPE"), 0},
     {std::string("CONST_SCRIPTCODE"), (unsigned int)SCRIPT_VERIFY_CONST_SCRIPTCODE},
     {std::string("CP2SH_COLORED"), (unsigned int)SCRIPT_VERIFY_CP2SH_COLORED},
 };
@@ -162,12 +165,11 @@ BOOST_AUTO_TEST_CASE(tx_valid)
                     amount = mapprevOutValues[tx.vin[i].prevout];
                 }
                 unsigned int verify_flags = ParseScriptFlags(test[2].get_str());
-                const CScriptWitness *witness = &tx.vin[i].scriptWitness;
                 // Fresh per input, matching CScriptCheck in production (scriptcheck.h) --
                 // OP_COLOR state must not leak across inputs or across test cases.
                 ColorIdentifier colorId;
                 BOOST_CHECK_MESSAGE(VerifyScript(tx.vin[i].scriptSig, mapprevOutScriptPubKeys[tx.vin[i].prevout],
-                                                 witness, verify_flags, TransactionSignatureChecker(&tx, i, amount, txdata), colorId, &err),
+                                                 verify_flags, TransactionSignatureChecker(&tx, i, amount, txdata), colorId, &err),
                                     strTest);
                 BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
             }
@@ -251,12 +253,11 @@ BOOST_AUTO_TEST_CASE(tx_invalid)
                 if (mapprevOutValues.count(tx.vin[i].prevout)) {
                     amount = mapprevOutValues[tx.vin[i].prevout];
                 }
-                const CScriptWitness *witness = &tx.vin[i].scriptWitness;
                 // Fresh per input, matching CScriptCheck in production (scriptcheck.h) --
                 // OP_COLOR state must not leak across inputs or across test cases.
                 ColorIdentifier colorId;
                 fValid = VerifyScript(tx.vin[i].scriptSig, mapprevOutScriptPubKeys[tx.vin[i].prevout],
-                                      witness, verify_flags, TransactionSignatureChecker(&tx, i, amount, txdata), colorId, &err);
+                                      verify_flags, TransactionSignatureChecker(&tx, i, amount, txdata), colorId, &err);
             }
             BOOST_CHECK_MESSAGE(!fValid, strTest);
             BOOST_CHECK_MESSAGE(err != SCRIPT_ERR_OK, ScriptErrorString(err));

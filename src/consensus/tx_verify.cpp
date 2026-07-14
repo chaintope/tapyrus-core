@@ -150,13 +150,6 @@ uint32_t GetTransactionSigOps(const CTransaction& tx, const CCoinsViewCache& inp
     //in Tapyrus we always verify P2SH
     nSigOps += GetP2SHSigOpCount(tx, inputs);
 
-    for (unsigned int i = 0; i < tx.vin.size(); i++)
-    {
-        const Coin& coin = inputs.AccessCoin(tx.vin[i].prevout);
-        assert(!coin.IsSpent());
-        const CTxOut &prevout = coin.out;
-        nSigOps += CountWitnessSigOps(tx.vin[i].scriptSig, prevout.scriptPubKey, &tx.vin[i].scriptWitness, flags);
-    }
     return nSigOps;
 }
 
@@ -168,7 +161,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
     if (tx.vout.empty())
         return state.DoS(10, false, REJECT_INVALID, "bad-txns-vout-empty");
     // Size limits (this doesn't take the witness into account, as that hasn't been checked for malleability)
-    if (::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS) > GetCurrentMaxBlockSize())
+    if (::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION) > GetCurrentMaxBlockSize())
         return state.DoS(100, false, REJECT_INVALID, "bad-txns-oversize");
 
     // Check for negative or overflow output values

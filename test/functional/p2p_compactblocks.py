@@ -793,11 +793,11 @@ class CompactBlocksTest(BitcoinTestFramework):
         unique_ptr<PartiallyDownloadedBlock>. The fix adds 'return true' to prevent
         the fall-through.
         """
-        # Register both peers as compact-block peers (fSupportsDesiredCmpctVersion=true).
+        # Register both peers as compact-block peers (fProvidesHeaderAndIDs=true).
         # stalling_peer: without this the handler returns early and sends getdata
         #   via SendMessages instead of getblocktxn.
         # attacker_peer: without this the handler returns early at the
-        #   fSupportsDesiredCmpctVersion check (net_processing.cpp:2601) before
+        #   fProvidesHeaderAndIDs check (net_processing.cpp:2569) before
         #   reaching the READ_STATUS_FAILED branch that the UAF fix guards,
         #   making the second assertion pass vacuously.
         sendcmpct = msg_sendcmpct()

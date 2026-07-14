@@ -63,17 +63,6 @@ enum
     // Note: CLEANSTACK should never be used without P2SH or WITNESS.
     SCRIPT_VERIFY_CLEANSTACK = (1U << 2),
 
- /* In Tapyrus segregated witness is not necessary.
-  * But these flags are left unchanged until we can cleanup all segwit code
-  */
-    // Support segregated witness
-    //
-    SCRIPT_VERIFY_WITNESS = (1U << 11),
-
-    // Making v1-v16 witness program non-standard
-    //
-    SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_WITNESS_PROGRAM = (1U << 12),
-
     // Segwit script only: Require the argument of OP_IF/NOTIF to be exactly 0x01 or empty vector
     //
     SCRIPT_VERIFY_MINIMALIF = (1U << 13),
@@ -81,10 +70,6 @@ enum
     // Signature(s) must be empty vector if a CHECK(MULTI)SIG operation failed
     //
     SCRIPT_VERIFY_NULLFAIL = (1U << 14),
-
-    // Public keys in segregated witness scripts must be compressed
-    //
-    SCRIPT_VERIFY_WITNESS_PUBKEYTYPE = (1U << 15),
 
     // Making OP_CODESEPARATOR and FindAndDelete fail any non-segwit scripts
     //
@@ -117,10 +102,8 @@ static const unsigned int MANDATORY_SCRIPT_VERIFY_FLAGS = 0;
  */
 static constexpr unsigned int STANDARD_SCRIPT_VERIFY_FLAGS = SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS |
                                                              SCRIPT_VERIFY_CLEANSTACK |
-                                                             SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_WITNESS_PROGRAM |
                                                              SCRIPT_VERIFY_MINIMALIF |
                                                              SCRIPT_VERIFY_NULLFAIL |
-                                                             SCRIPT_VERIFY_WITNESS_PUBKEYTYPE |
                                                              SCRIPT_VERIFY_CONST_SCRIPTCODE |
                                                              SCRIPT_VERIFY_CP2SH_COLORED;
 
@@ -212,9 +195,7 @@ using TransactionSignatureChecker = GenericTransactionSignatureChecker<CTransact
 using MutableTransactionSignatureChecker = GenericTransactionSignatureChecker<CMutableTransaction>;
 
 bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& script, unsigned int flags, const BaseSignatureChecker& checker, SigVersion sigversion, ColorIdentifier *colorId = nullptr, ScriptError* error = nullptr);
-bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, const CScriptWitness* witness, unsigned int flags, const BaseSignatureChecker& checker, ColorIdentifier& colorId, ScriptError* serror = nullptr);
-
-size_t CountWitnessSigOps(const CScript& scriptSig, const CScript& scriptPubKey, const CScriptWitness* witness, unsigned int flags);
+bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, unsigned int flags, const BaseSignatureChecker& checker, ColorIdentifier& colorId, ScriptError* serror = nullptr);
 
 int FindAndDelete(CScript& script, const CScript& b);
 

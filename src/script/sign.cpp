@@ -212,7 +212,7 @@ bool ProduceSignature(const SigningProvider& provider, const BaseSignatureCreato
     // Test solution using the caller-supplied flags so that post-activation
     // signings are verified with SCRIPT_VERIFY_CP2SH_COLORED included.
     ColorIdentifier colorId;
-    sigdata.complete = solved && VerifyScript(sigdata.scriptSig, fromPubKey, nullptr, scriptVerifyFlags, creator.Checker(), colorId, nullptr);
+    sigdata.complete = solved && VerifyScript(sigdata.scriptSig, fromPubKey, scriptVerifyFlags, creator.Checker(), colorId, nullptr);
     return sigdata.complete;
 }
 
@@ -290,7 +290,7 @@ SignatureData DataFromTransaction(const CMutableTransaction& tx, unsigned int nI
     MutableTransactionSignatureChecker tx_checker(&tx, nIn, txout.nValue);
     SignatureExtractorChecker extractor_checker(data, tx_checker);
     ColorIdentifier colorId;
-    if (VerifyScript(data.scriptSig, txout.scriptPubKey, nullptr, STANDARD_SCRIPT_VERIFY_FLAGS, extractor_checker, colorId, nullptr)) {
+    if (VerifyScript(data.scriptSig, txout.scriptPubKey, STANDARD_SCRIPT_VERIFY_FLAGS, extractor_checker, colorId, nullptr)) {
         data.complete = true;
         return data;
     }
@@ -427,16 +427,12 @@ bool IsSolvable(const SigningProvider& provider, const CScript& script)
 {
     // This check is to make sure that the script we created can actually be solved for and signed by us
     // if we were to have the private keys. This is just to make sure that the script is valid and that,
-    // if found in a transaction, we would still accept and relay that transaction. In particular,
-    // it will reject witness outputs that require signing with an uncompressed public key.
+    // if found in a transaction, we would still accept and relay that transaction.
     SignatureData sigs;
-    // Make sure that STANDARD_SCRIPT_VERIFY_FLAGS includes SCRIPT_VERIFY_WITNESS_PUBKEYTYPE, the most
-    // important property this function is designed to test for.
-    static_assert(STANDARD_SCRIPT_VERIFY_FLAGS & SCRIPT_VERIFY_WITNESS_PUBKEYTYPE, "IsSolvable requires standard script flags to include WITNESS_PUBKEYTYPE");
     if (ProduceSignature(provider, DUMMY_SIGNATURE_CREATOR, script, sigs)) {
         ColorIdentifier colorId;
         // VerifyScript check is just defensive, and should never fail.
-        assert(VerifyScript(sigs.scriptSig, script, nullptr, STANDARD_SCRIPT_VERIFY_FLAGS, DUMMY_CHECKER, colorId));
+        assert(VerifyScript(sigs.scriptSig, script, STANDARD_SCRIPT_VERIFY_FLAGS, DUMMY_CHECKER, colorId));
         return true;
     }
     return false;

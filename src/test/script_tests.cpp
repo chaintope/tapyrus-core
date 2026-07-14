@@ -154,7 +154,6 @@ CMutableTransaction BuildSpendingTransaction(const CScript& scriptSig, const CSc
     txSpend.nLockTime = 0;
     txSpend.vin.resize(1);
     txSpend.vout.resize(1);
-    txSpend.vin[0].scriptWitness = scriptWitness;
     txSpend.vin[0].prevout.hashMalFix = txCredit.GetHashMalFix();
     txSpend.vin[0].prevout.n = 0;
     txSpend.vin[0].scriptSig = scriptSig;
@@ -168,9 +167,6 @@ CMutableTransaction BuildSpendingTransaction(const CScript& scriptSig, const CSc
 void DoTest(const CScript& scriptPubKey, const CScript& scriptSig, const CScriptWitness& scriptWitness, int flags, const std::string& message, int scriptError, CAmount nValue = 0, uint32_t nLockTime = 0, uint32_t nSequence = CTxIn::SEQUENCE_FINAL)
 {
     bool expect = (scriptError == SCRIPT_ERR_OK);
-    if (flags & SCRIPT_VERIFY_CLEANSTACK) {
-        flags |= SCRIPT_VERIFY_WITNESS;
-    }
     ScriptError err;
     ColorIdentifier colorId;
     const CTransaction txCredit{BuildCreditingTransaction(scriptPubKey, nValue)};
@@ -178,7 +174,7 @@ void DoTest(const CScript& scriptPubKey, const CScript& scriptSig, const CScript
     tx.nLockTime = nLockTime;
     tx.vin[0].nSequence = nSequence;
     CMutableTransaction tx2 = tx;
-    BOOST_CHECK_MESSAGE(VerifyScript(scriptSig, scriptPubKey, &scriptWitness, flags, MutableTransactionSignatureChecker(&tx, 0, txCredit.vout[0].nValue), colorId, &err) == expect, message);
+    BOOST_CHECK_MESSAGE(VerifyScript(scriptSig, scriptPubKey, flags, MutableTransactionSignatureChecker(&tx, 0, txCredit.vout[0].nValue), colorId, &err) == expect, message);
     BOOST_CHECK_MESSAGE(err == scriptError, std::string(FormatScriptError(err)) + " where " + std::string(FormatScriptError((ScriptError_t)scriptError)) + " expected: " + message);
 
     // Verify that removing flags from a passing test or adding flags to a failing test does not change the result.
@@ -186,22 +182,17 @@ void DoTest(const CScript& scriptPubKey, const CScript& scriptSig, const CScript
         SCRIPT_VERIFY_SIGPUSHONLY,
         SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS,
         SCRIPT_VERIFY_CLEANSTACK,
-        //SCRIPT_VERIFY_WITNESS,
-        SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_WITNESS_PROGRAM,
         SCRIPT_VERIFY_MINIMALIF,
         SCRIPT_VERIFY_NULLFAIL,
-        SCRIPT_VERIFY_WITNESS_PUBKEYTYPE,
         SCRIPT_VERIFY_CONST_SCRIPTCODE,
         SCRIPT_VERIFY_CP2SH_COLORED};
     // If we add many more flags, this loop can get too expensive, but we can
     // rewrite in the future to randomly pick a set of flags to evaluate.
     for (auto extra_flags: test_flags_list) {
         int combined_flags = expect ? (flags & ~extra_flags) : (flags | extra_flags);
-        // Weed out some invalid flag combinations.
-        //if (combined_flags & SCRIPT_VERIFY_CLEANSTACK && ~combined_flags & ( SCRIPT_VERIFY_WITNESS)) continue;
         colorId = ColorIdentifier();
 
-        BOOST_CHECK_MESSAGE(VerifyScript(scriptSig, scriptPubKey, &scriptWitness, combined_flags, MutableTransactionSignatureChecker(&tx, 0, txCredit.vout[0].nValue), colorId, &err) == expect, message + strprintf(" (with flags %x)", combined_flags));
+        BOOST_CHECK_MESSAGE(VerifyScript(scriptSig, scriptPubKey, combined_flags, MutableTransactionSignatureChecker(&tx, 0, txCredit.vout[0].nValue), colorId, &err) == expect, message + strprintf(" (with flags %x)", combined_flags));
     }
 
 #if defined(HAVE_CONSENSUS_LIB)
@@ -1100,387 +1091,6 @@ BOOST_AUTO_TEST_CASE(script_build)
         "P2SH SCHNORR with CLEANSTACK", SCRIPT_VERIFY_CLEANSTACK, true)
                         .PushSig(keys.key0, SignatureScheme::SCHNORR)
                         .PushRedeem());
-    tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey0) << OP_CHECKSIG,
-        "Basic P2WSH", SCRIPT_VERIFY_WITNESS, false, WitnessMode::SH,
-        0, 1)
-                        .PushWitSig(keys.key0)
-                        .PushWitRedeem());
-    tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey0),
-        "Basic P2WPKH", SCRIPT_VERIFY_WITNESS, false, WitnessMode::PKH,
-        0, 1)
-                        .PushWitSig(keys.key0)
-                        .Push(keys.pubkey0)
-                        .AsWit());
-    tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey0) << OP_CHECKSIG,
-        "Basic P2SH(P2WSH)", SCRIPT_VERIFY_WITNESS, true, WitnessMode::SH,
-        0, 1)
-                        .PushWitSig(keys.key0)
-                        .PushWitRedeem()
-                        .PushRedeem());
-    tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey0),
-        "Basic P2SH(P2WPKH)", SCRIPT_VERIFY_WITNESS, true, WitnessMode::PKH,
-        0, 1)
-                        .PushWitSig(keys.key0)
-                        .Push(keys.pubkey0)
-                        .AsWit()
-                        .PushRedeem());
-    tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey1) << OP_CHECKSIG,
-        "Basic P2WSH with the wrong key", SCRIPT_VERIFY_WITNESS, false, WitnessMode::SH)
-                        .PushWitSig(keys.key0)
-                        .PushWitRedeem()
-                        .ScriptError(SCRIPT_ERR_EVAL_FALSE));
-    tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey1),
-        "Basic P2WPKH with the wrong key", SCRIPT_VERIFY_WITNESS, false, WitnessMode::PKH)
-                        .PushWitSig(keys.key0)
-                        .Push(keys.pubkey1)
-                        .AsWit()
-                        .ScriptError(SCRIPT_ERR_EVAL_FALSE));
-    tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey1) << OP_CHECKSIG,
-        "Basic P2SH(P2WSH) with the wrong key", SCRIPT_VERIFY_WITNESS, true, WitnessMode::SH)
-                        .PushWitSig(keys.key0)
-                        .PushWitRedeem()
-                        .PushRedeem()
-                        .ScriptError(SCRIPT_ERR_EVAL_FALSE));
-    tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey1),
-        "Basic P2SH(P2WPKH) with the wrong key", SCRIPT_VERIFY_WITNESS, true, WitnessMode::PKH)
-                        .PushWitSig(keys.key0)
-                        .Push(keys.pubkey1)
-                        .AsWit()
-                        .PushRedeem()
-                        .ScriptError(SCRIPT_ERR_EVAL_FALSE));
-    tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey1) << OP_CHECKSIG,
-        "Basic P2WSH with the wrong key but no WITNESS", SCRIPT_VERIFY_NONE, false, WitnessMode::SH)
-                        .PushWitSig(keys.key0)
-                        .PushWitRedeem());
-    tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey1),
-        "Basic P2WPKH with the wrong key but no WITNESS", SCRIPT_VERIFY_NONE, false, WitnessMode::PKH)
-                        .PushWitSig(keys.key0)
-                        .Push(keys.pubkey1)
-                        .AsWit());
-    tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey1) << OP_CHECKSIG,
-        "Basic P2SH(P2WSH) with the wrong key but no WITNESS", SCRIPT_VERIFY_NONE, true, WitnessMode::SH)
-                        .PushWitSig(keys.key0)
-                        .PushWitRedeem()
-                        .PushRedeem());
-    tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey1),
-        "Basic P2SH(P2WPKH) with the wrong key but no WITNESS", SCRIPT_VERIFY_NONE, true, WitnessMode::PKH)
-                        .PushWitSig(keys.key0)
-                        .Push(keys.pubkey1)
-                        .AsWit()
-                        .PushRedeem());
-    tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey0) << OP_CHECKSIG,
-        "Basic P2WSH with wrong value", SCRIPT_VERIFY_WITNESS, false, WitnessMode::SH,
-        0, 0)
-                        .PushWitSig(keys.key0, 1)
-                        .PushWitRedeem()
-                        .ScriptError(SCRIPT_ERR_EVAL_FALSE));
-    tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey0),
-        "Basic P2WPKH with wrong value", SCRIPT_VERIFY_WITNESS, false, WitnessMode::PKH,
-        0, 0)
-                        .PushWitSig(keys.key0, 1)
-                        .Push(keys.pubkey0)
-                        .AsWit()
-                        .ScriptError(SCRIPT_ERR_EVAL_FALSE));
-    tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey0) << OP_CHECKSIG,
-        "Basic P2SH(P2WSH) with wrong value", SCRIPT_VERIFY_WITNESS, true, WitnessMode::SH,
-        0, 0)
-                        .PushWitSig(keys.key0, 1)
-                        .PushWitRedeem()
-                        .PushRedeem()
-                        .ScriptError(SCRIPT_ERR_EVAL_FALSE));
-    tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey0),
-        "Basic P2SH(P2WPKH) with wrong value",  SCRIPT_VERIFY_WITNESS, true, WitnessMode::PKH,
-        0, 0)
-                        .PushWitSig(keys.key0, 1)
-                        .Push(keys.pubkey0)
-                        .AsWit()
-                        .PushRedeem()
-                        .ScriptError(SCRIPT_ERR_EVAL_FALSE));
-
-    tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey0),
-        "P2WPKH with future witness version",  SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_WITNESS_PROGRAM|SCRIPT_VERIFY_WITNESS, false, WitnessMode::PKH, 1)
-                        .PushWitSig(keys.key0)
-                        .Push(keys.pubkey0)
-                        .AsWit()
-                        .ScriptError(SCRIPT_ERR_DISCOURAGE_UPGRADABLE_WITNESS_PROGRAM));
-    {
-        CScript witscript = CScript() << ToByteVector(keys.pubkey0);
-        uint256 hash;
-        CSHA256().Write(&witscript[0], witscript.size()).Finalize(hash.begin());
-        std::vector<unsigned char> hashBytes = ToByteVector(hash);
-        hashBytes.pop_back();
-        tests.push_back(TestBuilder(CScript() << OP_0 << hashBytes,
-            "P2WPKH with wrong witness program length", SCRIPT_VERIFY_WITNESS, false)
-                            .PushWitSig(keys.key0)
-                            .Push(keys.pubkey0)
-                            .AsWit()
-                            .ScriptError(SCRIPT_ERR_WITNESS_PROGRAM_WRONG_LENGTH));
-    }
-    tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey0) << OP_CHECKSIG,
-        "P2WSH with empty witness", SCRIPT_VERIFY_WITNESS, false, WitnessMode::SH)
-                        .ScriptError(SCRIPT_ERR_WITNESS_PROGRAM_WITNESS_EMPTY));
-    {
-        CScript witscript = CScript() << ToByteVector(keys.pubkey0) << OP_CHECKSIG;
-        tests.push_back(TestBuilder(witscript,
-            "P2WSH with witness program mismatch", SCRIPT_VERIFY_WITNESS, false, WitnessMode::SH)
-                            .PushWitSig(keys.key0)
-                            .Push(witscript)
-                            .DamagePush(0)
-                            .AsWit()
-                            .ScriptError(SCRIPT_ERR_WITNESS_PROGRAM_MISMATCH));
-    }
-    tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey0),
-        "P2WPKH with witness program mismatch", SCRIPT_VERIFY_WITNESS, false, WitnessMode::PKH)
-                        .PushWitSig(keys.key0)
-                        .Push(keys.pubkey0)
-                        .AsWit()
-                        .Push("0")
-                        .AsWit()
-                        .ScriptError(SCRIPT_ERR_WITNESS_PROGRAM_MISMATCH));
-    tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey0),
-        "P2WPKH with non-empty scriptSig", SCRIPT_VERIFY_WITNESS, false, WitnessMode::PKH)
-                        .PushWitSig(keys.key0)
-                        .Push(keys.pubkey0)
-                        .AsWit()
-                        .Num(11)
-                        .ScriptError(SCRIPT_ERR_WITNESS_MALLEATED));
-    tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey1),
-        "P2SH(P2WPKH) with superfluous push in scriptSig", SCRIPT_VERIFY_WITNESS, true, WitnessMode::PKH)
-                        .PushWitSig(keys.key0)
-                        .Push(keys.pubkey1)
-                        .AsWit()
-                        .Num(11)
-                        .PushRedeem()
-                        .ScriptError(SCRIPT_ERR_WITNESS_MALLEATED_P2SH));
-    tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey0) << OP_CHECKSIG,
-        "P2PK ECDSA with witness", SCRIPT_VERIFY_WITNESS)
-                        .PushSig(keys.key0, SignatureScheme::ECDSA)
-                        .Push("0")
-                        .AsWit()
-                        .ScriptError(SCRIPT_ERR_WITNESS_UNEXPECTED));
-    tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey0) << OP_CHECKSIG,
-        "P2PK SCHNORR with witness", SCRIPT_VERIFY_WITNESS)
-                        .PushSig(keys.key0, SignatureScheme::SCHNORR)
-                        .Push("0")
-                        .AsWit()
-                        .ScriptError(SCRIPT_ERR_WITNESS_UNEXPECTED));
-    // Compressed keys should pass SCRIPT_VERIFY_WITNESS_PUBKEYTYPE
-    tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey0C) << OP_CHECKSIG,
-        "Basic P2WSH with compressed key", SCRIPT_VERIFY_WITNESS | SCRIPT_VERIFY_WITNESS_PUBKEYTYPE, false, WitnessMode::SH,
-        0, 1)
-                        .PushWitSig(keys.key0C)
-                        .PushWitRedeem());
-    tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey0C),
-        "Basic P2WPKH with compressed key", SCRIPT_VERIFY_WITNESS  | SCRIPT_VERIFY_WITNESS_PUBKEYTYPE, false, WitnessMode::PKH,
-        0, 1)
-                        .PushWitSig(keys.key0C)
-                        .Push(keys.pubkey0C)
-                        .AsWit());
-    tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey0C) << OP_CHECKSIG,
-        "Basic P2SH(P2WSH) with compressed key", SCRIPT_VERIFY_WITNESS | SCRIPT_VERIFY_WITNESS_PUBKEYTYPE, true, WitnessMode::SH,
-        0, 1)
-                        .PushWitSig(keys.key0C)
-                        .PushWitRedeem()
-                        .PushRedeem());
-    tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey0C),
-        "Basic P2SH(P2WPKH) with compressed key", SCRIPT_VERIFY_WITNESS | SCRIPT_VERIFY_WITNESS_PUBKEYTYPE, true, WitnessMode::PKH,
-        0, 1)
-                        .PushWitSig(keys.key0C)
-                        .Push(keys.pubkey0C)
-                        .AsWit()
-                        .PushRedeem());
-
-    // Testing uncompressed key in witness with SCRIPT_VERIFY_WITNESS_PUBKEYTYPE
-    tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey0) << OP_CHECKSIG,
-        "Basic P2WSH", SCRIPT_VERIFY_WITNESS  | SCRIPT_VERIFY_WITNESS_PUBKEYTYPE, false, WitnessMode::SH,
-        0, 1)
-                        .PushWitSig(keys.key0)
-                        .PushWitRedeem()
-                        .ScriptError(SCRIPT_ERR_WITNESS_PUBKEYTYPE));
-    tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey0),
-        "Basic P2WPKH", SCRIPT_VERIFY_WITNESS | SCRIPT_VERIFY_WITNESS_PUBKEYTYPE, false, WitnessMode::PKH,
-        0, 1)
-                        .PushWitSig(keys.key0)
-                        .Push(keys.pubkey0)
-                        .AsWit()
-                        .ScriptError(SCRIPT_ERR_WITNESS_PUBKEYTYPE));
-    tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey0) << OP_CHECKSIG,
-        "Basic P2SH(P2WSH)", SCRIPT_VERIFY_WITNESS | SCRIPT_VERIFY_WITNESS_PUBKEYTYPE, true, WitnessMode::SH,
-        0, 1)
-                        .PushWitSig(keys.key0)
-                        .PushWitRedeem()
-                        .PushRedeem()
-                        .ScriptError(SCRIPT_ERR_WITNESS_PUBKEYTYPE));
-    tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey0),
-        "Basic P2SH(P2WPKH)", SCRIPT_VERIFY_WITNESS| SCRIPT_VERIFY_WITNESS_PUBKEYTYPE, true, WitnessMode::PKH,
-        0, 1)
-                        .PushWitSig(keys.key0)
-                        .Push(keys.pubkey0)
-                        .AsWit()
-                        .PushRedeem()
-                        .ScriptError(SCRIPT_ERR_WITNESS_PUBKEYTYPE));
-
-    // P2WSH 1-of-2 multisig with compressed keys
-    tests.push_back(TestBuilder(CScript() << OP_1 << ToByteVector(keys.pubkey1C) << ToByteVector(keys.pubkey0C) << OP_2 << OP_CHECKMULTISIG,
-        "P2WSH CHECKMULTISIG with compressed keys", SCRIPT_VERIFY_WITNESS | SCRIPT_VERIFY_WITNESS_PUBKEYTYPE, false, WitnessMode::SH,
-        0, 1)
-                        .Push(CScript())
-                        .AsWit()
-                        .PushWitSig(keys.key0C)
-                        .PushWitRedeem());
-    tests.push_back(TestBuilder(CScript() << OP_1 << ToByteVector(keys.pubkey1C) << ToByteVector(keys.pubkey0C) << OP_2 << OP_CHECKMULTISIG,
-        "P2SH(P2WSH) CHECKMULTISIG with compressed keys", SCRIPT_VERIFY_WITNESS |  SCRIPT_VERIFY_WITNESS_PUBKEYTYPE, true, WitnessMode::SH,
-        0, 1)
-                        .Push(CScript())
-                        .AsWit()
-                        .PushWitSig(keys.key0C)
-                        .PushWitRedeem()
-                        .PushRedeem());
-    tests.push_back(TestBuilder(CScript() << OP_1 << ToByteVector(keys.pubkey1C) << ToByteVector(keys.pubkey0C) << OP_2 << OP_CHECKMULTISIG,
-        "P2WSH CHECKMULTISIG with compressed keys", SCRIPT_VERIFY_WITNESS | SCRIPT_VERIFY_WITNESS_PUBKEYTYPE, false, WitnessMode::SH,
-        0, 1)
-                        .Push(CScript())
-                        .AsWit()
-                        .PushWitSig(keys.key1C)
-                        .PushWitRedeem());
-    tests.push_back(TestBuilder(CScript() << OP_1 << ToByteVector(keys.pubkey1C) << ToByteVector(keys.pubkey0C) << OP_2 << OP_CHECKMULTISIG,
-        "P2SH(P2WSH) CHECKMULTISIG with compressed keys", SCRIPT_VERIFY_WITNESS | SCRIPT_VERIFY_WITNESS_PUBKEYTYPE, true, WitnessMode::SH,
-        0, 1)
-                        .Push(CScript())
-                        .AsWit()
-                        .PushWitSig(keys.key1C)
-                        .PushWitRedeem()
-                        .PushRedeem());
-
-    // P2WSH 1-of-2 multisig with first key uncompressed
-    tests.push_back(TestBuilder(CScript() << OP_1 << ToByteVector(keys.pubkey1C) << ToByteVector(keys.pubkey0) << OP_2 << OP_CHECKMULTISIG,
-        "P2WSH CHECKMULTISIG with first key uncompressed and signing with the first key", SCRIPT_VERIFY_WITNESS, false, WitnessMode::SH,
-        0, 1)
-                        .Push(CScript())
-                        .AsWit()
-                        .PushWitSig(keys.key0)
-                        .PushWitRedeem());
-    tests.push_back(TestBuilder(CScript() << OP_1 << ToByteVector(keys.pubkey1C) << ToByteVector(keys.pubkey0) << OP_2 << OP_CHECKMULTISIG,
-        "P2SH(P2WSH) CHECKMULTISIG first key uncompressed and signing with the first key", SCRIPT_VERIFY_WITNESS, true, WitnessMode::SH,
-        0, 1)
-                        .Push(CScript())
-                        .AsWit()
-                        .PushWitSig(keys.key0)
-                        .PushWitRedeem()
-                        .PushRedeem());
-    tests.push_back(TestBuilder(CScript() << OP_1 << ToByteVector(keys.pubkey1C) << ToByteVector(keys.pubkey0) << OP_2 << OP_CHECKMULTISIG,
-        "P2WSH CHECKMULTISIG with first key uncompressed and signing with the first key", SCRIPT_VERIFY_WITNESS| SCRIPT_VERIFY_WITNESS_PUBKEYTYPE, false, WitnessMode::SH,
-        0, 1)
-                        .Push(CScript())
-                        .AsWit()
-                        .PushWitSig(keys.key0)
-                        .PushWitRedeem()
-                        .ScriptError(SCRIPT_ERR_WITNESS_PUBKEYTYPE));
-    tests.push_back(TestBuilder(CScript() << OP_1 << ToByteVector(keys.pubkey1C) << ToByteVector(keys.pubkey0) << OP_2 << OP_CHECKMULTISIG,
-        "P2SH(P2WSH) CHECKMULTISIG with first key uncompressed and signing with the first key", SCRIPT_VERIFY_WITNESS| SCRIPT_VERIFY_WITNESS_PUBKEYTYPE, true, WitnessMode::SH,
-        0, 1)
-                        .Push(CScript())
-                        .AsWit()
-                        .PushWitSig(keys.key0)
-                        .PushWitRedeem()
-                        .PushRedeem()
-                        .ScriptError(SCRIPT_ERR_WITNESS_PUBKEYTYPE));
-    tests.push_back(TestBuilder(CScript() << OP_1 << ToByteVector(keys.pubkey1C) << ToByteVector(keys.pubkey0) << OP_2 << OP_CHECKMULTISIG,
-        "P2WSH CHECKMULTISIG with first key uncompressed and signing with the second key", SCRIPT_VERIFY_WITNESS, false, WitnessMode::SH,
-        0, 1)
-                        .Push(CScript())
-                        .AsWit()
-                        .PushWitSig(keys.key1C)
-                        .PushWitRedeem());
-    tests.push_back(TestBuilder(CScript() << OP_1 << ToByteVector(keys.pubkey1C) << ToByteVector(keys.pubkey0) << OP_2 << OP_CHECKMULTISIG,
-        "P2SH(P2WSH) CHECKMULTISIG with first key uncompressed and signing with the second key", SCRIPT_VERIFY_WITNESS, true, WitnessMode::SH,
-        0, 1)
-                        .Push(CScript())
-                        .AsWit()
-                        .PushWitSig(keys.key1C)
-                        .PushWitRedeem()
-                        .PushRedeem());
-    tests.push_back(TestBuilder(CScript() << OP_1 << ToByteVector(keys.pubkey1C) << ToByteVector(keys.pubkey0) << OP_2 << OP_CHECKMULTISIG,
-        "P2WSH CHECKMULTISIG with first key uncompressed and signing with the second key", SCRIPT_VERIFY_WITNESS| SCRIPT_VERIFY_WITNESS_PUBKEYTYPE, false, WitnessMode::SH,
-        0, 1)
-                        .Push(CScript())
-                        .AsWit()
-                        .PushWitSig(keys.key1C)
-                        .PushWitRedeem()
-                        .ScriptError(SCRIPT_ERR_WITNESS_PUBKEYTYPE));
-    tests.push_back(TestBuilder(CScript() << OP_1 << ToByteVector(keys.pubkey1C) << ToByteVector(keys.pubkey0) << OP_2 << OP_CHECKMULTISIG,
-        "P2SH(P2WSH) CHECKMULTISIG with first key uncompressed and signing with the second key", SCRIPT_VERIFY_WITNESS | SCRIPT_VERIFY_WITNESS_PUBKEYTYPE, true, WitnessMode::SH,
-        0, 1)
-                        .Push(CScript())
-                        .AsWit()
-                        .PushWitSig(keys.key1C)
-                        .PushWitRedeem()
-                        .PushRedeem()
-                        .ScriptError(SCRIPT_ERR_WITNESS_PUBKEYTYPE));
-    // P2WSH 1-of-2 multisig with second key uncompressed
-    tests.push_back(TestBuilder(CScript() << OP_1 << ToByteVector(keys.pubkey1) << ToByteVector(keys.pubkey0C) << OP_2 << OP_CHECKMULTISIG,
-        "P2WSH CHECKMULTISIG with second key uncompressed and signing with the first key", SCRIPT_VERIFY_WITNESS , false, WitnessMode::SH,
-        0, 1)
-                        .Push(CScript())
-                        .AsWit()
-                        .PushWitSig(keys.key0C)
-                        .PushWitRedeem());
-    tests.push_back(TestBuilder(CScript() << OP_1 << ToByteVector(keys.pubkey1) << ToByteVector(keys.pubkey0C) << OP_2 << OP_CHECKMULTISIG,
-        "P2SH(P2WSH) CHECKMULTISIG second key uncompressed and signing with the first key", SCRIPT_VERIFY_WITNESS , true, WitnessMode::SH,
-        0, 1)
-                        .Push(CScript())
-                        .AsWit()
-                        .PushWitSig(keys.key0C)
-                        .PushWitRedeem()
-                        .PushRedeem());
-    tests.push_back(TestBuilder(CScript() << OP_1 << ToByteVector(keys.pubkey1) << ToByteVector(keys.pubkey0C) << OP_2 << OP_CHECKMULTISIG,
-        "P2WSH CHECKMULTISIG with second key uncompressed and signing with the first key should pass as the uncompressed key is not used", SCRIPT_VERIFY_WITNESS | SCRIPT_VERIFY_WITNESS_PUBKEYTYPE, false, WitnessMode::SH,
-        0, 1)
-                        .Push(CScript())
-                        .AsWit()
-                        .PushWitSig(keys.key0C)
-                        .PushWitRedeem());
-    tests.push_back(TestBuilder(CScript() << OP_1 << ToByteVector(keys.pubkey1) << ToByteVector(keys.pubkey0C) << OP_2 << OP_CHECKMULTISIG,
-        "P2SH(P2WSH) CHECKMULTISIG with second key uncompressed and signing with the first key should pass as the uncompressed key is not used", SCRIPT_VERIFY_WITNESS | SCRIPT_VERIFY_WITNESS_PUBKEYTYPE, true, WitnessMode::SH,
-        0, 1)
-                        .Push(CScript())
-                        .AsWit()
-                        .PushWitSig(keys.key0C)
-                        .PushWitRedeem()
-                        .PushRedeem());
-    tests.push_back(TestBuilder(CScript() << OP_1 << ToByteVector(keys.pubkey1) << ToByteVector(keys.pubkey0C) << OP_2 << OP_CHECKMULTISIG,
-        "P2WSH CHECKMULTISIG with second key uncompressed and signing with the second key", SCRIPT_VERIFY_WITNESS, false, WitnessMode::SH,
-        0, 1)
-                        .Push(CScript())
-                        .AsWit()
-                        .PushWitSig(keys.key1)
-                        .PushWitRedeem());
-    tests.push_back(TestBuilder(CScript() << OP_1 << ToByteVector(keys.pubkey1) << ToByteVector(keys.pubkey0C) << OP_2 << OP_CHECKMULTISIG,
-        "P2SH(P2WSH) CHECKMULTISIG with second key uncompressed and signing with the second key", SCRIPT_VERIFY_WITNESS, true, WitnessMode::SH,
-        0, 1)
-                        .Push(CScript())
-                        .AsWit()
-                        .PushWitSig(keys.key1)
-                        .PushWitRedeem()
-                        .PushRedeem());
-    tests.push_back(TestBuilder(CScript() << OP_1 << ToByteVector(keys.pubkey1) << ToByteVector(keys.pubkey0C) << OP_2 << OP_CHECKMULTISIG,
-        "P2WSH CHECKMULTISIG with second key uncompressed and signing with the second key", SCRIPT_VERIFY_WITNESS | SCRIPT_VERIFY_WITNESS_PUBKEYTYPE, false, WitnessMode::SH,
-        0, 1)
-                        .Push(CScript())
-                        .AsWit()
-                        .PushWitSig(keys.key1)
-                        .PushWitRedeem()
-                        .ScriptError(SCRIPT_ERR_WITNESS_PUBKEYTYPE));
-    tests.push_back(TestBuilder(CScript() << OP_1 << ToByteVector(keys.pubkey1) << ToByteVector(keys.pubkey0C) << OP_2 << OP_CHECKMULTISIG,
-        "P2SH(P2WSH) CHECKMULTISIG with second key uncompressed and signing with the second key", SCRIPT_VERIFY_WITNESS | SCRIPT_VERIFY_WITNESS_PUBKEYTYPE, true, WitnessMode::SH,
-        0, 1)
-                        .Push(CScript())
-                        .AsWit()
-                        .PushWitSig(keys.key1)
-                        .PushWitRedeem()
-                        .PushRedeem()
-                        .ScriptError(SCRIPT_ERR_WITNESS_PUBKEYTYPE));
-
     // Test OP_CHECKDATASIG
     tests.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey1C) << OP_CHECKDATASIG,
         "Standard CHECKDATASIG ECDSA", SCRIPT_VERIFY_NONE)
@@ -1847,36 +1457,36 @@ BOOST_AUTO_TEST_CASE(script_CHECKMULTISIG12)
     CMutableTransaction txTo12 = BuildSpendingTransaction(CScript(), CScriptWitness(), txFrom12);
 
     CScript goodsig1 = sign_multisig(scriptPubKey12, key1, txTo12);
-    BOOST_CHECK(VerifyScript(goodsig1, scriptPubKey12, nullptr, SCRIPT_VERIFY_NONE, MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), colorId, &err));
+    BOOST_CHECK(VerifyScript(goodsig1, scriptPubKey12, SCRIPT_VERIFY_NONE, MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
-    BOOST_CHECK(VerifyScript(goodsig1, scriptPubKey12, nullptr, stdFlags, MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), colorId, &err));
+    BOOST_CHECK(VerifyScript(goodsig1, scriptPubKey12, stdFlags, MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
-    BOOST_CHECK(VerifyScript(goodsig1, scriptPubKey12, nullptr, mndFlags, 
+    BOOST_CHECK(VerifyScript(goodsig1, scriptPubKey12, mndFlags, 
     MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
 
     txTo12.vout[0].nValue = 2;
-    BOOST_CHECK(!VerifyScript(goodsig1, scriptPubKey12, nullptr, SCRIPT_VERIFY_NONE, MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), colorId, &err));
+    BOOST_CHECK(!VerifyScript(goodsig1, scriptPubKey12, SCRIPT_VERIFY_NONE, MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_EVAL_FALSE, ScriptErrorString(err));
-    BOOST_CHECK(!VerifyScript(goodsig1, scriptPubKey12, nullptr, stdFlags, MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), colorId, &err));
+    BOOST_CHECK(!VerifyScript(goodsig1, scriptPubKey12, stdFlags, MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_SIG_NULLFAIL, ScriptErrorString(err));
-    BOOST_CHECK(!VerifyScript(goodsig1, scriptPubKey12, nullptr, mndFlags, MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), colorId, &err));
+    BOOST_CHECK(!VerifyScript(goodsig1, scriptPubKey12, mndFlags, MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_SIG_NULLFAIL, ScriptErrorString(err));
 
     CScript goodsig2 = sign_multisig(scriptPubKey12, key2, txTo12);
-    BOOST_CHECK(VerifyScript(goodsig2, scriptPubKey12, nullptr, SCRIPT_VERIFY_NONE, MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), colorId, &err));
+    BOOST_CHECK(VerifyScript(goodsig2, scriptPubKey12, SCRIPT_VERIFY_NONE, MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
-    BOOST_CHECK(VerifyScript(goodsig2, scriptPubKey12, nullptr, stdFlags, MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), colorId, &err));
+    BOOST_CHECK(VerifyScript(goodsig2, scriptPubKey12, stdFlags, MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
-    BOOST_CHECK(VerifyScript(goodsig2, scriptPubKey12, nullptr, mndFlags, MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), colorId, &err));
+    BOOST_CHECK(VerifyScript(goodsig2, scriptPubKey12, mndFlags, MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
 
     CScript badsig1 = sign_multisig(scriptPubKey12, key3, txTo12);
-    BOOST_CHECK(!VerifyScript(badsig1, scriptPubKey12, nullptr, SCRIPT_VERIFY_NONE, MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), colorId, &err));
+    BOOST_CHECK(!VerifyScript(badsig1, scriptPubKey12, SCRIPT_VERIFY_NONE, MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_EVAL_FALSE, ScriptErrorString(err));
-    BOOST_CHECK(!VerifyScript(badsig1, scriptPubKey12, nullptr, stdFlags, MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), colorId, &err));
+    BOOST_CHECK(!VerifyScript(badsig1, scriptPubKey12, stdFlags, MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_SIG_NULLFAIL, ScriptErrorString(err));
-    BOOST_CHECK(!VerifyScript(badsig1, scriptPubKey12, nullptr, mndFlags, MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), colorId, &err));
+    BOOST_CHECK(!VerifyScript(badsig1, scriptPubKey12, mndFlags, MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_SIG_NULLFAIL, ScriptErrorString(err));
 }
 
@@ -1900,113 +1510,113 @@ BOOST_AUTO_TEST_CASE(script_CHECKMULTISIG23)
     keys.push_back(key1);
     keys.push_back(key2);
     CScript goodsig1 = sign_multisig(scriptPubKey23, keys, txTo23);
-    BOOST_CHECK(VerifyScript(goodsig1, scriptPubKey23, nullptr, SCRIPT_VERIFY_NONE, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
+    BOOST_CHECK(VerifyScript(goodsig1, scriptPubKey23, SCRIPT_VERIFY_NONE, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
 
-    BOOST_CHECK(VerifyScript(goodsig1, scriptPubKey23, nullptr, stdFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
+    BOOST_CHECK(VerifyScript(goodsig1, scriptPubKey23, stdFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
 
-    BOOST_CHECK(VerifyScript(goodsig1, scriptPubKey23, nullptr, mndFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
+    BOOST_CHECK(VerifyScript(goodsig1, scriptPubKey23, mndFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
 
     keys.clear();
     keys.push_back(key1);
     keys.push_back(key3);
     CScript goodsig2 = sign_multisig(scriptPubKey23, keys, txTo23);
-    BOOST_CHECK(VerifyScript(goodsig2, scriptPubKey23, nullptr, SCRIPT_VERIFY_NONE, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
+    BOOST_CHECK(VerifyScript(goodsig2, scriptPubKey23, SCRIPT_VERIFY_NONE, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
 
-    BOOST_CHECK(VerifyScript(goodsig2, scriptPubKey23, nullptr, stdFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
+    BOOST_CHECK(VerifyScript(goodsig2, scriptPubKey23, stdFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
 
-    BOOST_CHECK(VerifyScript(goodsig2, scriptPubKey23, nullptr, mndFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
+    BOOST_CHECK(VerifyScript(goodsig2, scriptPubKey23, mndFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
 
     keys.clear();
     keys.push_back(key2);
     keys.push_back(key3);
     CScript goodsig3 = sign_multisig(scriptPubKey23, keys, txTo23);
-    BOOST_CHECK(VerifyScript(goodsig3, scriptPubKey23, nullptr, SCRIPT_VERIFY_NONE, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
+    BOOST_CHECK(VerifyScript(goodsig3, scriptPubKey23, SCRIPT_VERIFY_NONE, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
 
-    BOOST_CHECK(VerifyScript(goodsig3, scriptPubKey23, nullptr, stdFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
+    BOOST_CHECK(VerifyScript(goodsig3, scriptPubKey23, stdFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
 
-    BOOST_CHECK(VerifyScript(goodsig3, scriptPubKey23, nullptr, mndFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
+    BOOST_CHECK(VerifyScript(goodsig3, scriptPubKey23, mndFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
 
     keys.clear();
     keys.push_back(key2);
     keys.push_back(key2); // Can't re-use sig
     CScript badsig1 = sign_multisig(scriptPubKey23, keys, txTo23);
-    BOOST_CHECK(!VerifyScript(badsig1, scriptPubKey23, nullptr, SCRIPT_VERIFY_NONE, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
+    BOOST_CHECK(!VerifyScript(badsig1, scriptPubKey23, SCRIPT_VERIFY_NONE, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_EVAL_FALSE, ScriptErrorString(err));
 
-    BOOST_CHECK(!VerifyScript(badsig1, scriptPubKey23, nullptr, stdFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
+    BOOST_CHECK(!VerifyScript(badsig1, scriptPubKey23, stdFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_SIG_NULLFAIL, ScriptErrorString(err));
 
-    BOOST_CHECK(!VerifyScript(badsig1, scriptPubKey23, nullptr, mndFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
+    BOOST_CHECK(!VerifyScript(badsig1, scriptPubKey23, mndFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_SIG_NULLFAIL, ScriptErrorString(err));
 
     keys.clear();
     keys.push_back(key2);
     keys.push_back(key1); // sigs must be in correct order
     CScript badsig2 = sign_multisig(scriptPubKey23, keys, txTo23);
-    BOOST_CHECK(!VerifyScript(badsig2, scriptPubKey23, nullptr, SCRIPT_VERIFY_NONE, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
+    BOOST_CHECK(!VerifyScript(badsig2, scriptPubKey23, SCRIPT_VERIFY_NONE, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_EVAL_FALSE, ScriptErrorString(err));
 
-    BOOST_CHECK(!VerifyScript(badsig2, scriptPubKey23, nullptr, stdFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
+    BOOST_CHECK(!VerifyScript(badsig2, scriptPubKey23, stdFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_SIG_NULLFAIL, ScriptErrorString(err));
 
-    BOOST_CHECK(!VerifyScript(badsig2, scriptPubKey23, nullptr, mndFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
+    BOOST_CHECK(!VerifyScript(badsig2, scriptPubKey23, mndFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_SIG_NULLFAIL, ScriptErrorString(err));
 
     keys.clear();
     keys.push_back(key3);
     keys.push_back(key2); // sigs must be in correct order
     CScript badsig3 = sign_multisig(scriptPubKey23, keys, txTo23);
-    BOOST_CHECK(!VerifyScript(badsig3, scriptPubKey23, nullptr, SCRIPT_VERIFY_NONE, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
+    BOOST_CHECK(!VerifyScript(badsig3, scriptPubKey23, SCRIPT_VERIFY_NONE, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_EVAL_FALSE, ScriptErrorString(err));
 
-    BOOST_CHECK(!VerifyScript(badsig3, scriptPubKey23, nullptr, stdFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
+    BOOST_CHECK(!VerifyScript(badsig3, scriptPubKey23, stdFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_SIG_NULLFAIL, ScriptErrorString(err));
 
-    BOOST_CHECK(!VerifyScript(badsig3, scriptPubKey23, nullptr, mndFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
+    BOOST_CHECK(!VerifyScript(badsig3, scriptPubKey23, mndFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_SIG_NULLFAIL, ScriptErrorString(err));
 
     keys.clear();
     keys.push_back(key4);
     keys.push_back(key2); // sigs must match pubkeys
     CScript badsig4 = sign_multisig(scriptPubKey23, keys, txTo23);
-    BOOST_CHECK(!VerifyScript(badsig4, scriptPubKey23, nullptr, SCRIPT_VERIFY_NONE, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
+    BOOST_CHECK(!VerifyScript(badsig4, scriptPubKey23, SCRIPT_VERIFY_NONE, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_EVAL_FALSE, ScriptErrorString(err));
 
-    BOOST_CHECK(!VerifyScript(badsig4, scriptPubKey23, nullptr, stdFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
+    BOOST_CHECK(!VerifyScript(badsig4, scriptPubKey23, stdFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_SIG_NULLFAIL, ScriptErrorString(err));
 
-    BOOST_CHECK(!VerifyScript(badsig4, scriptPubKey23, nullptr, mndFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
+    BOOST_CHECK(!VerifyScript(badsig4, scriptPubKey23, mndFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_SIG_NULLFAIL, ScriptErrorString(err));
 
     keys.clear();
     keys.push_back(key1);
     keys.push_back(key4); // sigs must match pubkeys
     CScript badsig5 = sign_multisig(scriptPubKey23, keys, txTo23);
-    BOOST_CHECK(!VerifyScript(badsig5, scriptPubKey23, nullptr, SCRIPT_VERIFY_NONE, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
+    BOOST_CHECK(!VerifyScript(badsig5, scriptPubKey23, SCRIPT_VERIFY_NONE, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_EVAL_FALSE, ScriptErrorString(err));
 
-    BOOST_CHECK(!VerifyScript(badsig5, scriptPubKey23, nullptr, stdFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
+    BOOST_CHECK(!VerifyScript(badsig5, scriptPubKey23, stdFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_SIG_NULLFAIL, ScriptErrorString(err));
 
-    BOOST_CHECK(!VerifyScript(badsig5, scriptPubKey23, nullptr, mndFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
+    BOOST_CHECK(!VerifyScript(badsig5, scriptPubKey23, mndFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_SIG_NULLFAIL, ScriptErrorString(err));
 
     keys.clear(); // Must have signatures
     CScript badsig6 = sign_multisig(scriptPubKey23, keys, txTo23);
-    BOOST_CHECK(!VerifyScript(badsig6, scriptPubKey23, nullptr, SCRIPT_VERIFY_NONE, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
+    BOOST_CHECK(!VerifyScript(badsig6, scriptPubKey23, SCRIPT_VERIFY_NONE, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_INVALID_STACK_OPERATION, ScriptErrorString(err));
-    BOOST_CHECK(!VerifyScript(badsig6, scriptPubKey23, nullptr, stdFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
+    BOOST_CHECK(!VerifyScript(badsig6, scriptPubKey23, stdFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_INVALID_STACK_OPERATION, ScriptErrorString(err));
-    BOOST_CHECK(!VerifyScript(badsig6, scriptPubKey23, nullptr, mndFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
+    BOOST_CHECK(!VerifyScript(badsig6, scriptPubKey23, mndFlags, MutableTransactionSignatureChecker(&txTo23, 0, txFrom23.vout[0].nValue), colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_INVALID_STACK_OPERATION, ScriptErrorString(err));
 }
 
@@ -2148,11 +1758,11 @@ BOOST_AUTO_TEST_CASE(script_standard_push)
         CScript script;
         script << i;
         BOOST_CHECK_MESSAGE(script.IsPushOnly(), "Number " << i << " is not pure push.");
-        BOOST_CHECK_MESSAGE(VerifyScript(script, CScript() << i << OP_EQUAL, nullptr, SCRIPT_VERIFY_NONE, BaseSignatureChecker(), colorId, &err), "Number " << i << " push is not minimal data.");
+        BOOST_CHECK_MESSAGE(VerifyScript(script, CScript() << i << OP_EQUAL, SCRIPT_VERIFY_NONE, BaseSignatureChecker(), colorId, &err), "Number " << i << " push is not minimal data.");
         BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
-        BOOST_CHECK_MESSAGE(VerifyScript(script, CScript() << i << OP_EQUAL, nullptr, stdFlags, BaseSignatureChecker(), colorId, &err), "Number " << i << " push is not minimal data.");
+        BOOST_CHECK_MESSAGE(VerifyScript(script, CScript() << i << OP_EQUAL, stdFlags, BaseSignatureChecker(), colorId, &err), "Number " << i << " push is not minimal data.");
         BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
-        BOOST_CHECK_MESSAGE(VerifyScript(script, CScript() << i << OP_EQUAL, nullptr, mndFlags, BaseSignatureChecker(), colorId, &err), "Number " << i << " push is not minimal data.");
+        BOOST_CHECK_MESSAGE(VerifyScript(script, CScript() << i << OP_EQUAL, mndFlags, BaseSignatureChecker(), colorId, &err), "Number " << i << " push is not minimal data.");
         BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
     }
 
@@ -2161,11 +1771,11 @@ BOOST_AUTO_TEST_CASE(script_standard_push)
         CScript script;
         script << data;
         BOOST_CHECK_MESSAGE(script.IsPushOnly(), "Length " << i << " is not pure push.");
-        BOOST_CHECK_MESSAGE(VerifyScript(script, CScript() << data << OP_EQUAL, nullptr, SCRIPT_VERIFY_NONE, BaseSignatureChecker(), colorId, &err), "Length " << i << " push is not minimal data.");
+        BOOST_CHECK_MESSAGE(VerifyScript(script, CScript() << data << OP_EQUAL, SCRIPT_VERIFY_NONE, BaseSignatureChecker(), colorId, &err), "Length " << i << " push is not minimal data.");
         BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
-        BOOST_CHECK_MESSAGE(VerifyScript(script, CScript() << data << OP_EQUAL, nullptr, stdFlags, BaseSignatureChecker(), colorId, &err), "Length " << i << " push is not minimal data.");
+        BOOST_CHECK_MESSAGE(VerifyScript(script, CScript() << data << OP_EQUAL, stdFlags, BaseSignatureChecker(), colorId, &err), "Length " << i << " push is not minimal data.");
         BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
-        BOOST_CHECK_MESSAGE(VerifyScript(script, CScript() << data << OP_EQUAL, nullptr, mndFlags, BaseSignatureChecker(), colorId, &err), "Length " << i << " push is not minimal data.");
+        BOOST_CHECK_MESSAGE(VerifyScript(script, CScript() << data << OP_EQUAL, mndFlags, BaseSignatureChecker(), colorId, &err), "Length " << i << " push is not minimal data.");
         BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
     }
 }

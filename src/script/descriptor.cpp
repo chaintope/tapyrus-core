@@ -202,7 +202,7 @@ public:
     }
 };
 
-/** A parsed pk(P), pkh(P), or wpkh(P) descriptor. */
+/** A parsed pk(P) or pkh(P) descriptor. */
 class SingleKeyDescriptor final : public Descriptor
 {
     const std::function<CScript(const CPubKey&)> m_script_fn;
@@ -288,7 +288,7 @@ public:
     }
 };
 
-/** A parsed sh(S) or wsh(S) descriptor. */
+/** A parsed sh(S) descriptor. */
 class ConvertorDescriptor : public Descriptor
 {
     const std::function<CScript(const CScript&)> m_convert_fn;
@@ -361,7 +361,6 @@ public:
 enum class ParseScriptContext {
     TOP,
     P2SH,
-    P2WSH,
 };
 
 /** Parse a constant. If succesful, sp is updated to skip the constant and return true. */
@@ -438,7 +437,7 @@ bool ParseKeyPath(const std::vector<Span<const char>>& split, KeyPath& out)
     return true;
 }
 
-std::unique_ptr<PubkeyProvider> ParsePubkey(const Span<const char>& sp, bool permit_uncompressed, FlatSigningProvider& out)
+std::unique_ptr<PubkeyProvider> ParsePubkey(const Span<const char>& sp, FlatSigningProvider& out)
 {
     auto split = Split(sp, '/');
     std::string str(split[0].begin(), split[0].end());
@@ -446,10 +445,10 @@ std::unique_ptr<PubkeyProvider> ParsePubkey(const Span<const char>& sp, bool per
         if (IsHex(str)) {
             std::vector<unsigned char> data = ParseHex(str);
             CPubKey pubkey(data);
-            if (pubkey.IsFullyValid() && (permit_uncompressed || pubkey.IsCompressed())) return MakeUnique<ConstPubkeyProvider>(pubkey);
+            if (pubkey.IsFullyValid()) return MakeUnique<ConstPubkeyProvider>(pubkey);
         }
         CKey key = DecodeSecret(str);
-        if (key.IsValid() && (permit_uncompressed || key.IsCompressed())) {
+        if (key.IsValid()) {
             CPubKey pubkey = key.GetPubKey();
             out.keys.emplace(pubkey.GetID(), key);
             return MakeUnique<ConstPubkeyProvider>(pubkey);
@@ -480,17 +479,17 @@ std::unique_ptr<Descriptor> ParseScript(Span<const char>& sp, ParseScriptContext
 {
     auto expr = Expr(sp);
     if (Func("pk", expr)) {
-        auto pubkey = ParsePubkey(expr, ctx != ParseScriptContext::P2WSH, out);
+        auto pubkey = ParsePubkey(expr, out);
         if (!pubkey) return nullptr;
         return MakeUnique<SingleKeyDescriptor>(std::move(pubkey), P2PKGetScript, "pk");
     }
     if (Func("pkh", expr)) {
-        auto pubkey = ParsePubkey(expr, ctx != ParseScriptContext::P2WSH, out);
+        auto pubkey = ParsePubkey(expr, out);
         if (!pubkey) return nullptr;
         return MakeUnique<SingleKeyDescriptor>(std::move(pubkey), P2PKHGetScript, "pkh");
     }
     if (ctx == ParseScriptContext::TOP && Func("combo", expr)) {
-        auto pubkey = ParsePubkey(expr, true, out);
+        auto pubkey = ParsePubkey(expr, out);
         if (!pubkey) return nullptr;
         return MakeUnique<ComboDescriptor>(std::move(pubkey));
     }
@@ -503,7 +502,7 @@ std::unique_ptr<Descriptor> ParseScript(Span<const char>& sp, ParseScriptContext
         while (expr.size()) {
             if (!Const(",", expr)) return nullptr;
             auto arg = Expr(expr);
-            auto pk = ParsePubkey(arg, ctx != ParseScriptContext::P2WSH, out);
+            auto pk = ParsePubkey(arg, out);
             if (!pk) return nullptr;
             script_size += pk->GetSize() + 1;
             providers.emplace_back(std::move(pk));

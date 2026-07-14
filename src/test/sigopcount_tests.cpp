@@ -97,7 +97,7 @@ static ScriptError VerifyWithFlag(const CTransaction& output, const CMutableTran
     ScriptError error;
     ColorIdentifier colorId;
     CTransaction inputi(input);
-    bool ret = VerifyScript(inputi.vin[0].scriptSig, output.vout[0].scriptPubKey, &inputi.vin[0].scriptWitness, flags, TransactionSignatureChecker(&inputi, 0, output.vout[0].nValue), colorId, &error);
+    bool ret = VerifyScript(inputi.vin[0].scriptSig, output.vout[0].scriptPubKey, flags, TransactionSignatureChecker(&inputi, 0, output.vout[0].nValue), colorId, &error);
     BOOST_CHECK((ret == true) == (error == SCRIPT_ERR_OK));
 
     return error;
@@ -123,7 +123,6 @@ static void BuildTxs(CMutableTransaction& spendingTx, CCoinsViewCache& coins, CM
     spendingTx.vin[0].prevout.hashMalFix = creationTx.GetHashMalFix();
     spendingTx.vin[0].prevout.n = 0;
     spendingTx.vin[0].scriptSig = scriptSig;
-    spendingTx.vin[0].scriptWitness = witness;
     spendingTx.vout.resize(1);
     spendingTx.vout[0].nValue = 1;
     spendingTx.vout[0].scriptPubKey = CScript();
@@ -147,7 +146,7 @@ BOOST_AUTO_TEST_CASE(GetTxSigOpCost)
     key.MakeNewKey(true);
     CPubKey pubkey = key.GetPubKey();
     // Default flags
-    int flags = SCRIPT_VERIFY_WITNESS;
+    int flags = SCRIPT_VERIFY_NONE;
 
     // Multisig script (legacy counting)
     {
@@ -211,9 +210,6 @@ BOOST_AUTO_TEST_CASE(GetTxSigOpCost)
         BuildTxs(spendingTx, coins, creationTx, scriptPubKey, scriptSig, CScriptWitness());
 
         BOOST_CHECK_EQUAL(GetTransactionSigOps(CTransaction(spendingTx), coins, flags), 1);
-
-        // No change in the cost without SCRIPT_VERIFY_WITNESS flag.
-        BOOST_CHECK_EQUAL(GetTransactionSigOps(CTransaction(spendingTx), coins, flags & ~SCRIPT_VERIFY_WITNESS), 1);
 
         BOOST_CHECK_EQUAL(VerifyWithFlag(creationTx, spendingTx, flags) , SCRIPT_ERR_CHECKDATASIGVERIFY);
     }
