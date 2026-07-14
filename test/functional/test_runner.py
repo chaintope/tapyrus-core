@@ -250,9 +250,11 @@ USDT_SCRIPTS = [
 ]
 
 # Tests that are too slow/resource-intensive for daily CI (90 min – 4 hours, 4 GB disk).
-# Run via the weekly-heavy-tests.yml workflow (weekly). Tests added here are exercised
-# ONLY by that weekly workflow (--heavy below) — they never run in the daily base/extended
-# suites, so don't add a test here expecting daily coverage.
+# weekly-heavy-tests.yml's matrix now lists each of these directly as its own
+# job (matrix.config.test_args) instead of running this list wholesale, so
+# this list itself no longer drives what runs weekly -- it's kept alive only
+# by the completeness check below (test_runner.py:678). Keep it in lockstep
+# with that matrix whenever a heavy test is added or removed.
 HEAVY_SCRIPTS = [
     'feature_pruning.py',
     'feature_dbcrash.py',

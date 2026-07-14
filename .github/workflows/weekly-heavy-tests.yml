@@ -25,7 +25,7 @@ on:
         required: false
 
 concurrency:
-  group: ${{ github.workflow }}-heavy
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -206,7 +206,10 @@ jobs:
       #     fi
 
       - name: Print full combined logs (on failure)
-        if: failure()
+        # A job hitting the 6h GitHub-hosted-runner ceiling ends with
+        # conclusion "cancelled", not "failure" -- exactly the case this step
+        # exists for, so it must run on both.
+        if: failure() || cancelled()
         run: |
           # test_runner.py only ever prints the last 4000 lines of the
           # combined per-node logs to the console, and only for a genuine
@@ -214,25 +217,40 @@ jobs:
           # failure branch) prints nothing at all on its first attempt, only
           # on a retry that then fails too. Bypass both limitations by
           # combining the full, untruncated logs (test framework + every
-          # node's debug.log) directly and writing them to the job summary.
+          # node's debug.log) directly. $GITHUB_STEP_SUMMARY silently drops
+          # anything past its 1 MB per-step cap, so the full output goes to a
+          # file uploaded as an artifact, with only a tail in the summary.
           shopt -s nullglob
           TESTDIRS=("$TAPYRUS_TEST_DIR"/test_runner_*/*/)
           if [ ${#TESTDIRS[@]} -eq 0 ]; then
             echo "No test directories found under $TAPYRUS_TEST_DIR"
             exit 0
           fi
+          LOGDIR="${{ github.workspace }}/combined_logs"
+          mkdir -p "$LOGDIR"
           echo "## Full Combined Logs — ${{ matrix.config.name }}" >> "$GITHUB_STEP_SUMMARY"
           for testdir in "${TESTDIRS[@]}"; do
             testdir="${testdir%/}"
             echo "Combining logs for $testdir"
+            LOGFILE="$LOGDIR/$(basename "$testdir").log"
+            python3 "$BASE_ROOT_DIR/test/functional/combine_logs.py" "$testdir" > "$LOGFILE" 2>&1
             {
               echo ""
-              echo "### $(basename "$testdir")"
+              echo "### $(basename "$testdir") (tail; full log in the heavy-combined-logs artifact)"
+              echo '```'
+              tail -c 950000 "$LOGFILE"
               echo '```'
             } >> "$GITHUB_STEP_SUMMARY"
-            python3 "$BASE_ROOT_DIR/test/functional/combine_logs.py" "$testdir" >> "$GITHUB_STEP_SUMMARY" 2>&1
-            echo '```' >> "$GITHUB_STEP_SUMMARY"
           done
+
+      - name: Upload combined logs (on failure)
+        if: failure() || cancelled()
+        uses: actions/upload-artifact@v4
+        with:
+          name: heavy-combined-logs-${{ matrix.config.name }}-${{ github.run_id }}
+          path: ${{ github.workspace }}/combined_logs/
+          retention-days: 7
+          if-no-files-found: ignore
 
       - name: Save Ccache cache
         if: github.ref == 'refs/heads/master'
@@ -266,16 +284,54 @@ jobs:
           if-no-files-found: ignore
 
       - name: Debug core dump (on failure)
-        if: failure()
+        if: failure() || cancelled()
         run: |
-          COREFILE=$(ls -t ${{ github.workspace }}/core_dumps/core.* 2>/dev/null | head -n 1)
-          if [ -f "$COREFILE" ]; then
-            echo "Found core dump: $COREFILE"
-            gdb -batch -ex "bt" -ex "quit" "$BASE_BUILD_DIR/bin/tapyrusd" "$COREFILE" || true
+          # Scan the directory configured via core_pattern in "Enable core
+          # dumps and set test dir" directly -- coredumpctl (systemd-coredump's
+          # own index) never sees these dumps, since core_pattern was pointed
+          # at a plain file path instead of the systemd-coredump pipe.
+          CORE_DUMP_DIR="${{ github.workspace }}/core_dumps"
+          shopt -s nullglob
+          COREFILES=("$CORE_DUMP_DIR"/core.*)
+          if [ ${#COREFILES[@]} -eq 0 ]; then
+            echo "No core dumps found in $CORE_DUMP_DIR"
+            exit 0
           fi
 
+          {
+            echo "## Core Dump Backtraces — ${{ matrix.config.name }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          for COREFILE in "${COREFILES[@]}"; do
+            echo "Found core dump: $COREFILE"
+
+            # `file` embeds the crashing binary's path, but it may be relative
+            # to wherever it was invoked from (e.g. "./tapyrusd" run from
+            # $BASE_BUILD_DIR/bin) rather than this step's cwd ($GITHUB_WORKSPACE).
+            BINARY_RAW=$(file "$COREFILE" | awk -F"'" '{print $2}')
+            if [ -x "$BINARY_RAW" ]; then
+              BINARY="$BINARY_RAW"
+            elif [ -x "$BASE_BUILD_DIR/bin/$(basename "$BINARY_RAW" 2>/dev/null)" ]; then
+              BINARY="$BASE_BUILD_DIR/bin/$(basename "$BINARY_RAW")"
+            else
+              echo "Could not detect crashed binary, using tapyrusd as default"
+              BINARY="$BASE_BUILD_DIR/bin/tapyrusd"
+            fi
+            echo "Using binary: $BINARY"
+
+            {
+              echo ""
+              echo "### $(basename "$COREFILE") ($BINARY)"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+
+            gdb -batch -ex "bt full" -ex "quit" "$BINARY" "$COREFILE" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          done
+
       - name: Upload core dumps (on failure)
-        if: failure()
+        if: failure() || cancelled()
         uses: actions/upload-artifact@v4
         with:
           name: heavy-core-dumps-${{ matrix.config.name }}-${{ github.run_id }}
