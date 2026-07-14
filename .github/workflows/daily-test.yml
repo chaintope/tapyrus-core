@@ -22,7 +22,7 @@ on:
       - '**'
 
 concurrency:
-  group: ${{ github.workflow }}-daily
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -57,6 +57,7 @@ jobs:
             enable_gui: true
             enable_usdt: true
             enable_wallet: true
+            collect_benchmark_history: true
           - name: L-X86-Rel-No_GUI+USDT+Wallet
             os: ubuntu-latest
             arch: x86_64
@@ -114,6 +115,7 @@ jobs:
             enable_gui: true
             enable_usdt: false
             enable_wallet: true
+            collect_benchmark_history: true
           - name: M-ARM-Rel-No_GUI+Wallet
             os: macos-latest
             arch: arm64
@@ -193,13 +195,20 @@ jobs:
           restore-keys: depends-v6-qt6-${{ matrix.config.platform }}-${{ matrix.config.arch }}-
 
       - name: Restore Benchmark History cache
-        if: (matrix.config.platform == 'linux' && matrix.config.arch == 'x86_64') || (matrix.config.platform == 'macos' && matrix.config.arch == 'arm64')
+        # Benchmarks only run on scheduled/manually-dispatched runs, not on
+        # every PR (see the gated benchmark step further down). Gated on the
+        # collect_benchmark_history matrix field (set on one canonical config
+        # per platform, rather than platform+arch) -- several matrix configs
+        # share the same platform+arch (e.g. linux x86_64 has 3 RelWithDebInfo
+        # flavors), and letting all of them write the same history file/cache
+        # key in parallel would race.
+        if: github.event_name != 'pull_request' && matrix.config.collect_benchmark_history == true
         id: benchmark-cache
         uses: actions/cache/restore@v5
         with:
           path: ${{ github.workspace }}/benchmark_results/data
-          key: benchmark-history-${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ github.run_id }}
-          restore-keys: benchmark-history-${{ matrix.config.platform }}-${{ matrix.config.arch }}-
+          key: benchmark-history-${{ matrix.config.name }}-${{ github.run_id }}
+          restore-keys: benchmark-history-${{ matrix.config.name }}-
 
       - name: Setup Linux Dependencies
         if: matrix.config.platform == 'linux'
@@ -256,7 +265,7 @@ jobs:
 
           python3 -m venv $HOME/venv
           source $HOME/venv/bin/activate
-          pip3 install pyzmq
+          pip3 install pyzmq matplotlib
 
       - name: Setup macOS Dependencies
         if: matrix.config.platform == 'macos'
@@ -274,7 +283,7 @@ jobs:
 
           python3 -m venv $HOME/venv
           source $HOME/venv/bin/activate
-          pip3 install pyzmq
+          pip3 install pyzmq matplotlib
 
       - name: Build Depends
         env:
@@ -313,6 +322,11 @@ jobs:
           fi
 
           echo "Building depends for HOST=$HOST"
+
+          # Persist HOST for later steps (e.g. "Build and run daily tests") so
+          # the platform/target_platform -> HOST triple resolution logic
+          # lives in exactly one place.
+          echo "HOST=$HOST" >> $GITHUB_ENV
 
           # Set up environment for cross-compilation
           if [ "${{ matrix.config.target_platform }}" == "macos" ]; then
@@ -436,29 +450,26 @@ jobs:
           key: depends-v6-qt6-${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ hashFiles('depends/packages/*', 'depends/hosts/*.mk', 'depends/builders/*.mk', 'depends/funcs.mk', 'depends/toolchain.cmake.in', 'depends/patches/**') }}
 
       - name: Save Benchmark History cache
-        if: always() && ((matrix.config.platform == 'linux' && matrix.config.arch == 'x86_64') || (matrix.config.platform == 'macos' && matrix.config.arch == 'arm64'))
+        if: always() && github.event_name != 'pull_request' && matrix.config.collect_benchmark_history == true
         uses: actions/cache/save@v5
         continue-on-error: true
         with:
           path: ${{ github.workspace }}/benchmark_results/data
-          key: benchmark-history-${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ github.run_id }}
+          key: benchmark-history-${{ matrix.config.name }}-${{ github.run_id }}
 
       - name: Enable core dumps
         if: matrix.config.target_platform != 'windows'
         run: |
           CORE_DUMP_DIR="${{ github.workspace }}/core_dumps"
           mkdir -p "$CORE_DUMP_DIR"
-          chmod 777 "$CORE_DUMP_DIR"
           if [ "${{ matrix.config.platform }}" == "linux" ]; then
             sudo sysctl -w kernel.core_pattern="$CORE_DUMP_DIR/core.%e.%p"
           else
             sudo sysctl -w kern.corefile="$CORE_DUMP_DIR/core.%N"
           fi
           echo "Core dumps will be stored in: $CORE_DUMP_DIR"
-          ulimit -c unlimited
           TEST_DIR="${{ github.workspace }}/tapyrus_test"
           mkdir -p "$TEST_DIR"
-          chmod -R 777 "$TEST_DIR"
           echo "TAPYRUS_TEST_DIR=$TEST_DIR" >> $GITHUB_ENV
 
       - name: Build and run daily tests
@@ -466,6 +477,12 @@ jobs:
           TAPYRUS_TEST_DIR: ${{ env.TAPYRUS_TEST_DIR }}
           ACTIONS_STEP_DEBUG: true
         run: |
+          # ulimit is per-process and does not carry over from the "Enable
+          # core dumps" step (each `run:` block is a separate shell) -- it
+          # must be set here, in the shell that actually execs the test
+          # binaries and their children (ctest, test_runner.py -> tapyrusd).
+          ulimit -c unlimited
+
           if [ "${{ matrix.config.platform }}" == "macos" ]; then
             CPU_COUNT=$(sysctl -n hw.ncpu)
           else
@@ -484,33 +501,8 @@ jobs:
             export CXX="g++"
           fi
 
-          # Set up depends path using target architecture (including cross-compilation)
-          if [ "${{ matrix.config.platform }}" == "macos" ]; then
-            NATIVE_ARCH=$(uname -m)
-            if [ "$NATIVE_ARCH" == "arm64" ]; then
-              export HOST="arm64-apple-darwin"
-            else
-              export HOST="x86_64-apple-darwin"
-            fi
-          elif [ "${{ matrix.config.platform }}" == "linux" ] && [ "${{ matrix.config.target_platform }}" == "macos" ]; then
-            # Cross-compilation: Linux -> macOS
-            if [ "${{ matrix.config.target_arch }}" == "arm64" ]; then
-              export HOST="arm64-apple-darwin"
-            else
-              export HOST="x86_64-apple-darwin"
-            fi
-          elif [ "${{ matrix.config.platform }}" == "linux" ] && [ "${{ matrix.config.target_platform }}" == "windows" ]; then
-            # Cross-compilation: Linux -> Windows
-            export HOST="x86_64-w64-mingw32"
-          else
-            # Native Linux builds
-            NATIVE_ARCH=$(uname -m)
-            if [ "$NATIVE_ARCH" == "aarch64" ]; then
-              export HOST="aarch64-linux-gnu"
-            else
-              export HOST="x86_64-pc-linux-gnu"
-            fi
-          fi
+          # HOST (platform/target_platform -> triple) is resolved once in the
+          # "Build Depends" step and persisted via $GITHUB_ENV; reused here.
           DEPENDS_PREFIX="$DEPENDS_DIR/$HOST"
 
           # Verify depends directory exists and has required files
@@ -622,6 +614,37 @@ jobs:
           # Run daily test suite
           export CTEST_OUTPUT_ON_FAILURE=ON
 
+          # --- Reporting: render a per-job table on the workflow run's Summary
+          # page (GITHUB_STEP_SUMMARY), so triaging a failure doesn't require
+          # opening log artifacts just to see which phase broke and how long
+          # each phase took. One call site per test phase below.
+          DAILY_SUMMARY_HEADER_WRITTEN=0
+          write_summary_header() {
+            if [ "$DAILY_SUMMARY_HEADER_WRITTEN" -eq 0 ]; then
+              {
+                echo "## Daily Test Summary — ${{ matrix.config.name }}"
+                echo ""
+                echo "| Category | Status | Duration |"
+                echo "|---|---|---|"
+              } >> "$GITHUB_STEP_SUMMARY"
+              DAILY_SUMMARY_HEADER_WRITTEN=1
+            fi
+          }
+          record_phase() {
+            # $1=category  $2=exit code (0=pass)  $3=start epoch seconds (from `date +%s`)
+            local category="$1" rc="$2" start="$3"
+            local dur=$(( $(date +%s) - start ))
+            local status
+            if [ "$rc" -eq 0 ]; then status="✅ Passed"; else status="❌ Failed"; fi
+            write_summary_header
+            echo "| $category | $status | $((dur / 60))m $((dur % 60))s |" >> "$GITHUB_STEP_SUMMARY"
+          }
+          record_skipped() {
+            # $1=category  $2=reason
+            write_summary_header
+            echo "| $1 | ⏭️ Skipped ($2) | - |" >> "$GITHUB_STEP_SUMMARY"
+          }
+
           # Skip tests for cross-compiled binaries (they won't run on Linux host)
           if [ "${{ matrix.config.target_platform }}" != "" ] && [ "${{ matrix.config.target_platform }}" != "${{ matrix.config.platform }}" ]; then
             echo "---------------- Cross-compilation build completed ---------------- "
@@ -632,75 +655,142 @@ jobs:
               echo "Build artifacts created for macOS ${{ matrix.config.target_arch }}"
             fi
             ls -la "$BASE_BUILD_DIR/bin/" || true
+            record_skipped "All Tests" "cross-compiled binaries"
             echo "---------------- CROSS-COMPILATION BUILD FINISHED ---------------------"
             exit 0
           fi
 
           echo "---------------- Start unit test ---------------- "
           cd "$BASE_BUILD_DIR/bin"
+          UNIT_START=$(date +%s)
           if [ "${{ matrix.config.platform }}" == "linux" ] && [ "${{ matrix.config.arch }}" == "x86_64"  ]; then
-            valgrind ./test_tapyrus --log_level=test_suite --report_level=short --build_info --catch_system_errors
+            if valgrind ./test_tapyrus --log_level=test_suite --report_level=short --build_info --catch_system_errors; then UNIT_RC=0; else UNIT_RC=$?; fi
           else
-            ./test_tapyrus --log_level=test_suite --report_level=short --build_info --catch_system_errors
+            if ./test_tapyrus --log_level=test_suite --report_level=short --build_info --catch_system_errors; then UNIT_RC=0; else UNIT_RC=$?; fi
           fi
+          record_phase "Unit Tests (ctest)" "$UNIT_RC" "$UNIT_START"
+          if [ "$UNIT_RC" -ne 0 ]; then exit 1; fi
 
           echo "---------------- Start Qt GUI test ---------------- "
           if [ "${{ matrix.config.enable_gui }}" == "true" ] && [ "${{ matrix.config.enable_wallet }}" == "true" ]; then
             # Qt GUI tests require a headless platform on CI agents; use minimal (statically linked)
             export QT_QPA_PLATFORM=minimal
+            GUI_START=$(date +%s)
             # Run via CTest so the test name and WORKING_DIRECTORY are handled correctly
             if ctest --test-dir "$BASE_BUILD_DIR" -R "^test-tapyrus-qt$" --output-on-failure; then
               echo "Qt GUI tests passed"
+              record_phase "Qt GUI Tests" 0 "$GUI_START"
             else
               echo "Qt GUI tests failed"
+              record_phase "Qt GUI Tests" 1 "$GUI_START"
               exit 1
             fi
             unset QT_QPA_PLATFORM
           else
             echo "Skipping Qt GUI tests (GUI or wallet not enabled)"
+            record_skipped "Qt GUI Tests" "GUI or wallet not enabled"
           fi
 
           echo "---------------- Start util test ---------------- "
           cd "$BASE_ROOT_DIR"
+          UTIL_START=$(date +%s)
           if python3 test/util/tapyrus-util-test.py; then
             echo "Util tests passed"
+            record_phase "Util Tests" 0 "$UTIL_START"
           else
             echo "Util tests failed"
+            record_phase "Util Tests" 1 "$UTIL_START"
             exit 1
           fi
 
           if [ "${{ matrix.config.build_type }}" == "Debug" ]; then
             echo "---------------- Start debug mode functional tests ----------------"
             cd "$BASE_ROOT_DIR"
+            DEBUG_FUNC_START=$(date +%s)
             if python3 test/functional/test_runner.py --tmpdir="$TAPYRUS_TEST_DIR" -j 1 --combinedlogslen=4000 --failfast --quiet --debugscripts; then
               echo "Debug mode functional tests passed"
+              record_phase "Functional Tests (debugscripts)" 0 "$DEBUG_FUNC_START"
             else
               echo "Debug mode functional tests failed"
+              record_phase "Functional Tests (debugscripts)" 1 "$DEBUG_FUNC_START"
               exit 1
             fi
+            record_skipped "Benchmark" "Debug build"
             echo "--------------- DAILY DEBUG BUILD FINISHED ---------------------"
             exit 0
           fi
 
           echo "---------------- Start daily functional test suite ---------------- "
           cd "$BASE_ROOT_DIR"
+          FUNC_START=$(date +%s)
           # Run the daily functional test suite including long-running tests
           if python3 test/functional/test_runner.py --tmpdir="$TAPYRUS_TEST_DIR" -j 1 --combinedlogslen=4000 --coverage --failfast --quiet --extended; then
             echo "daily functional tests passed"
+            record_phase "Functional Tests (--extended)" 0 "$FUNC_START"
           else
             echo "daily functional tests failed"
+            record_phase "Functional Tests (--extended)" 1 "$FUNC_START"
             exit 1
           fi
 
-          echo "---------------- Start benchmark test ---------------- "
-          cd "$BASE_BUILD_DIR/bin"
-          ./bench_tapyrus -evals=100 > bench_results.txt
-          if [ $? -eq 0 ]; then
-            echo "Benchmark tests passed"
-            cat bench_results.txt
+          # Benchmarks only run on scheduled/manually-dispatched runs - every PR
+          # already pays for the full functional-test matrix above, and doesn't
+          # need the extra time (and history-cache noise) of a benchmark too.
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            echo "---------------- Skipping benchmark test (event: pull_request) ---------------- "
+            record_skipped "Benchmark" "pull_request event"
           else
-            echo "Benchmark tests failed"
-            exit 1
+            echo "---------------- Start benchmark test ---------------- "
+            cd "$BASE_BUILD_DIR/bin"
+            BENCH_START=$(date +%s)
+            if ./bench_tapyrus -evals=100 > bench_results.txt; then
+              echo "Benchmark tests passed"
+              cat bench_results.txt
+              record_phase "Benchmark" 0 "$BENCH_START"
+            else
+              echo "Benchmark tests failed"
+              record_phase "Benchmark" 1 "$BENCH_START"
+              exit 1
+            fi
+
+            # Persist this run's per-benchmark medians into the cached history
+            # file and render a trend chart (one line per benchmark, one point
+            # per day) into the job summary. Only for configs with
+            # collect_benchmark_history set, whose benchmark_results/data
+            # cache actually persists across runs (see the cache steps above)
+            # -- other configs would just regenerate history from scratch
+            # every run since it's never saved. Set on one canonical config
+            # per platform to avoid multiple same-platform+arch matrix jobs
+            # racing on the same history file.
+            if [ "${{ matrix.config.collect_benchmark_history }}" = "true" ]; then
+              echo "---------------- Updating benchmark history and chart ---------------- "
+              HISTORY_DIR="${{ github.workspace }}/benchmark_results/data"
+              mkdir -p "$HISTORY_DIR"
+              HISTORY_CSV="$HISTORY_DIR/history.csv"
+              RUN_DATE=$(date -u +%Y-%m-%d)
+              RUN_COMMIT=$(cd "$BASE_ROOT_DIR" && git rev-parse --short HEAD)
+
+              source $HOME/venv/bin/activate
+              python3 "$BASE_ROOT_DIR/contrib/devtools/plot_benchmark_history.py" append \
+                --bench-output bench_results.txt --csv "$HISTORY_CSV" \
+                --date "$RUN_DATE" --commit "$RUN_COMMIT" \
+                || echo "Warning: failed to append benchmark history, continuing"
+
+              CHART_PATH="${{ github.workspace }}/benchmark_trend.png"
+              if python3 "$BASE_ROOT_DIR/contrib/devtools/plot_benchmark_history.py" plot \
+                  --csv "$HISTORY_CSV" --out "$CHART_PATH" \
+                  --title "Benchmark history - ${{ matrix.config.name }}" && [ -f "$CHART_PATH" ]; then
+                {
+                  echo ""
+                  echo "### Benchmark trend - ${{ matrix.config.name }}"
+                  echo ""
+                  echo "![benchmark trend](data:image/png;base64,$(python3 -c 'import base64,sys; sys.stdout.write(base64.b64encode(open(sys.argv[1], "rb").read()).decode())' "$CHART_PATH"))"
+                } >> "$GITHUB_STEP_SUMMARY"
+              else
+                echo "Warning: benchmark chart rendering failed, continuing"
+              fi
+              deactivate
+            fi
           fi
 
           # # Test USDT tracing functionality if enabled
@@ -815,37 +905,54 @@ jobs:
       - name: Debug Core Dump (if exists)
         if: failure() && matrix.config.target_platform != 'windows'
         run: |
-          if [ "${{ matrix.config.platform }}" == "linux" ]; then
-            COREFILE=$(coredumpctl list --no-pager --output json | jq -r '.[0].filename')
-            if [ -f "$COREFILE" ]; then
-              echo "Found core dump: $COREFILE"
-              if command -v coredumpctl &> /dev/null; then
-                BINARY=$(coredumpctl info --no-pager | grep "Executable" | awk '{print $2}')
-              else
-                BINARY=$(file "$COREFILE" | awk -F"'" '{print $2}')
-              fi
-              if [ -x "$BINARY" ]; then
-                echo "Detected crashed binary: $BINARY"
-              else
-                echo "Could not detect crashed binary, using tapyrusd as default"
-                BINARY="./tapyrusd"
-              fi
-              gdb -batch -ex "bt" -ex "quit" "$BINARY" "$COREFILE"
-            fi
-          else
-            COREFILE=$(ls -t ${{ github.workspace }}/core_dumps/core.* 2>/dev/null | head -n 1)
-            if [ -f "$COREFILE" ]; then
-              echo "Found core dump: $COREFILE"
-              BINARY=$(file "$COREFILE" | awk -F"'" '{print $2}')
-              if [ -x "$BINARY" ]; then
-                echo "Detected crashed binary: $BINARY"
-              else
-                echo "Could not detect crashed binary, using tapyrusd as default"
-                BINARY="./tapyrusd"
-              fi
-              lldb -c "$COREFILE" -o "bt" -o "quit" -- "$BINARY"
-            fi
+          # Scan the directory configured via core_pattern/kern.corefile in
+          # "Enable core dumps" directly, on both platforms -- coredumpctl
+          # (systemd-coredump's own index) never sees these dumps, since
+          # core_pattern was pointed at a plain file path instead of the
+          # systemd-coredump pipe.
+          CORE_DUMP_DIR="${{ github.workspace }}/core_dumps"
+          shopt -s nullglob
+          COREFILES=("$CORE_DUMP_DIR"/core.*)
+          if [ ${#COREFILES[@]} -eq 0 ]; then
+            echo "No core dumps found in $CORE_DUMP_DIR"
+            exit 0
           fi
+
+          {
+            echo "## Core Dump Backtraces — ${{ matrix.config.name }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          for COREFILE in "${COREFILES[@]}"; do
+            echo "Found core dump: $COREFILE"
+
+            # `file` embeds the crashing binary's path, but it may be relative
+            # to wherever it was invoked from (e.g. "./test_tapyrus" run from
+            # $BASE_BUILD_DIR/bin) rather than this step's cwd ($GITHUB_WORKSPACE).
+            BINARY_RAW=$(file "$COREFILE" | awk -F"'" '{print $2}')
+            if [ -x "$BINARY_RAW" ]; then
+              BINARY="$BINARY_RAW"
+            elif [ -x "$BASE_BUILD_DIR/bin/$(basename "$BINARY_RAW" 2>/dev/null)" ]; then
+              BINARY="$BASE_BUILD_DIR/bin/$(basename "$BINARY_RAW")"
+            else
+              echo "Could not detect crashed binary, using tapyrusd as default"
+              BINARY="$BASE_BUILD_DIR/bin/tapyrusd"
+            fi
+            echo "Using binary: $BINARY"
+
+            {
+              echo ""
+              echo "### $(basename "$COREFILE") ($BINARY)"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+
+            if [ "${{ matrix.config.platform }}" == "linux" ]; then
+              gdb -batch -ex "bt full" -ex "quit" "$BINARY" "$COREFILE" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+            else
+              lldb -c "$COREFILE" -o "bt" -o "quit" -- "$BINARY" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+            fi
+
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          done
 
       - name: Upload Core Dumps
         if: failure() && matrix.config.target_platform != 'windows'

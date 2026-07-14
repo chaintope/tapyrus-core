@@ -184,7 +184,7 @@ jobs:
           CMAKE_OPTS=(
             "-DENABLE_ZMQ=ON"
             "-DBUILD_GUI=OFF"
-            "-DENABLE_BENCH=ON"
+            "-DENABLE_BENCH=OFF"
             "-DWITH_BDB=ON"
             "-DENABLE_TRACING=OFF"
             "-DCMAKE_BUILD_TYPE=RelWithDebInfo"
@@ -253,8 +253,10 @@ jobs:
 
             echo "---------------- Start fast functional tests ---------------- "
             cd "$BASE_ROOT_DIR"
-            # Run only the fastest functional tests for smoke test
-            if python3 test/functional/test_runner.py --tmpdir="$TAPYRUS_TEST_DIR" -j 1 --combinedlogslen=4000 --failfast --quiet; then
+            # Run the base functional test suite (124 scripts) in parallel rather
+            # than sequentially - reuses the same $CPU_COUNT already computed above
+            # for the build and ctest steps in this job.
+            if python3 test/functional/test_runner.py --tmpdir="$TAPYRUS_TEST_DIR" -j "$CPU_COUNT" --combinedlogslen=4000 --failfast --quiet; then
               echo "Fast functional tests passed"
             else
               echo "Fast functional tests failed"
@@ -291,7 +293,6 @@ jobs:
           name: smoke-test-results-${{ matrix.config.name }}
           path: |
             ${{ github.workspace }}/tapyrus_test
-            ${{ github.workspace }}/build/bin/bench_results.txt
           retention-days: 3
           if-no-files-found: ignore
 
