@@ -79,18 +79,7 @@ enum class FeeEstimateMode;
 /** (client) version numbers for particular wallet features */
 enum WalletFeature
 {
-    FEATURE_BASE = 10500, // the earliest version new wallets supports (only useful for getwalletinfo's clientversion output)
-
-    FEATURE_WALLETCRYPT = FEATURE_BASE, // wallet encryption
-    FEATURE_COMPRPUBKEY = FEATURE_BASE, // compressed public keys
-
-    FEATURE_HD = FEATURE_BASE, // Hierarchical key derivation after BIP32 (HD Wallet)
-
-    FEATURE_HD_SPLIT = FEATURE_BASE, // Wallet with HD chain split (change outputs will use m/0'/1'/k)
-
-    FEATURE_NO_DEFAULT_KEY = FEATURE_BASE, // Wallet without a default key written
-
-    FEATURE_PRE_SPLIT_KEYPOOL = FEATURE_BASE, // Upgraded to HD SPLIT and can have a pre-split keypool
+    FEATURE_BASE = 10500, // the only wallet version Tapyrus supports (only useful for getwalletinfo's clientversion output)
 
     FEATURE_LATEST = FEATURE_BASE
 };
@@ -674,9 +663,6 @@ private:
     //! the current wallet version: clients below this version are not able to load the wallet
     int nWalletVersion = FEATURE_BASE;
 
-    //! the maximum wallet format version: memory-only variable that specifies to what version this wallet may be upgraded
-    int nWalletMaxVersion = FEATURE_BASE;
-
     int64_t nNextResend = 0;
     int64_t nLastResend = 0;
     bool fBroadcastTransactions = false;
@@ -834,9 +820,6 @@ public:
 
     const CWalletTx* GetWalletTx(const uint256& hash) const;
 
-    //! check whether we are allowed to upgrade (or already support) to the named feature
-    bool CanSupportFeature(enum WalletFeature wf) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet) { AssertLockHeld(cs_wallet); return nWalletMaxVersion >= wf; }
-
     /**
      * populate vCoins with vector of available COutputs.
      */
@@ -891,7 +874,7 @@ public:
     void LoadKeyMetadata(const CKeyID& keyID, const CKeyMetadata &metadata) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     void LoadScriptMetadata(const CScriptID& script_id, const CKeyMetadata &metadata) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
-    bool LoadMinVersion(int nVersion) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet) { AssertLockHeld(cs_wallet); nWalletVersion = nVersion; nWalletMaxVersion = std::max(nWalletMaxVersion, nVersion); return true; }
+    bool LoadMinVersion(int nVersion) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet) { AssertLockHeld(cs_wallet); nWalletVersion = nVersion; return true; }
     void UpdateTimeFirstKey(int64_t nCreateTime) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
     //! Adds an encrypted key to the store, and saves it to disk.
@@ -1080,11 +1063,8 @@ public:
         return setInternalKeyPool.size() + setExternalKeyPool.size();
     }
 
-    //! signify that a particular wallet feature is now used. this may change nWalletVersion and nWalletMaxVersion if those are lower
-    void SetMinVersion(enum WalletFeature, WalletBatch* batch_in = nullptr, bool fExplicit = false);
-
-    //! change which version we're allowed to upgrade to (note that this does not immediately imply upgrading to that format)
-    bool SetMaxVersion(int nVersion);
+    //! write nVersion to the DB if it advances the wallet's current version
+    void SetMinVersion(int nVersion, WalletBatch* batch_in = nullptr);
 
     //! get the current wallet format (the oldest client version guaranteed to understand this wallet)
     int GetVersion() { LOCK(cs_wallet); return nWalletVersion; }

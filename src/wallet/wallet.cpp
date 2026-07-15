@@ -177,7 +177,6 @@ CPubKey CWallet::GenerateNewKey(WalletBatch &batch, bool internal)
 {
     assert(!IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS));
     AssertLockHeld(cs_wallet); // mapKeyMetadata
-    bool fCompressed = CanSupportFeature(FEATURE_COMPRPUBKEY); // default to compressed public keys if we want 0.6.0 wallets
 
     CKey secret;
 
@@ -187,14 +186,9 @@ CPubKey CWallet::GenerateNewKey(WalletBatch &batch, bool internal)
 
     // use HD key derivation if HD was enabled during wallet creation
     if (IsHDEnabled()) {
-        DeriveNewChildKey(batch, metadata, secret, (CanSupportFeature(FEATURE_HD_SPLIT) ? internal : false));
+        DeriveNewChildKey(batch, metadata, secret, internal);
     } else {
-        secret.MakeNewKey(fCompressed);
-    }
-
-    // Compressed public keys were introduced in version 0.6.0
-    if (fCompressed) {
-        SetMinVersion(FEATURE_COMPRPUBKEY);
+        secret.MakeNewKey(true);
     }
 
     CPubKey pubkey = secret.GetPubKey();
@@ -229,7 +223,6 @@ void CWallet::DeriveNewChildKey(WalletBatch &batch, CKeyMetadata& metadata, CKey
     masterKey.Derive(accountKey, BIP32_HARDENED_KEY_LIMIT);
 
     // derive m/0'/0' (external chain) OR m/0'/1' (internal chain)
-    assert(internal ? CanSupportFeature(FEATURE_HD_SPLIT) : true);
     accountKey.Derive(chainChildKey, BIP32_HARDENED_KEY_LIMIT+(internal ? 1 : 0));
 
     // derive child key at next index, skip keys already known to the wallet
@@ -478,39 +471,18 @@ void CWallet::ChainStateFlushed(const CBlockLocator& loc)
     batch.WriteBestBlock(loc);
 }
 
-void CWallet::SetMinVersion(enum WalletFeature nVersion, WalletBatch* batch_in, bool fExplicit)
+void CWallet::SetMinVersion(int nVersion, WalletBatch* batch_in)
 {
     LOCK(cs_wallet); // nWalletVersion
     if (nWalletVersion >= nVersion)
         return;
 
-    // when doing an explicit upgrade, if we pass the max version permitted, upgrade all the way
-    if (fExplicit && nVersion > nWalletMaxVersion)
-            nVersion = FEATURE_LATEST;
-
     nWalletVersion = nVersion;
 
-    if (nVersion > nWalletMaxVersion)
-        nWalletMaxVersion = nVersion;
-
-    {
-        WalletBatch* batch = batch_in ? batch_in : new WalletBatch(*database);
-        batch->WriteMinVersion(nWalletVersion);
-        if (!batch_in)
-            delete batch;
-    }
-}
-
-bool CWallet::SetMaxVersion(int nVersion)
-{
-    LOCK(cs_wallet); // nWalletVersion, nWalletMaxVersion
-    // cannot downgrade below current version
-    if (nWalletVersion > nVersion)
-        return false;
-
-    nWalletMaxVersion = nVersion;
-
-    return true;
+    WalletBatch* batch = batch_in ? batch_in : new WalletBatch(*database);
+    batch->WriteMinVersion(nWalletVersion);
+    if (!batch_in)
+        delete batch;
 }
 
 std::set<uint256> CWallet::GetConflicts(const uint256& txid) const
@@ -689,8 +661,8 @@ bool CWallet::EncryptWallet(const SecureString& strWalletPassphrase)
             assert(false);
         }
 
-        // Encryption was introduced in version 0.4.0
-        SetMinVersion(FEATURE_WALLETCRYPT, encrypted_batch, true);
+        // Bring a wallet loaded from an older wallet.dat up to FEATURE_BASE.
+        SetMinVersion(FEATURE_BASE, encrypted_batch);
 
         if (!encrypted_batch->TxnCommit()) {
             delete encrypted_batch;
@@ -1491,7 +1463,7 @@ void CWallet::SetHDSeed(const CPubKey& seed)
     // the child index counter in the database
     // as a hdchain object
     CHDChain newHdChain;
-    newHdChain.nVersion = CanSupportFeature(FEATURE_HD_SPLIT) ? CHDChain::VERSION_HD_CHAIN_SPLIT : CHDChain::VERSION_HD_BASE;
+    newHdChain.nVersion = CHDChain::VERSION_HD_CHAIN_SPLIT;
     newHdChain.seed_id = seed.GetID();
     SetHDChain(newHdChain, false);
 }
@@ -3439,7 +3411,7 @@ bool CWallet::TopUpKeyPool(unsigned int kpSize)
         int64_t missingExternal = std::max(std::max((int64_t) nTargetSize, (int64_t) 1) - (int64_t)setExternalKeyPool.size(), (int64_t) 0);
         int64_t missingInternal = std::max(std::max((int64_t) nTargetSize, (int64_t) 1) - (int64_t)setInternalKeyPool.size(), (int64_t) 0);
 
-        if (!IsHDEnabled() || !CanSupportFeature(FEATURE_HD_SPLIT))
+        if (!IsHDEnabled())
         {
             // don't create extra internal keys
             missingInternal = 0;
@@ -3484,7 +3456,7 @@ bool CWallet::ReserveKeyFromKeyPool(int64_t& nIndex, CKeyPool& keypool, bool fRe
         if (!IsLocked())
             TopUpKeyPool();
 
-        bool fReturningInternal = IsHDEnabled() && CanSupportFeature(FEATURE_HD_SPLIT) && fRequestedInternal;
+        bool fReturningInternal = IsHDEnabled() && fRequestedInternal;
         bool use_split_keypool = set_pre_split_keypool.empty();
         std::set<int64_t>& setKeyPool = use_split_keypool ? (fReturningInternal ? setInternalKeyPool : setExternalKeyPool) : set_pre_split_keypool;
 
@@ -3587,7 +3559,7 @@ int64_t CWallet::GetOldestKeyPoolTime()
 
     // load oldest key from keypool, get time and return
     int64_t oldestKey = GetOldestKeyTimeInPool(setExternalKeyPool, batch);
-    if (IsHDEnabled() && CanSupportFeature(FEATURE_HD_SPLIT)) {
+    if (IsHDEnabled()) {
         oldestKey = std::max(GetOldestKeyTimeInPool(setInternalKeyPool, batch), oldestKey);
         if (!set_pre_split_keypool.empty()) {
             oldestKey = std::max(GetOldestKeyTimeInPool(set_pre_split_keypool, batch), oldestKey);
@@ -4171,7 +4143,6 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(const std::string& name, 
             InitError(_("Cannot downgrade wallet"));
             return nullptr;
         }
-        walletInstance->SetMaxVersion(nMaxVersion);
     }
 
     // Upgrade to HD if explicit upgrade
@@ -4180,9 +4151,9 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(const std::string& name, 
 
         bool hd_upgrade = false;
         bool split_upgrade = false;
-        if (walletInstance->CanSupportFeature(FEATURE_HD) && !walletInstance->IsHDEnabled()) {
+        if (!walletInstance->IsHDEnabled()) {
             walletInstance->WalletLogPrintf("Upgrading wallet to HD\n");
-            walletInstance->SetMinVersion(FEATURE_HD);
+            walletInstance->SetMinVersion(FEATURE_BASE);
 
             // generate a new master key
             CPubKey masterPubKey = walletInstance->GenerateNewSeed();
@@ -4190,10 +4161,10 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(const std::string& name, 
             hd_upgrade = true;
         }
         // Upgrade to HD chain split if necessary
-        if (walletInstance->CanSupportFeature(FEATURE_HD_SPLIT)) {
+        {
             walletInstance->WalletLogPrintf("Upgrading wallet to use HD chain split\n");
-            walletInstance->SetMinVersion(FEATURE_PRE_SPLIT_KEYPOOL);
-            split_upgrade = FEATURE_HD_SPLIT > prev_version;
+            walletInstance->SetMinVersion(FEATURE_BASE);
+            split_upgrade = FEATURE_BASE > prev_version;
         }
         // Mark all keys currently in the keypool as pre-split
         if (split_upgrade) {
