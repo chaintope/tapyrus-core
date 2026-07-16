@@ -1721,36 +1721,9 @@ bool CChainState::RewindBlockIndex()
 
     // Note that during -reindex-chainstate we are called with an empty chainActive!
 
-    int nHeight = 1;
-    while (nHeight <= chainActive.Height()) {
-        // Tapyrus never activated SegWit, so there is no "blocks predating
-        // the flag becoming mandatory" case to skip here (inherited from
-        // Bitcoin Core's SegWit-activation rewind logic). This loop always
-        // runs to chainActive.Height() and never selects an earlier height.
-        nHeight++;
-    }
-
-    // nHeight is now the height of the first insufficiently-validated block, or tipheight + 1
-    CValidationState state;
-    CBlockIndex* pindex = chainActive.Tip();
-    while (chainActive.Height() >= nHeight) {
-        if (fPruneMode && !(chainActive.Tip()->nStatus & BLOCK_HAVE_DATA)) {
-            // If pruning, don't try rewinding past the HAVE_DATA point;
-            // since older blocks can't be served anyway, there's
-            // no need to walk further, and trying to DisconnectTip()
-            // will fail (and require a needless reindex/redownload
-            // of the blockchain).
-            break;
-        }
-        if (!DisconnectTip(state, nullptr)) {
-            return error("RewindBlockIndex: unable to disconnect block at height %i (%s)", pindex->nHeight, FormatStateMessage(state));
-        }
-        // Occasionally flush state to disk.
-        if (!FlushStateToDisk(state, FlushStateMode::PERIODIC)) {
-            LogPrintf("RewindBlockIndex: unable to flush state to disk (%s)\n", FormatStateMessage(state));
-            return false;
-        }
-    }
+    // Tapyrus never activated SegWit, so there are no blocks that predate a
+    // flag becoming consensus-mandatory to disconnect and re-validate here
+    // (inherited from Bitcoin Core's SegWit-activation rewind logic).
 
     // Reduce validity flag and have-data flags.
     // We do this after actual disconnecting, otherwise we'll end up writing the lack of data
