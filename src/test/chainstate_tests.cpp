@@ -761,7 +761,7 @@ BOOST_AUTO_TEST_CASE(disconnect_block_dry_run_preserves_colorid_state)
     {
         std::vector<unsigned char> vchSig;
         uint256 sigHash = SignatureHash(
-            m_coinbase_txns[0]->vout[0].scriptPubKey, spendTx, 0, SIGHASH_ALL, 0, SigVersion::BASE);
+            m_coinbase_txns[0]->vout[0].scriptPubKey, spendTx, 0, SIGHASH_ALL, 0);
         coinbaseKey.Sign_Schnorr(sigHash, vchSig);
         vchSig.push_back(SIGHASH_ALL);
         spendTx.vin[0].scriptSig = CScript() << vchSig;
@@ -787,7 +787,7 @@ BOOST_AUTO_TEST_CASE(disconnect_block_dry_run_preserves_colorid_state)
     {
         std::vector<unsigned char> vchSig;
         uint256 sigHash = SignatureHash(
-            spendTx.vout[0].scriptPubKey, issueTx, 0, SIGHASH_ALL, 0, SigVersion::BASE);
+            spendTx.vout[0].scriptPubKey, issueTx, 0, SIGHASH_ALL, 0);
         key.Sign_Schnorr(sigHash, vchSig);
         vchSig.push_back(SIGHASH_ALL);
         issueTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey;
@@ -864,7 +864,7 @@ BOOST_AUTO_TEST_CASE(duplicate_nonreissuable_issuance_rejected)
     {
         std::vector<unsigned char> vchSig;
         uint256 sigHash = SignatureHash(
-            m_coinbase_txns[1]->vout[0].scriptPubKey, spendTx, 0, SIGHASH_ALL, 0, SigVersion::BASE);
+            m_coinbase_txns[1]->vout[0].scriptPubKey, spendTx, 0, SIGHASH_ALL, 0);
         coinbaseKey.Sign_Schnorr(sigHash, vchSig);
         vchSig.push_back(SIGHASH_ALL);
         spendTx.vin[0].scriptSig = CScript() << vchSig;
@@ -889,7 +889,7 @@ BOOST_AUTO_TEST_CASE(duplicate_nonreissuable_issuance_rejected)
     {
         std::vector<unsigned char> vchSig;
         uint256 sigHash = SignatureHash(
-            spendTx.vout[0].scriptPubKey, issueTx, 0, SIGHASH_ALL, 0, SigVersion::BASE);
+            spendTx.vout[0].scriptPubKey, issueTx, 0, SIGHASH_ALL, 0);
         key.Sign_Schnorr(sigHash, vchSig);
         vchSig.push_back(SIGHASH_ALL);
         issueTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey;
@@ -987,7 +987,7 @@ BOOST_AUTO_TEST_CASE(duplicate_nft_issuance_after_burn_rejected)
     {
         std::vector<unsigned char> vchSig;
         uint256 sigHash = SignatureHash(
-            m_coinbase_txns[1]->vout[0].scriptPubKey, spendTx, 0, SIGHASH_ALL, 0, SigVersion::BASE);
+            m_coinbase_txns[1]->vout[0].scriptPubKey, spendTx, 0, SIGHASH_ALL, 0);
         coinbaseKey.Sign_Schnorr(sigHash, vchSig);
         vchSig.push_back(SIGHASH_ALL);
         spendTx.vin[0].scriptSig = CScript() << vchSig;
@@ -1012,7 +1012,7 @@ BOOST_AUTO_TEST_CASE(duplicate_nft_issuance_after_burn_rejected)
     {
         std::vector<unsigned char> vchSig;
         uint256 sigHash = SignatureHash(
-            spendTx.vout[0].scriptPubKey, issueTx, 0, SIGHASH_ALL, 0, SigVersion::BASE);
+            spendTx.vout[0].scriptPubKey, issueTx, 0, SIGHASH_ALL, 0);
         key.Sign_Schnorr(sigHash, vchSig);
         vchSig.push_back(SIGHASH_ALL);
         issueTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey;
@@ -1041,7 +1041,7 @@ BOOST_AUTO_TEST_CASE(duplicate_nft_issuance_after_burn_rejected)
     {
         std::vector<unsigned char> vchSig;
         uint256 sigHash = SignatureHash(
-            issueTx.vout[0].scriptPubKey, burnTx, 0, SIGHASH_ALL, 0, SigVersion::BASE);
+            issueTx.vout[0].scriptPubKey, burnTx, 0, SIGHASH_ALL, 0);
         key.Sign_Schnorr(sigHash, vchSig);
         vchSig.push_back(SIGHASH_ALL);
         burnTx.vin[0].scriptSig = CScript() << vchSig << vchPubKey;
@@ -1049,7 +1049,7 @@ BOOST_AUTO_TEST_CASE(duplicate_nft_issuance_after_burn_rejected)
     {
         std::vector<unsigned char> vchSig;
         uint256 sigHash = SignatureHash(
-            m_coinbase_txns[2]->vout[0].scriptPubKey, burnTx, 1, SIGHASH_ALL, 0, SigVersion::BASE);
+            m_coinbase_txns[2]->vout[0].scriptPubKey, burnTx, 1, SIGHASH_ALL, 0);
         coinbaseKey.Sign_Schnorr(sigHash, vchSig);
         vchSig.push_back(SIGHASH_ALL);
         burnTx.vin[1].scriptSig = CScript() << vchSig;

@@ -57,7 +57,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_block_doublespend, TestChainSetup)
 
             // Sign:
             std::vector<unsigned char> vchSig;
-            uint256 hash = SignatureHash(scriptPubKey, spends[i], 0, SIGHASH_ALL, 0, SigVersion::BASE);
+            uint256 hash = SignatureHash(scriptPubKey, spends[i], 0, SIGHASH_ALL, 0);
             if(count == 0)
             {
                 BOOST_CHECK(coinbaseKey.Sign_ECDSA(hash, vchSig));
@@ -193,7 +193,7 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
         // Sign, with a non-DER signature
         {
             std::vector<unsigned char> vchSig;
-            uint256 hash = SignatureHash(p2pk_scriptPubKey, spend_tx, 0, SIGHASH_ALL, 0, SigVersion::BASE);
+            uint256 hash = SignatureHash(p2pk_scriptPubKey, spend_tx, 0, SIGHASH_ALL, 0);
             if(count == 0)
             {
                 BOOST_CHECK(coinbaseKey.Sign_ECDSA(hash, vchSig));
@@ -226,7 +226,7 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
             // Sign, with a DER signature
             {
                 std::vector<unsigned char> vchSig;
-                uint256 hash = SignatureHash(p2pk_scriptPubKey, spend_tx, 0, SIGHASH_ALL, 0, SigVersion::BASE);
+                uint256 hash = SignatureHash(p2pk_scriptPubKey, spend_tx, 0, SIGHASH_ALL, 0);
                 if(count == 0)
                 {
                     BOOST_CHECK(coinbaseKey.Sign_ECDSA(hash, vchSig));
@@ -307,7 +307,7 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
 
             // Sign
             std::vector<unsigned char> vchSig;
-            uint256 hash = SignatureHash(spend_tx.vout[1].scriptPubKey, invalid_with_cltv_tx, 0, SIGHASH_ALL, 0, SigVersion::BASE);
+            uint256 hash = SignatureHash(spend_tx.vout[1].scriptPubKey, invalid_with_cltv_tx, 0, SIGHASH_ALL, 0);
             if(count == 0)
             {
                 BOOST_CHECK(coinbaseKey.Sign_ECDSA(hash, vchSig));
@@ -349,7 +349,7 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
 
             // Sign
             std::vector<unsigned char> vchSig;
-            uint256 hash = SignatureHash(spend_tx.vout[2].scriptPubKey, invalid_with_csv_tx, 0, SIGHASH_ALL, 0, SigVersion::BASE);
+            uint256 hash = SignatureHash(spend_tx.vout[2].scriptPubKey, invalid_with_csv_tx, 0, SIGHASH_ALL, 0);
             if(count == 0)
             {
                 BOOST_CHECK(coinbaseKey.Sign_ECDSA(hash, vchSig));

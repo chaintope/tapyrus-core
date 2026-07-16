@@ -145,7 +145,7 @@ struct TestChainSetupPostActivation : public TestChainSetup {
 
 void Sign(std::vector<unsigned char>& vchSig, CKey& signKey, const CScript& scriptPubKey, CMutableTransaction& inTx, int inIndex, CMutableTransaction& outTx, int outIndex)
 {
-    uint256 hash = SignatureHash(scriptPubKey, outTx, inIndex, SIGHASH_ALL, outTx.vout[outIndex].nValue, SigVersion::BASE);
+    uint256 hash = SignatureHash(scriptPubKey, outTx, inIndex, SIGHASH_ALL, outTx.vout[outIndex].nValue);
     signKey.Sign_Schnorr(hash, vchSig);
     vchSig.push_back((unsigned char)SIGHASH_ALL);
 }
@@ -1762,7 +1762,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_risk_mixed_signature_schemes, TestChainSetup)
     spendA.vin[0].prevout.n = 0;
     spendA.vout[0].nValue = 48 * COIN;
     spendA.vout[0].scriptPubKey = CScript() << OP_TRUE;
-    uint256 hashA = SignatureHash(branchScript, spendA, 0, SIGHASH_ALL, fundA.vout[0].nValue, SigVersion::BASE);
+    uint256 hashA = SignatureHash(branchScript, spendA, 0, SIGHASH_ALL, fundA.vout[0].nValue);
     std::vector<unsigned char> sigA;
     BOOST_REQUIRE(key0.Sign_ECDSA(hashA, sigA));
     sigA.push_back((unsigned char)SIGHASH_ALL);
@@ -1779,7 +1779,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_risk_mixed_signature_schemes, TestChainSetup)
     spendB.vin[0].prevout.n = 0;
     spendB.vout[0].nValue = 48 * COIN;
     spendB.vout[0].scriptPubKey = CScript() << OP_TRUE;
-    uint256 hashB = SignatureHash(branchScript, spendB, 0, SIGHASH_ALL, fundB.vout[0].nValue, SigVersion::BASE);
+    uint256 hashB = SignatureHash(branchScript, spendB, 0, SIGHASH_ALL, fundB.vout[0].nValue);
     std::vector<unsigned char> sigB;
     BOOST_REQUIRE(key1.Sign_Schnorr(hashB, sigB));
     sigB.push_back((unsigned char)SIGHASH_ALL);

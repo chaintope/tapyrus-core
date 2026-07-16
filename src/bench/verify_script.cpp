@@ -74,9 +74,9 @@ static void VerifyScriptBench(benchmark::State& state, SignatureScheme scheme)
     std::vector<unsigned char> vchSig;
 
     if(scheme == SignatureScheme::ECDSA)
-        key.Sign_ECDSA(SignatureHash(scriptPubkey, txSpend, 0, SIGHASH_ALL, txCredit.vout[0].nValue, SigVersion::BASE), vchSig);
+        key.Sign_ECDSA(SignatureHash(scriptPubkey, txSpend, 0, SIGHASH_ALL, txCredit.vout[0].nValue), vchSig);
     else
-        key.Sign_Schnorr(SignatureHash(scriptPubkey, txSpend, 0, SIGHASH_ALL, txCredit.vout[0].nValue, SigVersion::BASE), vchSig);
+        key.Sign_Schnorr(SignatureHash(scriptPubkey, txSpend, 0, SIGHASH_ALL, txCredit.vout[0].nValue), vchSig);
 
     vchSig.push_back(SIGHASH_ALL);
     txSpend.vin[0].scriptSig = CScript() << vchSig << ToByteVector(pubkey);

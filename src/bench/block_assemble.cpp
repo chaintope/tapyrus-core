@@ -69,7 +69,6 @@ static CTxIn MineBlock(const CScript& coinbase_scriptPubKey)
 static void AssembleBlock(benchmark::State& state)
 {
     // Switch to dev so we can mine faster
-    // Also segwit is active, so we can include witness transactions
     writeTestGenesisBlockToFile(GetDataDir(false));
     SelectParams(TAPYRUS_OP_MODE::DEV);
     SelectFederationParams(TAPYRUS_OP_MODE::DEV);

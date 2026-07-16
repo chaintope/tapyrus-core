@@ -63,7 +63,10 @@ enum
     // Note: CLEANSTACK should never be used without P2SH or WITNESS.
     SCRIPT_VERIFY_CLEANSTACK = (1U << 2),
 
-    // Segwit script only: Require the argument of OP_IF/NOTIF to be exactly 0x01 or empty vector
+    // Require the argument of OP_IF/NOTIF to be exactly 0x01 or empty vector.
+    // Inherited from Bitcoin Core, where this only applied to witness scripts;
+    // Tapyrus has no witness/SegWit execution path, so this flag is currently
+    // never enforced (its only check site was removed as dead code).
     //
     SCRIPT_VERIFY_MINIMALIF = (1U << 13),
 
@@ -71,7 +74,7 @@ enum
     //
     SCRIPT_VERIFY_NULLFAIL = (1U << 14),
 
-    // Making OP_CODESEPARATOR and FindAndDelete fail any non-segwit scripts
+    // Making OP_CODESEPARATOR and FindAndDelete fail
     //
     SCRIPT_VERIFY_CONST_SCRIPTCODE = (1U << 16),
 
@@ -134,18 +137,8 @@ struct PrecomputedTransactionData
     explicit PrecomputedTransactionData(const T& tx);
 };
 
-enum class SigVersion
-{
-    BASE = 0,
-    WITNESS_V0 = 1,
-};
-
-/** Signature hash sizes */
-static constexpr size_t WITNESS_V0_SCRIPTHASH_SIZE = 32;
-static constexpr size_t WITNESS_V0_KEYHASH_SIZE = 20;
-
 template <class T>
-uint256 SignatureHash(const CScript& scriptCode, const T& txTo, unsigned int nIn, int nHashType, const CAmount& amount, SigVersion sigversion, const PrecomputedTransactionData* cache = nullptr);
+uint256 SignatureHash(const CScript& scriptCode, const T& txTo, unsigned int nIn, int nHashType, const CAmount& amount);
 
 class BaseSignatureChecker
 {
@@ -155,7 +148,7 @@ public:
         return false;
     }
 
-    virtual bool CheckSig(const std::vector<unsigned char>& scriptSig, const std::vector<unsigned char>& vchPubKey, const CScript& scriptCode, SigVersion sigversion) const
+    virtual bool CheckSig(const std::vector<unsigned char>& scriptSig, const std::vector<unsigned char>& vchPubKey, const CScript& scriptCode) const
     {
         return false;
     }
@@ -186,7 +179,7 @@ public:
     GenericTransactionSignatureChecker(const T* txToIn, unsigned int nInIn, const CAmount& amountIn) : txTo(txToIn), nIn(nInIn), amount(amountIn), txdata(nullptr) {}
     GenericTransactionSignatureChecker(const T* txToIn, unsigned int nInIn, const CAmount& amountIn, const PrecomputedTransactionData& txdataIn) : txTo(txToIn), nIn(nInIn), amount(amountIn), txdata(&txdataIn) {}
     bool VerifySignature(const std::vector<unsigned char>& vchSig, const CPubKey& vchPubKey, const uint256& sighash) const override;
-    bool CheckSig(const std::vector<unsigned char>& scriptSig, const std::vector<unsigned char>& vchPubKey, const CScript& scriptCode, SigVersion sigversion) const override;
+    bool CheckSig(const std::vector<unsigned char>& scriptSig, const std::vector<unsigned char>& vchPubKey, const CScript& scriptCode) const override;
     bool CheckLockTime(const CScriptNum& nLockTime) const override;
     bool CheckSequence(const CScriptNum& nSequence) const override;
 };
@@ -194,7 +187,7 @@ public:
 using TransactionSignatureChecker = GenericTransactionSignatureChecker<CTransaction>;
 using MutableTransactionSignatureChecker = GenericTransactionSignatureChecker<CMutableTransaction>;
 
-bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& script, unsigned int flags, const BaseSignatureChecker& checker, SigVersion sigversion, ColorIdentifier *colorId = nullptr, ScriptError* error = nullptr);
+bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& script, unsigned int flags, const BaseSignatureChecker& checker, ColorIdentifier *colorId = nullptr, ScriptError* error = nullptr);
 bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, unsigned int flags, const BaseSignatureChecker& checker, ColorIdentifier& colorId, ScriptError* serror = nullptr);
 
 int FindAndDelete(CScript& script, const CScript& b);

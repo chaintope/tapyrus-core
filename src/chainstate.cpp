@@ -651,10 +651,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
         }
 
-        // GetTransactionSigOps counts 3 types of sigops:
+        // GetTransactionSigOps counts 2 types of sigops:
         // * legacy (always)
         // * p2sh (when P2SH enabled in flags and excludes coinbase)
-        // * witness (when witness enabled in flags and excludes coinbase)
         nSigOpsCost += GetTransactionSigOps(tx, view, SCRIPT_VERIFY_NONE);
         if (nSigOpsCost > GetMaxBlockSigops())
             return state.DoS(100, error("ConnectBlock(): too many sigops"),
@@ -1507,7 +1506,7 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
         return error("%s: %s", __func__, FormatStateMessage(state));
     }
 
-    // Header is valid/has work, merkle tree and segwit merkle tree are good...RELAY NOW
+    // Header is valid/has work, merkle tree is good...RELAY NOW
     // (but if it does not build on our best tip, let the SendMessages loop relay it)
     if (!IsInitialBlockDownload() && chainActive.Tip() == pindex->pprev)
         GetMainSignals().NewValidBlock(pindex, pblock);
@@ -1724,9 +1723,10 @@ bool CChainState::RewindBlockIndex()
 
     int nHeight = 1;
     while (nHeight <= chainActive.Height()) {
-        // Although SCRIPT_VERIFY_WITNESS is now generally enforced on all
-        // blocks in ConnectBlock, we don't need to go back and
-        // re-download/re-verify blocks from before segwit actually activated.
+        // Tapyrus never activated SegWit, so there is no "blocks predating
+        // the flag becoming mandatory" case to skip here (inherited from
+        // Bitcoin Core's SegWit-activation rewind logic). This loop always
+        // runs to chainActive.Height() and never selects an earlier height.
         nHeight++;
     }
 
