@@ -132,7 +132,6 @@ target_include_directories(tapyrus_util
 # Similar to `tapyrus_util` library, but higher-level.
 add_library(tapyrus_common STATIC EXCLUDE_FROM_ALL
   base58.cpp
-  bech32.cpp
   chainparams.cpp
   coins.cpp
   compressor.cpp

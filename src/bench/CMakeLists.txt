@@ -7,7 +7,6 @@ add_executable(bench_tapyrus
   bench.cpp
 # Benchmarks:
   base58.cpp
-  bech32.cpp
   block_assemble.cpp
   ccoins_caching.cpp
   checkblock.cpp
