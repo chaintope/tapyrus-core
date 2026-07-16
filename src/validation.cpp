@@ -1199,7 +1199,7 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                 assert(!coin.IsSpent());
 
                 // We very carefully only pass in things to CScriptCheck which
-                // are clearly committed to by tx' witness hash. This provides
+                // are clearly committed to by tx's hash. This provides
                 // a sanity check that our caching is not introducing consensus
                 // failures through additional data in, eg, the coins being
                 // spent being checked as a part of CScriptCheck.
@@ -1400,8 +1400,6 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
     // All potential-corruption validation must be done before we do any
     // transaction validation, as otherwise we may mark the header as invalid
     // because we receive the wrong transactions for it.
-    // Note that witness malleability is checked in ContextualCheckBlock, so no
-    // checks that use witness data may be performed here.
 
     // Size limits - use Get(height) to get the correct limit for this specific block height
     // This is important during reindex when processing blocks with different max block sizes

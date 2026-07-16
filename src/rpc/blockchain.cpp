@@ -343,7 +343,6 @@ static std::string EntryDescriptionString()
            "    \"ancestorcount\" : n,    (numeric) number of in-mempool ancestor transactions (including this one)\n"
            "    \"ancestorsize\" : n,     (numeric) transaction size of in-mempool ancestors (including this one)\n"
            "    \"ancestorfees\" : n,     (numeric) modified fees (see above) of in-mempool ancestors (including this one) (DEPRECATED)\n"
-           "    \"wtxid\" : hash,         (string) hash of serialized transaction, including witness data\n"
            "    \"fees\" : {\n"
            "        \"base\" : n,         (numeric) transaction fee in " + CURRENCY_UNIT + "\n"
            "        \"modified\" : n,     (numeric) transaction fee with fee deltas used for mining priority in " + CURRENCY_UNIT + "\n"

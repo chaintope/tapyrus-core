@@ -63,13 +63,6 @@ enum
     // Note: CLEANSTACK should never be used without P2SH or WITNESS.
     SCRIPT_VERIFY_CLEANSTACK = (1U << 2),
 
-    // Require the argument of OP_IF/NOTIF to be exactly 0x01 or empty vector.
-    // Inherited from Bitcoin Core, where this only applied to witness scripts;
-    // Tapyrus has no witness/SegWit execution path, so this flag is currently
-    // never enforced (its only check site was removed as dead code).
-    //
-    SCRIPT_VERIFY_MINIMALIF = (1U << 13),
-
     // Signature(s) must be empty vector if a CHECK(MULTI)SIG operation failed
     //
     SCRIPT_VERIFY_NULLFAIL = (1U << 14),
@@ -105,7 +98,6 @@ static const unsigned int MANDATORY_SCRIPT_VERIFY_FLAGS = 0;
  */
 static constexpr unsigned int STANDARD_SCRIPT_VERIFY_FLAGS = SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS |
                                                              SCRIPT_VERIFY_CLEANSTACK |
-                                                             SCRIPT_VERIFY_MINIMALIF |
                                                              SCRIPT_VERIFY_NULLFAIL |
                                                              SCRIPT_VERIFY_CONST_SCRIPTCODE |
                                                              SCRIPT_VERIFY_CP2SH_COLORED;

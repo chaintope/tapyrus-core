@@ -41,14 +41,14 @@ static std::map<std::string, unsigned int> mapFlagNames = {
     {std::string("SIGPUSHONLY"), (unsigned int)SCRIPT_VERIFY_SIGPUSHONLY},
     {std::string("DISCOURAGE_UPGRADABLE_NOPS"), (unsigned int)SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS},
     {std::string("CLEANSTACK"), (unsigned int)SCRIPT_VERIFY_CLEANSTACK},
-    {std::string("MINIMALIF"), (unsigned int)SCRIPT_VERIFY_MINIMALIF},
     {std::string("NULLFAIL"), (unsigned int)SCRIPT_VERIFY_NULLFAIL},
-    // WITNESS-related flags no longer exist (Tapyrus never verifies witness data);
-    // kept as no-op (0) mappings so existing JSON test vectors that still name
-    // them in their "verifyFlags" column continue to parse.
+    // WITNESS/MINIMALIF-related flags no longer exist (Tapyrus never verifies
+    // witness data); kept as no-op (0) mappings so existing JSON test vectors
+    // that still name them in their "verifyFlags" column continue to parse.
     {std::string("WITNESS"), 0},
     {std::string("DISCOURAGE_UPGRADABLE_WITNESS_PROGRAM"), 0},
     {std::string("WITNESS_PUBKEYTYPE"), 0},
+    {std::string("MINIMALIF"), 0},
     {std::string("CONST_SCRIPTCODE"), (unsigned int)SCRIPT_VERIFY_CONST_SCRIPTCODE},
     {std::string("CP2SH_COLORED"), (unsigned int)SCRIPT_VERIFY_CP2SH_COLORED},
 };

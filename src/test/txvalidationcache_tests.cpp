@@ -125,7 +125,6 @@ static void ValidateCheckInputsForAllFlags(const CTransaction &tx, uint32_t fail
         SCRIPT_VERIFY_SIGPUSHONLY,
         SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS,
         SCRIPT_VERIFY_CLEANSTACK,
-        SCRIPT_VERIFY_MINIMALIF,
         SCRIPT_VERIFY_NULLFAIL,
         SCRIPT_VERIFY_CONST_SCRIPTCODE};
     // If we add many more flags, this loop can get too expensive, but we can

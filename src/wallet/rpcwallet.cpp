@@ -3135,7 +3135,7 @@ UniValue signrawtransactionwithwallet(const JSONRPCRequest& request)
             "         \"txid\":\"id\",               (string, required) The transaction id\n"
             "         \"vout\":n,                  (numeric, required) The output number\n"
             "         \"scriptPubKey\": \"hex\",     (string, required) script key\n"
-            "         \"redeemScript\": \"hex\",     (string, required for P2SH or P2WSH) redeem script\n"
+            "         \"redeemScript\": \"hex\",     (string, required for P2SH) redeem script\n"
             "         \"amount\": value            (numeric, required) The amount spent\n"
             "       }\n"
             "       ,...\n"
@@ -3559,7 +3559,7 @@ public:
 
         // The "addresses" field is confusing because it refers to public keys using their P2PKH address.
         // For that reason, only add the 'addresses' field when needed for backward compatibility. New applications
-        // can use the 'embedded'->'address' field for P2SH or P2WSH wrapped addresses, and 'pubkeys' for
+        // can use the 'embedded'->'address' field for P2SH wrapped addresses, and 'pubkeys' for
         // inspecting multisig participants.
         if (include_addresses) obj.pushKV("addresses", std::move(a));
     }
