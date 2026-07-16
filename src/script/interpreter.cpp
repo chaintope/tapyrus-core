@@ -1470,16 +1470,6 @@ bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, unsigne
     if (CastToBool(stack.back()) == false)
         return set_error(serror, SCRIPT_ERR_EVAL_FALSE);
 
-    // Bare witness programs
-    int witnessversion;
-    std::vector<unsigned char> witnessprogram;
-
-    if (scriptPubKey.IsWitnessProgram(witnessversion, witnessprogram)) {
-        // Bypass the cleanstack check at the end. The actual stack is obviously not clean
-        // for witness programs.
-        stack.resize(1);
-    }
-
     // Additional validation for spend-to-script-hash transactions.
     // For CP2SH colored outputs, redeem-script evaluation is gated on the
     // SCRIPT_VERIFY_CP2SH_COLORED softfork flag.  Before the flag is set (pre-
@@ -1511,18 +1501,11 @@ bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, unsigne
             return set_error(serror, SCRIPT_ERR_EVAL_FALSE);
         if (!CastToBool(stack.back()))
             return set_error(serror, SCRIPT_ERR_EVAL_FALSE);
-
-        // P2SH witness program
-        if (pubKey2.IsWitnessProgram(witnessversion, witnessprogram)) {
-            // Bypass the cleanstack check at the end. The actual stack is obviously not clean
-            // for witness programs.
-            stack.resize(1);
-        }
     }
 
     // The CLEANSTACK check is only performed after potential P2SH evaluation,
     // as the non-P2SH evaluation of a P2SH script will obviously not result in
-    // a clean stack (the P2SH inputs remain). The same holds for witness evaluation.
+    // a clean stack (the P2SH inputs remain).
     if ((flags & SCRIPT_VERIFY_CLEANSTACK) != 0) {
         // Disallow CLEANSTACK without P2SH, as otherwise a switch CLEANSTACK->P2SH+CLEANSTACK
         // would be possible, which is not a softfork (and P2SH should be one).
