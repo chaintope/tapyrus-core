@@ -120,15 +120,6 @@ bool CheckECDSASignatureEncoding(const std::vector<unsigned char> &vchSig, Scrip
 
 bool CheckSchnorrSignatureEncoding(const std::vector<unsigned char> &vchSig, ScriptError* serror, bool dataSignature = false);
 
-struct PrecomputedTransactionData
-{
-    uint256 hashPrevouts, hashSequence, hashOutputs;
-    bool ready = false;
-
-    template <class T>
-    explicit PrecomputedTransactionData(const T& tx);
-};
-
 template <class T>
 uint256 SignatureHash(const CScript& scriptCode, const T& txTo, unsigned int nIn, int nHashType, const CAmount& amount);
 
@@ -165,11 +156,9 @@ private:
     const T* txTo;
     unsigned int nIn;
     const CAmount amount;
-    const PrecomputedTransactionData* txdata;
 
 public:
-    GenericTransactionSignatureChecker(const T* txToIn, unsigned int nInIn, const CAmount& amountIn) : txTo(txToIn), nIn(nInIn), amount(amountIn), txdata(nullptr) {}
-    GenericTransactionSignatureChecker(const T* txToIn, unsigned int nInIn, const CAmount& amountIn, const PrecomputedTransactionData& txdataIn) : txTo(txToIn), nIn(nInIn), amount(amountIn), txdata(&txdataIn) {}
+    GenericTransactionSignatureChecker(const T* txToIn, unsigned int nInIn, const CAmount& amountIn) : txTo(txToIn), nIn(nInIn), amount(amountIn) {}
     bool VerifySignature(const std::vector<unsigned char>& vchSig, const CPubKey& vchPubKey, const uint256& sighash) const override;
     bool CheckSig(const std::vector<unsigned char>& scriptSig, const std::vector<unsigned char>& vchPubKey, const CScript& scriptCode) const override;
     bool CheckLockTime(const CScriptNum& nLockTime) const override;

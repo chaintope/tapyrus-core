@@ -20,13 +20,12 @@ private:
     unsigned int nIn;
     unsigned int nFlags;
     bool cacheStore;
-    PrecomputedTransactionData *txdata;
     ColorIdentifier colorid;
 
 public:
     CScriptCheck(): ptxTo(nullptr), nIn(0), nFlags(0), cacheStore(false), colorid(ColorIdentifier()) {}
-    CScriptCheck(const CTxOut& outIn, const CTransaction& txToIn, unsigned int nInIn, unsigned int nFlagsIn, bool cacheIn, PrecomputedTransactionData* txdataIn, ColorIdentifier coloridIn = ColorIdentifier()) :
-        m_tx_out(outIn), ptxTo(&txToIn), nIn(nInIn), nFlags(nFlagsIn), cacheStore(cacheIn), txdata(txdataIn), colorid(coloridIn) { }
+    CScriptCheck(const CTxOut& outIn, const CTransaction& txToIn, unsigned int nInIn, unsigned int nFlagsIn, bool cacheIn, ColorIdentifier coloridIn = ColorIdentifier()) :
+        m_tx_out(outIn), ptxTo(&txToIn), nIn(nInIn), nFlags(nFlagsIn), cacheStore(cacheIn), colorid(coloridIn) { }
 
     // Returns nullopt on success, or the ScriptError on failure.
     std::optional<ScriptError> operator()();

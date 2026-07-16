@@ -599,12 +599,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     int nInputs = 0;
     int64_t nSigOpsCost = 0;
     blockundo.vtxundo.reserve(block.vtx.size() - 1);
-    // txdata must be declared before control: on early return, C++ destroys locals in
-    // reverse declaration order, so control's destructor (which calls Wait()) must run
-    // before txdata is freed — otherwise background script-check threads access freed memory
-    // (CVE-2024-52911).
-    std::vector<PrecomputedTransactionData> txdata;
-    txdata.reserve(block.vtx.size()); // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
 
     CCheckQueueControl<CScriptCheck> control(fScriptChecks && nScriptCheckThreads ? scriptcheckqueue.get() : nullptr);
     // Accumulate new NON_REISSUABLE/NFT issuances across the whole block.
@@ -659,12 +653,11 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             return state.DoS(100, error("ConnectBlock(): too many sigops"),
                              REJECT_INVALID, "bad-blk-sigops");
 
-        txdata.emplace_back(tx);
         if (!tx.IsCoinBase())
         {
             std::vector<CScriptCheck> vChecks;
             bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
-            if (!CheckInputs(tx, state, view, fScriptChecks, GetBlockScriptFlags(pindex), fCacheResults, fCacheResults, txdata[i], nScriptCheckThreads ? &vChecks : nullptr, GetBlockScriptFlags(pindex)))
+            if (!CheckInputs(tx, state, view, fScriptChecks, GetBlockScriptFlags(pindex), fCacheResults, fCacheResults, nScriptCheckThreads ? &vChecks : nullptr, GetBlockScriptFlags(pindex)))
                 // FormatStateMessage is evaluated before DoS() re-sets state, preserving
                 // the per-input detail in the log.  state.GetRejectReason() already holds
                 // the specific error string set by CheckInputs, so it is propagated as-is.

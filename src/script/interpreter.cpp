@@ -1302,15 +1302,6 @@ public:
 } // namespace
 
 template <class T>
-PrecomputedTransactionData::PrecomputedTransactionData(const T& txTo)
-{
-}
-
-// explicit instantiation
-template PrecomputedTransactionData::PrecomputedTransactionData(const CTransaction& txTo);
-template PrecomputedTransactionData::PrecomputedTransactionData(const CMutableTransaction& txTo);
-
-template <class T>
 uint256 SignatureHash(const CScript& scriptCode, const T& txTo, unsigned int nIn, int nHashType, const CAmount& amount)
 {
     assert(nIn < txTo.vin.size());

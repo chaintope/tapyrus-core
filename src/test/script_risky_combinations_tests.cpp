@@ -76,11 +76,10 @@ bool Verify(const CScript& scriptSig, const CScript& scriptPubKey, const CMutabl
             CAmount amount, unsigned int flags, ScriptError* err, ColorIdentifier* colorIdOut = nullptr)
 {
     CTransaction spend(spendMut);
-    PrecomputedTransactionData txdata(spend);
     ColorIdentifier localColorId;
     ColorIdentifier& colorId = colorIdOut ? *colorIdOut : localColorId;
     return VerifyScript(scriptSig, scriptPubKey, flags,
-                         TransactionSignatureChecker(&spend, 0, amount, txdata), colorId, err);
+                         TransactionSignatureChecker(&spend, 0, amount), colorId, err);
 }
 
 } // namespace

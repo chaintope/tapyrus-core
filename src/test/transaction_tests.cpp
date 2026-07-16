@@ -151,7 +151,6 @@ BOOST_AUTO_TEST_CASE(tx_valid)
             BOOST_CHECK_MESSAGE(CheckTransaction(tx, state), strTest);
             BOOST_CHECK(state.IsValid());
 
-            PrecomputedTransactionData txdata(tx);
             for (unsigned int i = 0; i < tx.vin.size(); i++)
             {
                 if (!mapprevOutScriptPubKeys.count(tx.vin[i].prevout))
@@ -169,7 +168,7 @@ BOOST_AUTO_TEST_CASE(tx_valid)
                 // OP_COLOR state must not leak across inputs or across test cases.
                 ColorIdentifier colorId;
                 BOOST_CHECK_MESSAGE(VerifyScript(tx.vin[i].scriptSig, mapprevOutScriptPubKeys[tx.vin[i].prevout],
-                                                 verify_flags, TransactionSignatureChecker(&tx, i, amount, txdata), colorId, &err),
+                                                 verify_flags, TransactionSignatureChecker(&tx, i, amount), colorId, &err),
                                     strTest);
                 BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
             }
@@ -239,7 +238,6 @@ BOOST_AUTO_TEST_CASE(tx_invalid)
             CValidationState state;
             fValid = CheckTransaction(tx, state) && state.IsValid();
 
-            PrecomputedTransactionData txdata(tx);
             for (unsigned int i = 0; i < tx.vin.size() && fValid; i++)
             {
                 if (!mapprevOutScriptPubKeys.count(tx.vin[i].prevout))
@@ -257,7 +255,7 @@ BOOST_AUTO_TEST_CASE(tx_invalid)
                 // OP_COLOR state must not leak across inputs or across test cases.
                 ColorIdentifier colorId;
                 fValid = VerifyScript(tx.vin[i].scriptSig, mapprevOutScriptPubKeys[tx.vin[i].prevout],
-                                      verify_flags, TransactionSignatureChecker(&tx, i, amount, txdata), colorId, &err);
+                                      verify_flags, TransactionSignatureChecker(&tx, i, amount), colorId, &err);
             }
             BOOST_CHECK_MESSAGE(!fValid, strTest);
             BOOST_CHECK_MESSAGE(err != SCRIPT_ERR_OK, ScriptErrorString(err));
