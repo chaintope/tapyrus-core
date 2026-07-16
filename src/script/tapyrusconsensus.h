@@ -50,7 +50,6 @@ typedef enum bitcoinconsensus_error_t
 enum
 {
     bitcoinconsensus_SCRIPT_FLAGS_VERIFY_NONE                = 0,
-    bitcoinconsensus_SCRIPT_FLAGS_VERIFY_WITNESS             = (1U << 11), // enable WITNESS (BIP141)
     bitcoinconsensus_SCRIPT_FLAGS_VERIFY_ALL                 = 0
 };
 
