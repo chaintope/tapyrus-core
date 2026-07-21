@@ -95,6 +95,12 @@ static const unsigned int MANDATORY_SCRIPT_VERIFY_FLAGS = 0;
  * Standard script verification flags that standard transactions will comply
  * with. However scripts violating these flags may still be present in valid
  * blocks and we must accept those blocks.
+ *
+ * Note: VerifyScript() no longer bypasses CLEANSTACK for witness-program-shaped
+ * scriptPubKeys (OP_0 <push>), so such spends now need CLEANSTACK to pass here,
+ * same as any other script. This has no consensus effect (these flags are not
+ * used for block validation), but it does tighten mempool/relay standardness:
+ * such a spend can no longer be relayed, only mined directly.
  */
 static constexpr unsigned int STANDARD_SCRIPT_VERIFY_FLAGS = SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS |
                                                              SCRIPT_VERIFY_CLEANSTACK |

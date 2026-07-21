@@ -121,6 +121,10 @@ int bitcoinconsensus_verify_script(const unsigned char *scriptPubKey, unsigned i
 
 unsigned int bitcoinconsensus_version()
 {
-    // Just use the API version for now
+    // Note: BITCOINCONSENSUS_API_VER is unchanged even though the removal of
+    // bitcoinconsensus_SCRIPT_FLAGS_VERIFY_WITNESS is a real ABI break: callers
+    // that used to get bitcoinconsensus_ERR_AMOUNT_REQUIRED for that flag bit
+    // now get it silently ignored instead. Downstream consumers can't detect
+    // this via the version number.
     return BITCOINCONSENSUS_API_VER;
 }
