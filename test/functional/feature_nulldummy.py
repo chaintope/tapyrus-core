@@ -14,8 +14,8 @@ Generate 427 more blocks.
 [Policy/Consensus] Check that the new NULLDUMMY rules are enforced on the 432nd block.
 """
 
-from test_framework.blocktools import create_coinbase, create_block, create_transaction, add_witness_commitment
-from test_framework.messages import CTransaction, CTxInWitness
+from test_framework.blocktools import create_coinbase, create_block, create_transaction
+from test_framework.messages import CTransaction
 from test_framework.script import CScript
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error, bytes_to_hex_str
@@ -41,7 +41,6 @@ class NULLDUMMYTest(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
-        # This script tests NULLDUMMY activation, using default segwit activation(ALWAYS_ON)
         self.extra_args = [['-whitelist=127.0.0.1']]
         self.mocktime = int(time.time())
 
@@ -61,47 +60,42 @@ class NULLDUMMYTest(BitcoinTestFramework):
 
         self.log.info("Test 1: NULLDUMMY compliant base transactions should be accepted to mempool")
         test1txs = [create_transaction(self.nodes[0], coinbase_txid[0], self.ms_address, amount=49)]
-        txid1 = self.nodes[0].sendrawtransaction(bytes_to_hex_str(test1txs[0].serialize_with_witness()), True)
+        txid1 = self.nodes[0].sendrawtransaction(bytes_to_hex_str(test1txs[0].serialize()), True)
         test1txs.append(create_transaction(self.nodes[0], txid1, self.ms_address, amount=48))
-        txid2 = self.nodes[0].sendrawtransaction(bytes_to_hex_str(test1txs[1].serialize_with_witness()), True)
-        self.block_submit(self.nodes[0], test1txs, False, True)
+        txid2 = self.nodes[0].sendrawtransaction(bytes_to_hex_str(test1txs[1].serialize()), True)
+        self.block_submit(self.nodes[0], test1txs, True)
 
         self.log.info("Test 2: Non-NULLDUMMY base multisig transaction should not be accepted to mempool")
         test2tx = create_transaction(self.nodes[0], txid2, self.ms_address, amount=47.99999)
         trueDummy(test2tx)
-        assert_raises_rpc_error(-26, NULLDUMMY_ERROR, self.nodes[0].sendrawtransaction, bytes_to_hex_str(test2tx.serialize_with_witness()), True)
+        assert_raises_rpc_error(-26, NULLDUMMY_ERROR, self.nodes[0].sendrawtransaction, bytes_to_hex_str(test2tx.serialize()), True)
 
         self.log.info("Test 3: Non-NULLDUMMY base transactions should not be accepted in a block")
-        self.block_submit(self.nodes[0], [test2tx], False)
+        self.block_submit(self.nodes[0], [test2tx])
 
         self.log.info("Test 4: Non-NULLDUMMY base multisig transaction is invalid ")
         test4tx = create_transaction(self.nodes[0], txid2, self.address, amount=46)
         test6txs=[CTransaction(test4tx)]
         trueDummy(test4tx)
-        assert_raises_rpc_error(-26, NULLDUMMY_ERROR, self.nodes[0].sendrawtransaction, bytes_to_hex_str(test4tx.serialize_with_witness()), True)
+        assert_raises_rpc_error(-26, NULLDUMMY_ERROR, self.nodes[0].sendrawtransaction, bytes_to_hex_str(test4tx.serialize()), True)
         self.block_submit(self.nodes[0], [test4tx])
 
         self.log.info("Test 6: NULLDUMMY compliant base transactions should be accepted to mempool and in block")
         for i in test6txs:
             self.nodes[0].sendrawtransaction(bytes_to_hex_str(i.serialize()), True)
-        self.block_submit(self.nodes[0], test6txs, False, True)
+        self.block_submit(self.nodes[0], test6txs, True)
 
 
-    def block_submit(self, node, txs, witness = False, accept = False):
+    def block_submit(self, node, txs, accept = False):
         block = create_block(self.tip, create_coinbase(self.lastblockheight + 1), self.lastblocktime + 1)
         for tx in txs:
             tx.rehash()
             block.vtx.append(tx)
         block.hashMerkleRoot = block.calc_merkle_root()
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
-        witness and add_witness_commitment(block)
         block.rehash()
         block.solve(self.signblockprivkey)
-        blockbytes = block.serialize(with_witness=True)
-        if(witness):
-            assert_raises_rpc_error(-22, "Block does not start with a coinbase", node.submitblock, bytes_to_hex_str(blockbytes))
-        else:
-            node.submitblock(bytes_to_hex_str(blockbytes))
+        node.submitblock(bytes_to_hex_str(block.serialize()))
         if (accept):
             assert_equal(node.getbestblockhash(), block.hash)
             self.tip = block.sha256

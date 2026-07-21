@@ -14,7 +14,7 @@ import random
 from logging import exception
 
 from test_framework.blocktools import create_block, create_coinbase
-from test_framework.messages import BlockTransactions, BlockTransactionsRequest, calculate_shortid, CBlock, CBlockHeader, CInv, COutPoint, CTransaction, CTxIn, CTxOut, FromHex, HeaderAndShortIDs, msg_block, msg_blocktxn, msg_cmpctblock, msg_getblocktxn, msg_getdata, msg_getheaders, msg_headers, msg_inv, msg_sendcmpct, msg_sendheaders, msg_tx, NODE_NETWORK, NODE_WITNESS, P2PHeaderAndShortIDs, PrefilledTransaction, ToHex
+from test_framework.messages import BlockTransactions, BlockTransactionsRequest, calculate_shortid, CBlock, CBlockHeader, CInv, COutPoint, CTransaction, CTxIn, CTxOut, FromHex, HeaderAndShortIDs, msg_block, msg_blocktxn, msg_cmpctblock, msg_getblocktxn, msg_getdata, msg_getheaders, msg_headers, msg_inv, msg_sendcmpct, msg_sendheaders, msg_tx, NODE_NETWORK, NODE_UNSUPPORTED_FEATURE, P2PHeaderAndShortIDs, PrefilledTransaction, ToHex
 from test_framework.mininode import mininode_lock, P2PInterface
 from test_framework.timeout_config import TAPYRUSD_P2P_TIMEOUT
 from test_framework.script import CScript, OP_TRUE, OP_HASH160, OP_EQUAL, hash160
@@ -331,9 +331,6 @@ class CompactBlocksTest(BitcoinTestFramework):
             # This checks the tx agree
             assert_equal(entry.tx.sha256, block.vtx[entry.index].sha256)
             assert_equal(entry.tx.malfixsha256, block.vtx[entry.index].malfixsha256)
-
-            # And this checks the witness
-            assert(entry.tx.wit.is_null())
 
         # Check that the cmpctblock message announced all the transactions.
         assert_equal(len(header_and_shortids.prefilled_txn) + len(header_and_shortids.shortids), len(block.vtx))
@@ -851,8 +848,8 @@ class CompactBlocksTest(BitcoinTestFramework):
         self.test_node = self.nodes[0].add_p2p_connection(TestP2PConn(self.nodes[0].time_to_connect))
         self.old_node = self.nodes[1].add_p2p_connection(TestP2PConn(self.nodes[1].time_to_connect), services=NODE_NETWORK)
         
-        self.log.info("Tapyrus NODE_WITNESS connections are unsupported")
-        self.segwit_node = self.nodes[1].add_p2p_connection(TestP2PConn(self.nodes[1].time_to_connect), services=NODE_NETWORK | NODE_WITNESS, wait_for_verack = False)
+        self.log.info("Tapyrus NODE_UNSUPPORTED_FEATURE connections are unsupported")
+        self.segwit_node = self.nodes[1].add_p2p_connection(TestP2PConn(self.nodes[1].time_to_connect), services=NODE_NETWORK | NODE_UNSUPPORTED_FEATURE, wait_for_verack = False)
         self.segwit_node.wait_for_disconnect(timeout=TAPYRUSD_P2P_TIMEOUT)
         self.extra_node = self.nodes[1].add_p2p_connection(TestP2PConn(self.nodes[1].time_to_connect), services=NODE_NETWORK)
 
