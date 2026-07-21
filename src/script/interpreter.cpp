@@ -1437,6 +1437,8 @@ bool GenericTransactionSignatureChecker<T>::CheckSequence(const CScriptNum& nSeq
 }
 
 // explicit instantiation
+template uint256 SignatureHash(const CScript& scriptCode, const CTransaction& txTo, unsigned int nIn, int nHashType, const CAmount& amount);
+template uint256 SignatureHash(const CScript& scriptCode, const CMutableTransaction& txTo, unsigned int nIn, int nHashType, const CAmount& amount);
 template class GenericTransactionSignatureChecker<CTransaction>;
 template class GenericTransactionSignatureChecker<CMutableTransaction>;
 
