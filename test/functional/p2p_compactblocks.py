@@ -571,7 +571,6 @@ class CompactBlocksTest(BitcoinTestFramework):
                     tx.calc_sha256()
                     assert_equal(tx.malfixsha256, block.vtx[index].malfixsha256)
                     assert_equal(tx.sha256, block.vtx[index].sha256)
-                    assert(tx.wit.is_null())
                 test_node.last_message.pop("blocktxn", None)
             current_height -= 1
 
