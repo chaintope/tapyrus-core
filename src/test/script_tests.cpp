@@ -94,14 +94,6 @@ static ScriptErrorDesc script_errors[] = {
     {SCRIPT_ERR_MINIMALIF, "MINIMALIF"},
     {SCRIPT_ERR_SIG_NULLFAIL, "NULLFAIL"},
     {SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS, "DISCOURAGE_UPGRADABLE_NOPS"},
-    {SCRIPT_ERR_DISCOURAGE_UPGRADABLE_WITNESS_PROGRAM, "DISCOURAGE_UPGRADABLE_WITNESS_PROGRAM"},
-    {SCRIPT_ERR_WITNESS_PROGRAM_WRONG_LENGTH, "WITNESS_PROGRAM_WRONG_LENGTH"},
-    {SCRIPT_ERR_WITNESS_PROGRAM_WITNESS_EMPTY, "WITNESS_PROGRAM_WITNESS_EMPTY"},
-    {SCRIPT_ERR_WITNESS_PROGRAM_MISMATCH, "WITNESS_PROGRAM_MISMATCH"},
-    {SCRIPT_ERR_WITNESS_MALLEATED, "WITNESS_MALLEATED"},
-    {SCRIPT_ERR_WITNESS_MALLEATED_P2SH, "WITNESS_MALLEATED_P2SH"},
-    {SCRIPT_ERR_WITNESS_UNEXPECTED, "WITNESS_UNEXPECTED"},
-    {SCRIPT_ERR_WITNESS_PUBKEYTYPE, "WITNESS_PUBKEYTYPE"},
     {SCRIPT_ERR_OP_CODESEPARATOR, "OP_CODESEPARATOR"},
     {SCRIPT_ERR_SIG_FINDANDDELETE, "SIG_FINDANDDELETE"},
     {SCRIPT_ERR_OP_COLOR_UNEXPECTED, "OP_COLOR_UNEXPECTED"},
@@ -147,7 +139,7 @@ CMutableTransaction BuildCreditingTransaction(const CScript& scriptPubKey, int n
     return txCredit;
 }
 
-CMutableTransaction BuildSpendingTransaction(const CScript& scriptSig, const CScriptWitness& scriptWitness, const CTransaction& txCredit)
+CMutableTransaction BuildSpendingTransaction(const CScript& scriptSig, const CTransaction& txCredit)
 {
     CMutableTransaction txSpend;
     txSpend.nFeatures = 1;
@@ -164,13 +156,13 @@ CMutableTransaction BuildSpendingTransaction(const CScript& scriptSig, const CSc
     return txSpend;
 }
 
-void DoTest(const CScript& scriptPubKey, const CScript& scriptSig, const CScriptWitness& scriptWitness, int flags, const std::string& message, int scriptError, CAmount nValue = 0, uint32_t nLockTime = 0, uint32_t nSequence = CTxIn::SEQUENCE_FINAL)
+void DoTest(const CScript& scriptPubKey, const CScript& scriptSig, int flags, const std::string& message, int scriptError, CAmount nValue = 0, uint32_t nLockTime = 0, uint32_t nSequence = CTxIn::SEQUENCE_FINAL)
 {
     bool expect = (scriptError == SCRIPT_ERR_OK);
     ScriptError err;
     ColorIdentifier colorId;
     const CTransaction txCredit{BuildCreditingTransaction(scriptPubKey, nValue)};
-    CMutableTransaction tx = BuildSpendingTransaction(scriptSig, scriptWitness, txCredit);
+    CMutableTransaction tx = BuildSpendingTransaction(scriptSig, txCredit);
     tx.nLockTime = nLockTime;
     tx.vin[0].nSequence = nSequence;
     CMutableTransaction tx2 = tx;
@@ -182,7 +174,6 @@ void DoTest(const CScript& scriptPubKey, const CScript& scriptSig, const CScript
         SCRIPT_VERIFY_SIGPUSHONLY,
         SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS,
         SCRIPT_VERIFY_CLEANSTACK,
-        SCRIPT_VERIFY_MINIMALIF,
         SCRIPT_VERIFY_NULLFAIL,
         SCRIPT_VERIFY_CONST_SCRIPTCODE,
         SCRIPT_VERIFY_CP2SH_COLORED};
@@ -278,12 +269,6 @@ struct KeyData {
     }
 };
 
-enum class WitnessMode {
-    NONE,
-    PKH,
-    SH
-};
-
 class TestBuilder
 {
 private:
@@ -291,9 +276,6 @@ private:
     CScript script;
     //! The P2SH redeemscript
     CScript redeemscript;
-    //! The Witness embedded script
-    CScript witscript;
-    CScriptWitness scriptWitness;
     CTransactionRef creditTx;
     CMutableTransaction spendTx;
     bool havePush;
@@ -322,20 +304,9 @@ private:
 
 
 public:
-    TestBuilder(const CScript& script_, const std::string& comment_, int flags_, bool P2SH = false, WitnessMode wm = WitnessMode::NONE, int witnessversion = 0, CAmount nValue_ = 0, bool ignoreColor = false, const CScript& customRedeem = CScript()) : script(script_), havePush(false), comment(comment_), flags(flags_), scriptError(SCRIPT_ERR_OK), nValue(nValue_)
+    TestBuilder(const CScript& script_, const std::string& comment_, int flags_, bool P2SH = false, CAmount nValue_ = 0, bool ignoreColor = false, const CScript& customRedeem = CScript()) : script(script_), havePush(false), comment(comment_), flags(flags_), scriptError(SCRIPT_ERR_OK), nValue(nValue_)
     {
         CScript scriptPubKey = script;
-        if (wm == WitnessMode::PKH) {
-            uint160 hash;
-            CHash160().Write(&script[1], script.size() - 1).Finalize(hash.begin());
-            script = CScript() << OP_DUP << OP_HASH160 << ToByteVector(hash) << OP_EQUALVERIFY << OP_CHECKSIG;
-            scriptPubKey = CScript() << witnessversion << ToByteVector(hash);
-        } else if (wm == WitnessMode::SH) {
-            witscript = scriptPubKey;
-            uint256 hash;
-            CSHA256().Write(&witscript[0], witscript.size()).Finalize(hash.begin());
-            scriptPubKey = CScript() << witnessversion << ToByteVector(hash);
-        }
         if (P2SH) {
             if(!ignoreColor && scriptPubKey.IsColoredScript())
             {
@@ -356,7 +327,7 @@ public:
             }
         }
         creditTx = MakeTransactionRef(BuildCreditingTransaction(scriptPubKey, nValue));
-        spendTx = BuildSpendingTransaction(CScript(), CScriptWitness(), *creditTx);
+        spendTx = BuildSpendingTransaction(CScript(), *creditTx);
     }
 
     TestBuilder& LockTime(uint32_t nLockTime)
@@ -403,9 +374,9 @@ public:
         return *this;
     }
 
-    TestBuilder& PushSig(const CKey& key, SignatureScheme scheme, int nHashType = SIGHASH_ALL, unsigned int lenR = 32, unsigned int lenS = 32, SigVersion sigversion = SigVersion::BASE, CAmount amount = 0)
+    TestBuilder& PushSig(const CKey& key, SignatureScheme scheme, int nHashType = SIGHASH_ALL, unsigned int lenR = 32, unsigned int lenS = 32, CAmount amount = 0)
     {
-        uint256 hash = SignatureHash(script, spendTx, 0, nHashType, amount, sigversion);
+        uint256 hash = SignatureHash(script, spendTx, 0, nHashType, amount);
 
         std::vector<unsigned char> vchSig, r, s;
         uint32_t iter = 0;
@@ -473,13 +444,6 @@ public:
         return *this;
     }
 
-    TestBuilder& PushWitSig(const CKey& key, CAmount amount = -1, int nHashType = SIGHASH_ALL, unsigned int lenR = 32, unsigned int lenS = 32, SigVersion sigversion = SigVersion::WITNESS_V0)
-    {
-        if (amount == -1)
-            amount = nValue;
-        return PushSig(key, SignatureScheme::ECDSA, nHashType, lenR, lenS, sigversion, amount).AsWit();
-    }
-
     TestBuilder& Push(const CPubKey& pubkey)
     {
         DoPush(std::vector<unsigned char>(pubkey.begin(), pubkey.end()));
@@ -490,12 +454,6 @@ public:
     {
         DoPush(std::vector<unsigned char>(redeemscript.begin(), redeemscript.end()));
         return *this;
-    }
-
-    TestBuilder& PushWitRedeem()
-    {
-        DoPush(std::vector<unsigned char>(witscript.begin(), witscript.end()));
-        return AsWit();
     }
 
     TestBuilder& EditPush(unsigned int pos, const std::string& hexin, const std::string& hexout)
@@ -522,16 +480,8 @@ public:
     {
         TestBuilder copy = *this; // Make a copy so we can rollback the push.
         DoPush();
-        DoTest(creditTx->vout[0].scriptPubKey, spendTx.vin[0].scriptSig, scriptWitness, flags, comment, scriptError, nValue, m_nLockTime, m_nSequence);
+        DoTest(creditTx->vout[0].scriptPubKey, spendTx.vin[0].scriptSig, flags, comment, scriptError, nValue, m_nLockTime, m_nSequence);
         *this = copy;
-        return *this;
-    }
-
-    TestBuilder& AsWit()
-    {
-        assert(havePush);
-        scriptWitness.stack.push_back(push);
-        havePush = false;
         return *this;
     }
 
@@ -539,14 +489,6 @@ public:
     {
         DoPush();
         UniValue array(UniValue::VARR);
-        if (!scriptWitness.stack.empty()) {
-            UniValue wit(UniValue::VARR);
-            for (unsigned i = 0; i < scriptWitness.stack.size(); i++) {
-                wit.push_back(HexStr(scriptWitness.stack[i]));
-            }
-            wit.push_back(ValueFromAmount(nValue));
-            array.push_back(wit);
-        }
         array.push_back(FormatScript(spendTx.vin[0].scriptSig));
         array.push_back(FormatScript(creditTx->vout[0].scriptPubKey));
         array.push_back(FormatScriptFlags(flags));
@@ -1235,12 +1177,12 @@ BOOST_AUTO_TEST_CASE(script_build)
                                       << OP_HASH160 << ToByteVector(CScriptID(cp2sh_inner))
                                       << OP_EQUAL;
         tests.push_back(TestBuilder(cp2sh_spk, "CP2SH(P2PKH) ECDSA, redeem script genuinely satisfied (passes with the flag on)", SCRIPT_VERIFY_CP2SH_COLORED,
-                                    /*P2SH=*/true, WitnessMode::NONE, 0, 0, false, cp2sh_inner)
+                                    /*P2SH=*/true, 0, false, cp2sh_inner)
                             .PushSig(keys.key1, SignatureScheme::ECDSA)
                             .Push(keys.pubkey1C)
                             .PushRedeem());
         tests.push_back(TestBuilder(cp2sh_spk, "CP2SH(P2PKH) SCHNORR, redeem script genuinely satisfied (passes with the flag on)", SCRIPT_VERIFY_CP2SH_COLORED,
-                                    /*P2SH=*/true, WitnessMode::NONE, 0, 0, false, cp2sh_inner)
+                                    /*P2SH=*/true, 0, false, cp2sh_inner)
                             .PushSig(keys.key1, SignatureScheme::SCHNORR)
                             .Push(keys.pubkey1C)
                             .PushRedeem());
@@ -1297,25 +1239,21 @@ BOOST_AUTO_TEST_CASE(script_json_test)
 {
     // Read tests from test/data/script_tests.json
     // Format is an array of arrays
-    // Inner arrays are [ ["wit"..., nValue]?, "scriptSig", "scriptPubKey", "flags", "expected_scripterror" ]
+    // Inner arrays are [ [..., nValue]?, "scriptSig", "scriptPubKey", "flags", "expected_scripterror" ]
     // ... where scriptSig and scriptPubKey are stringified
     // scripts.
-    // If a witness is given, then the last value in the array should be the
-    // amount (nValue) to use in the crediting tx
+    // If a leading array is given, its last value is the amount (nValue)
+    // to use in the crediting tx; any earlier entries are unused legacy
+    // witness-stack items and are ignored.
     UniValue tests = read_json(std::string(json_tests::script_tests));
 
     for (unsigned int idx = 0; idx < tests.size(); idx++) {
         UniValue test = tests[idx];
         std::string strTest = test.write();
-        CScriptWitness witness;
         CAmount nValue = 0;
         unsigned int pos = 0;
         if (test.size() > 0 && test[pos].isArray()) {
-            unsigned int i = 0;
-            for (i = 0; i < test[pos].size() - 1; i++) {
-                witness.stack.push_back(ParseHex(test[pos][i].get_str()));
-            }
-            nValue = AmountFromValue(test[pos][i]);
+            nValue = AmountFromValue(test[pos][test[pos].size() - 1]);
             pos++;
         }
         if (test.size() < 4 + pos) // Allow size > 3; extra stuff ignored (useful for comments)
@@ -1332,7 +1270,7 @@ BOOST_AUTO_TEST_CASE(script_json_test)
         unsigned int scriptflags = ParseScriptFlags(test[pos++].get_str());
         int scriptError = ParseScriptError(test[pos++].get_str());
 
-        DoTest(scriptPubKey, scriptSig, witness, scriptflags, strTest, scriptError, nValue);
+        DoTest(scriptPubKey, scriptSig, scriptflags, strTest, scriptError, nValue);
     }
 }
 
@@ -1349,21 +1287,21 @@ BOOST_AUTO_TEST_CASE(script_PushData)
     ScriptError err;
     std::vector<std::vector<unsigned char>> directStack;
     ColorIdentifier colorId;
-    BOOST_CHECK(EvalScript(directStack, CScript(&direct[0], &direct[sizeof(direct)]), SCRIPT_VERIFY_NONE, BaseSignatureChecker(), SigVersion::BASE, &colorId, &err));
+    BOOST_CHECK(EvalScript(directStack, CScript(&direct[0], &direct[sizeof(direct)]), SCRIPT_VERIFY_NONE, BaseSignatureChecker(), &colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
 
     std::vector<std::vector<unsigned char>> pushdata1Stack;
-    BOOST_CHECK(!EvalScript(pushdata1Stack, CScript(&pushdata1[0], &pushdata1[sizeof(pushdata1)]), SCRIPT_VERIFY_NONE, BaseSignatureChecker(), SigVersion::BASE, &colorId, &err));
+    BOOST_CHECK(!EvalScript(pushdata1Stack, CScript(&pushdata1[0], &pushdata1[sizeof(pushdata1)]), SCRIPT_VERIFY_NONE, BaseSignatureChecker(), &colorId, &err));
     //BOOST_CHECK(pushdata1Stack == directStack);
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_MINIMALDATA, ScriptErrorString(err));
 
     std::vector<std::vector<unsigned char>> pushdata2Stack;
-    BOOST_CHECK(!EvalScript(pushdata2Stack, CScript(&pushdata2[0], &pushdata2[sizeof(pushdata2)]), SCRIPT_VERIFY_NONE, BaseSignatureChecker(), SigVersion::BASE, &colorId, &err));
+    BOOST_CHECK(!EvalScript(pushdata2Stack, CScript(&pushdata2[0], &pushdata2[sizeof(pushdata2)]), SCRIPT_VERIFY_NONE, BaseSignatureChecker(), &colorId, &err));
     //BOOST_CHECK(pushdata2Stack == directStack);
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_MINIMALDATA, ScriptErrorString(err));
 
     std::vector<std::vector<unsigned char>> pushdata4Stack;
-    BOOST_CHECK(!EvalScript(pushdata4Stack, CScript(&pushdata4[0], &pushdata4[sizeof(pushdata4)]), SCRIPT_VERIFY_NONE, BaseSignatureChecker(), SigVersion::BASE, &colorId, &err));
+    BOOST_CHECK(!EvalScript(pushdata4Stack, CScript(&pushdata4[0], &pushdata4[sizeof(pushdata4)]), SCRIPT_VERIFY_NONE, BaseSignatureChecker(), &colorId, &err));
     //BOOST_CHECK(pushdata4Stack == directStack);
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_MINIMALDATA, ScriptErrorString(err));
 
@@ -1373,18 +1311,18 @@ BOOST_AUTO_TEST_CASE(script_PushData)
     pushdata2Stack.clear();
     pushdata4Stack.clear();
 
-    BOOST_CHECK(EvalScript(directStack, CScript(&direct[0], &direct[sizeof(direct)]), stdFlags, BaseSignatureChecker(), SigVersion::BASE, &colorId, &err));
+    BOOST_CHECK(EvalScript(directStack, CScript(&direct[0], &direct[sizeof(direct)]), stdFlags, BaseSignatureChecker(), &colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
 
-    BOOST_CHECK(!EvalScript(pushdata1Stack, CScript(&pushdata1[0], &pushdata1[sizeof(pushdata1)]), stdFlags, BaseSignatureChecker(), SigVersion::BASE, &colorId, &err));
+    BOOST_CHECK(!EvalScript(pushdata1Stack, CScript(&pushdata1[0], &pushdata1[sizeof(pushdata1)]), stdFlags, BaseSignatureChecker(), &colorId, &err));
     //BOOST_CHECK(pushdata1Stack == directStack);
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_MINIMALDATA, ScriptErrorString(err));
 
-    BOOST_CHECK(!EvalScript(pushdata2Stack, CScript(&pushdata2[0], &pushdata2[sizeof(pushdata2)]), stdFlags, BaseSignatureChecker(), SigVersion::BASE, &colorId, &err));
+    BOOST_CHECK(!EvalScript(pushdata2Stack, CScript(&pushdata2[0], &pushdata2[sizeof(pushdata2)]), stdFlags, BaseSignatureChecker(), &colorId, &err));
     //BOOST_CHECK(pushdata2Stack == directStack);
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_MINIMALDATA, ScriptErrorString(err));
 
-    BOOST_CHECK(!EvalScript(pushdata4Stack, CScript(&pushdata4[0], &pushdata4[sizeof(pushdata4)]), stdFlags, BaseSignatureChecker(), SigVersion::BASE, &colorId, &err));
+    BOOST_CHECK(!EvalScript(pushdata4Stack, CScript(&pushdata4[0], &pushdata4[sizeof(pushdata4)]), stdFlags, BaseSignatureChecker(), &colorId, &err));
     //BOOST_CHECK(pushdata4Stack == directStack);
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_MINIMALDATA, ScriptErrorString(err));
 
@@ -1394,18 +1332,18 @@ BOOST_AUTO_TEST_CASE(script_PushData)
     pushdata2Stack.clear();
     pushdata4Stack.clear();
 
-    BOOST_CHECK(EvalScript(directStack, CScript(&direct[0], &direct[sizeof(direct)]), mndFlags, BaseSignatureChecker(), SigVersion::BASE, &colorId, &err));
+    BOOST_CHECK(EvalScript(directStack, CScript(&direct[0], &direct[sizeof(direct)]), mndFlags, BaseSignatureChecker(), &colorId, &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
 
-    BOOST_CHECK(!EvalScript(pushdata1Stack, CScript(&pushdata1[0], &pushdata1[sizeof(pushdata1)]), mndFlags, BaseSignatureChecker(), SigVersion::BASE, &colorId, &err));
+    BOOST_CHECK(!EvalScript(pushdata1Stack, CScript(&pushdata1[0], &pushdata1[sizeof(pushdata1)]), mndFlags, BaseSignatureChecker(), &colorId, &err));
     //BOOST_CHECK(pushdata1Stack == directStack);
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_MINIMALDATA, ScriptErrorString(err));
 
-    BOOST_CHECK(!EvalScript(pushdata2Stack, CScript(&pushdata2[0], &pushdata2[sizeof(pushdata2)]), mndFlags, BaseSignatureChecker(), SigVersion::BASE, &colorId, &err));
+    BOOST_CHECK(!EvalScript(pushdata2Stack, CScript(&pushdata2[0], &pushdata2[sizeof(pushdata2)]), mndFlags, BaseSignatureChecker(), &colorId, &err));
     //BOOST_CHECK(pushdata2Stack == directStack);
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_MINIMALDATA, ScriptErrorString(err));
 
-    BOOST_CHECK(!EvalScript(pushdata4Stack, CScript(&pushdata4[0], &pushdata4[sizeof(pushdata4)]), mndFlags, BaseSignatureChecker(), SigVersion::BASE, &colorId, &err));
+    BOOST_CHECK(!EvalScript(pushdata4Stack, CScript(&pushdata4[0], &pushdata4[sizeof(pushdata4)]), mndFlags, BaseSignatureChecker(), &colorId, &err));
     //BOOST_CHECK(pushdata4Stack == directStack);
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_MINIMALDATA, ScriptErrorString(err));
 }
@@ -1413,7 +1351,7 @@ BOOST_AUTO_TEST_CASE(script_PushData)
 static CScript
 sign_multisig(const CScript& scriptPubKey, const std::vector<CKey>& keys, const CTransaction& transaction)
 {
-    uint256 hash = SignatureHash(scriptPubKey, transaction, 0, SIGHASH_ALL, 0, SigVersion::BASE);
+    uint256 hash = SignatureHash(scriptPubKey, transaction, 0, SIGHASH_ALL, 0);
 
     CScript result;
     //
@@ -1454,7 +1392,7 @@ BOOST_AUTO_TEST_CASE(script_CHECKMULTISIG12)
     scriptPubKey12 << OP_1 << ToByteVector(key1.GetPubKey()) << ToByteVector(key2.GetPubKey()) << OP_2 << OP_CHECKMULTISIG;
 
     const CTransaction txFrom12{BuildCreditingTransaction(scriptPubKey12)};
-    CMutableTransaction txTo12 = BuildSpendingTransaction(CScript(), CScriptWitness(), txFrom12);
+    CMutableTransaction txTo12 = BuildSpendingTransaction(CScript(), txFrom12);
 
     CScript goodsig1 = sign_multisig(scriptPubKey12, key1, txTo12);
     BOOST_CHECK(VerifyScript(goodsig1, scriptPubKey12, SCRIPT_VERIFY_NONE, MutableTransactionSignatureChecker(&txTo12, 0, txFrom12.vout[0].nValue), colorId, &err));
@@ -1504,7 +1442,7 @@ BOOST_AUTO_TEST_CASE(script_CHECKMULTISIG23)
     scriptPubKey23 << OP_2 << ToByteVector(key1.GetPubKey()) << ToByteVector(key2.GetPubKey()) << ToByteVector(key3.GetPubKey()) << OP_3 << OP_CHECKMULTISIG;
 
     const CTransaction txFrom23{BuildCreditingTransaction(scriptPubKey23)};
-    CMutableTransaction txTo23 = BuildSpendingTransaction(CScript(), CScriptWitness(), txFrom23);
+    CMutableTransaction txTo23 = BuildSpendingTransaction(CScript(), txFrom23);
 
     std::vector<CKey> keys;
     keys.push_back(key1);
@@ -1645,7 +1583,7 @@ BOOST_AUTO_TEST_CASE(script_combineSigs)
     }
 
     CMutableTransaction txFrom = BuildCreditingTransaction(GetScriptForDestination(keys[0].GetPubKey().GetID()));
-    CMutableTransaction txTo = BuildSpendingTransaction(CScript(), CScriptWitness(), txFrom);
+    CMutableTransaction txTo = BuildSpendingTransaction(CScript(), txFrom);
     CScript& scriptPubKey = txFrom.vout[0].scriptPubKey;
     SignatureData scriptSig;
 
@@ -1702,15 +1640,15 @@ BOOST_AUTO_TEST_CASE(script_combineSigs)
 
     // A couple of partially-signed versions:
     std::vector<unsigned char> sig1;
-    uint256 hash1 = SignatureHash(scriptPubKey, txTo, 0, SIGHASH_ALL, 0, SigVersion::BASE);
+    uint256 hash1 = SignatureHash(scriptPubKey, txTo, 0, SIGHASH_ALL, 0);
     BOOST_CHECK(keys[0].Sign_ECDSA(hash1, sig1));
     sig1.push_back(SIGHASH_ALL);
     std::vector<unsigned char> sig2;
-    uint256 hash2 = SignatureHash(scriptPubKey, txTo, 0, SIGHASH_NONE, 0, SigVersion::BASE);
+    uint256 hash2 = SignatureHash(scriptPubKey, txTo, 0, SIGHASH_NONE, 0);
     BOOST_CHECK(keys[1].Sign_ECDSA(hash2, sig2));
     sig2.push_back(SIGHASH_NONE);
     std::vector<unsigned char> sig3;
-    uint256 hash3 = SignatureHash(scriptPubKey, txTo, 0, SIGHASH_SINGLE, 0, SigVersion::BASE);
+    uint256 hash3 = SignatureHash(scriptPubKey, txTo, 0, SIGHASH_SINGLE, 0);
     BOOST_CHECK(keys[2].Sign_ECDSA(hash3, sig3));
     sig3.push_back(SIGHASH_SINGLE);
 
@@ -2224,7 +2162,7 @@ BOOST_AUTO_TEST_CASE(colored_coin_standard_scripts)
     // P2SH(CP2PKH) — OP_COLOR inside a P2SH redeem script is forbidden
     tests.push_back(TestBuilder(cp2pkh,
         "P2SH(CP2PKH) ECDSA is invalid", SCRIPT_VERIFY_NONE,
-        /*P2SH=*/true, WitnessMode::NONE, 0, 0, /*ignoreColor=*/true)
+        /*P2SH=*/true, 0, /*ignoreColor=*/true)
                         .PushSig(keys.key0, SignatureScheme::ECDSA)
                         .Push(keys.pubkey0)
                         .PushRedeem()
@@ -2232,7 +2170,7 @@ BOOST_AUTO_TEST_CASE(colored_coin_standard_scripts)
 
     tests.push_back(TestBuilder(cp2pkh,
         "P2SH(CP2PKH) SCHNORR is invalid", SCRIPT_VERIFY_NONE,
-        /*P2SH=*/true, WitnessMode::NONE, 0, 0, /*ignoreColor=*/true)
+        /*P2SH=*/true, 0, /*ignoreColor=*/true)
                         .PushSig(keys.key0, SignatureScheme::SCHNORR)
                         .Push(keys.pubkey0)
                         .PushRedeem()
@@ -2281,13 +2219,13 @@ BOOST_AUTO_TEST_CASE(colored_coin_cp2sh_redeem_scripts)
         // Valid: tx.nLockTime == 500, input nSequence non-final
         tests.push_back(TestBuilder(cp2sh, "CP2SH(CLTV) valid spend at height 500",
             SCRIPT_VERIFY_CP2SH_COLORED, /*P2SH=*/true,
-            WitnessMode::NONE, 0, 0, false, inner)
+            0, false, inner)
                 .LockTime(500).Sequence(0xfffffffe).PushRedeem());
 
         // Invalid: input is finalized — CLTV always fails when nSequence == SEQUENCE_FINAL
         tests.push_back(TestBuilder(cp2sh, "CP2SH(CLTV) fails when input is finalised",
             SCRIPT_VERIFY_CP2SH_COLORED, /*P2SH=*/true,
-            WitnessMode::NONE, 0, 0, false, inner)
+            0, false, inner)
                 .LockTime(500)   // nSequence stays at default SEQUENCE_FINAL
                 .PushRedeem()
                 .ScriptError(SCRIPT_ERR_UNSATISFIED_LOCKTIME));
@@ -2295,7 +2233,7 @@ BOOST_AUTO_TEST_CASE(colored_coin_cp2sh_redeem_scripts)
         // Invalid: tx.nLockTime is below the required threshold
         tests.push_back(TestBuilder(cp2sh, "CP2SH(CLTV) fails when locktime too low",
             SCRIPT_VERIFY_CP2SH_COLORED, /*P2SH=*/true,
-            WitnessMode::NONE, 0, 0, false, inner)
+            0, false, inner)
                 .LockTime(499).Sequence(0xfffffffe)
                 .PushRedeem()
                 .ScriptError(SCRIPT_ERR_UNSATISFIED_LOCKTIME));
@@ -2311,13 +2249,13 @@ BOOST_AUTO_TEST_CASE(colored_coin_cp2sh_redeem_scripts)
         // Valid: nSequence = 3 (block-relative, bit 31 clear, >= 3)
         tests.push_back(TestBuilder(cp2sh, "CP2SH(CSV) valid spend with sequence 3",
             SCRIPT_VERIFY_CP2SH_COLORED, /*P2SH=*/true,
-            WitnessMode::NONE, 0, 0, false, inner)
+            0, false, inner)
                 .Sequence(3).PushRedeem());
 
         // Invalid: nSequence = 2 — below the required minimum
         tests.push_back(TestBuilder(cp2sh, "CP2SH(CSV) fails when sequence too low",
             SCRIPT_VERIFY_CP2SH_COLORED, /*P2SH=*/true,
-            WitnessMode::NONE, 0, 0, false, inner)
+            0, false, inner)
                 .Sequence(2)
                 .PushRedeem()
                 .ScriptError(SCRIPT_ERR_UNSATISFIED_LOCKTIME));
@@ -2325,7 +2263,7 @@ BOOST_AUTO_TEST_CASE(colored_coin_cp2sh_redeem_scripts)
         // Invalid: SEQUENCE_DISABLE_FLAG set in tx nSequence — CheckSequence returns false
         tests.push_back(TestBuilder(cp2sh, "CP2SH(CSV) fails when disable flag set in nSequence",
             SCRIPT_VERIFY_CP2SH_COLORED, /*P2SH=*/true,
-            WitnessMode::NONE, 0, 0, false, inner)
+            0, false, inner)
                 .Sequence(CTxIn::SEQUENCE_LOCKTIME_DISABLE_FLAG | 3)
                 .PushRedeem()
                 .ScriptError(SCRIPT_ERR_UNSATISFIED_LOCKTIME));
@@ -2342,7 +2280,7 @@ BOOST_AUTO_TEST_CASE(colored_coin_cp2sh_redeem_scripts)
 
         tests.push_back(TestBuilder(cp2sh, "CP2SH(OP_COLOR in redeem script) rejected",
             SCRIPT_VERIFY_CP2SH_COLORED, /*P2SH=*/true,
-            WitnessMode::NONE, 0, 0, false, inner)
+            0, false, inner)
                 .PushRedeem()
                 .ScriptError(SCRIPT_ERR_OP_COLOR_UNEXPECTED));
     }
@@ -2357,13 +2295,13 @@ BOOST_AUTO_TEST_CASE(colored_coin_cp2sh_redeem_scripts)
         // Valid: push 1 to take the true branch — leaves OP_1 on the stack
         tests.push_back(TestBuilder(cp2sh, "CP2SH(OP_IF true branch) valid",
             SCRIPT_VERIFY_CP2SH_COLORED, /*P2SH=*/true,
-            WitnessMode::NONE, 0, 0, false, inner)
+            0, false, inner)
                 .Num(1).PushRedeem());
 
         // Invalid: push 0 to take the false branch — leaves OP_0, script returns false
         tests.push_back(TestBuilder(cp2sh, "CP2SH(OP_IF false branch) EVAL_FALSE",
             SCRIPT_VERIFY_CP2SH_COLORED, /*P2SH=*/true,
-            WitnessMode::NONE, 0, 0, false, inner)
+            0, false, inner)
                 .Num(0).PushRedeem()
                 .ScriptError(SCRIPT_ERR_EVAL_FALSE));
     }
@@ -2909,11 +2847,10 @@ BOOST_AUTO_TEST_CASE(bitcoinconsensus_verify_script_returns_true)
 
     CScript scriptPubKey;
     CScript scriptSig;
-    CScriptWitness wit;
 
     scriptPubKey << OP_1;
     CTransaction creditTx = BuildCreditingTransaction(scriptPubKey, 1);
-    CTransaction spendTx = BuildSpendingTransaction(scriptSig, wit, creditTx);
+    CTransaction spendTx = BuildSpendingTransaction(scriptSig, creditTx);
 
     CDataStream stream(SER_NETWORK, PROTOCOL_VERSION);
     stream << spendTx;
@@ -2932,11 +2869,10 @@ BOOST_AUTO_TEST_CASE(bitcoinconsensus_verify_script_tx_index_err)
 
     CScript scriptPubKey;
     CScript scriptSig;
-    CScriptWitness wit;
 
     scriptPubKey << OP_EQUAL;
     CTransaction creditTx = BuildCreditingTransaction(scriptPubKey, 1);
-    CTransaction spendTx = BuildSpendingTransaction(scriptSig, wit, creditTx);
+    CTransaction spendTx = BuildSpendingTransaction(scriptSig, creditTx);
 
     CDataStream stream(SER_NETWORK, PROTOCOL_VERSION);
     stream << spendTx;
@@ -2955,11 +2891,10 @@ BOOST_AUTO_TEST_CASE(bitcoinconsensus_verify_script_tx_size)
 
     CScript scriptPubKey;
     CScript scriptSig;
-    CScriptWitness wit;
 
     scriptPubKey << OP_EQUAL;
     CTransaction creditTx = BuildCreditingTransaction(scriptPubKey, 1);
-    CTransaction spendTx = BuildSpendingTransaction(scriptSig, wit, creditTx);
+    CTransaction spendTx = BuildSpendingTransaction(scriptSig, creditTx);
 
     CDataStream stream(SER_NETWORK, PROTOCOL_VERSION);
     stream << spendTx;
@@ -2978,11 +2913,10 @@ BOOST_AUTO_TEST_CASE(bitcoinconsensus_verify_script_tx_serialization)
 
     CScript scriptPubKey;
     CScript scriptSig;
-    CScriptWitness wit;
 
     scriptPubKey << OP_EQUAL;
     CTransaction creditTx = BuildCreditingTransaction(scriptPubKey, 1);
-    CTransaction spendTx = BuildSpendingTransaction(scriptSig, wit, creditTx);
+    CTransaction spendTx = BuildSpendingTransaction(scriptSig, creditTx);
 
     CDataStream stream(SER_NETWORK, PROTOCOL_VERSION);
     stream << 0xffffffff;
@@ -2993,29 +2927,6 @@ BOOST_AUTO_TEST_CASE(bitcoinconsensus_verify_script_tx_serialization)
     BOOST_CHECK_EQUAL(err, bitcoinconsensus_ERR_TX_DESERIALIZE);
 }
 
-/* Test bitcoinconsensus_verify_script returns amount required error */
-BOOST_AUTO_TEST_CASE(bitcoinconsensus_verify_script_amount_required_err)
-{
-    unsigned int libconsensus_flags = bitcoinconsensus_SCRIPT_FLAGS_VERIFY_WITNESS;
-    int nIn = 0;
-
-    CScript scriptPubKey;
-    CScript scriptSig;
-    CScriptWitness wit;
-
-    scriptPubKey << OP_EQUAL;
-    CTransaction creditTx = BuildCreditingTransaction(scriptPubKey, 1);
-    CTransaction spendTx = BuildSpendingTransaction(scriptSig, wit, creditTx);
-
-    CDataStream stream(SER_NETWORK, PROTOCOL_VERSION);
-    stream << spendTx;
-
-    bitcoinconsensus_error err;
-    int result = bitcoinconsensus_verify_script(scriptPubKey.data(), scriptPubKey.size(), (const unsigned char*)&stream[0], stream.size(), nIn, libconsensus_flags, &err);
-    BOOST_CHECK_EQUAL(result, 0);
-    BOOST_CHECK_EQUAL(err, bitcoinconsensus_ERR_AMOUNT_REQUIRED);
-}
-
 /* Test bitcoinconsensus_verify_script returns invalid flags err */
 BOOST_AUTO_TEST_CASE(bitcoinconsensus_verify_script_invalid_flags)
 {
@@ -3024,11 +2935,10 @@ BOOST_AUTO_TEST_CASE(bitcoinconsensus_verify_script_invalid_flags)
 
     CScript scriptPubKey;
     CScript scriptSig;
-    CScriptWitness wit;
 
     scriptPubKey << OP_EQUAL;
     CTransaction creditTx = BuildCreditingTransaction(scriptPubKey, 1);
-    CTransaction spendTx = BuildSpendingTransaction(scriptSig, wit, creditTx);
+    CTransaction spendTx = BuildSpendingTransaction(scriptSig, creditTx);
 
     CDataStream stream(SER_NETWORK, PROTOCOL_VERSION);
     stream << spendTx;

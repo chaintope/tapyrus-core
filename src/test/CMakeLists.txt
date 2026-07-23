@@ -50,7 +50,6 @@ add_executable(test_tapyrus
         base32_tests.cpp
         base58_tests.cpp
         base64_tests.cpp
-        bech32_tests.cpp
         bip32_tests.cpp
         block_tests.cpp
         blockencodings_tests.cpp

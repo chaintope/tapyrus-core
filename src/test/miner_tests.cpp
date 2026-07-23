@@ -131,7 +131,7 @@ static void CreateBlocks(const CChainParams &chainparams,
             txCoinbase.vin[0].scriptSig = CScript();
             txCoinbase.vin[0].scriptSig.push_back(blockinfo[i].extranonce);
             txCoinbase.vin[0].scriptSig.push_back(chainActive.Height());
-            txCoinbase.vout.resize(1); // Ignore the (optional) segwit commitment added by CreateNewBlock (as the hardcoded nonces don't account for this)
+            txCoinbase.vout.resize(1); // Keep only the first output (the hardcoded nonces don't account for any others CreateNewBlock may add)
             txCoinbase.vout[0].scriptPubKey = CScript();
             pblock->vtx[0] = MakeTransactionRef(std::move(txCoinbase));
             if (txFirst.size() == 0)

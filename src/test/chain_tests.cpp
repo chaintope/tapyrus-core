@@ -884,11 +884,10 @@ BOOST_AUTO_TEST_CASE(block_status_flags_operations)
     BOOST_CHECK((combined & BLOCK_FAILED_MASK) == 0);
 
     // Case 5: Clearing validity bits preserves other flags
-    uint32_t status = BLOCK_VALID_TREE | BLOCK_HAVE_DATA | BLOCK_OPT_WITNESS;
+    uint32_t status = BLOCK_VALID_TREE | BLOCK_HAVE_DATA;
     status = (status & ~BLOCK_VALID_MASK) | BLOCK_VALID_TRANSACTIONS;
     BOOST_CHECK((status & BLOCK_VALID_MASK) == BLOCK_VALID_TRANSACTIONS);
     BOOST_CHECK((status & BLOCK_HAVE_DATA) != 0);
-    BOOST_CHECK((status & BLOCK_OPT_WITNESS) != 0);
 
     // Case 6: All flags are powers of 2 (no overlap)
     BOOST_CHECK((BLOCK_VALID_HEADER & BLOCK_VALID_TREE) == 0);

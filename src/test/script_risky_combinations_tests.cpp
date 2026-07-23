@@ -76,11 +76,10 @@ bool Verify(const CScript& scriptSig, const CScript& scriptPubKey, const CMutabl
             CAmount amount, unsigned int flags, ScriptError* err, ColorIdentifier* colorIdOut = nullptr)
 {
     CTransaction spend(spendMut);
-    PrecomputedTransactionData txdata(spend);
     ColorIdentifier localColorId;
     ColorIdentifier& colorId = colorIdOut ? *colorIdOut : localColorId;
     return VerifyScript(scriptSig, scriptPubKey, flags,
-                         TransactionSignatureChecker(&spend, 0, amount, txdata), colorId, err);
+                         TransactionSignatureChecker(&spend, 0, amount), colorId, err);
 }
 
 } // namespace
@@ -185,7 +184,7 @@ BOOST_AUTO_TEST_CASE(risk_opcolor_stack_manipulation)
                                           << OP_EQUALVERIFY << OP_CHECKSIG;
         CMutableTransaction credit = BuildCreditingTx(scriptPubKey);
         CMutableTransaction spend = BuildSpendingTx(CScript(), CTransaction(credit));
-        uint256 hash = SignatureHash(scriptPubKey, spend, 0, SIGHASH_ALL, credit.vout[0].nValue, SigVersion::BASE);
+        uint256 hash = SignatureHash(scriptPubKey, spend, 0, SIGHASH_ALL, credit.vout[0].nValue);
         std::vector<unsigned char> sig;
         BOOST_REQUIRE(key.Sign_ECDSA(hash, sig));
         sig.push_back((unsigned char)SIGHASH_ALL);
@@ -214,7 +213,7 @@ BOOST_AUTO_TEST_CASE(risk_opcolor_stack_manipulation)
                                           << OP_EQUALVERIFY << OP_CHECKSIG;
         CMutableTransaction credit = BuildCreditingTx(scriptPubKey);
         CMutableTransaction spend = BuildSpendingTx(CScript(), CTransaction(credit));
-        uint256 hash = SignatureHash(scriptPubKey, spend, 0, SIGHASH_ALL, credit.vout[0].nValue, SigVersion::BASE);
+        uint256 hash = SignatureHash(scriptPubKey, spend, 0, SIGHASH_ALL, credit.vout[0].nValue);
         std::vector<unsigned char> sig;
         BOOST_REQUIRE(key.Sign_ECDSA(hash, sig));
         sig.push_back((unsigned char)SIGHASH_ALL);
@@ -291,7 +290,7 @@ BOOST_AUTO_TEST_CASE(risk_checkdatasig_replay)
         CScript scriptPubKey = CScript() << ToByteVector(pub) << OP_CHECKSIG;
         CMutableTransaction credit = BuildCreditingTx(scriptPubKey, 1000);
         CMutableTransaction spendOriginal = BuildSpendingTx(CScript(), CTransaction(credit), CTxIn::SEQUENCE_FINAL, 0);
-        uint256 sighash = SignatureHash(scriptPubKey, spendOriginal, 0, SIGHASH_ALL, credit.vout[0].nValue, SigVersion::BASE);
+        uint256 sighash = SignatureHash(scriptPubKey, spendOriginal, 0, SIGHASH_ALL, credit.vout[0].nValue);
         std::vector<unsigned char> sig;
         BOOST_REQUIRE(key.Sign_ECDSA(sighash, sig));
         sig.push_back((unsigned char)SIGHASH_ALL);
@@ -328,7 +327,7 @@ BOOST_AUTO_TEST_CASE(risk_mixed_signature_schemes)
     {
         CMutableTransaction credit = BuildCreditingTx(scriptPubKey);
         CMutableTransaction spend = BuildSpendingTx(CScript(), CTransaction(credit));
-        uint256 hash = SignatureHash(scriptPubKey, spend, 0, SIGHASH_ALL, credit.vout[0].nValue, SigVersion::BASE);
+        uint256 hash = SignatureHash(scriptPubKey, spend, 0, SIGHASH_ALL, credit.vout[0].nValue);
         std::vector<unsigned char> sig;
         BOOST_REQUIRE(key1.Sign_ECDSA(hash, sig));
         sig.push_back((unsigned char)SIGHASH_ALL);
@@ -344,7 +343,7 @@ BOOST_AUTO_TEST_CASE(risk_mixed_signature_schemes)
     {
         CMutableTransaction credit = BuildCreditingTx(scriptPubKey);
         CMutableTransaction spend = BuildSpendingTx(CScript(), CTransaction(credit));
-        uint256 hash = SignatureHash(scriptPubKey, spend, 0, SIGHASH_ALL, credit.vout[0].nValue, SigVersion::BASE);
+        uint256 hash = SignatureHash(scriptPubKey, spend, 0, SIGHASH_ALL, credit.vout[0].nValue);
         std::vector<unsigned char> sig;
         BOOST_REQUIRE(key2.Sign_Schnorr(hash, sig));
         sig.push_back((unsigned char)SIGHASH_ALL);
@@ -362,7 +361,7 @@ BOOST_AUTO_TEST_CASE(risk_mixed_signature_schemes)
         CScript msPubKey = CScript() << OP_2 << ToByteVector(pub1) << ToByteVector(pub2) << OP_2 << OP_CHECKMULTISIG;
         CMutableTransaction credit = BuildCreditingTx(msPubKey);
         CMutableTransaction spend = BuildSpendingTx(CScript(), CTransaction(credit));
-        uint256 hash = SignatureHash(msPubKey, spend, 0, SIGHASH_ALL, credit.vout[0].nValue, SigVersion::BASE);
+        uint256 hash = SignatureHash(msPubKey, spend, 0, SIGHASH_ALL, credit.vout[0].nValue);
         std::vector<unsigned char> sig1, sig2;
         BOOST_REQUIRE(key1.Sign_ECDSA(hash, sig1));
         sig1.push_back((unsigned char)SIGHASH_ALL);
@@ -403,7 +402,7 @@ BOOST_AUTO_TEST_CASE(risk_opcolor_with_timelock)
     // 5a: locktime satisfied -> interpreter accepts the direct OP_COLOR + CLTV combination.
     {
         CMutableTransaction spend = BuildSpendingTx(CScript(), CTransaction(credit), 0, lockHeight);
-        uint256 hash = SignatureHash(scriptPubKey, spend, 0, SIGHASH_ALL, credit.vout[0].nValue, SigVersion::BASE);
+        uint256 hash = SignatureHash(scriptPubKey, spend, 0, SIGHASH_ALL, credit.vout[0].nValue);
         std::vector<unsigned char> sig;
         BOOST_REQUIRE(key.Sign_ECDSA(hash, sig));
         sig.push_back((unsigned char)SIGHASH_ALL);
@@ -430,7 +429,7 @@ BOOST_AUTO_TEST_CASE(risk_opcolor_with_timelock)
     // isn't just OP_COLOR silently swallowing the whole script).
     {
         CMutableTransaction spend = BuildSpendingTx(CScript(), CTransaction(credit), 0, lockHeight - 1);
-        uint256 hash = SignatureHash(scriptPubKey, spend, 0, SIGHASH_ALL, credit.vout[0].nValue, SigVersion::BASE);
+        uint256 hash = SignatureHash(scriptPubKey, spend, 0, SIGHASH_ALL, credit.vout[0].nValue);
         std::vector<unsigned char> sig;
         BOOST_REQUIRE(key.Sign_ECDSA(hash, sig));
         sig.push_back((unsigned char)SIGHASH_ALL);

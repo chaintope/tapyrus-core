@@ -16,10 +16,9 @@ typedef std::vector<unsigned char> valtype;
 namespace {
 
 /**
- * This is an enum that tracks the execution context of a script, similar to
- * SigVersion in script/interpreter. It is separate however because we want to
- * distinguish between top-level scriptPubKey execution and P2SH redeemScript
- * execution (a distinction that has no impact on consensus rules).
+ * This is an enum that tracks the execution context of a script: whether we
+ * are looking at a top-level scriptPubKey or a P2SH redeemScript (a
+ * distinction that has no impact on consensus rules).
  */
 enum class IsMineSigVersion
 {
@@ -37,7 +36,7 @@ enum class IsMineResult
     NO = 0,          //! Not ours
     WATCH_ONLY = 1,  //! Included in watch-only balance
     SPENDABLE = 2,   //! Included in all balances
-    INVALID = 3,     //! Not spendable by anyone (uncompressed pubkey in segwit, P2SH inside P2SH or witness, witness inside witness)
+    INVALID = 3,     //! Not spendable by anyone (uncompressed pubkey inside P2SH, or P2SH inside P2SH)
 };
 
 bool PermitsUncompressed(IsMineSigVersion sigversion)

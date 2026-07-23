@@ -95,14 +95,15 @@ BOOST_AUTO_TEST_CASE(script_standard_Solver_success)
     BOOST_CHECK_EQUAL(solutions.size(), 0U);
 
 
-    // TX_WITNESS_V0_KEYHASH
+    // witness-program-shaped scriptPubKey (OP_0 <20-byte push>): there is no witness
+    // engine, so this is just an unrecognized script and must solve as nonstandard
     s.clear();
     s << OP_0 << ToByteVector(pubkeys[0].GetID());
     BOOST_CHECK(Solver(s, whichType, solutions));
     BOOST_CHECK_EQUAL(whichType, TX_NONSTANDARD);
     BOOST_CHECK_EQUAL(solutions.size(), 0);
 
-    // TX_WITNESS_V0_SCRIPTHASH
+    // witness-program-shaped scriptPubKey (OP_0 <32-byte push>): same as above
     uint256 scriptHash;
     CSHA256().Write(&redeemScript[0], redeemScript.size())
         .Finalize(scriptHash.begin());

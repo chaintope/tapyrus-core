@@ -1325,7 +1325,7 @@ class ColoredCoinTest(BitcoinTestFramework):
         signature = self.coinbase_key.sign(sig_hash) + b'\x01'
         txSuccess9.vin[0].scriptSig = CScript([signature])
         #make fee < min relay fee and re sign
-        txSuccess9.vout[1].nValue = txSuccess7.vout[1].nValue + 2 - len(txSuccess9.serialize_without_witness())
+        txSuccess9.vout[1].nValue = txSuccess7.vout[1].nValue + 2 - len(txSuccess9.serialize())
         sig_hash, err = SignatureHash(txSuccess7.vout[1].scriptPubKey, txSuccess9, 1, SIGHASH_ALL)
         signature = self.coinbase_key.sign(sig_hash) + b'\x01'
         txSuccess9.vin[0].scriptSig = CScript([signature])

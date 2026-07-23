@@ -49,7 +49,7 @@ MAX_INV_SIZE = 50000  # Maximum number of entries in an 'inv' protocol message
 NODE_NETWORK = (1 << 0)
 # NODE_GETUTXO = (1 << 1)
 NODE_BLOOM = (1 << 2)
-NODE_WITNESS = (1 << 3)
+NODE_UNSUPPORTED_FEATURE = (1 << 3)
 NODE_NETWORK_LIMITED = (1 << 10)
 
 MSG_TX = 1
@@ -758,12 +758,6 @@ class P2PHeaderAndShortIDs():
     def __repr__(self):
         return "P2PHeaderAndShortIDs(header=%s, nonce=%d, shortids_length=%d, shortids=%s, prefilled_txn_length=%d, prefilledtxn=%s" % (repr(self.header), self.nonce, self.shortids_length, repr(self.shortids), self.prefilled_txn_length, repr(self.prefilled_txn))
 
-# P2P version of the above that will use witness serialization (for compact
-# block features 2)
-class P2PHeaderAndShortWitnessIDs(P2PHeaderAndShortIDs):
-    def serialize(self):
-        return super(P2PHeaderAndShortWitnessIDs, self).serialize(with_witness=True)
-
 # Calculate the BIP 152-compact blocks shortid for a given transaction hash
 def calculate_shortid(k0, k1, tx_hash):
     expected_shortid = siphash256(k0, k1, tx_hash)
@@ -778,7 +772,6 @@ class HeaderAndShortIDs():
         self.nonce = 0
         self.shortids = []
         self.prefilled_txn = []
-        self.use_witness = False
 
         if p2pheaders_and_shortids != None:
             self.header = p2pheaders_and_shortids.header
@@ -939,7 +932,7 @@ class msg_version():
 
     def __init__(self):
         self.nVersion = MY_VERSION
-        self.nServices = NODE_NETWORK #NODE_WITNESS not used in Tapyrus
+        self.nServices = NODE_NETWORK #NODE_UNSUPPORTED_FEATURE not used in Tapyrus
         self.nTime = int(time.time())
         self.addrTo = CAddress()
         self.addrFrom = CAddress()
@@ -1105,11 +1098,6 @@ class msg_tx():
     def __repr__(self):
         return "msg_tx(tx=%s)" % (repr(self.tx))
 
-class msg_witness_tx(msg_tx):
-
-    def serialize(self):
-        return self.tx.serialize_with_witness()
-
 
 class msg_block():
     command = b"block"
@@ -1142,12 +1130,6 @@ class msg_generic():
 
     def __repr__(self):
         return "msg_generic()"
-
-class msg_witness_block(msg_block):
-
-    def serialize(self):
-        r = self.block.serialize(with_witness=True)
-        return r
 
 class msg_getaddr():
     command = b"getaddr"
@@ -1416,12 +1398,6 @@ class msg_notfound():
     def __repr__(self):
         return "msg_notfound(inv=%s)" % (repr(self.inv))
 
-
-class msg_witness_blocktxn(msg_blocktxn):
-    def serialize(self):
-        r = b""
-        r += self.block_transactions.serialize(with_witness=True)
-        return r
 
 class CSnapshotMetadata():
     SNAPSHOT_MAGIC_BYTES = b'utxo\xff'

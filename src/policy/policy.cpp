@@ -21,16 +21,11 @@ CAmount GetDustThreshold(const CTxOut& txout, const CFeeRate& dustRelayFeeIn)
     // which has units tapyrus-per-kilobyte.
     // If you'd pay more in fees than the value of the output
     // to spend something, then we consider it dust.
-    // A typical spendable non-segwit txout is 34 bytes big, and will
+    // A typical spendable txout is 34 bytes big, and will
     // need a CTxIn of at least 148 bytes to spend:
     // so dust is a spendable txout less than
     // 182*dustRelayFee/1000 (in tapyrus).
     // 546 tapyrus at the default rate of 3000 sat/kB.
-    // A typical spendable segwit txout is 31 bytes big, and will
-    // need a CTxIn of at least 67 bytes to spend:
-    // so dust is a spendable txout less than
-    // 98*dustRelayFee/1000 (in tapyrus).
-    // 294 tapyrus at the default rate of 3000 sat/kB.
     if (txout.scriptPubKey.IsUnspendable())
         return 0;
 
@@ -166,7 +161,7 @@ bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
         {
             std::vector<std::vector<unsigned char> > stack;
             // convert the scriptSig into a stack, so we can inspect the redeemScript
-            if (!EvalScript(stack, tx.vin[i].scriptSig, SCRIPT_VERIFY_NONE, BaseSignatureChecker(), SigVersion::BASE))
+            if (!EvalScript(stack, tx.vin[i].scriptSig, SCRIPT_VERIFY_NONE, BaseSignatureChecker()))
                 return false;
             if (stack.empty())
                 return false;

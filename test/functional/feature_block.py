@@ -92,10 +92,7 @@ class CBrokenBlock(CBlock):
         r += super(CBlock, self).serialize()
         r += struct.pack("<BQ", 255, len(self.vtx))
         for tx in self.vtx:
-            if(kwargs.get('with_witness') == True):
-                r += tx.serialize_with_witness(**kwargs)
-            else:
-                r += tx.serialize_without_witness(**kwargs)
+            r += tx.serialize_without_witness(**kwargs)
         return r
 
     def normal_serialize(self):

@@ -22,7 +22,7 @@ import struct
 import sys
 import threading
 
-from test_framework.messages import CBlockHeader, MIN_VERSION_SUPPORTED, msg_addr, msg_block, MSG_BLOCK, msg_blocktxn, msg_cmpctblock, msg_feefilter, msg_getaddr, msg_getblocks, msg_getblocktxn, msg_getdata, msg_getheaders, msg_headers, msg_inv, msg_mempool, msg_ping, msg_pong, msg_reject, msg_sendcmpct, msg_sendheaders, msg_tx, MSG_TX, MSG_TYPE_MASK, msg_verack, msg_version, NODE_NETWORK, NODE_WITNESS, sha256, ToHex, msg_notfound
+from test_framework.messages import CBlockHeader, MIN_VERSION_SUPPORTED, msg_addr, msg_block, MSG_BLOCK, msg_blocktxn, msg_cmpctblock, msg_feefilter, msg_getaddr, msg_getblocks, msg_getblocktxn, msg_getdata, msg_getheaders, msg_headers, msg_inv, msg_mempool, msg_ping, msg_pong, msg_reject, msg_sendcmpct, msg_sendheaders, msg_tx, MSG_TX, MSG_TYPE_MASK, msg_verack, msg_version, NODE_NETWORK, NODE_UNSUPPORTED_FEATURE, sha256, ToHex, msg_notfound
 from test_framework.util import wait_until, NetworkDirName, MagicBytes, MAX_NODES, PORT_MIN, p2p_port
 from test_framework.timeout_config import TAPYRUSD_MESSAGE_TIMEOUT, TAPYRUSD_P2P_TIMEOUT, TAPYRUSD_MIN_TIMEOUT, set_time_to_connect, update_all_timeouts
 

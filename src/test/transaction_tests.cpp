@@ -41,14 +41,14 @@ static std::map<std::string, unsigned int> mapFlagNames = {
     {std::string("SIGPUSHONLY"), (unsigned int)SCRIPT_VERIFY_SIGPUSHONLY},
     {std::string("DISCOURAGE_UPGRADABLE_NOPS"), (unsigned int)SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS},
     {std::string("CLEANSTACK"), (unsigned int)SCRIPT_VERIFY_CLEANSTACK},
-    {std::string("MINIMALIF"), (unsigned int)SCRIPT_VERIFY_MINIMALIF},
     {std::string("NULLFAIL"), (unsigned int)SCRIPT_VERIFY_NULLFAIL},
-    // WITNESS-related flags no longer exist (Tapyrus never verifies witness data);
-    // kept as no-op (0) mappings so existing JSON test vectors that still name
-    // them in their "verifyFlags" column continue to parse.
+    // WITNESS/MINIMALIF-related flags no longer exist (Tapyrus never verifies
+    // witness data); kept as no-op (0) mappings so existing JSON test vectors
+    // that still name them in their "verifyFlags" column continue to parse.
     {std::string("WITNESS"), 0},
     {std::string("DISCOURAGE_UPGRADABLE_WITNESS_PROGRAM"), 0},
     {std::string("WITNESS_PUBKEYTYPE"), 0},
+    {std::string("MINIMALIF"), 0},
     {std::string("CONST_SCRIPTCODE"), (unsigned int)SCRIPT_VERIFY_CONST_SCRIPTCODE},
     {std::string("CP2SH_COLORED"), (unsigned int)SCRIPT_VERIFY_CP2SH_COLORED},
 };
@@ -151,7 +151,6 @@ BOOST_AUTO_TEST_CASE(tx_valid)
             BOOST_CHECK_MESSAGE(CheckTransaction(tx, state), strTest);
             BOOST_CHECK(state.IsValid());
 
-            PrecomputedTransactionData txdata(tx);
             for (unsigned int i = 0; i < tx.vin.size(); i++)
             {
                 if (!mapprevOutScriptPubKeys.count(tx.vin[i].prevout))
@@ -169,7 +168,7 @@ BOOST_AUTO_TEST_CASE(tx_valid)
                 // OP_COLOR state must not leak across inputs or across test cases.
                 ColorIdentifier colorId;
                 BOOST_CHECK_MESSAGE(VerifyScript(tx.vin[i].scriptSig, mapprevOutScriptPubKeys[tx.vin[i].prevout],
-                                                 verify_flags, TransactionSignatureChecker(&tx, i, amount, txdata), colorId, &err),
+                                                 verify_flags, TransactionSignatureChecker(&tx, i, amount), colorId, &err),
                                     strTest);
                 BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
             }
@@ -239,7 +238,6 @@ BOOST_AUTO_TEST_CASE(tx_invalid)
             CValidationState state;
             fValid = CheckTransaction(tx, state) && state.IsValid();
 
-            PrecomputedTransactionData txdata(tx);
             for (unsigned int i = 0; i < tx.vin.size() && fValid; i++)
             {
                 if (!mapprevOutScriptPubKeys.count(tx.vin[i].prevout))
@@ -257,7 +255,7 @@ BOOST_AUTO_TEST_CASE(tx_invalid)
                 // OP_COLOR state must not leak across inputs or across test cases.
                 ColorIdentifier colorId;
                 fValid = VerifyScript(tx.vin[i].scriptSig, mapprevOutScriptPubKeys[tx.vin[i].prevout],
-                                      verify_flags, TransactionSignatureChecker(&tx, i, amount, txdata), colorId, &err);
+                                      verify_flags, TransactionSignatureChecker(&tx, i, amount), colorId, &err);
             }
             BOOST_CHECK_MESSAGE(!fValid, strTest);
             BOOST_CHECK_MESSAGE(err != SCRIPT_ERR_OK, ScriptErrorString(err));

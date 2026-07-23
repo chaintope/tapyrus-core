@@ -599,12 +599,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     int nInputs = 0;
     int64_t nSigOpsCost = 0;
     blockundo.vtxundo.reserve(block.vtx.size() - 1);
-    // txdata must be declared before control: on early return, C++ destroys locals in
-    // reverse declaration order, so control's destructor (which calls Wait()) must run
-    // before txdata is freed — otherwise background script-check threads access freed memory
-    // (CVE-2024-52911).
-    std::vector<PrecomputedTransactionData> txdata;
-    txdata.reserve(block.vtx.size()); // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
 
     CCheckQueueControl<CScriptCheck> control(fScriptChecks && nScriptCheckThreads ? scriptcheckqueue.get() : nullptr);
     // Accumulate new NON_REISSUABLE/NFT issuances across the whole block.
@@ -651,21 +645,19 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
         }
 
-        // GetTransactionSigOps counts 3 types of sigops:
+        // GetTransactionSigOps counts 2 types of sigops:
         // * legacy (always)
         // * p2sh (when P2SH enabled in flags and excludes coinbase)
-        // * witness (when witness enabled in flags and excludes coinbase)
         nSigOpsCost += GetTransactionSigOps(tx, view, SCRIPT_VERIFY_NONE);
         if (nSigOpsCost > GetMaxBlockSigops())
             return state.DoS(100, error("ConnectBlock(): too many sigops"),
                              REJECT_INVALID, "bad-blk-sigops");
 
-        txdata.emplace_back(tx);
         if (!tx.IsCoinBase())
         {
             std::vector<CScriptCheck> vChecks;
             bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
-            if (!CheckInputs(tx, state, view, fScriptChecks, GetBlockScriptFlags(pindex), fCacheResults, fCacheResults, txdata[i], nScriptCheckThreads ? &vChecks : nullptr, GetBlockScriptFlags(pindex)))
+            if (!CheckInputs(tx, state, view, fScriptChecks, GetBlockScriptFlags(pindex), fCacheResults, fCacheResults, nScriptCheckThreads ? &vChecks : nullptr, GetBlockScriptFlags(pindex)))
                 // FormatStateMessage is evaluated before DoS() re-sets state, preserving
                 // the per-input detail in the log.  state.GetRejectReason() already holds
                 // the specific error string set by CheckInputs, so it is propagated as-is.
@@ -1507,7 +1499,7 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
         return error("%s: %s", __func__, FormatStateMessage(state));
     }
 
-    // Header is valid/has work, merkle tree and segwit merkle tree are good...RELAY NOW
+    // Header is valid/has work, merkle tree is good...RELAY NOW
     // (but if it does not build on our best tip, let the SendMessages loop relay it)
     if (!IsInitialBlockDownload() && chainActive.Tip() == pindex->pprev)
         GetMainSignals().NewValidBlock(pindex, pblock);
@@ -1722,35 +1714,9 @@ bool CChainState::RewindBlockIndex()
 
     // Note that during -reindex-chainstate we are called with an empty chainActive!
 
-    int nHeight = 1;
-    while (nHeight <= chainActive.Height()) {
-        // Although SCRIPT_VERIFY_WITNESS is now generally enforced on all
-        // blocks in ConnectBlock, we don't need to go back and
-        // re-download/re-verify blocks from before segwit actually activated.
-        nHeight++;
-    }
-
-    // nHeight is now the height of the first insufficiently-validated block, or tipheight + 1
-    CValidationState state;
-    CBlockIndex* pindex = chainActive.Tip();
-    while (chainActive.Height() >= nHeight) {
-        if (fPruneMode && !(chainActive.Tip()->nStatus & BLOCK_HAVE_DATA)) {
-            // If pruning, don't try rewinding past the HAVE_DATA point;
-            // since older blocks can't be served anyway, there's
-            // no need to walk further, and trying to DisconnectTip()
-            // will fail (and require a needless reindex/redownload
-            // of the blockchain).
-            break;
-        }
-        if (!DisconnectTip(state, nullptr)) {
-            return error("RewindBlockIndex: unable to disconnect block at height %i (%s)", pindex->nHeight, FormatStateMessage(state));
-        }
-        // Occasionally flush state to disk.
-        if (!FlushStateToDisk(state, FlushStateMode::PERIODIC)) {
-            LogPrintf("RewindBlockIndex: unable to flush state to disk (%s)\n", FormatStateMessage(state));
-            return false;
-        }
-    }
+    // Tapyrus never activated SegWit, so there are no blocks that predate a
+    // flag becoming consensus-mandatory to disconnect and re-validate here
+    // (inherited from Bitcoin Core's SegWit-activation rewind logic).
 
     // Reduce validity flag and have-data flags.
     // We do this after actual disconnecting, otherwise we'll end up writing the lack of data

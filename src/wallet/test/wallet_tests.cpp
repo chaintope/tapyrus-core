@@ -530,7 +530,7 @@ public:
 
     void Sign(std::vector<unsigned char>& vchSig, CKey& signKey, const CScript& scriptPubKey, int inIndex, CMutableTransaction& outTx, int outIndex)
     {
-        uint256 hash = SignatureHash(scriptPubKey, outTx, inIndex, SIGHASH_ALL, outTx.vout[outIndex].nValue, SigVersion::BASE);
+        uint256 hash = SignatureHash(scriptPubKey, outTx, inIndex, SIGHASH_ALL, outTx.vout[outIndex].nValue);
         signKey.Sign_Schnorr(hash, vchSig);
         vchSig.push_back((unsigned char)SIGHASH_ALL);
     }

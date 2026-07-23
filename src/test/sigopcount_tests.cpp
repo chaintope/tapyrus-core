@@ -105,10 +105,10 @@ static ScriptError VerifyWithFlag(const CTransaction& output, const CMutableTran
 
 /**
  * Builds a creationTx from scriptPubKey and a spendingTx from scriptSig
- * and witness such that spendingTx spends output zero of creationTx.
+ * such that spendingTx spends output zero of creationTx.
  * Also inserts creationTx's output into the coins view.
  */
-static void BuildTxs(CMutableTransaction& spendingTx, CCoinsViewCache& coins, CMutableTransaction& creationTx, const CScript& scriptPubKey, const CScript& scriptSig, const CScriptWitness& witness)
+static void BuildTxs(CMutableTransaction& spendingTx, CCoinsViewCache& coins, CMutableTransaction& creationTx, const CScript& scriptPubKey, const CScript& scriptSig)
 {
     creationTx.nFeatures = 1;
     creationTx.vin.resize(1);
@@ -154,7 +154,7 @@ BOOST_AUTO_TEST_CASE(GetTxSigOpCost)
         // Do not use a valid signature to avoid using wallet operations.
         CScript scriptSig = CScript() << OP_0 << OP_0;
 
-        BuildTxs(spendingTx, coins, creationTx, scriptPubKey, scriptSig, CScriptWitness());
+        BuildTxs(spendingTx, coins, creationTx, scriptPubKey, scriptSig);
         // Legacy counting only includes signature operations in scriptSigs and scriptPubKeys
         // of a transaction and does not take the actual executed sig operations into account.
         // spendingTx in itself does not contain a signature operation.
@@ -172,7 +172,7 @@ BOOST_AUTO_TEST_CASE(GetTxSigOpCost)
         CScript scriptPubKey = GetScriptForDestination(CScriptID(redeemScript));
         CScript scriptSig = CScript() << OP_0 << OP_0 << ToByteVector(redeemScript);
 
-        BuildTxs(spendingTx, coins, creationTx, scriptPubKey, scriptSig, CScriptWitness());
+        BuildTxs(spendingTx, coins, creationTx, scriptPubKey, scriptSig);
         assert(GetTransactionSigOps(CTransaction(spendingTx), coins, flags) == 2);
         assert(VerifyWithFlag(creationTx, spendingTx, flags) == SCRIPT_ERR_CHECKMULTISIGVERIFY);
     }
@@ -188,7 +188,7 @@ BOOST_AUTO_TEST_CASE(GetTxSigOpCost)
         CScript scriptPubKey = CScript() << ToByteVector(pubkeyC) << OP_CHECKDATASIGVERIFY << OP_TRUE;
         CScript scriptSig = CScript() << OP_0 << OP_0;
 
-        BuildTxs(spendingTx, coins, creationTx, scriptPubKey, scriptSig, CScriptWitness());
+        BuildTxs(spendingTx, coins, creationTx, scriptPubKey, scriptSig);
 
         BOOST_CHECK_EQUAL(GetTransactionSigOps(CTransaction(spendingTx), coins, flags), 0);
 
@@ -207,7 +207,7 @@ BOOST_AUTO_TEST_CASE(GetTxSigOpCost)
         CScript scriptPubKey = GetScriptForDestination(CScriptID(redeemScript));
         CScript scriptSig = CScript() << OP_0 << OP_0 << ToByteVector(redeemScript);
 
-        BuildTxs(spendingTx, coins, creationTx, scriptPubKey, scriptSig, CScriptWitness());
+        BuildTxs(spendingTx, coins, creationTx, scriptPubKey, scriptSig);
 
         BOOST_CHECK_EQUAL(GetTransactionSigOps(CTransaction(spendingTx), coins, flags), 1);
 

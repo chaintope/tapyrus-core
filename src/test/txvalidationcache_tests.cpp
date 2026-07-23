@@ -57,7 +57,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_block_doublespend, TestChainSetup)
 
             // Sign:
             std::vector<unsigned char> vchSig;
-            uint256 hash = SignatureHash(scriptPubKey, spends[i], 0, SIGHASH_ALL, 0, SigVersion::BASE);
+            uint256 hash = SignatureHash(scriptPubKey, spends[i], 0, SIGHASH_ALL, 0);
             if(count == 0)
             {
                 BOOST_CHECK(coinbaseKey.Sign_ECDSA(hash, vchSig));
@@ -120,12 +120,10 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_block_doublespend, TestChainSetup)
 // any script flag that is implemented as an upgraded NOP code.
 static void ValidateCheckInputsForAllFlags(const CTransaction &tx, uint32_t failing_flags, bool add_to_cache)
 {
-    PrecomputedTransactionData txdata(tx);
     constexpr unsigned int test_flags_list[] = {SCRIPT_VERIFY_NONE,
         SCRIPT_VERIFY_SIGPUSHONLY,
         SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS,
         SCRIPT_VERIFY_CLEANSTACK,
-        SCRIPT_VERIFY_MINIMALIF,
         SCRIPT_VERIFY_NULLFAIL,
         SCRIPT_VERIFY_CONST_SCRIPTCODE};
     // If we add many more flags, this loop can get too expensive, but we can
@@ -133,19 +131,19 @@ static void ValidateCheckInputsForAllFlags(const CTransaction &tx, uint32_t fail
     for (auto test_flags: test_flags_list) {
         CValidationState state;
 
-        BOOST_CHECK(CheckInputs(tx, state, pcoinsTip.get(), true, test_flags, true, add_to_cache, txdata, nullptr));
+        BOOST_CHECK(CheckInputs(tx, state, pcoinsTip.get(), true, test_flags, true, add_to_cache, nullptr));
 
         // Test the caching
         if (add_to_cache) {
             // Check that we get a cache hit if the tx was valid
             std::vector<CScriptCheck> scriptchecks;
-            BOOST_CHECK(CheckInputs(tx, state, pcoinsTip.get(), true, test_flags, true, add_to_cache, txdata, &scriptchecks));
+            BOOST_CHECK(CheckInputs(tx, state, pcoinsTip.get(), true, test_flags, true, add_to_cache, &scriptchecks));
             BOOST_CHECK(scriptchecks.empty());
         } else {
             // Check that we get script executions to check, if the transaction
             // was invalid, or we didn't add to cache.
             std::vector<CScriptCheck> scriptchecks;
-            BOOST_CHECK(CheckInputs(tx, state, pcoinsTip.get(), true, test_flags, true, add_to_cache, txdata, &scriptchecks));
+            BOOST_CHECK(CheckInputs(tx, state, pcoinsTip.get(), true, test_flags, true, add_to_cache, &scriptchecks));
             BOOST_CHECK_EQUAL(scriptchecks.size(), tx.vin.size());
         }
     }
@@ -193,7 +191,7 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
         // Sign, with a non-DER signature
         {
             std::vector<unsigned char> vchSig;
-            uint256 hash = SignatureHash(p2pk_scriptPubKey, spend_tx, 0, SIGHASH_ALL, 0, SigVersion::BASE);
+            uint256 hash = SignatureHash(p2pk_scriptPubKey, spend_tx, 0, SIGHASH_ALL, 0);
             if(count == 0)
             {
                 BOOST_CHECK(coinbaseKey.Sign_ECDSA(hash, vchSig));
@@ -217,16 +215,15 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
             LOCK(cs_main);
 
             CValidationState state;
-            PrecomputedTransactionData ptd_spend_tx(spend_tx);
 
-            BOOST_CHECK(!CheckInputs(spend_tx, state, pcoinsTip.get(), true, 0, true, true, ptd_spend_tx, nullptr));
-            BOOST_CHECK(!CheckInputs(spend_tx, state, pcoinsTip.get(), true, STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, ptd_spend_tx, nullptr));
-            BOOST_CHECK(!CheckInputs(spend_tx, state, pcoinsTip.get(), true, STANDARD_SCRIPT_VERIFY_FLAGS, true, true, ptd_spend_tx, nullptr));
+            BOOST_CHECK(!CheckInputs(spend_tx, state, pcoinsTip.get(), true, 0, true, true, nullptr));
+            BOOST_CHECK(!CheckInputs(spend_tx, state, pcoinsTip.get(), true, STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, nullptr));
+            BOOST_CHECK(!CheckInputs(spend_tx, state, pcoinsTip.get(), true, STANDARD_SCRIPT_VERIFY_FLAGS, true, true, nullptr));
 
             // Sign, with a DER signature
             {
                 std::vector<unsigned char> vchSig;
-                uint256 hash = SignatureHash(p2pk_scriptPubKey, spend_tx, 0, SIGHASH_ALL, 0, SigVersion::BASE);
+                uint256 hash = SignatureHash(p2pk_scriptPubKey, spend_tx, 0, SIGHASH_ALL, 0);
                 if(count == 0)
                 {
                     BOOST_CHECK(coinbaseKey.Sign_ECDSA(hash, vchSig));
@@ -246,11 +243,11 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
             // ConnectBlock), we should add a script check object for this -- we're
             // not caching invalidity (if that changes, delete this test case).
             std::vector<CScriptCheck> scriptchecks;
-            BOOST_CHECK(CheckInputs(spend_tx, state, pcoinsTip.get(), true, 0, true, true, ptd_spend_tx, &scriptchecks));
+            BOOST_CHECK(CheckInputs(spend_tx, state, pcoinsTip.get(), true, 0, true, true, &scriptchecks));
             BOOST_CHECK_EQUAL(scriptchecks.size(), 1U);
-            BOOST_CHECK(CheckInputs(spend_tx, state, pcoinsTip.get(), true, STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, ptd_spend_tx, &scriptchecks));
+            BOOST_CHECK(CheckInputs(spend_tx, state, pcoinsTip.get(), true, STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, &scriptchecks));
             BOOST_CHECK_EQUAL(scriptchecks.size(), 2U);
-            BOOST_CHECK(CheckInputs(spend_tx, state, pcoinsTip.get(), true, STANDARD_SCRIPT_VERIFY_FLAGS, true, true, ptd_spend_tx, &scriptchecks));
+            BOOST_CHECK(CheckInputs(spend_tx, state, pcoinsTip.get(), true, STANDARD_SCRIPT_VERIFY_FLAGS, true, true, &scriptchecks));
             BOOST_CHECK_EQUAL(scriptchecks.size(), 3U);
 
             // Test that CheckInputs returns true iff DERSIG-enforcing flags are
@@ -286,10 +283,9 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
             invalid_under_p2sh_tx.vin[0].scriptSig << vchSig2;
 
             CValidationState state;
-            PrecomputedTransactionData ptd_spend_tx(invalid_under_p2sh_tx);
-            BOOST_CHECK(!CheckInputs(invalid_under_p2sh_tx, state, pcoinsTip.get(), true, 0, true, true, ptd_spend_tx, nullptr));
-            BOOST_CHECK(!CheckInputs(invalid_under_p2sh_tx, state, pcoinsTip.get(), true, STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, ptd_spend_tx, nullptr));
-            BOOST_CHECK(!CheckInputs(invalid_under_p2sh_tx, state, pcoinsTip.get(), true, STANDARD_SCRIPT_VERIFY_FLAGS, true, true, ptd_spend_tx, nullptr));
+            BOOST_CHECK(!CheckInputs(invalid_under_p2sh_tx, state, pcoinsTip.get(), true, 0, true, true, nullptr));
+            BOOST_CHECK(!CheckInputs(invalid_under_p2sh_tx, state, pcoinsTip.get(), true, STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, nullptr));
+            BOOST_CHECK(!CheckInputs(invalid_under_p2sh_tx, state, pcoinsTip.get(), true, STANDARD_SCRIPT_VERIFY_FLAGS, true, true, nullptr));
         }
 
         // Test CHECKLOCKTIMEVERIFY
@@ -307,7 +303,7 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
 
             // Sign
             std::vector<unsigned char> vchSig;
-            uint256 hash = SignatureHash(spend_tx.vout[1].scriptPubKey, invalid_with_cltv_tx, 0, SIGHASH_ALL, 0, SigVersion::BASE);
+            uint256 hash = SignatureHash(spend_tx.vout[1].scriptPubKey, invalid_with_cltv_tx, 0, SIGHASH_ALL, 0);
             if(count == 0)
             {
                 BOOST_CHECK(coinbaseKey.Sign_ECDSA(hash, vchSig));
@@ -323,16 +319,15 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
             invalid_with_cltv_tx.vin[0].scriptSig = CScript() << vchSig << 101;
 
             CValidationState state;
-            PrecomputedTransactionData txdata(invalid_with_cltv_tx);
-            BOOST_CHECK(!CheckInputs(invalid_with_cltv_tx, state, pcoinsTip.get(), true, 0, true, true, txdata, nullptr));
-            BOOST_CHECK(!CheckInputs(invalid_with_cltv_tx, state, pcoinsTip.get(), true, STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, txdata, nullptr));
-            BOOST_CHECK(!CheckInputs(invalid_with_cltv_tx, state, pcoinsTip.get(), true, STANDARD_SCRIPT_VERIFY_FLAGS, true, true, txdata, nullptr));
+            BOOST_CHECK(!CheckInputs(invalid_with_cltv_tx, state, pcoinsTip.get(), true, 0, true, true, nullptr));
+            BOOST_CHECK(!CheckInputs(invalid_with_cltv_tx, state, pcoinsTip.get(), true, STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, nullptr));
+            BOOST_CHECK(!CheckInputs(invalid_with_cltv_tx, state, pcoinsTip.get(), true, STANDARD_SCRIPT_VERIFY_FLAGS, true, true, nullptr));
 
             // Make it valid, and check again
             invalid_with_cltv_tx.vin[0].scriptSig = CScript() << vchSig << 100;
-            BOOST_CHECK(CheckInputs(invalid_with_cltv_tx, state, pcoinsTip.get(), true, 0, true, true, txdata, nullptr));
-            BOOST_CHECK(CheckInputs(invalid_with_cltv_tx, state, pcoinsTip.get(), true, STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, txdata, nullptr));
-            BOOST_CHECK(CheckInputs(invalid_with_cltv_tx, state, pcoinsTip.get(), true, STANDARD_SCRIPT_VERIFY_FLAGS, true, true, txdata, nullptr));
+            BOOST_CHECK(CheckInputs(invalid_with_cltv_tx, state, pcoinsTip.get(), true, 0, true, true, nullptr));
+            BOOST_CHECK(CheckInputs(invalid_with_cltv_tx, state, pcoinsTip.get(), true, STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, nullptr));
+            BOOST_CHECK(CheckInputs(invalid_with_cltv_tx, state, pcoinsTip.get(), true, STANDARD_SCRIPT_VERIFY_FLAGS, true, true, nullptr));
         }
 
         // TEST CHECKSEQUENCEVERIFY
@@ -349,7 +344,7 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
 
             // Sign
             std::vector<unsigned char> vchSig;
-            uint256 hash = SignatureHash(spend_tx.vout[2].scriptPubKey, invalid_with_csv_tx, 0, SIGHASH_ALL, 0, SigVersion::BASE);
+            uint256 hash = SignatureHash(spend_tx.vout[2].scriptPubKey, invalid_with_csv_tx, 0, SIGHASH_ALL, 0);
             if(count == 0)
             {
                 BOOST_CHECK(coinbaseKey.Sign_ECDSA(hash, vchSig));
@@ -365,17 +360,16 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
             invalid_with_csv_tx.vin[0].scriptSig = CScript() << vchSig << 101;
 
             CValidationState state;
-            PrecomputedTransactionData txdata(invalid_with_csv_tx);
 
-            BOOST_CHECK(!CheckInputs(invalid_with_csv_tx, state, pcoinsTip.get(), true, 0, true, true, txdata, nullptr));
-            BOOST_CHECK(!CheckInputs(invalid_with_csv_tx, state, pcoinsTip.get(), true, STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, txdata, nullptr));
-            BOOST_CHECK(!CheckInputs(invalid_with_csv_tx, state, pcoinsTip.get(), true, STANDARD_SCRIPT_VERIFY_FLAGS, true, true, txdata, nullptr));
+            BOOST_CHECK(!CheckInputs(invalid_with_csv_tx, state, pcoinsTip.get(), true, 0, true, true, nullptr));
+            BOOST_CHECK(!CheckInputs(invalid_with_csv_tx, state, pcoinsTip.get(), true, STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, nullptr));
+            BOOST_CHECK(!CheckInputs(invalid_with_csv_tx, state, pcoinsTip.get(), true, STANDARD_SCRIPT_VERIFY_FLAGS, true, true, nullptr));
 
             // Make it valid, and check again
             invalid_with_csv_tx.vin[0].scriptSig = CScript() << vchSig << 100;
-            BOOST_CHECK(CheckInputs(invalid_with_csv_tx, state, pcoinsTip.get(), true, 0, true, true, txdata, nullptr));
-            BOOST_CHECK(CheckInputs(invalid_with_csv_tx, state, pcoinsTip.get(), true, STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, txdata, nullptr));
-            BOOST_CHECK(CheckInputs(invalid_with_csv_tx, state, pcoinsTip.get(), true, STANDARD_SCRIPT_VERIFY_FLAGS, true, true, txdata, nullptr));
+            BOOST_CHECK(CheckInputs(invalid_with_csv_tx, state, pcoinsTip.get(), true, 0, true, true, nullptr));
+            BOOST_CHECK(CheckInputs(invalid_with_csv_tx, state, pcoinsTip.get(), true, STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, nullptr));
+            BOOST_CHECK(CheckInputs(invalid_with_csv_tx, state, pcoinsTip.get(), true, STANDARD_SCRIPT_VERIFY_FLAGS, true, true, nullptr));
         }
     }
 }

@@ -91,7 +91,7 @@ from test_framework.blocktools import create_block, create_coinbase
 from test_framework.messages import CInv
 from test_framework.mininode import (
     CBlockHeader,
-    NODE_WITNESS,
+    NODE_UNSUPPORTED_FEATURE,
     P2PInterface,
     mininode_lock,
     msg_block,
@@ -273,7 +273,7 @@ class SendHeadersTest(BitcoinTestFramework):
         inv_node = self.nodes[0].add_p2p_connection(BaseNode(self.nodes[0].time_to_connect))
         # Make sure NODE_NETWORK is not set for test_node, so no block download
         # will occur outside of direct fetching
-        test_node = self.nodes[0].add_p2p_connection(BaseNode(self.nodes[0].time_to_connect), services=NODE_WITNESS, wait_for_verack=False)
+        test_node = self.nodes[0].add_p2p_connection(BaseNode(self.nodes[0].time_to_connect), services=NODE_UNSUPPORTED_FEATURE, wait_for_verack=False)
         test_node.wait_for_disconnect()
         test_node = self.nodes[0].add_p2p_connection(BaseNode(self.nodes[0].time_to_connect))
 

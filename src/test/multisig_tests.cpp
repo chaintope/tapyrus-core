@@ -28,7 +28,7 @@ enum class TestMode
 static CScript
 sign_multisig(const CScript& scriptPubKey, const std::vector<CKey>& keys, const CTransaction& transaction, int whichIn, TestMode mode)
 {
-    uint256 hash = SignatureHash(scriptPubKey, transaction, whichIn, SIGHASH_ALL, 0, SigVersion::BASE);
+    uint256 hash = SignatureHash(scriptPubKey, transaction, whichIn, SIGHASH_ALL, 0);
 
     CScript result;
     result << OP_0; // CHECKMULTISIG bug workaround

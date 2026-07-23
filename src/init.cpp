@@ -1563,8 +1563,8 @@ bool AppInitMain()
 
                 if (!fReset) {
                     // Note that RewindBlockIndex MUST run even if we're about to -reindex-chainstate.
-                    // It both disconnects blocks based on chainActive, and drops block data in
-                    // mapBlockIndex based on lack of available witness data.
+                    // It reduces validity/have-data flags in mapBlockIndex and rebuilds
+                    // setBlockIndexCandidates for the current chainActive.
                     uiInterface.InitMessage(_("Rewinding blocks..."));
                     if (!RewindBlockIndex()) {
                         strLoadError = _("Unable to rewind the database to a pre-fork state. You will need to redownload the blockchain");

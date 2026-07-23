@@ -95,9 +95,8 @@ static int verify_script(const unsigned char *scriptPubKey, unsigned int scriptP
         // Regardless of the verification result, the tx did not error.
         set_error(err, bitcoinconsensus_ERR_OK);
 
-        PrecomputedTransactionData txdata(tx);
         ColorIdentifier colorId;
-        return VerifyScript(tx.vin[nIn].scriptSig, CScript(scriptPubKey, scriptPubKey + scriptPubKeyLen), flags, TransactionSignatureChecker(&tx, nIn, amount, txdata), colorId, nullptr);
+        return VerifyScript(tx.vin[nIn].scriptSig, CScript(scriptPubKey, scriptPubKey + scriptPubKeyLen), flags, TransactionSignatureChecker(&tx, nIn, amount), colorId, nullptr);
     } catch (const std::exception&) {
         return set_error(err, bitcoinconsensus_ERR_TX_DESERIALIZE); // Error deserializing
     }
@@ -116,16 +115,16 @@ int bitcoinconsensus_verify_script(const unsigned char *scriptPubKey, unsigned i
                                    const unsigned char *txTo        , unsigned int txToLen,
                                    unsigned int nIn, unsigned int flags, bitcoinconsensus_error* err)
 {
-    if (flags & bitcoinconsensus_SCRIPT_FLAGS_VERIFY_WITNESS) {
-        return set_error(err, bitcoinconsensus_ERR_AMOUNT_REQUIRED);
-    }
-
     CAmount am(0);
     return ::verify_script(scriptPubKey, scriptPubKeyLen, am, txTo, txToLen, nIn, flags, err);
 }
 
 unsigned int bitcoinconsensus_version()
 {
-    // Just use the API version for now
+    // Note: BITCOINCONSENSUS_API_VER is unchanged even though the removal of
+    // bitcoinconsensus_SCRIPT_FLAGS_VERIFY_WITNESS is a real ABI break: callers
+    // that used to get bitcoinconsensus_ERR_AMOUNT_REQUIRED for that flag bit
+    // now get it silently ignored instead. Downstream consumers can't detect
+    // this via the version number.
     return BITCOINCONSENSUS_API_VER;
 }

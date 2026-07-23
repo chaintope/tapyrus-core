@@ -53,7 +53,7 @@ static void CheckError(uint32_t flags, const stacktype &original_stack,
 
     stacktype stack{original_stack};
     ColorIdentifier colorId;
-    bool r = EvalScript(stack, script, flags, checker, SigVersion::BASE, &colorId, &err);
+    bool r = EvalScript(stack, script, flags, checker, &colorId, &err);
     BOOST_CHECK(!r);
     BOOST_CHECK_EQUAL(err, expected);
 }
@@ -76,7 +76,7 @@ static void CheckPass(uint32_t flags, const stacktype &original_stack,
 
     stacktype stack{original_stack};
     ColorIdentifier colorId;
-    bool r = EvalScript(stack, script, flags, checker, SigVersion::BASE, &colorId, &err);
+    bool r = EvalScript(stack, script, flags, checker, &colorId, &err);
     BOOST_CHECK(r);
     BOOST_CHECK_EQUAL(err, SCRIPT_ERR_OK);
     BOOST_CHECK(stack == expected);
