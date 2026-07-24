@@ -282,7 +282,6 @@ def main():
     parser.add_argument('--coverage', action='store_true', help='generate a basic coverage report for the RPC interface')
     parser.add_argument('--exclude', '-x', help='specify a comma-separated-list of scripts to exclude.')
     parser.add_argument('--extended', action='store_true', help='run the extended test suite in addition to the basic tests')
-    parser.add_argument('--heavy', action='store_true', help='run only the heavy/slow test suite (e.g. feature_pruning.py), meant for the weekly CI job')
     parser.add_argument('--force', '-f', action='store_true', help='run tests even on platforms where they are disabled by default (e.g. windows).')
     parser.add_argument('--help', '-h', '-?', action='store_true', help='print help text and exit')
     parser.add_argument('--jobs', '-j', type=int, default=4, help='how many test scripts to run in parallel. Default=4.')
@@ -348,10 +347,6 @@ def main():
                 test_list.append(test)
             else:
                 print("{}WARNING!{} Test '{}' not found in full test list.".format(BOLD[1], BOLD[0], test))
-    elif args.heavy:
-        # Run only the heavy/slow tests, kept out of ALL_SCRIPTS so they never
-        # run as part of the daily base/extended suites.
-        test_list += HEAVY_SCRIPTS
     elif args.extended:
         # Include extended tests
         test_list += ALL_SCRIPTS
