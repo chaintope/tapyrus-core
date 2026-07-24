@@ -9,8 +9,14 @@ name: Weekly Heavy Test
 # loosest dbcrashratio/dbcache tier to reliably crash at least once).
 # Each test runs in its own job (feature-pruning, feature-dbcrash) so a slow
 # run of one doesn't eat into the other's share of the 6h GitHub-hosted-runner
-# execution ceiling -- combining them previously caused a TIMEOUT-retry of
-# feature_pruning to blow through that ceiling mid-job.
+# execution ceiling. Each script is invoked directly (test/functional/<script>.py),
+# not via test_runner.py: these scripts are deliberately excluded from
+# test_runner.py's ALL_SCRIPTS list (see HEAVY_SCRIPTS there) so they never run
+# as part of the daily base/extended suites, but that also means
+# test_runner.py can't be given their names positionally -- its lookup only
+# matches ALL_SCRIPTS, so passing e.g. "feature_pruning.py" on the command
+# line used to silently no-op (WARNING + empty test list + exit 0), making
+# this job appear to pass without ever running anything.
 # Scheduled weekly; can also be triggered manually or after a successful daily build.
 on:
   schedule:
@@ -43,9 +49,12 @@ jobs:
       matrix:
         config:
           - name: feature_pruning
-            test_args: 'feature_pruning.py'
+            scripts:
+              - 'feature_pruning.py'
           - name: feature_dbcrash
-            test_args: 'feature_dbcrash.py "feature_dbcrash.py --scheme SCHNORR"'
+            scripts:
+              - 'feature_dbcrash.py'
+              - 'feature_dbcrash.py --scheme SCHNORR'
     name: ${{ matrix.config.name }} test (Linux x86_64 RelWithDebInfo)
     runs-on: ubuntu-latest
     # No timeout-minutes set: GitHub-hosted runners hard-cap job execution at
@@ -159,23 +168,56 @@ jobs:
           # ulimit is per-process and does not carry over from the "Enable
           # core dumps" step (each `run:` block is a separate shell) -- it
           # must be set here, in the shell that actually execs the test
-          # binaries and their children (test_runner.py -> tapyrusd).
+          # binaries and their children.
           ulimit -c unlimited
           echo "Disk space before test:"
           df -h .
-          echo "---------------- Start ${{ matrix.config.name }} test ----------------"
-          if python3 test/functional/test_runner.py \
-            --tmpdir="$TAPYRUS_TEST_DIR" \
-            -j 1 \
-            --combinedlogslen=4000 \
-            --failfast \
-            --test-timeout=18000 \
-            ${{ matrix.config.test_args }}; then
-            echo "${{ matrix.config.name }} test passed"
-          else
-            echo "${{ matrix.config.name }} test FAILED"
-            exit 1
-          fi
+
+          # These scripts are deliberately kept out of test_runner.py's
+          # ALL_SCRIPTS (see HEAVY_SCRIPTS in test_runner.py) so they never run
+          # as part of the daily base/extended suites -- but that also means
+          # test_runner.py's positional-arg lookup (which only matches
+          # ALL_SCRIPTS) can't run them by name either. Invoke each script
+          # directly instead: every functional test is independently runnable
+          # via its own `if __name__ == '__main__'` block and accepts
+          # --tmpdir/--scheme/--configfile directly (test_framework.py's own
+          # arg parser), so no orchestration layer is needed here.
+          #
+          # --configfile/--cachedir/--portseed mirror what test_runner.py
+          # adds to every invocation automatically (test_runner.py's
+          # main()/run_tests()/TestHandler). They matter beyond cosmetics:
+          # test_framework.py's own --cachedir default resolves relative to
+          # test_framework.py's own path (under $BASE_ROOT_DIR), whereas
+          # test_runner.py overrides it to a BUILDDIR-relative path -- left
+          # unset, direct invocation would silently use a different (and, for
+          # feature_dbcrash's cache-based chain setup, unpopulated) cache
+          # directory. --configfile happens to resolve to the same file
+          # either way here, but is passed explicitly for parity. The two
+          # feature_dbcrash invocations below intentionally share one
+          # --cachedir: its cache-priming step never reads --scheme, so this
+          # matches test_runner.py's own --heavy behavior, which also runs
+          # both variants against a single shared cache.
+          CONFIGFILE="$BASE_ROOT_DIR/test/config.ini"
+          CACHEDIR="$BASE_BUILD_DIR/test/cache"
+          rm -rf "$CACHEDIR"
+          IFS='|' read -r -a SCRIPTS <<< "${{ join(matrix.config.scripts, '|') }}"
+          index=0
+          for script_line in "${SCRIPTS[@]}"; do
+            script_name=$(echo "$script_line" | awk '{print $1}')
+            test_dir="$TAPYRUS_TEST_DIR/$(basename "$script_name" .py)_${index}"
+            echo "---------------- Start $script_line ----------------"
+            if python3 test/functional/$script_line \
+              --tmpdir="$test_dir" \
+              --configfile="$CONFIGFILE" \
+              --cachedir="$CACHEDIR" \
+              --portseed="$index"; then
+              echo "$script_line passed"
+            else
+              echo "$script_line FAILED"
+              exit 1
+            fi
+            index=$((index + 1))
+          done
           echo "Disk space after test:"
           df -h .
 
@@ -211,17 +253,15 @@ jobs:
         # exists for, so it must run on both.
         if: failure() || cancelled()
         run: |
-          # test_runner.py only ever prints the last 4000 lines of the
-          # combined per-node logs to the console, and only for a genuine
-          # "Failed" result -- a "Timeout" result (test_runner.py's other
-          # failure branch) prints nothing at all on its first attempt, only
-          # on a retry that then fails too. Bypass both limitations by
+          # Each script is invoked directly (not through test_runner.py), so
+          # nothing prints combined per-node logs on its own -- do it here by
           # combining the full, untruncated logs (test framework + every
-          # node's debug.log) directly. $GITHUB_STEP_SUMMARY silently drops
-          # anything past its 1 MB per-step cap, so the full output goes to a
-          # file uploaded as an artifact, with only a tail in the summary.
+          # node's debug.log) for each test's --tmpdir directly.
+          # $GITHUB_STEP_SUMMARY silently drops anything past its 1 MB
+          # per-step cap, so the full output goes to a file uploaded as an
+          # artifact, with only a tail in the summary.
           shopt -s nullglob
-          TESTDIRS=("$TAPYRUS_TEST_DIR"/test_runner_*/*/)
+          TESTDIRS=("$TAPYRUS_TEST_DIR"/*/)
           if [ ${#TESTDIRS[@]} -eq 0 ]; then
             echo "No test directories found under $TAPYRUS_TEST_DIR"
             exit 0
