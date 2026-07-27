@@ -195,8 +195,8 @@ jobs:
           # either way here, but is passed explicitly for parity. The two
           # feature_dbcrash invocations below intentionally share one
           # --cachedir: its cache-priming step never reads --scheme, so this
-          # matches test_runner.py's own --heavy behavior, which also runs
-          # both variants against a single shared cache.
+          # matches how test_runner.py itself shares one per-run cache across
+          # a batch (see test_runner.py:445-453).
           CONFIGFILE="$BASE_ROOT_DIR/test/config.ini"
           CACHEDIR="$BASE_BUILD_DIR/test/cache"
           rm -rf "$CACHEDIR"

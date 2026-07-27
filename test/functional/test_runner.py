@@ -251,7 +251,7 @@ USDT_SCRIPTS = [
 
 # Tests that are too slow/resource-intensive for daily CI (90 min – 4 hours, 4 GB disk).
 # weekly-heavy-tests.yml's matrix now lists each of these directly as its own
-# job (matrix.config.test_args) instead of running this list wholesale, so
+# job (matrix.config.scripts) instead of running this list wholesale, so
 # this list itself no longer drives what runs weekly -- it's kept alive only
 # by the completeness check below (test_runner.py:678). Keep it in lockstep
 # with that matrix whenever a heavy test is added or removed.
@@ -345,6 +345,10 @@ def main():
         for test in tests:
             if test in ALL_SCRIPTS:
                 test_list.append(test)
+            elif any(test == h.split()[0] for h in HEAVY_SCRIPTS):
+                print("{}ERROR!{} Test '{}' is a heavy test — invoke it directly with "
+                      "python3 test/functional/{}, not via test_runner.py.".format(BOLD[1], BOLD[0], test, test))
+                sys.exit(1)
             else:
                 print("{}WARNING!{} Test '{}' not found in full test list.".format(BOLD[1], BOLD[0], test))
     elif args.extended:
