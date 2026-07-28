@@ -21,7 +21,7 @@ from enum import Enum
 
 from . import coverage
 from .authproxy import AuthServiceProxy, JSONRPCException
-from .timeout_config import TAPYRUSD_SYNC_TIMEOUT, TAPYRUSD_PROC_TIMEOUT, TAPYRUSD_MIN_TIMEOUT, TAPYRUSD_REORG_TIMEOUT, TAPYRUSD_MESSAGE_TIMEOUT
+from .timeout_config import TAPYRUSD_SYNC_TIMEOUT, TAPYRUSD_MIN_TIMEOUT, TAPYRUSD_MESSAGE_TIMEOUT
 
 logger = logging.getLogger("TestFramework.utils")
 
