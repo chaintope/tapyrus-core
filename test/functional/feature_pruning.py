@@ -12,7 +12,7 @@ This test takes 90 mins or more (up to 4 hours)
 """
 from test_framework.timeout_config import TAPYRUSD_REORG_TIMEOUT, TAPYRUSD_SYNC_TIMEOUT
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, assert_greater_than, assert_raises_rpc_error, connect_nodes, sync_blocks, wait_until, NetworkDirName, hex_str_to_bytes
+from test_framework.util import assert_equal, assert_greater_than, assert_raises_rpc_error, connect_nodes, sync_blocks, sync_blocks_with_stall_detection, wait_until, NetworkDirName, hex_str_to_bytes
 from test_framework.script import MAX_SCRIPT_SIZE, CScript
 from test_framework.messages import ToHex, COIN
 from test_framework.blocktools import create_tx_with_large_script
@@ -374,10 +374,14 @@ class PruneTest(BitcoinTestFramework):
         self.log.info("Success")
 
         # check that wallet loads successfully when restarting a pruned node after IBD.
+        # Node 5 has been disconnected since setup_network() (see set_test_params()) and
+        # is only now doing initial block download of the whole chain built by this test,
+        # so a fixed sync timeout isn't appropriate here: use stall detection instead, which
+        # only fails if node 5's height stops advancing, not based on a fixed wall-clock budget.
         self.log.info("Syncing node 5 to test wallet")
         connect_nodes(self.nodes[0], 5)
         nds = [self.nodes[0], self.nodes[5]]
-        sync_blocks(nds, wait=5, timeout=TAPYRUSD_SYNC_TIMEOUT)
+        sync_blocks_with_stall_detection(nds, wait=5)
         self.stop_node(5) #stop and start to trigger rescan
         self.start_node(5, extra_args=["-prune=550"])
         self.log.info("Success")

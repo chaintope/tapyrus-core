@@ -21,7 +21,7 @@ from enum import Enum
 
 from . import coverage
 from .authproxy import AuthServiceProxy, JSONRPCException
-from .timeout_config import TAPYRUSD_SYNC_TIMEOUT, TAPYRUSD_PROC_TIMEOUT, TAPYRUSD_MIN_TIMEOUT, TAPYRUSD_REORG_TIMEOUT
+from .timeout_config import TAPYRUSD_SYNC_TIMEOUT, TAPYRUSD_PROC_TIMEOUT, TAPYRUSD_MIN_TIMEOUT, TAPYRUSD_REORG_TIMEOUT, TAPYRUSD_MESSAGE_TIMEOUT
 
 logger = logging.getLogger("TestFramework.utils")
 
@@ -420,6 +420,46 @@ def sync_blocks(rpc_connections, *, wait=1, timeout=TAPYRUSD_SYNC_TIMEOUT):
             return
         time.sleep(wait)
     raise TimeoutError("Block sync timed out:{}".format("".join("\n  {!r}".format(b) for b in best_hash)))
+
+def sync_blocks_with_stall_detection(rpc_connections, *, wait=1, stall_timeout=TAPYRUSD_SYNC_TIMEOUT, progress_log_interval=TAPYRUSD_MESSAGE_TIMEOUT):
+    """
+    Wait until everybody has the same tip, without a fixed overall deadline.
+
+    Unlike sync_blocks(), this is meant for syncs whose total duration scales
+    with chain size (e.g. a freshly-connected node doing initial block
+    download of a long chain) rather than an ordinary catch-up sync. Progress
+    is tracked via getblockcount() on every connection; failure is declared
+    only when no connection's height has changed for stall_timeout seconds,
+    not when some fixed wall-clock budget elapses. Heights are logged every
+    progress_log_interval seconds so a long-running sync isn't silent in CI.
+
+    sync_blocks_with_stall_detection needs to be called with an
+    rpc_connections set that has least one node already synced to the
+    latest, stable tip, otherwise there's a chance it might return before
+    all nodes are stably synced.
+    """
+    last_heights = None
+    last_progress_time = time.time()
+    last_log_time = last_progress_time
+    while True:
+        best_hash = [x.getbestblockhash() for x in rpc_connections]
+        if best_hash.count(best_hash[0]) == len(rpc_connections):
+            return
+        heights = [x.getblockcount() for x in rpc_connections]
+        now = time.time()
+        if heights != last_heights:
+            last_heights = heights
+            last_progress_time = now
+        elif now - last_progress_time >= stall_timeout:
+            raise TimeoutError(
+                "Block sync stalled: no height change for {}s. heights:{} best hashes:{}".format(
+                    stall_timeout,
+                    "".join("\n  {!r}".format(h) for h in heights),
+                    "".join("\n  {!r}".format(b) for b in best_hash)))
+        if now - last_log_time >= progress_log_interval:
+            logger.info("sync_blocks_with_stall_detection: heights={}".format(heights))
+            last_log_time = now
+        time.sleep(wait)
 
 def sync_mempools(rpc_connections, *, wait=1, timeout=TAPYRUSD_SYNC_TIMEOUT, flush_scheduler=True):
     """
