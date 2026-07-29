@@ -437,6 +437,11 @@ def sync_blocks_with_stall_detection(rpc_connections, *, wait=1, stall_timeout=T
     rpc_connections set that has least one node already synced to the
     latest, stable tip, otherwise there's a chance it might return before
     all nodes are stably synced.
+
+    The rpc_connections set must include at least one node that is synced
+    to the target tip and not producing further blocks; otherwise the
+    progress-based stall detector never fires and this function loops
+    indefinitely.
     """
     last_heights = None
     last_progress_time = time.time()
