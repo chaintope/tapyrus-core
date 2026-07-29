@@ -159,7 +159,10 @@ class Schnorr:
         """Create Schnorr signature (tapyrus-core/doc/tapyrus/schnorr_signature.md)."""
         assert len(msg32) == 32
 
-        k = self._nonce_function_rfc6979(msg32, algo16=b"Schnorr + SHA256")
+        # algo16 must match secp256k1_schnorr_algo16 in the libsecp256k1 fork
+        # (src/secp256k1/src/modules/schnorr/main_impl.h) and the spec in
+        # doc/tapyrus/schnorr_signature.md, both of which use upper case.
+        k = self._nonce_function_rfc6979(msg32, algo16=b"SCHNORR + SHA256")
 
         ctx = self.ptr_for_this_thread()
 
@@ -234,14 +237,6 @@ if __name__ == '__main__':
     # Test Schnorr implementation.
     # duplicate the deterministic sig test from src/test/key_tests.cpp
 
-    schnorrSig = Schnorr()
-    schnorrSig.set_secretbytes(bytes.fromhex(
-        "12b004fff7f4b69ef8650e767f18f11ede158148b425660723b9f9a66e61f747"))
-
-    pubkey = schnorrSig.get_pubkey(True)
-    assert pubkey == bytes.fromhex(
-        "030b4c866585dd868a9d62348a9cd008d6a312937048fff31670e7e920cfc7a744")
-
     def sha(b):
         return hashlib.sha256(b).digest()
     msg = b"Very deterministic message"
@@ -249,8 +244,23 @@ if __name__ == '__main__':
     assert msghash == bytes.fromhex(
         "5255683da567900bfd3e786ed8836a4e7763c221bf1ac20ece2a5171b9199e8a")
 
-    sig = schnorrSig.sign(msghash)
-    assert sig == bytes.fromhex(
-        "1674227edddf7942437c1dc2459b49e27dd5057b1b6d32667b0cd13cacc5cec0f4e0177183a4e461a60165e12094067872924fa6c75ccedd287c337fde0a93f2")
+    # strSecret1 / strSecret2 of key_tests.cpp, in raw form.
+    testcases = [
+        ("12b004fff7f4b69ef8650e767f18f11ede158148b425660723b9f9a66e61f747",
+         "030b4c866585dd868a9d62348a9cd008d6a312937048fff31670e7e920cfc7a744",
+         "0567cbade8656cff3bb08d00913d59363273c32ea66130cf0c9b1be8e874b8bc"
+         "b0e62372c22e8ecd34ffeadda493beb221e52bf23413cc6c3abdcdfc03d0ed52"),
+        ("b524c28b61c9b2c49b2c7dd4c2d75887abb78768c054bd7c01af4029f6c0d117",
+         "03183905ae25e815634ce7f5d9bedbaa2c39032ab98c75b5e88fe43f8dd8246f3c",
+         "064623e23b59e1bd304156fb20c197eee23e6d10e021664aef3878364d9d5e17"
+         "5916f7909c9358192e9c1510ebb466b085e726aab0d71c6ef9f298b53ea179aa"),
+    ]
+
+    for secret, pubkeyhex, sighex in testcases:
+        schnorrSig = Schnorr()
+        schnorrSig.set_secretbytes(bytes.fromhex(secret))
+
+        assert schnorrSig.get_pubkey(True) == bytes.fromhex(pubkeyhex)
+        assert schnorrSig.sign(msghash) == bytes.fromhex(sighex)
 
     print("ok")
