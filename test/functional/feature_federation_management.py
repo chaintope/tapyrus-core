@@ -67,7 +67,7 @@ from test_framework.schnorr import Schnorr
 from test_framework.mininode import P2PDataStore
 from test_framework.timeout_config import TAPYRUSD_REORG_TIMEOUT, TAPYRUSD_MIN_TIMEOUT, TAPYRUSD_MESSAGE_TIMEOUT
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, bytes_to_hex_str, assert_raises_rpc_error, NetworkDirName, hex_str_to_bytes, connect_nodes, wait_until
+from test_framework.util import assert_equal, bytes_to_hex_str, assert_raises_rpc_error, NetworkDirName, hex_str_to_bytes, connect_nodes, wait_until, Node3SyncStallDetector
 from test_framework.messages import CTransaction
 
 class FederationManagementTest(BitcoinTestFramework):
@@ -667,26 +667,11 @@ class FederationManagementTest(BitcoinTestFramework):
         # well here since a p2p drop-and-reconnect can add unpredictable delay; only fail if
         # height genuinely stops advancing for stall_timeout seconds.
         def wait_for_node3_sync(stall_timeout=TAPYRUSD_REORG_TIMEOUT, progress_log_interval=TAPYRUSD_MESSAGE_TIMEOUT):
-            last_height = None
-            last_progress_time = time.time()
-            last_log_time = last_progress_time
-            while True:
-                if len(self.nodes[3].getpeerinfo()) < 2:
-                    connect_nodes(self.nodes[3], 0)
-                    connect_nodes(self.nodes[3], 1)
-                height = self.nodes[3].getblockcount()
-                if height >= 51 and self.nodes[3].getbestblockhash() == self.nodes[1].getbestblockhash():
-                    return
-                now = time.time()
-                if height != last_height:
-                    last_height = height
-                    last_progress_time = now
-                elif now - last_progress_time >= stall_timeout:
-                    raise AssertionError("node3 sync stalled at height %d for %ds" % (height, stall_timeout))
-                if now - last_log_time >= progress_log_interval:
-                    self.log.info("node3 sync progress: height=%d" % height)
-                    last_log_time = now
-                time.sleep(1)
+            Node3SyncStallDetector(
+                self.log, self.nodes[3], self.nodes[1],
+                lambda: (connect_nodes(self.nodes[3], 0), connect_nodes(self.nodes[3], 1)),
+                min_peers=2, min_height=51,
+                stall_timeout=stall_timeout, progress_log_interval=progress_log_interval).run()
 
         wait_for_node3_sync()
         self.stop_node(3)

@@ -12,13 +12,12 @@ This test takes 90 mins or more (up to 4 hours)
 """
 from test_framework.timeout_config import TAPYRUSD_REORG_TIMEOUT, TAPYRUSD_SYNC_TIMEOUT, TAPYRUSD_MESSAGE_TIMEOUT
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, assert_greater_than, assert_raises_rpc_error, connect_nodes, sync_blocks, sync_blocks_with_stall_detection, wait_until, NetworkDirName, hex_str_to_bytes
+from test_framework.util import assert_equal, assert_greater_than, assert_raises_rpc_error, connect_nodes, sync_blocks, sync_blocks_with_stall_detection, wait_until, NetworkDirName, hex_str_to_bytes, StallDetector, TransientProgressError
 from test_framework.script import MAX_SCRIPT_SIZE, CScript
 from test_framework.messages import ToHex, COIN
 from test_framework.blocktools import create_tx_with_large_script
 
 import os
-import time
 
 MIN_BLOCKS_TO_KEEP = 288
 
@@ -66,6 +65,39 @@ def send_txs_for_large_block(node, utxos, script, size=1000000):
 
 def calc_usage(blockdir):
     return sum(os.path.getsize(blockdir+f) for f in os.listdir(blockdir) if os.path.isfile(os.path.join(blockdir, f))) / (1024. * 1024.)
+
+class PruneStallDetector(StallDetector):
+    """
+    Wait for filename to be pruned from blockdir, tracking progress via disk
+    usage (calc_usage) since the actual prune/flush work is tied to normal
+    block-connection processing rather than a fixed wall-clock budget.
+    """
+    def __init__(self, log, blockdir, filename, **kwargs):
+        super().__init__(**kwargs)
+        self.log = log
+        self.blockdir = blockdir
+        self.filename = filename
+        self.target_path = os.path.join(blockdir, filename)
+
+    def is_done(self):
+        return not os.path.isfile(self.target_path)
+
+    def progress(self):
+        try:
+            return calc_usage(self.blockdir)
+        except FileNotFoundError:
+            # calc_usage's listdir/isfile/getsize sequence isn't atomic; a
+            # block file can be unlinked mid-scan while pruning is actively
+            # running. Retry rather than treating a benign race as a stall.
+            raise TransientProgressError()
+
+    def on_stall(self, usage):
+        raise AssertionError(
+            "Pruning stalled: %s still present and usage unchanged (%d) for %ds" % (
+                self.filename, usage, self.stall_timeout))
+
+    def log_progress(self, usage):
+        self.log.info("wait_for_prune: usage=%d, %s still present" % (usage, self.filename))
 
 class PruneTest(BitcoinTestFramework):
     def set_test_params(self):
@@ -134,26 +166,8 @@ class PruneTest(BitcoinTestFramework):
         Failure is declared only when usage stops changing for stall_timeout
         seconds while filename still exists, not when some fixed timeout elapses.
         """
-        target_path = os.path.join(self.prunedir, filename)
-        last_usage = None
-        last_progress_time = time.time()
-        last_log_time = last_progress_time
-        while True:
-            if not os.path.isfile(target_path):
-                return
-            usage = calc_usage(self.prunedir)
-            now = time.time()
-            if usage != last_usage:
-                last_usage = usage
-                last_progress_time = now
-            elif now - last_progress_time >= stall_timeout:
-                raise AssertionError(
-                    "Pruning stalled: %s still present and usage unchanged (%d) for %ds" % (
-                        filename, usage, stall_timeout))
-            if now - last_log_time >= progress_log_interval:
-                self.log.info("wait_for_prune: usage=%d, %s still present" % (usage, filename))
-                last_log_time = now
-            time.sleep(1)
+        PruneStallDetector(self.log, self.prunedir, filename, stall_timeout=stall_timeout,
+                            progress_log_interval=progress_log_interval).run()
 
     def test_height_min(self):
         if not os.path.isfile(os.path.join(self.prunedir, "blk00000.dat")):

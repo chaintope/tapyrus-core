@@ -421,6 +421,130 @@ def sync_blocks(rpc_connections, *, wait=1, timeout=TAPYRUSD_SYNC_TIMEOUT):
         time.sleep(wait)
     raise TimeoutError("Block sync timed out:{}".format("".join("\n  {!r}".format(b) for b in best_hash)))
 
+class TransientProgressError(Exception):
+    """
+    Raised by StallDetector.progress() to signal a benign, non-stall failure
+    to read progress (e.g. a TOCTOU race against a concurrent background
+    process). The iteration is retried without affecting the stall timer.
+    """
+
+class StallDetector:
+    """
+    Generic poll loop for waits with no fixed overall deadline.
+
+    Repeatedly checks is_done() until it returns True. In between, progress()
+    is compared against its previous value: as long as it keeps changing the
+    wait continues indefinitely, but once it stops changing for
+    stall_timeout seconds, on_stall() is called with the current progress
+    value (it is expected to raise). log_progress() is called with the
+    current progress value every progress_log_interval seconds so a
+    long-running wait isn't silent in CI.
+
+    Subclasses implement is_done(), progress() and on_stall(); before_check()
+    and log_progress() are optional hooks.
+    """
+    def __init__(self, *, wait=1, stall_timeout, progress_log_interval):
+        self.wait = wait
+        self.stall_timeout = stall_timeout
+        self.progress_log_interval = progress_log_interval
+
+    def before_check(self):
+        pass
+
+    def is_done(self):
+        raise NotImplementedError
+
+    def progress(self):
+        raise NotImplementedError
+
+    def on_stall(self, progress):
+        raise NotImplementedError
+
+    def log_progress(self, progress):
+        pass
+
+    def run(self):
+        last_progress = None
+        last_progress_time = time.time()
+        last_log_time = last_progress_time
+        while True:
+            self.before_check()
+            if self.is_done():
+                return
+            try:
+                progress = self.progress()
+            except TransientProgressError:
+                time.sleep(self.wait)
+                continue
+            now = time.time()
+            if progress != last_progress:
+                last_progress = progress
+                last_progress_time = now
+            elif now - last_progress_time >= self.stall_timeout:
+                self.on_stall(progress)
+            if now - last_log_time >= self.progress_log_interval:
+                self.log_progress(progress)
+                last_log_time = now
+            time.sleep(self.wait)
+
+class _BlockSyncStallDetector(StallDetector):
+    def __init__(self, rpc_connections, **kwargs):
+        super().__init__(**kwargs)
+        self.rpc_connections = rpc_connections
+        self.last_best_hash = None
+
+    def is_done(self):
+        self.last_best_hash = [x.getbestblockhash() for x in self.rpc_connections]
+        return self.last_best_hash.count(self.last_best_hash[0]) == len(self.rpc_connections)
+
+    def progress(self):
+        return [x.getblockcount() for x in self.rpc_connections]
+
+    def on_stall(self, heights):
+        raise TimeoutError(
+            "Block sync stalled: no height change for {}s. heights:{} best hashes:{}".format(
+                self.stall_timeout,
+                "".join("\n  {!r}".format(h) for h in heights),
+                "".join("\n  {!r}".format(b) for b in self.last_best_hash)))
+
+    def log_progress(self, heights):
+        logger.info("sync_blocks_with_stall_detection: heights={}".format(heights))
+
+class Node3SyncStallDetector(StallDetector):
+    """
+    Wait for target_node to reach the same tip as reference_node, calling
+    reconnect() to re-establish the connection if it drops mid-sync. Used to
+    wait on a newly-added node whose p2p connection can be dropped and
+    retried unpredictably, so a fixed wall-clock budget doesn't fit well.
+    """
+    def __init__(self, log, target_node, reference_node, reconnect, *, min_peers, min_height, **kwargs):
+        super().__init__(**kwargs)
+        self.log = log
+        self.target_node = target_node
+        self.reference_node = reference_node
+        self.reconnect = reconnect
+        self.min_peers = min_peers
+        self.min_height = min_height
+        self.last_height = None
+
+    def before_check(self):
+        if len(self.target_node.getpeerinfo()) < self.min_peers:
+            self.reconnect()
+
+    def is_done(self):
+        self.last_height = self.target_node.getblockcount()
+        return (self.last_height >= self.min_height and
+                self.target_node.getbestblockhash() == self.reference_node.getbestblockhash())
+
+    def progress(self):
+        return self.last_height
+
+    def on_stall(self, height):
+        raise AssertionError("node3 sync stalled at height %d for %ds" % (height, self.stall_timeout))
+
+    def log_progress(self, height):
+        self.log.info("node3 sync progress: height=%d" % height)
+
 def sync_blocks_with_stall_detection(rpc_connections, *, wait=1, stall_timeout=TAPYRUSD_SYNC_TIMEOUT, progress_log_interval=TAPYRUSD_MESSAGE_TIMEOUT):
     """
     Wait until everybody has the same tip, without a fixed overall deadline.
@@ -443,28 +567,8 @@ def sync_blocks_with_stall_detection(rpc_connections, *, wait=1, stall_timeout=T
     progress-based stall detector never fires and this function loops
     indefinitely.
     """
-    last_heights = None
-    last_progress_time = time.time()
-    last_log_time = last_progress_time
-    while True:
-        best_hash = [x.getbestblockhash() for x in rpc_connections]
-        if best_hash.count(best_hash[0]) == len(rpc_connections):
-            return
-        heights = [x.getblockcount() for x in rpc_connections]
-        now = time.time()
-        if heights != last_heights:
-            last_heights = heights
-            last_progress_time = now
-        elif now - last_progress_time >= stall_timeout:
-            raise TimeoutError(
-                "Block sync stalled: no height change for {}s. heights:{} best hashes:{}".format(
-                    stall_timeout,
-                    "".join("\n  {!r}".format(h) for h in heights),
-                    "".join("\n  {!r}".format(b) for b in best_hash)))
-        if now - last_log_time >= progress_log_interval:
-            logger.info("sync_blocks_with_stall_detection: heights={}".format(heights))
-            last_log_time = now
-        time.sleep(wait)
+    _BlockSyncStallDetector(rpc_connections, wait=wait, stall_timeout=stall_timeout,
+                             progress_log_interval=progress_log_interval).run()
 
 def sync_mempools(rpc_connections, *, wait=1, timeout=TAPYRUSD_SYNC_TIMEOUT, flush_scheduler=True):
     """
