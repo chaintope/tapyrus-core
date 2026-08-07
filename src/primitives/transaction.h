@@ -216,14 +216,23 @@ class CTransaction
 {
 public:
     // Default transaction features.
-    static const int32_t CURRENT_FEATURES=1;
+    //
+    // constexpr (not plain "static const"): a plain in-class-initialized
+    // static const member has no out-of-line definition anywhere in this
+    // codebase, so any use that binds a reference to it (e.g. assigning
+    // into a boost::optional<int32_t>, or passing it to
+    // boost::optional::value_or()) is an ODR-use requiring a linker symbol
+    // that doesn't exist. GCC/Linux enforces this strictly and fails to
+    // link; Apple's clang/ld64 happens to tolerate it. constexpr is
+    // implicitly inline in C++17/20, which resolves this on every platform.
+    static constexpr int32_t CURRENT_FEATURES=1;
 
     // Changing the default transaction version requires a two step process: first
     // adapting relay policy by bumping MAX_STANDARD_FEATURES, and then later date
     // bumping the default CURRENT_FEATURES at which point both CURRENT_FEATURES
     // and MAX_STANDARD_FEATURES will be equal.
     // Tapyrus: renaming MAX_STANDARD_VERSION to MAX_STANDARD_FEATURES.
-    static const int32_t MAX_STANDARD_FEATURES=1;
+    static constexpr int32_t MAX_STANDARD_FEATURES=1;
 
     // The local variables are made const to prevent unintended modification
     // without updating the cached hash value. However, CTransaction is not
