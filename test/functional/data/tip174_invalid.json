@@ -1,0 +1,242 @@
+[
+  {
+    "id": "wrong-magic",
+    "description": "Magic bytes are the Bitcoin PSBT magic (psbt 0xFF) instead of pstt 0xFF.",
+    "pstt": "cHNidP8BAgQBAAAAAQQBAQEFAQEAAQ4gAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBDwQAAAAAAAEDCECcAAAAAAAAAQQZdqkUAAAAAAAAAAAAAAAAAAAAAAAAAACIrAA=",
+    "expected": {
+      "valid": false,
+      "stage": "parse",
+      "reason": "magic must be 0x70 0x73 0x74 0x74 0xFF"
+    }
+  },
+  {
+    "id": "missing-map-separator",
+    "description": "The final output map is not terminated by a 0x00 separator.",
+    "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQEAAQ4gAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBDwQAAAAAAAEDCECcAAAAAAAAAQQZdqkUAAAAAAAAAAAAAAAAAAAAAAAAAACIrA==",
+    "expected": {
+      "valid": false,
+      "stage": "parse",
+      "reason": "every map must be terminated by 0x00"
+    }
+  },
+  {
+    "id": "duplicate-key",
+    "description": "The global map contains two records with the same complete key (PSTT_GLOBAL_TX_FEATURES).",
+    "pstt": "cHN0dP8BAgQBAAAAAQIEAQAAAAEEAQEBBQEBAAEOIAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ8EAAAAAAABAwhAnAAAAAAAAAEEGXapFAAAAAAAAAAAAAAAAAAAAAAAAAAAiKwA",
+    "expected": {
+      "valid": false,
+      "stage": "parse",
+      "reason": "a map must not contain two records with the same complete key"
+    }
+  },
+  {
+    "id": "missing-global-tx-features",
+    "description": "The global map lacks the required PSTT_GLOBAL_TX_FEATURES record.",
+    "pstt": "cHN0dP8BBAEBAQUBAQABDiABAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEPBAAAAAAAAQMIQJwAAAAAAAABBBl2qRQAAAAAAAAAAAAAAAAAAAAAAAAAAIisAA==",
+    "expected": {
+      "valid": false,
+      "stage": "parse",
+      "reason": "PSTT_GLOBAL_TX_FEATURES is required"
+    }
+  },
+  {
+    "id": "missing-input-previous-txid",
+    "description": "An input map lacks the required PSTT_IN_PREVIOUS_TXID record.",
+    "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQEAAQ8EAAAAAAABAwhAnAAAAAAAAAEEGXapFAAAAAAAAAAAAAAAAAAAAAAAAAAAiKwA",
+    "expected": {
+      "valid": false,
+      "stage": "parse",
+      "reason": "PSTT_IN_PREVIOUS_TXID is required in every input map"
+    }
+  },
+  {
+    "id": "missing-output-amount",
+    "description": "An output map lacks the required PSTT_OUT_AMOUNT record.",
+    "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQEAAQ4gAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBDwQAAAAAAAEEGXapFAAAAAAAAAAAAAAAAAAAAAAAAAAAiKwA",
+    "expected": {
+      "valid": false,
+      "stage": "parse",
+      "reason": "PSTT_OUT_AMOUNT is required in every output map"
+    }
+  },
+  {
+    "id": "count-mismatch",
+    "description": "PSTT_GLOBAL_INPUT_COUNT declares 2 inputs but only one input map is present.",
+    "pstt": "cHN0dP8BAgQBAAAAAQQBAgEFAQEAAQ4gAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBDwQAAAAAAAEDCECcAAAAAAAAAQQZdqkUAAAAAAAAAAAAAAAAAAAAAAAAAACIrAA=",
+    "expected": {
+      "valid": false,
+      "stage": "parse",
+      "reason": "the numbers of input/output maps must match the declared counts"
+    }
+  },
+  {
+    "id": "utxo-txid-mismatch",
+    "description": "PSTT_IN_UTXO contains a transaction whose hashMalFix does not equal PSTT_IN_PREVIOUS_TXID.",
+    "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQEAAQ4gAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIBDwQAAAAAAQBVAQAAAAEREREREREREREREREREREREREREREREREREREREREREQAAAAAA/////wFQwwAAAAAAABl2qRQAAAAAAAAAAAAAAAAAAAAAAAAAAIisAAAAAAABAwhAnAAAAAAAAAEEGXapFAAAAAAAAAAAAAAAAAAAAAAAAAAAiKwA",
+    "expected": {
+      "valid": false,
+      "stage": "rule",
+      "reason": "the Signer must not sign when the UTXO txid does not match PSTT_IN_PREVIOUS_TXID"
+    }
+  },
+  {
+    "id": "global-unsigned-tx-record",
+    "description": "The global map contains a record with the reserved type value 0x00 (the BIP-174 global unsigned transaction).",
+    "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQEBAFUBAAAAARERERERERERERERERERERERERERERERERERERERERERAAAAAAD/////AVDDAAAAAAAAGXapFAAAAAAAAAAAAAAAAAAAAAAAAAAAiKwAAAAAAAEOIAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ8EAAAAAAABAwhAnAAAAAAAAAEEGXapFAAAAAAAAAAAAAAAAAAAAAAAAAAAiKwA",
+    "expected": {
+      "valid": false,
+      "stage": "parse",
+      "reason": "global type value 0x00 is reserved and must not be used"
+    }
+  },
+  {
+    "id": "version-too-high",
+    "description": "PSTT_GLOBAL_VERSION is 1, which is higher than the only defined version (0).",
+    "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQEB+wQBAAAAAAEOIAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ8EAAAAAAABAwhAnAAAAAAAAAEEGXapFAAAAAAAAAAAAAAAAAAAAAAAAAAAiKwA",
+    "expected": {
+      "valid": false,
+      "stage": "parse",
+      "reason": "software must reject a PSTT with a version number higher than 0"
+    }
+  },
+  {
+    "id": "contradictory-locktimes",
+    "description": "One input requires only a time-based locktime and another requires only a height-based locktime; no single locktime kind satisfies both.",
+    "pstt": "cHN0dP8BAgQBAAAAAQQBAgEFAQEAAQ4gAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBDwQAAAAAAREEAPFTZQABDiADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwEPBAEAAAABEgT0AQAAAAEDCECcAAAAAAAAAQQZdqkUAAAAAAAAAAAAAAAAAAAAAAAAAACIrAA=",
+    "expected": {
+      "valid": false,
+      "stage": "rule",
+      "reason": "no locktime kind is acceptable to all inputs; the PSTT cannot produce a valid transaction"
+    }
+  },
+  {
+    "id": "single-without-corresponding-output",
+    "description": "Input index 1 carries a SIGHASH_SINGLE partial signature but the transaction has only one output.",
+    "pstt": "cHN0dP8BAgQBAAAAAQQBAgEFAQEAAQ4gAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBDwQAAAAAAAEOIAMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAQ8EAQAAACICAxuExVZ7EmRAmV0+1aq6BWXXHhg0YEgZ/5wX9enV3QePRzBEAiAiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIgIgMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMDAAEDCECcAAAAAAAAAQQZdqkUAAAAAAAAAAAAAAAAAAAAAAAAAACIrAA=",
+    "expected": {
+      "valid": false,
+      "stage": "rule",
+      "reason": "an input whose index has no corresponding output must not be signed with SIGHASH_SINGLE"
+    }
+  },
+  {
+    "id": "missing-input-output-index",
+    "description": "An input map has PSTT_IN_PREVIOUS_TXID but lacks the required PSTT_IN_OUTPUT_INDEX record.",
+    "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQEAAQ4gAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEAAQMIQJwAAAAAAAABBBl2qRQAAAAAAAAAAAAAAAAAAAAAAAAAAIisAA==",
+    "expected": {
+      "valid": false,
+      "stage": "parse",
+      "reason": "PSTT_IN_OUTPUT_INDEX is required in every input map"
+    }
+  },
+  {
+    "id": "missing-output-script",
+    "description": "An output map has PSTT_OUT_AMOUNT but lacks the required PSTT_OUT_SCRIPT record.",
+    "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQEAAQ4gAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBDwQAAAAAAAEDCECcAAAAAAAAAA==",
+    "expected": {
+      "valid": false,
+      "stage": "parse",
+      "reason": "PSTT_OUT_SCRIPT is required in every output map"
+    }
+  },
+  {
+    "id": "time-locktime-too-low",
+    "description": "PSTT_IN_REQUIRED_TIME_LOCKTIME is 499999999, one less than the required minimum of 500000000.",
+    "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQEAAQ4gAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBDwQAAAAAAREE/2TNHQABAwhAnAAAAAAAAAEEGXapFAAAAAAAAAAAAAAAAAAAAAAAAAAAiKwA",
+    "expected": {
+      "valid": false,
+      "stage": "parse",
+      "reason": "PSTT_IN_REQUIRED_TIME_LOCKTIME must be greater than or equal to 500000000"
+    }
+  },
+  {
+    "id": "height-locktime-too-high",
+    "description": "PSTT_IN_REQUIRED_HEIGHT_LOCKTIME is 500000000, which is the boundary reserved for time-based locktimes.",
+    "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQEAAQ4gAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBDwQAAAAAARIEAGXNHQABAwhAnAAAAAAAAAEEGXapFAAAAAAAAAAAAAAAAAAAAAAAAAAAiKwA",
+    "expected": {
+      "valid": false,
+      "stage": "parse",
+      "reason": "PSTT_IN_REQUIRED_HEIGHT_LOCKTIME must be less than 500000000"
+    }
+  },
+  {
+    "id": "height-locktime-zero",
+    "description": "PSTT_IN_REQUIRED_HEIGHT_LOCKTIME is 0, which is excluded by the \"greater than 0\" requirement.",
+    "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQEAAQ4gAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBDwQAAAAAARIEAAAAAAABAwhAnAAAAAAAAAEEGXapFAAAAAAAAAAAAAAAAAAAAAAAAAAAiKwA",
+    "expected": {
+      "valid": false,
+      "stage": "parse",
+      "reason": "PSTT_IN_REQUIRED_HEIGHT_LOCKTIME must be greater than 0"
+    }
+  },
+  {
+    "id": "missing-input-count",
+    "description": "The global map lacks the required PSTT_GLOBAL_INPUT_COUNT record.",
+    "pstt": "cHN0dP8BAgQBAAAAAQUBAQABDiABAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEPBAAAAAAAAQMIQJwAAAAAAAABBBl2qRQAAAAAAAAAAAAAAAAAAAAAAAAAAIisAA==",
+    "expected": {
+      "valid": false,
+      "stage": "parse",
+      "reason": "PSTT_GLOBAL_INPUT_COUNT is required"
+    }
+  },
+  {
+    "id": "missing-output-count",
+    "description": "The global map lacks the required PSTT_GLOBAL_OUTPUT_COUNT record.",
+    "pstt": "cHN0dP8BAgQBAAAAAQQBAQABDiABAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEPBAAAAAAAAQMIQJwAAAAAAAABBBl2qRQAAAAAAAAAAAAAAAAAAAAAAAAAAIisAA==",
+    "expected": {
+      "valid": false,
+      "stage": "parse",
+      "reason": "PSTT_GLOBAL_OUTPUT_COUNT is required"
+    }
+  },
+  {
+    "id": "nonempty-keydata-on-none-field",
+    "description": "PSTT_GLOBAL_TX_FEATURES carries one byte of keydata, but its definition lists no key data.",
+    "pstt": "cHN0dP8CAqoEAQAAAAEEAQEBBQEBAAEOIAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ8EAAAAAAABAwhAnAAAAAAAAAEEGXapFAAAAAAAAAAAAAAAAAAAAAAAAAAAiKwA",
+    "expected": {
+      "valid": false,
+      "stage": "parse",
+      "reason": "<keydata> must be empty when a field's definition lists no key data"
+    }
+  },
+  {
+    "id": "malformed-pubkey-length",
+    "description": "The keydata of a PSTT_IN_PARTIAL_SIG record is 32 bytes, neither the 33-byte compressed nor the 65-byte uncompressed length a public key must have.",
+    "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQEAAQ4gAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBDwQAAAAAIQIDG4TFVnsSZECZXT7VqroFZdceGDRgSBn/nBf16dXdB0cwRAIgIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiICIDMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzAQABAwhAnAAAAAAAAAEEGXapFAAAAAAAAAAAAAAAAAAAAAAAAAAAiKwA",
+    "expected": {
+      "valid": false,
+      "stage": "parse",
+      "reason": "PSTT_IN_PARTIAL_SIG keydata must be a 33- or 65-byte public key"
+    }
+  },
+  {
+    "id": "redeem-script-hash-mismatch",
+    "description": "PSTT_IN_REDEEM_SCRIPT is OP_2, but the P2SH output's scriptPubKey commits to HASH160(OP_1); the redeem script does not hash to the committed value.",
+    "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQEAAQ4gc79xovhD/E/ApAVmkfQWytam66jlRLjz4bjJvoNXmR8BDwQAAAAAAQBTAQAAAAFERERERERERERERERERERERERERERERERERERERERERAAAAAAA/////wFQwwAAAAAAABepFNoXRem1Sb0L+hpWmXHHfrowzVpLhwAAAAABBAFSAAEDCECcAAAAAAAAAQQZdqkUAAAAAAAAAAAAAAAAAAAAAAAAAACIrAA=",
+    "expected": {
+      "valid": false,
+      "stage": "rule",
+      "reason": "the Signer must not sign when the redeem script does not hash to the value committed in the output's scriptPubKey"
+    }
+  },
+  {
+    "id": "truncated-value",
+    "description": "The final output map's PSTT_OUT_SCRIPT record declares a valuelen one byte longer than the data actually present in the buffer.",
+    "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQEAAQ4gAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBDwQAAAAAAAEDCECcAAAAAAAAAQQadqkUAAAAAAAAAAAAAAAAAAAAAAAAAACIrA==",
+    "expected": {
+      "valid": false,
+      "stage": "parse",
+      "reason": "<valuelen> must not exceed the number of bytes remaining in the map"
+    }
+  },
+  {
+    "id": "non-minimal-keytype",
+    "description": "PSTT_GLOBAL_TX_FEATURES' <keytype> is encoded as 0xfd 0x02 0x00 (3 bytes) instead of the minimal single byte 0x02.",
+    "pstt": "cHN0dP8D/QIABAEAAAABBAEBAQUBAQABDiABAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEPBAAAAAAAAQMIQJwAAAAAAAABBBl2qRQAAAAAAAAAAAAAAAAAAAAAAAAAAIisAA==",
+    "expected": {
+      "valid": false,
+      "stage": "parse",
+      "reason": "<keytype> must be minimally encoded"
+    }
+  }
+]

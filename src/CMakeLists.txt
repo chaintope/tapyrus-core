@@ -145,6 +145,7 @@ add_library(tapyrus_common STATIC EXCLUDE_FROM_ALL
   netbase.cpp
   policy/feerate.cpp
   protocol.cpp
+  pstt.cpp
   scheduler.cpp
   script/descriptor.cpp
   script/ismine.cpp
