@@ -8,8 +8,10 @@
 #include <chainparams.h>
 #include <coloridentifier.h>
 #include <consensus/validation.h>
+#include <core_io.h>
 #include <key.h>
 #include <policy/policy.h>
+#include <rpc/server.h>
 #include <script/script.h>
 #include <script/standard.h>
 #include <streams.h>
@@ -845,12 +847,21 @@ BOOST_AUTO_TEST_CASE(pstt_merge_picks_first_on_sighash_type_conflict)
 }
 
 // -----------------------------------------------------------------------
-// End-to-end Combine -> Finalize -> Extract, mirroring the finalizepstt RPC's
-// completeness detection (SignPSTTInput against an empty/dummy provider)
-// without depending on the RPC layer itself.
+// Shared fixture: funds a 2-of-2 P2SH multisig UTXO and returns two
+// independently-signed (one key each), not-yet-merged spends of it. Reused
+// by both the library-level Combine/Finalize/Extract test below and the
+// RPC-dispatch-level tests further down.
 // -----------------------------------------------------------------------
 
-BOOST_FIXTURE_TEST_CASE(pstt_combine_finalize_extract_p2sh_multisig, TestChainSetup)
+struct MultisigSpendPair
+{
+    CScript redeemScript;
+    CTransactionRef multisigUtxo;
+    PartiallySignedTapyrusTransaction signedByA; // one of two required signatures
+    PartiallySignedTapyrusTransaction signedByB; // the other
+};
+
+static MultisigSpendPair MakeUnmergedMultisigSpendPair(TestChainSetup& setup)
 {
     CKey keyA, keyB;
     keyA.MakeNewKey(true);
@@ -858,7 +869,7 @@ BOOST_FIXTURE_TEST_CASE(pstt_combine_finalize_extract_p2sh_multisig, TestChainSe
     CScript redeemScript = GetScriptForMultisig(2, {keyA.GetPubKey(), keyB.GetPubKey()});
     CScript scriptPubKey = GetScriptForDestination(CScriptID(redeemScript));
 
-    const CTransactionRef& coinbaseTx = m_coinbase_txns[0];
+    const CTransactionRef& coinbaseTx = setup.m_coinbase_txns[0];
     PartiallySignedTapyrusTransaction fundingPstt;
     fundingPstt.tx_features = CTransaction::CURRENT_FEATURES;
     PSTTInput fundingInput;
@@ -874,10 +885,10 @@ BOOST_FIXTURE_TEST_CASE(pstt_combine_finalize_extract_p2sh_multisig, TestChainSe
     fundingPstt.outputs.push_back(fundingOutput);
 
     FlatSigningProvider fundingProvider;
-    fundingProvider.keys[coinbaseKey.GetPubKey().GetID()] = coinbaseKey;
+    fundingProvider.keys[setup.coinbaseKey.GetPubKey().GetID()] = setup.coinbaseKey;
     SignInputForTest(fundingPstt, 0, fundingProvider);
     CTransactionRef multisigUtxo = MakeTransactionRef(ExtractPSTT(fundingPstt));
-    CheckMempoolResult(*this, multisigUtxo, true);
+    CheckMempoolResult(setup, multisigUtxo, true);
 
     // Two independent parties each build the same spend and sign it with
     // their own key only.
@@ -901,39 +912,167 @@ BOOST_FIXTURE_TEST_CASE(pstt_combine_finalize_extract_p2sh_multisig, TestChainSe
         return pstt;
     };
 
-    PartiallySignedTapyrusTransaction pstt1 = makeSpend();
+    PartiallySignedTapyrusTransaction signedByA = makeSpend();
     FlatSigningProvider providerA;
     providerA.keys[keyA.GetPubKey().GetID()] = keyA;
     SignatureData sigdataA;
-    BOOST_REQUIRE(SignPSTTInput(providerA, pstt1, 0, sigdataA, SIGHASH_ALL, SignatureScheme::ECDSA) == PSTTSignResult::OK);
-    pstt1.inputs[0].FromSignatureData(sigdataA);
-    BOOST_CHECK(!sigdataA.complete); // one of two required signatures
+    BOOST_REQUIRE(SignPSTTInput(providerA, signedByA, 0, sigdataA, SIGHASH_ALL, SignatureScheme::ECDSA) == PSTTSignResult::OK);
+    signedByA.inputs[0].FromSignatureData(sigdataA);
+    BOOST_REQUIRE(!sigdataA.complete);
 
-    PartiallySignedTapyrusTransaction pstt2 = makeSpend();
+    PartiallySignedTapyrusTransaction signedByB = makeSpend();
     FlatSigningProvider providerB;
     providerB.keys[keyB.GetPubKey().GetID()] = keyB;
     SignatureData sigdataB;
-    BOOST_REQUIRE(SignPSTTInput(providerB, pstt2, 0, sigdataB, SIGHASH_ALL, SignatureScheme::ECDSA) == PSTTSignResult::OK);
-    pstt2.inputs[0].FromSignatureData(sigdataB);
-    BOOST_CHECK(!sigdataB.complete);
+    BOOST_REQUIRE(SignPSTTInput(providerB, signedByB, 0, sigdataB, SIGHASH_ALL, SignatureScheme::ECDSA) == PSTTSignResult::OK);
+    signedByB.inputs[0].FromSignatureData(sigdataB);
+    BOOST_REQUIRE(!sigdataB.complete);
+
+    return {redeemScript, multisigUtxo, signedByA, signedByB};
+}
+
+// -----------------------------------------------------------------------
+// End-to-end Combine -> Finalize -> Extract, mirroring the finalizepstt RPC's
+// completeness detection (SignPSTTInput against an empty/dummy provider)
+// without depending on the RPC layer itself.
+// -----------------------------------------------------------------------
+
+BOOST_FIXTURE_TEST_CASE(pstt_combine_finalize_extract_p2sh_multisig, TestChainSetup)
+{
+    MultisigSpendPair fx = MakeUnmergedMultisigSpendPair(*this);
+    PartiallySignedTapyrusTransaction merged = fx.signedByA;
 
     // Combiner: merge the two independently-signed copies.
-    BOOST_REQUIRE(pstt1.HasSameIdentifierAs(pstt2));
-    pstt1.Merge(pstt2);
-    BOOST_CHECK(pstt1.IsSane());
-    BOOST_CHECK_EQUAL(pstt1.inputs[0].partial_sigs.size(), 2U);
+    BOOST_REQUIRE(merged.HasSameIdentifierAs(fx.signedByB));
+    merged.Merge(fx.signedByB);
+    BOOST_CHECK(merged.IsSane());
+    BOOST_CHECK_EQUAL(merged.inputs[0].partial_sigs.size(), 2U);
 
     // Finalizer: mirrors finalizepstt's DUMMY_SIGNING_PROVIDER completeness
     // check -- an empty provider can't add new signatures, only combine the
     // two partial ones already present into a complete scriptSig.
     SignatureData finalSigdata;
-    BOOST_REQUIRE(SignPSTTInput(DUMMY_SIGNING_PROVIDER, pstt1, 0, finalSigdata, SIGHASH_ALL, SignatureScheme::ECDSA) == PSTTSignResult::OK);
+    BOOST_REQUIRE(SignPSTTInput(DUMMY_SIGNING_PROVIDER, merged, 0, finalSigdata, SIGHASH_ALL, SignatureScheme::ECDSA) == PSTTSignResult::OK);
     BOOST_CHECK(finalSigdata.complete);
-    pstt1.inputs[0].FromSignatureData(finalSigdata);
-    BOOST_CHECK(!pstt1.inputs[0].final_script_sig.empty());
+    merged.inputs[0].FromSignatureData(finalSigdata);
+    BOOST_CHECK(!merged.inputs[0].final_script_sig.empty());
 
     // Extractor: produces a sendrawtransaction-acceptable transaction.
-    CheckMempoolResult(*this, MakeTransactionRef(ExtractPSTT(pstt1)), true);
+    CheckMempoolResult(*this, MakeTransactionRef(ExtractPSTT(merged)), true);
+}
+
+// -----------------------------------------------------------------------
+// RPC-dispatch-level tests. The tests above exercise SignPSTTInput/Merge/
+// ExtractPSTT directly; these instead go through the real registered
+// combinepstt/finalizepstt/extractpstt actors (tableRPC), so argument
+// parsing, base64/JSON encoding, and error wrapping are covered too, not
+// just the pstt.cpp library calls underneath them.
+// -----------------------------------------------------------------------
+
+static UniValue CallPsttRPC(const std::string& method, const UniValue& params)
+{
+    BOOST_REQUIRE(tableRPC[method]);
+    JSONRPCRequest request;
+    request.strMethod = method;
+    request.params = params;
+    request.fHelp = false;
+    rpcfn_type fn = tableRPC[method]->actor;
+    return (*fn)(request);
+}
+
+static CMutableTransaction DecodeHexTxForTest(const std::string& hex)
+{
+    CDataStream ss(ParseHex(hex), SER_NETWORK, PROTOCOL_VERSION);
+    CMutableTransaction mtx;
+    ss >> mtx;
+    return mtx;
+}
+
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_combine_finalize_extract_roundtrip, TestChainSetup)
+{
+    MultisigSpendPair fx = MakeUnmergedMultisigSpendPair(*this);
+
+    UniValue txs(UniValue::VARR);
+    txs.push_back(EncodePSTT(fx.signedByA));
+    txs.push_back(EncodePSTT(fx.signedByB));
+    UniValue combineParams(UniValue::VARR);
+    combineParams.push_back(txs);
+    UniValue combined = CallPsttRPC("combinepstt", combineParams);
+    BOOST_REQUIRE(combined.isStr());
+
+    PartiallySignedTapyrusTransaction mergedPstt;
+    std::string decodeError;
+    BOOST_REQUIRE(DecodePSTT(mergedPstt, combined.get_str(), decodeError));
+    BOOST_CHECK_EQUAL(mergedPstt.inputs[0].partial_sigs.size(), 2U);
+
+    UniValue finalizeParams(UniValue::VARR);
+    finalizeParams.push_back(combined.get_str());
+    finalizeParams.push_back(UniValue(true));
+    UniValue finalizeResult = CallPsttRPC("finalizepstt", finalizeParams);
+    BOOST_REQUIRE(finalizeResult.isObject());
+    BOOST_CHECK(finalizeResult.find_value("complete").get_bool());
+
+    CTransactionRef finalTx = MakeTransactionRef(DecodeHexTxForTest(finalizeResult.find_value("hex").get_str()));
+    CheckMempoolResult(*this, finalTx, true);
+}
+
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_finalizepstt_no_extract_then_extractpstt, TestChainSetup)
+{
+    MultisigSpendPair fx = MakeUnmergedMultisigSpendPair(*this);
+
+    UniValue txs(UniValue::VARR);
+    txs.push_back(EncodePSTT(fx.signedByA));
+    txs.push_back(EncodePSTT(fx.signedByB));
+    UniValue combineParams(UniValue::VARR);
+    combineParams.push_back(txs);
+    UniValue combined = CallPsttRPC("combinepstt", combineParams);
+
+    UniValue finalizeParams(UniValue::VARR);
+    finalizeParams.push_back(combined.get_str());
+    finalizeParams.push_back(UniValue(false)); // extract=false -> expect a "pstt" field back, not "hex"
+    UniValue finalizeResult = CallPsttRPC("finalizepstt", finalizeParams);
+    BOOST_CHECK(finalizeResult.find_value("complete").get_bool());
+    BOOST_CHECK(finalizeResult.find_value("hex").isNull());
+    std::string finalizedPsttB64 = finalizeResult.find_value("pstt").get_str();
+
+    UniValue extractParams(UniValue::VARR);
+    extractParams.push_back(finalizedPsttB64);
+    UniValue extracted = CallPsttRPC("extractpstt", extractParams);
+    BOOST_REQUIRE(extracted.isStr());
+
+    CTransactionRef finalTx = MakeTransactionRef(DecodeHexTxForTest(extracted.get_str()));
+    CheckMempoolResult(*this, finalTx, true);
+}
+
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_combinepstt_rejects_different_identifiers, TestingSetup)
+{
+    UniValue txs(UniValue::VARR);
+    txs.push_back(EncodePSTT(MakeBasicPstt()));
+    txs.push_back(EncodePSTT(MakeBasicPstt())); // fresh random utxo/scripts -> different identifier
+    UniValue combineParams(UniValue::VARR);
+    combineParams.push_back(txs);
+
+    BOOST_CHECK_THROW(CallPsttRPC("combinepstt", combineParams), UniValue);
+}
+
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_finalizepstt_refuses_while_modifiable, TestingSetup)
+{
+    PartiallySignedTapyrusTransaction pstt = MakeBasicPstt();
+    pstt.tx_modifiable = PSTT_TXMOD_INPUTS_MODIFIABLE;
+
+    UniValue finalizeParams(UniValue::VARR);
+    finalizeParams.push_back(EncodePSTT(pstt));
+
+    BOOST_CHECK_THROW(CallPsttRPC("finalizepstt", finalizeParams), UniValue);
+}
+
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_extractpstt_throws_when_incomplete, TestingSetup)
+{
+    // No final_script_sig on the one input -- not finalized yet.
+    UniValue extractParams(UniValue::VARR);
+    extractParams.push_back(EncodePSTT(MakeBasicPstt()));
+
+    BOOST_CHECK_THROW(CallPsttRPC("extractpstt", extractParams), UniValue);
 }
 
 // -----------------------------------------------------------------------
