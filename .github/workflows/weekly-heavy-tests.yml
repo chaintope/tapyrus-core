@@ -69,7 +69,7 @@ jobs:
       DEPENDS_DIR: ${{ github.workspace }}/depends
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ github.event.inputs.test_branch || github.ref || 'master' }}
           submodules: recursive
@@ -77,7 +77,7 @@ jobs:
       # Share the ccache populated by the daily-test workflow for this exact config.
       - name: Restore Ccache cache
         id: ccache-cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ${{ env.CCACHE_DIR }}
           key: daily-linux-x86_64-RelWithDebInfo-true-true-true-ccache-${{ github.run_id }}
@@ -85,7 +85,7 @@ jobs:
 
       - name: Restore Depends cache
         id: depends-cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ${{ env.DEPENDS_DIR }}
           key: depends-v6-qt6-linux-x86_64-${{ hashFiles('depends/packages/*', 'depends/hosts/*.mk', 'depends/builders/*.mk', 'depends/funcs.mk', 'depends/toolchain.cmake.in', 'depends/patches/**') }}
@@ -285,7 +285,7 @@ jobs:
 
       - name: Upload combined logs (on failure)
         if: failure() || cancelled()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: heavy-combined-logs-${{ matrix.config.name }}-${{ github.run_id }}
           path: ${{ github.workspace }}/combined_logs/
@@ -294,7 +294,7 @@ jobs:
 
       - name: Save Ccache cache
         if: github.ref == 'refs/heads/master'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         continue-on-error: true
         with:
           path: ${{ env.CCACHE_DIR }}
@@ -316,7 +316,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: heavy-test-results-${{ matrix.config.name }}-${{ github.run_id }}
           path: ${{ github.workspace }}/tapyrus_test
@@ -372,7 +372,7 @@ jobs:
 
       - name: Upload core dumps (on failure)
         if: failure() || cancelled()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: heavy-core-dumps-${{ matrix.config.name }}-${{ github.run_id }}
           path: ${{ github.workspace }}/core_dumps/
@@ -386,7 +386,7 @@ jobs:
     # to a 2 hour max budget - a generous 4x margin over the known baseline.
     timeout-minutes: 150
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ github.event.inputs.test_branch || github.ref || 'master' }}
           submodules: recursive
