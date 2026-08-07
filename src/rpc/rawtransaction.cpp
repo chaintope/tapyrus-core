@@ -1900,6 +1900,209 @@ UniValue decodepstt(const JSONRPCRequest& request)
     return result;
 }
 
+UniValue combinepstt(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 1)
+        throw std::runtime_error(
+            "combinepstt [\"pstt\",...]\n"
+            "\nCombine multiple partially signed Tapyrus transactions that all refer to\n"
+            "the same underlying transaction into one. Implements the Combiner role.\n"
+
+            "\nArguments:\n"
+            "1. \"txs\"                   (string) A json array of base64 strings of partially signed transactions\n"
+            "    [\n"
+            "      \"pstt\"             (string) A base64 string of a PSTT\n"
+            "      ,...\n"
+            "    ]\n"
+
+            "\nResult:\n"
+            "  \"pstt\"          (string) The base64-encoded combined partially signed transaction\n"
+
+            "\nExamples:\n"
+            + HelpExampleCli("combinepstt", "[\"mybase64_1\", \"mybase64_2\", \"mybase64_3\"]")
+        );
+
+    RPCTypeCheck(request.params, {UniValue::VARR}, true);
+
+    std::vector<PartiallySignedTapyrusTransaction> psttxs;
+    UniValue txs = request.params[0].get_array();
+    for (unsigned int i = 0; i < txs.size(); ++i) {
+        PartiallySignedTapyrusTransaction pstt;
+        std::string error;
+        if (!DecodePSTT(pstt, txs[i].get_str(), error)) {
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, strprintf("TX decode failed %s", error));
+        }
+        psttxs.push_back(pstt);
+    }
+
+    if (psttxs.empty()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Parameter 'txs' cannot be empty");
+    }
+
+    PartiallySignedTapyrusTransaction merged_pstt(psttxs[0]);
+    for (auto it = std::next(psttxs.begin()); it != psttxs.end(); ++it) {
+        if (!merged_pstt.HasSameIdentifierAs(*it)) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "PSTTs do not refer to the same transaction.");
+        }
+        try {
+            merged_pstt.Merge(*it);
+        } catch (const std::invalid_argument& e) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Cannot combine PSTTs: %s", e.what()));
+        }
+    }
+    if (!merged_pstt.IsSane()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Merged PSTT is inconsistent");
+    }
+
+    return EncodePSTT(merged_pstt);
+}
+
+// The dummy provider's per-input sighash/scheme is derived from what the
+// input itself already carries, not hardcoded: this makes SignPSTTInput's
+// sighash-conflict and scheme-conflict pre-checks unreachable here by
+// construction (they can only ever fire against a mismatch with what we
+// pass in), so finalization only ever fails for a genuine structural reason
+// (missing/mismatched UTXO, bad redeem script, contradictory locktime, an
+// out-of-range SIGHASH_SINGLE), never a spurious conflict against our own
+// derivation.
+static int FinalizeSighashFor(const PSTTInput& input)
+{
+    return input.sighash_type > 0 ? input.sighash_type : SIGHASH_ALL;
+}
+
+static SignatureScheme FinalizeSigSchemeFor(const PSTTInput& input)
+{
+    if (input.partial_sigs.empty()) return SignatureScheme::ECDSA;
+    const std::vector<unsigned char>& sig = input.partial_sigs.begin()->second.second;
+    return sig.size() == CPubKey::COMPACT_SIGNATURE_SIZE ? SignatureScheme::SCHNORR : SignatureScheme::ECDSA;
+}
+
+UniValue finalizepstt(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
+        throw std::runtime_error(
+            "finalizepstt \"pstt\" ( extract )\n"
+            "\nFinalize the inputs of a PSTT. If every input is fully signed, produces a\n"
+            "network-serialized transaction that can be broadcast with sendrawtransaction.\n"
+            "Otherwise returns a PSTT with PSTT_IN_FINAL_SCRIPTSIG filled in for the inputs\n"
+            "that are complete. Implements the Finalizer and (optionally) Extractor roles.\n"
+
+            "\nArguments:\n"
+            "1. \"pstt\"                 (string, required) A base64 string of a PSTT\n"
+            "2. \"extract\"              (boolean, optional, default=true) If true and the transaction is complete,\n"
+            "                             extract and return the complete transaction in normal network serialization\n"
+            "                             instead of the PSTT.\n"
+
+            "\nResult:\n"
+            "{\n"
+            "  \"pstt\" : \"value\",          (string) The base64-encoded partially signed transaction if not extracted\n"
+            "  \"hex\" : \"value\",           (string) The hex-encoded network transaction if extracted\n"
+            "  \"complete\" : true|false,   (boolean) If the transaction has a complete set of signatures\n"
+            "}\n"
+
+            "\nExamples:\n"
+            + HelpExampleCli("finalizepstt", "\"pstt\"")
+        );
+
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VBOOL}, true);
+
+    PartiallySignedTapyrusTransaction pstt;
+    std::string error;
+    if (!DecodePSTT(pstt, request.params[0].get_str(), error)) {
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, strprintf("TX decode failed %s", error));
+    }
+
+    if (pstt.tx_modifiable && (*pstt.tx_modifiable & (PSTT_TXMOD_INPUTS_MODIFIABLE | PSTT_TXMOD_OUTPUTS_MODIFIABLE)) != 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "PSTT construction is not finished (inputs and/or outputs are still modifiable)");
+    }
+
+    bool complete = true;
+    for (unsigned int i = 0; i < pstt.inputs.size(); ++i) {
+        PSTTInput& input = pstt.inputs.at(i);
+        if (!input.final_script_sig.empty()) continue; // already finalized
+
+        SignatureData sigdata;
+        PSTTSignResult result = SignPSTTInput(DUMMY_SIGNING_PROVIDER, pstt, i, sigdata,
+                                               FinalizeSighashFor(input), FinalizeSigSchemeFor(input));
+        if (result == PSTTSignResult::MISSING_UTXO) {
+            complete = false;
+            continue;
+        }
+        if (result != PSTTSignResult::OK) {
+            throw JSONRPCError(RPC_TRANSACTION_ERROR, strprintf("Finalizing input %d failed: %s", i, PSTTSignResultToString(result)));
+        }
+
+        input.FromSignatureData(sigdata);
+        if (!sigdata.complete) {
+            complete = false;
+            continue;
+        }
+
+        // Finalizer field policy: keep required fields, PSTT_IN_UTXO and
+        // unknowns; strip everything only useful during signing.
+        input.partial_sigs.clear();
+        input.sighash_type = 0;
+        input.redeem_script.clear();
+        input.hd_keypaths.clear();
+        input.ripemd160_preimages.clear();
+        input.sha256_preimages.clear();
+        input.hash160_preimages.clear();
+        input.hash256_preimages.clear();
+    }
+
+    UniValue result(UniValue::VOBJ);
+    bool extract = request.params[1].isNull() || request.params[1].get_bool();
+    if (complete && extract) {
+        CMutableTransaction mtx = ExtractPSTT(pstt);
+        CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
+        ssTx << mtx;
+        result.pushKV("hex", HexStr(ssTx.begin(), ssTx.end()));
+    } else {
+        result.pushKV("pstt", EncodePSTT(pstt));
+    }
+    result.pushKV("complete", complete);
+    return result;
+}
+
+UniValue extractpstt(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 1)
+        throw std::runtime_error(
+            "extractpstt \"pstt\"\n"
+            "\nExtract the fully signed transaction from a PSTT and return it in network\n"
+            "serialization, ready to be broadcast with sendrawtransaction. Implements the\n"
+            "Transaction Extractor role. Throws if any input is missing PSTT_IN_FINAL_SCRIPTSIG.\n"
+
+            "\nArguments:\n"
+            "1. \"pstt\"                 (string, required) A base64 string of a PSTT\n"
+
+            "\nResult:\n"
+            "  \"hex\"              (string) The hex-encoded network transaction\n"
+
+            "\nExamples:\n"
+            + HelpExampleCli("extractpstt", "\"pstt\"")
+        );
+
+    RPCTypeCheck(request.params, {UniValue::VSTR});
+
+    PartiallySignedTapyrusTransaction pstt;
+    std::string error;
+    if (!DecodePSTT(pstt, request.params[0].get_str(), error)) {
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, strprintf("TX decode failed %s", error));
+    }
+
+    CMutableTransaction mtx;
+    try {
+        mtx = ExtractPSTT(pstt);
+    } catch (const std::runtime_error& e) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, e.what());
+    }
+
+    CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
+    ssTx << mtx;
+    return HexStr(ssTx.begin(), ssTx.end());
+}
+
 UniValue signpsttwithkey(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() < 2 || request.params.size() > 4)
@@ -2012,6 +2215,9 @@ static const CRPCCommand commands[] =
     { "rawtransactions",    "converttopsbt",                &converttopsbt,             {"hexstring","permitsigdata"} },
 
     { "rawtransactions",    "decodepstt",                   &decodepstt,                {"pstt"} },
+    { "rawtransactions",    "combinepstt",                  &combinepstt,               {"txs"} },
+    { "rawtransactions",    "finalizepstt",                 &finalizepstt,              {"pstt", "extract"} },
+    { "rawtransactions",    "extractpstt",                  &extractpstt,               {"pstt"} },
     { "rawtransactions",    "signpsttwithkey",               &signpsttwithkey,           {"pstt","privkeys","sighashtype","sigscheme"} },
 
     { "blockchain",         "gettxoutproof",                &gettxoutproof,             {"txids", "blockhash"} },

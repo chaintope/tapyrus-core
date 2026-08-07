@@ -925,6 +925,20 @@ uint256 PartiallySignedTapyrusTransaction::GetIdentifier() const
     return MaterializeTransaction(*this, locktime, /*force_zero_sequence=*/true, /*use_final_scriptsig=*/false).GetHashMalFix();
 }
 
+CMutableTransaction ExtractPSTT(const PartiallySignedTapyrusTransaction& pstt)
+{
+    for (unsigned int i = 0; i < pstt.inputs.size(); ++i) {
+        if (pstt.inputs[i].final_script_sig.empty()) {
+            throw std::runtime_error("Input " + std::to_string(i) + " is missing PSTT_IN_FINAL_SCRIPTSIG; cannot extract");
+        }
+    }
+    uint32_t locktime;
+    if (!ComputeLocktime(pstt, locktime)) {
+        throw std::runtime_error("PSTT has no valid locktime; cannot extract");
+    }
+    return MaterializeTransaction(pstt, locktime, /*force_zero_sequence=*/false, /*use_final_scriptsig=*/true);
+}
+
 // =======================================================================
 // Signer
 // =======================================================================

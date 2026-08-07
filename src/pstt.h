@@ -219,6 +219,12 @@ struct PartiallySignedTapyrusTransaction
  *  locktime kind is acceptable to every input that constrains one. */
 bool ComputeLocktime(const PartiallySignedTapyrusTransaction& pstt, uint32_t& locktime_out);
 
+/** Transaction Extractor. Requires every input to carry PSTT_IN_FINAL_SCRIPTSIG
+ *  (throws std::runtime_error naming the first input missing it otherwise),
+ *  computes the final locktime via ComputeLocktime, and materializes the
+ *  fully signed transaction ready for broadcast. */
+CMutableTransaction ExtractPSTT(const PartiallySignedTapyrusTransaction& pstt);
+
 // ---------------------------------------------------------------------
 // Signer result taxonomy
 // ---------------------------------------------------------------------

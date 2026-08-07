@@ -11,6 +11,7 @@
 #include <key.h>
 #include <policy/policy.h>
 #include <script/script.h>
+#include <script/standard.h>
 #include <streams.h>
 #include <test/test_tapyrus.h>
 #include <txmempool.h>
@@ -467,33 +468,10 @@ BOOST_AUTO_TEST_CASE(pstt_tx_features_roundtrip_any_value)
 // the PSTT pipeline (Creator/Updater/Signer/Extractor) instead of being
 // hand-built with a manually constructed scriptSig.
 //
-// ExtractForTest is a test-local reconstruction, not a call into pstt.cpp:
-// pstt.h has no public Extractor API yet (that's Finalizer/Extractor role
-// work), so this mirrors pstt.cpp's private MaterializeTransaction
-// (use_final_scriptsig=true) closely enough for these tests without
-// depending on unexported internals.
+// Phase 3 added a real, public Extractor (pstt.h's ExtractPSTT) -- these
+// tests now call it directly instead of the test-local reconstruction that
+// used to stand in for it.
 // -----------------------------------------------------------------------
-
-static CMutableTransaction ExtractForTest(const PartiallySignedTapyrusTransaction& pstt)
-{
-    uint32_t locktime;
-    BOOST_REQUIRE(ComputeLocktime(pstt, locktime));
-    CMutableTransaction mtx;
-    mtx.nFeatures = pstt.tx_features.value_or(CTransaction::CURRENT_FEATURES);
-    mtx.nLockTime = locktime;
-    for (const PSTTInput& input : pstt.inputs) {
-        BOOST_REQUIRE(!input.final_script_sig.empty());
-        CTxIn txin;
-        txin.prevout = COutPoint(input.previous_txid, input.prev_out_index);
-        txin.nSequence = input.sequence.value_or(0xFFFFFFFFu);
-        txin.scriptSig = input.final_script_sig;
-        mtx.vin.push_back(std::move(txin));
-    }
-    for (const PSTTOutput& output : pstt.outputs) {
-        mtx.vout.emplace_back(output.amount.value_or(0), output.script);
-    }
-    return mtx;
-}
 
 // Signs input `index` in place: runs SignPSTTInput, then applies
 // FromSignatureData to store the result, mirroring what a real Signer RPC
@@ -565,7 +543,7 @@ BOOST_FIXTURE_TEST_CASE(pstt_extract_valid_p2pk_coinbase_spend, TestChainSetup)
 
     SignInputForTest(pstt, 0, provider);
 
-    CheckMempoolResult(*this, MakeTransactionRef(ExtractForTest(pstt)), true);
+    CheckMempoolResult(*this, MakeTransactionRef(ExtractPSTT(pstt)), true);
 }
 
 BOOST_FIXTURE_TEST_CASE(pstt_extract_valid_schnorr_spend, TestChainSetup)
@@ -596,7 +574,7 @@ BOOST_FIXTURE_TEST_CASE(pstt_extract_valid_schnorr_spend, TestChainSetup)
 
     SignInputForTest(pstt, 0, provider, SignatureScheme::SCHNORR);
 
-    CheckMempoolResult(*this, MakeTransactionRef(ExtractForTest(pstt)), true);
+    CheckMempoolResult(*this, MakeTransactionRef(ExtractPSTT(pstt)), true);
 }
 
 BOOST_FIXTURE_TEST_CASE(pstt_extract_invalid_wrong_key, TestChainSetup)
@@ -661,7 +639,7 @@ static std::pair<CTransactionRef, CKey> MakeConfirmedP2PKHCoin(TestChainSetup& s
     provider.keys[setup.coinbaseKey.GetPubKey().GetID()] = setup.coinbaseKey;
     SignInputForTest(pstt, 0, provider);
 
-    CTransactionRef tx = MakeTransactionRef(ExtractForTest(pstt));
+    CTransactionRef tx = MakeTransactionRef(ExtractPSTT(pstt));
     CheckMempoolResult(setup, tx, true);
     return {tx, destKey};
 }
@@ -700,7 +678,7 @@ BOOST_FIXTURE_TEST_CASE(pstt_extract_valid_colored_issue_and_transfer, TestChain
     issueProvider.pubkeys[issuerKey.GetPubKey().GetID()] = issuerKey.GetPubKey();
     SignInputForTest(issuePstt, 0, issueProvider);
 
-    CTransactionRef issueTx = MakeTransactionRef(ExtractForTest(issuePstt));
+    CTransactionRef issueTx = MakeTransactionRef(ExtractPSTT(issuePstt));
     CheckMempoolResult(*this, issueTx, true);
 
     // Transfer the colored coin, paying the TPC fee from a second coinbase spend
@@ -750,7 +728,7 @@ BOOST_FIXTURE_TEST_CASE(pstt_extract_valid_colored_issue_and_transfer, TestChain
     feeProvider.pubkeys[feeKey.GetPubKey().GetID()] = feeKey.GetPubKey();
     SignInputForTest(transferPstt, 1, feeProvider);
 
-    CheckMempoolResult(*this, MakeTransactionRef(ExtractForTest(transferPstt)), true);
+    CheckMempoolResult(*this, MakeTransactionRef(ExtractPSTT(transferPstt)), true);
 }
 
 BOOST_FIXTURE_TEST_CASE(pstt_extract_invalid_token_without_fee, TestChainSetup)
@@ -788,7 +766,7 @@ BOOST_FIXTURE_TEST_CASE(pstt_extract_invalid_token_without_fee, TestChainSetup)
     issueProvider.pubkeys[issuerKey.GetPubKey().GetID()] = issuerKey.GetPubKey();
     SignInputForTest(issuePstt, 0, issueProvider);
 
-    CTransactionRef issueTx = MakeTransactionRef(ExtractForTest(issuePstt));
+    CTransactionRef issueTx = MakeTransactionRef(ExtractPSTT(issuePstt));
     CheckMempoolResult(*this, issueTx, true);
 
     CKey recipientKey;
@@ -817,7 +795,145 @@ BOOST_FIXTURE_TEST_CASE(pstt_extract_invalid_token_without_fee, TestChainSetup)
     coloredProvider.pubkeys[holderKey.GetPubKey().GetID()] = holderKey.GetPubKey();
     SignInputForTest(transferPstt, 0, coloredProvider);
 
-    CheckMempoolResult(*this, MakeTransactionRef(ExtractForTest(transferPstt)), false, "bad-txns-token-without-fee");
+    CheckMempoolResult(*this, MakeTransactionRef(ExtractPSTT(transferPstt)), false, "bad-txns-token-without-fee");
+}
+
+// -----------------------------------------------------------------------
+// Extractor
+// -----------------------------------------------------------------------
+
+BOOST_AUTO_TEST_CASE(pstt_extractpstt_throws_on_missing_final_scriptsig)
+{
+    PartiallySignedTapyrusTransaction pstt = MakeBasicPstt();
+    // No final_script_sig set on the one input -- not finalized yet.
+    BOOST_CHECK_THROW(ExtractPSTT(pstt), std::runtime_error);
+}
+
+// -----------------------------------------------------------------------
+// Combiner (Merge conflict policy)
+// -----------------------------------------------------------------------
+
+BOOST_AUTO_TEST_CASE(pstt_merge_refuses_conflicting_partial_sig)
+{
+    PartiallySignedTapyrusTransaction a = MakeBasicPstt();
+    PartiallySignedTapyrusTransaction b = a;
+
+    CKey key;
+    key.MakeNewKey(true);
+    std::vector<unsigned char> sig1(71, 0x11);
+    sig1.push_back(SIGHASH_ALL);
+    std::vector<unsigned char> sig2(71, 0x22);
+    sig2.push_back(SIGHASH_ALL);
+    a.inputs[0].partial_sigs.emplace(key.GetPubKey().GetID(), SigPair(key.GetPubKey(), sig1));
+    b.inputs[0].partial_sigs.emplace(key.GetPubKey().GetID(), SigPair(key.GetPubKey(), sig2));
+
+    BOOST_CHECK_THROW(a.Merge(b), std::invalid_argument);
+}
+
+BOOST_AUTO_TEST_CASE(pstt_merge_picks_first_on_sighash_type_conflict)
+{
+    // PSTT_IN_SIGHASH_TYPE is explicitly in the pick-first tier (not
+    // refuse, not must-match): harmless duplication of a neutral field
+    // should merge silently, keeping whichever side merges into.
+    PartiallySignedTapyrusTransaction a = MakeBasicPstt();
+    PartiallySignedTapyrusTransaction b = a;
+    a.inputs[0].sighash_type = SIGHASH_ALL;
+    b.inputs[0].sighash_type = SIGHASH_NONE;
+
+    BOOST_CHECK_NO_THROW(a.Merge(b));
+    BOOST_CHECK_EQUAL(a.inputs[0].sighash_type, SIGHASH_ALL);
+}
+
+// -----------------------------------------------------------------------
+// End-to-end Combine -> Finalize -> Extract, mirroring the finalizepstt RPC's
+// completeness detection (SignPSTTInput against an empty/dummy provider)
+// without depending on the RPC layer itself.
+// -----------------------------------------------------------------------
+
+BOOST_FIXTURE_TEST_CASE(pstt_combine_finalize_extract_p2sh_multisig, TestChainSetup)
+{
+    CKey keyA, keyB;
+    keyA.MakeNewKey(true);
+    keyB.MakeNewKey(true);
+    CScript redeemScript = GetScriptForMultisig(2, {keyA.GetPubKey(), keyB.GetPubKey()});
+    CScript scriptPubKey = GetScriptForDestination(CScriptID(redeemScript));
+
+    const CTransactionRef& coinbaseTx = m_coinbase_txns[0];
+    PartiallySignedTapyrusTransaction fundingPstt;
+    fundingPstt.tx_features = CTransaction::CURRENT_FEATURES;
+    PSTTInput fundingInput;
+    fundingInput.previous_txid = coinbaseTx->GetHashMalFix();
+    fundingInput.prev_out_index = 0;
+    fundingInput.previous_txid_set = true;
+    fundingInput.prev_out_index_set = true;
+    fundingInput.utxo = coinbaseTx;
+    fundingPstt.inputs.push_back(fundingInput);
+    PSTTOutput fundingOutput;
+    fundingOutput.amount = coinbaseTx->vout[0].nValue - CENT;
+    fundingOutput.script = scriptPubKey;
+    fundingPstt.outputs.push_back(fundingOutput);
+
+    FlatSigningProvider fundingProvider;
+    fundingProvider.keys[coinbaseKey.GetPubKey().GetID()] = coinbaseKey;
+    SignInputForTest(fundingPstt, 0, fundingProvider);
+    CTransactionRef multisigUtxo = MakeTransactionRef(ExtractPSTT(fundingPstt));
+    CheckMempoolResult(*this, multisigUtxo, true);
+
+    // Two independent parties each build the same spend and sign it with
+    // their own key only.
+    CKey destKey;
+    destKey.MakeNewKey(true);
+    auto makeSpend = [&]() {
+        PartiallySignedTapyrusTransaction pstt;
+        pstt.tx_features = CTransaction::CURRENT_FEATURES;
+        PSTTInput input;
+        input.previous_txid = multisigUtxo->GetHashMalFix();
+        input.prev_out_index = 0;
+        input.previous_txid_set = true;
+        input.prev_out_index_set = true;
+        input.utxo = multisigUtxo;
+        input.redeem_script = redeemScript;
+        pstt.inputs.push_back(input);
+        PSTTOutput output;
+        output.amount = multisigUtxo->vout[0].nValue - CENT;
+        output.script = P2PKHScriptFor(destKey);
+        pstt.outputs.push_back(output);
+        return pstt;
+    };
+
+    PartiallySignedTapyrusTransaction pstt1 = makeSpend();
+    FlatSigningProvider providerA;
+    providerA.keys[keyA.GetPubKey().GetID()] = keyA;
+    SignatureData sigdataA;
+    BOOST_REQUIRE(SignPSTTInput(providerA, pstt1, 0, sigdataA, SIGHASH_ALL, SignatureScheme::ECDSA) == PSTTSignResult::OK);
+    pstt1.inputs[0].FromSignatureData(sigdataA);
+    BOOST_CHECK(!sigdataA.complete); // one of two required signatures
+
+    PartiallySignedTapyrusTransaction pstt2 = makeSpend();
+    FlatSigningProvider providerB;
+    providerB.keys[keyB.GetPubKey().GetID()] = keyB;
+    SignatureData sigdataB;
+    BOOST_REQUIRE(SignPSTTInput(providerB, pstt2, 0, sigdataB, SIGHASH_ALL, SignatureScheme::ECDSA) == PSTTSignResult::OK);
+    pstt2.inputs[0].FromSignatureData(sigdataB);
+    BOOST_CHECK(!sigdataB.complete);
+
+    // Combiner: merge the two independently-signed copies.
+    BOOST_REQUIRE(pstt1.HasSameIdentifierAs(pstt2));
+    pstt1.Merge(pstt2);
+    BOOST_CHECK(pstt1.IsSane());
+    BOOST_CHECK_EQUAL(pstt1.inputs[0].partial_sigs.size(), 2U);
+
+    // Finalizer: mirrors finalizepstt's DUMMY_SIGNING_PROVIDER completeness
+    // check -- an empty provider can't add new signatures, only combine the
+    // two partial ones already present into a complete scriptSig.
+    SignatureData finalSigdata;
+    BOOST_REQUIRE(SignPSTTInput(DUMMY_SIGNING_PROVIDER, pstt1, 0, finalSigdata, SIGHASH_ALL, SignatureScheme::ECDSA) == PSTTSignResult::OK);
+    BOOST_CHECK(finalSigdata.complete);
+    pstt1.inputs[0].FromSignatureData(finalSigdata);
+    BOOST_CHECK(!pstt1.inputs[0].final_script_sig.empty());
+
+    // Extractor: produces a sendrawtransaction-acceptable transaction.
+    CheckMempoolResult(*this, MakeTransactionRef(ExtractPSTT(pstt1)), true);
 }
 
 // -----------------------------------------------------------------------
