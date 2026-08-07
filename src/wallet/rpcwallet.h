@@ -8,7 +8,12 @@
 #include <amount.h>
 #include <coloridentifier.h>
 #include <primitives/transaction.h>
+#include <pubkey.h>
+
+#include <cstdint>
+#include <map>
 #include <string>
+#include <vector>
 
 class CRPCTable;
 class CWallet;
@@ -35,6 +40,10 @@ bool EnsureWalletIsAvailable(CWallet *, bool avoidException);
 UniValue getaddressinfo(const JSONRPCRequest& request);
 UniValue signrawtransactionwithwallet(const JSONRPCRequest& request);
 bool FillPSBT(const CWallet* pwallet, PartiallySignedTransaction& psbtx, const CTransaction* txConst, int sighash_type = 1, bool sign = true, bool bip32derivs = false);
+
+// Shared by FillPSBT (rpcwallet.cpp) and FillPSTT (wallet/pstt.cpp): looks up a
+// key's HD derivation metadata in the wallet and, if found, records it.
+void AddKeypathToMap(const CWallet* pwallet, const CKeyID& keyID, std::map<CPubKey, std::vector<uint32_t>>& hd_keypaths);
 
 // Token operation helpers — also called from interfaces/wallet.cpp (GUI layer).
 UniValue IssueReissuableToken(CWallet* const pwallet, const std::string& script, CAmount tokenValue, CCoinControl& coin_control);

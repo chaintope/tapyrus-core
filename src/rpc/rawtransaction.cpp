@@ -6,6 +6,7 @@
 
 #include <chain.h>
 #include <coins.h>
+#include <coloridentifier.h>
 #include <compat/byteswap.h>
 #include <consensus/validation.h>
 #include <core_io.h>
@@ -19,6 +20,7 @@
 #include <policy/packages.h>
 #include <policy/rbf.h>
 #include <primitives/transaction.h>
+#include <pstt.h>
 #include <rpc/protocol.h>
 #include <rpc/rawtransaction.h>
 #include <rpc/server.h>
@@ -1671,6 +1673,327 @@ UniValue converttopsbt(const JSONRPCRequest& request)
     return EncodeBase64((unsigned char*)ssTx.data(), ssTx.size());
 }
 
+// ---------------------------------------------------------------------
+// PSTT (TIP-174) -- see doc/tapyrus/pstt.md
+// ---------------------------------------------------------------------
+
+// Mirrors addTokenKV's (rpcwallet.cpp) token/amount display convention, but
+// keyed off a scriptPubKey directly rather than a CTxDestination, matching
+// decision #15 in doc/tapyrus/pstt.md: color is always derived from the
+// script, never assumed from context.
+static void PushTokenAmount(const CScript& script, CAmount amount, UniValue& entry)
+{
+    ColorIdentifier colorId = GetColorIdFromScript(script);
+    entry.pushKV("token", colorId.toHexString());
+    entry.pushKV("amount", (colorId.type == TokenTypes::NONE ? ValueFromAmount(amount) : amount));
+}
+
+static void PsttInputToUniv(const PSTTInput& input, UniValue& in)
+{
+    in.pushKV("previous_txid", input.previous_txid.GetHex());
+    in.pushKV("output_index", (uint64_t)input.prev_out_index);
+
+    if (input.utxo) {
+        UniValue utxo_univ(UniValue::VOBJ);
+        TxToUniv(*input.utxo, uint256(), utxo_univ, false);
+        in.pushKV("utxo", utxo_univ);
+        if (input.prev_out_index < input.utxo->vout.size()) {
+            const CTxOut& out = input.utxo->vout[input.prev_out_index];
+            PushTokenAmount(out.scriptPubKey, out.nValue, in);
+        }
+    }
+
+    if (!input.partial_sigs.empty()) {
+        UniValue partial_sigs(UniValue::VOBJ);
+        for (const auto& sig : input.partial_sigs) {
+            partial_sigs.pushKV(HexStr(sig.second.first), HexStr(sig.second.second));
+        }
+        in.pushKV("partial_signatures", partial_sigs);
+    }
+
+    if (input.sighash_type > 0) {
+        in.pushKV("sighash", SighashToStr((unsigned char)input.sighash_type));
+    }
+
+    if (!input.redeem_script.empty()) {
+        UniValue r(UniValue::VOBJ);
+        ScriptToUniv(input.redeem_script, r, false);
+        in.pushKV("redeem_script", r);
+    }
+
+    if (!input.hd_keypaths.empty()) {
+        UniValue keypaths(UniValue::VARR);
+        for (auto entry : input.hd_keypaths) {
+            UniValue keypath(UniValue::VOBJ);
+            keypath.pushKV("pubkey", HexStr(entry.first));
+            uint32_t fingerprint = entry.second.at(0);
+            keypath.pushKV("master_fingerprint", strprintf("%08x", internal_bswap_32(fingerprint)));
+            entry.second.erase(entry.second.begin());
+            keypath.pushKV("path", WriteHDKeypath(entry.second));
+            keypaths.push_back(keypath);
+        }
+        in.pushKV("bip32_derivs", keypaths);
+    }
+
+    if (!input.final_script_sig.empty()) {
+        UniValue scriptsig(UniValue::VOBJ);
+        scriptsig.pushKV("asm", ScriptToAsmStr(input.final_script_sig, true));
+        scriptsig.pushKV("hex", HexStr(input.final_script_sig));
+        in.pushKV("final_scriptSig", scriptsig);
+    }
+
+    if (input.sequence) in.pushKV("sequence", (uint64_t)*input.sequence);
+    if (input.required_time_locktime) in.pushKV("required_time_locktime", (uint64_t)*input.required_time_locktime);
+    if (input.required_height_locktime) in.pushKV("required_height_locktime", (uint64_t)*input.required_height_locktime);
+
+    auto push_preimages = [&in](const char* name, const std::map<std::vector<unsigned char>, std::vector<unsigned char>>& map) {
+        if (map.empty()) return;
+        UniValue preimages(UniValue::VOBJ);
+        for (const auto& entry : map) {
+            preimages.pushKV(HexStr(entry.first), HexStr(entry.second));
+        }
+        in.pushKV(name, preimages);
+    };
+    push_preimages("ripemd160_preimages", input.ripemd160_preimages);
+    push_preimages("sha256_preimages", input.sha256_preimages);
+    push_preimages("hash160_preimages", input.hash160_preimages);
+    push_preimages("hash256_preimages", input.hash256_preimages);
+
+    if (!input.unknown.empty()) {
+        UniValue unknowns(UniValue::VOBJ);
+        for (auto entry : input.unknown) {
+            unknowns.pushKV(HexStr(entry.first), HexStr(entry.second));
+        }
+        in.pushKV("unknown", unknowns);
+    }
+}
+
+static void PsttOutputToUniv(const PSTTOutput& output, UniValue& out)
+{
+    if (output.amount) out.pushKV("amount_raw", *output.amount);
+    if (!output.script.empty()) {
+        UniValue s(UniValue::VOBJ);
+        ScriptPubKeyToUniv(output.script, s, true);
+        out.pushKV("script", s);
+        if (output.amount) PushTokenAmount(output.script, *output.amount, out);
+    }
+
+    if (!output.redeem_script.empty()) {
+        UniValue r(UniValue::VOBJ);
+        ScriptToUniv(output.redeem_script, r, false);
+        out.pushKV("redeem_script", r);
+    }
+
+    if (!output.hd_keypaths.empty()) {
+        UniValue keypaths(UniValue::VARR);
+        for (auto entry : output.hd_keypaths) {
+            UniValue keypath(UniValue::VOBJ);
+            keypath.pushKV("pubkey", HexStr(entry.first));
+            uint32_t fingerprint = entry.second.at(0);
+            keypath.pushKV("master_fingerprint", strprintf("%08x", internal_bswap_32(fingerprint)));
+            entry.second.erase(entry.second.begin());
+            keypath.pushKV("path", WriteHDKeypath(entry.second));
+            keypaths.push_back(keypath);
+        }
+        out.pushKV("bip32_derivs", keypaths);
+    }
+
+    if (!output.unknown.empty()) {
+        UniValue unknowns(UniValue::VOBJ);
+        for (auto entry : output.unknown) {
+            unknowns.pushKV(HexStr(entry.first), HexStr(entry.second));
+        }
+        out.pushKV("unknown", unknowns);
+    }
+}
+
+UniValue decodepstt(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 1)
+        throw std::runtime_error(
+            "decodepstt \"pstt\"\n"
+            "\nReturn a JSON object representing the serialized, base64-encoded "
+            "Partially Signed Tapyrus Transaction (see doc/tapyrus/pstt.md).\n"
+
+            "\nArguments:\n"
+            "1. \"pstt\"            (string, required) The PSTT base64 string\n"
+
+            "\nExamples:\n"
+            + HelpExampleCli("decodepstt", "\"pstt\"")
+    );
+
+    RPCTypeCheck(request.params, {UniValue::VSTR});
+
+    PartiallySignedTapyrusTransaction pstt;
+    std::string error;
+    if (!DecodePSTT(pstt, request.params[0].get_str(), error)) {
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, strprintf("TX decode failed %s", error));
+    }
+
+    UniValue result(UniValue::VOBJ);
+
+    if (pstt.tx_features) result.pushKV("tx_features", *pstt.tx_features);
+    if (pstt.fallback_locktime) result.pushKV("fallback_locktime", (uint64_t)*pstt.fallback_locktime);
+    if (pstt.tx_modifiable) {
+        UniValue mod(UniValue::VOBJ);
+        mod.pushKV("inputs_modifiable", bool(*pstt.tx_modifiable & PSTT_TXMOD_INPUTS_MODIFIABLE));
+        mod.pushKV("outputs_modifiable", bool(*pstt.tx_modifiable & PSTT_TXMOD_OUTPUTS_MODIFIABLE));
+        mod.pushKV("has_sighash_single", bool(*pstt.tx_modifiable & PSTT_TXMOD_HAS_SIGHASH_SINGLE));
+        result.pushKV("tx_modifiable", mod);
+    }
+    if (pstt.version) result.pushKV("version", (uint64_t)*pstt.version);
+
+    if (!pstt.xpubs.empty()) {
+        UniValue xpubs(UniValue::VARR);
+        for (const auto& entry : pstt.xpubs) {
+            UniValue x(UniValue::VOBJ);
+            x.pushKV("xpub", HexStr(SerializeXpubKeyData(entry.first)));
+            std::vector<uint32_t> path = entry.second;
+            if (!path.empty()) {
+                uint32_t fingerprint = path.at(0);
+                x.pushKV("master_fingerprint", strprintf("%08x", internal_bswap_32(fingerprint)));
+                path.erase(path.begin());
+                x.pushKV("path", WriteHDKeypath(path));
+            }
+            xpubs.push_back(x);
+        }
+        result.pushKV("xpubs", xpubs);
+    }
+
+    uint32_t locktime;
+    if (ComputeLocktime(pstt, locktime)) {
+        result.pushKV("locktime", (uint64_t)locktime);
+    }
+    try {
+        result.pushKV("identification_txid", pstt.GetIdentifier().GetHex());
+    } catch (const std::exception&) {
+        // No valid locktime yet (contradictory required locktimes) -- the
+        // identifier can't be computed; omit rather than error, since
+        // decodepstt is an inspection tool and this is exactly the kind of
+        // malformed-but-parseable PSTT it should still be able to show.
+    }
+
+    if (!pstt.unknown.empty()) {
+        UniValue unknowns(UniValue::VOBJ);
+        for (auto entry : pstt.unknown) {
+            unknowns.pushKV(HexStr(entry.first), HexStr(entry.second));
+        }
+        result.pushKV("unknown", unknowns);
+    }
+
+    UniValue inputs(UniValue::VARR);
+    for (const PSTTInput& input : pstt.inputs) {
+        UniValue in(UniValue::VOBJ);
+        PsttInputToUniv(input, in);
+        inputs.push_back(in);
+    }
+    result.pushKV("inputs", inputs);
+
+    UniValue outputs(UniValue::VARR);
+    for (const PSTTOutput& output : pstt.outputs) {
+        UniValue out(UniValue::VOBJ);
+        PsttOutputToUniv(output, out);
+        outputs.push_back(out);
+    }
+    result.pushKV("outputs", outputs);
+
+    return result;
+}
+
+UniValue signpsttwithkey(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() < 2 || request.params.size() > 4)
+        throw std::runtime_error(
+            "signpsttwithkey \"pstt\" [\"privatekey1\",...] ( \"sighashtype\" \"sigscheme\" )\n"
+            "\nSign inputs of a PSTT with the given private keys (Signer role, no wallet required).\n"
+
+            "\nArguments:\n"
+            "1. \"pstt\"                          (string, required) The PSTT base64 string\n"
+            "2. \"privkeys\"                      (string, required) A json array of base58-encoded private keys for signing\n"
+            "    [\n"
+            "      \"privatekey\"                  (string) private key in base58-encoding\n"
+            "      ,...\n"
+            "    ]\n"
+            "3. \"sighashtype\"                    (string, optional, default=ALL) The signature hash type. Must be one of\n"
+            "       \"ALL\"\n"
+            "       \"NONE\"\n"
+            "       \"SINGLE\"\n"
+            "       \"ALL|ANYONECANPAY\"\n"
+            "       \"NONE|ANYONECANPAY\"\n"
+            "       \"SINGLE|ANYONECANPAY\"\n"
+            "4. \"sigscheme\"                    (string, optional, default=ECDSA) The signature scheme to use\n"
+            "       \"ECDSA\"\n"
+            "       \"SCHNORR\"\n"
+
+            "\nResult:\n"
+            "{\n"
+            "  \"pstt\" : \"value\",          (string) The base64-encoded partially signed transaction\n"
+            "  \"complete\" : true|false,   (boolean) If every input with a UTXO now has a complete signature\n"
+            "}\n"
+
+            "\nExamples:\n"
+            + HelpExampleCli("signpsttwithkey", "\"mypstt\" \"[\\\"key1\\\",\\\"key2\\\"]\"")
+        );
+
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VARR, UniValue::VSTR, UniValue::VSTR}, true);
+
+    PartiallySignedTapyrusTransaction pstt;
+    std::string error;
+    if (!DecodePSTT(pstt, request.params[0].get_str(), error)) {
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, strprintf("TX decode failed %s", error));
+    }
+
+    FlatSigningProvider provider;
+    const UniValue& keys = request.params[1].get_array();
+    for (unsigned int idx = 0; idx < keys.size(); ++idx) {
+        UniValue k = keys[idx];
+        CKey key = DecodeSecret(k.get_str());
+        if (!key.IsValid()) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid private key");
+        }
+        CPubKey pubkey = key.GetPubKey();
+        provider.keys[pubkey.GetID()] = key;
+        provider.pubkeys[pubkey.GetID()] = pubkey;
+    }
+    // Redeem scripts already attached to inputs by an earlier Updater step
+    // are made available for P2SH/CP2SH resolution.
+    for (const PSTTInput& in : pstt.inputs) {
+        if (!in.redeem_script.empty()) {
+            provider.scripts[CScriptID(in.redeem_script)] = in.redeem_script;
+        }
+    }
+
+    int sighash = ParseSighashString(request.params[2]);
+    SignatureScheme sigScheme(SignatureScheme::ECDSA);
+    if (!request.params[3].isNull() && request.params[3].get_str() == "SCHNORR")
+        sigScheme = SignatureScheme::SCHNORR;
+
+    bool complete = true;
+    for (unsigned int i = 0; i < pstt.inputs.size(); ++i) {
+        PSTTInput& input = pstt.inputs.at(i);
+        if (!input.final_script_sig.empty()) continue; // already finalized
+        SignatureData sigdata;
+        PSTTSignResult result = SignPSTTInput(provider, pstt, i, sigdata, sighash, sigScheme);
+        if (result == PSTTSignResult::MISSING_UTXO) {
+            // Not this call's job to complain -- an incremental multi-party
+            // PSTT may genuinely have inputs no one has attached a UTXO to
+            // yet; leave it for a later Updater/Signer round.
+            complete = false;
+            continue;
+        }
+        if (result != PSTTSignResult::OK) {
+            throw JSONRPCError(RPC_TRANSACTION_ERROR, strprintf("Signing input %d failed: %s", i, PSTTSignResultToString(result)));
+        }
+        input.FromSignatureData(sigdata);
+        if (!sigdata.complete) complete = false;
+    }
+
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("pstt", EncodePSTT(pstt));
+    result.pushKV("complete", complete);
+    return result;
+}
+
 static const CRPCCommand commands[] =
 { //  category              name                            actor (function)            argNames
   //  --------------------- ------------------------        -----------------------     ----------
@@ -1687,6 +2010,9 @@ static const CRPCCommand commands[] =
     { "rawtransactions",    "finalizepsbt",                 &finalizepsbt,              {"psbt", "extract"} },
     { "rawtransactions",    "createpsbt",                   &createpsbt,                {"inputs","outputs","locktime","replaceable"} },
     { "rawtransactions",    "converttopsbt",                &converttopsbt,             {"hexstring","permitsigdata"} },
+
+    { "rawtransactions",    "decodepstt",                   &decodepstt,                {"pstt"} },
+    { "rawtransactions",    "signpsttwithkey",               &signpsttwithkey,           {"pstt","privkeys","sighashtype","sigscheme"} },
 
     { "blockchain",         "gettxoutproof",                &gettxoutproof,             {"txids", "blockhash"} },
     { "blockchain",         "verifytxoutproof",             &verifytxoutproof,          {"proof"} },

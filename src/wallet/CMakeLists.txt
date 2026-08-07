@@ -15,6 +15,7 @@ add_library(tapyrus_wallet STATIC
         fees.cpp
         init.cpp
         ../interfaces/wallet.cpp
+        pstt.cpp
         rpcdump.cpp
         rpcwallet.cpp
         wallet.cpp

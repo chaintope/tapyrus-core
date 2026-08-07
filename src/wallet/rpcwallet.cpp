@@ -18,6 +18,7 @@
 #include <policy/fees.h>
 #include <policy/policy.h>
 #include <policy/rbf.h>
+#include <pstt.h>
 #include <rpc/mining.h>
 #include <rpc/protocol.h>
 #include <rpc/rawtransaction.h>
@@ -30,6 +31,7 @@
 #include <utilmoneystr.h>
 #include <wallet/coincontrol.h>
 #include <wallet/feebumper.h>
+#include <wallet/pstt.h>
 #include <wallet/rpcwallet.h>
 #include <wallet/wallet.h>
 #include <wallet/walletdb.h>
@@ -4108,6 +4110,197 @@ UniValue walletprocesspsbt(const JSONRPCRequest& request)
     return result;
 }
 
+static SignatureScheme ParseSigSchemeParam(const UniValue& param)
+{
+    if (!param.isNull() && param.get_str() == "SCHNORR") return SignatureScheme::SCHNORR;
+    return SignatureScheme::ECDSA;
+}
+
+UniValue walletupdatepstt(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
+        throw std::runtime_error(
+            "walletupdatepstt \"pstt\" ( bip32derivs )\n"
+            "\nUpdate a PSTT with input information from our wallet.\n"
+            "This is the Updater role only -- it never signs.\n"
+
+            "\nArguments:\n"
+            "1. \"pstt\"                      (string, required) The transaction base64 string\n"
+            "2. bip32derivs                    (boolean, optional, default=false) If true, includes the BIP 32 derivation paths for public keys if we know them\n"
+
+            "\nResult:\n"
+            "{\n"
+            "  \"pstt\" : \"value\",          (string) The base64-encoded partially signed transaction\n"
+            "  \"complete\" : true|false,   (boolean) If the transaction has a complete set of signatures\n"
+            "}\n"
+
+            "\nExamples:\n"
+            + HelpExampleCli("walletupdatepstt", "\"pstt\"")
+        );
+
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VBOOL});
+
+    PartiallySignedTapyrusTransaction pstt;
+    std::string error;
+    if (!DecodePSTT(pstt, request.params[0].get_str(), error)) {
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, strprintf("TX decode failed %s", error));
+    }
+
+    bool bip32derivs = request.params[1].isNull() ? false : request.params[1].get_bool();
+    bool complete = FillPSTT(pwallet, pstt, 1, /*sign=*/false, bip32derivs);
+
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("pstt", EncodePSTT(pstt));
+    result.pushKV("complete", complete);
+    return result;
+}
+
+UniValue walletsignpstt(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    if (request.fHelp || request.params.size() < 1 || request.params.size() > 3)
+        throw std::runtime_error(
+            "walletsignpstt \"pstt\" ( \"sighashtype\" \"sigscheme\" )\n"
+            "\nSign a PSTT's inputs using our wallet's keys.\n"
+            "This is the Signer role only -- it relies on a prior Updater step\n"
+            "(walletupdatepstt) having already attached each input's UTXO.\n"
+            + HelpRequiringPassphrase(pwallet) + "\n"
+
+            "\nArguments:\n"
+            "1. \"pstt\"                      (string, required) The transaction base64 string\n"
+            "2. \"sighashtype\"            (string, optional, default=ALL) The signature hash type to sign with if not specified by the PSTT. Must be one of\n"
+            "       \"ALL\"\n"
+            "       \"NONE\"\n"
+            "       \"SINGLE\"\n"
+            "       \"ALL|ANYONECANPAY\"\n"
+            "       \"NONE|ANYONECANPAY\"\n"
+            "       \"SINGLE|ANYONECANPAY\"\n"
+            "3. \"sigscheme\"              (string, optional, default=ECDSA) \"ECDSA\" or \"SCHNORR\"\n"
+
+            "\nResult:\n"
+            "{\n"
+            "  \"pstt\" : \"value\",          (string) The base64-encoded partially signed transaction\n"
+            "  \"complete\" : true|false,   (boolean) If the transaction has a complete set of signatures\n"
+            "}\n"
+
+            "\nExamples:\n"
+            + HelpExampleCli("walletsignpstt", "\"pstt\"")
+        );
+
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR, UniValue::VSTR});
+
+    PartiallySignedTapyrusTransaction pstt;
+    std::string error;
+    if (!DecodePSTT(pstt, request.params[0].get_str(), error)) {
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, strprintf("TX decode failed %s", error));
+    }
+
+    int sighash = ParseSighashString(request.params[1]);
+    SignatureScheme sigScheme = ParseSigSchemeParam(request.params[2]);
+
+    LOCK(pwallet->cs_wallet);
+    bool complete = true;
+    for (unsigned int i = 0; i < pstt.inputs.size(); ++i) {
+        PSTTInput& input = pstt.inputs.at(i);
+        if (!input.final_script_sig.empty()) continue; // already finalized
+
+        if (input.sighash_type > 0 && input.sighash_type != sighash) {
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Specified Sighash and sighash in PSTT do not match.");
+        }
+
+        SignatureData sigdata;
+        PSTTSignResult result = SignPSTTInput(*pwallet, pstt, i, sigdata, sighash, sigScheme);
+        if (result == PSTTSignResult::MISSING_UTXO) {
+            // Not this call's job -- run walletupdatepstt (or a peer's
+            // Updater step) first for inputs it doesn't know about yet.
+            complete = false;
+            continue;
+        }
+        if (result != PSTTSignResult::OK) {
+            throw JSONRPCError(RPC_TRANSACTION_ERROR, strprintf("Signing input %d failed: %s", i, PSTTSignResultToString(result)));
+        }
+        input.FromSignatureData(sigdata);
+        if (!sigdata.complete) complete = false;
+    }
+
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("pstt", EncodePSTT(pstt));
+    result.pushKV("complete", complete);
+    return result;
+}
+
+UniValue walletprocesspstt(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    if (request.fHelp || request.params.size() < 1 || request.params.size() > 5)
+        throw std::runtime_error(
+            "walletprocesspstt \"pstt\" ( sign \"sighashtype\" bip32derivs \"sigscheme\" )\n"
+            "\nUpdate a PSTT with input information from our wallet and then sign inputs\n"
+            "that we can sign for.\n"
+            + HelpRequiringPassphrase(pwallet) + "\n"
+
+            "\nArguments:\n"
+            "1. \"pstt\"                      (string, required) The transaction base64 string\n"
+            "2. sign                          (boolean, optional, default=true) Also sign the transaction when updating\n"
+            "3. \"sighashtype\"            (string, optional, default=ALL) The signature hash type to sign with if not specified by the PSTT. Must be one of\n"
+            "       \"ALL\"\n"
+            "       \"NONE\"\n"
+            "       \"SINGLE\"\n"
+            "       \"ALL|ANYONECANPAY\"\n"
+            "       \"NONE|ANYONECANPAY\"\n"
+            "       \"SINGLE|ANYONECANPAY\"\n"
+            "4. bip32derivs                    (boolean, optional, default=false) If true, includes the BIP 32 derivation paths for public keys if we know them\n"
+            "5. \"sigscheme\"              (string, optional, default=ECDSA) \"ECDSA\" or \"SCHNORR\"\n"
+
+            "\nResult:\n"
+            "{\n"
+            "  \"pstt\" : \"value\",          (string) The base64-encoded partially signed transaction\n"
+            "  \"complete\" : true|false,   (boolean) If the transaction has a complete set of signatures\n"
+            "}\n"
+
+            "\nExamples:\n"
+            + HelpExampleCli("walletprocesspstt", "\"pstt\"")
+        );
+
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VBOOL, UniValue::VSTR, UniValue::VBOOL, UniValue::VSTR});
+
+    PartiallySignedTapyrusTransaction pstt;
+    std::string error;
+    if (!DecodePSTT(pstt, request.params[0].get_str(), error)) {
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, strprintf("TX decode failed %s", error));
+    }
+
+    int sighash = ParseSighashString(request.params[2]);
+    bool sign = request.params[1].isNull() ? true : request.params[1].get_bool();
+    bool bip32derivs = request.params[3].isNull() ? false : request.params[3].get_bool();
+    SignatureScheme sigScheme = ParseSigSchemeParam(request.params[4]);
+    bool complete = FillPSTT(pwallet, pstt, sighash, sign, bip32derivs, sigScheme);
+
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("pstt", EncodePSTT(pstt));
+    result.pushKV("complete", complete);
+    return result;
+}
+
 UniValue walletcreatefundedpsbt(const JSONRPCRequest& request)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
@@ -4740,6 +4933,9 @@ static const CRPCCommand commands[] =
     { "rawtransactions",    "fundrawtransaction",               &fundrawtransaction,            {"hexstring","options"} },
     { "wallet",             "walletprocesspsbt",                &walletprocesspsbt,             {"psbt","sign","sighashtype","bip32derivs"} },
     { "wallet",             "walletcreatefundedpsbt",           &walletcreatefundedpsbt,        {"inputs","outputs","locktime","options","bip32derivs"} },
+    { "wallet",             "walletupdatepstt",                 &walletupdatepstt,              {"pstt","bip32derivs"} },
+    { "wallet",             "walletsignpstt",                   &walletsignpstt,                {"pstt","sighashtype","sigscheme"} },
+    { "wallet",             "walletprocesspstt",                &walletprocesspstt,             {"pstt","sign","sighashtype","bip32derivs","sigscheme"} },
     { "hidden",             "resendwallettransactions",         &resendwallettransactions,      {} },
     { "wallet",             "abandontransaction",               &abandontransaction,            {"txid"} },
     { "wallet",             "abortrescan",                      &abortrescan,                   {} },
