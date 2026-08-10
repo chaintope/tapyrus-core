@@ -136,7 +136,7 @@ BOOST_AUTO_TEST_CASE(pstt_roundtrip_full_fields)
     BOOST_CHECK_EQUAL(*parsed.tx_modifiable, *pstt.tx_modifiable);
     BOOST_CHECK_EQUAL(*parsed.version, 0U);
     const PSTTInput& pinput = parsed.inputs[0];
-    BOOST_CHECK_EQUAL(pinput.sighash_type, 1);
+    BOOST_CHECK_EQUAL(*pinput.sighash_type, 1);
     BOOST_CHECK_EQUAL(*pinput.sequence, 0xFFFFFFFEu);
     BOOST_CHECK_EQUAL(*pinput.required_height_locktime, 100U);
     BOOST_CHECK_EQUAL(pinput.partial_sigs.size(), 1U);
@@ -818,6 +818,269 @@ BOOST_FIXTURE_TEST_CASE(pstt_extract_invalid_token_without_fee, TestChainSetup)
     SignInputForTest(transferPstt, 0, coloredProvider);
 
     CheckMempoolResult(*this, MakeTransactionRef(ExtractForTest(transferPstt)), false, "bad-txns-token-without-fee");
+}
+
+// -----------------------------------------------------------------------
+// PSTTInput::Merge() / PSTTOutput::Merge() conflict and mismatch throw sites
+// -----------------------------------------------------------------------
+
+BOOST_AUTO_TEST_CASE(pstt_merge_refuses_mismatched_input_output_counts)
+{
+    PartiallySignedTapyrusTransaction a = MakeBasicPstt();
+    PartiallySignedTapyrusTransaction b = a;
+    CTransactionRef utxo2 = MakeSimpleUtxoTx(RandomP2PKHScript(), 5000);
+    b.inputs.push_back(MakeBasicInput(utxo2->GetHashMalFix(), 0, utxo2));
+    BOOST_CHECK_THROW(a.Merge(b), std::invalid_argument);
+}
+
+BOOST_AUTO_TEST_CASE(pstt_input_merge_refuses_conflicting_utxo)
+{
+    CTransactionRef utxo1 = MakeSimpleUtxoTx(RandomP2PKHScript(), 1000);
+    CTransactionRef utxo2 = MakeSimpleUtxoTx(RandomP2PKHScript(), 2000);
+    PSTTInput a = MakeBasicInput(utxo1->GetHashMalFix(), 0, utxo1);
+    PSTTInput b = a;
+    b.utxo = utxo2; // different tx attached to the "same" input
+    BOOST_CHECK_THROW(a.Merge(b), std::invalid_argument);
+}
+
+BOOST_AUTO_TEST_CASE(pstt_input_merge_refuses_conflicting_final_scriptsig)
+{
+    CTransactionRef utxo = MakeSimpleUtxoTx(RandomP2PKHScript(), 1000);
+    PSTTInput a = MakeBasicInput(utxo->GetHashMalFix(), 0, utxo);
+    PSTTInput b = a;
+    a.final_script_sig = CScript() << OP_TRUE;
+    b.final_script_sig = CScript() << OP_FALSE;
+    BOOST_CHECK_THROW(a.Merge(b), std::invalid_argument);
+}
+
+BOOST_AUTO_TEST_CASE(pstt_input_merge_refuses_conflicting_partial_sig)
+{
+    CTransactionRef utxo = MakeSimpleUtxoTx(RandomP2PKHScript(), 1000);
+    PSTTInput a = MakeBasicInput(utxo->GetHashMalFix(), 0, utxo);
+    PSTTInput b = a;
+    CKey key;
+    key.MakeNewKey(true);
+    std::vector<unsigned char> sig1(71, 0x11);
+    sig1.push_back(1);
+    std::vector<unsigned char> sig2(71, 0x22);
+    sig2.push_back(1);
+    a.partial_sigs.emplace(key.GetPubKey().GetID(), SigPair(key.GetPubKey(), sig1));
+    b.partial_sigs.emplace(key.GetPubKey().GetID(), SigPair(key.GetPubKey(), sig2));
+    BOOST_CHECK_THROW(a.Merge(b), std::invalid_argument);
+}
+
+BOOST_AUTO_TEST_CASE(pstt_input_merge_refuses_mismatched_redeem_script)
+{
+    CTransactionRef utxo = MakeSimpleUtxoTx(RandomP2PKHScript(), 1000);
+    PSTTInput a = MakeBasicInput(utxo->GetHashMalFix(), 0, utxo);
+    PSTTInput b = a;
+    a.redeem_script = CScript() << OP_TRUE;
+    b.redeem_script = CScript() << OP_FALSE;
+    BOOST_CHECK_THROW(a.Merge(b), std::invalid_argument);
+}
+
+BOOST_AUTO_TEST_CASE(pstt_input_merge_refuses_mismatched_bip32_derivation)
+{
+    CTransactionRef utxo = MakeSimpleUtxoTx(RandomP2PKHScript(), 1000);
+    PSTTInput a = MakeBasicInput(utxo->GetHashMalFix(), 0, utxo);
+    PSTTInput b = a;
+    CKey key;
+    key.MakeNewKey(true);
+    a.hd_keypaths.emplace(key.GetPubKey(), std::vector<uint32_t>{1, 2, 3});
+    b.hd_keypaths.emplace(key.GetPubKey(), std::vector<uint32_t>{4, 5, 6});
+    BOOST_CHECK_THROW(a.Merge(b), std::invalid_argument);
+}
+
+BOOST_AUTO_TEST_CASE(pstt_output_merge_refuses_mismatched_redeem_script)
+{
+    PSTTOutput a;
+    a.amount = 1000;
+    a.script = RandomP2PKHScript();
+    PSTTOutput b = a;
+    a.redeem_script = CScript() << OP_TRUE;
+    b.redeem_script = CScript() << OP_FALSE;
+    BOOST_CHECK_THROW(a.Merge(b), std::invalid_argument);
+}
+
+BOOST_AUTO_TEST_CASE(pstt_output_merge_refuses_mismatched_bip32_derivation)
+{
+    PSTTOutput a;
+    a.amount = 1000;
+    a.script = RandomP2PKHScript();
+    PSTTOutput b = a;
+    CKey key;
+    key.MakeNewKey(true);
+    a.hd_keypaths.emplace(key.GetPubKey(), std::vector<uint32_t>{1});
+    b.hd_keypaths.emplace(key.GetPubKey(), std::vector<uint32_t>{2});
+    BOOST_CHECK_THROW(a.Merge(b), std::invalid_argument);
+}
+
+// -----------------------------------------------------------------------
+// Output-side reserved keytype rejection (analog to
+// pstt_rejects_reserved_input_keytype above, for PSTTOutput)
+// -----------------------------------------------------------------------
+
+BOOST_AUTO_TEST_CASE(pstt_rejects_reserved_output_keytype)
+{
+    for (uint8_t reserved : {0x01, 0x05, 0x06, 0x07}) {
+        CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+        SerializeToVector(ss, reserved);
+        ss << std::vector<unsigned char>{0x00};
+        ss << PSTT_SEPARATOR;
+
+        std::vector<unsigned char> data(ss.begin(), ss.end());
+        BOOST_CHECK_THROW(UnserializeObj<PSTTOutput>(data), std::ios_base::failure);
+    }
+}
+
+// -----------------------------------------------------------------------
+// PSTT_IN_REQUIRED_*_LOCKTIME parse-time range validation
+// -----------------------------------------------------------------------
+
+BOOST_AUTO_TEST_CASE(pstt_rejects_time_locktime_too_low)
+{
+    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+    SerializeToVector(ss, PSTT_IN_REQUIRED_TIME_LOCKTIME);
+    SerializeToVector(ss, (uint32_t)499999999);
+    ss << PSTT_SEPARATOR;
+
+    std::vector<unsigned char> data(ss.begin(), ss.end());
+    BOOST_CHECK_THROW(UnserializeObj<PSTTInput>(data), std::ios_base::failure);
+}
+
+BOOST_AUTO_TEST_CASE(pstt_rejects_height_locktime_zero)
+{
+    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+    SerializeToVector(ss, PSTT_IN_REQUIRED_HEIGHT_LOCKTIME);
+    SerializeToVector(ss, (uint32_t)0);
+    ss << PSTT_SEPARATOR;
+
+    std::vector<unsigned char> data(ss.begin(), ss.end());
+    BOOST_CHECK_THROW(UnserializeObj<PSTTInput>(data), std::ios_base::failure);
+}
+
+BOOST_AUTO_TEST_CASE(pstt_rejects_height_locktime_too_high)
+{
+    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+    SerializeToVector(ss, PSTT_IN_REQUIRED_HEIGHT_LOCKTIME);
+    SerializeToVector(ss, (uint32_t)500000000);
+    ss << PSTT_SEPARATOR;
+
+    std::vector<unsigned char> data(ss.begin(), ss.end());
+    BOOST_CHECK_THROW(UnserializeObj<PSTTInput>(data), std::ios_base::failure);
+}
+
+// -----------------------------------------------------------------------
+// PSTT_GLOBAL_TX_MODIFIABLE reserved bits (3-7)
+// -----------------------------------------------------------------------
+
+BOOST_AUTO_TEST_CASE(pstt_issane_rejects_reserved_txmod_bits)
+{
+    PartiallySignedTapyrusTransaction pstt = MakeBasicPstt();
+    pstt.tx_modifiable = 1 << 3; // lowest reserved bit
+    BOOST_CHECK(!pstt.IsSane());
+}
+
+// -----------------------------------------------------------------------
+// SignPSTTInput() non-OK result coverage. These call SignPSTTInput()
+// directly on hand-built PSTTs rather than going through the mempool-level
+// pipeline above -- each case is set up to fail at one specific check, so
+// DUMMY_SIGNING_PROVIDER (no real keys) is sufficient; none of these reach
+// ProduceSignature().
+// -----------------------------------------------------------------------
+
+BOOST_AUTO_TEST_CASE(pstt_sign_missing_utxo)
+{
+    PartiallySignedTapyrusTransaction pstt = MakeBasicPstt();
+    pstt.inputs[0].utxo = nullptr;
+    SignatureData sigdata;
+    PSTTSignResult result = SignPSTTInput(DUMMY_SIGNING_PROVIDER, pstt, 0, sigdata, SIGHASH_ALL);
+    BOOST_CHECK(result == PSTTSignResult::MISSING_UTXO);
+}
+
+BOOST_AUTO_TEST_CASE(pstt_sign_utxo_txid_mismatch)
+{
+    PartiallySignedTapyrusTransaction pstt = MakeBasicPstt();
+    // Swap in an unrelated UTXO whose hash no longer matches previous_txid.
+    pstt.inputs[0].utxo = MakeSimpleUtxoTx(RandomP2PKHScript(), 5000);
+    SignatureData sigdata;
+    PSTTSignResult result = SignPSTTInput(DUMMY_SIGNING_PROVIDER, pstt, 0, sigdata, SIGHASH_ALL);
+    BOOST_CHECK(result == PSTTSignResult::UTXO_TXID_MISMATCH);
+}
+
+BOOST_AUTO_TEST_CASE(pstt_sign_prev_out_index_oob)
+{
+    PartiallySignedTapyrusTransaction pstt = MakeBasicPstt();
+    pstt.inputs[0].prev_out_index = 5; // utxo only has a single output (index 0)
+    SignatureData sigdata;
+    PSTTSignResult result = SignPSTTInput(DUMMY_SIGNING_PROVIDER, pstt, 0, sigdata, SIGHASH_ALL);
+    BOOST_CHECK(result == PSTTSignResult::PREV_OUT_INDEX_OOB);
+}
+
+BOOST_AUTO_TEST_CASE(pstt_sign_redeem_script_hash_mismatch)
+{
+    CScript actualRedeem = CScript() << OP_TRUE;
+    CScript scriptPubKey = CScript() << OP_HASH160 << ToByteVector(CScriptID(actualRedeem)) << OP_EQUAL;
+    CTransactionRef utxo = MakeSimpleUtxoTx(scriptPubKey, 100000);
+
+    PartiallySignedTapyrusTransaction pstt;
+    pstt.tx_features = CTransaction::CURRENT_FEATURES;
+    pstt.inputs.push_back(MakeBasicInput(utxo->GetHashMalFix(), 0, utxo));
+    PSTTOutput output;
+    output.amount = 90000;
+    output.script = RandomP2PKHScript();
+    pstt.outputs.push_back(output);
+
+    pstt.inputs[0].redeem_script = CScript() << OP_FALSE; // wrong script -- different hash
+
+    SignatureData sigdata;
+    PSTTSignResult result = SignPSTTInput(DUMMY_SIGNING_PROVIDER, pstt, 0, sigdata, SIGHASH_ALL);
+    BOOST_CHECK(result == PSTTSignResult::REDEEM_SCRIPT_HASH_MISMATCH);
+}
+
+BOOST_AUTO_TEST_CASE(pstt_sign_sighash_conflict)
+{
+    PartiallySignedTapyrusTransaction pstt = MakeBasicPstt();
+    pstt.inputs[0].sighash_type = SIGHASH_ALL;
+    SignatureData sigdata;
+    PSTTSignResult result = SignPSTTInput(DUMMY_SIGNING_PROVIDER, pstt, 0, sigdata, SIGHASH_NONE);
+    BOOST_CHECK(result == PSTTSignResult::SIGHASH_CONFLICT);
+}
+
+BOOST_AUTO_TEST_CASE(pstt_sign_sighash_single_oob)
+{
+    PartiallySignedTapyrusTransaction pstt = MakeBasicPstt(); // 1 input, 1 output
+    CTransactionRef utxo2 = MakeSimpleUtxoTx(RandomP2PKHScript(), 50000);
+    pstt.inputs.push_back(MakeBasicInput(utxo2->GetHashMalFix(), 0, utxo2)); // 2nd input, no matching 2nd output
+    SignatureData sigdata;
+    PSTTSignResult result = SignPSTTInput(DUMMY_SIGNING_PROVIDER, pstt, 1, sigdata, SIGHASH_SINGLE);
+    BOOST_CHECK(result == PSTTSignResult::SIGHASH_SINGLE_OOB);
+}
+
+BOOST_AUTO_TEST_CASE(pstt_sign_locktime_invalid)
+{
+    PartiallySignedTapyrusTransaction pstt = MakeBasicPstt();
+    CTransactionRef utxo2 = MakeSimpleUtxoTx(RandomP2PKHScript(), 50000);
+    pstt.inputs.push_back(MakeBasicInput(utxo2->GetHashMalFix(), 0, utxo2));
+    // Input 0 only accepts height, input 1 only accepts time -> empty intersection.
+    pstt.inputs[0].required_height_locktime = 800;
+    pstt.inputs[1].required_time_locktime = 700000000;
+    SignatureData sigdata;
+    PSTTSignResult result = SignPSTTInput(DUMMY_SIGNING_PROVIDER, pstt, 0, sigdata, SIGHASH_ALL);
+    BOOST_CHECK(result == PSTTSignResult::LOCKTIME_INVALID);
+}
+
+BOOST_AUTO_TEST_CASE(pstt_sign_scheme_conflict)
+{
+    PartiallySignedTapyrusTransaction pstt = MakeBasicPstt();
+    CKey key1;
+    key1.MakeNewKey(true);
+    std::vector<unsigned char> schnorr_sig(CPubKey::COMPACT_SIGNATURE_SIZE, 0x22); // already-present Schnorr sig
+    pstt.inputs[0].partial_sigs.emplace(key1.GetPubKey().GetID(), SigPair(key1.GetPubKey(), schnorr_sig));
+
+    SignatureData sigdata;
+    PSTTSignResult result = SignPSTTInput(DUMMY_SIGNING_PROVIDER, pstt, 0, sigdata, SIGHASH_ALL, SignatureScheme::ECDSA);
+    BOOST_CHECK(result == PSTTSignResult::SCHEME_CONFLICT);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

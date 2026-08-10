@@ -159,7 +159,7 @@ void PSTTInput::Merge(const PSTTInput& input)
     }
 
     // Everything else: pick-first, no throw.
-    if (sighash_type == 0 && input.sighash_type > 0) sighash_type = input.sighash_type;
+    if (!sighash_type && input.sighash_type) sighash_type = input.sighash_type;
     if (!sequence && input.sequence) sequence = input.sequence;
     if (!required_time_locktime && input.required_time_locktime) required_time_locktime = input.required_time_locktime;
     if (!required_height_locktime && input.required_height_locktime) required_height_locktime = input.required_height_locktime;
@@ -213,9 +213,9 @@ void PSTTInput::Serialize(Stream& s) const
             s << sig_pair.second.second;
         }
 
-        if (sighash_type > 0) {
+        if (sighash_type) {
             SerializeToVector(s, PSTT_IN_SIGHASH_TYPE);
-            SerializeToVector(s, sighash_type);
+            SerializeToVector(s, *sighash_type);
         }
 
         if (!redeem_script.empty()) {
@@ -272,7 +272,6 @@ void PSTTInput::Serialize(Stream& s) const
 template <typename Stream>
 void PSTTInput::Unserialize(Stream& s)
 {
-    bool has_sighash_type = false;
     while (true) {
         if (s.empty()) throw std::ios_base::failure("PSTT input map is missing its terminating separator");
         std::vector<unsigned char> key;
@@ -311,10 +310,13 @@ void PSTTInput::Unserialize(Stream& s)
                 break;
             }
             case PSTT_IN_SIGHASH_TYPE:
-                if (has_sighash_type) throw std::ios_base::failure("Duplicate Key, PSTT_IN_SIGHASH_TYPE already provided");
+                if (sighash_type) throw std::ios_base::failure("Duplicate Key, PSTT_IN_SIGHASH_TYPE already provided");
                 if (key.size() != 1) throw std::ios_base::failure("PSTT_IN_SIGHASH_TYPE key is more than one byte type");
-                UnserializeFromVector(s, sighash_type);
-                has_sighash_type = true;
+                {
+                    int32_t v;
+                    UnserializeFromVector(s, v);
+                    sighash_type = v;
+                }
                 break;
             case PSTT_IN_REDEEM_SCRIPT:
                 if (!redeem_script.empty()) throw std::ios_base::failure("Duplicate Key, PSTT_IN_REDEEM_SCRIPT already provided");
@@ -572,6 +574,10 @@ static std::vector<unsigned char> XpubEntryCanonicalBytes(const std::pair<CExtPu
 
 void PartiallySignedTapyrusTransaction::Merge(const PartiallySignedTapyrusTransaction& other)
 {
+    if (inputs.size() != other.inputs.size() || outputs.size() != other.outputs.size()) {
+        throw std::invalid_argument("PSTT Merge() with mismatched input/output counts");
+    }
+
     for (unsigned int i = 0; i < inputs.size(); ++i) {
         inputs[i].Merge(other.inputs[i]);
     }
@@ -599,6 +605,13 @@ bool PartiallySignedTapyrusTransaction::IsSane() const
         if (input.utxo && input.prev_out_index_set && input.prev_out_index >= input.utxo->vout.size()) {
             return false;
         }
+        // Deliberately NOT checked here: input.utxo->GetHashMalFix() ==
+        // input.previous_txid. Per TIP-174's own fixtures (see
+        // test/functional/data/tip174_invalid.json, "utxo-txid-mismatch"),
+        // a PSTT_IN_UTXO/PSTT_IN_PREVIOUS_TXID mismatch is a Signer-role
+        // rule violation, not a structural/parse failure -- it must still
+        // decode successfully, and only SignPSTTInput() is required to
+        // reject it. See SignPSTTInput() for the actual enforcement.
     }
     for (const PSTTOutput& output : outputs) {
         if (!output.IsSane()) return false;
@@ -886,10 +899,7 @@ CMutableTransaction MaterializeTransaction(const PartiallySignedTapyrusTransacti
         if (force_zero_sequence) {
             txin.nSequence = 0;
         } else {
-            // Literal 0xFFFFFFFF, not CTxIn::SEQUENCE_FINAL: that's an in-class-initialized
-            // static const with no out-of-line definition, and boost::optional::value_or()
-            // binds its argument by reference, which ODR-uses it and fails to link.
-            txin.nSequence = input.sequence.value_or(0xFFFFFFFFu);
+            txin.nSequence = input.sequence.value_or(CTxIn::SEQUENCE_FINAL);
         }
         if (use_final_scriptsig) {
             txin.scriptSig = input.final_script_sig;
@@ -925,6 +935,7 @@ std::string PSTTSignResultToString(PSTTSignResult result)
         case PSTTSignResult::OK: return "OK";
         case PSTTSignResult::MISSING_UTXO: return "input has no PSTT_IN_UTXO";
         case PSTTSignResult::UTXO_TXID_MISMATCH: return "PSTT_IN_UTXO txid does not match PSTT_IN_PREVIOUS_TXID";
+        case PSTTSignResult::PREV_OUT_INDEX_OOB: return "PSTT_IN_OUTPUT_INDEX is out of range for PSTT_IN_UTXO";
         case PSTTSignResult::REDEEM_SCRIPT_HASH_MISMATCH: return "redeem script does not hash to the committed value";
         case PSTTSignResult::SIGHASH_CONFLICT: return "requested sighash type conflicts with PSTT_IN_SIGHASH_TYPE";
         case PSTTSignResult::SCHEME_CONFLICT: return "signature scheme conflicts with an existing signature on this input";
@@ -965,15 +976,17 @@ PSTTSignResult SignPSTTInput(const SigningProvider& provider, const PartiallySig
     if (!input.utxo) {
         return PSTTSignResult::MISSING_UTXO;
     }
-    // Must verify the UTXO's txid matches PSTT_IN_PREVIOUS_TXID. This is defense-in-depth:
-    // it's also enforced at Unserialize() time on the whole PSTT, but a Merge()'d PSTT could
-    // combine a PSTT_IN_UTXO from one party with a PSTT_IN_PREVIOUS_TXID from another that
-    // don't match, bypassing the parse-time check.
+    // Must verify the UTXO's txid matches PSTT_IN_PREVIOUS_TXID. Deliberately
+    // NOT checked at Unserialize()/IsSane() time -- per TIP-174's own fixtures
+    // (test/functional/data/tip174_invalid.json, "utxo-txid-mismatch"), this
+    // is a Signer-role rule violation, not a structural one: a PSTT carrying
+    // a mismatch must still decode successfully, and only signing it must
+    // fail. This is the sole point of enforcement.
     if (input.utxo->GetHashMalFix() != input.previous_txid) {
         return PSTTSignResult::UTXO_TXID_MISMATCH;
     }
     if (input.prev_out_index >= input.utxo->vout.size()) {
-        return PSTTSignResult::UTXO_TXID_MISMATCH;
+        return PSTTSignResult::PREV_OUT_INDEX_OOB;
     }
 
     const CTxOut& utxo_out = input.utxo->vout[input.prev_out_index];
@@ -991,7 +1004,7 @@ PSTTSignResult SignPSTTInput(const SigningProvider& provider, const PartiallySig
     }
 
     // Must use the sighash type in PSTT_IN_SIGHASH_TYPE if present.
-    if (input.sighash_type > 0 && input.sighash_type != sighash) {
+    if (input.sighash_type && *input.sighash_type != sighash) {
         return PSTTSignResult::SIGHASH_CONFLICT;
     }
 

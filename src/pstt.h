@@ -131,7 +131,7 @@ struct PSTTInput
     CScript   final_script_sig;       // PSTT_IN_FINAL_SCRIPTSIG
     std::map<CPubKey, std::vector<uint32_t>> hd_keypaths;   // PSTT_IN_BIP32_DERIVATION
     std::map<CKeyID, SigPair> partial_sigs;                 // PSTT_IN_PARTIAL_SIG
-    int sighash_type = 0;             // PSTT_IN_SIGHASH_TYPE
+    boost::optional<int32_t> sighash_type;            // PSTT_IN_SIGHASH_TYPE
     boost::optional<uint32_t> sequence;               // PSTT_IN_SEQUENCE; default 0xFFFFFFFF if absent
     boost::optional<uint32_t> required_time_locktime;    // >= 500000000
     boost::optional<uint32_t> required_height_locktime;  // >0 and <500000000
@@ -228,6 +228,7 @@ enum class PSTTSignResult
     OK,
     MISSING_UTXO,
     UTXO_TXID_MISMATCH,
+    PREV_OUT_INDEX_OOB,
     REDEEM_SCRIPT_HASH_MISMATCH,
     SIGHASH_CONFLICT,
     SCHEME_CONFLICT,
