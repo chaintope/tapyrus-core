@@ -10,9 +10,9 @@ This test uses 4GB of disk space.
 This test takes 90 mins or more (up to 4 hours)
 
 """
-from test_framework.timeout_config import TAPYRUSD_REORG_TIMEOUT, TAPYRUSD_SYNC_TIMEOUT
+from test_framework.timeout_config import TAPYRUSD_REORG_TIMEOUT, TAPYRUSD_SYNC_TIMEOUT, TAPYRUSD_MESSAGE_TIMEOUT
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, assert_greater_than, assert_raises_rpc_error, connect_nodes, sync_blocks, wait_until, NetworkDirName, hex_str_to_bytes
+from test_framework.util import assert_equal, assert_greater_than, assert_raises_rpc_error, connect_nodes, sync_blocks, sync_blocks_with_stall_detection, wait_until, NetworkDirName, hex_str_to_bytes, StallDetector, TransientProgressError
 from test_framework.script import MAX_SCRIPT_SIZE, CScript
 from test_framework.messages import ToHex, COIN
 from test_framework.blocktools import create_tx_with_large_script
@@ -65,6 +65,39 @@ def send_txs_for_large_block(node, utxos, script, size=1000000):
 
 def calc_usage(blockdir):
     return sum(os.path.getsize(blockdir+f) for f in os.listdir(blockdir) if os.path.isfile(os.path.join(blockdir, f))) / (1024. * 1024.)
+
+class PruneStallDetector(StallDetector):
+    """
+    Wait for filename to be pruned from blockdir, tracking progress via disk
+    usage (calc_usage) since the actual prune/flush work is tied to normal
+    block-connection processing rather than a fixed wall-clock budget.
+    """
+    def __init__(self, log, blockdir, filename, **kwargs):
+        super().__init__(**kwargs)
+        self.log = log
+        self.blockdir = blockdir
+        self.filename = filename
+        self.target_path = os.path.join(blockdir, filename)
+
+    def is_done(self):
+        return not os.path.isfile(self.target_path)
+
+    def progress(self):
+        try:
+            return calc_usage(self.blockdir)
+        except FileNotFoundError:
+            # calc_usage's listdir/isfile/getsize sequence isn't atomic; a
+            # block file can be unlinked mid-scan while pruning is actively
+            # running. Retry rather than treating a benign race as a stall.
+            raise TransientProgressError()
+
+    def on_stall(self, usage):
+        raise AssertionError(
+            "Pruning stalled: %s still present and usage unchanged (%d) for %ds" % (
+                self.filename, usage, self.stall_timeout))
+
+    def log_progress(self, usage):
+        self.log.info("wait_for_prune: usage=%d, %s still present" % (usage, self.filename))
 
 class PruneTest(BitcoinTestFramework):
     def set_test_params(self):
@@ -120,7 +153,23 @@ class PruneTest(BitcoinTestFramework):
             i += 1
         self.log.info("Final Usage is: %d height: %d" % (usage, height))
 
-    def test_height_min(self): 
+    def wait_for_prune(self, filename, stall_timeout=TAPYRUSD_REORG_TIMEOUT, progress_log_interval=TAPYRUSD_MESSAGE_TIMEOUT):
+        """
+        Wait until filename is pruned from self.prunedir, without a fixed overall deadline.
+
+        The actual prune/flush work is tied to normal block-connection processing
+        (rate-limited by cache size / prune target, not an independent long-cycle
+        background job), so this wait is expected to be a short safety margin past
+        the mining loop that triggered it -- but its duration isn't fully bounded,
+        so progress is tracked via calc_usage(self.prunedir) (the same disk-usage
+        figure this test already reports) rather than a fixed wall-clock budget.
+        Failure is declared only when usage stops changing for stall_timeout
+        seconds while filename still exists, not when some fixed timeout elapses.
+        """
+        PruneStallDetector(self.log, self.prunedir, filename, stall_timeout=stall_timeout,
+                            progress_log_interval=progress_log_interval).run()
+
+    def test_height_min(self):
         if not os.path.isfile(os.path.join(self.prunedir, "blk00000.dat")):
             raise AssertionError("blk00000.dat is missing, pruning too early")
         self.log.info("Success")
@@ -131,7 +180,7 @@ class PruneTest(BitcoinTestFramework):
             mine_large_block(self.nodes[0], self.signblockprivkey_wif)
 
         # Wait for blk00000.dat to be pruned
-        wait_until(lambda: not os.path.isfile(os.path.join(self.prunedir, "blk00000.dat")), timeout=TAPYRUSD_REORG_TIMEOUT)
+        self.wait_for_prune("blk00000.dat")
 
         self.log.info("Success")
         usage = calc_usage(self.prunedir)
@@ -374,10 +423,14 @@ class PruneTest(BitcoinTestFramework):
         self.log.info("Success")
 
         # check that wallet loads successfully when restarting a pruned node after IBD.
+        # Node 5 has been disconnected since setup_network() (see set_test_params()) and
+        # is only now doing initial block download of the whole chain built by this test,
+        # so a fixed sync timeout isn't appropriate here: use stall detection instead, which
+        # only fails if node 5's height stops advancing, not based on a fixed wall-clock budget.
         self.log.info("Syncing node 5 to test wallet")
         connect_nodes(self.nodes[0], 5)
         nds = [self.nodes[0], self.nodes[5]]
-        sync_blocks(nds, wait=5, timeout=TAPYRUSD_SYNC_TIMEOUT)
+        sync_blocks_with_stall_detection(nds, wait=5)
         self.stop_node(5) #stop and start to trigger rescan
         self.start_node(5, extra_args=["-prune=550"])
         self.log.info("Success")

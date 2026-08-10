@@ -26,14 +26,11 @@ from test_framework.blocktools import create_block, create_coinbase, createTestG
 from test_framework.key import CECKey
 from test_framework.schnorr import Schnorr
 from test_framework.mininode import P2PDataStore
-from test_framework.timeout_config import TAPYRUSD_MIN_TIMEOUT, TAPYRUSD_REORG_TIMEOUT
+from test_framework.timeout_config import TAPYRUSD_MIN_TIMEOUT, TAPYRUSD_REORG_TIMEOUT, TAPYRUSD_MESSAGE_TIMEOUT
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, bytes_to_hex_str, hex_str_to_bytes, NetworkDirName, connect_nodes, assert_raises_rpc_error, wait_until
+from test_framework.util import assert_equal, bytes_to_hex_str, hex_str_to_bytes, NetworkDirName, connect_nodes, assert_raises_rpc_error, wait_until, Node3SyncStallDetector
 from test_framework.script import CScript, OP_CHECKSIG, OP_TRUE, SignatureHash, SIGHASH_ALL, MAX_SCRIPT_SIZE
 from test_framework.messages import CTransaction, MAX_BLOCK_BASE_SIZE, CTxOut, CTxIn, COutPoint, uint256_from_str, ser_compact_size, msg_headers, CBlockHeader
-
-TAPYRUSD_SYNC_TIMEOUT = 1000
-TAPYRUSD_REORG_TIMEOUT = 1000
 
 MAX_BLOCK_SIGOPS = int((100000 - 1000) / 50)
 
@@ -601,16 +598,18 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         connect_nodes(self.nodes[1], 3)
 
         # Only connect node3 to node1 to avoid parallel downloads causing xfield transition races.
-        # Reconnect if the connection drops during the long sync.
-        def node3_synced():
-            if len(self.nodes[3].getpeerinfo()) == 0:
-                connect_nodes(self.nodes[1], 3)
-            return (
-                self.nodes[3].getblockcount() >= 51 and
-                self.nodes[3].getbestblockhash() == self.nodes[1].getbestblockhash()
-            )
+        # Reconnect if the connection drops during the sync. Progress is tracked via node3's
+        # block height rather than a fixed wall-clock budget -- a fixed timeout doesn't fit well
+        # here since a p2p drop-and-reconnect can add unpredictable delay; only fail if height
+        # genuinely stops advancing for stall_timeout seconds.
+        def wait_for_node3_sync(stall_timeout=TAPYRUSD_REORG_TIMEOUT, progress_log_interval=TAPYRUSD_MESSAGE_TIMEOUT):
+            Node3SyncStallDetector(
+                self.log, self.nodes[3], self.nodes[1],
+                lambda: connect_nodes(self.nodes[1], 3),
+                min_peers=1, min_height=51,
+                stall_timeout=stall_timeout, progress_log_interval=progress_log_interval).run()
 
-        wait_until(node3_synced, timeout=TAPYRUSD_REORG_TIMEOUT)
+        wait_for_node3_sync()
 
         self.log.info("Starting sync_all")
         self.sync_all([self.nodes[0:4]])

@@ -65,9 +65,9 @@ from test_framework.blocktools import create_block, create_coinbase,  createTest
 from test_framework.key import CECKey
 from test_framework.schnorr import Schnorr
 from test_framework.mininode import P2PDataStore
-from test_framework.timeout_config import TAPYRUSD_REORG_TIMEOUT, TAPYRUSD_MIN_TIMEOUT
+from test_framework.timeout_config import TAPYRUSD_REORG_TIMEOUT, TAPYRUSD_MIN_TIMEOUT, TAPYRUSD_MESSAGE_TIMEOUT
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, bytes_to_hex_str, assert_raises_rpc_error, NetworkDirName, hex_str_to_bytes, connect_nodes, wait_until
+from test_framework.util import assert_equal, bytes_to_hex_str, assert_raises_rpc_error, NetworkDirName, hex_str_to_bytes, connect_nodes, wait_until, Node3SyncStallDetector
 from test_framework.messages import CTransaction
 
 class FederationManagementTest(BitcoinTestFramework):
@@ -662,14 +662,18 @@ class FederationManagementTest(BitcoinTestFramework):
         self.start_node(3)
         connect_nodes(self.nodes[3], 0)
         connect_nodes(self.nodes[3], 1)
-        # Monitor peer connections and reconnect if dropped during sync
-        wait_until(lambda: (
-            len(self.nodes[3].getpeerinfo()) < 2 and
-            (connect_nodes(self.nodes[3], 0), connect_nodes(self.nodes[3], 1))[0] is None
-        ) or (
-            self.nodes[3].getblockcount() >= 51 and
-            self.nodes[3].getbestblockhash() == self.nodes[1].getbestblockhash()
-        ), timeout=TAPYRUSD_REORG_TIMEOUT)
+        # Reconnect to node0/node1 if dropped during sync. Progress is tracked via node3's
+        # block height rather than a fixed wall-clock budget -- a fixed timeout doesn't fit
+        # well here since a p2p drop-and-reconnect can add unpredictable delay; only fail if
+        # height genuinely stops advancing for stall_timeout seconds.
+        def wait_for_node3_sync(stall_timeout=TAPYRUSD_REORG_TIMEOUT, progress_log_interval=TAPYRUSD_MESSAGE_TIMEOUT):
+            Node3SyncStallDetector(
+                self.log, self.nodes[3], self.nodes[1],
+                lambda: (connect_nodes(self.nodes[3], 0), connect_nodes(self.nodes[3], 1)),
+                min_peers=2, min_height=51,
+                stall_timeout=stall_timeout, progress_log_interval=progress_log_interval).run()
+
+        wait_for_node3_sync()
         self.stop_node(3)
 
         self.start_node(3, ["-reloadxfield", "-loadblock=%s" % os.path.join(self.nodes[3].datadir, 'blk00000.dat')])
