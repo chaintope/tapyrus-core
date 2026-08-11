@@ -32,8 +32,22 @@ from .util import (
 )
 from .timeout_config import TAPYRUSD_PROC_TIMEOUT, TAPYRUSD_IMMEDIATE_TIMEOUT
 
-# For Python 3.4 compatibility
-JSONDecodeError = getattr(json, "JSONDecodeError", ValueError)
+def _parse_float_decimal(value):
+    """
+    parse_float for json.loads() that raises ValueError (like the rest of
+    json's scalar parsing) instead of decimal.InvalidOperation on a
+    malformed literal. json.loads's number scanner matches greedily on a
+    regex before checking whether the full input was consumed, so a bare,
+    unquoted non-JSON string (e.g. a txid tapyrus-cli prints without quotes)
+    can be misread as a number with a bogus, out-of-range exponent if it
+    contains a hex 'e' followed by a long digit run -- decimal.Decimal
+    rejects that with InvalidOperation, a non-ValueError exception that
+    would otherwise bypass json.loads's normal "invalid JSON" handling.
+    """
+    try:
+        return decimal.Decimal(value)
+    except decimal.InvalidOperation as e:
+        raise ValueError("invalid decimal literal: %r" % (value,)) from e
 
 class FailedToStartError(Exception):
     """Raised when a node fails to start correctly."""
@@ -447,13 +461,27 @@ class TestNodeCLI():
             match = re.match(r'error code: ([-0-9]+)\nerror message:\n(.*)', cli_stderr)
             if match:
                 code, message = match.groups()
+                self.log.debug("send_cli: command=%r args=%r kwargs=%r returned RPC error code=%s message=%r" % (
+                    command, args, kwargs, code, message))
                 raise JSONRPCException(dict(code=int(code), message=message))
             #if stop command could not be delivered its not an error.
             if command == 'stop' and re.match(r'error: Could not connect to the server\n(.*)', cli_stderr):
                 return 0
             # Ignore cli_stdout, raise with cli_stderr
+            self.log.error("send_cli: command=%r args=%r kwargs=%r exited with returncode=%d stderr=%r stdout=%r" % (
+                command, args, kwargs, returncode, cli_stderr, cli_stdout))
             raise subprocess.CalledProcessError(returncode, self.binary, output=cli_stderr)
         try:
-            return json.loads(cli_stdout, parse_float=decimal.Decimal)
-        except JSONDecodeError:
+            return json.loads(cli_stdout, parse_float=_parse_float_decimal)
+        except ValueError as e:
+            # Expected for any RPC that returns a plain (non-JSON) string --
+            # tapyrus-cli prints those unquoted (see CommandLineRPC in
+            # tapyrus-cli.cpp), so json.loads() always fails to parse them.
+            # Logged at debug level since this is the routine path for most
+            # string-returning RPCs, not a real failure; the raw output is
+            # included so a *genuine* malformed-response case is still
+            # diagnosable from the log instead of just silently passing
+            # through as text.
+            self.log.debug("send_cli: command=%r args=%r kwargs=%r: %s: %s; stdout=%r treated as plain string" % (
+                command, args, kwargs, type(e).__name__, e, cli_stdout))
             return cli_stdout.rstrip("\n")

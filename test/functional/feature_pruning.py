@@ -85,10 +85,13 @@ class PruneStallDetector(StallDetector):
     def progress(self):
         try:
             return calc_usage(self.blockdir)
-        except FileNotFoundError:
+        except OSError:
             # calc_usage's listdir/isfile/getsize sequence isn't atomic; a
-            # block file can be unlinked mid-scan while pruning is actively
-            # running. Retry rather than treating a benign race as a stall.
+            # block file can be unlinked (or briefly inaccessible) mid-scan
+            # while pruning is actively running. Retry rather than treating
+            # a benign race as a stall. Any exception other than OSError is
+            # not a known race and is left to propagate as an unexpected
+            # failure (see StallDetector.run()/describe_failure()).
             raise TransientProgressError()
 
     def on_stall(self, usage):
@@ -98,6 +101,14 @@ class PruneStallDetector(StallDetector):
 
     def log_progress(self, usage):
         self.log.info("wait_for_prune: usage=%d, %s still present" % (usage, self.filename))
+
+    def describe_failure(self):
+        try:
+            entries = sorted(os.listdir(self.blockdir))
+        except OSError as e:
+            entries = "<failed to list %s: %s>" % (self.blockdir, e)
+        return "blockdir=%s target=%s target_present=%s entries=%s" % (
+            self.blockdir, self.filename, os.path.isfile(self.target_path), entries)
 
 class PruneTest(BitcoinTestFramework):
     def set_test_params(self):
