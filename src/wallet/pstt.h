@@ -39,4 +39,12 @@ bool FillPSTT(const CWallet* pwallet, PartiallySignedTapyrusTransaction& pstt, i
 void ComputePsttColorBalances(const PartiallySignedTapyrusTransaction& pstt,
                                TxColoredCoinBalancesMap& in, TxColoredCoinBalancesMap& out);
 
+// Shared by FillPSBT (wallet/rpcwallet.cpp) and FillPSTT (this file): looks up
+// a key's HD derivation metadata in the wallet and, if found, records it.
+// Declared here rather than wallet/rpcwallet.h so wallet/pstt.cpp doesn't need
+// to include that header at all -- avoids a wallet/pstt <-> wallet/rpcwallet
+// circular include (rpcwallet.cpp already includes this header for FillPSTT,
+// so the declaration stays visible where the function is defined).
+void AddKeypathToMap(const CWallet* pwallet, const CKeyID& keyID, std::map<CPubKey, std::vector<uint32_t>>& hd_keypaths);
+
 #endif // TAPYRUS_WALLET_PSTT_H

@@ -7,7 +7,6 @@
 #include <coloridentifier.h>
 #include <rpc/protocol.h>
 #include <script/sign.h>
-#include <wallet/rpcwallet.h>
 #include <wallet/wallet.h>
 
 bool FillPSTT(const CWallet* pwallet, PartiallySignedTapyrusTransaction& pstt, int sighash_type, bool sign,
