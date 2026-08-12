@@ -4217,7 +4217,7 @@ UniValue walletsignpstt(const JSONRPCRequest& request)
         PSTTInput& input = pstt.inputs.at(i);
         if (!input.final_script_sig.empty()) continue; // already finalized
 
-        if (input.sighash_type > 0 && input.sighash_type != sighash) {
+        if (input.sighash_type && *input.sighash_type != sighash) {
             throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Specified Sighash and sighash in PSTT do not match.");
         }
 

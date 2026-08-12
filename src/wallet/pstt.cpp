@@ -33,7 +33,7 @@ bool FillPSTT(const CWallet* pwallet, PartiallySignedTapyrusTransaction& pstt, i
             }
         }
 
-        if (sign && input.sighash_type > 0 && input.sighash_type != sighash_type) {
+        if (sign && input.sighash_type && *input.sighash_type != sighash_type) {
             throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Specified Sighash and sighash in PSTT do not match.");
         }
 

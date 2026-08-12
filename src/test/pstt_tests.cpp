@@ -843,7 +843,7 @@ BOOST_AUTO_TEST_CASE(pstt_merge_picks_first_on_sighash_type_conflict)
     b.inputs[0].sighash_type = SIGHASH_NONE;
 
     BOOST_CHECK_NO_THROW(a.Merge(b));
-    BOOST_CHECK_EQUAL(a.inputs[0].sighash_type, SIGHASH_ALL);
+    BOOST_CHECK_EQUAL(*a.inputs[0].sighash_type, SIGHASH_ALL);
 }
 
 // -----------------------------------------------------------------------

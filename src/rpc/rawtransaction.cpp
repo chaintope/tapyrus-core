@@ -1711,8 +1711,8 @@ static void PsttInputToUniv(const PSTTInput& input, UniValue& in)
         in.pushKV("partial_signatures", partial_sigs);
     }
 
-    if (input.sighash_type > 0) {
-        in.pushKV("sighash", SighashToStr((unsigned char)input.sighash_type));
+    if (input.sighash_type) {
+        in.pushKV("sighash", SighashToStr((unsigned char)*input.sighash_type));
     }
 
     if (!input.redeem_script.empty()) {
@@ -1967,7 +1967,7 @@ UniValue combinepstt(const JSONRPCRequest& request)
 // derivation.
 static int FinalizeSighashFor(const PSTTInput& input)
 {
-    return input.sighash_type > 0 ? input.sighash_type : SIGHASH_ALL;
+    return input.sighash_type ? *input.sighash_type : SIGHASH_ALL;
 }
 
 static SignatureScheme FinalizeSigSchemeFor(const PSTTInput& input)
@@ -2041,7 +2041,7 @@ UniValue finalizepstt(const JSONRPCRequest& request)
         // Finalizer field policy: keep required fields, PSTT_IN_UTXO and
         // unknowns; strip everything only useful during signing.
         input.partial_sigs.clear();
-        input.sighash_type = 0;
+        input.sighash_type = boost::none;
         input.redeem_script.clear();
         input.hd_keypaths.clear();
         input.ripemd160_preimages.clear();
