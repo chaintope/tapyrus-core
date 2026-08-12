@@ -1588,4 +1588,367 @@ BOOST_AUTO_TEST_CASE(pstt_sign_scheme_conflict)
     BOOST_CHECK(result == PSTTSignResult::SCHEME_CONFLICT);
 }
 
+// -----------------------------------------------------------------------
+// Phase 4: Creator (createpstt/converttopstt) and Constructor
+// (addinputtopstt/addoutputtopstt/addinputoutputpairtopstt/
+// finalizepsttconstruction) RPCs, via the real registered actors (tableRPC).
+// -----------------------------------------------------------------------
+
+static std::string EncodeHexTxForTest(const CMutableTransaction& mtx)
+{
+    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+    ss << mtx;
+    return HexStr(ss.begin(), ss.end());
+}
+
+static UniValue MakeCreatepsttInputEntry(const uint256& txid, uint32_t vout)
+{
+    UniValue input(UniValue::VOBJ);
+    input.pushKV("txid", txid.GetHex());
+    input.pushKV("vout", (uint64_t)vout);
+    return input;
+}
+
+// {"address": amount} shape shared by createpstt's outputs array and
+// addoutputtopstt/addinputoutputpairtopstt's single-output-entry param.
+static UniValue MakeAddressOutputEntry(const CScript& script, CAmount amount)
+{
+    CTxDestination destination;
+    BOOST_REQUIRE(ExtractDestination(script, destination));
+    UniValue out(UniValue::VOBJ);
+    out.pushKV(EncodeDestination(destination), ValueFromAmount(amount));
+    return out;
+}
+
+BOOST_AUTO_TEST_CASE(pstt_rpc_createpstt_basic_roundtrip)
+{
+    CTransactionRef utxo = MakeSimpleUtxoTx(RandomP2PKHScript(), 100000);
+    CScript destScript = RandomP2PKHScript();
+
+    UniValue inputs(UniValue::VARR);
+    inputs.push_back(MakeCreatepsttInputEntry(utxo->GetHashMalFix(), 0));
+    UniValue outputs(UniValue::VARR);
+    outputs.push_back(MakeAddressOutputEntry(destScript, 90000));
+
+    UniValue params(UniValue::VARR);
+    params.push_back(inputs);
+    params.push_back(outputs);
+    UniValue created = CallPsttRPC("createpstt", params);
+    BOOST_REQUIRE(created.isStr());
+
+    PartiallySignedTapyrusTransaction pstt;
+    std::string error;
+    BOOST_REQUIRE(DecodePSTT(pstt, created.get_str(), error));
+    BOOST_CHECK_EQUAL(*pstt.tx_features, CTransaction::CURRENT_FEATURES);
+    BOOST_REQUIRE_EQUAL(pstt.inputs.size(), 1U);
+    BOOST_CHECK(pstt.inputs[0].previous_txid == utxo->GetHashMalFix());
+    BOOST_CHECK_EQUAL(pstt.inputs[0].prev_out_index, 0U);
+    BOOST_REQUIRE_EQUAL(pstt.outputs.size(), 1U);
+    BOOST_CHECK_EQUAL(*pstt.outputs[0].amount, 90000);
+    // No flags requested -- default createpstt leaves tx_modifiable absent
+    // ("absent means not modifiable" per doc/tapyrus/pstt.md).
+    BOOST_CHECK(!pstt.tx_modifiable);
+}
+
+BOOST_AUTO_TEST_CASE(pstt_rpc_createpstt_sets_modifiable_flags)
+{
+    UniValue params(UniValue::VARR);
+    params.push_back(UniValue(UniValue::VARR));  // no inputs
+    params.push_back(UniValue(UniValue::VARR));  // no outputs
+    params.push_back(UniValue((uint64_t)0));     // fallback_locktime
+    params.push_back(UniValue(true));            // inputs_modifiable
+    params.push_back(UniValue(true));            // outputs_modifiable
+    params.push_back(UniValue(true));            // has_sighash_single
+    UniValue created = CallPsttRPC("createpstt", params);
+
+    PartiallySignedTapyrusTransaction pstt;
+    std::string error;
+    BOOST_REQUIRE(DecodePSTT(pstt, created.get_str(), error));
+    BOOST_REQUIRE(pstt.tx_modifiable);
+    BOOST_CHECK(*pstt.tx_modifiable & PSTT_TXMOD_INPUTS_MODIFIABLE);
+    BOOST_CHECK(*pstt.tx_modifiable & PSTT_TXMOD_OUTPUTS_MODIFIABLE);
+    BOOST_CHECK(*pstt.tx_modifiable & PSTT_TXMOD_HAS_SIGHASH_SINGLE);
+    BOOST_CHECK(pstt.inputs.empty());
+    BOOST_CHECK(pstt.outputs.empty());
+}
+
+BOOST_AUTO_TEST_CASE(pstt_rpc_converttopstt_basic)
+{
+    CTransactionRef utxo = MakeSimpleUtxoTx(RandomP2PKHScript(), 100000);
+    CMutableTransaction mtx;
+    mtx.nFeatures = CTransaction::CURRENT_FEATURES;
+    mtx.vin.emplace_back(COutPoint(utxo->GetHashMalFix(), 0));
+    mtx.vout.emplace_back(90000, RandomP2PKHScript());
+
+    UniValue params(UniValue::VARR);
+    params.push_back(EncodeHexTxForTest(mtx));
+    UniValue converted = CallPsttRPC("converttopstt", params);
+    BOOST_REQUIRE(converted.isStr());
+
+    PartiallySignedTapyrusTransaction pstt;
+    std::string error;
+    BOOST_REQUIRE(DecodePSTT(pstt, converted.get_str(), error));
+    BOOST_REQUIRE_EQUAL(pstt.inputs.size(), 1U);
+    BOOST_CHECK(pstt.inputs[0].previous_txid == utxo->GetHashMalFix());
+    BOOST_REQUIRE_EQUAL(pstt.outputs.size(), 1U);
+    BOOST_CHECK_EQUAL(*pstt.outputs[0].amount, 90000);
+}
+
+BOOST_AUTO_TEST_CASE(pstt_rpc_converttopstt_rejects_scriptsig_without_permit)
+{
+    CTransactionRef utxo = MakeSimpleUtxoTx(RandomP2PKHScript(), 100000);
+    CMutableTransaction mtx;
+    mtx.nFeatures = CTransaction::CURRENT_FEATURES;
+    CTxIn signedIn(COutPoint(utxo->GetHashMalFix(), 0));
+    signedIn.scriptSig = CScript() << OP_TRUE; // pretend-signed input
+    mtx.vin.push_back(signedIn);
+    mtx.vout.emplace_back(90000, RandomP2PKHScript());
+
+    UniValue params(UniValue::VARR);
+    params.push_back(EncodeHexTxForTest(mtx));
+    BOOST_CHECK_THROW(CallPsttRPC("converttopstt", params), UniValue);
+
+    // permitsigdata=true -- succeeds, scriptSig discarded.
+    UniValue paramsPermitted(UniValue::VARR);
+    paramsPermitted.push_back(EncodeHexTxForTest(mtx));
+    paramsPermitted.push_back(UniValue(true));
+    UniValue converted = CallPsttRPC("converttopstt", paramsPermitted);
+    BOOST_REQUIRE(converted.isStr());
+}
+
+BOOST_AUTO_TEST_CASE(pstt_rpc_addinputtopstt_requires_modifiable)
+{
+    UniValue createParams(UniValue::VARR);
+    createParams.push_back(UniValue(UniValue::VARR));
+    createParams.push_back(UniValue(UniValue::VARR));
+    UniValue created = CallPsttRPC("createpstt", createParams); // inputs_modifiable defaults false
+
+    CTransactionRef utxo = MakeSimpleUtxoTx(RandomP2PKHScript(), 100000);
+    UniValue addParams(UniValue::VARR);
+    addParams.push_back(created.get_str());
+    addParams.push_back(utxo->GetHashMalFix().GetHex());
+    addParams.push_back(UniValue((uint64_t)0));
+    BOOST_CHECK_THROW(CallPsttRPC("addinputtopstt", addParams), UniValue);
+}
+
+BOOST_AUTO_TEST_CASE(pstt_rpc_addinputtopstt_appends_and_increments)
+{
+    UniValue createParams(UniValue::VARR);
+    createParams.push_back(UniValue(UniValue::VARR));
+    createParams.push_back(UniValue(UniValue::VARR));
+    createParams.push_back(UniValue((uint64_t)0));
+    createParams.push_back(UniValue(true)); // inputs_modifiable
+    UniValue created = CallPsttRPC("createpstt", createParams);
+
+    CTransactionRef utxo = MakeSimpleUtxoTx(RandomP2PKHScript(), 100000);
+    UniValue addParams(UniValue::VARR);
+    addParams.push_back(created.get_str());
+    addParams.push_back(utxo->GetHashMalFix().GetHex());
+    addParams.push_back(UniValue((uint64_t)0));
+    addParams.push_back(UniValue((uint64_t)0xFFFFFFFEu)); // explicit sequence
+    UniValue added = CallPsttRPC("addinputtopstt", addParams);
+
+    PartiallySignedTapyrusTransaction pstt;
+    std::string error;
+    BOOST_REQUIRE(DecodePSTT(pstt, added.get_str(), error));
+    BOOST_REQUIRE_EQUAL(pstt.inputs.size(), 1U);
+    BOOST_CHECK(pstt.inputs[0].previous_txid == utxo->GetHashMalFix());
+    BOOST_CHECK_EQUAL(pstt.inputs[0].prev_out_index, 0U);
+    BOOST_REQUIRE(pstt.inputs[0].sequence);
+    BOOST_CHECK_EQUAL(*pstt.inputs[0].sequence, 0xFFFFFFFEu);
+}
+
+BOOST_AUTO_TEST_CASE(pstt_rpc_addoutputtopstt_requires_modifiable)
+{
+    UniValue createParams(UniValue::VARR);
+    createParams.push_back(UniValue(UniValue::VARR));
+    createParams.push_back(UniValue(UniValue::VARR));
+    UniValue created = CallPsttRPC("createpstt", createParams); // outputs_modifiable defaults false
+
+    UniValue addParams(UniValue::VARR);
+    addParams.push_back(created.get_str());
+    addParams.push_back(MakeAddressOutputEntry(RandomP2PKHScript(), 90000));
+    BOOST_CHECK_THROW(CallPsttRPC("addoutputtopstt", addParams), UniValue);
+}
+
+BOOST_AUTO_TEST_CASE(pstt_rpc_addoutputtopstt_appends_and_increments)
+{
+    UniValue createParams(UniValue::VARR);
+    createParams.push_back(UniValue(UniValue::VARR));
+    createParams.push_back(UniValue(UniValue::VARR));
+    createParams.push_back(UniValue((uint64_t)0));
+    createParams.push_back(UniValue(false));
+    createParams.push_back(UniValue(true)); // outputs_modifiable
+    UniValue created = CallPsttRPC("createpstt", createParams);
+
+    UniValue addParams(UniValue::VARR);
+    addParams.push_back(created.get_str());
+    addParams.push_back(MakeAddressOutputEntry(RandomP2PKHScript(), 90000));
+    UniValue added = CallPsttRPC("addoutputtopstt", addParams);
+
+    PartiallySignedTapyrusTransaction pstt;
+    std::string error;
+    BOOST_REQUIRE(DecodePSTT(pstt, added.get_str(), error));
+    BOOST_REQUIRE_EQUAL(pstt.outputs.size(), 1U);
+    BOOST_CHECK_EQUAL(*pstt.outputs[0].amount, 90000);
+}
+
+BOOST_AUTO_TEST_CASE(pstt_rpc_add_individually_refused_when_has_sighash_single)
+{
+    UniValue createParams(UniValue::VARR);
+    createParams.push_back(UniValue(UniValue::VARR));
+    createParams.push_back(UniValue(UniValue::VARR));
+    createParams.push_back(UniValue((uint64_t)0));
+    createParams.push_back(UniValue(true)); // inputs_modifiable
+    createParams.push_back(UniValue(true)); // outputs_modifiable
+    createParams.push_back(UniValue(true)); // has_sighash_single
+    UniValue created = CallPsttRPC("createpstt", createParams);
+
+    CTransactionRef utxo = MakeSimpleUtxoTx(RandomP2PKHScript(), 100000);
+    UniValue addInputParams(UniValue::VARR);
+    addInputParams.push_back(created.get_str());
+    addInputParams.push_back(utxo->GetHashMalFix().GetHex());
+    addInputParams.push_back(UniValue((uint64_t)0));
+    BOOST_CHECK_THROW(CallPsttRPC("addinputtopstt", addInputParams), UniValue);
+
+    UniValue addOutputParams(UniValue::VARR);
+    addOutputParams.push_back(created.get_str());
+    addOutputParams.push_back(MakeAddressOutputEntry(RandomP2PKHScript(), 90000));
+    BOOST_CHECK_THROW(CallPsttRPC("addoutputtopstt", addOutputParams), UniValue);
+}
+
+BOOST_AUTO_TEST_CASE(pstt_rpc_addinputoutputpairtopstt_atomic_add)
+{
+    UniValue createParams(UniValue::VARR);
+    createParams.push_back(UniValue(UniValue::VARR));
+    createParams.push_back(UniValue(UniValue::VARR));
+    createParams.push_back(UniValue((uint64_t)0));
+    createParams.push_back(UniValue(true)); // inputs_modifiable
+    createParams.push_back(UniValue(true)); // outputs_modifiable
+    createParams.push_back(UniValue(true)); // has_sighash_single
+    UniValue created = CallPsttRPC("createpstt", createParams);
+
+    CTransactionRef utxo = MakeSimpleUtxoTx(RandomP2PKHScript(), 100000);
+    UniValue pairParams(UniValue::VARR);
+    pairParams.push_back(created.get_str());
+    pairParams.push_back(utxo->GetHashMalFix().GetHex());
+    pairParams.push_back(UniValue((uint64_t)0));
+    pairParams.push_back(MakeAddressOutputEntry(RandomP2PKHScript(), 90000));
+    UniValue paired = CallPsttRPC("addinputoutputpairtopstt", pairParams);
+
+    PartiallySignedTapyrusTransaction pstt;
+    std::string error;
+    BOOST_REQUIRE(DecodePSTT(pstt, paired.get_str(), error));
+    BOOST_REQUIRE_EQUAL(pstt.inputs.size(), 1U);
+    BOOST_CHECK(pstt.inputs[0].previous_txid == utxo->GetHashMalFix());
+    BOOST_REQUIRE_EQUAL(pstt.outputs.size(), 1U);
+    BOOST_CHECK_EQUAL(*pstt.outputs[0].amount, 90000);
+}
+
+BOOST_AUTO_TEST_CASE(pstt_rpc_finalizepsttconstruction_clears_both_by_default)
+{
+    UniValue createParams(UniValue::VARR);
+    createParams.push_back(UniValue(UniValue::VARR));
+    createParams.push_back(UniValue(UniValue::VARR));
+    createParams.push_back(UniValue((uint64_t)0));
+    createParams.push_back(UniValue(true)); // inputs_modifiable
+    createParams.push_back(UniValue(true)); // outputs_modifiable
+    createParams.push_back(UniValue(true)); // has_sighash_single (unaffected by finalizepsttconstruction)
+    UniValue created = CallPsttRPC("createpstt", createParams);
+
+    UniValue finalizeParams(UniValue::VARR);
+    finalizeParams.push_back(created.get_str());
+    UniValue finalized = CallPsttRPC("finalizepsttconstruction", finalizeParams);
+
+    PartiallySignedTapyrusTransaction pstt;
+    std::string error;
+    BOOST_REQUIRE(DecodePSTT(pstt, finalized.get_str(), error));
+    BOOST_REQUIRE(pstt.tx_modifiable);
+    BOOST_CHECK(!(*pstt.tx_modifiable & PSTT_TXMOD_INPUTS_MODIFIABLE));
+    BOOST_CHECK(!(*pstt.tx_modifiable & PSTT_TXMOD_OUTPUTS_MODIFIABLE));
+    BOOST_CHECK(*pstt.tx_modifiable & PSTT_TXMOD_HAS_SIGHASH_SINGLE);
+}
+
+BOOST_AUTO_TEST_CASE(pstt_rpc_finalizepsttconstruction_partial_clear)
+{
+    UniValue createParams(UniValue::VARR);
+    createParams.push_back(UniValue(UniValue::VARR));
+    createParams.push_back(UniValue(UniValue::VARR));
+    createParams.push_back(UniValue((uint64_t)0));
+    createParams.push_back(UniValue(true)); // inputs_modifiable
+    createParams.push_back(UniValue(true)); // outputs_modifiable
+    UniValue created = CallPsttRPC("createpstt", createParams);
+
+    UniValue finalizeParams(UniValue::VARR);
+    finalizeParams.push_back(created.get_str());
+    finalizeParams.push_back(UniValue(true));  // clear_inputs_modifiable
+    finalizeParams.push_back(UniValue(false)); // keep outputs_modifiable
+    UniValue finalized = CallPsttRPC("finalizepsttconstruction", finalizeParams);
+
+    PartiallySignedTapyrusTransaction pstt;
+    std::string error;
+    BOOST_REQUIRE(DecodePSTT(pstt, finalized.get_str(), error));
+    BOOST_REQUIRE(pstt.tx_modifiable);
+    BOOST_CHECK(!(*pstt.tx_modifiable & PSTT_TXMOD_INPUTS_MODIFIABLE));
+    BOOST_CHECK(*pstt.tx_modifiable & PSTT_TXMOD_OUTPUTS_MODIFIABLE);
+}
+
+BOOST_AUTO_TEST_CASE(pstt_rpc_multi_round_trip_construction)
+{
+    // Simulates several parties incrementally building one PSTT: an initial
+    // empty Creator call, then alternating input/output Constructor calls,
+    // then a finishing finalizepsttconstruction -- the shape the Fee
+    // Provider workflow (doc/tapyrus/pstt.md) needs.
+    UniValue createParams(UniValue::VARR);
+    createParams.push_back(UniValue(UniValue::VARR));
+    createParams.push_back(UniValue(UniValue::VARR));
+    createParams.push_back(UniValue((uint64_t)0));
+    createParams.push_back(UniValue(true)); // inputs_modifiable
+    createParams.push_back(UniValue(true)); // outputs_modifiable
+    UniValue pstt_b64 = CallPsttRPC("createpstt", createParams);
+
+    CTransactionRef utxo1 = MakeSimpleUtxoTx(RandomP2PKHScript(), 100000);
+    UniValue addInput1(UniValue::VARR);
+    addInput1.push_back(pstt_b64.get_str());
+    addInput1.push_back(utxo1->GetHashMalFix().GetHex());
+    addInput1.push_back(UniValue((uint64_t)0));
+    pstt_b64 = CallPsttRPC("addinputtopstt", addInput1);
+
+    UniValue addOutput1(UniValue::VARR);
+    addOutput1.push_back(pstt_b64.get_str());
+    addOutput1.push_back(MakeAddressOutputEntry(RandomP2PKHScript(), 40000));
+    pstt_b64 = CallPsttRPC("addoutputtopstt", addOutput1);
+
+    CTransactionRef utxo2 = MakeSimpleUtxoTx(RandomP2PKHScript(), 50000);
+    UniValue addInput2(UniValue::VARR);
+    addInput2.push_back(pstt_b64.get_str());
+    addInput2.push_back(utxo2->GetHashMalFix().GetHex());
+    addInput2.push_back(UniValue((uint64_t)0));
+    pstt_b64 = CallPsttRPC("addinputtopstt", addInput2);
+
+    UniValue finalizeParams(UniValue::VARR);
+    finalizeParams.push_back(pstt_b64.get_str());
+    UniValue finalized = CallPsttRPC("finalizepsttconstruction", finalizeParams);
+
+    PartiallySignedTapyrusTransaction pstt;
+    std::string error;
+    BOOST_REQUIRE(DecodePSTT(pstt, finalized.get_str(), error));
+    BOOST_REQUIRE_EQUAL(pstt.inputs.size(), 2U);
+    BOOST_REQUIRE_EQUAL(pstt.outputs.size(), 1U);
+    BOOST_CHECK(pstt.inputs[0].previous_txid == utxo1->GetHashMalFix());
+    BOOST_CHECK(pstt.inputs[1].previous_txid == utxo2->GetHashMalFix());
+    BOOST_CHECK_EQUAL(*pstt.outputs[0].amount, 40000);
+    BOOST_REQUIRE(pstt.tx_modifiable);
+    BOOST_CHECK(!(*pstt.tx_modifiable & PSTT_TXMOD_INPUTS_MODIFIABLE));
+    BOOST_CHECK(!(*pstt.tx_modifiable & PSTT_TXMOD_OUTPUTS_MODIFIABLE));
+
+    // Further Constructor calls are refused now that construction is finished.
+    CTransactionRef utxo3 = MakeSimpleUtxoTx(RandomP2PKHScript(), 20000);
+    UniValue addInput3(UniValue::VARR);
+    addInput3.push_back(finalized.get_str());
+    addInput3.push_back(utxo3->GetHashMalFix().GetHex());
+    addInput3.push_back(UniValue((uint64_t)0));
+    BOOST_CHECK_THROW(CallPsttRPC("addinputtopstt", addInput3), UniValue);
+}
+
 BOOST_AUTO_TEST_SUITE_END()
