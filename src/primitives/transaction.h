@@ -70,21 +70,21 @@ public:
 
     /* Setting nSequence to this value for every input in a transaction
      * disables nLockTime. */
-    static const uint32_t SEQUENCE_FINAL = 0xffffffff;
+    static constexpr uint32_t SEQUENCE_FINAL = 0xffffffff;
 
     /* Below flags apply in the context of BIP 68*/
     /* If this flag set, CTxIn::nSequence is NOT interpreted as a
      * relative lock-time. */
-    static const uint32_t SEQUENCE_LOCKTIME_DISABLE_FLAG = (1 << 31);
+    static constexpr uint32_t SEQUENCE_LOCKTIME_DISABLE_FLAG = (1 << 31);
 
     /* If CTxIn::nSequence encodes a relative lock-time and this flag
      * is set, the relative lock-time has units of 512 seconds,
      * otherwise it specifies blocks with a granularity of 1. */
-    static const uint32_t SEQUENCE_LOCKTIME_TYPE_FLAG = (1 << 22);
+    static constexpr uint32_t SEQUENCE_LOCKTIME_TYPE_FLAG = (1 << 22);
 
     /* If CTxIn::nSequence encodes a relative lock-time, this mask is
      * applied to extract that lock-time from the sequence field. */
-    static const uint32_t SEQUENCE_LOCKTIME_MASK = 0x0000ffff;
+    static constexpr uint32_t SEQUENCE_LOCKTIME_MASK = 0x0000ffff;
 
     /* In order to use the same number of bits to encode roughly the
      * same wall-clock duration, and because blocks are naturally
@@ -93,7 +93,7 @@ public:
      * Converting from CTxIn::nSequence to seconds is performed by
      * multiplying by 512 = 2^9, or equivalently shifting up by
      * 9 bits. */
-    static const int SEQUENCE_LOCKTIME_GRANULARITY = 9;
+    static constexpr int SEQUENCE_LOCKTIME_GRANULARITY = 9;
 
     CTxIn()
     {
@@ -216,14 +216,23 @@ class CTransaction
 {
 public:
     // Default transaction features.
-    static const int32_t CURRENT_FEATURES=1;
+    //
+    // constexpr (not plain "static const"): a plain in-class-initialized
+    // static const member has no out-of-line definition anywhere in this
+    // codebase, so any use that binds a reference to it (e.g. assigning
+    // into a boost::optional<int32_t>, or passing it to
+    // boost::optional::value_or()) is an ODR-use requiring a linker symbol
+    // that doesn't exist. GCC/Linux enforces this strictly and fails to
+    // link; Apple's clang/ld64 happens to tolerate it. constexpr is
+    // implicitly inline in C++17/20, which resolves this on every platform.
+    static constexpr int32_t CURRENT_FEATURES=1;
 
     // Changing the default transaction version requires a two step process: first
     // adapting relay policy by bumping MAX_STANDARD_FEATURES, and then later date
     // bumping the default CURRENT_FEATURES at which point both CURRENT_FEATURES
     // and MAX_STANDARD_FEATURES will be equal.
     // Tapyrus: renaming MAX_STANDARD_VERSION to MAX_STANDARD_FEATURES.
-    static const int32_t MAX_STANDARD_FEATURES=1;
+    static constexpr int32_t MAX_STANDARD_FEATURES=1;
 
     // The local variables are made const to prevent unintended modification
     // without updating the cached hash value. However, CTransaction is not

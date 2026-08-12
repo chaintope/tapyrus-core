@@ -1,0 +1,462 @@
+[
+  {
+    "id": "p2pkh-ecdsa",
+    "description": "Single P2PKH input signed with ECDSA (SIGHASH_ALL). Pays 60000 tapy to key 1, 39000 tapy change to key 2, fee 1000 tapy. Keys derive from SHA256(\"TIP-174 test vectors\") at m/44'/2377'/0'/0/i on the dev network. From the updated stage onward, the global map also carries a PSTT_GLOBAL_XPUB record for the account-level key (m/44'/2377'/0'), matching the derivation paths in the BIP32_DERIVATION records.",
+    "intermediates": [
+      {
+        "input": 0,
+        "pubkey": "02dfe6590eb9dc562d87272fe1248f63e9ed2ce3eb2879fcef30ae3e92720b2cc9",
+        "sighash_type": 1,
+        "script_code": "76a91414c25d2c5eb7248a3841f74d74efe3b4063b383f88ac",
+        "sighash": "59c74c5dd65e2d98d723df091aca2cc253b3c90f8286d83977ce25a457b505a3",
+        "signature": "30450221009c120b0cae2c886085c8b13bcde12137fd799db34a4dfc566389b9a264cd8e4a02201236e69f58915e61b842b665e24215a81743ed1a6530065f03f1ed8c67eb517e01"
+      }
+    ],
+    "stages": [
+      {
+        "name": "created",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQIAAQ4geCTV5dcUOipMfUFAlCGn4hY8MWRwPqiSbffTGnvs0dQBDwQAAAAAAAEDCGDqAAAAAAAAAQQZdqkUVxopLcEbtHFwMPBNVkWsQvKuYN+IrAABAwhYmAAAAAAAAAEEGXapFOVxZknojyIueLwhSn+ibr05gJzRiKwA",
+        "identification_txid": "95a96f3323e3e84152d2c67c2303a6e4fa4f6ad7a8506d118f5ae0cddc12f6d7"
+      },
+      {
+        "name": "updated",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQJPAQQ1h88D30yFpYAAAADhUDs3mDmTEa5u9RuYwYJm2crUdVwT8grGLRVRPUhrIQJm6CZUg1hZuZFr6NZ7yiMNp5XLXUnAPvZC39ghvDurQhDwVlWsLAAAgEkJAIAAAACAAAEOIHgk1eXXFDoqTH1BQJQhp+IWPDFkcD6okm330xp77NHUAQ8EAAAAAAEAVQEAAAABqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqoAAAAAAP////8BoIYBAAAAAAAZdqkUFMJdLF63JIo4QfdNdO/jtAY7OD+IrAAAAAABAwQBAAAAIgYC3+ZZDrncVi2HJy/hJI9j6e0s4+soefzvMK4+knILLMkY8FZVrCwAAIBJCQCAAAAAgAAAAAAAAAAAAAEDCGDqAAAAAAAAAQQZdqkUVxopLcEbtHFwMPBNVkWsQvKuYN+IrAABAwhYmAAAAAAAAAEEGXapFOVxZknojyIueLwhSn+ibr05gJzRiKwiAgNNq7UuzikWjCm6FglCOBMaqDJNLbFsU/0RUJBP8g9i+RjwVlWsLAAAgEkJAIAAAACAAAAAAAIAAAAA",
+        "identification_txid": "95a96f3323e3e84152d2c67c2303a6e4fa4f6ad7a8506d118f5ae0cddc12f6d7"
+      },
+      {
+        "name": "signed",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQJPAQQ1h88D30yFpYAAAADhUDs3mDmTEa5u9RuYwYJm2crUdVwT8grGLRVRPUhrIQJm6CZUg1hZuZFr6NZ7yiMNp5XLXUnAPvZC39ghvDurQhDwVlWsLAAAgEkJAIAAAACAAAEOIHgk1eXXFDoqTH1BQJQhp+IWPDFkcD6okm330xp77NHUAQ8EAAAAAAEAVQEAAAABqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqoAAAAAAP////8BoIYBAAAAAAAZdqkUFMJdLF63JIo4QfdNdO/jtAY7OD+IrAAAAAABAwQBAAAAIgYC3+ZZDrncVi2HJy/hJI9j6e0s4+soefzvMK4+knILLMkY8FZVrCwAAIBJCQCAAAAAgAAAAAAAAAAAIgIC3+ZZDrncVi2HJy/hJI9j6e0s4+soefzvMK4+knILLMlIMEUCIQCcEgsMriyIYIXIsTvN4SE3/Xmds0pN/FZjibmiZM2OSgIgEjbmn1iRXmG4QrZl4kIVqBdD7RplMAZfA/HtjGfrUX4BAAEDCGDqAAAAAAAAAQQZdqkUVxopLcEbtHFwMPBNVkWsQvKuYN+IrAABAwhYmAAAAAAAAAEEGXapFOVxZknojyIueLwhSn+ibr05gJzRiKwiAgNNq7UuzikWjCm6FglCOBMaqDJNLbFsU/0RUJBP8g9i+RjwVlWsLAAAgEkJAIAAAACAAAAAAAIAAAAA",
+        "identification_txid": "95a96f3323e3e84152d2c67c2303a6e4fa4f6ad7a8506d118f5ae0cddc12f6d7"
+      },
+      {
+        "name": "finalized",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQJPAQQ1h88D30yFpYAAAADhUDs3mDmTEa5u9RuYwYJm2crUdVwT8grGLRVRPUhrIQJm6CZUg1hZuZFr6NZ7yiMNp5XLXUnAPvZC39ghvDurQhDwVlWsLAAAgEkJAIAAAACAAAEOIHgk1eXXFDoqTH1BQJQhp+IWPDFkcD6okm330xp77NHUAQ8EAAAAAAEAVQEAAAABqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqoAAAAAAP////8BoIYBAAAAAAAZdqkUFMJdLF63JIo4QfdNdO/jtAY7OD+IrAAAAAABB2tIMEUCIQCcEgsMriyIYIXIsTvN4SE3/Xmds0pN/FZjibmiZM2OSgIgEjbmn1iRXmG4QrZl4kIVqBdD7RplMAZfA/HtjGfrUX4BIQLf5lkOudxWLYcnL+Ekj2Pp7Szj6yh5/O8wrj6ScgssyQABAwhg6gAAAAAAAAEEGXapFFcaKS3BG7RxcDDwTVZFrELyrmDfiKwAAQMIWJgAAAAAAAABBBl2qRTlcWZJ6I8iLni8IUp/om69OYCc0YisIgIDTau1Ls4pFowpuhYJQjgTGqgyTS2xbFP9EVCQT/IPYvkY8FZVrCwAAIBJCQCAAAAAgAAAAAACAAAAAA==",
+        "identification_txid": "95a96f3323e3e84152d2c67c2303a6e4fa4f6ad7a8506d118f5ae0cddc12f6d7"
+      }
+    ],
+    "extracted_tx": "01000000017824d5e5d7143a2a4c7d41409421a7e2163c3164703ea8926df7d31a7becd1d4000000006b4830450221009c120b0cae2c886085c8b13bcde12137fd799db34a4dfc566389b9a264cd8e4a02201236e69f58915e61b842b665e24215a81743ed1a6530065f03f1ed8c67eb517e012102dfe6590eb9dc562d87272fe1248f63e9ed2ce3eb2879fcef30ae3e92720b2cc9ffffffff0260ea0000000000001976a914571a292dc11bb4717030f04d5645ac42f2ae60df88ac58980000000000001976a914e5716649e88f222e78bc214a7fa26ebd39809cd188ac00000000",
+    "final_txid": "6c733ca3e9d0dd72947382cfe78554ae8768963ff71fa78631a8fe65d2085f35"
+  },
+  {
+    "id": "p2pkh-schnorr",
+    "description": "Single P2PKH input signed with the Tapyrus Schnorr scheme (65-byte signature, SIGHASH_ALL). Pays 55000 tapy to key 1, 44500 tapy change to key 2, fee 500 tapy.",
+    "intermediates": [
+      {
+        "input": 0,
+        "pubkey": "02dfe6590eb9dc562d87272fe1248f63e9ed2ce3eb2879fcef30ae3e92720b2cc9",
+        "sighash_type": 1,
+        "script_code": "76a91414c25d2c5eb7248a3841f74d74efe3b4063b383f88ac",
+        "sighash": "b8bd1e97f414f878937e7622635902e018b4d4dd0f14ec12ec13e15d2b1a24af",
+        "signature": "1e481ecbd932e089da0578454834d4b56ae80907e20d3c7a5dc1c246e1fc9821e24f5e3c75e8d2d33cf5d37fcbe4efb48553f224c0a0b06934e3635b82e2c5b301"
+      }
+    ],
+    "stages": [
+      {
+        "name": "created",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQIAAQ4geCTV5dcUOipMfUFAlCGn4hY8MWRwPqiSbffTGnvs0dQBDwQAAAAAAAEDCNjWAAAAAAAAAQQZdqkUVxopLcEbtHFwMPBNVkWsQvKuYN+IrAABAwjUrQAAAAAAAAEEGXapFOVxZknojyIueLwhSn+ibr05gJzRiKwA",
+        "identification_txid": "ec6a5dd1bc7b9257f8cd8af2c2aa66da9e3217b7cda14ab202957a85ecbbcb0f"
+      },
+      {
+        "name": "updated",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQIAAQ4geCTV5dcUOipMfUFAlCGn4hY8MWRwPqiSbffTGnvs0dQBDwQAAAAAAQBVAQAAAAGqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqgAAAAAA/////wGghgEAAAAAABl2qRQUwl0sXrckijhB90107+O0Bjs4P4isAAAAAAEDBAEAAAAiBgLf5lkOudxWLYcnL+Ekj2Pp7Szj6yh5/O8wrj6ScgssyRjwVlWsLAAAgEkJAIAAAACAAAAAAAAAAAAAAQMI2NYAAAAAAAABBBl2qRRXGiktwRu0cXAw8E1WRaxC8q5g34isAAEDCNStAAAAAAAAAQQZdqkU5XFmSeiPIi54vCFKf6JuvTmAnNGIrCICA02rtS7OKRaMKboWCUI4ExqoMk0tsWxT/RFQkE/yD2L5GPBWVawsAACASQkAgAAAAIAAAAAAAgAAAAA=",
+        "identification_txid": "ec6a5dd1bc7b9257f8cd8af2c2aa66da9e3217b7cda14ab202957a85ecbbcb0f"
+      },
+      {
+        "name": "signed",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQIAAQ4geCTV5dcUOipMfUFAlCGn4hY8MWRwPqiSbffTGnvs0dQBDwQAAAAAAQBVAQAAAAGqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqgAAAAAA/////wGghgEAAAAAABl2qRQUwl0sXrckijhB90107+O0Bjs4P4isAAAAAAEDBAEAAAAiBgLf5lkOudxWLYcnL+Ekj2Pp7Szj6yh5/O8wrj6ScgssyRjwVlWsLAAAgEkJAIAAAACAAAAAAAAAAAAiAgLf5lkOudxWLYcnL+Ekj2Pp7Szj6yh5/O8wrj6ScgssyUEeSB7L2TLgidoFeEVINNS1augJB+INPHpdwcJG4fyYIeJPXjx16NLTPPXTf8vk77SFU/IkwKCwaTTjY1uC4sWzAQABAwjY1gAAAAAAAAEEGXapFFcaKS3BG7RxcDDwTVZFrELyrmDfiKwAAQMI1K0AAAAAAAABBBl2qRTlcWZJ6I8iLni8IUp/om69OYCc0YisIgIDTau1Ls4pFowpuhYJQjgTGqgyTS2xbFP9EVCQT/IPYvkY8FZVrCwAAIBJCQCAAAAAgAAAAAACAAAAAA==",
+        "identification_txid": "ec6a5dd1bc7b9257f8cd8af2c2aa66da9e3217b7cda14ab202957a85ecbbcb0f"
+      },
+      {
+        "name": "finalized",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQIAAQ4geCTV5dcUOipMfUFAlCGn4hY8MWRwPqiSbffTGnvs0dQBDwQAAAAAAQBVAQAAAAGqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqgAAAAAA/////wGghgEAAAAAABl2qRQUwl0sXrckijhB90107+O0Bjs4P4isAAAAAAEHZEEeSB7L2TLgidoFeEVINNS1augJB+INPHpdwcJG4fyYIeJPXjx16NLTPPXTf8vk77SFU/IkwKCwaTTjY1uC4sWzASEC3+ZZDrncVi2HJy/hJI9j6e0s4+soefzvMK4+knILLMkAAQMI2NYAAAAAAAABBBl2qRRXGiktwRu0cXAw8E1WRaxC8q5g34isAAEDCNStAAAAAAAAAQQZdqkU5XFmSeiPIi54vCFKf6JuvTmAnNGIrCICA02rtS7OKRaMKboWCUI4ExqoMk0tsWxT/RFQkE/yD2L5GPBWVawsAACASQkAgAAAAIAAAAAAAgAAAAA=",
+        "identification_txid": "ec6a5dd1bc7b9257f8cd8af2c2aa66da9e3217b7cda14ab202957a85ecbbcb0f"
+      }
+    ],
+    "extracted_tx": "01000000017824d5e5d7143a2a4c7d41409421a7e2163c3164703ea8926df7d31a7becd1d40000000064411e481ecbd932e089da0578454834d4b56ae80907e20d3c7a5dc1c246e1fc9821e24f5e3c75e8d2d33cf5d37fcbe4efb48553f224c0a0b06934e3635b82e2c5b3012102dfe6590eb9dc562d87272fe1248f63e9ed2ce3eb2879fcef30ae3e92720b2cc9ffffffff02d8d60000000000001976a914571a292dc11bb4717030f04d5645ac42f2ae60df88acd4ad0000000000001976a914e5716649e88f222e78bc214a7fa26ebd39809cd188ac00000000",
+    "final_txid": "d2f8184595f9ebf5a7b9d0be77dc08e03839fe3d7c8dce98bd40ca4d80be7324"
+  },
+  {
+    "id": "construction-stages",
+    "description": "Cooperative construction walk-through. The Creator starts with an empty PSTT (both modifiable flags set), a Constructor adds one P2PKH input and two outputs, construction is declared finished by clearing the flags, then the input is signed with ECDSA (SIGHASH_ALL), finalized, and extracted. The identification txid changes while inputs/outputs are added and stabilizes once construction is finished.",
+    "intermediates": [
+      {
+        "input": 0,
+        "pubkey": "02dfe6590eb9dc562d87272fe1248f63e9ed2ce3eb2879fcef30ae3e92720b2cc9",
+        "sighash_type": 1,
+        "script_code": "76a91414c25d2c5eb7248a3841f74d74efe3b4063b383f88ac",
+        "sighash": "d2a883e0a6c1beca67c266fde439b65e45a82fe84559ff2660b17914510e6aa9",
+        "signature": "3045022100da0969719206a9b9dd27b112d8dc912ea0f3fbe1b5213ac6b8b1ed9a446eaeae02205bad0ea6d7064c9f2ad5e7249ff5cf4dbf181b87f45122f7d5db2b2c5aa9c25b01"
+      }
+    ],
+    "stages": [
+      {
+        "name": "created-empty",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAAEFAQABBgEDAA==",
+        "identification_txid": "d21633ba23f70118185227be58a63527675641ad37967e2aa461559f577aec43",
+        "tx_modifiable": 3
+      },
+      {
+        "name": "input-added",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQABBgEDAAEOIHgk1eXXFDoqTH1BQJQhp+IWPDFkcD6okm330xp77NHUAQ8EAAAAAAA=",
+        "identification_txid": "3d13ccdef1396ab5c8a7a091e658ad8fd64f406631a338a6bc2733cbd7e715c5",
+        "tx_modifiable": 3
+      },
+      {
+        "name": "outputs-added",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQIBBgEDAAEOIHgk1eXXFDoqTH1BQJQhp+IWPDFkcD6okm330xp77NHUAQ8EAAAAAAABAwhwEQEAAAAAAAEEGXapFFcaKS3BG7RxcDDwTVZFrELyrmDfiKwAAQMISHEAAAAAAAABBBl2qRTlcWZJ6I8iLni8IUp/om69OYCc0YisAA==",
+        "identification_txid": "4b4f954d9c0abbc733c9e16a9d7d28738261053ece236fa0702bfca9ff0b6ef0",
+        "tx_modifiable": 3
+      },
+      {
+        "name": "construction-finished",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQIBBgEAAAEOIHgk1eXXFDoqTH1BQJQhp+IWPDFkcD6okm330xp77NHUAQ8EAAAAAAABAwhwEQEAAAAAAAEEGXapFFcaKS3BG7RxcDDwTVZFrELyrmDfiKwAAQMISHEAAAAAAAABBBl2qRTlcWZJ6I8iLni8IUp/om69OYCc0YisAA==",
+        "identification_txid": "4b4f954d9c0abbc733c9e16a9d7d28738261053ece236fa0702bfca9ff0b6ef0",
+        "tx_modifiable": 0
+      },
+      {
+        "name": "signed",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQIBBgEAAAEOIHgk1eXXFDoqTH1BQJQhp+IWPDFkcD6okm330xp77NHUAQ8EAAAAAAEAVQEAAAABqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqoAAAAAAP////8BoIYBAAAAAAAZdqkUFMJdLF63JIo4QfdNdO/jtAY7OD+IrAAAAAAiBgLf5lkOudxWLYcnL+Ekj2Pp7Szj6yh5/O8wrj6ScgssyRjwVlWsLAAAgEkJAIAAAACAAAAAAAAAAAAiAgLf5lkOudxWLYcnL+Ekj2Pp7Szj6yh5/O8wrj6ScgssyUgwRQIhANoJaXGSBqm53SexEtjckS6g8/vhtSE6xrix7ZpEbq6uAiBbrQ6m1wZMnyrV5ySf9c9Nvxgbh/RRIvfV2yssWqnCWwEAAQMIcBEBAAAAAAABBBl2qRRXGiktwRu0cXAw8E1WRaxC8q5g34isAAEDCEhxAAAAAAAAAQQZdqkU5XFmSeiPIi54vCFKf6JuvTmAnNGIrCICA02rtS7OKRaMKboWCUI4ExqoMk0tsWxT/RFQkE/yD2L5GPBWVawsAACASQkAgAAAAIAAAAAAAgAAAAA=",
+        "identification_txid": "4b4f954d9c0abbc733c9e16a9d7d28738261053ece236fa0702bfca9ff0b6ef0",
+        "tx_modifiable": 0
+      },
+      {
+        "name": "finalized",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQIBBgEAAAEOIHgk1eXXFDoqTH1BQJQhp+IWPDFkcD6okm330xp77NHUAQ8EAAAAAAEAVQEAAAABqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqoAAAAAAP////8BoIYBAAAAAAAZdqkUFMJdLF63JIo4QfdNdO/jtAY7OD+IrAAAAAABB2tIMEUCIQDaCWlxkgapud0nsRLY3JEuoPP74bUhOsa4se2aRG6urgIgW60OptcGTJ8q1eckn/XPTb8YG4f0USL31dsrLFqpwlsBIQLf5lkOudxWLYcnL+Ekj2Pp7Szj6yh5/O8wrj6ScgssyQABAwhwEQEAAAAAAAEEGXapFFcaKS3BG7RxcDDwTVZFrELyrmDfiKwAAQMISHEAAAAAAAABBBl2qRTlcWZJ6I8iLni8IUp/om69OYCc0YisIgIDTau1Ls4pFowpuhYJQjgTGqgyTS2xbFP9EVCQT/IPYvkY8FZVrCwAAIBJCQCAAAAAgAAAAAACAAAAAA==",
+        "identification_txid": "4b4f954d9c0abbc733c9e16a9d7d28738261053ece236fa0702bfca9ff0b6ef0",
+        "tx_modifiable": 0
+      }
+    ],
+    "extracted_tx": "01000000017824d5e5d7143a2a4c7d41409421a7e2163c3164703ea8926df7d31a7becd1d4000000006b483045022100da0969719206a9b9dd27b112d8dc912ea0f3fbe1b5213ac6b8b1ed9a446eaeae02205bad0ea6d7064c9f2ad5e7249ff5cf4dbf181b87f45122f7d5db2b2c5aa9c25b012102dfe6590eb9dc562d87272fe1248f63e9ed2ce3eb2879fcef30ae3e92720b2cc9ffffffff0270110100000000001976a914571a292dc11bb4717030f04d5645ac42f2ae60df88ac48710000000000001976a914e5716649e88f222e78bc214a7fa26ebd39809cd188ac00000000",
+    "final_txid": "001d1ef9c57226b157ff9e979e051e768d80988041df227696f779bc9f2a1666"
+  },
+  {
+    "id": "cp2pkh-transfer",
+    "description": "Colored Coin transfer. Input 0 spends a CP2PKH output holding 100 tokens of color 0xC1||SHA256(P2PKH script of key 0); input 1 spends a 20000 tapy P2PKH output paying the fee. Outputs: 100 tokens to CP2PKH(key 1), 19000 tapy change to P2PKH(key 2); fee 1000 tapy. The scriptCode of the CP2PKH input is the full scriptPubKey including the color identifier prefix; both inputs are signed with ECDSA (SIGHASH_ALL).",
+    "intermediates": [
+      {
+        "input": 0,
+        "pubkey": "02dfe6590eb9dc562d87272fe1248f63e9ed2ce3eb2879fcef30ae3e92720b2cc9",
+        "sighash_type": 1,
+        "script_code": "21c1bdc35ec72390b5128f138301fad91329f17d45ab31d43afa3dea206f2a5a1bc0bc76a91414c25d2c5eb7248a3841f74d74efe3b4063b383f88ac",
+        "sighash": "4b6d98d5f0914c47beb514f259d98bbf3fb6af7a8cedf23bd1a40b1da5ec39af",
+        "signature": "304402201f727d99e45a9c49f124e3775d6fc251f2aeba120fe16b0f3ea1a5f30ce8a36c0220444c093f6012eea4585a957ecf64b262f2933700c01ede76271f6a817e5db92b01"
+      },
+      {
+        "input": 1,
+        "pubkey": "02dfe6590eb9dc562d87272fe1248f63e9ed2ce3eb2879fcef30ae3e92720b2cc9",
+        "sighash_type": 1,
+        "script_code": "76a91414c25d2c5eb7248a3841f74d74efe3b4063b383f88ac",
+        "sighash": "b2c9dff783538fbd85dfe1c99362c482afac59a36fd257d5b8b6112d3c14be84",
+        "signature": "3044022032264842e7998757279863c168cf6ceb27308981d54f5317f40798b6b02f0ec9022046c4165f9fa0fe7965b820ee87576d536702676af8972d43bda62d74f4a8e21901"
+      }
+    ],
+    "stages": [
+      {
+        "name": "created",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAgEFAQIAAQ4g1gO1BZsJ5wGiE7ZKSxAWCqz1Kv/RPC//h/SmibXu/qoBDwQAAAAAAAEOIKqhrhJVXDN94q+sM+xiV/8lleA8pQBF0jekPw7eiYCBAQ8EAAAAAAABAwhkAAAAAAAAAAEEPCHBvcNexyOQtRKPE4MB+tkTKfF9Rasx1Dr6PeogbypaG8C8dqkUVxopLcEbtHFwMPBNVkWsQvKuYN+IrAABAwg4SgAAAAAAAAEEGXapFOVxZknojyIueLwhSn+ibr05gJzRiKwA",
+        "identification_txid": "e34dae9dac1b6f3c998f5091681c43ab30d9d05665722bf7b707b9259bbf72db"
+      },
+      {
+        "name": "updated",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAgEFAQIAAQ4g1gO1BZsJ5wGiE7ZKSxAWCqz1Kv/RPC//h/SmibXu/qoBDwQAAAAAAQB4AQAAAAG7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7uwAAAAAA/////wFkAAAAAAAAADwhwb3DXscjkLUSjxODAfrZEynxfUWrMdQ6+j3qIG8qWhvAvHapFBTCXSxetySKOEH3TXTv47QGOzg/iKwAAAAAAQMEAQAAACIGAt/mWQ653FYthycv4SSPY+ntLOPrKHn87zCuPpJyCyzJGPBWVawsAACASQkAgAAAAIAAAAAAAAAAAAABDiCqoa4SVVwzfeKvrDPsYlf/JZXgPKUARdI3pD8O3omAgQEPBAAAAAABAFUBAAAAAczMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMAAAAAAD/////ASBOAAAAAAAAGXapFBTCXSxetySKOEH3TXTv47QGOzg/iKwAAAAAAQMEAQAAACIGAt/mWQ653FYthycv4SSPY+ntLOPrKHn87zCuPpJyCyzJGPBWVawsAACASQkAgAAAAIAAAAAAAAAAAAABAwhkAAAAAAAAAAEEPCHBvcNexyOQtRKPE4MB+tkTKfF9Rasx1Dr6PeogbypaG8C8dqkUVxopLcEbtHFwMPBNVkWsQvKuYN+IrAABAwg4SgAAAAAAAAEEGXapFOVxZknojyIueLwhSn+ibr05gJzRiKwiAgNNq7UuzikWjCm6FglCOBMaqDJNLbFsU/0RUJBP8g9i+RjwVlWsLAAAgEkJAIAAAACAAAAAAAIAAAAA",
+        "identification_txid": "e34dae9dac1b6f3c998f5091681c43ab30d9d05665722bf7b707b9259bbf72db"
+      },
+      {
+        "name": "signed",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAgEFAQIAAQ4g1gO1BZsJ5wGiE7ZKSxAWCqz1Kv/RPC//h/SmibXu/qoBDwQAAAAAAQB4AQAAAAG7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7uwAAAAAA/////wFkAAAAAAAAADwhwb3DXscjkLUSjxODAfrZEynxfUWrMdQ6+j3qIG8qWhvAvHapFBTCXSxetySKOEH3TXTv47QGOzg/iKwAAAAAAQMEAQAAACIGAt/mWQ653FYthycv4SSPY+ntLOPrKHn87zCuPpJyCyzJGPBWVawsAACASQkAgAAAAIAAAAAAAAAAACICAt/mWQ653FYthycv4SSPY+ntLOPrKHn87zCuPpJyCyzJRzBEAiAfcn2Z5FqcSfEk43ddb8JR8q66Eg/haw8+oaXzDOijbAIgREwJP2AS7qRYWpV+z2SyYvKTNwDAHt52Jx9qgX5duSsBAAEOIKqhrhJVXDN94q+sM+xiV/8lleA8pQBF0jekPw7eiYCBAQ8EAAAAAAEAVQEAAAABzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMwAAAAAAP////8BIE4AAAAAAAAZdqkUFMJdLF63JIo4QfdNdO/jtAY7OD+IrAAAAAABAwQBAAAAIgYC3+ZZDrncVi2HJy/hJI9j6e0s4+soefzvMK4+knILLMkY8FZVrCwAAIBJCQCAAAAAgAAAAAAAAAAAIgIC3+ZZDrncVi2HJy/hJI9j6e0s4+soefzvMK4+knILLMlHMEQCIDImSELnmYdXJ5hjwWjPbOsnMImB1U9TF/QHmLawLw7JAiBGxBZfn6D+eWW4IO6HV21TZwJnaviXLUO9pi109KjiGQEAAQMIZAAAAAAAAAABBDwhwb3DXscjkLUSjxODAfrZEynxfUWrMdQ6+j3qIG8qWhvAvHapFFcaKS3BG7RxcDDwTVZFrELyrmDfiKwAAQMIOEoAAAAAAAABBBl2qRTlcWZJ6I8iLni8IUp/om69OYCc0YisIgIDTau1Ls4pFowpuhYJQjgTGqgyTS2xbFP9EVCQT/IPYvkY8FZVrCwAAIBJCQCAAAAAgAAAAAACAAAAAA==",
+        "identification_txid": "e34dae9dac1b6f3c998f5091681c43ab30d9d05665722bf7b707b9259bbf72db"
+      },
+      {
+        "name": "finalized",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAgEFAQIAAQ4g1gO1BZsJ5wGiE7ZKSxAWCqz1Kv/RPC//h/SmibXu/qoBDwQAAAAAAQB4AQAAAAG7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7uwAAAAAA/////wFkAAAAAAAAADwhwb3DXscjkLUSjxODAfrZEynxfUWrMdQ6+j3qIG8qWhvAvHapFBTCXSxetySKOEH3TXTv47QGOzg/iKwAAAAAAQdqRzBEAiAfcn2Z5FqcSfEk43ddb8JR8q66Eg/haw8+oaXzDOijbAIgREwJP2AS7qRYWpV+z2SyYvKTNwDAHt52Jx9qgX5duSsBIQLf5lkOudxWLYcnL+Ekj2Pp7Szj6yh5/O8wrj6ScgssyQABDiCqoa4SVVwzfeKvrDPsYlf/JZXgPKUARdI3pD8O3omAgQEPBAAAAAABAFUBAAAAAczMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMAAAAAAD/////ASBOAAAAAAAAGXapFBTCXSxetySKOEH3TXTv47QGOzg/iKwAAAAAAQdqRzBEAiAyJkhC55mHVyeYY8Foz2zrJzCJgdVPUxf0B5i2sC8OyQIgRsQWX5+g/nlluCDuh1dtU2cCZ2r4ly1DvaYtdPSo4hkBIQLf5lkOudxWLYcnL+Ekj2Pp7Szj6yh5/O8wrj6ScgssyQABAwhkAAAAAAAAAAEEPCHBvcNexyOQtRKPE4MB+tkTKfF9Rasx1Dr6PeogbypaG8C8dqkUVxopLcEbtHFwMPBNVkWsQvKuYN+IrAABAwg4SgAAAAAAAAEEGXapFOVxZknojyIueLwhSn+ibr05gJzRiKwiAgNNq7UuzikWjCm6FglCOBMaqDJNLbFsU/0RUJBP8g9i+RjwVlWsLAAAgEkJAIAAAACAAAAAAAIAAAAA",
+        "identification_txid": "e34dae9dac1b6f3c998f5091681c43ab30d9d05665722bf7b707b9259bbf72db"
+      }
+    ],
+    "extracted_tx": "0100000002d603b5059b09e701a213b64a4b10160aacf52affd13c2fff87f4a689b5eefeaa000000006a47304402201f727d99e45a9c49f124e3775d6fc251f2aeba120fe16b0f3ea1a5f30ce8a36c0220444c093f6012eea4585a957ecf64b262f2933700c01ede76271f6a817e5db92b012102dfe6590eb9dc562d87272fe1248f63e9ed2ce3eb2879fcef30ae3e92720b2cc9ffffffffaaa1ae12555c337de2afac33ec6257ff2595e03ca50045d237a43f0ede898081000000006a473044022032264842e7998757279863c168cf6ceb27308981d54f5317f40798b6b02f0ec9022046c4165f9fa0fe7965b820ee87576d536702676af8972d43bda62d74f4a8e219012102dfe6590eb9dc562d87272fe1248f63e9ed2ce3eb2879fcef30ae3e92720b2cc9ffffffff0264000000000000003c21c1bdc35ec72390b5128f138301fad91329f17d45ab31d43afa3dea206f2a5a1bc0bc76a914571a292dc11bb4717030f04d5645ac42f2ae60df88ac384a0000000000001976a914e5716649e88f222e78bc214a7fa26ebd39809cd188ac00000000",
+    "final_txid": "70b38e6892f519e4bb477f0f6d918c3e6bdf60f5852a292b549b0eb762e5239d"
+  },
+  {
+    "id": "cp2sh-multisig-combine",
+    "description": "A 2-of-2 CP2SH multisig token input (200 tokens, redeem script OP_2 <key3> <key4> OP_2 OP_CHECKMULTISIG) plus a P2PKH fee input. Signer A (holding key 3 and the fee key 0) and signer B (holding key 4) sign independently from the updated stage; a Combiner merges the two PSTTs into one. The scriptCode of the CP2SH input is the redeem script without the color identifier prefix. Signer B also attaches a record of type 0x20, which this TIP does not define; it must be preserved unchanged through the combined and finalized stages.",
+    "intermediates": [
+      {
+        "input": 0,
+        "pubkey": "028b6d5d2e8a851bad35065f2eef00a50393cf61c3c2379fbd33b6064a863884aa",
+        "sighash_type": 1,
+        "script_code": "5221028b6d5d2e8a851bad35065f2eef00a50393cf61c3c2379fbd33b6064a863884aa21033c95e0675ee2fea306efeaa468523d3e0c053c25de4be1ff4b4f181675d0413552ae",
+        "sighash": "f19966624894c461c87c03d5bbf25ca73708fa15e90e36cd1f2a5f9b044e1030",
+        "signature": "304402205155c9fa07256ff832badaf0d2c0771f24557ae3eba587ec4b71673006710511022075b9f8b03ba332f98d8ae1e96211f5a75b6afc7920f439444067d88c0d6b2faa01"
+      },
+      {
+        "input": 0,
+        "pubkey": "033c95e0675ee2fea306efeaa468523d3e0c053c25de4be1ff4b4f181675d04135",
+        "sighash_type": 1,
+        "script_code": "5221028b6d5d2e8a851bad35065f2eef00a50393cf61c3c2379fbd33b6064a863884aa21033c95e0675ee2fea306efeaa468523d3e0c053c25de4be1ff4b4f181675d0413552ae",
+        "sighash": "f19966624894c461c87c03d5bbf25ca73708fa15e90e36cd1f2a5f9b044e1030",
+        "signature": "304402201e2bd73a2ded4a555dc5523a11ac0e4d781b44fcaf371054f291a6eb41d6673a02200d30cdf2d489d81ba0d147f4c200badbaa72875ef2a9c5fe79334a7b082f220101"
+      },
+      {
+        "input": 1,
+        "pubkey": "02dfe6590eb9dc562d87272fe1248f63e9ed2ce3eb2879fcef30ae3e92720b2cc9",
+        "sighash_type": 1,
+        "script_code": "76a91414c25d2c5eb7248a3841f74d74efe3b4063b383f88ac",
+        "sighash": "704aa3e208c25ef20badabeb4b9fc1805fc7ee1acd6a66e148172ed3e165a095",
+        "signature": "3045022100db867890a117c14dc844c8e753649f1559a08b498dc9c877aea869d662afe9bb02203a772978689fb369ac2af2a8bce661dd6c9ecbee61ff98cfbfd674dd631f40a501"
+      }
+    ],
+    "stages": [
+      {
+        "name": "created",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAgEFAQIAAQ4ghVmpNP0WCaO7xZHDc4zKbUMtqP24VWM7448W1/lZHQsBDwQAAAAAAAEOIBCmne4Q2FyRPio2x3b8dDpTlWGtb2AaupYqStN5GHCsAQ8EAAAAAAABAwjIAAAAAAAAAAEEPCHBvcNexyOQtRKPE4MB+tkTKfF9Rasx1Dr6PeogbypaG8C8dqkUVxopLcEbtHFwMPBNVkWsQvKuYN+IrAABAwg4SgAAAAAAAAEEGXapFOVxZknojyIueLwhSn+ibr05gJzRiKwA",
+        "identification_txid": "936875f1e861669edecd2a9d0e017781f812b26eb5107129e639cb7d3f46a34f"
+      },
+      {
+        "name": "updated",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAgEFAQIAAQ4ghVmpNP0WCaO7xZHDc4zKbUMtqP24VWM7448W1/lZHQsBDwQAAAAAAQB2AQAAAAHd3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3QAAAAAA/////wHIAAAAAAAAADohwb3DXscjkLUSjxODAfrZEynxfUWrMdQ6+j3qIG8qWhvAvKkUOyFDvSW5YUzkG8OGCXCJq4EGl8SHAAAAAAEDBAEAAAABBEdSIQKLbV0uioUbrTUGXy7vAKUDk89hw8I3n70ztgZKhjiEqiEDPJXgZ17i/qMG7+qkaFI9PgwFPCXeS+H/S08YFnXQQTVSriIGAottXS6KhRutNQZfLu8ApQOTz2HDwjefvTO2BkqGOISqGPBWVawsAACASQkAgAAAAIAAAAAAAwAAACIGAzyV4Gde4v6jBu/qpGhSPT4MBTwl3kvh/0tPGBZ10EE1GPBWVawsAACASQkAgAAAAIAAAAAABAAAAAABDiAQpp3uENhckT4qNsd2/HQ6U5VhrW9gGrqWKkrTeRhwrAEPBAAAAAABAFUBAAAAAe7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7uAAAAAAD/////ASBOAAAAAAAAGXapFBTCXSxetySKOEH3TXTv47QGOzg/iKwAAAAAAQMEAQAAACIGAt/mWQ653FYthycv4SSPY+ntLOPrKHn87zCuPpJyCyzJGPBWVawsAACASQkAgAAAAIAAAAAAAAAAAAABAwjIAAAAAAAAAAEEPCHBvcNexyOQtRKPE4MB+tkTKfF9Rasx1Dr6PeogbypaG8C8dqkUVxopLcEbtHFwMPBNVkWsQvKuYN+IrAABAwg4SgAAAAAAAAEEGXapFOVxZknojyIueLwhSn+ibr05gJzRiKwiAgNNq7UuzikWjCm6FglCOBMaqDJNLbFsU/0RUJBP8g9i+RjwVlWsLAAAgEkJAIAAAACAAAAAAAIAAAAA",
+        "identification_txid": "936875f1e861669edecd2a9d0e017781f812b26eb5107129e639cb7d3f46a34f"
+      },
+      {
+        "name": "signed-a",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAgEFAQIAAQ4ghVmpNP0WCaO7xZHDc4zKbUMtqP24VWM7448W1/lZHQsBDwQAAAAAAQB2AQAAAAHd3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3QAAAAAA/////wHIAAAAAAAAADohwb3DXscjkLUSjxODAfrZEynxfUWrMdQ6+j3qIG8qWhvAvKkUOyFDvSW5YUzkG8OGCXCJq4EGl8SHAAAAAAEDBAEAAAABBEdSIQKLbV0uioUbrTUGXy7vAKUDk89hw8I3n70ztgZKhjiEqiEDPJXgZ17i/qMG7+qkaFI9PgwFPCXeS+H/S08YFnXQQTVSriIGAottXS6KhRutNQZfLu8ApQOTz2HDwjefvTO2BkqGOISqGPBWVawsAACASQkAgAAAAIAAAAAAAwAAACIGAzyV4Gde4v6jBu/qpGhSPT4MBTwl3kvh/0tPGBZ10EE1GPBWVawsAACASQkAgAAAAIAAAAAABAAAACICAottXS6KhRutNQZfLu8ApQOTz2HDwjefvTO2BkqGOISqRzBEAiBRVcn6ByVv+DK62vDSwHcfJFV64+ulh+xLcWcwBnEFEQIgdbn4sDujMvmNiuHpYhH1p1tq/Hkg9DlEQGfYjA1rL6oBAAEOIBCmne4Q2FyRPio2x3b8dDpTlWGtb2AaupYqStN5GHCsAQ8EAAAAAAEAVQEAAAAB7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u4AAAAAAP////8BIE4AAAAAAAAZdqkUFMJdLF63JIo4QfdNdO/jtAY7OD+IrAAAAAABAwQBAAAAIgYC3+ZZDrncVi2HJy/hJI9j6e0s4+soefzvMK4+knILLMkY8FZVrCwAAIBJCQCAAAAAgAAAAAAAAAAAIgIC3+ZZDrncVi2HJy/hJI9j6e0s4+soefzvMK4+knILLMlIMEUCIQDbhniQoRfBTchEyOdTZJ8VWaCLSY3JyHeuqGnWYq/puwIgOncpeGifs2msKvKovOZh3Wyey+5h/5jPv9Z03WMfQKUBAAEDCMgAAAAAAAAAAQQ8IcG9w17HI5C1Eo8TgwH62RMp8X1FqzHUOvo96iBvKlobwLx2qRRXGiktwRu0cXAw8E1WRaxC8q5g34isAAEDCDhKAAAAAAAAAQQZdqkU5XFmSeiPIi54vCFKf6JuvTmAnNGIrCICA02rtS7OKRaMKboWCUI4ExqoMk0tsWxT/RFQkE/yD2L5GPBWVawsAACASQkAgAAAAIAAAAAAAgAAAAA=",
+        "identification_txid": "936875f1e861669edecd2a9d0e017781f812b26eb5107129e639cb7d3f46a34f"
+      },
+      {
+        "name": "signed-b",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAgEFAQIAAQ4ghVmpNP0WCaO7xZHDc4zKbUMtqP24VWM7448W1/lZHQsBDwQAAAAAAQB2AQAAAAHd3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3QAAAAAA/////wHIAAAAAAAAADohwb3DXscjkLUSjxODAfrZEynxfUWrMdQ6+j3qIG8qWhvAvKkUOyFDvSW5YUzkG8OGCXCJq4EGl8SHAAAAAAEDBAEAAAABBEdSIQKLbV0uioUbrTUGXy7vAKUDk89hw8I3n70ztgZKhjiEqiEDPJXgZ17i/qMG7+qkaFI9PgwFPCXeS+H/S08YFnXQQTVSriIGAottXS6KhRutNQZfLu8ApQOTz2HDwjefvTO2BkqGOISqGPBWVawsAACASQkAgAAAAIAAAAAAAwAAACIGAzyV4Gde4v6jBu/qpGhSPT4MBTwl3kvh/0tPGBZ10EE1GPBWVawsAACASQkAgAAAAIAAAAAABAAAACICAzyV4Gde4v6jBu/qpGhSPT4MBTwl3kvh/0tPGBZ10EE1RzBEAiAeK9c6Le1KVV3FUjoRrA5NeBtE/K83EFTykabrQdZnOgIgDTDN8tSJ2Bug0Uf0wgC626pyh17yqcX+eTNKewgvIgEBASAMZnV0dXJlLWZpZWxkAAEOIBCmne4Q2FyRPio2x3b8dDpTlWGtb2AaupYqStN5GHCsAQ8EAAAAAAEAVQEAAAAB7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u4AAAAAAP////8BIE4AAAAAAAAZdqkUFMJdLF63JIo4QfdNdO/jtAY7OD+IrAAAAAABAwQBAAAAIgYC3+ZZDrncVi2HJy/hJI9j6e0s4+soefzvMK4+knILLMkY8FZVrCwAAIBJCQCAAAAAgAAAAAAAAAAAAAEDCMgAAAAAAAAAAQQ8IcG9w17HI5C1Eo8TgwH62RMp8X1FqzHUOvo96iBvKlobwLx2qRRXGiktwRu0cXAw8E1WRaxC8q5g34isAAEDCDhKAAAAAAAAAQQZdqkU5XFmSeiPIi54vCFKf6JuvTmAnNGIrCICA02rtS7OKRaMKboWCUI4ExqoMk0tsWxT/RFQkE/yD2L5GPBWVawsAACASQkAgAAAAIAAAAAAAgAAAAA=",
+        "identification_txid": "936875f1e861669edecd2a9d0e017781f812b26eb5107129e639cb7d3f46a34f"
+      },
+      {
+        "name": "combined",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAgEFAQIAAQ4ghVmpNP0WCaO7xZHDc4zKbUMtqP24VWM7448W1/lZHQsBDwQAAAAAAQB2AQAAAAHd3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3QAAAAAA/////wHIAAAAAAAAADohwb3DXscjkLUSjxODAfrZEynxfUWrMdQ6+j3qIG8qWhvAvKkUOyFDvSW5YUzkG8OGCXCJq4EGl8SHAAAAAAEDBAEAAAABBEdSIQKLbV0uioUbrTUGXy7vAKUDk89hw8I3n70ztgZKhjiEqiEDPJXgZ17i/qMG7+qkaFI9PgwFPCXeS+H/S08YFnXQQTVSriIGAottXS6KhRutNQZfLu8ApQOTz2HDwjefvTO2BkqGOISqGPBWVawsAACASQkAgAAAAIAAAAAAAwAAACIGAzyV4Gde4v6jBu/qpGhSPT4MBTwl3kvh/0tPGBZ10EE1GPBWVawsAACASQkAgAAAAIAAAAAABAAAACICAottXS6KhRutNQZfLu8ApQOTz2HDwjefvTO2BkqGOISqRzBEAiBRVcn6ByVv+DK62vDSwHcfJFV64+ulh+xLcWcwBnEFEQIgdbn4sDujMvmNiuHpYhH1p1tq/Hkg9DlEQGfYjA1rL6oBIgIDPJXgZ17i/qMG7+qkaFI9PgwFPCXeS+H/S08YFnXQQTVHMEQCIB4r1zot7UpVXcVSOhGsDk14G0T8rzcQVPKRputB1mc6AiANMM3y1InYG6DRR/TCALrbqnKHXvKpxf55M0p7CC8iAQEBIAxmdXR1cmUtZmllbGQAAQ4gEKad7hDYXJE+KjbHdvx0OlOVYa1vYBq6lipK03kYcKwBDwQAAAAAAQBVAQAAAAHu7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7gAAAAAA/////wEgTgAAAAAAABl2qRQUwl0sXrckijhB90107+O0Bjs4P4isAAAAAAEDBAEAAAAiBgLf5lkOudxWLYcnL+Ekj2Pp7Szj6yh5/O8wrj6ScgssyRjwVlWsLAAAgEkJAIAAAACAAAAAAAAAAAAiAgLf5lkOudxWLYcnL+Ekj2Pp7Szj6yh5/O8wrj6ScgssyUgwRQIhANuGeJChF8FNyETI51NknxVZoItJjcnId66oadZir+m7AiA6dyl4aJ+zaawq8qi85mHdbJ7L7mH/mM+/1nTdYx9ApQEAAQMIyAAAAAAAAAABBDwhwb3DXscjkLUSjxODAfrZEynxfUWrMdQ6+j3qIG8qWhvAvHapFFcaKS3BG7RxcDDwTVZFrELyrmDfiKwAAQMIOEoAAAAAAAABBBl2qRTlcWZJ6I8iLni8IUp/om69OYCc0YisIgIDTau1Ls4pFowpuhYJQjgTGqgyTS2xbFP9EVCQT/IPYvkY8FZVrCwAAIBJCQCAAAAAgAAAAAACAAAAAA==",
+        "identification_txid": "936875f1e861669edecd2a9d0e017781f812b26eb5107129e639cb7d3f46a34f"
+      },
+      {
+        "name": "finalized",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAgEFAQIAAQ4ghVmpNP0WCaO7xZHDc4zKbUMtqP24VWM7448W1/lZHQsBDwQAAAAAAQB2AQAAAAHd3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3QAAAAAA/////wHIAAAAAAAAADohwb3DXscjkLUSjxODAfrZEynxfUWrMdQ6+j3qIG8qWhvAvKkUOyFDvSW5YUzkG8OGCXCJq4EGl8SHAAAAAAEH2QBHMEQCIFFVyfoHJW/4Mrra8NLAdx8kVXrj66WH7EtxZzAGcQURAiB1ufiwO6My+Y2K4eliEfWnW2r8eSD0OURAZ9iMDWsvqgFHMEQCIB4r1zot7UpVXcVSOhGsDk14G0T8rzcQVPKRputB1mc6AiANMM3y1InYG6DRR/TCALrbqnKHXvKpxf55M0p7CC8iAQFHUiECi21dLoqFG601Bl8u7wClA5PPYcPCN5+9M7YGSoY4hKohAzyV4Gde4v6jBu/qpGhSPT4MBTwl3kvh/0tPGBZ10EE1Uq4BIAxmdXR1cmUtZmllbGQAAQ4gEKad7hDYXJE+KjbHdvx0OlOVYa1vYBq6lipK03kYcKwBDwQAAAAAAQBVAQAAAAHu7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7gAAAAAA/////wEgTgAAAAAAABl2qRQUwl0sXrckijhB90107+O0Bjs4P4isAAAAAAEHa0gwRQIhANuGeJChF8FNyETI51NknxVZoItJjcnId66oadZir+m7AiA6dyl4aJ+zaawq8qi85mHdbJ7L7mH/mM+/1nTdYx9ApQEhAt/mWQ653FYthycv4SSPY+ntLOPrKHn87zCuPpJyCyzJAAEDCMgAAAAAAAAAAQQ8IcG9w17HI5C1Eo8TgwH62RMp8X1FqzHUOvo96iBvKlobwLx2qRRXGiktwRu0cXAw8E1WRaxC8q5g34isAAEDCDhKAAAAAAAAAQQZdqkU5XFmSeiPIi54vCFKf6JuvTmAnNGIrCICA02rtS7OKRaMKboWCUI4ExqoMk0tsWxT/RFQkE/yD2L5GPBWVawsAACASQkAgAAAAIAAAAAAAgAAAAA=",
+        "identification_txid": "936875f1e861669edecd2a9d0e017781f812b26eb5107129e639cb7d3f46a34f"
+      }
+    ],
+    "extracted_tx": "01000000028559a934fd1609a3bbc591c3738cca6d432da8fdb855633be38f16d7f9591d0b00000000d90047304402205155c9fa07256ff832badaf0d2c0771f24557ae3eba587ec4b71673006710511022075b9f8b03ba332f98d8ae1e96211f5a75b6afc7920f439444067d88c0d6b2faa0147304402201e2bd73a2ded4a555dc5523a11ac0e4d781b44fcaf371054f291a6eb41d6673a02200d30cdf2d489d81ba0d147f4c200badbaa72875ef2a9c5fe79334a7b082f220101475221028b6d5d2e8a851bad35065f2eef00a50393cf61c3c2379fbd33b6064a863884aa21033c95e0675ee2fea306efeaa468523d3e0c053c25de4be1ff4b4f181675d0413552aeffffffff10a69dee10d85c913e2a36c776fc743a539561ad6f601aba962a4ad3791870ac000000006b483045022100db867890a117c14dc844c8e753649f1559a08b498dc9c877aea869d662afe9bb02203a772978689fb369ac2af2a8bce661dd6c9ecbee61ff98cfbfd674dd631f40a5012102dfe6590eb9dc562d87272fe1248f63e9ed2ce3eb2879fcef30ae3e92720b2cc9ffffffff02c8000000000000003c21c1bdc35ec72390b5128f138301fad91329f17d45ab31d43afa3dea206f2a5a1bc0bc76a914571a292dc11bb4717030f04d5645ac42f2ae60df88ac384a0000000000001976a914e5716649e88f222e78bc214a7fa26ebd39809cd188ac00000000",
+    "final_txid": "da211c6cdba004ac37152f2a7013586db2944cca8ac1fcc6631f5baf42a21768"
+  },
+  {
+    "id": "fee-provider-noninteractive",
+    "description": "Fee provider workflow, non-interactive variant (exact-fee UTXO). The user constructs a 100-token CP2PKH transfer with no TPC and signs with SIGHASH_ALL|SIGHASH_ANYONECANPAY, leaving the Inputs Modifiable flag set. The fee provider adds one 1000-tapy P2PKH input whose value is exactly the fee, signs it with SIGHASH_ALL (clearing Inputs Modifiable), finalizes, and extracts. The user's sighash is computed over the single-input transaction and stays valid after the fee input is added, which the verifier confirms by recomputing it from the final two-input transaction.",
+    "intermediates": [
+      {
+        "input": 0,
+        "pubkey": "02dfe6590eb9dc562d87272fe1248f63e9ed2ce3eb2879fcef30ae3e92720b2cc9",
+        "sighash_type": 129,
+        "script_code": "21c1bdc35ec72390b5128f138301fad91329f17d45ab31d43afa3dea206f2a5a1bc0bc76a91414c25d2c5eb7248a3841f74d74efe3b4063b383f88ac",
+        "sighash": "35b3893b789210b9f1df1efe10a42937d358dc926d0f8d3315e9cf124c8a4906",
+        "signature": "3045022100ab18c9918bda646dc7817540ddf9a26d060bc276d307e86a5ef0e601eab36ad40220242b87c4ba7c8de3adcdfd688527d46a5529f365a15f570b6eca9c78990e7e1b81"
+      },
+      {
+        "input": 1,
+        "pubkey": "03030c9adf9daaa50d179c04fc16a3fbf7985e32021343680300a2a511f42c0341",
+        "sighash_type": 1,
+        "script_code": "76a914dcac7d84c6844c82f715802a834c5671bdc5821288ac",
+        "sighash": "1a6c6e2a5a94b28a066dcd64a88f43d987944b635a1790576feb0085872ed564",
+        "signature": "3045022100b8cc4f119e0d783b095d6687745011f16b369a667d94d9d41a472f91a8d15eea0220653574b5b025439f0c937c605ebd6541076859ab6ca7141ac592b9dcab63dad901"
+      }
+    ],
+    "stages": [
+      {
+        "name": "user-constructed",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQEBBgEBAAEOIAOemco6/ra8aNcan5VF7DZxq2F983TeOQdh7zLLh/AhAQ8EAAAAAAABAwhkAAAAAAAAAAEEPCHBvcNexyOQtRKPE4MB+tkTKfF9Rasx1Dr6PeogbypaG8C8dqkUVxopLcEbtHFwMPBNVkWsQvKuYN+IrAA=",
+        "identification_txid": "bb32395f8e351572b8eb1432ba664cca2f9346b3734e80eff2fec33e28c18e5e",
+        "tx_modifiable": 1
+      },
+      {
+        "name": "user-signed",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQEBBgEBAAEOIAOemco6/ra8aNcan5VF7DZxq2F983TeOQdh7zLLh/AhAQ8EAAAAAAEAeAEAAAAB8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fEAAAAAAP////8BZAAAAAAAAAA8IcG9w17HI5C1Eo8TgwH62RMp8X1FqzHUOvo96iBvKlobwLx2qRQUwl0sXrckijhB90107+O0Bjs4P4isAAAAAAEDBIEAAAAiBgLf5lkOudxWLYcnL+Ekj2Pp7Szj6yh5/O8wrj6ScgssyRjwVlWsLAAAgEkJAIAAAACAAAAAAAAAAAAiAgLf5lkOudxWLYcnL+Ekj2Pp7Szj6yh5/O8wrj6ScgssyUgwRQIhAKsYyZGL2mRtx4F1QN35om0GC8J20wfoal7w5gHqs2rUAiAkK4fEunyN463N/WiFJ9RqVSnzZaFfVwtuypx4mQ5+G4EAAQMIZAAAAAAAAAABBDwhwb3DXscjkLUSjxODAfrZEynxfUWrMdQ6+j3qIG8qWhvAvHapFFcaKS3BG7RxcDDwTVZFrELyrmDfiKwA",
+        "identification_txid": "bb32395f8e351572b8eb1432ba664cca2f9346b3734e80eff2fec33e28c18e5e",
+        "tx_modifiable": 1
+      },
+      {
+        "name": "provider-added-input",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAgEFAQEBBgEBAAEOIAOemco6/ra8aNcan5VF7DZxq2F983TeOQdh7zLLh/AhAQ8EAAAAAAEAeAEAAAAB8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fEAAAAAAP////8BZAAAAAAAAAA8IcG9w17HI5C1Eo8TgwH62RMp8X1FqzHUOvo96iBvKlobwLx2qRQUwl0sXrckijhB90107+O0Bjs4P4isAAAAAAEDBIEAAAAiBgLf5lkOudxWLYcnL+Ekj2Pp7Szj6yh5/O8wrj6ScgssyRjwVlWsLAAAgEkJAIAAAACAAAAAAAAAAAAiAgLf5lkOudxWLYcnL+Ekj2Pp7Szj6yh5/O8wrj6ScgssyUgwRQIhAKsYyZGL2mRtx4F1QN35om0GC8J20wfoal7w5gHqs2rUAiAkK4fEunyN463N/WiFJ9RqVSnzZaFfVwtuypx4mQ5+G4EAAQ4gi7aNx87XGuA6v/+z6UcGmjaQVtwpjke/skKK8pvs9l0BDwQAAAAAAAEDCGQAAAAAAAAAAQQ8IcG9w17HI5C1Eo8TgwH62RMp8X1FqzHUOvo96iBvKlobwLx2qRRXGiktwRu0cXAw8E1WRaxC8q5g34isAA==",
+        "identification_txid": "e4c1f43399af0cf7b7d895c09f26a5ed3a6ea60249c83b5e66e6ab27e4f7c13a",
+        "tx_modifiable": 1
+      },
+      {
+        "name": "provider-signed",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAgEFAQEBBgEAAAEOIAOemco6/ra8aNcan5VF7DZxq2F983TeOQdh7zLLh/AhAQ8EAAAAAAEAeAEAAAAB8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fEAAAAAAP////8BZAAAAAAAAAA8IcG9w17HI5C1Eo8TgwH62RMp8X1FqzHUOvo96iBvKlobwLx2qRQUwl0sXrckijhB90107+O0Bjs4P4isAAAAAAEDBIEAAAAiBgLf5lkOudxWLYcnL+Ekj2Pp7Szj6yh5/O8wrj6ScgssyRjwVlWsLAAAgEkJAIAAAACAAAAAAAAAAAAiAgLf5lkOudxWLYcnL+Ekj2Pp7Szj6yh5/O8wrj6ScgssyUgwRQIhAKsYyZGL2mRtx4F1QN35om0GC8J20wfoal7w5gHqs2rUAiAkK4fEunyN463N/WiFJ9RqVSnzZaFfVwtuypx4mQ5+G4EAAQ4gi7aNx87XGuA6v/+z6UcGmjaQVtwpjke/skKK8pvs9l0BDwQAAAAAAQBVAQAAAAHy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8gAAAAAA/////wHoAwAAAAAAABl2qRTcrH2ExoRMgvcVgCqDTFZxvcWCEoisAAAAACIGAwMMmt+dqqUNF5wE/Baj+/eYXjICE0NoAwCipRH0LANBGPBWVawsAACASQkAgAAAAIAAAAAABQAAACICAwMMmt+dqqUNF5wE/Baj+/eYXjICE0NoAwCipRH0LANBSDBFAiEAuMxPEZ4NeDsJXWaHdFAR8Ws2mmZ9lNnUGkcvkajRXuoCIGU1dLWwJUOfDJN8YF69ZUEHaFmrbKcUGsWSudyrY9rZAQABAwhkAAAAAAAAAAEEPCHBvcNexyOQtRKPE4MB+tkTKfF9Rasx1Dr6PeogbypaG8C8dqkUVxopLcEbtHFwMPBNVkWsQvKuYN+IrAA=",
+        "identification_txid": "e4c1f43399af0cf7b7d895c09f26a5ed3a6ea60249c83b5e66e6ab27e4f7c13a",
+        "tx_modifiable": 0
+      },
+      {
+        "name": "finalized",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAgEFAQEBBgEAAAEOIAOemco6/ra8aNcan5VF7DZxq2F983TeOQdh7zLLh/AhAQ8EAAAAAAEAeAEAAAAB8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fEAAAAAAP////8BZAAAAAAAAAA8IcG9w17HI5C1Eo8TgwH62RMp8X1FqzHUOvo96iBvKlobwLx2qRQUwl0sXrckijhB90107+O0Bjs4P4isAAAAAAEHa0gwRQIhAKsYyZGL2mRtx4F1QN35om0GC8J20wfoal7w5gHqs2rUAiAkK4fEunyN463N/WiFJ9RqVSnzZaFfVwtuypx4mQ5+G4EhAt/mWQ653FYthycv4SSPY+ntLOPrKHn87zCuPpJyCyzJAAEOIIu2jcfO1xrgOr//s+lHBpo2kFbcKY5Hv7JCivKb7PZdAQ8EAAAAAAEAVQEAAAAB8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vIAAAAAAP////8B6AMAAAAAAAAZdqkU3Kx9hMaETIL3FYAqg0xWcb3FghKIrAAAAAABB2tIMEUCIQC4zE8Rng14OwldZod0UBHxazaaZn2U2dQaRy+RqNFe6gIgZTV0tbAlQ58Mk3xgXr1lQQdoWatspxQaxZK53Ktj2tkBIQMDDJrfnaqlDRecBPwWo/v3mF4yAhNDaAMAoqUR9CwDQQABAwhkAAAAAAAAAAEEPCHBvcNexyOQtRKPE4MB+tkTKfF9Rasx1Dr6PeogbypaG8C8dqkUVxopLcEbtHFwMPBNVkWsQvKuYN+IrAA=",
+        "identification_txid": "e4c1f43399af0cf7b7d895c09f26a5ed3a6ea60249c83b5e66e6ab27e4f7c13a",
+        "tx_modifiable": 0
+      }
+    ],
+    "extracted_tx": "0100000002039e99ca3afeb6bc68d71a9f9545ec3671ab617df374de390761ef32cb87f021000000006b483045022100ab18c9918bda646dc7817540ddf9a26d060bc276d307e86a5ef0e601eab36ad40220242b87c4ba7c8de3adcdfd688527d46a5529f365a15f570b6eca9c78990e7e1b812102dfe6590eb9dc562d87272fe1248f63e9ed2ce3eb2879fcef30ae3e92720b2cc9ffffffff8bb68dc7ced71ae03abfffb3e947069a369056dc298e47bfb2428af29becf65d000000006b483045022100b8cc4f119e0d783b095d6687745011f16b369a667d94d9d41a472f91a8d15eea0220653574b5b025439f0c937c605ebd6541076859ab6ca7141ac592b9dcab63dad9012103030c9adf9daaa50d179c04fc16a3fbf7985e32021343680300a2a511f42c0341ffffffff0164000000000000003c21c1bdc35ec72390b5128f138301fad91329f17d45ab31d43afa3dea206f2a5a1bc0bc76a914571a292dc11bb4717030f04d5645ac42f2ae60df88ac00000000",
+    "final_txid": "4266397ab1b64bc2ef2988c3e98566447e10e0265657bb27bfd94ac343c0b140"
+  },
+  {
+    "id": "fee-provider-interactive",
+    "description": "Fee provider workflow, interactive variant (with change output). The user sends an unsigned 100-token CP2PKH transfer with both modifiable flags set. The provider, acting as Constructor, adds a 20000-tapy P2PKH fee input and a 19000-tapy change output (fee 1000), attaches its input's UTXO, and clears both flags to declare construction finished. Both parties then sign with SIGHASH_ALL, finalize, and extract.",
+    "intermediates": [
+      {
+        "input": 0,
+        "pubkey": "02dfe6590eb9dc562d87272fe1248f63e9ed2ce3eb2879fcef30ae3e92720b2cc9",
+        "sighash_type": 1,
+        "script_code": "21c1bdc35ec72390b5128f138301fad91329f17d45ab31d43afa3dea206f2a5a1bc0bc76a91414c25d2c5eb7248a3841f74d74efe3b4063b383f88ac",
+        "sighash": "0dd82b63fe177415da9f800a05e375c0fc18847183989673d8e77dc596e6d860",
+        "signature": "3045022100914efefa503aeab2aac785328f475463f86ee41669287c802b61e939d097033102202bedaed2e3b3008827dd61bee610d2e6f6a5ee265ff06f1b17aa52080807c4fa01"
+      },
+      {
+        "input": 1,
+        "pubkey": "03030c9adf9daaa50d179c04fc16a3fbf7985e32021343680300a2a511f42c0341",
+        "sighash_type": 1,
+        "script_code": "76a914dcac7d84c6844c82f715802a834c5671bdc5821288ac",
+        "sighash": "f822b1b4621a4281bfd843918b9f8f86543dfcb46cc2c155a735d1ae2e89e6ca",
+        "signature": "3044022071ee759ea4df8c39e7799999f958e8e9474c6d87caaa6d3cd6899c40930aadeb02200aad507220232e074d5caefabba138e5995e58dc54087e914e5715ee4eb57feb01"
+      }
+    ],
+    "stages": [
+      {
+        "name": "user-constructed",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQEBBgEDAAEOIPxomTHBQJdE34WoWglGI66Tn86zIxCX9nvPIMS7uUveAQ8EAAAAAAABAwhkAAAAAAAAAAEEPCHBvcNexyOQtRKPE4MB+tkTKfF9Rasx1Dr6PeogbypaG8C8dqkUVxopLcEbtHFwMPBNVkWsQvKuYN+IrAA=",
+        "identification_txid": "18bdedafe492235e4b0f5a774d1e7317f41536b4eec6427be90113a1f47e363e",
+        "tx_modifiable": 3
+      },
+      {
+        "name": "provider-constructed",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAgEFAQIBBgEAAAEOIPxomTHBQJdE34WoWglGI66Tn86zIxCX9nvPIMS7uUveAQ8EAAAAAAABDiCqTkoBOxybnOO2CwnW40rwLnOat8xXG5CBuVp8/xrxhgEPBAAAAAABAFUBAAAAAfPz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/PzAAAAAAD/////ASBOAAAAAAAAGXapFNysfYTGhEyC9xWAKoNMVnG9xYISiKwAAAAAAAEDCGQAAAAAAAAAAQQ8IcG9w17HI5C1Eo8TgwH62RMp8X1FqzHUOvo96iBvKlobwLx2qRRXGiktwRu0cXAw8E1WRaxC8q5g34isAAEDCDhKAAAAAAAAAQQZdqkUNs1RHDntnYJbTbzDWNm0liyQp0WIrCICArDrs/3AwNduzz2Bk5by9oZGwyYeHL2quM3iYPlIRc5yGPBWVawsAACASQkAgAAAAIAAAAAABgAAAAA=",
+        "identification_txid": "f5b31c17e398a2be443d9c79cbe9bfeb41b835fcaa03aca6a841cdc813f74a96",
+        "tx_modifiable": 0
+      },
+      {
+        "name": "signed",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAgEFAQIBBgEAAAEOIPxomTHBQJdE34WoWglGI66Tn86zIxCX9nvPIMS7uUveAQ8EAAAAAAEAeAEAAAAB9PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PQAAAAAAP////8BZAAAAAAAAAA8IcG9w17HI5C1Eo8TgwH62RMp8X1FqzHUOvo96iBvKlobwLx2qRQUwl0sXrckijhB90107+O0Bjs4P4isAAAAACIGAt/mWQ653FYthycv4SSPY+ntLOPrKHn87zCuPpJyCyzJGPBWVawsAACASQkAgAAAAIAAAAAAAAAAACICAt/mWQ653FYthycv4SSPY+ntLOPrKHn87zCuPpJyCyzJSDBFAiEAkU7++lA66rKqx4Uyj0dUY/hu5BZpKHyAK2HpOdCXAzECICvtrtLjswCIJ91hvuYQ0ub2pe4mX/BvGxeqUggIB8T6AQABDiCqTkoBOxybnOO2CwnW40rwLnOat8xXG5CBuVp8/xrxhgEPBAAAAAABAFUBAAAAAfPz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/PzAAAAAAD/////ASBOAAAAAAAAGXapFNysfYTGhEyC9xWAKoNMVnG9xYISiKwAAAAAIgYDAwya352qpQ0XnAT8FqP795heMgITQ2gDAKKlEfQsA0EY8FZVrCwAAIBJCQCAAAAAgAAAAAAFAAAAIgIDAwya352qpQ0XnAT8FqP795heMgITQ2gDAKKlEfQsA0FHMEQCIHHudZ6k34w553mZmflY6OlHTG2HyqptPNaJnECTCq3rAiAKrVByICMuB01crvq7oTjlmV5Y3FQIfpFOVxXuTrV/6wEAAQMIZAAAAAAAAAABBDwhwb3DXscjkLUSjxODAfrZEynxfUWrMdQ6+j3qIG8qWhvAvHapFFcaKS3BG7RxcDDwTVZFrELyrmDfiKwAAQMIOEoAAAAAAAABBBl2qRQ2zVEcOe2dgltNvMNY2bSWLJCnRYisIgICsOuz/cDA127PPYGTlvL2hkbDJh4cvaq4zeJg+UhFznIY8FZVrCwAAIBJCQCAAAAAgAAAAAAGAAAAAA==",
+        "identification_txid": "f5b31c17e398a2be443d9c79cbe9bfeb41b835fcaa03aca6a841cdc813f74a96",
+        "tx_modifiable": 0
+      },
+      {
+        "name": "finalized",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAgEFAQIBBgEAAAEOIPxomTHBQJdE34WoWglGI66Tn86zIxCX9nvPIMS7uUveAQ8EAAAAAAEAeAEAAAAB9PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PQAAAAAAP////8BZAAAAAAAAAA8IcG9w17HI5C1Eo8TgwH62RMp8X1FqzHUOvo96iBvKlobwLx2qRQUwl0sXrckijhB90107+O0Bjs4P4isAAAAAAEHa0gwRQIhAJFO/vpQOuqyqseFMo9HVGP4buQWaSh8gCth6TnQlwMxAiAr7a7S47MAiCfdYb7mENLm9qXuJl/wbxsXqlIICAfE+gEhAt/mWQ653FYthycv4SSPY+ntLOPrKHn87zCuPpJyCyzJAAEOIKpOSgE7HJuc47YLCdbjSvAuc5q3zFcbkIG5Wnz/GvGGAQ8EAAAAAAEAVQEAAAAB8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/MAAAAAAP////8BIE4AAAAAAAAZdqkU3Kx9hMaETIL3FYAqg0xWcb3FghKIrAAAAAABB2pHMEQCIHHudZ6k34w553mZmflY6OlHTG2HyqptPNaJnECTCq3rAiAKrVByICMuB01crvq7oTjlmV5Y3FQIfpFOVxXuTrV/6wEhAwMMmt+dqqUNF5wE/Baj+/eYXjICE0NoAwCipRH0LANBAAEDCGQAAAAAAAAAAQQ8IcG9w17HI5C1Eo8TgwH62RMp8X1FqzHUOvo96iBvKlobwLx2qRRXGiktwRu0cXAw8E1WRaxC8q5g34isAAEDCDhKAAAAAAAAAQQZdqkUNs1RHDntnYJbTbzDWNm0liyQp0WIrCICArDrs/3AwNduzz2Bk5by9oZGwyYeHL2quM3iYPlIRc5yGPBWVawsAACASQkAgAAAAIAAAAAABgAAAAA=",
+        "identification_txid": "f5b31c17e398a2be443d9c79cbe9bfeb41b835fcaa03aca6a841cdc813f74a96",
+        "tx_modifiable": 0
+      }
+    ],
+    "extracted_tx": "0100000002fc689931c1409744df85a85a094623ae939fceb3231097f67bcf20c4bbb94bde000000006b483045022100914efefa503aeab2aac785328f475463f86ee41669287c802b61e939d097033102202bedaed2e3b3008827dd61bee610d2e6f6a5ee265ff06f1b17aa52080807c4fa012102dfe6590eb9dc562d87272fe1248f63e9ed2ce3eb2879fcef30ae3e92720b2cc9ffffffffaa4e4a013b1c9b9ce3b60b09d6e34af02e739ab7cc571b9081b95a7cff1af186000000006a473044022071ee759ea4df8c39e7799999f958e8e9474c6d87caaa6d3cd6899c40930aadeb02200aad507220232e074d5caefabba138e5995e58dc54087e914e5715ee4eb57feb012103030c9adf9daaa50d179c04fc16a3fbf7985e32021343680300a2a511f42c0341ffffffff0264000000000000003c21c1bdc35ec72390b5128f138301fad91329f17d45ab31d43afa3dea206f2a5a1bc0bc76a914571a292dc11bb4717030f04d5645ac42f2ae60df88ac384a0000000000001976a91436cd511c39ed9d825b4dbcc358d9b4962c90a74588ac00000000",
+    "final_txid": "ef4b6a8521e3d009ffe5973c3b1b88b6a97233b32c86e82fbd2d4dc62ecabcf8"
+  },
+  {
+    "id": "locktime-height",
+    "description": "A single input requires a height-based locktime (PSTT_IN_REQUIRED_HEIGHT_LOCKTIME = 680000) and no other input specifies a locktime, so the transaction locktime is 680000 (Determining the Locktime, \"one input specifies a required locktime, of one kind\").",
+    "intermediates": [
+      {
+        "input": 0,
+        "pubkey": "02dfe6590eb9dc562d87272fe1248f63e9ed2ce3eb2879fcef30ae3e92720b2cc9",
+        "sighash_type": 1,
+        "script_code": "76a91414c25d2c5eb7248a3841f74d74efe3b4063b383f88ac",
+        "sighash": "d5549d43f566aeb6292d20132f716f6018d84c8a8f08e686bc9404d8ba149aa6",
+        "signature": "304402205da95d3ffde07abca5bd3e281d640199a582acb14bbe96991538f1be4fdab6ac022003a3ede7b8ea487aa2fb16a076c098272c57b5183aaf4bb82419a12c9985df7201"
+      }
+    ],
+    "stages": [
+      {
+        "name": "created",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQEAAQ4gp484ZYW5tiVwtzMps/ieUH6KIs1PxO/VGcfgPibQtHQBDwQAAAAAARIEQGAKAAABAwi4ggEAAAAAAAEEGXapFFcaKS3BG7RxcDDwTVZFrELyrmDfiKwA",
+        "identification_txid": "10260e3511b4c6401e54108f63f0bfe4cbad569db24d6af9c2f6ea3a502d599e"
+      },
+      {
+        "name": "updated",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQEAAQ4gp484ZYW5tiVwtzMps/ieUH6KIs1PxO/VGcfgPibQtHQBDwQAAAAAAQBVAQAAAAH29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29gAAAAAA/////wGghgEAAAAAABl2qRQUwl0sXrckijhB90107+O0Bjs4P4isAAAAAAEDBAEAAAAiBgLf5lkOudxWLYcnL+Ekj2Pp7Szj6yh5/O8wrj6ScgssyRjwVlWsLAAAgEkJAIAAAACAAAAAAAAAAAABEgRAYAoAAAEDCLiCAQAAAAAAAQQZdqkUVxopLcEbtHFwMPBNVkWsQvKuYN+IrAA=",
+        "identification_txid": "10260e3511b4c6401e54108f63f0bfe4cbad569db24d6af9c2f6ea3a502d599e"
+      },
+      {
+        "name": "signed",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQEAAQ4gp484ZYW5tiVwtzMps/ieUH6KIs1PxO/VGcfgPibQtHQBDwQAAAAAAQBVAQAAAAH29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29gAAAAAA/////wGghgEAAAAAABl2qRQUwl0sXrckijhB90107+O0Bjs4P4isAAAAAAEDBAEAAAAiBgLf5lkOudxWLYcnL+Ekj2Pp7Szj6yh5/O8wrj6ScgssyRjwVlWsLAAAgEkJAIAAAACAAAAAAAAAAAABEgRAYAoAIgIC3+ZZDrncVi2HJy/hJI9j6e0s4+soefzvMK4+knILLMlHMEQCIF2pXT/94Hq8pb0+KB1kAZmlgqyxS76WmRU48b5P2rasAiADo+3nuOpIeqL7FqB2wJgnLFe1GDqvS7gkGaEsmYXfcgEAAQMIuIIBAAAAAAABBBl2qRRXGiktwRu0cXAw8E1WRaxC8q5g34isAA==",
+        "identification_txid": "10260e3511b4c6401e54108f63f0bfe4cbad569db24d6af9c2f6ea3a502d599e"
+      },
+      {
+        "name": "finalized",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQEAAQ4gp484ZYW5tiVwtzMps/ieUH6KIs1PxO/VGcfgPibQtHQBDwQAAAAAAQBVAQAAAAH29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29gAAAAAA/////wGghgEAAAAAABl2qRQUwl0sXrckijhB90107+O0Bjs4P4isAAAAAAESBEBgCgABB2pHMEQCIF2pXT/94Hq8pb0+KB1kAZmlgqyxS76WmRU48b5P2rasAiADo+3nuOpIeqL7FqB2wJgnLFe1GDqvS7gkGaEsmYXfcgEhAt/mWQ653FYthycv4SSPY+ntLOPrKHn87zCuPpJyCyzJAAEDCLiCAQAAAAAAAQQZdqkUVxopLcEbtHFwMPBNVkWsQvKuYN+IrAA=",
+        "identification_txid": "10260e3511b4c6401e54108f63f0bfe4cbad569db24d6af9c2f6ea3a502d599e"
+      }
+    ],
+    "extracted_tx": "0100000001a78f386585b9b62570b73329b3f89e507e8a22cd4fc4efd519c7e03e26d0b474000000006a47304402205da95d3ffde07abca5bd3e281d640199a582acb14bbe96991538f1be4fdab6ac022003a3ede7b8ea487aa2fb16a076c098272c57b5183aaf4bb82419a12c9985df72012102dfe6590eb9dc562d87272fe1248f63e9ed2ce3eb2879fcef30ae3e92720b2cc9ffffffff01b8820100000000001976a914571a292dc11bb4717030f04d5645ac42f2ae60df88ac40600a00",
+    "final_txid": "075de6144189adb4b09fa28f710f810974059c6aeb1212512046a2b48c7d0a1e"
+  },
+  {
+    "id": "locktime-time",
+    "description": "A single input requires a time-based locktime (PSTT_IN_REQUIRED_TIME_LOCKTIME = 1700000000, a Unix timestamp) and no other input specifies a locktime, so the transaction locktime is 1700000000.",
+    "intermediates": [
+      {
+        "input": 0,
+        "pubkey": "02dfe6590eb9dc562d87272fe1248f63e9ed2ce3eb2879fcef30ae3e92720b2cc9",
+        "sighash_type": 1,
+        "script_code": "76a91414c25d2c5eb7248a3841f74d74efe3b4063b383f88ac",
+        "sighash": "12ec77370034bd2f6d406007f2f5ccdb076431cf78e7d937f357708816aa6b58",
+        "signature": "3045022100d5ece9b63757ffb2b24d99b6265201b4db95517606a0ff654eb187e3e8062e8b02203db506e32abe48a41611564909aa2d6a54f08eec320868fdb63eb24a7e843fec01"
+      }
+    ],
+    "stages": [
+      {
+        "name": "created",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQEAAQ4gp484ZYW5tiVwtzMps/ieUH6KIs1PxO/VGcfgPibQtHQBDwQAAAAAAREEAPFTZQABAwi4ggEAAAAAAAEEGXapFFcaKS3BG7RxcDDwTVZFrELyrmDfiKwA",
+        "identification_txid": "112cb6bd9b60f20f899b6322007c9e252729d07e8d838954bfd439bf5edbdb43"
+      },
+      {
+        "name": "updated",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQEAAQ4gp484ZYW5tiVwtzMps/ieUH6KIs1PxO/VGcfgPibQtHQBDwQAAAAAAQBVAQAAAAH29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29gAAAAAA/////wGghgEAAAAAABl2qRQUwl0sXrckijhB90107+O0Bjs4P4isAAAAAAEDBAEAAAAiBgLf5lkOudxWLYcnL+Ekj2Pp7Szj6yh5/O8wrj6ScgssyRjwVlWsLAAAgEkJAIAAAACAAAAAAAAAAAABEQQA8VNlAAEDCLiCAQAAAAAAAQQZdqkUVxopLcEbtHFwMPBNVkWsQvKuYN+IrAA=",
+        "identification_txid": "112cb6bd9b60f20f899b6322007c9e252729d07e8d838954bfd439bf5edbdb43"
+      },
+      {
+        "name": "signed",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQEAAQ4gp484ZYW5tiVwtzMps/ieUH6KIs1PxO/VGcfgPibQtHQBDwQAAAAAAQBVAQAAAAH29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29gAAAAAA/////wGghgEAAAAAABl2qRQUwl0sXrckijhB90107+O0Bjs4P4isAAAAAAEDBAEAAAAiBgLf5lkOudxWLYcnL+Ekj2Pp7Szj6yh5/O8wrj6ScgssyRjwVlWsLAAAgEkJAIAAAACAAAAAAAAAAAABEQQA8VNlIgIC3+ZZDrncVi2HJy/hJI9j6e0s4+soefzvMK4+knILLMlIMEUCIQDV7Om2N1f/srJNmbYmUgG025VRdgag/2VOsYfj6AYuiwIgPbUG4yq+SKQWEVZJCaotalTwjuwyCGj9tj6ySn6EP+wBAAEDCLiCAQAAAAAAAQQZdqkUVxopLcEbtHFwMPBNVkWsQvKuYN+IrAA=",
+        "identification_txid": "112cb6bd9b60f20f899b6322007c9e252729d07e8d838954bfd439bf5edbdb43"
+      },
+      {
+        "name": "finalized",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQEAAQ4gp484ZYW5tiVwtzMps/ieUH6KIs1PxO/VGcfgPibQtHQBDwQAAAAAAQBVAQAAAAH29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29gAAAAAA/////wGghgEAAAAAABl2qRQUwl0sXrckijhB90107+O0Bjs4P4isAAAAAAERBADxU2UBB2tIMEUCIQDV7Om2N1f/srJNmbYmUgG025VRdgag/2VOsYfj6AYuiwIgPbUG4yq+SKQWEVZJCaotalTwjuwyCGj9tj6ySn6EP+wBIQLf5lkOudxWLYcnL+Ekj2Pp7Szj6yh5/O8wrj6ScgssyQABAwi4ggEAAAAAAAEEGXapFFcaKS3BG7RxcDDwTVZFrELyrmDfiKwA",
+        "identification_txid": "112cb6bd9b60f20f899b6322007c9e252729d07e8d838954bfd439bf5edbdb43"
+      }
+    ],
+    "extracted_tx": "0100000001a78f386585b9b62570b73329b3f89e507e8a22cd4fc4efd519c7e03e26d0b474000000006b483045022100d5ece9b63757ffb2b24d99b6265201b4db95517606a0ff654eb187e3e8062e8b02203db506e32abe48a41611564909aa2d6a54f08eec320868fdb63eb24a7e843fec012102dfe6590eb9dc562d87272fe1248f63e9ed2ce3eb2879fcef30ae3e92720b2cc9ffffffff01b8820100000000001976a914571a292dc11bb4717030f04d5645ac42f2ae60df88ac00f15365",
+    "final_txid": "4a9f5bf3bd0999b22afeb9429bc02016562f5fff8c3682e45b819f584deba994"
+  },
+  {
+    "id": "locktime-fallback",
+    "description": "No input specifies a required locktime, but PSTT_GLOBAL_FALLBACK_LOCKTIME is 500, so the transaction locktime is 500 rather than the default of 0.",
+    "intermediates": [
+      {
+        "input": 0,
+        "pubkey": "02dfe6590eb9dc562d87272fe1248f63e9ed2ce3eb2879fcef30ae3e92720b2cc9",
+        "sighash_type": 1,
+        "script_code": "76a91414c25d2c5eb7248a3841f74d74efe3b4063b383f88ac",
+        "sighash": "5123c2f38c4ee4390e0d00d30b0bef3107e081a998abb09175a7b1f8dcc1a51f",
+        "signature": "3045022100ec502dda0d6972e9410ebb4b288d2e82aab2e8380d28775bc43da5129191618302203d71baff364054634a573446a0a59d7b08c90fbd62cf3b7b3a44848523592e6e01"
+      }
+    ],
+    "stages": [
+      {
+        "name": "created",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQEBAwT0AQAAAAEOIKePOGWFubYlcLczKbP4nlB+iiLNT8Tv1RnH4D4m0LR0AQ8EAAAAAAABAwi4ggEAAAAAAAEEGXapFFcaKS3BG7RxcDDwTVZFrELyrmDfiKwA",
+        "identification_txid": "5e07461667147a6bf46ed4ab8c3fac9693b9ce5e2183fb481a1d2dd461ab8f9c"
+      },
+      {
+        "name": "updated",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQEBAwT0AQAAAAEOIKePOGWFubYlcLczKbP4nlB+iiLNT8Tv1RnH4D4m0LR0AQ8EAAAAAAEAVQEAAAAB9vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vYAAAAAAP////8BoIYBAAAAAAAZdqkUFMJdLF63JIo4QfdNdO/jtAY7OD+IrAAAAAABAwQBAAAAIgYC3+ZZDrncVi2HJy/hJI9j6e0s4+soefzvMK4+knILLMkY8FZVrCwAAIBJCQCAAAAAgAAAAAAAAAAAAAEDCLiCAQAAAAAAAQQZdqkUVxopLcEbtHFwMPBNVkWsQvKuYN+IrAA=",
+        "identification_txid": "5e07461667147a6bf46ed4ab8c3fac9693b9ce5e2183fb481a1d2dd461ab8f9c"
+      },
+      {
+        "name": "signed",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQEBAwT0AQAAAAEOIKePOGWFubYlcLczKbP4nlB+iiLNT8Tv1RnH4D4m0LR0AQ8EAAAAAAEAVQEAAAAB9vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vYAAAAAAP////8BoIYBAAAAAAAZdqkUFMJdLF63JIo4QfdNdO/jtAY7OD+IrAAAAAABAwQBAAAAIgYC3+ZZDrncVi2HJy/hJI9j6e0s4+soefzvMK4+knILLMkY8FZVrCwAAIBJCQCAAAAAgAAAAAAAAAAAIgIC3+ZZDrncVi2HJy/hJI9j6e0s4+soefzvMK4+knILLMlIMEUCIQDsUC3aDWly6UEOu0sojS6CqrLoOA0od1vEPaUSkZFhgwIgPXG6/zZAVGNKVzRGoKWdewjJD71izzt7OkSEhSNZLm4BAAEDCLiCAQAAAAAAAQQZdqkUVxopLcEbtHFwMPBNVkWsQvKuYN+IrAA=",
+        "identification_txid": "5e07461667147a6bf46ed4ab8c3fac9693b9ce5e2183fb481a1d2dd461ab8f9c"
+      },
+      {
+        "name": "finalized",
+        "pstt": "cHN0dP8BAgQBAAAAAQQBAQEFAQEBAwT0AQAAAAEOIKePOGWFubYlcLczKbP4nlB+iiLNT8Tv1RnH4D4m0LR0AQ8EAAAAAAEAVQEAAAAB9vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vYAAAAAAP////8BoIYBAAAAAAAZdqkUFMJdLF63JIo4QfdNdO/jtAY7OD+IrAAAAAABB2tIMEUCIQDsUC3aDWly6UEOu0sojS6CqrLoOA0od1vEPaUSkZFhgwIgPXG6/zZAVGNKVzRGoKWdewjJD71izzt7OkSEhSNZLm4BIQLf5lkOudxWLYcnL+Ekj2Pp7Szj6yh5/O8wrj6ScgssyQABAwi4ggEAAAAAAAEEGXapFFcaKS3BG7RxcDDwTVZFrELyrmDfiKwA",
+        "identification_txid": "5e07461667147a6bf46ed4ab8c3fac9693b9ce5e2183fb481a1d2dd461ab8f9c"
+      }
+    ],
+    "extracted_tx": "0100000001a78f386585b9b62570b73329b3f89e507e8a22cd4fc4efd519c7e03e26d0b474000000006b483045022100ec502dda0d6972e9410ebb4b288d2e82aab2e8380d28775bc43da5129191618302203d71baff364054634a573446a0a59d7b08c90fbd62cf3b7b3a44848523592e6e012102dfe6590eb9dc562d87272fe1248f63e9ed2ce3eb2879fcef30ae3e92720b2cc9ffffffff01b8820100000000001976a914571a292dc11bb4717030f04d5645ac42f2ae60df88acf4010000",
+    "final_txid": "38d4defaf8d239cc6923439d952b6f38a61d3909299f0f43adef32e9e8527719"
+  }
+]

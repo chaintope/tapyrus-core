@@ -87,6 +87,7 @@ add_executable(test_tapyrus
         pmt_tests.cpp
         policyestimator_tests.cpp
         prevector_tests.cpp
+        pstt_tests.cpp
         raii_event_tests.cpp
         random_tests.cpp
         reverselock_tests.cpp
