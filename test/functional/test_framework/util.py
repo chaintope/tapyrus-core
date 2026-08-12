@@ -440,13 +440,22 @@ class StallDetector:
     current progress value every progress_log_interval seconds so a
     long-running wait isn't silent in CI.
 
-    Subclasses implement is_done(), progress() and on_stall(); before_check()
-    and log_progress() are optional hooks.
+    progress() may raise TransientProgressError for a benign, retryable read
+    failure (e.g. a TOCTOU race); that is retried without affecting the
+    stall timer, logging each occurrence. Any other exception progress()
+    raises is treated as a genuine, unexpected failure: it is logged
+    together with describe_failure()'s diagnostic context and then
+    re-raised immediately, rather than retried, so an unforeseen error
+    can't turn into a silent, undiagnosable hang.
+
+    Subclasses implement is_done(), progress() and on_stall(); before_check(),
+    log_progress() and describe_failure() are optional hooks.
     """
-    def __init__(self, *, wait=1, stall_timeout, progress_log_interval):
+    def __init__(self, *, wait=1, stall_timeout, progress_log_interval, log=None):
         self.wait = wait
         self.stall_timeout = stall_timeout
         self.progress_log_interval = progress_log_interval
+        self.log = log or logger
 
     def before_check(self):
         pass
@@ -463,6 +472,14 @@ class StallDetector:
     def log_progress(self, progress):
         pass
 
+    def describe_failure(self):
+        """
+        Optional hook: return a string with extra diagnostic context (e.g.
+        current filesystem or node state) to log alongside an unexpected
+        exception raised from progress(). Default: no extra context.
+        """
+        return None
+
     def run(self):
         last_progress = None
         last_progress_time = time.time()
@@ -473,9 +490,17 @@ class StallDetector:
                 return
             try:
                 progress = self.progress()
-            except TransientProgressError:
+            except TransientProgressError as e:
+                self.log.info("%s: retrying after transient progress error: %s" % (
+                    type(self).__name__, e))
                 time.sleep(self.wait)
                 continue
+            except Exception as e:
+                detail = self.describe_failure()
+                self.log.error("%s: progress() raised unexpected %s: %s%s" % (
+                    type(self).__name__, type(e).__name__, e,
+                    " | " + detail if detail else ""))
+                raise
             now = time.time()
             if progress != last_progress:
                 last_progress = progress
@@ -508,7 +533,10 @@ class _BlockSyncStallDetector(StallDetector):
                 "".join("\n  {!r}".format(b) for b in self.last_best_hash)))
 
     def log_progress(self, heights):
-        logger.info("sync_blocks_with_stall_detection: heights={}".format(heights))
+        self.log.info("sync_blocks_with_stall_detection: heights={}".format(heights))
+
+    def describe_failure(self):
+        return "last_best_hash=%r" % (self.last_best_hash,)
 
 class Node3SyncStallDetector(StallDetector):
     """
@@ -518,8 +546,7 @@ class Node3SyncStallDetector(StallDetector):
     retried unpredictably, so a fixed wall-clock budget doesn't fit well.
     """
     def __init__(self, log, target_node, reference_node, reconnect, *, min_peers, min_height, **kwargs):
-        super().__init__(**kwargs)
-        self.log = log
+        super().__init__(log=log, **kwargs)
         self.target_node = target_node
         self.reference_node = reference_node
         self.reconnect = reconnect
@@ -544,6 +571,10 @@ class Node3SyncStallDetector(StallDetector):
 
     def log_progress(self, height):
         self.log.info("node3 sync progress: height=%d" % height)
+
+    def describe_failure(self):
+        return "last_height=%r min_peers=%r min_height=%r" % (
+            self.last_height, self.min_peers, self.min_height)
 
 def sync_blocks_with_stall_detection(rpc_connections, *, wait=1, stall_timeout=TAPYRUSD_SYNC_TIMEOUT, progress_log_interval=TAPYRUSD_MESSAGE_TIMEOUT):
     """
