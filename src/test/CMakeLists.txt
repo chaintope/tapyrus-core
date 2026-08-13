@@ -206,6 +206,7 @@ if(ENABLE_WALLET)
             ../wallet/test/accounting_tests.cpp
             ../wallet/test/coinselector_tests.cpp
             ../wallet/test/psbt_wallet_tests.cpp
+            ../wallet/test/pstt_wallet_tests.cpp
             ../wallet/test/wallet_crypto_tests.cpp
             ../wallet/test/wallet_test_fixture.cpp
             ../wallet/test/wallet_tests.cpp

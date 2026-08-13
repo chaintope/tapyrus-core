@@ -12,8 +12,10 @@
 #include <script/standard.h>
 #include <txmempool.h>
 #include <validation.h>
+#include <wallet/pstt.h>
 #include <wallet/rpcwallet.h>
 #include <wallet/test/test_tapyrus_wallet.h>
+#include <wallet/test/wallet_test_fixture.h>
 #include <wallet/wallet.h>
 
 #include <boost/algorithm/string.hpp>
@@ -277,6 +279,102 @@ BOOST_FIXTURE_TEST_CASE(pstt_wallet_rpc_cli_param_conversion, PsttWalletTestingS
     std::string updatedPstt = updated.find_value("pstt").get_str();
     BOOST_CHECK_THROW(CallPsttWalletRPCFromCli(std::string("walletprocesspstt ")+updatedPstt+" not_bool"), std::runtime_error);
     BOOST_CHECK_NO_THROW(CallPsttWalletRPCFromCli(std::string("walletprocesspstt ")+updatedPstt+" true ALL false ECDSA"));
+}
+
+static CScript P2PKHScriptFor(const CPubKey& pubkey)
+{
+    CScript script;
+    script << OP_DUP << OP_HASH160 << ToByteVector(pubkey.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
+    return script;
+}
+
+// Rules 24/25 (doc/tapyrus/pstt.md, §8): the Updater must never change an
+// input's sequence, neither for an input that's already signed (24) nor for
+// any input at all once some *other* input carries a SIGHASH_ALL-without-
+// ANYONECANPAY signature (25). Unlike most other rules, this isn't a
+// conditional guard inside FillPSTT that rejects a mutation attempt -- rule
+// 23 already establishes FillPSTT never adds/removes/alters inputs at all,
+// and that extends structurally to sequence: FillPSTT has no code path that
+// ever writes PSTTInput::sequence, signed or not. So the right-sized test
+// here is a regression tripwire proving that invariant holds across the
+// specific state rule 25 calls out (one input fully SIGHASH_ALL-signed,
+// another still unsigned), across repeated Updater/Signer passes -- not a
+// conditional-branch test for a branch that doesn't exist.
+BOOST_FIXTURE_TEST_CASE(pstt_updater_never_mutates_sequence, WalletTestingSetup)
+{
+    CKey keyA;
+    keyA.MakeNewKey(true);
+    CKey keyB; // deliberately never added to the wallet -- stays unsignable
+    keyB.MakeNewKey(true);
+
+    CMutableTransaction mtx1;
+    mtx1.nFeatures = CTransaction::CURRENT_FEATURES;
+    mtx1.vout.emplace_back(100000, P2PKHScriptFor(keyA.GetPubKey()));
+    CTransactionRef prevTx1 = MakeTransactionRef(std::move(mtx1));
+    CWalletTx wtx1(&m_wallet, prevTx1);
+    m_wallet.mapWallet.emplace(wtx1.GetHash(), std::move(wtx1));
+    {
+        LOCK(m_wallet.cs_wallet);
+        m_wallet.AddKeyPubKey(keyA, keyA.GetPubKey());
+    }
+
+    CMutableTransaction mtx2;
+    mtx2.nFeatures = CTransaction::CURRENT_FEATURES;
+    mtx2.vout.emplace_back(50000, P2PKHScriptFor(keyB.GetPubKey()));
+    CTransactionRef prevTx2 = MakeTransactionRef(std::move(mtx2));
+    CWalletTx wtx2(&m_wallet, prevTx2);
+    m_wallet.mapWallet.emplace(wtx2.GetHash(), std::move(wtx2));
+    // keyB intentionally not added -- prevTx2 is wallet-known (so the
+    // Updater can attach its UTXO) but not wallet-signable, mirroring a
+    // foreign input in an incremental multi-party PSTT.
+
+    PartiallySignedTapyrusTransaction pstt;
+    pstt.tx_features = CTransaction::CURRENT_FEATURES;
+
+    PSTTInput input0;
+    input0.previous_txid = prevTx1->GetHashMalFix();
+    input0.prev_out_index = 0;
+    input0.previous_txid_set = true;
+    input0.prev_out_index_set = true;
+    input0.sequence = 0xFFFFFFFE;
+    pstt.inputs.push_back(input0);
+
+    PSTTInput input1;
+    input1.previous_txid = prevTx2->GetHashMalFix();
+    input1.prev_out_index = 0;
+    input1.previous_txid_set = true;
+    input1.prev_out_index_set = true;
+    input1.sequence = 0xFFFFFFFD;
+    pstt.inputs.push_back(input1);
+
+    CKey destKey;
+    destKey.MakeNewKey(true);
+    PSTTOutput output;
+    output.amount = 140000;
+    output.script = P2PKHScriptFor(destKey.GetPubKey());
+    pstt.outputs.push_back(output);
+
+    // First pass: Updater attaches both UTXOs, Signer completes input0
+    // (SIGHASH_ALL, no ANYONECANPAY -- exactly rule 25's trigger condition)
+    // and leaves input1 unsigned (no key). Sequences must be untouched.
+    FillPSTT(&m_wallet, pstt, SIGHASH_ALL, /*sign=*/true, /*bip32derivs=*/false);
+    BOOST_CHECK_EQUAL(*pstt.inputs[0].sequence, 0xFFFFFFFEU);
+    BOOST_CHECK_EQUAL(*pstt.inputs[1].sequence, 0xFFFFFFFDU);
+    BOOST_CHECK(!pstt.inputs[0].final_script_sig.empty());
+    BOOST_CHECK(pstt.inputs[1].final_script_sig.empty());
+
+    // Second pass: an Updater-only re-run over a PSTT that already carries
+    // input0's SIGHASH_ALL-without-ANYONECANPAY signature -- the precise
+    // state rule 25 describes. Sequences must still be untouched.
+    FillPSTT(&m_wallet, pstt, SIGHASH_ALL, /*sign=*/false, /*bip32derivs=*/false);
+    BOOST_CHECK_EQUAL(*pstt.inputs[0].sequence, 0xFFFFFFFEU);
+    BOOST_CHECK_EQUAL(*pstt.inputs[1].sequence, 0xFFFFFFFDU);
+
+    // Third pass: a further Signer re-attempt (still can't sign input1, no
+    // key) -- sequences must still be untouched.
+    FillPSTT(&m_wallet, pstt, SIGHASH_ALL, /*sign=*/true, /*bip32derivs=*/false);
+    BOOST_CHECK_EQUAL(*pstt.inputs[0].sequence, 0xFFFFFFFEU);
+    BOOST_CHECK_EQUAL(*pstt.inputs[1].sequence, 0xFFFFFFFDU);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
