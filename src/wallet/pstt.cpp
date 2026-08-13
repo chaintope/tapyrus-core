@@ -14,6 +14,7 @@ bool FillPSTT(const CWallet* pwallet, PartiallySignedTapyrusTransaction& pstt, i
 {
     LOCK(pwallet->cs_wallet);
     bool complete = true;
+    bool signed_any = false;
 
     for (unsigned int i = 0; i < pstt.inputs.size(); ++i) {
         PSTTInput& input = pstt.inputs.at(i);
@@ -55,8 +56,20 @@ bool FillPSTT(const CWallet* pwallet, PartiallySignedTapyrusTransaction& pstt, i
             throw JSONRPCError(RPC_TRANSACTION_ERROR,
                 strprintf("Filling/signing input %d failed: %s", i, PSTTSignResultToString(result)));
         } else {
+            // sign=true only means signing was attempted -- SignPSTTInput
+            // returns OK even when the wallet has no key for this input and
+            // contributed nothing (e.g. a foreign input in an incremental
+            // multi-party PSTT, per walletprocesspstt's own contract of
+            // being a harmless no-op for inputs it can't sign). Rule 32 must
+            // only fire on an input this call actually added a signature
+            // to, so compare partial_sigs/final_script_sig before and after.
+            size_t partial_sigs_before = input.partial_sigs.size();
+            bool finalized_before = !input.final_script_sig.empty();
             input.FromSignatureData(sigdata);
             if (!sigdata.complete) complete = false;
+            bool contributed = (!finalized_before && !input.final_script_sig.empty())
+                || input.partial_sigs.size() > partial_sigs_before;
+            if (sign && contributed) signed_any = true;
         }
 
         if (bip32derivs) {
@@ -92,7 +105,22 @@ bool FillPSTT(const CWallet* pwallet, PartiallySignedTapyrusTransaction& pstt, i
         }
     }
 
+    if (sign && signed_any) {
+        ApplyPsttPostSignModifiableRules(pstt, sighash_type);
+    }
+
     return complete;
+}
+
+void ApplyPsttPostSignModifiableRules(PartiallySignedTapyrusTransaction& pstt, int sighash_type)
+{
+    int base_sighash = sighash_type & 0x1f;
+    bool anyonecanpay = (sighash_type & SIGHASH_ANYONECANPAY) != 0;
+    uint8_t modifiable = pstt.tx_modifiable.value_or(0);
+    if (!anyonecanpay) modifiable &= ~PSTT_TXMOD_INPUTS_MODIFIABLE;
+    if (base_sighash != SIGHASH_NONE && base_sighash != SIGHASH_SINGLE) modifiable &= ~PSTT_TXMOD_OUTPUTS_MODIFIABLE;
+    if (base_sighash == SIGHASH_SINGLE) modifiable |= PSTT_TXMOD_HAS_SIGHASH_SINGLE;
+    pstt.tx_modifiable = modifiable;
 }
 
 void ComputePsttColorBalances(const PartiallySignedTapyrusTransaction& pstt,
