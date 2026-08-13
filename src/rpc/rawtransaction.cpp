@@ -461,6 +461,56 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
     return rawTx;
 }
 
+// Mirrors ConstructTransaction's per-input CTxIn construction (default
+// sequence based on RBF opt-in / whether a locktime is set, with an explicit
+// per-input override otherwise) -- but reads previous_txid/output_index,
+// PSTT's own field vocabulary (matching PSTT_IN_PREVIOUS_TXID/
+// PSTT_IN_OUTPUT_INDEX and addinputtopstt's own param names), rather than
+// ConstructTransaction's txid/vout (createrawtransaction's vocabulary).
+// Used by createpstt/walletcreatefundedpstt instead of passing their inputs
+// array through ConstructTransaction directly, which would otherwise throw
+// on every PSTT-shaped input object.
+std::vector<CTxIn> ParsePsttInputEntries(const UniValue& inputs_in, uint32_t nLockTime, bool rbfOptIn)
+{
+    UniValue inputs = inputs_in.get_array();
+    std::vector<CTxIn> vin;
+    for (unsigned int idx = 0; idx < inputs.size(); idx++) {
+        const UniValue& o = inputs[idx].get_obj();
+
+        uint256 txid = ParseHashO(o, "previous_txid");
+
+        const UniValue& vout_v = o.find_value("output_index");
+        if (!vout_v.isNum()) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, missing output_index key");
+        }
+        int nOutput = vout_v.get_int();
+        if (nOutput < 0) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, output_index must be positive");
+        }
+
+        uint32_t nSequence;
+        if (rbfOptIn) {
+            nSequence = MAX_BIP125_RBF_SEQUENCE;
+        } else if (nLockTime) {
+            nSequence = std::numeric_limits<uint32_t>::max() - 1;
+        } else {
+            nSequence = std::numeric_limits<uint32_t>::max();
+        }
+
+        const UniValue& sequenceObj = o.find_value("sequence");
+        if (sequenceObj.isNum()) {
+            int64_t seqNr64 = sequenceObj.get_int64();
+            if (seqNr64 < 0 || seqNr64 > std::numeric_limits<uint32_t>::max()) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, sequence number is out of range");
+            }
+            nSequence = (uint32_t)seqNr64;
+        }
+
+        vin.emplace_back(COutPoint(txid, (uint32_t)nOutput), CScript(), nSequence);
+    }
+    return vin;
+}
+
 static UniValue createrawtransaction(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() < 2 || request.params.size() > 4) {
@@ -1891,7 +1941,19 @@ UniValue createpstt(const JSONRPCRequest& request)
         }, true
     );
 
-    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], NullUniValue, NullUniValue);
+    // Passing fallback_locktime through as ConstructTransaction's own locktime
+    // param (rather than NullUniValue) is deliberate, not just convenient
+    // range-check reuse: it's what makes ConstructTransaction apply its
+    // existing nSequence = max-1 coupling to every input when the locktime is
+    // nonzero. Without that, a nonzero fallback_locktime would be silently
+    // inert once extracted -- IsFinalTx-style consensus rules only honor
+    // nLockTime when at least one input carries a non-final sequence.
+    // Inputs are parsed separately via ParsePsttInputEntries (PSTT's own
+    // previous_txid/output_index field names) -- an empty array is passed
+    // here so ConstructTransaction only handles outputs/locktime, not
+    // createrawtransaction's txid/vout input shape.
+    CMutableTransaction rawTx = ConstructTransaction(UniValue(UniValue::VARR), request.params[1], request.params[2], NullUniValue);
+    rawTx.vin = ParsePsttInputEntries(request.params[0], rawTx.nLockTime, /*rbfOptIn=*/false);
 
     PartiallySignedTapyrusTransaction pstt;
     pstt.tx_features = CTransaction::CURRENT_FEATURES;
@@ -1911,13 +1973,7 @@ UniValue createpstt(const JSONRPCRequest& request)
         pstt.outputs.push_back(std::move(output));
     }
 
-    if (!request.params[2].isNull()) {
-        int64_t locktime = request.params[2].get_int64();
-        if (locktime < 0 || locktime > std::numeric_limits<uint32_t>::max()) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, fallback_locktime out of range");
-        }
-        pstt.fallback_locktime = (uint32_t)locktime;
-    }
+    if (rawTx.nLockTime != 0) pstt.fallback_locktime = rawTx.nLockTime;
 
     bool inputs_modifiable = !request.params[3].isNull() && request.params[3].get_bool();
     bool outputs_modifiable = !request.params[4].isNull() && request.params[4].get_bool();

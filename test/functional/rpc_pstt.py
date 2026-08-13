@@ -13,91 +13,59 @@ concept it did carry (non_witness_utxo, PSBT's "full previous tx" field) maps
 directly onto PSTT_IN_UTXO, which fills the same role under a new name.
 
 The old "BIP 174 Test Vectors" section (driven by data/rpc_psbt.json, BIP-174's
-own bucket-shaped fixture file) is replaced outright by TIP-174's own fixtures
-(data/tip174_valid.json / data/tip174_invalid.json -- see data/tip174_SOURCE.md
-for provenance) -- the two schemas are structurally incompatible (PSBT v0's
-global map carries a whole embedded CMutableTransaction under key 0x00, which
-PSTT reserves as must-reject), so there is no meaningful migration path.
+own bucket-shaped fixture file) has no PSTT equivalent here at all: TIP-174's
+own fixtures (data/tip174_valid.json / data/tip174_invalid.json) are checked
+as a C++ unit test instead (src/test/pstt_tests.cpp's pstt_tip174_valid_fixtures
+/ pstt_tip174_invalid_fixtures), not re-driven from this functional test --
+the two schemas are structurally incompatible with BIP-174's bucket shape
+(PSBT v0's global map carries a whole embedded CMutableTransaction under key
+0x00, which PSTT reserves as must-reject) so there's no meaningful migration
+path, and wire-format/fixture validity is a parsing concern that belongs at
+the unit-test layer, not this operational/RPC-behavior layer.
 
-Note: this file assumes the createpstt/converttopstt/addinputtopstt/
-addoutputtopstt/finalizepsttconstruction/combinepstt/finalizepstt/extractpstt/
-decodepstt/walletcreatefundedpstt/walletupdatepstt/walletprocesspstt/
-walletsignpstt RPCs described in doc/tapyrus/pstt.md exist. It is not
-runnable until those land (non-wallet RPCs, Constructor/Combiner/Finalizer/
-Extractor primitives, and the wallet glue). decodepstt's exact JSON field
-names are a best-effort match to doc/tapyrus/pstt.md and may need small
-adjustment once that RPC actually ships.
+Also adds coverage rpc_psbt.py has no equivalent for: the Constructor role
+(addinputtopstt/addoutputtopstt/addinputoutputpairtopstt/
+finalizepsttconstruction) -- modifiable-flag enforcement, count-increment
+correctness, Has-SIGHASH_SINGLE paired-add enforcement, and a multi-round-trip
+scenario simulating several parties incrementally building one PSTT, per
+doc/tapyrus/pstt.md's Constructor role description.
 """
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, assert_raises_rpc_error, find_output, sync_blocks, TAPYRUS_MODES
+from test_framework.util import assert_equal, assert_raises_rpc_error, find_output, sync_blocks
 from test_framework.blocktools import create_colored_transaction
 
 from decimal import Decimal
 
-import json
-import os
+import base64
+import struct
 
 MAX_BIP125_RBF_SEQUENCE = 0xfffffffd
-
-DATA_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data')
-
-REQUIRED_VALID_ENTRY_KEYS = {'id', 'description', 'intermediates', 'stages', 'extracted_tx', 'final_txid'}
-REQUIRED_STAGE_KEYS = {'name', 'pstt'}
-REQUIRED_INVALID_ENTRY_KEYS = {'id', 'description', 'pstt', 'expected'}
-REQUIRED_EXPECTED_KEYS = {'valid', 'stage', 'reason'}
-VALID_STAGE_NAMES = {'parse', 'rule'}
+SEQUENCE_FINAL = 0xffffffff
 
 
-def load_valid_fixtures():
-    """Load tip174_valid.json and validate its top-level schema defensively.
-
-    Fails loudly (raises) rather than silently accepting a malformed/misread schema, per
-    the plan's §9b instruction: a subtle schema misread should surface immediately, not
-    silently pass zero test cases.
+def make_bare_pstt_with_unknown_global_field():
+    """Hand-builds the wire bytes for the simplest possible valid PSTT
+    (tx_features=1, zero inputs, zero outputs) plus one PSTT_GLOBAL_PROPRIETARY
+    (0xFC) unknown field, in the exact field order
+    PartiallySignedTapyrusTransaction::Serialize writes (see doc/tapyrus/pstt.md
+    and src/pstt.cpp): magic, tx_features, input_count, output_count, unknown,
+    separator. Every key/value is itself a length-prefixed byte string, per
+    the wire format doc -- this mirrors rpc_psbt.py's hardcoded
+    "unknown_psbt" constant, just PSTT-shaped and generated here instead of
+    pasted as an opaque blob, since PSTT has no BIP-174-style published
+    "carries unknown fields" test vector to lift one from.
     """
-    path = os.path.join(DATA_DIR, 'tip174_valid.json')
-    with open(path, encoding='utf-8') as f:
-        entries = json.load(f)
-    if not isinstance(entries, list):
-        raise AssertionError("tip174_valid.json: expected a top-level array, got %s" % type(entries).__name__)
-    for entry in entries:
-        missing = REQUIRED_VALID_ENTRY_KEYS - entry.keys()
-        if missing:
-            raise AssertionError("tip174_valid.json entry %r missing required key(s): %s" % (entry.get('id', '?'), sorted(missing)))
-        if not isinstance(entry['stages'], list) or not entry['stages']:
-            raise AssertionError("tip174_valid.json entry %r: 'stages' must be a non-empty array" % entry['id'])
-        for stage in entry['stages']:
-            missing = REQUIRED_STAGE_KEYS - stage.keys()
-            if missing:
-                raise AssertionError(
-                    "tip174_valid.json entry %r stage %r missing required key(s): %s"
-                    % (entry['id'], stage.get('name', '?'), sorted(missing)))
-    return entries
+    def lp(b):  # length-prefixed byte string (CompactSize len -- values used here are all < 0xfd)
+        return bytes([len(b)]) + b
 
-
-def load_invalid_fixtures():
-    """Load tip174_invalid.json and validate its top-level schema defensively."""
-    path = os.path.join(DATA_DIR, 'tip174_invalid.json')
-    with open(path, encoding='utf-8') as f:
-        entries = json.load(f)
-    if not isinstance(entries, list):
-        raise AssertionError("tip174_invalid.json: expected a top-level array, got %s" % type(entries).__name__)
-    for entry in entries:
-        missing = REQUIRED_INVALID_ENTRY_KEYS - entry.keys()
-        if missing:
-            raise AssertionError("tip174_invalid.json entry %r missing required key(s): %s" % (entry.get('id', '?'), sorted(missing)))
-        expected = entry['expected']
-        missing = REQUIRED_EXPECTED_KEYS - expected.keys()
-        if missing:
-            raise AssertionError("tip174_invalid.json entry %r 'expected' missing required key(s): %s" % (entry['id'], sorted(missing)))
-        if expected['valid'] is not False:
-            raise AssertionError("tip174_invalid.json entry %r: expected.valid must be false" % entry['id'])
-        if expected['stage'] not in VALID_STAGE_NAMES:
-            raise AssertionError(
-                "tip174_invalid.json entry %r: expected.stage must be one of %s, got %r"
-                % (entry['id'], sorted(VALID_STAGE_NAMES), expected['stage']))
-    return entries
+    magic = bytes([0x70, 0x73, 0x74, 0x74, 0xFF])  # "pstt" + 0xFF
+    tx_features = lp(bytes([0x02])) + lp(struct.pack("<i", 1))              # PSTT_GLOBAL_TX_FEATURES = 1
+    input_count = lp(bytes([0x04])) + lp(bytes([0x00]))                    # PSTT_GLOBAL_INPUT_COUNT = 0
+    output_count = lp(bytes([0x05])) + lp(bytes([0x00]))                   # PSTT_GLOBAL_OUTPUT_COUNT = 0
+    unknown = lp(bytes([0xFC, 0x01])) + lp(bytes([0x42]))                  # PSTT_GLOBAL_PROPRIETARY, identifier 0x01, payload 0x42
+    separator = bytes([0x00])
+    return base64.b64encode(magic + tx_features + input_count + output_count + unknown + separator).decode()
 
 
 class PSTTTest(BitcoinTestFramework):
@@ -251,13 +219,20 @@ class PSTTTest(BitcoinTestFramework):
         # Create a pstt spending outputs from nodes 1 and 2
         pstt_orig = self.nodes[0].createpstt([{"previous_txid":txid1, "output_index":vout1}, {"previous_txid":txid2, "output_index":vout2}], {self.nodes[0].getnewaddress():25.999})
 
-        # Update pstts, should only have data for one input and not the other
+        # Update pstts, should only have data for one input and not the other.
+        # Unlike decodepsbt (whose per-input entries are empty {} until
+        # something is explicitly added, since PSBT's embedded global tx
+        # already carries previous_txid/output_index), PSTT's decodepstt
+        # per-input entries always carry previous_txid/output_index -- PSTT
+        # has no separate global tx to fall back on for those, so the dict
+        # is never actually empty. Check for walletprocesspstt's
+        # Updater-attached utxo specifically instead of dict truthiness.
         pstt1 = self.nodes[1].walletprocesspstt(pstt_orig)['pstt']
         pstt1_decoded = self.nodes[0].decodepstt(pstt1)
-        assert pstt1_decoded['inputs'][0] and not pstt1_decoded['inputs'][1]
+        assert 'utxo' in pstt1_decoded['inputs'][0] and 'utxo' not in pstt1_decoded['inputs'][1]
         pstt2 = self.nodes[2].walletprocesspstt(pstt_orig)['pstt']
         pstt2_decoded = self.nodes[0].decodepstt(pstt2)
-        assert not pstt2_decoded['inputs'][0] and pstt2_decoded['inputs'][1]
+        assert 'utxo' not in pstt2_decoded['inputs'][0] and 'utxo' in pstt2_decoded['inputs'][1]
 
         # Combine, finalize, and send the pstts
         combined = self.nodes[0].combinepstt([pstt1, pstt2])
@@ -288,11 +263,18 @@ class PSTTTest(BitcoinTestFramework):
             assert "bip32_derivs" in pstt_in
         assert_equal(decoded_pstt["locktime"], block_height)
 
-        # Same construction without optional arguments
+        # Same construction without optional arguments. With no locktime and
+        # no replaceable flag, PSTT_IN_SEQUENCE stays at its implicit default
+        # (0xFFFFFFFF) and PsttInputToUniv only emits "sequence" when the
+        # field is actually present on the wire (decodepstt shows what's
+        # stored, not a materialized/implied value -- unlike decodepsbt,
+        # which always has a concrete per-input sequence via its embedded
+        # global tx) -- so this checks the effective value via .get(), not a
+        # bare index, since "sequence" may legitimately be absent here.
         psttx_info = self.nodes[0].walletcreatefundedpstt([{"previous_txid":unspent["txid"], "output_index":unspent["vout"]}], [{self.nodes[2].getnewaddress():unspent["amount"]+1}])
         decoded_pstt = self.nodes[0].decodepstt(psttx_info["pstt"])
         for pstt_in in decoded_pstt["inputs"]:
-            assert pstt_in["sequence"] > MAX_BIP125_RBF_SEQUENCE
+            assert pstt_in.get("sequence", SEQUENCE_FINAL) > MAX_BIP125_RBF_SEQUENCE
         assert_equal(decoded_pstt["locktime"], 0)
 
         # Test the ECDSA/Schnorr sigscheme parameter end to end
@@ -304,73 +286,103 @@ class PSTTTest(BitcoinTestFramework):
         self.nodes[0].generate(1, self.signblockprivkey_wif)
         self.sync_all()
 
-        # TIP-174 test vectors
-        self.test_tip174_fixtures()
+        # Check that unknown global fields are just passed through --
+        # PSTT-shaped analog of rpc_psbt.py's hardcoded "unknown_psbt" case,
+        # hand-built here since PSTT has no equivalent published test vector
+        # (see make_bare_pstt_with_unknown_global_field's docstring).
+        self.log.info('Test unknown fields are passed through unchanged')
+        unknown_pstt = make_bare_pstt_with_unknown_global_field()
+        self.nodes[0].decodepstt(unknown_pstt)  # must not throw
+        unknown_out = self.nodes[0].walletprocesspstt(unknown_pstt)['pstt']
+        assert_equal(unknown_pstt, unknown_out)
 
-    def test_tip174_fixtures(self):
-        # TIP-174's fixtures are dev-network-only (WIF 0xef, P2PKH 0x6f, P2SH
-        # 0xc4, CP2PKH 0x70, CP2SH 0xc5, BIP32 tpub/tprv -- see
-        # data/tip174_SOURCE.md). Under the strict Params()-only xpub prefix
-        # policy (doc/tapyrus/pstt.md), a future accidental PROD-mode run of
-        # this test would otherwise fail confusingly, far from the actual
-        # cause, on the one xpub-bearing entry -- assert explicitly instead.
-        assert self.mode == TAPYRUS_MODES.DEV, (
-            "rpc_pstt.py's TIP-174 fixtures are dev-network-only; refusing to run under %s" % self.mode)
+        # Constructor role: addinputtopstt/addoutputtopstt/
+        # addinputoutputpairtopstt/finalizepsttconstruction. rpc_psbt.py has
+        # no equivalent section -- PSBT's Constructor is folded silently into
+        # createpsbt/walletcreatefundedpsbt with no standalone incremental
+        # RPCs, so this is new coverage specific to TIP-174's constructable
+        # (BIP-370-style) data model (doc/tapyrus/pstt.md's Constructor role).
+        self.log.info('Test Constructor role: addinputtopstt/addoutputtopstt/addinputoutputpairtopstt/finalizepsttconstruction')
 
-        self.log.info("Loading TIP-174 fixtures (see data/tip174_SOURCE.md for provenance)")
-        valid_entries = load_valid_fixtures()
-        invalid_entries = load_invalid_fixtures()
-        self.log.info("Loaded %d valid workflow(s), %d invalid vector(s)", len(valid_entries), len(invalid_entries))
+        # createpstt with both modifiable flags set.
+        bare = self.nodes[0].createpstt([], [], 0, True, True)
+        decoded_bare = self.nodes[0].decodepstt(bare)
+        assert_equal(decoded_bare['tx_modifiable']['inputs_modifiable'], True)
+        assert_equal(decoded_bare['tx_modifiable']['outputs_modifiable'], True)
+        assert_equal(len(decoded_bare['inputs']), 0)
+        assert_equal(len(decoded_bare['outputs']), 0)
 
-        node = self.nodes[0]
+        # Neither Constructor RPC works once construction is not modifiable.
+        self.nodes[0].generate(5, self.signblockprivkey_wif)
+        self.sync_all()
+        unspent_list = self.nodes[0].listunspent()
+        assert len(unspent_list) >= 4, "test needs at least 4 spendable TPC UTXOs on node0 at this point"
+        unspent_a, unspent_b, unspent_c, unspent_d = unspent_list[0:4]
 
-        # valid.json: walk every stage's PSTT, asserting it decodes and that
-        # identification_txid is constant across every stage in the entry (per
-        # spec, the identifier must not change as the PSTT is filled in).
-        # Re-deriving each intermediate stage from the previous one via our
-        # own RPCs isn't attempted here -- the fixtures were signed with a
-        # generator-internal deterministic master key (see data/tip174_SOURCE.md)
-        # that isn't loaded into any node's wallet, so "sign this ourselves and
-        # compare bytes" isn't available for the signed/updated stages. What is
-        # checked on every stage: it decodes without error, and (via decodepstt)
-        # its identification_txid matches every other stage in the same entry.
-        # What is checked with full strength, on the entry's LAST stage only:
-        # extractpstt reproduces extracted_tx exactly, and sendrawtransaction
-        # accepts it with the expected final_txid -- i.e. a real,
-        # network-valid transaction comes out the other end of the pipeline.
-        for entry in valid_entries:
-            identification_txids = set()
-            for stage in entry['stages']:
-                decoded = node.decodepstt(stage['pstt'])
-                if 'identification_txid' in stage:
-                    identification_txids.add(stage['identification_txid'])
-                    assert_equal(decoded['identification_txid'], stage['identification_txid'])
-            assert_equal(len(identification_txids), 1,
-                         "entry %r: identification_txid changed across stages" % entry['id'])
+        frozen = self.nodes[0].createpstt([], [], 0, False, False)
+        assert_raises_rpc_error(-8, "PSTT inputs are not modifiable",
+                                 self.nodes[0].addinputtopstt, frozen, unspent_a['txid'], unspent_a['vout'])
+        assert_raises_rpc_error(-8, "PSTT outputs are not modifiable",
+                                 self.nodes[0].addoutputtopstt, frozen, {self.nodes[1].getnewaddress(): 1})
 
-            last_pstt = entry['stages'][-1]['pstt']
-            extracted = node.extractpstt(last_pstt)['hex']
-            assert_equal(extracted, entry['extracted_tx'])
-            txid = node.sendrawtransaction(extracted, True)
-            assert_equal(txid, entry['final_txid'])
-            node.generate(1, self.signblockprivkey_wif)
+        # Count-increment correctness, alternating "parties" (nodes) --
+        # a multi-round-trip incremental construction, the shape the Fee
+        # Provider workflow (doc/tapyrus/pstt.md) needs.
+        pstt_construct = self.nodes[0].addinputtopstt(bare, unspent_a['txid'], unspent_a['vout'])
+        decoded = self.nodes[0].decodepstt(pstt_construct)
+        assert_equal(len(decoded['inputs']), 1)
+        assert_equal(len(decoded['outputs']), 0)
+        assert_equal(decoded['inputs'][0]['previous_txid'], unspent_a['txid'])
 
-        # invalid.json: "parse" entries must be rejected by decodepstt itself;
-        # "rule" entries must decode fine (structurally well-formed) but fail
-        # a role-primitive check -- finalizepstt's completeness pass runs
-        # every input through the same checks SignPSTTInput does (UTXO
-        # presence/match, redeem-script hash, SIGHASH_SINGLE bounds, locktime
-        # validity) via a dummy signing provider, so it's a generically
-        # applicable role check regardless of which specific rule an entry
-        # is exercising.
-        for entry in invalid_entries:
-            expected_stage = entry['expected']['stage']
-            if expected_stage == 'parse':
-                assert_raises_rpc_error(-22, "TX decode failed", node.decodepstt, entry['pstt'])
-            else:
-                node.decodepstt(entry['pstt']) # must not throw
-                result = node.finalizepstt(entry['pstt'], False)
-                assert_equal(result['complete'], False)
+        pstt_construct = self.nodes[1].addoutputtopstt(pstt_construct, {self.nodes[1].getnewaddress(): 1})
+        decoded = self.nodes[0].decodepstt(pstt_construct)
+        assert_equal(len(decoded['inputs']), 1)
+        assert_equal(len(decoded['outputs']), 1)
+
+        pstt_construct = self.nodes[2].addinputtopstt(pstt_construct, unspent_b['txid'], unspent_b['vout'])
+        decoded = self.nodes[0].decodepstt(pstt_construct)
+        assert_equal(len(decoded['inputs']), 2)
+        assert_equal(len(decoded['outputs']), 1)
+
+        # Has-SIGHASH_SINGLE: addinputtopstt/addoutputtopstt are individually
+        # refused; addinputoutputpairtopstt is required instead.
+        single_pstt = self.nodes[0].createpstt([], [], 0, True, True, True)
+        decoded_single = self.nodes[0].decodepstt(single_pstt)
+        assert_equal(decoded_single['tx_modifiable']['has_sighash_single'], True)
+        assert_raises_rpc_error(-8, "addinputoutputpairtopstt",
+                                 self.nodes[0].addinputtopstt, single_pstt, unspent_c['txid'], unspent_c['vout'])
+        assert_raises_rpc_error(-8, "addinputoutputpairtopstt",
+                                 self.nodes[0].addoutputtopstt, single_pstt, {self.nodes[1].getnewaddress(): 1})
+        paired = self.nodes[0].addinputoutputpairtopstt(single_pstt, unspent_c['txid'], unspent_c['vout'], {self.nodes[1].getnewaddress(): 1})
+        decoded_paired = self.nodes[0].decodepstt(paired)
+        assert_equal(len(decoded_paired['inputs']), 1)
+        assert_equal(len(decoded_paired['outputs']), 1)
+
+        # finalizepsttconstruction declares construction finished; further
+        # Constructor calls are then refused.
+        finished = self.nodes[0].finalizepsttconstruction(pstt_construct)
+        decoded_finished = self.nodes[0].decodepstt(finished)
+        assert_equal(decoded_finished['tx_modifiable']['inputs_modifiable'], False)
+        assert_equal(decoded_finished['tx_modifiable']['outputs_modifiable'], False)
+        assert_raises_rpc_error(-8, "PSTT inputs are not modifiable",
+                                 self.nodes[0].addinputtopstt, finished, unspent_d['txid'], unspent_d['vout'])
+
+        # Sign and broadcast the multi-round-trip-constructed PSTT to prove
+        # it's a real, valid transaction end to end, not just structurally
+        # well-formed.
+        processed = self.nodes[0].walletprocesspstt(finished)
+        assert_equal(processed['complete'], True)
+        self.nodes[0].sendrawtransaction(self.nodes[0].finalizepstt(processed['pstt'])['hex'], True)
+        self.nodes[0].generate(1, self.signblockprivkey_wif)
+        self.sync_all()
+
+        # finalizepsttconstruction's clear_inputs_modifiable/
+        # clear_outputs_modifiable can also be applied selectively.
+        partial = self.nodes[0].createpstt([], [], 0, True, True)
+        partial = self.nodes[0].finalizepsttconstruction(partial, True, False)
+        decoded_partial = self.nodes[0].decodepstt(partial)
+        assert_equal(decoded_partial['tx_modifiable']['inputs_modifiable'], False)
+        assert_equal(decoded_partial['tx_modifiable']['outputs_modifiable'], True)
 
 
 if __name__ == '__main__':

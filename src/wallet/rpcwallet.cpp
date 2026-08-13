@@ -4491,7 +4491,17 @@ UniValue walletcreatefundedpstt(const JSONRPCRequest& request)
 
     CAmount fee;
     CWallet::ChangePosInOut change_position;
-    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], NullUniValue, request.params[3]["replaceable"]);
+    // fallback_locktime is passed through as ConstructTransaction's own
+    // locktime param (not NullUniValue) so its existing nSequence = max-1
+    // coupling applies when the locktime is nonzero -- otherwise a nonzero
+    // fallback_locktime would be consensus-inert once extracted (nLockTime
+    // is only honored when some input carries a non-final sequence). Inputs
+    // are parsed separately via ParsePsttInputEntries (PSTT's own
+    // previous_txid/output_index field names) -- an empty array is passed
+    // here so ConstructTransaction only handles outputs/locktime, not
+    // createrawtransaction's txid/vout input shape.
+    CMutableTransaction rawTx = ConstructTransaction(UniValue(UniValue::VARR), request.params[1], request.params[2], request.params[3]["replaceable"]);
+    rawTx.vin = ParsePsttInputEntries(request.params[0], rawTx.nLockTime, request.params[3]["replaceable"].isTrue());
     FundTransaction(pwallet, rawTx, fee, change_position, request.params[3]);
 
     PartiallySignedTapyrusTransaction pstt;
@@ -4512,13 +4522,7 @@ UniValue walletcreatefundedpstt(const JSONRPCRequest& request)
         pstt.outputs.push_back(std::move(output));
     }
 
-    if (!request.params[2].isNull()) {
-        int64_t locktime = request.params[2].get_int64();
-        if (locktime < 0 || locktime > std::numeric_limits<uint32_t>::max()) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, fallback_locktime out of range");
-        }
-        pstt.fallback_locktime = (uint32_t)locktime;
-    }
+    if (rawTx.nLockTime != 0) pstt.fallback_locktime = rawTx.nLockTime;
 
     bool bip32derivs = request.params[4].isNull() ? false : request.params[4].get_bool();
     bool inputs_modifiable = !request.params[5].isNull() && request.params[5].get_bool();

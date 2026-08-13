@@ -122,6 +122,8 @@ BASE_SCRIPTS = [
     'rpc_getnewblock.py',
     'rpc_psbt.py',
     'rpc_psbt.py --scheme SCHNORR',
+    'rpc_pstt.py',
+    'rpc_pstt.py --scheme SCHNORR',
     'rpc_users.py',
     'rpc_whitelist.py',
     'feature_proxy.py',

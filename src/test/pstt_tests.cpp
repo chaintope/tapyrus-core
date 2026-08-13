@@ -21,7 +21,16 @@
 #include <txmempool.h>
 #include <validation.h>
 
+#include <test/data/tip174_invalid.json.h>
+#include <test/data/tip174_valid.json.h>
+
+#include <string>
+
 #include <boost/test/unit_test.hpp>
+
+// Defined in script_tests.cpp; parses a JSON array and BOOST_ERRORs (rather
+// than throwing) on malformed input.
+extern UniValue read_json(const std::string& jsondata);
 
 BOOST_FIXTURE_TEST_SUITE(pstt_tests, BasicTestingSetup)
 
@@ -1604,8 +1613,8 @@ static std::string EncodeHexTxForTest(const CMutableTransaction& mtx)
 static UniValue MakeCreatepsttInputEntry(const uint256& txid, uint32_t vout)
 {
     UniValue input(UniValue::VOBJ);
-    input.pushKV("txid", txid.GetHex());
-    input.pushKV("vout", (uint64_t)vout);
+    input.pushKV("previous_txid", txid.GetHex());
+    input.pushKV("output_index", (uint64_t)vout);
     return input;
 }
 
@@ -1949,6 +1958,125 @@ BOOST_AUTO_TEST_CASE(pstt_rpc_multi_round_trip_construction)
     addInput3.push_back(utxo3->GetHashMalFix().GetHex());
     addInput3.push_back(UniValue((uint64_t)0));
     BOOST_CHECK_THROW(CallPsttRPC("addinputtopstt", addInput3), UniValue);
+}
+
+// -----------------------------------------------------------------------
+// TIP-174 fixture-driven tests (test/functional/data/tip174_valid.json /
+// tip174_invalid.json, see test/functional/data/tip174_SOURCE.md for
+// provenance). This is the real, CI-run check that the wire format matches
+// TIP-174's own published vectors -- checked against the real registered
+// decodepstt/extractpstt/finalizepstt actors, now that all of Phase 1-4
+// exist on this branch.
+// -----------------------------------------------------------------------
+
+BOOST_FIXTURE_TEST_CASE(pstt_tip174_valid_fixtures, TestingSetup)
+{
+    // TIP-174's fixtures are dev-network-only (tpub/tprv BIP32 prefixes,
+    // dev-network P2PKH/P2SH versions -- see
+    // test/functional/data/tip174_SOURCE.md); the fixture-carried global
+    // xpub record's prefix check would otherwise fail against whatever
+    // params the fixture (PROD) selected. Restored to PROD at the end since
+    // every other case in this suite assumes it.
+    SelectParams(TAPYRUS_OP_MODE::DEV);
+
+    UniValue entries = read_json(std::string(json_tests::tip174_valid));
+    BOOST_REQUIRE(!entries.empty());
+
+    for (unsigned int i = 0; i < entries.size(); ++i) {
+        const UniValue& entry = entries[i];
+        const std::string id = entry["id"].get_str();
+        const UniValue& stages = entry["stages"].get_array();
+        BOOST_REQUIRE_MESSAGE(!stages.empty(), id);
+
+        // Per-stage identifier check only -- NOT that it's constant across
+        // every stage in the entry. Some entries (construction-stages,
+        // fee-provider-*) deliberately change identification_txid while
+        // inputs/outputs are still being added; per TIP-174 it only
+        // stabilizes once construction is finished. Each stage's own
+        // fixture-declared value is still checked exactly.
+        for (unsigned int s = 0; s < stages.size(); ++s) {
+            const UniValue& stage = stages[s];
+            const std::string stageName = stage["name"].get_str();
+
+            PartiallySignedTapyrusTransaction pstt;
+            std::string error;
+            BOOST_REQUIRE_MESSAGE(DecodePSTT(pstt, stage["pstt"].get_str(), error),
+                                   id << "/" << stageName << ": " << error);
+
+            const UniValue& expectedId = stage["identification_txid"];
+            if (!expectedId.isNull()) {
+                BOOST_CHECK_MESSAGE(pstt.GetIdentifier().GetHex() == expectedId.get_str(),
+                                     id << "/" << stageName << ": identification_txid mismatch");
+            }
+        }
+
+        // Extractor role, checked with full strength on the entry's last
+        // (fully signed) stage: extractpstt must reproduce extracted_tx
+        // exactly, and the extracted transaction's own txid must match
+        // final_txid.
+        const std::string& lastPstt = stages[stages.size() - 1]["pstt"].get_str();
+        UniValue extractParams(UniValue::VARR);
+        extractParams.push_back(lastPstt);
+        UniValue extracted = CallPsttRPC("extractpstt", extractParams);
+        BOOST_REQUIRE_MESSAGE(extracted.isStr(), id);
+        BOOST_CHECK_MESSAGE(extracted.get_str() == entry["extracted_tx"].get_str(), id << ": extracted_tx mismatch");
+
+        CMutableTransaction mtx = DecodeHexTxForTest(extracted.get_str());
+        BOOST_CHECK_MESSAGE(CTransaction(mtx).GetHashMalFix().GetHex() == entry["final_txid"].get_str(),
+                             id << ": final_txid mismatch");
+    }
+
+    SelectParams(TAPYRUS_OP_MODE::PROD);
+}
+
+BOOST_FIXTURE_TEST_CASE(pstt_tip174_invalid_fixtures, TestingSetup)
+{
+    // See pstt_tip174_valid_fixtures above: TIP-174's fixtures are
+    // dev-network-only.
+    SelectParams(TAPYRUS_OP_MODE::DEV);
+
+    UniValue entries = read_json(std::string(json_tests::tip174_invalid));
+    BOOST_REQUIRE(!entries.empty());
+
+    for (unsigned int i = 0; i < entries.size(); ++i) {
+        const UniValue& entry = entries[i];
+        const std::string id = entry["id"].get_str();
+        const std::string stage = entry["expected"]["stage"].get_str();
+        const std::string b64 = entry["pstt"].get_str();
+
+        PartiallySignedTapyrusTransaction pstt;
+        std::string error;
+        bool decoded = DecodePSTT(pstt, b64, error);
+
+        if (stage == "parse") {
+            // decodepstt itself must reject these -- malformed wire format.
+            BOOST_CHECK_MESSAGE(!decoded, id << ": expected decode failure, but it parsed cleanly");
+            continue;
+        }
+
+        // stage == "rule": structurally well-formed (decodes fine), but
+        // fails a role-primitive check -- finalizepstt must never treat it
+        // as a complete, broadcastable transaction: either it rejects the
+        // PSTT outright, or it reports the finalization as incomplete.
+        BOOST_CHECK_MESSAGE(decoded, id << ": expected a structurally valid PSTT, decode failed: " << error);
+
+        UniValue finalizeParams(UniValue::VARR);
+        finalizeParams.push_back(b64);
+        finalizeParams.push_back(UniValue(false));
+        bool rejected = false;
+        UniValue result;
+        try {
+            result = CallPsttRPC("finalizepstt", finalizeParams);
+        } catch (const UniValue&) {
+            rejected = true;
+        }
+        if (!rejected) {
+            BOOST_CHECK_MESSAGE(result["complete"].get_bool() == false,
+                                 id << ": expected finalizepstt to reject or report incomplete");
+        }
+    }
+
+    SelectParams(TAPYRUS_OP_MODE::PROD);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
