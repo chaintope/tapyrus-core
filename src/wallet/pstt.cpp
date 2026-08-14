@@ -82,11 +82,9 @@ bool FillPSTT(const CWallet* pwallet, PartiallySignedTapyrusTransaction& pstt, i
     // Fill in BIP32 keypaths for outputs so hardware wallets/watch-only
     // signers can identify change. Outputs don't need signing, so this uses
     // a throwaway dummy transaction purely to reuse ProduceSignature's
-    // pubkey-discovery machinery (mirrors FillPSBT's own documented
-    // approach in rpcwallet.cpp: "Dummy tx so we can use ProduceSignature to
-    // get stuff out" -- there, a real embedded tx happened to be available
-    // to piggyback on; PSTT has no such global tx, so the dummy is built
-    // explicitly here instead).
+    // pubkey-discovery machinery -- PSTT has no embedded global tx to
+    // piggyback on the way the old PSBT code's FillPSBT did, so the dummy is
+    // built explicitly here instead.
     if (bip32derivs) {
         CMutableTransaction dummy_tx;
         dummy_tx.vin.push_back(CTxIn());

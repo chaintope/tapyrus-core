@@ -21,6 +21,8 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/test/unit_test.hpp>
 
+extern bool ParseHDKeypath(std::string keypath_str, std::vector<uint32_t>& keypath);
+
 // -----------------------------------------------------------------------
 // RPC-dispatch-level tests for the wallet's PSTT RPCs (walletupdatepstt,
 // walletsignpstt, walletprocesspstt) -- these go through the real
@@ -56,7 +58,7 @@ struct PsttWalletTestingSetup : public TestWalletSetup
     std::shared_ptr<CWallet> sharedWallet;
 };
 
-BOOST_AUTO_TEST_SUITE(pstt_wallet_tests)
+BOOST_FIXTURE_TEST_SUITE(pstt_wallet_tests, WalletTestingSetup)
 
 static UniValue CallPsttWalletRPC(const std::string& method, const UniValue& params)
 {
@@ -279,6 +281,84 @@ BOOST_FIXTURE_TEST_CASE(pstt_wallet_rpc_cli_param_conversion, PsttWalletTestingS
     std::string updatedPstt = updated.find_value("pstt").get_str();
     BOOST_CHECK_THROW(CallPsttWalletRPCFromCli(std::string("walletprocesspstt ")+updatedPstt+" not_bool"), std::runtime_error);
     BOOST_CHECK_NO_THROW(CallPsttWalletRPCFromCli(std::string("walletprocesspstt ")+updatedPstt+" true ALL false ECDSA"));
+}
+
+// Carried over from the now-deleted psbt_wallet_tests.cpp (Phase 7, PSBT
+// removal) -- ParseHDKeypath is a generic helper (AddKeypathToMap's own
+// dependency) unrelated to the wire-format change, still exercised by
+// PSTT's own *_BIP32_DERIVATION handling.
+BOOST_AUTO_TEST_CASE(parse_hd_keypath)
+{
+    std::vector<uint32_t> keypath;
+
+    BOOST_CHECK(ParseHDKeypath("1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1", keypath));
+    BOOST_CHECK(!ParseHDKeypath("///////////////////////////", keypath));
+
+    BOOST_CHECK(ParseHDKeypath("1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1'/1", keypath));
+    BOOST_CHECK(!ParseHDKeypath("//////////////////////////'/", keypath));
+
+    BOOST_CHECK(ParseHDKeypath("1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/", keypath));
+    BOOST_CHECK(!ParseHDKeypath("1///////////////////////////", keypath));
+
+    BOOST_CHECK(ParseHDKeypath("1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1/1'/", keypath));
+    BOOST_CHECK(!ParseHDKeypath("1/'//////////////////////////", keypath));
+
+    BOOST_CHECK(ParseHDKeypath("", keypath));
+    BOOST_CHECK(!ParseHDKeypath(" ", keypath));
+
+    BOOST_CHECK(ParseHDKeypath("0", keypath));
+    BOOST_CHECK(!ParseHDKeypath("O", keypath));
+
+    BOOST_CHECK(ParseHDKeypath("0000'/0000'/0000'", keypath));
+    BOOST_CHECK(!ParseHDKeypath("0000,/0000,/0000,", keypath));
+
+    BOOST_CHECK(ParseHDKeypath("01234", keypath));
+    BOOST_CHECK(!ParseHDKeypath("0x1234", keypath));
+
+    BOOST_CHECK(ParseHDKeypath("1", keypath));
+    BOOST_CHECK(!ParseHDKeypath(" 1", keypath));
+
+    BOOST_CHECK(ParseHDKeypath("42", keypath));
+    BOOST_CHECK(!ParseHDKeypath("m42", keypath));
+
+    BOOST_CHECK(ParseHDKeypath("4294967295", keypath)); // 4294967295 == 0xFFFFFFFF (uint32_t max)
+    BOOST_CHECK(!ParseHDKeypath("4294967296", keypath)); // 4294967296 == 0xFFFFFFFF (uint32_t max) + 1
+
+    BOOST_CHECK(ParseHDKeypath("m", keypath));
+    BOOST_CHECK(!ParseHDKeypath("n", keypath));
+
+    BOOST_CHECK(ParseHDKeypath("m/", keypath));
+    BOOST_CHECK(!ParseHDKeypath("n/", keypath));
+
+    BOOST_CHECK(ParseHDKeypath("m/0", keypath));
+    BOOST_CHECK(!ParseHDKeypath("n/0", keypath));
+
+    BOOST_CHECK(ParseHDKeypath("m/0'", keypath));
+    BOOST_CHECK(!ParseHDKeypath("m/0''", keypath));
+
+    BOOST_CHECK(ParseHDKeypath("m/0'/0'", keypath));
+    BOOST_CHECK(!ParseHDKeypath("m/'0/0'", keypath));
+
+    BOOST_CHECK(ParseHDKeypath("m/0/0", keypath));
+    BOOST_CHECK(!ParseHDKeypath("n/0/0", keypath));
+
+    BOOST_CHECK(ParseHDKeypath("m/0/0/00", keypath));
+    BOOST_CHECK(!ParseHDKeypath("m/0/0/f00", keypath));
+
+    BOOST_CHECK(ParseHDKeypath("m/0/0/000000000000000000000000000000000000000000000000000000000000000000000000000000000000", keypath));
+    BOOST_CHECK(!ParseHDKeypath("m/1/1/111111111111111111111111111111111111111111111111111111111111111111111111111111111111", keypath));
+
+    BOOST_CHECK(ParseHDKeypath("m/0/00/0", keypath));
+    BOOST_CHECK(!ParseHDKeypath("m/0'/00/'0", keypath));
+
+    BOOST_CHECK(ParseHDKeypath("m/1/", keypath));
+    BOOST_CHECK(!ParseHDKeypath("m/1//", keypath));
+
+    BOOST_CHECK(ParseHDKeypath("m/0/4294967295", keypath)); // 4294967295 == 0xFFFFFFFF (uint32_t max)
+    BOOST_CHECK(!ParseHDKeypath("m/0/4294967296", keypath)); // 4294967296 == 0xFFFFFFFF (uint32_t max) + 1
+
+    BOOST_CHECK(ParseHDKeypath("m/4294967295", keypath)); // 4294967295 == 0xFFFFFFFF (uint32_t max)
+    BOOST_CHECK(!ParseHDKeypath("m/4294967296", keypath)); // 4294967296 == 0xFFFFFFFF (uint32_t max) + 1
 }
 
 static CScript P2PKHScriptFor(const CPubKey& pubkey)

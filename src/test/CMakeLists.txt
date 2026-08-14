@@ -205,14 +205,12 @@ if(ENABLE_WALLET)
         PRIVATE
             ../wallet/test/accounting_tests.cpp
             ../wallet/test/coinselector_tests.cpp
-            ../wallet/test/psbt_wallet_tests.cpp
             ../wallet/test/pstt_wallet_tests.cpp
             ../wallet/test/wallet_crypto_tests.cpp
             ../wallet/test/wallet_test_fixture.cpp
             ../wallet/test/wallet_tests.cpp
             ../wallet/test/create_transaction_tests.cpp
             ../wallet/test/test_tapyrus_wallet.cpp
-            ../wallet/test/pstt_wallet_tests.cpp
     )
 endif()
 

@@ -20,8 +20,6 @@ class CWallet;
 class CCoinControl;
 class JSONRPCRequest;
 class UniValue;
-struct PartiallySignedTransaction;
-class CTransaction;
 
 void RegisterWalletRPCCommands(CRPCTable &t);
 
@@ -39,7 +37,6 @@ bool EnsureWalletIsAvailable(CWallet *, bool avoidException);
 
 UniValue getaddressinfo(const JSONRPCRequest& request);
 UniValue signrawtransactionwithwallet(const JSONRPCRequest& request);
-bool FillPSBT(const CWallet* pwallet, PartiallySignedTransaction& psbtx, const CTransaction* txConst, int sighash_type = 1, bool sign = true, bool bip32derivs = false);
 
 // Token operation helpers — also called from interfaces/wallet.cpp (GUI layer).
 UniValue IssueReissuableToken(CWallet* const pwallet, const std::string& script, CAmount tokenValue, CCoinControl& coin_control);
