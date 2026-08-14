@@ -76,6 +76,8 @@ BASE_SCRIPTS = [
     'wallet_dump.py',
     'wallet_listtransactions.py',
     # vv Tests less than 60s vv
+    'pstt_network.py',
+    'pstt_network.py --scheme SCHNORR',
     'p2p_sendheaders.py',
     'p2p_addr_relay.py',
     'wallet_zapwallettxes.py',
