@@ -271,6 +271,7 @@ class PSTTNetworkTest(BitcoinTestFramework):
 
         self.run_rounds()
         self.run_error_simulations()
+        self.run_combiner_error_simulations()
         self.run_negative_signature_simulations()
         self.final_reconciliation()
 
@@ -781,6 +782,53 @@ class PSTTNetworkTest(BitcoinTestFramework):
         tampered = encode_pstt_container(g, ins, outs)
         assert_raises_rpc_error(None, "no locktime is acceptable", self.nodes[self.CREATOR].signpsttwithkey, tampered, [privkey])
         self.error_coverage.add('LOCKTIME_INVALID')
+
+    # -------------------------------------------------------------------
+    # Combiner-level simulation. Distinct from the eight PSTTSignResult
+    # errors above (those reject a single PSTT at Sign time); this rejects
+    # at Combine time, across two divergent copies of "the same" PSTT, so
+    # it isn't part of error_coverage/expected_errors.
+    # -------------------------------------------------------------------
+
+    def run_combiner_error_simulations(self):
+        self._sim_input_removed()
+
+    def _sim_input_removed(self):
+        """One party strips a co-signer's already-signed input out of the
+        PSTT before passing it on to be combined, rather than corrupting a
+        field on an existing input (the PSTTSignResult simulations above
+        all do the latter). GetIdentifier() hashes the materialized
+        transaction's inputs/outputs/locktime (signature-independent, see
+        pstt.cpp), so dropping an input changes it; combinepstt's
+        HasSameIdentifierAs() check -- run before Merge() is ever reached --
+        must therefore refuse to combine the tampered copy against the
+        original. PartiallySignedTapyrusTransaction::Merge()'s own input/
+        output-count guard (src/test/pstt_tests.cpp's
+        pstt_merge_refuses_mismatched_input_output_counts) is exercised
+        directly at the unit-test level and is unreachable from here, since
+        the identifier check always fires first."""
+        colors = list(self.ledger.keys())
+        color_a, color_b = colors[0], colors[1]
+        entry_a, entry_b = self.ledger[color_a], self.ledger[color_b]
+        owner_a, owner_b = entry_a['owner'], entry_b['owner']
+        node_a, node_b = self.nodes[owner_a], self.nodes[owner_b]
+        addr_a = node_a.getnewaddress("inputremoved", color_a)
+
+        pstt = self.nodes[self.CREATOR].createpstt([], {addr_a: entry_a['amount']}, 0, True, False)
+        pstt = self.nodes[self.CREATOR].addinputtopstt(pstt, entry_a['txid'], entry_a['vout'])
+        pstt = self.nodes[self.CREATOR].addinputtopstt(pstt, entry_b['txid'], entry_b['vout'])
+        pstt = node_a.walletupdatepstt(pstt)['pstt']
+        pstt = node_b.walletupdatepstt(pstt)['pstt']
+        pstt = node_a.walletsignpstt(pstt, "ALL|ANYONECANPAY", self.options.scheme)['pstt']
+        signed = node_b.walletsignpstt(pstt, "ALL|ANYONECANPAY", self.options.scheme)['pstt']
+
+        g, ins, outs = decode_pstt_container(signed)
+        del ins[1]  # drop owner_b's already-signed input entirely
+        patch_input_field(g, PSTT_GLOBAL_INPUT_COUNT, bytes([len(ins)]))
+        tampered = encode_pstt_container(g, ins, outs)
+
+        assert_raises_rpc_error(None, "do not refer to the same transaction",
+                                 self.nodes[self.CREATOR].combinepstt, [signed, tampered])
 
     # -------------------------------------------------------------------
     # Negative-signature simulations. Built as raw transactions (not
