@@ -1629,7 +1629,7 @@ static UniValue MakeAddressOutputEntry(const CScript& script, CAmount amount)
     return out;
 }
 
-BOOST_AUTO_TEST_CASE(pstt_rpc_createpstt_basic_roundtrip)
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_createpstt_basic_roundtrip, TestingSetup)
 {
     CTransactionRef utxo = MakeSimpleUtxoTx(RandomP2PKHScript(), 100000);
     CScript destScript = RandomP2PKHScript();
@@ -1659,7 +1659,7 @@ BOOST_AUTO_TEST_CASE(pstt_rpc_createpstt_basic_roundtrip)
     BOOST_CHECK(!pstt.tx_modifiable);
 }
 
-BOOST_AUTO_TEST_CASE(pstt_rpc_createpstt_sets_modifiable_flags)
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_createpstt_sets_modifiable_flags, TestingSetup)
 {
     UniValue params(UniValue::VARR);
     params.push_back(UniValue(UniValue::VARR));  // no inputs
@@ -1681,7 +1681,7 @@ BOOST_AUTO_TEST_CASE(pstt_rpc_createpstt_sets_modifiable_flags)
     BOOST_CHECK(pstt.outputs.empty());
 }
 
-BOOST_AUTO_TEST_CASE(pstt_rpc_converttopstt_basic)
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_converttopstt_basic, TestingSetup)
 {
     CTransactionRef utxo = MakeSimpleUtxoTx(RandomP2PKHScript(), 100000);
     CMutableTransaction mtx;
@@ -1703,7 +1703,7 @@ BOOST_AUTO_TEST_CASE(pstt_rpc_converttopstt_basic)
     BOOST_CHECK_EQUAL(*pstt.outputs[0].amount, 90000);
 }
 
-BOOST_AUTO_TEST_CASE(pstt_rpc_converttopstt_rejects_scriptsig_without_permit)
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_converttopstt_rejects_scriptsig_without_permit, TestingSetup)
 {
     CTransactionRef utxo = MakeSimpleUtxoTx(RandomP2PKHScript(), 100000);
     CMutableTransaction mtx;
@@ -1725,7 +1725,7 @@ BOOST_AUTO_TEST_CASE(pstt_rpc_converttopstt_rejects_scriptsig_without_permit)
     BOOST_REQUIRE(converted.isStr());
 }
 
-BOOST_AUTO_TEST_CASE(pstt_rpc_addinputtopstt_requires_modifiable)
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_addinputtopstt_requires_modifiable, TestingSetup)
 {
     UniValue createParams(UniValue::VARR);
     createParams.push_back(UniValue(UniValue::VARR));
@@ -1740,7 +1740,7 @@ BOOST_AUTO_TEST_CASE(pstt_rpc_addinputtopstt_requires_modifiable)
     BOOST_CHECK_THROW(CallPsttRPC("addinputtopstt", addParams), UniValue);
 }
 
-BOOST_AUTO_TEST_CASE(pstt_rpc_addinputtopstt_appends_and_increments)
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_addinputtopstt_appends_and_increments, TestingSetup)
 {
     UniValue createParams(UniValue::VARR);
     createParams.push_back(UniValue(UniValue::VARR));
@@ -1767,7 +1767,7 @@ BOOST_AUTO_TEST_CASE(pstt_rpc_addinputtopstt_appends_and_increments)
     BOOST_CHECK_EQUAL(*pstt.inputs[0].sequence, 0xFFFFFFFEu);
 }
 
-BOOST_AUTO_TEST_CASE(pstt_rpc_addoutputtopstt_requires_modifiable)
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_addoutputtopstt_requires_modifiable, TestingSetup)
 {
     UniValue createParams(UniValue::VARR);
     createParams.push_back(UniValue(UniValue::VARR));
@@ -1780,7 +1780,7 @@ BOOST_AUTO_TEST_CASE(pstt_rpc_addoutputtopstt_requires_modifiable)
     BOOST_CHECK_THROW(CallPsttRPC("addoutputtopstt", addParams), UniValue);
 }
 
-BOOST_AUTO_TEST_CASE(pstt_rpc_addoutputtopstt_appends_and_increments)
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_addoutputtopstt_appends_and_increments, TestingSetup)
 {
     UniValue createParams(UniValue::VARR);
     createParams.push_back(UniValue(UniValue::VARR));
@@ -1802,7 +1802,7 @@ BOOST_AUTO_TEST_CASE(pstt_rpc_addoutputtopstt_appends_and_increments)
     BOOST_CHECK_EQUAL(*pstt.outputs[0].amount, 90000);
 }
 
-BOOST_AUTO_TEST_CASE(pstt_rpc_add_individually_refused_when_has_sighash_single)
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_add_individually_refused_when_has_sighash_single, TestingSetup)
 {
     UniValue createParams(UniValue::VARR);
     createParams.push_back(UniValue(UniValue::VARR));
@@ -1826,7 +1826,7 @@ BOOST_AUTO_TEST_CASE(pstt_rpc_add_individually_refused_when_has_sighash_single)
     BOOST_CHECK_THROW(CallPsttRPC("addoutputtopstt", addOutputParams), UniValue);
 }
 
-BOOST_AUTO_TEST_CASE(pstt_rpc_addinputoutputpairtopstt_atomic_add)
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_addinputoutputpairtopstt_atomic_add, TestingSetup)
 {
     UniValue createParams(UniValue::VARR);
     createParams.push_back(UniValue(UniValue::VARR));
@@ -1854,7 +1854,7 @@ BOOST_AUTO_TEST_CASE(pstt_rpc_addinputoutputpairtopstt_atomic_add)
     BOOST_CHECK_EQUAL(*pstt.outputs[0].amount, 90000);
 }
 
-BOOST_AUTO_TEST_CASE(pstt_rpc_finalizepsttconstruction_clears_both_by_default)
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_finalizepsttconstruction_clears_both_by_default, TestingSetup)
 {
     UniValue createParams(UniValue::VARR);
     createParams.push_back(UniValue(UniValue::VARR));
@@ -1878,7 +1878,7 @@ BOOST_AUTO_TEST_CASE(pstt_rpc_finalizepsttconstruction_clears_both_by_default)
     BOOST_CHECK(*pstt.tx_modifiable & PSTT_TXMOD_HAS_SIGHASH_SINGLE);
 }
 
-BOOST_AUTO_TEST_CASE(pstt_rpc_finalizepsttconstruction_partial_clear)
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_finalizepsttconstruction_partial_clear, TestingSetup)
 {
     UniValue createParams(UniValue::VARR);
     createParams.push_back(UniValue(UniValue::VARR));
@@ -1902,7 +1902,7 @@ BOOST_AUTO_TEST_CASE(pstt_rpc_finalizepsttconstruction_partial_clear)
     BOOST_CHECK(*pstt.tx_modifiable & PSTT_TXMOD_OUTPUTS_MODIFIABLE);
 }
 
-BOOST_AUTO_TEST_CASE(pstt_rpc_multi_round_trip_construction)
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_multi_round_trip_construction, TestingSetup)
 {
     // Simulates several parties incrementally building one PSTT: an initial
     // empty Creator call, then alternating input/output Constructor calls,
