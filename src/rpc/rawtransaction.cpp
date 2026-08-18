@@ -967,9 +967,7 @@ static UniValue signrawtransactionwithkey(const JSONRPCRequest& request)
         keystore.AddKey(key);
     }
 
-    SignatureScheme sigScheme(SignatureScheme::ECDSA);
-    if(!request.params[4].isNull() && request.params[4].get_str() == "SCHNORR")
-        sigScheme = SignatureScheme::SCHNORR;
+    SignatureScheme sigScheme = ParseSigSchemeString(request.params[4]);
 
     return SignTransaction(mtx, request.params[2], &keystore, true, request.params[3], sigScheme);
 }
@@ -1946,7 +1944,7 @@ UniValue combinepstt(const JSONRPCRequest& request)
         }
         try {
             merged_pstt.Merge(*it);
-        } catch (const std::invalid_argument& e) {
+        } catch (const std::exception& e) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Cannot combine PSTTs: %s", e.what()));
         }
     }
@@ -2167,9 +2165,7 @@ UniValue signpsttwithkey(const JSONRPCRequest& request)
     }
 
     int sighash = ParseSighashString(request.params[2]);
-    SignatureScheme sigScheme(SignatureScheme::ECDSA);
-    if (!request.params[3].isNull() && request.params[3].get_str() == "SCHNORR")
-        sigScheme = SignatureScheme::SCHNORR;
+    SignatureScheme sigScheme = ParseSigSchemeString(request.params[3]);
 
     bool complete = true;
     for (unsigned int i = 0; i < pstt.inputs.size(); ++i) {

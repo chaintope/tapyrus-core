@@ -3182,9 +3182,7 @@ UniValue signrawtransactionwithwallet(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
     }
 
-    SignatureScheme sigScheme(SignatureScheme::ECDSA);
-    if(!request.params[3].isNull() && request.params[3].get_str() == "SCHNORR")
-        sigScheme = SignatureScheme::SCHNORR;
+    SignatureScheme sigScheme = ParseSigSchemeString(request.params[3]);
 
     // Sign the transaction
     LOCK2(cs_main, pwallet->cs_wallet);
@@ -4110,12 +4108,6 @@ UniValue walletprocesspsbt(const JSONRPCRequest& request)
     return result;
 }
 
-static SignatureScheme ParseSigSchemeParam(const UniValue& param)
-{
-    if (!param.isNull() && param.get_str() == "SCHNORR") return SignatureScheme::SCHNORR;
-    return SignatureScheme::ECDSA;
-}
-
 UniValue walletupdatepstt(const JSONRPCRequest& request)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
@@ -4145,7 +4137,7 @@ UniValue walletupdatepstt(const JSONRPCRequest& request)
             + HelpExampleCli("walletupdatepstt", "\"pstt\"")
         );
 
-    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VBOOL});
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VBOOL}, true);
 
     PartiallySignedTapyrusTransaction pstt;
     std::string error;
@@ -4154,7 +4146,7 @@ UniValue walletupdatepstt(const JSONRPCRequest& request)
     }
 
     bool bip32derivs = request.params[1].isNull() ? false : request.params[1].get_bool();
-    bool complete = FillPSTT(pwallet, pstt, 1, /*sign=*/false, bip32derivs);
+    bool complete = FillPSTT(pwallet, pstt, SIGHASH_ALL, /*sign=*/false, bip32derivs);
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("pstt", EncodePSTT(pstt));
@@ -4200,7 +4192,7 @@ UniValue walletsignpstt(const JSONRPCRequest& request)
             + HelpExampleCli("walletsignpstt", "\"pstt\"")
         );
 
-    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR, UniValue::VSTR});
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR, UniValue::VSTR}, true);
 
     PartiallySignedTapyrusTransaction pstt;
     std::string error;
@@ -4209,7 +4201,7 @@ UniValue walletsignpstt(const JSONRPCRequest& request)
     }
 
     int sighash = ParseSighashString(request.params[1]);
-    SignatureScheme sigScheme = ParseSigSchemeParam(request.params[2]);
+    SignatureScheme sigScheme = ParseSigSchemeString(request.params[2]);
 
     LOCK(pwallet->cs_wallet);
     bool complete = true;
@@ -4281,7 +4273,7 @@ UniValue walletprocesspstt(const JSONRPCRequest& request)
             + HelpExampleCli("walletprocesspstt", "\"pstt\"")
         );
 
-    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VBOOL, UniValue::VSTR, UniValue::VBOOL, UniValue::VSTR});
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VBOOL, UniValue::VSTR, UniValue::VBOOL, UniValue::VSTR}, true);
 
     PartiallySignedTapyrusTransaction pstt;
     std::string error;
@@ -4292,7 +4284,7 @@ UniValue walletprocesspstt(const JSONRPCRequest& request)
     int sighash = ParseSighashString(request.params[2]);
     bool sign = request.params[1].isNull() ? true : request.params[1].get_bool();
     bool bip32derivs = request.params[3].isNull() ? false : request.params[3].get_bool();
-    SignatureScheme sigScheme = ParseSigSchemeParam(request.params[4]);
+    SignatureScheme sigScheme = ParseSigSchemeString(request.params[4]);
     bool complete = FillPSTT(pwallet, pstt, sighash, sign, bip32derivs, sigScheme);
 
     UniValue result(UniValue::VOBJ);

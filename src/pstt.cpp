@@ -927,6 +927,9 @@ uint256 PartiallySignedTapyrusTransaction::GetIdentifier() const
 
 CMutableTransaction ExtractPSTT(const PartiallySignedTapyrusTransaction& pstt)
 {
+    if (!pstt.IsSane()) {
+        throw std::runtime_error("PSTT is not sane; cannot extract");
+    }
     for (unsigned int i = 0; i < pstt.inputs.size(); ++i) {
         if (pstt.inputs[i].final_script_sig.empty()) {
             throw std::runtime_error("Input " + std::to_string(i) + " is missing PSTT_IN_FINAL_SCRIPTSIG; cannot extract");

@@ -225,3 +225,22 @@ int ParseSighashString(const UniValue& sighash)
     }
     return hash_type;
 }
+
+SignatureScheme ParseSigSchemeString(const UniValue& sigscheme)
+{
+    SignatureScheme scheme = SignatureScheme::ECDSA;
+    if (!sigscheme.isNull()) {
+        static std::map<std::string, SignatureScheme> map_sigscheme_values = {
+            {std::string("ECDSA"), SignatureScheme::ECDSA},
+            {std::string("SCHNORR"), SignatureScheme::SCHNORR},
+        };
+        std::string strSigScheme = sigscheme.get_str();
+        const auto& it = map_sigscheme_values.find(strSigScheme);
+        if (it != map_sigscheme_values.end()) {
+            scheme = it->second;
+        } else {
+            throw std::runtime_error(strSigScheme + " is not a valid sigscheme parameter.");
+        }
+    }
+    return scheme;
+}

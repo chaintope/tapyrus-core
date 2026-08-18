@@ -18,6 +18,7 @@ struct PartiallySignedTransaction;
 struct PartiallySignedTapyrusTransaction;
 class uint256;
 class UniValue;
+enum class SignatureScheme;
 
 // core_read.cpp
 CScript ParseScript(const std::string& s);
@@ -29,6 +30,7 @@ std::vector<unsigned char> ParseHexUV(const UniValue& v, const std::string& strN
 bool DecodePSBT(PartiallySignedTransaction& psbt, const std::string& base64_tx, std::string& error);
 bool DecodePSTT(PartiallySignedTapyrusTransaction& pstt, const std::string& base64_tx, std::string& error);
 int ParseSighashString(const UniValue& sighash);
+SignatureScheme ParseSigSchemeString(const UniValue& sigscheme);
 
 // core_write.cpp
 UniValue ValueFromAmount(const CAmount& amount);
