@@ -8,7 +8,12 @@
 #include <amount.h>
 #include <coloridentifier.h>
 #include <primitives/transaction.h>
+#include <pubkey.h>
+
+#include <cstdint>
+#include <map>
 #include <string>
+#include <vector>
 
 class CRPCTable;
 class CWallet;

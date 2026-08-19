@@ -8,6 +8,7 @@
 #include <consensus/consensus.h>
 #include <consensus/validation.h>
 #include <key_io.h>
+#include <pstt.h>
 #include <script/script.h>
 #include <script/standard.h>
 #include <serialize.h>
@@ -136,6 +137,13 @@ std::string EncodeHexTx(const CTransaction& tx, const int serializeFlags)
     CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION | serializeFlags);
     ssTx << tx;
     return HexStr(ssTx.begin(), ssTx.end());
+}
+
+std::string EncodePSTT(const PartiallySignedTapyrusTransaction& pstt)
+{
+    CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
+    ssTx << pstt;
+    return EncodeBase64((unsigned char*)ssTx.data(), ssTx.size());
 }
 
 void ScriptToUniv(const CScript& script, UniValue& out, bool include_address)

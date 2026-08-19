@@ -6,6 +6,7 @@
 
 #include <primitives/block.h>
 #include <primitives/transaction.h>
+#include <pstt.h>
 #include <script/script.h>
 #include <script/sign.h>
 #include <serialize.h>
@@ -165,6 +166,23 @@ bool DecodePSBT(PartiallySignedTransaction& psbt, const std::string& base64_tx, 
     return true;
 }
 
+bool DecodePSTT(PartiallySignedTapyrusTransaction& pstt, const std::string& base64_tx, std::string& error)
+{
+    std::vector<unsigned char> tx_data = DecodeBase64(base64_tx.c_str());
+    CDataStream ss_data(tx_data, SER_NETWORK, PROTOCOL_VERSION);
+    try {
+        ss_data >> pstt;
+        if (!ss_data.empty()) {
+            error = "extra data after PSTT";
+            return false;
+        }
+    } catch (const std::exception& e) {
+        error = e.what();
+        return false;
+    }
+    return true;
+}
+
 uint256 ParseHashStr(const std::string& strHex, const std::string& strName)
 {
     if (!IsHex(strHex)) // Note: IsHex("") is false
@@ -206,4 +224,23 @@ int ParseSighashString(const UniValue& sighash)
         }
     }
     return hash_type;
+}
+
+SignatureScheme ParseSigSchemeString(const UniValue& sigscheme)
+{
+    SignatureScheme scheme = SignatureScheme::ECDSA;
+    if (!sigscheme.isNull()) {
+        static std::map<std::string, SignatureScheme> map_sigscheme_values = {
+            {std::string("ECDSA"), SignatureScheme::ECDSA},
+            {std::string("SCHNORR"), SignatureScheme::SCHNORR},
+        };
+        std::string strSigScheme = sigscheme.get_str();
+        const auto& it = map_sigscheme_values.find(strSigScheme);
+        if (it != map_sigscheme_values.end()) {
+            scheme = it->second;
+        } else {
+            throw std::runtime_error(strSigScheme + " is not a valid sigscheme parameter.");
+        }
+    }
+    return scheme;
 }
