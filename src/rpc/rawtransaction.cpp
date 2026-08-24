@@ -463,10 +463,10 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
 
 // Mirrors ConstructTransaction's per-input CTxIn construction (default
 // sequence based on RBF opt-in / whether a locktime is set, with an explicit
-// per-input override otherwise) -- but reads previous_txid/output_index,
-// PSTT's own field vocabulary (matching PSTT_IN_PREVIOUS_TXID/
-// PSTT_IN_OUTPUT_INDEX and addinputtopstt's own param names), rather than
-// ConstructTransaction's txid/vout (createrawtransaction's vocabulary).
+// per-input override otherwise) -- uses the same txid/vout JSON field names
+// as ConstructTransaction/createrawtransaction for consistency across all
+// RPCs; PSTT's own internal field vocabulary (PSTT_IN_PREVIOUS_TXID/
+// PSTT_IN_OUTPUT_INDEX) only applies to the wire format, not the RPC surface.
 // Used by createpstt/walletcreatefundedpstt instead of passing their inputs
 // array through ConstructTransaction directly, which would otherwise throw
 // on every PSTT-shaped input object.
@@ -477,15 +477,15 @@ std::vector<CTxIn> ParsePsttInputEntries(const UniValue& inputs_in, uint32_t nLo
     for (unsigned int idx = 0; idx < inputs.size(); idx++) {
         const UniValue& o = inputs[idx].get_obj();
 
-        uint256 txid = ParseHashO(o, "previous_txid");
+        uint256 txid = ParseHashO(o, "txid");
 
-        const UniValue& vout_v = o.find_value("output_index");
+        const UniValue& vout_v = o.find_value("vout");
         if (!vout_v.isNum()) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, missing output_index key");
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, missing vout key");
         }
         int nOutput = vout_v.get_int();
         if (nOutput < 0) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, output_index must be positive");
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, vout must be positive");
         }
 
         uint32_t nSequence;
@@ -1265,8 +1265,8 @@ static void PushTokenAmount(const CScript& script, CAmount amount, UniValue& ent
 
 static void PsttInputToUniv(const PSTTInput& input, UniValue& in)
 {
-    in.pushKV("previous_txid", input.previous_txid.GetHex());
-    in.pushKV("output_index", (uint64_t)input.prev_out_index);
+    in.pushKV("txid", input.previous_txid.GetHex());
+    in.pushKV("vout", (uint64_t)input.prev_out_index);
 
     if (input.utxo) {
         UniValue utxo_univ(UniValue::VOBJ);
@@ -1423,19 +1423,19 @@ UniValue createpstt(const JSONRPCRequest& request)
             "1. \"inputs\"                (array, required) A json array of json objects\n"
             "     [\n"
             "       {\n"
-            "         \"previous_txid\":\"id\", (string, required) The transaction id\n"
-            "         \"output_index\":n,     (numeric, required) The output number\n"
-            "         \"sequence\":n          (numeric, optional) The sequence number\n"
+            "         \"previous_txid\":\"id\", (string, required) The malfix (malleability-fixed) transaction id of the transaction whose output is being spent\n"
+            "         \"output_index\":n,     (numeric, required) The index of that output within the transaction referenced by previous_txid\n"
+            "         \"sequence\":n          (numeric, optional, default=0xffffffff) The sequence number. The default disables any locktime constraint from this input; a lower value makes the PSTT's locktime binding, may also encode a BIP68 relative locktime, and can opt this transaction in to BIP125 replace-by-fee\n"
             "       } \n"
             "       ,...\n"
             "     ]\n"
             "2. \"outputs\"               (array, required) a json array with outputs (key-value pairs)\n"
             "   [\n"
             "    {\n"
-            "      \"address\": x.xxx,    (obj, optional) A key-value pair. The key (string) is the tapyrus address, the value (float or string) is the amount in " + CURRENCY_UNIT + "\n"
+            "      \"address\": x.xxx,    (obj, optional) A key-value pair. The key (string) is a base58-encoded Tapyrus address, the value (float or string) is the amount in " + CURRENCY_UNIT + "\n"
             "    },\n"
             "    {\n"
-            "      \"data\": \"hex\"        (obj, optional) A key-value pair. The key must be \"data\", the value is hex encoded data\n"
+            "      \"data\": \"hex\"        (obj, optional) A key-value pair whose key must be the literal string \"data\"; the value is arbitrary hex-encoded data embedded via OP_RETURN\n"
             "    }\n"
             "    ,...                     More key-value pairs of the above form. For compatibility reasons, a dictionary, which holds the key-value pairs directly, is also\n"
             "                             accepted as second parameter.\n"
@@ -1443,7 +1443,7 @@ UniValue createpstt(const JSONRPCRequest& request)
             "3. fallback_locktime         (numeric, optional, default=0) PSTT_GLOBAL_FALLBACK_LOCKTIME -- the locktime used when no input constrains one\n"
             "4. inputs_modifiable         (boolean, optional, default=false) Whether further inputs may be added via addinputtopstt/addinputoutputpairtopstt\n"
             "5. outputs_modifiable        (boolean, optional, default=false) Whether further outputs may be added via addoutputtopstt/addinputoutputpairtopstt\n"
-            "6. has_sighash_single        (boolean, optional, default=false) Sets the Has-SIGHASH_SINGLE bit -- future Constructor calls must use addinputoutputpairtopstt instead of separate addinputtopstt/addoutputtopstt calls\n"
+            "6. has_sighash_single        (boolean, optional, default=false) If true, marks the PSTT as using SIGHASH_SINGLE; further Constructor calls must add inputs and outputs together via addinputoutputpairtopstt instead of separate addinputtopstt/addoutputtopstt calls\n"
             "\nResult:\n"
             "  \"pstt\"        (string)  The resulting PSTT (base64-encoded string)\n"
             "\nExamples:\n"
@@ -1467,10 +1467,11 @@ UniValue createpstt(const JSONRPCRequest& request)
     // nonzero. Without that, a nonzero fallback_locktime would be silently
     // inert once extracted -- IsFinalTx-style consensus rules only honor
     // nLockTime when at least one input carries a non-final sequence.
-    // Inputs are parsed separately via ParsePsttInputEntries (PSTT's own
-    // previous_txid/output_index field names) -- an empty array is passed
-    // here so ConstructTransaction only handles outputs/locktime, not
-    // createrawtransaction's txid/vout input shape.
+    // Inputs are parsed separately via ParsePsttInputEntries (same txid/vout
+    // field names as ConstructTransaction, but returning std::vector<CTxIn>
+    // directly rather than going through a full CMutableTransaction) -- an
+    // empty array is passed here so ConstructTransaction only handles
+    // outputs/locktime.
     CMutableTransaction rawTx = ConstructTransaction(UniValue(UniValue::VARR), request.params[1], request.params[2], NullUniValue);
     rawTx.vin = ParsePsttInputEntries(request.params[0], rawTx.nLockTime, /*rbfOptIn=*/false);
 
@@ -1511,8 +1512,8 @@ UniValue converttopstt(const JSONRPCRequest& request)
     if (request.fHelp || request.params.size() < 1 || request.params.size() > 4)
         throw std::runtime_error(
             "converttopstt \"hexstring\" ( permitsigdata inputs_modifiable outputs_modifiable )\n"
-            "\nConverts a network serialized transaction to a PSTT. This should be used only with createrawtransaction and fundrawtransaction.\n"
-            "createpstt and walletcreatefundedpstt should be used for new applications. Implements the Creator role.\n"
+            "\nConverts a network serialized transaction to a PSTT. Implements the Creator role. Use createpstt\n"
+            "or walletcreatefundedpstt for new applications instead.\n"
             "\nArguments:\n"
             "1. \"hexstring\"              (string, required) The hex string of a raw transaction\n"
             "2. permitsigdata           (boolean, optional, default=false) If true, any scriptSigs in the inputs are discarded and\n"
@@ -1576,16 +1577,15 @@ UniValue addinputtopstt(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() < 3 || request.params.size() > 4)
         throw std::runtime_error(
-            "addinputtopstt \"pstt\" \"previous_txid\" output_index ( sequence )\n"
+            "addinputtopstt \"pstt\" \"txid\" vout ( sequence )\n"
             "\nAppends one input to a PSTT whose Inputs-Modifiable flag is set. Implements\n"
-            "the Constructor role. Refuses if the PSTT's Has-SIGHASH_SINGLE flag is set --\n"
-            "use addinputoutputpairtopstt instead in that case, so an input is never added\n"
-            "without its paired output in the same call.\n"
+            "the Constructor role. Refuses if the PSTT uses SIGHASH_SINGLE -- use\n"
+            "addinputoutputpairtopstt instead.\n"
             "\nArguments:\n"
             "1. \"pstt\"                 (string, required) A base64 string of a PSTT\n"
-            "2. \"previous_txid\"        (string, required) The transaction id\n"
-            "3. output_index           (numeric, required) The output number\n"
-            "4. sequence               (numeric, optional) The sequence number\n"
+            "2. \"txid\"                 (string, required) The malfix (malleability-fixed) transaction id of the transaction whose output is being spent\n"
+            "3. vout                   (numeric, required) The index of that output within the transaction referenced by txid\n"
+            "4. sequence               (numeric, optional, default=0xffffffff) The sequence number. The default disables any locktime constraint from this input; a lower value makes the PSTT's locktime binding, may also encode a BIP68 relative locktime, and can opt this transaction in to BIP125 replace-by-fee\n"
             "\nResult:\n"
             "  \"pstt\"        (string)  The resulting PSTT (base64-encoded string)\n"
             "\nExamples:\n"
@@ -1609,10 +1609,10 @@ UniValue addinputtopstt(const JSONRPCRequest& request)
     }
 
     PSTTInput input;
-    input.previous_txid = ParseHashV(request.params[1], "previous_txid");
+    input.previous_txid = ParseHashV(request.params[1], "txid");
     int nOutput = request.params[2].get_int();
     if (nOutput < 0) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, output_index must be positive");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, vout must be positive");
     }
     input.prev_out_index = (uint32_t)nOutput;
     input.previous_txid_set = true;
@@ -1640,8 +1640,8 @@ UniValue addoutputtopstt(const JSONRPCRequest& request)
         throw std::runtime_error(
             "addoutputtopstt \"pstt\" output\n"
             "\nAppends one output to a PSTT whose Outputs-Modifiable flag is set. Implements\n"
-            "the Constructor role. Refuses if the PSTT's Has-SIGHASH_SINGLE flag is set --\n"
-            "use addinputoutputpairtopstt instead in that case.\n"
+            "the Constructor role. Refuses if the PSTT uses SIGHASH_SINGLE -- use\n"
+            "addinputoutputpairtopstt instead.\n"
             "\nArguments:\n"
             "1. \"pstt\"                 (string, required) A base64 string of a PSTT\n"
             "2. \"output\"               (object, required) A single key-value pair, either\n"
@@ -1677,19 +1677,17 @@ UniValue addinputoutputpairtopstt(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() < 4 || request.params.size() > 5)
         throw std::runtime_error(
-            "addinputoutputpairtopstt \"pstt\" \"previous_txid\" output_index output ( sequence )\n"
-            "\nAtomically appends one input and one output to a PSTT in a single re-encode.\n"
-            "Implements the Constructor role. Required (instead of separate\n"
-            "addinputtopstt/addoutputtopstt calls) whenever the PSTT's Has-SIGHASH_SINGLE\n"
-            "flag is set, so a client crash between two separate calls can never leave the\n"
-            "PSTT with a transiently unpaired input.\n"
+            "addinputoutputpairtopstt \"pstt\" \"txid\" vout output ( sequence )\n"
+            "\nAtomically appends one input and one output to a PSTT. Implements the\n"
+            "Constructor role. Required instead of separate addinputtopstt/addoutputtopstt\n"
+            "calls when the PSTT uses SIGHASH_SINGLE.\n"
             "\nArguments:\n"
             "1. \"pstt\"                 (string, required) A base64 string of a PSTT\n"
-            "2. \"previous_txid\"        (string, required) The transaction id\n"
-            "3. output_index           (numeric, required) The output number\n"
+            "2. \"txid\"                 (string, required) The malfix (malleability-fixed) transaction id of the transaction whose output is being spent\n"
+            "3. vout                   (numeric, required) The index of that output within the transaction referenced by txid\n"
             "4. \"output\"               (object, required) A single key-value pair, either\n"
             "                          {\"address\": amount} or {\"data\": \"hex\"}\n"
-            "5. sequence               (numeric, optional) The sequence number\n"
+            "5. sequence               (numeric, optional, default=0xffffffff) The sequence number. The default disables any locktime constraint from this input; a lower value makes the PSTT's locktime binding, may also encode a BIP68 relative locktime, and can opt this transaction in to BIP125 replace-by-fee\n"
             "\nResult:\n"
             "  \"pstt\"        (string)  The resulting PSTT (base64-encoded string)\n"
             "\nExamples:\n"
@@ -1712,10 +1710,10 @@ UniValue addinputoutputpairtopstt(const JSONRPCRequest& request)
     }
 
     PSTTInput input;
-    input.previous_txid = ParseHashV(request.params[1], "previous_txid");
+    input.previous_txid = ParseHashV(request.params[1], "txid");
     int nOutput = request.params[2].get_int();
     if (nOutput < 0) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, output_index must be positive");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, vout must be positive");
     }
     input.prev_out_index = (uint32_t)nOutput;
     input.previous_txid_set = true;
@@ -1745,8 +1743,7 @@ UniValue finalizepsttconstruction(const JSONRPCRequest& request)
         throw std::runtime_error(
             "finalizepsttconstruction \"pstt\" ( clear_inputs_modifiable clear_outputs_modifiable )\n"
             "\nDeclares a PSTT's Constructor phase finished by clearing its Inputs-Modifiable\n"
-            "and/or Outputs-Modifiable flags. Implements the finishing half of the\n"
-            "Constructor role.\n"
+            "and/or Outputs-Modifiable flags. Implements the Constructor role.\n"
             "\nArguments:\n"
             "1. \"pstt\"                       (string, required) A base64 string of a PSTT\n"
             "2. clear_inputs_modifiable      (boolean, optional, default=true) Clear the Inputs-Modifiable flag\n"
@@ -1957,10 +1954,9 @@ UniValue finalizepstt(const JSONRPCRequest& request)
     if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
         throw std::runtime_error(
             "finalizepstt \"pstt\" ( extract )\n"
-            "\nFinalize the inputs of a PSTT. If every input is fully signed, produces a\n"
-            "network-serialized transaction that can be broadcast with sendrawtransaction.\n"
-            "Otherwise returns a PSTT with PSTT_IN_FINAL_SCRIPTSIG filled in for the inputs\n"
-            "that are complete. Implements the Finalizer and (optionally) Extractor roles.\n"
+            "\nFinalize the inputs of a PSTT. If complete, extracts a broadcastable\n"
+            "transaction; otherwise returns a partially finalized PSTT. Implements the\n"
+            "Finalizer and (optionally) Extractor roles.\n"
 
             "\nArguments:\n"
             "1. \"pstt\"                 (string, required) A base64 string of a PSTT\n"
@@ -2044,9 +2040,8 @@ UniValue extractpstt(const JSONRPCRequest& request)
     if (request.fHelp || request.params.size() != 1)
         throw std::runtime_error(
             "extractpstt \"pstt\"\n"
-            "\nExtract the fully signed transaction from a PSTT and return it in network\n"
-            "serialization, ready to be broadcast with sendrawtransaction. Implements the\n"
-            "Transaction Extractor role. Throws if any input is missing PSTT_IN_FINAL_SCRIPTSIG.\n"
+            "\nExtract the fully signed transaction from a PSTT, ready for sendrawtransaction.\n"
+            "Implements the Extractor role. Throws if any input isn't finalized.\n"
 
             "\nArguments:\n"
             "1. \"pstt\"                 (string, required) A base64 string of a PSTT\n"
@@ -2184,9 +2179,9 @@ static const CRPCCommand commands[] =
 
     { "rawtransactions",    "createpstt",                   &createpstt,                {"inputs","outputs","fallback_locktime","inputs_modifiable","outputs_modifiable","has_sighash_single"} },
     { "rawtransactions",    "converttopstt",                &converttopstt,             {"hexstring","permitsigdata","inputs_modifiable","outputs_modifiable"} },
-    { "rawtransactions",    "addinputtopstt",               &addinputtopstt,            {"pstt","previous_txid","output_index","sequence"} },
+    { "rawtransactions",    "addinputtopstt",               &addinputtopstt,            {"pstt","txid","vout","sequence"} },
     { "rawtransactions",    "addoutputtopstt",              &addoutputtopstt,           {"pstt","output"} },
-    { "rawtransactions",    "addinputoutputpairtopstt",     &addinputoutputpairtopstt,  {"pstt","previous_txid","output_index","output","sequence"} },
+    { "rawtransactions",    "addinputoutputpairtopstt",     &addinputoutputpairtopstt,  {"pstt","txid","vout","output","sequence"} },
     { "rawtransactions",    "finalizepsttconstruction",     &finalizepsttconstruction,  {"pstt","clear_inputs_modifiable","clear_outputs_modifiable"} },
     { "rawtransactions",    "decodepstt",                   &decodepstt,                {"pstt"} },
     { "rawtransactions",    "combinepstt",                  &combinepstt,               {"txs"} },

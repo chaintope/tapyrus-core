@@ -29,7 +29,14 @@ class PSTTFeeProviderTest(BitcoinTestFramework):
         self.num_nodes = 2
 
     def run_test(self):
+        # Sync between these two generate() calls, not just after both --
+        # node1 must have node0's block connected before mining its own, or
+        # it races to build on the stale (genesis) tip: its own block loses
+        # once node0's propagates, and its coinbase never confirms, making
+        # node1's opening balance (used throughout test_noninteractive) zero
+        # depending on timing.
         self.nodes[0].generate(1, self.signblockprivkey_wif)
+        self.sync_all()
         self.nodes[1].generate(1, self.signblockprivkey_wif)
         self.sync_all()
 
@@ -57,7 +64,7 @@ class PSTTFeeProviderTest(BitcoinTestFramework):
         # ALL|ANYONECANPAY is what makes adding more inputs later valid
         # without invalidating this signature.
         pstt = node0.createpstt(
-            [{"previous_txid": issue_txid, "output_index": issue_vout}],
+            [{"txid": issue_txid, "vout": issue_vout}],
             {recipient_addr: 100},
             0, True, False)
         # walletsignpstt is the Signer role only -- it relies on a prior
@@ -75,7 +82,7 @@ class PSTTFeeProviderTest(BitcoinTestFramework):
         fee_utxo = node1.listunspent()[0]
         funded = node1.walletfundpsttfee(
             pstt, "noninteractive",
-            {"previous_txid": fee_utxo['txid'], "output_index": fee_utxo['vout']})
+            {"txid": fee_utxo['txid'], "vout": fee_utxo['vout']})
         decoded_funded = node1.decodepstt(funded)
         assert_equal(len(decoded_funded['inputs']), 2)
         assert 'utxo' in decoded_funded['inputs'][1]
@@ -142,7 +149,7 @@ class PSTTFeeProviderTest(BitcoinTestFramework):
         # signing happens only after the provider has funded it, since
         # SIGHASH_ALL (not ANYONECANPAY) is used this time.
         pstt = node0.createpstt(
-            [{"previous_txid": issue_txid, "output_index": issue_vout}],
+            [{"txid": issue_txid, "vout": issue_vout}],
             {recipient_addr: 50},
             0, True, True)
 

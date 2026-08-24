@@ -493,7 +493,7 @@ class PSTTNetworkTest(BitcoinTestFramework):
             fee_utxo = self._next_fee_utxo()
             funded = self.nodes[self.FEEPROVIDER].walletfundpsttfee(
                 pstt, "noninteractive",
-                {"previous_txid": fee_utxo['txid'], "output_index": fee_utxo['vout']})
+                {"txid": fee_utxo['txid'], "vout": fee_utxo['vout']})
             self._assert_not_finalizable(funded)
 
             fee_signed = self.nodes[self.FEEPROVIDER].walletsignpstt(funded, "ALL", self.options.scheme)
@@ -577,7 +577,7 @@ class PSTTNetworkTest(BitcoinTestFramework):
     @staticmethod
     def _input_index(decoded, txid, vout):
         for i, inp in enumerate(decoded['inputs']):
-            if inp['previous_txid'] == txid and inp['output_index'] == vout:
+            if inp['txid'] == txid and inp['vout'] == vout:
                 return i
         raise AssertionError("input %s:%d not found in decoded PSTT" % (txid, vout))
 
@@ -648,7 +648,7 @@ class PSTTNetworkTest(BitcoinTestFramework):
     def _sim_missing_utxo(self, entry, owner, addr):
         node = self.nodes[owner]
         pstt = node.createpstt(
-            [{"previous_txid": entry['txid'], "output_index": entry['vout']}],
+            [{"txid": entry["txid"], "vout": entry["vout"]}],
             {addr: entry['amount']}, 0, True, False)
         # No walletupdatepstt -- the input has no PSTT_IN_UTXO yet.
         signed = node.walletsignpstt(pstt, "ALL", self.options.scheme)
@@ -679,7 +679,7 @@ class PSTTNetworkTest(BitcoinTestFramework):
     def _sim_utxo_txid_mismatch(self, entry_a, entry_b, owner_a, addr_a):
         node = self.nodes[owner_a]
         pstt = node.createpstt(
-            [{"previous_txid": entry_a['txid'], "output_index": entry_a['vout']}],
+            [{"txid": entry_a["txid"], "vout": entry_a["vout"]}],
             {addr_a: entry_a['amount']}, 0, True, False)
         pstt = node.walletupdatepstt(pstt)['pstt']
         wrong_tx_bytes = bytes.fromhex(node.getrawtransaction(entry_b['txid']))
@@ -694,7 +694,7 @@ class PSTTNetworkTest(BitcoinTestFramework):
     def _sim_sighash_conflict(self, entry, owner, addr):
         node = self.nodes[owner]
         pstt = node.createpstt(
-            [{"previous_txid": entry['txid'], "output_index": entry['vout']}],
+            [{"txid": entry["txid"], "vout": entry["vout"]}],
             {addr: entry['amount']}, 0, True, False)
         pstt = node.walletupdatepstt(pstt)['pstt']
         addr_owning = node.decodepstt(pstt)['inputs'][0]['utxo']['vout'][entry['vout']]['scriptPubKey']['addresses'][0]

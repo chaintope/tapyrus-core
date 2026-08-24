@@ -4028,9 +4028,8 @@ UniValue walletsignpstt(const JSONRPCRequest& request)
     if (request.fHelp || request.params.size() < 1 || request.params.size() > 3)
         throw std::runtime_error(
             "walletsignpstt \"pstt\" ( \"sighashtype\" \"sigscheme\" )\n"
-            "\nSign a PSTT's inputs using our wallet's keys.\n"
-            "This is the Signer role only -- it relies on a prior Updater step\n"
-            "(walletupdatepstt) having already attached each input's UTXO.\n"
+            "\nSign a PSTT's inputs using our wallet's keys. Implements the Signer role;\n"
+            "requires walletupdatepstt to have already attached each input's UTXO.\n"
             + HelpRequiringPassphrase(pwallet) + "\n"
 
             "\nArguments:\n"
@@ -4179,26 +4178,25 @@ UniValue walletcreatefundedpstt(const JSONRPCRequest& request)
     if (request.fHelp || request.params.size() < 2 || request.params.size() > 7)
         throw std::runtime_error(
                             "walletcreatefundedpstt [{\"previous_txid\":\"id\",\"output_index\":n},...] [{\"address\":amount},{\"data\":\"hex\"},...] ( fallback_locktime ) ( options bip32derivs inputs_modifiable outputs_modifiable )\n"
-                            "\nCreates and funds a PSTT. Inputs will be added if the supplied inputs don't\n"
-                            "cover the outputs. Implements the Creator, Constructor (funding), and\n"
-                            "Updater roles.\n"
+                            "\nCreates and funds a PSTT, adding inputs if needed to cover the outputs.\n"
+                            "Implements the Creator, Constructor (funding), and Updater roles.\n"
                             "\nArguments:\n"
                             "1. \"inputs\"                (array, required) A json array of json objects\n"
                             "     [\n"
                             "       {\n"
-                            "         \"previous_txid\":\"id\", (string, required) The transaction id\n"
-                            "         \"output_index\":n,     (numeric, required) The output number\n"
-                            "         \"sequence\":n          (numeric, optional) The sequence number\n"
+                            "         \"previous_txid\":\"id\", (string, required) The malfix (malleability-fixed) transaction id of the transaction whose output is being spent\n"
+                            "         \"output_index\":n,     (numeric, required) The index of that output within the transaction referenced by previous_txid\n"
+                            "         \"sequence\":n          (numeric, optional, default=0xffffffff) The sequence number. The default disables any locktime constraint from this input; a lower value makes the PSTT's locktime binding, may also encode a BIP68 relative locktime, and can opt this transaction in to BIP125 replace-by-fee\n"
                             "       } \n"
                             "       ,...\n"
                             "     ]\n"
                             "2. \"outputs\"               (array, required) a json array with outputs (key-value pairs)\n"
                             "   [\n"
                             "    {\n"
-                            "      \"address\": x.xxx,    (obj, optional) A key-value pair. The key (string) is the tapyrus address, the value (float or string) is the amount in " + CURRENCY_UNIT + "\n"
+                            "      \"address\": x.xxx,    (obj, optional) A key-value pair. The key (string) is a base58-encoded Tapyrus address, the value (float or string) is the amount in " + CURRENCY_UNIT + "\n"
                             "    },\n"
                             "    {\n"
-                            "      \"data\": \"hex\"        (obj, optional) A key-value pair. The key must be \"data\", the value is hex encoded data\n"
+                            "      \"data\": \"hex\"        (obj, optional) A key-value pair whose key must be the literal string \"data\"; the value is arbitrary hex-encoded data embedded via OP_RETURN\n"
                             "    }\n"
                             "    ,...                     More key-value pairs of the above form. For compatibility reasons, a dictionary, which holds the key-value pairs directly, is also\n"
                             "                             accepted as second parameter.\n"
@@ -4206,7 +4204,7 @@ UniValue walletcreatefundedpstt(const JSONRPCRequest& request)
                             "3. fallback_locktime       (numeric, optional, default=0) PSTT_GLOBAL_FALLBACK_LOCKTIME -- the locktime used when no input constrains one\n"
                             "4. options                 (object, optional)\n"
                             "   {\n"
-                            "     \"changeAddress\"          (string, optional, default pool address) The tapyrus address to receive the change\n"
+                            "     \"changeAddress\"          (string, optional, default pool address) The base58-encoded Tapyrus address to receive the change\n"
                             "     \"changePosition\"         (numeric, optional, default random) The index of the " + CURRENCY_UNIT + " change output\n"
                             "     \"includeWatching\"        (boolean, optional, default false) Also select inputs which are watch only\n"
                             "     \"lockUnspents\"           (boolean, optional, default false) Lock selected unspent outputs\n"
@@ -4257,10 +4255,11 @@ UniValue walletcreatefundedpstt(const JSONRPCRequest& request)
     // coupling applies when the locktime is nonzero -- otherwise a nonzero
     // fallback_locktime would be consensus-inert once extracted (nLockTime
     // is only honored when some input carries a non-final sequence). Inputs
-    // are parsed separately via ParsePsttInputEntries (PSTT's own
-    // previous_txid/output_index field names) -- an empty array is passed
-    // here so ConstructTransaction only handles outputs/locktime, not
-    // createrawtransaction's txid/vout input shape.
+    // are parsed separately via ParsePsttInputEntries (same txid/vout field
+    // names as ConstructTransaction, but returning std::vector<CTxIn>
+    // directly rather than going through a full CMutableTransaction) -- an
+    // empty array is passed here so ConstructTransaction only handles
+    // outputs/locktime.
     CMutableTransaction rawTx = ConstructTransaction(UniValue(UniValue::VARR), request.params[1], request.params[2], request.params[3]["replaceable"]);
     rawTx.vin = ParsePsttInputEntries(request.params[0], rawTx.nLockTime, request.params[3]["replaceable"].isTrue());
     FundTransaction(pwallet, rawTx, fee, change_position, request.params[3]);
@@ -4316,26 +4315,16 @@ UniValue walletfundpsttfee(const JSONRPCRequest& request)
     if (request.fHelp || request.params.size() < 2 || request.params.size() > 4)
         throw std::runtime_error(
             "walletfundpsttfee \"pstt\" \"mode\" ( fee_input change_address )\n"
-            "\nActs as the TPC Fee Provider for a PSTT built by a party holding only\n"
-            "Colored Coins -- fees are always payable in TPC only, so such a party\n"
-            "cannot complete a transaction alone (see the Fee Provider workflow in\n"
-            "doc/tapyrus/pstt.md). Implements the Constructor role for the new TPC\n"
-            "input (and, in interactive mode, its change output), plus the Updater\n"
-            "role for attaching that input's PSTT_IN_UTXO.\n"
-            "\n\"noninteractive\" mode Constructor-adds exactly the caller-supplied\n"
-            "fee_input as a new input -- its color is verified from its scriptPubKey\n"
-            "(never assumed): a colored-coin outpoint is rejected, not silently\n"
-            "accepted as if it were TPC.\n"
-            "\n\"interactive\" mode runs this wallet's own TPC-only coin selection\n"
-            "(the same machinery walletcreatefundedpstt/fundrawtransaction use) to\n"
-            "add one or more TPC inputs and a TPC change output, then internally\n"
-            "clears both PSTT_GLOBAL_TX_MODIFIABLE flags (same effect as calling\n"
-            "finalizepsttconstruction) since both an input and an output were just\n"
-            "added. Like fundrawtransaction, every input the PSTT already carries\n"
-            "must have its previous transaction known to this wallet (owned, or\n"
-            "imported as watch-only with includeWatching) for coin selection to\n"
-            "correctly account for it -- interactive mode does not (and cannot)\n"
-            "blindly trust a value it has no way to verify.\n"
+            "\nActs as the TPC Fee Provider for a PSTT built by a Colored-Coin-only party\n"
+            "(fees are payable only in TPC). Implements the Constructor role for the new\n"
+            "TPC input (and change output, in interactive mode), plus the Updater role\n"
+            "for its UTXO.\n"
+            "\n\"noninteractive\" mode adds exactly the given fee_input; its color is\n"
+            "verified from its scriptPubKey, and a colored-coin outpoint is rejected.\n"
+            "\n\"interactive\" mode runs this wallet's own coin selection to add TPC\n"
+            "input(s) and change, then finalizes construction. Every existing PSTT\n"
+            "input must already be known to this wallet (owned or watch-only) for coin\n"
+            "selection to account for it.\n"
             + HelpRequiringPassphrase(pwallet) + "\n"
 
             "\nArguments:\n"
@@ -4343,16 +4332,16 @@ UniValue walletfundpsttfee(const JSONRPCRequest& request)
             "2. \"mode\"                 (string, required) \"noninteractive\" or \"interactive\"\n"
             "3. fee_input              (object, required for noninteractive, ignored otherwise)\n"
             "   {\n"
-            "     \"previous_txid\":\"id\", (string, required) The transaction id\n"
-            "     \"output_index\":n      (numeric, required) The output number; must reference a TPC output\n"
+            "     \"txid\":\"id\",         (string, required) The malfix (malleability-fixed) transaction id of the transaction whose output is being spent\n"
+            "     \"vout\":n              (numeric, required) The index of that output within the transaction referenced by txid; must reference a TPC output\n"
             "   }\n"
-            "4. \"change_address\"       (string, optional, interactive only, default a new wallet address) Address for the TPC change output\n"
+            "4. \"change_address\"       (string, optional, interactive only, default a new wallet address) Base58-encoded Tapyrus address for the TPC change output\n"
 
             "\nResult:\n"
             "  \"pstt\"        (string)  The resulting PSTT (base64-encoded string)\n"
 
             "\nExamples:\n"
-            + HelpExampleCli("walletfundpsttfee", "\"pstt\" \"noninteractive\" \"{\\\"previous_txid\\\":\\\"myid\\\",\\\"output_index\\\":0}\"")
+            + HelpExampleCli("walletfundpsttfee", "\"pstt\" \"noninteractive\" \"{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}\"")
             + HelpExampleCli("walletfundpsttfee", "\"pstt\" \"interactive\"")
         );
 
@@ -4386,14 +4375,14 @@ UniValue walletfundpsttfee(const JSONRPCRequest& request)
         }
 
         UniValue fee_input = request.params[2].get_obj();
-        uint256 txid = ParseHashO(fee_input, "previous_txid");
-        const UniValue& vout_v = fee_input.find_value("output_index");
+        uint256 txid = ParseHashO(fee_input, "txid");
+        const UniValue& vout_v = fee_input.find_value("vout");
         if (!vout_v.isNum()) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, missing output_index key");
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, missing vout key");
         }
         int nOutput = vout_v.get_int();
         if (nOutput < 0) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, output_index must be positive");
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, vout must be positive");
         }
 
         // Looked up via the node's own chain/mempool index, not the wallet --
@@ -4403,10 +4392,10 @@ UniValue walletfundpsttfee(const JSONRPCRequest& request)
         CTransactionRef feeTx;
         uint256 hashBlock;
         if (!GetTransaction(txid, feeTx, Params().GetConsensus(), hashBlock, true)) {
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "fee_input's previous_txid not found");
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "fee_input's txid not found");
         }
         if ((unsigned int)nOutput >= feeTx->vout.size()) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "fee_input's output_index is out of range");
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "fee_input's vout is out of range");
         }
         // Color is always derived from the scriptPubKey, never assumed from
         // the caller's stated intent (doc/tapyrus/pstt.md, Fee Provider

@@ -1424,8 +1424,8 @@ BOOST_FIXTURE_TEST_CASE(pstt_rpc_decodepstt_shape, TestChainSetup)
     BOOST_REQUIRE(inputs.isArray());
     BOOST_REQUIRE_EQUAL(inputs.size(), 1U);
     const UniValue& in0 = inputs[0];
-    BOOST_CHECK(in0.exists("previous_txid"));
-    BOOST_CHECK(in0.exists("output_index"));
+    BOOST_CHECK(in0.exists("txid"));
+    BOOST_CHECK(in0.exists("vout"));
     BOOST_CHECK(in0.exists("utxo"));
     BOOST_REQUIRE(in0.exists("partial_signatures"));
     BOOST_CHECK(in0.find_value("partial_signatures").isObject());
@@ -1771,8 +1771,8 @@ static std::string EncodeHexTxForTest(const CMutableTransaction& mtx)
 static UniValue MakeCreatepsttInputEntry(const uint256& txid, uint32_t vout)
 {
     UniValue input(UniValue::VOBJ);
-    input.pushKV("previous_txid", txid.GetHex());
-    input.pushKV("output_index", (uint64_t)vout);
+    input.pushKV("txid", txid.GetHex());
+    input.pushKV("vout", (uint64_t)vout);
     return input;
 }
 
