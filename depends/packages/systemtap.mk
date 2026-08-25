@@ -1,8 +1,8 @@
 package=systemtap
-$(package)_version=4.7
+$(package)_version=5.5
 $(package)_download_path=https://sourceware.org/systemtap/ftp/releases/
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
-$(package)_sha256_hash=43a0a3db91aa4d41e28015b39a65e62059551f3cc7377ebf3a3a5ca7339e7b1f
+$(package)_sha256_hash=980e58887a284097b9d4c6ae6382b75787573131c27e3875c0fc94bceb8c61a8
 $(package)_patches=remove_SDT_ASM_SECTION_AUTOGROUP_SUPPORT_check.patch
 
 define $(package)_preprocess_cmds
