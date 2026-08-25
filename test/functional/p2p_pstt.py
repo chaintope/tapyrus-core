@@ -37,7 +37,6 @@ from test_framework.schnorr import Schnorr, SECP256K1_ORDER as SCHNORR_ORDER, SE
 
 import base64
 import io
-import os
 import random
 import struct
 
@@ -234,9 +233,10 @@ def wif_encode(secret32, prefix=239, compressed=True):
     return '1' * n_leading_zeros + result
 
 
-def new_keypair():
-    """Returns (secret32, CECKey) for a fresh random secp256k1 keypair."""
-    secret = os.urandom(32)
+def new_keypair(rng):
+    """Returns (secret32, CECKey) for a fresh secp256k1 keypair, drawn from
+    rng (not os.urandom) so a failure is reproducible from the seed alone."""
+    secret = rng.randbytes(32)
     k = CECKey()
     k.set_secretbytes(secret)
     k.set_compressed(True)
@@ -337,7 +337,7 @@ class PSTTNetworkTest(BitcoinTestFramework):
                 keys = {}
                 pubkeys_hex = []
                 for peer in owners:
-                    secret, k = new_keypair()
+                    secret, k = new_keypair(self.rng)
                     keys[peer] = (secret, k)
                     pubkeys_hex.append(k.get_pubkey().hex())
                 self.multisig_keys[color_hex] = keys
@@ -384,7 +384,7 @@ class PSTTNetworkTest(BitcoinTestFramework):
         # ECDSA) -- Python-held key only, never imported into any node's
         # wallet, never touched by the round loop.
         scheme = self.options.scheme
-        secret, k = new_keypair()
+        secret, k = new_keypair(self.rng)
         fee_utxo = self._pick_any_tpc_utxo()
         issued = fp.issuetoken(2, 500, fee_utxo['txid'], fee_utxo['vout'])
         color_hex = issued['color']
@@ -555,7 +555,8 @@ class PSTTNetworkTest(BitcoinTestFramework):
         # cosigner: it has no sigscheme param and always probes with the
         # ECDSA default internally, which would spuriously conflict with an
         # already-attached SCHNORR-scheme partial signature from an earlier
-        # cosigner (rule 31) before this cosigner ever got to sign.
+        # cosigner (the Signer role's scheme-conflict rejection, per
+        # doc/tapyrus/pstt.md) before this cosigner ever got to sign.
         first = owners[0]
         pstt = self.nodes[first].addinputtopstt(pstt, txid, vout)
         pstt = self.nodes[first].walletupdatepstt(pstt)['pstt']
@@ -714,7 +715,7 @@ class PSTTNetworkTest(BitcoinTestFramework):
         keys = {}
         pubkeys_hex = []
         for peer in owners:
-            secret, k = new_keypair()
+            secret, k = new_keypair(self.rng)
             keys[peer] = (secret, k)
             pubkeys_hex.append(k.get_pubkey().hex())
         redeem_script_hex = None

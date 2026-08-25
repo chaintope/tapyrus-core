@@ -72,12 +72,12 @@ BASE_SCRIPTS = [
     'rpc_fundrawtransaction.py',
     'rpc_fundrawtransaction.py --scheme SCHNORR',
     # vv Tests less than 2m vv
+    'p2p_pstt.py',
+    'p2p_pstt.py --scheme SCHNORR',
     'wallet_labels.py',
     'wallet_dump.py',
     'wallet_listtransactions.py',
     # vv Tests less than 60s vv
-    'p2p_pstt.py',
-    'p2p_pstt.py --scheme SCHNORR',
     'p2p_sendheaders.py',
     'p2p_addr_relay.py',
     'wallet_zapwallettxes.py',
@@ -125,6 +125,7 @@ BASE_SCRIPTS = [
     'rpc_pstt.py',
     'rpc_pstt.py --scheme SCHNORR',
     'wallet_pstt.py',
+    'wallet_pstt.py --scheme SCHNORR',
     'rpc_users.py',
     'rpc_whitelist.py',
     'feature_proxy.py',

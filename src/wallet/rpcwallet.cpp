@@ -4087,8 +4087,9 @@ UniValue walletsignpstt(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_TRANSACTION_ERROR, strprintf("Signing input %d failed: %s", i, PSTTSignResultToString(result)));
         }
         // SignPSTTInput returns OK even when this wallet has no key for the
-        // input and contributed nothing -- only count it toward rule 32 if a
-        // signature was actually added in this call.
+        // input and contributed nothing -- only count it toward the
+        // post-sign PSTT_GLOBAL_TX_MODIFIABLE mutation if a signature was
+        // actually added in this call.
         size_t partial_sigs_before = input.partial_sigs.size();
         input.FromSignatureData(sigdata);
         if (!sigdata.complete) complete = false;
@@ -4293,8 +4294,12 @@ UniValue walletcreatefundedpstt(const JSONRPCRequest& request)
     if (modifiable != 0) pstt.tx_modifiable = modifiable;
 
     // Updater only -- fills in PSTT_IN_UTXO/BIP32 derivation for the inputs
-    // FundTransaction just selected, no signing.
-    FillPSTT(pwallet, pstt, 1, false, bip32derivs);
+    // FundTransaction just selected, no signing. SIGHASH_ALL here is a
+    // placeholder: FillPSTT still checks it against every input's own
+    // PSTT_IN_SIGHASH_TYPE (if explicitly set on the wire) regardless of
+    // sign, but none of this RPC's own inputs ever carry that field, so no
+    // real input's sighash is affected by this value.
+    FillPSTT(pwallet, pstt, SIGHASH_ALL, /*sign=*/false, bip32derivs);
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("pstt", EncodePSTT(pstt));
@@ -4450,6 +4455,18 @@ UniValue walletfundpsttfee(const JSONRPCRequest& request)
         CWallet::ChangePosInOut change_position;
         FundTransaction(pwallet, rawTx, fee, change_position, options);
 
+        // Coin selection doesn't always add a change output -- an exact-amount
+        // match needs none, and CWallet::CreateTransaction folds dust change
+        // into the fee instead of creating it (see IsDust handling there).
+        // When that happens alongside a SIGHASH_SINGLE-marked PSTT, this would
+        // otherwise be exactly the standalone input add that addinputtopstt
+        // itself already refuses in that state -- same rule applies here.
+        if (rawTx.vin.size() > original_input_count && rawTx.vout.size() == original_output_count &&
+            pstt.tx_modifiable && (*pstt.tx_modifiable & PSTT_TXMOD_HAS_SIGHASH_SINGLE)) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER,
+                "PSTT has a SIGHASH_SINGLE signature; coin selection added a fee input without a paired change output, which is not allowed -- provide a fee_input directly via noninteractive mode instead");
+        }
+
         for (size_t i = original_input_count; i < rawTx.vin.size(); ++i) {
             const CTxIn& txin = rawTx.vin[i];
             PSTTInput input;
@@ -4473,14 +4490,24 @@ UniValue walletfundpsttfee(const JSONRPCRequest& request)
         // so the caller doesn't need a separate round trip for it.
         uint8_t modifiable = pstt.tx_modifiable.value_or(0);
         modifiable &= ~(PSTT_TXMOD_INPUTS_MODIFIABLE | PSTT_TXMOD_OUTPUTS_MODIFIABLE);
-        pstt.tx_modifiable = modifiable;
+        // Omit the field entirely rather than writing an explicit zero --
+        // "absent" and "present with value 0" both mean "not modifiable" on
+        // the wire (see doc/tapyrus/pstt.md's PSTT_GLOBAL_TX_MODIFIABLE
+        // row), matching createpstt/converttopstt/walletcreatefundedpstt's
+        // own convention.
+        pstt.tx_modifiable = (modifiable != 0) ? boost::optional<uint8_t>(modifiable) : boost::none;
     }
 
     // Updater pass for the newly attached input(s) -- sign=false so this
     // never produces a signature, only PSTT_IN_UTXO/redeem-script/BIP32
     // discovery. Safe to run over the whole PSTT: FillPSTT skips
     // already-finalized inputs and never touches an existing signature.
-    FillPSTT(pwallet, pstt, 1, false, false);
+    // SIGHASH_ALL here is a placeholder, same as walletcreatefundedpstt's
+    // own Updater-only FillPSTT call above: it's still checked against each
+    // input's own PSTT_IN_SIGHASH_TYPE if one is explicitly set on the
+    // wire, but nothing in this workflow (including the other party's
+    // already-signed input) ever sets that field.
+    FillPSTT(pwallet, pstt, SIGHASH_ALL, /*sign=*/false, /*bip32derivs=*/false);
 
     return EncodePSTT(pstt);
 }

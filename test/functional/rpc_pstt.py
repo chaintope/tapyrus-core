@@ -122,8 +122,9 @@ class PSTTTest(BitcoinTestFramework):
         cc_decoded = self.nodes[0].decodepstt(cc_processed['pstt'])
         for inp in cc_decoded['inputs']:
             assert 'utxo' in inp
-        # decision #15 (doc/tapyrus/pstt.md): every input/output is annotated
-        # with the existing token/amount display convention.
+        # doc/tapyrus/pstt.md's Colored Coin balance verification section:
+        # every input/output is annotated with the existing token/amount
+        # display convention.
         for out in cc_decoded['outputs']:
             assert 'token' in out
             assert 'amount' in out
@@ -247,7 +248,10 @@ class PSTTTest(BitcoinTestFramework):
         # have the correct sequence numbers based on
         # replaceable arg
         block_height = self.nodes[0].getblockcount()
-        unspent = self.nodes[0].listunspent()[0]
+        # Same colored-change hazard as above: node0 already holds colored
+        # UTXOs by this point, and this input is paired with a plain
+        # (uncolored) destination below.
+        unspent = next(u for u in self.nodes[0].listunspent() if u.get('token') == 'TPC')
         psttx_info = self.nodes[0].walletcreatefundedpstt([{"txid":unspent["txid"], "vout":unspent["vout"]}], [{self.nodes[2].getnewaddress():unspent["amount"]+1}], block_height+2, {"replaceable":True}, False)
         decoded_pstt = self.nodes[0].decodepstt(psttx_info["pstt"])
         for pstt_in in decoded_pstt["inputs"]:
@@ -315,7 +319,11 @@ class PSTTTest(BitcoinTestFramework):
         # Neither Constructor RPC works once construction is not modifiable.
         self.nodes[0].generate(5, self.signblockprivkey_wif)
         self.sync_all()
-        unspent_list = self.nodes[0].listunspent()
+        # node0 also holds colored-coin change from earlier in this test
+        # (create_colored_transaction plus the walletcreatefundedpstt/
+        # decodepstt colored-output tests above) -- filter to TPC only, or
+        # an unfiltered [0:4] could silently pick a colored UTXO here.
+        unspent_list = [u for u in self.nodes[0].listunspent() if u.get('token') == 'TPC']
         assert len(unspent_list) >= 4, "test needs at least 4 spendable TPC UTXOs on node0 at this point"
         unspent_a, unspent_b, unspent_c, unspent_d = unspent_list[0:4]
 

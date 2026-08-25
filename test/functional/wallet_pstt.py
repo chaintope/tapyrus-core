@@ -12,9 +12,8 @@ second party ("the fee provider") supplies the TPC, using only the
 Constructor/Updater/Signer/Combiner primitives already covered by
 rpc_pstt.py plus walletfundpsttfee itself -- the one RPC specific to this
 workflow. This file drives that RPC and the two-party call sequence around
-it; it is deliberately a separate file from rpc_pstt.py per the plan this
-was implemented from (§7's "own file" note), since it's the most complex
-end-to-end scenario in the whole PSTT surface.
+it; it is deliberately a separate file from rpc_pstt.py, since it's the
+most complex end-to-end scenario in the whole PSTT surface.
 """
 
 from test_framework.test_framework import BitcoinTestFramework
@@ -71,7 +70,7 @@ class PSTTFeeProviderTest(BitcoinTestFramework):
         # Updater step (walletupdatepstt) having already attached each
         # input's PSTT_IN_UTXO; createpstt (Creator) never does that itself.
         pstt = node0.walletupdatepstt(pstt)['pstt']
-        pstt = node0.walletsignpstt(pstt, "ALL|ANYONECANPAY")['pstt']
+        pstt = node0.walletsignpstt(pstt, "ALL|ANYONECANPAY", self.options.scheme)['pstt']
         decoded = node0.decodepstt(pstt)
         assert_equal(decoded['tx_modifiable']['inputs_modifiable'], True)
 
@@ -88,9 +87,9 @@ class PSTTFeeProviderTest(BitcoinTestFramework):
         assert 'utxo' in decoded_funded['inputs'][1]
 
         # Provider signs its own new input with SIGHASH_ALL -- this closes
-        # Inputs-Modifiable (rule 32: a plain ALL signature doesn't tolerate
+        # Inputs-Modifiable (a plain ALL signature doesn't tolerate
         # further inputs being added).
-        signed = node1.walletsignpstt(funded, "ALL")
+        signed = node1.walletsignpstt(funded, "ALL", self.options.scheme)
         assert_equal(signed['complete'], True)
         decoded_signed = node0.decodepstt(signed['pstt'])
         assert_equal(decoded_signed['tx_modifiable']['inputs_modifiable'], False)
@@ -169,8 +168,8 @@ class PSTTFeeProviderTest(BitcoinTestFramework):
         # Either order works (combinepstt would merge if done independently)
         # -- this test signs sequentially since it's simpler and exercises
         # the same code paths.
-        signed1 = node0.walletsignpstt(funded, "ALL")['pstt']
-        signed2 = node1.walletsignpstt(signed1, "ALL")
+        signed1 = node0.walletsignpstt(funded, "ALL", self.options.scheme)['pstt']
+        signed2 = node1.walletsignpstt(signed1, "ALL", self.options.scheme)
         assert_equal(signed2['complete'], True)
 
         final_tx = node0.finalizepstt(signed2['pstt'])['hex']

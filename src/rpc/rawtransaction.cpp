@@ -1254,8 +1254,8 @@ static std::string WriteHDKeypath(std::vector<uint32_t>& keypath)
 
 // Mirrors addTokenKV's (rpcwallet.cpp) token/amount display convention, but
 // keyed off a scriptPubKey directly rather than a CTxDestination, matching
-// decision #15 in doc/tapyrus/pstt.md: color is always derived from the
-// script, never assumed from context.
+// doc/tapyrus/pstt.md's Colored Coin balance verification section: color is
+// always derived from the script, never assumed from context.
 static void PushTokenAmount(const CScript& script, CAmount amount, UniValue& entry)
 {
     ColorIdentifier colorId = GetColorIdFromScript(script);
@@ -1603,7 +1603,8 @@ UniValue addinputtopstt(const JSONRPCRequest& request)
     if (!pstt.tx_modifiable || !(*pstt.tx_modifiable & PSTT_TXMOD_INPUTS_MODIFIABLE)) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "PSTT inputs are not modifiable");
     }
-    if (pstt.tx_modifiable && (*pstt.tx_modifiable & PSTT_TXMOD_HAS_SIGHASH_SINGLE)) {
+    // pstt.tx_modifiable is already known engaged by the check just above.
+    if (*pstt.tx_modifiable & PSTT_TXMOD_HAS_SIGHASH_SINGLE) {
         throw JSONRPCError(RPC_INVALID_PARAMETER,
             "PSTT has a SIGHASH_SINGLE signature; use addinputoutputpairtopstt to add an input and output together");
     }
@@ -1664,7 +1665,8 @@ UniValue addoutputtopstt(const JSONRPCRequest& request)
     if (!pstt.tx_modifiable || !(*pstt.tx_modifiable & PSTT_TXMOD_OUTPUTS_MODIFIABLE)) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "PSTT outputs are not modifiable");
     }
-    if (pstt.tx_modifiable && (*pstt.tx_modifiable & PSTT_TXMOD_HAS_SIGHASH_SINGLE)) {
+    // pstt.tx_modifiable is already known engaged by the check just above.
+    if (*pstt.tx_modifiable & PSTT_TXMOD_HAS_SIGHASH_SINGLE) {
         throw JSONRPCError(RPC_INVALID_PARAMETER,
             "PSTT has a SIGHASH_SINGLE signature; use addinputoutputpairtopstt to add an input and output together");
     }
@@ -1768,7 +1770,11 @@ UniValue finalizepsttconstruction(const JSONRPCRequest& request)
     uint8_t modifiable = pstt.tx_modifiable.value_or(0);
     if (clear_inputs) modifiable &= ~PSTT_TXMOD_INPUTS_MODIFIABLE;
     if (clear_outputs) modifiable &= ~PSTT_TXMOD_OUTPUTS_MODIFIABLE;
-    pstt.tx_modifiable = modifiable;
+    // Omit the field entirely rather than writing an explicit zero -- "absent"
+    // and "present with value 0" both mean "not modifiable" on the wire (see
+    // doc/tapyrus/pstt.md's PSTT_GLOBAL_TX_MODIFIABLE row), and createpstt/
+    // converttopstt/walletcreatefundedpstt already omit it in this case.
+    pstt.tx_modifiable = (modifiable != 0) ? boost::optional<uint8_t>(modifiable) : boost::none;
 
     return EncodePSTT(pstt);
 }

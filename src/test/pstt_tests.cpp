@@ -973,10 +973,10 @@ BOOST_FIXTURE_TEST_CASE(pstt_combine_finalize_extract_p2sh_multisig, TestChainSe
     CheckMempoolResult(*this, MakeTransactionRef(ExtractPSTT(merged)), true);
 }
 
-// Rule 15/31: construction-time (IsSane()) and script-execution-time
-// (interpreter.cpp's own CHECKMULTISIG scheme-consistency check) mixed-scheme
-// rejection must agree on the exact same scenario, not just each reject
-// *something*. Reuses the 2-of-2 multisig funding from
+// Construction-time (IsSane()) and script-execution-time (interpreter.cpp's
+// own CHECKMULTISIG scheme-consistency check) mixed-scheme rejection must
+// agree on the exact same scenario, not just each reject *something*.
+// Reuses the 2-of-2 multisig funding from
 // MakeUnmergedMultisigSpendPair but signs A with ECDSA and B with Schnorr
 // (that helper always uses ECDSA for both), then checks both layers.
 BOOST_FIXTURE_TEST_CASE(pstt_mixed_scheme_rejected_construction_and_execution_agree, TestChainSetup)
@@ -2105,9 +2105,13 @@ BOOST_FIXTURE_TEST_CASE(pstt_rpc_multi_round_trip_construction, TestingSetup)
     BOOST_CHECK(pstt.inputs[0].previous_txid == utxo1->GetHashMalFix());
     BOOST_CHECK(pstt.inputs[1].previous_txid == utxo2->GetHashMalFix());
     BOOST_CHECK_EQUAL(*pstt.outputs[0].amount, 40000);
-    BOOST_REQUIRE(pstt.tx_modifiable);
-    BOOST_CHECK(!(*pstt.tx_modifiable & PSTT_TXMOD_INPUTS_MODIFIABLE));
-    BOOST_CHECK(!(*pstt.tx_modifiable & PSTT_TXMOD_OUTPUTS_MODIFIABLE));
+    // finalizepsttconstruction clears both flags here, leaving nothing set --
+    // tx_modifiable may be absent or present-with-value-0 (both mean "not
+    // modifiable" on the wire), so compare the effective mask rather than
+    // requiring the field be engaged.
+    uint8_t effective_modifiable = pstt.tx_modifiable.value_or(0);
+    BOOST_CHECK(!(effective_modifiable & PSTT_TXMOD_INPUTS_MODIFIABLE));
+    BOOST_CHECK(!(effective_modifiable & PSTT_TXMOD_OUTPUTS_MODIFIABLE));
 
     // Further Constructor calls are refused now that construction is finished.
     CTransactionRef utxo3 = MakeSimpleUtxoTx(RandomP2PKHScript(), 20000);

@@ -283,6 +283,82 @@ BOOST_FIXTURE_TEST_CASE(pstt_wallet_rpc_cli_param_conversion, PsttWalletTestingS
     BOOST_CHECK_NO_THROW(CallPsttWalletRPCFromCli(std::string("walletprocesspstt ")+updatedPstt+" true ALL false ECDSA"));
 }
 
+// walletfundpsttfee's interactive mode doesn't always add a change output --
+// CWallet::CreateTransaction folds change into the fee instead of creating
+// an output for it whenever that change is dust (below the wallet's discard
+// threshold, ~1820 tapyrus at the defaults used here -- see IsDust/
+// GetDustThreshold and CreateTransaction's own dust-fold branch). Under a
+// SIGHASH_SINGLE-marked PSTT, a fee input added with no paired change output
+// is exactly the standalone input add that addinputtopstt itself already
+// refuses in that state.
+//
+// CFeeRate(0) on the wallet is *not* a zero fee -- wallet/fees.cpp's
+// GetMinimumFeeRate treats m_pay_tx_fee == CFeeRate(0) as "unset" and falls
+// through to smart-fee estimation, which in a test environment with no
+// mempool data lands on the much larger fallback fee (DEFAULT_FALLBACK_FEE)
+// instead. CFeeRate(1) avoids that trap (nonzero, so the wallet honours it
+// directly) while keeping the real fee negligible, well under the dust
+// threshold above.
+static const CAmount DUST_FOLD_MARGIN = 500; // tapyrus of headroom: comfortably covers the real (near-zero) fee, comfortably under the ~1820 dust threshold
+static PartiallySignedTapyrusTransaction MakeSingleOutputPstt(CAmount amount, uint8_t modifiable)
+{
+    CKey destKey;
+    destKey.MakeNewKey(true);
+
+    PartiallySignedTapyrusTransaction pstt;
+    pstt.tx_features = CTransaction::CURRENT_FEATURES;
+    // No inputs yet -- interactive mode's own coin selection must add one
+    // from the wallet to cover the output below.
+    PSTTOutput output;
+    output.amount = amount;
+    output.script = GetScriptForDestination(destKey.GetPubKey().GetID());
+    pstt.outputs.push_back(output);
+    pstt.tx_modifiable = modifiable;
+    return pstt;
+}
+
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_walletfundpsttfee_interactive_refuses_standalone_input_under_sighash_single, PsttWalletTestingSetup)
+{
+    sharedWallet->m_pay_tx_fee = CFeeRate(1);
+
+    CTransactionRef fundingTx = FundWalletWithP2PKHCoin(*this, 1 * COIN);
+    UniValue params(UniValue::VARR);
+    params.push_back(EncodePSTT(MakeSingleOutputPstt(fundingTx->vout[0].nValue - DUST_FOLD_MARGIN, // leftover change is dust -- folded into fee, no change output
+        PSTT_TXMOD_INPUTS_MODIFIABLE | PSTT_TXMOD_OUTPUTS_MODIFIABLE | PSTT_TXMOD_HAS_SIGHASH_SINGLE)));
+    params.push_back(UniValue("interactive"));
+    params.push_back(NullUniValue); // fee_input, ignored in interactive mode
+    BOOST_CHECK_EXCEPTION(CallPsttWalletRPC("walletfundpsttfee", params), UniValue, [](const UniValue& e) {
+        return e["message"].get_str().find("SIGHASH_SINGLE") != std::string::npos;
+    });
+}
+
+// Same dust-fold, zero-change setup, but without SIGHASH_SINGLE -- confirms
+// the guard is scoped to that state, not a blanket rejection of every
+// zero-change interactive call. Uses its own fixture instance (rather than
+// sharing one with the throw case above) so the wallet only ever has the one
+// coin this case cares about -- coin selection otherwise happily combines an
+// earlier, never-actually-spent coin with this one to cover the same
+// target, which defeats the zero-change setup being tested.
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_walletfundpsttfee_interactive_allows_exact_match_without_sighash_single, PsttWalletTestingSetup)
+{
+    sharedWallet->m_pay_tx_fee = CFeeRate(1);
+
+    CTransactionRef fundingTx = FundWalletWithP2PKHCoin(*this, 2 * COIN);
+    UniValue params(UniValue::VARR);
+    params.push_back(EncodePSTT(MakeSingleOutputPstt(fundingTx->vout[0].nValue - DUST_FOLD_MARGIN,
+        PSTT_TXMOD_INPUTS_MODIFIABLE | PSTT_TXMOD_OUTPUTS_MODIFIABLE)));
+    params.push_back(UniValue("interactive"));
+    params.push_back(NullUniValue);
+    UniValue funded;
+    BOOST_CHECK_NO_THROW(funded = CallPsttWalletRPC("walletfundpsttfee", params));
+
+    PartiallySignedTapyrusTransaction decoded;
+    std::string decodeError;
+    BOOST_REQUIRE(DecodePSTT(decoded, funded.get_str(), decodeError));
+    BOOST_CHECK_EQUAL(decoded.inputs.size(), 1U); // the wallet's coin was selected
+    BOOST_CHECK_EQUAL(decoded.outputs.size(), 1U); // and no change output was needed
+}
+
 // Carried over from the now-deleted psbt_wallet_tests.cpp (Phase 7, PSBT
 // removal) -- ParseHDKeypath is a generic helper (AddKeypathToMap's own
 // dependency) unrelated to the wire-format change, still exercised by
@@ -368,17 +444,17 @@ static CScript P2PKHScriptFor(const CPubKey& pubkey)
     return script;
 }
 
-// Rules 24/25 (doc/tapyrus/pstt.md, §8): the Updater must never change an
-// input's sequence, neither for an input that's already signed (24) nor for
-// any input at all once some *other* input carries a SIGHASH_ALL-without-
-// ANYONECANPAY signature (25). Unlike most other rules, this isn't a
-// conditional guard inside FillPSTT that rejects a mutation attempt -- rule
-// 23 already establishes FillPSTT never adds/removes/alters inputs at all,
-// and that extends structurally to sequence: FillPSTT has no code path that
-// ever writes PSTTInput::sequence, signed or not. So the right-sized test
-// here is a regression tripwire proving that invariant holds across the
-// specific state rule 25 calls out (one input fully SIGHASH_ALL-signed,
-// another still unsigned), across repeated Updater/Signer passes -- not a
+// doc/tapyrus/pstt.md's Updater role: the Updater must never change an
+// input's sequence, neither for an input that's already signed nor for any
+// input at all once some *other* input carries a SIGHASH_ALL-without-
+// ANYONECANPAY signature. Unlike most other constraints, this isn't a
+// conditional guard inside FillPSTT that rejects a mutation attempt --
+// FillPSTT already never adds/removes/alters inputs at all, and that
+// extends structurally to sequence: FillPSTT has no code path that ever
+// writes PSTTInput::sequence, signed or not. So the right-sized test here is
+// a regression tripwire proving that invariant holds across the specific
+// state described above (one input fully SIGHASH_ALL-signed, another still
+// unsigned), across repeated Updater/Signer passes -- not a
 // conditional-branch test for a branch that doesn't exist.
 BOOST_FIXTURE_TEST_CASE(pstt_updater_never_mutates_sequence, WalletTestingSetup)
 {
@@ -435,8 +511,9 @@ BOOST_FIXTURE_TEST_CASE(pstt_updater_never_mutates_sequence, WalletTestingSetup)
     pstt.outputs.push_back(output);
 
     // First pass: Updater attaches both UTXOs, Signer completes input0
-    // (SIGHASH_ALL, no ANYONECANPAY -- exactly rule 25's trigger condition)
-    // and leaves input1 unsigned (no key). Sequences must be untouched.
+    // (SIGHASH_ALL, no ANYONECANPAY -- exactly the trigger condition for the
+    // sequence-change restriction above) and leaves input1 unsigned (no
+    // key). Sequences must be untouched.
     FillPSTT(&m_wallet, pstt, SIGHASH_ALL, /*sign=*/true, /*bip32derivs=*/false);
     BOOST_CHECK_EQUAL(*pstt.inputs[0].sequence, 0xFFFFFFFEU);
     BOOST_CHECK_EQUAL(*pstt.inputs[1].sequence, 0xFFFFFFFDU);
@@ -445,7 +522,8 @@ BOOST_FIXTURE_TEST_CASE(pstt_updater_never_mutates_sequence, WalletTestingSetup)
 
     // Second pass: an Updater-only re-run over a PSTT that already carries
     // input0's SIGHASH_ALL-without-ANYONECANPAY signature -- the precise
-    // state rule 25 describes. Sequences must still be untouched.
+    // state the restriction above guards against. Sequences must still be
+    // untouched.
     FillPSTT(&m_wallet, pstt, SIGHASH_ALL, /*sign=*/false, /*bip32derivs=*/false);
     BOOST_CHECK_EQUAL(*pstt.inputs[0].sequence, 0xFFFFFFFEU);
     BOOST_CHECK_EQUAL(*pstt.inputs[1].sequence, 0xFFFFFFFDU);

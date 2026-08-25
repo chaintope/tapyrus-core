@@ -167,7 +167,15 @@ construction across separate parties, not a single call).
   prefix), or that would use `SIGHASH_SINGLE` on an input whose index has
   no corresponding output, or that would add a signature whose scheme
   (ECDSA/Schnorr) conflicts with a signature already present on that
-  input.
+  input. After signing, updates `PSTT_GLOBAL_TX_MODIFIABLE` based on the
+  sighash type(s) just used: a signature without `SIGHASH_ANYONECANPAY`
+  closes Inputs Modifiable (no further inputs can be added without
+  invalidating it); one that commits to every output (not `SIGHASH_NONE`/
+  `SIGHASH_SINGLE`) closes Outputs Modifiable; `SIGHASH_SINGLE` itself sets
+  the Has-`SIGHASH_SINGLE` bit, after which the Constructor may only add
+  inputs and outputs together, never one without the other. This only ever
+  clears Inputs/Outputs Modifiable or sets Has-`SIGHASH_SINGLE` — it never
+  reopens a bit an earlier signing round already closed.
 * **Combiner** — merges two or more PSTTs that share an identifier.
   Per-field conflict policy on a mismatch: `PSTT_IN_PARTIAL_SIG`,
   `PSTT_IN_FINAL_SCRIPTSIG`, and `PSTT_IN_UTXO` refuse (signature/UTXO
@@ -197,7 +205,9 @@ transaction alone. The Fee Provider pattern lets a second party — one that
 does hold TPC — complete the transaction, using only the Constructor,
 Updater, Signer, and Combiner primitives above; tapyrus-core does not
 hardcode the two-party protocol itself, only the primitives that make it
-possible.
+possible. The fee provider's side of both variants below is exposed as a
+single wallet RPC, `walletfundpsttfee`, taking a `mode` argument of
+`"noninteractive"` or `"interactive"`.
 
 Both variants share the same starting point: the token-only party
 constructs a PSTT covering their own inputs/outputs with the Inputs
@@ -207,12 +217,21 @@ without invalidating their signature). The two variants differ in how the
 fee provider then supplies its input:
 
 * **Non-interactive** — the fee provider supplies one already-known TPC
-  outpoint directly. Its color must be verified (derived from the
-  referenced output's scriptPubKey, never assumed from the caller's
-  intent) before it is added — a colored-coin outpoint must be rejected,
-  not silently accepted as if it were TPC.
-* **Interactive** — the fee provider runs its own coin selection and adds
-  both a TPC input and a TPC change output.
+  outpoint directly (`walletfundpsttfee`'s `fee_input` argument). Its
+  color must be verified (derived from the referenced output's
+  scriptPubKey, never assumed from the caller's intent) before it is
+  added — a colored-coin outpoint must be rejected, not silently accepted
+  as if it were TPC. Adding a fee input with no paired output is refused
+  outright once the PSTT has a `SIGHASH_SINGLE` signature (see the Signer
+  role above on Has-`SIGHASH_SINGLE`), since a standalone input add is
+  exactly what that state forbids.
+* **Interactive** — the fee provider runs its own coin selection
+  (`walletfundpsttfee` with no `fee_input`) and adds a TPC input, plus a
+  TPC change output unless the change would be dust, in which case it is
+  folded into the fee instead. The same Has-`SIGHASH_SINGLE` restriction
+  applies: if coin selection lands on the dust-fold case (an input added
+  with no paired output), it is refused the same way the non-interactive
+  case is.
 
 Either way, the fee provider signs its own new input with `SIGHASH_ALL`,
 and either party finalizes and extracts once both signatures are present.

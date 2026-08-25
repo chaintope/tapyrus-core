@@ -60,9 +60,10 @@ bool FillPSTT(const CWallet* pwallet, PartiallySignedTapyrusTransaction& pstt, i
             // returns OK even when the wallet has no key for this input and
             // contributed nothing (e.g. a foreign input in an incremental
             // multi-party PSTT, per walletprocesspstt's own contract of
-            // being a harmless no-op for inputs it can't sign). Rule 32 must
-            // only fire on an input this call actually added a signature
-            // to, so compare partial_sigs/final_script_sig before and after.
+            // being a harmless no-op for inputs it can't sign). The post-sign
+            // PSTT_GLOBAL_TX_MODIFIABLE mutation must only fire on an input
+            // this call actually added a signature to, so compare
+            // partial_sigs/final_script_sig before and after.
             size_t partial_sigs_before = input.partial_sigs.size();
             bool finalized_before = !input.final_script_sig.empty();
             input.FromSignatureData(sigdata);
@@ -118,7 +119,11 @@ void ApplyPsttPostSignModifiableRules(PartiallySignedTapyrusTransaction& pstt, i
     if (!anyonecanpay) modifiable &= ~PSTT_TXMOD_INPUTS_MODIFIABLE;
     if (base_sighash != SIGHASH_NONE && base_sighash != SIGHASH_SINGLE) modifiable &= ~PSTT_TXMOD_OUTPUTS_MODIFIABLE;
     if (base_sighash == SIGHASH_SINGLE) modifiable |= PSTT_TXMOD_HAS_SIGHASH_SINGLE;
-    pstt.tx_modifiable = modifiable;
+    // Omit the field entirely rather than writing an explicit zero -- "absent"
+    // and "present with value 0" both mean "not modifiable" on the wire (see
+    // doc/tapyrus/pstt.md's PSTT_GLOBAL_TX_MODIFIABLE row), matching
+    // createpstt/converttopstt/walletcreatefundedpstt's own convention.
+    pstt.tx_modifiable = (modifiable != 0) ? boost::optional<uint8_t>(modifiable) : boost::none;
 }
 
 void ComputePsttColorBalances(const PartiallySignedTapyrusTransaction& pstt,
