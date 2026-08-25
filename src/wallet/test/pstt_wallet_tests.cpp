@@ -4,7 +4,9 @@
 
 #include <amount.h>
 #include <core_io.h>
+#include <key_io.h>
 #include <pstt.h>
+#include <rpc/client.h>
 #include <rpc/server.h>
 #include <script/sign.h>
 #include <script/standard.h>
@@ -14,6 +16,7 @@
 #include <wallet/test/test_tapyrus_wallet.h>
 #include <wallet/wallet.h>
 
+#include <boost/algorithm/string.hpp>
 #include <boost/test/unit_test.hpp>
 
 // -----------------------------------------------------------------------
@@ -61,6 +64,29 @@ static UniValue CallPsttWalletRPC(const std::string& method, const UniValue& par
     request.params = params;
     request.fHelp = false;
     rpcfn_type fn = tableRPC[method]->actor;
+    return (*fn)(request);
+}
+
+// Mirrors rpc_tests.cpp's CallRPC: space-split CLI-style string arguments,
+// run through RPCConvertValues exactly as tapyrus-cli does, rather than
+// pre-typed UniValue params. Used to guard src/rpc/client.cpp's
+// vRPCConvertParams table -- without a conversion entry for a given
+// array/object/numeric/boolean argument, tapyrus-cli's string arguments
+// pass through unconverted and RPCTypeCheck throws a generic type error
+// before ever reaching real argument validation. CallPsttWalletRPC above
+// (pre-typed UniValue params) can't catch that class of bug.
+static UniValue CallPsttWalletRPCFromCli(const std::string& args)
+{
+    std::vector<std::string> vArgs;
+    boost::split(vArgs, args, boost::is_any_of(" \t"));
+    std::string strMethod = vArgs[0];
+    vArgs.erase(vArgs.begin());
+    BOOST_REQUIRE(tableRPC[strMethod]);
+    JSONRPCRequest request;
+    request.strMethod = strMethod;
+    request.params = RPCConvertValues(strMethod, vArgs);
+    request.fHelp = false;
+    rpcfn_type fn = tableRPC[strMethod]->actor;
     return (*fn)(request);
 }
 
@@ -212,6 +238,36 @@ BOOST_FIXTURE_TEST_CASE(pstt_rpc_walletprocesspstt_sign_false_only_updates, Pstt
     BOOST_REQUIRE(processed.inputs[0].utxo);
     BOOST_CHECK(processed.inputs[0].final_script_sig.empty());
     BOOST_CHECK(processed.inputs[0].partial_sigs.empty());
+}
+
+// Wallet-RPC counterpart to rpc_tests.cpp's rpc_pstt_params -- covers the
+// PSTT RPCs that only exist under ENABLE_WALLET, which rpc_tests.cpp's
+// non-wallet TestingSetup fixture never registers.
+BOOST_FIXTURE_TEST_CASE(pstt_wallet_rpc_cli_param_conversion, PsttWalletTestingSetup)
+{
+    FundWalletWithP2PKHCoin(*this, 1 * COIN);
+    CKey destKey;
+    destKey.MakeNewKey(true);
+    std::string destAddr = EncodeDestination(destKey.GetPubKey().GetID());
+
+    // walletcreatefundedpstt: inputs(0)=array, outputs(1)=array/obj,
+    // fallback_locktime(2)=num, options(3)=obj, bip32derivs(4)/
+    // inputs_modifiable(5)/outputs_modifiable(6)=bool.
+    BOOST_CHECK_THROW(CallPsttWalletRPCFromCli("walletcreatefundedpstt not_array {}"), std::runtime_error);
+    UniValue funded;
+    BOOST_CHECK_NO_THROW(funded = CallPsttWalletRPCFromCli(
+        std::string("walletcreatefundedpstt [] {\"") + destAddr + "\":0.5} 0 {} false false false"));
+    std::string pstt = funded.find_value("pstt").get_str();
+
+    // walletupdatepstt: bip32derivs(1)=bool.
+    BOOST_CHECK_THROW(CallPsttWalletRPCFromCli(std::string("walletupdatepstt ")+pstt+" not_bool"), std::runtime_error);
+    UniValue updated;
+    BOOST_CHECK_NO_THROW(updated = CallPsttWalletRPCFromCli(std::string("walletupdatepstt ")+pstt+" true"));
+
+    // walletprocesspstt: sign(1)/bip32derivs(3)=bool.
+    std::string updatedPstt = updated.find_value("pstt").get_str();
+    BOOST_CHECK_THROW(CallPsttWalletRPCFromCli(std::string("walletprocesspstt ")+updatedPstt+" not_bool"), std::runtime_error);
+    BOOST_CHECK_NO_THROW(CallPsttWalletRPCFromCli(std::string("walletprocesspstt ")+updatedPstt+" true ALL false ECDSA"));
 }
 
 BOOST_AUTO_TEST_SUITE_END()

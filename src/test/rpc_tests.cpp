@@ -78,6 +78,54 @@ BOOST_AUTO_TEST_CASE(rpc_rawparams)
     BOOST_CHECK_THROW(CallRPC(std::string("sendrawtransaction ")+rawtx+" extra"), std::runtime_error);
 }
 
+// Guards against src/rpc/client.cpp's vRPCConvertParams missing an entry for
+// a PSTT RPC's array/object/numeric/boolean argument. Without a conversion
+// entry, tapyrus-cli's positional string arguments pass through
+// RPCConvertValues unconverted, and the RPC's own RPCTypeCheck throws a
+// generic "Expected type X, got string" before ever reaching real argument
+// validation -- e.g. `tapyrus-cli createpstt "[]" "[]" 0 true true` failed
+// this way despite every argument being well-formed. CallRPC exercises
+// exactly this path (space-split string args -> RPCConvertValues -> actor),
+// unlike the Python functional tests, which always send typed JSON directly
+// through the RPC library and so never touch RPCConvertValues at all.
+BOOST_AUTO_TEST_CASE(rpc_pstt_params)
+{
+    UniValue r;
+
+    // createpstt: inputs(0)=array, outputs(1)=array/obj, fallback_locktime(2)=num,
+    // inputs_modifiable(3)/outputs_modifiable(4)/has_sighash_single(5)=bool.
+    BOOST_CHECK_THROW(CallRPC("createpstt not_array []"), std::runtime_error);
+    BOOST_CHECK_NO_THROW(r = CallRPC("createpstt [] [] 0 true true false"));
+    std::string pstt = r.get_str();
+
+    // combinepstt: txs(0)=array.
+    BOOST_CHECK_NO_THROW(CallRPC(std::string("combinepstt [\"")+pstt+"\"]"));
+
+    // finalizepsttconstruction: clear_inputs_modifiable(1)/clear_outputs_modifiable(2)=bool.
+    BOOST_CHECK_THROW(CallRPC(std::string("finalizepsttconstruction ")+pstt+" not_bool"), std::runtime_error);
+    BOOST_CHECK_NO_THROW(r = CallRPC(std::string("finalizepsttconstruction ")+pstt+" false false"));
+    pstt = r.get_str();
+
+    // addoutputtopstt: output(1)=object.
+    BOOST_CHECK_THROW(CallRPC(std::string("addoutputtopstt ")+pstt+" not_object"), std::runtime_error);
+
+    // addinputtopstt: output_index(2)=num, sequence(3)=num.
+    BOOST_CHECK_THROW(CallRPC(std::string("addinputtopstt ")+pstt+" deadbeef not_num"), std::runtime_error);
+
+    // addinputoutputpairtopstt: output_index(2)=num, output(3)=object, sequence(4)=num.
+    BOOST_CHECK_THROW(CallRPC(std::string("addinputoutputpairtopstt ")+pstt+" deadbeef not_num {} 4294967295"), std::runtime_error);
+
+    // finalizepstt: extract(1)=bool.
+    BOOST_CHECK_THROW(CallRPC(std::string("finalizepstt ")+pstt+" not_bool"), std::runtime_error);
+
+    // signpsttwithkey: privkeys(1)=array.
+    BOOST_CHECK_NO_THROW(CallRPC(std::string("signpsttwithkey ")+pstt+" []"));
+
+    // converttopstt: permitsigdata(1)/inputs_modifiable(2)/outputs_modifiable(3)=bool.
+    std::string rawtx = CallRPC("createrawtransaction [] {}").get_str();
+    BOOST_CHECK_NO_THROW(CallRPC(std::string("converttopstt ")+rawtx+" true true true"));
+}
+
 BOOST_AUTO_TEST_CASE(rpc_togglenetwork)
 {
     UniValue r;
