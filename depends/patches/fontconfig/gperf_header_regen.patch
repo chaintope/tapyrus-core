@@ -9,16 +9,20 @@ Date:   Tue Aug 25 14:34:53 2020 +0800
 
     See #10851.
 
+    Rebased for fontconfig 2.16.0 (2026-08-25): the underlying rule is
+    still present upstream, just shifted from line 912 to line 1027 and
+    now generates $(builddir)/fcobjshash.h instead of fcobjshash.h.
+
 diff --git a/src/Makefile.in b/src/Makefile.in
 index f4626ad..4ae1b00 100644
 --- a/src/Makefile.in
 +++ b/src/Makefile.in
-@@ -912,7 +912,7 @@
+@@ -1024,7 +1024,7 @@
  	' - > $@.tmp && \
  	mv -f $@.tmp fcobjshash.gperf && touch $@ || ( $(RM) $@.tmp && false )
 
--fcobjshash.h: Makefile fcobjshash.gperf
-+fcobjshash.h:
+-$(builddir)/fcobjshash.h: Makefile fcobjshash.gperf
++$(builddir)/fcobjshash.h:
  	$(AM_V_GEN) $(GPERF) --pic -m 100 fcobjshash.gperf > $@.tmp && \
  	mv -f $@.tmp $@ || ( $(RM) $@.tmp && false )
 
