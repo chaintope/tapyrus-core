@@ -649,7 +649,7 @@ class PSTTNetworkTest(BitcoinTestFramework):
     def _sim_missing_utxo(self, entry, owner, addr):
         node = self.nodes[owner]
         pstt = node.createpstt(
-            [{"txid": entry["txid"], "vout": entry["vout"]}],
+            [{"previous_txid": entry["txid"], "output_index": entry["vout"]}],
             {addr: entry['amount']}, 0, True, False)
         # No walletupdatepstt -- the input has no PSTT_IN_UTXO yet.
         signed = node.walletsignpstt(pstt, "ALL", self.options.scheme)
@@ -680,7 +680,7 @@ class PSTTNetworkTest(BitcoinTestFramework):
     def _sim_utxo_txid_mismatch(self, entry_a, entry_b, owner_a, addr_a):
         node = self.nodes[owner_a]
         pstt = node.createpstt(
-            [{"txid": entry_a["txid"], "vout": entry_a["vout"]}],
+            [{"previous_txid": entry_a["txid"], "output_index": entry_a["vout"]}],
             {addr_a: entry_a['amount']}, 0, True, False)
         pstt = node.walletupdatepstt(pstt)['pstt']
         wrong_tx_bytes = bytes.fromhex(node.getrawtransaction(entry_b['txid']))
@@ -695,7 +695,7 @@ class PSTTNetworkTest(BitcoinTestFramework):
     def _sim_sighash_conflict(self, entry, owner, addr):
         node = self.nodes[owner]
         pstt = node.createpstt(
-            [{"txid": entry["txid"], "vout": entry["vout"]}],
+            [{"previous_txid": entry["txid"], "output_index": entry["vout"]}],
             {addr: entry['amount']}, 0, True, False)
         pstt = node.walletupdatepstt(pstt)['pstt']
         addr_owning = node.decodepstt(pstt)['inputs'][0]['utxo']['vout'][entry['vout']]['scriptPubKey']['addresses'][0]

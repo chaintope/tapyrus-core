@@ -1771,8 +1771,8 @@ static std::string EncodeHexTxForTest(const CMutableTransaction& mtx)
 static UniValue MakeCreatepsttInputEntry(const uint256& txid, uint32_t vout)
 {
     UniValue input(UniValue::VOBJ);
-    input.pushKV("txid", txid.GetHex());
-    input.pushKV("vout", (uint64_t)vout);
+    input.pushKV("previous_txid", txid.GetHex());
+    input.pushKV("output_index", (uint64_t)vout);
     return input;
 }
 

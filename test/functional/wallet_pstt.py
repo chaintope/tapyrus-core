@@ -63,7 +63,7 @@ class PSTTFeeProviderTest(BitcoinTestFramework):
         # ALL|ANYONECANPAY is what makes adding more inputs later valid
         # without invalidating this signature.
         pstt = node0.createpstt(
-            [{"txid": issue_txid, "vout": issue_vout}],
+            [{"previous_txid": issue_txid, "output_index": issue_vout}],
             {recipient_addr: 100},
             0, True, False)
         # walletsignpstt is the Signer role only -- it relies on a prior
@@ -148,7 +148,7 @@ class PSTTFeeProviderTest(BitcoinTestFramework):
         # signing happens only after the provider has funded it, since
         # SIGHASH_ALL (not ANYONECANPAY) is used this time.
         pstt = node0.createpstt(
-            [{"txid": issue_txid, "vout": issue_vout}],
+            [{"previous_txid": issue_txid, "output_index": issue_vout}],
             {recipient_addr: 50},
             0, True, True)
 

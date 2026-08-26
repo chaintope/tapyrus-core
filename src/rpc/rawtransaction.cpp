@@ -463,10 +463,9 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
 
 // Mirrors ConstructTransaction's per-input CTxIn construction (default
 // sequence based on RBF opt-in / whether a locktime is set, with an explicit
-// per-input override otherwise) -- uses the same txid/vout JSON field names
-// as ConstructTransaction/createrawtransaction for consistency across all
-// RPCs; PSTT's own internal field vocabulary (PSTT_IN_PREVIOUS_TXID/
-// PSTT_IN_OUTPUT_INDEX) only applies to the wire format, not the RPC surface.
+// per-input override otherwise), but uses previous_txid/output_index as the
+// JSON field names -- matching addinputtopstt/addinputoutputpairtopstt and
+// PSTTInput's own field names, rather than createrawtransaction's txid/vout.
 // Used by createpstt/walletcreatefundedpstt instead of passing their inputs
 // array through ConstructTransaction directly, which would otherwise throw
 // on every PSTT-shaped input object.
@@ -477,15 +476,15 @@ std::vector<CTxIn> ParsePsttInputEntries(const UniValue& inputs_in, uint32_t nLo
     for (unsigned int idx = 0; idx < inputs.size(); idx++) {
         const UniValue& o = inputs[idx].get_obj();
 
-        uint256 txid = ParseHashO(o, "txid");
+        uint256 txid = ParseHashO(o, "previous_txid");
 
-        const UniValue& vout_v = o.find_value("vout");
+        const UniValue& vout_v = o.find_value("output_index");
         if (!vout_v.isNum()) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, missing vout key");
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, missing output_index key");
         }
         int nOutput = vout_v.get_int();
         if (nOutput < 0) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, vout must be positive");
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, output_index must be positive");
         }
 
         uint32_t nSequence;
@@ -1467,11 +1466,10 @@ UniValue createpstt(const JSONRPCRequest& request)
     // nonzero. Without that, a nonzero fallback_locktime would be silently
     // inert once extracted -- IsFinalTx-style consensus rules only honor
     // nLockTime when at least one input carries a non-final sequence.
-    // Inputs are parsed separately via ParsePsttInputEntries (same txid/vout
-    // field names as ConstructTransaction, but returning std::vector<CTxIn>
-    // directly rather than going through a full CMutableTransaction) -- an
-    // empty array is passed here so ConstructTransaction only handles
-    // outputs/locktime.
+    // Inputs are parsed separately via ParsePsttInputEntries (PSTT's own
+    // previous_txid/output_index field names) -- an empty array is passed
+    // here so ConstructTransaction only handles outputs/locktime, not
+    // createrawtransaction's txid/vout input shape.
     CMutableTransaction rawTx = ConstructTransaction(UniValue(UniValue::VARR), request.params[1], request.params[2], NullUniValue);
     rawTx.vin = ParsePsttInputEntries(request.params[0], rawTx.nLockTime, /*rbfOptIn=*/false);
 

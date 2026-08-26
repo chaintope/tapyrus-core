@@ -4255,12 +4255,11 @@ UniValue walletcreatefundedpstt(const JSONRPCRequest& request)
     // locktime param (not NullUniValue) so its existing nSequence = max-1
     // coupling applies when the locktime is nonzero -- otherwise a nonzero
     // fallback_locktime would be consensus-inert once extracted (nLockTime
-    // is only honored when some input carries a non-final sequence). Inputs
-    // are parsed separately via ParsePsttInputEntries (same txid/vout field
-    // names as ConstructTransaction, but returning std::vector<CTxIn>
-    // directly rather than going through a full CMutableTransaction) -- an
-    // empty array is passed here so ConstructTransaction only handles
-    // outputs/locktime.
+    // is only honored when some input carries a non-final sequence).
+    // Inputs are parsed separately via ParsePsttInputEntries (PSTT's own
+    // previous_txid/output_index field names) -- an empty array is passed
+    // here so ConstructTransaction only handles outputs/locktime, not
+    // createrawtransaction's txid/vout input shape.
     CMutableTransaction rawTx = ConstructTransaction(UniValue(UniValue::VARR), request.params[1], request.params[2], request.params[3]["replaceable"]);
     rawTx.vin = ParsePsttInputEntries(request.params[0], rawTx.nLockTime, request.params[3]["replaceable"].isTrue());
     FundTransaction(pwallet, rawTx, fee, change_position, request.params[3]);
