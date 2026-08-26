@@ -2284,11 +2284,17 @@ UniValue decodepstt(const JSONRPCRequest& request)
 
     if (pstt.tx_features) result.pushKV("tx_features", *pstt.tx_features);
     if (pstt.fallback_locktime) result.pushKV("fallback_locktime", (uint64_t)*pstt.fallback_locktime);
-    if (pstt.tx_modifiable) {
+    {
+        // Report the effective bitfield even when the field is absent from
+        // the wire -- absent and present-with-value-0 both mean "not
+        // modifiable" (see doc/tapyrus/pstt.md's PSTT_GLOBAL_TX_MODIFIABLE
+        // row), so decodepstt's diagnostic output shouldn't vary with which
+        // of those two equivalent encodings a given PSTT happens to use.
+        uint8_t modifiable = pstt.tx_modifiable.value_or(0);
         UniValue mod(UniValue::VOBJ);
-        mod.pushKV("inputs_modifiable", bool(*pstt.tx_modifiable & PSTT_TXMOD_INPUTS_MODIFIABLE));
-        mod.pushKV("outputs_modifiable", bool(*pstt.tx_modifiable & PSTT_TXMOD_OUTPUTS_MODIFIABLE));
-        mod.pushKV("has_sighash_single", bool(*pstt.tx_modifiable & PSTT_TXMOD_HAS_SIGHASH_SINGLE));
+        mod.pushKV("inputs_modifiable", bool(modifiable & PSTT_TXMOD_INPUTS_MODIFIABLE));
+        mod.pushKV("outputs_modifiable", bool(modifiable & PSTT_TXMOD_OUTPUTS_MODIFIABLE));
+        mod.pushKV("has_sighash_single", bool(modifiable & PSTT_TXMOD_HAS_SIGHASH_SINGLE));
         result.pushKV("tx_modifiable", mod);
     }
     if (pstt.version) result.pushKV("version", (uint64_t)*pstt.version);
