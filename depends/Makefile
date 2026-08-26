@@ -24,7 +24,7 @@ NO_QT ?=
 NO_WALLET ?=
 NO_UPNP ?=
 NO_USDT ?=
-FALLBACK_DOWNLOAD_PATH ?= https://s3-ap-northeast-1.amazonaws.com/repo.tapyrus.chaintope.com
+FALLBACK_DOWNLOAD_PATH ?= https://s3.ap-northeast-1.amazonaws.com/repo.tapyrus.chaintope.com
 C_STANDARD ?= c11
 CXX_STANDARD ?= c++20
 
