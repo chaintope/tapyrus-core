@@ -4417,7 +4417,7 @@ UniValue walletcreatefundedpstt(const JSONRPCRequest& request)
 
     if (request.fHelp || request.params.size() < 2 || request.params.size() > 7)
         throw std::runtime_error(
-                            "walletcreatefundedpstt [{\"txid\":\"id\",\"vout\":n},...] [{\"address\":amount},{\"data\":\"hex\"},...] ( fallback_locktime ) ( options bip32derivs inputs_modifiable outputs_modifiable )\n"
+                            "walletcreatefundedpstt [{\"previous_txid\":\"id\",\"output_index\":n},...] [{\"address\":amount},{\"data\":\"hex\"},...] ( fallback_locktime ) ( options bip32derivs inputs_modifiable outputs_modifiable )\n"
                             "\nCreates and funds a PSTT. Inputs will be added if the supplied inputs don't\n"
                             "cover the outputs. Implements the Creator, Constructor (funding), and\n"
                             "Updater roles.\n"
@@ -4425,9 +4425,9 @@ UniValue walletcreatefundedpstt(const JSONRPCRequest& request)
                             "1. \"inputs\"                (array, required) A json array of json objects\n"
                             "     [\n"
                             "       {\n"
-                            "         \"txid\":\"id\",      (string, required) The transaction id\n"
-                            "         \"vout\":n,         (numeric, required) The output number\n"
-                            "         \"sequence\":n      (numeric, optional) The sequence number\n"
+                            "         \"previous_txid\":\"id\", (string, required) The transaction id\n"
+                            "         \"output_index\":n,     (numeric, required) The output number\n"
+                            "         \"sequence\":n          (numeric, optional) The sequence number\n"
                             "       } \n"
                             "       ,...\n"
                             "     ]\n"
@@ -4475,7 +4475,7 @@ UniValue walletcreatefundedpstt(const JSONRPCRequest& request)
                             "}\n"
                             "\nExamples:\n"
                             "\nCreate a transaction with no inputs\n"
-                            + HelpExampleCli("walletcreatefundedpstt", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\" \"[{\\\"data\\\":\\\"00010203\\\"}]\"")
+                            + HelpExampleCli("walletcreatefundedpstt", "\"[{\\\"previous_txid\\\":\\\"myid\\\",\\\"output_index\\\":0}]\" \"[{\\\"data\\\":\\\"00010203\\\"}]\"")
                             );
 
     RPCTypeCheck(request.params, {

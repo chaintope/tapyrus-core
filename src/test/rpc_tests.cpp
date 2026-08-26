@@ -9,6 +9,7 @@
 #include <core_io.h>
 #include <key_io.h>
 #include <netbase.h>
+#include <pstt.h>
 
 #include <test/test_tapyrus.h>
 
@@ -88,6 +89,12 @@ BOOST_AUTO_TEST_CASE(rpc_rawparams)
 // exactly this path (space-split string args -> RPCConvertValues -> actor),
 // unlike the Python functional tests, which always send typed JSON directly
 // through the RPC library and so never touch RPCConvertValues at all.
+//
+// Only the BOOST_CHECK_NO_THROW assertions below actually guard the table: a
+// missing vRPCConvertParams entry leaves an argument as a raw string, which
+// still throws when passed to a malformed-input case below (an unregistered
+// numeric/bool/array argument fails RPCTypeCheck either way), so the
+// BOOST_CHECK_THROW assertions pass identically with or without the fix.
 BOOST_AUTO_TEST_CASE(rpc_pstt_params)
 {
     UniValue r;
@@ -97,6 +104,20 @@ BOOST_AUTO_TEST_CASE(rpc_pstt_params)
     BOOST_CHECK_THROW(CallRPC("createpstt not_array []"), std::runtime_error);
     BOOST_CHECK_NO_THROW(r = CallRPC("createpstt [] [] 0 true true false"));
     std::string pstt = r.get_str();
+
+    // An empty inputs array (above) never exercises an input object's field
+    // names, so it can't guard against createpstt's help documenting
+    // "txid"/"vout" while ParsePsttInputEntries actually requires
+    // "previous_txid"/"output_index" (a real divergence this suite once let
+    // through). Populate one input via the CLI string path to cover it.
+    std::string dummy_txid = "a3b807410df0b60fcb9736768df5823938b2f838694939ba45f3c0a1bff150ed";
+    BOOST_CHECK_NO_THROW(r = CallRPC(std::string("createpstt [{\"previous_txid\":\"")+dummy_txid+"\",\"output_index\":0}] [] 0 true true false"));
+    PartiallySignedTapyrusTransaction populated;
+    std::string decodeErr;
+    BOOST_REQUIRE(DecodePSTT(populated, r.get_str(), decodeErr));
+    BOOST_REQUIRE_EQUAL(populated.inputs.size(), 1U);
+    BOOST_CHECK_EQUAL(populated.inputs[0].previous_txid.GetHex(), dummy_txid);
+    BOOST_CHECK_EQUAL(populated.inputs[0].prev_out_index, 0U);
 
     // combinepstt: txs(0)=array.
     BOOST_CHECK_NO_THROW(CallRPC(std::string("combinepstt [\"")+pstt+"\"]"));

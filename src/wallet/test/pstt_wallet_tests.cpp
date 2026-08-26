@@ -74,7 +74,11 @@ static UniValue CallPsttWalletRPC(const std::string& method, const UniValue& par
 // array/object/numeric/boolean argument, tapyrus-cli's string arguments
 // pass through unconverted and RPCTypeCheck throws a generic type error
 // before ever reaching real argument validation. CallPsttWalletRPC above
-// (pre-typed UniValue params) can't catch that class of bug.
+// (pre-typed UniValue params) can't catch that class of bug. Also mirrors
+// CallRPC's UniValue->std::runtime_error translation: without it, an error
+// raised by the RPC body itself (rather than by argument parsing) would
+// escape as a UniValue and fail the calling BOOST_CHECK_THROW(...,
+// std::runtime_error) case as an unrecognized exception instead of cleanly.
 static UniValue CallPsttWalletRPCFromCli(const std::string& args)
 {
     std::vector<std::string> vArgs;
@@ -87,7 +91,12 @@ static UniValue CallPsttWalletRPCFromCli(const std::string& args)
     request.params = RPCConvertValues(strMethod, vArgs);
     request.fHelp = false;
     rpcfn_type fn = tableRPC[strMethod]->actor;
-    return (*fn)(request);
+    try {
+        return (*fn)(request);
+    }
+    catch (const UniValue& objError) {
+        throw std::runtime_error(objError.find_value("message").get_str());
+    }
 }
 
 // Funds `setup`'s wallet with a spendable P2PKH coin (confirmed on chain,

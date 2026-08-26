@@ -1897,16 +1897,16 @@ UniValue createpstt(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() < 2 || request.params.size() > 6)
         throw std::runtime_error(
-            "createpstt [{\"txid\":\"id\",\"vout\":n},...] [{\"address\":amount},{\"data\":\"hex\"},...] ( fallback_locktime ) ( inputs_modifiable ) ( outputs_modifiable ) ( has_sighash_single )\n"
+            "createpstt [{\"previous_txid\":\"id\",\"output_index\":n},...] [{\"address\":amount},{\"data\":\"hex\"},...] ( fallback_locktime ) ( inputs_modifiable ) ( outputs_modifiable ) ( has_sighash_single )\n"
             "\nCreates a bare PSTT from the given inputs and outputs (either may be empty).\n"
             "Implements the Creator role.\n"
             "\nArguments:\n"
             "1. \"inputs\"                (array, required) A json array of json objects\n"
             "     [\n"
             "       {\n"
-            "         \"txid\":\"id\",      (string, required) The transaction id\n"
-            "         \"vout\":n,         (numeric, required) The output number\n"
-            "         \"sequence\":n      (numeric, optional) The sequence number\n"
+            "         \"previous_txid\":\"id\", (string, required) The transaction id\n"
+            "         \"output_index\":n,     (numeric, required) The output number\n"
+            "         \"sequence\":n          (numeric, optional) The sequence number\n"
             "       } \n"
             "       ,...\n"
             "     ]\n"
@@ -1928,7 +1928,7 @@ UniValue createpstt(const JSONRPCRequest& request)
             "\nResult:\n"
             "  \"pstt\"        (string)  The resulting PSTT (base64-encoded string)\n"
             "\nExamples:\n"
-            + HelpExampleCli("createpstt", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\" \"[{\\\"myaddress\\\":0.01}]\"")
+            + HelpExampleCli("createpstt", "\"[{\\\"previous_txid\\\":\\\"myid\\\",\\\"output_index\\\":0}]\" \"[{\\\"myaddress\\\":0.01}]\"")
         );
 
     RPCTypeCheck(request.params, {
