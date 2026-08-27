@@ -219,7 +219,9 @@ jobs:
           sudo apt-get install -y gcc g++ ccache build-essential cmake ninja-build pkgconf python3-zmq bsdmainutils systemtap-sdt-dev bpfcc-tools bpftrace python3-venv valgrind libboost-test-dev python3-pip gperf
           # libxkbcommon >= 1.9.0 requires Meson >= 1.4.0; Ubuntu 24.04's apt
           # package (1.3.2) is too old, so install a current one via pip instead.
-          sudo pip3 install --break-system-packages --no-cache-dir "meson>=1.4.0"
+          # Pinned to an exact version (like every depends package) rather than
+          # a floor, so the build tool itself doesn't float across CI runs.
+          sudo pip3 install --break-system-packages --no-cache-dir "meson==1.4.0"
 
           # Install cross-compilation toolchain for macOS targets
           if [ "${{ matrix.config.target_platform }}" == "macos" ]; then
@@ -443,6 +445,39 @@ jobs:
           echo "Libraries in $DEPENDS_PREFIX/include:"
           ls -la "$DEPENDS_PREFIX/include/" | head -10 || true
           echo "---------------- ----------------- --------------- ---------------- "
+
+      - name: Print built dependency versions
+        # Compares what's actually on disk in depends/built/ (the real, already-cached
+        # build artifacts -- present whether this run built depends fresh or "Restore
+        # Depends cache" restored an existing tree) against what depends/packages/*.mk
+        # currently specifies. The two can silently diverge: "Restore Depends cache"'s
+        # own restore-keys fallback (${{ matrix.config.platform }}-${{ matrix.config.arch }}-,
+        # no content hash) can still restore the most recent older depends/ tree
+        # wholesale on a key miss -- e.g. right after a package version bump -- and the
+        # "if [ ! -d $DEPENDS_PREFIX ]" build-skip check above would then never notice,
+        # since the stale prefix already exists. Printed here, before proceeding to the
+        # tapyrus-core build, so any such mismatch is visible in the log instead of
+        # silently building against stale dependencies.
+        run: |
+          echo "== depends/built/$HOST: actually-built/cached artifact versions =="
+          if [ -d "depends/built/$HOST" ]; then
+            for f in depends/built/"$HOST"/*/*.tar.gz; do
+              [ -e "$f" ] || continue
+              # cached filenames are <package>-<version>-<11-char-hash>.tar.gz
+              # (depends/funcs.mk, HASH_LENGTH) -- strip the hash+extension, not
+              # the version, since both package and version can contain hyphens.
+              basename "$f" | sed -E 's/-[0-9a-f]{11}\.tar\.gz$//'
+            done | sort
+          else
+            echo "(no depends/built/$HOST -- nothing built or restored for this host)"
+          fi
+          echo
+          echo "== depends/packages/*.mk: currently checked-out versions =="
+          for mk in depends/packages/*.mk; do
+            pkg=$(basename "$mk" .mk)
+            ver=$(sed -n 's/^\$(package)_version=\(.*\)$/\1/p' "$mk")
+            [ -n "$ver" ] && echo "$pkg-$ver"
+          done | sort
 
       - name: Save Depends cache
         if: github.ref == 'refs/heads/master'

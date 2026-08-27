@@ -87,6 +87,10 @@ Now, you can either build from self-compiled [depends](/depends/README.md) or in
 
     sudo apt-get install libevent-dev libboost-dev
 
+Building the GUI (Qt) through `depends` on Linux additionally requires `gperf`
+and Meson >= 1.4.0 — newer than the `meson` apt package on Ubuntu 24.04. See
+[depends/README.md](/depends/README.md) for the exact packages.
+
 BerkeleyDB is required for the wallet.
 
 **For Ubuntu only:** db4.8 packages are available [here](https://launchpad.net/~bitcoin/+archive/bitcoin).
