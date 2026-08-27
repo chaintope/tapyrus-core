@@ -4406,7 +4406,144 @@ UniValue walletcreatefundedpsbt(const JSONRPCRequest& request)
     return result;
 }
 
-static ColorIdentifier getColorIdFromRequest(const JSONRPCRequest& request, bool tokenValueIsPresent = true) 
+UniValue walletcreatefundedpstt(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    if (request.fHelp || request.params.size() < 2 || request.params.size() > 7)
+        throw std::runtime_error(
+                            "walletcreatefundedpstt [{\"previous_txid\":\"id\",\"output_index\":n},...] [{\"address\":amount},{\"data\":\"hex\"},...] ( fallback_locktime ) ( options bip32derivs inputs_modifiable outputs_modifiable )\n"
+                            "\nCreates and funds a PSTT. Inputs will be added if the supplied inputs don't\n"
+                            "cover the outputs. Implements the Creator, Constructor (funding), and\n"
+                            "Updater roles.\n"
+                            "\nArguments:\n"
+                            "1. \"inputs\"                (array, required) A json array of json objects\n"
+                            "     [\n"
+                            "       {\n"
+                            "         \"previous_txid\":\"id\", (string, required) The transaction id\n"
+                            "         \"output_index\":n,     (numeric, required) The output number\n"
+                            "         \"sequence\":n          (numeric, optional) The sequence number\n"
+                            "       } \n"
+                            "       ,...\n"
+                            "     ]\n"
+                            "2. \"outputs\"               (array, required) a json array with outputs (key-value pairs)\n"
+                            "   [\n"
+                            "    {\n"
+                            "      \"address\": x.xxx,    (obj, optional) A key-value pair. The key (string) is the tapyrus address, the value (float or string) is the amount in " + CURRENCY_UNIT + "\n"
+                            "    },\n"
+                            "    {\n"
+                            "      \"data\": \"hex\"        (obj, optional) A key-value pair. The key must be \"data\", the value is hex encoded data\n"
+                            "    }\n"
+                            "    ,...                     More key-value pairs of the above form. For compatibility reasons, a dictionary, which holds the key-value pairs directly, is also\n"
+                            "                             accepted as second parameter.\n"
+                            "   ]\n"
+                            "3. fallback_locktime       (numeric, optional, default=0) PSTT_GLOBAL_FALLBACK_LOCKTIME -- the locktime used when no input constrains one\n"
+                            "4. options                 (object, optional)\n"
+                            "   {\n"
+                            "     \"changeAddress\"          (string, optional, default pool address) The tapyrus address to receive the change\n"
+                            "     \"changePosition\"         (numeric, optional, default random) The index of the " + CURRENCY_UNIT + " change output\n"
+                            "     \"includeWatching\"        (boolean, optional, default false) Also select inputs which are watch only\n"
+                            "     \"lockUnspents\"           (boolean, optional, default false) Lock selected unspent outputs\n"
+                            "     \"feeRate\"                (numeric, optional, default not set: makes wallet determine the fee) Set a specific fee rate in " + CURRENCY_UNIT + "/kB\n"
+                            "     \"subtractFeeFromOutputs\" (array, optional) A json array of integers.\n"
+                            "                              The fee will be equally deducted from the amount of each specified output.\n"
+                            "                              The outputs are specified by their zero-based index, before any change output is added.\n"
+                            "                              Those recipients will receive less TPC than you enter in their corresponding amount field.\n"
+                            "                              If no outputs are specified here, the sender pays the fee.\n"
+                            "                                  [vout_index,...]\n"
+                            "     \"replaceable\"            (boolean, optional) Marks this transaction as BIP125 replaceable.\n"
+                            "                              Allows this transaction to be replaced by a transaction with higher fees\n"
+                            "     \"conf_target\"            (numeric, optional) Confirmation target (in blocks)\n"
+                            "     \"estimate_mode\"          (string, optional, default=UNSET) The fee estimate mode, must be one of:\n"
+                            "         \"UNSET\"\n"
+                            "         \"ECONOMICAL\"\n"
+                            "         \"CONSERVATIVE\"\n"
+                            "   }\n"
+                            "5. bip32derivs             (boolean, optional, default=false) If true, includes the BIP 32 derivation paths for public keys if we know them\n"
+                            "6. inputs_modifiable       (boolean, optional, default=false) Whether further inputs may be added via addinputtopstt/addinputoutputpairtopstt\n"
+                            "7. outputs_modifiable      (boolean, optional, default=false) Whether further outputs may be added via addoutputtopstt/addinputoutputpairtopstt\n"
+                            "\nResult:\n"
+                            "{\n"
+                            "  \"pstt\": \"value\",        (string)  The resulting PSTT (base64-encoded string)\n"
+                            "  \"fee\":       n,         (numeric) Fee in " + CURRENCY_UNIT + " the resulting transaction pays\n"
+                            "  \"changepos\": n          (numeric) The position of the added change output, or -1\n"
+                            "}\n"
+                            "\nExamples:\n"
+                            "\nCreate a transaction with no inputs\n"
+                            + HelpExampleCli("walletcreatefundedpstt", "\"[{\\\"previous_txid\\\":\\\"myid\\\",\\\"output_index\\\":0}]\" \"[{\\\"data\\\":\\\"00010203\\\"}]\"")
+                            );
+
+    RPCTypeCheck(request.params, {
+        UniValue::VARR,
+        UniValueType(), // ARR or OBJ, checked later
+        UniValue::VNUM,
+        UniValue::VOBJ,
+        UniValue::VBOOL,
+        UniValue::VBOOL,
+        UniValue::VBOOL,
+        }, true
+    );
+
+    CAmount fee;
+    CWallet::ChangePosInOut change_position;
+    // fallback_locktime is passed through as ConstructTransaction's own
+    // locktime param (not NullUniValue) so its existing nSequence = max-1
+    // coupling applies when the locktime is nonzero -- otherwise a nonzero
+    // fallback_locktime would be consensus-inert once extracted (nLockTime
+    // is only honored when some input carries a non-final sequence). Inputs
+    // are parsed separately via ParsePsttInputEntries (PSTT's own
+    // previous_txid/output_index field names) -- an empty array is passed
+    // here so ConstructTransaction only handles outputs/locktime, not
+    // createrawtransaction's txid/vout input shape.
+    CMutableTransaction rawTx = ConstructTransaction(UniValue(UniValue::VARR), request.params[1], request.params[2], request.params[3]["replaceable"]);
+    rawTx.vin = ParsePsttInputEntries(request.params[0], rawTx.nLockTime, request.params[3]["replaceable"].isTrue());
+    FundTransaction(pwallet, rawTx, fee, change_position, request.params[3]);
+
+    PartiallySignedTapyrusTransaction pstt;
+    pstt.tx_features = CTransaction::CURRENT_FEATURES;
+    for (const CTxIn& txin : rawTx.vin) {
+        PSTTInput input;
+        input.previous_txid = txin.prevout.hashMalFix;
+        input.prev_out_index = txin.prevout.n;
+        input.previous_txid_set = true;
+        input.prev_out_index_set = true;
+        if (txin.nSequence != CTxIn::SEQUENCE_FINAL) input.sequence = txin.nSequence;
+        pstt.inputs.push_back(std::move(input));
+    }
+    for (const CTxOut& txout : rawTx.vout) {
+        PSTTOutput output;
+        output.amount = txout.nValue;
+        output.script = txout.scriptPubKey;
+        pstt.outputs.push_back(std::move(output));
+    }
+
+    if (rawTx.nLockTime != 0) pstt.fallback_locktime = rawTx.nLockTime;
+
+    bool bip32derivs = request.params[4].isNull() ? false : request.params[4].get_bool();
+    bool inputs_modifiable = !request.params[5].isNull() && request.params[5].get_bool();
+    bool outputs_modifiable = !request.params[6].isNull() && request.params[6].get_bool();
+    uint8_t modifiable = 0;
+    if (inputs_modifiable) modifiable |= PSTT_TXMOD_INPUTS_MODIFIABLE;
+    if (outputs_modifiable) modifiable |= PSTT_TXMOD_OUTPUTS_MODIFIABLE;
+    if (modifiable != 0) pstt.tx_modifiable = modifiable;
+
+    // Updater only -- fills in PSTT_IN_UTXO/BIP32 derivation for the inputs
+    // FundTransaction just selected, no signing.
+    FillPSTT(pwallet, pstt, 1, false, bip32derivs);
+
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("pstt", EncodePSTT(pstt));
+    result.pushKV("fee", ValueFromAmount(fee));
+    result.pushKV("changepos", change_position[ColorIdentifier()]);
+    return result;
+}
+
+static ColorIdentifier getColorIdFromRequest(const JSONRPCRequest& request, bool tokenValueIsPresent = true)
 {
     TokenTypes tokentype;
     switch(request.params[0].get_int())
@@ -4925,6 +5062,7 @@ static const CRPCCommand commands[] =
     { "rawtransactions",    "fundrawtransaction",               &fundrawtransaction,            {"hexstring","options"} },
     { "wallet",             "walletprocesspsbt",                &walletprocesspsbt,             {"psbt","sign","sighashtype","bip32derivs"} },
     { "wallet",             "walletcreatefundedpsbt",           &walletcreatefundedpsbt,        {"inputs","outputs","locktime","options","bip32derivs"} },
+    { "wallet",             "walletcreatefundedpstt",           &walletcreatefundedpstt,        {"inputs","outputs","fallback_locktime","options","bip32derivs","inputs_modifiable","outputs_modifiable"} },
     { "wallet",             "walletupdatepstt",                 &walletupdatepstt,              {"pstt","bip32derivs"} },
     { "wallet",             "walletsignpstt",                   &walletsignpstt,                {"pstt","sighashtype","sigscheme"} },
     { "wallet",             "walletprocesspstt",                &walletprocesspstt,             {"pstt","sign","sighashtype","bip32derivs","sigscheme"} },

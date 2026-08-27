@@ -38,6 +38,31 @@ gen_json_header(JSON_HEADERS
         data/tx_invalid.json
         data/tx_valid.json
 )
+
+# TIP-174 test vectors live under test/functional/data (shared with
+# rpc_pstt.py, see test/functional/data/tip174_SOURCE.md for provenance) --
+# pull them in from there rather than duplicating a copy under src/test/data
+# that could silently drift from the fixtures the functional test asserts
+# against.
+set(TIP174_DATA_DIR "${CMAKE_SOURCE_DIR}/test/functional/data")
+set(TIP174_JSON_HEADERS "")
+foreach(f tip174_valid.json tip174_invalid.json)
+    set(h "${CMAKE_CURRENT_BINARY_DIR}/data/${f}.h")
+    get_filename_component(TEST_NAME ${f} NAME_WE)
+    add_custom_command(OUTPUT ${h}
+        COMMAND Python3::Interpreter
+        ARGS
+            "${CMAKE_CURRENT_SOURCE_DIR}/data/generate_header.py"
+            "${TEST_NAME}"
+            "${TIP174_DATA_DIR}/${f}" > ${h}
+        MAIN_DEPENDENCY "${TIP174_DATA_DIR}/${f}"
+        DEPENDS
+            "data/generate_header.py"
+        VERBATIM
+    )
+    list(APPEND TIP174_JSON_HEADERS ${h})
+endforeach()
+
 if(ENABLE_TESTS)
     enable_testing()
 endif()
@@ -124,6 +149,7 @@ add_executable(test_tapyrus
         zmq_tests.cpp
         # Tests generated from JSON
         ${JSON_HEADERS}
+        ${TIP174_JSON_HEADERS}
 )
 
 target_include_directories(test_tapyrus

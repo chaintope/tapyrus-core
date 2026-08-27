@@ -655,6 +655,23 @@ void PartiallySignedTapyrusTransaction::Serialize(Stream& s) const
 {
     s << PSTT_MAGIC_BYTES;
 
+    // Required fields first (PSTT_GLOBAL_TX_FEATURES/_INPUT_COUNT/_OUTPUT_COUNT
+    // are the only globals a well-formed PSTT must always carry -- see the
+    // "required" annotations in the constants above), then everything else.
+    if (tx_features) {
+        SerializeToVector(s, PSTT_GLOBAL_TX_FEATURES);
+        SerializeToVector(s, *tx_features);
+    }
+    SerializeToVector(s, PSTT_GLOBAL_INPUT_COUNT);
+    SerializeCompactSizeValue(s, inputs.size());
+    SerializeToVector(s, PSTT_GLOBAL_OUTPUT_COUNT);
+    SerializeCompactSizeValue(s, outputs.size());
+
+    if (version) {
+        SerializeToVector(s, PSTT_GLOBAL_VERSION);
+        SerializeToVector(s, *version);
+    }
+
     for (const auto& entry : xpubs) {
         std::vector<unsigned char> keydata = SerializeXpubKeyData(entry.first);
         SerializeToVector(s, PSTT_GLOBAL_XPUB, MakeSpan(keydata));
@@ -662,25 +679,13 @@ void PartiallySignedTapyrusTransaction::Serialize(Stream& s) const
         for (uint32_t v : entry.second) s << v;
     }
 
-    if (tx_features) {
-        SerializeToVector(s, PSTT_GLOBAL_TX_FEATURES);
-        SerializeToVector(s, *tx_features);
-    }
     if (fallback_locktime) {
         SerializeToVector(s, PSTT_GLOBAL_FALLBACK_LOCKTIME);
         SerializeToVector(s, *fallback_locktime);
     }
-    SerializeToVector(s, PSTT_GLOBAL_INPUT_COUNT);
-    SerializeCompactSizeValue(s, inputs.size());
-    SerializeToVector(s, PSTT_GLOBAL_OUTPUT_COUNT);
-    SerializeCompactSizeValue(s, outputs.size());
     if (tx_modifiable) {
         SerializeToVector(s, PSTT_GLOBAL_TX_MODIFIABLE);
         SerializeToVector(s, *tx_modifiable);
-    }
-    if (version) {
-        SerializeToVector(s, PSTT_GLOBAL_VERSION);
-        SerializeToVector(s, *version);
     }
 
     for (const auto& entry : unknown) {
@@ -717,6 +722,39 @@ void PartiallySignedTapyrusTransaction::Unserialize(Stream& s)
         switch (type) {
             case 0x00:
                 throw std::ios_base::failure("Global type value 0x00 is reserved and must not be used");
+            // Required fields first (mirrors Serialize()'s field order) --
+            // PSTT_GLOBAL_TX_FEATURES/_INPUT_COUNT/_OUTPUT_COUNT are the only
+            // globals a well-formed PSTT must always carry.
+            case PSTT_GLOBAL_TX_FEATURES:
+                if (tx_features) throw std::ios_base::failure("Duplicate Key, PSTT_GLOBAL_TX_FEATURES already provided");
+                if (key.size() != 1) throw std::ios_base::failure("PSTT_GLOBAL_TX_FEATURES key is more than one byte type");
+                {
+                    int32_t v;
+                    UnserializeFromVector(s, v);
+                    tx_features = v; // any value accepted, see doc/tapyrus/pstt.md
+                }
+                break;
+            case PSTT_GLOBAL_INPUT_COUNT:
+                if (input_count) throw std::ios_base::failure("Duplicate Key, PSTT_GLOBAL_INPUT_COUNT already provided");
+                if (key.size() != 1) throw std::ios_base::failure("PSTT_GLOBAL_INPUT_COUNT key is more than one byte type");
+                input_count = UnserializeCompactSizeValue(s);
+                break;
+            case PSTT_GLOBAL_OUTPUT_COUNT:
+                if (output_count) throw std::ios_base::failure("Duplicate Key, PSTT_GLOBAL_OUTPUT_COUNT already provided");
+                if (key.size() != 1) throw std::ios_base::failure("PSTT_GLOBAL_OUTPUT_COUNT key is more than one byte type");
+                output_count = UnserializeCompactSizeValue(s);
+                break;
+            // Everything else.
+            case PSTT_GLOBAL_VERSION:
+                if (version) throw std::ios_base::failure("Duplicate Key, PSTT_GLOBAL_VERSION already provided");
+                if (key.size() != 1) throw std::ios_base::failure("PSTT_GLOBAL_VERSION key is more than one byte type");
+                {
+                    uint32_t v;
+                    UnserializeFromVector(s, v);
+                    if (v > 0) throw std::ios_base::failure("PSTT_GLOBAL_VERSION greater than 0 is not supported");
+                    version = v;
+                }
+                break;
             case PSTT_GLOBAL_XPUB:
             {
                 if (key.size() != 1 + PSTT_XPUB_KEYDATA_SIZE) {
@@ -741,15 +779,6 @@ void PartiallySignedTapyrusTransaction::Unserialize(Stream& s)
                 xpubs.emplace_back(xpub, std::move(path));
                 break;
             }
-            case PSTT_GLOBAL_TX_FEATURES:
-                if (tx_features) throw std::ios_base::failure("Duplicate Key, PSTT_GLOBAL_TX_FEATURES already provided");
-                if (key.size() != 1) throw std::ios_base::failure("PSTT_GLOBAL_TX_FEATURES key is more than one byte type");
-                {
-                    int32_t v;
-                    UnserializeFromVector(s, v);
-                    tx_features = v; // any value accepted, see doc/tapyrus/pstt.md
-                }
-                break;
             case PSTT_GLOBAL_FALLBACK_LOCKTIME:
                 if (fallback_locktime) throw std::ios_base::failure("Duplicate Key, PSTT_GLOBAL_FALLBACK_LOCKTIME already provided");
                 if (key.size() != 1) throw std::ios_base::failure("PSTT_GLOBAL_FALLBACK_LOCKTIME key is more than one byte type");
@@ -759,16 +788,6 @@ void PartiallySignedTapyrusTransaction::Unserialize(Stream& s)
                     fallback_locktime = v;
                 }
                 break;
-            case PSTT_GLOBAL_INPUT_COUNT:
-                if (input_count) throw std::ios_base::failure("Duplicate Key, PSTT_GLOBAL_INPUT_COUNT already provided");
-                if (key.size() != 1) throw std::ios_base::failure("PSTT_GLOBAL_INPUT_COUNT key is more than one byte type");
-                input_count = UnserializeCompactSizeValue(s);
-                break;
-            case PSTT_GLOBAL_OUTPUT_COUNT:
-                if (output_count) throw std::ios_base::failure("Duplicate Key, PSTT_GLOBAL_OUTPUT_COUNT already provided");
-                if (key.size() != 1) throw std::ios_base::failure("PSTT_GLOBAL_OUTPUT_COUNT key is more than one byte type");
-                output_count = UnserializeCompactSizeValue(s);
-                break;
             case PSTT_GLOBAL_TX_MODIFIABLE:
                 if (tx_modifiable) throw std::ios_base::failure("Duplicate Key, PSTT_GLOBAL_TX_MODIFIABLE already provided");
                 if (key.size() != 1) throw std::ios_base::failure("PSTT_GLOBAL_TX_MODIFIABLE key is more than one byte type");
@@ -776,16 +795,6 @@ void PartiallySignedTapyrusTransaction::Unserialize(Stream& s)
                     uint8_t v;
                     UnserializeFromVector(s, v);
                     tx_modifiable = v;
-                }
-                break;
-            case PSTT_GLOBAL_VERSION:
-                if (version) throw std::ios_base::failure("Duplicate Key, PSTT_GLOBAL_VERSION already provided");
-                if (key.size() != 1) throw std::ios_base::failure("PSTT_GLOBAL_VERSION key is more than one byte type");
-                {
-                    uint32_t v;
-                    UnserializeFromVector(s, v);
-                    if (v > 0) throw std::ios_base::failure("PSTT_GLOBAL_VERSION greater than 0 is not supported");
-                    version = v;
                 }
                 break;
             case PSTT_GLOBAL_PROPRIETARY:
