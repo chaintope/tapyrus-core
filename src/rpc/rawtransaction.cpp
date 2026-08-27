@@ -463,9 +463,10 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
 
 // Mirrors ConstructTransaction's per-input CTxIn construction (default
 // sequence based on RBF opt-in / whether a locktime is set, with an explicit
-// per-input override otherwise), but uses previous_txid/output_index as the
-// JSON field names -- matching addinputtopstt/addinputoutputpairtopstt and
-// PSTTInput's own field names, rather than createrawtransaction's txid/vout.
+// per-input override otherwise), using the same txid/vout JSON field names
+// as createrawtransaction/ConstructTransaction -- every PSTT RPC argument
+// uses this vocabulary uniformly (see doc/tapyrus/pstt.md); only the wire
+// format's own PSTT_IN_PREVIOUS_TXID/PSTT_IN_OUTPUT_INDEX fields differ.
 // Used by createpstt/walletcreatefundedpstt instead of passing their inputs
 // array through ConstructTransaction directly, which would otherwise throw
 // on every PSTT-shaped input object.
@@ -476,15 +477,15 @@ std::vector<CTxIn> ParsePsttInputEntries(const UniValue& inputs_in, uint32_t nLo
     for (unsigned int idx = 0; idx < inputs.size(); idx++) {
         const UniValue& o = inputs[idx].get_obj();
 
-        uint256 txid = ParseHashO(o, "previous_txid");
+        uint256 txid = ParseHashO(o, "txid");
 
-        const UniValue& vout_v = o.find_value("output_index");
+        const UniValue& vout_v = o.find_value("vout");
         if (!vout_v.isNum()) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, missing output_index key");
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, missing vout key");
         }
         int nOutput = vout_v.get_int();
         if (nOutput < 0) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, output_index must be positive");
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, vout must be positive");
         }
 
         uint32_t nSequence;
@@ -1415,15 +1416,15 @@ UniValue createpstt(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() < 2 || request.params.size() > 6)
         throw std::runtime_error(
-            "createpstt [{\"previous_txid\":\"id\",\"output_index\":n},...] [{\"address\":amount},{\"data\":\"hex\"},...] ( fallback_locktime ) ( inputs_modifiable ) ( outputs_modifiable ) ( has_sighash_single )\n"
+            "createpstt [{\"txid\":\"id\",\"vout\":n},...] [{\"address\":amount},{\"data\":\"hex\"},...] ( fallback_locktime ) ( inputs_modifiable ) ( outputs_modifiable ) ( has_sighash_single )\n"
             "\nCreates a bare PSTT from the given inputs and outputs (either may be empty).\n"
             "Implements the Creator role.\n"
             "\nArguments:\n"
             "1. \"inputs\"                (array, required) A json array of json objects\n"
             "     [\n"
             "       {\n"
-            "         \"previous_txid\":\"id\", (string, required) The malfix (malleability-fixed) transaction id of the transaction whose output is being spent\n"
-            "         \"output_index\":n,     (numeric, required) The index of that output within the transaction referenced by previous_txid\n"
+            "         \"txid\":\"id\",         (string, required) The malfix (malleability-fixed) transaction id of the transaction whose output is being spent\n"
+            "         \"vout\":n,             (numeric, required) The index of that output within the transaction referenced by txid\n"
             "         \"sequence\":n          (numeric, optional, default=0xffffffff) The sequence number. The default disables any locktime constraint from this input; a lower value makes the PSTT's locktime binding, may also encode a BIP68 relative locktime, and can opt this transaction in to BIP125 replace-by-fee\n"
             "       } \n"
             "       ,...\n"
@@ -1446,7 +1447,7 @@ UniValue createpstt(const JSONRPCRequest& request)
             "\nResult:\n"
             "  \"pstt\"        (string)  The resulting PSTT (base64-encoded string)\n"
             "\nExamples:\n"
-            + HelpExampleCli("createpstt", "\"[{\\\"previous_txid\\\":\\\"myid\\\",\\\"output_index\\\":0}]\" \"[{\\\"myaddress\\\":0.01}]\"")
+            + HelpExampleCli("createpstt", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\" \"[{\\\"myaddress\\\":0.01}]\"")
         );
 
     RPCTypeCheck(request.params, {
@@ -1466,10 +1467,11 @@ UniValue createpstt(const JSONRPCRequest& request)
     // nonzero. Without that, a nonzero fallback_locktime would be silently
     // inert once extracted -- IsFinalTx-style consensus rules only honor
     // nLockTime when at least one input carries a non-final sequence.
-    // Inputs are parsed separately via ParsePsttInputEntries (PSTT's own
-    // previous_txid/output_index field names) -- an empty array is passed
-    // here so ConstructTransaction only handles outputs/locktime, not
-    // createrawtransaction's txid/vout input shape.
+    // Inputs are parsed separately via ParsePsttInputEntries, not passed
+    // through ConstructTransaction directly -- an empty array is passed here
+    // so ConstructTransaction only handles outputs/locktime. Both use
+    // createrawtransaction's txid/vout field names; ParsePsttInputEntries
+    // just also accepts an optional "sequence" per entry.
     CMutableTransaction rawTx = ConstructTransaction(UniValue(UniValue::VARR), request.params[1], request.params[2], NullUniValue);
     rawTx.vin = ParsePsttInputEntries(request.params[0], rawTx.nLockTime, /*rbfOptIn=*/false);
 

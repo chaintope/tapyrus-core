@@ -89,6 +89,14 @@ Reserved and must be rejected, not silently treated as unknown: `0x01`
 `0x09` (proof-of-reserves commitment), and the Taproot-related type values
 from BIP-371 (`0x13`-`0x18`) — none have a Tapyrus counterpart.
 
+`PSTT_IN_PREVIOUS_TXID`/`PSTT_IN_OUTPUT_INDEX` are this wire format's own
+field names (mirrored by `PSTTInput`'s `previous_txid`/`prev_out_index`
+members in C++), distinct from the RPC surface: every PSTT RPC that takes
+this pair as a user-facing argument (`createpstt`, `walletcreatefundedpstt`,
+`addinputtopstt`, `addinputoutputpairtopstt`) uses `txid`/`vout` uniformly,
+matching `createrawtransaction`'s existing convention. There is no RPC that
+exposes `previous_txid`/`output_index` as an argument or help-text name.
+
 ### Output types
 
 | Name | Value | Keydata | Value | Notes |
@@ -226,12 +234,15 @@ fee provider then supplies its input:
   role above on Has-`SIGHASH_SINGLE`), since a standalone input add is
   exactly what that state forbids.
 * **Interactive** — the fee provider runs its own coin selection
-  (`walletfundpsttfee` with no `fee_input`) and adds a TPC input, plus a
-  TPC change output unless the change would be dust, in which case it is
-  folded into the fee instead. The same Has-`SIGHASH_SINGLE` restriction
-  applies: if coin selection lands on the dust-fold case (an input added
-  with no paired output), it is refused the same way the non-interactive
-  case is.
+  (`walletfundpsttfee` with no `fee_input`), which may add more than one TPC
+  input, plus at most one TPC change output — none at all if the selected
+  inputs match the target exactly or if the change would be dust, in which
+  case it is folded into the fee instead. The same Has-`SIGHASH_SINGLE`
+  restriction applies, generalized to however many inputs/outputs were
+  actually added: since `addinputoutputpairtopstt` only ever adds one input
+  and one output together, any input/output count mismatch from coin
+  selection (not just "some inputs, zero outputs") is refused the same way
+  the non-interactive case is.
 
 Either way, the fee provider signs its own new input with `SIGHASH_ALL`,
 and either party finalizes and extracts once both signatures are present.

@@ -106,12 +106,12 @@ BOOST_AUTO_TEST_CASE(rpc_pstt_params)
     std::string pstt = r.get_str();
 
     // An empty inputs array (above) never exercises an input object's field
-    // names, so it can't guard against createpstt's help documenting
-    // "txid"/"vout" while ParsePsttInputEntries actually requires
+    // names, so it can't guard against createpstt's help and
+    // ParsePsttInputEntries disagreeing on "txid"/"vout" vs.
     // "previous_txid"/"output_index" (a real divergence this suite once let
     // through). Populate one input via the CLI string path to cover it.
     std::string dummy_txid = "a3b807410df0b60fcb9736768df5823938b2f838694939ba45f3c0a1bff150ed";
-    BOOST_CHECK_NO_THROW(r = CallRPC(std::string("createpstt [{\"previous_txid\":\"")+dummy_txid+"\",\"output_index\":0}] [] 0 true true false"));
+    BOOST_CHECK_NO_THROW(r = CallRPC(std::string("createpstt [{\"txid\":\"")+dummy_txid+"\",\"vout\":0}] [] 0 true true false"));
     PartiallySignedTapyrusTransaction populated;
     std::string decodeErr;
     BOOST_REQUIRE(DecodePSTT(populated, r.get_str(), decodeErr));
@@ -130,10 +130,10 @@ BOOST_AUTO_TEST_CASE(rpc_pstt_params)
     // addoutputtopstt: output(1)=object.
     BOOST_CHECK_THROW(CallRPC(std::string("addoutputtopstt ")+pstt+" not_object"), std::runtime_error);
 
-    // addinputtopstt: output_index(2)=num, sequence(3)=num.
+    // addinputtopstt: vout(2)=num, sequence(3)=num.
     BOOST_CHECK_THROW(CallRPC(std::string("addinputtopstt ")+pstt+" deadbeef not_num"), std::runtime_error);
 
-    // addinputoutputpairtopstt: output_index(2)=num, output(3)=object, sequence(4)=num.
+    // addinputoutputpairtopstt: vout(2)=num, output(3)=object, sequence(4)=num.
     BOOST_CHECK_THROW(CallRPC(std::string("addinputoutputpairtopstt ")+pstt+" deadbeef not_num {} 4294967295"), std::runtime_error);
 
     // finalizepstt: extract(1)=bool.

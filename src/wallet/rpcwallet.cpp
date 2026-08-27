@@ -4178,15 +4178,15 @@ UniValue walletcreatefundedpstt(const JSONRPCRequest& request)
 
     if (request.fHelp || request.params.size() < 2 || request.params.size() > 7)
         throw std::runtime_error(
-                            "walletcreatefundedpstt [{\"previous_txid\":\"id\",\"output_index\":n},...] [{\"address\":amount},{\"data\":\"hex\"},...] ( fallback_locktime ) ( options bip32derivs inputs_modifiable outputs_modifiable )\n"
+                            "walletcreatefundedpstt [{\"txid\":\"id\",\"vout\":n},...] [{\"address\":amount},{\"data\":\"hex\"},...] ( fallback_locktime ) ( options bip32derivs inputs_modifiable outputs_modifiable )\n"
                             "\nCreates and funds a PSTT, adding inputs if needed to cover the outputs.\n"
                             "Implements the Creator, Constructor (funding), and Updater roles.\n"
                             "\nArguments:\n"
                             "1. \"inputs\"                (array, required) A json array of json objects\n"
                             "     [\n"
                             "       {\n"
-                            "         \"previous_txid\":\"id\", (string, required) The malfix (malleability-fixed) transaction id of the transaction whose output is being spent\n"
-                            "         \"output_index\":n,     (numeric, required) The index of that output within the transaction referenced by previous_txid\n"
+                            "         \"txid\":\"id\",         (string, required) The malfix (malleability-fixed) transaction id of the transaction whose output is being spent\n"
+                            "         \"vout\":n,             (numeric, required) The index of that output within the transaction referenced by txid\n"
                             "         \"sequence\":n          (numeric, optional, default=0xffffffff) The sequence number. The default disables any locktime constraint from this input; a lower value makes the PSTT's locktime binding, may also encode a BIP68 relative locktime, and can opt this transaction in to BIP125 replace-by-fee\n"
                             "       } \n"
                             "       ,...\n"
@@ -4235,7 +4235,7 @@ UniValue walletcreatefundedpstt(const JSONRPCRequest& request)
                             "}\n"
                             "\nExamples:\n"
                             "\nCreate a transaction with no inputs\n"
-                            + HelpExampleCli("walletcreatefundedpstt", "\"[{\\\"previous_txid\\\":\\\"myid\\\",\\\"output_index\\\":0}]\" \"[{\\\"data\\\":\\\"00010203\\\"}]\"")
+                            + HelpExampleCli("walletcreatefundedpstt", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\" \"[{\\\"data\\\":\\\"00010203\\\"}]\"")
                             );
 
     RPCTypeCheck(request.params, {
@@ -4256,10 +4256,11 @@ UniValue walletcreatefundedpstt(const JSONRPCRequest& request)
     // coupling applies when the locktime is nonzero -- otherwise a nonzero
     // fallback_locktime would be consensus-inert once extracted (nLockTime
     // is only honored when some input carries a non-final sequence).
-    // Inputs are parsed separately via ParsePsttInputEntries (PSTT's own
-    // previous_txid/output_index field names) -- an empty array is passed
-    // here so ConstructTransaction only handles outputs/locktime, not
-    // createrawtransaction's txid/vout input shape.
+    // Inputs are parsed separately via ParsePsttInputEntries, not passed
+    // through ConstructTransaction directly -- an empty array is passed here
+    // so ConstructTransaction only handles outputs/locktime. Both use
+    // createrawtransaction's txid/vout field names; ParsePsttInputEntries
+    // just also accepts an optional "sequence" per entry.
     CMutableTransaction rawTx = ConstructTransaction(UniValue(UniValue::VARR), request.params[1], request.params[2], request.params[3]["replaceable"]);
     rawTx.vin = ParsePsttInputEntries(request.params[0], rawTx.nLockTime, request.params[3]["replaceable"].isTrue());
     FundTransaction(pwallet, rawTx, fee, change_position, request.params[3]);
@@ -4454,16 +4455,21 @@ UniValue walletfundpsttfee(const JSONRPCRequest& request)
         CWallet::ChangePosInOut change_position;
         FundTransaction(pwallet, rawTx, fee, change_position, options);
 
-        // Coin selection doesn't always add a change output -- an exact-amount
-        // match needs none, and CWallet::CreateTransaction folds dust change
-        // into the fee instead of creating it (see IsDust handling there).
-        // When that happens alongside a SIGHASH_SINGLE-marked PSTT, this would
-        // otherwise be exactly the standalone input add that addinputtopstt
-        // itself already refuses in that state -- same rule applies here.
-        if (rawTx.vin.size() > original_input_count && rawTx.vout.size() == original_output_count &&
+        // Coin selection can select more than one input (CWallet::CreateTransaction
+        // pushes one CTxIn per selected coin) while adding at most one change
+        // output, and doesn't always add a change output at all -- an exact-amount
+        // match needs none, and CWallet::CreateTransaction folds dust change into
+        // the fee instead of creating it (see IsDust handling there). Any mismatch
+        // between the number of inputs and outputs just added -- not only the
+        // all-inputs-no-output case -- breaks addinputoutputpairtopstt's strict
+        // 1:1 invariant, which is exactly the standalone input add that
+        // addinputtopstt itself already refuses on a SIGHASH_SINGLE-marked PSTT.
+        size_t inputs_added = rawTx.vin.size() - original_input_count;
+        size_t outputs_added = rawTx.vout.size() - original_output_count;
+        if (inputs_added != outputs_added &&
             pstt.tx_modifiable && (*pstt.tx_modifiable & PSTT_TXMOD_HAS_SIGHASH_SINGLE)) {
             throw JSONRPCError(RPC_INVALID_PARAMETER,
-                "PSTT has a SIGHASH_SINGLE signature; coin selection added a fee input without a paired change output, which is not allowed -- provide a fee_input directly via noninteractive mode instead");
+                "PSTT has a SIGHASH_SINGLE signature; coin selection added a different number of inputs and outputs, which is not allowed -- provide a fee_input directly via noninteractive mode instead");
         }
 
         for (size_t i = original_input_count; i < rawTx.vin.size(); ++i) {
@@ -4484,9 +4490,9 @@ UniValue walletfundpsttfee(const JSONRPCRequest& request)
             pstt.outputs.push_back(std::move(output));
         }
 
-        // Both an input and an output were just added together -- declare
-        // construction finished the same way finalizepsttconstruction would,
-        // so the caller doesn't need a separate round trip for it.
+        // Whatever inputs and outputs coin selection just added are done --
+        // declare construction finished the same way finalizepsttconstruction
+        // would, so the caller doesn't need a separate round trip for it.
         uint8_t modifiable = pstt.tx_modifiable.value_or(0);
         modifiable &= ~(PSTT_TXMOD_INPUTS_MODIFIABLE | PSTT_TXMOD_OUTPUTS_MODIFIABLE);
         // Omit the field entirely rather than writing an explicit zero --
