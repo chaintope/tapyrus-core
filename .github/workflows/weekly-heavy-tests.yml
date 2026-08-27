@@ -29,6 +29,15 @@ on:
         type: string
         default: ''
         required: false
+  # Also run on any change to this workflow file itself, so edits to the
+  # heavy/minimum-dependency-versions jobs are validated without waiting
+  # for Sunday or triggering the full suite on unrelated pushes/PRs.
+  push:
+    paths:
+      - '.github/workflows/weekly-heavy-tests.yml'
+  pull_request:
+    paths:
+      - '.github/workflows/weekly-heavy-tests.yml'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
