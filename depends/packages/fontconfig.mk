@@ -5,16 +5,11 @@ $(package)_download_path=https://www.freedesktop.org/software/fontconfig/release
 $(package)_file_name=$(package)-$($(package)_version).tar.xz
 $(package)_sha256_hash=6a33dc555cc9ba8b10caf7695878ef134eeb36d0af366041f639b1da9b6ed220
 $(package)_dependencies=freetype expat
-$(package)_patches=gperf_header_regen.patch
 
 define $(package)_set_vars
   $(package)_config_opts=--disable-docs --disable-static --disable-libxml2 --disable-iconv
   $(package)_config_opts += --disable-dependency-tracking --enable-option-checking
   $(package)_cflags += -Wno-implicit-function-declaration
-endef
-
-define $(package)_preprocess_cmds
-  patch -p1 < $($(package)_patch_dir)/gperf_header_regen.patch
 endef
 
 define $(package)_config_cmds
