@@ -383,6 +383,266 @@ jobs:
           path: ${{ github.workspace }}/core_dumps/
           retention-days: 7
 
+  minimum-dependency-versions:
+    name: ${{ matrix.config.name }} - minimum dependency versions
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          # All three native -- no cross-compilation entries here on purpose,
+          # unlike the daily matrix's L-ARM-*/target_platform jobs. HOST is the
+          # real depends triple for each: aarch64-linux-gnu on genuine ARM64
+          # hardware (ubuntu-24.04-arm, a native GH-hosted runner, not the
+          # x86_64 ubuntu-latest + arch:arm64 label the daily matrix's L-ARM-*
+          # entries use -- worth checking separately whether those are actually
+          # native, since `uname -m` on a plain ubuntu-latest runner is x86_64
+          # regardless of that label).
+          - name: Linux x86_64
+            os: ubuntu-latest
+            platform: linux
+            host: x86_64-pc-linux-gnu
+          - name: Linux arm64
+            os: ubuntu-24.04-arm
+            platform: linux
+            host: aarch64-linux-gnu
+          - name: macOS arm64
+            os: macos-latest
+            platform: macos
+            host: arm64-apple-darwin
+    runs-on: ${{ matrix.config.os }}
+    # Verifies doc/dependencies.md's "Minimum required" column is actually still
+    # buildable, not just a number written down once and never re-checked -- a
+    # full from-scratch depends build every run (no Restore/Save Depends cache
+    # steps anywhere in this job), so this can't be short-circuited by a stale
+    # cache the way the daily job's "Restore Depends cache" restore-keys fallback
+    # (no content hash) can restore an older tree wholesale on a key miss.
+    env:
+      BASE_ROOT_DIR: ${{ github.workspace }}
+      BASE_BUILD_DIR: ${{ github.workspace }}/build
+      DEPENDS_DIR: ${{ github.workspace }}/depends
+      HOST: ${{ matrix.config.host }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.inputs.test_branch || github.ref || 'master' }}
+          submodules: recursive
+
+      - name: Setup Linux dependencies
+        if: matrix.config.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc g++ ccache build-essential cmake ninja-build pkgconf \
+            python3-zmq bsdmainutils systemtap-sdt-dev bpfcc-tools bpftrace python3-venv \
+            libboost-test-dev python3-pip gperf
+          # libxkbcommon >= 1.9.0 requires Meson >= 1.4.0; Ubuntu's apt package
+          # is too old on both x86_64 and arm64 runners, so install a current
+          # one via pip instead.
+          sudo pip3 install --break-system-packages --no-cache-dir "meson>=1.4.0"
+          python3 -m venv $HOME/venv
+          source $HOME/venv/bin/activate
+          pip3 install pyzmq
+
+      - name: Setup macOS dependencies
+        if: matrix.config.platform == 'macos'
+        env:
+          HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
+        run: |
+          brew install --quiet coreutils ninja pkgconf gnu-getopt ccache boost gperf
+          brew install --quiet meson || brew upgrade meson
+          python3 -m venv $HOME/venv
+          source $HOME/venv/bin/activate
+          pip3 install pyzmq matplotlib
+
+      - name: Patch depends/packages/*.mk to the documented minimum versions
+        # Only Boost and Libevent get swapped -- these are the only two packages
+        # where doc/dependencies.md's "Minimum required" is both (a) genuinely
+        # different from the currently-pinned "Version" and (b) a straightforward
+        # version+hash swap:
+        #   - Berkeley DB: find_package(BerkeleyDB 4.8 MODULE REQUIRED)
+        #     (CMakeLists.txt:124) is already satisfied by the 4.8.30 pinned in
+        #     bdb.mk (4.8.30 >= 4.8) -- no older, meaningfully-different 4.8.x
+        #     release to fetch instead, so bdb.mk is left as-is.
+        #   - Qt: find_package(Qt 6.0 ...) (CMakeLists.txt:180) is 5+ minor
+        #     versions behind the 6.10.1 pinned in qt.mk. Swapping in Qt 6.0.0
+        #     isn't a one-line version+hash change the way Boost/Libevent are --
+        #     Qt's own depends recipe (qt.mk, qt_details.mk, its bundled patches)
+        #     was written against the currently-pinned Qt series and isn't
+        #     verified compatible with a 6.0.0 source tree, so it's left pinned
+        #     at the current version here rather than risk a confusing,
+        #     Qt-specific breakage in this job. Actually testing the Qt 6.0
+        #     floor needs its own dedicated follow-up.
+        #
+        # depends/packages/*.mk hardcodes each package's sha256_hash tied to the
+        # currently-pinned version's own tarball -- overriding just the version
+        # would fail depends' own integrity check against the wrong hash. This
+        # step downloads each minimum-version tarball itself and computes its
+        # own hash before patching both fields in, so depends' later re-fetch
+        # (or direct use of what's already on disk) is checked against a hash
+        # this job actually verified, not one fabricated or assumed correct.
+        # That's trust-on-first-use scoped to this one run, not a pre-vetted,
+        # human-reviewed hash the way the committed ones in the *.mk files
+        # normally are -- there's no upstream-published checksum list this job
+        # cross-checks against.
+        #
+        # Portable across GNU (Linux) and BSD (macOS) userland deliberately:
+        # shasum -a 256 falls back for sha256sum (not present on macOS by
+        # default), and sed -i.bak + rm (not bare sed -i, which needs a
+        # backup-suffix argument on BSD sed but not GNU sed -- ".bak" works
+        # identically on both).
+        run: |
+          set -euo pipefail
+
+          sha256() {
+            if command -v sha256sum >/dev/null 2>&1; then
+              sha256sum "$1" | cut -d' ' -f1
+            else
+              shasum -a 256 "$1" | cut -d' ' -f1
+            fi
+          }
+
+          patch_min_version() {
+            local mk_file="$1" min_version="$2" url="$3" file_name="$4"
+            local dest="/tmp/$file_name"
+            echo "Fetching $file_name ($min_version) to compute its hash..."
+            curl -fsSL -o "$dest" "$url"
+            local hash
+            hash=$(sha256 "$dest")
+            echo "$file_name sha256: $hash"
+            sed -i.bak \
+              -e "s/^\$(package)_version=.*/\$(package)_version=$min_version/" \
+              -e "s/^\$(package)_sha256_hash=.*/\$(package)_sha256_hash=$hash/" \
+              "$mk_file"
+            rm -f "$mk_file.bak"
+            echo "---- $mk_file after patching ----"
+            cat "$mk_file"
+          }
+
+          # Boost 1.73.0 -- cmake/module/AddBoostIfNeeded.cmake:85's
+          # find_package(Boost 1.73.0 REQUIRED) floor, vs. 1.81.0 currently
+          # pinned in depends/packages/boost.mk.
+          patch_min_version depends/packages/boost.mk 1.73.0 \
+            "https://archives.boost.io/release/1.73.0/source/boost_1_73_0.tar.gz" \
+            boost_1_73_0.tar.gz
+
+          # Libevent 2.1.8 -- CMakeLists.txt:366's find_package(Libevent 2.1.8
+          # MODULE REQUIRED) floor, vs. 2.1.12-stable currently pinned in
+          # depends/packages/libevent.mk. Libevent's own release tags append
+          # "-stable" the same way the current pin does; if this specific old
+          # tag doesn't follow that convention, this fails loudly at the
+          # `curl -f` above rather than silently building something else.
+          patch_min_version depends/packages/libevent.mk 2.1.8-stable \
+            "https://github.com/libevent/libevent/releases/download/release-2.1.8-stable/libevent-2.1.8-stable.tar.gz" \
+            libevent-2.1.8-stable.tar.gz
+
+      - name: Build Depends (from scratch, no cache)
+        run: |
+          echo "Building depends for $HOST (from scratch, no cache restore)"
+          if [ "${{ matrix.config.platform }}" == "macos" ]; then
+            CPU_COUNT=$(sysctl -n hw.ncpu)
+          else
+            CPU_COUNT=$(nproc)
+          fi
+          make -C depends HOST=$HOST -j$CPU_COUNT install_cmake
+          echo "DEPENDS_PREFIX=$DEPENDS_DIR/$HOST" >> $GITHUB_ENV
+
+      - name: Print built dependency versions
+        # Confirms the patch above actually took effect in the real build
+        # output, not just in the checked-out .mk files -- same check as the
+        # daily workflow's own "Print built dependency versions" step.
+        run: |
+          echo "== depends/built/$HOST: actually-built artifact versions =="
+          for f in depends/built/"$HOST"/*/*.tar.gz; do
+            [ -e "$f" ] || continue
+            basename "$f" | sed -E 's/-[0-9a-f]{11}\.tar\.gz$//'
+          done | sort
+
+      - name: Enable core dumps and set test dir
+        run: |
+          CORE_DUMP_DIR="${{ github.workspace }}/core_dumps"
+          mkdir -p "$CORE_DUMP_DIR"
+          if [ "${{ matrix.config.platform }}" == "linux" ]; then
+            sudo sysctl -w kernel.core_pattern="$CORE_DUMP_DIR/core.%e.%p"
+          else
+            sudo sysctl -w kern.corefile="$CORE_DUMP_DIR/core.%N"
+          fi
+          TEST_DIR="${{ github.workspace }}/tapyrus_test"
+          mkdir -p "$TEST_DIR"
+          echo "TAPYRUS_TEST_DIR=$TEST_DIR" >> $GITHUB_ENV
+
+      - name: Configure and build (GUI + wallet enabled)
+        run: |
+          if [ "${{ matrix.config.platform }}" == "macos" ]; then
+            export CC="clang"
+            export CXX="clang++"
+            CPU_COUNT=$(sysctl -n hw.ncpu)
+          else
+            export CC="gcc"
+            export CXX="g++"
+            CPU_COUNT=$(nproc)
+          fi
+          export PKG_CONFIG_PATH="$DEPENDS_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH"
+          export LD_LIBRARY_PATH="$DEPENDS_PREFIX/lib:$LD_LIBRARY_PATH"
+          echo ">" $HOME/.tapyrus
+
+          CMAKE_OPTS=(
+            -DENABLE_ZMQ=ON
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo
+            -DCMAKE_PREFIX_PATH="$DEPENDS_PREFIX"
+            -DCMAKE_TOOLCHAIN_FILE="$DEPENDS_PREFIX/toolchain.cmake"
+            -DQt6_DIR="$DEPENDS_PREFIX/lib/cmake/Qt6"
+            -DBUILD_GUI=ON
+            -DENABLE_WALLET=ON
+            -DWITH_BDB=ON
+            -DENABLE_TESTS=ON
+            -DENABLE_BENCH=OFF
+            -DBOOST_ROOT="$DEPENDS_PREFIX"
+            -DBOOST_INCLUDEDIR="$DEPENDS_PREFIX/include"
+            -DBOOST_LIBRARYDIR="$DEPENDS_PREFIX/lib"
+            -DZEROMQ_ROOT="$DEPENDS_PREFIX"
+            -DZEROMQ_INCLUDE_DIR="$DEPENDS_PREFIX/include"
+            -DZEROMQ_LIBRARY="$DEPENDS_PREFIX/lib/libzmq.a"
+            -DBerkeleyDB_ROOT="$DEPENDS_PREFIX"
+            -DBerkeleyDB_INCLUDE_DIR="$DEPENDS_PREFIX/include"
+            -DBerkeleyDB_LIBRARY="$DEPENDS_PREFIX/lib/libdb_cxx-4.8.a"
+          )
+          if [ "${{ matrix.config.platform }}" == "linux" ]; then
+            CMAKE_OPTS+=(-DENABLE_TRACING=ON)
+          else
+            # USDT/systemtap tracing is Linux-only (FindUSDT.cmake falls back to
+            # dtrace on macOS, unrelated to this job's dependency-version focus).
+            CMAKE_OPTS+=(-DENABLE_TRACING=OFF -DWARN_INCOMPATIBLE_BDB=OFF)
+          fi
+
+          cmake -S "$BASE_ROOT_DIR" -B "$BASE_BUILD_DIR" -GNinja "${CMAKE_OPTS[@]}"
+          cmake --build "$BASE_BUILD_DIR" --parallel -j$CPU_COUNT --target all
+
+      - name: Run unit tests
+        run: |
+          ulimit -c unlimited
+          cd "$BASE_BUILD_DIR/bin"
+          ./test_tapyrus --log_level=test_suite --report_level=short --build_info --catch_system_errors
+
+      - name: Run util tests
+        run: |
+          cd "$BASE_ROOT_DIR"
+          python3 test/util/tapyrus-util-test.py
+
+      - name: Run functional tests
+        run: |
+          source $HOME/venv/bin/activate
+          cd "$BASE_ROOT_DIR"
+          export PATH="$BASE_BUILD_DIR/bin:$PATH"
+          ulimit -c unlimited
+          python3 test/functional/test_runner.py --tmpdir="$TAPYRUS_TEST_DIR" -j 1 --combinedlogslen=4000 --failfast --quiet
+
+      - name: Upload core dumps (on failure)
+        if: failure() || cancelled()
+        uses: actions/upload-artifact@v5
+        with:
+          name: minimum-dependency-versions-core-dumps-${{ matrix.config.name }}-${{ github.run_id }}
+          path: ${{ github.workspace }}/core_dumps/
+          retention-days: 7
+
   docker-testnet-sync:
     name: Docker testnet sync (single node)
     runs-on: ubuntu-latest
