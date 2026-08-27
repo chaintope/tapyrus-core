@@ -43,7 +43,6 @@ jobs:
           # Linux configurations with feature combinations
           - name: L-X86-Deb-GUI+USDT+Wallet
             os: ubuntu-latest
-            arch: x86_64
             platform: linux
             build_type: Debug
             enable_gui: true
@@ -51,7 +50,6 @@ jobs:
             enable_wallet: true
           - name: L-X86-Rel-GUI+USDT+Wallet
             os: ubuntu-latest
-            arch: x86_64
             platform: linux
             build_type: RelWithDebInfo
             enable_gui: true
@@ -60,7 +58,6 @@ jobs:
             collect_benchmark_history: true
           - name: L-X86-Rel-No_GUI+USDT+Wallet
             os: ubuntu-latest
-            arch: x86_64
             platform: linux
             build_type: RelWithDebInfo
             enable_gui: false
@@ -68,31 +65,38 @@ jobs:
             enable_wallet: true
           - name: L-X86-Rel-No_GUI+No_Wallet
             os: ubuntu-latest
-            arch: x86_64
             platform: linux
             build_type: RelWithDebInfo
             enable_gui: false
             enable_usdt: false
             enable_wallet: false
+          # ubuntu-24.04-arm, not ubuntu-latest -- a genuine native ARM64
+          # GH-hosted runner (GA since Jan 2025 for public repos). Confirmed
+          # live that ubuntu-latest was wrong here: HOST for native Linux
+          # builds is derived from `uname -m` on the runner itself
+          # (daily-test.yml's own "Build Depends" step), never from this
+          # matrix's own (now-removed) arch: label -- a real job's "Building
+          # depends for HOST=..." line read x86_64-pc-linux-gnu for both an
+          # L-X86-* and an L-ARM-* job in the same run, and the "Setup job"
+          # log showed the plain ubuntu-24.04 image (not the distinct
+          # ubuntu-24.04-arm one) for the L-ARM-* job. These 3 entries were
+          # silently building/testing x86_64 this whole time despite the name.
           - name: L-ARM-Deb-GUI+USDT+Wallet
-            os: ubuntu-latest
-            arch: arm64
+            os: ubuntu-24.04-arm
             platform: linux
             build_type: Debug
             enable_gui: true
             enable_usdt: true
             enable_wallet: true
           - name: L-ARM-Rel-GUI+Wallet
-            os: ubuntu-latest
-            arch: arm64
+            os: ubuntu-24.04-arm
             platform: linux
             build_type: RelWithDebInfo
             enable_gui: true
             enable_usdt: false
             enable_wallet: true
           - name: L-ARM-Rel-No_GUI+No_Wallet
-            os: ubuntu-latest
-            arch: arm64
+            os: ubuntu-24.04-arm
             platform: linux
             build_type: RelWithDebInfo
             enable_gui: false
@@ -101,7 +105,6 @@ jobs:
           # macOS configurations with feature combinations(NO USDT support)
           - name: M-ARM-Deb-GUI+Wallet
             os: macos-latest
-            arch: arm64
             platform: macos
             build_type: Debug
             enable_gui: true
@@ -109,7 +112,6 @@ jobs:
             enable_wallet: true
           - name: M-ARM-Rel-GUI+Wallet
             os: macos-latest
-            arch: arm64
             platform: macos
             build_type: RelWithDebInfo
             enable_gui: true
@@ -118,7 +120,6 @@ jobs:
             collect_benchmark_history: true
           - name: M-ARM-Rel-No_GUI+Wallet
             os: macos-latest
-            arch: arm64
             platform: macos
             build_type: RelWithDebInfo
             enable_gui: false
@@ -126,7 +127,6 @@ jobs:
             enable_wallet: true
           - name: M-ARM-Rel-No_GUI+No_Wallet
             os: macos-latest
-            arch: arm64
             platform: macos
             build_type: RelWithDebInfo
             enable_gui: false
@@ -134,7 +134,6 @@ jobs:
             enable_wallet: false
           - name: L-Cross-M-X86-Rel-GUI+Wallet
             os: ubuntu-latest
-            arch: x86_64
             platform: linux
             target_platform: macos
             target_arch: x86_64
@@ -144,7 +143,6 @@ jobs:
             enable_wallet: true
           - name: L-Cross-M-ARM-Rel-GUI+Wallet
             os: ubuntu-latest
-            arch: x86_64
             platform: linux
             target_platform: macos
             target_arch: arm64
@@ -154,7 +152,6 @@ jobs:
             enable_wallet: true
           - name: L-Cross-W-X86-Rel-GUI+Wallet
             os: ubuntu-latest
-            arch: x86_64
             platform: linux
             target_platform: windows
             target_arch: x86_64
@@ -178,21 +175,39 @@ jobs:
           ref: ${{ github.event.inputs.test_branch || github.ref || 'master' }}
           submodules: recursive
 
+      - name: Determine host architecture
+        # Replaces this matrix's own now-removed arch: label, which could
+        # (and for the L-ARM-* entries, silently did) drift out of sync with
+        # the runner actually assigned -- a real job showed x86_64-pc-linux-gnu
+        # for both an L-X86-* and an L-ARM-* entry in the same run, with
+        # nothing catching the mismatch since the label was trusted as-is
+        # everywhere it was used. Read directly from the runner via uname -m
+        # instead, so this can't happen again. Used below only for cache-key
+        # disambiguation (ccache/depends) and the valgrind gate; HOST itself
+        # (Build Depends, further down) already independently derives the
+        # same way and is authoritative for the actual build target.
+        run: |
+          case "$(uname -m)" in
+            x86_64) echo "ARCH=x86_64" >> $GITHUB_ENV ;;
+            arm64|aarch64) echo "ARCH=arm64" >> $GITHUB_ENV ;;
+            *) echo "ARCH=$(uname -m)" >> $GITHUB_ENV ;;
+          esac
+
       - name: Restore Ccache cache
         id: ccache-cache
         uses: actions/cache/restore@v5
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: daily-${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ matrix.config.build_type }}-${{ matrix.config.enable_gui }}-${{ matrix.config.enable_usdt }}-${{ matrix.config.enable_wallet }}-ccache-${{ github.run_id }}
-          restore-keys: daily-${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ matrix.config.build_type }}-${{ matrix.config.enable_gui }}-${{ matrix.config.enable_usdt }}-${{ matrix.config.enable_wallet }}-ccache-
+          key: daily-${{ matrix.config.platform }}-${{ env.ARCH }}-${{ matrix.config.build_type }}-${{ matrix.config.enable_gui }}-${{ matrix.config.enable_usdt }}-${{ matrix.config.enable_wallet }}-ccache-${{ github.run_id }}
+          restore-keys: daily-${{ matrix.config.platform }}-${{ env.ARCH }}-${{ matrix.config.build_type }}-${{ matrix.config.enable_gui }}-${{ matrix.config.enable_usdt }}-${{ matrix.config.enable_wallet }}-ccache-
 
       - name: Restore Depends cache
         id: depends-cache
         uses: actions/cache/restore@v5
         with:
           path: ${{ env.DEPENDS_DIR }}
-          key: depends-v6-qt6-${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ hashFiles('depends/packages/*', 'depends/hosts/*.mk', 'depends/builders/*.mk', 'depends/funcs.mk', 'depends/toolchain.cmake.in', 'depends/patches/**') }}
-          restore-keys: depends-v6-qt6-${{ matrix.config.platform }}-${{ matrix.config.arch }}-
+          key: depends-v6-qt6-${{ matrix.config.platform }}-${{ env.ARCH }}-${{ hashFiles('depends/packages/*', 'depends/hosts/*.mk', 'depends/builders/*.mk', 'depends/funcs.mk', 'depends/toolchain.cmake.in', 'depends/patches/**') }}
+          restore-keys: depends-v6-qt6-${{ matrix.config.platform }}-${{ env.ARCH }}-
 
       - name: Restore Benchmark History cache
         # Benchmarks only run on scheduled/manually-dispatched runs, not on
@@ -532,7 +547,7 @@ jobs:
         continue-on-error: true
         with:
           path: ${{ env.DEPENDS_DIR }}
-          key: depends-v6-qt6-${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ hashFiles('depends/packages/*', 'depends/hosts/*.mk', 'depends/builders/*.mk', 'depends/funcs.mk', 'depends/toolchain.cmake.in', 'depends/patches/**') }}
+          key: depends-v6-qt6-${{ matrix.config.platform }}-${{ env.ARCH }}-${{ hashFiles('depends/packages/*', 'depends/hosts/*.mk', 'depends/builders/*.mk', 'depends/funcs.mk', 'depends/toolchain.cmake.in', 'depends/patches/**') }}
 
       - name: Save Benchmark History cache
         if: always() && github.event_name != 'pull_request' && matrix.config.collect_benchmark_history == true
@@ -748,7 +763,7 @@ jobs:
           echo "---------------- Start unit test ---------------- "
           cd "$BASE_BUILD_DIR/bin"
           UNIT_START=$(date +%s)
-          if [ "${{ matrix.config.platform }}" == "linux" ] && [ "${{ matrix.config.arch }}" == "x86_64"  ]; then
+          if [ "${{ matrix.config.platform }}" == "linux" ] && [ "${{ env.ARCH }}" == "x86_64"  ]; then
             if valgrind ./test_tapyrus --log_level=test_suite --report_level=short --build_info --catch_system_errors; then UNIT_RC=0; else UNIT_RC=$?; fi
           else
             if ./test_tapyrus --log_level=test_suite --report_level=short --build_info --catch_system_errors; then UNIT_RC=0; else UNIT_RC=$?; fi
@@ -953,7 +968,7 @@ jobs:
         continue-on-error: true
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: daily-${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ matrix.config.build_type }}-${{ matrix.config.enable_gui }}-${{ matrix.config.enable_usdt }}-${{ matrix.config.enable_wallet }}-ccache-${{ github.run_id }}
+          key: daily-${{ matrix.config.platform }}-${{ env.ARCH }}-${{ matrix.config.build_type }}-${{ matrix.config.enable_gui }}-${{ matrix.config.enable_usdt }}-${{ matrix.config.enable_wallet }}-ccache-${{ github.run_id }}
 
       - name: Upload test results
         if: always()
