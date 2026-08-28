@@ -450,14 +450,20 @@ jobs:
         # Compares what's actually on disk in depends/built/ (the real, already-cached
         # build artifacts -- present whether this run built depends fresh or "Restore
         # Depends cache" restored an existing tree) against what depends/packages/*.mk
-        # currently specifies. The two can silently diverge: "Restore Depends cache"'s
-        # own restore-keys fallback (${{ matrix.config.platform }}-${{ matrix.config.arch }}-,
-        # no content hash) can still restore the most recent older depends/ tree
-        # wholesale on a key miss -- e.g. right after a package version bump -- and the
-        # "if [ ! -d $DEPENDS_PREFIX ]" build-skip check above would then never notice,
-        # since the stale prefix already exists. Printed here, before proceeding to the
-        # tapyrus-core build, so any such mismatch is visible in the log instead of
-        # silently building against stale dependencies.
+        # specifies at the commit under test. The two can silently diverge: "Restore
+        # Depends cache"'s own restore-keys fallback (no content hash) can restore the
+        # most recent older depends/ tree wholesale on a key miss -- e.g. right after a
+        # package version bump -- and the "if [ ! -d $DEPENDS_PREFIX ]" build-skip check
+        # above would then never notice, since the stale prefix already exists.
+        #
+        # The "expected" side deliberately reads from `git show`, not the working-tree
+        # .mk files: `path: ${{ env.DEPENDS_DIR }}` above caches the whole depends/
+        # directory, .mk files included, so a stale-cache restore overwrites the
+        # freshly-checked-out .mk files on disk with the same old ones the stale
+        # artifacts were built from. Comparing two views of the same stale snapshot
+        # would always agree, silently defeating the very check this step exists for.
+        # Reading from git's object store instead is unaffected by anything a cache
+        # restore does to the working tree.
         run: |
           echo "== depends/built/$HOST: actually-built/cached artifact versions =="
           if [ -d "depends/built/$HOST" ]; then
@@ -472,10 +478,29 @@ jobs:
             echo "(no depends/built/$HOST -- nothing built or restored for this host)"
           fi
           echo
-          echo "== depends/packages/*.mk: currently checked-out versions =="
-          for mk in depends/packages/*.mk; do
+          echo "== depends/packages/*.mk: versions at the commit under test (git HEAD, not the working tree) =="
+          MK_FILES=$(git ls-tree -r --name-only HEAD -- depends/packages | grep '\.mk$')
+          for mk in $MK_FILES; do
             pkg=$(basename "$mk" .mk)
-            ver=$(sed -n 's/^\$(package)_version=\(.*\)$/\1/p' "$mk")
+            raw_ver=$(git show "HEAD:$mk" | sed -n 's/^\$(package)_version=\(.*\)$/\1/p')
+            [ -z "$raw_ver" ] && continue
+            case "$raw_ver" in
+              '$('*')')
+                # qt.mk/native_qt.mk set their version to a shared make variable
+                # ($(qt_details_version), defined in qt_details.mk) rather than a
+                # literal. This raw text extraction can't expand make variables,
+                # so resolve this one level of indirection by looking up that
+                # variable's own definition -- otherwise these two packages would
+                # print the literal string "$(qt_details_version)" here forever,
+                # never matching the real version depends/built/ reports.
+                var=$(echo "$raw_ver" | sed -n 's/^\$(\(.*\))$/\1/p')
+                ver=$(for f in $MK_FILES; do git show "HEAD:$f"; done | \
+                  sed -n "s/^$var[[:space:]]*:\{0,1\}=[[:space:]]*\(.*\)\$/\1/p" | head -1)
+                ;;
+              *)
+                ver="$raw_ver"
+                ;;
+            esac
             [ -n "$ver" ] && echo "$pkg-$ver"
           done | sort
 
