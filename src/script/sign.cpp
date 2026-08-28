@@ -212,33 +212,6 @@ bool ProduceSignature(const SigningProvider& provider, const BaseSignatureCreato
     return sigdata.complete;
 }
 
-bool SignPSBTInput(const SigningProvider& provider, const CMutableTransaction& tx, PSBTInput& input, SignatureData& sigdata, int index, int sighash)
-{
-    // if this input has a final scriptsig, don't do anything with it
-    if (!input.final_script_sig.empty()) {
-        return true;
-    }
-
-    // Fill SignatureData with input info
-    input.FillSignatureData(sigdata);
-
-    CTxOut utxo;
-    if (input.non_witness_utxo) {
-        // If we're taking our information from a non-witness UTXO, verify that it matches the prevout.
-        if (input.non_witness_utxo->GetHashMalFix() != tx.vin[index].prevout.hashMalFix) return false;
-        if (tx.vin[index].prevout.n >= input.non_witness_utxo->vout.size()) return false;
-
-        utxo = input.non_witness_utxo->vout[tx.vin[index].prevout.n];
-    } else
-        return false;
-
-    MutableTransactionSignatureCreator creator(&tx, index, utxo.nValue, sighash);
-    bool sig_complete = ProduceSignature(provider, creator, utxo.scriptPubKey, sigdata);
-
-    input.FromSignatureData(sigdata);
-    return sig_complete;
-}
-
 class SignatureExtractorChecker final : public BaseSignatureChecker
 {
 private:
@@ -274,7 +247,7 @@ struct Stacks
 };
 }
 
-// Extracts signatures and scripts from incomplete scriptSigs. Please do not extend this, use PSBT instead
+// Extracts signatures and scripts from incomplete scriptSigs. Please do not extend this, use PSTT instead
 SignatureData DataFromTransaction(const CMutableTransaction& tx, unsigned int nIn, const CTxOut& txout)
 {
     SignatureData data;
@@ -431,131 +404,6 @@ bool IsSolvable(const SigningProvider& provider, const CScript& script)
         return true;
     }
     return false;
-}
-
-bool PartiallySignedTransaction::IsNull() const
-{
-    return !tx && inputs.empty() && outputs.empty() && unknown.empty();
-}
-
-void PartiallySignedTransaction::Merge(const PartiallySignedTransaction& psbt)
-{
-    for (unsigned int i = 0; i < inputs.size(); ++i) {
-        inputs[i].Merge(psbt.inputs[i]);
-    }
-    for (unsigned int i = 0; i < outputs.size(); ++i) {
-        outputs[i].Merge(psbt.outputs[i]);
-    }
-    unknown.insert(psbt.unknown.begin(), psbt.unknown.end());
-}
-
-bool PartiallySignedTransaction::IsSane() const
-{
-    for (unsigned int i = 0; i < inputs.size(); ++i) {
-        if (!inputs[i].IsSane()) return false;
-        if (inputs[i].non_witness_utxo && tx && i < tx->vin.size() &&
-            tx->vin[i].prevout.n >= inputs[i].non_witness_utxo->vout.size()) {
-            return false;
-        }
-    }
-    return true;
-}
-
-bool PSBTInput::IsNull() const
-{
-    return !non_witness_utxo && partial_sigs.empty() && unknown.empty() && hd_keypaths.empty() && redeem_script.empty();
-}
-
-void PSBTInput::FillSignatureData(SignatureData& sigdata) const
-{
-    if (!final_script_sig.empty()) {
-        sigdata.scriptSig = final_script_sig;
-        sigdata.complete = true;
-    }
-    if (sigdata.complete) {
-        return;
-    }
-
-    sigdata.signatures.insert(partial_sigs.begin(), partial_sigs.end());
-    if (!redeem_script.empty()) {
-        sigdata.redeem_script = redeem_script;
-    }
-    for (const auto& key_pair : hd_keypaths) {
-        sigdata.misc_pubkeys.emplace(key_pair.first.GetID(), key_pair.first);
-    }
-}
-
-void PSBTInput::FromSignatureData(const SignatureData& sigdata)
-{
-    if (sigdata.complete) {
-        partial_sigs.clear();
-        hd_keypaths.clear();
-        redeem_script.clear();
-
-        if (!sigdata.scriptSig.empty()) {
-            final_script_sig = sigdata.scriptSig;
-        }
-        return;
-    }
-
-    partial_sigs.insert(sigdata.signatures.begin(), sigdata.signatures.end());
-    if (redeem_script.empty() && !sigdata.redeem_script.empty()) {
-        redeem_script = sigdata.redeem_script;
-    }
-}
-
-void PSBTInput::Merge(const PSBTInput& input)
-{
-    if (!non_witness_utxo && input.non_witness_utxo) non_witness_utxo = input.non_witness_utxo;
-
-    partial_sigs.insert(input.partial_sigs.begin(), input.partial_sigs.end());
-    hd_keypaths.insert(input.hd_keypaths.begin(), input.hd_keypaths.end());
-    unknown.insert(input.unknown.begin(), input.unknown.end());
-
-    if (redeem_script.empty() && !input.redeem_script.empty()) redeem_script = input.redeem_script;
-    if (final_script_sig.empty() && !input.final_script_sig.empty()) final_script_sig = input.final_script_sig;
-
-    // Both PSBTs have sighash_type set: they must agree. Silent discard would
-    // allow a combined PSBT to be signed with the wrong sighash type.
-    if (sighash_type > 0 && input.sighash_type > 0 && sighash_type != input.sighash_type) {
-        throw std::invalid_argument("PSBT sighash_type mismatch");
-    }
-    if (sighash_type == 0 && input.sighash_type > 0) sighash_type = input.sighash_type;
-}
-
-bool PSBTInput::IsSane() const
-{
-    return true;
-}
-
-void PSBTOutput::FillSignatureData(SignatureData& sigdata) const
-{
-    if (!redeem_script.empty()) {
-        sigdata.redeem_script = redeem_script;
-    }
-    for (const auto& key_pair : hd_keypaths) {
-        sigdata.misc_pubkeys.emplace(key_pair.first.GetID(), key_pair.first);
-    }
-}
-
-void PSBTOutput::FromSignatureData(const SignatureData& sigdata)
-{
-    if (redeem_script.empty() && !sigdata.redeem_script.empty()) {
-        redeem_script = sigdata.redeem_script;
-    }
-}
-
-bool PSBTOutput::IsNull() const
-{
-    return redeem_script.empty() && hd_keypaths.empty() && unknown.empty();
-}
-
-void PSBTOutput::Merge(const PSBTOutput& output)
-{
-    hd_keypaths.insert(output.hd_keypaths.begin(), output.hd_keypaths.end());
-    unknown.insert(output.unknown.begin(), output.unknown.end());
-
-    if (redeem_script.empty() && !output.redeem_script.empty()) redeem_script = output.redeem_script;
 }
 
 bool PublicOnlySigningProvider::GetCScript(const CScriptID &scriptid, CScript& script) const

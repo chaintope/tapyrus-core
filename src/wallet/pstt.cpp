@@ -14,6 +14,7 @@ bool FillPSTT(const CWallet* pwallet, PartiallySignedTapyrusTransaction& pstt, i
 {
     LOCK(pwallet->cs_wallet);
     bool complete = true;
+    bool signed_any = false;
 
     for (unsigned int i = 0; i < pstt.inputs.size(); ++i) {
         PSTTInput& input = pstt.inputs.at(i);
@@ -55,8 +56,21 @@ bool FillPSTT(const CWallet* pwallet, PartiallySignedTapyrusTransaction& pstt, i
             throw JSONRPCError(RPC_TRANSACTION_ERROR,
                 strprintf("Filling/signing input %d failed: %s", i, PSTTSignResultToString(result)));
         } else {
+            // sign=true only means signing was attempted -- SignPSTTInput
+            // returns OK even when the wallet has no key for this input and
+            // contributed nothing (e.g. a foreign input in an incremental
+            // multi-party PSTT, per walletprocesspstt's own contract of
+            // being a harmless no-op for inputs it can't sign). The post-sign
+            // PSTT_GLOBAL_TX_MODIFIABLE mutation must only fire on an input
+            // this call actually added a signature to, so compare
+            // partial_sigs/final_script_sig before and after.
+            size_t partial_sigs_before = input.partial_sigs.size();
+            bool finalized_before = !input.final_script_sig.empty();
             input.FromSignatureData(sigdata);
             if (!sigdata.complete) complete = false;
+            bool contributed = (!finalized_before && !input.final_script_sig.empty())
+                || input.partial_sigs.size() > partial_sigs_before;
+            if (sign && contributed) signed_any = true;
         }
 
         if (bip32derivs) {
@@ -69,11 +83,9 @@ bool FillPSTT(const CWallet* pwallet, PartiallySignedTapyrusTransaction& pstt, i
     // Fill in BIP32 keypaths for outputs so hardware wallets/watch-only
     // signers can identify change. Outputs don't need signing, so this uses
     // a throwaway dummy transaction purely to reuse ProduceSignature's
-    // pubkey-discovery machinery (mirrors FillPSBT's own documented
-    // approach in rpcwallet.cpp: "Dummy tx so we can use ProduceSignature to
-    // get stuff out" -- there, a real embedded tx happened to be available
-    // to piggyback on; PSTT has no such global tx, so the dummy is built
-    // explicitly here instead).
+    // pubkey-discovery machinery -- PSTT has no embedded global tx to
+    // piggyback on the way the old PSBT code's FillPSBT did, so the dummy is
+    // built explicitly here instead.
     if (bip32derivs) {
         CMutableTransaction dummy_tx;
         dummy_tx.vin.push_back(CTxIn());
@@ -92,7 +104,26 @@ bool FillPSTT(const CWallet* pwallet, PartiallySignedTapyrusTransaction& pstt, i
         }
     }
 
+    if (sign && signed_any) {
+        ApplyPsttPostSignModifiableRules(pstt, sighash_type);
+    }
+
     return complete;
+}
+
+void ApplyPsttPostSignModifiableRules(PartiallySignedTapyrusTransaction& pstt, int sighash_type)
+{
+    int base_sighash = sighash_type & 0x1f;
+    bool anyonecanpay = (sighash_type & SIGHASH_ANYONECANPAY) != 0;
+    uint8_t modifiable = pstt.tx_modifiable.value_or(0);
+    if (!anyonecanpay) modifiable &= ~PSTT_TXMOD_INPUTS_MODIFIABLE;
+    if (base_sighash != SIGHASH_NONE && base_sighash != SIGHASH_SINGLE) modifiable &= ~PSTT_TXMOD_OUTPUTS_MODIFIABLE;
+    if (base_sighash == SIGHASH_SINGLE) modifiable |= PSTT_TXMOD_HAS_SIGHASH_SINGLE;
+    // Omit the field entirely rather than writing an explicit zero -- "absent"
+    // and "present with value 0" both mean "not modifiable" on the wire (see
+    // doc/tapyrus/pstt.md's PSTT_GLOBAL_TX_MODIFIABLE row), matching
+    // createpstt/converttopstt/walletcreatefundedpstt's own convention.
+    pstt.tx_modifiable = (modifiable != 0) ? boost::optional<uint8_t>(modifiable) : boost::none;
 }
 
 void ComputePsttColorBalances(const PartiallySignedTapyrusTransaction& pstt,

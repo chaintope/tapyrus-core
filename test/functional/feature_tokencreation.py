@@ -64,6 +64,7 @@ class TokenAPITest(BitcoinTestFramework):
 
         self.sync_all()
         self.nodes[2].generate(1, self.signblockprivkey_wif)
+        self.sync_all()
 
         walletinfo = self.nodes[0].getwalletinfo()
         assert_equal(walletinfo['balance'][new_color1], 1000)
@@ -81,6 +82,7 @@ class TokenAPITest(BitcoinTestFramework):
 
         self.sync_all()
         self.nodes[2].generate(1, self.signblockprivkey_wif)
+        self.sync_all()
 
         walletinfo = self.nodes[0].getwalletinfo()
         assert_equal(walletinfo['balance'][new_color1], 500)

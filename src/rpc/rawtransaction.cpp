@@ -463,10 +463,10 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
 
 // Mirrors ConstructTransaction's per-input CTxIn construction (default
 // sequence based on RBF opt-in / whether a locktime is set, with an explicit
-// per-input override otherwise) -- but reads previous_txid/output_index,
-// PSTT's own field vocabulary (matching PSTT_IN_PREVIOUS_TXID/
-// PSTT_IN_OUTPUT_INDEX and addinputtopstt's own param names), rather than
-// ConstructTransaction's txid/vout (createrawtransaction's vocabulary).
+// per-input override otherwise), using the same txid/vout JSON field names
+// as createrawtransaction/ConstructTransaction -- every PSTT RPC argument
+// uses this vocabulary uniformly (see doc/tapyrus/pstt.md); only the wire
+// format's own PSTT_IN_PREVIOUS_TXID/PSTT_IN_OUTPUT_INDEX fields differ.
 // Used by createpstt/walletcreatefundedpstt instead of passing their inputs
 // array through ConstructTransaction directly, which would otherwise throw
 // on every PSTT-shaped input object.
@@ -477,15 +477,15 @@ std::vector<CTxIn> ParsePsttInputEntries(const UniValue& inputs_in, uint32_t nLo
     for (unsigned int idx = 0; idx < inputs.size(); idx++) {
         const UniValue& o = inputs[idx].get_obj();
 
-        uint256 txid = ParseHashO(o, "previous_txid");
+        uint256 txid = ParseHashO(o, "txid");
 
-        const UniValue& vout_v = o.find_value("output_index");
+        const UniValue& vout_v = o.find_value("vout");
         if (!vout_v.isNum()) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, missing output_index key");
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, missing vout key");
         }
         int nOutput = vout_v.get_int();
         if (nOutput < 0) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, output_index must be positive");
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, vout must be positive");
         }
 
         uint32_t nSequence;
@@ -1248,495 +1248,14 @@ static std::string WriteHDKeypath(std::vector<uint32_t>& keypath)
     return keypath_str;
 }
 
-UniValue decodepsbt(const JSONRPCRequest& request)
-{
-    if (request.fHelp || request.params.size() != 1)
-        throw std::runtime_error(
-            "decodepsbt \"psbt\"\n"
-            "\nReturn a JSON object representing the serialized, base64-encoded partially signed Tapyrus transaction.\n"
-
-            "\nArguments:\n"
-            "1. \"psbt\"            (string, required) The PSBT base64 string\n"
-
-            "\nResult:\n"
-            "{\n"
-            "  \"tx\" : {                   (json object) The decoded network-serialized unsigned transaction.\n"
-            "    ...                                      The layout is the same as the output of decoderawtransaction.\n"
-            "  },\n"
-            "  \"unknown\" : {                (json object) The unknown global fields\n"
-            "    \"key\" : \"value\"            (key-value pair) An unknown key-value pair\n"
-            "     ...\n"
-            "  },\n"
-            "  \"inputs\" : [                 (array of json objects)\n"
-            "    {\n"
-            "      \"non_witness_utxo\" : {   (json object, optional) Decoded network transaction for non-witness UTXOs\n"
-            "        ...\n"
-            "      },\n"
-            "      \"partial_signatures\" : {             (json object, optional)\n"
-            "        \"pubkey\" : \"signature\",           (string) The public key and signature that corresponds to it.\n"
-            "        ,...\n"
-            "      }\n"
-            "      \"sighash\" : \"type\",                  (string, optional) The sighash type to be used\n"
-            "      \"redeem_script\" : {       (json object, optional)\n"
-            "          \"asm\" : \"asm\",            (string) The asm\n"
-            "          \"hex\" : \"hex\",            (string) The hex\n"
-            "          \"type\" : \"pubkeyhash\",    (string) The type, eg 'pubkeyhash'\n"
-            "        }\n"
-            "      \"bip32_derivs\" : {          (json object, optional)\n"
-            "        \"pubkey\" : {                     (json object, optional) The public key with the derivation path as the value.\n"
-            "          \"master_fingerprint\" : \"fingerprint\"     (string) The fingerprint of the master key\n"
-            "          \"path\" : \"path\",                         (string) The path\n"
-            "        }\n"
-            "        ,...\n"
-            "      }\n"
-            "      \"final_scriptsig\" : {       (json object, optional)\n"
-            "          \"asm\" : \"asm\",            (string) The asm\n"
-            "          \"hex\" : \"hex\",            (string) The hex\n"
-            "        }\n"
-            "      \"unknown\" : {                (json object) The unknown global fields\n"
-            "        \"key\" : \"value\"            (key-value pair) An unknown key-value pair\n"
-            "         ...\n"
-            "      },\n"
-            "    }\n"
-            "    ,...\n"
-            "  ]\n"
-            "  \"outputs\" : [                 (array of json objects)\n"
-            "    {\n"
-            "      \"redeem_script\" : {       (json object, optional)\n"
-            "          \"asm\" : \"asm\",            (string) The asm\n"
-            "          \"hex\" : \"hex\",            (string) The hex\n"
-            "          \"type\" : \"pubkeyhash\",    (string) The type, eg 'pubkeyhash'\n"
-            "        }\n"
-            "      \"bip32_derivs\" : [          (array of json objects, optional)\n"
-            "        {\n"
-            "          \"pubkey\" : \"pubkey\",                     (string) The public key this path corresponds to\n"
-            "          \"master_fingerprint\" : \"fingerprint\"     (string) The fingerprint of the master key\n"
-            "          \"path\" : \"path\",                         (string) The path\n"
-            "          }\n"
-            "        }\n"
-            "        ,...\n"
-            "      ],\n"
-            "      \"unknown\" : {                (json object) The unknown global fields\n"
-            "        \"key\" : \"value\"            (key-value pair) An unknown key-value pair\n"
-            "         ...\n"
-            "      },\n"
-            "    }\n"
-            "    ,...\n"
-            "  ]\n"
-            "  \"fee\" : fee                      (numeric, optional) The transaction fee paid if all UTXOs slots in the PSBT have been filled.\n"
-            "}\n"
-
-            "\nExamples:\n"
-            + HelpExampleCli("decodepsbt", "\"psbt\"")
-    );
-
-    RPCTypeCheck(request.params, {UniValue::VSTR});
-
-    // Unserialize the transactions
-    PartiallySignedTransaction psbtx;
-    std::string error;
-    if (!DecodePSBT(psbtx, request.params[0].get_str(), error)) {
-        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, strprintf("TX decode failed %s", error));
-    }
-
-    UniValue result(UniValue::VOBJ);
-
-    // Add the decoded tx
-    UniValue tx_univ(UniValue::VOBJ);
-    TxToUniv(CTransaction(*psbtx.tx), uint256(), tx_univ, false);
-    result.pushKV("tx", tx_univ);
-
-    // Unknown data
-    UniValue unknowns(UniValue::VOBJ);
-    for (auto entry : psbtx.unknown) {
-        unknowns.pushKV(HexStr(entry.first), HexStr(entry.second));
-    }
-    result.pushKV("unknown", unknowns);
-
-    // inputs
-    CAmount total_in = 0;
-    bool have_all_utxos = true;
-    UniValue inputs(UniValue::VARR);
-    for (unsigned int i = 0; i < psbtx.inputs.size(); ++i) {
-        const PSBTInput& input = psbtx.inputs[i];
-        UniValue in(UniValue::VOBJ);
-        // UTXOs
-        if (input.non_witness_utxo) {
-            UniValue non_wit(UniValue::VOBJ);
-            TxToUniv(*input.non_witness_utxo, uint256(), non_wit, false);
-            in.pushKV("non_witness_utxo", non_wit);
-            const uint32_t vout_idx = psbtx.tx->vin[i].prevout.n;
-            if (vout_idx >= input.non_witness_utxo->vout.size()) {
-                throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Input prevout index out of range");
-            }
-            total_in += input.non_witness_utxo->vout[vout_idx].nValue;
-        } else {
-            have_all_utxos = false;
-        }
-
-        // Partial sigs
-        if (!input.partial_sigs.empty()) {
-            UniValue partial_sigs(UniValue::VOBJ);
-            for (const auto& sig : input.partial_sigs) {
-                partial_sigs.pushKV(HexStr(sig.second.first), HexStr(sig.second.second));
-            }
-            in.pushKV("partial_signatures", partial_sigs);
-        }
-
-        // Sighash
-        if (input.sighash_type > 0) {
-            in.pushKV("sighash", SighashToStr((unsigned char)input.sighash_type));
-        }
-
-        // Redeem script
-        if (!input.redeem_script.empty()) {
-            UniValue r(UniValue::VOBJ);
-            ScriptToUniv(input.redeem_script, r, false);
-            in.pushKV("redeem_script", r);
-        }
-
-        // keypaths
-        if (!input.hd_keypaths.empty()) {
-            UniValue keypaths(UniValue::VARR);
-            for (auto entry : input.hd_keypaths) {
-                UniValue keypath(UniValue::VOBJ);
-                keypath.pushKV("pubkey", HexStr(entry.first));
-
-                uint32_t fingerprint = entry.second.at(0);
-                keypath.pushKV("master_fingerprint", strprintf("%08x", internal_bswap_32(fingerprint)));
-
-                entry.second.erase(entry.second.begin());
-                keypath.pushKV("path", WriteHDKeypath(entry.second));
-                keypaths.push_back(keypath);
-            }
-            in.pushKV("bip32_derivs", keypaths);
-        }
-
-        // Final scriptSig
-        if (!input.final_script_sig.empty()) {
-            UniValue scriptsig(UniValue::VOBJ);
-            scriptsig.pushKV("asm", ScriptToAsmStr(input.final_script_sig, true));
-            scriptsig.pushKV("hex", HexStr(input.final_script_sig));
-            in.pushKV("final_scriptSig", scriptsig);
-        }
-
-        // Unknown data
-        if (input.unknown.size() > 0) {
-            UniValue unknowns(UniValue::VOBJ);
-            for (auto entry : input.unknown) {
-                unknowns.pushKV(HexStr(entry.first), HexStr(entry.second));
-            }
-            in.pushKV("unknown", unknowns);
-        }
-
-        inputs.push_back(in);
-    }
-    result.pushKV("inputs", inputs);
-
-    // outputs
-    CAmount output_value = 0;
-    UniValue outputs(UniValue::VARR);
-    for (unsigned int i = 0; i < psbtx.outputs.size(); ++i) {
-        const PSBTOutput& output = psbtx.outputs[i];
-        UniValue out(UniValue::VOBJ);
-        // Redeem script
-        if (!output.redeem_script.empty()) {
-            UniValue r(UniValue::VOBJ);
-            ScriptToUniv(output.redeem_script, r, false);
-            out.pushKV("redeem_script", r);
-        }
-
-        // keypaths
-        if (!output.hd_keypaths.empty()) {
-            UniValue keypaths(UniValue::VARR);
-            for (auto entry : output.hd_keypaths) {
-                UniValue keypath(UniValue::VOBJ);
-                keypath.pushKV("pubkey", HexStr(entry.first));
-
-                uint32_t fingerprint = entry.second.at(0);
-                keypath.pushKV("master_fingerprint", strprintf("%08x", internal_bswap_32(fingerprint)));
-
-                entry.second.erase(entry.second.begin());
-                keypath.pushKV("path", WriteHDKeypath(entry.second));
-                keypaths.push_back(keypath);
-            }
-            out.pushKV("bip32_derivs", keypaths);
-        }
-
-        // Unknown data
-        if (output.unknown.size() > 0) {
-            UniValue unknowns(UniValue::VOBJ);
-            for (auto entry : output.unknown) {
-                unknowns.pushKV(HexStr(entry.first), HexStr(entry.second));
-            }
-            out.pushKV("unknown", unknowns);
-        }
-
-        outputs.push_back(out);
-
-        // Fee calculation
-        output_value += psbtx.tx->vout[i].nValue;
-    }
-    result.pushKV("outputs", outputs);
-    if (have_all_utxos) {
-        result.pushKV("fee", ValueFromAmount(total_in - output_value));
-    }
-
-    return result;
-}
-
-UniValue combinepsbt(const JSONRPCRequest& request)
-{
-    if (request.fHelp || request.params.size() != 1)
-        throw std::runtime_error(
-            "combinepsbt [\"psbt\",...]\n"
-            "\nCombine multiple partially signed Tapyrus transactions into one transaction.\n"
-            "Implements the Combiner role.\n"
-            "\nArguments:\n"
-            "1. \"txs\"                   (string) A json array of base64 strings of partially signed transactions\n"
-            "    [\n"
-            "      \"psbt\"             (string) A base64 string of a PSBT\n"
-            "      ,...\n"
-            "    ]\n"
-
-            "\nResult:\n"
-            "  \"psbt\"          (string) The base64-encoded partially signed transaction\n"
-            "\nExamples:\n"
-            + HelpExampleCli("combinepsbt", "[\"mybase64_1\", \"mybase64_2\", \"mybase64_3\"]")
-        );
-
-    RPCTypeCheck(request.params, {UniValue::VARR}, true);
-
-    // Unserialize the transactions
-    std::vector<PartiallySignedTransaction> psbtxs;
-    UniValue txs = request.params[0].get_array();
-    for (unsigned int i = 0; i < txs.size(); ++i) {
-        PartiallySignedTransaction psbtx;
-        std::string error;
-        if (!DecodePSBT(psbtx, txs[i].get_str(), error)) {
-            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, strprintf("TX decode failed %s", error));
-        }
-        psbtxs.push_back(psbtx);
-    }
-
-    if (psbtxs.empty()) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Parameter 'txs' cannot be empty");
-    }
-
-    PartiallySignedTransaction merged_psbt(psbtxs[0]); // Copy the first one
-
-    // Merge
-    for (auto it = std::next(psbtxs.begin()); it != psbtxs.end(); ++it) {
-        if (*it != merged_psbt) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "PSBTs do not refer to the same transactions.");
-        }
-        try {
-            merged_psbt.Merge(*it);
-        } catch (const std::invalid_argument& e) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Cannot combine PSBTs: %s", e.what()));
-        }
-    }
-    if (!merged_psbt.IsSane()) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Merged PSBT is inconsistent");
-    }
-
-    UniValue result(UniValue::VOBJ);
-    CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
-    ssTx << merged_psbt;
-    return EncodeBase64((unsigned char*)ssTx.data(), ssTx.size());
-}
-
-UniValue finalizepsbt(const JSONRPCRequest& request)
-{
-    if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
-        throw std::runtime_error(
-            "finalizepsbt \"psbt\" ( extract )\n"
-            "Finalize the inputs of a PSBT. If the transaction is fully signed, it will produce a\n"
-            "network serialized transaction which can be broadcast with sendrawtransaction. Otherwise a PSBT will be\n"
-            "created which has the final_scriptSig field filled for inputs that are complete.\n"
-            "Implements the Finalizer and Extractor roles.\n"
-            "\nArguments:\n"
-            "1. \"psbt\"                 (string) A base64 string of a PSBT\n"
-            "2. \"extract\"              (boolean, optional, default=true) If true and the transaction is complete, \n"
-            "                             extract and return the complete transaction in normal network serialization instead of the PSBT.\n"
-
-            "\nResult:\n"
-            "{\n"
-            "  \"psbt\" : \"value\",          (string) The base64-encoded partially signed transaction if not extracted\n"
-            "  \"hex\" : \"value\",           (string) The hex-encoded network transaction if extracted\n"
-            "  \"complete\" : true|false,   (boolean) If the transaction has a complete set of signatures\n"
-            "  ]\n"
-            "}\n"
-
-            "\nExamples:\n"
-            + HelpExampleCli("finalizepsbt", "\"psbt\"")
-        );
-
-    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VBOOL}, true);
-
-    // Unserialize the transactions
-    PartiallySignedTransaction psbtx;
-    std::string error;
-    if (!DecodePSBT(psbtx, request.params[0].get_str(), error)) {
-        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, strprintf("TX decode failed %s", error));
-    }
-
-    // Get all of the previous transactions
-    bool complete = true;
-    for (unsigned int i = 0; i < psbtx.tx->vin.size(); ++i) {
-        PSBTInput& input = psbtx.inputs.at(i);
-
-        SignatureData sigdata;
-        complete &= SignPSBTInput(DUMMY_SIGNING_PROVIDER, *psbtx.tx, input, sigdata, i, 1);
-    }
-
-    UniValue result(UniValue::VOBJ);
-    CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
-    bool extract = request.params[1].isNull() || (!request.params[1].isNull() && request.params[1].get_bool());
-    if (complete && extract) {
-        CMutableTransaction mtx(*psbtx.tx);
-        for (unsigned int i = 0; i < mtx.vin.size(); ++i) {
-            mtx.vin[i].scriptSig = psbtx.inputs[i].final_script_sig;
-        }
-        ssTx << mtx;
-        result.pushKV("hex", HexStr(ssTx.begin(), ssTx.end()));
-    } else {
-        ssTx << psbtx;
-        result.pushKV("psbt", EncodeBase64((unsigned char*)ssTx.data(), ssTx.size()));
-    }
-    result.pushKV("complete", complete);
-
-    return result;
-}
-
-UniValue createpsbt(const JSONRPCRequest& request)
-{
-    if (request.fHelp || request.params.size() < 2 || request.params.size() > 4)
-        throw std::runtime_error(
-                            "createpsbt [{\"txid\":\"id\",\"vout\":n},...] [{\"address\":amount},{\"data\":\"hex\"},...] ( locktime ) ( replaceable )\n"
-                            "\nCreates a transaction in the Partially Signed Transaction format.\n"
-                            "Implements the Creator role.\n"
-                            "\nArguments:\n"
-                            "1. \"inputs\"                (array, required) A json array of json objects\n"
-                            "     [\n"
-                            "       {\n"
-                            "         \"txid\":\"id\",      (string, required) The transaction id\n"
-                            "         \"vout\":n,         (numeric, required) The output number\n"
-                            "         \"sequence\":n      (numeric, optional) The sequence number\n"
-                            "       } \n"
-                            "       ,...\n"
-                            "     ]\n"
-                            "2. \"outputs\"               (array, required) a json array with outputs (key-value pairs)\n"
-                            "   [\n"
-                            "    {\n"
-                            "      \"address\": x.xxx,    (obj, optional) A key-value pair. The key (string) is the tapyrus address, the value (float or string) is the amount in " + CURRENCY_UNIT + "\n"
-                            "    },\n"
-                            "    {\n"
-                            "      \"data\": \"hex\"        (obj, optional) A key-value pair. The key must be \"data\", the value is hex encoded data\n"
-                            "    }\n"
-                            "    ,...                     More key-value pairs of the above form. For compatibility reasons, a dictionary, which holds the key-value pairs directly, is also\n"
-                            "                             accepted as second parameter.\n"
-                            "   ]\n"
-                            "3. locktime                  (numeric, optional, default=0) Raw locktime. Non-0 value also locktime-activates inputs\n"
-                            "4. replaceable               (boolean, optional, default=false) Marks this transaction as BIP125 replaceable.\n"
-                            "                             Allows this transaction to be replaced by a transaction with higher fees. If provided, it is an error if explicit sequence numbers are incompatible.\n"
-                            "\nResult:\n"
-                            "  \"psbt\"        (string)  The resulting raw transaction (base64-encoded string)\n"
-                            "\nExamples:\n"
-                            + HelpExampleCli("createpsbt", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\" \"[{\\\"data\\\":\\\"00010203\\\"}]\"")
-                            );
-
-
-    RPCTypeCheck(request.params, {
-        UniValue::VARR,
-        UniValueType(), // ARR or OBJ, checked later
-        UniValue::VNUM,
-        UniValue::VBOOL,
-        }, true
-    );
-
-    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], request.params[3]);
-
-    // Make a blank psbt
-    PartiallySignedTransaction psbtx;
-    psbtx.tx = rawTx;
-    for (unsigned int i = 0; i < rawTx.vin.size(); ++i) {
-        psbtx.inputs.push_back(PSBTInput());
-    }
-    for (unsigned int i = 0; i < rawTx.vout.size(); ++i) {
-        psbtx.outputs.push_back(PSBTOutput());
-    }
-
-    // Serialize the PSBT
-    CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
-    ssTx << psbtx;
-
-    return EncodeBase64((unsigned char*)ssTx.data(), ssTx.size());
-}
-
-UniValue converttopsbt(const JSONRPCRequest& request)
-{
-    if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
-        throw std::runtime_error(
-                            "converttopsbt \"hexstring\" ( permitsigdata )\n"
-                            "\nConverts a network serialized transaction to a PSBT. This should be used only with createrawtransaction and fundrawtransaction\n"
-                            "createpsbt and walletcreatefundedpsbt should be used for new applications.\n"
-                            "\nArguments:\n"
-                            "1. \"hexstring\"              (string, required) The hex string of a raw transaction\n"
-                            "2. permitsigdata           (boolean, optional, default=false) If true, any signatures in the input will be discarded and conversion.\n"
-                            "                              will continue. If false, RPC will fail if any signatures are present.\n"
-                            "\nResult:\n"
-                            "  \"psbt\"        (string)  The resulting raw transaction (base64-encoded string)\n"
-                            "\nExamples:\n"
-                            "\nCreate a transaction\n"
-                            + HelpExampleCli("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\" \"[{\\\"data\\\":\\\"00010203\\\"}]\"") +
-                            "\nConvert the transaction to a PSBT\n"
-                            + HelpExampleCli("converttopsbt", "\"rawtransaction\"")
-                            );
-
-
-    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VBOOL, UniValue::VBOOL}, true);
-
-    // parse hex string from parameter
-    CMutableTransaction tx;
-    if (!DecodeHexTx(tx, request.params[0].get_str())) {
-        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
-    }
-
-    // Remove all scriptSigs from inputs
-    bool permitsigdata = !request.params[1].isNull() && request.params[1].get_bool();
-    for (CTxIn& input : tx.vin) {
-        if (!input.scriptSig.empty() && !permitsigdata) {
-            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Inputs must not have scriptSigs");
-        }
-        input.scriptSig.clear();
-    }
-
-    // Make a blank psbt
-    PartiallySignedTransaction psbtx;
-    psbtx.tx = tx;
-    for (unsigned int i = 0; i < tx.vin.size(); ++i) {
-        psbtx.inputs.push_back(PSBTInput());
-    }
-    for (unsigned int i = 0; i < tx.vout.size(); ++i) {
-        psbtx.outputs.push_back(PSBTOutput());
-    }
-
-    // Serialize the PSBT
-    CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
-    ssTx << psbtx;
-
-    return EncodeBase64((unsigned char*)ssTx.data(), ssTx.size());
-}
-
 // ---------------------------------------------------------------------
 // PSTT (TIP-174) -- see doc/tapyrus/pstt.md
 // ---------------------------------------------------------------------
 
 // Mirrors addTokenKV's (rpcwallet.cpp) token/amount display convention, but
 // keyed off a scriptPubKey directly rather than a CTxDestination, matching
-// decision #15 in doc/tapyrus/pstt.md: color is always derived from the
-// script, never assumed from context.
+// doc/tapyrus/pstt.md's Colored Coin balance verification section: color is
+// always derived from the script, never assumed from context.
 static void PushTokenAmount(const CScript& script, CAmount amount, UniValue& entry)
 {
     ColorIdentifier colorId = GetColorIdFromScript(script);
@@ -1746,8 +1265,8 @@ static void PushTokenAmount(const CScript& script, CAmount amount, UniValue& ent
 
 static void PsttInputToUniv(const PSTTInput& input, UniValue& in)
 {
-    in.pushKV("previous_txid", input.previous_txid.GetHex());
-    in.pushKV("output_index", (uint64_t)input.prev_out_index);
+    in.pushKV("txid", input.previous_txid.GetHex());
+    in.pushKV("vout", (uint64_t)input.prev_out_index);
 
     if (input.utxo) {
         UniValue utxo_univ(UniValue::VOBJ);
@@ -1897,26 +1416,26 @@ UniValue createpstt(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() < 2 || request.params.size() > 6)
         throw std::runtime_error(
-            "createpstt [{\"previous_txid\":\"id\",\"output_index\":n},...] [{\"address\":amount},{\"data\":\"hex\"},...] ( fallback_locktime ) ( inputs_modifiable ) ( outputs_modifiable ) ( has_sighash_single )\n"
+            "createpstt [{\"txid\":\"id\",\"vout\":n},...] [{\"address\":amount},{\"data\":\"hex\"},...] ( fallback_locktime ) ( inputs_modifiable ) ( outputs_modifiable ) ( has_sighash_single )\n"
             "\nCreates a bare PSTT from the given inputs and outputs (either may be empty).\n"
             "Implements the Creator role.\n"
             "\nArguments:\n"
             "1. \"inputs\"                (array, required) A json array of json objects\n"
             "     [\n"
             "       {\n"
-            "         \"previous_txid\":\"id\", (string, required) The transaction id\n"
-            "         \"output_index\":n,     (numeric, required) The output number\n"
-            "         \"sequence\":n          (numeric, optional) The sequence number\n"
+            "         \"txid\":\"id\",         (string, required) The malfix (malleability-fixed) transaction id of the transaction whose output is being spent\n"
+            "         \"vout\":n,             (numeric, required) The index of that output within the transaction referenced by txid\n"
+            "         \"sequence\":n          (numeric, optional, default=0xffffffff) The sequence number. The default disables any locktime constraint from this input; a lower value makes the PSTT's locktime binding, may also encode a BIP68 relative locktime, and can opt this transaction in to BIP125 replace-by-fee\n"
             "       } \n"
             "       ,...\n"
             "     ]\n"
             "2. \"outputs\"               (array, required) a json array with outputs (key-value pairs)\n"
             "   [\n"
             "    {\n"
-            "      \"address\": x.xxx,    (obj, optional) A key-value pair. The key (string) is the tapyrus address, the value (float or string) is the amount in " + CURRENCY_UNIT + "\n"
+            "      \"address\": x.xxx,    (obj, optional) A key-value pair. The key (string) is a base58-encoded Tapyrus address, the value (float or string) is the amount in " + CURRENCY_UNIT + "\n"
             "    },\n"
             "    {\n"
-            "      \"data\": \"hex\"        (obj, optional) A key-value pair. The key must be \"data\", the value is hex encoded data\n"
+            "      \"data\": \"hex\"        (obj, optional) A key-value pair whose key must be the literal string \"data\"; the value is arbitrary hex-encoded data embedded via OP_RETURN\n"
             "    }\n"
             "    ,...                     More key-value pairs of the above form. For compatibility reasons, a dictionary, which holds the key-value pairs directly, is also\n"
             "                             accepted as second parameter.\n"
@@ -1924,11 +1443,11 @@ UniValue createpstt(const JSONRPCRequest& request)
             "3. fallback_locktime         (numeric, optional, default=0) PSTT_GLOBAL_FALLBACK_LOCKTIME -- the locktime used when no input constrains one\n"
             "4. inputs_modifiable         (boolean, optional, default=false) Whether further inputs may be added via addinputtopstt/addinputoutputpairtopstt\n"
             "5. outputs_modifiable        (boolean, optional, default=false) Whether further outputs may be added via addoutputtopstt/addinputoutputpairtopstt\n"
-            "6. has_sighash_single        (boolean, optional, default=false) Sets the Has-SIGHASH_SINGLE bit -- future Constructor calls must use addinputoutputpairtopstt instead of separate addinputtopstt/addoutputtopstt calls\n"
+            "6. has_sighash_single        (boolean, optional, default=false) If true, marks the PSTT as using SIGHASH_SINGLE; further Constructor calls must add inputs and outputs together via addinputoutputpairtopstt instead of separate addinputtopstt/addoutputtopstt calls\n"
             "\nResult:\n"
             "  \"pstt\"        (string)  The resulting PSTT (base64-encoded string)\n"
             "\nExamples:\n"
-            + HelpExampleCli("createpstt", "\"[{\\\"previous_txid\\\":\\\"myid\\\",\\\"output_index\\\":0}]\" \"[{\\\"myaddress\\\":0.01}]\"")
+            + HelpExampleCli("createpstt", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\" \"[{\\\"myaddress\\\":0.01}]\"")
         );
 
     RPCTypeCheck(request.params, {
@@ -1948,10 +1467,11 @@ UniValue createpstt(const JSONRPCRequest& request)
     // nonzero. Without that, a nonzero fallback_locktime would be silently
     // inert once extracted -- IsFinalTx-style consensus rules only honor
     // nLockTime when at least one input carries a non-final sequence.
-    // Inputs are parsed separately via ParsePsttInputEntries (PSTT's own
-    // previous_txid/output_index field names) -- an empty array is passed
-    // here so ConstructTransaction only handles outputs/locktime, not
-    // createrawtransaction's txid/vout input shape.
+    // Inputs are parsed separately via ParsePsttInputEntries, not passed
+    // through ConstructTransaction directly -- an empty array is passed here
+    // so ConstructTransaction only handles outputs/locktime. Both use
+    // createrawtransaction's txid/vout field names; ParsePsttInputEntries
+    // just also accepts an optional "sequence" per entry.
     CMutableTransaction rawTx = ConstructTransaction(UniValue(UniValue::VARR), request.params[1], request.params[2], NullUniValue);
     rawTx.vin = ParsePsttInputEntries(request.params[0], rawTx.nLockTime, /*rbfOptIn=*/false);
 
@@ -1992,8 +1512,8 @@ UniValue converttopstt(const JSONRPCRequest& request)
     if (request.fHelp || request.params.size() < 1 || request.params.size() > 4)
         throw std::runtime_error(
             "converttopstt \"hexstring\" ( permitsigdata inputs_modifiable outputs_modifiable )\n"
-            "\nConverts a network serialized transaction to a PSTT. This should be used only with createrawtransaction and fundrawtransaction.\n"
-            "createpstt and walletcreatefundedpstt should be used for new applications. Implements the Creator role.\n"
+            "\nConverts a network serialized transaction to a PSTT. Implements the Creator role. Use createpstt\n"
+            "or walletcreatefundedpstt for new applications instead.\n"
             "\nArguments:\n"
             "1. \"hexstring\"              (string, required) The hex string of a raw transaction\n"
             "2. permitsigdata           (boolean, optional, default=false) If true, any scriptSigs in the inputs are discarded and\n"
@@ -2057,16 +1577,15 @@ UniValue addinputtopstt(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() < 3 || request.params.size() > 4)
         throw std::runtime_error(
-            "addinputtopstt \"pstt\" \"previous_txid\" output_index ( sequence )\n"
+            "addinputtopstt \"pstt\" \"txid\" vout ( sequence )\n"
             "\nAppends one input to a PSTT whose Inputs-Modifiable flag is set. Implements\n"
-            "the Constructor role. Refuses if the PSTT's Has-SIGHASH_SINGLE flag is set --\n"
-            "use addinputoutputpairtopstt instead in that case, so an input is never added\n"
-            "without its paired output in the same call.\n"
+            "the Constructor role. Refuses if the PSTT uses SIGHASH_SINGLE -- use\n"
+            "addinputoutputpairtopstt instead.\n"
             "\nArguments:\n"
             "1. \"pstt\"                 (string, required) A base64 string of a PSTT\n"
-            "2. \"previous_txid\"        (string, required) The transaction id\n"
-            "3. output_index           (numeric, required) The output number\n"
-            "4. sequence               (numeric, optional) The sequence number\n"
+            "2. \"txid\"                 (string, required) The malfix (malleability-fixed) transaction id of the transaction whose output is being spent\n"
+            "3. vout                   (numeric, required) The index of that output within the transaction referenced by txid\n"
+            "4. sequence               (numeric, optional, default=0xffffffff) The sequence number. The default disables any locktime constraint from this input; a lower value makes the PSTT's locktime binding, may also encode a BIP68 relative locktime, and can opt this transaction in to BIP125 replace-by-fee\n"
             "\nResult:\n"
             "  \"pstt\"        (string)  The resulting PSTT (base64-encoded string)\n"
             "\nExamples:\n"
@@ -2084,16 +1603,17 @@ UniValue addinputtopstt(const JSONRPCRequest& request)
     if (!pstt.tx_modifiable || !(*pstt.tx_modifiable & PSTT_TXMOD_INPUTS_MODIFIABLE)) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "PSTT inputs are not modifiable");
     }
-    if (pstt.tx_modifiable && (*pstt.tx_modifiable & PSTT_TXMOD_HAS_SIGHASH_SINGLE)) {
+    // pstt.tx_modifiable is already known engaged by the check just above.
+    if (*pstt.tx_modifiable & PSTT_TXMOD_HAS_SIGHASH_SINGLE) {
         throw JSONRPCError(RPC_INVALID_PARAMETER,
             "PSTT has a SIGHASH_SINGLE signature; use addinputoutputpairtopstt to add an input and output together");
     }
 
     PSTTInput input;
-    input.previous_txid = ParseHashV(request.params[1], "previous_txid");
+    input.previous_txid = ParseHashV(request.params[1], "txid");
     int nOutput = request.params[2].get_int();
     if (nOutput < 0) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, output_index must be positive");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, vout must be positive");
     }
     input.prev_out_index = (uint32_t)nOutput;
     input.previous_txid_set = true;
@@ -2121,8 +1641,8 @@ UniValue addoutputtopstt(const JSONRPCRequest& request)
         throw std::runtime_error(
             "addoutputtopstt \"pstt\" output\n"
             "\nAppends one output to a PSTT whose Outputs-Modifiable flag is set. Implements\n"
-            "the Constructor role. Refuses if the PSTT's Has-SIGHASH_SINGLE flag is set --\n"
-            "use addinputoutputpairtopstt instead in that case.\n"
+            "the Constructor role. Refuses if the PSTT uses SIGHASH_SINGLE -- use\n"
+            "addinputoutputpairtopstt instead.\n"
             "\nArguments:\n"
             "1. \"pstt\"                 (string, required) A base64 string of a PSTT\n"
             "2. \"output\"               (object, required) A single key-value pair, either\n"
@@ -2145,7 +1665,8 @@ UniValue addoutputtopstt(const JSONRPCRequest& request)
     if (!pstt.tx_modifiable || !(*pstt.tx_modifiable & PSTT_TXMOD_OUTPUTS_MODIFIABLE)) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "PSTT outputs are not modifiable");
     }
-    if (pstt.tx_modifiable && (*pstt.tx_modifiable & PSTT_TXMOD_HAS_SIGHASH_SINGLE)) {
+    // pstt.tx_modifiable is already known engaged by the check just above.
+    if (*pstt.tx_modifiable & PSTT_TXMOD_HAS_SIGHASH_SINGLE) {
         throw JSONRPCError(RPC_INVALID_PARAMETER,
             "PSTT has a SIGHASH_SINGLE signature; use addinputoutputpairtopstt to add an input and output together");
     }
@@ -2158,19 +1679,17 @@ UniValue addinputoutputpairtopstt(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() < 4 || request.params.size() > 5)
         throw std::runtime_error(
-            "addinputoutputpairtopstt \"pstt\" \"previous_txid\" output_index output ( sequence )\n"
-            "\nAtomically appends one input and one output to a PSTT in a single re-encode.\n"
-            "Implements the Constructor role. Required (instead of separate\n"
-            "addinputtopstt/addoutputtopstt calls) whenever the PSTT's Has-SIGHASH_SINGLE\n"
-            "flag is set, so a client crash between two separate calls can never leave the\n"
-            "PSTT with a transiently unpaired input.\n"
+            "addinputoutputpairtopstt \"pstt\" \"txid\" vout output ( sequence )\n"
+            "\nAtomically appends one input and one output to a PSTT. Implements the\n"
+            "Constructor role. Required instead of separate addinputtopstt/addoutputtopstt\n"
+            "calls when the PSTT uses SIGHASH_SINGLE.\n"
             "\nArguments:\n"
             "1. \"pstt\"                 (string, required) A base64 string of a PSTT\n"
-            "2. \"previous_txid\"        (string, required) The transaction id\n"
-            "3. output_index           (numeric, required) The output number\n"
+            "2. \"txid\"                 (string, required) The malfix (malleability-fixed) transaction id of the transaction whose output is being spent\n"
+            "3. vout                   (numeric, required) The index of that output within the transaction referenced by txid\n"
             "4. \"output\"               (object, required) A single key-value pair, either\n"
             "                          {\"address\": amount} or {\"data\": \"hex\"}\n"
-            "5. sequence               (numeric, optional) The sequence number\n"
+            "5. sequence               (numeric, optional, default=0xffffffff) The sequence number. The default disables any locktime constraint from this input; a lower value makes the PSTT's locktime binding, may also encode a BIP68 relative locktime, and can opt this transaction in to BIP125 replace-by-fee\n"
             "\nResult:\n"
             "  \"pstt\"        (string)  The resulting PSTT (base64-encoded string)\n"
             "\nExamples:\n"
@@ -2193,10 +1712,10 @@ UniValue addinputoutputpairtopstt(const JSONRPCRequest& request)
     }
 
     PSTTInput input;
-    input.previous_txid = ParseHashV(request.params[1], "previous_txid");
+    input.previous_txid = ParseHashV(request.params[1], "txid");
     int nOutput = request.params[2].get_int();
     if (nOutput < 0) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, output_index must be positive");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, vout must be positive");
     }
     input.prev_out_index = (uint32_t)nOutput;
     input.previous_txid_set = true;
@@ -2226,8 +1745,7 @@ UniValue finalizepsttconstruction(const JSONRPCRequest& request)
         throw std::runtime_error(
             "finalizepsttconstruction \"pstt\" ( clear_inputs_modifiable clear_outputs_modifiable )\n"
             "\nDeclares a PSTT's Constructor phase finished by clearing its Inputs-Modifiable\n"
-            "and/or Outputs-Modifiable flags. Implements the finishing half of the\n"
-            "Constructor role.\n"
+            "and/or Outputs-Modifiable flags. Implements the Constructor role.\n"
             "\nArguments:\n"
             "1. \"pstt\"                       (string, required) A base64 string of a PSTT\n"
             "2. clear_inputs_modifiable      (boolean, optional, default=true) Clear the Inputs-Modifiable flag\n"
@@ -2252,7 +1770,11 @@ UniValue finalizepsttconstruction(const JSONRPCRequest& request)
     uint8_t modifiable = pstt.tx_modifiable.value_or(0);
     if (clear_inputs) modifiable &= ~PSTT_TXMOD_INPUTS_MODIFIABLE;
     if (clear_outputs) modifiable &= ~PSTT_TXMOD_OUTPUTS_MODIFIABLE;
-    pstt.tx_modifiable = modifiable;
+    // Omit the field entirely rather than writing an explicit zero -- "absent"
+    // and "present with value 0" both mean "not modifiable" on the wire (see
+    // doc/tapyrus/pstt.md's PSTT_GLOBAL_TX_MODIFIABLE row), and createpstt/
+    // converttopstt/walletcreatefundedpstt already omit it in this case.
+    pstt.tx_modifiable = (modifiable != 0) ? boost::optional<uint8_t>(modifiable) : boost::none;
 
     return EncodePSTT(pstt);
 }
@@ -2438,10 +1960,9 @@ UniValue finalizepstt(const JSONRPCRequest& request)
     if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
         throw std::runtime_error(
             "finalizepstt \"pstt\" ( extract )\n"
-            "\nFinalize the inputs of a PSTT. If every input is fully signed, produces a\n"
-            "network-serialized transaction that can be broadcast with sendrawtransaction.\n"
-            "Otherwise returns a PSTT with PSTT_IN_FINAL_SCRIPTSIG filled in for the inputs\n"
-            "that are complete. Implements the Finalizer and (optionally) Extractor roles.\n"
+            "\nFinalize the inputs of a PSTT. If complete, extracts a broadcastable\n"
+            "transaction; otherwise returns a partially finalized PSTT. Implements the\n"
+            "Finalizer and (optionally) Extractor roles.\n"
 
             "\nArguments:\n"
             "1. \"pstt\"                 (string, required) A base64 string of a PSTT\n"
@@ -2525,9 +2046,8 @@ UniValue extractpstt(const JSONRPCRequest& request)
     if (request.fHelp || request.params.size() != 1)
         throw std::runtime_error(
             "extractpstt \"pstt\"\n"
-            "\nExtract the fully signed transaction from a PSTT and return it in network\n"
-            "serialization, ready to be broadcast with sendrawtransaction. Implements the\n"
-            "Transaction Extractor role. Throws if any input is missing PSTT_IN_FINAL_SCRIPTSIG.\n"
+            "\nExtract the fully signed transaction from a PSTT, ready for sendrawtransaction.\n"
+            "Implements the Extractor role. Throws if any input isn't finalized.\n"
 
             "\nArguments:\n"
             "1. \"pstt\"                 (string, required) A base64 string of a PSTT\n"
@@ -2662,17 +2182,12 @@ static const CRPCCommand commands[] =
     { "rawtransactions",    "combinerawtransaction",        &combinerawtransaction,     {"txs"} },
     { "rawtransactions",    "signrawtransaction",           &signrawtransaction,        {"hexstring","prevtxs","privkeys","sighashtype"} }, /* uses wallet if enabled */
     { "rawtransactions",    "signrawtransactionwithkey",    &signrawtransactionwithkey, {"hexstring","privkeys","prevtxs","sighashtype"} },
-    { "rawtransactions",    "decodepsbt",                   &decodepsbt,                {"psbt"} },
-    { "rawtransactions",    "combinepsbt",                  &combinepsbt,               {"txs"} },
-    { "rawtransactions",    "finalizepsbt",                 &finalizepsbt,              {"psbt", "extract"} },
-    { "rawtransactions",    "createpsbt",                   &createpsbt,                {"inputs","outputs","locktime","replaceable"} },
-    { "rawtransactions",    "converttopsbt",                &converttopsbt,             {"hexstring","permitsigdata"} },
 
     { "rawtransactions",    "createpstt",                   &createpstt,                {"inputs","outputs","fallback_locktime","inputs_modifiable","outputs_modifiable","has_sighash_single"} },
     { "rawtransactions",    "converttopstt",                &converttopstt,             {"hexstring","permitsigdata","inputs_modifiable","outputs_modifiable"} },
-    { "rawtransactions",    "addinputtopstt",               &addinputtopstt,            {"pstt","previous_txid","output_index","sequence"} },
+    { "rawtransactions",    "addinputtopstt",               &addinputtopstt,            {"pstt","txid","vout","sequence"} },
     { "rawtransactions",    "addoutputtopstt",              &addoutputtopstt,           {"pstt","output"} },
-    { "rawtransactions",    "addinputoutputpairtopstt",     &addinputoutputpairtopstt,  {"pstt","previous_txid","output_index","output","sequence"} },
+    { "rawtransactions",    "addinputoutputpairtopstt",     &addinputoutputpairtopstt,  {"pstt","txid","vout","output","sequence"} },
     { "rawtransactions",    "finalizepsttconstruction",     &finalizepsttconstruction,  {"pstt","clear_inputs_modifiable","clear_outputs_modifiable"} },
     { "rawtransactions",    "decodepstt",                   &decodepstt,                {"pstt"} },
     { "rawtransactions",    "combinepstt",                  &combinepstt,               {"txs"} },

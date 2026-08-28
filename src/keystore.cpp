@@ -209,9 +209,13 @@ bool CBasicKeyStore::HaveWatchOnly() const
 CKeyID GetKeyForDestination(const CKeyStore& store, const CTxDestination& dest)
 {
     // Only supports destinations which map to single public keys, i.e. P2PKH,
-    // P2WPKH, and P2SH-P2WPKH.
+    // P2WPKH, P2SH-P2WPKH, and their Colored Coin equivalent (CColorKeyID
+    // wraps the same pubkey hash as a plain CKeyID -- see its getKeyID()).
     if (auto id = std::get_if<CKeyID>(&dest)) {
         return *id;
+    }
+    if (auto colorId = std::get_if<CColorKeyID>(&dest)) {
+        return colorId->getKeyID();
     }
     return CKeyID();
 }

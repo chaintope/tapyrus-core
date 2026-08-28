@@ -14,6 +14,7 @@
 #include <policy/policy.h>
 #include <random.h>
 #include <rpc/server.h>
+#include <script/interpreter.h>
 #include <script/script.h>
 #include <script/standard.h>
 #include <streams.h>
@@ -972,6 +973,112 @@ BOOST_FIXTURE_TEST_CASE(pstt_combine_finalize_extract_p2sh_multisig, TestChainSe
     CheckMempoolResult(*this, MakeTransactionRef(ExtractPSTT(merged)), true);
 }
 
+// Construction-time (IsSane()) and script-execution-time (interpreter.cpp's
+// own CHECKMULTISIG scheme-consistency check) mixed-scheme rejection must
+// agree on the exact same scenario, not just each reject *something*.
+// Reuses the 2-of-2 multisig funding from
+// MakeUnmergedMultisigSpendPair but signs A with ECDSA and B with Schnorr
+// (that helper always uses ECDSA for both), then checks both layers.
+BOOST_FIXTURE_TEST_CASE(pstt_mixed_scheme_rejected_construction_and_execution_agree, TestChainSetup)
+{
+    CKey keyA, keyB;
+    keyA.MakeNewKey(true);
+    keyB.MakeNewKey(true);
+    CScript redeemScript = GetScriptForMultisig(2, {keyA.GetPubKey(), keyB.GetPubKey()});
+    CScript scriptPubKey = GetScriptForDestination(CScriptID(redeemScript));
+
+    const CTransactionRef& coinbaseTx = m_coinbase_txns[0];
+    PartiallySignedTapyrusTransaction fundingPstt;
+    fundingPstt.tx_features = CTransaction::CURRENT_FEATURES;
+    PSTTInput fundingInput;
+    fundingInput.previous_txid = coinbaseTx->GetHashMalFix();
+    fundingInput.prev_out_index = 0;
+    fundingInput.previous_txid_set = true;
+    fundingInput.prev_out_index_set = true;
+    fundingInput.utxo = coinbaseTx;
+    fundingPstt.inputs.push_back(fundingInput);
+    PSTTOutput fundingOutput;
+    fundingOutput.amount = coinbaseTx->vout[0].nValue - CENT;
+    fundingOutput.script = scriptPubKey;
+    fundingPstt.outputs.push_back(fundingOutput);
+    FlatSigningProvider fundingProvider;
+    fundingProvider.keys[coinbaseKey.GetPubKey().GetID()] = coinbaseKey;
+    SignInputForTest(fundingPstt, 0, fundingProvider);
+    CTransactionRef multisigUtxo = MakeTransactionRef(ExtractPSTT(fundingPstt));
+    CheckMempoolResult(*this, multisigUtxo, true);
+
+    CKey destKey;
+    destKey.MakeNewKey(true);
+    auto makeSpend = [&]() {
+        PartiallySignedTapyrusTransaction pstt;
+        pstt.tx_features = CTransaction::CURRENT_FEATURES;
+        PSTTInput input;
+        input.previous_txid = multisigUtxo->GetHashMalFix();
+        input.prev_out_index = 0;
+        input.previous_txid_set = true;
+        input.prev_out_index_set = true;
+        input.utxo = multisigUtxo;
+        input.redeem_script = redeemScript;
+        pstt.inputs.push_back(input);
+        PSTTOutput output;
+        output.amount = multisigUtxo->vout[0].nValue - CENT;
+        output.script = P2PKHScriptFor(destKey);
+        pstt.outputs.push_back(output);
+        return pstt;
+    };
+
+    PartiallySignedTapyrusTransaction signedByA = makeSpend();
+    FlatSigningProvider providerA;
+    providerA.keys[keyA.GetPubKey().GetID()] = keyA;
+    SignatureData sigdataA;
+    BOOST_REQUIRE(SignPSTTInput(providerA, signedByA, 0, sigdataA, SIGHASH_ALL, SignatureScheme::ECDSA) == PSTTSignResult::OK);
+    signedByA.inputs[0].FromSignatureData(sigdataA);
+
+    PartiallySignedTapyrusTransaction signedByB = makeSpend();
+    FlatSigningProvider providerB;
+    providerB.keys[keyB.GetPubKey().GetID()] = keyB;
+    SignatureData sigdataB;
+    BOOST_REQUIRE(SignPSTTInput(providerB, signedByB, 0, sigdataB, SIGHASH_ALL, SignatureScheme::SCHNORR) == PSTTSignResult::OK);
+    signedByB.inputs[0].FromSignatureData(sigdataB);
+
+    // Construction-time: SignPSTTInput's own proactive SCHEME_CONFLICT check
+    // (pstt_sign_scheme_conflict) already refuses to add a second signature
+    // of a different scheme to the same input; that guard is bypassed here
+    // by merging the two partial_sigs maps directly, as a hand-rolled PSTT
+    // or a tampering Combiner might, to confirm IsSane() -- the last line of
+    // defense before Finalizer/Extractor -- independently catches it too.
+    PartiallySignedTapyrusTransaction merged = signedByA;
+    for (const auto& kv : signedByB.inputs[0].partial_sigs) {
+        merged.inputs[0].partial_sigs.insert(kv);
+    }
+    BOOST_REQUIRE_EQUAL(merged.inputs[0].partial_sigs.size(), 2U);
+    BOOST_CHECK(!merged.inputs[0].IsSane());
+
+    // Script-execution-time: assemble the actual mixed scriptSig (in
+    // redeem-script pubkey order) the way an Extractor bypassing IsSane()
+    // would, and confirm VerifyScript rejects it too, via interpreter.cpp's
+    // own CHECKMULTISIG scheme-consistency check -- proving both layers
+    // reject the identical mixed-scheme input, not just that each rejects
+    // something.
+    CScript scriptSig;
+    scriptSig << OP_0
+              << merged.inputs[0].partial_sigs.at(keyA.GetPubKey().GetID()).second
+              << merged.inputs[0].partial_sigs.at(keyB.GetPubKey().GetID()).second
+              << ToByteVector(redeemScript);
+
+    CMutableTransaction mtx;
+    mtx.nFeatures = CTransaction::CURRENT_FEATURES;
+    mtx.vin.emplace_back(COutPoint(multisigUtxo->GetHashMalFix(), 0), scriptSig);
+    mtx.vout.emplace_back(multisigUtxo->vout[0].nValue - CENT, P2PKHScriptFor(destKey));
+
+    ScriptError serror;
+    ColorIdentifier execColorId;
+    bool ok = VerifyScript(mtx.vin[0].scriptSig, scriptPubKey, STANDARD_SCRIPT_VERIFY_FLAGS,
+                            MutableTransactionSignatureChecker(&mtx, 0, multisigUtxo->vout[0].nValue),
+                            execColorId, &serror);
+    BOOST_CHECK(!ok);
+}
+
 // -----------------------------------------------------------------------
 // RPC-dispatch-level tests. The tests above exercise SignPSTTInput/Merge/
 // ExtractPSTT directly; these instead go through the real registered
@@ -1317,8 +1424,8 @@ BOOST_FIXTURE_TEST_CASE(pstt_rpc_decodepstt_shape, TestChainSetup)
     BOOST_REQUIRE(inputs.isArray());
     BOOST_REQUIRE_EQUAL(inputs.size(), 1U);
     const UniValue& in0 = inputs[0];
-    BOOST_CHECK(in0.exists("previous_txid"));
-    BOOST_CHECK(in0.exists("output_index"));
+    BOOST_CHECK(in0.exists("txid"));
+    BOOST_CHECK(in0.exists("vout"));
     BOOST_CHECK(in0.exists("utxo"));
     BOOST_REQUIRE(in0.exists("partial_signatures"));
     BOOST_CHECK(in0.find_value("partial_signatures").isObject());
@@ -1552,6 +1659,57 @@ BOOST_AUTO_TEST_CASE(pstt_sign_redeem_script_hash_mismatch)
     BOOST_CHECK(result == PSTTSignResult::REDEEM_SCRIPT_HASH_MISMATCH);
 }
 
+// CP2SH-specific coverage: ExtractRedeemScriptHash's IsColoredPayToScriptHash()
+// branch skips a 34-byte color-id-push+OP_COLOR prefix before the
+// OP_HASH160/hash/OP_EQUAL suffix that otherwise mirrors plain P2SH -- the
+// generic mismatch test above only exercises the plain-P2SH branch, so these
+// two specifically pin the colored offset (37..57) both ways: a correct
+// redeem script must be accepted (i.e. not misreported as a hash mismatch)
+// and a wrong one must still be caught, exactly as for plain P2SH.
+BOOST_AUTO_TEST_CASE(pstt_sign_redeem_script_hash_cp2sh_match)
+{
+    ColorIdentifier colorId(COutPoint(InsecureRand256(), 0), TokenTypes::NON_REISSUABLE);
+    CScript actualRedeem = CScript() << OP_TRUE;
+    CScript scriptPubKey = GetScriptForDestination(CColorScriptID(CScriptID(actualRedeem), colorId));
+    CTransactionRef utxo = MakeSimpleUtxoTx(scriptPubKey, 100000);
+
+    PartiallySignedTapyrusTransaction pstt;
+    pstt.tx_features = CTransaction::CURRENT_FEATURES;
+    pstt.inputs.push_back(MakeBasicInput(utxo->GetHashMalFix(), 0, utxo));
+    PSTTOutput output;
+    output.amount = 90000;
+    output.script = RandomP2PKHScript();
+    pstt.outputs.push_back(output);
+
+    pstt.inputs[0].redeem_script = actualRedeem; // correct script -- hash matches
+
+    SignatureData sigdata;
+    PSTTSignResult result = SignPSTTInput(DUMMY_SIGNING_PROVIDER, pstt, 0, sigdata, SIGHASH_ALL);
+    BOOST_CHECK(result != PSTTSignResult::REDEEM_SCRIPT_HASH_MISMATCH);
+}
+
+BOOST_AUTO_TEST_CASE(pstt_sign_redeem_script_hash_cp2sh_mismatch)
+{
+    ColorIdentifier colorId(COutPoint(InsecureRand256(), 0), TokenTypes::NON_REISSUABLE);
+    CScript actualRedeem = CScript() << OP_TRUE;
+    CScript scriptPubKey = GetScriptForDestination(CColorScriptID(CScriptID(actualRedeem), colorId));
+    CTransactionRef utxo = MakeSimpleUtxoTx(scriptPubKey, 100000);
+
+    PartiallySignedTapyrusTransaction pstt;
+    pstt.tx_features = CTransaction::CURRENT_FEATURES;
+    pstt.inputs.push_back(MakeBasicInput(utxo->GetHashMalFix(), 0, utxo));
+    PSTTOutput output;
+    output.amount = 90000;
+    output.script = RandomP2PKHScript();
+    pstt.outputs.push_back(output);
+
+    pstt.inputs[0].redeem_script = CScript() << OP_FALSE; // wrong script -- different hash
+
+    SignatureData sigdata;
+    PSTTSignResult result = SignPSTTInput(DUMMY_SIGNING_PROVIDER, pstt, 0, sigdata, SIGHASH_ALL);
+    BOOST_CHECK(result == PSTTSignResult::REDEEM_SCRIPT_HASH_MISMATCH);
+}
+
 BOOST_AUTO_TEST_CASE(pstt_sign_sighash_conflict)
 {
     PartiallySignedTapyrusTransaction pstt = MakeBasicPstt();
@@ -1613,8 +1771,8 @@ static std::string EncodeHexTxForTest(const CMutableTransaction& mtx)
 static UniValue MakeCreatepsttInputEntry(const uint256& txid, uint32_t vout)
 {
     UniValue input(UniValue::VOBJ);
-    input.pushKV("previous_txid", txid.GetHex());
-    input.pushKV("output_index", (uint64_t)vout);
+    input.pushKV("txid", txid.GetHex());
+    input.pushKV("vout", (uint64_t)vout);
     return input;
 }
 
@@ -1947,9 +2105,13 @@ BOOST_FIXTURE_TEST_CASE(pstt_rpc_multi_round_trip_construction, TestingSetup)
     BOOST_CHECK(pstt.inputs[0].previous_txid == utxo1->GetHashMalFix());
     BOOST_CHECK(pstt.inputs[1].previous_txid == utxo2->GetHashMalFix());
     BOOST_CHECK_EQUAL(*pstt.outputs[0].amount, 40000);
-    BOOST_REQUIRE(pstt.tx_modifiable);
-    BOOST_CHECK(!(*pstt.tx_modifiable & PSTT_TXMOD_INPUTS_MODIFIABLE));
-    BOOST_CHECK(!(*pstt.tx_modifiable & PSTT_TXMOD_OUTPUTS_MODIFIABLE));
+    // finalizepsttconstruction clears both flags here, leaving nothing set --
+    // tx_modifiable may be absent or present-with-value-0 (both mean "not
+    // modifiable" on the wire), so compare the effective mask rather than
+    // requiring the field be engaged.
+    uint8_t effective_modifiable = pstt.tx_modifiable.value_or(0);
+    BOOST_CHECK(!(effective_modifiable & PSTT_TXMOD_INPUTS_MODIFIABLE));
+    BOOST_CHECK(!(effective_modifiable & PSTT_TXMOD_OUTPUTS_MODIFIABLE));
 
     // Further Constructor calls are refused now that construction is finished.
     CTransactionRef utxo3 = MakeSimpleUtxoTx(RandomP2PKHScript(), 20000);

@@ -3970,144 +3970,6 @@ void AddKeypathToMap(const CWallet* pwallet, const CKeyID& keyID, std::map<CPubK
     hd_keypaths.emplace(vchPubKey, keypath);
 }
 
-bool FillPSBT(const CWallet* pwallet, PartiallySignedTransaction& psbtx, const CTransaction* txConst, int sighash_type, bool sign, bool bip32derivs)
-{
-    LOCK(pwallet->cs_wallet);
-    // Get all of the previous transactions
-    bool complete = true;
-    for (unsigned int i = 0; i < txConst->vin.size(); ++i) {
-        const CTxIn& txin = txConst->vin[i];
-        PSBTInput& input = psbtx.inputs.at(i);
-
-        // If we don't know about this input, skip it and let someone else deal with it
-        const uint256& txhash = txin.prevout.hashMalFix;
-        const auto it = pwallet->mapWallet.find(txhash);
-        if (it != pwallet->mapWallet.end()) {
-            const CWalletTx& wtx = it->second;
-            if (txin.prevout.n >= wtx.tx->vout.size()) {
-                throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Input prevout index out of range");
-            }
-            input.non_witness_utxo = wtx.tx;
-        }
-
-        // Get the Sighash type
-        if (sign && input.sighash_type > 0 && input.sighash_type != sighash_type) {
-            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Specified Sighash and sighash in PSBT do not match.");
-        }
-
-        SignatureData sigdata;
-        if (sign) {
-            complete &= SignPSBTInput(*pwallet, *psbtx.tx, input, sigdata, i, sighash_type);
-        } else {
-            complete &= SignPSBTInput(PublicOnlySigningProvider(pwallet), *psbtx.tx, input, sigdata, i, sighash_type);
-        }
-
-
-        // Get public key paths
-        if (bip32derivs) {
-            for (const auto& pubkey_it : sigdata.misc_pubkeys) {
-                AddKeypathToMap(pwallet, pubkey_it.first, input.hd_keypaths);
-            }
-        }
-    }
-
-    // Fill in the bip32 keypaths and redeemscripts for the outputs so that hardware wallets can identify change
-    for (unsigned int i = 0; i < txConst->vout.size(); ++i) {
-        const CTxOut& out = txConst->vout.at(i);
-        PSBTOutput& psbt_out = psbtx.outputs.at(i);
-
-        // Dummy tx so we can use ProduceSignature to get stuff out
-        /*CMutableTransaction dummy_tx;
-        dummy_tx.vin.push_back(CTxIn());
-        dummy_tx.vout.push_back(CTxOut());*/
-
-        // Fill a SignatureData with output info
-        SignatureData sigdata;
-        psbt_out.FillSignatureData(sigdata);
-
-        MutableTransactionSignatureCreator creator(psbtx.tx.get_ptr(), 0, out.nValue, 1);
-        ProduceSignature(*pwallet, creator, out.scriptPubKey, sigdata);
-        psbt_out.FromSignatureData(sigdata);
-
-        // Get public key paths
-        if (bip32derivs) {
-            for (const auto& pubkey_it : sigdata.misc_pubkeys) {
-                AddKeypathToMap(pwallet, pubkey_it.first, psbt_out.hd_keypaths);
-            }
-        }
-    }
-    return complete;
-}
-
-UniValue walletprocesspsbt(const JSONRPCRequest& request)
-{
-    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
-    CWallet* const pwallet = wallet.get();
-
-    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
-        return NullUniValue;
-    }
-
-    if (request.fHelp || request.params.size() < 1 || request.params.size() > 4)
-        throw std::runtime_error(
-            "walletprocesspsbt \"psbt\" ( sign \"sighashtype\" bip32derivs )\n"
-            "\nUpdate a PSBT with input information from our wallet and then sign inputs\n"
-            "that we can sign for.\n"
-            + HelpRequiringPassphrase(pwallet) + "\n"
-
-            "\nArguments:\n"
-            "1. \"psbt\"                      (string, required) The transaction base64 string\n"
-            "2. sign                          (boolean, optional, default=true) Also sign the transaction when updating\n"
-            "3. \"sighashtype\"            (string, optional, default=ALL) The signature hash type to sign with if not specified by the PSBT. Must be one of\n"
-            "       \"ALL\"\n"
-            "       \"NONE\"\n"
-            "       \"SINGLE\"\n"
-            "       \"ALL|ANYONECANPAY\"\n"
-            "       \"NONE|ANYONECANPAY\"\n"
-            "       \"SINGLE|ANYONECANPAY\"\n"
-            "4. bip32derivs                    (boolean, optional, default=false) If true, includes the BIP 32 derivation paths for public keys if we know them\n"
-
-            "\nResult:\n"
-            "{\n"
-            "  \"psbt\" : \"value\",          (string) The base64-encoded partially signed transaction\n"
-            "  \"complete\" : true|false,   (boolean) If the transaction has a complete set of signatures\n"
-            "  ]\n"
-            "}\n"
-
-            "\nExamples:\n"
-            + HelpExampleCli("walletprocesspsbt", "\"psbt\"")
-        );
-
-    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VBOOL, UniValue::VSTR});
-
-    // Unserialize the transaction
-    PartiallySignedTransaction psbtx;
-    std::string error;
-    if (!DecodePSBT(psbtx, request.params[0].get_str(), error)) {
-        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, strprintf("TX decode failed %s", error));
-    }
-
-    // Get the sighash type
-    int nHashType = ParseSighashString(request.params[2]);
-
-    // Use CTransaction for the constant parts of the
-    // transaction to avoid rehashing.
-    const CTransaction txConst(*psbtx.tx);
-
-    // Fill transaction with our data and also sign
-    bool sign = request.params[1].isNull() ? true : request.params[1].get_bool();
-    bool bip32derivs = request.params[3].isNull() ? false : request.params[3].get_bool();
-    bool complete = FillPSBT(pwallet, psbtx, &txConst, nHashType, sign, bip32derivs);
-
-    UniValue result(UniValue::VOBJ);
-    CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
-    ssTx << psbtx;
-    result.pushKV("psbt", EncodeBase64((unsigned char*)ssTx.data(), ssTx.size()));
-    result.pushKV("complete", complete);
-
-    return result;
-}
-
 UniValue walletupdatepstt(const JSONRPCRequest& request)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
@@ -4166,9 +4028,8 @@ UniValue walletsignpstt(const JSONRPCRequest& request)
     if (request.fHelp || request.params.size() < 1 || request.params.size() > 3)
         throw std::runtime_error(
             "walletsignpstt \"pstt\" ( \"sighashtype\" \"sigscheme\" )\n"
-            "\nSign a PSTT's inputs using our wallet's keys.\n"
-            "This is the Signer role only -- it relies on a prior Updater step\n"
-            "(walletupdatepstt) having already attached each input's UTXO.\n"
+            "\nSign a PSTT's inputs using our wallet's keys. Implements the Signer role;\n"
+            "requires walletupdatepstt to have already attached each input's UTXO.\n"
             + HelpRequiringPassphrase(pwallet) + "\n"
 
             "\nArguments:\n"
@@ -4205,6 +4066,7 @@ UniValue walletsignpstt(const JSONRPCRequest& request)
 
     LOCK(pwallet->cs_wallet);
     bool complete = true;
+    bool signed_any = false;
     for (unsigned int i = 0; i < pstt.inputs.size(); ++i) {
         PSTTInput& input = pstt.inputs.at(i);
         if (!input.final_script_sig.empty()) continue; // already finalized
@@ -4224,8 +4086,20 @@ UniValue walletsignpstt(const JSONRPCRequest& request)
         if (result != PSTTSignResult::OK) {
             throw JSONRPCError(RPC_TRANSACTION_ERROR, strprintf("Signing input %d failed: %s", i, PSTTSignResultToString(result)));
         }
+        // SignPSTTInput returns OK even when this wallet has no key for the
+        // input and contributed nothing -- only count it toward the
+        // post-sign PSTT_GLOBAL_TX_MODIFIABLE mutation if a signature was
+        // actually added in this call.
+        size_t partial_sigs_before = input.partial_sigs.size();
         input.FromSignatureData(sigdata);
         if (!sigdata.complete) complete = false;
+        if (!input.final_script_sig.empty() || input.partial_sigs.size() > partial_sigs_before) {
+            signed_any = true;
+        }
+    }
+
+    if (signed_any) {
+        ApplyPsttPostSignModifiableRules(pstt, sighash);
     }
 
     UniValue result(UniValue::VOBJ);
@@ -4293,119 +4167,6 @@ UniValue walletprocesspstt(const JSONRPCRequest& request)
     return result;
 }
 
-UniValue walletcreatefundedpsbt(const JSONRPCRequest& request)
-{
-    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
-    CWallet* const pwallet = wallet.get();
-
-    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
-        return NullUniValue;
-    }
-
-    if (request.fHelp || request.params.size() < 2 || request.params.size() > 5)
-        throw std::runtime_error(
-                            "walletcreatefundedpsbt [{\"txid\":\"id\",\"vout\":n},...] [{\"address\":amount},{\"data\":\"hex\"},...] ( locktime ) ( replaceable ) ( options bip32derivs )\n"
-                            "\nCreates and funds a transaction in the Partially Signed Transaction format. Inputs will be added if supplied inputs are not enough\n"
-                            "Implements the Creator and Updater roles.\n"
-                            "\nArguments:\n"
-                            "1. \"inputs\"                (array, required) A json array of json objects\n"
-                            "     [\n"
-                            "       {\n"
-                            "         \"txid\":\"id\",      (string, required) The transaction id\n"
-                            "         \"vout\":n,         (numeric, required) The output number\n"
-                            "         \"sequence\":n      (numeric, optional) The sequence number\n"
-                            "       } \n"
-                            "       ,...\n"
-                            "     ]\n"
-                            "2. \"outputs\"               (array, required) a json array with outputs (key-value pairs)\n"
-                            "   [\n"
-                            "    {\n"
-                            "      \"address\": x.xxx,    (obj, optional) A key-value pair. The key (string) is the tapyrus address, the value (float or string) is the amount in " + CURRENCY_UNIT + "\n"
-                            "    },\n"
-                            "    {\n"
-                            "      \"data\": \"hex\"        (obj, optional) A key-value pair. The key must be \"data\", the value is hex encoded data\n"
-                            "    }\n"
-                            "    ,...                     More key-value pairs of the above form. For compatibility reasons, a dictionary, which holds the key-value pairs directly, is also\n"
-                            "                             accepted as second parameter.\n"
-                            "   ]\n"
-                            "3. locktime                  (numeric, optional, default=0) Raw locktime. Non-0 value also locktime-activates inputs\n"
-                            "                             Allows this transaction to be replaced by a transaction with higher fees. If provided, it is an error if explicit sequence numbers are incompatible.\n"
-                            "4. options                 (object, optional)\n"
-                            "   {\n"
-                            "     \"changeAddress\"          (string, optional, default pool address) The tapyrus address to receive the change\n"
-                            "     \"changePosition\"         (numeric, optional, default random) The index of the " + CURRENCY_UNIT + " change output\n"
-                            "     \"includeWatching\"        (boolean, optional, default false) Also select inputs which are watch only\n"
-                            "     \"lockUnspents\"           (boolean, optional, default false) Lock selected unspent outputs\n"
-                            "     \"feeRate\"                (numeric, optional, default not set: makes wallet determine the fee) Set a specific fee rate in " + CURRENCY_UNIT + "/kB\n"
-                            "     \"subtractFeeFromOutputs\" (array, optional) A json array of integers.\n"
-                            "                              The fee will be equally deducted from the amount of each specified output.\n"
-                            "                              The outputs are specified by their zero-based index, before any change output is added.\n"
-                            "                              Those recipients will receive less TPC than you enter in their corresponding amount field.\n"
-                            "                              If no outputs are specified here, the sender pays the fee.\n"
-                            "                                  [vout_index,...]\n"
-                            "     \"replaceable\"            (boolean, optional) Marks this transaction as BIP125 replaceable.\n"
-                            "                              Allows this transaction to be replaced by a transaction with higher fees\n"
-                            "     \"conf_target\"            (numeric, optional) Confirmation target (in blocks)\n"
-                            "     \"estimate_mode\"          (string, optional, default=UNSET) The fee estimate mode, must be one of:\n"
-                            "         \"UNSET\"\n"
-                            "         \"ECONOMICAL\"\n"
-                            "         \"CONSERVATIVE\"\n"
-                            "   }\n"
-                            "5. bip32derivs                    (boolean, optional, default=false) If true, includes the BIP 32 derivation paths for public keys if we know them\n"
-                            "\nResult:\n"
-                            "{\n"
-                            "  \"psbt\": \"value\",        (string)  The resulting raw transaction (base64-encoded string)\n"
-                            "  \"fee\":       n,         (numeric) Fee in " + CURRENCY_UNIT + " the resulting transaction pays\n"
-                            "  \"changepos\": n          (numeric) The position of the added change output, or -1\n"
-                            "}\n"
-                            "\nExamples:\n"
-                            "\nCreate a transaction with no inputs\n"
-                            + HelpExampleCli("walletcreatefundedpsbt", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\" \"[{\\\"data\\\":\\\"00010203\\\"}]\"")
-                            );
-
-    RPCTypeCheck(request.params, {
-        UniValue::VARR,
-        UniValueType(), // ARR or OBJ, checked later
-        UniValue::VNUM,
-        UniValue::VOBJ,
-        UniValue::VBOOL
-        }, true
-    );
-
-    CAmount fee;
-    CWallet::ChangePosInOut change_position;
-    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], request.params[3]["replaceable"]);
-    FundTransaction(pwallet, rawTx, fee, change_position, request.params[3]);
-
-    // Make a blank psbt
-    PartiallySignedTransaction psbtx;
-    psbtx.tx = rawTx;
-    for (unsigned int i = 0; i < rawTx.vin.size(); ++i) {
-        psbtx.inputs.push_back(PSBTInput());
-    }
-    for (unsigned int i = 0; i < rawTx.vout.size(); ++i) {
-        psbtx.outputs.push_back(PSBTOutput());
-    }
-
-    // Use CTransaction for the constant parts of the
-    // transaction to avoid rehashing.
-    const CTransaction txConst(*psbtx.tx);
-
-    // Fill transaction with out data but don't sign
-    bool bip32derivs = request.params[4].isNull() ? false : request.params[4].get_bool();
-    FillPSBT(pwallet, psbtx, &txConst, 1, false, bip32derivs);
-
-    // Serialize the PSBT
-    CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
-    ssTx << psbtx;
-
-    UniValue result(UniValue::VOBJ);
-    result.pushKV("psbt", EncodeBase64((unsigned char*)ssTx.data(), ssTx.size()));
-    result.pushKV("fee", ValueFromAmount(fee));
-    result.pushKV("changepos", change_position[ColorIdentifier()]);
-    return result;
-}
-
 UniValue walletcreatefundedpstt(const JSONRPCRequest& request)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
@@ -4417,27 +4178,26 @@ UniValue walletcreatefundedpstt(const JSONRPCRequest& request)
 
     if (request.fHelp || request.params.size() < 2 || request.params.size() > 7)
         throw std::runtime_error(
-                            "walletcreatefundedpstt [{\"previous_txid\":\"id\",\"output_index\":n},...] [{\"address\":amount},{\"data\":\"hex\"},...] ( fallback_locktime ) ( options bip32derivs inputs_modifiable outputs_modifiable )\n"
-                            "\nCreates and funds a PSTT. Inputs will be added if the supplied inputs don't\n"
-                            "cover the outputs. Implements the Creator, Constructor (funding), and\n"
-                            "Updater roles.\n"
+                            "walletcreatefundedpstt [{\"txid\":\"id\",\"vout\":n},...] [{\"address\":amount},{\"data\":\"hex\"},...] ( fallback_locktime ) ( options bip32derivs inputs_modifiable outputs_modifiable )\n"
+                            "\nCreates and funds a PSTT, adding inputs if needed to cover the outputs.\n"
+                            "Implements the Creator, Constructor (funding), and Updater roles.\n"
                             "\nArguments:\n"
                             "1. \"inputs\"                (array, required) A json array of json objects\n"
                             "     [\n"
                             "       {\n"
-                            "         \"previous_txid\":\"id\", (string, required) The transaction id\n"
-                            "         \"output_index\":n,     (numeric, required) The output number\n"
-                            "         \"sequence\":n          (numeric, optional) The sequence number\n"
+                            "         \"txid\":\"id\",         (string, required) The malfix (malleability-fixed) transaction id of the transaction whose output is being spent\n"
+                            "         \"vout\":n,             (numeric, required) The index of that output within the transaction referenced by txid\n"
+                            "         \"sequence\":n          (numeric, optional, default=0xffffffff) The sequence number. The default disables any locktime constraint from this input; a lower value makes the PSTT's locktime binding, may also encode a BIP68 relative locktime, and can opt this transaction in to BIP125 replace-by-fee\n"
                             "       } \n"
                             "       ,...\n"
                             "     ]\n"
                             "2. \"outputs\"               (array, required) a json array with outputs (key-value pairs)\n"
                             "   [\n"
                             "    {\n"
-                            "      \"address\": x.xxx,    (obj, optional) A key-value pair. The key (string) is the tapyrus address, the value (float or string) is the amount in " + CURRENCY_UNIT + "\n"
+                            "      \"address\": x.xxx,    (obj, optional) A key-value pair. The key (string) is a base58-encoded Tapyrus address, the value (float or string) is the amount in " + CURRENCY_UNIT + "\n"
                             "    },\n"
                             "    {\n"
-                            "      \"data\": \"hex\"        (obj, optional) A key-value pair. The key must be \"data\", the value is hex encoded data\n"
+                            "      \"data\": \"hex\"        (obj, optional) A key-value pair whose key must be the literal string \"data\"; the value is arbitrary hex-encoded data embedded via OP_RETURN\n"
                             "    }\n"
                             "    ,...                     More key-value pairs of the above form. For compatibility reasons, a dictionary, which holds the key-value pairs directly, is also\n"
                             "                             accepted as second parameter.\n"
@@ -4445,7 +4205,7 @@ UniValue walletcreatefundedpstt(const JSONRPCRequest& request)
                             "3. fallback_locktime       (numeric, optional, default=0) PSTT_GLOBAL_FALLBACK_LOCKTIME -- the locktime used when no input constrains one\n"
                             "4. options                 (object, optional)\n"
                             "   {\n"
-                            "     \"changeAddress\"          (string, optional, default pool address) The tapyrus address to receive the change\n"
+                            "     \"changeAddress\"          (string, optional, default pool address) The base58-encoded Tapyrus address to receive the change\n"
                             "     \"changePosition\"         (numeric, optional, default random) The index of the " + CURRENCY_UNIT + " change output\n"
                             "     \"includeWatching\"        (boolean, optional, default false) Also select inputs which are watch only\n"
                             "     \"lockUnspents\"           (boolean, optional, default false) Lock selected unspent outputs\n"
@@ -4475,7 +4235,7 @@ UniValue walletcreatefundedpstt(const JSONRPCRequest& request)
                             "}\n"
                             "\nExamples:\n"
                             "\nCreate a transaction with no inputs\n"
-                            + HelpExampleCli("walletcreatefundedpstt", "\"[{\\\"previous_txid\\\":\\\"myid\\\",\\\"output_index\\\":0}]\" \"[{\\\"data\\\":\\\"00010203\\\"}]\"")
+                            + HelpExampleCli("walletcreatefundedpstt", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\" \"[{\\\"data\\\":\\\"00010203\\\"}]\"")
                             );
 
     RPCTypeCheck(request.params, {
@@ -4495,11 +4255,12 @@ UniValue walletcreatefundedpstt(const JSONRPCRequest& request)
     // locktime param (not NullUniValue) so its existing nSequence = max-1
     // coupling applies when the locktime is nonzero -- otherwise a nonzero
     // fallback_locktime would be consensus-inert once extracted (nLockTime
-    // is only honored when some input carries a non-final sequence). Inputs
-    // are parsed separately via ParsePsttInputEntries (PSTT's own
-    // previous_txid/output_index field names) -- an empty array is passed
-    // here so ConstructTransaction only handles outputs/locktime, not
-    // createrawtransaction's txid/vout input shape.
+    // is only honored when some input carries a non-final sequence).
+    // Inputs are parsed separately via ParsePsttInputEntries, not passed
+    // through ConstructTransaction directly -- an empty array is passed here
+    // so ConstructTransaction only handles outputs/locktime. Both use
+    // createrawtransaction's txid/vout field names; ParsePsttInputEntries
+    // just also accepts an optional "sequence" per entry.
     CMutableTransaction rawTx = ConstructTransaction(UniValue(UniValue::VARR), request.params[1], request.params[2], request.params[3]["replaceable"]);
     rawTx.vin = ParsePsttInputEntries(request.params[0], rawTx.nLockTime, request.params[3]["replaceable"].isTrue());
     FundTransaction(pwallet, rawTx, fee, change_position, request.params[3]);
@@ -4533,14 +4294,227 @@ UniValue walletcreatefundedpstt(const JSONRPCRequest& request)
     if (modifiable != 0) pstt.tx_modifiable = modifiable;
 
     // Updater only -- fills in PSTT_IN_UTXO/BIP32 derivation for the inputs
-    // FundTransaction just selected, no signing.
-    FillPSTT(pwallet, pstt, 1, false, bip32derivs);
+    // FundTransaction just selected, no signing. SIGHASH_ALL here is a
+    // placeholder: FillPSTT still checks it against every input's own
+    // PSTT_IN_SIGHASH_TYPE (if explicitly set on the wire) regardless of
+    // sign, but none of this RPC's own inputs ever carry that field, so no
+    // real input's sighash is affected by this value.
+    FillPSTT(pwallet, pstt, SIGHASH_ALL, /*sign=*/false, bip32derivs);
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("pstt", EncodePSTT(pstt));
     result.pushKV("fee", ValueFromAmount(fee));
     result.pushKV("changepos", change_position[ColorIdentifier()]);
     return result;
+}
+
+UniValue walletfundpsttfee(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    if (request.fHelp || request.params.size() < 2 || request.params.size() > 4)
+        throw std::runtime_error(
+            "walletfundpsttfee \"pstt\" \"mode\" ( fee_input change_address )\n"
+            "\nActs as the TPC Fee Provider for a PSTT built by a Colored-Coin-only party\n"
+            "(fees are payable only in TPC). Implements the Constructor role for the new\n"
+            "TPC input (and change output, in interactive mode), plus the Updater role\n"
+            "for its UTXO.\n"
+            "\n\"noninteractive\" mode adds exactly the given fee_input; its color is\n"
+            "verified from its scriptPubKey, and a colored-coin outpoint is rejected.\n"
+            "\n\"interactive\" mode runs this wallet's own coin selection to add TPC\n"
+            "input(s) and change, then finalizes construction. Every existing PSTT\n"
+            "input must already be known to this wallet (owned or watch-only) for coin\n"
+            "selection to account for it.\n"
+            + HelpRequiringPassphrase(pwallet) + "\n"
+
+            "\nArguments:\n"
+            "1. \"pstt\"                 (string, required) A base64 string of a PSTT\n"
+            "2. \"mode\"                 (string, required) \"noninteractive\" or \"interactive\"\n"
+            "3. fee_input              (object, required for noninteractive, ignored otherwise)\n"
+            "   {\n"
+            "     \"txid\":\"id\",         (string, required) The malfix (malleability-fixed) transaction id of the transaction whose output is being spent\n"
+            "     \"vout\":n              (numeric, required) The index of that output within the transaction referenced by txid; must reference a TPC output\n"
+            "   }\n"
+            "4. \"change_address\"       (string, optional, interactive only, default a new wallet address) Base58-encoded Tapyrus address for the TPC change output\n"
+
+            "\nResult:\n"
+            "  \"pstt\"        (string)  The resulting PSTT (base64-encoded string)\n"
+
+            "\nExamples:\n"
+            + HelpExampleCli("walletfundpsttfee", "\"pstt\" \"noninteractive\" \"{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}\"")
+            + HelpExampleCli("walletfundpsttfee", "\"pstt\" \"interactive\"")
+        );
+
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR, UniValueType(), UniValue::VSTR}, true);
+
+    PartiallySignedTapyrusTransaction pstt;
+    std::string error;
+    if (!DecodePSTT(pstt, request.params[0].get_str(), error)) {
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, strprintf("TX decode failed %s", error));
+    }
+
+    std::string mode = request.params[1].get_str();
+    if (mode != "noninteractive" && mode != "interactive") {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "mode must be \"noninteractive\" or \"interactive\"");
+    }
+
+    if (!pstt.tx_modifiable || !(*pstt.tx_modifiable & PSTT_TXMOD_INPUTS_MODIFIABLE)) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "PSTT inputs are not modifiable");
+    }
+
+    if (mode == "noninteractive") {
+        // A standalone input add (no paired output) is exactly what
+        // addinputtopstt itself would refuse once a SIGHASH_SINGLE
+        // signature exists -- same rule applies here for the same reason.
+        if (pstt.tx_modifiable && (*pstt.tx_modifiable & PSTT_TXMOD_HAS_SIGHASH_SINGLE)) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER,
+                "PSTT has a SIGHASH_SINGLE signature; a standalone input add is not allowed");
+        }
+        if (request.params[2].isNull()) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "fee_input is required for noninteractive mode");
+        }
+
+        UniValue fee_input = request.params[2].get_obj();
+        uint256 txid = ParseHashO(fee_input, "txid");
+        const UniValue& vout_v = fee_input.find_value("vout");
+        if (!vout_v.isNum()) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, missing vout key");
+        }
+        int nOutput = vout_v.get_int();
+        if (nOutput < 0) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, vout must be positive");
+        }
+
+        // Looked up via the node's own chain/mempool index, not the wallet --
+        // the fee_input is the provider's own coin, but nothing here requires
+        // it to be *this* wallet specifically, matching signpsttwithkey's own
+        // no-wallet-required Signer path.
+        CTransactionRef feeTx;
+        uint256 hashBlock;
+        if (!GetTransaction(txid, feeTx, Params().GetConsensus(), hashBlock, true)) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "fee_input's txid not found");
+        }
+        if ((unsigned int)nOutput >= feeTx->vout.size()) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "fee_input's vout is out of range");
+        }
+        // Color is always derived from the scriptPubKey, never assumed from
+        // the caller's stated intent (doc/tapyrus/pstt.md, Fee Provider
+        // workflow) -- a colored-coin outpoint must be rejected outright.
+        ColorIdentifier colorId = GetColorIdFromScript(feeTx->vout[nOutput].scriptPubKey);
+        if (colorId.type != TokenTypes::NONE) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "fee_input must reference a TPC output; colored-coin outpoints are rejected");
+        }
+
+        PSTTInput input;
+        input.previous_txid = txid;
+        input.prev_out_index = (uint32_t)nOutput;
+        input.previous_txid_set = true;
+        input.prev_out_index_set = true;
+        input.utxo = feeTx;
+        pstt.inputs.push_back(std::move(input));
+    } else {
+        if (!(*pstt.tx_modifiable & PSTT_TXMOD_OUTPUTS_MODIFIABLE)) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "PSTT outputs are not modifiable");
+        }
+
+        size_t original_input_count = pstt.inputs.size();
+        size_t original_output_count = pstt.outputs.size();
+
+        // Materialize the PSTT's current inputs/outputs so FundTransaction
+        // can size/fund around them. Existing signatures are irrelevant here
+        // (scriptSig stays empty) -- FundTransaction never touches inputs
+        // already present, only appends new ones (see its own doc comment).
+        CMutableTransaction rawTx;
+        rawTx.nFeatures = pstt.tx_features.value_or(CTransaction::CURRENT_FEATURES);
+        for (const PSTTInput& in : pstt.inputs) {
+            CTxIn txin;
+            txin.prevout = COutPoint(in.previous_txid, in.prev_out_index);
+            txin.nSequence = in.sequence.value_or(CTxIn::SEQUENCE_FINAL);
+            rawTx.vin.push_back(txin);
+        }
+        for (const PSTTOutput& out : pstt.outputs) {
+            rawTx.vout.emplace_back(out.amount.value_or(0), out.script);
+        }
+
+        UniValue options(UniValue::VOBJ);
+        if (!request.params[3].isNull()) {
+            options.pushKV("changeAddress", request.params[3].get_str());
+        }
+        // The PSTT's existing inputs are the other party's coins, not this
+        // wallet's own -- they're only known here as watch-only (see this
+        // RPC's own help text). Without this, FundTransaction can't even
+        // dummy-sign them for size estimation and fails outright.
+        options.pushKV("includeWatching", true);
+
+        CAmount fee;
+        CWallet::ChangePosInOut change_position;
+        FundTransaction(pwallet, rawTx, fee, change_position, options);
+
+        // Coin selection can select more than one input (CWallet::CreateTransaction
+        // pushes one CTxIn per selected coin) while adding at most one change
+        // output, and doesn't always add a change output at all -- an exact-amount
+        // match needs none, and CWallet::CreateTransaction folds dust change into
+        // the fee instead of creating it (see IsDust handling there). Any mismatch
+        // between the number of inputs and outputs just added -- not only the
+        // all-inputs-no-output case -- breaks addinputoutputpairtopstt's strict
+        // 1:1 invariant, which is exactly the standalone input add that
+        // addinputtopstt itself already refuses on a SIGHASH_SINGLE-marked PSTT.
+        size_t inputs_added = rawTx.vin.size() - original_input_count;
+        size_t outputs_added = rawTx.vout.size() - original_output_count;
+        if (inputs_added != outputs_added &&
+            pstt.tx_modifiable && (*pstt.tx_modifiable & PSTT_TXMOD_HAS_SIGHASH_SINGLE)) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER,
+                "PSTT has a SIGHASH_SINGLE signature; coin selection added a different number of inputs and outputs, which is not allowed -- provide a fee_input directly via noninteractive mode instead");
+        }
+
+        for (size_t i = original_input_count; i < rawTx.vin.size(); ++i) {
+            const CTxIn& txin = rawTx.vin[i];
+            PSTTInput input;
+            input.previous_txid = txin.prevout.hashMalFix;
+            input.prev_out_index = txin.prevout.n;
+            input.previous_txid_set = true;
+            input.prev_out_index_set = true;
+            if (txin.nSequence != CTxIn::SEQUENCE_FINAL) input.sequence = txin.nSequence;
+            pstt.inputs.push_back(std::move(input));
+        }
+        for (size_t i = original_output_count; i < rawTx.vout.size(); ++i) {
+            const CTxOut& txout = rawTx.vout[i];
+            PSTTOutput output;
+            output.amount = txout.nValue;
+            output.script = txout.scriptPubKey;
+            pstt.outputs.push_back(std::move(output));
+        }
+
+        // Whatever inputs and outputs coin selection just added are done --
+        // declare construction finished the same way finalizepsttconstruction
+        // would, so the caller doesn't need a separate round trip for it.
+        uint8_t modifiable = pstt.tx_modifiable.value_or(0);
+        modifiable &= ~(PSTT_TXMOD_INPUTS_MODIFIABLE | PSTT_TXMOD_OUTPUTS_MODIFIABLE);
+        // Omit the field entirely rather than writing an explicit zero --
+        // "absent" and "present with value 0" both mean "not modifiable" on
+        // the wire (see doc/tapyrus/pstt.md's PSTT_GLOBAL_TX_MODIFIABLE
+        // row), matching createpstt/converttopstt/walletcreatefundedpstt's
+        // own convention.
+        pstt.tx_modifiable = (modifiable != 0) ? boost::optional<uint8_t>(modifiable) : boost::none;
+    }
+
+    // Updater pass for the newly attached input(s) -- sign=false so this
+    // never produces a signature, only PSTT_IN_UTXO/redeem-script/BIP32
+    // discovery. Safe to run over the whole PSTT: FillPSTT skips
+    // already-finalized inputs and never touches an existing signature.
+    // SIGHASH_ALL here is a placeholder, same as walletcreatefundedpstt's
+    // own Updater-only FillPSTT call above: it's still checked against each
+    // input's own PSTT_IN_SIGHASH_TYPE if one is explicitly set on the
+    // wire, but nothing in this workflow (including the other party's
+    // already-signed input) ever sets that field.
+    FillPSTT(pwallet, pstt, SIGHASH_ALL, /*sign=*/false, /*bip32derivs=*/false);
+
+    return EncodePSTT(pstt);
 }
 
 static ColorIdentifier getColorIdFromRequest(const JSONRPCRequest& request, bool tokenValueIsPresent = true)
@@ -5060,12 +5034,11 @@ static const CRPCCommand commands[] =
 { //  category              name                                actor (function)                argNames
     //  --------------------- ------------------------          -----------------------         ----------
     { "rawtransactions",    "fundrawtransaction",               &fundrawtransaction,            {"hexstring","options"} },
-    { "wallet",             "walletprocesspsbt",                &walletprocesspsbt,             {"psbt","sign","sighashtype","bip32derivs"} },
-    { "wallet",             "walletcreatefundedpsbt",           &walletcreatefundedpsbt,        {"inputs","outputs","locktime","options","bip32derivs"} },
     { "wallet",             "walletcreatefundedpstt",           &walletcreatefundedpstt,        {"inputs","outputs","fallback_locktime","options","bip32derivs","inputs_modifiable","outputs_modifiable"} },
     { "wallet",             "walletupdatepstt",                 &walletupdatepstt,              {"pstt","bip32derivs"} },
     { "wallet",             "walletsignpstt",                   &walletsignpstt,                {"pstt","sighashtype","sigscheme"} },
     { "wallet",             "walletprocesspstt",                &walletprocesspstt,             {"pstt","sign","sighashtype","bip32derivs","sigscheme"} },
+    { "wallet",             "walletfundpsttfee",                &walletfundpsttfee,             {"pstt","mode","fee_input","change_address"} },
     { "hidden",             "resendwallettransactions",         &resendwallettransactions,      {} },
     { "wallet",             "abandontransaction",               &abandontransaction,            {"txid"} },
     { "wallet",             "abortrescan",                      &abortrescan,                   {} },

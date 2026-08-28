@@ -122,8 +122,9 @@ class PSTTTest(BitcoinTestFramework):
         cc_decoded = self.nodes[0].decodepstt(cc_processed['pstt'])
         for inp in cc_decoded['inputs']:
             assert 'utxo' in inp
-        # decision #15 (doc/tapyrus/pstt.md): every input/output is annotated
-        # with the existing token/amount display convention.
+        # doc/tapyrus/pstt.md's Colored Coin balance verification section:
+        # every input/output is annotated with the existing token/amount
+        # display convention.
         for out in cc_decoded['outputs']:
             assert 'token' in out
             assert 'amount' in out
@@ -134,7 +135,7 @@ class PSTTTest(BitcoinTestFramework):
         raw_utxo_tx = self.nodes[0].getrawtransaction(utxo['txid'], True)
         oob_vout = len(raw_utxo_tx['vout']) + 5
         bad_pstt = self.nodes[0].createpstt(
-            [{"previous_txid": utxo['txid'], "output_index": oob_vout}],
+            [{"txid": utxo['txid'], "vout": oob_vout}],
             {self.nodes[0].getnewaddress(): utxo['amount'] - Decimal('0.01')}
         )
         assert_raises_rpc_error(-22, "Input prevout index out of range",
@@ -171,13 +172,13 @@ class PSTTTest(BitcoinTestFramework):
                 p2pkh_pos = out['n']
 
         # spend single key from node 1
-        rawtx = self.nodes[1].walletcreatefundedpstt([{"previous_txid":txid,"output_index":p2pkh_pos}], {self.nodes[1].getnewaddress():29.99})['pstt']
+        rawtx = self.nodes[1].walletcreatefundedpstt([{"txid":txid,"vout":p2pkh_pos}], {self.nodes[1].getnewaddress():29.99})['pstt']
         walletprocesspstt_out = self.nodes[1].walletprocesspstt(rawtx)
         assert_equal(walletprocesspstt_out['complete'], True)
         self.nodes[1].sendrawtransaction(self.nodes[1].finalizepstt(walletprocesspstt_out['pstt'])['hex'], True)
 
         # partially sign multisig things with node 1
-        psttx = self.nodes[1].walletcreatefundedpstt([{"previous_txid":txid,"output_index":p2sh_pos}], {self.nodes[1].getnewaddress():29.99})['pstt']
+        psttx = self.nodes[1].walletcreatefundedpstt([{"txid":txid,"vout":p2sh_pos}], {self.nodes[1].getnewaddress():29.99})['pstt']
         walletprocesspstt_out = self.nodes[1].walletprocesspstt(psttx)
         psttx = walletprocesspstt_out['pstt']
         assert_equal(walletprocesspstt_out['complete'], False)
@@ -217,13 +218,13 @@ class PSTTTest(BitcoinTestFramework):
         vout2 = find_output(self.nodes[2], txid2, 13)
 
         # Create a pstt spending outputs from nodes 1 and 2
-        pstt_orig = self.nodes[0].createpstt([{"previous_txid":txid1, "output_index":vout1}, {"previous_txid":txid2, "output_index":vout2}], {self.nodes[0].getnewaddress():25.999})
+        pstt_orig = self.nodes[0].createpstt([{"txid":txid1, "vout":vout1}, {"txid":txid2, "vout":vout2}], {self.nodes[0].getnewaddress():25.999})
 
         # Update pstts, should only have data for one input and not the other.
         # Unlike decodepsbt (whose per-input entries are empty {} until
         # something is explicitly added, since PSBT's embedded global tx
-        # already carries previous_txid/output_index), PSTT's decodepstt
-        # per-input entries always carry previous_txid/output_index -- PSTT
+        # already carries txid/vout), PSTT's decodepstt
+        # per-input entries always carry txid/vout -- PSTT
         # has no separate global tx to fall back on for those, so the dict
         # is never actually empty. Check for walletprocesspstt's
         # Updater-attached utxo specifically instead of dict truthiness.
@@ -247,8 +248,11 @@ class PSTTTest(BitcoinTestFramework):
         # have the correct sequence numbers based on
         # replaceable arg
         block_height = self.nodes[0].getblockcount()
-        unspent = self.nodes[0].listunspent()[0]
-        psttx_info = self.nodes[0].walletcreatefundedpstt([{"previous_txid":unspent["txid"], "output_index":unspent["vout"]}], [{self.nodes[2].getnewaddress():unspent["amount"]+1}], block_height+2, {"replaceable":True}, False)
+        # Same colored-change hazard as above: node0 already holds colored
+        # UTXOs by this point, and this input is paired with a plain
+        # (uncolored) destination below.
+        unspent = next(u for u in self.nodes[0].listunspent() if u.get('token') == 'TPC')
+        psttx_info = self.nodes[0].walletcreatefundedpstt([{"txid":unspent["txid"], "vout":unspent["vout"]}], [{self.nodes[2].getnewaddress():unspent["amount"]+1}], block_height+2, {"replaceable":True}, False)
         decoded_pstt = self.nodes[0].decodepstt(psttx_info["pstt"])
         for pstt_in in decoded_pstt["inputs"]:
            assert_equal(pstt_in["sequence"], MAX_BIP125_RBF_SEQUENCE)
@@ -256,7 +260,7 @@ class PSTTTest(BitcoinTestFramework):
         assert_equal(decoded_pstt["locktime"], block_height+2)
 
         # Same construction with only locktime set
-        psttx_info = self.nodes[0].walletcreatefundedpstt([{"previous_txid":unspent["txid"], "output_index":unspent["vout"]}], [{self.nodes[2].getnewaddress():unspent["amount"]+1}], block_height, {}, True)
+        psttx_info = self.nodes[0].walletcreatefundedpstt([{"txid":unspent["txid"], "vout":unspent["vout"]}], [{self.nodes[2].getnewaddress():unspent["amount"]+1}], block_height, {}, True)
         decoded_pstt = self.nodes[0].decodepstt(psttx_info["pstt"])
         for pstt_in in decoded_pstt["inputs"]:
             assert pstt_in["sequence"] > MAX_BIP125_RBF_SEQUENCE
@@ -271,7 +275,7 @@ class PSTTTest(BitcoinTestFramework):
         # which always has a concrete per-input sequence via its embedded
         # global tx) -- so this checks the effective value via .get(), not a
         # bare index, since "sequence" may legitimately be absent here.
-        psttx_info = self.nodes[0].walletcreatefundedpstt([{"previous_txid":unspent["txid"], "output_index":unspent["vout"]}], [{self.nodes[2].getnewaddress():unspent["amount"]+1}])
+        psttx_info = self.nodes[0].walletcreatefundedpstt([{"txid":unspent["txid"], "vout":unspent["vout"]}], [{self.nodes[2].getnewaddress():unspent["amount"]+1}])
         decoded_pstt = self.nodes[0].decodepstt(psttx_info["pstt"])
         for pstt_in in decoded_pstt["inputs"]:
             assert pstt_in.get("sequence", SEQUENCE_FINAL) > MAX_BIP125_RBF_SEQUENCE
@@ -315,7 +319,11 @@ class PSTTTest(BitcoinTestFramework):
         # Neither Constructor RPC works once construction is not modifiable.
         self.nodes[0].generate(5, self.signblockprivkey_wif)
         self.sync_all()
-        unspent_list = self.nodes[0].listunspent()
+        # node0 also holds colored-coin change from earlier in this test
+        # (create_colored_transaction plus the walletcreatefundedpstt/
+        # decodepstt colored-output tests above) -- filter to TPC only, or
+        # an unfiltered [0:4] could silently pick a colored UTXO here.
+        unspent_list = [u for u in self.nodes[0].listunspent() if u.get('token') == 'TPC']
         assert len(unspent_list) >= 4, "test needs at least 4 spendable TPC UTXOs on node0 at this point"
         unspent_a, unspent_b, unspent_c, unspent_d = unspent_list[0:4]
 
@@ -332,7 +340,7 @@ class PSTTTest(BitcoinTestFramework):
         decoded = self.nodes[0].decodepstt(pstt_construct)
         assert_equal(len(decoded['inputs']), 1)
         assert_equal(len(decoded['outputs']), 0)
-        assert_equal(decoded['inputs'][0]['previous_txid'], unspent_a['txid'])
+        assert_equal(decoded['inputs'][0]['txid'], unspent_a['txid'])
 
         pstt_construct = self.nodes[1].addoutputtopstt(pstt_construct, {self.nodes[1].getnewaddress(): 1})
         decoded = self.nodes[0].decodepstt(pstt_construct)

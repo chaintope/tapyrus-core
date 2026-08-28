@@ -5,8 +5,11 @@
 
 #include <key.h>
 
+#include <coloridentifier.h>
 #include <key_io.h>
+#include <keystore.h>
 #include <script/script.h>
+#include <script/standard.h>
 #include <uint256.h>
 #include <util.h>
 #include <utilstrencodings.h>
@@ -253,6 +256,29 @@ BOOST_AUTO_TEST_CASE(pubkey_combine_tests)
 
     std::string pubkeyString = HexStr(result.data(), result.data() + publen);
     BOOST_CHECK_EQUAL(pubkeyString, "02d7bbe714a08f73b17a3e5dcbca523470e9de5ee6c92f396beb954b8a2cdf4388");
+}
+
+// GetKeyForDestination must resolve a CColorKeyID to the same CKeyID as its
+// underlying plain P2PKH key, via CColorKeyID::getKeyID() -- this is what
+// dumpprivkey (and any other key-metadata lookup) relies on for colored
+// addresses. Regression test for a bug where GetKeyForDestination had no
+// CColorKeyID case at all and silently returned an empty CKeyID for every
+// colored address.
+BOOST_AUTO_TEST_CASE(get_key_for_destination_colored)
+{
+    CKey key1 = DecodeSecret(strSecret1);
+    BOOST_REQUIRE(key1.IsValid());
+    CPubKey pubkey1 = key1.GetPubKey();
+    CKeyID keyId1 = pubkey1.GetID();
+
+    CBasicKeyStore keystore;
+    BOOST_REQUIRE(keystore.AddKey(key1));
+
+    ColorIdentifier colorId(GetScriptForRawPubKey(pubkey1));
+    CColorKeyID colorKeyId(keyId1, colorId);
+
+    BOOST_CHECK(GetKeyForDestination(keystore, CTxDestination(keyId1)) == keyId1);
+    BOOST_CHECK(GetKeyForDestination(keystore, CTxDestination(colorKeyId)) == keyId1);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -20,10 +20,12 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxs, CBas
 /** Create a transaction from univalue parameters */
 CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, const UniValue& rbf);
 
-/** Parses a PSTT-shaped inputs array (previous_txid/output_index/sequence?
- *  keys, see doc/tapyrus/pstt.md) into CTxIns -- used by createpstt and
- *  walletcreatefundedpstt instead of ConstructTransaction's own input
- *  parsing, which expects createrawtransaction's txid/vout vocabulary. */
+/** Parses a PSTT-shaped inputs array (txid/vout/sequence? keys, same
+ *  vocabulary as createrawtransaction/ConstructTransaction -- see
+ *  doc/tapyrus/pstt.md) into CTxIns. Used by createpstt and
+ *  walletcreatefundedpstt instead of passing their inputs through
+ *  ConstructTransaction directly, since that also accepts outputs/locktime
+ *  parameters these two RPCs don't take in the same shape. */
 std::vector<CTxIn> ParsePsttInputEntries(const UniValue& inputs_in, uint32_t nLockTime, bool rbfOptIn);
 
 #endif // BITCOIN_RPC_RAWTRANSACTION_H

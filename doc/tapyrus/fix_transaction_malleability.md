@@ -68,7 +68,7 @@ In all RPCs 'txid' is always the Immutable Transaction Id. This table summarises
 |signrawtransactionwithwallet|Argument 2 - prevtxs['txid']  is hashMalFix(txId) of previous transaction |errors['txid']|
 |sendrawtransaction|N/A|'hex' is hashMalFix(txId) in hex|
 |testmempoolaccept|N/A|Result['txid'] is hashMalFix(txId) in hex|
-|createpsbt, walletcreatefundedpsbt |Argument 1- inputs['txid'] is hashMalFix(txId) in hex|N/A|
+|createpstt, walletcreatefundedpstt |Argument 1- inputs['txid'] is hashMalFix(txId) in hex|N/A|
 |prioritisetransaction|Argument 1- 'txid' is hashMalFix(txId) |N/A|
 |getblocktemplate|N/A|transactions['txid] is hashMalFix(txId)|
 |getrawmempool|N/A|'transactionid' is hashMalFix(txId)|

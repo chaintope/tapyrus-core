@@ -30,6 +30,21 @@ class CWallet;
 bool FillPSTT(const CWallet* pwallet, PartiallySignedTapyrusTransaction& pstt, int sighash_type, bool sign,
               bool bip32derivs, SignatureScheme sigScheme = SignatureScheme::ECDSA);
 
+/** Post-sign PSTT_GLOBAL_TX_MODIFIABLE mutation (see doc/tapyrus/pstt.md's
+ *  Signer role).
+ *  Every input signed in a single Signer call shares one sighash_type, so the
+ *  accumulated constraint is computed once, here, rather than per input. A
+ *  signature that doesn't allow further inputs (no ANYONECANPAY) closes
+ *  Inputs-Modifiable; one that commits to every output (not SIGHASH_NONE/
+ *  SIGHASH_SINGLE) closes Outputs-Modifiable; SIGHASH_SINGLE itself sets
+ *  Has-SIGHASH_SINGLE so future Constructor calls must pair input/output
+ *  additions. Only ever clears/sets bits -- never reopens one an
+ *  earlier signing round already closed. Shared by FillPSTT (this file) and
+ *  walletsignpstt (wallet/rpcwallet.cpp), which signs via its own loop rather
+ *  than calling FillPSTT. Call only after at least one input was actually
+ *  signed in this round. */
+void ApplyPsttPostSignModifiableRules(PartiallySignedTapyrusTransaction& pstt, int sighash_type);
+
 /** Sums per-color balances across a PSTT's inputs (via each input's attached
  *  UTXO) and outputs, keyed by ColorIdentifier -- TPC is simply the entry
  *  keyed by the default/NONE-type identifier, never a structurally separate
@@ -39,12 +54,12 @@ bool FillPSTT(const CWallet* pwallet, PartiallySignedTapyrusTransaction& pstt, i
 void ComputePsttColorBalances(const PartiallySignedTapyrusTransaction& pstt,
                                TxColoredCoinBalancesMap& in, TxColoredCoinBalancesMap& out);
 
-// Shared by FillPSBT (wallet/rpcwallet.cpp) and FillPSTT (this file): looks up
-// a key's HD derivation metadata in the wallet and, if found, records it.
-// Declared here rather than wallet/rpcwallet.h so wallet/pstt.cpp doesn't need
-// to include that header at all -- avoids a wallet/pstt <-> wallet/rpcwallet
-// circular include (rpcwallet.cpp already includes this header for FillPSTT,
-// so the declaration stays visible where the function is defined).
+// Looks up a key's HD derivation metadata in the wallet and, if found,
+// records it. Declared here rather than wallet/rpcwallet.h so wallet/pstt.cpp
+// doesn't need to include that header at all -- avoids a wallet/pstt <->
+// wallet/rpcwallet circular include (rpcwallet.cpp already includes this
+// header for FillPSTT, so the declaration stays visible where the function
+// is defined).
 void AddKeypathToMap(const CWallet* pwallet, const CKeyID& keyID, std::map<CPubKey, std::vector<uint32_t>>& hd_keypaths);
 
 #endif // TAPYRUS_WALLET_PSTT_H
