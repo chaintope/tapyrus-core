@@ -401,11 +401,12 @@ jobs:
           # All three native -- no cross-compilation entries here on purpose,
           # unlike the daily matrix's L-ARM-*/target_platform jobs. HOST is the
           # real depends triple for each: aarch64-linux-gnu on genuine ARM64
-          # hardware (ubuntu-24.04-arm, a native GH-hosted runner, not the
-          # x86_64 ubuntu-latest + arch:arm64 label the daily matrix's L-ARM-*
-          # entries use -- worth checking separately whether those are actually
-          # native, since `uname -m` on a plain ubuntu-latest runner is x86_64
-          # regardless of that label).
+          # hardware (ubuntu-24.04-arm, a native GH-hosted runner). The daily
+          # matrix's L-ARM-* entries used to run on the x86_64 ubuntu-latest
+          # with only an arch:arm64 label -- silently building x86_64, since
+          # HOST there is derived from `uname -m` on the runner, never that
+          # label -- but daily-test.yml's L-ARM-* entries now use this same
+          # ubuntu-24.04-arm runner too.
           - name: Linux x86_64
             os: ubuntu-latest
             platform: linux
@@ -419,12 +420,26 @@ jobs:
             platform: macos
             host: arm64-apple-darwin
     runs-on: ${{ matrix.config.os }}
+    # 5.5h, leaving 30 minutes of margin below GitHub-hosted runners' 6h hard
+    # cap: this job's from-scratch depends build (no cache, deliberately) plus
+    # full GUI+wallet build plus unit/util/functional tests has no prior
+    # baseline run to size against, unlike daily-test.yml's cached-depends
+    # jobs. A real timeout here fails legibly instead of GitHub silently
+    # killing the job at 6h with a less informative error.
+    timeout-minutes: 330
     # Verifies doc/dependencies.md's "Minimum required" column is actually still
     # buildable, not just a number written down once and never re-checked -- a
     # full from-scratch depends build every run (no Restore/Save Depends cache
     # steps anywhere in this job), so this can't be short-circuited by a stale
     # cache the way the daily job's "Restore Depends cache" restore-keys fallback
     # (no content hash) can restore an older tree wholesale on a key miss.
+    #
+    # If this fails on a specific package's minimum version, that means the
+    # documented floor doesn't actually build against this repo's current
+    # code/toolchain -- the correct response is to raise doc/dependencies.md's
+    # "Minimum required" for that package to whatever version genuinely does
+    # build, not to relax or skip this job. Catching exactly that drift is
+    # this job's purpose.
     env:
       BASE_ROOT_DIR: ${{ github.workspace }}
       BASE_BUILD_DIR: ${{ github.workspace }}/build
@@ -445,8 +460,10 @@ jobs:
             libboost-test-dev python3-pip gperf
           # libxkbcommon >= 1.9.0 requires Meson >= 1.4.0; Ubuntu's apt package
           # is too old on both x86_64 and arm64 runners, so install a current
-          # one via pip instead.
-          sudo pip3 install --break-system-packages --no-cache-dir "meson>=1.4.0"
+          # one via pip instead. Pinned to an exact version, matching the
+          # heavy-tests job above and #452's reasoning: a floating build tool
+          # works against CI stability.
+          sudo pip3 install --break-system-packages --no-cache-dir "meson==1.4.0"
           python3 -m venv $HOME/venv
           source $HOME/venv/bin/activate
           pip3 install pyzmq
@@ -483,40 +500,22 @@ jobs:
         #
         # depends/packages/*.mk hardcodes each package's sha256_hash tied to the
         # currently-pinned version's own tarball -- overriding just the version
-        # would fail depends' own integrity check against the wrong hash. This
-        # step downloads each minimum-version tarball itself and computes its
-        # own hash before patching both fields in, so depends' later re-fetch
-        # (or direct use of what's already on disk) is checked against a hash
-        # this job actually verified, not one fabricated or assumed correct.
-        # That's trust-on-first-use scoped to this one run, not a pre-vetted,
-        # human-reviewed hash the way the committed ones in the *.mk files
-        # normally are -- there's no upstream-published checksum list this job
-        # cross-checks against.
+        # would fail depends' own integrity check against the wrong hash. Both
+        # of these are fixed historical releases whose tarballs (and therefore
+        # hashes) never change, so the hashes below are pre-computed constants
+        # -- downloaded and verified directly against the same URLs depends
+        # itself will fetch -- not something derived from the file being
+        # checked, the way a trust-on-first-use runtime download would be.
         #
         # Portable across GNU (Linux) and BSD (macOS) userland deliberately:
-        # shasum -a 256 falls back for sha256sum (not present on macOS by
-        # default), and sed -i.bak + rm (not bare sed -i, which needs a
-        # backup-suffix argument on BSD sed but not GNU sed -- ".bak" works
-        # identically on both).
+        # sed -i.bak + rm (not bare sed -i, which needs a backup-suffix
+        # argument on BSD sed but not GNU sed -- ".bak" works identically on
+        # both).
         run: |
           set -euo pipefail
 
-          sha256() {
-            if command -v sha256sum >/dev/null 2>&1; then
-              sha256sum "$1" | cut -d' ' -f1
-            else
-              shasum -a 256 "$1" | cut -d' ' -f1
-            fi
-          }
-
           patch_min_version() {
-            local mk_file="$1" min_version="$2" url="$3" file_name="$4"
-            local dest="/tmp/$file_name"
-            echo "Fetching $file_name ($min_version) to compute its hash..."
-            curl -fsSL -o "$dest" "$url"
-            local hash
-            hash=$(sha256 "$dest")
-            echo "$file_name sha256: $hash"
+            local mk_file="$1" min_version="$2" hash="$3"
             sed -i.bak \
               -e "s/^\$(package)_version=.*/\$(package)_version=$min_version/" \
               -e "s/^\$(package)_sha256_hash=.*/\$(package)_sha256_hash=$hash/" \
@@ -528,20 +527,17 @@ jobs:
 
           # Boost 1.73.0 -- cmake/module/AddBoostIfNeeded.cmake:85's
           # find_package(Boost 1.73.0 REQUIRED) floor, vs. 1.81.0 currently
-          # pinned in depends/packages/boost.mk.
+          # pinned in depends/packages/boost.mk. Hash verified against a full
+          # download of https://archives.boost.io/release/1.73.0/source/boost_1_73_0.tar.gz.
           patch_min_version depends/packages/boost.mk 1.73.0 \
-            "https://archives.boost.io/release/1.73.0/source/boost_1_73_0.tar.gz" \
-            boost_1_73_0.tar.gz
+            9995e192e68528793755692917f9eb6422f3052a53c5e13ba278a228af6c7acf
 
           # Libevent 2.1.8 -- CMakeLists.txt:366's find_package(Libevent 2.1.8
           # MODULE REQUIRED) floor, vs. 2.1.12-stable currently pinned in
-          # depends/packages/libevent.mk. Libevent's own release tags append
-          # "-stable" the same way the current pin does; if this specific old
-          # tag doesn't follow that convention, this fails loudly at the
-          # `curl -f` above rather than silently building something else.
+          # depends/packages/libevent.mk. Hash verified against a full download
+          # of https://github.com/libevent/libevent/releases/download/release-2.1.8-stable/libevent-2.1.8-stable.tar.gz.
           patch_min_version depends/packages/libevent.mk 2.1.8-stable \
-            "https://github.com/libevent/libevent/releases/download/release-2.1.8-stable/libevent-2.1.8-stable.tar.gz" \
-            libevent-2.1.8-stable.tar.gz
+            965cc5a8bb46ce4199a47e9b2c9e1cae3b137e8356ffdad6d94d3b9069b71dc2
 
       - name: Build Depends (from scratch, no cache)
         run: |
