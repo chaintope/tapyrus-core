@@ -40,13 +40,18 @@ Install the required dependencies: Ubuntu & Debian
 
 #### Common
 
-    apt install automake cmake curl libtool make patch pkg-config python3 xz-utils meson gperf
+    apt install automake cmake curl libtool make patch pkg-config python3 xz-utils
 
-Building the GUI (Qt) on Linux additionally requires Meson >= 1.4.0 for
-`libxkbcommon` — newer than the `meson` apt package on Ubuntu 24.04 (1.3.2).
-Install a current one via pip instead: `pip install "meson==1.4.0"`. `gperf`
-above is required by `fontconfig`'s build. See [dependencies.md](../doc/dependencies.md)
-for details.
+#### Additional requirements for the Linux GUI (Qt) build
+
+    apt install gperf
+
+`gperf` above is required by `fontconfig`'s build (Qt's static xcb platform
+plugin, Linux only). `libxkbcommon` (also Linux-only) needs Meson >= 1.4.0,
+newer than the `meson` apt package on Ubuntu 24.04 (1.3.2) — install a
+current one via pip instead: `pip install "meson==1.4.0"`. Neither is needed
+for a `NO_QT=1` build. See [dependencies.md](../doc/dependencies.md) for
+details.
 
 #### For macOS cross compilation
 
