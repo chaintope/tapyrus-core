@@ -54,7 +54,7 @@ CExtPubKey ParseXpubKeyData(const std::vector<unsigned char>& keydata)
 
 bool PSTTInput::IsNull() const
 {
-    return !previous_txid_set && !prev_out_index_set && !utxo && partial_sigs.empty() &&
+    return !previous_txid_set && !prevout_index_set && !utxo && partial_sigs.empty() &&
            unknown.empty() && hd_keypaths.empty() && redeem_script.empty() && final_script_sig.empty();
 }
 
@@ -102,7 +102,7 @@ void PSTTInput::FromSignatureData(const SignatureData& sigdata)
 //  - everything else (incl. unknown/proprietary)      -> pick-first, no throw
 void PSTTInput::Merge(const PSTTInput& input)
 {
-    // previous_txid / prev_out_index are required-and-identical by construction
+    // previous_txid / prevout_index are required-and-identical by construction
     // (both sides must already agree, or they wouldn't share a PSTT identifier --
     // HasSameIdentifierAs() is checked by the Combiner before Merge() is ever
     // called). Nothing to merge for these two fields.
@@ -173,7 +173,7 @@ void PSTTInput::Merge(const PSTTInput& input)
 bool PSTTInput::IsSane() const
 {
     // previous_txid / output_index are required.
-    if (!previous_txid_set || !prev_out_index_set) return false;
+    if (!previous_txid_set || !prevout_index_set) return false;
 
     // No mixed ECDSA/Schnorr signatures on one input. Mirrors interpreter.cpp's
     // SCRIPT_ERR_MIXED_SCHEME_MULTISIG classification rule exactly: a 65-byte
@@ -198,9 +198,9 @@ void PSTTInput::Serialize(Stream& s) const
         SerializeToVector(s, PSTT_IN_PREVIOUS_TXID);
         SerializeToVector(s, previous_txid);
     }
-    if (prev_out_index_set) {
+    if (prevout_index_set) {
         SerializeToVector(s, PSTT_IN_OUTPUT_INDEX);
-        SerializeToVector(s, prev_out_index);
+        SerializeToVector(s, prevout_index);
     }
     if (utxo) {
         SerializeToVector(s, PSTT_IN_UTXO);
@@ -362,10 +362,10 @@ void PSTTInput::Unserialize(Stream& s)
                 previous_txid_set = true;
                 break;
             case PSTT_IN_OUTPUT_INDEX:
-                if (prev_out_index_set) throw std::ios_base::failure("Duplicate Key, PSTT_IN_OUTPUT_INDEX already provided");
+                if (prevout_index_set) throw std::ios_base::failure("Duplicate Key, PSTT_IN_OUTPUT_INDEX already provided");
                 if (key.size() != 1) throw std::ios_base::failure("PSTT_IN_OUTPUT_INDEX key is more than one byte type");
-                UnserializeFromVector(s, prev_out_index);
-                prev_out_index_set = true;
+                UnserializeFromVector(s, prevout_index);
+                prevout_index_set = true;
                 break;
             case PSTT_IN_SEQUENCE:
                 if (sequence) throw std::ios_base::failure("Duplicate Key, PSTT_IN_SEQUENCE already provided");
@@ -602,7 +602,7 @@ bool PartiallySignedTapyrusTransaction::IsSane() const
 {
     for (const PSTTInput& input : inputs) {
         if (!input.IsSane()) return false;
-        if (input.utxo && input.prev_out_index_set && input.prev_out_index >= input.utxo->vout.size()) {
+        if (input.utxo && input.prevout_index_set && input.prevout_index >= input.utxo->vout.size()) {
             return false;
         }
         // Deliberately NOT checked here: input.utxo->GetHashMalFix() ==
@@ -904,7 +904,7 @@ CMutableTransaction MaterializeTransaction(const PartiallySignedTapyrusTransacti
 
     for (const PSTTInput& input : pstt.inputs) {
         CTxIn txin;
-        txin.prevout = COutPoint(input.previous_txid, input.prev_out_index);
+        txin.prevout = COutPoint(input.previous_txid, input.prevout_index);
         if (force_zero_sequence) {
             txin.nSequence = 0;
         } else {
@@ -961,7 +961,7 @@ std::string PSTTSignResultToString(PSTTSignResult result)
         case PSTTSignResult::OK: return "OK";
         case PSTTSignResult::MISSING_UTXO: return "input has no PSTT_IN_UTXO";
         case PSTTSignResult::UTXO_TXID_MISMATCH: return "PSTT_IN_UTXO txid does not match PSTT_IN_PREVIOUS_TXID";
-        case PSTTSignResult::PREV_OUT_INDEX_OOB: return "PSTT_IN_OUTPUT_INDEX is out of range for PSTT_IN_UTXO";
+        case PSTTSignResult::PREVOUT_INDEX_OOB: return "PSTT_IN_OUTPUT_INDEX is out of range for PSTT_IN_UTXO";
         case PSTTSignResult::REDEEM_SCRIPT_HASH_MISMATCH: return "redeem script does not hash to the committed value";
         case PSTTSignResult::SIGHASH_CONFLICT: return "requested sighash type conflicts with PSTT_IN_SIGHASH_TYPE";
         case PSTTSignResult::SCHEME_CONFLICT: return "signature scheme conflicts with an existing signature on this input";
@@ -1011,17 +1011,17 @@ PSTTSignResult SignPSTTInput(const SigningProvider& provider, const PartiallySig
     if (input.utxo->GetHashMalFix() != input.previous_txid) {
         return PSTTSignResult::UTXO_TXID_MISMATCH;
     }
-    if (input.prev_out_index >= input.utxo->vout.size()) {
-        return PSTTSignResult::PREV_OUT_INDEX_OOB;
+    if (input.prevout_index >= input.utxo->vout.size()) {
+        return PSTTSignResult::PREVOUT_INDEX_OOB;
     }
 
-    const CTxOut& utxo_out = input.utxo->vout[input.prev_out_index];
+    const CTxOut& utxo = input.utxo->vout[input.prevout_index];
 
     // Must verify the redeem script hashes to the value committed in the
     // scriptPubKey, accounting for CP2SH's color-id prefix.
     if (!input.redeem_script.empty()) {
         uint160 expected_hash;
-        if (!ExtractRedeemScriptHash(utxo_out.scriptPubKey, expected_hash)) {
+        if (!ExtractRedeemScriptHash(utxo.scriptPubKey, expected_hash)) {
             return PSTTSignResult::REDEEM_SCRIPT_HASH_MISMATCH;
         }
         if (CScriptID(input.redeem_script) != CScriptID(expected_hash)) {
@@ -1061,8 +1061,8 @@ PSTTSignResult SignPSTTInput(const SigningProvider& provider, const PartiallySig
     input.FillSignatureData(sigdata);
 
     CMutableTransaction mtx_view = MaterializeTransaction(pstt, locktime, /*force_zero_sequence=*/false, /*use_final_scriptsig=*/false);
-    MutableTransactionSignatureCreator creator(&mtx_view, index, utxo_out.nValue, sighash, sigScheme);
-    ProduceSignature(provider, creator, utxo_out.scriptPubKey, sigdata);
+    MutableTransactionSignatureCreator creator(&mtx_view, index, utxo.nValue, sighash, sigScheme);
+    ProduceSignature(provider, creator, utxo.scriptPubKey, sigdata);
 
     // pstt is taken by const reference (MaterializeTransaction needs the whole
     // PSTT, not just this input, so the signature intentionally doesn't take a

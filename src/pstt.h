@@ -121,9 +121,9 @@ struct PSTTInput
     // Required -- these have no natural "empty" sentinel, hence explicit
     // presence flags rather than e.g. treating an all-zero txid as absent.
     uint256  previous_txid;
-    uint32_t prev_out_index = 0;
+    uint32_t prevout_index = 0;
     bool     previous_txid_set = false;
-    bool     prev_out_index_set = false;
+    bool     prevout_index_set = false;
 
     // Optional, absence is the natural "empty"
     CTransactionRef utxo;             // PSTT_IN_UTXO -- full previous tx only
@@ -234,7 +234,7 @@ enum class PSTTSignResult
     OK,
     MISSING_UTXO,
     UTXO_TXID_MISMATCH,
-    PREV_OUT_INDEX_OOB,
+    PREVOUT_INDEX_OOB,
     REDEEM_SCRIPT_HASH_MISMATCH,
     SIGHASH_CONFLICT,
     SCHEME_CONFLICT,
