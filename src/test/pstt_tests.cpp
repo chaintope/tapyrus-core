@@ -1452,7 +1452,7 @@ BOOST_FIXTURE_TEST_CASE(pstt_rpc_decodepstt_shape, TestChainSetup)
 // decodepstt's "next" role hint / estimated_size / estimated_fee
 // -----------------------------------------------------------------------
 
-BOOST_AUTO_TEST_CASE(pstt_rpc_decodepstt_next_role_constructor)
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_decodepstt_next_role_constructor, TestingSetup)
 {
     // Still under construction (an Inputs/Outputs-Modifiable bit set) takes
     // priority over every other state -- irrelevant here whether the lone
@@ -1472,7 +1472,7 @@ BOOST_AUTO_TEST_CASE(pstt_rpc_decodepstt_next_role_constructor)
     BOOST_CHECK(decoded.exists("estimated_fee"));
 }
 
-BOOST_AUTO_TEST_CASE(pstt_rpc_decodepstt_next_role_updater)
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_decodepstt_next_role_updater, TestingSetup)
 {
     // No PSTT_IN_UTXO attached yet -- ahead of Signer in the ladder, and
     // means no fee/size estimate is even possible (an input's value/type
@@ -1489,7 +1489,7 @@ BOOST_AUTO_TEST_CASE(pstt_rpc_decodepstt_next_role_updater)
     BOOST_CHECK(!decoded.exists("estimated_fee"));
 }
 
-BOOST_AUTO_TEST_CASE(pstt_rpc_decodepstt_next_role_signer_and_estimates)
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_decodepstt_next_role_signer_and_estimates, TestingSetup)
 {
     // Construction finished, UTXO attached, no signature yet -- Signer is
     // next. The 100000/90000 split from MakeBasicPstt() gives an exact,
