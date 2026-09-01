@@ -88,3 +88,19 @@ contrib/devtools/split-debug.sh
 
 # for test
 tapyrus.conf
+
+# local machine state for contrib/fuzz's generation scripts -- never
+# meant to be shared or committed, see contrib/fuzz/fuzz_spend_ledger.py
+contrib/fuzz/fuzz_spend_ledger.state
+contrib/fuzz/fuzz4all/.last_model
+
+# per-run drafted fuzz_test_file candidates + their review_code.html,
+# written by contrib/fuzz/oss-fuzz-gen/fuzz_code_generate_and_draft.py --
+# land the reviewed/approved ones via fuzz_code_land_approved.py instead
+# of committing this directory itself
+contrib/fuzz/oss-fuzz-gen/local_drafts_*/
+
+# per-run review page for fuzz_script_generate_pool.py's own candidates
+# (the candidates themselves, under generated_pool/tapyrus_script/, ARE
+# meant to be committed after review -- only this review page isn't)
+contrib/fuzz/fuzz4all/review_scripts_*.html

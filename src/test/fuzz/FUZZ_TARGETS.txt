@@ -1,0 +1,16 @@
+# One fuzz_test_file target name per line -- each must also have its own
+# add_executable(...) block in src/test/CMakeLists.txt (this list controls
+# which targets get built/run, not how each one is built; adding a name
+# here without a matching CMake target will fail the build).
+#
+# Read by:
+#   - .github/workflows/daily-test.yml (fuzz-code-only job)
+#   - contrib/fuzz/oss-fuzz/build.sh
+# Lines starting with # and blank lines are ignored.
+#
+# To land a fuzz_test_file OSS-Fuzz-Gen drafted (see
+# contrib/fuzz/oss-fuzz-gen/README.md): after reviewing the draft, add its
+# source under src/test/fuzz/, add its add_executable(...) block to
+# src/test/CMakeLists.txt, and add its name here -- all three are needed,
+# this file alone is not sufficient.
+fuzz_pstt_parse
