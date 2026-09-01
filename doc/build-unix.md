@@ -114,7 +114,7 @@ Optional (see --with-miniupnpc and --enable-upnp-default):
 
 ZMQ dependencies (provides ZMQ API 4.x):
 
-    sudo apt-get install libzmq3-dev
+    sudo apt-get install zeromq-devel
 
 User-Space, Statically Defined Tracing (USDT) dependencies:
 

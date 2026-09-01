@@ -464,7 +464,16 @@ jobs:
         # would always agree, silently defeating the very check this step exists for.
         # Reading from git's object store instead is unaffected by anything a cache
         # restore does to the working tree.
+        #
+        # The two lists are also diffed below: previously a mismatch here was
+        # something a reader had to notice by eyeballing two printed lists, so a
+        # stale-cache divergence could sail through a green run unremarked. A
+        # non-empty diff now emits a ::warning:: annotation (not a hard failure --
+        # this step is diagnostic, not a gate) so it surfaces on the job itself.
         run: |
+          BUILT_FILE=$(mktemp)
+          EXPECTED_FILE=$(mktemp)
+
           echo "== depends/built/$HOST: actually-built/cached artifact versions =="
           if [ -d "depends/built/$HOST" ]; then
             for f in depends/built/"$HOST"/*/*.tar.gz; do
@@ -473,10 +482,11 @@ jobs:
               # (depends/funcs.mk, HASH_LENGTH) -- strip the hash+extension, not
               # the version, since both package and version can contain hyphens.
               basename "$f" | sed -E 's/-[0-9a-f]{11}\.tar\.gz$//'
-            done | sort
+            done | sort > "$BUILT_FILE"
           else
             echo "(no depends/built/$HOST -- nothing built or restored for this host)"
           fi
+          cat "$BUILT_FILE"
           echo
           echo "== depends/packages/*.mk: versions at the commit under test (git HEAD, not the working tree) =="
           MK_FILES=$(git ls-tree -r --name-only HEAD -- depends/packages | grep '\.mk$')
@@ -502,7 +512,19 @@ jobs:
                 ;;
             esac
             [ -n "$ver" ] && echo "$pkg-$ver"
-          done | sort
+          done | sort > "$EXPECTED_FILE"
+          cat "$EXPECTED_FILE"
+          echo
+
+          if [ -s "$BUILT_FILE" ]; then
+            if diff -q "$BUILT_FILE" "$EXPECTED_FILE" > /dev/null; then
+              echo "== OK: depends/built/$HOST matches depends/packages/*.mk at HEAD =="
+            else
+              echo "== MISMATCH: depends/built/$HOST doesn't match depends/packages/*.mk at HEAD =="
+              diff -u "$EXPECTED_FILE" "$BUILT_FILE" || true
+              echo "::warning::depends/built/$HOST doesn't match depends/packages/*.mk at HEAD for host $HOST -- likely a stale cache restore serving an older depends/ tree. See the diff above."
+            fi
+          fi
 
       - name: Save Depends cache
         if: github.ref == 'refs/heads/master'
