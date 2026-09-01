@@ -189,6 +189,44 @@ target_link_libraries(test_tapyrus
         $<TARGET_NAME_IF_EXISTS:USDT::headers>
 )
 
+# Fuzz test binaries -- gated behind BUILD_FUZZ_TEST (default OFF) so
+# regular builds (including the full daily-test.yml matrix) never
+# configure or build these; only daily-test.yml's dedicated fuzz-code-only
+# and fuzz-script-sweep jobs turn this on.
+if(BUILD_FUZZ_TEST)
+
+# Standalone fuzz target for ParsePsttInputEntries -- deliberately its own
+# executable, not a source file of test_tapyrus above: a libFuzzer/AFL
+# fuzz_test_file supplies its own weak main()/LLVMFuzzerTestOneInput, which
+# would silently be shadowed by test_tapyrus_main.cpp's real main() if
+# linked into that same binary (see test_tapyrus_fuzzy.cpp, currently
+# mixed into test_tapyrus's sources list above and never actually
+# exercised as a fuzz binary as a result -- a pre-existing issue, not
+# fixed here).
+add_executable(fuzz_pstt_parse EXCLUDE_FROM_ALL
+    fuzz/pstt_parse_fuzz.cpp
+)
+target_include_directories(fuzz_pstt_parse
+    PRIVATE
+        ${Boost_INCLUDE_DIRS}
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../univalue/include>
+)
+target_link_libraries(fuzz_pstt_parse
+    PRIVATE
+        core_interface
+        tapyrus_server
+        tapyrus_common
+        tapyrus_util
+        tapyrus_consensus
+        leveldb
+        univalue
+        secp256k1
+        tapyrus_crypto
+        Boost::headers
+)
+
+endif(BUILD_FUZZ_TEST)
+
 # We need to detect if the BOOST_TEST_DYN_LINK flag is required.
 check_cxx_source_compiles("
     #define BOOST_TEST_DYN_LINK
