@@ -1099,6 +1099,12 @@ jobs:
   fuzz-code-only:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    # RUN_SECONDS per target (default 600s) times however many targets are
+    # in FUZZ_TARGETS.txt, plus margin for checkout/build/artifact-upload --
+    # not a per-target limit, only a backstop against the whole job
+    # hanging. Grows with the target list: bump this when target count
+    # times RUN_SECONDS/60 approaches it.
+    timeout-minutes: 30
     env:
       LC_ALL: C.UTF-8
       RUN_SECONDS: ${{ inputs.fuzz_run_seconds || '600' }}
@@ -1127,7 +1133,7 @@ jobs:
           -DSANITIZERS="fuzzer;address;undefined"
           -DBUILD_DAEMON=OFF -DBUILD_GUI=OFF -DBUILD_CLI=OFF
           -DBUILD_GENESIS=OFF -DBUILD_SCRIPT_VERIFY=OFF
-          -DENABLE_WALLET=OFF -DENABLE_TESTS=ON -DBUILD_BENCH=OFF
+          -DENABLE_WALLET=OFF -DENABLE_TESTS=ON -DENABLE_BENCH=OFF
           -DBUILD_FUZZ_TEST=ON
       - name: Build fuzz targets
         run: cmake --build build_fuzz --target ${FUZZ_TARGETS} -j "$(nproc)"
@@ -1228,7 +1234,7 @@ jobs:
           -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
           -DSANITIZERS="address;undefined"
           -DBUILD_DAEMON=OFF -DBUILD_GUI=OFF -DBUILD_CLI=OFF -DBUILD_GENESIS=OFF
-          -DENABLE_WALLET=OFF -DENABLE_TESTS=OFF -DBUILD_BENCH=OFF -DENABLE_ZMQ=OFF
+          -DENABLE_WALLET=OFF -DENABLE_TESTS=OFF -DENABLE_BENCH=OFF -DENABLE_ZMQ=OFF
           -DBUILD_SCRIPT_VERIFY=ON -DBUILD_FUZZ_TEST=ON
       - name: Build tapyrus-verify
         run: cmake --build build_fuzz_verify --target tapyrus-verify -j "$(nproc)"

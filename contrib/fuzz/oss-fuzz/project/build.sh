@@ -1,4 +1,5 @@
 #!/bin/bash -eu
+export LC_ALL=C
 # Draft OSS-Fuzz build script for tapyrus-core -- see README.md in this
 # directory for what this is (and isn't) used for. Unlike Bitcoin Core's
 # build.sh, this uses tapyrus-core's native CMake + -DSANITIZERS build path
@@ -22,7 +23,7 @@ cmake -S . -B build_oss_fuzz \
   -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
   -DSANITIZERS="${SANITIZER//,/;}" \
   -DBUILD_DAEMON=OFF -DBUILD_GUI=OFF -DBUILD_CLI=OFF \
-  -DENABLE_WALLET=OFF -DENABLE_TESTS=ON -DBUILD_BENCH=OFF \
+  -DENABLE_WALLET=OFF -DENABLE_TESTS=ON -DENABLE_BENCH=OFF \
   -DCMAKE_BUILD_TYPE=RelWithDebInfo
 
 for target in "${FUZZ_TARGETS[@]}"; do
