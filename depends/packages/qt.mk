@@ -7,6 +7,7 @@ $(package)_sha256_hash=$(qt_details_qtbase_sha256_hash)
 $(package)_dependencies := native_$(package)
 $(package)_linux_dependencies := freetype fontconfig libxcb libxkbcommon libxcb_util libxcb_util_cursor libxcb_util_render libxcb_util_keysyms libxcb_util_image libxcb_util_wm
 $(package)_patches_path := $(qt_details_patches_path)
+ifeq ($($(package)_version),6.10.1)
 $(package)_patches := qtbase-moc-ignore-gcc-macro.patch
 $(package)_patches += no_warnings_for_symbols.patch
 $(package)_patches += rcc_hardcode_timestamp.patch
@@ -17,6 +18,7 @@ $(package)_patches += fix_qnetconmonitor_cross_compile.patch
 ifeq ($(host_os),darwin)
 $(package)_patches += fix_cgdisplay_macos15.patch
 $(package)_patches += fix_qyieldcpu_arm_acle.patch
+endif
 endif
 
 $(package)_qttranslations_file_name=$(qt_details_qttranslations_file_name)
@@ -259,6 +261,7 @@ define $(package)_extract_cmds
 endef
 endif
 
+ifeq ($($(package)_version),6.10.1)
 define $(package)_preprocess_cmds
   patch -p1 -i $($(package)_patch_dir)/qtbase-moc-ignore-gcc-macro.patch && \
   patch -p1 -i $($(package)_patch_dir)/no_warnings_for_symbols.patch && \
@@ -273,6 +276,10 @@ endif
 ifeq ($(host_os),darwin)
   $(package)_preprocess_cmds += && patch -p1 -i $($(package)_patch_dir)/fix_cgdisplay_macos15.patch
   $(package)_preprocess_cmds += && patch -p1 -i $($(package)_patch_dir)/fix_qyieldcpu_arm_acle.patch
+endif
+else
+define $(package)_preprocess_cmds
+endef
 endif
 
 define $(package)_config_cmds

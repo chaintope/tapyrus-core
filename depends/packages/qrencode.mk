@@ -3,7 +3,9 @@ $(package)_version=4.1.1
 $(package)_download_path=https://fukuchi.org/works/qrencode/
 $(package)_file_name=$(package)-$($(package)_version).tar.bz2
 $(package)_sha256_hash=e455d9732f8041cf5b9c388e345a641fd15707860f928e94507b1961256a6923
+ifeq ($($(package)_version),4.1.1)
 $(package)_patches=cmake_fixups.patch
+endif
 
 define $(package)_set_vars
 $(package)_cmake_opts := -DWITH_TOOLS=NO -DWITH_TESTS=NO -DGPROF=OFF -DCOVERAGE=OFF
@@ -13,7 +15,7 @@ $(package)_cflags += -Wno-int-conversion -Wno-implicit-function-declaration
 endef
 
 define $(package)_preprocess_cmds
-  patch -p1 < $($(package)_patch_dir)/cmake_fixups.patch
+  $(foreach patch,$($(package)_patches),patch -p1 < $($(package)_patch_dir)/$(patch) &&) true
 endef
 
 define $(package)_config_cmds

@@ -40,7 +40,9 @@ define fetch_file
 endef
 
 define int_get_build_recipe_hash
-$(eval $(1)_patches_path?=$(PATCHES_PATH)/$(1))
+$(eval $(1)_patches_path?=$(PATCHES_PATH)/$(1)/$($(1)_version))
+$(if $(wildcard $(dir $($(1)_patches_path))*.patch),$(error Patch file(s) found directly under $(dir $($(1)_patches_path)) -- patches must live in a version subdirectory ($($(1)_patches_path)/), not the package's top-level patches directory))
+$(if $($(1)_patches),,$(if $(wildcard $(dir $($(1)_patches_path))*/),$(info No patches found for $(1) $($(1)_version) -- building unpatched ($(dir $($(1)_patches_path)) has patches for other versions))))
 $(eval $(1)_all_file_checksums:=$(shell $(build_SHA256SUM) $(meta_depends) packages/$(1).mk $(addprefix $($(1)_patches_path)/,$($(1)_patches)) | cut -d" " -f1))
 $(eval $(1)_recipe_hash:=$(shell echo -n "$($(1)_all_file_checksums)" | $(build_SHA256SUM) | cut -d" " -f1))
 endef
