@@ -41,18 +41,32 @@
       "0100000001f8d3c44db5790964b9d15b390f1e92cd2b9f851e7679c232dba7d0ecef9f88d40000000000ffffffff0100000000000000000000000000"
     ],
     "return_code": 0,
-    "error_txt": "PASS (No error)",
-    "description": "A clean, single-item-stack OP_TRUE script passes under the default (standard) flags"
+    "error_txt": "64 combination(s) tested, 0 monotonicity violation(s) found.",
+    "description": "No --flags given runs the full 64-combination matrix by default, for a clean, single-item-stack OP_TRUE script that passes unconditionally"
   },
   {
     "exec": "./tapyrus-verify",
     "args": [
       "01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff020000ffffffff010000000000000000015100000000",
-      "0100000001f8d3c44db5790964b9d15b390f1e92cd2b9f851e7679c232dba7d0ecef9f88d4000000000151ffffffff0100000000000000000000000000"
+      "0100000001f8d3c44db5790964b9d15b390f1e92cd2b9f851e7679c232dba7d0ecef9f88d40000000000ffffffff0100000000000000000000000000",
+      "0",
+      "--flags=standard"
+    ],
+    "return_code": 0,
+    "error_txt": "PASS (No error)",
+    "description": "--flags=standard opts out of the matrix and runs a single result instead"
+  },
+  {
+    "exec": "./tapyrus-verify",
+    "args": [
+      "01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff020000ffffffff010000000000000000015100000000",
+      "0100000001f8d3c44db5790964b9d15b390f1e92cd2b9f851e7679c232dba7d0ecef9f88d4000000000151ffffffff0100000000000000000000000000",
+      "0",
+      "--flags=standard"
     ],
     "return_code": 0,
     "error_txt": "FAIL (Extra items left on stack after execution)",
-    "description": "A script leaving an extra stack item fails under the default flags (CLEANSTACK is in STANDARD_SCRIPT_VERIFY_FLAGS)"
+    "description": "A script leaving an extra stack item fails under --flags=standard (CLEANSTACK is in STANDARD_SCRIPT_VERIFY_FLAGS)"
   },
   {
     "exec": "./tapyrus-verify",
@@ -76,18 +90,6 @@
     ],
     "return_code": 0,
     "error_txt": "FAIL (Only non-push operators allowed in signatures)",
-    "description": "A scriptSig containing a non-push opcode fails once SIGPUSHONLY is selected, though it passes under the default flags"
-  },
-  {
-    "exec": "./tapyrus-verify",
-    "args": [
-      "01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff020000ffffffff010000000000000000015100000000",
-      "0100000001f8d3c44db5790964b9d15b390f1e92cd2b9f851e7679c232dba7d0ecef9f88d40000000000ffffffff0100000000000000000000000000",
-      "0",
-      "--flags-matrix"
-    ],
-    "return_code": 0,
-    "error_txt": "64 combination(s) tested, 0 monotonicity violation(s) found.",
-    "description": "--flags-matrix runs all 64 named-flag combinations and reports zero soft-fork monotonicity violations for a script that passes unconditionally"
+    "description": "A scriptSig containing a non-push opcode fails once SIGPUSHONLY is selected, though it passes in the default matrix's non-sigpushonly rows"
   }
 ]

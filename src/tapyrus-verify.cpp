@@ -25,12 +25,12 @@
 // transaction, .n the output index). This tool verifies prevout
 // actually matches to_spend before running VerifyScript.
 //
-// Default flags are STANDARD_SCRIPT_VERIFY_FLAGS (script/interpreter.h),
-// not the smaller MANDATORY_SCRIPT_VERIFY_FLAGS consensus set, so a
-// result here can differ from block validation for a non-standard but
-// consensus-valid script. --flags selects a different set; --flags-matrix
-// runs every combination of Tapyrus's runtime-selectable SCRIPT_VERIFY_*
-// flags and reports where the result changes.
+// By default, checks a given pair against every one of Tapyrus's 64
+// runtime-selectable SCRIPT_VERIFY_* flag combinations (script/interpreter.h)
+// and reports where the result changes -- this includes flags=0
+// (MANDATORY_SCRIPT_VERIFY_FLAGS) and the exact STANDARD_SCRIPT_VERIFY_FLAGS
+// combination, both being unions of those same flags. --flags=<spec> runs
+// one set instead of the full matrix.
 //
 // Exit codes:
 //   0 = ran cleanly, including a script that failed verification
@@ -396,25 +396,31 @@ int RunFlagsMatrix(const VerifyContext& ctx)
     return EXIT_OK;
 }
 
+// Runs either the full flags matrix or one explicit flag set, depending
+// on whether the caller passed --flags.
+int RunOne(const VerifyContext& ctx, bool flagsGiven, unsigned int flags)
+{
+    return flagsGiven ? RunSingleFlags(ctx, flags) : RunFlagsMatrix(ctx);
+}
+
 void PrintUsage(const char* argv0)
 {
     std::fprintf(stderr,
         "usage: %s <to_spend_hex> <spending_hex> [input_index] [--flags=<spec>]\n"
-        "       %s --flags-matrix <to_spend_hex> <spending_hex> [input_index]\n"
+        "\n"
+        "  Runs every one of the %zu flag combinations below by default and\n"
+        "  reports where the result changes; --flags=<spec> runs one instead.\n"
         "\n"
         "  input_index    index into spending's own inputs (default 0); the output\n"
         "                 verified is whichever one spending.vin[input_index].prevout\n"
         "                 actually points at in to_spend, not input_index itself.\n"
-        "  --flags=<spec> \"standard\" (default, STANDARD_SCRIPT_VERIFY_FLAGS), \"none\",\n"
-        "                 a 0x-prefixed hex bitmask, or a comma-separated list of:\n",
-        argv0, argv0);
+        "  --flags=<spec> \"standard\" (STANDARD_SCRIPT_VERIFY_FLAGS), \"none\"\n"
+        "                 (MANDATORY_SCRIPT_VERIFY_FLAGS), a 0x-prefixed hex bitmask,\n"
+        "                 or a comma-separated list of:\n",
+        argv0, size_t{1} << kNumNamedFlags);
     for (const auto& nf : kNamedFlags) {
         std::fprintf(stderr, "                   %s\n", nf.name);
     }
-    std::fprintf(stderr,
-        "  --flags-matrix run against all %zu combinations of the flags above and\n"
-        "                 report where the result changes as flags vary\n",
-        size_t{1} << kNumNamedFlags);
 }
 
 } // namespace
@@ -427,17 +433,21 @@ int main(int argc, char* argv[])
     SelectFederationParams(TAPYRUS_OP_MODE::PROD, false);
 
     std::vector<std::string> positional;
-    bool matrixMode = false;
-    std::string flagsSpec = "standard";
+    bool flagsGiven = false;
+    std::string flagsSpec;
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
-        if (arg == "--flags-matrix") {
-            matrixMode = true;
-        } else if (arg.rfind("--flags=", 0) == 0) {
+        if (arg.rfind("--flags=", 0) == 0) {
             flagsSpec = arg.substr(8);
+            flagsGiven = true;
         } else {
             positional.push_back(arg);
         }
+    }
+
+    unsigned int flags = 0;
+    if (flagsGiven && !ParseFlags(flagsSpec, flags)) {
+        return EXIT_ERROR;
     }
 
     if (positional.size() != 2 && positional.size() != 3) {
@@ -453,14 +463,5 @@ int main(int argc, char* argv[])
     if (!ctx) {
         return EXIT_ERROR;
     }
-
-    if (matrixMode) {
-        return RunFlagsMatrix(*ctx);
-    }
-
-    unsigned int flags;
-    if (!ParseFlags(flagsSpec, flags)) {
-        return EXIT_ERROR;
-    }
-    return RunSingleFlags(*ctx, flags);
+    return RunOne(*ctx, flagsGiven, flags);
 }
