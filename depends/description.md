@@ -51,3 +51,12 @@ Build and staging dirs are wiped after use, and any previous version of a
 cached result is removed following a successful build. Automated builders
 should be able to build each revision and store the results with no further
 intervention.
+
+### Keep the S3 fallback mirror in sync
+
+`FALLBACK_DOWNLOAD_PATH` (see `Makefile`) points at an S3 mirror that
+`fetch_file` falls back to when a package's primary `download_path` is
+unreachable. Whenever a package's version, file name, or hash changes in
+`packages/*.mk`, the corresponding file must also be uploaded to that mirror
+under the exact new file name, or the fallback will silently fail to help the
+next time the primary host has an outage.

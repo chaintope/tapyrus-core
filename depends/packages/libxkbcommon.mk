@@ -1,8 +1,11 @@
 package=libxkbcommon
-$(package)_version=1.7.0
-$(package)_download_path=https://xkbcommon.org/download/
-$(package)_file_name=$(package)-$($(package)_version).tar.xz
-$(package)_sha256_hash=65782f0a10a4b455af9c6baab7040e2f537520caa2ec2092805cdfd36863b247
+$(package)_version=1.13.2
+# xkbcommon.org/download/ stopped receiving new releases after 1.7.0 (every
+# version past that 404s there); upstream now only publishes via GitHub tags.
+$(package)_download_path=https://github.com/xkbcommon/libxkbcommon/archive/refs/tags
+$(package)_download_file=xkbcommon-$($(package)_version).tar.gz
+$(package)_file_name=$(package)-$($(package)_version).tar.gz
+$(package)_sha256_hash=acc4d5f7c3cbba5f9f8d08d8bdbeede84ecede46792f47929aa9321873385528
 $(package)_dependencies=libxcb
 
 # Version >= 0.9.0 uses Meson (required by Qt 6.10+ which needs xkb_x11_state_new_from_device).
