@@ -55,7 +55,6 @@
 #include <version.h>
 
 #include <cstdio>
-#include <cstdlib>
 #include <optional>
 #include <set>
 #include <sstream>
@@ -279,18 +278,33 @@ std::string FlagsToNames(unsigned int flags)
     return result;
 }
 
+// Parses a hex digit string (no "0x" prefix) into an unsigned int without
+// strtoul/isxdigit, both locale-dependent -- explicit char-range checks
+// only.
+bool ParseHexUInt32(const std::string& hex, unsigned int& out)
+{
+    if (hex.empty() || hex.size() > 8) return false;
+    unsigned int value = 0;
+    for (char c : hex) {
+        value <<= 4;
+        if (c >= '0' && c <= '9') value |= static_cast<unsigned int>(c - '0');
+        else if (c >= 'a' && c <= 'f') value |= static_cast<unsigned int>(c - 'a' + 10);
+        else if (c >= 'A' && c <= 'F') value |= static_cast<unsigned int>(c - 'A' + 10);
+        else return false;
+    }
+    out = value;
+    return true;
+}
+
 bool ParseFlags(const std::string& spec, unsigned int& outFlags)
 {
     if (spec == "standard") { outFlags = STANDARD_SCRIPT_VERIFY_FLAGS; return true; }
     if (spec == "none") { outFlags = SCRIPT_VERIFY_NONE; return true; }
     if (spec.size() > 2 && spec[0] == '0' && (spec[1] == 'x' || spec[1] == 'X')) {
-        char* endptr = nullptr;
-        unsigned long val = std::strtoul(spec.c_str() + 2, &endptr, 16);
-        if (endptr != spec.c_str() + spec.size()) {
+        if (!ParseHexUInt32(spec.substr(2), outFlags)) {
             std::fprintf(stderr, "error: invalid hex flags value: %s\n", spec.c_str());
             return false;
         }
-        outFlags = static_cast<unsigned int>(val);
         return true;
     }
     unsigned int result = 0;
@@ -310,21 +324,21 @@ bool ParseFlags(const std::string& spec, unsigned int& outFlags)
     return true;
 }
 
-// Rejects a negative or malformed index instead of letting strtoul wrap
-// a leading '-' into a huge unsigned value.
+// ParseUInt32 (utilstrencodings.h) is locale-independent (std::from_chars)
+// and already rejects a leading '-' -- distinguish that case in the error
+// message rather than lumping it in with other malformed input.
 bool ParseIndex(const std::string& spec, unsigned int& outIndex)
 {
-    if (spec.empty() || spec[0] == '-') {
-        std::fprintf(stderr, "error: input index must be a non-negative integer, got: %s\n", spec.c_str());
+    uint32_t val;
+    if (!ParseUInt32(spec, &val)) {
+        if (!spec.empty() && spec[0] == '-') {
+            std::fprintf(stderr, "error: input index must be a non-negative integer, got: %s\n", spec.c_str());
+        } else {
+            std::fprintf(stderr, "error: invalid input index: %s\n", spec.c_str());
+        }
         return false;
     }
-    char* endptr = nullptr;
-    unsigned long val = std::strtoul(spec.c_str(), &endptr, 10);
-    if (endptr != spec.c_str() + spec.size()) {
-        std::fprintf(stderr, "error: invalid input index: %s\n", spec.c_str());
-        return false;
-    }
-    outIndex = static_cast<unsigned int>(val);
+    outIndex = val;
     return true;
 }
 
