@@ -358,6 +358,9 @@ if(BUILD_SCRIPT_VERIFY)
           tapyrus_crypto
           Boost::headers
   )
+  if(BUILD_FUZZ_TEST)
+    target_compile_definitions(tapyrus-verify PRIVATE BUILD_FUZZ_TEST)
+  endif()
   install_binary_component(tapyrus-verify)
 endif()
 
