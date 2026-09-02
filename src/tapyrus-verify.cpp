@@ -357,12 +357,14 @@ int RunSingleFlags(const VerifyContext& ctx, unsigned int flags)
     return EXIT_OK;
 }
 
-// Runs the pair against all 64 combinations of the named flags and
-// reports where the result changes. Also checks the soft-fork
-// monotonicity invariant script/interpreter.h documents (adding flags
-// can only shrink the accepted-script set): a superset of flags passing
-// while a subset fails would mean one of these flags isn't behaving as
-// a soft fork.
+// Runs the pair against all 64 combinations of the named flags --
+// including flags=0 (MANDATORY_SCRIPT_VERIFY_FLAGS, which is 0 in
+// Tapyrus) and the exact STANDARD_SCRIPT_VERIFY_FLAGS combination, both
+// being unions of these same named flags -- and reports where the
+// result changes. Also checks the soft-fork monotonicity invariant
+// script/interpreter.h documents (adding flags can only shrink the
+// accepted-script set): a superset of flags passing while a subset
+// fails would mean one of these flags isn't behaving as a soft fork.
 int RunFlagsMatrix(const VerifyContext& ctx)
 {
     PrintPairHex(ctx);
