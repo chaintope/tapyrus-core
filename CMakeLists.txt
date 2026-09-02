@@ -117,7 +117,7 @@ option(BUILD_SCRIPT_VERIFY "Build tapyrus-verify executable." OFF)
 
 option(ENABLE_TESTS "Build test_tapyrus executable." ON)
 option(BUILD_UTILS "Build tapyrus-tx executable." ${ENABLE_TESTS})
-option(BUILD_FUZZ_TEST "Build fuzz test executables (fuzz_pstt_parse)." OFF)
+option(BUILD_FUZZ_TEST "Build fuzz test executables (fuzz_pstt_parse) and the tapyrus-verify --fuzz mode." OFF)
 
 option(ENABLE_WALLET "Build wallet functionality in tapyrusd, gui and tests." ON)
 option(WITH_BDB "Enable Berkeley DB (BDB) wallet support." ON)

@@ -32,11 +32,20 @@
 // combination, both being unions of those same flags. --flags=<spec> runs
 // one set instead of the full matrix.
 //
+// --fuzz <script-mnemonic-file> (only when built with BUILD_FUZZ_TEST --
+// the oracle behind contrib/fuzz/fuzz4all/TAPYRUSSCRIPT.py) assembles the
+// file into a scriptPubKey, builds its own to_spend/spending pair, and
+// additionally sweeps 16 nLockTime/nSequence combinations -- each one
+// checked the same way (full flag matrix, or --flags=<spec> if given).
+//
 // Exit codes:
 //   0 = ran cleanly, including a script that failed verification
 //       normally (bad signature, stack underflow, etc).
 //   1 = usage error, invalid input, or a to_spend/spending pair that
 //       doesn't match.
+//   2 = (--fuzz only) the script-mnemonic text was rejected by
+//       ParseScript as not valid Script -- an LLM_WEAKNESS-shaped
+//       result, not a bug in Tapyrus.
 //   killed by a signal (SIGSEGV/SIGABRT from ASan/UBSan, etc) = a crash.
 
 #include <tapyrus-config.h>
@@ -54,7 +63,14 @@
 #include <utilstrencodings.h>
 #include <version.h>
 
+#ifdef BUILD_FUZZ_TEST
+#include <core_io.h>
+#endif
+
 #include <cstdio>
+#ifdef BUILD_FUZZ_TEST
+#include <fstream>
+#endif
 #include <optional>
 #include <set>
 #include <sstream>
@@ -65,6 +81,9 @@ namespace {
 
 constexpr int EXIT_OK = 0;
 constexpr int EXIT_ERROR = 1;
+#ifdef BUILD_FUZZ_TEST
+constexpr int EXIT_REJECTED_BY_ASSEMBLER = 2;
+#endif
 
 struct NamedFlag {
     const char* name;
@@ -403,6 +422,87 @@ int RunOne(const VerifyContext& ctx, bool flagsGiven, unsigned int flags)
     return flagsGiven ? RunSingleFlags(ctx, flags) : RunFlagsMatrix(ctx);
 }
 
+#ifdef BUILD_FUZZ_TEST
+
+// nLockTime: disabled, smallest height-based, the historical
+// height-vs-time-locktime boundary, and the max uint32 value.
+// nSequence: SEQUENCE_FINAL (locktime and relative-locktime both
+// disabled), 0 (both enabled), the relative-locktime-disable bit set
+// alone, and one high-but-not-final value. Not exhaustive, just varied.
+constexpr uint32_t kLockTimes[] = {0, 1, 500000000, 0xFFFFFFFFu};
+constexpr uint32_t kSequences[] = {CTxIn::SEQUENCE_FINAL, 0, 0x80000000u, 0xFFFFFFFEu};
+constexpr size_t kTotalVariations = (sizeof(kLockTimes) / sizeof(kLockTimes[0])) *
+                                     (sizeof(kSequences) / sizeof(kSequences[0]));
+
+CMutableTransaction BuildToSpend(const CScript& scriptPubKey)
+{
+    CMutableTransaction tx;
+    tx.nFeatures = 1;
+    tx.nLockTime = 0;
+    tx.vin.resize(1);
+    tx.vout.resize(1);
+    tx.vin[0].prevout.SetNull();
+    tx.vin[0].scriptSig = CScript() << CScriptNum(0) << CScriptNum(0);
+    tx.vin[0].nSequence = CTxIn::SEQUENCE_FINAL;
+    tx.vout[0].scriptPubKey = scriptPubKey;
+    tx.vout[0].nValue = 0;
+    return tx;
+}
+
+CMutableTransaction BuildSpending(const CTransaction& toSpend, uint32_t nLockTime, uint32_t nSequence)
+{
+    CMutableTransaction tx;
+    tx.nFeatures = 1;
+    tx.nLockTime = nLockTime;
+    tx.vin.resize(1);
+    tx.vout.resize(1);
+    tx.vin[0].prevout.hashMalFix = toSpend.GetHashMalFix();
+    tx.vin[0].prevout.n = 0;
+    tx.vin[0].scriptSig = CScript();
+    tx.vin[0].nSequence = nSequence;
+    tx.vout[0].scriptPubKey = CScript();
+    tx.vout[0].nValue = toSpend.vout[0].nValue;
+    return tx;
+}
+
+// Assembles scriptFile into a scriptPubKey, builds its own to_spend/
+// spending pair, and runs each of kTotalVariations nLockTime/nSequence
+// combinations through RunOne.
+int RunFuzzMode(const std::string& scriptFile, bool flagsGiven, unsigned int flags)
+{
+    std::ifstream in(scriptFile);
+    if (!in) {
+        std::fprintf(stderr, "error: cannot open %s\n", scriptFile.c_str());
+        return EXIT_ERROR;
+    }
+    std::ostringstream buf;
+    buf << in.rdbuf();
+
+    CScript scriptPubKey;
+    try {
+        scriptPubKey = ParseScript(buf.str());
+    } catch (const std::exception& e) {
+        std::fprintf(stderr, "rejected by assembler: %s\n", e.what());
+        return EXIT_REJECTED_BY_ASSEMBLER;
+    }
+
+    const CTransaction toSpend{BuildToSpend(scriptPubKey)};
+
+    size_t variation = 0;
+    for (uint32_t lockTime : kLockTimes) {
+        for (uint32_t sequence : kSequences) {
+            ++variation;
+            std::fprintf(stderr, "-- variation %zu/%zu: nLockTime=%u nSequence=%u --\n",
+                         variation, kTotalVariations, lockTime, sequence);
+            VerifyContext ctx{toSpend, BuildSpending(toSpend, lockTime, sequence), 0, 0};
+            RunOne(ctx, flagsGiven, flags);
+        }
+    }
+    return EXIT_OK;
+}
+
+#endif // BUILD_FUZZ_TEST
+
 void PrintUsage(const char* argv0)
 {
     std::fprintf(stderr,
@@ -421,6 +521,15 @@ void PrintUsage(const char* argv0)
     for (const auto& nf : kNamedFlags) {
         std::fprintf(stderr, "                   %s\n", nf.name);
     }
+#ifdef BUILD_FUZZ_TEST
+    std::fprintf(stderr,
+        "\n"
+        "       %s --fuzz <script-mnemonic-file> [--flags=<spec>]\n"
+        "  --fuzz <file>  assembles a Script-mnemonic file into scriptPubKey, builds\n"
+        "                 its own to_spend/spending pair, and additionally sweeps %zu\n"
+        "                 nLockTime/nSequence combinations\n",
+        argv0, kTotalVariations);
+#endif
 }
 
 } // namespace
@@ -435,11 +544,18 @@ int main(int argc, char* argv[])
     std::vector<std::string> positional;
     bool flagsGiven = false;
     std::string flagsSpec;
+#ifdef BUILD_FUZZ_TEST
+    bool fuzzMode = false;
+#endif
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg.rfind("--flags=", 0) == 0) {
             flagsSpec = arg.substr(8);
             flagsGiven = true;
+#ifdef BUILD_FUZZ_TEST
+        } else if (arg == "--fuzz") {
+            fuzzMode = true;
+#endif
         } else {
             positional.push_back(arg);
         }
@@ -449,6 +565,16 @@ int main(int argc, char* argv[])
     if (flagsGiven && !ParseFlags(flagsSpec, flags)) {
         return EXIT_ERROR;
     }
+
+#ifdef BUILD_FUZZ_TEST
+    if (fuzzMode) {
+        if (positional.size() != 1) {
+            PrintUsage(argv[0]);
+            return EXIT_ERROR;
+        }
+        return RunFuzzMode(positional[0], flagsGiven, flags);
+    }
+#endif
 
     if (positional.size() != 2 && positional.size() != 3) {
         PrintUsage(argv[0]);
