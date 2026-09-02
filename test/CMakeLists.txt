@@ -50,6 +50,10 @@ make_link(
 	${CMAKE_CURRENT_SOURCE_DIR}/util/tapyrus-util-test.py
 	${CMAKE_CURRENT_BINARY_DIR}/util/tapyrus-util-test.py
 )
+make_link(
+	${CMAKE_CURRENT_SOURCE_DIR}/util/tapyrus-verify-test.py
+	${CMAKE_CURRENT_BINARY_DIR}/util/tapyrus-verify-test.py
+)
 
 if(NOT TARGET check-all)
 	add_custom_target(check-all)
@@ -87,6 +91,27 @@ if(BUILD_UTILS)
 	# Add util tests as a ctest
 	add_test(NAME tapyrus_util_test
 		COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/util/tapyrus-util-test.py
+		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+	)
+endif()
+
+if(BUILD_SCRIPT_VERIFY)
+	add_custom_target(check-tapyrus-verify
+		COMMAND
+			${CMAKE_COMMAND} -E echo "Running test/util/tapyrus-verify-test.py..."
+		COMMAND
+			./util/tapyrus-verify-test.py
+		DEPENDS
+			../src/tapyrus-verify
+			${CMAKE_CURRENT_BINARY_DIR}/util/tapyrus-verify-test.py
+			${CMAKE_CURRENT_BINARY_DIR}/util/tapyrus-util-test.py
+	)
+
+	add_dependencies(check check-tapyrus-verify)
+
+	# Add tapyrus-verify tests as a ctest
+	add_test(NAME tapyrus_verify_test
+		COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/util/tapyrus-verify-test.py
 		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 	)
 endif()
