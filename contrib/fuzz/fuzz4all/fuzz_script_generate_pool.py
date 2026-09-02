@@ -83,7 +83,7 @@ class ScriptPoolGenerator:
         await Command(
             "cmake", "-S", REPO_ROOT, "-B", build_dir,
             "-DBUILD_DAEMON=OFF", "-DBUILD_GUI=OFF", "-DBUILD_CLI=OFF", "-DBUILD_GENESIS=OFF",
-            "-DENABLE_WALLET=OFF", "-DENABLE_TESTS=OFF", "-DBUILD_BENCH=OFF", "-DENABLE_ZMQ=OFF",
+            "-DENABLE_WALLET=OFF", "-DENABLE_TESTS=OFF", "-DENABLE_BENCH=OFF", "-DENABLE_ZMQ=OFF",
             "-DBUILD_SCRIPT_VERIFY=ON", "-DBUILD_FUZZ_TEST=ON",
         ).run()
         await Command(
