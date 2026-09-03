@@ -57,3 +57,14 @@ The macOS SDK has its own separate fallback wired up directly in `.github/workfl
 `libxkbcommon` >= 1.9.0 (including the 1.13.2 pinned above) requires Meson >= 1.4.0, newer than the `meson` package Ubuntu 24.04 ships via `apt`. CI installs a pinned `meson==1.4.0` via pip rather than relying on the distro package. It also needs `gperf`, required by `fontconfig`'s build. Building the GUI through `depends` on Linux needs both — see `depends/README.md`.
 
 `libxkbcommon`'s Download URL above points at a GitHub tag archive, not `xkbcommon.org`: upstream stopped publishing releases there after 1.7.0 (every later version 404s), and only publishes via GitHub tags from 1.8.0 onward, including the 1.13.2 pinned above.
+
+## Vendored source files
+
+Unlike the table above (external packages `depends` downloads and builds), these are single source files committed directly into this repo under their own upstream license, not this repo's MIT one -- each file's own header carries the authoritative license text; this table exists so that's recorded somewhere other than the file itself, per this repo's usual attribution practice.
+
+| File | License | Source |
+| --- | --- | --- |
+| `src/test/fuzz/FuzzedDataProvider.h` | Apache-2.0 WITH LLVM-exception | Part of the [LLVM Project](https://llvm.org/LICENSE.txt); see the file's own header for the SPDX identifier. |
+| `src/tinyformat.h` | Boost Software License 1.0 | Chris Foster; see the file's own header for the full license text. |
+
+Both are excluded from `test/lint/lint-filenames.sh`'s and `test/lint/lint-include-guards.sh`'s naming/include-guard checks, since neither is ours to rename or restructure.

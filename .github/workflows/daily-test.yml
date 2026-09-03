@@ -16,6 +16,18 @@ on:
         type: string
         default: ''
         required: false
+      fuzz_run_seconds:
+        description: 'Fuzz job: seconds to run each fuzz target for'
+        type: string
+        default: '600'
+      fuzz_slice_batch_size:
+        description: 'Fuzz job: number of seed-pool files to rotate in per target per run'
+        type: string
+        default: '5'
+      sweep_time_budget_seconds:
+        description: 'Script-sweep job: stop the rotating tapyrus-verify --fuzz sweep after roughly this many seconds'
+        type: string
+        default: '1800'
 
   pull_request:
     branches:
@@ -599,9 +611,20 @@ jobs:
           fi
 
           # Common CMake configuration options
+          # BUILD_FUZZ_TEST defaults OFF here -- fuzz-code-only and
+          # fuzz-script-sweep, both below, are the two jobs in this file
+          # that actually run fuzzing (fuzz_pstt_parse, tapyrus-verify's
+          # --fuzz mode), and both are schedule-only (not run on PRs). The
+          # native-build branch below turns BUILD_FUZZ_TEST back ON so
+          # tapyrus-verify's --fuzz code path is at least compiled (never
+          # executed) on every PR -- otherwise a signature drift there
+          # would go unnoticed until the next scheduled fuzz run.
+          # fuzz_pstt_parse itself is not built on PRs yet; that's a
+          # follow-up.
           CMAKE_OPTS=(
             "-DCMAKE_BUILD_TYPE=${{ matrix.config.build_type }}"
             -DCMAKE_PREFIX_PATH="$DEPENDS_PREFIX"
+            -DBUILD_FUZZ_TEST=OFF
           )
 
           # Set test and benchmark options based on build type
@@ -611,6 +634,10 @@ jobs:
           else
             # Native builds: enable tests and benchmarks
             CMAKE_OPTS+=("-DENABLE_TESTS=ON" "-DENABLE_BENCH=ON" "-DCP2SH_ACTIVATION_TEST_HEIGHT=120")
+            # Compile-check tapyrus-verify's --fuzz mode on every PR (see
+            # comment above); BUILD_SCRIPT_VERIFY is required to build
+            # tapyrus-verify at all.
+            CMAKE_OPTS+=("-DBUILD_SCRIPT_VERIFY=ON" "-DBUILD_FUZZ_TEST=ON")
           fi
 
           # Use depends-generated CMake toolchain file
@@ -1046,3 +1073,223 @@ jobs:
           name: daily-core-dumps-${{ matrix.config.name }}-${{ github.run_id }}
           path: ${{ github.workspace }}/core_dumps/
           retention-days: 7
+
+  # --------------------------------------------------------------------
+  # JOB: fuzz-code-only
+  #
+  # PURPOSE: Run Tapyrus's own fuzz_test_files (libFuzzer-style C++
+  #   sources, Bitcoin Core convention -- e.g.
+  #   src/test/fuzz/pstt_parse_fuzz.cpp) with real coverage-guided
+  #   mutation -- purely compiled code exploring inputs on its own, at CI
+  #   compute cost only. Runs daily via this workflow's own schedule
+  #   (see the `if:` below to skip pull_request -- the matrix job above
+  #   already covers every PR, and fuzzing is exploration over time, not
+  #   a per-change gate).
+  #
+  #   Each fuzz_test_file has a large, committed seed-input pool under
+  #   test/fuzz_seed_pool/<target>/ (one file per seed). Every run selects
+  #   a different `fuzz_slice_batch_size`-sized slice of that pool, keyed
+  #   off the CI run number -- no "mark as used" state written back to
+  #   the repo; a given run number always resolves to the same slice, so
+  #   a crash found by a specific run is trivially reproducible from its
+  #   run number alone. The slice only anchors each run's exploration --
+  #   libFuzzer still mutates outward from it for the full run duration,
+  #   so this is not a replay of fixed inputs.
+  # TOOLS USED: libFuzzer + ASan/UBSan (compiled into each fuzz_test_file
+  #   via `-DSANITIZERS="fuzzer;address;undefined"`);
+  #   contrib/fuzz/fuzz_code_select_slice.py for the seed-pool
+  #   rotation.
+  # CREDENTIALS NEEDED: none.
+  # ARTIFACTS PRODUCED: `daily-fuzz-run-artifacts-<run-id>` -- any crash
+  #   (`fuzz_artifacts/`) plus newly-discovered coverage-increasing inputs
+  #   (`new_seed_candidates/`) for manual review/import into the seed
+  #   pool. Not auto-committed, matching this repo's working agreement
+  #   that generated content lands via human review, not automatically.
+  # --------------------------------------------------------------------
+  fuzz-code-only:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    # RUN_SECONDS per target (default 600s) times however many targets are
+    # in FUZZ_TARGETS.txt, plus margin for checkout/build/artifact-upload --
+    # not a per-target limit, only a backstop against the whole job
+    # hanging. Grows with the target list: bump this when target count
+    # times RUN_SECONDS/60 approaches it.
+    timeout-minutes: 30
+    env:
+      LC_ALL: C.UTF-8
+      RUN_SECONDS: ${{ inputs.fuzz_run_seconds || '600' }}
+      SLICE_BATCH_SIZE: ${{ inputs.fuzz_slice_batch_size || '5' }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.inputs.test_branch || github.ref || 'master' }}
+          submodules: recursive
+      # Single source of truth for which fuzz_test_files exist -- also
+      # read by contrib/fuzz/oss-fuzz/project/build.sh, so landing a new
+      # fuzz_test_file (e.g. one OSS-Fuzz-Gen drafted and a human
+      # reviewed, see contrib/fuzz/oss-fuzz/drafting/README.md) only means adding
+      # its name to src/test/fuzz/FUZZ_TARGETS.txt once, not editing this
+      # workflow file too.
+      - name: Load fuzz target list
+        run: |
+          targets=$(grep -v '^#' src/test/fuzz/FUZZ_TARGETS.txt | grep -v '^[[:space:]]*$' | tr '\n' ' ')
+          echo "FUZZ_TARGETS=${targets}" >> "$GITHUB_ENV"
+      - name: Install build dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake libboost-dev libevent-dev libdb++-dev clang
+      - name: Configure with libFuzzer + ASan/UBSan
+        run: >
+          cmake -S . -B build_fuzz
+          -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+          -DSANITIZERS="fuzzer;address;undefined"
+          -DBUILD_DAEMON=OFF -DBUILD_GUI=OFF -DBUILD_CLI=OFF
+          -DBUILD_GENESIS=OFF -DBUILD_SCRIPT_VERIFY=OFF
+          -DENABLE_WALLET=OFF -DENABLE_TESTS=ON -DENABLE_BENCH=OFF
+          -DBUILD_FUZZ_TEST=ON
+      - name: Build fuzz targets
+        run: cmake --build build_fuzz --target ${FUZZ_TARGETS} -j "$(nproc)"
+      - name: Run each target, seeded from this run's rotating pool slice
+        run: |
+          mkdir -p fuzz_artifacts new_seed_candidates
+          for target in ${FUZZ_TARGETS}; do
+            pool_dir="test/fuzz_seed_pool/${target}"
+            corpus_dir="fuzz_corpus/${target}"
+            mkdir -p "${pool_dir}" "${corpus_dir}"
+
+            python3 contrib/fuzz/fuzz_code_select_slice.py \
+              "${pool_dir}" "${SLICE_BATCH_SIZE}" "${{ github.run_number }}" \
+              --out "${corpus_dir}" 2> >(tee "slice_${target}.log" >&2) || true
+            if grep -q '^POOL_EMPTY=1$' "slice_${target}.log"; then
+              echo "::warning::${pool_dir} is empty -- ${target} is running with no seed pool this run. Seed it (e.g. from a longer local -max_total_time run) and commit the results."
+            fi
+            if grep -q '^CYCLE_COMPLETE=1$' "slice_${target}.log"; then
+              echo "::notice::${pool_dir} completed a full rotation cycle this run."
+            fi
+
+            timeout "${RUN_SECONDS}" \
+              ./build_fuzz/bin/"${target}" \
+                -artifact_prefix=fuzz_artifacts/"${target}"- \
+                -max_total_time="${RUN_SECONDS}" \
+                "${corpus_dir}" \
+              || test $? -eq 124  # timeout's own "ran to the limit" exit code -- not a failure
+
+            # Corpus dir now holds the seeded slice plus anything libFuzzer
+            # found interesting -- diff against the seeded slice to surface
+            # only genuinely new candidates for human review.
+            new_dir="new_seed_candidates/${target}"
+            mkdir -p "${new_dir}"
+            comm -23 <(ls "${corpus_dir}" | sort) <(ls "${pool_dir}" 2>/dev/null | sort) \
+              | while read -r f; do cp "${corpus_dir}/${f}" "${new_dir}/"; done
+          done
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: daily-fuzz-run-artifacts-${{ github.run_id }}
+          path: |
+            fuzz_artifacts/
+            new_seed_candidates/
+
+  # --------------------------------------------------------------------
+  # JOB: fuzz-script-sweep
+  #
+  # PURPOSE: Test a rotating, time-bounded slice of the committed
+  #   AI-generated Tapyrus Script-program pool against tapyrus-verify
+  #   --fuzz, looking for interpreter crashes on inputs a plain mutation
+  #   fuzzer is unlikely to stumble into on its own. Runs daily via this
+  #   workflow's own schedule: a daily rotating offset covers the whole
+  #   pool in `pool_size / candidates-per-run` days at CI compute cost
+  #   only. Skips pull_request, same reasoning as fuzz-code-only above.
+  #
+  #   Each run starts at a different offset into the pool (keyed off
+  #   this workflow's own run number, same rotation idea used for
+  #   fuzz-code-only's seed pool above) and walks forward from there
+  #   until either the time budget runs out or it laps back to its own
+  #   starting point -- so successive runs gradually cover the whole pool
+  #   instead of always retesting the same prefix.
+  #
+  #   The pool itself grows via a separate local script -- see
+  #   contrib/fuzz/fuzz4all/fuzz_script_generate_pool.py and
+  #   contrib/fuzz/fuzz4all/README.md for how.
+  # TOOLS USED: tapyrus-verify --fuzz (src/tapyrus-verify.cpp), built
+  #   here via -DBUILD_SCRIPT_VERIFY=ON -DBUILD_FUZZ_TEST=ON with
+  #   ASan/UBSan.
+  # CREDENTIALS NEEDED: none -- this job replays already-generated,
+  #   already-committed inputs.
+  # ARTIFACTS PRODUCED: `fuzz-script-sweep-artifacts-<run-id>` -- every
+  #   candidate Script program actually tested this run (for reproducing
+  #   a crash; the run's starting offset plus this list pins down exactly
+  #   what was covered).
+  # --------------------------------------------------------------------
+  fuzz-script-sweep:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    # Sweep time budget plus margin for checkout/build/artifact-upload --
+    # not itself the sweep's own time limit, which is
+    # SWEEP_TIME_BUDGET_SECONDS below; this is only a backstop against
+    # the job hanging entirely.
+    timeout-minutes: 50
+    env:
+      LC_ALL: C.UTF-8
+      SWEEP_TIME_BUDGET_SECONDS: ${{ inputs.sweep_time_budget_seconds || '1800' }}
+      FUZZ4ALL_TARGET: tapyrus_script
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.inputs.test_branch || github.ref || 'master' }}
+          submodules: recursive
+      - name: Install build dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake libboost-dev clang
+      - name: Configure tapyrus-verify with ASan/UBSan
+        run: >
+          cmake -S . -B build_fuzz_verify
+          -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+          -DSANITIZERS="address;undefined"
+          -DBUILD_DAEMON=OFF -DBUILD_GUI=OFF -DBUILD_CLI=OFF -DBUILD_GENESIS=OFF
+          -DENABLE_WALLET=OFF -DENABLE_TESTS=OFF -DENABLE_BENCH=OFF -DENABLE_ZMQ=OFF
+          -DBUILD_SCRIPT_VERIFY=ON -DBUILD_FUZZ_TEST=ON
+      - name: Build tapyrus-verify
+        run: cmake --build build_fuzz_verify --target tapyrus-verify -j "$(nproc)"
+      - name: Sweep a rotating window of the pool for up to the time budget
+        run: |
+          pool_dir="contrib/fuzz/fuzz4all/generated_pool/${FUZZ4ALL_TARGET}"
+          mkdir -p "${pool_dir}" swept_inputs
+          mapfile -t all_files < <(find "${pool_dir}" -maxdepth 1 -type f ! -name "README.md" | sort)
+          pool_size=${#all_files[@]}
+          if [ "${pool_size}" -eq 0 ]; then
+            echo "::warning::${pool_dir} is empty -- run contrib/fuzz/fuzz4all/fuzz_script_generate_pool.py locally and commit its output first."
+            exit 0
+          fi
+
+          offset=$(( ${{ github.run_number }} % pool_size ))
+          deadline=$(( $(date +%s) + SWEEP_TIME_BUDGET_SECONDS ))
+          # Exit code 2 means ParseScript rejected the candidate as not
+          # valid Script -- ordinary LLM noise (see tapyrus-verify.cpp's
+          # own exit-code contract), expected occasionally and never a
+          # reason to fail this job. Anything else nonzero (including a
+          # signal-killed process from an ASan/UBSan abort) is a real
+          # finding.
+          fail=0
+          tested=0
+          i="${offset}"
+          while [ "$(date +%s)" -lt "${deadline}" ]; do
+            f="${all_files[$i]}"
+            cp "$f" swept_inputs/
+            ./build_fuzz_verify/bin/tapyrus-verify --fuzz "$f"
+            rc=$?
+            if [ "${rc}" -ne 0 ] && [ "${rc}" -ne 2 ]; then
+              fail=1
+            fi
+            tested=$((tested + 1))
+            i=$(( (i + 1) % pool_size ))
+            if [ "${i}" -eq "${offset}" ]; then
+              echo "Completed a full lap of the pool (${pool_size} candidates) before the time budget ran out."
+              break
+            fi
+          done
+          echo "Tested ${tested} of ${pool_size} pool candidates this run (started at offset ${offset})."
+          exit "${fail}"
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: fuzz-script-sweep-artifacts-${{ github.run_id }}
+          path: swept_inputs/
+          if-no-files-found: ignore

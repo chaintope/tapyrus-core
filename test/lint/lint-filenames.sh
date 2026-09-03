@@ -10,9 +10,15 @@
 export LC_ALL=C
 
 EXIT_CODE=0
+# FuzzedDataProvider.h is vendored from LLVM unmodified (see
+# doc/dependencies.md's "Vendored source files" section); TAPYRUSSCRIPT.py's
+# uppercase name matches Fuzz4All's own target-plugin naming convention,
+# which its target-discovery mechanism expects.
 OUTPUT=$(git ls-files --full-name -- "*.[cC][pP][pP]" "*.[hH]" "*.[pP][yY]" "*.[sS][hH]" | \
     grep -vE '^[a-z0-9_./-]+$' | \
-    grep -vE '^src/(secp256k1|univalue)/')
+    grep -vE '^src/(secp256k1|univalue)/' | \
+    grep -vE '^src/test/fuzz/FuzzedDataProvider\.h$' | \
+    grep -vE '^contrib/fuzz/fuzz4all/TAPYRUSSCRIPT\.py$')
 
 if [[ ${OUTPUT} != "" ]]; then
     echo "Use only lowercase alphanumerics (a-z0-9), underscores (_), hyphens (-) and dots (.)"

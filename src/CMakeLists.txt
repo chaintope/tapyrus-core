@@ -346,6 +346,24 @@ if(BUILD_GENESIS)
   install_binary_component(tapyrus-genesis HAS_MANPAGE)
 endif()
 
+# No tapyrus_server, no leveldb: transaction/script-level only.
+if(BUILD_SCRIPT_VERIFY)
+  add_executable(tapyrus-verify tapyrus-verify.cpp)
+  target_link_libraries(tapyrus-verify
+          core_interface
+          tapyrus_consensus
+          tapyrus_common
+          univalue
+          secp256k1
+          tapyrus_crypto
+          Boost::headers
+  )
+  if(BUILD_FUZZ_TEST)
+    target_compile_definitions(tapyrus-verify PRIVATE BUILD_FUZZ_TEST)
+  endif()
+  install_binary_component(tapyrus-verify)
+endif()
+
 if(BUILD_GUI)
   add_subdirectory(qt)
 endif()
