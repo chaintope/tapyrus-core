@@ -290,7 +290,7 @@ jobs:
 
       - name: Upload combined logs (on failure)
         if: failure() || cancelled()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: heavy-combined-logs-${{ matrix.config.name }}-${{ github.run_id }}
           path: ${{ github.workspace }}/combined_logs/
@@ -321,7 +321,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: heavy-test-results-${{ matrix.config.name }}-${{ github.run_id }}
           path: ${{ github.workspace }}/tapyrus_test
@@ -377,7 +377,7 @@ jobs:
 
       - name: Upload core dumps (on failure)
         if: failure() || cancelled()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: heavy-core-dumps-${{ matrix.config.name }}-${{ github.run_id }}
           path: ${{ github.workspace }}/core_dumps/

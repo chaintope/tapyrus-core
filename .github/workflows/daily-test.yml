@@ -957,7 +957,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: daily-test-results-${{ matrix.config.name }}-${{ github.run_id }}
           path: |
@@ -969,7 +969,7 @@ jobs:
 
       - name: Upload coverage data
         if: matrix.config.build_type == 'Debug'
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: coverage-data-${{ matrix.config.name }}-${{ github.run_id }}
           path: |
@@ -979,7 +979,7 @@ jobs:
 
       - name: Upload Windows binaries
         if: matrix.config.target_platform == 'windows' && always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: tapyrus-windows-${{ matrix.config.target_arch }}-binaries-${{ github.run_id }}
           path: |
@@ -1041,7 +1041,7 @@ jobs:
 
       - name: Upload Core Dumps
         if: failure() && matrix.config.target_platform != 'windows'
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: daily-core-dumps-${{ matrix.config.name }}-${{ github.run_id }}
           path: ${{ github.workspace }}/core_dumps/
