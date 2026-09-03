@@ -6,7 +6,11 @@
 set(_BerkeleyDB_homebrew_prefix)
 if(CMAKE_HOST_APPLE)
   include(BrewHelper)
-  find_brew_prefix(_BerkeleyDB_homebrew_prefix berkeley-db@4)
+  # Homebrew has renamed/dropped versioned BDB formulas before
+  # (berkeley-db@4 was removed from homebrew-core) -- accept whatever BDB
+  # Homebrew formula is actually installed (any berkeley-db@N, or the
+  # plain/latest berkeley-db) instead of hardcoding one exact name.
+  find_brew_prefix_any_version(_BerkeleyDB_homebrew_prefix berkeley-db)
 endif()
 
 # If BerkeleyDB_ROOT is set, prioritize it; otherwise fall back to system paths
