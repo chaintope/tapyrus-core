@@ -560,7 +560,7 @@ bool PartiallySignedTapyrusTransaction::IsNull() const
 // byte form (78-byte xpub + derivation path), built just for the duration
 // of this call, so appending stays close to linear rather than O(n^2) for
 // large xpub counts.
-static std::vector<unsigned char> XpubEntryCanonicalBytes(const std::pair<CExtPubKey, std::vector<uint32_t>>& entry)
+std::vector<unsigned char> XpubEntryCanonicalBytes(const std::pair<CExtPubKey, std::vector<uint32_t>>& entry)
 {
     std::vector<unsigned char> out = SerializeXpubKeyData(entry.first);
     for (uint32_t v : entry.second) {
@@ -1015,13 +1015,13 @@ PSTTSignResult SignPSTTInput(const SigningProvider& provider, const PartiallySig
         return PSTTSignResult::PREVOUT_INDEX_OOB;
     }
 
-    const CTxOut& utxo = input.utxo->vout[input.prevout_index];
+    const CTxOut& utxo_out = input.utxo->vout[input.prevout_index];
 
     // Must verify the redeem script hashes to the value committed in the
     // scriptPubKey, accounting for CP2SH's color-id prefix.
     if (!input.redeem_script.empty()) {
         uint160 expected_hash;
-        if (!ExtractRedeemScriptHash(utxo.scriptPubKey, expected_hash)) {
+        if (!ExtractRedeemScriptHash(utxo_out.scriptPubKey, expected_hash)) {
             return PSTTSignResult::REDEEM_SCRIPT_HASH_MISMATCH;
         }
         if (CScriptID(input.redeem_script) != CScriptID(expected_hash)) {
@@ -1061,8 +1061,8 @@ PSTTSignResult SignPSTTInput(const SigningProvider& provider, const PartiallySig
     input.FillSignatureData(sigdata);
 
     CMutableTransaction mtx_view = MaterializeTransaction(pstt, locktime, /*force_zero_sequence=*/false, /*use_final_scriptsig=*/false);
-    MutableTransactionSignatureCreator creator(&mtx_view, index, utxo.nValue, sighash, sigScheme);
-    ProduceSignature(provider, creator, utxo.scriptPubKey, sigdata);
+    MutableTransactionSignatureCreator creator(&mtx_view, index, utxo_out.nValue, sighash, sigScheme);
+    ProduceSignature(provider, creator, utxo_out.scriptPubKey, sigdata);
 
     // pstt is taken by const reference (MaterializeTransaction needs the whole
     // PSTT, not just this input, so the signature intentionally doesn't take a

@@ -133,9 +133,9 @@ void ComputePsttColorBalances(const PartiallySignedTapyrusTransaction& pstt,
         if (!input.utxo || !input.prevout_index_set || input.prevout_index >= input.utxo->vout.size()) {
             continue; // color/amount not knowable without an attached UTXO
         }
-        const CTxOut& utxo = input.utxo->vout[input.prevout_index];
-        ColorIdentifier colorId = GetColorIdFromScript(utxo.scriptPubKey);
-        in[colorId] += utxo.nValue;
+        const CTxOut& utxo_out = input.utxo->vout[input.prevout_index];
+        ColorIdentifier colorId = GetColorIdFromScript(utxo_out.scriptPubKey);
+        in[colorId] += utxo_out.nValue;
     }
     for (const PSTTOutput& output : pstt.outputs) {
         if (!output.amount || output.script.empty()) continue;

@@ -112,6 +112,11 @@ std::vector<unsigned char> SerializeXpubKeyData(const CExtPubKey& xpub);
  *  the 4-byte prefix isn't exactly Params().Base58Prefix(EXT_PUBLIC_KEY). */
 CExtPubKey ParseXpubKeyData(const std::vector<unsigned char>& keydata);
 
+/** Canonical dedup key for a PSTT_GLOBAL_XPUB entry: keydata bytes followed
+ *  by the derivation path. Used by Merge() and joinpstt to avoid emitting
+ *  duplicate PSTT_GLOBAL_XPUB entries, which Unserialize() rejects. */
+std::vector<unsigned char> XpubEntryCanonicalBytes(const std::pair<CExtPubKey, std::vector<uint32_t>>& entry);
+
 // ---------------------------------------------------------------------
 // PSTTInput
 // ---------------------------------------------------------------------

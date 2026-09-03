@@ -73,7 +73,7 @@ class PSTTLargeScaleTest(BitcoinTestFramework):
         )
         processed = node.walletprocesspstt(pstt)
         assert_equal(processed['complete'], True)
-        assert_equal(node.decodepstt(processed['pstt'])['next'], 'extractor')  # single-key P2PKH: walletprocesspstt already fully finalizes
+        assert_equal(node.decodepstt(processed['pstt'])['next'], ['extractor'])  # single-key P2PKH: walletprocesspstt already fully finalizes
         return node.finalizepstt(processed['pstt'])['hex']
 
     def _build_very_large_pstt(self, utxos):
@@ -104,7 +104,7 @@ class PSTTLargeScaleTest(BitcoinTestFramework):
 
         processed = node.walletprocesspstt(finished)
         assert_equal(processed['complete'], True)
-        assert_equal(node.decodepstt(processed['pstt'])['next'], 'extractor')  # single-key P2PKH: walletprocesspstt already fully finalizes
+        assert_equal(node.decodepstt(processed['pstt'])['next'], ['extractor'])  # single-key P2PKH: walletprocesspstt already fully finalizes
         return node.finalizepstt(processed['pstt'])['hex']
 
     def test_large_ptts_fill_one_block(self):

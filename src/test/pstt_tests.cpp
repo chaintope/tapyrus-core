@@ -1454,9 +1454,10 @@ BOOST_FIXTURE_TEST_CASE(pstt_rpc_decodepstt_shape, TestChainSetup)
 
 BOOST_FIXTURE_TEST_CASE(pstt_rpc_decodepstt_next_role_constructor, TestingSetup)
 {
-    // Still under construction (an Inputs/Outputs-Modifiable bit set) takes
-    // priority over every other state -- irrelevant here whether the lone
-    // input is even signable yet.
+    // Still under construction (an Inputs/Outputs-Modifiable bit set) and
+    // already signable (UTXO attached, no signature yet) -- both roles are
+    // reported, since they're independent: the caller may still add more
+    // inputs/outputs, or may choose to sign what's already there now.
     PartiallySignedTapyrusTransaction pstt = MakeBasicPstt();
     pstt.tx_modifiable = PSTT_TXMOD_INPUTS_MODIFIABLE;
 
@@ -1464,7 +1465,12 @@ BOOST_FIXTURE_TEST_CASE(pstt_rpc_decodepstt_next_role_constructor, TestingSetup)
     params.push_back(EncodePSTT(pstt));
     UniValue decoded = CallPsttRPC("decodepstt", params);
 
-    BOOST_CHECK_EQUAL(decoded.find_value("next").get_str(), "constructor");
+    BOOST_REQUIRE(decoded.exists("next"));
+    const UniValue& next = decoded.find_value("next");
+    BOOST_REQUIRE(next.isArray());
+    BOOST_REQUIRE_EQUAL(next.size(), 2U);
+    BOOST_CHECK_EQUAL(next[0].get_str(), "constructor");
+    BOOST_CHECK_EQUAL(next[1].get_str(), "signer");
     // Estimates are still offered even mid-construction -- a running
     // estimate is useful to a caller building up a PSTT incrementally --
     // just documented as subject to change (see decodepstt's help text).
@@ -1484,7 +1490,11 @@ BOOST_FIXTURE_TEST_CASE(pstt_rpc_decodepstt_next_role_updater, TestingSetup)
     params.push_back(EncodePSTT(pstt));
     UniValue decoded = CallPsttRPC("decodepstt", params);
 
-    BOOST_CHECK_EQUAL(decoded.find_value("next").get_str(), "updater");
+    BOOST_REQUIRE(decoded.exists("next"));
+    const UniValue& next = decoded.find_value("next");
+    BOOST_REQUIRE(next.isArray());
+    BOOST_REQUIRE_EQUAL(next.size(), 1U);
+    BOOST_CHECK_EQUAL(next[0].get_str(), "updater");
     BOOST_CHECK(!decoded.exists("estimated_size"));
     BOOST_CHECK(!decoded.exists("estimated_fee"));
 }
@@ -1503,7 +1513,11 @@ BOOST_FIXTURE_TEST_CASE(pstt_rpc_decodepstt_next_role_signer_and_estimates, Test
     params.push_back(EncodePSTT(pstt));
     UniValue decoded = CallPsttRPC("decodepstt", params);
 
-    BOOST_CHECK_EQUAL(decoded.find_value("next").get_str(), "signer");
+    BOOST_REQUIRE(decoded.exists("next"));
+    const UniValue& next = decoded.find_value("next");
+    BOOST_REQUIRE(next.isArray());
+    BOOST_REQUIRE_EQUAL(next.size(), 1U);
+    BOOST_CHECK_EQUAL(next[0].get_str(), "signer");
     BOOST_REQUIRE(decoded.exists("estimated_fee"));
     BOOST_CHECK_EQUAL(ValueFromAmount(10000).write(), decoded.find_value("estimated_fee").write());
     BOOST_REQUIRE(decoded.exists("estimated_size"));
@@ -1525,7 +1539,11 @@ BOOST_FIXTURE_TEST_CASE(pstt_rpc_decodepstt_next_role_finalizer, TestChainSetup)
     params.push_back(EncodePSTT(merged));
     UniValue decoded = CallPsttRPC("decodepstt", params);
 
-    BOOST_CHECK_EQUAL(decoded.find_value("next").get_str(), "finalizer");
+    BOOST_REQUIRE(decoded.exists("next"));
+    const UniValue& next = decoded.find_value("next");
+    BOOST_REQUIRE(next.isArray());
+    BOOST_REQUIRE_EQUAL(next.size(), 1U);
+    BOOST_CHECK_EQUAL(next[0].get_str(), "finalizer");
     BOOST_CHECK(decoded.exists("estimated_size"));
     BOOST_CHECK(decoded.exists("estimated_fee"));
 }
@@ -1552,8 +1570,113 @@ BOOST_FIXTURE_TEST_CASE(pstt_rpc_decodepstt_next_role_extractor, TestChainSetup)
     params.push_back(EncodePSTT(merged));
     UniValue decoded = CallPsttRPC("decodepstt", params);
 
-    BOOST_CHECK_EQUAL(decoded.find_value("next").get_str(), "extractor");
+    BOOST_REQUIRE(decoded.exists("next"));
+    const UniValue& next = decoded.find_value("next");
+    BOOST_REQUIRE(next.isArray());
+    BOOST_REQUIRE_EQUAL(next.size(), 1U);
+    BOOST_CHECK_EQUAL(next[0].get_str(), "extractor");
     BOOST_CHECK_EQUAL(decoded.find_value("estimated_size").get_int64(), actual_size);
+}
+
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_decodepstt_next_roles_updater_and_signer_together, TestingSetup)
+{
+    // Two inputs in different states -- one missing its UTXO (needs
+    // Updater), the other has a UTXO but no signature yet (needs Signer).
+    // Both roles are independently actionable on this PSTT right now, so
+    // both must be reported -- the old short-circuiting ladder could never
+    // report this combination, since it stopped at the first category it
+    // found.
+    PartiallySignedTapyrusTransaction pstt = MakeBasicPstt(); // input[0]: utxo attached, unsigned
+    CTransactionRef otherUtxo = MakeSimpleUtxoTx(RandomP2PKHScript(), 50000);
+    PSTTInput secondInput;
+    secondInput.previous_txid = otherUtxo->GetHashMalFix();
+    secondInput.prevout_index = 0;
+    secondInput.previous_txid_set = true;
+    secondInput.prevout_index_set = true; // utxo left unattached
+    pstt.inputs.push_back(secondInput);
+
+    UniValue params(UniValue::VARR);
+    params.push_back(EncodePSTT(pstt));
+    UniValue decoded = CallPsttRPC("decodepstt", params);
+
+    BOOST_REQUIRE(decoded.exists("next"));
+    const UniValue& next = decoded.find_value("next");
+    BOOST_REQUIRE(next.isArray());
+    BOOST_REQUIRE_EQUAL(next.size(), 2U);
+    BOOST_CHECK_EQUAL(next[0].get_str(), "updater");
+    BOOST_CHECK_EQUAL(next[1].get_str(), "signer");
+    // AllInputsHaveUtxo requires every input, not just some -- no estimate
+    // at all while one input still lacks a UTXO.
+    BOOST_CHECK(!decoded.exists("estimated_size"));
+    BOOST_CHECK(!decoded.exists("estimated_fee"));
+}
+
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_decodepstt_omits_negative_estimated_fee, TestingSetup)
+{
+    // Still under construction (an Inputs-Modifiable bit set, more inputs
+    // may yet be added) with an output total that already exceeds the one
+    // attached input's value -- in_tpc - out_tpc would be negative, which
+    // is never a meaningful fee. decodepstt must omit estimated_fee rather
+    // than report a negative number, while still offering estimated_size.
+    PartiallySignedTapyrusTransaction pstt = MakeBasicPstt(); // in=100000, out=90000
+    pstt.tx_modifiable = PSTT_TXMOD_INPUTS_MODIFIABLE;
+    pstt.outputs[0].amount = 500000; // out (500000) now exceeds in (100000)
+
+    UniValue params(UniValue::VARR);
+    params.push_back(EncodePSTT(pstt));
+    UniValue decoded = CallPsttRPC("decodepstt", params);
+
+    BOOST_CHECK(decoded.exists("estimated_size"));
+    BOOST_CHECK(!decoded.exists("estimated_fee"));
+}
+
+BOOST_AUTO_TEST_CASE(pstt_output_with_no_amount_fails_is_sane_and_unserialize)
+{
+    // An output with a script but no PSTT_OUT_AMOUNT is rejected by
+    // PSTTOutput::IsSane(), and PartiallySignedTapyrusTransaction::
+    // Unserialize() enforces IsSane() unconditionally at the end of parsing
+    // ("if (!IsSane()) throw ... PSTT is not sane.", pstt.cpp). So this
+    // shape can never actually reach decodepstt's body in the first place:
+    // DecodePSTT() -- the only way a base64 string becomes a PSTT object --
+    // already rejects it. EstimatePsttFee's output.amount.value_or(0) guard
+    // (rawtransaction.cpp) is still correct defensive coding, just not
+    // reachable through any real RPC call.
+    PartiallySignedTapyrusTransaction pstt = MakeBasicPstt();
+    PSTTOutput noAmountOutput;
+    noAmountOutput.script = RandomP2PKHScript(); // amount left unset
+    pstt.outputs.push_back(noAmountOutput);
+
+    BOOST_CHECK(!pstt.IsSane());
+
+    std::vector<unsigned char> data = SerializeObj(pstt);
+    BOOST_CHECK_THROW(UnserializeObj<PartiallySignedTapyrusTransaction>(data), std::ios_base::failure);
+}
+
+BOOST_AUTO_TEST_CASE(pstt_out_of_range_prevout_index_fails_is_sane_and_unserialize)
+{
+    // A UTXO-attached input whose prevout_index is out of range for that
+    // UTXO's own vout list is rejected by PartiallySignedTapyrusTransaction
+    // ::IsSane() directly, and Unserialize() enforces IsSane()
+    // unconditionally -- so, like the no-amount-output case above, this
+    // shape can never actually reach decodepstt's body through any real
+    // call. AllInputsHaveUtxo()'s range check (rawtransaction.cpp) is still
+    // correct defense in depth.
+    CTransactionRef utxo = MakeSimpleUtxoTx(RandomP2PKHScript(), 100000); // single-output tx
+    PartiallySignedTapyrusTransaction pstt;
+    pstt.tx_features = CTransaction::CURRENT_FEATURES;
+    PSTTInput input = MakeBasicInput(utxo->GetHashMalFix(), 0, utxo);
+    input.prevout_index = 5; // out of range: utxo only has one output (index 0)
+    pstt.inputs.push_back(input);
+
+    PSTTOutput output;
+    output.amount = 90000;
+    output.script = RandomP2PKHScript();
+    pstt.outputs.push_back(output);
+
+    BOOST_CHECK(!pstt.IsSane());
+
+    std::vector<unsigned char> data = SerializeObj(pstt);
+    BOOST_CHECK_THROW(UnserializeObj<PartiallySignedTapyrusTransaction>(data), std::ios_base::failure);
 }
 
 // -----------------------------------------------------------------------
@@ -1756,6 +1879,86 @@ BOOST_FIXTURE_TEST_CASE(pstt_rpc_joinpstt_rejects_duplicate_outpoint, TestingSet
     params.push_back(txs);
 
     BOOST_CHECK_THROW(CallPsttRPC("joinpstt", params), UniValue);
+}
+
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_joinpstt_dedups_shared_xpub, TestingSetup)
+{
+    // Two PSTTs both carrying the same global xpub (same key, same
+    // derivation path) -- joinpstt must dedup, not concatenate, or the
+    // joined result carries two PSTT_GLOBAL_XPUB entries with the same
+    // keydata and fails to decode (Unserialize rejects a repeated
+    // PSTT_GLOBAL_XPUB keydata outright).
+    CExtPubKey xpub;
+    CKey key;
+    key.MakeNewKey(true);
+    xpub.pubkey = key.GetPubKey();
+    xpub.nDepth = 1;
+    xpub.nChild = 0;
+    xpub.chaincode.SetNull();
+
+    PartiallySignedTapyrusTransaction a = MakeJoinableConstructorPstt();
+    PartiallySignedTapyrusTransaction b = MakeJoinableConstructorPstt();
+    a.xpubs.emplace_back(xpub, std::vector<uint32_t>{0});
+    b.xpubs.emplace_back(xpub, std::vector<uint32_t>{0}); // same xpub, same path
+
+    UniValue txs(UniValue::VARR);
+    txs.push_back(EncodePSTT(a));
+    txs.push_back(EncodePSTT(b));
+    UniValue params(UniValue::VARR);
+    params.push_back(txs);
+    UniValue result = CallPsttRPC("joinpstt", params);
+
+    PartiallySignedTapyrusTransaction joined;
+    std::string err;
+    BOOST_REQUIRE(DecodePSTT(joined, result.get_str(), err)); // must still decode
+    BOOST_REQUIRE_EQUAL(joined.xpubs.size(), 1U); // deduped, not doubled
+}
+
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_joinpstt_fallback_locktime_takes_max, TestingSetup)
+{
+    // joinpstt takes the maximum of the joined PSTTs' fallback_locktime
+    // values, rather than silently keeping only the first one.
+    PartiallySignedTapyrusTransaction a = MakeJoinableConstructorPstt();
+    PartiallySignedTapyrusTransaction b = MakeJoinableConstructorPstt();
+    a.fallback_locktime = 500;
+    b.fallback_locktime = 900;
+
+    UniValue txs(UniValue::VARR);
+    txs.push_back(EncodePSTT(a));
+    txs.push_back(EncodePSTT(b));
+    UniValue params(UniValue::VARR);
+    params.push_back(txs);
+    UniValue result = CallPsttRPC("joinpstt", params);
+
+    PartiallySignedTapyrusTransaction joined;
+    std::string err;
+    BOOST_REQUIRE(DecodePSTT(joined, result.get_str(), err));
+    BOOST_REQUIRE(joined.fallback_locktime);
+    BOOST_CHECK_EQUAL(*joined.fallback_locktime, 900U);
+}
+
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_joinpstt_fallback_locktime_takes_max_regardless_of_order, TestingSetup)
+{
+    // Same rule regardless of which PSTT (first or second) carries the
+    // higher value -- guards against a comparison that only takes the max
+    // when the larger value happens to arrive second.
+    PartiallySignedTapyrusTransaction a = MakeJoinableConstructorPstt();
+    PartiallySignedTapyrusTransaction b = MakeJoinableConstructorPstt();
+    a.fallback_locktime = 900;
+    b.fallback_locktime = 500;
+
+    UniValue txs(UniValue::VARR);
+    txs.push_back(EncodePSTT(a));
+    txs.push_back(EncodePSTT(b));
+    UniValue params(UniValue::VARR);
+    params.push_back(txs);
+    UniValue result = CallPsttRPC("joinpstt", params);
+
+    PartiallySignedTapyrusTransaction joined;
+    std::string err;
+    BOOST_REQUIRE(DecodePSTT(joined, result.get_str(), err));
+    BOOST_REQUIRE(joined.fallback_locktime);
+    BOOST_CHECK_EQUAL(*joined.fallback_locktime, 900U);
 }
 
 // -----------------------------------------------------------------------

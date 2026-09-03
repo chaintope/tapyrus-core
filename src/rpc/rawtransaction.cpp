@@ -1823,43 +1823,53 @@ static bool CanFinalizeInputNow(const PartiallySignedTapyrusTransaction& pstt, u
     return result == PSTTSignResult::OK && sigdata.complete;
 }
 
-// Which role should run next, in the same rough ladder as Bitcoin Core's
-// analyzepsbt: constructor (inputs/outputs still modifiable) -> updater (an
-// input has no PSTT_IN_UTXO yet) -> signer (some input's collected data
-// isn't enough to finalize) -> finalizer (every input could finalize now,
-// but hasn't) -> extractor (every input already carries
-// PSTT_IN_FINAL_SCRIPTSIG). A PSTT with zero inputs trivially falls through
-// to "extractor" -- there is nothing left for any earlier role to do.
-static std::string PsttNextRole(const PartiallySignedTapyrusTransaction& pstt)
+// Every role that could act on this PSTT right now, in the same rough
+// ladder as Bitcoin Core's analyzepsbt: constructor (inputs/outputs still
+// modifiable), updater (some input has no PSTT_IN_UTXO yet), signer (some
+// input has a UTXO but its collected data isn't enough to finalize),
+// finalizer (some input could finalize now but hasn't), extractor (every
+// input already carries PSTT_IN_FINAL_SCRIPTSIG, or there are no inputs).
+// These are independent, not mutually exclusive -- e.g. a freshly
+// wallet-funded, still-modifiable, unsigned PSTT is both "constructor" (more
+// inputs/outputs could still be added) and "signer" (its attached UTXOs
+// already make it signable); the caller decides whether to sign now or wait
+// for construction to close. Returned in this canonical ladder order,
+// filtered to only the roles that currently apply.
+static std::vector<std::string> PsttNextRoles(const PartiallySignedTapyrusTransaction& pstt)
 {
+    std::vector<std::string> roles;
     if (pstt.tx_modifiable && (*pstt.tx_modifiable & (PSTT_TXMOD_INPUTS_MODIFIABLE | PSTT_TXMOD_OUTPUTS_MODIFIABLE)) != 0) {
-        return "constructor";
+        roles.push_back("constructor");
     }
 
     bool any_missing_utxo = false;
     bool any_needs_signer = false;
-    bool any_not_final = false;
+    bool any_ready_to_finalize = false;
     for (unsigned int i = 0; i < pstt.inputs.size(); ++i) {
         const PSTTInput& input = pstt.inputs.at(i);
         if (!input.final_script_sig.empty()) continue;
-        any_not_final = true;
         if (!input.utxo) {
             any_missing_utxo = true;
             continue;
         }
-        if (!CanFinalizeInputNow(pstt, i)) any_needs_signer = true;
+        if (CanFinalizeInputNow(pstt, i)) {
+            any_ready_to_finalize = true;
+        } else {
+            any_needs_signer = true;
+        }
     }
 
-    if (any_missing_utxo) return "updater";
-    if (any_needs_signer) return "signer";
-    if (any_not_final) return "finalizer";
-    return "extractor";
+    if (any_missing_utxo) roles.push_back("updater");
+    if (any_needs_signer) roles.push_back("signer");
+    if (any_ready_to_finalize) roles.push_back("finalizer");
+    if (!any_missing_utxo && !any_needs_signer && !any_ready_to_finalize) roles.push_back("extractor");
+    return roles;
 }
 
 static bool AllInputsHaveUtxo(const PartiallySignedTapyrusTransaction& pstt)
 {
     for (const PSTTInput& input : pstt.inputs) {
-        if (!input.utxo) return false;
+        if (!input.utxo || !input.prevout_index_set || input.prevout_index >= input.utxo->vout.size()) return false;
     }
     return true;
 }
@@ -1885,16 +1895,21 @@ static CScript EstimateInputScriptSig(const PartiallySignedTapyrusTransaction& p
 
     SignatureData sigdata;
     input.FillSignatureData(sigdata);
-    const CTxOut& utxo = input.utxo->vout.at(input.prevout_index);
-    ProduceSignature(keystore, DUMMY_SIGNATURE_CREATOR, utxo.scriptPubKey, sigdata);
+    const CTxOut& utxo_out = input.utxo->vout.at(input.prevout_index);
+    ProduceSignature(keystore, DUMMY_SIGNATURE_CREATOR, utxo_out.scriptPubKey, sigdata);
     return sigdata.scriptSig;
 }
 
 // Estimated size in bytes of the transaction this PSTT would extract to,
 // using EstimateInputScriptSig for any input not yet finalized. Caller must
-// have already confirmed every input has a UTXO attached (AllInputsHaveUtxo)
-// -- without that there's no scriptPubKey to size a dummy completion
-// against for at least one input, so no estimate is possible at all.
+// have already confirmed every input has a usable, in-range UTXO attached
+// (AllInputsHaveUtxo) -- without that there's no scriptPubKey to size a
+// dummy completion against for at least one input, so no estimate is
+// possible at all. Fidelity depends on what key material happens to be
+// attached: with BIP32 derivation paths or partial sigs already collected,
+// the dummy completion approximates a real signature's size well; with
+// none (e.g. a createpstt+updatepstt PSTT built without a wallet), the
+// keystore stays empty and this is essentially the unsigned size.
 static int64_t EstimatePsttSize(const PartiallySignedTapyrusTransaction& pstt)
 {
     uint32_t locktime = 0;
@@ -1918,17 +1933,18 @@ static int64_t EstimatePsttSize(const PartiallySignedTapyrusTransaction& pstt)
 // Net TPC moved by this PSTT (inputs minus outputs) -- the fee, since fees
 // are payable only in TPC (doc/tapyrus/pstt.md, Fee Provider workflow) and
 // every Colored Coin transfer nets to zero for its own color by consensus
-// rule. Caller must have already confirmed every input has a UTXO attached.
+// rule. Caller must have already confirmed every input has a usable,
+// in-range UTXO attached.
 static CAmount EstimatePsttFee(const PartiallySignedTapyrusTransaction& pstt)
 {
     CAmount in_tpc = 0;
     for (const PSTTInput& input : pstt.inputs) {
-        const CTxOut& utxo = input.utxo->vout.at(input.prevout_index);
-        if (GetColorIdFromScript(utxo.scriptPubKey).type == TokenTypes::NONE) in_tpc += utxo.nValue;
+        const CTxOut& utxo_out = input.utxo->vout.at(input.prevout_index);
+        if (GetColorIdFromScript(utxo_out.scriptPubKey).type == TokenTypes::NONE) in_tpc += utxo_out.nValue;
     }
     CAmount out_tpc = 0;
     for (const PSTTOutput& output : pstt.outputs) {
-        if (GetColorIdFromScript(output.script).type == TokenTypes::NONE) out_tpc += *output.amount;
+        if (GetColorIdFromScript(output.script).type == TokenTypes::NONE) out_tpc += output.amount.value_or(0);
     }
     return in_tpc - out_tpc;
 }
@@ -2017,11 +2033,19 @@ UniValue decodepstt(const JSONRPCRequest& request)
             "decodepstt \"pstt\"\n"
             "\nReturn a JSON object representing the serialized, base64-encoded "
             "Partially Signed Tapyrus Transaction (see doc/tapyrus/pstt.md).\n"
-            "\nAlso reports \"next\" (which role should run next: constructor, updater,\n"
-            "signer, finalizer, or extractor) and, once every input has a UTXO attached,\n"
-            "\"estimated_size\"/\"estimated_fee\" for the transaction this PSTT would\n"
-            "currently extract to -- both are estimates only and can still change while\n"
-            "\"next\" is \"constructor\" or \"signer\".\n"
+            "\nAlso reports \"next\" (a JSON array of every role that could act on this PSTT\n"
+            "right now, in ladder order: constructor, updater, signer, finalizer,\n"
+            "extractor -- these are independent, not mutually exclusive, e.g. a\n"
+            "still-modifiable but already-fully-funded PSTT reports both \"constructor\"\n"
+            "and \"signer\") and, once every input has a UTXO attached, \"estimated_size\"\n"
+            "for the transaction this PSTT would currently extract to -- an estimate only,\n"
+            "using whatever BIP32 derivation/partial-signature data happens to be attached\n"
+            "right now to size a dummy completion of each unfinalized input (with none\n"
+            "attached, e.g. a createpstt+updatepstt PSTT built without a wallet, this is\n"
+            "essentially the unsigned size), and can still change while \"next\" contains\n"
+            "\"constructor\" or \"signer\". \"estimated_fee\" (inputs minus outputs, in TPC)\n"
+            "is included alongside it unless it would be negative, which just means this\n"
+            "PSTT is still gathering inputs.\n"
 
             "\nArguments:\n"
             "1. \"pstt\"            (string, required) The PSTT base64 string\n"
@@ -2111,10 +2135,13 @@ UniValue decodepstt(const JSONRPCRequest& request)
     }
     result.pushKV("outputs", outputs);
 
-    result.pushKV("next", PsttNextRole(pstt));
+    UniValue next(UniValue::VARR);
+    for (const std::string& role : PsttNextRoles(pstt)) next.push_back(role);
+    result.pushKV("next", next);
     if (AllInputsHaveUtxo(pstt)) {
         result.pushKV("estimated_size", EstimatePsttSize(pstt));
-        result.pushKV("estimated_fee", ValueFromAmount(EstimatePsttFee(pstt)));
+        CAmount fee = EstimatePsttFee(pstt);
+        if (fee >= 0) result.pushKV("estimated_fee", ValueFromAmount(fee)); // negative just means still gathering inputs
     }
 
     return result;
@@ -2201,6 +2228,8 @@ UniValue joinpstt(const JSONRPCRequest& request)
             "shifting every position after the first PSTT. Join first, add any\n"
             "SIGHASH_SINGLE input/output pair afterwards. The same previous output may not\n"
             "be spent by more than one of the supplied PSTTs.\n"
+            "\nfallback_locktime becomes the maximum of the joined PSTTs' fallback_locktime\n"
+            "values. PSTT_GLOBAL_VERSION is not carried over from any input PSTT.\n"
 
             "\nArguments:\n"
             "1. \"txs\"                   (string) A json array of base64 strings of PSTTs to join\n"
@@ -2236,6 +2265,7 @@ UniValue joinpstt(const JSONRPCRequest& request)
     PartiallySignedTapyrusTransaction joined;
     joined.tx_features = CTransaction::CURRENT_FEATURES;
     std::set<COutPoint> seen_outpoints;
+    std::set<std::vector<unsigned char>> seen_xpubs;
     for (unsigned int i = 0; i < psttxs.size(); ++i) {
         const PartiallySignedTapyrusTransaction& pstt = psttxs[i];
         uint8_t modifiable = pstt.tx_modifiable.value_or(0);
@@ -2258,8 +2288,14 @@ UniValue joinpstt(const JSONRPCRequest& request)
         }
 
         if (pstt.tx_features && *pstt.tx_features > *joined.tx_features) joined.tx_features = pstt.tx_features;
-        if (!joined.fallback_locktime) joined.fallback_locktime = pstt.fallback_locktime;
-        for (const auto& entry : pstt.xpubs) joined.xpubs.push_back(entry);
+        if (pstt.fallback_locktime && (!joined.fallback_locktime || *pstt.fallback_locktime > *joined.fallback_locktime)) {
+            joined.fallback_locktime = pstt.fallback_locktime;
+        }
+        for (const auto& entry : pstt.xpubs) {
+            if (seen_xpubs.insert(XpubEntryCanonicalBytes(entry)).second) {
+                joined.xpubs.push_back(entry);
+            }
+        }
         for (const auto& kv : pstt.unknown) joined.unknown.insert(kv); // pick-first tier, same as combinepstt's Merge()
 
         joined.inputs.insert(joined.inputs.end(), pstt.inputs.begin(), pstt.inputs.end());
