@@ -4,8 +4,9 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 // Fuzz target for ParsePsttInputEntries (src/rpc/rawtransaction.cpp), the
-// entry point that turns the "inputs" argument of createpsttfromtransaction
-// et al. from raw, RPC-client-controlled JSON into CTxIn objects. Drafted
+// entry point that turns the "inputs" argument of createpstt and
+// walletcreatefundedpstt from raw, RPC-client-controlled JSON into CTxIn
+// objects. Drafted
 // with the help of Fuzz Introspector-style analysis of the target function
 // signature/call graph and Claude, following Bitcoin Core's
 // src/test/fuzz/deserialize.cpp convention (buffer -> try/parse -> discard,

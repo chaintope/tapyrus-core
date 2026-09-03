@@ -611,10 +611,16 @@ jobs:
           fi
 
           # Common CMake configuration options
-          # BUILD_FUZZ_TEST is explicitly OFF here -- fuzz-code-only and
+          # BUILD_FUZZ_TEST defaults OFF here -- fuzz-code-only and
           # fuzz-script-sweep, both below, are the two jobs in this file
-          # that build fuzz binaries (fuzz_pstt_parse, tapyrus-verify's
-          # --fuzz mode).
+          # that actually run fuzzing (fuzz_pstt_parse, tapyrus-verify's
+          # --fuzz mode), and both are schedule-only (not run on PRs). The
+          # native-build branch below turns BUILD_FUZZ_TEST back ON so
+          # tapyrus-verify's --fuzz code path is at least compiled (never
+          # executed) on every PR -- otherwise a signature drift there
+          # would go unnoticed until the next scheduled fuzz run.
+          # fuzz_pstt_parse itself is not built on PRs yet; that's a
+          # follow-up.
           CMAKE_OPTS=(
             "-DCMAKE_BUILD_TYPE=${{ matrix.config.build_type }}"
             -DCMAKE_PREFIX_PATH="$DEPENDS_PREFIX"
@@ -628,6 +634,10 @@ jobs:
           else
             # Native builds: enable tests and benchmarks
             CMAKE_OPTS+=("-DENABLE_TESTS=ON" "-DENABLE_BENCH=ON" "-DCP2SH_ACTIVATION_TEST_HEIGHT=120")
+            # Compile-check tapyrus-verify's --fuzz mode on every PR (see
+            # comment above); BUILD_SCRIPT_VERIFY is required to build
+            # tapyrus-verify at all.
+            CMAKE_OPTS+=("-DBUILD_SCRIPT_VERIFY=ON" "-DBUILD_FUZZ_TEST=ON")
           fi
 
           # Use depends-generated CMake toolchain file
@@ -1170,7 +1180,7 @@ jobs:
             comm -23 <(ls "${corpus_dir}" | sort) <(ls "${pool_dir}" 2>/dev/null | sort) \
               | while read -r f; do cp "${corpus_dir}/${f}" "${new_dir}/"; done
           done
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         if: always()
         with:
           name: daily-fuzz-run-artifacts-${{ github.run_id }}
@@ -1277,7 +1287,7 @@ jobs:
           done
           echo "Tested ${tested} of ${pool_size} pool candidates this run (started at offset ${offset})."
           exit "${fail}"
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         if: always()
         with:
           name: fuzz-script-sweep-artifacts-${{ github.run_id }}
