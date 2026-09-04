@@ -2,9 +2,11 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or https://opensource.org/license/mit/.
 
-# Add Berkeley DB dependency.
+# Add Berkeley DB dependency. Version range matches the top-level
+# find_package(BerkeleyDB ...) call in CMakeLists.txt -- see the comment
+# there for why 5.99 is a license ceiling, not a technical one.
 include(FindBerkeleyDB)
-find_package(BerkeleyDB REQUIRED)
+find_package(BerkeleyDB 4.8...5.99 REQUIRED)
 
 add_library(tapyrus_wallet STATIC
         coincontrol.cpp
