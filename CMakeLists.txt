@@ -119,12 +119,18 @@ option(BUILD_UTILS "Build tapyrus-tx executable." ${ENABLE_TESTS})
 
 option(ENABLE_WALLET "Build wallet functionality in tapyrusd, gui and tests." ON)
 option(WITH_BDB "Enable Berkeley DB (BDB) wallet support." ON)
-cmake_dependent_option(WARN_INCOMPATIBLE_BDB "Warn when using a Berkeley DB (BDB) version other than 4.8." ON "WITH_BDB" OFF)
+cmake_dependent_option(WARN_INCOMPATIBLE_BDB "Warn when using a Berkeley DB (BDB) version other than 4.8 or 5.3." ON "WITH_BDB" OFF)
 if(ENABLE_WALLET AND WITH_BDB)
-  find_package(BerkeleyDB 4.8 MODULE REQUIRED)
+  # Upper bound is a license floor, not a technical one: Homebrew's BDB
+  # major versions above 5 (the plain "berkeley-db" formula is presently
+  # 18.1.x) are AGPL-3.0-only, incompatible with this project's MIT
+  # license, unlike the Sleepycat-licensed 4.8/5.3. See
+  # cmake/module/FindBerkeleyDB.cmake and BrewHelper.cmake's
+  # find_brew_prefix_any_version() for the Homebrew-formula side of this.
+  find_package(BerkeleyDB 4.8...5.99 MODULE REQUIRED)
   set(USE_BDB ON)
-  if(NOT BerkeleyDB_VERSION VERSION_EQUAL 4.8)
-    message(WARNING "Found Berkeley DB (BDB) other than 4.8.\n"
+  if(NOT (BerkeleyDB_VERSION VERSION_EQUAL 4.8 OR BerkeleyDB_VERSION VERSION_EQUAL 5.3))
+    message(WARNING "Found Berkeley DB (BDB) other than the validated 4.8 or 5.3.\n"
                     "BDB (legacy) wallets opened by this build will not be portable!"
     )
     if(WARN_INCOMPATIBLE_BDB)

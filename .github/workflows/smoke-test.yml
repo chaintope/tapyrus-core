@@ -119,12 +119,22 @@ jobs:
           fi
           clang --version
           brew install --quiet python@3 || brew link --overwrite python@3
-          # Try berkeley-db@4 first, fall back to berkeley-db
-          if brew install --quiet berkeley-db@4 2>/dev/null; then
+          # berkeley-db@5 is the validated baseline (Sleepycat-licensed,
+          # wallet-format compatible with @4 via shared DB_BTREEVERSION);
+          # @4 is a compatible fallback for runners that still pour it.
+          # Never fall back further to the plain berkeley-db formula --
+          # it tracks Homebrew's latest (presently 18.1.x), which is
+          # AGPL-3.0-only and incompatible with this project's MIT
+          # license; CMake's BerkeleyDB version ceiling rejects it anyway,
+          # so installing it here would just fail the configure step
+          # later instead of failing fast here.
+          if brew install --quiet berkeley-db@5 2>/dev/null; then
+            echo "Installed berkeley-db@5"
+          elif brew install --quiet berkeley-db@4 2>/dev/null; then
             echo "Installed berkeley-db@4"
           else
-            brew install --quiet berkeley-db
-            echo "Installed berkeley-db (will use --with-incompatible-bdb)"
+            echo "::error::Neither berkeley-db@5 nor berkeley-db@4 could be installed" >&2
+            exit 1
           fi
           brew install --quiet coreutils ninja pkgconf gnu-getopt ccache boost libevent zeromq qrencode
           echo 'export PATH="/opt/homebrew/bin:$PATH"' >> $HOME/.bashrc
