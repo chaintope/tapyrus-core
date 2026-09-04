@@ -611,6 +611,8 @@ jobs:
           else
             # Native builds: enable tests and benchmarks
             CMAKE_OPTS+=("-DENABLE_TESTS=ON" "-DENABLE_BENCH=ON" "-DCP2SH_ACTIVATION_TEST_HEIGHT=120")
+            # Build and test tapyrus-verify (off by default) on at least one job
+            CMAKE_OPTS+=("-DBUILD_SCRIPT_VERIFY=ON")
           fi
 
           # Use depends-generated CMake toolchain file

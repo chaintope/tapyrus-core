@@ -1,0 +1,183 @@
+[
+  {
+    "exec": "./tapyrus-verify",
+    "args": [],
+    "return_code": 1,
+    "error_txt": "usage:",
+    "description": "No arguments prints usage and fails"
+  },
+  {
+    "exec": "./tapyrus-verify",
+    "args": ["nothex", "nothex"],
+    "return_code": 1,
+    "error_txt": "error: could not deserialize one or both transactions",
+    "description": "Non-hex input is rejected before any verification runs"
+  },
+  {
+    "exec": "./tapyrus-verify",
+    "args": [
+      "01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff020000ffffffff010000000000000000015100000000",
+      "0100000001f8d3c44db5790964b9d15b390f1e92cd2b9f851e7679c232dba7d0ecef9f88d40000000000ffffffff0100000000000000000000000000",
+      "-1"
+    ],
+    "return_code": 1,
+    "error_txt": "error: input index must be a non-negative integer",
+    "description": "A negative input index is rejected instead of wrapping to a huge unsigned value"
+  },
+  {
+    "exec": "./tapyrus-verify",
+    "args": [
+      "01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff020000ffffffff010000000000000000015100000000",
+      "0100000001aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0000000000ffffffff0100000000000000000000000000"
+    ],
+    "return_code": 1,
+    "error_txt": "these are not a matching pair",
+    "description": "A spending tx whose prevout does not reference to_spend is rejected, not silently checked against the wrong output"
+  },
+  {
+    "exec": "./tapyrus-verify",
+    "args": [
+      "01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff020000ffffffff010000000000000000015100000000",
+      "0100000001f8d3c44db5790964b9d15b390f1e92cd2b9f851e7679c232dba7d0ecef9f88d40000000000ffffffff0100000000000000000000000000"
+    ],
+    "return_code": 0,
+    "error_txt": "64 combination(s) tested, 0 monotonicity violation(s) found.",
+    "description": "No --flags given runs the full 64-combination matrix by default, for a clean, single-item-stack OP_TRUE script that passes unconditionally"
+  },
+  {
+    "exec": "./tapyrus-verify",
+    "args": [
+      "01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff020000ffffffff010000000000000000015100000000",
+      "0100000001f8d3c44db5790964b9d15b390f1e92cd2b9f851e7679c232dba7d0ecef9f88d40000000000ffffffff0100000000000000000000000000",
+      "0",
+      "--flags=standard"
+    ],
+    "return_code": 0,
+    "error_txt": "PASS (No error)",
+    "description": "--flags=standard opts out of the matrix and runs a single result instead"
+  },
+  {
+    "exec": "./tapyrus-verify",
+    "args": [
+      "01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff020000ffffffff010000000000000000015100000000",
+      "0100000001f8d3c44db5790964b9d15b390f1e92cd2b9f851e7679c232dba7d0ecef9f88d4000000000151ffffffff0100000000000000000000000000",
+      "0",
+      "--flags=standard"
+    ],
+    "return_code": 0,
+    "error_txt": "FAIL (Extra items left on stack after execution)",
+    "description": "A script leaving an extra stack item fails under --flags=standard (CLEANSTACK is in STANDARD_SCRIPT_VERIFY_FLAGS)"
+  },
+  {
+    "exec": "./tapyrus-verify",
+    "args": [
+      "01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff020000ffffffff010000000000000000015100000000",
+      "0100000001f8d3c44db5790964b9d15b390f1e92cd2b9f851e7679c232dba7d0ecef9f88d4000000000151ffffffff0100000000000000000000000000",
+      "0",
+      "--flags=none"
+    ],
+    "return_code": 0,
+    "error_txt": "PASS (No error)",
+    "description": "The same extra-stack-item script passes once CLEANSTACK is not among the selected flags"
+  },
+  {
+    "exec": "./tapyrus-verify",
+    "args": [
+      "01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff020000ffffffff010000000000000000015100000000",
+      "0100000001f8d3c44db5790964b9d15b390f1e92cd2b9f851e7679c232dba7d0ecef9f88d400000000025175ffffffff0100000000000000000000000000",
+      "0",
+      "--flags=sigpushonly"
+    ],
+    "return_code": 0,
+    "error_txt": "FAIL (Only non-push operators allowed in signatures)",
+    "description": "A scriptSig containing a non-push opcode fails once SIGPUSHONLY is selected, though it passes in the default matrix's non-sigpushonly rows"
+  },
+  {
+    "exec": "./tapyrus-verify",
+    "args": [
+      "01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff020000ffffffff010140075af0750700015100000000",
+      "0100000001f8d3c44db5790964b9d15b390f1e92cd2b9f851e7679c232dba7d0ecef9f88d40000000000ffffffff0100000000000000000000000000"
+    ],
+    "return_code": 1,
+    "error_txt": "error: to_spend has an output value out of range",
+    "description": "A to_spend output above MAX_MONEY is rejected by CheckMoneyRange before any prevout matching or verification runs"
+  },
+  {
+    "exec": "./tapyrus-verify",
+    "args": [
+      "01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff020000ffffffff010000000000000000015100000000",
+      "0100000002f8d3c44db5790964b9d15b390f1e92cd2b9f851e7679c232dba7d0ecef9f88d40000000000fffffffff8d3c44db5790964b9d15b390f1e92cd2b9f851e7679c232dba7d0ecef9f88d40000000000ffffffff0100000000000000000000000000"
+    ],
+    "return_code": 1,
+    "error_txt": "error: spending has a duplicate input",
+    "description": "A spending tx with the same prevout spent by two inputs is rejected by CheckNoDuplicateInputs"
+  },
+  {
+    "exec": "./tapyrus-verify",
+    "args": [
+      "01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff020000ffffffff010000000000000000015100000000",
+      "0100000001f8d3c44db5790964b9d15b390f1e92cd2b9f851e7679c232dba7d0ecef9f88d400000000014cffffffff0100000000000000000000000000"
+    ],
+    "return_code": 1,
+    "error_txt": "error: spending has an invalid or oversized scriptSig",
+    "description": "A scriptSig containing a truncated OP_PUSHDATA1 (no length byte) fails HasValidOps and is rejected by CheckAllScriptsSanity"
+  },
+  {
+    "exec": "./tapyrus-verify",
+    "args": [
+      "01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff020000ffffffff010000000000000000015100000000",
+      "0100000001f8d3c44db5790964b9d15b390f1e92cd2b9f851e7679c232dba7d0ecef9f88d40000000000ffffffff0100000000000000000000000000",
+      "0",
+      "--flags=0x4"
+    ],
+    "return_code": 0,
+    "error_txt": "flags=0x4 [cleanstack] PASS (No error)",
+    "description": "--flags accepts a 0x-prefixed hex bitmask directly (0x4 == SCRIPT_VERIFY_CLEANSTACK), bypassing the named-flag list"
+  },
+  {
+    "exec": "./tapyrus-verify",
+    "args": [
+      "01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff020000ffffffff010000000000000000015100000000",
+      "0100000001f8d3c44db5790964b9d15b390f1e92cd2b9f851e7679c232dba7d0ecef9f88d40000000000ffffffff0100000000000000000000000000",
+      "0",
+      "--flags=0x123456789"
+    ],
+    "return_code": 1,
+    "error_txt": "error: invalid hex flags value: 0x123456789",
+    "description": "A hex flags value over 8 digits is rejected by ParseHexUInt32 instead of silently truncating"
+  },
+  {
+    "exec": "./tapyrus-verify",
+    "args": [
+      "01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff020000ffffffff010000000000000000015100000000",
+      "0100000001f8d3c44db5790964b9d15b390f1e92cd2b9f851e7679c232dba7d0ecef9f88d40000000000ffffffff0100000000000000000000000000",
+      "0",
+      "--flags=made-up-flag"
+    ],
+    "return_code": 1,
+    "error_txt": "error: unknown flag name: made-up-flag",
+    "description": "An unrecognized flag name is rejected instead of silently resolving to none of the named flags"
+  },
+  {
+    "exec": "./tapyrus-verify",
+    "args": [
+      "01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff020000ffffffff010000000000000000015100000000",
+      "0100000001f8d3c44db5790964b9d15b390f1e92cd2b9f851e7679c232dba7d0ecef9f88d40000000000ffffffff0100000000000000000000000000",
+      "0",
+      "--flags="
+    ],
+    "return_code": 0,
+    "error_txt": "flags=0x0 [none] PASS (No error)",
+    "description": "An empty --flags= spec is not rejected: the comma-split loop never runs and it silently resolves to flags=0, same as --flags=none"
+  },
+  {
+    "exec": "./tapyrus-verify",
+    "args": [
+      "01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff020000ffffffff010000000000000000015100000000",
+      "0100000001f8d3c44db5790964b9d15b390f1e92cd2b9f851e7679c232dba7d0ecef9f88d40000000000ffffffff0100000000000000000000000000"
+    ],
+    "return_code": 0,
+    "error_txt": "0x4000 [nullfail",
+    "description": "The default flags matrix maps nullfail (index 3 in kNamedFlags, a non-sequential bit position: SCRIPT_VERIFY_NULLFAIL is bit 14) to real flags value 0x4000, not to its 0x08 index-as-mask position -- pins the MaskToFlags/FlagsToNames round-trip"
+  }
+]
