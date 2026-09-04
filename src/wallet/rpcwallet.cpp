@@ -4270,9 +4270,9 @@ UniValue walletcreatefundedpstt(const JSONRPCRequest& request)
     for (const CTxIn& txin : rawTx.vin) {
         PSTTInput input;
         input.previous_txid = txin.prevout.hashMalFix;
-        input.prev_out_index = txin.prevout.n;
+        input.prevout_index = txin.prevout.n;
         input.previous_txid_set = true;
-        input.prev_out_index_set = true;
+        input.prevout_index_set = true;
         if (txin.nSequence != CTxIn::SEQUENCE_FINAL) input.sequence = txin.nSequence;
         pstt.inputs.push_back(std::move(input));
     }
@@ -4412,9 +4412,9 @@ UniValue walletfundpsttfee(const JSONRPCRequest& request)
 
         PSTTInput input;
         input.previous_txid = txid;
-        input.prev_out_index = (uint32_t)nOutput;
+        input.prevout_index = (uint32_t)nOutput;
         input.previous_txid_set = true;
-        input.prev_out_index_set = true;
+        input.prevout_index_set = true;
         input.utxo = feeTx;
         pstt.inputs.push_back(std::move(input));
     } else {
@@ -4433,7 +4433,7 @@ UniValue walletfundpsttfee(const JSONRPCRequest& request)
         rawTx.nFeatures = pstt.tx_features.value_or(CTransaction::CURRENT_FEATURES);
         for (const PSTTInput& in : pstt.inputs) {
             CTxIn txin;
-            txin.prevout = COutPoint(in.previous_txid, in.prev_out_index);
+            txin.prevout = COutPoint(in.previous_txid, in.prevout_index);
             txin.nSequence = in.sequence.value_or(CTxIn::SEQUENCE_FINAL);
             rawTx.vin.push_back(txin);
         }
@@ -4476,9 +4476,9 @@ UniValue walletfundpsttfee(const JSONRPCRequest& request)
             const CTxIn& txin = rawTx.vin[i];
             PSTTInput input;
             input.previous_txid = txin.prevout.hashMalFix;
-            input.prev_out_index = txin.prevout.n;
+            input.prevout_index = txin.prevout.n;
             input.previous_txid_set = true;
-            input.prev_out_index_set = true;
+            input.prevout_index_set = true;
             if (txin.nSequence != CTxIn::SEQUENCE_FINAL) input.sequence = txin.nSequence;
             pstt.inputs.push_back(std::move(input));
         }

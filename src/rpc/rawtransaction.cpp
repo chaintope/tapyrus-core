@@ -1266,14 +1266,14 @@ static void PushTokenAmount(const CScript& script, CAmount amount, UniValue& ent
 static void PsttInputToUniv(const PSTTInput& input, UniValue& in)
 {
     in.pushKV("txid", input.previous_txid.GetHex());
-    in.pushKV("vout", (uint64_t)input.prev_out_index);
+    in.pushKV("vout", (uint64_t)input.prevout_index);
 
     if (input.utxo) {
         UniValue utxo_univ(UniValue::VOBJ);
         TxToUniv(*input.utxo, uint256(), utxo_univ, false);
         in.pushKV("utxo", utxo_univ);
-        if (input.prev_out_index < input.utxo->vout.size()) {
-            const CTxOut& out = input.utxo->vout[input.prev_out_index];
+        if (input.prevout_index < input.utxo->vout.size()) {
+            const CTxOut& out = input.utxo->vout[input.prevout_index];
             PushTokenAmount(out.scriptPubKey, out.nValue, in);
         }
     }
@@ -1480,9 +1480,9 @@ UniValue createpstt(const JSONRPCRequest& request)
     for (const CTxIn& txin : rawTx.vin) {
         PSTTInput input;
         input.previous_txid = txin.prevout.hashMalFix;
-        input.prev_out_index = txin.prevout.n;
+        input.prevout_index = txin.prevout.n;
         input.previous_txid_set = true;
-        input.prev_out_index_set = true;
+        input.prevout_index_set = true;
         if (txin.nSequence != CTxIn::SEQUENCE_FINAL) input.sequence = txin.nSequence;
         pstt.inputs.push_back(std::move(input));
     }
@@ -1549,9 +1549,9 @@ UniValue converttopstt(const JSONRPCRequest& request)
     for (const CTxIn& txin : tx.vin) {
         PSTTInput input;
         input.previous_txid = txin.prevout.hashMalFix;
-        input.prev_out_index = txin.prevout.n;
+        input.prevout_index = txin.prevout.n;
         input.previous_txid_set = true;
-        input.prev_out_index_set = true;
+        input.prevout_index_set = true;
         if (txin.nSequence != CTxIn::SEQUENCE_FINAL) input.sequence = txin.nSequence;
         pstt.inputs.push_back(std::move(input));
     }
@@ -1615,9 +1615,9 @@ UniValue addinputtopstt(const JSONRPCRequest& request)
     if (nOutput < 0) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, vout must be positive");
     }
-    input.prev_out_index = (uint32_t)nOutput;
+    input.prevout_index = (uint32_t)nOutput;
     input.previous_txid_set = true;
-    input.prev_out_index_set = true;
+    input.prevout_index_set = true;
     if (!request.params[3].isNull()) {
         int64_t seq = request.params[3].get_int64();
         if (seq < 0 || seq > std::numeric_limits<uint32_t>::max()) {
@@ -1717,9 +1717,9 @@ UniValue addinputoutputpairtopstt(const JSONRPCRequest& request)
     if (nOutput < 0) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, vout must be positive");
     }
-    input.prev_out_index = (uint32_t)nOutput;
+    input.prevout_index = (uint32_t)nOutput;
     input.previous_txid_set = true;
-    input.prev_out_index_set = true;
+    input.prevout_index_set = true;
     if (!request.params[4].isNull()) {
         int64_t seq = request.params[4].get_int64();
         if (seq < 0 || seq > std::numeric_limits<uint32_t>::max()) {
@@ -1779,6 +1779,253 @@ UniValue finalizepsttconstruction(const JSONRPCRequest& request)
     return EncodePSTT(pstt);
 }
 
+// =======================================================================
+// PSTT introspection helpers (decodepstt's next-role/estimated_size/
+// estimated_fee fields; also used by finalizepstt below).
+// =======================================================================
+
+// The dummy provider's per-input sighash/scheme is derived from what the
+// input itself already carries, not hardcoded: this makes SignPSTTInput's
+// sighash-conflict and scheme-conflict pre-checks unreachable here by
+// construction (they can only ever fire against a mismatch with what we
+// pass in), so a dry run only ever fails for a genuine structural reason
+// (missing/mismatched UTXO, bad redeem script, contradictory locktime, an
+// out-of-range SIGHASH_SINGLE), never a spurious conflict against our own
+// derivation.
+static int FinalizeSighashFor(const PSTTInput& input)
+{
+    return input.sighash_type ? *input.sighash_type : SIGHASH_ALL;
+}
+
+static SignatureScheme FinalizeSigSchemeFor(const PSTTInput& input)
+{
+    if (input.partial_sigs.empty()) return SignatureScheme::ECDSA;
+    const std::vector<unsigned char>& sig = input.partial_sigs.begin()->second.second;
+    return sig.size() == CPubKey::COMPACT_SIGNATURE_SIZE ? SignatureScheme::SCHNORR : SignatureScheme::ECDSA;
+}
+
+// Dry-run of what finalizepstt would do to this one input, without mutating
+// anything: true iff the input's already-collected data (partial sigs/
+// redeem script) is enough to finalize right now. Reuses the same
+// DUMMY_SIGNING_PROVIDER technique finalizepstt itself uses (a keyless
+// provider can't add anything new, so ProduceSignature can only ever report
+// "complete" here if what's already in the PSTT already satisfies the
+// script).
+static bool CanFinalizeInputNow(const PartiallySignedTapyrusTransaction& pstt, unsigned int i)
+{
+    const PSTTInput& input = pstt.inputs.at(i);
+    if (!input.final_script_sig.empty()) return true;
+    if (!input.utxo) return false;
+
+    SignatureData sigdata;
+    PSTTSignResult result = SignPSTTInput(DUMMY_SIGNING_PROVIDER, pstt, i, sigdata,
+                                           FinalizeSighashFor(input), FinalizeSigSchemeFor(input));
+    return result == PSTTSignResult::OK && sigdata.complete;
+}
+
+// Every role that could act on this PSTT right now, in the same rough
+// ladder as Bitcoin Core's analyzepsbt: constructor (inputs/outputs still
+// modifiable), updater (some input has no PSTT_IN_UTXO yet), signer (some
+// input has a UTXO but its collected data isn't enough to finalize),
+// finalizer (some input could finalize now but hasn't), extractor (every
+// input already carries PSTT_IN_FINAL_SCRIPTSIG, or there are no inputs).
+// These are independent, not mutually exclusive -- e.g. a freshly
+// wallet-funded, still-modifiable, unsigned PSTT is both "constructor" (more
+// inputs/outputs could still be added) and "signer" (its attached UTXOs
+// already make it signable); the caller decides whether to sign now or wait
+// for construction to close. Returned in this canonical ladder order,
+// filtered to only the roles that currently apply.
+static std::vector<std::string> PsttNextRoles(const PartiallySignedTapyrusTransaction& pstt)
+{
+    std::vector<std::string> roles;
+    if (pstt.tx_modifiable && (*pstt.tx_modifiable & (PSTT_TXMOD_INPUTS_MODIFIABLE | PSTT_TXMOD_OUTPUTS_MODIFIABLE)) != 0) {
+        roles.push_back("constructor");
+    }
+
+    bool any_missing_utxo = false;
+    bool any_needs_signer = false;
+    bool any_ready_to_finalize = false;
+    for (unsigned int i = 0; i < pstt.inputs.size(); ++i) {
+        const PSTTInput& input = pstt.inputs.at(i);
+        if (!input.final_script_sig.empty()) continue;
+        if (!input.utxo) {
+            any_missing_utxo = true;
+            continue;
+        }
+        if (CanFinalizeInputNow(pstt, i)) {
+            any_ready_to_finalize = true;
+        } else {
+            any_needs_signer = true;
+        }
+    }
+
+    if (any_missing_utxo) roles.push_back("updater");
+    if (any_needs_signer) roles.push_back("signer");
+    if (any_ready_to_finalize) roles.push_back("finalizer");
+    if (!any_missing_utxo && !any_needs_signer && !any_ready_to_finalize) roles.push_back("extractor");
+    return roles;
+}
+
+static bool AllInputsHaveUtxo(const PartiallySignedTapyrusTransaction& pstt)
+{
+    for (const PSTTInput& input : pstt.inputs) {
+        if (!input.utxo || !input.prevout_index_set || input.prevout_index >= input.utxo->vout.size()) return false;
+    }
+    return true;
+}
+
+// The scriptSig this input would contribute: the real
+// PSTT_IN_FINAL_SCRIPTSIG if already finalized, otherwise a same-size dummy
+// completion of whatever's already known about it (redeem script, any
+// already-collected pubkeys), via a throwaway keystore that holds no real
+// private keys -- DUMMY_SIGNATURE_CREATOR fabricates a plausibly-sized fake
+// signature for every public key the keystore claims to know, the same
+// technique CWallet::CalculateMaximumSignedTxSize uses for fee estimation,
+// just without needing a wallet. Purely a local size probe; never mutates
+// the real PSTT. Caller must have already confirmed input.utxo is set.
+static CScript EstimateInputScriptSig(const PartiallySignedTapyrusTransaction& pstt, unsigned int i)
+{
+    const PSTTInput& input = pstt.inputs.at(i);
+    if (!input.final_script_sig.empty()) return input.final_script_sig;
+
+    CBasicKeyStore keystore;
+    if (!input.redeem_script.empty()) keystore.AddCScript(input.redeem_script);
+    for (const auto& kv : input.hd_keypaths) keystore.AddWatchOnly(GetScriptForRawPubKey(kv.first));
+    for (const auto& kv : input.partial_sigs) keystore.AddWatchOnly(GetScriptForRawPubKey(kv.second.first));
+
+    SignatureData sigdata;
+    input.FillSignatureData(sigdata);
+    const CTxOut& utxo_out = input.utxo->vout.at(input.prevout_index);
+    ProduceSignature(keystore, DUMMY_SIGNATURE_CREATOR, utxo_out.scriptPubKey, sigdata);
+    return sigdata.scriptSig;
+}
+
+// Estimated size in bytes of the transaction this PSTT would extract to,
+// using EstimateInputScriptSig for any input not yet finalized. Caller must
+// have already confirmed every input has a usable, in-range UTXO attached
+// (AllInputsHaveUtxo) -- without that there's no scriptPubKey to size a
+// dummy completion against for at least one input, so no estimate is
+// possible at all. Fidelity depends on what key material happens to be
+// attached: with BIP32 derivation paths or partial sigs already collected,
+// the dummy completion approximates a real signature's size well; with
+// none (e.g. a createpstt+updatepstt PSTT built without a wallet), the
+// keystore stays empty and this is essentially the unsigned size.
+static int64_t EstimatePsttSize(const PartiallySignedTapyrusTransaction& pstt)
+{
+    uint32_t locktime = 0;
+    ComputeLocktime(pstt, locktime); // best-effort; 0 if inconsistent -- size estimate only, not used for anything consensus-relevant
+
+    CMutableTransaction mtx;
+    mtx.nFeatures = pstt.tx_features.value_or(CTransaction::CURRENT_FEATURES);
+    mtx.nLockTime = locktime;
+    for (unsigned int i = 0; i < pstt.inputs.size(); ++i) {
+        const PSTTInput& input = pstt.inputs.at(i);
+        CTxIn txin(COutPoint(input.previous_txid, input.prevout_index), EstimateInputScriptSig(pstt, i),
+                   input.sequence.value_or(CTxIn::SEQUENCE_FINAL));
+        mtx.vin.push_back(std::move(txin));
+    }
+    for (const PSTTOutput& output : pstt.outputs) {
+        mtx.vout.emplace_back(output.amount.value_or(0), output.script);
+    }
+    return ::GetSerializeSize(CTransaction(mtx), SER_NETWORK, PROTOCOL_VERSION);
+}
+
+// Net TPC moved by this PSTT (inputs minus outputs) -- the fee, since fees
+// are payable only in TPC (doc/tapyrus/pstt.md, Fee Provider workflow) and
+// every Colored Coin transfer nets to zero for its own color by consensus
+// rule. Caller must have already confirmed every input has a usable,
+// in-range UTXO attached.
+static CAmount EstimatePsttFee(const PartiallySignedTapyrusTransaction& pstt)
+{
+    CAmount in_tpc = 0;
+    for (const PSTTInput& input : pstt.inputs) {
+        const CTxOut& utxo_out = input.utxo->vout.at(input.prevout_index);
+        if (GetColorIdFromScript(utxo_out.scriptPubKey).type == TokenTypes::NONE) in_tpc += utxo_out.nValue;
+    }
+    CAmount out_tpc = 0;
+    for (const PSTTOutput& output : pstt.outputs) {
+        if (GetColorIdFromScript(output.script).type == TokenTypes::NONE) out_tpc += output.amount.value_or(0);
+    }
+    return in_tpc - out_tpc;
+}
+
+UniValue updatepstt(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 2)
+        throw std::runtime_error(
+            "updatepstt \"pstt\" [\"hexstring\",...]\n"
+            "\nAttaches PSTT_IN_UTXO to any input that doesn't already have one, by\n"
+            "matching each supplied raw transaction's malfix txid against the PSTT's own\n"
+            "input previous_txids. Implements the Updater role without needing a loaded\n"
+            "wallet -- unlike walletupdatepstt, the previous transactions come from the\n"
+            "caller, not mapWallet, and no redeem script / BIP32 derivation discovery is\n"
+            "attempted (there is no wallet here to discover them from). Never adds,\n"
+            "removes, or reorders inputs/outputs -- only ever attaches PSTT_IN_UTXO to\n"
+            "what's already there. A supplied transaction whose txid doesn't match any\n"
+            "input is silently ignored, not an error -- the caller may not know in\n"
+            "advance which of several candidates a given PSTT actually needs.\n"
+
+            "\nArguments:\n"
+            "1. \"pstt\"                 (string, required) A base64 string of a PSTT\n"
+            "2. \"txs\"                  (array, required) A json array of hex-encoded raw transactions\n"
+            "    [\n"
+            "      \"hexstring\"        (string) A previous transaction this PSTT may spend from\n"
+            "      ,...\n"
+            "    ]\n"
+
+            "\nResult:\n"
+            "{\n"
+            "  \"pstt\" : \"value\",                (string)  The base64-encoded partially signed transaction\n"
+            "  \"all_utxos_attached\" : true|false, (boolean) Whether every input now has a PSTT_IN_UTXO\n"
+            "}\n"
+
+            "\nExamples:\n"
+            + HelpExampleCli("updatepstt", "\"pstt\" \"[\\\"myhex1\\\",\\\"myhex2\\\"]\"")
+        );
+
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VARR});
+
+    PartiallySignedTapyrusTransaction pstt;
+    std::string error;
+    if (!DecodePSTT(pstt, request.params[0].get_str(), error)) {
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, strprintf("TX decode failed %s", error));
+    }
+
+    UniValue txs = request.params[1].get_array();
+    std::map<uint256, CTransactionRef> known_txs;
+    for (unsigned int idx = 0; idx < txs.size(); ++idx) {
+        CMutableTransaction mtx;
+        if (!DecodeHexTx(mtx, txs[idx].get_str())) {
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, strprintf("TX decode failed for tx %d", idx));
+        }
+        CTransactionRef txref = MakeTransactionRef(std::move(mtx));
+        known_txs[txref->GetHashMalFix()] = txref;
+    }
+
+    for (PSTTInput& input : pstt.inputs) {
+        if (input.utxo || !input.previous_txid_set) continue; // already attached, or this input isn't even valid yet
+        auto it = known_txs.find(input.previous_txid);
+        if (it == known_txs.end()) continue; // not among the supplied txs -- leave for a later Updater round
+        if (input.prevout_index_set && input.prevout_index >= it->second->vout.size()) {
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Input prevout index out of range");
+        }
+        input.utxo = it->second;
+    }
+
+    bool all_attached = true;
+    for (const PSTTInput& input : pstt.inputs) {
+        if (!input.utxo) {
+            all_attached = false;
+            break;
+        }
+    }
+
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("pstt", EncodePSTT(pstt));
+    result.pushKV("all_utxos_attached", all_attached);
+    return result;
+}
+
 UniValue decodepstt(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() != 1)
@@ -1786,6 +2033,19 @@ UniValue decodepstt(const JSONRPCRequest& request)
             "decodepstt \"pstt\"\n"
             "\nReturn a JSON object representing the serialized, base64-encoded "
             "Partially Signed Tapyrus Transaction (see doc/tapyrus/pstt.md).\n"
+            "\nAlso reports \"next\" (a JSON array of every role that could act on this PSTT\n"
+            "right now, in ladder order: constructor, updater, signer, finalizer,\n"
+            "extractor -- these are independent, not mutually exclusive, e.g. a\n"
+            "still-modifiable but already-fully-funded PSTT reports both \"constructor\"\n"
+            "and \"signer\") and, once every input has a UTXO attached, \"estimated_size\"\n"
+            "for the transaction this PSTT would currently extract to -- an estimate only,\n"
+            "using whatever BIP32 derivation/partial-signature data happens to be attached\n"
+            "right now to size a dummy completion of each unfinalized input (with none\n"
+            "attached, e.g. a createpstt+updatepstt PSTT built without a wallet, this is\n"
+            "essentially the unsigned size), and can still change while \"next\" contains\n"
+            "\"constructor\" or \"signer\". \"estimated_fee\" (inputs minus outputs, in TPC)\n"
+            "is included alongside it unless it would be negative, which just means this\n"
+            "PSTT is still gathering inputs.\n"
 
             "\nArguments:\n"
             "1. \"pstt\"            (string, required) The PSTT base64 string\n"
@@ -1875,6 +2135,15 @@ UniValue decodepstt(const JSONRPCRequest& request)
     }
     result.pushKV("outputs", outputs);
 
+    UniValue next(UniValue::VARR);
+    for (const std::string& role : PsttNextRoles(pstt)) next.push_back(role);
+    result.pushKV("next", next);
+    if (AllInputsHaveUtxo(pstt)) {
+        result.pushKV("estimated_size", EstimatePsttSize(pstt));
+        CAmount fee = EstimatePsttFee(pstt);
+        if (fee >= 0) result.pushKV("estimated_fee", ValueFromAmount(fee)); // negative just means still gathering inputs
+    }
+
     return result;
 }
 
@@ -1935,24 +2204,114 @@ UniValue combinepstt(const JSONRPCRequest& request)
     return EncodePSTT(merged_pstt);
 }
 
-// The dummy provider's per-input sighash/scheme is derived from what the
-// input itself already carries, not hardcoded: this makes SignPSTTInput's
-// sighash-conflict and scheme-conflict pre-checks unreachable here by
-// construction (they can only ever fire against a mismatch with what we
-// pass in), so finalization only ever fails for a genuine structural reason
-// (missing/mismatched UTXO, bad redeem script, contradictory locktime, an
-// out-of-range SIGHASH_SINGLE), never a spurious conflict against our own
-// derivation.
-static int FinalizeSighashFor(const PSTTInput& input)
+UniValue joinpstt(const JSONRPCRequest& request)
 {
-    return input.sighash_type ? *input.sighash_type : SIGHASH_ALL;
-}
+    if (request.fHelp || request.params.size() != 1)
+        throw std::runtime_error(
+            "joinpstt [\"pstt\",...]\n"
+            "\nJoin multiple distinct, still-under-construction PSTTs -- each with its own\n"
+            "inputs and outputs -- into one larger PSTT, by concatenating their inputs and\n"
+            "outputs in the order supplied. Lets a large PSTT be built up as several\n"
+            "independently-constructed pieces (e.g. contributed by different parties, or\n"
+            "built in parallel) and then combined, rather than requiring every input/output\n"
+            "to be added one at a time to a single PSTT via addinputtopstt/addoutputtopstt.\n"
+            "Implements the Constructor role. This is not the Combiner (see combinepstt):\n"
+            "combinepstt merges alternate signing progress on the *same* underlying\n"
+            "transaction, while joinpstt assembles *different* inputs/outputs from\n"
+            "multiple PSTTs into a new, larger transaction.\n"
+            "\nEvery supplied PSTT must still have both its Inputs-Modifiable and\n"
+            "Outputs-Modifiable flags set (call finalizepsttconstruction only after\n"
+            "joining, never before), must not have its Has-SIGHASH_SINGLE flag set, and\n"
+            "none of its inputs may carry a partial signature -- a SIGHASH_SINGLE\n"
+            "signature (partial or final) commits to its own input's position matching a\n"
+            "specific output position, an invariant joining would silently break by\n"
+            "shifting every position after the first PSTT. Join first, add any\n"
+            "SIGHASH_SINGLE input/output pair afterwards. The same previous output may not\n"
+            "be spent by more than one of the supplied PSTTs.\n"
+            "\nfallback_locktime becomes the maximum of the joined PSTTs' fallback_locktime\n"
+            "values. PSTT_GLOBAL_VERSION is not carried over from any input PSTT.\n"
 
-static SignatureScheme FinalizeSigSchemeFor(const PSTTInput& input)
-{
-    if (input.partial_sigs.empty()) return SignatureScheme::ECDSA;
-    const std::vector<unsigned char>& sig = input.partial_sigs.begin()->second.second;
-    return sig.size() == CPubKey::COMPACT_SIGNATURE_SIZE ? SignatureScheme::SCHNORR : SignatureScheme::ECDSA;
+            "\nArguments:\n"
+            "1. \"txs\"                   (string) A json array of base64 strings of PSTTs to join\n"
+            "    [\n"
+            "      \"pstt\"             (string) A base64 string of a PSTT\n"
+            "      ,...\n"
+            "    ]\n"
+
+            "\nResult:\n"
+            "  \"pstt\"          (string) The base64-encoded joined partially signed transaction\n"
+
+            "\nExamples:\n"
+            + HelpExampleCli("joinpstt", "[\"mybase64_1\", \"mybase64_2\", \"mybase64_3\"]")
+        );
+
+    RPCTypeCheck(request.params, {UniValue::VARR}, true);
+
+    UniValue txs = request.params[0].get_array();
+    if (txs.size() < 2) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "joinpstt requires at least two PSTTs");
+    }
+
+    std::vector<PartiallySignedTapyrusTransaction> psttxs;
+    for (unsigned int i = 0; i < txs.size(); ++i) {
+        PartiallySignedTapyrusTransaction pstt;
+        std::string error;
+        if (!DecodePSTT(pstt, txs[i].get_str(), error)) {
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, strprintf("TX decode failed %s", error));
+        }
+        psttxs.push_back(std::move(pstt));
+    }
+
+    PartiallySignedTapyrusTransaction joined;
+    joined.tx_features = CTransaction::CURRENT_FEATURES;
+    std::set<COutPoint> seen_outpoints;
+    std::set<std::vector<unsigned char>> seen_xpubs;
+    for (unsigned int i = 0; i < psttxs.size(); ++i) {
+        const PartiallySignedTapyrusTransaction& pstt = psttxs[i];
+        uint8_t modifiable = pstt.tx_modifiable.value_or(0);
+        if (!(modifiable & PSTT_TXMOD_INPUTS_MODIFIABLE) || !(modifiable & PSTT_TXMOD_OUTPUTS_MODIFIABLE)) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("PSTT %d is not still under construction (Inputs/Outputs-Modifiable must both be set)", i));
+        }
+        if (modifiable & PSTT_TXMOD_HAS_SIGHASH_SINGLE) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("PSTT %d has its Has-SIGHASH_SINGLE flag set; join it after joinpstt instead", i));
+        }
+        for (unsigned int j = 0; j < pstt.inputs.size(); ++j) {
+            const PSTTInput& input = pstt.inputs[j];
+            if (!input.partial_sigs.empty() || !input.final_script_sig.empty()) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("PSTT %d input %d is already signed; only unsigned PSTTs may be joined", i, j));
+            }
+            if (input.previous_txid_set && input.prevout_index_set) {
+                if (!seen_outpoints.insert(COutPoint(input.previous_txid, input.prevout_index)).second) {
+                    throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("PSTT %d input %d spends an outpoint already spent by another joined PSTT", i, j));
+                }
+            }
+        }
+
+        if (pstt.tx_features && *pstt.tx_features > *joined.tx_features) joined.tx_features = pstt.tx_features;
+        if (pstt.fallback_locktime && (!joined.fallback_locktime || *pstt.fallback_locktime > *joined.fallback_locktime)) {
+            joined.fallback_locktime = pstt.fallback_locktime;
+        }
+        for (const auto& entry : pstt.xpubs) {
+            if (seen_xpubs.insert(XpubEntryCanonicalBytes(entry)).second) {
+                joined.xpubs.push_back(entry);
+            }
+        }
+        for (const auto& kv : pstt.unknown) joined.unknown.insert(kv); // pick-first tier, same as combinepstt's Merge()
+
+        joined.inputs.insert(joined.inputs.end(), pstt.inputs.begin(), pstt.inputs.end());
+        joined.outputs.insert(joined.outputs.end(), pstt.outputs.begin(), pstt.outputs.end());
+    }
+    joined.tx_modifiable = PSTT_TXMOD_INPUTS_MODIFIABLE | PSTT_TXMOD_OUTPUTS_MODIFIABLE;
+
+    uint32_t locktime;
+    if (!ComputeLocktime(joined, locktime)) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Joining these PSTTs would make the resulting locktime unsatisfiable");
+    }
+    if (!joined.IsSane()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Joined PSTT is inconsistent");
+    }
+
+    return EncodePSTT(joined);
 }
 
 UniValue finalizepstt(const JSONRPCRequest& request)
@@ -2189,8 +2548,10 @@ static const CRPCCommand commands[] =
     { "rawtransactions",    "addoutputtopstt",              &addoutputtopstt,           {"pstt","output"} },
     { "rawtransactions",    "addinputoutputpairtopstt",     &addinputoutputpairtopstt,  {"pstt","txid","vout","output","sequence"} },
     { "rawtransactions",    "finalizepsttconstruction",     &finalizepsttconstruction,  {"pstt","clear_inputs_modifiable","clear_outputs_modifiable"} },
+    { "rawtransactions",    "updatepstt",                   &updatepstt,                {"pstt","txs"} },
     { "rawtransactions",    "decodepstt",                   &decodepstt,                {"pstt"} },
     { "rawtransactions",    "combinepstt",                  &combinepstt,               {"txs"} },
+    { "rawtransactions",    "joinpstt",                     &joinpstt,                  {"txs"} },
     { "rawtransactions",    "finalizepstt",                 &finalizepstt,              {"pstt", "extract"} },
     { "rawtransactions",    "extractpstt",                  &extractpstt,               {"pstt"} },
     { "rawtransactions",    "signpsttwithkey",               &signpsttwithkey,           {"pstt","privkeys","sighashtype","sigscheme"} },

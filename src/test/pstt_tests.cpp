@@ -58,9 +58,9 @@ static PSTTInput MakeBasicInput(const uint256& prev_txid, uint32_t vout, const C
 {
     PSTTInput input;
     input.previous_txid = prev_txid;
-    input.prev_out_index = vout;
+    input.prevout_index = vout;
     input.previous_txid_set = true;
-    input.prev_out_index_set = true;
+    input.prevout_index_set = true;
     input.utxo = utxo;
     return input;
 }
@@ -99,6 +99,13 @@ static T UnserializeObj(const std::vector<unsigned char>& data)
     return obj;
 }
 
+static std::string EncodeHexTxForTest(const CMutableTransaction& mtx)
+{
+    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+    ss << mtx;
+    return HexStr(ss.begin(), ss.end());
+}
+
 // -----------------------------------------------------------------------
 // Round-trip serialize/deserialize
 // -----------------------------------------------------------------------
@@ -114,7 +121,7 @@ BOOST_AUTO_TEST_CASE(pstt_roundtrip_basic)
     BOOST_CHECK_EQUAL(parsed.outputs.size(), 1U);
     BOOST_CHECK(parsed.inputs[0].previous_txid_set);
     BOOST_CHECK(parsed.inputs[0].previous_txid == pstt.inputs[0].previous_txid);
-    BOOST_CHECK_EQUAL(parsed.inputs[0].prev_out_index, pstt.inputs[0].prev_out_index);
+    BOOST_CHECK_EQUAL(parsed.inputs[0].prevout_index, pstt.inputs[0].prevout_index);
     BOOST_CHECK(parsed.inputs[0].utxo->GetHashMalFix() == pstt.inputs[0].utxo->GetHashMalFix());
     BOOST_CHECK_EQUAL(*parsed.outputs[0].amount, *pstt.outputs[0].amount);
     BOOST_CHECK(parsed.outputs[0].script == pstt.outputs[0].script);
@@ -411,6 +418,7 @@ BOOST_AUTO_TEST_CASE(pstt_xpub_roundtrip_matching_prefix)
     key.MakeNewKey(true);
     xpub.pubkey = key.GetPubKey();
     xpub.nDepth = 1;
+    memset(xpub.vchFingerprint, 0, sizeof(xpub.vchFingerprint));
     xpub.nChild = 0;
     xpub.chaincode.SetNull();
 
@@ -427,6 +435,7 @@ BOOST_AUTO_TEST_CASE(pstt_xpub_rejects_wrong_network_prefix)
     key.MakeNewKey(true);
     xpub.pubkey = key.GetPubKey();
     xpub.nDepth = 0;
+    memset(xpub.vchFingerprint, 0, sizeof(xpub.vchFingerprint));
     xpub.nChild = 0;
     xpub.chaincode.SetNull();
 
@@ -446,6 +455,7 @@ BOOST_AUTO_TEST_CASE(pstt_xpub_rejects_unknown_prefix)
     key.MakeNewKey(true);
     xpub.pubkey = key.GetPubKey();
     xpub.nDepth = 0;
+    memset(xpub.vchFingerprint, 0, sizeof(xpub.vchFingerprint));
     xpub.nChild = 0;
     xpub.chaincode.SetNull();
 
@@ -541,9 +551,9 @@ BOOST_FIXTURE_TEST_CASE(pstt_extract_valid_p2pk_coinbase_spend, TestChainSetup)
     pstt.tx_features = CTransaction::CURRENT_FEATURES;
     PSTTInput input;
     input.previous_txid = prevTx->GetHashMalFix();
-    input.prev_out_index = 0;
+    input.prevout_index = 0;
     input.previous_txid_set = true;
-    input.prev_out_index_set = true;
+    input.prevout_index_set = true;
     input.utxo = prevTx;
     pstt.inputs.push_back(input);
 
@@ -572,9 +582,9 @@ BOOST_FIXTURE_TEST_CASE(pstt_extract_valid_schnorr_spend, TestChainSetup)
     pstt.tx_features = CTransaction::CURRENT_FEATURES;
     PSTTInput input;
     input.previous_txid = prevTx->GetHashMalFix();
-    input.prev_out_index = 0;
+    input.prevout_index = 0;
     input.previous_txid_set = true;
-    input.prev_out_index_set = true;
+    input.prevout_index_set = true;
     input.utxo = prevTx;
     pstt.inputs.push_back(input);
 
@@ -606,9 +616,9 @@ BOOST_FIXTURE_TEST_CASE(pstt_extract_invalid_wrong_key, TestChainSetup)
     pstt.tx_features = CTransaction::CURRENT_FEATURES;
     PSTTInput input;
     input.previous_txid = prevTx->GetHashMalFix();
-    input.prev_out_index = 0;
+    input.prevout_index = 0;
     input.previous_txid_set = true;
-    input.prev_out_index_set = true;
+    input.prevout_index_set = true;
     input.utxo = prevTx;
     pstt.inputs.push_back(input);
 
@@ -638,9 +648,9 @@ static std::pair<CTransactionRef, CKey> MakeConfirmedP2PKHCoin(TestChainSetup& s
     pstt.tx_features = CTransaction::CURRENT_FEATURES;
     PSTTInput input;
     input.previous_txid = coinbaseTx->GetHashMalFix();
-    input.prev_out_index = 0;
+    input.prevout_index = 0;
     input.previous_txid_set = true;
-    input.prev_out_index_set = true;
+    input.prevout_index_set = true;
     input.utxo = coinbaseTx;
     pstt.inputs.push_back(input);
 
@@ -676,9 +686,9 @@ BOOST_FIXTURE_TEST_CASE(pstt_extract_valid_colored_issue_and_transfer, TestChain
     issuePstt.tx_features = CTransaction::CURRENT_FEATURES;
     PSTTInput issueInput;
     issueInput.previous_txid = p2pkhTx->GetHashMalFix();
-    issueInput.prev_out_index = 0;
+    issueInput.prevout_index = 0;
     issueInput.previous_txid_set = true;
-    issueInput.prev_out_index_set = true;
+    issueInput.prevout_index_set = true;
     issueInput.utxo = p2pkhTx;
     issuePstt.inputs.push_back(issueInput);
 
@@ -713,17 +723,17 @@ BOOST_FIXTURE_TEST_CASE(pstt_extract_valid_colored_issue_and_transfer, TestChain
 
     PSTTInput coloredInput;
     coloredInput.previous_txid = issueTx->GetHashMalFix();
-    coloredInput.prev_out_index = 0;
+    coloredInput.prevout_index = 0;
     coloredInput.previous_txid_set = true;
-    coloredInput.prev_out_index_set = true;
+    coloredInput.prevout_index_set = true;
     coloredInput.utxo = issueTx;
     transferPstt.inputs.push_back(coloredInput);
 
     PSTTInput feeInput;
     feeInput.previous_txid = feeTx->GetHashMalFix();
-    feeInput.prev_out_index = 0;
+    feeInput.prevout_index = 0;
     feeInput.previous_txid_set = true;
-    feeInput.prev_out_index_set = true;
+    feeInput.prevout_index_set = true;
     feeInput.utxo = feeTx;
     transferPstt.inputs.push_back(feeInput);
 
@@ -764,9 +774,9 @@ BOOST_FIXTURE_TEST_CASE(pstt_extract_invalid_token_without_fee, TestChainSetup)
     issuePstt.tx_features = CTransaction::CURRENT_FEATURES;
     PSTTInput issueInput;
     issueInput.previous_txid = p2pkhTx->GetHashMalFix();
-    issueInput.prev_out_index = 0;
+    issueInput.prevout_index = 0;
     issueInput.previous_txid_set = true;
-    issueInput.prev_out_index_set = true;
+    issueInput.prevout_index_set = true;
     issueInput.utxo = p2pkhTx;
     issuePstt.inputs.push_back(issueInput);
 
@@ -793,9 +803,9 @@ BOOST_FIXTURE_TEST_CASE(pstt_extract_invalid_token_without_fee, TestChainSetup)
     transferPstt.tx_features = CTransaction::CURRENT_FEATURES;
     PSTTInput coloredInput;
     coloredInput.previous_txid = issueTx->GetHashMalFix();
-    coloredInput.prev_out_index = 0;
+    coloredInput.prevout_index = 0;
     coloredInput.previous_txid_set = true;
-    coloredInput.prev_out_index_set = true;
+    coloredInput.prevout_index_set = true;
     coloredInput.utxo = issueTx;
     transferPstt.inputs.push_back(coloredInput);
 
@@ -886,9 +896,9 @@ static MultisigSpendPair MakeUnmergedMultisigSpendPair(TestChainSetup& setup)
     fundingPstt.tx_features = CTransaction::CURRENT_FEATURES;
     PSTTInput fundingInput;
     fundingInput.previous_txid = coinbaseTx->GetHashMalFix();
-    fundingInput.prev_out_index = 0;
+    fundingInput.prevout_index = 0;
     fundingInput.previous_txid_set = true;
-    fundingInput.prev_out_index_set = true;
+    fundingInput.prevout_index_set = true;
     fundingInput.utxo = coinbaseTx;
     fundingPstt.inputs.push_back(fundingInput);
     PSTTOutput fundingOutput;
@@ -911,9 +921,9 @@ static MultisigSpendPair MakeUnmergedMultisigSpendPair(TestChainSetup& setup)
         pstt.tx_features = CTransaction::CURRENT_FEATURES;
         PSTTInput input;
         input.previous_txid = multisigUtxo->GetHashMalFix();
-        input.prev_out_index = 0;
+        input.prevout_index = 0;
         input.previous_txid_set = true;
-        input.prev_out_index_set = true;
+        input.prevout_index_set = true;
         input.utxo = multisigUtxo;
         input.redeem_script = redeemScript;
         pstt.inputs.push_back(input);
@@ -992,9 +1002,9 @@ BOOST_FIXTURE_TEST_CASE(pstt_mixed_scheme_rejected_construction_and_execution_ag
     fundingPstt.tx_features = CTransaction::CURRENT_FEATURES;
     PSTTInput fundingInput;
     fundingInput.previous_txid = coinbaseTx->GetHashMalFix();
-    fundingInput.prev_out_index = 0;
+    fundingInput.prevout_index = 0;
     fundingInput.previous_txid_set = true;
-    fundingInput.prev_out_index_set = true;
+    fundingInput.prevout_index_set = true;
     fundingInput.utxo = coinbaseTx;
     fundingPstt.inputs.push_back(fundingInput);
     PSTTOutput fundingOutput;
@@ -1014,9 +1024,9 @@ BOOST_FIXTURE_TEST_CASE(pstt_mixed_scheme_rejected_construction_and_execution_ag
         pstt.tx_features = CTransaction::CURRENT_FEATURES;
         PSTTInput input;
         input.previous_txid = multisigUtxo->GetHashMalFix();
-        input.prev_out_index = 0;
+        input.prevout_index = 0;
         input.previous_txid_set = true;
-        input.prev_out_index_set = true;
+        input.prevout_index_set = true;
         input.utxo = multisigUtxo;
         input.redeem_script = redeemScript;
         pstt.inputs.push_back(input);
@@ -1207,9 +1217,9 @@ BOOST_FIXTURE_TEST_CASE(pstt_rpc_signpsttwithkey_p2pk_coinbase_spend, TestChainS
     pstt.tx_features = CTransaction::CURRENT_FEATURES;
     PSTTInput input;
     input.previous_txid = prevTx->GetHashMalFix();
-    input.prev_out_index = 0;
+    input.prevout_index = 0;
     input.previous_txid_set = true;
-    input.prev_out_index_set = true;
+    input.prevout_index_set = true;
     input.utxo = prevTx;
     pstt.inputs.push_back(input);
 
@@ -1296,7 +1306,7 @@ BOOST_FIXTURE_TEST_CASE(pstt_rpc_finalizepstt_strips_signing_only_fields, TestCh
 BOOST_FIXTURE_TEST_CASE(pstt_rpc_finalizepstt_partial_completion_mixed_missing_utxo, TestChainSetup)
 {
     // Input 0 has both required multisig partial sigs already (finalizepstt
-    // can complete it). Input 1 has a previous_txid/prev_out_index but no
+    // can complete it). Input 1 has a previous_txid/prevout_index but no
     // attached UTXO at all -- as if a co-signer's Constructor/Updater step
     // hasn't happened yet. finalizepstt must finalize what it can and
     // report complete=false for the whole PSTT, not throw.
@@ -1317,9 +1327,9 @@ BOOST_FIXTURE_TEST_CASE(pstt_rpc_finalizepstt_partial_completion_mixed_missing_u
     fundingPstt.tx_features = CTransaction::CURRENT_FEATURES;
     PSTTInput fundingInput;
     fundingInput.previous_txid = coinbaseTx->GetHashMalFix();
-    fundingInput.prev_out_index = 0;
+    fundingInput.prevout_index = 0;
     fundingInput.previous_txid_set = true;
-    fundingInput.prev_out_index_set = true;
+    fundingInput.prevout_index_set = true;
     fundingInput.utxo = coinbaseTx;
     fundingPstt.inputs.push_back(fundingInput);
     PSTTOutput fundingOutput;
@@ -1342,18 +1352,18 @@ BOOST_FIXTURE_TEST_CASE(pstt_rpc_finalizepstt_partial_completion_mixed_missing_u
 
         PSTTInput multisigInput;
         multisigInput.previous_txid = multisigUtxo->GetHashMalFix();
-        multisigInput.prev_out_index = 0;
+        multisigInput.prevout_index = 0;
         multisigInput.previous_txid_set = true;
-        multisigInput.prev_out_index_set = true;
+        multisigInput.prevout_index_set = true;
         multisigInput.utxo = multisigUtxo;
         multisigInput.redeem_script = redeemScript;
         pstt.inputs.push_back(multisigInput);
 
         PSTTInput missingUtxoInput;
         missingUtxoInput.previous_txid = missingUtxoTxid;
-        missingUtxoInput.prev_out_index = 0;
+        missingUtxoInput.prevout_index = 0;
         missingUtxoInput.previous_txid_set = true;
-        missingUtxoInput.prev_out_index_set = true;
+        missingUtxoInput.prevout_index_set = true;
         pstt.inputs.push_back(missingUtxoInput);
 
         PSTTOutput output;
@@ -1439,6 +1449,520 @@ BOOST_FIXTURE_TEST_CASE(pstt_rpc_decodepstt_shape, TestChainSetup)
     const UniValue& out0 = outputs[0];
     BOOST_CHECK(out0.exists("amount_raw"));
     BOOST_CHECK(out0.exists("script"));
+}
+
+// -----------------------------------------------------------------------
+// decodepstt's "next" role hint / estimated_size / estimated_fee
+// -----------------------------------------------------------------------
+
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_decodepstt_next_role_constructor, TestingSetup)
+{
+    // Still under construction (an Inputs/Outputs-Modifiable bit set) and
+    // already signable (UTXO attached, no signature yet) -- both roles are
+    // reported, since they're independent: the caller may still add more
+    // inputs/outputs, or may choose to sign what's already there now.
+    PartiallySignedTapyrusTransaction pstt = MakeBasicPstt();
+    pstt.tx_modifiable = PSTT_TXMOD_INPUTS_MODIFIABLE;
+
+    UniValue params(UniValue::VARR);
+    params.push_back(EncodePSTT(pstt));
+    UniValue decoded = CallPsttRPC("decodepstt", params);
+
+    BOOST_REQUIRE(decoded.exists("next"));
+    const UniValue& next = decoded.find_value("next");
+    BOOST_REQUIRE(next.isArray());
+    BOOST_REQUIRE_EQUAL(next.size(), 2U);
+    BOOST_CHECK_EQUAL(next[0].get_str(), "constructor");
+    BOOST_CHECK_EQUAL(next[1].get_str(), "signer");
+    // Estimates are still offered even mid-construction -- a running
+    // estimate is useful to a caller building up a PSTT incrementally --
+    // just documented as subject to change (see decodepstt's help text).
+    BOOST_CHECK(decoded.exists("estimated_size"));
+    BOOST_CHECK(decoded.exists("estimated_fee"));
+}
+
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_decodepstt_next_role_updater, TestingSetup)
+{
+    // No PSTT_IN_UTXO attached yet -- ahead of Signer in the ladder, and
+    // means no fee/size estimate is even possible (an input's value/type
+    // isn't knowable without it).
+    PartiallySignedTapyrusTransaction pstt = MakeBasicPstt();
+    pstt.inputs[0].utxo.reset();
+
+    UniValue params(UniValue::VARR);
+    params.push_back(EncodePSTT(pstt));
+    UniValue decoded = CallPsttRPC("decodepstt", params);
+
+    BOOST_REQUIRE(decoded.exists("next"));
+    const UniValue& next = decoded.find_value("next");
+    BOOST_REQUIRE(next.isArray());
+    BOOST_REQUIRE_EQUAL(next.size(), 1U);
+    BOOST_CHECK_EQUAL(next[0].get_str(), "updater");
+    BOOST_CHECK(!decoded.exists("estimated_size"));
+    BOOST_CHECK(!decoded.exists("estimated_fee"));
+}
+
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_decodepstt_next_role_signer_and_estimates, TestingSetup)
+{
+    // Construction finished, UTXO attached, no signature yet -- Signer is
+    // next. The 100000/90000 split from MakeBasicPstt() gives an exact,
+    // known 10000 fee to check the estimate against; estimated_size only
+    // needs to be in a sane P2PKH-with-one-dummy-signature ballpark, not an
+    // exact byte count (EstimateInputScriptSig's dummy signature length can
+    // legitimately vary by a byte or two).
+    PartiallySignedTapyrusTransaction pstt = MakeBasicPstt();
+
+    UniValue params(UniValue::VARR);
+    params.push_back(EncodePSTT(pstt));
+    UniValue decoded = CallPsttRPC("decodepstt", params);
+
+    BOOST_REQUIRE(decoded.exists("next"));
+    const UniValue& next = decoded.find_value("next");
+    BOOST_REQUIRE(next.isArray());
+    BOOST_REQUIRE_EQUAL(next.size(), 1U);
+    BOOST_CHECK_EQUAL(next[0].get_str(), "signer");
+    BOOST_REQUIRE(decoded.exists("estimated_fee"));
+    BOOST_CHECK_EQUAL(ValueFromAmount(10000).write(), decoded.find_value("estimated_fee").write());
+    BOOST_REQUIRE(decoded.exists("estimated_size"));
+    int64_t size = decoded.find_value("estimated_size").get_int64();
+    BOOST_CHECK(size > 100 && size < 400);
+}
+
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_decodepstt_next_role_finalizer, TestChainSetup)
+{
+    // Every required signature already collected (via Combiner), but
+    // nothing finalized yet -- Finalizer is next, not Signer.
+    MultisigSpendPair fx = MakeUnmergedMultisigSpendPair(*this);
+    PartiallySignedTapyrusTransaction merged = fx.signedByA;
+    merged.Merge(fx.signedByB);
+    BOOST_REQUIRE_EQUAL(merged.inputs[0].partial_sigs.size(), 2U);
+    BOOST_REQUIRE(merged.inputs[0].final_script_sig.empty());
+
+    UniValue params(UniValue::VARR);
+    params.push_back(EncodePSTT(merged));
+    UniValue decoded = CallPsttRPC("decodepstt", params);
+
+    BOOST_REQUIRE(decoded.exists("next"));
+    const UniValue& next = decoded.find_value("next");
+    BOOST_REQUIRE(next.isArray());
+    BOOST_REQUIRE_EQUAL(next.size(), 1U);
+    BOOST_CHECK_EQUAL(next[0].get_str(), "finalizer");
+    BOOST_CHECK(decoded.exists("estimated_size"));
+    BOOST_CHECK(decoded.exists("estimated_fee"));
+}
+
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_decodepstt_next_role_extractor, TestChainSetup)
+{
+    // Fully finalized -- Extractor is next, and estimated_size should match
+    // the real extracted transaction's actual size exactly (not just be "in
+    // range"): every input already carries its real final_script_sig, so
+    // EstimatePsttSize takes the "already finalized" branch for all of them,
+    // no dummy signatures involved.
+    MultisigSpendPair fx = MakeUnmergedMultisigSpendPair(*this);
+    PartiallySignedTapyrusTransaction merged = fx.signedByA;
+    merged.Merge(fx.signedByB);
+    SignatureData finalSigdata;
+    BOOST_REQUIRE(SignPSTTInput(DUMMY_SIGNING_PROVIDER, merged, 0, finalSigdata, SIGHASH_ALL, SignatureScheme::ECDSA) == PSTTSignResult::OK);
+    merged.inputs[0].FromSignatureData(finalSigdata);
+    BOOST_REQUIRE(!merged.inputs[0].final_script_sig.empty());
+
+    CMutableTransaction extracted = ExtractPSTT(merged);
+    int64_t actual_size = ::GetSerializeSize(CTransaction(extracted), SER_NETWORK, PROTOCOL_VERSION);
+
+    UniValue params(UniValue::VARR);
+    params.push_back(EncodePSTT(merged));
+    UniValue decoded = CallPsttRPC("decodepstt", params);
+
+    BOOST_REQUIRE(decoded.exists("next"));
+    const UniValue& next = decoded.find_value("next");
+    BOOST_REQUIRE(next.isArray());
+    BOOST_REQUIRE_EQUAL(next.size(), 1U);
+    BOOST_CHECK_EQUAL(next[0].get_str(), "extractor");
+    BOOST_CHECK_EQUAL(decoded.find_value("estimated_size").get_int64(), actual_size);
+}
+
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_decodepstt_next_roles_updater_and_signer_together, TestingSetup)
+{
+    // Two inputs in different states -- one missing its UTXO (needs
+    // Updater), the other has a UTXO but no signature yet (needs Signer).
+    // Both roles are independently actionable on this PSTT right now, so
+    // both must be reported -- the old short-circuiting ladder could never
+    // report this combination, since it stopped at the first category it
+    // found.
+    PartiallySignedTapyrusTransaction pstt = MakeBasicPstt(); // input[0]: utxo attached, unsigned
+    CTransactionRef otherUtxo = MakeSimpleUtxoTx(RandomP2PKHScript(), 50000);
+    PSTTInput secondInput;
+    secondInput.previous_txid = otherUtxo->GetHashMalFix();
+    secondInput.prevout_index = 0;
+    secondInput.previous_txid_set = true;
+    secondInput.prevout_index_set = true; // utxo left unattached
+    pstt.inputs.push_back(secondInput);
+
+    UniValue params(UniValue::VARR);
+    params.push_back(EncodePSTT(pstt));
+    UniValue decoded = CallPsttRPC("decodepstt", params);
+
+    BOOST_REQUIRE(decoded.exists("next"));
+    const UniValue& next = decoded.find_value("next");
+    BOOST_REQUIRE(next.isArray());
+    BOOST_REQUIRE_EQUAL(next.size(), 2U);
+    BOOST_CHECK_EQUAL(next[0].get_str(), "updater");
+    BOOST_CHECK_EQUAL(next[1].get_str(), "signer");
+    // AllInputsHaveUtxo requires every input, not just some -- no estimate
+    // at all while one input still lacks a UTXO.
+    BOOST_CHECK(!decoded.exists("estimated_size"));
+    BOOST_CHECK(!decoded.exists("estimated_fee"));
+}
+
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_decodepstt_omits_negative_estimated_fee, TestingSetup)
+{
+    // Still under construction (an Inputs-Modifiable bit set, more inputs
+    // may yet be added) with an output total that already exceeds the one
+    // attached input's value -- in_tpc - out_tpc would be negative, which
+    // is never a meaningful fee. decodepstt must omit estimated_fee rather
+    // than report a negative number, while still offering estimated_size.
+    PartiallySignedTapyrusTransaction pstt = MakeBasicPstt(); // in=100000, out=90000
+    pstt.tx_modifiable = PSTT_TXMOD_INPUTS_MODIFIABLE;
+    pstt.outputs[0].amount = 500000; // out (500000) now exceeds in (100000)
+
+    UniValue params(UniValue::VARR);
+    params.push_back(EncodePSTT(pstt));
+    UniValue decoded = CallPsttRPC("decodepstt", params);
+
+    BOOST_CHECK(decoded.exists("estimated_size"));
+    BOOST_CHECK(!decoded.exists("estimated_fee"));
+}
+
+BOOST_AUTO_TEST_CASE(pstt_output_with_no_amount_fails_is_sane_and_unserialize)
+{
+    // An output with a script but no PSTT_OUT_AMOUNT is rejected by
+    // PSTTOutput::IsSane(), and PartiallySignedTapyrusTransaction::
+    // Unserialize() enforces IsSane() unconditionally at the end of parsing
+    // ("if (!IsSane()) throw ... PSTT is not sane.", pstt.cpp). So this
+    // shape can never actually reach decodepstt's body in the first place:
+    // DecodePSTT() -- the only way a base64 string becomes a PSTT object --
+    // already rejects it. EstimatePsttFee's output.amount.value_or(0) guard
+    // (rawtransaction.cpp) is still correct defensive coding, just not
+    // reachable through any real RPC call.
+    PartiallySignedTapyrusTransaction pstt = MakeBasicPstt();
+    PSTTOutput noAmountOutput;
+    noAmountOutput.script = RandomP2PKHScript(); // amount left unset
+    pstt.outputs.push_back(noAmountOutput);
+
+    BOOST_CHECK(!pstt.IsSane());
+
+    std::vector<unsigned char> data = SerializeObj(pstt);
+    BOOST_CHECK_THROW(UnserializeObj<PartiallySignedTapyrusTransaction>(data), std::ios_base::failure);
+}
+
+BOOST_AUTO_TEST_CASE(pstt_out_of_range_prevout_index_fails_is_sane_and_unserialize)
+{
+    // A UTXO-attached input whose prevout_index is out of range for that
+    // UTXO's own vout list is rejected by PartiallySignedTapyrusTransaction
+    // ::IsSane() directly, and Unserialize() enforces IsSane()
+    // unconditionally -- so, like the no-amount-output case above, this
+    // shape can never actually reach decodepstt's body through any real
+    // call. AllInputsHaveUtxo()'s range check (rawtransaction.cpp) is still
+    // correct defense in depth.
+    CTransactionRef utxo = MakeSimpleUtxoTx(RandomP2PKHScript(), 100000); // single-output tx
+    PartiallySignedTapyrusTransaction pstt;
+    pstt.tx_features = CTransaction::CURRENT_FEATURES;
+    PSTTInput input = MakeBasicInput(utxo->GetHashMalFix(), 0, utxo);
+    input.prevout_index = 5; // out of range: utxo only has one output (index 0)
+    pstt.inputs.push_back(input);
+
+    PSTTOutput output;
+    output.amount = 90000;
+    output.script = RandomP2PKHScript();
+    pstt.outputs.push_back(output);
+
+    BOOST_CHECK(!pstt.IsSane());
+
+    std::vector<unsigned char> data = SerializeObj(pstt);
+    BOOST_CHECK_THROW(UnserializeObj<PartiallySignedTapyrusTransaction>(data), std::ios_base::failure);
+}
+
+// -----------------------------------------------------------------------
+// updatepstt: the non-wallet Updater (caller-supplied previous transactions,
+// no loaded wallet needed).
+// -----------------------------------------------------------------------
+
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_updatepstt_attaches_matching_utxo, TestingSetup)
+{
+    CScript scriptPubKey = RandomP2PKHScript();
+    CTransactionRef utxo = MakeSimpleUtxoTx(scriptPubKey, 100000);
+
+    PartiallySignedTapyrusTransaction pstt;
+    pstt.tx_features = CTransaction::CURRENT_FEATURES;
+    PSTTInput input;
+    input.previous_txid = utxo->GetHashMalFix();
+    input.prevout_index = 0;
+    input.previous_txid_set = true;
+    input.prevout_index_set = true;
+    // Deliberately no utxo attached yet -- that's updatepstt's job.
+    pstt.inputs.push_back(input);
+    PSTTOutput output;
+    output.amount = 90000;
+    output.script = RandomP2PKHScript();
+    pstt.outputs.push_back(output);
+
+    UniValue txs(UniValue::VARR);
+    txs.push_back(EncodeHexTxForTest(CMutableTransaction(*utxo)));
+    // An unrelated tx too, to prove a non-matching supplied tx is silently
+    // ignored rather than erroring.
+    txs.push_back(EncodeHexTxForTest(CMutableTransaction(*MakeSimpleUtxoTx(RandomP2PKHScript(), 555))));
+
+    UniValue params(UniValue::VARR);
+    params.push_back(EncodePSTT(pstt));
+    params.push_back(txs);
+    UniValue result = CallPsttRPC("updatepstt", params);
+
+    BOOST_CHECK(result.find_value("all_utxos_attached").get_bool());
+    PartiallySignedTapyrusTransaction updated;
+    std::string err;
+    BOOST_REQUIRE(DecodePSTT(updated, result.find_value("pstt").get_str(), err));
+    BOOST_REQUIRE(updated.inputs[0].utxo);
+    BOOST_CHECK_EQUAL(updated.inputs[0].utxo->GetHashMalFix(), utxo->GetHashMalFix());
+}
+
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_updatepstt_rejects_out_of_range_prevout, TestingSetup)
+{
+    CScript scriptPubKey = RandomP2PKHScript();
+    CTransactionRef utxo = MakeSimpleUtxoTx(scriptPubKey, 100000); // exactly one vout
+
+    PartiallySignedTapyrusTransaction pstt;
+    pstt.tx_features = CTransaction::CURRENT_FEATURES;
+    PSTTInput input;
+    input.previous_txid = utxo->GetHashMalFix();
+    input.prevout_index = 5; // out of range for a one-vout tx
+    input.previous_txid_set = true;
+    input.prevout_index_set = true;
+    pstt.inputs.push_back(input);
+    PSTTOutput output;
+    output.amount = 90000;
+    output.script = RandomP2PKHScript();
+    pstt.outputs.push_back(output);
+
+    UniValue txs(UniValue::VARR);
+    txs.push_back(EncodeHexTxForTest(CMutableTransaction(*utxo)));
+
+    UniValue params(UniValue::VARR);
+    params.push_back(EncodePSTT(pstt));
+    params.push_back(txs);
+    BOOST_CHECK_THROW(CallPsttRPC("updatepstt", params), UniValue);
+}
+
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_updatepstt_leaves_unmatched_input_for_later_round, TestingSetup)
+{
+    // First input already has a utxo (MakeBasicPstt) -- confirms updatepstt
+    // never overwrites what's already attached. Second input has neither a
+    // utxo nor a matching supplied tx -- confirms it's left alone, not
+    // treated as an error, for a later Updater round to resolve.
+    PartiallySignedTapyrusTransaction pstt = MakeBasicPstt();
+    CTransactionRef otherUtxo = MakeSimpleUtxoTx(RandomP2PKHScript(), 50000);
+    PSTTInput secondInput;
+    secondInput.previous_txid = otherUtxo->GetHashMalFix();
+    secondInput.prevout_index = 0;
+    secondInput.previous_txid_set = true;
+    secondInput.prevout_index_set = true;
+    pstt.inputs.push_back(secondInput);
+
+    UniValue txs(UniValue::VARR); // nothing supplied for the second input
+    UniValue params(UniValue::VARR);
+    params.push_back(EncodePSTT(pstt));
+    params.push_back(txs);
+    UniValue result = CallPsttRPC("updatepstt", params);
+
+    BOOST_CHECK(!result.find_value("all_utxos_attached").get_bool());
+    PartiallySignedTapyrusTransaction updated;
+    std::string err;
+    BOOST_REQUIRE(DecodePSTT(updated, result.find_value("pstt").get_str(), err));
+    BOOST_REQUIRE(updated.inputs[0].utxo); // first input's existing utxo preserved
+    BOOST_CHECK(!updated.inputs[1].utxo);  // second input still unattached
+}
+
+// -----------------------------------------------------------------------
+// joinpstt RPC-dispatch tests, via the real registered actor (tableRPC).
+// -----------------------------------------------------------------------
+
+static PartiallySignedTapyrusTransaction MakeJoinableConstructorPstt()
+{
+    PartiallySignedTapyrusTransaction pstt = MakeBasicPstt();
+    pstt.tx_modifiable = PSTT_TXMOD_INPUTS_MODIFIABLE | PSTT_TXMOD_OUTPUTS_MODIFIABLE;
+    return pstt;
+}
+
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_joinpstt_concatenates_inputs_and_outputs, TestingSetup)
+{
+    PartiallySignedTapyrusTransaction a = MakeJoinableConstructorPstt();
+    PartiallySignedTapyrusTransaction b = MakeJoinableConstructorPstt();
+
+    UniValue txs(UniValue::VARR);
+    txs.push_back(EncodePSTT(a));
+    txs.push_back(EncodePSTT(b));
+    UniValue params(UniValue::VARR);
+    params.push_back(txs);
+    UniValue result = CallPsttRPC("joinpstt", params);
+
+    PartiallySignedTapyrusTransaction joined;
+    std::string err;
+    BOOST_REQUIRE(DecodePSTT(joined, result.get_str(), err));
+    BOOST_CHECK_EQUAL(joined.inputs.size(), a.inputs.size() + b.inputs.size());
+    BOOST_CHECK_EQUAL(joined.outputs.size(), a.outputs.size() + b.outputs.size());
+    uint8_t modifiable = joined.tx_modifiable.value_or(0);
+    BOOST_CHECK(modifiable & PSTT_TXMOD_INPUTS_MODIFIABLE);
+    BOOST_CHECK(modifiable & PSTT_TXMOD_OUTPUTS_MODIFIABLE);
+}
+
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_joinpstt_requires_at_least_two, TestingSetup)
+{
+    UniValue txs(UniValue::VARR);
+    txs.push_back(EncodePSTT(MakeJoinableConstructorPstt()));
+    UniValue params(UniValue::VARR);
+    params.push_back(txs);
+
+    BOOST_CHECK_THROW(CallPsttRPC("joinpstt", params), UniValue);
+}
+
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_joinpstt_rejects_pstt_not_under_construction, TestingSetup)
+{
+    // MakeBasicPstt() leaves tx_modifiable absent -- not still under
+    // construction, so it must not be joinable.
+    UniValue txs(UniValue::VARR);
+    txs.push_back(EncodePSTT(MakeJoinableConstructorPstt()));
+    txs.push_back(EncodePSTT(MakeBasicPstt()));
+    UniValue params(UniValue::VARR);
+    params.push_back(txs);
+
+    BOOST_CHECK_THROW(CallPsttRPC("joinpstt", params), UniValue);
+}
+
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_joinpstt_rejects_has_sighash_single_flag, TestingSetup)
+{
+    PartiallySignedTapyrusTransaction withSighashSingle = MakeJoinableConstructorPstt();
+    withSighashSingle.tx_modifiable = *withSighashSingle.tx_modifiable | PSTT_TXMOD_HAS_SIGHASH_SINGLE;
+
+    UniValue txs(UniValue::VARR);
+    txs.push_back(EncodePSTT(MakeJoinableConstructorPstt()));
+    txs.push_back(EncodePSTT(withSighashSingle));
+    UniValue params(UniValue::VARR);
+    params.push_back(txs);
+
+    BOOST_CHECK_THROW(CallPsttRPC("joinpstt", params), UniValue);
+}
+
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_joinpstt_rejects_already_signed_input, TestingSetup)
+{
+    PartiallySignedTapyrusTransaction signedPstt = MakeJoinableConstructorPstt();
+    CKey key;
+    key.MakeNewKey(true);
+    std::vector<unsigned char> sig(71, 0x11);
+    sig.push_back(SIGHASH_ALL);
+    signedPstt.inputs[0].partial_sigs.emplace(key.GetPubKey().GetID(), SigPair(key.GetPubKey(), sig));
+
+    UniValue txs(UniValue::VARR);
+    txs.push_back(EncodePSTT(MakeJoinableConstructorPstt()));
+    txs.push_back(EncodePSTT(signedPstt));
+    UniValue params(UniValue::VARR);
+    params.push_back(txs);
+
+    BOOST_CHECK_THROW(CallPsttRPC("joinpstt", params), UniValue);
+}
+
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_joinpstt_rejects_duplicate_outpoint, TestingSetup)
+{
+    PartiallySignedTapyrusTransaction a = MakeJoinableConstructorPstt();
+    PartiallySignedTapyrusTransaction b = MakeJoinableConstructorPstt();
+    b.inputs[0] = a.inputs[0]; // same previous_txid/prevout_index as a's input
+
+    UniValue txs(UniValue::VARR);
+    txs.push_back(EncodePSTT(a));
+    txs.push_back(EncodePSTT(b));
+    UniValue params(UniValue::VARR);
+    params.push_back(txs);
+
+    BOOST_CHECK_THROW(CallPsttRPC("joinpstt", params), UniValue);
+}
+
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_joinpstt_dedups_shared_xpub, TestingSetup)
+{
+    // Two PSTTs both carrying the same global xpub (same key, same
+    // derivation path) -- joinpstt must dedup, not concatenate, or the
+    // joined result carries two PSTT_GLOBAL_XPUB entries with the same
+    // keydata and fails to decode (Unserialize rejects a repeated
+    // PSTT_GLOBAL_XPUB keydata outright).
+    CExtPubKey xpub;
+    CKey key;
+    key.MakeNewKey(true);
+    xpub.pubkey = key.GetPubKey();
+    xpub.nDepth = 1;
+    memset(xpub.vchFingerprint, 0, sizeof(xpub.vchFingerprint));
+    xpub.nChild = 0;
+    xpub.chaincode.SetNull();
+
+    PartiallySignedTapyrusTransaction a = MakeJoinableConstructorPstt();
+    PartiallySignedTapyrusTransaction b = MakeJoinableConstructorPstt();
+    a.xpubs.emplace_back(xpub, std::vector<uint32_t>{0});
+    b.xpubs.emplace_back(xpub, std::vector<uint32_t>{0}); // same xpub, same path
+
+    UniValue txs(UniValue::VARR);
+    txs.push_back(EncodePSTT(a));
+    txs.push_back(EncodePSTT(b));
+    UniValue params(UniValue::VARR);
+    params.push_back(txs);
+    UniValue result = CallPsttRPC("joinpstt", params);
+
+    PartiallySignedTapyrusTransaction joined;
+    std::string err;
+    BOOST_REQUIRE(DecodePSTT(joined, result.get_str(), err)); // must still decode
+    BOOST_REQUIRE_EQUAL(joined.xpubs.size(), 1U); // deduped, not doubled
+}
+
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_joinpstt_fallback_locktime_takes_max, TestingSetup)
+{
+    // joinpstt takes the maximum of the joined PSTTs' fallback_locktime
+    // values, rather than silently keeping only the first one.
+    PartiallySignedTapyrusTransaction a = MakeJoinableConstructorPstt();
+    PartiallySignedTapyrusTransaction b = MakeJoinableConstructorPstt();
+    a.fallback_locktime = 500;
+    b.fallback_locktime = 900;
+
+    UniValue txs(UniValue::VARR);
+    txs.push_back(EncodePSTT(a));
+    txs.push_back(EncodePSTT(b));
+    UniValue params(UniValue::VARR);
+    params.push_back(txs);
+    UniValue result = CallPsttRPC("joinpstt", params);
+
+    PartiallySignedTapyrusTransaction joined;
+    std::string err;
+    BOOST_REQUIRE(DecodePSTT(joined, result.get_str(), err));
+    BOOST_REQUIRE(joined.fallback_locktime);
+    BOOST_CHECK_EQUAL(*joined.fallback_locktime, 900U);
+}
+
+BOOST_FIXTURE_TEST_CASE(pstt_rpc_joinpstt_fallback_locktime_takes_max_regardless_of_order, TestingSetup)
+{
+    // Same rule regardless of which PSTT (first or second) carries the
+    // higher value -- guards against a comparison that only takes the max
+    // when the larger value happens to arrive second.
+    PartiallySignedTapyrusTransaction a = MakeJoinableConstructorPstt();
+    PartiallySignedTapyrusTransaction b = MakeJoinableConstructorPstt();
+    a.fallback_locktime = 900;
+    b.fallback_locktime = 500;
+
+    UniValue txs(UniValue::VARR);
+    txs.push_back(EncodePSTT(a));
+    txs.push_back(EncodePSTT(b));
+    UniValue params(UniValue::VARR);
+    params.push_back(txs);
+    UniValue result = CallPsttRPC("joinpstt", params);
+
+    PartiallySignedTapyrusTransaction joined;
+    std::string err;
+    BOOST_REQUIRE(DecodePSTT(joined, result.get_str(), err));
+    BOOST_REQUIRE(joined.fallback_locktime);
+    BOOST_CHECK_EQUAL(*joined.fallback_locktime, 900U);
 }
 
 // -----------------------------------------------------------------------
@@ -1629,13 +2153,13 @@ BOOST_AUTO_TEST_CASE(pstt_sign_utxo_txid_mismatch)
     BOOST_CHECK(result == PSTTSignResult::UTXO_TXID_MISMATCH);
 }
 
-BOOST_AUTO_TEST_CASE(pstt_sign_prev_out_index_oob)
+BOOST_AUTO_TEST_CASE(pstt_sign_prevout_index_oob)
 {
     PartiallySignedTapyrusTransaction pstt = MakeBasicPstt();
-    pstt.inputs[0].prev_out_index = 5; // utxo only has a single output (index 0)
+    pstt.inputs[0].prevout_index = 5; // utxo only has a single output (index 0)
     SignatureData sigdata;
     PSTTSignResult result = SignPSTTInput(DUMMY_SIGNING_PROVIDER, pstt, 0, sigdata, SIGHASH_ALL);
-    BOOST_CHECK(result == PSTTSignResult::PREV_OUT_INDEX_OOB);
+    BOOST_CHECK(result == PSTTSignResult::PREVOUT_INDEX_OOB);
 }
 
 BOOST_AUTO_TEST_CASE(pstt_sign_redeem_script_hash_mismatch)
@@ -1761,13 +2285,6 @@ BOOST_AUTO_TEST_CASE(pstt_sign_scheme_conflict)
 // finalizepsttconstruction) RPCs, via the real registered actors (tableRPC).
 // -----------------------------------------------------------------------
 
-static std::string EncodeHexTxForTest(const CMutableTransaction& mtx)
-{
-    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
-    ss << mtx;
-    return HexStr(ss.begin(), ss.end());
-}
-
 static UniValue MakeCreatepsttInputEntry(const uint256& txid, uint32_t vout)
 {
     UniValue input(UniValue::VOBJ);
@@ -1809,7 +2326,7 @@ BOOST_FIXTURE_TEST_CASE(pstt_rpc_createpstt_basic_roundtrip, TestingSetup)
     BOOST_CHECK_EQUAL(*pstt.tx_features, CTransaction::CURRENT_FEATURES);
     BOOST_REQUIRE_EQUAL(pstt.inputs.size(), 1U);
     BOOST_CHECK(pstt.inputs[0].previous_txid == utxo->GetHashMalFix());
-    BOOST_CHECK_EQUAL(pstt.inputs[0].prev_out_index, 0U);
+    BOOST_CHECK_EQUAL(pstt.inputs[0].prevout_index, 0U);
     BOOST_REQUIRE_EQUAL(pstt.outputs.size(), 1U);
     BOOST_CHECK_EQUAL(*pstt.outputs[0].amount, 90000);
     // No flags requested -- default createpstt leaves tx_modifiable absent
@@ -1920,7 +2437,7 @@ BOOST_FIXTURE_TEST_CASE(pstt_rpc_addinputtopstt_appends_and_increments, TestingS
     BOOST_REQUIRE(DecodePSTT(pstt, added.get_str(), error));
     BOOST_REQUIRE_EQUAL(pstt.inputs.size(), 1U);
     BOOST_CHECK(pstt.inputs[0].previous_txid == utxo->GetHashMalFix());
-    BOOST_CHECK_EQUAL(pstt.inputs[0].prev_out_index, 0U);
+    BOOST_CHECK_EQUAL(pstt.inputs[0].prevout_index, 0U);
     BOOST_REQUIRE(pstt.inputs[0].sequence);
     BOOST_CHECK_EQUAL(*pstt.inputs[0].sequence, 0xFFFFFFFEu);
 }
