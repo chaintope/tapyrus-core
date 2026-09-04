@@ -418,6 +418,7 @@ BOOST_AUTO_TEST_CASE(pstt_xpub_roundtrip_matching_prefix)
     key.MakeNewKey(true);
     xpub.pubkey = key.GetPubKey();
     xpub.nDepth = 1;
+    memset(xpub.vchFingerprint, 0, sizeof(xpub.vchFingerprint));
     xpub.nChild = 0;
     xpub.chaincode.SetNull();
 
@@ -434,6 +435,7 @@ BOOST_AUTO_TEST_CASE(pstt_xpub_rejects_wrong_network_prefix)
     key.MakeNewKey(true);
     xpub.pubkey = key.GetPubKey();
     xpub.nDepth = 0;
+    memset(xpub.vchFingerprint, 0, sizeof(xpub.vchFingerprint));
     xpub.nChild = 0;
     xpub.chaincode.SetNull();
 
@@ -453,6 +455,7 @@ BOOST_AUTO_TEST_CASE(pstt_xpub_rejects_unknown_prefix)
     key.MakeNewKey(true);
     xpub.pubkey = key.GetPubKey();
     xpub.nDepth = 0;
+    memset(xpub.vchFingerprint, 0, sizeof(xpub.vchFingerprint));
     xpub.nChild = 0;
     xpub.chaincode.SetNull();
 
@@ -1893,6 +1896,7 @@ BOOST_FIXTURE_TEST_CASE(pstt_rpc_joinpstt_dedups_shared_xpub, TestingSetup)
     key.MakeNewKey(true);
     xpub.pubkey = key.GetPubKey();
     xpub.nDepth = 1;
+    memset(xpub.vchFingerprint, 0, sizeof(xpub.vchFingerprint));
     xpub.nChild = 0;
     xpub.chaincode.SetNull();
 

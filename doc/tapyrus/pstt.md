@@ -227,18 +227,22 @@ construction across separate parties, not a single call).
 Inspecting a PSTT
 -----------------
 
-`decodepstt` reports, alongside the raw field breakdown, which role above
-should run next for this PSTT (`"next"`: `constructor`/`updater`/`signer`/
-`finalizer`/`extractor`), determined by the same completeness check
-`finalizepstt` itself uses (a dry-run `SignPSTTInput` against a keyless
-provider — this can only ever confirm signatures *already collected* are
-enough, never fabricate new ones). Once every input carries `PSTT_IN_UTXO`,
-it also reports `"estimated_size"` (bytes) and `"estimated_fee"` (TPC only,
-per the Fee Provider note above) for the transaction this PSTT would
-currently extract to — using each unfinalized input's already-known redeem
+`decodepstt` reports, alongside the raw field breakdown, `"next"`: a JSON
+array of every role above that could act on this PSTT right now, in ladder
+order (`constructor`/`updater`/`signer`/`finalizer`/`extractor`) — these are
+independent, not mutually exclusive, e.g. a still-modifiable but
+already-fully-funded PSTT reports both `constructor` and `signer`. Role
+completeness is determined by the same check `finalizepstt` itself uses (a
+dry-run `SignPSTTInput` against a keyless provider — this can only ever
+confirm signatures *already collected* are enough, never fabricate new
+ones). Once every input carries `PSTT_IN_UTXO`, it also reports
+`"estimated_size"` (bytes) for the transaction this PSTT would currently
+extract to — using each unfinalized input's already-known redeem
 script/public keys to size a plausible completion, real
-`PSTT_IN_FINAL_SCRIPTSIG` where already present. Both estimates can still
-change while `"next"` is `constructor` or `signer`.
+`PSTT_IN_FINAL_SCRIPTSIG` where already present — and `"estimated_fee"`
+(TPC only, per the Fee Provider note above) alongside it, unless it would be
+negative, which just means this PSTT is still gathering inputs. Both can
+still change while `"next"` contains `constructor` or `signer`.
 
 ---
 
