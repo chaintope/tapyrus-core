@@ -3,10 +3,16 @@ $(package)_version=5.5
 $(package)_download_path=https://sourceware.org/systemtap/ftp/releases/
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
 $(package)_sha256_hash=980e58887a284097b9d4c6ae6382b75787573131c27e3875c0fc94bceb8c61a8
+# Same patch content applies unmodified to both pins -- unchanged across the
+# 4.7 -> 5.5 bump (verified via git history). Copied into both
+# patches/systemtap/<version>/ directories rather than sharing one, matching
+# every other package's per-version layout.
+ifneq (,$(filter $($(package)_version),4.7 5.5))
 $(package)_patches=remove_SDT_ASM_SECTION_AUTOGROUP_SUPPORT_check.patch
+endif
 
 define $(package)_preprocess_cmds
-  patch -p1 < $($(package)_patch_dir)/remove_SDT_ASM_SECTION_AUTOGROUP_SUPPORT_check.patch && \
+  $(foreach patch,$($(package)_patches),patch -p1 < $($(package)_patch_dir)/$(patch) &&) \
   mkdir -p $($(package)_staging_prefix_dir)/include/sys && \
   cp includes/sys/sdt.h $($(package)_staging_prefix_dir)/include/sys/sdt.h
 endef

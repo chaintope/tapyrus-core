@@ -36,7 +36,9 @@ x86_64_linux_RANLIB=x86_64-linux-gnu-ranlib
 x86_64_linux_NM=x86_64-linux-gnu-nm
 x86_64_linux_STRIP=x86_64-linux-gnu-strip
 
-# AArch64 (ARM64) cross-compilation
+# AArch64 (ARM64): aarch64-linux-gnu-gcc exists on native ARM64 Ubuntu
+# runners too (not just for cross-compilation), so this also covers the
+# native ubuntu-24.04-arm builds in daily-test.yml/weekly-heavy-tests.yml.
 aarch64_linux_CC=aarch64-linux-gnu-gcc
 aarch64_linux_CXX=aarch64-linux-gnu-g++
 aarch64_linux_AR=aarch64-linux-gnu-ar

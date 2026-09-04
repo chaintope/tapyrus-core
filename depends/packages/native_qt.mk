@@ -5,10 +5,12 @@ $(package)_download_path=$(qt_details_download_path)
 $(package)_file_name=$(qt_details_qtbase_file_name)
 $(package)_sha256_hash=$(qt_details_qtbase_sha256_hash)
 $(package)_patches_path := $(qt_details_patches_path)
+ifeq ($($(package)_version),6.10.1)
 $(package)_patches := qtbase-moc-ignore-gcc-macro.patch
 $(package)_patches += rcc_hardcode_timestamp.patch
 $(package)_patches += skip_xcode_version_check.patch
 $(package)_patches += fix_qyieldcpu_arm_acle.patch
+endif
 
 $(package)_qttranslations_file_name=$(qt_details_qttranslations_file_name)
 $(package)_qttranslations_sha256_hash=$(qt_details_qttranslations_sha256_hash)
@@ -127,12 +129,17 @@ define $(package)_extract_cmds
   cp $($(package)_source_dir)/$($(package)_top_cmake_qttoplevelhelpers_file_name)-$($(package)_version) cmake/$($(package)_top_cmake_qttoplevelhelpers_file_name)
 endef
 
+ifeq ($($(package)_version),6.10.1)
 define $(package)_preprocess_cmds
   patch -p1 -i $($(package)_patch_dir)/qtbase-moc-ignore-gcc-macro.patch && \
   patch -p1 -i $($(package)_patch_dir)/rcc_hardcode_timestamp.patch && \
   patch -p1 -i $($(package)_patch_dir)/skip_xcode_version_check.patch && \
   patch -p1 -i $($(package)_patch_dir)/fix_qyieldcpu_arm_acle.patch
 endef
+else
+define $(package)_preprocess_cmds
+endef
+endif
 
 define $(package)_config_cmds
   cd qtbase && \
