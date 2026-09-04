@@ -33,6 +33,8 @@ on:
   # heavy/minimum-dependency-versions jobs are validated without waiting
   # for Sunday or triggering the full suite on unrelated pushes/PRs.
   push:
+    branches:
+      - master
     paths:
       - '.github/workflows/weekly-heavy-tests.yml'
   pull_request:
@@ -480,32 +482,54 @@ jobs:
           pip3 install pyzmq matplotlib
 
       - name: Patch depends/packages/*.mk to the documented minimum versions
-        # Only Boost and Libevent get swapped -- these are the only two packages
-        # where doc/dependencies.md's "Minimum required" is both (a) genuinely
-        # different from the currently-pinned "Version" and (b) a straightforward
-        # version+hash swap:
+        # Swaps each of the 5 packages doc/dependencies.md documents a
+        # "Minimum required" for below their currently-pinned "Version":
+        # Boost, Expat, FreeType, libevent, and systemtap. All five were
+        # bumped in the same change that introduced this job, and in every
+        # case "Minimum required" is the version they were bumped *from* --
+        # not necessarily the absolute floor CMakeLists.txt's find_package()
+        # would technically accept (cmake/module/AddBoostIfNeeded.cmake:85
+        # still says `find_package(Boost 1.73.0 REQUIRED)` and
+        # CMakeLists.txt:366 still says `find_package(Libevent 2.1.8 MODULE
+        # REQUIRED)`, both older than what's swapped in here -- those C++-side
+        # floors are untouched; this job proves a narrower, actually-tested
+        # guarantee, not the CMake-permitted extreme). See doc/dependencies.md
+        # for the full reasoning.
+        #
+        # The rest of depends/packages/*.mk is left pinned at its current
+        # version:
         #   - Berkeley DB: find_package(BerkeleyDB 4.8 MODULE REQUIRED)
         #     (CMakeLists.txt:124) is already satisfied by the 4.8.30 pinned in
         #     bdb.mk (4.8.30 >= 4.8) -- no older, meaningfully-different 4.8.x
         #     release to fetch instead, so bdb.mk is left as-is.
         #   - Qt: find_package(Qt 6.0 ...) (CMakeLists.txt:180) is 5+ minor
         #     versions behind the 6.10.1 pinned in qt.mk. Swapping in Qt 6.0.0
-        #     isn't a one-line version+hash change the way Boost/Libevent are --
-        #     Qt's own depends recipe (qt.mk, qt_details.mk, its bundled patches)
-        #     was written against the currently-pinned Qt series and isn't
-        #     verified compatible with a 6.0.0 source tree, so it's left pinned
-        #     at the current version here rather than risk a confusing,
-        #     Qt-specific breakage in this job. Actually testing the Qt 6.0
-        #     floor needs its own dedicated follow-up.
+        #     isn't a one-line version+hash change the way the five above
+        #     are -- Qt's own depends recipe (qt.mk, qt_details.mk, its
+        #     bundled patches) was written against the currently-pinned Qt
+        #     series and isn't verified compatible with a 6.0.0 source tree,
+        #     so it's left pinned at the current version here rather than
+        #     risk a confusing, Qt-specific breakage in this job. Actually
+        #     testing the Qt 6.0 floor needs its own dedicated follow-up.
+        #   - fontconfig, libXau, libxkbcommon: also bumped alongside the
+        #     five above, but their older releases used a different archive
+        #     format or download host than the currently-pinned .mk recipe
+        #     (fontconfig/libXau: .tar.bz2 instead of today's .tar.xz/.tar.gz;
+        #     libxkbcommon: xkbcommon.org instead of today's GitHub-tags
+        #     fetch) -- swapping them needs real per-field changes here, not
+        #     a plain version+hash substitution, so left untested below
+        #     "Version" for now rather than adding that complexity.
         #
-        # depends/packages/*.mk hardcodes each package's sha256_hash tied to the
-        # currently-pinned version's own tarball -- overriding just the version
-        # would fail depends' own integrity check against the wrong hash. Both
-        # of these are fixed historical releases whose tarballs (and therefore
-        # hashes) never change, so the hashes below are pre-computed constants
-        # -- downloaded and verified directly against the same URLs depends
-        # itself will fetch -- not something derived from the file being
-        # checked, the way a trust-on-first-use runtime download would be.
+        # depends/packages/*.mk hardcodes each package's sha256_hash tied to
+        # the currently-pinned version's own tarball -- overriding just the
+        # version would fail depends' own integrity check against the wrong
+        # hash. All five targets below are fixed historical releases whose
+        # tarballs (and therefore hashes) never change, so the hashes are
+        # pre-computed constants, copied from this same commit's own
+        # depends/packages/*.mk before it bumped them -- already verified by
+        # every prior build that ran with that version pinned, not something
+        # derived from the file being checked the way a trust-on-first-use
+        # runtime download would be.
         #
         # Portable across GNU (Linux) and BSD (macOS) userland deliberately:
         # sed -i.bak + rm (not bare sed -i, which needs a backup-suffix
@@ -525,19 +549,38 @@ jobs:
             cat "$mk_file"
           }
 
-          # Boost 1.73.0 -- cmake/module/AddBoostIfNeeded.cmake:85's
-          # find_package(Boost 1.73.0 REQUIRED) floor, vs. 1.81.0 currently
-          # pinned in depends/packages/boost.mk. Hash verified against a full
-          # download of https://archives.boost.io/release/1.73.0/source/boost_1_73_0.tar.gz.
-          patch_min_version depends/packages/boost.mk 1.73.0 \
-            9995e192e68528793755692917f9eb6422f3052a53c5e13ba278a228af6c7acf
+          # Boost 1.81.0 -- the version this PR bumped boost.mk from (now 1.92.0).
+          patch_min_version depends/packages/boost.mk 1.81.0 \
+            205666dea9f6a7cfed87c7a6dfbeb52a2c1b9de55712c9c1a87735d7181452b6
 
-          # Libevent 2.1.8 -- CMakeLists.txt:366's find_package(Libevent 2.1.8
-          # MODULE REQUIRED) floor, vs. 2.1.12-stable currently pinned in
-          # depends/packages/libevent.mk. Hash verified against a full download
-          # of https://github.com/libevent/libevent/releases/download/release-2.1.8-stable/libevent-2.1.8-stable.tar.gz.
-          patch_min_version depends/packages/libevent.mk 2.1.8-stable \
-            965cc5a8bb46ce4199a47e9b2c9e1cae3b137e8356ffdad6d94d3b9069b71dc2
+          # Expat 2.4.8 -- the version this PR's predecessor bumped expat.mk
+          # from (now 2.8.3). download_path/file_name pattern is unchanged
+          # across that bump, so a plain version+hash swap is safe.
+          patch_min_version depends/packages/expat.mk 2.4.8 \
+            f79b8f904b749e3e0d20afeadecf8249c55b2e32d4ebb089ae378df479dcaf25
+
+          # FreeType 2.11.0 -- the version this PR bumped freetype.mk from
+          # (now 2.14.3).
+          patch_min_version depends/packages/freetype.mk 2.11.0 \
+            8bee39bd3968c4804b70614a0a3ad597299ad0e824bc8aad5ce8aaf48067bde7
+
+          # libevent 2.1.12-stable -- the version this PR bumped libevent.mk
+          # from (now 2.1.13-stable). libevent.mk's cmake_fixups.patch/
+          # winver_fixup.patch are version-guarded (ifeq ($(package)_version),
+          # 2.1.12-stable) -- swapping the version here makes that guard match
+          # again and correctly re-applies them, instead of the old failure
+          # mode where a version-only swap left 2.1.13-era-unrelated patches
+          # forced onto whatever tarball got fetched.
+          patch_min_version depends/packages/libevent.mk 2.1.12-stable \
+            92e6de1be9ec176428fd2367677e61ceffc2ee1cb119035037a27d346b0403bb
+
+          # systemtap 4.7 -- the version this PR's predecessor bumped
+          # systemtap.mk from (now 5.5). remove_SDT_ASM_SECTION_AUTOGROUP_
+          # SUPPORT_check.patch is version-guarded for both 4.7 and 5.5 (same
+          # patch content, unchanged across that bump), so this swap also
+          # correctly re-applies it.
+          patch_min_version depends/packages/systemtap.mk 4.7 \
+            43a0a3db91aa4d41e28015b39a65e62059551f3cc7377ebf3a3a5ca7339e7b1f
 
       - name: Build Depends (from scratch, no cache)
         run: |
