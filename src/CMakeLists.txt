@@ -114,6 +114,7 @@ target_link_libraries(tapyrus_util
         tapyrus_clientversion
         PRIVATE
         core_interface
+        tapyrus_crypto
         univalue
         Boost::headers
 )
