@@ -431,12 +431,14 @@ jobs:
             fi
           fi
 
-          if  [ ! -d "$DEPENDS_PREFIX" ]; then
-            echo "----------------   Building Depends $HOST     ----------------"
-            if ! make -C depends $DEPENDS_OPTS -j$CPU_COUNT install_cmake; then
-              echo "Depends build failed"
-              exit 1
-            fi
+          # Always run make: the file checks above only confirm a path
+          # exists, not its version, so a stale cache restore could
+          # otherwise skip a rebuild unnoticed. depends' own build-id
+          # hashes make an up-to-date tree a fast no-op.
+          echo "----------------   Building Depends $HOST     ----------------"
+          if ! make -C depends $DEPENDS_OPTS -j$CPU_COUNT install_cmake; then
+            echo "Depends build failed"
+            exit 1
           fi
 
           # Verify the build completed successfully
