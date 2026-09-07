@@ -188,6 +188,7 @@ jobs:
             "-DWITH_BDB=ON"
             "-DENABLE_TRACING=OFF"
             "-DCMAKE_BUILD_TYPE=RelWithDebInfo"
+            "-DBUILD_SCRIPT_VERIFY=ON"
           )
 
           # Platform-specific configuration

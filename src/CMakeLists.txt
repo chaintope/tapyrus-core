@@ -114,6 +114,7 @@ target_link_libraries(tapyrus_util
         tapyrus_clientversion
         PRIVATE
         core_interface
+        tapyrus_crypto
         univalue
         Boost::headers
         $<TARGET_NAME_IF_EXISTS:tapyrus_wallet>
@@ -344,6 +345,21 @@ if(BUILD_GENESIS)
           Boost::headers
   )
   install_binary_component(tapyrus-genesis HAS_MANPAGE)
+endif()
+
+# No tapyrus_server, no leveldb: transaction/script-level only.
+if(BUILD_SCRIPT_VERIFY)
+  add_executable(tapyrus-verify tapyrus-verify.cpp)
+  target_link_libraries(tapyrus-verify
+          core_interface
+          tapyrus_consensus
+          tapyrus_common
+          univalue
+          secp256k1
+          tapyrus_crypto
+          Boost::headers
+  )
+  install_binary_component(tapyrus-verify)
 endif()
 
 if(BUILD_GUI)
