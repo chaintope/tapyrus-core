@@ -120,6 +120,7 @@ option(BUILD_UTILS "Build tapyrus-tx executable." ${ENABLE_TESTS})
 option(ENABLE_WALLET "Build wallet functionality in tapyrusd, gui and tests." ON)
 option(WITH_BDB "Enable Berkeley DB (BDB) wallet support." ON)
 cmake_dependent_option(WARN_INCOMPATIBLE_BDB "Warn when using a Berkeley DB (BDB) version other than 4.8 or 5.3." ON "WITH_BDB" OFF)
+cmake_dependent_option(WITH_INCOMPATIBLE_BDB "Allow a Berkeley DB (BDB) version above 5.x, including AGPL-3.0-only releases. Do not use for official release binaries." OFF "WITH_BDB" OFF)
 if(ENABLE_WALLET AND WITH_BDB)
   # Upper bound is a license floor, not a technical one: Homebrew's BDB
   # major versions above 5 (the plain "berkeley-db" formula is presently
@@ -127,7 +128,25 @@ if(ENABLE_WALLET AND WITH_BDB)
   # license, unlike the Sleepycat-licensed 4.8/5.3. See
   # cmake/module/FindBerkeleyDB.cmake and BrewHelper.cmake's
   # find_brew_prefix_any_version() for the Homebrew-formula side of this.
-  find_package(BerkeleyDB 4.8...5.99 MODULE REQUIRED)
+  #
+  # This is a local-build convenience floor, not a redistribution
+  # gate -- AGPL obligations attach on conveying a combined work, not on
+  # building one locally, so WITH_INCOMPATIBLE_BDB lifts it for whoever
+  # explicitly asks, with a loud warning, rather than leaving no way
+  # through at all.
+  if(WITH_INCOMPATIBLE_BDB)
+    find_package(BerkeleyDB 4.8 MODULE REQUIRED)
+    message(WARNING
+      "WITH_INCOMPATIBLE_BDB is ON: the upper version bound that normally "
+      "keeps this build off AGPL-3.0-only Berkeley DB releases (Homebrew's "
+      "plain \"berkeley-db\" formula is presently 18.1.x) has been lifted.\n"
+      "If the Berkeley DB actually found here is AGPL-licensed, "
+      "distributing a binary built this way puts the WHOLE combined work "
+      "under AGPL-3.0. Do not use this for official release binaries."
+    )
+  else()
+    find_package(BerkeleyDB 4.8...5.99 MODULE REQUIRED)
+  endif()
   set(USE_BDB ON)
   if(NOT (BerkeleyDB_VERSION VERSION_EQUAL 4.8 OR BerkeleyDB_VERSION VERSION_EQUAL 5.3))
     message(WARNING "Found Berkeley DB (BDB) other than the validated 4.8 or 5.3.\n"

@@ -35,8 +35,9 @@ endfunction()
 # license, e.g. Homebrew's plain berkeley-db is presently 18.1.x under
 # AGPL-3.0-only, vs. the Sleepycat-licensed @4/@5) -- and the plain formula
 # tracks whatever Homebrew currently ships, with no version ceiling of its
-# own. Only an explicit berkeley-db@N match, with N checked against
-# MAX_MAJOR, is ever accepted.
+# own. Only an explicit berkeley-db@N (or @N.M, e.g. Homebrew's own
+# python@3.11 naming) match, with N checked against MAX_MAJOR, is ever
+# accepted.
 function(find_brew_prefix_any_version VAR BASE_NAME MAX_MAJOR)
     if(NOT BREW)
         return()
@@ -56,7 +57,7 @@ function(find_brew_prefix_any_version VAR BASE_NAME MAX_MAJOR)
 
     set(_candidates)
     foreach(_formula IN LISTS _installed_formulae)
-        if(_formula MATCHES "^${BASE_NAME}@([0-9]+)$" AND CMAKE_MATCH_1 LESS_EQUAL MAX_MAJOR)
+        if(_formula MATCHES "^${BASE_NAME}@([0-9]+)(\\.[0-9]+)?$" AND CMAKE_MATCH_1 LESS_EQUAL MAX_MAJOR)
             list(APPEND _candidates "${_formula}")
         endif()
     endforeach()

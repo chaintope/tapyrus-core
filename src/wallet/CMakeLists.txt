@@ -4,9 +4,14 @@
 
 # Add Berkeley DB dependency. Version range matches the top-level
 # find_package(BerkeleyDB ...) call in CMakeLists.txt -- see the comment
-# there for why 5.99 is a license ceiling, not a technical one.
+# there for why 5.99 is a license ceiling, not a technical one, and how
+# WITH_INCOMPATIBLE_BDB lifts it.
 include(FindBerkeleyDB)
-find_package(BerkeleyDB 4.8...5.99 REQUIRED)
+if(WITH_INCOMPATIBLE_BDB)
+  find_package(BerkeleyDB 4.8 REQUIRED)
+else()
+  find_package(BerkeleyDB 4.8...5.99 REQUIRED)
+endif()
 
 add_library(tapyrus_wallet STATIC
         coincontrol.cpp
