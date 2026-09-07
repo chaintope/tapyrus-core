@@ -117,6 +117,7 @@ target_link_libraries(tapyrus_util
         tapyrus_crypto
         univalue
         Boost::headers
+        $<TARGET_NAME_IF_EXISTS:tapyrus_wallet>
 )
 target_compile_definitions(tapyrus_util PUBLIC HAVE_CONFIG_H)
 target_include_directories(tapyrus_util
