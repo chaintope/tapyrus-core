@@ -116,9 +116,9 @@ static CTransactionRef FundWalletWithP2PKHCoin(TestWalletSetup& setup, CAmount a
     pstt.tx_features = CTransaction::CURRENT_FEATURES;
     PSTTInput input;
     input.previous_txid = coinbaseTx->GetHashMalFix();
-    input.prev_out_index = 0;
+    input.prevout_index = 0;
     input.previous_txid_set = true;
-    input.prev_out_index_set = true;
+    input.prevout_index_set = true;
     input.utxo = coinbaseTx;
     pstt.inputs.push_back(input);
 
@@ -152,9 +152,9 @@ static PartiallySignedTapyrusTransaction MakeUnsignedSpendPstt(const CTransactio
     pstt.tx_features = CTransaction::CURRENT_FEATURES;
     PSTTInput input;
     input.previous_txid = fundingTx->GetHashMalFix();
-    input.prev_out_index = 0;
+    input.prevout_index = 0;
     input.previous_txid_set = true;
-    input.prev_out_index_set = true;
+    input.prevout_index_set = true;
     pstt.inputs.push_back(input);
 
     PSTTOutput output;
@@ -489,17 +489,17 @@ BOOST_FIXTURE_TEST_CASE(pstt_updater_never_mutates_sequence, WalletTestingSetup)
 
     PSTTInput input0;
     input0.previous_txid = prevTx1->GetHashMalFix();
-    input0.prev_out_index = 0;
+    input0.prevout_index = 0;
     input0.previous_txid_set = true;
-    input0.prev_out_index_set = true;
+    input0.prevout_index_set = true;
     input0.sequence = 0xFFFFFFFE;
     pstt.inputs.push_back(input0);
 
     PSTTInput input1;
     input1.previous_txid = prevTx2->GetHashMalFix();
-    input1.prev_out_index = 0;
+    input1.prevout_index = 0;
     input1.previous_txid_set = true;
-    input1.prev_out_index_set = true;
+    input1.prevout_index_set = true;
     input1.sequence = 0xFFFFFFFD;
     pstt.inputs.push_back(input1);
 

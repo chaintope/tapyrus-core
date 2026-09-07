@@ -90,7 +90,7 @@ Reserved and must be rejected, not silently treated as unknown: `0x01`
 from BIP-371 (`0x13`-`0x18`) — none have a Tapyrus counterpart.
 
 `PSTT_IN_PREVIOUS_TXID`/`PSTT_IN_OUTPUT_INDEX` are this wire format's own
-field names (mirrored by `PSTTInput`'s `previous_txid`/`prev_out_index`
+field names (mirrored by `PSTTInput`'s `previous_txid`/`prevout_index`
 members in C++), distinct from the RPC surface: every PSTT RPC that takes
 this pair as a user-facing argument (`createpstt`, `walletcreatefundedpstt`,
 `addinputtopstt`, `addinputoutputpairtopstt`) uses `txid`/`vout` uniformly,
@@ -161,9 +161,26 @@ construction across separate parties, not a single call).
 * **Constructor** — appends inputs/outputs to an existing PSTT. Only ever
   appends; never removes or reorders what is already present. Refuses to
   add an input whose required locktime would make the PSTT's already-signed
-  content locktime-invalid.
+  content locktime-invalid. `addinputtopstt`/`addoutputtopstt`/
+  `addinputoutputpairtopstt` do this one input/output at a time;
+  `joinpstt` instead concatenates the inputs and outputs of several
+  independently-built PSTTs in one call, for assembling a large PSTT (e.g.
+  one filling most of a block) out of pieces built separately without a
+  single caller having to drive every individual `addinputtopstt` call.
+  Every joined PSTT must still have both Inputs/Outputs Modifiable set, must
+  not have Has-`SIGHASH_SINGLE` set, and must carry no signature on any
+  input — joining shifts every subsequent piece's input/output positions,
+  which would silently invalidate a `SIGHASH_SINGLE` commitment to a
+  specific position; join first, add any `SIGHASH_SINGLE` input/output pair
+  afterwards. The same outpoint may not be spent by more than one of the
+  joined PSTTs.
 * **Updater** — attaches externally known data (UTXOs, redeem scripts,
-  BIP32 derivation paths) without altering which inputs/outputs exist. Must
+  BIP32 derivation paths) without altering which inputs/outputs exist.
+  `walletupdatepstt` sources this from a loaded wallet (also discovering
+  redeem scripts/BIP32 paths from it); `updatepstt` instead takes
+  caller-supplied raw transactions directly and only ever attaches
+  `PSTT_IN_UTXO` (no wallet, so no redeem script/BIP32 discovery), for
+  contexts with no wallet loaded at all. Must
   not change an input's sequence number once that input carries a
   signature, or once any other input carries a `SIGHASH_ALL`-without-
   `SIGHASH_ANYONECANPAY` signature (either case would silently invalidate
@@ -184,7 +201,10 @@ construction across separate parties, not a single call).
   inputs and outputs together, never one without the other. This only ever
   clears Inputs/Outputs Modifiable or sets Has-`SIGHASH_SINGLE` — it never
   reopens a bit an earlier signing round already closed.
-* **Combiner** — merges two or more PSTTs that share an identifier.
+* **Combiner** — merges two or more PSTTs that share an identifier (i.e.
+  alternate signing progress on the *same* underlying transaction — not to
+  be confused with `joinpstt`, which assembles *different* inputs/outputs
+  from multiple PSTTs into one new, larger transaction).
   Per-field conflict policy on a mismatch: `PSTT_IN_PARTIAL_SIG`,
   `PSTT_IN_FINAL_SCRIPTSIG`, and `PSTT_IN_UTXO` refuse (signature/UTXO
   disagreements are exactly the disagreements that must not be silently
@@ -201,6 +221,28 @@ construction across separate parties, not a single call).
   either modifiable flag is still set.
 * **Transaction Extractor** — once every input is finalized, assembles and
   returns the network-serialized transaction.
+
+---
+
+Inspecting a PSTT
+-----------------
+
+`decodepstt` reports, alongside the raw field breakdown, `"next"`: a JSON
+array of every role above that could act on this PSTT right now, in ladder
+order (`constructor`/`updater`/`signer`/`finalizer`/`extractor`) — these are
+independent, not mutually exclusive, e.g. a still-modifiable but
+already-fully-funded PSTT reports both `constructor` and `signer`. Role
+completeness is determined by the same check `finalizepstt` itself uses (a
+dry-run `SignPSTTInput` against a keyless provider — this can only ever
+confirm signatures *already collected* are enough, never fabricate new
+ones). Once every input carries `PSTT_IN_UTXO`, it also reports
+`"estimated_size"` (bytes) for the transaction this PSTT would currently
+extract to — using each unfinalized input's already-known redeem
+script/public keys to size a plausible completion, real
+`PSTT_IN_FINAL_SCRIPTSIG` where already present — and `"estimated_fee"`
+(TPC only, per the Fee Provider note above) alongside it, unless it would be
+negative, which just means this PSTT is still gathering inputs. Both can
+still change while `"next"` contains `constructor` or `signer`.
 
 ---
 

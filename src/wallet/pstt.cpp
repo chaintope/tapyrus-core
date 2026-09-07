@@ -27,7 +27,7 @@ bool FillPSTT(const CWallet* pwallet, PartiallySignedTapyrusTransaction& pstt, i
             const auto it = pwallet->mapWallet.find(input.previous_txid);
             if (it != pwallet->mapWallet.end()) {
                 const CWalletTx& wtx = it->second;
-                if (input.prev_out_index_set && input.prev_out_index >= wtx.tx->vout.size()) {
+                if (input.prevout_index_set && input.prevout_index >= wtx.tx->vout.size()) {
                     throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Input prevout index out of range");
                 }
                 input.utxo = wtx.tx;
@@ -130,10 +130,10 @@ void ComputePsttColorBalances(const PartiallySignedTapyrusTransaction& pstt,
                                TxColoredCoinBalancesMap& in, TxColoredCoinBalancesMap& out)
 {
     for (const PSTTInput& input : pstt.inputs) {
-        if (!input.utxo || !input.prev_out_index_set || input.prev_out_index >= input.utxo->vout.size()) {
+        if (!input.utxo || !input.prevout_index_set || input.prevout_index >= input.utxo->vout.size()) {
             continue; // color/amount not knowable without an attached UTXO
         }
-        const CTxOut& utxo_out = input.utxo->vout[input.prev_out_index];
+        const CTxOut& utxo_out = input.utxo->vout[input.prevout_index];
         ColorIdentifier colorId = GetColorIdFromScript(utxo_out.scriptPubKey);
         in[colorId] += utxo_out.nValue;
     }

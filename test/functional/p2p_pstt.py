@@ -276,7 +276,7 @@ class PSTTNetworkTest(BitcoinTestFramework):
         self.final_reconciliation()
 
         expected_errors = {
-            'MISSING_UTXO', 'UTXO_TXID_MISMATCH', 'PREV_OUT_INDEX_OOB',
+            'MISSING_UTXO', 'UTXO_TXID_MISMATCH', 'PREVOUT_INDEX_OOB',
             'REDEEM_SCRIPT_HASH_MISMATCH', 'SIGHASH_CONFLICT',
             'SIGHASH_SINGLE_OOB', 'LOCKTIME_INVALID', 'SCHEME_CONFLICT',
         }
@@ -634,7 +634,7 @@ class PSTTNetworkTest(BitcoinTestFramework):
         addr_b = node_b.getnewaddress("errsim", color_b)
 
         self._sim_missing_utxo(entry_a, owner_a, addr_a)
-        self._sim_prev_out_index_oob(entry_a, owner_a, addr_a)
+        self._sim_prevout_index_oob(entry_a, owner_a, addr_a)
         self._sim_sighash_single_oob(entry_a, entry_b, addr_a)
         self._sim_utxo_txid_mismatch(entry_a, entry_b, owner_a, addr_a)
         self._sim_sighash_conflict(entry_a, owner_a, addr_a)
@@ -659,12 +659,12 @@ class PSTTNetworkTest(BitcoinTestFramework):
         assert 'final_scriptSig' not in decoded['inputs'][0]
         self.error_coverage.add('MISSING_UTXO')
 
-    def _sim_prev_out_index_oob(self, entry, owner, addr):
+    def _sim_prevout_index_oob(self, entry, owner, addr):
         node = self.nodes[owner]
         pstt = node.createpstt([], {addr: entry['amount']}, 0, True, False)
         pstt = node.addinputtopstt(pstt, entry['txid'], 99)
         assert_raises_rpc_error(None, "prevout index out of range", node.walletupdatepstt, pstt)
-        self.error_coverage.add('PREV_OUT_INDEX_OOB')
+        self.error_coverage.add('PREVOUT_INDEX_OOB')
 
     def _sim_sighash_single_oob(self, entry_a, entry_b, addr_a):
         # 2 inputs, 1 output -- signing input index 1 with SIGHASH_SINGLE

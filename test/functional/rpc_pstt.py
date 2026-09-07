@@ -34,6 +34,7 @@ doc/tapyrus/pstt.md's Constructor role description.
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error, find_output, sync_blocks
 from test_framework.blocktools import create_colored_transaction
+from test_framework.messages import CTransaction, CTxOut
 
 from decimal import Decimal
 
@@ -66,6 +67,84 @@ def make_bare_pstt_with_unknown_global_field():
     unknown = lp(bytes([0xFC, 0x01])) + lp(bytes([0x42]))                  # PSTT_GLOBAL_PROPRIETARY, identifier 0x01, payload 0x42
     separator = bytes([0x00])
     return base64.b64encode(magic + tx_features + input_count + output_count + unknown + separator).decode()
+
+
+def make_pstt_output_missing_amount():
+    """Hand-builds a PSTT (zero inputs, one output) whose sole output carries
+    a PSTT_OUT_SCRIPT but no PSTT_OUT_AMOUNT -- the exact malformed shape
+    behind PSTTImplementation5's review finding #2 (EstimatePsttFee
+    dereferencing an unset boost::optional<CAmount>). PSTTOutput::IsSane()
+    requires amount present, and PartiallySignedTapyrusTransaction::
+    Unserialize() enforces IsSane() unconditionally at the end of parsing
+    (src/pstt.cpp), so this must be rejected by decodepstt at decode time,
+    the same as src/test/pstt_tests.cpp's
+    pstt_output_with_no_amount_fails_is_sane_and_unserialize checks at the
+    C++ level -- this is the same shape reaching the RPC boundary instead.
+    """
+    def lp(b):  # length-prefixed byte string (CompactSize len -- values used here are all < 0xfd)
+        return bytes([len(b)]) + b
+
+    magic = bytes([0x70, 0x73, 0x74, 0x74, 0xFF])  # "pstt" + 0xFF
+    tx_features = lp(bytes([0x02])) + lp(struct.pack("<i", 1))  # PSTT_GLOBAL_TX_FEATURES = 1
+    input_count = lp(bytes([0x04])) + lp(bytes([0x00]))         # PSTT_GLOBAL_INPUT_COUNT = 0
+    output_count = lp(bytes([0x05])) + lp(bytes([0x01]))        # PSTT_GLOBAL_OUTPUT_COUNT = 1
+    global_separator = bytes([0x00])
+
+    # The one output map: PSTT_OUT_SCRIPT (0x04) only -- no PSTT_OUT_AMOUNT
+    # (0x03). Script content is irrelevant to IsSane(), just needs to be
+    # non-empty.
+    out_script = lp(bytes([0x04])) + lp(bytes([0x51]))
+    out_separator = bytes([0x00])
+
+    return base64.b64encode(
+        magic + tx_features + input_count + output_count + global_separator
+        + out_script + out_separator
+    ).decode()
+
+
+def make_pstt_out_of_range_prevout_index():
+    """Hand-builds a PSTT with one input carrying a PSTT_IN_UTXO (a real,
+    single-output previous transaction) whose PSTT_IN_OUTPUT_INDEX is out of
+    range for that UTXO's own vout list -- the exact malformed shape behind
+    PSTTImplementation5's review finding #3 (EstimatePsttFee/
+    EstimateInputScriptSig indexing input.utxo->vout.at(prevout_index)
+    unchecked). PartiallySignedTapyrusTransaction::IsSane() range-checks
+    this directly (src/pstt.cpp), and Unserialize() enforces IsSane()
+    unconditionally, so this must be rejected by decodepstt at decode time
+    too -- same shape as pstt_tests.cpp's
+    pstt_out_of_range_prevout_index_fails_is_sane_and_unserialize, reaching
+    the RPC boundary instead of the C++ Unserialize() call directly.
+    """
+    def lp(b):
+        return bytes([len(b)]) + b
+
+    magic = bytes([0x70, 0x73, 0x74, 0x74, 0xFF])
+    tx_features = lp(bytes([0x02])) + lp(struct.pack("<i", 1))
+    input_count = lp(bytes([0x04])) + lp(bytes([0x01]))         # PSTT_GLOBAL_INPUT_COUNT = 1
+    output_count = lp(bytes([0x05])) + lp(bytes([0x01]))        # PSTT_GLOBAL_OUTPUT_COUNT = 1
+    global_separator = bytes([0x00])
+
+    # A real single-output previous transaction, embedded as PSTT_IN_UTXO.
+    utxo_tx = CTransaction()
+    utxo_tx.vout = [CTxOut(100000, bytes([0x51]))]
+    utxo_bytes = utxo_tx.serialize()
+
+    in_txid = lp(bytes([0x0e])) + lp(bytes([0x11]) * 32)        # PSTT_IN_PREVIOUS_TXID, arbitrary
+    in_index = lp(bytes([0x0f])) + lp(struct.pack("<I", 5))     # PSTT_IN_OUTPUT_INDEX = 5, out of range (utxo has only index 0)
+    in_utxo = lp(bytes([0x00])) + lp(utxo_bytes)                # PSTT_IN_UTXO
+    in_separator = bytes([0x00])
+
+    # One valid output, so the only defect anywhere in this PSTT is the
+    # input's out-of-range index.
+    out_amount = lp(bytes([0x03])) + lp(struct.pack("<q", 90000))
+    out_script = lp(bytes([0x04])) + lp(bytes([0x51]))
+    out_separator = bytes([0x00])
+
+    return base64.b64encode(
+        magic + tx_features + input_count + output_count + global_separator
+        + in_txid + in_index + in_utxo + in_separator
+        + out_amount + out_script + out_separator
+    ).decode()
 
 
 class PSTTTest(BitcoinTestFramework):
@@ -300,6 +379,27 @@ class PSTTTest(BitcoinTestFramework):
         unknown_out = self.nodes[0].walletprocesspstt(unknown_pstt)['pstt']
         assert_equal(unknown_pstt, unknown_out)
 
+        # PSTTImplementation5 review findings #2/#3: two malformed-but-
+        # structurally-decodable-looking PSTT shapes (missing output amount,
+        # out-of-range prevout_index on a UTXO-attached input) that were
+        # flagged as reachable, crash-inducing input at the decodepstt RPC
+        # layer. src/test/pstt_tests.cpp already confirms
+        # PartiallySignedTapyrusTransaction::IsSane()/Unserialize() reject
+        # both directly (a C++ std::ios_base::failure). Here, the same wire
+        # bytes reach decodepstt through the real RPC dispatch instead --
+        # the surfaced error is different (a JSON-RPC error object,
+        # RPC_DESERIALIZATION_ERROR, not a raw C++ exception type), so this
+        # closes the loop end to end: neither shape reaches decodepstt's own
+        # body through any real call, it's rejected earlier, at decode time,
+        # with a normal RPC error rather than a crash.
+        self.log.info('Test decodepstt rejects an output with no PSTT_OUT_AMOUNT')
+        assert_raises_rpc_error(-22, "PSTT is not sane",
+                                 self.nodes[0].decodepstt, make_pstt_output_missing_amount())
+
+        self.log.info('Test decodepstt rejects an out-of-range prevout_index on a UTXO-attached input')
+        assert_raises_rpc_error(-22, "PSTT is not sane",
+                                 self.nodes[0].decodepstt, make_pstt_out_of_range_prevout_index())
+
         # Constructor role: addinputtopstt/addoutputtopstt/
         # addinputoutputpairtopstt/finalizepsttconstruction. rpc_psbt.py has
         # no equivalent section -- PSBT's Constructor is folded silently into
@@ -315,6 +415,11 @@ class PSTTTest(BitcoinTestFramework):
         assert_equal(decoded_bare['tx_modifiable']['outputs_modifiable'], True)
         assert_equal(len(decoded_bare['inputs']), 0)
         assert_equal(len(decoded_bare['outputs']), 0)
+        # "next" is a JSON array of every role that could act right now, not
+        # a single string -- still-modifiable and zero inputs are both true
+        # here, so both "constructor" (more could be added) and "extractor"
+        # (there's nothing for an earlier role to do on zero inputs) apply.
+        assert_equal(decoded_bare['next'], ['constructor', 'extractor'])
 
         # Neither Constructor RPC works once construction is not modifiable.
         self.nodes[0].generate(5, self.signblockprivkey_wif)
@@ -341,6 +446,10 @@ class PSTTTest(BitcoinTestFramework):
         assert_equal(len(decoded['inputs']), 1)
         assert_equal(len(decoded['outputs']), 0)
         assert_equal(decoded['inputs'][0]['txid'], unspent_a['txid'])
+        # addinputtopstt only records the outpoint -- no PSTT_IN_UTXO yet --
+        # so both "constructor" (still modifiable) and "updater" (this input
+        # needs a UTXO) are simultaneously actionable.
+        assert_equal(decoded['next'], ['constructor', 'updater'])
 
         pstt_construct = self.nodes[1].addoutputtopstt(pstt_construct, {self.nodes[1].getnewaddress(): 1})
         decoded = self.nodes[0].decodepstt(pstt_construct)

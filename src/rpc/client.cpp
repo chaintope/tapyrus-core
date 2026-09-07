@@ -108,6 +108,8 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "finalizepsttconstruction", 1, "clear_inputs_modifiable" },
     { "finalizepsttconstruction", 2, "clear_outputs_modifiable" },
     { "combinepstt", 0, "txs" },
+    { "joinpstt", 0, "txs" },
+    { "updatepstt", 1, "txs" },
     { "finalizepstt", 1, "extract" },
     { "signpsttwithkey", 1, "privkeys" },
     { "walletcreatefundedpstt", 0, "inputs" },

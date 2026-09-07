@@ -126,6 +126,7 @@ BASE_SCRIPTS = [
     'rpc_pstt.py --scheme SCHNORR',
     'wallet_pstt.py',
     'wallet_pstt.py --scheme SCHNORR',
+    'feature_large_pstt.py',
     'rpc_users.py',
     'rpc_whitelist.py',
     'feature_proxy.py',

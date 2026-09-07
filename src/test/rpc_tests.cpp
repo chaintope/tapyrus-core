@@ -117,7 +117,7 @@ BOOST_AUTO_TEST_CASE(rpc_pstt_params)
     BOOST_REQUIRE(DecodePSTT(populated, r.get_str(), decodeErr));
     BOOST_REQUIRE_EQUAL(populated.inputs.size(), 1U);
     BOOST_CHECK_EQUAL(populated.inputs[0].previous_txid.GetHex(), dummy_txid);
-    BOOST_CHECK_EQUAL(populated.inputs[0].prev_out_index, 0U);
+    BOOST_CHECK_EQUAL(populated.inputs[0].prevout_index, 0U);
 
     // combinepstt: txs(0)=array.
     BOOST_CHECK_NO_THROW(CallRPC(std::string("combinepstt [\"")+pstt+"\"]"));
