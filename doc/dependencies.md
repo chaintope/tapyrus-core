@@ -18,7 +18,7 @@ These are the dependencies currently used by Tapyrus Core. You can find instruct
 
 | Package | Platform | Minimum tested | Version | File name | SHA256 | Download URL |
 | --- | --- | --- | --- | --- | --- | --- |
-| Berkeley DB | Wallet only | 4.8 | 4.8.30 | `db-4.8.30.NC.tar.gz` | `12edc0df75bf9abd7f82f821795bcee50f42cb2e5f76a6a281b85732798364ef` | [download.oracle.com](https://download.oracle.com/berkeley-db/db-4.8.30.NC.tar.gz) |
+| Berkeley DB | Wallet only | 5.3.28 | 5.3.28 | `db-5.3.28.NC.tar.gz` | `76a25560d9e52a198d37a31440fd07632b5f1f8f9f2b6d5438f4bc3e7c9013ef` | [download.oracle.com](https://download.oracle.com/berkeley-db/db-5.3.28.NC.tar.gz) |
 | Boost | | 1.81.0 | 1.92.0 | `boost_1_92_0.tar.gz` | `c4a3b310ddd2472416e091067166b0713be97c63f38c212c484ada022fd296ce` | [archives.boost.io](https://archives.boost.io/release/1.92.0/source/boost_1_92_0.tar.gz) |
 | Expat | Linux + GUI only | 2.4.8 | 2.8.3 | `expat-2.8.3.tar.xz` | `f6256df90c906773d344da084402b7d3e4f22ed41b1a59c989098a83d3ea0c85` | [github.com](https://github.com/libexpat/libexpat/releases/download/R_2_8_3/expat-2.8.3.tar.xz) |
 | fontconfig | Linux + GUI only | 2.16.0 | 2.16.0 | `fontconfig-2.16.0.tar.xz` | `6a33dc555cc9ba8b10caf7695878ef134eeb36d0af366041f639b1da9b6ed220` | [freedesktop.org](https://www.freedesktop.org/software/fontconfig/release/fontconfig-2.16.0.tar.xz) |

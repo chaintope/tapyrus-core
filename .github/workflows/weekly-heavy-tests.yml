@@ -175,7 +175,7 @@ jobs:
             -DZEROMQ_LIBRARY="$DEPENDS_PREFIX/lib/libzmq.a" \
             -DBerkeleyDB_ROOT="$DEPENDS_PREFIX" \
             -DBerkeleyDB_INCLUDE_DIR="$DEPENDS_PREFIX/include" \
-            -DBerkeleyDB_LIBRARY="$DEPENDS_PREFIX/lib/libdb_cxx-4.8.a"
+            -DBerkeleyDB_LIBRARY="$DEPENDS_PREFIX/lib/libdb_cxx-5.3.a"
 
           cmake --build "$BASE_BUILD_DIR" --parallel -j$(nproc) --target all
 

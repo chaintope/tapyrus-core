@@ -194,7 +194,7 @@ Specify custom paths for dependencies:
 ```bash
 cmake -S . -B build \
   -DBoost_ROOT=/opt/boost \
-  -DBerkeleyDB_ROOT=/opt/db4 \
+  -DBerkeleyDB_ROOT=/opt/db5.3 \
   -DLibevent_ROOT=/opt/libevent \
   -DZeroMQ_ROOT=/opt/zeromq
 ```
