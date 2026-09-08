@@ -37,7 +37,7 @@ Enable or disable major features:
 |--------|---------|-------------|
 | `ENABLE_WALLET` | `ON` | Build wallet functionality |
 | `WITH_BDB` | `ON` | Enable Berkeley DB wallet support |
-| `WARN_INCOMPATIBLE_BDB` | `ON` | Warn when using BDB version other than 4.8 |
+| `WARN_INCOMPATIBLE_BDB` | `ON` | Warn when using BDB version other than 4.8 or 5.3 |
 | `WITH_INCOMPATIBLE_BDB` | `OFF` | Allow incompatible BDB versions |
 | `ENABLE_ZMQ` | `ON` | Enable ZMQ notifications |
 | `ENABLE_TRACING` | `OFF` | Enable USDT tracepoints |

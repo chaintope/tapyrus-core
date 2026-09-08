@@ -6,7 +6,14 @@
 set(_BerkeleyDB_homebrew_prefix)
 if(CMAKE_HOST_APPLE)
   include(BrewHelper)
-  find_brew_prefix(_BerkeleyDB_homebrew_prefix berkeley-db@4)
+  # Homebrew has renamed/dropped versioned BDB formulas before
+  # (berkeley-db@4 was removed from homebrew-core) -- accept whatever
+  # berkeley-db@N formula is actually installed, up to @5. Never the
+  # plain/unversioned "berkeley-db" formula: it tracks Homebrew's latest
+  # (presently 18.1.x), which is AGPL-3.0-only, unlike the Sleepycat
+  # license @4/@5 carry -- see the version ceiling below, which rejects
+  # an 18.x BDB found by any other path too.
+  find_brew_prefix_any_version(_BerkeleyDB_homebrew_prefix berkeley-db 5)
 endif()
 
 # If BerkeleyDB_ROOT is set, prioritize it; otherwise fall back to system paths
@@ -100,9 +107,14 @@ if(BerkeleyDB_INCLUDE_DIR)
 endif()
 
 include(FindPackageHandleStandardArgs)
+# HANDLE_VERSION_RANGE (CMake >= 3.19) is required for a caller's
+# find_package(BerkeleyDB min...max) upper bound to actually be enforced --
+# without it, this command silently checks only the minimum, and a
+# too-new (license-incompatible, see CMakeLists.txt) BDB would pass.
 find_package_handle_standard_args(BerkeleyDB
         REQUIRED_VARS BerkeleyDB_LIBRARY BerkeleyDB_INCLUDE_DIR
         VERSION_VAR _BerkeleyDB_full_version
+        HANDLE_VERSION_RANGE
 )
 unset(_BerkeleyDB_full_version)
 

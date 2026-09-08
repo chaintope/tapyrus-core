@@ -647,12 +647,12 @@ jobs:
           fi
 
           # Platform-specific options
-          if [ "${{ matrix.config.platform }}" == "macos" ]; then
-            # Native macOS builds
-            if ! brew list berkeley-db@4 &>/dev/null; then
-              CMAKE_OPTS+=("-DWARN_INCOMPATIBLE_BDB=OFF")
-            fi
-          elif [ "${{ matrix.config.target_platform }}" == "macos" ]; then
+          #
+          # Native macOS builds need no BDB warning override here: this
+          # job builds BDB from depends (always 4.8.30, from source),
+          # never from Homebrew, so the version this override used to
+          # guard against was never actually in play.
+          if [ "${{ matrix.config.target_platform }}" == "macos" ]; then
             # Cross-compilation to macOS from Linux
             CMAKE_OPTS+=("-DCMAKE_SYSTEM_NAME=Darwin")
             if [ "${{ matrix.config.target_arch }}" == "arm64" ]; then
