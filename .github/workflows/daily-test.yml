@@ -212,11 +212,20 @@ jobs:
       # path: above is the whole depends/ tree, tracked files included, so a
       # restore-keys fallback (no content hash) overwrites depends/packages/*.mk
       # and friends with whatever an older cache entry had. make then follows
-      # those stale recipes rather than the ones actually checked out. Resetting
-      # tracked files to HEAD leaves the untracked, cached build output
-      # (depends/built, sources, work, <host>/) alone.
+      # those stale recipes rather than the ones actually checked out.
+      #
+      # git checkout only fixes tracked files' *content* -- a stale cache can
+      # also carry a since-deleted, now-untracked file (e.g. a flat patch left
+      # over from before patches moved into version subdirectories), which
+      # checkout has no reason to remove. depends/patches, packages, hosts,
+      # and builders are meant to hold only tracked files (see
+      # depends/.gitignore), unlike depends/built, sources, work, and the
+      # per-host prefix dirs, which are generated and must survive untouched
+      # -- so clean untracked cruft from just those four.
       - name: Reset depends/ tracked files after cache restore
-        run: git checkout -- depends/
+        run: |
+          git checkout -- depends/
+          git clean -fdx -- depends/patches/ depends/packages/ depends/hosts/ depends/builders/
 
       - name: Restore Benchmark History cache
         # Benchmarks only run on scheduled/manually-dispatched runs, not on
