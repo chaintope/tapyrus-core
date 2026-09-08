@@ -159,6 +159,7 @@ class PSTTTest(BitcoinTestFramework):
         colorId = create_colored_transaction(2, 100, self.nodes[0])['color']
         self.sync_all()
         self.nodes[2].generate(1, self.signblockprivkey_wif)
+        self.sync_all()
 
         # Create and fund a raw tx for sending 10 TPC
         psttx1 = self.nodes[0].walletcreatefundedpstt([], {self.nodes[2].getnewaddress():10})['pstt']
