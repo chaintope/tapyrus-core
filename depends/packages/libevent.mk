@@ -7,6 +7,13 @@ ifeq ($($(package)_version),2.1.12-stable)
 $(package)_patches=cmake_fixups.patch
 $(package)_patches += winver_fixup.patch
 endif
+ifeq ($($(package)_version),2.1.13-stable)
+# winver_fixup.patch doesn't apply here (1 of 2 hunks fails against
+# evutil.c, which changed between releases) and isn't needed for this
+# fix anyway -- it's Windows-only, unrelated to the cmake_minimum_required
+# error below, which happens on macOS/Linux hosts with CMake >= 4.0.
+$(package)_patches=cmake_fixups.patch
+endif
 $(package)_build_subdir=build
 
 # When building for Windows, we set _WIN32_WINNT to target the same Windows
