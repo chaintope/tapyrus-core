@@ -14,3 +14,9 @@
 # src/test/CMakeLists.txt, and add its name here -- all three are needed,
 # this file alone is not sufficient.
 fuzz_pstt_parse
+fuzz_pstt_decode
+fuzz_pstt_merge
+fuzz_pstt_extract
+fuzz_pstt_signer
+fuzz_pstt_decodepstt_rpc
+fuzz_pstt_locktime

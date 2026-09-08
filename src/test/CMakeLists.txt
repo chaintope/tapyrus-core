@@ -225,6 +225,161 @@ target_link_libraries(fuzz_pstt_parse
         Boost::headers
 )
 
+# Standalone fuzz target for DecodePSTT (src/core_read.cpp) -- the
+# wire-format/base64 PSTT parser, as opposed to fuzz_pstt_parse's JSON
+# "inputs" argument. Same EXCLUDE_FROM_ALL / own-executable reasoning as
+# fuzz_pstt_parse above.
+add_executable(fuzz_pstt_decode EXCLUDE_FROM_ALL
+    fuzz/pstt_decode_fuzz.cpp
+)
+target_include_directories(fuzz_pstt_decode
+    PRIVATE
+        ${Boost_INCLUDE_DIRS}
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../univalue/include>
+)
+target_link_libraries(fuzz_pstt_decode
+    PRIVATE
+        core_interface
+        tapyrus_server
+        tapyrus_common
+        tapyrus_util
+        tapyrus_consensus
+        leveldb
+        univalue
+        secp256k1
+        tapyrus_crypto
+        Boost::headers
+)
+
+# Standalone fuzz target for PartiallySignedTapyrusTransaction::Merge
+# (src/pstt.cpp) -- combinepstt's core. Same EXCLUDE_FROM_ALL /
+# own-executable reasoning as fuzz_pstt_parse above.
+add_executable(fuzz_pstt_merge EXCLUDE_FROM_ALL
+    fuzz/pstt_merge_fuzz.cpp
+)
+target_include_directories(fuzz_pstt_merge
+    PRIVATE
+        ${Boost_INCLUDE_DIRS}
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../univalue/include>
+)
+target_link_libraries(fuzz_pstt_merge
+    PRIVATE
+        core_interface
+        tapyrus_server
+        tapyrus_common
+        tapyrus_util
+        tapyrus_consensus
+        leveldb
+        univalue
+        secp256k1
+        tapyrus_crypto
+        Boost::headers
+)
+
+# Standalone fuzz target for ExtractPSTT (src/pstt.cpp) -- the Extractor
+# role's core, reachable from finalizepstt. Same EXCLUDE_FROM_ALL /
+# own-executable reasoning as fuzz_pstt_parse above.
+add_executable(fuzz_pstt_extract EXCLUDE_FROM_ALL
+    fuzz/pstt_extract_fuzz.cpp
+)
+target_include_directories(fuzz_pstt_extract
+    PRIVATE
+        ${Boost_INCLUDE_DIRS}
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../univalue/include>
+)
+target_link_libraries(fuzz_pstt_extract
+    PRIVATE
+        core_interface
+        tapyrus_server
+        tapyrus_common
+        tapyrus_util
+        tapyrus_consensus
+        leveldb
+        univalue
+        secp256k1
+        tapyrus_crypto
+        Boost::headers
+)
+
+# Standalone fuzz target for SignPSTTInput (src/pstt.cpp) -- the Signer
+# role's core, run against the keyless DUMMY_SIGNING_PROVIDER (the same
+# dry-run pattern finalizepstt/decodepstt's "next" use for role-
+# completeness checks -- see pstt_signer_fuzz.cpp's header comment). Same
+# EXCLUDE_FROM_ALL / own-executable reasoning as fuzz_pstt_parse above.
+add_executable(fuzz_pstt_signer EXCLUDE_FROM_ALL
+    fuzz/pstt_signer_fuzz.cpp
+)
+target_include_directories(fuzz_pstt_signer
+    PRIVATE
+        ${Boost_INCLUDE_DIRS}
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../univalue/include>
+)
+target_link_libraries(fuzz_pstt_signer
+    PRIVATE
+        core_interface
+        tapyrus_server
+        tapyrus_common
+        tapyrus_util
+        tapyrus_consensus
+        leveldb
+        univalue
+        secp256k1
+        tapyrus_crypto
+        Boost::headers
+)
+
+# Standalone fuzz target for the real decodepstt RPC handler
+# (src/rpc/rawtransaction.cpp) -- reaches EstimatePsttFee/
+# EstimateInputScriptSig (both `static`, not independently linkable),
+# unlike pstt_decode_fuzz.cpp's direct DecodePSTT-only call. Same
+# EXCLUDE_FROM_ALL / own-executable reasoning as fuzz_pstt_parse above.
+add_executable(fuzz_pstt_decodepstt_rpc EXCLUDE_FROM_ALL
+    fuzz/pstt_decodepstt_rpc_fuzz.cpp
+)
+target_include_directories(fuzz_pstt_decodepstt_rpc
+    PRIVATE
+        ${Boost_INCLUDE_DIRS}
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../univalue/include>
+)
+target_link_libraries(fuzz_pstt_decodepstt_rpc
+    PRIVATE
+        core_interface
+        tapyrus_server
+        tapyrus_common
+        tapyrus_util
+        tapyrus_consensus
+        leveldb
+        univalue
+        secp256k1
+        tapyrus_crypto
+        Boost::headers
+)
+
+# Standalone fuzz target for ComputeLocktime and
+# PartiallySignedTapyrusTransaction::GetIdentifier (src/pstt.cpp). Same
+# EXCLUDE_FROM_ALL / own-executable reasoning as fuzz_pstt_parse above.
+add_executable(fuzz_pstt_locktime EXCLUDE_FROM_ALL
+    fuzz/pstt_locktime_fuzz.cpp
+)
+target_include_directories(fuzz_pstt_locktime
+    PRIVATE
+        ${Boost_INCLUDE_DIRS}
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../univalue/include>
+)
+target_link_libraries(fuzz_pstt_locktime
+    PRIVATE
+        core_interface
+        tapyrus_server
+        tapyrus_common
+        tapyrus_util
+        tapyrus_consensus
+        leveldb
+        univalue
+        secp256k1
+        tapyrus_crypto
+        Boost::headers
+)
+
 endif(BUILD_FUZZ_TEST)
 
 # We need to detect if the BOOST_TEST_DYN_LINK flag is required.

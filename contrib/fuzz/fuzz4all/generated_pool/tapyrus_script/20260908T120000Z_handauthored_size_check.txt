@@ -1,0 +1,1 @@
+'hello' SIZE 5 EQUALVERIFY 1
