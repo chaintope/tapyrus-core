@@ -195,6 +195,65 @@ target_link_libraries(test_tapyrus
 # and fuzz-script-sweep jobs turn this on.
 if(BUILD_FUZZ_TEST)
 
+# tapyrus_server/tapyrus_common/tapyrus_util/tapyrus_consensus have real
+# circular symbol dependencies between them (e.g. script/interpreter.cpp
+# in tapyrus_consensus calls GetSoftForkManager(), defined in
+# federationparams.cpp in tapyrus_common; federationparams.cpp in turn
+# calls gArgs/ArgsManager, defined in tapyrus_util) -- test_tapyrus above
+# never hits this because it also links tapyrus_wallet/tapyrus_cli/
+# tapyrus_zmq/libevent, which happen to pull in a superset of the same
+# object files early enough that everything each library needs is
+# already present in the link by the time it's needed. A standalone fuzz
+# binary linking only the libraries it actually needs has no such luck:
+# GNU ld/lld resolve each static archive in a single left-to-right pass,
+# so a later archive's need for a symbol in an earlier, already-scanned
+# archive is never revisited -- confirmed by fuzz_pstt_decode failing to
+# link with "undefined reference to GetSoftForkManager()" until wrapped
+# in --start-group/--end-group, which forces the linker to keep
+# re-scanning the whole set until every symbol resolves. Not supported
+# by Apple's ld64 the same way, but these fuzz binaries are Linux-only in
+# CI (daily-test.yml's fuzz-code-only job runs on ubuntu-latest) so that
+# doesn't matter here.
+function(add_pstt_fuzz_target name source)
+    add_executable(${name} EXCLUDE_FROM_ALL
+        fuzz/${source}
+    )
+    target_include_directories(${name}
+        PRIVATE
+            ${Boost_INCLUDE_DIRS}
+            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../univalue/include>
+    )
+    # CMake's fixed link-command template
+    # (<COMPILER> <FLAGS> <LINK_OPTIONS> <OBJECTS> -o <TARGET> <LINK_LIBRARIES>)
+    # always places LINK_OPTIONS (from target_link_options()) before the
+    # object files and LINK_LIBRARIES (from target_link_libraries()) after
+    # -- there is no way to get -Wl,--start-group/--end-group positioned
+    # around specific libraries via target_link_options(), since group
+    # markers need to sit in the LINK_LIBRARIES list itself, after the
+    # object file that actually references these symbols (confirmed by
+    # testing: a group placed via target_link_options still failed with
+    # "undefined reference to GetSoftForkManager()", because it ran
+    # before the fuzz harness's own .o -- the thing creating the need --
+    # was even linked). Passing the raw -Wl,--start-group/--end-group
+    # strings directly as target_link_libraries() arguments keeps them in
+    # that correctly-positioned list instead.
+    target_link_libraries(${name}
+        PRIVATE
+            core_interface
+            leveldb
+            univalue
+            secp256k1
+            tapyrus_crypto
+            Boost::headers
+            $<$<NOT:$<PLATFORM_ID:Darwin>>:-Wl,--start-group>
+            tapyrus_server
+            tapyrus_common
+            tapyrus_util
+            tapyrus_consensus
+            $<$<NOT:$<PLATFORM_ID:Darwin>>:-Wl,--end-group>
+    )
+endfunction()
+
 # Standalone fuzz target for ParsePsttInputEntries -- deliberately its own
 # executable, not a source file of test_tapyrus above: a libFuzzer/AFL
 # fuzz_test_file supplies its own weak main()/LLVMFuzzerTestOneInput, which
@@ -203,182 +262,36 @@ if(BUILD_FUZZ_TEST)
 # mixed into test_tapyrus's sources list above and never actually
 # exercised as a fuzz binary as a result -- a pre-existing issue, not
 # fixed here).
-add_executable(fuzz_pstt_parse EXCLUDE_FROM_ALL
-    fuzz/pstt_parse_fuzz.cpp
-)
-target_include_directories(fuzz_pstt_parse
-    PRIVATE
-        ${Boost_INCLUDE_DIRS}
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../univalue/include>
-)
-target_link_libraries(fuzz_pstt_parse
-    PRIVATE
-        core_interface
-        tapyrus_server
-        tapyrus_common
-        tapyrus_util
-        tapyrus_consensus
-        leveldb
-        univalue
-        secp256k1
-        tapyrus_crypto
-        Boost::headers
-)
+add_pstt_fuzz_target(fuzz_pstt_parse pstt_parse_fuzz.cpp)
 
 # Standalone fuzz target for DecodePSTT (src/core_read.cpp) -- the
 # wire-format/base64 PSTT parser, as opposed to fuzz_pstt_parse's JSON
-# "inputs" argument. Same EXCLUDE_FROM_ALL / own-executable reasoning as
-# fuzz_pstt_parse above.
-add_executable(fuzz_pstt_decode EXCLUDE_FROM_ALL
-    fuzz/pstt_decode_fuzz.cpp
-)
-target_include_directories(fuzz_pstt_decode
-    PRIVATE
-        ${Boost_INCLUDE_DIRS}
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../univalue/include>
-)
-target_link_libraries(fuzz_pstt_decode
-    PRIVATE
-        core_interface
-        tapyrus_server
-        tapyrus_common
-        tapyrus_util
-        tapyrus_consensus
-        leveldb
-        univalue
-        secp256k1
-        tapyrus_crypto
-        Boost::headers
-)
+# "inputs" argument.
+add_pstt_fuzz_target(fuzz_pstt_decode pstt_decode_fuzz.cpp)
 
 # Standalone fuzz target for PartiallySignedTapyrusTransaction::Merge
-# (src/pstt.cpp) -- combinepstt's core. Same EXCLUDE_FROM_ALL /
-# own-executable reasoning as fuzz_pstt_parse above.
-add_executable(fuzz_pstt_merge EXCLUDE_FROM_ALL
-    fuzz/pstt_merge_fuzz.cpp
-)
-target_include_directories(fuzz_pstt_merge
-    PRIVATE
-        ${Boost_INCLUDE_DIRS}
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../univalue/include>
-)
-target_link_libraries(fuzz_pstt_merge
-    PRIVATE
-        core_interface
-        tapyrus_server
-        tapyrus_common
-        tapyrus_util
-        tapyrus_consensus
-        leveldb
-        univalue
-        secp256k1
-        tapyrus_crypto
-        Boost::headers
-)
+# (src/pstt.cpp) -- combinepstt's core.
+add_pstt_fuzz_target(fuzz_pstt_merge pstt_merge_fuzz.cpp)
 
 # Standalone fuzz target for ExtractPSTT (src/pstt.cpp) -- the Extractor
-# role's core, reachable from finalizepstt. Same EXCLUDE_FROM_ALL /
-# own-executable reasoning as fuzz_pstt_parse above.
-add_executable(fuzz_pstt_extract EXCLUDE_FROM_ALL
-    fuzz/pstt_extract_fuzz.cpp
-)
-target_include_directories(fuzz_pstt_extract
-    PRIVATE
-        ${Boost_INCLUDE_DIRS}
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../univalue/include>
-)
-target_link_libraries(fuzz_pstt_extract
-    PRIVATE
-        core_interface
-        tapyrus_server
-        tapyrus_common
-        tapyrus_util
-        tapyrus_consensus
-        leveldb
-        univalue
-        secp256k1
-        tapyrus_crypto
-        Boost::headers
-)
+# role's core, reachable from finalizepstt.
+add_pstt_fuzz_target(fuzz_pstt_extract pstt_extract_fuzz.cpp)
 
 # Standalone fuzz target for SignPSTTInput (src/pstt.cpp) -- the Signer
 # role's core, run against the keyless DUMMY_SIGNING_PROVIDER (the same
 # dry-run pattern finalizepstt/decodepstt's "next" use for role-
-# completeness checks -- see pstt_signer_fuzz.cpp's header comment). Same
-# EXCLUDE_FROM_ALL / own-executable reasoning as fuzz_pstt_parse above.
-add_executable(fuzz_pstt_signer EXCLUDE_FROM_ALL
-    fuzz/pstt_signer_fuzz.cpp
-)
-target_include_directories(fuzz_pstt_signer
-    PRIVATE
-        ${Boost_INCLUDE_DIRS}
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../univalue/include>
-)
-target_link_libraries(fuzz_pstt_signer
-    PRIVATE
-        core_interface
-        tapyrus_server
-        tapyrus_common
-        tapyrus_util
-        tapyrus_consensus
-        leveldb
-        univalue
-        secp256k1
-        tapyrus_crypto
-        Boost::headers
-)
+# completeness checks -- see pstt_signer_fuzz.cpp's header comment).
+add_pstt_fuzz_target(fuzz_pstt_signer pstt_signer_fuzz.cpp)
 
 # Standalone fuzz target for the real decodepstt RPC handler
 # (src/rpc/rawtransaction.cpp) -- reaches EstimatePsttFee/
 # EstimateInputScriptSig (both `static`, not independently linkable),
-# unlike pstt_decode_fuzz.cpp's direct DecodePSTT-only call. Same
-# EXCLUDE_FROM_ALL / own-executable reasoning as fuzz_pstt_parse above.
-add_executable(fuzz_pstt_decodepstt_rpc EXCLUDE_FROM_ALL
-    fuzz/pstt_decodepstt_rpc_fuzz.cpp
-)
-target_include_directories(fuzz_pstt_decodepstt_rpc
-    PRIVATE
-        ${Boost_INCLUDE_DIRS}
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../univalue/include>
-)
-target_link_libraries(fuzz_pstt_decodepstt_rpc
-    PRIVATE
-        core_interface
-        tapyrus_server
-        tapyrus_common
-        tapyrus_util
-        tapyrus_consensus
-        leveldb
-        univalue
-        secp256k1
-        tapyrus_crypto
-        Boost::headers
-)
+# unlike pstt_decode_fuzz.cpp's direct DecodePSTT-only call.
+add_pstt_fuzz_target(fuzz_pstt_decodepstt_rpc pstt_decodepstt_rpc_fuzz.cpp)
 
 # Standalone fuzz target for ComputeLocktime and
-# PartiallySignedTapyrusTransaction::GetIdentifier (src/pstt.cpp). Same
-# EXCLUDE_FROM_ALL / own-executable reasoning as fuzz_pstt_parse above.
-add_executable(fuzz_pstt_locktime EXCLUDE_FROM_ALL
-    fuzz/pstt_locktime_fuzz.cpp
-)
-target_include_directories(fuzz_pstt_locktime
-    PRIVATE
-        ${Boost_INCLUDE_DIRS}
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../univalue/include>
-)
-target_link_libraries(fuzz_pstt_locktime
-    PRIVATE
-        core_interface
-        tapyrus_server
-        tapyrus_common
-        tapyrus_util
-        tapyrus_consensus
-        leveldb
-        univalue
-        secp256k1
-        tapyrus_crypto
-        Boost::headers
-)
+# PartiallySignedTapyrusTransaction::GetIdentifier (src/pstt.cpp).
+add_pstt_fuzz_target(fuzz_pstt_locktime pstt_locktime_fuzz.cpp)
 
 endif(BUILD_FUZZ_TEST)
 

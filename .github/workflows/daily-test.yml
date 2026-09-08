@@ -1132,7 +1132,7 @@ jobs:
   #   libFuzzer still mutates outward from it for the full run duration,
   #   so this is not a replay of fixed inputs.
   # TOOLS USED: libFuzzer + ASan/UBSan (compiled into each fuzz_test_file
-  #   via `-DSANITIZERS="fuzzer;address;undefined"`);
+  #   via `-DSANITIZERS="fuzzer,address,undefined"`);
   #   contrib/fuzz/fuzz_code_select_slice.py for the seed-pool
   #   rotation.
   # CREDENTIALS NEEDED: none.
@@ -1176,7 +1176,7 @@ jobs:
         run: >
           cmake -S . -B build_fuzz
           -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
-          -DSANITIZERS="fuzzer;address;undefined"
+          -DSANITIZERS="fuzzer,address,undefined"
           -DBUILD_DAEMON=OFF -DBUILD_GUI=OFF -DBUILD_CLI=OFF
           -DBUILD_GENESIS=OFF -DBUILD_SCRIPT_VERIFY=OFF
           -DENABLE_WALLET=OFF -DENABLE_TESTS=ON -DENABLE_BENCH=OFF
@@ -1278,7 +1278,7 @@ jobs:
         run: >
           cmake -S . -B build_fuzz_verify
           -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
-          -DSANITIZERS="address;undefined"
+          -DSANITIZERS="address,undefined"
           -DBUILD_DAEMON=OFF -DBUILD_GUI=OFF -DBUILD_CLI=OFF -DBUILD_GENESIS=OFF
           -DENABLE_WALLET=OFF -DENABLE_TESTS=OFF -DENABLE_BENCH=OFF -DENABLE_ZMQ=OFF
           -DBUILD_SCRIPT_VERIFY=ON -DBUILD_FUZZ_TEST=ON
