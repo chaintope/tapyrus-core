@@ -44,6 +44,15 @@ These are the dependencies currently used by Tapyrus Core. You can find instruct
 | ZeroMQ | | 4.3.5 | 4.3.5 | `zeromq-4.3.5.tar.gz` | `6653ef5910f17954861fe72332e68b03ca6e4d9c7160eb3a8de5a5a913bfab43` | [github.com](https://github.com/zeromq/libzmq/releases/download/v4.3.5/zeromq-4.3.5.tar.gz) |
 | macOS SDK | macOS only | Xcode 26.2 (17C52) | Xcode 26.2 (17C52) | `Xcode-26.2-17C52-extracted-SDK-with-libcxx-headers.tar.gz` | *(not checked; see below)* | [bitcoincore.org](https://bitcoincore.org/depends-sources/sdks/Xcode-26.2-17C52-extracted-SDK-with-libcxx-headers.tar.gz) |
 
+**Berkeley DB downgrade warning:**
+
+| Tapyrus Core version | Berkeley DB version |
+| --- | --- |
+| v0.7.1 and earlier | 4.8 |
+| v0.7.2 and later | 5.3 |
+
+A wallet written by Tapyrus Core v0.7.1 or earlier can be opened and upgraded by v0.7.2 or later. This only works in that one direction, not both: once a wallet has been opened by v0.7.2 or later, it can no longer be opened by v0.7.1 or earlier -- that older version will refuse to start against it, even after a clean shutdown of the newer version. To move a wallet back to v0.7.1 or earlier after it has been opened by a newer version, back up the wallet directory first, then either remove its `database` subdirectory before starting the older version, or start the older version with `-salvagewallet`.
+
 Package/version/hash/URL data above is copied from `depends/packages/*.mk` and `depends/hosts/darwin.mk` for convenience — it will drift if those files change without this table being updated too. Treat the `.mk` files as the source of truth.
 
 Building Qt also requires three small CMake scaffolding files (`depends/packages/qt_details.mk`) fetched directly from the `qt/qt5` GitHub repository rather than a release archive. They're part of that repo, not a standalone release artifact, so they aren't listed in the table above and don't need S3 mirroring.
