@@ -501,10 +501,11 @@ jobs:
         #
         # The rest of depends/packages/*.mk is left pinned at its current
         # version:
-        #   - Berkeley DB: find_package(BerkeleyDB 4.8 MODULE REQUIRED)
-        #     (CMakeLists.txt:124) is already satisfied by the 4.8.30 pinned in
-        #     bdb.mk (4.8.30 >= 4.8) -- no older, meaningfully-different 4.8.x
-        #     release to fetch instead, so bdb.mk is left as-is.
+        #   - Berkeley DB: find_package(BerkeleyDB 4.8...5.99 MODULE REQUIRED)
+        #     (CMakeLists.txt:149) is already satisfied by the 5.3.28 pinned
+        #     in bdb.mk, and doc/dependencies.md documents no separate
+        #     "Minimum required" for it (Version and Minimum required are
+        #     both 5.3.28), so bdb.mk is left as-is.
         #   - Qt: find_package(Qt 6.0 ...) (CMakeLists.txt:180) is 5+ minor
         #     versions behind the 6.10.1 pinned in qt.mk. Swapping in Qt 6.0.0
         #     isn't a one-line version+hash change the way the five above
@@ -654,7 +655,7 @@ jobs:
             -DZEROMQ_LIBRARY="$DEPENDS_PREFIX/lib/libzmq.a"
             -DBerkeleyDB_ROOT="$DEPENDS_PREFIX"
             -DBerkeleyDB_INCLUDE_DIR="$DEPENDS_PREFIX/include"
-            -DBerkeleyDB_LIBRARY="$DEPENDS_PREFIX/lib/libdb_cxx-4.8.a"
+            -DBerkeleyDB_LIBRARY="$DEPENDS_PREFIX/lib/libdb_cxx-5.3.a"
           )
           if [ "${{ matrix.config.platform }}" == "linux" ]; then
             CMAKE_OPTS+=(-DENABLE_TRACING=ON)
