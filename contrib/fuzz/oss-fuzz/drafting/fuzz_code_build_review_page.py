@@ -73,7 +73,7 @@ PAGE_TEMPLATE = """<!doctype html>
 <p><span id="approved-count">0</span> of {total} candidates currently approved.</p>
 <table>
 <thead>
-<tr><th>Approve</th><th>Function</th><th>Target name (src/test/fuzz/&lt;name&gt;.cpp)</th><th>Source</th></tr>
+<tr><th>Approve</th><th>Function</th><th>Target name (src/test/fuzz/fuzz_code/&lt;name&gt;.cpp)</th><th>Source</th></tr>
 </thead>
 <tbody>
 {rows}
@@ -112,12 +112,12 @@ ROW_TEMPLATE = """<tr data-candidate-id="{row_id}">
 def function_name_for(pool_dir: Path, candidate_name: str) -> str:
     yaml_path = pool_dir / f"{candidate_name}.yaml"
     if not yaml_path.exists():
-        return "(unknown -- no matching candidate_pool/*.yaml found)"
+        return "(unknown -- no matching src/test/fuzz/fuzz_candidates/*.yaml found)"
     try:
         data = yaml.safe_load(yaml_path.read_text())
         return data["functions"][0]["name"]
     except (yaml.YAMLError, KeyError, IndexError, TypeError):
-        return "(unknown -- candidate_pool/*.yaml did not parse as expected)"
+        return "(unknown -- src/test/fuzz/fuzz_candidates/*.yaml did not parse as expected)"
 
 
 def default_target_name(candidate_name: str, source_file: Path, index: int, count: int) -> str:
@@ -154,7 +154,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("draft_dir", type=Path, help="this run's local_drafts_<timestamp>/ directory")
     parser.add_argument("--pool-dir", type=Path, required=True,
-                         help="candidate_pool/ directory, to look up each candidate's function name")
+                         help="src/test/fuzz/fuzz_candidates/ directory, to look up each candidate's function name")
     parser.add_argument("--out", type=Path, default=None,
                          help="defaults to <draft_dir>/review_code.html")
     args = parser.parse_args()

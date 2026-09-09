@@ -24,7 +24,7 @@ autotools toolchain and a "binary injection" trick to pack many targets into
 one compiled binary), tapyrus-core's modern CMake build already supports
 sanitizer instrumentation directly via `-DSANITIZERS=...` (see
 `CMakeLists.txt`'s `sanitize_interface`), and each fuzz target is its own
-`add_executable(...)` (see `src/test/fuzz/pstt_parse_fuzz.cpp`'s CMake
+`add_executable(...)` (see `src/test/fuzz/fuzz_code/pstt_parse_fuzz.cpp`'s CMake
 wiring) -- no per-target binary-packing trick needed. `build.sh` below
 reflects that simpler, native path rather than copying Bitcoin Core's.
 
@@ -38,9 +38,10 @@ functions with no fuzz coverage. That's the actual reason this
 directory has to exist and stay buildable today, independent of
 whether it's ever submitted upstream.
 
-Only one real target exists today (`fuzz_pstt_parse`). As
-`../drafting/fuzz_code_generate_and_draft.py` drafts and lands more
-(see `../fuzz-introspector/`), add their CMake target names to
-`build.sh`'s `FUZZ_TARGETS` list -- though in practice `FUZZ_TARGETS`
-is read straight from `src/test/fuzz/FUZZ_TARGETS.txt`, so landing a
-target there already covers this file too.
+`build.sh` builds the phony `fuzz_all` CMake target and then copies
+whatever executables land under `build_oss_fuzz/bin/fuzz_*` -- since
+`src/test/CMakeLists.txt` globs every `src/test/fuzz/fuzz_code/*_fuzz.cpp` file
+into its own executable and wires `fuzz_all` to depend on all of them,
+landing a new fuzz_test_file (see `../drafting/fuzz_code_generate_and_draft.py`
+and `../fuzz-introspector/`) already covers this file too -- nothing here
+needs editing when the target list grows.

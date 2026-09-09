@@ -37,7 +37,7 @@ sequenceDiagram
 
     rect rgb(251, 236, 238)
     Note over Human: MANUAL -- fuzz_code_find_fuzz_gaps.py, fuzz_code_generate_candidates.py (local, no external call)
-    Human->>Human: rank uncovered functions, write candidate_pool/*.yaml
+    Human->>Human: rank uncovered functions, write src/test/fuzz/fuzz_candidates/*.yaml
     end
 
     rect rgb(251, 236, 238)
@@ -51,10 +51,10 @@ sequenceDiagram
     end
 
     rect rgb(251, 236, 238)
-    Note over Human: MANUAL -- review and land (an ADD -- drafts start outside src/test/fuzz/), no external calls
+    Note over Human: MANUAL -- review and land (an ADD -- drafts start outside src/test/fuzz/fuzz_code/), no external calls
     Human->>Human: fuzz_code_build_review_page.py builds review_code.html
     Human->>Human: open review_code.html, check approved candidates, Save Page As
-    Human->>Human: fuzz_code_land_approved.py writes .cpp / CMakeLists.txt / FUZZ_TARGETS.txt (no git)
+    Human->>Human: fuzz_code_land_approved.py writes .cpp (no git)
     Human->>Human: git add + commit (manual, outside any script)
     end
 
@@ -97,7 +97,7 @@ sequenceDiagram
         Claude-->>F4A: candidate program
         Note right of F4A: validates each candidate against a local build before accepting it (internal to this checkout, no separate node)
     end
-    F4A-->>Human: batch of candidates copied straight into generated_pool/tapyrus_script/
+    F4A-->>Human: batch of candidates copied straight into src/test/fuzz/fuzz_scripts/
     end
 
     rect rgb(251, 236, 238)
@@ -111,7 +111,7 @@ sequenceDiagram
     rect rgb(234, 245, 239)
     Note over CI: DAILY -- daily-test.yml's fuzz-script-sweep job, no AI, $0
     loop every day, time-bounded window
-        CI->>CI: replay a rotating slice of generated_pool/tapyrus_script/ against a local build
+        CI->>CI: replay a rotating slice of src/test/fuzz/fuzz_scripts/ against a local build
     end
     CI-->>Human: pass/fail per candidate -- a crash is a real bug
     end
@@ -133,7 +133,7 @@ generating anything itself.
 | [`fuzz_code_vertex_claude_patch.py`](oss-fuzz/drafting/fuzz_code_vertex_claude_patch.py) | fuzz_code | manual | Registers a current Claude model with OSS-Fuzz-Gen's Vertex AI client (applied automatically by the script above) |
 | [`fuzz_code_build_review_page.py`](oss-fuzz/drafting/fuzz_code_build_review_page.py) | fuzz_code | manual | Builds review_code.html from a run's drafted candidates |
 | [`fuzz_code_land_approved.py`](oss-fuzz/drafting/fuzz_code_land_approved.py) | fuzz_code | manual | Lands (adds) the approved rows of a saved review_code.html -- no git commands |
-| [`fuzz_code_select_slice.py`](fuzz_code_select_slice.py) | fuzz_code | daily | Rotates a seed slice into each libFuzzer target's corpus every run |
+| [`fuzz_code_select_slice.py`](../../src/test/fuzz/fuzz_seed_pool/fuzz_code_select_slice.py) | fuzz_code | daily | Rotates a seed slice into each libFuzzer target's corpus every run |
 | [`fuzz_script_generate_pool.py`](fuzz4all/fuzz_script_generate_pool.py) | fuzz_script | manual | Orchestrates a Fuzz4All + Claude run to grow the Script candidate pool |
 | [`fuzz_script_apply_patches.py`](fuzz4all/fuzz_script_apply_patches.py) | fuzz_script | manual | Wires ClaudeModel + the Script target into a fresh Fuzz4All clone (applied automatically by the script above) |
 | [`fuzz_script_build_review_page.py`](fuzz4all/fuzz_script_build_review_page.py) | fuzz_script | manual | Builds review_scripts.html scoped to one run's new candidates (applied automatically by the generator above) |
@@ -165,9 +165,9 @@ inside it.
 
 **Two review pages, opposite direction.** Both pipelines generate
 content that needs a human's eyes before it's kept, but landing means
-opposite things: fuzz_code's drafts start outside `src/test/fuzz/`, so
+opposite things: fuzz_code's drafts start outside `src/test/fuzz/fuzz_code/`, so
 `review_code.html` approval *adds* files and wires them into the build.
 fuzz_script's candidates already land straight in
-`generated_pool/tapyrus_script/`, so `review_scripts.html` approval
+`src/test/fuzz/fuzz_scripts/`, so `review_scripts.html` approval
 *prunes* -- everything left unchecked gets deleted. Both default every
 checkbox unchecked, and neither script runs a git command.

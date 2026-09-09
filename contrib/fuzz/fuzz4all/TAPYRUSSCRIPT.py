@@ -2,16 +2,15 @@
 Fuzz4All/target/TAPYRUSSCRIPT/TAPYRUSSCRIPT.py in a real Fuzz4All checkout
 (register it in Fuzz4All/make_target.py's target dispatch alongside
 CPPTarget/GOTarget/etc, the same way every other target/<LANG>/<LANG>.py is
-wired in -- not shown here since it's a one-line dispatch-table addition in
-a file this session did not modify).
+wired in -- not shown here since it's a one-line dispatch-table addition
+made directly in that file).
 
 Modeled directly on target/CPP/CPP.py (read from the real Fuzz4All source),
 adapted for Tapyrus Script: the LLM is asked to generate a program in
 Script's opcode-mnemonic form (e.g. "OP_DUP OP_HASH160 0x<hex>
-OP_EQUALVERIFY OP_CHECKSIG" -- note the 0x prefix ParseScript actually
-requires for raw hex pushes, unlike the placeholder <hex> this docstring
-used to show), which this target's oracle then feeds through Tapyrus's
-real EvalScript/VerifyScript.
+OP_EQUALVERIFY OP_CHECKSIG" -- note the 0x prefix ParseScript requires
+for raw hex pushes), which this target's oracle then feeds through
+Tapyrus's real EvalScript/VerifyScript.
 
 The oracle is `tapyrus-verify --fuzz <file>` (src/tapyrus-verify.cpp),
 built via `cmake -DBUILD_SCRIPT_VERIFY=ON -DBUILD_FUZZ_TEST=ON`. Given

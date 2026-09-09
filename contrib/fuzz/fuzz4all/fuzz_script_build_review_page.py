@@ -9,7 +9,7 @@ a checkbox for "keep this one."
 
 Unlike fuzz_code_build_review_page.py's review_code.html, this review is
 a PRUNE, not an ADD: fuzz_script_generate_pool.py already writes every
-candidate straight into its final home (generated_pool/tapyrus_script/)
+candidate straight into its final home (src/test/fuzz/fuzz_scripts/)
 -- there's no separate landing location to wire up. Reviewing here means
 deciding which of the files already sitting in that directory, from this
 run specifically, are worth keeping; fuzz_script_land_approved.py
@@ -104,7 +104,7 @@ def build_rows(pool_dir: Path, run_prefix: str) -> "list[str]":
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("pool_dir", type=Path, help="generated_pool/tapyrus_script/")
+    parser.add_argument("pool_dir", type=Path, help="src/test/fuzz/fuzz_scripts/")
     parser.add_argument("--run-prefix", required=True,
                          help="only list candidates whose filename starts with this "
                               "(fuzz_script_generate_pool.py's own RUN_PREFIX for this run)")

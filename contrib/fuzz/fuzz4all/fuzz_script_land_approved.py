@@ -4,14 +4,14 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Reads a review_scripts.html saved back by a maintainer after using
 fuzz_script_build_review_page.py's page (checked "keep" boxes = worth
-keeping), and prunes generated_pool/tapyrus_script/ down to just that
+keeping), and prunes src/test/fuzz/fuzz_scripts/ down to just that
 run's approved candidates -- deletes every listed candidate whose box is
 unchecked, leaves checked ones untouched.
 
 The inverse of fuzz_code_land_approved.py: that script ADDS files into
 their final home (drafts start elsewhere first). This one only ever
 DELETES, since fuzz_script_generate_pool.py already wrote every
-candidate straight into generated_pool/tapyrus_script/, its final home,
+candidate straight into src/test/fuzz/fuzz_scripts/, its final home,
 before this review ever happens -- there's nothing to add or wire up.
 
 Deliberately does no git commands at all -- deletes files from the
@@ -25,7 +25,7 @@ from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent.parent.parent
-POOL_DIR = SCRIPT_DIR / "generated_pool" / "tapyrus_script"
+POOL_DIR = REPO_ROOT / "src" / "test" / "fuzz" / "fuzz_scripts"
 
 
 class ReviewPageParser(HTMLParser):

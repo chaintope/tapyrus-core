@@ -5,11 +5,11 @@
 """Selects a deterministic rotating slice of a fuzz input pool for one CI run.
 
 Used by daily-test.yml's fuzz-code-only job: a large per-target pool of
-libFuzzer seed inputs lives under test/fuzz_seed_pool/<target>/ (one file
+libFuzzer seed inputs lives under src/test/fuzz/fuzz_seed_pool/<target>/ (one file
 per input), and this script picks a different `batch_size`-sized slice
 every run so consecutive runs anchor their mutation exploration on
 different seeds, without any "mark as used" state written back to the
-repo. (The Script-corpus pool under contrib/fuzz/fuzz4all/generated_pool/
+repo. (The Script-corpus pool under src/test/fuzz/fuzz_scripts/
 uses its own time-bounded rotating-window logic instead, inlined in
 daily-test.yml's fuzz-script-sweep job rather than this script -- see
 that job's own header comment for why.) The slice is a pure function of
@@ -42,8 +42,8 @@ from pathlib import Path
 
 def select_slice(pool_dir: Path, batch_size: int, run_number: int) -> tuple[list[Path], bool]:
     # Every pool directory carries a README.md documenting the convention
-    # (see test/fuzz_seed_pool/, contrib/fuzz/fuzz4all/generated_pool/,
-    # contrib/fuzz/oss-fuzz/drafting/candidate_pool/) -- exclude it so it never gets
+    # (see src/test/fuzz/fuzz_seed_pool/, src/test/fuzz/fuzz_scripts/,
+    # src/test/fuzz/fuzz_candidates/) -- exclude it so it never gets
     # rotated in as if it were a real seed/candidate file.
     files = sorted(p for p in pool_dir.iterdir() if p.is_file() and p.name != "README.md")
     pool_size = len(files)
@@ -52,10 +52,12 @@ def select_slice(pool_dir: Path, batch_size: int, run_number: int) -> tuple[list
 
     offset = (run_number * batch_size) % pool_size
     end = offset + batch_size
-    selected = files[offset:end]
     wrapped = end > pool_size
-    if wrapped:
-        selected += files[: end - pool_size]
+    # Modular indexing per element: the returned slice always has exactly
+    # batch_size items, cycling through the pool as many times as needed
+    # when batch_size >= pool_size (a real case early in a target's
+    # seed-pool lifecycle, before it's grown).
+    selected = [files[(offset + i) % pool_size] for i in range(batch_size)]
 
     return selected, wrapped
 

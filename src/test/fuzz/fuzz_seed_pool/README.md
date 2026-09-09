@@ -1,10 +1,11 @@
 # Fuzz seed pools
 
-One subdirectory per libFuzzer target (matching `FUZZ_TARGETS` in the
-`fuzz-code-only` job of `.github/workflows/daily-test.yml`), each holding a
+One subdirectory per libFuzzer target (one per `src/test/fuzz/fuzz_code/*_fuzz.cpp`
+file, built and run by the `fuzz-code-only` job of
+`.github/workflows/daily-test.yml`), each holding a
 large pool of seed inputs -- one file per seed. That job rotates a
 different slice of each pool into that target's working corpus every run
-via `contrib/fuzz/fuzz_code_select_slice.py`, so consecutive runs
+via `src/test/fuzz/fuzz_seed_pool/fuzz_code_select_slice.py`, so consecutive runs
 anchor their mutation exploration on different seeds instead of always
 starting from the same handful.
 

@@ -1,13 +1,13 @@
 # OSS-Fuzz-Gen + Claude wiring (draft)
 
 Writes new fuzz_test_file candidates for the candidate functions
-`../fuzz-introspector/fuzz_code_find_fuzz_gaps.py` identifies, using
+`../../fuzz-introspector/fuzz_code_find_fuzz_gaps.py` identifies, using
 [OSS-Fuzz-Gen](https://github.com/google/oss-fuzz-gen) with Claude as the
 generation backend.
 
 A **fuzz_test_file** here means the same thing it does everywhere else in
 this repo's fuzz CI: a `FUZZ_TARGET`/libFuzzer-style C++ source file (like
-`src/test/fuzz/pstt_parse_fuzz.cpp`) that exercises one function. This
+`src/test/fuzz/fuzz_code/pstt_parse_fuzz.cpp`) that exercises one function. This
 directory's job is to have OSS-Fuzz-Gen write new ones automatically, for
 functions Fuzz Introspector found with no fuzz coverage at all.
 
@@ -16,8 +16,8 @@ functions Fuzz Introspector found with no fuzz coverage at all.
 `fuzz_code_generate_and_draft.py` runs gap analysis, candidate-file
 generation, and drafting in one pass, by hand. There is no CI workflow
 for any of it -- once a drafted fuzz_test_file is reviewed and merged, it
-becomes a permanent entry in `src/test/fuzz/FUZZ_TARGETS.txt` and runs
-daily via libFuzzer from then on with zero further AI involvement. Gap
+becomes a permanent file under `src/test/fuzz/fuzz_code/` and runs daily via
+libFuzzer from then on with zero further AI involvement. Gap
 analysis costs nothing, but drafting spends real GCP Vertex AI dollars
 per candidate, so both stay occasional/manual rather than recurring --
 same reasoning as `../fuzz4all/fuzz_script_generate_pool.py`.
@@ -33,7 +33,7 @@ same reasoning as `../fuzz4all/fuzz_script_generate_pool.py`.
 
 `fuzz_code_generate_candidates.py` in this directory turns each `fuzz_gaps.json`
 candidate (function name + source file) from the introspector step into a
-YAML file under `candidate_pool/` -- one file per candidate, each with its
+YAML file under `src/test/fuzz/fuzz_candidates/` -- one file per candidate, each with its
 own `target_name`/`target_path` (a distinct not-yet-created fuzz_test_file
 OSS-Fuzz-Gen is asked to write, not a fixed placeholder). OSS-Fuzz-Gen's
 own CLI calls this YAML format a "benchmark" (`-y <benchmark.yaml>`,
@@ -96,9 +96,8 @@ That saved file is `fuzz_code_land_approved.py`'s only input:
 ./fuzz_code_land_approved.py <path-to-the-saved-review_code.html>
 ```
 
-It writes each approved candidate's `.cpp` under `src/test/fuzz/`, adds
-its `add_executable(...)` block to `src/test/CMakeLists.txt`, and adds
-its name to `src/test/fuzz/FUZZ_TARGETS.txt` -- the same three edits this
-directory's own docs used to describe as a manual step, now mechanical.
-It runs no git commands at all; staging and committing the result stays
-a manual step you do yourself afterward.
+It writes each approved candidate's `.cpp` under `src/test/fuzz/fuzz_code/` --
+`src/test/CMakeLists.txt` globs every `fuzz/fuzz_code/*_fuzz.cpp` file into its own
+executable, so that's the only file this needs to touch. It runs no git
+commands at all; staging and committing the result stays a manual step
+you do yourself afterward.

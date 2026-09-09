@@ -2,7 +2,7 @@
 
 Generation-based fuzzing of Tapyrus's Script interpreter: instead of
 mutating raw bytes fed to one function (what `../oss-fuzz/project/` and
-`src/test/fuzz/pstt_parse_fuzz.cpp` do), Claude generates whole
+`src/test/fuzz/fuzz_code/pstt_parse_fuzz.cpp` do), Claude generates whole
 syntactically-plausible Script *programs* (opcode sequences), which get
 assembled and run through the real interpreter looking for crashes.
 
@@ -17,14 +17,14 @@ apply the patches below (automatic, see `fuzz_script_apply_patches.py`), generat
 batch of candidates, review, commit. Generation is a judgment call
 about spend and timing, made by whoever runs this, not a recurring
 pipeline concern. `daily-test.yml`'s `fuzz-script-sweep` job replays the
-already-committed `generated_pool/tapyrus_script/` against
+already-committed `src/test/fuzz/fuzz_scripts/` against
 `tapyrus-verify --fuzz` on its own daily schedule -- Claude and Fuzz4All
 are only ever involved when a human runs this script.
 
 ## Human review, not auto-commit
 
 Every candidate this script generates lands straight in its final home,
-`generated_pool/tapyrus_script/` -- there's no separate drafts location
+`src/test/fuzz/fuzz_scripts/` -- there's no separate drafts location
 to wire up the way `../oss-fuzz/drafting/` has. So the review here is a
 *prune*, not a landing step: the script's last action is building
 `review_scripts_<run-prefix>.html` (via `fuzz_script_build_review_page.py`)
@@ -37,7 +37,7 @@ state in the saved markup), then run
 ./fuzz_script_land_approved.py <path-to-the-saved-review_scripts.html>
 ```
 
-which deletes every unchecked candidate from `generated_pool/tapyrus_script/`
+which deletes every unchecked candidate from `src/test/fuzz/fuzz_scripts/`
 and leaves the checked ones in place. No git commands -- `git add` and
 commit what survives yourself, same working agreement as everything else
 generated in this repo.

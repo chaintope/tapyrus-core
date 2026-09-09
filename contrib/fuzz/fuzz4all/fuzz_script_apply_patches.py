@@ -4,17 +4,16 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Applies the two small, mechanical source patches a fresh Fuzz4All
 checkout needs to use claude_model.py's ClaudeModel backend and the
-TAPYRUSSCRIPT target -- replacing the old "patch it by hand, press enter
-when done" manual step in fuzz_script_generate_pool.py.
+TAPYRUSSCRIPT target, so fuzz_script_generate_pool.py doesn't need a
+manual patch-and-confirm step.
 
 Confirmed against Fuzz4All's actual current source
-(github.com/fuzz4all/fuzz4all, main branch, cloned and read directly this
-session -- not guessed from the README or from memory). Every patch below
-is an exact-string match against that confirmed source: if the match
-fails, this exits with a clear error rather than silently skipping the
-patch or guessing at a fuzzy replacement -- that means upstream has
-changed since this was written, and this script needs a matching update,
-not a workaround.
+(github.com/fuzz4all/fuzz4all, main branch, read directly -- not guessed
+from the README or from memory). Every patch below is an exact-string
+match against that confirmed source: if the match fails, this exits with
+a clear error rather than silently skipping the patch or guessing at a
+fuzzy replacement -- that means upstream has changed since this was
+written, and this script needs a matching update, not a workaround.
 
 Usage: fuzz_script_apply_patches.py <fuzz4all-checkout-dir>
 """

@@ -17,7 +17,7 @@ EXIT_CODE=0
 OUTPUT=$(git ls-files --full-name -- "*.[cC][pP][pP]" "*.[hH]" "*.[pP][yY]" "*.[sS][hH]" | \
     grep -vE '^[a-z0-9_./-]+$' | \
     grep -vE '^src/(secp256k1|univalue)/' | \
-    grep -vE '^src/test/fuzz/FuzzedDataProvider\.h$' | \
+    grep -vE '^src/test/fuzz/fuzz_code/FuzzedDataProvider\.h$' | \
     grep -vE '^contrib/fuzz/fuzz4all/TAPYRUSSCRIPT\.py$')
 
 if [[ ${OUTPUT} != "" ]]; then

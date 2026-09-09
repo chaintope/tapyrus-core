@@ -3,7 +3,7 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Generates a batch of candidate Tapyrus Script programs via Fuzz4All +
-Claude and drops them into generated_pool/tapyrus_script/, ready for
+Claude and drops them into src/test/fuzz/fuzz_scripts/, ready for
 review and commit. Additive: each run adds to whatever's already there
 (unique-prefixed filenames avoid collisions across runs) rather than
 replacing the pool -- the intent is gradual growth over many runs, not a
@@ -78,6 +78,12 @@ class ScriptPoolGenerator:
         previous = self.last_model_file.read_text().strip() if self.last_model_file.exists() else ""
         return "claude-sonnet-5" if previous == "claude-haiku-4-5" else "claude-haiku-4-5"
 
+    @staticmethod
+    def _short_model_tag(model: str) -> str:
+        # Compact form for filename prefixes -- e.g. "claude-sonnet-5" ->
+        # "sonnet5", "claude-haiku-4-5" -> "haiku45".
+        return model.removeprefix("claude-").replace("-", "")
+
     async def _build_verify_binary(self) -> Path:
         build_dir = self.work_dir / "build"
         await Command(
@@ -90,7 +96,7 @@ class ScriptPoolGenerator:
             "cmake", "--build", build_dir, "--target", "tapyrus-verify",
             "-j", str(os.cpu_count() or 1),
         ).run()
-        return build_dir / "src" / "tapyrus-verify"
+        return build_dir / "bin" / "tapyrus-verify"
 
     async def _prepare_fuzz4all(self, model: str) -> Path:
         fuzz4all_dir = self.work_dir / "fuzz4all"
@@ -173,8 +179,8 @@ class ScriptPoolGenerator:
             print("stops the run; treat as a real failure only if it happened immediately")
             print("(before any candidates were generated) or the traceback says otherwise.")
 
-        run_prefix = f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}_{model}"
-        out_dir = SCRIPT_DIR / "generated_pool" / "tapyrus_script"
+        run_prefix = f"{datetime.now(timezone.utc).strftime('%Y%m%d')}_{self._short_model_tag(model)}"
+        out_dir = REPO_ROOT / "src" / "test" / "fuzz" / "fuzz_scripts"
         out_dir.mkdir(parents=True, exist_ok=True)
         count = 0
         outputs_dir = fuzz4all_dir / "outputs"
@@ -203,7 +209,7 @@ class ScriptPoolGenerator:
         print(f"Open {review_path} in a browser, check \"keep\" for the candidates")
         print("worth keeping, then File > Save Page As (Webpage, HTML Only) back to")
         print("an .html file. Then prune the rest -- deletes every unchecked candidate")
-        print("from generated_pool/tapyrus_script/, no git commands -- with:")
+        print("from src/test/fuzz/fuzz_scripts/, no git commands -- with:")
         print(f"  {SCRIPT_DIR}/fuzz_script_land_approved.py <path-to-the-saved-review_scripts.html>")
         return 0
 

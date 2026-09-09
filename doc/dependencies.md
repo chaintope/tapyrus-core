@@ -64,7 +64,7 @@ Unlike the table above (external packages `depends` downloads and builds), these
 
 | File | License | Source |
 | --- | --- | --- |
-| `src/test/fuzz/FuzzedDataProvider.h` | Apache-2.0 WITH LLVM-exception | Part of the [LLVM Project](https://llvm.org/LICENSE.txt); see the file's own header for the SPDX identifier. |
+| `src/test/fuzz/fuzz_code/FuzzedDataProvider.h` | Apache-2.0 WITH LLVM-exception | Part of the [LLVM Project](https://llvm.org/LICENSE.txt); see the file's own header for the SPDX identifier. |
 | `src/tinyformat.h` | Boost Software License 1.0 | Chris Foster; see the file's own header for the full license text. |
 
 Both are excluded from `test/lint/lint-filenames.sh`'s and `test/lint/lint-include-guards.sh`'s naming/include-guard checks, since neither is ours to rename or restructure.

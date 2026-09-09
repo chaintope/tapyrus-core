@@ -26,6 +26,7 @@ claude_model.py imports remaining_budget()/record_spend() directly.
 fuzz_code_generate_and_draft.py shells out to this file's CLI
 (`remaining` / `record`).
 """
+import fcntl
 import os
 import sys
 from datetime import datetime, timezone
@@ -39,6 +40,10 @@ def _state_file() -> Path:
     if override:
         return Path(override)
     return Path(__file__).parent / "fuzz_spend_ledger.state"
+
+
+def _lock_file() -> Path:
+    return Path(f"{_state_file()}.lock")
 
 
 def _current_month() -> str:
@@ -78,9 +83,20 @@ def remaining_budget() -> float:
 
 def record_spend(amount_usd: float) -> None:
     """Adds amount_usd to this month's running total (creating/resetting
-    the ledger first if the calendar month has rolled over)."""
-    month, spent = _read_state()
-    _write_state(month, spent + amount_usd)
+    the ledger first if the calendar month has rolled over). Holds an
+    exclusive lock across the read-modify-write so two concurrent
+    invocations (e.g. an overlapping Script-pool run and a code-drafting
+    run) can't both read the same spent_usd and have one's update
+    silently clobber the other's."""
+    lock_path = _lock_file()
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(lock_path, "w") as lock_fd:
+        fcntl.flock(lock_fd, fcntl.LOCK_EX)
+        try:
+            month, spent = _read_state()
+            _write_state(month, spent + amount_usd)
+        finally:
+            fcntl.flock(lock_fd, fcntl.LOCK_UN)
 
 
 def main() -> int:

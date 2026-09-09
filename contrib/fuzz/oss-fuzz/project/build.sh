@@ -4,15 +4,14 @@ export LC_ALL=C
 # directory for what this is (and isn't) used for. Unlike Bitcoin Core's
 # build.sh, this uses tapyrus-core's native CMake + -DSANITIZERS build path
 # directly -- no depends/ toolchain, no per-binary target-name injection
-# trick. Each entry in FUZZ_TARGETS is both the CMake target name and the
-# output binary name OSS-Fuzz expects under $OUT.
-
-# Read from the same file .github/workflows/daily-test.yml's fuzz-code-only
-# job reads -- one canonical list of fuzz_test_file target names, so a new
-# fuzz_test_file only needs to be added there once. See
-# src/test/fuzz/FUZZ_TARGETS.txt for what else landing one needs (a CMake
-# target block, not just this list).
-mapfile -t FUZZ_TARGETS < <(grep -v '^#' src/test/fuzz/FUZZ_TARGETS.txt | grep -v '^[[:space:]]*$')
+# trick.
+#
+# src/test/CMakeLists.txt globs every src/test/fuzz/fuzz_code/*_fuzz.cpp file into
+# its own executable (target name = filename with the _fuzz.cpp suffix
+# stripped and fuzz_ prepended, e.g. pstt_parse_fuzz.cpp -> fuzz_pstt_parse)
+# and wires the phony fuzz_all target to depend on all of them -- landing
+# a new fuzz_test_file means only adding its source file, nothing to
+# register here or in .github/workflows/daily-test.yml.
 
 # $CC/$CXX/$CFLAGS/$CXXFLAGS/$LIB_FUZZING_ENGINE are set by the OSS-Fuzz
 # base image per the requested sanitizer/engine combination.
@@ -26,9 +25,11 @@ cmake -S . -B build_oss_fuzz \
   -DENABLE_WALLET=OFF -DENABLE_TESTS=ON -DENABLE_BENCH=OFF \
   -DCMAKE_BUILD_TYPE=RelWithDebInfo
 
-for target in "${FUZZ_TARGETS[@]}"; do
-  cmake --build build_oss_fuzz --target "${target}" -j "$(nproc)"
-  cp "build_oss_fuzz/bin/${target}" "$OUT/${target}"
+cmake --build build_oss_fuzz --target fuzz_all -j "$(nproc)"
+
+for target_path in build_oss_fuzz/bin/fuzz_*; do
+  target=$(basename "${target_path}")
+  cp "${target_path}" "$OUT/${target}"
 
   corpus_dir="qa-assets/fuzz_corpora/${target}"
   if [ -d "$corpus_dir" ]; then

@@ -20,18 +20,17 @@ ESTIMATE (see EST_COST_PER_CANDIDATE_USD below), not a measurement.
 one; the estimated remaining budget is whichever is smaller.
 
 The budget is checked once up front and spent once after the whole
-batch, exactly like the bash version this replaced -- candidates draft
-concurrently (--concurrency, default 3, since each is an independent
-OSS-Fuzz-Gen subprocess and drafting one can take several minutes of
-fix-iteration rounds), but that single check-then-spend bracket is what
-keeps the concurrency from needing its own locking around the shared
-ledger: nothing reads or writes fuzz_spend_ledger.py's state file while
-candidates are drafting, only before and after.
+batch -- candidates draft concurrently (--concurrency, default 3, since
+each is an independent OSS-Fuzz-Gen subprocess and drafting one can take
+several minutes of fix-iteration rounds), but that single
+check-then-spend bracket is what keeps the concurrency from needing its
+own locking around the shared ledger: nothing reads or writes
+fuzz_spend_ledger.py's state file while candidates are drafting, only
+before and after.
 
-A failure in one candidate's draft no longer aborts the whole run (it
-did under the old bash `set -eu` loop) -- it's reported and the other
-candidates in this run's batch still complete, since they're already
-running concurrently and unrelated to each other.
+A failure in one candidate's draft doesn't abort the whole run -- it's
+reported and the other candidates in this run's batch still complete,
+since they're already running concurrently and unrelated to each other.
 
 PREREQUISITE for drafting (not for gap analysis): GCP Vertex AI access.
 Authenticate however your gcloud/ADC setup normally works before running
@@ -52,8 +51,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-POOL_DIR = SCRIPT_DIR / "candidate_pool"
 FUZZ_DIR = SCRIPT_DIR.parent.parent  # contrib/fuzz/ -- two levels up from oss-fuzz/drafting/
+REPO_ROOT = FUZZ_DIR.parent.parent  # repo root -- two levels up from contrib/fuzz/
+POOL_DIR = REPO_ROOT / "src" / "test" / "fuzz" / "fuzz_candidates"
 LEDGER_DIR = FUZZ_DIR
 INTROSPECTOR_DIR = FUZZ_DIR / "fuzz-introspector"
 
@@ -168,9 +168,8 @@ class DraftPipeline:
         print(f"Open {draft_out_dir}/review_code.html in a browser, check the candidates")
         print("worth keeping (edit their target name if you want a different one),")
         print("then File > Save Page As (Webpage, HTML Only) back to an .html file.")
-        print("Then land the approved ones -- writes each .cpp under src/test/fuzz/,")
-        print("its add_executable(...) block in src/test/CMakeLists.txt, and its name")
-        print("in src/test/fuzz/FUZZ_TARGETS.txt, no git commands -- with:")
+        print("Then land the approved ones -- writes each .cpp under src/test/fuzz/fuzz_code/,")
+        print("no git commands -- with:")
         print(f"  {SCRIPT_DIR}/fuzz_code_land_approved.py <path-to-the-saved-review_code.html>")
         return 0
 

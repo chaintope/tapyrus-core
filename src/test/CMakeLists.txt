@@ -130,7 +130,6 @@ add_executable(test_tapyrus
         skiplist_tests.cpp
         streams_tests.cpp
         test_tapyrus.cpp
-        test_tapyrus_fuzzy.cpp
         test_tapyrus_main.cpp
         test_keys_helper.cpp
         torcontrol_tests.cpp
@@ -215,8 +214,17 @@ if(BUILD_FUZZ_TEST)
 # CI (daily-test.yml's fuzz-code-only job runs on ubuntu-latest) so that
 # doesn't matter here.
 function(add_pstt_fuzz_target name source)
-    add_executable(${name} EXCLUDE_FROM_ALL
-        fuzz/${source}
+    # Deliberately NOT EXCLUDE_FROM_ALL: BUILD_FUZZ_TEST already gates
+    # whether this function's callers even run (see the if(BUILD_FUZZ_TEST)
+    # above), so once it's ON, a plain default build should actually
+    # compile-check these harnesses -- otherwise daily-test.yml's native
+    # matrix job turning BUILD_FUZZ_TEST=ON to compile-check
+    # tapyrus-verify's --fuzz mode on every PR would silently skip
+    # compile-checking these harnesses the exact same way, and a
+    # signature drift here would go unnoticed until the next scheduled
+    # fuzz-code-only run instead of failing the PR.
+    add_executable(${name}
+        fuzz/fuzz_code/${source}
     )
     target_include_directories(${name}
         PRIVATE
@@ -254,44 +262,31 @@ function(add_pstt_fuzz_target name source)
     )
 endfunction()
 
-# Standalone fuzz target for ParsePsttInputEntries -- deliberately its own
-# executable, not a source file of test_tapyrus above: a libFuzzer/AFL
-# fuzz_test_file supplies its own weak main()/LLVMFuzzerTestOneInput, which
-# would silently be shadowed by test_tapyrus_main.cpp's real main() if
-# linked into that same binary (see test_tapyrus_fuzzy.cpp, currently
-# mixed into test_tapyrus's sources list above and never actually
-# exercised as a fuzz binary as a result -- a pre-existing issue, not
-# fixed here).
-add_pstt_fuzz_target(fuzz_pstt_parse pstt_parse_fuzz.cpp)
-
-# Standalone fuzz target for DecodePSTT (src/core_read.cpp) -- the
-# wire-format/base64 PSTT parser, as opposed to fuzz_pstt_parse's JSON
-# "inputs" argument.
-add_pstt_fuzz_target(fuzz_pstt_decode pstt_decode_fuzz.cpp)
-
-# Standalone fuzz target for PartiallySignedTapyrusTransaction::Merge
-# (src/pstt.cpp) -- combinepstt's core.
-add_pstt_fuzz_target(fuzz_pstt_merge pstt_merge_fuzz.cpp)
-
-# Standalone fuzz target for ExtractPSTT (src/pstt.cpp) -- the Extractor
-# role's core, reachable from finalizepstt.
-add_pstt_fuzz_target(fuzz_pstt_extract pstt_extract_fuzz.cpp)
-
-# Standalone fuzz target for SignPSTTInput (src/pstt.cpp) -- the Signer
-# role's core, run against the keyless DUMMY_SIGNING_PROVIDER (the same
-# dry-run pattern finalizepstt/decodepstt's "next" use for role-
-# completeness checks -- see pstt_signer_fuzz.cpp's header comment).
-add_pstt_fuzz_target(fuzz_pstt_signer pstt_signer_fuzz.cpp)
-
-# Standalone fuzz target for the real decodepstt RPC handler
-# (src/rpc/rawtransaction.cpp) -- reaches EstimatePsttFee/
-# EstimateInputScriptSig (both `static`, not independently linkable),
-# unlike pstt_decode_fuzz.cpp's direct DecodePSTT-only call.
-add_pstt_fuzz_target(fuzz_pstt_decodepstt_rpc pstt_decodepstt_rpc_fuzz.cpp)
-
-# Standalone fuzz target for ComputeLocktime and
-# PartiallySignedTapyrusTransaction::GetIdentifier (src/pstt.cpp).
-add_pstt_fuzz_target(fuzz_pstt_locktime pstt_locktime_fuzz.cpp)
+# One standalone executable per fuzz/fuzz_code/*_fuzz.cpp file --
+# deliberately its own executable, not a source file of test_tapyrus
+# above: a libFuzzer/AFL fuzz_test_file supplies its own weak
+# main()/LLVMFuzzerTestOneInput, which would silently be shadowed by
+# test_tapyrus_main.cpp's real main() if linked into that same binary.
+#
+# Target name is derived from the filename: fuzz/fuzz_code/pstt_parse_fuzz.cpp
+# becomes fuzz_pstt_parse. Landing a new harness (e.g. one OSS-Fuzz-Gen
+# drafted and a human reviewed, see contrib/fuzz/oss-fuzz/drafting/README.md)
+# means only adding its source file under fuzz/fuzz_code/ -- nothing to
+# register here, in daily-test.yml, or in contrib/fuzz/oss-fuzz/project/build.sh.
+# Each file documents its own purpose in its own header comment (see e.g.
+# pstt_signer_fuzz.cpp).
+#
+# fuzz_all is a phony aggregate CI builds instead of naming each target
+# individually; the built binaries under bin/fuzz_* are themselves the
+# list of what to run.
+add_custom_target(fuzz_all)
+file(GLOB pstt_fuzz_sources CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/fuzz/fuzz_code/*_fuzz.cpp)
+foreach(pstt_fuzz_source_path ${pstt_fuzz_sources})
+    get_filename_component(pstt_fuzz_source_name ${pstt_fuzz_source_path} NAME)
+    string(REGEX REPLACE "_fuzz\\.cpp$" "" pstt_fuzz_stem ${pstt_fuzz_source_name})
+    add_pstt_fuzz_target(fuzz_${pstt_fuzz_stem} ${pstt_fuzz_source_name})
+    add_dependencies(fuzz_all fuzz_${pstt_fuzz_stem})
+endforeach()
 
 endif(BUILD_FUZZ_TEST)
 

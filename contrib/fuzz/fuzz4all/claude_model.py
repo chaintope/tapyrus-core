@@ -31,6 +31,7 @@ the target config to avoid hitting that path; this adapter only replaces
 the per-iteration *generation* call, not the one-time autoprompting step.
 """
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import List
 
@@ -112,14 +113,18 @@ class ClaudeModel:
             )
         # The Messages API has no "num completions" parameter the way
         # StarCoder's num_return_sequences does -- batch_size independent
-        # requests, issued sequentially. Parallelizing this loop is a
-        # reasonable follow-up if generation throughput becomes the
-        # bottleneck (it currently will not be latency-competitive with a
-        # local batched HuggingFace generate() call).
-        outputs = []
-        for _ in range(batch_size):
-            if fuzz_spend_ledger.remaining_budget() <= 0:
-                break
+        # requests. Issued concurrently via a thread pool (each call is a
+        # blocking network round-trip with no dependency on any other
+        # call's result, so threads genuinely overlap here despite the
+        # GIL -- it releases during socket I/O). Budget is checked once
+        # up front rather than between calls, same tradeoff
+        # fuzz_code_generate_and_draft.py's own concurrent drafting loop
+        # makes (see that module's docstring): worst case this batch
+        # slightly overspends before the next generate() call sees the
+        # cap has been hit, rather than needing to cancel in-flight
+        # requests mid-batch. record_spend() itself is still safe to call
+        # concurrently (see fuzz_spend_ledger.py's own locking).
+        def call_one() -> str:
             response = self.client.messages.create(
                 model=self.model_name,
                 max_tokens=min(self.max_length, max_length),
@@ -138,5 +143,14 @@ class ClaudeModel:
             for stop_string in self.eos:
                 if stop_string and stop_string in text:
                     text = text[: text.index(stop_string)]
-            outputs.append(text)
+            return text
+
+        outputs = []
+        with ThreadPoolExecutor(max_workers=batch_size) as executor:
+            futures = [executor.submit(call_one) for _ in range(batch_size)]
+            # future.result() re-raises any exception from call_one(),
+            # so a failed call aborts generate() rather than being
+            # silently dropped.
+            for future in as_completed(futures):
+                outputs.append(future.result())
         return outputs

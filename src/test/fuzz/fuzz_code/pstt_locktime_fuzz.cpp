@@ -29,22 +29,12 @@
 #include <pstt.h>
 
 #include <cstdint>
+#include <cstdlib>
 #include <memory>
 #include <stdexcept>
 #include <string>
 #include <unistd.h>
 #include <vector>
-
-static bool read_stdin(std::vector<uint8_t>& data)
-{
-    uint8_t buffer[1024];
-    ssize_t length = 0;
-    while ((length = read(STDIN_FILENO, buffer, 1024)) > 0) {
-        data.insert(data.end(), buffer, buffer + length);
-        if (data.size() > (1 << 20)) return false;
-    }
-    return length == 0;
-}
 
 static int test_one_input(const uint8_t* data, size_t size)
 {
@@ -55,65 +45,28 @@ static int test_one_input(const uint8_t* data, size_t size)
     if (!DecodePSTT(pstt, base64_pstt, error)) return 0;
 
     uint32_t locktime_out = 0;
-    ComputeLocktime(pstt, locktime_out);
+    const bool computed = ComputeLocktime(pstt, locktime_out);
 
+    bool threw = false;
     try {
         pstt.GetIdentifier();
     } catch (const std::exception&) {
         // Documented to throw std::runtime_error when ComputeLocktime
         // finds no valid locktime (see src/pstt.cpp) -- not a bug.
+        threw = true;
+    }
+
+    // GetIdentifier() throws iff its own internal ComputeLocktime call
+    // returns false (src/pstt.cpp's `if (!ComputeLocktime(...)) throw`).
+    // If this standalone call's result ever disagrees with whether
+    // GetIdentifier() actually threw, that's a real ComputeLocktime
+    // regression this fuzz target exists to catch -- not assert(), since
+    // this project's default RelWithDebInfo build defines NDEBUG, which
+    // would silently compile a plain assert() away.
+    if (computed == threw) {
+        abort();
     }
     return 0;
 }
 
-static std::unique_ptr<ECCVerifyHandle> globalVerifyHandle;
-void initialize()
-{
-    globalVerifyHandle = std::make_unique<ECCVerifyHandle>();
-}
-
-// This function is used by libFuzzer.
-extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
-{
-    test_one_input(data, size);
-    return 0;
-}
-
-// This function is used by libFuzzer.
-extern "C" int LLVMFuzzerInitialize(int* argc, char*** argv)
-{
-    initialize();
-    return 0;
-}
-
-// Disabled under WIN32 due to clash with Cygwin's WinMain.
-#ifndef WIN32
-// Declare main(...) "weak" to allow for libFuzzer linking. libFuzzer provides
-// the main(...) function.
-__attribute__((weak))
-#endif
-int main(int argc, char** argv)
-{
-    initialize();
-#ifdef __AFL_INIT
-    // Enable AFL deferred forkserver mode. Requires compilation using
-    // afl-clang-fast++. See doc/fuzzing.md for details.
-    __AFL_INIT();
-#endif
-
-#ifdef __AFL_LOOP
-    // Enable AFL persistent mode. Requires compilation using afl-clang-fast++.
-    // See doc/fuzzing.md for details.
-    int ret = 0;
-    while (__AFL_LOOP(1000)) {
-        std::vector<uint8_t> buffer;
-        if (!read_stdin(buffer)) continue;
-        ret = test_one_input(buffer.data(), buffer.size());
-    }
-    return ret;
-#else
-    std::vector<uint8_t> buffer;
-    if (!read_stdin(buffer)) return 0;
-    return test_one_input(buffer.data(), buffer.size());
-#endif
-}
+#include <test/fuzz/fuzz_code/pstt_fuzz_driver.h>
