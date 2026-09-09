@@ -36,12 +36,16 @@ See [dependencies.md](dependencies.md) for a complete overview.
 Berkeley DB
 -----------
 It is recommended to use Berkeley DB 4.8 or 5.3 -- both share the same
-on-disk wallet format (`DB_BTREEVERSION` 9), so a wallet built against
-one opens fine with the other. Homebrew has removed the `berkeley-db@4`
-formula from homebrew-core; `brew install berkeley-db@5` is the
-validated baseline for a Homebrew-based build (`berkeley-db@4` still
-works if you have it installed some other way). If you have to build
-4.8 yourself, you can use [the installation script included in contrib/](/contrib/install_db4.sh)
+`wallet.dat` file format (`DB_BTREEVERSION` 9), but not the BDB
+environment: once a wallet directory has been opened by 5.3, its
+transaction log is a version 4.8 cannot read, and it will not reopen
+under a 4.8-linked build (remove the wallet's `database/` subdirectory,
+or run the old binary with `-salvagewallet`, to go back). Homebrew has
+removed the `berkeley-db@4` formula from homebrew-core; `brew install
+berkeley-db@5` is the validated baseline for a Homebrew-based build
+(`berkeley-db@4` still works if you have it installed some other way).
+If you have to build 4.8 yourself, you can use
+[the installation script included in contrib/](/contrib/install_db4.sh)
 like so
 
 ```shell
