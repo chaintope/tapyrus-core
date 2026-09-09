@@ -546,7 +546,9 @@ jobs:
                 ver="$raw_ver"
                 ;;
             esac
-            [ -n "$ver" ] && echo "$pkg-$ver"
+            # Only expect packages this job's config actually builds --
+            # depends/built/$HOST/$pkg/ existing means it was a candidate.
+            [ -n "$ver" ] && [ -d "depends/built/$HOST/$pkg" ] && echo "$pkg-$ver"
           done | sort > "$EXPECTED_FILE"
           cat "$EXPECTED_FILE"
           echo

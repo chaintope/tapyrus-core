@@ -102,6 +102,13 @@ jobs:
           key: depends-v6-qt6-linux-x86_64-${{ hashFiles('depends/packages/*', 'depends/hosts/*.mk', 'depends/builders/*.mk', 'depends/funcs.mk', 'depends/toolchain.cmake.in', 'depends/patches/**') }}
           restore-keys: depends-v6-qt6-linux-x86_64-
 
+      # Reset tracked depends/ files and remove stale untracked leftovers
+      # from a cache restore, before make runs.
+      - name: Reset depends/ tracked files after cache restore
+        run: |
+          git checkout -- depends/
+          git clean -fdx -- depends/patches/ depends/packages/ depends/hosts/ depends/builders/
+
       - name: Setup Linux dependencies
         run: |
           sudo apt-get update
@@ -122,14 +129,10 @@ jobs:
           export HOST="x86_64-pc-linux-gnu"
           DEPENDS_PREFIX="$DEPENDS_DIR/$HOST"
 
-          if [ -d "$DEPENDS_PREFIX" ] && [ -f "$DEPENDS_PREFIX/lib/libevent.a" ] && \
-             [ -f "$DEPENDS_PREFIX/lib/cmake/Qt6/Qt6Config.cmake" ] && \
-             [ -f "$DEPENDS_PREFIX/lib/libdb_cxx-4.8.a" ]; then
-            echo "Depends cache hit — skipping rebuild"
-          else
-            echo "Building depends for $HOST"
-            make -C depends HOST=$HOST -j$(nproc) install_cmake
-          fi
+          # Always run make; depends' build-id hashes make an
+          # up-to-date tree a fast no-op.
+          echo "Building depends for $HOST"
+          make -C depends HOST=$HOST -j$(nproc) install_cmake
 
           echo "DEPENDS_PREFIX=$DEPENDS_PREFIX" >> $GITHUB_ENV
 
