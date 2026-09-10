@@ -29,6 +29,7 @@ struct ValidationInterfaceConnections {
     boost::signals2::scoped_connection Broadcast;
     boost::signals2::scoped_connection BlockChecked;
     boost::signals2::scoped_connection NewPoWValidBlock;
+    boost::signals2::scoped_connection PackageTransactionsRelay;
 };
 
 struct MainSignalsInstance {
@@ -41,6 +42,7 @@ struct MainSignalsInstance {
     boost::signals2::signal<void (int64_t nBestBlockTime, CConnman* connman)> Broadcast;
     boost::signals2::signal<void (const CBlock&, const CValidationState&)> BlockChecked;
     boost::signals2::signal<void (const CBlockIndex *, const std::shared_ptr<const CBlock>&)> NewValidBlock;
+    boost::signals2::signal<void (const std::vector<CTransactionRef>&)> PackageTransactionsRelay;
 
     // We are not allowed to assume the scheduler only runs in one thread,
     // but must ensure all callbacks happen in-order, so we end up creating
@@ -101,6 +103,7 @@ void RegisterValidationInterface(CValidationInterface* pwalletIn) {
     conns.Broadcast = g_signals.m_internals->Broadcast.connect(std::bind(&CValidationInterface::ResendWalletTransactions, pwalletIn, std::placeholders::_1, std::placeholders::_2));
     conns.BlockChecked = g_signals.m_internals->BlockChecked.connect(std::bind(&CValidationInterface::BlockChecked, pwalletIn, std::placeholders::_1, std::placeholders::_2));
     conns.NewPoWValidBlock = g_signals.m_internals->NewValidBlock.connect(std::bind(&CValidationInterface::NewValidBlock, pwalletIn, std::placeholders::_1, std::placeholders::_2));
+    conns.PackageTransactionsRelay = g_signals.m_internals->PackageTransactionsRelay.connect(std::bind(&CValidationInterface::PackageTransactionsRelay, pwalletIn, std::placeholders::_1));
 }
 
 void UnregisterValidationInterface(CValidationInterface* pwalletIn) {
@@ -180,4 +183,8 @@ void CMainSignals::BlockChecked(const CBlock& block, const CValidationState& sta
 
 void CMainSignals::NewValidBlock(const CBlockIndex *pindex, const std::shared_ptr<const CBlock> &block) {
     m_internals->NewValidBlock(pindex, block);
+}
+
+void CMainSignals::PackageTransactionsRelay(const std::vector<CTransactionRef>& txns) {
+    m_internals->PackageTransactionsRelay(txns);
 }

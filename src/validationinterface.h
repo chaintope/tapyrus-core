@@ -146,6 +146,22 @@ protected:
      * Notifies listeners that a block which builds directly on our current tip
      * has been received and connected to the headers tree, though not validated yet */
     virtual void NewValidBlock(const CBlockIndex *pindex, const std::shared_ptr<const CBlock> &block) {};
+    /**
+     * Notifies listeners that every transaction in a package was successfully
+     * added to the mempool and the package as a whole should now be relayed.
+     *
+     * Deliberately separate from TransactionAddedToMempool(), which fires
+     * once per transaction as each is individually accepted -- including for
+     * transactions in a package still being validated, before the package's
+     * overall success/failure is known. Relaying from that per-tx signal
+     * would gossip the admitted prefix of a partially-failed package
+     * (a free relay amplification vector). This one only fires once, after
+     * the whole package is confirmed successful. See SubmitPackageToMempool()
+     * in policy/packages.cpp.
+     *
+     * Called on a background thread.
+     */
+    virtual void PackageTransactionsRelay(const std::vector<CTransactionRef>& txns) {}
     friend void ::RegisterValidationInterface(CValidationInterface*);
     friend void ::UnregisterValidationInterface(CValidationInterface*);
     friend void ::UnregisterAllValidationInterfaces();
@@ -186,6 +202,7 @@ public:
     void Broadcast(int64_t nBestBlockTime, CConnman* connman);
     void BlockChecked(const CBlock&, const CValidationState&);
     void NewValidBlock(const CBlockIndex *, const std::shared_ptr<const CBlock>&);
+    void PackageTransactionsRelay(const std::vector<CTransactionRef>& txns);
 };
 
 CMainSignals& GetMainSignals();
