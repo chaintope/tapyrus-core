@@ -20,6 +20,14 @@ target_link_libraries(tapyrus_crypto
     core_interface
 )
 
+# Checked via the HAVE_* capability-probe results directly (matches
+# upstream Bitcoin Core's src/crypto/CMakeLists.txt exactly). tapyrus used
+# to also alias these into ENABLE_* CMake variables purely to feed
+# tapyrus-config.h's ENABLE_ARM_SHANI/AVX2/SSE41/X86_SHANI entries -- upstream's
+# own config header never had those entries at all, and nothing in
+# src/crypto/ includes tapyrus-config.h, so that alias and the header
+# entries it fed were dead weight. Removed both; target_compile_definitions
+# below is the only thing that ever needed to exist.
 if(HAVE_SSE41)
   target_compile_definitions(tapyrus_crypto PRIVATE ENABLE_SSE41)
   target_sources(tapyrus_crypto PRIVATE sha256_sse41.cpp)

@@ -182,13 +182,13 @@ endif()
 
 cmake_dependent_option(ENABLE_EXTERNAL_SIGNER "Enable external signer support." ON "NOT WIN32" OFF)
 
-cmake_dependent_option(WITH_QRENCODE "Enable QR code support." ON "ENABLE_GUI" OFF)
+cmake_dependent_option(WITH_QRENCODE "Enable QR code support." ON "BUILD_GUI" OFF)
 if(WITH_QRENCODE)
   find_package(QRencode MODULE REQUIRED)
   set(USE_QRCODE TRUE)
 endif()
 
-cmake_dependent_option(WITH_DBUS "Enable DBus support." ON "CMAKE_SYSTEM_NAME STREQUAL \"Linux\" AND ENABLE_GUI" OFF)
+cmake_dependent_option(WITH_DBUS "Enable DBus support." ON "CMAKE_SYSTEM_NAME STREQUAL \"Linux\" AND BUILD_GUI" OFF)
 
 cmake_dependent_option(ENABLE_GUI_TESTS "Build test_tapyrus-qt executable." ON "BUILD_GUI;ENABLE_TESTS" OFF)
 if(BUILD_GUI)

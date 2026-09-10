@@ -13,6 +13,13 @@ else()
   find_package(BerkeleyDB 4.8...5.99 REQUIRED)
 endif()
 
+# rpcwallet.cpp, rpcdump.cpp, and walletinit_rpc.cpp are deliberately NOT
+# listed here -- they compile into tapyrus_rpc instead (rpcdump.cpp is pure
+# RPC-command-handler content that rpcwallet.cpp's own RPC table extern-
+# declares and registers; walletinit_rpc.cpp holds the one WalletInit method
+# that calls into RegisterWalletRPCCommands()), so that tapyrus_wallet never
+# needs to link tapyrus_rpc back. See the dependency graph at the top of the
+# top-level src/CMakeLists.txt.
 add_library(tapyrus_wallet STATIC
         coincontrol.cpp
         coinselection.cpp
@@ -23,20 +30,24 @@ add_library(tapyrus_wallet STATIC
         init.cpp
         ../interfaces/wallet.cpp
         pstt.cpp
-        rpcdump.cpp
-        rpcwallet.cpp
+        tokenissuance.cpp
         wallet.cpp
         walletdb.cpp
         walletutil.cpp
 )
 target_link_libraries(tapyrus_wallet
+  PUBLIC
+    tapyrus_chainstate
+    tapyrus_global
+    tapyrus_scripting
   PRIVATE
     core_interface
-    tapyrus_server
+    tapyrus_codec
+    tapyrus_peer
+    tapyrus_util
     univalue
     ${BerkeleyDB_LIBRARY}
     Boost::headers
-    $<TARGET_NAME_IF_EXISTS:USDT::headers>
 )
 message(STATUS "BerkeleyDB_INCLUDE_DIR: ${BerkeleyDB_INCLUDE_DIR}")
 target_include_directories(tapyrus_wallet PUBLIC ${BerkeleyDB_INCLUDE_DIR})

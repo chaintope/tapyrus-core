@@ -145,7 +145,7 @@ target_include_directories(tapyrusqt
     ${BerkeleyDB_INCLUDE_DIR}
 )
 if(ZMQ_INCLUDE_DIR)
-    target_include_directories(tapyrus_server
+    target_include_directories(tapyrusqt
         PRIVATE
             ${ZMQ_INCLUDE_DIR}
     )
@@ -179,6 +179,11 @@ set_property(SOURCE
   walletmodel.cpp
   walletview.cpp
   sendcoinsdialog.cpp
+  # These three are tapyrus-qt's own glue sources (see target_sources(tapyrus-qt ...)
+  # below) -- same ui_interface.h collision, just living in src/ instead of src/qt/.
+  ../init.cpp
+  ../timeoffsets.cpp
+  ../ui_interface.cpp
   PROPERTY SKIP_AUTOUIC ON
 )
 
@@ -277,10 +282,27 @@ if(WIN32)
 endif()
 add_windows_resources(tapyrus-qt "${TAPYRUS_QT_RC_FILE}")
 
+# Glue -- see the six-glue-files comment on tapyrusd's add_executable() in
+# the top-level src/CMakeLists.txt. noui.cpp is deliberately excluded: it
+# wires console message-box/notification handlers onto the global
+# uiInterface, which would fight with the Qt handlers tapyrusgui.cpp/
+# tapyrus.cpp register on that same interface.
+target_sources(tapyrus-qt PRIVATE
+  ../file_io.cpp
+  ../init.cpp
+  ../shutdown.cpp
+  ../timeoffsets.cpp
+  ../ui_interface.cpp
+)
+
 target_link_libraries(tapyrus-qt
   core_interface
   tapyrusqt
-  tapyrus_server
+  tapyrus_chainstate
+  tapyrus_peer
+  tapyrus_rpc
+  $<TARGET_NAME_IF_EXISTS:tapyrus_wallet>
+  $<TARGET_NAME_IF_EXISTS:tapyrus_zmq>
 )
 
 import_plugins(tapyrus-qt)

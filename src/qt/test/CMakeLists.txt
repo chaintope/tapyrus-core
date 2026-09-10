@@ -7,7 +7,6 @@ create_test_suite(tapyrus-qt)
 add_dependencies(check check-tapyrus-qt)
 
 add_test_to_suite(tapyrus-qt test-tapyrus-qt
-	addressbooktests.cpp
 	compattests.cpp
 	rpcnestedtests.cpp
 	test_main.cpp
@@ -16,13 +15,34 @@ add_test_to_suite(tapyrus-qt test-tapyrus-qt
 
 	# Test framework
 	../../test/test_tapyrus.cpp
+
+	# Glue -- see the six-glue-files comment on tapyrusd's add_executable()
+	# in the top-level src/CMakeLists.txt. Unlike test_tapyrus (which has
+	# its own test_tapyrus_main.cpp stubbing g_connman/StartShutdown/
+	# ShutdownRequested), this binary's test_main.cpp calls noui_connect()
+	# directly and defines none of these itself, so it needs the real
+	# files -- all six, including noui.cpp this time.
+	../../file_io.cpp
+	../../init.cpp
+	../../noui.cpp
+	../../shutdown.cpp
+	../../timeoffsets.cpp
+	../../ui_interface.cpp
 )
 
 # ../../test/test_tapyrus.cpp is a non-Qt shared fixture file.
 # Prevent AutoMOC from generating a stale moc_ file for it (it has no
 # Q_OBJECT and the header lives outside src/qt), and prevent AutoUIC from
 # mistaking the "ui_interface.h" include for a Qt Designer .ui file.
-set_source_files_properties(../../test/test_tapyrus.cpp PROPERTIES
+# init.cpp/timeoffsets.cpp/ui_interface.cpp hit the same ui_interface.h/
+# AutoUIC collision -- see the matching set_property() in src/qt/CMakeLists.txt.
+set_source_files_properties(
+	../../test/test_tapyrus.cpp
+	../../init.cpp
+	../../noui.cpp
+	../../timeoffsets.cpp
+	../../ui_interface.cpp
+	PROPERTIES
 	SKIP_AUTOMOC ON
 	SKIP_AUTOUIC ON
 )
@@ -41,14 +61,29 @@ target_include_directories(test-tapyrus-qt
 		${CMAKE_SOURCE_DIR}/src/secp256k1/include
 )
 
-target_link_libraries(test-tapyrus-qt tapyrusqt Qt6::Test)
+target_link_libraries(test-tapyrus-qt
+	tapyrusqt
+	tapyrus_chainstate
+	tapyrus_peer
+	tapyrus_rpc
+	$<TARGET_NAME_IF_EXISTS:tapyrus_zmq>
+	Qt6::Test
+)
 import_plugins(test-tapyrus-qt)
 
 # Wallet
 if(ENABLE_WALLET)
 	# Add wallet functionality to test_tapyrus_qt
+	#
+	# addressbooktests.cpp is here, not in the base add_test_to_suite() list
+	# above, even though it was there pre-split (confirmed identical on
+	# ct/master) -- it directly uses CWallet/WalletModel and would fail to
+	# link with -DENABLE_WALLET=OFF, same as wallettests.cpp already did.
+	# This was a real pre-existing gap, just never exercised until GUI +
+	# no-wallet were tried together.
 	target_sources(test-tapyrus-qt
 		PRIVATE
+			addressbooktests.cpp
 			wallettests.cpp
 			../../wallet/test/wallet_test_fixture.cpp
 	)
