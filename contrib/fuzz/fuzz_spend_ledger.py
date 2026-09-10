@@ -90,7 +90,7 @@ def record_spend(amount_usd: float) -> None:
     silently clobber the other's."""
     lock_path = _lock_file()
     lock_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(lock_path, "w") as lock_fd:
+    with open(lock_path, "w", encoding="utf-8") as lock_fd:
         fcntl.flock(lock_fd, fcntl.LOCK_EX)
         try:
             month, spent = _read_state()
