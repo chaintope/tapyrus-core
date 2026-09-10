@@ -8,6 +8,7 @@
 #include <amount.h>
 #include <chain.h>
 #include <chainparams.h>
+#include <dynamicparams.h>
 #include <init.h>
 #include <interfaces/handler.h>
 #include <interfaces/wallet.h>
@@ -168,7 +169,7 @@ class NodeImpl : public Node
         if (::chainActive.Tip()) {
             return ::chainActive.Tip()->GetBlockTime();
         }
-        return FederationParams().GenesisBlock().GetBlockTime(); // Genesis block's time of current network
+        return DynamicParams().GenesisBlock().GetBlockTime(); // Genesis block's time of current network
     }
     double getVerificationProgress() override
     {

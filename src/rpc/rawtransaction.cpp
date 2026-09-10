@@ -10,6 +10,7 @@
 #include <compat/byteswap.h>
 #include <consensus/validation.h>
 #include <core_io.h>
+#include <dynamicparams.h>
 #include <index/txindex.h>
 #include <keystore.h>
 #include <validation.h>
@@ -152,7 +153,7 @@ static UniValue getrawtransaction(const JSONRPCRequest& request)
     uint256 hash = ParseHashV(request.params[0], "parameter 1");
     CBlockIndex* blockindex = nullptr;
 
-    if (hash == FederationParams().GenesisBlock().hashMerkleRoot) {
+    if (hash == DynamicParams().GenesisBlock().hashMerkleRoot) {
         // Special exception for the genesis block coinbase transaction
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "The genesis block coinbase is not considered an ordinary transaction and cannot be retrieved");
     }

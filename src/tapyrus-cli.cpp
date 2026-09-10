@@ -131,7 +131,7 @@ static int AppInitRPC(int argc, char* argv[])
     // Check for -dev parameter (FederationParams() calls are only valid after this clause)
     try {
         SelectParams(gArgs.GetChainMode());
-        SelectFederationParams(gArgs.GetChainMode(), false);
+        SelectFederationParams(gArgs.GetChainMode());
     } catch (const std::exception& e) {
         fprintf(stderr, "Error: %s\n", e.what());
         return EXIT_FAILURE;

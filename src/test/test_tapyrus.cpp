@@ -9,6 +9,8 @@
 #include <consensus/merkle.h>
 #include <consensus/validation.h>
 #include <crypto/sha256.h>
+#include <dynamicparams.h>
+#include <genesisblock.h>
 #include <issuedcolorids.h>
 #include <validation.h>
 #include <miner.h>
@@ -77,8 +79,9 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
     SetDataDir("tempdir");
     writeTestGenesisBlockToFile(GetDataDir());
     SelectFederationParams(TAPYRUS_OP_MODE::PROD);
+    SelectDynamicParams(ReadGenesisBlock());
     noui_connect();
-    pxFieldHistory = new CXFieldHistoryWithReset(FederationParams().GenesisBlock());
+    pxFieldHistory = new CXFieldHistoryWithReset(DynamicParams().GenesisBlock());
     g_colorid_state.reset(new CIssuedColorIds());
 }
 

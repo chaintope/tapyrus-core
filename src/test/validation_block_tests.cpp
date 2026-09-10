@@ -8,6 +8,7 @@
 #include <chainparams.h>
 #include <consensus/merkle.h>
 #include <consensus/validation.h>
+#include <dynamicparams.h>
 #include <miner.h>
 #include <random.h>
 #include <test/test_tapyrus.h>
@@ -50,7 +51,7 @@ struct TestSubscriber : public CValidationInterface {
 std::shared_ptr<CBlock> Block(const uint256& prev_hash, int height)
 {
     static int i = 0;
-    static uint64_t time = FederationParams().GenesisBlock().nTime;
+    static uint64_t time = DynamicParams().GenesisBlock().nTime;
 
     CScript pubKey;
     pubKey << i++ << OP_TRUE;
@@ -131,7 +132,7 @@ BOOST_AUTO_TEST_CASE(processnewblock_signals_ordering)
     std::vector<std::shared_ptr<const CBlock>> blocks;
     while (blocks.size() < 50) {
         blocks.clear();
-        BuildChain(FederationParams().GenesisBlock().GetHash(), 1, 15, 10, 500, blocks);
+        BuildChain(DynamicParams().GenesisBlock().GetHash(), 1, 15, 10, 500, blocks);
     }
 
     bool ignored;
@@ -143,7 +144,7 @@ BOOST_AUTO_TEST_CASE(processnewblock_signals_ordering)
     BOOST_CHECK(ProcessNewBlockHeaders(headers, state));
 
     // Connect the genesis block and drain any outstanding events
-    ProcessNewBlock(std::make_shared<CBlock>(FederationParams().GenesisBlock()), true, &ignored);
+    ProcessNewBlock(std::make_shared<CBlock>(DynamicParams().GenesisBlock()), true, &ignored);
     SyncWithValidationInterfaceQueue();
 
     // subscribe to events (this subscriber will validate event ordering)

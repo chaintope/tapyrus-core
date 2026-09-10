@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <primitives/block.h>
+#include <genesisblock.h>
 #include <xfieldhistory.h>
 #include <test/test_tapyrus.h>
 #include <test/test_keys_helper.h>

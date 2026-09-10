@@ -7,6 +7,8 @@
 
 #include <policy/policy.h>
 #include <federationparams.h>
+#include <primitives/block.h>
+#include <primitives/xfield.h>
 #include <sync.h>
 #include <shared_mutex>
 /*
