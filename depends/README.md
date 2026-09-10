@@ -44,14 +44,16 @@ Install the required dependencies: Ubuntu & Debian
 
 #### Additional requirements for the Linux GUI (Qt) build
 
-    apt install gperf
+    apt install gperf bison
 
 `gperf` above is required by `fontconfig`'s build (Qt's static xcb platform
-plugin, Linux only). `libxkbcommon` (also Linux-only) needs Meson >= 1.4.0,
-newer than the `meson` apt package on Ubuntu 24.04 (1.3.2) — install a
-current one via pip instead: `pip install "meson==1.4.0"`. Neither is needed
-for a `NO_QT=1` build. See [dependencies.md](../doc/dependencies.md) for
-details.
+plugin, Linux only). `bison` is required by `libxkbcommon`'s Meson build
+(also Linux-only) -- without it, configuration fails with `Program 'bison
+win_bison' not found or not executable`. `libxkbcommon` also needs Meson >=
+1.4.0, newer than the `meson` apt package on Ubuntu 24.04 (1.3.2) — install a
+current one via pip instead: `pip install "meson==1.4.0"`. None of these are
+needed for a `NO_QT=1` build. See [dependencies.md](../doc/dependencies.md)
+for details.
 
 #### For macOS cross compilation
 

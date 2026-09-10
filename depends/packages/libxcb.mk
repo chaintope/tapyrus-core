@@ -4,7 +4,9 @@ $(package)_download_path=https://xcb.freedesktop.org/dist
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
 $(package)_sha256_hash=2c69287424c9e2128cb47ffe92171e10417041ec2963bceafb65cb3fcf8f0b85
 $(package)_dependencies=xcb_proto libXau
+ifeq ($($(package)_version),1.17.0)
 $(package)_patches = remove_pthread_stubs.patch
+endif
 
 define $(package)_set_vars
 $(package)_config_opts=--disable-shared --disable-devel-docs --without-doxygen
@@ -20,8 +22,8 @@ $(package)_config_opts += --disable-xtest --disable-xv --disable-xvmc --disable-
 endef
 
 define $(package)_preprocess_cmds
-  cp -f $(BASEDIR)/config.guess $(BASEDIR)/config.sub build-aux && \
-  patch -p1 -i $($(package)_patch_dir)/remove_pthread_stubs.patch
+  cp -f $(BASEDIR)/config.guess $(BASEDIR)/config.sub build-aux \
+  $(foreach patch,$($(package)_patches), && patch -p1 -i $($(package)_patch_dir)/$(patch))
 endef
 
 define $(package)_config_cmds

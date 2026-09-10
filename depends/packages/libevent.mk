@@ -1,10 +1,19 @@
 package=libevent
-$(package)_version=2.1.12-stable
+$(package)_version=2.1.13-stable
 $(package)_download_path=https://github.com/libevent/libevent/releases/download/release-$($(package)_version)/
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
-$(package)_sha256_hash=92e6de1be9ec176428fd2367677e61ceffc2ee1cb119035037a27d346b0403bb
+$(package)_sha256_hash=f7e9383b8c0baa81b687e5b5eecc01beefaf1b19b64151d95ed61647fe7a315c
+ifeq ($($(package)_version),2.1.12-stable)
 $(package)_patches=cmake_fixups.patch
 $(package)_patches += winver_fixup.patch
+endif
+ifeq ($($(package)_version),2.1.13-stable)
+# winver_fixup.patch doesn't apply here (1 of 2 hunks fails against
+# evutil.c, which changed between releases) and isn't needed for this
+# fix anyway -- it's Windows-only, unrelated to the cmake_minimum_required
+# error below, which happens on macOS/Linux hosts with CMake >= 4.0.
+$(package)_patches=cmake_fixups.patch
+endif
 $(package)_build_subdir=build
 
 # When building for Windows, we set _WIN32_WINNT to target the same Windows
@@ -21,8 +30,7 @@ define $(package)_set_vars
 endef
 
 define $(package)_preprocess_cmds
-  patch -p1 < $($(package)_patch_dir)/cmake_fixups.patch && \
-  patch -p1 < $($(package)_patch_dir)/winver_fixup.patch
+  $(foreach patch,$($(package)_patches),patch -p1 < $($(package)_patch_dir)/$(patch) &&) true
 endef
 
 define $(package)_config_cmds
