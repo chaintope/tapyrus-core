@@ -679,6 +679,7 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         node before its parent is.
         """
         remaining = set(from_node.getrawmempool())
+        last_errors = {}
         for _ in range(len(remaining) + 1):
             if not remaining:
                 return
@@ -688,11 +689,14 @@ class WalletColoredCoinTest(BitcoinTestFramework):
                     if txid not in node.getrawmempool():
                         try:
                             node.sendrawtransaction(raw_tx)
-                        except JSONRPCException:
-                            pass  # parent not yet present on this node; retry next pass
+                        except JSONRPCException as e:
+                            # parent not yet present on this node; retry next pass
+                            last_errors[txid] = e
                 if all(txid in node.getrawmempool() for node in to_nodes):
                     remaining.discard(txid)
-        raise AssertionError("relay_mempool could not sync: %s" % remaining)
+        raise AssertionError("relay_mempool could not sync: %s" % {
+            txid: str(last_errors[txid]) for txid in remaining if txid in last_errors
+        })
 
     def test_only_token_filter(self):
 
