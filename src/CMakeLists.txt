@@ -28,25 +28,43 @@
 # than they'd clarify it. They're listed here instead.
 #
 # Per-executable direct library links:
-#   tapyrusd, tapyrus-qt   -- tapyrus_chainstate, tapyrus_peer, tapyrus_rpc, tapyrus_wallet (cond., ENABLE_WALLET)
+#   tapyrusd               -- tapyrus_chainstate, tapyrus_peer, tapyrus_rpc, tapyrus_util,
+#                              tapyrus_wallet (cond., ENABLE_WALLET), tapyrus_zmq (cond., ENABLE_ZMQ)
+#   tapyrus-qt              -- same as tapyrusd minus tapyrus_util, plus its own compiled-in
+#                              copy of interfaces/node.cpp (see the comment on tapyrus_util's
+#                              add_library() below)
 #   test_tapyrus           -- tapyrus_cli, tapyrus_chainstate, tapyrus_peer, tapyrus_rpc,
-#                              tapyrus_wallet (cond.), tapyrus_codec, tapyrus_scripting
-#   bench_tapyrus          -- tapyrus_chainstate, tapyrus_codec, tapyrus_wallet (cond.)
-#   tapyrus-genesis        -- tapyrus_chainstate, tapyrus_codec (needs CheckBlock() from chainstate)
-#   tapyrus-tx             -- tapyrus_codec, tapyrus_scripting
-#   tapyrus-cli            -- tapyrus_cli, tapyrus_global
+#                              tapyrus_codec, tapyrus_scripting, tapyrus_global, tapyrus_netbase,
+#                              tapyrus_util, tapyrus_consensus, tapyrus_wallet (cond.),
+#                              tapyrus_zmq (cond.)
+#   bench_tapyrus          -- tapyrus_chainstate, tapyrus_peer, tapyrus_codec, tapyrus_wallet (cond.)
+#   tapyrus-genesis        -- tapyrus_codec, tapyrus_scripting, tapyrus_util (compiles its own
+#                              copy of checkblock.cpp/consensus/tx_verify.cpp instead of linking
+#                              tapyrus_chainstate -- see its add_executable() below)
+#   tapyrus-tx             -- tapyrus_codec, tapyrus_scripting, tapyrus_util
+#   tapyrus-cli            -- tapyrus_cli, tapyrus_global, tapyrus_util
 #   tapyrus-verify         -- tapyrus_consensus, tapyrus_global (no chain-state, no leveldb)
 #
+# tapyrus-genesis/tapyrus-tx/tapyrus-cli/tapyrus-verify share a property worth
+# stating once: none of them link tapyrus_chainstate, tapyrus_wallet, tapyrus_peer,
+# tapyrus_netbase, or leveldb, at all -- not even transitively. tapyrus-genesis
+# compiles its own checkblock.cpp/tx_verify.cpp instead of linking
+# tapyrus_chainstate (see its add_executable() below), and tapyrus_util itself
+# doesn't link tapyrus_wallet (see its add_library() below), so none of these
+# four pull it in just by needing tapyrus_util.
+#
 # Per-library direct dependencies:
-#   tapyrus_rpc         -- tapyrus_wallet (cond.), tapyrus_peer, tapyrus_chainstate, tapyrus_codec
-#   tapyrus_wallet      -- tapyrus_chainstate, tapyrus_peer, tapyrus_codec, tapyrus_scripting, tapyrus_global
-#   tapyrus_peer        -- tapyrus_chainstate, tapyrus_netbase, tapyrus_scripting
-#   tapyrus_chainstate  -- tapyrus_codec, tapyrus_netbase, tapyrus_scripting, tapyrus_global
-#   tapyrus_codec       -- tapyrus_scripting, tapyrus_global
+#   tapyrus_rpc         -- tapyrus_wallet (cond.), tapyrus_peer, tapyrus_chainstate, tapyrus_codec,
+#                          tapyrus_netbase, tapyrus_scripting, tapyrus_util
+#   tapyrus_wallet      -- tapyrus_chainstate, tapyrus_peer, tapyrus_codec, tapyrus_scripting,
+#                          tapyrus_global, tapyrus_util
+#   tapyrus_peer        -- tapyrus_chainstate, tapyrus_netbase, tapyrus_scripting, tapyrus_util
+#   tapyrus_chainstate  -- tapyrus_codec, tapyrus_netbase, tapyrus_scripting, tapyrus_global, tapyrus_util
+#   tapyrus_codec       -- tapyrus_scripting, tapyrus_global, tapyrus_util
 #   tapyrus_scripting   -- tapyrus_consensus, tapyrus_global, tapyrus_util
 #   tapyrus_global      -- tapyrus_consensus, tapyrus_util
 #   tapyrus_netbase     -- tapyrus_consensus, tapyrus_util
-#   tapyrus_cli         -- tapyrus_consensus
+#   tapyrus_cli         -- none (just univalue, core_interface)
 #   tapyrus_util        -- tapyrus_clientversion, tapyrus_crypto
 #   tapyrus_consensus   -- tapyrus_crypto
 #
@@ -158,10 +176,18 @@ if(ENABLE_ZMQ)
   add_subdirectory(zmq)
 endif()
 
+# interfaces/node.cpp deliberately excluded: it implements interfaces::Node
+# (MakeNode()), which needs tapyrus_wallet/tapyrus_chainstate/tapyrus_peer/
+# tapyrus_rpc (net.h, wallet/wallet.h, rpc/server.h, validation.h, ...) --
+# only src/qt/*.cpp consumes interfaces/node.h, so it compiles directly into
+# tapyrus-qt instead (see the six-glue-files comment on tapyrusd's
+# add_executable() above for the pattern). tapyrus_util is one of the lowest
+# tiers almost everything links, so keeping it out means tapyrus-verify/
+# tapyrus-tx/tapyrus-cli/tapyrus-genesis don't pull tapyrus_wallet/
+# tapyrus_chainstate/leveldb onto their link line just by needing tapyrus_util.
 add_library(tapyrus_util STATIC EXCLUDE_FROM_ALL
         fs.cpp
         interfaces/handler.cpp
-        interfaces/node.cpp
         logging.cpp
         random.cpp
         randomenv.cpp
@@ -183,7 +209,6 @@ target_link_libraries(tapyrus_util
         tapyrus_crypto
         univalue
         Boost::headers
-        $<TARGET_NAME_IF_EXISTS:tapyrus_wallet>
 )
 target_compile_definitions(tapyrus_util PUBLIC HAVE_CONFIG_H)
 target_include_directories(tapyrus_util
@@ -200,8 +225,8 @@ target_include_directories(tapyrus_util
 # bytes, DNS seeds, softfork registration). Deliberately excludes genesis
 # block creation/loading (see tapyrus_codec's genesisblock.cpp and
 # tapyrus_scripting's dynamicparams.cpp, which hold the CDynamicParams
-# genesis lifecycle) -- that split is what breaks a real circular
-# dependency FederationParams used to have on key_io.cpp.
+# genesis lifecycle) -- that split avoids a circular dependency between
+# FederationParams and key_io.cpp.
 add_library(tapyrus_global STATIC EXCLUDE_FROM_ALL
   chainparams.cpp
   federationparams.cpp
@@ -217,10 +242,7 @@ target_link_libraries(tapyrus_global
 
 # Genuinely shared, no single theme: netaddress/netbase (network address
 # types), protocol (P2P message framing), scheduler (generic timer
-# utility), warnings (generic warning-state utility). Named for its two
-# largest/most identity-defining files rather than reused from any
-# previous library name, to avoid silently changing what an existing
-# name means.
+# utility), warnings (generic warning-state utility).
 add_library(tapyrus_netbase STATIC EXCLUDE_FROM_ALL
   netaddress.cpp
   netbase.cpp
@@ -304,6 +326,7 @@ add_library(tapyrus_chainstate STATIC EXCLUDE_FROM_ALL
   blockprune.cpp
   chain.cpp
   chainstate.cpp
+  checkblock.cpp
   checkpoints.cpp
   consensus/tx_verify.cpp
   cs_main.cpp
@@ -527,24 +550,32 @@ if(BUILD_UTILS)
   install_binary_component(tapyrus-tx HAS_MANPAGE)
 endif()
 
-# Needs tapyrus_chainstate too (not just codec) because it calls
-# CheckBlock() on the block it just built, in validation.cpp.
+# Only needs CheckBlock() to validate the block it just built -- not full
+# chain-state (block index, UTXO set, leveldb storage), which tapyrus-genesis
+# never touches. checkblock.cpp (CheckBlock()/CheckBlockHeader()) and
+# consensus/tx_verify.cpp (CheckTransaction()/GetLegacySigOpCount(), called
+# by CheckBlock()) are both chain-state-free, but both are archive members of
+# tapyrus_chainstate, and static archives extract a whole member file at once
+# -- checkblock.cpp's archive-mates touch g_chainstate/leveldb -- so this
+# compiles its own copies of both directly instead (see the six-glue-files
+# comment on tapyrusd's add_executable() above for the general pattern).
 #
-# shutdown.cpp/ui_interface.cpp are added for the same reason test_tapyrus
-# needed them: index/base.cpp's BaseIndex::BlockConnected()/
-# ChainStateFlushed() call StartShutdown()/uiInterface directly on a fatal
-# index error, and tapyrus_chainstate links neither -- see the six-glue-
-# files comment on tapyrusd's add_executable() above. Unlike test_tapyrus,
-# this executable has no test-harness stand-ins for these, so it needs the
-# real files.
+# TAPYRUS_GENESIS_SKIP compiles out checkblock.cpp's chain-tip check (see its
+# file-level comment): meaningless here, since tapyrus-genesis calls
+# CheckBlock() before any chain is loaded. This executable's own object files
+# resolve CheckBlock() et al. before the linker consults
+# libtapyrus_chainstate.a, so that archive's copies of checkblock.cpp/
+# consensus/tx_verify.cpp (built without the macro, for every other consumer)
+# are never extracted -- no duplicate symbols.
 if(BUILD_GENESIS)
-  add_executable(tapyrus-genesis tapyrus-genesis.cpp shutdown.cpp ui_interface.cpp)
+  add_executable(tapyrus-genesis tapyrus-genesis.cpp checkblock.cpp consensus/tx_verify.cpp)
+  target_compile_definitions(tapyrus-genesis PRIVATE TAPYRUS_GENESIS_SKIP)
   add_windows_resources(tapyrus-genesis "${TAPYRUS_GENESIS_RC_FILE}")
   target_link_libraries(tapyrus-genesis
           PRIVATE
           core_interface
-          tapyrus_chainstate
           tapyrus_codec
+          tapyrus_scripting
           tapyrus_util
           Boost::headers
   )

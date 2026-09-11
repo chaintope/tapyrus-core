@@ -22,8 +22,15 @@ add_test_to_suite(tapyrus-qt test-tapyrus-qt
 	# ShutdownRequested), this binary's test_main.cpp calls noui_connect()
 	# directly and defines none of these itself, so it needs the real
 	# files -- all six, including noui.cpp this time.
+	#
+	# interfaces/node.cpp is added too: rpcnestedtests.cpp/addressbooktests.cpp/
+	# wallettests.cpp call interfaces::MakeNode() directly, and it no longer
+	# lives in tapyrus_util (see the comment on tapyrus_util's add_library()
+	# in the top-level src/CMakeLists.txt) -- tapyrus-qt's own copy isn't
+	# visible here since this is a separate executable target.
 	../../file_io.cpp
 	../../init.cpp
+	../../interfaces/node.cpp
 	../../noui.cpp
 	../../shutdown.cpp
 	../../timeoffsets.cpp
@@ -39,6 +46,7 @@ add_test_to_suite(tapyrus-qt test-tapyrus-qt
 set_source_files_properties(
 	../../test/test_tapyrus.cpp
 	../../init.cpp
+	../../interfaces/node.cpp
 	../../noui.cpp
 	../../timeoffsets.cpp
 	../../ui_interface.cpp
