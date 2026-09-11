@@ -328,6 +328,7 @@ add_library(tapyrus_chainstate STATIC EXCLUDE_FROM_ALL
   chainstate.cpp
   checkblock.cpp
   checkpoints.cpp
+  consensus/sequence_locks.cpp
   consensus/tx_verify.cpp
   cs_main.cpp
   dbwrapper.cpp
