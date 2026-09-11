@@ -11,6 +11,7 @@
 #include <consensus/tx_verify.h>
 #include <index/txindex.h>
 #include <policy/packages.h>
+#include <policy/policy.h>
 #include <shutdown.h>
 #include <trace.h>
 #include <ui_interface.h>

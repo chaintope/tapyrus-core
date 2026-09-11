@@ -4,6 +4,7 @@
 
 #include <dynamicparams.h>
 #include <index/txindex.h>
+#include <policy/policy.h>
 #include <shutdown.h>
 #include <trace.h>
 #include <blockprune.h>

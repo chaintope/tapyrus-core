@@ -20,9 +20,16 @@
  * xfield_tests  -  deserialize xfieldchange and CXField
  */
 
-struct XFieldHistorySetup : public TestingSetup {
-    XFieldHistorySetup() : TestingSetup(TAPYRUS_MODES::DEV) {
-        pxFieldHistory->Reset();
+// XFieldHistorySetup deliberately seeds the shared, global xfield history
+// with synthetic entries to exercise Add/Remove/Get, and must clear them
+// back to genesis-only state afterwards so they don't leak into other test
+// files that share the same process. pxFieldHistory itself (see
+// test_tapyrus.h) is intentionally never reset for this purpose, so this
+// fixture inherits CXFieldHistory directly to get at the protected static
+// map for its own clear+reseed logic.
+struct XFieldHistorySetup : public TestingSetup, public CXFieldHistory {
+    XFieldHistorySetup() : TestingSetup(TAPYRUS_MODES::DEV), CXFieldHistory() {
+        ResetToGenesis();
 
         pxFieldHistory->Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY, XFieldChange(XFieldAggPubKey(CPubKey(ParseHex(ValidPubKeyStrings[10]))), 20, uint256()));
         pxFieldHistory->Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY, XFieldChange(XFieldAggPubKey(CPubKey(ParseHex(ValidPubKeyStrings[11]))), 40, uint256()));
@@ -33,7 +40,15 @@ struct XFieldHistorySetup : public TestingSetup {
         pxFieldHistory->Add(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, XFieldChange(16000000, 70, uint256()));
     }
     ~XFieldHistorySetup() {
-        pxFieldHistory->Reset();
+        ResetToGenesis();
+    }
+private:
+    void ResetToGenesis() {
+        const CBlock& genesis = DynamicParams().GenesisBlock();
+        xfieldHistory.find(TAPYRUS_XFIELDTYPES::AGGPUBKEY)->second.xfieldChanges.clear();
+        xfieldHistory.find(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE)->second.xfieldChanges.clear();
+        Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY, XFieldChange(genesis.xfield.xfieldValue, 0, genesis.GetHash()));
+        Add(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, XFieldChange(MAX_BLOCK_SIZE, 0, genesis.GetHash()));
     }
 };
 
