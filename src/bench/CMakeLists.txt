@@ -5,6 +5,17 @@
 add_executable(bench_tapyrus
   bench_tapyrus.cpp
   bench.cpp
+  # Glue -- see the six-glue-files comment on tapyrusd's add_executable()
+  # in the top-level src/CMakeLists.txt. checkblock.cpp/block_assemble.cpp
+  # exercise tapyrus_chainstate code paths (CChainState::ActivateBestChain,
+  # BaseIndex::BlockConnected, AbortNode, etc.) that call
+  # StartShutdown()/ShutdownRequested()/uiInterface/SaveBlockToDisk/
+  # ReadBlockFromDisk/FlushStateToDisk/OpenUndoFile directly -- only these
+  # three are needed here (unlike test_tapyrus/tapyrusd, bench never hits
+  # noui.cpp's or timeoffsets.cpp's symbols).
+  ../file_io.cpp
+  ../shutdown.cpp
+  ../ui_interface.cpp
 # Benchmarks:
   base58.cpp
   block_assemble.cpp
@@ -27,22 +38,17 @@ target_raw_data_sources(bench_tapyrus NAMESPACE benchmark::data
 )
 
 target_link_libraries(bench_tapyrus
-  core_interface
-  tapyrus_server
-  tapyrus_common
-  tapyrus_consensus
-  $<TARGET_NAME_IF_EXISTS:tapyrus_zmq>
-  Boost::headers
-  $<TARGET_NAME_IF_EXISTS:libevent::extra>
-  $<TARGET_NAME_IF_EXISTS:libevent::core>
-  $<TARGET_NAME_IF_EXISTS:libevent::pthreads>
-)
-target_include_directories(bench_tapyrus
   PRIVATE
-    ${BerkeleyDB_INCLUDE_DIR}
-    ${EVENT_INCLUDE_DIRS}
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../leveldb>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../leveldb/include>
+  core_interface
+  tapyrus_chainstate
+  tapyrus_peer
+  tapyrus_codec
+  # block_assemble.cpp includes <txdb.h> -> <dbwrapper.h> -> <leveldb/db.h>
+  # directly; tapyrus_chainstate links leveldb PRIVATE, so that include path
+  # doesn't propagate here on its own -- link leveldb directly to get it,
+  # same as test_tapyrus does.
+  leveldb
+  Boost::headers
 )
 
 if(ENABLE_WALLET)
@@ -50,7 +56,7 @@ if(ENABLE_WALLET)
     PRIVATE
       coin_selection.cpp
   )
-  target_link_libraries(bench_tapyrus tapyrus_wallet)
+  target_link_libraries(bench_tapyrus PRIVATE tapyrus_wallet)
 endif()
 
 install_binary_component(bench_tapyrus)

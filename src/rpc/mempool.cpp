@@ -11,6 +11,7 @@
 #include <txmempool.h>
 #include <utilstrencodings.h>
 
+#include <stdexcept>
 #include <stdint.h>
 
 #include <univalue.h>

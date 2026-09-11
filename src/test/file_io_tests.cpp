@@ -4,6 +4,7 @@
 
 #include <chain.h>
 #include <chainparams.h>
+#include <dynamicparams.h>
 #include <federationparams.h>
 #include <primitives/block.h>
 #include <validation.h>
@@ -26,7 +27,7 @@ BOOST_AUTO_TEST_CASE(file_io_find_block_pos)
     // the file position tracking was incorrect because the 8-byte serialization header
     // (4 bytes magic + 4 bytes size) was not properly accounted for.
 
-    const CBlock& genesisBlock = FederationParams().GenesisBlock();
+    const CBlock& genesisBlock = DynamicParams().GenesisBlock();
 
     // Scenario 1: Normal block addition (first block written to disk)
     // When a genesis block is added normally, it should be written at offset 8

@@ -9,6 +9,8 @@
 #include <consensus/merkle.h>
 #include <consensus/validation.h>
 #include <crypto/sha256.h>
+#include <dynamicparams.h>
+#include <genesisblock.h>
 #include <issuedcolorids.h>
 #include <validation.h>
 #include <miner.h>
@@ -23,6 +25,7 @@
 
 #include <thread>
 #include <fstream>
+#include <stdexcept>
 
 constexpr unsigned int CPubKey::SCHNORR_SIGNATURE_SIZE;
 
@@ -53,14 +56,7 @@ std::ostream& operator<<(std::ostream& os, const uint256& num)
     return os;
 }
 
-// Reset the xfield history to the genesis block state.
-void CXFieldHistoryWithReset::Reset()
-{
-    xfieldHistory.find(TAPYRUS_XFIELDTYPES::AGGPUBKEY)->second.xfieldChanges.clear();
-    xfieldHistory.find(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE)->second.xfieldChanges.clear();
-    Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY, XFieldChange(genesis.xfield.xfieldValue, 0, genesis.GetHash()));
-    Add(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, XFieldChange(MAX_BLOCK_SIZE, 0, genesis.GetHash()));
-}
+CXFieldHistory* BasicTestingSetup::pxFieldHistory = nullptr;
 
 BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
     : m_path_root(fs::temp_directory_path() / "test_tapyrus" / strprintf("%lu_%i", (unsigned long)GetTime(), (int)(InsecureRandRange(1 << 30))))
@@ -68,26 +64,37 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
     SHA256AutoDetect();
     RandomInit();
     ECC_Start();
-    SetupEnvironment();
-    SetupNetworking();
-    InitSignatureCache();
-    InitScriptExecutionCache();
-    fCheckBlockIndex = true;
-    SelectParams(TAPYRUS_OP_MODE::PROD);
-    SetDataDir("tempdir");
-    writeTestGenesisBlockToFile(GetDataDir());
-    SelectFederationParams(TAPYRUS_OP_MODE::PROD);
-    noui_connect();
-    pxFieldHistory = new CXFieldHistoryWithReset(FederationParams().GenesisBlock());
-    g_colorid_state.reset(new CIssuedColorIds());
+    try {
+        SetupEnvironment();
+        SetupNetworking();
+        InitSignatureCache();
+        InitScriptExecutionCache();
+        fCheckBlockIndex = true;
+        SelectParams(TAPYRUS_OP_MODE::PROD);
+        SetDataDir("tempdir");
+        writeTestGenesisBlockToFile(GetDataDir());
+        SelectFederationParams(TAPYRUS_OP_MODE::PROD);
+        SelectDynamicParams(ReadGenesisBlock());
+        noui_connect();
+        if (!pxFieldHistory) {
+            pxFieldHistory = new CXFieldHistory(DynamicParams().GenesisBlock());
+        }
+        g_colorid_state.reset(new CIssuedColorIds());
+    } catch (...) {
+        // ~BasicTestingSetup() never runs for a throwing constructor, so
+        // ECC_Stop() must happen here or every later test's ECC_Start()
+        // fails its own assert that secp256k1_context_sign is still null.
+        ECC_Stop();
+        throw;
+    }
 }
 
 BasicTestingSetup::~BasicTestingSetup()
 {
     g_colorid_state.reset();
-    pxFieldHistory->Reset();
-    delete pxFieldHistory;
-    pxFieldHistory = nullptr;
+    // pxFieldHistory is left alone: it wraps process-wide state, and
+    // per-test rebuilding made teardown fragile. See its declaration
+    // in test_tapyrus.h.
     ClearDatadirCache();
     fs::remove_all(m_path_root);
     ECC_Stop();
@@ -121,27 +128,40 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
         scheduler.m_service_thread = std::thread(&TraceThread, "scheduler", serviceLoop);
         GetMainSignals().RegisterBackgroundSignalScheduler(scheduler);
 
-        mempool.setSanityCheck(1.0);
-        pblocktree.reset(new CBlockTreeDB(1 << 20, true));
-        pcoinsdbview.reset(new CCoinsViewDB(1 << 23, true));
-        pcoinsTip.reset(new CCoinsViewCache(pcoinsdbview.get()));
-        if (!LoadGenesisBlock()) {
-            throw std::runtime_error("LoadGenesisBlock failed.");
-        }
-        {
-            CValidationState state;
-            if (!ActivateBestChain(state)) {
-                throw std::runtime_error(strprintf("ActivateBestChain failed. (%s)", FormatStateMessage(state)));
+        try {
+            mempool.setSanityCheck(1.0);
+            pblocktree.reset(new CBlockTreeDB(1 << 20, true));
+            pcoinsdbview.reset(new CCoinsViewDB(1 << 23, true));
+            pcoinsTip.reset(new CCoinsViewCache(pcoinsdbview.get()));
+            if (!LoadGenesisBlock()) {
+                throw std::runtime_error("LoadGenesisBlock failed.");
             }
+            {
+                CValidationState state;
+                if (!ActivateBestChain(state)) {
+                    throw std::runtime_error(strprintf("ActivateBestChain failed. (%s)", FormatStateMessage(state)));
+                }
+            }
+            nScriptCheckThreads = 3;
+            StartScriptCheckWorkerThreads(nScriptCheckThreads);
+            g_connman = std::unique_ptr<CConnman>(new CConnman(0x1337, 0x1337)); // Deterministic randomness for tests.
+            connman = g_connman.get();
+            peerLogic.reset(new PeerLogicValidation(connman, scheduler));
+        } catch (...) {
+            // ~TestingSetup() never runs for a throwing constructor, so the
+            // scheduler thread started above must be stopped here. Left
+            // running, ~CScheduler()'s assert that no thread is still
+            // servicing the queue fires and aborts via SIGABRT - which
+            // Boost.Test's signal handler recovers from by long-jumping
+            // past the rest of this stack's destructors (including
+            // ECC_Stop() in ~BasicTestingSetup()), leaking
+            // secp256k1_context_sign for every subsequent test.
+            TearDown();
+            throw;
         }
-        nScriptCheckThreads = 3;
-        StartScriptCheckWorkerThreads(nScriptCheckThreads);
-        g_connman = std::unique_ptr<CConnman>(new CConnman(0x1337, 0x1337)); // Deterministic randomness for tests.
-        connman = g_connman.get();
-        peerLogic.reset(new PeerLogicValidation(connman, scheduler));
 }
 
-TestingSetup::~TestingSetup()
+void TestingSetup::TearDown()
 {
         scheduler.stop();
         GetMainSignals().FlushBackgroundCallbacks();
@@ -152,6 +172,11 @@ TestingSetup::~TestingSetup()
         pcoinsTip.reset();
         pcoinsdbview.reset();
         pblocktree.reset();
+}
+
+TestingSetup::~TestingSetup()
+{
+        TearDown();
 }
 
 void createSignedBlockProof(CBlock &block, std::vector<unsigned char>& blockProof)

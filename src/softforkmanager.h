@@ -104,7 +104,7 @@ public:
      * flags bitmask (already produced by GetBlockScriptFlags / IsActive) and
      * cannot query by block height.
      */
-    bool IsEnabled(unsigned int flag, unsigned int scriptFlags) const {
+    static bool IsEnabled(unsigned int flag, unsigned int scriptFlags) {
         return (scriptFlags & flag) != 0;
     }
 

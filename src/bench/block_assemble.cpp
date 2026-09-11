@@ -8,6 +8,7 @@
 #include <coins.h>
 #include <consensus/merkle.h>
 #include <consensus/validation.h>
+#include <dynamicparams.h>
 #include <miner.h>
 #include <policy/policy.h>
 #include <scheduler.h>
@@ -72,7 +73,8 @@ static void AssembleBlock(benchmark::State& state)
     writeTestGenesisBlockToFile(GetDataDir(false));
     SelectParams(TAPYRUS_OP_MODE::DEV);
     SelectFederationParams(TAPYRUS_OP_MODE::DEV);
-    CXFieldHistory xFieldHistory(FederationParams().GenesisBlock());
+    SelectDynamicParams(ReadGenesisBlock());
+    CXFieldHistory xFieldHistory(DynamicParams().GenesisBlock());
 
     const CKey privKey(DecodeSecret(SIGN_BLOCK_PRIVKEY));
     const CPubKey pubkey(privKey.GetPubKey());

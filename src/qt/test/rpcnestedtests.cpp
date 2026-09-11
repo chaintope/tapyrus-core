@@ -17,6 +17,8 @@
 #include <univalue.h>
 #include <util.h>
 
+#include <stdexcept>
+
 #include <QDir>
 #include <QtGlobal>
 

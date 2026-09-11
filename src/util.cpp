@@ -14,6 +14,7 @@
 #include <stdarg.h>
 #include <charconv>
 #include <fstream>
+#include <stdexcept>
 #include <string_view>
 
 #if (defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__))

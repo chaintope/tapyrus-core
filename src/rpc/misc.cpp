@@ -23,6 +23,7 @@
 #endif
 #include <warnings.h>
 
+#include <stdexcept>
 #include <stdint.h>
 #ifdef HAVE_MALLOC_INFO
 #include <malloc.h>

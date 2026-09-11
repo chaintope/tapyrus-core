@@ -6,6 +6,7 @@
 #include <bench/bench.h>
 
 #include <crypto/sha256.h>
+#include <dynamicparams.h>
 #include <key.h>
 #include <utilstrencodings.h>
 #include <validation.h>
@@ -71,7 +72,8 @@ int main(int argc, char** argv)
     SetupEnvironment();
     writeTestGenesisBlockToFile(GetDataDir(false));
     SelectFederationParams(TAPYRUS_OP_MODE::PROD);
-    CXFieldHistory xFieldHistory(FederationParams().GenesisBlock());
+    SelectDynamicParams(ReadGenesisBlock());
+    CXFieldHistory xFieldHistory(DynamicParams().GenesisBlock());
 
     int64_t evaluations = gArgs.GetArg("-evals", DEFAULT_BENCH_EVALUATIONS);
     std::string regex_filter = gArgs.GetArg("-filter", DEFAULT_BENCH_FILTER);

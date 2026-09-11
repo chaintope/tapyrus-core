@@ -430,7 +430,7 @@ int main(int argc, char* argv[])
     // VerifyScript's CP2SH_COLORED check needs the global FederationParams()
     // singleton selected before any call, same as tapyrus-cli/tapyrus-genesis.
     SelectParams(TAPYRUS_OP_MODE::PROD);
-    SelectFederationParams(TAPYRUS_OP_MODE::PROD, false);
+    SelectFederationParams(TAPYRUS_OP_MODE::PROD);
 
     std::vector<std::string> positional;
     bool flagsGiven = false;

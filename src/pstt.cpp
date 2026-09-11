@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <set>
+#include <stdexcept>
 
 // =======================================================================
 // PSTT_GLOBAL_XPUB keydata helpers

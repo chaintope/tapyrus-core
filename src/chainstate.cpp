@@ -4,12 +4,14 @@
 
 #include <chainstate.h>
 #include <chainparams.h>
+#include <dynamicparams.h>
 #include <util.h>
 #include <issuedcolorids.h>
 
 #include <consensus/tx_verify.h>
 #include <index/txindex.h>
 #include <policy/packages.h>
+#include <policy/policy.h>
 #include <shutdown.h>
 #include <trace.h>
 #include <ui_interface.h>
@@ -18,6 +20,7 @@
 #include <blockprune.h>
 
 #include <deque>
+#include <stdexcept>
 #include <boost/algorithm/string/replace.hpp>
 
 
@@ -552,7 +555,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     // Special case for the genesis block, skipping connection of its transactions
     // (its coinbase is unspendable)
-    if (block.GetHash() == FederationParams().GenesisBlock().GetHash()) {
+    if (block.GetHash() == DynamicParams().GenesisBlock().GetHash()) {
         if (!fJustCheck)
             view.SetBestBlock(pindex->GetBlockHash());
         return true;
@@ -1379,7 +1382,7 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
     uint256 hash = block.GetHash();
     BlockMap::iterator miSelf = mapBlockIndex.find(hash);
     CBlockIndex *pindex = nullptr;
-    if (hash != FederationParams().GenesisBlock().GetHash()) {
+    if (hash != DynamicParams().GenesisBlock().GetHash()) {
         if (miSelf != mapBlockIndex.end()) {
             // Block header is already known.
             pindex = miSelf->second;
@@ -1762,11 +1765,11 @@ bool CChainState::LoadGenesisBlock()
     // mapBlockIndex. Note that we can't use chainActive here, since it is
     // set based on the coins db, not the block index db, which is the only
     // thing loaded at this point.
-    if (mapBlockIndex.count(FederationParams().GenesisBlock().GetHash()))
+    if (mapBlockIndex.count(DynamicParams().GenesisBlock().GetHash()))
         return true;
 
     try {
-        CBlock &block = const_cast<CBlock&>(FederationParams().GenesisBlock());
+        CBlock &block = const_cast<CBlock&>(DynamicParams().GenesisBlock());
         CDiskBlockPos blockPos;
 
         if (fReindex && fs::exists(GetBlocksDir() / strprintf("blk%05u.dat", 0))) {
@@ -1788,7 +1791,7 @@ bool CChainState::LoadGenesisBlock()
         ReceivedBlockTransactions(block, pindex, blockPos);
 
         //initialize xfield history
-        CXFieldHistory history(FederationParams().GenesisBlock());
+        CXFieldHistory history(DynamicParams().GenesisBlock());
     } catch (const std::runtime_error& e) {
         return error("%s: failed to write genesis block: %s", __func__, e.what());
     }
@@ -1850,7 +1853,7 @@ void CChainState::CheckBlockIndex()
         // Begin: actual consistency checks.
         if (pindex->pprev == nullptr) {
             // Genesis block checks.
-            assert(pindex->GetBlockHash() == FederationParams().GenesisBlock().GetHash()); // Genesis block's hash must match.
+            assert(pindex->GetBlockHash() == DynamicParams().GenesisBlock().GetHash()); // Genesis block's hash must match.
             assert(pindex == chainActive.Genesis()); // The current active chain's genesis block must be this block.
         }
         if (pindex->nChainTx == 0) assert(pindex->nSequenceId <= 0);  // nSequenceId can't be set positive for blocks that aren't linked (negative is used for preciousblock)

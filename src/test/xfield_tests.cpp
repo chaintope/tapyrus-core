@@ -5,6 +5,7 @@
 #include <boost/test/unit_test.hpp>
 
 #include <primitives/xfield.h>
+#include <dynamicparams.h>
 #include <xfieldhistory.h>
 #include <txdb.h>
 #include <univalue.h>
@@ -34,7 +35,7 @@ BOOST_AUTO_TEST_CASE(XFieldChange_deserialize)
     BOOST_CHECK(xfieldList.xfieldChanges[0].blockHash == uint256());
 
     XFieldChangeListWrapper xfieldList2(XFieldMaxBlockSize::BLOCKTREE_DB_KEY);
-    CDataStream stream2(ParseHex(std::string("01ffffffff00000000"+ HexStr(FederationParams().GenesisBlock().GetHash()))), SER_NETWORK, PROTOCOL_VERSION);
+    CDataStream stream2(ParseHex(std::string("01ffffffff00000000"+ HexStr(DynamicParams().GenesisBlock().GetHash()))), SER_NETWORK, PROTOCOL_VERSION);
     stream2 >> xfieldList2;
 
     BOOST_CHECK(xfieldList2.xfieldChanges.size() == 1);
@@ -42,7 +43,7 @@ BOOST_AUTO_TEST_CASE(XFieldChange_deserialize)
 
     BOOST_CHECK(maxblocksize == 0xffffffff);
     BOOST_CHECK(xfieldList2.xfieldChanges[0].height == 0);
-    BOOST_CHECK(xfieldList2.xfieldChanges[0].blockHash == FederationParams().GenesisBlock().GetHash());
+    BOOST_CHECK(xfieldList2.xfieldChanges[0].blockHash == DynamicParams().GenesisBlock().GetHash());
 }
 
 
@@ -95,24 +96,24 @@ BOOST_AUTO_TEST_CASE(CXField_unserialize)
     BOOST_CHECK(xfieldAggPubKey.xfieldType == TAPYRUS_XFIELDTYPES::AGGPUBKEY);
     BOOST_CHECK(xfieldAggPubKey.xfieldValue == XFieldData(XFieldAggPubKey(CPubKey(ParseHex(ValidPubKeyStrings[15])))));
 
-    CDataStream stream2(ParseHex(std::string("02ffffffff"+ HexStr(FederationParams().GenesisBlock().GetHash()))), SER_NETWORK, PROTOCOL_VERSION);
+    CDataStream stream2(ParseHex(std::string("02ffffffff"+ HexStr(DynamicParams().GenesisBlock().GetHash()))), SER_NETWORK, PROTOCOL_VERSION);
     stream2 >> xfieldMaxBlockSize;
 
     BOOST_CHECK(xfieldMaxBlockSize.xfieldType == TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE);
     BOOST_CHECK(xfieldMaxBlockSize.xfieldValue == XFieldData(XFieldMaxBlockSize(0xffffffff)));
 
-    CDataStream stream3(ParseHex(std::string("002102473757a955a23f75379820f3071abf5b3343b78eb54e52373d06259ffa6c550b"+ HexStr(FederationParams().GenesisBlock().GetHash()))), SER_NETWORK, PROTOCOL_VERSION);
+    CDataStream stream3(ParseHex(std::string("002102473757a955a23f75379820f3071abf5b3343b78eb54e52373d06259ffa6c550b"+ HexStr(DynamicParams().GenesisBlock().GetHash()))), SER_NETWORK, PROTOCOL_VERSION);
     BOOST_CHECK_THROW(xfieldMaxBlockSize.Unserialize(stream3), BadXFieldException);
 
-    CDataStream stream4(ParseHex(std::string("032102473757a955a23f75379820f3071abf5b3343b78eb54e52373d06259ffa6c550b"+ HexStr(FederationParams().GenesisBlock().GetHash()))), SER_NETWORK, PROTOCOL_VERSION);
+    CDataStream stream4(ParseHex(std::string("032102473757a955a23f75379820f3071abf5b3343b78eb54e52373d06259ffa6c550b"+ HexStr(DynamicParams().GenesisBlock().GetHash()))), SER_NETWORK, PROTOCOL_VERSION);
     BOOST_CHECK_THROW(xfieldMaxBlockSize.Unserialize(stream4), BadXFieldException);
 
-    CDataStream stream5(ParseHex(std::string("0300"+ HexStr(FederationParams().GenesisBlock().GetHash()))), SER_NETWORK, PROTOCOL_VERSION);
+    CDataStream stream5(ParseHex(std::string("0300"+ HexStr(DynamicParams().GenesisBlock().GetHash()))), SER_NETWORK, PROTOCOL_VERSION);
     BOOST_CHECK_THROW(xfieldMaxBlockSize.Unserialize(stream5), BadXFieldException);
 
     //incorrectly unserialized
     CXField xfield;
-    CDataStream stream7(ParseHex(std::string("022102473757a955a23f75379820f3071abf5b3343b78eb54e52373d06259ffa6c550b"+ HexStr(FederationParams().GenesisBlock().GetHash()))), SER_NETWORK, PROTOCOL_VERSION);
+    CDataStream stream7(ParseHex(std::string("022102473757a955a23f75379820f3071abf5b3343b78eb54e52373d06259ffa6c550b"+ HexStr(DynamicParams().GenesisBlock().GetHash()))), SER_NETWORK, PROTOCOL_VERSION);
     stream7 >> xfield;
     BOOST_CHECK(xfield.xfieldType == TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE);
     BOOST_CHECK(xfield.xfieldValue == XFieldData(XFieldMaxBlockSize(0x37470221)));

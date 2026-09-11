@@ -36,6 +36,7 @@
 #include <algorithm>
 #include <assert.h>
 #include <future>
+#include <stdexcept>
 
 #include <boost/algorithm/string/replace.hpp>
 

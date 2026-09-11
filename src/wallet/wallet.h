@@ -21,7 +21,6 @@
 #include <wallet/crypter.h>
 #include <wallet/coinselection.h>
 #include <wallet/walletdb.h>
-#include <wallet/rpcwallet.h>
 
 #include <algorithm>
 #include <atomic>
@@ -33,6 +32,8 @@
 #include <string>
 #include <utility>
 #include <vector>
+
+class CWallet;
 
 bool AddWallet(const std::shared_ptr<CWallet>& wallet);
 bool RemoveWallet(const std::shared_ptr<CWallet>& wallet);

@@ -68,6 +68,26 @@ if(ENABLE_TESTS)
 endif()
 
 add_executable(test_tapyrus
+        # These four are orchestration/glue -- see the comment on tapyrusd's
+        # add_executable() in the top-level src/CMakeLists.txt. They compile
+        # directly into tapyrusd rather than into any library, so
+        # test_tapyrus needs its own copy too: several split libraries
+        # (tapyrus_wallet, tapyrus_peer, tapyrus_rpc, tapyrus_chainstate)
+        # call into symbols only these files define (InitWarning/InitError/
+        # AmountErrMsg/AmountHighWarn/uiInterface, noui_connect, TimeOffsets,
+        # SaveBlockToDisk/ReadBlockFromDisk/FlushStateToDisk/DumpMempool/
+        # OpenDiskFile/OpenUndoFile), and nothing else provides them for a
+        # target that isn't tapyrusd itself.
+        #
+        # init.cpp and shutdown.cpp are deliberately NOT included here:
+        # test_tapyrus_main.cpp already defines its own test-friendly
+        # g_connman/StartShutdown()/ShutdownRequested() -- the only symbols
+        # those two glue files would otherwise provide -- so adding them
+        # would just collide (duplicate symbols) rather than add anything.
+        ../file_io.cpp
+        ../noui.cpp
+        ../timeoffsets.cpp
+        ../ui_interface.cpp
         addrman_tests.cpp
         allocator_tests.cpp
         amount_tests.cpp
@@ -171,10 +191,16 @@ target_include_directories(test_tapyrus
 
 target_link_libraries(test_tapyrus
     PRIVATE
+        core_interface
         $<TARGET_NAME_IF_EXISTS:tapyrus_wallet>
         tapyrus_cli
-        tapyrus_server
-        tapyrus_common
+        tapyrus_rpc
+        tapyrus_peer
+        tapyrus_chainstate
+        tapyrus_codec
+        tapyrus_scripting
+        tapyrus_global
+        tapyrus_netbase
         tapyrus_util
         tapyrus_consensus
         $<TARGET_NAME_IF_EXISTS:tapyrus_zmq>
@@ -186,7 +212,6 @@ target_link_libraries(test_tapyrus
         $<TARGET_NAME_IF_EXISTS:libevent::extra>
         $<TARGET_NAME_IF_EXISTS:libevent::core>
         $<TARGET_NAME_IF_EXISTS:libevent::pthreads>
-        $<TARGET_NAME_IF_EXISTS:USDT::headers>
 )
 
 # We need to detect if the BOOST_TEST_DYN_LINK flag is required.

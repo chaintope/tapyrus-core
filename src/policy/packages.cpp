@@ -11,7 +11,6 @@
 #include <validationinterface.h>
 #include <uint256.h>
 #include <numeric>
-#include <net_processing.h>
 
 
 bool CheckPackage(const Package& txns, CValidationState& state)
@@ -145,11 +144,12 @@ bool SubmitPackageToMempool(const Package& package,
     // Relay only after the entire package has been successfully admitted.
     // Relaying per-tx inside the loop would gossip the admitted prefix of a
     // partially-failed package, enabling free relay amplification attacks.
-    if (success && opt.flags != MempoolAcceptanceFlags::TEST_ONLY && g_connman) {
-        CConnman& connman = *g_connman;
-        for (auto& tx : package) {
-            RelayTransaction(*tx, &connman);
-        }
+    // Goes through PackageTransactionsRelay() rather than calling into net
+    // directly -- tapyrus_chainstate (this file) has no business linking
+    // tapyrus_peer. See the comment on CValidationInterface::
+    // PackageTransactionsRelay() and PeerLogicValidation's override of it.
+    if (success && opt.flags != MempoolAcceptanceFlags::TEST_ONLY) {
+        GetMainSignals().PackageTransactionsRelay(package);
     }
 
     return success;

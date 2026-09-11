@@ -9,6 +9,7 @@
 #include <consensus/merkle.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
+#include <dynamicparams.h>
 #include <validation.h>
 #include <miner.h>
 #include <policy/policy.h>
@@ -24,6 +25,7 @@
 #include <test/test_keys_helper.h>
 
 #include <memory>
+#include <stdexcept>
 
 #include <boost/test/unit_test.hpp>
 
@@ -289,8 +291,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     aggPubkey.Set(validAggPubKey, validAggPubKey + 33);
 
     // Note that by default, these tests run with size accounting enabled.
-    auto chainParams = FederationParams();
-    chainParams.ReadGenesisBlock(getTestGenesisBlockHex(aggPubkey, aggregateKey));
+    SelectDynamicParams(getTestGenesisBlockHex(aggPubkey, aggregateKey));
     std::unique_ptr<CBlockTemplate> pblocktemplate;
     int baseheight = 0;
     std::vector<CTransactionRef> txFirst;
@@ -594,8 +595,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_required_age_in_secs)
     CPubKey aggPubkey;
     aggPubkey.Set(validAggPubKey, validAggPubKey + 33);
 
-    auto chainParams = FederationParams();
-    chainParams.ReadGenesisBlock(getTestGenesisBlockHex(aggPubkey, aggregateKey));
+    SelectDynamicParams(getTestGenesisBlockHex(aggPubkey, aggregateKey));
     std::unique_ptr<CBlockTemplate> pblocktemplate;
     int baseheight = 0;
     std::vector<CTransactionRef> txFirst;

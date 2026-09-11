@@ -11,6 +11,8 @@
 #include <secp256k1_recovery.h>
 #include <chainparams.h>
 
+#include <stdexcept>
+
 namespace
 {
 /* Global secp256k1_context object used for verification. */

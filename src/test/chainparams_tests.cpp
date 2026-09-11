@@ -12,6 +12,8 @@
 #include <boost/test/unit_test.hpp>
 #include <consensus/validation.h>
 
+#include <stdexcept>
+
 extern void noui_connect();
 
 struct ChainParamsTestingSetup {
@@ -165,7 +167,7 @@ BOOST_AUTO_TEST_CASE(custom_networkId_range_test)
     //netowrk id 1 - 1 (0x00000001)
     gArgs.ForceSetArg("-networkid", "1");
     writeTestGenesisBlockToFile(GetDataDir(), "genesis.1");
-    BOOST_CHECK_NO_THROW(CreateFederationParams(TAPYRUS_OP_MODE::PROD, true));
+    BOOST_CHECK_NO_THROW(CreateFederationParams(TAPYRUS_OP_MODE::PROD));
 
     BOOST_CHECK_NO_THROW(SelectParams(TAPYRUS_OP_MODE::PROD));
     BOOST_CHECK_NO_THROW(SelectFederationParams(TAPYRUS_OP_MODE::PROD));
@@ -175,7 +177,7 @@ BOOST_AUTO_TEST_CASE(custom_networkId_range_test)
     //netowrk id of 4 bytes - 4294967295 (0xFFFFFFFF)
     gArgs.ForceSetArg("-networkid", "4294967295");
     writeTestGenesisBlockToFile(GetDataDir(), "genesis.4294967295");
-    BOOST_CHECK_NO_THROW(CreateFederationParams(TAPYRUS_OP_MODE::PROD, true));
+    BOOST_CHECK_NO_THROW(CreateFederationParams(TAPYRUS_OP_MODE::PROD));
 
     BOOST_CHECK_NO_THROW(SelectParams(TAPYRUS_OP_MODE::PROD));
     BOOST_CHECK_NO_THROW(SelectFederationParams(TAPYRUS_OP_MODE::PROD));
@@ -185,26 +187,26 @@ BOOST_AUTO_TEST_CASE(custom_networkId_range_test)
     //netowrk id 0 - (0x0)
     gArgs.ForceSetArg("-networkid", "0");
     writeTestGenesisBlockToFile(GetDataDir(), "genesis.0");
-    BOOST_CHECK_THROW(CreateFederationParams(TAPYRUS_OP_MODE::PROD, true), std::runtime_error);//("Network Id [0] was out of range. Expected range is 1 to 4294967295."));
+    BOOST_CHECK_THROW(CreateFederationParams(TAPYRUS_OP_MODE::PROD), std::runtime_error);//("Network Id [0] was out of range. Expected range is 1 to 4294967295."));
 
      //netowrk id of 4 bytes + 1 - 4294967296 (0x100000000)
     gArgs.ForceSetArg("-networkid", "4294967296");
     writeTestGenesisBlockToFile(GetDataDir(), "genesis.4294967296");
-    BOOST_CHECK_THROW(CreateFederationParams(TAPYRUS_OP_MODE::PROD, true), std::runtime_error);//("Network Id [4294967296] was out of range. Expected range is 1 to 4294967295."));
+    BOOST_CHECK_THROW(CreateFederationParams(TAPYRUS_OP_MODE::PROD), std::runtime_error);//("Network Id [4294967296] was out of range. Expected range is 1 to 4294967295."));
 
      //netowrk id of 8 bytes - 18446744073709551615 (0xFFFFFFFF FFFFFFFF)
     gArgs.ForceSetArg("-networkid", "18446744073709551615");
     writeTestGenesisBlockToFile(GetDataDir(), "genesis.18446744073709551615");
-    BOOST_CHECK_THROW(CreateFederationParams(TAPYRUS_OP_MODE::PROD, true), std::runtime_error);//("Network Id [18446744073709551615] was out of range. Expected range is 1 to 4294967295."));
+    BOOST_CHECK_THROW(CreateFederationParams(TAPYRUS_OP_MODE::PROD), std::runtime_error);//("Network Id [18446744073709551615] was out of range. Expected range is 1 to 4294967295."));
 
     //netowrk id -1
     gArgs.ForceSetArg("-networkid", "-1");
     writeTestGenesisBlockToFile(GetDataDir(), "genesis.-1");
-    BOOST_CHECK_THROW(CreateFederationParams(TAPYRUS_OP_MODE::PROD, true), std::runtime_error);
+    BOOST_CHECK_THROW(CreateFederationParams(TAPYRUS_OP_MODE::PROD), std::runtime_error);
 
     //netowrk id -4294967295
     gArgs.ForceSetArg("-networkid", "-4294967295");
     writeTestGenesisBlockToFile(GetDataDir(), "genesis.-4294967295");
-    BOOST_CHECK_THROW(CreateFederationParams(TAPYRUS_OP_MODE::PROD, true), std::runtime_error);
+    BOOST_CHECK_THROW(CreateFederationParams(TAPYRUS_OP_MODE::PROD), std::runtime_error);
 }
 BOOST_AUTO_TEST_SUITE_END()
