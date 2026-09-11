@@ -26,6 +26,7 @@ import json
 import math
 import time
 
+from test_framework.authproxy import JSONRPCException
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
     assert_array_result,
@@ -667,6 +668,36 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         assert_raises_rpc_error(-5, "sendmany does not support colored addresses; use transfertoken instead",
                                 self.nodes[0].sendmany, amounts)
 
+    def relay_mempool(self, from_node, to_nodes):
+        """
+        Submit from_node's mempool transactions to to_nodes via RPC directly,
+        instead of via p2p relay: a freshly (re)established p2p connection
+        does not retroactively announce a peer's pre-existing mempool
+        entries, only ones that arrive while the connection is already open,
+        so reconnecting nodes alone never converges their mempools here.
+        Tries repeatedly since a child transaction can't be submitted to a
+        node before its parent is.
+        """
+        remaining = set(from_node.getrawmempool())
+        last_errors = {}
+        for _ in range(len(remaining) + 1):
+            if not remaining:
+                return
+            for txid in list(remaining):
+                raw_tx = from_node.getrawtransaction(txid)
+                for node in to_nodes:
+                    if txid not in node.getrawmempool():
+                        try:
+                            node.sendrawtransaction(raw_tx)
+                        except JSONRPCException as e:
+                            # parent not yet present on this node; retry next pass
+                            last_errors[txid] = e
+                if all(txid in node.getrawmempool() for node in to_nodes):
+                    remaining.discard(txid)
+        raise AssertionError("relay_mempool could not sync: %s" % {
+            txid: str(last_errors[txid]) for txid in remaining if txid in last_errors
+        })
+
     def test_only_token_filter(self):
 
         self.log.info("Testing only_token filter in listunspent")
@@ -682,9 +713,18 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         pubkeyhash = hash160(hex_str_to_bytes(self.nodes[0].getaddressinfo(tpc_utxo['address'])['pubkey']))
         scr1 =  CScript([OP_DUP, OP_HASH160, pubkeyhash, OP_EQUALVERIFY, OP_CHECKSIG ])
 
-        # Disconnect nodes 0 and 1 to prevent transaction propagation before generate()
+        # Isolate node 0 from BOTH of its peers, not just node 1 directly --
+        # setup_network() connects 0-1, 1-2, and 0-2 in a mesh, so leaving
+        # the 0-2 link up would let node 2 relay res1's transaction on to
+        # node 1 (0 -> 2 -> 1) even with the direct 0-1 link down. Whether
+        # that relay lands before node 1's generate() below reads its
+        # mempool is then a race -- usually lost locally, but won often
+        # enough under CI load to make res1 unexpectedly end up mined
+        # instead of staying unconfirmed like the assertions below require.
         disconnect_nodes(self.nodes[0], 1)
         disconnect_nodes(self.nodes[1], 0)
+        disconnect_nodes(self.nodes[0], 2)
+        disconnect_nodes(self.nodes[2], 0)
 
         res1 = self.nodes[0].issuetoken(1, 100, bytes_to_hex_str(scr1))
         token_unspent = len(self.nodes[0].listunspent(6,9999999,[],False,{"only_token": True}))
@@ -693,6 +733,18 @@ class WalletColoredCoinTest(BitcoinTestFramework):
         # send a new token to node 0 to create unsafe token
         self.nodes[1].generate(2, self.signblockprivkey_wif)
 
+        # Reconnect node 0 now that generate() above is done: res1 could not
+        # have reached node 1's mempool while node 0 was fully isolated, so
+        # it's guaranteed to still be unconfirmed at this point. The p2p
+        # reconnect itself won't announce res1 to node 1/node 2 (relay only
+        # fires for entries that arrive after a peer is already connected),
+        # so bring their mempools back in sync with node 0's directly via RPC.
+        connect_nodes(self.nodes[0], 1)
+        connect_nodes(self.nodes[1], 0)
+        connect_nodes(self.nodes[0], 2)
+        connect_nodes(self.nodes[2], 0)
+        self.relay_mempool(self.nodes[0], [self.nodes[1], self.nodes[2]])
+
         self.sync_all([self.nodes[0:3]])
         tpc_utxo = findTPC(self.nodes[1].listunspent())
         pubkeyhash = hash160(hex_str_to_bytes(self.nodes[1].getaddressinfo(tpc_utxo['address'])['pubkey']))
@@ -700,9 +752,6 @@ class WalletColoredCoinTest(BitcoinTestFramework):
 
         res2 = self.nodes[1].issuetoken(1, 100, bytes_to_hex_str(scr2))
 
-        # Reconnect nodes 0 and 1 after issuing token on node 1
-        connect_nodes(self.nodes[0], 1)
-        connect_nodes(self.nodes[1], 0)
         node0_caddress = self.nodes[0].getnewaddress("", res2['color'])
         self.nodes[1].sendtoaddress(node0_caddress, 50)
         self.sync_all([self.nodes[0:3]])
