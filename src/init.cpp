@@ -45,6 +45,7 @@
 #include <validationinterface.h>
 #include <warnings.h>
 #include <walletinitinterface.h>
+#include <stdexcept>
 #include <stdint.h>
 #include <stdio.h>
 #include <tapyrusmodes.h>

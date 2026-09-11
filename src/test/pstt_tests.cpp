@@ -25,6 +25,7 @@
 #include <test/data/tip174_invalid.json.h>
 #include <test/data/tip174_valid.json.h>
 
+#include <stdexcept>
 #include <string>
 
 #include <boost/test/unit_test.hpp>

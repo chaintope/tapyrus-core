@@ -11,6 +11,7 @@
 #include <validation.h>
 #include <file_io.h>
 #include <deque>
+#include <stdexcept>
 
 static const uint64_t MEMPOOL_DUMP_VERSION = 1;
 

@@ -25,6 +25,7 @@
 #include <test/test_keys_helper.h>
 
 #include <memory>
+#include <stdexcept>
 
 #include <boost/test/unit_test.hpp>
 

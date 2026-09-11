@@ -11,6 +11,7 @@
 #include <primitives/xfield.h>
 #include <sync.h>
 #include <shared_mutex>
+#include <stdexcept>
 /*
  * struct to store xfieldValue, block hash and height for every xfield update in the blockchain.
  */

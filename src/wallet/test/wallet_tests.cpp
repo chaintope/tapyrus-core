@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <set>
+#include <stdexcept>
 #include <stdint.h>
 #include <utility>
 #include <vector>

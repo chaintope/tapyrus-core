@@ -20,6 +20,7 @@
 #include <blockprune.h>
 
 #include <deque>
+#include <stdexcept>
 #include <boost/algorithm/string/replace.hpp>
 
 

@@ -40,6 +40,7 @@
 #endif
 
 #include <future>
+#include <stdexcept>
 #include <stdint.h>
 
 #include <univalue.h>

@@ -23,6 +23,7 @@
 #include <utilstrencodings.h>
 
 #include <memory>
+#include <stdexcept>
 #include <stdio.h>
 #include <charconv>
 

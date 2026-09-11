@@ -12,6 +12,8 @@
 #include <boost/test/unit_test.hpp>
 #include <consensus/validation.h>
 
+#include <stdexcept>
+
 extern void noui_connect();
 
 struct ChainParamsTestingSetup {

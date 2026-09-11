@@ -11,6 +11,8 @@
 #include <utilstrencodings.h>
 #include <coloridentifier.h>
 
+#include <stdexcept>
+
 std::string COutPoint::ToString() const
 {
     return strprintf("COutPoint(%s, %u)", hashMalFix.ToString().substr(0,10), n);

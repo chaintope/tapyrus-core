@@ -22,6 +22,7 @@
 #include <univalue.h>
 
 #include <charconv>
+#include <stdexcept>
 
 #if ENABLE_WALLET
 #include <db_cxx.h>

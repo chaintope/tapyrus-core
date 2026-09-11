@@ -9,6 +9,8 @@
 #include <random.h>
 #include <trace.h>
 
+#include <stdexcept>
+
 bool CCoinsView::GetCoin(const COutPoint &outpoint, Coin &coin) const { return false; }
 uint256 CCoinsView::GetBestBlock() const { return uint256(); }
 std::vector<uint256> CCoinsView::GetHeadBlocks() const { return std::vector<uint256>(); }

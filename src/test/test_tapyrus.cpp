@@ -25,6 +25,7 @@
 
 #include <thread>
 #include <fstream>
+#include <stdexcept>
 
 constexpr unsigned int CPubKey::SCHNORR_SIGNATURE_SIZE;
 

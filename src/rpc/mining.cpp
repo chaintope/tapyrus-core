@@ -32,6 +32,7 @@
 #include <memory>
 #include <chrono>
 #include <charconv>
+#include <stdexcept>
 
 #include <stdint.h>
 #include <policy/policy.h>

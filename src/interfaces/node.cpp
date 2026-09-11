@@ -40,6 +40,7 @@
 #endif
 
 #include <atomic>
+#include <stdexcept>
 #include <univalue.h>
 
 namespace interfaces {

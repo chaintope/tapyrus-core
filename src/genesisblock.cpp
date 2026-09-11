@@ -14,6 +14,8 @@
 #include <script/standard.h>
 #include <tinyformat.h>
 
+#include <stdexcept>
+
 CBlock createGenesisBlock(const CPubKey& aggregatePubkey, const CKey& privateKey, const time_t blockTime, std::string payToaddress)
 {
     //Genesis coinbase transaction paying block reward to the first public key in signedBlocksCondition

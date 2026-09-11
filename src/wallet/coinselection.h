@@ -10,6 +10,8 @@
 #include <primitives/transaction.h>
 #include <random.h>
 
+#include <stdexcept>
+
 //! target minimum change amount
 static const CAmount MIN_CHANGE = CENT;
 //! final minimum change amount after paying for fees

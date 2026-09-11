@@ -14,6 +14,8 @@
 #include <validation.h>
 #include <xfieldhistory.h>
 
+#include <stdexcept>
+
 #include <boost/test/unit_test.hpp>
 
 extern void noui_connect();

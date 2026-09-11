@@ -14,6 +14,7 @@
 #include <script/interpreter.h>
 
 #include <assert.h>
+#include <stdexcept>
 
 void SetupFederationParamsOptions()
 {

@@ -16,6 +16,7 @@
 #include <utilstrencodings.h>
 
 #include <memory>
+#include <stdexcept>
 #include <stdio.h>
 
 #include <event2/buffer.h>

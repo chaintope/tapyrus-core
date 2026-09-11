@@ -7,6 +7,7 @@
 #include <rpc/client.h>
 
 #include <set>
+#include <stdexcept>
 #include <stdint.h>
 
 class CRPCConvertParam

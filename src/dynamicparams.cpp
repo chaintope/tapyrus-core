@@ -16,6 +16,7 @@
 
 #include <assert.h>
 #include <fstream>
+#include <stdexcept>
 
 std::string ReadGenesisBlock(fs::path genesisPath)
 {

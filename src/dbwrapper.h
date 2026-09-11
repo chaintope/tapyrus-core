@@ -16,6 +16,8 @@
 #include <leveldb/db.h>
 #include <leveldb/write_batch.h>
 
+#include <stdexcept>
+
 static const size_t DBWRAPPER_PREALLOC_KEY_SIZE = 64;
 static const size_t DBWRAPPER_PREALLOC_VALUE_SIZE = 1024;
 
