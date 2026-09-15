@@ -57,7 +57,7 @@
 #   tapyrus_rpc         -- tapyrus_wallet (cond.), tapyrus_peer, tapyrus_chainstate, tapyrus_codec,
 #                          tapyrus_netbase, tapyrus_scripting, tapyrus_util
 #   tapyrus_wallet      -- tapyrus_chainstate, tapyrus_peer, tapyrus_codec, tapyrus_scripting,
-#                          tapyrus_global, tapyrus_util
+#                          tapyrus_global, tapyrus_util, tapyrus_rpc
 #   tapyrus_peer        -- tapyrus_chainstate, tapyrus_netbase, tapyrus_scripting, tapyrus_util
 #   tapyrus_chainstate  -- tapyrus_codec, tapyrus_netbase, tapyrus_scripting, tapyrus_global, tapyrus_util
 #   tapyrus_codec       -- tapyrus_scripting, tapyrus_global, tapyrus_util
@@ -68,10 +68,10 @@
 #   tapyrus_util        -- tapyrus_clientversion, tapyrus_crypto
 #   tapyrus_consensus   -- tapyrus_crypto
 #
-# The one edge that looks backwards at first glance: tapyrus_rpc depends
-# on tapyrus_wallet, not the other way around. Three files that physically
-# live in src/wallet/ compile as part of tapyrus_rpc instead, precisely
-# because each one calls something only tapyrus_rpc has:
+# tapyrus_rpc and tapyrus_wallet link each other -- a genuine two-way
+# dependency, not a mistake. Three files that physically live in src/wallet/
+# compile as part of tapyrus_rpc instead, precisely because each one calls
+# something only tapyrus_rpc has:
 #   - wallet/rpcwallet.cpp touches CRPCTable directly to register the
 #     wallet's RPC commands into the global table, and its own command
 #     table extern-declares and registers...
@@ -81,10 +81,13 @@
 #     (declared in wallet/walletinit.h, defined here because it calls
 #     RegisterWalletRPCCommands()) -- every other WalletInit method stays
 #     in wallet/init.cpp, in tapyrus_wallet.
-# Every other wallet/*.cpp file only *implements* wallet behavior invoked
-# through interfaces (CWallet methods, the RPC table's function pointers),
-# so tapyrus_wallet itself never needs to look back up at tapyrus_rpc.
-# That's what keeps the whole graph acyclic.
+# The edge back the other way, tapyrus_wallet -> tapyrus_rpc, exists because
+# WalletInit's vtable is emitted in init.cpp.o (tapyrus_wallet) -- it's the
+# translation unit with WalletInit's "key function," AddWalletOptions() --
+# and that vtable references every virtual method of the class, including
+# RegisterRPC(), defined only in tapyrus_rpc. CMake links static libraries
+# with cyclic target_link_libraries() correctly, repeating them in the final
+# link command as needed.
 
 include(AddWindowsResources)
 
