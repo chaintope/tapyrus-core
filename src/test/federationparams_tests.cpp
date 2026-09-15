@@ -124,8 +124,14 @@ BOOST_AUTO_TEST_CASE(create_genesis_block)
     CPubKey aggregatePubkey(validAggPubKey, validAggPubKey + 33);
     const auto genesis = createGenesisBlock(aggregatePubkey, key);
 
+    // CheckBlock()'s AGGPUBKEY/MAXBLOCKSIZE lookups fall back to reading the
+    // shared, process-wide xfield history when no pxfieldHistory is passed;
+    // seed it from this genesis block first, or CXFieldHistoryMap::Get()
+    // dereferences an end() iterator on the (here, never-seeded) map.
+    CXFieldHistory xfieldHistory(genesis);
+
     CValidationState state;
-    BOOST_CHECK(CheckBlock(genesis, state, true));
+    BOOST_CHECK(CheckBlock(genesis, state, true, true, &xfieldHistory));
 }
 
 BOOST_AUTO_TEST_CASE(create_genesis_block_one_publickey)
