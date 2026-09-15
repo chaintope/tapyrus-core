@@ -91,20 +91,27 @@ Building the GUI (Qt) through `depends` on Linux additionally requires `gperf`
 and Meson >= 1.4.0 — newer than the `meson` apt package on Ubuntu 24.04. See
 [depends/README.md](/depends/README.md) for the exact packages.
 
-BerkeleyDB is required for the wallet.
+BerkeleyDB is required for the wallet. 5.3 is the recommended version —
+a wallet written by an older, 4.8-linked build opens and upgrades
+cleanly under 5.3, since both read the same on-disk `wallet.dat` file
+format (`DB_BTREEVERSION` 9). This is a one-way upgrade, not general
+compatibility between the two BDB versions: once a wallet directory has
+been opened by 5.3, its transaction log is a version 4.8 cannot read,
+and that wallet directory can no longer be opened by a 4.8-linked build
+afterwards (`PANIC: ... unsupported log version`). If you need to go
+back to a 4.8-linked build, remove the wallet's `database/` subdirectory
+first (or run the old binary with `-salvagewallet`).
 
-**For Ubuntu only:** db4.8 packages are available [here](https://launchpad.net/~bitcoin/+archive/bitcoin).
-You can add the repository and install using the following commands:
+**For Ubuntu:** a `libdb5.3++-dev` package is available directly from the
+standard repositories, no extra PPA needed:
 
-    sudo apt-get install software-properties-common
-    sudo add-apt-repository ppa:bitcoin/bitcoin
-    sudo apt-get update
-    sudo apt-get install libdb4.8-dev libdb4.8++-dev
+    sudo apt-get install libdb5.3-dev libdb5.3++-dev
 
-Ubuntu and Debian have their own libdb-dev and libdb++-dev packages, but these will install
-BerkeleyDB 5.1 or later, which break binary wallet compatibility with the distributed executables which
-are based on BerkeleyDB 4.8. If you do not care about wallet compatibility,
-use `-DWITH_INCOMPATIBLE_BDB=ON` when configuring CMake.
+Plain `libdb-dev`/`libdb++-dev` (no version suffix) install whatever BDB
+major version Ubuntu currently ships as its default, which may be newer
+than 5.3 and break binary wallet compatibility. If you do not care about
+wallet compatibility, use `-DWITH_INCOMPATIBLE_BDB=ON` when configuring
+CMake — see [build-cmake.md](build-cmake.md)'s CMake options table.
 
 See the section "Disable-wallet mode" to build Tapyrus Core without wallet.
 
@@ -149,9 +156,11 @@ Optional:
 
     sudo dnf install libevent-devel boost-devel
 
-Berkeley DB is required for the legacy wallet:
+Berkeley DB is required for the wallet. Fedora's `libdb-devel` package
+ships Berkeley DB 5.3.28 directly (unlike Ubuntu/Debian's version-suffixed
+package names) -- no compat package needed:
 
-    sudo dnf install libdb4-devel libdb4-cxx-devel
+    sudo dnf install libdb-devel
 
 User-Space, Statically Defined Tracing (USDT) dependencies:
 
@@ -196,7 +205,12 @@ turned off by default.  See the CMake options for upnp behavior desired:
 
 Berkeley DB
 -----------
-It is recommended to use Berkeley DB 4.8. If you have to build it yourself,
+It is recommended to use Berkeley DB 5.3, which Fedora's `libdb-devel`
+package provides directly (see above). Berkeley DB 4.8 is also validated
+if you specifically need it, e.g. to keep running an older, 4.8-linked
+build -- a wallet last written by 4.8 opens fine under 5.3 (see the note
+above), but not the reverse: a wallet directory once opened by 5.3 will
+not reopen under 4.8 -- if you have to build 4.8 yourself,
 you can use [the installation script included in contrib/](/contrib/install_db4.sh)
 like so
 
@@ -273,7 +287,7 @@ disable-wallet mode with:
 
     cmake -S . -B build -DENABLE_WALLET=OFF
 
-In this case there is no dependency on Berkeley DB 4.8.
+In this case there is no dependency on Berkeley DB.
 
 Mining is also possible in disable-wallet mode, but only using the `getblocktemplate` RPC
 call not `getwork`.
@@ -297,11 +311,13 @@ This example lists the steps necessary to setup and build a command line only, n
     ctest --test-dir build
 
 Note:
-Enabling wallet support requires either compiling against a Berkeley DB newer than 4.8 (package `db`) using `-DWITH_INCOMPATIBLE_BDB=ON`,
-or building and depending on a local version of Berkeley DB 4.8. The readily available Arch Linux packages are currently built using
+Enabling wallet support requires either compiling against a Berkeley DB newer than 5.3 (package `db`) using `-DWITH_INCOMPATIBLE_BDB=ON`,
+or building and depending on a local version of Berkeley DB 4.8 or 5.3 -- a 4.8-written wallet opens fine under 5.3 (see the note above),
+but not the reverse: a wallet directory once opened by 5.3 will no longer reopen under 4.8.
+The readily available Arch Linux packages are currently built using
 `-DWITH_INCOMPATIBLE_BDB=ON` according to the [PKGBUILD](https://projects.archlinux.org/svntogit/community.git/tree/tapyrus/trunk/PKGBUILD).
-As mentioned above, when maintaining portability of the wallet between the standard Tapyrus Core distributions and independently built
-node software is desired, Berkeley DB 4.8 must be used.
+As mentioned above, when sharing a wallet between the standard Tapyrus Core distributions and independently built
+node software is desired, Berkeley DB 4.8 or 5.3 must be used -- keeping in mind that this only works one-way, from a 4.8-linked build to a 5.3-linked one.
 
 
 

@@ -1,0 +1,18 @@
+Fix mingw-w64 cross-compilation: win_db.h includes <WinIoCtl.h> (mixed
+case), but mingw-w64 ships it as lowercase winioctl.h, so this fails to
+resolve on a case-sensitive host. Works natively on Windows only. Not
+present in BDB 4.8.30, introduced in 5.3.28.
+
+diff --git a/src/dbinc/win_db.h b/src/dbinc/win_db.h
+index 1111111..2222222 100644
+--- a/src/dbinc/win_db.h
++++ b/src/dbinc/win_db.h
+@@ -46,7 +46,7 @@
+ #include <windows.h>
+ #include <winsock2.h>
+ #ifndef DB_WINCE
+-#include <WinIoCtl.h>
++#include <winioctl.h>
+ #endif
+
+ #ifdef HAVE_GETADDRINFO

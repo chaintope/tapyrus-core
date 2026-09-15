@@ -18,7 +18,7 @@ These are the dependencies currently used by Tapyrus Core. You can find instruct
 
 | Package | Platform | Minimum tested | Version | File name | SHA256 | Download URL |
 | --- | --- | --- | --- | --- | --- | --- |
-| Berkeley DB | Wallet only | 4.8 | 4.8.30 | `db-4.8.30.NC.tar.gz` | `12edc0df75bf9abd7f82f821795bcee50f42cb2e5f76a6a281b85732798364ef` | [download.oracle.com](https://download.oracle.com/berkeley-db/db-4.8.30.NC.tar.gz) |
+| Berkeley DB | Wallet only | 5.3.28 | 5.3.28 | `db-5.3.28.NC.tar.gz` | `76a25560d9e52a198d37a31440fd07632b5f1f8f9f2b6d5438f4bc3e7c9013ef` | [download.oracle.com](https://download.oracle.com/berkeley-db/db-5.3.28.NC.tar.gz) |
 | Boost | | 1.81.0 | 1.92.0 | `boost_1_92_0.tar.gz` | `c4a3b310ddd2472416e091067166b0713be97c63f38c212c484ada022fd296ce` | [archives.boost.io](https://archives.boost.io/release/1.92.0/source/boost_1_92_0.tar.gz) |
 | Expat | Linux + GUI only | 2.4.8 | 2.8.3 | `expat-2.8.3.tar.xz` | `f6256df90c906773d344da084402b7d3e4f22ed41b1a59c989098a83d3ea0c85` | [github.com](https://github.com/libexpat/libexpat/releases/download/R_2_8_3/expat-2.8.3.tar.xz) |
 | fontconfig | Linux + GUI only | 2.16.0 | 2.16.0 | `fontconfig-2.16.0.tar.xz` | `6a33dc555cc9ba8b10caf7695878ef134eeb36d0af366041f639b1da9b6ed220` | [freedesktop.org](https://www.freedesktop.org/software/fontconfig/release/fontconfig-2.16.0.tar.xz) |
@@ -43,6 +43,15 @@ These are the dependencies currently used by Tapyrus Core. You can find instruct
 | xproto | Linux + GUI only | 7.0.31 | 7.0.31 | `xproto-7.0.31.tar.gz` | `6d755eaae27b45c5cc75529a12855fed5de5969b367ed05003944cf901ed43c7` | [xorg.freedesktop.org](https://xorg.freedesktop.org/releases/individual/proto/xproto-7.0.31.tar.gz) |
 | ZeroMQ | | 4.3.5 | 4.3.5 | `zeromq-4.3.5.tar.gz` | `6653ef5910f17954861fe72332e68b03ca6e4d9c7160eb3a8de5a5a913bfab43` | [github.com](https://github.com/zeromq/libzmq/releases/download/v4.3.5/zeromq-4.3.5.tar.gz) |
 | macOS SDK | macOS only | Xcode 26.2 (17C52) | Xcode 26.2 (17C52) | `Xcode-26.2-17C52-extracted-SDK-with-libcxx-headers.tar.gz` | *(not checked; see below)* | [bitcoincore.org](https://bitcoincore.org/depends-sources/sdks/Xcode-26.2-17C52-extracted-SDK-with-libcxx-headers.tar.gz) |
+
+**Berkeley DB downgrade warning:**
+
+| Tapyrus Core version | Berkeley DB version |
+| --- | --- |
+| v0.7.1 and earlier | 4.8 |
+| v0.7.2 and later | 5.3 |
+
+A wallet written by Tapyrus Core v0.7.1 or earlier can be opened and upgraded by v0.7.2 or later. This only works in that one direction, not both: once a wallet has been opened by v0.7.2 or later, it can no longer be opened by v0.7.1 or earlier -- that older version will refuse to start against it, even after a clean shutdown of the newer version. To move a wallet back to v0.7.1 or earlier after it has been opened by a newer version, back up the wallet directory first, then either remove its `database` subdirectory before starting the older version, or start the older version with `-salvagewallet`.
 
 Package/version/hash/URL data above is copied from `depends/packages/*.mk` and `depends/hosts/darwin.mk` for convenience — it will drift if those files change without this table being updated too. Treat the `.mk` files as the source of truth.
 

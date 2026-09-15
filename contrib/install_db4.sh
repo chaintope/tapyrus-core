@@ -81,7 +81,6 @@ make install
 echo
 echo "db4 build complete."
 echo
-echo 'When compiling tapyrusd, run `./configure` in the following way:'
+echo 'When configuring tapyrus-core with CMake, point it at this prefix:'
 echo
-echo "  export BDB_PREFIX='${BDB_PREFIX}'"
-echo '  ./configure BDB_LIBS="-L${BDB_PREFIX}/lib -ldb_cxx-4.8" BDB_CFLAGS="-I${BDB_PREFIX}/include" ...'
+echo "  cmake -S . -B build -DBerkeleyDB_ROOT='${BDB_PREFIX}'"
