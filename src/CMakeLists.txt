@@ -381,6 +381,9 @@ add_library(tapyrus_peer STATIC EXCLUDE_FROM_ALL
   net_processing.cpp
   torcontrol.cpp
 )
+# torcontrol.cpp uses libevent's bufferevent/event_base API directly
+# (event2/bufferevent.h etc.) and calls evthread_use_pthreads(), from
+# libevent's pthreads component.
 target_link_libraries(tapyrus_peer
   PUBLIC
     tapyrus_chainstate
@@ -389,6 +392,8 @@ target_link_libraries(tapyrus_peer
     tapyrus_util
   PRIVATE
     core_interface
+    libevent::core
+    libevent::pthreads
     Boost::headers
 )
 
