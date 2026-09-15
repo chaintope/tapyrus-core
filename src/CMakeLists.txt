@@ -204,6 +204,7 @@ add_library(tapyrus_util STATIC EXCLUDE_FROM_ALL
         utilstrencodings.cpp
         utiltime.cpp
 )
+# util.cpp's SetupNetworking() calls WSAStartup() directly on Windows.
 target_link_libraries(tapyrus_util
         PUBLIC
         tapyrus_clientversion
@@ -211,6 +212,7 @@ target_link_libraries(tapyrus_util
         core_interface
         tapyrus_crypto
         univalue
+        $<$<PLATFORM_ID:Windows>:ws2_32>
         Boost::headers
 )
 target_compile_definitions(tapyrus_util PUBLIC HAVE_CONFIG_H)
@@ -382,8 +384,10 @@ add_library(tapyrus_peer STATIC EXCLUDE_FROM_ALL
   torcontrol.cpp
 )
 # torcontrol.cpp uses libevent's bufferevent/event_base API directly
-# (event2/bufferevent.h etc.) and calls evthread_use_pthreads(), from
-# libevent's pthreads component.
+# (event2/bufferevent.h etc.) and calls evthread_use_pthreads() on non-Windows
+# platforms (evthread_use_windows_threads() on Windows, which needs no extra
+# library) -- libevent's pthreads component isn't built at all on Windows, so
+# it's referenced defensively, same as tapyrus_rpc's libevent components above.
 target_link_libraries(tapyrus_peer
   PUBLIC
     tapyrus_chainstate
@@ -393,7 +397,7 @@ target_link_libraries(tapyrus_peer
   PRIVATE
     core_interface
     libevent::core
-    libevent::pthreads
+    $<TARGET_NAME_IF_EXISTS:libevent::pthreads>
     Boost::headers
 )
 
