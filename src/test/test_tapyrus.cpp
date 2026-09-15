@@ -63,6 +63,16 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
 {
     SHA256AutoDetect();
     RandomInit();
+    // A prior test's fixture can die via an assert-triggered SIGABRT
+    // anywhere in its construction or body; Boost.Test's signal handler
+    // recovers by unwinding past both this constructor's catch block and
+    // ~BasicTestingSetup()'s destructor, so ECC_Stop() never runs and
+    // secp256k1_context_sign is still set. ECC_Start()'s own precondition
+    // assert on that pointer then fires immediately for every following
+    // test.
+    if (ECC_NeedsReset()) {
+        ECC_Stop();
+    }
     ECC_Start();
     try {
         SetupEnvironment();
