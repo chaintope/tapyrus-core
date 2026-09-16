@@ -159,7 +159,9 @@ protected:
      * the whole package is confirmed successful. See SubmitPackageToMempool()
      * in policy/packages.cpp.
      *
-     * Called on a background thread.
+     * Called synchronously, on the calling thread -- preserves the inline
+     * RelayTransaction() timing SubmitPackageToMempool() had, so relay
+     * happens before the RPC call that submitted the package returns.
      */
     virtual void PackageTransactionsRelay(const std::vector<CTransactionRef>& txns) {}
     friend void ::RegisterValidationInterface(CValidationInterface*);
