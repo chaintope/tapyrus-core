@@ -13,12 +13,10 @@ else()
   find_package(BerkeleyDB 4.8...5.99 REQUIRED)
 endif()
 
-# rpcwallet.cpp, rpcdump.cpp, and walletinit_rpc.cpp are deliberately NOT
-# listed here -- they compile into tapyrus_rpc instead (rpcdump.cpp is pure
-# RPC-command-handler content that rpcwallet.cpp's own RPC table extern-
-# declares and registers; walletinit_rpc.cpp holds the one WalletInit method
-# that calls into RegisterWalletRPCCommands()). See the dependency graph at
-# the top of the top-level src/CMakeLists.txt.
+# rpcwallet.cpp and rpcdump.cpp compile into tapyrus_rpc instead of here.
+# init.cpp and walletinit_rpc.cpp compile directly into whichever
+# executables need WalletInit -- see the WalletInit glue note on
+# tapyrusd's add_executable() in the top-level src/CMakeLists.txt.
 add_library(tapyrus_wallet STATIC
         coincontrol.cpp
         coinselection.cpp
@@ -26,7 +24,6 @@ add_library(tapyrus_wallet STATIC
         db.cpp
         feebumper.cpp
         fees.cpp
-        init.cpp
         ../interfaces/wallet.cpp
         pstt.cpp
         tokenissuance.cpp
@@ -44,15 +41,6 @@ target_link_libraries(tapyrus_wallet
     tapyrus_codec
     tapyrus_peer
     tapyrus_util
-    # WalletInit's vtable (walletinit.h) is emitted wherever its "key
-    # function" -- the first non-inline virtual method, AddWalletOptions()
-    # -- is defined, which is init.cpp, here. That vtable references every
-    # virtual method including RegisterRPC(), defined in
-    # wallet/walletinit_rpc.cpp (tapyrus_rpc), so this library does need
-    # tapyrus_rpc back for that one symbol. CMake links static libraries
-    # with cyclic dependencies correctly by repeating them in the final
-    # link command as needed.
-    tapyrus_rpc
     univalue
     ${BerkeleyDB_LIBRARY}
     Boost::headers

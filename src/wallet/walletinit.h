@@ -8,10 +8,10 @@
 
 #include <walletinitinterface.h>
 
-// Declaration is shared between wallet/init.cpp (tapyrus_wallet) and
-// wallet/walletinit_rpc.cpp (tapyrus_rpc) -- RegisterRPC() is defined in the
-// latter because it needs RegisterWalletRPCCommands(), which lives in
-// tapyrus_rpc. See the dependency graph comment at the top of the top-level
+// Declaration is shared between wallet/init.cpp and wallet/walletinit_rpc.cpp
+// -- RegisterRPC() is defined in the latter, since it needs
+// RegisterWalletRPCCommands() (tapyrus_rpc). Neither file compiles into a
+// library -- both are glue; see tapyrusd's add_executable() in
 // src/CMakeLists.txt.
 class WalletInit : public WalletInitInterface {
 public:

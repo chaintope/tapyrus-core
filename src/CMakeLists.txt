@@ -57,7 +57,7 @@
 #   tapyrus_rpc         -- tapyrus_wallet (cond.), tapyrus_peer, tapyrus_chainstate, tapyrus_codec,
 #                          tapyrus_netbase, tapyrus_scripting, tapyrus_util
 #   tapyrus_wallet      -- tapyrus_chainstate, tapyrus_peer, tapyrus_codec, tapyrus_scripting,
-#                          tapyrus_global, tapyrus_util, tapyrus_rpc
+#                          tapyrus_global, tapyrus_util
 #   tapyrus_peer        -- tapyrus_chainstate, tapyrus_netbase, tapyrus_scripting, tapyrus_util
 #   tapyrus_chainstate  -- tapyrus_codec, tapyrus_netbase, tapyrus_scripting, tapyrus_global, tapyrus_util
 #   tapyrus_codec       -- tapyrus_scripting, tapyrus_global, tapyrus_util
@@ -68,26 +68,10 @@
 #   tapyrus_util        -- tapyrus_clientversion, tapyrus_crypto
 #   tapyrus_consensus   -- tapyrus_crypto
 #
-# tapyrus_rpc and tapyrus_wallet link each other -- a genuine two-way
-# dependency, not a mistake. Three files that physically live in src/wallet/
-# compile as part of tapyrus_rpc instead, precisely because each one calls
-# something only tapyrus_rpc has:
-#   - wallet/rpcwallet.cpp touches CRPCTable directly to register the
-#     wallet's RPC commands into the global table, and its own command
-#     table extern-declares and registers...
-#   - wallet/rpcdump.cpp's handlers (importprivkey, dumpwallet, etc.) --
-#     pure RPC-command-handler content, not general wallet library code.
-#   - wallet/walletinit_rpc.cpp, which holds only WalletInit::RegisterRPC()
-#     (declared in wallet/walletinit.h, defined here because it calls
-#     RegisterWalletRPCCommands()) -- every other WalletInit method stays
-#     in wallet/init.cpp, in tapyrus_wallet.
-# The edge back the other way, tapyrus_wallet -> tapyrus_rpc, exists because
-# WalletInit's vtable is emitted in init.cpp.o (tapyrus_wallet) -- it's the
-# translation unit with WalletInit's "key function," AddWalletOptions() --
-# and that vtable references every virtual method of the class, including
-# RegisterRPC(), defined only in tapyrus_rpc. CMake links static libraries
-# with cyclic target_link_libraries() correctly, repeating them in the final
-# link command as needed.
+# tapyrus_rpc links tapyrus_wallet, one-directionally: wallet/rpcwallet.cpp
+# and wallet/rpcdump.cpp compile into tapyrus_rpc, not tapyrus_wallet.
+# wallet/init.cpp and wallet/walletinit_rpc.cpp compile into neither library
+# -- see the WalletInit glue note on tapyrusd's add_executable() below.
 
 include(AddWindowsResources)
 
@@ -410,14 +394,9 @@ if(ENABLE_WALLET)
 endif()
 
 # JSON-RPC and REST server functionality used by `tapyrusd` and
-# `tapyrus-qt` executables. wallet/rpcwallet.cpp and wallet/rpcdump.cpp
-# compile here rather than into tapyrus_wallet -- both are pure RPC-command-
-# handler content (rpcdump.cpp's handlers are extern-declared and registered
-# by rpcwallet.cpp's own command table). wallet/walletinit_rpc.cpp compiles
-# here too: it holds the one WalletInit method (RegisterRPC) that has to
-# call RegisterWalletRPCCommands(), so that the rest of WalletInit -- which
-# stays in wallet/init.cpp, in tapyrus_wallet -- doesn't drag tapyrus_rpc
-# down with it. See the note at the top of this file.
+# `tapyrus-qt`. wallet/rpcwallet.cpp and wallet/rpcdump.cpp compile here,
+# not into tapyrus_wallet. wallet/walletinit_rpc.cpp does not compile here
+# -- see the WalletInit glue note on tapyrusd's add_executable() below.
 set(TAPYRUS_RPC_SOURCES
   httprpc.cpp
   httpserver.cpp
@@ -435,7 +414,6 @@ if(ENABLE_WALLET)
   list(APPEND TAPYRUS_RPC_SOURCES
     wallet/rpcdump.cpp
     wallet/rpcwallet.cpp
-    wallet/walletinit_rpc.cpp
   )
 endif()
 add_library(tapyrus_rpc STATIC EXCLUDE_FROM_ALL ${TAPYRUS_RPC_SOURCES})
@@ -478,6 +456,16 @@ if(BUILD_DAEMON)
     timeoffsets.cpp
     ui_interface.cpp
   )
+  if(ENABLE_WALLET)
+    # WalletInit glue: g_wallet_init_interface is used only from init.cpp
+    # above. Compiled directly into every executable that compiles
+    # init.cpp (also tapyrus-qt and test-tapyrus-qt -- see their own
+    # CMakeLists.txt), not into a library.
+    target_sources(tapyrusd PRIVATE
+      wallet/init.cpp
+      wallet/walletinit_rpc.cpp
+    )
+  endif()
   add_windows_resources(tapyrusd "${TAPYRUSD_RC_FILE}")
   target_link_libraries(tapyrusd PRIVATE
     core_interface

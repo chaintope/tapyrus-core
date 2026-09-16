@@ -126,8 +126,8 @@ bool WalletInit::ParameterInteraction() const
     return true;
 }
 
-// WalletInit::RegisterRPC() is defined in wallet/walletinit_rpc.cpp (tapyrus_rpc),
-// not here -- see the comment on the class declaration in wallet/walletinit.h.
+// WalletInit::RegisterRPC() is defined in wallet/walletinit_rpc.cpp, not
+// here -- see the comment on the class declaration in wallet/walletinit.h.
 
 bool WalletInit::Verify() const
 {
