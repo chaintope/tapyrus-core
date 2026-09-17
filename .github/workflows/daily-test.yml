@@ -1149,12 +1149,16 @@ jobs:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     # RUN_SECONDS per target (default 600s) times however many
-    # src/test/fuzz/fuzz_code/*_fuzz.cpp files exist, plus margin for
-    # checkout/build/artifact-upload -- not a per-target limit, only a
+    # src/test/fuzz/fuzz_code/*_fuzz.cpp files exist, plus fixed overhead
+    # for checkout/build/artifact-upload -- not a per-target limit, only a
     # backstop against the whole job hanging. Grows with the target list:
-    # bump this when target count times RUN_SECONDS/60 approaches it.
-    # 7 targets * 600s default = 70 min alone; 90 min leaves ~20 min margin.
-    timeout-minutes: 90
+    # bump this when target count times RUN_SECONDS/60 + ~6 approaches it.
+    # 7 targets * 600s default = 70 min of fuzzing; measured wall-clock is
+    # ~76 min once checkout/build/upload overhead is included (not the ~20
+    # min the naive 90-70 subtraction implies). timeout-minutes is set for
+    # ~20 min of real margin at 8 targets (the next one to land), so this
+    # won't need touching again until a 9th target lands.
+    timeout-minutes: 105
     env:
       LC_ALL: C.UTF-8
       RUN_SECONDS: ${{ inputs.fuzz_run_seconds || '600' }}
