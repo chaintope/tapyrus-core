@@ -193,9 +193,6 @@ void ECC_Start(void);
 /** Deinitialize the elliptic curve support. No-op if ECC_Start wasn't called first. */
 void ECC_Stop(void);
 
-/** Whether ECC_Start has been called without a matching ECC_Stop yet, i.e. whether ECC_Stop must run before ECC_Start can be called again. */
-bool ECC_NeedsReset(void);
-
 /** Check that required EC support is available at runtime. */
 bool ECC_InitSanityCheck(void);
 

@@ -58,22 +58,24 @@ std::ostream& operator<<(std::ostream& os, const uint256& num)
 
 CXFieldHistory* BasicTestingSetup::pxFieldHistory = nullptr;
 
+// Tracks whether this fixture has an outstanding ECC_Start() to match. A
+// prior test's fixture can die via an assert-triggered SIGABRT anywhere in
+// its construction or body; Boost.Test's signal handler recovers by
+// unwinding past both this constructor's catch block and
+// ~BasicTestingSetup()'s destructor, so ECC_Stop() never runs and the flag
+// is left set, telling the next fixture to call ECC_Stop() first.
+static bool g_ecc_started = false;
+
 BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
     : m_path_root(fs::temp_directory_path() / "test_tapyrus" / strprintf("%lu_%i", (unsigned long)GetTime(), (int)(InsecureRandRange(1 << 30))))
 {
     SHA256AutoDetect();
     RandomInit();
-    // A prior test's fixture can die via an assert-triggered SIGABRT
-    // anywhere in its construction or body; Boost.Test's signal handler
-    // recovers by unwinding past both this constructor's catch block and
-    // ~BasicTestingSetup()'s destructor, so ECC_Stop() never runs and
-    // secp256k1_context_sign is still set. ECC_Start()'s own precondition
-    // assert on that pointer then fires immediately for every following
-    // test.
-    if (ECC_NeedsReset()) {
+    if (g_ecc_started) {
         ECC_Stop();
     }
     ECC_Start();
+    g_ecc_started = true;
     try {
         SetupEnvironment();
         SetupNetworking();
@@ -92,9 +94,9 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
         g_colorid_state.reset(new CIssuedColorIds());
     } catch (...) {
         // ~BasicTestingSetup() never runs for a throwing constructor, so
-        // ECC_Stop() must happen here or every later test's ECC_Start()
-        // fails its own assert that secp256k1_context_sign is still null.
+        // ECC_Stop() and clearing the flag must happen here.
         ECC_Stop();
+        g_ecc_started = false;
         throw;
     }
 }
@@ -108,6 +110,7 @@ BasicTestingSetup::~BasicTestingSetup()
     ClearDatadirCache();
     fs::remove_all(m_path_root);
     ECC_Stop();
+    g_ecc_started = false;
 }
 
 fs::path BasicTestingSetup::SetDataDir(const std::string& name)
