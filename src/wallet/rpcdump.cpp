@@ -21,6 +21,7 @@
 #include <wallet/rpcwallet.h>
 
 #include <fstream>
+#include <stdexcept>
 #include <stdint.h>
 
 #include <charconv>

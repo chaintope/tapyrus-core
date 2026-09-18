@@ -17,6 +17,7 @@
 #include <coloridentifier.h>
 
 #include <assert.h>
+#include <stdexcept>
 #include <stdint.h>
 
 #include <support/allocators/pool.h>

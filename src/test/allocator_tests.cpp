@@ -9,6 +9,7 @@
 #include <test/test_tapyrus.h>
 
 #include <memory>
+#include <stdexcept>
 
 #include <boost/test/unit_test.hpp>
 

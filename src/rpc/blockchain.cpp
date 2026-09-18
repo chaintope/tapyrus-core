@@ -43,6 +43,7 @@
 #include <file_io.h>
 
 #include <assert.h>
+#include <stdexcept>
 #include <stdint.h>
 
 #include <univalue.h>

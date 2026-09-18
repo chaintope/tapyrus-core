@@ -9,6 +9,8 @@
 #include <util.h>
 #include <utilstrencodings.h>
 
+#include <stdexcept>
+
 #ifndef WIN32
 # include <arpa/inet.h>
 #endif

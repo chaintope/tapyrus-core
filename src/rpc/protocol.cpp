@@ -13,6 +13,7 @@
 #include <version.h>
 
 #include <fstream>
+#include <stdexcept>
 
 /**
  * JSON-RPC protocol.  Bitcoin speaks version 1.0 for maximum compatibility,

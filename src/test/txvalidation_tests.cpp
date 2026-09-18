@@ -14,6 +14,8 @@
 #include <policy/policy.h>
 #include <coloridentifier.h>
 
+#include <stdexcept>
+
 #include <boost/test/unit_test.hpp>
 
 

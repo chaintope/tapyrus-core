@@ -41,6 +41,12 @@ public:
      * Overridden from CValidationInterface.
      */
     void NewValidBlock(const CBlockIndex *pindex, const std::shared_ptr<const CBlock> &pblock) override;
+    /**
+     * Overridden from CValidationInterface. Relays every transaction in a
+     * successfully-accepted package. See policy/packages.cpp and the
+     * comment on CValidationInterface::PackageTransactionsRelay().
+     */
+    void PackageTransactionsRelay(const std::vector<CTransactionRef>& txns) override;
 
     /** Initialize a peer by adding it to mapNodeState and pushing a message requesting its version */
     void InitializeNode(CNode* pnode) override;

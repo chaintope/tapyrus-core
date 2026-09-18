@@ -10,6 +10,7 @@
 #include <key_io.h>
 #include <netbase.h>
 #include <pstt.h>
+#include <stdexcept>
 
 #include <test/test_tapyrus.h>
 

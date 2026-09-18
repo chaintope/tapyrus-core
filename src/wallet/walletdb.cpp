@@ -17,6 +17,7 @@
 #include <wallet/wallet.h>
 
 #include <atomic>
+#include <stdexcept>
 #include <thread>
 
 //

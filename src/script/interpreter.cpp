@@ -14,6 +14,8 @@
 #include <script/script.h>
 #include <uint256.h>
 
+#include <stdexcept>
+
 typedef std::vector<unsigned char> valtype;
 
 namespace {

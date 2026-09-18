@@ -13,11 +13,8 @@
 #include <protocol.h>
 #include <streams.h>
 #include <pubkey.h>
-#include <primitives/block.h>
 #include <softforkmanager.h>
 #include <util.h>
-
-const std::string TAPYRUS_GENESIS_FILENAME = "genesis.dat";
 
 // Activation height for SCRIPT_VERIFY_CP2SH_COLORED on Chaintope testnet
 // (networkId 1939510133). The last legacy CP2SH colored spend on testnet was
@@ -40,8 +37,6 @@ public:
     std::string NetworkIDString() const { return strNetworkID; }
     uint32_t NetworkId() const { return nNetworkId; }
     const CMessageHeader::MessageStartChars& MessageStart() const { return pchMessageStart; }
-    bool ReadGenesisBlock(std::string genesisHex);
-    const CBlock& GenesisBlock() const { return genesis; }
     const std::string& getDataDir() const { return dataDir; }
     /** Return the list of hostnames to look up for DNS seeds */
     const std::vector<std::string>& DNSSeeds() const { return vSeeds; }
@@ -50,12 +45,12 @@ public:
     const CSoftForkManager& SoftForkManager() const { return m_softForkManager; }
 
     CFederationParams();
-    CFederationParams(const uint32_t networkId, const std::string dataDirName, const std::string genesisHex);
+    CFederationParams(const uint32_t networkId, const std::string dataDirName);
 
     /** Register a softfork; called once at startup from CreateFederationParams (PROD mode only). */
     void RegisterSoftFork(CSoftFork sf) { m_softForkManager.Register(std::move(sf)); }
 
-    friend std::unique_ptr<CFederationParams> CreateFederationParams(const TAPYRUS_OP_MODE mode, const bool withGenesis);
+    friend std::unique_ptr<CFederationParams> CreateFederationParams(const TAPYRUS_OP_MODE mode);
 
 private:
     uint32_t nNetworkId;
@@ -63,7 +58,6 @@ private:
     CMessageHeader::MessageStartChars pchMessageStart;
     std::string strNetworkID;
     std::string dataDir;
-    CBlock genesis;
     std::vector<std::string> vSeeds;
 };
 
@@ -72,7 +66,7 @@ private:
  * @returns a CFederationParams* of the chosen chain.
  * @throws a std::runtime_error if the chain is not supported.
  */
-std::unique_ptr<CFederationParams> CreateFederationParams(const TAPYRUS_OP_MODE mode, const bool withGenesis);
+std::unique_ptr<CFederationParams> CreateFederationParams(const TAPYRUS_OP_MODE mode);
 
 /**
  *Set the arguments for chainparams
@@ -86,16 +80,6 @@ void SetupFederationParamsOptions();
 const CFederationParams& FederationParams();
 
 /** Sets the params returned by Params() to those for the given network. */
-void SelectFederationParams(const TAPYRUS_OP_MODE mode, const bool withGenesis=true);
-
-/**
- * Reads the genesis block from genesis.dat into federationparams.
- */
-std::string ReadGenesisBlock(fs::path genesisPath = GetDataDir(false));
-
-/**
- * @returns a signed genesis block.
- */
-CBlock createGenesisBlock(const CPubKey& aggregatePubkey, const CKey& privateKey, const time_t blockTime=time(0), const std::string paytoAddress="");
+void SelectFederationParams(const TAPYRUS_OP_MODE mode);
 
 #endif // BITCOIN_FEDERATIONPARAMS_H

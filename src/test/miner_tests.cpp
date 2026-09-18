@@ -9,6 +9,7 @@
 #include <consensus/merkle.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
+#include <dynamicparams.h>
 #include <validation.h>
 #include <miner.h>
 #include <policy/policy.h>
@@ -24,6 +25,7 @@
 #include <test/test_keys_helper.h>
 
 #include <memory>
+#include <stdexcept>
 
 #include <boost/test/unit_test.hpp>
 
@@ -283,14 +285,12 @@ static void TestPackageSelection(const CChainParams& chainparams, const std::vec
 // NOTE: These tests rely on CreateNewBlock doing its own self-validation!
 BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
 {
-    CKey aggregateKey;
-    aggregateKey.Set(validAggPrivateKey, validAggPrivateKey + 32, true);
-    CPubKey aggPubkey;
-    aggPubkey.Set(validAggPubKey, validAggPubKey + 33);
-
     // Note that by default, these tests run with size accounting enabled.
-    auto chainParams = FederationParams();
-    chainParams.ReadGenesisBlock(getTestGenesisBlockHex(aggPubkey, aggregateKey));
+    // Uses the fixture's own genesis (TestingSetup already selected one
+    // keyed with validAggPrivateKey/validAggPubKey) instead of re-deriving
+    // one from the same key: createGenesisBlock()'s blockTime defaults to
+    // time(0) at call time, so a second derivation isn't guaranteed to
+    // hash the same as the first.
     std::unique_ptr<CBlockTemplate> pblocktemplate;
     int baseheight = 0;
     std::vector<CTransactionRef> txFirst;
@@ -587,15 +587,10 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     fCheckpointsEnabled = true;
 }
 
-BOOST_AUTO_TEST_CASE(CreateNewBlock_required_age_in_secs) 
+BOOST_AUTO_TEST_CASE(CreateNewBlock_required_age_in_secs)
 {
-    CKey aggregateKey;
-    aggregateKey.Set(validAggPrivateKey, validAggPrivateKey + 32, true);
-    CPubKey aggPubkey;
-    aggPubkey.Set(validAggPubKey, validAggPubKey + 33);
-
-    auto chainParams = FederationParams();
-    chainParams.ReadGenesisBlock(getTestGenesisBlockHex(aggPubkey, aggregateKey));
+    // See the comment on CreateNewBlock_validity: uses the fixture's own
+    // genesis instead of re-deriving one from the same key.
     std::unique_ptr<CBlockTemplate> pblocktemplate;
     int baseheight = 0;
     std::vector<CTransactionRef> txFirst;

@@ -6,6 +6,7 @@
 #include <clientversion.h>
 #include <util.h>
 #include <federationparams.h>
+#include <genesisblock.h>
 #include <chainparams.h>
 #include <utilstrencodings.h>
 #include <key_io.h>
@@ -77,7 +78,7 @@ static int AppInit(int argc, char* argv[])
     // Check for -dev parameter (Params() calls are only valid after this clause)
     try {
         SelectParams(gArgs.GetChainMode());
-        SelectFederationParams(gArgs.GetChainMode(), false);
+        SelectFederationParams(gArgs.GetChainMode());
     } catch (const std::exception& e) {
         fprintf(stderr, "Error: %s\n", e.what());
         return EXIT_FAILURE;

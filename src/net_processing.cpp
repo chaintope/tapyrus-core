@@ -1012,6 +1012,12 @@ void PeerLogicValidation::NewValidBlock(const CBlockIndex *pindex, const std::sh
     });
 }
 
+void PeerLogicValidation::PackageTransactionsRelay(const std::vector<CTransactionRef>& txns) {
+    for (const auto& tx : txns) {
+        RelayTransaction(*tx, connman);
+    }
+}
+
 /**
  * Update our best height and announce any block hashes which weren't previously
  * in chainActive to our peers.

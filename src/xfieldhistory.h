@@ -5,10 +5,13 @@
 #ifndef TAPYRUS_XFIELDHISTORY_H
 #define TAPYRUS_XFIELDHISTORY_H
 
-#include <policy/policy.h>
+#include <consensus/consensus.h>
 #include <federationparams.h>
+#include <primitives/block.h>
+#include <primitives/xfield.h>
 #include <sync.h>
 #include <shared_mutex>
+#include <stdexcept>
 /*
  * struct to store xfieldValue, block hash and height for every xfield update in the blockchain.
  */

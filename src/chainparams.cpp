@@ -14,6 +14,8 @@
 #include <fs.h>
 #include <utilstrencodings.h>
 #include <tapyrusmodes.h>
+
+#include <stdexcept>
 /**
  * Production network
  */

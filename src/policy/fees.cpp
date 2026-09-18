@@ -9,6 +9,7 @@
 
 #include <clientversion.h>
 #include <primitives/transaction.h>
+#include <stdexcept>
 #include <streams.h>
 #include <txmempool.h>
 #include <util.h>

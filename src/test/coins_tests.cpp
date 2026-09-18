@@ -14,6 +14,7 @@
 
 #include <vector>
 #include <map>
+#include <stdexcept>
 
 #include <boost/test/unit_test.hpp>
 

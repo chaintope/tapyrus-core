@@ -4,7 +4,6 @@
 
 #include <primitives/xfield.h>
 #include <xfieldhistory.h>
-#include <txdb.h>
 #include <univalue.h>
 #include <sync.h>
 #include <shared_mutex>

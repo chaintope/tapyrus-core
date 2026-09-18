@@ -8,6 +8,8 @@
 #include <zmq/zmqabstractnotifier.h>
 #include <zmq/zmqnotificationinterface.h>
 
+#include <stdexcept>
+
 #include <univalue.h>
 
 namespace {

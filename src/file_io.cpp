@@ -2,13 +2,16 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <dynamicparams.h>
 #include <index/txindex.h>
+#include <policy/policy.h>
 #include <shutdown.h>
 #include <trace.h>
 #include <blockprune.h>
 #include <validation.h>
 #include <file_io.h>
 #include <deque>
+#include <stdexcept>
 
 static const uint64_t MEMPOOL_DUMP_VERSION = 1;
 
@@ -271,7 +274,7 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
                 {
                     LOCK(cs_main);
                     // detect out of order blocks, and store them for later
-                    if (hash != FederationParams().GenesisBlock().GetHash() && !LookupBlockIndex(block.hashPrevBlock)) {
+                    if (hash != DynamicParams().GenesisBlock().GetHash() && !LookupBlockIndex(block.hashPrevBlock)) {
                         LogPrint(BCLog::REINDEX, "%s: Out of order block %s, parent %s not known\n", __func__, hash.ToString(),
                                 block.hashPrevBlock.ToString());
                         if (dbp)
@@ -289,13 +292,13 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
                         if (state.IsError()) {
                           break;
                       }
-                    } else if (hash != FederationParams().GenesisBlock().GetHash() && pindex->nHeight % 1000 == 0) {
+                    } else if (hash != DynamicParams().GenesisBlock().GetHash() && pindex->nHeight % 1000 == 0) {
                       LogPrint(BCLog::REINDEX, "%s Block Import: already had block %s at height %d\n", __func__, hash.ToString(), pindex->nHeight);
                     }
                 }
 
                 // Activate the genesis block so normal node progress can continue
-                if (hash == FederationParams().GenesisBlock().GetHash()) {
+                if (hash == DynamicParams().GenesisBlock().GetHash()) {
                     CValidationState state;
                     if (!ActivateBestChain(state)) {
                         break;

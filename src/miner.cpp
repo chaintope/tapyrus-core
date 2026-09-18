@@ -26,6 +26,7 @@
 
 #include <algorithm>
 #include <queue>
+#include <stdexcept>
 #include <utility>
 
 // Unconfirmed transactions in the memory pool often depend on other

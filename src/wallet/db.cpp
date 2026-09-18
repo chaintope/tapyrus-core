@@ -11,6 +11,7 @@
 #include <utilstrencodings.h>
 #include <wallet/walletutil.h>
 
+#include <stdexcept>
 #include <stdint.h>
 
 #ifndef WIN32

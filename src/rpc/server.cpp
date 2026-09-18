@@ -21,6 +21,7 @@
 #include <boost/algorithm/string/split.hpp>
 
 #include <memory> // for unique_ptr
+#include <stdexcept>
 #include <unordered_map>
 
 static Mutex cs_rpcWarmup;

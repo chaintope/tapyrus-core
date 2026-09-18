@@ -11,7 +11,6 @@
 #include <policy/feerate.h>
 #include <script/interpreter.h>
 #include <script/standard.h>
-#include <xfieldhistory.h>
 
 #include <string>
 

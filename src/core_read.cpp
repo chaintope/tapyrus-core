@@ -21,6 +21,7 @@
 #include <boost/algorithm/string/split.hpp>
 
 #include <algorithm>
+#include <stdexcept>
 
 CScript ParseScript(const std::string& s)
 {

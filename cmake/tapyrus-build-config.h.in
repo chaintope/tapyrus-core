@@ -35,17 +35,8 @@
 /* Chaintope copyright holder */
 #define COPYRIGHT_HOLDER_CHAINTOPE "@COPYRIGHT_HOLDER_CHAINTOPE@"
 
-/* Define this symbol to build code that uses ARMv8 SHA-NI intrinsics */
-#cmakedefine ENABLE_ARM_SHANI 1
-
-/* Define this symbol to build code that uses AVX2 intrinsics */
-#cmakedefine ENABLE_AVX2 1
-
 /* Define if external signer support is enabled */
 #cmakedefine ENABLE_EXTERNAL_SIGNER 1
-
-/* Define this symbol to build code that uses SSE4.1 intrinsics */
-#cmakedefine ENABLE_SSE41 1
 
 /* Define to 1 to enable tracepoints for Userspace, Statically Defined Tracing
    */
@@ -56,9 +47,6 @@
 
 /* Define to 1 to enable ZMQ functions. */
 #cmakedefine01 ENABLE_ZMQ
-
-/* Define this symbol to build code that uses x86 SHA-NI intrinsics */
-#cmakedefine ENABLE_X86_SHANI 1
 
 /* Define to 1 if you have the declaration of `daemon', and to 0 if you
    don't. */
@@ -118,15 +106,6 @@
 
 /* Define to 1 if you have the <sys/prctl.h> header file. */
 #cmakedefine HAVE_SYS_PRCTL_H 1
-
-/* Define to 1 if you have the <sys/resources.h> header file. */
-#cmakedefine HAVE_SYS_RESOURCES_H 1
-
-/* Define to 1 if you have the <sys/vmmeter.h> header file. */
-#cmakedefine HAVE_SYS_VMMETER_H 1
-
-/* Define to 1 if you have the <vm/vm_param.h> header file. */
-#cmakedefine HAVE_VM_VM_PARAM_H 1
 
 /* Define to the address where bug reports for this package should be sent. */
 #define CLIENT_BUGREPORT "@CLIENT_BUGREPORT@"
