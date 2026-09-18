@@ -130,7 +130,6 @@ add_executable(test_tapyrus
         skiplist_tests.cpp
         streams_tests.cpp
         test_tapyrus.cpp
-        test_tapyrus_fuzzy.cpp
         test_tapyrus_main.cpp
         test_keys_helper.cpp
         torcontrol_tests.cpp
@@ -188,6 +187,108 @@ target_link_libraries(test_tapyrus
         $<TARGET_NAME_IF_EXISTS:libevent::pthreads>
         $<TARGET_NAME_IF_EXISTS:USDT::headers>
 )
+
+# Fuzz test binaries -- gated behind BUILD_FUZZ_TEST (default OFF) so
+# regular builds (including the full daily-test.yml matrix) never
+# configure or build these; only daily-test.yml's dedicated fuzz-code-only
+# and fuzz-script-sweep jobs turn this on.
+if(BUILD_FUZZ_TEST)
+
+# tapyrus_server/tapyrus_common/tapyrus_util/tapyrus_consensus have real
+# circular symbol dependencies between them (e.g. script/interpreter.cpp
+# in tapyrus_consensus calls GetSoftForkManager(), defined in
+# federationparams.cpp in tapyrus_common; federationparams.cpp in turn
+# calls gArgs/ArgsManager, defined in tapyrus_util) -- test_tapyrus above
+# never hits this because it also links tapyrus_wallet/tapyrus_cli/
+# tapyrus_zmq/libevent, which happen to pull in a superset of the same
+# object files early enough that everything each library needs is
+# already present in the link by the time it's needed. A standalone fuzz
+# binary linking only the libraries it actually needs has no such luck:
+# GNU ld/lld resolve each static archive in a single left-to-right pass,
+# so a later archive's need for a symbol in an earlier, already-scanned
+# archive is never revisited -- confirmed by fuzz_pstt_decode failing to
+# link with "undefined reference to GetSoftForkManager()" until wrapped
+# in --start-group/--end-group, which forces the linker to keep
+# re-scanning the whole set until every symbol resolves. Not supported
+# by Apple's ld64 the same way, but these fuzz binaries are Linux-only in
+# CI (daily-test.yml's fuzz-code-only job runs on ubuntu-latest) so that
+# doesn't matter here.
+function(add_pstt_fuzz_target name source)
+    # Deliberately NOT EXCLUDE_FROM_ALL: BUILD_FUZZ_TEST already gates
+    # whether this function's callers even run (see the if(BUILD_FUZZ_TEST)
+    # above), so once it's ON, a plain default build should actually
+    # compile-check these harnesses -- otherwise daily-test.yml's native
+    # matrix job turning BUILD_FUZZ_TEST=ON to compile-check
+    # tapyrus-verify's --fuzz mode on every PR would silently skip
+    # compile-checking these harnesses the exact same way, and a
+    # signature drift here would go unnoticed until the next scheduled
+    # fuzz-code-only run instead of failing the PR.
+    add_executable(${name}
+        fuzz/fuzz_code/${source}
+    )
+    target_include_directories(${name}
+        PRIVATE
+            ${Boost_INCLUDE_DIRS}
+            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../univalue/include>
+    )
+    # CMake's fixed link-command template
+    # (<COMPILER> <FLAGS> <LINK_OPTIONS> <OBJECTS> -o <TARGET> <LINK_LIBRARIES>)
+    # always places LINK_OPTIONS (from target_link_options()) before the
+    # object files and LINK_LIBRARIES (from target_link_libraries()) after
+    # -- there is no way to get -Wl,--start-group/--end-group positioned
+    # around specific libraries via target_link_options(), since group
+    # markers need to sit in the LINK_LIBRARIES list itself, after the
+    # object file that actually references these symbols (confirmed by
+    # testing: a group placed via target_link_options still failed with
+    # "undefined reference to GetSoftForkManager()", because it ran
+    # before the fuzz harness's own .o -- the thing creating the need --
+    # was even linked). Passing the raw -Wl,--start-group/--end-group
+    # strings directly as target_link_libraries() arguments keeps them in
+    # that correctly-positioned list instead.
+    target_link_libraries(${name}
+        PRIVATE
+            core_interface
+            leveldb
+            univalue
+            secp256k1
+            tapyrus_crypto
+            Boost::headers
+            $<$<NOT:$<PLATFORM_ID:Darwin>>:-Wl,--start-group>
+            tapyrus_server
+            tapyrus_common
+            tapyrus_util
+            tapyrus_consensus
+            $<$<NOT:$<PLATFORM_ID:Darwin>>:-Wl,--end-group>
+    )
+endfunction()
+
+# One standalone executable per fuzz/fuzz_code/*_fuzz.cpp file --
+# deliberately its own executable, not a source file of test_tapyrus
+# above: a libFuzzer/AFL fuzz_test_file supplies its own weak
+# main()/LLVMFuzzerTestOneInput, which would silently be shadowed by
+# test_tapyrus_main.cpp's real main() if linked into that same binary.
+#
+# Target name is derived from the filename: fuzz/fuzz_code/pstt_parse_fuzz.cpp
+# becomes fuzz_pstt_parse. Landing a new harness (e.g. one OSS-Fuzz-Gen
+# drafted and a human reviewed, see contrib/fuzz/oss-fuzz/drafting/README.md)
+# means only adding its source file under fuzz/fuzz_code/ -- nothing to
+# register here, in daily-test.yml, or in contrib/fuzz/oss-fuzz/project/build.sh.
+# Each file documents its own purpose in its own header comment (see e.g.
+# pstt_signer_fuzz.cpp).
+#
+# fuzz_all is a phony aggregate CI builds instead of naming each target
+# individually; the built binaries under bin/fuzz_* are themselves the
+# list of what to run.
+add_custom_target(fuzz_all)
+file(GLOB pstt_fuzz_sources CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/fuzz/fuzz_code/*_fuzz.cpp)
+foreach(pstt_fuzz_source_path ${pstt_fuzz_sources})
+    get_filename_component(pstt_fuzz_source_name ${pstt_fuzz_source_path} NAME)
+    string(REGEX REPLACE "_fuzz\\.cpp$" "" pstt_fuzz_stem ${pstt_fuzz_source_name})
+    add_pstt_fuzz_target(fuzz_${pstt_fuzz_stem} ${pstt_fuzz_source_name})
+    add_dependencies(fuzz_all fuzz_${pstt_fuzz_stem})
+endforeach()
+
+endif(BUILD_FUZZ_TEST)
 
 # We need to detect if the BOOST_TEST_DYN_LINK flag is required.
 check_cxx_source_compiles("

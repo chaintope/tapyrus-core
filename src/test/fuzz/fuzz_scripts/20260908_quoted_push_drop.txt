@@ -1,0 +1,1 @@
+'abcdefghij0123456789abcdefghij01234567' HASH160 DROP 1

@@ -1,0 +1,41 @@
+# Fuzz4All config for the TAPYRUSSCRIPT target -- install at
+# Fuzz4All/config/tapyrus_script.yaml in a real Fuzz4All checkout.
+# Modeled on config/cpp_demo.yaml (read from the real Fuzz4All source),
+# adapted so the (currently disabled, see claude_model.py) autoprompting
+# step is skipped and Claude is used for generation.
+
+fuzzing:
+  output_folder: /tmp/fuzz4all-tapyrus-script-run
+  num: 100
+  total_time: 1
+  log_level: 2
+  otf: true
+  resume: true
+  evaluate: false
+  use_hand_written_prompt: false
+  # Skip the auto_prompt() distillation step entirely -- target.py raises
+  # NotImplementedError for API-based autoprompting on any backend. See
+  # claude_model.py's module docstring.
+  no_input_prompt: true
+  prompt_strategy: 2
+
+target:
+  language: tapyrusscript
+  path_documentation: ../../doc/tapyrus/script.md
+  path_example_code:
+  trigger_to_generate_input: "# Please write a short, valid Tapyrus Script program mixing arithmetic, stack, and signature-check opcodes in an unusual combination"
+  input_hint: "OP_1"
+  path_hand_written_prompt:
+  target_string: "OP_"
+
+llm:
+  temperature: 1
+  batch_size: 10
+  device: cpu
+  # claude/<model-id> selects claude_model.py's ClaudeModel instead of the
+  # local HuggingFace StarCoder path -- see that file's docstring for the
+  # make_model() patch this depends on. claude-opus-5 is the current
+  # default model (see claude_model.py's DEFAULT_MODEL); update this
+  # string if/when a newer model should be used instead.
+  model_name: claude/claude-opus-5
+  max_length: 512

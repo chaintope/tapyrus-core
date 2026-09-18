@@ -1,0 +1,1 @@
+'somecolorid' 1 COLOR EQUAL

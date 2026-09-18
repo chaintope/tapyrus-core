@@ -1,0 +1,12 @@
+homepage: "https://www.chaintope.com/"
+main_repo: "https://github.com/chaintope/tapyrus-core.git"
+language: c++
+primary_contact: "REPLACE_WITH_MAINTAINER_EMAIL_BEFORE_SUBMITTING"
+sanitizers:
+  - address
+  - undefined
+architectures:
+  - x86_64
+fuzzing_engines:
+  - libfuzzer
+  - afl
