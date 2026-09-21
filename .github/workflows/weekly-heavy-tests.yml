@@ -809,3 +809,148 @@ jobs:
       - name: Stop and remove container
         if: always()
         run: docker rm -f tapyrus_testnet_sync || true
+
+  upnp-port-mapping:
+    name: UPnP port mapping (real IGD)
+    runs-on: ubuntu-latest
+    # Verifies -DWITH_MINIUPNPC=ON's actual port-mapping code path (net.cpp's
+    # ThreadMapPort) against a real UPnP IGD implementation (miniupnpd), not
+    # just that it compiles. Not a functional-test-framework test: those spin
+    # up isolated tapyrusd nodes with no router (real or fake) in the loop at
+    # all, so there's nothing for -upnp to actually talk to there.
+    #
+    # tapyrusd and the fake router (miniupnpd) each need their own network
+    # namespace for this to mean anything -- confirmed directly while
+    # designing this job: with both processes sharing one namespace (e.g.
+    # tapyrusd built and run straight on this runner, talking to a miniupnpd
+    # container over the docker0 bridge), miniupnpd refuses the mapping with
+    # UPnP error 729 (ConflictWithOtherMechanisms) purely because the
+    # requested external port is already bound locally in that shared
+    # namespace -- a loop-prevention safety check unrelated to whether
+    # tapyrus's UPnP code is correct. This isn't fixable by adjusting
+    # miniupnpd's ext_ifname/listening_ip config (tried that too, same
+    # failure) -- it needs two genuinely separate namespaces. Two Docker
+    # containers on one user-defined bridge network give that for free.
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.inputs.test_branch || github.ref || 'master' }}
+          submodules: recursive
+
+      - name: Install build dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake clang libboost-dev libevent-dev libminiupnpc-dev pkg-config
+
+      - name: Build tapyrusd and tapyrus-genesis with UPnP support
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
+            -DBUILD_DAEMON=ON -DBUILD_GUI=OFF -DBUILD_CLI=OFF -DBUILD_GENESIS=ON \
+            -DENABLE_WALLET=OFF -DENABLE_TESTS=OFF -DENABLE_BENCH=OFF -DENABLE_ZMQ=OFF \
+            -DWITH_MINIUPNPC=ON
+          cmake --build build --target tapyrusd tapyrus-genesis -j "$(nproc)"
+
+      - name: Generate a throwaway dev genesis block
+        # A fresh, single-use signing key -- this node never talks to any
+        # other tapyrus node, so there's nothing that needs a stable/shared
+        # aggregate pubkey across runs.
+        run: |
+          mkdir -p upnp_test/data
+          keypair="$(./build/bin/tapyrus-genesis -dev -generatekey)"
+          pubkey="$(echo "${keypair}" | sed -n 's/^public key: //p')"
+          privkey="$(echo "${keypair}" | sed -n 's/^private key: //p')"
+          ./build/bin/tapyrus-genesis -dev \
+            -signblockpubkey="${pubkey}" \
+            -signblockprivatekey="${privkey}" \
+            > upnp_test/data/genesis.dat
+
+          cat << EOF > upnp_test/data/tapyrus.conf
+          dev=1
+          [dev]
+          server=1
+          listen=1
+          discover=1
+          upnp=1
+          port=18333
+          rpcport=18332
+          printtoconsole=1
+          debug=net
+          signblockpubkey=${pubkey}
+          EOF
+
+      - name: Start the fake UPnP IGD (miniupnpd)
+        run: |
+          docker network create upnp-test-net
+
+          docker run -d --name upnp_igd \
+            --cap-add=NET_ADMIN \
+            --network upnp-test-net \
+            ubuntu:24.04 sleep infinity
+
+          # miniupnpd.conf is written *after* installing the package, not
+          # bind-mounted in beforehand -- the package's postinst debconf
+          # templating does its own `sed -i` on this exact path, which fails
+          # with "Device or resource busy" against a bind-mounted file
+          # (confirmed directly while designing this job).
+          docker exec upnp_igd bash -c "
+            apt-get update -qq &&
+            DEBIAN_FRONTEND=noninteractive apt-get install -y -qq miniupnpd miniupnpc nftables &&
+            cat > /etc/miniupnpd/miniupnpd.conf << 'EOF'
+          ext_ifname=eth0
+          listening_ip=eth0
+          port=2189
+          enable_natpmp=no
+          enable_upnp=yes
+          secure_mode=no
+          ext_ip=8.8.8.8
+          EOF
+            CONFFILE=/etc/miniupnpd/miniupnpd.conf /usr/libexec/miniupnpd-startstop-helper.sh start
+          "
+          docker exec -d upnp_igd bash -c \
+            "miniupnpd -f /etc/miniupnpd/miniupnpd.conf -d > /var/log/miniupnpd.log 2>&1"
+
+      - name: Start tapyrusd with -upnp=1 in its own network namespace
+        run: |
+          docker run -d --name upnp_node \
+            --network upnp-test-net \
+            -v "$PWD/build/bin/tapyrusd:/usr/local/bin/tapyrusd:ro" \
+            -v "$PWD/upnp_test/data:/data" \
+            ubuntu:24.04 bash -c "
+              apt-get update -qq &&
+              DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libevent-dev libminiupnpc-dev &&
+              exec tapyrusd -datadir=/data
+            "
+
+      - name: Wait for discovery and mapping, then verify against the IGD
+        run: |
+          sleep 20
+
+          echo "== tapyrusd's own view =="
+          docker exec upnp_node cat /data/dev-1905960821/debug.log | grep -i upnp || true
+
+          echo "== the fake router's own mapping table =="
+          docker exec upnp_igd upnpc -l | tee mappings.txt
+
+          if ! grep -q "18333->" mappings.txt; then
+            echo "FAILED: no port mapping for 18333 found on the fake IGD"
+            exit 1
+          fi
+          if ! grep -q "'Tapyrus" mappings.txt; then
+            echo "FAILED: mapping exists but its description doesn't identify tapyrusd -- check for a stale/unrelated mapping"
+            exit 1
+          fi
+          echo "PASSED: tapyrusd successfully mapped its listening port via UPnP"
+
+      - name: Dump logs
+        if: always()
+        run: |
+          echo "== tapyrusd debug.log =="
+          docker exec upnp_node cat /data/dev-1905960821/debug.log || true
+          echo "== miniupnpd log =="
+          docker exec upnp_igd cat /var/log/miniupnpd.log || true
+
+      - name: Stop and remove containers/network
+        if: always()
+        run: |
+          docker rm -f upnp_node upnp_igd || true
+          docker network rm upnp-test-net || true
