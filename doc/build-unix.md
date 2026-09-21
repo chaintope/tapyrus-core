@@ -115,7 +115,7 @@ CMake — see [build-cmake.md](build-cmake.md)'s CMake options table.
 
 See the section "Disable-wallet mode" to build Tapyrus Core without wallet.
 
-Optional (see --with-miniupnpc and --enable-upnp-default):
+Optional, for UPnP port mapping support (see the `miniupnpc` section below):
 
     sudo apt-get install libminiupnpc-dev
 
@@ -194,13 +194,17 @@ symbols, which reduces the executable size by about 90%.
 miniupnpc
 ---------
 
-[miniupnpc](http://miniupnp.free.fr/) may be used for UPnP port mapping.  It can be downloaded from [here](
-http://miniupnp.tuxfamily.org/files/).  UPnP support is compiled in and
-turned off by default.  See the CMake options for upnp behavior desired:
+[miniupnpc](http://miniupnp.free.fr/) may be used for UPnP port mapping,
+letting a node running behind a home router automatically open its
+listening port. It's an optional, off-by-default compile-time feature:
 
-	-DWITH_MINIUPNPC=OFF         No UPnP support, miniupnp not required
-	-DENABLE_UPNP_DEFAULT=OFF    (the default) UPnP support turned off by default at runtime
-	-DENABLE_UPNP_DEFAULT=ON     UPnP support turned on by default at runtime
+	-DWITH_MINIUPNPC=OFF    (the default) No UPnP support, miniupnpc not required
+	-DWITH_MINIUPNPC=ON     UPnP support compiled in, requires miniupnpc >= API version 17
+	                        (see the CMake options table in build-cmake.md)
+
+When compiled in, the `-upnp` runtime option defaults to on whenever the
+node is listening and no `-proxy` is set (pass `-upnp=0` to disable it
+for a specific run). See `tapyrusd --help` for the exact default.
 
 
 Berkeley DB
