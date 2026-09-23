@@ -68,26 +68,6 @@ if(ENABLE_TESTS)
 endif()
 
 add_executable(test_tapyrus
-        # These four are orchestration/glue -- see the comment on tapyrusd's
-        # add_executable() in the top-level src/CMakeLists.txt. They compile
-        # directly into tapyrusd rather than into any library, so
-        # test_tapyrus needs its own copy too: several split libraries
-        # (tapyrus_wallet, tapyrus_peer, tapyrus_rpc, tapyrus_chainstate)
-        # call into symbols only these files define (InitWarning/InitError/
-        # AmountErrMsg/AmountHighWarn/uiInterface, noui_connect, TimeOffsets,
-        # SaveBlockToDisk/ReadBlockFromDisk/FlushStateToDisk/DumpMempool/
-        # OpenDiskFile/OpenUndoFile), and nothing else provides them for a
-        # target that isn't tapyrusd itself.
-        #
-        # init.cpp and shutdown.cpp are deliberately NOT included here:
-        # test_tapyrus_main.cpp already defines its own test-friendly
-        # g_connman/StartShutdown()/ShutdownRequested() -- the only symbols
-        # those two glue files would otherwise provide -- so adding them
-        # would just collide (duplicate symbols) rather than add anything.
-        ../file_io.cpp
-        ../noui.cpp
-        ../timeoffsets.cpp
-        ../ui_interface.cpp
         addrman_tests.cpp
         allocator_tests.cpp
         amount_tests.cpp
@@ -149,9 +129,7 @@ add_executable(test_tapyrus
         sigopcount_tests.cpp
         skiplist_tests.cpp
         streams_tests.cpp
-        test_tapyrus.cpp
         test_tapyrus_main.cpp
-        test_keys_helper.cpp
         torcontrol_tests.cpp
         transaction_tests.cpp
         txdb_tests.cpp
@@ -170,6 +148,56 @@ add_executable(test_tapyrus
         ${JSON_HEADERS}
         ${TIP174_JSON_HEADERS}
 )
+
+# BasicTestingSetup/TestingSetup (test_tapyrus.h) -- the real chainstate/
+# mempool/RPC-table/connman fixture every *_tests.cpp Boost test builds
+# on -- as its own object library, not just a source file of test_tapyrus
+# below: fuzz targets that call RPC handlers or network-message-processing
+# functions need this exact same fixture (see fuzz_node_setup.h), and
+# building it once here lets both link the same object code instead of
+# compiling it twice or reimplementing it. test_tapyrus.cpp/
+# test_keys_helper.cpp have zero BOOST_* usage of their own (confirmed
+# directly) -- the Boost coupling in this directory lives entirely in the
+# *_tests.cpp files, so this object library carries none of it in either
+# consumer.
+#
+# Also carries the four orchestration/glue files (see the comment on
+# tapyrusd's add_executable() in the top-level src/CMakeLists.txt) that
+# used to be compiled directly into test_tapyrus's own add_executable:
+# several split libraries (tapyrus_wallet, tapyrus_peer, tapyrus_rpc,
+# tapyrus_chainstate) call into symbols only these files define
+# (InitWarning/InitError/AmountErrMsg/AmountHighWarn/uiInterface,
+# noui_connect, TimeOffsets, SaveBlockToDisk/ReadBlockFromDisk/
+# FlushStateToDisk/DumpMempool/OpenDiskFile/OpenUndoFile), and nothing
+# else provides them for a target that isn't tapyrusd itself -- fuzz
+# targets linking TestingSetup need the exact same symbols. init.cpp and
+# shutdown.cpp are deliberately NOT included here: they'd collide with
+# test_tapyrus_main.cpp's own test-friendly g_connman/StartShutdown()/
+# ShutdownRequested() (the only symbols those two glue files would
+# otherwise provide) -- fuzz targets get their own copy of those three
+# from fuzz_node_globals.cpp instead, compiled only into fuzz binaries.
+add_library(tapyrus_test_util OBJECT
+    test_tapyrus.cpp
+    test_keys_helper.cpp
+    ../file_io.cpp
+    ../noui.cpp
+    ../timeoffsets.cpp
+    ../ui_interface.cpp
+)
+target_include_directories(tapyrus_test_util
+    PRIVATE
+        ${Boost_INCLUDE_DIRS}
+        ${CMAKE_INSTALL_PREFIX}/include
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../leveldb>
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../leveldb/include>
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../leveldb/helpers/memenv>
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../secp256k1/include>
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../univalue/include>
+        ${BerkeleyDB_INCLUDE_DIR}
+        ${EVENT_INCLUDE_DIRS}
+        ${ZMQ_INCLUDE_DIR}
+)
+target_link_libraries(tapyrus_test_util PRIVATE core_interface Boost::headers)
 
 target_include_directories(test_tapyrus
     PRIVATE
@@ -190,6 +218,7 @@ target_include_directories(test_tapyrus
 
 target_link_libraries(test_tapyrus
     PRIVATE
+        tapyrus_test_util
         core_interface
         $<TARGET_NAME_IF_EXISTS:tapyrus_wallet>
         tapyrus_cli
@@ -219,23 +248,43 @@ target_link_libraries(test_tapyrus
 # and fuzz-script-sweep jobs turn this on.
 if(BUILD_FUZZ_TEST)
 
-# tapyrus_server/tapyrus_common no longer exist as CMake targets -- #463
-# split them into the granular libraries linked below, wired together as
-# a plain DAG via target_link_libraries() (e.g. tapyrus_scripting
-# PUBLIC-links tapyrus_consensus/tapyrus_global/tapyrus_util). This used
-# to also need -Wl,--start-group/--end-group on Linux: script/
-# interpreter.cpp in tapyrus_consensus called GetSoftForkManager(),
-# defined in federationparams.cpp in tapyrus_global, an undeclared
-# reverse-direction edge GNU ld's single left-to-right archive pass
-# couldn't resolve without it (Apple's ld64 tolerated it, which is why
-# this only failed on Linux CI). Fixed at the source instead: that call
-# site only needed CSoftForkManager::IsEnabled(), a static, stateless
-# bitmask check with no link dependency on tapyrus_global -- see the
-# comment at its call site in script/interpreter.cpp. No circular
-# archive dependency remains, so linking these by name needs no
-# start-group/end-group trick; the set mirrors what test_tapyrus above
-# links (minus tapyrus_wallet/tapyrus_cli/tapyrus_zmq, which these fuzz
-# harnesses don't exercise).
+# tapyrus_rpc/tapyrus_peer/tapyrus_chainstate/tapyrus_codec/tapyrus_scripting/
+# tapyrus_global/tapyrus_netbase/tapyrus_util/tapyrus_consensus have real
+# circular symbol dependencies between them (e.g. script/interpreter.cpp
+# in tapyrus_consensus calls GetSoftForkManager(), defined in
+# federationparams.cpp in tapyrus_global; federationparams.cpp in turn
+# calls gArgs/ArgsManager, defined in tapyrus_util) -- test_tapyrus above
+# never hits this because it also links tapyrus_wallet/tapyrus_cli/
+# tapyrus_zmq/libevent, which happen to pull in a superset of the same
+# object files early enough that everything each library needs is
+# already present in the link by the time it's needed. A standalone fuzz
+# binary linking only the libraries it actually needs has no such luck:
+# GNU ld/lld resolve each static archive in a single left-to-right pass,
+# so a later archive's need for a symbol in an earlier, already-scanned
+# archive is never revisited -- confirmed by fuzz_pstt_decode failing to
+# link with "undefined reference to GetSoftForkManager()" until wrapped
+# in --start-group/--end-group, which forces the linker to keep
+# re-scanning the whole set until every symbol resolves. Not supported
+# by Apple's ld64 the same way, but these fuzz binaries are Linux-only in
+# CI (daily-test.yml's fuzz-code-only job runs on ubuntu-latest) so that
+# doesn't matter here.
+# g_connman/StartShutdown()/ShutdownRequested() for fuzz targets linking
+# FuzzNodeSetup (TestingSetup) -- test_tapyrus_main.cpp already provides
+# these for test_tapyrus, but that file also defines Boost Test's own
+# main(), which would collide with a fuzz binary's own libFuzzer/AFL
+# main() (pstt_fuzz_driver.h), so fuzz targets get their own copy from
+# fuzz_node_globals.cpp instead. Built once here rather than once per
+# fuzz target.
+add_library(tapyrus_fuzz_node_globals OBJECT
+    fuzz/fuzz_code/fuzz_node_globals.cpp
+)
+target_include_directories(tapyrus_fuzz_node_globals
+    PRIVATE
+        ${Boost_INCLUDE_DIRS}
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../univalue/include>
+)
+target_link_libraries(tapyrus_fuzz_node_globals PRIVATE core_interface Boost::headers)
+
 function(add_pstt_fuzz_target name source)
     # Deliberately NOT EXCLUDE_FROM_ALL: BUILD_FUZZ_TEST already gates
     # whether this function's callers even run (see the if(BUILD_FUZZ_TEST)
@@ -336,9 +385,20 @@ function(add_pstt_fuzz_target_with_rpc_glue name source)
             secp256k1
             tapyrus_crypto
             Boost::headers
-            $<TARGET_NAME_IF_EXISTS:libevent::extra>
-            $<TARGET_NAME_IF_EXISTS:libevent::core>
-            $<TARGET_NAME_IF_EXISTS:libevent::pthreads>
+            $<$<NOT:$<PLATFORM_ID:Darwin>>:-Wl,--start-group>
+            tapyrus_test_util
+            tapyrus_fuzz_node_globals
+            tapyrus_cli
+            tapyrus_rpc
+            tapyrus_peer
+            tapyrus_chainstate
+            tapyrus_codec
+            tapyrus_scripting
+            tapyrus_global
+            tapyrus_netbase
+            tapyrus_util
+            tapyrus_consensus
+            $<$<NOT:$<PLATFORM_ID:Darwin>>:-Wl,--end-group>
     )
 endfunction()
 
