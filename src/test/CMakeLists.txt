@@ -222,13 +222,20 @@ if(BUILD_FUZZ_TEST)
 # tapyrus_server/tapyrus_common no longer exist as CMake targets -- #463
 # split them into the granular libraries linked below, wired together as
 # a plain DAG via target_link_libraries() (e.g. tapyrus_scripting
-# PUBLIC-links tapyrus_consensus/tapyrus_global/tapyrus_util, which is
-# how script/interpreter.cpp's GetSoftForkManager() call resolves to
-# federationparams.cpp in tapyrus_global). No circular archive dependency
-# remains, so linking these by name needs no --start-group/--end-group
-# trick; the set mirrors what test_tapyrus above links (minus
-# tapyrus_wallet/tapyrus_cli/tapyrus_zmq, which these fuzz harnesses
-# don't exercise).
+# PUBLIC-links tapyrus_consensus/tapyrus_global/tapyrus_util). This used
+# to also need -Wl,--start-group/--end-group on Linux: script/
+# interpreter.cpp in tapyrus_consensus called GetSoftForkManager(),
+# defined in federationparams.cpp in tapyrus_global, an undeclared
+# reverse-direction edge GNU ld's single left-to-right archive pass
+# couldn't resolve without it (Apple's ld64 tolerated it, which is why
+# this only failed on Linux CI). Fixed at the source instead: that call
+# site only needed CSoftForkManager::IsEnabled(), a static, stateless
+# bitmask check with no link dependency on tapyrus_global -- see the
+# comment at its call site in script/interpreter.cpp. No circular
+# archive dependency remains, so linking these by name needs no
+# start-group/end-group trick; the set mirrors what test_tapyrus above
+# links (minus tapyrus_wallet/tapyrus_cli/tapyrus_zmq, which these fuzz
+# harnesses don't exercise).
 function(add_pstt_fuzz_target name source)
     # Deliberately NOT EXCLUDE_FROM_ALL: BUILD_FUZZ_TEST already gates
     # whether this function's callers even run (see the if(BUILD_FUZZ_TEST)

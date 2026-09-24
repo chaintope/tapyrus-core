@@ -1470,8 +1470,16 @@ bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, unsigne
     // SCRIPT_VERIFY_CP2SH_COLORED softfork flag.  Before the flag is set (pre-
     // activation) only the OP_HASH160 equality check is enforced; after activation
     // the redeemScript must also evaluate to true, just like plain P2SH.
+    //
+    // Height-based activation (GetSoftForkManager().IsActive()) already ran in
+    // validation.cpp before flags reached here -- this is a pure bitmask check
+    // against the result, so it's called on the class, not GetSoftForkManager()'s
+    // singleton (defined in federationparams.cpp/tapyrus_global): this file is
+    // tapyrus_consensus, which has no declared or intended dependency on
+    // tapyrus_global, and IsEnabled() is static precisely so callers here don't
+    // need one.
     if (scriptPubKey.IsPayToScriptHash() ||
-        (scriptPubKey.IsColoredPayToScriptHash() && GetSoftForkManager().IsEnabled(SCRIPT_VERIFY_CP2SH_COLORED, flags)))
+        (scriptPubKey.IsColoredPayToScriptHash() && CSoftForkManager::IsEnabled(SCRIPT_VERIFY_CP2SH_COLORED, flags)))
     {
         // scriptSig must be literals-only or validation fails
         if (!scriptSig.IsPushOnly())
