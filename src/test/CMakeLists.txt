@@ -271,24 +271,41 @@ endfunction()
 
 # ParsePsttInputEntries/decodepstt (called by pstt_parse_fuzz.cpp/
 # pstt_decodepstt_rpc_fuzz.cpp) live in rpc/rawtransaction.cpp alongside
-# sendrawtransaction/gettxoutproof/stop, which reference g_connman/
-# OpenDiskFile/FlushStateToDisk/ReadBlockFromDisk/StartShutdown/
-# uiInterface -- symbols that exist only in tapyrusd's/tapyrus-qt's own
-# daemon-glue files (init.cpp/file_io.cpp/shutdown.cpp/ui_interface.cpp;
-# see the six-glue-files comment on tapyrusd's add_executable() in the
-# top-level src/CMakeLists.txt), never in a library, because a static
-# archive is pulled in per translation unit: needing ParsePsttInputEntries
-# drags in the whole rawtransaction.cpp.o, including code paths (real RPC
-# handlers touching disk/net) this harness never actually calls. Neither
-# function has a chain/wallet dependency itself (confirmed by reading
-# their bodies), so the glue files are only here to satisfy the linker,
-# not to run -- same approach tapyrus-qt/tapyrus-qt-test already use to
-# get real definitions of these symbols instead of linking the daemon.
+# sendrawtransaction/gettxoutproof/createrawtransaction/signrawtransaction
+# and friends. A static archive is pulled in per translation unit, so
+# needing either function drags in the whole rawtransaction.cpp.o,
+# including those never-called siblings' own undefined references. Neither
+# ParsePsttInputEntries nor decodepstt has a chain/wallet dependency itself
+# (confirmed by reading their bodies) -- tracing the resulting undefined-
+# symbol chain (via `nm -u`/`-why_load`, not guesswork) found it splits
+# cleanly in two:
+#
+# - Most of it (StartShutdown/OpenDiskFile/FlushStateToDisk/ReadBlockFromDisk/
+#   uiInterface from file_io.cpp/shutdown.cpp/ui_interface.cpp, plus real
+#   GetTransaction/AcceptToMemoryPool/etc. from tapyrus_chainstate,
+#   CMerkleBlock/CRollingBloomFilter/CConnman from tapyrus_peer) is
+#   satisfied by linking those for real below, same as the six-glue-files
+#   tapyrusd/tapyrus-qt pattern minus the pieces that turned out unneeded
+#   (init.cpp/timeoffsets.cpp: net_processing.cpp, the only tapyrus_peer.a
+#   member needing TimeOffsets, is never itself pulled in here).
+# - One chokepoint doesn't reduce this way: rawtransaction.cpp's deprecated
+#   signrawtransaction alias references three wallet/rpcwallet.cpp
+#   functions, and that one translation unit's own needs (GetWallets,
+#   IssueToken, generateBlocks from mining.cpp, urlDecode from
+#   httpserver.cpp, ...) balloon into effectively the whole daemon --
+#   dozens of CWallet methods, CConnman's full API, libevent's C interface
+#   -- none of it reachable from ParsePsttInputEntries/decodepstt either.
+#   fuzz/rpc_glue_stub.cpp defines just those three functions (plus
+#   g_connman, whose storage is daemon-glue-only in init.cpp but whose
+#   type's real destructor comes from tapyrus_peer, linked below anyway),
+#   which avoids tapyrus_wallet, tapyrus_zmq, and their init-time glue
+#   (wallet/init.cpp's g_wallet_init_interface = WalletInit() static
+#   initializer in particular) entirely.
 function(add_pstt_fuzz_target_with_rpc_glue name source)
     add_executable(${name}
         fuzz/fuzz_code/${source}
+        fuzz/rpc_glue_stub.cpp
         ../file_io.cpp
-        ../init.cpp
         ../shutdown.cpp
         ../ui_interface.cpp
     )
