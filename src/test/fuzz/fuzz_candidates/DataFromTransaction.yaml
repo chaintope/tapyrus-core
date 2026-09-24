@@ -1,0 +1,18 @@
+project: tapyrus-core
+language: c++
+target_name: fuzz_gen_DataFromTransaction
+target_path: /src/tapyrus-core/src/test/fuzz/fuzz_code/fuzz_gen_DataFromTransaction.cpp
+yaml_generated_at: '2026-09-21T13:50:48.836199+00:00'
+fuzz_code_generated_at: '2026-09-23T07:17:34.584552+00:00'
+functions:
+- name: DataFromTransaction
+  signature: SignatureData DataFromTransaction(const CMutableTransaction& tx, unsigned
+    int nIn, const CTxOut& txout)
+  return_type: SignatureData
+  params:
+  - name: tx
+    type: CMutableTransaction
+  - name: nIn
+    type: unsigned int
+  - name: txout
+    type: CTxOut

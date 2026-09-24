@@ -1,46 +1,47 @@
 # Candidate pool
 
 One YAML file per candidate function (written by
-`contrib/fuzz/oss-fuzz/drafting/fuzz_code_generate_candidates.py`, fed by Fuzz Introspector's
-gap analysis) -- each describing one function OSS-Fuzz-Gen should write a
-fuzz_test_file for. (The YAML content itself uses OSS-Fuzz-Gen's own name
-for this file format, "benchmark" -- see `fuzz_code_generate_candidates.py`'s module
+`contrib/fuzz/oss-fuzz/drafting/fuzz_code_generate_candidates.py`, fed by
+Fuzz Introspector's gap analysis) -- each describing one function that
+has no fuzz coverage yet: name, signature, params, return type. (The
+YAML content itself uses OSS-Fuzz-Gen's own name for this file format,
+"benchmark" -- see `fuzz_code_generate_candidates.py`'s module
 docstring for why. We call the pool and the generation step "candidate"
 because that's what each entry is from our side: a candidate function
 waiting on a fuzz_test_file.)
 
-This pool grows via `contrib/fuzz/oss-fuzz/drafting/fuzz_code_generate_and_draft.py`,
-run by hand occasionally (`--gap-candidate-limit`, default 100 new entries per
+This pool grows via `contrib/fuzz/oss-fuzz/drafting/fuzz_code_generate_candidates.py`,
+run by hand occasionally (`--limit`, default 5 new entries per
 invocation) and committed here after human review -- not automatic, same
 working agreement as the other two pools in this repo
 (`src/test/fuzz/fuzz_seed_pool/`, `src/test/fuzz/fuzz_scripts/`). There
 is no CI workflow that touches this pool at all -- see the note in
-`contrib/fuzz/oss-fuzz/drafting/README.md` about why gap analysis, candidate generation, and
-drafting all stayed out of GitHub Actions.
+`contrib/fuzz/oss-fuzz/drafting/README.md` about why gap analysis and
+candidate generation stayed out of GitHub Actions.
 
 Unlike those two pools, entries here aren't consumed by running a
-fuzz_test_file -- they're consumed by *writing* one. The same local
-script that grows this pool also drafts a batch from it via
-OSS-Fuzz-Gen, one candidate at a time, stopping once
-`contrib/fuzz/fuzz_spend_ledger.py`'s shared monthly cap is (estimated to be)
-spent -- shared with `contrib/fuzz/fuzz4all/fuzz_script_generate_pool.py`, so a
-drafting run here can leave less budget for that script's generation
-this month, and vice versa. `--draft-limit` (default 100000) is still an
-independent upper bound if you want one, but in practice the shared
-budget estimate is what stops a run. Deliberately capped rather than
-draining the whole pool in one run: OSS-Fuzz-Gen's own
-fuzz_test_file-writing loop spends real LLM tokens per candidate, so a
-maintainer runs the drafting stage again whenever they want to work
-through more of the backlog, rather than paying for all of it in one
-sitting.
+fuzz_test_file -- they're consumed by *writing* one. Turning a candidate
+into an actual fuzz_test_file means asking Claude Code to draft it
+directly, using the candidate's own YAML as the spec, then writing the
+result straight under `src/test/fuzz/fuzz_code/` -- no automated
+drafting tool, no paid API call, no separate drafts location to land
+from afterward (see `contrib/fuzz/oss-fuzz/drafting/README.md`).
 
-A written fuzz_test_file that comes out the other end still needs the
-same human review as everything else here before it becomes a real fuzz
-target (see `daily-test.yml`'s `fuzz-code-only` job, which builds and
-runs one executable per `src/test/fuzz/fuzz_code/*_fuzz.cpp` file) -- that review
-happens via the `review_code.html` page
-`fuzz_code_generate_and_draft.py` builds from the drafts and
-`contrib/fuzz/oss-fuzz/drafting/fuzz_code_land_approved.py` lands from your saved copy of it, see
-`contrib/fuzz/oss-fuzz/drafting/README.md`'s "Human review, not auto-merge" section. Writing a
-candidate here doesn't remove it from the pool automatically; that's a
-manual cleanup step once a maintainer has actually looked at the result.
+A drafted fuzz_test_file still needs the same human review as everything
+else here before it becomes a real fuzz target (see `daily-test.yml`'s
+`fuzz-code-only` job, which builds and runs one executable per
+`src/test/fuzz/fuzz_code/*_fuzz.cpp` file). Writing a candidate's harness
+doesn't remove it from this pool automatically; that's a manual cleanup
+step (updating the candidate's own `fuzz_code_generated_at`, see below)
+once a maintainer has actually looked at the result.
+
+Every candidate YAML carries two dates, so its state is visible without
+opening any other file: `yaml_generated_at` (when this candidate first
+entered the pool) and `fuzz_code_generated_at` (null until a harness has
+actually been drafted for it -- set by hand, since drafting is no longer
+an automated step). `fuzz_gaps.json` itself carries a matching top-level
+`generated_at`, so comparing it against the pool's own
+`yaml_generated_at`/`fuzz_code_generated_at` values tells you whether
+it's worth re-running gap analysis (`fuzz_code_step1_build_image.py`
+through `fuzz_code_find_fuzz_gaps.py`) again before drafting, or whether
+the existing pool is still current.

@@ -1,0 +1,20 @@
+project: tapyrus-core
+language: c++
+target_name: fuzz_gen_encodePackageResult
+target_path: /src/tapyrus-core/src/test/fuzz/fuzz_code/fuzz_gen_encodePackageResult.cpp
+yaml_generated_at: '2026-09-21T13:50:48.855804+00:00'
+fuzz_code_generated_at: null
+functions:
+- name: encodePackageResult
+  signature: void encodePackageResult(bool success, const PackageValidationState&
+    pkg_results, CValidationState state, UniValue& result)
+  return_type: void
+  params:
+  - name: success
+    type: bool
+  - name: pkg_results
+    type: PackageValidationState
+  - name: state
+    type: CValidationState
+  - name: result
+    type: UniValue

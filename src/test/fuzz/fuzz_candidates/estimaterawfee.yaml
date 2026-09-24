@@ -1,0 +1,13 @@
+project: tapyrus-core
+language: c++
+target_name: fuzz_gen_estimaterawfee
+target_path: /src/tapyrus-core/src/test/fuzz/fuzz_code/fuzz_gen_estimaterawfee.cpp
+yaml_generated_at: '2026-09-21T13:50:48.829323+00:00'
+fuzz_code_generated_at: null
+functions:
+- name: estimaterawfee
+  signature: UniValue estimaterawfee(const JSONRPCRequest& request)
+  return_type: UniValue
+  params:
+  - name: request
+    type: JSONRPCRequest

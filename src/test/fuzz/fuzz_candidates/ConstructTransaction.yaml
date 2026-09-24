@@ -1,0 +1,20 @@
+project: tapyrus-core
+language: c++
+target_name: fuzz_gen_ConstructTransaction
+target_path: /src/tapyrus-core/src/test/fuzz/fuzz_code/fuzz_gen_ConstructTransaction.cpp
+yaml_generated_at: '2026-09-21T13:50:48.794208+00:00'
+fuzz_code_generated_at: null
+functions:
+- name: ConstructTransaction
+  signature: CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const
+    UniValue& outputs_in, const UniValue& locktime, const UniValue& rbf)
+  return_type: CMutableTransaction
+  params:
+  - name: inputs_in
+    type: UniValue
+  - name: outputs_in
+    type: UniValue
+  - name: locktime
+    type: UniValue
+  - name: rbf
+    type: UniValue

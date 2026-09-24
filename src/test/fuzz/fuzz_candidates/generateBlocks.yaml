@@ -1,0 +1,20 @@
+project: tapyrus-core
+language: c++
+target_name: fuzz_gen_generateBlocks
+target_path: /src/tapyrus-core/src/test/fuzz/fuzz_code/fuzz_gen_generateBlocks.cpp
+yaml_generated_at: '2026-09-21T13:50:48.861151+00:00'
+fuzz_code_generated_at: null
+functions:
+- name: generateBlocks
+  signature: UniValue generateBlocks(std::shared_ptr<CReserveScript> coinbaseScript,
+    int nGenerate, bool keepScript, const CKey& privKey)
+  return_type: UniValue
+  params:
+  - name: coinbaseScript
+    type: std::shared_ptr<CReserveScript>
+  - name: nGenerate
+    type: int
+  - name: keepScript
+    type: bool
+  - name: privKey
+    type: CKey
