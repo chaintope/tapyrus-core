@@ -3,17 +3,31 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Shared async subprocess runner for contrib/fuzz's Python tooling.
-Every fuzz_code_*/fuzz_script_* orchestration script shells out to real
-external commands (git, cmake, pip, python3 subprocesses) -- this wraps
+Every fuzz_code_step*.py script shells out to real external commands
+(docker, cmake, python3 subprocesses) -- this wraps
 asyncio.create_subprocess_exec once so each script isn't reimplementing
 output streaming, exit-code checking, and environment inheritance on its
 own. Leading underscore: an internal helper module, not one of this
-directory's own entry points (same convention as fuzz_spend_ledger.py's
-neighbors that import it directly rather than shelling out to it).
+directory's own entry points.
 """
 import asyncio
+import os
+import platform
 from pathlib import Path
 from typing import Optional, Sequence, Union
+
+# fuzz_code_step1_build_image.py's `docker build` call doesn't pass
+# --platform itself, so on an arm64 host (Apple Silicon) Docker's builder
+# defaults to the host's native linux/arm64 -- producing an arm64-tagged
+# image that fuzz_code_step2_start_container.py's own `docker run
+# --platform linux/amd64` can't find ("Unable to find image ...:latest
+# locally"). DOCKER_DEFAULT_PLATFORM makes the Docker CLI use amd64 for
+# any command in this process tree that doesn't pass --platform itself.
+# A no-op on an actual x86_64 host, so this isn't gated to only affect
+# behavior that needs changing; setdefault() still lets an explicit
+# override win.
+if platform.machine() in ("arm64", "aarch64"):
+    os.environ.setdefault("DOCKER_DEFAULT_PLATFORM", "linux/amd64")
 
 
 class CommandError(RuntimeError):

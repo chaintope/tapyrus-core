@@ -59,6 +59,7 @@ qrc_*.cpp
 # Mac specific
 .DS_Store
 build
+build_*
 
 #lcov
 *.gcno
