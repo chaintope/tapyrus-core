@@ -7,8 +7,10 @@ CDN, no external resources) HTML page listing one generation run's
 newly added Tapyrus Script candidates, one row per candidate file, with
 a checkbox for "keep this one."
 
-Unlike fuzz_code_build_review_page.py's review_code.html, this review is
-a PRUNE, not an ADD: fuzz_script_generate_pool.py already writes every
+Unlike fuzz_code, which drafts one harness at a time directly via
+Claude Code with nothing to review in bulk (see
+contrib/fuzz/oss-fuzz/drafting/README.md), this review is a batch
+PRUNE, not an ADD: fuzz_script_generate_pool.py already writes every
 candidate straight into its final home (src/test/fuzz/fuzz_scripts/)
 -- there's no separate landing location to wire up. Reviewing here means
 deciding which of the files already sitting in that directory, from this
@@ -91,7 +93,7 @@ def build_rows(pool_dir: Path, run_prefix: str) -> "list[str]":
         p for p in pool_dir.iterdir() if p.is_file() and p.name.startswith(run_prefix)
     )
     for candidate in candidates:
-        source_text = candidate.read_text(errors="replace")
+        source_text = candidate.read_text(encoding="utf-8", errors="replace")
         row_id = html.escape(candidate.name, quote=True)
         rows.append(ROW_TEMPLATE.format(
             row_id=row_id,
@@ -112,7 +114,7 @@ def main() -> int:
     args = parser.parse_args()
 
     rows = build_rows(args.pool_dir, args.run_prefix)
-    args.out.write_text(PAGE_TEMPLATE.format(rows="".join(rows), total=len(rows)))
+    args.out.write_text(PAGE_TEMPLATE.format(rows="".join(rows), total=len(rows)), encoding="utf-8")
     print(f"wrote {args.out} ({len(rows)} candidate(s))")
     return 0
 

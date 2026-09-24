@@ -47,8 +47,9 @@ class Command:
 
     async def run_allowing_failure(self) -> int:
         """Like run(), but returns the exit code instead of raising --
-        for the one case (Fuzz4All hitting its own BudgetExceededError) a
-        non-zero exit is an expected outcome, not an exceptional one."""
+        for callers (e.g. fuzz_script_generate_pool.py's own Fuzz4All
+        invocation) that need to inspect a non-zero exit themselves
+        rather than have it always treated as an exceptional failure."""
         return await self._spawn_and_wait()
 
     async def _spawn_and_wait(self) -> int:

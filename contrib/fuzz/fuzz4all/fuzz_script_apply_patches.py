@@ -33,7 +33,7 @@ def _replace_exact(path: Path, text: str, original: str, patched: str) -> str:
 
 def patch_model_py(fuzz4all_dir: Path) -> None:
     path = fuzz4all_dir / "Fuzz4All" / "model.py"
-    text = path.read_text()
+    text = path.read_text(encoding="utf-8")
 
     original = (
         "def make_model(eos: list, model_name: str, device: str, max_length: int):\n"
@@ -57,13 +57,13 @@ def patch_model_py(fuzz4all_dir: Path) -> None:
     if import_line not in text:
         text = import_line + text
 
-    path.write_text(text)
+    path.write_text(text, encoding="utf-8")
     print(f"patched {path}")
 
 
 def patch_make_target_py(fuzz4all_dir: Path) -> None:
     path = fuzz4all_dir / "Fuzz4All" / "make_target.py"
-    text = path.read_text()
+    text = path.read_text(encoding="utf-8")
 
     anchor_import = "from Fuzz4All.target.target import Target\n"
     import_line = "from Fuzz4All.target.TAPYRUSSCRIPT.TAPYRUSSCRIPT import TAPYRUSSCRIPTTarget\n"
@@ -108,7 +108,7 @@ def patch_make_target_py(fuzz4all_dir: Path) -> None:
         "        raise ValueError(f\"Invalid target {target['language']}\")\n",
     )
 
-    path.write_text(text)
+    path.write_text(text, encoding="utf-8")
     print(f"patched {path}")
 
 

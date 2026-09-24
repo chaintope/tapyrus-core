@@ -29,34 +29,17 @@ are supported.") -- unpatched. Set `fuzzing.no_input_prompt: true` (as
 config/cpp_demo.yaml already does) or `use_hand_written_prompt: true` in
 the target config to avoid hitting that path; this adapter only replaces
 the per-iteration *generation* call, not the one-time autoprompting step.
+
+No spend tracking or budget cap here -- this repo doesn't monitor or
+gate this script's API usage; whoever runs it locally watches their own
+Anthropic account for actual spend.
 """
-import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from pathlib import Path
 from typing import List
 
 import anthropic
 
-# fuzz_spend_ledger.py normally lives one directory up (contrib/fuzz/,
-# shared with fuzz_code_generate_and_draft.py) -- but
-# fuzz_script_generate_pool.py copies it into this file's own directory
-# alongside a fresh Fuzz4All clone, so both locations need to be on the
-# path for this import to resolve regardless of which context it's
-# running in.
-_here = Path(__file__).parent
-sys.path.insert(0, str(_here))
-sys.path.insert(0, str(_here.parent))
-import fuzz_spend_ledger  # noqa: E402
-
 DEFAULT_MODEL = "claude-opus-5"
-
-# Per-1M-token USD pricing (input, output). Keep in sync with this repo's
-# claude-api skill (the authoritative current table) if models reprice.
-MODEL_PRICING_PER_MTOK = {
-    "claude-opus-5": (5.00, 25.00),
-    "claude-sonnet-5": (2.00, 10.00),
-    "claude-haiku-4-5": (1.00, 5.00),
-}
 
 
 def is_claude_model(model_name: str) -> bool:
@@ -70,22 +53,6 @@ def get_claude_model_name(model_name: str) -> str:
     return model_name
 
 
-class BudgetExceededError(RuntimeError):
-    """Raised once fuzz_spend_ledger reports no budget left in this
-    calendar month's shared $50 cap (shared with
-    fuzz_code_generate_and_draft.py -- see fuzz_spend_ledger.py's own
-    docstring for why this is one shared cap, not one per script).
-
-    Fuzz4All has no built-in spend cap and its make_model() call site
-    (see this file's own module docstring) doesn't pass extra
-    constructor args, so there's nothing to catch this closer to the
-    call site than a top-level traceback. Left uncaught, this stops the
-    whole `python3 -m Fuzz4All.fuzz` process;
-    fuzz_script_generate_pool.py treats that as an expected stop
-    condition, not a failure, once the shared budget is spent.
-    """
-
-
 class ClaudeModel:
     def __init__(self, model_name: str, eos: List[str], max_length: int) -> None:
         self.model_name = model_name or DEFAULT_MODEL
@@ -93,37 +60,15 @@ class ClaudeModel:
         self.max_length = max_length
         self.client = anthropic.Anthropic()
 
-    def _price_per_mtok(self):
-        # Falls back to Opus 5 pricing (the most expensive current tier)
-        # for an unrecognized model name -- fails toward under-, not
-        # over-, estimating remaining budget.
-        return MODEL_PRICING_PER_MTOK.get(self.model_name, MODEL_PRICING_PER_MTOK[DEFAULT_MODEL])
-
-    def _cost_of(self, usage) -> float:
-        price_in, price_out = self._price_per_mtok()
-        return (usage.input_tokens / 1_000_000) * price_in + (usage.output_tokens / 1_000_000) * price_out
-
     def generate(
         self, prompt: str, batch_size: int = 10, temperature: float = 1.0, max_length: int = 512
     ) -> List[str]:
-        if fuzz_spend_ledger.remaining_budget() <= 0:
-            raise BudgetExceededError(
-                "shared monthly fuzz-generation budget "
-                f"(${fuzz_spend_ledger.MONTHLY_CAP_USD:.2f}) already spent this month"
-            )
         # The Messages API has no "num completions" parameter the way
         # StarCoder's num_return_sequences does -- batch_size independent
         # requests. Issued concurrently via a thread pool (each call is a
         # blocking network round-trip with no dependency on any other
         # call's result, so threads genuinely overlap here despite the
-        # GIL -- it releases during socket I/O). Budget is checked once
-        # up front rather than between calls, same tradeoff
-        # fuzz_code_generate_and_draft.py's own concurrent drafting loop
-        # makes (see that module's docstring): worst case this batch
-        # slightly overspends before the next generate() call sees the
-        # cap has been hit, rather than needing to cancel in-flight
-        # requests mid-batch. record_spend() itself is still safe to call
-        # concurrently (see fuzz_spend_ledger.py's own locking).
+        # GIL -- it releases during socket I/O).
         def call_one() -> str:
             response = self.client.messages.create(
                 model=self.model_name,
@@ -131,12 +76,6 @@ class ClaudeModel:
                 temperature=max(temperature, 1e-2),
                 messages=[{"role": "user", "content": prompt}],
             )
-            # Recorded immediately (real per-call usage, not an estimate)
-            # so an interrupted run still leaves accurate shared spend
-            # behind for the next invocation -- of either script -- to
-            # see, rather than losing it if this process never reaches a
-            # clean exit.
-            fuzz_spend_ledger.record_spend(self._cost_of(response.usage))
             text = "".join(
                 block.text for block in response.content if block.type == "text"
             )

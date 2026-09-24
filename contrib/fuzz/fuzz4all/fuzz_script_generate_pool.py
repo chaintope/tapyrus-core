@@ -16,17 +16,13 @@ fuzz-script-sweep job replays whatever's already committed to the pool
 against a local build, on its own daily schedule, without ever calling
 Claude.
 
-Cost control: this run stops once fuzz_spend_ledger.py's shared monthly
-cap is spent -- shared with fuzz_code_generate_and_draft.py (see that
-module's own docstring for why it's one cap, not one per script),
-enforced by claude_model.py on REAL per-call token usage from the API
-response, not an estimate. There's no per-run --budget-usd flag anymore:
-the cap is a single constant in fuzz_spend_ledger.py, so there's one
-obvious place to change it rather than a flag someone could pass
-differently on each run and lose track of. Model alternates between
-Haiku 4.5 and Sonnet 5 each run (state kept in .last_model next to this
-script) rather than a fixed model, so quality/cost characteristics vary
-across the accumulated pool instead of leaning entirely on one tier.
+No spend tracking or budget cap: whoever runs this locally uses their
+own Anthropic API key and watches their own account for actual spend --
+--max-candidates is the only stopping bound this script itself enforces
+(besides Ctrl-C). Model alternates between Haiku 4.5 and Sonnet 5 each
+run (state kept in .last_model next to this script) rather than a fixed
+model, so quality/cost characteristics vary across the accumulated pool
+instead of leaning entirely on one tier.
 
 PREREQUISITE: tapyrus-verify (src/tapyrus-verify.cpp), the binary this
 script's target plugin (TAPYRUSSCRIPT.py) shells out to via
@@ -52,15 +48,13 @@ from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent.parent.parent
-LEDGER_DIR = SCRIPT_DIR.parent
 
-sys.path.insert(0, str(LEDGER_DIR))
-import fuzz_spend_ledger  # noqa: E402
+sys.path.insert(0, str(SCRIPT_DIR.parent))
 from _async_proc import Command  # noqa: E402
 
 
 class ScriptPoolGenerator:
-    def __init__(self, *, force_model: str = "", max_candidates: int = 100000):
+    def __init__(self, *, force_model: str = "", max_candidates: int = 100):
         self.force_model = force_model
         self.max_candidates = max_candidates
         self.work_dir = Path(tempfile.mkdtemp())
@@ -75,7 +69,7 @@ class ScriptPoolGenerator:
     def _pick_model(self) -> str:
         if self.force_model:
             return self.force_model
-        previous = self.last_model_file.read_text().strip() if self.last_model_file.exists() else ""
+        previous = self.last_model_file.read_text(encoding="utf-8").strip() if self.last_model_file.exists() else ""
         return "claude-sonnet-5" if previous == "claude-haiku-4-5" else "claude-haiku-4-5"
 
     @staticmethod
@@ -105,7 +99,6 @@ class ScriptPoolGenerator:
             "https://github.com/fuzz4all/fuzz4all.git", fuzz4all_dir,
         ).run()
         shutil.copy(SCRIPT_DIR / "claude_model.py", fuzz4all_dir / "claude_model.py")
-        shutil.copy(LEDGER_DIR / "fuzz_spend_ledger.py", fuzz4all_dir / "fuzz_spend_ledger.py")
 
         target_dir = fuzz4all_dir / "Fuzz4All" / "target" / "TAPYRUSSCRIPT"
         target_dir.mkdir(parents=True, exist_ok=True)
@@ -115,17 +108,20 @@ class ScriptPoolGenerator:
         # eventual path.
         shutil.copy(SCRIPT_DIR / "TAPYRUSSCRIPT.py", target_dir / "TAPYRUSSCRIPT.py")
 
-        config_text = (SCRIPT_DIR / "tapyrus_script.yaml").read_text().replace(
+        config_text = (SCRIPT_DIR / "tapyrus_script.yaml").read_text(encoding="utf-8").replace(
             "claude/claude-opus-5", f"claude/{model}"
         )
-        (fuzz4all_dir / "config" / "tapyrus_script.yaml").write_text(config_text)
+        (fuzz4all_dir / "config" / "tapyrus_script.yaml").write_text(config_text, encoding="utf-8")
         return fuzz4all_dir
 
     @staticmethod
     def _finish_fuzz4all_prep(fuzz4all_dir: Path, verify_binary: Path) -> None:
         target_file = fuzz4all_dir / "Fuzz4All" / "target" / "TAPYRUSSCRIPT" / "TAPYRUSSCRIPT.py"
         target_file.write_text(
-            target_file.read_text().replace("/TODO/build_fuzz/bin/tapyrus-verify", str(verify_binary))
+            target_file.read_text(encoding="utf-8").replace(
+                "/TODO/build_fuzz/bin/tapyrus-verify", str(verify_binary)
+            ),
+            encoding="utf-8",
         )
 
     async def _run(self) -> int:
@@ -133,24 +129,13 @@ class ScriptPoolGenerator:
             print("error: ANTHROPIC_API_KEY is not set", file=sys.stderr)
             return 1
 
-        # The shared ledger's state file needs a stable, persistent path --
-        # not wherever claude_model.py happens to be running from (it gets
-        # copied into a temp Fuzz4All clone below, which is deleted on
-        # exit). Set as a real environment variable, not just imported
-        # Python state, since claude_model.py runs inside Fuzz4All's own
-        # subprocess, not this one -- os.environ mutations here are
-        # inherited by every child process this script spawns from this
-        # point on.
-        os.environ["FUZZ_SPEND_LEDGER_STATE"] = str(LEDGER_DIR / "fuzz_spend_ledger.state")
-        print(f"Shared monthly fuzz-generation budget remaining: ${fuzz_spend_ledger.remaining_budget():.4f}")
-
         # Alternate Haiku 4.5 / Sonnet 5 each run, unless --model overrides
         # it. claude/<model-id> selects claude_model.py's ClaudeModel (see
         # tapyrus_script.yaml); Opus 5 is deliberately not in the rotation
         # here -- it's the most expensive tier for what's a high-volume,
         # low-complexity generation task (short opcode-mnemonic snippets).
         model = self._pick_model()
-        self.last_model_file.write_text(f"{model}\n")
+        self.last_model_file.write_text(f"{model}\n", encoding="utf-8")
         print(f"Using model: {model}")
 
         print("Building tapyrus-verify and cloning Fuzz4All concurrently...")
@@ -166,8 +151,7 @@ class ScriptPoolGenerator:
             "-r", fuzz4all_dir / "requirements.txt", "anthropic",
         ).run()
 
-        print(f"Running Fuzz4All (up to {self.max_candidates} candidates, "
-              f"stopping when the shared budget runs out)...")
+        print(f"Running Fuzz4All (up to {self.max_candidates} candidates)...")
         rc = await Command(
             "python3", "-m", "Fuzz4All.fuzz",
             "--config", "config/tapyrus_script.yaml",
@@ -175,9 +159,7 @@ class ScriptPoolGenerator:
             cwd=fuzz4all_dir,
         ).run_allowing_failure()
         if rc != 0:
-            print(f"Fuzz4All exited nonzero ({rc}) -- expected once BudgetExceededError")
-            print("stops the run; treat as a real failure only if it happened immediately")
-            print("(before any candidates were generated) or the traceback says otherwise.")
+            print(f"Fuzz4All exited nonzero ({rc}) -- check the output above for what stopped it.")
 
         run_prefix = f"{datetime.now(timezone.utc).strftime('%Y%m%d')}_{self._short_model_tag(model)}"
         out_dir = REPO_ROOT / "src" / "test" / "fuzz" / "fuzz_scripts"
@@ -193,7 +175,6 @@ class ScriptPoolGenerator:
 
         print()
         print(f"{count} candidate(s) added to {out_dir} (prefixed {run_prefix}_)")
-        print(f"Shared monthly budget remaining after this run: ${fuzz_spend_ledger.remaining_budget():.4f}")
 
         if count == 0:
             print("Nothing generated this run -- no review page to build.")
@@ -219,10 +200,10 @@ async def _main() -> int:
     parser.add_argument("--model", default="",
                          help="Override model alternation and force one model for this run "
                               "(e.g. claude-haiku-4-5).")
-    parser.add_argument("--max-candidates", type=int, default=100000,
-                         help="Upper bound on candidates this run, independent of budget "
-                              "(default 100000 -- high enough that the shared budget, not this, "
-                              "is what actually stops a run in practice).")
+    parser.add_argument("--max-candidates", type=int, default=100,
+                         help="Upper bound on candidates this run generates (default 100) -- "
+                              "the only stopping bound this script enforces; there is no "
+                              "budget cap, so pick a number you're comfortable spending on.")
     args = parser.parse_args()
 
     generator = ScriptPoolGenerator(force_model=args.model, max_candidates=args.max_candidates)

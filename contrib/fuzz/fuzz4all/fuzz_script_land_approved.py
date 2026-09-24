@@ -8,11 +8,11 @@ keeping), and prunes src/test/fuzz/fuzz_scripts/ down to just that
 run's approved candidates -- deletes every listed candidate whose box is
 unchecked, leaves checked ones untouched.
 
-The inverse of fuzz_code_land_approved.py: that script ADDS files into
-their final home (drafts start elsewhere first). This one only ever
-DELETES, since fuzz_script_generate_pool.py already wrote every
-candidate straight into src/test/fuzz/fuzz_scripts/, its final home,
-before this review ever happens -- there's nothing to add or wire up.
+Unlike fuzz_code, which drafts one harness at a time directly via
+Claude Code with nothing to review in bulk, this one only ever DELETES,
+since fuzz_script_generate_pool.py already wrote every candidate
+straight into src/test/fuzz/fuzz_scripts/, its final home, before this
+review ever happens -- there's nothing to add or wire up.
 
 Deliberately does no git commands at all -- deletes files from the
 working tree and stops there; staging/committing what's left stays a
@@ -56,7 +56,7 @@ def main() -> int:
     args = parser.parse_args()
 
     page_parser = ReviewPageParser()
-    page_parser.feed(args.review_html.read_text())
+    page_parser.feed(args.review_html.read_text(encoding="utf-8"))
 
     if not page_parser.rows:
         print("No candidates found in this review page. Nothing to do.")
