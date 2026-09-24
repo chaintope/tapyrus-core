@@ -1,103 +1,66 @@
-# OSS-Fuzz-Gen + Claude wiring (draft)
+# Candidate YAML generation
 
-Writes new fuzz_test_file candidates for the candidate functions
-`../../fuzz-introspector/fuzz_code_find_fuzz_gaps.py` identifies, using
-[OSS-Fuzz-Gen](https://github.com/google/oss-fuzz-gen) with Claude as the
-generation backend.
+Turns each candidate function `../../fuzz-introspector/fuzz_code_find_fuzz_gaps.py`
+identifies (no fuzz coverage at all) into a YAML file under
+`src/test/fuzz/fuzz_candidates/` -- the spec a human hands to Claude Code
+when asking it to draft a `fuzz_test_file` for that function.
 
 A **fuzz_test_file** here means the same thing it does everywhere else in
 this repo's fuzz CI: a `FUZZ_TARGET`/libFuzzer-style C++ source file (like
-`src/test/fuzz/fuzz_code/pstt_parse_fuzz.cpp`) that exercises one function. This
-directory's job is to have OSS-Fuzz-Gen write new ones automatically, for
-functions Fuzz Introspector found with no fuzz coverage at all.
-
-## This whole pipeline is local-only, not a CI job
-
-`fuzz_code_generate_and_draft.py` runs gap analysis, candidate-file
-generation, and drafting in one pass, by hand. There is no CI workflow
-for any of it -- once a drafted fuzz_test_file is reviewed and merged, it
-becomes a permanent file under `src/test/fuzz/fuzz_code/` and runs daily via
-libFuzzer from then on with zero further AI involvement. Gap
-analysis costs nothing, but drafting spends real GCP Vertex AI dollars
-per candidate, so both stay occasional/manual rather than recurring --
-same reasoning as `../fuzz4all/fuzz_script_generate_pool.py`.
+`src/test/fuzz/fuzz_code/pstt_parse_fuzz.cpp`) that exercises one
+function.
 
 ## Invocation
 
-```
-./run_all_experiments.py \
-    --model=<claude-model-string> \
-    -y <candidate.yaml> \
-    --work-dir=<output-dir>
+```sh
+./fuzz_code_generate_candidates.py <fuzz_gaps.json> [--limit N]
 ```
 
-`fuzz_code_generate_candidates.py` in this directory turns each `fuzz_gaps.json`
-candidate (function name + source file) from the introspector step into a
-YAML file under `src/test/fuzz/fuzz_candidates/` -- one file per candidate, each with its
-own `target_name`/`target_path` (a distinct not-yet-created fuzz_test_file
-OSS-Fuzz-Gen is asked to write, not a fixed placeholder). OSS-Fuzz-Gen's
-own CLI calls this YAML format a "benchmark" (`-y <benchmark.yaml>`,
-`--benchmarks-directory`) -- that's their name for the file, not ours; we
-call the pool and the generation step "candidate" since from our side
-each entry is a candidate function waiting on a fuzz_test_file.
+Reads `fuzz_gaps.json` (written by
+`../../fuzz-introspector/fuzz_code_step3_analyze.py`) and writes one YAML
+per candidate under `src/test/fuzz/fuzz_candidates/`, each with its own
+`target_name`/`target_path` plus the real `return_type`/`signature`/
+`params` `fuzz_code_find_fuzz_gaps.py` extracted. Overloads sharing a
+function name are disambiguated by appending the source line
+(`__L<line>`) to the filename.
 
-**Confirmed by reading oss-fuzz-gen's actual current source
-(`llm_toolkit/models.py`), not just its docs -- this blocks running the
-writing step for real until it's resolved:**
+The YAML schema is OSS-Fuzz-Gen's own "benchmark" format (`-y
+<benchmark.yaml>`, schema matches upstream's own
+`benchmark-sets/all/tinyxml2.yaml`) -- kept as-is even though this repo
+no longer runs OSS-Fuzz-Gen itself, since it's still a clean, complete
+description of one candidate function (name, signature, params, return
+type) that's just as useful as a hand-drafting spec.
 
-1. **Claude access goes through Vertex AI only.** There is no
-   bare-`ANTHROPIC_API_KEY` code path in oss-fuzz-gen -- Claude queries go
-   through `anthropic.AnthropicVertex(region=region, project_id=project_id)`
-   unconditionally. This step needs GCP Vertex AI credentials (project id,
-   region, service-account or Workload Identity Federation auth), not the
-   `ANTHROPIC_API_KEY` secret used elsewhere in this repo's fuzz CI (the
-   Fuzz4All adapter in `../fuzz4all/`, which really does use the
-   plain Anthropic API).
-2. **Model ID currency.** Every Claude class registered upstream is 3.x-era
-   (`vertex_ai_claude-3-5-sonnet` / `vertex_ai_claude-3-opus` /
-   `vertex_ai_claude-3-haiku`, dated `@`-suffixed Vertex IDs) -- nothing
-   current is registered. `fuzz_code_vertex_claude_patch.py` in this directory adds a
-   `ClaudeOpus5` class (`name='vertex_ai_claude-opus-5'`,
-   `_vertex_ai_model='claude-opus-5'`) -- append-only
-   (`cat fuzz_code_vertex_claude_patch.py >> oss-fuzz-gen/llm_toolkit/models.py`),
-   safe against upstream churn because oss-fuzz-gen discovers models via
-   `Claude.__subclasses__()` walking, not a separate registration list.
+Each written YAML carries two dates: `yaml_generated_at` (when this
+candidate first entered the pool) and `fuzz_code_generated_at` (null
+until a harness has actually been drafted for it, see below). This
+script fully rewrites every YAML in the pool on each run; both dates are
+preserved by reading them back off whatever's already at the output path
+before overwriting it.
 
-`fuzz_code_generate_and_draft.py` needs GCP Vertex AI credentials
-available locally (however your gcloud/ADC setup normally authenticates)
-before drafting will actually run -- not provisioned yet, so today the
-script's gap-analysis and candidate-generation stages work, but drafting
-will fail until that's set up.
+## Drafting is local, by hand, via Claude Code
 
-## Human review, not auto-merge
+There is no automated drafting step and no CI workflow for any of
+this -- gap analysis and candidate-YAML generation are the only
+automated parts. Turning a candidate YAML into an actual
+`fuzz_test_file` means asking Claude Code (interactively, in this
+checkout) to write one, using the candidate's own YAML as the spec:
+function name, signature, params, return type, and source file. Claude
+Code writes the harness directly to
+`src/test/fuzz/fuzz_code/<target_name-minus-fuzz_-prefix>_fuzz.cpp`,
+compiles and smoke-tests it locally before handing it back for review --
+there's no separate drafts location or landing script to run afterward.
+`src/test/CMakeLists.txt` globs every `fuzz/fuzz_code/*_fuzz.cpp` file
+into its own executable, so a new harness needs nothing else registered.
 
-Written fuzz_test_files land in `<work-dir>/fixed_targets/`, get copied
-into this run's `local_drafts_<timestamp>/<candidate-name>/`, and are
-never committed or auto-merged. Per this repo's own working agreement,
-AI-authored changes go through human review before landing -- OSS-Fuzz-Gen's
-own self-correction loop (fixing build errors, checking coverage) validates
-that a fuzz_test_file *compiles and runs*, not that it's one a maintainer
-actually wants to keep.
+Once a candidate has a harness, update its YAML's
+`fuzz_code_generated_at` by hand (or ask Claude Code to do it as part of
+landing the harness) so a later look at the pool shows which candidates
+are still open. This isn't enforced by any script -- it's just
+bookkeeping for whoever picks the next candidate to work through.
 
-`fuzz_code_generate_and_draft.py`'s last step builds
-`local_drafts_<timestamp>/review_code.html` from those drafts --
-`fuzz_code_build_review_page.py`, a plain static page with no server and
-no external resources, one row per drafted candidate with its full
-source inline, a checkbox, and an editable target name. Open it in a
-browser, check the ones worth keeping, edit target names if you want
-different ones, then use the browser's own File > Save Page As
-(Webpage, HTML Only) to save your edits -- the page's own JS mirrors
-every checkbox/input change into the saved HTML's attributes so the
-saved file alone captures your review.
-
-That saved file is `fuzz_code_land_approved.py`'s only input:
-
-```
-./fuzz_code_land_approved.py <path-to-the-saved-review_code.html>
-```
-
-It writes each approved candidate's `.cpp` under `src/test/fuzz/fuzz_code/` --
-`src/test/CMakeLists.txt` globs every `fuzz/fuzz_code/*_fuzz.cpp` file into its own
-executable, so that's the only file this needs to touch. It runs no git
-commands at all; staging and committing the result stays a manual step
-you do yourself afterward.
+This directory used to also wire up [OSS-Fuzz-Gen](https://github.com/google/oss-fuzz-gen)
+with Claude over Vertex AI to draft harnesses automatically. Removed:
+the team decided to skip paid generation entirely (both this path and
+Fuzz4All's Anthropic API calls, see `../../fuzz4all/README.md`) in favor
+of drafting everything locally with Claude Code.
