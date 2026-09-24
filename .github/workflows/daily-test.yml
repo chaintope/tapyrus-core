@@ -1017,7 +1017,10 @@ jobs:
         # medians to history.csv -- saving any earlier finds nothing there
         # and fails with a Path Validation Error, which is why history was
         # never actually persisted across runs before this was moved here.
-        if: always() && github.event_name != 'pull_request' && matrix.config.collect_benchmark_history == true
+        # No always(): if the test step failed, the benchmark section never
+        # ran, so there is nothing new to save, and skipping keeps a
+        # "no cache saved" warning meaningful instead of routine.
+        if: github.event_name != 'pull_request' && matrix.config.collect_benchmark_history == true
         uses: actions/cache/save@v5
         continue-on-error: true
         with:
