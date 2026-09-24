@@ -17,13 +17,12 @@ no libFuzzer engine here. Each candidate is fed to `tapyrus-verify
 --fuzz` directly and unchanged.
 
 The pool grows via `contrib/fuzz/fuzz4all/fuzz_script_generate_pool.py`, a
-human-run local script (never a CI job) that alternates Haiku 4.5/Sonnet 5
-and stops once `contrib/fuzz/fuzz_spend_ledger.py`'s shared monthly cap is
-spent -- shared with `contrib/fuzz/oss-fuzz/drafting/fuzz_code_generate_and_draft.py`,
-so a run here can leave less budget for that script's drafting step this
-month, and vice versa. Every candidate lands directly in this directory,
-so review is a prune, not a landing step -- see
-`contrib/fuzz/fuzz4all/README.md`'s "Human review, not auto-commit"
+human-run local script (never a CI job, run with your own
+`ANTHROPIC_API_KEY`) that alternates Haiku 4.5/Sonnet 5. There is no
+shared budget cap -- whoever runs it watches their own account for
+spend, and `--max-candidates` bounds a single run. Every candidate lands
+directly in this directory, so review is a prune, not a landing step --
+see `contrib/fuzz/fuzz4all/README.md`'s "Human review, not auto-commit"
 section for the `review_scripts_<run-prefix>.html` +
 `fuzz_script_land_approved.py` workflow that decides what actually stays
 committed.

@@ -1,4 +1,4 @@
-# Fuzz4All for Tapyrus Script (draft)
+# Fuzz4All for Tapyrus Script
 
 Generation-based fuzzing of Tapyrus's Script interpreter: instead of
 mutating raw bytes fed to one function (what `../oss-fuzz/project/` and
@@ -21,6 +21,11 @@ already-committed `src/test/fuzz/fuzz_scripts/` against
 `tapyrus-verify --fuzz` on its own daily schedule -- Claude and Fuzz4All
 are only ever involved when a human runs this script.
 
+No spend tracking or budget cap: whoever runs this uses their own
+`ANTHROPIC_API_KEY` and watches their own account for actual spend --
+`--max-candidates` (default 100) is the only stopping bound the script
+itself enforces.
+
 ## Human review, not auto-commit
 
 Every candidate this script generates lands straight in its final home,
@@ -33,7 +38,7 @@ unchecked. Open it, check the ones worth keeping, save it back (File >
 Save Page As, Webpage HTML Only -- the page's own JS keeps the checkbox
 state in the saved markup), then run
 
-```
+```sh
 ./fuzz_script_land_approved.py <path-to-the-saved-review_scripts.html>
 ```
 
@@ -49,8 +54,9 @@ generated in this repo.
   source, not the README) -- only local HuggingFace StarCoder or Ollama.
   This file is a real `ClaudeModel` adapter matching `StarCoder`'s
   `.generate()` interface, following the same `claude/<model-id>` prefix
-  convention already used for `ollama/<model>`, plus real per-call spend
-  tracking from actual API usage (`BudgetExceededError`).
+  convention already used for `ollama/<model>`. No spend tracking of its
+  own -- real per-call token usage is whatever the Anthropic API bills to
+  the account running it.
 - **`fuzz_script_apply_patches.py`** -- complete. Wires `claude_model.py`'s
   `ClaudeModel` into `make_model()` and the `TAPYRUSSCRIPT` target into
   both of `make_target.py`'s dispatch functions, in a fresh Fuzz4All
