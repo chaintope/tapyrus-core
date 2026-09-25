@@ -202,9 +202,9 @@ listening port. It's an optional, off-by-default compile-time feature:
 	-DWITH_MINIUPNPC=ON     UPnP support compiled in, requires miniupnpc >= API version 17
 	                        (see the CMake options table in build-cmake.md)
 
-When compiled in, the `-upnp` runtime option defaults to on whenever the
-node is listening and no `-proxy` is set (pass `-upnp=0` to disable it
-for a specific run). See `tapyrusd --help` for the exact default.
+Even when compiled in, UPnP is off at runtime by default: the node only
+asks the router to open its listening port when started with `-upnp`
+(or `upnp=1` in `tapyrus.conf`).
 
 
 Berkeley DB
