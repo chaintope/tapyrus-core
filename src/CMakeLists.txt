@@ -373,6 +373,9 @@ add_library(tapyrus_peer STATIC EXCLUDE_FROM_ALL
 # platforms (evthread_use_windows_threads() on Windows, which needs no extra
 # library) -- libevent's pthreads component isn't built at all on Windows, so
 # it's referenced defensively, same as tapyrus_rpc's libevent components above.
+# libevent::core is too: Libevent is only searched for when a target that
+# needs this library is enabled, and a configure with all of those off (e.g.
+# a tapyrus-verify-only build) must not fail on the missing imported target.
 target_link_libraries(tapyrus_peer
   PUBLIC
     tapyrus_chainstate
@@ -381,7 +384,7 @@ target_link_libraries(tapyrus_peer
     tapyrus_util
   PRIVATE
     core_interface
-    libevent::core
+    $<TARGET_NAME_IF_EXISTS:libevent::core>
     $<TARGET_NAME_IF_EXISTS:libevent::pthreads>
     Boost::headers
 )
