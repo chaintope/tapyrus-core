@@ -812,7 +812,9 @@ jobs:
 
   upnp-port-mapping:
     name: UPnP port mapping (real IGD)
-    runs-on: ubuntu-latest
+    # Pinned to match the ubuntu:24.04 container tapyrusd runs in below, so
+    # the runtime library sonames it installs match what the build linked.
+    runs-on: ubuntu-24.04
     # Verifies -DWITH_MINIUPNPC=ON's actual port-mapping code path (net.cpp's
     # ThreadMapPort) against a real UPnP IGD implementation (miniupnpd), not
     # just that it compiles. Not a functional-test-framework test: those spin
@@ -917,28 +919,42 @@ jobs:
             -v "$PWD/upnp_test/data:/data" \
             ubuntu:24.04 bash -c "
               apt-get update -qq &&
-              DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libevent-dev libminiupnpc-dev &&
+              DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
+                libevent-core-2.1-7t64 libevent-pthreads-2.1-7t64 libevent-extra-2.1-7t64 libminiupnpc17 &&
               exec tapyrusd -datadir=/data
             "
 
       - name: Wait for discovery and mapping, then verify against the IGD
+        # Polls instead of sleeping a fixed time: the apt-get install in
+        # upnp_node, tapyrusd startup, miniupnpd startup and SSDP discovery
+        # all happen asynchronously before the mapping can appear.
         run: |
-          sleep 20
+          deadline=$((SECONDS + 180))
+          until docker exec upnp_igd upnpc -l > mappings.txt 2>&1 \
+                && grep -q "18333->" mappings.txt \
+                && grep -q "'Tapyrus" mappings.txt; do
+            if [ "$(docker inspect -f '{{.State.Running}}' upnp_node)" != "true" ]; then
+              echo "FAILED: tapyrusd container exited before any mapping appeared"
+              exit 1
+            fi
+            if [ "${SECONDS}" -ge "${deadline}" ]; then
+              cat mappings.txt
+              if grep -q "18333->" mappings.txt; then
+                echo "FAILED: mapping for 18333 exists but its description doesn't identify tapyrusd -- check for a stale/unrelated mapping"
+              else
+                echo "FAILED: no port mapping for 18333 found on the fake IGD within 180s"
+              fi
+              exit 1
+            fi
+            sleep 2
+          done
 
           echo "== tapyrusd's own view =="
           docker exec upnp_node cat /data/dev-1905960821/debug.log | grep -i upnp || true
 
           echo "== the fake router's own mapping table =="
-          docker exec upnp_igd upnpc -l | tee mappings.txt
+          cat mappings.txt
 
-          if ! grep -q "18333->" mappings.txt; then
-            echo "FAILED: no port mapping for 18333 found on the fake IGD"
-            exit 1
-          fi
-          if ! grep -q "'Tapyrus" mappings.txt; then
-            echo "FAILED: mapping exists but its description doesn't identify tapyrusd -- check for a stale/unrelated mapping"
-            exit 1
-          fi
           echo "PASSED: tapyrusd successfully mapped its listening port via UPnP"
 
       - name: Dump logs
