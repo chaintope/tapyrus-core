@@ -43,7 +43,7 @@
 #                              tapyrus_chainstate -- see its add_executable() below)
 #   tapyrus-tx             -- tapyrus_codec, tapyrus_scripting, tapyrus_util
 #   tapyrus-cli            -- tapyrus_cli, tapyrus_global, tapyrus_util
-#   tapyrus-verify         -- tapyrus_consensus, tapyrus_codec, tapyrus_scripting, tapyrus_global
+#   tapyrus-verify         -- tapyrus_consensus, tapyrus_codec, tapyrus_global
 #                              (no chain-state, no leveldb)
 #
 # tapyrus-genesis/tapyrus-tx/tapyrus-cli/tapyrus-verify share a property worth
@@ -595,6 +595,8 @@ endif()
 # below) -- tapyrus-verify.cpp calls EncodeHexTx()/ParseScript() directly
 # (core_write.cpp/core_read.cpp, both tapyrus_codec archive members), a
 # real direct dependency, not a transitive implementation detail.
+# tapyrus_scripting is not listed: tapyrus-verify.cpp calls nothing in it
+# directly; it's only reached through tapyrus_codec's PUBLIC link.
 if(BUILD_SCRIPT_VERIFY)
   add_executable(tapyrus-verify tapyrus-verify.cpp)
   target_link_libraries(tapyrus-verify
@@ -602,7 +604,6 @@ if(BUILD_SCRIPT_VERIFY)
           core_interface
           tapyrus_consensus
           tapyrus_codec
-          tapyrus_scripting
           tapyrus_global
           Boost::headers
   )

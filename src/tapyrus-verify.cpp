@@ -15,8 +15,8 @@
 // on any real network; and it never runs mempool/relay policy checks
 // (IsStandardTx) at all.
 //
-// Links tapyrus_consensus, tapyrus_codec, tapyrus_scripting, and
-// tapyrus_global only (no tapyrus_chainstate, no leveldb, no networking,
+// Links tapyrus_consensus, tapyrus_codec, and tapyrus_global only
+// (no tapyrus_chainstate, no leveldb, no networking,
 // no block-level validation). tapyrus_global is needed only so
 // VerifyScript's CP2SH_COLORED check can read the global
 // FederationParams() singleton -- see main(). tapyrus_codec is needed
