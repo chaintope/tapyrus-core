@@ -88,12 +88,3 @@ contrib/devtools/split-debug.sh
 
 # for test
 tapyrus.conf
-
-# local machine state for contrib/fuzz/fuzz4all/fuzz_script_generate_pool.py --
-# never meant to be shared or committed
-contrib/fuzz/fuzz4all/.last_model
-
-# per-run review page for fuzz_script_generate_pool.py's own candidates
-# (the candidates themselves, under src/test/fuzz/fuzz_scripts/, ARE
-# meant to be committed after review -- only this review page isn't)
-contrib/fuzz/fuzz4all/review_scripts_*.html

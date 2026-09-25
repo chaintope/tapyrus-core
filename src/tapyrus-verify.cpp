@@ -35,7 +35,7 @@
 // one set instead of the full matrix.
 //
 // --fuzz <script-mnemonic-file> (only when built with BUILD_FUZZ_TEST --
-// the oracle behind contrib/fuzz/fuzz4all/TAPYRUSSCRIPT.py) assembles the
+// the oracle behind contrib/fuzz/fuzz_script/) assembles the
 // file into a scriptPubKey, builds its own to_spend/spending pair, and
 // additionally sweeps 16 nLockTime/nSequence combinations -- each one
 // checked the same way (full flag matrix, or --flags=<spec> if given).

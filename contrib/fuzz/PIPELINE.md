@@ -2,17 +2,15 @@
 
 Two pipelines grow this repo's fuzz coverage: one finds functions with no
 fuzz-target coverage (Fuzz Introspector) and drafts a `fuzz_test_file`
-for one locally via Claude Code -- no paid API call anywhere in this
-pipeline, since the team decided to skip OSS-Fuzz-Gen's Vertex AI
-drafting entirely. The other (fuzz_script) generates candidate Tapyrus
-Script programs via Fuzz4All calling Claude over the real Anthropic
-API, run locally by whoever wants to grow the pool, using their own API
-key -- there's no shared budget cap or spend tracking, just a per-run
-`--max-candidates` bound.
+for one locally via Claude Code. The other (fuzz_script) has Claude Code
+write candidate Tapyrus Script programs locally, validated against a
+local sanitizer build of `tapyrus-verify`. Neither makes a paid API
+call: the team decided to skip both OSS-Fuzz-Gen's Vertex AI drafting
+and Fuzz4All's Anthropic API generation, so there is no API key, spend
+tracking or budget cap anywhere in either pipeline.
 
 Every node in the diagrams below is a real external library or service
-(Fuzz Introspector, Claude Code, Fuzz4All, Claude via the Anthropic API,
-libFuzzer) -- no tapyrus binary or in-repo library gets its own node.
+(Fuzz Introspector, Claude Code, libFuzzer) -- no tapyrus binary or in-repo library gets its own node.
 Local orchestration is drawn as the human's (or CI's) own actions,
 labeled with the actual script that runs it.
 
@@ -79,36 +77,32 @@ landed, `fuzz-code-only` runs it daily and free forever -- libFuzzer's
 own coverage-guided mutation supplies different inputs every run, not a
 further drafting session.
 
-## Pipeline B -- fuzz_script (Fuzz4All)
+## Pipeline B -- fuzz_script
 
-[`fuzz4all/`](fuzz4all/)
+[`fuzz_script/`](fuzz_script/)
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor Human
-    participant F4A as Fuzz4All
-    participant Claude as Claude (Anthropic API)
+    participant CC as Claude Code
     participant CI as daily-test.yml<br/>fuzz-script-sweep
 
     rect rgb(251, 236, 238)
-    Note over Human,Claude: MANUAL -- fuzz_script_generate_pool.py, run with the human's own ANTHROPIC_API_KEY, no shared budget cap
-    Human->>Human: fuzz_script_apply_patches.py wires ClaudeModel + the Script target into a fresh Fuzz4All clone
-    Human->>F4A: python3 -m Fuzz4All.fuzz --config tapyrus_script.yaml
-    loop until --max-candidates is reached
-        F4A->>Claude: generate one candidate Script program (alternating Haiku 4.5 / Sonnet 5)
-        Claude-->>F4A: candidate program
-        Note right of F4A: validates each candidate against a local build before accepting it (internal to this checkout, no separate node)
-    end
-    F4A-->>Human: batch of candidates copied straight into src/test/fuzz/fuzz_scripts/
+    Note over Human: MANUAL -- fuzz_script_step1_build_verify.py (incremental on re-runs)
+    Human->>Human: build tapyrus-verify with ASan/UBSan into build_fuzz_verify/ (same configuration as the nightly sweep)
     end
 
     rect rgb(251, 236, 238)
-    Note over Human: MANUAL -- review and prune (a DELETE -- candidates already sit in their final home), no external calls
-    Human->>Human: fuzz_script_build_review_page.py builds review_scripts.html, scoped to this run
-    Human->>Human: open review_scripts.html, check "keep" on the good ones, Save Page As
-    Human->>Human: fuzz_script_land_approved.py deletes every unchecked candidate (no git)
-    Human->>Human: git add + commit what survives (manual, outside any script)
+    Note over Human,CC: MANUAL, local -- no paid API call
+    Human->>CC: write a batch of candidate Script programs, using doc/tapyrus/script.md and the existing pool
+    CC-->>Human: candidates written straight into src/test/fuzz/fuzz_scripts/ (YYYYMMDD_slug.txt)
+    end
+
+    rect rgb(251, 236, 238)
+    Note over Human: MANUAL -- fuzz_script_step2_validate.py, then review (no external calls)
+    Human->>Human: run tapyrus-verify --fuzz on this batch -- assembler rejects deleted, crashes/failures/timeouts reported
+    Human->>Human: review the remaining new files via git status/diff, git add + commit (manual)
     end
 
     rect rgb(234, 245, 239)
@@ -121,12 +115,10 @@ sequenceDiagram
 ```
 
 No mutation engine here -- unlike pipeline A, every input this pipeline
-ever tests came from an LLM call, which is exactly why the daily sweep
-replays a rotating window of an already-committed pool instead of
-generating anything itself. Unlike pipeline A, this one does spend real
-money on every run -- there's just no script-enforced cap on it anymore;
-whoever runs `fuzz_script_generate_pool.py` watches their own Anthropic
-account.
+ever tests was written by Claude Code, which is exactly why the daily
+sweep replays a rotating window of an already-committed pool instead of
+generating anything itself. Like pipeline A, nothing here costs money
+beyond the Claude Code session doing the generation.
 
 ## Scripts at a glance
 
@@ -138,35 +130,32 @@ account.
 | [`fuzz_code_find_fuzz_gaps.py`](fuzz-introspector/fuzz_code_find_fuzz_gaps.py) | fuzz_code | manual | Parses the per-harness data.yaml into a ranked candidate list, with real return_type/signature/params and every overload included |
 | [`fuzz_code_generate_candidates.py`](oss-fuzz/drafting/fuzz_code_generate_candidates.py) | fuzz_code | manual | Turns each candidate into a spec YAML under `src/test/fuzz/fuzz_candidates/` for Claude Code to draft a harness from |
 | [`fuzz_code_select_slice.py`](../../src/test/fuzz/fuzz_seed_pool/fuzz_code_select_slice.py) | fuzz_code | daily | Rotates a seed slice into each libFuzzer target's corpus every run |
-| [`fuzz_script_generate_pool.py`](fuzz4all/fuzz_script_generate_pool.py) | fuzz_script | manual | Orchestrates a Fuzz4All + Claude run to grow the Script candidate pool, using the runner's own API key |
-| [`fuzz_script_apply_patches.py`](fuzz4all/fuzz_script_apply_patches.py) | fuzz_script | manual | Wires ClaudeModel + the Script target into a fresh Fuzz4All clone (applied automatically by the script above) |
-| [`fuzz_script_build_review_page.py`](fuzz4all/fuzz_script_build_review_page.py) | fuzz_script | manual | Builds review_scripts.html scoped to one run's new candidates (applied automatically by the generator above) |
-| [`fuzz_script_land_approved.py`](fuzz4all/fuzz_script_land_approved.py) | fuzz_script | manual | Prunes (deletes) the unchecked rows of a saved review_scripts.html -- no git commands |
+| [`fuzz_script_step1_build_verify.py`](fuzz_script/fuzz_script_step1_build_verify.py) | fuzz_script | manual | Builds `tapyrus-verify` with ASan/UBSan into `build_fuzz_verify/`, the same configuration the nightly sweep uses |
+| [`fuzz_script_step2_validate.py`](fuzz_script/fuzz_script_step2_validate.py) | fuzz_script | manual | Runs `tapyrus-verify --fuzz` on one batch of new candidates; deletes assembler rejects, reports crashes/failures/timeouts -- no git commands |
 | [`daily-test.yml`](../../.github/workflows/daily-test.yml): `fuzz-code-only` | fuzz_code | daily | Runs libFuzzer (+ASan/UBSan) against every landed harness -- no AI |
 | [`daily-test.yml`](../../.github/workflows/daily-test.yml): `fuzz-script-sweep` | fuzz_script | daily | Replays a rotating window of the committed Script pool -- no AI |
 
-**fuzz_code drafts locally; fuzz_script still calls a paid API.**
-OSS-Fuzz-Gen's Vertex AI drafting path is gone entirely: every
-`fuzz_test_file` is now drafted by asking Claude Code to write it
-directly, compiled/smoke-tested locally before it's committed, at no
-cost beyond whatever Claude Code session does the drafting. fuzz_script
-is different: `fuzz_script_generate_pool.py` still makes real Anthropic
-API calls through Fuzz4All to generate Script programs -- there used to
-be a shared `fuzz_spend_ledger.py` cap across both pipelines; that's
-gone now too, so this is run locally with the operator's own API key and
-no script-enforced budget, just `--max-candidates` bounding a single
-run.
+**Both pipelines generate locally, via Claude Code.** OSS-Fuzz-Gen's
+Vertex AI drafting path and fuzz_script's Fuzz4All + Anthropic API
+generator are both gone: every `fuzz_test_file` and every Script
+candidate is written by asking Claude Code directly, then compiled or
+validated locally before it's committed, at no cost beyond the Claude
+Code session doing the work. Fuzz4All couldn't simply be pointed at
+Claude Code instead -- its generation loop needs a model it can call
+programmatically once per candidate -- see
+[`fuzz_script/README.md`](fuzz_script/README.md#why-fuzz4all-was-removed).
 
 **Python + asyncio, not bash.** `fuzz_code_step1_build_image.py`/
-`fuzz_code_step2_start_container.py`/`fuzz_code_step3_analyze.py` are
-Python, not shell -- letting `step2`'s persistent-container management
-and `step3`'s in-container analysis share real code (subprocess
-wrappers, error handling) instead of duplicating it across `.sh` scripts.
+`fuzz_code_step2_start_container.py`/`fuzz_code_step3_analyze.py` and
+`fuzz_script_step1_build_verify.py` are Python, not shell -- letting
+`step2`'s persistent-container management and `step3`'s in-container
+analysis share real code (subprocess wrappers, error handling) instead
+of duplicating it across `.sh` scripts.
 
-**Only fuzz_script still has a review page.** fuzz_code's Claude Code
-drafting produces one harness per request, written straight under
-`src/test/fuzz/fuzz_code/` -- nothing to review in bulk. fuzz_script's
-generator instead produces a whole batch per run, so
-`review_scripts_<run-prefix>.html` + `fuzz_script_land_approved.py` are
-still how a human prunes that batch down to what's worth keeping before
-committing.
+**No review pages.** Both pipelines generate inside an interactive
+Claude Code session, so their output is reviewed there and as ordinary
+uncommitted files (`git status`/`git diff`) -- fuzz_code one harness per
+request under `src/test/fuzz/fuzz_code/`, fuzz_script one batch under
+`src/test/fuzz/fuzz_scripts/`, already filtered by
+`fuzz_script_step2_validate.py`. Nothing needs a separate HTML review
+page or landing script.

@@ -20,9 +20,9 @@ half actually does.
 
 `../fuzz-introspector/` (gap analysis) is the remaining piece of this
 same pipeline and stays a sibling directory rather than folding in here
--- it's a distinct third-party tool with its own upstream project, the
-same reasoning that keeps `../fuzz4all/` (the unrelated fuzz_script
-pipeline) separate too. `../fuzz-introspector/fuzz_code_step1_build_image.py`
+-- it's a distinct third-party tool with its own upstream project.
+`../fuzz_script/` (the unrelated fuzz_script pipeline) is a separate
+sibling directory too. `../fuzz-introspector/fuzz_code_step1_build_image.py`
 is what actually consumes `project/`'s files, building `project/Dockerfile`
 (which bakes in `project/build.sh`) into the local, reusable image
 `../fuzz-introspector/fuzz_code_step2_start_container.py` and

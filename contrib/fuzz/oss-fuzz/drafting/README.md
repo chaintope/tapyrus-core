@@ -62,5 +62,6 @@ bookkeeping for whoever picks the next candidate to work through.
 This directory used to also wire up [OSS-Fuzz-Gen](https://github.com/google/oss-fuzz-gen)
 with Claude over Vertex AI to draft harnesses automatically. Removed:
 the team decided to skip paid generation entirely (both this path and
-Fuzz4All's Anthropic API calls, see `../../fuzz4all/README.md`) in favor
-of drafting everything locally with Claude Code.
+fuzz_script's former Fuzz4All + Anthropic API generator, see
+`../../fuzz_script/README.md`) in favor of generating everything locally
+with Claude Code.
