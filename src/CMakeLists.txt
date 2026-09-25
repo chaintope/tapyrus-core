@@ -383,6 +383,7 @@ target_link_libraries(tapyrus_peer
     core_interface
     libevent::core
     $<TARGET_NAME_IF_EXISTS:libevent::pthreads>
+    $<TARGET_NAME_IF_EXISTS:MiniUPnPc::MiniUPnPc>
     Boost::headers
 )
 
