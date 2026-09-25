@@ -589,14 +589,6 @@ jobs:
           path: ${{ env.DEPENDS_DIR }}
           key: depends-v6-qt6-${{ matrix.config.platform }}-${{ env.ARCH }}-${{ hashFiles('depends/packages/*', 'depends/hosts/*.mk', 'depends/builders/*.mk', 'depends/funcs.mk', 'depends/toolchain.cmake.in', 'depends/patches/**') }}
 
-      - name: Save Benchmark History cache
-        if: always() && github.event_name != 'pull_request' && matrix.config.collect_benchmark_history == true
-        uses: actions/cache/save@v5
-        continue-on-error: true
-        with:
-          path: ${{ github.workspace }}/benchmark_results/data
-          key: benchmark-history-${{ matrix.config.name }}-${{ github.run_id }}
-
       - name: Enable core dumps
         if: matrix.config.target_platform != 'windows'
         run: |
@@ -1018,6 +1010,22 @@ jobs:
           # fi
 
           echo "---------------- DAILY TEST FINISHED ---------------------"
+
+      - name: Save Benchmark History cache
+        # Must run after "Build and run daily tests", which is the step that
+        # actually creates benchmark_results/data and appends this run's
+        # medians to history.csv -- saving any earlier finds nothing there
+        # and fails with a Path Validation Error, which is why history was
+        # never actually persisted across runs before this was moved here.
+        # No always(): if the test step failed, the benchmark section never
+        # ran, so there is nothing new to save, and skipping keeps a
+        # "no cache saved" warning meaningful instead of routine.
+        if: github.event_name != 'pull_request' && matrix.config.collect_benchmark_history == true
+        uses: actions/cache/save@v5
+        continue-on-error: true
+        with:
+          path: ${{ github.workspace }}/benchmark_results/data
+          key: benchmark-history-${{ matrix.config.name }}-${{ github.run_id }}
 
       - name: Save Ccache cache
         uses: actions/cache/save@v5
