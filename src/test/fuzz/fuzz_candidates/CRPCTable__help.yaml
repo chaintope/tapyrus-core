@@ -1,0 +1,16 @@
+project: tapyrus-core
+language: c++
+target_name: fuzz_gen_CRPCTable__help
+target_path: /src/tapyrus-core/src/test/fuzz/fuzz_code/fuzz_gen_CRPCTable__help.cpp
+yaml_generated_at: '2026-09-21T13:50:48.833395+00:00'
+fuzz_code_generated_at: '2026-09-22T13:12:33.389888+00:00'
+functions:
+- name: CRPCTable::help
+  signature: std::string CRPCTable::help(const std::string& strCommand, const JSONRPCRequest&
+    helpreq) const
+  return_type: std::string
+  params:
+  - name: strCommand
+    type: std::string
+  - name: helpreq
+    type: JSONRPCRequest

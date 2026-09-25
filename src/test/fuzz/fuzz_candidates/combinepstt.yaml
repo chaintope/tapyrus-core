@@ -1,0 +1,13 @@
+project: tapyrus-core
+language: c++
+target_name: fuzz_gen_combinepstt
+target_path: /src/tapyrus-core/src/test/fuzz/fuzz_code/fuzz_gen_combinepstt.cpp
+yaml_generated_at: '2026-09-21T13:50:48.823515+00:00'
+fuzz_code_generated_at: null
+functions:
+- name: combinepstt
+  signature: UniValue combinepstt(const JSONRPCRequest& request)
+  return_type: UniValue
+  params:
+  - name: request
+    type: JSONRPCRequest

@@ -1261,9 +1261,8 @@ jobs:
   #   starting point -- so successive runs gradually cover the whole pool
   #   instead of always retesting the same prefix.
   #
-  #   The pool itself grows via a separate local script -- see
-  #   contrib/fuzz/fuzz4all/fuzz_script_generate_pool.py and
-  #   contrib/fuzz/fuzz4all/README.md for how.
+  #   The pool itself grows locally, by hand, via Claude Code -- see
+  #   contrib/fuzz/fuzz_script/README.md for how.
   # TOOLS USED: tapyrus-verify --fuzz (src/tapyrus-verify.cpp), built
   #   here via -DBUILD_SCRIPT_VERIFY=ON -DBUILD_FUZZ_TEST=ON with
   #   ASan/UBSan.
@@ -1309,7 +1308,7 @@ jobs:
           mapfile -t all_files < <(find "${pool_dir}" -maxdepth 1 -type f ! -name "README.md" | sort)
           pool_size=${#all_files[@]}
           if [ "${pool_size}" -eq 0 ]; then
-            echo "::warning::${pool_dir} is empty -- run contrib/fuzz/fuzz4all/fuzz_script_generate_pool.py locally and commit its output first."
+            echo "::warning::${pool_dir} is empty -- grow it locally per contrib/fuzz/fuzz_script/README.md and commit the result first."
             exit 0
           fi
 

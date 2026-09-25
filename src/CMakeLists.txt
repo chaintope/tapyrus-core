@@ -9,9 +9,9 @@
 # they're genuinely foundational (tapyrus_crypto has no tapyrus_*
 # dependencies at all; tapyrus_consensus depends only on tapyrus_crypto)
 # and a couple of executables/libraries happen to reach them directly.
-# test/lint/lint-library-layering.py enforces that nothing in a lower tier
-# ever includes a header from a library in a tier above it, i.e. this
-# diagram never gains a reverse arrow. A tier is a set, not a chain: it
+# By convention (not currently lint-enforced), nothing in a lower tier ever
+# includes a header from a library in a tier above it, i.e. this diagram
+# never gains a reverse arrow. A tier is a set, not a chain: it
 # does not mean every entry in it links every entry in the tier below,
 # only that none of them reach any higher.
 #
@@ -43,7 +43,7 @@
 #                              tapyrus_chainstate -- see its add_executable() below)
 #   tapyrus-tx             -- tapyrus_codec, tapyrus_scripting, tapyrus_util
 #   tapyrus-cli            -- tapyrus_cli, tapyrus_global, tapyrus_util
-#   tapyrus-verify         -- tapyrus_consensus, tapyrus_codec, tapyrus_scripting, tapyrus_global
+#   tapyrus-verify         -- tapyrus_consensus, tapyrus_codec, tapyrus_global
 #                              (no chain-state, no leveldb)
 #
 # tapyrus-genesis/tapyrus-tx/tapyrus-cli/tapyrus-verify share a property worth
@@ -66,7 +66,7 @@
 #   tapyrus_global      -- tapyrus_consensus, tapyrus_util
 #   tapyrus_netbase     -- tapyrus_consensus, tapyrus_util
 #   tapyrus_cli         -- none (just univalue, core_interface)
-#   tapyrus_util        -- tapyrus_clientversion, tapyrus_crypto
+#   tapyrus_util        -- tapyrus_clientversion, tapyrus_consensus, tapyrus_crypto
 #   tapyrus_consensus   -- tapyrus_crypto
 #
 # tapyrus_rpc links tapyrus_wallet, one-directionally: wallet/rpcwallet.cpp
@@ -180,21 +180,24 @@ add_library(tapyrus_util STATIC EXCLUDE_FROM_ALL
         random.cpp
         randomenv.cpp
         rpc/protocol.cpp
-        support/cleanse.cpp
         support/lockedpool.cpp
         sync.cpp
         threadinterrupt.cpp
         util.cpp
         utilmoneystr.cpp
-        utilstrencodings.cpp
         utiltime.cpp
 )
+# utilstrencodings.cpp and support/cleanse.cpp are deliberately not compiled
+# here: each has exactly one owner, the base-tier library that needs it
+# (tapyrus_consensus and tapyrus_crypto respectively), and tapyrus_util links
+# those instead of carrying second copies of the same strong symbols.
 # util.cpp's SetupNetworking() calls WSAStartup() directly on Windows.
 target_link_libraries(tapyrus_util
         PUBLIC
         tapyrus_clientversion
         PRIVATE
         core_interface
+        tapyrus_consensus
         tapyrus_crypto
         univalue
         $<$<PLATFORM_ID:Windows>:ws2_32>
@@ -373,6 +376,9 @@ add_library(tapyrus_peer STATIC EXCLUDE_FROM_ALL
 # platforms (evthread_use_windows_threads() on Windows, which needs no extra
 # library) -- libevent's pthreads component isn't built at all on Windows, so
 # it's referenced defensively, same as tapyrus_rpc's libevent components above.
+# libevent::core is too: Libevent is only searched for when a target that
+# needs this library is enabled, and a configure with all of those off (e.g.
+# a tapyrus-verify-only build) must not fail on the missing imported target.
 target_link_libraries(tapyrus_peer
   PUBLIC
     tapyrus_chainstate
@@ -381,7 +387,7 @@ target_link_libraries(tapyrus_peer
     tapyrus_util
   PRIVATE
     core_interface
-    libevent::core
+    $<TARGET_NAME_IF_EXISTS:libevent::core>
     $<TARGET_NAME_IF_EXISTS:libevent::pthreads>
     Boost::headers
 )
@@ -592,6 +598,8 @@ endif()
 # below) -- tapyrus-verify.cpp calls EncodeHexTx()/ParseScript() directly
 # (core_write.cpp/core_read.cpp, both tapyrus_codec archive members), a
 # real direct dependency, not a transitive implementation detail.
+# tapyrus_scripting is not listed: tapyrus-verify.cpp calls nothing in it
+# directly; it's only reached through tapyrus_codec's PUBLIC link.
 if(BUILD_SCRIPT_VERIFY)
   add_executable(tapyrus-verify tapyrus-verify.cpp)
   target_link_libraries(tapyrus-verify
@@ -599,7 +607,6 @@ if(BUILD_SCRIPT_VERIFY)
           core_interface
           tapyrus_consensus
           tapyrus_codec
-          tapyrus_scripting
           tapyrus_global
           Boost::headers
   )

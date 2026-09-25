@@ -1,0 +1,15 @@
+project: tapyrus-core
+language: c++
+target_name: fuzz_gen_CheckPackage
+target_path: /src/tapyrus-core/src/test/fuzz/fuzz_code/fuzz_gen_CheckPackage.cpp
+yaml_generated_at: '2026-09-21T13:50:48.852904+00:00'
+fuzz_code_generated_at: null
+functions:
+- name: CheckPackage
+  signature: bool CheckPackage(const Package& txns, CValidationState& state)
+  return_type: bool
+  params:
+  - name: txns
+    type: Package
+  - name: state
+    type: CValidationState

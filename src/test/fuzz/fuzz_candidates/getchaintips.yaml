@@ -1,0 +1,13 @@
+project: tapyrus-core
+language: c++
+target_name: fuzz_gen_getchaintips
+target_path: /src/tapyrus-core/src/test/fuzz/fuzz_code/fuzz_gen_getchaintips.cpp
+yaml_generated_at: '2026-09-21T13:50:48.834295+00:00'
+fuzz_code_generated_at: '2026-09-23T07:17:34.584552+00:00'
+functions:
+- name: getchaintips
+  signature: UniValue getchaintips(const JSONRPCRequest& request)
+  return_type: UniValue
+  params:
+  - name: request
+    type: JSONRPCRequest

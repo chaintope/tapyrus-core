@@ -1999,7 +1999,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
             CNodeState* state = State(pfrom->GetId());
             if (state->m_addr_token_bucket < MAX_ADDR_PROCESSING_TOKEN_BUCKET) {
                 // Don't increment bucket if it's already full
-                const std::chrono::microseconds time_diff{std::max(current_time - state->m_addr_token_timestamp.count(), int64_t(0))};
+                const std::chrono::microseconds time_diff{std::max(current_time - state->m_addr_token_timestamp.count(), std::chrono::microseconds::rep{0})};
                 const double increment = std::chrono::duration_cast<std::chrono::duration<double, std::chrono::seconds::period>>(time_diff).count() * MAX_ADDR_RATE_PER_SECOND;
                 state->m_addr_token_bucket = std::min<double>(state->m_addr_token_bucket + increment, MAX_ADDR_PROCESSING_TOKEN_BUCKET);
             }

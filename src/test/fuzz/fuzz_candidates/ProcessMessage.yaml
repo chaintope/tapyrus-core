@@ -1,0 +1,27 @@
+project: tapyrus-core
+language: c++
+target_name: fuzz_gen_ProcessMessage
+target_path: /src/tapyrus-core/src/test/fuzz/fuzz_code/fuzz_gen_ProcessMessage.cpp
+yaml_generated_at: '2026-09-21T13:50:48.787763+00:00'
+fuzz_code_generated_at: null
+functions:
+- name: ProcessMessage
+  signature: bool ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStream&
+    vRecv, int64_t nTimeReceived, const CChainParams& chainparams, CConnman* connman,
+    const std::atomic<bool>& interruptMsgProc)
+  return_type: bool
+  params:
+  - name: pfrom
+    type: CNode*
+  - name: strCommand
+    type: std::string
+  - name: vRecv
+    type: CDataStream
+  - name: nTimeReceived
+    type: int64_t
+  - name: chainparams
+    type: CChainParams
+  - name: connman
+    type: CConnman*
+  - name: interruptMsgProc
+    type: std::atomic<bool>
