@@ -219,25 +219,23 @@ target_link_libraries(test_tapyrus
 # and fuzz-script-sweep jobs turn this on.
 if(BUILD_FUZZ_TEST)
 
-# tapyrus_server/tapyrus_common/tapyrus_util/tapyrus_consensus have real
-# circular symbol dependencies between them (e.g. script/interpreter.cpp
-# in tapyrus_consensus calls GetSoftForkManager(), defined in
-# federationparams.cpp in tapyrus_common; federationparams.cpp in turn
-# calls gArgs/ArgsManager, defined in tapyrus_util) -- test_tapyrus above
-# never hits this because it also links tapyrus_wallet/tapyrus_cli/
-# tapyrus_zmq/libevent, which happen to pull in a superset of the same
-# object files early enough that everything each library needs is
-# already present in the link by the time it's needed. A standalone fuzz
-# binary linking only the libraries it actually needs has no such luck:
-# GNU ld/lld resolve each static archive in a single left-to-right pass,
-# so a later archive's need for a symbol in an earlier, already-scanned
-# archive is never revisited -- confirmed by fuzz_pstt_decode failing to
-# link with "undefined reference to GetSoftForkManager()" until wrapped
-# in --start-group/--end-group, which forces the linker to keep
-# re-scanning the whole set until every symbol resolves. Not supported
-# by Apple's ld64 the same way, but these fuzz binaries are Linux-only in
-# CI (daily-test.yml's fuzz-code-only job runs on ubuntu-latest) so that
-# doesn't matter here.
+# tapyrus_server/tapyrus_common no longer exist as CMake targets -- #463
+# split them into the granular libraries linked below, wired together as
+# a plain DAG via target_link_libraries() (e.g. tapyrus_scripting
+# PUBLIC-links tapyrus_consensus/tapyrus_global/tapyrus_util). This used
+# to also need -Wl,--start-group/--end-group on Linux: script/
+# interpreter.cpp in tapyrus_consensus called GetSoftForkManager(),
+# defined in federationparams.cpp in tapyrus_global, an undeclared
+# reverse-direction edge GNU ld's single left-to-right archive pass
+# couldn't resolve without it (Apple's ld64 tolerated it, which is why
+# this only failed on Linux CI). Fixed at the source instead: that call
+# site only needed CSoftForkManager::IsEnabled(), a static, stateless
+# bitmask check with no link dependency on tapyrus_global -- see the
+# comment at its call site in script/interpreter.cpp. No circular
+# archive dependency remains, so linking these by name needs no
+# start-group/end-group trick; the set mirrors what test_tapyrus above
+# links (minus tapyrus_wallet/tapyrus_cli/tapyrus_zmq, which these fuzz
+# harnesses don't exercise).
 function(add_pstt_fuzz_target name source)
     # Deliberately NOT EXCLUDE_FROM_ALL: BUILD_FUZZ_TEST already gates
     # whether this function's callers even run (see the if(BUILD_FUZZ_TEST)
@@ -256,34 +254,91 @@ function(add_pstt_fuzz_target name source)
             ${Boost_INCLUDE_DIRS}
             $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../univalue/include>
     )
-    # CMake's fixed link-command template
-    # (<COMPILER> <FLAGS> <LINK_OPTIONS> <OBJECTS> -o <TARGET> <LINK_LIBRARIES>)
-    # always places LINK_OPTIONS (from target_link_options()) before the
-    # object files and LINK_LIBRARIES (from target_link_libraries()) after
-    # -- there is no way to get -Wl,--start-group/--end-group positioned
-    # around specific libraries via target_link_options(), since group
-    # markers need to sit in the LINK_LIBRARIES list itself, after the
-    # object file that actually references these symbols (confirmed by
-    # testing: a group placed via target_link_options still failed with
-    # "undefined reference to GetSoftForkManager()", because it ran
-    # before the fuzz harness's own .o -- the thing creating the need --
-    # was even linked). Passing the raw -Wl,--start-group/--end-group
-    # strings directly as target_link_libraries() arguments keeps them in
-    # that correctly-positioned list instead.
     target_link_libraries(${name}
         PRIVATE
             core_interface
+            tapyrus_codec
+            tapyrus_scripting
+            tapyrus_global
+            tapyrus_util
+            tapyrus_consensus
+            univalue
+            secp256k1
+            tapyrus_crypto
+            Boost::headers
+    )
+endfunction()
+
+# ParsePsttInputEntries/decodepstt (called by pstt_parse_fuzz.cpp/
+# pstt_decodepstt_rpc_fuzz.cpp) live in rpc/rawtransaction.cpp alongside
+# sendrawtransaction/gettxoutproof/createrawtransaction/signrawtransaction
+# and friends. A static archive is pulled in per translation unit, so
+# needing either function drags in the whole rawtransaction.cpp.o,
+# including those never-called siblings' own undefined references. Neither
+# ParsePsttInputEntries nor decodepstt has a chain/wallet dependency itself
+# (confirmed by reading their bodies) -- tracing the resulting undefined-
+# symbol chain (via `nm -u`/`-why_load`, not guesswork) found it splits
+# cleanly in two:
+#
+# - Most of it (StartShutdown/OpenDiskFile/FlushStateToDisk/ReadBlockFromDisk/
+#   uiInterface from file_io.cpp/shutdown.cpp/ui_interface.cpp, plus real
+#   GetTransaction/AcceptToMemoryPool/etc. from tapyrus_chainstate,
+#   CMerkleBlock/CRollingBloomFilter/CConnman from tapyrus_peer) is
+#   satisfied by linking those for real below, same as the six-glue-files
+#   tapyrusd/tapyrus-qt pattern minus the pieces that turned out unneeded
+#   (init.cpp/timeoffsets.cpp: net_processing.cpp, the only tapyrus_peer.a
+#   member needing TimeOffsets, is never itself pulled in here).
+# - One chokepoint doesn't reduce this way: rawtransaction.cpp's deprecated
+#   signrawtransaction alias references three wallet/rpcwallet.cpp
+#   functions, and that one translation unit's own needs (GetWallets,
+#   IssueToken, generateBlocks from mining.cpp, urlDecode from
+#   httpserver.cpp, ...) balloon into effectively the whole daemon --
+#   dozens of CWallet methods, CConnman's full API, libevent's C interface
+#   -- none of it reachable from ParsePsttInputEntries/decodepstt either.
+#   fuzz/rpc_glue_stub.cpp defines just those three functions (plus
+#   g_connman, whose storage is daemon-glue-only in init.cpp but whose
+#   type's real destructor comes from tapyrus_peer, linked below anyway),
+#   which avoids tapyrus_wallet, tapyrus_zmq, and their init-time glue
+#   (wallet/init.cpp's g_wallet_init_interface = WalletInit() static
+#   initializer in particular) entirely.
+function(add_pstt_fuzz_target_with_rpc_glue name source)
+    add_executable(${name}
+        fuzz/fuzz_code/${source}
+        fuzz/rpc_glue_stub.cpp
+        ../file_io.cpp
+        ../shutdown.cpp
+        ../ui_interface.cpp
+    )
+    target_include_directories(${name}
+        PRIVATE
+            ${Boost_INCLUDE_DIRS}
+            ${CMAKE_INSTALL_PREFIX}/include
+            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../leveldb>
+            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../leveldb/include>
+            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../univalue/include>
+            ${BerkeleyDB_INCLUDE_DIR}
+            ${EVENT_INCLUDE_DIRS}
+    )
+    target_link_libraries(${name}
+        PRIVATE
+            core_interface
+            tapyrus_rpc
+            tapyrus_peer
+            tapyrus_chainstate
+            tapyrus_codec
+            tapyrus_scripting
+            tapyrus_global
+            tapyrus_netbase
+            tapyrus_util
+            tapyrus_consensus
             leveldb
             univalue
             secp256k1
             tapyrus_crypto
             Boost::headers
-            $<$<NOT:$<PLATFORM_ID:Darwin>>:-Wl,--start-group>
-            tapyrus_server
-            tapyrus_common
-            tapyrus_util
-            tapyrus_consensus
-            $<$<NOT:$<PLATFORM_ID:Darwin>>:-Wl,--end-group>
+            $<TARGET_NAME_IF_EXISTS:libevent::extra>
+            $<TARGET_NAME_IF_EXISTS:libevent::core>
+            $<TARGET_NAME_IF_EXISTS:libevent::pthreads>
     )
 endfunction()
 
@@ -305,11 +360,22 @@ endfunction()
 # individually; the built binaries under bin/fuzz_* are themselves the
 # list of what to run.
 add_custom_target(fuzz_all)
+# Harnesses that reach rpc/rawtransaction.cpp's ParsePsttInputEntries/
+# decodepstt need the daemon-glue treatment above instead of the plain
+# helper -- see add_pstt_fuzz_target_with_rpc_glue()'s comment.
+set(PSTT_FUZZ_TARGETS_NEEDING_RPC_GLUE
+    pstt_parse_fuzz.cpp
+    pstt_decodepstt_rpc_fuzz.cpp
+)
 file(GLOB pstt_fuzz_sources CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/fuzz/fuzz_code/*_fuzz.cpp)
 foreach(pstt_fuzz_source_path ${pstt_fuzz_sources})
     get_filename_component(pstt_fuzz_source_name ${pstt_fuzz_source_path} NAME)
     string(REGEX REPLACE "_fuzz\\.cpp$" "" pstt_fuzz_stem ${pstt_fuzz_source_name})
-    add_pstt_fuzz_target(fuzz_${pstt_fuzz_stem} ${pstt_fuzz_source_name})
+    if(pstt_fuzz_source_name IN_LIST PSTT_FUZZ_TARGETS_NEEDING_RPC_GLUE)
+        add_pstt_fuzz_target_with_rpc_glue(fuzz_${pstt_fuzz_stem} ${pstt_fuzz_source_name})
+    else()
+        add_pstt_fuzz_target(fuzz_${pstt_fuzz_stem} ${pstt_fuzz_source_name})
+    endif()
     add_dependencies(fuzz_all fuzz_${pstt_fuzz_stem})
 endforeach()
 

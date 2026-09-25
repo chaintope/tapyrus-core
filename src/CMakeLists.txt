@@ -43,7 +43,8 @@
 #                              tapyrus_chainstate -- see its add_executable() below)
 #   tapyrus-tx             -- tapyrus_codec, tapyrus_scripting, tapyrus_util
 #   tapyrus-cli            -- tapyrus_cli, tapyrus_global, tapyrus_util
-#   tapyrus-verify         -- tapyrus_consensus, tapyrus_global (no chain-state, no leveldb)
+#   tapyrus-verify         -- tapyrus_consensus, tapyrus_codec, tapyrus_scripting, tapyrus_global
+#                              (no chain-state, no leveldb)
 #
 # tapyrus-genesis/tapyrus-tx/tapyrus-cli/tapyrus-verify share a property worth
 # stating once: none of them link tapyrus_chainstate, tapyrus_wallet, tapyrus_peer,
@@ -587,12 +588,18 @@ endif()
 # secp256k1/tapyrus_crypto/univalue are not listed -- tapyrus-verify.cpp
 # calls nothing from them directly, they're purely implementation details
 # of tapyrus_consensus/tapyrus_global reached transitively at link time.
+# tapyrus_codec IS listed explicitly (matching tapyrus-tx/tapyrus-genesis
+# below) -- tapyrus-verify.cpp calls EncodeHexTx()/ParseScript() directly
+# (core_write.cpp/core_read.cpp, both tapyrus_codec archive members), a
+# real direct dependency, not a transitive implementation detail.
 if(BUILD_SCRIPT_VERIFY)
   add_executable(tapyrus-verify tapyrus-verify.cpp)
   target_link_libraries(tapyrus-verify
           PRIVATE
           core_interface
           tapyrus_consensus
+          tapyrus_codec
+          tapyrus_scripting
           tapyrus_global
           Boost::headers
   )
