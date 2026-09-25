@@ -77,11 +77,5 @@ cmake -S . -B build_oss_fuzz \
 cmake --build build_oss_fuzz --target fuzz_all -j "$(nproc)"
 
 for target_path in build_oss_fuzz/bin/fuzz_*; do
-  target=$(basename "${target_path}")
-  cp "${target_path}" "$OUT/${target}"
-
-  corpus_dir="qa-assets/fuzz_corpora/${target}"
-  if [ -d "$corpus_dir" ]; then
-    zip -rj "$OUT/${target}_seed_corpus.zip" "$corpus_dir"
-  fi
+  cp "${target_path}" "$OUT/$(basename "${target_path}")"
 done
