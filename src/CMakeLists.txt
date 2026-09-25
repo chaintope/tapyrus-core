@@ -9,9 +9,9 @@
 # they're genuinely foundational (tapyrus_crypto has no tapyrus_*
 # dependencies at all; tapyrus_consensus depends only on tapyrus_crypto)
 # and a couple of executables/libraries happen to reach them directly.
-# test/lint/lint-library-layering.py enforces that nothing in a lower tier
-# ever includes a header from a library in a tier above it, i.e. this
-# diagram never gains a reverse arrow. A tier is a set, not a chain: it
+# By convention (not currently lint-enforced), nothing in a lower tier ever
+# includes a header from a library in a tier above it, i.e. this diagram
+# never gains a reverse arrow. A tier is a set, not a chain: it
 # does not mean every entry in it links every entry in the tier below,
 # only that none of them reach any higher.
 #
@@ -66,7 +66,7 @@
 #   tapyrus_global      -- tapyrus_consensus, tapyrus_util
 #   tapyrus_netbase     -- tapyrus_consensus, tapyrus_util
 #   tapyrus_cli         -- none (just univalue, core_interface)
-#   tapyrus_util        -- tapyrus_clientversion, tapyrus_crypto
+#   tapyrus_util        -- tapyrus_clientversion, tapyrus_consensus, tapyrus_crypto
 #   tapyrus_consensus   -- tapyrus_crypto
 #
 # tapyrus_rpc links tapyrus_wallet, one-directionally: wallet/rpcwallet.cpp
@@ -180,21 +180,24 @@ add_library(tapyrus_util STATIC EXCLUDE_FROM_ALL
         random.cpp
         randomenv.cpp
         rpc/protocol.cpp
-        support/cleanse.cpp
         support/lockedpool.cpp
         sync.cpp
         threadinterrupt.cpp
         util.cpp
         utilmoneystr.cpp
-        utilstrencodings.cpp
         utiltime.cpp
 )
+# utilstrencodings.cpp and support/cleanse.cpp are deliberately not compiled
+# here: each has exactly one owner, the base-tier library that needs it
+# (tapyrus_consensus and tapyrus_crypto respectively), and tapyrus_util links
+# those instead of carrying second copies of the same strong symbols.
 # util.cpp's SetupNetworking() calls WSAStartup() directly on Windows.
 target_link_libraries(tapyrus_util
         PUBLIC
         tapyrus_clientversion
         PRIVATE
         core_interface
+        tapyrus_consensus
         tapyrus_crypto
         univalue
         $<$<PLATFORM_ID:Windows>:ws2_32>
