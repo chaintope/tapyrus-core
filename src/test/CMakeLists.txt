@@ -385,6 +385,44 @@ function(add_pstt_fuzz_target_with_rpc_glue name source)
             secp256k1
             tapyrus_crypto
             Boost::headers
+            $<TARGET_NAME_IF_EXISTS:libevent::extra>
+            $<TARGET_NAME_IF_EXISTS:libevent::core>
+            $<TARGET_NAME_IF_EXISTS:libevent::pthreads>
+    )
+endfunction()
+
+# Harnesses that drive a real node through FuzzNodeSetup (fuzz_node_setup.h,
+# a TestingSetup subclass) -- e.g. RPC handlers that read chainstate or the
+# peer table. They link the same fixture object library test_tapyrus uses
+# (tapyrus_test_util, which already carries file_io/noui/timeoffsets/
+# ui_interface) plus tapyrus_fuzz_node_globals for g_connman/StartShutdown/
+# ShutdownRequested, so -- unlike add_pstt_fuzz_target_with_rpc_glue() --
+# they must not also compile those glue sources or rpc_glue_stub.cpp
+# themselves (duplicate symbols). The archive group is needed on GNU ld/lld
+# for the circular library dependencies described above.
+function(add_fuzz_target_with_node_context name source)
+    add_executable(${name}
+        fuzz/fuzz_code/${source}
+    )
+    target_include_directories(${name}
+        PRIVATE
+            ${Boost_INCLUDE_DIRS}
+            ${CMAKE_INSTALL_PREFIX}/include
+            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../leveldb>
+            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../leveldb/include>
+            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../leveldb/helpers/memenv>
+            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../univalue/include>
+            ${BerkeleyDB_INCLUDE_DIR}
+            ${EVENT_INCLUDE_DIRS}
+    )
+    target_link_libraries(${name}
+        PRIVATE
+            core_interface
+            leveldb
+            univalue
+            secp256k1
+            tapyrus_crypto
+            Boost::headers
             $<$<NOT:$<PLATFORM_ID:Darwin>>:-Wl,--start-group>
             tapyrus_test_util
             tapyrus_fuzz_node_globals
@@ -399,6 +437,9 @@ function(add_pstt_fuzz_target_with_rpc_glue name source)
             tapyrus_util
             tapyrus_consensus
             $<$<NOT:$<PLATFORM_ID:Darwin>>:-Wl,--end-group>
+            $<TARGET_NAME_IF_EXISTS:libevent::extra>
+            $<TARGET_NAME_IF_EXISTS:libevent::core>
+            $<TARGET_NAME_IF_EXISTS:libevent::pthreads>
     )
 endfunction()
 
@@ -420,18 +461,40 @@ endfunction()
 # individually; the built binaries under bin/fuzz_* are themselves the
 # list of what to run.
 add_custom_target(fuzz_all)
-# Harnesses that reach rpc/rawtransaction.cpp's ParsePsttInputEntries/
-# decodepstt need the daemon-glue treatment above instead of the plain
-# helper -- see add_pstt_fuzz_target_with_rpc_glue()'s comment.
-set(PSTT_FUZZ_TARGETS_NEEDING_RPC_GLUE
+# Harnesses that reach tapyrus_rpc or tapyrus_chainstate code (e.g.
+# rpc/rawtransaction.cpp's ParsePsttInputEntries/decodepstt, rpc/server.cpp,
+# policy/policy.cpp, policy/fees.cpp) but don't need a running node need the
+# daemon-glue treatment above instead of the plain helper -- see
+# add_pstt_fuzz_target_with_rpc_glue()'s comment.
+set(FUZZ_TARGETS_NEEDING_RPC_GLUE
     pstt_parse_fuzz.cpp
     pstt_decodepstt_rpc_fuzz.cpp
+    rpc_createmultisigredeemscript_fuzz.cpp
+    rpc_jsonrpcrequest_parse_fuzz.cpp
+    rpc_tokenamountfromvalue_fuzz.cpp
+    rpc_typecheckobj_fuzz.cpp
+    policy_isstandard_fuzz.cpp
+    policy_isstandardtx_fuzz.cpp
+    policy_checkpackage_fuzz.cpp
+    feeestimator_smartfee_fuzz.cpp
+    feeestimator_read_fuzz.cpp
+    rpc_constructtransaction_fuzz.cpp
+)
+# Harnesses built on FuzzNodeSetup (fuzz_node_setup.h) -- see
+# add_fuzz_target_with_node_context()'s comment.
+set(FUZZ_TARGETS_NEEDING_NODE_CONTEXT
+    rpc_getblockchaininfo_fuzz.cpp
+    rpc_getchaintips_fuzz.cpp
+    rpc_getpeerinfo_fuzz.cpp
+    net_processmessage_fuzz.cpp
 )
 file(GLOB pstt_fuzz_sources CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/fuzz/fuzz_code/*_fuzz.cpp)
 foreach(pstt_fuzz_source_path ${pstt_fuzz_sources})
     get_filename_component(pstt_fuzz_source_name ${pstt_fuzz_source_path} NAME)
     string(REGEX REPLACE "_fuzz\\.cpp$" "" pstt_fuzz_stem ${pstt_fuzz_source_name})
-    if(pstt_fuzz_source_name IN_LIST PSTT_FUZZ_TARGETS_NEEDING_RPC_GLUE)
+    if(pstt_fuzz_source_name IN_LIST FUZZ_TARGETS_NEEDING_NODE_CONTEXT)
+        add_fuzz_target_with_node_context(fuzz_${pstt_fuzz_stem} ${pstt_fuzz_source_name})
+    elseif(pstt_fuzz_source_name IN_LIST FUZZ_TARGETS_NEEDING_RPC_GLUE)
         add_pstt_fuzz_target_with_rpc_glue(fuzz_${pstt_fuzz_stem} ${pstt_fuzz_source_name})
     else()
         add_pstt_fuzz_target(fuzz_${pstt_fuzz_stem} ${pstt_fuzz_source_name})
