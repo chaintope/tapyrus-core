@@ -42,6 +42,7 @@ Enable or disable major features:
 | `ENABLE_ZMQ` | `ON` | Enable ZMQ notifications |
 | `ENABLE_TRACING` | `OFF` | Enable USDT tracepoints |
 | `ENABLE_EXTERNAL_SIGNER` | `ON` (non-Windows) | Enable external signer support |
+| `WITH_MINIUPNPC` | `OFF` | Enable UPnP port mapping support (`-upnp`) |
 
 ## Testing and Development Options
 

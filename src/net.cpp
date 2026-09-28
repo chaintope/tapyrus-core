@@ -1500,18 +1500,8 @@ static void ThreadMapPort()
     char wanaddr[64];
 #endif
 
-#ifndef UPNPDISCOVER_SUCCESS
-    /* miniupnpc 1.5 */
-    devlist = upnpDiscover(2000, multicastif, minissdpdpath, 0);
-#elif MINIUPNPC_API_VERSION < 14
-    /* miniupnpc 1.6 */
-    int error = 0;
-    devlist = upnpDiscover(2000, multicastif, minissdpdpath, 0, 0, &error);
-#else
-    /* miniupnpc 1.9.20150730 */
     int error = 0;
     devlist = upnpDiscover(2000, multicastif, minissdpdpath, 0, 0, 2, &error);
-#endif
 
     struct UPNPUrls urls;
     struct IGDdatas data;
@@ -1546,15 +1536,8 @@ static void ThreadMapPort()
         std::string strDesc = "Tapyrus " + FormatFullVersion();
 
         do {
-#ifndef UPNPDISCOVER_SUCCESS
-            /* miniupnpc 1.5 */
-            r = UPNP_AddPortMapping(urls.controlURL, data.first.servicetype,
-                                port.c_str(), port.c_str(), lanaddr, strDesc.c_str(), "TCP", 0);
-#else
-            /* miniupnpc 1.6 */
             r = UPNP_AddPortMapping(urls.controlURL, data.first.servicetype,
                                 port.c_str(), port.c_str(), lanaddr, strDesc.c_str(), "TCP", 0, "0");
-#endif
 
             if(r!=UPNPCOMMAND_SUCCESS)
                 LogPrintf("AddPortMapping(%s, %s, %s) failed with code %d (%s)\n",
