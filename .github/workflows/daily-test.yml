@@ -321,7 +321,14 @@ jobs:
 
           python3 -m venv $HOME/venv
           source $HOME/venv/bin/activate
-          pip3 install pyzmq matplotlib
+          # Wheels only: without this, pip's resolver on the ubuntu-24.04-arm
+          # runner backtracked to a pre-3.5 matplotlib sdist whose bundled
+          # versioneer.py calls configparser.SafeConfigParser (removed in
+          # Python 3.12), failing the whole job during setup. With
+          # --only-binary pip picks the newest release that has a wheel for
+          # the runner, and a missing wheel is a clear resolver error instead
+          # of a doomed source build.
+          pip3 install --only-binary=:all: pyzmq matplotlib
 
       - name: Setup macOS Dependencies
         if: matrix.config.platform == 'macos'
@@ -339,7 +346,8 @@ jobs:
 
           python3 -m venv $HOME/venv
           source $HOME/venv/bin/activate
-          pip3 install pyzmq matplotlib
+          # Wheels only, same as the Linux setup step above.
+          pip3 install --only-binary=:all: pyzmq matplotlib
 
       - name: Build Depends
         env:
