@@ -1,0 +1,13 @@
+project: tapyrus-core
+language: c++
+target_name: fuzz_gen_addinputoutputpairtopstt
+target_path: /src/tapyrus-core/src/test/fuzz/fuzz_code/fuzz_gen_addinputoutputpairtopstt.cpp
+yaml_generated_at: '2026-09-21T13:50:48.807170+00:00'
+fuzz_code_generated_at: null
+functions:
+- name: addinputoutputpairtopstt
+  signature: UniValue addinputoutputpairtopstt(const JSONRPCRequest& request)
+  return_type: UniValue
+  params:
+  - name: request
+    type: JSONRPCRequest

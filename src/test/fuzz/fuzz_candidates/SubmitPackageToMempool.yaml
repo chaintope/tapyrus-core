@@ -1,0 +1,22 @@
+project: tapyrus-core
+language: c++
+target_name: fuzz_gen_SubmitPackageToMempool
+target_path: /src/tapyrus-core/src/test/fuzz/fuzz_code/fuzz_gen_SubmitPackageToMempool.cpp
+yaml_generated_at: '2026-09-21T13:50:48.846141+00:00'
+fuzz_code_generated_at: null
+functions:
+- name: SubmitPackageToMempool
+  signature: "bool SubmitPackageToMempool(const Package& package,\n              \
+    \                    CValidationState& state,\n                              \
+    \    PackageValidationState& results,\n                                  CTxMempoolAcceptanceOptions&\
+    \ opt)"
+  return_type: bool
+  params:
+  - name: package
+    type: Package
+  - name: state
+    type: CValidationState
+  - name: results
+    type: PackageValidationState
+  - name: opt
+    type: CTxMempoolAcceptanceOptions

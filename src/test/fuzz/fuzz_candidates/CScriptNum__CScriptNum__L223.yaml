@@ -1,0 +1,16 @@
+project: tapyrus-core
+language: c++
+target_name: fuzz_gen_CScriptNum__CScriptNum__L223
+target_path: /src/tapyrus-core/src/test/fuzz/fuzz_code/fuzz_gen_CScriptNum__CScriptNum__L223.cpp
+yaml_generated_at: '2026-09-21T13:50:48.876285+00:00'
+fuzz_code_generated_at: '2026-09-23T07:17:34.584552+00:00'
+functions:
+- name: CScriptNum::CScriptNum
+  signature: "void CScriptNum(const std::vector<unsigned char>& vch, bool fRequireMinimal,\n\
+    \                        const size_t nMaxNumSize = nDefaultMaxNumSize)"
+  return_type: void
+  params:
+  - name: vch
+    type: std::vector<unsigned char>
+  - name: fRequireMinimal
+    type: bool

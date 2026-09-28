@@ -29,19 +29,20 @@ wiring) -- no per-target binary-packing trick needed. `build.sh` below
 reflects that simpler, native path rather than copying Bitcoin Core's.
 
 This directory is also the input to a third purpose that lives outside
-it: `../fuzz-introspector/fuzz_code_run_introspector.py` copies these
-three files into a cloned `google/oss-fuzz` checkout to register
-tapyrus-core as a project there, then runs that checkout's own
-`infra/helper.py introspector` -- which builds this project via
-`build.sh` inside a container based on `Dockerfile` -- to find
-functions with no fuzz coverage. That's the actual reason this
-directory has to exist and stay buildable today, independent of
-whether it's ever submitted upstream.
+it: `../fuzz-introspector/fuzz_code_step1_build_image.py` builds
+`Dockerfile` (which bakes in `build.sh`) into a local, reusable image;
+`fuzz_code_step2_start_container.py` starts a persistent container from
+it (bind-mounting a live tapyrus-core checkout); `fuzz_code_step3_
+analyze.py` then runs a coverage-sanitizer build via `build.sh` and Fuzz
+Introspector's own analysis inside that container to find functions with
+no fuzz coverage. That's the actual reason this directory has to exist
+and stay buildable today, independent of whether it's ever submitted
+upstream.
 
 `build.sh` builds the phony `fuzz_all` CMake target and then copies
 whatever executables land under `build_oss_fuzz/bin/fuzz_*` -- since
 `src/test/CMakeLists.txt` globs every `src/test/fuzz/fuzz_code/*_fuzz.cpp` file
 into its own executable and wires `fuzz_all` to depend on all of them,
-landing a new fuzz_test_file (see `../drafting/fuzz_code_generate_and_draft.py`
-and `../fuzz-introspector/`) already covers this file too -- nothing here
-needs editing when the target list grows.
+landing a new fuzz_test_file (drafted locally via Claude Code, see
+`../drafting/README.md` and `../fuzz-introspector/`) already covers this
+file too -- nothing here needs editing when the target list grows.

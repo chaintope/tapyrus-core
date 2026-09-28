@@ -1,0 +1,17 @@
+project: tapyrus-core
+language: c++
+target_name: fuzz_gen_ProcessGetBlockData
+target_path: /src/tapyrus-core/src/test/fuzz/fuzz_code/fuzz_gen_ProcessGetBlockData.cpp
+yaml_generated_at: '2026-09-21T13:50:48.796310+00:00'
+fuzz_code_generated_at: null
+functions:
+- name: ProcessGetBlockData
+  signature: void ProcessGetBlockData(CNode* pfrom, const CInv& inv, CConnman* connman)
+  return_type: void
+  params:
+  - name: pfrom
+    type: CNode*
+  - name: inv
+    type: CInv
+  - name: connman
+    type: CConnman*

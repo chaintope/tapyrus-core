@@ -1,0 +1,18 @@
+project: tapyrus-core
+language: c++
+target_name: fuzz_gen_CBlockPolicyEstimator__estimateSmartFee
+target_path: /src/tapyrus-core/src/test/fuzz/fuzz_code/fuzz_gen_CBlockPolicyEstimator__estimateSmartFee.cpp
+yaml_generated_at: '2026-09-21T13:50:48.817216+00:00'
+fuzz_code_generated_at: '2026-09-22T12:50:37.785255+00:00'
+functions:
+- name: CBlockPolicyEstimator::estimateSmartFee
+  signature: CFeeRate CBlockPolicyEstimator::estimateSmartFee(int confTarget, FeeCalculation
+    *feeCalc, bool conservative) const
+  return_type: CFeeRate
+  params:
+  - name: confTarget
+    type: int
+  - name: feeCalc
+    type: FeeCalculation*
+  - name: conservative
+    type: bool
