@@ -96,19 +96,19 @@ sequenceDiagram
     rect rgb(251, 236, 238)
     Note over Human,CC: MANUAL, local -- no paid API call
     Human->>CC: write a batch of candidate Script programs, using doc/tapyrus/script.md and the existing pool
-    CC-->>Human: candidates written straight into src/test/fuzz/fuzz_scripts/ (YYYYMMDD_slug.txt)
+    CC-->>Human: one new batch file in src/test/fuzz/fuzz_scripts/ (YYYYMMDD_batch.txt, one program per line)
     end
 
     rect rgb(251, 236, 238)
     Note over Human: MANUAL -- fuzz_script_step2_validate.py, then review (no external calls)
-    Human->>Human: run tapyrus-verify --fuzz on this batch -- assembler rejects deleted, crashes/failures/timeouts reported
-    Human->>Human: review the remaining new files via git status/diff, git add + commit (manual)
+    Human->>Human: run tapyrus-verify --fuzz on each line via a temp file -- assembler rejects removed, crashes/failures/timeouts reported as file:line
+    Human->>Human: review the new batch file via git diff, git add + commit (manual)
     end
 
     rect rgb(234, 245, 239)
     Note over CI: DAILY -- daily-test.yml's fuzz-script-sweep job, no AI, $0
     loop every day, time-bounded window
-        CI->>CI: replay a rotating slice of src/test/fuzz/fuzz_scripts/ against a local build
+        CI->>CI: export the pool's candidates to temp files, replay a rotating slice against a local build
     end
     CI-->>Human: pass/fail per candidate -- a crash is a real bug
     end
@@ -131,7 +131,8 @@ beyond the Claude Code session doing the generation.
 | [`fuzz_code_generate_candidates.py`](oss-fuzz/drafting/fuzz_code_generate_candidates.py) | fuzz_code | manual | Turns each candidate into a spec YAML under `src/test/fuzz/fuzz_candidates/` for Claude Code to draft a harness from |
 | [`fuzz_code_select_slice.py`](../../src/test/fuzz/fuzz_seed_pool/fuzz_code_select_slice.py) | fuzz_code | daily | Rotates a seed slice into each libFuzzer target's corpus every run |
 | [`fuzz_script_step1_build_verify.py`](fuzz_script/fuzz_script_step1_build_verify.py) | fuzz_script | manual | Builds `tapyrus-verify` with ASan/UBSan into `build_fuzz_verify/`, the same configuration the nightly sweep uses |
-| [`fuzz_script_step2_validate.py`](fuzz_script/fuzz_script_step2_validate.py) | fuzz_script | manual | Runs `tapyrus-verify --fuzz` on one batch of new candidates; deletes assembler rejects, reports crashes/failures/timeouts -- no git commands |
+| [`fuzz_script_step2_validate.py`](fuzz_script/fuzz_script_step2_validate.py) | fuzz_script | manual | Runs `tapyrus-verify --fuzz` on each candidate of a new batch file; removes assembler rejects, reports crashes/failures/timeouts as `file:line` -- no git commands |
+| [`fuzz_script_pool.py`](fuzz_script/fuzz_script_pool.py) | fuzz_script | manual + daily | Owns the pool's batch-file format (one program per line); used by step 2 and by `fuzz-script-sweep` to export candidates to temp files |
 | [`daily-test.yml`](../../.github/workflows/daily-test.yml): `fuzz-code-only` | fuzz_code | daily | Runs libFuzzer (+ASan/UBSan) against every landed harness -- no AI |
 | [`daily-test.yml`](../../.github/workflows/daily-test.yml): `fuzz-script-sweep` | fuzz_script | daily | Replays a rotating window of the committed Script pool -- no AI |
 
@@ -155,7 +156,7 @@ of duplicating it across `.sh` scripts.
 **No review pages.** Both pipelines generate inside an interactive
 Claude Code session, so their output is reviewed there and as ordinary
 uncommitted files (`git status`/`git diff`) -- fuzz_code one harness per
-request under `src/test/fuzz/fuzz_code/`, fuzz_script one batch under
+request under `src/test/fuzz/fuzz_code/`, fuzz_script one batch file under
 `src/test/fuzz/fuzz_scripts/`, already filtered by
 `fuzz_script_step2_validate.py`. Nothing needs a separate HTML review
 page or landing script.
