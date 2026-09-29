@@ -1,0 +1,95 @@
+# fuzz_script batch: initial hand-written pool (formerly one file per candidate)
+#
+# One Script program per line in ParseScript mnemonic form; the "#" comment
+# directly above a program names it; "<empty>" is the empty script. See
+# contrib/fuzz/fuzz_script/fuzz_script_pool.py for the full format.
+
+# 2dup
+1 2DUP EQUAL
+
+# abs
+-1 ABS 1 EQUAL
+
+# add_basic
+1 2 ADD 3 EQUAL
+
+# altstack
+1 TOALTSTACK FROMALTSTACK
+
+# booland
+1 1 BOOLAND
+
+# boolor
+0 1 BOOLOR
+
+# cat_disabled
+'a' 'b' CAT
+
+# checksig_hexdata_noquote
+2 03a34b99f22c790c4e36b2b3c2c35a36db06226e41c692fc82b8b56ac1c540c5bd CHECKSIG
+
+# conditional_dup
+0 IF DUP ENDIF DEPTH 0 EQUAL
+
+# deep_stack_add
+1 2 3 4 5 6 7 8 9 10 ADD ADD ADD ADD ADD ADD ADD ADD ADD
+
+# depth_zero
+DEPTH 0 EQUAL
+
+# dup_add_combo
+3 DUP DUP ADD ADD 9 EQUAL
+
+# dup_chain
+DUP DUP DUP DUP DUP DUP DUP DUP DUP DUP EQUAL
+
+# empty
+<empty>
+
+# if_else
+IF 1 ELSE 0 ENDIF
+
+# invalid_token
+NOTAREALOPCODE
+
+# nop
+1 NOP 1 EQUAL
+
+# notif
+0 NOTIF 1 ENDIF
+
+# op_color
+'somecolorid' 1 COLOR EQUAL
+
+# op_color_drop
+'proprietarycolorid1234567890' 1 COLOR DROP 1
+
+# pick
+2 3 4 2 PICK 2 EQUAL
+
+# quoted_push_drop
+'abcdefghij0123456789abcdefghij01234567' HASH160 DROP 1
+
+# return
+RETURN
+
+# roll
+1 2 3 2 ROLL 1 EQUAL
+
+# size_check
+'hello' SIZE 5 EQUALVERIFY 1
+
+# stacklimit_probe
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 DEPTH 100 EQUAL
+
+# sub
+5 3 SUB 2 EQUAL
+
+# swap_drop
+1 2 SWAP DROP
+
+# verify_fail
+0 VERIFY 1
+
+# verify_pass
+1 VERIFY 1

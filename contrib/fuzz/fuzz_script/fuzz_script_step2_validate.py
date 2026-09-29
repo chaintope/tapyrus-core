@@ -4,8 +4,10 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Step 2 of 2 in the locally-run fuzz_script pipeline: runs
 tapyrus-verify --fuzz (built by fuzz_script_step1_build_verify.py) on
-every candidate in src/test/fuzz/fuzz_scripts/ whose filename starts
-with --run-prefix, i.e. the batch Claude Code just wrote.
+every candidate in the src/test/fuzz/fuzz_scripts/ batch files whose
+filename starts with --run-prefix, i.e. the batch Claude Code just wrote.
+See fuzz_script_pool.py for the batch-file format; each candidate is run
+from its own temporary single-program file.
 
 Each candidate is classified by tapyrus-verify's own exit-code contract
 (see src/tapyrus-verify.cpp's header comment):
@@ -13,12 +15,12 @@ Each candidate is classified by tapyrus-verify's own exit-code contract
   safe      exit 0 -- ran cleanly (a script failing verification
             normally still counts). Kept.
   rejected  exit 2 -- ParseScript rejected the text as not valid Script.
-            Can never reach the interpreter, so it's DELETED here, with
-            the assembler's reason printed.
+            Can never reach the interpreter, so its line (and the name
+            comment directly above it) is REMOVED from the batch file,
+            with the assembler's reason printed.
   crash     killed by a signal -- a real bug. Kept, so the committed
             pool reproduces it.
-  failure   any other nonzero exit (e.g. a malformed file). Kept for a
-            human to look at.
+  failure   any other nonzero exit. Kept for a human to look at.
   timeout   ran past --timeout. Kept for a human to look at.
 
 ASan/UBSan findings are turned into crashes: UBSAN_OPTIONS=
@@ -37,13 +39,15 @@ import argparse
 import os
 import subprocess
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
 
+from fuzz_script_pool import Candidate, ScriptPool
+
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent.parent.parent
-POOL_DIR = REPO_ROOT / "src" / "test" / "fuzz" / "fuzz_scripts"
 DEFAULT_BUILD_DIR = REPO_ROOT / "build_fuzz_verify"
 REJECTED_BY_ASSEMBLER_EXIT_CODE = 2
 
@@ -55,8 +59,8 @@ class CandidateResult:
     FAILURE = "failure"
     TIMEOUT = "timeout"
 
-    def __init__(self, path: Path, status: str, detail: str = ""):
-        self.path = path
+    def __init__(self, candidate: Candidate, status: str, detail: str = ""):
+        self.candidate = candidate
         self.status = status
         self.detail = detail.strip()
 
@@ -66,17 +70,19 @@ class CandidateResult:
 
 
 class CandidateValidator:
-    def __init__(self, verify_binary: Path, timeout_seconds: int):
+    def __init__(self, verify_binary: Path, timeout_seconds: int, work_dir: Path):
         self.verify_binary = verify_binary
         self.timeout_seconds = timeout_seconds
+        self.work_dir = work_dir
         self.env = dict(os.environ)
         self.env.setdefault("UBSAN_OPTIONS", "halt_on_error=1:print_stacktrace=1")
         self.env.setdefault("ASAN_OPTIONS", "abort_on_error=1")
 
-    def validate(self, candidate: Path) -> CandidateResult:
+    def validate(self, candidate: Candidate) -> CandidateResult:
+        program_file = candidate.write_to(self.work_dir)
         try:
             result = subprocess.run(
-                [str(self.verify_binary), "--fuzz", str(candidate)],
+                [str(self.verify_binary), "--fuzz", str(program_file)],
                 capture_output=True, encoding="utf-8", errors="replace",
                 timeout=self.timeout_seconds, env=self.env,
             )
@@ -98,34 +104,30 @@ class CandidateValidator:
 
 
 class BatchValidator:
-    def __init__(self, run_prefix: str, validator: CandidateValidator):
+    def __init__(self, run_prefix: str, validator: CandidateValidator, pool: ScriptPool):
         self.run_prefix = run_prefix
         self.validator = validator
-
-    def candidates(self) -> List[Path]:
-        return sorted(
-            p for p in POOL_DIR.iterdir()
-            if p.is_file() and p.name.startswith(self.run_prefix) and p.name != "README.md"
-        )
+        self.pool = pool
 
     def run(self) -> int:
-        candidates = self.candidates()
+        candidates = self.pool.candidates(self.run_prefix)
         if not candidates:
-            print(f"No candidates in {POOL_DIR} start with {self.run_prefix!r}. Nothing to do.")
+            print(f"No candidates in {self.pool.pool_dir} batch files starting with "
+                  f"{self.run_prefix!r}. Nothing to do.")
             return 0
 
-        results = [self.validator.validate(c) for c in candidates]
-        for r in results:
-            if r.status == CandidateResult.REJECTED:
-                r.path.unlink()
+        results: List[CandidateResult] = [self.validator.validate(c) for c in candidates]
+        rejected = [r.candidate for r in results if r.status == CandidateResult.REJECTED]
+        for batch in self.pool.batch_files(self.run_prefix):
+            batch.remove(rejected)
 
-        width = max(len(r.path.name) for r in results)
+        width = max(len(r.candidate.id) for r in results)
         for r in results:
-            suffix = " (deleted)" if r.status == CandidateResult.REJECTED else ""
-            print(f"  {r.path.name:<{width}}  {r.status}{suffix}")
+            suffix = " (removed)" if r.status == CandidateResult.REJECTED else ""
+            print(f"  {r.candidate.id:<{width}}  {r.status}{suffix}")
         for r in results:
             if r.detail and r.status != CandidateResult.SAFE:
-                print(f"\n--- {r.path.name}: {r.status}\n{r.detail}")
+                print(f"\n--- {r.candidate.id}: {r.status}\n{r.candidate.text}\n{r.detail}")
 
         counts = {s: sum(1 for r in results if r.status == s) for s in (
             CandidateResult.SAFE, CandidateResult.REJECTED, CandidateResult.CRASH,
@@ -139,7 +141,7 @@ class BatchValidator:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--run-prefix", default=datetime.now(timezone.utc).strftime("%Y%m%d_"),
-                         help="Only validate candidates whose filename starts with this "
+                         help="Only validate batch files whose name starts with this "
                               "(default: today's UTC date, YYYYMMDD_).")
     parser.add_argument("--build-dir", type=Path, default=DEFAULT_BUILD_DIR,
                          help=f"Where fuzz_script_step1_build_verify.py built tapyrus-verify "
@@ -152,8 +154,9 @@ def main() -> int:
     if not verify_binary.is_file():
         sys.exit(f"error: {verify_binary} not found -- run fuzz_script_step1_build_verify.py first")
 
-    validator = CandidateValidator(verify_binary, args.timeout)
-    return BatchValidator(args.run_prefix, validator).run()
+    with tempfile.TemporaryDirectory(prefix="fuzz_script_step2_") as work_dir:
+        validator = CandidateValidator(verify_binary, args.timeout, Path(work_dir))
+        return BatchValidator(args.run_prefix, validator, ScriptPool()).run()
 
 
 if __name__ == "__main__":
