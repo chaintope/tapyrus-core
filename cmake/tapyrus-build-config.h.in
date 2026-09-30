@@ -35,9 +35,6 @@
 /* Chaintope copyright holder */
 #define COPYRIGHT_HOLDER_CHAINTOPE "@COPYRIGHT_HOLDER_CHAINTOPE@"
 
-/* Define if external signer support is enabled */
-#cmakedefine ENABLE_EXTERNAL_SIGNER 1
-
 /* Define to 1 to enable tracepoints for Userspace, Statically Defined Tracing
    */
 #cmakedefine ENABLE_TRACING 1
