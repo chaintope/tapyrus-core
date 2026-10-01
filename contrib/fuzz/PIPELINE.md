@@ -72,10 +72,13 @@ sequenceDiagram
 
 Nothing in this pipeline costs money: gap analysis is local Docker/static
 analysis, and drafting is Claude Code writing the harness directly,
-compiled and smoke-tested before it's committed. Once a harness is
-landed, `fuzz-code-only` runs it daily and free forever -- libFuzzer's
-own coverage-guided mutation supplies different inputs every run, not a
-further drafting session.
+compiled and smoke-tested before it's committed. Landing a lean-tier
+harness means adding only its source file; an RPC- or node-context-tier
+harness also needs an entry in `src/test/CMakeLists.txt`'s tier lists
+(see [`drafting/README.md`](oss-fuzz/drafting/README.md)). Once a harness
+is landed, `fuzz-code-only` fuzzes it free forever, as part of a nightly
+rotation through all targets -- libFuzzer's own coverage-guided mutation
+supplies different inputs every run, not a further drafting session.
 
 ## Pipeline B -- fuzz_script
 
@@ -132,7 +135,7 @@ beyond the Claude Code session doing the generation.
 | [`fuzz_code_select_slice.py`](../../src/test/fuzz/fuzz_seed_pool/fuzz_code_select_slice.py) | fuzz_code | daily | Rotates a seed slice into each libFuzzer target's corpus every run |
 | [`fuzz_script_step1_build_verify.py`](fuzz_script/fuzz_script_step1_build_verify.py) | fuzz_script | manual | Builds `tapyrus-verify` with ASan/UBSan into `build_fuzz_verify/`, the same configuration the nightly sweep uses |
 | [`fuzz_script_step2_validate.py`](fuzz_script/fuzz_script_step2_validate.py) | fuzz_script | manual | Runs `tapyrus-verify --fuzz` on one batch of new candidates; deletes assembler rejects, reports crashes/failures/timeouts -- no git commands |
-| [`daily-test.yml`](../../.github/workflows/daily-test.yml): `fuzz-code-only` | fuzz_code | daily | Runs libFuzzer (+ASan/UBSan) against every landed harness -- no AI |
+| [`daily-test.yml`](../../.github/workflows/daily-test.yml): `fuzz-code-only` | fuzz_code | daily | Runs libFuzzer (+ASan/UBSan) against a rotating slice of the landed harnesses, covering all of them across runs -- no AI |
 | [`daily-test.yml`](../../.github/workflows/daily-test.yml): `fuzz-script-sweep` | fuzz_script | daily | Replays a rotating window of the committed Script pool -- no AI |
 
 **Both pipelines generate locally, via Claude Code.** OSS-Fuzz-Gen's

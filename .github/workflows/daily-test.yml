@@ -24,6 +24,10 @@ on:
         description: 'Fuzz job: number of seed-pool files to rotate in per target per run'
         type: string
         default: '5'
+      fuzz_targets_per_run:
+        description: 'Fuzz job: number of fuzz targets to run this run, rotating through all of them across runs'
+        type: string
+        default: '6'
       sweep_time_budget_seconds:
         description: 'Script-sweep job: stop the rotating tapyrus-verify --fuzz sweep after roughly this many seconds'
         type: string
@@ -321,7 +325,14 @@ jobs:
 
           python3 -m venv $HOME/venv
           source $HOME/venv/bin/activate
-          pip3 install pyzmq matplotlib
+          # Wheels only: without this, pip's resolver on the ubuntu-24.04-arm
+          # runner backtracked to a pre-3.5 matplotlib sdist whose bundled
+          # versioneer.py calls configparser.SafeConfigParser (removed in
+          # Python 3.12), failing the whole job during setup. With
+          # --only-binary pip picks the newest release that has a wheel for
+          # the runner, and a missing wheel is a clear resolver error instead
+          # of a doomed source build.
+          pip3 install --only-binary=:all: pyzmq matplotlib
 
       - name: Setup macOS Dependencies
         if: matrix.config.platform == 'macos'
@@ -339,7 +350,8 @@ jobs:
 
           python3 -m venv $HOME/venv
           source $HOME/venv/bin/activate
-          pip3 install pyzmq matplotlib
+          # Wheels only, same as the Linux setup step above.
+          pip3 install --only-binary=:all: pyzmq matplotlib
 
       - name: Build Depends
         env:
@@ -1148,6 +1160,13 @@ jobs:
   #   run number alone. The slice only anchors each run's exploration --
   #   libFuzzer still mutates outward from it for the full run duration,
   #   so this is not a replay of fixed inputs.
+  #
+  #   Each run also fuzzes only `fuzz_targets_per_run` of the targets, not
+  #   all of them: the selection starts at an offset keyed off the CI run
+  #   number, the same rotation idea as the seed-pool slice above, so
+  #   consecutive runs walk through every target instead of always
+  #   fuzzing the same alphabetical prefix. With the default of 6 and 27
+  #   targets today, every target gets a full run at least every 5 runs.
   # TOOLS USED: libFuzzer + ASan/UBSan (compiled into each fuzz_test_file
   #   via `-DSANITIZERS="fuzzer,address,undefined"`);
   #   src/test/fuzz/fuzz_seed_pool/fuzz_code_select_slice.py for the seed-pool
@@ -1162,21 +1181,20 @@ jobs:
   fuzz-code-only:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    # RUN_SECONDS per target (default 600s) times however many
-    # src/test/fuzz/fuzz_code/*_fuzz.cpp files exist, plus fixed overhead
-    # for checkout/build/artifact-upload -- not a per-target limit, only a
-    # backstop against the whole job hanging. Grows with the target list:
-    # bump this when target count times RUN_SECONDS/60 + ~6 approaches it.
-    # 7 targets * 600s default = 70 min of fuzzing; measured wall-clock is
-    # ~76 min once checkout/build/upload overhead is included (not the ~20
-    # min the naive 90-70 subtraction implies). timeout-minutes is set for
-    # ~20 min of real margin at 8 targets (the next one to land), so this
-    # won't need touching again until a 9th target lands.
+    # TARGETS_PER_RUN targets (default 6) times RUN_SECONDS each (default
+    # 600s), plus fixed overhead for checkout/build/artifact-upload -- not
+    # a per-target limit, only a backstop against the whole job hanging.
+    # 6 * 600s = 60 min of fuzzing; a run of 70 min of fuzzing measured
+    # ~76 min wall-clock, so overhead is about 6 min. Adding fuzz targets
+    # lengthens the rotation, not this job; bump this only if
+    # TARGETS_PER_RUN or RUN_SECONDS is raised, keeping
+    # TARGETS_PER_RUN * RUN_SECONDS/60 + ~6 below it.
     timeout-minutes: 105
     env:
       LC_ALL: C.UTF-8
       RUN_SECONDS: ${{ inputs.fuzz_run_seconds || '600' }}
       SLICE_BATCH_SIZE: ${{ inputs.fuzz_slice_batch_size || '5' }}
+      TARGETS_PER_RUN: ${{ inputs.fuzz_targets_per_run || '6' }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -1197,14 +1215,35 @@ jobs:
       # own executable and wires fuzz_all to depend on all of them --
       # landing a new fuzz_test_file (e.g. one OSS-Fuzz-Gen drafted and a
       # human reviewed, see contrib/fuzz/oss-fuzz/drafting/README.md)
-      # means only adding its source file, nothing to register here or in
-      # contrib/fuzz/oss-fuzz/project/build.sh.
+      # needs nothing registered here or in
+      # contrib/fuzz/oss-fuzz/project/build.sh. RPC- and node-context-tier
+      # harnesses also need an entry in src/test/CMakeLists.txt's tier lists.
       - name: Build fuzz targets
         run: cmake --build build_fuzz --target fuzz_all -j "$(nproc)"
-      - name: Run each target, seeded from this run's rotating pool slice
+      - name: Run this run's slice of targets, each seeded from its rotating pool slice
         run: |
           mkdir -p fuzz_artifacts new_seed_candidates
-          for target_path in build_fuzz/bin/fuzz_*; do
+          if ! [[ "${TARGETS_PER_RUN}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::fuzz_targets_per_run must be a positive integer, got '${TARGETS_PER_RUN}'"
+            exit 1
+          fi
+          all_targets=(build_fuzz/bin/fuzz_*)
+          total=${#all_targets[@]}
+          if [[ ! -e "${all_targets[0]}" ]]; then
+            echo "::error::no fuzz targets were built under build_fuzz/bin/"
+            exit 1
+          fi
+          per_run=$(( TARGETS_PER_RUN < total ? TARGETS_PER_RUN : total ))
+          # Same formula as fuzz_code_select_slice.py: a given run number
+          # always selects the same targets, and consecutive runs walk
+          # through all of them before wrapping.
+          offset=$(( (${{ github.run_number }} * per_run) % total ))
+          selected=()
+          for (( i = 0; i < per_run; i++ )); do
+            selected+=("${all_targets[(offset + i) % total]}")
+          done
+          echo "::notice::Fuzzing ${per_run} of ${total} targets this run (offset ${offset}): $(for t in "${selected[@]}"; do printf '%s ' "$(basename "${t}")"; done)"
+          for target_path in "${selected[@]}"; do
             target=$(basename "${target_path}")
             pool_dir="src/test/fuzz/fuzz_seed_pool/${target}"
             corpus_dir="fuzz_corpus/${target}"
