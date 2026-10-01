@@ -3,6 +3,18 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+# Purpose: catch regressions that are too slow to check on every push, once a
+# day on master and on every pull request.
+#   daily-test: builds every supported platform/feature combination (Linux
+#     x86_64/ARM64, macOS ARM64, cross builds for macOS and Windows) and runs
+#     unit, util and extended functional tests on the native ones. Tapyrus is
+#     always compiled from scratch; depends is restored from cache unless
+#     anything under depends/ changed. The RelWithDebInfo and Release
+#     GUI+Wallet builds also run the benchmarks and record their trend on
+#     scheduled runs.
+#   fuzz-code-only, fuzz-script-sweep: scheduled fuzzing of the libFuzzer
+#     targets and of Tapyrus Script via tapyrus-verify --fuzz.
+
 name: Cmake Daily Test
 
 on:
@@ -16,10 +28,10 @@ on:
         type: string
         default: ''
         required: false
-      fuzz_run_seconds:
-        description: 'Fuzz job: seconds to run each fuzz target for'
+      fuzz_total_seconds:
+        description: 'Fuzz job: total fuzzing seconds, split evenly across all fuzz targets'
         type: string
-        default: '600'
+        default: '4200'
       fuzz_slice_batch_size:
         description: 'Fuzz job: number of seed-pool files to rotate in per target per run'
         type: string
@@ -45,12 +57,25 @@ env:
   BOOST_TEST_RANDOM: 1
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
   HOMEBREW_NO_ENV_HINTS: 1
+  # apt fails fast instead of hanging on a flaky runner mirror.
+  APT_OPTS: -o Acquire::Retries=3 -o Acquire::http::Timeout=10 -o Acquire::https::Timeout=10
 
 jobs:
   daily-test:
     strategy:
       fail-fast: false
       matrix:
+        # GUI+Wallet is built as Debug, RelWithDebInfo and Release per native
+        # platform+arch: Release is what ships, RelWithDebInfo gives the same
+        # code path with symbols for debugging a crash.
+        # collect_benchmark_history: run bench_tapyrus and keep its history.
+        #   Set on the RelWithDebInfo and Release GUI+Wallet entries.
+        # save_depends_cache: this entry saves the depends cache; all others
+        #   only restore it. Exactly one entry per key, so saves never race:
+        #   the RelWithDebInfo GUI+Wallet entry per native platform+arch and
+        #   each cross entry, which has its own key. On x86_64 and macOS the
+        #   saved depends cover every other entry; on Linux ARM they lack
+        #   systemtap, which the USDT Debug entry builds itself.
         config:
           # Linux configurations with feature combinations
           - name: L-X86-Deb-GUI+USDT+Wallet
@@ -64,6 +89,15 @@ jobs:
             os: ubuntu-latest
             platform: linux
             build_type: RelWithDebInfo
+            enable_gui: true
+            enable_usdt: true
+            enable_wallet: true
+            collect_benchmark_history: true
+            save_depends_cache: true
+          - name: L-X86-Release-GUI+USDT+Wallet
+            os: ubuntu-latest
+            platform: linux
+            build_type: Release
             enable_gui: true
             enable_usdt: true
             enable_wallet: true
@@ -82,17 +116,7 @@ jobs:
             enable_gui: false
             enable_usdt: false
             enable_wallet: false
-          # ubuntu-24.04-arm, not ubuntu-latest -- a genuine native ARM64
-          # GH-hosted runner (GA since Jan 2025 for public repos). Confirmed
-          # live that ubuntu-latest was wrong here: HOST for native Linux
-          # builds is derived from `uname -m` on the runner itself
-          # (daily-test.yml's own "Build Depends" step), never from this
-          # matrix's own (now-removed) arch: label -- a real job's "Building
-          # depends for HOST=..." line read x86_64-pc-linux-gnu for both an
-          # L-X86-* and an L-ARM-* job in the same run, and the "Setup job"
-          # log showed the plain ubuntu-24.04 image (not the distinct
-          # ubuntu-24.04-arm one) for the L-ARM-* job. These 3 entries were
-          # silently building/testing x86_64 this whole time despite the name.
+          # ubuntu-24.04-arm -- a genuine native ARM64 runner
           - name: L-ARM-Deb-GUI+USDT+Wallet
             os: ubuntu-24.04-arm
             platform: linux
@@ -107,6 +131,16 @@ jobs:
             enable_gui: true
             enable_usdt: false
             enable_wallet: true
+            collect_benchmark_history: true
+            save_depends_cache: true
+          - name: L-ARM-Release-GUI+Wallet
+            os: ubuntu-24.04-arm
+            platform: linux
+            build_type: Release
+            enable_gui: true
+            enable_usdt: false
+            enable_wallet: true
+            collect_benchmark_history: true
           - name: L-ARM-Rel-No_GUI+No_Wallet
             os: ubuntu-24.04-arm
             platform: linux
@@ -126,6 +160,15 @@ jobs:
             os: macos-latest
             platform: macos
             build_type: RelWithDebInfo
+            enable_gui: true
+            enable_usdt: false
+            enable_wallet: true
+            collect_benchmark_history: true
+            save_depends_cache: true
+          - name: M-ARM-Release-GUI+Wallet
+            os: macos-latest
+            platform: macos
+            build_type: Release
             enable_gui: true
             enable_usdt: false
             enable_wallet: true
@@ -153,6 +196,7 @@ jobs:
             enable_gui: true
             enable_usdt: false
             enable_wallet: true
+            save_depends_cache: true
           - name: L-Cross-M-ARM-Rel-GUI+Wallet
             os: ubuntu-latest
             platform: linux
@@ -162,6 +206,7 @@ jobs:
             enable_gui: true
             enable_usdt: false
             enable_wallet: true
+            save_depends_cache: true
           - name: L-Cross-W-X86-Rel-GUI+Wallet
             os: ubuntu-latest
             platform: linux
@@ -171,12 +216,12 @@ jobs:
             enable_gui: true
             enable_usdt: false
             enable_wallet: true
+            save_depends_cache: true
     name: ${{ matrix.config.name }}
     runs-on: ${{ matrix.config.os }}
     timeout-minutes: 300  # 5 hours timeout for daily tests
     env:
       BASE_ROOT_DIR: ${{ github.workspace }}
-      CCACHE_DIR: ${{ github.workspace }}/ccache
       BASE_BUILD_DIR: ${{ github.workspace }}/build
       DEPENDS_DIR: ${{ github.workspace }}/depends
 
@@ -188,71 +233,42 @@ jobs:
           submodules: recursive
 
       - name: Determine host architecture
-        # Replaces this matrix's own now-removed arch: label, which could
-        # (and for the L-ARM-* entries, silently did) drift out of sync with
-        # the runner actually assigned -- a real job showed x86_64-pc-linux-gnu
-        # for both an L-X86-* and an L-ARM-* entry in the same run, with
-        # nothing catching the mismatch since the label was trusted as-is
-        # everywhere it was used. Read directly from the runner via uname -m
-        # instead, so this can't happen again. Used below only for cache-key
-        # disambiguation (ccache/depends) and the valgrind gate; HOST itself
-        # (Build Depends, further down) already independently derives the
-        # same way and is authoritative for the actual build target.
+        # Replaces this matrix's own now-removed arch: label
+        #
+        # DEPENDS_CACHE_ID: native entries share one depends key per
+        # platform+arch; each cross entry gets its own, since it builds for a
+        # different HOST than the runner.
+        # DEPENDS_HASH: hash of every tracked file under depends/, so any
+        # change there changes the depends cache key.
         run: |
           case "$(uname -m)" in
-            x86_64) echo "ARCH=x86_64" >> $GITHUB_ENV ;;
-            arm64|aarch64) echo "ARCH=arm64" >> $GITHUB_ENV ;;
-            *) echo "ARCH=$(uname -m)" >> $GITHUB_ENV ;;
+            x86_64) ARCH=x86_64 ;;
+            arm64|aarch64) ARCH=arm64 ;;
+            *) ARCH=$(uname -m) ;;
           esac
-
-      - name: Restore Ccache cache
-        id: ccache-cache
-        uses: actions/cache/restore@v5
-        with:
-          path: ${{ env.CCACHE_DIR }}
-          key: daily-${{ matrix.config.platform }}-${{ env.ARCH }}-${{ matrix.config.build_type }}-${{ matrix.config.enable_gui }}-${{ matrix.config.enable_usdt }}-${{ matrix.config.enable_wallet }}-ccache-${{ github.run_id }}
-          restore-keys: daily-${{ matrix.config.platform }}-${{ env.ARCH }}-${{ matrix.config.build_type }}-${{ matrix.config.enable_gui }}-${{ matrix.config.enable_usdt }}-${{ matrix.config.enable_wallet }}-ccache-
+          echo "ARCH=$ARCH" >> $GITHUB_ENV
+          if [ -n "${{ matrix.config.target_platform }}" ]; then
+            echo "DEPENDS_CACHE_ID=cross-${{ matrix.config.target_platform }}-${{ matrix.config.target_arch }}" >> $GITHUB_ENV
+          else
+            echo "DEPENDS_CACHE_ID=${{ matrix.config.platform }}-$ARCH" >> $GITHUB_ENV
+          fi
+          echo "DEPENDS_HASH=$(git ls-files -s depends | git hash-object --stdin)" >> $GITHUB_ENV
 
       - name: Restore Depends cache
+        # Exact key only, no restore-keys fallback: if anything under depends/
+        # changed, depends is built from scratch instead of on top of an older
+        # tree.
         id: depends-cache
         uses: actions/cache/restore@v5
         with:
           path: ${{ env.DEPENDS_DIR }}
-          key: depends-v6-qt6-${{ matrix.config.platform }}-${{ env.ARCH }}-${{ hashFiles('depends/packages/*', 'depends/hosts/*.mk', 'depends/builders/*.mk', 'depends/funcs.mk', 'depends/toolchain.cmake.in', 'depends/patches/**') }}
-          restore-keys: depends-v6-qt6-${{ matrix.config.platform }}-${{ env.ARCH }}-
-
-      # path: above is the whole depends/ tree, tracked files included, so a
-      # restore-keys fallback (no content hash) overwrites depends/packages/*.mk
-      # and friends with whatever an older cache entry had. make then follows
-      # those stale recipes rather than the ones actually checked out.
-      #
-      # git checkout only fixes tracked files' *content* -- a stale cache can
-      # also carry a since-deleted, now-untracked file (e.g. a flat patch left
-      # over from before patches moved into version subdirectories), which
-      # checkout has no reason to remove. depends/patches, packages, hosts,
-      # and builders are meant to hold only tracked files (see
-      # depends/.gitignore), unlike depends/built, sources, work, and the
-      # per-host prefix dirs, which are generated and must survive untouched
-      # -- so clean untracked cruft from just those four.
-      - name: Reset depends/ tracked files after cache restore
-        run: |
-          git checkout -- depends/
-          git clean -fdx -- depends/patches/ depends/packages/ depends/hosts/ depends/builders/
-
-      - name: Re-checkout depends/packages and depends/patches
-        # A stale restore-keys cache hit (e.g. right after a version bump)
-        # can overwrite these with old content, so make rebuilds the wrong
-        # version. Force them back to HEAD after the cache restore.
-        run: git checkout -- depends/packages depends/patches
+          key: depends-v6-qt6-${{ env.DEPENDS_CACHE_ID }}-${{ env.DEPENDS_HASH }}
 
       - name: Restore Benchmark History cache
         # Benchmarks only run on scheduled/manually-dispatched runs, not on
         # every PR (see the gated benchmark step further down). Gated on the
-        # collect_benchmark_history matrix field (set on one canonical config
-        # per platform, rather than platform+arch) -- several matrix configs
-        # share the same platform+arch (e.g. linux x86_64 has 3 RelWithDebInfo
-        # flavors), and letting all of them write the same history file/cache
-        # key in parallel would race.
+        # collect_benchmark_history matrix field. Keyed by entry name, so each
+        # entry keeps its own history.
         if: github.event_name != 'pull_request' && matrix.config.collect_benchmark_history == true
         id: benchmark-cache
         uses: actions/cache/restore@v5
@@ -262,12 +278,13 @@ jobs:
           restore-keys: benchmark-history-${{ matrix.config.name }}-
 
       - name: Setup Linux Dependencies
+        timeout-minutes: 15
         if: matrix.config.platform == 'linux'
         env:
           ACTIONS_RUNNER_DEBUG: true
         run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc g++ ccache build-essential cmake ninja-build pkgconf python3-zmq bsdmainutils systemtap-sdt-dev bpfcc-tools bpftrace python3-venv valgrind libboost-test-dev python3-pip gperf bison
+          sudo apt-get $APT_OPTS update
+          sudo apt-get $APT_OPTS install -y gcc g++ build-essential cmake ninja-build pkgconf python3-zmq bsdmainutils systemtap-sdt-dev bpfcc-tools bpftrace python3-venv valgrind libboost-test-dev python3-pip gperf bison
           # libxkbcommon >= 1.9.0 requires Meson >= 1.4.0; Ubuntu 24.04's apt
           # package (1.3.2) is too old, so install a current one via pip instead.
           # Pinned to an exact version (like every depends package) rather than
@@ -276,20 +293,20 @@ jobs:
 
           # Install cross-compilation toolchain for macOS targets
           if [ "${{ matrix.config.target_platform }}" == "macos" ]; then
-            sudo apt-get install -y curl git cmake ninja-build clang lld llvm llvm-dev
+            sudo apt-get $APT_OPTS install -y curl git cmake ninja-build clang lld llvm llvm-dev
             # Set up macOS SDK for cross-compilation
             # Read SDK variables from depends/hosts/darwin.mk
             mkdir -p depends/SDKs
             export XCODE_VERSION=$(grep '^XCODE_VERSION=' depends/hosts/darwin.mk | cut -d= -f2)
             export XCODE_BUILD_ID=$(grep '^XCODE_BUILD_ID=' depends/hosts/darwin.mk | cut -d= -f2)
             OSX_SDK_BASENAME="Xcode-${XCODE_VERSION}-${XCODE_BUILD_ID}-extracted-SDK-with-libcxx-headers"
-            
+
             # Download and extract macOS SDK if not present
             if [ ! -d "depends/SDKs/${OSX_SDK_BASENAME}" ]; then
               OSX_SDK_FILENAME="${OSX_SDK_BASENAME}.tar.gz"
               OSX_SDK_PATH="depends/sdk-sources/${OSX_SDK_FILENAME}"
               mkdir -p depends/sdk-sources
-              
+
               # Download SDK: try bitcoincore.org first, fall back to Tapyrus S3
               if [ ! -f "$OSX_SDK_PATH" ]; then
                 SDK_URL="https://bitcoincore.org/depends-sources/sdks"
@@ -314,7 +331,7 @@ jobs:
 
           # Install cross-compilation toolchain for Windows targets
           if [ "${{ matrix.config.target_platform }}" == "windows" ]; then
-            sudo apt-get install -y g++-mingw-w64-x86-64 mingw-w64-x86-64-dev binutils-mingw-w64-x86-64 wine64 nsis
+            sudo apt-get $APT_OPTS install -y g++-mingw-w64-x86-64 mingw-w64-x86-64-dev binutils-mingw-w64-x86-64 wine64 nsis
             sudo update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++-posix
             sudo update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix
           fi
@@ -335,7 +352,7 @@ jobs:
             echo "Xcode 15.0 not found, skipping xcode-select"
           fi
 
-          brew install --quiet coreutils ninja pkgconf gnu-getopt ccache boost
+          brew install --quiet coreutils ninja pkgconf gnu-getopt boost
 
           python3 -m venv $HOME/venv
           source $HOME/venv/bin/activate
@@ -393,7 +410,7 @@ jobs:
             export OSX_MIN_VERSION=$(grep '^OSX_MIN_VERSION=' depends/hosts/darwin.mk | cut -d= -f2)
             export OSX_SDK_VERSION=$(grep '^OSX_SDK_VERSION=' depends/hosts/darwin.mk | cut -d= -f2)
             echo "Using macOS SDK: $OSX_SDK"
-            
+
             # Test the cross-compilation toolchain
             echo "Testing cross-compilation toolchain..."
             clang --target=$HOST --version || echo "Warning: clang target test failed"
@@ -467,10 +484,8 @@ jobs:
             fi
           fi
 
-          # Always run make: the file checks above only confirm a path
-          # exists, not its version, so a stale cache restore could
-          # otherwise skip a rebuild unnoticed. depends' own build-id
-          # hashes make an up-to-date tree a fast no-op.
+          # Always run make: it builds any package the restored tree lacks
+          # (e.g. systemtap for USDT entries) and is a fast no-op otherwise.
           echo "----------------   Building Depends $HOST     ----------------"
           if ! make -C depends $DEPENDS_OPTS -j$CPU_COUNT install_cmake; then
             echo "Depends build failed"
@@ -499,95 +514,16 @@ jobs:
           ls -la "$DEPENDS_PREFIX/include/" | head -10 || true
           echo "---------------- ----------------- --------------- ---------------- "
 
-      - name: Print built dependency versions
-        # Compares what's actually on disk in depends/built/ (the real, already-cached
-        # build artifacts -- present whether this run built depends fresh or "Restore
-        # Depends cache" restored an existing tree) against what depends/packages/*.mk
-        # specifies at the commit under test. The two can silently diverge: "Restore
-        # Depends cache"'s own restore-keys fallback (no content hash) can restore the
-        # most recent older depends/ tree wholesale on a key miss -- e.g. right after a
-        # package version bump -- and the "if [ ! -d $DEPENDS_PREFIX ]" build-skip check
-        # above would then never notice, since the stale prefix already exists.
-        #
-        # The "expected" side deliberately reads from `git show`, not the working-tree
-        # .mk files: `path: ${{ env.DEPENDS_DIR }}` above caches the whole depends/
-        # directory, .mk files included, so a stale-cache restore overwrites the
-        # freshly-checked-out .mk files on disk with the same old ones the stale
-        # artifacts were built from. Comparing two views of the same stale snapshot
-        # would always agree, silently defeating the very check this step exists for.
-        # Reading from git's object store instead is unaffected by anything a cache
-        # restore does to the working tree.
-        #
-        # The two lists are also diffed below: previously a mismatch here was
-        # something a reader had to notice by eyeballing two printed lists, so a
-        # stale-cache divergence could sail through a green run unremarked. A
-        # non-empty diff now emits a ::warning:: annotation (not a hard failure --
-        # this step is diagnostic, not a gate) so it surfaces on the job itself.
-        run: |
-          BUILT_FILE=$(mktemp)
-          EXPECTED_FILE=$(mktemp)
-
-          echo "== depends/built/$HOST: actually-built/cached artifact versions =="
-          if [ -d "depends/built/$HOST" ]; then
-            for f in depends/built/"$HOST"/*/*.tar.gz; do
-              [ -e "$f" ] || continue
-              # cached filenames are <package>-<version>-<11-char-hash>.tar.gz
-              # (depends/funcs.mk, HASH_LENGTH) -- strip the hash+extension, not
-              # the version, since both package and version can contain hyphens.
-              basename "$f" | sed -E 's/-[0-9a-f]{11}\.tar\.gz$//'
-            done | sort > "$BUILT_FILE"
-          else
-            echo "(no depends/built/$HOST -- nothing built or restored for this host)"
-          fi
-          cat "$BUILT_FILE"
-          echo
-          echo "== depends/packages/*.mk: versions at the commit under test (git HEAD, not the working tree) =="
-          MK_FILES=$(git ls-tree -r --name-only HEAD -- depends/packages | grep '\.mk$')
-          for mk in $MK_FILES; do
-            pkg=$(basename "$mk" .mk)
-            raw_ver=$(git show "HEAD:$mk" | sed -n 's/^\$(package)_version=\(.*\)$/\1/p')
-            [ -z "$raw_ver" ] && continue
-            case "$raw_ver" in
-              '$('*')')
-                # qt.mk/native_qt.mk set their version to a shared make variable
-                # ($(qt_details_version), defined in qt_details.mk) rather than a
-                # literal. This raw text extraction can't expand make variables,
-                # so resolve this one level of indirection by looking up that
-                # variable's own definition -- otherwise these two packages would
-                # print the literal string "$(qt_details_version)" here forever,
-                # never matching the real version depends/built/ reports.
-                var=$(echo "$raw_ver" | sed -n 's/^\$(\(.*\))$/\1/p')
-                ver=$(for f in $MK_FILES; do git show "HEAD:$f"; done | \
-                  sed -n "s/^$var[[:space:]]*:\{0,1\}=[[:space:]]*\(.*\)\$/\1/p" | head -1)
-                ;;
-              *)
-                ver="$raw_ver"
-                ;;
-            esac
-            # Only expect packages this job's config actually builds --
-            # depends/built/$HOST/$pkg/ existing means it was a candidate.
-            [ -n "$ver" ] && [ -d "depends/built/$HOST/$pkg" ] && echo "$pkg-$ver"
-          done | sort > "$EXPECTED_FILE"
-          cat "$EXPECTED_FILE"
-          echo
-
-          if [ -s "$BUILT_FILE" ]; then
-            if diff -q "$BUILT_FILE" "$EXPECTED_FILE" > /dev/null; then
-              echo "== OK: depends/built/$HOST matches depends/packages/*.mk at HEAD =="
-            else
-              echo "== MISMATCH: depends/built/$HOST doesn't match depends/packages/*.mk at HEAD =="
-              diff -u "$EXPECTED_FILE" "$BUILT_FILE" || true
-              echo "::warning::depends/built/$HOST doesn't match depends/packages/*.mk at HEAD for host $HOST -- likely a stale cache restore serving an older depends/ tree. See the diff above."
-            fi
-          fi
-
       - name: Save Depends cache
-        if: github.ref == 'refs/heads/master'
+        # Only save_depends_cache entries save, so the cached tree is the full
+        # GUI+wallet set. A saved key can't be overwritten, so an entry with a
+        # smaller set saving first would leave the others rebuilding Qt/BDB.
+        if: github.ref == 'refs/heads/master' && matrix.config.save_depends_cache == true
         uses: actions/cache/save@v5
         continue-on-error: true
         with:
           path: ${{ env.DEPENDS_DIR }}
-          key: depends-v6-qt6-${{ matrix.config.platform }}-${{ env.ARCH }}-${{ hashFiles('depends/packages/*', 'depends/hosts/*.mk', 'depends/builders/*.mk', 'depends/funcs.mk', 'depends/toolchain.cmake.in', 'depends/patches/**') }}
+          key: depends-v6-qt6-${{ env.DEPENDS_CACHE_ID }}-${{ env.DEPENDS_HASH }}
 
       - name: Enable core dumps
         if: matrix.config.target_platform != 'windows'
@@ -646,23 +582,15 @@ jobs:
           fi
 
           # Common CMake configuration options
-          # BUILD_FUZZ_TEST defaults OFF here -- fuzz-code-only and
-          # fuzz-script-sweep, both below, are the two jobs in this file
-          # that actually run fuzzing (the fuzz_pstt_* targets,
-          # tapyrus-verify's --fuzz mode), and both are schedule-only (not
-          # run on PRs). The native-build branch below turns
-          # BUILD_FUZZ_TEST back ON so both tapyrus-verify's --fuzz code
-          # path and every fuzz_pstt_* harness are at least compiled
-          # (never executed) on every PR -- otherwise a signature drift
-          # in either would go unnoticed until the next scheduled fuzz
-          # run. The fuzz_pstt_* targets aren't EXCLUDE_FROM_ALL (see
-          # src/test/CMakeLists.txt), so the native branch's own
-          # `--target all` below picks them up automatically once
-          # BUILD_FUZZ_TEST=ON -- no separate --target needed here.
+          # BUILD_FUZZ_TEST defaults OFF here. The native-build branch below turns
+          # BUILD_FUZZ_TEST back ON
+          # No ccache: Tapyrus is always compiled from scratch, so stale
+          # objects can't hide an incompatibility with the cached depends.
           CMAKE_OPTS=(
             "-DCMAKE_BUILD_TYPE=${{ matrix.config.build_type }}"
             -DCMAKE_PREFIX_PATH="$DEPENDS_PREFIX"
             -DBUILD_FUZZ_TEST=OFF
+            -DWITH_CCACHE=OFF
           )
 
           # Set test and benchmark options based on build type
@@ -764,9 +692,7 @@ jobs:
           export CTEST_OUTPUT_ON_FAILURE=ON
 
           # --- Reporting: render a per-job table on the workflow run's Summary
-          # page (GITHUB_STEP_SUMMARY), so triaging a failure doesn't require
-          # opening log artifacts just to see which phase broke and how long
-          # each phase took. One call site per test phase below.
+          # page (GITHUB_STEP_SUMMARY). One call site per test phase below.
           DAILY_SUMMARY_HEADER_WRITTEN=0
           write_summary_header() {
             if [ "$DAILY_SUMMARY_HEADER_WRITTEN" -eq 0 ]; then
@@ -882,12 +808,13 @@ jobs:
             exit 1
           fi
 
-          # Benchmarks only run on scheduled/manually-dispatched runs - every PR
-          # already pays for the full functional-test matrix above, and doesn't
-          # need the extra time (and history-cache noise) of a benchmark too.
+          # Benchmarks run only on the collect_benchmark_history entries, and
+          # not on PRs, which already pay for the full functional-test matrix.
           if [ "${{ github.event_name }}" == "pull_request" ]; then
             echo "---------------- Skipping benchmark test (event: pull_request) ---------------- "
             record_skipped "Benchmark" "pull_request event"
+          elif [ "${{ matrix.config.collect_benchmark_history }}" != "true" ]; then
+            record_skipped "Benchmark" "not a benchmark configuration"
           else
             echo "---------------- Start benchmark test ---------------- "
             cd "$BASE_BUILD_DIR/bin"
@@ -902,44 +829,36 @@ jobs:
               exit 1
             fi
 
-            # Persist this run's per-benchmark medians into the cached history
-            # file and render a trend chart (one line per benchmark, one point
-            # per day) into the job summary. Only for configs with
-            # collect_benchmark_history set, whose benchmark_results/data
-            # cache actually persists across runs (see the cache steps above)
-            # -- other configs would just regenerate history from scratch
-            # every run since it's never saved. Set on one canonical config
-            # per platform to avoid multiple same-platform+arch matrix jobs
-            # racing on the same history file.
-            if [ "${{ matrix.config.collect_benchmark_history }}" = "true" ]; then
-              echo "---------------- Updating benchmark history and chart ---------------- "
-              HISTORY_DIR="${{ github.workspace }}/benchmark_results/data"
-              mkdir -p "$HISTORY_DIR"
-              HISTORY_CSV="$HISTORY_DIR/history.csv"
-              RUN_DATE=$(date -u +%Y-%m-%d)
-              RUN_COMMIT=$(cd "$BASE_ROOT_DIR" && git rev-parse --short HEAD)
+            # Append this run's per-benchmark medians to the cached history
+            # and render a trend chart (one line per benchmark, one point per
+            # day) into the job summary.
+            echo "---------------- Updating benchmark history and chart ---------------- "
+            HISTORY_DIR="${{ github.workspace }}/benchmark_results/data"
+            mkdir -p "$HISTORY_DIR"
+            HISTORY_CSV="$HISTORY_DIR/history.csv"
+            RUN_DATE=$(date -u +%Y-%m-%d)
+            RUN_COMMIT=$(cd "$BASE_ROOT_DIR" && git rev-parse --short HEAD)
 
-              source $HOME/venv/bin/activate
-              python3 "$BASE_ROOT_DIR/contrib/devtools/plot_benchmark_history.py" append \
-                --bench-output bench_results.txt --csv "$HISTORY_CSV" \
-                --date "$RUN_DATE" --commit "$RUN_COMMIT" \
-                || echo "Warning: failed to append benchmark history, continuing"
+            source $HOME/venv/bin/activate
+            python3 "$BASE_ROOT_DIR/contrib/devtools/plot_benchmark_history.py" append \
+              --bench-output bench_results.txt --csv "$HISTORY_CSV" \
+              --date "$RUN_DATE" --commit "$RUN_COMMIT" \
+              || echo "Warning: failed to append benchmark history, continuing"
 
-              CHART_PATH="${{ github.workspace }}/benchmark_trend.png"
-              if python3 "$BASE_ROOT_DIR/contrib/devtools/plot_benchmark_history.py" plot \
-                  --csv "$HISTORY_CSV" --out "$CHART_PATH" \
-                  --title "Benchmark history - ${{ matrix.config.name }}" && [ -f "$CHART_PATH" ]; then
-                {
-                  echo ""
-                  echo "### Benchmark trend - ${{ matrix.config.name }}"
-                  echo ""
-                  echo "![benchmark trend](data:image/png;base64,$(python3 -c 'import base64,sys; sys.stdout.write(base64.b64encode(open(sys.argv[1], "rb").read()).decode())' "$CHART_PATH"))"
-                } >> "$GITHUB_STEP_SUMMARY"
-              else
-                echo "Warning: benchmark chart rendering failed, continuing"
-              fi
-              deactivate
+            CHART_PATH="${{ github.workspace }}/benchmark_trend.png"
+            if python3 "$BASE_ROOT_DIR/contrib/devtools/plot_benchmark_history.py" plot \
+                --csv "$HISTORY_CSV" --out "$CHART_PATH" \
+                --title "Benchmark history - ${{ matrix.config.name }}" && [ -f "$CHART_PATH" ]; then
+              {
+                echo ""
+                echo "### Benchmark trend - ${{ matrix.config.name }}"
+                echo ""
+                echo "![benchmark trend](data:image/png;base64,$(python3 -c 'import base64,sys; sys.stdout.write(base64.b64encode(open(sys.argv[1], "rb").read()).decode())' "$CHART_PATH"))"
+              } >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "Warning: benchmark chart rendering failed, continuing"
             fi
+            deactivate
           fi
 
           # # Test USDT tracing functionality if enabled
@@ -1014,12 +933,7 @@ jobs:
       - name: Save Benchmark History cache
         # Must run after "Build and run daily tests", which is the step that
         # actually creates benchmark_results/data and appends this run's
-        # medians to history.csv -- saving any earlier finds nothing there
-        # and fails with a Path Validation Error, which is why history was
-        # never actually persisted across runs before this was moved here.
-        # No always(): if the test step failed, the benchmark section never
-        # ran, so there is nothing new to save, and skipping keeps a
-        # "no cache saved" warning meaningful instead of routine.
+        # medians to history.csv
         if: github.event_name != 'pull_request' && matrix.config.collect_benchmark_history == true
         uses: actions/cache/save@v5
         continue-on-error: true
@@ -1027,13 +941,16 @@ jobs:
           path: ${{ github.workspace }}/benchmark_results/data
           key: benchmark-history-${{ matrix.config.name }}-${{ github.run_id }}
 
-      - name: Save Ccache cache
-        uses: actions/cache/save@v5
-        if: steps.ccache-cache.outputs.cache-hit != 'true' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
-        continue-on-error: true
+      - name: Upload Benchmark History
+        # The cache holds only the latest copy; this keeps each run's history
+        # for the maximum artifact retention as a backup.
+        if: github.event_name != 'pull_request' && matrix.config.collect_benchmark_history == true
+        uses: actions/upload-artifact@v6
         with:
-          path: ${{ env.CCACHE_DIR }}
-          key: daily-${{ matrix.config.platform }}-${{ env.ARCH }}-${{ matrix.config.build_type }}-${{ matrix.config.enable_gui }}-${{ matrix.config.enable_usdt }}-${{ matrix.config.enable_wallet }}-ccache-${{ github.run_id }}
+          name: benchmark-history-${{ matrix.config.name }}-${{ github.run_id }}
+          path: ${{ github.workspace }}/benchmark_results/data/history.csv
+          retention-days: 90
+          if-no-files-found: warn
 
       - name: Upload test results
         if: always()
@@ -1127,55 +1044,20 @@ jobs:
           path: ${{ github.workspace }}/core_dumps/
           retention-days: 7
 
-  # --------------------------------------------------------------------
-  # JOB: fuzz-code-only
-  #
-  # PURPOSE: Run Tapyrus's own fuzz_test_files (libFuzzer-style C++
-  #   sources, Bitcoin Core convention -- e.g.
-  #   src/test/fuzz/fuzz_code/pstt_parse_fuzz.cpp) with real coverage-guided
-  #   mutation -- purely compiled code exploring inputs on its own, at CI
-  #   compute cost only. Runs daily via this workflow's own schedule
-  #   (see the `if:` below to skip pull_request -- the matrix job above
-  #   already covers every PR, and fuzzing is exploration over time, not
-  #   a per-change gate).
-  #
-  #   Each fuzz_test_file has a large, committed seed-input pool under
-  #   src/test/fuzz/fuzz_seed_pool/<target>/ (one file per seed). Every run selects
-  #   a different `fuzz_slice_batch_size`-sized slice of that pool, keyed
-  #   off the CI run number -- no "mark as used" state written back to
-  #   the repo; a given run number always resolves to the same slice, so
-  #   a crash found by a specific run is trivially reproducible from its
-  #   run number alone. The slice only anchors each run's exploration --
-  #   libFuzzer still mutates outward from it for the full run duration,
-  #   so this is not a replay of fixed inputs.
-  # TOOLS USED: libFuzzer + ASan/UBSan (compiled into each fuzz_test_file
-  #   via `-DSANITIZERS="fuzzer,address,undefined"`);
-  #   src/test/fuzz/fuzz_seed_pool/fuzz_code_select_slice.py for the seed-pool
-  #   rotation.
-  # CREDENTIALS NEEDED: none.
-  # ARTIFACTS PRODUCED: `daily-fuzz-run-artifacts-<run-id>` -- any crash
-  #   (`fuzz_artifacts/`) plus newly-discovered coverage-increasing inputs
-  #   (`new_seed_candidates/`) for manual review/import into the seed
-  #   pool. Not auto-committed, matching this repo's working agreement
-  #   that generated content lands via human review, not automatically.
-  # --------------------------------------------------------------------
+  # fuzz-code-only: runs each libFuzzer target in src/test/fuzz/fuzz_code/
+  # under ASan/UBSan for an equal share of FUZZ_TOTAL_SECONDS, seeded from a
+  # rotating slice of its seed pool, to find crashes. Uploads crash inputs and
+  # new corpus entries not yet in the pool, for review.
   fuzz-code-only:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    # RUN_SECONDS per target (default 600s) times however many
-    # src/test/fuzz/fuzz_code/*_fuzz.cpp files exist, plus fixed overhead
-    # for checkout/build/artifact-upload -- not a per-target limit, only a
-    # backstop against the whole job hanging. Grows with the target list:
-    # bump this when target count times RUN_SECONDS/60 + ~6 approaches it.
-    # 7 targets * 600s default = 70 min of fuzzing; measured wall-clock is
-    # ~76 min once checkout/build/upload overhead is included (not the ~20
-    # min the naive 90-70 subtraction implies). timeout-minutes is set for
-    # ~20 min of real margin at 8 targets (the next one to land), so this
-    # won't need touching again until a 9th target lands.
+    # Fuzzing time is a fixed total split across targets, so adding targets
+    # shortens each one's run instead of outgrowing this timeout. The margin
+    # covers checkout, build and artifact upload.
     timeout-minutes: 105
     env:
       LC_ALL: C.UTF-8
-      RUN_SECONDS: ${{ inputs.fuzz_run_seconds || '600' }}
+      FUZZ_TOTAL_SECONDS: ${{ inputs.fuzz_total_seconds || '4200' }}
       SLICE_BATCH_SIZE: ${{ inputs.fuzz_slice_batch_size || '5' }}
     steps:
       - uses: actions/checkout@v5
@@ -1183,7 +1065,8 @@ jobs:
           ref: ${{ github.event.inputs.test_branch || github.ref || 'master' }}
           submodules: recursive
       - name: Install build dependencies
-        run: sudo apt-get update && sudo apt-get install -y cmake libboost-dev libevent-dev libdb++-dev clang
+        timeout-minutes: 10
+        run: sudo apt-get $APT_OPTS update && sudo apt-get $APT_OPTS install -y cmake libboost-dev libevent-dev libdb++-dev clang
       - name: Configure with libFuzzer + ASan/UBSan
         run: >
           cmake -S . -B build_fuzz
@@ -1194,17 +1077,16 @@ jobs:
           -DENABLE_WALLET=OFF -DENABLE_TESTS=ON -DENABLE_BENCH=OFF
           -DBUILD_FUZZ_TEST=ON
       # src/test/CMakeLists.txt globs every fuzz/fuzz_code/*_fuzz.cpp file into its
-      # own executable and wires fuzz_all to depend on all of them --
-      # landing a new fuzz_test_file (e.g. one OSS-Fuzz-Gen drafted and a
-      # human reviewed, see contrib/fuzz/oss-fuzz/drafting/README.md)
-      # means only adding its source file, nothing to register here or in
-      # contrib/fuzz/oss-fuzz/project/build.sh.
+      # own executable
       - name: Build fuzz targets
         run: cmake --build build_fuzz --target fuzz_all -j "$(nproc)"
       - name: Run each target, seeded from this run's rotating pool slice
         run: |
           mkdir -p fuzz_artifacts new_seed_candidates
-          for target_path in build_fuzz/bin/fuzz_*; do
+          targets=(build_fuzz/bin/fuzz_*)
+          RUN_SECONDS=$(( FUZZ_TOTAL_SECONDS / ${#targets[@]} ))
+          echo "Fuzzing ${#targets[@]} targets for ${RUN_SECONDS}s each."
+          for target_path in "${targets[@]}"; do
             target=$(basename "${target_path}")
             pool_dir="src/test/fuzz/fuzz_seed_pool/${target}"
             corpus_dir="fuzz_corpus/${target}"
@@ -1227,9 +1109,8 @@ jobs:
                 "${corpus_dir}" \
               || test $? -eq 124  # timeout's own "ran to the limit" exit code -- not a failure
 
-            # Corpus dir now holds the seeded slice plus anything libFuzzer
-            # found interesting -- diff against the seeded slice to surface
-            # only genuinely new candidates for human review.
+            # Keep only corpus entries not already in the seed pool, as new
+            # seed candidates for review.
             new_dir="new_seed_candidates/${target}"
             mkdir -p "${new_dir}"
             comm -23 <(ls "${corpus_dir}" | sort) <(ls "${pool_dir}" 2>/dev/null | sort) \
@@ -1243,36 +1124,11 @@ jobs:
             fuzz_artifacts/
             new_seed_candidates/
 
-  # --------------------------------------------------------------------
-  # JOB: fuzz-script-sweep
-  #
-  # PURPOSE: Test a rotating, time-bounded slice of the committed
-  #   AI-generated Tapyrus Script-program pool against tapyrus-verify
-  #   --fuzz, looking for interpreter crashes on inputs a plain mutation
-  #   fuzzer is unlikely to stumble into on its own. Runs daily via this
-  #   workflow's own schedule: a daily rotating offset covers the whole
-  #   pool in `pool_size / candidates-per-run` days at CI compute cost
-  #   only. Skips pull_request, same reasoning as fuzz-code-only above.
-  #
-  #   Each run starts at a different offset into the pool (keyed off
-  #   this workflow's own run number, same rotation idea used for
-  #   fuzz-code-only's seed pool above) and walks forward from there
-  #   until either the time budget runs out or it laps back to its own
-  #   starting point -- so successive runs gradually cover the whole pool
-  #   instead of always retesting the same prefix.
-  #
-  #   The pool itself grows locally, by hand, via Claude Code -- see
-  #   contrib/fuzz/fuzz_script/README.md for how.
-  # TOOLS USED: tapyrus-verify --fuzz (src/tapyrus-verify.cpp), built
-  #   here via -DBUILD_SCRIPT_VERIFY=ON -DBUILD_FUZZ_TEST=ON with
-  #   ASan/UBSan.
-  # CREDENTIALS NEEDED: none -- this job replays already-generated,
-  #   already-committed inputs.
-  # ARTIFACTS PRODUCED: `fuzz-script-sweep-artifacts-<run-id>` -- every
-  #   candidate Script program actually tested this run (for reproducing
-  #   a crash; the run's starting offset plus this list pins down exactly
-  #   what was covered).
-  # --------------------------------------------------------------------
+  # fuzz-script-sweep: runs the committed Script program pool
+  # (src/test/fuzz/fuzz_scripts, grown per contrib/fuzz/fuzz_script/README.md)
+  # through tapyrus-verify --fuzz under ASan/UBSan to find interpreter crashes.
+  # Each run starts at a different offset and stops at the time budget.
+  # Uploads the programs it tested, for reproducing a crash.
   fuzz-script-sweep:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
@@ -1290,7 +1146,8 @@ jobs:
           ref: ${{ github.event.inputs.test_branch || github.ref || 'master' }}
           submodules: recursive
       - name: Install build dependencies
-        run: sudo apt-get update && sudo apt-get install -y cmake libboost-dev clang
+        timeout-minutes: 10
+        run: sudo apt-get $APT_OPTS update && sudo apt-get $APT_OPTS install -y cmake libboost-dev clang
       - name: Configure tapyrus-verify with ASan/UBSan
         run: >
           cmake -S . -B build_fuzz_verify
