@@ -1,0 +1,241 @@
+# fuzz_script batch: every Tapyrus Script opcode used at least once (115 of 115)
+#
+# One Script program per line in ParseScript mnemonic form; the "#" comment
+# directly above a program names it; "<empty>" is the empty script. See
+# contrib/fuzz/fuzz_script/fuzz_script_pool.py for the full format.
+
+# ===== pushes and small integers =====
+
+# push_small_ints
+0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 -1 DEPTH 18 NUMEQUALVERIFY 2DROP 2DROP 2DROP 2DROP 2DROP 2DROP 2DROP 2DROP 2DROP 1
+
+# pushdata_variants_nonminimal
+0x4c03abcdef 0x4d0300abcdef 0x4e03000000abcdef 3DUP EQUALVERIFY EQUALVERIFY EQUAL
+
+# pushdata1_truncated
+0x4c05abcd
+
+# pushdata2_truncated
+0x4d0001ab
+
+# pushdata4_huge_length
+0x4effffffff00
+
+# nonminimal_zero_as_number
+0x0100 NOT
+
+# ===== arithmetic =====
+
+# arith_unary_ops
+5 1ADD 6 NUMEQUALVERIFY 5 1SUB 4 NUMEQUALVERIFY 5 NEGATE -5 NUMEQUALVERIFY -5 ABS 5 NUMEQUALVERIFY 0 NOT VERIFY 7 0NOTEQUAL
+
+# arith_binary_and_compare
+7 3 SUB 4 NUMEQUALVERIFY 3 4 ADD 7 NUMNOTEQUAL NOT VERIFY 1 0 BOOLAND NOT VERIFY 1 0 BOOLOR VERIFY 2 3 LESSTHAN VERIFY 3 2 GREATERTHAN VERIFY 3 3 LESSTHANOREQUAL VERIFY 3 3 GREATERTHANOREQUAL VERIFY 2 9 MIN 2 NUMEQUALVERIFY 2 9 MAX 9 NUMEQUAL
+
+# within_boundaries
+5 0 10 WITHIN 10 0 10 WITHIN NOT BOOLAND -1 -1 0 WITHIN BOOLAND
+
+# int32_max_overflow
+2147483647 1ADD 2147483648 NUMEQUAL
+
+# numequalverify_fail
+1 2 NUMEQUALVERIFY 1
+
+# ===== stack manipulation =====
+
+# stack_shuffle_ops
+1 2 3 4 5 6 2ROT 2SWAP 2OVER 2DUP 2DROP 2DROP NIP OVER ROT SWAP TUCK DUP DROP DEPTH 0 GREATERTHAN
+
+# ifdup_zero_and_one
+0 IFDUP 1 IFDUP DEPTH 3 NUMEQUAL
+
+# altstack_roundtrip
+1 2 TOALTSTACK TOALTSTACK FROMALTSTACK FROMALTSTACK SUB -1 NUMEQUAL
+
+# fromaltstack_empty
+FROMALTSTACK
+
+# pick_out_of_range
+1 2 3 5 PICK
+
+# roll_negative
+1 2 3 -1 ROLL
+
+# size_and_equal
+'a' 'a' EQUALVERIFY 'a' 'b' EQUAL NOT 'abcd' SIZE 4 NUMEQUAL BOOLAND NIP
+
+# ===== hashes =====
+
+# hash_digests_abc
+'abc' SHA256 0x20ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad EQUALVERIFY 'abc' SHA1 0x14a9993e364706816aba3e25717850c26c9cd0d89d EQUALVERIFY 'abc' HASH256 0x204f8b42c22dd3729b519ba6f68d2da7cc5b2d606d05daed5ad5128cc03e6c6358 EQUALVERIFY 'abc' RIPEMD160 SIZE 20 NUMEQUALVERIFY DROP 'abc' HASH160 SIZE 20 NUMEQUALVERIFY DROP 1
+
+# hash_of_empty
+0 SHA256 SIZE 32 NUMEQUAL NIP
+
+# ===== signatures =====
+
+# checksig_empty_sig
+0 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 CHECKSIG NOT
+
+# checksig_der_garbage
+0x09300602010102010101 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 CHECKSIG
+
+# checksig_schnorr_garbage
+0x413b12fc0831f6dd4318921d9a4b55d37ad4dbf5861e685d5bbce2e2c66ddfa45771933b456ccbadbead0ac6294f6881f2d032c7c103c7e5f54f67c23079b350ab01 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 CHECKSIG NOT
+
+# checksigverify_empty_sig
+0 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 CHECKSIGVERIFY 1
+
+# codeseparator_checksig
+CODESEPARATOR 0 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 CODESEPARATOR CHECKSIG NOT
+
+# checkmultisig_one_of_two
+0 0 1 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 2 CHECKMULTISIG NOT
+
+# checkmultisig_nonnull_dummy
+1 0 1 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 1 CHECKMULTISIG NOT
+
+# checkmultisigverify_zero_of_one
+0 0 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 1 CHECKMULTISIGVERIFY 1
+
+# checkmultisig_too_many_keys
+0 0 21 CHECKMULTISIG
+
+# checkdatasig_empty_sig
+0 'msg' 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 CHECKDATASIG NOT
+
+# checkdatasigverify_garbage
+0x40922f564855e3860b6d615e56fc89fabb445b0ef523cf232f1116c2a618b8a4294a273806cea1c677f4aff0b71525fb9965fd42a8a0eca2f14126b7d62db2cc8a 'msg' 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 CHECKDATASIGVERIFY 1
+
+# ===== locktime / sequence (tapyrus-verify sweeps 16 combinations) =====
+
+# cltv_height_and_time
+0 CHECKLOCKTIMEVERIFY DROP 1 CHECKLOCKTIMEVERIFY DROP 500000000 CHECKLOCKTIMEVERIFY DROP 1
+
+# cltv_negative
+-1 CHECKLOCKTIMEVERIFY
+
+# csv_blocks_and_time
+1 CHECKSEQUENCEVERIFY DROP 4194305 CHECKSEQUENCEVERIFY DROP 1
+
+# csv_disable_flag
+2147483648 CHECKSEQUENCEVERIFY DROP 1
+
+# upgradable_nops
+NOP1 NOP4 NOP5 NOP6 NOP7 NOP8 NOP9 NOP10 NOP 1
+
+# ===== flow control =====
+
+# if_notif_else_nesting
+1 IF 0 NOTIF 1 IF 2 ELSE 3 ENDIF ELSE 4 ENDIF ELSE 5 ENDIF 2 NUMEQUAL
+
+# if_unbalanced
+1 IF 1
+
+# else_without_if
+ELSE 1
+
+# if_nonminimal_argument
+2 IF 1 ENDIF
+
+# return_unexecuted
+0 IF RETURN ENDIF 1
+
+# ===== reserved / invalid opcodes =====
+
+# reserved_ops_unexecuted
+0 IF RESERVED VER RESERVED1 RESERVED2 0xff ENDIF 1
+
+# reserved_executed
+RESERVED 1
+
+# ver_executed
+1 VER
+
+# reserved1_executed
+RESERVED1 1
+
+# reserved2_executed
+RESERVED2 1
+
+# invalidopcode_executed
+0xff 1
+
+# verif_unexecuted
+0 IF VERIF ENDIF 1
+
+# vernotif_unexecuted
+0 IF VERNOTIF ENDIF 1
+
+# ===== disabled opcodes (one each, plus one in an unexecuted branch) =====
+
+# disabled_cat
+'ab' 'cd' CAT
+
+# disabled_substr
+'abcd' 1 2 SUBSTR
+
+# disabled_left
+'abcd' 2 LEFT
+
+# disabled_right
+'abcd' 2 RIGHT
+
+# disabled_invert
+'ab' INVERT
+
+# disabled_and
+'ab' 'cd' AND
+
+# disabled_or
+'ab' 'cd' OR
+
+# disabled_xor
+'ab' 'cd' XOR
+
+# disabled_2mul
+2 2MUL
+
+# disabled_2div
+4 2DIV
+
+# disabled_mul
+2 3 MUL
+
+# disabled_div
+6 3 DIV
+
+# disabled_mod
+7 3 MOD
+
+# disabled_lshift
+1 2 LSHIFT
+
+# disabled_rshift
+4 1 RSHIFT
+
+# disabled_in_unexecuted_branch
+0 IF MUL ENDIF 1
+
+# ===== OP_COLOR =====
+
+# color_cp2sh_reissuable
+0x21c17f9d9a5dffc5c02eefa998e9c3f31e535b04c8f58db4d6347d0af03e1754498e COLOR HASH160 0x14be6d077bd1eb218c802b0e2a6f4a7af09264cf1e EQUAL
+
+# color_p2pkh_nonreissuable
+0x21c27f9d9a5dffc5c02eefa998e9c3f31e535b04c8f58db4d6347d0af03e1754498e COLOR DUP HASH160 0x14be6d077bd1eb218c802b0e2a6f4a7af09264cf1e EQUALVERIFY CHECKSIG
+
+# color_p2pkh_nft
+0x21c37f9d9a5dffc5c02eefa998e9c3f31e535b04c8f58db4d6347d0af03e1754498e COLOR 0 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 CHECKSIG NOT
+
+# color_invalid_type
+0x21c47f9d9a5dffc5c02eefa998e9c3f31e535b04c8f58db4d6347d0af03e1754498e COLOR 1
+
+# color_wrong_length
+0x20c17f9d9a5dffc5c02eefa998e9c3f31e535b04c8f58db4d6347d0af03e175449 COLOR 1
+
+# color_twice
+0x21c1abd1938e708c91f3666e7cf1d55714b2daa62c0efa9a6230d10a6a6e1573f7e8 COLOR 0x21c267220e35ceefa8a2fcfec034d10813052bcbf0307faff9c9df17100f168e0061 COLOR 1
+
+# color_with_cltv
+0x21c17f9d9a5dffc5c02eefa998e9c3f31e535b04c8f58db4d6347d0af03e1754498e COLOR 0 CHECKLOCKTIMEVERIFY DROP 1

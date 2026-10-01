@@ -1269,9 +1269,10 @@ jobs:
   # CREDENTIALS NEEDED: none -- this job replays already-generated,
   #   already-committed inputs.
   # ARTIFACTS PRODUCED: `fuzz-script-sweep-artifacts-<run-id>` -- every
-  #   candidate Script program actually tested this run (for reproducing
-  #   a crash; the run's starting offset plus this list pins down exactly
-  #   what was covered).
+  #   candidate Script program actually tested this run, one file each,
+  #   named <batch>_L<line>.txt after its line in the pool's batch file
+  #   (for reproducing a crash; the run's starting offset plus this list
+  #   pins down exactly what was covered).
   # --------------------------------------------------------------------
   fuzz-script-sweep:
     if: github.event_name != 'pull_request'
@@ -1305,7 +1306,14 @@ jobs:
         run: |
           pool_dir="src/test/fuzz/fuzz_scripts"
           mkdir -p "${pool_dir}" swept_inputs
-          mapfile -t all_files < <(find "${pool_dir}" -maxdepth 1 -type f ! -name "README.md" | sort)
+          # The pool is batch files holding one program per line (see
+          # contrib/fuzz/fuzz_script/fuzz_script_pool.py); tapyrus-verify
+          # --fuzz takes one program per file, so export each candidate to
+          # its own <batch>_L<line>.txt first. The exported name is also
+          # the artifact name, identifying the exact batch file and line.
+          candidates_dir="$(mktemp -d)"
+          python3 contrib/fuzz/fuzz_script/fuzz_script_pool.py --pool-dir "${pool_dir}" export "${candidates_dir}"
+          mapfile -t all_files < <(find "${candidates_dir}" -maxdepth 1 -type f -name '*.txt' | sort)
           pool_size=${#all_files[@]}
           if [ "${pool_size}" -eq 0 ]; then
             echo "::warning::${pool_dir} is empty -- grow it locally per contrib/fuzz/fuzz_script/README.md and commit the result first."
