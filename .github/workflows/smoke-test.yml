@@ -31,6 +31,8 @@ env:
   LC_ALL: C.UTF-8
   BOOST_TEST_RANDOM: 1
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+  # apt fails fast instead of hanging on a flaky runner mirror.
+  APT_OPTS: -o Acquire::Retries=3 -o Acquire::http::Timeout=10 -o Acquire::https::Timeout=10
 
 jobs:
   lint:
@@ -94,10 +96,11 @@ jobs:
           submodules: recursive
 
       - name: Setup Linux Dependencies
+        timeout-minutes: 10
         if: matrix.config.platform == 'linux'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y clang build-essential cmake pkgconf python3-zmq libevent-dev bsdmainutils libboost-filesystem-dev libboost-test-dev libdb5.3++-dev libminiupnpc-dev libzmq3-dev libqrencode-dev systemtap-sdt-dev bpfcc-tools bpftrace python3-venv
+          sudo apt-get $APT_OPTS update
+          sudo apt-get $APT_OPTS install -y clang build-essential cmake pkgconf python3-zmq libevent-dev bsdmainutils libboost-filesystem-dev libboost-test-dev libdb5.3++-dev libminiupnpc-dev libzmq3-dev libqrencode-dev systemtap-sdt-dev bpfcc-tools bpftrace python3-venv
           python3 -m venv $HOME/venv
           source $HOME/venv/bin/activate
           pip3 install pyzmq
@@ -144,8 +147,8 @@ jobs:
       - name: Setup Windows Cross-Compilation Dependencies
         if: matrix.config.platform == 'windows'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y g++-mingw-w64-x86-64 mingw-w64-x86-64-dev binutils-mingw-w64-x86-64 libz-mingw-w64-dev wine64 build-essential cmake pkgconf python3-zmq nsis
+          sudo apt-get $APT_OPTS update
+          sudo apt-get $APT_OPTS install -y g++-mingw-w64-x86-64 mingw-w64-x86-64-dev binutils-mingw-w64-x86-64 libz-mingw-w64-dev wine64 build-essential cmake pkgconf python3-zmq nsis
           sudo update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++-posix
           sudo update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix
 

@@ -48,6 +48,8 @@ env:
   LC_ALL: C.UTF-8
   BOOST_TEST_RANDOM: 1
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+  # apt fails fast instead of hanging on a flaky runner mirror.
+  APT_OPTS: -o Acquire::Retries=3 -o Acquire::http::Timeout=10 -o Acquire::https::Timeout=10
 
 jobs:
   heavy-tests:
@@ -105,9 +107,10 @@ jobs:
           key: depends-v6-qt6-linux-x86_64-${{ env.DEPENDS_HASH }}
 
       - name: Setup Linux dependencies
+        timeout-minutes: 10
         run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc g++ ccache build-essential cmake ninja-build pkgconf \
+          sudo apt-get $APT_OPTS update
+          sudo apt-get $APT_OPTS install -y gcc g++ ccache build-essential cmake ninja-build pkgconf \
             python3-zmq bsdmainutils systemtap-sdt-dev bpfcc-tools bpftrace python3-venv \
             libboost-test-dev python3-pip gperf bison
           # libxkbcommon >= 1.9.0 requires Meson >= 1.4.0; Ubuntu 24.04's apt
@@ -465,10 +468,11 @@ jobs:
           submodules: recursive
 
       - name: Setup Linux dependencies
+        timeout-minutes: 10
         if: matrix.config.platform == 'linux'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc g++ build-essential cmake ninja-build pkgconf \
+          sudo apt-get $APT_OPTS update
+          sudo apt-get $APT_OPTS install -y gcc g++ build-essential cmake ninja-build pkgconf \
             python3-zmq bsdmainutils systemtap-sdt-dev bpfcc-tools bpftrace python3-venv \
             libboost-test-dev python3-pip gperf bison
           # libxkbcommon >= 1.9.0 requires Meson >= 1.4.0; Ubuntu's apt package
@@ -482,9 +486,10 @@ jobs:
           pip3 install pyzmq
 
       - name: Setup macOS cross-compilation dependencies
+        timeout-minutes: 15
         if: matrix.config.target_platform == 'macos'
         run: |
-          sudo apt-get install -y curl clang lld llvm llvm-dev
+          sudo apt-get $APT_OPTS install -y curl clang lld llvm llvm-dev
           # Downloaded fresh every run, so a dead SDK link fails here.
           XCODE_VERSION=$(grep '^XCODE_VERSION=' depends/hosts/darwin.mk | cut -d= -f2)
           XCODE_BUILD_ID=$(grep '^XCODE_BUILD_ID=' depends/hosts/darwin.mk | cut -d= -f2)
@@ -497,9 +502,10 @@ jobs:
           tar -C depends/SDKs -xf "depends/sdk-sources/${OSX_SDK_FILENAME}"
 
       - name: Setup Windows cross-compilation dependencies
+        timeout-minutes: 10
         if: matrix.config.target_platform == 'windows'
         run: |
-          sudo apt-get install -y g++-mingw-w64-x86-64 mingw-w64-x86-64-dev binutils-mingw-w64-x86-64
+          sudo apt-get $APT_OPTS install -y g++-mingw-w64-x86-64 mingw-w64-x86-64-dev binutils-mingw-w64-x86-64
           sudo update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++-posix
           sudo update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix
 
@@ -876,7 +882,8 @@ jobs:
           submodules: recursive
 
       - name: Install build dependencies
-        run: sudo apt-get update && sudo apt-get install -y cmake clang libboost-dev libevent-dev libminiupnpc-dev pkg-config
+        timeout-minutes: 10
+        run: sudo apt-get $APT_OPTS update && sudo apt-get $APT_OPTS install -y cmake clang libboost-dev libevent-dev libminiupnpc-dev pkg-config
 
       - name: Build tapyrusd and tapyrus-genesis with UPnP support
         run: |
