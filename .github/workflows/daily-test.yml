@@ -71,9 +71,11 @@ jobs:
         # collect_benchmark_history: run bench_tapyrus and keep its history.
         #   Set on the RelWithDebInfo and Release GUI+Wallet entries.
         # save_depends_cache: this entry saves the depends cache; all others
-        #   only restore it. Set on the RelWithDebInfo GUI+Wallet entry per
-        #   native platform+arch, whose depends are a superset of the others',
-        #   and on each cross entry, which has its own key.
+        #   only restore it. Exactly one entry per key, so saves never race:
+        #   the RelWithDebInfo GUI+Wallet entry per native platform+arch and
+        #   each cross entry, which has its own key. On x86_64 and macOS the
+        #   saved depends cover every other entry; on Linux ARM they lack
+        #   systemtap, which the USDT Debug entry builds itself.
         config:
           # Linux configurations with feature combinations
           - name: L-X86-Deb-GUI+USDT+Wallet
@@ -298,13 +300,13 @@ jobs:
             export XCODE_VERSION=$(grep '^XCODE_VERSION=' depends/hosts/darwin.mk | cut -d= -f2)
             export XCODE_BUILD_ID=$(grep '^XCODE_BUILD_ID=' depends/hosts/darwin.mk | cut -d= -f2)
             OSX_SDK_BASENAME="Xcode-${XCODE_VERSION}-${XCODE_BUILD_ID}-extracted-SDK-with-libcxx-headers"
-            
+
             # Download and extract macOS SDK if not present
             if [ ! -d "depends/SDKs/${OSX_SDK_BASENAME}" ]; then
               OSX_SDK_FILENAME="${OSX_SDK_BASENAME}.tar.gz"
               OSX_SDK_PATH="depends/sdk-sources/${OSX_SDK_FILENAME}"
               mkdir -p depends/sdk-sources
-              
+
               # Download SDK: try bitcoincore.org first, fall back to Tapyrus S3
               if [ ! -f "$OSX_SDK_PATH" ]; then
                 SDK_URL="https://bitcoincore.org/depends-sources/sdks"
@@ -408,7 +410,7 @@ jobs:
             export OSX_MIN_VERSION=$(grep '^OSX_MIN_VERSION=' depends/hosts/darwin.mk | cut -d= -f2)
             export OSX_SDK_VERSION=$(grep '^OSX_SDK_VERSION=' depends/hosts/darwin.mk | cut -d= -f2)
             echo "Using macOS SDK: $OSX_SDK"
-            
+
             # Test the cross-compilation toolchain
             echo "Testing cross-compilation toolchain..."
             clang --target=$HOST --version || echo "Warning: clang target test failed"

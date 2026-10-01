@@ -135,11 +135,6 @@ jobs:
             exit 1
           fi
           brew install --quiet coreutils ninja pkgconf gnu-getopt boost libevent zeromq qrencode
-          echo 'export PATH="/opt/homebrew/bin:$PATH"' >> $HOME/.bashrc
-          echo 'export BOOST_ROOT="/opt/homebrew/opt/boost"' >> $HOME/.bashrc
-          echo 'export BOOST_INCLUDEDIR="/opt/homebrew/opt/boost/include"' >> $HOME/.bashrc
-          echo 'export BOOST_LIBRARYDIR="/opt/homebrew/opt/boost/lib"' >> $HOME/.bashrc
-          source $HOME/.bashrc
           python3 -m venv $HOME/venv
           source $HOME/venv/bin/activate
           pip3 install pyzmq

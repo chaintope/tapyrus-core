@@ -399,7 +399,7 @@ jobs:
           retention-days: 7
 
   build-from-scratch:
-    name: ${{ matrix.config.name }} - ${{ matrix.versions }} dependency versions
+    name: ${{ matrix.config.name }} ${{ matrix.versions }}
     strategy:
       fail-fast: false
       matrix:
@@ -414,31 +414,31 @@ jobs:
         # never rebuild depends from scratch, so this is where cross toolchain
         # or download drift shows up.
         config:
-          - name: Linux x86_64
+          - name: Linux x86_64 native
             os: ubuntu-latest
             platform: linux
             host: x86_64-pc-linux-gnu
-          - name: Linux arm64
+          - name: Linux arm64 native
             os: ubuntu-24.04-arm
             platform: linux
             host: aarch64-linux-gnu
-          - name: macOS arm64
+          - name: macOS arm64 native
             os: macos-latest
             platform: macos
             host: arm64-apple-darwin
-          - name: macOS x86_64 (cross)
+          - name: macOS x86_64 cross
             os: ubuntu-latest
             platform: linux
             target_platform: macos
             target_arch: x86_64
             host: x86_64-apple-darwin
-          - name: macOS arm64 (cross)
+          - name: macOS arm64 cross
             os: ubuntu-latest
             platform: linux
             target_platform: macos
             target_arch: arm64
             host: arm64-apple-darwin
-          - name: Windows x86_64 (cross)
+          - name: Windows x86_64 cross
             os: ubuntu-latest
             platform: linux
             target_platform: windows
@@ -869,7 +869,7 @@ jobs:
     runs-on: ubuntu-24.04
     # Verifies -DWITH_MINIUPNPC=ON's actual port-mapping code path (net.cpp's
     # ThreadMapPort) against a real UPnP IGD implementation (miniupnpd), not
-    # just that it compiles. 
+    # just that it compiles.
     #
     # tapyrusd and the fake router (miniupnpd) each need their own network
     # namespace for this to test anything meaningfully. Two Docker
