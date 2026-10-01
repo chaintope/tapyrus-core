@@ -24,6 +24,16 @@
 // (closing LevelDB, joining threads) crashes (SIGBUS) when run that way
 // from a plain main() return -- confirmed directly, the crash lands
 // after test_one_input_<target> has already returned successfully.
+//
+// Consequence for triage: because the setup is shared, mempool,
+// chainstate and connman state accumulate from one input to the next. A
+// crash artifact from a target built on this fixture may depend on the
+// inputs that ran before it in the same process, so it may not
+// reproduce when run on its own. Bitcoin Core's node-context fuzz
+// targets have the same property. If an artifact does not reproduce
+// alone, try running it after the seed corpus that night's run used;
+// the exact sequence of mutated inputs before it is not saved.
+//
 // Call it as the first line of test_one_input_<target>, not from
 // LLVMFuzzerInitialize -- pstt_fuzz_driver.h already defines that symbol
 // for the ECCVerifyHandle every fuzz target needs, and only RPC/network

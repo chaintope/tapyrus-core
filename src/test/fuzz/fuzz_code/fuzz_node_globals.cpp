@@ -14,9 +14,14 @@
 
 std::unique_ptr<CConnman> g_connman;
 
+// AbortNode() (validation.cpp) calls this after a fatal internal error.
+// Aborting rather than exiting cleanly makes libFuzzer report it as a
+// crash and write an artifact: an exit(0) here would look like a normal
+// run to both libFuzzer and the CI loop, hiding exactly the failures a
+// node-context harness exists to find.
 [[noreturn]] void StartShutdown()
 {
-    std::exit(EXIT_SUCCESS);
+    std::abort();
 }
 
 bool ShutdownRequested()

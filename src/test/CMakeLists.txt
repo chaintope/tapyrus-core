@@ -450,10 +450,15 @@ endfunction()
 # test_tapyrus_main.cpp's real main() if linked into that same binary.
 #
 # Target name is derived from the filename: fuzz/fuzz_code/pstt_parse_fuzz.cpp
-# becomes fuzz_pstt_parse. Landing a new harness (e.g. one OSS-Fuzz-Gen
-# drafted and a human reviewed, see contrib/fuzz/oss-fuzz/drafting/README.md)
-# means only adding its source file under fuzz/fuzz_code/ -- nothing to
-# register here, in daily-test.yml, or in contrib/fuzz/oss-fuzz/project/build.sh.
+# becomes fuzz_pstt_parse. Landing a new lean-tier harness (e.g. one
+# OSS-Fuzz-Gen drafted and a human reviewed, see
+# contrib/fuzz/oss-fuzz/drafting/README.md) means only adding its source
+# file under fuzz/fuzz_code/ -- nothing to register in daily-test.yml or
+# in contrib/fuzz/oss-fuzz/project/build.sh. A harness that reaches RPC
+# or chainstate code must also be listed in FUZZ_TARGETS_NEEDING_RPC_GLUE
+# below, and one built on FuzzNodeSetup in
+# FUZZ_TARGETS_NEEDING_NODE_CONTEXT; forgetting gives a link error, not a
+# silently missing target.
 # Each file documents its own purpose in its own header comment (see e.g.
 # pstt_signer_fuzz.cpp).
 #

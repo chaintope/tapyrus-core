@@ -51,7 +51,12 @@ Code writes the harness directly to
 compiles and smoke-tests it locally before handing it back for review --
 there's no separate drafts location or landing script to run afterward.
 `src/test/CMakeLists.txt` globs every `fuzz/fuzz_code/*_fuzz.cpp` file
-into its own executable, so a new harness needs nothing else registered.
+into its own executable, so a new lean-tier harness needs nothing else
+registered. A harness that reaches RPC or chainstate code must also be
+added to `FUZZ_TARGETS_NEEDING_RPC_GLUE` in that file, and one built on
+`FuzzNodeSetup` (`fuzz_node_setup.h`) to
+`FUZZ_TARGETS_NEEDING_NODE_CONTEXT`. Forgetting gives a link error, not a
+silently missing target.
 
 Once a candidate has a harness, update its YAML's
 `fuzz_code_generated_at` by hand (or ask Claude Code to do it as part of
