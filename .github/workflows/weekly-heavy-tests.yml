@@ -535,7 +535,7 @@ jobs:
         # REQUIRED)`, both older than what's swapped in here -- those C++-side
         # floors are untouched; this job proves a narrower, actually-tested
         # guarantee, not the CMake-permitted extreme). See doc/dependencies.md
-        # for the full reasoning.
+        # ("Minimum tested") for the full reasoning.
         #
         # The rest of depends/packages/*.mk is left pinned at its current
         # version:

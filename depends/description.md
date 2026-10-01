@@ -1,4 +1,4 @@
-This is a system of building and caching dependencies necessary for building Bitcoin. 
+This is a system of building and caching dependencies necessary for building Tapyrus Core.
 There are several features that make it different from most similar systems:
 
 ### It is designed to be builder and host agnostic
@@ -6,8 +6,7 @@ There are several features that make it different from most similar systems:
 In theory, binaries for any target OS/architecture can be created, from a
 builder running any OS/architecture. In practice, build-side tools must be
 specified when the defaults don't fit, and packages must be amended to work
-on new hosts. For now, a build architecture of x86_64 is assumed, either on
-Linux or macOS.
+on new hosts.
 
 ### No reliance on timestamps
 
@@ -20,16 +19,6 @@ For each build, the sysroot is wiped and the (recursive) dependencies are
 installed. This makes each build deterministic, since there will never be any
 unknown files available to cause side-effects.
 
-### Each package is cached and only rebuilt as needed.
-
-Before building, a unique build-id is generated for each package. This id
-consists of a hash of all files used to build the package (Makefiles, packages,
-etc), and as well as a hash of the same data for each recursive dependency. If
-any portion of a package's build recipe changes, it will be rebuilt as well as
-any other package that depends on it. If any of the main makefiles (Makefile, 
-funcs.mk, etc) are changed, all packages will be rebuilt. After building, the
-results are cached into a tarball that can be re-used and distributed.
-
 ### Package build results are (relatively) deterministic.
 
 Each package is configured and patched so that it will yield the same
@@ -39,24 +28,9 @@ beyond the scope of this system. Additionally, the toolchain itself must be
 capable of deterministic results. When revisions are properly bumped, a cached
 build should represent an exact single payload.
 
-### Sources are fetched and verified automatically
-
-Each package must define its source location and checksum. The build will fail
-if the fetched source does not match. Sources may be pre-seeded and/or cached
-as desired.
-
 ### Self-cleaning
 
 Build and staging dirs are wiped after use, and any previous version of a
 cached result is removed following a successful build. Automated builders
 should be able to build each revision and store the results with no further
 intervention.
-
-### Keep the S3 fallback mirror in sync
-
-`FALLBACK_DOWNLOAD_PATH` (see `Makefile`) points at an S3 mirror that
-`fetch_file` falls back to when a package's primary `download_path` is
-unreachable. Whenever a package's version, file name, or hash changes in
-`packages/*.mk`, the corresponding file must also be uploaded to that mirror
-under the exact new file name, or the fallback will silently fail to help the
-next time the primary host has an outage.
