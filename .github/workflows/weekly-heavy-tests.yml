@@ -16,8 +16,10 @@ name: Weekly Heavy Test
 
 on:
   schedule:
-    # Sunday 5 AM JST (Saturday 8 PM UTC)
-    - cron: '0 20 * * 0'
+    # Sunday 21:17 JST (12:17 UTC), so the report is ready by Monday 8 AM
+    # JST even with a 6h job and the up to 3h queue delay seen on scheduled
+    # runs. Not on the hour, which is when scheduled runs queue longest.
+    - cron: '17 12 * * 0'
   workflow_dispatch:
     inputs:
       test_branch:
@@ -73,7 +75,6 @@ jobs:
     # into the budget), comfortably fitting within that 6h ceiling.
     env:
       BASE_ROOT_DIR: ${{ github.workspace }}
-      CCACHE_DIR: ${{ github.workspace }}/ccache
       BASE_BUILD_DIR: ${{ github.workspace }}/build
       DEPENDS_DIR: ${{ github.workspace }}/depends
 
@@ -82,16 +83,6 @@ jobs:
         with:
           ref: ${{ github.event.inputs.test_branch || github.ref || 'master' }}
           submodules: recursive
-
-      # ccache keeps the build short, since the tests themselves take hours.
-      # Both matrix jobs build the same config, so they share one key.
-      - name: Restore Ccache cache
-        id: ccache-cache
-        uses: actions/cache/restore@v5
-        with:
-          path: ${{ env.CCACHE_DIR }}
-          key: weekly-heavy-linux-x86_64-ccache-${{ github.run_id }}
-          restore-keys: weekly-heavy-linux-x86_64-ccache-
 
       # Same key as daily-test.yml's DEPENDS_HASH, so this restores the tree
       # saved by L-X86-Rel-GUI+USDT+Wallet, which builds the same depends set.
@@ -110,7 +101,7 @@ jobs:
         timeout-minutes: 10
         run: |
           sudo apt-get $APT_OPTS update
-          sudo apt-get $APT_OPTS install -y gcc g++ ccache build-essential cmake ninja-build pkgconf \
+          sudo apt-get $APT_OPTS install -y gcc g++ build-essential cmake ninja-build pkgconf \
             python3-zmq bsdmainutils systemtap-sdt-dev bpfcc-tools bpftrace python3-venv \
             libboost-test-dev python3-pip gperf bison
           # libxkbcommon >= 1.9.0 requires Meson >= 1.4.0; Ubuntu 24.04's apt
@@ -153,7 +144,11 @@ jobs:
           export LD_LIBRARY_PATH="$DEPENDS_PREFIX/lib:$LD_LIBRARY_PATH"
           echo ">" $HOME/.tapyrus
 
+          # No ccache: GitHub evicts cache entries unused for 7 days, the
+          # same as this job's interval, so queue delays or a skipped week
+          # would leave it cold anyway.
           cmake -S "$BASE_ROOT_DIR" -B "$BASE_BUILD_DIR" -GNinja \
+            -DWITH_CCACHE=OFF \
             -DENABLE_ZMQ=ON \
             -DCMAKE_BUILD_TYPE=RelWithDebInfo \
             -DCMAKE_PREFIX_PATH="$DEPENDS_PREFIX" \
@@ -308,17 +303,6 @@ jobs:
           path: ${{ github.workspace }}/combined_logs/
           retention-days: 7
           if-no-files-found: ignore
-
-      # Saved after the tests so the entry is as recent as possible: GitHub
-      # evicts entries unused for 7 days, the same as this job's interval.
-      # The second matrix job fails to reserve the shared key, which is fine.
-      - name: Save Ccache cache
-        if: github.ref == 'refs/heads/master'
-        uses: actions/cache/save@v5
-        continue-on-error: true
-        with:
-          path: ${{ env.CCACHE_DIR }}
-          key: weekly-heavy-linux-x86_64-ccache-${{ github.run_id }}
 
       - name: Stop dangling test processes
         if: always()
@@ -510,6 +494,7 @@ jobs:
           sudo update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix
 
       - name: Setup macOS dependencies
+        timeout-minutes: 15
         if: matrix.config.platform == 'macos'
         env:
           HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1

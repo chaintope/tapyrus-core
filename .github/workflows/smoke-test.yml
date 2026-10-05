@@ -106,6 +106,7 @@ jobs:
           pip3 install pyzmq
 
       - name: Setup macOS Dependencies
+        timeout-minutes: 15
         if: matrix.config.platform == 'macos'
         env:
           HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
