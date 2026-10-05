@@ -1179,14 +1179,9 @@ jobs:
   fuzz-code-only:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    # TARGETS_PER_RUN targets (default 6) times RUN_SECONDS each (default
-    # 600s), plus fixed overhead for checkout/build/artifact-upload -- not
-    # a per-target limit, only a backstop against the whole job hanging.
-    # 6 * 600s = 60 min of fuzzing; a run of 70 min of fuzzing measured
-    # ~76 min wall-clock, so overhead is about 6 min. Adding fuzz targets
-    # lengthens the rotation, not this job; bump this only if
-    # TARGETS_PER_RUN or RUN_SECONDS is raised, keeping
-    # TARGETS_PER_RUN * RUN_SECONDS/60 + ~6 below it.
+    # Backstop against a hang: 60 min of fuzzing plus the build, which took
+    # ~5 min at 7 targets. The 27-target build is unmeasured; re-check this
+    # margin against the first scheduled run.
     timeout-minutes: 105
     env:
       LC_ALL: C.UTF-8
