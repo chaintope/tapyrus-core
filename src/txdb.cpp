@@ -268,6 +268,25 @@ bool CCoinsViewDBCursor::Valid() const
     return keyTmp.first == DB_COIN;
 }
 
+void CCoinsViewDBCursor::SeekIssuedColorIds()
+{
+    pcursor->Seek(std::make_pair(DB_ISSUED_COLORID, std::vector<unsigned char>{}));
+}
+
+bool CCoinsViewDBCursor::GetIssuedColorId(std::vector<unsigned char>& colorId) const
+{
+    std::pair<char, std::vector<unsigned char>> key;
+    if (!pcursor->Valid() || !pcursor->GetKey(key) || key.first != DB_ISSUED_COLORID)
+        return false;
+    colorId = std::move(key.second);
+    return true;
+}
+
+void CCoinsViewDBCursor::NextIssuedColorId()
+{
+    pcursor->Next();
+}
+
 void CCoinsViewDBCursor::Next()
 {
     pcursor->Next();

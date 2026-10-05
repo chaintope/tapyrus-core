@@ -65,10 +65,13 @@ jobs:
           - name: feature_pruning
             scripts:
               - 'feature_pruning.py'
+          # --max-duration lets each dbcrash run keep iterating for up to 2h
+          # until every node has crashed; two runs plus the build fit in the
+          # 6h job limit.
           - name: feature_dbcrash
             scripts:
-              - 'feature_dbcrash.py'
-              - 'feature_dbcrash.py --scheme SCHNORR'
+              - 'feature_dbcrash.py --max-duration=7200'
+              - 'feature_dbcrash.py --scheme SCHNORR --max-duration=7200'
     name: ${{ matrix.config.name }} test (Linux x86_64 RelWithDebInfo)
     runs-on: ubuntu-latest
     # No timeout-minutes set: GitHub-hosted runners hard-cap job execution at
