@@ -1327,10 +1327,9 @@ jobs:
   # CREDENTIALS NEEDED: none -- this job replays already-generated,
   #   already-committed inputs.
   # ARTIFACTS PRODUCED: `fuzz-script-sweep-artifacts-<run-id>` -- every
-  #   candidate Script program actually tested this run, one file each,
-  #   named <batch>_L<line>.txt after its line in the pool's batch file
-  #   (for reproducing a crash; the run's starting offset plus this list
-  #   pins down exactly what was covered).
+  #   candidate Script program actually tested this run (for reproducing
+  #   a crash; the run's starting offset plus this list pins down exactly
+  #   what was covered).
   # --------------------------------------------------------------------
   fuzz-script-sweep:
     if: github.event_name != 'pull_request'

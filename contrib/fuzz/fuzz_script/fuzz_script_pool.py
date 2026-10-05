@@ -55,7 +55,8 @@ class Candidate:
 
     @property
     def export_name(self) -> str:
-        return f"{self.path.stem}_L{self.line_no}.txt"
+        # Zero-padded so a plain sort lists candidates in line order.
+        return f"{self.path.stem}_L{self.line_no:05d}.txt"
 
     def write_to(self, directory: Path) -> Path:
         out = directory / self.export_name
