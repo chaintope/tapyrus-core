@@ -1151,22 +1151,20 @@ jobs:
   #   already covers every PR, and fuzzing is exploration over time, not
   #   a per-change gate).
   #
-  #   Each fuzz_test_file has a large, committed seed-input pool under
-  #   src/test/fuzz/fuzz_seed_pool/<target>/ (one file per seed). Every run selects
-  #   a different `fuzz_slice_batch_size`-sized slice of that pool, keyed
-  #   off the CI run number -- no "mark as used" state written back to
-  #   the repo; a given run number always resolves to the same slice, so
-  #   a crash found by a specific run is trivially reproducible from its
-  #   run number alone. The slice only anchors each run's exploration --
-  #   libFuzzer still mutates outward from it for the full run duration,
-  #   so this is not a replay of fixed inputs.
+  #   Each run fuzzes only `fuzz_targets_per_run` of the targets, walking
+  #   through them one group per UTC day: with N targets, every target runs
+  #   once every ceil(N / fuzz_targets_per_run) days (5 with the default
+  #   of 6 and 27 targets today). Keyed off the day rather than the run
+  #   number, since pull_request runs consume run numbers too.
   #
-  #   Each run also fuzzes only `fuzz_targets_per_run` of the targets, not
-  #   all of them: the selection starts at an offset keyed off the CI run
-  #   number, the same rotation idea as the seed-pool slice above, so
-  #   consecutive runs walk through every target instead of always
-  #   fuzzing the same alphabetical prefix. With the default of 6 and 27
-  #   targets today, every target gets a full run at least every 5 runs.
+  #   Each fuzz_test_file has a large, committed seed-input pool under
+  #   src/test/fuzz/fuzz_seed_pool/<target>/ (one file per seed). Each time
+  #   a target's turn comes round it takes the next
+  #   `fuzz_slice_batch_size`-sized slice of that pool -- no "mark as used"
+  #   state written back to the repo. The run's ::notice:: line records the
+  #   day and cycle, so the selection is reproducible. The slice only anchors
+  #   each run's exploration -- libFuzzer still mutates outward from it for
+  #   the full run duration, so this is not a replay of fixed inputs.
   # TOOLS USED: libFuzzer + ASan/UBSan (compiled into each fuzz_test_file
   #   via `-DSANITIZERS="fuzzer,address,undefined"`);
   #   src/test/fuzz/fuzz_seed_pool/fuzz_code_select_slice.py for the seed-pool
@@ -1234,15 +1232,18 @@ jobs:
             exit 1
           fi
           per_run=$(( TARGETS_PER_RUN < total ? TARGETS_PER_RUN : total ))
-          # Same formula as fuzz_code_select_slice.py: a given run number
-          # always selects the same targets, and consecutive runs walk
-          # through all of them before wrapping.
-          offset=$(( (${{ github.run_number }} * per_run) % total ))
+          # One group of targets per UTC day, so the cycle is exactly
+          # `groups` days. `cycle` counts each target's turns, so its seed
+          # pool advances one slice per turn.
+          day=$(( $(date -u +%s) / 86400 ))
+          groups=$(( (total + per_run - 1) / per_run ))
+          offset=$(( (day % groups) * per_run ))
+          cycle=$(( day / groups ))
           selected=()
           for (( i = 0; i < per_run; i++ )); do
             selected+=("${all_targets[(offset + i) % total]}")
           done
-          echo "::notice::Fuzzing ${per_run} of ${total} targets this run (offset ${offset}): $(for t in "${selected[@]}"; do printf '%s ' "$(basename "${t}")"; done)"
+          echo "::notice::Fuzzing ${per_run} of ${total} targets this run (day ${day}, group $(( day % groups )) of ${groups}, cycle ${cycle}): $(for t in "${selected[@]}"; do printf '%s ' "$(basename "${t}")"; done)"
           for target_path in "${selected[@]}"; do
             target=$(basename "${target_path}")
             pool_dir="src/test/fuzz/fuzz_seed_pool/${target}"
@@ -1250,7 +1251,7 @@ jobs:
             mkdir -p "${pool_dir}" "${corpus_dir}"
 
             python3 src/test/fuzz/fuzz_seed_pool/fuzz_code_select_slice.py \
-              "${pool_dir}" "${SLICE_BATCH_SIZE}" "${{ github.run_number }}" \
+              "${pool_dir}" "${SLICE_BATCH_SIZE}" "${cycle}" \
               --out "${corpus_dir}" 2> >(tee "slice_${target}.log" >&2) || true
             if grep -q '^POOL_EMPTY=1$' "slice_${target}.log"; then
               echo "::warning::${pool_dir} is empty -- ${target} is running with no seed pool this run. Seed it (e.g. from a longer local -max_total_time run) and commit the results."
