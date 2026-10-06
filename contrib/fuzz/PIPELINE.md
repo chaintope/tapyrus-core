@@ -135,7 +135,7 @@ beyond the Claude Code session doing the generation.
 | [`fuzz_code_select_slice.py`](../../src/test/fuzz/fuzz_seed_pool/fuzz_code_select_slice.py) | fuzz_code | daily | Rotates the next seed slice into a libFuzzer target's corpus each time that target is fuzzed |
 | [`fuzz_script_step1_build_verify.py`](fuzz_script/fuzz_script_step1_build_verify.py) | fuzz_script | manual | Builds `tapyrus-verify` with ASan/UBSan into `build_fuzz_verify/`, the same configuration the nightly sweep uses |
 | [`fuzz_script_step2_validate.py`](fuzz_script/fuzz_script_step2_validate.py) | fuzz_script | manual | Runs `tapyrus-verify --fuzz` on each candidate of a new batch file; removes assembler rejects, reports crashes/failures/timeouts as `file:line` -- no git commands |
-| [`fuzz_script_pool.py`](fuzz_script/fuzz_script_pool.py) | fuzz_script | manual + daily | Owns the pool's batch-file format (one program per line); used by step 2 and by `fuzz-script-sweep` to export candidates to temp files |
+| [`fuzz_script_pool.py`](fuzz_script/fuzz_script_pool.py) | fuzz_script | manual + daily + every PR | Owns the pool's batch-file format (one program per line); used by step 2, by `fuzz-script-sweep` to export candidates to temp files, and by `test/lint/lint-fuzz-script-pool.sh` to fail a PR that malforms the pool |
 | [`daily-test.yml`](../../.github/workflows/daily-test.yml): `fuzz-code-only` | fuzz_code | daily | Runs libFuzzer (+ASan/UBSan) against a rotating slice of the landed harnesses, covering all of them across runs -- no AI |
 | [`daily-test.yml`](../../.github/workflows/daily-test.yml): `fuzz-script-sweep` | fuzz_script | daily | Replays a rotating window of the committed Script pool -- no AI |
 

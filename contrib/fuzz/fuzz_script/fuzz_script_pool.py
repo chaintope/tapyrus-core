@@ -25,9 +25,13 @@ daily-test.yml's fuzz-script-sweep job:
   fuzz_script_pool.py list [--prefix P]            print every candidate id
   fuzz_script_pool.py export OUT_DIR [--prefix P]  write each candidate to
                                                    OUT_DIR/<batch>_L<line>.txt
+  fuzz_script_pool.py check                        fail on a malformed pool
+                                                   (run by test/lint/)
 """
 import argparse
+import re
 import sys
+import tempfile
 from pathlib import Path
 from typing import Iterable, List
 
@@ -111,6 +115,57 @@ class ScriptPool:
         return [c for batch in self.batch_files(prefix) for c in batch.candidates()]
 
 
+class PoolChecker:
+    """Format checks cheap enough for the lint job, so a malformed batch
+    fails its PR instead of the nightly sweep. Does not assemble programs:
+    that needs a tapyrus-verify build (fuzz_script_step2_validate.py)."""
+    BATCH_NAME = re.compile(r"^[0-9]{8}_[a-z0-9_]+\.txt$")
+    ALLOWED_OTHER_FILES = {"README.md"}
+
+    def __init__(self, pool: ScriptPool):
+        self.pool = pool
+        self.errors: List[str] = []
+
+    def run(self) -> List[str]:
+        self.errors = []
+        self._check_file_names()
+        total = 0
+        for batch in self.pool.batch_files():
+            try:
+                count = len(batch.candidates())
+            except UnicodeDecodeError as e:
+                self.errors.append(f"{batch.path.name}: not valid UTF-8 ({e})")
+                continue
+            if count == 0:
+                self.errors.append(f"{batch.path.name}: holds no programs")
+            total += count
+        if total == 0 and not self.errors:
+            self.errors.append(f"{self.pool.pool_dir}: pool holds no candidates")
+        elif not self.errors:
+            self._check_export(total)
+        return self.errors
+
+    def _check_file_names(self) -> None:
+        for path in sorted(self.pool.pool_dir.iterdir()):
+            if path.name in self.ALLOWED_OTHER_FILES:
+                continue
+            if not path.is_file() or not self.BATCH_NAME.match(path.name):
+                self.errors.append(f"{path.name}: not a batch file; expected <YYYYMMDD>_<batch_slug>.txt")
+
+    def _check_export(self, total: int) -> None:
+        # The sweep job runs candidates from exported files, so check that
+        # path too: one file per candidate, holding exactly its program.
+        with tempfile.TemporaryDirectory() as tmp:
+            out_dir = Path(tmp)
+            for candidate in self.pool.candidates():
+                written = candidate.write_to(out_dir).read_text(encoding="utf-8")
+                if written.strip() != candidate.program:
+                    self.errors.append(f"{candidate.id}: exported file does not hold its program")
+            exported = len(list(out_dir.iterdir()))
+            if exported != total:
+                self.errors.append(f"export wrote {exported} file(s) for {total} candidate(s)")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--pool-dir", type=Path, default=DEFAULT_POOL_DIR)
@@ -120,7 +175,14 @@ def main() -> int:
     export_cmd = sub.add_parser("export", help="write each candidate to its own file")
     export_cmd.add_argument("out_dir", type=Path)
     export_cmd.add_argument("--prefix", default="")
+    sub.add_parser("check", help="fail on a malformed pool")
     args = parser.parse_args()
+
+    if args.command == "check":
+        errors = PoolChecker(ScriptPool(args.pool_dir)).run()
+        for error in errors:
+            print(error, file=sys.stderr)
+        return 1 if errors else 0
 
     candidates = ScriptPool(args.pool_dir).candidates(args.prefix)
     if args.command == "list":

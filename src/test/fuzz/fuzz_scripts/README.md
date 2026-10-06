@@ -7,7 +7,8 @@ comment directly above a program names it, blank lines separate entries
 and sections, and `<empty>` stands for the empty script. A candidate is
 identified as `<batch file>:<line>`. The format is defined in
 `contrib/fuzz/fuzz_script/fuzz_script_pool.py`, which every tool reads
-the pool through.
+the pool through. `test/lint/lint-fuzz-script-pool.sh` checks the format
+on every PR; it does not assemble the programs.
 
 | Batch | Contents |
 | --- | --- |
