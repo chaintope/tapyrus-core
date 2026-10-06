@@ -32,12 +32,15 @@ on:
   # Also run on any change to this workflow file itself, so edits to the
   # heavy/minimum-dependency-versions jobs are validated without waiting
   # for Sunday or triggering the full suite on unrelated pushes/PRs.
+  #
+  # On master only, not on pull_request: feature_pruning alone takes
+  # 3h34m-4h21m, and running the whole suite on every push to a PR that happens
+  # to touch this file is what put 16 multi-hour jobs into the queue twice
+  # over. Validating the edit right after it merges is close enough -- a
+  # mistake here delays the next Sunday run, it does not break a build.
   push:
     branches:
       - master
-    paths:
-      - '.github/workflows/weekly-heavy-tests.yml'
-  pull_request:
     paths:
       - '.github/workflows/weekly-heavy-tests.yml'
 

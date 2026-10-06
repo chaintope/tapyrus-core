@@ -7,8 +7,13 @@ name: Cmake Daily Test
 
 on:
   schedule:
-    # Run daily at 3 AM JST (6 PM UTC previous day)
-    - cron: '0 18 * * *'
+    # 23:43 JST (14:43 UTC). GitHub delays scheduled runs when its shared
+    # infrastructure is busy; on this repo the observed delay is 2h50m-5h54m,
+    # so the previous 18:00 UTC ("3 AM JST") cron was actually starting
+    # between 05:50 and 08:54 JST -- morning, not night. Starting earlier, and
+    # not on the hour (the most congested minute to schedule), keeps the run
+    # inside Japanese night even at the high end of that delay.
+    - cron: '43 14 * * *'
   workflow_dispatch:
     inputs:
       test_branch:
@@ -29,9 +34,14 @@ on:
         type: string
         default: '1800'
 
-  pull_request:
-    branches:
-      - '**'
+# No pull_request trigger: this workflow's matrix is 14 build+test jobs, 4 of
+# them on macOS and the Debug one measured at 2h43m, and it used to run on
+# every push to every PR with no paths filter. The organization is limited to 5
+# concurrent macOS jobs, so one run of this workflow leaves a single macOS slot
+# for every other repository, and two concurrent runs leave none -- measured
+# queue waits of 1h54m-2h45m for the macOS jobs that lost. Per-PR coverage is
+# smoke-test.yml; this workflow now runs on its own schedule and on demand via
+# workflow_dispatch.
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
