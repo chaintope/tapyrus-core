@@ -10,14 +10,23 @@
 #include <validation.h>
 #include <validationinterface.h>
 #include <uint256.h>
+#include <util.h>
+
+#include <algorithm>
 #include <numeric>
 
+uint32_t GetMaxPackageCount()
+{
+    const int64_t ancestors{std::max<int64_t>(1, gArgs.GetArg("-limitancestorcount", DEFAULT_ANCESTOR_LIMIT))};
+    const int64_t descendants{std::max<int64_t>(1, gArgs.GetArg("-limitdescendantcount", DEFAULT_DESCENDANT_LIMIT))};
+    return static_cast<uint32_t>(std::min<int64_t>({int64_t{MAX_PACKAGE_COUNT}, ancestors, descendants}));
+}
 
 bool CheckPackage(const Package& txns, CValidationState& state)
 {
     const unsigned int package_count = txns.size();
 
-    if (package_count > MAX_PACKAGE_COUNT) {
+    if (package_count > GetMaxPackageCount()) {
         return state.Invalid(false, REJECT_PACKAGE_INVALID, "package-too-many-transactions");
     }    const int64_t total_size = std::accumulate(txns.cbegin(), txns.cend(), 0,
                                [](int64_t sum, const auto& tx) { return sum + GetTransactionSize(*tx); });

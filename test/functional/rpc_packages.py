@@ -129,7 +129,16 @@ class RPCPackageTest(BitcoinTestFramework):
         package = self.create_package(26)
         raw_package = [bytes_to_hex_str(x.serialize()) for x in package]
 
-        assert_raises_rpc_error(-8, "Too many transactions in package", node.testmempoolaccept, raw_package)
+        assert_raises_rpc_error(-8, "Too many transactions in package (maximum 25)", node.testmempoolaccept, raw_package)
+
+        self.log.info('Test that a lower ancestor limit caps the package count')
+        self.restart_node(0, self.extra_args[0] + ['-limitancestorcount=5'])
+        node = self.nodes[0]
+        raw_package = [bytes_to_hex_str(x.serialize()) for x in self.create_package(6)]
+        assert_raises_rpc_error(-8, "Too many transactions in package (maximum 5)", node.testmempoolaccept, raw_package)
+        assert_raises_rpc_error(-8, "Too many transactions in package (maximum 5)", node.submitpackage, raw_package)
+        self.restart_node(0, self.extra_args[0])
+        node = self.nodes[0]
 
         # package with txs spending the same input is rejected
         package = self.create_package(5)

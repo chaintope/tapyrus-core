@@ -29,8 +29,14 @@ static_assert(DEFAULT_ANCESTOR_LIMIT >= MAX_PACKAGE_COUNT);
 using Package = std::vector<CTransactionRef>;
 
 using PackageValidationState = std::map<const uint256, const CValidationState >;
+
+/** The largest package accepted: MAX_PACKAGE_COUNT, or less when
+ * -limitancestorcount or -limitdescendantcount is lower, since a package's
+ * transactions can be ancestors of one another. */
+uint32_t GetMaxPackageCount();
+
 /** Context-free package policy checks:
- * 1. The number of transactions cannot exceed MAX_PACKAGE_COUNT.
+ * 1. The number of transactions cannot exceed GetMaxPackageCount().
  * 2. The total size cannot exceed  MAX_PACKAGE_COUNT * 1000
  * 3. If any dependencies exist between transactions, parents must appear before children.
  * 4. Transactions cannot conflict, i.e., spend the same inputs.

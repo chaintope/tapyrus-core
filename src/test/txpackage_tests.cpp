@@ -18,6 +18,23 @@
 #include <validation.h>
 #include <boost/test/unit_test.hpp>
 
+/** Sets -limitancestorcount and -limitdescendantcount for its lifetime,
+ *  then restores the defaults. */
+class PackageLimitArgs
+{
+public:
+    PackageLimitArgs(const std::string& ancestors, const std::string& descendants)
+    {
+        gArgs.ForceSetArg("-limitancestorcount", ancestors);
+        gArgs.ForceSetArg("-limitdescendantcount", descendants);
+    }
+    ~PackageLimitArgs()
+    {
+        gArgs.ForceSetArg("-limitancestorcount", std::to_string(DEFAULT_ANCESTOR_LIMIT));
+        gArgs.ForceSetArg("-limitdescendantcount", std::to_string(DEFAULT_DESCENDANT_LIMIT));
+    }
+};
+
 struct PackageTestSetup: public TestChainSetup
 {
     PackageTestSetup()
@@ -140,6 +157,30 @@ BOOST_FIXTURE_TEST_CASE(package_sanitization_tests, PackageTestSetup)
     BOOST_CHECK(!CheckPackage(package_too_many, state_too_many));
     BOOST_CHECK_EQUAL(state_too_many.GetRejectCode(), REJECT_PACKAGE_INVALID);
     BOOST_CHECK_EQUAL(state_too_many.GetRejectReason(), "package-too-many-transactions");
+
+    // A lower ancestor or descendant limit caps the package count; limits
+    // below 1 count as 1, and limits above MAX_PACKAGE_COUNT do not raise it.
+    BOOST_CHECK_EQUAL(GetMaxPackageCount(), MAX_PACKAGE_COUNT);
+    {
+        const PackageLimitArgs limits{"25", "5"};
+        BOOST_CHECK_EQUAL(GetMaxPackageCount(), 5U);
+    }
+    {
+        const PackageLimitArgs limits{"0", "25"};
+        BOOST_CHECK_EQUAL(GetMaxPackageCount(), 1U);
+    }
+    {
+        const PackageLimitArgs limits{"100", "100"};
+        BOOST_CHECK_EQUAL(GetMaxPackageCount(), MAX_PACKAGE_COUNT);
+    }
+    {
+        const PackageLimitArgs limits{"10", "25"};
+        BOOST_CHECK_EQUAL(GetMaxPackageCount(), 10U);
+        Package package_over_ancestor_limit(package_too_many.begin(), package_too_many.begin() + 11);
+        CValidationState state_over_limit;
+        BOOST_CHECK(!CheckPackage(package_over_ancestor_limit, state_over_limit));
+        BOOST_CHECK_EQUAL(state_over_limit.GetRejectReason(), "package-too-many-transactions");
+    }
 
     // Packages can't contain transactions with the same txid.
     Package package_duplicate_txids_empty;
