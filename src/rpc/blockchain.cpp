@@ -820,6 +820,7 @@ struct CCoinsStats
     uint64_t nTransactionOutputs;
     uint64_t nBogoSize;
     uint256 hashSerialized;
+    uint256 hashIssuedColorIds;
     uint64_t nDiskSize;
     TxColoredCoinBalancesMap mTotalAmount;
 
@@ -877,13 +878,16 @@ static bool GetUTXOStats(CCoinsViewDB *view, CCoinsStats &stats)
     if (!outputs.empty()) {
         ApplyStats(stats, ss, prevkey, outputs);
     }
-    // Issued NON_REISSUABLE/NFT colorIds are consensus state in the same
-    // database, so they belong in the hash; keys come back in stored order.
+    stats.hashSerialized = ss.GetHash();
+    // Issued NON_REISSUABLE/NFT colorIds get their own hash so that
+    // hash_serialized_3 keeps describing the coins alone. Read from the same
+    // database snapshot as the coins; keys come back in stored order.
+    CHashWriter ss_colorids(SER_GETHASH, PROTOCOL_VERSION);
     std::vector<unsigned char> colorId;
     for (pcursor->SeekIssuedColorIds(); pcursor->GetIssuedColorId(colorId); pcursor->NextIssuedColorId()) {
-        ss << colorId;
+        ss_colorids << colorId;
     }
-    stats.hashSerialized = ss.GetHash();
+    stats.hashIssuedColorIds = ss_colorids.GetHash();
     stats.nDiskSize = view->EstimateSize();
     return true;
 }
@@ -951,7 +955,8 @@ static UniValue gettxoutsetinfo(const JSONRPCRequest& request)
             "  \"transactions\": n,      (numeric) The number of transactions with unspent outputs\n"
             "  \"txouts\": n,            (numeric) The number of unspent transaction outputs\n"
             "  \"bogosize\": n,          (numeric) A meaningless metric for UTXO set size\n"
-            "  \"hash_serialized_3\": \"hash\", (string) The serialized hash of the UTXO set and the issued colorIds\n"
+            "  \"hash_serialized_3\": \"hash\", (string) The serialized hash of the UTXO set\n"
+            "  \"issued_colorids_hash\": \"hash\", (string) The hash of the issued NON_REISSUABLE and NFT colorIds\n"
             "  \"disk_size\": n,         (numeric) The estimated size of the chainstate on disk\n"
             "  \"total_amount\": x.xxx          (numeric) The total amount\n"
             "}\n"
@@ -971,6 +976,7 @@ static UniValue gettxoutsetinfo(const JSONRPCRequest& request)
         ret.pushKV("txouts", (int64_t)stats.nTransactionOutputs);
         ret.pushKV("bogosize", (int64_t)stats.nBogoSize);
         ret.pushKV("hash_serialized_3", stats.hashSerialized.GetHex());
+        ret.pushKV("issued_colorids_hash", stats.hashIssuedColorIds.GetHex());
         ret.pushKV("disk_size", stats.nDiskSize);
 
         UniValue amount(UniValue::VOBJ);
