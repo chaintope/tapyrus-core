@@ -20,6 +20,8 @@
 
 using namespace std::chrono_literals;
 
+TimeOffsets outbound_time_offsets;
+
  void TimeOffsets::Add(std::chrono::seconds offset)
  {
      LOCK(m_mutex);
