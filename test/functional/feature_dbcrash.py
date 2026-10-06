@@ -15,7 +15,7 @@
   tip height.
 
 - Main loop, repeated until node0-2 have all crashed and one crash happened
-  during recovery, or --max-duration seconds have passed:
+  during recovery:
   * generate lots of TPC transactions on node3, enough to fill up a block.
   * generate colored-coin operations on node3 (issue NON_REISSUABLE + NFT,
     transfer confirmed colored UTXOs, burn confirmed colored UTXOs).  These
@@ -29,13 +29,17 @@
        * submit block to node
        * if node crashed on/after submitting:
          - restart until recovery succeeds
-         - check that utxo matches node3 using gettxoutsetinfo
+         - check that the utxo set and issued colorIds match node3 using
+           gettxoutsetinfo
 
-- Colorid loop, with whatever time the main loop left: restart node0-2 on the
-  minimum -dbcache (same crash ratios), then repeatedly
-  mine one colorid-heavy block (many NON_REISSUABLE + NFT issuances) on node3
-  and sync it the same way, until every node has crashed doing so. The utxo
-  hash compared after each restart also covers the issued colorIds."""
+- Colorid loop: restart node0-2 on the minimum -dbcache (same crash ratios),
+  then repeatedly mine one colorid-heavy block (many NON_REISSUABLE + NFT
+  issuances) on node3 and sync it the same way, until every node has crashed
+  doing so.
+
+Neither loop has a time limit of its own: a run that never reaches coverage
+is stopped by the caller (the weekly workflow's job timeout, or
+test_runner.py's --test-timeout)."""
 
 import errno
 import http.client
@@ -46,7 +50,7 @@ import time
 from test_framework.messages import COIN, COutPoint, CTransaction, CTxIn, CTxOut, ToHex
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, create_confirmed_utxos, hex_str_to_bytes
-from test_framework.timeout_config import TAPYRUSD_P2P_TIMEOUT, TAPYRUSD_PROC_TIMEOUT, TOTAL_TEST_DURATION
+from test_framework.timeout_config import TAPYRUSD_P2P_TIMEOUT, TAPYRUSD_PROC_TIMEOUT
 
 # Intentionally tiny — overrides the default 32 MiB (bitcoin/bitcoin#31645) to
 # force frequent small write batches, maximising crash opportunities in this test.
@@ -93,22 +97,22 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
         self.node3_args = ["-blockmaxsize=1000000"]
         self.extra_args = [self.node0_args, self.node1_args, self.node2_args, self.node3_args]
 
-    def add_options(self, parser):
-        parser.add_argument("--max-duration", dest="max_duration", type=int, default=TOTAL_TEST_DURATION,
-                            help="Seconds since the test started after which no new main-loop iteration "
-                                 "starts; until then the loop runs until every node has crashed "
-                                 "(default: %(default)s)")
-
     def setup_network(self):
         self.add_nodes(self.num_nodes, extra_args=self.extra_args)
         self.start_nodes()
         # Leave them unconnected, we'll use submitblock directly in this test
 
+    @staticmethod
+    def chainstate_hashes(node):
+        """The utxo set hash and the issued colorIds hash; both must match."""
+        res = node.gettxoutsetinfo()
+        return res['hash_serialized_3'], res['issued_colorids_hash']
+
     def restart_node(self, node_index, expected_tip):
-        """Start up a given node id, wait for the tip to reach the given block hash, and calculate the utxo hash.
+        """Start up a given node id, wait for the tip to reach the given block hash, and calculate the chainstate hashes.
 
         Exceptions on startup should indicate node crash (due to -dbcrashratio), in which case we try again. Give up
-        after TAPYRUSD_PROC_TIMEOUT seconds. Returns the utxo hash of the given node."""
+        after TAPYRUSD_PROC_TIMEOUT seconds. Returns chainstate_hashes() of the given node."""
 
         time_start = time.time()
         while time.time() - time_start < TAPYRUSD_PROC_TIMEOUT:
@@ -116,8 +120,7 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
                 # Any of these RPC calls could throw due to node crash
                 self.start_node(node_index)
                 self.nodes[node_index].waitforblock(expected_tip)
-                utxo_hash = self.nodes[node_index].gettxoutsetinfo()['hash_serialized_3']
-                return utxo_hash
+                return self.chainstate_hashes(self.nodes[node_index])
             except:
                 # An exception here should mean the node is about to crash.
                 # If bitcoind exits, then try again.  wait_for_node_exit()
@@ -168,7 +171,7 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
         If any nodes crash while updating, we'll compare utxo hashes to
         ensure recovery was successful."""
 
-        node3_utxo_hash = self.nodes[3].gettxoutsetinfo()['hash_serialized_3']
+        node3_utxo_hash = self.chainstate_hashes(self.nodes[3])
 
         # Retrieve all the blocks from node3
         blocks = []
@@ -210,12 +213,12 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
         """Verify that the utxo hash of each node matches node3.
 
         Restart any nodes that crash while querying."""
-        node3_utxo_hash = self.nodes[3].gettxoutsetinfo()['hash_serialized_3']
-        self.log.info("Verifying utxo hash matches for all nodes: " +  node3_utxo_hash)
+        node3_utxo_hash = self.chainstate_hashes(self.nodes[3])
+        self.log.info("Verifying utxo and issued colorIds hashes match for all nodes: %s", node3_utxo_hash)
 
         for i in range(3):
             try:
-                nodei_utxo_hash = self.nodes[i].gettxoutsetinfo()['hash_serialized_3']
+                nodei_utxo_hash = self.chainstate_hashes(self.nodes[i])
             except OSError:
                 # probably a crash on db flushing
                 nodei_utxo_hash = self.restart_node(i, self.nodes[3].getbestblockhash())
@@ -375,9 +378,6 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
         """Every node has crashed while syncing a colorid-heavy block."""
         return all(c > 0 for c in self.colorid_restart_counts)
 
-    def time_remains(self, start_time):
-        return time.time() - start_time < self.options.max_duration
-
     def switch_to_colorid_loop_args(self):
         """Restart node0-2 with the colorid loop's cache and crash settings."""
         tip = self.nodes[3].getbestblockhash()
@@ -395,7 +395,6 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
             self.colorid_restart_counts[i] += self.restart_counts[i] - before[i]
 
     def run_test(self):
-        start_time = time.time()
         # Track test coverage statistics
         self.restart_counts = [0, 0, 0]  # Track the restarts for nodes 0-2
         self.colorid_restart_counts = [0, 0, 0]  # Restarts during the colorid loop
@@ -421,10 +420,11 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
         # each time through the loop, generate a bunch of transactions,
         # and then either mine a single new block on the tip, or some-sized reorg.
         # The node with the largest -dbcache may need many iterations before its
-        # cache fills up and it flushes, so run until coverage or time runs out.
+        # cache fills up and it flushes, so run until coverage.
         i = 0
-        while not self.coverage_achieved() and self.time_remains(start_time):
-            self.log.info("Iteration %d, generating 1000 TPC + colored transactions %s", i, self.restart_counts)
+        while not self.coverage_achieved():
+            self.log.info("Iteration %d, generating 1000 TPC + colored transactions; restarts %s, crashes on restart %d",
+                          i, self.restart_counts, self.crashed_on_restart)
             # Generate colored coin operations first, while confirmed TPC UTXOs are
             # still available.  generate_small_transactions would otherwise spend every
             # confirmed UTXO into the mempool before colored tx can find any.
@@ -456,10 +456,7 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
             self.log.debug("Node3 utxo count: %d", len(utxo_list))
             i += 1
 
-        if self.coverage_achieved():
-            self.log.info("Coverage achieved after %d iterations", i)
-        else:
-            self.log.info("Time budget of %ds used up after %d iterations", self.options.max_duration, i)
+        self.log.info("Coverage achieved after %d iterations", i)
 
         # Check that the utxo hashes agree with node3
         # Useful side effect: each utxo cache gets flushed here, so that we
@@ -468,36 +465,20 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
 
         # Colorid loop: colorid-heavy blocks need a flush while their colorId
         # state is dirty, which the main loop's cache sizes rarely produce.
-        # It gets whatever time the main loop left.
         self.log.info("Colorid loop: restarting node0-2 with %s", self.colorid_loop_args)
         self.switch_to_colorid_loop_args()
         j = 0
-        while not self.colorid_coverage_achieved() and self.time_remains(start_time):
+        while not self.colorid_coverage_achieved():
             self.log.info("Colorid iteration %d, colorid-heavy restarts %s", j, self.colorid_restart_counts)
             self.sync_colorid_heavy_block()
             j += 1
 
-        if self.colorid_coverage_achieved():
-            self.log.info("Colorid coverage achieved after %d iterations", j)
-        else:
-            self.log.info("Time budget of %ds used up after %d colorid iterations", self.options.max_duration, j)
+        self.log.info("Colorid coverage achieved after %d iterations", j)
 
         self.verify_utxo_hash()
 
-        # Check the test coverage
         self.log.info("Restarted nodes: %s; colorid-heavy restarts: %s; crashes on restart: %d",
                       self.restart_counts, self.colorid_restart_counts, self.crashed_on_restart)
-
-        # Every dbcrashratio tier must have flushed at least once under a crash.
-        assert all(c > 0 for c in self.restart_counts), \
-            f"Some nodes never crashed during UTXO flush: {self.restart_counts}"
-
-        # Every node must also have crashed while flushing colorid-heavy state.
-        assert all(c > 0 for c in self.colorid_restart_counts), \
-            f"Some nodes never crashed while syncing a colorid-heavy block: {self.colorid_restart_counts}"
-
-        # Make sure we tested the case of crash-during-recovery.
-        assert self.crashed_on_restart > 0
 
 if __name__ == "__main__":
     ChainstateWriteCrashTest().main()
