@@ -1154,8 +1154,11 @@ jobs:
   #   Each run fuzzes only `fuzz_targets_per_run` of the targets, walking
   #   through them one group per UTC day: with N targets, every target runs
   #   once every ceil(N / fuzz_targets_per_run) days (5 with the default
-  #   of 6 and 27 targets today). Keyed off the day rather than the run
-  #   number, since pull_request runs consume run numbers too.
+  #   of 6 and 27 targets today; the last group is short rather than
+  #   wrapping, so no target gets a second turn in a cycle). Keyed off the
+  #   day rather than the run number, since pull_request runs consume run
+  #   numbers too. The day is read at job start, so a build that runs past
+  #   00:00 UTC can't shift the night onto the next day's group.
   #
   #   Each fuzz_test_file has a large, committed seed-input pool under
   #   src/test/fuzz/fuzz_seed_pool/<target>/ (one file per seed). Each time
@@ -1189,6 +1192,9 @@ jobs:
       SLICE_BATCH_SIZE: ${{ inputs.fuzz_slice_batch_size || '5' }}
       TARGETS_PER_RUN: ${{ inputs.fuzz_targets_per_run || '6' }}
     steps:
+      # Read the UTC day before the build, which can run past midnight.
+      - name: Pin the target rotation day
+        run: echo "FUZZ_DAY=$(( $(date -u +%s) / 86400 ))" >> $GITHUB_ENV
       - uses: actions/checkout@v5
         with:
           ref: ${{ github.event.inputs.test_branch || github.ref || 'master' }}
@@ -1228,17 +1234,20 @@ jobs:
           fi
           per_run=$(( TARGETS_PER_RUN < total ? TARGETS_PER_RUN : total ))
           # One group of targets per UTC day, so the cycle is exactly
-          # `groups` days. `cycle` counts each target's turns, so its seed
-          # pool advances one slice per turn.
-          day=$(( $(date -u +%s) / 86400 ))
+          # `groups` days. The last group is short instead of wrapping, so
+          # each target runs once per cycle and `cycle` is its turn count,
+          # advancing its seed pool one slice per turn.
+          day="${FUZZ_DAY}"
           groups=$(( (total + per_run - 1) / per_run ))
           offset=$(( (day % groups) * per_run ))
+          end=$(( offset + per_run > total ? total : offset + per_run ))
           cycle=$(( day / groups ))
           selected=()
-          for (( i = 0; i < per_run; i++ )); do
-            selected+=("${all_targets[(offset + i) % total]}")
+          for (( i = offset; i < end; i++ )); do
+            selected+=("${all_targets[i]}")
           done
-          echo "::notice::Fuzzing ${per_run} of ${total} targets this run (day ${day}, group $(( day % groups )) of ${groups}, cycle ${cycle}): $(for t in "${selected[@]}"; do printf '%s ' "$(basename "${t}")"; done)"
+          echo "::notice::Fuzzing ${#selected[@]} of ${total} targets this run (day ${day}, group $(( day % groups )) of ${groups}, cycle ${cycle}): $(for t in "${selected[@]}"; do printf '%s ' "$(basename "${t}")"; done)"
+          empty_pools=()
           for target_path in "${selected[@]}"; do
             target=$(basename "${target_path}")
             pool_dir="src/test/fuzz/fuzz_seed_pool/${target}"
@@ -1249,7 +1258,7 @@ jobs:
               "${pool_dir}" "${SLICE_BATCH_SIZE}" "${cycle}" \
               --out "${corpus_dir}" 2> >(tee "slice_${target}.log" >&2) || true
             if grep -q '^POOL_EMPTY=1$' "slice_${target}.log"; then
-              echo "::warning::${pool_dir} is empty -- ${target} is running with no seed pool this run. Seed it (e.g. from a longer local -max_total_time run) and commit the results."
+              empty_pools+=("${target}")
             fi
             if grep -q '^CYCLE_COMPLETE=1$' "slice_${target}.log"; then
               echo "::notice::${pool_dir} completed a full rotation cycle this run."
@@ -1270,6 +1279,10 @@ jobs:
             comm -23 <(ls "${corpus_dir}" | sort) <(ls "${pool_dir}" 2>/dev/null | sort) \
               | while read -r f; do cp "${corpus_dir}/${f}" "${new_dir}/"; done
           done
+          # One line rather than one per target while the pools are still empty.
+          if (( ${#empty_pools[@]} > 0 )); then
+            echo "::warning::${#empty_pools[@]} of ${#selected[@]} targets ran with no seed pool: ${empty_pools[*]}. Seed src/test/fuzz/fuzz_seed_pool/<target>/ (e.g. from a longer local -max_total_time run) and commit the results."
+          fi
       - uses: actions/upload-artifact@v6
         if: always()
         with:
