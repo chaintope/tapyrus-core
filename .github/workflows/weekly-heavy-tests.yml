@@ -68,11 +68,12 @@ jobs:
               - 'feature_dbcrash.py --scheme SCHNORR'
     name: ${{ matrix.config.name }} test (Linux x86_64 RelWithDebInfo)
     runs-on: ubuntu-latest
-    # No timeout-minutes set: GitHub-hosted runners hard-cap job execution at
-    # 6 hours regardless of any value configured here, so anything above that
-    # is dead configuration. Each test now runs in its own matrix job (not
-    # sharing a job, and without a TIMEOUT-retry from another test eating
-    # into the budget), comfortably fitting within that 6h ceiling.
+    # 5.5h, same as build-from-scratch: a real timeout fails legibly, while
+    # GitHub-hosted runners' 6h hard cap kills the job with a lost-runner
+    # style error. The 30 minutes below the cap leave room for the failure
+    # log steps. feature_pruning, the slowest, has taken up to 261 min
+    # including its uncached Tapyrus build.
+    timeout-minutes: 330
     env:
       BASE_ROOT_DIR: ${{ github.workspace }}
       BASE_BUILD_DIR: ${{ github.workspace }}/build
@@ -260,9 +261,9 @@ jobs:
       #     fi
 
       - name: Print full combined logs (on failure)
-        # A job hitting the 6h GitHub-hosted-runner ceiling ends with
-        # conclusion "cancelled", not "failure" -- exactly the case this step
-        # exists for, so it must run on both.
+        # A job that times out (timeout-minutes or the 6h GitHub-hosted-runner
+        # cap) can end as "cancelled" rather than "failure" -- exactly the
+        # case this step exists for, so it must run on both.
         if: failure() || cancelled()
         run: |
           # Each script is invoked directly (not through test_runner.py), so
