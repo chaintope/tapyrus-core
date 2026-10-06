@@ -36,7 +36,6 @@ public:
     bool WarnIfOutOfSync() const EXCLUSIVE_LOCKS_REQUIRED(!m_mutex);
 };
 
-// Ectracted from timedata file that was removed
 /**
  * "Never go to sea with two chronometers; take one or three."
  * Our three time sources are:
@@ -44,6 +43,6 @@ public:
  *  - Median of other nodes clocks
  *  - The user (asking the user to fix the system clock if the first two disagree)
  */
-static TimeOffsets outbound_time_offsets;
+extern TimeOffsets outbound_time_offsets;
 
 #endif // TAPYRUS_TIMEOFFSETS_H
