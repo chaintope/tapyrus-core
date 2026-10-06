@@ -690,11 +690,11 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         if (!tx.IsCoinBase()) {
             std::set<ColorIdentifier> newIssuances;
             if (!VerifyTokenBalances(tx, state, view, txfee, !fJustCheck ? &newIssuances : nullptr, pindex->nHeight))
-                // FormatStateMessage is evaluated before DoS() overwrites state, preserving
-                // the per-tx detail in the log while enforcing DoS 100 at the block level.
+                // Enforces DoS 100 at the block level and keeps VerifyTokenBalances'
+                // reject reason, so a block is rejected for the same reason as its tx.
                 return state.DoS(100, error("ConnectBlock(): VerifyTokenBalances on %s failed with %s",
                     tx.GetHashMalFix().ToString(), FormatStateMessage(state)),
-                    REJECT_INVALID, "bad-txns-token-balance");
+                    REJECT_INVALID, state.GetRejectReason());
             allNewIssuances.insert(newIssuances.begin(), newIssuances.end());
         }
 

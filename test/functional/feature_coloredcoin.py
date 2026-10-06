@@ -66,14 +66,18 @@ Consensus rule / attack-scenario tests (run after the above):
      — REISSUABLE, NON_REISSUABLE, NFT
   7. Colored issue using genesis coinbase outpoint as input
      — NON_REISSUABLE, NFT
+  8. Per-colorId input sum above MAX_MONEY (bad-txns-inputvalues-outofrange)
+     — REISSUABLE only (the others cannot be issued twice)
+  9. Per-colorId input sum that overflows int64, all tokens burned
+     — REISSUABLE only; block paths only, the tx is above the standard size
 
 Valid multi-op scenarios (all in one transaction):
-  8.  One issue + one transfer + one burn
-  9.  Two token types issued from the same TPC input
-  10. Two issues + one burn
-  11. Two transfers + one burn
-  12. One transfer + two burns
-  13. Three burns
+  10. One issue + one transfer + one burn
+  11. Two token types issued from the same TPC input
+  12. Two issues + one burn
+  13. Two transfers + one burn
+  14. One transfer + two burns
+  15. Three burns
 
 Each attack scenario is verified across all submission paths:
   - RPC sendrawtransaction (mempool acceptance)
@@ -103,7 +107,7 @@ from test_framework.util import (
     MagicBytes, wait_until,
 )
 from test_framework.script import (
-    CScript, OP_COLOR, OP_1, hash160,
+    CScript, OP_COLOR, OP_1, OP_TRUE, hash160,
     OP_DUP, OP_HASH160, OP_EQUALVERIFY, OP_CHECKSIG,
     SignatureHash, SIGHASH_ALL, OP_EQUAL,
 )
@@ -111,6 +115,8 @@ from test_framework.script import (
 REISSUABLE     = 0xc1
 NON_REISSUABLE = 0xc2
 NFT            = 0xc3
+
+MAX_MONEY = 21000000 * COIN
 
 TOKEN_TYPE_NUM  = {REISSUABLE: 1, NON_REISSUABLE: 2, NFT: 3}
 TOKEN_TYPE_NAME = {REISSUABLE: 'REISSUABLE', NON_REISSUABLE: 'NON_REISSUABLE', NFT: 'NFT'}
@@ -305,6 +311,33 @@ class ColoredCoinTest(BitcoinTestFramework):
         block.hashImMerkleRoot = block.calc_immutable_merkle_root()
         block.solve(self.signblockprivkey)
         return block
+
+    def wrap_txs_in_block(self, txs, time_offset=0):
+        """Build and sign a block on the current tip holding the given CTransactions."""
+        tip_hash = self.nodes[0].getbestblockhash()
+        tip_height = self.nodes[0].getblockcount()
+        block_time = self.nodes[0].getblock(tip_hash)['time'] + 1 + time_offset
+
+        block = create_block(int(tip_hash, 16), create_coinbase(tip_height + 1), block_time)
+        block.vtx.extend(txs)
+        block.hashMerkleRoot = block.calc_merkle_root()
+        block.hashImMerkleRoot = block.calc_immutable_merkle_root()
+        block.solve(self.signblockprivkey)
+        return block
+
+    def submit_block_accepted(self, txs):
+        block = self.wrap_txs_in_block(txs)
+        result = self.nodes[0].submitblock(bytes_to_hex_str(block.serialize()))
+        assert result is None, "Expected block to be accepted, got: %s" % result
+        assert_equal(self.nodes[0].getbestblockhash(), block.hash)
+
+    def assert_block_paths_reject(self, tx, error):
+        """The block-level rejection checks of assert_all_paths_reject, for a
+        transaction the mempool would refuse on standardness before validation."""
+        self.assert_block_rejected_rpc(self.wrap_txs_in_block([tx], time_offset=0), error)
+        self.assert_block_rejected_p2p(self.wrap_txs_in_block([tx], time_offset=1), method='block')
+        self.assert_block_rejected_p2p(self.wrap_txs_in_block([tx], time_offset=2), method='compact')
+        self.assert_block_rejected_loadblock(self.wrap_txs_in_block([tx], time_offset=3))
 
     def assert_tx_rejected_mempool(self, signed_hex, expected_fragment):
         assert_raises_rpc_error(-26, expected_fragment,
@@ -774,6 +807,100 @@ class ColoredCoinTest(BitcoinTestFramework):
         assert not any(u['token'] == r_result['color']   for u in utxos), "REISSUABLE should be burned"
         assert not any(u['token'] == nr_result['color']  for u in utxos), "NON_REISSUABLE should be burned"
         assert not any(u['token'] == nft_result['color'] for u in utxos), "NFT should be burned"
+
+    def test_colorid_input_sum_over_max_money(self):
+        """
+        Attack: spend two REISSUABLE coins whose amounts are each in range but
+        sum to more than MAX_MONEY, burning half so the outputs stay valid.
+        Expected: bad-txns-inputvalues-outofrange
+        """
+        self.log.info("Test: per-colorId input sum above MAX_MONEY")
+        node = self.nodes[0]
+        pubkey_hash = self.get_pubkey_hash()
+
+        # Two TPC coins on one address share a scriptPubKey, so both issue the
+        # same REISSUABLE colorId.
+        address = node.getnewaddress()
+        node.sendtoaddress(address, 10)
+        node.sendtoaddress(address, 10)
+        node.generate(1, self.signblockprivkey_wif)
+        sources = [u for u in node.listunspent() if u['address'] == address and u['token'] == 'TPC']
+        assert_equal(len(sources), 2)
+        cid = colorIdReissuable(hex_str_to_bytes(sources[0]['scriptPubKey']))
+
+        # Each issuance stays under MAX_MONEY together with its TPC change.
+        half = MAX_MONEY // 2 + 1
+        for source in sources:
+            raw = self.make_colored_issuance_tx(half, source, cid, pubkey_hash)
+            node.sendrawtransaction(sign_and_get_hex(node, raw))
+        node.generate(1, self.signblockprivkey_wif)
+
+        colored = [u for u in node.listunspent() if u['token'] == bytes_to_hex_str(cid)]
+        assert_equal(len(colored), 2)
+        tpc_utxo = self.get_spendable_utxo()
+
+        tx = CTransaction()
+        for utxo in colored + [tpc_utxo]:
+            tx.vin.append(CTxIn(COutPoint(int(utxo['txid'], 16), utxo['vout']), b'', 0xffffffff))
+        tx.vout.append(CTxOut(half, colored_p2pkh_script(cid, pubkey_hash)))
+        tx.vout.append(self.tpc_change_output(tpc_utxo, pubkey_hash))
+
+        signed = sign_and_get_hex(node, ToHex(tx))
+        self.assert_all_paths_reject(signed, "bad-txns-inputvalues-outofrange")
+
+    def test_colorid_input_sum_int64_overflow(self):
+        """
+        Attack: spend enough REISSUABLE coins of MAX_MONEY that an unchecked
+        per-colorId sum wraps a signed 64-bit value, burning all of them so no
+        output balance check sees the wrapped sum. The transaction is far
+        above the standard size, so only the block paths apply.
+        Expected: bad-txns-inputvalues-outofrange
+
+        Every coin is P2SH or CP2SH over an OP_TRUE redeem script, so no input
+        needs a signature and the setup transactions go straight into blocks.
+        """
+        self.log.info("Test: per-colorId input sum that overflows int64")
+        node = self.nodes[0]
+        redeem = CScript([OP_TRUE])
+        unlock = CScript([bytes(redeem)])
+        p2sh_spk = CScript([OP_HASH160, hash160(redeem), OP_EQUAL])
+        cid = colorIdReissuable(p2sh_spk)
+        cp2sh_spk = CScript([cid, OP_COLOR, OP_HASH160, hash160(redeem), OP_EQUAL])
+
+        count = (2**63 - 1) // MAX_MONEY + 1
+        coin_value = 10000
+
+        # One P2SH(OP_TRUE) coin from the wallet, fanned out into one TPC coin
+        # per issuance plus one for the final spend's fee.
+        fund_txid = node.sendtoaddress(node.decodescript(bytes_to_hex_str(redeem))['p2sh'], 1)
+        node.generate(1, self.signblockprivkey_wif)
+        fund_tx = FromHex(CTransaction(), node.gettransaction(fund_txid)['hex'])
+        fund_vout = next(i for i, out in enumerate(fund_tx.vout) if out.scriptPubKey == p2sh_spk)
+
+        fanout = CTransaction()
+        fanout.vin.append(CTxIn(COutPoint(int(fund_txid, 16), fund_vout), unlock, 0xffffffff))
+        fanout.vout = [CTxOut(coin_value, p2sh_spk) for _ in range(count + 1)]
+        fanout.rehash()
+        self.submit_block_accepted([fanout])
+
+        # Each issuance spends its TPC coin entirely as fee and issues MAX_MONEY.
+        issuances = []
+        for k in range(count):
+            issue = CTransaction()
+            issue.vin.append(CTxIn(COutPoint(fanout.malfixsha256, k), unlock, 0xffffffff))
+            issue.vout.append(CTxOut(MAX_MONEY, cp2sh_spk))
+            issue.rehash()
+            issuances.append(issue)
+        self.submit_block_accepted(issuances)
+
+        spend = CTransaction()
+        for issue in issuances:
+            spend.vin.append(CTxIn(COutPoint(issue.malfixsha256, 0), unlock, 0xffffffff))
+        spend.vin.append(CTxIn(COutPoint(fanout.malfixsha256, count), unlock, 0xffffffff))
+        spend.vout.append(CTxOut(coin_value // 2, p2sh_spk))
+        spend.rehash()
+
+        self.assert_block_paths_reject(spend, "bad-txns-inputvalues-outofrange")
 
     def test_colored_script_in_genesis_coinbase(self):
         """
@@ -1370,6 +1497,10 @@ class ColoredCoinTest(BitcoinTestFramework):
         # Attack scenario 7: colored issue using genesis coinbase outpoint
         self.test_colored_issue_from_genesis_coinbase()
         node.generate(1, self.signblockprivkey_wif)
+
+        # Attack scenario 8 & 9: per-colorId input sum out of range
+        self.test_colorid_input_sum_over_max_money()
+        self.test_colorid_input_sum_int64_overflow()
 
         # Valid multi-op scenarios
         self.test_multi_op_issue_transfer_burn()
