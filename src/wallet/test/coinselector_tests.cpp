@@ -619,4 +619,39 @@ BOOST_AUTO_TEST_CASE(SelectCoins_for_colored_coin_selection_test)
     BOOST_CHECK_EQUAL(nValueRet, 10 * CENT);
 }
 
+BOOST_AUTO_TEST_CASE(token_coin_selection_test)
+{
+    const ColorIdentifier colorId(ParseHex("c11863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262"));
+    const CScript tokenScript = CScript() << colorId.toVector() << OP_COLOR << OP_DUP << OP_HASH160 << ParseHex("1018853670f9f3b0582c5b9ee8ce93764ac32b93") << OP_EQUALVERIFY << OP_CHECKSIG;
+    CoinSelectionParams bnb_params(true, 0, 0, CFeeRate(3000), 0);
+    CoinSet setCoinsRet;
+    CAmount nValueRet;
+    bool bnb_used;
+
+    // BnB counts a token coin at its token amount: TPC fees do not reduce it,
+    // so coins smaller than their input fee (444 at this fee rate) still count.
+    empty_wallet();
+    for (const CAmount amount : {CAmount{10}, CAmount{20}, CAmount{30}}) {
+        add_coin(amount, 6*24, false, 0, tokenScript);
+        vCoins.back().nInputBytes = 148;
+    }
+    BOOST_CHECK(testWallet.SelectCoinsMinConf(50, filter_standard, GroupCoins(vCoins), setCoinsRet, nValueRet, bnb_params, bnb_used, colorId));
+    BOOST_CHECK(bnb_used);
+    BOOST_CHECK_EQUAL(nValueRet, 50);
+
+    // Token excess cannot become fee, so BnB accepts only an exact match.
+    BOOST_CHECK(!testWallet.SelectCoinsMinConf(25, filter_standard, GroupCoins(vCoins), setCoinsRet, nValueRet, bnb_params, bnb_used, colorId));
+    BOOST_CHECK(bnb_used);
+
+    // Knapsack adds no MIN_CHANGE to a token target, so it takes the closest
+    // set (10,500,000) rather than a larger coin that leaves more change.
+    empty_wallet();
+    for (const CAmount amount : {CAmount{5000000}, CAmount{5500000}, CAmount{12000000}}) {
+        add_coin(amount, 6*24, false, 0, tokenScript);
+    }
+    BOOST_CHECK(testWallet.SelectCoinsMinConf(10000000, filter_standard, GroupCoins(vCoins), setCoinsRet, nValueRet, coin_selection_params, bnb_used, colorId));
+    BOOST_CHECK(!bnb_used);
+    BOOST_CHECK_EQUAL(nValueRet, 10500000);
+}
+
 BOOST_AUTO_TEST_SUITE_END()
