@@ -6,9 +6,14 @@
 name: Cmake Smoke Test
 
 on:
+  # push on master only. Every PR to this repository comes from a fork, and a
+  # push to a fork's branch does not raise a push event here, so fork PRs
+  # already run this workflow exactly once, via pull_request. A branch pushed
+  # directly into this repository used to run it twice -- once for the push and
+  # once for the pull_request -- for no extra signal.
   push:
     branches:
-      - '**'
+      - master
   pull_request:
     branches:
       - '**'
