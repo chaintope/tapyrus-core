@@ -35,9 +35,13 @@ jobs:
     name: Lint Check
     runs-on: ubuntu-24.04
     steps:
+      # No ref: -- on a pull_request, actions/checkout defaults to the merge
+      # commit, which is what will actually land on master. Pinning
+      # pull_request.head.sha instead tested the branch tip in isolation, so a
+      # PR that had gone stale against master could be green here and still
+      # break master once merged.
       - uses: actions/checkout@v5
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
           submodules: false
 
       - name: Run lint checks
@@ -90,9 +94,9 @@ jobs:
       BOOST_TEST_RANDOM: 1
 
     steps:
+      # No ref: -- see the lint job above; this builds the merge commit.
       - uses: actions/checkout@v5
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
           submodules: recursive
 
       - name: Restore Ccache cache
