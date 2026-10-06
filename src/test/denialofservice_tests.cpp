@@ -208,14 +208,15 @@ BOOST_AUTO_TEST_CASE(DoS_banning)
     dummyNode1.fSuccessfullyConnected = true;
     {
         LOCK(cs_main);
-        Misbehaving(dummyNode1.GetId(), 100); // Should get banned
+        Misbehaving(dummyNode1.GetId(), 100); // Should get discouraged
     }
     {
         LOCK2(cs_main, dummyNode1.cs_sendProcessing);
         peerLogic->SendMessages(&dummyNode1);
     }
-    BOOST_CHECK(connman->IsBanned(addr1));
-    BOOST_CHECK(!connman->IsBanned(ip(0xa0b0c001|0x0000ff00))); // Different IP, not banned
+    BOOST_CHECK(connman->IsDiscouraged(addr1));
+    BOOST_CHECK(!connman->IsBanned(addr1)); // Discouraged, not added to the ban list
+    BOOST_CHECK(!connman->IsDiscouraged(ip(0xa0b0c001|0x0000ff00))); // Different IP, not discouraged
 
     CAddress addr2(ip(0xa0b0c002), NODE_NONE);
     CNode dummyNode2(id++, NODE_NETWORK, 0, INVALID_SOCKET, addr2, 1, 1, CAddress(), "", true);
@@ -231,8 +232,8 @@ BOOST_AUTO_TEST_CASE(DoS_banning)
         LOCK2(cs_main, dummyNode2.cs_sendProcessing);
         peerLogic->SendMessages(&dummyNode2);
     }
-    BOOST_CHECK(!connman->IsBanned(addr2)); // 2 not banned yet...
-    BOOST_CHECK(connman->IsBanned(addr1));  // ... but 1 still should be
+    BOOST_CHECK(!connman->IsDiscouraged(addr2)); // 2 not discouraged yet...
+    BOOST_CHECK(connman->IsDiscouraged(addr1));  // ... but 1 still should be
     {
         LOCK(cs_main);
         Misbehaving(dummyNode2.GetId(), 50);
@@ -241,7 +242,7 @@ BOOST_AUTO_TEST_CASE(DoS_banning)
         LOCK2(cs_main, dummyNode2.cs_sendProcessing);
         peerLogic->SendMessages(&dummyNode2);
     }
-    BOOST_CHECK(connman->IsBanned(addr2));
+    BOOST_CHECK(connman->IsDiscouraged(addr2));
 
     bool dummy;
     peerLogic->FinalizeNode(dummyNode1.GetId(), dummy);
@@ -267,7 +268,7 @@ BOOST_AUTO_TEST_CASE(DoS_banscore)
         LOCK2(cs_main, dummyNode1.cs_sendProcessing);
         peerLogic->SendMessages(&dummyNode1);
     }
-    BOOST_CHECK(!connman->IsBanned(addr1));
+    BOOST_CHECK(!connman->IsDiscouraged(addr1));
     {
         LOCK(cs_main);
         Misbehaving(dummyNode1.GetId(), 10);
@@ -276,7 +277,7 @@ BOOST_AUTO_TEST_CASE(DoS_banscore)
         LOCK2(cs_main, dummyNode1.cs_sendProcessing);
         peerLogic->SendMessages(&dummyNode1);
     }
-    BOOST_CHECK(!connman->IsBanned(addr1));
+    BOOST_CHECK(!connman->IsDiscouraged(addr1));
     {
         LOCK(cs_main);
         Misbehaving(dummyNode1.GetId(), 1);
@@ -285,7 +286,7 @@ BOOST_AUTO_TEST_CASE(DoS_banscore)
         LOCK2(cs_main, dummyNode1.cs_sendProcessing);
         peerLogic->SendMessages(&dummyNode1);
     }
-    BOOST_CHECK(connman->IsBanned(addr1));
+    BOOST_CHECK(connman->IsDiscouraged(addr1));
     gArgs.ForceSetArg("-banscore", std::to_string(DEFAULT_BANSCORE_THRESHOLD));
 
     bool dummy;
@@ -313,13 +314,14 @@ BOOST_AUTO_TEST_CASE(DoS_bantime)
         LOCK2(cs_main, dummyNode.cs_sendProcessing);
         peerLogic->SendMessages(&dummyNode);
     }
-    BOOST_CHECK(connman->IsBanned(addr));
-
-    SetMockTime(nStartTime+60*60);
-    BOOST_CHECK(connman->IsBanned(addr));
-
-    SetMockTime(nStartTime+60*60*24+1);
+    BOOST_CHECK(connman->IsDiscouraged(addr));
     BOOST_CHECK(!connman->IsBanned(addr));
+
+    // Discouragement does not expire with -bantime; only the rolling filter
+    // ages it out, as later addresses are discouraged.
+    SetMockTime(nStartTime+60*60*24+1);
+    BOOST_CHECK(connman->IsDiscouraged(addr));
+    SetMockTime(0);
 
     bool dummy;
     peerLogic->FinalizeNode(dummyNode.GetId(), dummy);
