@@ -4,7 +4,6 @@
 #include <primitives/transaction.h>
 #include <coloridentifier.h>
 #include <script/script.h>
-#include <script/standard.h>
 
 ColorIdentifier GetColorIdFromScript(const CScript& script)
 {

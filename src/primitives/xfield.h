@@ -8,7 +8,7 @@
 #include <streams.h>
 #include <serialize.h>
 #include <uint256.h>
-#include <key.h>
+#include <pubkey.h>
 
 #include <variant>
 #include <type_traits>

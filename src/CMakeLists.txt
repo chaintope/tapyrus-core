@@ -60,7 +60,7 @@
 #   tapyrus_wallet      -- tapyrus_chainstate, tapyrus_peer, tapyrus_codec, tapyrus_scripting,
 #                          tapyrus_global, tapyrus_util
 #   tapyrus_peer        -- tapyrus_chainstate, tapyrus_netbase, tapyrus_scripting, tapyrus_util
-#   tapyrus_chainstate  -- tapyrus_codec, tapyrus_netbase, tapyrus_scripting, tapyrus_global, tapyrus_util
+#   tapyrus_chainstate  -- tapyrus_netbase, tapyrus_scripting, tapyrus_global, tapyrus_util
 #   tapyrus_codec       -- tapyrus_scripting, tapyrus_global, tapyrus_util
 #   tapyrus_scripting   -- tapyrus_consensus, tapyrus_global, tapyrus_util
 #   tapyrus_global      -- tapyrus_consensus, tapyrus_util
@@ -349,7 +349,6 @@ target_link_libraries(tapyrus_chainstate
     Boost::headers
   PRIVATE
     core_interface
-    tapyrus_codec
     tapyrus_netbase
     leveldb
 )

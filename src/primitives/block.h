@@ -11,7 +11,7 @@
 #include <primitives/xfield.h>
 #include <serialize.h>
 #include <uint256.h>
-#include <key.h>
+#include <pubkey.h>
 
 /** Nodes collect new transactions into a block, hash them into a hash tree,
  * and scan through nonce values to make the block's hash satisfy proof-of-work
