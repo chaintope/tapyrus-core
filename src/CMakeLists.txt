@@ -180,6 +180,7 @@ add_library(tapyrus_util STATIC EXCLUDE_FROM_ALL
         random.cpp
         randomenv.cpp
         rpc/protocol.cpp
+        scheduler.cpp
         shutdown.cpp
         support/lockedpool.cpp
         sync.cpp
@@ -234,13 +235,12 @@ target_link_libraries(tapyrus_global
 )
 
 # Genuinely shared, no single theme: netaddress/netbase (network address
-# types), protocol (P2P message framing), scheduler (generic timer
-# utility), warnings (generic warning-state utility).
+# types), protocol (P2P message framing), warnings (generic warning-state
+# utility).
 add_library(tapyrus_netbase STATIC EXCLUDE_FROM_ALL
   netaddress.cpp
   netbase.cpp
   protocol.cpp
-  scheduler.cpp
   warnings.cpp
 )
 target_link_libraries(tapyrus_netbase
