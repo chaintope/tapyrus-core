@@ -176,6 +176,7 @@ add_library(tapyrus_util STATIC EXCLUDE_FROM_ALL
         fs.cpp
         interfaces/handler.cpp
         logging.cpp
+        policy/feerate.cpp
         random.cpp
         randomenv.cpp
         rpc/protocol.cpp
@@ -266,7 +267,6 @@ add_library(tapyrus_scripting STATIC EXCLUDE_FROM_ALL
   key.cpp
   keystore.cpp
   outputtype.cpp
-  policy/feerate.cpp
   pstt.cpp
   script/ismine.cpp
   script/sign.cpp
