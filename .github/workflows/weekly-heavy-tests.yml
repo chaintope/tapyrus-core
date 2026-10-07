@@ -7,9 +7,9 @@ name: Weekly Heavy Test
 # Runs tests that are too slow for the daily CI matrix (feature_pruning: 1.5–4 h, 4 GB;
 # feature_dbcrash: needs far more than the daily 1800s per-test budget for its
 # loosest dbcrashratio/dbcache tier to reliably crash at least once).
-# Each test runs in its own job (feature-pruning, feature-dbcrash) so a slow
-# run of one doesn't eat into the other's share of the 6h GitHub-hosted-runner
-# execution ceiling. Each script is invoked directly (test/functional/<script>.py),
+# Each test runs in its own job (feature-pruning, and feature-dbcrash once per
+# signature scheme) so a slow run of one doesn't eat into another's share of
+# the 6h GitHub-hosted-runner execution ceiling. Each script is invoked directly (test/functional/<script>.py),
 # not via test_runner.py: these scripts are deliberately excluded from
 # test_runner.py's ALL_SCRIPTS list (see HEAVY_SCRIPTS there) so they never run
 # as part of the daily base/extended suites, but that also means
@@ -66,11 +66,13 @@ jobs:
             scripts:
               - 'feature_pruning.py'
           # Each dbcrash run loops until every node has crashed, with no time
-          # limit of its own; a run that never gets there is stopped by the
-          # job's timeout.
+          # limit of its own, so the job's timeout is its only bound. One job
+          # per scheme, so a run that never gets there can't starve the other.
           - name: feature_dbcrash
             scripts:
               - 'feature_dbcrash.py'
+          - name: feature_dbcrash_schnorr
+            scripts:
               - 'feature_dbcrash.py --scheme SCHNORR'
     name: ${{ matrix.config.name }} test (Linux x86_64 RelWithDebInfo)
     runs-on: ubuntu-latest
@@ -217,11 +219,7 @@ jobs:
           # unset, direct invocation would silently use a different (and, for
           # feature_dbcrash's cache-based chain setup, unpopulated) cache
           # directory. --configfile happens to resolve to the same file
-          # either way here, but is passed explicitly for parity. The two
-          # feature_dbcrash invocations below intentionally share one
-          # --cachedir: its cache-priming step never reads --scheme, so this
-          # matches how test_runner.py itself shares one per-run cache across
-          # a batch (see test_runner.py:445-453).
+          # either way here, but is passed explicitly for parity.
           CONFIGFILE="$BASE_ROOT_DIR/test/config.ini"
           CACHEDIR="$BASE_BUILD_DIR/test/cache"
           rm -rf "$CACHEDIR"

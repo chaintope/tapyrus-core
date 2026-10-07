@@ -38,8 +38,8 @@
   doing so.
 
 Neither loop has a time limit of its own: a run that never reaches coverage
-is stopped by the caller (the weekly workflow's job timeout, or
-test_runner.py's --test-timeout)."""
+is stopped by the weekly workflow's job timeout, which gives each scheme its
+own job."""
 
 import errno
 import http.client
