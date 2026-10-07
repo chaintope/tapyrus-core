@@ -66,11 +66,13 @@ jobs:
             scripts:
               - 'feature_pruning.py'
           # Each dbcrash run loops until every node has crashed, with no time
-          # limit of its own; a run that never gets there is stopped by the
-          # job's timeout.
+          # limit of its own, so the job's timeout is its only bound. One job
+          # per scheme, so a run that never gets there can't starve the other.
           - name: feature_dbcrash
             scripts:
               - 'feature_dbcrash.py'
+          - name: feature_dbcrash_schnorr
+            scripts:
               - 'feature_dbcrash.py --scheme SCHNORR'
     name: ${{ matrix.config.name }} test (Linux x86_64 RelWithDebInfo)
     runs-on: ubuntu-latest
@@ -211,11 +213,7 @@ jobs:
           # unset, direct invocation would silently use a different (and, for
           # feature_dbcrash's cache-based chain setup, unpopulated) cache
           # directory. --configfile happens to resolve to the same file
-          # either way here, but is passed explicitly for parity. The two
-          # feature_dbcrash invocations below intentionally share one
-          # --cachedir: its cache-priming step never reads --scheme, so this
-          # matches how test_runner.py itself shares one per-run cache across
-          # a batch (see test_runner.py:445-453).
+          # either way here, but is passed explicitly for parity.
           CONFIGFILE="$BASE_ROOT_DIR/test/config.ini"
           CACHEDIR="$BASE_BUILD_DIR/test/cache"
           rm -rf "$CACHEDIR"
