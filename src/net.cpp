@@ -40,6 +40,8 @@
 #include <math.h>
 #include <chrono>
 
+std::unique_ptr<CConnman> g_connman;
+
 // Dump addresses to peers.dat and banlist.dat every 15 minutes (900s)
 #define DUMP_ADDRESSES_INTERVAL 900
 

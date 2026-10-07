@@ -161,28 +161,16 @@ add_executable(test_tapyrus
 # *_tests.cpp files, so this object library carries none of it in either
 # consumer.
 #
-# Also carries the four orchestration/glue files (see the comment on
-# tapyrusd's add_executable() in the top-level src/CMakeLists.txt) that
-# used to be compiled directly into test_tapyrus's own add_executable:
-# several split libraries (tapyrus_wallet, tapyrus_peer, tapyrus_rpc,
-# tapyrus_chainstate) call into symbols only these files define
-# (InitWarning/InitError/AmountErrMsg/AmountHighWarn/uiInterface,
-# noui_connect, TimeOffsets, SaveBlockToDisk/ReadBlockFromDisk/
-# FlushStateToDisk/DumpMempool/OpenDiskFile/OpenUndoFile), and nothing
-# else provides them for a target that isn't tapyrusd itself -- fuzz
-# targets linking TestingSetup need the exact same symbols. init.cpp and
-# shutdown.cpp are deliberately NOT included here: they'd collide with
-# test_tapyrus_main.cpp's own test-friendly g_connman/StartShutdown()/
-# ShutdownRequested() (the only symbols those two glue files would
-# otherwise provide) -- fuzz targets get their own copy of those three
-# from fuzz_node_globals.cpp instead, compiled only into fuzz binaries.
+# Also carries noui.cpp (noui_connect(), which TestingSetup calls) and
+# genesisblock.cpp (createGenesisBlock(), used by the fixture and by
+# block_tests/federationparams_tests/miner_tests). test_tapyrus_main.cpp
+# and fuzz_node_globals.cpp provide test-friendly StartShutdown()/
+# ShutdownRequested(), so shutdown.cpp is never pulled from tapyrus_util.
 add_library(tapyrus_test_util OBJECT
     test_tapyrus.cpp
     test_keys_helper.cpp
-    ../file_io.cpp
+    ../genesisblock.cpp
     ../noui.cpp
-    ../timeoffsets.cpp
-    ../ui_interface.cpp
 )
 target_include_directories(tapyrus_test_util
     PRIVATE
@@ -268,7 +256,7 @@ if(BUILD_FUZZ_TEST)
 # by Apple's ld64 the same way, but these fuzz binaries are Linux-only in
 # CI (daily-test.yml's fuzz-code-only job runs on ubuntu-latest) so that
 # doesn't matter here.
-# g_connman/StartShutdown()/ShutdownRequested() for fuzz targets linking
+# StartShutdown()/ShutdownRequested() for fuzz targets linking
 # FuzzNodeSetup (TestingSetup) -- test_tapyrus_main.cpp already provides
 # these for test_tapyrus, but that file also defines Boost Test's own
 # main(), which would collide with a fuzz binary's own libFuzzer/AFL
@@ -329,14 +317,10 @@ endfunction()
 # symbol chain (via `nm -u`/`-why_load`, not guesswork) found it splits
 # cleanly in two:
 #
-# - Most of it (StartShutdown/OpenDiskFile/FlushStateToDisk/ReadBlockFromDisk/
-#   uiInterface from file_io.cpp/shutdown.cpp/ui_interface.cpp, plus real
-#   GetTransaction/AcceptToMemoryPool/etc. from tapyrus_chainstate,
-#   CMerkleBlock/CRollingBloomFilter/CConnman from tapyrus_peer) is
-#   satisfied by linking those for real below, same as the six-glue-files
-#   tapyrusd/tapyrus-qt pattern minus the pieces that turned out unneeded
-#   (init.cpp/timeoffsets.cpp: net_processing.cpp, the only tapyrus_peer.a
-#   member needing TimeOffsets, is never itself pulled in here).
+# - Most of it (StartShutdown/uiInterface from tapyrus_util, OpenDiskFile/
+#   FlushStateToDisk/ReadBlockFromDisk/GetTransaction/AcceptToMemoryPool/etc.
+#   from tapyrus_chainstate, CMerkleBlock/CRollingBloomFilter/CConnman/
+#   g_connman from tapyrus_peer) is satisfied by linking those for real below.
 # - One chokepoint doesn't reduce this way: rawtransaction.cpp's deprecated
 #   signrawtransaction alias references three wallet/rpcwallet.cpp
 #   functions, and that one translation unit's own needs (GetWallets,
@@ -344,9 +328,7 @@ endfunction()
 #   httpserver.cpp, ...) balloon into effectively the whole daemon --
 #   dozens of CWallet methods, CConnman's full API, libevent's C interface
 #   -- none of it reachable from ParsePsttInputEntries/decodepstt either.
-#   fuzz/rpc_glue_stub.cpp defines just those three functions (plus
-#   g_connman, whose storage is daemon-glue-only in init.cpp but whose
-#   type's real destructor comes from tapyrus_peer, linked below anyway),
+#   fuzz/rpc_glue_stub.cpp defines just those three functions,
 #   which avoids tapyrus_wallet, tapyrus_zmq, and their init-time glue
 #   (wallet/init.cpp's g_wallet_init_interface = WalletInit() static
 #   initializer in particular) entirely.
@@ -354,9 +336,6 @@ function(add_pstt_fuzz_target_with_rpc_glue name source)
     add_executable(${name}
         fuzz/fuzz_code/${source}
         fuzz/rpc_glue_stub.cpp
-        ../file_io.cpp
-        ../shutdown.cpp
-        ../ui_interface.cpp
     )
     target_include_directories(${name}
         PRIVATE
@@ -394,12 +373,11 @@ endfunction()
 # Harnesses that drive a real node through FuzzNodeSetup (fuzz_node_setup.h,
 # a TestingSetup subclass) -- e.g. RPC handlers that read chainstate or the
 # peer table. They link the same fixture object library test_tapyrus uses
-# (tapyrus_test_util, which already carries file_io/noui/timeoffsets/
-# ui_interface) plus tapyrus_fuzz_node_globals for g_connman/StartShutdown/
-# ShutdownRequested, so -- unlike add_pstt_fuzz_target_with_rpc_glue() --
-# they must not also compile those glue sources or rpc_glue_stub.cpp
-# themselves (duplicate symbols). The archive group is needed on GNU ld/lld
-# for the circular library dependencies described above.
+# (tapyrus_test_util, which carries noui.cpp and genesisblock.cpp) plus
+# tapyrus_fuzz_node_globals for StartShutdown/ShutdownRequested, so they
+# must not also compile rpc_glue_stub.cpp (duplicate symbols). The archive
+# group is needed on GNU ld/lld for the circular library dependencies
+# described above.
 function(add_fuzz_target_with_node_context name source)
     add_executable(${name}
         fuzz/fuzz_code/${source}
