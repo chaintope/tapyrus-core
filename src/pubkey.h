@@ -16,6 +16,7 @@
 #include <vector>
 
 const unsigned int BIP32_EXTKEY_SIZE = 74;
+const unsigned int BIP32_EXTKEY_WITH_VERSION_SIZE = 78;
 
 enum class SignatureScheme
 {
@@ -218,6 +219,9 @@ public:
 };
 
 struct CExtPubKey {
+    // BIP32 version prefix; carried through PSTT_GLOBAL_XPUB unchanged and
+    // not part of key equality.
+    unsigned char version[4] = {0, 0, 0, 0};
     unsigned char nDepth;
     unsigned char vchFingerprint[4];
     unsigned int nChild;
@@ -235,6 +239,8 @@ struct CExtPubKey {
 
     void Encode(unsigned char code[BIP32_EXTKEY_SIZE]) const;
     void Decode(const unsigned char code[BIP32_EXTKEY_SIZE]);
+    void EncodeWithVersion(unsigned char code[BIP32_EXTKEY_WITH_VERSION_SIZE]) const;
+    void DecodeWithVersion(const unsigned char code[BIP32_EXTKEY_WITH_VERSION_SIZE]);
     bool Derive(CExtPubKey& out, unsigned int nChild) const;
 
     void Serialize(CSizeComputer& s) const

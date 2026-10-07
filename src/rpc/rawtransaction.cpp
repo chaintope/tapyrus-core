@@ -2087,7 +2087,9 @@ UniValue decodepstt(const JSONRPCRequest& request)
         UniValue xpubs(UniValue::VARR);
         for (const auto& entry : pstt.xpubs) {
             UniValue x(UniValue::VOBJ);
-            x.pushKV("xpub", HexStr(SerializeXpubKeyData(entry.first)));
+            std::vector<unsigned char> keydata(BIP32_EXTKEY_WITH_VERSION_SIZE);
+            entry.first.EncodeWithVersion(keydata.data());
+            x.pushKV("xpub", HexStr(keydata));
             std::vector<uint32_t> path = entry.second;
             if (!path.empty()) {
                 uint32_t fingerprint = path.at(0);
