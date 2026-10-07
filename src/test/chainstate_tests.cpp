@@ -1268,15 +1268,16 @@ BOOST_AUTO_TEST_CASE(verifytoken_colorid_input_sum_over_max_money_rejected)
     CheckInputValuesOutOfRange(state);
 }
 
-BOOST_AUTO_TEST_CASE(verifytoken_colorid_input_sum_int64_overflow_rejected)
+BOOST_AUTO_TEST_CASE(verifytoken_colorid_input_sum_out_of_range_all_burned)
 {
-    // Enough MAX_MONEY inputs that an unchecked sum would wrap a signed
-    // 64-bit value. All tokens are burned, so no output balance check could
-    // catch the wrapped sum.
+    // All tokens are burned, so there is no colored output and no output
+    // balance check that could catch a bad input sum; only the running-sum
+    // check rejects it. Two MAX_MONEY inputs are enough, as the check stops at
+    // the second. Without it, 4393 such inputs would overflow a signed 64-bit
+    // sum, which a test cannot observe as it is undefined behaviour.
     TokenBalanceInputs inputs;
-    const int64_t inputCount{std::numeric_limits<CAmount>::max() / MAX_MONEY + 1};
-    for (int64_t i{0}; i < inputCount; ++i)
-        inputs.AddColoredInput(MAX_MONEY);
+    inputs.AddColoredInput(MAX_MONEY);
+    inputs.AddColoredInput(MAX_MONEY);
     inputs.AddTpcInput(COIN);
     inputs.AddTpcOutput(COIN - 1000);
 
