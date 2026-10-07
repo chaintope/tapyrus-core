@@ -30,10 +30,11 @@ daily-test.yml's fuzz-script-sweep job:
 """
 import argparse
 import re
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import Iterable, List
+from typing import Iterable, List, Optional
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent.parent.parent
@@ -117,8 +118,10 @@ class ScriptPool:
 
 class PoolChecker:
     """Format checks cheap enough for the lint job, so a malformed batch
-    fails its PR instead of the nightly sweep. Does not assemble programs:
-    that needs a tapyrus-verify build (fuzz_script_step2_validate.py)."""
+    fails its PR instead of the nightly sweep. Checks only git-tracked
+    files, so untracked drafts and OS cruft (.DS_Store) are ignored. Does
+    not assemble programs: that needs a tapyrus-verify build
+    (fuzz_script_step2_validate.py)."""
     BATCH_NAME = re.compile(r"^[0-9]{8}_[a-z0-9_]+\.txt$")
     ALLOWED_OTHER_FILES = {"README.md"}
 
@@ -128,9 +131,17 @@ class PoolChecker:
 
     def run(self) -> List[str]:
         self.errors = []
-        self._check_file_names()
+        if not self.pool.pool_dir.is_dir():
+            self.errors.append(f"{self.pool.pool_dir}: pool directory does not exist")
+            return self.errors
+        tracked = self._tracked_files()
+        if tracked is None:
+            return self.errors
+        self._check_file_names(tracked)
+        batches = [BatchFile(self.pool.pool_dir / name) for name in tracked
+                   if "/" not in name and name.endswith(".txt")]
         total = 0
-        for batch in self.pool.batch_files():
+        for batch in batches:
             try:
                 count = len(batch.candidates())
             except UnicodeDecodeError as e:
@@ -142,22 +153,37 @@ class PoolChecker:
         if total == 0 and not self.errors:
             self.errors.append(f"{self.pool.pool_dir}: pool holds no candidates")
         elif not self.errors:
-            self._check_export(total)
+            self._check_export(batches, total)
         return self.errors
 
-    def _check_file_names(self) -> None:
-        for path in sorted(self.pool.pool_dir.iterdir()):
-            if path.name in self.ALLOWED_OTHER_FILES:
-                continue
-            if not path.is_file() or not self.BATCH_NAME.match(path.name):
-                self.errors.append(f"{path.name}: not a batch file; expected <YYYYMMDD>_<batch_slug>.txt")
+    def _tracked_files(self) -> Optional[List[str]]:
+        """Paths relative to the pool directory, skipping tracked files
+        deleted from the working tree (that deletion is being committed)."""
+        command = ["git", "-C", str(self.pool.pool_dir), "ls-files", "-z", "--", "."]
+        try:
+            result = subprocess.run(command, capture_output=True, encoding="utf-8", check=False)
+        except OSError as e:
+            self.errors.append(f"cannot run git: {e}")
+            return None
+        if result.returncode != 0:
+            self.errors.append(f"{self.pool.pool_dir}: git ls-files failed: {result.stderr.strip()}")
+            return None
+        names = [name for name in result.stdout.split("\0") if name]
+        return sorted(name for name in names if (self.pool.pool_dir / name).exists())
 
-    def _check_export(self, total: int) -> None:
+    def _check_file_names(self, tracked: List[str]) -> None:
+        for name in tracked:
+            if name in self.ALLOWED_OTHER_FILES:
+                continue
+            if not self.BATCH_NAME.match(name):
+                self.errors.append(f"{name}: not a batch file; expected <YYYYMMDD>_<batch_slug>.txt")
+
+    def _check_export(self, batches: List[BatchFile], total: int) -> None:
         # The sweep job runs candidates from exported files, so check that
         # path too: one file per candidate, holding exactly its program.
         with tempfile.TemporaryDirectory() as tmp:
             out_dir = Path(tmp)
-            for candidate in self.pool.candidates():
+            for candidate in (c for batch in batches for c in batch.candidates()):
                 written = candidate.write_to(out_dir).read_text(encoding="utf-8")
                 if written.strip() != candidate.program:
                     self.errors.append(f"{candidate.id}: exported file does not hold its program")
