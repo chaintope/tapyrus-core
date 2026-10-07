@@ -29,6 +29,10 @@ on:
         description: 'Fuzz job: number of seed-pool files to rotate in per target per run'
         type: string
         default: '5'
+      fuzz_targets_per_run:
+        description: 'Fuzz job: number of fuzz targets to run this run, rotating through all of them across runs'
+        type: string
+        default: '6'
       sweep_time_budget_seconds:
         description: 'Script-sweep job: stop the rotating tapyrus-verify --fuzz sweep after roughly this many seconds'
         type: string
@@ -331,7 +335,14 @@ jobs:
 
           python3 -m venv $HOME/venv
           source $HOME/venv/bin/activate
-          pip3 install pyzmq matplotlib
+          # Wheels only: without this, pip's resolver on the ubuntu-24.04-arm
+          # runner backtracked to a pre-3.5 matplotlib sdist whose bundled
+          # versioneer.py calls configparser.SafeConfigParser (removed in
+          # Python 3.12), failing the whole job during setup. With
+          # --only-binary pip picks the newest release that has a wheel for
+          # the runner, and a missing wheel is a clear resolver error instead
+          # of a doomed source build.
+          pip3 install --only-binary=:all: pyzmq matplotlib
 
       - name: Setup macOS Dependencies
         if: matrix.config.platform == 'macos'
@@ -349,7 +360,8 @@ jobs:
 
           python3 -m venv $HOME/venv
           source $HOME/venv/bin/activate
-          pip3 install pyzmq matplotlib
+          # Wheels only, same as the Linux setup step above.
+          pip3 install --only-binary=:all: pyzmq matplotlib
 
       - name: Build Depends
         env:
@@ -1149,15 +1161,23 @@ jobs:
   #   already covers every PR, and fuzzing is exploration over time, not
   #   a per-change gate).
   #
+  #   Each run fuzzes only `fuzz_targets_per_run` of the targets, walking
+  #   through them one group per UTC day: with N targets, every target runs
+  #   once every ceil(N / fuzz_targets_per_run) days (5 with the default
+  #   of 6 and 27 targets today; the last group is short rather than
+  #   wrapping, so no target gets a second turn in a cycle). Keyed off the
+  #   day rather than the run number, since pull_request runs consume run
+  #   numbers too. The day is read at job start, so a build that runs past
+  #   00:00 UTC can't shift the night onto the next day's group.
+  #
   #   Each fuzz_test_file has a large, committed seed-input pool under
-  #   src/test/fuzz/fuzz_seed_pool/<target>/ (one file per seed). Every run selects
-  #   a different `fuzz_slice_batch_size`-sized slice of that pool, keyed
-  #   off the CI run number -- no "mark as used" state written back to
-  #   the repo; a given run number always resolves to the same slice, so
-  #   a crash found by a specific run is trivially reproducible from its
-  #   run number alone. The slice only anchors each run's exploration --
-  #   libFuzzer still mutates outward from it for the full run duration,
-  #   so this is not a replay of fixed inputs.
+  #   src/test/fuzz/fuzz_seed_pool/<target>/ (one file per seed). Each time
+  #   a target's turn comes round it takes the next
+  #   `fuzz_slice_batch_size`-sized slice of that pool -- no "mark as used"
+  #   state written back to the repo. The run's ::notice:: line records the
+  #   day and cycle, so the selection is reproducible. The slice only anchors
+  #   each run's exploration -- libFuzzer still mutates outward from it for
+  #   the full run duration, so this is not a replay of fixed inputs.
   # TOOLS USED: libFuzzer + ASan/UBSan (compiled into each fuzz_test_file
   #   via `-DSANITIZERS="fuzzer,address,undefined"`);
   #   src/test/fuzz/fuzz_seed_pool/fuzz_code_select_slice.py for the seed-pool
@@ -1172,22 +1192,19 @@ jobs:
   fuzz-code-only:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    # RUN_SECONDS per target (default 600s) times however many
-    # src/test/fuzz/fuzz_code/*_fuzz.cpp files exist, plus fixed overhead
-    # for checkout/build/artifact-upload -- not a per-target limit, only a
-    # backstop against the whole job hanging. Grows with the target list:
-    # bump this when target count times RUN_SECONDS/60 + ~6 approaches it.
-    # 7 targets * 600s default = 70 min of fuzzing; measured wall-clock is
-    # ~76 min once checkout/build/upload overhead is included (not the ~20
-    # min the naive 90-70 subtraction implies). timeout-minutes is set for
-    # ~20 min of real margin at 8 targets (the next one to land), so this
-    # won't need touching again until a 9th target lands.
+    # Backstop against a hang: 60 min of fuzzing plus the build, which took
+    # ~5 min at 7 targets. The 27-target build is unmeasured; re-check this
+    # margin against the first scheduled run.
     timeout-minutes: 105
     env:
       LC_ALL: C.UTF-8
       RUN_SECONDS: ${{ inputs.fuzz_run_seconds || '600' }}
       SLICE_BATCH_SIZE: ${{ inputs.fuzz_slice_batch_size || '5' }}
+      TARGETS_PER_RUN: ${{ inputs.fuzz_targets_per_run || '6' }}
     steps:
+      # Read the UTC day before the build, which can run past midnight.
+      - name: Pin the target rotation day
+        run: echo "FUZZ_DAY=$(( $(date -u +%s) / 86400 ))" >> $GITHUB_ENV
       - uses: actions/checkout@v5
         with:
           ref: ${{ github.event.inputs.test_branch || github.ref || 'master' }}
@@ -1207,24 +1224,51 @@ jobs:
       # own executable and wires fuzz_all to depend on all of them --
       # landing a new fuzz_test_file (e.g. one OSS-Fuzz-Gen drafted and a
       # human reviewed, see contrib/fuzz/oss-fuzz/drafting/README.md)
-      # means only adding its source file, nothing to register here or in
-      # contrib/fuzz/oss-fuzz/project/build.sh.
+      # needs nothing registered here or in
+      # contrib/fuzz/oss-fuzz/project/build.sh. RPC- and node-context-tier
+      # harnesses also need an entry in src/test/CMakeLists.txt's tier lists.
       - name: Build fuzz targets
         run: cmake --build build_fuzz --target fuzz_all -j "$(nproc)"
-      - name: Run each target, seeded from this run's rotating pool slice
+      - name: Run this run's slice of targets, each seeded from its rotating pool slice
         run: |
           mkdir -p fuzz_artifacts new_seed_candidates
-          for target_path in build_fuzz/bin/fuzz_*; do
+          if ! [[ "${TARGETS_PER_RUN}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::fuzz_targets_per_run must be a positive integer, got '${TARGETS_PER_RUN}'"
+            exit 1
+          fi
+          all_targets=(build_fuzz/bin/fuzz_*)
+          total=${#all_targets[@]}
+          if [[ ! -e "${all_targets[0]}" ]]; then
+            echo "::error::no fuzz targets were built under build_fuzz/bin/"
+            exit 1
+          fi
+          per_run=$(( TARGETS_PER_RUN < total ? TARGETS_PER_RUN : total ))
+          # One group of targets per UTC day, so the cycle is exactly
+          # `groups` days. The last group is short instead of wrapping, so
+          # each target runs once per cycle and `cycle` is its turn count,
+          # advancing its seed pool one slice per turn.
+          day="${FUZZ_DAY}"
+          groups=$(( (total + per_run - 1) / per_run ))
+          offset=$(( (day % groups) * per_run ))
+          end=$(( offset + per_run > total ? total : offset + per_run ))
+          cycle=$(( day / groups ))
+          selected=()
+          for (( i = offset; i < end; i++ )); do
+            selected+=("${all_targets[i]}")
+          done
+          echo "::notice::Fuzzing ${#selected[@]} of ${total} targets this run (day ${day}, group $(( day % groups )) of ${groups}, cycle ${cycle}): $(for t in "${selected[@]}"; do printf '%s ' "$(basename "${t}")"; done)"
+          empty_pools=()
+          for target_path in "${selected[@]}"; do
             target=$(basename "${target_path}")
             pool_dir="src/test/fuzz/fuzz_seed_pool/${target}"
             corpus_dir="fuzz_corpus/${target}"
             mkdir -p "${pool_dir}" "${corpus_dir}"
 
             python3 src/test/fuzz/fuzz_seed_pool/fuzz_code_select_slice.py \
-              "${pool_dir}" "${SLICE_BATCH_SIZE}" "${{ github.run_number }}" \
+              "${pool_dir}" "${SLICE_BATCH_SIZE}" "${cycle}" \
               --out "${corpus_dir}" 2> >(tee "slice_${target}.log" >&2) || true
             if grep -q '^POOL_EMPTY=1$' "slice_${target}.log"; then
-              echo "::warning::${pool_dir} is empty -- ${target} is running with no seed pool this run. Seed it (e.g. from a longer local -max_total_time run) and commit the results."
+              empty_pools+=("${target}")
             fi
             if grep -q '^CYCLE_COMPLETE=1$' "slice_${target}.log"; then
               echo "::notice::${pool_dir} completed a full rotation cycle this run."
@@ -1245,6 +1289,10 @@ jobs:
             comm -23 <(ls "${corpus_dir}" | sort) <(ls "${pool_dir}" 2>/dev/null | sort) \
               | while read -r f; do cp "${corpus_dir}/${f}" "${new_dir}/"; done
           done
+          # One line rather than one per target while the pools are still empty.
+          if (( ${#empty_pools[@]} > 0 )); then
+            echo "::warning::${#empty_pools[@]} of ${#selected[@]} targets ran with no seed pool: ${empty_pools[*]}. Seed src/test/fuzz/fuzz_seed_pool/<target>/ (e.g. from a longer local -max_total_time run) and commit the results."
+          fi
       - uses: actions/upload-artifact@v6
         if: always()
         with:

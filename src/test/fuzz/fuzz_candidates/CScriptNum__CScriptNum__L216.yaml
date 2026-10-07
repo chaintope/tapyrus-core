@@ -3,7 +3,7 @@ language: c++
 target_name: fuzz_gen_CScriptNum__CScriptNum__L216
 target_path: /src/tapyrus-core/src/test/fuzz/fuzz_code/fuzz_gen_CScriptNum__CScriptNum__L216.cpp
 yaml_generated_at: '2026-09-21T13:50:48.875268+00:00'
-fuzz_code_generated_at: null
+fuzz_code_generated_at: '2026-09-23T14:57:06+00:00'
 functions:
 - name: CScriptNum::CScriptNum
   signature: void CScriptNum(const int64_t& n)

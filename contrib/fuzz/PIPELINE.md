@@ -61,7 +61,7 @@ sequenceDiagram
     rect rgb(234, 245, 239)
     Note over CI,LF: DAILY -- daily-test.yml's fuzz-code-only job, no AI, $0
     loop every day
-        CI->>CI: fuzz_code_select_slice.py rotates a seed slice into the corpus
+        CI->>CI: pick today's group of targets; fuzz_code_select_slice.py rotates a seed slice into each corpus
         CI->>LF: run the landed harness (libFuzzer + ASan + UBSan) against that corpus for 600s
         LF-->>CI: coverage, crashes, new_seed_candidates
     end
@@ -72,10 +72,13 @@ sequenceDiagram
 
 Nothing in this pipeline costs money: gap analysis is local Docker/static
 analysis, and drafting is Claude Code writing the harness directly,
-compiled and smoke-tested before it's committed. Once a harness is
-landed, `fuzz-code-only` runs it daily and free forever -- libFuzzer's
-own coverage-guided mutation supplies different inputs every run, not a
-further drafting session.
+compiled and smoke-tested before it's committed. Landing a lean-tier
+harness means adding only its source file; an RPC- or node-context-tier
+harness also needs an entry in `src/test/CMakeLists.txt`'s tier lists
+(see [`drafting/README.md`](oss-fuzz/drafting/README.md)). Once a harness
+is landed, `fuzz-code-only` fuzzes it free forever, as part of a nightly
+rotation through all targets -- libFuzzer's own coverage-guided mutation
+supplies different inputs every run, not a further drafting session.
 
 ## Pipeline B -- fuzz_script
 
@@ -129,10 +132,10 @@ beyond the Claude Code session doing the generation.
 | [`fuzz_code_step3_analyze.py`](fuzz-introspector/fuzz_code_step3_analyze.py) | fuzz_code | manual, frequent | Runs the coverage build + Fuzz Introspector analysis inside the running container, then `fuzz_code_find_fuzz_gaps.py` -- `--analysis-only` skips the rebuild when only re-ranking after a source change |
 | [`fuzz_code_find_fuzz_gaps.py`](fuzz-introspector/fuzz_code_find_fuzz_gaps.py) | fuzz_code | manual | Parses the per-harness data.yaml into a ranked candidate list, with real return_type/signature/params and every overload included |
 | [`fuzz_code_generate_candidates.py`](oss-fuzz/drafting/fuzz_code_generate_candidates.py) | fuzz_code | manual | Turns each candidate into a spec YAML under `src/test/fuzz/fuzz_candidates/` for Claude Code to draft a harness from |
-| [`fuzz_code_select_slice.py`](../../src/test/fuzz/fuzz_seed_pool/fuzz_code_select_slice.py) | fuzz_code | daily | Rotates a seed slice into each libFuzzer target's corpus every run |
+| [`fuzz_code_select_slice.py`](../../src/test/fuzz/fuzz_seed_pool/fuzz_code_select_slice.py) | fuzz_code | daily | Rotates the next seed slice into a libFuzzer target's corpus each time that target is fuzzed |
 | [`fuzz_script_step1_build_verify.py`](fuzz_script/fuzz_script_step1_build_verify.py) | fuzz_script | manual | Builds `tapyrus-verify` with ASan/UBSan into `build_fuzz_verify/`, the same configuration the nightly sweep uses |
 | [`fuzz_script_step2_validate.py`](fuzz_script/fuzz_script_step2_validate.py) | fuzz_script | manual | Runs `tapyrus-verify --fuzz` on one batch of new candidates; deletes assembler rejects, reports crashes/failures/timeouts -- no git commands |
-| [`daily-test.yml`](../../.github/workflows/daily-test.yml): `fuzz-code-only` | fuzz_code | daily | Runs libFuzzer (+ASan/UBSan) against every landed harness -- no AI |
+| [`daily-test.yml`](../../.github/workflows/daily-test.yml): `fuzz-code-only` | fuzz_code | daily | Runs libFuzzer (+ASan/UBSan) against a rotating slice of the landed harnesses, covering all of them across runs -- no AI |
 | [`daily-test.yml`](../../.github/workflows/daily-test.yml): `fuzz-script-sweep` | fuzz_script | daily | Replays a rotating window of the committed Script pool -- no AI |
 
 **Both pipelines generate locally, via Claude Code.** OSS-Fuzz-Gen's

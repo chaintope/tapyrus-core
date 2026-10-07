@@ -13,17 +13,18 @@ repo. (The Script-corpus pool under src/test/fuzz/fuzz_scripts/
 uses its own time-bounded rotating-window logic instead, inlined in
 daily-test.yml's fuzz-script-sweep job rather than this script -- see
 that job's own header comment for why.) The slice is a pure function of
-(pool contents, batch_size, run_number):
+(pool contents, batch_size, rotation):
 
-    offset = (run_number * batch_size) % pool_size
+    offset = (rotation * batch_size) % pool_size
 
-so a given run_number always resolves to the same slice (reproducible from
-the CI run number alone, visible in the Actions run URL -- useful when
-reporting a crash found by a specific run) and consecutive run numbers walk
-through the whole pool before wrapping back to the start.
+so a given rotation always resolves to the same slice, and consecutive
+rotations walk through the whole pool before wrapping back to the start.
+The caller passes a counter that advances by one each time the target is
+fuzzed (daily-test.yml logs it), not the CI run number, which also
+advances on runs that don't fuzz this target.
 
 Usage:
-    fuzz_code_select_slice.py <pool_dir> <batch_size> <run_number> [--out <dir>]
+    fuzz_code_select_slice.py <pool_dir> <batch_size> <rotation> [--out <dir>]
 
 Prints the selected file paths (one per line) to stdout. With --out, also
 copies the selected files into that directory. Exits 0 with an empty
@@ -31,7 +32,7 @@ selection and a message on stderr if the pool is empty (caller decides
 whether an empty pool means "needs an initial generation batch").
 
 Also emits, on stderr, whether this run completes a full cycle of the pool
-(the slice wraps past the end) -- callers that want to trigger regeneration
+(the slice reaches or wraps past the end) -- callers that want to trigger regeneration
 on exhaustion can grep for "CYCLE_COMPLETE=1".
 """
 import argparse
@@ -40,7 +41,7 @@ import sys
 from pathlib import Path
 
 
-def select_slice(pool_dir: Path, batch_size: int, run_number: int) -> tuple[list[Path], bool]:
+def select_slice(pool_dir: Path, batch_size: int, rotation: int) -> tuple[list[Path], bool]:
     # Every pool directory carries a README.md documenting the convention
     # (see src/test/fuzz/fuzz_seed_pool/, src/test/fuzz/fuzz_scripts/,
     # src/test/fuzz/fuzz_candidates/) -- exclude it so it never gets
@@ -50,9 +51,10 @@ def select_slice(pool_dir: Path, batch_size: int, run_number: int) -> tuple[list
     if pool_size == 0:
         return [], False
 
-    offset = (run_number * batch_size) % pool_size
+    offset = (rotation * batch_size) % pool_size
     end = offset + batch_size
-    wrapped = end > pool_size
+    # >=: a slice ending exactly at the last file also completes the cycle.
+    wrapped = end >= pool_size
     # Modular indexing per element: the returned slice always has exactly
     # batch_size items, cycling through the pool as many times as needed
     # when batch_size >= pool_size (a real case early in a target's
@@ -66,7 +68,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("pool_dir", type=Path)
     parser.add_argument("batch_size", type=int)
-    parser.add_argument("run_number", type=int)
+    parser.add_argument("rotation", type=int)
     parser.add_argument("--out", type=Path, default=None,
                          help="Copy the selected files into this directory")
     args = parser.parse_args()
@@ -75,7 +77,7 @@ def main() -> int:
         print(f"pool directory does not exist: {args.pool_dir}", file=sys.stderr)
         return 1
 
-    selected, wrapped = select_slice(args.pool_dir, args.batch_size, args.run_number)
+    selected, wrapped = select_slice(args.pool_dir, args.batch_size, args.rotation)
 
     if not selected:
         print(f"POOL_EMPTY=1", file=sys.stderr)

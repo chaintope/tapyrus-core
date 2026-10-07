@@ -10,8 +10,9 @@ export LC_ALL=C
 # its own executable (target name = filename with the _fuzz.cpp suffix
 # stripped and fuzz_ prepended, e.g. pstt_parse_fuzz.cpp -> fuzz_pstt_parse)
 # and wires the phony fuzz_all target to depend on all of them -- landing
-# a new fuzz_test_file means only adding its source file, nothing to
-# register here or in .github/workflows/daily-test.yml.
+# a new fuzz_test_file needs nothing registered here or in
+# .github/workflows/daily-test.yml. RPC- and node-context-tier harnesses
+# also need an entry in src/test/CMakeLists.txt's tier lists.
 
 # The introspector/build_fuzzers container bind-mounts the real
 # tapyrus-core checkout at /src/tapyrus-core (helper.py's own
