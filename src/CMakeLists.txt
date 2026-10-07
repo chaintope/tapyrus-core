@@ -66,7 +66,7 @@
 #   tapyrus_global      -- tapyrus_consensus, tapyrus_util
 #   tapyrus_netbase     -- tapyrus_consensus, tapyrus_util
 #   tapyrus_cli         -- none (just univalue, core_interface)
-#   tapyrus_util        -- tapyrus_clientversion, tapyrus_consensus, tapyrus_crypto
+#   tapyrus_util        -- tapyrus_clientversion, tapyrus_crypto
 #   tapyrus_consensus   -- tapyrus_crypto
 #
 # tapyrus_rpc links tapyrus_wallet, one-directionally: wallet/rpcwallet.cpp
@@ -150,7 +150,6 @@ add_library(tapyrus_consensus STATIC EXCLUDE_FROM_ALL
   script/script.cpp
   script/script_error.cpp
   uint256.cpp
-  utilstrencodings.cpp
 )
 
 target_link_libraries(tapyrus_consensus
@@ -187,19 +186,17 @@ add_library(tapyrus_util STATIC EXCLUDE_FROM_ALL
         ui_interface.cpp
         util.cpp
         utilmoneystr.cpp
+        utilstrencodings.cpp
         utiltime.cpp
 )
-# utilstrencodings.cpp and support/cleanse.cpp are deliberately not compiled
-# here: each has exactly one owner, the base-tier library that needs it
-# (tapyrus_consensus and tapyrus_crypto respectively), and tapyrus_util links
-# those instead of carrying second copies of the same strong symbols.
+# support/cleanse.cpp is deliberately not compiled here: it belongs to
+# tapyrus_crypto, which tapyrus_util links instead of carrying a second copy.
 # util.cpp's SetupNetworking() calls WSAStartup() directly on Windows.
 target_link_libraries(tapyrus_util
         PUBLIC
         tapyrus_clientversion
         PRIVATE
         core_interface
-        tapyrus_consensus
         tapyrus_crypto
         univalue
         $<$<PLATFORM_ID:Windows>:ws2_32>
