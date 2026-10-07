@@ -141,6 +141,7 @@ add_library(tapyrus_consensus STATIC EXCLUDE_FROM_ALL
   coloridentifier.cpp
   hash.cpp
   primitives/block.cpp
+  primitives/outpoint.cpp
   primitives/transaction.cpp
   primitives/xfield.cpp
   pubkey.cpp

@@ -1,7 +1,6 @@
 // Copyright (c) 2020 Chaintope Inc.
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
-#include <primitives/transaction.h>
 #include <coloridentifier.h>
 #include <script/script.h>
 
