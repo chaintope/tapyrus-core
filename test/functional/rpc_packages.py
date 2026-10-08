@@ -68,6 +68,23 @@ class RPCPackageTest(BitcoinTestFramework):
         assert_equal(result_expected, result_test)
         assert_equal(self.nodes[0].getmempoolinfo()['size'], mempool_size)
 
+    def create_independent_package(self, size):
+        """create a package of size transactions that each spend a different confirmed coin"""
+        coins = [x for x in self.nodes[0].listunspent() if x['amount'] > 49.3]
+        coins.sort(key=lambda x: (x['txid'], x['vout']))
+        assert len(coins) >= size
+        package = []
+        for coin in coins[:size]:
+            raw_tx = self.nodes[0].createrawtransaction(
+                inputs=[{'txid': coin['txid'], 'vout': coin['vout']}],
+                outputs=[{self.nodes[0].getnewaddress(): 49}]
+            )
+            tx = CTransaction()
+            tx.deserialize(BytesIO(hex_str_to_bytes(self.nodes[0].signrawtransactionwithwallet(raw_tx)['hex'])))
+            tx.rehash()
+            package.append(tx)
+        return package
+
     def create_package(self,  size):
         """create a package with size transactions"""
         self.nodes[0].generate(1, self.signblockprivkey_wif)
@@ -131,12 +148,23 @@ class RPCPackageTest(BitcoinTestFramework):
 
         assert_raises_rpc_error(-8, "Too many transactions in package (maximum 25)", node.testmempoolaccept, raw_package)
 
-        self.log.info('Test that a lower ancestor limit caps the package count')
+        self.log.info('Test that a lower ancestor limit caps chains in a package, not unrelated transactions')
         self.restart_node(0, self.extra_args[0] + ['-limitancestorcount=5'])
         node = self.nodes[0]
         raw_package = [bytes_to_hex_str(x.serialize()) for x in self.create_package(6)]
-        assert_raises_rpc_error(-8, "Too many transactions in package (maximum 5)", node.testmempoolaccept, raw_package)
-        assert_raises_rpc_error(-8, "Too many transactions in package (maximum 5)", node.submitpackage, raw_package)
+        self.check_mempool_result(
+            result_expected={'allowed': False, 'reject-reason': '69: package-mempool-limits'},
+            rawtxs=raw_package,
+        )
+        mempool_size = node.getmempoolinfo()['size']
+        assert_equal(node.submitpackage(raw_package), {'allowed': False, 'reject-reason': '69: package-mempool-limits'})
+        assert_equal(node.getmempoolinfo()['size'], mempool_size)
+        independent = self.create_independent_package(6)
+        self.check_mempool_result(
+            result_expected={tx.hashMalFix: {'allowed': True} for tx in independent},
+            rawtxs=[bytes_to_hex_str(x.serialize()) for x in independent],
+            allowhighfees=True
+        )
         self.restart_node(0, self.extra_args[0])
         node = self.nodes[0]
 

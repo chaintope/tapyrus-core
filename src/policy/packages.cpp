@@ -14,21 +14,56 @@
 
 #include <algorithm>
 #include <numeric>
+#include <set>
+#include <unordered_map>
+#include <vector>
 
-uint32_t GetMaxPackageCount()
+namespace {
+/** The largest in-package ancestor and descendant counts of any transaction in
+ * a sorted, duplicate-free package, each counting the transaction itself as
+ * the mempool limits do. */
+class PackageChainCounts
 {
-    const int64_t ancestors{std::max<int64_t>(1, gArgs.GetArg("-limitancestorcount", DEFAULT_ANCESTOR_LIMIT))};
-    const int64_t descendants{std::max<int64_t>(1, gArgs.GetArg("-limitdescendantcount", DEFAULT_DESCENDANT_LIMIT))};
-    return static_cast<uint32_t>(std::min<int64_t>({int64_t{MAX_PACKAGE_COUNT}, ancestors, descendants}));
-}
+public:
+    explicit PackageChainCounts(const Package& txns)
+    {
+        std::unordered_map<uint256, size_t, SaltedTxidHasher> index;
+        std::vector<std::set<size_t>> ancestors(txns.size());
+        for (size_t i{0}; i < txns.size(); ++i) {
+            for (const auto& input : txns[i]->vin) {
+                const auto parent = index.find(input.prevout.hashMalFix);
+                if (parent == index.end()) continue;
+                ancestors[i].insert(parent->second);
+                ancestors[i].insert(ancestors[parent->second].begin(), ancestors[parent->second].end());
+            }
+            index.emplace(txns[i]->GetHashMalFix(), i);
+        }
+        std::vector<size_t> descendants(txns.size(), size_t{1});
+        for (size_t i{0}; i < txns.size(); ++i) {
+            m_max_ancestors = std::max(m_max_ancestors, ancestors[i].size() + 1);
+            for (const size_t ancestor : ancestors[i]) ++descendants[ancestor];
+        }
+        for (const size_t count : descendants) m_max_descendants = std::max(m_max_descendants, count);
+    }
+
+    size_t MaxAncestors() const { return m_max_ancestors; }
+    size_t MaxDescendants() const { return m_max_descendants; }
+
+private:
+    size_t m_max_ancestors{0};
+    size_t m_max_descendants{0};
+};
+} // namespace
 
 bool CheckPackage(const Package& txns, CValidationState& state)
 {
     const unsigned int package_count = txns.size();
 
-    if (package_count > GetMaxPackageCount()) {
+    if (package_count > MAX_PACKAGE_COUNT) {
         return state.Invalid(false, REJECT_PACKAGE_INVALID, "package-too-many-transactions");
-    }    const int64_t total_size = std::accumulate(txns.cbegin(), txns.cend(), 0,
+    }
+
+    const int64_t total_size = std::accumulate(txns.cbegin(), txns.cend(), 0,
                                [](int64_t sum, const auto& tx) { return sum + GetTransactionSize(*tx); });
 
     // If the package only contains 1 tx, it's better to report the policy violation on individual tx size.
@@ -76,6 +111,16 @@ bool CheckPackage(const Package& txns, CValidationState& state)
 
     if (later_txids.size() != txns.size()) {
         return state.Invalid(false, REJECT_PACKAGE_INVALID, "package-contains-duplicates");
+    }
+
+    // Only chains inside the package are counted here; ancestors already in the
+    // mempool are counted when each transaction is accepted.
+    const PackageChainCounts chain_counts(txns);
+    const int64_t ancestor_limit{gArgs.GetArg("-limitancestorcount", DEFAULT_ANCESTOR_LIMIT)};
+    const int64_t descendant_limit{gArgs.GetArg("-limitdescendantcount", DEFAULT_DESCENDANT_LIMIT)};
+    if (static_cast<int64_t>(chain_counts.MaxAncestors()) > ancestor_limit ||
+        static_cast<int64_t>(chain_counts.MaxDescendants()) > descendant_limit) {
+        return state.Invalid(false, REJECT_PACKAGE_INVALID, "package-mempool-limits");
     }
 
     return true;
