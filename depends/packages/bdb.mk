@@ -15,6 +15,9 @@ define $(package)_set_vars
 $(package)_config_opts=--disable-shared --enable-cxx --disable-replication --enable-option-checking
 $(package)_config_opts_mingw32=--enable-mingw
 $(package)_cflags+=-Wno-error=implicit-function-declaration -Wno-error=format-security -Wno-error=implicit-int
+# GCC 15 defaults to C23, where BDB's unprototyped `int (*)()` declarations
+# mean `int (*)(void)` and no longer match the real handlers.
+$(package)_cflags+=-std=gnu17
 $(package)_cppflags_mingw32=-DUNICODE -D_UNICODE
 endef
 
