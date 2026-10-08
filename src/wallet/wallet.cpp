@@ -2362,6 +2362,8 @@ const CTxOut& CWallet::FindNonChangeParentOutput(const CTransaction& tx, int out
     return ptx->vout[n];
 }
 
+// colorId has no default: a caller that left it out would select token coins
+// as TPC, with fees deducted from token amounts, and nothing would flag it.
 bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, const CoinEligibilityFilter& eligibility_filter, std::vector<OutputGroup> groups,
                                  std::set<CInputCoin>& setCoinsRet, CAmount& nValueRet, const CoinSelectionParams& coin_selection_params, bool& bnb_used,
                                  const ColorIdentifier& colorId) const
@@ -2393,11 +2395,19 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, const CoinEligibil
             group.effective_value = 0;
             for (auto it = group.m_outputs.begin(); it != group.m_outputs.end(); ) {
                 const CInputCoin& coin = *it;
-                CAmount effective_value = coin.txout.nValue - (is_token || coin.m_input_bytes < 0 ? 0 : coin_selection_params.effective_fee.GetFee(coin.m_input_bytes));
-                // Only include outputs that are positive effective value (i.e. not dust)
+                // A token group's fields are all in token units, so it carries no TPC fee.
+                CAmount input_fee = 0;
+                CAmount input_long_term_fee = 0;
+                if (!is_token && coin.m_input_bytes >= 0) {
+                    input_fee = coin_selection_params.effective_fee.GetFee(coin.m_input_bytes);
+                    input_long_term_fee = long_term_feerate.GetFee(coin.m_input_bytes);
+                }
+                CAmount effective_value = coin.txout.nValue - input_fee;
+                // Drop uneconomical inputs: those worth no more than the fee to spend them
+                // at this fee rate. This is not the dust policy, which exempts tokens.
                 if (effective_value > 0) {
-                    group.fee += coin.m_input_bytes < 0 ? 0 : coin_selection_params.effective_fee.GetFee(coin.m_input_bytes);
-                    group.long_term_fee += coin.m_input_bytes < 0 ? 0 : long_term_feerate.GetFee(coin.m_input_bytes);
+                    group.fee += input_fee;
+                    group.long_term_fee += input_long_term_fee;
                     group.effective_value += effective_value;
                     ++it;
                 } else {

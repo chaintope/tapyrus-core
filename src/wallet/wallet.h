@@ -844,7 +844,7 @@ public:
      */
     bool SelectCoinsMinConf(const CAmount& nTargetValue, const CoinEligibilityFilter& eligibility_filter, std::vector<OutputGroup> groups,
         std::set<CInputCoin>& setCoinsRet, CAmount& nValueRet, const CoinSelectionParams& coin_selection_params, bool& bnb_used,
-        const ColorIdentifier& colorId = ColorIdentifier()) const;
+        const ColorIdentifier& colorId) const;
 
     bool IsSpent(const uint256& hash, unsigned int n) const;
     std::vector<OutputGroup> GroupOutputs(const std::vector<COutput>& outputs, bool single_coin) const;
