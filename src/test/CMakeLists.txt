@@ -232,6 +232,9 @@ target_link_libraries(test_tapyrus
         tapyrus_util
         tapyrus_consensus
         $<TARGET_NAME_IF_EXISTS:tapyrus_zmq>
+        # zmq_tests.cpp calls libzmq directly; linking zeromq here also gives
+        # it ZMQ_STATIC on Windows, which tapyrus_zmq's PRIVATE link does not.
+        $<TARGET_NAME_IF_EXISTS:zeromq>
         leveldb
         univalue
         secp256k1
