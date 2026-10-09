@@ -16,40 +16,32 @@ add_test_to_suite(tapyrus-qt test-tapyrus-qt
 	# Test framework
 	../../test/test_tapyrus.cpp
 
-	# Glue -- see the six-glue-files comment on tapyrusd's add_executable()
-	# in the top-level src/CMakeLists.txt. Unlike test_tapyrus (which has
-	# its own test_tapyrus_main.cpp stubbing g_connman/StartShutdown/
-	# ShutdownRequested), this binary's test_main.cpp calls noui_connect()
-	# directly and defines none of these itself, so it needs the real
-	# files -- all six, including noui.cpp this time.
+	# Start-up glue, as for tapyrusd. test_main.cpp calls noui_connect()
+	# directly, so noui.cpp is included too. genesisblock.cpp is for the
+	# shared test_tapyrus.cpp fixture.
 	#
 	# interfaces/node.cpp is added too: rpcnestedtests.cpp/addressbooktests.cpp/
 	# wallettests.cpp call interfaces::MakeNode() directly, and it no longer
 	# lives in tapyrus_util (see the comment on tapyrus_util's add_library()
 	# in the top-level src/CMakeLists.txt) -- tapyrus-qt's own copy isn't
 	# visible here since this is a separate executable target.
-	../../file_io.cpp
+	../../genesisblock.cpp
 	../../init.cpp
 	../../interfaces/node.cpp
 	../../noui.cpp
-	../../shutdown.cpp
-	../../timeoffsets.cpp
-	../../ui_interface.cpp
 )
 
 # ../../test/test_tapyrus.cpp is a non-Qt shared fixture file.
 # Prevent AutoMOC from generating a stale moc_ file for it (it has no
 # Q_OBJECT and the header lives outside src/qt), and prevent AutoUIC from
 # mistaking the "ui_interface.h" include for a Qt Designer .ui file.
-# init.cpp/timeoffsets.cpp/ui_interface.cpp hit the same ui_interface.h/
+# init.cpp/interfaces/node.cpp/noui.cpp hit the same ui_interface.h/
 # AutoUIC collision -- see the matching set_property() in src/qt/CMakeLists.txt.
 set_source_files_properties(
 	../../test/test_tapyrus.cpp
 	../../init.cpp
 	../../interfaces/node.cpp
 	../../noui.cpp
-	../../timeoffsets.cpp
-	../../ui_interface.cpp
 	PROPERTIES
 	SKIP_AUTOMOC ON
 	SKIP_AUTOUIC ON

@@ -7,7 +7,6 @@
 #include <tapyrus-config.h>
 
 #include <utiltime.h>
-#include <timeoffsets.h>
 
 #include <atomic>
 #include <ctime>

@@ -6,7 +6,6 @@
 
 #include <util.h>
 
-#include <chainparams.h>
 #include <random.h>
 #include <serialize.h>
 #include <utilstrencodings.h>

@@ -10,6 +10,16 @@
 #include <stdio.h>
 #include <string.h>
 
+// Hex digit value, or -1. A local copy so tapyrus_consensus does not need
+// utilstrencodings.cpp, which belongs to tapyrus_util.
+static signed char HexDigitValue(char c)
+{
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    return -1;
+}
+
 template <unsigned int BITS>
 base_blob<BITS>::base_blob(const std::vector<unsigned char>& vch)
 {
@@ -38,15 +48,15 @@ void base_blob<BITS>::SetHex(const char* psz)
 
     // hex string to uint
     const char* pbegin = psz;
-    while (::HexDigit(*psz) != -1)
+    while (HexDigitValue(*psz) != -1)
         psz++;
     psz--;
     unsigned char* p1 = (unsigned char*)data;
     unsigned char* pend = p1 + WIDTH;
     while (psz >= pbegin && p1 < pend) {
-        *p1 = ::HexDigit(*psz--);
+        *p1 = HexDigitValue(*psz--);
         if (psz >= pbegin) {
-            *p1 |= ((unsigned char)::HexDigit(*psz--) << 4);
+            *p1 |= ((unsigned char)HexDigitValue(*psz--) << 4);
             p1++;
         }
     }

@@ -7,8 +7,7 @@
 #include <script/script.h>
 
 #include <tinyformat.h>
-#include <primitives/transaction.h>//workaround - "Outpoint not defined" in coloridentifier.h
-#include <coloridentifier.h>
+#include <tokentypes.h>
 
 const char* GetOpName(opcodetype opcode)
 {

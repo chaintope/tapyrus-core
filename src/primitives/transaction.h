@@ -9,53 +9,13 @@
 
 #include <stdint.h>
 #include <amount.h>
+#include <primitives/outpoint.h>
 #include <script/script.h>
 #include <serialize.h>
 #include <uint256.h>
 
 //flag to generate transaction hash without scriptSig (hashMalFix)
 static const int SERIALIZE_TRANSACTION_MALFIX     = 0x20000000;
-
-/** An outpoint - a combination of a transaction hash and an index n into its vout */
-class COutPoint
-{
-public:
-    //tapyrus outpoint uses hashMalFix of previous transaction. So renamed this variable for clarity
-    uint256 hashMalFix;
-    uint32_t n;
-
-    COutPoint(): n((uint32_t) -1) { }
-    COutPoint(const uint256& hashIn, uint32_t nIn): hashMalFix(hashIn), n(nIn) { }
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(hashMalFix);
-        READWRITE(n);
-    }
-
-    void SetNull() { hashMalFix.SetNull(); n = (uint32_t) -1; }
-    bool IsNull() const { return (hashMalFix.IsNull() && n == (uint32_t) -1); }
-
-    friend bool operator<(const COutPoint& a, const COutPoint& b)
-    {
-        int cmp = a.hashMalFix.Compare(b.hashMalFix);
-        return cmp < 0 || (cmp == 0 && a.n < b.n);
-    }
-
-    friend bool operator==(const COutPoint& a, const COutPoint& b)
-    {
-        return (a.hashMalFix == b.hashMalFix && a.n == b.n);
-    }
-
-    friend bool operator!=(const COutPoint& a, const COutPoint& b)
-    {
-        return !(a == b);
-    }
-
-    std::string ToString() const;
-};
 
 /** An input of a transaction.  It contains the location of the previous
  * transaction's output that it claims and a signature that matches the
