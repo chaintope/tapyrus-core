@@ -4,7 +4,6 @@
 
 #include <pstt.h>
 
-#include <chainparams.h>
 #include <coloridentifier.h>
 #include <hash.h>
 #include <key.h>
@@ -16,38 +15,6 @@
 #include <algorithm>
 #include <set>
 #include <stdexcept>
-
-// =======================================================================
-// PSTT_GLOBAL_XPUB keydata helpers
-// =======================================================================
-
-std::vector<unsigned char> SerializeXpubKeyData(const CExtPubKey& xpub)
-{
-    const std::vector<unsigned char>& prefix = Params().Base58Prefix(CChainParams::EXT_PUBLIC_KEY);
-    std::vector<unsigned char> out(prefix.begin(), prefix.end());
-    unsigned char code[BIP32_EXTKEY_SIZE];
-    xpub.Encode(code);
-    out.insert(out.end(), code, code + BIP32_EXTKEY_SIZE);
-    return out;
-}
-
-CExtPubKey ParseXpubKeyData(const std::vector<unsigned char>& keydata)
-{
-    if (keydata.size() != PSTT_XPUB_KEYDATA_SIZE) {
-        throw std::ios_base::failure("PSTT_GLOBAL_XPUB keydata is not 78 bytes");
-    }
-    const std::vector<unsigned char>& expected_prefix = Params().Base58Prefix(CChainParams::EXT_PUBLIC_KEY);
-    std::vector<unsigned char> actual_prefix(keydata.begin(), keydata.begin() + 4);
-    if (actual_prefix != expected_prefix) {
-        throw std::ios_base::failure(
-            "expected xpub prefix " + HexStr(expected_prefix) + ", got " + HexStr(actual_prefix));
-    }
-    CExtPubKey xpub;
-    unsigned char code[BIP32_EXTKEY_SIZE];
-    std::copy(keydata.begin() + 4, keydata.end(), code);
-    xpub.Decode(code);
-    return xpub;
-}
 
 // =======================================================================
 // PSTTInput
@@ -563,7 +530,8 @@ bool PartiallySignedTapyrusTransaction::IsNull() const
 // large xpub counts.
 std::vector<unsigned char> XpubEntryCanonicalBytes(const std::pair<CExtPubKey, std::vector<uint32_t>>& entry)
 {
-    std::vector<unsigned char> out = SerializeXpubKeyData(entry.first);
+    std::vector<unsigned char> out(BIP32_EXTKEY_WITH_VERSION_SIZE);
+    entry.first.EncodeWithVersion(out.data());
     for (uint32_t v : entry.second) {
         out.push_back(static_cast<unsigned char>(v & 0xff));
         out.push_back(static_cast<unsigned char>((v >> 8) & 0xff));
@@ -674,7 +642,8 @@ void PartiallySignedTapyrusTransaction::Serialize(Stream& s) const
     }
 
     for (const auto& entry : xpubs) {
-        std::vector<unsigned char> keydata = SerializeXpubKeyData(entry.first);
+        std::vector<unsigned char> keydata(BIP32_EXTKEY_WITH_VERSION_SIZE);
+        entry.first.EncodeWithVersion(keydata.data());
         SerializeToVector(s, PSTT_GLOBAL_XPUB, MakeSpan(keydata));
         WriteCompactSize(s, entry.second.size() * sizeof(uint32_t));
         for (uint32_t v : entry.second) s << v;
@@ -758,7 +727,7 @@ void PartiallySignedTapyrusTransaction::Unserialize(Stream& s)
                 break;
             case PSTT_GLOBAL_XPUB:
             {
-                if (key.size() != 1 + PSTT_XPUB_KEYDATA_SIZE) {
+                if (key.size() != 1 + BIP32_EXTKEY_WITH_VERSION_SIZE) {
                     throw std::ios_base::failure("PSTT_GLOBAL_XPUB keydata is not 78 bytes");
                 }
                 std::vector<unsigned char> xpub_keydata(key.begin() + 1, key.end());
@@ -766,7 +735,8 @@ void PartiallySignedTapyrusTransaction::Unserialize(Stream& s)
                     throw std::ios_base::failure("Duplicate Key, PSTT_GLOBAL_XPUB already provided");
                 }
                 seen_xpubs.insert(xpub_keydata);
-                CExtPubKey xpub = ParseXpubKeyData(xpub_keydata);
+                CExtPubKey xpub;
+                xpub.DecodeWithVersion(xpub_keydata.data());
 
                 uint64_t value_len = ReadCompactSize(s);
                 if (value_len < sizeof(uint32_t)) throw std::ios_base::failure("XPUB value must contain at least a 4-byte fingerprint");

@@ -7,7 +7,7 @@
 #define BITCOIN_UNDO_H
 
 #include <compressor.h>
-#include <consensus/consensus.h>
+#include <primitives/block.h>
 #include <primitives/transaction.h>
 #include <serialize.h>
 
@@ -60,8 +60,6 @@ public:
     explicit TxInUndoDeserializer(Coin* coin) : txout(coin) {}
 };
 
-static const size_t MAX_INPUTS_PER_BLOCK = MAX_BLOCK_SIZE / ::GetSerializeSize(CTxIn(), SER_NETWORK, PROTOCOL_VERSION);
-
 /** Undo information for a CTransaction */
 class CTxUndo
 {
@@ -78,34 +76,52 @@ public:
             ::Serialize(s, TxInUndoSerializer(&prevout));
         }
     }
-
-    template <typename Stream>
-    void Unserialize(Stream& s) {
-        // TODO: avoid reimplementing vector deserializer
-        uint64_t count = 0;
-        ::Unserialize(s, COMPACTSIZE(count));
-        if (count > MAX_INPUTS_PER_BLOCK) {
-            throw std::ios_base::failure("Too many input undo records");
-        }
-        vprevout.resize(count);
-        for (auto& prevout : vprevout) {
-            ::Unserialize(s, TxInUndoDeserializer(&prevout));
-        }
-    }
 };
 
-/** Undo information for a CBlock */
+/** Undo information for a CBlock. Read it with BlockUndoDeserializer. */
 class CBlockUndo
 {
 public:
     std::vector<CTxUndo> vtxundo; // for all but the coinbase
 
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(vtxundo);
+    template <typename Stream>
+    void Serialize(Stream& s) const {
+        ::Serialize(s, vtxundo);
     }
+};
+
+/** Reads a CBlockUndo for a known block. Every record count must match the
+ *  block before anything is allocated, so a corrupt count in the undo file
+ *  fails the read instead of causing a huge allocation. */
+class BlockUndoDeserializer
+{
+    CBlockUndo* blockundo;
+    const CBlock& block;
+
+public:
+    template<typename Stream>
+    void Unserialize(Stream& s) {
+        uint64_t tx_count = 0;
+        ::Unserialize(s, COMPACTSIZE(tx_count));
+        if (block.vtx.empty() || tx_count != block.vtx.size() - 1) {
+            throw std::ios_base::failure("Undo transaction count does not match block");
+        }
+        blockundo->vtxundo.resize(tx_count);
+        for (size_t i = 0; i < tx_count; ++i) {
+            uint64_t count = 0;
+            ::Unserialize(s, COMPACTSIZE(count));
+            if (count != block.vtx[i + 1]->vin.size()) {
+                throw std::ios_base::failure("Undo input count does not match transaction");
+            }
+            std::vector<Coin>& vprevout = blockundo->vtxundo[i].vprevout;
+            vprevout.resize(count);
+            for (auto& prevout : vprevout) {
+                ::Unserialize(s, TxInUndoDeserializer(&prevout));
+            }
+        }
+    }
+
+    BlockUndoDeserializer(CBlockUndo* blockundoIn, const CBlock& blockIn) : blockundo(blockundoIn), block(blockIn) {}
 };
 
 #endif // BITCOIN_UNDO_H

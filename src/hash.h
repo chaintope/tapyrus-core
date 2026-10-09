@@ -22,7 +22,7 @@ class CHash256 {
 private:
     CSHA256 sha;
 public:
-    static const size_t OUTPUT_SIZE = CSHA256::OUTPUT_SIZE;
+    static constexpr size_t OUTPUT_SIZE = CSHA256::OUTPUT_SIZE;
 
     void Finalize(unsigned char hash[OUTPUT_SIZE]) {
         unsigned char buf[CSHA256::OUTPUT_SIZE];
@@ -46,7 +46,7 @@ class CHash160 {
 private:
     CSHA256 sha;
 public:
-    static const size_t OUTPUT_SIZE = CRIPEMD160::OUTPUT_SIZE;
+    static constexpr size_t OUTPUT_SIZE = CRIPEMD160::OUTPUT_SIZE;
 
     void Finalize(unsigned char hash[OUTPUT_SIZE]) {
         unsigned char buf[CSHA256::OUTPUT_SIZE];
@@ -69,7 +69,7 @@ public:
 template<typename T1>
 inline uint256 Hash(const T1 pbegin, const T1 pend)
 {
-    static const unsigned char pblank[1] = {};
+    static constexpr unsigned char pblank[1] = {};
     uint256 result;
     CHash256().Write(pbegin == pend ? pblank : (const unsigned char*)&pbegin[0], (pend - pbegin) * sizeof(pbegin[0]))
               .Finalize((unsigned char*)&result);
@@ -80,7 +80,7 @@ inline uint256 Hash(const T1 pbegin, const T1 pend)
 template<typename T1, typename T2>
 inline uint256 Hash(const T1 p1begin, const T1 p1end,
                     const T2 p2begin, const T2 p2end) {
-    static const unsigned char pblank[1] = {};
+    static constexpr unsigned char pblank[1] = {};
     uint256 result;
     CHash256().Write(p1begin == p1end ? pblank : (const unsigned char*)&p1begin[0], (p1end - p1begin) * sizeof(p1begin[0]))
               .Write(p2begin == p2end ? pblank : (const unsigned char*)&p2begin[0], (p2end - p2begin) * sizeof(p2begin[0]))
@@ -92,7 +92,7 @@ inline uint256 Hash(const T1 p1begin, const T1 p1end,
 template<typename T1>
 inline uint160 Hash160(const T1 pbegin, const T1 pend)
 {
-    static unsigned char pblank[1] = {};
+    static constexpr unsigned char pblank[1] = {};
     uint160 result;
     CHash160().Write(pbegin == pend ? pblank : (const unsigned char*)&pbegin[0], (pend - pbegin) * sizeof(pbegin[0]))
               .Finalize((unsigned char*)&result);

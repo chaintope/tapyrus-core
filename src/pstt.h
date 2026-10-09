@@ -93,24 +93,11 @@ static constexpr uint8_t PSTT_TXMOD_RESERVED_MASK = ~static_cast<uint8_t>(
     PSTT_TXMOD_INPUTS_MODIFIABLE | PSTT_TXMOD_OUTPUTS_MODIFIABLE | PSTT_TXMOD_HAS_SIGHASH_SINGLE);
 
 // ---------------------------------------------------------------------
-// PSTT_GLOBAL_XPUB keydata helpers (see pstt.cpp)
-//
-// The spec's 78-byte xpub keydata is BIP32's full serialization (4-byte
-// version prefix + CExtPubKey's 74-byte encoding). CExtPubKey::Encode()
-// only produces the 74 bytes; the version prefix must be affixed/checked
-// separately against Params().Base58Prefix(EXT_PUBLIC_KEY) -- exactly one
-// accepted prefix, not a {PROD, DEV} set (see pstt.cpp for the rationale).
-// Do not use EncodeExtPubKey/DecodeExtPubKey (key_io.h) here -- those
-// produce/consume a base58check *string*, the wrong shape for raw PSTT
-// keydata.
+// PSTT_GLOBAL_XPUB keydata is BIP32's 78-byte serialization (4-byte version
+// prefix + CExtPubKey's 74-byte encoding), written and read with
+// CExtPubKey::EncodeWithVersion()/DecodeWithVersion(). The prefix is kept
+// as given, not checked against the node's network.
 // ---------------------------------------------------------------------
-
-static constexpr size_t PSTT_XPUB_KEYDATA_SIZE = 4 + BIP32_EXTKEY_SIZE; // 78
-
-std::vector<unsigned char> SerializeXpubKeyData(const CExtPubKey& xpub);
-/** Throws std::ios_base::failure (naming the concrete prefix mismatch) if
- *  the 4-byte prefix isn't exactly Params().Base58Prefix(EXT_PUBLIC_KEY). */
-CExtPubKey ParseXpubKeyData(const std::vector<unsigned char>& keydata);
 
 /** Canonical dedup key for a PSTT_GLOBAL_XPUB entry: keydata bytes followed
  *  by the derivation path. Used by Merge() and joinpstt to avoid emitting

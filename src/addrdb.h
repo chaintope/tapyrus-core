@@ -26,7 +26,7 @@ typedef enum BanReason
 class CBanEntry
 {
 public:
-    static const int CURRENT_VERSION=1;
+    static constexpr int CURRENT_VERSION=1;
     int nVersion;
     int64_t nCreateTime;
     int64_t nBanUntil;

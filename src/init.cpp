@@ -199,7 +199,7 @@ void Shutdown()
     /// for example if the data directory was found to be locked.
     /// Be sure that anything that writes files or flushes caches only does this if the respective
     /// module was initialized.
-    RenameThread("bitcoin-shutoff");
+    RenameThread("tapyrus-shutoff");
     mempool.AddTransactionsUpdated(1);
 
     StopHTTPRPC();
@@ -647,7 +647,7 @@ static void CleanupBlockRevFiles()
 
 static void ThreadImport(std::vector<fs::path> vImportFiles, bool fReloadxfield)
 {
-    RenameThread("bitcoin-loadblk");
+    RenameThread("tapyrus-loadblk");
     ScheduleBatchPriority();
     CTempXFieldHistory tempXFieldHistory;
 
