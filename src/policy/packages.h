@@ -17,10 +17,8 @@
 /** Default maximum number of transactions in a package. */
 static constexpr uint32_t MAX_PACKAGE_COUNT{25};
 
-// If a package is submitted, it must be within the mempool's ancestor/descendant limits. Since a
-// submitted package must be child-with-unconfirmed-parents (all of the transactions are an ancestor
-// of the child), package limits are ultimately bounded by mempool package limits. Ensure that the
-// defaults reflect this constraint.
+// A package's transactions may form a single chain, which must fit the mempool's ancestor and
+// descendant limits. Ensure that, at their defaults, those limits admit a full-size chain package.
 static_assert(DEFAULT_DESCENDANT_LIMIT >= MAX_PACKAGE_COUNT);
 static_assert(DEFAULT_ANCESTOR_LIMIT >= MAX_PACKAGE_COUNT);
 
@@ -29,11 +27,16 @@ static_assert(DEFAULT_ANCESTOR_LIMIT >= MAX_PACKAGE_COUNT);
 using Package = std::vector<CTransactionRef>;
 
 using PackageValidationState = std::map<const uint256, const CValidationState >;
-/** Context-free package policy checks:
+
+/** Package policy checks that need no chain state:
  * 1. The number of transactions cannot exceed MAX_PACKAGE_COUNT.
- * 2. The total size cannot exceed  MAX_PACKAGE_COUNT * 1000
+ * 2. The total size cannot exceed MAX_PACKAGE_COUNT * 1000. This is deliberately independent of
+ *    the ancestor and descendant limits, which bound chain length, not size.
  * 3. If any dependencies exist between transactions, parents must appear before children.
  * 4. Transactions cannot conflict, i.e., spend the same inputs.
+ * 5. Transactions cannot be duplicated.
+ * 6. No transaction can have more in-package ancestors or descendants, itself included, than
+ *    -limitancestorcount or -limitdescendantcount. Unrelated transactions are not limited.
  */
 bool CheckPackage(const Package& txns, CValidationState& state);
 

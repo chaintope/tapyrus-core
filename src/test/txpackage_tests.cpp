@@ -18,6 +18,23 @@
 #include <validation.h>
 #include <boost/test/unit_test.hpp>
 
+/** Sets -limitancestorcount and -limitdescendantcount for its lifetime,
+ *  then restores the defaults. */
+class PackageLimitArgs
+{
+public:
+    PackageLimitArgs(const std::string& ancestors, const std::string& descendants)
+    {
+        gArgs.ForceSetArg("-limitancestorcount", ancestors);
+        gArgs.ForceSetArg("-limitdescendantcount", descendants);
+    }
+    ~PackageLimitArgs()
+    {
+        gArgs.ForceSetArg("-limitancestorcount", std::to_string(DEFAULT_ANCESTOR_LIMIT));
+        gArgs.ForceSetArg("-limitdescendantcount", std::to_string(DEFAULT_DESCENDANT_LIMIT));
+    }
+};
+
 struct PackageTestSetup: public TestChainSetup
 {
     PackageTestSetup()
@@ -59,6 +76,28 @@ CMutableTransaction create_placeholder_tx(size_t num_inputs, size_t num_outputs)
         mtx.vout[o].scriptPubKey = random_script;
     }
     return mtx;
+}
+
+// A package of count transactions, each spending the previous one's output.
+Package make_chain_package(size_t count) {
+    Package package;
+    for (size_t i{0}; i < count; ++i) {
+        CMutableTransaction tx = create_placeholder_tx(1, 1);
+        if (!package.empty()) tx.vin[0].prevout = COutPoint(package.back()->GetHashMalFix(), 0);
+        package.emplace_back(MakeTransactionRef(tx));
+    }
+    return package;
+}
+
+// A package of one parent followed by num_children transactions that each spend one of its outputs.
+Package make_fan_out_package(size_t num_children) {
+    Package package{MakeTransactionRef(create_placeholder_tx(1, num_children))};
+    for (size_t i{0}; i < num_children; ++i) {
+        CMutableTransaction child = create_placeholder_tx(1, 1);
+        child.vin[0].prevout = COutPoint(package.front()->GetHashMalFix(), static_cast<uint32_t>(i));
+        package.emplace_back(MakeTransactionRef(child));
+    }
+    return package;
 }
 
 CMutableTransaction CreateValidTransaction(COutPoint& prevout, CAmount amt, CScript& script) {
@@ -140,6 +179,31 @@ BOOST_FIXTURE_TEST_CASE(package_sanitization_tests, PackageTestSetup)
     BOOST_CHECK(!CheckPackage(package_too_many, state_too_many));
     BOOST_CHECK_EQUAL(state_too_many.GetRejectCode(), REJECT_PACKAGE_INVALID);
     BOOST_CHECK_EQUAL(state_too_many.GetRejectReason(), "package-too-many-transactions");
+
+    // The ancestor and descendant limits bound chains inside a package, not its count.
+    {
+        const PackageLimitArgs limits{"10", "25"};
+        Package independent(package_too_many.begin(), package_too_many.begin() + 11);
+        CValidationState state_independent;
+        BOOST_CHECK(CheckPackage(independent, state_independent));
+
+        CValidationState state_chain;
+        BOOST_CHECK(CheckPackage(make_chain_package(10), state_chain));
+        BOOST_CHECK(!CheckPackage(make_chain_package(11), state_chain));
+        BOOST_CHECK_EQUAL(state_chain.GetRejectCode(), REJECT_PACKAGE_INVALID);
+        BOOST_CHECK_EQUAL(state_chain.GetRejectReason(), "package-mempool-limits");
+    }
+    {
+        const PackageLimitArgs limits{"25", "5"};
+        CValidationState state_fan_out;
+        BOOST_CHECK(CheckPackage(make_fan_out_package(4), state_fan_out));
+        BOOST_CHECK(!CheckPackage(make_fan_out_package(5), state_fan_out));
+        BOOST_CHECK_EQUAL(state_fan_out.GetRejectReason(), "package-mempool-limits");
+    }
+    {
+        CValidationState state_default;
+        BOOST_CHECK(CheckPackage(make_chain_package(MAX_PACKAGE_COUNT), state_default));
+    }
 
     // Packages can't contain transactions with the same txid.
     Package package_duplicate_txids_empty;
