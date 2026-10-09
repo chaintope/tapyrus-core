@@ -63,17 +63,14 @@ jobs:
       matrix:
         config:
           - name: feature_pruning
-            scripts:
-              - 'feature_pruning.py'
+            script: 'feature_pruning.py'
           # Each dbcrash run loops until every node has crashed, with no time
           # limit of its own, so the job's timeout is its only bound. One job
           # per scheme, so a run that never gets there can't starve the other.
           - name: feature_dbcrash
-            scripts:
-              - 'feature_dbcrash.py'
+            script: 'feature_dbcrash.py'
           - name: feature_dbcrash_schnorr
-            scripts:
-              - 'feature_dbcrash.py --scheme SCHNORR'
+            script: 'feature_dbcrash.py --scheme SCHNORR'
     name: ${{ matrix.config.name }} test (Linux x86_64 RelWithDebInfo)
     runs-on: ubuntu-latest
     # No timeout-minutes set: GitHub-hosted runners hard-cap job execution at
@@ -204,7 +201,7 @@ jobs:
           # ALL_SCRIPTS (see HEAVY_SCRIPTS in test_runner.py) so they never run
           # as part of the daily base/extended suites -- but that also means
           # test_runner.py's positional-arg lookup (which only matches
-          # ALL_SCRIPTS) can't run them by name either. Invoke each script
+          # ALL_SCRIPTS) can't run them by name either. Invoke the script
           # directly instead: every functional test is independently runnable
           # via its own `if __name__ == '__main__'` block and accepts
           # --tmpdir/--scheme/--configfile directly (test_framework.py's own
@@ -223,24 +220,12 @@ jobs:
           CONFIGFILE="$BASE_ROOT_DIR/test/config.ini"
           CACHEDIR="$BASE_BUILD_DIR/test/cache"
           rm -rf "$CACHEDIR"
-          IFS='|' read -r -a SCRIPTS <<< "${{ join(matrix.config.scripts, '|') }}"
-          index=0
-          for script_line in "${SCRIPTS[@]}"; do
-            script_name=$(echo "$script_line" | awk '{print $1}')
-            test_dir="$TAPYRUS_TEST_DIR/$(basename "$script_name" .py)_${index}"
-            echo "---------------- Start $script_line ----------------"
-            if python3 test/functional/$script_line \
-              --tmpdir="$test_dir" \
-              --configfile="$CONFIGFILE" \
-              --cachedir="$CACHEDIR" \
-              --portseed="$index"; then
-              echo "$script_line passed"
-            else
-              echo "$script_line FAILED"
-              exit 1
-            fi
-            index=$((index + 1))
-          done
+          echo "---------------- Start ${{ matrix.config.script }} ----------------"
+          python3 test/functional/${{ matrix.config.script }} \
+            --tmpdir="$TAPYRUS_TEST_DIR/${{ matrix.config.name }}" \
+            --configfile="$CONFIGFILE" \
+            --cachedir="$CACHEDIR" \
+            --portseed=0
           echo "Disk space after test:"
           df -h .
 
