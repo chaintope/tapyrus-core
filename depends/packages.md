@@ -21,7 +21,9 @@ Each package is required to define at least these variables:
     The upstream source filename available at the download path.
 
     $(package)_sha256_hash:
-    The sha256 hash of the upstream file
+    The sha256 hash of the upstream file. The build fails if the fetched
+    source doesn't match it. Sources can be pre-seeded in SOURCES_PATH
+    instead of being downloaded.
 
 These variables are optional:
 
@@ -92,12 +94,20 @@ only the appropriate build config. For example:
 
 These will be used in addition to the options that do not specify
 debug/release. All builds are considered to be release unless DEBUG=1 is set by
-the user. Other variables may be defined as needed.
+the user, which selects the debug variants: packages are built with their
+`_debug` flags, which typically disable some optimizations and enable more
+runtime checking. Other variables may be defined as needed.
 
 ## Build commands:
 
   For each build, a unique build dir and staging dir are created. For example,
   `work/build/mylib/1.0-1adac830f6e` and `work/staging/mylib/1.0-1adac830f6e`.
+  The suffix is the package's build id: a hash of all files used to build the
+  package (its recipe, patches and the main makefiles) and of the same data
+  for each recursive dependency. If any part of a package's recipe changes, it
+  is rebuilt along with every package that depends on it; if a main makefile
+  (Makefile, funcs.mk, ...) changes, all packages are rebuilt. The result is
+  cached as a tarball that can be reused and distributed.
 
   The following build commands are available for each recipe:
 
@@ -139,5 +149,3 @@ the user. Other variables may be defined as needed.
 Most projects can be properly staged using:
 
     $(MAKE) DESTDIR=$($(package)_staging_dir) install
-    or
-    $(MAKE) DESTDIR=$($(package)_staging_dir) install_cmake

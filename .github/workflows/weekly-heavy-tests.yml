@@ -2,26 +2,24 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+# Purpose: weekly checks too slow or too environment-dependent for the daily run.
+#   heavy-tests: feature_pruning and feature_dbcrash, which need hours and
+#     several GB of disk; one job each so they don't share the 6h job limit.
+#   build-from-scratch: builds depends and Tapyrus with no caches, at the
+#     minimum and at the current dependency versions in doc/dependencies.md,
+#     on every native platform (with tests) and cross target (build only),
+#     to prove both still build.
+#   docker-testnet-sync: a node from the Docker image syncs the public testnet.
+#   upnp-port-mapping: -upnp maps a port on a real UPnP router (miniupnpd).
+
 name: Weekly Heavy Test
 
-# Runs tests that are too slow for the daily CI matrix (feature_pruning: 1.5–4 h, 4 GB;
-# feature_dbcrash: needs far more than the daily 1800s per-test budget for its
-# loosest dbcrashratio/dbcache tier to reliably crash at least once).
-# Each test runs in its own job (feature-pruning, feature-dbcrash) so a slow
-# run of one doesn't eat into the other's share of the 6h GitHub-hosted-runner
-# execution ceiling. Each script is invoked directly (test/functional/<script>.py),
-# not via test_runner.py: these scripts are deliberately excluded from
-# test_runner.py's ALL_SCRIPTS list (see HEAVY_SCRIPTS there) so they never run
-# as part of the daily base/extended suites, but that also means
-# test_runner.py can't be given their names positionally -- its lookup only
-# matches ALL_SCRIPTS, so passing e.g. "feature_pruning.py" on the command
-# line used to silently no-op (WARNING + empty test list + exit 0), making
-# this job appear to pass without ever running anything.
-# Scheduled weekly; can also be triggered manually or after a successful daily build.
 on:
   schedule:
-    # Sunday 5 AM JST (Saturday 8 PM UTC)
-    - cron: '0 20 * * 0'
+    # Sunday 21:17 JST (12:17 UTC), so the report is ready by Monday 8 AM
+    # JST even with a 6h job and the up to 3h queue delay seen on scheduled
+    # runs. Not on the hour, which is when scheduled runs queue longest.
+    - cron: '17 12 * * 0'
   workflow_dispatch:
     inputs:
       test_branch:
@@ -30,7 +28,7 @@ on:
         default: ''
         required: false
   # Also run on any change to this workflow file itself, so edits to the
-  # heavy/minimum-dependency-versions jobs are validated without waiting
+  # heavy-tests/build-from-scratch jobs are validated without waiting
   # for Sunday or triggering the full suite on unrelated pushes/PRs.
   #
   # On master only, not on pull_request: feature_pruning alone takes
@@ -55,6 +53,8 @@ env:
   LC_ALL: C.UTF-8
   BOOST_TEST_RANDOM: 1
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+  # apt fails fast instead of hanging on a flaky runner mirror.
+  APT_OPTS: -o Acquire::Retries=3 -o Acquire::http::Timeout=10 -o Acquire::https::Timeout=10
 
 jobs:
   heavy-tests:
@@ -71,14 +71,14 @@ jobs:
               - 'feature_dbcrash.py --scheme SCHNORR'
     name: ${{ matrix.config.name }} test (Linux x86_64 RelWithDebInfo)
     runs-on: ubuntu-latest
-    # No timeout-minutes set: GitHub-hosted runners hard-cap job execution at
-    # 6 hours regardless of any value configured here, so anything above that
-    # is dead configuration. Each test now runs in its own matrix job (not
-    # sharing a job, and without a TIMEOUT-retry from another test eating
-    # into the budget), comfortably fitting within that 6h ceiling.
+    # 5.5h, same as build-from-scratch: a real timeout fails legibly, while
+    # GitHub-hosted runners' 6h hard cap kills the job with a lost-runner
+    # style error. The 30 minutes below the cap leave room for the failure
+    # log steps. feature_pruning, the slowest, has taken up to 261 min
+    # including its uncached Tapyrus build.
+    timeout-minutes: 330
     env:
       BASE_ROOT_DIR: ${{ github.workspace }}
-      CCACHE_DIR: ${{ github.workspace }}/ccache
       BASE_BUILD_DIR: ${{ github.workspace }}/build
       DEPENDS_DIR: ${{ github.workspace }}/depends
 
@@ -88,34 +88,24 @@ jobs:
           ref: ${{ github.event.inputs.test_branch || github.ref || 'master' }}
           submodules: recursive
 
-      # Share the ccache populated by the daily-test workflow for this exact config.
-      - name: Restore Ccache cache
-        id: ccache-cache
-        uses: actions/cache/restore@v5
-        with:
-          path: ${{ env.CCACHE_DIR }}
-          key: daily-linux-x86_64-RelWithDebInfo-true-true-true-ccache-${{ github.run_id }}
-          restore-keys: daily-linux-x86_64-RelWithDebInfo-true-true-true-ccache-
+      # Same key as daily-test.yml's DEPENDS_HASH, so this restores the tree
+      # saved by L-X86-Rel-GUI+USDT+Wallet, which builds the same depends set.
+      - name: Compute depends hash
+        run: echo "DEPENDS_HASH=$(git ls-files -s depends | git hash-object --stdin)" >> $GITHUB_ENV
 
+      # Exact key only: if depends/ changed, build it from scratch.
       - name: Restore Depends cache
         id: depends-cache
         uses: actions/cache/restore@v5
         with:
           path: ${{ env.DEPENDS_DIR }}
-          key: depends-v6-qt6-linux-x86_64-${{ hashFiles('depends/packages/*', 'depends/hosts/*.mk', 'depends/builders/*.mk', 'depends/funcs.mk', 'depends/toolchain.cmake.in', 'depends/patches/**') }}
-          restore-keys: depends-v6-qt6-linux-x86_64-
-
-      # Reset tracked depends/ files and remove stale untracked leftovers
-      # from a cache restore, before make runs.
-      - name: Reset depends/ tracked files after cache restore
-        run: |
-          git checkout -- depends/
-          git clean -fdx -- depends/patches/ depends/packages/ depends/hosts/ depends/builders/
+          key: depends-v6-qt6-linux-x86_64-${{ env.DEPENDS_HASH }}
 
       - name: Setup Linux dependencies
+        timeout-minutes: 10
         run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc g++ ccache build-essential cmake ninja-build pkgconf \
+          sudo apt-get $APT_OPTS update
+          sudo apt-get $APT_OPTS install -y gcc g++ build-essential cmake ninja-build pkgconf \
             python3-zmq bsdmainutils systemtap-sdt-dev bpfcc-tools bpftrace python3-venv \
             libboost-test-dev python3-pip gperf bison
           # libxkbcommon >= 1.9.0 requires Meson >= 1.4.0; Ubuntu 24.04's apt
@@ -158,7 +148,11 @@ jobs:
           export LD_LIBRARY_PATH="$DEPENDS_PREFIX/lib:$LD_LIBRARY_PATH"
           echo ">" $HOME/.tapyrus
 
+          # No ccache: GitHub evicts cache entries unused for 7 days, the
+          # same as this job's interval, so queue delays or a skipped week
+          # would leave it cold anyway.
           cmake -S "$BASE_ROOT_DIR" -B "$BASE_BUILD_DIR" -GNinja \
+            -DWITH_CCACHE=OFF \
             -DENABLE_ZMQ=ON \
             -DCMAKE_BUILD_TYPE=RelWithDebInfo \
             -DCMAKE_PREFIX_PATH="$DEPENDS_PREFIX" \
@@ -270,9 +264,9 @@ jobs:
       #     fi
 
       - name: Print full combined logs (on failure)
-        # A job hitting the 6h GitHub-hosted-runner ceiling ends with
-        # conclusion "cancelled", not "failure" -- exactly the case this step
-        # exists for, so it must run on both.
+        # A job that times out (timeout-minutes or the 6h GitHub-hosted-runner
+        # cap) can end as "cancelled" rather than "failure" -- exactly the
+        # case this step exists for, so it must run on both.
         if: failure() || cancelled()
         run: |
           # Each script is invoked directly (not through test_runner.py), so
@@ -313,14 +307,6 @@ jobs:
           path: ${{ github.workspace }}/combined_logs/
           retention-days: 7
           if-no-files-found: ignore
-
-      - name: Save Ccache cache
-        if: github.ref == 'refs/heads/master'
-        uses: actions/cache/save@v5
-        continue-on-error: true
-        with:
-          path: ${{ env.CCACHE_DIR }}
-          key: daily-linux-x86_64-RelWithDebInfo-true-true-true-ccache-${{ github.run_id }}-${{ matrix.config.name }}
 
       - name: Stop dangling test processes
         if: always()
@@ -400,33 +386,52 @@ jobs:
           path: ${{ github.workspace }}/core_dumps/
           retention-days: 7
 
-  minimum-dependency-versions:
-    name: ${{ matrix.config.name }} - minimum dependency versions
+  build-from-scratch:
+    name: ${{ matrix.config.name }} ${{ matrix.versions }}
     strategy:
       fail-fast: false
       matrix:
+        # minimum: "Minimum tested" versions from doc/dependencies.md.
+        # current: the pinned "Version" column. Daily restores depends from
+        #   cache, so this catches dead download URLs and depends/Tapyrus
+        #   incompatibilities.
+        # Both run unit, util and functional tests.
+        versions: [minimum, current]
+        # Native entries build and run the tests. Cross entries build only:
+        # their binaries can't run on the Linux runner, and daily's cross jobs
+        # never rebuild depends from scratch, so this is where cross toolchain
+        # or download drift shows up.
         config:
-          # All three native -- no cross-compilation entries here on purpose,
-          # unlike the daily matrix's L-ARM-*/target_platform jobs. HOST is the
-          # real depends triple for each: aarch64-linux-gnu on genuine ARM64
-          # hardware (ubuntu-24.04-arm, a native GH-hosted runner). The daily
-          # matrix's L-ARM-* entries used to run on the x86_64 ubuntu-latest
-          # with only an arch:arm64 label -- silently building x86_64, since
-          # HOST there is derived from `uname -m` on the runner, never that
-          # label -- but daily-test.yml's L-ARM-* entries now use this same
-          # ubuntu-24.04-arm runner too.
-          - name: Linux x86_64
+          - name: Linux x86_64 native
             os: ubuntu-latest
             platform: linux
             host: x86_64-pc-linux-gnu
-          - name: Linux arm64
+          - name: Linux arm64 native
             os: ubuntu-24.04-arm
             platform: linux
             host: aarch64-linux-gnu
-          - name: macOS arm64
+          - name: macOS arm64 native
             os: macos-latest
             platform: macos
             host: arm64-apple-darwin
+          - name: macOS x86_64 cross
+            os: ubuntu-latest
+            platform: linux
+            target_platform: macos
+            target_arch: x86_64
+            host: x86_64-apple-darwin
+          - name: macOS arm64 cross
+            os: ubuntu-latest
+            platform: linux
+            target_platform: macos
+            target_arch: arm64
+            host: arm64-apple-darwin
+          - name: Windows x86_64 cross
+            os: ubuntu-latest
+            platform: linux
+            target_platform: windows
+            target_arch: x86_64
+            host: x86_64-w64-mingw32
     runs-on: ${{ matrix.config.os }}
     # 5.5h, leaving 30 minutes of margin below GitHub-hosted runners' 6h hard
     # cap: this job's from-scratch depends build (no cache, deliberately) plus
@@ -435,19 +440,10 @@ jobs:
     # jobs. A real timeout here fails legibly instead of GitHub silently
     # killing the job at 6h with a less informative error.
     timeout-minutes: 330
-    # Verifies doc/dependencies.md's "Minimum required" column is actually still
-    # buildable, not just a number written down once and never re-checked -- a
-    # full from-scratch depends build every run (no Restore/Save Depends cache
-    # steps anywhere in this job), so this can't be short-circuited by a stale
-    # cache the way the daily job's "Restore Depends cache" restore-keys fallback
-    # (no content hash) can restore an older tree wholesale on a key miss.
-    #
-    # If this fails on a specific package's minimum version, that means the
-    # documented floor doesn't actually build against this repo's current
-    # code/toolchain -- the correct response is to raise doc/dependencies.md's
-    # "Minimum required" for that package to whatever version genuinely does
-    # build, not to relax or skip this job. Catching exactly that drift is
-    # this job's purpose.
+    # Builds depends and Tapyrus from scratch with no caches (no depends
+    # cache, no ccache), to prove doc/dependencies.md's versions still build.
+    # If the minimum variant fails, raise that package's "Minimum tested" in
+    # doc/dependencies.md rather than relaxing this job.
     env:
       BASE_ROOT_DIR: ${{ github.workspace }}
       BASE_BUILD_DIR: ${{ github.workspace }}/build
@@ -460,10 +456,11 @@ jobs:
           submodules: recursive
 
       - name: Setup Linux dependencies
+        timeout-minutes: 10
         if: matrix.config.platform == 'linux'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc g++ ccache build-essential cmake ninja-build pkgconf \
+          sudo apt-get $APT_OPTS update
+          sudo apt-get $APT_OPTS install -y gcc g++ build-essential cmake ninja-build pkgconf \
             python3-zmq bsdmainutils systemtap-sdt-dev bpfcc-tools bpftrace python3-venv \
             libboost-test-dev python3-pip gperf bison
           # libxkbcommon >= 1.9.0 requires Meson >= 1.4.0; Ubuntu's apt package
@@ -476,18 +473,45 @@ jobs:
           source $HOME/venv/bin/activate
           pip3 install pyzmq
 
+      - name: Setup macOS cross-compilation dependencies
+        timeout-minutes: 15
+        if: matrix.config.target_platform == 'macos'
+        run: |
+          sudo apt-get $APT_OPTS install -y curl clang lld llvm llvm-dev
+          # Downloaded fresh every run, so a dead SDK link fails here.
+          XCODE_VERSION=$(grep '^XCODE_VERSION=' depends/hosts/darwin.mk | cut -d= -f2)
+          XCODE_BUILD_ID=$(grep '^XCODE_BUILD_ID=' depends/hosts/darwin.mk | cut -d= -f2)
+          OSX_SDK_FILENAME="Xcode-${XCODE_VERSION}-${XCODE_BUILD_ID}-extracted-SDK-with-libcxx-headers.tar.gz"
+          mkdir -p depends/SDKs depends/sdk-sources
+          curl --location --fail "https://bitcoincore.org/depends-sources/sdks/${OSX_SDK_FILENAME}" \
+            -o "depends/sdk-sources/${OSX_SDK_FILENAME}" \
+            || curl --location --fail "https://s3.ap-northeast-1.amazonaws.com/repo.tapyrus.chaintope.com/${OSX_SDK_FILENAME}" \
+              -o "depends/sdk-sources/${OSX_SDK_FILENAME}"
+          tar -C depends/SDKs -xf "depends/sdk-sources/${OSX_SDK_FILENAME}"
+
+      - name: Setup Windows cross-compilation dependencies
+        timeout-minutes: 10
+        if: matrix.config.target_platform == 'windows'
+        run: |
+          sudo apt-get $APT_OPTS install -y g++-mingw-w64-x86-64 mingw-w64-x86-64-dev binutils-mingw-w64-x86-64
+          sudo update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++-posix
+          sudo update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix
+
       - name: Setup macOS dependencies
+        timeout-minutes: 15
         if: matrix.config.platform == 'macos'
         env:
           HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
         run: |
-          brew install --quiet coreutils ninja pkgconf gnu-getopt ccache boost gperf
+          brew install --quiet coreutils ninja pkgconf gnu-getopt boost gperf
           brew install --quiet meson || brew upgrade meson
           python3 -m venv $HOME/venv
           source $HOME/venv/bin/activate
           pip3 install pyzmq matplotlib
 
       - name: Patch depends/packages/*.mk to the documented minimum versions
+        # minimum variant only.
+        if: matrix.versions == 'minimum'
         # Swaps each of the 5 packages doc/dependencies.md documents a
         # "Minimum required" for below their currently-pinned "Version":
         # Boost, Expat, FreeType, libevent, and systemtap. All five were
@@ -500,7 +524,7 @@ jobs:
         # REQUIRED)`, both older than what's swapped in here -- those C++-side
         # floors are untouched; this job proves a narrower, actually-tested
         # guarantee, not the CMake-permitted extreme). See doc/dependencies.md
-        # for the full reasoning.
+        # ("Minimum tested") for the full reasoning.
         #
         # The rest of depends/packages/*.mk is left pinned at its current
         # version:
@@ -601,9 +625,8 @@ jobs:
           echo "DEPENDS_PREFIX=$DEPENDS_DIR/$HOST" >> $GITHUB_ENV
 
       - name: Print built dependency versions
-        # Confirms the patch above actually took effect in the real build
-        # output, not just in the checked-out .mk files -- same check as the
-        # daily workflow's own "Print built dependency versions" step.
+        # Shows the versions actually built, e.g. that the minimum patch took
+        # effect.
         run: |
           echo "== depends/built/$HOST: actually-built artifact versions =="
           for f in depends/built/"$HOST"/*/*.tar.gz; do
@@ -612,6 +635,7 @@ jobs:
           done | sort
 
       - name: Enable core dumps and set test dir
+        if: ${{ !matrix.config.target_platform }}
         run: |
           CORE_DUMP_DIR="${{ github.workspace }}/core_dumps"
           mkdir -p "$CORE_DUMP_DIR"
@@ -626,13 +650,16 @@ jobs:
 
       - name: Configure and build (GUI + wallet enabled)
         run: |
-          if [ "${{ matrix.config.platform }}" == "macos" ]; then
+          if [ "${{ matrix.config.platform }}" == "macos" ] || [ "${{ matrix.config.target_platform }}" == "macos" ]; then
             export CC="clang"
             export CXX="clang++"
-            CPU_COUNT=$(sysctl -n hw.ncpu)
           else
             export CC="gcc"
             export CXX="g++"
+          fi
+          if [ "${{ matrix.config.platform }}" == "macos" ]; then
+            CPU_COUNT=$(sysctl -n hw.ncpu)
+          else
             CPU_COUNT=$(nproc)
           fi
           export PKG_CONFIG_PATH="$DEPENDS_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH"
@@ -648,8 +675,8 @@ jobs:
             -DBUILD_GUI=ON
             -DENABLE_WALLET=ON
             -DWITH_BDB=ON
-            -DENABLE_TESTS=ON
             -DENABLE_BENCH=OFF
+            -DWITH_CCACHE=OFF
             -DBOOST_ROOT="$DEPENDS_PREFIX"
             -DBOOST_INCLUDEDIR="$DEPENDS_PREFIX/include"
             -DBOOST_LIBRARYDIR="$DEPENDS_PREFIX/lib"
@@ -660,29 +687,40 @@ jobs:
             -DBerkeleyDB_INCLUDE_DIR="$DEPENDS_PREFIX/include"
             -DBerkeleyDB_LIBRARY="$DEPENDS_PREFIX/lib/libdb_cxx-5.3.a"
           )
-          if [ "${{ matrix.config.platform }}" == "linux" ]; then
-            CMAKE_OPTS+=(-DENABLE_TRACING=ON)
+          if [ "${{ matrix.config.target_platform }}" == "macos" ]; then
+            OSX_MIN_VERSION=$(grep '^OSX_MIN_VERSION=' depends/hosts/darwin.mk | cut -d= -f2)
+            CMAKE_OPTS+=(-DENABLE_TESTS=OFF -DBUILD_UTILS=ON -DENABLE_TRACING=OFF -DWARN_INCOMPATIBLE_BDB=OFF
+              -DCMAKE_SYSTEM_NAME=Darwin
+              -DCMAKE_SYSTEM_PROCESSOR=${{ matrix.config.target_arch }}
+              -DCMAKE_OSX_ARCHITECTURES=${{ matrix.config.target_arch }}
+              -DCMAKE_OSX_DEPLOYMENT_TARGET=$OSX_MIN_VERSION)
+          elif [ "${{ matrix.config.target_platform }}" == "windows" ]; then
+            CMAKE_OPTS+=(-DENABLE_TESTS=OFF -DBUILD_UTILS=ON -DENABLE_TRACING=OFF)
+          elif [ "${{ matrix.config.platform }}" == "linux" ]; then
+            CMAKE_OPTS+=(-DENABLE_TESTS=ON -DENABLE_TRACING=ON)
           else
-            # USDT/systemtap tracing is Linux-only (FindUSDT.cmake falls back to
-            # dtrace on macOS, unrelated to this job's dependency-version focus).
-            CMAKE_OPTS+=(-DENABLE_TRACING=OFF -DWARN_INCOMPATIBLE_BDB=OFF)
+            # USDT/systemtap tracing is Linux-only.
+            CMAKE_OPTS+=(-DENABLE_TESTS=ON -DENABLE_TRACING=OFF -DWARN_INCOMPATIBLE_BDB=OFF)
           fi
 
           cmake -S "$BASE_ROOT_DIR" -B "$BASE_BUILD_DIR" -GNinja "${CMAKE_OPTS[@]}"
           cmake --build "$BASE_BUILD_DIR" --parallel -j$CPU_COUNT --target all
 
       - name: Run unit tests
+        if: ${{ !matrix.config.target_platform }}
         run: |
           ulimit -c unlimited
           cd "$BASE_BUILD_DIR/bin"
           ./test_tapyrus --log_level=test_suite --report_level=short --build_info --catch_system_errors
 
       - name: Run util tests
+        if: ${{ !matrix.config.target_platform }}
         run: |
           cd "$BASE_ROOT_DIR"
           python3 test/util/tapyrus-util-test.py
 
       - name: Run functional tests
+        if: ${{ !matrix.config.target_platform }}
         run: |
           source $HOME/venv/bin/activate
           cd "$BASE_ROOT_DIR"
@@ -694,7 +732,7 @@ jobs:
         if: failure() || cancelled()
         uses: actions/upload-artifact@v5
         with:
-          name: minimum-dependency-versions-core-dumps-${{ matrix.config.name }}-${{ github.run_id }}
+          name: build-from-scratch-${{ matrix.versions }}-core-dumps-${{ matrix.config.name }}-${{ github.run_id }}
           path: ${{ github.workspace }}/core_dumps/
           retention-days: 7
 
@@ -820,22 +858,11 @@ jobs:
     runs-on: ubuntu-24.04
     # Verifies -DWITH_MINIUPNPC=ON's actual port-mapping code path (net.cpp's
     # ThreadMapPort) against a real UPnP IGD implementation (miniupnpd), not
-    # just that it compiles. Not a functional-test-framework test: those spin
-    # up isolated tapyrusd nodes with no router (real or fake) in the loop at
-    # all, so there's nothing for -upnp to actually talk to there.
+    # just that it compiles.
     #
     # tapyrusd and the fake router (miniupnpd) each need their own network
-    # namespace for this to mean anything -- confirmed directly while
-    # designing this job: with both processes sharing one namespace (e.g.
-    # tapyrusd built and run straight on this runner, talking to a miniupnpd
-    # container over the docker0 bridge), miniupnpd refuses the mapping with
-    # UPnP error 729 (ConflictWithOtherMechanisms) purely because the
-    # requested external port is already bound locally in that shared
-    # namespace -- a loop-prevention safety check unrelated to whether
-    # tapyrus's UPnP code is correct. This isn't fixable by adjusting
-    # miniupnpd's ext_ifname/listening_ip config (tried that too, same
-    # failure) -- it needs two genuinely separate namespaces. Two Docker
-    # containers on one user-defined bridge network give that for free.
+    # namespace for this to test anything meaningfully. Two Docker
+    # containers on one user-defined bridge network are needed.
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
@@ -844,7 +871,8 @@ jobs:
           submodules: recursive
 
       - name: Install build dependencies
-        run: sudo apt-get update && sudo apt-get install -y cmake clang libboost-dev libevent-dev libminiupnpc-dev pkg-config
+        timeout-minutes: 10
+        run: sudo apt-get $APT_OPTS update && sudo apt-get $APT_OPTS install -y cmake clang libboost-dev libevent-dev libminiupnpc-dev pkg-config
 
       - name: Build tapyrusd and tapyrus-genesis with UPnP support
         run: |
