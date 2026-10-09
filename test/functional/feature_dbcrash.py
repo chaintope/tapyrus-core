@@ -37,9 +37,9 @@
   issuances) on node3 and sync it the same way, until every node has crashed
   doing so.
 
-Neither loop has a time limit of its own: a run that never reaches coverage
-is stopped by the weekly workflow's job timeout, which gives each scheme its
-own job."""
+The script has no time limit: neither loop stops until it reaches coverage,
+so a run that never does runs until it is killed. In CI, the weekly
+workflow's per-scheme job time limit is the only bound."""
 
 import errno
 import http.client
