@@ -87,7 +87,7 @@ static const size_t DEFAULT_MAXRECEIVEBUFFER = 5 * 1000;
 static const size_t DEFAULT_MAXSENDBUFFER    = 1 * 1000;
 
 // NOTE: When adjusting this, update rpcnet:setban's help ("24h")
-static const unsigned int DEFAULT_MISBEHAVING_BANTIME = 60 * 60 * 24;  // Default 24-hour ban
+static const unsigned int DEFAULT_BANTIME = 60 * 60 * 24;  // Default 24-hour ban
 
 typedef int64_t NodeId;
 
@@ -247,7 +247,8 @@ public:
     // can split the network, so punish only what is invalid for good.
     void Ban(const CNetAddr& netAddr, const BanReason& reason, int64_t bantimeoffset = 0, bool sinceUnixEpoch = false);
     void Ban(const CSubNet& subNet, const BanReason& reason, int64_t bantimeoffset = 0, bool sinceUnixEpoch = false);
-    void ClearBanned(); // needed for unit testing
+    // Clears the ban list only (clearbanned RPC); discouraged addresses are not removable.
+    void ClearBanned();
     bool IsBanned(CNetAddr ip);
     bool IsBanned(CSubNet subnet);
     void Discourage(const CNetAddr& ip);

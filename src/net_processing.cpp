@@ -222,7 +222,7 @@ struct CNodeState {
     //! Accumulated misbehaviour score for this peer.
     int nMisbehavior GUARDED_BY(m_misbehavior_mutex){0};
     //! Whether this peer should be disconnected and banned (unless whitelisted).
-    bool fShouldBan GUARDED_BY(m_misbehavior_mutex){false};
+    bool m_should_discourage GUARDED_BY(m_misbehavior_mutex){false};
     //! String name of this peer (debugging/logging purposes).
     const std::string name;
     //! List of asynchronously-determined block rejections to notify this peer about.
@@ -306,7 +306,7 @@ struct CNodeState {
     CNodeState(CAddress addrIn, std::string addrNameIn) : address(addrIn), name(addrNameIn) {
         fCurrentlyConnected = false;
         nMisbehavior = 0;
-        fShouldBan = false;
+        m_should_discourage = false;
         pindexBestKnownBlock = nullptr;
         hashLastUnknownBlock.SetNull();
         pindexLastCommonBlock = nullptr;
@@ -881,7 +881,7 @@ void Misbehaving(NodeId pnode, int howmuch, const std::string& message) EXCLUSIV
     if (state->nMisbehavior >= banscore && state->nMisbehavior - howmuch < banscore)
     {
         LogPrint(BCLog::NET, "%s: %s peer=%d (%d -> %d) DISCOURAGE THRESHOLD EXCEEDED%s\n", __func__, state->name, pnode, state->nMisbehavior-howmuch, state->nMisbehavior, message_prefixed);
-        state->fShouldBan = true;
+        state->m_should_discourage = true;
     } else
         LogPrint(BCLog::NET, "%s: %s peer=%d (%d -> %d)%s\n", __func__, state->name, pnode, state->nMisbehavior-howmuch, state->nMisbehavior, message_prefixed);
 }
@@ -3092,7 +3092,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
     return true;
 }
 
-static bool SendRejectsAndCheckIfBanned(CNode* pnode, CConnman* connman)
+static bool MaybeDiscourageAndDisconnect(CNode* pnode, CConnman* connman)
 {
     AssertLockHeld(cs_main);
     CNodeState &state = *State(pnode->GetId());
@@ -3103,8 +3103,8 @@ static bool SendRejectsAndCheckIfBanned(CNode* pnode, CConnman* connman)
     state.rejects.clear();
 
     LOCK(state.m_misbehavior_mutex);
-    if (state.fShouldBan) {
-        state.fShouldBan = false;
+    if (state.m_should_discourage) {
+        state.m_should_discourage = false;
         if (pnode->fWhitelisted)
             LogPrintf("Warning: not punishing whitelisted peer %s!\n", pnode->addr.ToString());
         else if (pnode->m_manual_connection)
@@ -3254,7 +3254,7 @@ bool PeerLogicValidation::ProcessMessages(CNode* pfrom, std::atomic<bool>& inter
     }
 
     LOCK(cs_main);
-    SendRejectsAndCheckIfBanned(pfrom, connman);
+    MaybeDiscourageAndDisconnect(pfrom, connman);
 
     return fMoreWork;
 }
@@ -3450,7 +3450,7 @@ bool PeerLogicValidation::SendMessages(CNode* pto)
         if (!lockMain)
             return true;
 
-        if (SendRejectsAndCheckIfBanned(pto, connman))
+        if (MaybeDiscourageAndDisconnect(pto, connman))
             return true;
         CNodeState &state = *State(pto->GetId());
 

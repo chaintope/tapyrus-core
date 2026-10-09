@@ -293,7 +293,7 @@ BOOST_AUTO_TEST_CASE(DoS_banscore)
     peerLogic->FinalizeNode(dummyNode1.GetId(), dummy);
 }
 
-BOOST_AUTO_TEST_CASE(DoS_bantime)
+BOOST_AUTO_TEST_CASE(DoS_discourage_lasts)
 {
     connman->ClearBanned();
     int64_t nStartTime = GetTime();

@@ -566,7 +566,7 @@ void CConnman::Ban(const CSubNet& subNet, const BanReason &banReason, int64_t ba
     banEntry.banReason = banReason;
     if (bantimeoffset <= 0)
     {
-        bantimeoffset = gArgs.GetArg("-bantime", DEFAULT_MISBEHAVING_BANTIME);
+        bantimeoffset = gArgs.GetArg("-bantime", DEFAULT_BANTIME);
         sinceUnixEpoch = false;
     }
     const int64_t banBase = sinceUnixEpoch ? 0 : GetTime();
@@ -1180,6 +1180,8 @@ void CConnman::AcceptConnection(const ListenSocket& hListenSocket) {
     CNode* pnode = new CNode(id, nLocalServices, GetBestHeight(), hSocket, addr, CalculateKeyedNetGroup(addr), nonce, addr_bind, "", true);
     pnode->AddRef();
     pnode->fWhitelisted = whitelisted;
+    // Set only here: a peer discouraged later in its session is disconnected
+    // at that point, so there is no live connection left to mark.
     pnode->m_prefer_evict = discouraged;
     m_msgproc->InitializeNode(pnode);
 
