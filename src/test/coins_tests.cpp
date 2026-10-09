@@ -878,4 +878,78 @@ BOOST_AUTO_TEST_CASE(ccoins_write)
                     CheckWriteCoins(parent_value, child_value, parent_value, parent_flags, child_flags, parent_flags);
 }
 
+// A block with a coinbase and one transaction spending `inputs` coins, and
+// matching undo data.
+static void MakeBlockAndUndo(size_t inputs, CBlock& block, CBlockUndo& blockundo)
+{
+    CMutableTransaction coinbase;
+    coinbase.vin.resize(1);
+    coinbase.vout.resize(1);
+    CMutableTransaction spend;
+    spend.vin.resize(inputs);
+    spend.vout.resize(1);
+    block.vtx = {MakeTransactionRef(coinbase), MakeTransactionRef(spend)};
+
+    blockundo.vtxundo.resize(1);
+    for (size_t i = 0; i < inputs; ++i) {
+        blockundo.vtxundo[0].vprevout.emplace_back(CTxOut(int64_t(1000), CScript() << OP_TRUE), int32_t(1), false);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(block_undo_roundtrip)
+{
+    CBlock block;
+    CBlockUndo written;
+    MakeBlockAndUndo(3, block, written);
+
+    CDataStream ss(SER_DISK, CLIENT_VERSION);
+    ss << written;
+    CBlockUndo read;
+    ss >> BlockUndoDeserializer(&read, block);
+    BOOST_REQUIRE_EQUAL(read.vtxundo.size(), 1U);
+    BOOST_REQUIRE_EQUAL(read.vtxundo[0].vprevout.size(), 3U);
+    BOOST_CHECK(read.vtxundo[0].vprevout[0].out == written.vtxundo[0].vprevout[0].out);
+}
+
+BOOST_AUTO_TEST_CASE(block_undo_rejects_transaction_count_mismatch)
+{
+    CBlock block;
+    CBlockUndo written;
+    MakeBlockAndUndo(2, block, written);
+    written.vtxundo.emplace_back(written.vtxundo[0]);
+
+    CDataStream ss(SER_DISK, CLIENT_VERSION);
+    ss << written;
+    CBlockUndo read;
+    BOOST_CHECK_THROW(ss >> BlockUndoDeserializer(&read, block), std::ios_base::failure);
+}
+
+BOOST_AUTO_TEST_CASE(block_undo_rejects_input_count_mismatch)
+{
+    CBlock block;
+    CBlockUndo written;
+    MakeBlockAndUndo(2, block, written);
+    written.vtxundo[0].vprevout.pop_back();
+
+    CDataStream ss(SER_DISK, CLIENT_VERSION);
+    ss << written;
+    CBlockUndo read;
+    BOOST_CHECK_THROW(ss >> BlockUndoDeserializer(&read, block), std::ios_base::failure);
+}
+
+BOOST_AUTO_TEST_CASE(block_undo_rejects_corrupt_huge_count)
+{
+    // A corrupt record count must fail before it is used to allocate.
+    CBlock block;
+    CBlockUndo unused;
+    MakeBlockAndUndo(2, block, unused);
+
+    CDataStream ss(SER_DISK, CLIENT_VERSION);
+    WriteCompactSize(ss, uint64_t(1));
+    WriteCompactSize(ss, uint64_t(0x7fffffffffffffff));
+    CBlockUndo read;
+    BOOST_CHECK_THROW(ss >> BlockUndoDeserializer(&read, block), std::ios_base::failure);
+    BOOST_CHECK(read.vtxundo.empty() || read.vtxundo[0].vprevout.empty());
+}
+
 BOOST_AUTO_TEST_SUITE_END()
