@@ -5,9 +5,6 @@
 
 #include <bench/bench.h>
 #include <key.h>
-#if defined(HAVE_CONSENSUS_LIB)
-#include <script/tapyrusconsensus.h>
-#endif
 #include <script/script.h>
 #include <script/sign.h>
 #include <script/standard.h>
@@ -94,17 +91,6 @@ static void VerifyScriptBench(benchmark::State& state, SignatureScheme scheme)
             &err);
         assert(err == SCRIPT_ERR_OK);
         assert(success);
-
-#if defined(HAVE_CONSENSUS_LIB)
-        CDataStream stream(SER_NETWORK, PROTOCOL_VERSION);
-        stream << txSpend;
-        int csuccess = bitcoinconsensus_verify_script_with_amount(
-            txCredit.vout[0].scriptPubKey.data(),
-            txCredit.vout[0].scriptPubKey.size(),
-            txCredit.vout[0].nValue,
-            (const unsigned char*)stream.data(), stream.size(), 0, 0, nullptr);
-        assert(csuccess == 1);
-#endif
     }
 }
 
