@@ -144,7 +144,6 @@ add_library(tapyrus_consensus STATIC EXCLUDE_FROM_ALL
   primitives/transaction.cpp
   primitives/xfield.cpp
   pubkey.cpp
-  script/tapyrusconsensus.cpp
   script/interpreter.cpp
   script/script.cpp
   script/script_error.cpp
