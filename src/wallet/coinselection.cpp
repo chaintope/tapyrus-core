@@ -210,7 +210,7 @@ static void ApproximateBestSubset(const std::vector<OutputGroup>& groups, const 
     }
 }
 
-bool KnapsackSolver(const CAmount& nTargetValue, std::vector<OutputGroup>& groups, std::set<CInputCoin>& setCoinsRet, CAmount& nValueRet)
+bool KnapsackSolver(const CAmount& nTargetValue, std::vector<OutputGroup>& groups, std::set<CInputCoin>& setCoinsRet, CAmount& nValueRet, CAmount min_change)
 {
     setCoinsRet.clear();
     nValueRet = 0;
@@ -228,7 +228,7 @@ bool KnapsackSolver(const CAmount& nTargetValue, std::vector<OutputGroup>& group
             util::insert(setCoinsRet, group.m_outputs);
             nValueRet += group.m_value;
             return true;
-        } else if (group.m_value < nTargetValue + MIN_CHANGE) {
+        } else if (group.m_value < nTargetValue + min_change) {
             applicable_groups.push_back(group);
             nTotalLower += group.m_value;
         } else if (!lowest_larger || group.m_value < lowest_larger->m_value) {
@@ -257,14 +257,14 @@ bool KnapsackSolver(const CAmount& nTargetValue, std::vector<OutputGroup>& group
     CAmount nBest;
 
     ApproximateBestSubset(applicable_groups, nTotalLower, nTargetValue, vfBest, nBest);
-    if (nBest != nTargetValue && nTotalLower >= nTargetValue + MIN_CHANGE) {
-        ApproximateBestSubset(applicable_groups, nTotalLower, nTargetValue + MIN_CHANGE, vfBest, nBest);
+    if (nBest != nTargetValue && min_change > 0 && nTotalLower >= nTargetValue + min_change) {
+        ApproximateBestSubset(applicable_groups, nTotalLower, nTargetValue + min_change, vfBest, nBest);
     }
 
     // If we have a bigger coin and (either the stochastic approximation didn't find a good solution,
     //                                   or the next bigger coin is closer), return the bigger coin
     if (lowest_larger &&
-        ((nBest != nTargetValue && nBest < nTargetValue + MIN_CHANGE) || lowest_larger->m_value <= nBest)) {
+        ((nBest != nTargetValue && nBest < nTargetValue + min_change) || lowest_larger->m_value <= nBest)) {
         util::insert(setCoinsRet, lowest_larger->m_outputs);
         nValueRet += lowest_larger->m_value;
     } else {

@@ -2362,9 +2362,15 @@ const CTxOut& CWallet::FindNonChangeParentOutput(const CTransaction& tx, int out
     return ptx->vout[n];
 }
 
-bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, const CoinEligibilityFilter& eligibility_filter, std::vector<OutputGroup> groups, 
-                                 std::set<CInputCoin>& setCoinsRet, CAmount& nValueRet, const CoinSelectionParams& coin_selection_params, bool& bnb_used) const
+// colorId has no default: a caller that left it out would select token coins
+// as TPC, with fees deducted from token amounts, and nothing would flag it.
+bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, const CoinEligibilityFilter& eligibility_filter, std::vector<OutputGroup> groups,
+                                 std::set<CInputCoin>& setCoinsRet, CAmount& nValueRet, const CoinSelectionParams& coin_selection_params, bool& bnb_used,
+                                 const ColorIdentifier& colorId) const
 {
+    // Fees are paid in TPC only, so a token coin's value is its token amount
+    // and a token target is never raised by fees.
+    const bool is_token = colorId.type != TokenTypes::NONE;
     setCoinsRet.clear();
     nValueRet = 0;
 
@@ -2376,8 +2382,9 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, const CoinEligibil
         temp.m_confirm_target = 1008;
         CFeeRate long_term_feerate = GetMinimumFeeRate(*this, temp, ::mempool, ::feeEstimator, &feeCalc);
 
-        // Calculate cost of change
-        CAmount cost_of_change = GetDiscardRate(*this, ::feeEstimator).GetFee(coin_selection_params.change_spend_size) + coin_selection_params.effective_fee.GetFee(coin_selection_params.change_output_size);
+        // Calculate cost of change. Token excess cannot go to fees, so a
+        // token selection must match its target exactly.
+        CAmount cost_of_change = is_token ? 0 : GetDiscardRate(*this, ::feeEstimator).GetFee(coin_selection_params.change_spend_size) + coin_selection_params.effective_fee.GetFee(coin_selection_params.change_output_size);
 
         // Filter by the min conf specs and add to utxo_pool and calculate effective value
         for (OutputGroup& group : groups) {
@@ -2388,11 +2395,19 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, const CoinEligibil
             group.effective_value = 0;
             for (auto it = group.m_outputs.begin(); it != group.m_outputs.end(); ) {
                 const CInputCoin& coin = *it;
-                CAmount effective_value = coin.txout.nValue - (coin.m_input_bytes < 0 ? 0 : coin_selection_params.effective_fee.GetFee(coin.m_input_bytes));
-                // Only include outputs that are positive effective value (i.e. not dust)
+                // A token group's fields are all in token units, so it carries no TPC fee.
+                CAmount input_fee = 0;
+                CAmount input_long_term_fee = 0;
+                if (!is_token && coin.m_input_bytes >= 0) {
+                    input_fee = coin_selection_params.effective_fee.GetFee(coin.m_input_bytes);
+                    input_long_term_fee = long_term_feerate.GetFee(coin.m_input_bytes);
+                }
+                CAmount effective_value = coin.txout.nValue - input_fee;
+                // Drop uneconomical inputs: those worth no more than the fee to spend them
+                // at this fee rate. This is not the dust policy, which exempts tokens.
                 if (effective_value > 0) {
-                    group.fee += coin.m_input_bytes < 0 ? 0 : coin_selection_params.effective_fee.GetFee(coin.m_input_bytes);
-                    group.long_term_fee += coin.m_input_bytes < 0 ? 0 : long_term_feerate.GetFee(coin.m_input_bytes);
+                    group.fee += input_fee;
+                    group.long_term_fee += input_long_term_fee;
                     group.effective_value += effective_value;
                     ++it;
                 } else {
@@ -2402,7 +2417,7 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, const CoinEligibil
             if (group.effective_value > 0) utxo_pool.push_back(group);
         }
         // Calculate the fees for things that aren't inputs
-        CAmount not_input_fees = coin_selection_params.effective_fee.GetFee(coin_selection_params.tx_noinputs_size);
+        CAmount not_input_fees = is_token ? 0 : coin_selection_params.effective_fee.GetFee(coin_selection_params.tx_noinputs_size);
         bnb_used = true;
         return SelectCoinsBnB(utxo_pool, nTargetValue, cost_of_change, setCoinsRet, nValueRet, not_input_fees);
     } else {
@@ -2412,7 +2427,7 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, const CoinEligibil
             utxo_pool.push_back(group);
         }
         bnb_used = false;
-        return KnapsackSolver(nTargetValue, utxo_pool, setCoinsRet, nValueRet);
+        return KnapsackSolver(nTargetValue, utxo_pool, setCoinsRet, nValueRet, is_token ? 0 : MIN_CHANGE);
     }
 }
 
@@ -2501,13 +2516,13 @@ bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAm
     bool fRejectLongChains = gArgs.GetBoolArg("-walletrejectlongchains", DEFAULT_WALLET_REJECT_LONG_CHAINS);
 
     bool res = nTargetValue <= nValueFromPresetInputs ||
-        SelectCoinsMinConf(nTargetValue - nValueFromPresetInputs, CoinEligibilityFilter(1, 6, 0), groups, setCoinsRet, nValueRet, coin_selection_params, bnb_used) ||
-        SelectCoinsMinConf(nTargetValue - nValueFromPresetInputs, CoinEligibilityFilter(1, 1, 0), groups, setCoinsRet, nValueRet, coin_selection_params, bnb_used) ||
-        (m_spend_zero_conf_change && SelectCoinsMinConf(nTargetValue - nValueFromPresetInputs, CoinEligibilityFilter(0, 1, 2), groups, setCoinsRet, nValueRet, coin_selection_params, bnb_used)) ||
-        (m_spend_zero_conf_change && SelectCoinsMinConf(nTargetValue - nValueFromPresetInputs, CoinEligibilityFilter(0, 1, std::min((size_t)4, max_ancestors/3), std::min((size_t)4, max_descendants/3)), groups, setCoinsRet, nValueRet, coin_selection_params, bnb_used)) ||
-        (m_spend_zero_conf_change && SelectCoinsMinConf(nTargetValue - nValueFromPresetInputs, CoinEligibilityFilter(0, 1, max_ancestors/2, max_descendants/2), groups, setCoinsRet, nValueRet, coin_selection_params, bnb_used)) ||
-        (m_spend_zero_conf_change && SelectCoinsMinConf(nTargetValue - nValueFromPresetInputs, CoinEligibilityFilter(0, 1, max_ancestors-1, max_descendants-1), groups, setCoinsRet, nValueRet, coin_selection_params, bnb_used)) ||
-        (m_spend_zero_conf_change && !fRejectLongChains && SelectCoinsMinConf(nTargetValue - nValueFromPresetInputs, CoinEligibilityFilter(0, 1, std::numeric_limits<uint64_t>::max()), groups, setCoinsRet, nValueRet, coin_selection_params, bnb_used));
+        SelectCoinsMinConf(nTargetValue - nValueFromPresetInputs, CoinEligibilityFilter(1, 6, 0), groups, setCoinsRet, nValueRet, coin_selection_params, bnb_used, colorId) ||
+        SelectCoinsMinConf(nTargetValue - nValueFromPresetInputs, CoinEligibilityFilter(1, 1, 0), groups, setCoinsRet, nValueRet, coin_selection_params, bnb_used, colorId) ||
+        (m_spend_zero_conf_change && SelectCoinsMinConf(nTargetValue - nValueFromPresetInputs, CoinEligibilityFilter(0, 1, 2), groups, setCoinsRet, nValueRet, coin_selection_params, bnb_used, colorId)) ||
+        (m_spend_zero_conf_change && SelectCoinsMinConf(nTargetValue - nValueFromPresetInputs, CoinEligibilityFilter(0, 1, std::min((size_t)4, max_ancestors/3), std::min((size_t)4, max_descendants/3)), groups, setCoinsRet, nValueRet, coin_selection_params, bnb_used, colorId)) ||
+        (m_spend_zero_conf_change && SelectCoinsMinConf(nTargetValue - nValueFromPresetInputs, CoinEligibilityFilter(0, 1, max_ancestors/2, max_descendants/2), groups, setCoinsRet, nValueRet, coin_selection_params, bnb_used, colorId)) ||
+        (m_spend_zero_conf_change && SelectCoinsMinConf(nTargetValue - nValueFromPresetInputs, CoinEligibilityFilter(0, 1, max_ancestors-1, max_descendants-1), groups, setCoinsRet, nValueRet, coin_selection_params, bnb_used, colorId)) ||
+        (m_spend_zero_conf_change && !fRejectLongChains && SelectCoinsMinConf(nTargetValue - nValueFromPresetInputs, CoinEligibilityFilter(0, 1, std::numeric_limits<uint64_t>::max()), groups, setCoinsRet, nValueRet, coin_selection_params, bnb_used, colorId));
 
     // because SelectCoinsMinConf clears the setCoinsRet, we now add the possible inputs to the coinset
     util::insert(setCoinsRet, setPresetCoins);
@@ -2800,7 +2815,8 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     txNew.vout.push_back(txout);
                 }
 
-                // Choose coins to use
+                // Choose coins to use. bnb_used records whether BnB chose the
+                // TPC inputs, which decides below whether TPC change goes to fees.
                 bool bnb_used = false;
                 if (pick_new_inputs) {
                     mapValueIn.clear();
@@ -2822,19 +2838,23 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                             targetValue += nFeeRet;
                         }
 
-                        if (!SelectCoins(vAvailableCoins, targetValue, colorId, mapCoins[colorId], mapValueIn[colorId], coin_control, coin_selection_params, bnb_used))
-                        {
-                            // If BnB was used, it was the first pass. No longer the first pass and continue loop with knapsack.
-                            if (bnb_used) {
-                                coin_selection_params.use_bnb = false;
-                                continue;
-                            }
-                            else {
-                                strFailReason = _("Insufficient funds");
-                                return false;
-                            }
+                        bool color_bnb_used = false;
+                        bool selected = SelectCoins(vAvailableCoins, targetValue, colorId, mapCoins[colorId], mapValueIn[colorId], coin_control, coin_selection_params, color_bnb_used);
+                        if (!selected && color_bnb_used) {
+                            // BnB found no match: use knapsack for this color now and
+                            // for every later selection, as later passes add the fee
+                            // to the TPC target, which BnB would count twice.
+                            coin_selection_params.use_bnb = false;
+                            mapCoins[colorId].clear();
+                            mapValueIn[colorId] = 0;
+                            selected = SelectCoins(vAvailableCoins, targetValue, colorId, mapCoins[colorId], mapValueIn[colorId], coin_control, coin_selection_params, color_bnb_used);
                         }
-                        TRACE5(coin_selection, selected_coins, colorId.toHexString().c_str(), targetValue, mapValueIn[colorId], mapCoins[colorId].size(), bnb_used ? "BNB" : "knapsack");
+                        if (!selected) {
+                            strFailReason = _("Insufficient funds");
+                            return false;
+                        }
+                        if (colorId.type == TokenTypes::NONE) bnb_used = color_bnb_used;
+                        TRACE5(coin_selection, selected_coins, colorId.toHexString().c_str(), targetValue, mapValueIn[colorId], mapCoins[colorId].size(), color_bnb_used ? "BNB" : "knapsack");
                     }
                 } else {
                     bnb_used = false;

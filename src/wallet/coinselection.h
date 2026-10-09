@@ -98,7 +98,9 @@ struct OutputGroup
 
 bool SelectCoinsBnB(std::vector<OutputGroup>& utxo_pool, const CAmount& target_value, const CAmount& cost_of_change, std::set<CInputCoin>& out_set, CAmount& value_ret, CAmount not_input_fees);
 
-// Original coin selection algorithm as a fallback
-bool KnapsackSolver(const CAmount& nTargetValue, std::vector<OutputGroup>& groups, std::set<CInputCoin>& setCoinsRet, CAmount& nValueRet);
+// Original coin selection algorithm as a fallback. min_change is the change it
+// aims to leave when no exact match exists; tokens pass 0, as colored outputs
+// may be of any size.
+bool KnapsackSolver(const CAmount& nTargetValue, std::vector<OutputGroup>& groups, std::set<CInputCoin>& setCoinsRet, CAmount& nValueRet, CAmount min_change = MIN_CHANGE);
 
 #endif // BITCOIN_WALLET_COINSELECTION_H
