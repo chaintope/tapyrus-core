@@ -61,7 +61,7 @@ static const std::initializer_list<TAPYRUS_XFIELDTYPES> XFIELDTYPES_INIT_LIST
 // TAPYRUS_XFIELDTYPES::NONE
 class XFieldEmpty {
 public:
-    static const char BLOCKTREE_DB_KEY = '0';//unnused key to pass compilation
+    static constexpr char BLOCKTREE_DB_KEY = '0';//unnused key to pass compilation
     XFieldEmpty(){};
     inline bool IsValid() const { return true; }
     inline std::string ToString() const { return ""; }
@@ -72,7 +72,7 @@ public:
 class XFieldAggPubKey {
 public:
     std::vector<unsigned char> data;
-    static const char BLOCKTREE_DB_KEY = '1';
+    static constexpr char BLOCKTREE_DB_KEY = '1';
     explicit XFieldAggPubKey():data() { }
     XFieldAggPubKey(const std::vector<unsigned char>& dataIn):data(dataIn.begin(), dataIn.end()){};
     XFieldAggPubKey(const CPubKey& dataIn):data(dataIn.begin(), dataIn.end()){};
@@ -101,7 +101,7 @@ public:
 class XFieldMaxBlockSize {
 public:
     uint32_t data;
-    static const char BLOCKTREE_DB_KEY = '2';
+    static constexpr char BLOCKTREE_DB_KEY = '2';
     explicit XFieldMaxBlockSize():data() { }
     XFieldMaxBlockSize(uint32_t dataIn):data(dataIn) { }
 

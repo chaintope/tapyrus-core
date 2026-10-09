@@ -214,7 +214,7 @@ private:
     static const std::string OBFUSCATE_KEY_KEY;
 
     //! the length of the obfuscate key in number of bytes
-    static const unsigned int OBFUSCATE_KEY_NUM_BYTES;
+    static constexpr unsigned int OBFUSCATE_KEY_NUM_BYTES = 8;
 
     std::vector<unsigned char> CreateObfuscateKey() const;
 
