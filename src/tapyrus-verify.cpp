@@ -57,6 +57,7 @@
 #include <coloridentifier.h>
 #include <federationparams.h>
 #include <primitives/transaction.h>
+#include <pubkey.h>
 #include <script/interpreter.h>
 #include <script/script.h>
 #include <script/script_error.h>
@@ -538,6 +539,11 @@ void PrintUsage(const char* argv0)
 
 int main(int argc, char* argv[])
 {
+    // pubkey.cpp's secp256k1 verification context exists only while an
+    // ECCVerifyHandle is alive. Without one, every CHECKSIG/CHECKDATASIG on
+    // a non-empty signature passes a null context into libsecp256k1.
+    const ECCVerifyHandle ecc_verify_handle;
+
     // VerifyScript's CP2SH_COLORED check needs the global FederationParams()
     // singleton selected before any call, same as tapyrus-cli/tapyrus-genesis.
     SelectParams(TAPYRUS_OP_MODE::PROD);

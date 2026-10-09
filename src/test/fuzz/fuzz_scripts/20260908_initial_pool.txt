@@ -1,0 +1,964 @@
+# fuzz_script batch: initial hand-written pool (formerly one file per candidate)
+#
+# One Script program per line in ParseScript mnemonic form; the "#" comment
+# directly above a program names it; "<empty>" is the empty script. See
+# contrib/fuzz/fuzz_script/fuzz_script_pool.py for the full format.
+
+# 2dup
+1 2DUP EQUAL
+
+# abs
+-1 ABS 1 EQUAL
+
+# add_basic
+1 2 ADD 3 EQUAL
+
+# altstack
+1 TOALTSTACK FROMALTSTACK
+
+# booland
+1 1 BOOLAND
+
+# boolor
+0 1 BOOLOR
+
+# cat_disabled
+'a' 'b' CAT
+
+# checksig_hexdata_noquote
+2 03a34b99f22c790c4e36b2b3c2c35a36db06226e41c692fc82b8b56ac1c540c5bd CHECKSIG
+
+# conditional_dup
+0 IF DUP ENDIF DEPTH 0 EQUAL
+
+# deep_stack_add
+1 2 3 4 5 6 7 8 9 10 ADD ADD ADD ADD ADD ADD ADD ADD ADD
+
+# depth_zero
+DEPTH 0 EQUAL
+
+# dup_add_combo
+3 DUP DUP ADD ADD 9 EQUAL
+
+# dup_chain
+DUP DUP DUP DUP DUP DUP DUP DUP DUP DUP EQUAL
+
+# empty
+<empty>
+
+# if_else
+IF 1 ELSE 0 ENDIF
+
+# invalid_token
+NOTAREALOPCODE
+
+# nop
+1 NOP 1 EQUAL
+
+# notif
+0 NOTIF 1 ENDIF
+
+# op_color
+'somecolorid' 1 COLOR EQUAL
+
+# op_color_drop
+'proprietarycolorid1234567890' 1 COLOR DROP 1
+
+# pick
+2 3 4 2 PICK 2 EQUAL
+
+# quoted_push_drop
+'abcdefghij0123456789abcdefghij01234567' HASH160 DROP 1
+
+# return
+RETURN
+
+# roll
+1 2 3 2 ROLL 1 EQUAL
+
+# size_check
+'hello' SIZE 5 EQUALVERIFY 1
+
+# stacklimit_probe
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 DEPTH 100 EQUAL
+
+# sub
+5 3 SUB 2 EQUAL
+
+# swap_drop
+1 2 SWAP DROP
+
+# verify_fail
+0 VERIFY 1
+
+# verify_pass
+1 VERIFY 1
+
+# ===== branching A: IF/NOTIF/ELSE/ENDIF semantics =====
+
+# br_if_true_takes_then
+1 IF 2 ELSE 3 ENDIF 2 NUMEQUAL
+
+# br_if_false_takes_else
+0 IF 2 ELSE 3 ENDIF 3 NUMEQUAL
+
+# br_notif_false_takes_then
+0 NOTIF 2 ELSE 3 ENDIF 2 NUMEQUAL
+
+# br_notif_true_takes_else
+1 NOTIF 2 ELSE 3 ENDIF 3 NUMEQUAL
+
+# br_if_without_else_false
+5 0 IF DROP ENDIF 5 NUMEQUAL
+
+# br_empty_then_branch
+1 IF ENDIF 1
+
+# br_empty_both_branches
+0 IF ELSE ENDIF 1
+
+# br_double_else_true
+1 IF 2 ELSE 3 ELSE 4 ENDIF DEPTH 2 NUMEQUAL NIP NIP
+
+# br_double_else_false
+0 IF 2 ELSE 3 ELSE 4 ENDIF 3 NUMEQUAL
+
+# br_triple_else_toggles_back
+1 IF 2 ELSE 3 ELSE 4 ELSE 5 ENDIF 4 NUMEQUALVERIFY 2 NUMEQUAL
+
+# br_else_in_unexecuted_outer
+0 IF 1 IF 2 ELSE 3 ENDIF ENDIF 1
+
+# br_if_result_left_unconsumed
+1 IF 7 ENDIF
+
+# ===== branching B: condition encodings (CastToBool, no MINIMALIF) =====
+
+# cond_empty_if
+0 IF 2 ELSE 3 ENDIF 3 NUMEQUAL
+
+# cond_empty_notif
+0 NOTIF 2 ELSE 3 ENDIF 2 NUMEQUAL
+
+# cond_empty_verify
+0 VERIFY 1
+
+# cond_empty_as_final_result
+0
+
+# cond_one_if
+1 IF 2 ELSE 3 ENDIF 2 NUMEQUAL
+
+# cond_one_notif
+1 NOTIF 2 ELSE 3 ENDIF 3 NUMEQUAL
+
+# cond_one_verify
+1 VERIFY 1
+
+# cond_one_as_final_result
+1
+
+# cond_two_if
+2 IF 2 ELSE 3 ENDIF 2 NUMEQUAL
+
+# cond_two_notif
+2 NOTIF 2 ELSE 3 ENDIF 3 NUMEQUAL
+
+# cond_two_verify
+2 VERIFY 1
+
+# cond_two_as_final_result
+2
+
+# cond_minus_one_if
+-1 IF 2 ELSE 3 ENDIF 2 NUMEQUAL
+
+# cond_minus_one_notif
+-1 NOTIF 2 ELSE 3 ENDIF 3 NUMEQUAL
+
+# cond_minus_one_verify
+-1 VERIFY 1
+
+# cond_minus_one_as_final_result
+-1
+
+# cond_zero_byte_if
+0x0100 IF 2 ELSE 3 ENDIF 3 NUMEQUAL
+
+# cond_zero_byte_notif
+0x0100 NOTIF 2 ELSE 3 ENDIF 2 NUMEQUAL
+
+# cond_zero_byte_verify
+0x0100 VERIFY 1
+
+# cond_zero_byte_as_final_result
+0x0100
+
+# cond_two_zero_bytes_if
+0x020000 IF 2 ELSE 3 ENDIF 3 NUMEQUAL
+
+# cond_two_zero_bytes_notif
+0x020000 NOTIF 2 ELSE 3 ENDIF 2 NUMEQUAL
+
+# cond_two_zero_bytes_verify
+0x020000 VERIFY 1
+
+# cond_two_zero_bytes_as_final_result
+0x020000
+
+# cond_negative_zero_if
+0x0180 IF 2 ELSE 3 ENDIF 3 NUMEQUAL
+
+# cond_negative_zero_notif
+0x0180 NOTIF 2 ELSE 3 ENDIF 2 NUMEQUAL
+
+# cond_negative_zero_verify
+0x0180 VERIFY 1
+
+# cond_negative_zero_as_final_result
+0x0180
+
+# cond_negative_zero_wide_if
+0x020080 IF 2 ELSE 3 ENDIF 3 NUMEQUAL
+
+# cond_negative_zero_wide_notif
+0x020080 NOTIF 2 ELSE 3 ENDIF 2 NUMEQUAL
+
+# cond_negative_zero_wide_verify
+0x020080 VERIFY 1
+
+# cond_negative_zero_wide_as_final_result
+0x020080
+
+# cond_leading_zero_then_one_if
+0x020001 IF 2 ELSE 3 ENDIF 2 NUMEQUAL
+
+# cond_leading_zero_then_one_notif
+0x020001 NOTIF 2 ELSE 3 ENDIF 3 NUMEQUAL
+
+# cond_leading_zero_then_one_verify
+0x020001 VERIFY 1
+
+# cond_leading_zero_then_one_as_final_result
+0x020001
+
+# cond_high_bit_only_first_if
+0x028000 IF 2 ELSE 3 ENDIF 2 NUMEQUAL
+
+# cond_high_bit_only_first_notif
+0x028000 NOTIF 2 ELSE 3 ENDIF 3 NUMEQUAL
+
+# cond_high_bit_only_first_verify
+0x028000 VERIFY 1
+
+# cond_high_bit_only_first_as_final_result
+0x028000
+
+# cond_string_if
+'a' IF 2 ELSE 3 ENDIF 2 NUMEQUAL
+
+# cond_string_notif
+'a' NOTIF 2 ELSE 3 ENDIF 3 NUMEQUAL
+
+# cond_string_verify
+'a' VERIFY 1
+
+# cond_string_as_final_result
+'a'
+
+# cond_33_byte_element_if
+0x214033ad8a36593a9a3c1a96ab7d14920425f277cf70ee7fddf4626d869e18996232 IF 2 ELSE 3 ENDIF 2 NUMEQUAL
+
+# cond_33_byte_element_notif
+0x214033ad8a36593a9a3c1a96ab7d14920425f277cf70ee7fddf4626d869e18996232 NOTIF 2 ELSE 3 ENDIF 3 NUMEQUAL
+
+# cond_33_byte_element_verify
+0x214033ad8a36593a9a3c1a96ab7d14920425f277cf70ee7fddf4626d869e18996232 VERIFY 1
+
+# cond_33_byte_element_as_final_result
+0x214033ad8a36593a9a3c1a96ab7d14920425f277cf70ee7fddf4626d869e18996232
+
+# ===== branching C: nesting depth and mixed executed/unexecuted levels =====
+
+# nest_all_true_depth2
+1 IF 1 IF 7 ENDIF ENDIF 7 NUMEQUAL
+
+# nest_false_outermost_depth2
+0 IF 1 IF 7 ENDIF ENDIF 1
+
+# nest_all_true_depth5
+1 IF 1 IF 1 IF 1 IF 1 IF 7 ENDIF ENDIF ENDIF ENDIF ENDIF 7 NUMEQUAL
+
+# nest_false_outermost_depth5
+0 IF 1 IF 1 IF 1 IF 1 IF 7 ENDIF ENDIF ENDIF ENDIF ENDIF 1
+
+# nest_all_true_depth10
+1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 7 ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF 7 NUMEQUAL
+
+# nest_false_outermost_depth10
+0 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 7 ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF 1
+
+# nest_all_true_depth50
+1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 7 ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF 7 NUMEQUAL
+
+# nest_false_outermost_depth50
+0 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 7 ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF 1
+
+# nest_all_true_depth99
+1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 7 ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF 7 NUMEQUAL
+
+# nest_false_outermost_depth99
+0 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 7 ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF 1
+
+# nest_alternating_true_false
+1 IF 0 NOTIF 1 IF 0 IF 9 ELSE 7 ENDIF ENDIF ENDIF ENDIF 7 NUMEQUAL
+
+# nest_inner_if_skipped_does_not_pop
+5 0 IF 1 IF DROP ENDIF ENDIF 5 NUMEQUAL
+
+# nest_else_flips_only_inner
+1 IF 0 IF 9 ELSE 7 ENDIF ELSE 8 ENDIF 7 NUMEQUAL
+
+# nest_depth_counts_toward_op_limit
+1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF NOP
+
+# nest_depth_exceeds_op_limit
+1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 IF 1 ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF ENDIF
+
+# ===== branching D: unbalanced and malformed conditionals =====
+
+# bad_endif_without_if
+ENDIF 1
+
+# bad_else_without_if
+1 ELSE 1
+
+# bad_if_never_closed_true
+1 IF 1
+
+# bad_if_never_closed_false
+0 IF 1
+
+# bad_extra_endif
+1 IF 1 ENDIF ENDIF
+
+# bad_if_on_empty_stack
+IF 1 ENDIF 1
+
+# bad_notif_on_empty_stack
+NOTIF 1 ENDIF 1
+
+# bad_unclosed_inside_unexecuted
+0 IF 1 IF 1 ENDIF 1
+
+# bad_if_as_last_opcode
+1 1 IF
+
+# bad_endif_first_then_if
+ENDIF 1 IF 1 ENDIF
+
+# ===== branching E: conditions produced by stack opcodes =====
+
+# stk_dup_condition_kept
+1 DUP IF 2 ENDIF 2 NUMEQUALVERIFY
+
+# stk_dup_false_kept_for_else
+0 DUP IF 9 ELSE 1ADD ENDIF 1 NUMEQUAL
+
+# stk_drop_changes_condition
+0 1 DROP IF 9 ELSE 7 ENDIF 7 NUMEQUAL
+
+# stk_drop_in_branch_underflow
+1 IF DROP DROP ENDIF 1
+
+# stk_swap_selects_condition
+1 0 SWAP IF 7 ELSE 9 ENDIF 7 NUMEQUALVERIFY NOT
+
+# stk_over_copies_condition
+1 5 OVER IF 1ADD ENDIF 6 NUMEQUALVERIFY
+
+# stk_pick_deep_condition
+1 2 3 4 3 PICK IF 2DROP 2DROP 1 ENDIF
+
+# stk_roll_deep_condition
+0 2 3 3 ROLL NOTIF DROP DROP 1 ENDIF
+
+# stk_rot_brings_condition
+1 5 6 ROT IF ADD 11 NUMEQUAL ENDIF
+
+# stk_tuck_condition
+5 1 TUCK IF DROP DROP 1 ENDIF
+
+# stk_nip_condition
+0 1 NIP IF 1 ENDIF
+
+# stk_ifdup_true_duplicates
+1 IFDUP IF IF 1 ENDIF ENDIF
+
+# stk_ifdup_false_no_dup
+0 IFDUP IF 9 ELSE 1 ENDIF
+
+# stk_depth_as_condition
+5 5 DEPTH IF 2DROP 1 ELSE 0 ENDIF
+
+# stk_depth_zero_as_condition
+DEPTH IF 0 ELSE 1 ENDIF
+
+# stk_size_as_condition
+'abc' SIZE IF DROP 1 ENDIF
+
+# stk_size_of_empty_as_condition
+0 SIZE NOTIF DROP 1 ENDIF
+
+# stk_altstack_condition_across_branch
+1 TOALTSTACK 5 FROMALTSTACK IF 1ADD ENDIF 6 NUMEQUAL
+
+# stk_altstack_in_unexecuted_branch
+1 TOALTSTACK 0 IF FROMALTSTACK ENDIF 1
+
+# stk_2dup_conditions
+1 0 2DUP IF 9 ELSE NOTIF 7 ENDIF ENDIF 7 NUMEQUALVERIFY 2DROP 1
+
+# stk_2swap_conditions
+1 1 0 0 2SWAP IF IF 2DROP 1 ENDIF ENDIF
+
+# stk_3dup_three_conditions
+1 1 1 3DUP IF IF IF 2DROP DROP 1 ENDIF ENDIF ENDIF
+
+# stk_2over_conditions
+1 1 0 0 2OVER IF IF 2DROP 2DROP 1 ENDIF ENDIF
+
+# stk_2rot_conditions
+1 1 0 0 0 0 2ROT IF IF 2DROP 2DROP 1 ENDIF ENDIF
+
+# stk_2drop_then_condition
+1 0 0 2DROP IF 1 ENDIF
+
+# ===== branching F: conditions produced by logic, arithmetic and comparisons =====
+
+# log_not_inverts
+0 NOT IF 1 ELSE 0 ENDIF
+
+# log_0notequal
+5 0NOTEQUAL IF 1 ENDIF
+
+# log_booland_false
+1 0 BOOLAND IF 0 ELSE 1 ENDIF
+
+# log_boolor_true
+0 1 BOOLOR IF 1 ENDIF
+
+# log_equal_bytes
+'x' 'x' EQUAL IF 1 ENDIF
+
+# log_equal_zero_vs_empty
+0x0100 0 EQUAL IF 0 ELSE 1 ENDIF
+
+# log_numequal_zero_vs_empty
+0 0 NUMEQUAL IF 1 ENDIF
+
+# log_lessthan
+2 3 LESSTHAN IF 1 ENDIF
+
+# log_greaterthanorequal
+3 3 GREATERTHANOREQUAL IF 1 ENDIF
+
+# log_within_selects
+5 0 10 WITHIN IF 1 ELSE 0 ENDIF
+
+# log_min_max_condition
+0 5 MIN IF 0 ELSE 1 ENDIF
+
+# log_abs_negate_condition
+-3 ABS 3 NUMEQUAL IF 1 ENDIF
+
+# log_sub_to_zero_condition
+4 4 SUB NOTIF 1 ENDIF
+
+# log_1add_from_minus_one
+-1 1ADD IF 0 ELSE 1 ENDIF
+
+# log_hash_as_condition
+'a' SHA256 IF 1 ENDIF
+
+# log_hash_of_empty_as_condition
+0 HASH160 IF 1 ENDIF
+
+# log_checksig_result_selects
+0 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 CHECKSIG IF 0 ELSE 1 ENDIF
+
+# log_checkmultisig_result_selects
+0 0 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 1 CHECKMULTISIG IF 1 ELSE 0 ENDIF
+
+# log_cltv_inside_branch
+1 IF 0 CHECKLOCKTIMEVERIFY DROP ENDIF 1
+
+# log_csv_inside_unexecuted_branch
+0 IF -1 CHECKSEQUENCEVERIFY ENDIF 1
+
+# ===== branching G: early exits inside branches =====
+
+# exit_verify_in_taken_branch
+1 IF 0 VERIFY ENDIF 1
+
+# exit_verify_in_skipped_branch
+0 IF 0 VERIFY ENDIF 1
+
+# exit_equalverify_in_else
+0 IF 1 ELSE 1 2 EQUALVERIFY ENDIF 1
+
+# exit_numequalverify_passes
+1 IF 3 3 NUMEQUALVERIFY ENDIF 1
+
+# exit_checksigverify_in_branch
+1 IF 0 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 CHECKSIGVERIFY ENDIF 1
+
+# exit_return_in_taken_branch
+1 IF RETURN ENDIF 1
+
+# exit_return_in_skipped_branch
+0 IF RETURN ENDIF 1
+
+# exit_return_in_else_taken
+0 IF 1 ELSE RETURN ENDIF 1
+
+# exit_return_after_branch
+1 IF 1 ENDIF RETURN
+
+# ===== branching H: what still counts inside an unexecuted branch =====
+
+# skip_disabled_op_still_fails
+0 IF CAT ENDIF 1
+
+# skip_disabled_op_in_else_skipped
+1 IF 1 ELSE 2MUL ENDIF
+
+# skip_verif_still_fails
+0 IF VERIF ENDIF 1
+
+# skip_vernotif_still_fails
+0 IF VERNOTIF ENDIF 1
+
+# skip_reserved_ops_ok
+0 IF RESERVED VER RESERVED1 RESERVED2 ENDIF 1
+
+# skip_invalid_opcode_ok
+0 IF 0xff ENDIF 1
+
+# skip_push_520_bytes_ok
+0 IF 0x4d08028de9c989f2c841bcd23189542e9a0acb0c4dc9a47952e01d748dcc31938129870112a0dd9bbae98cc9a5293c1047ea81f2d426bd3981dfe8c612a07b981ed987558b96ac8cefa992aa1c8e366da82bcf05cbaf615e3825f7df9b7f274f7b05be3c56e9526d17a49baa274e08dbc29b6c991ec25058ecd0f8d0ac31fba28f357c9b799d98f13ef54171521e0c67f4571718509acf2db006bcc0cf5926d59b7b861f6bdb07479a7612c6653a75aec13b541adc67636aaf24a3d379113c98ec17d1e9f2f3c12f8f04e4671f713a5baca84618a9b5b926b4dbbc7957c2ad13ec34a08a02df4e0632b183caf55f7dcc9a16ea85562e95c4998b660bebf14730476902a9613925bc39941f78c26c630d00c156be2a2b6562bd0302ba12d58cd0912bdd9e91a5c38f5fe1539072f3f3ce64422815ef271b8999baf9e1dfe89c4534d6434916c8e36aa46c9ea6ff45853c2d77973d702748ba24c39ce7fbdd4029f82e0abdf5e05be46debb088526b67cd26eef3d949804bc248bbd5d1c9b6f078cf41feb16c2c24febe649fe05be812c811ceaa90ba2f13bf789dbddfab20291c733b35c4222633704d2b0b7d2490e5eb2ca418b2b5f1d384608dff006f33d72755593df795e6a290a664bb14c3ce279f484605300143f1619c70a613dbd16e12428d03f93bb45ccc3c029fb65ac06b586f8eb1d29a14b927881320e08cc90b8202ef3d29820e729a92bed3 ENDIF 1
+
+# skip_push_521_bytes_fails
+0 IF 0x4d0902f7a4dc051521677727bf997d2e1a7f8b3933dde5acc0c24bd27aa8c538af0b3fd427b5db7636e25a56e922de6b6c38617921da250cef79026aa40f7e179660e48df611b83205fe7091deebc437bce6bc6bfc52e6144be34bc6df4ea02de4943dffc06d7846a07f22a986b28813d2ad397d9c7273d27ac1f9ede216105daddbd26d01bfeed979f885c35a5e12a371dad15915af71c730af9a57b853213abc2682395bc0568915f38f213a15d2b2352994ee603c9c75c53c37e687207dcba2046686935a75a5ac3d0ae6305433a5201d23866c60c48c05b8a8d355ee061b0ef55417ff1e1c446f8783fad2feb837625d07d9d135ee6d1f84982e4949b16571688056212c6094c09fa5c2f17d24330c6ec2e3d2c12e239fa74e2bf565f990de230d14615a4730b626a4002df21d63fed286833e665ed893b31ba62a65a9781dfb249eccef9b63d4e2d8d29b16436d63f8768c963d9248a3c72724f99f841cfbe2ddac44aa9109b77848baf0166e8e9fb8206089008680a4b0443deca5ac66d0fa383dd7092e9c0af22fb7335875f5626805ad97dc689e5fca4dd26268dac2581cee94dfe33f76924b5c4838dcff232845241f5eb795671a26aa450fc7971d7ab5a95458d232143bf2a620d207c1d4f3e1dc28f8d40bf1fa3aa238b5e2a47c0096a466c992b388fd0956b2660d10a9e57c8df7ec2d1c3f26d7376a4f43a760cd5da18ae328c0177759405c ENDIF 1
+
+# skip_truncated_push_fails
+0 IF 0x4c05abcd
+
+# skip_ops_at_limit_201
+0 IF NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP ENDIF 1
+
+# skip_ops_exceed_limit_202
+0 IF NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP ENDIF 1
+
+# skip_many_pushes_do_not_count
+0 IF 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 ENDIF 1
+
+# ===== branching I: stack-size limit across branches =====
+
+# lim_stack_998_in_branch
+1 IF 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 ENDIF
+
+# lim_stack_1001_in_branch
+1 IF 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 ENDIF
+
+# lim_altstack_counts_in_branch
+1 IF 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 TOALTSTACK 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 ENDIF
+
+# lim_stack_1001_in_skipped_branch
+0 IF 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 ENDIF 1
+
+# ===== branching J: stack opcodes x condition x placement =====
+
+# sys_dup_before_if_true
+1 2 3 1 DUP IF 4 ELSE 5 ENDIF DEPTH
+
+# sys_dup_in_then_true
+1 2 3 1 IF DUP ELSE 5 ENDIF DEPTH
+
+# sys_dup_in_else_true
+1 2 3 1 IF 4 ELSE DUP ENDIF DEPTH
+
+# sys_dup_in_both_true
+1 2 3 1 IF DUP ELSE DUP DUP ENDIF DEPTH
+
+# sys_dup_before_if_false
+1 2 3 0 DUP IF 4 ELSE 5 ENDIF DEPTH
+
+# sys_dup_in_then_false
+1 2 3 0 IF DUP ELSE 5 ENDIF DEPTH
+
+# sys_dup_in_else_false
+1 2 3 0 IF 4 ELSE DUP ENDIF DEPTH
+
+# sys_dup_in_both_false
+1 2 3 0 IF DUP ELSE DUP DUP ENDIF DEPTH
+
+# sys_drop_before_if_true
+1 2 3 1 DROP IF 4 ELSE 5 ENDIF DEPTH
+
+# sys_drop_in_then_true
+1 2 3 1 IF DROP ELSE 5 ENDIF DEPTH
+
+# sys_drop_in_else_true
+1 2 3 1 IF 4 ELSE DROP ENDIF DEPTH
+
+# sys_drop_in_both_true
+1 2 3 1 IF DROP ELSE DROP DROP ENDIF DEPTH
+
+# sys_drop_before_if_false
+1 2 3 0 DROP IF 4 ELSE 5 ENDIF DEPTH
+
+# sys_drop_in_then_false
+1 2 3 0 IF DROP ELSE 5 ENDIF DEPTH
+
+# sys_drop_in_else_false
+1 2 3 0 IF 4 ELSE DROP ENDIF DEPTH
+
+# sys_drop_in_both_false
+1 2 3 0 IF DROP ELSE DROP DROP ENDIF DEPTH
+
+# sys_2dup_before_if_true
+1 2 3 1 2DUP IF 4 ELSE 5 ENDIF DEPTH
+
+# sys_2dup_in_then_true
+1 2 3 1 IF 2DUP ELSE 5 ENDIF DEPTH
+
+# sys_2dup_in_else_true
+1 2 3 1 IF 4 ELSE 2DUP ENDIF DEPTH
+
+# sys_2dup_in_both_true
+1 2 3 1 IF 2DUP ELSE 2DUP 2DUP ENDIF DEPTH
+
+# sys_2dup_before_if_false
+1 2 3 0 2DUP IF 4 ELSE 5 ENDIF DEPTH
+
+# sys_2dup_in_then_false
+1 2 3 0 IF 2DUP ELSE 5 ENDIF DEPTH
+
+# sys_2dup_in_else_false
+1 2 3 0 IF 4 ELSE 2DUP ENDIF DEPTH
+
+# sys_2dup_in_both_false
+1 2 3 0 IF 2DUP ELSE 2DUP 2DUP ENDIF DEPTH
+
+# sys_2drop_before_if_true
+1 2 3 1 2DROP IF 4 ELSE 5 ENDIF DEPTH
+
+# sys_2drop_in_then_true
+1 2 3 1 IF 2DROP ELSE 5 ENDIF DEPTH
+
+# sys_2drop_in_else_true
+1 2 3 1 IF 4 ELSE 2DROP ENDIF DEPTH
+
+# sys_2drop_in_both_true
+1 2 3 1 IF 2DROP ELSE 2DROP 2DROP ENDIF DEPTH
+
+# sys_2drop_before_if_false
+1 2 3 0 2DROP IF 4 ELSE 5 ENDIF DEPTH
+
+# sys_2drop_in_then_false
+1 2 3 0 IF 2DROP ELSE 5 ENDIF DEPTH
+
+# sys_2drop_in_else_false
+1 2 3 0 IF 4 ELSE 2DROP ENDIF DEPTH
+
+# sys_2drop_in_both_false
+1 2 3 0 IF 2DROP ELSE 2DROP 2DROP ENDIF DEPTH
+
+# sys_swap_before_if_true
+1 2 3 1 SWAP IF 4 ELSE 5 ENDIF DEPTH
+
+# sys_swap_in_then_true
+1 2 3 1 IF SWAP ELSE 5 ENDIF DEPTH
+
+# sys_swap_in_else_true
+1 2 3 1 IF 4 ELSE SWAP ENDIF DEPTH
+
+# sys_swap_in_both_true
+1 2 3 1 IF SWAP ELSE SWAP SWAP ENDIF DEPTH
+
+# sys_swap_before_if_false
+1 2 3 0 SWAP IF 4 ELSE 5 ENDIF DEPTH
+
+# sys_swap_in_then_false
+1 2 3 0 IF SWAP ELSE 5 ENDIF DEPTH
+
+# sys_swap_in_else_false
+1 2 3 0 IF 4 ELSE SWAP ENDIF DEPTH
+
+# sys_swap_in_both_false
+1 2 3 0 IF SWAP ELSE SWAP SWAP ENDIF DEPTH
+
+# sys_over_before_if_true
+1 2 3 1 OVER IF 4 ELSE 5 ENDIF DEPTH
+
+# sys_over_in_then_true
+1 2 3 1 IF OVER ELSE 5 ENDIF DEPTH
+
+# sys_over_in_else_true
+1 2 3 1 IF 4 ELSE OVER ENDIF DEPTH
+
+# sys_over_in_both_true
+1 2 3 1 IF OVER ELSE OVER OVER ENDIF DEPTH
+
+# sys_over_before_if_false
+1 2 3 0 OVER IF 4 ELSE 5 ENDIF DEPTH
+
+# sys_over_in_then_false
+1 2 3 0 IF OVER ELSE 5 ENDIF DEPTH
+
+# sys_over_in_else_false
+1 2 3 0 IF 4 ELSE OVER ENDIF DEPTH
+
+# sys_over_in_both_false
+1 2 3 0 IF OVER ELSE OVER OVER ENDIF DEPTH
+
+# sys_nip_before_if_true
+1 2 3 1 NIP IF 4 ELSE 5 ENDIF DEPTH
+
+# sys_nip_in_then_true
+1 2 3 1 IF NIP ELSE 5 ENDIF DEPTH
+
+# sys_nip_in_else_true
+1 2 3 1 IF 4 ELSE NIP ENDIF DEPTH
+
+# sys_nip_in_both_true
+1 2 3 1 IF NIP ELSE NIP NIP ENDIF DEPTH
+
+# sys_nip_before_if_false
+1 2 3 0 NIP IF 4 ELSE 5 ENDIF DEPTH
+
+# sys_nip_in_then_false
+1 2 3 0 IF NIP ELSE 5 ENDIF DEPTH
+
+# sys_nip_in_else_false
+1 2 3 0 IF 4 ELSE NIP ENDIF DEPTH
+
+# sys_nip_in_both_false
+1 2 3 0 IF NIP ELSE NIP NIP ENDIF DEPTH
+
+# sys_tuck_before_if_true
+1 2 3 1 TUCK IF 4 ELSE 5 ENDIF DEPTH
+
+# sys_tuck_in_then_true
+1 2 3 1 IF TUCK ELSE 5 ENDIF DEPTH
+
+# sys_tuck_in_else_true
+1 2 3 1 IF 4 ELSE TUCK ENDIF DEPTH
+
+# sys_tuck_in_both_true
+1 2 3 1 IF TUCK ELSE TUCK TUCK ENDIF DEPTH
+
+# sys_tuck_before_if_false
+1 2 3 0 TUCK IF 4 ELSE 5 ENDIF DEPTH
+
+# sys_tuck_in_then_false
+1 2 3 0 IF TUCK ELSE 5 ENDIF DEPTH
+
+# sys_tuck_in_else_false
+1 2 3 0 IF 4 ELSE TUCK ENDIF DEPTH
+
+# sys_tuck_in_both_false
+1 2 3 0 IF TUCK ELSE TUCK TUCK ENDIF DEPTH
+
+# sys_rot_before_if_true
+1 2 3 1 ROT IF 4 ELSE 5 ENDIF DEPTH
+
+# sys_rot_in_then_true
+1 2 3 1 IF ROT ELSE 5 ENDIF DEPTH
+
+# sys_rot_in_else_true
+1 2 3 1 IF 4 ELSE ROT ENDIF DEPTH
+
+# sys_rot_in_both_true
+1 2 3 1 IF ROT ELSE ROT ROT ENDIF DEPTH
+
+# sys_rot_before_if_false
+1 2 3 0 ROT IF 4 ELSE 5 ENDIF DEPTH
+
+# sys_rot_in_then_false
+1 2 3 0 IF ROT ELSE 5 ENDIF DEPTH
+
+# sys_rot_in_else_false
+1 2 3 0 IF 4 ELSE ROT ENDIF DEPTH
+
+# sys_rot_in_both_false
+1 2 3 0 IF ROT ELSE ROT ROT ENDIF DEPTH
+
+# sys_pick_before_if_true
+1 2 3 1 1 PICK IF 4 ELSE 5 ENDIF DEPTH
+
+# sys_pick_in_then_true
+1 2 3 1 IF 1 PICK ELSE 5 ENDIF DEPTH
+
+# sys_pick_in_else_true
+1 2 3 1 IF 4 ELSE 1 PICK ENDIF DEPTH
+
+# sys_pick_in_both_true
+1 2 3 1 IF 1 PICK ELSE 1 PICK 1 PICK ENDIF DEPTH
+
+# sys_pick_before_if_false
+1 2 3 0 1 PICK IF 4 ELSE 5 ENDIF DEPTH
+
+# sys_pick_in_then_false
+1 2 3 0 IF 1 PICK ELSE 5 ENDIF DEPTH
+
+# sys_pick_in_else_false
+1 2 3 0 IF 4 ELSE 1 PICK ENDIF DEPTH
+
+# sys_pick_in_both_false
+1 2 3 0 IF 1 PICK ELSE 1 PICK 1 PICK ENDIF DEPTH
+
+# sys_roll_before_if_true
+1 2 3 1 2 ROLL IF 4 ELSE 5 ENDIF DEPTH
+
+# sys_roll_in_then_true
+1 2 3 1 IF 2 ROLL ELSE 5 ENDIF DEPTH
+
+# sys_roll_in_else_true
+1 2 3 1 IF 4 ELSE 2 ROLL ENDIF DEPTH
+
+# sys_roll_in_both_true
+1 2 3 1 IF 2 ROLL ELSE 2 ROLL 2 ROLL ENDIF DEPTH
+
+# sys_roll_before_if_false
+1 2 3 0 2 ROLL IF 4 ELSE 5 ENDIF DEPTH
+
+# sys_roll_in_then_false
+1 2 3 0 IF 2 ROLL ELSE 5 ENDIF DEPTH
+
+# sys_roll_in_else_false
+1 2 3 0 IF 4 ELSE 2 ROLL ENDIF DEPTH
+
+# sys_roll_in_both_false
+1 2 3 0 IF 2 ROLL ELSE 2 ROLL 2 ROLL ENDIF DEPTH
+
+# sys_ifdup_before_if_true
+1 2 3 1 IFDUP IF 4 ELSE 5 ENDIF DEPTH
+
+# sys_ifdup_in_then_true
+1 2 3 1 IF IFDUP ELSE 5 ENDIF DEPTH
+
+# sys_ifdup_in_else_true
+1 2 3 1 IF 4 ELSE IFDUP ENDIF DEPTH
+
+# sys_ifdup_in_both_true
+1 2 3 1 IF IFDUP ELSE IFDUP IFDUP ENDIF DEPTH
+
+# sys_ifdup_before_if_false
+1 2 3 0 IFDUP IF 4 ELSE 5 ENDIF DEPTH
+
+# sys_ifdup_in_then_false
+1 2 3 0 IF IFDUP ELSE 5 ENDIF DEPTH
+
+# sys_ifdup_in_else_false
+1 2 3 0 IF 4 ELSE IFDUP ENDIF DEPTH
+
+# sys_ifdup_in_both_false
+1 2 3 0 IF IFDUP ELSE IFDUP IFDUP ENDIF DEPTH
+
+# sys_depth_before_if_true
+1 2 3 1 DEPTH IF 4 ELSE 5 ENDIF DEPTH
+
+# sys_depth_in_then_true
+1 2 3 1 IF DEPTH ELSE 5 ENDIF DEPTH
+
+# sys_depth_in_else_true
+1 2 3 1 IF 4 ELSE DEPTH ENDIF DEPTH
+
+# sys_depth_in_both_true
+1 2 3 1 IF DEPTH ELSE DEPTH DEPTH ENDIF DEPTH
+
+# sys_depth_before_if_false
+1 2 3 0 DEPTH IF 4 ELSE 5 ENDIF DEPTH
+
+# sys_depth_in_then_false
+1 2 3 0 IF DEPTH ELSE 5 ENDIF DEPTH
+
+# sys_depth_in_else_false
+1 2 3 0 IF 4 ELSE DEPTH ENDIF DEPTH
+
+# sys_depth_in_both_false
+1 2 3 0 IF DEPTH ELSE DEPTH DEPTH ENDIF DEPTH
+
+# sys_size_before_if_true
+1 2 3 1 SIZE IF 4 ELSE 5 ENDIF DEPTH
+
+# sys_size_in_then_true
+1 2 3 1 IF SIZE ELSE 5 ENDIF DEPTH
+
+# sys_size_in_else_true
+1 2 3 1 IF 4 ELSE SIZE ENDIF DEPTH
+
+# sys_size_in_both_true
+1 2 3 1 IF SIZE ELSE SIZE SIZE ENDIF DEPTH
+
+# sys_size_before_if_false
+1 2 3 0 SIZE IF 4 ELSE 5 ENDIF DEPTH
+
+# sys_size_in_then_false
+1 2 3 0 IF SIZE ELSE 5 ENDIF DEPTH
+
+# sys_size_in_else_false
+1 2 3 0 IF 4 ELSE SIZE ENDIF DEPTH
+
+# sys_size_in_both_false
+1 2 3 0 IF SIZE ELSE SIZE SIZE ENDIF DEPTH
+
+# sys_altstack_before_if_true
+1 2 3 1 TOALTSTACK FROMALTSTACK IF 4 ELSE 5 ENDIF DEPTH
+
+# sys_altstack_in_then_true
+1 2 3 1 IF TOALTSTACK FROMALTSTACK ELSE 5 ENDIF DEPTH
+
+# sys_altstack_in_else_true
+1 2 3 1 IF 4 ELSE TOALTSTACK FROMALTSTACK ENDIF DEPTH
+
+# sys_altstack_in_both_true
+1 2 3 1 IF TOALTSTACK FROMALTSTACK ELSE TOALTSTACK FROMALTSTACK TOALTSTACK FROMALTSTACK ENDIF DEPTH
+
+# sys_altstack_before_if_false
+1 2 3 0 TOALTSTACK FROMALTSTACK IF 4 ELSE 5 ENDIF DEPTH
+
+# sys_altstack_in_then_false
+1 2 3 0 IF TOALTSTACK FROMALTSTACK ELSE 5 ENDIF DEPTH
+
+# sys_altstack_in_else_false
+1 2 3 0 IF 4 ELSE TOALTSTACK FROMALTSTACK ENDIF DEPTH
+
+# sys_altstack_in_both_false
+1 2 3 0 IF TOALTSTACK FROMALTSTACK ELSE TOALTSTACK FROMALTSTACK TOALTSTACK FROMALTSTACK ENDIF DEPTH
+
+# sys_3dup_before_if_true
+1 2 3 1 3DUP IF 4 ELSE 5 ENDIF DEPTH
+
+# sys_3dup_in_then_true
+1 2 3 1 IF 3DUP ELSE 5 ENDIF DEPTH
+
+# sys_3dup_in_else_true
+1 2 3 1 IF 4 ELSE 3DUP ENDIF DEPTH
+
+# sys_3dup_in_both_true
+1 2 3 1 IF 3DUP ELSE 3DUP 3DUP ENDIF DEPTH
+
+# sys_3dup_before_if_false
+1 2 3 0 3DUP IF 4 ELSE 5 ENDIF DEPTH
+
+# sys_3dup_in_then_false
+1 2 3 0 IF 3DUP ELSE 5 ENDIF DEPTH
+
+# sys_3dup_in_else_false
+1 2 3 0 IF 4 ELSE 3DUP ENDIF DEPTH
+
+# sys_3dup_in_both_false
+1 2 3 0 IF 3DUP ELSE 3DUP 3DUP ENDIF DEPTH

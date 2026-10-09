@@ -1,0 +1,1461 @@
+# fuzz_script batch: colorid and OP_COLOR combined with every other opcode
+#
+# One Script program per line in ParseScript mnemonic form; the "#" comment
+# directly above a program names it; "<empty>" is the empty script. See
+# contrib/fuzz/fuzz_script/fuzz_script_pool.py for the full format.
+
+# ===== A. colorid element matrix: type byte x length x payload =====
+
+# elem_c1_len1_normal
+0x01c1 COLOR 1
+
+# elem_c1_len2_normal
+0x02c111 COLOR 1
+
+# elem_c1_len2_zero
+0x02c100 COLOR 1
+
+# elem_c1_len2_ff
+0x02c1ff COLOR 1
+
+# elem_c1_len32_normal
+0x20c1dd8e474ee98680368d1544a11174b03b838e31465308db83051309d69a59ea COLOR 1
+
+# elem_c1_len32_zero
+0x20c100000000000000000000000000000000000000000000000000000000000000 COLOR 1
+
+# elem_c1_len32_ff
+0x20c1ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff COLOR 1
+
+# elem_c1_len33_normal
+0x21c1758fad681fa5cf2c93d76742d29b6c878d0804cb6795c2cef1fe07f8ee9a2ddc COLOR 1
+
+# elem_c1_len33_zero
+0x21c10000000000000000000000000000000000000000000000000000000000000000 COLOR 1
+
+# elem_c1_len33_ff
+0x21c1ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff COLOR 1
+
+# elem_c1_len34_normal
+0x22c115f975ada3af31959382370da14b779003eab9ac65322db79960aa506cf55feca8 COLOR 1
+
+# elem_c1_len34_zero
+0x22c1000000000000000000000000000000000000000000000000000000000000000000 COLOR 1
+
+# elem_c1_len34_ff
+0x22c1ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff COLOR 1
+
+# elem_c1_len65_normal
+0x41c1c3080a0d72300b613809fc78d4963867c080e1b0ddcbb7de32def20e120099b22f1bae1a0f4628f26dcbb2c9df4529970f71ad98dc0f0ac75e2faacf2c7c1f3e COLOR 1
+
+# elem_c1_len65_zero
+0x41c100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 COLOR 1
+
+# elem_c1_len65_ff
+0x41c1ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff COLOR 1
+
+# elem_c2_len1_normal
+0x01c2 COLOR 1
+
+# elem_c2_len2_normal
+0x02c222 COLOR 1
+
+# elem_c2_len2_zero
+0x02c200 COLOR 1
+
+# elem_c2_len2_ff
+0x02c2ff COLOR 1
+
+# elem_c2_len32_normal
+0x20c2edbba69d563dbd43c7cf88bcbe22efe9b6779f4db94a76ac22876e3af19288 COLOR 1
+
+# elem_c2_len32_zero
+0x20c200000000000000000000000000000000000000000000000000000000000000 COLOR 1
+
+# elem_c2_len32_ff
+0x20c2ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff COLOR 1
+
+# elem_c2_len33_normal
+0x21c265be9f3bfffc3bb25ed33da885f50f26a5fc1f72a438b0e11aa6f1f8e0cffa61 COLOR 1
+
+# elem_c2_len33_zero
+0x21c20000000000000000000000000000000000000000000000000000000000000000 COLOR 1
+
+# elem_c2_len33_ff
+0x21c2ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff COLOR 1
+
+# elem_c2_len34_normal
+0x22c246c9081250748eefb2c9af5dddfdcf1d70ebae39e7c65f7929e20100df814ba940 COLOR 1
+
+# elem_c2_len34_zero
+0x22c2000000000000000000000000000000000000000000000000000000000000000000 COLOR 1
+
+# elem_c2_len34_ff
+0x22c2ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff COLOR 1
+
+# elem_c2_len65_normal
+0x41c26b4996e11e9c5c324de3f65275c758b71b85f52da1c01a45e1661f8acdc84a1b5941d1f14e149ffd2ecd939675f4a78554298cbb12da230723f9133ff679fe2e COLOR 1
+
+# elem_c2_len65_zero
+0x41c200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 COLOR 1
+
+# elem_c2_len65_ff
+0x41c2ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff COLOR 1
+
+# elem_c3_len1_normal
+0x01c3 COLOR 1
+
+# elem_c3_len2_normal
+0x02c32c COLOR 1
+
+# elem_c3_len2_zero
+0x02c300 COLOR 1
+
+# elem_c3_len2_ff
+0x02c3ff COLOR 1
+
+# elem_c3_len32_normal
+0x20c3a333c8cff9e3835e84c41613cb6f9019c91b327af3dce8256542e770f54f52 COLOR 1
+
+# elem_c3_len32_zero
+0x20c300000000000000000000000000000000000000000000000000000000000000 COLOR 1
+
+# elem_c3_len32_ff
+0x20c3ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff COLOR 1
+
+# elem_c3_len33_normal
+0x21c34d78227e0db7f7178d587bcb1830299df42baed680d9b2f567b7bdc612106111 COLOR 1
+
+# elem_c3_len33_zero
+0x21c30000000000000000000000000000000000000000000000000000000000000000 COLOR 1
+
+# elem_c3_len33_ff
+0x21c3ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff COLOR 1
+
+# elem_c3_len34_normal
+0x22c325726e13982e23486ae86fc111ef5c624bdb539711491b6f3173bed759ac2d4839 COLOR 1
+
+# elem_c3_len34_zero
+0x22c3000000000000000000000000000000000000000000000000000000000000000000 COLOR 1
+
+# elem_c3_len34_ff
+0x22c3ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff COLOR 1
+
+# elem_c3_len65_normal
+0x41c3d956ef6f97facdebd1c2fe5ee54352f0923c20f11ead013500a60c89a6ef0c97ec75990da3baabd8c6c3e30fab2f9b5f6373800d23aa920485f76fe587b4debb COLOR 1
+
+# elem_c3_len65_zero
+0x41c300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 COLOR 1
+
+# elem_c3_len65_ff
+0x41c3ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff COLOR 1
+
+# elem_type00_len33_normal
+0x21000d87b8e13dfac92f61e860a676263fbb5dac4c9551bd1a24a102e9e34f44911e COLOR 1
+
+# elem_type00_len33_zero
+0x21000000000000000000000000000000000000000000000000000000000000000000 COLOR 1
+
+# elem_type01_len33_normal
+0x21017f92f2978146822b56b414fd58f607db083002e12aaf7cb2255d3eed7c96615f COLOR 1
+
+# elem_type01_len33_zero
+0x21010000000000000000000000000000000000000000000000000000000000000000 COLOR 1
+
+# elem_typec0_len33_normal
+0x21c010a4d9052501cdab912959cf4edc9161c080349e224530c93118a99439638757 COLOR 1
+
+# elem_typec0_len33_zero
+0x21c00000000000000000000000000000000000000000000000000000000000000000 COLOR 1
+
+# elem_typec4_len33_normal
+0x21c42329a6c4990f2f0fc6662f031296d6377a1a888cd95bf5b0e90db205ac35cb42 COLOR 1
+
+# elem_typec4_len33_zero
+0x21c40000000000000000000000000000000000000000000000000000000000000000 COLOR 1
+
+# elem_typeff_len33_normal
+0x21ff6f0f84c3511f2d513eb258fc74c3b93a192988b878a7189769e095bde960c309 COLOR 1
+
+# elem_typeff_len33_zero
+0x21ff0000000000000000000000000000000000000000000000000000000000000000 COLOR 1
+
+# elem_type80_len33_normal
+0x2180166dcb9274d581736fac1da9ea050cdcd3e9d3ce9aa4245d07c3e8dee7123034 COLOR 1
+
+# elem_type80_len33_zero
+0x21800000000000000000000000000000000000000000000000000000000000000000 COLOR 1
+
+# elem_empty_push
+0 COLOR 1
+
+# elem_number_1
+1 COLOR 1
+
+# elem_number_neg1
+-1 COLOR 1
+
+# elem_number_16
+16 COLOR 1
+
+# elem_number_127
+127 COLOR 1
+
+# elem_number_2147483647
+2147483647 COLOR 1
+
+# elem_number_neg2147483648
+-2147483648 COLOR 1
+
+# elem_quoted_string
+'c1notacolorid' COLOR 1
+
+# elem_33_quoted_bytes
+'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' COLOR 1
+
+# elem_pushdata1_encoded_valid
+0x4c21c1c729be261f2df18f84bbdca0c3bd3aaf0729fdbe7caadb90b94981f0aa58a36a COLOR 1
+
+# elem_pushdata2_encoded_valid
+0x4d2100c263ee02b5bedc7d5d87fb6134522f831f65844d4ff4e9af922490084158f40952 COLOR 1
+
+# elem_pushdata4_encoded_valid
+0x4e21000000c30da465ce727f9977d6ac72f8aab8a9f1627fa423bbfbffffa11faa7a1543c91e COLOR 1
+
+# elem_payload_one_nonzero_byte_last
+0x21c10000000000000000000000000000000000000000000000000000000000000001 COLOR 1
+
+# elem_payload_one_nonzero_byte_first
+0x21c20100000000000000000000000000000000000000000000000000000000000000 COLOR 1
+
+# ===== B. colorid delivered to COLOR by another opcode =====
+
+# prov_dup_reissuable
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c DUP COLOR DROP 1
+
+# prov_dup_twice_color_reissuable
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c DUP COLOR COLOR 1
+
+# prov_swap_reissuable
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c 1 SWAP COLOR
+
+# prov_over_reissuable
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c 1 OVER COLOR
+
+# prov_pick_reissuable
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c 1 2 2 PICK COLOR 2DROP
+
+# prov_roll_reissuable
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c 1 2 2 ROLL COLOR
+
+# prov_tuck_reissuable
+1 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c TUCK COLOR DROP
+
+# prov_nip_reissuable
+1 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c NIP COLOR 1
+
+# prov_rot_reissuable
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c 1 2 ROT COLOR
+
+# prov_2swap_reissuable
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c 1 2 3 2SWAP DROP COLOR 2DROP 1
+
+# prov_2rot_reissuable
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c 1 2 3 4 5 2ROT DROP COLOR 2DROP 2DROP
+
+# prov_2over_reissuable
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c 1 2 3 2OVER DROP COLOR 2DROP 2DROP
+
+# prov_3dup_reissuable
+1 2 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c 3DUP COLOR 2DROP 2DROP 1
+
+# prov_ifdup_reissuable
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c IFDUP COLOR
+
+# prov_altstack_reissuable
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c TOALTSTACK 1 FROMALTSTACK COLOR
+
+# prov_depth_pick_reissuable
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c 1 1 DEPTH 1SUB PICK COLOR 2DROP
+
+# prov_sha256_output_reissuable
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c SHA256 COLOR 1
+
+# prov_size_output_reissuable
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c SIZE COLOR
+
+# prov_dup_nonreissuable
+0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 DUP COLOR DROP 1
+
+# prov_dup_twice_color_nonreissuable
+0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 DUP COLOR COLOR 1
+
+# prov_swap_nonreissuable
+0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 1 SWAP COLOR
+
+# prov_over_nonreissuable
+0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 1 OVER COLOR
+
+# prov_pick_nonreissuable
+0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 1 2 2 PICK COLOR 2DROP
+
+# prov_roll_nonreissuable
+0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 1 2 2 ROLL COLOR
+
+# prov_tuck_nonreissuable
+1 0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 TUCK COLOR DROP
+
+# prov_nip_nonreissuable
+1 0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 NIP COLOR 1
+
+# prov_rot_nonreissuable
+0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 1 2 ROT COLOR
+
+# prov_2swap_nonreissuable
+0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 1 2 3 2SWAP DROP COLOR 2DROP 1
+
+# prov_2rot_nonreissuable
+0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 1 2 3 4 5 2ROT DROP COLOR 2DROP 2DROP
+
+# prov_2over_nonreissuable
+0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 1 2 3 2OVER DROP COLOR 2DROP 2DROP
+
+# prov_3dup_nonreissuable
+1 2 0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 3DUP COLOR 2DROP 2DROP 1
+
+# prov_ifdup_nonreissuable
+0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 IFDUP COLOR
+
+# prov_altstack_nonreissuable
+0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 TOALTSTACK 1 FROMALTSTACK COLOR
+
+# prov_depth_pick_nonreissuable
+0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 1 1 DEPTH 1SUB PICK COLOR 2DROP
+
+# prov_sha256_output_nonreissuable
+0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 SHA256 COLOR 1
+
+# prov_size_output_nonreissuable
+0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 SIZE COLOR
+
+# prov_dup_nft
+0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 DUP COLOR DROP 1
+
+# prov_dup_twice_color_nft
+0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 DUP COLOR COLOR 1
+
+# prov_swap_nft
+0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 1 SWAP COLOR
+
+# prov_over_nft
+0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 1 OVER COLOR
+
+# prov_pick_nft
+0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 1 2 2 PICK COLOR 2DROP
+
+# prov_roll_nft
+0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 1 2 2 ROLL COLOR
+
+# prov_tuck_nft
+1 0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 TUCK COLOR DROP
+
+# prov_nip_nft
+1 0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 NIP COLOR 1
+
+# prov_rot_nft
+0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 1 2 ROT COLOR
+
+# prov_2swap_nft
+0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 1 2 3 2SWAP DROP COLOR 2DROP 1
+
+# prov_2rot_nft
+0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 1 2 3 4 5 2ROT DROP COLOR 2DROP 2DROP
+
+# prov_2over_nft
+0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 1 2 3 2OVER DROP COLOR 2DROP 2DROP
+
+# prov_3dup_nft
+1 2 0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 3DUP COLOR 2DROP 2DROP 1
+
+# prov_ifdup_nft
+0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 IFDUP COLOR
+
+# prov_altstack_nft
+0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 TOALTSTACK 1 FROMALTSTACK COLOR
+
+# prov_depth_pick_nft
+0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 1 1 DEPTH 1SUB PICK COLOR 2DROP
+
+# prov_sha256_output_nft
+0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 SHA256 COLOR 1
+
+# prov_size_output_nft
+0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 SIZE COLOR
+
+# prov_rot_c3_c1_attack_catalogue
+0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c 1 ROT COLOR 1
+
+# prov_swap_underflow_c1
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c SWAP COLOR
+
+# prov_rot_underflow_c1
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c 1 ROT COLOR
+
+# prov_pick_out_of_range
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c 5 PICK COLOR
+
+# prov_cat_type_and_payload
+0x01c1 0x20c1c0907de54aa92d2b394205eec306ab01ddfab24d0d0c1a4e13b19a2804f477 CAT COLOR 1
+
+# prov_left_disabled
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c 33 LEFT COLOR 1
+
+# prov_substr_disabled
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c 0 33 SUBSTR COLOR 1
+
+# prov_fromaltstack_empty
+FROMALTSTACK COLOR 1
+
+# prov_two_colorids_top_is_c2
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c 0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 COLOR DROP 1
+
+# prov_two_colorids_rot_to_c1
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c 0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 1 ROT COLOR DROP DROP 1
+
+# ===== C. OP_COLOR position and context =====
+
+# ctx_color_empty_stack
+COLOR 1
+
+# ctx_color_in_executed_if
+1 IF 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR ENDIF 1
+
+# ctx_color_in_unexecuted_if
+0 IF 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR ENDIF 1
+
+# ctx_color_in_executed_notif
+0 NOTIF 0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 COLOR ENDIF 1
+
+# ctx_color_in_unexecuted_notif
+1 NOTIF 0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 COLOR ENDIF 1
+
+# ctx_color_in_executed_else
+0 IF 1 ELSE 0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 COLOR ENDIF 1
+
+# ctx_color_in_unexecuted_else
+1 IF 1 ELSE 0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 COLOR ENDIF
+
+# ctx_color_nested_unexecuted
+1 IF 0 IF 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR ENDIF ENDIF 1
+
+# ctx_color_then_if
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR 1 IF 1 ENDIF
+
+# ctx_color_after_endif
+1 IF 1 ENDIF 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR
+
+# ctx_color_twice_valid_valid
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR 0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 COLOR 1
+
+# ctx_color_twice_same_id
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR 1
+
+# ctx_color_twice_valid_invalid
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR 0x21c42329a6c4990f2f0fc6662f031296d6377a1a888cd95bf5b0e90db205ac35cb42 COLOR 1
+
+# ctx_color_twice_invalid_valid
+0x21c42329a6c4990f2f0fc6662f031296d6377a1a888cd95bf5b0e90db205ac35cb42 COLOR 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR 1
+
+# ctx_color_second_in_unexecuted_branch
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR 0 IF 0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 COLOR ENDIF 1
+
+# ctx_color_after_verify
+1 VERIFY 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR 1
+
+# ctx_color_after_failing_verify
+0 VERIFY 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR 1
+
+# ctx_color_after_return
+RETURN 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR
+
+# ctx_color_then_return
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR RETURN
+
+# ctx_color_codeseparator
+CODESEPARATOR 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c CODESEPARATOR COLOR CODESEPARATOR 1
+
+# ctx_color_between_nops
+NOP 0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 NOP1 COLOR NOP10 1
+
+# ctx_color_leaves_empty_stack
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR
+
+# ctx_color_leaves_false
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR 0
+
+# ctx_color_after_invalidopcode_unexecuted
+0 IF 0xff ENDIF 0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 COLOR 1
+
+# ctx_color_after_verif_unexecuted
+0 IF VERIF ENDIF 0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 COLOR 1
+
+# ctx_color_with_reserved_unexecuted
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR 0 IF RESERVED ENDIF 1
+
+# ===== D. CP2PKH / CP2SH / burn templates and near-misses =====
+
+# tpl_cp2pkh_reissuable
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR DUP HASH160 0x14be6d077bd1eb218c802b0e2a6f4a7af09264cf1e EQUALVERIFY CHECKSIG
+
+# tpl_cp2sh_reissuable
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR HASH160 0x14be6d077bd1eb218c802b0e2a6f4a7af09264cf1e EQUAL
+
+# tpl_burn_reissuable
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR RETURN
+
+# tpl_cp2pkh_with_key_reissuable
+0 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR DUP HASH160 0x14be6d077bd1eb218c802b0e2a6f4a7af09264cf1e EQUALVERIFY CHECKSIG
+
+# tpl_cp2sh_hash_of_empty_reissuable
+0 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR HASH160 0x14b472a266d0bd89c13706a4132ccfb16f7c3b9fcb EQUAL
+
+# tpl_cp2pkh_nonreissuable
+0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 COLOR DUP HASH160 0x14be6d077bd1eb218c802b0e2a6f4a7af09264cf1e EQUALVERIFY CHECKSIG
+
+# tpl_cp2sh_nonreissuable
+0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 COLOR HASH160 0x14be6d077bd1eb218c802b0e2a6f4a7af09264cf1e EQUAL
+
+# tpl_burn_nonreissuable
+0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 COLOR RETURN
+
+# tpl_cp2pkh_with_key_nonreissuable
+0 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 COLOR DUP HASH160 0x14be6d077bd1eb218c802b0e2a6f4a7af09264cf1e EQUALVERIFY CHECKSIG
+
+# tpl_cp2sh_hash_of_empty_nonreissuable
+0 0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 COLOR HASH160 0x14b472a266d0bd89c13706a4132ccfb16f7c3b9fcb EQUAL
+
+# tpl_cp2pkh_nft
+0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 COLOR DUP HASH160 0x14be6d077bd1eb218c802b0e2a6f4a7af09264cf1e EQUALVERIFY CHECKSIG
+
+# tpl_cp2sh_nft
+0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 COLOR HASH160 0x14be6d077bd1eb218c802b0e2a6f4a7af09264cf1e EQUAL
+
+# tpl_burn_nft
+0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 COLOR RETURN
+
+# tpl_cp2pkh_with_key_nft
+0 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 COLOR DUP HASH160 0x14be6d077bd1eb218c802b0e2a6f4a7af09264cf1e EQUALVERIFY CHECKSIG
+
+# tpl_cp2sh_hash_of_empty_nft
+0 0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 COLOR HASH160 0x14b472a266d0bd89c13706a4132ccfb16f7c3b9fcb EQUAL
+
+# near_cp2sh_pushdata1_colorid
+0x4c21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR HASH160 0x14be6d077bd1eb218c802b0e2a6f4a7af09264cf1e EQUAL
+
+# near_cp2pkh_pushdata1_colorid
+0x4c21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR DUP HASH160 0x14be6d077bd1eb218c802b0e2a6f4a7af09264cf1e EQUALVERIFY CHECKSIG
+
+# near_cp2sh_type_c4
+0x21c42329a6c4990f2f0fc6662f031296d6377a1a888cd95bf5b0e90db205ac35cb42 COLOR HASH160 0x14be6d077bd1eb218c802b0e2a6f4a7af09264cf1e EQUAL
+
+# near_cp2sh_hash256
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR HASH256 0x201bad622e313bc9f921f2d1de38956579ca7b5b7731961483515b12c11d3eb710 EQUAL
+
+# near_cp2sh_equalverify_1
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR HASH160 0x14be6d077bd1eb218c802b0e2a6f4a7af09264cf1e EQUALVERIFY 1
+
+# near_cp2pkh_extra_nop
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR NOP DUP HASH160 0x14be6d077bd1eb218c802b0e2a6f4a7af09264cf1e EQUALVERIFY CHECKSIG
+
+# near_cp2pkh_checksigverify
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR DUP HASH160 0x14be6d077bd1eb218c802b0e2a6f4a7af09264cf1e EQUALVERIFY CHECKSIGVERIFY 1
+
+# near_cp2pkh_21_byte_hash
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR DUP HASH160 0x150b77126bbc6b4f46a05af4137682ee491401ae57bd EQUALVERIFY CHECKSIG
+
+# near_p2pkh_then_color
+DUP HASH160 0x14be6d077bd1eb218c802b0e2a6f4a7af09264cf1e EQUALVERIFY CHECKSIG 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR
+
+# near_p2sh_then_color
+HASH160 0x14be6d077bd1eb218c802b0e2a6f4a7af09264cf1e EQUAL 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR
+
+# near_burn_return_first
+RETURN 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR
+
+# near_burn_with_data
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR RETURN 'data'
+
+# ===== E. OP_COLOR with CLTV / CSV (disallowed by policy, exercised here) =====
+
+# lock_color_then_cltv_reissuable
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR 1 CHECKLOCKTIMEVERIFY DROP 1
+
+# lock_cltv_then_color_reissuable
+500000000 CHECKLOCKTIMEVERIFY DROP 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR 1
+
+# lock_color_then_csv_reissuable
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR 1 CHECKSEQUENCEVERIFY DROP 1
+
+# lock_csv_then_color_reissuable
+4194305 CHECKSEQUENCEVERIFY DROP 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR 1
+
+# lock_cltv_on_colorid_reissuable
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c DUP CHECKLOCKTIMEVERIFY DROP COLOR 1
+
+# lock_cp2pkh_with_cltv_reissuable
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR 0 CHECKLOCKTIMEVERIFY DROP DUP HASH160 0x14be6d077bd1eb218c802b0e2a6f4a7af09264cf1e EQUALVERIFY CHECKSIG
+
+# lock_color_then_cltv_nonreissuable
+0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 COLOR 1 CHECKLOCKTIMEVERIFY DROP 1
+
+# lock_cltv_then_color_nonreissuable
+500000000 CHECKLOCKTIMEVERIFY DROP 0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 COLOR 1
+
+# lock_color_then_csv_nonreissuable
+0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 COLOR 1 CHECKSEQUENCEVERIFY DROP 1
+
+# lock_csv_then_color_nonreissuable
+4194305 CHECKSEQUENCEVERIFY DROP 0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 COLOR 1
+
+# lock_cltv_on_colorid_nonreissuable
+0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 DUP CHECKLOCKTIMEVERIFY DROP COLOR 1
+
+# lock_cp2pkh_with_cltv_nonreissuable
+0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 COLOR 0 CHECKLOCKTIMEVERIFY DROP DUP HASH160 0x14be6d077bd1eb218c802b0e2a6f4a7af09264cf1e EQUALVERIFY CHECKSIG
+
+# lock_color_then_cltv_nft
+0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 COLOR 1 CHECKLOCKTIMEVERIFY DROP 1
+
+# lock_cltv_then_color_nft
+500000000 CHECKLOCKTIMEVERIFY DROP 0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 COLOR 1
+
+# lock_color_then_csv_nft
+0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 COLOR 1 CHECKSEQUENCEVERIFY DROP 1
+
+# lock_csv_then_color_nft
+4194305 CHECKSEQUENCEVERIFY DROP 0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 COLOR 1
+
+# lock_cltv_on_colorid_nft
+0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 DUP CHECKLOCKTIMEVERIFY DROP COLOR 1
+
+# lock_cp2pkh_with_cltv_nft
+0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 COLOR 0 CHECKLOCKTIMEVERIFY DROP DUP HASH160 0x14be6d077bd1eb218c802b0e2a6f4a7af09264cf1e EQUALVERIFY CHECKSIG
+
+# lock_color_cltv_csv_both
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR 1 CHECKLOCKTIMEVERIFY 1 CHECKSEQUENCEVERIFY 2DROP 1
+
+# lock_csv_disable_flag_then_color
+2147483648 CHECKSEQUENCEVERIFY DROP 0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 COLOR 1
+
+# ===== F. OP_COLOR with signature opcodes =====
+
+# sig_color_checksig_empty_reissuable
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR 0 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 CHECKSIG NOT
+
+# sig_color_checksig_der_reissuable
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR 0x09300602010102010101 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 CHECKSIG
+
+# sig_color_checksig_schnorr_reissuable
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR 0x413b12fc0831f6dd4318921d9a4b55d37ad4dbf5861e685d5bbce2e2c66ddfa45771933b456ccbadbead0ac6294f6881f2d032c7c103c7e5f54f67c23079b350ab01 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 CHECKSIG NOT
+
+# sig_color_between_sig_and_key_reissuable
+0 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 CHECKSIG NOT
+
+# sig_colorid_as_pubkey_reissuable
+0 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c DUP COLOR CHECKSIG NOT
+
+# sig_colorid_as_signature_reissuable
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c DUP COLOR 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 CHECKSIG NOT
+
+# sig_checkdatasig_on_colorid_reissuable
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c DUP COLOR 0x40922f564855e3860b6d615e56fc89fabb445b0ef523cf232f1116c2a618b8a4294a273806cea1c677f4aff0b71525fb9965fd42a8a0eca2f14126b7d62db2cc8a SWAP 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 CHECKDATASIG NOT
+
+# sig_checkmultisig_after_color_reissuable
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR 0 0 1 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 2 CHECKMULTISIG NOT
+
+# sig_color_checksig_empty_nonreissuable
+0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 COLOR 0 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 CHECKSIG NOT
+
+# sig_color_checksig_der_nonreissuable
+0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 COLOR 0x09300602010102010101 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 CHECKSIG
+
+# sig_color_checksig_schnorr_nonreissuable
+0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 COLOR 0x413b12fc0831f6dd4318921d9a4b55d37ad4dbf5861e685d5bbce2e2c66ddfa45771933b456ccbadbead0ac6294f6881f2d032c7c103c7e5f54f67c23079b350ab01 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 CHECKSIG NOT
+
+# sig_color_between_sig_and_key_nonreissuable
+0 0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 COLOR 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 CHECKSIG NOT
+
+# sig_colorid_as_pubkey_nonreissuable
+0 0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 DUP COLOR CHECKSIG NOT
+
+# sig_colorid_as_signature_nonreissuable
+0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 DUP COLOR 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 CHECKSIG NOT
+
+# sig_checkdatasig_on_colorid_nonreissuable
+0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 DUP COLOR 0x40922f564855e3860b6d615e56fc89fabb445b0ef523cf232f1116c2a618b8a4294a273806cea1c677f4aff0b71525fb9965fd42a8a0eca2f14126b7d62db2cc8a SWAP 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 CHECKDATASIG NOT
+
+# sig_checkmultisig_after_color_nonreissuable
+0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 COLOR 0 0 1 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 2 CHECKMULTISIG NOT
+
+# sig_color_checksig_empty_nft
+0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 COLOR 0 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 CHECKSIG NOT
+
+# sig_color_checksig_der_nft
+0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 COLOR 0x09300602010102010101 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 CHECKSIG
+
+# sig_color_checksig_schnorr_nft
+0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 COLOR 0x413b12fc0831f6dd4318921d9a4b55d37ad4dbf5861e685d5bbce2e2c66ddfa45771933b456ccbadbead0ac6294f6881f2d032c7c103c7e5f54f67c23079b350ab01 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 CHECKSIG NOT
+
+# sig_color_between_sig_and_key_nft
+0 0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 COLOR 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 CHECKSIG NOT
+
+# sig_colorid_as_pubkey_nft
+0 0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 DUP COLOR CHECKSIG NOT
+
+# sig_colorid_as_signature_nft
+0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 DUP COLOR 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 CHECKSIG NOT
+
+# sig_checkdatasig_on_colorid_nft
+0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 DUP COLOR 0x40922f564855e3860b6d615e56fc89fabb445b0ef523cf232f1116c2a618b8a4294a273806cea1c677f4aff0b71525fb9965fd42a8a0eca2f14126b7d62db2cc8a SWAP 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 CHECKDATASIG NOT
+
+# sig_checkmultisig_after_color_nft
+0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 COLOR 0 0 1 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 2 CHECKMULTISIG NOT
+
+# sig_checksigverify_then_color
+0 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 CHECKSIGVERIFY 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR 1
+
+# sig_checkdatasigverify_then_color
+0x40922f564855e3860b6d615e56fc89fabb445b0ef523cf232f1116c2a618b8a4294a273806cea1c677f4aff0b71525fb9965fd42a8a0eca2f14126b7d62db2cc8a 'msg' 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 CHECKDATASIGVERIFY 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR 1
+
+# sig_checkmultisigverify_zero_then_color
+0 0 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 1 CHECKMULTISIGVERIFY 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR 1
+
+# sig_codeseparator_color_checksig
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c CODESEPARATOR COLOR 0 0x210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 CHECKSIG NOT
+
+# ===== G. colorid used as data after COLOR, and deep stacks =====
+
+# data_size_is_33
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c DUP COLOR SIZE 33 NUMEQUAL NIP
+
+# data_equal_to_itself
+0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 DUP COLOR 0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 EQUAL
+
+# data_equal_to_other_type
+0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 DUP COLOR 0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 EQUAL NOT
+
+# data_hashed_after_color
+0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 DUP COLOR SHA256 SIZE 32 NUMEQUAL NIP
+
+# data_as_number_after_color
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c DUP COLOR 1ADD
+
+# data_as_if_condition
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c DUP COLOR IF 1 ENDIF
+
+# data_as_notif_condition
+0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 DUP COLOR NOTIF 0 ELSE 1 ENDIF
+
+# data_booland_after_color
+0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 DUP COLOR 1 BOOLAND
+
+# data_to_altstack_across_color
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c TOALTSTACK 0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 COLOR FROMALTSTACK SIZE NIP
+
+# deep_stack_then_color
+1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR DEPTH 990 NUMEQUAL
+
+# deep_stack_limit_then_color
+1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR 1
+
+# deep_stack_over_limit_color
+1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c COLOR
+
+# many_colorids_one_color
+0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c 0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c 0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c 0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c 0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c 0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c 0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c 0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c 0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c 0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c 0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c 0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c 0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c 0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c 0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c 0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c 0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c 0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c 0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c 0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 0x21c1f7f1fe148e65b374072a8747419cf09d8a0bb67f028fb5ce45ab9f91d4ab657c 0x21c2fd0cf6f0d0d623da9e1f6f84e9ec1e3af195437d24c5fd38ea8fee04e62a3e69 0x21c3727d656286cc1f2df26805c3f15c266958ca583acd1566cec53cb7119a553437 COLOR 1
+
+# ===== H. every other opcode combined with a valid colorid and COLOR =====
+
+# sys_0_before_color
+2 3 4 0 0x21c1fd9820d3f038193b2e6274690e9039cdc1523c6b5f0b5ea46f32b43f625dea56 COLOR 1
+
+# sys_0_after_color
+0x21c1fd9820d3f038193b2e6274690e9039cdc1523c6b5f0b5ea46f32b43f625dea56 COLOR 2 3 4 0
+
+# sys_pushdata1_before_color
+2 3 4 0x4c01ab 0x21c2ce4c6a45c1a626581a82e88fcdc47999f34281f7b73c652823c02cb203a04f72 COLOR 1
+
+# sys_pushdata1_after_color
+0x21c2ce4c6a45c1a626581a82e88fcdc47999f34281f7b73c652823c02cb203a04f72 COLOR 2 3 4 0x4c01ab
+
+# sys_pushdata2_before_color
+2 3 4 0x4d0100ab 0x21c3a466e45d3900f4b432db9534d43a4a08207ff3bc858112d0d18cbe4be7ed00be COLOR 1
+
+# sys_pushdata2_after_color
+0x21c3a466e45d3900f4b432db9534d43a4a08207ff3bc858112d0d18cbe4be7ed00be COLOR 2 3 4 0x4d0100ab
+
+# sys_pushdata4_before_color
+2 3 4 0x4e01000000ab 0x21c1c60d7c005c49071007c84c1a99563047e200a4cf7619afcad4c5c08d6b378dbb COLOR 1
+
+# sys_pushdata4_after_color
+0x21c1c60d7c005c49071007c84c1a99563047e200a4cf7619afcad4c5c08d6b378dbb COLOR 2 3 4 0x4e01000000ab
+
+# sys_1negate_before_color
+2 3 4 -1 0x21c2422d882eff560475130a62c530b07698e1a1dccbf8f35e60f6bd323eca4ead51 COLOR 1
+
+# sys_1negate_after_color
+0x21c2422d882eff560475130a62c530b07698e1a1dccbf8f35e60f6bd323eca4ead51 COLOR 2 3 4 -1
+
+# sys_reserved_before_color
+2 3 4 RESERVED 0x21c336b6ee08e656bcdddde80ccbf6f88a19067f40ef84e430a3f3be090e8f7773f5 COLOR 1
+
+# sys_reserved_after_color
+0x21c336b6ee08e656bcdddde80ccbf6f88a19067f40ef84e430a3f3be090e8f7773f5 COLOR 2 3 4 RESERVED
+
+# sys_1_before_color
+2 3 4 1 0x21c1dcd360a9155c99996ef8c37085c7c8d1d66d5e45529b3938e5b60c2308568d02 COLOR 1
+
+# sys_1_after_color
+0x21c1dcd360a9155c99996ef8c37085c7c8d1d66d5e45529b3938e5b60c2308568d02 COLOR 2 3 4 1
+
+# sys_2_before_color
+2 3 4 2 0x21c296f11b2adf8112744f123162708500c9fa76ba1427232e96141f567e4b169f81 COLOR 1
+
+# sys_2_after_color
+0x21c296f11b2adf8112744f123162708500c9fa76ba1427232e96141f567e4b169f81 COLOR 2 3 4 2
+
+# sys_3_before_color
+2 3 4 3 0x21c316fc8e1409a6a9144a54d49b7ffb8adc0222db63ea92c9a6c785bd36f4a4ad8c COLOR 1
+
+# sys_3_after_color
+0x21c316fc8e1409a6a9144a54d49b7ffb8adc0222db63ea92c9a6c785bd36f4a4ad8c COLOR 2 3 4 3
+
+# sys_4_before_color
+2 3 4 4 0x21c15da8e04cda8ddd944c0c860cc89f2bd80e210f5fb4dba42636fffaf115c10378 COLOR 1
+
+# sys_4_after_color
+0x21c15da8e04cda8ddd944c0c860cc89f2bd80e210f5fb4dba42636fffaf115c10378 COLOR 2 3 4 4
+
+# sys_5_before_color
+2 3 4 5 0x21c28b643ef26874a478c325b7d21f18c46e08aca94b4219ffbdef51c562ad792e94 COLOR 1
+
+# sys_5_after_color
+0x21c28b643ef26874a478c325b7d21f18c46e08aca94b4219ffbdef51c562ad792e94 COLOR 2 3 4 5
+
+# sys_6_before_color
+2 3 4 6 0x21c3b0426b7f653a30ba2c189e95a701f9116a4a912e8ba8a0e1ea8d78e100cb2d91 COLOR 1
+
+# sys_6_after_color
+0x21c3b0426b7f653a30ba2c189e95a701f9116a4a912e8ba8a0e1ea8d78e100cb2d91 COLOR 2 3 4 6
+
+# sys_7_before_color
+2 3 4 7 0x21c163d71c609256fc3fa64b4ac30fe2a937e7ff74f84ad97900c17627cb2e6b2418 COLOR 1
+
+# sys_7_after_color
+0x21c163d71c609256fc3fa64b4ac30fe2a937e7ff74f84ad97900c17627cb2e6b2418 COLOR 2 3 4 7
+
+# sys_8_before_color
+2 3 4 8 0x21c267709da151a133a841960f86e565f7e8c9fb52807322b9da643c3ff4099613c2 COLOR 1
+
+# sys_8_after_color
+0x21c267709da151a133a841960f86e565f7e8c9fb52807322b9da643c3ff4099613c2 COLOR 2 3 4 8
+
+# sys_9_before_color
+2 3 4 9 0x21c381aa3be66b2381e956b9b63fda8e195825e36142b912edaa102a79060dd65ba8 COLOR 1
+
+# sys_9_after_color
+0x21c381aa3be66b2381e956b9b63fda8e195825e36142b912edaa102a79060dd65ba8 COLOR 2 3 4 9
+
+# sys_10_before_color
+2 3 4 10 0x21c122168b0a41d5c05f3465960b0d74e6725aa938509c1cffc577aa65245b7de390 COLOR 1
+
+# sys_10_after_color
+0x21c122168b0a41d5c05f3465960b0d74e6725aa938509c1cffc577aa65245b7de390 COLOR 2 3 4 10
+
+# sys_11_before_color
+2 3 4 11 0x21c22fa1e60d692ab4a7810277d7e21f85ddd89c7f9630110323a7cda3da8456f72a COLOR 1
+
+# sys_11_after_color
+0x21c22fa1e60d692ab4a7810277d7e21f85ddd89c7f9630110323a7cda3da8456f72a COLOR 2 3 4 11
+
+# sys_12_before_color
+2 3 4 12 0x21c392d46dc2c61626ea5cde7613380580bb91aab1b03d674294e35ef0df41227f47 COLOR 1
+
+# sys_12_after_color
+0x21c392d46dc2c61626ea5cde7613380580bb91aab1b03d674294e35ef0df41227f47 COLOR 2 3 4 12
+
+# sys_13_before_color
+2 3 4 13 0x21c1a03f1f7dbe8684d1470646224cb92ca461d988738d729fac72ea5ed0c1f4f387 COLOR 1
+
+# sys_13_after_color
+0x21c1a03f1f7dbe8684d1470646224cb92ca461d988738d729fac72ea5ed0c1f4f387 COLOR 2 3 4 13
+
+# sys_14_before_color
+2 3 4 14 0x21c2cdde7f410f87d699451de0640bc1c23bc3976087cdcba4feaabdc9c97f119589 COLOR 1
+
+# sys_14_after_color
+0x21c2cdde7f410f87d699451de0640bc1c23bc3976087cdcba4feaabdc9c97f119589 COLOR 2 3 4 14
+
+# sys_15_before_color
+2 3 4 15 0x21c3bf257b0ba28532a51874a979fbd4d529e458bcb9939ade560422c5df70fc0b4f COLOR 1
+
+# sys_15_after_color
+0x21c3bf257b0ba28532a51874a979fbd4d529e458bcb9939ade560422c5df70fc0b4f COLOR 2 3 4 15
+
+# sys_16_before_color
+2 3 4 16 0x21c1f0e5b29e5bde5e7aac8a7e598cef5ecfd036d47e5d668be2bc816d1c8816c727 COLOR 1
+
+# sys_16_after_color
+0x21c1f0e5b29e5bde5e7aac8a7e598cef5ecfd036d47e5d668be2bc816d1c8816c727 COLOR 2 3 4 16
+
+# sys_nop_before_color
+2 3 4 NOP 0x21c28c25b94b8d114c7728da1c8247bb67165a319e2eabcb82bb2e55230bd0d92bcb COLOR 1
+
+# sys_nop_after_color
+0x21c28c25b94b8d114c7728da1c8247bb67165a319e2eabcb82bb2e55230bd0d92bcb COLOR 2 3 4 NOP
+
+# sys_ver_before_color
+2 3 4 VER 0x21c335bf939c59c480ab16e6d22f45eb2ea977b1744531a4c89cd66b2fb9d8615a3f COLOR 1
+
+# sys_ver_after_color
+0x21c335bf939c59c480ab16e6d22f45eb2ea977b1744531a4c89cd66b2fb9d8615a3f COLOR 2 3 4 VER
+
+# sys_if_before_color
+2 3 4 IF 0x21c1e437219f6ccee47fdba393c51fda77c4462c30a3dbc3650a3600c0e7d73546ee COLOR 1
+
+# sys_if_after_color
+0x21c1e437219f6ccee47fdba393c51fda77c4462c30a3dbc3650a3600c0e7d73546ee COLOR 2 3 4 IF
+
+# sys_notif_before_color
+2 3 4 NOTIF 0x21c291d47eeff55e06fa18f35fedac42226003b342afdc3e74a092f082cdca3bd552 COLOR 1
+
+# sys_notif_after_color
+0x21c291d47eeff55e06fa18f35fedac42226003b342afdc3e74a092f082cdca3bd552 COLOR 2 3 4 NOTIF
+
+# sys_verif_before_color
+2 3 4 VERIF 0x21c3cc269c1f7d815b7e01a2da6d125f1a2eb3a256b03e807c20d6078cdb81116ff2 COLOR 1
+
+# sys_verif_after_color
+0x21c3cc269c1f7d815b7e01a2da6d125f1a2eb3a256b03e807c20d6078cdb81116ff2 COLOR 2 3 4 VERIF
+
+# sys_vernotif_before_color
+2 3 4 VERNOTIF 0x21c165c09524e3aadf370d9006311d97c669a53e6e8b8d21976916a6845bae3f6917 COLOR 1
+
+# sys_vernotif_after_color
+0x21c165c09524e3aadf370d9006311d97c669a53e6e8b8d21976916a6845bae3f6917 COLOR 2 3 4 VERNOTIF
+
+# sys_else_before_color
+2 3 4 ELSE 0x21c2dbbc6b5d44f11b88dd0e9ce0882d7ef79f00d84036e0575da5c3cc6de49bfa5f COLOR 1
+
+# sys_else_after_color
+0x21c2dbbc6b5d44f11b88dd0e9ce0882d7ef79f00d84036e0575da5c3cc6de49bfa5f COLOR 2 3 4 ELSE
+
+# sys_endif_before_color
+2 3 4 ENDIF 0x21c3a05f86a80403acb45b2558cad753c8adaf88770c4d5a2bdd0570ad9ace16d2dd COLOR 1
+
+# sys_endif_after_color
+0x21c3a05f86a80403acb45b2558cad753c8adaf88770c4d5a2bdd0570ad9ace16d2dd COLOR 2 3 4 ENDIF
+
+# sys_verify_before_color
+2 3 4 VERIFY 0x21c1e27db4d34b37d8cdfba90358acf91d683c5ff79b5c9249f6dfda0621f4402dd5 COLOR 1
+
+# sys_verify_after_color
+0x21c1e27db4d34b37d8cdfba90358acf91d683c5ff79b5c9249f6dfda0621f4402dd5 COLOR 2 3 4 VERIFY
+
+# sys_return_before_color
+2 3 4 RETURN 0x21c22bcf1398583ab962739c610cf66edf5bfcc245d8b68dbb15f8e35dfca5e3e27a COLOR 1
+
+# sys_return_after_color
+0x21c22bcf1398583ab962739c610cf66edf5bfcc245d8b68dbb15f8e35dfca5e3e27a COLOR 2 3 4 RETURN
+
+# sys_toaltstack_before_color
+2 3 4 TOALTSTACK 0x21c307f58b07008c28664c7b4407f97dcb00de5b115cbfea3c1d2e7e918ff6908477 COLOR 1
+
+# sys_toaltstack_after_color
+0x21c307f58b07008c28664c7b4407f97dcb00de5b115cbfea3c1d2e7e918ff6908477 COLOR 2 3 4 TOALTSTACK
+
+# sys_fromaltstack_before_color
+2 3 4 FROMALTSTACK 0x21c142fc5a9cc2b396968ba82e4c86f0a163d36aa88b0761cf4ea194ccd0c30d2c04 COLOR 1
+
+# sys_fromaltstack_after_color
+0x21c142fc5a9cc2b396968ba82e4c86f0a163d36aa88b0761cf4ea194ccd0c30d2c04 COLOR 2 3 4 FROMALTSTACK
+
+# sys_2drop_before_color
+2 3 4 2DROP 0x21c211175d9ba86fd21c39702bb04cae377a7b114c3a5a1d22bebf4ba02ca6844cbb COLOR 1
+
+# sys_2drop_after_color
+0x21c211175d9ba86fd21c39702bb04cae377a7b114c3a5a1d22bebf4ba02ca6844cbb COLOR 2 3 4 2DROP
+
+# sys_2dup_before_color
+2 3 4 2DUP 0x21c37bca3845fbd10fbae21249bbcf3a450b5608dd5ffd6fb2ae328b500f83060307 COLOR 1
+
+# sys_2dup_after_color
+0x21c37bca3845fbd10fbae21249bbcf3a450b5608dd5ffd6fb2ae328b500f83060307 COLOR 2 3 4 2DUP
+
+# sys_3dup_before_color
+2 3 4 3DUP 0x21c1b28919fb474392d170fc71a888fbd8dcba0168ac07919ea7a67871191c12c2a6 COLOR 1
+
+# sys_3dup_after_color
+0x21c1b28919fb474392d170fc71a888fbd8dcba0168ac07919ea7a67871191c12c2a6 COLOR 2 3 4 3DUP
+
+# sys_2over_before_color
+2 3 4 2OVER 0x21c272d8964ad98cb4a477c8f2f236d19be5d0ae569a1d5bc92bdf3a62ce70e7fb82 COLOR 1
+
+# sys_2over_after_color
+0x21c272d8964ad98cb4a477c8f2f236d19be5d0ae569a1d5bc92bdf3a62ce70e7fb82 COLOR 2 3 4 2OVER
+
+# sys_2rot_before_color
+2 3 4 2ROT 0x21c3d78fae34570b3e45839e9ae9a414b2e6eb9a2c3dd3a793fe8c3eaa13e7c30463 COLOR 1
+
+# sys_2rot_after_color
+0x21c3d78fae34570b3e45839e9ae9a414b2e6eb9a2c3dd3a793fe8c3eaa13e7c30463 COLOR 2 3 4 2ROT
+
+# sys_2swap_before_color
+2 3 4 2SWAP 0x21c1fb99b0025e9e64d7bc70cc5094324dc46356c21915d32e9f474ee641f3f923ed COLOR 1
+
+# sys_2swap_after_color
+0x21c1fb99b0025e9e64d7bc70cc5094324dc46356c21915d32e9f474ee641f3f923ed COLOR 2 3 4 2SWAP
+
+# sys_ifdup_before_color
+2 3 4 IFDUP 0x21c231f010797e39f7cced548c280b3ecacd5244e8a7b7bafe270009523117286aac COLOR 1
+
+# sys_ifdup_after_color
+0x21c231f010797e39f7cced548c280b3ecacd5244e8a7b7bafe270009523117286aac COLOR 2 3 4 IFDUP
+
+# sys_depth_before_color
+2 3 4 DEPTH 0x21c3e9909675e721e2d076c2601193a5e266af5cd2118476b25d2f95fdb88558147f COLOR 1
+
+# sys_depth_after_color
+0x21c3e9909675e721e2d076c2601193a5e266af5cd2118476b25d2f95fdb88558147f COLOR 2 3 4 DEPTH
+
+# sys_drop_before_color
+2 3 4 DROP 0x21c107c9e05e34ea1d2f0c0d04cdf065db423b657e0778b864abf79c504bf7d400c7 COLOR 1
+
+# sys_drop_after_color
+0x21c107c9e05e34ea1d2f0c0d04cdf065db423b657e0778b864abf79c504bf7d400c7 COLOR 2 3 4 DROP
+
+# sys_dup_before_color
+2 3 4 DUP 0x21c2a64c7767146dd45391cbda9d997dd91eda143be59f17e850a610f31ff1d3e5de COLOR 1
+
+# sys_dup_after_color
+0x21c2a64c7767146dd45391cbda9d997dd91eda143be59f17e850a610f31ff1d3e5de COLOR 2 3 4 DUP
+
+# sys_nip_before_color
+2 3 4 NIP 0x21c3722991bf7184ec92f9be00a9941f1f648ae183042d789e031cf15ad07ea31323 COLOR 1
+
+# sys_nip_after_color
+0x21c3722991bf7184ec92f9be00a9941f1f648ae183042d789e031cf15ad07ea31323 COLOR 2 3 4 NIP
+
+# sys_over_before_color
+2 3 4 OVER 0x21c10ff5077b2f4cd53d85821dbd72a62980aa29f12819bf87d04aa7c04307ffda91 COLOR 1
+
+# sys_over_after_color
+0x21c10ff5077b2f4cd53d85821dbd72a62980aa29f12819bf87d04aa7c04307ffda91 COLOR 2 3 4 OVER
+
+# sys_pick_before_color
+2 3 4 PICK 0x21c240d2ff3fbfbc666f9faf44ce5bbcc88f2746f4bbf804ad4de63ebcca0366fdc4 COLOR 1
+
+# sys_pick_after_color
+0x21c240d2ff3fbfbc666f9faf44ce5bbcc88f2746f4bbf804ad4de63ebcca0366fdc4 COLOR 2 3 4 PICK
+
+# sys_roll_before_color
+2 3 4 ROLL 0x21c36a9eb59cac78a188b2148b2177f6b96f6f0df531e8aba2bb5822ed3035f30b47 COLOR 1
+
+# sys_roll_after_color
+0x21c36a9eb59cac78a188b2148b2177f6b96f6f0df531e8aba2bb5822ed3035f30b47 COLOR 2 3 4 ROLL
+
+# sys_rot_before_color
+2 3 4 ROT 0x21c1c095436212f6fd6def707a6a0ef71134b1aa973df2b666511b210cd4cf213673 COLOR 1
+
+# sys_rot_after_color
+0x21c1c095436212f6fd6def707a6a0ef71134b1aa973df2b666511b210cd4cf213673 COLOR 2 3 4 ROT
+
+# sys_swap_before_color
+2 3 4 SWAP 0x21c2338ed59e417ffb2f0e7c9c83275a5dc47c93af9c7c533e03a51355144031d5eb COLOR 1
+
+# sys_swap_after_color
+0x21c2338ed59e417ffb2f0e7c9c83275a5dc47c93af9c7c533e03a51355144031d5eb COLOR 2 3 4 SWAP
+
+# sys_tuck_before_color
+2 3 4 TUCK 0x21c342a5e06ec1aed1e070876a5f6821d01e332151478c0c6184bd5c185de114a0c2 COLOR 1
+
+# sys_tuck_after_color
+0x21c342a5e06ec1aed1e070876a5f6821d01e332151478c0c6184bd5c185de114a0c2 COLOR 2 3 4 TUCK
+
+# sys_cat_before_color
+2 3 4 CAT 0x21c1148d47975d8e599c639ff494d8f8a12babe077d388e441b7cee20e3b9b27822e COLOR 1
+
+# sys_cat_after_color
+0x21c1148d47975d8e599c639ff494d8f8a12babe077d388e441b7cee20e3b9b27822e COLOR 2 3 4 CAT
+
+# sys_substr_before_color
+2 3 4 SUBSTR 0x21c2833c69d4542def403b2392c3ae648f46d8d3fd1d402bff53f9f191a18b382ad3 COLOR 1
+
+# sys_substr_after_color
+0x21c2833c69d4542def403b2392c3ae648f46d8d3fd1d402bff53f9f191a18b382ad3 COLOR 2 3 4 SUBSTR
+
+# sys_left_before_color
+2 3 4 LEFT 0x21c3dce54750fe510a19de6cc93303e29e1109b27a3918084e146eb0ca54227d1d0f COLOR 1
+
+# sys_left_after_color
+0x21c3dce54750fe510a19de6cc93303e29e1109b27a3918084e146eb0ca54227d1d0f COLOR 2 3 4 LEFT
+
+# sys_right_before_color
+2 3 4 RIGHT 0x21c1a5a7e9ed512c0c3c9af3f7d4ad488e83e2723c0a28f0afe9f7be7a0e3c561c0d COLOR 1
+
+# sys_right_after_color
+0x21c1a5a7e9ed512c0c3c9af3f7d4ad488e83e2723c0a28f0afe9f7be7a0e3c561c0d COLOR 2 3 4 RIGHT
+
+# sys_size_before_color
+2 3 4 SIZE 0x21c28bfb888d10024204ff3000b74379f4a9920027cebc0c2aabb9ef87bad097f3c8 COLOR 1
+
+# sys_size_after_color
+0x21c28bfb888d10024204ff3000b74379f4a9920027cebc0c2aabb9ef87bad097f3c8 COLOR 2 3 4 SIZE
+
+# sys_invert_before_color
+2 3 4 INVERT 0x21c3e3a09132b57574adc0016f1884ae941cf2f92b90f92b66f0735e23981386680c COLOR 1
+
+# sys_invert_after_color
+0x21c3e3a09132b57574adc0016f1884ae941cf2f92b90f92b66f0735e23981386680c COLOR 2 3 4 INVERT
+
+# sys_and_before_color
+2 3 4 AND 0x21c15e3d46af463ac919af234d569bd6e808be33a55628c44e6fb342884e59ee9ef7 COLOR 1
+
+# sys_and_after_color
+0x21c15e3d46af463ac919af234d569bd6e808be33a55628c44e6fb342884e59ee9ef7 COLOR 2 3 4 AND
+
+# sys_or_before_color
+2 3 4 OR 0x21c2bddf6ae30f2bfa00ae732ab464377eec8e1aac1bf40be4bf0404e21168bca230 COLOR 1
+
+# sys_or_after_color
+0x21c2bddf6ae30f2bfa00ae732ab464377eec8e1aac1bf40be4bf0404e21168bca230 COLOR 2 3 4 OR
+
+# sys_xor_before_color
+2 3 4 XOR 0x21c35c2457970df9e0391ef1c4b77b2f80a44b970c1ca5b5c0c01342afb67f0be566 COLOR 1
+
+# sys_xor_after_color
+0x21c35c2457970df9e0391ef1c4b77b2f80a44b970c1ca5b5c0c01342afb67f0be566 COLOR 2 3 4 XOR
+
+# sys_equal_before_color
+2 3 4 EQUAL 0x21c19a686ea155f0c559648d5ca6cde25d3123dd818f46ed25d966219c49474570cc COLOR 1
+
+# sys_equal_after_color
+0x21c19a686ea155f0c559648d5ca6cde25d3123dd818f46ed25d966219c49474570cc COLOR 2 3 4 EQUAL
+
+# sys_equalverify_before_color
+2 3 4 EQUALVERIFY 0x21c23f6dcd93ef9bf7154813b2a71ec957be6dc6674c217435e1a9321e1bd77db87e COLOR 1
+
+# sys_equalverify_after_color
+0x21c23f6dcd93ef9bf7154813b2a71ec957be6dc6674c217435e1a9321e1bd77db87e COLOR 2 3 4 EQUALVERIFY
+
+# sys_reserved1_before_color
+2 3 4 RESERVED1 0x21c377dc4ad3af96e30ef3b1268786c0add3461350b487c2b2614008b9019341bf85 COLOR 1
+
+# sys_reserved1_after_color
+0x21c377dc4ad3af96e30ef3b1268786c0add3461350b487c2b2614008b9019341bf85 COLOR 2 3 4 RESERVED1
+
+# sys_reserved2_before_color
+2 3 4 RESERVED2 0x21c1751492a06a0eea2d02ac0352c712ba931f3cd24b0cd6d9bdd9668893ed23cc31 COLOR 1
+
+# sys_reserved2_after_color
+0x21c1751492a06a0eea2d02ac0352c712ba931f3cd24b0cd6d9bdd9668893ed23cc31 COLOR 2 3 4 RESERVED2
+
+# sys_1add_before_color
+2 3 4 1ADD 0x21c25c2d7a91dc747ced44f685591acdd6f95c53486d56ebab07ab8bd831febc17b4 COLOR 1
+
+# sys_1add_after_color
+0x21c25c2d7a91dc747ced44f685591acdd6f95c53486d56ebab07ab8bd831febc17b4 COLOR 2 3 4 1ADD
+
+# sys_1sub_before_color
+2 3 4 1SUB 0x21c368c9f79932546b9b8dd5bd8a3128bdfa99b33312270ec6f10d2502dbe8083eb5 COLOR 1
+
+# sys_1sub_after_color
+0x21c368c9f79932546b9b8dd5bd8a3128bdfa99b33312270ec6f10d2502dbe8083eb5 COLOR 2 3 4 1SUB
+
+# sys_2mul_before_color
+2 3 4 2MUL 0x21c1b24020941f53f168936e79d05dffe6f51b2f7d130877d8c603ee99fe3f3e5e89 COLOR 1
+
+# sys_2mul_after_color
+0x21c1b24020941f53f168936e79d05dffe6f51b2f7d130877d8c603ee99fe3f3e5e89 COLOR 2 3 4 2MUL
+
+# sys_2div_before_color
+2 3 4 2DIV 0x21c28c475a840c4961cd31722ff49af79cfcd2db0c16bd5dc7eb07d464d93b79e0e3 COLOR 1
+
+# sys_2div_after_color
+0x21c28c475a840c4961cd31722ff49af79cfcd2db0c16bd5dc7eb07d464d93b79e0e3 COLOR 2 3 4 2DIV
+
+# sys_negate_before_color
+2 3 4 NEGATE 0x21c31d9348d8b5d041900d3d31ebea5f46345820c794bff1524291290fb7fa484fe4 COLOR 1
+
+# sys_negate_after_color
+0x21c31d9348d8b5d041900d3d31ebea5f46345820c794bff1524291290fb7fa484fe4 COLOR 2 3 4 NEGATE
+
+# sys_abs_before_color
+2 3 4 ABS 0x21c111ed204a0752f34fe233c89980a366caef2a9c45e913f510963ca7c513ab6019 COLOR 1
+
+# sys_abs_after_color
+0x21c111ed204a0752f34fe233c89980a366caef2a9c45e913f510963ca7c513ab6019 COLOR 2 3 4 ABS
+
+# sys_not_before_color
+2 3 4 NOT 0x21c20150a8ad37322312d0cc1c2bb0e389c703b0ca18e86039b5eb1d5b6992a604fd COLOR 1
+
+# sys_not_after_color
+0x21c20150a8ad37322312d0cc1c2bb0e389c703b0ca18e86039b5eb1d5b6992a604fd COLOR 2 3 4 NOT
+
+# sys_0notequal_before_color
+2 3 4 0NOTEQUAL 0x21c384d210e191405e46655de41e2d3c220b808a239b5a0ef2b7296675f88935c3d3 COLOR 1
+
+# sys_0notequal_after_color
+0x21c384d210e191405e46655de41e2d3c220b808a239b5a0ef2b7296675f88935c3d3 COLOR 2 3 4 0NOTEQUAL
+
+# sys_add_before_color
+2 3 4 ADD 0x21c17d3786f53b2cfb87b3ceb2c3393d4f0bc7ee0cc72ab9b828578d788001befc51 COLOR 1
+
+# sys_add_after_color
+0x21c17d3786f53b2cfb87b3ceb2c3393d4f0bc7ee0cc72ab9b828578d788001befc51 COLOR 2 3 4 ADD
+
+# sys_sub_before_color
+2 3 4 SUB 0x21c2201286313532081cfa8106ae2383c40c38cba9b157db05d578ceaedde0ce946e COLOR 1
+
+# sys_sub_after_color
+0x21c2201286313532081cfa8106ae2383c40c38cba9b157db05d578ceaedde0ce946e COLOR 2 3 4 SUB
+
+# sys_mul_before_color
+2 3 4 MUL 0x21c3255d76a3cf6bb9b783bd4f323393212a166dce1af28ea5588f0f68a9162cb566 COLOR 1
+
+# sys_mul_after_color
+0x21c3255d76a3cf6bb9b783bd4f323393212a166dce1af28ea5588f0f68a9162cb566 COLOR 2 3 4 MUL
+
+# sys_div_before_color
+2 3 4 DIV 0x21c149f0d3b18c68aaefdc69c98366b3c22f0e1363db9d04886820499d64418337e0 COLOR 1
+
+# sys_div_after_color
+0x21c149f0d3b18c68aaefdc69c98366b3c22f0e1363db9d04886820499d64418337e0 COLOR 2 3 4 DIV
+
+# sys_mod_before_color
+2 3 4 MOD 0x21c2e17de815c665c2dd90823a5938ddd77c6d655b3979cc3a0262cf22c811decb9f COLOR 1
+
+# sys_mod_after_color
+0x21c2e17de815c665c2dd90823a5938ddd77c6d655b3979cc3a0262cf22c811decb9f COLOR 2 3 4 MOD
+
+# sys_lshift_before_color
+2 3 4 LSHIFT 0x21c3d1a228bf743820ad2e20f865c7f3d1333a2e557552eab576f7ef6dd5337eeb99 COLOR 1
+
+# sys_lshift_after_color
+0x21c3d1a228bf743820ad2e20f865c7f3d1333a2e557552eab576f7ef6dd5337eeb99 COLOR 2 3 4 LSHIFT
+
+# sys_rshift_before_color
+2 3 4 RSHIFT 0x21c16f1850b7cf9795edd39e4b937610e37b202996f953e1183dc294a03dcb5899a4 COLOR 1
+
+# sys_rshift_after_color
+0x21c16f1850b7cf9795edd39e4b937610e37b202996f953e1183dc294a03dcb5899a4 COLOR 2 3 4 RSHIFT
+
+# sys_booland_before_color
+2 3 4 BOOLAND 0x21c297cbe97d3ac06814d4c87922858a7a58e999935e5ac7eb117289709c5bdcbb6f COLOR 1
+
+# sys_booland_after_color
+0x21c297cbe97d3ac06814d4c87922858a7a58e999935e5ac7eb117289709c5bdcbb6f COLOR 2 3 4 BOOLAND
+
+# sys_boolor_before_color
+2 3 4 BOOLOR 0x21c34e1e50da66ec034bb1540ef18ac31c68090898599c46f9ca698c1ae3ae5784c3 COLOR 1
+
+# sys_boolor_after_color
+0x21c34e1e50da66ec034bb1540ef18ac31c68090898599c46f9ca698c1ae3ae5784c3 COLOR 2 3 4 BOOLOR
+
+# sys_numequal_before_color
+2 3 4 NUMEQUAL 0x21c178ad5359da770a6de5c56a8b78432bec8ef4d7bffc655bdf585f7a234d8907ec COLOR 1
+
+# sys_numequal_after_color
+0x21c178ad5359da770a6de5c56a8b78432bec8ef4d7bffc655bdf585f7a234d8907ec COLOR 2 3 4 NUMEQUAL
+
+# sys_numequalverify_before_color
+2 3 4 NUMEQUALVERIFY 0x21c26843ef693e17f556f48582e92b302f8e70dd797a7b35560f1b3c7e86e42ac0c0 COLOR 1
+
+# sys_numequalverify_after_color
+0x21c26843ef693e17f556f48582e92b302f8e70dd797a7b35560f1b3c7e86e42ac0c0 COLOR 2 3 4 NUMEQUALVERIFY
+
+# sys_numnotequal_before_color
+2 3 4 NUMNOTEQUAL 0x21c31b33434b9667baec54a380b6cb73a97d8abfde5920ff8848d7625824e455aaa7 COLOR 1
+
+# sys_numnotequal_after_color
+0x21c31b33434b9667baec54a380b6cb73a97d8abfde5920ff8848d7625824e455aaa7 COLOR 2 3 4 NUMNOTEQUAL
+
+# sys_lessthan_before_color
+2 3 4 LESSTHAN 0x21c1eeea117f1aa4f271f42badc1231a686db31e0a0e2e5cac19abf2c482ae4ac623 COLOR 1
+
+# sys_lessthan_after_color
+0x21c1eeea117f1aa4f271f42badc1231a686db31e0a0e2e5cac19abf2c482ae4ac623 COLOR 2 3 4 LESSTHAN
+
+# sys_greaterthan_before_color
+2 3 4 GREATERTHAN 0x21c2cb13f45788100059ebf8df011bc7e4973b7bccf125f7ed9314b13f9f0e4e311b COLOR 1
+
+# sys_greaterthan_after_color
+0x21c2cb13f45788100059ebf8df011bc7e4973b7bccf125f7ed9314b13f9f0e4e311b COLOR 2 3 4 GREATERTHAN
+
+# sys_lessthanorequal_before_color
+2 3 4 LESSTHANOREQUAL 0x21c3d1093889b0112b2aab4efbd8b1988f28bea323c572394077b4ae9968b0a4d070 COLOR 1
+
+# sys_lessthanorequal_after_color
+0x21c3d1093889b0112b2aab4efbd8b1988f28bea323c572394077b4ae9968b0a4d070 COLOR 2 3 4 LESSTHANOREQUAL
+
+# sys_greaterthanorequal_before_color
+2 3 4 GREATERTHANOREQUAL 0x21c1c3e935ea4fcf2679334fa25b87d33c137cd2bbc1c3d68088aa0ab875742129f2 COLOR 1
+
+# sys_greaterthanorequal_after_color
+0x21c1c3e935ea4fcf2679334fa25b87d33c137cd2bbc1c3d68088aa0ab875742129f2 COLOR 2 3 4 GREATERTHANOREQUAL
+
+# sys_min_before_color
+2 3 4 MIN 0x21c268e745b9a32cddd9bd89124124436ba86e6f453e1246a6a8160cfe4a4cb9dae9 COLOR 1
+
+# sys_min_after_color
+0x21c268e745b9a32cddd9bd89124124436ba86e6f453e1246a6a8160cfe4a4cb9dae9 COLOR 2 3 4 MIN
+
+# sys_max_before_color
+2 3 4 MAX 0x21c33da886f87c10b402d60da2bb29405d1c839e06fe6dae78c4ff1edc7f4f7746e2 COLOR 1
+
+# sys_max_after_color
+0x21c33da886f87c10b402d60da2bb29405d1c839e06fe6dae78c4ff1edc7f4f7746e2 COLOR 2 3 4 MAX
+
+# sys_within_before_color
+2 3 4 WITHIN 0x21c1a4c7b7ff6820b78656cbb77b8cd88230f2b8fc2bc833df6f8d14789890bc116c COLOR 1
+
+# sys_within_after_color
+0x21c1a4c7b7ff6820b78656cbb77b8cd88230f2b8fc2bc833df6f8d14789890bc116c COLOR 2 3 4 WITHIN
+
+# sys_ripemd160_before_color
+2 3 4 RIPEMD160 0x21c2db82ec3cd32ccfacf276a35d728b87067cdb730e25039355dedc883fd59106a8 COLOR 1
+
+# sys_ripemd160_after_color
+0x21c2db82ec3cd32ccfacf276a35d728b87067cdb730e25039355dedc883fd59106a8 COLOR 2 3 4 RIPEMD160
+
+# sys_sha1_before_color
+2 3 4 SHA1 0x21c3af1770faeaf9a3a7ada3707158a173eaf5c45eaf7c4c853f641e583f1d210b1e COLOR 1
+
+# sys_sha1_after_color
+0x21c3af1770faeaf9a3a7ada3707158a173eaf5c45eaf7c4c853f641e583f1d210b1e COLOR 2 3 4 SHA1
+
+# sys_sha256_before_color
+2 3 4 SHA256 0x21c197362b30b817eb2bc85da9c589073aade61974c2564722d4698c741a7e03ec03 COLOR 1
+
+# sys_sha256_after_color
+0x21c197362b30b817eb2bc85da9c589073aade61974c2564722d4698c741a7e03ec03 COLOR 2 3 4 SHA256
+
+# sys_hash160_before_color
+2 3 4 HASH160 0x21c2078cc8217d365ba25ba043c5b5563134fca93cd2435219e5e3f8538583d1d2b0 COLOR 1
+
+# sys_hash160_after_color
+0x21c2078cc8217d365ba25ba043c5b5563134fca93cd2435219e5e3f8538583d1d2b0 COLOR 2 3 4 HASH160
+
+# sys_hash256_before_color
+2 3 4 HASH256 0x21c3580e65d7d2aa10b654a22847e87609a140ec043d9f36c96cbefcd369c9a32bcc COLOR 1
+
+# sys_hash256_after_color
+0x21c3580e65d7d2aa10b654a22847e87609a140ec043d9f36c96cbefcd369c9a32bcc COLOR 2 3 4 HASH256
+
+# sys_codeseparator_before_color
+2 3 4 CODESEPARATOR 0x21c1137eb082d056d3caae8c6ac183f4cbc05c21c92e9b66af74d48d04e552cea6ec COLOR 1
+
+# sys_codeseparator_after_color
+0x21c1137eb082d056d3caae8c6ac183f4cbc05c21c92e9b66af74d48d04e552cea6ec COLOR 2 3 4 CODESEPARATOR
+
+# sys_checksig_before_color
+2 3 4 CHECKSIG 0x21c21d089a8cb37504e7e08deba2ce24d8eb8b0d831e5c036e697d0c855a6ff917b5 COLOR 1
+
+# sys_checksig_after_color
+0x21c21d089a8cb37504e7e08deba2ce24d8eb8b0d831e5c036e697d0c855a6ff917b5 COLOR 2 3 4 CHECKSIG
+
+# sys_checksigverify_before_color
+2 3 4 CHECKSIGVERIFY 0x21c31a2b9b70668733294441a59a547ffcfe4b31395262608c04413232e5e648e9f0 COLOR 1
+
+# sys_checksigverify_after_color
+0x21c31a2b9b70668733294441a59a547ffcfe4b31395262608c04413232e5e648e9f0 COLOR 2 3 4 CHECKSIGVERIFY
+
+# sys_checkmultisig_before_color
+2 3 4 CHECKMULTISIG 0x21c1387f31f1e13eaad5cf4b66fd244c20ff15a4d061c32cca7de53460524cab66ba COLOR 1
+
+# sys_checkmultisig_after_color
+0x21c1387f31f1e13eaad5cf4b66fd244c20ff15a4d061c32cca7de53460524cab66ba COLOR 2 3 4 CHECKMULTISIG
+
+# sys_checkmultisigverify_before_color
+2 3 4 CHECKMULTISIGVERIFY 0x21c270b10fcbc19de09a9b422e3dee49d5aee8320087d7ccc99743397c0adc4577b9 COLOR 1
+
+# sys_checkmultisigverify_after_color
+0x21c270b10fcbc19de09a9b422e3dee49d5aee8320087d7ccc99743397c0adc4577b9 COLOR 2 3 4 CHECKMULTISIGVERIFY
+
+# sys_nop1_before_color
+2 3 4 NOP1 0x21c3745041ba8ad7406c4378dfe64a9cd36314a170a12aa5b4cce5079d4a8ebc51a3 COLOR 1
+
+# sys_nop1_after_color
+0x21c3745041ba8ad7406c4378dfe64a9cd36314a170a12aa5b4cce5079d4a8ebc51a3 COLOR 2 3 4 NOP1
+
+# sys_checklocktimeverify_before_color
+2 3 4 CHECKLOCKTIMEVERIFY 0x21c1ce8d12345faa05df8fdcd33e2d687aadeb710c11493d59b2d973bea0601d4fea COLOR 1
+
+# sys_checklocktimeverify_after_color
+0x21c1ce8d12345faa05df8fdcd33e2d687aadeb710c11493d59b2d973bea0601d4fea COLOR 2 3 4 CHECKLOCKTIMEVERIFY
+
+# sys_checksequenceverify_before_color
+2 3 4 CHECKSEQUENCEVERIFY 0x21c29b6e4e5e7bf9800154d6bc1012ff6e92a5766bdd005518835406298aa5cb8203 COLOR 1
+
+# sys_checksequenceverify_after_color
+0x21c29b6e4e5e7bf9800154d6bc1012ff6e92a5766bdd005518835406298aa5cb8203 COLOR 2 3 4 CHECKSEQUENCEVERIFY
+
+# sys_nop4_before_color
+2 3 4 NOP4 0x21c361acff0bc1a8f352476343e37b105717a0c6ebe223c7adb7461fd868c4f40f85 COLOR 1
+
+# sys_nop4_after_color
+0x21c361acff0bc1a8f352476343e37b105717a0c6ebe223c7adb7461fd868c4f40f85 COLOR 2 3 4 NOP4
+
+# sys_nop5_before_color
+2 3 4 NOP5 0x21c1e69f74bb8d5e43b5fa9d64486469804251cbcda0fed491976947bada8df009e2 COLOR 1
+
+# sys_nop5_after_color
+0x21c1e69f74bb8d5e43b5fa9d64486469804251cbcda0fed491976947bada8df009e2 COLOR 2 3 4 NOP5
+
+# sys_nop6_before_color
+2 3 4 NOP6 0x21c2445cd8aa49a6a9ccbec72d1db62559ff30d9b8f9ab54181601db7440593e5cd6 COLOR 1
+
+# sys_nop6_after_color
+0x21c2445cd8aa49a6a9ccbec72d1db62559ff30d9b8f9ab54181601db7440593e5cd6 COLOR 2 3 4 NOP6
+
+# sys_nop7_before_color
+2 3 4 NOP7 0x21c3f5f0ce03a9a268326a2c539462b59b207a7cd1528910bbfa01a92e2bfa3e52b0 COLOR 1
+
+# sys_nop7_after_color
+0x21c3f5f0ce03a9a268326a2c539462b59b207a7cd1528910bbfa01a92e2bfa3e52b0 COLOR 2 3 4 NOP7
+
+# sys_nop8_before_color
+2 3 4 NOP8 0x21c1128b7afc507f076dd6cbea946f3f30c68f9e956b8fc9ff7faebe0a985efc1311 COLOR 1
+
+# sys_nop8_after_color
+0x21c1128b7afc507f076dd6cbea946f3f30c68f9e956b8fc9ff7faebe0a985efc1311 COLOR 2 3 4 NOP8
+
+# sys_nop9_before_color
+2 3 4 NOP9 0x21c2ecda018e121406ad635dabdc550ee98d7ba9b5575595448f4d7194023c880f4a COLOR 1
+
+# sys_nop9_after_color
+0x21c2ecda018e121406ad635dabdc550ee98d7ba9b5575595448f4d7194023c880f4a COLOR 2 3 4 NOP9
+
+# sys_nop10_before_color
+2 3 4 NOP10 0x21c3d9027b829bdf91d25867c4bc7ee70522e259ffd530793dfe22eceb61097a93dc COLOR 1
+
+# sys_nop10_after_color
+0x21c3d9027b829bdf91d25867c4bc7ee70522e259ffd530793dfe22eceb61097a93dc COLOR 2 3 4 NOP10
+
+# sys_checkdatasig_before_color
+2 3 4 CHECKDATASIG 0x21c17c812c30bb72c6e00ee2c554f03c5d2f6244cbe8d26b6574a7b0c5adb365600b COLOR 1
+
+# sys_checkdatasig_after_color
+0x21c17c812c30bb72c6e00ee2c554f03c5d2f6244cbe8d26b6574a7b0c5adb365600b COLOR 2 3 4 CHECKDATASIG
+
+# sys_checkdatasigverify_before_color
+2 3 4 CHECKDATASIGVERIFY 0x21c2afc5a7f8c35110c63165adfe40ba74bb772e9d80441e916335caaf6eaf641ef0 COLOR 1
+
+# sys_checkdatasigverify_after_color
+0x21c2afc5a7f8c35110c63165adfe40ba74bb772e9d80441e916335caaf6eaf641ef0 COLOR 2 3 4 CHECKDATASIGVERIFY
+
+# sys_invalidopcode_before_color
+2 3 4 0xff 0x21c1e7fb6d2bff4b4b0c27a9a5cdfdb2cfecb9674f3d3ae829348f5f9c5c527d00bc COLOR 1
+
+# sys_invalidopcode_after_color
+0x21c1e7fb6d2bff4b4b0c27a9a5cdfdb2cfecb9674f3d3ae829348f5f9c5c527d00bc COLOR 2 3 4 0xff

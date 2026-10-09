@@ -33,10 +33,15 @@ own daily schedule, with no AI involved.
 2. **Generate** -- ask Claude Code, in this checkout, to write a batch of
    candidates. What to ask for:
 
-   - One program per file, written to
-     `src/test/fuzz/fuzz_scripts/<YYYYMMDD>_<short_slug>.txt`, where
+   - One new batch file,
+     `src/test/fuzz/fuzz_scripts/<YYYYMMDD>_<batch_slug>.txt`, where
      `<YYYYMMDD>` is today's UTC date (the default prefix step 2
-     validates) and the slug says what the program exercises.
+     validates) and the slug says what the batch is about. Inside it:
+     one program per line; a `# <name>` comment line directly above each
+     program saying what it exercises; blank lines between entries (and
+     around `#` section headings); `<empty>` for the empty script. The
+     format is defined in `fuzz_script_pool.py`, which every tool here
+     uses to read the pool.
    - Short programs in `ParseScript` mnemonic form, as accepted by
      `src/core_read.cpp`: opcode names with or without the `OP_` prefix,
      small integers as bare numbers, and raw pushes as `0x`-prefixed
@@ -56,19 +61,22 @@ own daily schedule, with no AI involved.
    ./fuzz_script_step2_validate.py
    ```
 
-   Runs `tapyrus-verify --fuzz` on every candidate with today's prefix
-   (`--run-prefix` to pick another batch) and prints one status per
-   candidate: `safe`, `rejected`, `crash`, `failure` or `timeout`.
-   `rejected` candidates (exit 2, not valid Script -- they can never
-   reach the interpreter) are deleted automatically, with the
+   Runs `tapyrus-verify --fuzz` on every candidate in the batch files
+   with today's prefix (`--run-prefix` to pick another batch), each from
+   its own temporary single-program file, and prints one status per
+   candidate as `<batch file>:<line>`: `safe`, `rejected`, `crash`,
+   `failure` or `timeout`. `rejected` candidates (exit 2, not valid
+   Script -- they can never reach the interpreter) have their line and
+   name comment removed from the batch file automatically, with the
    assembler's reason printed so the next batch can avoid the same
-   mistake. A `crash` is a real Tapyrus bug: keep the candidate so the
-   committed pool reproduces it, and report it.
+   mistake. A `crash` is a real bug -- in Tapyrus or in `tapyrus-verify`
+   itself: keep the candidate so the committed pool reproduces it, and
+   report it.
 
-4. **Review and commit** -- the new candidates are ordinary uncommitted
-   files in `src/test/fuzz/fuzz_scripts/`: look over `git status`/`git
-   diff`, delete (or ask Claude Code to delete) any not worth keeping,
-   then `git add` and commit what's left yourself. None of the scripts
+4. **Review and commit** -- the new batch file is an ordinary
+   uncommitted file in `src/test/fuzz/fuzz_scripts/`: look over it with
+   `git diff`, delete (or ask Claude Code to delete) any lines not worth
+   keeping, then `git add` and commit it yourself. None of the scripts
    here run git commands.
 
 ## Why Fuzz4All was removed
