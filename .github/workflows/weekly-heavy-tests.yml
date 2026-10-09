@@ -7,9 +7,9 @@ name: Weekly Heavy Test
 # Runs tests that are too slow for the daily CI matrix (feature_pruning: 1.5–4 h, 4 GB;
 # feature_dbcrash: needs far more than the daily 1800s per-test budget for its
 # loosest dbcrashratio/dbcache tier to reliably crash at least once).
-# Each test runs in its own job (feature-pruning, feature-dbcrash) so a slow
-# run of one doesn't eat into the other's share of the 6h GitHub-hosted-runner
-# execution ceiling. Each script is invoked directly (test/functional/<script>.py),
+# Each test runs in its own job (feature-pruning, and feature-dbcrash once per
+# signature scheme) so a slow run of one doesn't eat into another's share of
+# the 6h GitHub-hosted-runner execution ceiling. Each script is invoked directly (test/functional/<script>.py),
 # not via test_runner.py: these scripts are deliberately excluded from
 # test_runner.py's ALL_SCRIPTS list (see HEAVY_SCRIPTS there) so they never run
 # as part of the daily base/extended suites, but that also means
@@ -63,12 +63,14 @@ jobs:
       matrix:
         config:
           - name: feature_pruning
-            scripts:
-              - 'feature_pruning.py'
+            script: 'feature_pruning.py'
+          # Each dbcrash run loops until every node has crashed, with no time
+          # limit of its own, so the job's timeout is its only bound. One job
+          # per scheme, so a run that never gets there can't starve the other.
           - name: feature_dbcrash
-            scripts:
-              - 'feature_dbcrash.py'
-              - 'feature_dbcrash.py --scheme SCHNORR'
+            script: 'feature_dbcrash.py'
+          - name: feature_dbcrash_schnorr
+            script: 'feature_dbcrash.py --scheme SCHNORR'
     name: ${{ matrix.config.name }} test (Linux x86_64 RelWithDebInfo)
     runs-on: ubuntu-latest
     # No timeout-minutes set: GitHub-hosted runners hard-cap job execution at
@@ -199,7 +201,7 @@ jobs:
           # ALL_SCRIPTS (see HEAVY_SCRIPTS in test_runner.py) so they never run
           # as part of the daily base/extended suites -- but that also means
           # test_runner.py's positional-arg lookup (which only matches
-          # ALL_SCRIPTS) can't run them by name either. Invoke each script
+          # ALL_SCRIPTS) can't run them by name either. Invoke the script
           # directly instead: every functional test is independently runnable
           # via its own `if __name__ == '__main__'` block and accepts
           # --tmpdir/--scheme/--configfile directly (test_framework.py's own
@@ -214,32 +216,16 @@ jobs:
           # unset, direct invocation would silently use a different (and, for
           # feature_dbcrash's cache-based chain setup, unpopulated) cache
           # directory. --configfile happens to resolve to the same file
-          # either way here, but is passed explicitly for parity. The two
-          # feature_dbcrash invocations below intentionally share one
-          # --cachedir: its cache-priming step never reads --scheme, so this
-          # matches how test_runner.py itself shares one per-run cache across
-          # a batch (see test_runner.py:445-453).
+          # either way here, but is passed explicitly for parity.
           CONFIGFILE="$BASE_ROOT_DIR/test/config.ini"
           CACHEDIR="$BASE_BUILD_DIR/test/cache"
           rm -rf "$CACHEDIR"
-          IFS='|' read -r -a SCRIPTS <<< "${{ join(matrix.config.scripts, '|') }}"
-          index=0
-          for script_line in "${SCRIPTS[@]}"; do
-            script_name=$(echo "$script_line" | awk '{print $1}')
-            test_dir="$TAPYRUS_TEST_DIR/$(basename "$script_name" .py)_${index}"
-            echo "---------------- Start $script_line ----------------"
-            if python3 test/functional/$script_line \
-              --tmpdir="$test_dir" \
-              --configfile="$CONFIGFILE" \
-              --cachedir="$CACHEDIR" \
-              --portseed="$index"; then
-              echo "$script_line passed"
-            else
-              echo "$script_line FAILED"
-              exit 1
-            fi
-            index=$((index + 1))
-          done
+          echo "---------------- Start ${{ matrix.config.script }} ----------------"
+          python3 test/functional/${{ matrix.config.script }} \
+            --tmpdir="$TAPYRUS_TEST_DIR/${{ matrix.config.name }}" \
+            --configfile="$CONFIGFILE" \
+            --cachedir="$CACHEDIR" \
+            --portseed=0
           echo "Disk space after test:"
           df -h .
 

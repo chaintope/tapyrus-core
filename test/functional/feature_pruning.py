@@ -21,6 +21,13 @@ import os
 
 MIN_BLOCKS_TO_KEEP = 288
 
+# -prune target used by node2, in MiB.
+PRUNE_TARGET_MIB = 550
+# Headroom tapyrusd keeps under the prune target (one block file chunk of
+# 16 MiB plus one undo file chunk of 1 MiB): pruning starts only once usage
+# comes within this distance of the target.
+PRUNE_BUFFER_MIB = 17
+
 # Rescans start at the earliest block up to 2 hours before a key timestamp, so
 # the manual prune RPC avoids pruning blocks in the same window to be
 # compatible with pruning based on key creation time.
@@ -72,9 +79,10 @@ class PruneStallDetector(StallDetector):
     usage (calc_usage) since the actual prune/flush work is tied to normal
     block-connection processing rather than a fixed wall-clock budget.
     """
-    def __init__(self, log, blockdir, filename, **kwargs):
+    def __init__(self, log, blockdir, filename, check_peers, **kwargs):
         super().__init__(**kwargs)
         self.log = log
+        self.check_peers = check_peers
         self.blockdir = blockdir
         self.filename = filename
         self.target_path = os.path.join(blockdir, filename)
@@ -101,6 +109,7 @@ class PruneStallDetector(StallDetector):
 
     def log_progress(self, usage):
         self.log.info("wait_for_prune: usage=%d, %s still present" % (usage, self.filename))
+        self.check_peers()
 
     def describe_failure(self):
         try:
@@ -145,6 +154,17 @@ class PruneTest(BitcoinTestFramework):
         self.add_nodes(self.num_nodes, self.extra_args)
         self.start_nodes()
 
+    def check_prune_node_peers(self):
+        """Log every running node's peer count and fail if node2 has none.
+
+        connect_nodes() makes one-shot connections, so a node2 that loses all
+        its peers stays isolated and every later wait on it would only stall.
+        """
+        counts = {i: node.getconnectioncount() for i, node in enumerate(self.nodes) if node.running}
+        self.log.info("Peer count per node: %s" % counts)
+        if counts.get(2, 0) == 0:
+            raise AssertionError("Pruning node (node2) has no peers; peer count per node: %s" % counts)
+
     def create_big_chain(self):
         # Start by creating some coinbases we can spend later
         self.nodes[1].generate(600, self.signblockprivkey_wif)
@@ -161,8 +181,10 @@ class PruneTest(BitcoinTestFramework):
             height = self.nodes[1].getblock(hash)['height']
             if i % 2000 == 0:
                 self.log.info("Disk Usage is: %d height: %d" % (usage, height))
+                self.check_prune_node_peers()
             i += 1
         self.log.info("Final Usage is: %d height: %d" % (usage, height))
+        self.check_prune_node_peers()
 
     def wait_for_prune(self, filename, stall_timeout=TAPYRUSD_REORG_TIMEOUT, progress_log_interval=TAPYRUSD_MESSAGE_TIMEOUT):
         """
@@ -176,15 +198,40 @@ class PruneTest(BitcoinTestFramework):
         figure this test already reports) rather than a fixed wall-clock budget.
         Failure is declared only when usage stops changing for stall_timeout
         seconds while filename still exists, not when some fixed timeout elapses.
+        node2 is synced and checked for prunability first, so a node that is
+        isolated or has too little data fails immediately instead of stalling.
         """
-        PruneStallDetector(self.log, self.prunedir, filename, stall_timeout=stall_timeout,
-                            progress_log_interval=progress_log_interval).run()
+        self.check_prune_node_peers()
+        sync_blocks_with_stall_detection(self.nodes[0:3])
+        self.check_prunable(filename)
+        PruneStallDetector(self.log, self.prunedir, filename, self.check_prune_node_peers,
+                           stall_timeout=stall_timeout, progress_log_interval=progress_log_interval).run()
+
+    def check_prunable(self, filename):
+        """Fail fast if node2 is synced but tapyrusd still cannot prune filename.
+
+        A block file is pruned only once it is no longer the file being written
+        to and total usage has come within PRUNE_BUFFER_MIB of the target.
+        calc_usage() counts preallocated space, so it never under-reports.
+        """
+        if not os.path.isfile(os.path.join(self.prunedir, filename)):
+            return
+        file_number = int(filename[len("blk"):-len(".dat")])
+        next_file = "blk%05d.dat" % (file_number + 1)
+        if not os.path.isfile(os.path.join(self.prunedir, next_file)):
+            raise AssertionError("%s cannot be pruned: it is still the file being written (%s does not exist)" % (
+                filename, next_file))
+        usage = calc_usage(self.prunedir)
+        if usage + PRUNE_BUFFER_MIB < PRUNE_TARGET_MIB:
+            raise AssertionError("%s cannot be pruned: usage %d MiB is below the prune threshold of %d MiB" % (
+                filename, usage, PRUNE_TARGET_MIB - PRUNE_BUFFER_MIB))
 
     def test_height_min(self):
         if not os.path.isfile(os.path.join(self.prunedir, "blk00000.dat")):
             raise AssertionError("blk00000.dat is missing, pruning too early")
         self.log.info("Success")
         self.log.info("Current usage: %d" % calc_usage(self.prunedir))
+        self.check_prune_node_peers()
         self.log.info("Mining more blocks should cause the first block file to be pruned")
         # Pruning doesn't run until we're allocating another chunk, some full blocks past the height cutoff will ensure this
         for i in range(500):
@@ -229,6 +276,7 @@ class PruneTest(BitcoinTestFramework):
             sync_blocks(self.nodes[0:3])
 
         self.log.info("Usage can be over target because of high stale rate: %d" % calc_usage(self.prunedir))
+        self.check_prune_node_peers()
 
     def reorg_test(self):
         # Node 1 will mine a 300 block chain starting 287 blocks back from Node 0 and Node 2's tip
@@ -270,6 +318,7 @@ class PruneTest(BitcoinTestFramework):
         sync_blocks(self.nodes[0:3])
 
         self.log.info("Verify height on node 2: %d" % self.nodes[2].getblockcount())
+        self.check_prune_node_peers()
         self.log.info("Usage possibly still high bc of stale blocks in block files: %d" % calc_usage(self.prunedir))
 
         self.log.info("Mine 2200 more blocks so we have requisite history (some blocks will be big and cause pruning of previous chain)")
@@ -286,6 +335,7 @@ class PruneTest(BitcoinTestFramework):
 
         usage = calc_usage(self.prunedir)
         self.log.info("Usage should be below target: %d" % usage)
+        self.check_prune_node_peers()
         if (usage > 550):
             raise AssertionError("Pruning target not being met")
 

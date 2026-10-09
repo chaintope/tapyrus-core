@@ -1699,6 +1699,22 @@ void static ProcessOrphanTx(CConnman *connman, std::set<uint256>& orphan_work_se
     }
 }
 
+/** Process a received block and, if it was new, forget every outstanding
+ *  request for it: the block may have come from a different peer than the
+ *  one(s) we asked, and a leftover request would later time that peer out. */
+static void ProcessBlock(CNode* pfrom, const std::shared_ptr<const CBlock>& pblock, bool fForceProcessing)
+{
+    bool fNewBlock = false;
+    ProcessNewBlock(pblock, fForceProcessing, &fNewBlock);
+    LOCK(cs_main);
+    if (fNewBlock) {
+        pfrom->nLastBlockTime = GetTime();
+        MarkBlockAsReceived(pblock->GetHash(), std::nullopt);
+    } else {
+        mapBlockSource.erase(pblock->GetHash());
+    }
+}
+
 bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStream& vRecv, int64_t nTimeReceived, const CChainParams& chainparams, CConnman* connman, const std::atomic<bool>& interruptMsgProc)
 {
     LogPrint(BCLog::NET, "received: %s (%u bytes) peer=%d\n", SanitizeString(strCommand), vRecv.size(), pfrom->GetId());
@@ -2704,7 +2720,6 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
                 LOCK(cs_main);
                 mapBlockSource.emplace(pblock->GetHash(), std::make_pair(pfrom->GetId(), false));
             }
-            bool fNewBlock = false;
             // Setting fForceProcessing to true means that we bypass some of
             // our anti-DoS protections in AcceptBlock, which filters
             // unrequested blocks that might be trying to waste our resources
@@ -2716,13 +2731,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
             // reconstructed compact blocks as having been requested.
             // NOTE: nMinimumChainWork is removed. Because consensus is changed
             // to Signed Blocks.
-            ProcessNewBlock( pblock, /*fForceProcessing=*/true, &fNewBlock);
-            if (fNewBlock) {
-                pfrom->nLastBlockTime = GetTime();
-            } else {
-                LOCK(cs_main);
-                mapBlockSource.erase(pblock->GetHash());
-            }
+            ProcessBlock(pfrom, pblock, /*fForceProcessing=*/true);
             LOCK(cs_main); // hold cs_main for CBlockIndex::IsValid()
             if (pindex->IsValid(BLOCK_VALID_TRANSACTIONS)) {
                 // Clear download state for this block, which is in
@@ -2813,20 +2822,13 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
             }
         } // Don't hold cs_main when we call into ProcessNewBlock
         if (fBlockRead) {
-            bool fNewBlock = false;
             // Since we requested this block (it was in mapBlocksInFlight), force it to be processed,
             // even if it would not be a candidate for new tip (missing previous block, chain not long enough, etc)
             // This bypasses some anti-DoS logic in AcceptBlock (eg to prevent
             // disk-space attacks), but this should be safe due to the
             // protections in the compact block handler -- see related comment
             // in compact block optimistic reconstruction handling.
-            ProcessNewBlock(pblock, /*fForceProcessing=*/true, &fNewBlock);
-            if (fNewBlock) {
-                pfrom->nLastBlockTime = GetTime();
-            } else {
-                LOCK(cs_main);
-                mapBlockSource.erase(pblock->GetHash());
-            }
+            ProcessBlock(pfrom, pblock, /*fForceProcessing=*/true);
         }
     }
 
@@ -2874,14 +2876,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
             // so the race between here and cs_main in ProcessNewBlock is fine.
             mapBlockSource.emplace(hash, std::make_pair(pfrom->GetId(), true));
         }
-        bool fNewBlock = false;
-        ProcessNewBlock(pblock, forceProcessing, &fNewBlock);
-        if (fNewBlock) {
-            pfrom->nLastBlockTime = GetTime();
-        } else {
-            LOCK(cs_main);
-            mapBlockSource.erase(pblock->GetHash());
-        }
+        ProcessBlock(pfrom, pblock, forceProcessing);
     }
 
 
