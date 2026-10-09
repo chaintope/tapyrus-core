@@ -32,6 +32,9 @@
 #include <issuedcolorids.h>
 #include <script/interpreter.h>
 #include <hash.h>
+#include <amount.h>
+
+#include <limits>
 
 #include <boost/test/unit_test.hpp>
 
@@ -1167,6 +1170,120 @@ BOOST_AUTO_TEST_CASE(verifytoken_no_tpc_input_dos_score_is_zero)
     int nDoS = -1;
     state.IsInvalid(nDoS);
     BOOST_CHECK_EQUAL(nDoS, 0);
+}
+
+/**
+ * Builds a transaction spending reissuable-token and TPC coins from a
+ * synthetic coin view, for checking VerifyTokenBalances' per-colorId sums.
+ */
+class TokenBalanceInputs
+{
+public:
+    TokenBalanceInputs() : m_view(&m_dummy)
+    {
+        CKey key;
+        key.MakeNewKey(true);
+        CPubKey pubkey = key.GetPubKey();
+        std::vector<unsigned char> pubkeyHash(20);
+        CHash160().Write(pubkey.data(), pubkey.size()).Finalize(pubkeyHash.data());
+
+        m_tpcScript = CScript() << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash)
+                                << OP_EQUALVERIFY << OP_CHECKSIG;
+        ColorIdentifier colorId(m_tpcScript);
+        m_coloredScript = CScript() << colorId.toVector() << OP_COLOR
+                                    << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash)
+                                    << OP_EQUALVERIFY << OP_CHECKSIG;
+        m_tx.nFeatures = 1;
+    }
+
+    void AddColoredInput(CAmount value) { AddInput(m_coloredScript, value); }
+    void AddTpcInput(CAmount value) { AddInput(m_tpcScript, value); }
+    void AddColoredOutput(CAmount value) { m_tx.vout.emplace_back(value, m_coloredScript); }
+    void AddTpcOutput(CAmount value) { m_tx.vout.emplace_back(value, m_tpcScript); }
+
+    bool Verify(CValidationState& state)
+    {
+        const CAmount minRelayFee{1000};
+        return VerifyTokenBalances(CTransaction(m_tx), state, m_view, minRelayFee);
+    }
+
+private:
+    void AddInput(const CScript& script, CAmount value)
+    {
+        COutPoint outpoint(InsecureRand256(), 0);
+        Coin coin;
+        coin.out.scriptPubKey = script;
+        coin.out.nValue = value;
+        coin.nHeight = 5;
+        coin.fCoinBase = false;
+        m_view.AddCoin(outpoint, std::move(coin), /*potential_overwrite=*/false);
+        m_tx.vin.emplace_back(outpoint);
+    }
+
+    CCoinsView m_dummy;
+    CCoinsViewCache m_view;
+    CMutableTransaction m_tx;
+    CScript m_tpcScript;
+    CScript m_coloredScript;
+};
+
+static void CheckInputValuesOutOfRange(const CValidationState& state)
+{
+    BOOST_CHECK(state.IsInvalid());
+    BOOST_CHECK_EQUAL(state.GetRejectReason(), "bad-txns-inputvalues-outofrange");
+    int nDoS = -1;
+    state.IsInvalid(nDoS);
+    BOOST_CHECK_EQUAL(nDoS, 100);
+}
+
+BOOST_AUTO_TEST_CASE(verifytoken_colorid_input_sum_at_max_money_accepted)
+{
+    TokenBalanceInputs inputs;
+    const CAmount half{MAX_MONEY / 2};
+    inputs.AddColoredInput(half);
+    inputs.AddColoredInput(MAX_MONEY - half);
+    inputs.AddTpcInput(COIN);
+    inputs.AddColoredOutput(MAX_MONEY);
+    inputs.AddTpcOutput(COIN - 1000);
+
+    CValidationState state;
+    BOOST_CHECK(inputs.Verify(state));
+    BOOST_CHECK(state.IsValid());
+}
+
+BOOST_AUTO_TEST_CASE(verifytoken_colorid_input_sum_over_max_money_rejected)
+{
+    // Each input is in range; only their sum exceeds MAX_MONEY. Part of it is
+    // burned, so the outputs alone are valid.
+    TokenBalanceInputs inputs;
+    const CAmount half{MAX_MONEY / 2};
+    inputs.AddColoredInput(half);
+    inputs.AddColoredInput(MAX_MONEY - half + 1);
+    inputs.AddTpcInput(COIN);
+    inputs.AddColoredOutput(half);
+    inputs.AddTpcOutput(COIN - 1000);
+
+    CValidationState state;
+    BOOST_CHECK(!inputs.Verify(state));
+    CheckInputValuesOutOfRange(state);
+}
+
+BOOST_AUTO_TEST_CASE(verifytoken_colorid_input_sum_out_of_range_all_burned)
+{
+    // All tokens are burned, so there is no colored output and no output
+    // balance check that could catch a bad input sum; only the running-sum
+    // check rejects it. Two MAX_MONEY inputs are enough, as the check stops at
+    // the second. Without it, 4393 such inputs would overflow a signed 64-bit
+    // sum, which a test cannot observe as it is undefined behaviour.
+    TokenBalanceInputs inputs;
+    inputs.AddColoredInput(MAX_MONEY);
+    inputs.AddColoredInput(MAX_MONEY);
+    inputs.AddTpcInput(COIN);
+    inputs.AddTpcOutput(COIN - 1000);
+
+    CValidationState state;
+    BOOST_CHECK(!inputs.Verify(state));
+    CheckInputValuesOutOfRange(state);
 }
 
 /**

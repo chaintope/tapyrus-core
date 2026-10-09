@@ -549,9 +549,13 @@ bool VerifyTokenBalances(const CTransaction& tx, CValidationState& state, const 
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-nonstandard-opcolor");
         auto it = inColoredCoinBalances.find(cid);
         if (it == inColoredCoinBalances.end())
-            inColoredCoinBalances.emplace(cid, coin.out.nValue);
-        else
-            it->second += coin.out.nValue;
+            it = inColoredCoinBalances.emplace(cid, CAmount{0}).first;
+        // A reissuable token has no supply cap, so bound each value and the
+        // running sum per colorId; both stay within MAX_MONEY, so the sum
+        // cannot overflow.
+        if (!MoneyRange(coin.out.nValue) || !MoneyRange(it->second + coin.out.nValue))
+            return state.DoS(100, false, REJECT_INVALID, "bad-txns-inputvalues-outofrange");
+        it->second += coin.out.nValue;
         if (newIssuances && cid.type == TokenTypes::NONE)
             tpcInputOutpoints.push_back(txin.prevout);
     }
