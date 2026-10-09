@@ -183,7 +183,7 @@ void CChainState::InvalidBlockFound(CBlockIndex *pindex, const CValidationState 
     }
 }
 
-bool UndoReadFromDisk(CBlockUndo& blockundo, const CBlockIndex *pindex)
+bool UndoReadFromDisk(CBlockUndo& blockundo, const CBlockIndex *pindex, const CBlock& block)
 {
     CDiskBlockPos pos = pindex->GetUndoPos();
     if (pos.IsNull()) {
@@ -200,7 +200,7 @@ bool UndoReadFromDisk(CBlockUndo& blockundo, const CBlockIndex *pindex)
         // Read block
         CHashVerifier<BufferedReader<CAutoFile>> verifier(&filein); // Use CHashVerifier as reserializing may lose data, c.f. commit d342424301013ec47dc146a4beb49d5c9319d80a
         verifier << pindex->pprev->GetBlockHash();
-        verifier >> blockundo;
+        verifier >> BlockUndoDeserializer(&blockundo, block);
 
         uint256 hashChecksum;
         filein >> hashChecksum;
@@ -256,13 +256,8 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     bool fClean = true;
 
     CBlockUndo blockUndo;
-    if (!UndoReadFromDisk(blockUndo, pindex)) {
+    if (!UndoReadFromDisk(blockUndo, pindex, block)) {
         error("DisconnectBlock(): failure reading undo data");
-        return DISCONNECT_FAILED;
-    }
-
-    if (blockUndo.vtxundo.size() + 1 != block.vtx.size()) {
-        error("DisconnectBlock(): block and undo data inconsistent");
         return DISCONNECT_FAILED;
     }
 
@@ -290,10 +285,6 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         // restore inputs
         if (i > 0) { // not coinbases
             CTxUndo &txundo = blockUndo.vtxundo[i-1];
-            if (txundo.vprevout.size() != tx.vin.size()) {
-                error("DisconnectBlock(): transaction and undo data inconsistent");
-                return DISCONNECT_FAILED;
-            }
 
             // Remove any NON_REISSUABLE/NFT colorIds first issued in this tx.
             // vprevout holds the original coins (before they were spent), so we
