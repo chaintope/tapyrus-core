@@ -290,6 +290,7 @@ add_windows_resources(tapyrus-qt "${TAPYRUS_QT_RC_FILE}")
 # comment on tapyrus_util's add_library() in the top-level src/CMakeLists.txt
 # for why -- since tapyrus-qt is the only consumer of interfaces/node.h.
 target_sources(tapyrus-qt PRIVATE
+  ../debuglogfile.cpp
   ../init.cpp
   ../interfaces/node.cpp
 )

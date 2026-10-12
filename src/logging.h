@@ -59,10 +59,6 @@ namespace BCLog {
     class Logger
     {
     private:
-        FILE* m_fileout = nullptr;
-        std::mutex m_file_mutex;
-        std::list<std::string> m_msgs_before_open;
-
         /**
          * m_started_new_line is a state variable that will suppress printing of
          * the timestamp when multiple calls are made that don't end in a
@@ -75,24 +71,21 @@ namespace BCLog {
 
         std::string LogTimestampStr(const std::string& str);
 
+    protected:
+        /** Write a timestamped line to an output other than the console. */
+        virtual void WriteLine(const std::string& line) {}
+
     public:
         bool m_print_to_console = false;
-        bool m_print_to_file = false;
 
         bool m_log_timestamps = DEFAULT_LOGTIMESTAMPS;
         bool m_log_time_micros = DEFAULT_LOGTIMEMICROS;
-
-        fs::path m_file_path;
-        std::atomic<bool> m_reopen_file{false};
 
         /** Send a string to the log output */
         void LogPrintStr(const std::string &str);
 
         /** Returns whether logs will be written to any output */
-        bool Enabled() const { return m_print_to_console || m_print_to_file; }
-
-        bool OpenDebugLog();
-        void ShrinkDebugFile();
+        virtual bool Enabled() const { return m_print_to_console; }
 
         uint32_t GetCategoryMask() const { return m_categories.load(); }
 
@@ -102,13 +95,14 @@ namespace BCLog {
         bool DisableCategory(const std::string& str);
 
         bool WillLogCategory(LogFlags category) const;
-
-        bool DefaultShrinkDebugFile() const;
     };
 
 } // namespace BCLog
 
 BCLog::Logger& LogInstance();
+
+/** Replace the logger LogInstance() returns. Call before other threads start. */
+void SetLogInstance(BCLog::Logger* logger);
 
 /** Return true if log accepts specified category */
 static inline bool LogAcceptCategory(BCLog::LogFlags category)

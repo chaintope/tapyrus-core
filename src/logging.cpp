@@ -8,7 +8,7 @@
 
 const char * const DEFAULT_DEBUGLOGFILE = "debug.log";
 
-BCLog::Logger& LogInstance()
+static std::atomic<BCLog::Logger*>& LogInstancePtr()
 {
 /**
  * NOTE: the logger instances is leaked on exit. This is ugly, but will be
@@ -25,39 +25,23 @@ BCLog::Logger& LogInstance()
  * This method of initialization was originally introduced in
  * ee3374234c60aba2cc4c5cd5cac1c0aefc2d817c.
  */
-    static BCLog::Logger* g_logger{new BCLog::Logger()};
-    return *g_logger;
+    static std::atomic<BCLog::Logger*> g_logger{new BCLog::Logger()};
+    return g_logger;
+}
+
+BCLog::Logger& LogInstance()
+{
+    return *LogInstancePtr().load();
+}
+
+// The replaced instance is leaked like the first one, so a thread still
+// logging through it is safe.
+void SetLogInstance(BCLog::Logger* logger)
+{
+    LogInstancePtr().store(logger);
 }
 
 bool fLogIPs = DEFAULT_LOGIPS;
-
-static int FileWriteStr(const std::string &str, FILE *fp)
-{
-    return fwrite(str.data(), 1, str.size(), fp);
-}
-
-bool BCLog::Logger::OpenDebugLog()
-{
-    std::lock_guard<std::mutex> scoped_lock(m_file_mutex);
-
-    assert(m_fileout == nullptr);
-    assert(!m_file_path.empty());
-
-    const char* mode = fs::exists(m_file_path) && fs::is_regular_file(m_file_path) ? "a" : "w";
-    m_fileout = fsbridge::fopen(m_file_path, mode);
-    if (!m_fileout) {
-        return false;
-    }
-
-    setbuf(m_fileout, nullptr); // unbuffered
-    // dump buffered messages from before we opened the log
-    while (!m_msgs_before_open.empty()) {
-        FileWriteStr(m_msgs_before_open.front(), m_fileout);
-        m_msgs_before_open.pop_front();
-    }
-
-    return true;
-}
 
 void BCLog::Logger::EnableCategory(BCLog::LogFlags flag)
 {
@@ -88,11 +72,6 @@ bool BCLog::Logger::DisableCategory(const std::string& str)
 bool BCLog::Logger::WillLogCategory(BCLog::LogFlags category) const
 {
     return (m_categories.load(std::memory_order_relaxed) & category) != 0;
-}
-
-bool BCLog::Logger::DefaultShrinkDebugFile() const
-{
-    return m_categories == BCLog::NONE;
 }
 
 struct CLogCategoryDesc
@@ -214,67 +193,5 @@ void BCLog::Logger::LogPrintStr(const std::string &str)
         fwrite(strTimestamped.data(), 1, strTimestamped.size(), stdout);
         fflush(stdout);
     }
-    if (m_print_to_file) {
-        std::lock_guard<std::mutex> scoped_lock(m_file_mutex);
-
-        // buffer if we haven't opened the log yet
-        if (m_fileout == nullptr) {
-            m_msgs_before_open.push_back(strTimestamped);
-        }
-        else
-        {
-            // reopen the log file, if requested
-            if (m_reopen_file) {
-                m_reopen_file = false;
-                FILE* new_fileout = fsbridge::fopen(m_file_path, "a");
-                if (new_fileout) {
-                    setbuf(new_fileout, nullptr); // unbuffered
-                    fclose(m_fileout);
-                    m_fileout = new_fileout;
-                }
-            }
-            FileWriteStr(strTimestamped, m_fileout);
-        }
-    }
-}
-
-void BCLog::Logger::ShrinkDebugFile()
-{
-    // Amount of debug.log to save at end when shrinking (must fit in memory)
-    constexpr size_t RECENT_DEBUG_HISTORY_SIZE = 10 * 1000000;
-
-    assert(!m_file_path.empty());
-
-    // Scroll debug.log if it's getting too big
-    FILE* file = fsbridge::fopen(m_file_path, "r");
-
-    // Special files (e.g. device nodes) may not have a size.
-    size_t log_size = 0;
-    try {
-        log_size = fs::file_size(m_file_path);
-    } catch (fs::filesystem_error &) {}
-
-    // If debug.log file is more than 10% bigger the RECENT_DEBUG_HISTORY_SIZE
-    // trim it down by saving only the last RECENT_DEBUG_HISTORY_SIZE bytes
-    if (file && log_size > 11 * (RECENT_DEBUG_HISTORY_SIZE / 10))
-    {
-        // Restart the file with some of the end
-        std::vector<char> vch(RECENT_DEBUG_HISTORY_SIZE, 0);
-        if (fseek(file, -((long)vch.size()), SEEK_END)) {
-            LogPrintf("Failed to shrink debug log file: fseek(...) failed\n");
-            fclose(file);
-            return;
-        }
-        int nBytes = fread(vch.data(), 1, vch.size(), file);
-        fclose(file);
-
-        file = fsbridge::fopen(m_file_path, "w");
-        if (file)
-        {
-            fwrite(vch.data(), 1, nBytes, file);
-            fclose(file);
-        }
-    }
-    else if (file != nullptr)
-        fclose(file);
+    WriteLine(strTimestamped);
 }

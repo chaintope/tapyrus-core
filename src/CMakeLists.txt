@@ -450,6 +450,7 @@ target_link_libraries(tapyrus_rpc
 if(BUILD_DAEMON)
   add_executable(tapyrusd
     tapyrusd.cpp
+    debuglogfile.cpp
     init.cpp
     noui.cpp
   )
