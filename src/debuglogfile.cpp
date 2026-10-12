@@ -47,7 +47,7 @@ bool DebugLogFile::Open()
 
     if (lines_discarded > 0) {
         LogPrintStr(strprintf("Early logging buffer overflowed, %d log lines discarded.\n", lines_discarded),
-                    SourceLocation{__func__}, BCLog::ALL, BCLog::Level::Info);
+                    SourceLocation{__func__}, BCLog::ALL, BCLog::Level::Info, /*should_ratelimit=*/false);
     }
     return true;
 }
