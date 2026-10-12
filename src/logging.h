@@ -10,8 +10,11 @@
 #include <tinyformat.h>
 
 #include <atomic>
+#include <chrono>
 #include <cstdint>
+#include <functional>
 #include <list>
+#include <memory>
 #include <mutex>
 #include <source_location>
 #include <string>
@@ -52,6 +55,20 @@ private:
     std::source_location m_loc;
 };
 
+struct SourceLocationEqual {
+    bool operator()(const SourceLocation& lhs, const SourceLocation& rhs) const noexcept
+    {
+        return lhs.line() == rhs.line() && lhs.file_name() == rhs.file_name();
+    }
+};
+
+struct SourceLocationHasher {
+    size_t operator()(const SourceLocation& s) const noexcept
+    {
+        return std::hash<std::string_view>{}(s.file_name()) ^ (size_t{s.line()} << 1);
+    }
+};
+
 namespace BCLog {
     enum LogFlags : uint32_t {
         NONE        = 0,
@@ -89,14 +106,72 @@ namespace BCLog {
 
     constexpr Level DEFAULT_LOG_LEVEL{Level::Debug};
     constexpr size_t DEFAULT_MAX_LOG_BUFFER{1'000'000}; // log data buffered before debug.log opens
+    constexpr uint64_t RATELIMIT_MAX_BYTES{1024 * 1024}; // per source location, per RATELIMIT_WINDOW
+    constexpr std::chrono::seconds RATELIMIT_WINDOW{3600};
+    constexpr bool DEFAULT_LOGRATELIMIT{true};
 
     /** Escape control characters other than newline, so a log line cannot be forged or garbled. */
     std::string LogEscapeMessage(std::string_view str);
 
+    //! Fixed window rate limiter for logging.
+    class LogRateLimiter
+    {
+    public:
+        //! Keeps track of an individual source location and how many available bytes are left for logging from it.
+        struct Stats {
+            //! Remaining bytes
+            uint64_t m_available_bytes;
+            //! Number of bytes that were consumed but didn't fit in the available bytes.
+            uint64_t m_dropped_bytes{0};
+
+            Stats(uint64_t max_bytes) : m_available_bytes{max_bytes} {}
+            //! Updates internal accounting and returns true if enough available_bytes were remaining
+            bool Consume(uint64_t bytes);
+        };
+
+    private:
+        mutable std::mutex m_mutex;
+
+        //! Stats for each source location that has attempted to log something. Guarded by m_mutex.
+        std::unordered_map<SourceLocation, Stats, SourceLocationHasher, SourceLocationEqual> m_source_locations;
+        //! Whether any log locations are suppressed. Cached view on m_source_locations for performance reasons.
+        std::atomic<bool> m_suppression_active{false};
+        LogRateLimiter(uint64_t max_bytes, std::chrono::seconds reset_window);
+
+    public:
+        using SchedulerFunction = std::function<void(std::function<void()>, std::chrono::milliseconds)>;
+        /**
+         * @param scheduler_func    Schedules the window reset: called once with the reset
+         *                          function and the reset_window interval.
+         * @param max_bytes         Maximum number of bytes that can be logged for each source location.
+         * @param reset_window      Time window after which the stats are reset.
+         */
+        static std::shared_ptr<LogRateLimiter> Create(
+            SchedulerFunction&& scheduler_func,
+            uint64_t max_bytes,
+            std::chrono::seconds reset_window);
+        //! Maximum number of bytes logged per location per window.
+        const uint64_t m_max_bytes;
+        //! Interval after which the window is reset.
+        const std::chrono::seconds m_reset_window;
+        //! Suppression status of a source log location.
+        enum class Status {
+            UNSUPPRESSED,     // string fits within the limit
+            NEWLY_SUPPRESSED, // suppression has started since this string
+            STILL_SUPPRESSED, // suppression is still ongoing
+        };
+        //! Consumes `source_loc`'s available bytes for the (formatted) `str` and returns its status.
+        [[nodiscard]] Status Consume(const SourceLocation& source_loc, const std::string& str);
+        //! Resets all usage to zero. Called periodically by the scheduler.
+        void Reset();
+        //! Returns true if any log locations are currently being suppressed.
+        bool SuppressionsActive() const { return m_suppression_active; }
+    };
+
     class Logger
     {
     private:
-        //! Serializes output, and guards m_category_log_levels.
+        //! Serializes output, and guards m_category_log_levels and m_limiter.
         mutable std::mutex m_cs;
 
         /**
@@ -115,10 +190,14 @@ namespace BCLog {
         //! Category-specific log level. Overrides m_log_level.
         std::unordered_map<LogFlags, Level> m_category_log_levels;
 
+        //! Rate limits each log location; null when rate limiting is off.
+        std::shared_ptr<LogRateLimiter> m_limiter;
+
         std::string LogTimestampStr() const;
         std::string GetLogPrefix(LogFlags category, Level level) const;
         std::string LinePrefix(const SourceLocation& source_loc) const;
-        void Output(const std::string& line);
+        void Output(const std::string& line, bool to_file);
+        void LogPrintStr_(std::string_view str, const SourceLocation& source_loc, LogFlags category, Level level, bool should_ratelimit);
 
     protected:
         /** Write a timestamped line to an output other than the console. */
@@ -134,16 +213,18 @@ namespace BCLog {
         bool m_always_print_category_level = DEFAULT_LOGLEVELALWAYS;
 
         /** Send a message to the log output, as one line with category and level prefixes. */
-        void LogPrintStr(std::string_view str, const SourceLocation& source_loc, LogFlags category, Level level);
+        void LogPrintStr(std::string_view str, const SourceLocation& source_loc, LogFlags category, Level level, bool should_ratelimit);
 
         /**
          * Send a LogPrintf/LogPrint message to the log output: no category or level
-         * prefix and no added newline, as before the levels existed.
+         * prefix, no added newline and no rate limiting, as before the levels existed.
          */
         void LogPrintLegacyStr(const std::string& str, const SourceLocation& source_loc);
 
         /** Returns whether logs will be written to any output */
         virtual bool Enabled() const { return m_print_to_console; }
+
+        void SetRateLimiting(std::shared_ptr<LogRateLimiter> limiter);
 
         Level LogLevel() const { return m_log_level.load(); }
         void SetLogLevel(Level level) { m_log_level = level; }
@@ -199,7 +280,7 @@ bool GetLogCategory(BCLog::LogFlags& flag, const std::string& str);
 template<typename... Args> std::string FormatStringFromLogArgs(const char *fmt, const Args&... args) { return fmt; }
 
 template <typename... Args>
-inline void LogPrintFormatInternal(const SourceLocation& source_loc, BCLog::LogFlags flag, BCLog::Level level, const char* fmt, const Args&... args)
+inline void LogPrintFormatInternal(const SourceLocation& source_loc, BCLog::LogFlags flag, BCLog::Level level, bool should_ratelimit, const char* fmt, const Args&... args)
 {
     if (!LogInstance().Enabled()) return;
     std::string log_msg;
@@ -208,7 +289,7 @@ inline void LogPrintFormatInternal(const SourceLocation& source_loc, BCLog::LogF
     } catch (tinyformat::format_error& fmterr) {
         log_msg = "Error \"" + std::string{fmterr.what()} + "\" while formatting log message: " + fmt;
     }
-    LogInstance().LogPrintStr(log_msg, source_loc, flag, level);
+    LogInstance().LogPrintStr(log_msg, source_loc, flag, level, should_ratelimit);
 }
 
 static inline void MarkUsed() {}
@@ -231,23 +312,24 @@ template<typename T, typename... Args> static inline void MarkUsed(const T& t, c
 #define LogDebug(category, ...) do { MarkUsed(__VA_ARGS__); } while(0)
 #define LogTrace(category, ...) do { MarkUsed(__VA_ARGS__); } while(0)
 #else
-#define LogPrintLevel_(category, level, ...) LogPrintFormatInternal(SourceLocation{__func__}, category, level, __VA_ARGS__)
+#define LogPrintLevel_(category, level, should_ratelimit, ...) LogPrintFormatInternal(SourceLocation{__func__}, category, level, should_ratelimit, __VA_ARGS__)
 
-// Log unconditionally.
-#define LogInfo(...) LogPrintLevel_(BCLog::LogFlags::ALL, BCLog::Level::Info, __VA_ARGS__)
-#define LogWarning(...) LogPrintLevel_(BCLog::LogFlags::ALL, BCLog::Level::Warning, __VA_ARGS__)
-#define LogError(...) LogPrintLevel_(BCLog::LogFlags::ALL, BCLog::Level::Error, __VA_ARGS__)
+// Log unconditionally. Rate limited per source location to mitigate disk filling attacks.
+#define LogInfo(...) LogPrintLevel_(BCLog::LogFlags::ALL, BCLog::Level::Info, /*should_ratelimit=*/true, __VA_ARGS__)
+#define LogWarning(...) LogPrintLevel_(BCLog::LogFlags::ALL, BCLog::Level::Warning, /*should_ratelimit=*/true, __VA_ARGS__)
+#define LogError(...) LogPrintLevel_(BCLog::LogFlags::ALL, BCLog::Level::Error, /*should_ratelimit=*/true, __VA_ARGS__)
 
 // Log only if the category is enabled at this level, prefixed with the category.
+// No rate limiting: -debug users are expected to accept the disk usage.
 // A macro, so the arguments are not evaluated when the category is disabled.
 #define LogDebug(category, ...) do { \
     if (LogAcceptCategory((category), BCLog::Level::Debug)) { \
-        LogPrintLevel_((category), BCLog::Level::Debug, __VA_ARGS__); \
+        LogPrintLevel_((category), BCLog::Level::Debug, /*should_ratelimit=*/false, __VA_ARGS__); \
     } \
 } while(0)
 #define LogTrace(category, ...) do { \
     if (LogAcceptCategory((category), BCLog::Level::Trace)) { \
-        LogPrintLevel_((category), BCLog::Level::Trace, __VA_ARGS__); \
+        LogPrintLevel_((category), BCLog::Level::Trace, /*should_ratelimit=*/false, __VA_ARGS__); \
     } \
 } while(0)
 

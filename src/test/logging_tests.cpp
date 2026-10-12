@@ -9,7 +9,9 @@
 #include <threadnames.h>
 #include <util.h>
 
+#include <chrono>
 #include <fstream>
+#include <functional>
 #include <string>
 #include <thread>
 #include <vector>
@@ -31,6 +33,12 @@ protected:
     void WriteLine(const std::string& line) override { m_lines.push_back(line); }
 };
 
+//! Logs from one fixed source location, so the rate limiter counts every call together.
+void LogFromOneLocation(BCLog::Logger& logger, const std::string& msg, bool should_ratelimit)
+{
+    logger.LogPrintStr(msg, SourceLocation{__func__}, BCLog::ALL, BCLog::Level::Info, should_ratelimit);
+}
+
 } // namespace
 
 BOOST_FIXTURE_TEST_SUITE(logging_tests, BasicTestingSetup)
@@ -50,15 +58,15 @@ BOOST_AUTO_TEST_CASE(logging_prefixes)
 {
     CaptureLogger logger;
     const SourceLocation loc{__func__};
-    logger.LogPrintStr("msg", loc, BCLog::NET, BCLog::Level::Debug);
-    logger.LogPrintStr("msg", loc, BCLog::NET, BCLog::Level::Info);
-    logger.LogPrintStr("msg", loc, BCLog::ALL, BCLog::Level::Info);
-    logger.LogPrintStr("msg", loc, BCLog::ALL, BCLog::Level::Warning);
-    logger.LogPrintStr("msg\n", loc, BCLog::ALL, BCLog::Level::Error);
-    logger.LogPrintStr("a\rb", loc, BCLog::ALL, BCLog::Level::Info);
+    logger.LogPrintStr("msg", loc, BCLog::NET, BCLog::Level::Debug, false);
+    logger.LogPrintStr("msg", loc, BCLog::NET, BCLog::Level::Info, false);
+    logger.LogPrintStr("msg", loc, BCLog::ALL, BCLog::Level::Info, false);
+    logger.LogPrintStr("msg", loc, BCLog::ALL, BCLog::Level::Warning, false);
+    logger.LogPrintStr("msg\n", loc, BCLog::ALL, BCLog::Level::Error, false);
+    logger.LogPrintStr("a\rb", loc, BCLog::ALL, BCLog::Level::Info, false);
     logger.m_always_print_category_level = true;
-    logger.LogPrintStr("msg", loc, BCLog::NET, BCLog::Level::Debug);
-    logger.LogPrintStr("msg", loc, BCLog::ALL, BCLog::Level::Info);
+    logger.LogPrintStr("msg", loc, BCLog::NET, BCLog::Level::Debug, false);
+    logger.LogPrintStr("msg", loc, BCLog::ALL, BCLog::Level::Info, false);
 
     const std::vector<std::string> expected{
         "[net] msg\n",
@@ -100,7 +108,7 @@ BOOST_AUTO_TEST_CASE(logging_thread_and_source_location)
 
     std::thread thread([&] {
         ThreadSetInternalName("logtest");
-        logger.LogPrintStr("msg", SourceLocation{__func__}, BCLog::ALL, BCLog::Level::Info);
+        logger.LogPrintStr("msg", SourceLocation{__func__}, BCLog::ALL, BCLog::Level::Info, false);
     });
     thread.join();
 
@@ -159,6 +167,53 @@ BOOST_AUTO_TEST_CASE(logging_levels)
     BOOST_CHECK_EQUAL(BCLog::Logger::LogLevelsString(), "info, debug, trace");
 }
 
+BOOST_AUTO_TEST_CASE(logging_rate_limiter)
+{
+    std::function<void()> reset_window;
+    const uint64_t max_bytes{1000};
+    auto limiter{BCLog::LogRateLimiter::Create(
+        [&](std::function<void()> func, std::chrono::milliseconds) { reset_window = std::move(func); },
+        max_bytes, std::chrono::seconds{3600})};
+    BOOST_REQUIRE(reset_window);
+
+    const SourceLocation loc_a{__func__};
+    const SourceLocation loc_b{__func__};
+    const std::string chunk(600, 'x');
+    using Status = BCLog::LogRateLimiter::Status;
+    BOOST_CHECK(limiter->Consume(loc_a, chunk) == Status::UNSUPPRESSED);
+    BOOST_CHECK(!limiter->SuppressionsActive());
+    BOOST_CHECK(limiter->Consume(loc_a, chunk) == Status::NEWLY_SUPPRESSED);
+    BOOST_CHECK(limiter->Consume(loc_a, chunk) == Status::STILL_SUPPRESSED);
+    BOOST_CHECK(limiter->SuppressionsActive());
+    // Other source locations have their own allowance.
+    BOOST_CHECK(limiter->Consume(loc_b, chunk) == Status::UNSUPPRESSED);
+
+    reset_window();
+    BOOST_CHECK(!limiter->SuppressionsActive());
+    BOOST_CHECK(limiter->Consume(loc_a, chunk) == Status::UNSUPPRESSED);
+}
+
+BOOST_AUTO_TEST_CASE(logging_rate_limited_lines_skip_the_file)
+{
+    CaptureLogger logger;
+    logger.SetRateLimiting(BCLog::LogRateLimiter::Create(
+        [](std::function<void()>, std::chrono::milliseconds) {}, uint64_t{100}, std::chrono::seconds{3600}));
+    const std::string long_msg(150, 'x');
+
+    // The first line over the limit is still written, after a warning about the suppression.
+    LogFromOneLocation(logger, long_msg, true);
+    BOOST_REQUIRE_EQUAL(logger.m_lines.size(), 2U);
+    BOOST_CHECK(logger.m_lines[0].find("Excessive logging detected") != std::string::npos);
+    BOOST_CHECK(logger.m_lines[1].starts_with("[*] "));
+
+    // Later lines from that location are not written; others are, marked with [*].
+    LogFromOneLocation(logger, long_msg, true);
+    BOOST_CHECK_EQUAL(logger.m_lines.size(), 2U);
+    LogFromOneLocation(logger, "not limited", false);
+    BOOST_REQUIRE_EQUAL(logger.m_lines.size(), 3U);
+    BOOST_CHECK_EQUAL(logger.m_lines[2], "[*] not limited\n");
+}
+
 BOOST_AUTO_TEST_CASE(debug_log_file_early_buffer_limit)
 {
     const fs::path path{fs::temp_directory_path() / strprintf("tapyrus_logging_test_%d.log", GetTime())};
@@ -168,7 +223,7 @@ BOOST_AUTO_TEST_CASE(debug_log_file_early_buffer_limit)
         log_file.m_log_timestamps = false;
         const int lines{10};
         for (int i = 0; i < lines; ++i) {
-            log_file.LogPrintStr(strprintf("line %d %s", i, std::string(80, 'x')), SourceLocation{__func__}, BCLog::ALL, BCLog::Level::Info);
+            log_file.LogPrintStr(strprintf("line %d %s", i, std::string(80, 'x')), SourceLocation{__func__}, BCLog::ALL, BCLog::Level::Info, false);
         }
         BOOST_REQUIRE(log_file.Open());
     }
