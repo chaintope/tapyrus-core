@@ -184,9 +184,23 @@ std::string BCLog::Logger::LogTimestampStr(const std::string &str)
     return strStamped;
 }
 
+std::string BCLog::LogEscapeMessage(std::string_view str)
+{
+    std::string ret;
+    for (char ch_in : str) {
+        uint8_t ch = (uint8_t)ch_in;
+        if ((ch >= 32 || ch == '\n') && ch != '\x7f') {
+            ret += ch_in;
+        } else {
+            ret += strprintf("\\x%02x", ch);
+        }
+    }
+    return ret;
+}
+
 void BCLog::Logger::LogPrintStr(const std::string &str)
 {
-    std::string strTimestamped = LogTimestampStr(str);
+    std::string strTimestamped = LogTimestampStr(LogEscapeMessage(str));
 
     if (m_print_to_console) {
         // print to console

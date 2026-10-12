@@ -14,6 +14,7 @@
 #include <list>
 #include <mutex>
 #include <string>
+#include <string_view>
 #include <vector>
 
 static const bool DEFAULT_LOGTIMEMICROS = false;
@@ -55,6 +56,9 @@ namespace BCLog {
         LEVELDB     = (1 << 20),
         ALL         = ~(uint32_t)0,
     };
+
+    /** Escape control characters other than newline, so a log line cannot be forged or garbled. */
+    std::string LogEscapeMessage(std::string_view str);
 
     class Logger
     {
