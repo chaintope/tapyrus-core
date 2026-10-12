@@ -170,6 +170,7 @@ add_executable(test_tapyrus
 add_library(tapyrus_test_util OBJECT
     test_tapyrus.cpp
     test_keys_helper.cpp
+    ../debuglogfile.cpp
     ../genesisblock.cpp
     ../noui.cpp
 )

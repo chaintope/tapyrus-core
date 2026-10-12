@@ -57,6 +57,8 @@ namespace BCLog {
         ALL         = ~(uint32_t)0,
     };
 
+    constexpr size_t DEFAULT_MAX_LOG_BUFFER{1'000'000}; // log data buffered before debug.log opens
+
     /** Escape control characters other than newline, so a log line cannot be forged or garbled. */
     std::string LogEscapeMessage(std::string_view str);
 
