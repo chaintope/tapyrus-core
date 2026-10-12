@@ -199,13 +199,25 @@ std::string BCLog::LogEscapeMessage(std::string_view str)
     return ret;
 }
 
-void BCLog::Logger::LogPrintStr(const std::string &str)
+std::string BCLog::Logger::LinePrefix(const SourceLocation& source_loc) const
+{
+    std::string prefix;
+    if (m_log_threadnames) {
+        const std::string threadname{ThreadGetInternalName()};
+        prefix += strprintf("[%s] ", threadname.empty() ? "unknown" : threadname);
+    }
+    if (m_log_sourcelocations) {
+        std::string_view file{source_loc.file_name()};
+        if (file.starts_with("./")) file.remove_prefix(2);
+        prefix += strprintf("[%s:%d] [%s] ", std::string{file}, source_loc.line(), std::string{source_loc.function_name_short()});
+    }
+    return prefix;
+}
+
+void BCLog::Logger::LogPrintStr(const std::string &str, const SourceLocation& source_loc)
 {
     std::string line = LogEscapeMessage(str);
-    if (m_started_new_line && m_log_threadnames) {
-        const std::string threadname{ThreadGetInternalName()};
-        line.insert(0, strprintf("[%s] ", threadname.empty() ? "unknown" : threadname));
-    }
+    if (m_started_new_line) line.insert(0, LinePrefix(source_loc));
     std::string strTimestamped = LogTimestampStr(line);
 
     if (m_print_to_console) {

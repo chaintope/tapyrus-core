@@ -46,19 +46,23 @@ BOOST_AUTO_TEST_CASE(logging_escape_message)
     BOOST_CHECK_EQUAL(BCLog::LogEscapeMessage("\xc3\xa5"), "\xc3\xa5");
 }
 
-BOOST_AUTO_TEST_CASE(logging_thread_name_prefix)
+BOOST_AUTO_TEST_CASE(logging_thread_and_source_location)
 {
     CaptureLogger logger;
     logger.m_log_threadnames = true;
+    logger.m_log_sourcelocations = true;
 
     std::thread thread([&] {
         ThreadSetInternalName("logtest");
-        logger.LogPrintStr("msg\n");
+        logger.LogPrintStr("msg\n", SourceLocation{__func__});
     });
     thread.join();
 
     BOOST_REQUIRE_EQUAL(logger.m_lines.size(), 1U);
-    BOOST_CHECK_EQUAL(logger.m_lines[0], "[logtest] msg\n");
+    const std::string& line{logger.m_lines[0]};
+    BOOST_CHECK(line.starts_with("[logtest] ["));
+    BOOST_CHECK(line.find("logging_tests.cpp:") != std::string::npos);
+    BOOST_CHECK(line.ends_with("] msg\n"));
 }
 
 BOOST_AUTO_TEST_CASE(logging_thread_names)
@@ -86,7 +90,7 @@ BOOST_AUTO_TEST_CASE(debug_log_file_early_buffer_limit)
         log_file.m_log_timestamps = false;
         const int lines{10};
         for (int i = 0; i < lines; ++i) {
-            log_file.LogPrintStr(strprintf("line %d %s\n", i, std::string(80, 'x')));
+            log_file.LogPrintStr(strprintf("line %d %s\n", i, std::string(80, 'x')), SourceLocation{__func__});
         }
         BOOST_REQUIRE(log_file.Open());
     }
