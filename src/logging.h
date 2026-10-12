@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <list>
 #include <mutex>
+#include <source_location>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -21,6 +22,7 @@ static const bool DEFAULT_LOGTIMEMICROS = false;
 static const bool DEFAULT_LOGIPS        = false;
 static const bool DEFAULT_LOGTIMESTAMPS = true;
 static const bool DEFAULT_LOGTHREADNAMES = false;
+static const bool DEFAULT_LOGSOURCELOCATIONS = false;
 extern const char * const DEFAULT_DEBUGLOGFILE;
 
 extern bool fLogIPs;
@@ -29,6 +31,23 @@ struct CLogCategoryActive
 {
     std::string category;
     bool active;
+};
+
+/** Like std::source_location, but with the function name taken from __func__. */
+class SourceLocation
+{
+public:
+    /** func must be the __func__ of the logging call site. */
+    SourceLocation(const char* func, std::source_location loc = std::source_location::current())
+        : m_func{func}, m_loc{loc} {}
+
+    std::string_view file_name() const { return m_loc.file_name(); }
+    std::uint_least32_t line() const { return m_loc.line(); }
+    std::string_view function_name_short() const { return m_func; }
+
+private:
+    std::string_view m_func;
+    std::source_location m_loc;
 };
 
 namespace BCLog {
@@ -77,6 +96,7 @@ namespace BCLog {
         std::atomic<uint32_t> m_categories{0};
 
         std::string LogTimestampStr(const std::string& str);
+        std::string LinePrefix(const SourceLocation& source_loc) const;
 
     protected:
         /** Write a timestamped line to an output other than the console. */
@@ -88,9 +108,10 @@ namespace BCLog {
         bool m_log_timestamps = DEFAULT_LOGTIMESTAMPS;
         bool m_log_time_micros = DEFAULT_LOGTIMEMICROS;
         bool m_log_threadnames = DEFAULT_LOGTHREADNAMES;
+        bool m_log_sourcelocations = DEFAULT_LOGSOURCELOCATIONS;
 
         /** Send a string to the log output */
-        void LogPrintStr(const std::string &str);
+        void LogPrintStr(const std::string &str, const SourceLocation& source_loc);
 
         /** Returns whether logs will be written to any output */
         virtual bool Enabled() const { return m_print_to_console; }
@@ -154,7 +175,7 @@ template<typename T, typename... Args> static inline void MarkUsed(const T& t, c
             /* Original format string will have newline so don't add one here */ \
             _log_msg_ = "Error \"" + std::string(fmterr.what()) + "\" while formatting log message: " + FormatStringFromLogArgs(__VA_ARGS__); \
         } \
-        LogInstance().LogPrintStr(_log_msg_); \
+        LogInstance().LogPrintStr(_log_msg_, SourceLocation{__func__}); \
     } \
 } while(0)
 
