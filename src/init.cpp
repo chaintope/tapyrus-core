@@ -468,6 +468,8 @@ void SetupServerArgs()
     gArgs.AddArg("-debugexclude=<category>", strprintf("Exclude debugging information for a category. Can be used in conjunction with -debug=1 to output debug logs for all categories except one or more specified categories."), false, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-help-debug", "Show all debugging options (usage: --help -help-debug)", false, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-logips", strprintf("Include IP addresses in debug output (default: %u)", DEFAULT_LOGIPS), false, OptionsCategory::DEBUG_TEST);
+    gArgs.AddArg("-loglevel=<level>|<category>:<level>", strprintf("Set the global or per-category severity level for logging categories enabled with the -debug configuration option or the logging RPC. Possible values are %s (default=%s). The following levels are always logged: error, warning, info. If <category>:<level> is supplied, the setting will override the global one and may be specified multiple times to set multiple category-specific levels. <category> can be: %s.", BCLog::Logger::LogLevelsString(), BCLog::Logger::LogLevelToStr(BCLog::DEFAULT_LOG_LEVEL), ListLogCategories()), true, OptionsCategory::DEBUG_TEST);
+    gArgs.AddArg("-loglevelalways", strprintf("Always prepend a category and level (default: %u)", DEFAULT_LOGLEVELALWAYS), false, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-logsourcelocations", strprintf("Prepend debug output with name of the originating source location (source file, line number and function name) (default: %u)", DEFAULT_LOGSOURCELOCATIONS), false, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-logthreadnames", strprintf("Prepend debug output with name of the originating thread (default: %u)", DEFAULT_LOGTHREADNAMES), false, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-logtimestamps", strprintf("Prepend debug output with timestamp (default: %u)", DEFAULT_LOGTIMESTAMPS), false, OptionsCategory::DEBUG_TEST);
@@ -870,6 +872,7 @@ void InitLogging()
     LogInstance().m_log_time_micros = gArgs.GetBoolArg("-logtimemicros", DEFAULT_LOGTIMEMICROS);
     LogInstance().m_log_threadnames = gArgs.GetBoolArg("-logthreadnames", DEFAULT_LOGTHREADNAMES);
     LogInstance().m_log_sourcelocations = gArgs.GetBoolArg("-logsourcelocations", DEFAULT_LOGSOURCELOCATIONS);
+    LogInstance().m_always_print_category_level = gArgs.GetBoolArg("-loglevelalways", DEFAULT_LOGLEVELALWAYS);
 
     fLogIPs = gArgs.GetBoolArg("-logips", DEFAULT_LOGIPS);
 
@@ -1012,6 +1015,18 @@ bool AppInitParameterInteraction()
     for (const std::string& cat : gArgs.GetArgs("-debugexclude")) {
         if (!LogInstance().DisableCategory(cat)) {
             InitWarning(strprintf(_("Unsupported logging category %s=%s."), "-debugexclude", cat));
+        }
+    }
+
+    // A level alone sets the global level; <category>:<level> sets that category's.
+    for (const std::string& level_str : gArgs.GetArgs("-loglevel")) {
+        const auto colon{level_str.find(':')};
+        if (colon == std::string::npos) {
+            if (!LogInstance().SetLogLevel(level_str)) {
+                InitWarning(strprintf(_("Unsupported global logging level %s=%s. Valid values: %s."), "-loglevel", level_str, BCLog::Logger::LogLevelsString()));
+            }
+        } else if (!LogInstance().SetCategoryLogLevel(level_str.substr(0, colon), level_str.substr(colon + 1))) {
+            InitWarning(strprintf(_("Unsupported category-specific logging level %s=%s. Expected %s=<category>:<loglevel>. Valid categories: %s. Valid loglevels: %s."), "-loglevel", level_str, "-loglevel", ListLogCategories(), BCLog::Logger::LogLevelsString()));
         }
     }
 

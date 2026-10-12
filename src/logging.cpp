@@ -7,6 +7,9 @@
 #include <threadnames.h>
 #include <utiltime.h>
 
+#include <cassert>
+#include <optional>
+
 const char * const DEFAULT_DEBUGLOGFILE = "debug.log";
 
 static std::atomic<BCLog::Logger*>& LogInstancePtr()
@@ -73,6 +76,19 @@ bool BCLog::Logger::DisableCategory(const std::string& str)
 bool BCLog::Logger::WillLogCategory(BCLog::LogFlags category) const
 {
     return (m_categories.load(std::memory_order_relaxed) & category) != 0;
+}
+
+bool BCLog::Logger::WillLogCategoryLevel(BCLog::LogFlags category, BCLog::Level level) const
+{
+    // Log messages at Info, Warning and Error level unconditionally, so that
+    // important troubleshooting information doesn't get lost.
+    if (level >= BCLog::Level::Info) return true;
+
+    if (!WillLogCategory(category)) return false;
+
+    std::lock_guard<std::mutex> lock(m_cs);
+    const auto it{m_category_log_levels.find(category)};
+    return level >= (it == m_category_log_levels.end() ? LogLevel() : it->second);
 }
 
 struct CLogCategoryDesc
@@ -155,33 +171,86 @@ std::vector<CLogCategoryActive> ListActiveLogCategories()
     return ret;
 }
 
-std::string BCLog::Logger::LogTimestampStr(const std::string &str)
+static std::string LogCategoryToStr(BCLog::LogFlags category)
 {
-    std::string strStamped;
+    if (category == BCLog::ALL) return "all";
+    for (const CLogCategoryDesc& category_desc : LogCategories) {
+        if (category_desc.flag == category) return category_desc.category;
+    }
+    return "unknown";
+}
 
-    if (!m_log_timestamps)
-        return str;
+static std::optional<BCLog::Level> GetLogLevel(std::string_view level_str)
+{
+    if (level_str == "trace") return BCLog::Level::Trace;
+    if (level_str == "debug") return BCLog::Level::Debug;
+    if (level_str == "info") return BCLog::Level::Info;
+    if (level_str == "warning") return BCLog::Level::Warning;
+    if (level_str == "error") return BCLog::Level::Error;
+    return std::nullopt;
+}
 
-    if (m_started_new_line) {
-        int64_t nTimeMicros = GetTimeMicros();
-        strStamped = FormatISO8601DateTime(nTimeMicros/1000000);
-        if (m_log_time_micros) {
-            strStamped.pop_back();
-            strStamped += strprintf(".%06dZ", nTimeMicros%1000000);
-        }
-        int64_t mocktime = GetMockTime();
-        if (mocktime) {
-            strStamped += " (mocktime: " + FormatISO8601DateTime(mocktime) + ")";
-        }
-        strStamped += ' ' + str;
-    } else
-        strStamped = str;
+// Info and above are always logged, so the user only chooses among these.
+static constexpr BCLog::Level MAX_USER_SETABLE_SEVERITY_LEVEL{BCLog::Level::Info};
 
-    if (!str.empty() && str[str.size()-1] == '\n')
-        m_started_new_line = true;
-    else
-        m_started_new_line = false;
+std::string BCLog::Logger::LogLevelToStr(BCLog::Level level)
+{
+    switch (level) {
+    case BCLog::Level::Trace:
+        return "trace";
+    case BCLog::Level::Debug:
+        return "debug";
+    case BCLog::Level::Info:
+        return "info";
+    case BCLog::Level::Warning:
+        return "warning";
+    case BCLog::Level::Error:
+        return "error";
+    }
+    assert(false);
+}
 
+std::string BCLog::Logger::LogLevelsString()
+{
+    return LogLevelToStr(Level::Info) + ", " + LogLevelToStr(Level::Debug) + ", " + LogLevelToStr(Level::Trace);
+}
+
+bool BCLog::Logger::SetLogLevel(std::string_view level_str)
+{
+    const auto level{GetLogLevel(level_str)};
+    if (!level || *level > MAX_USER_SETABLE_SEVERITY_LEVEL) return false;
+    m_log_level = *level;
+    return true;
+}
+
+bool BCLog::Logger::SetCategoryLogLevel(const std::string& category_str, std::string_view level_str)
+{
+    BCLog::LogFlags flag;
+    if (!GetLogCategory(flag, category_str)) return false;
+
+    const auto level{GetLogLevel(level_str)};
+    if (!level || *level > MAX_USER_SETABLE_SEVERITY_LEVEL) return false;
+
+    std::lock_guard<std::mutex> lock(m_cs);
+    m_category_log_levels[flag] = *level;
+    return true;
+}
+
+std::string BCLog::Logger::LogTimestampStr() const
+{
+    if (!m_log_timestamps) return {};
+
+    int64_t nTimeMicros = GetTimeMicros();
+    std::string strStamped = FormatISO8601DateTime(nTimeMicros/1000000);
+    if (m_log_time_micros) {
+        strStamped.pop_back();
+        strStamped += strprintf(".%06dZ", nTimeMicros%1000000);
+    }
+    int64_t mocktime = GetMockTime();
+    if (mocktime) {
+        strStamped += " (mocktime: " + FormatISO8601DateTime(mocktime) + ")";
+    }
+    strStamped += ' ';
     return strStamped;
 }
 
@@ -199,6 +268,31 @@ std::string BCLog::LogEscapeMessage(std::string_view str)
     return ret;
 }
 
+std::string BCLog::Logger::GetLogPrefix(BCLog::LogFlags category, BCLog::Level level) const
+{
+    if (category == LogFlags::NONE) category = LogFlags::ALL;
+
+    const bool has_category{m_always_print_category_level || category != LogFlags::ALL};
+
+    // If there is no category, Info is implied
+    if (!has_category && level == Level::Info) return {};
+
+    std::string s{"["};
+    if (has_category) {
+        s += LogCategoryToStr(category);
+    }
+
+    // If there is a category, Debug is implied, so don't add the level
+    if (m_always_print_category_level || !has_category || level != Level::Debug) {
+        // Only add separator if we have a category
+        if (has_category) s += ":";
+        s += LogLevelToStr(level);
+    }
+
+    s += "] ";
+    return s;
+}
+
 std::string BCLog::Logger::LinePrefix(const SourceLocation& source_loc) const
 {
     std::string prefix;
@@ -214,16 +308,41 @@ std::string BCLog::Logger::LinePrefix(const SourceLocation& source_loc) const
     return prefix;
 }
 
-void BCLog::Logger::LogPrintStr(const std::string &str, const SourceLocation& source_loc)
+void BCLog::Logger::Output(const std::string& line)
 {
-    std::string line = LogEscapeMessage(str);
-    if (m_started_new_line) line.insert(0, LinePrefix(source_loc));
-    std::string strTimestamped = LogTimestampStr(line);
-
     if (m_print_to_console) {
         // print to console
-        fwrite(strTimestamped.data(), 1, strTimestamped.size(), stdout);
+        fwrite(line.data(), 1, line.size(), stdout);
         fflush(stdout);
     }
-    WriteLine(strTimestamped);
+    WriteLine(line);
+}
+
+void BCLog::Logger::LogPrintStr(std::string_view str, const SourceLocation& source_loc, BCLog::LogFlags category, BCLog::Level level)
+{
+    std::lock_guard<std::mutex> lock(m_cs);
+
+    std::string line = LogEscapeMessage(str);
+    if (!line.ends_with('\n')) line.push_back('\n');
+    line.insert(0, GetLogPrefix(category, level));
+    line.insert(0, LinePrefix(source_loc));
+    line.insert(0, LogTimestampStr());
+
+    Output(line);
+    m_started_new_line = true;
+}
+
+void BCLog::Logger::LogPrintLegacyStr(const std::string& str, const SourceLocation& source_loc)
+{
+    std::lock_guard<std::mutex> lock(m_cs);
+
+    std::string line = LogEscapeMessage(str);
+    if (m_started_new_line) {
+        line.insert(0, GetLogPrefix(LogFlags::ALL, Level::Info));
+        line.insert(0, LinePrefix(source_loc));
+        line.insert(0, LogTimestampStr());
+    }
+    m_started_new_line = !str.empty() && str.back() == '\n';
+
+    Output(line);
 }
