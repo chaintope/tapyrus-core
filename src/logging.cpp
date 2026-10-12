@@ -4,6 +4,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <logging.h>
+#include <threadnames.h>
 #include <utiltime.h>
 
 const char * const DEFAULT_DEBUGLOGFILE = "debug.log";
@@ -200,7 +201,12 @@ std::string BCLog::LogEscapeMessage(std::string_view str)
 
 void BCLog::Logger::LogPrintStr(const std::string &str)
 {
-    std::string strTimestamped = LogTimestampStr(LogEscapeMessage(str));
+    std::string line = LogEscapeMessage(str);
+    if (m_started_new_line && m_log_threadnames) {
+        const std::string threadname{ThreadGetInternalName()};
+        line.insert(0, strprintf("[%s] ", threadname.empty() ? "unknown" : threadname));
+    }
+    std::string strTimestamped = LogTimestampStr(line);
 
     if (m_print_to_console) {
         // print to console
