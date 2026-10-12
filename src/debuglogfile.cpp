@@ -14,26 +14,40 @@ static int FileWriteStr(const std::string &str, FILE *fp)
     return fwrite(str.data(), 1, str.size(), fp);
 }
 
+// Approximate memory a buffered line takes: its list node and the string's heap buffer.
+static size_t MemUsage(const std::string& line)
+{
+    return sizeof(std::string) + 2 * sizeof(void*) + line.capacity();
+}
+
 bool DebugLogFile::Open()
 {
-    std::lock_guard<std::mutex> scoped_lock(m_file_mutex);
+    size_t lines_discarded;
+    {
+        std::lock_guard<std::mutex> scoped_lock(m_file_mutex);
 
-    assert(m_fileout == nullptr);
-    assert(!m_file_path.empty());
+        assert(m_fileout == nullptr);
+        assert(!m_file_path.empty());
 
-    const char* mode = fs::exists(m_file_path) && fs::is_regular_file(m_file_path) ? "a" : "w";
-    m_fileout = fsbridge::fopen(m_file_path, mode);
-    if (!m_fileout) {
-        return false;
+        const char* mode = fs::exists(m_file_path) && fs::is_regular_file(m_file_path) ? "a" : "w";
+        m_fileout = fsbridge::fopen(m_file_path, mode);
+        if (!m_fileout) {
+            return false;
+        }
+
+        setbuf(m_fileout, nullptr); // unbuffered
+        // dump buffered messages from before we opened the log
+        while (!m_msgs_before_open.empty()) {
+            FileWriteStr(m_msgs_before_open.front(), m_fileout);
+            m_msgs_before_open.pop_front();
+        }
+        m_cur_buffer_memusage = 0;
+        lines_discarded = m_buffer_lines_discarded;
     }
 
-    setbuf(m_fileout, nullptr); // unbuffered
-    // dump buffered messages from before we opened the log
-    while (!m_msgs_before_open.empty()) {
-        FileWriteStr(m_msgs_before_open.front(), m_fileout);
-        m_msgs_before_open.pop_front();
+    if (lines_discarded > 0) {
+        LogPrintStr(strprintf("Early logging buffer overflowed, %d log lines discarded.\n", lines_discarded));
     }
-
     return true;
 }
 
@@ -41,9 +55,15 @@ void DebugLogFile::WriteLine(const std::string& line)
 {
     std::lock_guard<std::mutex> scoped_lock(m_file_mutex);
 
-    // buffer if we haven't opened the log yet
+    // buffer if we haven't opened the log yet, dropping the oldest lines past the limit
     if (m_fileout == nullptr) {
         m_msgs_before_open.push_back(line);
+        m_cur_buffer_memusage += MemUsage(m_msgs_before_open.back());
+        while (m_cur_buffer_memusage > m_max_buffer_memusage && !m_msgs_before_open.empty()) {
+            m_cur_buffer_memusage -= MemUsage(m_msgs_before_open.front());
+            m_msgs_before_open.pop_front();
+            ++m_buffer_lines_discarded;
+        }
         return;
     }
 

@@ -18,8 +18,8 @@
 
 /**
  * The logger tapyrusd and tapyrus-qt install at start-up: the base logger
- * plus debug.log. Lines logged before Open() are buffered and written once
- * the file is open.
+ * plus debug.log. Lines logged before Open() are buffered, up to a memory
+ * limit, and written once the file is open.
  */
 class DebugLogFile : public BCLog::Logger
 {
@@ -27,6 +27,9 @@ private:
     FILE* m_fileout = nullptr;
     std::mutex m_file_mutex;
     std::list<std::string> m_msgs_before_open;
+    const size_t m_max_buffer_memusage;
+    size_t m_cur_buffer_memusage{0};
+    size_t m_buffer_lines_discarded{0};
     std::atomic<bool> m_reopen_file{false};
 
 protected:
@@ -35,11 +38,12 @@ protected:
 public:
     const fs::path m_file_path;
 
-    explicit DebugLogFile(const fs::path& file_path) : m_file_path(file_path) {}
+    explicit DebugLogFile(const fs::path& file_path, size_t max_buffer_memusage = BCLog::DEFAULT_MAX_LOG_BUFFER)
+        : m_max_buffer_memusage(max_buffer_memusage), m_file_path(file_path) {}
 
     bool Enabled() const override { return true; }
 
-    /** Open debug.log and write the buffered lines. */
+    /** Open debug.log and write the buffered lines; logs how many were dropped, if any. */
     bool Open();
 
     /** Trim debug.log to its most recent part if it has grown too large. */
