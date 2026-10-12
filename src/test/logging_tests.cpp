@@ -46,6 +46,52 @@ BOOST_AUTO_TEST_CASE(logging_escape_message)
     BOOST_CHECK_EQUAL(BCLog::LogEscapeMessage("\xc3\xa5"), "\xc3\xa5");
 }
 
+BOOST_AUTO_TEST_CASE(logging_prefixes)
+{
+    CaptureLogger logger;
+    const SourceLocation loc{__func__};
+    logger.LogPrintStr("msg", loc, BCLog::NET, BCLog::Level::Debug);
+    logger.LogPrintStr("msg", loc, BCLog::NET, BCLog::Level::Info);
+    logger.LogPrintStr("msg", loc, BCLog::ALL, BCLog::Level::Info);
+    logger.LogPrintStr("msg", loc, BCLog::ALL, BCLog::Level::Warning);
+    logger.LogPrintStr("msg\n", loc, BCLog::ALL, BCLog::Level::Error);
+    logger.LogPrintStr("a\rb", loc, BCLog::ALL, BCLog::Level::Info);
+    logger.m_always_print_category_level = true;
+    logger.LogPrintStr("msg", loc, BCLog::NET, BCLog::Level::Debug);
+    logger.LogPrintStr("msg", loc, BCLog::ALL, BCLog::Level::Info);
+
+    const std::vector<std::string> expected{
+        "[net] msg\n",
+        "[net:info] msg\n",
+        "msg\n",
+        "[warning] msg\n",
+        "[error] msg\n",
+        "a\\x0db\n",
+        "[net:debug] msg\n",
+        "[all:info] msg\n",
+    };
+    BOOST_CHECK_EQUAL_COLLECTIONS(logger.m_lines.begin(), logger.m_lines.end(), expected.begin(), expected.end());
+}
+
+BOOST_AUTO_TEST_CASE(logging_legacy_output_unchanged)
+{
+    // LogPrintf output keeps the old format: no prefix, no added newline, and a
+    // line built from several calls is timestamped once.
+    CaptureLogger logger;
+    logger.m_log_timestamps = true;
+    const SourceLocation loc{__func__};
+    logger.LogPrintLegacyStr("first ", loc);
+    logger.LogPrintLegacyStr("second\n", loc);
+    logger.LogPrintLegacyStr("third\n", loc);
+
+    // Each new line starts with the timestamp (mocktime may add to it) and nothing else.
+    BOOST_REQUIRE_EQUAL(logger.m_lines.size(), 3U);
+    BOOST_CHECK(logger.m_lines[0].ends_with(" first ") && logger.m_lines[0] != " first ");
+    BOOST_CHECK_EQUAL(logger.m_lines[1], "second\n");
+    BOOST_CHECK(logger.m_lines[2].ends_with(" third\n") && logger.m_lines[2] != " third\n");
+    BOOST_CHECK(logger.m_lines[2].find('[') == std::string::npos);
+}
+
 BOOST_AUTO_TEST_CASE(logging_thread_and_source_location)
 {
     CaptureLogger logger;
@@ -54,7 +100,7 @@ BOOST_AUTO_TEST_CASE(logging_thread_and_source_location)
 
     std::thread thread([&] {
         ThreadSetInternalName("logtest");
-        logger.LogPrintStr("msg\n", SourceLocation{__func__});
+        logger.LogPrintStr("msg", SourceLocation{__func__}, BCLog::ALL, BCLog::Level::Info);
     });
     thread.join();
 
@@ -81,6 +127,38 @@ BOOST_AUTO_TEST_CASE(logging_thread_names)
     BOOST_CHECK_EQUAL(unnamed, "");
 }
 
+BOOST_AUTO_TEST_CASE(logging_levels)
+{
+    CaptureLogger logger;
+    logger.EnableCategory(BCLog::NET);
+
+    // Info and above are always logged, whatever the category.
+    BOOST_CHECK(logger.WillLogCategoryLevel(BCLog::MEMPOOL, BCLog::Level::Info));
+    BOOST_CHECK(logger.WillLogCategoryLevel(BCLog::MEMPOOL, BCLog::Level::Error));
+    BOOST_CHECK(!logger.WillLogCategoryLevel(BCLog::MEMPOOL, BCLog::Level::Debug));
+
+    // The default level is Debug.
+    BOOST_CHECK(logger.WillLogCategoryLevel(BCLog::NET, BCLog::Level::Debug));
+    BOOST_CHECK(!logger.WillLogCategoryLevel(BCLog::NET, BCLog::Level::Trace));
+
+    BOOST_CHECK(logger.SetLogLevel("trace"));
+    BOOST_CHECK(logger.WillLogCategoryLevel(BCLog::NET, BCLog::Level::Trace));
+
+    // Only info, debug and trace can be chosen.
+    BOOST_CHECK(!logger.SetLogLevel("warning"));
+    BOOST_CHECK(!logger.SetLogLevel("bogus"));
+    BOOST_CHECK(logger.LogLevel() == BCLog::Level::Trace);
+
+    // A category level overrides the global one.
+    BOOST_CHECK(logger.SetCategoryLogLevel("net", "info"));
+    BOOST_CHECK(!logger.WillLogCategoryLevel(BCLog::NET, BCLog::Level::Debug));
+    BOOST_CHECK(logger.WillLogCategoryLevel(BCLog::NET, BCLog::Level::Info));
+    BOOST_CHECK(!logger.SetCategoryLogLevel("bogus", "info"));
+    BOOST_CHECK(!logger.SetCategoryLogLevel("net", "error"));
+
+    BOOST_CHECK_EQUAL(BCLog::Logger::LogLevelsString(), "info, debug, trace");
+}
+
 BOOST_AUTO_TEST_CASE(debug_log_file_early_buffer_limit)
 {
     const fs::path path{fs::temp_directory_path() / strprintf("tapyrus_logging_test_%d.log", GetTime())};
@@ -90,7 +168,7 @@ BOOST_AUTO_TEST_CASE(debug_log_file_early_buffer_limit)
         log_file.m_log_timestamps = false;
         const int lines{10};
         for (int i = 0; i < lines; ++i) {
-            log_file.LogPrintStr(strprintf("line %d %s\n", i, std::string(80, 'x')), SourceLocation{__func__});
+            log_file.LogPrintStr(strprintf("line %d %s", i, std::string(80, 'x')), SourceLocation{__func__}, BCLog::ALL, BCLog::Level::Info);
         }
         BOOST_REQUIRE(log_file.Open());
     }
