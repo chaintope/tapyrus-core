@@ -18,6 +18,7 @@
 #include <util.h>
 #include <httpserver.h>
 #include <httprpc.h>
+#include <threadnames.h>
 #include <utilstrencodings.h>
 #include <walletinitinterface.h>
 
@@ -186,6 +187,7 @@ static bool AppInit(int argc, char* argv[])
 
 int main(int argc, char* argv[])
 {
+    ThreadSetInternalName("init");
     SetupEnvironment();
 
     // Connect tapyrusd signal handlers

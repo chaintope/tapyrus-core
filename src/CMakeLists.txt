@@ -186,6 +186,7 @@ add_library(tapyrus_util STATIC EXCLUDE_FROM_ALL
         support/lockedpool.cpp
         sync.cpp
         threadinterrupt.cpp
+        threadnames.cpp
         ui_interface.cpp
         util.cpp
         utilargs.cpp

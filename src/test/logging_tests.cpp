@@ -6,12 +6,32 @@
 #include <debuglogfile.h>
 #include <logging.h>
 #include <test/test_tapyrus.h>
+#include <threadnames.h>
+#include <util.h>
 
 #include <fstream>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <boost/test/unit_test.hpp>
+
+namespace {
+
+//! A logger that keeps the lines it would write to a file.
+class CaptureLogger : public BCLog::Logger
+{
+public:
+    std::vector<std::string> m_lines;
+
+    CaptureLogger() { m_log_timestamps = false; }
+    bool Enabled() const override { return true; }
+
+protected:
+    void WriteLine(const std::string& line) override { m_lines.push_back(line); }
+};
+
+} // namespace
 
 BOOST_FIXTURE_TEST_SUITE(logging_tests, BasicTestingSetup)
 
@@ -24,6 +44,37 @@ BOOST_AUTO_TEST_CASE(logging_escape_message)
     BOOST_CHECK_EQUAL(BCLog::LogEscapeMessage("\x1b[31mred"), "\\x1b[31mred");
     // UTF-8 is not a control sequence and is kept as is.
     BOOST_CHECK_EQUAL(BCLog::LogEscapeMessage("\xc3\xa5"), "\xc3\xa5");
+}
+
+BOOST_AUTO_TEST_CASE(logging_thread_name_prefix)
+{
+    CaptureLogger logger;
+    logger.m_log_threadnames = true;
+
+    std::thread thread([&] {
+        ThreadSetInternalName("logtest");
+        logger.LogPrintStr("msg\n");
+    });
+    thread.join();
+
+    BOOST_REQUIRE_EQUAL(logger.m_lines.size(), 1U);
+    BOOST_CHECK_EQUAL(logger.m_lines[0], "[logtest] msg\n");
+}
+
+BOOST_AUTO_TEST_CASE(logging_thread_names)
+{
+    std::string internal_name;
+    std::thread thread([&] {
+        RenameThread("tapyrus-logtest");
+        internal_name = ThreadGetInternalName();
+    });
+    thread.join();
+    BOOST_CHECK_EQUAL(internal_name, "tapyrus-logtest");
+
+    std::string unnamed{"not set"};
+    std::thread unnamed_thread([&] { unnamed = ThreadGetInternalName(); });
+    unnamed_thread.join();
+    BOOST_CHECK_EQUAL(unnamed, "");
 }
 
 BOOST_AUTO_TEST_CASE(debug_log_file_early_buffer_limit)
