@@ -25,6 +25,7 @@ add_test_to_suite(tapyrus-qt test-tapyrus-qt
 	# lives in tapyrus_util (see the comment on tapyrus_util's add_library()
 	# in the top-level src/CMakeLists.txt) -- tapyrus-qt's own copy isn't
 	# visible here since this is a separate executable target.
+	../../debuglogfile.cpp
 	../../genesisblock.cpp
 	../../init.cpp
 	../../interfaces/node.cpp

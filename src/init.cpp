@@ -12,6 +12,7 @@
 #include <amount.h>
 #include <chain.h>
 #include <chainparams.h>
+#include <debuglogfile.h>
 #include <checkpoints.h>
 #include <dynamicparams.h>
 #include <consensus/validation.h>
@@ -75,6 +76,9 @@ bool fFeeEstimatesInitialized = false;
 static const bool DEFAULT_PROXYRANDOMIZE = true;
 static const bool DEFAULT_REST_ENABLE = false;
 static const bool DEFAULT_STOPAFTERBLOCKIMPORT = false;
+
+// Set once by InitLogging(), before the signal handlers are installed; null with -nodebuglogfile.
+static DebugLogFile* g_debug_log_file = nullptr;
 
 std::unique_ptr<PeerLogicValidation> peerLogic;
 
@@ -307,7 +311,7 @@ static void HandleSIGTERM(int)
 
 static void HandleSIGHUP(int)
 {
-    LogInstance().m_reopen_file = true;
+    if (g_debug_log_file) g_debug_log_file->Reopen();
 }
 #else
 static BOOL WINAPI consoleCtrlHandler(DWORD dwCtrlType)
@@ -849,8 +853,10 @@ static std::string ResolveErrMsg(const char * const optname, const std::string& 
  */
 void InitLogging()
 {
-    LogInstance().m_print_to_file = !gArgs.IsArgNegated("-debuglogfile");
-    LogInstance().m_file_path = AbsPathForConfigVal(gArgs.GetArg("-debuglogfile", DEFAULT_DEBUGLOGFILE));
+    if (!gArgs.IsArgNegated("-debuglogfile")) {
+        g_debug_log_file = new DebugLogFile(AbsPathForConfigVal(gArgs.GetArg("-debuglogfile", DEFAULT_DEBUGLOGFILE)));
+        SetLogInstance(g_debug_log_file);
+    }
 
     // Add newlines to the logfile to distinguish this execution from the last
     // one; called before console logging is set up, so this is only sent to
@@ -1221,15 +1227,15 @@ bool AppInitMain()
 #ifndef WIN32
     CreatePidFile(GetPidFile(), getpid());
 #endif
-    if (LogInstance().m_print_to_file) {
-        if (gArgs.GetBoolArg("-shrinkdebugfile", LogInstance().DefaultShrinkDebugFile())) {
+    if (g_debug_log_file) {
+        if (gArgs.GetBoolArg("-shrinkdebugfile", g_debug_log_file->DefaultShrink())) {
             // Do this first since it both loads a bunch of debug.log into memory,
             // and because this needs to happen before any other debug.log printing
-            LogInstance().ShrinkDebugFile();
+            g_debug_log_file->Shrink();
         }
-        if (!LogInstance().OpenDebugLog()) {
+        if (!g_debug_log_file->Open()) {
             return InitError(strprintf("Could not open debug log file %s",
-                                       LogInstance().m_file_path.string()));
+                                       g_debug_log_file->m_file_path.string()));
         }
     }
 
