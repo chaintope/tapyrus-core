@@ -65,8 +65,9 @@ jobs:
           - name: feature_pruning
             script: 'feature_pruning.py'
           # Each dbcrash run loops until every node has crashed, with no time
-          # limit of its own, so the job's timeout is its only bound. One job
-          # per scheme, so a run that never gets there can't starve the other.
+          # limit of its own, so GitHub's 6h runner execution cap is its only
+          # bound. One job per scheme, so a run that never gets there can't
+          # starve the other.
           - name: feature_dbcrash
             script: 'feature_dbcrash.py'
           - name: feature_dbcrash_schnorr

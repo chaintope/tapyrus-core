@@ -38,8 +38,9 @@
   doing so.
 
 The script has no time limit: neither loop stops until it reaches coverage,
-so a run that never does runs until it is killed. In CI, the weekly
-workflow's per-scheme job time limit is the only bound."""
+so a run that never does runs until it is killed. In CI, GitHub's 6h
+runner execution cap on the weekly workflow's per-scheme job is the only
+bound."""
 
 import errno
 import http.client
