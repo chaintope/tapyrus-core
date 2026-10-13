@@ -397,8 +397,8 @@ void SetupServerArgs()
     gArgs.AddArg("-txindex", strprintf("Maintain a full transaction index, used by the getrawtransaction rpc call (default: %u)", DEFAULT_TXINDEX), false, OptionsCategory::OPTIONS);
 
     gArgs.AddArg("-addnode=<ip[:port]>", "Add a node to connect to and attempt to keep the connection open (see the `addnode` RPC command help for more info). Use [host]:port notation for IPv6 (e.g. [2001:db8::1]:8383). This option can be specified multiple times to add multiple nodes.", false, OptionsCategory::CONNECTION);
-    gArgs.AddArg("-banscore=<n>", strprintf("Threshold for disconnecting misbehaving peers (default: %u)", DEFAULT_BANSCORE_THRESHOLD), false, OptionsCategory::CONNECTION);
-    gArgs.AddArg("-bantime=<n>", strprintf("Number of seconds to keep misbehaving peers from reconnecting (default: %u)", DEFAULT_MISBEHAVING_BANTIME), false, OptionsCategory::CONNECTION);
+    gArgs.AddArg("-banscore=<n>", strprintf("Threshold for disconnecting and discouraging misbehaving peers (default: %u)", DEFAULT_BANSCORE_THRESHOLD), false, OptionsCategory::CONNECTION);
+    gArgs.AddArg("-bantime=<n>", strprintf("Default duration (in seconds) of manually configured bans (default: %u)", DEFAULT_BANTIME), false, OptionsCategory::CONNECTION);
     gArgs.AddArg("-bind=<addr>", "Bind to given address and always listen on it. Use [host]:port notation for IPv6", false, OptionsCategory::CONNECTION);
     gArgs.AddArg("-connect=<ip[:port]>", "Connect only to the specified node; -noconnect disables automatic connections (the rules for this peer are the same as for -addnode). Use [host]:port notation for IPv6 (e.g. [2001:db8::1]:8383). This option can be specified multiple times to connect to multiple nodes.", false, OptionsCategory::CONNECTION);
     gArgs.AddArg("-discover", "Discover own IP addresses (default: 1 when listening and no -externalip or -proxy)", false, OptionsCategory::CONNECTION);

@@ -138,7 +138,7 @@ class AddrTest(BitcoinTestFramework):
         msg = self.setup_addr_msg(1010)
         for i in range(0,11):
             addr_source.send_message(msg)
-            self.nodes[0].assert_debug_log(['Warning: not banning local peer'])
+            self.nodes[0].assert_debug_log(['Warning: disconnecting but not discouraging local peer'])
 
         self.nodes[0].disconnect_p2ps()
 

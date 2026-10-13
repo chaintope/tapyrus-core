@@ -87,7 +87,7 @@ static const size_t DEFAULT_MAXRECEIVEBUFFER = 5 * 1000;
 static const size_t DEFAULT_MAXSENDBUFFER    = 1 * 1000;
 
 // NOTE: When adjusting this, update rpcnet:setban's help ("24h")
-static const unsigned int DEFAULT_MISBEHAVING_BANTIME = 60 * 60 * 24;  // Default 24-hour ban
+static const unsigned int DEFAULT_BANTIME = 60 * 60 * 24;  // Default 24-hour ban
 
 typedef int64_t NodeId;
 
@@ -235,25 +235,24 @@ public:
     void AddNewAddresses(const std::vector<CAddress>& vAddr, const CAddress& addrFrom, int64_t nTimePenalty = 0);
     std::vector<CAddress> GetAddresses();
 
-    // Denial-of-service detection/prevention
-    // The idea is to detect peers that are behaving
-    // badly and disconnect/ban them, but do it in a
-    // one-coding-mistake-won't-shatter-the-entire-network
-    // way.
-    // IMPORTANT:  There should be nothing I can give a
-    // node that it will forward on that will make that
-    // node's peers drop it. If there is, an attacker
-    // can isolate a node and/or try to split the network.
-    // Dropping a node for sending stuff that is invalid
-    // now but might be valid in a later version is also
-    // dangerous, because it can cause a network split
-    // between nodes running old code and nodes running
-    // new code.
+    // Banning is set manually (setban RPC): a banned address or subnet never
+    // connects in either direction, and bans are saved to banlist.dat.
+    // Discouragement marks a misbehaving peer's address (see Misbehaving() in
+    // net_processing.cpp): it may still connect inbound while slots are free,
+    // is evicted first, and gets no outbound connection. Discouraged addresses
+    // live in a fixed-size rolling filter, so they cannot grow without bound;
+    // they are not saved, listed or removable.
+    // Neither stops a determined attacker, who can reconnect from another
+    // address. Disconnecting a peer for data that a later version may accept
+    // can split the network, so punish only what is invalid for good.
     void Ban(const CNetAddr& netAddr, const BanReason& reason, int64_t bantimeoffset = 0, bool sinceUnixEpoch = false);
     void Ban(const CSubNet& subNet, const BanReason& reason, int64_t bantimeoffset = 0, bool sinceUnixEpoch = false);
-    void ClearBanned(); // needed for unit testing
+    // Clears the ban list only (clearbanned RPC); discouraged addresses are not removable.
+    void ClearBanned();
     bool IsBanned(CNetAddr ip);
     bool IsBanned(CSubNet subnet);
+    void Discourage(const CNetAddr& ip);
+    bool IsDiscouraged(const CNetAddr& ip);
     bool Unban(const CNetAddr &ip);
     bool Unban(const CSubNet &ip);
     void GetBanned(banmap_t &banmap);
@@ -399,6 +398,7 @@ private:
     std::atomic<bool> fNetworkActive;
     banmap_t setBanned;
     RecursiveMutex cs_setBanned;
+    CRollingBloomFilter m_discouraged GUARDED_BY(cs_setBanned){50000, 0.000001};
     bool setBannedIsDirty;
     bool fAddressesInitialized;
     CAddrMan addrman;
@@ -658,6 +658,7 @@ public:
     std::string strSubVer, cleanSubVer;
     Mutex cs_SubVer; // used for both cleanSubVer and strSubVer
     bool fWhitelisted; // This peer can bypass DoS banning.
+    bool m_prefer_evict{false}; // This peer is preferred for eviction.
     bool fFeeler; // If true this node is being used as a short lived feeler.
     bool fOneShot;
     bool m_manual_connection;

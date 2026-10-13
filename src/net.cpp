@@ -544,6 +544,18 @@ bool CConnman::IsBanned(CSubNet subnet)
     return false;
 }
 
+void CConnman::Discourage(const CNetAddr& ip)
+{
+    LOCK(cs_setBanned);
+    m_discouraged.insert(ip.GetAddrBytes());
+}
+
+bool CConnman::IsDiscouraged(const CNetAddr& ip)
+{
+    LOCK(cs_setBanned);
+    return m_discouraged.contains(ip.GetAddrBytes());
+}
+
 void CConnman::Ban(const CNetAddr& addr, const BanReason &banReason, int64_t bantimeoffset, bool sinceUnixEpoch) {
     CSubNet subNet(addr);
     Ban(subNet, banReason, bantimeoffset, sinceUnixEpoch);
@@ -554,7 +566,7 @@ void CConnman::Ban(const CSubNet& subNet, const BanReason &banReason, int64_t ba
     banEntry.banReason = banReason;
     if (bantimeoffset <= 0)
     {
-        bantimeoffset = gArgs.GetArg("-bantime", DEFAULT_MISBEHAVING_BANTIME);
+        bantimeoffset = gArgs.GetArg("-bantime", DEFAULT_BANTIME);
         sinceUnixEpoch = false;
     }
     const int64_t banBase = sinceUnixEpoch ? 0 : GetTime();
@@ -952,6 +964,7 @@ struct NodeEvictionCandidate
     bool fBloomFilter;
     CAddress addr;
     uint64_t nKeyedNetGroup;
+    bool prefer_evict;
 };
 
 static bool ReverseCompareNodeMinPingTime(const NodeEvictionCandidate &a, const NodeEvictionCandidate &b)
@@ -1019,7 +1032,8 @@ bool CConnman::AttemptToEvictConnection()
             NodeEvictionCandidate candidate = {node->GetId(), node->nTimeConnected, node->nMinPingUsecTime,
                                                node->nLastBlockTime, node->nLastTXTime,
                                                HasAllDesirableServiceFlags(node->nServices),
-                                               node->fRelayTxes, node->pfilter != nullptr, node->addr, node->nKeyedNetGroup};
+                                               node->fRelayTxes, node->pfilter != nullptr, node->addr, node->nKeyedNetGroup,
+                                               node->m_prefer_evict};
             vEvictionCandidates.push_back(candidate);
         }
     }
@@ -1043,6 +1057,15 @@ bool CConnman::AttemptToEvictConnection()
     EraseLastKElements(vEvictionCandidates, ReverseCompareNodeTimeConnected, vEvictionCandidates.size() / 2);
 
     if (vEvictionCandidates.empty()) return false;
+
+    // If any remaining peers are preferred for eviction, consider only them.
+    // This comes after the protections above, so a peer that is best by
+    // another measure (especially relaying blocks) is still kept.
+    if (std::any_of(vEvictionCandidates.begin(), vEvictionCandidates.end(), [](const NodeEvictionCandidate& n) { return n.prefer_evict; })) {
+        vEvictionCandidates.erase(std::remove_if(vEvictionCandidates.begin(), vEvictionCandidates.end(),
+                                                 [](const NodeEvictionCandidate& n) { return !n.prefer_evict; }),
+                                  vEvictionCandidates.end());
+    }
 
     // Identify the network group with the most connections and youngest member.
     // (vEvictionCandidates is already sorted by reverse connect time)
@@ -1131,6 +1154,15 @@ void CConnman::AcceptConnection(const ListenSocket& hListenSocket) {
         return;
     }
 
+    // Accept a discouraged peer only while inbound slots are not (almost) full.
+    const bool discouraged = IsDiscouraged(addr);
+    if (discouraged && !whitelisted && nInbound + 1 >= nMaxInbound)
+    {
+        LogPrint(BCLog::NET, "connection from %s dropped (discouraged)\n", addr.ToString());
+        CloseSocket(hSocket);
+        return;
+    }
+
     if (nInbound >= nMaxInbound)
     {
         if (!AttemptToEvictConnection()) {
@@ -1148,6 +1180,9 @@ void CConnman::AcceptConnection(const ListenSocket& hListenSocket) {
     CNode* pnode = new CNode(id, nLocalServices, GetBestHeight(), hSocket, addr, CalculateKeyedNetGroup(addr), nonce, addr_bind, "", true);
     pnode->AddRef();
     pnode->fWhitelisted = whitelisted;
+    // Set only here: a peer discouraged later in its session is disconnected
+    // at that point, so there is no live connection left to mark.
+    pnode->m_prefer_evict = discouraged;
     m_msgproc->InitializeNode(pnode);
 
     LogPrint(BCLog::NET, "connection from %s accepted\n", addr.ToString());
@@ -1999,7 +2034,7 @@ void CConnman::OpenNetworkConnection(const CAddress& addrConnect, bool fCountFai
     }
     if (!pszDest) {
         if (IsLocal(addrConnect) ||
-            FindNode(static_cast<CNetAddr>(addrConnect)) || IsBanned(addrConnect) ||
+            FindNode(static_cast<CNetAddr>(addrConnect)) || IsBanned(addrConnect) || IsDiscouraged(addrConnect) ||
             FindNode(addrConnect.ToStringIPPort()))
             return;
     } else if (FindNode(std::string(pszDest)))
