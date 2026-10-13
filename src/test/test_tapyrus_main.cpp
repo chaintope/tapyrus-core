@@ -6,11 +6,8 @@
 #define BOOST_TEST_MODULE Tapyrus Test Suite
 
 #include <boost/test/included/unit_test.hpp>
-#include <net.h>
 
-#include <memory>
-
-std::unique_ptr<CConnman> g_connman;
+#include <cstdlib>
 
 [[noreturn]] void Shutdown()
 {

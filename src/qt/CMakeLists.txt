@@ -179,12 +179,10 @@ set_property(SOURCE
   walletmodel.cpp
   walletview.cpp
   sendcoinsdialog.cpp
-  # These four are tapyrus-qt's own glue sources (see target_sources(tapyrus-qt ...)
-  # below) -- same ui_interface.h collision, just living in src/ instead of src/qt/.
+  # tapyrus-qt's own sources from src/ (see target_sources(tapyrus-qt ...)
+  # below) -- same ui_interface.h collision.
   ../init.cpp
   ../interfaces/node.cpp
-  ../timeoffsets.cpp
-  ../ui_interface.cpp
   PROPERTY SKIP_AUTOUIC ON
 )
 
@@ -283,8 +281,7 @@ if(WIN32)
 endif()
 add_windows_resources(tapyrus-qt "${TAPYRUS_QT_RC_FILE}")
 
-# Glue -- see the six-glue-files comment on tapyrusd's add_executable() in
-# the top-level src/CMakeLists.txt. noui.cpp is deliberately excluded: it
+# Start-up glue, as for tapyrusd. noui.cpp is deliberately excluded: it
 # wires console message-box/notification handlers onto the global
 # uiInterface, which would fight with the Qt handlers tapyrusgui.cpp/
 # tapyrus.cpp register on that same interface.
@@ -293,12 +290,8 @@ add_windows_resources(tapyrus-qt "${TAPYRUS_QT_RC_FILE}")
 # comment on tapyrus_util's add_library() in the top-level src/CMakeLists.txt
 # for why -- since tapyrus-qt is the only consumer of interfaces/node.h.
 target_sources(tapyrus-qt PRIVATE
-  ../file_io.cpp
   ../init.cpp
   ../interfaces/node.cpp
-  ../shutdown.cpp
-  ../timeoffsets.cpp
-  ../ui_interface.cpp
 )
 
 if(ENABLE_WALLET)

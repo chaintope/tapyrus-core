@@ -18,15 +18,7 @@
 // ParsePsttInputEntries/decodepstt, none of it ever executed by these
 // harnesses. Defining the three functions here breaks that chain without
 // needing tapyrus_wallet, tapyrus_zmq, or their init-time glue at all.
-//
-// g_connman is different: its storage normally lives in init.cpp (daemon
-// glue, never compiled into a library), needed here only because
-// sendrawtransaction (another never-called sibling) references it directly.
-// CConnman's real destructor (tapyrus_peer, linked for real by this fuzz
-// target for other reasons -- see the CMakeLists.txt comment) handles it
-// correctly; this just supplies the missing global.
 
-#include <net.h>
 #include <univalue.h>
 #include <wallet/rpcwallet.h>
 
@@ -38,5 +30,3 @@ UniValue signrawtransactionwithwallet(const JSONRPCRequest&)
 {
     throw std::runtime_error("unreachable: fuzz-only stub, never invoked by the harness");
 }
-
-std::unique_ptr<CConnman> g_connman;

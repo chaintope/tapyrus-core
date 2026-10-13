@@ -4,7 +4,6 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <addrman.h>
 #include <validation.h>
 #include <cs_main.h>
 #include <issuedcolorids.h>
@@ -38,7 +37,6 @@
 #include <thread>
 #include <sstream>
 
-#include <core_io.h>
 #include <file_io.h>
 #include <blockprune.h>
 

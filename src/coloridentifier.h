@@ -10,45 +10,14 @@
 #include <amount.h>
 #include <pubkey.h>
 #include <utilstrencodings.h>
-#include <primitives/transaction.h>
+#include <primitives/outpoint.h>
+#include <script/script.h>
+#include <tokentypes.h>
 
 extern const std::string CURRENCY_UNIT;
 
 // Size of color identifier data in bytes
 static const unsigned int COLOR_IDENTIFIER_SIZE = 33;
-
-enum class TokenTypes : uint8_t
-{
-    NONE = 0x00, //TPC
-    REISSUABLE = 0xc1,
-    NON_REISSUABLE = 0xc2,
-    NFT = 0xc3,
-    TOKENTYPE_MAX = NFT
-};
-
-inline uint8_t TokenToUint(TokenTypes t)
-{
-    switch(t)
-    {
-        case TokenTypes::NONE: return 0x00;
-        case TokenTypes::REISSUABLE: return 0xc1;
-        case TokenTypes::NON_REISSUABLE: return 0xc2;
-        case TokenTypes::NFT: return 0xc3;
-        default: return 0x00;
-    }
-}
-
-inline TokenTypes UintToToken(uint8_t t)
-{
-    switch(t)
-    {
-        case 0x00: return TokenTypes::NONE;
-        case 0xc1: return TokenTypes::REISSUABLE;
-        case 0xc2: return TokenTypes::NON_REISSUABLE;
-        case 0xc3: return TokenTypes::NFT;
-        default: return TokenTypes::NONE;
-    }
-}
 
 struct ColorIdentifier
 {

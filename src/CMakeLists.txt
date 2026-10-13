@@ -60,13 +60,13 @@
 #   tapyrus_wallet      -- tapyrus_chainstate, tapyrus_peer, tapyrus_codec, tapyrus_scripting,
 #                          tapyrus_global, tapyrus_util
 #   tapyrus_peer        -- tapyrus_chainstate, tapyrus_netbase, tapyrus_scripting, tapyrus_util
-#   tapyrus_chainstate  -- tapyrus_codec, tapyrus_netbase, tapyrus_scripting, tapyrus_global, tapyrus_util
+#   tapyrus_chainstate  -- tapyrus_netbase, tapyrus_scripting, tapyrus_global, tapyrus_util
 #   tapyrus_codec       -- tapyrus_scripting, tapyrus_global, tapyrus_util
 #   tapyrus_scripting   -- tapyrus_consensus, tapyrus_global, tapyrus_util
 #   tapyrus_global      -- tapyrus_consensus, tapyrus_util
 #   tapyrus_netbase     -- tapyrus_consensus, tapyrus_util
 #   tapyrus_cli         -- none (just univalue, core_interface)
-#   tapyrus_util        -- tapyrus_clientversion, tapyrus_consensus, tapyrus_crypto
+#   tapyrus_util        -- tapyrus_clientversion, tapyrus_crypto
 #   tapyrus_consensus   -- tapyrus_crypto
 #
 # tapyrus_rpc links tapyrus_wallet, one-directionally: wallet/rpcwallet.cpp
@@ -141,6 +141,7 @@ add_library(tapyrus_consensus STATIC EXCLUDE_FROM_ALL
   coloridentifier.cpp
   hash.cpp
   primitives/block.cpp
+  primitives/outpoint.cpp
   primitives/transaction.cpp
   primitives/xfield.cpp
   pubkey.cpp
@@ -149,7 +150,6 @@ add_library(tapyrus_consensus STATIC EXCLUDE_FROM_ALL
   script/script.cpp
   script/script_error.cpp
   uint256.cpp
-  utilstrencodings.cpp
 )
 
 target_link_libraries(tapyrus_consensus
@@ -168,8 +168,7 @@ endif()
 # (MakeNode()), which needs tapyrus_wallet/tapyrus_chainstate/tapyrus_peer/
 # tapyrus_rpc (net.h, wallet/wallet.h, rpc/server.h, validation.h, ...) --
 # only src/qt/*.cpp consumes interfaces/node.h, so it compiles directly into
-# tapyrus-qt instead (see the six-glue-files comment on tapyrusd's
-# add_executable() above for the pattern). tapyrus_util is one of the lowest
+# tapyrus-qt instead. tapyrus_util is one of the lowest
 # tiers almost everything links, so keeping it out means tapyrus-verify/
 # tapyrus-tx/tapyrus-cli/tapyrus-genesis don't pull tapyrus_wallet/
 # tapyrus_chainstate/leveldb onto their link line just by needing tapyrus_util.
@@ -177,27 +176,29 @@ add_library(tapyrus_util STATIC EXCLUDE_FROM_ALL
         fs.cpp
         interfaces/handler.cpp
         logging.cpp
+        policy/feerate.cpp
         random.cpp
         randomenv.cpp
         rpc/protocol.cpp
+        scheduler.cpp
+        shutdown.cpp
         support/lockedpool.cpp
         sync.cpp
         threadinterrupt.cpp
+        ui_interface.cpp
         util.cpp
         utilmoneystr.cpp
+        utilstrencodings.cpp
         utiltime.cpp
 )
-# utilstrencodings.cpp and support/cleanse.cpp are deliberately not compiled
-# here: each has exactly one owner, the base-tier library that needs it
-# (tapyrus_consensus and tapyrus_crypto respectively), and tapyrus_util links
-# those instead of carrying second copies of the same strong symbols.
+# support/cleanse.cpp is deliberately not compiled here: it belongs to
+# tapyrus_crypto, which tapyrus_util links instead of carrying a second copy.
 # util.cpp's SetupNetworking() calls WSAStartup() directly on Windows.
 target_link_libraries(tapyrus_util
         PUBLIC
         tapyrus_clientversion
         PRIVATE
         core_interface
-        tapyrus_consensus
         tapyrus_crypto
         univalue
         $<$<PLATFORM_ID:Windows>:ws2_32>
@@ -216,8 +217,8 @@ target_include_directories(tapyrus_util
 # The mode-only static chain identity (ChainParamsBase) and per-deployment
 # runtime federation identity (CFederationParams: networkId, message-start
 # bytes, DNS seeds, softfork registration). Deliberately excludes genesis
-# block creation/loading (see tapyrus_codec's genesisblock.cpp and
-# tapyrus_scripting's dynamicparams.cpp, which hold the CDynamicParams
+# block creation/loading (see genesisblock.cpp, compiled into tapyrus-genesis,
+# and tapyrus_scripting's dynamicparams.cpp, which hold the CDynamicParams
 # genesis lifecycle) -- that split avoids a circular dependency between
 # FederationParams and key_io.cpp.
 add_library(tapyrus_global STATIC EXCLUDE_FROM_ALL
@@ -234,13 +235,12 @@ target_link_libraries(tapyrus_global
 )
 
 # Genuinely shared, no single theme: netaddress/netbase (network address
-# types), protocol (P2P message framing), scheduler (generic timer
-# utility), warnings (generic warning-state utility).
+# types), protocol (P2P message framing), warnings (generic warning-state
+# utility).
 add_library(tapyrus_netbase STATIC EXCLUDE_FROM_ALL
   netaddress.cpp
   netbase.cpp
   protocol.cpp
-  scheduler.cpp
   warnings.cpp
 )
 target_link_libraries(tapyrus_netbase
@@ -267,7 +267,6 @@ add_library(tapyrus_scripting STATIC EXCLUDE_FROM_ALL
   key.cpp
   keystore.cpp
   outputtype.cpp
-  policy/feerate.cpp
   pstt.cpp
   script/ismine.cpp
   script/sign.cpp
@@ -287,15 +286,11 @@ target_link_libraries(tapyrus_scripting
 )
 
 # Human-readable/wire encodings layered above tapyrus_scripting: Base58/
-# key_io address formatting, core JSON read/write, output descriptors, and
-# genesis-block creation (genesisblock.cpp -- needs DecodeDestination(),
-# a tapyrus_codec-tier concern, which is why it can't live alongside the
-# rest of federationparams.cpp in tapyrus_global).
+# key_io address formatting, core JSON read/write and output descriptors.
 add_library(tapyrus_codec STATIC EXCLUDE_FROM_ALL
   base58.cpp
   core_read.cpp
   core_write.cpp
-  genesisblock.cpp
   key_io.cpp
   script/descriptor.cpp
 )
@@ -325,6 +320,7 @@ add_library(tapyrus_chainstate STATIC EXCLUDE_FROM_ALL
   consensus/tx_verify.cpp
   cs_main.cpp
   dbwrapper.cpp
+  file_io.cpp
   index/base.cpp
   index/txindex.cpp
   issuedcolorids.cpp
@@ -349,7 +345,6 @@ target_link_libraries(tapyrus_chainstate
     Boost::headers
   PRIVATE
     core_interface
-    tapyrus_codec
     tapyrus_netbase
     leveldb
 )
@@ -369,6 +364,7 @@ add_library(tapyrus_peer STATIC EXCLUDE_FROM_ALL
   merkleblock.cpp
   net.cpp
   net_processing.cpp
+  timeoffsets.cpp
   torcontrol.cpp
 )
 # torcontrol.cpp uses libevent's bufferevent/event_base API directly
@@ -450,19 +446,13 @@ target_link_libraries(tapyrus_rpc
 )
 
 
-# tapyrus Core tapyrusd. The six files below are orchestration/glue: they
-# wire the split libraries together at startup/shutdown and have no
-# meaningful reuse outside this one executable, so they compile directly
-# into tapyrusd rather than into a library of their own.
+# tapyrus Core tapyrusd. init.cpp and noui.cpp wire the libraries together
+# at start-up and shutdown and have no use outside this executable.
 if(BUILD_DAEMON)
   add_executable(tapyrusd
     tapyrusd.cpp
-    file_io.cpp
     init.cpp
     noui.cpp
-    shutdown.cpp
-    timeoffsets.cpp
-    ui_interface.cpp
   )
   if(ENABLE_WALLET)
     # WalletInit glue: g_wallet_init_interface is used only from init.cpp
@@ -484,7 +474,7 @@ if(BUILD_DAEMON)
     $<TARGET_NAME_IF_EXISTS:tapyrus_zmq>
     $<TARGET_NAME_IF_EXISTS:tapyrus_wallet>
     univalue
-    # file_io.cpp/init.cpp reach <dbwrapper.h> -> <leveldb/db.h> the same
+    # init.cpp reaches <dbwrapper.h> -> <leveldb/db.h> the same
     # way tapyrus_rpc's rest.cpp/etc. do -- see the comment on tapyrus_rpc's
     # target_link_libraries above.
     leveldb
@@ -566,8 +556,8 @@ endif()
 # by CheckBlock()) are both chain-state-free, but both are archive members of
 # tapyrus_chainstate, and static archives extract a whole member file at once
 # -- checkblock.cpp's archive-mates touch g_chainstate/leveldb -- so this
-# compiles its own copies of both directly instead (see the six-glue-files
-# comment on tapyrusd's add_executable() above for the general pattern).
+# compiles its own copies of both directly instead. genesisblock.cpp builds
+# the block; besides this tool only the unit tests use it.
 #
 # TAPYRUS_GENESIS_SKIP compiles out checkblock.cpp's chain-tip check (see its
 # file-level comment): meaningless here, since tapyrus-genesis calls
@@ -577,7 +567,7 @@ endif()
 # consensus/tx_verify.cpp (built without the macro, for every other consumer)
 # are never extracted -- no duplicate symbols.
 if(BUILD_GENESIS)
-  add_executable(tapyrus-genesis tapyrus-genesis.cpp checkblock.cpp consensus/tx_verify.cpp)
+  add_executable(tapyrus-genesis tapyrus-genesis.cpp genesisblock.cpp checkblock.cpp consensus/tx_verify.cpp)
   target_compile_definitions(tapyrus-genesis PRIVATE TAPYRUS_GENESIS_SKIP)
   add_windows_resources(tapyrus-genesis "${TAPYRUS_GENESIS_RC_FILE}")
   target_link_libraries(tapyrus-genesis

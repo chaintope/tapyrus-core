@@ -13,11 +13,6 @@
 
 #include <stdexcept>
 
-std::string COutPoint::ToString() const
-{
-    return strprintf("COutPoint(%s, %u)", hashMalFix.ToString().substr(0,10), n);
-}
-
 CTxIn::CTxIn(COutPoint prevoutIn, CScript scriptSigIn, uint32_t nSequenceIn)
 {
     prevout = prevoutIn;

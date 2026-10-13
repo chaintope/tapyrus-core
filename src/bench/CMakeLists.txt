@@ -5,17 +5,6 @@
 add_executable(bench_tapyrus
   bench_tapyrus.cpp
   bench.cpp
-  # Glue -- see the six-glue-files comment on tapyrusd's add_executable()
-  # in the top-level src/CMakeLists.txt. checkblock.cpp/block_assemble.cpp
-  # exercise tapyrus_chainstate code paths (CChainState::ActivateBestChain,
-  # BaseIndex::BlockConnected, AbortNode, etc.) that call
-  # StartShutdown()/ShutdownRequested()/uiInterface/SaveBlockToDisk/
-  # ReadBlockFromDisk/FlushStateToDisk/OpenUndoFile directly -- only these
-  # three are needed here (unlike test_tapyrus/tapyrusd, bench never hits
-  # noui.cpp's or timeoffsets.cpp's symbols).
-  ../file_io.cpp
-  ../shutdown.cpp
-  ../ui_interface.cpp
 # Benchmarks:
   base58.cpp
   block_assemble.cpp
