@@ -57,7 +57,7 @@ static const std::initializer_list<TAPYRUS_XFIELDTYPES> XFIELDTYPES_INIT_LIST
  * The association is enforced using
  * GetXFieldTypeFrom
  * GetXFieldValueFrom
- * 
+ *
  */
 
 // TAPYRUS_XFIELDTYPES::NONE
