@@ -7,6 +7,7 @@
 
 #include <policy/policy.h>
 #include <script/interpreter.h>
+#include <script/transactionsignaturechecker.h>
 
 #include <boost/test/unit_test.hpp>
 

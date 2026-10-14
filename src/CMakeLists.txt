@@ -148,6 +148,8 @@ add_library(tapyrus_consensus STATIC EXCLUDE_FROM_ALL
   script/interpreter.cpp
   script/script.cpp
   script/script_error.cpp
+  script/transactionsignaturechecker.cpp
+  script/transactionsignatureserializer.cpp
   uint256.cpp
 )
 

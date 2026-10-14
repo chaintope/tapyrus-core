@@ -7,6 +7,7 @@
 #include <core_io.h>
 #include <key.h>
 #include <keystore.h>
+#include <script/transactionsignaturechecker.h>
 #include <validation.h>
 #include <policy/policy.h>
 #include <script/script.h>

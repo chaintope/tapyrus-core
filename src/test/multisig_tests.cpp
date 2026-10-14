@@ -9,6 +9,8 @@
 #include <script/script.h>
 #include <script/script_error.h>
 #include <script/interpreter.h>
+#include <script/transactionsignatureserializer.h>
+#include <script/transactionsignaturechecker.h>
 #include <script/sign.h>
 #include <script/ismine.h>
 #include <uint256.h>
