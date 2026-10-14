@@ -3,6 +3,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <script/transactionsignaturechecker.h>
+#include <script/transactionsignatureserializer.h>
 #include <test/data/script_tests.json.h>
 
 #include <core_io.h>

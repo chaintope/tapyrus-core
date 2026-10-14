@@ -12,6 +12,7 @@
 #include <dynamicparams.h>
 #include <index/txindex.h>
 #include <keystore.h>
+#include <script/transactionsignaturechecker.h>
 #include <validation.h>
 #include <validationinterface.h>
 #include <key_io.h>

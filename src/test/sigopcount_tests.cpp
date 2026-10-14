@@ -9,6 +9,7 @@
 #include <key.h>
 #include <script/script.h>
 #include <script/standard.h>
+#include <script/transactionsignaturechecker.h>
 #include <uint256.h>
 #include <test/test_tapyrus.h>
 

@@ -7,6 +7,7 @@
 #ifndef BITCOIN_SCRIPT_INTERPRETER_H
 #define BITCOIN_SCRIPT_INTERPRETER_H
 
+#include <script/basesignaturechecker.h>
 #include <script/script_error.h>
 #include <primitives/transaction.h>
 #include <consensus/consensus.h>
@@ -125,54 +126,6 @@ static constexpr unsigned int STANDARD_LOCKTIME_VERIFY_FLAGS = LOCKTIME_VERIFY_S
 bool CheckECDSASignatureEncoding(const std::vector<unsigned char> &vchSig, ScriptError* serror, bool dataSignature = false);
 
 bool CheckSchnorrSignatureEncoding(const std::vector<unsigned char> &vchSig, ScriptError* serror, bool dataSignature = false);
-
-template <class T>
-uint256 SignatureHash(const CScript& scriptCode, const T& txTo, unsigned int nIn, int nHashType, const CAmount& amount);
-
-class BaseSignatureChecker
-{
-public:
-    virtual bool VerifySignature(const std::vector<unsigned char>& vchSig, const CPubKey& vchPubKey, const uint256& sighash) const
-    {
-        return false;
-    }
-
-    virtual bool CheckSig(const std::vector<unsigned char>& scriptSig, const std::vector<unsigned char>& vchPubKey, const CScript& scriptCode) const
-    {
-        return false;
-    }
-
-    virtual bool CheckLockTime(const CScriptNum& nLockTime) const
-    {
-         return false;
-    }
-
-    virtual bool CheckSequence(const CScriptNum& nSequence) const
-    {
-         return false;
-    }
-
-    virtual ~BaseSignatureChecker() {}
-};
-
-template <class T>
-class GenericTransactionSignatureChecker : public BaseSignatureChecker
-{
-private:
-    const T* txTo;
-    unsigned int nIn;
-    const CAmount amount;
-
-public:
-    GenericTransactionSignatureChecker(const T* txToIn, unsigned int nInIn, const CAmount& amountIn) : txTo(txToIn), nIn(nInIn), amount(amountIn) {}
-    bool VerifySignature(const std::vector<unsigned char>& vchSig, const CPubKey& vchPubKey, const uint256& sighash) const override;
-    bool CheckSig(const std::vector<unsigned char>& scriptSig, const std::vector<unsigned char>& vchPubKey, const CScript& scriptCode) const override;
-    bool CheckLockTime(const CScriptNum& nLockTime) const override;
-    bool CheckSequence(const CScriptNum& nSequence) const override;
-};
-
-using TransactionSignatureChecker = GenericTransactionSignatureChecker<CTransaction>;
-using MutableTransactionSignatureChecker = GenericTransactionSignatureChecker<CMutableTransaction>;
 
 bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& script, unsigned int flags, const BaseSignatureChecker& checker, ColorIdentifier *colorId = nullptr, ScriptError* error = nullptr);
 bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, unsigned int flags, const BaseSignatureChecker& checker, ColorIdentifier& colorId, ScriptError* serror = nullptr);
