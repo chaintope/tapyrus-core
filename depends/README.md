@@ -52,8 +52,7 @@ plugin, Linux only). `bison` is required by `libxkbcommon`'s Meson build
 win_bison' not found or not executable`. `libxkbcommon` also needs Meson >=
 1.4.0, newer than the `meson` apt package on Ubuntu 24.04 (1.3.2) — install a
 current one via pip instead: `pip install "meson==1.4.0"`. None of these are
-needed for a `NO_QT=1` build. See [dependencies.md](../doc/dependencies.md)
-for details.
+needed for a `NO_QT=1` build.
 
 #### For macOS cross compilation
 
@@ -101,14 +100,18 @@ The following can be set when running make: make FOO=bar
     BASE_CACHE: built packages will be placed here
     SDK_PATH: Path where sdk's can be found (used by macOS)
     FALLBACK_DOWNLOAD_PATH: If a source file can't be fetched, try here before giving up
-    DEBUG: disable some optimizations and enable more runtime checking
+                            (see "Download fallback mirror" below)
+    DEBUG: build the debug variants of packages (see packages.md)
     HOST_ID_SALT: Optional salt to use when generating host package ids
     BUILD_ID_SALT: Optional salt to use when generating build package ids
 
 Package Toggle Options:
 The following options can be set to 1 to disable specific packages:
 
-    NO_QT=1: Don't build Qt GUI dependencies (qrencode, qt)
+    NO_QT=1: Don't build Qt GUI dependencies (qrencode, qt, native_qt; on Linux
+             also Qt's xcb platform plugin dependencies: expat, freetype,
+             fontconfig, libXau, libxkbcommon, xproto, xcb_proto, libxcb and
+             the libxcb_util packages)
     NO_WALLET=1: Don't build wallet dependencies (Berkeley DB)
     NO_UPNP=1: Don't build UPnP dependencies (miniupnpc)
     NO_USDT=1: Don't build USDT tracing dependencies (systemtap on Linux)
@@ -123,8 +126,45 @@ Additional targets:
     download-win: run 'make download-win' to fetch all sources needed for win builds
     download-linux: run 'make download-linux' to fetch all sources needed for linux builds
 
+### Package notes
+
+The package versions, hashes and download URLs are listed in
+[dependencies.md](../doc/dependencies.md). These notes explain how some of them
+came to be what they are.
+
+#### Download fallback mirror
+
+`depends` downloads each package from its download URL. If that primary host is
+unreachable, it automatically falls back to `FALLBACK_DOWNLOAD_PATH` (see
+Dependency Options above), which defaults to an S3 mirror at
+[https://s3.ap-northeast-1.amazonaws.com/repo.tapyrus.chaintope.com](https://s3.ap-northeast-1.amazonaws.com/repo.tapyrus.chaintope.com)
+(see `depends/Makefile`). The mirror is flat (no subdirectories) and must serve
+each file under the exact file name listed in [dependencies.md](../doc/dependencies.md).
+Whenever a package's version, file name or hash changes in `packages/*.mk`,
+upload the new file to the mirror too; otherwise the fallback silently stops
+helping the next time the primary host has an outage.
+
+The macOS SDK has its own separate fallback to the same bucket, wired up
+directly in the CI steps that download it (daily's "Setup Linux Dependencies"
+and weekly's "Setup macOS cross-compilation dependencies") rather than through
+`FALLBACK_DOWNLOAD_PATH`. Neither the primary nor the
+fallback SDK download is hash-checked.
+
+#### Qt scaffolding files
+
+Building Qt also requires three small CMake scaffolding files
+(`depends/packages/qt_details.mk`) fetched directly from the `qt/qt5` GitHub
+repository rather than a release archive. They're part of that repo, not a
+standalone release artifact, so they aren't listed in
+[dependencies.md](../doc/dependencies.md) and don't need S3 mirroring.
+
+#### libxkbcommon download URL
+
+libxkbcommon's download URL points at a GitHub tag archive, not
+`xkbcommon.org`: upstream stopped publishing releases there after 1.7.0 (every
+later version 404s), and only publishes via GitHub tags from 1.8.0 onward.
+
 ### Other documentation
 
 - [description.md](description.md): General description of the depends system
 - [packages.md](packages.md): Steps for adding packages
-
