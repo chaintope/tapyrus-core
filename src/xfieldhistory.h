@@ -8,6 +8,7 @@
 #include <consensus/consensus.h>
 #include <primitives/block.h>
 #include <primitives/xfield.h>
+#include <primitives/xfieldvalues.h>
 #include <xfieldhistorymap.h>
 
 #include <cassert>

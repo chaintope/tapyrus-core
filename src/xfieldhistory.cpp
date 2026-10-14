@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <primitives/xfield.h>
+#include <primitives/xfieldvalues.h>
 #include <xfieldhistory.h>
 #include <xfieldhistorymap.h>
 #include <univalue.h>
