@@ -32,6 +32,7 @@
 #include <policy/fees.h>
 #include <policy/policy.h>
 #include <rpc/server.h>
+#include <rpc/rpctable.h>
 #include <rpc/register.h>
 #include <rpc/blockchain.h>
 #include <script/standard.h>

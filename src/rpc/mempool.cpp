@@ -9,6 +9,8 @@
 #include <rpc/mempool.h>
 #include <rpc/protocol.h>
 #include <rpc/server.h>
+#include <rpc/jsonrpcrequest.h>
+#include <rpc/rpctable.h>
 #include <txmempool.h>
 #include <util.h>
 #include <utilstrencodings.h>

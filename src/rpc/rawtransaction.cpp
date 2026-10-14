@@ -25,6 +25,8 @@
 #include <rpc/protocol.h>
 #include <rpc/rawtransaction.h>
 #include <rpc/server.h>
+#include <rpc/jsonrpcrequest.h>
+#include <rpc/rpctable.h>
 #include <script/script.h>
 #include <script/script_error.h>
 #include <script/sign.h>

@@ -20,6 +20,8 @@
 #include <rpc/mining.h>
 #include <rpc/protocol.h>
 #include <rpc/server.h>
+#include <rpc/jsonrpcrequest.h>
+#include <rpc/rpctable.h>
 #include <shutdown.h>
 #include <tapyrusmodes.h>
 #include <txmempool.h>
