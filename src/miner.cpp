@@ -7,7 +7,7 @@
 #include <miner.h>
 
 #include <amount.h>
-#include <chain.h>
+#include <blockindex.h>
 #include <chainparams.h>
 #include <consensus/consensus.h>
 #include <consensus/tx_verify.h>

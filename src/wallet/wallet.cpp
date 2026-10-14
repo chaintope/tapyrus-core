@@ -7,6 +7,7 @@
 #include <wallet/wallet.h>
 
 #include <chain.h>
+#include <blockindex.h>
 #include <wallet/coincontrol.h>
 #include <coloridentifier.h>
 #include <consensus/consensus.h>

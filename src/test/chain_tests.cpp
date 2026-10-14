@@ -39,6 +39,8 @@
  */
 
 #include <chain.h>
+#include <blockindex.h>
+#include <diskblockpos.h>
 #include <test/test_tapyrus.h>
 #include <primitives/block.h>
 #include <primitives/xfield.h>
