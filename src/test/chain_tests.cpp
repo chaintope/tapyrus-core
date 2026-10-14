@@ -44,6 +44,7 @@
 #include <test/test_tapyrus.h>
 #include <primitives/block.h>
 #include <primitives/xfield.h>
+#include <primitives/xfieldvalues.h>
 #include <uint256.h>
 #include <validation.h>
 #include <streams.h>

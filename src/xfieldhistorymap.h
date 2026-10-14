@@ -5,7 +5,7 @@
 #ifndef TAPYRUS_XFIELDHISTORYMAP_H
 #define TAPYRUS_XFIELDHISTORYMAP_H
 
-#include <primitives/xfield.h>
+#include <primitives/xfieldvalues.h>
 #include <serialize.h>
 #include <uint256.h>
 
