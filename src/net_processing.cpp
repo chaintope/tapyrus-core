@@ -2823,6 +2823,10 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
             ProcessNewBlock(pblock, /*fForceProcessing=*/true, &fNewBlock);
             if (fNewBlock) {
                 pfrom->nLastBlockTime = GetTime();
+                // The block may also be in flight from other peers; drop those
+                // requests now that it is stored, or they time out and disconnect.
+                LOCK(cs_main);
+                MarkBlockAsReceived(pblock->GetHash(), std::nullopt);
             } else {
                 LOCK(cs_main);
                 mapBlockSource.erase(pblock->GetHash());
@@ -2878,6 +2882,10 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         ProcessNewBlock(pblock, forceProcessing, &fNewBlock);
         if (fNewBlock) {
             pfrom->nLastBlockTime = GetTime();
+            // The block may also be in flight from other peers; drop those
+            // requests now that it is stored, or they time out and disconnect.
+            LOCK(cs_main);
+            MarkBlockAsReceived(hash, std::nullopt);
         } else {
             LOCK(cs_main);
             mapBlockSource.erase(pblock->GetHash());
