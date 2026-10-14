@@ -13,6 +13,9 @@
 #include <interfaces/handler.h>
 #include <interfaces/wallet.h>
 #include <net.h>
+#include <connman.h>
+#include <node.h>
+#include <mapport.h>
 #include <net_processing.h>
 #include <netaddress.h>
 #include <netbase.h>

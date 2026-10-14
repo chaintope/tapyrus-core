@@ -7,6 +7,7 @@
 
 #include <net_processing.h> // For CNodeStateStats
 #include <net.h>
+#include <node.h>
 
 #include <memory>
 

@@ -24,6 +24,9 @@
 #include <miner.h>
 #include <netbase.h>
 #include <net.h>
+#include <connman.h>
+#include <localaddress.h>
+#include <mapport.h>
 #include <net_processing.h>
 #include <policy/feerate.h>
 #include <policy/fees.h>

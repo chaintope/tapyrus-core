@@ -14,7 +14,7 @@
 #include <validation.h>
 #include <key_io.h>
 #include <miner.h>
-#include <net.h>
+#include <connman.h>
 #include <policy/fees.h>
 #include <rpc/blockchain.h>
 #include <rpc/mining.h>
