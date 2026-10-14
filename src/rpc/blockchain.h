@@ -23,12 +23,6 @@ void RPCNotifyBlockChange(bool ibd, const CBlockIndex *);
 /** Block description to JSON */
 UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool txDetails = false);
 
-/** Mempool information to JSON */
-UniValue mempoolInfoToJSON();
-
-/** Mempool to JSON */
-UniValue mempoolToJSON(bool fVerbose = false);
-
 /** Block header to JSON */
 UniValue blockheaderToJSON(const CBlockIndex* blockindex);
 

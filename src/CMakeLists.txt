@@ -413,9 +413,11 @@ set(TAPYRUS_RPC_SOURCES
   rpc/mining.cpp
   rpc/misc.cpp
   rpc/net.cpp
+  rpc/pstt.cpp
   rpc/rawtransaction.cpp
   rpc/server.cpp
   rpc/util.cpp
+  rpc/utxoset.cpp
 )
 if(ENABLE_WALLET)
   list(APPEND TAPYRUS_RPC_SOURCES
