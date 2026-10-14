@@ -8,9 +8,11 @@
 
 #include <serialize.h>
 #include <sync.h>
+#include <tapyrusmodes.h>
 #include <uint256.h>
 #include <fs.h>
-#include <xfieldhistory.h>
+
+#include <array>
 
 
 // UTXO set snapshot magic bytes

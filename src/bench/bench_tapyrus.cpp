@@ -11,6 +11,7 @@
 #include <utilstrencodings.h>
 #include <validation.h>
 #include <streams.h>
+#include <xfieldhistory.h>
 
 #include <memory>
 

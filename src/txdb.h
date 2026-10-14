@@ -8,13 +8,15 @@
 #define BITCOIN_TXDB_H
 
 #include <coins.h>
+#include <coin.h>
+#include <coinsview.h>
 #include <coloridentifier.h>
 #include <dbwrapper.h>
 #include <chain.h>
 #include <primitives/block.h>
 #include <cs_main.h>
 #include <sync.h>
-#include <xfieldhistory.h>
+#include <xfieldhistorymap.h>
 
 #include <map>
 #include <memory>

@@ -25,7 +25,8 @@
 #include <key.h>
 #include <pstt.h>
 #include <pubkey.h>
-#include <script/sign.h>
+#include <script/signingprovider.h>
+#include <script/signaturedata.h>
 
 #include <test/fuzz/fuzz_code/FuzzedDataProvider.h>
 

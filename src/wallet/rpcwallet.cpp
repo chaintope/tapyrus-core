@@ -27,7 +27,7 @@
 #include <rpc/rpctable.h>
 #include <rpc/rpctimerinterface.h>
 #include <rpc/util.h>
-#include <script/sign.h>
+#include <script/signaturedata.h>
 #include <shutdown.h>
 #include <tapyrusmodes.h>
 #include <util.h>

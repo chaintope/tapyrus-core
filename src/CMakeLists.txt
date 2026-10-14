@@ -267,6 +267,7 @@ target_link_libraries(tapyrus_netbase
 # depends on it; its own consumers span every layer above this one.
 add_library(tapyrus_scripting STATIC EXCLUDE_FROM_ALL
   coins.cpp
+  coinsviewcache.cpp
   compressor.cpp
   dynamicparams.cpp
   key.cpp

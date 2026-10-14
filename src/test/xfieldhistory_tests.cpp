@@ -7,6 +7,8 @@
 #include <primitives/xfield.h>
 #include <dynamicparams.h>
 #include <xfieldhistory.h>
+#include <xfieldhistorymap.h>
+#include <tempxfieldhistory.h>
 #include <txdb.h>
 #include <univalue.h>
 #include <test/test_tapyrus.h>

@@ -6,7 +6,9 @@
 #include <tapyrus-config.h>
 
 #include <clientversion.h>
-#include <coins.h>
+#include <coin.h>
+#include <coinsview.h>
+#include <coinsviewcache.h>
 #include <consensus/consensus.h>
 #include <core_io.h>
 #include <key_io.h>
@@ -17,6 +19,8 @@
 #include <primitives/transaction.h>
 #include <script/script.h>
 #include <script/sign.h>
+#include <script/signaturecreator.h>
+#include <script/signaturedata.h>
 #include <univalue.h>
 #include <util.h>
 #include <utilmoneystr.h>

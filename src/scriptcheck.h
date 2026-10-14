@@ -5,6 +5,9 @@
 #ifndef TAPYRUS_SCRIPTCHECK_H
 #define TAPYRUS_SCRIPTCHECK_H
 
+#include <coloridentifier.h>
+#include <primitives/transaction.h>
+
 #include <optional>
 #include <script/script_error.h>
 

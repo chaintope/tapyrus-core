@@ -12,7 +12,7 @@
 #include <chain.h>
 #include <chainparams.h>
 #include <checkpoints.h>
-#include <coins.h>
+#include <coin.h>
 #include <consensus/validation.h>
 #include <validation.h>
 #include <blockprune.h>
