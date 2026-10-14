@@ -5,6 +5,9 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <script/sign.h>
+#include <script/signingprovider.h>
+#include <script/signaturecreator.h>
+#include <script/signaturedata.h>
 
 #include <key.h>
 #include <policy/policy.h>

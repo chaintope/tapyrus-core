@@ -9,7 +9,8 @@
 #include <rpc/client.h>
 #include <rpc/jsonrpcrequest.h>
 #include <rpc/rpctable.h>
-#include <script/sign.h>
+#include <script/signingprovider.h>
+#include <script/signaturedata.h>
 #include <script/standard.h>
 #include <txmempool.h>
 #include <validation.h>

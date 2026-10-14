@@ -6,7 +6,8 @@
 
 #include <cs_main.h>
 #include <chain.h>
-#include <coins.h>
+#include <coin.h>
+#include <coinsview.h>
 #include <core_io.h>
 #include <key_io.h>
 #include <validation.h>

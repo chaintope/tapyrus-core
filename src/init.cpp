@@ -54,6 +54,8 @@
 #include <stdio.h>
 #include <tapyrusmodes.h>
 #include <xfieldhistory.h>
+#include <xfieldhistorymap.h>
+#include <tempxfieldhistory.h>
 #include <blockprune.h>
 #include <verifydb.h>
 #include <file_io.h>
