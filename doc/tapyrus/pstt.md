@@ -50,7 +50,7 @@ pubkey for `PSTT_IN_PARTIAL_SIG`).
 
 | Name | Value | Keydata | Value | Notes |
 |---|---|---|---|---|
-| `PSTT_GLOBAL_XPUB` | `0x01` | `<xpub>` — the 78-byte BIP32 extended public key (4-byte version prefix + `CExtPubKey`'s 74-byte encoding) | `<fingerprint><32-bit uint>*` — master fingerprint + derivation path | Prefix must equal exactly `Params().Base58Prefix(EXT_PUBLIC_KEY)` for the running node's own network; any other prefix, including the other Tapyrus network's, is rejected at parse time |
+| `PSTT_GLOBAL_XPUB` | `0x01` | `<xpub>` — the 78-byte BIP32 extended public key (4-byte version prefix + `CExtPubKey`'s 74-byte encoding) | `<fingerprint><32-bit uint>*` — master fingerprint + derivation path | The 4-byte prefix is not checked against the node's network; it is kept as given and written back unchanged |
 | `PSTT_GLOBAL_TX_FEATURES` | `0x02` | none | `int32_t` | **Required.** Any value is accepted and round-tripped verbatim into `CMutableTransaction::nFeatures` on extraction — no validation is imposed here beyond what the transaction layer itself imposes |
 | `PSTT_GLOBAL_FALLBACK_LOCKTIME` | `0x03` | none | `uint32_t` | Default 0 if absent |
 | `PSTT_GLOBAL_INPUT_COUNT` | `0x04` | none | `<compact size uint>` | **Required.** Not stored separately from `inputs.size()`; only meaningful on the wire, to tell the parser how many input maps follow |

@@ -182,6 +182,6 @@ extern CChainState g_chainstate;
 
 void NotifyHeaderTip() LOCKS_EXCLUDED(cs_main);
 
-bool UndoReadFromDisk(CBlockUndo& blockundo, const CBlockIndex *pindex);
+bool UndoReadFromDisk(CBlockUndo& blockundo, const CBlockIndex *pindex, const CBlock& block);
 
 #endif //BITCOIN_CHAINSTATE_H

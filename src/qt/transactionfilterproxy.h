@@ -23,7 +23,7 @@ public:
     /** Last date that can be represented (far in the future) */
     static const QDateTime MAX_DATE;
     /** Type filter bit field (all types) */
-    static const quint32 ALL_TYPES = 0xFFFFFFFF;
+    static constexpr quint32 ALL_TYPES = 0xFFFFFFFF;
 
     static quint32 TYPE(int type) { return 1<<type; }
 

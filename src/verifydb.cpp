@@ -81,7 +81,7 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
         if (nCheckLevel >= 2 && pindex) {
             CBlockUndo undo;
             if (!pindex->GetUndoPos().IsNull()) {
-                if (!UndoReadFromDisk(undo, pindex)) {
+                if (!UndoReadFromDisk(undo, pindex, block)) {
                     return error("VerifyDB(): *** found bad undo data at %d, hash=%s\n", pindex->nHeight, pindex->GetBlockHash().ToString());
                 }
             }

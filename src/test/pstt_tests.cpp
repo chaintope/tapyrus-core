@@ -410,10 +410,8 @@ BOOST_AUTO_TEST_CASE(pstt_rejects_truncated_value)
 // xpub round-trip
 // -----------------------------------------------------------------------
 
-BOOST_AUTO_TEST_CASE(pstt_xpub_roundtrip_matching_prefix)
+static CExtPubKey MakeTestXpub()
 {
-    // Unit tests default to TAPYRUS_OP_MODE::PROD (test_tapyrus.cpp's
-    // BasicTestingSetup), so PROD's prefix is the one that must succeed here.
     CExtPubKey xpub;
     CKey key;
     key.MakeNewKey(true);
@@ -422,50 +420,32 @@ BOOST_AUTO_TEST_CASE(pstt_xpub_roundtrip_matching_prefix)
     memset(xpub.vchFingerprint, 0, sizeof(xpub.vchFingerprint));
     xpub.nChild = 0;
     xpub.chaincode.SetNull();
+    return xpub;
+}
 
-    std::vector<unsigned char> keydata = SerializeXpubKeyData(xpub);
-    BOOST_CHECK_EQUAL(keydata.size(), PSTT_XPUB_KEYDATA_SIZE);
-    CExtPubKey parsed = ParseXpubKeyData(keydata);
+BOOST_AUTO_TEST_CASE(pstt_xpub_roundtrip_keeps_version)
+{
+    CExtPubKey xpub = MakeTestXpub();
+    const unsigned char dev_prefix[4] = {0x04, 0x35, 0x87, 0xCF};
+    memcpy(xpub.version, dev_prefix, sizeof(dev_prefix));
+
+    unsigned char code[BIP32_EXTKEY_WITH_VERSION_SIZE];
+    xpub.EncodeWithVersion(code);
+    BOOST_CHECK(memcmp(code, dev_prefix, sizeof(dev_prefix)) == 0);
+
+    CExtPubKey parsed;
+    parsed.DecodeWithVersion(code);
     BOOST_CHECK(parsed == xpub);
+    BOOST_CHECK(memcmp(parsed.version, dev_prefix, sizeof(dev_prefix)) == 0);
 }
 
-BOOST_AUTO_TEST_CASE(pstt_xpub_rejects_wrong_network_prefix)
+BOOST_AUTO_TEST_CASE(pstt_xpub_default_version_is_zero)
 {
-    CExtPubKey xpub;
-    CKey key;
-    key.MakeNewKey(true);
-    xpub.pubkey = key.GetPubKey();
-    xpub.nDepth = 0;
-    memset(xpub.vchFingerprint, 0, sizeof(xpub.vchFingerprint));
-    xpub.nChild = 0;
-    xpub.chaincode.SetNull();
-
-    std::vector<unsigned char> keydata = SerializeXpubKeyData(xpub);
-    // Corrupt the 4-byte prefix to the *other* real Tapyrus network's prefix
-    // (DEV, since this test suite runs under PROD) -- must still throw, not
-    // silently accept, per the strict Params()-only prefix policy.
-    const std::vector<unsigned char>& dev_prefix = {0x04, 0x35, 0x87, 0xCF};
-    std::copy(dev_prefix.begin(), dev_prefix.end(), keydata.begin());
-    BOOST_CHECK_THROW(ParseXpubKeyData(keydata), std::ios_base::failure);
-}
-
-BOOST_AUTO_TEST_CASE(pstt_xpub_rejects_unknown_prefix)
-{
-    CExtPubKey xpub;
-    CKey key;
-    key.MakeNewKey(true);
-    xpub.pubkey = key.GetPubKey();
-    xpub.nDepth = 0;
-    memset(xpub.vchFingerprint, 0, sizeof(xpub.vchFingerprint));
-    xpub.nChild = 0;
-    xpub.chaincode.SetNull();
-
-    std::vector<unsigned char> keydata = SerializeXpubKeyData(xpub);
-    keydata[0] = 0xDE;
-    keydata[1] = 0xAD;
-    keydata[2] = 0xBE;
-    keydata[3] = 0xEF;
-    BOOST_CHECK_THROW(ParseXpubKeyData(keydata), std::ios_base::failure);
+    CExtPubKey xpub = MakeTestXpub();
+    unsigned char code[BIP32_EXTKEY_WITH_VERSION_SIZE];
+    xpub.EncodeWithVersion(code);
+    const unsigned char zero_prefix[4] = {0x00, 0x00, 0x00, 0x00};
+    BOOST_CHECK(memcmp(code, zero_prefix, sizeof(zero_prefix)) == 0);
 }
 
 // -----------------------------------------------------------------------
@@ -1917,6 +1897,34 @@ BOOST_FIXTURE_TEST_CASE(pstt_rpc_joinpstt_dedups_shared_xpub, TestingSetup)
     std::string err;
     BOOST_REQUIRE(DecodePSTT(joined, result.get_str(), err)); // must still decode
     BOOST_REQUIRE_EQUAL(joined.xpubs.size(), 1U); // deduped, not doubled
+}
+
+BOOST_AUTO_TEST_CASE(pstt_xpub_prefix_survives_pstt_roundtrip)
+{
+    // Any 4-byte prefix, including another network's or an unknown one, is
+    // kept as given through encode -> decode -> encode.
+    const std::vector<std::vector<unsigned char>> prefixes = {
+        {0x04, 0x88, 0xB2, 0x1E},
+        {0x04, 0x35, 0x87, 0xCF},
+        {0xDE, 0xAD, 0xBE, 0xEF},
+    };
+    PartiallySignedTapyrusTransaction pstt = MakeJoinableConstructorPstt();
+    for (const std::vector<unsigned char>& prefix : prefixes) {
+        CExtPubKey xpub = MakeTestXpub();
+        std::copy(prefix.begin(), prefix.end(), xpub.version);
+        pstt.xpubs.emplace_back(xpub, std::vector<uint32_t>{0});
+    }
+
+    const std::string encoded = EncodePSTT(pstt);
+    PartiallySignedTapyrusTransaction decoded;
+    std::string err;
+    BOOST_REQUIRE(DecodePSTT(decoded, encoded, err));
+    BOOST_REQUIRE_EQUAL(decoded.xpubs.size(), prefixes.size());
+    for (size_t i = 0; i < prefixes.size(); ++i) {
+        BOOST_CHECK(decoded.xpubs[i].first == pstt.xpubs[i].first);
+        BOOST_CHECK(std::equal(prefixes[i].begin(), prefixes[i].end(), decoded.xpubs[i].first.version));
+    }
+    BOOST_CHECK_EQUAL(EncodePSTT(decoded), encoded);
 }
 
 BOOST_FIXTURE_TEST_CASE(pstt_rpc_joinpstt_fallback_locktime_takes_max, TestingSetup)

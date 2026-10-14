@@ -222,8 +222,6 @@ size_t CDBWrapper::DynamicMemoryUsage() const {
 // past the null-terminator.
 const std::string CDBWrapper::OBFUSCATE_KEY_KEY("\000obfuscate_key", 14);
 
-const unsigned int CDBWrapper::OBFUSCATE_KEY_NUM_BYTES = 8;
-
 /**
  * Returns a string (consisting of 8 random bytes) suitable for use as an
  * obfuscating XOR key.

@@ -16,7 +16,7 @@ class RecentRequestEntry
 public:
     RecentRequestEntry() : nVersion(RecentRequestEntry::CURRENT_VERSION), id(0) { }
 
-    static const int CURRENT_VERSION = 1;
+    static constexpr int CURRENT_VERSION = 1;
     int nVersion;
     int64_t id;
     QDateTime date;
