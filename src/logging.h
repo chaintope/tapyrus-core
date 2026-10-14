@@ -16,7 +16,6 @@
 #include <list>
 #include <memory>
 #include <mutex>
-#include <source_location>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -38,21 +37,26 @@ struct CLogCategoryActive
     bool active;
 };
 
-/** Like std::source_location, but with the function name taken from __func__. */
+/**
+ * The file and line of a logging call site, with the function name taken from __func__.
+ * Uses __builtin_FILE()/__builtin_LINE() rather than std::source_location::current():
+ * Apple clang 15 evaluates the latter's default argument at the declaration, not the call site.
+ */
 class SourceLocation
 {
 public:
     /** func must be the __func__ of the logging call site. */
-    SourceLocation(const char* func, std::source_location loc = std::source_location::current())
-        : m_func{func}, m_loc{loc} {}
+    SourceLocation(const char* func, const char* file = __builtin_FILE(), std::uint_least32_t line = __builtin_LINE())
+        : m_func{func}, m_file{file}, m_line{line} {}
 
-    std::string_view file_name() const { return m_loc.file_name(); }
-    std::uint_least32_t line() const { return m_loc.line(); }
+    std::string_view file_name() const { return m_file; }
+    std::uint_least32_t line() const { return m_line; }
     std::string_view function_name_short() const { return m_func; }
 
 private:
     std::string_view m_func;
-    std::source_location m_loc;
+    std::string_view m_file;
+    std::uint_least32_t m_line;
 };
 
 struct SourceLocationEqual {
