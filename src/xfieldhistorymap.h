@@ -123,7 +123,7 @@ typedef std::map< TAPYRUS_XFIELDTYPES, XFieldChangeListWrapper > XFieldHistoryMa
  * XFieldHistoryMapType is a Global map to store all xfield changes.
  *
  * class CXFieldHistoryMap contains a static map of XFieldHistoryMapType.
- * (All objects of this class read and write to the same map.) 
+ * (All objects of this class read and write to the same map.)
  * This is the full list of xfield change in the active chain.
  * When the isTemp flag is set in the constructor, all methods access the temp map.
  *
@@ -135,7 +135,7 @@ class CXFieldHistoryMap{
 
 protected:
     static XFieldHistoryMapType xfieldHistory;
-    static std::shared_mutex xfieldHistoryMutex; 
+    static std::shared_mutex xfieldHistoryMutex;
     inline CXFieldHistoryMap(bool temp):isTemp(temp) { }
 
 public:
