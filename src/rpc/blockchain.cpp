@@ -10,6 +10,7 @@
 #include <amount.h>
 #include <base58.h>
 #include <chain.h>
+#include <blockindex.h>
 #include <chainparams.h>
 #include <checkpoints.h>
 #include <coin.h>

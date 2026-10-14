@@ -19,6 +19,8 @@
 #include <chainparams.h>
 #include <coloridentifier.h>
 #include <chain.h>
+#include <blockindex.h>
+#include <diskblockpos.h>
 #include <xfieldhistorymap.h>
 #include <txmempool.h>
 #include <chainstate.h>

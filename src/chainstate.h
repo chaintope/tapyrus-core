@@ -13,6 +13,8 @@
 #include <coinsviewcache.h>
 #include <sync.h>
 #include <chain.h>
+#include <blockindex.h>
+#include <diskblockpos.h>
 #include <xfieldhistorymap.h>
 #include <undo.h>
 #include <scriptcheck.h>

@@ -10,7 +10,8 @@
 
 #include <addrman.h>
 #include <amount.h>
-#include <chain.h>
+#include <blockindex.h>
+#include <diskblockpos.h>
 #include <chainparams.h>
 #include <checkpoints.h>
 #include <dynamicparams.h>
