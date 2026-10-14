@@ -9,6 +9,9 @@
 #include <core_io.h>
 #include <validation.h>
 #include <net.h>
+#include <connman.h>
+#include <node.h>
+#include <localaddress.h>
 #include <net_processing.h>
 #include <netbase.h>
 #include <policy/policy.h>

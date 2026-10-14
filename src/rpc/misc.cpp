@@ -8,7 +8,6 @@
 #include <key_io.h>
 #include <validation.h>
 #include <httpserver.h>
-#include <net.h>
 #include <netbase.h>
 #include <outputtype.h>
 #include <rpc/protocol.h>

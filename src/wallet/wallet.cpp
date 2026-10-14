@@ -17,7 +17,8 @@
 #include <keystore.h>
 #include <softforkmanager.h>
 #include <validation.h>
-#include <net.h>
+#include <connman.h>
+#include <node.h>
 #include <policy/fees.h>
 #include <policy/policy.h>
 #include <policy/rbf.h>

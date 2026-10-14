@@ -4,10 +4,12 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <net.h>
+#include <localaddress.h>
 
 #include <chainparams.h>
+#include <net.h>
 #include <netbase.h>
+#include <node.h>
 
 Mutex cs_mapLocalHost;
 std::map<CNetAddr, LocalServiceInfo> mapLocalHost GUARDED_BY(cs_mapLocalHost);

@@ -6,10 +6,16 @@
 
 #include <tapyrus-config.h>
 
-#include <net.h>
+#include <mapport.h>
 
 #include <clientversion.h>
+#include <localaddress.h>
+#include <net.h>
 #include <netbase.h>
+#include <threadinterrupt.h>
+#include <util.h>
+
+#include <thread>
 
 #if USE_UPNP
 #include <miniupnpc/miniupnpc.h>

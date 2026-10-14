@@ -12,7 +12,7 @@
 #include <httpserver.h>
 #include <validation.h>
 #include <key_io.h>
-#include <net.h>
+#include <connman.h>
 #include <outputtype.h>
 #include <policy/feerate.h>
 #include <policy/fees.h>

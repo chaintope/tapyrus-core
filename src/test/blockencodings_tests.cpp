@@ -4,6 +4,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <blockencodings.h>
+#include <partiallydownloadedblock.h>
 #include <consensus/merkle.h>
 #include <chainparams.h>
 #include <random.h>

@@ -856,7 +856,7 @@ jobs:
     # Pinned to match the ubuntu:24.04 container tapyrusd runs in below, so
     # the runtime library sonames it installs match what the build linked.
     runs-on: ubuntu-24.04
-    # Verifies -DWITH_MINIUPNPC=ON's actual port-mapping code path (net.cpp's
+    # Verifies -DWITH_MINIUPNPC=ON's actual port-mapping code path (mapport.cpp's
     # ThreadMapPort) against a real UPnP IGD implementation (miniupnpd), not
     # just that it compiles.
     #

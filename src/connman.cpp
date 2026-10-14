@@ -6,14 +6,18 @@
 
 #include <tapyrus-config.h>
 
-#include <net.h>
+#include <connman.h>
 
 #include <chainparams.h>
 #include <consensus/consensus.h>
 #include <crypto/common.h>
 #include <crypto/sha256.h>
-#include <primitives/transaction.h>
+#include <localaddress.h>
+#include <net.h>
 #include <netbase.h>
+#include <netmessage.h>
+#include <node.h>
+#include <primitives/transaction.h>
 
 #include <random.h>
 #include <scheduler.h>

@@ -12,10 +12,12 @@
 #include <chainparams.h>
 #include <consensus/validation.h>
 #include <hash.h>
+#include <localaddress.h>
 #include <validation.h>
 #include <merkleblock.h>
 #include <netmessagemaker.h>
 #include <netbase.h>
+#include <partiallydownloadedblock.h>
 #include <policy/fees.h>
 #include <policy/policy.h>
 #include <primitives/block.h>
