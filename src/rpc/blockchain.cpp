@@ -25,6 +25,8 @@
 #include <primitives/xfield.h>
 #include <rpc//protocol.h>
 #include <rpc/server.h>
+#include <rpc/jsonrpcrequest.h>
+#include <rpc/rpctable.h>
 #include <streams.h>
 #include <sync.h>
 #include <txmempool.h>

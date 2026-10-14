@@ -23,6 +23,9 @@
 #include <rpc/protocol.h>
 #include <rpc/rawtransaction.h>
 #include <rpc/server.h>
+#include <rpc/jsonrpcrequest.h>
+#include <rpc/rpctable.h>
+#include <rpc/rpctimerinterface.h>
 #include <rpc/util.h>
 #include <script/sign.h>
 #include <shutdown.h>

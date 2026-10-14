@@ -7,7 +7,8 @@
 #include <key_io.h>
 #include <pstt.h>
 #include <rpc/client.h>
-#include <rpc/server.h>
+#include <rpc/jsonrpcrequest.h>
+#include <rpc/rpctable.h>
 #include <script/sign.h>
 #include <script/standard.h>
 #include <txmempool.h>

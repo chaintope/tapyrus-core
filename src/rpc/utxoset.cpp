@@ -13,6 +13,8 @@
 #include <primitives/transaction.h>
 #include <rpc/protocol.h>
 #include <rpc/server.h>
+#include <rpc/jsonrpcrequest.h>
+#include <rpc/rpctable.h>
 #include <script/descriptor.h>
 #include <shutdown.h>
 #include <streams.h>

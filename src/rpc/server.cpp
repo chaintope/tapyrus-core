@@ -5,6 +5,9 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <rpc/server.h>
+#include <rpc/jsonrpcrequest.h>
+#include <rpc/rpctable.h>
+#include <rpc/rpctimerinterface.h>
 
 #include <fs.h>
 #include <key_io.h>
