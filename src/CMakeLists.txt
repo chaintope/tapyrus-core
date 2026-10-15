@@ -459,7 +459,8 @@ target_link_libraries(tapyrus_rpc
 
 
 # tapyrus Core tapyrusd. init.cpp and noui.cpp wire the libraries together
-# at start-up and shutdown and have no use outside this executable.
+# at start-up and shutdown, and debuglogfile.cpp is the debug.log writer
+# init.cpp installs; none of them has a use outside this executable.
 if(BUILD_DAEMON)
   add_executable(tapyrusd
     tapyrusd.cpp

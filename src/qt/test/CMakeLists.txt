@@ -17,8 +17,9 @@ add_test_to_suite(tapyrus-qt test-tapyrus-qt
 	../../test/test_tapyrus.cpp
 
 	# Start-up glue, as for tapyrusd. test_main.cpp calls noui_connect()
-	# directly, so noui.cpp is included too. genesisblock.cpp is for the
-	# shared test_tapyrus.cpp fixture.
+	# directly, so noui.cpp is included too. debuglogfile.cpp is the debug.log
+	# writer init.cpp installs. genesisblock.cpp is for the shared
+	# test_tapyrus.cpp fixture.
 	#
 	# interfaces/node.cpp is added too: rpcnestedtests.cpp/addressbooktests.cpp/
 	# wallettests.cpp call interfaces::MakeNode() directly, and it no longer

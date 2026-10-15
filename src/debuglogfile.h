@@ -41,6 +41,11 @@ public:
     explicit DebugLogFile(const fs::path& file_path, size_t max_buffer_memusage = BCLog::DEFAULT_MAX_LOG_BUFFER)
         : m_max_buffer_memusage(max_buffer_memusage), m_file_path(file_path) {}
 
+    ~DebugLogFile()
+    {
+        if (m_fileout) fclose(m_fileout);
+    }
+
     bool Enabled() const override { return true; }
 
     /** Open debug.log and write the buffered lines; logs how many were dropped, if any. */
