@@ -101,6 +101,7 @@ add_executable(test_tapyrus
         key_tests.cpp
         limitedmap_tests.cpp
         logging_tests.cpp
+        ../debuglogfile.cpp
         main_tests.cpp
         mempool_tests.cpp
         merkle_tests.cpp
@@ -170,7 +171,6 @@ add_executable(test_tapyrus
 add_library(tapyrus_test_util OBJECT
     test_tapyrus.cpp
     test_keys_helper.cpp
-    ../debuglogfile.cpp
     ../genesisblock.cpp
     ../noui.cpp
 )
