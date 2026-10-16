@@ -7,40 +7,20 @@
 
 #include <xfieldhistorymap.h>
 
-#include <shared_mutex>
-
 /*
- * class CTempXFieldHistory lets us use a temporary map to help handle situations like
- * LoadBlockFromDisk and ProcessBlockHeaders where the global map will not be accurate.
+ * class CTempXFieldHistory is a copy of a history, for situations like
+ * LoadBlockFromDisk and ProcessBlockHeaders where the active chain's history will not be accurate.
  * (The blocks being processed in LoadBlockFromDisk are not confirmed and not in the active chain.
  * If there is an aggregatePubKey change in one of the blocks, proof cannot be verified
- * for the rest of the blocks using the global CXFieldHistoryMap.)
- * This temp map used to store the xfield change encountered during processing
+ * for the rest of the blocks using the active chain's history.)
+ * The copy stores the xfield changes encountered during processing
  * until the method completes. When the block is confirmed after AcceptBlock the xfield change
- * is added to the global list in CXFieldHistory.
- * IT uses RAII idiom and deallocates the memory when the object goes out of scope.
+ * is added to the active chain's CXFieldHistory.
  */
 class CTempXFieldHistory : public CXFieldHistoryMap{
 
-    XFieldHistoryMapType* xfieldHistoryTemp;
 public:
-    //constructor to initialize the temp map
-    inline explicit CTempXFieldHistory():CXFieldHistoryMap(true){
-        xfieldHistoryTemp = new XFieldHistoryMapType;
-        std::shared_lock<std::shared_mutex> lock(xfieldHistoryMutex);
-        for(const auto& item : xfieldHistory)
-            xfieldHistoryTemp->insert(item);
-    }
-
-    virtual ~CTempXFieldHistory(){
-        delete xfieldHistoryTemp;
-        xfieldHistoryTemp = nullptr;
-    }
-
-    XFieldHistoryMapType& getXFieldHistoryMap() const override {
-        return *xfieldHistoryTemp;
-    }
-
+    inline explicit CTempXFieldHistory(const CXFieldHistoryMap& history) : CXFieldHistoryMap(history) {}
 };
 
 #endif // TAPYRUS_TEMPXFIELDHISTORY_H

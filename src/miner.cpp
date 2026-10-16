@@ -9,6 +9,7 @@
 #include <amount.h>
 #include <blockindex.h>
 #include <chainparams.h>
+#include <chainstatemanager.h>
 #include <consensus/consensus.h>
 #include <consensus/tx_verify.h>
 #include <consensus/merkle.h>
@@ -60,7 +61,7 @@ BlockAssembler::BlockAssembler(const CChainParams& params, const Options& option
         nBlockMaxSize = gArgs.GetArg("-blockmaxsize", DEFAULT_BLOCK_MAX_SIZE);
     }
     // Limit size to between 1K and GetCurrentMaxBlockSize-1K for sanity:
-    nBlockMaxSize = std::max((unsigned int)1000, std::min((unsigned int)(GetCurrentMaxBlockSize()-1000), nBlockMaxSize));
+    nBlockMaxSize = std::max((unsigned int)1000, std::min((unsigned int)(g_chainstate_manager.XFieldHistory().GetCurrentMaxBlockSize()-1000), nBlockMaxSize));
 }
 
 static BlockAssembler::Options DefaultOptions()
@@ -188,7 +189,7 @@ bool BlockAssembler::TestPackage(uint64_t packageSize, int32_t packageSigOpsCost
 {
     if (nBlockSize +  packageSize >= nBlockMaxSize)
         return false;
-    if (nBlockSigOpsCost + packageSigOpsCost >= GetMaxBlockSigops())
+    if (nBlockSigOpsCost + packageSigOpsCost >= g_chainstate_manager.XFieldHistory().GetMaxBlockSigops())
         return false;
     return true;
 }
