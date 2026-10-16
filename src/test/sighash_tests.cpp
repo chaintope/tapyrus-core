@@ -16,6 +16,7 @@
 #include <util.h>
 #include <utilstrencodings.h>
 #include <version.h>
+#include <xfieldhistory.h>
 
 #include <iostream>
 
@@ -196,7 +197,7 @@ BOOST_AUTO_TEST_CASE(sighash_from_data)
           stream >> tx;
 
           CValidationState state;
-          BOOST_CHECK_MESSAGE(CheckTransaction(*tx, state), strTest);
+          BOOST_CHECK_MESSAGE(CheckTransaction(*tx, state, GetCurrentMaxBlockSize()), strTest);
           BOOST_CHECK(state.IsValid());
 
           std::vector<unsigned char> raw = ParseHex(raw_script);

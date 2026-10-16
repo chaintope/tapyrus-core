@@ -32,6 +32,7 @@
 #include <utilmoneystr.h>
 #include <warnings.h>
 #include <tempxfieldhistory.h>
+#include <xfieldhistory.h>
 
 #include <future>
 #include <thread>
@@ -657,7 +658,7 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
     // missing inputs is a vector for package validation
     opt.missingInputs.clear();
 
-    if (!CheckTransaction(tx, state))
+    if (!CheckTransaction(tx, state, GetCurrentMaxBlockSize()))
         return false; // state filled in by CheckTransaction
 
     // Coinbase is only valid in a block, not as a loose transaction
