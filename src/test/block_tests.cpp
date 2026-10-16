@@ -2,11 +2,14 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <consensus/tx_verify.h>
+#include <consensus/validation.h>
 #include <primitives/block.h>
 #include <genesisblock.h>
 #include <xfieldhistory.h>
 #include <test/test_tapyrus.h>
 #include <test/test_keys_helper.h>
+#include <validation.h>
 
 #include <boost/test/unit_test.hpp>
 #include <chainparams.h>
@@ -275,6 +278,62 @@ BOOST_AUTO_TEST_CASE(blockHeaderWithxfieldType3_maxxfieldtype)
     BOOST_CHECK(!blockHeader.xfield.IsValid());
     BOOST_CHECK_EQUAL(XFieldDataToString(blockHeader.xfield.xfieldValue), "");
     BOOST_CHECK_EQUAL(blockHeader.proof.size(), 0);
+}
+
+// Adds a MAXBLOCKSIZE change to the shared xfield history and removes it again on scope exit.
+class ScopedMaxBlockSizeChange
+{
+    const XFieldChange m_change;
+public:
+    explicit ScopedMaxBlockSizeChange(const XFieldChange& change) : m_change(change)
+    {
+        CXFieldHistory().Add(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, m_change);
+    }
+    ~ScopedMaxBlockSizeChange()
+    {
+        CXFieldHistory().Remove(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, m_change);
+    }
+};
+
+// A transaction is checked against the size limit at its block's height, not the latest one.
+BOOST_AUTO_TEST_CASE(checkblock_tx_size_uses_block_height_limit)
+{
+    const uint32_t laterLimit{2000};
+    // The latest limit is the one CheckTransaction used to apply, so the change must be in the shared history.
+    ScopedMaxBlockSizeChange laterChange(XFieldChange(XFieldMaxBlockSize(laterLimit), 100, uint256()));
+
+    CMutableTransaction coinbase;
+    coinbase.vin.resize(1);
+    coinbase.vin[0].prevout.n = 50;
+    coinbase.vin[0].scriptSig = CScript() << OP_0;
+    coinbase.vout.resize(1);
+    coinbase.vout[0].nValue = 0;
+    coinbase.vout[0].scriptPubKey = CScript() << OP_TRUE;
+
+    // Bigger than the later limit, well within the genesis one.
+    CMutableTransaction bigTx;
+    bigTx.vin.resize(1);
+    bigTx.vin[0].prevout = COutPoint(uint256S("01"), 0);
+    bigTx.vin[0].scriptSig = CScript() << std::vector<unsigned char>(5000, 0x01);
+    bigTx.vout.resize(1);
+    bigTx.vout[0].nValue = 0;
+    bigTx.vout[0].scriptPubKey = CScript() << OP_TRUE;
+
+    CValidationState txState;
+    BOOST_CHECK(!CheckTransaction(CTransaction(bigTx), txState, laterLimit));
+    BOOST_CHECK_EQUAL(txState.GetRejectReason(), "bad-txns-oversize");
+
+    CBlock block;
+    block.nFeatures = CBlock::TAPYRUS_BLOCK_FEATURES;
+    block.vtx.push_back(MakeTransactionRef(coinbase));
+    block.vtx.push_back(MakeTransactionRef(bigTx));
+
+    CValidationState state;
+    BOOST_CHECK_MESSAGE(CheckBlock(block, state, false, false, nullptr, 50), FormatStateMessage(state));
+
+    CValidationState laterState;
+    BOOST_CHECK(!CheckBlock(block, laterState, false, false, nullptr, 150));
+    BOOST_CHECK_EQUAL(laterState.GetRejectReason(), "bad-blk-length");
 }
 
 BOOST_AUTO_TEST_SUITE_END()
