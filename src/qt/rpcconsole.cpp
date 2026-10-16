@@ -14,7 +14,7 @@
 #include <chainparams.h>
 #include <interfaces/node.h>
 #include <netbase.h>
-#include <rpc/server.h>
+#include <rpc/rpctimerinterface.h>
 #include <rpc/client.h>
 #include <util.h>
 #include <utilstrencodings.h>

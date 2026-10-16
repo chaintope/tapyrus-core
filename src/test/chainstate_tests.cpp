@@ -31,6 +31,7 @@
 #include <coloridentifier.h>
 #include <issuedcolorids.h>
 #include <script/interpreter.h>
+#include <script/transactionsignatureserializer.h>
 #include <hash.h>
 #include <amount.h>
 

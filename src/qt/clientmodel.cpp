@@ -17,6 +17,7 @@
 #include <interfaces/node.h>
 #include <validation.h>
 #include <net.h>
+#include <connman.h>
 #include <netbase.h>
 #include <txmempool.h>
 #include <ui_interface.h>

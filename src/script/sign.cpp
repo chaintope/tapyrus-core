@@ -10,6 +10,7 @@
 #include <policy/policy.h>
 #include <primitives/transaction.h>
 #include <script/standard.h>
+#include <script/transactionsignatureserializer.h>
 #include <uint256.h>
 
 typedef std::vector<unsigned char> valtype;

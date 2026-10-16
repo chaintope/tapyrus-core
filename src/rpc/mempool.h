@@ -5,6 +5,12 @@
 #ifndef TAPYRUS_RPC_MEMPOOL_H
 #define TAPYRUS_RPC_MEMPOOL_H
 
+class UniValue;
 
+/** Mempool information to JSON */
+UniValue mempoolInfoToJSON();
+
+/** Mempool to JSON */
+UniValue mempoolToJSON(bool fVerbose = false);
 
 #endif // TAPYRUS_RPC_MEMPOOL_H

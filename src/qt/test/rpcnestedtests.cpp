@@ -12,6 +12,8 @@
 #include <validation.h>
 #include <rpc/register.h>
 #include <rpc/server.h>
+#include <rpc/jsonrpcrequest.h>
+#include <rpc/rpctable.h>
 #include <qt/rpcconsole.h>
 #include <test/test_tapyrus.h>
 #include <univalue.h>

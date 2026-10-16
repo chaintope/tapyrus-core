@@ -9,6 +9,9 @@
 #include <key_io.h>
 #include <rpc/protocol.h>
 #include <rpc/server.h>
+#include <rpc/jsonrpcrequest.h>
+#include <rpc/rpctable.h>
+#include <rpc/rpctimerinterface.h>
 #include <random.h>
 #include <sync.h>
 #include <util.h>

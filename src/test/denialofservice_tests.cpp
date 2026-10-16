@@ -8,6 +8,8 @@
 #include <chainparams.h>
 #include <keystore.h>
 #include <net.h>
+#include <connman.h>
+#include <netnode.h>
 #include <net_processing.h>
 #include <script/sign.h>
 #include <serialize.h>

@@ -12,8 +12,10 @@
 #include <validation.h>
 #include <httpserver.h>
 #include <rpc/blockchain.h>
+#include <rpc/mempool.h>
 #include <rpc/protocol.h>
 #include <rpc/server.h>
+#include <rpc/jsonrpcrequest.h>
 #include <streams.h>
 #include <sync.h>
 #include <txmempool.h>

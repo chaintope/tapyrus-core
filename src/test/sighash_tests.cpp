@@ -8,6 +8,7 @@
 #include <test/data/sighash.json.h>
 #include <hash.h>
 #include <script/interpreter.h>
+#include <script/transactionsignatureserializer.h>
 #include <script/script.h>
 #include <serialize.h>
 #include <streams.h>

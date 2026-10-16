@@ -3,12 +3,17 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <rpc/server.h>
+#include <rpc/jsonrpcrequest.h>
+#include <rpc/rpctable.h>
 
 #include <chainparams.h>
 #include <clientversion.h>
 #include <core_io.h>
 #include <validation.h>
 #include <net.h>
+#include <connman.h>
+#include <netnode.h>
+#include <localaddress.h>
 #include <net_processing.h>
 #include <netbase.h>
 #include <policy/policy.h>

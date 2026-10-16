@@ -2,6 +2,7 @@
 // Copyright (c) 2019-2020 Chaintope Inc.
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
+#include <addrdb.h>
 #include <addrman.h>
 #include <test/test_tapyrus.h>
 #include <string>
@@ -10,6 +11,8 @@
 #include <serialize.h>
 #include <streams.h>
 #include <net.h>
+#include <netnode.h>
+#include <localaddress.h>
 #include <netbase.h>
 #include <chainparams.h>
 #include <util.h>
