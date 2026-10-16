@@ -174,9 +174,7 @@ endif()
 # tapyrus-tx/tapyrus-cli/tapyrus-genesis don't pull tapyrus_wallet/
 # tapyrus_chainstate/leveldb onto their link line just by needing tapyrus_util.
 add_library(tapyrus_util STATIC EXCLUDE_FROM_ALL
-        argsmanager.cpp
         fs.cpp
-        fs_helpers.cpp
         interfaces/handler.cpp
         logging.cpp
         policy/feerate.cpp
@@ -190,10 +188,12 @@ add_library(tapyrus_util STATIC EXCLUDE_FROM_ALL
         threadinterrupt.cpp
         ui_interface.cpp
         util.cpp
-        util_datadir.cpp
-        util_threads.cpp
+        utilargs.cpp
+        utildatadir.cpp
+        utilfs.cpp
         utilmoneystr.cpp
         utilstrencodings.cpp
+        utilthreads.cpp
         utiltime.cpp
 )
 # support/cleanse.cpp is deliberately not compiled here: it belongs to
