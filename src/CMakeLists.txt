@@ -261,9 +261,8 @@ target_link_libraries(tapyrus_netbase
 
 # Scripting/consensus-adjacent state shared by different executables and
 # libraries: keys, keystores, script signing/standardness/solvability,
-# coins, pstt, the xfield history cache, output-type classification, and
-# the dynamic (per-run) genesis-block/CXFieldHistory-seeding lifecycle
-# (dynamicparams.cpp). xfieldhistory sits here -- not in tapyrus_chainstate
+# coins, pstt, the xfield history class, output-type classification, and
+# the dynamic (per-run) genesis block (dynamicparams.cpp). xfieldhistory sits here -- not in tapyrus_chainstate
 # -- because federationparams.cpp (tapyrus_global, a lower layer) already
 # depends on it; its own consumers span every layer above this one.
 add_library(tapyrus_scripting STATIC EXCLUDE_FROM_ALL
@@ -321,6 +320,7 @@ add_library(tapyrus_chainstate STATIC EXCLUDE_FROM_ALL
   blockprune.cpp
   chain.cpp
   chainstate.cpp
+  chainstatemanager.cpp
   checkblock.cpp
   checkpoints.cpp
   consensus/sequence_locks.cpp

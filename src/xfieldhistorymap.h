@@ -118,35 +118,28 @@ struct XFieldChangeListWrapper
 };
 
 typedef std::map< TAPYRUS_XFIELDTYPES, XFieldChangeListWrapper > XFieldHistoryMapType;
-/*  This map is used instead of the list in federation params after v0.5.2
- *
- * XFieldHistoryMapType is a Global map to store all xfield changes.
- *
- * class CXFieldHistoryMap contains a static map of XFieldHistoryMapType.
- * (All objects of this class read and write to the same map.)
- * This is the full list of xfield change in the active chain.
- * When the isTemp flag is set in the constructor, all methods access the temp map.
- *
- * Note that this class is pure virtual. It is always accessed via CXFieldHistory or CTempXFieldHistory.
+/*
+ * A list of xfield changes per xfield type, guarded by its own mutex.
+ * Used through CXFieldHistory (the active chain's history) or CTempXFieldHistory (a working copy).
  */
 class CXFieldHistoryMap{
 
-    const bool isTemp;
-
 protected:
-    static XFieldHistoryMapType xfieldHistory;
-    static std::shared_mutex xfieldHistoryMutex;
-    inline CXFieldHistoryMap(bool temp):isTemp(temp) { }
+    XFieldHistoryMapType xfieldHistory;
+    mutable std::shared_mutex xfieldHistoryMutex;
+
+    CXFieldHistoryMap() = default;
+    // Copies the other history's changes; the mutex is not copied.
+    CXFieldHistoryMap(const CXFieldHistoryMap& other);
 
 public:
     virtual ~CXFieldHistoryMap(){}
-    virtual XFieldHistoryMapType& getXFieldHistoryMap() const = 0;
 
     template <typename T>
     void GetLatest(TAPYRUS_XFIELDTYPES type, T & xfieldval) const {
         std::shared_lock<std::shared_mutex> lock(xfieldHistoryMutex);
-        auto& listofXfieldChanges = (isTemp ? this->getXFieldHistoryMap() : xfieldHistory).find(type)->second;
-        xfieldval = std::get<T>(listofXfieldChanges.rbegin()->xfieldValue);
+        auto& listofXfieldChanges = xfieldHistory.find(type)->second;
+        xfieldval = std::get<T>(listofXfieldChanges.back().xfieldValue);
     }
 
     // Thread-safe methods to access xfield history data
@@ -161,6 +154,12 @@ public:
 
     virtual XFieldChange Get(TAPYRUS_XFIELDTYPES type, uint32_t height);
     int32_t GetReorgHeight();
+
+    /** The maximum block size according to the latest xfield change */
+    uint32_t GetCurrentMaxBlockSize() const;
+
+    /** The maximum allowed number of signature check operations in a block (network rule) */
+    uint32_t GetMaxBlockSigops() const;
 };
 
 #endif // TAPYRUS_XFIELDHISTORYMAP_H

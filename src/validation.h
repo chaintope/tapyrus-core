@@ -381,10 +381,10 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
 bool ContextualCheckBlock(const CBlock& block, CValidationState& state, const CBlockIndex* pindexPrev);
 
 /** Context-independent header validity checks */
-bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, CXFieldHistoryMap* pxfieldHistory = nullptr, int nHeight = -1, bool fCheckPOW = true);
+bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, CXFieldHistoryMap& xfieldHistory, int nHeight = -1, bool fCheckPOW = true);
 
 /** Context-independent validity checks */
-bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW = true, bool fCheckMerkleRoot = true, CXFieldHistoryMap* pxfieldHistory = nullptr, int nHeight = -1);
+bool CheckBlock(const CBlock& block, CValidationState& state, CXFieldHistoryMap& xfieldHistory, bool fCheckPOW = true, bool fCheckMerkleRoot = true, int nHeight = -1);
 
 /** Check a block is completely valid from start to finish (only works on top of our current best block) */
 bool TestBlockValidity(CValidationState& state, const CBlock& block, CBlockIndex* pindexPrev, bool fCheckPOW = true, bool fCheckMerkleRoot = true) EXCLUSIVE_LOCKS_REQUIRED(cs_main);

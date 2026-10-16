@@ -19,6 +19,7 @@
 
 #include <chainstate.h>
 #include <test/test_tapyrus.h>
+#include <chainstatemanager.h>
 #include <validation.h>
 #include <consensus/validation.h>
 #include <consensus/tx_verify.h>
@@ -689,9 +690,9 @@ BOOST_AUTO_TEST_CASE(check_block_header_orphan_uses_latest_aggpubkey)
     rotatedKey.MakeNewKey(true);
     CPubKey rotatedPubKey = rotatedKey.GetPubKey();
 
-    // CTempXFieldHistory copies the global history (genesis key only) then
+    // CTempXFieldHistory copies the chain's history (genesis key only) then
     // lets us append a rotation entry without touching the real history.
-    CTempXFieldHistory tempHistory;
+    CTempXFieldHistory tempHistory(g_chainstate_manager.XFieldHistory());
     tempHistory.Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY,
                     XFieldChange(XFieldAggPubKey(rotatedPubKey), 5, uint256()));
 
@@ -712,7 +713,7 @@ BOOST_AUTO_TEST_CASE(check_block_header_orphan_uses_latest_aggpubkey)
     // → rotated key → valid Schnorr signature.
     {
         CValidationState state;
-        BOOST_CHECK(CheckBlockHeader(header, state, &tempHistory, -1));
+        BOOST_CHECK(CheckBlockHeader(header, state, tempHistory, -1));
     }
 
     // AcceptBlockHeader must reject for "prev-blk-not-found", not "bad-proof".
