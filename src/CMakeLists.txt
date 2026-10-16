@@ -366,7 +366,7 @@ add_library(tapyrus_peer STATIC EXCLUDE_FROM_ALL
   net.cpp
   net_processing.cpp
   netmessage.cpp
-  node.cpp
+  netnode.cpp
   timeoffsets.cpp
   torcontrol.cpp
 )
