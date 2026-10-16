@@ -197,7 +197,8 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
     // Check transactions
     for (const auto& tx : block.vtx)
     {
-        if (!CheckTransaction(*tx, state, true))
+        // Each transaction must fit in this block's own size limit, not the latest one.
+        if (!CheckTransaction(*tx, state, maxBlockSizeChange.data, true))
             return state.Invalid(false, state.GetRejectCode(), state.GetRejectReason(),
                                  strprintf("Transaction check failed (tx hash %s) %s", tx->GetHashMalFix().ToString(), state.GetDebugMessage()));
     }

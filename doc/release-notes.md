@@ -4,6 +4,15 @@ release-notes at release time)
 Notable changes
 ===============
 
+Block validation
+----------------
+
+- Each transaction in a block is now checked against the maximum block size
+  in effect at that block's height, as the block itself already was. It used
+  to be checked against the latest limit, so after a MAXBLOCKSIZE xfield
+  change lowered the limit, a node could reject an earlier block that was
+  valid when it was accepted, for example while reindexing.
+
 Updated RPCs
 ------------
 
