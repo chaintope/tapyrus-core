@@ -3,8 +3,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef TAPYRUS_NODE_H
-#define TAPYRUS_NODE_H
+#ifndef TAPYRUS_NETNODE_H
+#define TAPYRUS_NETNODE_H
 
 #include <amount.h>
 #include <bloom.h>
@@ -324,4 +324,4 @@ public:
     }
 };
 
-#endif // TAPYRUS_NODE_H
+#endif // TAPYRUS_NETNODE_H

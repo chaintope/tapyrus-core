@@ -18,7 +18,7 @@
 #include <softforkmanager.h>
 #include <validation.h>
 #include <connman.h>
-#include <node.h>
+#include <netnode.h>
 #include <policy/fees.h>
 #include <policy/policy.h>
 #include <policy/rbf.h>

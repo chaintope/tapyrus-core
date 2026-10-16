@@ -9,7 +9,7 @@
 
 #include <net.h>
 #include <connman.h>
-#include <node.h>
+#include <netnode.h>
 #include <neteventsinterface.h>
 #include <validationinterface.h>
 #include <consensus/params.h>

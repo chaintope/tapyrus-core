@@ -11,7 +11,7 @@
 #include <serialize.h>
 #include <streams.h>
 #include <net.h>
-#include <node.h>
+#include <netnode.h>
 #include <localaddress.h>
 #include <netbase.h>
 #include <chainparams.h>

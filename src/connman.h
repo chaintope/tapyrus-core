@@ -13,7 +13,7 @@
 #include <netaddress.h>
 #include <neteventsinterface.h>
 #include <netmessage.h>
-#include <node.h>
+#include <netnode.h>
 #include <protocol.h>
 #include <random.h>
 #include <sync.h>
