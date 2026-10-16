@@ -9,7 +9,6 @@
 #include <qt/guiutil.h>
 #include <qt/peertablemodel.h>
 
-#include <chain.h>
 #include <chainparams.h>
 #include <checkpoints.h>
 #include <clientversion.h>
@@ -17,6 +16,7 @@
 #include <interfaces/node.h>
 #include <validation.h>
 #include <net.h>
+#include <connman.h>
 #include <netbase.h>
 #include <txmempool.h>
 #include <ui_interface.h>

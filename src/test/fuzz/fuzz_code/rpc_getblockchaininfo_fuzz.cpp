@@ -11,7 +11,8 @@
 #include <tapyrus-config.h>
 
 #include <rpc/protocol.h>
-#include <rpc/server.h>
+#include <rpc/jsonrpcrequest.h>
+#include <rpc/rpctable.h>
 #include <univalue.h>
 
 #include <test/fuzz/fuzz_code/FuzzedDataProvider.h>

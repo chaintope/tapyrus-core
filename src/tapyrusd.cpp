@@ -11,7 +11,6 @@
 #include <clientversion.h>
 #include <compat.h>
 #include <fs.h>
-#include <rpc/server.h>
 #include <init.h>
 #include <noui.h>
 #include <shutdown.h>

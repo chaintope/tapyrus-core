@@ -4,10 +4,12 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chain.h>
+#include <blockindex.h>
 #include <clientversion.h>
 #include <key_io.h>
 #include <rpc/protocol.h>
 #include <rpc/server.h>
+#include <rpc/jsonrpcrequest.h>
 #include <validation.h>
 #include <script/script.h>
 #include <script/standard.h>

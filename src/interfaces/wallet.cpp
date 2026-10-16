@@ -12,10 +12,10 @@
 #include <utilstrencodings.h>
 #include <wallet/coincontrol.h>
 #include <wallet/rpcwallet.h>
-#include <chain.h>
+#include <blockindex.h>
 #include <consensus/validation.h>
 #include <interfaces/handler.h>
-#include <net.h>
+#include <connman.h>
 #include <policy/feerate.h>
 #include <policy/fees.h>
 #include <policy/policy.h>

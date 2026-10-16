@@ -7,6 +7,7 @@
 #include <wallet/wallet.h>
 
 #include <chain.h>
+#include <blockindex.h>
 #include <wallet/coincontrol.h>
 #include <coloridentifier.h>
 #include <consensus/consensus.h>
@@ -17,13 +18,17 @@
 #include <keystore.h>
 #include <softforkmanager.h>
 #include <validation.h>
-#include <net.h>
+#include <connman.h>
+#include <netnode.h>
 #include <policy/fees.h>
 #include <policy/policy.h>
 #include <policy/rbf.h>
 #include <primitives/block.h>
 #include <primitives/transaction.h>
 #include <script/script.h>
+#include <script/sign.h>
+#include <script/signaturecreator.h>
+#include <script/signaturedata.h>
 #include <shutdown.h>
 #include <txmempool.h>
 #include <utilmoneystr.h>

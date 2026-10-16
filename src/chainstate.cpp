@@ -16,6 +16,7 @@
 #include <trace.h>
 #include <ui_interface.h>
 #include <warnings.h>
+#include <xfieldhistory.h>
 #include <file_io.h>
 #include <blockprune.h>
 

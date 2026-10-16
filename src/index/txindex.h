@@ -5,7 +5,7 @@
 #ifndef BITCOIN_INDEX_TXINDEX_H
 #define BITCOIN_INDEX_TXINDEX_H
 
-#include <chain.h>
+#include <blockindex.h>
 #include <index/base.h>
 #include <txdb.h>
 

@@ -5,13 +5,13 @@
 
 #include <consensus/validation.h>
 #include <key.h>
+#include <script/transactionsignatureserializer.h>
 #include <validation.h>
 #include <miner.h>
 #include <pubkey.h>
 #include <txmempool.h>
 #include <random.h>
 #include <script/standard.h>
-#include <script/sign.h>
 #include <test/test_tapyrus.h>
 #include <utiltime.h>
 #include <core_io.h>

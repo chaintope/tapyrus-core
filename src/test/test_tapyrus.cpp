@@ -17,7 +17,7 @@
 #include <net_processing.h>
 #include <ui_interface.h>
 #include <streams.h>
-#include <rpc/server.h>
+#include <rpc/rpctable.h>
 #include <rpc/register.h>
 #include <script/sigcache.h>
 #include <xfieldhistory.h>

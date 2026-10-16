@@ -9,10 +9,12 @@
 #include <primitives/transaction.h>
 #include <script/interpreter.h>
 #include <consensus/validation.h>
+#include <tinyformat.h>
 #include <xfieldhistory.h>
 
 // TODO remove the following dependencies
-#include <coins.h>
+#include <coin.h>
+#include <coinsviewcache.h>
 #include <utilmoneystr.h>
 
 bool IsFinalTx(const CTransaction &tx, int nBlockHeight, int64_t nBlockTime)

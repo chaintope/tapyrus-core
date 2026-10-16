@@ -5,7 +5,7 @@
 
 #include <chainparams.h>
 #include <validation.h>
-#include <net.h>
+#include <connman.h>
 
 #include <test/test_tapyrus.h>
 

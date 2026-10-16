@@ -10,6 +10,7 @@
 #include <primitives/transaction.h>
 #include <script/script.h>
 #include <script/interpreter.h>
+#include <script/transactionsignatureserializer.h>
 #include <test/test_tapyrus.h>
 #include <policy/policy.h>
 #include <coloridentifier.h>

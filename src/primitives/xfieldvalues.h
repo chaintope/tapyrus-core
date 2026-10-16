@@ -1,0 +1,173 @@
+// Copyright (c) 2019-2022 Chaintope Inc.
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
+#ifndef TAPYRUS_PRIMITIVES_XFIELDVALUES_H
+#define TAPYRUS_PRIMITIVES_XFIELDVALUES_H
+
+#include <pubkey.h>
+#include <serialize.h>
+#include <streams.h>
+#include <uint256.h>
+
+#include <cstdint>
+#include <exception>
+#include <initializer_list>
+#include <string>
+#include <variant>
+
+/*
+ * TO add a new xField :
+ * 1. Add new type in TAPYRUS_XFIELDTYPES, XFIELDTYPES_INIT_LIST and IsValid
+ * 2. Add new class to represent the xfieldValue with all methods defined in XFieldEmpty
+ * 3. Update the serialization in XFieldChange, XFieldChangeListWrapper and CXField
+ * 4. Update string conversion in XFieldDataToString, GetXFieldNameForRpc and GetXFieldDBKey
+ * 5. Add its initialization to CXFieldHistory constructors
+ * 6. Add code to verify the property represented by the new xfield during block validation
+ */
+
+/*
+ * These are the XFIELD types supported in Tapyrus
+ */
+enum class TAPYRUS_XFIELDTYPES : uint8_t
+{
+    NONE = 0, //no xfield
+    AGGPUBKEY = 1, //xfield is 33 byte aggpubkey
+    MAXBLOCKSIZE = 2, //xfield is 4 byte max block size
+
+};
+
+// To check if an xfield in a block is valid. This is used to verify xfield in a block and hence includes NONE
+inline bool IsValid(TAPYRUS_XFIELDTYPES type) {
+    return type == TAPYRUS_XFIELDTYPES::NONE
+        || type == TAPYRUS_XFIELDTYPES::AGGPUBKEY
+        || type == TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE;
+}
+
+// This list does not include NONE. IT is used to initialize and loop throught xfieldHistory
+static const std::initializer_list<TAPYRUS_XFIELDTYPES> XFIELDTYPES_INIT_LIST
+{
+    TAPYRUS_XFIELDTYPES::AGGPUBKEY,
+    TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE
+};
+
+/*
+ * Following classes represent the XFIELD Values
+ * One Value type is associated with one TAPYRUS_XFIELDTYPES
+ * The association is enforced using
+ * GetXFieldTypeFrom
+ * GetXFieldValueFrom
+ *
+ */
+
+// TAPYRUS_XFIELDTYPES::NONE
+class XFieldEmpty {
+public:
+    static constexpr char BLOCKTREE_DB_KEY = '0';//unnused key to pass compilation
+    XFieldEmpty(){};
+    inline bool IsValid() const { return true; }
+    inline std::string ToString() const { return ""; }
+    inline bool operator==(const XFieldEmpty &x) const { return true; }
+};
+
+// TAPYRUS_XFIELDTYPES::AGGPUBKEY
+class XFieldAggPubKey {
+public:
+    std::vector<unsigned char> data;
+    static constexpr char BLOCKTREE_DB_KEY = '1';
+    explicit XFieldAggPubKey():data() { }
+    XFieldAggPubKey(const std::vector<unsigned char>& dataIn):data(dataIn.begin(), dataIn.end()){};
+    XFieldAggPubKey(const CPubKey& dataIn):data(dataIn.begin(), dataIn.end()){};
+
+    bool operator==(const std::vector<unsigned char>& dataIn) const { return data == dataIn; }
+    bool operator==(const XFieldAggPubKey& xfield) const { return xfield.operator==(this->data); }
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(data);
+    }
+
+    inline bool IsValid() const {
+        if (data.size() != CPubKey::COMPRESSED_PUBLIC_KEY_SIZE) return false;
+        if (data[0] != 0x02 && data[0] != 0x03) return false;
+        CPubKey k(data.begin(), data.end());
+        return k.IsFullyValid() && k.IsCompressed();
+    }
+
+    inline std::string ToString() const;
+    CPubKey inline getPubKey() const { return CPubKey(data.begin(), data.end()); }
+};
+
+// TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE
+class XFieldMaxBlockSize {
+public:
+    uint32_t data;
+    static constexpr char BLOCKTREE_DB_KEY = '2';
+    explicit XFieldMaxBlockSize():data() { }
+    XFieldMaxBlockSize(uint32_t dataIn):data(dataIn) { }
+
+    bool operator==(uint32_t dataIn) const { return data == dataIn; }
+    bool operator==(const XFieldMaxBlockSize& xfield) const { return xfield.operator==(this->data); }
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(data);
+    }
+
+    inline bool IsValid() const {
+        //min based on BlockAssembler(1K and MAX_BLOCK_SIZE-1K)
+        return data > 1000;
+    }
+
+    inline std::string ToString() const;
+    inline uint32_t GetMaxBlockSigops() { return uint32_t(data / 50); };
+
+    inline uint32_t GetMaxStandardTxSigops() { return uint32_t(GetMaxBlockSigops() / 5); };
+
+};
+
+/*
+ * union of above classes to represent xfieldValue.
+ */
+typedef std::variant<
+    XFieldEmpty,
+    XFieldAggPubKey,
+    XFieldMaxBlockSize> XFieldData;
+
+/*
+ * This method defines the association between XFieldData and TAPYRUS_XFIELDTYPES
+ */
+inline TAPYRUS_XFIELDTYPES GetXFieldTypeFrom(XFieldData xfieldDataIn) {
+    return TAPYRUS_XFIELDTYPES(xfieldDataIn.index());
+}
+
+//Exception to identify xfield composition problems
+class BadXFieldException:public std::exception {
+    bool unknown;
+    std::string message;
+public:
+    explicit BadXFieldException(TAPYRUS_XFIELDTYPES type, XFieldData xfieldValue):unknown(false) {
+        if(!IsValid(type)) {
+            unknown = true;
+        }
+        constructMessage(type, xfieldValue);
+    }
+
+    const char* what() const noexcept override {
+        return message.c_str();
+    }
+
+private:
+    void constructMessage(TAPYRUS_XFIELDTYPES type, XFieldData xfieldValue);
+};
+
+/*
+ * This method defines the association between TAPYRUS_XFIELDTYPES and XFieldData classes
+ */
+
+template <typename T>
+bool GetXFieldValueFrom(XFieldData& xfieldValue, T& value);
+
+#endif // TAPYRUS_PRIMITIVES_XFIELDVALUES_H

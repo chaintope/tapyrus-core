@@ -13,8 +13,10 @@
 #include <key_io.h>
 #include <policy/policy.h>
 #include <random.h>
-#include <rpc/server.h>
+#include <rpc/jsonrpcrequest.h>
+#include <rpc/rpctable.h>
 #include <script/interpreter.h>
+#include <script/transactionsignaturechecker.h>
 #include <script/script.h>
 #include <script/standard.h>
 #include <streams.h>

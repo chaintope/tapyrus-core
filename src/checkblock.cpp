@@ -24,6 +24,7 @@
 #include <pubkey.h>
 #include <tinyformat.h>
 #include <xfieldhistory.h>
+#include <xfieldhistorymap.h>
 
 #ifndef TAPYRUS_GENESIS_SKIP
 // tapyrus coinbase must have blockheight in the prevout.n. Only meaningful

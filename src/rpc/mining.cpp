@@ -5,7 +5,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <amount.h>
-#include <chain.h>
+#include <blockindex.h>
 #include <chainparams.h>
 #include <consensus/consensus.h>
 #include <consensus/params.h>
@@ -14,12 +14,14 @@
 #include <validation.h>
 #include <key_io.h>
 #include <miner.h>
-#include <net.h>
+#include <connman.h>
 #include <policy/fees.h>
 #include <rpc/blockchain.h>
 #include <rpc/mining.h>
 #include <rpc/protocol.h>
 #include <rpc/server.h>
+#include <rpc/jsonrpcrequest.h>
+#include <rpc/rpctable.h>
 #include <shutdown.h>
 #include <tapyrusmodes.h>
 #include <txmempool.h>

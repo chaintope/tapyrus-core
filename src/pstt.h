@@ -15,7 +15,8 @@
 #include <primitives/transaction.h>
 #include <pubkey.h>
 #include <script/script.h>
-#include <script/sign.h>
+#include <script/signingprovider.h>
+#include <script/signaturedata.h>
 #include <uint256.h>
 
 #include <map>

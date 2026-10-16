@@ -3,6 +3,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <script/transactionsignatureserializer.h>
 #include <wallet/wallet.h>
 
 #include <memory>
@@ -13,7 +14,7 @@
 #include <vector>
 
 #include <consensus/validation.h>
-#include <rpc/server.h>
+#include <rpc/jsonrpcrequest.h>
 #include <rpc/client.h>
 #include <test/test_tapyrus.h>
 #include <validation.h>

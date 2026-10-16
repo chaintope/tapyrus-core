@@ -31,7 +31,7 @@
 #include <ui_interface.h>
 #include <utilmoneystr.h>
 #include <warnings.h>
-#include <xfieldhistory.h>
+#include <tempxfieldhistory.h>
 
 #include <future>
 #include <thread>

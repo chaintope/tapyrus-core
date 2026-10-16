@@ -3,7 +3,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <chain.h>
+#include <blockindex.h>
 #include <chainparams.h>
 #include <core_io.h>
 #include <index/txindex.h>
@@ -12,8 +12,10 @@
 #include <validation.h>
 #include <httpserver.h>
 #include <rpc/blockchain.h>
+#include <rpc/mempool.h>
 #include <rpc/protocol.h>
 #include <rpc/server.h>
+#include <rpc/jsonrpcrequest.h>
 #include <streams.h>
 #include <sync.h>
 #include <txmempool.h>

@@ -6,13 +6,16 @@
 
 #include <addrdb.h>
 #include <amount.h>
-#include <chain.h>
+#include <blockindex.h>
 #include <chainparams.h>
 #include <dynamicparams.h>
 #include <init.h>
 #include <interfaces/handler.h>
 #include <interfaces/wallet.h>
 #include <net.h>
+#include <connman.h>
+#include <netnode.h>
+#include <mapport.h>
 #include <net_processing.h>
 #include <netaddress.h>
 #include <netbase.h>
@@ -20,7 +23,9 @@
 #include <policy/fees.h>
 #include <policy/policy.h>
 #include <primitives/block.h>
-#include <rpc/server.h>
+#include <rpc/jsonrpcrequest.h>
+#include <rpc/rpctable.h>
+#include <rpc/rpctimerinterface.h>
 #include <scheduler.h>
 #include <shutdown.h>
 #include <sync.h>

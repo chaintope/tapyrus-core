@@ -15,7 +15,9 @@
 #include <string>
 
 #include <amount.h>
-#include <coins.h>
+#include <coin.h>
+#include <coinsview.h>
+#include <coinsviewcache.h>
 #include <indirectmap.h>
 #include <policy/feerate.h>
 #include <primitives/transaction.h>

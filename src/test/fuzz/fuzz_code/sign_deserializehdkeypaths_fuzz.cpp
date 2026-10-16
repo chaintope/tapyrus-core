@@ -11,7 +11,7 @@
 #include <tapyrus-config.h>
 
 #include <pubkey.h>
-#include <script/sign.h>
+#include <script/signaturedata.h>
 #include <streams.h>
 #include <version.h>
 

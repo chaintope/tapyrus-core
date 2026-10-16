@@ -9,7 +9,7 @@
 #include <vector>
 #include <stdint.h>
 #include <amount.h>
-#include <primitives/xfield.h>
+#include <primitives/xfieldvalues.h>
 
 class CBlock;
 class CBlockIndex;
@@ -22,12 +22,6 @@ void RPCNotifyBlockChange(bool ibd, const CBlockIndex *);
 
 /** Block description to JSON */
 UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool txDetails = false);
-
-/** Mempool information to JSON */
-UniValue mempoolInfoToJSON();
-
-/** Mempool to JSON */
-UniValue mempoolToJSON(bool fVerbose = false);
 
 /** Block header to JSON */
 UniValue blockheaderToJSON(const CBlockIndex* blockindex);

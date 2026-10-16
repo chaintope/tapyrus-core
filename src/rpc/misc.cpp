@@ -3,16 +3,16 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <chain.h>
 #include <clientversion.h>
 #include <key_io.h>
 #include <validation.h>
 #include <httpserver.h>
-#include <net.h>
 #include <netbase.h>
 #include <outputtype.h>
 #include <rpc/protocol.h>
 #include <rpc/server.h>
+#include <rpc/jsonrpcrequest.h>
+#include <rpc/rpctable.h>
 #include <rpc/util.h>
 #include <util.h>
 #include <utilstrencodings.h>

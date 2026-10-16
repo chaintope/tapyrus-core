@@ -9,14 +9,19 @@
 #include <cs_main.h>
 
 #include <checkqueue.h>
-#include <coins.h>
+#include <coinsview.h>
+#include <coinsviewcache.h>
 #include <sync.h>
 #include <chain.h>
-#include <xfieldhistory.h>
+#include <blockindex.h>
+#include <diskblockpos.h>
+#include <xfieldhistorymap.h>
 #include <undo.h>
 #include <scriptcheck.h>
 #include <map>
 #include <set>
+
+class CBlockTreeDB;
 
 
 enum DisconnectResult
