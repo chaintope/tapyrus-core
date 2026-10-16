@@ -12,6 +12,7 @@
 #include <amount.h>
 #include <chain.h>
 #include <chainparams.h>
+#include <debuglogfile.h>
 #include <checkpoints.h>
 #include <dynamicparams.h>
 #include <consensus/validation.h>
@@ -75,6 +76,9 @@ bool fFeeEstimatesInitialized = false;
 static const bool DEFAULT_PROXYRANDOMIZE = true;
 static const bool DEFAULT_REST_ENABLE = false;
 static const bool DEFAULT_STOPAFTERBLOCKIMPORT = false;
+
+// Set once by InitLogging(), before the signal handlers are installed; null with -nodebuglogfile.
+static DebugLogFile* g_debug_log_file = nullptr;
 
 std::unique_ptr<PeerLogicValidation> peerLogic;
 
@@ -307,7 +311,7 @@ static void HandleSIGTERM(int)
 
 static void HandleSIGHUP(int)
 {
-    LogInstance().m_reopen_file = true;
+    if (g_debug_log_file) g_debug_log_file->Reopen();
 }
 #else
 static BOOL WINAPI consoleCtrlHandler(DWORD dwCtrlType)
@@ -464,6 +468,11 @@ void SetupServerArgs()
     gArgs.AddArg("-debugexclude=<category>", strprintf("Exclude debugging information for a category. Can be used in conjunction with -debug=1 to output debug logs for all categories except one or more specified categories."), false, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-help-debug", "Show all debugging options (usage: --help -help-debug)", false, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-logips", strprintf("Include IP addresses in debug output (default: %u)", DEFAULT_LOGIPS), false, OptionsCategory::DEBUG_TEST);
+    gArgs.AddArg("-loglevel=<level>|<category>:<level>", strprintf("Set the global or per-category severity level for logging categories enabled with the -debug configuration option or the logging RPC. Possible values are %s (default=%s). The following levels are always logged: error, warning, info. If <category>:<level> is supplied, the setting will override the global one and may be specified multiple times to set multiple category-specific levels. <category> can be: %s.", BCLog::Logger::LogLevelsString(), BCLog::Logger::LogLevelToStr(BCLog::DEFAULT_LOG_LEVEL), ListLogCategories()), true, OptionsCategory::DEBUG_TEST);
+    gArgs.AddArg("-loglevelalways", strprintf("Always prepend a category and level (default: %u)", DEFAULT_LOGLEVELALWAYS), false, OptionsCategory::DEBUG_TEST);
+    gArgs.AddArg("-logratelimit", strprintf("Apply rate limiting to unconditional logging to mitigate disk-filling attacks (default: %u)", BCLog::DEFAULT_LOGRATELIMIT), true, OptionsCategory::DEBUG_TEST);
+    gArgs.AddArg("-logsourcelocations", strprintf("Prepend debug output with name of the originating source location (source file, line number and function name) (default: %u)", DEFAULT_LOGSOURCELOCATIONS), false, OptionsCategory::DEBUG_TEST);
+    gArgs.AddArg("-logthreadnames", strprintf("Prepend debug output with name of the originating thread (default: %u)", DEFAULT_LOGTHREADNAMES), false, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-logtimestamps", strprintf("Prepend debug output with timestamp (default: %u)", DEFAULT_LOGTIMESTAMPS), false, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-logtimemicros", strprintf("Add microsecond precision to debug timestamps (default: %u)", DEFAULT_LOGTIMEMICROS), true, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-mocktime=<n>", "Replace actual time with <n> seconds since epoch (default: 0)", true, OptionsCategory::DEBUG_TEST);
@@ -849,8 +858,10 @@ static std::string ResolveErrMsg(const char * const optname, const std::string& 
  */
 void InitLogging()
 {
-    LogInstance().m_print_to_file = !gArgs.IsArgNegated("-debuglogfile");
-    LogInstance().m_file_path = AbsPathForConfigVal(gArgs.GetArg("-debuglogfile", DEFAULT_DEBUGLOGFILE));
+    if (!gArgs.IsArgNegated("-debuglogfile")) {
+        g_debug_log_file = new DebugLogFile(AbsPathForConfigVal(gArgs.GetArg("-debuglogfile", DEFAULT_DEBUGLOGFILE)));
+        SetLogInstance(g_debug_log_file);
+    }
 
     // Add newlines to the logfile to distinguish this execution from the last
     // one; called before console logging is set up, so this is only sent to
@@ -860,6 +871,9 @@ void InitLogging()
     LogInstance().m_print_to_console = gArgs.GetBoolArg("-printtoconsole", !gArgs.GetBoolArg("-daemon", false));
     LogInstance().m_log_timestamps = gArgs.GetBoolArg("-logtimestamps", DEFAULT_LOGTIMESTAMPS);
     LogInstance().m_log_time_micros = gArgs.GetBoolArg("-logtimemicros", DEFAULT_LOGTIMEMICROS);
+    LogInstance().m_log_threadnames = gArgs.GetBoolArg("-logthreadnames", DEFAULT_LOGTHREADNAMES);
+    LogInstance().m_log_sourcelocations = gArgs.GetBoolArg("-logsourcelocations", DEFAULT_LOGSOURCELOCATIONS);
+    LogInstance().m_always_print_category_level = gArgs.GetBoolArg("-loglevelalways", DEFAULT_LOGLEVELALWAYS);
 
     fLogIPs = gArgs.GetBoolArg("-logips", DEFAULT_LOGIPS);
 
@@ -1002,6 +1016,18 @@ bool AppInitParameterInteraction()
     for (const std::string& cat : gArgs.GetArgs("-debugexclude")) {
         if (!LogInstance().DisableCategory(cat)) {
             InitWarning(strprintf(_("Unsupported logging category %s=%s."), "-debugexclude", cat));
+        }
+    }
+
+    // A level alone sets the global level; <category>:<level> sets that category's.
+    for (const std::string& level_str : gArgs.GetArgs("-loglevel")) {
+        const auto colon{level_str.find(':')};
+        if (colon == std::string::npos) {
+            if (!LogInstance().SetLogLevel(level_str)) {
+                InitWarning(strprintf(_("Unsupported global logging level %s=%s. Valid values: %s."), "-loglevel", level_str, BCLog::Logger::LogLevelsString()));
+            }
+        } else if (!LogInstance().SetCategoryLogLevel(level_str.substr(0, colon), level_str.substr(colon + 1))) {
+            InitWarning(strprintf(_("Unsupported category-specific logging level %s=%s. Expected %s=<category>:<loglevel>. Valid categories: %s. Valid loglevels: %s."), "-loglevel", level_str, "-loglevel", ListLogCategories(), BCLog::Logger::LogLevelsString()));
         }
     }
 
@@ -1221,15 +1247,15 @@ bool AppInitMain()
 #ifndef WIN32
     CreatePidFile(GetPidFile(), getpid());
 #endif
-    if (LogInstance().m_print_to_file) {
-        if (gArgs.GetBoolArg("-shrinkdebugfile", LogInstance().DefaultShrinkDebugFile())) {
+    if (g_debug_log_file) {
+        if (gArgs.GetBoolArg("-shrinkdebugfile", g_debug_log_file->DefaultShrink())) {
             // Do this first since it both loads a bunch of debug.log into memory,
             // and because this needs to happen before any other debug.log printing
-            LogInstance().ShrinkDebugFile();
+            g_debug_log_file->Shrink();
         }
-        if (!LogInstance().OpenDebugLog()) {
+        if (!g_debug_log_file->Open()) {
             return InitError(strprintf("Could not open debug log file %s",
-                                       LogInstance().m_file_path.string()));
+                                       g_debug_log_file->m_file_path.string()));
         }
     }
 
@@ -1288,6 +1314,14 @@ bool AppInitMain()
     scheduler.scheduleEvery([]{
         RandAddPeriodic();
     }, 60000);
+
+    if (gArgs.GetBoolArg("-logratelimit", BCLog::DEFAULT_LOGRATELIMIT)) {
+        LogInstance().SetRateLimiting(BCLog::LogRateLimiter::Create(
+            [](std::function<void()> func, std::chrono::milliseconds window) { scheduler.scheduleEvery(std::move(func), window.count()); },
+            BCLog::RATELIMIT_MAX_BYTES, BCLog::RATELIMIT_WINDOW));
+    } else {
+        LogPrintf("Log rate limiting disabled\n");
+    }
 
     GetMainSignals().RegisterBackgroundSignalScheduler(scheduler);
     GetMainSignals().RegisterWithMempoolSignals(mempool);

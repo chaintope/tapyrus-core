@@ -8,6 +8,7 @@
 
 #include <random.h>
 #include <serialize.h>
+#include <threadnames.h>
 #include <utilstrencodings.h>
 
 #include <stdarg.h>
@@ -1161,6 +1162,7 @@ void RenameThread(const std::string& name)
     // Prevent warnings for unused parameters...
     (void)name;
 #endif
+    ThreadSetInternalName(name);
 }
 
 void TraceThread(std::string name,  std::function<void()> func)
