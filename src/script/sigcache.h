@@ -7,6 +7,7 @@
 #define BITCOIN_SCRIPT_SIGCACHE_H
 
 #include <script/interpreter.h>
+#include <script/transactionsignaturechecker.h>
 
 #include <vector>
 

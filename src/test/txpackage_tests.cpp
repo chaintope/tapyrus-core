@@ -9,6 +9,7 @@
 #include <policy/rbf.h>
 #include <primitives/transaction.h>
 #include <script/script.h>
+#include <script/transactionsignatureserializer.h>
 #include <serialize.h>
 #include <streams.h>
 #include <random.h>

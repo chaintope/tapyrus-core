@@ -15,6 +15,7 @@
 #include <random.h>
 #include <rpc/server.h>
 #include <script/interpreter.h>
+#include <script/transactionsignaturechecker.h>
 #include <script/script.h>
 #include <script/standard.h>
 #include <streams.h>

@@ -3,12 +3,13 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 // Fuzz-only placeholder definitions -- see add_pstt_fuzz_target_with_rpc_glue()
-// in src/test/CMakeLists.txt for why these exist. ParsePsttInputEntries/
-// decodepstt (the only functions these fuzz harnesses actually call) live in
+// in src/test/CMakeLists.txt for why these exist. ParsePsttInputEntries
+// (one of the functions these fuzz harnesses actually call, and called by
+// rpc/pstt.cpp's decodepstt neighbour createpstt) lives in
 // rpc/rawtransaction.cpp next to sendrawtransaction/gettxoutproof/
 // createrawtransaction/signrawtransaction and friends; a static archive is
-// pulled in per translation unit, so the whole file comes along once either
-// function is referenced. Tracing the undefined-symbol chain (see the
+// pulled in per translation unit, so the whole file comes along once it is
+// referenced. Tracing the undefined-symbol chain (see the
 // comment in src/test/CMakeLists.txt) showed exactly one chokepoint keeping
 // that dead code from needing the entire node: rawtransaction.cpp's
 // deprecated signrawtransaction alias references three functions defined in
