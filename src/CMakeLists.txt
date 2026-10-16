@@ -148,6 +148,8 @@ add_library(tapyrus_consensus STATIC EXCLUDE_FROM_ALL
   script/interpreter.cpp
   script/script.cpp
   script/script_error.cpp
+  script/transactionsignaturechecker.cpp
+  script/transactionsignatureserializer.cpp
   uint256.cpp
 )
 
@@ -186,8 +188,12 @@ add_library(tapyrus_util STATIC EXCLUDE_FROM_ALL
         threadinterrupt.cpp
         ui_interface.cpp
         util.cpp
+        utilargs.cpp
+        utildatadir.cpp
+        utilfs.cpp
         utilmoneystr.cpp
         utilstrencodings.cpp
+        utilthreads.cpp
         utiltime.cpp
 )
 # support/cleanse.cpp is deliberately not compiled here: it belongs to
@@ -254,13 +260,13 @@ target_link_libraries(tapyrus_netbase
 
 # Scripting/consensus-adjacent state shared by different executables and
 # libraries: keys, keystores, script signing/standardness/solvability,
-# coins, pstt, the xfield history cache, output-type classification, and
-# the dynamic (per-run) genesis-block/CXFieldHistory-seeding lifecycle
-# (dynamicparams.cpp). xfieldhistory sits here -- not in tapyrus_chainstate
+# coins, pstt, the xfield history class, output-type classification, and
+# the dynamic (per-run) genesis block (dynamicparams.cpp). xfieldhistory sits here -- not in tapyrus_chainstate
 # -- because federationparams.cpp (tapyrus_global, a lower layer) already
 # depends on it; its own consumers span every layer above this one.
 add_library(tapyrus_scripting STATIC EXCLUDE_FROM_ALL
   coins.cpp
+  coinsviewcache.cpp
   compressor.cpp
   dynamicparams.cpp
   key.cpp
@@ -313,6 +319,7 @@ add_library(tapyrus_chainstate STATIC EXCLUDE_FROM_ALL
   blockprune.cpp
   chain.cpp
   chainstate.cpp
+  chainstatemanager.cpp
   checkblock.cpp
   checkpoints.cpp
   consensus/sequence_locks.cpp
@@ -360,9 +367,14 @@ add_library(tapyrus_peer STATIC EXCLUDE_FROM_ALL
   addrman.cpp
   bloom.cpp
   blockencodings.cpp
+  connman.cpp
+  localaddress.cpp
+  mapport.cpp
   merkleblock.cpp
-  net.cpp
   net_processing.cpp
+  netmessage.cpp
+  netnode.cpp
+  partiallydownloadedblock.cpp
   timeoffsets.cpp
   torcontrol.cpp
 )
@@ -409,9 +421,11 @@ set(TAPYRUS_RPC_SOURCES
   rpc/mining.cpp
   rpc/misc.cpp
   rpc/net.cpp
+  rpc/pstt.cpp
   rpc/rawtransaction.cpp
   rpc/server.cpp
   rpc/util.cpp
+  rpc/utxoset.cpp
 )
 if(ENABLE_WALLET)
   list(APPEND TAPYRUS_RPC_SOURCES

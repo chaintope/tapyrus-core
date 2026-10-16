@@ -8,7 +8,7 @@
 #include <fs.h>
 #include <sync.h>
 #include <chainparams.h>
-#include <chain.h>
+#include <blockindex.h>
 #include <txmempool.h>
 #include <vector>
 

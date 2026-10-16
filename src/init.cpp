@@ -10,8 +10,10 @@
 
 #include <addrman.h>
 #include <amount.h>
-#include <chain.h>
+#include <blockindex.h>
+#include <diskblockpos.h>
 #include <chainparams.h>
+#include <chainstatemanager.h>
 #include <checkpoints.h>
 #include <dynamicparams.h>
 #include <consensus/validation.h>
@@ -24,11 +26,15 @@
 #include <miner.h>
 #include <netbase.h>
 #include <net.h>
+#include <connman.h>
+#include <localaddress.h>
+#include <mapport.h>
 #include <net_processing.h>
 #include <policy/feerate.h>
 #include <policy/fees.h>
 #include <policy/policy.h>
 #include <rpc/server.h>
+#include <rpc/rpctable.h>
 #include <rpc/register.h>
 #include <rpc/blockchain.h>
 #include <script/standard.h>
@@ -50,6 +56,8 @@
 #include <stdio.h>
 #include <tapyrusmodes.h>
 #include <xfieldhistory.h>
+#include <xfieldhistorymap.h>
+#include <tempxfieldhistory.h>
 #include <blockprune.h>
 #include <verifydb.h>
 #include <file_io.h>
@@ -648,7 +656,7 @@ static void ThreadImport(std::vector<fs::path> vImportFiles, bool fReloadxfield)
 {
     RenameThread("tapyrus-loadblk");
     ScheduleBatchPriority();
-    CTempXFieldHistory tempXFieldHistory;
+    CTempXFieldHistory tempXFieldHistory(g_chainstate_manager.XFieldHistory());
 
     {
     CImportingNow imp;
@@ -712,8 +720,8 @@ static void ThreadImport(std::vector<fs::path> vImportFiles, bool fReloadxfield)
     if (fReloadxfield) {
         // Rebuild the persisted xfield list from the active chain only.
         // tempXFieldHistory was populated from all processed blocks including orphans;
-        // after ActivateBestChain the global CXFieldHistory only contains active-chain entries.
-        CXFieldHistory xfieldHistory;
+        // after ActivateBestChain the chain's CXFieldHistory only contains active-chain entries.
+        CXFieldHistory& xfieldHistory = g_chainstate_manager.XFieldHistory();
         for (const auto& type : XFIELDTYPES_INIT_LIST) {
             XFieldChangeList changes = xfieldHistory.GetListCopy(type);
             if (!changes.empty())
@@ -1253,6 +1261,7 @@ bool AppInitMain()
     try {
         SelectFederationParams(gArgs.GetChainMode());
         SelectDynamicParams(ReadGenesisBlock());
+        g_chainstate_manager.InitXFieldHistory(DynamicParams().GenesisBlock());
     } catch (const std::exception& e) {
         fprintf(stderr, "Error: %s\n", e.what());
         return false;
@@ -1518,7 +1527,7 @@ bool AppInitMain()
                 } else {
                     // Initialize xfieldHistory here as it is not initialized
                     // when genesis block is loaded from the file during reindex
-                    CXFieldHistory history(DynamicParams().GenesisBlock());
+                    g_chainstate_manager.InitXFieldHistory(DynamicParams().GenesisBlock());
                 }
 
                 // At this point we're either in reindex or we've loaded a useful
@@ -1570,7 +1579,7 @@ bool AppInitMain()
                     }
                 }
                 // Step 7a: Load Xfield data from db
-                CXFieldHistory xFieldHistory;
+                CXFieldHistory& xFieldHistory = g_chainstate_manager.XFieldHistory();
                 for(auto x : XFIELDTYPES_INIT_LIST)
                 {
                     const char key(std::to_string(static_cast<int8_t>(x))[0]);

@@ -1,6 +1,18 @@
 (note: this is a temporary file, to be added-to by anybody, and moved to
 release-notes at release time)
 
+Notable changes
+===============
+
+Block validation
+----------------
+
+- Each transaction in a block is now checked against the maximum block size
+  in effect at that block's height, as the block itself already was. It used
+  to be checked against the latest limit, so after a MAXBLOCKSIZE xfield
+  change lowered the limit, a node could reject an earlier block that was
+  valid when it was accepted, for example while reindexing.
+
 Bitcoin Core version 0.17.0 is now available from:
 
   <https://bitcoincore.org/bin/bitcoin-core-0.17.0/>

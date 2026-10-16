@@ -5,11 +5,15 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <script/sign.h>
+#include <script/signingprovider.h>
+#include <script/signaturecreator.h>
+#include <script/signaturedata.h>
 
 #include <key.h>
 #include <policy/policy.h>
 #include <primitives/transaction.h>
 #include <script/standard.h>
+#include <script/transactionsignatureserializer.h>
 #include <uint256.h>
 
 typedef std::vector<unsigned char> valtype;

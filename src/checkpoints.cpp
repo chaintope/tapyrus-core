@@ -4,7 +4,7 @@
 
 #include <checkpoints.h>
 
-#include <chain.h>
+#include <blockindex.h>
 #include <chainparams.h>
 #include <validation.h>
 

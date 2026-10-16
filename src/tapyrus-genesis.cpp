@@ -114,7 +114,7 @@ static int generateGenesis(CPubKey aggpubkey, CKey& privatekey, long long blockT
     // check validity
     CValidationState state;
     bool fCheckProof = privatekey.IsValid();
-    if(!CheckBlock(genesis, state, fCheckProof)) {
+    if(!CheckBlock(genesis, state, history, fCheckProof)) {
         fprintf(stderr, "error: Consensus::CheckBlock: %s", FormatStateMessage(state).c_str());
         return EXIT_FAILURE;
     }

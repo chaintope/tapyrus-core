@@ -17,7 +17,7 @@
 #include <coloridentifier.h>
 #include <consensus/validation.h>
 #include <key_io.h>
-#include <net.h>
+#include <connman.h>
 #include <rpc/protocol.h>
 #include <script/standard.h>
 #include <util.h>

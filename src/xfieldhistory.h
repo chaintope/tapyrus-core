@@ -6,222 +6,35 @@
 #define TAPYRUS_XFIELDHISTORY_H
 
 #include <consensus/consensus.h>
-#include <federationparams.h>
 #include <primitives/block.h>
 #include <primitives/xfield.h>
-#include <sync.h>
-#include <shared_mutex>
-#include <stdexcept>
-/*
- * struct to store xfieldValue, block hash and height for every xfield update in the blockchain.
- */
+#include <primitives/xfieldvalues.h>
+#include <xfieldhistorymap.h>
 
-struct XFieldChange {
-    XFieldData xfieldValue;
-    uint32_t height;
-    uint256 blockHash;
+#include <cassert>
 
-    XFieldChange():xfieldValue(), height(0), blockHash(){}
-    explicit XFieldChange(const XFieldData& in_data, uint32_t in_height, uint256 in_blockHash):xfieldValue(in_data), height(in_height), blockHash(in_blockHash){}
-    explicit XFieldChange(const XFieldData&& in_data, uint32_t in_height, uint256 in_blockHash):xfieldValue(in_data), height(in_height), blockHash(in_blockHash){}
-    XFieldChange(const XFieldChange& copy):xfieldValue(copy.xfieldValue),height(copy.height),blockHash(copy.blockHash){}
-    ~XFieldChange() = default;
-
-    bool operator==(const XFieldChange& copy) const {
-        return xfieldValue == copy.xfieldValue
-            && height == copy.height
-            && blockHash == copy.blockHash;
-    }
-
-    template<typename Stream>
-    void Serialize(Stream& s) const {
-        switch(GetXFieldTypeFrom(xfieldValue))
-        {
-            case TAPYRUS_XFIELDTYPES::AGGPUBKEY:
-                ::Serialize(s, std::get<XFieldAggPubKey>(xfieldValue)); break;
-            case TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE:
-                ::Serialize(s, std::get<XFieldMaxBlockSize>(xfieldValue)); break;
-            case TAPYRUS_XFIELDTYPES::NONE:
-            default:
-                break;
-        }
-        ::Serialize(s, height);
-        ::Serialize(s, blockHash);
-    }
-    //no unserialize method in this class.
-    //it is implemented in XFieldChangeListWrapper
-};
-
-typedef std::vector<XFieldChange> XFieldChangeList;
-
-/*
- * helper class to unserialize vector of XFieldChange from blocktree db
- * entry containing only XFieldData, height and block hash (no XFieldType).
- * It is not possible to know the type and therefore the size of data to read from the stream.
- * We store the key in this class to help in unserialization of XFieldData.
- */
-struct XFieldChangeListWrapper
-{
-    char key;
-    XFieldChangeList xfieldChanges;
-
-    explicit XFieldChangeListWrapper(char keyIn):key(keyIn),xfieldChanges(){}
-
-    //methods to simulate vector
-    inline size_t size() const { return xfieldChanges.size();}
-    inline XFieldChangeList::iterator begin() {return xfieldChanges.begin();}
-    inline XFieldChangeList::iterator end() {return xfieldChanges.end();}
-    inline XFieldChangeList::reverse_iterator rbegin() {return xfieldChanges.rbegin();}
-    inline XFieldChangeList::reverse_iterator rend() {return xfieldChanges.rend();}
-    inline const XFieldChange& back() const {return xfieldChanges.back();}
-    inline const XFieldChange& at(size_t i) const {return xfieldChanges.at(i);}
-    inline const XFieldChange& operator[](size_t i) const { return xfieldChanges.operator[](i);}
-
-    inline void push_back(const XFieldChange& item) { return xfieldChanges.push_back(item); }
-
-    template<typename Stream>
-    void Serialize(Stream& s) const {
-        ::Serialize(s, xfieldChanges);
-    }
-
-    template<typename Stream>
-    void Unserialize(Stream& s) {
-        uint32_t len = 0;
-        s >> VARINT(len);
-        while(s.size())
-        {
-            XFieldChange xfieldChange;
-            switch(key)
-            {
-                case XFieldAggPubKey::BLOCKTREE_DB_KEY: {
-                    XFieldAggPubKey value;
-                    ::Unserialize(s, value);
-                    xfieldChange.xfieldValue = value; break;
-                }
-                case XFieldMaxBlockSize::BLOCKTREE_DB_KEY: {
-                    XFieldMaxBlockSize value;
-                    ::Unserialize(s, value);
-                    xfieldChange.xfieldValue = value; break;
-                }
-                default:
-                    throw std::runtime_error("unknown xfield found. restart node with -reloadxfield option to correct the db.");
-            }
-            ::Unserialize(s, xfieldChange.height);
-            ::Unserialize(s, xfieldChange.blockHash);
-            xfieldChanges.push_back(xfieldChange);
-        }
-        assert(len == xfieldChanges.size());
-    }
-};
-
-class CBlockTreeDB;
 class UniValue;
 
-typedef std::map< TAPYRUS_XFIELDTYPES, XFieldChangeListWrapper > XFieldHistoryMapType;
-/*  This map is used instead of the list in federation params after v0.5.2
- *
- * XFieldHistoryMapType is a Global map to store all xfield changes.
- *
- * class CXFieldHistoryMap contains a static map of XFieldHistoryMapType.
- * (All objects of this class read and write to the same map.) 
- * This is the full list of xfield change in the active chain.
- * When the isTemp flag is set in the constructor, all methods access the temp map.
- *
- * Note that this class is pure virtual. It is always accessed via CXFieldHistory or CTempXFieldHistory.
- */
-class CXFieldHistoryMap{
-
-    const bool isTemp;
-
-protected:
-    static XFieldHistoryMapType xfieldHistory;
-    static std::shared_mutex xfieldHistoryMutex; 
-    inline CXFieldHistoryMap(bool temp):isTemp(temp) { }
-
-public:
-    virtual ~CXFieldHistoryMap(){}
-    virtual XFieldHistoryMapType& getXFieldHistoryMap() const = 0;
-
-    template <typename T>
-    void GetLatest(TAPYRUS_XFIELDTYPES type, T & xfieldval) const {
-        std::shared_lock<std::shared_mutex> lock(xfieldHistoryMutex);
-        auto& listofXfieldChanges = (isTemp ? this->getXFieldHistoryMap() : xfieldHistory).find(type)->second;
-        xfieldval = std::get<T>(listofXfieldChanges.rbegin()->xfieldValue);
-    }
-
-    // Thread-safe methods to access xfield history data
-    virtual size_t GetListSize(TAPYRUS_XFIELDTYPES type) const;
-    virtual XFieldChangeList GetListCopy(TAPYRUS_XFIELDTYPES type) const;
-
-    virtual void Add(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange);
-    // Remove the last entry for `type` if and only if its blockHash matches `xFieldChange`.
-    // Returns true when an entry was removed; false when the list has only the genesis entry
-    // or the last entry does not match (safe no-op in that case).
-    bool Remove(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange);
-
-    virtual XFieldChange Get(TAPYRUS_XFIELDTYPES type, uint32_t height);
-    int32_t GetReorgHeight();
-};
-
 /*
- * class CXFieldHistory is an interface to access the global map of xfield changes
- * in the active chain which is guaranteed to be initialized.
- * this defines ots own constructor and other utility methods that act on the data in CXFieldHistoryMap
+ * class CXFieldHistory holds the xfield changes of the active chain.
+ * The node's instance is owned by ChainstateManager; tapyrus-genesis creates its own.
  */
 class CXFieldHistory : public CXFieldHistoryMap{
 
 public:
-    CXFieldHistory():CXFieldHistoryMap(false) {}
+    CXFieldHistory() = default;
+    CXFieldHistory(const CXFieldHistory&) = delete;
+    CXFieldHistory& operator=(const CXFieldHistory&) = delete;
     virtual ~CXFieldHistory(){}
 
-    //constructor to initialize the confirmed global map
-    inline explicit CXFieldHistory(const CBlock& genesis):CXFieldHistoryMap(false) {
-        xfieldHistory.emplace(TAPYRUS_XFIELDTYPES::AGGPUBKEY, XFieldChangeListWrapper(XFieldAggPubKey::BLOCKTREE_DB_KEY));
-        xfieldHistory.emplace(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, XFieldChangeListWrapper(XFieldMaxBlockSize::BLOCKTREE_DB_KEY));
-
-        Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY, XFieldChange(genesis.xfield.xfieldValue, 0, genesis.GetHash()));
-        Add(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, XFieldChange(MAX_BLOCK_SIZE, 0, genesis.GetHash()));
+    inline explicit CXFieldHistory(const CBlock& genesis) {
+        Init(genesis);
     }
 
-    XFieldHistoryMapType& getXFieldHistoryMap() const override {
-        return xfieldHistory;
-    }
+    // Adds the genesis block's entries; entries already present are kept.
+    void Init(const CBlock& genesis);
 
     void ToUniValue(TAPYRUS_XFIELDTYPES type, UniValue* xfieldChanges);
-};
-
-/*
- * class CTempXFieldHistory lets us use a temporary map to help handle situations like
- * LoadBlockFromDisk and ProcessBlockHeaders where the global map will not be accurate.
- * (The blocks being processed in LoadBlockFromDisk are not confirmed and not in the active chain.
- * If there is an aggregatePubKey change in one of the blocks, proof cannot be verified
- * for the rest of the blocks using the global CXFieldHistoryMap.)
- * This temp map used to store the xfield change encountered during processing
- * until the method completes. When the block is confirmed after AcceptBlock the xfield change
- * is added to the global list in CXFieldHistory.
- * IT uses RAII idiom and deallocates the memory when the object goes out of scope.
- */
-class CTempXFieldHistory : public CXFieldHistoryMap{
-
-    XFieldHistoryMapType* xfieldHistoryTemp;
-public:
-    //constructor to initialize the temp map
-    inline explicit CTempXFieldHistory():CXFieldHistoryMap(true){
-        xfieldHistoryTemp = new XFieldHistoryMapType;
-        std::shared_lock<std::shared_mutex> lock(xfieldHistoryMutex);
-        for(const auto& item : xfieldHistory)
-            xfieldHistoryTemp->insert(item);
-    }
-
-    virtual ~CTempXFieldHistory(){
-        delete xfieldHistoryTemp;
-        xfieldHistoryTemp = nullptr;
-    }
-
-    XFieldHistoryMapType& getXFieldHistoryMap() const override {
-        return *xfieldHistoryTemp;
-    }
-
 };
 
 class IsXFieldLastInHistoryVisitor
@@ -243,16 +56,5 @@ public:
 };
 
 bool IsXFieldNew(const CXField& xfield, CXFieldHistoryMap* pxfieldHistory, uint32_t parentHeight);
-
-/** 
- * The maximum block size according the current xfield history */
-uint32_t GetCurrentMaxBlockSize();
-
-/** 
- * The maximum allowed number of signature check operations in a block (network rule) */
-uint32_t GetMaxBlockSigops();
-
-/** The maximum number of sigops we're willing to relay/mine in a single tx */
-uint32_t GetMaxStandardTxSigops();
 
 #endif // TAPYRUS_XFIELDHISTORY_H

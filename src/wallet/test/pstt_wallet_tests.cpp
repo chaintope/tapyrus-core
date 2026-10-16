@@ -7,8 +7,10 @@
 #include <key_io.h>
 #include <pstt.h>
 #include <rpc/client.h>
-#include <rpc/server.h>
-#include <script/sign.h>
+#include <rpc/jsonrpcrequest.h>
+#include <rpc/rpctable.h>
+#include <script/signingprovider.h>
+#include <script/signaturedata.h>
 #include <script/standard.h>
 #include <txmempool.h>
 #include <validation.h>

@@ -6,6 +6,7 @@
 #include <test/test_tapyrus.h>
 
 #include <chainparams.h>
+#include <chainstatemanager.h>
 #include <consensus/merkle.h>
 #include <consensus/validation.h>
 #include <crypto/sha256.h>
@@ -17,7 +18,7 @@
 #include <net_processing.h>
 #include <ui_interface.h>
 #include <streams.h>
-#include <rpc/server.h>
+#include <rpc/rpctable.h>
 #include <rpc/register.h>
 #include <script/sigcache.h>
 #include <xfieldhistory.h>
@@ -88,9 +89,8 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
         SelectFederationParams(TAPYRUS_OP_MODE::PROD);
         SelectDynamicParams(ReadGenesisBlock());
         noui_connect();
-        if (!pxFieldHistory) {
-            pxFieldHistory = new CXFieldHistory(DynamicParams().GenesisBlock());
-        }
+        g_chainstate_manager.InitXFieldHistory(DynamicParams().GenesisBlock());
+        pxFieldHistory = &g_chainstate_manager.XFieldHistory();
         g_colorid_state.reset(new CIssuedColorIds());
     } catch (...) {
         // ~BasicTestingSetup() never runs for a throwing constructor, so
@@ -104,9 +104,8 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
 BasicTestingSetup::~BasicTestingSetup()
 {
     g_colorid_state.reset();
-    // pxFieldHistory is left alone: it wraps process-wide state, and
-    // per-test rebuilding made teardown fragile. See its declaration
-    // in test_tapyrus.h.
+    // The xfield history is left alone: it belongs to g_chainstate_manager,
+    // which lives for the whole test binary. See pxFieldHistory in test_tapyrus.h.
     ClearDatadirCache();
     fs::remove_all(m_path_root);
     ECC_Stop();
@@ -241,7 +240,7 @@ TestChainSetup::CreateAndProcessBlock(const std::vector<CMutableTransaction>& tx
         IncrementExtraNonce(&block, chainActive.Tip(), extraNonce);
     }
     XFieldAggPubKey aggpubkeyChange;
-    CXFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+    g_chainstate_manager.XFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
     CPubKey aggpubkey(aggpubkeyChange.getPubKey());
     std::vector<unsigned char> blockProof;
     createSignedBlockProof(pblocktemplate->block, blockProof);

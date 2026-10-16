@@ -18,8 +18,10 @@ class CValidationState;
 
 /** Transaction validation functions */
 
-/** Context-independent validity checks */
-bool CheckTransaction(const CTransaction& tx, CValidationState& state, bool fCheckDuplicateInputs=true);
+/** Context-independent validity checks; maxBlockSize is the block size limit the transaction must fit in */
+bool CheckTransaction(const CTransaction& tx, CValidationState& state, uint32_t maxBlockSize, bool fCheckDuplicateInputs=true);
+/** Catches calls still written for the old signature, whose bool would silently become a zero size limit */
+bool CheckTransaction(const CTransaction& tx, CValidationState& state, bool fCheckDuplicateInputs, bool unused=true) = delete;
 
 namespace Consensus {
 /**

@@ -4,6 +4,7 @@
 
 #include <verifydb.h>
 
+#include <chainstatemanager.h>
 #include <policy/packages.h>
 #include <shutdown.h>
 #include <ui_interface.h>
@@ -74,7 +75,7 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
         if (!ReadBlockFromDisk(block, pindex))
             return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
         // check level 1: verify block validity
-        if (nCheckLevel >= 1 && !CheckBlock(block, state, true, true, nullptr, pindex->nHeight))
+        if (nCheckLevel >= 1 && !CheckBlock(block, state, g_chainstate_manager.XFieldHistory(), true, true, pindex->nHeight))
             return error("%s: *** found bad block at %d, hash=%s (%s)\n", __func__,
                          pindex->nHeight, pindex->GetBlockHash().ToString(), FormatStateMessage(state));
         // check level 2: verify undo validity

@@ -3,10 +3,10 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-// Fuzz target for the real decodepstt RPC handler (src/rpc/rawtransaction.cpp),
+// Fuzz target for the real decodepstt RPC handler (src/rpc/pstt.cpp),
 // as opposed to pstt_decode_fuzz.cpp's direct call to DecodePSTT alone.
 // decodepstt is the one call site that reaches EstimatePsttFee and
-// EstimateInputScriptSig (both `static` in rawtransaction.cpp, so not
+// EstimateInputScriptSig (both `static` in rpc/pstt.cpp, so not
 // independently linkable from a separate fuzz executable) -- both handle
 // RPC-client-controlled PSTT contents directly: EstimatePsttFee reads a
 // boost::optional<CAmount> that isn't always set, EstimateInputScriptSig
@@ -28,7 +28,7 @@
 #include <core_io.h>
 #include <key.h>
 #include <rpc/protocol.h>
-#include <rpc/server.h>
+#include <rpc/jsonrpcrequest.h>
 #include <univalue.h>
 
 #include <cstdint>
@@ -53,7 +53,7 @@ static int test_one_input_decodepstt_rpc(const uint8_t* data, size_t size)
     } catch (const UniValue&) {
         // JSONRPCError(...) is thrown by value as a UniValue -- the
         // documented way decodepstt reports a decode/sanity failure
-        // (see src/rpc/rawtransaction.cpp). Not a bug.
+        // (see src/rpc/pstt.cpp). Not a bug.
     } catch (const std::exception&) {
         // UniValue's own get_str()/type checks throw std::runtime_error
         // on an unexpected shape; not reachable here since params[0] is

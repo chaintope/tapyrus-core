@@ -8,6 +8,8 @@
 #include <hash.h>
 #include <key.h>
 #include <script/interpreter.h>
+#include <script/sign.h>
+#include <script/signaturecreator.h>
 #include <script/standard.h>
 #include <streams.h>
 #include <utilstrencodings.h>

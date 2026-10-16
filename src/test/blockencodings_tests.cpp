@@ -4,6 +4,8 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <blockencodings.h>
+#include <chainstatemanager.h>
+#include <partiallydownloadedblock.h>
 #include <consensus/merkle.h>
 #include <chainparams.h>
 #include <random.h>
@@ -55,7 +57,7 @@ static CBlock BuildBlockTestCase() {
 
     //create proof
     XFieldAggPubKey aggpubkeyChange;
-    CXFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+    g_chainstate_manager.XFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
     CPubKey aggpubkey(aggpubkeyChange.getPubKey());
     std::vector<unsigned char> blockProof;
     createSignedBlockProof(block, blockProof);
@@ -317,7 +319,7 @@ BOOST_AUTO_TEST_CASE(EmptyBlockRoundTripTest)
 
     //create proof
     XFieldAggPubKey aggpubkeyChange;
-    CXFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+    g_chainstate_manager.XFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
     CPubKey aggpubkey(aggpubkeyChange.getPubKey());
     std::vector<unsigned char> blockProof;
     createSignedBlockProof(block, blockProof);

@@ -3,18 +3,21 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <primitives/xfield.h>
+#include <primitives/xfieldvalues.h>
 #include <xfieldhistory.h>
+#include <xfieldhistorymap.h>
 #include <univalue.h>
 #include <sync.h>
 #include <shared_mutex>
 
-XFieldHistoryMapType CXFieldHistoryMap::xfieldHistory;
-std::shared_mutex CXFieldHistoryMap::xfieldHistoryMutex;
-
+CXFieldHistoryMap::CXFieldHistoryMap(const CXFieldHistoryMap& other) {
+    std::shared_lock<std::shared_mutex> lock(other.xfieldHistoryMutex);
+    xfieldHistory = other.xfieldHistory;
+}
 
 bool CXFieldHistoryMap::Remove(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange) {
     std::unique_lock<std::shared_mutex> lock(xfieldHistoryMutex);
-    auto& list = (isTemp ? this->getXFieldHistoryMap() : xfieldHistory).find(type)->second;
+    auto& list = xfieldHistory.find(type)->second;
     if (list.size() > 1 && list.back() == xFieldChange) {
         list.xfieldChanges.pop_back();
         return true;
@@ -26,7 +29,7 @@ void CXFieldHistoryMap::Add(TAPYRUS_XFIELDTYPES type, const XFieldChange& xField
     std::unique_lock<std::shared_mutex> lock(xfieldHistoryMutex);
 
     // Check if new
-    auto& listofXfieldChanges = (isTemp ? this->getXFieldHistoryMap() : xfieldHistory).find(type)->second;
+    auto& listofXfieldChanges = xfieldHistory.find(type)->second;
     for(const auto& xfieldItem : listofXfieldChanges)
         if( xfieldItem == xFieldChange )
             return;
@@ -36,19 +39,19 @@ void CXFieldHistoryMap::Add(TAPYRUS_XFIELDTYPES type, const XFieldChange& xField
 
 size_t CXFieldHistoryMap::GetListSize(TAPYRUS_XFIELDTYPES type) const {
     std::shared_lock<std::shared_mutex> lock(xfieldHistoryMutex);
-    auto& listofXfieldChanges = (isTemp ? this->getXFieldHistoryMap() : xfieldHistory).find(type)->second;
+    auto& listofXfieldChanges = xfieldHistory.find(type)->second;
     return listofXfieldChanges.size();
 }
 
 XFieldChangeList CXFieldHistoryMap::GetListCopy(TAPYRUS_XFIELDTYPES type) const {
     std::shared_lock<std::shared_mutex> lock(xfieldHistoryMutex);
-    auto& listofXfieldChanges = (isTemp ? this->getXFieldHistoryMap() : xfieldHistory).find(type)->second;
+    auto& listofXfieldChanges = xfieldHistory.find(type)->second;
     return listofXfieldChanges.xfieldChanges;
 }
 
 XFieldChange CXFieldHistoryMap::Get(TAPYRUS_XFIELDTYPES type, uint32_t height) {
     std::shared_lock<std::shared_mutex> lock(xfieldHistoryMutex);
-    auto& listofXfieldChanges = (isTemp ? this->getXFieldHistoryMap() : xfieldHistory).find(type)->second;
+    auto& listofXfieldChanges = xfieldHistory.find(type)->second;
 
     if(height == 0 || listofXfieldChanges.size() == 1)
         return listofXfieldChanges[0];
@@ -66,6 +69,16 @@ XFieldChange CXFieldHistoryMap::Get(TAPYRUS_XFIELDTYPES type, uint32_t height) {
     return listofXfieldChanges[0];
 }
 
+
+void CXFieldHistory::Init(const CBlock& genesis) {
+    {
+        std::unique_lock<std::shared_mutex> lock(xfieldHistoryMutex);
+        xfieldHistory.emplace(TAPYRUS_XFIELDTYPES::AGGPUBKEY, XFieldChangeListWrapper(XFieldAggPubKey::BLOCKTREE_DB_KEY));
+        xfieldHistory.emplace(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, XFieldChangeListWrapper(XFieldMaxBlockSize::BLOCKTREE_DB_KEY));
+    }
+    Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY, XFieldChange(genesis.xfield.xfieldValue, 0, genesis.GetHash()));
+    Add(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, XFieldChange(MAX_BLOCK_SIZE, 0, genesis.GetHash()));
+}
 
 void CXFieldHistory::ToUniValue(TAPYRUS_XFIELDTYPES type, UniValue* xFieldChangeUnival) {
     *xFieldChangeUnival = UniValue(UniValue::VARR);
@@ -85,7 +98,7 @@ int32_t CXFieldHistoryMap::GetReorgHeight()
     std::vector<uint32_t> changeHeights;
     for(auto x : XFIELDTYPES_INIT_LIST)
     {
-        changeHeights.push_back((isTemp ? this->getXFieldHistoryMap() : xfieldHistory).find(x)->second.xfieldChanges.rbegin()->height);
+        changeHeights.push_back(xfieldHistory.find(x)->second.xfieldChanges.rbegin()->height);
     }
     return *std::max_element(changeHeights.begin(), changeHeights.end());
 }
@@ -98,20 +111,14 @@ bool IsXFieldNew(const CXField& xfield, CXFieldHistoryMap* pxfieldHistory, uint3
           && !std::visit(checkVisitor, xfield.xfieldValue);
 }
 
-uint32_t GetCurrentMaxBlockSize() {
+uint32_t CXFieldHistoryMap::GetCurrentMaxBlockSize() const {
     XFieldMaxBlockSize xfieldMaxBlockSize;
-    CXFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, xfieldMaxBlockSize);
+    GetLatest(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, xfieldMaxBlockSize);
     return xfieldMaxBlockSize.data;
-};
+}
 
-uint32_t GetMaxBlockSigops() {
+uint32_t CXFieldHistoryMap::GetMaxBlockSigops() const {
     XFieldMaxBlockSize xfieldMaxBlockSize;
-    CXFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, xfieldMaxBlockSize);
+    GetLatest(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, xfieldMaxBlockSize);
     return xfieldMaxBlockSize.GetMaxBlockSigops();
-};
-
-uint32_t GetMaxStandardTxSigops() {
-    XFieldMaxBlockSize xfieldMaxBlockSize;
-    CXFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, xfieldMaxBlockSize);
-    return xfieldMaxBlockSize.GetMaxStandardTxSigops();
-};
+}

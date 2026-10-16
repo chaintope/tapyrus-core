@@ -28,7 +28,6 @@
 
 #include <interfaces/handler.h>
 #include <interfaces/node.h>
-#include <rpc/server.h>
 #include <ui_interface.h>
 #include <uint256.h>
 #include <util.h>
