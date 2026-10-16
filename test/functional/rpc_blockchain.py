@@ -58,6 +58,7 @@ class BlockchainTest(BitcoinTestFramework):
         self._test_getblockheader()
         self._test_stopatheight()
         self._test_waitforblockheight()
+        self._test_gettxoutsetinfo_issued_colorids()
         assert self.nodes[0].verifychain(4, 0)
 
     def _test_getblockchaininfo(self):
@@ -199,6 +200,29 @@ class BlockchainTest(BitcoinTestFramework):
         # compared between res and res3.  Everything else should be the same.
         del res['disk_size'], res3['disk_size']
         assert_equal(res, res3)
+
+    def _test_gettxoutsetinfo_issued_colorids(self):
+        self.log.info("Test that hash_serialized_3 follows issued colorIds across invalidate/reconsider block")
+        # Mining continues past -stopatheight, so restart without it.
+        self.restart_node(0, ['-prune=1'])
+        node = self.nodes[0]
+        hash_before = node.gettxoutsetinfo()['hash_serialized_3']
+
+        tpc = [u for u in node.listunspent() if u['token'] == 'TPC']
+        assert len(tpc) > 0
+        node.issuetoken(3, 1, tpc[0]['txid'], tpc[0]['vout'])
+        nft_block = node.generate(1, self.signblockprivkey_wif)[0]
+        hash_issued = node.gettxoutsetinfo()['hash_serialized_3']
+        assert hash_issued != hash_before
+
+        # Disconnecting the block must erase the issued colorId record again.
+        node.invalidateblock(nft_block)
+        assert_equal(node.gettxoutsetinfo()['hash_serialized_3'], hash_before)
+
+        # Reconnecting it must write the record back.
+        node.reconsiderblock(nft_block)
+        assert_equal(node.getbestblockhash(), nft_block)
+        assert_equal(node.gettxoutsetinfo()['hash_serialized_3'], hash_issued)
 
     def _test_getblockheader(self):
         node = self.nodes[0]

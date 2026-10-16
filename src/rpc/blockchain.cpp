@@ -845,9 +845,9 @@ static void ApplyStats(CCoinsStats &stats, CHashWriter& ss, const uint256& hash,
 }
 
 //! Calculate statistics about the unspent transaction output set
-static bool GetUTXOStats(CCoinsView *view, CCoinsStats &stats)
+static bool GetUTXOStats(CCoinsViewDB *view, CCoinsStats &stats)
 {
-    std::unique_ptr<CCoinsViewCursor> pcursor(view->Cursor());
+    std::unique_ptr<CCoinsViewDBCursor> pcursor(static_cast<CCoinsViewDBCursor*>(view->Cursor()));
     assert(pcursor);
 
     CHashWriter ss(SER_GETHASH, PROTOCOL_VERSION);
@@ -876,6 +876,12 @@ static bool GetUTXOStats(CCoinsView *view, CCoinsStats &stats)
     }
     if (!outputs.empty()) {
         ApplyStats(stats, ss, prevkey, outputs);
+    }
+    // Issued NON_REISSUABLE/NFT colorIds are consensus state in the same
+    // database, so they belong in the hash; keys come back in stored order.
+    std::vector<unsigned char> colorId;
+    for (pcursor->SeekIssuedColorIds(); pcursor->GetIssuedColorId(colorId); pcursor->NextIssuedColorId()) {
+        ss << colorId;
     }
     stats.hashSerialized = ss.GetHash();
     stats.nDiskSize = view->EstimateSize();
@@ -945,7 +951,7 @@ static UniValue gettxoutsetinfo(const JSONRPCRequest& request)
             "  \"transactions\": n,      (numeric) The number of transactions with unspent outputs\n"
             "  \"txouts\": n,            (numeric) The number of unspent transaction outputs\n"
             "  \"bogosize\": n,          (numeric) A meaningless metric for UTXO set size\n"
-            "  \"hash_serialized_3\": \"hash\", (string) The serialized hash\n"
+            "  \"hash_serialized_3\": \"hash\", (string) The serialized hash of the UTXO set and the issued colorIds\n"
             "  \"disk_size\": n,         (numeric) The estimated size of the chainstate on disk\n"
             "  \"total_amount\": x.xxx          (numeric) The total amount\n"
             "}\n"
