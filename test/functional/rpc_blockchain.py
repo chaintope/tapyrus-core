@@ -20,7 +20,6 @@ Tests correspond to code in rpc/blockchain.cpp.
 from decimal import Decimal
 import http.client
 import subprocess
-import time
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
@@ -29,7 +28,6 @@ from test_framework.util import (
     assert_greater_than_or_equal,
     assert_raises,
     assert_raises_rpc_error,
-    assert_is_hex_string,
     assert_is_hash_string,
 )
 from test_framework.blocktools import (
@@ -37,6 +35,7 @@ from test_framework.blocktools import (
     create_coinbase,
 )
 from test_framework.messages import (
+    hash256,
     msg_block,
     MAX_BLOCK_BASE_SIZE
 )
@@ -58,6 +57,7 @@ class BlockchainTest(BitcoinTestFramework):
         self._test_getblockheader()
         self._test_stopatheight()
         self._test_waitforblockheight()
+        self._test_gettxoutsetinfo_issued_colorids()
         assert self.nodes[0].verifychain(4, 0)
 
     def _test_getblockchaininfo(self):
@@ -177,6 +177,7 @@ class BlockchainTest(BitcoinTestFramework):
         assert size < 32000
         assert_equal(len(res['bestblock']), 64)
         assert_equal(len(res['hash_serialized_3']), 64)
+        assert_equal(len(res['issued_colorids_hash']), 64)
 
         self.log.info("Test that gettxoutsetinfo() works for blockchain with just the genesis block")
         b1hash = node.getblockhash(1)
@@ -199,6 +200,50 @@ class BlockchainTest(BitcoinTestFramework):
         # compared between res and res3.  Everything else should be the same.
         del res['disk_size'], res3['disk_size']
         assert_equal(res, res3)
+
+    def _test_gettxoutsetinfo_issued_colorids(self):
+        self.log.info("Test that issued_colorids_hash follows issued colorIds independently of hash_serialized_3")
+        # Mining continues past -stopatheight, so restart without it.
+        self.restart_node(0, ['-prune=1'])
+        node = self.nodes[0]
+
+        def hashes():
+            res = node.gettxoutsetinfo()
+            return res['hash_serialized_3'], res['issued_colorids_hash']
+
+        # Nothing has been issued yet: the hash of an empty colorId set.
+        utxo_before, colorids_before = hashes()
+        assert_equal(colorids_before, hash256(b'')[::-1].hex())
+
+        tpc = [u for u in node.listunspent() if u['token'] == 'TPC']
+        assert len(tpc) > 0
+        nft = node.issuetoken(3, 1, tpc[0]['txid'], tpc[0]['vout'])['color']
+        issue_block = node.generate(1, self.signblockprivkey_wif)[0]
+        _, colorids_issued = hashes()
+        assert colorids_issued != colorids_before
+
+        # Spending the token removes its coin but not its colorId record, which
+        # is what blocks a second issuance of the same colorId.
+        node.burntoken(nft, 1)
+        burn_block = node.generate(1, self.signblockprivkey_wif)[0]
+        assert not any(u['token'] == nft for u in node.listunspent())
+        utxo_burnt, colorids_burnt = hashes()
+        assert_equal(colorids_burnt, colorids_issued)
+
+        # Undoing the burn brings the coin back; the colorId set is unchanged.
+        node.invalidateblock(burn_block)
+        utxo_unburnt, colorids_unburnt = hashes()
+        assert utxo_unburnt != utxo_burnt
+        assert_equal(colorids_unburnt, colorids_issued)
+
+        # Undoing the issuance erases the record, as if never issued.
+        node.invalidateblock(issue_block)
+        assert_equal(hashes(), (utxo_before, colorids_before))
+
+        # Reconnecting both blocks writes the record back.
+        node.reconsiderblock(issue_block)
+        assert_equal(node.getbestblockhash(), burn_block)
+        assert_equal(hashes(), (utxo_burnt, colorids_burnt))
 
     def _test_getblockheader(self):
         node = self.nodes[0]
