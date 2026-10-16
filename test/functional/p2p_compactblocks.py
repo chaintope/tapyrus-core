@@ -842,6 +842,45 @@ class CompactBlocksTest(BitcoinTestFramework):
         # Restore utxo chain for later tests
         self.utxos.append([block.vtx[-1].malfixsha256, 0, block.vtx[-1].vout[0].nValue])
 
+    def test_block_from_other_peer_clears_inflight(self, node, use_cmpctblock):
+        """A block requested from one peer but delivered by another must not stay
+        in flight from the first peer, or that peer is disconnected for timing out."""
+        requested_peer = node.add_p2p_connection(TestP2PConn(node.time_to_connect))
+        delivery_peer = node.add_p2p_connection(TestP2PConn(node.time_to_connect))
+        for peer in [requested_peer, delivery_peer]:
+            self.request_cb_announcements(peer, node, 1)
+
+        block = self.build_block_on_tip(node)
+        height = node.getblockcount() + 1
+
+        # A header announcement makes the node request the block from requested_peer.
+        with mininode_lock:
+            requested_peer.last_message.pop("getdata", None)
+        requested_peer.send_header_for_blocks([block])
+        requested_peer.wait_for_getdata(timeout=TAPYRUSD_P2P_TIMEOUT)
+        with mininode_lock:
+            assert_equal(requested_peer.last_message["getdata"].inv[0].hash, block.sha256)
+
+        def inflight_heights():
+            return [h for peer in node.getpeerinfo() for h in peer["inflight"]]
+        assert height in inflight_heights()
+
+        # delivery_peer sends the block before requested_peer answers.
+        if use_cmpctblock:
+            cmpct_block = HeaderAndShortIDs()
+            cmpct_block.initialize_from_block(block)
+            delivery_peer.send_and_ping(msg_cmpctblock(cmpct_block.to_p2p()))
+        else:
+            delivery_peer.send_and_ping(msg_block(block))
+        assert_equal(int(node.getbestblockhash(), 16), block.sha256)
+
+        assert height not in inflight_heights()
+
+        requested_peer.peer_disconnect()
+        delivery_peer.peer_disconnect()
+        requested_peer.wait_for_disconnect()
+        delivery_peer.wait_for_disconnect()
+
     def run_test(self):
         # Setup the p2p connections
         self.test_node = self.nodes[0].add_p2p_connection(TestP2PConn(self.nodes[0].time_to_connect))
@@ -912,6 +951,12 @@ class CompactBlocksTest(BitcoinTestFramework):
 
         self.log.info("Testing no UAF when secondary peer sends CMPCTBLOCK with duplicate short IDs...")
         self.test_cmpctblock_failed_not_first_in_flight(self.nodes[1], self.extra_node, self.old_node)
+        sync_blocks(self.nodes)
+
+        self.log.info("Testing a block delivered by another peer clears the first peer's request...")
+        self.test_block_from_other_peer_clears_inflight(self.nodes[0], use_cmpctblock=True)
+        sync_blocks(self.nodes)
+        self.test_block_from_other_peer_clears_inflight(self.nodes[0], use_cmpctblock=False)
         sync_blocks(self.nodes)
 
 

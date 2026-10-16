@@ -163,6 +163,9 @@ class PruneTest(BitcoinTestFramework):
                 self.log.info("Disk Usage is: %d height: %d" % (usage, height))
             i += 1
         self.log.info("Final Usage is: %d height: %d" % (usage, height))
+        # Later steps mine on node 0 and expect node 2 to follow, so fail here
+        # if any of the three has fallen off the chain.
+        sync_blocks_with_stall_detection(self.nodes[0:3])
 
     def wait_for_prune(self, filename, stall_timeout=TAPYRUSD_REORG_TIMEOUT, progress_log_interval=TAPYRUSD_MESSAGE_TIMEOUT):
         """
