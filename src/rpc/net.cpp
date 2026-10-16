@@ -12,7 +12,7 @@
 #include <validation.h>
 #include <net.h>
 #include <connman.h>
-#include <node.h>
+#include <netnode.h>
 #include <localaddress.h>
 #include <net_processing.h>
 #include <netbase.h>

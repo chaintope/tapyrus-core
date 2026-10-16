@@ -9,7 +9,7 @@
 #include <chainparams.h>
 #include <net.h>
 #include <netbase.h>
-#include <node.h>
+#include <netnode.h>
 
 Mutex cs_mapLocalHost;
 std::map<CNetAddr, LocalServiceInfo> mapLocalHost GUARDED_BY(cs_mapLocalHost);

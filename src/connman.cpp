@@ -16,7 +16,7 @@
 #include <net.h>
 #include <netbase.h>
 #include <netmessage.h>
-#include <node.h>
+#include <netnode.h>
 #include <primitives/transaction.h>
 
 #include <random.h>

@@ -21,7 +21,7 @@
 #include <federationparams.h>
 #include <hash.h>
 #include <net.h>
-#include <node.h>
+#include <netnode.h>
 #include <netmessage.h>
 #include <net_processing.h>
 #include <netaddress.h>
